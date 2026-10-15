@@ -100,4 +100,59 @@ export const BITACORA: Hito[] = [
     ],
     commits: [{ sha: '3a38b2744', msg: 'Centro de Operaciones: el área en la API de MaKo, el cartero contra un servidor que miente', lineas: 210, archivos: 8 }],
   },
+  {
+    fecha: '15 oct', hora: '05:01', chat: ESTRATEGIA, cuenta: 'claude1', actor: 'martin', tipo: 'prompt',
+    titulo: 'La pantalla se rechaza: copiar una app',
+    pedido: 'te pido nuevamente que investigue y copie completamente el diseño de otra app similar… Por favor que sea como regla, sino estamos siempre con lo mismo',
+    puntos: [
+      'Rechazó el diseño del Centro («horrible») y la regla quedó en AGENTS.md: ninguna pantalla se diseña de cero.',
+      'Lo que marcó: el cartel ámbar a lo ancho, el desplegable muerto, «Sólo esto» lleno al lado de un texto, el «Firmar y mandar» gigante y apagado, tres secciones sin jerarquía.',
+    ],
+  },
+  {
+    fecha: '15 oct', hora: '05:01', chat: ESTRATEGIA, cuenta: 'claude1', actor: 'martin', tipo: 'prompt',
+    titulo: 'Las tabs de super admin',
+    pedido: 'Y también me molesta bastante tener tantas tabs desorganizadas en super admin... Hay muchas que las podríamos eliminar y otras que podrían ser una sola... Revisa eso.',
+    puntos: ['Con la condición de no borrar ni mover nada hasta que él valide la tabla.'],
+  },
+  {
+    fecha: '15 oct', hora: '05:27', chat: CH, cuenta: 'claude1', actor: 'claude', tipo: 'investigacion',
+    titulo: 'El Centro copiado de GitHub Actions, y la tabla de tabs',
+    puntos: [
+      'La lista de pedidos manda; «Nuevo pedido» es un panel que se abre sobre el chat elegido, como «Run workflow» sobre un workflow.',
+      'Fuente: la pestaña Actions de github.com/vercel/next.js y la guía oficial del panel de «Run workflow», que sólo se ve con sesión.',
+      'Tabs: Admin pasa de 13 a 9 y Dev de 55 renglones a 3. Dos fusiones («MaKo en WhatsApp» y «Cerebro de MaKo») y dos que se van (Agente de los clientes, Grafo).',
+      'Esperan la validación de Martín: no se tocó la pantalla ni la barra.',
+    ],
+    archivos: [
+      'docs/prototipos/centro-operaciones.html — la propuesta viva, computadora y celular, con la tabla al pie',
+      'docs/hallazgos-operaciones.md — qué se copió y de dónde',
+      'docs/hallazgos-ui.md — lo que midió la auditoría de tabs',
+    ],
+  },
+  {
+    fecha: '15 oct', hora: '05:45', chat: ESTRATEGIA, cuenta: 'claude1', actor: 'martin', tipo: 'prompt',
+    titulo: 'Que la respuesta llegue sola',
+    pedido: 'Y ya respondí todas esas tarjetas y al parecer no te llegó... No sirve de nada la ticketera si no te llega',
+    puntos: [
+      'Había 29 respuestas en la base que nadie empujaba; el coordinador las repartió a mano a nueve chats.',
+      'El encargo: que el Centro avise al chat que preguntó, aunque esté cerrado, y una sola vez.',
+    ],
+  },
+  {
+    fecha: '15 oct', hora: '06:09', chat: CH, cuenta: 'claude1', actor: 'claude', tipo: 'implementacion',
+    titulo: 'El cartero avisa las respuestas de la Ticketera',
+    puntos: [
+      'Cada tarjeta guarda la sesión que pregunta (destino): con el nombre del chat no se sabía a quién avisar.',
+      'Se avisa una vez por respuesta, y otra vez si cambia; si el chat está cerrado, espera a que se abra.',
+      'El aviso lo arma el cartero con el ref y un texto fijo: de la base no viaja nada, así que no necesita firma.',
+      'Probado contra producción con el cartero real: entregado al coordinador, sin repetir, y reclamado de nuevo al cambiar la respuesta.',
+    ],
+    archivos: [
+      'lib/decisiones-aviso.ts — cuándo y a quién se avisa',
+      'lib/operaciones.ts — el reclamo en la vuelta del cartero',
+      'scripts/operaciones/cartero.mjs — el mensaje del aviso',
+      'supabase/migrations/0288_decisiones_aviso.sql — destino y el estado del aviso',
+    ],
+  },
 ];

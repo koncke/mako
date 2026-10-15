@@ -14,6 +14,14 @@
 // ⚠️ EL TEXTO QUE SE DIBUJA ES CORTO (regla de la casa, pedida tres veces): por eso los
 // topes RECHAZAN al publicar en vez de recortar. Una pregunta cortada a la mitad se lee
 // peor que ninguna, y el que publica es el único que la puede reescribir.
+//
+// ⚠️ `chat` ES UN NOMBRE, NO UNA SESIÓN (medido el 15/10/2026): «2FA», «Pricing · Strategy» o
+// «Plan» no son el título de ningún chat, y dos chats pueden llamarse igual. Para que la respuesta
+// le llegue sola a quien preguntó (lib/decisiones-aviso.ts), la tarjeta se publica con `destino`:
+// el id de la sesión (`local_…` o `cli_…`). Sin él, el aviso sólo sale si el nombre coincide con
+// el título de UN chat.
+
+import { DESTINO_RE } from '../../../lib/operaciones-reglas';
 
 export type Urgencia = 'bloquea' | 'cuesta' | 'criterio' | 'aviso';
 
@@ -48,12 +56,22 @@ export type Decision = {
   respondidaAt: string | null;
   recogidaAt: string | null;
   creadaAt: string;
+  /** La sesión que preguntó (`local_…` / `cli_…`), si se publicó con ella. */
+  destino?: string | null;
+  /** El aviso de la respuesta al chat (mig 0288): a qué respuesta corresponde y cómo le fue. */
+  avisoDe?: string | null;
+  avisoEstado?: string | null;
+  avisoAt?: string | null;
+  avisoIntentos?: number;
+  avisoMotivo?: string | null;
 };
 
 /** Lo que publica un chat. `ref` es la clave: republicar con la misma no duplica. */
 export type Publicada = {
   ref: string;
   chat: string;
+  /** La sesión que preguntó. null = no se sabe (el aviso busca un chat con ese título). */
+  destino: string | null;
   pregunta: string;
   opciones: Opcion[];
   destraba: string | null;
@@ -99,7 +117,10 @@ export const OTRA = 'otra';
 export const RESUELTA = 'resuelta';
 
 const URG = new Set<string>(URGENCIAS.map((u) => u.clave));
-const REF = /^[a-z0-9][a-z0-9-]{1,63}$/;
+/** La forma de un `ref`. La copia el cartero (scripts/operaciones/cartero.mjs) para validar un
+ *  aviso antes de escribirlo en un mensaje; tests/decisiones-aviso.test.ts compara las dos. */
+export const REF_DECISION = /^[a-z0-9][a-z0-9-]{1,63}$/;
+const REF = REF_DECISION;
 const CLAVE = /^[A-D]$/;
 
 const txt = (v: unknown) => (typeof v === 'string' ? v.trim() : '');
@@ -133,6 +154,10 @@ export function sanearPublicada(x: unknown): { ok: true; d: Publicada } | { ok: 
   if (!REF.test(ref)) return { ok: false, motivo: `ref inválida («${ref}»): minúsculas, números y guiones` };
   const chat = txt(o.chat);
   if (!chat || chat.length > TOPES.chat) return { ok: false, motivo: `${ref}: el chat va de 1 a ${TOPES.chat} caracteres` };
+  const destino = txt(o.destino) || null;
+  if (destino && !DESTINO_RE.test(destino)) {
+    return { ok: false, motivo: `${ref}: el destino es el id de la sesión que pregunta («local_…» o «cli_…»)` };
+  }
   const pregunta = txt(o.pregunta);
   if (!pregunta || pregunta.length > TOPES.pregunta) {
     return { ok: false, motivo: `${ref}: la pregunta va de 1 a ${TOPES.pregunta} caracteres (tiene ${pregunta.length})` };
@@ -169,7 +194,7 @@ export function sanearPublicada(x: unknown): { ok: true; d: Publicada } | { ok: 
   }
   const ordenN = o.orden == null ? 100 : Number(o.orden);
   if (!Number.isInteger(ordenN) || ordenN < 0 || ordenN > 999) return { ok: false, motivo: `${ref}: orden es un entero de 0 a 999` };
-  return { ok: true, d: { ref, chat, pregunta, opciones, destraba, contexto, recomendada, urgencia, href, orden: ordenN } };
+  return { ok: true, d: { ref, chat, destino, pregunta, opciones, destraba, contexto, recomendada, urgencia, href, orden: ordenN } };
 }
 
 /** La fila de `admin_decisiones` como la lee la pantalla. Lo que no cierra, se ignora. */
@@ -196,6 +221,12 @@ export function filaADecision(f: Record<string, unknown>): Decision {
     respondidaAt: (f.respondida_at as string | null) ?? null,
     recogidaAt: (f.recogida_at as string | null) ?? null,
     creadaAt: String(f.creada_at ?? ''),
+    destino: txt(f.destino) || null,
+    avisoDe: (f.aviso_de as string | null) ?? null,
+    avisoEstado: txt(f.aviso_estado) || null,
+    avisoAt: (f.aviso_at as string | null) ?? null,
+    avisoIntentos: Number.isInteger(Number(f.aviso_intentos)) ? Number(f.aviso_intentos) : 0,
+    avisoMotivo: txt(f.aviso_motivo) || null,
   };
 }
 

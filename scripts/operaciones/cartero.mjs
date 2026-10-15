@@ -25,6 +25,11 @@
 // ⚠️ UN PEDIDO SE ENTREGA UNA VEZ, también contra un servidor que mienta: `entregados.json`
 // guarda los ids que ya salieron, y un id que vuelve se rechaza aunque MaKo lo devuelva otra vez.
 //
+// ⚠️ TAMBIÉN AVISA LAS RESPUESTAS DE LA TICKETERA (15/10/2026): cuando Martín contesta una
+// tarjeta, el chat que la preguntó recibe «Martín contestó tu tarjeta X» con el comando para
+// leerla. El texto lo arma ESTE script con el `ref` validado: de MaKo no viaja ni una palabra, por
+// eso un aviso no necesita firma. Las reglas, en lib/decisiones-aviso.ts.
+//
 // Comandos (todo lo de la PC vive en ~/.claude/operaciones/; los que dicen [cuenta] llevan
 // `--cuenta claudeN`):
 //   instalar                       copia este archivo a ~/.claude/operaciones/ y crea las carpetas
@@ -33,6 +38,8 @@
 //   clave <SPKI base64>            acepta una clave de firma más (una por dispositivo)
 //   cartero <claudeN> app|cli <dir>  declara el cartero de una cuenta y su directorio de config
 //   carpeta <carpeta> <claudeN>    qué cuenta es cada carpeta de la app (claude-code-sessions)
+//   repo <ruta>                    el clon desde el que los chats leen la Ticketera (default: el de
+//                                  OneDrive); va en el aviso de una respuesta
 //   estado [cuenta]                qué tiene configurado y qué ve
 //   ciclo [cuenta]                 una vuelta: sube lo que ve y los acuses; dice qué entregar
 //   pendientes [cuenta]            lo que está en el buzón esperando que el chat Cartero lo mande
@@ -47,7 +54,7 @@ import os from 'node:os';
 import path from 'node:path';
 import crypto from 'node:crypto';
 
-export const VERSION = '1.1.0';
+export const VERSION = '1.2.0';
 const HOME = os.homedir();
 const DIR = process.env.CARTERO_DIR || path.join(HOME, '.claude', 'operaciones');
 const APP = process.env.CARTERO_APP_DIR || path.join(process.env.APPDATA || path.join(HOME, 'AppData', 'Roaming'), 'Claude', 'claude-code-sessions');
@@ -60,6 +67,9 @@ const LOG = path.join(DIR, 'cartero.log');
 const BUZON_VENCE_MS = 30 * 60 * 1000;
 /** Los chats que se ofrecen son los de estos directorios (los del clon y sus worktrees). */
 const CWDS_DEFAULT = [path.join(HOME, 'OneDrive', 'Escritorio', 'dashboard-marketing-main'), 'C:\\dev\\'];
+/** El clon, desde donde corre `scripts/decisiones.ts` (lee el `.env.local` de ahí). Se cambia con
+ *  `repo <ruta>`. */
+const REPO_DEFAULT = path.join(HOME, 'OneDrive', 'Escritorio', 'dashboard-marketing-main', 'dashboard-marketing');
 
 // ── utilidades ──────────────────────────────────────────────────────────────────────────────
 const sinCR = (s) => s.replace(/\r/g, '');
@@ -80,6 +90,8 @@ const DESTINO_RE = /^(local|cli)_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}
 const CUENTA_RE = /^claude\d{1,2}$/;
 const MAX_TEXTO = 8000;
 const VENCE_DIAS = 14;
+/** La forma de un `ref` de la Ticketera (copia de REF_DECISION, app/admin/runway/decisiones.ts). */
+export const REF_DECISION = /^[a-z0-9][a-z0-9-]{1,63}$/;
 
 export function leerFirmable(texto, ahora) {
   let o;
@@ -207,6 +219,19 @@ function mensaje(p) {
   ].join('\n');
 }
 
+/** El aviso de una respuesta de la Ticketera. Lo único que viene de MaKo es el `ref`, validado. */
+export function mensajeAviso(ref, repo) {
+  if (!REF_DECISION.test(ref)) throw new Error('ref inválido');
+  return [
+    `Martín contestó tu tarjeta «${ref}» en la Ticketera (te avisa el Centro de Operaciones).`,
+    '',
+    'Para leer la respuesta, desde el clon:',
+    `cd "${repo}" && node --import tsx scripts/decisiones.ts contestadas ${ref}`,
+    '',
+    `Cuando la tengas, márcala como recogida: node --import tsx scripts/decisiones.ts recoger ${ref}`,
+  ].join('\n');
+}
+
 // ── la vuelta ────────────────────────────────────────────────────────────────────────────────
 function listar(dir) {
   try { return fs.readdirSync(dir).filter((f) => f.endsWith('.json')).map((f) => path.join(dir, f)); } catch { return []; }
@@ -252,11 +277,13 @@ async function ciclo(cuenta) {
   for (const c of cierres) fs.rmSync(path.join(CIERRES, `${c.id}.json`), { force: true });
 
   const ahora = Date.now();
+  const rechazarId = (id, motivo) => {
+    escribirJson(path.join(ACUSES, `${id}.json`), { id, estado: 'no_entregado', motivo });
+    log(`[${cuenta}] RECHAZO ${id}: ${motivo}`);
+  };
   for (const { id, firmado, firma } of salida.pedidos ?? []) {
-    const rechazar = (motivo) => {
-      escribirJson(path.join(ACUSES, `${id}.json`), { id, estado: 'no_entregado', motivo });
-      log(`[${cuenta}] RECHAZO ${id}: ${motivo}`);
-    };
+    if (typeof id !== 'string' || !UUID_RE.test(id)) { log(`[${cuenta}] pedido con id inválido`); continue; }
+    const rechazar = (motivo) => rechazarId(id, motivo);
     const quien = quienFirmo(firmado, firma, spkis);
     if (!quien) { rechazar('La firma no es de ninguna clave aceptada en la PC'); continue; }
     const l = leerFirmable(firmado, ahora);
@@ -271,7 +298,31 @@ async function ciclo(cuenta) {
     });
     log(`[${cuenta}] BUZON ${id} → ${chat.titulo}`);
   }
-  return { vencidos: salida.vencidos ?? 0, acuses: salida.acuses ?? 0, cierres: salida.cierres ?? 0 };
+
+  // Los avisos de la Ticketera: el texto se arma acá; de lo que mande MaKo sólo se usan el id, el
+  // ref y el destino, y los tres se validan antes de tocar el buzón.
+  const repo = expandir(cfg.repo || REPO_DEFAULT);
+  let avisos = 0;
+  for (const a of salida.avisos ?? []) {
+    const id = a?.id;
+    if (typeof id !== 'string' || !UUID_RE.test(id)) { log(`[${cuenta}] aviso con id inválido`); continue; }
+    if (typeof a.ref !== 'string' || !REF_DECISION.test(a.ref)) { rechazarId(id, 'Aviso con una referencia inválida'); continue; }
+    if (typeof a.destino !== 'string' || !DESTINO_RE.test(a.destino)) { rechazarId(id, 'Aviso con un destino inválido'); continue; }
+    if (ledger.has(id)) { rechazarId(id, 'Ya se había entregado: no sale dos veces'); continue; }
+    const chat = chats.get(a.destino);
+    if (!chat?.vivo || !chat.pipe) { rechazarId(id, 'El chat se cerró antes de avisar'); continue; }
+    escribirJson(path.join(BUZON, `${id}.json`), {
+      id, tipo: 'aviso', reclamado: new Date().toISOString(), clave: null,
+      to: `uds:${chat.pipe}`, titulo: chat.titulo, mensaje: mensajeAviso(a.ref, repo),
+    });
+    avisos++;
+    log(`[${cuenta}] AVISO ${id} (${a.ref}) → ${chat.titulo}`);
+  }
+  if (salida.avisosError) log(`[${cuenta}] los avisos de la Ticketera no se pudieron calcular: ${salida.avisosError}`);
+  return {
+    vencidos: salida.vencidos ?? 0, acuses: salida.acuses ?? 0, cierres: salida.cierres ?? 0,
+    avisos, avisosError: salida.avisosError ?? null,
+  };
 }
 
 function pendientes(cuenta) {
@@ -332,7 +383,7 @@ async function esperar(cuenta, maxSeg) {
     try { await ciclo(cuenta); } catch (e) { log(`[${cuenta}] ESPERAR: el ciclo falló: ${e.message}`); }
     const p = pendientes(cuenta);
     if (p.length) {
-      process.stderr.write(`Hay ${p.length} pedido(s) para entregar. Corré: node "${ESTE}" pendientes --cuenta ${cuenta}\n`);
+      process.stderr.write(`Hay ${p.length} pedido(s) o aviso(s) para entregar. Corré: node "${ESTE}" pendientes --cuenta ${cuenta}\n`);
       process.exit(2);
     }
     await new Promise((r) => setTimeout(r, 15_000));
@@ -380,6 +431,11 @@ if (esMain) {
         escribirJson(CFG, { ...cfg, carpetas: { ...(cfg.carpetas ?? {}), [resto[0]]: resto[1] } });
         imprimir({ ok: true }); break;
       }
+      case 'repo': {
+        const dir = expandir(resto[0] ?? '');
+        if (!dir || !fs.existsSync(path.join(dir, 'scripts', 'decisiones.ts'))) throw new Error('uso: repo <ruta del clon> (la que tiene scripts/decisiones.ts)');
+        escribirJson(CFG, { ...config(), repo: dir }); imprimir({ ok: true, repo: dir }); break;
+      }
       case 'estado': imprimir(estado(cuenta && CUENTA_RE.test(cuenta) ? cuenta : null)); break;
       case 'ciclo': { const c = conCuenta(); const r = await ciclo(c); imprimir({ ...r, entregar: pendientes(c) }); break; }
       case 'pendientes': imprimir(pendientes(conCuenta())); break;
@@ -387,7 +443,7 @@ if (esMain) {
       case 'cierre': cierre(resto[0], resto.slice(1)); imprimir({ ok: true }); break;
       case 'esperar': { const i = resto.indexOf('--max-seg'); await esperar(conCuenta(), i >= 0 ? Number(resto[i + 1]) || 3000 : 3000); break; }
       default:
-        process.stderr.write('comandos: instalar | url | token | clave | cartero | carpeta | estado | ciclo | pendientes | acuse | cierre | esperar\n');
+        process.stderr.write('comandos: instalar | url | token | clave | cartero | carpeta | repo | estado | ciclo | pendientes | acuse | cierre | esperar\n');
         process.exit(1);
     }
   } catch (e) {

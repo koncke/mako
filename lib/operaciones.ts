@@ -20,14 +20,19 @@ import 'server-only';
 //
 // ⚠️ HAY UN CARTERO POR CUENTA (las tres corren a la vez). Cada uno reclama SÓLO pedidos para los
 // chats vivos que él mismo subió en esa vuelta: el de la cuenta 2 no se lleva lo de la 3.
+//
+// ⚠️ EN LA MISMA VUELTA VAN LOS AVISOS DE LA TICKETERA (15/10/2026): cuando Martín contesta una
+// tarjeta, el cartero del chat que la preguntó le avisa. Las reglas, en lib/decisiones-aviso.ts. Un
+// aviso no lleva texto de la base: el cartero lo arma con el `ref`, así que no necesita firma.
 // =============================================================================
 
-import { createHash, createPublicKey, randomBytes, verify } from 'node:crypto';
+import { createHash, createPublicKey, randomBytes, randomUUID, verify } from 'node:crypto';
 import { getSupabaseServer } from './supabase';
 import {
   CUENTA_RE, POR_VUELTA, claveIdDe, estadoDeCierre, leerFirmable, sanearAcuses, sanearChats,
-  sanearCierres, sanearClaves, type ChatCartero, type Cierre, type EstadoPedido,
+  sanearCierres, sanearClaves, todosLosChats, type ChatCartero, type Cierre, type EstadoPedido,
 } from './operaciones-reglas';
+import { AVISOS_POR_VUELTA, destinoDeDecision, filaAviso, mismoInstante, necesitaAviso } from './decisiones-aviso';
 
 const T_PEDIDOS = 'operaciones_pedidos';
 const T_CARTEROS = 'operaciones_carteros';
@@ -161,7 +166,65 @@ export async function crearTokenCartero(): Promise<{ token: string }> {
 }
 
 export type PedidoParaEntregar = { id: string; firmado: string; firma: string };
-export type SalidaCiclo = { pedidos: PedidoParaEntregar[]; vencidos: number; acuses: number; cierres: number };
+/** Un aviso de la Ticketera: el id del intento (va al acuse), el ref de la tarjeta y a qué chat. */
+export type AvisoParaEntregar = { id: string; ref: string; destino: string };
+export type SalidaCiclo = {
+  pedidos: PedidoParaEntregar[];
+  avisos: AvisoParaEntregar[];
+  /** Si los avisos no se pudieron calcular (p. ej., falta la mig 0288): los pedidos salen igual. */
+  avisosError: string | null;
+  vencidos: number;
+  acuses: number;
+  cierres: number;
+};
+
+const T_DECISIONES = 'admin_decisiones';
+
+/**
+ * Las respuestas de la Ticketera que ESTE cartero tiene que avisar ahora: contestadas, sin recoger,
+ * sin un aviso entregado, y cuyo chat es de esta cuenta y está abierto. Si el chat está cerrado, la
+ * tarjeta espera a la vuelta en que se abra: no se pierde. Cada una se reclama con compare-and-set
+ * sobre la respuesta y el intento anterior, así dos vueltas (o dos carteros) no la avisan dos veces.
+ */
+async function avisosParaElCartero(cuenta: string, chatsDeEste: ChatCartero[], ahoraIso: string): Promise<AvisoParaEntregar[]> {
+  const db = getSupabaseServer();
+  const ahora = Date.parse(ahoraIso);
+  const { data: filas, error } = await db.from(T_DECISIONES)
+    .select('id, ref, chat, destino, respuesta, respondida_at, recogida_at, archivada_at, aviso_id, aviso_de, aviso_estado, aviso_at, aviso_intentos')
+    .not('respuesta', 'is', null).is('recogida_at', null).is('archivada_at', null)
+    .order('respondida_at', { ascending: true }).limit(200);
+  if (error) throw new Error(error.message);
+  const pendientes = (filas ?? []).filter((f) => necesitaAviso(filaAviso(f), ahora));
+  if (!pendientes.length) return [];
+
+  // El título de una tarjeta sin destino se busca entre los chats de TODOS los carteros: con dos
+  // chats del mismo nombre en dos cuentas, no se adivina. Los de este cartero, en su versión de ahora.
+  const { data: kart, error: eK } = await db.from(T_CARTEROS).select('cuenta, visto_at, chats');
+  if (eK) throw new Error(eK.message);
+  const otros = (kart ?? []).filter((k) => k.cuenta !== cuenta)
+    .map((k) => ({ cuenta: String(k.cuenta), vistoAt: (k.visto_at as string | null) ?? null, chats: sanearChats(k.chats) }));
+  const todos = todosLosChats([{ cuenta, vistoAt: ahoraIso, chats: chatsDeEste }, ...otros]);
+
+  const out: AvisoParaEntregar[] = [];
+  for (const f of pendientes) {
+    const d = filaAviso(f);
+    const r = destinoDeDecision(d, todos);
+    if (!r.ok || r.chat.cuenta !== cuenta) continue;
+    const mio = chatsDeEste.find((c) => c.local === r.chat.local);
+    if (!mio?.vivo) continue;
+    const id = randomUUID();
+    let q = db.from(T_DECISIONES).update({
+      aviso_id: id, aviso_de: f.respondida_at, aviso_destino: mio.local, aviso_estado: 'tomado', aviso_at: ahoraIso,
+      aviso_intentos: mismoInstante(d.avisoDe, d.respondidaAt) ? d.avisoIntentos + 1 : 1, aviso_motivo: null,
+    }).eq('id', f.id).eq('respondida_at', f.respondida_at as string).is('recogida_at', null);
+    q = f.aviso_id ? q.eq('aviso_id', f.aviso_id as string) : q.is('aviso_id', null);
+    const { data, error: eUp } = await q.select('id');
+    if (eUp) throw new Error(eUp.message);
+    if (data && data[0]) out.push({ id, ref: d.ref, destino: mio.local });
+    if (out.length >= AVISOS_POR_VUELTA) break;
+  }
+  return out;
+}
 
 /**
  * Una vuelta de UN cartero, en un solo pedido (como el puente de Flow): sube lo que ve en su
@@ -187,7 +250,8 @@ export async function cicloCartero(token: string, entrada: unknown): Promise<Sal
     .upsert({ cuenta, visto_at: ahoraIso, version, chats, claves, updated_at: ahoraIso }, { onConflict: 'cuenta' });
   if (eUp) throw new Error(eUp.message);
 
-  // Los acuses de la vuelta anterior: sólo sobre un pedido TOMADO.
+  // Los acuses de la vuelta anterior: sólo sobre un pedido TOMADO, o sobre un aviso de la
+  // Ticketera TOMADO (comparten el formato de id, y cada id es de uno solo de los dos).
   let acuses = 0;
   for (const a of sanearAcuses(e.acuses)) {
     const { data } = await db.from(T_PEDIDOS).update({
@@ -195,6 +259,11 @@ export async function cicloCartero(token: string, entrada: unknown): Promise<Sal
       ...(a.estado === 'entregado' ? { entregado_at: ahoraIso } : {}),
     }).eq('id', a.id).eq('estado', 'tomado').select('id');
     acuses += (data ?? []).length;
+    if ((data ?? []).length) continue;
+    // Si falta la mig 0288 esto da error: un acuse de aviso no puede existir sin ella, así que se ignora.
+    const { data: av } = await db.from(T_DECISIONES).update({ aviso_estado: a.estado, aviso_motivo: a.motivo, aviso_at: ahoraIso })
+      .eq('aviso_id', a.id).eq('aviso_estado', 'tomado').select('id');
+    acuses += (av ?? []).length;
   }
 
   // Los cierres que dejaron los chats: sólo sobre un pedido ENTREGADO.
@@ -226,5 +295,15 @@ export async function cicloCartero(token: string, entrada: unknown): Promise<Sal
       if (data && data[0]) pedidos.push(data[0] as PedidoParaEntregar);
     }
   }
-  return { pedidos, vencidos: (venc ?? []).length, acuses, cierres };
+
+  // Los avisos de la Ticketera van aparte: si fallan (la base, una columna que falta), los pedidos
+  // firmados salen igual, y el error viaja para que el cartero lo diga.
+  let avisos: AvisoParaEntregar[] = [];
+  let avisosError: string | null = null;
+  try {
+    if (vivos.length) avisos = await avisosParaElCartero(cuenta, chats, ahoraIso);
+  } catch (err) {
+    avisosError = err instanceof Error ? err.message.slice(0, 200) : 'error';
+  }
+  return { pedidos, avisos, avisosError, vencidos: (venc ?? []).length, acuses, cierres };
 }

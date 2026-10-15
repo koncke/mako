@@ -3828,3 +3828,44 @@ que no cubría ninguno de los dos casos en que hace falta: una tarjeta que se fu
   (`recogida_at`), el aviso lo dice: deshacer acá no desanda lo que el chat hizo con ella.
 - La que vuelve ENTRA por donde salió (misma dirección, al revés), que es cómo se entiende qué se deshizo
   sin leer nada.
+
+## Las tabs de super admin: 13 en Admin y 55 renglones en Dev (15/10/2026)
+
+**Pedido.** Martín: «me molesta bastante tener tantas tabs desorganizadas en super admin... Hay muchas que las
+podríamos eliminar y otras que podrían ser una sola... Revisa eso.» Se midió una fila por tab de
+`ADMIN_FAMILIAS` (último commit de su carpeta en main, commits en 30 días, y lo que dice la base). Los
+veredictos están en `docs/prototipos/centro-operaciones.html`, al pie; nada se movió ni se borró: espera
+la validación de Martín.
+
+**Lo que la medición dio y no se ve desde la barra:**
+
+- **Dos tabs se separaron por una limitación del nav, no por ser dos preguntas.** /mensajes salió de
+  /agencia porque el `match` de un item recibe sólo el pathname (lo dice el comentario de
+  `app/mensajes/page.tsx`). Para eso la casa ya tiene la tab en `?tab=` leída en el server (molde:
+  `app/admin/ui`); juntas contestan «qué me dice MaKo por WhatsApp y por qué línea».
+- ⚠️ **«Un Mensaje de MaKo ES una automatización» NO vació /mensajes.** El 11/10 se mudaron sólo los tres
+  avisos del cliente (`AVISOS_DEL_CLIENTE` quedó vacía, `lib/avisos-catalogo.ts`); los ~45 de la agencia
+  siguen saliendo del store que edita /mensajes. Último guardado: 06/10. Leer la regla como «/mensajes ya
+  no se usa» es el diagnóstico obvio, y es el equivocado.
+- **Contexto de MaKo tiene DOS editores de prompts**: la pestaña Prompts (`/api/mako/prompts`) y
+  Configuración, que monta `Configuraciones` (`/api/mako/config-prompts`).
+- **Copywriting y Contexto muestran las mismas filas.** Copywriting escribe en `mako_knowledge` (curso
+  «Copywriting & Psicología (MaKo)», área `mensajes`), la tabla que lista Conocimiento. Sus 14 fichas son
+  del 31/07 y nunca se editaron; el swipe tiene 0 ejemplos. Y escribe en `OWNER_WS`, o sea en el ws1, que
+  es un cliente (ver AGENTS.md).
+- **Agente de los clientes: `agente_sesiones` tiene 0 filas, nunca** (medido el 15/10). La tab dibuja ese
+  vacío desde el 28/08. No es la misma pregunta que Contexto y Modelos IA, como se sospechaba: mira a los
+  clientes, no cómo piensa MaKo.
+- **Grafo sirve una foto del 10/07**: en producción no hay `graphify-out` (está en .gitignore) y la ruta
+  cae al `graph.html` commiteado ese día. Ver hallazgos-onboarding.md → «El grafo que existe es el del
+  código fuente».
+- **Dev y Áreas del producto son el mismo destino** (`/admin/dev`), y los Registros son 51 entradas en un
+  desplegable que repite, una por una, las filas de Áreas.
+
+**Regla.** Antes de proponer fundir dos tabs se escribe qué PREGUNTA contesta cada una; si es la misma y
+se partieron por una limitación técnica, se juntan con `?tab=`. Y «cuándo se usó» no sale del git log: eso
+dice cuándo se tocó el código. El uso está en la base, y se mide.
+
+**Vive en:** `app/_components/nav.ts` (`ADMIN_FAMILIAS`) · `app/mensajes/page.tsx` ·
+`app/contexto/ContextoTabs.tsx` · `app/admin/copywriting/` · `lib/copywriting-metodo.ts` ·
+`app/admin/agente/` · `app/api/admin/graph/`

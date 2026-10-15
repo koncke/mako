@@ -89,6 +89,83 @@ Martín decidió que las tres cuentas corran juntas, la de la app y dos en termi
 - **La sesión de prueba se firmó a mano** con el `AUTH_SECRET` del `.env.local`, por 30 minutos y sin
   salir de la PC: la de `/api/auth/dev-login` es `sub: 'dev'`, y el Centro la rechaza a propósito.
 
+## La primera pantalla se rechazó por diseñada de memoria; la segunda copia GitHub Actions (15/10/2026)
+
+**Síntoma.** Martín vio `/admin/operaciones` y la rechazó («horrible»). Lo que se veía: un cartel ámbar a
+lo ancho de la página, un desplegable muerto («Ningún cartero subió chats todavía»), «Sólo esto» en azul
+lleno al lado de «Y de ahora en más» en texto, un «Firmar y mandar» dorado, gigante y apagado, y tres
+secciones apiladas del mismo peso con un hueco en el medio.
+
+**Causa.** No era un detalle de estilo: la pantalla se dibujó sin abrir ninguna referencia. De ahí salió
+la regla de AGENTS.md «NINGUNA pantalla se diseña de cero: se COPIA de una app que ya resolvió eso».
+
+**Lo que se copió, y de dónde.** La pestaña Actions de github.com/vercel/next.js (la lista, un workflow
+y una corrida, abiertas el 15/10 con Chrome sin sesión) y, para el panel de «Run workflow» —que sólo se
+ve con sesión—, la guía oficial «Manually running a workflow». El mapa:
+
+| GitHub Actions | Centro |
+|---|---|
+| «All workflows» + la lista de workflows a la izquierda | «Todos los pedidos» + los chats, agrupados por cuenta |
+| Caches / Deployments, abajo de la columna | Carteros (con la clave del dispositivo y el token) |
+| Caja «N workflow runs» con filtros Event · Status · Branch · Actor | Caja «N pedidos» con filtros Cuenta · Estado |
+| Fila: ícono de estado, título, «workflow #N: …», rama, fecha y duración, «…» | Fila: ícono de estado, texto del pedido, «chat #N: firmado por Martín», alcance, fecha y «llegó en», «…» |
+| Franja «This workflow has a workflow_dispatch trigger» + «Run workflow ▾» | Franja del chat («Lo entrega el cartero de la cuenta 3») + «Nuevo pedido ▾» |
+| El panel: «Use workflow from Branch», los inputs, «Run workflow» | El panel: «Alcance: Sólo esto», el pedido, «Firmar y mandar» |
+| La corrida: volver, título #N, Triggered · Status · Duration, el grafo de jobs | El pedido: volver, título #N, Firmado · Estado · Tardó · Destino, el recorrido Firmado → Tomado → Entregado → Hecho |
+
+Dos decisiones que salen de copiar y no de gusto: «Nuevo pedido» sólo aparece con un chat elegido (en
+GitHub, «Run workflow» sólo está en un workflow), y por eso no hay desplegable de chats que pueda quedar
+muerto; y lo que falta (un cartero sin señal, un chat cerrado) se dice en la franja de ese chat, no en
+un cartel de página.
+
+**La propuesta, viva:** `docs/prototipos/centro-operaciones.html` (también publicada como página para que
+Martín la valide). Computadora y celular, con tokens de la casa.
+
+**Vive en:** `app/admin/operaciones/CentroOperaciones.tsx` (lo que se reemplaza) ·
+`docs/prototipos/centro-operaciones.html` (lo propuesto)
+
+## La Ticketera no avisaba: `chat` es un NOMBRE, no una sesión (15/10/2026)
+
+**Síntoma.** Martín: «Y ya respondí todas esas tarjetas y al parecer no te llegó... No sirve de nada la
+ticketera si no te llega». Medido a las 05:50 contra producción: **30 tarjetas abiertas, 30 contestadas,
+29 sin `recogida_at`**, y `operaciones_carteros` **vacía**. El coordinador las repartió a mano a nueve chats.
+
+**Causa.** La respuesta quedaba en la base y nadie la empujaba: el chat que preguntó tenía que correr
+`decisiones.ts contestadas` por las dudas. Y aunque algo la empujara, **no había a quién**: la tarjeta
+guarda `chat`, un nombre para la pantalla («2FA», «Pricing · Strategy», «Plan») que en varios casos no es
+el título de ningún chat, y dos chats pueden llamarse igual («Customer Success» y «Ads Manager» aparecían
+dos veces en la lista de sesiones). El diagnóstico obvio («falta un cron que mire») era la mitad: el bug
+de fondo era que la tarjeta no sabía quién preguntó.
+
+**Lo que quedó.** Lo empuja el cartero que ya existía, en su misma vuelta (sin máquina nueva):
+
+- `admin_decisiones.destino` (mig 0288) guarda la sesión que pregunta, y la pone quien publica. Sin
+  destino, el servidor busca UN chat con ese título entre los de todos los carteros; con cero o con dos,
+  no adivina (`destinoDeDecision`, lib/decisiones-aviso.ts).
+- Se avisa una vez por RESPUESTA: `aviso_de` es el `respondida_at` avisado. Si Martín la cambia, se avisa
+  de nuevo. Lo que no llegó (o no se sabe) se reintenta hasta 5 veces, y un reclamo sin acuse vence a las 2 h.
+- El reclamo es compare-and-set sobre la respuesta y el intento anterior, y el acuse viaja con el mismo
+  formato de id que el de un pedido. Si el chat está cerrado, la tarjeta espera a la vuelta en que se abra.
+- El mensaje lo arma el cartero con un texto fijo y el `ref` validado (`mensajeAviso`): no viaja texto de
+  la base, así que no necesita firma. Que el aviso lleve la respuesta adentro necesita firmarla al
+  contestar (fase 2).
+- `decisiones.ts contestadas <ref>` dice en qué anda el aviso de cada una («avisada», «espera a que se
+  abra el chat», «sin cartero corriendo», «Hay 2 chats que se llaman…»).
+
+**Probado contra producción** (05:58-06:07, con el cartero real y las sesiones reales de esta PC; el
+servidor fue `cicloCartero` corriendo local, con un token temporal): una tarjeta de prueba dirigida al
+coordinador se reclamó, se le entregó por SendMessage, el acuse la dejó `entregado` y la vuelta siguiente
+no la repitió; con la respuesta cambiada se volvió a reclamar. La tarjeta, la fila del cartero y el token se
+borraron después: antes no existían.
+
+**Dos trampas del arnés que no son del código:** `execFileSync` del cartero desde el mismo proceso que hace
+de servidor se traba hasta el timeout (el servidor no puede contestar), y los paquetes de un script del
+scratchpad no se resuelven (no hay `node_modules`): va `createRequire` apuntando al repo.
+
+**Vive en:** `lib/decisiones-aviso.ts` · `lib/operaciones.ts` (`avisosParaElCartero`) ·
+`scripts/operaciones/cartero.mjs` (`mensajeAviso`) · `scripts/decisiones.ts` ·
+`supabase/migrations/0288_decisiones_aviso.sql` · `tests/decisiones-aviso.test.ts`
+
 ## Lo que creí medido y no estaba al día
 
 - **`soloPlataforma` ya existía en el registro de la API** (lo sumó el 2FA obligatorio el 14/10, por
@@ -99,6 +176,15 @@ Martín decidió que las tres cuentas corran juntas, la de la app y dos en termi
 
 ## Lo que quedó sin hacer
 
+- **Que el aviso de la Ticketera ande de verdad necesita instalar el cartero**: el token (lo crea Martín
+  en /admin/operaciones con su 2FA), `cartero claude1 app ~/.claude` y `carpeta 68eda2ab-… claude1`, y un
+  chat «Cartero» con un cron que corra `ciclo`, mande lo de `pendientes` y anote `acuse`. Los avisos no
+  necesitan la clave del dispositivo.
+- **La Ticketera no muestra si el aviso llegó**: el dato está (`aviso_estado`), la pantalla no lo dibuja.
+- **Fase 2 del aviso**: firmar la respuesta al contestar, para que el aviso la lleve adentro.
+- **Implementar el rediseño** de `docs/prototipos/centro-operaciones.html` en
+  `app/admin/operaciones/CentroOperaciones.tsx`: espera la validación de Martín (15/10). La lógica de
+  firma, las acciones y el cartero no cambian; cambia la pantalla.
 - **Instalar el cartero de verdad** (`instalar`, el token, las claves, `cartero claude1 app ~/.claude`
   y las carpetas) y abrir el chat «Cartero» con su cron: va después del deploy, contra producción.
 - **Las cuentas de terminal**: el `/login` de cada una (lo hace Martín), su marcador por directorio y
