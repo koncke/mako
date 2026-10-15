@@ -22,7 +22,7 @@ import type { Runners, Ctx, Preparado, Ejecutado, SalidaLectura } from '../tipos
 import { conLanding, sinLanding, landingDe, MAX_LANDINGS } from '@/lib/landing-config';
 import { normalizarUrl as normalizarPagina } from '@/lib/landing-paginas';
 import { isIP } from 'node:net';
-import { normalizarUrl as normalizarAnalisis, validarDestino } from '@/lib/landing-fetch';
+import { claveDeLanding as normalizarAnalisis, validarDestino } from '@/lib/landing-fetch';
 import { linkPantalla } from '../link';
 import { conVideo, sinVideo, conOculto, sinOculto, vslDe, MAX_VIDEOS } from '@/lib/landing-videos';
 import {

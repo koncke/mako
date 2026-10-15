@@ -33,11 +33,11 @@ import type { FormatoReplicar } from '../../lib/editor-landing/replicar-reglas';
 import type { ModoCaja, SemillaCaja } from './crear/caja-modos';
 import { urlLandingEn } from '../../lib/editor-landing/origen-landings';
 import { urlDeDominio } from '../../lib/editor-landing/dominios-reglas';
-import { normalizarUrl } from '../../lib/landing-url';
+import { claveDeLanding } from '../../lib/landing-url';
 import { tipoValido, type TipoCrear } from './crear/tipo';
 
 /** Una landing de `landing_analyses` (lo que devuelve `listarAnalizadas`). */
-export type Analizada = { url: string; veredicto: string | null; score: number | null };
+export type Analizada = { url: string; veredicto: string | null; score: number | null; /** La dirección real para bajarla (`url_final`), si la hay: `url` es la LLAVE de la fila y hay sitios que le contestan 403. */ leer?: string | null };
 
 export type TipoFila = 'landing' | 'presentacion' | 'analizada';
 
@@ -66,7 +66,7 @@ export const normalizarTexto = (s: string): string => s.normalize('NFD').replace
 
 /** La URL normalizada como la del Landing Analyst, o null si no es una URL. */
 function claveUrl(url: string): string | null {
-  try { return normalizarUrl(url); } catch { return null; }
+  try { return claveDeLanding(url); } catch { return null; }
 }
 
 /**
@@ -129,7 +129,8 @@ export function filasDelPanel(docs: readonly LandingResumen[], analizadas: reado
     const k = claveUrl(a.url);
     if (!k || vistas.has(k) || docDeUrl(a.url, docs, bases) !== null) continue;
     vistas.add(k);
-    deAfuera.push({ tipo: 'analizada', clave: `a:${k}`, nombre: hostDe(a.url), url: a.url });
+    // La clave y el nombre salen de la LLAVE; lo que se baja al abrirla, de la dirección real (`leer`).
+    deAfuera.push({ tipo: 'analizada', clave: `a:${k}`, nombre: hostDe(a.url), url: a.leer ?? a.url });
   }
   return [...propias, ...deAfuera];
 }
