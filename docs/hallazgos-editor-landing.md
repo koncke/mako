@@ -1380,7 +1380,12 @@ Workflow `wf_b629deb0-0b1`; las mediciones y los scripts quedaron en el scratchp
   reduced-motion.
 - **Los Lottie gratis de LottieFiles** (Lottie Simple License): uso comercial sí, pero «does not include the right to
   collect or compile Files… to replicate or develop a similar or competing service». Unas pocas piezas dentro de una
-  plantilla, sí; una galería de animaciones de MaKo armada con archivos de LottieFiles, NO.
+  plantilla, sí; una galería de animaciones de MaKo armada con archivos de LottieFiles, NO. Lo confirmó por su cuenta
+  el chat de Video Editor leyendo la licencia (15/10/2026, docs/editor-video/relevamiento-plantillas.md): el FORMATO se
+  copia; el CONTENIDO tiene que ser propio o de una fuente cuya licencia lo permita por escrito; y que el cliente
+  IMPORTE una animación suya es otra feature, que sí se puede. ⚠️ Y «el README dice MIT» no alcanza: ese relevamiento
+  encontró un repo con MIT en el README y SIN archivo LICENSE (404). Antes de cualquier biblioteca, la licencia se lee
+  en el archivo y queda escrita acá; si ninguna fuente sirve, se avisa (AGENTS.md, `272b7e038`).
 - **El reproductor, medido** (gzip): lottie-web 5.13.0 light SVG **46 KB** y anda con la CSP de la publicada SIN tocarla,
   si el JSON va embebido o sale de `'self'`; **desde el bucket lo bloquea `connect-src`**. dotlottie-web (~529 KB con su
   wasm), ThorVG (~130 KB), Rive (~424 KB) y Skottie (8 MB) **no arrancan sin `'wasm-unsafe-eval'`**. lottie-web no se
