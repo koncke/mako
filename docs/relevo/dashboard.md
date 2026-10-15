@@ -46,7 +46,9 @@ pero con su nuevo rediseño». Orden: aprobar portadas → implementarlas → re
 15/10): 5 informes, 11 hojas; ws1 6 (Marketing, Comercial, Ads, Landing, Closing, Productividad), ws10 Ads, ws11 Cobranza +
 Marketing, ws13 Marketing, ws15 Marketing; todas de plantilla. Script de censo:
 `scratchpad/censo-hojas.mjs` (rehacerlo en el repo si hace falta). UN script con General para el borrado, con respaldo y
-comando para devolverlo, verificado con lo que lee el producto. Espera la decisión de Martín vía el orquestador.
+comando para devolverlo, verificado con lo que lee el producto. Al armar el respaldo se compara cada hoja PIEZA POR PIEZA
+con su plantilla: si aparece UNA editada, se frena y se avisa al orquestador (es trabajo de alguien). La decisión de las
+portadas está publicada como `portadas-galerias`; nada se ejecuta antes de que Martín la apruebe y se implemente.
 
 ## Lo que falta
 - **Verlo en producción (ws3)**: el editor con «Celular» sobre una plantilla (Comercial, Marketing) y la galería de «¿Qué vas a
