@@ -39,6 +39,15 @@ Dashboard». El arnés de capturas vive FUERA del repo, en `C:/Users/marti/arnes
   foco lima · operacion índigo · ventas dorado MaKo · cobros ámbar · anuncios azul Meta · funnel-llamadas violeta ·
   funnel-whatsapp verde WhatsApp · lanzamiento rojo play · servicio teal · curso celeste · instagram magenta.
 
+## Pedido en cola (15/10): borrar las hojas viejas y rehacer las de Mauricio, DESPUÉS de las portadas
+
+Martín: «eliminen las tabs viejas de los workspaces. Sólo en el caso de Mauricio, que vuelva a poner las tabs que estaban
+pero con su nuevo rediseño». Orden: aprobar portadas → implementarlas → recién ahí borrar y rehacer. Censo (sólo leyendo,
+15/10): 5 informes, 11 hojas; ws1 6 (Marketing, Comercial, Ads, Landing, Closing, Productividad), ws10 Ads, ws11 Cobranza +
+Marketing, ws13 Marketing, ws15 Marketing; todas de plantilla. Script de censo:
+`scratchpad/censo-hojas.mjs` (rehacerlo en el repo si hace falta). UN script con General para el borrado, con respaldo y
+comando para devolverlo, verificado con lo que lee el producto. Espera la decisión de Martín vía el orquestador.
+
 ## Lo que falta
 - **Verlo en producción (ws3)**: el editor con «Celular» sobre una plantilla (Comercial, Marketing) y la galería de «¿Qué vas a
   crear hoy?». Nada se miró todavía con datos reales.
