@@ -91,9 +91,13 @@ export function EditorPage({ projectId }: { projectId: string }) {
 				<div className="flex h-full w-full flex-col overflow-hidden bg-(--cc-app)">
 					<AvisoRenderDegradado />
 					<EditorHeader />
+					{/* Los paneles van en una caja `absolute inset-0`: un `size-full` contra el alto
+					    de un hijo flex no resuelve en Safari y el editor quedaría en cero (AGENTS.md). */}
 					<div className="flex min-h-0 min-w-0 flex-1 gap-2 px-[10px] pb-[10px]">
-						<div className="min-h-0 min-w-0 flex-1">
-							<EditorLayout />
+						<div className="relative min-h-0 min-w-0 flex-1">
+							<div className="absolute inset-0">
+								<EditorLayout />
+							</div>
 						</div>
 						<ColumnaChat />
 					</div>
@@ -138,10 +142,12 @@ function ColumnaChat() {
 	const setAbierto = useChatAbierto((s) => s.setAbierto);
 	if (!abierto) return null;
 	return (
-		<div className="h-full w-[320px] shrink-0">
-			<Marco>
-				<PanelChat onCerrar={() => setAbierto(false)} />
-			</Marco>
+		<div className="relative w-[320px] shrink-0">
+			<div className="absolute inset-0">
+				<Marco>
+					<PanelChat onCerrar={() => setAbierto(false)} />
+				</Marco>
+			</div>
 		</div>
 	);
 }
