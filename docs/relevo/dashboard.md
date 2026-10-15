@@ -21,6 +21,18 @@ Lo aprendido, en `docs/hallazgos-graficos.md`: «Rediseño por tipo con capturas
 Dashboard». El arnés de capturas vive FUERA del repo, en `C:/Users/marti/arnes-dashboard/` (`node build.mjs <raíz>` y
 `node capturar.cjs <regex> [tema] [plantillas]`).
 
+## Después: el épico (14/10 noche) y las portadas (15/10, esperando a Martín)
+
+- **En main:** el titular por hoja + ESCALA_EPICA (`68566ade`), el test arreglado (`4297cfa1`/`d636ffdc`) y el texto que
+  crece con su tarjeta (`d5384e97`). Cosecha en `docs/hallazgos-graficos.md` → «El Dashboard épico».
+- **Martín rechazó las plantillas** («todos parecen muy iguales», «muchos gráficos juntos parece dashboard»): la portada de
+  cada hoja tiene que ser UNA cosa con la FORMA de su objetivo. La propuesta de las 13 está en `docs/portadas-propuesta.md`
+  (la escribió el orquestador; no duplicarla). **NO implementar hasta que conteste** la decisión de la Ticketera.
+- Antes de implementar, mirar: (1) si los anuncios de `guiones` traen miniatura (`FilaResultado.imagen`) en todos los
+  workspaces, y (2) qué dibuja el mapa de calor sin puente ni grabaciones: ninguna portada puede quedar vacía (placeholder
+  con datos ficticios). Los ejemplos de personas (CS, Cobranza) son ficticios.
+- Los colores por hoja van en UNA tabla compartida con General (propuesta: `lib/graficos-identidad.ts`).
+
 ## Lo que falta
 - **Verlo en producción (ws3)**: el editor con «Celular» sobre una plantilla (Comercial, Marketing) y la galería de «¿Qué vas a
   crear hoy?». Nada se miró todavía con datos reales.
