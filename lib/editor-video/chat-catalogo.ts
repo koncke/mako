@@ -35,7 +35,9 @@ export type OperacionChat =
   | { op: 'dividir'; ref: string; en: number }
   | { op: 'volumen'; ref: string; db: number }
   | { op: 'silenciar'; ref: string; silenciado: boolean }
-  | { op: 'ocultar'; ref: string; oculto: boolean };
+  | { op: 'ocultar'; ref: string; oculto: boolean }
+  | { op: 'reemplazar_en_subtitulos'; buscar: string; reemplazo: string }
+  | { op: 'generar_subtitulos' };
 
 export type IdOperacion = OperacionChat['op'];
 
@@ -66,6 +68,8 @@ export const OPERACIONES_CHAT: Array<{ op: IdOperacion; forma: string; para: str
   { op: 'volumen', forma: '{"op":"volumen","ref":"a1","db":-6}', para: 'Volumen de un video o un audio, en dB (0 = original, −6 ≈ la mitad, de −60 a 20).' },
   { op: 'silenciar', forma: '{"op":"silenciar","ref":"v1","silenciado":true}', para: 'Silencia o devuelve el sonido de un video o un audio.' },
   { op: 'ocultar', forma: '{"op":"ocultar","ref":"t2","oculto":true}', para: 'Oculta o vuelve a mostrar un elemento visual sin borrarlo.' },
+  { op: 'reemplazar_en_subtitulos', forma: '{"op":"reemplazar_en_subtitulos","buscar":"…","reemplazo":"…"}', para: 'Busca un texto en TODOS los subtítulos y lo cambia por otro, sin distinguir mayúsculas («Buscar y reemplazar»).' },
+  { op: 'generar_subtitulos', forma: '{"op":"generar_subtitulos"}', para: 'Subtítulos automáticos de todo el video: transcribe la voz en el navegador (gratis) con el idioma y la plantilla elegidos en Subtítulos.' },
 ];
 
 const IDS = new Set<string>(OPERACIONES_CHAT.map((o) => o.op));
@@ -153,6 +157,15 @@ export function validarOperacion(raw: unknown): { ok: true; op: OperacionChat } 
       if (!esRef(ref) || typeof raw.oculto !== 'boolean') return { ok: false, motivo: 'un ocultar incompleto' };
       return { ok: true, op: { op: 'ocultar', ref, oculto: raw.oculto } };
     }
+    case 'reemplazar_en_subtitulos': {
+      const buscar = textoValido(raw.buscar);
+      const reemplazo = typeof raw.reemplazo === 'string' ? raw.reemplazo.trim() : null;
+      if (!buscar || reemplazo === null || reemplazo.length > TOPES_CHAT.texto) return { ok: false, motivo: 'un reemplazo incompleto' };
+      if (buscar === reemplazo) return { ok: false, motivo: 'un reemplazo que no cambia nada' };
+      return { ok: true, op: { op: 'reemplazar_en_subtitulos', buscar, reemplazo } };
+    }
+    case 'generar_subtitulos':
+      return { ok: true, op: { op: 'generar_subtitulos' } };
   }
 }
 

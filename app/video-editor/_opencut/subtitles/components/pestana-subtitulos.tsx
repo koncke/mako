@@ -10,11 +10,21 @@
 // tamaño, posición…) a los demás.
 //
 // Editar el texto vuelve a partir las líneas (el motor no parte solo) dejando el
-// borde de abajo donde estaba; Enter confirma y Mayús+Enter es un salto de línea
-// propio. El tacho borra la línea (el de la casa, rojo).
+// borde de abajo donde estaba. El tacho borra la línea (el de la casa, rojo).
+//
+// Los atajos son los de la ayuda de CapCut (`pc_double_click_delete`), con las teclas
+// de Windows: Enter en el medio DIVIDE el subtítulo; Enter al principio o al final
+// sale de la edición; Ctrl+Enter (y Mayús+Enter) es un salto de línea; Retroceso al
+// principio COMBINA con el de arriba y Supr al final, con el de abajo (subtitles/
+// editar.ts). Y «Buscar y reemplazar» (`find replace`): «Sustituir» en el elegido y
+// «Reemplazar todo». ⚠️ El campo de CapCut dice «Reemplazar como» (`pc_replace_with`),
+// un error de traducción de «Replace with»: acá va «Reemplazar con».
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+import { HugeiconsIcon } from "@hugeicons/react";
+import { InformationCircleIcon, SearchReplaceIcon } from "@hugeicons/core-free-icons";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/app/video-editor/_opencut/components/ui/tooltip";
 import { Button } from "@/app/video-editor/_opencut/components/ui/button";
 import { IconoBorrar } from "@/app/_ui/BotonBorrar";
 import { useEditor } from "@/app/video-editor/_opencut/editor/use-editor";
@@ -32,6 +42,8 @@ import {
 	subtitulosDe,
 	type SubtituloEnPista,
 } from "../insert";
+import { combinarSubtitulo, dividirSubtitulo, palabrasDelSubtitulo, reemplazarEnSubtitulos } from "../editar";
+import { codificarPalabras, PARAM_PALABRAS, rehacerPalabras } from "../palabras";
 
 // ⚠️ El panel derecho DESMONTA la pestaña cada vez que cambia el elemento elegido
 // (la cáscara le pone el id del elemento en la `key`). Y elegir una línea de esta
@@ -39,7 +51,7 @@ import {
 // pestaña se volvía a montar y el foco se perdía antes de poder escribir; y la
 // búsqueda y el desplazamiento volvían a cero en cada clic. Lo que tiene que
 // sobrevivir a ese remontaje vive acá, fuera del componente.
-const memoria = { enfocar: null as string | null, busqueda: "", scroll: 0 };
+const memoria = { enfocar: null as string | null, cursor: null as number | null, busqueda: "", reemplazo: "", reemplazando: false, scroll: 0 };
 
 function tiempo(ticks: number): string {
 	const s = Math.max(0, ticks / TICKS_PER_SECOND);
@@ -65,15 +77,20 @@ function Linea({
 	const [borrador, setBorrador] = useState(guardado);
 	const ref = useRef<HTMLDivElement>(null);
 	const campo = useRef<HTMLTextAreaElement>(null);
+	// Dividir o combinar ya usaron lo escrito: el blur que sigue no lo vuelve a escribir.
+	const saltarConfirmar = useRef(false);
 
-	// La línea cuyo texto se tocó antes del remontaje recupera el foco.
+	// La línea cuyo texto se tocó antes del remontaje recupera el foco (y el cursor donde
+	// lo dejó dividir o combinar).
 	useEffect(() => {
 		if (memoria.enfocar !== element.id) return;
 		memoria.enfocar = null;
 		const t = campo.current;
 		if (!t) return;
 		t.focus();
-		t.setSelectionRange(t.value.length, t.value.length);
+		const c = memoria.cursor ?? t.value.length;
+		memoria.cursor = null;
+		t.setSelectionRange(c, c);
 	}, [element.id]);
 
 	// Lo de afuera (deshacer, otra pestaña) pisa el borrador si no se está editando.
@@ -86,6 +103,10 @@ function Linea({
 	}, [elegida]);
 
 	const confirmar = () => {
+		if (saltarConfirmar.current) {
+			saltarConfirmar.current = false;
+			return;
+		}
 		const texto = borrador.replace(/[ \t]+\n/g, "\n").trim();
 		if (texto === guardado.trim()) return;
 		if (!texto) {
@@ -99,6 +120,17 @@ function Linea({
 			lienzo,
 			ubicacion: borde != null ? { bordeInferior: borde } : {},
 		});
+		// Corregir una palabra no cambia cuándo se dijo: si siguen siendo las mismas palabras,
+		// los tiempos se quedan; si cambió cuántas son, el subtítulo se queda sin ellos.
+		const guardadas = palabrasDelSubtitulo(element);
+		const rehechas = guardadas ? rehacerPalabras(guardadas, texto) : null;
+		const palabras = rehechas
+			? codificarPalabras({
+					palabras: rehechas.palabras,
+					origen: (element.startTime - element.trimStart) / TICKS_PER_SECOND,
+					precision: rehechas.precision,
+				})
+			: "";
 		// La X la decide el cliente si movió el subtítulo: sólo cambia el texto y la Y.
 		actualizarSubtitulos({
 			editor,
@@ -106,10 +138,46 @@ function Linea({
 				{
 					trackId: track.id,
 					elementId: element.id,
-					params: { content: ubicado.content, "transform.positionY": ubicado["transform.positionY"] },
+					params: {
+						content: ubicado.content,
+						"transform.positionY": ubicado["transform.positionY"],
+						...(element.params[PARAM_PALABRAS] ? { [PARAM_PALABRAS]: palabras } : {}),
+					},
 				},
 			],
 		});
+	};
+
+	/** Dividir o combinar con lo escrito; si no se puede, el aviso de CapCut. */
+	const dividir = (t: HTMLTextAreaElement) => {
+		saltarConfirmar.current = true;
+		const nuevo = dividirSubtitulo({ editor, trackId: track.id, elementId: element.id, texto: t.value, cursor: t.selectionStart });
+		if (!nuevo) {
+			saltarConfirmar.current = false;
+			// `pc_captions_cannot_split_here`.
+			toast("No se puede dividir aquí");
+			return;
+		}
+		// El cursor va al principio del subtítulo nuevo, como en CapCut.
+		memoria.enfocar = nuevo;
+		memoria.cursor = 0;
+		editor.selection.setSelectedElements({ elements: [{ trackId: track.id, elementId: nuevo }] });
+	};
+	const combinarCon = (t: HTMLTextAreaElement, direccion: "arriba" | "abajo") => {
+		saltarConfirmar.current = true;
+		const queda = combinarSubtitulo({ editor, trackId: track.id, elementId: element.id, texto: t.value, direccion });
+		if (!queda) {
+			saltarConfirmar.current = false;
+			// `pc_captions_cannot_merge_here`.
+			toast("No se puede combinar aquí");
+			return;
+		}
+		// El cursor queda en la unión de los dos textos.
+		const sobrevive = subtitulosDe(editor.scenes.getActiveSceneOrNull()?.tracks).find((s) => s.element.id === queda);
+		const textoNuevo = String(sobrevive?.element.params.content ?? "");
+		memoria.enfocar = queda;
+		memoria.cursor = direccion === "arriba" ? Math.max(0, textoNuevo.length - t.value.trim().length) : t.value.trim().length;
+		editor.selection.setSelectedElements({ elements: [{ trackId: track.id, elementId: queda }] });
 	};
 
 	return (
@@ -149,13 +217,38 @@ function Linea({
 						// Las teclas del editor (Espacio = reproducir, Supr = borrar el clip)
 						// no se disparan mientras se escribe.
 						e.stopPropagation();
-						if (e.key === "Enter" && !e.shiftKey) {
+						const t = e.currentTarget;
+						const sinSeleccion = t.selectionStart === t.selectionEnd;
+						const alPrincipio = sinSeleccion && t.selectionStart === 0;
+						const alFinal = sinSeleccion && t.selectionStart >= t.value.trimEnd().length;
+						if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+							// «Empezar una nueva línea: Command + Enter» (Ctrl en Windows).
 							e.preventDefault();
-							(e.target as HTMLTextAreaElement).blur();
+							const a = t.selectionStart;
+							setBorrador(`${t.value.slice(0, a)}\n${t.value.slice(t.selectionEnd)}`);
+							requestAnimationFrame(() => t.setSelectionRange(a + 1, a + 1));
+							return;
+						}
+						if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+							e.preventDefault();
+							// Al principio o al final: salir de la edición. En el medio: dividir.
+							if (alPrincipio || alFinal || !sinSeleccion) t.blur();
+							else dividir(t);
+							return;
+						}
+						if (e.key === "Backspace" && alPrincipio) {
+							e.preventDefault();
+							combinarCon(t, "arriba");
+							return;
+						}
+						if (e.key === "Delete" && alFinal) {
+							e.preventDefault();
+							combinarCon(t, "abajo");
+							return;
 						}
 						if (e.key === "Escape") {
 							setBorrador(guardado);
-							(e.target as HTMLTextAreaElement).blur();
+							t.blur();
 						}
 					}}
 					className="w-full resize-none bg-transparent text-[12px] leading-snug text-(--cc-text) outline-none [field-sizing:content]"
@@ -192,7 +285,16 @@ export function PestanaSubtitulos({ element }: ContextoInspector) {
 		);
 	});
 	const busqueda = useBuscador();
+	const reemplazo = useReemplazo();
 	const [aplicando, setAplicando] = useState(false);
+
+	/** «Sustituir» (en el elegido) o «Reemplazar todo»: un solo paso de deshacer. */
+	const reemplazar = (soloId?: string) => {
+		const n = reemplazarEnSubtitulos({ editor, buscar: busqueda.valor, reemplazo: reemplazo.valor, soloId });
+		// `pc_replacement_succeeded` / `pc_find_content_does_not_exist`.
+		if (n > 0) toast.success("Sustituido");
+		else toast("No se encontraron resultados");
+	};
 	const desplazable = useRef<HTMLDivElement>(null);
 
 	// Antes de pintar: el desplazamiento donde estaba (ver `memoria`).
@@ -234,8 +336,54 @@ export function PestanaSubtitulos({ element }: ContextoInspector) {
 
 	return (
 		<div className="flex h-full min-h-0 flex-col">
-			<div className="shrink-0 px-3 pt-3 pb-2">
-				<BuscadorBiblioteca valor={busqueda.valor} onCambio={busqueda.setValor} />
+			<div className="flex shrink-0 flex-col gap-2 px-3 pt-3 pb-2">
+				<div className="flex items-center gap-1">
+					<div className="min-w-0 flex-1">
+						<BuscadorBiblioteca valor={busqueda.valor} onCambio={busqueda.setValor} />
+					</div>
+					<button
+						type="button"
+						aria-pressed={reemplazo.abierto}
+						onClick={() => reemplazo.alternar()}
+						title="Buscar y reemplazar"
+						aria-label="Buscar y reemplazar"
+						className="flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-[4px] text-(--cc-icon) hover:bg-(--cc-raised) aria-pressed:bg-(--cc-raised) aria-pressed:text-primary"
+					>
+						<HugeiconsIcon icon={SearchReplaceIcon} className="size-4" />
+					</button>
+					<Tooltip>
+						<TooltipTrigger asChild>
+							<span
+								tabIndex={0}
+								aria-label="Atajos de los subtítulos"
+								className="flex size-7 shrink-0 cursor-default items-center justify-center rounded-[4px] text-(--cc-icon) hover:bg-(--cc-raised)"
+							>
+								<HugeiconsIcon icon={InformationCircleIcon} className="size-4" />
+							</span>
+						</TooltipTrigger>
+						<TooltipContent side="bottom" className="max-w-[260px] whitespace-pre-line text-[11.5px] leading-snug">
+							{AYUDA_ATAJOS}
+						</TooltipContent>
+					</Tooltip>
+				</div>
+				{reemplazo.abierto && (
+					<div className="flex items-center gap-1.5">
+						<input
+							value={reemplazo.valor}
+							onChange={(e) => reemplazo.setValor(e.target.value)}
+							onKeyDown={(e) => e.stopPropagation()}
+							placeholder="Reemplazar con"
+							aria-label="Reemplazar con"
+							className="h-7 min-w-0 flex-1 rounded-[4px] bg-(--cc-input) px-2 text-[12px] text-(--cc-text) outline-none placeholder:text-(--cc-text-3) focus:ring-1 focus:ring-primary"
+						/>
+						<Button type="button" variant="secondary" size="sm" disabled={!busqueda.valor.trim()} onClick={() => reemplazar(element.id)}>
+							Sustituir
+						</Button>
+						<Button type="button" variant="secondary" size="sm" disabled={!busqueda.valor.trim()} onClick={() => reemplazar()}>
+							Reemplazar todo
+						</Button>
+					</div>
+				)}
 			</div>
 			<div
 				ref={desplazable}
@@ -270,6 +418,36 @@ export function PestanaSubtitulos({ element }: ContextoInspector) {
 			</div>
 		</div>
 	);
+}
+
+/**
+ * La ayuda de los atajos (`pc_double_click_delete` de CapCut), con las teclas de Windows:
+ * Command → Ctrl, Delete → Retroceso, Fn + Delete → Supr. Sin la primera línea de CapCut
+ * («doble clic en el número»): acá la lista no tiene números y un clic ya lleva ahí.
+ */
+const AYUDA_ATAJOS = [
+	"• Dividir un subtítulo: Enter",
+	"• Salir de la edición: coloca el cursor al principio o al final de un subtítulo y pulsa Enter",
+	"• Empezar una nueva línea: Ctrl + Enter",
+	"• Combinar hacia arriba: coloca el cursor al principio de un subtítulo y pulsa Retroceso",
+	"• Combinar hacia abajo: coloca el cursor al final de un subtítulo y pulsa Supr",
+].join("\n");
+
+function useReemplazo() {
+	const [abierto, setAbierto] = useState(memoria.reemplazando);
+	const [valor, setValorLocal] = useState(memoria.reemplazo);
+	return {
+		abierto,
+		valor,
+		alternar: () => {
+			memoria.reemplazando = !abierto;
+			setAbierto(!abierto);
+		},
+		setValor: (v: string) => {
+			memoria.reemplazo = v;
+			setValorLocal(v);
+		},
+	};
 }
 
 function useBuscador() {

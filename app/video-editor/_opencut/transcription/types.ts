@@ -64,4 +64,11 @@ export interface CaptionChunk {
 	text: string;
 	startTime: number;
 	duration: number;
+	/**
+	 * Las palabras del subtítulo con su tiempo (en segundos de la línea de tiempo), si
+	 * salió de Whisper. Las muletillas que se sacaron del texto van marcadas. Un SRT
+	 * importado o un texto escrito a mano no las tienen: sus tiempos serían inventados.
+	 */
+	palabras?: Array<PalabraTranscrita & { muletilla?: boolean }>;
+	precision?: PrecisionTiempos;
 }
