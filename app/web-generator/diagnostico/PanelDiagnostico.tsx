@@ -843,6 +843,12 @@ const CSS_PANEL_DIAGNOSTICO = `
 .gdg-vista-cargando { border: 0; }
 .gdg-vista-aviso { position: absolute; inset: auto 16px 16px 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px; border-radius: 10px; background: var(--gp-menu-fondo, #fff); box-shadow: var(--gp-sombra-menu, 0 8px 16px rgba(0,0,0,.12)); font-size: 13.5px; color: var(--gp-texto, #27272a); }
 .gdg-vista-aviso p { margin: 0; }
+/* El giro mientras el documento carga: centrado EN el recuadro, no en la columna de al lado.
+   Martin (15/10/2026): tarda mucho en aparecer, que haya un LOADER. */
+.gdg-vista-giro { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; background: var(--gp-superficie, #fff); color: var(--gp-texto-2, #52525b); font-size: 14px; pointer-events: none; }
+.gdg-giro { width: 22px; height: 22px; border: 2px solid var(--gp-borde, #e4e4e7); border-top-color: var(--gp-texto-2, #52525b); border-radius: 50%; animation: gdg-giro .8s linear infinite; }
+@keyframes gdg-giro { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .gdg-giro { animation-duration: 2.4s; } }
 .gdg-col-lista { min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 10px; padding-right: 2px; }
 .gdg-lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
 .gdg-trabajando, .gdg-com-trabajando { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 13.5px; color: var(--gp-tenue, #6b6b72); }

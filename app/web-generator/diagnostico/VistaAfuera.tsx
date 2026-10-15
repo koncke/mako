@@ -37,7 +37,7 @@ const ESPERA_IR_MS = 900;
 /** Menos texto que esto es una página que no se pintó: 9 caracteres daba la que destapó el caso. */
 const PISO_TEXTO = 40;
 /** Lo que se le da al JavaScript de la página para pintar antes de decir que quedó vacía. */
-const ESPERA_PINTA_MS = 4000;
+const ESPERA_PINTA_MS = 1600;
 
 export function VistaAfuera({ url, objetivos, controlRef, senal, onUbicar }: {
   url: string;
@@ -167,6 +167,11 @@ export function VistaAfuera({ url, objetivos, controlRef, senal, onUbicar }: {
   }, [controlRef, mandar]);
 
   const directo = estado === 'directo';
+  // El recuadro NO se deja en blanco mientras tanto: hasta que el documento carga hay un giro con
+  // el mismo texto que la columna de la derecha. Pedido de Martin (15/10/2026): «tarda mucho en
+  // aparecer, fijate si puede ser mas eficiente y en todo caso un LOADER».
+  const [cargo, setCargo] = useState(false);
+  useEffect(() => { setCargo(false); }, [src, directo]);
   return (
     <div className="gdg-vista gdg-vista--afuera">
       <iframe
@@ -180,7 +185,14 @@ export function VistaAfuera({ url, objetivos, controlRef, senal, onUbicar }: {
         sandbox={directo ? 'allow-scripts allow-same-origin' : 'allow-scripts'}
         referrerPolicy="no-referrer"
         title="Vista de la página"
+        onLoad={() => setCargo(true)}
       />
+      {!cargo && estado !== 'error' && estado !== 'muda' && (
+        <div className="gdg-vista-giro" role="status">
+          <span className="gdg-giro" aria-hidden="true" />
+          <span>Analizando… puede tardar 1-2 minutos.</span>
+        </div>
+      )}
       {(estado === 'error' || estado === 'muda' || estado === 'vacia' || estado === 'directo') && (
         <div className="gdg-vista-aviso" role="status">
           <p>
