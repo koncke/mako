@@ -155,6 +155,23 @@ test('los cruces de DISENOS_LANDING se cargan en el editor sin perder nodos ni l
   assert.ok(pistas >= DISENOS_LANDING.filter((d) => d.video).length * OBJETIVOS_LANDING.length, `la pista del video se perdió al cargar (${pistas})`);
 });
 
+// Tanda 6 (pendiente de los diseños con video): al pegar el HTML de un video VACÍO sin su JSON del
+// editor, la pista del proveedor se perdía (el respaldo era `attrsInsertado({})`) y Publicar dejaba de
+// avisar «Falta el enlace del video». Ahora viaja en `data-proveedor`, que el render ya escribe.
+// Rotura (14/10/2026, de memoria, verificada por hash; base 15 / 0): el respaldo vuelve a
+// `attrsInsertado({})` → 14 / 1, sólo éste.
+test('pegar el HTML de un video vacío sin su JSON conserva la pista del proveedor (y no inventa una)', () => {
+  const regla = (schema.nodes[NODO.insertado].spec.parseDOM ?? []).find((r) => 'tag' in r && r.tag === 'div.gm-insertado');
+  assert.ok(regla && 'getAttrs' in regla && typeof regla.getAttrs === 'function', 'la regla de div.gm-insertado');
+  const div = (attrs: Record<string, string>) => ({ getAttribute: (k: string) => attrs[k] ?? null, querySelector: () => null }) as unknown as HTMLElement;
+  const leerDiv = (attrs: Record<string, string>) => (regla as { getAttrs: (el: HTMLElement) => unknown }).getAttrs(div(attrs));
+  assert.deepEqual(leerDiv({ class: 'gm-insertado', 'data-proveedor': 'youtube', 'data-clase': 'video' }), { src: '', proveedor: 'youtube', alto: null });
+  assert.deepEqual(leerDiv({ class: 'gm-insertado', 'data-proveedor': 'cualquiera' }), { src: '', proveedor: '', alto: null }, 'una pista que no es de la lista no entra');
+  assert.deepEqual(leerDiv({ class: 'gm-insertado' }), { src: '', proveedor: '', alto: null });
+  // El render la escribe (la otra punta del viaje).
+  assert.match(sinComentarios(leer('lib/editor-landing/especificacion.ts')), /'data-proveedor': a\.proveedor \|\| undefined/);
+});
+
 test('moverTarjeta: todas las combinaciones, sin perder ni duplicar', () => {
   const base = ['a', 'b', 'c', 'd', 'e'];
   // Secciones de TAMAÑOS distintos (más letras y más bloques cuanto más abajo): con todas del

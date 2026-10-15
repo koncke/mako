@@ -6,6 +6,8 @@
 // del workspace DE LA LANDING, el techo y el candado (`landing_pago_pedidos`, mig 0276), la propuesta
 // cuando no se puede cobrar, el lead de ese email (o uno nuevo por el mismo camino que el opt-in), y el
 // cobro (`crearCobro`, lib/cobros.ts: el único escritor de `cobros`).
+// Paquete 3 de la tanda 6: la poda de esos pedidos al soltar el candado, la campaña (utm y fbclid) en el
+// lead nuevo y en la propuesta, y el contador de rechazos por landing y día (`landing_pago_rechazos`, mig 0282).
 //
 // ⚠️ SIN SESIÓN: lo llaman el paso público (app/l/[slug]/pagar/[bloque]) y el POST público
 //    (app/api/landing-generator/pagar). El workspace sale de la FILA de la landing, nunca de un
@@ -38,7 +40,10 @@ import { sanearConfig } from './validar';
 import { temaPorId, estiloDeTema, type Tema } from './temas';
 import { urlsDeFuentes } from './pagina-publica';
 import { TEXTO_NO_COBRA, productosDeFoto, type EstadoCobroLanding, type MotivoNoCobra, type ProductoDePago } from './pago-landing';
-import { creadoPorLanding, ejecutarPago, leadPorEmail, type DepCandado, type ResultadoPago } from './pago-pedido';
+import {
+  ATRIBUCION_PAGO_VACIA, corteDePoda, creadoPorLanding, ejecutarPago, leadPorEmail, resumirRechazos,
+  type AtribucionPago, type DepCandado, type FilaRechazoPago, type MotivoRechazoPago, type ResultadoPago, type ResumenRechazosPago,
+} from './pago-pedido';
 
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
@@ -160,8 +165,14 @@ async function leadDeEmail(email: string): Promise<{ id: number; ambiguo: boolea
  * `entradas` del opt-in) — pero SÓLO cuando el producto se puede cobrar: acá la persona escribió su
  * nombre y su email para PAGAR, sin ficha no hay cobro, y perder a alguien con la tarjeta en la mano es
  * lo único peor que un lead de más. Si hoy no se puede cobrar, no se llama: queda una propuesta.
+ * ⚠️ LA CAMPAÑA (Paquete 3 de la tanda 6): el lead NUEVO nace con los utm y el fbclid de la página de
+ * aterrizaje, como el del opt-in. Una ficha que ya estaba NO se toca: su origen es el primero que tuvo.
  */
-export async function leadDeQuienPaga(l: Pick<LandingDePago, 'ws' | 'slug'>, p: { nombre: string; email: string; autor: string }): Promise<{ leadId: number; nuevo: boolean }> {
+export async function leadDeQuienPaga(
+  l: Pick<LandingDePago, 'ws' | 'slug'>,
+  p: { nombre: string; email: string; autor: string; atribucion?: AtribucionPago | null },
+): Promise<{ leadId: number; nuevo: boolean }> {
+  const atrib = p.atribucion ?? ATRIBUCION_PAGO_VACIA;
   return runWithWorkspace(l.ws, async () => {
     const ya = await leadDeEmail(p.email);
     if (ya) {
@@ -173,7 +184,11 @@ export async function leadDeQuienPaga(l: Pick<LandingDePago, 'ws' | 'slug'>, p: 
     // de la mudanza (`hola-mako.com/l/<slug>`) la reconoce `landingDe` (urlLandingVigente, las dos puntas).
     const principal = await funnelPrincipalDeLanding(l.ws, urlPublicaLanding(l.slug));
     try {
-      const lead = await createLead({ nombre: p.nombre, email: p.email, origen_lead: 'landing', funnel_id: casaParaEscribir(principal, defaultId) });
+      const lead = await createLead({
+        nombre: p.nombre, email: p.email, origen_lead: 'landing', funnel_id: casaParaEscribir(principal, defaultId),
+        utm_source: atrib.utm_source, utm_medium: atrib.utm_medium, utm_campaign: atrib.utm_campaign, utm_content: atrib.utm_content,
+        fbclid: atrib.fbclid,
+      });
       return { leadId: Number(lead.id), nuevo: true };
     } catch (e) {
       if (!esLeadDuplicado(e)) throw e;
@@ -251,6 +266,16 @@ function candadoDePago(docId: number, clave: string, log: DepCandado['log']): De
     esperar: (ms) => new Promise((r) => setTimeout(r, ms)),
     ahora: () => Date.now(),
     log,
+    // La poda (Paquete 3 de la tanda 6: «Nadie poda `landing_pago_pedidos`»). Sólo las filas de ESTA
+    // landing, por el índice (doc_id, created_at) de la 0276. Sin cron: vercel.json es de Build & Deploy, y
+    // una landing que cobra se poda sola al cobrar. ⚠️ SIN `en_curso = false`, a propósito: una fila en
+    // curso de hace una semana es un candado que se murió con su función (vence a los 90 s,
+    // `CANDADO_VENCE_MS`) y sólo lo soltaba otro pedido del MISMO email; con ese filtro quedaba para siempre.
+    podar: async () => {
+      const { error } = await db().delete().eq('doc_id', docId).lt('created_at', corteDePoda(Date.now()));
+      if (faltaLaTabla(error)) return;
+      if (error) throw new Error(error.message);
+    },
   };
 }
 
@@ -259,12 +284,15 @@ function candadoDePago(docId: number, clave: string, log: DepCandado['log']): De
  * nunca una ficha (revisión de la tanda 4, MEDIA). El dueño la ve en /crm/revisar con el motivo en el
  * resumen y le llega el aviso de siempre; al confirmarla, el lead nace en el producto principal de la
  * página. La `ref` hace que el mismo email pidiendo el mismo producto en la misma landing no se duplique.
+ * La campaña va en la fila, como en el opt-in: al confirmar la escribe `atribucionDePropuesta`
+ * (app/crm/revisar/[id]/propuesta-lead.ts). Un campo que va sólo por el alta directa se pierde acá.
  */
 async function proponerQuienQuisoPagar(
   l: Pick<LandingDePago, 'ws' | 'docId' | 'slug'>,
   p: { productoId: number; nombre: string; email: string },
   motivo: MotivoNoCobra,
   quePide: string,
+  atrib: AtribucionPago,
 ): Promise<void> {
   const pagina = urlPublicaLanding(l.slug);
   const principal = await funnelPrincipalDeLanding(l.ws, pagina);
@@ -275,7 +303,11 @@ async function proponerQuienQuisoPagar(
     ref: `landing-pago:${l.docId}:${p.productoId}:${emailComparable(p.email) ?? p.email}`,
     resumen: `${p.nombre} quiso pagar ${quePide} y no se pudo: ${TEXTO_NO_COBRA[motivo]}`,
     datos: {
-      leads: [{ nombre: p.nombre, email: p.email, origen: 'landing', pagina }],
+      leads: [{
+        nombre: p.nombre, email: p.email, origen: 'landing', pagina,
+        utm_source: atrib.utm_source, utm_medium: atrib.utm_medium, utm_campaign: atrib.utm_campaign, utm_content: atrib.utm_content,
+        fbclid: atrib.fbclid,
+      }],
       funnels: [principal],
       pago: { productoId: p.productoId, motivo },
     },
@@ -289,6 +321,7 @@ async function proponerQuienQuisoPagar(
 export async function pagarDesdeLanding(
   l: Pick<LandingDePago, 'ws' | 'docId' | 'slug' | 'titulo'>,
   p: { productoId: number; nombre: string; email: string },
+  atribucion: AtribucionPago = ATRIBUCION_PAGO_VACIA,
 ): Promise<ResultadoPago> {
   const autor = creadoPorLanding(l.titulo, l.slug);
   const log: DepCandado['log'] = (nivel, texto) => console[nivel](`[landing-pagar] ws=${l.ws} /l/${l.slug} producto=${p.productoId} ${texto}`);
@@ -296,8 +329,8 @@ export async function pagarDesdeLanding(
     usosDeLaHora: () => usosDeLaHora(l.docId),
     estado: () => estadoCobroLanding(l.ws),
     candado: candadoDePago(l.docId, claveDeCandado(l.ws, p.email), log),
-    proponer: (motivo, quePide) => proponerQuienQuisoPagar(l, p, motivo, quePide),
-    lead: async () => (await leadDeQuienPaga(l, { nombre: p.nombre, email: p.email, autor })).leadId,
+    proponer: (motivo, quePide) => proponerQuienQuisoPagar(l, p, motivo, quePide, atribucion),
+    lead: async () => (await leadDeQuienPaga(l, { nombre: p.nombre, email: p.email, autor, atribucion })).leadId,
     pendientes: (leadId) => listarCobros(l.ws, { leadId, estado: 'pendiente', limite: 50 }),
     crear: async (leadId, pasarela) => {
       const r = await crearCobro(l.ws, { leadId, productoId: p.productoId, pasarela, email: p.email, nombre: p.nombre, creadoPor: autor });
@@ -306,4 +339,52 @@ export async function pagarDesdeLanding(
     linkDe: linkDelCobro,
     historial: (leadId, texto) => runWithWorkspace(l.ws, () => logLeadEvent(leadId, 'Pago desde la landing', texto, autor)),
   });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// El rastro de los rechazos (Paquete 3 de la tanda 6, mig 0282)
+// ─────────────────────────────────────────────────────────────────────────────
+// Qué se cuenta y qué no, en pago-pedido.ts («El rastro de los rechazos»). Acá sólo se escribe y se lee.
+
+/** La función o la tabla no están (la mig 0282 sin aplicar): PostgREST PGRST202/PGRST205, Postgres 42P01/42883. */
+const faltaElRastro = (e: { code?: string | null } | null | undefined): boolean =>
+  !!e && (e.code === 'PGRST202' || e.code === 'PGRST205' || e.code === '42P01' || e.code === '42883');
+
+/**
+ * Suma un rechazo de ESA landing al contador del día (`landing_pago_rechazo_sumar`, mig 0282): un upsert
+ * que suma 1, sin datos personales. Sin la migración, lo dice en el log y sigue (el rechazo ya quedó en
+ * el log con su motivo). Tira si la base falló: `responderPagoPost` lo anota y contesta lo mismo.
+ */
+export async function anotarRechazoDePago(docId: number, motivo: MotivoRechazoPago): Promise<void> {
+  const { error } = await getSupabaseServer().rpc('landing_pago_rechazo_sumar', { p_doc: docId, p_motivo: motivo });
+  if (!error) return;
+  if (faltaElRastro(error)) {
+    console.warn(`[landing-pagar] sin la mig 0282: el rechazo ${motivo} de la landing ${docId} queda sólo en el log`);
+    return;
+  }
+  throw new Error(`No pude anotar el rechazo ${motivo} de la landing ${docId}: ${error.message}`);
+}
+
+/** Cuántos días mira el resumen del dueño si no se pide otra cosa. */
+export const DIAS_RECHAZOS_PAGO = 30;
+
+export type RechazosDePago = ResumenRechazosPago & { /** AAAA-MM-DD (UTC), el primer día que se mira. */ desde: string; /** La mig 0282 no está. */ sinTabla: boolean };
+
+/**
+ * Los rechazos del pago de UNA landing del workspace, para mostrárselos al dueño (la pantalla y la API
+ * de MaKo: los cablea su área). La tabla no tiene `workspace_id`: la landing se confirma de ESE workspace
+ * antes de leer. null = no es suya (o no existe). Tira si la base falló.
+ */
+export async function rechazosDePago(ws: number, docId: number, dias = DIAS_RECHAZOS_PAGO): Promise<RechazosDePago | null> {
+  const db = getSupabaseServer();
+  const { data: doc, error: e1 } = await db.from('landing_docs').select('id').eq('id', docId).eq('workspace_id', ws).maybeSingle();
+  if (e1) throw new Error(`No pude leer la landing ${docId}: ${e1.message}`);
+  if (!doc) return null;
+  const n = Number.isFinite(dias) ? Math.min(Math.max(Math.trunc(dias), 1), 400) : DIAS_RECHAZOS_PAGO;
+  // El día de la base es UTC (`(now() at time zone 'utc')::date`, mig 0282): el corte también.
+  const desde = new Date(Date.now() - (n - 1) * 86_400_000).toISOString().slice(0, 10);
+  const { data, error } = await db.from('landing_pago_rechazos').select('dia, motivo, n').eq('doc_id', docId).gte('dia', desde).limit(2_000);
+  if (faltaElRastro(error)) return { ...resumirRechazos([]), desde, sinTabla: true };
+  if (error) throw new Error(`No pude leer los rechazos de la landing ${docId}: ${error.message}`);
+  return { ...resumirRechazos((data ?? []) as FilaRechazoPago[]), desde, sinTabla: false };
 }

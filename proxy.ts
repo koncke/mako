@@ -22,7 +22,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { SESSION_COOKIE, gateConfigurado, verificarToken } from './lib/auth-session';
 import { WS_HEADER, WS_PARAM, parseWs } from './lib/ws-tab';
 import { esPublica, esPublicaSoloLeer, decidirRutaAlumno } from './lib/rutas-publicas';
-import { HEADER_DOMINIO, RUTA_DOMINIO, decidirHost, hostDeCabecera, paginaNoExisteDominio, tipoDeHost } from './lib/editor-landing/dominios-reglas';
+import { HEADER_DOMINIO, RUTA_DOMINIO, consultaDelDominio, decidirHost, hostDeCabecera, paginaNoExisteDominio, tipoDeHost } from './lib/editor-landing/dominios-reglas';
 import { decidirLEnApp, decidirLandings, redireccionEnElHost } from './lib/editor-landing/origen-landings';
 import { MOVIL_ACTIVO, pedidoMovil } from './lib/movil-desvio';
 import { VISTA_COOKIE, tipoDeDispositivo, vaAMovil } from './lib/movil-dispositivo';
@@ -149,10 +149,14 @@ function paginaMudanza(destino: string): string {
 // La consulta host → landing NO va acá: necesita la base, y el proxy es síncrono (su forma es un
 // contrato: tests/alumno-sesion.test.ts lo ejecuta y lee `.status` sin `await`). La decisión que sí
 // va acá es pura y tiene test (tests/editor-landing-dominios.test.ts).
+//
+// El PASO DE PAGO también se sirve en el dominio (Paquete 2 de la tanda 6): `/pagar/<producto>` se
+// reescribe a la misma ruta interna (que resuelve el slug de ESTE dominio), y el POST de su formulario
+// pasa sólo con un `Origin` ausente o de este host — el contrato de hola-mako.site (`respuestaLandings`).
 function respuestaDominioPropio(req: NextRequest, pathname: string): NextResponse | null {
   if (process.env.VERCEL_ENV !== 'production') return null;
   const hostCrudo = req.headers.get('host');
-  const d = decidirHost(hostCrudo, pathname, req.method);
+  const d = decidirHost(hostCrudo, pathname, req.method, req.headers.get('origin'));
   if (d.tipo === 'app') return null;
   const host = hostDeCabecera(hostCrudo);
   // La cabecera del dominio la pone el proxy PISANDO la que traiga el pedido; la del workspace, nunca.
@@ -163,11 +167,12 @@ function respuestaDominioPropio(req: NextRequest, pathname: string): NextRespons
     return headers;
   };
   switch (d.tipo) {
-    case 'sitio': {
+    case 'sitio':
+    case 'pago': {
+      // La query la arma el proxy desde cero (`consultaDelDominio`): la del visitante no viaja.
       const u = req.nextUrl.clone();
       u.pathname = RUTA_DOMINIO;
-      u.search = '';
-      u.searchParams.set('ruta', d.ruta);
+      u.search = consultaDelDominio(d);
       return NextResponse.rewrite(u, { request: { headers: conDominio() } });
     }
     case 'pasar':
@@ -177,6 +182,8 @@ function respuestaDominioPropio(req: NextRequest, pathname: string): NextRespons
       return redirigirEnElHost(req, d.destino);
     case 'metodo':
       return new NextResponse('Method Not Allowed', { status: 405, headers: { allow: 'GET, HEAD' } });
+    case 'prohibido':
+      return new NextResponse('Forbidden', { status: 403, headers: { 'cache-control': 'no-store', 'x-robots-tag': 'noindex, nofollow' } });
     default:
       return noExisteFueraDeLaApp();
   }

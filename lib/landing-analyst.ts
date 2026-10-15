@@ -26,6 +26,9 @@ import { contenidoNoConfiable, getPromptText, renderPrompt } from './prompt-rend
 import { getFunnelDefault } from './funnels';
 import { perfilNegocioTexto } from './onboarding';
 import { extraerLanding, normalizarUrl, type LandingExtraida } from './landing-fetch';
+import { bloqueadaParaGuardar } from './landing-extraer';
+import { LINEA_LEIDA_EN_NAVEGADOR, lineasProbadas, mensajeEnNavegador, motivoDeError } from './editor-landing/lectura-reglas';
+import type { Lectura, MotivoEnNavegador } from './editor-landing/lectura-tipos';
 import { esPreviewDeEditor } from './landing-paginas';
 import { analisisCortado, visitasDeLaLanding } from './landing-url';
 // La profundidad del VSL NO se calcula acá: se reusa el módulo que ya resolvió
@@ -359,10 +362,20 @@ async function buildUserPrompt(pagina: LandingExtraida, comp: LandingComportamie
   // El título y la meta descripción los escribe QUIEN HIZO LA PÁGINA, igual que
   // el cuerpo: van delimitados como contenido no confiable. Sueltos eran el
   // hueco obvio para meterle instrucciones al modelo desde un <title>.
+  //
+  // Tanda 6: una página LEÍDA EN EL NAVEGADOR de la persona (el lector del Diagnóstico) suma esa línea
+  // —la escribimos nosotros— y lo que el lector probó (a dónde lleva cada botón, si el calendario
+  // cargó), que sale de la página: va delimitado como no confiable, igual que el copy.
+  const navegador = pagina.leidaEnNavegador;
+  const probado = navegador ? lineasProbadas(navegador) : [];
   const meta = [
     `URL: ${pagina.url}`,
     pagina.urlFinal !== pagina.url ? `Redirige a: ${pagina.urlFinal}` : null,
     `Palabras de copy leídas: ${pagina.palabras}`,
+    navegador ? LINEA_LEIDA_EN_NAVEGADOR : null,
+    navegador
+      ? contenidoNoConfiable(probado.length ? probado.join('\n') : '(no encontró botones, desplegables ni calendarios para probar)', 'probado_en_navegador')
+      : null,
     contenidoNoConfiable(
       [`Título: ${pagina.titulo || '(sin <title>)'}`, pagina.descripcion ? `Meta descripción: ${pagina.descripcion}` : null]
         .filter(Boolean).join('\n'),
@@ -529,7 +542,7 @@ function filaAnalizada(p: LandingExtraida, comp: LandingComportamiento, a: Anali
     fetch_ms: p.fetchMs,
     html_bytes: p.htmlBytes,
     palabras: p.palabras,
-    bloqueada: p.bloqueada,
+    bloqueada: bloqueadaParaGuardar(p),
     error: null,
     model,
     analysis_version: ANALYSIS_VERSION,
@@ -596,8 +609,11 @@ export async function marcarAnalisisCortado(url: string, motivo = 'El análisis 
 
 export type AnalizarResultado =
   | { ok: true; row: LandingAnalysisRow }
-  /** `pegable`: la página no se puede leer sola, pero pegando el texto sí se analiza. */
-  | { ok: false; error: string; url: string; pegable?: boolean };
+  /**
+   * `pegable`: la página no se puede leer sola, pero pegando el texto sí se analiza. `enNavegador` +
+   * `motivo` (tanda 6): y leyéndola en el navegador de la persona también (lectura-tipos.ts).
+   */
+  | { ok: false; error: string; url: string; pegable?: boolean; enNavegador?: true; motivo?: MotivoEnNavegador };
 
 /**
  * La página que se arma en el navegador NO es un caso de borde: es el caso
@@ -609,7 +625,7 @@ export type AnalizarResultado =
  * dejar al dueño en un callejón sin salida con su propia landing.
  */
 const MSG_SPA = (palabras: number) =>
-  `Esta página se arma entera en el navegador: al descargarla solo vienen ${palabras} palabras, no hay texto que leer en el HTML. Pega el contenido de tu página y MaKo la analiza igual.`;
+  `Esta página se arma entera en el navegador: al descargarla solo vienen ${palabras} palabras, no hay texto que leer en el HTML. Léela desde tu navegador o pega su texto, y MaKo la analiza igual.`;
 
 /**
  * El camino completo de UNA landing: bajar → cruzar → analizar → persistir.
@@ -620,8 +636,26 @@ const MSG_SPA = (palabras: number) =>
  * sola. Se saltea la DESCARGA, no el resto: el cruce con el comportamiento real
  * se hace igual, y la fila queda con `bloqueada: true` para no olvidar que ese
  * copy no salió de la página (la pantalla lo dice).
+ *
+ * Tanda 6 (pedido de Martín, 14/10/2026: «El mimso error que nos saltaba con
+ * Mauricio "No pude leer el texto de esa página". Soluciona eso...»):
+ *   · `opts.lectura`: la página LEÍDA en el navegador de la persona (el lector del
+ *     Diagnóstico, ya saneada con `sanearLectura`). También saltea la descarga, y
+ *     el `meta` dice que se leyó así y qué se probó. En la página `bloqueada` es
+ *     false (no hay por qué frenar el análisis), y en la FILA va null
+ *     (`bloqueadaParaGuardar`, landing-extraer.ts): si el server la lee o no, no
+ *     lo sabemos. Antes guardaba false, que afirmaba «el server la lee» sin probarlo.
+ *   · `opts.leer`: la dirección TAL CUAL la pegó la persona, para BAJAR (con su
+ *     www: hay hosts que sólo existen con www). La normalizada sigue siendo la
+ *     llave de la fila; si `leer` no es la misma página, se ignora.
+ *   · una página que no se lee desde el server (sin texto en el HTML, o que nos
+ *     contesta 401/403/429) vuelve con `enNavegador` y su `motivo`.
  */
-export async function analizarLanding(urlInput: string, copyManual?: string, opts: { origen?: 'auto' } = {}): Promise<AnalizarResultado> {
+export async function analizarLanding(
+  urlInput: string,
+  copyManual?: string,
+  opts: { origen?: 'auto'; lectura?: Lectura; leer?: string } = {},
+): Promise<AnalizarResultado> {
   let url: string;
   try { url = normalizarUrl(urlInput); }
   catch { return { ok: false, error: 'Esa no es una dirección válida. Pega la URL completa de tu landing.', url: urlInput }; }
@@ -630,7 +664,19 @@ export async function analizarLanding(urlInput: string, copyManual?: string, opt
   const palabrasDe = (t: string) => t.split(/\s+/).filter(Boolean).length;
   let pagina: LandingExtraida;
 
-  if (manual) {
+  if (opts.lectura) {
+    const texto = opts.lectura.texto.trim();
+    if (palabrasDe(texto) < 40) {
+      return { ok: false, error: 'Tu navegador encontró muy poco texto en esa página para diagnosticarla. Pega el contenido completo, de arriba a abajo.', url, pegable: true };
+    }
+    pagina = {
+      url, urlFinal: url, titulo: '', descripcion: '', bloques: [],
+      texto, palabras: palabrasDe(texto),
+      htmlBytes: 0, fetchMs: 0,
+      bloqueada: false,   // en la fila va null: `bloqueadaParaGuardar`
+      leidaEnNavegador: { interacciones: opts.lectura.interacciones },
+    };
+  } else if (manual) {
     if (palabrasDe(manual) < 40) {
       return { ok: false, error: 'Ese texto es muy corto para diagnosticar la página. Pega el contenido completo, de arriba a abajo.', url, pegable: true };
     }
@@ -641,12 +687,17 @@ export async function analizarLanding(urlInput: string, copyManual?: string, opt
       bloqueada: true,   // la página sigue sin poder leerse sola: no se olvida
     };
   } else {
+    // La que pegó la persona, si es la MISMA página que la llave (si no, la llave).
+    const leer = (() => { try { return opts.leer && normalizarUrl(opts.leer) === url ? opts.leer : null; } catch { return null; } })();
     try {
-      pagina = await extraerLanding(url);
+      pagina = await extraerLanding(leer ?? url, leer ? { talCual: true } : {});
+      // La fila guarda la llave, no la dirección con www o query que se bajó.
+      pagina = { ...pagina, url };
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
+      const motivo = motivoDeError(err);
+      const msg = motivo ? mensajeEnNavegador(motivo) : err instanceof Error ? err.message : String(err);
       await guardarFallo(url, msg).catch(() => { /* si ni guardar se puede, igual devolvemos el error */ });
-      return { ok: false, error: msg, url };
+      return { ok: false, error: msg, url, ...(motivo ? { pegable: true as const, enNavegador: true as const, motivo } : {}) };
     }
 
     if (pagina.bloqueada) {
@@ -655,7 +706,7 @@ export async function analizarLanding(urlInput: string, copyManual?: string, opt
         url_final: pagina.urlFinal, titulo: pagina.titulo || null,
         fetch_ms: pagina.fetchMs, html_bytes: pagina.htmlBytes, palabras: pagina.palabras, bloqueada: true,
       }).catch(() => { /* la fila es trazabilidad: el error ya se devuelve igual */ });
-      return { ok: false, error: msg, url, pegable: true };
+      return { ok: false, error: msg, url, pegable: true, enNavegador: true, motivo: 'se-arma-en-navegador' };
     }
   }
 
@@ -664,7 +715,7 @@ export async function analizarLanding(urlInput: string, copyManual?: string, opt
   if (!res.ok) {
     await guardarFallo(url, res.error, {
       url_final: pagina.urlFinal, titulo: pagina.titulo || null,
-      fetch_ms: pagina.fetchMs, html_bytes: pagina.htmlBytes, palabras: pagina.palabras, bloqueada: pagina.bloqueada,
+      fetch_ms: pagina.fetchMs, html_bytes: pagina.htmlBytes, palabras: pagina.palabras, bloqueada: bloqueadaParaGuardar(pagina),
     }).catch(() => { /* la fila es trazabilidad: el error ya se devuelve igual */ });
     return { ok: false, error: res.error, url };
   }

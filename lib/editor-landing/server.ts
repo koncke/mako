@@ -39,9 +39,11 @@ import { sanearContenido, sanearConfig, excedeTope } from './validar';
 import { sanearTemaPropio } from './temas';
 import { specADoc } from './spec-a-doc';
 import { soltarDominioDeVercel } from './dominios';
+import { dominioDeLectura, dominioQueSirve } from './dominios-reglas';
 import type { EstadoCobroLanding } from './pago-landing';
 import {
   MOTIVO, TOPE_VERSIONES_AUTO, TOPE_TEMAS, CLAVE_TEMAS, cambiosSinPublicar, candidatosSlug, esUrlMedida,
+  resumenAntesDeDespublicar, type AntesDeDespublicar,
   idValido, mezclarConfig, motivoSlugInvalido, prefiltroVisitas, primeraLibre, puedeBorrarse,
   sanearMotivo, sanearTemasPropios, sanearTitulo, slugPedido, tarjetaIdValido, esComentarioPropio, puedeBorrarComentario,
   tocaVersionAutomatica, urlsAMedir, visitasPorDia,
@@ -142,12 +144,13 @@ export const COLS_DOC = 'id, workspace_id, titulo, contenido, config, version, s
 // `dominio`/`dominio_estado` (mig 0263, tanda 4): el Panel reconoce como NUESTRA una página analizada en
 // el dominio propio de una landing. Medido el 14/10/2026: la columna existe en producción (la ruta del
 // dominio la consulta por cada host ajeno y contestó 404, no 503).
-const COLS_RESUMEN = 'id, titulo, tema:config->>tema, formato:config->>formato, proporcion:config->>proporcion, created_at, updated_at, creado_por_nombre, favorito, carpeta, papelera_at, slug, publicado_at, dominio, dominio_estado, primera:contenido->paginas->0->doc->content->0';
+const COLS_RESUMEN = 'id, titulo, tema:config->>tema, formato:config->>formato, proporcion:config->>proporcion, created_at, updated_at, creado_por_nombre, favorito, carpeta, papelera_at, slug, publicado_at, dominio, dominio_estado, origen_modo:config->origen->>modo, basado_en:config->origen->>basadoEnUrl, primera:contenido->paginas->0->doc->content->0';
 
 type FilaResumen = {
   id: number; titulo: string; tema: string | null; formato: string | null; proporcion: string | null; created_at: string; updated_at: string;
   creado_por_nombre: string | null; favorito: boolean; carpeta: string | null; papelera_at: string | null;
-  slug: string | null; publicado_at: string | null; dominio?: string | null; dominio_estado?: string | null; primera: unknown;
+  slug: string | null; publicado_at: string | null; dominio?: string | null; dominio_estado?: string | null;
+  origen_modo?: string | null; basado_en?: string | null; primera: unknown;
 };
 
 const esNodo = (v: unknown): v is JsonNodo => !!v && typeof v === 'object' && typeof (v as { type?: unknown }).type === 'string';
@@ -166,12 +169,14 @@ function aResumen(f: FilaResumen): LandingResumen {
     slug: f.slug,
     publicadoAt: f.publicado_at,
     // Sólo el VERIFICADO: uno pendiente todavía no sirve nada, y otra cuenta se lo puede quitar.
-    dominio: f.dominio_estado === 'verificado' && typeof f.dominio === 'string' && f.dominio ? f.dominio : null,
+    dominio: dominioQueSirve(f),
     primera: esNodo(f.primera) ? f.primera : null,
     // T1/T3: el ícono del renglón del Panel y la forma de la miniatura. Sin el campo (lo guardado
     // antes de la tanda 2) es una página: las mismas funciones que `sanearConfig`.
     formato: formatoDe(f),
     proporcion: proporcionDe(f),
+    // De qué página de afuera es copia (Replicar guarda `origen: { modo: 'importar', basadoEnUrl }`).
+    replicaDe: f.origen_modo === 'importar' && typeof f.basado_en === 'string' && f.basado_en ? f.basado_en : null,
   };
 }
 
@@ -570,6 +575,32 @@ export async function borrar(idRaw: unknown): Promise<Resultado<'borrar'>> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Antes de despublicar (lo que la API le dice a quien confirma)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** La forma vive en server-reglas.ts (pura, con `resumenAntesDeDespublicar`, que el test ejecuta). */
+export type { AntesDeDespublicar };
+
+/**
+ * Paquete 2 de la tanda 6 (lo que quedó de la tanda 4 de la API): el resumen de `despublicar_landing`
+ * sólo nombraba la URL de MaKo y callaba dos cosas: que el DOMINIO PROPIO también deja de mostrarla (su
+ * ruta sirve lo publicado, y despublicar lo borra) y que volver a publicar sube lo GUARDADO (publicar
+ * promueve el borrador), no lo que se despublicó. Esto es el motor; el texto y el runner son de la API.
+ *
+ * El dominio va en un select APARTE (`dominioDeLectura`): sin la mig 0263 la columna no existe (42703,
+ * se tolera como en `borrar`) y una columna que falta en el mismo select tiraría la lectura entera.
+ * ⚠️ Sólo LEE la fila: nunca `estadoDominio`, que sale a Vercel y al DNS y puede ESCRIBIR (verifica un
+ * pendiente). null = no existe (o es de otro negocio); un error de base TIRA.
+ */
+export async function antesDeDespublicar(ws: number, id: number): Promise<AntesDeDespublicar | null> {
+  const f = await leerFilaDoc(ws, id, 'id, version, publicado_at, publicado_version');
+  if (!f) return null;
+  const db = await getTenantDb();
+  const { data, error } = await db.from('landing_docs').select('dominio, dominio_estado').eq('workspace_id', ws).eq('id', id).maybeSingle();
+  return resumenAntesDeDespublicar(f, dominioDeLectura(data, error));
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Versiones
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -924,6 +955,17 @@ export async function analitica(idRaw: unknown): Promise<Resultado<'analitica'>>
     if (eA) throw new Error(eA.message);
 
     const tz = await tzDeWorkspace(ws);
+    // Los rechazos del Botón de pago (verificación de la tanda 6: el Paquete 3 los contaba y nadie los
+    // mostraba). Import dinámico, como `cobro`: pago-landing-server.ts importa de acá. Si la lectura falla
+    // o falta la mig 0282, null: la tarjeta no dibuja nada, nunca un cero que no se sabe.
+    let rechazosPago: Analitica['rechazosPago'] = null;
+    try {
+      const { rechazosDePago } = await import('./pago-landing-server');
+      const r = await rechazosDePago(ws, id, DIAS_ANALITICA);
+      rechazosPago = r && !r.sinTabla ? { total: r.total, dias: DIAS_ANALITICA } : null;
+    } catch (e) {
+      console.warn(`[landing analitica] no pude leer los rechazos del pago de la landing ${id}: ${msg(e)}`);
+    }
     return {
       ok: true,
       analitica: {
@@ -935,6 +977,7 @@ export async function analitica(idRaw: unknown): Promise<Resultado<'analitica'>>
         porDia: visitasPorDia(fechas, hoyEnTz(tz), DIAS_ANALITICA, tz),
         alcancePorSeccion: null,
         enAnalyst: (analizadas ?? []).length > 0,
+        rechazosPago,
       },
     };
   } catch (e) {

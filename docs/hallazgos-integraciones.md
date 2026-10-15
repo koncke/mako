@@ -886,3 +886,19 @@ Las primeras fuentes del Leads Scraper (`docs/diseno-leads-scraper.md`). Lo que 
   pide una pantalla y una operación de la API: decisión pendiente (`docs/diseno-leads-scraper.md`, §9).
 - **No hay aviso al equipo** cuando entra un lead por Hotmart o Skool (Meta tiene `lead-formulario-meta`).
   Va como un Evento de MaKo en Automations, no escondido en el webhook.
+
+## Una pestaña que MaKo abre vacía (`about:blank`) es del MISMO ORIGEN que hola-mako.com (14/10/2026)
+
+«Probar» del Pixel (`app/integraciones/ProbarTracking.tsx`) abre la pestaña de la landing en el clic, vacía, para no
+perder el gesto (Chrome deja abrir UNA ventana por clic sin permiso de emergentes; docs/hallazgos-editor-landing.md →
+«Tanda 6»). **El diagnóstico obvio («es un link a una página de afuera, no pasa nada») era el equivocado:** esa pestaña
+hereda el origen de MaKo hasta que navega, así que navegarla con lo que escribió la persona corre un `javascript:…`
+como si fuera MaKo (self-XSS). Y era peor: la ventana de la prueba recibe la landing por `?l=`, así que un link armado
+podía dejar un `javascript:` a un clic de «Probar». Además «tu-pagina.com» sin esquema se abría RELATIVA a MaKo (un
+404 nuestro).
+
+**Regla:** una pestaña que MaKo abre vacía se navega sólo con http(s) validado con `new URL` (sin esquema se asume
+https), y se valida ANTES de abrir nada. Vive en `lib/landing-paginas.ts` (`urlParaAbrir`) y `ProbarTracking.tsx`
+(`af8a5aca7`).
+
+*15/10/2026, chat «Landing Generator» (`claude1`).*

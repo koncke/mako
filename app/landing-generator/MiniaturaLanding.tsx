@@ -97,23 +97,17 @@ export function haceCuanto(fecha: string | number, ahora: number): string {
 export { hostDe } from './panel-reglas';
 
 /**
- * La caja «¿Qué quieres crear?» del Panel le pasa el pedido a Crear por sessionStorage y no
+ * La caja «¿Qué quieres crear?» del Panel le pasaba el pedido a Crear por sessionStorage y no
  * por la URL: el pedido puede ser largo y trae datos del negocio, y una URL queda en el
  * historial y en los logs de cada request. Se consume UNA vez (se borra al leer) y vence a
  * los 10 minutos: un F5 en Crear no vuelve a disparar una generación.
+ * Tanda 6 (14/10/2026): Crear se abre a la derecha del Panel y el pedido le llega EN MEMORIA
+ * (`ArranqueIA`, panel-reglas.ts), así que nadie lo DEJA más acá. `tomarCaja` queda para el link
+ * de una pestaña con la pantalla de antes durante el deploy (`?desde=caja`, que /crear redirige).
  */
 const CLAVE_CAJA = 'gp.crear.caja';
 const VIDA_CAJA_MS = 10 * 60_000;
 export type PedidoCaja = { prompt: string; modo: 'plan' | 'express' };
-
-export function dejarCaja(p: PedidoCaja): boolean {
-  try {
-    window.sessionStorage.setItem(CLAVE_CAJA, JSON.stringify({ ...p, t: Date.now() }));
-    return true;
-  } catch {
-    return false;
-  }
-}
 
 export function tomarCaja(): PedidoCaja | null {
   try {
@@ -522,8 +516,9 @@ export function useAviso(): { avisar: (texto: string, deshacer?: () => void) => 
 /**
  * «Del generador anterior»: los borradores de landing_drafts, convertidos (specADoc, del lado
  * del server) al abrirlos. Vivía en el Panel detrás de «Importar ▾»; la tanda 2 sacó esa fila de
- * botones (T1: «Muchos botones a la derecha»), así que se ofrece desde la caja de crear (el «+»)
- * y vive acá, en lo común del Panel y de Crear.
+ * botones (T1: «Muchos botones a la derecha») y pasó al «+» de la caja de crear. La tanda 6
+ * (Martín: «elimina todas las opciones actuales dentro del "+"») lo llevó a la galería de
+ * Plantillas del Panel (Inicio.tsx). Vive acá, en lo común del Panel y de Crear.
  */
 export function DialogoBorradores({ onCerrar, ws, ahora }: { onCerrar: () => void; ws: number | null; ahora: number }) {
   const [borradores, setBorradores] = useState<BorradorViejo[] | null>(null);

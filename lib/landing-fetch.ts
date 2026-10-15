@@ -20,6 +20,14 @@
 //   4. Techo de tamaño y de tiempo: no se lee un stream infinito.
 // El resultado NUNCA es confiable: lo envuelve contenidoNoConfiable() antes de
 // llegar al prompt (lib/landing-analyst.ts).
+//
+// Tanda 6 (14/10/2026, pedido de Martín: «El mimso error que nos saltaba con
+// Mauricio "No pude leer el texto de esa página". Soluciona eso...»): el
+// extractor se mudó a lib/landing-extraer.ts (puro, con test) y acá quedan la
+// red y sus topes. Lo que cambió de la red, medido: cabeceras de hasta 64 KB,
+// páginas de hasta 5 MB, y una página que nos rechaza (401/403/429) tira un
+// `ErrorDeLectura` con su código, para que quien la pidió ofrezca leerla en el
+// navegador de la persona en vez de decir que no existe.
 // =============================================================================
 
 import 'server-only';
@@ -28,19 +36,29 @@ import { isIP, type LookupFunction } from 'node:net';
 import { request as pedidoHttps } from 'node:https';
 import { request as pedidoHttp } from 'node:http';
 import { normalizarUrl, urlTalCual } from './landing-url';
+import { copyDeHtml, ErrorDeLectura, type LandingExtraida } from './landing-extraer';
 
-/** Techo de descarga: una landing de texto no pesa más que esto. */
-const MAX_BYTES = 2_000_000;
+// Los tipos y el extractor viven en landing-extraer.ts (puro); se re-exportan: quien ya importaba de
+// acá sigue igual.
+export type { BloqueLanding, LandingExtraida } from './landing-extraer';
+export { ErrorDeLectura, bloqueaLaLectura } from './landing-extraer';
+
+/**
+ * Techo de descarga. Eran 2 MB y una página de precios con su megamenú y sus tablas ya pesa 1,1 MB de
+ * HTML (medido el 14/10/2026); 5 MB deja aire sin dejar leer un stream infinito (se corta MIENTRAS
+ * se lee, ver `pedirPagina`).
+ */
+const MAX_BYTES = 5_000_000;
+/**
+ * Techo de las cabeceras de la respuesta. Node corta en 16 KB con «Header overflow» y hay sitios que
+ * mandan más: webflow.com/pricing manda ~17,5 KB (medido el 14/10/2026: con 16 KB, HPE_HEADER_OVERFLOW;
+ * con 64 KB, 200). El error salía como «No se pudo conectar con la página», que es otra cosa.
+ */
+const MAX_CABECERAS = 65_536;
 /** Timeout de red por salto. */
 const TIMEOUT_MS = 15_000;
 /** Máximo de redirects que seguimos a mano. */
 const MAX_REDIRECTS = 5;
-/**
- * Debajo de esto asumimos que la página no se renderiza en el server (SPA de
- * Framer/Lovable/React que pinta todo en el cliente): tenemos HTML pero no
- * mensaje, y analizar eso da un diagnóstico inventado.
- */
-const MIN_PALABRAS = 60;
 
 const UA = 'Mozilla/5.0 (compatible; MaKoLandingAnalyst/1.0; +https://hola-mako.com)';
 
@@ -180,6 +198,7 @@ function pedirPagina(url: URL, ips: string[]): Promise<RespuestaCruda> {
       method: 'GET',
       headers: { 'user-agent': UA, accept: 'text/html,application/xhtml+xml' },
       lookup: lookupClavado(ips),
+      maxHeaderSize: MAX_CABECERAS,
       ...(esHttps ? { servername: url.hostname } : {}),
     }, (res) => {
       const trozos: Buffer[] = [];
@@ -233,9 +252,11 @@ async function bajarHtml(url: string): Promise<{ html: string; final: string; by
       continue;
     }
     if (res.status < 200 || res.status >= 300) {
-      throw new Error(res.status === 403 || res.status === 401
+      // Con el código: `bloqueaLaLectura` (landing-extraer.ts) separa «no nos deja leerla» (en el
+      // navegador de la persona sí abre) de «no existe» (404) o «está caída» (5xx).
+      throw new ErrorDeLectura(res.status === 403 || res.status === 401 || res.status === 429
         ? `La página respondió ${res.status}: está bloqueando la lectura automática.`
-        : `La página respondió ${res.status}.`);
+        : `La página respondió ${res.status}.`, res.status);
     }
     if (res.contentType && !/text\/html|application\/xhtml|text\/plain/i.test(res.contentType)) {
       throw new Error(`Esa dirección no devuelve una página web (content-type: ${res.contentType.split(';')[0]}).`);
@@ -255,101 +276,19 @@ async function bajarHtml(url: string): Promise<{ html: string; final: string; by
  * (sin rebinding), el tope de tamaño mientras se lee y el plazo. Lo usa el aviso del
  * Pixel para leer qué versión del código va a recibir el próximo visitante
  * (`lib/pixel-servido.ts`). Tira si no se pudo bajar: «no pude leer» no es un valor.
+ *
+ * `talCual` (tanda 6): baja EXACTAMENTE la URL pegada, con su www y su querystring. Lo usa «Replicar»:
+ * `normalizarUrl` le saca el www, y hay hosts que sólo existen con www (la copia daba «no se pudo
+ * resolver el dominio» de una página que abre). La URL normalizada es la LLAVE de landing_analyses,
+ * no una dirección para bajar.
  */
-export async function htmlDePagina(urlInput: string): Promise<string> {
-  return (await bajarHtml(normalizarUrl(urlInput))).html;
+export async function htmlDePagina(urlInput: string, opts: { talCual?: boolean } = {}): Promise<string> {
+  return (await bajarHtml(opts.talCual ? urlTalCual(urlInput) : normalizarUrl(urlInput))).html;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Extracción del copy
+// Extracción del copy (lo puro vive en landing-extraer.ts, con test)
 // ─────────────────────────────────────────────────────────────────────────────
-
-/** Bloques que no son mensaje: se sacan enteros antes de leer nada. */
-const RUIDO = /<(script|style|noscript|svg|iframe|template|head)\b[^>]*>[\s\S]*?<\/\1>/gi;
-const COMENTARIOS = /<!--[\s\S]*?-->/g;
-
-const ENTIDADES: Record<string, string> = {
-  amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ', ndash: '–', mdash: '—',
-  hellip: '…', laquo: '«', raquo: '»', ldquo: '"', rdquo: '"', lsquo: "'", rsquo: '’', aacute: 'á',
-  eacute: 'é', iacute: 'í', oacute: 'ó', uacute: 'ú', ntilde: 'ñ', Ntilde: 'Ñ', uuml: 'ü', iexcl: '¡', iquest: '¿',
-};
-
-function decodificar(s: string): string {
-  return s
-    .replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCodePoint(parseInt(h, 16)))
-    .replace(/&#(\d+);/g, (_, d) => String.fromCodePoint(Number(d)))
-    .replace(/&([a-z]+);/gi, (m, n) => ENTIDADES[n] ?? ENTIDADES[n.toLowerCase()] ?? m);
-}
-
-function limpiar(s: string): string {
-  return decodificar(s.replace(/<[^>]+>/g, ' ')).replace(/\s+/g, ' ').trim();
-}
-
-/** Un bloque de copy en el orden en que lo lee un visitante. */
-export type BloqueLanding = {
-  /** h1 | h2 | h3 | texto | cta | lista */
-  tipo: 'h1' | 'h2' | 'h3' | 'texto' | 'cta' | 'lista';
-  texto: string;
-};
-
-export type LandingExtraida = {
-  url: string;
-  urlFinal: string;
-  titulo: string;
-  descripcion: string;
-  bloques: BloqueLanding[];
-  /** El copy plano, listo para el prompt. */
-  texto: string;
-  palabras: number;
-  htmlBytes: number;
-  fetchMs: number;
-  /** true = hay HTML pero casi nada de texto (SPA que renderiza en el cliente). */
-  bloqueada: boolean;
-};
-
-/** Etiquetas que aportan copy, en un solo barrido para conservar el ORDEN. */
-const RE_BLOQUE = /<(h1|h2|h3|p|li|button|a)\b([^>]*)>([\s\S]*?)<\/\1>/gi;
-
-/** Un <a> solo cuenta como CTA si parece un botón (clase/rol) o es texto corto de acción. */
-const RE_CTA_CLASE = /\b(btn|button|cta|action)\b/i;
-const RE_CTA_TEXTO = /^(agenda|reserva|solicita|quiero|empez|comenz|descarg|regist|contrat|compr|apl(i|í)ca|hablemos|ver\s|cont(a|á)ct|book|get|start|schedule)/i;
-
-function extraerBloques(html: string): BloqueLanding[] {
-  const out: BloqueLanding[] = [];
-  const vistos = new Set<string>();
-  let m: RegExpExecArray | null;
-  RE_BLOQUE.lastIndex = 0;
-  while ((m = RE_BLOQUE.exec(html)) !== null) {
-    const tag = m[1].toLowerCase();
-    const attrs = m[2] ?? '';
-    const texto = limpiar(m[3]);
-    if (!texto || texto.length < 2) continue;
-    if (texto.length > 1200) continue;                 // contenedor gigante: no es un bloque de copy
-
-    let tipo: BloqueLanding['tipo'];
-    if (tag === 'h1' || tag === 'h2' || tag === 'h3') tipo = tag;
-    else if (tag === 'button') tipo = 'cta';
-    else if (tag === 'a') {
-      const esCta = RE_CTA_CLASE.test(attrs) || (texto.length <= 40 && RE_CTA_TEXTO.test(texto));
-      if (!esCta) continue;                             // link de navegación / legales → ruido
-      tipo = 'cta';
-    } else if (tag === 'li') tipo = 'lista';
-    else tipo = 'texto';
-
-    // Dedup: los menús y footers repiten el mismo texto muchas veces.
-    const clave = `${tipo}:${texto.toLowerCase()}`;
-    if (vistos.has(clave)) continue;
-    vistos.add(clave);
-    out.push({ tipo, texto });
-  }
-  return out;
-}
-
-function meta(html: string, nombre: string): string {
-  const re = new RegExp(`<meta[^>]+(?:name|property)=["']${nombre}["'][^>]*>`, 'i');
-  const tag = html.match(re)?.[0] ?? '';
-  return limpiar(tag.match(/content=["']([^"']*)["']/i)?.[1] ?? '');
-}
 
 /**
  * Baja la landing y le extrae el copy. NO tira por errores de la página: los
@@ -366,31 +305,5 @@ export async function extraerLanding(
   // La baranda SSRF no cambia: `bajarHtml` revalida el destino en cada salto, venga como venga la URL.
   const url = opts.talCual ? urlTalCual(urlInput) : normalizarUrl(urlInput);
   const { html, final, bytes } = await bajarHtml(url);
-
-  const limpio = html.replace(COMENTARIOS, ' ').replace(RUIDO, ' ');
-  // OJO: el <title> se busca en el HTML ORIGINAL, no en `limpio`. RUIDO elimina
-  // el <head> entero (ahí viven scripts y estilos), y con él se llevaba puesto
-  // el título — medido: example.com devolvía titulo:''.
-  const titulo = limpiar(html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] ?? '')
-    || meta(html, 'og:title');
-  const descripcion = meta(html, 'description') || meta(html, 'og:description');
-  const bloques = extraerBloques(limpio);
-
-  const texto = bloques
-    .map((b) => (b.tipo === 'cta' ? `[BOTÓN] ${b.texto}` : b.tipo === 'lista' ? `• ${b.texto}` : b.tipo.startsWith('h') ? `${'#'.repeat(Number(b.tipo[1]))} ${b.texto}` : b.texto))
-    .join('\n');
-  const palabras = texto.split(/\s+/).filter(Boolean).length;
-
-  return {
-    url,
-    urlFinal: final,
-    titulo,
-    descripcion,
-    bloques,
-    texto,
-    palabras,
-    htmlBytes: bytes,
-    fetchMs: Date.now() - t0,
-    bloqueada: palabras < MIN_PALABRAS,
-  };
+  return { url, urlFinal: final, ...copyDeHtml(html), htmlBytes: bytes, fetchMs: Date.now() - t0 };
 }

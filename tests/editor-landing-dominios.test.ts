@@ -46,6 +46,22 @@
 //
 // Tanda 4 (14/10/2026, hola-mako.site): base 25 / 0. Rota con el arnés de editor-landing-origen:
 //   · esHostDeMako sin hola-mako.site                             → 22 / 3 «validar…», «soltar de Vercel…», «los hosts de MaKo…»
+//
+// Paquete 2 de la tanda 6 (14/10/2026): el paso de pago EN el dominio y la reserva vencida. Una rotura por
+// vez con un arnés que restaura de MEMORIA (sha256 igual después), corriendo este archivo. Base: 30 / 0.
+//   · queFalta sin el aviso de la reserva vencida                 → 29 / 1 «qué falta: un pendiente cuya reserva venció…»
+//   · el aviso de vencida DESPUÉS de los registros                → 29 / 1 «qué falta: un pendiente cuya reserva venció…»
+//   · estadoDominio no le pasa la fecha del reclamo (null)        → 29 / 1 «qué falta: …» (sólo lo ve la lectura de la fuente)
+//   · el POST del pago pasa con cualquier Origin                  → 28 / 2 «decidirHost: el paso de pago…», «proxy: el paso de pago…»
+//   · sin la rama del POST del pago (404 como el resto de /api)   → 28 / 2 los mismos dos
+//   · sin la rama del paso (/pagar/<id> vuelve a ser 404)         → 28 / 2 los mismos dos
+//   · el paso sin la forma del id de SUBRUTAS_FIJAS               → 29 / 1 «decidirHost: el paso de pago…»
+//   · pedidoDelDominio acepta un bloque con cualquier ruta        → 29 / 1 «la query de la reescritura…»
+//   · el proxy no le pasa el Origin a decidirHost                 → 29 / 1 «proxy: el paso de pago…»
+//   · el proxy sin el caso 'prohibido' (cae en el 404)            → 29 / 1 «proxy: el paso de pago…»
+//   · el proxy deja viajar la query del visitante                 → 29 / 1 «proxy: el paso de pago…»
+//   · el paso del dominio sin comparar el docId                   → 29 / 1 «el paso en el dominio…»
+// Restaurado: 30 / 0.
 // =============================================================================
 
 import { test } from 'node:test';
@@ -54,11 +70,13 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { NextRequest } from 'next/server';
 import {
-  DOMINIO_RE, HEADER_DOMINIO, PATRON_HOSTS_DE_MAKO, PLAZO_PENDIENTE_MS, RUTA_DOMINIO, TOPE_PENDIENTES, apexDe, decidirHost,
-  esHostDeMako, estaVerificado, etiquetaDns, motivoDominioInvalido, motivoParaQuitarReclamo, normalizarDominio,
-  pendienteVencido, pendientesVigentes, puedeSoltarseDeVercel, queFalta, registrosDns, textoDominioOcupado,
-  type Comprobacion, type EntradaRegistros,
+  ACCION_RESERVA_VENCIDA, DOMINIO_RE, HEADER_DOMINIO, PATRON_HOSTS_DE_MAKO, PLAZO_PENDIENTE_MS, RUTA_DOMINIO, SUBRUTA_PAGO, TOPE_PENDIENTES, apexDe,
+  consultaDelDominio, decidirHost, esHostDeMako, estaVerificado, etiquetaDns, motivoDominioInvalido, motivoParaQuitarReclamo,
+  normalizarDominio, pedidoDelDominio, pendienteVencido, pendientesVigentes, puedeSoltarseDeVercel, queFalta, registrosDns,
+  textoDominioOcupado,
+  type Comprobacion, type EntradaRegistros, type PedidoDelDominio,
 } from '../lib/editor-landing/dominios-reglas';
+import { RUTA_PAGAR_LANDING, SUBRUTAS_FIJAS } from '../lib/editor-landing/origen-landings';
 import { WS_HEADER } from '../lib/ws-tab';
 import { proxy } from '../proxy';
 
@@ -293,6 +311,58 @@ test('decidirHost: en un dominio de cliente, sólo la landing', () => {
   for (const [host, ruta, metodo, esperado] of casos) assert.deepEqual(decidirHost(host, ruta, metodo), esperado, `${host} ${metodo} ${ruta}`);
 });
 
+// Paquete 2 de la tanda 6: el paso de pago se sirve EN el dominio (antes el botón sacaba al comprador a
+// hola-mako.site), y el POST de su formulario pasa con el contrato de hola-mako.site.
+test('decidirHost: el paso de pago y su POST, con la forma de SUBRUTAS_FIJAS y el Origin de ESE host', () => {
+  const D = 'promo.tunegocio.com';
+  assert.equal(SUBRUTA_PAGO in SUBRUTAS_FIJAS, true, 'la sub-ruta del pago es la de hola-mako.site');
+  const casos: [string, string, string | null, ReturnType<typeof decidirHost>][] = [
+    ['/pagar/12', 'GET', null, { tipo: 'pago', producto: '12' }],
+    ['/pagar/12', 'HEAD', null, { tipo: 'pago', producto: '12' }],
+    ['/pagar/012', 'GET', null, { tipo: 'no-existe' }],
+    ['/pagar/x', 'GET', null, { tipo: 'no-existe' }],
+    ['/pagar/12/otra', 'GET', null, { tipo: 'no-existe' }],
+    ['/Pagar/12', 'GET', null, { tipo: 'no-existe' }],
+    ['/gracias/12', 'GET', null, { tipo: 'no-existe' }],
+    ['/pagar/12', 'POST', null, { tipo: 'metodo' }],
+    // Una PÁGINA que se llama «pagar» sigue siendo una página.
+    ['/pagar', 'GET', null, { tipo: 'sitio', ruta: 'pagar' }],
+    [RUTA_PAGAR_LANDING, 'POST', `https://${D}`, { tipo: 'pasar' }],
+    [RUTA_PAGAR_LANDING, 'POST', `https://${D}/`, { tipo: 'pasar' }],
+    [RUTA_PAGAR_LANDING, 'POST', null, { tipo: 'pasar' }],
+    [RUTA_PAGAR_LANDING, 'POST', 'https://evil.com', { tipo: 'prohibido' }],
+    [RUTA_PAGAR_LANDING, 'POST', 'https://hola-mako.com', { tipo: 'prohibido' }],
+    [RUTA_PAGAR_LANDING, 'POST', `http://${D}`, { tipo: 'prohibido' }],
+    [RUTA_PAGAR_LANDING, 'POST', 'null', { tipo: 'prohibido' }],
+    [RUTA_PAGAR_LANDING, 'GET', null, { tipo: 'no-existe' }],
+    [`${RUTA_PAGAR_LANDING}/x`, 'POST', `https://${D}`, { tipo: 'no-existe' }],
+    ['/api/landing-generator/dominio', 'POST', `https://${D}`, { tipo: 'no-existe' }],
+  ];
+  for (const [ruta, metodo, origin, esperado] of casos) assert.deepEqual(decidirHost(D, ruta, metodo, origin), esperado, `${metodo} ${ruta} (${origin})`);
+  assert.deepEqual(decidirHost(`${D}:443`, RUTA_PAGAR_LANDING, 'POST', `https://${D}`), { tipo: 'pasar' }, 'el puerto del Host no cuenta');
+  // En un host de MaKo, el POST es de la app (la decide el gate, no esto).
+  assert.deepEqual(decidirHost('hola-mako.com', RUTA_PAGAR_LANDING, 'POST', 'https://evil.com'), { tipo: 'app' });
+});
+
+test('la query de la reescritura: lo que arma el proxy es lo que lee la ruta, y un «bloque» suelto no hace un pago', () => {
+  const pedidos: PedidoDelDominio[] = [{ tipo: 'sitio', ruta: '' }, { tipo: 'sitio', ruta: 'gracias' }, { tipo: 'sitio', ruta: SUBRUTA_PAGO }, { tipo: 'pago', producto: '12' }];
+  for (const p of pedidos) assert.deepEqual(pedidoDelDominio(new URLSearchParams(consultaDelDominio(p))), p, JSON.stringify(p));
+  assert.equal(consultaDelDominio({ tipo: 'pago', producto: '12' }), '?ruta=pagar&bloque=12');
+  assert.equal(pedidoDelDominio(new URLSearchParams('ruta=gracias&bloque=12')), null, 'el bloque sólo vale con ruta=pagar');
+  assert.equal(pedidoDelDominio(new URLSearchParams('ruta=pagar&bloque=012')), null, 'con la forma de SUBRUTAS_FIJAS');
+  assert.equal(pedidoDelDominio(new URLSearchParams('ruta=pagar&bloque=')), null);
+  assert.deepEqual(pedidoDelDominio(new URLSearchParams('')), { tipo: 'sitio', ruta: '' });
+});
+
+test('el paso en el dominio: sólo el de la landing de ESE dominio, con la misma decisión que app/l', () => {
+  const src = sinComentarios(leer('app/api/landing-generator/dominio/route.ts'));
+  const pedido = src.indexOf('const pedido = pedidoDelDominio(req.nextUrl.searchParams);');
+  assert.ok(pedido > 0 && pedido < src.indexOf('await landingDeDominio(host)'), 'la forma se mira ANTES de tocar la base');
+  assert.match(src, /if \(!pedido\) return respuestaError\(404, sinCuerpo\);/);
+  assert.match(src, /return responderPasoPago\(req, \{ slug, bloque: pedido\.producto \}, \{/);
+  assert.match(src, /const l = await leerLandingDePago\(slug\);\s*return l && l\.docId === docId \? l : null;/);
+});
+
 // ── Registros DNS y veredicto ────────────────────────────────────────────────────
 
 const base = (extra: Partial<EntradaRegistros>): EntradaRegistros => ({
@@ -351,6 +421,47 @@ test('qué falta: una frase, y un verificado no vuelve atrás (sólo avisa)', ()
   assert.equal(queFalta({ ...ok, mako: null }, true), null, 'verificado: el TXT ya se probó');
 });
 
+// Paquete 2 de la tanda 6 (pendiente chico de la tanda 2): la pestaña «Dominios» no avisaba que la reserva
+// de un pendiente venció. `comprobar` ahora le pasa la fecha del reclamo a `queFalta`.
+test('qué falta: un pendiente cuya reserva venció lo dice ANTES que los registros; un verificado no vence', () => {
+  const ok: Comprobacion = { enVercel: true, vercel: true, apunta: true, mako: true };
+  const VENCIDA = 'Reserva vencida: elimínalo y añádelo de nuevo';
+  assert.equal(queFalta({ ...ok, mako: false }, false, true), VENCIDA, 'antes que «Faltan registros DNS»');
+  assert.equal(queFalta({ ...ok, apunta: null }, false, true), VENCIDA, 'antes que «No pude leer el DNS»');
+  assert.equal(queFalta(ok, false, true), VENCIDA, 'aunque el DNS ya esté: otra landing se lo puede quedar');
+  assert.equal(queFalta(ok, true, true), null, 'uno verificado no vence nunca');
+  assert.equal(queFalta({ ...ok, enVercel: false }, false, true), 'Hay que conectarlo de nuevo', 'fuera de Vercel manda su botón');
+  assert.equal(queFalta({ ...ok, mako: false }, false), 'Faltan registros DNS', 'sin decir nada, no venció');
+  // Lo que `comprobar` le pasa: la fecha del reclamo de la FILA, sólo para un pendiente.
+  const src = sinComentarios(leer('lib/editor-landing/dominios.ts'));
+  assert.match(src, /estadoFinal === 'pendiente' && pendienteVencido\(reclamadoAt, Date\.now\(\)\),/);
+  assert.match(src, /comprobar\(ws, id, fila\.dominio, fila\.dominio_estado, fila\.dominio_verificado_at, fila\.dominio_reclamado_at, !!op\.verificar\)/);
+});
+
+// Verificación de la tanda 6 (15/10/2026): decía «conéctalo de nuevo», y con el dominio en Vercel la pestaña no
+// muestra «Conectar de nuevo» (sólo sin `enVercel`), y conectar el mismo dominio NO renueva la reserva (se
+// lee abajo, en dominios.ts). Lo que la renueva son los dos botones que la pestaña sí tiene.
+// PROBADO ROMPIÉNDOLO (15/10/2026, arnés que restaura de memoria, sha256 igual). Base: 31 / 0.
+//   D1 el texto de antes («conéctalo de nuevo»)                              → 29 / 2 (éste y el de arriba)
+//   D2 la pestaña sin el tacho «Eliminar dominio»                             → 30 / 1 (éste)
+// Restaurado: 31 / 0.
+test('qué falta: «Reserva vencida» dice lo que la pestaña Dominios ofrece (eliminar y añadir), no «conéctalo»', () => {
+  const ok: Comprobacion = { enVercel: true, vercel: true, apunta: true, mako: false };
+  const texto = queFalta(ok, false, true) ?? '';
+  assert.doesNotMatch(texto, /conect/i, 'con el dominio en Vercel no hay «Conectar de nuevo»');
+  assert.match(texto, /elimínalo/);
+  assert.match(texto, /añádelo/);
+  assert.equal(texto, `Reserva vencida: ${ACCION_RESERVA_VENCIDA}`);
+  // Los botones que nombra, en la pestaña, para un dominio pendiente que sigue en Vercel.
+  const dialogo = sinComentarios(leer('app/landing-generator/editor/dialogos/DialogoPublicar.tsx'));
+  assert.match(dialogo, /<BotonBorrar talla="md" title="Eliminar dominio" disabled=\{!!ocupado\} onClick=\{\(\) => void quitar\(\)\} \/>/);
+  assert.match(dialogo, /Añadir dominio\s*<\/button>/);
+  assert.match(dialogo, /\{!dato\.enVercel && \(/, '«Conectar de nuevo» sólo fuera de Vercel: por eso el texto no lo nombra');
+  // Y por qué eliminar y añadir sí la renueva: el reclamo nuevo pone la fecha; reintentar el mismo, no.
+  const srv = sinComentarios(leer('lib/editor-landing/dominios.ts'));
+  assert.match(srv, /reclamado \? null : fila\.dominio_reclamado_at/);
+});
+
 // ── El proxy de verdad ───────────────────────────────────────────────────────────
 
 function pedir(url: string, metodo = 'GET', headers: Record<string, string> = {}) {
@@ -392,6 +503,30 @@ test('proxy: en un dominio de cliente, nada de la app ni de /api; el HTML libre 
     const html = pedir('https://promo.tunegocio.com/l/html/12/bloque-1');
     assert.ok(pasa(html), 'el HTML libre pasa');
     assert.equal(html.headers.get(`x-middleware-request-${HEADER_DOMINIO}`), 'promo.tunegocio.com');
+  });
+});
+
+test('proxy: el paso de pago se reescribe a la ruta del dominio y su POST pasa sólo con el Origin del host', () => {
+  enProduccion(() => {
+    const r = pedir('https://promo.tunegocio.com/pagar/12?utm_source=fb&bloque=99', 'GET', { [HEADER_DOMINIO]: 'otro-ajeno.com', [WS_HEADER]: '7' });
+    const destino = new URL(r.headers.get('x-middleware-rewrite') ?? 'http://x/');
+    assert.equal(destino.pathname, RUTA_DOMINIO);
+    assert.deepEqual(pedidoDelDominio(destino.searchParams), { tipo: 'pago', producto: '12' }, 'la query la arma el proxy: el bloque del visitante no viaja');
+    assert.equal(destino.search, '?ruta=pagar&bloque=12');
+    assert.equal(r.headers.get(`x-middleware-request-${HEADER_DOMINIO}`), 'promo.tunegocio.com');
+    assert.ok(!sobrescritas(r).includes(WS_HEADER), 'el header del workspace no viaja');
+    // Una página llamada «pagar» con un ?bloque= escrito a mano sigue siendo la página.
+    const pagina = pedir('https://promo.tunegocio.com/pagar?bloque=12');
+    assert.deepEqual(pedidoDelDominio(new URL(pagina.headers.get('x-middleware-rewrite') ?? 'http://x/').searchParams), { tipo: 'sitio', ruta: 'pagar' });
+
+    const post = (origin?: string) => pedir(`https://promo.tunegocio.com${RUTA_PAGAR_LANDING}`, 'POST', origin ? { origin } : {});
+    const bien = post('https://promo.tunegocio.com');
+    assert.ok(pasa(bien), 'con el Origin del host, pasa a la ruta del pago');
+    assert.ok(!sobrescritas(bien).includes(WS_HEADER));
+    assert.ok(pasa(post()), 'sin Origin pasa (la ruta, sin Origin, contesta 403)');
+    assert.equal(post('https://evil.com').status, 403);
+    assert.equal(post('https://hola-mako.com').status, 403, 'ni el de la app: el formulario postea a ESTE host');
+    assert.equal(pedir('https://promo.tunegocio.com/pagar/12', 'POST').status, 405);
   });
 });
 

@@ -160,19 +160,63 @@ export function altoDeMensaje(data: unknown): number | null {
  *
  * Mide `documentElement` (su caja, no su `scrollHeight`: ése nunca baja del alto del iframe, y un
  * bloque que se achica no lo diría nunca) y el `scrollHeight` del body. Vuelve a medir con un
- * ResizeObserver, al cargar (imágenes y fuentes) y en tres tiempos fijos.
+ * ResizeObserver, al cargar (imágenes y fuentes), cuando cambia la vista (`resize`) y en tres
+ * tiempos fijos.
  *
  * ⚠️ El freno: un contenido con `height: 120vh` crece cada vez que el iframe crece. Más de 25
  *    avisos en 3 segundos y deja de avisar (el padre además topea en ALTO_MAX).
  * ⚠️ Es un string que se sirve: sin backticks, sin `${`, y sin la etiqueta que lo cierra.
+ *
+ * Una página armada como APP (pendiente de la tanda 2: la copia fiel quedaba en 400 px por sección):
+ * `html` y `body` al 100% y el contenido adentro de un contenedor con scroll propio (`overflow-y: auto`).
+ * Ahí `documentElement` y el body miden lo mismo que el iframe, y el bloque no crecía nunca. Cuando el
+ * documento entra justo en la vista, `interno()` busca ese contenedor (un descendiente que desborda con
+ * scroll vertical y ocupa al menos la mitad de la vista) y suma a la medida lo que ese contenedor esconde
+ * (`scrollHeight − clientHeight`). No «su borde de arriba + su scrollHeight»: eso dejaba afuera lo que va
+ * DEBAJO del contenedor (un pie de 50 px quedaba con scroll, medido). Al crecer el iframe, el contenedor
+ * (alto del 100%) crece con él y deja de desbordar: la medida de siempre da lo mismo y no hay otro aviso.
+ * ⚠️ Una caja de alto FIJO con scroll (un chat, unos términos) también desborda, pero no crece con el
+ *    iframe. En una página que ya es más alta que la vista no se mira (la medida de siempre manda), y
+ *    al bloque ya ajustado la caja no le llega a la mitad. Si igual se la midió (un bloque que es casi
+ *    sólo esa caja) y después de crecer la vista sigue con el mismo alto, se marca (`__gmFijo`) y no se
+ *    vuelve a mirar: el bloque vuelve a su alto en el aviso siguiente. Un textarea o un select tienen
+ *    su propio scroll: no cuentan. Por eso se escucha también `resize`: con un documento de alto
+ *    automático, que el iframe crezca no le cambia la caja a nadie y el ResizeObserver no avisa.
+ * ⚠️ El contenido que CRECE CON LA VISTA (verificación de la tanda 6: un hero `min-height: 100vh` adentro
+ *    del contenedor de la app). Lo que esconde el contenedor no baja nunca: al crecer el iframe crece el
+ *    hero, y cada aviso sumaba otra vez lo mismo (medido en Chromium: 400 → 8.200 en 5 avisos; en el
+ *    arnés del test, hasta ALTO_MAX). Por eso se guarda también lo escondido (`__gmOculto`): si la vista
+ *    creció y lo escondido no bajó al menos la mitad de lo que creció la vista, el contenido crece con
+ *    ella, y la caja se marca (`__gmFijo`). El bloque queda en la primera medida (la barra, un hero del
+ *    alto de la vista de antes y el resto), con su scroll adentro para lo que sobra: acotado.
  */
 export const SCRIPT_ALTO = [
   '(function () {',
   '  var w = window, d = document, ultimo = 0, n = 0, t0 = Date.now(), parado = false;',
+  '  function interno(vista, h) {',
+  '    var b = d.body, todos, i, el, oy, oculto, bajo, alto = 0;',
+  "    if (!b || !b.getElementsByTagName || typeof w.getComputedStyle !== 'function') return 0;",
+  "    todos = b.getElementsByTagName('*');",
+  '    for (i = 0; i < todos.length && i < 4000; i++) {',
+  '      el = todos[i];',
+  '      if (el.__gmFijo || !(el.clientHeight > 0) || !(el.scrollHeight > el.clientHeight + 1)) continue;',
+  "      if (el.tagName === 'TEXTAREA' || el.tagName === 'SELECT') continue;",
+  '      oy = (w.getComputedStyle(el) || {}).overflowY;',
+  "      if (oy !== 'auto' && oy !== 'scroll') continue;",
+  '      oculto = el.scrollHeight - el.clientHeight;',
+  '      if (el.__gmVista && vista > el.__gmVista + 1 && (el.clientHeight <= el.__gmAlto + 1 || (el.__gmOculto - oculto) * 2 < vista - el.__gmVista)) { el.__gmFijo = true; continue; }',
+  '      if (el.clientHeight * 2 < vista) continue;',
+  '      el.__gmVista = vista; el.__gmAlto = el.clientHeight; el.__gmOculto = oculto;',
+  '      bajo = h + oculto;',
+  '      if (bajo > alto) alto = bajo;',
+  '    }',
+  '    return alto;',
+  '  }',
   '  function medir() {',
-  '    var h = 0, de = d.documentElement, b = d.body;',
+  '    var h = 0, de = d.documentElement, b = d.body, vista = w.innerHeight || 0;',
   '    if (de && de.getBoundingClientRect) h = de.getBoundingClientRect().height;',
   '    if (b) h = Math.max(h, b.scrollHeight || 0, b.offsetHeight || 0);',
+  '    if (vista && h <= vista + 1) { try { h = Math.max(h, interno(vista, h)); } catch (e) {} }',
   '    return Math.ceil(h);',
   '  }',
   '  function avisar() {',
@@ -193,6 +237,7 @@ export const SCRIPT_ALTO = [
   '    }',
   '  } catch (e) {}',
   "  w.addEventListener('load', avisar);",
+  "  w.addEventListener('resize', avisar);",
   "  d.addEventListener('DOMContentLoaded', avisar);",
   '  w.setTimeout(avisar, 60); w.setTimeout(avisar, 600); w.setTimeout(avisar, 2500);',
   '  avisar();',

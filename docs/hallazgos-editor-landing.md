@@ -937,3 +937,341 @@ VSL Funnel... Puedes inspirarte en otras plantillas de VSL Funnel e incluso en l
   los da vuelta. Afuera, `.gp.cp-casa` + `CSS_TOKENS_CASA`.
 - Con `scrollHeight` 0 (escondida en un modal que todavía no entró en la pila) la caja no fija el alto. Cierra el «sin
   hacer» de la decimotercera de Automations sobre CajaCrear.
+
+## Tanda 6 (14-15/10/2026): leer una landing armada en el navegador, Crear con IA en la tab, «Aplicar» y el backlog
+
+Pedido de Martín (14/10) mirando «No pude leer el texto de esa página.» sobre la landing SPA de un cliente: que se
+lea, que todo viva en /landing-generator, Analizar y Replicar en «Crear con IA», el «+» sólo para adjuntar, el link
+pegado en azul («Analiza / Replica esta landing»), las plantillas en tarjetas con sombra y los [ ] resaltados. Más
+sus decisiones (b) leer en el navegador con el Pixel o una ventana, (c) «Aplicar» de un clic con Deshacer y (d)
+Replicar en 3 formatos copiando el estilo. Workflows `wf_8f7c15cf-56d` (piezas) y `wf_2247d576-3c7` (pantalla,
+triage del backlog, paquetes, verificación y corrección). Lo construido está en los commits; acá, lo aprendido.
+
+### Leer una página de afuera
+- **El diagnóstico obvio era el equivocado:** «No pude leer el texto» sonaba a «no se pudo bajar», y la página bajaba
+  bien (200, 137 KB). Eran dos causas: el extractor sólo leía h1-h3/p/li/button/a (el texto en div/span de todo
+  constructor moderno no contaba) y la landing del caso es una app de Vite (`<div id="root">` + scripts): 0 palabras
+  en el HTML. Eso sólo se lee en el navegador. **Regla:** si la página llega sin texto, el server contesta
+  `enNavegador` y no un callejón (`lib/landing-extraer.ts`, `lib/editor-landing/lectura-reglas.ts`).
+- Node corta las cabeceras en 16 KB y lo reporta como «No se pudo conectar» (HPE_HEADER_OVERFLOW): webflow.com/pricing
+  manda ~17,5 KB. `maxHeaderSize` 64 KB (`lib/landing-fetch.ts`, MAX_CABECERAS).
+- Un acordeón de Radix sirve la pregunta en `<h3><button aria-expanded>` (el extractor viejo la leía como TÍTULO y
+  «Conservar» cortaba una sección por pregunta) y la respuesta cerrada NO está en el HTML. Emparejar pregunta y
+  respuesta por CONTENCIÓN en el DOM, no por orden: con el orden, «¿Tienes otra duda? Escríbenos» se pegaba como
+  respuesta de la última pregunta. Lo de adentro de un `<nav>` no es copy (el megamenú metía ~1.800 palabras).
+- `normalizarUrl` le saca el www y el query: es la LLAVE de `landing_analyses`, no una dirección para bajar. Los hosts
+  que sólo existen con www fallaban. **Regla:** se baja con la URL tal cual; la normalizada sólo como clave.
+- 401/403/406/429 se leen en el navegador de la persona; 404 y 5xx no (`ErrorDeLectura`, `bloqueaLaLectura`).
+- La ventana aislada (origen opaco): un `<script type="module" crossorigin>` sin CORS no carga (se mete en línea como
+  blob si es UN módulo sin imports; una app partida en módulos no corre); localStorage/cookie tiran SecurityError
+  (se reemplazan con `defineProperty`); el router de la SPA dibuja su 404 si no se le cambia el camino con
+  `history.replaceState` ANTES del `<base>`; la Navigation API no avisa nada en un origen opaco (no se puede atajar
+  `location.href`; con el Pixel sí); el mensaje de `pagehide` llega con `ev.source === null`.
+- El player de Panda baja el Pixel de Meta por su cuenta: leer la página (o abrir el Diagnóstico) lo carga y desde la
+  página no se apaga. `sinRastreadores` saca un `<script>` ENTERO si nombra `fbq(`: si la lógica vive en el mismo
+  script que el rastreador, la vista aislada la pierde.
+- **SEGURIDAD (lo encontró la verificación y se cerró):** `Sec-Fetch-Site: same-origin` NO prueba que la navegación la
+  inició el código de MaKo (cualquier link adentro de MaKo cuyo href controle otro la cumple), y un id que acuña el
+  navegador no autentica nada: la ruta de la ventana servía el HTML de cualquier URL bajo hola-mako.com (phishing con
+  nuestra barra de direcciones). Y «la página tiene el Pixel» se decidía por el TEXTO del HTML, que cualquiera
+  escribe, para abrir la página real CON `opener` (reverse tabnabbing). **Regla:** lo que sirve contenido de afuera
+  bajo nuestro dominio exige una firma del server (HMAC atada a id, URL, usuario y negocio, que vence:
+  `lib/editor-landing/lector-firma.ts`), y abrir una página de afuera sin sandbox exige que el host esté entre las
+  landings DECLARADAS del negocio y traiga su token (`vaALaPaginaReal`).
+- **Chrome deja abrir UNA ventana por clic** sin permiso de emergentes: la segunda `window.open(…, 'noopener')` queda
+  bloqueada callada (con noopener siempre da null). Todas las ventanas de un clic se abren `about:blank` EN el clic y
+  se navegan al final con `w.opener = null` (`ProbarTracking.tsx`, `arrancar`). Y una ventana `about:blank` del
+  mismo origen navegada con lo que tipeó la persona tiene que validar http/https (un `javascript:` correría con el
+  origen de MaKo).
+
+### Copiar el estilo al replicar
+- **El obvio era el equivocado:** con Tailwind 4 o shadcn nuevo, `getComputedStyle` devuelve `oklch(…)`, no `rgb()`.
+  Un parser de rgb/hex pierde todos los colores sin error. **Regla:** todo color computado pasa por un parser que
+  entienda oklch y oklab (`estilo-original.ts`, `colorCss`).
+- En shadcn, `--accent` es un gris de fondo; la marca es `--primary` (se reconoce por `--primary-foreground`).
+- El tema de la réplica vive en el negocio (`app_settings` `landing.temas`, tope 30) con id = hash de su contenido:
+  replicar dos veces no lo duplica, y si existe se reusa sin pisarlo. Una imagen se asigna por la parte donde está
+  (el primer título del contenedor más chico con títulos), no por el orden del documento.
+- La API css2 de Google Fonts no siempre da 400 a un peso que no existe (PT Sans 300 dio 200): se validan los
+  `font-weight` que devuelve la hoja.
+
+### La pantalla y el Diagnóstico
+- **Una derecha que es `useState` no se mueve con un `<Link>` a la misma ruta:** dentro del Panel, un link a
+  /landing-generator?otra-query es navegación suave al MISMO componente, que no se remonta: la URL cambia y la
+  pantalla no. Lo que cambia la derecha desde adentro es una función del Panel (`onAccion`, `onSalir`), nunca un link.
+- **Lo que se paga se usa una vez y no vive en la URL:** si el pedido de la caja o el link de Replicar quedaran en la
+  query, un F5 volvería a generar (IA paga). `queryDeDerecha` borra todas las claves que lee.
+- Lo que se usa una vez desde `sessionStorage` se consume en un efecto con un ref, nunca en el inicializador de
+  `useState`/`useRef` (corre dos veces en el modo estricto y la segunda lo encuentra vacío).
+- El Diagnóstico de una landing con varias páginas las dibuja en UN lienzo; el rótulo de cada página va con
+  `::before { content: attr(...) }` para que nunca sea un nodo de texto donde se ubique una cita.
+- Un backtick en un comentario CSS adentro de un template literal da un error de tipos que no apunta al CSS
+  («Property 'gp' does not exist…»), y los tests no lo ven (esbuild compila distinto): en comentarios de CSS, «».
+- `'error' in x` no estrecha una unión inferida de objetos literales (TS le agrega `error?: undefined` a la rama de
+  éxito): una función que devuelve error o resultado declara un discriminante (`listo: true | false`).
+- Las columnas nuevas (`landing_docs.diagnostico`, mig 0281): al ESCRIBIR una columna que no existe PostgREST contesta
+  `PGRST204`, no `42703` (regla ya escrita en AGENTS.md y en docs/hallazgos-infra.md): la primera rotura «sin
+  PGRST204» dio verde porque el respaldo por mensaje la atajaba; se probó el código aparte del mensaje.
+
+### Dominio propio y pago
+- El plan de la tanda 4 para servir el paso de pago en el dominio era imposible tal cual: el proxy es síncrono y no
+  sabe el slug (pasar del host al slug necesita la base). Va a la ruta del dominio con una query que arma SÓLO el
+  proxy (pisa `u.search`: la del visitante no viaja). Y un POST en un host que no es la app se decide en el proxy Y en
+  la ruta (`origenDelPago` daba «mako» a un Origin de hola-mako.com).
+- Una reserva vencida no deja de verificarse; sólo se pierde la exclusividad. Lo que se dice antes de confirmar se
+  arma con lecturas de la fila, nunca con `estadoDominio` (sale a Vercel y puede ESCRIBIR).
+- **La poda con `en_curso = false` dejaba basura para siempre** (una fila en curso de una función muerta sólo la suelta
+  el mismo email): el candado vence a los 90 s, así que se borra todo lo de más de 7 días.
+- Los rechazos del POST se cuentan DESPUÉS de leer la landing y en un contador (upsert que suma, mig 0282): antes no
+  se sabe de qué negocio es, y una fila por evento le regala a un bot una escritura por pedido.
+- Un formulario con tope de bytes se mide con `URLSearchParams` (el peor caso: 3.484 de 4.000), no con
+  `encodeURIComponent`, que no codifica `!'()~`.
+- El Referer, detrás del proxy, se compara con el host de la URL Y con la cabecera Host (el paso nunca se sirve en la
+  ruta que pidió el navegador).
+
+### Hoja, exportar y miniaturas
+- El bloque de la copia de una app crece con lo que su contenedor ESCONDE (`scrollHeight − clientHeight`), no con
+  dónde termina; y con un hero de 100vh lo escondido crece con la vista y no hay punto fijo (20.000 px): se deja de
+  medir la caja si no baja la mitad de lo que creció la vista (`html-libre.ts`, SCRIPT_ALTO). Un test de alto prueba
+  contenido que depende de la vista.
+- En `@page` gana la ÚLTIMA regla: la hoja de la diapositiva va después de CSS_CONTENIDO o vuelve el margen. 13,333 in
+  son los 1280 px del iframe que imprime. Playwright: reusar una página después de `emulateMedia('print')` ignora el
+  `@page`; una página nueva por PDF.
+- Reordenar columnas apiladas en el teléfono: `display: contents` + `order`, con `gap: 0` (en flex los márgenes no
+  colapsan) y el `::before` de los divisores apagado.
+- Los [ ] resaltados: el tope de 120 caracteres sale de medir los 526 corchetes de los catálogos (el más largo, 88);
+  `Plantilla.contenido` y `DisenoSeccion.crear` son FUNCIONES y un recorrido que sólo baja por objetos mide la mitad.
+  El tinte sale de `--gm-acento-texto` como franja del 80 % del alto (un fondo entero se pisaba entre renglones). La
+  marca cuelga de `marcadores`, no del modo 'miniatura', porque `app/m/landing` usa ese modo como la vista del visitante.
+
+### Trampas de los tests y del entorno (para la próxima corrida)
+- El `sinComentarios` de los tests corta `/*…*/`: un `*/*` adentro de un string (`'text/css,*/*;q=0.1'`) se come el
+  resto del archivo; y su `.replace(/\{\s*\}/g, '')` borra los `: {}` del código. Un regex que busca una condición
+  puede encontrar la MISMA repetida más abajo: cuando el orden importa, se ancla la posición.
+- Un tipo fijado con `deepEqual` en un test compartido no se toca: el dato nuevo va por otro canal.
+- **El typecheck acotado (`C:/dev/tsc-landing.mjs`) sólo ve los archivos cambiados y lo que ELLOS importan**, no a
+  quien los importa: un export quitado lo caza el completo del pre-push. Y un «no pude chequear» (99) queda pendiente
+  hasta que se corra: los 3 errores de `lector-navegador.ts` viajaron así por cuatro agentes (una `function` izada no
+  hereda el estrechamiento de los `const` de afuera; una flecha sí).
+- Un commit que importa un módulo de otro agente espera a que ese módulo esté en git.
+- Las herramientas Write/Edit decodifican `\uXXXX` a caracteres crudos e invisibles (un U+2028 adentro de un regex da
+  «Unterminated regular expression»); en Python sin raw, `\\b` termina como BACKSPACE (0x08) adentro de un regex de
+  TS. Después de escribir escapes, barrer con node los code points 0x08, 0x300-0x36f, 0x2028 y 0x2029.
+- Con `core.autocrlf=true`, varios archivos están en CRLF en el disco y uno reescrito con Python o `sed -i` queda en
+  LF (git normaliza); un arnés de roturas con anclas en `\n` contesta «0 veces» en un archivo CRLF y no rompe NADA, en
+  silencio. Los fines de línea se cuentan con node: el grep de Git Bash informa mal los CR.
+- El Panel REAL se puede ver sin next dev: esbuild del repo + stubs de next/navigation, next/link y server-only, y
+  Playwright con `page.route` (o fingiendo `window.fetch` dentro del bundle). Desde el Bash, el `chrome.exe` de
+  ms-playwright da «Permission denied»; el `chrome-headless-shell.exe` sí corre.
+- El scratchpad de la sesión es COMPARTIDO por los subagentes de un workflow: los archivos de commit y de medición
+  llevan un nombre propio de la tarea.
+
+### El cierre de los hallazgos bajos (15/10)
+- **Un texto que le pide algo a la persona nombra algo que la pantalla ofrece.** Pasó dos veces: «Reserva vencida:
+  conéctalo de nuevo» mandaba a un botón que no existe (y reconectar no renovaba la reserva; lo que sirve es
+  «elimínalo y añádelo de nuevo», que pone fecha nueva y el TXT sigue valiendo), y «Prueba el formato «Landing»» salía
+  sin botón. **Regla:** si un error propone otra acción, lleva un campo (`probar: 'landing'`) y un botón, y el test
+  verifica que la pantalla tenga ese botón (`dominios-reglas.ts`, `replicar-reglas.ts`, `crear/Replicar.tsx`).
+- Replicar como «Página web» una app de Vite o Lovable (un `#root`/`#app` vacío o un `<script type="module">`)
+  contesta 422 con «Prueba el formato «Landing»» y el botón; una página vacía de verdad sigue diciendo «no trae nada».
+- **«Que el texto viaje como instrucciones» era el arreglo obvio y es falso:** Analizar y Replicar no aceptan
+  instrucciones, así que el texto pegado junto a un link se mostraría y nadie lo usaría. El chip del link sale sólo si
+  el link es TODO lo escrito; lo escrito nunca se esconde. El «)» final se conserva si abrió dentro del link, y un
+  link tipeado y mandado con Enter también va a Analizar/Replicar (`panel-reglas.ts`, `sacarLink`, `linkEscrito`).
+- Después de un guardado con control de versión, releer y devolver lo releído mete en la cadena del cliente la versión
+  de OTRO: se devuelve la versión que escribió tu guardado (`docAplicado`). La otra mitad de la carrera sigue en
+  `restaurarVersion` (`server.ts`): compara contra la versión que lee él, no contra la que comparó la pantalla (lo
+  pisado no se pierde: queda en «Antes de restaurar»).
+
+### Lo que quedó sin hacer (tanda 6)
+- ~~Migraciones 0281 y 0282~~: **aplicadas en producción el 15/10/2026 antes del deploy**, y verificadas después
+  (la columna es jsonb; la función de la 0282 sólo la ejecuta service_role). En esta casa las aplica quien las
+  escribió, con `scripts/apply-migration.mjs`, ANTES o junto con el deploy cuando el código nuevo lee lo que agregan.
+- **Decide Martín** (el triage, en la Ticketera): `allow-popups-to-escape-sandbox` en el HTML personalizado; bloquear
+  o no los estáticos de MaKo en hola-mako.site; HSTS propio; subdominios por landing; el www automático al conectar un
+  dominio raíz; el proveedor de IA del Diagnóstico en el ws1; si despublicar sigue reversible; el `form-action` con un
+  checkout de Stripe en dominio propio; avisar al dueño cuando falla la pasarela en un pago de landing. Y de esta
+  tanda: «Preguntar a MaKo» usa el chat de la casa (`/api/chart-insights`, Claude PAGO); y si los comentarios de una
+  página de afuera se marcan resueltos al pasar a la copia (`aplicarAfuera`, PanelDiagnostico.tsx).
+- **De otra área:** `esPedidoDeLanding` en `lib/mako-intencion.ts` (MaKo Doer: por WhatsApp no llegan «publicá la
+  landing…»; el `todo` de `tests/api-mako-landing-editor.test.ts`); la cadena de pago que termina en hola-mako.com y
+  `cobroReusable` sin el modo (Integraciones, `lib/cobros.ts`); la atribución del Pixel en los enlaces `/pagar/` y
+  `pixel-servido.ts` sin la URL tal cual (VSL Tracking); `/api/mako-doer` sin `maxDuration` para los 240 s de
+  replicar por chat (MaKo Doer); lo que cuenta `lib/mako-capacidades.ts` de la tab (MaKo UX/UI).
+- **MaKo Mobile**: con el teléfono, /landing-generator se reescribe a /m/landing, que no tiene Crear con IA, Analizar,
+  Replicar ni el «+» (`lib/movil-rutas.ts`).
+- El detector de voseo (`VOSEO`, `lib/puestas-data.ts:490`) no conoce pegá, elegí, subí, probá ni escribí: un guard
+  de todo el repo, fuera de esta área.
+- `copiaParaAplicar` reconoce la «Página web» idéntica por su primera sección (heurística; exacto si Replicar guardara
+  el formato en `config.origen`); `restaurar_version_landing` no frena si la landing cambió después; los rechazos sólo
+  se leen en la rama publicada de `analitica`; `paginaDeSeccion` quedó sin llamador; una app de Vite en varios
+  módulos sólo se lee con el Pixel o pegando el texto; los videos no se anotan como [VIDEO] en el lector; las imágenes
+  por Flow siguen afuera por Martín.
+- **Verlo con clics** (lo hace Martín): la tab con Crear con IA, el «+», el link pegado, Replicar con sus 3 formatos,
+  el Diagnóstico de varias páginas con «Aplicar» y Deshacer, la línea ámbar de pagos rechazados en «Análisis», y todo
+  a 390 px. Las capturas del arnés quedaron en el scratchpad de la sesión 4eb065fe (`t6p-vista/capturas`).
+
+## Animaciones: el video de fondo del hero (relevamiento del 14/10/2026, sin código)
+
+Pedido de Martín: animaciones de punta a punta, partiendo del video «Páginas Web ANIMADAS de $10,000 con Claude Design»
+(técnica «Motion Sites»: imagen IA → video IA con el MISMO cuadro inicial y final, de fondo del hero). A «¿cuál de los
+dos frentes?» contestó **«las dos cosas»**: el video IA de fondo Y las animaciones de la página. Esto es lo medido del
+video; las animaciones de página y qué se puede replicar de una web ajena van aparte.
+
+### El puente a Flow HOY no puede hacer un hero
+- Genera clips (el 07/09 salieron dos `generar_clip`, texto-a-video `abra_t2v_4s_360p`), pero **MaKo no los muestra**:
+  falta leer la respuesta POSICIONAL (operationId en `[2][0][0]`, mediaId en `[2][0][3][4]`; `nombreDeOperacion` de
+  `video-action.ts:330` y `mediaDeFlow` de `lib/flow-media.ts:139` buscan campos por nombre, del REST muerto), el
+  sondeo `estado_clips` (no tiene frase, así que cae al camino REST, que ya no existe) y la URL final.
+- **El replay de BOQ sólo cambia el TEXTO** (`repetirEnBoq`, `extension/background.js:450-471`): modelo, duración,
+  proporción e imágenes salen de lo que se enseñó. Un hero con cuadro inicial y final es una OPERACIÓN NUEVA enseñada
+  con «Frames to Video», con dos imágenes distintas para ver dónde viaja cada mediaId.
+- Flow SÍ tiene el modo (Video → Frames, «Add start frame / end frame»): Veo 3.1 Lite/Fast/Quality (4/6/8 s) y Omni
+  Flash (4-10 s), según support.google.com/flow/answer/16352836, leída el 14/10. No está dicho si la MISMA imagen de
+  inicio y fin da movimiento o un plano quieto: se mide.
+- ⚠️ La operación nueva NO puede entrar en `A_PEDIR`: `puedeFilmar` (`background.js:1316`) deja el puente en
+  `sin_sesion` si falta una, y el server deja de repartir: todos los clientes del Video Generator dejarían de filmar
+  hasta pagar créditos por enseñarla. Hace falta un «listo» por operación (el mismo bloqueo de las imágenes, arriba en
+  «Lo que quedó sin hacer»).
+- Créditos de Flow por clip (support.google.com/flow/answer/16526234, sin fecha, leída el 14/10): Lite 10 (Ultra 5),
+  Fast 20 (Ultra 10), Quality 100; Omni Flash 720p 12-15. El 1080p es un reescalado, gratis con Plus/Pro/Ultra; sin
+  suscripción no hay. La nativa es 720p, H.264 24 fps. Veo trae audio (se descarta; ojo `BLOCK_SILENCED_VIDEOS` de
+  `lib/flow-clip-referencias.ts:52-56`, sin medir).
+
+### El peso, medido (ffmpeg; 4 fuentes de 8 s: IA limpia, IA con grano, material real, mucho movimiento)
+
+| 8 s, H.264 CRF 26, sin audio | 1080p | 720p | 480×854 vertical |
+|---|---|---|---|
+| IA limpia / con grano | 1,3-2,2 MB | 0,7-0,9 MB | 0,3-0,4 MB |
+| Material real / mucho movimiento | 3,4-3,6 MB | 1,7-1,9 MB | 0,8-1,0 MB |
+
+- AV1 pesa 26-69 % menos que H.264 con igual o mejor VMAF (en Safari depende del hardware: H.264 de respaldo).
+- **El ping-pong duplica el peso** (×2,00-2,07 en las 12 parejas). El **bucle por fundido** (el último segundo
+  fundido sobre el primero) cierra la costura sin sumar (−10 % a +8 %): SSIM en la costura 0,92-0,93, igual que dos
+  cuadros seguidos; repetir el clip tal cual da 0,41-0,69 (el salto se ve).
+- **4G** (Lighthouse «Slow 4G» 1,6 Mbps / DevTools «Fast 4G» 9 Mbps, +0,6 s por el origen nuevo del bucket): 480
+  vertical 2,2-5,8 s / 0,9-1,6 s; 720p 4,3-10,2 s / 1,3-2,4 s; 1080p 7,3-18,7 s / 1,9-3,9 s.
+- **Por eso el póster es el LCP**: la imagen IA en WebP pesa 37-42 KB a 480 vertical y 143-167 KB a 1080p.
+
+### El diagnóstico obvio era el equivocado
+- **«VP9 da VMAF 68-70» no era el códec: era la medición.** El WebM guarda los tiempos en milisegundos y a 24 fps los
+  cuadros no caen justos, así que se comparaban cuadros desfasados. Alineando por número de cuadro, VP9 da 93-96.
+- **`autoplay` le gana a `preload`**: el nodo `video` de hoy lleva `autoplay` (`especificacion.ts:839-848`), así que se
+  baja apenas se lee el HTML y le roba ancho de banda al póster (en Slow 4G, el LCP sube ~0,7-0,8 s).
+
+### Lo que la plataforma ya deja y lo que no
+- Bucket `landing-imagenes`: público, 100 MiB, png/jpeg/webp/gif/mp4/webm (`0246_editor_landing.sql:154-163`): **no
+  acepta AVIF** (el póster AVIF pesaría 40-60 % menos). Las subidas no pasan `cacheControl` (queda 3600 s).
+- La publicada: `media-src 'self' <bucket>` (`pagina-publica.ts:458`) deja el `<video>`; los scripts entran sólo por
+  HASH, así que la lógica del video va en `SCRIPT_PAGINA` (`:299-410`, que ya usa IntersectionObserver y reduced-motion).
+- El hero «fondo» sólo admite imagen (`.gm-acento` con `background-image`, `especificacion.ts:681-693`; `AttrsTarjeta`
+  no tiene campo de video, `doc.ts:247-264`).
+- Buenas prácticas, con fuente en el relevamiento: el póster como `<img>` con srcset y `fetchpriority` debajo de un
+  `<video muted playsinline loop preload="none">` SIN `autoplay` en el HTML (el script le pone `src` y `play()` después
+  del load); la variante por ancho la elige el script; reduced-motion o Save-Data → sólo el póster; pausar fuera de
+  pantalla y con la pestaña oculta; un botón de pausa (WCAG 2.2.2, nivel A, para lo que se mueve solo más de 5 s); iOS
+  en ahorro de energía no reproduce solo (WebKit WONTFIX 219889): mostrar el video recién con el evento `playing`.
+  Framer recomienda bucles de menos de 5 MB.
+
+### Lo que se recomienda y lo que decide Martín
+- **Etapa 1, sin Flow:** «Fondo animado» en el hero `fondo` con un video SUBIDO o de una galería; MaKo lo comprime en el
+  navegador de quien sube con mediabunny (ya está en el repo,
+  `app/video-editor/_opencut/sounds/components/extraer-audio.ts:93`): ≤8 s, sin audio, 480×854 + 1280×720 + póster
+  WebP, y el bucle por fundido. Nada de ping-pong.
+- **Etapa 2, con Flow:** los pasos del puente de arriba + la operación de Frames + el «listo» por operación.
+- No va por defecto en los diseños con VSL (8 de 9: el VSL es el protagonista); sí como opción en «Oscuro moderno» y
+  «Editorial».
+- Decide Martín: cuándo entra (ya, sin Flow / esperar al puente / sólo subida); de dónde sale la galería; si va por
+  defecto en algún diseño; el tope de calidad (720p con 480 vertical en el teléfono / 1080p AV1); el modelo de Flow
+  (Lite 10 / Fast 20 / Quality 100); cuándo se mide Flow en ws3 (hoy en pausa por él).
+- **Sin medir:** ninguna generación real de Flow (ni el cuerpo BOQ de Frames, ni el peso de un clip de Veo, ni si un
+  fallo cobra); si las URL del bucket contestan 206 a un pedido por rango (Safari lo exige:
+  `curl -sI -H "Range: bytes=0-1" <url.mp4>`); WebCodecs en un teléfono; un LCP en una traza real.
+
+## Animaciones: las de la página y replicarlas de una web ajena (relevamiento del 14/10/2026, sin código)
+
+Workflow `wf_930dd090-77a` (el video y Motion Sites, otras fuentes, medir qué se replica en webs reales, el mapa del
+editor, y un crítico que midió lo que faltaba). Las salidas y los scripts quedaron en el scratchpad de la sesión
+4eb065fe (`relevamiento-anim.json`, `critico/`, `anim/salidas/tabla-comparada.tsv`).
+
+### ⚠️ Lo que YA anda mal hoy: el interruptor «Animaciones» hace parpadear el hero y suma ~1,2 s de LCP
+- Medido sobre la publicada REAL (render.ts + armarDocumento; 3 plantillas, 390×844, CPU ×4, 3 corridas): sin
+  «Animaciones» el LCP del H1 da 236-404 ms; con el interruptor (prendido por defecto) da 1.428-3.004 ms en 6 de 9.
+- **Parpadeo** en 5 de 6 corridas: el H1 se pinta VISIBLE (FCP 404-1.048 ms), el script lo pasa a opacidad 0 entre
+  25 y 456 ms después, queda invisible 269-380 ms y recién ahí entra con el fade. Causa: `SCRIPT_PAGINA` va al final
+  del `<body>` (`pagina-publica.ts:533-544`) y pone `html.gm-anim` cuando la página ya se pintó.
+- Arreglo propuesto (etapa 0, sin decidir todavía): antes de poner `gm-anim`, el script marca como vistas las
+  secciones que ya están en pantalla (la primera nunca se esconde). Va en el SCRIPT, que no queda congelado: llega a
+  todas las publicadas sin republicar. Decide Martín si la primera sección queda quieta o hace el fade sin parpadeo.
+
+### El video: lo que es y lo que NO conviene copiar
+- La única página del video publicada es Scarlett (`scarlett-recepcionista.vercel.app`, leída en pantalla 29:47-30:30):
+  7 JSX que el navegador traduce con Babel, sin GSAP ni Framer Motion. Cuatro técnicas: video IA de fondo con cuadro
+  inicial = final; efectos atados al scroll (hero que se desvanece: opacidad 1 − 2,5p y −60p px; fondo con escala
+  1 + 0,3p; sección que crece de 0,88 a 1 entre p 0,35 y 0,75); entradas por IntersectionObserver (20 px, 900 ms,
+  cubic-bezier(0.22,0.8,0.3,1), 120 ms entre hermanos); loops en CSS (cinta de reseñas en dos filas de 55 y 65 s con
+  pausa en hover, pasos que avanzan cada 2,2 s).
+- **Su ping-pong se CONGELA en la mitad hacia atrás**: retrocede con `currentTime −= dt` por cuadro sobre un MP4 con UN
+  solo cuadro clave, y el video está «seeking» el 99,6 % de los cuadros (1-2 fps). Y no hacía falta: su clip ya cerraba
+  solo (SSIM 0,985 entre el primer y el último cuadro). **Regla:** loop nativo; si no cierra, fundido en el corte.
+- motionsites.ai: 582 «plantillas» (195 gratis), cada una un PROMPT con CSS, parámetros y la URL de un video en el CDN
+  de Higgsfield; los videos pesan 5-46 MB con un solo cuadro clave y 11 de 13 no cierran el loop (recodificados: 46,1 →
+  1,96 MB, SSIM 0,964). **Sus términos (30/09/2026) prohíben redistribuir el prompt y los videos son de ellos**: las
+  plantillas de MaKo tienen que ser propias, con la técnica y sin su contenido. Ninguna página del autor respeta
+  prefers-reduced-motion.
+
+### Las decisiones técnicas que salieron medidas
+- **GSAP queda fuera**: su licencia (gsap.com/community/standard-license, vigente desde 30/04/2025) prohíbe «tools that
+  allow users to build visual animations without code» que compitan con Webflow. Un panel de animaciones en MaKo cae
+  de lleno. (El GSAP propio de una web ajena dentro de la copia fiel no está alcanzado.)
+- **CSS nativo + el script propio con hash**: `animation-timeline` / `view()` / `scroll()` están en Chrome 115 y en
+  Safari/iOS 26; Firefox estable (158) no. Sin polyfill: donde no hay soporte, la página queda completa y quieta. La
+  publicada sólo corre `'self'` + el hash de `SCRIPT_PAGINA` (`pagina-publica.ts:446-453`): una librería de un CDN
+  ajeno no corre, y un video del CDN de otro tampoco carga (`media-src` = self + el bucket).
+- El modelo: **preset + parámetros** (duración, demora, distancia, curva, disparo) con los nombres del Image Editor
+  (`app/image-editor/_doory/editor/animation/strings.ts`: Desvanecer, Subir, Crecer, Deslizar, Barrido, Máquina de
+  escribir…), a nivel landing y sección, nunca por bloque: «Editar con IA» rehace los bloques y perdería el attr.
+- **Gamma (la fuente) no tiene panel de animaciones**: sólo el interruptor y Spotlight en Presentar. Por la regla de
+  copiar tal cual, de qué app se copia el panel lo decide Martín (recomendado: Canva, la fuente del Image Editor).
+
+### Qué se puede replicar de una web ajena (medido en la ventana aislada, que es lo que corre sin Pixel)
+- **Fiel** (cae exacto en un preset): animaciones y transiciones CSS — `document.getAnimations()` da keyframes, duración,
+  curva y demora aunque la hoja sea de OTRO origen (AOS: 63 transiciones con 0 de 2 hojas legibles); lo atado al
+  scroll en CSS; AOS (`data-aos*`, se lee del HTML sin correr nada); animate.css (la clase, no la hoja); Framer appear
+  (el JSON `<script type=framer/appear>` del HTML); Webflow IX2 (93 eventos en vivo, o el literal del chunk leído con
+  un parser, nunca `eval`); GSAP clásico simple (webflow.com: 79 tweens, 12 triggers).
+- **Aproximado**: lo que se escribe cuadro a cuadro en `style` (scroll transforms de Framer, Motion, callbacks de GSAP);
+  GSAP con pin o timelines encadenadas; texto por palabra/letra; hover hecho en JS (un script no puede provocar
+  `:hover`); las variantes de celular (la ventana lee en ancho de escritorio).
+- **No**: canvas/WebGL/three.js/Spline/Unicorn Studio (no queda en el DOM); el archivo de video, Lottie, Rive o imágenes
+  ajenas (derechos; se copia la técnica y se regenera); apps de Vite en varios módulos (gsap.com: 0 animaciones) y
+  sitios detrás de Cloudflare (lovable.dev: 403 al fetch del server); lo atado al scroll DENTRO de la copia fiel
+  «Página web» (medido: `view()` congelada en 0,444 y 0 eventos de scroll en el iframe de alto ajustado).
+- Trampas: `getKeyframes()` no devuelve custom properties (se leen del CSS que baja el server); si la PC de quien
+  replica tiene «reducir movimiento», la web ajena muestra menos (webflow.com baja de 12 a 1 triggers);
+  `estilo-original.ts:779` saltea `animate(.min).css` y `aos(.min).css`; el tope total del lector es 17 s
+  (`lector-script.ts:117`).
+
+### Reglas para cuando se construya
+- **Todo CSS de animación va colgado de una condición** (`html.gm-anim` en la publicada, `[data-movimiento="vivo"]` en
+  el editor) y **nunca `html.gm-anim` en la app**: escondería las miniaturas, que viven en el mismo documento.
+- La hoja de cada publicada queda congelada y `SCRIPT_PAGINA` no: un cambio del script mantiene el sentido de
+  `gm-anim` y `gm-visto`, o rompe las hojas viejas.
+- Un attr nuevo sale en un deploy ANTES que su UI: TipTap tira el attr que no conoce y el autoguardado de una pestaña
+  vieja lo borra.
+- Un transform, filter o will-change en una sección se vuelve el contenedor de lo `position:fixed` que tenga adentro
+  (barra de CTA, WhatsApp), como ya pasó en /m (`docs/hallazgos-mobile.md:202`).
+- WCAG 2.2.2: lo que se mueve solo más de 5 s lleva pausa; 2.3.3: el parallax se apaga con reduce. Sólo transform,
+  opacity y clip-path en el teléfono; nada de scroll-jacking (Lenis no).
+- No hay A/B que pruebe que las animaciones venden; lo medido es que la velocidad sí: defaults conservadores y medir
+  con Experimentos antes de prender efectos en todas.
+
+### Etapas propuestas (cada una se entrega sola) y lo que falta decidir
+0. El parpadeo y el LCP de hoy. 1. Modelo y render sin UI. 2. El editor la MUESTRA (al elegir el efecto y con un ▶
+Reproducir dentro del lienzo). 3. API de MaKo (`cambiar_animacion_landing`). 4. Efectos de scroll y componentes con
+movimiento (cinta, pasos, carrusel con snap, máquina de escribir, contador). 5. Video de fondo subido (arriba).
+6. Plantillas con movimiento (perfil para los 9 diseños + 2-3 propias). 7. Replicar las animaciones. 8. Video IA por
+Flow. 9. Presentar: View Transitions y bloque a bloque.
+Sin probar en hardware real: un iPhone con iOS 18 y 26, un Android de gama baja y los navegadores de Instagram y
+Facebook, antes de prender un efecto por defecto. Quedan sin preguntar si MaKo Mobile (`/m/landing/[id]`) muestra las
+animaciones y si el ▶ del editor respeta el «reducir movimiento» de quien edita.

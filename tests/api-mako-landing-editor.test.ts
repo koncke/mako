@@ -73,7 +73,12 @@ import type { Sugerencia } from '../lib/editor-landing/diagnostico';
 import {
   disenosParaApi, listaParaApi, paginasEnTexto, diagnosticoParaApi, pedidoDeCrear, yaPublicadaAsi, resumenPublicar,
   urlDeLanding, estaPublicada, direccionParaPublicar, siFallaNuestra, TOPES_VER, type FilaPublicable, type DisponibilidadSlug,
+  urlPublicaParaApi, botonesDeLanding, elegirBotonDePago, conProductoEnBoton, resumenCobrar, TEXTO_BOTON_PAGO,
+  pedidoDePresentacion, analiticaParaApi, resumenDespublicar, rechazosParaApi, versionesParaApi, TOPE_VERSIONES_API,
 } from '../lib/api-mako/areas/landing-editor.helpers';
+import { pedidoDePlantilla } from '../app/landing-generator/crear/tipo';
+import { PLANTILLAS_PRESENTACION } from '../lib/editor-landing/plantillas-presentaciones';
+import { NODO as NODO_DOC, type JsonNodo, type LandingContenido } from '../lib/editor-landing/doc';
 
 const RAIZ = join(__dirname, '..');
 const leer = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8').replace(/\r\n/g, '\n');
@@ -156,7 +161,63 @@ test('los runners corren por el server de la pantalla: ningún acceso a la base 
 test('la dirección pública sale de UNA función (urlDeLanding): el día que se muda, se cambia en un lugar', () => {
   const run = sinComentarios(leer('lib/api-mako/areas/landing.run.ts'));
   assert.ok(!/\b(?:urlPublica|urlPublicaLanding|rutaInternaL|urlLandingEn)\(/.test(run), 'landing.run.ts arma una URL pública sin urlDeLanding');
-  for (const id of ['ver_landing_creada', 'despublicar_landing', 'publicar_landing']) assert.match(runnerDe(id), /urlDeLanding\(/, id);
+  for (const id of ['ver_landing_creada', 'publicar_landing']) assert.match(runnerDe(id), /urlDeLanding\(/, id);
+  // Verificación de la tanda 6: el resumen de despublicar se arma en `resumenDespublicar` (helpers, puro),
+  // que usa urlDeLanding: lo ejecuta el test de abajo («despublicar dice el dominio y el borrador»).
+  assert.match(runnerDe('despublicar_landing'), /resumenDespublicar\(\{ que, titulo: f\.titulo, slug: f\.slug, dominio: antes\?\.dominio \?\? null, cambiosSinPublicar: antes\?\.cambiosSinPublicar \?\? false, incierto \}\)/);
+});
+
+test('despublicar dice el dominio y el borrador: lo que callaba antes de confirmar (verificación de la tanda 6)', () => {
+  const base = { que: 'la landing' as const, titulo: 'Webinar', slug: 'webinar', dominio: null, cambiosSinPublicar: false };
+  const solo = resumenDespublicar(base);
+  assert.ok(solo.includes(`${urlDeLanding('webinar')} deja de mostrarla`), solo);
+  assert.doesNotMatch(solo, /dominio|cambios sin publicar|comprobar/);
+  const conTodo = resumenDespublicar({ ...base, dominio: 'promo.tunegocio.com', cambiosSinPublicar: true });
+  assert.ok(conTodo.includes(`${urlDeLanding('webinar')} y su dominio propio https://promo.tunegocio.com dejan de mostrarla`), conTodo);
+  assert.match(conTodo, /volver a publicarla sube ESOS cambios/);
+  // Si la lectura del dominio falló, no se afirma que no tiene: se dice que no se pudo comprobar.
+  assert.match(resumenDespublicar({ ...base, incierto: true }), /No pude comprobar si tiene un dominio propio/);
+  // El runner pregunta ANTES (motor: antesDeDespublicar) y no se calla si falla.
+  const r = runnerDe('despublicar_landing');
+  assert.match(r, /try \{ antes = await docsEditor\.antesDeDespublicar\(ctx\.ws, id\); \} catch \{ incierto = true; \}/);
+});
+
+test('lo que el motor de la tanda 6 ya sabía y la API no decía: el puntaje, los rechazos del pago y las versiones', () => {
+  // El puntaje guardado (mig 0281): sale con los comentarios, y un diagnóstico sin comentarios SÍ se diagnosticó.
+  const resumen = { score: 6.8, veredicto: 'Promesa clara', resumen: null, analizado: '2026-10-14T15:00:00.000Z' };
+  const conPuntaje = diagnosticoParaApi([sug(1, 'alta', 'pendiente', '2026-10-10')], resumen) as { puntaje: number; veredicto: string; diagnosticada_el: string; nota: string };
+  assert.deepEqual([conPuntaje.puntaje, conPuntaje.veredicto, conPuntaje.diagnosticada_el], [6.8, 'Promesa clara', '2026-10-14T15:00:00.000Z']);
+  assert.doesNotMatch(conPuntaje.nota, /no se guarda/, 'la nota vieja decía que el puntaje no se guarda');
+  const sinComentarios = diagnosticoParaApi([], resumen) as { diagnosticada: boolean; puntaje: number };
+  assert.deepEqual([sinComentarios.diagnosticada, sinComentarios.puntaje], [true, 6.8]);
+  assert.equal((diagnosticoParaApi([sug(1, 'alta', 'pendiente', '2026-10-10')]) as { puntaje: null }).puntaje, null);
+  assert.match(runnerDe('ver_landing_creada'), /resumen = s\.ok \? s\.resumen : null;[\s\S]*diagnostico: diagnosticoParaApi\(sugerencias, resumen\),/);
+  // Los rechazos: por motivo con nombre de la API, y sin la tabla los ceros no se afirman.
+  const rech = rechazosParaApi(9, 30, { total: 4, porMotivo: { 'tope-email': 3, techo: 0, 'dominio-ajeno': 1, producto: 0 }, otros: 0, ultimoDia: '2026-10-13', desde: '2026-09-15', sinTabla: false });
+  assert.deepEqual(rech.por_motivo, { tope_email: 3, techo: 0, dominio_ajeno: 1, producto: 0 });
+  assert.equal(rech.ultimo_dia, '2026-10-13');
+  assert.match(rechazosParaApi(9, 30, { total: 0, porMotivo: {}, otros: 0, ultimoDia: null, desde: '2026-09-15', sinTabla: true }).nota, /no quieren decir que no hubo/);
+  assert.match(runnerDe('ver_rechazos_pago_landing'), /await rechazosDePago\(ctx\.ws, id, dias\)/);
+  assert.match(runnerDe('ver_rechazos_pago_landing'), /if \(!r\) return errorLectura\(noExisteCreada\(id\)\);/);
+  // Las versiones (el «Deshacer» de aplicar): con número, tope y lo que no entra contado.
+  const vs = Array.from({ length: 32 }, (_, i) => ({ id: 100 - i, creado: '2026-10-14T10:00:00Z', motivo: i === 0 ? 'Antes de aplicar el diagnóstico' : 'Guardada', autor: null, titulo: 'Webinar' }));
+  const lista = versionesParaApi(5, vs) as { versiones: { version: number; motivo: string }[]; versiones_afuera: number };
+  assert.equal(lista.versiones.length, TOPE_VERSIONES_API);
+  assert.deepEqual(lista.versiones[0], { version: 100, creada: '2026-10-14T10:00:00Z', motivo: 'Antes de aplicar el diagnóstico', autor: null, titulo: 'Webinar' });
+  assert.equal(lista.versiones_afuera, 2);
+  // Restaurar: el MISMO restaurarVersion que la pantalla, el comentario de ESA landing, y por chat (reversible:
+  // deja «Antes de restaurar»). Y aplicar ya no manda a un historial que la API no tenía.
+  const restaurar = runnerDe('restaurar_version_landing');
+  assert.match(restaurar, /await docsEditor\.restaurarVersion\(id, version\)/);
+  assert.match(restaurar, /if \(!c \|\| c\.docId !== id\) return \{ error:/);
+  assert.match(restaurar, /await estadoDeComentario\(\{ id: comentario, estado: 'pendiente' \}\)/);
+  assert.doesNotMatch(restaurar, /\.from\(/);
+  const r = accion('restaurar_version_landing');
+  assert.equal(r.confirmacion, 'chat');
+  assert.ok(r.reversible);
+  assert.deepEqual(r.gating, { tab: 'landing-writer', rolMinimo: 'admin' });
+  assert.match(accion('aplicar_comentario_landing').descripcion, /restaurar_version_landing/);
+  for (const id of ['ver_rechazos_pago_landing', 'listar_versiones_landing', 'restaurar_version_landing']) assert.ok(rutaRestDe(id), `${id} sin ruta REST`);
 });
 
 // Integración de la tanda 4 (14/10/2026): las publicadas viven en https://hola-mako.site/<slug>. Antes
@@ -402,3 +463,138 @@ test('listar_disenos_landing dice qué diseño trae video, y la mayoría lo trae
   for (const d of disenos) assert.ok('video' in d && ['centro', 'costado', null].includes(d.video), JSON.stringify(d));
   assert.ok(disenos.filter((d) => d.video).length * 2 > disenos.length, 'la mayoría con video');
 });
+
+// ── 5. Tanda 6 (14/10/2026): el dominio propio, el botón de pago y lo que quedó fuera ──
+// Los pendientes de la tanda 4 de la API («url_publica no usa el dominio propio verificado») y de la de
+// pago («el botón de pago cobra el producto X» por la API).
+// Roturas (14/10/2026, arnés que restaura de memoria y verifica el sha256; base 23 / 0 + 1 todo), una por vez:
+//   · urlPublicaParaApi devuelve siempre la de MaKo                                   -> 22 / 1 (dominio)
+//   · elegirBotonDePago, sin `texto`, toma el primer «Pagar ahora» aunque haya dos      -> 22 / 1 (botón)
+//   · conProductoEnBoton cambia TODOS los botones                                      -> 22 / 1 (botón)
+//   · cobrar_producto_landing por chat y no en pantalla                                -> 22 / 1 (forma)
+// Lo que la tanda 4 dejó «fuera por ahora», misma base, una por vez:
+//   · duplicar_landing sin el freno de las automatizaciones                            -> 22 / 1 (las seis)
+//   · pausar_landing llama a sitioActivo con el valor al revés                          -> 22 / 1 (las seis)
+//   · pedidoDePresentacion sin el formato de la plantilla (nacería como página)         -> 22 / 1 (presentación)
+
+test('url_publica es la del dominio propio VERIFICADO si lo tiene (la que la persona pega en sus anuncios)', () => {
+  const r = listaParaApi([
+    resumen({ id: 1, slug: 'webinar', publicadoAt: '2026-10-03T00:00:00Z', dominio: 'pagina-de-ejemplo.com' }),
+    resumen({ id: 2, slug: 'otra', publicadoAt: '2026-10-03T00:00:00Z', dominio: null }),
+  ], 50);
+  assert.deepEqual(
+    r.landings.map((l) => [l.url_publica, (l as { url_mako?: string }).url_mako ?? null]),
+    [['https://pagina-de-ejemplo.com', urlDeLanding('webinar')], [urlDeLanding('otra'), null]],
+  );
+  assert.equal(urlPublicaParaApi('x', null), urlDeLanding('x'));
+  const ver = runnerDe('ver_landing_creada');
+  assert.match(ver, /url_publica: publicada \? urlPublicaParaApi\(d\.slug as string, dominio\) : null/);
+  assert.match(ver, /fd\?\.dominio_estado === 'verificado'/, 'sólo el dominio verificado');
+});
+
+const botonJson = (texto: string, href = ''): JsonNodo => ({ type: NODO_DOC.boton, attrs: { href, variante: 'primario', nuevaPestana: false }, content: [{ type: 'text', text: texto }] });
+const conBotones = (...paginas: JsonNodo[][]): LandingContenido => ({
+  v: 1,
+  paginas: paginas.map((bs, k) => ({
+    id: `p${k}`, titulo: k ? `Página ${k}` : 'Inicio', ruta: k ? `p${k}` : '',
+    doc: { type: 'doc', content: [{ type: NODO_DOC.tarjeta, attrs: { id: `t${k}` }, content: [{ type: NODO_DOC.botones, attrs: {}, content: bs }] }] },
+  })) as LandingContenido['paginas'],
+});
+
+test('el botón de pago: el que ya cobra o el único «Pagar ahora»; con dos o ninguno, pregunta; nada más cambia', () => {
+  const c = conBotones([botonJson('Agenda tu llamada', '#t-formulario'), botonJson(TEXTO_BOTON_PAGO)], [botonJson('Volver')]);
+  const bs = botonesDeLanding(c);
+  assert.deepEqual(bs.map((b) => [b.n, b.texto, b.producto]), [[0, 'Agenda tu llamada', null], [1, 'Pagar ahora', null], [2, 'Volver', null]]);
+  const elegido = elegirBotonDePago(bs, null);
+  assert.ok('boton' in elegido && elegido.boton.n === 1, 'sin texto: el «Pagar ahora»');
+  // Lo nuevo cobra el producto 7, y el resto del documento queda IGUAL (ni el otro botón ni la otra página).
+  const nuevo = conProductoEnBoton(c, 1, 7);
+  assert.deepEqual(botonesDeLanding(nuevo).map((b) => [b.texto, b.href]), [['Agenda tu llamada', '#t-formulario'], ['Pagar ahora', 'pago:7'], ['Volver', '']]);
+  assert.equal(botonesDeLanding(c)[1].href, '', 'no muta la entrada');
+  // Uno que ya cobra gana sin texto; con dos «Pagar ahora» y ninguno que cobre, no adivina.
+  const yaCobra = conBotones([botonJson('Comprar', 'pago:3'), botonJson(TEXTO_BOTON_PAGO)]);
+  const e2 = elegirBotonDePago(botonesDeLanding(yaCobra), null);
+  assert.ok('boton' in e2 && e2.boton.texto === 'Comprar' && e2.boton.producto === 3);
+  const dos = elegirBotonDePago(botonesDeLanding(conBotones([botonJson(TEXTO_BOTON_PAGO)], [botonJson(TEXTO_BOTON_PAGO)])), null);
+  assert.ok('error' in dos && /pásalo en «boton»/.test(dos.error), 'con dos, pregunta');
+  const porTexto = elegirBotonDePago(bs, 'volver');
+  assert.ok('boton' in porTexto && porTexto.boton.n === 2, 'con texto: sin importar mayúsculas');
+  const noEsta = elegirBotonDePago(bs, 'Inscríbete');
+  assert.ok('error' in noEsta && noEsta.botones?.includes('Agenda tu llamada'), 'nombra los botones que hay');
+  assert.match(resumenCobrar({ titulo: 'Mi landing', boton: bs[1], producto: { id: 7, nombre: 'Mentoría', tipo: 'unico', montoUsd: 97 }, publicada: true, motivo: 'sin-pasarela' }),
+    /^El botón «Pagar ahora» de «Mi landing» va a cobrar «Mentoría» \(.*97.*\) por la pasarela de MaKo.*se vuelve a publicar.*Conecta Stripe/);
+});
+
+test('cobrar_producto_landing va en PANTALLA (es plata), sólo para el admin, por el server de la pantalla', () => {
+  const d = accion('cobrar_producto_landing');
+  assert.equal(d.confirmacion, 'pantalla');
+  assert.equal(d.pantalla, '/mako/revisar');
+  assert.deepEqual(d.gating, { tab: 'landing-writer', rolMinimo: 'admin' });
+  assert.deepEqual(d.parametros.map((p) => p.nombre), ['id', 'producto', 'boton']);
+  assert.ok(rutaRestDe('cobrar_producto_landing'), 'sale por HTTP con su ruta');
+  const b = runnerDe('cobrar_producto_landing');
+  assert.ok(!/\.from\(|getTenantDb|getSupabaseServer/.test(b), 'ninguna segunda implementación');
+  assert.match(b, /docsEditor\.guardar\(\{ accion: 'guardar', id: plan\.id, version: plan\.f\.version, contenido: plan\.contenido \}\)/, 'compare-and-set con la versión leída');
+  const run = sinComentarios(leer('lib/api-mako/areas/landing.run.ts'));
+  const plan = run.slice(run.indexOf('async function planCobro'), run.indexOf('function noSeAplica'));
+  assert.match(plan, /const c = await docsEditor\.cobro\(\);/, 'el catálogo ACTIVO, el mismo de «Cobrar con MaKo»');
+  assert.match(plan, /c\.cobro\.productos\.find\(\(x\) => x\.id === productoId\)/);
+});
+
+const SEIS = ['ver_analitica_landing', 'renombrar_landing', 'duplicar_landing', 'pausar_landing', 'mandar_landing_a_papelera', 'crear_presentacion_desde_plantilla'];
+
+test('lo que quedó «fuera por ahora»: chat y reversibles, la puerta de la página y el server de la pantalla', () => {
+  for (const id of SEIS) {
+    const d = porId(id);
+    assert.ok(d, `falta ${id}`);
+    assert.deepEqual(d.gating, { tab: 'landing-writer', rolMinimo: 'admin' }, id);
+    assert.deepEqual([...d.canales].sort(), ['app', 'http', 'whatsapp'], id);
+    assert.ok(rutaRestDe(id), `${id} sin ruta REST`);
+    if (id !== 'ver_analitica_landing') {
+      const a = accion(id);
+      assert.equal(a.confirmacion, 'chat', id);
+      assert.equal(a.reversible, true, id);
+    }
+    assert.ok(!/\.from\(|getTenantDb|getSupabaseServer/.test(runnerDe(id)), `${id}: segunda implementación`);
+  }
+  assert.match(runnerDe('ver_analitica_landing'), /docsEditor\.analitica\(id\)/);
+  assert.match(runnerDe('renombrar_landing'), /docsEditor\.renombrar\(id, payload\.titulo\)/);
+  assert.match(runnerDe('duplicar_landing'), /docsEditor\.duplicar\(id\)/);
+  assert.match(runnerDe('pausar_landing'), /sitioActivoEnEditor\(id, !pausar\)/);
+  assert.match(runnerDe('mandar_landing_a_papelera'), /papelera \? await docsEditor\.mandarAPapelera\(id\) : await docsEditor\.restaurarDePapelera\(id\)/);
+  assert.match(runnerDe('crear_presentacion_desde_plantilla'), /docsEditor\.crear\(pedido\)/);
+  // Lo que crea una fila nueva no corre en una automatización (una por lead).
+  for (const id of ['duplicar_landing', 'crear_presentacion_desde_plantilla']) assert.match(runnerDe(id), /if \(enFlujo\(ctx\)\) return \{ error:/, id);
+});
+
+test('crear una presentación es EXACTAMENTE el alta de «Plantillas» de la pantalla, con su formato', () => {
+  const d = accion('crear_presentacion_desde_plantilla');
+  assert.deepEqual([...d.parametros.find((p) => p.nombre === 'plantilla')!.enum!], PLANTILLAS_PRESENTACION.map((p) => p.id));
+  for (const p of PLANTILLAS_PRESENTACION) {
+    const pedido = pedidoDePresentacion(p.id, null)!;
+    const pantalla = pedidoDePlantilla(p);
+    assert.deepEqual({ ...pedido, contenido: null }, { ...pantalla, contenido: null }, p.id);
+    assert.equal(pedido.config?.formato, 'presentacion', `${p.id}: nacería como página`);
+  }
+  assert.equal(pedidoDePresentacion(PLANTILLAS_PRESENTACION[0].id, 'Mi charla')!.titulo, 'Mi charla');
+  assert.equal(pedidoDePresentacion('no-existe', null), null);
+  assert.deepEqual(disenosParaApi().presentaciones.map((p) => p.id), PLANTILLAS_PRESENTACION.map((p) => p.id));
+});
+
+test('la analítica: los números de la tarjeta del editor, y sin publicar los ceros se dicen ciertos', () => {
+  const a = analiticaParaApi(4, { publicada: true, urls: ['hola-mako.site/x'], visitas30: 12, visitantes30: 9, leads30: 2, porDia: [{ dia: '2026-10-13', visitas: 5 }], alcancePorSeccion: null, enAnalyst: false });
+  assert.deepEqual([a.id, a.visitas, a.visitantes, a.leads, a.dias], [4, 12, 9, 2, 30]);
+  assert.deepEqual(a.por_dia, [{ dia: '2026-10-13', visitas: 5 }]);
+  const sin = analiticaParaApi(5, { publicada: false, urls: [], visitas30: 0, visitantes30: 0, leads30: 0, porDia: [], alcancePorSeccion: null, enAnalyst: false });
+  assert.match(sin.nota, /No está publicada/);
+});
+
+// ── VERIFICACIÓN DE LA TANDA 6 (14/10/2026): PROBADO ROMPIÉNDOLO ──────────────────────────────
+// Base: 25 / 0 (y el `todo` de WhatsApp que ya estaba).
+//   M1 diagnosticoParaApi sin el puntaje                         → 24 / 1 «lo que el motor de la tanda 6…»
+//   M5 ver_landing_creada sin pasarle el puntaje                 → 24 / 1 «lo que el motor de la tanda 6…»
+//   M2 resumenDespublicar sin el dominio propio                  → 24 / 1 «despublicar dice el dominio…»
+//   M3 ver_rechazos_pago_landing sin mirar que la landing exista → 24 / 1 «lo que el motor de la tanda 6…»
+//   M4 restaurar_version_landing con un comentario de otra landing → 24 / 1 «lo que el motor de la tanda 6…»
+// Las dos roturas del motor de despublicar (B1, B2) NO las ve este archivo: las ve editor-landing-despublicar.
+// Restaurado: 25 / 0.

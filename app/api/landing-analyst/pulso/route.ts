@@ -10,9 +10,16 @@
 // ⚠️ UN ERROR SALE COMO ERROR, con su 500 y su mensaje. Lo que NO puede hacer es
 // contestar un `{ paginas: [] }` optimista: la pantalla dibujaría «nadie llegó a
 // tu oferta» sobre una consulta que nunca corrió.
+//
+// ⚠️ SÓLO ADMIN (tanda 6 del editor de landings, 14/10/2026; pendiente de la tanda 2: «las rutas
+// analyze, sync y pulso del Landing Analyst no miran el rol»). Es la analítica de las páginas del
+// negocio, hermana del mapa de calor, y /mapa ya exigía admin. (Medido el 14/10/2026: la única pantalla
+// que la pide, app/landing-analyst/PulsoPaginas.tsx, hoy no la monta nadie; la ruta igual responde.)
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
+import { getSesionAdmin } from '@/lib/auth';
+import { getRolWsEfectivo } from '@/lib/workspace';
 import { getPulso } from '@/lib/landing-pulso-server';
 import { PULSO_DIAS } from '@/lib/landing-pulso';
 
@@ -20,6 +27,9 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 120;
 
 export async function GET(req: NextRequest) {
+  if ((await getSesionAdmin()) == null && (await getRolWsEfectivo()) !== 'admin') {
+    return Response.json({ ok: false, error: 'solo admin' }, { status: 403 });
+  }
   // La ventana es un parámetro para poder acortarla desde la pantalla; fuera de
   // rango se usa el default en vez de rechazar, que es lo que hace falta acá.
   const crudo = Number(new URL(req.url).searchParams.get('dias'));

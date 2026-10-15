@@ -44,6 +44,7 @@ buscar_lugares_meta
 buscar_tareas_plan
 buscar_tutorial
 cambiar_espera_paso
+cambiar_estado_comentario_landing
 cancelar_accion
 cancelar_analisis_dashboard
 cancelar_programacion_broadcast
@@ -56,6 +57,7 @@ cerrar_objetivo
 cobertura_datos_retro
 cobertura_guiones_anuncio
 cobranza_lead
+cobrar_producto_landing
 comparar_agendas_meta_crm
 conectar_componentes_dashboard
 configurar_aviso_whatsapp
@@ -85,6 +87,7 @@ crear_lead_magnet
 crear_link_pago
 crear_modulo_curso
 crear_oferta_lead
+crear_presentacion_desde_plantilla
 crear_secuencia_email
 dar_estrella
 declarar_entradas_funnel
@@ -100,6 +103,7 @@ detectar_piezas_landing
 diagnosticar_funnel
 duplicados_lead
 duplicar_hoja_dashboard
+duplicar_landing
 editar_avatar_negocio
 editar_broadcast
 editar_clase_curso
@@ -205,6 +209,7 @@ listar_capacidades_mako
 listar_cobros
 listar_cohortes_mensuales
 listar_cohortes_semanales
+listar_comentarios_landing
 listar_conclusiones_experimentos
 listar_conjuntos_meta
 listar_conversiones_meta
@@ -264,9 +269,11 @@ listar_tareas_sin_datos
 listar_tareas_vencidas
 listar_trabajos_flow
 listar_triggers_email
+listar_versiones_landing
 listar_videos_detectados
 listar_videos_landing
 listar_videos_panda
+mandar_landing_a_papelera
 marcar_asistencia_reunion
 marcar_calificado
 marcar_pago_cobrado
@@ -288,6 +295,7 @@ olvidar_nombre_video
 opciones_siguiente_paso_guion
 ordenar_modulos_curso
 panorama_closing
+pausar_landing
 plan_retro
 plantillas_meta_de_secuencia
 poner_etiqueta_lead
@@ -344,12 +352,14 @@ registrar_pago_suelto
 registrar_valor_kpi
 reiniciar_personalidad
 remitente_email
+renombrar_landing
 renombrar_modulo_curso
 requisitos_para_mover
 resolver_confirmacion_crm
 responder_pregunta_personalidad
 restablecer_informe_dashboard
 restaurar_clase_curso
+restaurar_version_landing
 resumen_bandejas_confirmacion
 resumir_marketing_periodo
 retirar_creacion
@@ -368,6 +378,7 @@ transiciones_desde_etapa
 usar_creacion
 variables_plantilla
 ver_activacion_tab
+ver_analitica_landing
 ver_anuncio_planteado
 ver_anuncio_video
 ver_archivero
@@ -429,6 +440,7 @@ ver_proximas_recurrentes
 ver_proyecto_plan
 ver_publico_conjunto_meta
 ver_puente_flow
+ver_rechazos_pago_landing
 ver_rendimiento_anuncios
 ver_revenue_mensual
 ver_revenue_periodo

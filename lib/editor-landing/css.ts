@@ -356,6 +356,22 @@ const BLOQUES: string[] = [
   // En la publicada no, ni en la vista del visitante del teléfono: ahí no hay un cuadro que corte y
   // el video a todo el ancho es el protagonista del VSL.
   r(D + '[data-marcadores="si"] .gm-tarjeta-cuerpo > .gm-insertado[data-clase="video"]', 'width: 52%; justify-self: center;'),
+  // Los textos A COMPLETAR («[Tu especialidad]», especificacion.ts). Pedido de Martín (14/10/2026): «quiero
+  // que los [] que el usuario debe completar, se queden como de otro color o algo diferencial, y que eso se
+  // vea también en la miniatura». Sólo en el editor (la decoración de editor/extensiones/completar.ts) y en
+  // la miniatura de TRABAJO (`data-marcadores`): la publicada, la exportación y el teléfono no traen la
+  // clase. El texto en el color del acento sobre una FRANJA del acento con transparencia. Sale de
+  // --gm-acento-texto, que es legible sobre la superficie de la sección y que redefinen la sección con
+  // imagen de fondo y la de fondo acento (con --gm-acento, en esas el tinte no se veía). La transparencia
+  // es a propósito: en un título con degradado (texto transparente y background-clip) el degradado se
+  // sigue viendo a través. Es una franja del 80 % del alto y no el fondo entero: el fondo de un span cubre
+  // su alto de fuente (~1.2em) y un título va con interlineado 1, así que los renglones se pisaban y el
+  // pedazo pisado salía con el doble de tinte (medido el 14/10/2026 en la captura de las miniaturas).
+  // Sin sombras: una sombra con extensión también pisaba el renglón de al lado. El clone repite la franja
+  // en cada renglón.
+  r([D + '[data-modo="editor"] .gm-completar', D + '[data-marcadores="si"] .gm-completar'], '--gm-completar-tinte: color-mix(in srgb, var(--gm-acento-texto, #2f6fed) 22%, transparent); background: linear-gradient(var(--gm-completar-tinte, rgba(47,111,237,0.22)), var(--gm-completar-tinte, rgba(47,111,237,0.22))) 0 60% / 100% 80% no-repeat; border-radius: 0.15em; color: var(--gm-acento-texto, inherit); -webkit-box-decoration-break: clone; box-decoration-break: clone;'),
+  // Adentro de un botón, del color de SU texto: el acento sobre un botón del acento no se ve.
+  r([D + '[data-modo="editor"] .gm-boton .gm-completar', D + '[data-marcadores="si"] .gm-boton .gm-completar'], '--gm-completar-tinte: color-mix(in srgb, currentColor 24%, transparent); color: inherit;'),
 
   '/* ── 12. Formulario (los datos entran al CRM por el Pixel) ── */',
   r(D + ' .gm-formulario', 'display: grid; gap: 0.9em; width: 100%; max-width: 34em;'),
@@ -804,6 +820,22 @@ const A_LISTA: readonly VarianteOptimizado[] = ['tiempo-horizontal', 'etapas-hor
 // los de «dos lados» conservaban la columna de escritorio.
 const N = ':nth-child(n)';
 
+// Diseños con video (pendiente del 14/10/2026): en el hero «al costado» las columnas son texto y botón |
+// video, y apiladas en el teléfono quedaba titular → botón → video. La regla de un VSL es titular → video
+// → botón (docs/hallazgos-editor-landing.md, «Lo que dicen las referencias de VSL»). Con un video en una
+// columna que NO es la primera, las columnas se vuelven UNA lista (la grilla pasa a flex en columna y cada
+// columna a `display: contents`) y `order` las intercala: el texto, después la columna del video y al final
+// la acción (los botones o el formulario) con todo lo que la sigue. Con el video en la primera columna no se
+// toca: ese orden lo eligió la persona. Sin el video pegado, la publicada ni tiene esa columna (render.ts).
+// ⚠️ El ritmo sigue siendo el de los márgenes (`* + *`, sección 4), por eso `gap: 0`; el video, que es el
+//    primero de su columna, toma el 1.5em que dejaba la grilla entre columnas.
+// ⚠️ En el editor el insertado va adentro de su NodeView (no es hijo directo de la columna): el lienzo en
+//    «Teléfono» conserva el orden de las columnas. Vale para la publicada, la exportación y las miniaturas.
+const VIDEO_VSL = ':is(.gm-insertado[data-clase="video"], figure.gm-video)';
+const CON_VIDEO_AL_LADO = ' .gm-columnas:has(> .gm-columna + .gm-columna > ' + VIDEO_VSL + ')';
+const COLUMNA_DEL_VIDEO = CON_VIDEO_AL_LADO + ' > .gm-columna:has(> ' + VIDEO_VSL + ')';
+const ACCION_AL_LADO = CON_VIDEO_AL_LADO + ' > .gm-columna:not(:has(> ' + VIDEO_VSL + ')) > :is(.gm-botones, .gm-formulario)';
+
 function movil(p: string): string[] {
   return [
     r(p + ' .gm-pagina', 'font-size: var(--gm-base-movil, 16px); padding-bottom: 2em;'),
@@ -824,6 +856,14 @@ function movil(p: string): string[] {
     // Columnas apiladas (el --gm-cols inline queda sin efecto: se pisa la propiedad, no la variable).
     r(p + ' .gm-columnas', 'grid-template-columns: minmax(0, 1fr); gap: 1.5em;'),
     r(p + ' .gm-columnas[data-divisores="si"] > .gm-columna + .gm-columna::before', 'top: -0.75em; bottom: auto; left: 0; right: 0; border-left: 0; border-top: 0.0625em solid var(--gm-borde-neutro, rgba(0,0,0,0.15));'),
+    // Con el video al costado: titular → video → botón (ver VIDEO_VSL, arriba).
+    r(p + CON_VIDEO_AL_LADO, 'display: flex; flex-direction: column; align-items: stretch; gap: 0;'),
+    r(p + CON_VIDEO_AL_LADO + ' > .gm-columna', 'display: contents;'),
+    r(p + CON_VIDEO_AL_LADO + ' > .gm-columna::before', 'display: none;'),
+    r(p + COLUMNA_DEL_VIDEO + ' > *', 'order: 1;'),
+    r(p + COLUMNA_DEL_VIDEO + ' > :first-child', 'margin-top: 1.5em;'),
+    r([p + ACCION_AL_LADO, p + ACCION_AL_LADO + ' ~ *'], 'order: 2;'),
+    r(p + ACCION_AL_LADO + ':first-child', 'margin-top: 1.125em;'),
     // Diseños optimizados: de a uno (de a dos los de imágenes y números). Gana a data-cols.
     r(p + ' .gm-optimizado[data-variante]', '--gm-n: 1;'),
     r(opt(p, DE_A_DOS), '--gm-n: var(--gm-n-movil);'),

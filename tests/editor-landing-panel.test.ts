@@ -37,13 +37,14 @@ import { renderToStaticMarkup } from 'react-dom/server';
 process.env.NEXT_PUBLIC_SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://proyecto.supabase.co';
 
 import {
-  ICONO_FILA, SIN_TITULO, destinoAnalizar, docDeUrl, derechaDeQuery, enPapelera, esDiagnosticoDe, filasDelPanel,
+  ICONO_FILA, SIN_TITULO, copiaParaAplicar, destinoAnalizar, docDeUrl, derechaDeQuery, enPapelera, esDiagnosticoDe, filasDelPanel,
   filtrarFilas, hostDe, idValido, queryDeDerecha, urlDeBusqueda, urlParaAnalizar, type Analizada, type Derecha, type FilaPanel,
 } from '../app/landing-generator/panel-reglas';
 import type { LandingResumen } from '../lib/editor-landing/api-tipos';
 import { TEMAS } from '../lib/editor-landing/temas';
 import { MiniaturaLanding } from '../app/landing-generator/MiniaturaLanding';
 import { marcasDeVoseo } from '../lib/puestas-data';
+import { dominioQueSirve } from '../lib/editor-landing/dominios-reglas';
 
 const RAIZ = join(__dirname, '..');
 const leer = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8').replace(/\r\n/g, '\n');
@@ -94,6 +95,28 @@ test('docDeUrl: una URL de hola-mako.site/<slug> o hola-mako.com/l/<slug> (o una
   assert.equal(docDeUrl('https://hola-mako.com/l/otra', docs, BASES), null, 'un slug que no es de este negocio no es nuestro');
   assert.equal(docDeUrl('https://otra.com/l/mi-landing', docs, BASES), null);
   assert.equal(docDeUrl('::', docs, BASES), null);
+});
+
+test('copiaParaAplicar: la copia por secciones que YA existe de una página de afuera (la más reciente), no otra', () => {
+  // Verificación de la tanda 6: «Aplicar» en una página de afuera replicaba la página entera cada vez.
+  const fiel = { type: 'tarjeta', content: [{ type: 'htmlLibre', attrs: { id: 'h1', html: '<p>x</p>' } }] };
+  const seccion = { type: 'tarjeta', content: [{ type: 'heading', content: [{ type: 'text', text: 'Hola' }] }] };
+  const docs = [
+    doc(1, { replicaDe: 'https://www.su-landing.com/oferta?utm_source=fb', actualizado: '2026-10-02T00:00:00Z', primera: seccion }),
+    doc(2, { replicaDe: 'https://su-landing.com/oferta', actualizado: '2026-10-05T00:00:00Z', primera: seccion }),
+    doc(3, { replicaDe: 'https://su-landing.com/oferta', actualizado: '2026-10-09T00:00:00Z', primera: fiel }),
+    doc(4, { replicaDe: 'https://su-landing.com/oferta', actualizado: '2026-10-09T00:00:00Z', formato: 'presentacion' }),
+    doc(5, { replicaDe: 'https://su-landing.com/oferta', actualizado: '2026-10-10T00:00:00Z', papelera: true }),
+    doc(6, { replicaDe: 'https://otra.com/oferta', actualizado: '2026-10-11T00:00:00Z' }),
+    doc(7, { actualizado: '2026-10-12T00:00:00Z' }),
+  ];
+  // La misma página escrita de otra forma (www, query, barra final) es la misma: la más reciente por secciones.
+  assert.equal(copiaParaAplicar('https://su-landing.com/oferta/', docs), 2);
+  assert.equal(copiaParaAplicar('https://www.su-landing.com/oferta?x=1', docs), 2);
+  // Ni la «Página web» idéntica, ni una presentación, ni la Papelera: sin otra, se replica.
+  assert.equal(copiaParaAplicar('https://su-landing.com/oferta', docs.filter((d) => d.id >= 3)), null);
+  assert.equal(copiaParaAplicar('https://nadie.com', docs), null);
+  assert.equal(copiaParaAplicar('no es una url', docs), null);
 });
 
 test('filasDelPanel: documentos por nombre (el editado último arriba) y después las de afuera, sin la papelera, sin las nuestras y sin repetidas', () => {
@@ -299,10 +322,14 @@ test('archivar es la Papelera con un Deshacer que devuelve la MISMA landing; eli
 
 test('la derecha: la caja de crear por default, el Diagnóstico montado AHÍ (con key por landing) y la URL al día', () => {
   const src = sinComentarios(leer(INICIO));
+  // Verificación de la tanda 6: `AccionCaja` vive en panel-reglas.ts (puro) con `derechaDeAccion`, que el
+  // test de la pantalla de la tanda 6 ejecuta.
   assert.match(src, /^import CajaCrear from '\.\/CajaCrear';$/m);
   assert.match(src, /^import PanelDiagnostico from '\.\/diagnostico\/PanelDiagnostico';$/m);
-  assert.match(src, /\} else \{\s*contenido = <CajaCrear \/>;\s*\}/, 'la caja no es lo que se ve por default');
-  assert.match(src, /<PanelDiagnostico key=\{`\$\{derecha\.docId \?\? ''\}\|\$\{derecha\.url \?\? ''\}`\} docId=\{derecha\.docId\} url=\{derecha\.url\} onCerrar=\{cerrarDiagnostico\} onAnalizada=\{sumarAnalizada\} \/>/);
+  // Tanda 6: la caja le pasa al Panel lo que se eligió (Crear con IA, Analizar, Replicar) para abrirlo AHÍ.
+  assert.match(src, /\} else \{\s*contenido = <CajaCrear onAccion=\{alAccion\} \/>;\s*\}/, 'la caja no es lo que se ve por default');
+  // Verificación de la tanda 6: también la copia que ya existe de una página de afuera (`copiaParaAplicar`).
+  assert.match(src, /<PanelDiagnostico\s+key=\{`\$\{derecha\.docId \?\? ''\}\|\$\{derecha\.url \?\? ''\}`\}\s+docId=\{derecha\.docId\}\s+url=\{derecha\.url\}\s+copia=\{derecha\.url \? copiaParaAplicar\(derecha\.url, lista\) : null\}\s+onCerrar=\{cerrarDiagnostico\}\s+onAnalizada=\{sumarAnalizada\}\s+\/>/);
   // Integración (12/10/2026, PEDIDO 3 del Panel): una página de afuera recién analizada entra a la
   // barra sin recargar, comparada normalizada (no se duplica el renglón). Probado rompiéndolo: sin
   // el `onAnalizada` → 1 fallo; agregando sin comparar (`[{ url, … }, ...l]` siempre) → 1 fallo.
@@ -325,7 +352,8 @@ test('las páginas: el Panel lee las analizadas DESPUÉS del guard y resuelve la
   assert.ok(guard > 0 && page.indexOf('listarAnalizadas()') > guard, 'la lectura corre antes del guard');
   // Tanda 4: las bases las da el server (`basesLandings`), y van a la derecha Y a la pantalla.
   assert.match(page, /const bases = basesLandings\(\);/);
-  assert.match(page, /derechaDeQuery\(\{ vista: uno\(sp\.vista\), diagnostico: uno\(sp\.diagnostico\), analizar: uno\(sp\.analizar\) \}, docs, bases\)/);
+  // Tanda 6: toda la query de la derecha (también `?paso=` y los links viejos de /crear) por `consultaDerecha`.
+  assert.match(page, /derechaDeQuery\(consultaDerecha\(sp\), docs, bases\)/);
   assert.match(page, /bases=\{bases\}/);
   assert.match(page, /analizadas=\{analizadas\}/);
   assert.match(page, /derechaInicial=\{derechaInicial\}/);
@@ -346,8 +374,17 @@ test('server: `listar` (y `duplicar`) traen el formato y la proporción desde co
   assert.match(cuerpo, /formato: formatoDe\(f\),/);
   assert.match(cuerpo, /proporcion: proporcionDe\(f\),/);
   // Tanda 4: el dominio propio, y SÓLO el verificado (uno pendiente no sirve nada todavía).
+  // Tanda 6 (paquete 2): la regla se mudó a `dominioQueSirve` (dominios-reglas.ts), la MISMA que usa
+  // despublicar. Acá se fija que aResumen la llama y se EJECUTA lo que promete: la condición que
+  // decía el regex de antes (el pendiente no sale) no se pierde con el cambio de forma.
   assert.match(cols, /\bdominio, dominio_estado\b/);
-  assert.match(cuerpo, /dominio: f\.dominio_estado === 'verificado' && typeof f\.dominio === 'string' && f\.dominio \? f\.dominio : null,/);
+  assert.match(cuerpo, /dominio: dominioQueSirve\(f\),/);
+  assert.equal(dominioQueSirve({ dominio: 'promo.tunegocio.com', dominio_estado: 'verificado' }), 'promo.tunegocio.com');
+  assert.equal(dominioQueSirve({ dominio: 'promo.tunegocio.com', dominio_estado: 'pendiente' }), null, 'un pendiente no sirve nada todavía');
+  // Verificación de la tanda 6: de qué página de afuera es copia (lo usa `copiaParaAplicar`), SÓLO si la
+  // replicó Replicar (`origen.modo` 'importar'): una creada con IA «basada en» una URL no es su copia.
+  assert.match(cols, /\borigen_modo:config->origen->>modo, basado_en:config->origen->>basadoEnUrl\b/);
+  assert.match(cuerpo, /replicaDe: f\.origen_modo === 'importar' && typeof f\.basado_en === 'string' && f\.basado_en \? f\.basado_en : null,/);
 });
 
 test('la miniatura de una presentación es la diapositiva: el padre del .gm-doc declara el formato y el cuadro toma su forma', () => {
@@ -398,9 +435,22 @@ test('ni la pantalla, ni las páginas, ni las reglas tienen voseo (el guard del 
 //  21. voseo («Mirá tu landing») en panel-reglas.ts                           → 19 / 1 (20)
 //  22. urlDeBusqueda acepta cualquier dominio (también un nombre con punto)   → 19 / 1 (7)
 //  23. el Diagnóstico vacío monta el panel sin landing (en vez de la caja)    → 19 / 1 (16)
+// Tanda 6 (14/10/2026): dos aserciones de la pantalla cambiaron de forma (la caja recibe `onAccion` y la
+// página lee la derecha con `consultaDerecha`); lo nuevo de la derecha lo fija
+// tests/editor-landing-crear-panel.test.ts, con sus roturas.
 // Restaurado: 20 / 0.
 //
 // Tanda 4 (14/10/2026, hola-mako.site): base 20 / 0. Rota con el arnés de editor-landing-origen:
 //  24. docDeUrl mirando sólo la primera base (hola-mako.com/l/… «de afuera»)  → 17 / 3 «docDeUrl…», «filasDelPanel…», «derechaDeQuery…»
 //  25. docDeUrl sin el dominio propio (https://<dominio> «de afuera»)         → 19 / 1 «docDeUrl…»
 //  26. aResumen mandando también el dominio PENDIENTE                         → 19 / 1 «server: `listar`…»
+
+// ── VERIFICACIÓN DE LA TANDA 6 (14/10/2026): PROBADO ROMPIÉNDOLO ──────────────────────────────
+// Base: 21 / 0. Un arnés en el scratchpad rompe UNA cosa por vez, corre el archivo, restaura DE MEMORIA y verifica el
+// sha256 (el diff del árbol, igual antes y después de todas). Pasan / fallan:
+//   P1 aResumen manda el dominio aunque esté pendiente (lo que fijaba el regex de antes) → 20 / 1 «server: `listar`…»
+//   D1 dominioQueSirve acepta el pendiente (dominios-reglas.ts)                         → 20 / 1 «server: `listar`…»
+//   P2 replicaDe sin mirar origen.modo (una creada con IA «basada en» sería «la copia») → 20 / 1 «server: `listar`…»
+//   P3 copiaParaAplicar toma la «Página web» idéntica                                  → 20 / 1 «copiaParaAplicar…»
+//   P4 copiaParaAplicar toma una de la Papelera                                         → 20 / 1 «copiaParaAplicar…»
+// Restaurado: 21 / 0.

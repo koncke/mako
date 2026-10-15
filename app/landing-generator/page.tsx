@@ -15,15 +15,16 @@
 // lib/app-url.ts: hola-mako.site desde la tanda 4).
 //
 // La derecha que pide la URL (`?diagnostico=<id>`, `?analizar=<url>`, `?vista=plantillas|temas|
-// papelera`) se resuelve acá con `derechaDeQuery` (panel-reglas.ts, puro: un server component no
-// puede importar un VALOR de un 'use client') y baja por props. /landing-generator/analizar
-// redirige acá con el Diagnóstico abierto.
+// papelera|replicar`, `?paso=generar|pegar|importar`) se resuelve acá con `derechaDeQuery`
+// (panel-reglas.ts, puro: un server component no puede importar un VALOR de un 'use client') y
+// baja por props. /landing-generator/analizar redirige acá con el Diagnóstico abierto.
 //
-// El deep link del Landing Analyst (`?url=<landing analizada>`, también el que reenvía
-// /landing-writer) abre «Crear» con esa landing de base: se redirige con `rutaConWs`
-// (la tercera forma de navegar: sin el `?ws=`, el super admin que mira a un cliente
-// terminaría en su propia cuenta). La validación de que la URL sea una analizada del
-// negocio la hace Crear contra su lista.
+// TANDA 6 (14/10/2026). Martín: «La sección de "Importar con IA" no debería ser otra ruta, todo
+// siempre en la misma ruta». «Crear con IA» se abre A LA DERECHA (crear/CrearConIA.tsx, montado por
+// Inicio.tsx) y /landing-generator/crear redirige acá con su query (`destinoCrear`). El deep link
+// del Landing Analyst (`?url=<landing analizada>`, también el que reenvía /landing-writer) ya no
+// salta a otra ruta: abre «Generar» con esa landing de base, y la validación de que la URL sea
+// una analizada del negocio la hace Crear contra su lista (`baseDelDeepLink`).
 //
 // La puerta es la de la tab: admin del workspace + `landing-writer` en su capa (la key
 // del nav no cambió con el editor: contrato en la base). Página privada y sin Suspense:
@@ -35,37 +36,26 @@
 // =============================================================================
 
 import './gamma.css';
-import { redirect } from 'next/navigation';
 import { Pagina } from '@/app/_ui';
 import { requireRolWs } from '@/lib/tab-access';
-import { rutaConWs } from '@/lib/workspace';
 import { basesLandings } from '@/lib/app-url';
 import { listar, temas as leerTemasPropios } from '@/lib/editor-landing/server';
 import { listarAnalizadas } from '@/lib/landing-analyst';
 import { CSS_CONTENIDO } from '@/lib/editor-landing/css';
 import { TEMAS, temaPorId, urlFuentes } from '@/lib/editor-landing/temas';
 import type { LandingResumen, TemaPropio } from '@/lib/editor-landing/api-tipos';
-import { derechaDeQuery, type Analizada } from './panel-reglas';
+import { consultaDerecha, derechaDeQuery, type Analizada } from './panel-reglas';
 import { Inicio } from './Inicio';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 type Query = Record<string, string | string[] | undefined>;
-const uno = (v: string | string[] | undefined): string | null => (typeof v === 'string' ? v : Array.isArray(v) ? v[0] ?? null : null);
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
 export default async function LandingGeneratorPage({ searchParams }: { searchParams: Promise<Query> }) {
   await requireRolWs([], { nav: 'landing-writer' });
   const sp = await searchParams;
-
-  const url = uno(sp.url);
-  if (url) {
-    const q = new URLSearchParams({ url });
-    const objetivo = uno(sp.objetivo);
-    if (objetivo) q.set('objetivo', objetivo);
-    redirect(await rutaConWs(`/landing-generator/crear?${q.toString()}`));
-  }
 
   const [rLista, rTemas, rAnalizadas] = await Promise.all([
     listar().catch((e: unknown) => ({ ok: false as const, error: msg(e) })),
@@ -94,7 +84,7 @@ export default async function LandingGeneratorPage({ searchParams }: { searchPar
   // Las bases de las landings las decide el SERVER (el navegador no sabe el entorno): la vigente
   // primero (hola-mako.site en producción, tanda 4) y la de antes (hola-mako.com/l).
   const bases = basesLandings();
-  const derechaInicial = derechaDeQuery({ vista: uno(sp.vista), diagnostico: uno(sp.diagnostico), analizar: uno(sp.analizar) }, docs, bases);
+  const derechaInicial = derechaDeQuery(consultaDerecha(sp), docs, bases);
 
   return (
     <Pagina ancho="completo" densidad="compacta" style={{ padding: 0 }}>

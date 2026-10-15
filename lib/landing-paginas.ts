@@ -140,6 +140,32 @@ export function normalizarUrl(crudo: string): string | null {
 }
 
 /**
+ * La dirección con la que se ABRE la landing en la prueba (app/integraciones/ProbarTracking.tsx), o null
+ * si no es una página web.
+ *
+ * ⚠️ SEGURIDAD (verificación de la tanda 6, 15/10/2026). Desde la tanda 6 la pestaña de la landing se abre
+ * VACÍA en el clic (`window.open('about:blank')`, para detectar el bloqueo de las emergentes), y un
+ * `about:blank` abierto por MaKo es DEL MISMO ORIGEN que hola-mako.com. Se navegaba con lo escrito tal
+ * cual, y el chequeo del botón sólo pide «un punto»: `javascript:alert(1)//.xx` lo pasa y corría con
+ * nuestro origen (y la ventana de la prueba recibe la landing por `?l=`, así que un link armado lo
+ * dejaba a un clic de «Probar»). Sólo http(s), validado con `new URL`, y se navega con lo validado.
+ * Sin esquema se asume https, como en `normalizarUrl` («tu-pagina.com» es lo que la gente escribe; antes
+ * se resolvía RELATIVA a MaKo y abría un 404 nuestro). A diferencia de `normalizarUrl`, la query y el
+ * hash quedan: son los de la persona, y la prueba los necesita.
+ */
+export function urlParaAbrir(crudo: string | null | undefined): string | null {
+  const s = (crudo ?? '').trim();
+  if (!s) return null;
+  try {
+    const u = new URL(/^https?:\/\//i.test(s) ? s : `https://${s}`);
+    if ((u.protocol !== 'https:' && u.protocol !== 'http:') || !u.hostname.includes('.')) return null;
+    return u.href;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Las páginas que la persona ESCONDIÓ de la lista.
  *
  * Existe porque «borrar» una página detectada era una promesa que no se podía

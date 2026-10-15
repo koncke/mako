@@ -19,6 +19,14 @@
 // que termina en `.js`. Igual está en PUBLICOS (lib/rutas-publicas.ts) por si el matcher
 // cambia, y como no es /api/, `esPublicaSoloLeer` la deja sólo en GET/HEAD/OPTIONS. Acá
 // se exporta sólo GET: cualquier otro método lo contesta Next con 405.
+//
+// `?leer=<id>` (tanda 6, 14/10/2026): el LECTOR en vez del Pixel. Pedido de Martín: «El mimso error que
+// nos saltaba con Mauricio "No pude leer el texto de esa página.". Soluciona eso...», con su decisión «si
+// detecta que tenes el pixel instalado, que lo haga desde allí». Una página abierta por MaKo con
+// `?mako_leer=<id>` no mide nada: su Pixel pide esto y el lector la lee como un visitante
+// (`responderLectorDelPixel`, lib/editor-landing/lector-script.ts, con test). Sin token y sin base: el
+// lector no lee nada nuestro. La misma ruta a propósito: ya es pública y su nombre no lo listan los
+// bloqueadores.
 // =============================================================================
 import type { NextRequest } from 'next/server';
 import { wsPorIdentificadorEstricto } from '@/lib/webhook-routing';
@@ -26,10 +34,19 @@ import { LANDING_SERVICIO, landingSnippet } from '@/lib/landing-token';
 import { pixelComoArchivo } from '@/lib/pixel-archivo';
 import { PARAM_CARGADOR, responderCargador } from '@/lib/pixel-cargador';
 import { mensajeDeError } from '@/lib/calendly-error';
+import { PARAM_LECTOR_CARGADOR, responderLectorDelPixel } from '@/lib/editor-landing/lector-script';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest) {
+  const leer = req.nextUrl.searchParams.get(PARAM_LECTOR_CARGADOR);
+  if (leer !== null) {
+    const l = responderLectorDelPixel(leer, req.nextUrl.origin);
+    return new Response(l.cuerpo, {
+      status: l.status,
+      headers: { ...l.headers, 'X-Content-Type-Options': 'nosniff', 'Access-Control-Allow-Origin': '*' },
+    });
+  }
   const r = await responderCargador(req.nextUrl.searchParams.get(PARAM_CARGADOR), {
     resolver: async (token) => {
       try {

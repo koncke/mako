@@ -792,6 +792,10 @@ Lo que una definición tiene que declarar, y por qué no tiene default:
   `requireRolWs([])`. `gating.tab` mira la CAPA del workspace, no a la persona: sin
   `rolMinimo`, un closer lee o hace por MaKo lo que su pantalla le esconde.
 - **`tipoPendiente`** cuando la acción hereda un slug que ya hay en la base.
+- **`reversible: true` exige el camino de vuelta EN la API.** Si la descripción dice «se deshace desde el
+  historial del editor» y la API no tiene una operación para leerlo o restaurarlo, es una promesa falsa para
+  el modelo (14/10/2026, `aplicar_comentario_landing` → se sumaron `listar_versiones_landing` y
+  `restaurar_version_landing`; docs/hallazgos-api-mako.md).
 - **`vaciaEsValor`** en toda lista que REEMPLAZA algo entero (las tareas de una clase). Sin la marca,
   el validador tira `[]` como «no vino» —lo correcto para un filtro— y no queda forma de vaciarla: la
   operación contesta «no pasaste nada para cambiar» (medido el 08/10/2026 con `tareas: []`).
@@ -1059,6 +1063,16 @@ una cuenta distinta.
 Y un corolario que vale para cualquier «vista de otro»: **si la única salida vive adentro
 de una pantalla condicional, no hay salida.** El botón SALIR DE LA VISTA vivía en la barra
 del wizard; cuando el wizard no se dibujaba, no quedaba ninguna.
+
+# Servir contenido de AFUERA bajo nuestro dominio exige una firma del server
+
+Una ruta que sirve el HTML de otra página bajo hola-mako.com (la ventana de lectura del Landing Generator, una vista
+previa) es una página de phishing con nuestra barra de direcciones si cualquiera puede llegar a ella. **`Sec-Fetch-Site:
+same-origin` no prueba que la navegación la inició el código de MaKo** (cualquier link adentro de MaKo cuyo href
+controle otro la cumple), y un id que acuña el navegador no autentica nada. Lo que vale: una firma del server (HMAC con
+prefijo propio, atada a id, URL, usuario y negocio, que vence; `lib/editor-landing/lector-firma.ts`). Y abrir una
+página de afuera SIN sandbox y con `opener` exige que el host esté entre lo que el negocio DECLARÓ, no que su HTML
+«diga» algo (reverse tabnabbing). Medido y cerrado el 14/10/2026: docs/hallazgos-editor-landing.md → «Tanda 6».
 
 # Un guard sobre algo destructivo se escribe en POSITIVO
 

@@ -16,6 +16,8 @@
 //     Funnel») la mayoría de los diseños lleva video y el primero es MaKo; el video entra UNA vez en
 //     el hero de cada objetivo; al centro, titular → video → botón, centrados; al costado, dos
 //     columnas con el video solo a la derecha; la agenda no hereda nada del hero.
+//   · (tanda 6, pendientes de los diseños con video) la página de gracias lleva el video del «qué sigue»,
+//     y en el teléfono el video al costado queda entre el titular y el botón.
 //
 // ── Roturas (12/10/2026, a mano y restaurado; base en verde: 7 pasan, 0 fallan) ──
 //   · `conHerramientasMako` sin la rama del VSL ............................... 6 / 1
@@ -42,6 +44,20 @@
 //   · no entra a las columnas (el VSL al costado no se ve) ......................... 14 / 1
 //   · el diálogo mira sólo la página abierta ....................................... 14 / 1
 //   · el aviso frena el botón Publicar ............................................. 14 / 1
+// ── El video de la página de gracias (tanda 6, 14/10/2026; mismo arnés con el hash; base: 16 / 0) ──
+//   · `conVideoDelDiseno` sin `videoEnLaGracias` ................................... 15 / 1
+//   · también en Minimal (sin mirar `d.video`) ..................................... 15 / 1
+//   · el video al final aunque haya botón .......................................... 15 / 1
+//   · en toda página después de la primera, no sólo la ruta 'gracias' ............... 15 / 1
+//   · suma otro aunque la gracias ya traiga uno .................................... 15 / 1
+//   · en la ÚLTIMA sección de la gracias y no en la primera ......................... 14 / 2
+// ── El orden en el teléfono con el video al costado (tanda 6, 14/10/2026; mismo arnés; base: 17 / 0) ──
+//   · css.ts sin `display: contents` en las columnas ............................... 16 / 1
+//   · la acción con `order: 0` (no va al final) ...................................... 16 / 1
+//   · sólo la acción, no lo que la sigue (`~ *`) .................................... 16 / 1
+//   · también con el video en la PRIMERA columna .................................... 16 / 1
+//   · una regla del video al costado en escritorio .................................. 16 / 1
+//   · sólo en el @media y no en la vista de teléfono del editor ...................... 16 / 1
 // =============================================================================
 
 import { test } from 'node:test';
@@ -50,10 +66,12 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { sanearConfig, sanearContenido } from '../lib/editor-landing/validar';
 import { TEXTO_FALTA_VIDEO, avisoDeVideo, videosSinEnlace } from '../lib/editor-landing/especificacion';
-import { TEMAS } from '../lib/editor-landing/temas';
+import { TEMAS, temaPorId } from '../lib/editor-landing/temas';
+import { CSS_CONTENIDO } from '../lib/editor-landing/css';
+import { htmlDeTarjeta } from '../lib/editor-landing/render';
 import { PLANTILLAS } from '../lib/editor-landing/plantillas';
-import { NODO, type JsonNodo, type LandingContenido } from '../lib/editor-landing/doc';
-import { DISENOS_LANDING, OBJETIVOS_LANDING, heroDelDiseno, landingDesde } from '../lib/editor-landing/disenos-landing';
+import { NODO, parrafo, tarjeta, type JsonNodo, type LandingContenido } from '../lib/editor-landing/doc';
+import { DISENOS_LANDING, OBJETIVOS_LANDING, conVideoDelDiseno, heroDelDiseno, landingDesde } from '../lib/editor-landing/disenos-landing';
 import { pedidoDeDiseno, plantillasDe } from '../app/landing-generator/crear/tipo';
 
 const nodos = (c: LandingContenido): JsonNodo[] => {
@@ -177,12 +195,49 @@ test('cada diseño con video × cada objetivo: EXACTAMENTE un video en el hero (
       const enHero = videosEn(c.paginas[0].doc.content[0]).length;
       const esperados = d.video ? 1 : CON_VSL_DEL_OBJETIVO.has(o.id) ? 1 : 0;
       if (enHero !== esperados) mal.push(`${d.id} × ${o.id}: ${enHero} videos en el hero (esperaba ${esperados})`);
-      // Y fuera del hero, ninguno nuevo: el video del diseño entra UNA vez.
-      const fuera = c.paginas.flatMap((p, i) => p.doc.content.slice(i === 0 ? 1 : 0)).flatMap(videosEn).length;
+      // Y fuera del hero, ninguno nuevo: el video del diseño entra UNA vez (la página de gracias, aparte: abajo).
+      const fuera = c.paginas.flatMap((p, i) => p.doc.content.slice(i === 0 || p.ruta === 'gracias' ? 1 : 0)).flatMap(videosEn).length;
       if (fuera) mal.push(`${d.id} × ${o.id}: ${fuera} videos fuera del hero`);
     }
   }
   assert.deepEqual(mal, []);
+});
+
+// Pendiente de los diseños con video (14/10/2026): «la SEGUNDA página de gracias del webinar y del lead
+// magnet no lleva el video de "qué sigue"».
+test('la página de gracias de un diseño con video lleva UN video vacío en su primera sección, antes del botón (Minimal, ninguno)', () => {
+  const mal: string[] = [];
+  let conGracias = 0;
+  for (const d of DISENOS_LANDING) {
+    for (const o of OBJETIVOS_LANDING) {
+      const c = landingDesde(d, o.id)!;
+      for (const pg of c.paginas.slice(1).filter((p) => p.ruta === 'gracias')) {
+        if (d.video) conGracias++;
+        const [primera, ...resto] = pg.doc.content;
+        const videos = videosEn(primera);
+        if (videos.length !== (d.video ? 1 : 0)) mal.push(`${d.id} × ${o.id}: ${videos.length} videos en la gracias`);
+        if (resto.flatMap(videosEn).length) mal.push(`${d.id} × ${o.id}: un video fuera de la primera sección de la gracias`);
+        if (!d.video) continue;
+        if (videos[0]?.attrs?.src !== '' || videos[0]?.attrs?.proveedor !== 'youtube') mal.push(`${d.id} × ${o.id}: el video de la gracias no es el vacío con la pista de YouTube`);
+        // La regla del hero: el video justo antes del botón o del formulario; sin ninguno, al final.
+        const bloques = primera.content ?? [];
+        const iVideo = bloques.findIndex(esVideo);
+        const iAccion = bloques.findIndex((n) => n.type === NODO.botones || n.type === NODO.formulario);
+        if (iAccion >= 0 ? iVideo !== iAccion - 1 : iVideo !== bloques.length - 1) mal.push(`${d.id} × ${o.id}: el video de la gracias no va antes de la acción (${iVideo} de ${bloques.length})`);
+      }
+    }
+  }
+  assert.deepEqual(mal, []);
+  // El webinar (sin botón) y el lead magnet (con «Descargar ahora») en los 8 diseños con video.
+  assert.equal(conGracias, 2 * DISENOS_LANDING.filter((d) => d.video).length, 'las plantillas con página de gracias cambiaron: revisar el test');
+  // Y la que trae botón lo deja debajo del video: titular → texto → video → botón.
+  const lm = landingDesde(DISENOS_LANDING.find((d) => d.video)!, 'lead-magnet')!.paginas.find((p) => p.ruta === 'gracias')!;
+  assert.deepEqual(lm.doc.content[0].content!.map((n) => (esVideo(n) ? 'video' : n.type)), ['heading', 'paragraph', 'video', NODO.botones]);
+  // Sólo la ruta 'gracias': otra página del sitio no lo recibe, y una gracias que ya trae video no suma otro.
+  const pagina = (ruta: string, ...content: JsonNodo[]) => ({ id: 'p' + ruta, titulo: ruta || 'Inicio', ruta, doc: { type: 'doc' as const, content: [tarjeta(content.length ? content : [parrafo('Hola')])] } });
+  const conVideo = tarjeta([parrafo('Mira'), { type: NODO.insertado, attrs: { src: '', proveedor: 'vimeo', alto: null } }]).content!;
+  const sitio = conVideoDelDiseno({ v: 1, paginas: [pagina(''), pagina('precios'), pagina('gracias', ...conVideo)] }, DISENOS_LANDING.find((d) => d.video)!);
+  assert.deepEqual(sitio.paginas.slice(1).map((p) => videosEn(p.doc.content[0]).length), [0, 1]);
 });
 
 test('video al centro: titular, video y botón en ese orden, todo centrado y sin el «Título» display', () => {
@@ -235,6 +290,40 @@ test('video al costado: el hero es UNA fila de dos columnas, texto y botón a la
       assert.deepEqual(tipos(izq).sort(), tipos(antes).slice(1).filter((t) => t !== NODO.insertado).sort(), `${d.id} × ${o.id}: se perdió algo del hero`);
     }
   }
+});
+
+// Pendiente de los diseños con video (14/10/2026): «en el teléfono, con el video al costado, el video queda
+// debajo del texto y el botón». Medido con Chromium sin cabeza (la sección de la publicada con el video
+// pegado, MaKo × agenda, Tecnológico × lead magnet y MaKo × webinar): a 390 px, antes titular → botón (o
+// formulario) → video, ahora titular → video → botón; a 1600 px, las mismas coordenadas antes y después.
+test('en el teléfono, con el video al costado: titular → video → botón (la grilla pasa a una lista y `order` la intercala)', () => {
+  const VIDEO = ':is(.gm-insertado[data-clase="video"], figure.gm-video)';
+  const lineas = CSS_CONTENIDO.split('\n');
+  const desde = lineas.indexOf('@media (max-width: 768px) {');
+  const hasta = lineas.indexOf('}', desde);
+  assert.ok(desde > 0 && hasta > desde, 'no encontré el bloque del celular');
+  const enCelular = lineas.slice(desde + 1, hasta).join('\n');
+  const fuera = [...lineas.slice(0, desde), ...lineas.slice(hasta + 1)].join('\n');
+  const regla = (hoja: string, sel: string) => { const i = hoja.indexOf(sel + ' {'); return i < 0 ? '' : hoja.slice(i, hoja.indexOf('}', i)); };
+  for (const [donde, hoja, p] of [['celular', enCelular, '.gm-doc'], ['vista de teléfono', fuera, '.gm-doc[data-dispositivo="movil"]']] as const) {
+    const lista = p + ' .gm-columnas:has(> .gm-columna + .gm-columna > ' + VIDEO + ')';
+    assert.match(regla(hoja, lista), /display: flex; flex-direction: column; align-items: stretch; gap: 0;/, donde + ': la grilla no pasa a una lista');
+    assert.match(regla(hoja, lista + ' > .gm-columna'), /display: contents;/, donde + ': las columnas no se disuelven');
+    assert.match(regla(hoja, lista + ' > .gm-columna:has(> ' + VIDEO + ') > *'), /order: 1;/, donde + ': la columna del video no va segunda');
+    const accion = lista + ' > .gm-columna:not(:has(> ' + VIDEO + ')) > :is(.gm-botones, .gm-formulario)';
+    assert.ok(hoja.includes(accion + ',\n' + accion + ' ~ * { order: 2; }'), donde + ': la acción (y lo que la sigue) no va al final');
+  }
+  // En escritorio no: fuera del bloque del celular, sólo con la vista de teléfono del editor.
+  for (const l of fuera.split('\n').filter((x) => x.includes('.gm-columnas:has(> .gm-columna + .gm-columna'))) {
+    assert.match(l, /^\.gm-doc\[data-dispositivo="movil"\] /, 'una regla del video al costado vale en escritorio: ' + l);
+  }
+  // El selector calza con lo que dibuja render.ts: el video, hijo DIRECTO de la segunda columna.
+  const c = landingDesde(DISENOS_LANDING.find((x) => x.video === 'costado')!, 'agenda-llamada')!;
+  const hero = c.paginas[0].doc.content[0];
+  for (const n of todos(hero)) if (esVideo(n)) n.attrs = { ...n.attrs, src: 'https://www.youtube-nocookie.com/embed/aqz-KE-bpKQ?rel=0' };
+  const html = htmlDeTarjeta(hero, temaPorId('mako'), { modo: 'publico' });
+  assert.match(html, /<div class="gm-columnas"[^>]*><div class="gm-columna">(?:(?!<div class="gm-columna">)[\s\S])*<\/div><div class="gm-columna"><div class="gm-insertado" data-proveedor="youtube" data-clase="video">/);
+  assert.match(html, /<div class="gm-botones"/, 'la acción del hero es un .gm-botones');
 });
 
 test('la sección de la agenda no hereda nada del hero con video', () => {
