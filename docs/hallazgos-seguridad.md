@@ -584,6 +584,36 @@ miraba la falta del secreto:
 `lib/auth.ts` · `app/api/auth/dev-login/route.ts` · `package.json` (`dev`) · `tests/dev-local.test.ts` ·
 *15/10/2026, chat «Ciberseguridad», a partir del aviso del chat «Centro de Operaciones»*
 
+### La contraseña obligatoria: cuatro cosas que no se ven en el código (15/10/2026)
+
+Decisión de Martín: tener contraseña es OBLIGATORIO para todos, desde la misma fecha que el 2FA (21/10), como camino
+ALTERNATIVO a Google («si inicio con Google no debería pedirme la contraseña también»). Diseño y estado:
+`docs/diseno-login-contrasena.md`.
+
+- ⚠️ **El freno de la contraseña NO comparte cupo con el del 2FA.** Si los fallos de contraseña contaran en el mismo
+  cupo que los códigos (`mfa_eventos`, tipo `intento`), quien sólo sabe el correo de Martín le dejaba el segundo paso
+  bloqueado 15 minutos mandando contraseñas malas: es la misma trampa que ya se pagó con el freno del 2FA («un freno
+  que corta TODO se vuelve un arma»). Tipo propio: `intento-contrasena`.
+- **El dispositivo recordado salta el CÓDIGO, no la contraseña.** El callback de Google tiene un camino que abre la
+  sesión sin pasar por la ruta del segundo paso (el dispositivo de confianza). Con la contraseña puesta sólo en
+  `entrar()` de esa ruta, ese camino la salteaba entera. Toda puerta que emite una sesión se enumera ANTES de dar una
+  exigencia por cerrada: son el callback (dos salidas), la ruta del segundo paso y la nueva de entrar con contraseña.
+- **Un error NUESTRO no deja a nadie afuera, uno de la persona sí se corrige.** `guardarContrasena` distingue
+  `nuestro` (la base no guardó: entra igual y el pendiente vuelve en el próximo login) de lo que se arregla tipeando
+  (corta, su correo). Sin esa marca, el 21/10 una base lenta dejaba afuera a todo el que justo creaba su contraseña.
+- **Un test de un tope puede pasar en VERDE por la razón equivocada.** El tope de parámetros del hash (que un `p`
+  enorme no ponga a calcular al server) se probó con `scrypt$40$8$1$a$b`, y quitar el tope seguía dando «no
+  coincide»: el caso ya era inválido por el largo del hash. Lo cazó romperlo; el caso bueno es un hash bien formado
+  con `p=64`, y mide el tiempo.
+- **Quedó SIN hacer**: «Olvidé mi contraseña» (el link sale por el destino «a la persona» de Automations, en prod el
+  18/10; acordado en `docs/diseno-2fa-obligatorio.md` §8 de su rama) y las decisiones 2 (recuperar con link MÁS
+  segundo factor) y 4 (Have I Been Pwned), abiertas.
+
+**Vive en:** `lib/contrasena-reglas.ts` · `lib/contrasena.ts` · `lib/destino-usuario.ts` · `app/api/auth/contrasena/route.ts` ·
+`app/api/auth/2fa/route.ts` (`entrar`, `crear-contrasena`) · `app/api/auth/callback/google/route.ts` ·
+`app/api/perfil/seguridad/route.ts` · `supabase/migrations/0286_contrasena.sql` · `tests/contrasena.test.ts` ·
+*15/10/2026, chat «Ciberseguridad»*
+
 ### ⚠️ Ningún guard que mire el eje de workspace puede restringir a la agencia: el único que sirve es `getSesionAdmin()`
 
 Tres guards con nombre de «solo la agencia» y ninguno lo cumple, por la misma razón de

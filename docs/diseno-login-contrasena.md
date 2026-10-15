@@ -8,6 +8,15 @@
 > tenerlo, como todos. Pero si inicio con Google no debería pedirme la contraseña también.» Es una opción que no
 > estaba en la pregunta: **tener contraseña es OBLIGATORIO para todos** (él incluido), y es un camino de entrada
 > ALTERNATIVO a Google, nunca un paso más. Lo que eso cambia está marcado «(15/10)» abajo.
+>
+> **Decisión 5 contestada (15/10): B**, la misma fecha que el 2FA (21/10): el login pide las dos cosas, el factor
+> PRIMERO y la contraseña después, una pantalla cada una.
+>
+> **Construido (15/10, rama `contrasena`)**: la tabla (mig 0286), el hash y la política, entrar con correo y
+> contraseña (la MISMA decisión que Google, con el mismo segundo paso), crearla después del factor en el login
+> (también cuando el dispositivo recordado salta el código) y en Seguridad (con un código fresco), y
+> `destinoDeUsuario` para Automations. **Falta**: «Olvidé mi contraseña» (circuito 3), que sale por el destino «a la
+> persona» de Automations (en prod el 18/10), y las decisiones 2 y 4.
 
 ## El problema que resuelve
 
