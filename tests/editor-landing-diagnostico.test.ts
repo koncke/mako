@@ -360,8 +360,15 @@ test('el análisis de una landing NUESTRA no escribe en landing_analyses (esa ta
 
 test('la vista de afuera: iframe con sandbox SÓLO allow-scripts, y sólo escucha a SU iframe', () => {
   const src = sinComentarios(leer('app/web-generator/diagnostico/VistaAfuera.tsx'));
-  assert.match(src, /sandbox="allow-scripts"/);
-  assert.doesNotMatch(src, /allow-same-origin/);
+  // EL DOCUMENTO AISLADO NUNCA LLEVA allow-same-origin: ese HTML lo sirve una ruta NUESTRA, asi que
+  // con ese permiso correria con el origen de hola-mako.com. Desde el 15/10/2026 el recuadro se cae a
+  // la pagina REAL cuando el aislado no pinta nada (una landing de constructor), y ahi el origen es de
+  // ELLA, no nuestro: el permiso es el de cualquier embed. Lo que se fija es que los dos vayan atados.
+  assert.match(src, /sandbox=\{directo \? .allow-scripts allow-same-origin. : .allow-scripts.\}/,
+    ("el sandbox depende del estado directo: con el documento aislado, SOLO allow-scripts"));
+  assert.match(src, /src=\{directo \? url : src\}/, "y el estado directo sirve la URL de AFUERA, no la nuestra");
+  assert.doesNotMatch(src.replace(/directo \? .allow-scripts allow-same-origin. : .allow-scripts./, ""), /allow-same-origin/,
+    ("allow-same-origin no puede aparecer en ningun otro lado"));
   assert.match(src, /ev\.source !== iframeRef\.current\.contentWindow/);
   assert.match(src, /conWs\(srcPaginaDiagnostico\(url\), ws\)/, 'el ?ws= viaja en el src (el parche de fetch no toca un iframe)');
 });
