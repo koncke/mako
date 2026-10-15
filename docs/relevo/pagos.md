@@ -77,12 +77,15 @@ worktree están borradas; `pagos-rojo-cobranza` no tiene nada fuera de `main`.
 | Qué | Lo destraba | Dónde |
 |---|---|---|
 | Si una clave restringida (`rk_`) lee `GET /v1/account`; si la `notification_url` de MP llega firmada y con `data.id` en el query; un pago de punta a punta en modo prueba | las claves de PRUEBA de Martín (Stripe `sk_test_`/`rk_test_`, una cuenta de prueba de MP) | `lib/cobros-conexion.ts`, `lib/metodo-catalogo.ts`, `app/api/webhooks/mercadopago/route.ts` |
-| Qué pasa con el lead GANADO cuando se le devuelve el pago (hoy sigue en Sold con su monto) | decisión de Martín | `lib/cobros.ts` (`aplicarReembolso`) |
-| Un lead ganado como pago único que paga un link de SUSCRIPCIÓN: ¿pasa a suscripción? | decisión de Martín | `lib/cobros.ts` (`ganarLead`) |
-| Una automatización puede reembolsar: ¿guarda de costo `dinero` en los pasos de un flujo? | decisión de Martín (seguridad) | `lib/api-mako/flujo.ts` |
-| Los pagos que NO creó MaKo y los contracargos de MP: hoy se ignoran con rastro | decisión de Martín | `lib/cobros-eventos.ts` |
-| Stripe no abre cuentas a negocios de Argentina; la primera venta a un mexicano arranca el reloj del RFC | decisión de Martín (precio y legal) | `app/admin/dev/pricing/modelo.ts` |
-| Los BORRADORES legales de `/reembolsos` y `/terminos` §8 | que Martín los lea | `app/reembolsos/page.tsx`, `app/terminos/page.tsx` |
+| Stripe no abre cuentas a negocios de Argentina; la primera venta a un mexicano arranca el reloj del RFC | Martín (precio y fiscal): pasa ANTES por Estrategia, que lo mira con este chat cuando b2 esté en `main` | `app/admin/dev/pricing/modelo.ts` |
+| Los BORRADORES legales de `/reembolsos` y `/terminos` §8 | que Martín los lea; igual que el RFC, pasa antes por Estrategia | `app/reembolsos/page.tsx`, `app/terminos/page.tsx` |
+
+Las otras cuatro «decisiones de Martín» que estaban acá se DECIDIERON el 15/10 con la vara de AGENTS.md (copiar a Stripe y
+Mercado Pago, o contestar con lo escrito): el lead ganado que recibe un reembolso se queda donde está; un pago único que
+paga una suscripción sigue de pago único y la mensualidad cuenta en el MRR; un flujo puede reembolsar (lo decidió Martín
+el 08/10); y un contracargo se muestra y desmarca la cuota sólo si la plata salió. El porqué, en
+docs/hallazgos-planes-y-cobro.md → «Cuatro «decisiones de Martín» que no eran suyas». Antes de mandar CUALQUIER
+pregunta a la Ticketera: `node --import tsx scripts/decisiones.ts listar`, y la vara de AGENTS.md.
 
 ### Lo que sigue SIN bloqueo (código; casi todo vive en archivos de b2, así que va DESPUÉS de que b2 esté en `main`)
 
@@ -90,6 +93,8 @@ En este orden, de lo que más plata toca a lo que menos:
 1. Un link de MP anulado se puede pagar igual y nadie avisa que la plata entró dos veces → aviso a la ficha (`lib/cobros.ts`).
 2. Un reembolso de Stripe se da por hecho con `pending`: escuchar `charge.refund.updated` y `refund.failed` (`lib/cobros.ts`, `lib/stripe-api.ts`).
 3. El Outstanding del Dashboard cuenta como deuda las cuotas devueltas (`lib/pagos.ts`, `getOutstandingTotal`).
+3b. Contracargos (decidido 15/10): al historial y al motivo del cobro, y desmarcar la cuota cuando la plata salió; sumar `charge.dispute.created` y `charge.dispute.closed` a `EVENTOS_STRIPE` (`lib/cobros-eventos.ts`, `lib/cobros.ts`, `lib/stripe-api.ts`).
+3c. El MRR cuenta la mensualidad de un link de suscripción pagado por un lead de pago único (decidido 15/10; `lib/queries.ts`, `getMrrActivo`).
 4. Un producto de suscripción con plazo se cobra sin fin (`cancel_at` en Stripe, `end_date` en MP) (`lib/cobros.ts`, `lib/stripe-api.ts`).
 5. La fecha de la cuota es la del procesamiento y no la del pago; el MRR al cancelar redondea por meses (`lib/cobros.ts`, `lib/cobros-reglas.ts`).
 6. En `/mako/revisar`, el `cobroId` de un reembolso se puede editar y el título muestra el original (`lib/api-mako/areas/cobros.*`).
