@@ -114,14 +114,26 @@ uno por chat (hoy hay 16 vivos).
 
 ## 3. Mandar un pedido
 
-1. En `/admin/operaciones` Martín escribe el pedido, elige el chat y lo **firma** (§3.1). La fila
-   queda `en cola`; si el chat es de otra cuenta, la pantalla dice **«espera a que pases a la
-   cuenta N»**, no «en cola».
-2. La tarea programada la baja, verifica la firma y la deja en el buzón de ese chat.
-3. El Cartero la manda con `SendMessage` → `enviado`.
-4. **El chat destino confirma que la tomó** (el texto del pedido le pide marcarlo en MaKo) →
-   `tomado`. Sin esa marca, el Centro nunca dice que alguien lo leyó.
-5. El chat contesta donde contesta siempre: la Ticketera, el repo, un push.
+1. En `/admin/operaciones` Martín **escribe o dicta** el pedido, elige el chat (o el área) y lo
+   **firma** (§3.1). La fila queda `escrito`; si el chat es de otra cuenta, la pantalla dice
+   **«espera a que pases a la cuenta N»**, no «en cola».
+2. **El Centro le agrega el contexto que ese pedido necesita, como RUTAS y no como texto**: el
+   relevo del área, su `docs/hallazgos-<área>.md` y la decisión de la Ticketera de donde sale. El
+   chat lee eso y nada más (§11).
+3. La tarea programada la baja, verifica la firma y la deja en el buzón de ese chat.
+4. El Cartero la manda con `SendMessage` → `entregado`. Eso dice que salió, no que alguien lo leyó.
+5. **El chat deja un CIERRE de cuatro renglones** en MaKo: qué se decidió, qué quedó hecho, cómo se
+   comprobó y qué sigue (y dónde) → `hecho`. Si el cierre trae una prueba (un commit, un deploy, una
+   medición), pasa a `comprobado`.
+6. Lo largo sigue donde estaba: la Ticketera, el repo, un push.
+
+**Los cuatro estados son cuatro cosas distintas**: escrito ≠ entregado ≠ hecho ≠ comprobado.
+Juntar dos es la forma en que un tablero miente en verde.
+
+**Y cada pedido lleva un interruptor: «Sólo esto» o «Y de ahora en más».** Por defecto, «Sólo
+esto». Con «Y de ahora en más», el cierre tiene que decir dónde quedó la regla (AGENTS.md, una
+memoria o un hallazgo). Hoy esa diferencia se pierde, y por eso tantas reglas de AGENTS.md dicen
+«lo repitió tres veces».
 
 **Reglas que no se negocian:**
 
@@ -237,6 +249,23 @@ Lo que sí ahorra:
 - **El default es no tocar nada.** Una herramienta de ahorro que degrada por descuido es peor que
   no tenerla.
 
+### Lo que más tokens gasta no es el modelo: es lo que cada chat carga al abrir
+
+**`AGENTS.md` mide 8.088 líneas y 557 KB**, unos 140.000 tokens (estimado a 4 caracteres por
+token), y se carga entero en **cada chat que abre en el repo y en cada subagente** (`CLAUDE.md`
+lo importa). Una corrida de diez agentes paga 1,4 millones de tokens sólo de eso, antes de leer
+una línea de código. Y creció 2,3 veces en un mes: tenía 3.466 líneas el 15/09, y 211 commits lo
+tocaron desde entonces.
+
+Achicarlo ahorra más que cualquier elección de modelo. Es el principio 9 del video (§11): **la
+limpieza mantiene lo importante a mano**. Lo que gobierna código nuevo queda en una línea, y el
+detalle de cada caso vive en su `docs/hallazgos-<área>.md`, que se lee cuando hace falta. Es la
+decisión 6 de §10, porque AGENTS.md es la casa de todos y no lo achica nadie por su cuenta.
+
+**Y el Cartero lo puede medir**: `get_usage` con el id de un chat devuelve cuánto de su ventana de
+contexto ocupa y en qué. El Centro puede mostrar qué chat está por compactarse y cuánto pesa lo que
+carga al abrir.
+
 ---
 
 ## 6. El señalador: elegir un elemento en vez de mandar una captura
@@ -331,7 +360,7 @@ vivo de la cuenta activa.
 
 | Etapa | Qué queda andando | Cuánto pesa |
 |---|---|---|
-| 1 | La cola **con la firma**: escribir un pedido, firmarlo, y que llegue a un chat de la cuenta activa | el corazón; sin la firma no se construye |
+| 1 | La cola **con la firma**: escribir un pedido, firmarlo, que llegue a un chat de la cuenta activa y que vuelva su cierre | el corazón; sin la firma no se construye |
 | 2 | La cuota de las tres cuentas: las tres ventanas, con su fecha | barato: la mide el Cartero |
 | 3 | El señalador (selector + ruta, sin texto ajeno) | medio; es lo que más tiempo ahorra por día |
 | 4 | El tamaño del pedido → subagente o chat nuevo | barato, pero inútil sin la 1 |
@@ -355,6 +384,48 @@ abre.
 4. **El relevo al 85%**: ¿el Centro lo manda solo, o sólo muestra la cuota y deja la orden al hook
    que ya la da? Recomendado: que la muestre; mandarla duplica la orden.
 5. **El reparto de chats por cuenta**: depende de la 2; con «de a una», no hay reparto que hacer.
+6. **Achicar AGENTS.md** (§5 y principio 9 de §11): una limpieza cada dos semanas que deje en
+   AGENTS.md sólo la regla y mude el detalle de cada caso a su `docs/hallazgos-<área>.md`. Mudar no
+   borra ninguna regla; lo que sí se decide es cuál ya no vale. Recomendado: arrancar por ahí, porque
+   es lo que se paga en cada chat y en cada subagente.
 
 **Retirada el 15/10:** «si el Centro puede cambiar el modelo de una sesión». Su premisa era falsa
 (§5).
+
+---
+
+## 11. Lo que suma el video del segundo cerebro
+
+Pedido de Martín (15/10/2026): «Investiga también este vídeo https://youtu.be/rracqzwV4ZY — o
+incluso otros vídeos o info por la web de cómo aprovechar este centro de operaciones con "El
+segundo cerebro".»
+
+**El video:** «10 principios para usar tu segundo cerebro de IA como el 1%», de Claudio Conde,
+publicado el 14/10/2026 (16:51). El audio se transcribió con el pipeline de los cursos (Whisper
+por Groq; pasó el detector de salidas degeneradas: 3.151 palabras, unas 187 por minuto) y se
+leyeron las 15 diapositivas del video. **En voz alta no numera los principios**: los diez de abajo
+son las diapositivas 05 a 14, con sus títulos textuales (de la 01 a la 04 presenta su sistema, y
+la 15 cierra). No es el marco de Tiago Forte.
+
+**Su sistema, en una línea:** un repo privado de archivos `.md` (el «cerebro»: decisiones, fuentes
+y aprendizajes) desde donde pide TODO, en tres capas: el cerebro (el contexto), las skills (el
+método) y las rutinas (cuándo arranca algo solo). **Esta casa ya lo tiene**: AGENTS.md y
+`docs/hallazgos-*`, las memorias, `.claude/skills` y los hooks. Lo que aporta el video son los
+hábitos alrededor. La tab Second Brain de MaKo es otra cosa: es lo que MaKo entendió del negocio de
+un CLIENTE, no el cerebro con que trabajamos nosotros.
+
+| # | Principio (título de la diapositiva) | Qué cambia en el Centro |
+|---|---|---|
+| 1 | **«Mañana empieza la noche anterior»**: anotá todo, abrí el micrófono; la IA adelanta lo que puede y te deja lo que hay que revisar | **Aplica.** El buzón es eso: Martín dicta a la noche desde el teléfono y revisa a la mañana. El pedido acepta dictado (§3). El límite: lo de otra cuenta espera, y con la PC apagada no avanza nada (ver el 10) |
+| 2 | **«El hábito es el circuito»**: entrar → trabajar → actualizar → cerrar → retomar. «Buscá la última decisión y el último cierre» | **Ya lo tenemos** («lo primero al abrir: docs/relevo.md»). El Centro lo refuerza agregando esas rutas a cada pedido (§3, paso 2) |
+| 3 | **«Terminar la tarea incluye guardar el cierre»**: qué decidimos, qué quedó hecho, qué comprobamos, qué sigue y dónde | **Aplica, y faltaba.** Es el cierre de cuatro renglones de §3: lo que vuelve de cada chat, y que hoy junta a mano la cosecha |
+| 4 | **«Pedís desde el cerebro. Ejecuta en el proyecto»**: va contexto + encargo, vuelve resultado + pruebas. «Si el resultado no vuelve, el próximo chat pierde continuidad» | **Es la arquitectura del Centro.** El pedido viaja con su contexto, como RUTAS y no como texto. Y de rebote: si los pedidos salen del Centro, el registro de `/admin/dev` puede guardar solo el pedido literal de Martín, el hito `tipo: 'prompt'` que AGENTS.md pide y que hoy queda vacío |
+| 5 | **«Cada corrección mejora el próximo trabajo»**: propuesta → decisión → verificado. «Aclarar si aplica a esta pieza o también a los próximos trabajos» | **Aplica**: el interruptor «Sólo esto / Y de ahora en más» (§3) |
+| 6 | **«Una skill guarda cómo hacerlo bien»**: cuando el proceso se repite y sabés reconocer una buena salida | **No cambia el diseño**: las skills ya están. Más adelante, el Centro puede contar los pedidos que se repiten y sugerir una |
+| 7 | **«Una rutina hace que el proceso arranque»**: proceso estable + disparador claro + salida comprobable | **Aplica al Cartero**, que es una rutina por horario (§2). Y da el criterio de la decisión 4: el relevo al 85% cumple las tres condiciones, pero ya lo dispara un hook |
+| 8 | **«Automatizar más también exige más control»**: la IA detecta y prepara; vos elegís y autorizás (estrategia, casos ambiguos, publicar, enviar, cobrar). «Escrita ≠ programada ≠ ejecutada ≠ verificada» | **Aplica fuerte**: son los cuatro estados de §3. Y un pedido nunca autoriza solo lo que publica, envía o cobra: un push sigue pasando por el coordinador |
+| 9 | **«La limpieza mantiene lo importante a mano»**: actualizar (decisión + fecha + fuente), consolidar (una ubicación), archivar (conservar el aprendizaje), comprobar (pendientes y enlaces). «Primero detectá → decidí qué cambiar → actualizá y comprobá» | **Lo que más tokens ahorra** (§5): AGENTS.md pesa unos 140.000 tokens y se carga en cada chat y en cada subagente. Decisión 6 |
+| 10 | **«Remoto y cloud: ¿dónde se ejecuta?»**: tu PC (tiene que estar prendida) o la nube (no la necesita y no ve tu disco). «Un solo cerebro: recuperar la versión vigente → trabajar → guardar y sincronizar» | **Aplica a §0 y §1.** Remote Control es justo lo que él usa desde el celular (`/rc`). La nube sería la salida para la PC apagada, con un límite: nuestro cerebro está partido entre el repo y `~/.claude`, y la nube ve sólo el repo. Para después |
+
+**Lo que el video no trae:** nada sobre varias cuentas ni sobre cuotas. Su techo es el cómputo de
+la máquina; el nuestro es la cuota.
