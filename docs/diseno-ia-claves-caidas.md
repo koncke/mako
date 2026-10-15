@@ -38,6 +38,17 @@ misma clave volvió a contestar bien en menos de 24 h.
   el freno leyera `anthropic_usage`, una clave muerta podría verse viva por la respuesta de otra. **Una clave se
   identifica por su HUELLA**, nunca por (ws, proveedor, cuenta).
 - **Es una muestra chica**: 12 claves con rebotes en 30 días.
+- **No dice QUIÉN llama.** `anotarRebote429` escribe `feature = 'cuota'` fija, así que las 2.147 filas pierden la
+  función que llamó. Sólo queda el motivo: «chatCheap(gemini): HTTP 429». Es el camino de `chatCheap` en
+  lib/ai-cheap.ts, no el tool-use del doer ni el STT (medido por el Web Generator).
+  - El ritmo del 14/10, por hora UTC: de 0 a 2 h, entre 21 y 31; de 6 a 13 h, cero; de 14 a 19 h, ~28; de 20 a 23 h,
+    exactamente 60. Uno por minuto, y callado de noche en Tijuana.
+  - Los únicos crons de cada minuto son `doer-flush` y `nutricion-tick` (+ `nutricion` en la hora en punto).
+  - El motor de Automations NO mandó nada al ws1 ese día (0 filas en `nutricion_envios`): no es un paso de IA que
+    escribe un envío, que si falla sale igual con el texto base.
+  - Antes del 08/10, lo que usaba esa clave era sobre todo `plan-fathom` (102 de 137 respuestas buenas desde el 01/10).
+  - **Sin confirmar.** Por eso el registro guarda la función que llamó: sin ella, el aviso no puede decir qué dejó de
+    andar.
 
 ## 2. La forma
 
@@ -47,6 +58,8 @@ misma clave volvió a contestar bien en menos de 24 h.
   - de quién es: ws dueño, proveedor y cuenta;
   - cómo viene: la última respuesta buena, el primer fallo desde ahí, cuántos fallos van, y el último código y mensaje
     del proveedor (sin la clave);
+  - **quién la llamó**: la función (`feature`) del último fallo y cuántas veces llamó cada una desde la última buena. Es
+    lo que el aviso dice como «qué dejó de andar»;
   - el freno: estado, desde cuándo, por qué, la próxima prueba y si ya se avisó.
 - **Cada corte y cada suelta, en `ia_claves_eventos`**: cuándo, por qué y con qué números. Sin eso, un corte no se
   distingue de «no se llamó a nadie», que es justo lo que pasó con el ws1.
@@ -88,7 +101,8 @@ misma clave volvió a contestar bien en menos de 24 h.
 |---|---|
 | Clasificar la respuesta y decidir corte y suelta (puro, con test) | `lib/ia-claves-salud.ts` (nuevo) |
 | El registro, y la tabla de eventos | `lib/ia-claves-registro.ts` (nuevo) + una migración |
-| El freno en la rotación | `lib/ai-cheap.ts` (`provDe`, `ordenarCuentas`), `lib/anthropic.ts`, el doer y la transcripción: todo lo que llama a un proveedor. ⚠️ El Web Generator acaba de tocar la cascada (la red de la plataforma para el Diagnóstico): se coordina antes. |
+| El freno en la rotación | `lib/ai-cheap.ts` (`provsDe`, `clavesAProbar`, `ordenarPorCuota`, `ordenarCuentas`), y el doer y la transcripción: todo lo que llama a un proveedor. ⚠️ El Web Generator tiene sin pushear (`09613eebb`, tanda 7) la firma de `chatClaude` (lib/anthropic.ts) y el bloque de la red en `chatCheapCascade`: esos dos no se tocan hasta que salga la tanda 7. Lo de arriba no choca. |
+| Quién llamó | `anotarRebote429` (lib/ia-cuotas.ts) recibe la `feature` del que llama, y el registro nuevo también |
 | La prueba espaciada | un cron nuevo, cada 10 min, que sólo toca las claves con la prueba vencida |
 | El aviso | `lib/avisos-catalogo.ts` (las dos filas y `AVISOS_SOLO_SUPERADMIN`) |
 | La causa nueva para el cliente | `lib/fallo-ia-texto.ts` |
