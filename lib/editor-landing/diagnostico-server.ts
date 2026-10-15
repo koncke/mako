@@ -52,19 +52,38 @@ const falla = (error: string, status = 400, extra: { pegable?: boolean; enNavega
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
 /**
- * El texto de un análisis que la IA no pudo hacer. `analizarCopy` devuelve el `message` crudo, y
- * «Claude vetado — «landing-analyst» no está en la lista blanca de lib/veto-claude.ts…» llegaba TAL
- * CUAL al panel (medido en el navegador, 12/10/2026, ws1: Gemini 403, Mistral 429, OpenAI sin crédito
- * y el último recurso cortado por el veto). Es la regla de `falloIA` (ia.ts): ese error quiere decir
- * que la cascada gratis ENTERA no contestó, y `errorDeCascada` lo dice sin inventar una causa. Los
- * otros mensajes (la URL no vale, la página no se pudo bajar, se arma en el navegador) ya están
- * escritos para la persona y pasan igual.
+ * El texto de un análisis que la IA no pudo hacer. Antes, `analizarCopy` devolvía el `message` crudo
+ * y «Claude vetado — «landing-analyst» no está en la lista blanca…» llegaba TAL CUAL al panel (12/10,
+ * ws1); esto lo tapaba con `errorDeCascada([])` — sin errores, porque se habían quedado adentro de
+ * `chatClaude` —, y el 15/10 eso fue lo que vio Martín: «Tu IA está conectada pero no pudo…», sin una
+ * pista. Desde el 15/10 `analizarCopy` ya devuelve el texto de `errorDeCascada` CON los errores de las
+ * keys del negocio; esto queda de red por si un veto crudo llega por otro camino. Los otros mensajes
+ * (la URL no vale, la página no se pudo bajar, se arma en el navegador) ya están escritos para la
+ * persona y pasan igual.
  */
 async function textoDeFalloIA(error: string): Promise<string> {
   if (!/Claude vetado/i.test(error)) return error;
   console.error(`[landing-generator/diagnostico] ${error}`);
   return errorDeCascada([], 'diagnosticar la landing');
 }
+
+/**
+ * Cómo corre el análisis del Diagnóstico: hay una persona mirando la pantalla.
+ *
+ * ⚠️ CON RED DE PLATAFORMA (15/10/2026). Pedido de Martín, con la captura del Diagnóstico de la landing
+ * de un cliente (ws1): «Intenté analizar la landing y dice "Tu IA está conectada pero no pudo
+ * diagnosticar la landing ahora mismo. Prueba de nuevo en un momento."... Soluciona ese error.»
+ * Medido en `anthropic_usage`: las keys del ws1 no contestaban — Gemini sin un 200 desde el 08/10
+ * (2.143 rebotes 429), Mistral 429 siempre, OpenAI sin crédito, OpenRouter sin una fila buena, y Groq
+ * salteado con razón (el pedido pesa ~10.500 tokens contando la salida y su plan gratis topea en
+ * 8.000 por minuto). Claude, vetado. La Gemini de la agencia, con el mismo pedido: 200 en 72 s y el
+ * JSON entero. Lo que faltaba era pedirla: `chatClaude` no le pasaba la red a la cascada.
+ *
+ * `hastaMs`: la ruta tiene `maxDuration` 300 (app/api/landing-generator/diagnostico/route.ts) y la red
+ * suma intentos de hasta 96 s; quedan 50 s para bajar la página y guardar lo que salió.
+ */
+const PLAZO_ANALISIS_MS = 250_000;
+const comoAnalizar = () => ({ redDePlataforma: true, hastaMs: Date.now() + PLAZO_ANALISIS_MS });
 
 const TABLA = 'landing_sugerencias';
 const COLS = 'id, hallazgo, cita, seccion_id, estado, created_at, updated_at';
@@ -219,6 +238,7 @@ export async function analizar(p: { docId?: unknown; url?: unknown; texto?: unkn
 }
 
 async function analizarNuestra(ws: number, obj: { docId: number }, lectura: Lectura | null): Promise<ResultadoLista> {
+  const plazo = comoAnalizar();
   const r = await abrir(obj.docId);
   if (!r.ok) return falla(r.error, r.status);
   const doc = r.doc;
@@ -236,7 +256,7 @@ async function analizarNuestra(ws: number, obj: { docId: number }, lectura: Lect
       titulo: doc.titulo, seoTitulo: doc.config.sitio.seoTitulo, seoDescripcion: doc.config.sitio.seoDescripcion,
       url, texto, palabras, lectura,
     });
-    const res = await analizarCopy(pagina, comp);
+    const res = await analizarCopy(pagina, comp, plazo);
     if (!res.ok) return falla(await textoDeFalloIA(res.error), 502);
     const hallazgos = normalizarHallazgos(res.analysis).map((h) => ({ h, seccionId: ubicarCitaEnBloques(h.cita, bloques) }));
     const nuevas = await guardarHallazgos(ws, obj, hallazgos);
@@ -257,7 +277,7 @@ async function analizarNuestra(ws: number, obj: { docId: number }, lectura: Lect
 
 async function analizarDeAfuera(ws: number, obj: { url: string }, entrada: { texto?: string; lectura?: Lectura; leer?: string }): Promise<ResultadoLista> {
   try {
-    const res = await analizarLanding(obj.url, entrada.texto, { lectura: entrada.lectura, leer: entrada.leer });
+    const res = await analizarLanding(obj.url, entrada.texto, { lectura: entrada.lectura, leer: entrada.leer, ...comoAnalizar() });
     // No es un 500: la página de afuera falló (404, armada en el navegador, plazo), no nuestro server.
     if (!res.ok) {
       return falla(await textoDeFalloIA(res.error), 200, {

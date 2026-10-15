@@ -67,7 +67,15 @@ export async function chatClaude(
   // Claude para ganar tiempo. Sin hastaMs no cambia nada.
   // sinRespaldoDeModelo: la cascada no cae al modelo de respaldo del proveedor
   // (flash-lite). Para las features que no se degradan de MODELO, no sólo de proveedor.
-  opts: { model?: string; thinking?: boolean; effort?: Effort; maxTokens?: number; feature?: string; motivo?: string; onUsage?: (u: UsageInfo) => void; hastaMs?: number; sinRespaldoDeModelo?: boolean } = {},
+  //
+  // redDePlataforma / erroresOut / erroresPlataformaOut: los mismos de `chatCheapCascade`, y
+  // viajan TAL CUAL. ⚠️ ACÁ NO VIAJABAN, y eso es el Diagnóstico de una landing que no andaba
+  // (15/10/2026, ws1): la cascada barata corría sin red de plataforma —el cliente tenía todas
+  // sus keys rebotando y la Gemini de la agencia contestaba 200— y sus errores se quedaban en
+  // esta función: lo único que salía era «Claude vetado», y la pantalla decía «Tu IA está
+  // conectada pero no pudo…» sin una sola pista. `erroresOut` recibe los de las keys del
+  // NEGOCIO (son los que eligen el texto); los de la red van aparte (lib/ai-cheap.ts).
+  opts: { model?: string; thinking?: boolean; effort?: Effort; maxTokens?: number; feature?: string; motivo?: string; onUsage?: (u: UsageInfo) => void; hastaMs?: number; sinRespaldoDeModelo?: boolean; redDePlataforma?: boolean; erroresOut?: string[]; erroresPlataformaOut?: string[] } = {},
 ): Promise<string> {
   // Override configurable por feature (tab /modelos-ia). Si el caller NO forzó un
   // modelo y la feature está ruteada a otra IA (Groq/OpenAI/Gemini), delegamos a la
@@ -127,8 +135,11 @@ export async function chatClaude(
           system, user, maxTokens: opts.maxTokens, feature: opts.feature, motivo: opts.motivo,
           provs, modelos: { [ref.provider as ProvName]: ref.model }, timeoutMs, esfuerzo, erroresOut: errores,
           hastaMs: opts.hastaMs, sinRespaldoDeModelo: opts.sinRespaldoDeModelo,
+          redDePlataforma: opts.redDePlataforma, erroresPlataformaOut: opts.erroresPlataformaOut,
         });
         if (salida.trim()) return salida;
+        // Lo que contestó cada key del negocio, para que el caller diga la causa (errorDeCascada).
+        opts.erroresOut?.push(...errores);
         // ⛔ `fallback: []` SIGNIFICA «NO DEGRADES», NO «PAGÁ CLAUDE».
         //
         // La primera versión de esto caía a Sonnet y estaba mal por donde se la mire.

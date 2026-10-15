@@ -16,6 +16,8 @@
 // call-site escribe, la mitad va a quedar vieja. `tests/ia-mensajes.test.ts` falla
 // si alguien vuelve a escribir el literal suelto.
 
+import { esTopeDeTamano } from './fallo-ia-texto';
+
 /** El literal prohibido: si aparece fuera de este módulo, es un mensaje que miente. */
 export const FRASE_PROHIBIDA = 'Conecta tu API key de Gemini';
 
@@ -85,6 +87,17 @@ export function motivoDeErroresCascada(errores: string[]): string | null {
   if (errores.some(esDescarteDeLaIA)) {
     return 'La IA contestó, pero lo que escribió no servía (no es tu key ni tu cuota).';
   }
+  // ⚠️ UN 413 ES «NO ME ENTRA», NO «NO ME QUEDA» (15/10/2026). Lo mandamos NOSOTROS: un pedido
+  // más grande que el tope de entrada del plan gratis de ese proveedor (Groq: 8.000 tokens por
+  // minuto). Con sólo 413 en la lista esto devolvía null y la pantalla decía «Tu IA está
+  // conectada pero no pudo… Prueba de nuevo», y reintentar es lo único que seguro no lo arregla.
+  // Mezclado con otros, se SACA de la lista y decide el resto: la regla de `causaDelFallo`
+  // (lib/fallo-ia-texto.ts, con el mismo detector), que ya lo había pagado con el doer.
+  const resto = errores.filter((e) => !esTopeDeTamano(e));
+  if (!resto.length) {
+    return 'El pedido es más largo de lo que acepta tu IA gratis (no es tu key ni tu cuota).';
+  }
+  const todoResto = resto.join(' | ').toLowerCase();
   // ⚠️ SATURACIÓN ANTES QUE CUOTA, Y ESE ORDEN ES EL ARREGLO. Un 503 «high demand» es el
   // proveedor caído para todo el mundo: no gastaste nada, tu key está perfecta, y en dos
   // minutos anda. Decirle a alguien «te quedaste sin cuota» lo manda a comprar créditos o
@@ -99,16 +112,16 @@ export function motivoDeErroresCascada(errores: string[]): string | null {
   // OpenRouter y el usuario leía «esperá un par de minutos» para algo que no se arregla
   // esperando. La saturación se reconoce por el CÓDIGO (5xx) o por frases que solo
   // aparecen ahí, nunca por una palabra suelta que otro error puede contener.
-  if (/\b50[234]\b|service_unavailable|temporarily unavailable|overloaded|high demand/.test(todo)) {
+  if (/\b50[234]\b|service_unavailable|temporarily unavailable|overloaded|high demand/.test(todoResto)) {
     return 'El proveedor de IA está saturado en este momento (no es tu cuota ni tu key). Reintenta en un par de minutos.';
   }
-  if (/resource_exhausted|insufficient_quota|quota|\b429\b|rate limit|rate_limit/.test(todo)) {
+  if (/resource_exhausted|insufficient_quota|quota|\b429\b|rate limit|rate_limit/.test(todoResto)) {
     return 'Se quedó sin cuota / límite de uso alcanzado por ahora.';
   }
-  if (/\b401\b|\b403\b|invalid.*key|api key not valid|unauthorized/.test(todo)) {
+  if (/\b401\b|\b403\b|invalid.*key|api key not valid|unauthorized/.test(todoResto)) {
     return 'La API key parece inválida o vencida.';
   }
-  if (/timeout|abort|etimedout/i.test(todo)) {
+  if (/timeout|abort|etimedout/i.test(todoResto)) {
     return 'No respondió a tiempo — puede ser una falla momentánea de conexión.';
   }
   return null;
@@ -123,6 +136,26 @@ export function motivoDeErroresCascada(errores: string[]): string | null {
  */
 export function esDescarteDeLaIA(linea: string): boolean {
   return /:\s*contestó (vacío|y lo descartamos)/.test(linea);
+}
+
+/**
+ * ¿El fallo de `chatClaude` es la cascada gratis ENTERA sin contestar? Entonces el texto lo
+ * elige `errorDeCascada` con los errores de las keys del negocio, y NUNCA el `message` crudo.
+ *
+ * ⚠️ EL CASO (15/10/2026, Diagnóstico de una landing del ws1). Con todas sus keys rebotando, la
+ * cascada devolvía vacío, `chatClaude` caía a Claude y el veto cortaba: lo único que llegaba era
+ * «Claude vetado — …», y el Diagnóstico lo traducía con `errorDeCascada([])` — la lista vacía a
+ * propósito, porque los errores se habían quedado adentro de `chatClaude`. Resultado: «Tu IA está
+ * conectada pero no pudo diagnosticar la landing… Prueba de nuevo», sin una sola pista, con la
+ * Gemini del cliente rebotando 429 hacía siete días.
+ *
+ * `errores` no vacío = la cascada corrió y no contestó nadie (`chatClaude` sólo los entrega en
+ * ese caso), diga lo que diga el `message`: el veto, el plazo vencido o «no se degrada». Vacío con
+ * el veto = no había ninguna key que probar. Cualquier otro error (la base, el JSON que vino roto)
+ * es OTRA cosa y pasa tal cual.
+ */
+export function esCascadaSinRespuesta(error: string, errores: readonly string[]): boolean {
+  return errores.length > 0 || /Claude vetado/i.test(error);
 }
 
 export type MotivoIA = { hayIA: boolean; motivo: string | null; errores?: string[]; tema?: string };
@@ -179,6 +212,10 @@ export function mensajeIAFallo({ hayIA, motivo, errores = [], tema = 'esto' }: M
   }
   if (motivo?.startsWith('La API key')) {
     return `${motivo} Pega una nueva.${detalle}`;
+  }
+  // Sin «Prueba de nuevo»: el mismo pedido rebota igual. Gemini es el que lee textos largos.
+  if (motivo?.startsWith('El pedido es más largo')) {
+    return `${motivo} Conecta Gemini, que acepta textos largos.${detalle}`;
   }
   if (motivo) {
     return `${motivo} Prueba de nuevo en un momento.${detalle}`;

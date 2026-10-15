@@ -22,6 +22,8 @@ import 'server-only';
 import { getTenantDb } from './workspace';
 import { leerTodo } from './supabase-paginado';
 import { chatClaude } from './anthropic';
+import { errorDeCascada } from './ai-cheap';
+import { esCascadaSinRespuesta } from './ia-mensajes';
 import { contenidoNoConfiable, getPromptText, renderPrompt } from './prompt-render';
 import { getFunnelDefault } from './funnels';
 import { perfilNegocioTexto } from './onboarding';
@@ -504,18 +506,49 @@ async function modeloEfectivo(): Promise<string | null> {
   } catch { return null; }
 }
 
-/** Corre Claude sobre una landing ya bajada. PURA: nunca tira, devuelve {ok}. */
-export async function analizarCopy(pagina: LandingExtraida, comp: LandingComportamiento): Promise<AnalyzeResult> {
+/**
+ * Cómo corre UN análisis. Las dos son del que llama, porque sólo él sabe si hay una persona
+ * esperando:
+ *   · `redDePlataforma`: si las keys del negocio no contestan, probar con las gratis de la
+ *     agencia (lib/ai-cheap.ts, `provsGratisDePlataforma`), con el motivo «⚠ red de plataforma»
+ *     en el Saldo de IA. La pide el Diagnóstico; un análisis por detrás (el automático, el
+ *     cron) no, y espera a que las keys del cliente se repongan.
+ *   · `hastaMs`: la fecha (epoch ms) en que el análisis entero tiene que haber terminado. La
+ *     red suma intentos de hasta 96 s cada uno, y sin plazo una ruta con `maxDuration` se
+ *     muere a la mitad sin decir nada.
+ */
+export type OpcionesAnalisis = { redDePlataforma?: boolean; hastaMs?: number };
+
+/** Corre la IA sobre una landing ya bajada. PURA: nunca tira, devuelve {ok}. */
+export async function analizarCopy(pagina: LandingExtraida, comp: LandingComportamiento, opts: OpcionesAnalisis = {}): Promise<AnalyzeResult> {
+  // Lo que contestó cada key del NEGOCIO. Sin esto, el fallo llegaba como «Claude vetado» y nada
+  // más (15/10/2026, ws1): ver `esCascadaSinRespuesta` (lib/ia-mensajes.ts).
+  const errores: string[] = [];
+  const erroresRed: string[] = [];
+  let text: string;
   try {
     const system = await getPromptText('landing_analyst.analyze.system', LANDING_ANALYZE_SYSTEM_TEMPLATE);
-    const text = await chatClaude(system, [{ role: 'user', content: await buildUserPrompt(pagina, comp) }], {
+    text = await chatClaude(system, [{ role: 'user', content: await buildUserPrompt(pagina, comp) }], {
       // Sin model hardcodeado: manda el override de /modelos-ia (feature 'landing-analyst').
       thinking: true,
       effort: 'high',
       maxTokens: 8000,
       feature: 'landing-analyst',
       motivo: `Analizar landing ${pagina.url}`,
+      redDePlataforma: opts.redDePlataforma,
+      hastaMs: opts.hastaMs,
+      erroresOut: errores,
+      // Los de NUESTRAS keys: al log, nunca al texto (AGENTS.md, «Los errores de NUESTRAS
+      // credenciales no eligen el texto»).
+      erroresPlataformaOut: erroresRed,
     });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (!esCascadaSinRespuesta(msg, errores)) return { ok: false, error: msg };
+    console.error(`[landing-analyst] ${pagina.url}: la cascada no contestó — negocio: ${errores.join(' · ') || '(sin keys)'}${erroresRed.length ? ` · red: ${erroresRed.join(' · ')}` : ''}`);
+    return { ok: false, error: await errorDeCascada(errores, 'diagnosticar la landing') };
+  }
+  try {
     return { ok: true, analysis: parseJsonObject(text) as AnalisisCrudo, model: await modeloEfectivo() };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) };
@@ -650,11 +683,13 @@ const MSG_SPA = (palabras: number) =>
  *     llave de la fila; si `leer` no es la misma página, se ignora.
  *   · una página que no se lee desde el server (sin texto en el HTML, o que nos
  *     contesta 401/403/429) vuelve con `enNavegador` y su `motivo`.
+ *
+ * `redDePlataforma` y `hastaMs`: ver `OpcionesAnalisis`. Sin ellas, lo de siempre.
  */
 export async function analizarLanding(
   urlInput: string,
   copyManual?: string,
-  opts: { origen?: 'auto'; lectura?: Lectura; leer?: string } = {},
+  opts: { origen?: 'auto'; lectura?: Lectura; leer?: string } & OpcionesAnalisis = {},
 ): Promise<AnalizarResultado> {
   let url: string;
   try { url = normalizarUrl(urlInput); }
@@ -711,7 +746,7 @@ export async function analizarLanding(
   }
 
   const comp = await getComportamiento(url);
-  const res = await analizarCopy(pagina, comp);
+  const res = await analizarCopy(pagina, comp, { redDePlataforma: opts.redDePlataforma, hastaMs: opts.hastaMs });
   if (!res.ok) {
     await guardarFallo(url, res.error, {
       url_final: pagina.urlFinal, titulo: pagina.titulo || null,

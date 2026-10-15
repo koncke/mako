@@ -642,7 +642,13 @@ export async function chatCheapCascade(opts: { system: string; user: string; jso
     const wsActual = await getWorkspaceActual().catch(() => null);
     // El super admin ya probó SUS keys arriba: repetirlas es gastar tiempo en lo que ya falló.
     if (wsSA != null && wsActual !== wsSA) {
-      const red = await provsGratisDePlataforma().catch(() => []);
+      // ⚠️ EL TECHO DE ENTRADA VALE TAMBIÉN PARA LA RED. Arriba se saltea a quien no le entra
+      // el pedido; acá no se miraba, y como Groq nunca entra en `probados` cuando se lo
+      // salteó por tamaño, `otroPrimero` lo ponía PRIMERO: dos 413 seguros (8.000 tokens por
+      // minuto del plan gratis) antes de llegar a la Gemini de la agencia. Medido el
+      // 15/10/2026 con el Diagnóstico de una landing: ~10.500 tokens contando la salida.
+      const red = (await provsGratisDePlataforma().catch(() => []))
+        .filter((r) => pesa <= (TECHO_ENTRADA[r.provider] ?? Number.MAX_SAFE_INTEGER));
       const otroPrimero = [...red.filter((r) => !probados.has(r.provider)), ...red.filter((r) => probados.has(r.provider))];
       for (const r of otroPrimero) {
         for (const model of modelosAProbar(r.provider, opts.modelos?.[r.provider], !opts.sinRespaldoDeModelo)) {
