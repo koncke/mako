@@ -3,7 +3,7 @@
 // =============================================================================
 // Alcance: desde el 11/10/2026 la tab es un editor de landings copiado de Gamma 5 (Panel, «Crear con
 // IA» en dos pasos, edición por secciones y bloques en TipTap, temas, comentarios, historial,
-// exportar, y publicar como foto en hola-mako.com/l/<slug>). Diseño y contratos:
+// exportar, y publicar como foto en hola-mako.site/<slug> desde el 14/10; antes, hola-mako.com/l/<slug>). Diseño y contratos:
 // docs/diseno-editor-landing.md; lo aprendido: docs/hallazgos-editor-landing.md.
 // Vive en: app/landing-generator/, app/api/landing-generator/, app/l/, lib/editor-landing/,
 // lib/imagenes-stock.ts, supabase/migrations/0246_editor_landing.sql.
@@ -26,12 +26,15 @@ export const PARTES: Parte[] = [
   { titulo: 'Publicar en /l/<slug>', detalle: 'Foto de lo GUARDADO, multipágina, con el Pixel de MaKo y el Píxel de Meta · vista previa privada por token (también las otras páginas) · 404 igual para «no existe» y «apagado»', estado: 'hecha' },
   { titulo: 'Verlo andar en un navegador', detalle: 'Ningún paquete pudo levantar el dev server: faltan el arrastre de bloques y de la tira, la barra flotante, el «/», el cambio de página y una página publicada con el Píxel de Meta (consola sin violaciones de la política)', estado: 'sigue' },
   { titulo: '«Generar imagen con IA» por Google Flow', detalle: 'Decisión de Martín (D5): el puente de la extensión con la cuenta del cliente · asíncrono, y la URL de Flow vence: se copia al bucket antes de ponerla en el documento', estado: 'cola' },
-  { titulo: 'Publicar y listar desde la API de MaKo', detalle: 'lib/api-mako/areas/landing.* sigue leyendo landing_drafts (el generador anterior): un agente no puede listar ni publicar las landings del editor nuevo', estado: 'cola' },
+  { titulo: 'Publicar y listar desde la API de MaKo', detalle: 'Tanda 4 (14/10): listar, leer, crear desde un diseño, publicar y despublicar · tanda 6: el puntaje del Diagnóstico, los rechazos del pago, Aplicar y Deshacer (listar/restaurar versiones), replicar en 3 formatos', estado: 'hecha' },
   { titulo: 'El JavaScript del HTML personalizado en la publicada', detalle: 'Tanda 2 (T6): cada bloque se sirve desde /l/html/<docId>/<bloque> con la política sandbox (next.config.ts le pone sus cabeceras DESPUÉS de las globales) y el iframe toma el alto por postMessage · «Replicar» una landing de afuera arma secciones así cuando los bloques no alcanzan', estado: 'hecha' },
   { titulo: 'El Panel como Gamma y crear landing o presentación', detalle: 'Tanda 2 (T1, T4): una barra de documentos con su «⋯» (abrir, diagnóstico, renombrar, duplicar, archivar, eliminar), «+ Nueva landing» primero, sin vistas ni carpetas · la caja «¿Qué vas a crear hoy?» con dictado y las plantillas de cada tipo', estado: 'hecha' },
   { titulo: 'Presentaciones', detalle: 'Tanda 2 (T3): formato presentación con diapositivas 16:9 o 4:3 y guía de desbordamiento, Presentar como acción principal, 12 plantillas, la IA escribe diapositivas · y una landing se ve como una PÁGINA continua (secciones a sangre), no como tarjetas', estado: 'hecha' },
-  { titulo: 'Diagnóstico como recorrido', detalle: 'Tanda 2 (T2, T5): a la derecha del Panel, la pantalla se oscurece y señala el bloque de cada comentario, los comentarios quedan guardados (mig 0264, aplicada el 12/10) con «Solucionar con IA» o «Replicar» · falta verlo con clics y con un análisis real', estado: 'sigue' },
-  { titulo: 'Dominio propio', detalle: 'Tanda 2 (T7): la pestaña «Dominios» de Publicar, registros DNS más un TXT _mako que prueba quién lo conectó, y proxy.ts sirve sólo la landing en ese host · la mig 0263 ya está aplicada; faltan VERCEL_API_TOKEN / VERCEL_TEAM_SLUG en producción (decide Martín qué token) y que las redirecciones y los archivos de public/ no se sirvan en el dominio del cliente', estado: 'sigue' },
+  { titulo: 'Diagnóstico como recorrido', detalle: 'Tanda 2 (T2, T5) · tanda 6: «Aplicar» de un clic con Deshacer, «Aplicar todos», «Preguntar a MaKo», todas las páginas de una landing nuestra en un lienzo y el puntaje guardado (mig 0281) · falta verlo con clics', estado: 'sigue' },
+  { titulo: 'Dominio propio', detalle: 'Tanda 2 (T7): la pestaña «Dominios», el TXT _mako y proxy.ts · tanda 4: el token de Vercel en producción y las redirecciones sólo en la app · tanda 6: el paso de pago EN el dominio y el aviso de la reserva vencida · falta (decide Martín) el www automático y los estáticos de MaKo en el dominio', estado: 'sigue' },
+  { titulo: 'Leer una landing armada en el navegador', detalle: 'Tanda 6: el extractor lee div/span y los acordeones; si la página se arma con JavaScript, la lee el navegador de la persona (con el Pixel o en una ventana aislada, firmada por el server) y con las emergentes bloqueadas se ve el aviso con flecha', estado: 'hecha' },
+  { titulo: 'Crear con IA en la tab y el chat con links', detalle: 'Tanda 6: Pegar texto · Generar · Importar · Analizar · Replicar (Presentación / Landing / Página web, copiando colores, fuentes e imágenes) en /landing-generator; el «+» sólo adjunta; el link pegado sale en azul · falta en MaKo Mobile (/m/landing)', estado: 'hecha' },
+  { titulo: 'Animaciones y video de fondo', detalle: 'Relevado el 14/10 (docs/hallazgos-editor-landing.md → «Animaciones»): CSS nativo + nuestro script (GSAP prohibido por licencia), presets por sección, replicar las de una web, y el video IA de fondo cuando el puente a Flow lo haga · el parpadeo del hero, arreglado en landing-parpadeo, espera la respuesta de Martín', estado: 'cola' },
   { titulo: 'Lo de Gamma que no entró', detalle: 'Edición en tiempo real, controles de columnas, «Copiar en…» y «Exportar sección», Formato libre, Google Slides', estado: 'cola' },
 ];
 
@@ -259,6 +262,74 @@ export const BITACORA: Hito[] = [
     puntos: [
       'Respuesta a las decisiones del feedback de las reuniones: Aplicar = un clic + Deshacer; Replicar con 3 formatos; al replicar se copia el estilo. Queda para la próxima tanda (docs/relevo/landing-generator.md).',
       'Lo último ya era así: la publicada lleva el cargador de una línea del Pixel (/m.js), que sirve siempre la versión actual (pagina-publica.ts, tests/editor-landing-publica.test.ts).',
+    ],
+  },
+  {
+    fecha: '14 oct', hora: '13:30', chat: 'Landing Generator', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: '«No pude leer el texto de esa página», Crear con IA en la tab y las plantillas en tarjetas',
+    pedido: '1. El mimso error que nos saltaba con Mauricio "No pude leer el texto de esa página.". Soluciona eso...\n2. La sección de "Importar con IA" no debería ser otra ruta, todo siempre en la misma ruta.\n3. La sección de "Crear con IA", le faltan las opciones de "Analizar Landing" y "Replicar Landing". Y que el botón de "Importar" que solo sea importar, no que sea con URL, para eso ya las otras opciones que te dije... Y esta sección de "Crear con IA" debería estar en la tab principal de landing generator, en la sección de "¿Qué vas a crear hoy?".\n4. Como vamos a tener esa sección, elimina todas las opciones actuales dentro del "+" en el cuadro del chat. Y que en ese + solo quede la opción de importar archivo y otras opciones así, para subir imagen y esas cosas...\n5. En el chat, si yo pego un link, me debería aparecer pintado de azul y que diga "Analiza esta landing" y que se pueda cambiar a "Replica esta landing".\n6. Las miniaturas y el título de abajo en las plantillas, deberían estar englobadas en un contendor, para que se entienda que ese título corresponde a esa miniatura... Elimina los subtitulos de cada plantilla. Y me gustaría que esos bloques tengan como una sombra, que se separe del fondo. También quiero que los [] que el usuario debe completar, se queden como de otro color o algo diferencial, y que eso se vea también en la miniatura, así se entiende mejor.',
+    puntos: [
+      'Se construye con el workflow wf_8f7c15cf-56d en la rama landing-t6; la cuenta 2 llega al límite a mitad de la pantalla y lo retoma la cuenta 1 (wf_2247d576-3c7).',
+    ],
+  },
+  {
+    fecha: '14 oct', hora: '23:10', chat: 'Landing Generator', cuenta: 'claude1',
+    actor: 'claude', tipo: 'investigacion',
+    titulo: 'Animaciones: el video de Motion Sites, qué se replica de una web ajena y el video de fondo, medidos',
+    puntos: [
+      'Pedido de Martín (por «Estrategia 3 cuentas»): animaciones de punta a punta a partir del video «Páginas Web ANIMADAS de $10,000 con Claude Design» («estoy seguro de que hay muchos otros»), más plantillas que las tengan, y replicar las de una web al copiarla. Eligió «las dos cosas»: el video IA de fondo y las animaciones de la página.',
+      'Encontró un bug vivo: el interruptor «Animaciones» hace parpadear el hero de toda landing publicada y lleva el LCP de 236-404 ms a 1.428-3.004 ms en el teléfono. El arreglo (la primera sección quieta) está listo en la rama landing-parpadeo y espera la respuesta de Martín.',
+      'GSAP queda fuera por su licencia (prohíbe editores visuales de animación); CSS nativo + nuestro script. De una web ajena se copia fiel lo de CSS, AOS, Framer appear, Webflow IX2 y GSAP simple; no lo de canvas/WebGL ni los archivos ajenos.',
+      'El puente a Flow todavía no puede hacer el video de fondo; un hero de 8 s pesa 0,3-1 MB en el teléfono. Siete decisiones en la Ticketera (refs landing-anim-*, landing-video-*, landing-replicar-scroll).',
+    ],
+    commits: [
+      { sha: '82c58360c', msg: 'docs(hallazgos): el video de fondo del hero, medido — el puente todavía no puede, cuánto pesa en 4G y el VP9 que era la medición', lineas: 88, archivos: 2 },
+      { sha: 'ff9b68109', msg: 'docs(hallazgos): animaciones de página y replicarlas — el parpadeo del hero de hoy, GSAP fuera por licencia, qué se copia de una web ajena', lineas: 90, archivos: 2 },
+    ],
+    archivos: [
+      'docs/hallazgos-editor-landing.md — «Animaciones: el video de fondo del hero» y «Animaciones: las de la página y replicarlas»',
+    ],
+  },
+  {
+    fecha: '15 oct', hora: '00:07', chat: 'Landing Generator', cuenta: 'claude1',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Tanda 6: leer en el navegador, Crear con IA en la tab, «Aplicar» con Deshacer, copiar el estilo y el backlog',
+    puntos: [
+      '«No pude leer el texto» no era la red: el extractor no leía div/span y la landing del caso es una app de Vite. Ahora el server lee lo que perdía y, si la página se arma en el navegador, la lee el navegador de la persona (con el Pixel o en una ventana, con el aviso con flecha si las emergentes están bloqueadas).',
+      'Crear con IA vive en la tab (Pegar texto · Generar · Importar · Analizar · Replicar en 3 formatos), el «+» sólo adjunta, el link pegado sale en azul y las plantillas son tarjetas con sombra; los [ ] se ven resaltados en el editor y en la miniatura.',
+      '«Aplicar» de un clic con Deshacer, «Aplicar todos» y «Preguntar a MaKo»; Replicar copia colores, fuentes e imágenes de la original; el Diagnóstico lee todas las páginas y guarda el puntaje (mig 0281); el pago se sirve en el dominio propio y cuenta sus rechazos (mig 0282); el PDF de una presentación sale horizontal.',
+      'La verificación encontró dos agujeros de seguridad en la ventana de lectura (phishing bajo nuestro dominio y reverse tabnabbing): cerrados con una firma del server (AGENTS.md).',
+      'Sin hacer y decisiones de Martín: docs/hallazgos-editor-landing.md → «Tanda 6» → «Lo que quedó sin hacer».',
+    ],
+    commits: [
+      { sha: '8be4a7da4', msg: 'fix(landing): «Conectar Stripe» abre el modal de /integraciones ahí mismo, no otra pestaña (el rojo de main, pasado solo)', lineas: 68, archivos: 3 },
+      { sha: '0be209e23', msg: 'fix(landing): el panel flotante del editor no se cierra con un clic adentro del modal que tiene encima', lineas: 3, archivos: 1 },
+      { sha: 'ab069c67f', msg: 'Landing Generator: los [ ] que hay que completar se ven resaltados en el editor y en la miniatura', lineas: 577, archivos: 6 },
+      { sha: 'a2f6b377b', msg: 'Landing Generator: MaKo lee la landing en el navegador de la persona (con el Pixel o en una ventana), y el aviso con flecha cuando las ventanas emergentes están bloqueadas', lineas: 2326, archivos: 13 },
+      { sha: '44c1fc628', msg: 'Landing Generator (tanda 6): el server lee lo que perdía, contesta «léela en tu navegador» y Replicar con 3 formatos', lineas: 1714, archivos: 19 },
+      { sha: '43fd45487', msg: 'Landing Generator (tanda 6, pantalla): «Crear con IA» en la tab con Analizar y Replicar, el «+» sólo adjunta, el link pegado en el chat y las plantillas en tarjetas', lineas: 2018, archivos: 19 },
+      { sha: '8e2a6f0c8', msg: 'Landing Generator (tanda 6, d): Replicar copia el estilo de la original — sus colores y fuentes en un tema propio y sus imágenes en nuestro bucket', lineas: 2214, archivos: 9 },
+      { sha: 'feb0a0dff', msg: 'Landing Generator (tanda 6, c): «Aplicar» de un clic con «Deshacer», «Aplicar todos», «Preguntar a MaKo», y lo que el triage dejó para la pantalla y la API', lineas: 2850, archivos: 24 },
+      { sha: '790c9fb78', msg: 'Landing Generator (tanda 6, motor): el Diagnóstico de una landing nuestra lee TODAS sus páginas, guarda su puntaje y usa la lectura del navegador', lineas: 526, archivos: 4 },
+      { sha: 'aa970508b', msg: 'Landing Generator (tanda 6, motor): una sola marca para los desplegables y `bloqueada` en null cuando la leyó el navegador', lineas: 185, archivos: 4 },
+      { sha: 'c55565d32', msg: 'Landing Analyst: analyze, sync y pulso son sólo del admin, como view y mapa', lineas: 114, archivos: 4 },
+      { sha: '81544a847', msg: 'Landing Generator (tanda 6, motor): «Probar nuevo diseño» recibe el formato y en una presentación propone diapositivas', lineas: 61, archivos: 4 },
+      { sha: '87298ad53', msg: 'Landing Generator (tanda 6, paquete 2): el paso de pago se sirve EN el dominio propio, «Dominios» avisa la reserva vencida y despublicar sabe del dominio', lineas: 528, archivos: 8 },
+      { sha: 'd5fc19976', msg: 'Landing Generator (tanda 6, paquete 3): el pago poda sus pedidos viejos, cuenta sus rechazos por landing y día, y el lead que paga nace con su campaña', lineas: 837, archivos: 6 },
+      { sha: 'a9cd561ff', msg: 'Landing Generator (tanda 6, paquete 4): el PDF de una presentación sale horizontal, el video al costado en el teléfono, la gracias con su video y la copia de una app crece con su contenido', lineas: 535, archivos: 14 },
+      { sha: 'bfa25c88b', msg: 'Landing Generator (tanda 6, verificación): la ventana de lectura sólo con la firma del server, el Pixel sólo en una landing del negocio, y el typecheck de la rama en verde', lineas: 372, archivos: 7 },
+      { sha: 'a184fb818', msg: 'Landing Generator (tanda 6, verificación): el alto de la copia de una app no se desboca con un hero de 100vh', lineas: 46, archivos: 2 },
+      { sha: '59dd291b1', msg: 'Landing Generator (tanda 6, verificación): el Diagnóstico muestra todas las páginas y usa la copia que ya existe, la API dice el puntaje, los rechazos, el dominio al despublicar y cómo deshacer', lineas: 931, archivos: 28 },
+      { sha: '7cbfe9479', msg: 'docs: cosecha de la tanda 6 del Landing Generator — lo aprendido, por área, y dos reglas en AGENTS.md', lineas: 218, archivos: 6 },
+    ],
+    archivos: [
+      'lib/landing-extraer.ts — el extractor puro (div/span, preguntas por contención, nav fuera)',
+      'lib/editor-landing/lector-script.ts, lector.ts, lector-pagina.ts, lector-firma.ts — leer en el navegador',
+      'app/landing-generator/Inicio.tsx, CajaCrear.tsx, panel-reglas.ts — Crear con IA en la tab',
+      'lib/editor-landing/estilo-original.ts, estilo-aplicar.ts — copiar el estilo',
+      'lib/editor-landing/diagnostico-aplicar.ts, diagnostico-guardado.ts — Aplicar y el puntaje',
+      'supabase/migrations/0281_landing_docs_diagnostico.sql, 0282_landing_pago_rechazos.sql',
     ],
   },
 ];
