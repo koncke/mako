@@ -124,6 +124,48 @@ Martín la valide). Computadora y celular, con tokens de la casa.
 **Vive en:** `app/admin/operaciones/CentroOperaciones.tsx` (lo que se reemplaza) ·
 `docs/prototipos/centro-operaciones.html` (lo propuesto)
 
+## La Ticketera no avisaba: `chat` es un NOMBRE, no una sesión (15/10/2026)
+
+**Síntoma.** Martín: «Y ya respondí todas esas tarjetas y al parecer no te llegó... No sirve de nada la
+ticketera si no te llega». Medido a las 05:50 contra producción: **30 tarjetas abiertas, 30 contestadas,
+29 sin `recogida_at`**, y `operaciones_carteros` **vacía**. El coordinador las repartió a mano a nueve chats.
+
+**Causa.** La respuesta quedaba en la base y nadie la empujaba: el chat que preguntó tenía que correr
+`decisiones.ts contestadas` por las dudas. Y aunque algo la empujara, **no había a quién**: la tarjeta
+guarda `chat`, un nombre para la pantalla («2FA», «Pricing · Strategy», «Plan») que en varios casos no es
+el título de ningún chat, y dos chats pueden llamarse igual («Customer Success» y «Ads Manager» aparecían
+dos veces en la lista de sesiones). El diagnóstico obvio («falta un cron que mire») era la mitad: el bug
+de fondo era que la tarjeta no sabía quién preguntó.
+
+**Lo que quedó.** Lo empuja el cartero que ya existía, en su misma vuelta (sin máquina nueva):
+
+- `admin_decisiones.destino` (mig 0288) guarda la sesión que pregunta, y la pone quien publica. Sin
+  destino, el servidor busca UN chat con ese título entre los de todos los carteros; con cero o con dos,
+  no adivina (`destinoDeDecision`, lib/decisiones-aviso.ts).
+- Se avisa una vez por RESPUESTA: `aviso_de` es el `respondida_at` avisado. Si Martín la cambia, se avisa
+  de nuevo. Lo que no llegó (o no se sabe) se reintenta hasta 5 veces, y un reclamo sin acuse vence a las 2 h.
+- El reclamo es compare-and-set sobre la respuesta y el intento anterior, y el acuse viaja con el mismo
+  formato de id que el de un pedido. Si el chat está cerrado, la tarjeta espera a la vuelta en que se abra.
+- El mensaje lo arma el cartero con un texto fijo y el `ref` validado (`mensajeAviso`): no viaja texto de
+  la base, así que no necesita firma. Que el aviso lleve la respuesta adentro necesita firmarla al
+  contestar (fase 2).
+- `decisiones.ts contestadas <ref>` dice en qué anda el aviso de cada una («avisada», «espera a que se
+  abra el chat», «sin cartero corriendo», «Hay 2 chats que se llaman…»).
+
+**Probado contra producción** (05:58-06:07, con el cartero real y las sesiones reales de esta PC; el
+servidor fue `cicloCartero` corriendo local, con un token temporal): una tarjeta de prueba dirigida al
+coordinador se reclamó, se le entregó por SendMessage, el acuse la dejó `entregado` y la vuelta siguiente
+no la repitió; con la respuesta cambiada se volvió a reclamar. La tarjeta, la fila del cartero y el token se
+borraron después: antes no existían.
+
+**Dos trampas del arnés que no son del código:** `execFileSync` del cartero desde el mismo proceso que hace
+de servidor se traba hasta el timeout (el servidor no puede contestar), y los paquetes de un script del
+scratchpad no se resuelven (no hay `node_modules`): va `createRequire` apuntando al repo.
+
+**Vive en:** `lib/decisiones-aviso.ts` · `lib/operaciones.ts` (`avisosParaElCartero`) ·
+`scripts/operaciones/cartero.mjs` (`mensajeAviso`) · `scripts/decisiones.ts` ·
+`supabase/migrations/0288_decisiones_aviso.sql` · `tests/decisiones-aviso.test.ts`
+
 ## Lo que creí medido y no estaba al día
 
 - **`soloPlataforma` ya existía en el registro de la API** (lo sumó el 2FA obligatorio el 14/10, por
@@ -134,6 +176,12 @@ Martín la valide). Computadora y celular, con tokens de la casa.
 
 ## Lo que quedó sin hacer
 
+- **Que el aviso de la Ticketera ande de verdad necesita instalar el cartero**: el token (lo crea Martín
+  en /admin/operaciones con su 2FA), `cartero claude1 app ~/.claude` y `carpeta 68eda2ab-… claude1`, y un
+  chat «Cartero» con un cron que corra `ciclo`, mande lo de `pendientes` y anote `acuse`. Los avisos no
+  necesitan la clave del dispositivo.
+- **La Ticketera no muestra si el aviso llegó**: el dato está (`aviso_estado`), la pantalla no lo dibuja.
+- **Fase 2 del aviso**: firmar la respuesta al contestar, para que el aviso la lleve adentro.
 - **Implementar el rediseño** de `docs/prototipos/centro-operaciones.html` en
   `app/admin/operaciones/CentroOperaciones.tsx`: espera la validación de Martín (15/10). La lógica de
   firma, las acciones y el cartero no cambian; cambia la pantalla.

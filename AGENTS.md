@@ -1096,6 +1096,11 @@ código nuevo:
   texto. Ningún camino encola sin firma: por eso «mandar un pedido» no está en el registro de la API.
 - **La confianza vive en la PC**: el cartero verifica la firma contra las claves cargadas A MANO y
   lleva su registro de entregados. Nada de lo que diga MaKo puede agregar una clave ni reentregar.
+- **Lo único que el cartero entrega SIN firma es un texto FIJO que arma él**: el aviso de una respuesta
+  de la Ticketera (`mensajeAviso`, scripts/operaciones/cartero.mjs) lleva sólo el `ref` validado y el
+  comando para leerla. Un mensaje nuevo sin firma sigue ese molde: de MaKo no viaja ni una palabra.
+- **Una tarjeta de la Ticketera se publica con `destino`** (la sesión que pregunta, `local_…`/`cli_…`):
+  `chat` es un nombre y con un nombre no se sabe a quién avisar (lib/decisiones-aviso.ts).
 
 # Un guard sobre algo destructivo se escribe en POSITIVO
 

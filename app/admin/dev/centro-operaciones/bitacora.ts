@@ -130,4 +130,29 @@ export const BITACORA: Hito[] = [
       'docs/hallazgos-ui.md — lo que midió la auditoría de tabs',
     ],
   },
+  {
+    fecha: '15 oct', hora: '05:45', chat: ESTRATEGIA, cuenta: 'claude1', actor: 'martin', tipo: 'prompt',
+    titulo: 'Que la respuesta llegue sola',
+    pedido: 'Y ya respondí todas esas tarjetas y al parecer no te llegó... No sirve de nada la ticketera si no te llega',
+    puntos: [
+      'Había 29 respuestas en la base que nadie empujaba; el coordinador las repartió a mano a nueve chats.',
+      'El encargo: que el Centro avise al chat que preguntó, aunque esté cerrado, y una sola vez.',
+    ],
+  },
+  {
+    fecha: '15 oct', hora: '06:09', chat: CH, cuenta: 'claude1', actor: 'claude', tipo: 'implementacion',
+    titulo: 'El cartero avisa las respuestas de la Ticketera',
+    puntos: [
+      'Cada tarjeta guarda la sesión que pregunta (destino): con el nombre del chat no se sabía a quién avisar.',
+      'Se avisa una vez por respuesta, y otra vez si cambia; si el chat está cerrado, espera a que se abra.',
+      'El aviso lo arma el cartero con el ref y un texto fijo: de la base no viaja nada, así que no necesita firma.',
+      'Probado contra producción con el cartero real: entregado al coordinador, sin repetir, y reclamado de nuevo al cambiar la respuesta.',
+    ],
+    archivos: [
+      'lib/decisiones-aviso.ts — cuándo y a quién se avisa',
+      'lib/operaciones.ts — el reclamo en la vuelta del cartero',
+      'scripts/operaciones/cartero.mjs — el mensaje del aviso',
+      'supabase/migrations/0288_decisiones_aviso.sql — destino y el estado del aviso',
+    ],
+  },
 ];
