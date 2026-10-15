@@ -43,10 +43,17 @@ const PUERTA = /^if \(\(await getSesionAdmin\(\)\) == null && \(await getRolWsEf
 /** O la misma puerta en un helper (`soloAdmin`, la forma de /view). */
 const POR_HELPER = /^const cerrada = await soloAdmin\(\);\s*if \(cerrada\) return cerrada;/;
 
-/** Cada método exportado con su cuerpo, desde la llave que lo abre. */
+/** Los métodos que Next sirve desde una route.ts. */
+const METODOS = new Set(['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS']);
+
+/**
+ * Cada método exportado como FUNCIÓN (con o sin `async`), con su cuerpo desde la llave que lo abre.
+ * Verificación de la tanda 6: sólo se miraba `export async function`, y un `export function DELETE()` (sin
+ * async) pasaba sin revisar (rotura A2: 2 / 0, en verde).
+ */
 function metodos(src: string): Array<{ metodo: string; cuerpo: string }> {
   const out: Array<{ metodo: string; cuerpo: string }> = [];
-  const re = /export async function (GET|POST|PUT|PATCH|DELETE)\([^)]*\)[^{]*\{/g;
+  const re = /export\s+(?:async\s+)?function\s+(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)\s*\([^)]*\)[^{]*\{/g;
   let m: RegExpExecArray | null;
   while ((m = re.exec(src)) !== null) {
     const desde = m.index + m[0].length;
@@ -54,6 +61,23 @@ function metodos(src: string): Array<{ metodo: string; cuerpo: string }> {
     out.push({ metodo: m[1], cuerpo: src.slice(desde, hasta < 0 ? src.length : hasta).trim() });
   }
   return out;
+}
+
+/**
+ * Los métodos exportados de una forma que este test NO puede revisar: una constante (`export const PUT =
+ * async …`, rotura A1: 2 / 0, en verde) o una lista (`export { x as GET }`). No se saltean: hacen FALLAR
+ * el test. La forma de la casa es `export async function`, con la puerta como primera instrucción.
+ */
+function exportadosSinRevisar(src: string): string[] {
+  const malos: string[] = [];
+  for (const m of src.matchAll(/export\s+(?:const|let|var)\s+(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)\b/g)) malos.push(`export const ${m[1]}`);
+  for (const m of src.matchAll(/export\s*\{([^}]*)\}/g)) {
+    for (const parte of m[1].split(',')) {
+      const nombre = parte.trim().split(/\s+as\s+/).pop() ?? '';
+      if (METODOS.has(nombre)) malos.push(`export { … ${nombre} }`);
+    }
+  }
+  return malos;
 }
 
 test('se barren las rutas de verdad (si el barrido no encuentra nada, el test de abajo no prueba nada)', () => {
@@ -68,6 +92,7 @@ test('cada método de cada ruta abre con la puerta de admin, ANTES de leer el bo
   for (const abs of rutas(CARPETA)) {
     const nombre = relative(RAIZ, abs).replace(/\\/g, '/');
     const src = sinComentarios(leer(abs));
+    assert.deepEqual(exportadosSinRevisar(src), [], `${nombre}: un método exportado de una forma que no se puede revisar (va como export async function, con la puerta primero)`);
     const ms = metodos(src);
     assert.ok(ms.length > 0, `${nombre}: no exporta ningún método`);
     for (const { metodo, cuerpo } of ms) {
@@ -81,3 +106,10 @@ test('cada método de cada ruta abre con la puerta de admin, ANTES de leer el bo
   }
   assert.ok(revisados >= 7, `revisó ${revisados} métodos`);
 });
+
+// ── VERIFICACIÓN DE LA TANDA 6 (14/10/2026): PROBADO ROMPIÉNDOLO ──────────────────────────────
+// Base: 2 / 0. Las dos que la verificación encontró en VERDE y una forma más:
+//   A1 analyze + `export const PUT = async (req) => …` sin puerta → 1 / 1 (antes: 2 / 0)
+//   A2 sync + `export function DELETE() { … }` (sin async)        → 1 / 1 (antes: 2 / 0)
+//   A3 sync + `export { abierto as GET }`                          → 1 / 1
+// Restaurado: 2 / 0.

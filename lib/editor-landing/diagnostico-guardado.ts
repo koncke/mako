@@ -13,7 +13,10 @@
 //     (`aColumna` / `deColumna`), y cómo se reconoce que esa migración todavía no se aplicó
 //     (`esColumnaQueFalta`);
 //   · el texto de TODAS las páginas (`textoDeLanding`), cada una con su renglón «— Página «X» —», y la
-//     página donde vive una sección (`paginaDeSeccion`, para que el recorrido salte a ella);
+//     página donde vive una sección (`paginaDeSeccion`);
+//   · lo que la PANTALLA necesita para mostrar todas las páginas (verificación de la tanda 6: miraba sólo
+//     la de inicio): su orden (`paginasEnOrden`), sus secciones para ubicar una cita (`bloquesDeLanding`)
+//     y la vista con un rótulo por página (`htmlDeVistaDiagnostico`);
 //   · la página que va al análisis (`paginaDeNuestra`), con lo que el navegador probó si lo hay.
 // Sin server-only ni imports de node: lo importan el server, la pantalla y los tests.
 // =============================================================================
@@ -77,7 +80,41 @@ export function esColumnaQueFalta(e: { code?: string | null; message?: string | 
 /** El renglón que separa una página de la otra en el texto que lee el modelo. */
 export const renglonDePagina = (titulo: string): string => `— Página «${titulo}» —`;
 
-const tituloDePagina = (p: Pagina): string => (typeof p.titulo === 'string' && p.titulo.trim()) || (p.ruta ? `/${p.ruta}` : 'Inicio');
+/** El nombre de una página: su título, o su ruta, o «Inicio». */
+export const tituloDePagina = (p: Pagina): string => (typeof p.titulo === 'string' && p.titulo.trim()) || (p.ruta ? `/${p.ruta}` : 'Inicio');
+
+/**
+ * Las páginas en el orden en que se leen: la de inicio primero y después las demás en su orden. Es el
+ * orden del texto que lee el modelo (`textoDeLanding`), y el de la vista del Diagnóstico: el recorrido
+ * y «Aplicar todos» van de arriba hacia abajo de ESTA lista (verificación de la tanda 6: la pantalla
+ * miraba sólo la de inicio y los comentarios de las otras salían «Sin ubicar»).
+ */
+export function paginasEnOrden(c: LandingContenido | null | undefined): Pagina[] {
+  const todas = Array.isArray(c?.paginas) ? c.paginas.filter((p): p is Pagina => !!p && typeof p === 'object') : [];
+  const inicio = paginaPrincipal(c);
+  return inicio ? [inicio, ...todas.filter((p) => p !== inicio)] : todas;
+}
+
+/**
+ * Las secciones con texto de TODAS las páginas, sin tope: para UBICAR una cita (el contexto de
+ * «Preguntar a MaKo», los comentarios que pasan a una copia). El tope de `textoDeLanding` es de lo que
+ * lee el modelo; ubicar no cuesta nada y una sección editada después puede haber cambiado de largo.
+ */
+export const bloquesDeLanding = (c: LandingContenido | null | undefined): BloqueTexto[] => paginasEnOrden(c).flatMap((p) => bloquesDeTexto(p));
+
+/** Un texto para un atributo HTML (el título de una página lo escribió la persona). */
+const enAtributo = (t: string): string => t.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+/**
+ * La vista del Diagnóstico de una landing nuestra: TODAS sus páginas, una debajo de la otra en el orden
+ * de `paginasEnOrden`, y con más de una, cada una con su rótulo. Así cada comentario se ubica en su
+ * página sin cambiar de vista (el recorrido mide posiciones en UN lienzo). El rótulo va en un atributo
+ * y lo dibuja el CSS (`::before`): no es un nodo de texto, y una cita nunca se ubica en él.
+ */
+export function htmlDeVistaDiagnostico(paginas: readonly Pagina[], html: (p: Pagina) => string): string {
+  if (paginas.length < 2) return paginas.length ? html(paginas[0]) : '';
+  return paginas.map((p) => `<div class="gdg-pagina" data-titulo="${enAtributo(tituloDePagina(p))}"></div>${html(p)}`).join('');
+}
 
 export type TextoDeLanding = {
   /** Las secciones visibles de todas las páginas que entraron, en orden: con esto se ubica cada cita. */
@@ -102,10 +139,7 @@ export type TextoDeLanding = {
  * tope que el texto de una lectura del navegador: lo que el análisis ya acepta de una página de afuera.
  */
 export function textoDeLanding(c: LandingContenido | null | undefined, tope: number = TOPES_LECTURA.texto): TextoDeLanding {
-  const todas = Array.isArray(c?.paginas) ? c.paginas.filter((p): p is Pagina => !!p && typeof p === 'object') : [];
-  const inicio = paginaPrincipal(c);
-  const orden = inicio ? [inicio, ...todas.filter((p) => p !== inicio)] : todas;
-  const conTexto = orden.map((p) => ({ p, bs: bloquesDeTexto(p) })).filter((x) => x.bs.length > 0);
+  const conTexto = paginasEnOrden(c).map((p) => ({ p, bs: bloquesDeTexto(p) })).filter((x) => x.bs.length > 0);
   const varias = conTexto.length > 1;
   const bloques: BloqueTexto[] = [];
   const partes: string[] = [];

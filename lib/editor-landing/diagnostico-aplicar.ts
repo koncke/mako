@@ -36,9 +36,10 @@ import { editar } from './ia';
 import { listar, cambiarEstado } from './diagnostico-server';
 import { docPagina, tarjetasDe, type JsonNodo } from './doc';
 import { formatoDe } from './api-tipos';
+import { bloquesDeLanding } from './diagnostico-guardado';
 import {
-  MOTIVO_ANTES_DE_APLICAR, bloquesDeTexto, claveSugerencia, estadoValido, idsParaAplicar, instruccionDeSugerencias,
-  normalizarHallazgos, objetivoDe, paginaPrincipal, ubicarCitaEnBloques,
+  MOTIVO_ANTES_DE_APLICAR, claveSugerencia, estadoValido, idsParaAplicar, instruccionDeSugerencias,
+  normalizarHallazgos, objetivoDe, ubicarCitaEnBloques,
   type EstadoSugerencia, type RespuestaAplicar, type RespuestaPasar, type Sugerencia,
 } from './diagnostico';
 // Puro (sin React ni DOM): cómo se aplica la propuesta de la IA, lo mismo que hace el editor.
@@ -147,7 +148,9 @@ export async function pasarACopia(p: { url?: unknown; docId?: unknown }): Promis
     const [afuera, copia] = await Promise.all([listar(de), abrir(docId)]);
     if (!afuera.ok) return falla(afuera.error, afuera.status);
     if (!copia.ok) return falla(copia.error, copia.status);
-    const bloques = bloquesDeTexto(paginaPrincipal(copia.doc.contenido));
+    // Las secciones de TODAS las páginas de la copia (verificación de la tanda 6): una cita de la página de
+    // gracias se ubica en la gracias de la copia, no queda «sin sección» (y sin «Aplicar»).
+    const bloques = bloquesDeLanding(copia.doc.contenido);
     const destino = { docId };
     const filas = afuera.sugerencias.map((s) => ({
       workspace_id: ws,

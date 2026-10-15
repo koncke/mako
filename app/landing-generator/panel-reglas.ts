@@ -88,6 +88,26 @@ export function docDeUrl(url: string, docs: readonly LandingResumen[], bases: re
 }
 
 /**
+ * La COPIA editable que ya existe de una página de afuera (verificación de la tanda 6: «Aplicar» en el
+ * Diagnóstico de una página de afuera replicaba la página ENTERA cada vez, con IA paga, minutos de espera
+ * y otra landing más: rompía «nunca duplicar»). La más reciente que salió de esa URL (por la MISMA
+ * normalización que la llave de los comentarios), fuera de la Papelera y que sea por secciones: ni una
+ * Presentación ni la «Página web» idéntica (su primera sección es un «HTML personalizado», donde un
+ * comentario no se aplica por sección). Sin ninguna, null: se replica.
+ */
+export function copiaParaAplicar(url: string, docs: readonly LandingResumen[]): number | null {
+  const k = claveUrl(url);
+  if (!k) return null;
+  const esFiel = (d: LandingResumen) => {
+    const hijo = (d.primera as { content?: Array<{ type?: unknown }> } | null)?.content?.[0];
+    return hijo?.type === 'htmlLibre';
+  };
+  const copias = docs.filter((d) => !d.papelera && d.formato !== 'presentacion' && !!d.replicaDe && claveUrl(d.replicaDe) === k && !esFiel(d));
+  copias.sort((a, b) => b.actualizado.localeCompare(a.actualizado));
+  return copias[0]?.id ?? null;
+}
+
+/**
  * Los renglones de la barra lateral: primero los documentos (fuera de la papelera, el editado
  * último arriba), después las landings de afuera ya analizadas (en el orden en que llegan: el
  * análisis más nuevo arriba), sin las que son nuestras y sin URLs repetidas.
@@ -162,6 +182,35 @@ export type ArranqueIA = {
  * Tanda 6: también «Crear con IA» (`ia`, con su paso y el tipo de documento) y «Replicar landing»
  * (`replicar`; `url`/`formato`/`auto` los trae el link pegado en la caja, una vez).
  */
+/**
+ * Lo que se eligió en la caja «¿Qué vas a crear hoy?» (CajaCrear.tsx), como lo lee el Panel. Vive acá
+ * (puro) y la caja lo re-exporta: `derechaDeAccion` lo usa y el test la EJECUTA.
+ */
+export type AccionCaja =
+  | { que: 'ia'; paso: PasoIA; tipo: TipoCrear; arranque?: ArranqueIA }
+  | { que: 'analizar'; url?: string }
+  | { que: 'replicar'; url?: string; formato?: FormatoReplicar };
+
+/**
+ * La derecha del Panel para lo que se eligió en la caja (tanda 6, punto 5: «si yo pego un link, me
+ * debería aparecer pintado de azul y que diga "Analiza esta landing" y que se pueda cambiar a "Replica
+ * esta landing"»). Una tarjeta de «Crear con IA» o el pedido, a su paso; «Analiza esta landing», el
+ * Diagnóstico de ESA página (el de su documento si es nuestra); «Replica esta landing», Replicar con el
+ * formato elegido y arrancando SOLO (`auto`). Sin link, la vista vacía de cada uno. Era el `alAccion` de
+ * Inicio.tsx; salió acá en la verificación de la tanda 6: con la lógica en la pantalla, que el link
+ * abriera el Diagnóstico vacío o que Replicar no arrancara no lo veía ningún test.
+ */
+export function derechaDeAccion(a: AccionCaja, docs: readonly LandingResumen[], bases: readonly string[]): Derecha {
+  if (a.que === 'ia') return { tipo: 'ia', paso: a.paso, doc: a.tipo, ...(a.arranque ? { arranque: a.arranque } : {}) };
+  if (a.que === 'analizar') {
+    const url = a.url ? urlParaAnalizar(a.url) : null;
+    if (!url) return { tipo: 'diagnostico' };
+    const propia = docDeUrl(url, docs, bases);
+    return propia ? { tipo: 'diagnostico', docId: propia } : { tipo: 'diagnostico', url };
+  }
+  return a.url ? { tipo: 'replicar', url: a.url, ...(a.formato ? { formato: a.formato } : {}), auto: true } : { tipo: 'replicar' };
+}
+
 export type Derecha =
   | { tipo: 'crear' }
   | { tipo: 'plantillas' }

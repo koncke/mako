@@ -80,8 +80,8 @@ export type PedidoDiagnostico =
    * `texto`: el copy pegado a mano cuando la página de afuera se arma en el navegador.
    * `lectura` (tanda 6): la página de afuera LEÍDA en el navegador de la persona (con el Pixel o en la
    * ventana emergente, lectura-tipos.ts): no se baja nada, y el análisis suma lo que se probó (a dónde
-   * lleva cada botón, si el calendario cargó). Con `docId` no se usa: una landing nuestra se lee de su
-   * contenido guardado.
+   * lleva cada botón, si el calendario cargó). Con `docId`, el texto sale del contenido guardado y la
+   * lectura sólo suma lo que se probó (a dónde lleva cada botón, si el calendario cargó).
    */
   | { accion: 'analizar'; docId?: number; url?: string; texto?: string; lectura?: Lectura }
   | { accion: 'estado'; id: number; estado: EstadoSugerencia };

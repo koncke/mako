@@ -141,6 +141,25 @@ export function cambiosSinPublicar(f: { publicado_at: string | null; publicado_v
   return !!f.publicado_at && f.publicado_version !== f.version;
 }
 
+/** Lo que la API le dice a quien confirma despublicar (`antesDeDespublicar`, server.ts). */
+export type AntesDeDespublicar = {
+  version: number;
+  publicado_version: number | null;
+  /** Lo guardado ya no es lo publicado: volver a publicar sube ESE borrador, no lo que hoy está en internet. */
+  cambiosSinPublicar: boolean;
+  /** El dominio propio VERIFICADO, que también deja de mostrarla; null si no tiene. */
+  dominio: string | null;
+};
+
+/**
+ * El armado de `antesDeDespublicar`, PURO (verificación de la tanda 6: el test leía el fuente y fijaba
+ * cómo se lee, no la forma de lo que devuelve; cruzar `version` con `publicado_version` quedaba en verde).
+ * `f` es la fila de la landing ya leída; `dominio`, el de la lectura aparte (`dominioDeLectura`).
+ */
+export function resumenAntesDeDespublicar(f: { version: number; publicado_at: string | null; publicado_version: number | null }, dominio: string | null): AntesDeDespublicar {
+  return { version: f.version, publicado_version: f.publicado_version, cambiosSinPublicar: cambiosSinPublicar(f), dominio };
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // La FOTO publicada (landing_docs.publicado)
 // ─────────────────────────────────────────────────────────────────────────────

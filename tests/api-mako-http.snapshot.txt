@@ -269,6 +269,7 @@ listar_tareas_sin_datos
 listar_tareas_vencidas
 listar_trabajos_flow
 listar_triggers_email
+listar_versiones_landing
 listar_videos_detectados
 listar_videos_landing
 listar_videos_panda
@@ -358,6 +359,7 @@ resolver_confirmacion_crm
 responder_pregunta_personalidad
 restablecer_informe_dashboard
 restaurar_clase_curso
+restaurar_version_landing
 resumen_bandejas_confirmacion
 resumir_marketing_periodo
 retirar_creacion
@@ -438,6 +440,7 @@ ver_proximas_recurrentes
 ver_proyecto_plan
 ver_publico_conjunto_meta
 ver_puente_flow
+ver_rechazos_pago_landing
 ver_rendimiento_anuncios
 ver_revenue_mensual
 ver_revenue_periodo

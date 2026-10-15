@@ -21,7 +21,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { dominioDeLectura, dominioQueSirve } from '../lib/editor-landing/dominios-reglas';
-import { cambiosSinPublicar } from '../lib/editor-landing/server-reglas';
+import { cambiosSinPublicar, resumenAntesDeDespublicar } from '../lib/editor-landing/server-reglas';
 
 const RAIZ = join(__dirname, '..');
 const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8').replace(/\r\n/g, '\n');
@@ -63,13 +63,25 @@ test('antesDeDespublicar: la versión y el dominio en dos lecturas, y nunca sale
   assert.doesNotMatch(cols, /dominio/, 'el dominio NO va en el mismo select: sin la 0263 tiraría la lectura entera');
   // El dominio: aparte, de ESTE negocio, y por la regla que tolera sólo el 42703.
   assert.match(f, /\.select\('dominio, dominio_estado'\)\.eq\('workspace_id', ws\)\.eq\('id', id\)\.maybeSingle\(\);/);
-  assert.match(f, /dominio: dominioDeLectura\(data, error\),/);
-  assert.match(f, /cambiosSinPublicar: cambiosSinPublicar\(f\),/);
+  // Verificación de la tanda 6: la FORMA sale de la función pura (el test de abajo la ejecuta), y una
+  // landing de otro negocio da null ANTES de cualquier otra lectura (sin eso, tiraba).
+  const sinFila = f.indexOf('if (!f) return null;');
+  assert.ok(sinFila > 0 && sinFila < f.indexOf('getTenantDb()'), 'una landing que no es de este negocio no da null antes de leer el dominio');
+  assert.match(f, /return resumenAntesDeDespublicar\(f, dominioDeLectura\(data, error\)\);/);
   // Sólo LEE: nada de Vercel, el DNS ni escrituras.
   assert.doesNotMatch(f, /estadoDominio|comprobar|configVercel|resolveTxt|fetch\(|\.update\(|\.insert\(|\.delete\(|\.upsert\(/);
   assert.doesNotMatch(src, /import \{[^}]*\bestadoDominio\b[^}]*\} from '\.\/dominios'/, 'server.ts no trae la lectura que sale a Vercel');
   // La lista del Panel dice lo mismo: una sola definición de «el dominio que sirve».
   assert.match(src, /dominio: dominioQueSirve\(f\),/);
+});
+
+test('la forma de lo que devuelve antesDeDespublicar (se EJECUTA): cada versión en su campo', () => {
+  // Verificación de la tanda 6 (rotura B1: cruzar `version` con `publicado_version` quedaba en verde aquí, en
+  // editor-landing-server y en api-mako-landing-editor).
+  assert.deepEqual(resumenAntesDeDespublicar({ version: 9, publicado_at: '2026-10-14T10:00:00Z', publicado_version: 7 }, 'promo.tunegocio.com'),
+    { version: 9, publicado_version: 7, cambiosSinPublicar: true, dominio: 'promo.tunegocio.com' });
+  assert.deepEqual(resumenAntesDeDespublicar({ version: 7, publicado_at: '2026-10-14T10:00:00Z', publicado_version: 7 }, null),
+    { version: 7, publicado_version: 7, cambiosSinPublicar: false, dominio: null });
 });
 
 test('«volver a publicar sube el borrador»: cambiosSinPublicar compara la versión guardada con la publicada', () => {
@@ -102,3 +114,10 @@ test('es cierto que el dominio también deja de mostrarla: lo que sirve sale de 
 //   · el Panel con su propia definición del dominio              → 4 / 1 «antesDeDespublicar: …»
 // Restaurado: 5 / 0.
 // =============================================================================
+
+// ── VERIFICACIÓN DE LA TANDA 6 (14/10/2026): PROBADO ROMPIÉNDOLO ──────────────────────────────
+// Base: 6 / 0. Las dos que la verificación encontró en VERDE en los tres archivos:
+//   B1 `version` y `publicado_version` cruzados → despublicar 5 / 1 «la forma de lo que devuelve…»;
+//      editor-landing-server 25 / 0 y api-mako-landing-editor 25 / 0 (siguen sin verlo: lo ve ÉSTE)
+//   B2 sin el `if (!f) return null;`            → despublicar 5 / 1 «antesDeDespublicar: …»; los otros dos, en verde
+// Restaurado: 6 / 0.

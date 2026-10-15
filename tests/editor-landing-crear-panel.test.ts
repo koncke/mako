@@ -32,8 +32,9 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  consultaDerecha, derechaDeQuery, destinoCrear, queryDeDerecha, sacarLink, type Derecha,
+  consultaDerecha, derechaDeAccion, derechaDeQuery, destinoCrear, queryDeDerecha, sacarLink, type AccionCaja, type Derecha,
 } from '../app/landing-generator/panel-reglas';
+import type { LandingResumen } from '../lib/editor-landing/api-tipos';
 import { marcasDeVoseo } from '../lib/puestas-data';
 
 const RAIZ = join(__dirname, '..');
@@ -89,6 +90,27 @@ test('la caja: el link va EN LUGAR del campo, azul, con «Analiza esta landing»
   // La caja es la MISMA de /automations: nada de esto vive adentro de ella.
   const caja = fuente(CAJA_PEDIDO);
   assert.doesNotMatch(caja, /sacarLink|Analiza esta landing|onAccion|Importar archivo/);
+});
+
+test('derechaDeAccion (se EJECUTA): «Analiza esta landing» abre el Diagnóstico de ESA página; «Replica esta landing» arranca solo', () => {
+  // Verificación de la tanda 6: con la regla adentro de Inicio.tsx (`alAccion`), abrir el Diagnóstico VACÍO
+  // con un link pegado (C1) o que Replicar no arrancara (C2) quedaban en verde. Ahora es pura y se ejecuta.
+  const docs: LandingResumen[] = [{
+    id: 12, titulo: 'Mía', tema: 'pewter', creado: '2026-10-01T00:00:00Z', actualizado: '2026-10-01T00:00:00Z',
+    creadoPor: null, favorito: false, carpeta: null, papelera: false, slug: 'mia', publicadoAt: null, primera: null,
+  }];
+  const bases = ['https://hola-mako.site'];
+  const de = (a: AccionCaja) => derechaDeAccion(a, docs, bases);
+  assert.deepEqual(de({ que: 'analizar', url: 'su-landing.com/oferta' }), { tipo: 'diagnostico', url: 'https://su-landing.com/oferta' });
+  assert.deepEqual(de({ que: 'analizar', url: 'https://hola-mako.site/mia/gracias' }), { tipo: 'diagnostico', docId: 12 }, 'una nuestra abre SU documento');
+  assert.deepEqual(de({ que: 'analizar' }), { tipo: 'diagnostico' }, 'la tarjeta «Analizar landing» sin link: para pegar una');
+  assert.deepEqual(de({ que: 'analizar', url: 'no es un link' }), { tipo: 'diagnostico' });
+  assert.deepEqual(de({ que: 'replicar', url: 'https://su-landing.com/', formato: 'presentacion' }), { tipo: 'replicar', url: 'https://su-landing.com/', formato: 'presentacion', auto: true });
+  assert.deepEqual(de({ que: 'replicar' }), { tipo: 'replicar' }, 'la tarjeta «Replicar landing» sin link no arranca nada');
+  assert.deepEqual(de({ que: 'ia', paso: 'pegar', tipo: 'landing', arranque: { modo: 'plan', prompt: '' } }),
+    { tipo: 'ia', paso: 'pegar', doc: 'landing', arranque: { modo: 'plan', prompt: '' } });
+  // Y el Panel la usa tal cual (con su lista y sus bases).
+  assert.match(fuente(INICIO), /const alAccion = \(a: AccionCaja\) => \{\s*setDerecha\(derechaDeAccion\(a, lista, props\.bases\)\);/);
 });
 
 // ── 2 · Todo en la misma ruta ────────────────────────────────────────────────────────────────
@@ -186,6 +208,11 @@ test('el «+»: Importar archivo y Subir imagen; lo de antes sigue alcanzable de
   assert.doesNotMatch(src.match(/export const ACCEPT_ARCHIVO = [^\n]+/)?.[0] ?? '', /imagen/);
   // Se lee con el lector de la casa y queda como chip; al mandar, su texto va a «Pegar texto».
   assert.match(src, /void leerArchivo\(file, ac\.signal\)\.then\(/);
+  // Verificación de la tanda 6 (rotura C3: `texto: ''` quedaba en verde): lo que viaja es EL TEXTO leído, y
+  // «Pegar texto» lo pone en su campo y en lo que se manda.
+  assert.match(src, /onAccion\(\{ que: 'ia', paso: 'pegar', tipo, arranque: \{ modo, prompt: pedido\.trim\(\), archivo: \{ nombre: archivo\.nombre, texto: archivo\.texto \} \} \}\);/);
+  const crearIA = fuente(CREAR);
+  assert.match(crearIA, /if \(arranque\.archivo\) \{[\s\S]{0,200}setTexto\(arranque\.archivo\.texto\);[\s\S]{0,200}texto: arranque\.archivo\.texto,/);
   assert.match(src, /adjunto=\{archivo \? \(\s*<ChipCaja icono=\{archivo\.imagen \? 'imagen' : 'archivo'\}/);
   // «Usar plantilla» = la grilla de abajo; «Del generador anterior» = la galería de Plantillas del Panel.
   const inicio = fuente(INICIO);
@@ -312,3 +339,11 @@ test('ni las pantallas nuevas ni las tocadas tienen voseo (el guard del repo no 
 //   R14 voseo en Replicar («Tocá acá y pegá la dirección.»)                   → 13 / 1 (voseo)
 //       La primera versión («Pegá la dirección y elegí el formato.») dio VERDE, 14 / 0: el detector de la casa
 //       (`VOSEO`, lib/puestas-data.ts) no conoce «pegá» ni «elegí». Por eso la rotura usa «tocá» y «acá».
+
+// ── VERIFICACIÓN DE LA TANDA 6 (14/10/2026): PROBADO ROMPIÉNDOLO ──────────────────────────────
+// Base: 15 / 0. Las tres que la verificación encontró en VERDE (C1, C2, C3) y una más:
+//   C1 «Analiza esta landing» abre el Diagnóstico vacío (sin la URL)  → 14 / 1 «derechaDeAccion…» (antes: 14 / 0)
+//   C2 «Replica esta landing» no arranca sola (`auto: false`)         → 14 / 1 «derechaDeAccion…» (antes: 14 / 0)
+//   C3 el archivo del «+» llega vacío a «Pegar texto» (`texto: ''`)  → 14 / 1 «el «+»…»            (antes: 14 / 0)
+//   C4 el Panel con su propia regla para «analizar»                    → 14 / 1 «derechaDeAccion…»
+// Restaurado: 15 / 0.

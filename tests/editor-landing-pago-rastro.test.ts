@@ -32,6 +32,7 @@ import {
   type DepPagoPost, type LandingDelPaso, type ResultadoDelPago,
 } from '../lib/editor-landing/pago-pagina';
 import type { EstadoCobroLanding } from '../lib/editor-landing/pago-landing';
+import { textoRechazosPago } from '../app/landing-generator/editor/dialogos/DialogoAnalitica';
 
 const RAIZ = join(__dirname, '..');
 const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8').replace(/\r\n/g, '\n');
@@ -394,6 +395,20 @@ test('atribución: el lead NUEVO y la propuesta llevan la campaña (los dos cami
   assert.match(leer('app/api/landing-generator/pagar/route.ts'), /\n\s+pagar: pagarDesdeLanding,\n/, 'la ruta le pasa la atribución (tercer argumento)');
 });
 
+// Verificación de la tanda 6: el rastro se contaba y nadie lo podía leer. El dueño lo ve en «Análisis» del
+// editor (una línea en ámbar, sólo si hubo) y MaKo con ver_rechazos_pago_landing (api-mako-landing-editor).
+test('rastro: el dueño lo VE — una línea en ámbar en «Análisis», sólo si hubo; sin la 0282, nada', () => {
+  assert.equal(textoRechazosPago({ total: 3, dias: 30 }), '3 pagos rechazados (30 días)');
+  assert.equal(textoRechazosPago({ total: 1, dias: 30 }), '1 pago rechazado (30 días)');
+  for (const r of [{ total: 0, dias: 30 }, null, undefined]) assert.equal(textoRechazosPago(r), null, JSON.stringify(r));
+  const server = leer('lib/editor-landing/server.ts');
+  const analitica = bloque(server, 'export async function analitica(', /\n\}\n/);
+  assert.match(analitica, /const r = await rechazosDePago\(ws, id, DIAS_ANALITICA\);/);
+  assert.match(analitica, /rechazosPago = r && !r\.sinTabla \? \{ total: r\.total, dias: DIAS_ANALITICA \} : null;/, 'sin la tabla no se afirma un cero');
+  const dialogo = leer('app/landing-generator/editor/dialogos/DialogoAnalitica.tsx');
+  assert.match(dialogo, /\{textoRechazosPago\(a\.rechazosPago\) && \(\s*<p className="gma-an-rechazos" role="status">/);
+});
+
 // =============================================================================
 // PROBADO ROMPIÉNDOLO (14/10/2026), una rotura por vez, sólo ESTE archivo (base 14 / 0), con un arnés en
 // el scratchpad que guarda cada archivo en memoria, lo rompe, corre y lo reescribe (sha256 igual antes y
@@ -425,3 +440,9 @@ test('atribución: el lead NUEVO y la propuesta llevan la campaña (los dos cami
 //   25. un motivo que esta versión no conoce no suma al resumen            → 13 / 1
 // Restaurado: 14 / 0. El formulario más pesado posible pesa 3.484 de 4.000 (sin la campaña, 1.925).
 // =============================================================================
+
+// ── VERIFICACIÓN DE LA TANDA 6 (14/10/2026): PROBADO ROMPIÉNDOLO ──────────────────────────────
+// Base: 15 / 0.
+//   R1 sin la 0282 la Analítica afirma «0 rechazados» → 14 / 1 «rastro: el dueño lo VE…»
+//   R2 la línea en ámbar también con 0                → 14 / 1 «rastro: el dueño lo VE…»
+// Restaurado: 15 / 0.

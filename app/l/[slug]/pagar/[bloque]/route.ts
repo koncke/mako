@@ -11,10 +11,10 @@
 // ⚠️ PÚBLICA Y SIN COOKIE, como las otras rutas de app/l: `/l` está en PUBLICOS (lib/rutas-publicas.ts)
 //    como prefijo y, como no es /api/, el proxy la deja sólo en GET/HEAD/OPTIONS. Lee con el cliente
 //    crudo por slug y el workspace sale de la FILA; nunca `getTenantDb` sin contexto (caería al ws1).
-// ⚠️ EN EL DOMINIO DE UN CLIENTE el botón NO trae acá con el host del cliente: `conEnlacesDelDominio`
-//    (dominios-reglas.ts) deja el pago en la base de las landings (hola-mako.site en producción), porque `decidirHost` contesta 404 a una ruta
-//    de dos segmentos (revisión de la tanda 4, ALTA). Si algún día el proxy la deja pasar, sólo sirve
-//    una landing de ESE dominio — el mismo corte que /l/html.
+// ⚠️ EN EL DOMINIO DE UN CLIENTE el paso NO pasa por acá: el proxy lo reescribe a
+//    /api/landing-generator/dominio (`decidirHost` da 'pago'), que resuelve el slug de ESE dominio y
+//    llama a la misma `responderPasoPago` (Paquete 2 de la tanda 6). El corte por HEADER_DOMINIO de abajo
+//    queda como red: hoy ninguna reescritura llega acá con esa cabecera.
 // La decisión entera (formas, 404 sin tocar la base, 503, el formulario) vive en `responderPasoPago`
 // (lib/editor-landing/pago-pagina.ts), con test.
 // =============================================================================

@@ -296,6 +296,11 @@ test('«Deshacer» restaura la versión de antes sólo si la landing no cambió,
 test('de afuera, «Aplicar» replica como Landing y lo que se aplica en la copia NO viaja en la URL', () => {
   const panel = sinComentarios(leer(PANEL));
   assert.match(panel, /void pedirReplica\(urlPegada, 'landing', lectura \? \{ lectura \} : \{\}, pasarYAbrir\)/);
+  // Verificación de la tanda 6: con una copia que YA existe (`copia`, del Panel) se usa ésa ANTES de replicar
+  // (cada «Aplicar» armaba otra copia, con IA paga). Lo que es «la copia» lo fija copiaParaAplicar (panel).
+  const afuera = panel.slice(panel.indexOf('const aplicarAfuera = useCallback('), panel.indexOf('const aplicar = useCallback('));
+  assert.match(afuera, /if \(copia != null\) \{ setAbriendoCopia\(true\); void pasarYAbrir\(\{ id: copia, titulo: '' \}\); return; \}\s*const lectura = ultimaLectura\.current;\s*void pedirReplica\(/);
+  assert.match(panel, /function PanelInterno\(\{ docId, url, copia = null, onCerrar, onAnalizada \}: Props\)/);
   assert.match(panel, /pedirAplicar\(\{ accion: 'pasar', url: urlPegada, docId: id \}\)/);
   assert.match(panel, /irDuro\(`\/landing-generator\?diagnostico=\$\{id\}`, ws\)/);
   assert.match(panel, /sessionStorage\.setItem\(CLAVE_UNA_VEZ/);
@@ -399,3 +404,8 @@ test('la lista de la API: con id, los pendientes primero por severidad, y sólo 
 //   landing-editor.helpers.ts · la API ofrece aplicar uno de afuera ................... 20 / 1
 // Al final, 21 / 0 otra vez.
 // =============================================================================
+
+// ── VERIFICACIÓN DE LA TANDA 6 (14/10/2026): PROBADO ROMPIÉNDOLO ──────────────────────────────
+// Base: 21 / 0.
+//   X1 «Aplicar» de afuera replica aunque ya haya una copia → 20 / 1 «de afuera, «Aplicar» replica…»
+// Restaurado: 21 / 0.

@@ -88,7 +88,7 @@ import {
   ICONO_TIPO, NOMBRE_TIPO, TIPOS_CREAR, pedidoDeDiseno, pedidoDePlantilla, plantillasDe, type PlantillaCrear, type TipoCrear,
 } from './crear/tipo';
 import { DialogoObjetivo } from './crear/DialogoObjetivo';
-import CajaCrear, { type AccionCaja } from './CajaCrear';
+import CajaCrear from './CajaCrear';
 import PanelDiagnostico from './diagnostico/PanelDiagnostico';
 import { CrearConIA } from './crear/CrearConIA';
 import { ReplicarUnaPagina } from './crear/Replicar';
@@ -98,8 +98,9 @@ import {
   TileTema, URL_FUENTE_CHROME, haceCuanto, irDuro, pedirDocs, useAviso,
 } from './MiniaturaLanding';
 import {
-  ICONO_FILA, SIN_TITULO, docDeUrl, enPapelera, esDiagnosticoDe, filasDelPanel, filtrarFilas, hostDe, normalizarTexto,
-  queryDeDerecha, urlDeBusqueda, urlParaAnalizar, type Analizada, type Derecha, type FilaPanel, type PasoIA, type TipoFila,
+  ICONO_FILA, SIN_TITULO, copiaParaAplicar, derechaDeAccion, docDeUrl, enPapelera, esDiagnosticoDe, filasDelPanel, filtrarFilas, hostDe,
+  normalizarTexto, queryDeDerecha, urlDeBusqueda, urlParaAnalizar, type AccionCaja, type Analizada, type Derecha, type FilaPanel,
+  type PasoIA, type TipoFila,
 } from './panel-reglas';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -244,16 +245,12 @@ export function Inicio(props: PropsInicio) {
   /**
    * Lo que se eligió en la caja «¿Qué vas a crear hoy?» (tanda 6), a la derecha: una tarjeta de «Crear con
    * IA», el pedido (con su archivo adjunto, si hay) o el link pegado («Analiza esta landing» abre su
-   * Diagnóstico; «Replica esta landing», Replicar con el formato elegido, arrancando solo).
+   * Diagnóstico; «Replica esta landing», Replicar con el formato elegido, arrancando solo). La regla es
+   * `derechaDeAccion` (panel-reglas.ts, con test que la ejecuta).
    */
   const alAccion = (a: AccionCaja) => {
-    if (a.que === 'ia') { setDerecha({ tipo: 'ia', paso: a.paso, doc: a.tipo, ...(a.arranque ? { arranque: a.arranque } : {}) }); return; }
-    if (a.que === 'analizar') {
-      const url = a.url ? urlParaAnalizar(a.url) : null;
-      if (url) analizarUrl(url); else setDerecha({ tipo: 'diagnostico' });
-      return;
-    }
-    setDerecha(a.url ? { tipo: 'replicar', url: a.url, formato: a.formato, auto: true } : { tipo: 'replicar' });
+    setDerecha(derechaDeAccion(a, lista, props.bases));
+    if (a.que === 'analizar') setQ('');
   };
 
   const guardarNombre = async () => {
@@ -451,7 +448,16 @@ export function Inicio(props: PropsInicio) {
   } else if (derecha.tipo === 'diagnostico') {
     // El `key` con la landing: cambiar de renglón remonta el panel (un useState sembrado de props
     // no se resiembra, AGENTS.md).
-    contenido = <PanelDiagnostico key={`${derecha.docId ?? ''}|${derecha.url ?? ''}`} docId={derecha.docId} url={derecha.url} onCerrar={cerrarDiagnostico} onAnalizada={sumarAnalizada} />;
+    contenido = (
+      <PanelDiagnostico
+        key={`${derecha.docId ?? ''}|${derecha.url ?? ''}`}
+        docId={derecha.docId}
+        url={derecha.url}
+        copia={derecha.url ? copiaParaAplicar(derecha.url, lista) : null}
+        onCerrar={cerrarDiagnostico}
+        onAnalizada={sumarAnalizada}
+      />
+    );
   } else if (derecha.tipo === 'ia') {
     // «Crear con IA» en la MISMA ruta (tanda 6). Sin `key`: cambiar de paso adentro no lo remonta.
     contenido = (

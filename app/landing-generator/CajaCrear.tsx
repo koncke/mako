@@ -67,7 +67,7 @@ import {
   Desplegable, Ico, ItemMenu, MenuFlotante, MiniaturaLanding, irDuro, marcarReciente, pedirDocs, useAviso, type OpcionDesplegable,
 } from './MiniaturaLanding';
 import { leerArchivo } from './cliente';
-import { hostDe, sacarLink, type ArranqueIA, type PasoIA } from './panel-reglas';
+import { hostDe, sacarLink, type AccionCaja } from './panel-reglas';
 import {
   EJEMPLOS_CAJA, docDe, pedidoDeDiseno, pedidoDePlantilla, plantillasDe, type PlantillaCrear, type TipoCrear,
 } from './crear/tipo';
@@ -75,11 +75,8 @@ import { CSS_TIPO, SelectorTipo } from './crear/PiezasTipo';
 import { DialogoObjetivo } from './crear/DialogoObjetivo';
 import { FORMATO_INICIAL, OPCIONES_FORMATO } from './crear/Replicar';
 
-/** Lo que se eligió en la caja. El Panel lo abre a su derecha (Inicio.tsx). */
-export type AccionCaja =
-  | { que: 'ia'; paso: PasoIA; tipo: TipoCrear; arranque?: ArranqueIA }
-  | { que: 'analizar'; url?: string }
-  | { que: 'replicar'; url?: string; formato?: FormatoReplicar };
+/** Lo que se eligió en la caja. El Panel lo abre a su derecha (Inicio.tsx, con `derechaDeAccion`). Vive en panel-reglas.ts (puro). */
+export type { AccionCaja };
 
 export type PropsCajaCrear = {
   /** El tipo con el que abre (por ejemplo, el de `?tipo=` de la query). Sin él, una landing. */

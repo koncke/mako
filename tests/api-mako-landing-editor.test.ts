@@ -74,7 +74,7 @@ import {
   disenosParaApi, listaParaApi, paginasEnTexto, diagnosticoParaApi, pedidoDeCrear, yaPublicadaAsi, resumenPublicar,
   urlDeLanding, estaPublicada, direccionParaPublicar, siFallaNuestra, TOPES_VER, type FilaPublicable, type DisponibilidadSlug,
   urlPublicaParaApi, botonesDeLanding, elegirBotonDePago, conProductoEnBoton, resumenCobrar, TEXTO_BOTON_PAGO,
-  pedidoDePresentacion, analiticaParaApi,
+  pedidoDePresentacion, analiticaParaApi, resumenDespublicar, rechazosParaApi, versionesParaApi, TOPE_VERSIONES_API,
 } from '../lib/api-mako/areas/landing-editor.helpers';
 import { pedidoDePlantilla } from '../app/landing-generator/crear/tipo';
 import { PLANTILLAS_PRESENTACION } from '../lib/editor-landing/plantillas-presentaciones';
@@ -161,7 +161,63 @@ test('los runners corren por el server de la pantalla: ningún acceso a la base 
 test('la dirección pública sale de UNA función (urlDeLanding): el día que se muda, se cambia en un lugar', () => {
   const run = sinComentarios(leer('lib/api-mako/areas/landing.run.ts'));
   assert.ok(!/\b(?:urlPublica|urlPublicaLanding|rutaInternaL|urlLandingEn)\(/.test(run), 'landing.run.ts arma una URL pública sin urlDeLanding');
-  for (const id of ['ver_landing_creada', 'despublicar_landing', 'publicar_landing']) assert.match(runnerDe(id), /urlDeLanding\(/, id);
+  for (const id of ['ver_landing_creada', 'publicar_landing']) assert.match(runnerDe(id), /urlDeLanding\(/, id);
+  // Verificación de la tanda 6: el resumen de despublicar se arma en `resumenDespublicar` (helpers, puro),
+  // que usa urlDeLanding: lo ejecuta el test de abajo («despublicar dice el dominio y el borrador»).
+  assert.match(runnerDe('despublicar_landing'), /resumenDespublicar\(\{ que, titulo: f\.titulo, slug: f\.slug, dominio: antes\?\.dominio \?\? null, cambiosSinPublicar: antes\?\.cambiosSinPublicar \?\? false, incierto \}\)/);
+});
+
+test('despublicar dice el dominio y el borrador: lo que callaba antes de confirmar (verificación de la tanda 6)', () => {
+  const base = { que: 'la landing' as const, titulo: 'Webinar', slug: 'webinar', dominio: null, cambiosSinPublicar: false };
+  const solo = resumenDespublicar(base);
+  assert.ok(solo.includes(`${urlDeLanding('webinar')} deja de mostrarla`), solo);
+  assert.doesNotMatch(solo, /dominio|cambios sin publicar|comprobar/);
+  const conTodo = resumenDespublicar({ ...base, dominio: 'promo.tunegocio.com', cambiosSinPublicar: true });
+  assert.ok(conTodo.includes(`${urlDeLanding('webinar')} y su dominio propio https://promo.tunegocio.com dejan de mostrarla`), conTodo);
+  assert.match(conTodo, /volver a publicarla sube ESOS cambios/);
+  // Si la lectura del dominio falló, no se afirma que no tiene: se dice que no se pudo comprobar.
+  assert.match(resumenDespublicar({ ...base, incierto: true }), /No pude comprobar si tiene un dominio propio/);
+  // El runner pregunta ANTES (motor: antesDeDespublicar) y no se calla si falla.
+  const r = runnerDe('despublicar_landing');
+  assert.match(r, /try \{ antes = await docsEditor\.antesDeDespublicar\(ctx\.ws, id\); \} catch \{ incierto = true; \}/);
+});
+
+test('lo que el motor de la tanda 6 ya sabía y la API no decía: el puntaje, los rechazos del pago y las versiones', () => {
+  // El puntaje guardado (mig 0281): sale con los comentarios, y un diagnóstico sin comentarios SÍ se diagnosticó.
+  const resumen = { score: 6.8, veredicto: 'Promesa clara', resumen: null, analizado: '2026-10-14T15:00:00.000Z' };
+  const conPuntaje = diagnosticoParaApi([sug(1, 'alta', 'pendiente', '2026-10-10')], resumen) as { puntaje: number; veredicto: string; diagnosticada_el: string; nota: string };
+  assert.deepEqual([conPuntaje.puntaje, conPuntaje.veredicto, conPuntaje.diagnosticada_el], [6.8, 'Promesa clara', '2026-10-14T15:00:00.000Z']);
+  assert.doesNotMatch(conPuntaje.nota, /no se guarda/, 'la nota vieja decía que el puntaje no se guarda');
+  const sinComentarios = diagnosticoParaApi([], resumen) as { diagnosticada: boolean; puntaje: number };
+  assert.deepEqual([sinComentarios.diagnosticada, sinComentarios.puntaje], [true, 6.8]);
+  assert.equal((diagnosticoParaApi([sug(1, 'alta', 'pendiente', '2026-10-10')]) as { puntaje: null }).puntaje, null);
+  assert.match(runnerDe('ver_landing_creada'), /resumen = s\.ok \? s\.resumen : null;[\s\S]*diagnostico: diagnosticoParaApi\(sugerencias, resumen\),/);
+  // Los rechazos: por motivo con nombre de la API, y sin la tabla los ceros no se afirman.
+  const rech = rechazosParaApi(9, 30, { total: 4, porMotivo: { 'tope-email': 3, techo: 0, 'dominio-ajeno': 1, producto: 0 }, otros: 0, ultimoDia: '2026-10-13', desde: '2026-09-15', sinTabla: false });
+  assert.deepEqual(rech.por_motivo, { tope_email: 3, techo: 0, dominio_ajeno: 1, producto: 0 });
+  assert.equal(rech.ultimo_dia, '2026-10-13');
+  assert.match(rechazosParaApi(9, 30, { total: 0, porMotivo: {}, otros: 0, ultimoDia: null, desde: '2026-09-15', sinTabla: true }).nota, /no quieren decir que no hubo/);
+  assert.match(runnerDe('ver_rechazos_pago_landing'), /await rechazosDePago\(ctx\.ws, id, dias\)/);
+  assert.match(runnerDe('ver_rechazos_pago_landing'), /if \(!r\) return errorLectura\(noExisteCreada\(id\)\);/);
+  // Las versiones (el «Deshacer» de aplicar): con número, tope y lo que no entra contado.
+  const vs = Array.from({ length: 32 }, (_, i) => ({ id: 100 - i, creado: '2026-10-14T10:00:00Z', motivo: i === 0 ? 'Antes de aplicar el diagnóstico' : 'Guardada', autor: null, titulo: 'Webinar' }));
+  const lista = versionesParaApi(5, vs) as { versiones: { version: number; motivo: string }[]; versiones_afuera: number };
+  assert.equal(lista.versiones.length, TOPE_VERSIONES_API);
+  assert.deepEqual(lista.versiones[0], { version: 100, creada: '2026-10-14T10:00:00Z', motivo: 'Antes de aplicar el diagnóstico', autor: null, titulo: 'Webinar' });
+  assert.equal(lista.versiones_afuera, 2);
+  // Restaurar: el MISMO restaurarVersion que la pantalla, el comentario de ESA landing, y por chat (reversible:
+  // deja «Antes de restaurar»). Y aplicar ya no manda a un historial que la API no tenía.
+  const restaurar = runnerDe('restaurar_version_landing');
+  assert.match(restaurar, /await docsEditor\.restaurarVersion\(id, version\)/);
+  assert.match(restaurar, /if \(!c \|\| c\.docId !== id\) return \{ error:/);
+  assert.match(restaurar, /await estadoDeComentario\(\{ id: comentario, estado: 'pendiente' \}\)/);
+  assert.doesNotMatch(restaurar, /\.from\(/);
+  const r = accion('restaurar_version_landing');
+  assert.equal(r.confirmacion, 'chat');
+  assert.ok(r.reversible);
+  assert.deepEqual(r.gating, { tab: 'landing-writer', rolMinimo: 'admin' });
+  assert.match(accion('aplicar_comentario_landing').descripcion, /restaurar_version_landing/);
+  for (const id of ['ver_rechazos_pago_landing', 'listar_versiones_landing', 'restaurar_version_landing']) assert.ok(rutaRestDe(id), `${id} sin ruta REST`);
 });
 
 // Integración de la tanda 4 (14/10/2026): las publicadas viven en https://hola-mako.site/<slug>. Antes
@@ -532,3 +588,13 @@ test('la analítica: los números de la tarjeta del editor, y sin publicar los c
   const sin = analiticaParaApi(5, { publicada: false, urls: [], visitas30: 0, visitantes30: 0, leads30: 0, porDia: [], alcancePorSeccion: null, enAnalyst: false });
   assert.match(sin.nota, /No está publicada/);
 });
+
+// ── VERIFICACIÓN DE LA TANDA 6 (14/10/2026): PROBADO ROMPIÉNDOLO ──────────────────────────────
+// Base: 25 / 0 (y el `todo` de WhatsApp que ya estaba).
+//   M1 diagnosticoParaApi sin el puntaje                         → 24 / 1 «lo que el motor de la tanda 6…»
+//   M5 ver_landing_creada sin pasarle el puntaje                 → 24 / 1 «lo que el motor de la tanda 6…»
+//   M2 resumenDespublicar sin el dominio propio                  → 24 / 1 «despublicar dice el dominio…»
+//   M3 ver_rechazos_pago_landing sin mirar que la landing exista → 24 / 1 «lo que el motor de la tanda 6…»
+//   M4 restaurar_version_landing con un comentario de otra landing → 24 / 1 «lo que el motor de la tanda 6…»
+// Las dos roturas del motor de despublicar (B1, B2) NO las ve este archivo: las ve editor-landing-despublicar.
+// Restaurado: 25 / 0.

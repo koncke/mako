@@ -124,6 +124,12 @@ export type LandingResumen = {
   /** T1/T3: el ícono del renglón y la forma de la miniatura (sin el campo: una página). Lo llena `listar` desde `config`. */
   formato?: FormatoDoc;
   proporcion?: Proporcion;
+  /**
+   * La página de AFUERA de la que es copia (`config.origen.basadoEnUrl` de una replicada), o null. Con
+   * esto «Aplicar» en el Diagnóstico de esa página usa la copia que ya existe en vez de replicar de nuevo
+   * (verificación de la tanda 6: cada «Aplicar» armaba otra copia, con IA paga).
+   */
+  replicaDe?: string | null;
 };
 
 export type LandingCompleta = {
@@ -172,6 +178,12 @@ export type Analitica = {
   /** % de visitantes que llegó a cada sección (por scroll), si el Pixel lo midió. null = no medido, NUNCA 0. */
   alcancePorSeccion: { tarjetaId: string; pct: number | null }[] | null;
   enAnalyst: boolean;                // si el Landing Analyst ya la tiene declarada
+  /**
+   * Los pedidos del Botón de pago que se rechazaron en los mismos días (Paquete 3 de la tanda 6, mig 0282;
+   * se muestra desde la verificación de la tanda 6). null = no se pudo leer o todavía no se cuentan: no se
+   * dibuja nada (nunca un «0» que no se sabe).
+   */
+  rechazosPago?: { total: number; dias: number } | null;
 };
 
 export type TemaPropio = { id: string; nombre: string; base: string; cambios: Record<string, unknown> };

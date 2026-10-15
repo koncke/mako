@@ -500,6 +500,10 @@ test('«Probar nuevo diseño» recibe el formato: diapositivas en una presentaci
     assert.doesNotMatch(r, /p[áa]rtelo|copy que una p[áa]gina necesita/i, 'una regla de editar que acá contradice el pedido');
     assert.doesNotMatch(r, /(?<!\p{L})(vos|tenés|querés|podés|partí|armá)(?!\p{L})/iu);
   }
+  // Verificación de la tanda 6: el server lo recibía y la PANTALLA no lo mandaba (AskAgent, «Probar nuevo
+  // diseño»): en una presentación seguía proponiendo secciones de página. Ahora va como en `editar`.
+  const ask = sinComentarios(leer('app/landing-generator/editor/AskAgent.tsx'));
+  assert.match(ask, /pedirIA\(\{ accion: 'disenos', tarjeta: original, params: \{ formato: formatoDe\(ctxRef\.current\.config\) \} \}/);
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -569,3 +573,8 @@ test('la cadena real de una edición: bloqueada intacta, id e imagen conservados
   assert.match(GRAMATICA_IA, /\{"tarjetas":\[/);
   for (const f of [FORMATO_SECCIONES, FORMATO_EDITAR, FORMATO_DISENOS]) assert.match(f, /"tarjetas"/);
 });
+
+// ── VERIFICACIÓN DE LA TANDA 6 (14/10/2026): PROBADO ROMPIÉNDOLO ──────────────────────────────
+// Base: 25 / 0.
+//   I1 AskAgent vuelve a pedir `disenos` sin el formato (lo de antes) → 24 / 1 «Probar nuevo diseño recibe el formato…»
+// Restaurado: 25 / 0.

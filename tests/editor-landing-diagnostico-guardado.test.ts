@@ -38,7 +38,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  aColumna, deColumna, esColumnaQueFalta, paginaDeNuestra, paginaDeSeccion, renglonDePagina, textoDeLanding,
+  aColumna, bloquesDeLanding, deColumna, esColumnaQueFalta, htmlDeVistaDiagnostico, paginaDeNuestra, paginaDeSeccion, paginasEnOrden,
+  renglonDePagina, textoDeLanding,
 } from '../lib/editor-landing/diagnostico-guardado';
 import { bloquesDeTexto, paginaPrincipal, textoParaAnalisis, ubicarCitaEnBloques } from '../lib/editor-landing/diagnostico';
 import { NODO, type JsonNodo, type LandingContenido } from '../lib/editor-landing/doc';
@@ -125,6 +126,36 @@ test('cada cita se ubica en SU sección aunque viva en otra página, y el recorr
   assert.equal(paginaDeSeccion(CONTENIDO, 't1')?.id, 'p1');
   assert.equal(paginaDeSeccion(CONTENIDO, 'no-existe'), null);
   assert.equal(paginaDeSeccion(CONTENIDO, null), null);
+});
+
+test('la PANTALLA muestra y ubica todas las páginas: el orden, las secciones de todas y un rótulo que no es texto', () => {
+  // Verificación de la tanda 6: el motor analizaba todas las páginas y la pantalla miraba sólo la de inicio
+  // (los comentarios de «Gracias» salían «Sin ubicar» y sin «Aplicar» en la copia de una de afuera).
+  assert.deepEqual(paginasEnOrden(CONTENIDO).map((x) => x.id), ['p1', 'p2', 'p3', 'p4'], 'el inicio primero, las demás en su orden');
+  assert.deepEqual(paginasEnOrden(null), []);
+  // Sin el tope del análisis: una sección se ubica aunque su página no entrara al texto del modelo.
+  assert.deepEqual(bloquesDeLanding(CONTENIDO).map((b) => b.id), ['t1', 'tg', 'tp']);
+  assert.equal(ubicarCitaEnBloques('Gracias por tu compra', bloquesDeLanding(CONTENIDO)), 'tg');
+  assert.deepEqual(textoDeLanding(CONTENIDO, 10).bloques.map((b) => b.id), ['t1'], 'el del modelo sí corta');
+  // La vista: una página sola, tal cual; varias, cada una con su rótulo EN UN ATRIBUTO (escapado: el título
+  // lo escribió la persona), nunca como texto donde una cita se pueda ubicar.
+  const html = (x: { id: string }) => `<main data-p="${x.id}"></main>`;
+  const una = paginasEnOrden({ v: 1, paginas: [pagina('p1', 'Inicio', '', [])] });
+  assert.equal(htmlDeVistaDiagnostico(una, html), '<main data-p="p1"></main>');
+  assert.equal(htmlDeVistaDiagnostico([], html), '');
+  const varias = paginasEnOrden({ v: 1, paginas: [pagina('p1', 'Inicio', '', []), pagina('p2', 'Gracias "<b>" & más', 'gracias', [])] });
+  assert.equal(htmlDeVistaDiagnostico(varias, html),
+    '<div class="gdg-pagina" data-titulo="Inicio"></div><main data-p="p1"></main>'
+    + '<div class="gdg-pagina" data-titulo="Gracias &quot;&lt;b&gt;&quot; &amp; más"></div><main data-p="p2"></main>');
+  // Y la pantalla y la copia los usan (fuente sin comentarios).
+  const panel = sinComentarios(leer('app/landing-generator/diagnostico/PanelDiagnostico.tsx'));
+  assert.match(panel, /const paginas = useMemo\(\(\) => \(doc \? paginasEnOrden\(doc\.contenido\) : \[\]\), \[doc\]\);/);
+  assert.match(panel, /htmlDeVistaDiagnostico\(paginas, \(p\) => htmlDePagina\(p, doc\.config, tema, \{ modo: 'exportar' \}\)\)/);
+  assert.match(panel, /const ordenSecciones = useMemo\(\(\) => paginas\.flatMap\(\(p\) => tarjetasDe\(p\)\.map\(idDe\)\), \[paginas\]\);/);
+  assert.match(panel, /const b = s\.seccionId \? bloques\.find\(\(x\) => x\.id === s\.seccionId\) : null;/);
+  assert.doesNotMatch(panel, /paginaPrincipal/, 'la pantalla volvió a mirar sólo la página de inicio');
+  const aplicar = sinComentarios(leer('lib/editor-landing/diagnostico-aplicar.ts'));
+  assert.match(aplicar, /const bloques = bloquesDeLanding\(copia\.doc\.contenido\);/);
 });
 
 test('una landing de UNA página se analiza igual que antes (sin renglón), y el tope deja afuera páginas enteras', () => {
@@ -222,3 +253,11 @@ test('la migración agrega la columna sin tumbar nada (if not exists, jsonb, con
   assert.doesNotMatch(sql, /drop |not null/i);
   assert.match(crudo.slice(0, 600), /ORDEN DE DESPLIEGUE/);
 });
+
+// ── VERIFICACIÓN DE LA TANDA 6 (14/10/2026): PROBADO ROMPIÉNDOLO ──────────────────────────────
+// Base: 12 / 0, con el arnés de siempre. La pantalla con todas las páginas:
+//   G1 paginasEnOrden sin el inicio primero                         → 9 / 3
+//   G2 el rótulo de la página sin escapar (es texto de la persona)  → 11 / 1 «la PANTALLA muestra…»
+//   G3 la pantalla vuelve a ordenar con la página de inicio sola     → 11 / 1 «la PANTALLA muestra…»
+//   G4 pasarACopia ubica las citas sólo en la página de inicio      → 11 / 1 «la PANTALLA muestra…»
+// Restaurado: 12 / 0.

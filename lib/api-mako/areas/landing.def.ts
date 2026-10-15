@@ -290,6 +290,24 @@ export const DEFS: readonly OperacionDef[] = [
     parametros: [P_ID_CREADA],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: G_WRITER, lenta: true,
   },
+  // Verificación de la tanda 6: el Paquete 3 cuenta los pedidos del Botón de pago que se rechazan (mig 0282)
+  // y nadie los podía leer. «Toda feature nueva va a la API de MaKo». Sin datos de quién: van por todos lados.
+  {
+    id: 'ver_rechazos_pago_landing', area: 'landing', tipo: 'lectura',
+    titulo: 'Pagos rechazados de una landing',
+    descripcion: 'Cuántos pedidos del Botón de pago de una landing creada en el editor del Landing Generator se rechazaron en los últimos días, y por qué: tope_email (la misma persona repitió muchas veces), techo (la landing pasó los pedidos por hora), dominio_ajeno (el formulario vino de otro dominio) o producto (un producto que la landing publicada no ofrece). Sin datos de quién. sin_tabla true = todavía no se cuentan. Úsala cuando pregunten por qué no les llegan pagos de una landing. Necesita el id (de listar_landings_creadas).',
+    parametros: [P_ID_CREADA, { nombre: 'dias', rotulo: 'Días', tipo: 'number', entero: true, minimo: 1, maximo: 400, descripcion: 'Cuántos días mirar, contando hoy. Por defecto 30.' }],
+    salida: 'json', canales: TODOS, costo: 'gratis', gating: G_WRITER,
+  },
+  // Verificación de la tanda 6: aplicar_comentario_landing es reversible «restaurando la versión de antes»,
+  // y la API no tenía cómo leer el historial ni restaurarlo (la pantalla sí: «Deshacer»).
+  {
+    id: 'listar_versiones_landing', area: 'landing', tipo: 'lectura',
+    titulo: 'Historial de versiones de una landing',
+    descripcion: 'Las versiones guardadas de una landing o presentación creada en el editor del Landing Generator (su historial), las más nuevas primero: el número de versión, cuándo se guardó, por qué («Antes de aplicar el diagnóstico», «Antes de restaurar», «Publicada», una guardada a mano…) y quién. Úsala antes de restaurar_version_landing, que pide el número. Necesita el id (de listar_landings_creadas).',
+    parametros: [P_ID_CREADA],
+    salida: 'json', canales: TODOS, costo: 'gratis', gating: G_WRITER,
+  },
   // Tanda 6 (14/10/2026), decisión (c) de Martín: «"Aplicar" de cada comentario del Diagnóstico = un clic,
   // con la versión guardada antes y "Deshacer"» y «toda feature nueva va a la API de MaKo». Los comentarios
   // con su id (ver_landing_creada los resume sin id) para marcarlos o aplicarlos.
@@ -386,7 +404,7 @@ export const DEFS: readonly OperacionDef[] = [
       { nombre: 'texto', rotulo: 'Texto', tipo: 'string', max: 30000, descripcion: 'El contenido de la página pegado por el dueño, de arriba a abajo, cuando MaKo no la puede leer sola. Reemplaza la bajada. Sólo con «presentacion» o «landing».' },
     ],
     canales: SIN_HTTP, costo: 'ia', gating: G_WRITER, lenta: true,
-    escribe: 'una fila nueva en landing_docs: el borrador de la landing replicada, sin publicar (va a la papelera como cualquier otra)',
+    escribe: 'una fila nueva en landing_docs: el borrador de la landing replicada, sin publicar (va a la papelera como cualquier otra); en «presentacion» y «landing», si ese estilo no estaba, un tema propio en app_settings landing.temas, y las imágenes de la original en el bucket landing-imagenes',
   },
   // Tanda 6: lo que la tanda 4 dejó fuera. Todo interno y reversible → chat, como despublicar_landing:
   // renombrar se renombra de nuevo, la copia y la presentación nacen como BORRADOR (a la papelera), la
@@ -456,10 +474,25 @@ export const DEFS: readonly OperacionDef[] = [
     canales: TODOS, costo: 'gratis', gating: G_WRITER,
     escribe: 'el estado del comentario en landing_sugerencias (nunca lo borra)',
   },
+  // Verificación de la tanda 6: el «Deshacer» de aplicar_comentario_landing por la API. Es el MISMO
+  // `restaurarVersion` que el historial del editor y el «Deshacer» del Diagnóstico: antes de restaurar deja
+  // «Antes de restaurar», así que se vuelve atrás restaurando ésa → chat, como despublicar_landing.
+  {
+    id: 'restaurar_version_landing', area: 'landing', tipo: 'accion', confirmacion: 'chat', reversible: true,
+    titulo: 'Volver una landing a una versión',
+    descripcion: 'Vuelve una landing o presentación creada en el editor del Landing Generator a una versión de su historial (de listar_versiones_landing). Antes guarda lo de ahora como «Antes de restaurar»: se vuelve atrás restaurando ésa. Para deshacer un comentario aplicado con aplicar_comentario_landing: pasa la version_antes de su respuesta (o la «Antes de aplicar el diagnóstico» del historial) y el comentario, que vuelve a pendiente. Deshace también lo que se guardó después de esa versión. No publica: lo publicado sigue igual hasta publicar_landing. Necesita el id de la landing y el número de versión.',
+    parametros: [
+      P_ID_CREADA,
+      { nombre: 'version', rotulo: 'Versión', tipo: 'number', entero: true, minimo: 1, obligatorio: true, descripcion: 'El número de la versión a la que vuelve (de listar_versiones_landing, o la version_antes de aplicar_comentario_landing).' },
+      { nombre: 'comentario', rotulo: 'Comentario', tipo: 'number', entero: true, minimo: 1, descripcion: 'El comentario del diagnóstico que se deshace (vuelve a pendiente). Sólo si se está deshaciendo un comentario aplicado.' },
+    ],
+    canales: TODOS, costo: 'gratis', gating: G_WRITER,
+    escribe: 'el contenido de la landing (landing_docs), una versión «Antes de restaurar» en su historial y, si se pasa, el comentario como pendiente (landing_sugerencias)',
+  },
   {
     id: 'despublicar_landing', area: 'landing', tipo: 'accion', confirmacion: 'chat', reversible: true,
     titulo: 'Sacar una landing de internet',
-    descripcion: 'Despublica una landing o presentación del editor del Landing Generator: su dirección pública deja de mostrarla y los links o anuncios que apunten ahí quedan rotos. El borrador no se toca y la dirección queda reservada: publicar_landing la vuelve a poner en el mismo lugar, con lo guardado en ese momento. Úsala solo a pedido explícito del dueño. Necesita el id (de listar_landings_creadas).',
+    descripcion: 'Despublica una landing o presentación del editor del Landing Generator: su dirección pública (y su dominio propio, si tiene) deja de mostrarla y los links o anuncios que apunten ahí quedan rotos. El borrador no se toca y la dirección queda reservada: publicar_landing la vuelve a poner en el mismo lugar, con lo guardado en ese momento (si hay cambios guardados sin publicar, sube ESOS: el resumen lo avisa). Úsala solo a pedido explícito del dueño. Necesita el id (de listar_landings_creadas).',
     parametros: [P_ID_CREADA],
     canales: TODOS, costo: 'gratis', gating: G_WRITER,
     escribe: 'borra la foto publicada de la landing (landing_docs.publicado y su fecha); el borrador y la dirección quedan',
@@ -515,7 +548,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'aplicar_comentario_landing', area: 'landing', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/mako/revisar', reversible: true,
     titulo: 'Aplicar un comentario a la landing',
-    descripcion: 'Aplica un comentario pendiente del Diagnóstico a una landing creada en el editor del Landing Generator: MaKo reescribe con IA la sección que señala siguiendo su arreglo, guarda antes una versión «Antes de aplicar el diagnóstico» (se vuelve atrás restaurándola desde el historial de versiones del editor) y marca el comentario como resuelto. No publica: el cambio queda guardado y se sube con publicar_landing. Sólo comentarios de una landing creada y ubicados en una sección (se_puede_aplicar en listar_comentarios_landing); los de una página de afuera se aplican desde el Landing Generator, que la replica primero. Úsala cuando el dueño pida arreglar lo que señaló el diagnóstico. Deja un link para que la persona revise y confirme. Gasta IA y tarda hasta un minuto: por eso no sale por la API. No corre en una automatización.',
+    descripcion: 'Aplica un comentario pendiente del Diagnóstico a una landing creada en el editor del Landing Generator: MaKo reescribe con IA la sección que señala siguiendo su arreglo, guarda antes una versión «Antes de aplicar el diagnóstico» (se vuelve atrás con restaurar_version_landing, pasando la version_antes de la respuesta y el comentario) y marca el comentario como resuelto. No publica: el cambio queda guardado y se sube con publicar_landing. Sólo comentarios de una landing creada y ubicados en una sección (se_puede_aplicar en listar_comentarios_landing); los de una página de afuera se aplican desde el Landing Generator, que la replica primero. Úsala cuando el dueño pida arreglar lo que señaló el diagnóstico. Deja un link para que la persona revise y confirme. Gasta IA y tarda hasta un minuto: por eso no sale por la API. No corre en una automatización.',
     parametros: [P_COMENTARIO],
     canales: SIN_HTTP, costo: 'ia', gating: G_WRITER, lenta: true,
     escribe: 'el contenido de la landing (landing_docs), una versión «Antes de aplicar el diagnóstico» en su historial y el comentario como resuelto (landing_sugerencias)',

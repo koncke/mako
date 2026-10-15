@@ -65,6 +65,13 @@
 //     comentarios a la copia; el diagnóstico de la copia se abre y aplica ESE comentario (o todos) solo, una
 //     vez: lo que viaja es un aviso en sessionStorage que se consume al abrir (nunca la URL: un F5 o un
 //     link copiado no vuelven a aplicar).
+//
+// Verificación de la tanda 6 (14/10/2026), lo que la pantalla no seguía del motor:
+//   · una landing NUESTRA se analiza con TODAS sus páginas, y la vista mostraba sólo la de inicio: los
+//     comentarios de «Gracias» salían «Sin ubicar», fuera del recorrido y sin su sección en «Preguntar a
+//     MaKo». Ahora la vista dibuja todas, una debajo de la otra con su rótulo (`htmlDeVistaDiagnostico`),
+//     y el orden de «Aplicar todos» y el contexto del chat salen de todas (diagnostico-guardado.ts);
+//   · de AFUERA, «Aplicar» usa la copia que ya existe (`copia`, del Panel) en vez de replicar otra vez.
 // =============================================================================
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
@@ -77,11 +84,12 @@ import { temaPorId, urlFuentes } from '@/lib/editor-landing/temas';
 import { tarjetasDe } from '@/lib/editor-landing/doc';
 import { formatoDe, proporcionDe, type LandingCompleta, type TemaPropio } from '@/lib/editor-landing/api-tipos';
 import {
-  RUTA_APLICAR_DIAGNOSTICO, bloquesDeTexto, claveChatDeComentario, contextoDeComentario, gruposParaAplicar, objetivoDe,
-  ordenarParaRecorrido, paginaPrincipal, pilaTrasAplicar, pilaTrasDeshacer, sePuedeDeshacer, tarjetaDeRecorrido,
+  RUTA_APLICAR_DIAGNOSTICO, claveChatDeComentario, contextoDeComentario, gruposParaAplicar, objetivoDe,
+  ordenarParaRecorrido, pilaTrasAplicar, pilaTrasDeshacer, sePuedeDeshacer, tarjetaDeRecorrido,
   type Aplicacion, type EstadoSugerencia, type PedidoAplicarDiagnostico, type PedidoDiagnostico, type RespuestaAplicar,
   type RespuestaAplicarDiagnostico, type RespuestaDiagnostico, type RespuestaListaDiagnostico, type RespuestaPasar, type Sugerencia,
 } from '@/lib/editor-landing/diagnostico';
+import { bloquesDeLanding, htmlDeVistaDiagnostico, paginasEnOrden } from '@/lib/editor-landing/diagnostico-guardado';
 import type { Lectura } from '@/lib/editor-landing/lectura-tipos';
 import { FORMATOS_REPLICAR, NOMBRE_FORMATO_REPLICAR, type FormatoReplicar } from '@/lib/editor-landing/replicar-reglas';
 import { idDe } from '../editor/diff-tarjetas';
@@ -101,6 +109,11 @@ type Props = {
   onCerrar: () => void;
   /** Una página de AFUERA se acaba de analizar (la URL que contestó el server): el Panel la suma a su barra sin recargar. */
   onAnalizada?: (url: string) => void;
+  /**
+   * La copia editable que YA existe de esta página de afuera (`copiaParaAplicar`, panel-reglas.ts), o null:
+   * «Aplicar» la usa en vez de replicar otra vez.
+   */
+  copia?: number | null;
 };
 
 /** El análisis piensa y una página de afuera además se baja: el plazo de la ruta (300 s) y un margen. */
@@ -155,7 +168,7 @@ export default function PanelDiagnostico(props: Props) {
   return <PanelInterno key={clave} {...props} />;
 }
 
-function PanelInterno({ docId, url, onCerrar, onAnalizada }: Props) {
+function PanelInterno({ docId, url, copia = null, onCerrar, onAnalizada }: Props) {
   const deNuestra = docId != null;
   const objetivo = useMemo(() => (deNuestra ? { docId } : { url: url ?? '' }), [deNuestra, docId, url]);
 
@@ -261,8 +274,15 @@ function PanelInterno({ docId, url, onCerrar, onAnalizada }: Props) {
 
   // ── La vista ───────────────────────────────────────────────────────────────
   const tema = useMemo(() => (doc ? temaPorId(doc.config.tema, temas) : null), [doc, temas]);
-  const pagina = useMemo(() => (doc ? paginaPrincipal(doc.contenido) : null), [doc]);
-  const html = useMemo(() => (doc && tema && pagina ? htmlDePagina(pagina, doc.config, tema, { modo: 'exportar' }) : ''), [doc, tema, pagina]);
+  // TODAS las páginas, una debajo de la otra (verificación de la tanda 6): el motor ya analiza la landing
+  // entera, y mirando sólo la de inicio los comentarios de «Gracias» salían «Sin ubicar», fuera del
+  // recorrido y sin el texto de su sección en «Preguntar a MaKo».
+  const paginas = useMemo(() => (doc ? paginasEnOrden(doc.contenido) : []), [doc]);
+  const html = useMemo(
+    () => (doc && tema ? htmlDeVistaDiagnostico(paginas, (p) => htmlDePagina(p, doc.config, tema, { modo: 'exportar' })) : ''),
+    [doc, tema, paginas],
+  );
+  const bloques = useMemo(() => (doc ? bloquesDeLanding(doc.contenido) : []), [doc]);
   const objetivos = useMemo<ObjetivoVista[]>(() => sugerencias.map((s) => ({ id: s.id, cita: s.cita, seccionId: s.seccionId })), [sugerencias]);
   // La URL normalizada como la del server (sin query, sin www): la LLAVE de los comentarios y de
   // landing_analyses, y el nombre que se muestra. La que se BAJA (la vista, el lector, Replicar) es la
@@ -318,7 +338,7 @@ function PanelInterno({ docId, url, onCerrar, onAnalizada }: Props) {
     setArreglos((m) => ({ ...m, ...Object.fromEntries(ids.map((id) => [id, a])) }));
   const arreglosRef = useRef(arreglos);
   const ordenRef = useRef<string[]>([]);
-  const ordenSecciones = useMemo(() => (pagina ? tarjetasDe(pagina).map(idDe) : []), [pagina]);
+  const ordenSecciones = useMemo(() => paginas.flatMap((p) => tarjetasDe(p).map(idDe)), [paginas]);
   useLayoutEffect(() => { arreglosRef.current = arreglos; ordenRef.current = ordenSecciones; });
 
   /** Lo que devolvió el server: la landing como quedó, los comentarios resueltos y su «Ver cambio». */
@@ -465,15 +485,22 @@ function PanelInterno({ docId, url, onCerrar, onAnalizada }: Props) {
     irDuro(`/landing-generator?diagnostico=${id}`, ws);
   }, [urlPegada, ws]);
 
-  /** «Aplicar» en una landing de AFUERA: replicarla como Landing (con la lectura del navegador si ya está). */
+  /**
+   * «Aplicar» en una landing de AFUERA: replicarla como Landing (con la lectura del navegador si ya está).
+   * Si ya hay una copia de esta página (`copia`), se usa ESA: se le pasan los comentarios y se abre su
+   * Diagnóstico, sin volver a replicar (verificación de la tanda 6: cada «Aplicar» armaba otra copia, con IA
+   * paga y minutos de espera; «nunca duplicar»). Para una copia nueva queda «Replicar en el editor».
+   */
+  const [abriendoCopia, setAbriendoCopia] = useState(false);
   const aplicarAfuera = useCallback((que: number[] | 'todos') => {
     if (!urlPegada) return;
     afuera.current = que;
     setParaAplicar(true);
     setRecorrido((r) => ({ ...r, abierto: false }));
+    if (copia != null) { setAbriendoCopia(true); void pasarYAbrir({ id: copia, titulo: '' }); return; }
     const lectura = ultimaLectura.current;
     void pedirReplica(urlPegada, 'landing', lectura ? { lectura } : {}, pasarYAbrir);
-  }, [urlPegada, pedirReplica, pasarYAbrir]);
+  }, [urlPegada, copia, pedirReplica, pasarYAbrir]);
 
   /** «Aplicar» de un comentario: en una nuestra, a la cola; en una de afuera, replicar primero. */
   const aplicar = useCallback((s: Sugerencia) => {
@@ -509,13 +536,13 @@ function PanelInterno({ docId, url, onCerrar, onAnalizada }: Props) {
   const cuenta = (e: EstadoSugerencia) => sugerencias.filter((s) => s.estado === e).length;
   const nombre = deNuestra ? (doc?.titulo || 'Landing') : hostDe(urlVista ?? '');
   const enCurso = Object.values(arreglos).some((a) => a?.fase === 'aplicando' || a?.fase === 'en-cola' || a?.fase === 'deshaciendo');
-  const ocupado = !!todos || replicando || Object.values(arreglos).some((a) => a?.fase === 'deshaciendo');
+  const ocupado = !!todos || replicando || abriendoCopia || Object.values(arreglos).some((a) => a?.fase === 'deshaciendo');
   const puedeAplicar = (s: Sugerencia) => s.estado === 'pendiente' && (deNuestra ? !!s.seccionId : !!urlPegada);
   const aplicables = pendientes.filter(puedeAplicar).length;
   const visibles = sugerencias.filter((s) => s.estado === filtro
     || (filtro === 'pendiente' && recientes.includes(s.id) && arreglos[s.id]?.fase === 'aplicado'));
   const contextoChat = (s: Sugerencia): string => {
-    const b = s.seccionId && pagina ? bloquesDeTexto(pagina).find((x) => x.id === s.seccionId) : null;
+    const b = s.seccionId ? bloques.find((x) => x.id === s.seccionId) : null;
     return contextoDeComentario({
       hallazgo: s.hallazgo, cita: s.cita, landing: nombre, url: deNuestra ? doc?.urlPublica ?? null : urlVista,
       deAfuera: !deNuestra, seccion: b ? { titulo: b.titulo, texto: b.texto } : null,
@@ -559,6 +586,7 @@ function PanelInterno({ docId, url, onCerrar, onAnalizada }: Props) {
         </div>
       </header>
       {replicando && <p className="gdg-cab-nota">{paraAplicar ? 'Copiando al editor para aplicar… unos minutos.' : 'Replicando… puede tardar unos minutos.'}</p>}
+      {abriendoCopia && <p className="gdg-cab-nota">Abriendo tu copia…</p>}
       {estadoReplicar.fase === 'falla' && urlPegada && (estadoReplicar.enNavegador || estadoReplicar.pegable) ? (
         <LeerOPegar
           key={`replicar|${estadoReplicar.formato}`}
@@ -725,6 +753,10 @@ const CSS_PANEL_DIAGNOSTICO = `
 .gdg-vista { position: relative; flex: 1 1 auto; min-height: 420px; border: 1px solid var(--gp-borde, #e4e4e7); border-radius: 12px; overflow: auto; background: var(--gp-superficie, #fff); }
 .gdg-vista--nuestra { container-type: inline-size; overscroll-behavior: contain; }
 .gdg-vista--nuestra .gdg-lienzo .gm-doc { --gm-base: calc(100cqw / 68.5); --gm-base-movil: calc(100cqw / 68.5); }
+/* El rótulo de cada página cuando la landing tiene varias (htmlDeVistaDiagnostico): lo dibuja el CSS desde
+   el atributo, así no es un nodo de texto donde una cita se pueda ubicar. */
+.gdg-pagina { padding: 6px 14px; background: var(--gp-superficie-2, #f4f4f5); border-bottom: 1px solid var(--gp-borde, #e4e4e7); font: 600 12px/1.4 system-ui, sans-serif; color: var(--gp-tenue, #6b6b72); text-transform: uppercase; letter-spacing: .04em; }
+.gdg-pagina::before { content: attr(data-titulo); }
 .gdg-vista--afuera { overflow: hidden; display: flex; }
 .gdg-iframe { flex: 1 1 auto; width: 100%; height: 100%; min-height: 420px; border: 0; display: block; background: #fff; }
 .gdg-vista-cargando { border: 0; }

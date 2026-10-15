@@ -44,6 +44,16 @@ export function anchoDeAlcance(pct: number | null | undefined): number | null {
 }
 
 const numero = (n: number) => n.toLocaleString('es');
+
+/**
+ * La línea en ámbar de los pagos rechazados (verificación de la tanda 6: el Paquete 3 los contaba por
+ * landing y día, y el dueño no los veía; AGENTS.md, «el rechazo se muestra donde se lee la consecuencia»).
+ * Sólo si hubo alguno: null = no se dibuja. Corta: es lo que se dibuja.
+ */
+export function textoRechazosPago(r: { total: number; dias: number } | null | undefined): string | null {
+  if (!r || !Number.isFinite(r.total) || r.total <= 0) return null;
+  return `${numero(r.total)} ${r.total === 1 ? 'pago rechazado' : 'pagos rechazados'} (${r.dias} días)`;
+}
 const diaCorto = (dia: string) => {
   const t = Date.parse(`${dia}T12:00:00`);
   return Number.isFinite(t) ? new Date(t).toLocaleDateString('es', { day: 'numeric', month: 'short' }) : dia;
@@ -116,6 +126,9 @@ export function DialogoAnalitica({ onCerrar }: { onCerrar?: () => void } = {}) {
               <div className="gma-an-kpi"><span>Visitantes únicos</span><b>{numero(a.visitantes30)}</b></div>
               <div className="gma-an-kpi"><span>Leads</span><b>{numero(a.leads30)}</b></div>
             </div>
+            {textoRechazosPago(a.rechazosPago) && (
+              <p className="gma-an-rechazos" role="status"><Ico n="advertencia" t={14} /> {textoRechazosPago(a.rechazosPago)}</p>
+            )}
 
             <section className="gma-an-bloque">
               <h3 className="gma-an-h">Visitas por día</h3>
@@ -255,4 +268,6 @@ const CSS_ANALITICA = `
 .gma-an-pct{text-align:right;font-weight:600;font-variant-numeric:tabular-nums;color:var(--pb-texto)}
 .gma-an-pct[data-sin]{font-weight:500;color:var(--pb-suave)}
 .gma-an-pie{display:flex;justify-content:flex-end}
+.gma-an-rechazos{display:flex;align-items:center;gap:6px;margin:-10px 0 0;padding:8px 12px;border-radius:10px;background:#fff4e0;color:#9a5b00;font-size:13px;font-weight:600}
+[data-tema="oscuro"] .gma-an-rechazos{background:#3d2a05;color:#f5c46b}
 `;
