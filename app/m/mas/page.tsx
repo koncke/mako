@@ -5,7 +5,9 @@
 //   2. Una caja por familia de la sidebar, con su nombre de escritorio y en su orden (Operate ·
 //      Analyze · Sales Machine · Content Machine · Customer Success): `gruposMas`
 //   3. Pregúntale a MaKo, con el logo real como ícono (fuera de las familias, como en escritorio)
-//   4. Decisiones, SÓLO para el super admin (el tablero de /admin/runway, en el teléfono /m/decisiones)
+//   4. Ticketera, SÓLO para el super admin (el mazo de decisiones: /tickets/decisiones, en el teléfono
+//      /m/tickets/decisiones). Se llamó «Decisiones» y abría la lista hasta el 14/10/2026: Martín la
+//      renombró y pidió que se entre directo al mazo (la lista es la vista secundaria).
 //   5. Versión de computadora
 //
 // ⚠️ DECISIONES NO VA EN `SECCIONES_MAS`, A PROPÓSITO (14/10/2026, acordado con el chat «Pricing MaKo»,
@@ -35,8 +37,8 @@ import { FilaVersionComputadora } from './VersionComputadora';
 
 export const dynamic = 'force-dynamic';
 
-/** El tablero de decisiones del super admin (lo sirve app/m/decisiones; en la URL, /admin/runway). */
-const RUTA_DECISIONES = '/m/decisiones';
+/** La Ticketera del super admin: entra directo al mazo (app/m/tickets/decisiones; en la URL, /tickets/decisiones). */
+const RUTA_TICKETERA = '/m/tickets/decisiones';
 
 export default async function MasPagina() {
   const ctx = await requireMovil();
@@ -85,7 +87,7 @@ export default async function MasPagina() {
       {ctx.sesion.rol === 'admin' && (
         <SeccionM titulo="Super admin">
           <ListaM>
-            <FilaM navegacion icono="admin" titulo="Decisiones" href={RUTA_DECISIONES} />
+            <FilaM navegacion icono="admin" titulo="Ticketera" href={RUTA_TICKETERA} />
           </ListaM>
         </SeccionM>
       )}

@@ -1,0 +1,15 @@
+/* Tarjetas | Lista — el cambio de vista de la Ticketera (CambioVista.tsx). Sólo tokens. */
+.ticketera-vistas {
+  display: inline-flex; flex: none; gap: 2px; padding: 3px;
+  border-radius: 12px; background: var(--surface-2);
+}
+.ticketera-vistas a {
+  display: inline-flex; align-items: center; min-height: 36px; padding: 0 14px;
+  border-radius: 9px; font-size: 14.5px; font-weight: 600; color: var(--dim); text-decoration: none;
+  touch-action: manipulation;
+}
+.ticketera-vistas a[aria-current="page"] {
+  background: var(--surface); color: var(--ink);
+  box-shadow: 0 1px 3px color-mix(in srgb, var(--ink) 12%, transparent);
+}
+.ticketera-vistas a:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }

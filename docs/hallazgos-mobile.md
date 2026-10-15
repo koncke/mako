@@ -660,3 +660,21 @@ se ve en el código:
 `lib/mako-analyst-lead-reglas.ts` (`chartKeyDelLead`, `LECTURAS_DEL_LEAD`, `contextoDelLead`) ·
 `app/api/crm/analyst/route.ts` · `app/crm/lead-view/MakoAnalystLead.tsx` · `app/crm/lead-view/AnalystDelLead.tsx` ·
 `lib/chart-chats.ts` · `tests/mako-analyst-lead.test.ts` · *2026-10-12 corrida crm-feedback-12-10 (frente E-analyst)*
+
+## Un gesto horizontal que no arranca: el `touch-action` se corta en el contenedor con scroll (14/10/2026)
+
+**Síntoma:** la Ticketera (el mazo tipo Tinder de `/tickets/decisiones`) «funciona bastante mal» en el teléfono. Medido con toques en Chrome (`Input.dispatchTouchEvent` con emulación móvil): la tarjeta no se movía (`transform: none` a mitad del gesto), y un deslizamiento largo hacía que la página NAVEGARA para atrás. Con el mouse andaba perfecto.
+
+**Causa:** los eventos eran `pointerdown → pointermove → pointercancel`. La tarjeta tenía `touch-action: pan-y`, pero adentro hay un bloque con scroll propio (`.mazo-cuerpo`, `overflow-y: auto`), y el navegador calcula el touch-action de un toque sólo hasta el contenedor con scroll más cercano. Para un dedo sobre la pregunta, el valor efectivo era `auto`: Chrome se quedaba con el gesto horizontal, cancelaba el puntero y lo usaba como «volver».
+
+**El diagnóstico obvio era el equivocado:** «la física escrita a mano anda mal» era cierto y no era todo. Se pasó a `motion` (la librería del gesto, ya en el repo) y SEGUÍA sin moverse con el dedo, porque la librería nunca recibía el movimiento.
+
+**La regla:** en una superficie que se arrastra, el `touch-action` va también en cada contenedor con scroll que tenga adentro. Se prueba con TOQUES, no con el mouse: con el mouse no hay touch-action y todo anda.
+
+**Y al simular toques por CDP, cada `dispatchTouchEvent` espera un cuadro:** un «tirón» de 70 px en 5 pasos salió a ~460 px/s y no cruzó el umbral de 500 px/s. Con 3 pasos midió 70 px en 52 ms (~1.300 px/s) y contó. Antes de culpar al umbral, mirar los `timeStamp` reales de los `pointermove`.
+
+**Se descartó react-tinder-card:** hace `preventDefault` en `touchstart`, lo que mata el scroll de una tarjeta larga y los toques en las opciones.
+
+**Sin medir:** un teléfono de verdad. Lo de arriba es la entrada táctil de Chrome; Safari en iOS no se probó.
+
+**Vive en:** `app/tickets/decisiones/mazo.css` (`.mazo-cuerpo`) · `app/tickets/decisiones/Mazo.tsx` · `tests/tickets-decisiones-mazo.test.ts`

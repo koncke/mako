@@ -625,6 +625,7 @@ async function responder(p: { sesionId: number; fila: FilaOffer; ctx: ContextoOf
   const ia = await turnoOffer({
     mensajes: fila.mensajes, piezas: fila.piezas, docs: docsDeLaConversacion(fila.documentos, fila.mensajes, p.nuevos), nuevos: p.nuevos,
     contexto: ctx.texto, inicio: p.inicio, diagnostico: diagnosticoParaPrompt(plan, e), diagnosticoObligatorio: plan.modo === 'forzar',
+    voz: ctx.voz,
   });
   // Sin IA sólo se sigue si la pregunta que toca es la obligatoria del diagnóstico (sale la original).
   if (!ia.ok && plan.modo !== 'forzar') return no(502, ia.error, { sesion: await vistaSesion(fila) });
@@ -681,7 +682,7 @@ async function generar(body: Record<string, unknown>, inicio: number): Promise<R
   const negocio = await nombreNegocioOffer().catch(() => '');
   const ia = await propuestaOffer({
     mensajes: fila.mensajes, piezas: fila.piezas, docs: docsDeLaConversacion(fila.documentos, fila.mensajes), contexto: ctx.texto,
-    diagnostico: borrador.diagnostico, calculo: borrador.calculo, inicio, reglas: { fuentes, negocio },
+    diagnostico: borrador.diagnostico, calculo: borrador.calculo, inicio, reglas: { fuentes, negocio }, voz: ctx.voz,
   });
   if (!ia.ok) return no(502, ia.error);
   const nombre = ia.valor.nombre.trim();

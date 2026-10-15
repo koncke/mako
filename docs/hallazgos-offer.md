@@ -301,23 +301,11 @@ Lo que no quedó del todo:
 - ~~**Un binario puede quedar en Storage** si la persona cambia de conversación justo mientras un
   archivo se sube~~ — **CERRADO el 13/10/2026** con la acción `'descartar-subida'` (ver «El audio se
   re-subía en cada reintento» más abajo).
-- ⚠️ **El aviso de precio afirmó «Cierras el 170% de las llamadas calificadas»** en la primera
-  conversación real de un cliente (ws11, 12/10/2026 19:04 UTC, la única con una conclusión en prod al
-  14/10). Un porcentaje arriba de 100 es imposible, y encima de ese número el aviso aconseja SUBIR EL
-  PRECIO. La causa probable (no medida sobre sus datos): `tasa_cierre_sobre_calificados` divide los
-  cierres por los calificados, y `lib/analisis-negocio.ts` ya avisa que «Calificados es un piso» cuando
-  hay asistentes sin la calificación marcada; Offer usa la tasa sin mirar eso ni topearla. Lo mismo
-  muerde a `alertasEmbudo`, que con `cierreCalificados ?? cierreAsistencias` puede tapar un cierre
-  malo con uno inflado. Falta: descartar la tasa sobre calificados cuando `sin_marcar > 0` o cuando
-  pasa de 1, caer a la de asistencias, y su test probado rompiéndolo. Es la regla «un mensaje que sale
-  solo no puede AFIRMAR lo que no verificó». **Vive en:** `lib/offer-reglas.ts` (`alertasPrecio`,
-  `alertasEmbudo`) · `lib/offer-contexto.ts` (arma `TasasEmbudo`) · `lib/analisis-negocio.ts`.
-  *14/10/2026, cuenta claude1.*
+- ~~**El aviso de precio afirmó «Cierras el 170% de las llamadas calificadas»**~~ — **CERRADO el
+  14/10/2026** (`db81f96`), ver «El 170%, la API y la voz» al final.
 
-- **La lectura de la última oferta analizada no está declarada en la API de MaKo**
-  (`lib/api-mako/areas/negocio.def.ts`): MaKo por WhatsApp no sabe que existe la conclusión.
-  Se dejó porque `lib/api-mako` y `docs/api-mako.md` tenían cambios sin commitear de otra
-  sesión; es una lectura `SIN_HTTP` con `gating: { tab: 'offer', rolMinimo: 'admin' }`.
+- ~~**La lectura de la última oferta analizada no está declarada en la API de MaKo**~~ — **CERRADO
+  el 14/10/2026** (`listar_analisis_oferta`, `ver_analisis_oferta`), ver «El 170%, la API y la voz».
 - **Una versión EXTERNA del PDF** (sin diagnóstico, números ni datos «[completar]») para
   mandarle a un prospecto. La de hoy es para el dueño.
 - **El umbral de la alerta de foco** (`alertaFoco`, `lib/offer-reglas.ts`) no está medido
@@ -413,3 +401,69 @@ roturas («la base en verde, 13 de 13; 6 roturas más, las 6 cazadas con 1 fallo
 sin ver es cómo SE VE, y eso lo revisa Martín por su propia regla del 11/10.
 
 *13/10/2026, cuenta claude2.*
+
+## El 170%, la API y la voz (14/10/2026)
+
+### «Cierras el 170%»: el arreglo obvio era el equivocado
+
+**Síntoma:** la única oferta armada por un cliente en prod (ws11, 12/10) decía «Cierras el 170% de las
+llamadas calificadas» y, con ese número, le aconsejaba subir el precio. **Causa:** el cierre sobre
+calificados divide los cierres por los calificados, y con asistencias sin la calificación marcada los
+calificados son un PISO (`lib/analisis-negocio.ts` ya lo avisaba en sus advertencias; Offer usaba la tasa
+cruda).
+
+Las dos salidas que aparecen primero estaban mal, y por razones opuestas:
+- **Topear a 100%** sigue afirmando un número que nadie midió.
+- **Caer siempre al cierre sobre asistencias** sirve para una de las dos preguntas y miente en la otra.
+
+Lo que sí se sabe, porque los calificados reales nunca superan a las asistencias:
+`cierre sobre asistencias ≤ cierre real sobre calificadas ≤ cierre sobre el piso de calificados`. O sea que
+el de asistencias es un PISO (sirve para «más de 30%: hay margen para subir el precio») y el del piso de
+calificados es un TECHO (sirve para «menos de 25%: revisa el cierre»). Cada cota vale en UNA dirección.
+**La regla:** cuando un dato sale de dividir por algo que puede estar contado de menos, preguntá en qué
+dirección se equivoca y usalo sólo para la afirmación que esa dirección permite. Nada fuera de 0-1 se dice.
+
+**Y lo ya guardado se filtra al LEER, no se reescribe.** La conclusión de la clienta sigue en la base con
+el texto viejo: es su historial. Lo leen tres lugares (el PDF, la pantalla y la API de MaKo), y los tres pasan
+por `avisosAfirmables`; un lector nuevo de `calculo.alertas` tiene que hacer lo mismo
+(`tests/offer-api-mako.test.ts` mira los tres).
+
+**Vive en:** `lib/offer-reglas.ts` (`cierreConfiable`, `alertasPrecio`, `alertasEmbudo`) ·
+`lib/offer-marco.ts` (`avisosAfirmables`) · `lib/offer-contexto.ts` (`sinMarcar` en `TasasEmbudo`)
+
+### Offer en la API de MaKo
+
+Dos lecturas en el área `negocio`: `listar_analisis_oferta` y `ver_analisis_oferta`, gratis, sin http y con
+`gating: { tab: 'offer', rolMinimo: 'admin' }`. Dos cosas que no se ven en el código:
+- **«Offer» no llevaba a ningún área.** El clasificador (`lib/mako-intencion.ts`) reconoce «oferta» y no la
+  palabra en inglés con la que se llama la tab: «mostrame la conclusión de Offer» caía en experimentos y la
+  lectura no viajaba en el turno. Se mide con `clasificarIntencion` + `herramientasDelTurno`, como corre.
+- **`docs/api-mako.md` no cambia, y no es un error.** El generador dice «ya estaba al día» porque la
+  referencia lista lo que sale por http; una lectura sin http no aparece ahí.
+
+La conversación en sí (un turno, adjuntar, armar la oferta) no se maneja desde la API: es la pantalla.
+
+**Vive en:** `lib/api-mako/areas/negocio.def.ts` + `negocio.run.ts`
+
+### La voz de marca: no era una configuración nueva
+
+Pedido (Fathom 858545195 @44:56): «una configuración de voz de marca y tono personalizado en el Offer
+Generator». La voz ya existía; Offer era la única feature que no la leía. `vozDelNegocio`
+(`lib/nutricion-generator.ts`) da la guía destilada del Chat Agent o, si no hay, la marca que declaró el
+dueño; `ContextoOffer.voz` va APARTE de `texto` (que se recorta en `TOPE_CONTEXTO`), y el slot `{{voz}}`
+está en el turno y en la oferta, no en el diagnóstico, que no escribe copy.
+
+- **La voz cambia el TONO, nunca los datos**: las reglas de «[completar]» y de no inventar mandan igual.
+- **El idioma neutro sigue**, con una excepción escrita (`EXCEPCION_VOZ`): sólo los textos que el negocio
+  le dice a sus clientes. `tests/offer-ia-cableado.test.ts` exige el `${IDIOMA}` en cada system: por eso la
+  excepción se suma al bloque y no lo reemplaza.
+
+**Lo que quedó sin hacer:**
+- **Un prompt guardado desde /configuraciones con la plantilla vieja no trae `{{voz}}`**: la oferta sale
+  sin la voz, sin error. Es lo mismo que ya pasaba con `{{alertas}}`.
+- **No se probó con una IA de verdad** ni se miró una oferta armada con voz: los tests fijan el cableado.
+- **La tab Análisis** (Experiments) sigue mostrando «Sobrevive del anterior 170%» en el escalón de cierres
+  cuando hay asistencias sin calificar. Vive en `lib/analisis-modelo.ts` (`analisisAMarkdown`), con la
+  advertencia del piso arriba; está anotado en `docs/hallazgos-crm.md`.
+
+*14/10/2026, cuenta claude1.*

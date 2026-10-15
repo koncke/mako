@@ -30,7 +30,7 @@ import { IconoMenu } from '@/app/_ui/iconos-menu';
 import { Icon } from '@/app/_components/icons';
 import { MakoStar } from '@/app/_components/MakoBrand';
 import {
-  DIMENSIONES, dimensionLabel,
+  DIMENSIONES, avisosAfirmables, dimensionLabel,
   type CalculoDiagnostico, type ConclusionOferta, type DiagnosticoOferta, type NotaDimension, type OfferSesionVista, type PropuestaOferta,
 } from '@/lib/offer-marco';
 import {
@@ -306,7 +306,7 @@ function VistaDiagnostico({ d, calculo }: { d: DiagnosticoOferta; calculo: Calcu
   const [abierta, setAbierta] = useState<string | null>(null);
   const notas = lista(d?.dimensiones);
   const cambios = lista(d?.cambios).filter((c) => c && tiene(txt(c.titulo)));
-  const alertas = lista(calculo?.alertas).map(txt).filter(tiene);
+  const alertas = avisosAfirmables(lista(calculo?.alertas).map(txt)).filter(tiene);
   const faltan = calculo?.lista ? [] : controlFinalDe(calculo).filter((x) => !x.ok);
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>

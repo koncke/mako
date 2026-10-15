@@ -25,7 +25,11 @@ pendiente que no dependa de Martín y dejarle en una línea las opciones de lo q
 - **Verificado:** el editor andando en un banco (esbuild + Chrome sin ventana, sin dev server: pasa los 5 GB)
   — crear, texto, plantilla, imagen, guardar y reabrir, PNG y PDF, presentador; el server contra la base
   real en el ws 3 (23 pasos, limpiando todo al final); 887 tests de los que barren el árbol en verde.
-- **NO verificado:** la cáscara de MaKo alrededor (la tab, la barra, el `?ws=`) en producción. El Chrome con
+- **Verificado en producción el 14/10 a la noche, del lado del CLIENTE** (Chrome con la sesión de Mauricio: rol
+  global «usuario», admin del ws 1, capa completo): `/image-editor`, `/image-editor/<id>` y
+  `/image-editor/presentador` lo mandan a `/crm`; `/api/image-editor/disenos` y `/subidos` contestan 404 «No existe»
+  (la puerta, no el proxy: sin sesión el proxy dice 401); en su barra no hay ningún link al editor.
+- **NO verificado:** el camino del super admin en producción (la tab, la barra, el `?ws=`, guardar en la base). El Chrome con
   Claude in Chrome no estaba conectado para claude1. Qué mirar con la sesión de Martín: crear un diseño,
   subir una imagen, cerrar y abrir desde otra pestaña (tiene que estar), descargar PNG, el crédito de Doory al pie.
 
@@ -43,9 +47,9 @@ pendiente que no dependa de Martín y dejarle en una línea las opciones de lo q
 ## Lo que sigue (no depende de él)
 
 1. ~~Las 10 plantillas en español~~: hecho el 14/10 (texto del lienzo y miniaturas, medidas en la hoja de contactos).
-2. Tanda 5: lo de Canva que Doory no trae (lista en `docs/hallazgos-editor-imagen.md`, al final).
+2. Tanda 5: lo de Canva que Doory no trae, por los paquetes de `docs/editor-imagen/relevamiento-canva-funciones.md`.
 3. Tanda 4: alojar las fuentes (hoy jsDelivr). Marca, versiones, compartir y comentarios con tablas propias.
-4. `docs/editor-imagen/relevamiento-canva-funciones.md` (el agente se cortó con la caída del 14/10).
+4. ~~`docs/editor-imagen/relevamiento-canva-funciones.md`~~: escrito el 14/10; trae los 8 paquetes de la tanda 5 en orden.
 
 ## Para retomar
 

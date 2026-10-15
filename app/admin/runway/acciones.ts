@@ -25,8 +25,9 @@ export async function responderDecision(
   const texto = String(formData.get('texto') ?? '');
   const r = await guardarRespuesta(id, clave, texto);
   if (!r.ok) return { error: r.error, ok: false };
-  // Las dos pantallas que dibujan el tablero: la de la computadora y la del teléfono.
-  revalidatePath('/admin/runway');
+  // La lista de la Ticketera, en la computadora y en el teléfono. El mazo no: arma su cola una
+  // vez y lleva la cuenta él (Mazo.tsx); rehacerla al contestar traería de vuelta las «después».
+  revalidatePath('/tickets/decisiones/lista');
   revalidatePath('/m/decisiones');
   return { error: null, ok: true };
 }

@@ -105,6 +105,26 @@ export const DEFS: readonly OperacionDef[] = [
     parametros: [],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: { rolMinimo: 'admin' },
   },
+  // La tab Offer (chat → diagnóstico → oferta → PDF). Sin http: es lo que el dueño le contó a MaKo de su
+  // negocio y de sus números, y el PDF necesita la sesión de la app. Con la tab y el rol de la página
+  // (requireRolWs([]) en app/offer/page.tsx). La conversación en sí NO se maneja desde acá: un turno de
+  // Offer es la pantalla, con sus adjuntos y sus botones.
+  {
+    id: 'listar_analisis_oferta', area: 'negocio', tipo: 'lectura',
+    titulo: 'Análisis de ofertas (Offer)',
+    descripcion: 'Las conversaciones de la tab Offer, la más reciente primero: id, título, estado (conversando o concluida), la nota total del último diagnóstico (0-100, null si todavía no hay oferta armada) y la fecha. Úsala para «¿qué ofertas analizamos?» y para sacar el id que pide ver_analisis_oferta. Trae el link a la tab.',
+    parametros: [],
+    salida: 'json', canales: SIN_HTTP, costo: 'gratis', gating: { tab: 'offer', rolMinimo: 'admin' },
+  },
+  {
+    id: 'ver_analisis_oferta', area: 'negocio', tipo: 'lectura',
+    titulo: 'La conclusión de un análisis de oferta',
+    descripcion: 'La última versión de la oferta que armó MaKo en la tab Offer: el diagnóstico (nota total 0-100, si está lista para vender, la dimensión más baja, la tesis, lo más fuerte y los 3 cambios), los avisos que calculó el código, el control final, y la oferta propuesta (nombre, frase, para quién, la ruta por fases, qué incluye, garantía, bonos, precio, lo que propuso MaKo y el negocio no dijo, lo que falta completar y lo que quedó provisional). Sin id, la conversación más reciente que ya tiene una oferta. El PDF se baja desde la tab (el link va en la respuesta).',
+    parametros: [
+      { nombre: 'id', tipo: 'number', entero: true, minimo: 1, descripcion: 'id de la conversación (de listar_analisis_oferta). Sin id, la más reciente con una oferta armada.' },
+    ],
+    salida: 'json', canales: SIN_HTTP, costo: 'gratis', gating: { tab: 'offer', rolMinimo: 'admin' },
+  },
   {
     id: 'listar_preguntas_diagnostico_fase', area: 'negocio', tipo: 'lectura',
     titulo: 'Preguntas del diagnóstico de fase',

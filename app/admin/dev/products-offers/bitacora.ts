@@ -217,6 +217,76 @@ export const BITACORA: Hito[] = [
       '10 el PDF separa en una lista al final lo que propuso MaKo · 11 la prueba (cuántos pagaron y cuántos lograron el resultado) pasa a mínima, con el «no sé» como supuesto · 12 con cliente o promesa en 3 o menos se entrega todo con precio y bonos PROVISIONALES, y MaKo propone pulir la oferta en el mismo chat y reenvía el PDF de cada versión las veces que haga falta · 13 MaKo revisa en código las reglas que hoy sólo dependen de la IA.',
     ],
   },
+  {
+    fecha: '12 oct', hora: '07:16', chat: 'Offer: chat con IA, diagnóstico y PDF', cuenta: 'claude3', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Las 13 decisiones, aplicadas: «A definir» queda vacía',
+    puntos: [
+      'Las cifras se comparan por VALOR («1.500», «1,5 mil» y «1.5k» son lo mismo); lo que el negocio no dio queda «[completar]» y lo que propuso MaKo va a su propia lista del PDF.',
+      'El control final decide «lista para vender»; el PDF de cada versión entra al chat en la misma escritura que la versión, y «Pulir la oferta» vuelve a armarla las veces que haga falta.',
+      'La garantía (3 → B) no cambió en el código: cambió el marco. Un test fija que ningún texto que lee la IA pida «10 a 15 casos».',
+    ],
+    commits: [{ sha: '8e053fd', msg: 'Offer: las 13 decisiones de Martín sobre el criterio, aplicadas (cifras, control final, pulir y reenviar el PDF)', lineas: 2310, archivos: 28 }],
+    archivos: [
+      'lib/offer-reglas.ts — cifras, control final, avisos y lo provisional',
+      'app/admin/offer-playbook/pendientes.ts — las 13 pasan a «Decididas»',
+    ],
+  },
+  {
+    fecha: '13 oct', hora: '—', chat: 'Reunión con Martín (Fathom 858545195)', cuenta: 'claude2', actor: 'martin', tipo: 'prompt',
+    titulo: 'La voz de marca en el Offer Generator',
+    pedido: 'Una configuración de voz de marca y tono personalizado en el Offer Generator, para evitar que los textos generados suenen genéricos, corporativos o desconectados del nicho.',
+    puntos: [
+      'Salió de una reunión (minuto 44:56) y se validó en el chat el 13/10; la hora no consta. Se frenó el 14/10 por el cierre de la cuenta 2 («por ahora quiero que se pushee todo»).',
+      'El relevamiento: la voz ya existía y la usaban seis features; Offer era la única afuera. No hacía falta una configuración nueva.',
+    ],
+  },
+  {
+    fecha: '13 oct', hora: '23:03', chat: 'Offer', cuenta: 'claude2', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Los cuatro pendientes frenados, cerrados; el quinto espera a Martín',
+    puntos: [
+      'La oferta guardada se liga a su producto con la misma regla que el seed del brief; un link con «?page_id=» se lee tal cual; el audio no se re-sube al reintentar; «guardar si no hay» vive en el store de la fase.',
+      'El Archivero desde el chat NO se cerró: Offer borra el binario al leerlo, y cerrarlo de verdad es guardarlo y pagar una extracción por documento. Es una decisión de Martín.',
+    ],
+    commits: [{ sha: '077673c', msg: 'Offer: los cuatro pendientes que estaban frenados, y por qué el quinto no se cierra solo', lineas: 503, archivos: 13 }],
+  },
+  {
+    fecha: '14 oct', hora: '04:03', chat: 'CRM', cuenta: 'claude2', actor: 'claude', tipo: 'implementacion',
+    titulo: 'La oferta del lead, y «Analizar oferta →» abre ESA oferta en Offer',
+    puntos: [
+      'La ficha del lead elige o crea su oferta (leads.oferta_id, mig 0272) y la manda a analizar; /offer?oferta=&funnel= abre la conversación de esa oferta, o una nueva.',
+    ],
+    commits: [
+      { sha: '81a28c1', msg: 'Pagos del lead: la oferta arriba, con «Nueva oferta» y «Analizar oferta →»', lineas: 435, archivos: 8 },
+      { sha: '4ca15b9', msg: 'Offer abre la oferta que nombra el link: «Analizar oferta →» del lead cae en ESA', lineas: 86, archivos: 5 },
+    ],
+  },
+  {
+    fecha: '15 oct', hora: '00:48', chat: 'Offer', cuenta: 'claude1', actor: 'claude', tipo: 'correccion',
+    titulo: '«Cierras el 170%»: el cierre que se afirma nunca pasa de 100%',
+    puntos: [
+      'Medido en prod: la única oferta armada por un cliente (12/10) decía «Cierras el 170% de las llamadas calificadas» y le aconsejaba subir el precio. Con asistencias sin calificar, «calificados» es un piso.',
+      'Ahora se afirma el número exacto sólo sin asistencias sin marcar; si no, el piso (sobre todas las llamadas) para «más de 30%» y el techo para «menos de 25%». Lo ya guardado se filtra en el PDF, la pantalla y la API.',
+    ],
+    commits: [{ sha: 'db81f96', msg: 'Offer: el cierre nunca pasa de 100%, MaKo lee las ofertas por WhatsApp y la oferta sale en la voz del negocio', lineas: 428, archivos: 16 }],
+    archivos: [
+      'lib/offer-reglas.ts — `cierreConfiable`, `alertasPrecio`, `alertasEmbudo`',
+      'lib/offer-marco.ts — `avisosAfirmables`, para lo ya guardado',
+    ],
+  },
+  {
+    fecha: '15 oct', hora: '00:48', chat: 'Offer', cuenta: 'claude1', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Offer en la API de MaKo, y la oferta en la voz del negocio',
+    puntos: [
+      'MaKo por WhatsApp lee las conversaciones de Offer y la última oferta armada (listar_analisis_oferta, ver_analisis_oferta): gratis, sin http, con la tab y el rol de la página.',
+      'La voz: la guía destilada del Chat Agent o, si no hay, la marca declarada. Entra por el slot {{voz}} en el turno y en la oferta (no en el diagnóstico), aparte del contexto que se recorta.',
+    ],
+    commits: [{ sha: 'db81f96', msg: 'Offer: el cierre nunca pasa de 100%, MaKo lee las ofertas por WhatsApp y la oferta sale en la voz del negocio', lineas: 428, archivos: 16 }],
+    archivos: [
+      'lib/api-mako/areas/negocio.def.ts + negocio.run.ts — las dos lecturas',
+      'lib/nutricion-generator.ts — `vozDelNegocio`',
+      'lib/offer-ia.ts — el slot {{voz}} en el turno y en la oferta',
+    ],
+  },
 ];
 
 export const PARTES: Parte[] = [

@@ -150,7 +150,7 @@ test('cada prompt offer.*: registrado con la MISMA key, el MISMO default y los M
     }
   }
   // Los datos del dueño viajan envueltos como dato no confiable.
-  for (const tag of ['contexto_negocio', 'piezas', 'documentos', 'conversacion', 'embudo', 'diagnostico']) {
+  for (const tag of ['contexto_negocio', 'piezas', 'documentos', 'conversacion', 'embudo', 'diagnostico', 'voz']) {
     assert.match(IA, new RegExp(`contenidoNoConfiable\\([^;]*'${tag}'\\)`), `falta envolver ${tag}`);
   }
 });

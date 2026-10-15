@@ -327,8 +327,10 @@ tenía «SALE»); «al atardecer» en Playfair itálica a 190 px = 969 contra 92
 
 ## Lo que quedó SIN hacer (con el archivo donde vive)
 
-- **Mirarlo en producción con la sesión de Martín** (la cáscara: la tab, la barra lateral, el `?ws=`): el banco ve
-  el editor, no MaKo alrededor. El Chrome conectado a Claude in Chrome no estaba disponible para la cuenta claude1.
+- **Mirarlo en producción con la sesión de Martín** (la cáscara: la tab, la barra lateral, el `?ws=`, guardar): el
+  banco ve el editor, no MaKo alrededor. El lado del cliente sí se verificó en producción (14/10, sesión de Mauricio,
+  admin del ws 1): página → `/crm`, API → 404 de la puerta, sin link en la barra. Ojo al leer un 401 de
+  `/api/image-editor/*`: es el proxy (sin sesión), no la puerta; la puerta contesta 404.
 - **Lo de Canva que Doory no trae** (tanda 5): notas adhesivas, dibujo y tablas (`drawers/ToolsPanel.tsx`), copiar
   estilo, líneas en codo/curva, texto alternativo, descargar la selección, bloquear/ocultar página, «Ir a la página».
 - **Del armazón:** la vista rápida al pasar el mouse por el riel y la pestaña «Estilos» de Diseño
@@ -339,8 +341,9 @@ tenía «SALE»); «al atardecer» en Playfair itálica a 190 px = 969 contra 92
 - **Marca, versiones, compartir y comentarios**: en `null` (`mako/adaptadorNube.ts`); piden tablas propias.
 - **Un SVG subido se guarda como PNG** (`mako/nube.ts` → `aRaster`): para conservarlo vectorial hay que sanearlo
   en el server y servirlo desde un origen sin cookies.
-- **El relevamiento de FUNCIONES de Canva no se escribió**: el agente se cortó con la caída de la app
-  del 14/10 09:10. Falta `docs/editor-imagen/relevamiento-canva-funciones.md`.
+- **El relevamiento de FUNCIONES de Canva** quedó escrito el 14/10 a la noche
+  (`docs/editor-imagen/relevamiento-canva-funciones.md`) contra el código, SIN navegar Canva (no había Chrome para
+  claude1): si alguna fila de Canva resulta distinta al mirarla, se corrige ahí.
 - **API de MaKo y Estrellas `formato_imagen`**: esperan a Martín (con el editor sólo suyo, declararla con
   `gating.tab` la abre por token a todo cliente completo/agencia; relevamiento-integracion-mako.md §6.2 y §13.7).
 - **Una pestaña de Canva** («Diseño sin título - Presentación», `canva.com/design/DAHX-ICTUd4`) quedó

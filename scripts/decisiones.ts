@@ -2,7 +2,8 @@
 // scripts/decisiones.ts — publicar decisiones en el tablero de /admin/runway y leer las respuestas
 // =============================================================================
 // Lo usa el chat que junta las preguntas de todos los chats («Estrategia 3 cuentas»).
-// Martín contesta en /admin/runway (o en el teléfono); este script es la otra punta.
+// Martín contesta en la Ticketera (/tickets/decisiones: el mazo; la lista en /tickets/decisiones/lista),
+// en la compu o en el teléfono; este script es la otra punta. «Resuelta» llega como una respuesta más.
 //
 //   node --import tsx scripts/decisiones.ts publicar <archivo.json>   # una lista de decisiones
 //   node --import tsx scripts/decisiones.ts contestadas               # lo que contestó y el chat no levantó

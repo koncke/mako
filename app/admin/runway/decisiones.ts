@@ -83,6 +83,13 @@ export type AccionResponder = (prev: EstadoRespuesta, formData: FormData) => Pro
 /** La clave con la que se contesta en texto libre (y la única cuando no hay opciones). */
 export const OTRA = 'otra';
 
+/**
+ * «Resuelta» (pedido de Martín, 14/10/2026): sale de la Ticketera SIN elegir una opción —se
+ * resolvió sola, o ya no aplica—. Es una respuesta más y no un archivado, a propósito: así viaja
+ * por el mismo camino que las otras y el chat que la publicó se entera (`contestadas` del script).
+ */
+export const RESUELTA = 'resuelta';
+
 const URG = new Set<string>(URGENCIAS.map((u) => u.clave));
 const REF = /^[a-z0-9][a-z0-9-]{1,63}$/;
 const CLAVE = /^[A-D]$/;
@@ -192,6 +199,7 @@ export function motivoRespuestaInvalida(d: Pick<Decision, 'opciones'>, clave: st
   const t = texto.trim();
   if (t.length > TOPES.texto) return `Hasta ${TOPES.texto} caracteres`;
   if (clave === OTRA) return t ? null : 'Escribe tu respuesta';
+  if (clave === RESUELTA) return null;
   return d.opciones.some((o) => o.clave === clave) ? null : 'Esa opción no existe';
 }
 
@@ -214,6 +222,7 @@ export function repartir(ds: readonly Decision[]): {
 export function textoDeRespuesta(d: Pick<Decision, 'opciones' | 'respuesta' | 'respuestaTexto'>): string {
   if (!d.respuesta) return '';
   if (d.respuesta === OTRA) return d.respuestaTexto ?? '';
+  if (d.respuesta === RESUELTA) return d.respuestaTexto ? `Resuelta: ${d.respuestaTexto}` : 'Resuelta';
   const op = d.opciones.find((o) => o.clave === d.respuesta);
   return op ? `${op.clave} · ${op.texto}` : d.respuesta;
 }
