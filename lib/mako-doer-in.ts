@@ -42,6 +42,7 @@ import { wsSuperAdmin, runWithWorkspace, OWNER_WS, esWorkspaceDueno } from '@/li
 import { informeParaRango } from '@/lib/informe-congelado';
 import { getSupabaseServer } from '@/lib/supabase';
 import { APP_BASE_URL as APP_URL, linkApp } from '@/lib/app-url';
+import { RUTA_CHATS, PARAM_CHATS } from '@/lib/chats-links';
 import { provsGratisDePlataforma, provsDe, rotulo, nroCuenta, transcribirAudio, SttSinEscucha, chatCheap, chatCheapTools, cheapDisponible } from '@/lib/ai-cheap';
 import { paraWhatsApp, agendaQueSigue, agendaSeCierra, agendaVigente, contextoAgendaAbierta, bloqueAgendaGoogle, herramientasQueSiguen, ACCIONES_AGENDA } from '@/lib/agenda-sin-ia';
 import { crearMemoDeAcciones } from '@/lib/turno-sin-duplicar';
@@ -290,10 +291,12 @@ SEGÚN DE QUÉ TE HABLEN, puedes tener herramientas de cada tab de MaKo (email, 
 
 // Dónde ver el detalle completo en la app: MaKo da un resumen corto y REDIRIGE con
 // un link cuando hay una vista más rica (para eso están las tabs). {id} = id del lead.
+// ⚠️ La conversación va a /chats?lead= desde el 14/10/2026 (lib/chats-links.ts): /whatsapp?lead= ya no
+// abría ese chat sino el primero de la lista, el de OTRA persona.
 const DEEP_LINKS = `LINKS A LA APP: cuando el detalle completo vive en una tab, da el resumen corto y CIERRA con un link para verlo (formato: "Mira el detalle aquí → URL"). No inventes rutas; usa estas (base ${APP_URL}):
 - Ficha 360 de un lead: ${APP_URL}/crm/{id}
 - Análisis de una llamada de ventas: ${APP_URL}/dashboard?hoja=closing&llamada={recording_id} (el recording_id sale de reuniones_lead → analisis_llamadas). Si no lo tienes, ${APP_URL}/dashboard?hoja=closing.
-- WhatsApp con un lead: ${APP_URL}/whatsapp?lead={id}
+- Los chats con un lead (WhatsApp, Instagram y Messenger en un solo hilo): ${APP_URL}${RUTA_CHATS}?${PARAM_CHATS.lead}={id}
 - Marketing / anuncios: ${APP_URL}/dashboard · Ads Manager: ${APP_URL}/ads-manager
 - Experimentos (verdades validadas): ${APP_URL}/experimentos
 - Plan / tareas: ${APP_URL}/plan · Nutrición y email: ${APP_URL}/email

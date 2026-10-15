@@ -1,7 +1,7 @@
 // =============================================================================
-// La TAB Instagram sigue afuera; Instagram (y Messenger) vuelven como CANAL del Chatbot
+// La TAB Instagram sigue afuera; Instagram (y Messenger) vuelven como CANAL: de Automations y de Chats
 // =============================================================================
-// La historia, en dos decisiones de Martín que no se contradicen:
+// La historia, en tres decisiones de Martín que no se contradicen:
 //
 //   · 06/10/2026, sobre la tab Instagram y lib/ig-chatbot.ts: «C: sacar la tab» — entera: la bandeja
 //     de DMs, el programador de publicaciones y el puente de los DMs al Chatbot. Medido ese día en
@@ -9,12 +9,17 @@
 //   · 09/10/2026, sexta tanda del Chatbot (CRON 4-7): «Con respecto a agregar Instagram, ya tenemos
 //     la integración de Zernio, utiliza eso para poder enviar mensajes por allí», y lo mismo para
 //     Messenger. Vuelve como CANAL de las automatizaciones: una tarjeta del lienzo, un disparador del
-//     CRON, un webhook que recibe y un motor que manda. NO vuelve la tab, ni su bandeja, ni el
-//     programador, ni sus 21 operaciones de la API de MaKo.
+//     CRON, un webhook que recibe y un motor que manda.
+//   · 14/10/2026, la tab Chats: «tener en UNA sola tab centralizado absolutamente todos los chats,
+//     WhatsApp, Instagram, Messenger». La BANDEJA de DMs de Instagram y Messenger vuelve, pero ADENTRO
+//     de Chats (docs/diseno-chats.md), junto al WhatsApp de cada contacto. Lo que NO vuelve: la tab
+//     /instagram (sigue redirigiendo a /automations), su programador de publicaciones y sus 21
+//     operaciones de la API (Chats lee y cierra conversaciones con ids neutros: el canal es un parámetro).
 //
 // Por eso este test pasó de «nada cablea Instagram» a «Instagram se cablea SÓLO por el canal»: la
 // lista de quién puede hablar con Zernio y tocar sus tablas va en POSITIVO, archivo por archivo. Un
-// archivo nuevo que lo haga es una decisión, no un arreglo: se suma a la lista con su porqué.
+// archivo nuevo que lo haga es una decisión, no un arreglo: se suma a la lista con su porqué. Chats no
+// se suma: sus rutas leen y mandan por las funciones exportadas de lib/canal-zernio.ts, que ya es canal.
 //
 // ⚠️ SE MIRA EL CÓDIGO, NO LA PROSA: las líneas `//` primero y los bloques después (AGENTS.md).
 //
@@ -61,7 +66,9 @@ const EXCEPTUADOS = [
  */
 const CANAL: Record<string, string> = {
   'lib/zernio.ts': 'el cliente de la API de Zernio (cuentas, webhook, DM, respuesta privada)',
-  'lib/canal-zernio.ts': 'el motor manda un paso de Instagram o Messenger, y lee las conversaciones y «te sigue» para las condiciones',
+  // Desde el 14/10/2026 también es la puerta de la tab Chats: sus rutas (app/api/chats/**) y lib/chats.ts leen las
+  // conversaciones y mandan la respuesta a mano por funciones exportadas de acá, sin nombrar las tablas ni Zernio.
+  'lib/canal-zernio.ts': 'el motor manda un paso de Instagram o Messenger, lee las conversaciones y «te sigue» para las condiciones, y la bandeja de Chats lee y responde por acá',
   'lib/zernio-entrante.ts': 'la persona, su mensaje y el disparador de un evento',
   'app/api/webhooks/zernio/route.ts': 'el webhook (firma, ruteo, dedup)',
   'app/api/zernio/route.ts': 'la cuenta de salida del editor y «Conectar»',

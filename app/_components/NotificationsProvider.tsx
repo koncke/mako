@@ -20,6 +20,7 @@ import { isPublicLandingPath } from './PublicRouteGate';
 import { esRutaMovil } from '@/lib/movil-rutas';
 import { useTelefono } from './VistaMovil';
 import { inAppActivo, type NotifInApp } from '@/lib/notif-catalogo';
+import { rutaChatsDeWhatsapp } from '@/lib/chats-links';
 
 /**
  * Aviso de que alguien acaba de guardar sus preferencias en Configuraciones ›
@@ -193,11 +194,13 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     setToast(null);
     noOfLeidoRef.current.set(chatJid, noOfSnapRef.current.get(chatJid) ?? Date.now());
     guardarLeidoEmpresa(noOfLeidoRef.current);
-    // Con varias líneas, a la bandeja del número por el que ENTRÓ y con ese chat abierto. Sin la
-    // línea abría la de por default, donde ese contacto no está, con el mensaje ya marcado leído.
+    // Con varias líneas, al chat del número por el que ENTRÓ. Sin la línea abría la de por default,
+    // donde ese contacto no está, con el mensaje ya marcado leído.
+    // ⚠️ A CHATS desde el 14/10/2026 (docs/diseno-chats.md §4): es la bandeja de todos los días.
+    // `?linea=&chat=` es su link profundo de WhatsApp: busca el contacto cuya identidad tiene ese jid
+    // en esa línea, y si no está todavía NO abre otro (la trampa del ?lead= de la bandeja vieja).
     const linea = noOfConvsRef.current.find((c) => c.chatJid === chatJid)?.linea ?? null;
-    const extra = `${linea ? `&linea=${encodeURIComponent(linea)}` : ''}&chat=${encodeURIComponent(chatJid)}`;
-    router.push(`/whatsapp?canal=no-oficial${extra}&n=${Date.now()}`);
+    router.push(rutaChatsDeWhatsapp(linea, chatJid, Date.now()));
   };
 
   const goToPlantilla = (name: string) => {
@@ -301,7 +304,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     const tick = async () => {
       if (pathRef.current.startsWith('/login') || isPublicLandingPath(pathRef.current)) return;
       // En /m no: el contador alimenta el badge del Sidebar y el pop-up que lleva a
-      // /whatsapp de escritorio — ninguno de los dos existe en el teléfono.
+      // /chats de escritorio — ninguno de los dos existe en el teléfono.
       if (enMovil(pathRef.current)) return;
       try {
         const r = await fetch('/api/whatsapp/evolution/mensajes?resumen=1');

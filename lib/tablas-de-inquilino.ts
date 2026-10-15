@@ -38,7 +38,8 @@
  * de archivos de la mig 0225; 120 el 09/10/2026 con `email_entrantes`, mig 0245; 121 el 11/10/2026 con
  * `dashboard_analisis`, mig 0247; 123 el mismo día con `notificaciones`, mig 0250, y las conversaciones
  * de la tab Offer, `offer_sesiones`, mig 0254; 126 con `cobros` y `pasarela_eventos` de la pasarela, mig
- * 0255; 129 el mismo día con las tres del editor de landings, mig 0246; 130 el 13/10/2026 con `calendario_eventos`, mig 0271), en orden alfabético.
+ * 0255; 129 el mismo día con las tres del editor de landings, mig 0246; 130 el 13/10/2026 con `calendario_eventos`, mig 0271; 134 el 14/10/2026 con las tres de la tab Chats,
+ * `chat_estado`, `chat_leidos` y `chat_eventos`, mig 0275), en orden alfabético.
  *
  * ⚠️ EL ORDEN NO ES EL DE BORRADO. 39 de las 87 claves foráneas que apuntan a
  * `workspaces` no cascadean, y adentro de un inquilino hay hijos antes que padres
@@ -49,7 +50,7 @@ export const TABLAS_DE_INQUILINO = [
   'ad_transcripts', 'adset_budget_daily', 'agente_consentimiento', 'agente_sesiones',
   'anthropic_usage', 'api_llamadas', 'app_settings', 'archivero_files',
   'avisos_cola', 'branding_assets', 'calendario_eventos', 'chart_chats', 'chart_sessions',
-  'chat_agent_handoffs', 'cliente_entrega', 'cliente_entrega_fuera', 'cliente_entrega_orden', 'closing_analyses', 'closing_jobs', 'cobros',
+  'chat_agent_handoffs', 'chat_estado', 'chat_eventos', 'chat_leidos', 'cliente_entrega', 'cliente_entrega_fuera', 'cliente_entrega_orden', 'closing_analyses', 'closing_jobs', 'cobros',
   'comunidad_ajustes', 'comunidad_baneos', 'comunidad_categorias', 'comunidad_comentarios',
   'comunidad_evento_avisos', 'comunidad_eventos', 'comunidad_likes', 'comunidad_notificaciones',
   'comunidad_perfiles', 'comunidad_posts', 'comunidad_seguimientos', 'comunidad_votos',

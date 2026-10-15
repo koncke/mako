@@ -28,7 +28,7 @@ import Link from '@/app/_ui/Link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
-import { FAMILIAS, MAKO_NAV, USER_NAV, ADMIN_FAMILIAS, itemsDe, type NavItem, type NavGrupo } from './nav';
+import { FAMILIAS, MAKO_NAV, USER_NAV, ADMIN_FAMILIAS, itemsDe, fuenteContador, sumaDeContadores, type FuenteContador, type NavItem, type NavGrupo } from './nav';
 import { familiasDev } from '@/app/admin/dev/nav-dev';
 import { puedeVerItem, resolverTab } from '@/lib/nav-visibilidad';
 import { MakoLogo, MakoWord, MakoStar } from './MakoBrand';
@@ -500,19 +500,24 @@ export function Sidebar() {
   /**
    * Lo que cada tab te debe. Son obligaciones concretas —mensajes sin leer,
    * datos del CRM sin marcar—, no novedades: es lo único que el documento
-   * acepta como badge.
+   * acepta como badge. Qué tab cuenta qué lo dice `fuenteContador` (nav.ts): Chats
+   * y WhatsApp muestran el MISMO número (14/10/2026), el de los mensajes sin leer.
    */
-  const contadorItem = (key: string) =>
-    key === 'whatsapp' ? unreadTotal : key === 'crm' ? sinMarcar : 0;
+  const valorDe = (f: FuenteContador) => (f === 'mensajes' ? unreadTotal : sinMarcar);
+  const contadorItem = (key: string) => {
+    const f = fuenteContador(key);
+    return f ? valorDe(f) : 0;
+  };
 
   /**
    * El de la familia es la SUMA de los de adentro, y solo se muestra cuando la
    * sección está cerrada: es un resumen de lo que no estás viendo. Con la
    * sección abierta el número tiene que estar en la tab que lo debe — si no,
    * te dice que hay 14 cosas pero no cuál de las siete filas las tiene.
+   * ⚠️ Suma FUENTES, no tabs: Chats y WhatsApp juntos no son el doble de mensajes.
    */
   const contadorDe = (f: typeof familias[number]) =>
-    f.notifica ? todosDe(f).reduce((s, i) => s + contadorItem(i.key), 0) : 0;
+    f.notifica ? sumaDeContadores(todosDe(f).map((i) => i.key), valorDe) : 0;
 
   /**
    * QUÉ FAMILIA ESTÁ DESPLEGADA. Es estado, no algo derivado del cursor: si se

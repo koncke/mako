@@ -176,6 +176,10 @@ const TENANT_TABLES = new Set<string>([
   // El Calendario (mig 0271, 13/10/2026): lo que la persona agenda. Sin esta línea getTenantDb() es
   // PASSTHROUGH y el calendario de un negocio mostraría las publicaciones de todos.
   'calendario_eventos',
+  // La tab Chats (mig 0275, 14/10/2026): el estado de cada conversación, lo que leyó cada persona y los eventos
+  // del hilo. Sin estas líneas getTenantDb() es PASSTHROUGH: la bandeja de un negocio vería cerradas las
+  // conversaciones que cerró OTRO, y `chat_leidos` mezclaría las marcas de dos negocios con la misma clave.
+  'chat_estado', 'chat_leidos', 'chat_eventos',
   'identidades_fiscales', 'lead_insights', 'lead_respuestas', 'mako_acciones_pendientes', 'mako_confirmaciones', 'mako_doer_buffer', 'mako_doer_conv', 'mako_doer_lock', 'mako_knowledge', 'meta_campaign_drafts', 'meta_health_history', 'nutricion_envios', 'nutricion_inscripciones', 'nutricion_secuencias', 'pagos',
   'pipeline_stages', 'plan_dependencias', 'plan_propuestas', 'plan_reprios', 'propuestas', 'plan_proyectos', 'plan_tareas', 'productos', 'retros',
   // Los cobros de la pasarela (Stripe / Mercado Pago, mig 0255). Sin esta línea getTenantDb() es
