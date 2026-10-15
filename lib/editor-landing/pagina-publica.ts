@@ -291,6 +291,15 @@ function idiomaDe(v: unknown): string {
 //     La clase que esconde (`gm-anim`) la pone ESTE script: sin JavaScript —un crawler, la
 //     vista previa de WhatsApp— no hay nada escondido. Animan las secciones y lo que el
 //     renderizador marque con `data-animar`.
+//     ⚠️ LO QUE YA ESTÁ EN PANTALLA NO SE ESCONDE (14/10/2026, relevamiento de animaciones,
+//     docs/hallazgos-editor-landing.md → «el interruptor "Animaciones" hace parpadear el hero»):
+//     este script va al final del <body>, así que el navegador ya pintó el hero cuando llega.
+//     Medido en la publicada real (390×844, CPU ×4): el H1 se veía, se apagaba ~0,3 s y volvía
+//     con el fade, y el LCP pasaba de 236-404 ms a 1.428-3.004 ms. Por eso, ANTES de poner
+//     `gm-anim`, la primera sección y todo lo que corta la pantalla quedan `gm-visto` con
+//     `animation: none` en línea (ellos y los hijos que la hoja anima): quietos y a la vista. Va
+//     acá y no en la hoja porque la hoja de cada publicada es una foto congelada y el script no:
+//     llega a todas sin republicar. Lo que está más abajo anima como siempre al entrar.
 // (c) Los desplegables son <details> nativos: andan sin JavaScript y no hay nada acá.
 //
 // ⚠️ ES UN STRING QUE SE SIRVE: sin barras invertidas, sin backticks y sin `${` adentro
@@ -364,8 +373,38 @@ export const SCRIPT_PAGINA = [
   '      io.unobserve(entradas[j].target);',
   '    }',
   "  }, { rootMargin: '0px 0px -6% 0px', threshold: 0.06 });",
+  '  var alto = w.innerHeight || (d.documentElement && d.documentElement.clientHeight) || 0;',
+  '  function tiene(el, c) { return !!(el && el.classList && el.classList.contains && el.classList.contains(c)); }',
+  '  function sinAnimar(el) {',
+  "    el.classList.add('gm-visto');",
+  "    if (el.style) el.style.animation = 'none';",
+  '  }',
+  '  function quieto(el) {',
+  '    sinAnimar(el);',
+  '    var hs = el.children || [];',
+  '    for (var a = 0; a < hs.length; a++) {',
+  "      if (!tiene(hs[a], 'gm-tarjeta-cuerpo')) continue;",
+  '      var nietos = hs[a].children || [];',
+  "      for (var b = 0; b < nietos.length; b++) if (nietos[b].style) nietos[b].style.animation = 'none';",
+  '    }',
+  "    var marcados = el.querySelectorAll ? el.querySelectorAll('[data-animar]') : [];",
+  '    for (var m = 0; m < marcados.length; m++) sinAnimar(marcados[m]);',
+  '  }',
+  '  function enPantalla(el) {',
+  '    if (!el.getBoundingClientRect) return false;',
+  '    var r = el.getBoundingClientRect();',
+  '    return r.top < alto && r.bottom > 0;',
+  '  }',
+  '  var primera = true, vigilar = [];',
+  '  for (var k = 0; k < els.length; k++) {',
+  "    var esTarjeta = tiene(els[k], 'gm-tarjeta');",
+  "    if (tiene(els[k], 'gm-visto')) { if (esTarjeta) primera = false; continue; }",
+  '    if ((esTarjeta && primera) || enPantalla(els[k])) quieto(els[k]);',
+  '    else vigilar.push(els[k]);',
+  '    if (esTarjeta) primera = false;',
+  '  }',
   "  d.documentElement.classList.add('gm-anim');",
-  '  for (var k = 0; k < els.length; k++) io.observe(els[k]);',
+  '  for (var v = 0; v < vigilar.length; v++) io.observe(vigilar[v]);',
   '})();',
 ].join('\n');
 
