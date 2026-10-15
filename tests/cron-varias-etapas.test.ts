@@ -126,7 +126,10 @@ test('⚠️ no se duplica: quien ya tiene fila de la secuencia no se vuelve a i
   // reunión). El barrido deja afuera a quien tiene fila (`aInscribir`) y el evento la saltea.
   const src = sinComentarios(leer('lib/nutricion.ts'));
   // Undécima tanda (M2): «prepara una reunión» mira la automatización ENTERA (`preparaReunion`, lib/nutricion-familias.ts).
-  assert.match(src, /const reusaInscripciones = \(s: Pick<Secuencia, 'trigger_tipo' \| 'pasos' \| 'etapa' \| 'etapas' \| 'disparadores'>\): boolean =>\n {2}preparaReunion\(s\) && s\.pasos\.length > 0;/);
+  const NUTRI_REENTRADA = src;
+  // La «Reentrada» del CRON (14/10/2026): sin guardar, la regla de antes; con «Cada vez» un CRON de etapa SÍ reusa, por evento.
+  assert.match(src, /const reusaInscripciones = \(s: Pick<Secuencia, 'trigger_tipo' \| 'pasos' \| 'etapa' \| 'etapas' \| 'disparadores' \| 'reentrada'>\): boolean =>\s*reentradaDeSecuencia\(s\) !== 'una_vez' && s\.pasos\.length > 0;/);
+  assert.match(NUTRI_REENTRADA, /reentradaDe\(s\.reentrada, preparaReunion\(s\)\)/);
   const alta = funcion(src, 'async function aInscribir(');
   assert.match(alta, /const pendientes = candidatos\.filter\(\(id\) => !conFila\.has\(id\)\);/);
   const evento = funcion(src, 'export async function enrolarPorEvento(');

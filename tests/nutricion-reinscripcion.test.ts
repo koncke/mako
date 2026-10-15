@@ -374,7 +374,10 @@ test('aInscribir: sólo se reusa en la familia que prepara una reunión, y la fi
   assert.match(c, /const reusables = reusaInscripciones\(sec\) \?/);
   assert.match(c, /const pendientes = candidatos\.filter\(\(id\) => !conFila\.has\(id\)\)/);
   // (Undécima tanda, M2: «prepara una reunión» por la FORMA del flujo, `preparaReunion` — tests/motor-entrada-etapa.test.ts.)
-  assert.match(MOTOR, /const reusaInscripciones = \(s: Pick<Secuencia, 'trigger_tipo' \| 'pasos' \| 'etapa' \| 'etapas' \| 'disparadores'>\): boolean =>\s*preparaReunion\(s\) && s\.pasos\.length > 0;/);
+  const NUTRI_REENTRADA = MOTOR;
+  // La «Reentrada» del CRON (14/10/2026): sin guardar, la regla de antes (tests/reentrada.test.ts).
+  assert.match(MOTOR, /const reusaInscripciones = \(s: Pick<Secuencia, 'trigger_tipo' \| 'pasos' \| 'etapa' \| 'etapas' \| 'disparadores' \| 'reentrada'>\): boolean =>\s*reentradaDeSecuencia\(s\) !== 'una_vez' && s\.pasos\.length > 0;/);
+  assert.match(NUTRI_REENTRADA, /reentradaDe\(s\.reentrada, preparaReunion\(s\)\)/);
 });
 
 test('la familia: una fila reusable no bloquea; cualquier otra sí', () => {
@@ -452,7 +455,7 @@ test('la reunión NUEVA del reuso es la R1 (`reunionQuePreparaMs`), nunca «la m
 
 test('lo que se anota en `reunion_at` al inscribir también es la R1: el cohorte, el evento y encadenar', () => {
   assert.match(cuerpo(MOTOR, 'async function aInscribir('), /nuevas: pendientes\.map\(\(id\) => alta\(id, reunionQuePreparaMs\(juntas\.get\(id\)\)\)\),/, 'el alta del cohorte');
-  assert.match(cuerpo(MOTOR, 'export async function enrolarPorEvento('), /const reunion = preparaReunion\(s\) \? reunionQuePreparaMs\(juntas\) : null;/, 'el alta por evento');
+  assert.match(cuerpo(MOTOR, 'export async function enrolarPorEvento('), /const reunion = anotaReunion\(s\) \? reunionQuePreparaMs\(juntas\) : null;/, 'el alta por evento');
   assert.match(DESENLACE, /const prepara = preparaReunion\(\{ \.\.\.sig, pasos \}\);\s*const reunion = prepara \? reunionQuePreparaMs\(lead as JuntasLead\) : null;/, 'encadenar');
 });
 
@@ -467,7 +470,8 @@ test('el corte de lo que el reuso desliga es el instante de ANTES de leer la fil
   const ev = cuerpo(MOTOR, 'export async function enrolarPorEvento(');
   const decE = ev.indexOf('const decididoAt = ahoraISO();');
   assert.ok(decE >= 0 && decE < ev.indexOf('const previas = await inscripcionesDe('), 'el evento: la decisión se fecha ANTES de leer las filas');
-  assert.match(ev, /reunionAt: new Date\(r\.reunionMs\)\.toISOString\(\), ahora: decididoAt,/);
+  // Con «Cada vez que vuelve a entrar» puede no haber reunión (la Reentrada del CRON, 14/10/2026).
+  assert.match(ev, /reunionAt: r\.reunionMs == null \? null : new Date\(r\.reunionMs\)\.toISOString\(\), ahora: decididoAt,/);
   // La tercera, desde el 08/10/2026: la inscripción a mano reinicia una que terminó con el
   // MISMO reuso (inscribirEnSecuencia), y también fecha la decisión antes de leer la fila.
   // Probado rompiéndolo: reiniciando con `ahoraISO()`, o fechando DESPUÉS de leer la fila,

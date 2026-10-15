@@ -5,8 +5,9 @@
 > motivó: la clave de Gemini del ws1 no contesta bien desde el 08/10 y algo la sigue llamando unas 300 veces por día.
 > Hacía una semana que ese cliente no tenía IA propia y nadie se había enterado.
 >
-> **Estado: PLAN. Nada construido.** Falta que Martín decida §6, y coordinar el freno con el Web Generator, que acaba de
-> tocar la cascada.
+> **Estado: PLAN. Nada construido.** El umbral y el freno por clave están DECIDIDOS (§6, 15/10), y Martín decidió que el
+> aviso es UNO por negocio con todas sus claves caídas (§2). Falta la suya de a quién le llega el aviso, y coordinar el
+> freno con el Web Generator, que acaba de tocar la cascada.
 
 ## 1. Lo medido (prod, 15/10/2026, sólo lectura)
 
@@ -38,6 +39,16 @@ misma clave volvió a contestar bien en menos de 24 h.
   el freno leyera `anthropic_usage`, una clave muerta podría verse viva por la respuesta de otra. **Una clave se
   identifica por su HUELLA**, nunca por (ws, proveedor, cuenta).
 - **Es una muestra chica**: 12 claves con rebotes en 30 días.
+- **No dice QUIÉN llama.** `anotarRebote429` escribe `feature = 'cuota'` fija, así que las 2.147 filas pierden la
+  función que llamó. Sólo queda el motivo: «chatCheap(gemini): HTTP 429». Es el camino de `chatCheap` en
+  lib/ai-cheap.ts, no el tool-use del doer ni el STT (medido por el Web Generator).
+  - ⚠️ **Contado por hora, engaña.** El 14/10 de 20 a 23 UTC fueron exactamente 60 por hora, y parecía un cron de cada
+    minuto (`nutricion-tick`, `doer-flush`). Mirando los SEGUNDOS (Web Generator, 15/10) eran dos ráfagas por hora:
+    - a las :40, de 14 a 02 UTC: `fathom-plan` → `procesarReunionesNuevas` (lib/reunion-auto.ts) → `plan-fathom`;
+    - a las :52: `cs-sesiones-entrega` → `drenarSesionesEntrega` (lib/closing-entrega.ts).
+  - **Lo que costó:** el ws1 no sacó ni un borrador de sus reuniones desde el 08/10 (antes, de 1 a 3 por día). La reunión
+    que falla se reintenta en cada corrida y a las 26 h sale de la ventana sin aviso (docs/hallazgos-plan.md).
+  - Por eso el registro guarda la función que llamó: sin ella, el aviso no puede decir qué dejó de andar.
 
 ## 2. La forma
 
@@ -47,6 +58,8 @@ misma clave volvió a contestar bien en menos de 24 h.
   - de quién es: ws dueño, proveedor y cuenta;
   - cómo viene: la última respuesta buena, el primer fallo desde ahí, cuántos fallos van, y el último código y mensaje
     del proveedor (sin la clave);
+  - **quién la llamó**: la función (`feature`) del último fallo y cuántas veces llamó cada una desde la última buena. Es
+    lo que el aviso dice como «qué dejó de andar»;
   - el freno: estado, desde cuándo, por qué, la próxima prueba y si ya se avisó.
 - **Cada corte y cada suelta, en `ia_claves_eventos`**: cuándo, por qué y con qué números. Sin eso, un corte no se
   distingue de «no se llamó a nadie», que es justo lo que pasó con el ws1.
@@ -58,11 +71,22 @@ misma clave volvió a contestar bien en menos de 24 h.
 - **Si no podemos leer o escribir el estado en la base, también es «no sé»: se llama como siempre.** Un freno que no
   puede leer no frena, y un fallo nuestro nunca marca una clave como caída.
 
-**El freno es POR CLAVE.**
-- En la rotación (`provDe` y `ordenarCuentas`, lib/ai-cheap.ts), una clave frenada se saltea como una agotada.
+**El freno es POR CLAVE, y NUNCA corta la red de la plataforma** (condición de Estrategia, 15/10).
+- Si la clave del cliente está frenada, su pedido sigue por la red de MaKo, con su «⚠», como hoy cuando sus claves
+  fallan. Si no, el freno convertiría una clave caída en una función apagada.
+- Las claves de la plataforma se registran y se avisan (sólo a SuperAdmin), pero **no se frenan**: con una muerta, la red
+  falla esa llamada y sigue a la siguiente, como hoy.
+- En la rotación (`provDe` y `ordenarCuentas`, lib/ai-cheap.ts), una clave frenada del cliente se saltea como una agotada.
 - No se corta al proveedor entero: el ws9 tiene tres de Gemini con 429 sueltos, y las tres contestan.
 - Si un negocio se queda sin ninguna clave viva, la cascada lo dice con su causa en lib/fallo-ia-texto.ts («tu clave de
   Gemini no contesta desde el 08/10: cargá otra»), no «sin cuota».
+- ⚠️ **Frenar no arregla lo que quien llama hace con el fallo.** `procesarReunionesNuevas` trata hoy un 429 como
+  `parcial`: no marca la reunión, la reintenta, y a las 26 h la pierde. Con el freno va a ver «no hay a quién
+  preguntarle»: si sigue en esa rama, la reunión se pierde igual, ahora en silencio y sin gastar cuota.
+  - Por eso el aviso dice QUÉ dejó de andar: las funciones que la llamaban desde la última respuesta buena («la lectura
+    de tus reuniones»).
+  - Que cada función distinga «clave frenada» de un bache, y deje algo que el dueño lea («N reuniones sin leer»), es de
+    su dueño: en `plan-fathom`, el chat del Plan. La cascada le da la causa (`clave_frenada`) para poder hacerlo.
 
 **Suelta sola, por dos puertas:**
 - **Se sube otra clave** en ese lugar: es otra huella y arranca limpia. Es el «hasta que se vuelva a subir».
@@ -72,8 +96,12 @@ misma clave volvió a contestar bien en menos de 24 h.
 
 **El aviso: dos filas del catálogo, en `AVISOS_SOLO_SUPERADMIN`**, como la caída y la vuelta del WhatsApp:
 `ia-clave-caida` e `ia-clave-volvio`.
-- **Qué dice:** qué clave (proveedor, cuenta y los últimos 4 caracteres), de qué negocio, desde cuándo (la última buena)
-  y cuántos intentos lleva.
+- **UNO por negocio, con TODAS sus claves caídas** (Martín, 15/10, textual: «Si tiene varias cuentas caidas es solo 1 aviso
+  especificando todas las cuentas caidas»). El emisor junta por negocio ANTES de mandar: el ws1 de hoy recibe uno con
+  Gemini y Mistral, no dos. Una clave que se cae después de avisado el negocio entra en el aviso siguiente (el de las
+  24 h), no en uno suelto.
+- **Qué dice, por clave:** proveedor, cuenta y los últimos 4 caracteres; desde cuándo (la última buena); cuántos intentos
+  lleva; y qué dejó de andar (las funciones que la llamaban). Más el negocio, una vez.
 - **Cuándo sale:** la caída repite cada 24 h mientras siga frenada. La vuelta sale sólo si la caída se avisó: un aviso de
   caída sin el de recuperación entrena a ignorarlo.
 - **Por dónde:** `emitirDelCatalogo`, que lo deja en la campana de la app (la notificación que pidió) y en el grupo.
@@ -84,7 +112,8 @@ misma clave volvió a contestar bien en menos de 24 h.
 |---|---|
 | Clasificar la respuesta y decidir corte y suelta (puro, con test) | `lib/ia-claves-salud.ts` (nuevo) |
 | El registro, y la tabla de eventos | `lib/ia-claves-registro.ts` (nuevo) + una migración |
-| El freno en la rotación | `lib/ai-cheap.ts` (`provDe`, `ordenarCuentas`), `lib/anthropic.ts`, el doer y la transcripción: todo lo que llama a un proveedor. ⚠️ El Web Generator acaba de tocar la cascada (la red de la plataforma para el Diagnóstico): se coordina antes. |
+| El freno en la rotación | `lib/ai-cheap.ts` (`provsDe`, `clavesAProbar`, `ordenarPorCuota`, `ordenarCuentas`), y el doer y la transcripción: todo lo que llama a un proveedor. ⚠️ El Web Generator tiene sin pushear (`09613eebb`, tanda 7) la firma de `chatClaude` (lib/anthropic.ts) y el bloque de la red en `chatCheapCascade`: esos dos no se tocan hasta que salga la tanda 7. Lo de arriba no choca. |
+| Quién llamó | `anotarRebote429` (lib/ia-cuotas.ts) recibe la `feature` del que llama, y el registro nuevo también |
 | La prueba espaciada | un cron nuevo, cada 10 min, que sólo toca las claves con la prueba vencida |
 | El aviso | `lib/avisos-catalogo.ts` (las dos filas y `AVISOS_SOLO_SUPERADMIN`) |
 | La causa nueva para el cliente | `lib/fallo-ia-texto.ts` |
@@ -93,23 +122,25 @@ misma clave volvió a contestar bien en menos de 24 h.
 
 - **Lo que cuesta por llamada.** Leer el estado en cada pedido sería otra consulta: va con una caché por proceso de 60 s.
   Se escribe sólo cuando algo cambia: un fallo, o la primera respuesta buena después de fallos.
-- **Un corte equivocado.** La primera prueba lo suelta en una hora. Y en 30 días la regla recomendada no tuvo ninguno.
-- **Las claves de la plataforma** (la red de la agencia) se frenan igual, pero su aviso va sólo a SuperAdmin.
+- **Un corte equivocado.** La primera prueba lo suelta en una hora. Y en 30 días la regla decidida no tuvo ninguno.
+- **Las claves de la plataforma** (la red de la agencia) no se frenan: se registran, y su aviso va sólo a SuperAdmin.
 
 ## 5. El día del deploy
 
-Con la regla recomendada, la primera corrida deja frenadas Gemini y Mistral del ws1, y el aviso le llega a Mauricio, que
+Con la regla decidida, la primera corrida deja frenadas Gemini y Mistral del ws1, y el aviso le llega a Mauricio, que
 es un cliente. Por eso va como decisión (§6-4).
 
 ## 6. Lo que decide Martín
 
-1. **El umbral.** Recomendado: **«24 h sin una respuesta buena y al menos 10 rebotes»**. En 30 días corta las dos claves
+1. **El umbral. DECIDIDO (Estrategia, 15/10, con la medición de §1): «24 h sin una respuesta buena y al menos 10
+   rebotes»**. Medido el 15/10/2026 sobre 30 días y 12 claves con rebotes: 0 falsos positivos. Quien lo quiera bajar,
+   que mida de nuevo: a 12 h ya hubo 1. En 30 días corta las dos claves
    muertas del ws1 y ninguna de las que se recuperaban solas. «12 h» ya dio un falso positivo (una del ws9), y «≥ 50» deja
    pasar Mistral. Para los errores definitivos (clave inválida, proyecto bloqueado, sin crédito), la misma regla al
    principio: hoy no quedan en ninguna tabla y no se pueden medir. Con dos semanas de registro se mide una más rápida.
-2. **¿Por clave o por proveedor?** Recomendado: **por clave**. El ws9 tiene tres de Gemini con entre 96 y 128 rebotes
+2. **¿Por clave o por proveedor? DECIDIDO (Estrategia, 15/10): por clave**. El ws9 tiene tres de Gemini con entre 96 y 128 rebotes
    cada una, y las tres siguieron contestando. Por proveedor, el día que una se cae se cortan las que funcionan.
-3. **¿A quién le llega el aviso?**
+3. **¿A quién le llega el aviso?** (Ticketera: `claves-aviso-a-quien`)
    - **A** (recomendado): al negocio dueño de la clave, en su app y en su grupo, y lo configura sólo SuperAdmin, como el
      WhatsApp caído. La clave es suya, y es él quien la cambia.
    - **B**: sólo a SuperAdmin.
@@ -117,4 +148,5 @@ es un cliente. Por eso va como decisión (§6-4).
 
    Una clave de la plataforma, siempre sólo a SuperAdmin.
 4. **El ws1 el día del deploy:** ¿el aviso le llega a Mauricio en la primera corrida, o se lo contás vos antes y el
-   primero sale sin aviso?
+   primero sale sin aviso? (Ticketera: `claves-primer-aviso-mauricio`.) **CONTESTADO (Martín, 15/10): un solo aviso con
+   todas las claves caídas** (arriba, «UNO por negocio»). Con eso, al ws1 le llega uno, no dos.

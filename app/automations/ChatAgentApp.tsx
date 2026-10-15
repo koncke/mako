@@ -17,6 +17,7 @@
 
 import { Suspense, useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import { useSearchParams } from 'next/navigation';
+import type { Reentrada } from '@/lib/reentrada';
 import { Icon } from '@/app/_components/icons';
 // El router de la casa y no el de next: conserva el ?ws= (el super admin mirando OTRO negocio). (El link a
 // /whatsapp del aviso rojo se fue en la duodécima tanda: el QR se abre acá mismo.)
@@ -150,6 +151,12 @@ export type SecuenciaDto = {
   producto_id?: number | null;
   /** Por qué número de WhatsApp sale (mig 0198). `null`/ausente = la línea por default. */
   instance_name?: string | null;
+  /**
+   * La «Reentrada» del CRON (mig 0279, lib/reentrada.ts): la guardada (`null` = sin guardar) y la que el motor usa (la
+   * guardada, o la regla de antes). El panel del CRON muestra la segunda.
+   */
+  reentrada?: Reentrada | null;
+  reentrada_efectiva?: Reentrada;
   /** La etiqueta que la dispara (`trigger_tipo: 'etiqueta_puesta'`, mig 0223). */
   etiqueta_id?: number | null;
   /** El emoji del título (mig 0229). `null`/ausente = el del objetivo. */
