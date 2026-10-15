@@ -115,9 +115,10 @@ test('Y el EDITOR de los avisos es el de WhatsApp: escribe en una caja de texto 
 test('Cada link del catálogo tiene su ruta, y cada ruta su link', () => {
   // Un link ofrecido sin ruta sale como `{{link_x}}` crudo al WhatsApp del cliente; una
   // ruta sin link es código que no ofrece nadie. Se cruzan en las dos direcciones.
-  // `link_lead` (lleva el id del evento) y `link_pago` (el /pagar/<token> de su cobro, 11/10/2026) no
-  // son una pantalla de MaKo: no tienen ruta fija.
-  const delCatalogo = VARIABLES_AVISO.filter((v) => v.key.startsWith('link_') && v.key !== 'link_lead' && v.key !== 'link_pago').map((v) => v.key).sort();
+  // `link_lead` (lleva el id del evento), `link_pago` (el /pagar/<token> de su cobro, 11/10/2026) y `link_restablecer`
+  // (el de un uso que arma Seguridad, 15/10/2026) no son una pantalla de MaKo: no tienen ruta fija.
+  const sinRuta = new Set(['link_lead', 'link_pago', 'link_restablecer']);
+  const delCatalogo = VARIABLES_AVISO.filter((v) => v.key.startsWith('link_') && !sinRuta.has(v.key)).map((v) => v.key).sort();
   assert.deepEqual(delCatalogo, Object.keys(RUTA_DE_LINK).sort());
   for (const r of Object.values(RUTA_DE_LINK)) assert.match(r, /^\/[a-z-]+$/, `ruta rara: ${r}`);
 });
@@ -305,7 +306,8 @@ test('⚠️ sin lead, los datos del CRM NO SE MUESTRAN', () => {
   assert.equal(
     // 13/10/2026: y el ANÁLISIS del Dashboard (`conAnalisis`, «El AI Analyst termina un análisis»).
     variablesOfrecidas({ conLead: true, conCuota: true, conMensaje: true, conPago: true, conEscrito: true, conAnalisis: true }).flatMap((g) => g.items).length,
-    VARIABLES_AVISO.filter((v) => !v.oculta && v.soloPara !== 'lead').length,
+    // (15/10/2026: lo que es SÓLO para una persona —el link de restablecer— no es del equipo.)
+    VARIABLES_AVISO.filter((v) => !v.oculta && v.soloPara !== 'lead' && v.soloPara !== 'usuario').length,
     'con lead, cuota, el texto del código, el pago, lo escrito y el análisis se puede resolver TODO lo del equipo',
   );
   // Y los grupos vacíos no se dibujan: un título sin filas promete algo que no está.

@@ -181,6 +181,8 @@ const AREA_POR_AVISO: Record<string, AreaAviso> = {
   'cierre-mes': 'reporte', 'retro-lista': 'reporte',
   // El análisis del AI Analyst del Dashboard (lib/graficos-analisis-server.ts `avisarAnalisisListo`).
   'dashboard-analisis-listo': 'reporte',
+  // El pedido de restablecer la contraseña (Seguridad, 15/10/2026): un mail a la persona, de la plataforma.
+  'seguridad-contrasena-restablecer': 'sistema',
 
   'reunion-recordatorio': 'reunion', 'reunion-agenda-dia': 'reunion',
   'reunion-nuevo-agendado': 'reunion', 'reunion-cancelada': 'reunion',
@@ -1034,6 +1036,21 @@ https://hola-mako.com/crm/123/resumen
 Las agendas subieron 18% y el costo por lead bajó a US$ 4,10.
 
 👉 https://hola-mako.com/dashboard?hoja=marketing
+
+— MaKo`,
+  },
+  {
+    id: 'seguridad-contrasena-restablecer', titulo: 'Restablecer la contraseña', categoria: 'aviso',
+    prioridad: 'alta', semaforo: 'na', requiereRespuesta: false, yaImplementado: 'si',
+    // 15/10/2026: un EVENTO de una PERSONA (`contrasena_restablecer`, lib/disparadores.ts). Lo emite la ruta de
+    // recuperación de Seguridad, en el ws de la PLATAFORMA, con `usuario_id` y el link (secreto: `{{link_restablecer}}`).
+    // Sale SÓLO por la automatización de SuperAdmin «Restablecer Contraseña», con su «Email a la persona». Este texto
+    // nunca va al grupo: sin una automatización prendida, al feed va sólo el título.
+    disparador: 'Alguien pide restablecer su contraseña de MaKo («Olvidé mi contraseña»).',
+    ejemplo: `Para crear tu contraseña nueva, entra a este link (vence en 30 minutos y sirve una sola vez):
+https://hola-mako.com/restablecer?t=…
+
+Si no lo pediste tú, ignora este correo: tu contraseña no cambia.
 
 — MaKo`,
   },

@@ -258,8 +258,10 @@ test('CABLEADO: los cinco campos donde se escriben tokens montan la pieza, y su 
   assert.match(social, /<CampoConDatos ref=\{campoDatos\} datos=\{datos\} onValor=\{escribir\}[^>]*>\s*<textarea ref=\{area\}/);
   assert.match(social, /campoDatos\.current\?\.abrirDatoEnCursor\(\)/);
   const mail = sinComentarios(leer('app/automations/EditorEmailGmail.tsx'));
-  assert.match(mail, /<CampoConDatos ref=\{datosAsunto\} datos=\{datos\} fuera=\{FUERA_EMAIL\} onValor=\{\(v\) => onChange\(\{ asunto: v \}\)\} estiloCaja=\{\{ flex: 1 \}\}>\s*<input ref=\{campoAsunto\}/);
-  assert.match(mail, /<CampoConDatos ref=\{datosHtml\} datos=\{datos\} fuera=\{FUERA_EMAIL\} onValor=\{alCambiarCrudo\}[^>]*>\s*<textarea ref=\{campoHtml\}/);
+  // (15/10/2026: el rojo es el de ESTE email —el del lead, o el de la persona de un evento—: `fuera`.)
+  assert.match(mail, /const \[fuera\] = useState\(\(\) => \(persona \? fueraDelContexto\(persona\.contexto\) : FUERA_EMAIL\)\);/);
+  assert.match(mail, /<CampoConDatos ref=\{datosAsunto\} datos=\{datos\} fuera=\{fuera\} onValor=\{\(v\) => onChange\(\{ asunto: v \}\)\} estiloCaja=\{\{ flex: 1 \}\}>\s*<input ref=\{campoAsunto\}/);
+  assert.match(mail, /<CampoConDatos ref=\{datosHtml\} datos=\{datos\} fuera=\{fuera\} onValor=\{alCambiarCrudo\}[^>]*>\s*<textarea ref=\{campoHtml\}/);
   assert.match(mail, /botonesExtra=\{botonesBarra\} datos=\{datosRico\} \/>/, 'el cuerpo rico sin sus datos azules');
   assert.match(mail, /if \(tipo === 'datos-cuerpo' && modo === 'visual' && abierto !== tipo && datoEnCursorRico\.current\) \{ setDatoRico\(datoEnCursorRico\.current\); return; \}/);
   assert.match(mail, /datosAsunto\.current\?\.abrirDatoEnCursor\(\)/);

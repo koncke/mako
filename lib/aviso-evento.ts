@@ -31,7 +31,7 @@ import { EVENTOS_MAKO, TRIGGER_AVISO_MAKO, disparadoresDe, type SubtipoMako, typ
 import { claseDe, idDe, indicePorId, raicesSalida, siguienteDe, type PasoGrafo } from './flujo-grafo';
 import { OP_AVISAR } from './flujo-legado';
 import { DELAY_MAX_HORAS, QUE_ENVEJECEN } from './flujo-pasos';
-import { CLAVE_MENSAJE_MAKO, type ContextoDatos } from './variables-aviso';
+import { CLAVE_MENSAJE_MAKO, VARIABLES_AVISO, citaSecreto, tokensDe, type ContextoDatos } from './variables-aviso';
 import { textoLoArmaElCodigo, type AvisoCatalogo } from './avisos-catalogo';
 // Puro: la tarjeta «MaKo en WhatsApp» por partes (undécima tanda). Qué partes tiene y si sale tal cual.
 import { esTarjetaTalCual, partesDeMako, textoDePartes } from './mako-tarjeta';
@@ -74,6 +74,21 @@ export function datosDelEvento(sub: unknown): ContextoDatos {
   };
 }
 
+/**
+ * LOS DATOS DEL «{ }» EN EL «EMAIL A LA PERSONA» de un evento de una PERSONA (15/10/2026): a ese usuario
+ * (`destino: 'usuario'`), con lo que trae el evento (el link de restablecer). null si el evento no es de una persona:
+ * ahí no hay mail a nadie. Es el mismo contexto con el que Publicar valida (`contextoDeTarjeta`).
+ */
+export function datosDeLaPersona(sub: unknown): ContextoDatos | null {
+  const ev = porSubtipo(sub);
+  if (!ev?.persona) return null;
+  return { conLead: false, conRestablecer: ev.trae.includes('restablecer'), destino: 'usuario' };
+}
+
+/** Las claves SECRETAS que trae un evento (`VariableAviso.secreto` de los alcances que trae). Vacío = ninguna. */
+export const secretosDelEvento = (ev: EventoMako): string[] =>
+  VARIABLES_AVISO.filter((v) => v.secreto && (ev.trae as readonly string[]).includes(v.alcance)).map((v) => v.key);
+
 // ── Las tarjetas, traducidas al runner de los flujos ────────────────────────────────────────────
 
 /**
@@ -111,6 +126,16 @@ export const MOTIVO_EVENTO = {
   mensajeViejo: 'Después de un DELAY no va «Lo que arma MaKo»: es el de ese momento.',
   vuelta: 'Un evento de MaKo no vuelve atrás.',
   afuera: 'Hay tarjetas que no salen: conéctalas o bórralas.',
+  // Los de un evento de una PERSONA (15/10/2026): un mail a esa persona, y lo secreto sólo ahí.
+  soloEmail: 'A la persona le escribe sólo un email.',
+  sinEmail: 'Falta la tarjeta «Email a la persona».',
+  emailVacio: 'El email está vacío.',
+  sinAsunto: 'Al email le falta el asunto.',
+  emailIA: 'Este email sale tal cual: sin «MaKo lo adapta».',
+  condicionPersona: 'La CONDITION mira un lead, y este evento no trae uno.',
+  secretoDelay: 'Este evento trae un dato secreto: no lleva DELAY.',
+  secretoFuera: 'El dato secreto va sólo en el email a la persona.',
+  sinSecreto: 'El email tiene que llevar el link.',
 } as const;
 
 /**
@@ -120,7 +145,10 @@ export const MOTIVO_EVENTO = {
  *   · «MaKo en WhatsApp» (`avisar_al_equipo`) → `{ tipo: 'mensaje', canal: 'aviso_dueno', texto }`, y con su lista
  *     (`params.partes`, la tarjeta TAL CUAL de la undécima) además `partes`;
  *   · DELAY por tiempo → `{ tipo: 'esperar', horas }`, hasta 30 días (`DELAY_MAX_HORAS`);
- *   · CONDITION de UNA rama, con «Si no» vacío → `{ tipo: 'condicion', rama }`: se cumple, sigue; no, termina.
+ *   · CONDITION de UNA rama, con «Si no» vacío → `{ tipo: 'condicion', rama }`: se cumple, sigue; no, termina;
+ *   · SÓLO en un evento de una PERSONA (15/10/2026, `persona`): un email → `{ tipo: 'email_persona', … }`, el
+ *     «Email a la persona». Es obligatorio, cita los secretos del evento sólo en el cuerpo, y con un secreto no hay
+ *     DELAY (`secretosDelEvento`).
  * Todo lo demás se rechaza con su tarjeta (`MOTIVO_EVENTO`): el runner no le escribe al lead, no corre una
  * acción ni una IA, no salta y no tiene hilos. Es la regla de la casa: sólo se dibuja lo que el motor EJECUTA.
  */
@@ -131,13 +159,23 @@ export function pasosDelEvento(pasosIn: readonly PasoGrafo[], evento: unknown): 
   const mal = (problema: string, tarjeta: string | null): TraduccionEvento => ({ pasos: [], problema, tarjeta, firma: '' });
   const ev = porSubtipo(evento);
   if (!ev) return mal(MOTIVO_EVENTO.sinEvento, null);
+  // Lo SECRETO que trae el evento (el link de restablecer): sin DELAY, y sólo en el email a la persona.
+  const secretos = secretosDelEvento(ev);
 
   // Lo que no va, esté donde esté (conectado o suelto): el motivo dice QUÉ es, no sólo que sobra.
   for (let i = 0; i < pasosIn.length; i++) {
     const p = pasosIn[i];
     const id = idDe(p, i);
     const clase = claseDe(p);
-    if (clase === 'mensaje') return mal(MOTIVO_EVENTO.alLead, id);
+    // Un mensaje es al LEAD, salvo en un evento de una PERSONA: ahí es el «Email a la persona», y sólo email.
+    if (clase === 'mensaje' && !ev.persona) return mal(MOTIVO_EVENTO.alLead, id);
+    if (clase === 'mensaje' && (p.canal ?? 'whatsapp') !== 'email') return mal(MOTIVO_EVENTO.soloEmail, id);
+    // ⚠️ UN SECRETO NO DUERME: una corrida que espera guarda su contexto (`flujo_corridas`). Se saca igual al
+    // guardar (`sinSecretos`), pero un DELAY en este evento sólo puede ser para mandarlo después, y después no está.
+    if (clase === 'esperar' && secretos.length) return mal(MOTIVO_EVENTO.secretoDelay, id);
+    // La CONDITION mira los hechos de un LEAD (`hechosDeLaCorrida`), y un evento de una persona no trae ninguno: no
+    // se cumpliría nunca, y lo que sigue no saldría.
+    if (clase === 'condicion' && ev.persona) return mal(MOTIVO_EVENTO.condicionPersona, id);
     if (clase === 'respuesta') return mal(MOTIVO_EVENTO.respuesta, id);
     if (clase === 'ir_a') return mal(MOTIVO_EVENTO.irA, id);
     if (clase === 'accion' && (p.accion as { operacion?: unknown } | null)?.operacion !== OP_AVISAR) return mal(MOTIVO_EVENTO.accion, id);
@@ -149,6 +187,9 @@ export function pasosDelEvento(pasosIn: readonly PasoGrafo[], evento: unknown): 
   const vistos = new Set<string>();
   let huboDelay = false;
   let makos = 0;
+  /** Los «Email a la persona» (el primero, para señalarlo) y los secretos que alguno cita. */
+  const emails: string[] = [];
+  const citados = new Set<string>();
   let cur: string | null = raices[0] ?? null;
   while (cur) {
     if (vistos.has(cur)) return mal(MOTIVO_EVENTO.vuelta, cur);
@@ -177,10 +218,29 @@ export function pasosDelEvento(pasosIn: readonly PasoGrafo[], evento: unknown): 
       // evento: la charla («No le preparé respuesta…») también puede haber dejado de ser cierta. Un recordatorio
       // posterior se escribe con los datos estables («{{lead_nombre}}», «{{link_lead}}»).
       if (huboDelay && RE_MENSAJE_MAKO.test(escrito)) return mal(MOTIVO_EVENTO.mensajeViejo, cur);
+      // Un secreto al GRUPO lo lee todo el equipo, y queda en el feed: sólo va en el mail a la persona.
+      if (citaSecreto(`${escrito}\n${String(params?.titulo ?? '')}`)) return mal(MOTIVO_EVENTO.secretoFuera, cur);
       // La de ANTES (sin lista) sale EXACTAMENTE como hasta hoy: el paso no lleva `partes`.
       pasos.push(talCual ? { tipo: 'mensaje', canal: 'aviso_dueno', texto, partes: lista } : { tipo: 'mensaje', canal: 'aviso_dueno', texto });
       huella.push(`${cur}:mensaje`);
       makos += 1;
+      cur = siguienteDe(pasosIn, i);
+    } else if (clase === 'mensaje') {
+      // «EMAIL A LA PERSONA» (15/10/2026): llega acá sólo un email de un evento de una persona (lo demás se rechazó
+      // arriba). El asunto y la vista previa los muestra la bandeja sin abrir el mail: lo secreto, sólo en el cuerpo.
+      const m = p as PasoGrafo & { cuerpo_html?: unknown; preheader?: unknown };
+      const asunto = String(p.asunto ?? '').trim();
+      const cuerpo = String(p.cuerpo ?? '').trim();
+      const html = typeof m.cuerpo_html === 'string' ? m.cuerpo_html.trim() : '';
+      if (!cuerpo && !html) return mal(MOTIVO_EVENTO.emailVacio, cur);
+      // «MaKo lo adapta» le pasaría el mail entero a un modelo, con el link adentro: este email sale tal cual.
+      if (p.tipo === 'ia') return mal(MOTIVO_EVENTO.emailIA, cur);
+      if (!asunto) return mal(MOTIVO_EVENTO.sinAsunto, cur);
+      if (citaSecreto(`${asunto}\n${String(m.preheader ?? '')}`)) return mal(MOTIVO_EVENTO.secretoFuera, cur);
+      for (const t of [...tokensDe(cuerpo), ...tokensDe(html)]) if (secretos.includes(t.key)) citados.add(t.key);
+      pasos.push({ tipo: 'email_persona', asunto, texto: cuerpo, ...(html ? { html } : {}), proposito: ev.persona ?? 'aviso' });
+      huella.push(`${cur}:email`);
+      emails.push(cur);
       cur = siguienteDe(pasosIn, i);
     } else if (clase === 'esperar') {
       if (p.espera?.modo !== 'tiempo') return mal(MOTIVO_EVENTO.delayReunion, cur);
@@ -203,7 +263,12 @@ export function pasosDelEvento(pasosIn: readonly PasoGrafo[], evento: unknown): 
       return mal(MOTIVO_EVENTO.noExiste, cur);
     }
   }
-  if (!makos) return mal(MOTIVO_EVENTO.sinMako, null);
+  // Un evento de una PERSONA es para escribirle a ella: sin su email no tiene sentido (y el secreto que trae, para
+  // eso es). Los demás, como siempre: la tarjeta «MaKo en WhatsApp».
+  if (ev.persona) {
+    if (!emails.length) return mal(MOTIVO_EVENTO.sinEmail, null);
+    if (secretos.some((k) => !citados.has(k))) return mal(MOTIVO_EVENTO.sinSecreto, emails[0]);
+  } else if (!makos) return mal(MOTIVO_EVENTO.sinMako, null);
   const afuera = pasosIn.map((p, i) => idDe(p, i)).filter((id, i) => !vistos.has(id) && claseDe(pasosIn[i]) !== 'inicio');
   if (afuera.length) return mal(MOTIVO_EVENTO.afuera, afuera[0]);
   return { pasos, problema: null, tarjeta: null, firma: huella.join('>') };

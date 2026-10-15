@@ -6,9 +6,16 @@
 // =============================================================================
 
 import { requireRolWs } from '@/lib/tab-access';
+import { getWorkspaceActual } from '@/lib/workspace';
+import { esWsPlataforma } from '@/lib/api-mako/areas/integraciones.helpers';
 import { ChatAgentApp } from './ChatAgentApp';
+import { PlataformaProvider } from './plataforma';
 
 export default async function Page() {
   await requireRolWs(['setter'], { nav: 'setting' });
-  return <ChatAgentApp />;
+  // ¿Es el ws de la plataforma? Lo que sólo existe ahí (el evento de una persona, la plantilla de SuperAdmin) se
+  // ofrece sólo ahí. Sin poder saberlo, no (`esWsPlataforma` es fail-closed).
+  const ws = await getWorkspaceActual().catch(() => null);
+  const plataforma = ws != null && (await esWsPlataforma(ws));
+  return <PlataformaProvider valor={plataforma}><ChatAgentApp /></PlataformaProvider>;
 }

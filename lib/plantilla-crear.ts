@@ -83,6 +83,11 @@ export type DepsPlantilla = {
   motivoDeCron?: (e: unknown) => string | null;
   /** Para el test: la clave nueva. Sin pasar nada, una al azar como la de «＋ Nueva». */
   clave?: () => string;
+  /**
+   * ¿Se crea en el ws de la PLATAFORMA? (`esWsPlataforma`). Una plantilla de SuperAdmin (`soloPlataforma`) sólo se crea
+   * ahí. Sin pasarlo, NO: un llamador que se olvida no le crea a un negocio una automatización que no corre nunca.
+   */
+  plataforma?: boolean;
 };
 
 export type CreadaDesdePlantilla = {
@@ -122,6 +127,7 @@ export async function crearDesdePlantilla(plantillaId: unknown, deps: DepsPlanti
   const p = plantillaPorId(plantillaId);
   // Un id de antes NUNCA crea otra cosa en silencio: contesta nombrando la que lo reemplaza.
   if (!p) throw new PlantillaInvalidaError(motivoDePlantillaVieja(plantillaId) ?? 'Esa plantilla no existe.');
+  if (p.soloPlataforma && deps.plataforma !== true) throw new PlantillaInvalidaError('Esa plantilla es de SuperAdmin.');
   // Lo elegido se entiende ANTES de crear nada: una etapa de otro kanban es un error de quien pide, y una
   // plantilla con el CRON fijo (sin `pide`) no se arranca en ninguna etapa.
   const pidio = o.disparador != null && o.disparador !== '';
