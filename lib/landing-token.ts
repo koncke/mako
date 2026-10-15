@@ -44,6 +44,9 @@ import { distintosPorExclusion, listaPostgrest } from './ids-con-filas';
 import { REPLAY_LOTE_MAX_BYTES } from './replay-sellado';
 import { versionServida } from './pixel-servido';
 import { PIXEL_MINIMO_AVISO } from './pixel-aviso';
+import { RUTA_CARGADOR } from './pixel-cargador';
+import { PARAM_LEER } from './editor-landing/lector';
+import { PARAM_LECTOR_CARGADOR } from './editor-landing/lector-script';
 import {
   REPLAY_VERSION,
   REPLAY_OPCIONES_RRWEB,
@@ -144,8 +147,17 @@ export const LANDING_TOKEN_KEY = 'landing_token';
  *       nada de lo que mide. Por eso PIXEL_MINIMO_AVISO (lib/pixel-aviso.ts) queda en 22
  *       y todo lo que pide repegar (el aviso fijo, el WhatsApp del vigilante, el chip y
  *       el bloqueo de «Probar») corta ahí y no en esta constante.
+ *  24 — MaKo puede LEER la página como un visitante (14/10/2026). Pedido de Martín: «El mimso error que
+ *       nos saltaba con Mauricio "No pude leer el texto de esa página.". Soluciona eso...», y su decisión
+ *       «si detecta que tenes el pixel instalado, que lo haga desde allí». Con `?mako_leer=<id>` en la URL
+ *       y la ventana de MaKo como `opener`, el Pixel NO MIDE NADA (abrirla para leerla no es una visita, y
+ *       los toques del lector no son clics) y carga el lector de `/m.js?leer=<id>`
+ *       (lib/editor-landing/lector-script.ts). `VERSION_PIXEL_LECTOR` (lib/editor-landing/lector.ts) dice
+ *       desde qué versión el código pegado lo trae.
+ *       ⚠️ TAMPOCO SE LE PIDE A NADIE QUE REPEGUE: PIXEL_MINIMO_AVISO sigue en 22. Quien tiene la línea de
+ *       /m.js ya la tiene; a quien pegó el código, el lector le llega por la ventana aislada.
  */
-export const SNIPPET_VERSION = 23;
+export const SNIPPET_VERSION = 24;
 
 /** Key en app_settings donde el beacon deja la versión que el cliente TIENE puesta. */
 export const SNIPPET_VERSION_KEY = 'landing.snippet_version';
@@ -190,6 +202,7 @@ const NOVEDADES: Record<number, string> = {
   // lee la pantalla de cualquier negocio y el aviso de WhatsApp: «llega apagada»
   // era falso para los cuatro negocios con la grabación prendida (06/10/2026). Si
   // un mensaje necesita decir el estado, lo agrega quien lo arma, leyendo el dato.
+  24: 'que MaKo lea tu página como la ve un visitante —lo que hay dentro de cada desplegable, a dónde lleva cada botón y si tu agenda carga— cuando la analizas o la replicas',
   23: 'una línea de instalación que se actualiza sola: la pegas una vez y cada mejora del Pixel te llega sin volver a pegar nada',
   22: 'el mapa de calor de tu página: en qué parte exacta toca la gente, dibujado sobre tu página y separado en celular y computadora',
   21: 'la grabación de cada visita: mirar lo que hizo cada persona en tu página —dónde se detuvo, qué intentó tocar, en qué punto se fue— desde su ficha en el CRM. Lo que alguien escribe en un formulario viaja tapado, así que no queda grabado',
@@ -1333,6 +1346,18 @@ export function landingSnippet(token: string): string {
   // Versión del snippet: viaja en cada evento para que MaKo sepa quién quedó
   // con el código viejo y le avise. Ver SNIPPET_VERSION.
   var SV = ${SNIPPET_VERSION};
+
+  // Lectura de MaKo (v24): abierta por MaKo para leerla, la página no mide nada
+  // y carga el lector. Sin la ventana de MaKo detrás, el parámetro no hace nada.
+  try {
+    var leer = new URLSearchParams(location.search).get('${PARAM_LEER}');
+    if (leer && /^[A-Za-z0-9_-]{16,64}$/.test(leer) && window.opener) {
+      var lector = document.createElement('script');
+      lector.src = '${APP_BASE_URL}${RUTA_CARGADOR}?${PARAM_LECTOR_CARGADOR}=' + leer;
+      (document.head || document.documentElement).appendChild(lector);
+      return;
+    }
+  } catch (e) {}
 
   // visitor_id anónimo, persistente (cookie de 1 año)
   function getCookie(n) {

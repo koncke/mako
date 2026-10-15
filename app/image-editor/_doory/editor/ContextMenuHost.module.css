@@ -1,0 +1,106 @@
+/*
+ * El menú del clic derecho de Canva: tarjeta blanca flotante (radio 8, sombra flotante), filas de 36 px con el ícono,
+ * el rótulo y el atajo en gris a la derecha; los submenús («Capas», «Alinear con la página») se abren al costado.
+ */
+.panel {
+  position: fixed;
+  z-index: var(--cv-z-drawer);
+  min-width: 240px;
+  max-width: 320px;
+  padding: var(--cv-space-2) 0;
+  border-radius: var(--cv-radius-sm);
+  background: var(--cv-color-surface-raised);
+  color: var(--cv-color-text);
+  box-shadow: var(--cv-shadow-lg);
+  animation: menu-in var(--cv-duration-fast) var(--cv-ease-out);
+}
+.panel[data-placed='false'] {
+  opacity: 0;
+  animation: none;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: var(--cv-space-3);
+  width: 100%;
+  min-height: 36px;
+  padding: 0 var(--cv-space-4);
+  border: 0;
+  background: transparent;
+  color: var(--cv-color-text);
+  font: 400 var(--cv-text-base) / 1.2 var(--cv-font-sans);
+  text-align: left;
+  cursor: pointer;
+}
+.item:hover,
+.item:focus-visible,
+.item[data-open='true'] {
+  outline: none;
+  background: var(--cv-color-bg-muted);
+}
+.item[aria-disabled='true'] {
+  opacity: 0.4;
+  cursor: default;
+}
+.item[aria-disabled='true']:hover {
+  background: transparent;
+}
+
+.icon {
+  display: inline-flex;
+  flex: none;
+  width: 20px;
+  justify-content: center;
+  color: var(--cv-color-text);
+}
+
+.label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kbd {
+  flex: none;
+  margin-left: var(--cv-space-4);
+  color: var(--cv-color-text-subtle);
+  font: 400 var(--cv-text-sm) / 1 var(--cv-font-sans);
+}
+
+.chevron {
+  flex: none;
+  margin-left: var(--cv-space-4);
+  color: var(--cv-color-text-muted);
+}
+
+.sep {
+  height: 1px;
+  margin: var(--cv-space-2) 0;
+  background: var(--cv-color-border);
+}
+
+/* «Vínculo»: el campo de la dirección en lugar de las filas. */
+.linkView {
+  padding: var(--cv-space-2) var(--cv-space-4) var(--cv-space-3);
+}
+.linkTitle {
+  margin: 0 0 var(--cv-space-3);
+  color: var(--cv-color-text);
+  font: 600 var(--cv-text-base) / 20px var(--cv-font-sans);
+}
+
+@keyframes menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(-3px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .panel {
+    animation: none;
+  }
+}

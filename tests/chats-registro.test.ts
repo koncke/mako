@@ -71,8 +71,10 @@ test('la barra: Chats PRIMERO en las conversaciones de Operate, con los roles de
   assert.ok(chats.match('/chats') && chats.match('/chats/x'), 'el match no marca la tab');
   assert.ok(!chats.match('/chatsx') && !chats.match('/whatsapp'), 'el match marca rutas ajenas');
   assert.equal(TODOS_LOS_ITEMS.filter((i) => i.key === 'chats').length, 1, 'la key chats está repetida');
-  // En el teléfono cae en «se usa en la computadora», igual que /whatsapp (v2: /m/chats).
-  assert.deepEqual(decidirDesvio('/chats'), { tipo: 'computadora' });
+  // En el teléfono es la pestaña Chats de MaKo Mobile (v3, 14/10/2026), igual que /whatsapp: las dos bandejas de
+  // escritorio son, en el teléfono, la misma pestaña.
+  assert.deepEqual(decidirDesvio('/chats'), { tipo: 'movil', destino: '/m/chats' });
+  assert.deepEqual(decidirDesvio('/whatsapp'), { tipo: 'movil', destino: '/m/chats' });
 });
 
 test('las capas: Chats se ve EXACTAMENTE donde WhatsApp (barra y menú de la foto)', () => {

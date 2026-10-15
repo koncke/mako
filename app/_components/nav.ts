@@ -333,12 +333,18 @@ export const FAMILIAS: NavFamilia[] = [
           ],
         },
         {
-          key: 'image', label: 'Image', href: '/image-generator', icon: 'imagegen',
-          match: (p) => starts('/image-generator')(p) || starts('/thumbnails')(p) || starts('/carousels')(p),
+          key: 'image', label: 'Image', href: '/image-editor', icon: 'imagegen',
+          match: (p) => starts('/image-editor')(p) || starts('/image-generator')(p) || starts('/thumbnails')(p) || starts('/carousels')(p),
           secciones: [
-            { key: 'image-generator', adminOnly: true, label: 'Image Generator', seccion: 'Crear con IA', href: '/image-generator', icon: 'imagegen', comingSoon: true, match: starts('/image-generator') },
-            { key: 'thumbnails', adminOnly: true, label: 'Thumbnails', href: '/thumbnails', icon: 'thumbnail', comingSoon: true, match: starts('/thumbnails') },
-            { key: 'carousels', adminOnly: true, label: 'Carousels', href: '/carousels', icon: 'carousel', match: starts('/carousels') },
+            // La copia de Canva (14/10/2026, Martín: «implementes end to end un "Canva" dentro de MaKo… Dejalo en
+            // "Content Machine" en una tab que sea "Image"»): Doory portado y re-vestido como Canva. Abierta a todos
+            // los workspaces el 15/10/2026 («Que Image aparezca en todos los workspace»), como el Video Editor el
+            // 12/10: quién entra lo decide app/image-editor/acceso.ts con la pregunta de toda tab (rol y capa).
+            // Image Generator y Thumbnails siguen `comingSoon`: se ven, con su «pronto», y abren «Próximamente».
+            { key: 'image-editor', label: 'Image Editor', seccion: 'Editor', href: '/image-editor', icon: 'imagegen', match: starts('/image-editor') },
+            { key: 'image-generator', label: 'Image Generator', seccion: 'Crear con IA', href: '/image-generator', icon: 'imagegen', comingSoon: true, match: starts('/image-generator') },
+            { key: 'thumbnails', label: 'Thumbnails', href: '/thumbnails', icon: 'thumbnail', comingSoon: true, match: starts('/thumbnails') },
+            { key: 'carousels', label: 'Carousels', href: '/carousels', icon: 'carousel', match: starts('/carousels') },
           ],
         },
         {
@@ -571,6 +577,7 @@ export const ADMIN_FAMILIAS: NavFamilia[] = [
           // es UNA pieza de Customer Success. La ruta vieja redirige (ver
           // app/admin/dev/[area]/page.tsx), así que sigue matcheando.
           { key: 'dev-customer-success', label: 'Customer Success', href: '/admin/dev/customer-success', icon: 'cs', match: (p) => starts('/admin/dev/customer-success')(p) || starts('/admin/dev/cs-analyst')(p) },
+          { key: 'dev-auth-session', label: 'Auth & Session', href: '/admin/dev/auth-session', icon: 'config', match: starts('/admin/dev/auth-session') },
           { key: 'dev-build-deploy', label: 'Build & Deploy', href: '/admin/dev/build-deploy', icon: 'rayo', match: starts('/admin/dev/build-deploy') },
           // Va pegada a Build & Deploy y es su otra punta: aquélla es cómo llega
           // el código a producción, ésta es la máquina donde se escribe — el clon
@@ -614,6 +621,7 @@ export const ADMIN_FAMILIAS: NavFamilia[] = [
           { key: 'dev-vsl-generator', label: 'VSL Generator', href: '/admin/dev/vsl-generator', icon: 'video', match: starts('/admin/dev/vsl-generator') },
           // La copia de CapCut (11/10/2026): el pedido textual y las tandas del port.
           { key: 'dev-video-editor', label: 'Video Editor', href: '/admin/dev/video-editor', icon: 'tijera', match: starts('/admin/dev/video-editor') },
+          { key: 'dev-image-editor', label: 'Image Editor', href: '/admin/dev/image-editor', icon: 'imagegen', match: starts('/admin/dev/image-editor') },
           // El editor de landings copiado de Gamma (11/10/2026): su registro lleva el pedido literal
           // de Martín y lo que quedó sin hacer (app/admin/dev/landing-generator/bitacora.ts).
           { key: 'dev-landing-generator', label: 'Landing Generator', href: '/admin/dev/landing-generator', icon: 'web', match: starts('/admin/dev/landing-generator') },

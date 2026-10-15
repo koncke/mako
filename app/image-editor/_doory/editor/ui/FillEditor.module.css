@@ -1,0 +1,90 @@
+/* Relleno sólido o degradado, con los controles de Canva (segmentado, baldosas de 6 por fila, rótulos 14) */
+.editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cv-space-3);
+  align-items: stretch;
+  width: 264px;
+}
+
+.mode {
+  display: flex;
+  width: 100%;
+}
+
+.gradient {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cv-space-3);
+  width: 264px;
+}
+
+.label {
+  color: var(--cv-color-text);
+  font: 700 var(--cv-text-base) / 20px var(--cv-font-sans);
+}
+
+.presets {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: var(--cv-space-2);
+}
+
+.preset {
+  aspect-ratio: 1;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 6px; /* Canva: baldosa con esquinas redondeadas */
+  box-shadow: inset 0 0 0 1px rgb(57 70 96 / 0.14);
+  cursor: pointer;
+}
+.preset:hover {
+  box-shadow: inset 0 0 0 1px rgb(57 70 96 / 0.14), 0 0 0 2px var(--cv-color-surface), 0 0 0 4px rgb(57 70 96 / 0.2);
+}
+.preset:focus-visible {
+  outline: none;
+  box-shadow: var(--cv-focus-ring);
+}
+
+.bar {
+  position: relative;
+  height: 24px;
+  margin: 0 10px 4px;
+  border-radius: 99px;
+  box-shadow: inset 0 0 0 1px rgb(57 70 96 / 0.2);
+  cursor: copy;
+}
+
+.stop {
+  position: absolute;
+  top: 50%;
+  width: 20px;
+  height: 20px;
+  margin: -10px 0 0 -10px;
+  padding: 0;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.2), 0 1px 4px rgb(0 0 0 / 0.3);
+  cursor: grab;
+  touch-action: none;
+}
+.stop:active {
+  cursor: grabbing;
+}
+/* Canva: el color elegido del degradado lleva el aro violeta de selección */
+.stopOn {
+  box-shadow: 0 0 0 2px var(--cv-selection-color), 0 1px 4px rgb(0 0 0 / 0.3);
+  z-index: 1;
+}
+.stop:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--cv-selection-color), var(--cv-focus-ring);
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cv-space-2);
+}

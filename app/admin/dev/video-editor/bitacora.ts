@@ -167,4 +167,32 @@ export const BITACORA: Hito[] = [
       'app/video-editor/_opencut/avatar/ — la pestaña y la generación toma por toma',
     ],
   },
+  {
+    fecha: '15 oct', hora: '—', chat: 'Video Editor', cuenta: 'claude1', actor: 'martin', tipo: 'prompt',
+    titulo: 'Un chat al costado para editar con prompt, todo a la API de MaKo, y animaciones tipo Lottie',
+    pedido: 'Puedes pasarle esto al video editor y a landing generator. https://www.instagram.com/p/DeOxisYD6ap/?img_index=8&psln=MWZpZ29heDVicXI5Yg== Es para crear animaciones... Y en ese caso son tipo Lottie, muy utilizado en landing. Pero puede investigar otras skills o investigar otras animaciones... Y es importante que video editor tenga, como landing, un chat al costado donde pueda ir editando todo con prompt. Ambos, tienen que pasarle absolutamente todos los botones. Todas las funciones a la API de MaKo.',
+    puntos: [
+      'Llegó por «Estrategia 3 cuentas». El modelo del chat lo decidió ese chat: el mismo del Landing, gratis y sin Claude.',
+      'La API espera una decisión: los proyectos viven en el navegador y la API corre en el servidor (Ticketera, «video-proyecto-donde-vive»).',
+    ],
+  },
+  {
+    fecha: '15 oct', hora: '00:47', chat: 'Video Editor', cuenta: 'claude1', actor: 'claude', tipo: 'implementacion',
+    titulo: '«Editar con IA»: el chat del Landing, al costado del editor',
+    puntos: [
+      'Un botón en la barra de arriba abre una columna a la derecha; los cuatro paneles de CapCut sólo se angostan.',
+      'Se pide en el chat y MaKo propone: la revisión muestra «Original | Modificado», y se acepta o se descarta entero. Aceptar guarda primero; «Restaurar» lo deshace.',
+      'Por ahora sabe agregar y cambiar textos, borrar, mover, alargar, cortar, cambiar el volumen, silenciar y ocultar. Sobre todo el video o sobre lo elegido.',
+      'Corre con el Gemini del cliente y nunca paga. Lo que cuesta plata (Avatar de IA, Texto a voz) no lo puede pedir.',
+      'No se miró en un navegador: la ventana de Chrome estaba oculta.',
+    ],
+    commits: [
+      { sha: '901786601', msg: 'Video Editor: el chat «Editar con IA» al costado, copiado del Landing', lineas: 1752, archivos: 13 },
+    ],
+    archivos: [
+      'lib/editor-video/chat-catalogo.ts — lo que el chat puede pedir y su validación',
+      'lib/editor-video/ia.ts + app/api/video-editor/ia/route.ts — la llamada a la IA',
+      'app/video-editor/_opencut/chat/ — la vista para la IA, la revisión, aplicar y el panel',
+    ],
+  },
 ];

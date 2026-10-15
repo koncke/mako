@@ -24,10 +24,13 @@
 //     vista): el recorrido no saltea comentarios — la persona tiene que poder leerlos todos;
 //   · el Escape lo contesta sólo él (`esElDeArriba` + `stopImmediatePropagation`: los Escape de la casa
 //     viven todos en `document` y en captura, y el panel de atrás también escucha);
-//   · las flechas del teclado pasan de comentario.
+//   · las flechas del teclado pasan de comentario;
+//   · (tanda 6, decisión c de Martín) cada paso puede llevar sus ACCIONES («Aplicar», «Preguntar a MaKo»):
+//     las dibuja el panel (`acciones`), en un renglón propio arriba de «Anterior | Siguiente». El recorrido
+//     no sabe qué hacen: el panel decide si después cierra o pasa al siguiente (`onCerrar`, `siguiente`).
 // =============================================================================
 
-import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useCapaModal } from '@/app/_components/pila-modales';
 import { Button } from '@/app/_ui/Button';
@@ -52,7 +55,10 @@ function ventana() {
   return { ancho: d.clientWidth || window.innerWidth, alto: d.clientHeight || window.innerHeight };
 }
 
-export function RecorridoDiagnostico({ pasos, abierto, desde = 0, ir, caja, senal, onPaso, onCerrar }: {
+/** Lo que el panel le da a las acciones de un paso: pasar al siguiente (o terminar, si es el último) y cerrar. */
+export type ControlPaso = { siguiente: () => void; cerrar: () => void };
+
+export function RecorridoDiagnostico({ pasos, abierto, desde = 0, ir, caja, senal, onPaso, onCerrar, acciones }: {
   pasos: PasoDiagnostico[];
   abierto: boolean;
   /** El índice del paso por el que arranca al abrirse («Ver» de un comentario de la lista). */
@@ -65,6 +71,8 @@ export function RecorridoDiagnostico({ pasos, abierto, desde = 0, ir, caja, sena
   senal: EventTarget;
   onPaso?: (id: number) => void;
   onCerrar: (motivo: MotivoCierreDiagnostico) => void;
+  /** Los botones propios de un paso (tanda 6: «Aplicar», «Preguntar a MaKo»), o null. */
+  acciones?: (id: number, control: ControlPaso) => ReactNode;
 }) {
   const [indice, setIndice] = useState(0);
   const [geo, setGeo] = useState<Geometria | null>(null);
@@ -204,6 +212,7 @@ export function RecorridoDiagnostico({ pasos, abierto, desde = 0, ir, caja, sena
     ? (t.lado === 'abajo' || t.lado === 'arriba' ? { left: t.flecha - 6 } : { top: t.flecha - 6 })
     : null;
   const esUltimo = i >= total - 1;
+  const propias = acciones ? acciones(paso.id, { siguiente, cerrar: () => onCerrarRef.current('omitido') }) : null;
 
   return createPortal(
     <div className="gdg-rec" style={{ zIndex: z, display: capa.visible ? 'block' : 'none' }}>
@@ -234,6 +243,7 @@ export function RecorridoDiagnostico({ pasos, abierto, desde = 0, ir, caja, sena
           <h2 id={tituloId} className="gdg-rec__tit">{paso.titulo}</h2>
           <p id={textoId} className="gdg-rec__txt">{paso.texto}</p>
         </div>
+        {propias && <div className="gdg-rec__acciones">{propias}</div>}
         <div className="gdg-rec__pie">
           {!esUltimo && <Button variant="tertiary" size="sm" onClick={() => onCerrarRef.current('omitido')}>Saltar</Button>}
           <span className="gdg-rec__aire" />
@@ -265,6 +275,7 @@ const CSS_RECORRIDO = `
 .gdg-rec__sev[data-sev="media"] { background: var(--warn-bg); color: var(--warn); }
 .gdg-rec__tit { margin: 0; font-size: var(--fs-card); font-weight: 650; line-height: 1.3; color: var(--ink); }
 .gdg-rec__txt { margin: 6px 0 0; font-size: var(--fs-sm); line-height: 1.5; color: var(--dim); }
+.gdg-rec__acciones { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; }
 .gdg-rec__pie { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 14px; }
 .gdg-rec__aire { flex: 1 1 auto; }
 .gdg-rec__flecha { position: absolute; width: 12px; height: 12px; background: var(--surface); border: 0 solid var(--border); transform: rotate(45deg); }

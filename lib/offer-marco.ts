@@ -254,6 +254,18 @@ export type CalculoDiagnostico = {
   controlFinal?: PuntoControlFinal[];
 };
 
+/**
+ * Los avisos guardados que se pueden MOSTRAR: ninguno que afirme un porcentaje arriba de 100. Las versiones
+ * guardadas antes del 14/10/2026 pueden traer «Cierras el 170% de las llamadas calificadas» (los calificados
+ * eran un piso; lo arregla `cierreConfiable`, lib/offer-reglas.ts), y el PDF, la pantalla y la API de MaKo
+ * leen lo guardado. Lo usan los tres; un lector nuevo de `calculo.alertas` también.
+ */
+export function avisosAfirmables(alertas: readonly unknown[] | null | undefined): string[] {
+  return (alertas ?? [])
+    .filter((a): a is string => typeof a === 'string' && a.trim() !== '')
+    .filter((a) => ![...a.matchAll(/(\d+(?:[.,]\d+)?)\s*%/g)].some((m) => Number(m[1].replace(',', '.')) > 100));
+}
+
 export type PuntoControl = 'dolor' | 'resultado' | 'entregables' | 'garantia' | 'precio';
 export type PuntoControlFinal = { punto: PuntoControl; ok: boolean; porque: string };
 

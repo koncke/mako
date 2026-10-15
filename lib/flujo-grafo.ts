@@ -979,6 +979,9 @@ export function normalizar<P extends PasoGrafo>(pasos: readonly P[]): P[] {
     par = par.filter((d) => d !== out.siguiente);
     if (par.length) out.paralelos = par;
     else delete out.paralelos;
+    // «Si contesta» por camino del CRON (14/10/2026, a la mañana) se fue esa misma tarde: lo dice la CONDITION «No
+    // contestó desde que entró» (`contesto`, lib/condiciones-catalogo.ts). La clave vieja se borra al normalizar.
+    delete (out as Record<string, unknown>).si_contesta;
     if (c === 'condicion') {
       out.ramas = (p.ramas ?? []).map((r, k) => {
         // Las flechas en paralelo de cada resultado (cuarta tanda, punto 8), con la misma limpieza
@@ -1518,6 +1521,13 @@ export type HechosLead = {
   pago: boolean;
   yaContactado: boolean;
   respondio: boolean;
+  /**
+   * ¿El lead CONTESTÓ desde que entró a ESTA automatización? (La condición «No contestó desde que entró», `contesto`:
+   * lo que era la pausa escondida del motor, 14/10/2026.) NO es un dato del lead: es de la inscripción, y lo pone quien
+   * evalúa —el motor con el estado de la fila ('respondio'), «Probar» con lo que se escribió en el chat—. Ausente = no
+   * se sabe, y la condición da «no sé».
+   */
+  contestoEnEsta?: boolean | null;
   creadoMs: number | null;
   tieneTelefono: boolean;
   tieneEmail: boolean;

@@ -679,7 +679,7 @@ export const ACCIONES_ESTADO_CHAT: readonly AccionEstadoChat[] = ['cerrar', 'rea
 
 /** Hasta cuándo se puede posponer: un año (respond.io ofrece hasta «Próxima semana» y una fecha elegida). */
 export const POSPONER_MAX_MS = 366 * 24 * 3600_000;
-/** El tope de la nota de cierre (el mismo `check` de la mig 0275). */
+/** El tope de la nota de cierre (el mismo `check` de la mig 0284). */
 export const TOPE_NOTA_CIERRE = 2000;
 
 const EVENTO_DE: Record<AccionEstadoChat, TipoEventoChat> = { cerrar: 'cerrada', reabrir: 'reabierta', posponer: 'pospuesta', reanudar: 'reanudada' };
@@ -688,7 +688,7 @@ const EVENTO_DE: Record<AccionEstadoChat, TipoEventoChat> = { cerrar: 'cerrada',
  * Cerrar, reabrir, posponer o reanudar una conversación: escribe `chat_estado` y deja el evento en
  * `chat_eventos` con el NOMBRE de quien lo hizo. Tira con un motivo corto si algo no va (la ruta lo devuelve).
  *
- * Una pospuesta se guarda como 'abierta' + `pospuesta_hasta` (la mig 0275): cerrar la des-pospone, y posponer
+ * Una pospuesta se guarda como 'abierta' + `pospuesta_hasta` (la mig 0284): cerrar la des-pospone, y posponer
  * una cerrada la abre. El estado que se ve lo calcula `estadoEfectivo` al leer.
  */
 export async function cambiarEstadoChat(
@@ -734,7 +734,7 @@ export async function cambiarEstadoChat(
 
 /**
  * «Leí esta conversación»: la marca de ESTA persona, en el servidor (`chat_leidos`). Una sesión sin fila en
- * `usuarios` (dev, legacy) no marca: no hay a quién atarla (la FK de la mig 0275).
+ * `usuarios` (dev, legacy) no marca: no hay a quién atarla (la FK de la mig 0284).
  */
 export async function marcarChatLeido(clave: string, usuarioId: number): Promise<void> {
   if (!parsearClave(clave)) throw new Error('Conversación inválida.');

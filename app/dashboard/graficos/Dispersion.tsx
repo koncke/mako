@@ -17,11 +17,17 @@
 //     orden de la leyenda, el fijo de la dimensión (`Dimension.valores`).
 //   · Un punto sin X o sin Y NO se dibuja en (0, 0): los proyectos sin evaluar caían ahí.
 //   · Sin etiquetas en los puntos (se pisarían): el nombre sale al pasar el cursor, y el clic abre el detalle.
+//   · EL NOMBRE DE CADA EJE, en HTML: el de Y arriba a la izquierda y el de X abajo a la derecha (con burbujas, a la
+//     izquierda, qué mide el tamaño). Sin ellos, «Hook rate y Retención al llamado» no decía cuál era cuál.
+//   · Con ejes automáticos, aire en las puntas y marcas REDONDAS (`ejeLindo`, ./eje-lindo.ts): una burbuja grande en
+//     el mínimo o el máximo tapaba la marca del eje y se cortaba contra el borde, y con el dominio corrido a mano
+//     recharts dejaba de redondear («14%, 19%, 24%, 29%, 32%»). Un eje fijo (`g.ejes`) manda igual que antes.
 
 import { ReferenceLine, Scatter, ScatterChart, Tooltip, XAxis, YAxis, ZAxis, usePlotArea } from 'recharts';
 import { fmtValor, type Resultado } from '@/lib/graficos-agregar';
 import { anchoEjeY, LETRA, MARGEN, ORDEN_ROTULOS } from '@/lib/graficos-gordo';
 import { AreaMedida } from './medida';
+import { ejeLindo } from './eje-lindo';
 import { extraDe } from './Tabla';
 
 type Punto = { clave: string; etiqueta: string; x: number; y: number; z: number; cat: string };
@@ -74,10 +80,14 @@ export function Dispersion({ r, idGrafico, burbujas, ejes, referencias, colorPor
     ? [...(ordenCategorias ?? []).filter((c) => vistas.includes(c)), ...vistas.filter((c) => !(ordenCategorias ?? []).includes(c))]
     : [''];
   const grupos = cats.map((cat, i) => ({ cat, color: cat ? colorDeCategoria(cat, i) : color, puntos: puntos.filter((p) => (cats.length === 1 ? true : p.cat === cat)) })).filter((g) => g.puntos.length);
-  const dominio = (min?: number, max?: number): [number | 'auto', number | 'auto'] => [fin(min) ? min : 'auto', fin(max) ? max : 'auto'];
+  // Un eje fijo (con mínimo Y máximo) manda; uno automático sale de ejeLindo, contando también las referencias (una
+  // línea fuera del dominio lo estiraría y las marcas dejarían de ser redondas).
+  const aire = burbujas ? 0.14 : 0.08;
+  const autoX = ejeLindo([...puntos.map((p) => p.x), ...[referencias?.x, ejes?.xMin, ejes?.xMax].filter(fin)], 4, aire, puntos.every((p) => p.x >= 0));
+  const autoY = ejeLindo([...puntos.map((p) => p.y), ...[referencias?.y, ejes?.yMin, ejes?.yMax].filter(fin)], 2, aire, puntos.every((p) => p.y >= 0));
   const fijoX = fin(ejes?.xMin) && fin(ejes?.xMax);
   const fijoY = fin(ejes?.yMin) && fin(ejes?.yMax);
-  const textosY = [ejes?.yMax, ejes?.yMin, ...puntos.map((p) => p.y)].filter(fin).map((v) => fmtValor(v, cy.formato, true));
+  const textosY = (fijoY ? [ejes!.yMax, ejes!.yMin, ...puntos.map((p) => p.y)] : autoY.marcas).filter(fin).map((v) => fmtValor(v, cy.formato, true));
   const conRotulos = fin(referencias?.x) && fin(referencias?.y) && !!referencias?.rotulos?.some(Boolean);
   const clic = alGrupo ? (p: unknown) => {
     const o = p as { payload?: { clave?: unknown }; clave?: unknown } | null;
@@ -104,16 +114,19 @@ export function Dispersion({ r, idGrafico, burbujas, ejes, referencias, colorPor
           {grupos.map((gq) => <span key={gq.cat}><span className="gr-punto" style={{ background: gq.color }} />{gq.cat}</span>)}
         </div>
       )}
+      <div className="gr-disp-y" title={cy.nombre}>{cy.nombre}</div>
       <AreaMedida minAlto={80}>
         {(tam) => {
           const conEjes = tam.h >= 120;
           return (
             <ScatterChart width={tam.w} height={tam.h} margin={{ ...MARGEN, top: 12, bottom: conEjes ? 4 : 0 }}>
-              <XAxis type="number" dataKey="x" name={cx.nombre} domain={dominio(ejes?.xMin, ejes?.xMax)} allowDataOverflow={fijoX}
-                tick={{ fontSize: LETRA.tick, style: { fill: 'var(--dim)' } }} tickFormatter={(v: number) => fmtValor(v, cx.formato, true)} tickCount={5}
+              <XAxis type="number" dataKey="x" name={cx.nombre} domain={fijoX ? [ejes!.xMin!, ejes!.xMax!] : autoX.dominio} allowDataOverflow={fijoX}
+                tick={{ fontSize: LETRA.tick, style: { fill: 'var(--dim)' } }} tickFormatter={(v: number) => fmtValor(v, cx.formato, true)}
+                {...(fijoX ? { tickCount: 5 } : { ticks: autoX.marcas })} tickMargin={10}
                 axisLine={false} tickLine={false} hide={!conEjes} />
-              <YAxis type="number" dataKey="y" name={cy.nombre} domain={dominio(ejes?.yMin, ejes?.yMax)} allowDataOverflow={fijoY}
-                tick={{ fontSize: LETRA.tick, style: { fill: 'var(--dim)' } }} tickFormatter={(v: number) => fmtValor(v, cy.formato, true)} tickCount={3}
+              <YAxis type="number" dataKey="y" name={cy.nombre} domain={fijoY ? [ejes!.yMin!, ejes!.yMax!] : autoY.dominio} allowDataOverflow={fijoY}
+                tick={{ fontSize: LETRA.tick, style: { fill: 'var(--dim)' } }} tickFormatter={(v: number) => fmtValor(v, cy.formato, true)}
+                {...(fijoY ? { tickCount: 3 } : { ticks: autoY.marcas })}
                 width={anchoEjeY(textosY)} axisLine={false} tickLine={false} hide={!conEjes} />
               <ZAxis type="number" dataKey="z" range={burbujas ? [80, 1400] : [140, 140]} name={cz?.nombre} />
               {fin(referencias?.x) && <ReferenceLine x={referencias!.x} stroke="var(--border-strong)" strokeWidth={1.5} strokeDasharray="6 5" ifOverflow="extendDomain" />}
@@ -128,6 +141,10 @@ export function Dispersion({ r, idGrafico, burbujas, ejes, referencias, colorPor
           );
         }}
       </AreaMedida>
+      <div className="gr-disp-x">
+        {burbujas && cz && <span title={`El tamaño es ${cz.nombre}`}>Tamaño: {cz.nombre}</span>}
+        <span title={cx.nombre}>{cx.nombre}</span>
+      </div>
     </>
   );
 }

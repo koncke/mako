@@ -50,6 +50,12 @@ export const ROUTING_CREDS: Record<string, string> = {
   // Connect, no trae `account`; el de Mercado Pago viene como `user_id` en el cuerpo.
   STRIPE_ACCOUNT_ID: 'stripe',
   MERCADOPAGO_USER_ID: 'mercadopago',
+  // Las fuentes que avisan del Leads Scraper (14/10/2026, docs/diseno-leads-scraper.md). Hotmart y
+  // Skool (por Zapier) no traen ningún identificador público de la cuenta: sólo un SECRETO (el
+  // `hottok`, la clave que inventa el negocio). La fila guarda su HASH, nunca el valor
+  // (`identificadorDeRuteo`, lib/ruteo-hash.ts), y el webhook compara el header contra la credencial.
+  HOTMART_HOTTOK: 'hotmart',
+  SKOOL_WEBHOOK_CLAVE: 'skool',
   // 'zernio' NO va acá a propósito: su única credencial era la API key (secreta —
   // un secreto jamás se espeja en claro a webhook_routing) y el identificador de
   // ruteo era el profileId, que acuñaba el server. Desde el 06/10/2026 Instagram

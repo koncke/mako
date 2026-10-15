@@ -1,0 +1,62 @@
+/* La vista de cuadrícula: tapa el área del lienzo con el mismo gris del cromo (Canva 2025–26). */
+.grid {
+  position: absolute;
+  inset: 0;
+  z-index: 8;
+  overflow: auto;
+  overscroll-behavior: contain;
+  background: var(--cv-color-canvas-workspace);
+  scrollbar-width: thin;
+  scrollbar-color: var(--cv-color-border-strong) transparent;
+  animation: grid-in var(--cv-duration-base) var(--cv-ease-out);
+}
+
+.list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, 200px);
+  justify-content: center;
+  align-items: start;
+  gap: var(--cv-space-8) var(--cv-space-6);
+  margin: 0;
+  padding: var(--cv-space-8) var(--cv-space-6) var(--cv-space-12);
+  list-style: none;
+}
+
+.cell {
+  display: flex;
+  justify-content: center;
+}
+
+/* La baldosa «+» ocupa la misma caja de 150 px de alto que los mosaicos. */
+.addFrame {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 200px;
+  height: 150px;
+}
+
+.add {
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: var(--cv-radius-sm);
+  background: var(--cv-color-border); /* Canva: neutro normal #39466024 */
+  color: var(--cv-color-text);
+  cursor: pointer;
+  transition: background var(--cv-duration-fast) var(--cv-ease-out);
+}
+.add:hover {
+  background: var(--cv-color-border-strong);
+}
+.add:focus-visible {
+  outline: 2px solid #3d8bff; /* Canva: borde de foco de teclado */
+  outline-offset: 2px;
+}
+
+@keyframes grid-in {
+  from {
+    opacity: 0;
+  }
+}

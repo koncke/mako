@@ -1,0 +1,250 @@
+/* Buscador de Canva: caja de 40 px, radio 8, borde gris fuerte, foco violeta (relevamiento §1.2 «Campo»). */
+.search {
+  position: relative;
+  display: flex;
+  flex: none;
+  align-items: center;
+  height: 40px;
+  padding: 0 10px 0 40px;
+  border: 1px solid var(--cv-color-border-strong);
+  border-radius: var(--cv-radius-sm);
+  background: var(--cv-color-surface);
+  transition:
+    border-color var(--ed-dur) var(--ed-ease),
+    box-shadow var(--ed-dur) var(--ed-ease);
+}
+.search:hover {
+  border-color: rgb(28 33 48 / 0.5); /* Canva: borde de campo al pasar */
+}
+.search:focus-within {
+  border-color: var(--cv-color-brand);
+  box-shadow: 0 0 0 1px var(--cv-color-brand);
+}
+.searchIcon {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  display: flex;
+  color: var(--ed-text-dim);
+  transform: translateY(-50%);
+}
+.search input {
+  flex: 1;
+  height: 100%;
+  min-width: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--ed-text);
+  font: 400 var(--cv-text-base) / 1 var(--cv-font-sans);
+}
+.search input:focus {
+  outline: none;
+}
+.search input::placeholder {
+  color: var(--ed-text-dim);
+}
+.clear {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--ed-surface-3);
+  color: var(--ed-text-dim);
+  cursor: pointer;
+}
+.clear:hover {
+  background: var(--ed-border);
+  color: var(--ed-text);
+}
+.clear:focus-visible {
+  outline: none;
+  box-shadow: var(--cv-focus-ring);
+}
+
+.category {
+  position: relative;
+  flex: none;
+}
+.categoryBtn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--cv-color-border-strong);
+  border-radius: var(--cv-radius-sm);
+  background: var(--ed-surface);
+  color: var(--ed-text);
+  font: 500 var(--cv-text-base) / 1 var(--cv-font-sans);
+  cursor: pointer;
+  transition:
+    border-color var(--ed-dur) var(--ed-ease),
+    background var(--ed-dur) var(--ed-ease);
+}
+.categoryBtn:hover:not(:disabled) {
+  border-color: var(--ed-text-dim);
+}
+.categoryBtn:focus-visible,
+.categoryBtn.open {
+  outline: none;
+  border-color: var(--cv-color-brand);
+  box-shadow: 0 0 0 1px var(--cv-color-brand);
+}
+.categoryBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.categoryBtn svg {
+  color: var(--ed-text-dim);
+  transition: transform var(--ed-dur) var(--ed-ease);
+}
+.categoryBtn.open svg {
+  transform: rotate(180deg);
+}
+.menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 6;
+  max-height: 280px;
+  margin: 0;
+  padding: 6px;
+  overflow-y: auto;
+  list-style: none;
+  border: none;
+  border-radius: var(--cv-radius-lg);
+  background: var(--cv-color-surface);
+  box-shadow: var(--cv-shadow-lg); /* Canva: superficie flotante (menús) */
+  animation: menu-in 0.14s var(--ed-ease);
+}
+.menu li {
+  margin: 0;
+}
+.group {
+  padding: 8px 12px 4px;
+  color: var(--cv-color-text-muted);
+  font: 600 var(--cv-text-sm) / 18px var(--cv-font-sans); /* Canva titleXxSmall */
+}
+.menu button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 8px 12px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ed-text);
+  font: 400 var(--cv-text-base) / 22px var(--cv-font-sans);
+  text-align: left;
+  cursor: pointer;
+}
+.menu button:hover,
+.menu button:focus-visible {
+  outline: none;
+  background: var(--ed-surface-2);
+}
+.menu button.active {
+  background: var(--ed-accent-glow);
+  font-weight: 600;
+}
+.count {
+  color: var(--ed-text-dim);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+.menu button.active .count {
+  color: var(--ed-accent-hover);
+}
+
+/* La grilla larga scrollea sola (buscador y categorías quedan arriba); llega hasta el borde de la tarjeta. */
+.gridWrap {
+  flex: 1;
+  min-height: 0;
+  margin: 0 -16px -16px;
+  padding: 0 16px 16px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--cv-color-border-strong) transparent;
+}
+/* Vista previa de una sección de «Elementos»: una fila, sin scroll propio. */
+.previewWrap {
+  flex: none;
+}
+.row {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+.grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  padding-top: 4px;
+}
+.cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 1 / 1;
+  padding: 8px;
+  border: none;
+  border-radius: var(--cv-radius-sm);
+  background: transparent;
+  cursor: pointer;
+  transition: background var(--ed-dur) var(--ed-ease);
+}
+/* Canva: los elementos no tienen tarjeta; al pasar, un gris apenas. */
+.cell:hover {
+  background: var(--cv-color-bg-muted);
+}
+.cell:active {
+  background: rgb(57 70 96 / 0.14);
+}
+.cell:focus-visible {
+  outline: none;
+  box-shadow: var(--cv-focus-ring);
+}
+.cell img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+}
+.skel {
+  aspect-ratio: 1 / 1;
+  border-radius: var(--cv-radius-sm);
+}
+.state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 30px 16px;
+  color: var(--ed-text-dim);
+  font: 400 12px / 1.5 var(--cv-font-sans);
+  text-align: center;
+}
+.sentinel {
+  height: 1px;
+}
+
+@keyframes menu-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(-4px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .menu {
+    animation: none;
+  }
+}

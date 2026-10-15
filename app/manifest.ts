@@ -57,7 +57,7 @@ export default function manifest(): MetadataRoute.Manifest {
     // Con LAS MISMAS RUTAS (13/10/2026) los atajos son las URLs de escritorio: el proxy le sirve la
     // versión del teléfono a un teléfono (lib/movil-rutas.ts → `rutaEscritorio`).
     shortcuts: [
-      { name: 'Today', url: '/general', icons: [{ src: '/icon-192.png', sizes: '192x192', type: 'image/png' }] },
+      { name: 'General', url: '/general', icons: [{ src: '/icon-192.png', sizes: '192x192', type: 'image/png' }] },
       { name: 'Inbox', url: '/mako/pendientes', icons: [{ src: '/icon-192.png', sizes: '192x192', type: 'image/png' }] },
       { name: 'CRM', url: '/crm', icons: [{ src: '/icon-192.png', sizes: '192x192', type: 'image/png' }] },
     ],

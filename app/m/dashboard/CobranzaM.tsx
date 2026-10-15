@@ -13,12 +13,12 @@
 // ⚠️ LA FECHA DE PAGO ES HOY EN LA ZONA DEL NEGOCIO, calculada AL TOCAR (la decisión de escritorio:
 //    con el vencimiento, el cobro caía en un período pasado y el Cash de éste no se movía).
 // La fila se va al tocar (optimista) y vuelve si falla; el toast trae «Deshacer» (desmarca la
-// cuota). Después, `router.refresh()`: Revenue, Outstanding y esta lista cambian juntos, y el
-// cliente vuelve a aparecer si le queda otra cuota.
+// cuota). Revenue, Outstanding y esta lista cambian juntos con la respuesta de la action (que
+// revalida /dashboard: no hace falta un router.refresh(), que era un segundo render en serie), y
+// el cliente vuelve a aparecer si le queda otra cuota.
 // =============================================================================
 
 import { useRef, useState, useTransition } from 'react';
-import { useRouter } from '@/app/_ui/Link';
 import { Button } from '@/app/_ui/Button';
 import { FilaM, ListaM, SeccionM, VacioM, ErrorM, useConexion, useToastM } from '@/app/m/_ui';
 import { marcarPagoAction } from '@/app/crm/actions';
@@ -38,7 +38,6 @@ export function CobranzaM({ filas, tz, error, fichaLead }: {
 }) {
   const toast = useToastM();
   const { enLinea } = useConexion();
-  const router = useRouter();
   const [, empezar] = useTransition();
   const [ocultas, setOcultas] = useState<ReadonlySet<number>>(new Set());
   const [marcando, setMarcando] = useState<number | null>(null);
@@ -57,8 +56,8 @@ export function CobranzaM({ filas, tz, error, fichaLead }: {
     ocultar(f.pagoId, false);
     empezar(async () => {
       try {
+        // marcarPagoAction revalida /dashboard: su respuesta ya trae Revenue y la lista frescos.
         await marcarPagoAction(f.pagoId, f.leadId, false, null);
-        router.refresh();
       } catch (e) {
         console.error('[m/dashboard] deshacer cobro:', e instanceof Error ? e.message : String(e));
         haptico('error');
@@ -77,7 +76,6 @@ export function CobranzaM({ filas, tz, error, fichaLead }: {
       ocultar(f.pagoId, true);
       haptico('success');
       toast('Cuota cobrada', { deshacer: () => deshacer(f) });
-      empezar(() => router.refresh());
     } catch (e) {
       console.error('[m/dashboard] marcar cobro:', e instanceof Error ? e.message : String(e));
       haptico('error');

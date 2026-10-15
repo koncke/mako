@@ -43,3 +43,236 @@ Pendiente (con su archivo):
 2. El botón de pago no arma el link desde la pasarela de MaKo (`lib/cobros.ts`, `crearCobro`): hoy se pega el link de Stripe o Mercado Pago.
 3. Tres tests rojos en main que NO son de esta área (medido 14:57 UTC): `tests/mover-etapa-validacion.test.ts` (CRM), `tests/plan-filtro-cliente.test.ts` y `tests/plan-proyectos-catalogo.test.ts` (Plan / nav.ts).
 4. Lo de la tanda 2 sigue igual (token de Vercel en producción, `/l/html` en dominio aparte, parche de la extensión para imágenes con Flow).
+
+## Tanda 4 (13-14/10/2026, cuenta claude2) — integrada con la 5
+
+Pedido de Martín (13/10, por el chat «Estrategia 3 cuentas»): «En la cuenta 3 quedaron muchos pendientes que frenamos
+porque estabamos llegando al limite semanal, dile a esos chats que continuen y cierren lo que ya habiamos planificado».
+
+**Decisiones de Martín (14/10, no se re-preguntan):**
+- El botón de pago de una landing pide **nombre y email** antes del checkout (crearCobro exige un lead; así el pago entra
+  al CRM a su nombre).
+- «Dominios» usa **el token de Vercel de Mauricio que está en `.env.local`** (`VERCEL_API_TOKEN` + `VERCEL_TEAM_SLUG`).
+- El HTML con JavaScript de los clientes sale desde **makodigital.app** («el otro dominio que tengo en pork»; ya está en el
+  proyecto de Vercel). Si la landing tiene dominio propio, sale desde ese. Las landings siguen en hola-mako.com/l/<slug>.
+  Preguntó: «no entiendo lo del login, porque desde landing generator no deberían poder crear logins» → el bloque «HTML
+  personalizado» y «Replicar» permiten pegar o copiar cualquier página; el freno `pideContrasena` se esquiva armando el
+  campo por JavaScript.
+- Medir las imágenes por Flow en ws3: **«Ahora no, más tarde»** (hay que pasar la extensión de su Chrome de Windows,
+  hoy en ws10 Leandro Tejado, al ws3). No empezar sin volver a preguntar.
+
+**Hecho:**
+- `npx next typegen` en el clon (13/10 18:51 AR): `.next/types/validator.ts` ya no nombra `app/api/landing-writer/route.ts`.
+- `VERCEL_API_TOKEN` y `VERCEL_TEAM_SLUG` cargadas en producción por la API de Vercel (14/10, `target: production`,
+  encrypted). Entran con el próximo deploy de producción.
+
+**Cerrado el 14/10 a pedido de Martín («que se pushee todo y que los chats cierren»): NO se escribió código.** Los
+agentes no llegaron a arrancar: la guardia de RAM los frenó toda la tanda (entre 1,1 y 2,4 GB libres, con 22 chats abiertos).
+`wt-gamma` (rama `gamma-editor`) quedó al día con origin/main y sin cambios; el worktree `C:/dev/wt-landing-dom` se borró.
+
+**Lo que falta, en este orden (todo sin empezar):**
+1. **Mirarlo con clics** en `/landing-generator?ws=3` (producción): la barra «＋ | ✨ | ▾» en una sección del medio y en la
+   última, el pop-up «¿De qué quieres crearla?» desde el Panel y desde la caja, el agente plegado y reabierto (✨ y Ctrl+E),
+   la tira de miniaturas con 6-9 secciones con imágenes (sin «ResizeObserver loop») y Presentar. Detalle de cada uno en la
+   Tanda 2 y la Tanda 3 de este archivo.
+2. **Botón de pago por la pasarela de MaKo.** Hoy el botón es un nodo `boton` con el link pegado
+   (`lib/editor-landing/catalogo-bloques.ts:121`, `disenos-landing.ts:76-110`, `app/landing-generator/editor/insertar.ts`).
+   Con lo decidido (nombre y email antes del checkout): una ruta pública bajo `/api/`, con su ruta exacta en
+   `lib/rutas-publicas.ts`. Lee la landing PUBLICADA, reusa el lead por `emailComparable` o lo crea por el camino del
+   opt-in (`app/api/track/optin`), y llama a `crearCobro` (`lib/cobros.ts`). Las siete reglas de «Integraciones»:
+   - sólo `productoId` sale de la landing; monto, moneda, montoUsd y altaCapa nunca salen del request;
+   - nunca `altaCapa` desde una landing;
+   - `cobroPendienteDelLead` no filtra por producto: comparar antes de reusar;
+   - ante LeadDuplicadoError, reusar el lead que ya existe;
+   - error genérico al visitante, y el real donde lo lea el dueño;
+   - tope por IP y por email;
+   - nada de server action ni de POST a `app/l/**`.
+3. **/l/html desde makodigital.app** (decidido). El origen va en UN lugar (junto a `lib/app-url.ts` o en
+   `lib/editor-landing/html-libre.ts`). En ese host sólo se sirve `/l/html/*`; el resto sigue con la mudanza 410 de
+   `proxy.ts` (`respuestaMudanza`). Se tocan el iframe de `especificacion.ts` y la CSP de `pagina-publica.ts`; con dominio
+   propio, como hoy. Van también las redirecciones de `next.config.ts` con `has: host` de MaKo y los estáticos en el dominio
+   del cliente (Tanda 2 → «Lo que quedó sin hacer»). ⚠️ Con el token de Vercel ya cargado, «Dominios» queda vivo en el
+   próximo deploy, y esos dos agujeros pasan a ser reales.
+4. **Imágenes por Flow**: medir en ws3 (proporción, costo, semilla, URL vencida) y recién ahí parchear la extensión. Martín
+   dijo «ahora no, más tarde»: preguntarle antes de pasar su extensión a ws3. El plan completo está en el scratchpad de la
+   sesión f3876a09 (`plan-flow-imagenes.md`) y resumido en `docs/hallazgos-editor-landing.md` → «Lo que quedó sin hacer».
+5. **Feedback de las reuniones del 13/10.** Está VALIDADO y es «de punta a punta». Fuente:
+   `C:/Users/marti/Downloads/mako-feedback-y-tareas.md`.
+   a. El importador por URL («Sales Machine») no extrae bien el texto de páginas externas (Fathom 858927676 @43:13).
+   b. Que el análisis de una landing interactúe con lo dinámico (desplegables, botones, calendarios) (858545195 @49:44).
+   c. Discutir el feedback del análisis con MaKo en el chat, y un botón «Aplicar cambios» (858545195 @50:27).
+   d. En «Replicar en el editor», un selector de formato antes de mandar al editor: presentación, landing o página web
+      (858545195 @59:48).
+   «De punta a punta» incluye el código, la capacidad en la API de MaKo si es nueva, tests probados rompiéndolos, mirarlo
+   en ws3, el pedido literal en la bitácora de /admin/dev, y el relevo y los hallazgos al cerrar.
+
+Coordinación: «Integraciones» es el dueño de `lib/cobros*` (no tocarlo). «CRM» tocó `app/api/track/optin/route.ts`
+(guarda `leads.optin_respuestas`, mig 0274) en su worktree.
+
+## Tanda 5 (14/10/2026, cuenta claude2) — integrada
+
+Pedido de Martín (14/10, textual): «Ya compré: hola-mako.site. Implementalo allí y termina todo lo pendiente» y «Menos el
+tema de las imagenes». Y a «¿Qué va en hola-mako.site?» eligió **«Las landings enteras, como gamma.site»**: lo publicado
+pasa a `hola-mako.site/<slug>`, la app sigue en hola-mako.com y una landing con dominio propio sigue en el suyo. (Esto
+reemplaza lo de makodigital.app de la tanda 4.)
+
+**Hecho (14/10):** hola-mako.site y www.hola-mako.site (308 al apex) agregados al proyecto `mako` de Vercel por la API, y el
+DNS en Porkbun por su API: se borraron los dos registros de estacionamiento (ALIAS @ y CNAME * a pixie.porkbun.com) y se
+crearon A @ → 216.150.1.1 y 216.150.16.1 y CNAME www → 2db067c06ef29ee8.vercel-dns-016.com (los valores que devolvió
+Vercel para ESTE dominio). El certificado lo saca Vercel solo.
+
+**Hecho (14/10, integrado en `C:/dev/wt-landing-int`, rama `landing-int`):** las cuatro ramas construidas, revisadas y
+corregidas por agentes, y juntas sobre origin/main:
+- **Pago** (`gamma-editor`): «Cobrar con MaKo» en el destino del botón, paso de NOMBRE y EMAIL en la publicada
+  (`app/l/[slug]/pagar/[bloque]`), POST público con candado por email y techo por landing (mig **0276, ya aplicada en
+  prod**), propuesta en /crm/revisar cuando no se puede cobrar. En un dominio propio el botón va a la base de MaKo.
+- **hola-mako.site** (`landing-dom`): lo publicado vive en `hola-mako.site/<slug>`; `/l/…` en la app es un 308; el proxy
+  decide por host (en hola-mako.site sólo GET/HEAD y el POST del pago con Origin del host); redirección abierta `/l//x`
+  cerrada; una landing declarada con la dirección de antes sigue siendo la misma (`urlLandingVigente` en landingDe,
+  paginaDeGracias y el Diagnóstico).
+- **API de MaKo** (`landing-api`): listar, leer, crear desde un diseño, publicar (pantalla) y despublicar; la dirección
+  es la de hola-mako.site (`urlPublicaLanding`).
+- **Diseños con video** (`landing-vsl`, pedido del 14/10: «que la mayoría de las plantillas sean con un VIDEO… tipo VSL
+  Funnel»): 8 de 9 con VSL en el inicio, «MaKo» primero (tema propio, video al costado); miniaturas con ▶; Publicar avisa
+  «Falta el enlace del video». Y la barra de la agencia ya no tapa el editor.
+- Verificación con clics en el Chrome de Martín (ws9, ws3 lleva al onboarding): 6/6 ok. Dejó en la Papelera de ws9 las
+  landings 18, 19 y 20 (borrarlas para siempre lo hace Martín) y una foto en el bucket.
+- Lo que se aprendió está en `docs/hallazgos-editor-landing.md` (las tres secciones «Tanda 4» y «Diseños con video»).
+
+**Push:** desde `C:/dev/wt-landing-int` con `git push origin HEAD:main` (el pre-push espera 5,3 GB libres para el
+typecheck). Si quedó sin pushear, es lo PRIMERO: `cd C:/dev/wt-landing-int && git log --oneline origin/main..HEAD`, y
+después `vercel ls` + abrir https://hola-mako.site/<slug de una landing publicada> y https://hola-mako.site/l//evil.com
+(tiene que dar el 404 de hola-mako.site). Después borrar los worktrees `C:/dev/wt-landing-{int,vsl,dom,api}` y
+`../wt-gamma` (junction con `cmd /c rmdir` ANTES de `git worktree remove`).
+
+## Tanda 6 — lo que sigue: el feedback de las reuniones, con las decisiones de Martín (14/10)
+
+Fuente de los pedidos: `C:/Users/marti/Downloads/mako-feedback-y-tareas.md` (Fathom 858927676 @43:13 y 858545195
+@49:44, @50:27, @59:48). Decisiones que NO se vuelven a preguntar:
+- **(b) Leer la landing «como un visitante»** (abrir desplegables, anotar a dónde lleva cada botón SIN seguirlo, ver si
+  el calendario carga SIN reservar): «Haz ambas opciones disponibles, si detecta que tenes el pixel instalado, que lo
+  haga desde allí y sino desde la ventana emergente». Con el **Pixel**: el Diagnóstico abre la landing en una pestaña al
+  lado con un id de lectura (como `prueba` de «Probar»), el Pixel servido por `/m.js` (siempre la versión actual) corre
+  el lector y manda la lectura a MaKo; quien tiene el snippet largo viejo no lo trae. **Sin Pixel**: una VENTANA
+  EMERGENTE con la página servida por MaKo (la ruta del Diagnóstico, `app/api/landing-generator/diagnostico/pagina`) con
+  el lector inyectado, que le contesta a `window.opener`. Y: **«previo a abrir la página, es muy importante que si el
+  usuario no tiene la opción de "habilitar ventanas emergentes" de Chrome, no continue, no abra la página, sino que
+  indique dentro de MaKo que lo tiene que habilitar. Me imagino como el mensaje que tenemos en Video Generator que es una
+  flecha apuntando arriba con el mensaje. Esto para ambos, para esto y para el pixel»** — o sea también para «Probar»
+  del Pixel. Técnica: abrir la ventana EN el clic (`window.open('about:blank')` sincrónico); si vuelve null, no se abre
+  nada y se muestra el aviso con la flecha; si abrió, recién ahí se navega. Nada de Chrome en el servidor ni pago. Lo que
+  corre sin persona (el cron y `analizar_landing`) sigue con el extractor del punto (a).
+- **(c) «Aplicar»** de cada comentario del Diagnóstico = un clic, con la versión guardada antes y «Deshacer»; más
+  «Aplicar todos» (de a una sección, un solo Deshacer) y «Preguntar a MaKo» (MakoChat al costado con el comentario). En
+  una landing externa, «Aplicar» lleva a replicar primero y los comentarios pasan a la copia.
+- **(d) «Replicar en el editor»** pregunta 3 formatos: Presentación = diapositivas, Landing = secciones editables,
+  Página web = la copia idéntica de hoy. Al replicar como landing se COPIA el estilo (colores y fuentes leídos en el
+  navegador → tema propio; imágenes al bucket), nada de fotos de stock.
+- **(a) Importar desde URL**: el extractor lee el texto de div/span/summary/td (sin duplicar), `<summary>` y
+  `aria-expanded` como pregunta, `maxHeaderSize` 64 KB y tope de 5 MB, la URL tal cual (no sin www), y si la página se
+  arma en el navegador se ofrece el lector de (b) o «Pega el texto». «Analizar una página» entra al «+».
+
+El plan con archivo:línea de cada punto lo dejó el relevo del 14/10; lo esencial, por punto:
+- (a) `lib/landing-fetch.ts` (:33 MAX_BYTES, :179 pedirPagina, :311 RE_BLOQUE, :317-346 extraerBloques) → mudar lo puro a
+  `lib/landing-extraer.ts` con test; `lib/editor-landing/ia.ts:234-235` (talCual + `pegable`);
+  `app/landing-generator/crear/CrearConIA.tsx:476-477, :837-840`; `CajaCrear.tsx:218-227`. Lo leen 7 módulos (Offer,
+  landing-writer, cargar-guiones, la API, imagenes-stock, pixel-servido, replicar): correr sus tests.
+- (b) el lector va al lado de `SCRIPT_DIAGNOSTICO` (`lib/editor-landing/diagnostico.ts:497-604`) y, para el Pixel, en
+  `lib/landing-token.ts` (cargado sólo con el id de lectura en la URL); la lectura entra al análisis por
+  `PedidoDiagnostico` (diagnostico.ts:73-77), la ruta, `diagnostico-server.ts:204-226` y `analizarLanding`
+  (`lib/landing-analyst.ts:628`, el `meta` en :360-378) como `contenidoNoConfiable`. El lector abre UNO por vez
+  (`details`, `[aria-expanded=false]` que no sea link ni submit, tabs), captura clics y submits con preventDefault, y
+  detecta Calendly/Cal/GHL embebidos. Al ir a una cita dentro de un desplegable, lo abre antes del scroll.
+- (c) `Comentario.tsx` (:56, :79-109), `RecorridoDiagnostico.tsx:236-242`, `PanelDiagnostico.tsx:213-273, :297-320`;
+  `instruccionDeSugerencias` y `contextoDeComentario` puras en diagnostico.ts; API: `listar_comentarios_landing`,
+  `cambiar_estado_comentario_landing`, `aplicar_comentario_landing` (pantalla, admin).
+- (d) `lib/editor-landing/replicar-reglas.ts` (:33, :36-41, :64, :439-472), `replicar.ts:47-130` (hoy usa stock al azar
+  y nace con el tema pewter), `app/api/landing-generator/replicar/route.ts:30-35`, el test de
+  `tests/editor-landing-htmllibre.test.ts:420`; API: `replicar_landing`.
+
+Pendientes chicos (cada uno con su archivo): «Probar nuevo diseño» no recibe el formato (`ia.ts:507`,
+`AskAgent.tsx:177`); el PDF de una presentación sale vertical (`css.ts:871`, `exportar-html.ts:166-171`); «Dominios» no
+avisa la reserva vencida (`dominios-reglas.ts:365`, `dominios.ts:317`); el www no se agrega solo al conectar un apex; las
+rutas analyze/sync/pulso del Landing Analyst no miran el rol (`app/api/landing-analyst/*/route.ts`); de una landing
+nuestra sólo se analiza la página de inicio (`diagnostico-server.ts:163`); el puntaje de una landing nuestra no se guarda
+(`diagnostico-server.ts:141, :195`, columna nueva `landing_docs.diagnostico`); la copia fiel de una página armada como app
+queda en 400 px (`html-libre.ts:165-195`, `replicar-reglas.ts:467-472`); el sandbox de los popups del bloque HTML
+(`html-libre.ts:47`, sumar `allow-popups-to-escape-sandbox`); el clasificador de WhatsApp no reconoce «publicá la
+landing» (`lib/mako-intencion.ts`, `esPedidoDeLanding`: es el `todo` de `tests/api-mako-landing-editor.test.ts`); de los
+diseños con video, la 2.ª página de gracias sin video, el orden en el teléfono con el video al costado y la pista del
+proveedor que se pierde al pegar HTML. Y las imágenes por Flow siguen afuera por pedido de Martín.
+
+Decisiones que dejé tomadas por default (Martín no las pidió revisar): techo de 120 pedidos de pago por landing y hora;
+cuando no se puede cobrar, propuesta y no ficha; `despublicar_landing` sigue reversible (avisando en el resumen);
+`publicar_landing` con un token detallado publica en el acto, como el resto de la API («como GitHub»).
+
+## Tanda 6 — EN CURSO (14/10 ~13:30, cuenta claude2 al 89% semanal)
+
+Pedido literal de Martín (mirando «No pude leer el texto de esa página.» sobre la landing de un cliente, y «Crear con IA»):
+«1. El mimso error que nos saltaba con Mauricio "No pude leer el texto de esa página.". Soluciona eso... 2. La sección de
+"Importar con IA" no debería ser otra ruta, todo siempre en la misma ruta. 3. La sección de "Crear con IA", le faltan las
+opciones de "Analizar Landing" y "Replicar Landing". Y que el botón de "Importar" que solo sea importar, no que sea con URL
+[…] Y esta sección de "Crear con IA" debería estar en la tab principal de landing generator, en la sección de "¿Qué vas a
+crear hoy?". 4. […] elimina todas las opciones actuales dentro del "+" en el cuadro del chat. Y que en ese + solo quede la
+opción de importar archivo y otras opciones así, para subir imagen y esas cosas... 5. En el chat, si yo pego un link, me
+debería aparecer pintado de azul y que diga "Analiza esta landing" y que se pueda cambiar a "Replica esta landing". 6. Las
+miniaturas y el título de abajo en las plantillas, deberían estar englobadas en un contendor […] Elimina los subtitulos de
+cada plantilla. […] que esos bloques tengan como una sombra […] que los [] que el usuario debe completar, se queden como de
+otro color […] y que eso se vea también en la miniatura».
+
+Se está construyendo con el workflow `wf_8f7c15cf-56d` en `C:/dev/wt-landing-t6` (rama `landing-t6`, sobre origin/main
+`fac31909`): lector en el navegador (Pixel o ventana emergente, con el aviso de ventanas bloqueadas también en «Probar»),
+el extractor y Replicar con 3 formatos en el server, los [ ] resaltados en el editor y la miniatura, y la pantalla (Crear
+con IA en la tab, el «+», el link en el chat, las tarjetas). Si la cuenta se corta: `git -C C:/dev/wt-landing-t6 log
+--oneline origin/main..HEAD` dice qué quedó commiteado; el journal está en
+`~/.claude/projects/C--Users-marti-OneDrive-Escritorio-dashboard-marketing-main/b8862985-74eb-48c0-a235-c3eee83116be/subagents/workflows/wf_8f7c15cf-56d/`.
+NO se pushea a medias. Copiar el estilo de la original al replicar queda para después.
+
+## Tanda 6 — retomada (14/10 ~16:15 AR, cuenta claude1, chat «Landing Generator»)
+
+Pedido de Martín (por «Estrategia 3 cuentas»): cerrar lo pendiente del área al 100%, y primero el rojo de main.
+
+**El rojo de `tests/integracion-sin-salir.test.ts`** (el barrido: `DialogoPublicar.tsx:541` y `CobroBoton.tsx:110` con
+`<Link href="/integraciones" target="_blank">` para conectar Stripe) ya tenía arreglo en `landing-t6` (`3a439cd95` +
+`1c9bb8beb`). Se pasaron SOLOS a la rama `landing-rojo` (worktree `C:/dev/wt-landing-rojo`, = origin/main + 2 commits,
+`0be209e23` y `8be4a7da4`): test 5/5, `tests/editor-landing-*` + `integracion-*` 462/0. **SIN PUSHEAR**: tres intentos
+cortados por RAM (no son errores de tipos; con ~20 chats quedaban 0,2-0,9 GB libres). Para pushearlo:
+`cd C:/dev/wt-landing-rojo && git fetch -q && git rebase origin/main && MAKO_TYPECHECK_SIN_ESPERA=1 git push origin HEAD:main`
+con el vigía pausado (receta en `docs/relevo/estrategia-3-cuentas.md`). Cuando `landing-t6` entre a main, los dos
+commits llegan iguales (el merge no choca).
+
+**Lo de la tanda 6 que quedó del corte:** las Piezas (lector en el navegador, extractor/replicar en el server, los [ ]
+resaltados) estaban commiteadas; la Pantalla no había escrito nada (0 ediciones), y Verificar/Corregir no corrieron.
+`landing-t6` ya tiene origin/main mergeado (`ed681504d`, sin conflictos).
+
+**Actualización (15/10 ~01:00 AR, cuenta claude1): el rojo entró a main con el push integrado de «Estrategia 3 cuentas»
+(`8be4a7da4`), y `landing-rojo` se borró. La TANDA 6 ESTÁ EN PRODUCCIÓN:** push `3900567a8..bb0da02ae` (00:37), deploy
+`mako-nrgybiei0` Ready, migraciones 0281 y 0282 aplicadas ANTES del deploy y verificadas (columna jsonb; la función de
+la 0282 sólo la ejecuta service_role). Comprobado en producción: `hola-mako.site/l//evil.com` termina en el 404 del
+mismo host, el POST de pago sin Origin da 403 y la ventana de lectura sin firma da 401.
+
+Qué entró (los pedidos 1-6 de Martín + las decisiones c y d + el backlog sin decisión): leer en el navegador (Pixel o
+ventana emergente, con el aviso con flecha), el extractor que lee div/span y los acordeones, Crear con IA en la tab
+(Pegar texto · Generar · Importar · Analizar · Replicar en 3 formatos copiando colores, fuentes e imágenes), el «+»
+sólo adjunta, el link pegado en azul, las plantillas en tarjetas, los [ ] resaltados, «Aplicar» con Deshacer, el
+Diagnóstico de todas las páginas con su puntaje, el pago en el dominio propio con su rastro, el PDF horizontal, y los
+dos agujeros de seguridad de la ventana cerrados con una firma del server. Lo aprendido y lo que queda, con archivo y
+quién decide: `docs/hallazgos-editor-landing.md` → «Tanda 6». Bitácora: `app/admin/dev/landing-generator/bitacora.ts`.
+
+## Lo que sigue (15/10)
+
+1. **Las 7 decisiones que el orquestador tomó con criterio** (15/10, ver «Tanda 6 → Lo que quedó sin hacer»): construir
+   (1) `allow-popups-to-escape-sandbox` en el HTML personalizado (`html-libre.ts`, `SANDBOX_PUBLICO`), (5) el www
+   automático al conectar un dominio raíz, redirigiendo (`dominios*.ts`), y (11) «Aplicar» de una landing de afuera deja
+   el original RESUELTO (`PanelDiagnostico.tsx`, `aplicarAfuera`). (8) checkout de Stripe con dominio propio: MEDIR en
+   Chrome y Safari antes de decidir. Las otras tres (estáticos, HSTS, despublicar reversible) quedan como están.
+2. **«Todos los botones a la API de MaKo»** (Martín, 14/10, textual: «Ambos, tienen que pasarle absolutamente todos los
+   botones. Todas las funciones a la API de MaKo.»): reabre lo que la tanda 4 dejó fuera A PROPÓSITO (generar con IA,
+   editar el contenido). El inventario (cuántos botones, cuántos declarados) lo corre el workflow `wf_b629deb0-0b1`,
+   junto con el relevamiento de Lottie. Más `esPedidoDeLanding` (lib/mako-intencion.ts) y el `maxDuration` de
+   `/api/mako-doer` para los 240 s de replicar por chat.
+3. **El parpadeo del hero**: arreglado con la opción A en la rama `landing-parpadeo` (worktree `C:/dev/wt-landing-parpadeo`,
+   medido: 6/6 sin parpadeo, LCP 248-588 ms con «Animaciones» prendido). Espera la respuesta de Martín
+   (`landing-anim-parpadeo` en la Ticketera, bloqueante). Si A → merge a landing-t6 y push; si B → rehacer.
+4. **Animaciones** (después del 3, y con las 7 decisiones de la Ticketera): relevamiento en
+   `docs/hallazgos-editor-landing.md` → «Animaciones» (dos secciones), etapas 0-9.

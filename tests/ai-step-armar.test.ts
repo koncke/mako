@@ -148,7 +148,8 @@ test('sumar, quitar y cambiar la libertad: antes de «Lo demás», y sólo lo qu
   assert.deepEqual(conEscenario(base.filter((c) => !c.cualquiera), nuevo).at(-1)!.id, 'nuevo');
   assert.deepEqual(sinEscenario(mas, 'nuevo').map((c) => c.titulo), base.map((c) => c.titulo));
   const precio = base[1].id;
-  assert.equal(conLibertadDe(base, precio, 'sola'), base, 'la plata salió sola');
+  // Desde el 14/10/2026 la persona SÍ puede poner «Sola» en un escenario de plata (con su aviso en el editor).
+  assert.equal(libertadDeCaso(conLibertadDe(base, precio, 'sola').find((c) => c.id === precio)), 'sola');
   assert.equal(libertadDeCaso(conLibertadDe(base, precio, 'avisa').find((c) => c.id === precio)), 'avisa');
   // «Sólo te avisa» CONSERVA lo que contestaba (vuelve a contestar igual).
   const ida = conLibertadDe(base, precio, 'avisa');
@@ -156,7 +157,7 @@ test('sumar, quitar y cambiar la libertad: antes de «Lo demás», y sólo lo qu
   assert.equal(libertadDeCaso(conLibertadDe(ida, precio, 'aprueba').find((c) => c.id === precio)), 'aprueba');
 });
 
-test('«Lo demás»: «Sólo te avisa» = sin el caso; «Para aprobar» = el caso `cualquiera` con su respuesta o la guía de MaKo; nunca «Sola»', () => {
+test('«Lo demás»: «Sólo te avisa» = sin el caso; «Para aprobar» y «Sola» = el caso `cualquiera` con su respuesta o la guía de MaKo', () => {
   const sin = conLoDemas([{ id: 'a', titulo: 'A', cuando: 'x', siguiente: null, responder: 'r' }], 'aprueba', 'ld');
   assert.equal(libertadDeLoDemas(sin), 'aprueba');
   assert.deepEqual(sin.at(-1), { id: 'ld', titulo: ROTULO_LO_DEMAS, cuando: '', siguiente: null, cualquiera: true, responder: GUIA_LO_DEMAS });
@@ -165,9 +166,11 @@ test('«Lo demás»: «Sólo te avisa» = sin el caso; «Para aprobar» = el cas
   // Uno de antes que sólo avisaba y guardaba su respuesta: «Para aprobar» la usa (no la pisa con la guía).
   const deAntes = conLoDemas([{ id: 'q', titulo: 'Cualquier respuesta', cuando: '', siguiente: null, cualquiera: true, responder: 'La de antes', no_contesta: true }], 'aprueba', 'nuevo');
   assert.deepEqual(deAntes, [{ id: 'q', titulo: 'Cualquier respuesta', cuando: '', siguiente: null, cualquiera: true, responder: 'La de antes' }]);
-  // Nunca «Sola»: ni el tipo lo deja ni Publicar.
+  // «Sola» (14/10/2026, la elige una persona; la IA no): Publicar la deja.
   assert.deepEqual(validarGrafo(normalizar(conIA(sin))), []);
-  assert.ok(validarGrafo(normalizar(conIA([{ ...sin[1], sola: true }]))).some((e) => e.includes('no puede salir sola')));
+  const sola = conLoDemas(sin, 'sola', 'ld');
+  assert.equal(libertadDeLoDemas(sola), 'sola');
+  assert.ok(!validarGrafo(normalizar(conIA(sola))).some((e) => e.includes('no puede salir sola')));
 });
 
 test('el catálogo para sumar: sin los que ya están (por nombre), y los dos «Pregunta el precio» se distinguen por su respuesta', () => {

@@ -1373,11 +1373,44 @@ export function alertaMargen(piezas: PiezasSabidas): string | null {
   return `Con un precio de ${fmtMonto(precio)} y un costo de ${fmtMonto(costo)} por cliente, el margen bruto queda en ${pct(Math.max(0, margen))}: por debajo de 60% (el objetivo es 80%).`;
 }
 
-/** Las tasas del embudo que se usan para los avisos (salen de lib/analisis-negocio.ts). */
-export type TasasEmbudo = { show: number | null; cierreCalificados: number | null; cierreAsistencias: number | null; asistieron: number };
+/**
+ * Las tasas del embudo que se usan para los avisos (salen de lib/analisis-negocio.ts). `sinMarcar` son las
+ * asistencias sin la calificación marcada: con alguna, «calificados» es un PISO y el cierre sobre calificados
+ * sale inflado (ver `cierreConfiable`).
+ */
+export type TasasEmbudo = { show: number | null; cierreCalificados: number | null; cierreAsistencias: number | null; asistieron: number; sinMarcar: number };
 
 /** Con menos asistencias que esto, una tasa es ruido. */
 export const MIN_ASISTENCIAS_EMBUDO = 10;
+
+const esNumero = (x: unknown): x is number => typeof x === 'number' && Number.isFinite(x);
+/** Una proporción que se puede afirmar: entre 0 y 1. Arriba de 1 hay un escalón contado de menos. */
+const proporcionPosible = (x: number | null | undefined): x is number => esNumero(x) && x >= 0 && x <= 1;
+
+/**
+ * El cierre sobre las llamadas calificadas que un aviso puede AFIRMAR. Medido el 12/10/2026: a un cliente el
+ * PDF le dijo «Cierras el 170% de las llamadas calificadas» y con eso le aconsejó subir el precio. Con
+ * asistencias sin la calificación marcada, «calificados» es un PISO (lib/analisis-negocio.ts lo avisa) y el
+ * cierre sobre calificados sale inflado. Lo que sí se sabe, porque calificados reales ≤ asistencias:
+ *
+ *   cierre sobre asistencias  ≤  cierre real sobre calificadas  ≤  cierre sobre el piso de calificados
+ *
+ * - `exacto`: sólo si no hay ninguna sin marcar, y es una proporción posible (0 a 1).
+ * - `piso`: el de las asistencias (el real es igual o mayor). Sirve para decir «más de 30%».
+ * - `techo`: el del piso de calificados (el real es igual o menor). Sirve para decir «menos de 25%».
+ * Un número fuera de 0-1 no se dice nunca: arriba de 1 hay un escalón contado de menos.
+ */
+export function cierreConfiable(t: TasasEmbudo | null | undefined): { exacto: number | null; piso: number | null; techo: number | null } {
+  if (!t) return { exacto: null, piso: null, techo: null };
+  const sinMarcar = esNumero(t.sinMarcar) ? t.sinMarcar : null;
+  const sobreCalif = proporcionPosible(t.cierreCalificados) ? t.cierreCalificados : null;
+  const exacto = sinMarcar === 0 ? sobreCalif : null;
+  return {
+    exacto,
+    piso: exacto ?? (proporcionPosible(t.cierreAsistencias) ? t.cierreAsistencias : null),
+    techo: exacto ?? sobreCalif,
+  };
+}
 
 /**
  * Dónde se cortan las ventas, contra los rangos del §6.4 (asistencia 60-80%, cierre 25-40% de las
@@ -1389,9 +1422,14 @@ export function alertasEmbudo(t: TasasEmbudo | null | undefined): string[] {
   if (t.show != null && t.show < 0.6) {
     out.push(`Asiste el ${pct(t.show)} de los que agendan: por debajo de 60% (lo sano es de 60% a 80%). Las ventas se cortan antes de la llamada: antes de cambiar la oferta, revisa cómo se confirman las agendas.`);
   }
-  const cierre = t.cierreCalificados ?? t.cierreAsistencias;
-  if (cierre != null && cierre < 0.25) {
-    out.push(`Cierras el ${pct(cierre)} de las llamadas: por debajo de 25% (lo sano es de 25% a 40%). Las ventas se cortan en la llamada: antes de cambiar la oferta, revisa el cierre.`);
+  // Bajo 25% se afirma con el número exacto o con el TECHO («menos de»): con el piso no, porque el real
+  // puede estar arriba (`cierreConfiable`).
+  const c = cierreConfiable(t);
+  const cola = 'por debajo de 25% (lo sano es de 25% a 40%). Las ventas se cortan en la llamada: antes de cambiar la oferta, revisa el cierre.';
+  if (c.exacto != null && c.exacto < 0.25) {
+    out.push(`Cierras el ${pct(c.exacto)} de las llamadas calificadas: ${cola}`);
+  } else if (c.exacto == null && c.techo != null && c.techo < 0.25) {
+    out.push(`Cierras menos del ${pct(c.techo)} de las llamadas calificadas (hay asistencias sin calificar): ${cola}`);
   }
   return out;
 }
@@ -1407,9 +1445,17 @@ export function alertasPrecio(p: { cobro: number | null; tasas?: TasasEmbudo | n
   } else if (p.cobro != null && p.cobro < 50) {
     out.push(`Te pagan el ${p.cobro}% al firmar: menos de la mitad. Antes de tocar el precio, revisa el cliente ideal y el valor.`);
   }
+  // Más de 30% se afirma con el número exacto o con el PISO (el cierre sobre TODAS las llamadas, que el real
+  // iguala o supera): nunca con el techo, que es el que daba 170% (`cierreConfiable`).
   const t = p.tasas;
-  if (t && t.asistieron >= MIN_ASISTENCIAS_EMBUDO && t.cierreCalificados != null && t.cierreCalificados > 0.3) {
-    out.push(`Cierras el ${pct(t.cierreCalificados)} de las llamadas calificadas: más de 30% es señal de que hay margen para subir el precio.`);
+  if (t && t.asistieron >= MIN_ASISTENCIAS_EMBUDO) {
+    const c = cierreConfiable(t);
+    const cola = 'más de 30% es señal de que hay margen para subir el precio.';
+    if (c.exacto != null && c.exacto > 0.3) {
+      out.push(`Cierras el ${pct(c.exacto)} de las llamadas calificadas: ${cola}`);
+    } else if (c.exacto == null && c.piso != null && c.piso > 0.3) {
+      out.push(`Cierras el ${pct(c.piso)} de todas las llamadas, y de las calificadas más: ${cola}`);
+    }
   }
   return out;
 }

@@ -1,0 +1,145 @@
+/*
+ * Estilos base del editor, LIMITADOS a `.cv` (la raíz del Image Editor en MaKo).
+ * El global.css de Doory reseteaba html/body/#root y todos los elementos de la página; acá cada regla cuelga
+ * de `.cv` para no tocar el resto de MaKo (la barra lateral, los modales de la app). Tokens: styles/tokens.css,
+ * prefijados `--cv-` para no chocar con los namespaces de Tailwind 4 (`--color-*`, `--text-*`, `--font-*`).
+ */
+.cv,
+.cv *,
+.cv *::before,
+.cv *::after {
+  box-sizing: border-box;
+}
+
+.cv {
+  color: var(--cv-color-text);
+  font-family: var(--cv-font-sans);
+  font-size: var(--cv-text-base);
+  line-height: var(--cv-leading-normal);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  isolation: isolate;
+  --cv-color-brand-fill: var(--cv-ink);
+  --cv-color-brand-fill-hover: #4a3530;
+  --cv-color-brand-fill-active: #160e0b;
+  --cv-color-brand-strong: var(--cv-ink);
+}
+
+.cv :where(h1, h2, h3, h4) {
+  margin: 0;
+  font-family: var(--cv-font-display);
+  line-height: var(--cv-leading-tight);
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+
+.cv :where(p) {
+  margin: 0;
+  text-wrap: pretty;
+}
+
+.cv :where(ul, ol) {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cv :where(img, svg, video, canvas) {
+  display: block;
+  max-width: 100%;
+}
+
+.cv :where(img) {
+  height: auto;
+}
+
+.cv :where(button, input, select, textarea) {
+  font: inherit;
+  color: inherit;
+  letter-spacing: inherit;
+}
+
+.cv :where(button) {
+  cursor: pointer;
+  background: none;
+  border: 0;
+  padding: 0;
+}
+
+.cv :where(button:disabled) {
+  cursor: not-allowed;
+}
+
+.cv :where(a) {
+  color: var(--cv-color-brand-strong);
+  text-decoration: none;
+  text-underline-offset: 3px;
+}
+
+.cv :where(a:hover) {
+  text-decoration: underline;
+}
+
+.cv :where(table) {
+  border-collapse: collapse;
+}
+
+.cv :where(hr) {
+  border: 0;
+  border-top: 1px solid var(--cv-color-border);
+  margin: 0;
+}
+
+.cv :where(code, kbd, samp) {
+  font-family: var(--cv-font-mono);
+  font-size: 0.92em;
+}
+
+.cv :focus {
+  outline: none;
+}
+
+.cv :focus-visible {
+  outline: 2px solid var(--cv-color-brand);
+  outline-offset: 2px;
+  box-shadow: var(--cv-focus-ring);
+  border-radius: var(--cv-radius-sm);
+}
+
+.cv ::selection {
+  background: var(--cv-pastel-butter);
+  color: var(--cv-ink);
+}
+
+.cv * {
+  scrollbar-width: thin;
+  scrollbar-color: var(--cv-color-border-strong) transparent;
+}
+
+.cv ::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.cv ::-webkit-scrollbar-thumb {
+  background: var(--cv-color-border-strong);
+  border-radius: var(--cv-radius-full);
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+.cv [hidden] {
+  display: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cv *,
+  .cv *::before,
+  .cv *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}

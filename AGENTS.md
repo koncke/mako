@@ -168,8 +168,8 @@ fija el lock (`CAP_HEAP_MB`), no un `tsc` suelto**: sin tope V8 toma todo lo que
 se BAJA a ojo: el chequeo completo pide más de 2 GB vivos (con 2048 murió «heap out of
 memory», 13/10/2026), y el «trabaja en 1,6» que justificaba bajarlo salió de un `tsc` que el
 vigía MATÓ a mitad. Un pico de un proceso que no terminó no mide lo que necesita. ⚠️ **Y CRECE
-CON EL REPO:** el 14/10/2026 ya no entraba en 3072 (murió corriendo, con RAM libre) y va en
-4096, con el piso de RAM en ≈ 5,3 GB. Un «se quedó sin heap» con RAM libre se arregla subiendo
+CON EL REPO:** el 14/10/2026 ya no entraba en 3072 (murió corriendo, con RAM libre), esa tarde tampoco en
+4096 (el Image Editor portado), y va en 5120, con el piso de RAM en ≈ 6,3 GB. Un «se quedó sin heap» con RAM libre se arregla subiendo
 `CAP_HEAP_MB` (el piso sube solo), nunca con un `tsc` suelto ni salteando el hook.
 El detalle, en [docs/hallazgos-infra.md](docs/hallazgos-infra.md) → «El typecheck que
 "salía con 1 sin errores"».
@@ -700,7 +700,7 @@ Los que hoy son fuente única:
 | Cómo se llama y se ve cada estado de la IA, y el Semáforo | `lib/mako-gramatica.ts` | la primitive `<Mako>`, `meta-health-ui`, `avisos-catalogo` |
 | Qué cliente mira ESTA pestaña (`?ws=`) | `lib/ws-tab.ts` + la validación en `proxy.ts` | `getWorkspaceActual`, el `<Link>` de `app/_ui`, el parche de fetch |
 | Cómo se escribe **MaKo** (`corregirMarca`, `REGLA_MARCA`) | `lib/mako-gramatica.ts` | `transcribirAudio` (STT), `limpiarTarea`, `MAKO_NUCLEO`, `docs/branding-mako.md` (generado) |
-| Los tipos de pregunta del Perro, su saneo y el texto que leen los modelos | `lib/preguntas-contrato.ts` (**sin `server-only`**, a propósito) | desde el 05/10/2026 **nadie las genera al cargar tareas** (el alta no pregunta: `tests/alta-sin-preguntas.test.ts`); quedan `plan-prueba` y `PreguntaCampo`, este último sin call site |
+| Los tipos de pregunta del Perro, su saneo y el texto que leen los modelos | `lib/preguntas-contrato.ts` (**sin `server-only`**, a propósito) | desde el 05/10/2026 **nadie las genera al cargar tareas** (el alta no pregunta: `tests/alta-sin-preguntas.test.ts`); queda `plan-prueba` (`PreguntaCampo`, que ya no tenía call site, se borró el 14/10/2026) |
 | Lo que un agente puede leer o hacer en MaKo | `lib/api-mako/areas/<área>.def.ts` + `.run.ts`, reunidos en `lib/api-mako/registro.ts` | el doer de WhatsApp, el chat de la app, `/api/v1`, `docs/api-mako.md` (generado), la skill del cliente |
 
 ⚠️ **El rótulo de un estado de MaKo no es un prop.** Sale de `GRAMATICA` y no se puede
@@ -792,6 +792,10 @@ Lo que una definición tiene que declarar, y por qué no tiene default:
   `requireRolWs([])`. `gating.tab` mira la CAPA del workspace, no a la persona: sin
   `rolMinimo`, un closer lee o hace por MaKo lo que su pantalla le esconde.
 - **`tipoPendiente`** cuando la acción hereda un slug que ya hay en la base.
+- **`reversible: true` exige el camino de vuelta EN la API.** Si la descripción dice «se deshace desde el
+  historial del editor» y la API no tiene una operación para leerlo o restaurarlo, es una promesa falsa para
+  el modelo (14/10/2026, `aplicar_comentario_landing` → se sumaron `listar_versiones_landing` y
+  `restaurar_version_landing`; docs/hallazgos-api-mako.md).
 - **`vaciaEsValor`** en toda lista que REEMPLAZA algo entero (las tareas de una clase). Sin la marca,
   el validador tira `[]` como «no vino» —lo correcto para un filtro— y no queda forma de vaciarla: la
   operación contesta «no pasaste nada para cambiar» (medido el 08/10/2026 con `tareas: []`).
@@ -1059,6 +1063,16 @@ una cuenta distinta.
 Y un corolario que vale para cualquier «vista de otro»: **si la única salida vive adentro
 de una pantalla condicional, no hay salida.** El botón SALIR DE LA VISTA vivía en la barra
 del wizard; cuando el wizard no se dibujaba, no quedaba ninguna.
+
+# Servir contenido de AFUERA bajo nuestro dominio exige una firma del server
+
+Una ruta que sirve el HTML de otra página bajo hola-mako.com (la ventana de lectura del Landing Generator, una vista
+previa) es una página de phishing con nuestra barra de direcciones si cualquiera puede llegar a ella. **`Sec-Fetch-Site:
+same-origin` no prueba que la navegación la inició el código de MaKo** (cualquier link adentro de MaKo cuyo href
+controle otro la cumple), y un id que acuña el navegador no autentica nada. Lo que vale: una firma del server (HMAC con
+prefijo propio, atada a id, URL, usuario y negocio, que vence; `lib/editor-landing/lector-firma.ts`). Y abrir una
+página de afuera SIN sandbox y con `opener` exige que el host esté entre lo que el negocio DECLARÓ, no que su HTML
+«diga» algo (reverse tabnabbing). Medido y cerrado el 14/10/2026: docs/hallazgos-editor-landing.md → «Tanda 6».
 
 # Un guard sobre algo destructivo se escribe en POSITIVO
 
@@ -1385,6 +1399,25 @@ const visibles = (verTodos || needle || desplegadoPorSeleccion) ? shown : shown.
 - **El olor que lo delata a tiempo:** si estás escribiendo un wrapper para que «todos los
   caminos pasen por acá», contá los caminos. Si son más de uno, probablemente haya un
   cálculo.
+
+# La app se adapta al tamaño de la pantalla, SIEMPRE (también en una tablet)
+
+Martín, 14/10/2026, desde un iPad: «La app de MaKo se debe adaptar al tamaño de la pantalla siempre». No es sólo
+el teléfono (/m tiene sus reglas más abajo): una tablet recibe la vista de computadora, porque el server no puede
+distinguir un iPad (manda UA de Macintosh, lib/movil-dispositivo.ts), y lo que ve tiene que funcionar ahí.
+
+- **Lo que se pega al fondo de la pantalla mide el alto VISIBLE (`dvh`), nunca `100vh`.** En Safari `100vh` es el
+  alto con la barra del navegador escondida: el perfil del fondo de la sidebar quedaba abajo del borde en el iPad
+  («no se llega a ver la foto de perfil»). Va con `@supports (height: 100dvh)` y el `100vh` como respaldo
+  (app/globals.css, `aside[data-sidebar]`).
+- **Una columna de navegación NO scrollea nunca** (Martín, 01/07: «La sidebar se puede scrollear, eso NO debe ser
+  posible NUNCA»): si no entra, se reorganiza o se pliega. Un `overflow: auto` con la barra escondida no lo arregla:
+  esconde la evidencia.
+- **Lo táctil se decide por capacidad, no por dispositivo**: `@media (pointer: coarse)` para los 44 px de toque, y
+  toda interacción que se abre al pasar el cursor (los desplegables de la sidebar) tiene su equivalente al tocar.
+- **Se mira en el ancho y el alto reales de una tablet** (1024×768 y 820×1180), no sólo en un monitor y en 390 px.
+  Chrome con la emulación NO reproduce el `100vh` de Safari: lo de las barras del navegador se razona o se mira en
+  un iPad de verdad.
 
 # Si algo no entra, preguntá primero si tiene el TAMAÑO que le corresponde
 
@@ -2234,6 +2267,32 @@ largos»). Vale para `tutorial.pasos` y para `AYUDA_CAMPO[*].pasos` (`lib/metodo
 Lo fija `tests/tutoriales-legibles.test.ts`. Su extractor lleva un piso: buscaba 6 espacios, los pasos están a 8, y
 pasaba en verde leyendo cero líneas.
 
+# Para conectar una integración JAMÁS se sale de la tab: el modal de /integraciones se abre AHÍ
+
+Martín, 14/10/2026, textual: **«Esto significa también el botón de "Conectar" si no lo tiene conectado debería saltar el
+pop-up ahí. Esto como regla siempre, en todas las tabs, para una integración jamás se debe salir de la tab.»** Antes lo
+había pedido para Automations: «No crees un nuevo modal de conectar la API, reutiliza exactamente el mismo que ya
+tenemos en integraciones» (12/10/2026).
+
+- **Un «Conectar»/«Reconectar» abre EL modal de la grilla, montado en la tab**, con la pieza única
+  `app/_components/ConectarIntegracion.tsx`: `BotonIntegracion` (un botón), `LinkIntegracion` (un link que arma lib/,
+  como el `/integraciones?abrir=gemini` del fallo de la IA: si nombra una integración abre su modal, si no sigue siendo
+  link) y `useConectarIntegracion()` (para abrirlo sola, como el Calendario al entrar sin Google). Por debajo es
+  `ServicioSuelto` → `ServicioModal`: nunca un segundo formulario para la misma credencial.
+- **Si la tab NECESITA la integración para servir, el modal salta al entrar** (una vez por sesión y por negocio, y se
+  cierra). Molde: `app/calendario/CalendarioApp.tsx`.
+- **Un OAuth que sale de la pestaña vuelve a la MISMA tab** con su `?ws=`: Meta y Google llevan `?volver=`
+  (`volverDeLaPestana`, lib/integracion-en-tab.ts), el paso 1 lo guarda saneado en una cookie y el callback vuelve ahí
+  (`destinoGcal`, lib/gcal-estado.ts). Una tab que ofrece conectar Google monta `VueltaDeGoogle` (o
+  `useVueltaDeGoogle`): con un fallo, el modal se vuelve a abrir diciendo qué pasó.
+- **El modal va por portal al `body` y anotado en la pila** (la pieza ya lo hace): abierto desde adentro de un `<Modal>`
+  o de una tarjeta con su propio `onClick`, un `position: fixed` bajo un `transform` se ubica mal, el Escape lo
+  contestaba el de abajo y el clic burbujeaba por el árbol de React hasta quien lo montó.
+- **Lo que SÍ sigue siendo un link a /integraciones** es ir a MIRAR (el saldo de la IA), la landing y el agente de
+  Claude (su modal necesita datos que sólo arma la página: `SIN_MODAL_SUELTO`) y lo que viaja afuera (un WhatsApp, un
+  mail: ahí no hay tab). `tests/integracion-sin-salir.test.ts` barre `app/` y falla con un link nuevo a /integraciones
+  que no esté en su lista, con su porqué.
+
 # Una creación publicada es la DEFINICIÓN, y cada tipo se enchufa en UN lugar
 
 Las estrellas (pedido de Martín del 13/10/2026: «para que los usuarios hagan sus creaciones y otros usuarios puedan
@@ -2764,6 +2823,13 @@ sino a los que la DECLARAN** — y esos dos conjuntos casi nunca son el mismo.
 - **El alcance va por PROPÓSITO, no por campo declarado.** Acá: `preparaUnaReunion(trigger)` en
   `lib/nutricion-familias.ts` cubre la familia entera de la post-agenda, y el guard de
   `tests/reunion-ya-paso.test.ts` falla si el motor vuelve a mirar solo `paso.ancla`.
+- **⚠️ Desde el 14/10/2026 esa pregunta NO va escondida en el motor** (Martín: «jamás que "mako" haga
+  cosas que no están en el flujo»). Va como una CONDITION visible delante del mensaje («Su reunión
+  sigue en pie», `reunion_en_pie`), y el reintento la vuelve a pasar antes de mandar
+  (`condicionDeArriba` en `procesarEnvios`). La guarda escondida de `preparaReunion` está BORRADA: en
+  el motor queda sólo la del paso anclado (el DELAY «N antes de la reunión», que sin reunión no tiene
+  hora). Quien arme un flujo que habla de la reunión pone la condición: plantilla, Crear con IA o API.
+  Plan y decisiones en docs/diseno-mako-nada-por-detras.md §2.1-2.3.
 
 # Un DIAGNÓSTICO escrito de antemano deja de ser cierto sin avisar
 
@@ -6637,6 +6703,11 @@ peor: el número se mueve solo, de a poco, todos los días**, sin una entrada de
 lo explique. Lo fijado entra al reparto con su número tal cual (para que el resto se ordene
 alrededor) y sale sin que se le escriba nada — y el cron **cuenta cuántas respetó**, porque
 un candado que funciona y uno que nadie disparó se ven iguales si no se cuentan.
+⚠️ **Y no escribirle no alcanza: las de alrededor no la pueden CRUZAR por ruido del reparto.** Un
+reparto por ranking le devuelve a cada vecina el número de su puesto, y el 14/10/2026 eso deshacía
+240 de 513 arrastres en la primera corrida. Todo proceso que reescriba números alrededor de algo
+fijado pasa por `respetarFijadas` (app/plan/board/lugar-al-soltar.ts): se cruza sólo con un
+juicio claro (`MARGEN_CRUCE`), nunca por 1 o 2 puntos de redondeo.
 
 ⚠️ **Y el corolario de la priorización: un proyecto se juzga por lo que tiene ADENTRO, no por
 su nombre.** En esa misma corrida «Cliente: Mauricio» quedó primero porque las decisiones
@@ -7589,6 +7660,18 @@ componente y le cambia el ciclo de vida entero.
 
 # /automations (ex /chatbot) es un FLUJO CON RAMAS: lo que gobierna el código nuevo
 
+**MaKo no decide nada que no esté en el flujo** (Martín, 14/10/2026: «Si no es configurable el usuario,
+como yo, lo tomamos como un bug... Depreca absolutamente todas las cosas que MaKo haga por detrás»).
+Un «si X, no mandes / cerrá / pausá / reprogramá / no inscribas» nuevo NO se escribe en el motor. Va
+como condición del catálogo (`lib/condiciones-catalogo.ts`) u opción visible de una tarjeta, con su
+operación en la API de MaKo. Lo que ya existe escondido está inventariado (162 ítems, con el plan) en
+docs/diseno-mako-nada-por-detras.md. La corrección técnica (carreras, no mandar dos veces) no cuenta.
+Antes de una tarjeta nueva, mirá si las que hay ya la expresan: una rama sin flecha ya TERMINA.
+**Y lo que depende de un HECHO es una CONDICIÓN, no una opción de otra tarjeta** (Martín, 14/10/2026: «"Si
+el lead contesta" NO debería ir en el CRON, debería ser una CONDITION... Es obvio eso»). Que el lead
+conteste no corta nada: lo dice «No contestó desde que entró» (`contesto`) después de cada espera, y
+quien arma un flujo con seguimientos —plantilla, Crear con IA, API— la pone ahí.
+
 Desde el 08/10/2026 una automatización de la tab Automations (ex Chatbot, renombrada el
 09/10/2026: la pantalla vive en `app/automations/`, /chatbot redirige con la query entera y las
 claves guardadas —la key `setting`, el área `chatbot` de la API, /api/chat-agent/*— no cambiaron)
@@ -7660,10 +7743,10 @@ mig 0228). Lo que eso exige al escribir código nuevo:
   `trigger_tipo` solo ve el primer CRON y se pierde los demás.
 - **Guardar no es publicar**: un borrador o una edición del lienzo pasa por `validarParaGuardar` (lo que
   rompe el DATO); `validarGrafo` es la vara de Publicar y rechaza lo que está a medio armar.
-- **Un flujo que arranca por una ETAPA no hereda «la reunión ya pasó»** (10/10/2026): esa guarda del
-  motor decide por el `trigger_tipo` (`preparaUnaReunion`, los eventos `agendado_*` de antes). Quien
-  arme un flujo así —una plantilla (`lib/plantillas-automatizaciones.ts`), Crear con IA, la API— pone
-  «Próxima reunión en ≤ 720 h» después de CADA espera por tiempo, antes de lo que habla de la reunión.
+- **Ningún flujo hereda «la reunión ya pasó»** (desde el 14/10/2026 esa guarda escondida no existe; antes
+  sólo la heredaban los de `trigger_tipo` de agenda). Quien arme un flujo que habla de la reunión —una
+  plantilla (`lib/plantillas-automatizaciones.ts`), Crear con IA, la API— pone «Su reunión sigue en pie»
+  después de CADA espera por tiempo, antes de lo que habla de la reunión.
   Y «Agendó» es «tiene una reunión cargada», pasada o futura: a quien faltó a una, también.
 
 **Y desde la undécima tanda (11/10/2026), un flujo se ARMA con las piezas que existen hoy, y nada se inventa.** Lo
@@ -7859,12 +7942,15 @@ se pide sobre la raíz, nunca sobre un sub-elemento.
 de frase. Caracteres, segundos o tokens que se facturan se validan ANTES de llamar, y el
 mensaje dice cuál es el tope. Recortar es entregar —y cobrar— otra cosa que la pedida.
 
-# Una tab nueva decide si entra en la capa `superadmin`
+# Una tab que «no se ve»: la lista `navKeys` de `superadmin` NO es la causa
 
-La capa `superadmin` (`lib/capas.ts`) tiene `navKeys` EXPLÍCITAS: una tab que no se suma ahí no
-aparece para el super admin en su propio workspace, y `requireCapa` lo rebota a su casa sin
-explicar por qué. Les pasa a `video-generator` y `video-editor`. Al crear una tab, la decisión se
-toma y se escribe; no se descubre después.
+La capa `superadmin` (`lib/capas.ts`) tiene `navKeys` explícitas, pero `tabEnCapa` las une con
+`userNavKeys`, que en esa capa es `null`: contesta que sí a CUALQUIER key. Sumar o sacar una key
+de esa lista no cambia nada (medido el 14/10/2026; tres chats lo creyeron, ver
+docs/hallazgos-editor-imagen.md → «No veo la tab»). Lo que esconde una tab del super admin es
+`adminOnly`, que se apaga mirando un cliente con `?ws=`: ahí la barra es la del cliente, a
+propósito (Martín, 01/08/2026). Antes de tocar la visibilidad, se resuelve con
+`resolverTab` (lib/nav-visibilidad.ts) para las dos vistas.
 
 # El 200 también puede ser NUESTRO
 
@@ -7875,6 +7961,45 @@ no por el status. Lo estático que se pide sin sesión se exime en el matcher po
 `cono-tx/`); una ruta de PÁGINA no se exime nunca, porque el proxy es el único que valida el
 `?ws=`.
 
+# La tab General es el editor del Dashboard: lo que gobierna un bloque nuevo
+
+Desde el 14/10/2026 `/general` monta `EditorInforme` con `informe="general"` (su informe: `general.informe.<sub>`).
+Martín: «intenta replicar lo que tenemos en dashboard... Los bloques también deberían ser editables». El porqué y lo que
+costó, en [docs/hallazgos-objectives.md](docs/hallazgos-objectives.md) → «General es el editor del Dashboard».
+
+- **Lo que se puede medir con el catálogo de gráficos va como GRÁFICO**, que se edita entero. Un bloque de General es
+  lo que el catálogo no tiene (la meta y la acción del día, los KPIs con su registro, el semáforo, el Plan).
+- **Un bloque es una TARJETA DE LA HOJA** (Martín, 14/10/2026: «no están interactuando con el diseño de la página»): el
+  marco lo pone el editor (`lk-comp--general`, el de un gráfico), el título es `Cabeza`/`TituloBloque`
+  (app/general/bloques/comun.tsx, con las variables del título de un gráfico y el título propio por contexto), y ADENTRO no
+  va otra tarjeta: lo que se agrupa es una losa (`gb-losa`) o filas (`gb-fila`). Con los tokens de la casa: la opción
+  «Fondo: Oscuro» que tienen todos los bloques los da vuelta en el marco (app/dashboard/ElementoGeneral.tsx); un color fijo
+  no se da vuelta.
+- **Su `w`/`h` es el de su CONTENIDO, y una plantilla pone los bloques de a dos con el MISMO alto**: `acomodar` estira
+  la fila al más alto, y un bloque estirado es espacio en blanco. Una plantilla contesta UNA pregunta, con pocas piezas,
+  títulos de parte y ningún dato dos veces (la misma métrica vista igual). Lo fija tests/general-bloques.test.ts.
+- **Un bloque nuevo son tres lugares**: su fila en `PIEZAS_GENERAL` (lib/general-piezas.ts, con su ícono y sus
+  `opciones`), sus datos en `armarDatosGeneral` (app/general/datos.ts, con las lecturas de siempre) y su caso en
+  `dibujarBloque` y `muestraDeBloque` (app/general/ProveedorGeneral.tsx), con el dibujo en app/general/bloques/. El editor
+  no aprende a leer nada y el Dashboard no carga General: el dibujo llega por contexto. Alguna plantilla lo usa
+  (`tests/general-editor.test.ts`) y `tests/general-bloques.test.ts` falla si le falta el dibujo o la vista previa.
+- **Un bloque vacío dibuja su placeholder** (`Placeholder`, app/general/bloques/comun.tsx): el mismo bloque con los datos
+  de ejemplo de `muestras.ts` (ficticios), apagado, con la acción que lo llena. «No pude leer» es otra cosa y se dice
+  (`Fallo`). Y lo que depende de la HORA se dibuja después de montar (`useAhora`): el bloque se dibuja también en el server.
+- **Sus opciones las declara el bloque** (2 a 4 valores con su default) y se leen con `opcionDe`: el saneo tira lo que
+  el bloque no tiene, y la API de MaKo las ofrece igual (`agregar_bloque_general`, `configurar_bloque_general`).
+- **Un bloque que se ata a un funnel** lleva `porFunnel`: el server cuenta todos los funnels con su id y el bloque elige
+  el suyo por el id del elemento.
+- **Lo que existe en otra tab se monta, no se copia**: las tarjetas del Plan son las de BoardShell (`TarjetaPrioridad`,
+  `ProyectoCardTile`, traídas con `next/dynamic`), y escribir pasa por la acción que ya existe (`marcarHechaAction`).
+- **General ofrece poco del Dashboard** (`TIPOS_GENERAL`, `FUENTES_GENERAL`, `ELEMENTOS_FUERA_DE_GENERAL`), y sus
+  plantillas no usan nada de afuera.
+- **Un tipo de elemento nuevo en `TIPOS_ELEMENTO` aparece solo en todas las listas que derivan de él**: la API del
+  Dashboard (`ELEMENTOS_DE_LA_API`), los links compartidos (`ELEMENTOS_QUE_NO_SALEN`), el catálogo que lee la IA. En cada
+  una se decide si lo puede dibujar; si no, se excluye con un error que diga dónde va.
+- **Tocar `EditorInforme` es tocar sus guards de fuente**: `tests/graficos*` y `tests/dashboard-*` leen el editor por
+  regex, y una variante nueva los pone rojos. Se corren antes de dar el editor por terminado.
+
 # MaKo Mobile (/m): lo que gobierna una pantalla nueva del teléfono
 
 La app del teléfono vive en `app/m/` y se monta DENTRO del layout raíz (no hay route groups). Las decisiones
@@ -7882,6 +8007,15 @@ técnicas están en [docs/diseno-mako-mobile.md](docs/diseno-mako-mobile.md), lo
 [docs/diseno-mako-mobile-v2.md](docs/diseno-mako-mobile-v2.md) con su prototipo, y lo que costó en
 [docs/hallazgos-mobile.md](docs/hallazgos-mobile.md).
 
+- **EL TELÉFONO DESTILA EL ESCRITORIO, NO LO REDISEÑA (14/10/2026, Martín, al rechazar el prototipo v1).** Textual:
+  «en el celular todo se ve SIMILAR al escritorio, pero con menos texto y menos cosas». Una pantalla de app/m tiene las
+  MISMAS vistas, en el MISMO orden y con los MISMOS rótulos que su tab de escritorio (el Plan es Prioridades · Tareas ·
+  Proyectos · Recurrentes, no «Hoy · Semana»; el CRM es su tablero, sin un «Hoy» que ya está en el Plan); lo que se
+  recorta es texto y piezas, nunca la estructura. More sigue las FAMILIAS de la sidebar (Operate, Analyze, Sales
+  Machine, Content Machine, Customer Success) en su orden, y no repite lo que ya está en la barra (CRM · Chats ·
+  General · Plan · More, con General AL MEDIO y como la que abre). Antes de dibujar una pantalla nueva: relevar la de
+  escritorio y buscar referencias de apps reales (son parte del pedido). El prototipo vigente:
+  docs/prototipos/mako-mobile-tableros.html.
 - **LAS MISMAS RUTAS (13/10/2026, decisión de Martín): /m es la carpeta INTERNA, nunca una URL.** Un teléfono abre
   /crm, /general, /plan… y el proxy le sirve la página de /m en esa misma URL (`pedidoMovil`, lib/movil-desvio.ts);
   una URL /m vieja se redirige a la de escritorio. Adentro de /m todo sigue hablando en rutas /m: al NAVEGAR, `conWs`

@@ -38,6 +38,7 @@ import {
   type EstadoKpi, type Cadencia, type UnidadObjetivo,
 } from '@/lib/objectives-modelo';
 import { guardarKpiAction, apagarKpiAction, registrarKpiAction, sembrarKpisAction } from './actions';
+import { Cabeza } from './bloques/comun';
 
 export type KpiVista = {
   id: string;
@@ -67,8 +68,6 @@ const fmt = (n: number | null, unidad: UnidadObjetivo): string => {
   return String(Math.round(n * 100) / 100);
 };
 
-const ALTO_BARRA = 132;
-
 export function KpisCard({ kpis, candidatos, objetivos, objetivoPrincipalId }: {
   kpis: KpiVista[];
   candidatos: CandidatoVista[];
@@ -93,15 +92,13 @@ export function KpisCard({ kpis, candidatos, objetivos, objetivoPrincipalId }: {
       {/* ⚠️ NO ABRE SU PROPIA <section>: la superficie la pone la página, que es la
           que sabe que este bloque es una sección hermana de las otras tres. Una
           tarjeta adentro de una tarjeta es el «nested cards» que la casa veta. */}
-      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 16, marginBottom: 22 }}>
-        <h2 style={{ fontWeight: 600, fontSize: 25, letterSpacing: '-0.015em', margin: 0, color: 'var(--ink)' }}>KPIs</h2>
-        <button type="button" onClick={() => setEditando('nuevo')}
-          style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', fontSize: 13.5, color: 'var(--dim)', cursor: 'pointer' }}>
-          + agregar
-        </button>
-      </div>
+      {/* La cabecera de un bloque de la hoja (./bloques/comun.tsx): el título del tema y «＋ Agregar» donde va un link. */}
+      <Cabeza titulo="KPIs" accion={<button type="button" className="gb-cab-link" onClick={() => setEditando('nuevo')}>＋ Agregar</button>} />
 
-      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 10, overflowX: 'auto' }} className="mk-scroll-x">
+      {/* La quinta vuelta (14/10/2026: «textos enormes, cosas grandes»): las barras llenan el ALTO del bloque (eran de
+          132 px fijos y dejaban media tarjeta vacía abajo), con un ancho tope (a lo ancho de la hoja eran bloques de color
+          de 350 px que se leían como un gráfico), y arriba el número en grande con su compromiso al lado. */}
+      <div style={{ display: 'flex', alignItems: 'stretch', justifyContent: 'center', gap: 14, overflowX: 'auto', flex: '1 1 auto', minHeight: 190 }} className="mk-scroll-x">
         {kpis.map((k) => <Barra key={k.id} k={k} onAbrir={() => setEditando(k)} />)}
       </div>
 
@@ -131,7 +128,8 @@ function Barra({ k, onAbrir }: { k: KpiVista; onAbrir: () => void }) {
   const tono = tonoDeSemaforo(SEMAFORO_DE_ESTADO[k.estado]);
   const t = TONO[tono];
   const sinDatos = k.estado === 'sin-datos';
-  const alto = sinDatos ? 0 : Math.max(3, Math.round(((k.pct ?? 0) / 100) * ALTO_BARRA));
+  // El relleno es el % del compromiso, recortado al 100: el carril mide lo que le deja el alto del bloque.
+  const alto = sinDatos ? 0 : Math.max(3, Math.min(100, Math.round(k.pct ?? 0)));
 
   useEffect(() => { if (editandoValor) inputRef.current?.focus(); }, [editandoValor]);
 
@@ -150,7 +148,7 @@ function Barra({ k, onAbrir }: { k: KpiVista; onAbrir: () => void }) {
   const editable = k.fuente === 'manual';
 
   return (
-    <div style={{ flex: '1 1 0', minWidth: 78, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+    <div style={{ flex: '1 1 0', minWidth: 78, maxWidth: 210, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
       {editandoValor ? (
         <input
           ref={inputRef}
@@ -176,11 +174,13 @@ function Barra({ k, onAbrir }: { k: KpiVista; onAbrir: () => void }) {
           title={editable ? 'Toca para registrar' : k.nombre}
           style={{
             background: 'none', border: 'none', padding: 0, cursor: 'pointer', font: 'inherit',
-            fontSize: 15, fontWeight: 600, color: sinDatos ? 'var(--faint)' : 'var(--ink)',
-            fontVariantNumeric: 'tabular-nums', lineHeight: 1.2,
+            display: 'flex', alignItems: 'baseline', gap: 5, flexWrap: 'wrap', justifyContent: 'center',
+            color: sinDatos ? 'var(--faint)' : 'var(--ink)', fontVariantNumeric: 'tabular-nums', lineHeight: 1,
           }}
         >
-          {sinDatos ? '—' : fmt(k.valor, k.unidad)}
+          <span style={{ fontSize: 'clamp(26px, calc(4cqi + 8px), 56px)', fontWeight: 800, letterSpacing: '-0.035em' }}>{sinDatos ? '—' : fmt(k.valor, k.unidad)}</span>
+          {/* El compromiso al lado del número: «14 de 20» se entiende sin mirar el largo de la barra. */}
+          <span style={{ fontSize: 'clamp(13px, calc(0.8cqi + 10px), 17px)', fontWeight: 500, color: 'var(--dim)' }}>de {fmt(k.compromiso, k.unidad)}</span>
         </button>
       )}
 
@@ -192,7 +192,7 @@ function Barra({ k, onAbrir }: { k: KpiVista; onAbrir: () => void }) {
         onClick={onAbrir}
         aria-label={`${k.nombre}: ${sinDatos ? 'sin datos' : `${Math.round(k.pct ?? 0)}% de ${fmt(k.compromiso, k.unidad)}`}`}
         style={{
-          width: '100%', height: ALTO_BARRA, padding: 0, cursor: 'pointer',
+          width: '100%', flex: '1 1 auto', minHeight: 70, padding: 0, cursor: 'pointer',
           display: 'flex', alignItems: 'flex-end',
           background: 'var(--surface-2)', borderRadius: 10, overflow: 'hidden',
           // Sin datos NO se pinta relleno: una barra en cero afirma un
@@ -203,7 +203,7 @@ function Barra({ k, onAbrir }: { k: KpiVista; onAbrir: () => void }) {
       >
         {!sinDatos && (
           <span style={{
-            display: 'block', width: '100%', height: alto,
+            display: 'block', width: '100%', height: `${alto}%`,
             background: t.fill, borderRadius: 9,
             transition: 'height .35s ease-out',
           }} />
@@ -213,7 +213,7 @@ function Barra({ k, onAbrir }: { k: KpiVista; onAbrir: () => void }) {
       {/* El nombre, y NADA más. Dos renglones como techo: un tercero descuadra la
           fila entera y ningún nombre de KPI necesita tres. */}
       <span style={{
-        fontSize: 11.5, lineHeight: 1.3, color: 'var(--dim)', textAlign: 'center',
+        fontSize: 13, fontWeight: 500, lineHeight: 1.3, color: 'var(--dim)', textAlign: 'center',
         display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
       }}>
         {k.nombre}
@@ -269,13 +269,7 @@ function Propuesta({ candidatos, objetivoPrincipalId, onManual }: {
 
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 16, marginBottom: 20 }}>
-        <h2 style={{ fontWeight: 600, fontSize: 25, letterSpacing: '-0.015em', margin: 0, color: 'var(--ink)' }}>KPIs</h2>
-        <button type="button" onClick={onManual}
-          style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', fontSize: 13.5, color: 'var(--dim)', cursor: 'pointer' }}>
-          escribir el mío
-        </button>
-      </div>
+      <Cabeza titulo="KPIs" accion={<button type="button" className="gb-cab-link" onClick={onManual}>Escribir el mío</button>} />
 
       {/* ⚠️ ACÁ NO VAN BARRAS, Y EL INTENTO ANTERIOR LO PROBÓ. La pasada previa
           dibujó la propuesta con los mismos carriles de 132 px del tablero, vacíos,

@@ -28,6 +28,12 @@
 //  10. DialogoPublicar sin cortar cuando guardarAhora devuelve null: 1 fallo, 15 pases.
 //  11. nombreArchivo sin sacar \ / : * ? " < > |: 2 fallos (nombre; título del documento), 14 pases.
 //  12. documentoExportable con el script del formulario también en la hoja del PDF: 1 fallo, 15 pases.
+// La hoja de una presentación impresa (14/10/2026, mismo arnés, base 17/0; cada una 16 pasan / 1 falla):
+//  13. 4:3 con la hoja de 16:9.
+//  14. la hoja de la diapositiva ANTES de CSS_CONTENIDO (ganaba el margen de 10 mm).
+//  15. exportarPdf sin pasarle el formato y la proporción de la configuración.
+//  16. la hoja de la diapositiva también en el .html descargado.
+//  17. la hoja de la diapositiva también en una página web.
 // =============================================================================
 
 import { test } from 'node:test';
@@ -131,6 +137,34 @@ test('documento: título escapado, la hoja única, las fuentes del tema; el PDF 
   const pdf = documentoExportable({ titulo: 'x', html: '', tema, imprimir: true });
   assert.doesNotMatch(pdf, /<script/);
   assert.match(pdf, /@media print/);
+});
+
+// Pendiente de la tanda 2 (resuelto el 14/10/2026): «el PDF de una presentación sale vertical». La hoja
+// única traía sólo `@page { margin: 10mm; }` y el tamaño lo elegía la impresora (A4 o Carta, vertical).
+// Medido con Chromium sin cabeza (page.pdf con preferCSSPageSize, la plantilla de presentación de 9
+// diapositivas): 16:9 y «Fluido» → 9 hojas de 960 × 540 pt; 4:3 → 9 de 720 × 540; una página web → Carta.
+test('PDF de una presentación: la hoja de la diapositiva, horizontal y a sangre; una página web, la de la impresora', () => {
+  const tema = temaPorId('pewter');
+  const doc = (op: { imprimir?: boolean; formato?: 'pagina' | 'presentacion'; proporcion?: '16:9' | '4:3' | 'fluido' }) =>
+    documentoExportable({ titulo: 'x', html: '', tema, ...op });
+  const hoja = (op: Parameters<typeof doc>[0]) => /@page\{size:([^;]+);margin:0\}/.exec(doc({ imprimir: true, ...op }))?.[1] ?? null;
+  assert.equal(hoja({ formato: 'presentacion', proporcion: '16:9' }), '13.333in 7.5in');
+  assert.equal(hoja({ formato: 'presentacion' }), '13.333in 7.5in', 'sin proporción, 16:9 (proporcionDe)');
+  assert.equal(hoja({ formato: 'presentacion', proporcion: '4:3' }), '10in 7.5in');
+  assert.equal(hoja({ formato: 'presentacion', proporcion: 'fluido' }), '13.333in 7.5in', '«Fluido», 16:9 como el PPTX');
+  assert.equal(hoja({ formato: 'pagina', proporcion: '4:3' }), null, 'una página web no fija la hoja');
+  assert.equal(hoja({}), null, 'sin formato es una página web');
+  // Sólo en la hoja que se imprime: el .html descargado no la lleva.
+  assert.doesNotMatch(doc({ formato: 'presentacion', proporcion: '16:9' }), /@page\{size/);
+  // DESPUÉS de la hoja única: en `@page` gana la última, y CSS_CONTENIDO trae los 10 mm de una página web.
+  const impresa = doc({ imprimir: true, formato: 'presentacion', proporcion: '16:9' });
+  assert.ok(impresa.indexOf('@page { margin: 10mm; }') >= 0, 'la hoja única cambió su @page: revisar el orden');
+  assert.ok(impresa.indexOf('@page{size:') > impresa.indexOf('@page { margin: 10mm; }'), 'la hoja de la diapositiva va después');
+  // 13,333 in son los 1280 px CSS del iframe que imprime: la diapositiva se maqueta al ancho de la hoja.
+  const pdf = leer('lib/editor-landing/exportar-pdf.ts');
+  assert.equal(Math.round(13.333 * 96), Number(/width: '(\d+)px'/.exec(pdf)?.[1]));
+  // Y exportarPdf le pasa a la hoja el formato y la proporción de la configuración.
+  assert.match(pdf, /imprimir: true,\s*formato: op\.config\.formato, proporcion: op\.config\.proporcion/);
 });
 
 // ─────────────────────────────────────────────────────────────────────────────

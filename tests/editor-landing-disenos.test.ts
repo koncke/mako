@@ -11,22 +11,67 @@
 //   · el diseño manda en la forma (tema y hero) y el objetivo en el copy;
 //   · los bloques de MaKo entran donde el objetivo los usa (agenda, VSL, botón de pago);
 //   · la caja de crear ofrece DISEÑOS para una landing y plantillas para una presentación, y el
-//     alta de un diseño lleva el objetivo elegido.
+//     alta de un diseño lleva el objetivo elegido;
+//   · (14/10/2026, «que la mayoría de las plantillas sean con un VIDEO, porque deberían ser tipo VSL
+//     Funnel») la mayoría de los diseños lleva video y el primero es MaKo; el video entra UNA vez en
+//     el hero de cada objetivo; al centro, titular → video → botón, centrados; al costado, dos
+//     columnas con el video solo a la derecha; la agenda no hereda nada del hero.
+//   · (tanda 6, pendientes de los diseños con video) la página de gracias lleva el video del «qué sigue»,
+//     y en el teléfono el video al costado queda entre el titular y el botón.
 //
 // ── Roturas (12/10/2026, a mano y restaurado; base en verde: 7 pasan, 0 fallan) ──
 //   · `conHerramientasMako` sin la rama del VSL ............................... 6 / 1
 //   · `aplicarDiseno` sin poner el hero del diseño ............................. 6 / 1
 //   · `plantillasDe('landing')` devuelve las plantillas de copy (PLANTILLAS) .. 5 / 2
 //   · `pedidoDeDiseno` con el tema de la plantilla de copy en vez del diseño ... 6 / 1
+// ── Roturas del VSL del diseño (14/10/2026, en memoria, restauradas y verificadas por hash; base: 12 / 0) ──
+//   · MaKo al final de la grilla ................................................ 11 / 1
+//   · 4 diseños más sin video (quedan 4 de 9) .................................... 11 / 1
+//   · `conVideoDelDiseno` no reusa el VSL del objetivo (entra otro) ............... 9 / 3
+//   · al centro sin centrar los textos ........................................... 11 / 1
+//   · al centro con el video debajo del botón .................................... 11 / 1
+//   · al centro sin achicar el «Título» display .................................. 11 / 1
+//   · al costado con el video a la izquierda ..................................... 11 / 1
+//   · el video ANTES de las herramientas, marcando el hero (la agenda lo hereda) .. 8 / 4
+// ── Revisión del 14/10/2026: las roturas con las que dos verificadores dejaban esto en verde (base: 13 / 0) ──
+//   · al centro, video y botón justo debajo del titular y el subtítulo DEBAJO ..... 12 / 1
+//   · al costado, vuelve el «Título» display con anchos [8,4] .................... 12 / 1
+// ── «Falta el enlace del video» en Publicar (integración de la tanda 4, 14/10/2026; arnés en memoria,
+//    sha256 igual después de cada una; base: 15 / 0) ──
+//   · cuenta cualquier insertado vacío (la agenda también) ......................... 14 / 1
+//   · no saltea las secciones ocultas ............................................. 14 / 1
+//   · lee la pista cruda en vez de `attrsInsertado` (una inventada cuenta) ......... 14 / 1
+//   · no entra a las columnas (el VSL al costado no se ve) ......................... 14 / 1
+//   · el diálogo mira sólo la página abierta ....................................... 14 / 1
+//   · el aviso frena el botón Publicar ............................................. 14 / 1
+// ── El video de la página de gracias (tanda 6, 14/10/2026; mismo arnés con el hash; base: 16 / 0) ──
+//   · `conVideoDelDiseno` sin `videoEnLaGracias` ................................... 15 / 1
+//   · también en Minimal (sin mirar `d.video`) ..................................... 15 / 1
+//   · el video al final aunque haya botón .......................................... 15 / 1
+//   · en toda página después de la primera, no sólo la ruta 'gracias' ............... 15 / 1
+//   · suma otro aunque la gracias ya traiga uno .................................... 15 / 1
+//   · en la ÚLTIMA sección de la gracias y no en la primera ......................... 14 / 2
+// ── El orden en el teléfono con el video al costado (tanda 6, 14/10/2026; mismo arnés; base: 17 / 0) ──
+//   · css.ts sin `display: contents` en las columnas ............................... 16 / 1
+//   · la acción con `order: 0` (no va al final) ...................................... 16 / 1
+//   · sólo la acción, no lo que la sigue (`~ *`) .................................... 16 / 1
+//   · también con el video en la PRIMERA columna .................................... 16 / 1
+//   · una regla del video al costado en escritorio .................................. 16 / 1
+//   · sólo en el @media y no en la vista de teléfono del editor ...................... 16 / 1
 // =============================================================================
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { sanearContenido } from '../lib/editor-landing/validar';
-import { TEMAS } from '../lib/editor-landing/temas';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { sanearConfig, sanearContenido } from '../lib/editor-landing/validar';
+import { TEXTO_FALTA_VIDEO, avisoDeVideo, videosSinEnlace } from '../lib/editor-landing/especificacion';
+import { TEMAS, temaPorId } from '../lib/editor-landing/temas';
+import { CSS_CONTENIDO } from '../lib/editor-landing/css';
+import { htmlDeTarjeta } from '../lib/editor-landing/render';
 import { PLANTILLAS } from '../lib/editor-landing/plantillas';
-import { NODO, type JsonNodo, type LandingContenido } from '../lib/editor-landing/doc';
-import { DISENOS_LANDING, OBJETIVOS_LANDING, landingDesde } from '../lib/editor-landing/disenos-landing';
+import { NODO, parrafo, tarjeta, type JsonNodo, type LandingContenido } from '../lib/editor-landing/doc';
+import { DISENOS_LANDING, OBJETIVOS_LANDING, conVideoDelDiseno, heroDelDiseno, landingDesde } from '../lib/editor-landing/disenos-landing';
 import { pedidoDeDiseno, plantillasDe } from '../app/landing-generator/crear/tipo';
 
 const nodos = (c: LandingContenido): JsonNodo[] => {
@@ -55,9 +100,39 @@ test('el diseño manda en la forma: su tema existe y el hero toma el del diseño
   for (const d of DISENOS_LANDING) {
     assert.ok(ids.has(d.tema), `${d.id}: el tema «${d.tema}» no existe`);
     const c = landingDesde(d, 'webinar')!;
-    assert.equal(c.paginas[0].doc.content[0].attrs?.diseno, d.hero, `${d.id}: el hero no es el del diseño`);
+    assert.equal(c.paginas[0].doc.content[0].attrs?.diseno, heroDelDiseno(d), `${d.id}: el hero no es el del diseño`);
   }
   assert.equal(landingDesde(DISENOS_LANDING[0], 'no-existe'), null, 'un objetivo que no existe no arma nada');
+});
+
+// En un VSL el video ES el visual del hero (14/10/2026): una imagen al costado o arriba sin cargar se
+// dibujaba en el editor como el hueco «Agregar imagen» al 37,5% al lado del video. Va 'sin', salvo
+// 'fondo' (detrás del video sí tiene sentido). El zigzag de las demás secciones no cambia: arranca del
+// lado opuesto al hero del DATO, como siempre.
+// Roturas (14/10/2026, en memoria, restauradas y verificadas por hash; base: 13 pasan, 0 fallan):
+// `heroDelDiseno` devuelve `d.hero` (la imagen al costado vuelve junto al video) → 12 / 1; el zigzag
+// arranca del hero ya corregido (cambia el de las demás secciones) → 12 / 1.
+test('con video, el hero va sin imagen al costado (salvo «fondo»), y el zigzag de las demás sigue igual', () => {
+  const mal: string[] = [];
+  for (const d of DISENOS_LANDING) {
+    for (const o of OBJETIVOS_LANDING) {
+      const tarjetas = landingDesde(d, o.id)!.paginas[0].doc.content;
+      const hero = tarjetas[0].attrs?.diseno;
+      if (d.video && !['sin', 'fondo'].includes(String(hero))) mal.push(`${d.id} × ${o.id}: hero «${hero}» junto al video`);
+      if (d.video && d.hero === 'fondo' && hero !== 'fondo') mal.push(`${d.id} × ${o.id}: perdió la imagen de fondo`);
+      if (!d.video && hero !== d.hero) mal.push(`${d.id} × ${o.id}: sin video, el hero tiene que ser el del diseño`);
+      // Las secciones con imagen al costado: con zigzag alternan arrancando del lado opuesto a d.hero.
+      if (!d.zigzag) continue;
+      let lado = d.hero === 'izquierda' ? 'derecha' : 'izquierda';
+      for (const t of tarjetas.slice(1)) {
+        const s = t.attrs?.diseno;
+        if (s !== 'izquierda' && s !== 'derecha') continue;
+        if (s !== lado) { mal.push(`${d.id} × ${o.id}: el zigzag cambió (${s} donde iba ${lado})`); break; }
+        lado = lado === 'izquierda' ? 'derecha' : 'izquierda';
+      }
+    }
+  }
+  assert.deepEqual(mal, []);
 });
 
 test('el objetivo manda en el copy: el mismo diseño con dos objetivos dice cosas distintas', () => {
@@ -68,7 +143,8 @@ test('el objetivo manda en el copy: el mismo diseño con dos objetivos dice cosa
 });
 
 test('los bloques de MaKo entran donde el objetivo los usa', () => {
-  const d = DISENOS_LANDING[0];
+  // Con Minimal (el diseño SIN video): lo que se ve acá es sólo lo del objetivo.
+  const d = DISENOS_LANDING.find((x) => x.video === null)!;
   const insertados = (o: string) => nodos(landingDesde(d, o)!).filter((n) => n.type === NODO.insertado);
   const botonPago = (o: string) => nodos(landingDesde(d, o)!).some((n) => n.type === NODO.boton && textoDe(n) === 'Pagar ahora');
   // Agenda (Calendly o Cal.com) en agendar una llamada y en la consultoría.
@@ -82,8 +158,190 @@ test('los bloques de MaKo entran donde el objetivo los usa', () => {
   // El botón de pago (Stripe o Mercado Pago) en lo que se vende.
   for (const o of ['venta-directa', 'curso-programa', 'app-software']) assert.ok(botonPago(o), `${o}: sin botón de pago`);
   // Y nada de eso donde no va.
-  assert.deepEqual(insertados('gracias'), [], 'la página de gracias no lleva agenda ni VSL');
+  assert.deepEqual(insertados('gracias'), [], 'la página de gracias no lleva agenda ni VSL del objetivo');
   assert.equal(botonPago('lead-magnet'), false, 'un lead magnet no cobra');
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// El VSL del DISEÑO (pedido de Martín, 14/10/2026): «que la mayoría de las plantillas sean con un
+// VIDEO, porque deberían ser tipo VSL Funnel... Puedes inspirarte en otras plantillas de VSL Funnel e
+// incluso en la misma plantilla de MaKo.»
+// ─────────────────────────────────────────────────────────────────────────────
+
+const esVideo = (n: JsonNodo) => n.type === NODO.insertado && ['youtube', 'vimeo', 'loom', 'drive', 'panda', 'wistia', 'bunny', 'fathom'].includes(String(n.attrs?.proveedor));
+const todos = (n: JsonNodo): JsonNodo[] => [n, ...(n.content ?? []).flatMap(todos)];
+const videosEn = (n: JsonNodo): JsonNodo[] => todos(n).filter(esVideo);
+const heroDe = (d: (typeof DISENOS_LANDING)[number], o: string) => landingDesde(d, o)!.paginas[0].doc.content[0];
+const CON_VSL_DEL_OBJETIVO = new Set(['webinar', 'venta-directa', 'curso-programa', 'lista-espera']);
+
+test('la mayoría de los diseños lleva video; el primero es MaKo, con su tema y el video al costado', () => {
+  const con = DISENOS_LANDING.filter((d) => d.video !== null);
+  assert.ok(con.length > DISENOS_LANDING.length / 2, `${con.length} de ${DISENOS_LANDING.length} con video`);
+  assert.deepEqual(DISENOS_LANDING.filter((d) => d.video === null).map((d) => d.id), ['minimal'], 'sin video queda sólo Minimal');
+  const mako = DISENOS_LANDING[0];
+  assert.equal(mako.id, 'mako');
+  assert.equal(mako.tema, 'mako');
+  assert.equal(mako.video, 'costado');
+  assert.equal(TEMAS.find((t) => t.id === 'mako')?.nombre, 'MaKo');
+  assert.equal(plantillasDe('landing')[0].id, 'mako', 'primero en la grilla');
+  for (const d of DISENOS_LANDING) assert.ok(d.descripcion.length <= 45, `${d.id}: descripción de ${d.descripcion.length} caracteres`);
+});
+
+test('cada diseño con video × cada objetivo: EXACTAMENTE un video en el hero (Minimal, sólo el del objetivo)', () => {
+  const mal: string[] = [];
+  for (const d of DISENOS_LANDING) {
+    for (const o of OBJETIVOS_LANDING) {
+      const c = landingDesde(d, o.id)!;
+      const enHero = videosEn(c.paginas[0].doc.content[0]).length;
+      const esperados = d.video ? 1 : CON_VSL_DEL_OBJETIVO.has(o.id) ? 1 : 0;
+      if (enHero !== esperados) mal.push(`${d.id} × ${o.id}: ${enHero} videos en el hero (esperaba ${esperados})`);
+      // Y fuera del hero, ninguno nuevo: el video del diseño entra UNA vez (la página de gracias, aparte: abajo).
+      const fuera = c.paginas.flatMap((p, i) => p.doc.content.slice(i === 0 || p.ruta === 'gracias' ? 1 : 0)).flatMap(videosEn).length;
+      if (fuera) mal.push(`${d.id} × ${o.id}: ${fuera} videos fuera del hero`);
+    }
+  }
+  assert.deepEqual(mal, []);
+});
+
+// Pendiente de los diseños con video (14/10/2026): «la SEGUNDA página de gracias del webinar y del lead
+// magnet no lleva el video de "qué sigue"».
+test('la página de gracias de un diseño con video lleva UN video vacío en su primera sección, antes del botón (Minimal, ninguno)', () => {
+  const mal: string[] = [];
+  let conGracias = 0;
+  for (const d of DISENOS_LANDING) {
+    for (const o of OBJETIVOS_LANDING) {
+      const c = landingDesde(d, o.id)!;
+      for (const pg of c.paginas.slice(1).filter((p) => p.ruta === 'gracias')) {
+        if (d.video) conGracias++;
+        const [primera, ...resto] = pg.doc.content;
+        const videos = videosEn(primera);
+        if (videos.length !== (d.video ? 1 : 0)) mal.push(`${d.id} × ${o.id}: ${videos.length} videos en la gracias`);
+        if (resto.flatMap(videosEn).length) mal.push(`${d.id} × ${o.id}: un video fuera de la primera sección de la gracias`);
+        if (!d.video) continue;
+        if (videos[0]?.attrs?.src !== '' || videos[0]?.attrs?.proveedor !== 'youtube') mal.push(`${d.id} × ${o.id}: el video de la gracias no es el vacío con la pista de YouTube`);
+        // La regla del hero: el video justo antes del botón o del formulario; sin ninguno, al final.
+        const bloques = primera.content ?? [];
+        const iVideo = bloques.findIndex(esVideo);
+        const iAccion = bloques.findIndex((n) => n.type === NODO.botones || n.type === NODO.formulario);
+        if (iAccion >= 0 ? iVideo !== iAccion - 1 : iVideo !== bloques.length - 1) mal.push(`${d.id} × ${o.id}: el video de la gracias no va antes de la acción (${iVideo} de ${bloques.length})`);
+      }
+    }
+  }
+  assert.deepEqual(mal, []);
+  // El webinar (sin botón) y el lead magnet (con «Descargar ahora») en los 8 diseños con video.
+  assert.equal(conGracias, 2 * DISENOS_LANDING.filter((d) => d.video).length, 'las plantillas con página de gracias cambiaron: revisar el test');
+  // Y la que trae botón lo deja debajo del video: titular → texto → video → botón.
+  const lm = landingDesde(DISENOS_LANDING.find((d) => d.video)!, 'lead-magnet')!.paginas.find((p) => p.ruta === 'gracias')!;
+  assert.deepEqual(lm.doc.content[0].content!.map((n) => (esVideo(n) ? 'video' : n.type)), ['heading', 'paragraph', 'video', NODO.botones]);
+  // Sólo la ruta 'gracias': otra página del sitio no lo recibe, y una gracias que ya trae video no suma otro.
+  const pagina = (ruta: string, ...content: JsonNodo[]) => ({ id: 'p' + ruta, titulo: ruta || 'Inicio', ruta, doc: { type: 'doc' as const, content: [tarjeta(content.length ? content : [parrafo('Hola')])] } });
+  const conVideo = tarjeta([parrafo('Mira'), { type: NODO.insertado, attrs: { src: '', proveedor: 'vimeo', alto: null } }]).content!;
+  const sitio = conVideoDelDiseno({ v: 1, paginas: [pagina(''), pagina('precios'), pagina('gracias', ...conVideo)] }, DISENOS_LANDING.find((d) => d.video)!);
+  assert.deepEqual(sitio.paginas.slice(1).map((p) => videosEn(p.doc.content[0]).length), [0, 1]);
+});
+
+test('video al centro: titular, video y botón en ese orden, todo centrado y sin el «Título» display', () => {
+  const mal: string[] = [];
+  for (const d of DISENOS_LANDING.filter((x) => x.video === 'centro')) {
+    for (const o of OBJETIVOS_LANDING) {
+      const hero = heroDe(d, o.id);
+      const bloques = hero.content ?? [];
+      if (bloques.some((n) => n.type === NODO.columnas)) continue; // el lead magnet: el video va en su primera columna (abajo)
+      const iVideo = bloques.findIndex(esVideo);
+      const iAccion = bloques.findIndex((n) => n.type === NODO.botones || n.type === NODO.formulario);
+      const iTitulo = bloques.findIndex((n) => n.type === 'heading');
+      if (!(iTitulo >= 0 && iTitulo < iVideo)) mal.push(`${d.id} × ${o.id}: el titular no va arriba del video`);
+      // TODO el texto del hero (pre-titular, titular, subtítulo) va ARRIBA del video: debajo sólo la acción.
+      if (bloques.slice(iVideo + 1).some((n) => n.type === 'paragraph' || n.type === 'heading')) mal.push(`${d.id} × ${o.id}: hay texto del hero debajo del video`);
+      if (iAccion >= 0 && iAccion !== iVideo + 1) mal.push(`${d.id} × ${o.id}: el botón no va JUSTO debajo del video`);
+      if (iAccion < 0 && iVideo !== bloques.length - 1) mal.push(`${d.id} × ${o.id}: sin botón, el video no cierra el hero`);
+      for (const n of bloques) {
+        if ((n.type === 'paragraph' || n.type === 'heading') && n.attrs?.textAlign !== 'center') mal.push(`${d.id} × ${o.id}: «${textoDe(n).slice(0, 30)}» sin centrar`);
+        if (n.type === NODO.botones && n.attrs?.alinea !== 'centro') mal.push(`${d.id} × ${o.id}: botones sin centrar`);
+        if (n.type === 'heading' && n.attrs?.variante === 'titulo') mal.push(`${d.id} × ${o.id}: el «Título» display tapa el video en la miniatura`);
+      }
+    }
+  }
+  assert.deepEqual(mal, []);
+  // El lead magnet al centro: el video en la primera columna, debajo del texto, y el formulario al lado.
+  const lm = heroDe(DISENOS_LANDING.find((x) => x.video === 'centro')!, 'lead-magnet');
+  const cols = lm.content?.[0];
+  assert.equal(cols?.type, NODO.columnas);
+  assert.ok(esVideo(cols!.content![0].content!.at(-1)!), 'el video cierra la primera columna');
+  assert.ok(cols!.content![1].content!.some((n) => n.type === NODO.formulario), 'el formulario sigue al lado');
+});
+
+test('video al costado: el hero es UNA fila de dos columnas, texto y botón a la izquierda y el video solo a la derecha', () => {
+  for (const d of DISENOS_LANDING.filter((x) => x.video === 'costado')) {
+    for (const o of OBJETIVOS_LANDING) {
+      const p = landingDesde(d, o.id)!;
+      const hero = p.paginas[0].doc.content[0];
+      assert.equal(hero.content?.length, 1, `${d.id} × ${o.id}: el hero no es una sola fila`);
+      const [izq, der] = hero.content![0].content ?? [];
+      assert.equal(hero.content![0].type, NODO.columnas, `${d.id} × ${o.id}`);
+      assert.deepEqual(hero.content![0].attrs?.anchos, [5, 7], `${d.id} × ${o.id}: el texto en 5 de 12 y el video en 7`);
+      assert.ok(!todos(izq).some((n) => n.type === 'heading' && n.attrs?.variante === 'titulo'), `${d.id} × ${o.id}: el «Título» display no entra en 5 de 12`);
+      assert.deepEqual(der.content!.map((n) => esVideo(n)), [true], `${d.id} × ${o.id}: la derecha no es el video`);
+      assert.equal(videosEn(izq).length, 0, `${d.id} × ${o.id}: video a la izquierda`);
+      assert.ok(izq.content!.some((n) => n.type === 'heading'), `${d.id} × ${o.id}: sin titular a la izquierda`);
+      // Lo que traía el hero del objetivo sigue ahí (el formulario del lead magnet, los botones).
+      const antes = PLANTILLAS.find((x) => x.id === o.id)!.contenido().paginas[0].doc.content[0];
+      const tipos = (n: JsonNodo): string[] => [n.type, ...(n.content ?? []).flatMap(tipos)].filter((t) => t !== 'text' && t !== NODO.columnas && t !== NODO.columna);
+      assert.deepEqual(tipos(izq).sort(), tipos(antes).slice(1).filter((t) => t !== NODO.insertado).sort(), `${d.id} × ${o.id}: se perdió algo del hero`);
+    }
+  }
+});
+
+// Pendiente de los diseños con video (14/10/2026): «en el teléfono, con el video al costado, el video queda
+// debajo del texto y el botón». Medido con Chromium sin cabeza (la sección de la publicada con el video
+// pegado, MaKo × agenda, Tecnológico × lead magnet y MaKo × webinar): a 390 px, antes titular → botón (o
+// formulario) → video, ahora titular → video → botón; a 1600 px, las mismas coordenadas antes y después.
+test('en el teléfono, con el video al costado: titular → video → botón (la grilla pasa a una lista y `order` la intercala)', () => {
+  const VIDEO = ':is(.gm-insertado[data-clase="video"], figure.gm-video)';
+  const lineas = CSS_CONTENIDO.split('\n');
+  const desde = lineas.indexOf('@media (max-width: 768px) {');
+  const hasta = lineas.indexOf('}', desde);
+  assert.ok(desde > 0 && hasta > desde, 'no encontré el bloque del celular');
+  const enCelular = lineas.slice(desde + 1, hasta).join('\n');
+  const fuera = [...lineas.slice(0, desde), ...lineas.slice(hasta + 1)].join('\n');
+  const regla = (hoja: string, sel: string) => { const i = hoja.indexOf(sel + ' {'); return i < 0 ? '' : hoja.slice(i, hoja.indexOf('}', i)); };
+  for (const [donde, hoja, p] of [['celular', enCelular, '.gm-doc'], ['vista de teléfono', fuera, '.gm-doc[data-dispositivo="movil"]']] as const) {
+    const lista = p + ' .gm-columnas:has(> .gm-columna + .gm-columna > ' + VIDEO + ')';
+    assert.match(regla(hoja, lista), /display: flex; flex-direction: column; align-items: stretch; gap: 0;/, donde + ': la grilla no pasa a una lista');
+    assert.match(regla(hoja, lista + ' > .gm-columna'), /display: contents;/, donde + ': las columnas no se disuelven');
+    assert.match(regla(hoja, lista + ' > .gm-columna:has(> ' + VIDEO + ') > *'), /order: 1;/, donde + ': la columna del video no va segunda');
+    const accion = lista + ' > .gm-columna:not(:has(> ' + VIDEO + ')) > :is(.gm-botones, .gm-formulario)';
+    assert.ok(hoja.includes(accion + ',\n' + accion + ' ~ * { order: 2; }'), donde + ': la acción (y lo que la sigue) no va al final');
+  }
+  // En escritorio no: fuera del bloque del celular, sólo con la vista de teléfono del editor.
+  for (const l of fuera.split('\n').filter((x) => x.includes('.gm-columnas:has(> .gm-columna + .gm-columna'))) {
+    assert.match(l, /^\.gm-doc\[data-dispositivo="movil"\] /, 'una regla del video al costado vale en escritorio: ' + l);
+  }
+  // El selector calza con lo que dibuja render.ts: el video, hijo DIRECTO de la segunda columna.
+  const c = landingDesde(DISENOS_LANDING.find((x) => x.video === 'costado')!, 'agenda-llamada')!;
+  const hero = c.paginas[0].doc.content[0];
+  for (const n of todos(hero)) if (esVideo(n)) n.attrs = { ...n.attrs, src: 'https://www.youtube-nocookie.com/embed/aqz-KE-bpKQ?rel=0' };
+  const html = htmlDeTarjeta(hero, temaPorId('mako'), { modo: 'publico' });
+  assert.match(html, /<div class="gm-columnas"[^>]*><div class="gm-columna">(?:(?!<div class="gm-columna">)[\s\S])*<\/div><div class="gm-columna"><div class="gm-insertado" data-proveedor="youtube" data-clase="video">/);
+  assert.match(html, /<div class="gm-botones"/, 'la acción del hero es un .gm-botones');
+});
+
+test('la sección de la agenda no hereda nada del hero con video', () => {
+  for (const d of DISENOS_LANDING.filter((x) => x.video)) {
+    for (const o of ['agenda-llamada', 'consultoria']) {
+      const tarjetas = landingDesde(d, o)!.paginas[0].doc.content;
+      const agenda = tarjetas.find((t) => todos(t).some((n) => n.attrs?.proveedor === 'calendly'))!;
+      assert.ok(agenda, `${d.id} × ${o}: sin la sección de la agenda`);
+      assert.deepEqual(agenda.content!.map((n) => n.type), ['heading', 'paragraph', NODO.insertado], `${d.id} × ${o}: la agenda cambió de forma`);
+      assert.ok(agenda.content!.every((n) => n.attrs?.textAlign !== 'center'), `${d.id} × ${o}: la agenda heredó el centrado`);
+      // La agenda copia los atributos del hero (conHerramientasMako): tienen que ser los del hero de la
+      // plantilla, no los de un hero que el video ya tocó.
+      const sinId = (a: Record<string, unknown> | undefined) => { const { id: _id, diseno: _d, imagenSrc: _i, notas: _n, ...resto } = a ?? {}; return resto; };
+      const original = PLANTILLAS.find((x) => x.id === o)!.contenido().paginas[0].doc.content[0];
+      assert.deepEqual(sinId(agenda.attrs), sinId(original.attrs), `${d.id} × ${o}: la agenda heredó algo del hero`);
+      assert.equal(agenda.attrs?.diseno, 'sin');
+    }
+  }
 });
 
 test('la caja de crear ofrece DISEÑOS para una landing y plantillas para una presentación', () => {
@@ -103,6 +361,12 @@ test('el alta de un diseño lleva el objetivo elegido, el tema del diseño y es 
   assert.equal(alta.config?.formato, 'pagina');
   assert.equal(alta.titulo, PLANTILLAS.find((x) => x.id === 'webinar')!.nombre);
   assert.deepEqual(alta.config?.origen, { modo: 'plantilla', plantilla: `${d.id}:webinar` });
+  // Y el origen sobrevive al saneo del server: la regex vieja no aceptaba los dos puntos y lo tiraba
+  // sin motivo (hallado el 14/10/2026).
+  // Rotura (14/10/2026, en memoria, restaurada; base: 13 pasan, 0 fallan): la regex sin «:» → 12 / 1.
+  const saneo = sanearConfig(alta.config);
+  assert.deepEqual(saneo.config.origen, { modo: 'plantilla', plantilla: `${d.id}:webinar` });
+  assert.deepEqual(saneo.descartes, []);
   assert.equal(pedidoDeDiseno(p, 'no-existe'), null);
 });
 
@@ -111,4 +375,48 @@ test('cada objetivo tiene su ícono y su nombre', () => {
     assert.ok(o.nombre.trim(), o.id);
     assert.ok(o.icono && o.icono !== 'objetivo', `${o.id}: sin ícono propio`);
   }
+});
+
+// ── «Falta el enlace del video» en Publicar (integración de la tanda 4, 14/10/2026) ──────────────
+// La publicada no dibuja un insertado vacío (render.ts): un diseño con VSL publicado sin pegar el
+// enlace sale con el hero SIN video y nadie lo dice. Publicar lo avisa antes, sin frenar.
+const conVideoPegado = (c: LandingContenido): LandingContenido => JSON.parse(JSON.stringify(c), (k, v) =>
+  v && typeof v === 'object' && v.type === NODO.insertado && v.attrs?.proveedor === 'youtube'
+    ? { ...v, attrs: { ...v.attrs, src: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' } } : v);
+const insertado = (attrs: Record<string, unknown>, tarjeta: Record<string, unknown> = {}): LandingContenido => ({
+  v: 1,
+  paginas: [{ id: 'p1', titulo: 'Inicio', ruta: '', doc: { type: 'doc', content: [{ type: NODO.tarjeta, attrs: { id: 't1', ...tarjeta }, content: [{ type: NODO.insertado, attrs }] }] } }],
+} as LandingContenido);
+
+test('Publicar avisa «Falta el enlace del video» si un video quedó sin pegar (y nada más)', () => {
+  assert.ok(TEXTO_FALTA_VIDEO.split(/\s+/).length <= 6, 'el aviso es una frase corta');
+  for (const d of DISENOS_LANDING) {
+    for (const o of OBJETIVOS_LANDING) {
+      const c = landingDesde(d, o.id)!;
+      const tieneVideo = nodos(c).some((n) => n.type === NODO.insertado && n.attrs?.proveedor === 'youtube');
+      // Todo diseño con video trae el VSL vacío: avisa. Minimal, sólo si el objetivo puso el suyo.
+      if (d.video) assert.ok(tieneVideo, `${d.id} × ${o.id}: el diseño con video no trae el VSL`);
+      assert.equal(avisoDeVideo(c.paginas), tieneVideo ? TEXTO_FALTA_VIDEO : null, `${d.id} × ${o.id}`);
+      // Con el enlace pegado, nada (la agenda vacía de «agenda-llamada» no es un video).
+      assert.equal(avisoDeVideo(conVideoPegado(c).paginas), null, `${d.id} × ${o.id}, con el video pegado`);
+    }
+  }
+  // Una agenda vacía no es un video; una sección oculta no se publica; una pista inventada o un enlace
+  // que no es de la lista no cuentan (el saneo ya los dejó vacíos y sin pista).
+  assert.equal(videosSinEnlace(insertado({ src: '', proveedor: 'calendly' }).paginas), 0);
+  assert.equal(videosSinEnlace(insertado({ src: '', proveedor: 'youtube' }).paginas), 1);
+  assert.equal(videosSinEnlace(insertado({ src: '', proveedor: 'vimeo' }).paginas), 1);
+  assert.equal(videosSinEnlace(insertado({ src: '', proveedor: 'youtube' }, { oculta: true }).paginas), 0);
+  assert.equal(videosSinEnlace(insertado({ src: '', proveedor: 'youtubee' }).paginas), 0);
+  assert.equal(videosSinEnlace(insertado({ src: 'https://vimeo.com/76979871', proveedor: 'vimeo' }).paginas), 0);
+  assert.equal(videosSinEnlace([]), 0);
+});
+
+test('el diálogo Publicar dibuja el aviso del video donde el de cobro, y no frena el botón', () => {
+  const src = readFileSync(join(__dirname, '..', 'app/landing-generator/editor/dialogos/DialogoPublicar.tsx'), 'utf8').replace(/\r\n/g, '\n');
+  assert.match(src, /const avisoVideo = useMemo\(\(\) => avisoDeVideo\(paginasVivas\), \[paginasVivas\]\);/, 'mira TODAS las páginas, la abierta en vivo');
+  // Justo debajo del aviso de cobro, con la misma forma.
+  assert.match(src, /\{avisoCobro && \([\s\S]{0,400}?<\/p>\n\s*\)\}\n\s*\{avisoVideo && \(\n\s*<p className="gmp-error" style=\{\{ margin: '-6px 0 12px' \}\} role="status">\{avisoVideo\}<\/p>/);
+  const puede = /const puedePublicar = ([^;]+);/.exec(src)?.[1] ?? '';
+  assert.ok(puede && !/aviso/.test(puede), `publicar no depende de los avisos: ${puede}`);
 });

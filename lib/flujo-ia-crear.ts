@@ -52,7 +52,7 @@ import type { PasoGrafo } from '@/lib/flujo-grafo';
 import {
   FEATURE_CREAR_IA, LISTA_BLANCA_IA, CREAR_IA_SYSTEM_TEMPLATE, PROVS_CREAR_IA, PROVS_GRATIS_PIN, MODELOS_CREAR_IA, salidaParaIA, falloDeIA,
   disparadoresParaIA, numerosEn, normNombre,
-  type CtxIA, type ResultadoIA, type ResultadoEdicion, type LinkIA, type FalloIA,
+  type CtxIA, type ResultadoIA, type ResultadoEdicion, type LinkIA, type FalloIA, falloDeRevision,
 } from '@/lib/flujo-ia';
 import { crearConIA, type OptsCrearIA, type ResultadoCrearIA, type DepsCrearIA } from '@/lib/flujo-ia-crear-core';
 import { agregarAlChat } from '@/lib/automatizacion-chat-db';
@@ -222,8 +222,8 @@ async function pasada<R extends { avisos: string[] }>(p: {
   system: string; user: string; motivo: string; hastaMs: number;
   traducir: (obj: Record<string, unknown>) => { r: R; errores: string[] };
   provs: ProvName[]; modelos: Partial<Record<ProvName, string>>; errores: string[];
-}): Promise<{ bueno: R | null; crudos: string[]; ultimo: string[] | null }> {
-  const out: { bueno: R | null; crudos: string[]; ultimo: string[] | null } = { bueno: null, crudos: [], ultimo: null };
+}): Promise<{ bueno: R | null; crudos: string[]; ultimo: string[] | null; ultimoR: R | null }> {
+  const out: { bueno: R | null; crudos: string[]; ultimo: string[] | null; ultimoR: R | null } = { bueno: null, crudos: [], ultimo: null, ultimoR: null };
   // ⚠️ LA SALIDA SE DIMENSIONA PARA QUE GROQ ENTRE (`salidaParaIA`): con 6000 fijos la cascada lo
   // salteaba siempre, y era el único proveedor que le contestaba al ws1.
   const maxTokens = salidaParaIA(tokensAprox(p.system) + tokensAprox(p.user), techoDeEntrada('groq'));
@@ -240,7 +240,7 @@ async function pasada<R extends { avisos: string[] }>(p: {
       let obj: Record<string, unknown>;
       try { obj = parseJsonObject(t); } catch { out.crudos.push(t); return false; }
       const tr = p.traducir(obj);
-      if (tr.errores.length) { out.ultimo = tr.errores; return false; }
+      if (tr.errores.length) { out.ultimo = tr.errores; out.ultimoR = tr.r; return false; }
       out.bueno = tr.r;
       return true;
     },
@@ -299,6 +299,7 @@ export async function generar<R extends { avisos: string[] }>(p: {
   const uno = await pasada({ ...p, motivo, hastaMs, provs, modelos, errores });
   if (uno.bueno) return { r: uno.bueno };
   let ultimo = uno.ultimo;
+  let ultimoR = uno.ultimoR;
 
   // 2. Un JSON que no se pudo leer: que la cascada lo copie bien.
   if (uno.crudos.length && quedan() > MIN_PARA_OTRO_MS) {
@@ -316,6 +317,7 @@ export async function generar<R extends { avisos: string[] }>(p: {
         const tr = p.traducir(parseJsonObject(copia));
         if (!tr.errores.length) return { r: tr.r };
         ultimo = tr.errores;
+        ultimoR = tr.r;
       } catch { /* sigue al reintento o al error */ }
     }
   }
@@ -325,14 +327,12 @@ export async function generar<R extends { avisos: string[] }>(p: {
     const corregir = `${p.user}\n\nTU RESPUESTA ANTERIOR TENÍA ESTOS PROBLEMAS. Corrígelos y devuelve el JSON COMPLETO:\n${ultimo.slice(0, 12).map((e) => `- ${e}`).join('\n')}`;
     const dos = await pasada({ ...p, user: corregir, motivo: `Corregir · ${motivo}`, hastaMs, provs, modelos, errores });
     if (dos.bueno) return { r: dos.bueno };
-    if (dos.ultimo) ultimo = dos.ultimo;
+    if (dos.ultimo) { ultimo = dos.ultimo; ultimoR = dos.ultimoR; }
   }
 
   if (ultimo) {
-    // ⚠️ EL DETALLE VA AL LOG, NO A LA PANTALLA (revisión, 09/10/2026): los errores de
-    // `validarGrafo` traen ids internos («tarjetas sueltas: m2»), que no le dicen nada a nadie.
     console.error('[secuencias/ia] la salida no pasó la revisión:', ultimo.join(' | '));
-    return { error: 'MaKo armó el flujo pero quedó mal. Prueba de nuevo o cambia una palabra del pedido.' };
+    return { error: falloDeRevision(ultimo, (ultimoR as { pasos?: PasoGrafo[] } | null)?.pasos ?? []) };
   }
   if (uno.crudos.length) return { error: 'MaKo escribió el flujo pero se cortó al leerlo. Prueba de nuevo.' };
   console.error('[secuencias/ia] ningún proveedor armó el flujo:', errores.join(' | '));

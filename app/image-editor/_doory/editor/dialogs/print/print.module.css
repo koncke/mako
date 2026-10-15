@@ -1,0 +1,230 @@
+/* Impresión dentro de «Descargar» (PDF para impresión), con los valores de Canva */
+.section {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--cv-space-3);
+  min-width: 0;
+}
+.section legend {
+  margin-bottom: 8px;
+  padding: 0;
+  color: var(--cv-color-text);
+  font: 600 var(--cv-text-base) / 20px var(--cv-font-sans); /* Canva: rótulo de campo 14/600 */
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 140px; /* el diálogo de Canva es angosto (480) */
+  gap: var(--cv-space-4);
+  align-items: start;
+}
+@media (max-width: 560px) {
+  .grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.controls {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cv-space-3);
+  min-width: 0;
+}
+
+.chips {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.presetHint {
+  display: none;
+  margin: -4px 0 0;
+  color: var(--cv-color-text-muted);
+  font: 400 var(--cv-text-sm) / 1.4 var(--cv-font-sans);
+}
+/* Narrow screens: three short chips, and the explanation of the chosen one under them. */
+@media (max-width: 480px) {
+  .chip small {
+    display: none;
+  }
+  .presetHint {
+    display: block;
+  }
+}
+.chip {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid var(--cv-color-border-strong);
+  border-radius: var(--cv-radius-sm);
+  background: var(--cv-color-surface);
+  cursor: pointer;
+  transition: border-color var(--cv-duration-fast) var(--cv-ease-out), background var(--cv-duration-fast) var(--cv-ease-out);
+}
+.chip input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  margin: 0;
+  cursor: pointer;
+}
+.chip strong {
+  font: 600 var(--cv-text-base) / 1.2 var(--cv-font-sans);
+}
+.chip small {
+  color: var(--cv-color-text-muted);
+  font: 400 var(--cv-text-sm) / 1.3 var(--cv-font-sans);
+}
+.chip:hover {
+  border-color: rgb(28 33 48 / 0.5);
+}
+/* Canva «elegido»: borde violeta y fondo violeta translúcido */
+.chipOn,
+.chipOn:hover {
+  border-color: var(--cv-color-brand);
+  background: rgb(163 112 252 / 0.15);
+  box-shadow: 0 0 0 1px var(--cv-color-brand);
+}
+.chip:has(input:focus-visible) {
+  box-shadow: var(--cv-focus-ring);
+}
+
+.bleedRow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--cv-space-3);
+}
+.hint {
+  color: var(--cv-color-text-muted);
+  font: 400 var(--cv-text-sm) / 1.4 var(--cv-font-sans);
+  font-variant-numeric: tabular-nums;
+}
+
+.note {
+  margin: 0;
+  color: var(--cv-color-text-muted);
+  font: 400 var(--cv-text-sm) / 1.5 var(--cv-font-sans);
+}
+
+.preview {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: var(--cv-space-3);
+  border: 0;
+  border-radius: var(--cv-radius-sm);
+  background: var(--cv-color-canvas-workspace); /* Canva: el gris del área del lienzo */
+}
+.previewSvg {
+  display: block;
+  width: 100%;
+  max-height: 150px;
+  height: auto;
+}
+.sheet {
+  fill: var(--cv-color-surface);
+  stroke: var(--cv-color-border-strong);
+  stroke-width: 1;
+}
+.bleedArea {
+  fill: var(--cv-color-brand-soft);
+  stroke: var(--cv-color-brand);
+  stroke-width: 1;
+  stroke-dasharray: 3 2;
+}
+.trimArea {
+  fill: var(--cv-color-surface);
+  stroke: var(--cv-color-text);
+  stroke-width: 1;
+}
+.content rect,
+.content circle {
+  fill: var(--cv-color-border-strong);
+}
+.marks line {
+  stroke: var(--cv-color-text);
+  stroke-width: 0.9;
+  stroke-linecap: butt;
+}
+.previewCaption {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--cv-color-text-muted);
+  font: 400 var(--cv-text-xs) / 1.3 var(--cv-font-sans);
+}
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.swatchTrim,
+.swatchBleed,
+.swatchMarks {
+  display: inline-block;
+  width: 12px;
+  height: 8px;
+  box-sizing: border-box;
+}
+.swatchTrim {
+  border: 1px solid var(--cv-color-text);
+  background: var(--cv-color-surface);
+}
+.swatchBleed {
+  border: 1px dashed var(--cv-color-brand);
+  background: var(--cv-color-brand-soft);
+}
+.swatchMarks {
+  height: 0;
+  border-top: 2px solid var(--cv-color-text);
+}
+
+.summary {
+  margin: 0;
+  color: var(--cv-color-text-muted);
+  font: 400 var(--cv-text-sm) / 1.4 var(--cv-font-sans);
+}
+
+.problem {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: var(--cv-radius-sm);
+  background: var(--cv-color-danger-soft);
+  color: #501b21; /* Canva: texto sobre el aviso de error suave */
+  font: 600 var(--cv-text-base) / 1.4 var(--cv-font-sans);
+}
+.problem p {
+  margin: 0;
+}
+.problemHint {
+  font-weight: 400;
+}
+.problemActions {
+  display: flex;
+  gap: var(--cv-space-2);
+  flex-wrap: wrap;
+  margin-top: 2px;
+}
+
+.stage {
+  margin: 0;
+  color: var(--cv-color-text-muted);
+  font: 400 var(--cv-text-sm) / 1.4 var(--cv-font-sans);
+}

@@ -59,10 +59,13 @@ import { PARTES as WEBHOOKS_PARTES, BITACORA as WEBHOOKS_BITACORA } from './webh
 import { PARTES as APIMAKO_PARTES, BITACORA as APIMAKO_BITACORA } from './api-mako/bitacora';
 import { PARTES as DASHBOARD_PARTES, BITACORA as DASHBOARD_BITACORA } from './dashboard/bitacora';
 import { PARTES as VIDEOEDITOR_PARTES, BITACORA as VIDEOEDITOR_BITACORA } from './video-editor/bitacora';
+import { PARTES as IMAGEEDITOR_PARTES, BITACORA as IMAGEEDITOR_BITACORA } from './image-editor/bitacora';
 import { PARTES as MOBILE_PARTES, BITACORA as MOBILE_BITACORA } from './mako-mobile/bitacora';
+import { PARTES as AUTH_PARTES, BITACORA as AUTH_BITACORA } from './auth-session/bitacora';
 
 const REGISTROS: Record<string, Registro> = {
   admin: { partes: ADMIN_PARTES, bitacora: ADMIN_BITACORA },
+  'auth-session': { partes: AUTH_PARTES, bitacora: AUTH_BITACORA },
   configuraciones: { partes: CONFIGURACIONES_PARTES, bitacora: CONFIGURACIONES_BITACORA },
   onboarding: { partes: ONBOARDING_PARTES, bitacora: ONBOARDING_BITACORA },
   general: { partes: GENERAL_PARTES, bitacora: GENERAL_BITACORA },
@@ -114,6 +117,7 @@ const REGISTROS: Record<string, Registro> = {
   'webhook-gateway': { partes: WEBHOOKS_PARTES, bitacora: WEBHOOKS_BITACORA },
   'api-mako': { partes: APIMAKO_PARTES, bitacora: APIMAKO_BITACORA },
   'video-editor': { partes: VIDEOEDITOR_PARTES, bitacora: VIDEOEDITOR_BITACORA },
+  'image-editor': { partes: IMAGEEDITOR_PARTES, bitacora: IMAGEEDITOR_BITACORA },
 };
 
 /** Un área sin registro devuelve vacío: la pantalla muestra sus estados vacíos. */

@@ -12,7 +12,8 @@
 // Correr: npm test
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { conOculta, conPagina, esPreviewDeEditor, MAX_OCULTAS, MAX_PAGINAS, mismaPagina, normalizarUrl, parsearOcultas, parsearPaginas, sinPagina } from '../lib/landing-paginas';
+import { readFileSync } from 'node:fs';
+import { conOculta, conPagina, esPreviewDeEditor, MAX_OCULTAS, MAX_PAGINAS, mismaPagina, normalizarUrl, parsearOcultas, parsearPaginas, sinPagina, urlParaAbrir } from '../lib/landing-paginas';
 
 test('la misma página escrita distinto es UNA sola', () => {
   const canon = 'https://lidermente.com/clase';
@@ -209,4 +210,39 @@ test('los parámetros del editor son de la VISITA, no de la página', () => {
   assert.equal(normalizarUrl('https://mi-proyecto.lovable.app/?forceHideBadge=true'), 'https://mi-proyecto.lovable.app');
   // Lo que SÍ cambia el contenido se conserva, como siempre.
   assert.equal(normalizarUrl('https://mi-proyecto.lovable.app/?plan=pro'), 'https://mi-proyecto.lovable.app?plan=pro');
+});
+
+// ── SEGURIDAD: la dirección con la que se ABRE la prueba (verificación de la tanda 6, 15/10/2026) ──────────
+// La pestaña de la landing es un `about:blank` abierto por MaKo, del MISMO ORIGEN que hola-mako.com, y se
+// navegaba con lo escrito tal cual: `javascript:alert(1)//.xx` pasa el chequeo del botón («tiene un punto»)
+// y corría con nuestro origen.
+// PROBADO ROMPIÉNDOLO (15/10/2026, de memoria, comparado byte a byte al restaurar). Base: 20 pasan / 0 fallan.
+//   P1 `urlParaAbrir` con el chequeo de antes («un punto») y devolviendo lo escrito ....... 19 / 1 «urlParaAbrir: sólo http(s)…»
+//   P2 ProbarTracking navegando la pestaña con `u` (lo escrito) y no con `destino` ........ 19 / 1 «ProbarTracking: se valida…»
+//   P3 ProbarTracking sin validar antes de abrir las ventanas ............................ 19 / 1 «ProbarTracking: se valida…»
+// Restaurado: 20 / 0.
+test('urlParaAbrir: sólo http(s), validado con new URL; sin esquema, https; la query y el hash de la persona quedan', () => {
+  for (const v of ['javascript:alert(1)//.xx', 'JavaScript:alert(document.domain)//x.com', 'data:text/html,<script>alert(1)</script>.com',
+    'vbscript:x.com', 'java\tscript:alert(1)//.xx',' javascript:alert(1)//.xx', 'file:///c:/x.txt', '', '   ', 'hola', 'https://localhost:3000/x']) {
+    assert.equal(urlParaAbrir(v), null, `«${v}» no se abre`);
+  }
+  assert.equal(urlParaAbrir('tu-pagina.com'), 'https://tu-pagina.com/', 'sin esquema: https, no relativa a MaKo');
+  assert.equal(urlParaAbrir('  http://x.com/clase?plan=pro#registro '), 'http://x.com/clase?plan=pro#registro');
+  assert.equal(urlParaAbrir('HTTPS://Pagina.com/A'), 'https://pagina.com/A');
+  for (const v of ['https://x.com', 'x.com/vsl?utm_source=fb', 'https://sub.x.com.ar/a/b#c']) {
+    const u = urlParaAbrir(v);
+    assert.ok(u && /^https?:$/.test(new URL(u).protocol), `«${v}» sí se abre, y con http(s)`);
+  }
+});
+
+test('ProbarTracking: se valida ANTES de abrir las ventanas, y la pestaña navega con lo validado', () => {
+  const src = readFileSync(new URL('../app/integraciones/ProbarTracking.tsx', import.meta.url), 'utf8')
+    .replace(/\r\n/g, '\n').replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+  const iValida = src.indexOf('const destino = urlParaAbrir(url);');
+  const iAbre = src.indexOf("window.open('about:blank', 'mako_prueba'");
+  assert.ok(iValida > 0 && iValida < iAbre, 'se valida antes de abrir: una que no es página no abre ninguna ventana');
+  assert.match(src, /if \(!destino\) \{ setNoAbre\(url\); return; \}/, 'y se dice por qué');
+  assert.match(src, /const \[base, hash\] = destino\.split\('#'\);/, 'la pestaña navega con lo validado');
+  assert.match(src, /pestana\.location\.replace\(`\$\{base\}\$\{sep\}mko_test=\$\{id\}/);
+  assert.doesNotMatch(src, /u\.split\('#'\)/, 'nunca con lo escrito');
 });

@@ -1,0 +1,24 @@
+.failed {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--cv-space-2);
+  padding: var(--cv-space-4);
+  color: var(--cv-color-text);
+  font: 400 var(--cv-text-base) / var(--cv-leading-normal) var(--cv-font-sans);
+}
+
+.failed p {
+  margin: 0;
+}
+
+.hint {
+  color: var(--cv-color-text-muted);
+}
+
+.skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cv-space-3);
+  padding: var(--cv-space-4);
+}

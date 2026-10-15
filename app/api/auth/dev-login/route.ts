@@ -37,7 +37,9 @@ export async function GET(req: NextRequest) {
   // hay bugs que solo se ven del lado del cliente.
   const rolQ = req.nextUrl.searchParams.get('rol');
   const rol = rolQ === 'usuario' || rolQ === 'admin' ? rolQ : 'admin';
-  const token = crearToken({ sub: 'dev', email: 'dev@local', nombre: 'Dev (local)', rol, ws });
+  // `mfa: 'dev'`: sin eso un token de admin no vale (verificarToken). Esta ruta ya es 404
+  // en cualquier deploy, así que no abre ninguna puerta sin segundo factor en producción.
+  const token = crearToken({ sub: 'dev', email: 'dev@local', nombre: 'Dev (local)', rol, ws, mfa: 'dev' });
   if (!token) {
     return NextResponse.json({ ok: false, error: 'falta AUTH_SECRET en .env.local' }, { status: 500 });
   }

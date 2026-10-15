@@ -41,7 +41,7 @@
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { Modal, Confirm, Spinner, Toast, useToast, Button, SANS, MONO } from '@/app/_ui';
-import Link from '@/app/_ui/Link';
+import { BotonIntegracion } from '@/app/_components/ConectarIntegracion';
 import { IconoMenu, type NombreIconoMenu } from '@/app/_ui/iconos-menu';
 import { useVerMas } from '@/app/plan/board/VerMas';
 import { ProductoCelda, type ItemCampana } from '@/app/ads-manager/ProductoCelda';
@@ -479,7 +479,7 @@ export function CampanasModal({ funnelId, nombreProducto, anidada = false, enLin
           {estado?.metaError && estado.campanas.length > 0 && (
             <p style={{ margin: '0 0 10px', fontFamily: SANS, fontSize: 12.5, color: 'var(--warn)' }}>
               {estado.metaError === 'sin-meta'
-                ? <>Sin Meta conectado: se ven las campañas con datos guardados. <Link href="/integraciones" style={{ color: 'var(--primary)', fontWeight: 600 }}>Conectar</Link></>
+                ? <>Sin Meta conectado: se ven las campañas con datos guardados. <BotonIntegracion servicio="meta" style={{ color: 'var(--primary)', fontWeight: 600 }}>Conectar</BotonIntegracion></>
                 : 'Meta no contestó: se ven las campañas con datos guardados.'}
             </p>
           )}
@@ -511,7 +511,7 @@ export function CampanasModal({ funnelId, nombreProducto, anidada = false, enLin
         {!estado && error && <p style={vacio('var(--bad)')}>{error}</p>}
         {estado && estado.campanas.length === 0 && (
           estado.metaError === 'sin-meta'
-            ? <p style={vacio()}><Link href="/integraciones" style={{ color: 'var(--primary)', fontWeight: 600 }}>Conecta Meta</Link> para ver tus campañas.</p>
+            ? <p style={vacio()}><BotonIntegracion servicio="meta" style={{ color: 'var(--primary)', fontWeight: 600 }}>Conecta Meta</BotonIntegracion> para ver tus campañas.</p>
             : estado.metaError
               ? <p style={vacio('var(--warn)')}>{estado.metaError}</p>
               : <p style={vacio()}>Esta cuenta no tiene campañas.</p>

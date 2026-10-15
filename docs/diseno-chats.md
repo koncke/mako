@@ -175,7 +175,7 @@ export async function marcarChatLeido(clave: string, usuarioId: number): Promise
 Lo puro (claves, agrupar por contacto, estado efectivo, filtros, conteos del panel) va en
 `lib/chats-reglas.ts`, sin `server-only`, con tests.
 
-### 2.5 Estado — migración `0275_chats.sql`
+### 2.5 Estado — migración `0284_chats.sql`
 
 - `chat_estado (workspace_id, clave, estado 'abierta'|'cerrada', cerrada_at, cerrada_por, nota_cierre, pospuesta_hasta, pospuesta_at, updated_at)` PK `(workspace_id, clave)`.
 - `chat_leidos (workspace_id, usuario_id, clave, leido_at)` PK `(workspace_id, usuario_id, clave)`.

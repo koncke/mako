@@ -1,0 +1,545 @@
+/*
+ * Piezas de los diálogos con los valores de Canva (relevamiento §1.2–1.4 y §9): rótulos de campo 14/600, campos
+ * de 40 px con borde rgba(53,65,90,.2) y foco violeta, desplegables blancos con sombra flotante, filas elegidas en
+ * violeta claro y el botón primario ancho al pie.
+ */
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cv-space-4);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cv-space-2);
+  min-width: 0;
+}
+
+/* Rótulo de campo de Canva («Tipo de archivo», «Seleccionar páginas») */
+.fieldLabel {
+  color: var(--cv-color-text);
+  font: 600 var(--cv-text-base) / 20px var(--cv-font-sans);
+}
+
+.fieldset {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--cv-space-4);
+}
+
+.input,
+.filter {
+  width: 100%;
+  height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--cv-color-border-strong);
+  border-radius: var(--cv-radius-sm);
+  background: var(--cv-color-surface);
+  color: var(--cv-color-text);
+  font: 400 var(--cv-text-base) / 1 var(--cv-font-sans);
+  transition: border-color var(--cv-duration-fast) var(--cv-ease-out), box-shadow var(--cv-duration-fast) var(--cv-ease-out);
+}
+.input::placeholder,
+.filter::placeholder {
+  color: rgb(19 22 32 / 0.6); /* Canva: texto de marcador #13162099 */
+}
+.input:hover,
+.filter:hover {
+  border-color: rgb(28 33 48 / 0.5);
+}
+.input:focus,
+.filter:focus {
+  outline: none;
+  border-color: var(--cv-color-brand);
+  box-shadow: 0 0 0 1px var(--cv-color-brand);
+}
+.input[aria-invalid='true'] {
+  border-color: var(--cv-color-danger);
+}
+.filter {
+  margin-bottom: var(--cv-space-4);
+}
+
+.muted {
+  margin: 0;
+  color: var(--cv-color-text-muted);
+  font: 400 var(--cv-text-sm) / 20px var(--cv-font-sans);
+}
+
+.error {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: var(--cv-radius-sm);
+  background: var(--cv-color-danger-soft);
+  color: #501b21; /* Canva: texto sobre el aviso de error suave */
+  font: 400 var(--cv-text-base) / 1.4 var(--cv-font-sans);
+}
+small.error {
+  padding: 0;
+  background: none;
+  color: var(--cv-color-danger);
+  font-size: var(--cv-text-sm);
+}
+
+.progress {
+  height: 6px;
+  border-radius: 99px;
+  background: rgb(57 70 96 / 0.14);
+  overflow: hidden;
+}
+.progress > div {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--cv-color-brand);
+  transition: width var(--cv-duration-base) var(--cv-ease-out);
+}
+
+/* ── Desplegable de Canva («Tipo de archivo», «Seleccionar páginas») ── */
+.picker {
+  display: flex;
+  align-items: center;
+  gap: var(--cv-space-2);
+  width: 100%;
+  height: 48px;
+  padding: 0 var(--cv-space-3);
+  border: 1px solid var(--cv-color-border-strong);
+  border-radius: var(--cv-radius-sm);
+  background: var(--cv-color-surface);
+  color: var(--cv-color-text);
+  font: 400 var(--cv-text-base) / 1 var(--cv-font-sans);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color var(--cv-duration-fast) var(--cv-ease-out), box-shadow var(--cv-duration-fast) var(--cv-ease-out);
+}
+.picker:hover:not(:disabled) {
+  border-color: rgb(28 33 48 / 0.5);
+}
+.picker[aria-expanded='true'],
+.picker:focus-visible {
+  outline: none;
+  border-color: var(--cv-color-brand);
+  box-shadow: 0 0 0 1px var(--cv-color-brand);
+}
+.picker:disabled {
+  cursor: not-allowed;
+  background: rgb(64 79 109 / 0.06);
+}
+.pickerIcon {
+  display: inline-flex;
+  color: var(--cv-color-text);
+}
+.pickerText {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+.pickerChevron {
+  flex: none;
+  color: var(--cv-color-text);
+}
+
+/* Insignia «Sugerido»: píldora violeta clara */
+.badge {
+  flex: none;
+  padding: 2px 8px;
+  border-radius: var(--cv-radius-full);
+  background: var(--cv-violet-200);
+  color: var(--cv-violet-900);
+  font: 600 var(--cv-text-sm) / 18px var(--cv-font-sans);
+}
+
+.options {
+  display: flex;
+  flex-direction: column;
+  max-height: min(420px, 60vh);
+  overflow: auto;
+  padding: var(--cv-space-2);
+}
+.optionsGroup {
+  margin: 0;
+  padding: 6px var(--cv-space-2) 4px;
+  color: var(--cv-color-text-muted);
+  font: 600 var(--cv-text-sm) / 18px var(--cv-font-sans);
+}
+.optionsSep {
+  height: 1px;
+  margin: var(--cv-space-2) calc(var(--cv-space-2) * -1);
+  background: var(--cv-color-border);
+}
+.option {
+  display: flex;
+  align-items: center;
+  gap: var(--cv-space-3);
+  width: 100%;
+  min-height: 52px;
+  padding: 6px var(--cv-space-2);
+  border: 0;
+  border-radius: var(--cv-radius-sm);
+  background: transparent;
+  color: var(--cv-color-text);
+  text-align: left;
+  cursor: pointer;
+}
+.option:hover,
+.option:focus-visible {
+  outline: none;
+  background: rgb(64 79 109 / 0.06);
+}
+.optionOn,
+.optionOn:hover {
+  background: rgb(163 112 252 / 0.15); /* Canva «elegido» */
+}
+.optionIcon {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--cv-radius-sm);
+  background: rgb(64 79 109 / 0.06);
+  color: var(--cv-color-text);
+}
+.optionText {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.optionText strong {
+  font: 600 var(--cv-text-base) / 20px var(--cv-font-sans);
+}
+.optionText small {
+  color: var(--cv-color-text-muted);
+  font: 400 var(--cv-text-sm) / 18px var(--cv-font-sans);
+}
+.optionCheck {
+  flex: none;
+  color: var(--cv-color-brand);
+}
+
+/* ── «Seleccionar páginas» ── */
+.pages {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cv-space-2);
+}
+.pagesSep {
+  height: 1px;
+  background: var(--cv-color-border);
+}
+.pageList {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 260px;
+  margin: 0;
+  padding: 0;
+  overflow: auto;
+  list-style: none;
+}
+.pageRow {
+  padding: 4px var(--cv-space-1);
+  border-radius: var(--cv-radius-sm);
+}
+.pageRow:hover {
+  background: rgb(64 79 109 / 0.06);
+}
+.pageLabel {
+  display: flex;
+  align-items: center;
+  gap: var(--cv-space-3);
+  min-width: 0;
+}
+.pageThumb {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 40px;
+  border-radius: 4px;
+  background: var(--cv-color-canvas-workspace);
+}
+.pageThumb > span {
+  display: block;
+  overflow: hidden;
+  background: var(--cv-color-surface);
+  box-shadow: var(--cv-shadow-artboard);
+}
+.pageThumb img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.pageName {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.pageName small {
+  color: var(--cv-color-text-muted);
+  font: 400 var(--cv-text-sm) / 18px var(--cv-font-sans);
+}
+.rangeField {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--cv-color-text-muted);
+  font: 400 var(--cv-text-sm) / 18px var(--cv-font-sans);
+}
+
+/* ── Pie: el botón primario ancho de Canva ── */
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cv-space-2);
+}
+.wide {
+  width: 100%;
+}
+.videoActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--cv-space-2);
+  min-width: 0;
+}
+
+/* ── Atajos de teclado ── */
+.shortcutGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--cv-space-6);
+  margin-bottom: var(--cv-space-4);
+}
+.shortcutGroup h3 {
+  margin: 0 0 var(--cv-space-2);
+  color: var(--cv-color-text);
+  font: 700 var(--cv-text-base) / 20px var(--cv-font-sans);
+}
+.shortcutGroup dl {
+  margin: 0;
+}
+.shortcutRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cv-space-3);
+  min-height: 36px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--cv-color-border);
+  font: 400 var(--cv-text-base) / 1.3 var(--cv-font-sans);
+}
+.shortcutRow dd {
+  display: flex;
+  gap: 4px;
+  margin: 0;
+}
+.shortcutRow kbd {
+  min-width: 24px;
+  padding: 3px 7px;
+  border: 1px solid var(--cv-color-border-strong);
+  border-radius: 6px;
+  background: var(--cv-color-surface);
+  color: var(--cv-color-text);
+  font: 600 var(--cv-text-sm) / 16px var(--cv-font-sans);
+  text-align: center;
+  white-space: nowrap;
+}
+
+/* ── Redimensionar ── */
+.resize {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  gap: var(--cv-space-6);
+}
+@media (max-width: 760px) {
+  .resize {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.sizesCol {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cv-space-3);
+  min-width: 0;
+}
+/* Buscador de Canva: lupa a la izquierda dentro del campo */
+.search {
+  display: flex;
+  align-items: center;
+  gap: var(--cv-space-2);
+  height: 40px;
+  padding: 0 var(--cv-space-3);
+  border: 1px solid var(--cv-color-border-strong);
+  border-radius: var(--cv-radius-sm);
+  background: var(--cv-color-surface);
+  color: var(--cv-color-text-muted);
+}
+.search:hover {
+  border-color: rgb(28 33 48 / 0.5);
+}
+.search:focus-within {
+  border-color: var(--cv-color-brand);
+  box-shadow: 0 0 0 1px var(--cv-color-brand);
+}
+.search input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--cv-color-text);
+  font: 400 var(--cv-text-base) / 1 var(--cv-font-sans);
+}
+.search input::placeholder {
+  color: rgb(19 22 32 / 0.6);
+}
+.presets {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cv-space-4);
+  max-height: 56vh;
+  overflow: auto;
+  padding-right: 4px;
+}
+/* Título de sección de Canva (titleXSmall: 14/700) */
+.groupTitle,
+.sectionTitle {
+  margin: 0 0 var(--cv-space-1);
+  color: var(--cv-color-text);
+  font: 700 var(--cv-text-base) / 20px var(--cv-font-sans);
+}
+.presetList {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.preset {
+  display: flex;
+  align-items: center;
+  gap: var(--cv-space-3);
+  min-height: 48px;
+  padding: 6px var(--cv-space-2);
+  border: 0;
+  border-radius: var(--cv-radius-sm);
+  background: transparent;
+  color: var(--cv-color-text);
+  text-align: left;
+  cursor: pointer;
+}
+.preset:hover {
+  background: rgb(64 79 109 / 0.06);
+}
+.preset:focus-visible {
+  outline: none;
+  box-shadow: var(--cv-focus-ring);
+}
+/* Canva: ítem elegido con fondo #F3ECFF y texto #5100A8 */
+.presetOn,
+.presetOn:hover {
+  background: var(--cv-violet-50);
+  color: #5100a8; /* Canva: texto del ítem elegido */
+}
+.presetIcon {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--cv-radius-sm);
+  background: rgb(64 79 109 / 0.06);
+  color: var(--cv-color-text-muted);
+}
+.presetText {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font: 400 var(--cv-text-base) / 20px var(--cv-font-sans);
+}
+.presetText small {
+  color: var(--cv-color-text-muted);
+  font: 400 var(--cv-text-sm) / 18px var(--cv-font-sans);
+}
+.presetOn .presetText small {
+  color: inherit;
+}
+.presetCheck {
+  flex: none;
+  color: var(--cv-color-brand);
+}
+.custom {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cv-space-3);
+  min-width: 0;
+}
+.sizeRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.sizeRow > div {
+  flex: 1;
+  min-width: 0;
+}
+.unitSelect {
+  flex: none;
+  width: 76px;
+}
+.unitSelect select {
+  height: 36px;
+}
+.modes {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.mode {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 10px 12px;
+  border: 1px solid var(--cv-color-border);
+  border-radius: var(--cv-radius-sm);
+  cursor: pointer;
+}
+.mode:hover {
+  background: rgb(64 79 109 / 0.06);
+}
+.mode input {
+  margin-top: 3px;
+  accent-color: var(--cv-color-brand);
+}
+.mode span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.mode strong {
+  font: 600 var(--cv-text-base) / 20px var(--cv-font-sans);
+}
+.mode small {
+  color: var(--cv-color-text-muted);
+  font: 400 var(--cv-text-sm) / 18px var(--cv-font-sans);
+}
+.modeOn,
+.modeOn:hover {
+  border-color: var(--cv-color-brand);
+  background: rgb(163 112 252 / 0.15);
+}

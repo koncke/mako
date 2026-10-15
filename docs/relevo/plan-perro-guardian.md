@@ -1,5 +1,53 @@
 # Retomar: Plan · Perro Guardián
 
+## ⏩ Lo último (14/10, cuenta `claude2`): cierre por pedido de Martín
+
+**Lo PRIMERO que espera a Martín:** confirmar el borrador con lo de sus últimas 3 reuniones y su
+feedback de 18 puntos → **https://hola-mako.com/plan/revisar/propmv7rwo1dkj2i6** (50 ítems,
+`pendiente`). Recién cuando lo aplique, el Perro los puntúa, y **después** se le manda a cada
+chat lo suyo (memoria `cerebro-reparte-a-chats`). No antes.
+
+**Lo que decidió el 13/10, y no se re-pregunta:**
+- Las tres tareas de automatizaciones que el ruteador puso en CRM van a **Chatbot**.
+- Las **cuatro de Mauricio** (sus upsells, Teriyaki, explorar MaKo, el goteo) **no se cargan**.
+- Salen «Terminar pendientes de MaKo» (repetía otras dos) y el funnel de Renovación.
+- Las tres de «pregunta a qué funnel va el lead» van como **una sola**.
+- Punto 16: se pueden usar referentes conocidos generados con IA, **sin aclarar nada**.
+- Punto 18: la IA de Ads Manager decide **todo sola, dentro de topes** configurables.
+- Puntos 13 a 15 (Stories, Calendario, publicar): **un solo proyecto**, el Calendario.
+
+**Lo hecho en esta ventana** (todo en main):
+| Qué | Commit |
+|---|---|
+| El rojo de `tests/plan-proyectos-catalogo.test.ts`: no era Analysts, era el ORDEN de la barra; el guard compara conjuntos | `5e829212` |
+| Los dos tramos de reunión sin leer: uno no era Google, era el detalle sin su comilla de apertura (arreglado en `repararJson`) | `aed3ccb7` |
+| Borrado de lo que el alta sin preguntas dejó sin call site: `PreguntaCampo` y tres textos del contrato de preguntas | el commit de este relevo |
+
+**Cerrado después, el 14/10 a la tarde (cuenta `claude1`):**
+- **Las TABLAS corren a las de abajo** al arrastrar una fila, igual que el Kanban (la tabla de
+  Tareas y la de adentro de un proyecto). Tenía una segunda mitad: la tabla desempataba por orden
+  de llegada y no por `num`. Detalle en `docs/hallazgos-plan.md` → «La tabla de tareas, el mismo
+  gesto». Sin verificar con un arrastre: no había RAM.
+- La línea de AGENTS.md que nombraba `PreguntaCampo`, corregida.
+- **La corrida del Perro ya no deshace el arrastre.** Era más grave que «re-empatar»: medido,
+  240 de 513 arrastres se deshacían en la primera corrida (cada día y con cada alta). Ahora 0
+  (`respetarFijadas`). El porqué y lo que falló antes, en `docs/hallazgos-plan.md` → «La corrida
+  del Perro deshacía el arrastre».
+
+**Lo que sigue en la cola, sin tocar:**
+- `puntuarPlan` (la re-puntuación completa con el modelo, `lib/mako-guardian.ts`) también curva
+  con `curveTaskScores` y no pasa por `respetarFijadas`: no se midió si respeta a las fijadas.
+- Nada de lo del arrastre se probó con un arrastre en un navegador (sin RAM para un dev server).
+
+**Una trampa medida que sirve para el que pushee:** `tsc --noEmit` sobre el proyecto entero sale
+con código 1 sin un solo error (también con 6 GB de heap), pero el MISMO tsc con un `include`
+acotado a unos archivos y todo lo que importan termina en 0. O sea que tsc anda: lo que lo tumba
+es algo del conjunto completo (memoria `pc-techo-ram-chrome`: pide 4 GB y con muchos chats no los
+hay).
+
+Lo que sigue abajo es el relevo del 09/10, que sigue valiendo.
+
+
 **Dónde quedó:** 09/10/2026, cuenta `claude2`, sesión `153a499a` (chat «Plan - Perro
 Guardián»). Lo anterior, del 05-06/10 en la cuenta 1, está en el historial de este archivo.
 

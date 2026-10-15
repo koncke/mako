@@ -5,7 +5,9 @@
 // abre a la derecha del Panel (app/landing-generator/diagnostico/PanelDiagnostico.tsx). Un `accion` por
 // operación, exactamente `PedidoDiagnostico` (lib/editor-landing/diagnostico.ts):
 //   { accion: 'listar', docId | url }              los comentarios guardados (y el veredicto de una de afuera);
-//   { accion: 'analizar', docId | url, texto? }    analiza, guarda lo nuevo y devuelve la lista entera;
+//   { accion: 'analizar', docId | url, texto?, lectura? }  analiza, guarda lo nuevo y devuelve la lista entera
+//                                                  (`lectura`, tanda 6: la página de afuera leída en el
+//                                                  navegador de la persona; reemplaza la bajada);
 //   { accion: 'estado', id, estado }               pendiente / resuelta / descartada (nunca borra).
 // El trabajo vive en lib/editor-landing/diagnostico-server.ts; acá sólo la puerta y el reparto.
 //
@@ -19,16 +21,27 @@ import { getCapaActual, getRolWsEfectivo } from '@/lib/workspace';
 import { tabEnCapa } from '@/lib/capas';
 import { analizar, cambiarEstado, listar } from '@/lib/editor-landing/diagnostico-server';
 import type { RespuestaDiagnostico } from '@/lib/editor-landing/diagnostico';
+import type { MotivoEnNavegador } from '@/lib/editor-landing/lectura-tipos';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
 
-const falla = (status: number, error: string, extra: { pegable?: boolean } = {}) =>
+type Extra = { pegable?: boolean; enNavegador?: true; motivo?: MotivoEnNavegador };
+const falla = (status: number, error: string, extra: Extra = {}) =>
   Response.json({ ok: false, error, ...extra } satisfies RespuestaDiagnostico, { status });
 
-/** El resultado del server como respuesta: el `status` interno elige el código y NO viaja en el cuerpo. */
-function responder(r: { ok: true } | { ok: false; error: string; status: number; pegable?: boolean }): Response {
-  if (!r.ok) return falla(r.status, r.error, r.pegable ? { pegable: true } : {});
+/**
+ * El resultado del server como respuesta: el `status` interno elige el código y NO viaja en el cuerpo.
+ * Tanda 6: con una página de afuera que no se lee desde el server viajan `enNavegador` y `motivo`
+ * (además de `pegable`), para que el panel ofrezca leerla en el navegador.
+ */
+function responder(r: { ok: true } | ({ ok: false; error: string; status: number } & Extra)): Response {
+  if (!r.ok) {
+    return falla(r.status, r.error, {
+      ...(r.pegable ? { pegable: true } : {}),
+      ...(r.enNavegador && r.motivo ? { enNavegador: true as const, motivo: r.motivo } : {}),
+    });
+  }
   return Response.json(r);
 }
 
@@ -45,7 +58,7 @@ export async function POST(req: Request) {
   try {
     switch (body.accion) {
       case 'listar': return responder(await listar({ docId: body.docId, url: body.url }));
-      case 'analizar': return responder(await analizar({ docId: body.docId, url: body.url, texto: body.texto }));
+      case 'analizar': return responder(await analizar({ docId: body.docId, url: body.url, texto: body.texto, lectura: body.lectura }));
       case 'estado': return responder(await cambiarEstado({ id: body.id, estado: body.estado }));
       default: return falla(400, 'Acción desconocida');
     }

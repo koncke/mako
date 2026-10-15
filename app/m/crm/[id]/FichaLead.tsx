@@ -315,7 +315,9 @@ function SheetAgendar(p: FichaLeadProps & { abierto: boolean; onCerrar: () => vo
         haptico('error');
         setReserva({ fase: 'guardada-sin-google' });
       }
-      router.refresh();
+      // reagendarReunionAction termina con revalidatePath: su respuesta ya trae la ficha fresca. Un
+      // router.refresh() acá era un SEGUNDO render completo en serie (medido el 14/10/2026). En el
+      // catch sí va: si la action tiró, no revalidó nada.
     } catch {
       haptico('error');
       setError('No se pudo agendar. Revisa la ficha antes de reintentar.');
@@ -535,7 +537,6 @@ function SheetNota({ id, abierto, onCerrar, texto, setTexto, error, setError, vi
 // ── Mover de etapa ────────────────────────────────────────────────────────────
 
 function SheetMover(p: FichaLeadProps & { abierto: boolean; onCerrar: () => void; onAgendar: () => void }) {
-  const router = useRouter();
   const toast = useToastM();
   const { enLinea } = useConexion();
   const [fid, setFid] = useState<number | null>(p.productos[0]?.funnelId ?? null);
@@ -556,11 +557,13 @@ function SheetMover(p: FichaLeadProps & { abierto: boolean; onCerrar: () => void
       const funnelId = prod.funnelId;
       haptico('success');
       p.onCerrar();
-      router.refresh();
+      // moverEtapaAction llama a refresh(): su respuesta ya trae la ficha fresca (sin un segundo
+      // render completo en serie, medido el 14/10/2026).
+      if (!r.cambio) { toast(`Ya estaba en ${destino.label}`); return; }
       toast(r.pendientes.length ? 'Movido, faltan datos' : `En ${destino.label}`, {
         deshacer: () => {
           deshacerMoverAction(p.id, funnelId, antes, esCasa)
-            .then((d) => { toast(d.ok ? 'Deshecho' : d.error); router.refresh(); })
+            .then((d) => { toast(d.ok ? 'Deshecho' : d.error); })
             .catch(() => toast('No se pudo deshacer'));
         },
       });

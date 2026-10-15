@@ -48,8 +48,9 @@ import {
   type AttrsRecuadro, type AttrsTarjeta, type AttrsVideo, type CampoFormulario, type ColorTema, type Degradado,
   type TamanoTexto, type TipoCampo, type VarianteOptimizado, type VarianteParrafo,
 } from './doc';
-import { altoDeEmbed, atributosDeIframe, claseDeProveedor, embedDe, nombreDeProveedor } from '../embeds';
+import { altoDeEmbed, atributosDeIframe, claseDeProveedor, embedDe, esProveedorEmbed, nombreDeProveedor } from '../embeds';
 import { SANDBOX_PUBLICO } from './html-libre';
+import { hrefPagoValido } from './pago-landing';
 import {
   arbolDeGrafico, htmlDeArbol, normalizarGrafico, type AttrsArbol, type HijoArbol, type NodoArbol,
 } from './grafico-svg';
@@ -91,7 +92,82 @@ export type CtxSpec = {
    * landing (`OpRender.htmlLibre`). Sin esto, o sin id, el bloque sale con `srcdoc` como siempre.
    */
   srcHtmlLibre?: (idBloque: string) => string | null;
+  /**
+   * Los MARCADORES de una miniatura de trabajo (render.ts, `OpRender.marcadores`; sólo en
+   * 'miniatura'): el VSL vacío de un diseño se dibuja como un ▶ (`specInsertado`). Sin esto, un
+   * insertado vacío no se dibuja, como en la publicada.
+   */
+  marcadores?: boolean;
+  /**
+   * Marcar los textos A COMPLETAR («[Tu especialidad]», `rangosACompletar` abajo) con un
+   * `span.gm-completar`. Lo prende render.ts junto con `marcadores` (la miniatura de TRABAJO) y lo
+   * puede pedir un NodeView del editor para lo que dibuja desde un atributo (el `valor` de un ítem).
+   * El `renderHTML` de TipTap nunca lo pide: `getHTML()` y el portapapeles salen sin marcar.
+   */
+  completar?: boolean;
 };
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Los textos A COMPLETAR: «[Tu especialidad]», «[resultado concreto]», «[00]%»
+// ─────────────────────────────────────────────────────────────────────────────
+// Pedido de Martín (14/10/2026): «También quiero que los [] que el usuario debe completar, se queden
+// como de otro color o algo diferencial, y que eso se vea también en la miniatura, así se entiende
+// mejor.» Las plantillas, los diseños y la IA (ia-bloques.ts: «usa marcadores entre corchetes») dejan
+// entre corchetes lo que la persona tiene que escribir. Se MARCA en dos lugares y en ningún otro:
+//   · el editor, con una decoración de ProseMirror (editor/extensiones/completar.ts): no toca el
+//     documento, ni el JSON guardado, ni `getHTML()`;
+//   · la miniatura de TRABAJO (render.ts con `marcadores`): un `span.gm-completar`.
+// La publicada, la exportación y la vista del visitante en el teléfono (app/m/landing, miniatura sin
+// marcadores) no marcan nada: si la persona publicó con un corchete, se publica tal cual.
+// El tope es 120 y no 80: el más largo de los catálogos mide 88 (medido el 14/10/2026 sobre
+// PLANTILLAS, DISENOS_SECCION, PLANTILLAS_PRESENTACION y los diseños × objetivos: 526 distintos; con
+// 80 quedaban sin marcar la garantía y la historia del «Sobre mí»). Sin saltos de línea ni corchetes
+// adentro (un «[» suelto no se come el párrafo), y con al menos una letra o un número: «[…]» y
+// «[ ]» no son algo a completar.
+
+/** La regla de un texto a completar. Con `g`: se usa con `matchAll`, que la clona (no comparte `lastIndex`). */
+export const RE_A_COMPLETAR = /\[(?=[^\[\]\n]*[\p{L}\p{N}])[^\[\]\n]{1,120}\]/gu;
+/** La clase del marcado (la hoja, css.ts, lo dibuja sólo en el editor y en la miniatura de trabajo). */
+export const CLASE_A_COMPLETAR = 'gm-completar';
+
+/** Los rangos `[desde, hasta)` de cada texto a completar, con sus corchetes, en orden. */
+export function rangosACompletar(texto: string): Array<readonly [number, number]> {
+  const out: Array<readonly [number, number]> = [];
+  if (!texto.includes('[')) return out;
+  for (const m of texto.matchAll(RE_A_COMPLETAR)) out.push([m.index, m.index + m[0].length]);
+  return out;
+}
+
+export type TramoACompletar = { texto: string; completar: boolean };
+
+/**
+ * Un texto partido según `rangos`, que se midieron sobre el texto CORRIDO del bloque; `base` es dónde
+ * empieza este texto en él. Es lo que deja marcar «[tu **cliente** ideal]» aunque la negrita lo parta
+ * en tres textos: cada pedazo se marca adentro de su propia marca, como parte ProseMirror una
+ * decoración. Nunca devuelve un tramo vacío salvo para un texto vacío.
+ */
+export function tramosACompletar(texto: string, rangos: ReadonlyArray<readonly [number, number]>, base = 0): TramoACompletar[] {
+  const fin = base + texto.length;
+  const out: TramoACompletar[] = [];
+  let i = 0;
+  for (const [d, h] of rangos) {
+    if (h <= base || d >= fin) continue;
+    const a = Math.max(d, base) - base;
+    const b = Math.min(h, fin) - base;
+    if (a > i) out.push({ texto: texto.slice(i, a), completar: false });
+    if (b > Math.max(a, i)) out.push({ texto: texto.slice(Math.max(a, i), b), completar: true });
+    i = Math.max(i, b);
+  }
+  if (i < texto.length || !out.length) out.push({ texto: texto.slice(i), completar: false });
+  return out;
+}
+
+/** Un texto suelto (que no parte ninguna marca) como hijos de un árbol, con lo que hay que completar marcado. */
+export function hijosACompletar(texto: string): HijoArbol[] {
+  return tramosACompletar(texto, rangosACompletar(texto))
+    .filter((t) => t.texto)
+    .map((t): HijoArbol => (t.completar ? ['span', { class: CLASE_A_COMPLETAR }, t.texto] : t.texto));
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers de lectura (lo que no es exactamente un valor válido, no se lee)
@@ -304,9 +380,15 @@ export function attrsBotones(raw: unknown): AttrsBotones {
   return { alinea: enLista(ALINEACIONES, obj(raw).alinea, 'izquierda') };
 }
 
+/**
+ * Un BOTÓN acepta además `pago:<productoId>` (tanda 4: el «Botón de pago» cobrado por la pasarela de
+ * MaKo, pago-landing.ts). Sólo el botón: un enlace de texto, una imagen o la barra del sitio siguen con
+ * `hrefSeguro`, que no lo conoce — un `pago:` ahí no tendría quién lo resuelva. Va en el `href` que
+ * ya existía y no en un atributo nuevo: el esquema de TipTap, el saneo y el pegado lo leen igual.
+ */
 export function attrsBoton(raw: unknown): AttrsBoton {
   const r = obj(raw);
-  return { href: hrefSeguro(r.href) ?? '', variante: enLista(VARIANTES_BOTON, r.variante, 'primario'), nuevaPestana: bool(r.nuevaPestana) };
+  return { href: hrefSeguro(r.href) ?? hrefPagoValido(r.href) ?? '', variante: enLista(VARIANTES_BOTON, r.variante, 'primario'), nuevaPestana: bool(r.nuevaPestana) };
 }
 
 export function attrsRecuadro(raw: unknown): AttrsRecuadro {
@@ -343,16 +425,60 @@ export function attrsVideo(raw: unknown): AttrsVideo {
 
 /**
  * El insertado sale de `embedDe` (lib/embeds.ts), la MISMA fuente que el saneo del editor rico:
- * el `src` que se guarda es el que arma ese módulo desde el id, nunca el que entró, y el
+ * el `src` que se guarda es el que arma ese módulo desde el id, nunca el que entró, y con enlace el
  * proveedor sale de ahí (el que traiga el JSON no se lee). El alto sólo existe en una agenda.
+ *
+ * SIN enlace (el marcador que pide «Pega el enlace»), el proveedor es una PISTA de qué va en el hueco
+ * —un video o una agenda— y se conserva SÓLO si es uno de la lista cerrada de lib/embeds.ts
+ * (`esProveedorEmbed`); uno inventado sale ''. Con eso el editor pide lo justo («el enlace de tu
+ * video») y la miniatura dibuja el VSL vacío de un diseño como un video (`specInsertado`). Antes del
+ * 14/10/2026 salía siempre '': un VSL vacío y una agenda vacía eran indistinguibles.
  */
 export function attrsInsertado(raw: unknown): AttrsInsertado {
   const r = obj(raw);
-  const e = typeof r.src === 'string' ? embedDe(r.src) : null;
-  if (!e) return { src: '', proveedor: '', alto: null };
+  const sinEnlace = typeof r.src !== 'string' || r.src.trim() === '';
+  const e = sinEnlace ? null : embedDe(r.src as string);
+  if (!e) return { src: '', proveedor: sinEnlace && esProveedorEmbed(r.proveedor) ? r.proveedor : '', alto: null };
   const agenda = claseDeProveedor(e.proveedor) === 'agenda';
   return { src: e.src, proveedor: e.proveedor, alto: agenda ? altoDeEmbed(r.alto) ?? e.alto ?? null : null };
 }
+
+/** El aviso de Publicar cuando un video quedó sin su enlace (corto: lo dibuja el diálogo). */
+export const TEXTO_FALTA_VIDEO = 'Falta el enlace del video';
+
+/**
+ * ¿Cuántos VIDEOS quedaron sin pegar? Un `insertado` con la pista de un proveedor de video (el VSL que
+ * trae un diseño, «Video de YouTube…»: `attrsInsertado` la conserva en el hueco vacío) y sin `src`. Lo
+ * pregunta el diálogo Publicar ANTES de publicar (integración de la tanda 4): la publicada no dibuja
+ * un insertado vacío (render.ts), así que el hero de un diseño con VSL sale sin video y nadie lo dice.
+ * Una agenda vacía no cuenta (no tiene pista de video), ni una sección OCULTA (no se publica). Se lee
+ * con `attrsInsertado`, la MISMA regla del saneo y del render: un enlace que no es de la lista ya no
+ * está, y una pista inventada sale ''.
+ */
+export function videosSinEnlace(paginas: ReadonlyArray<{ doc?: { content?: unknown } } | null | undefined>): number {
+  let n = 0;
+  const recorrer = (nodos: unknown, prof: number): void => {
+    if (!Array.isArray(nodos) || prof > 40) return;
+    for (const x of nodos) {
+      if (!x || typeof x !== 'object' || Array.isArray(x)) continue;
+      const nodo = x as { type?: unknown; attrs?: unknown; content?: unknown };
+      const attrs = nodo.attrs && typeof nodo.attrs === 'object' ? nodo.attrs as Record<string, unknown> : {};
+      if (nodo.type === NODO.tarjeta && attrs.oculta === true) continue;
+      if (nodo.type === NODO.insertado) {
+        const a = attrsInsertado(attrs);
+        if (!a.src && claseDeProveedor(a.proveedor) === 'video') n++;
+        continue;
+      }
+      recorrer(nodo.content, prof + 1);
+    }
+  };
+  for (const p of paginas ?? []) recorrer(p?.doc?.content, 0);
+  return n;
+}
+
+/** El aviso de Publicar, o null si no falta ningún video. */
+export const avisoDeVideo = (paginas: Parameters<typeof videosSinEnlace>[0]): string | null =>
+  videosSinEnlace(paginas) > 0 ? TEXTO_FALTA_VIDEO : null;
 
 /** Rótulo por default de cada tipo de campo (el que la persona ve si no escribió otro). */
 export const ETIQUETA_CAMPO: Record<TipoCampo, string> = {
@@ -633,13 +759,17 @@ export function numeroDeValor(valor: string): number | null {
   return Math.max(-1e9, Math.min(1e9, Math.round(n * 100) / 100));
 }
 
-/** `.gm-item[data-destacado]` > `.gm-item-marca` (ícono · imagen · valor) + `.gm-item-cuerpo`. */
-export function specOptimizadoItem(raw: unknown): NodoArbol {
+/**
+ * `.gm-item[data-destacado]` > `.gm-item-marca` (ícono · imagen · valor) + `.gm-item-cuerpo`. Con
+ * `ctx.completar`, el `valor` («[00]%», «[$000]») marca lo que hay que completar: es un atributo, no
+ * texto del documento, así que el recorrido de render.ts no lo ve.
+ */
+export function specOptimizadoItem(raw: unknown, ctx?: CtxSpec): NodoArbol {
   const a = attrsOptimizadoItem(raw);
   const marca: Hijo[] = [];
   if (a.icono) marca.push(el('span', { class: 'gm-item-icono', 'data-icono': a.icono, 'aria-hidden': 'true' }));
   if (a.imagenSrc) marca.push(el('img', { class: 'gm-item-imagen', src: a.imagenSrc, alt: '', loading: 'lazy', decoding: 'async' }));
-  if (a.valor) marca.push(el('span', { class: 'gm-item-valor' }, a.valor));
+  if (a.valor) marca.push(el('span', { class: 'gm-item-valor' }, ...(ctx?.completar ? hijosACompletar(a.valor) : [a.valor])));
   const num = a.valor ? numeroDeValor(a.valor) : null;
   return el('div', { class: 'gm-item', 'data-destacado': si(a.destacado), style: num != null ? `--gm-num:${num}` : undefined },
     el('div', { class: 'gm-item-marca' }, ...marca),
@@ -653,8 +783,13 @@ export function specBotones(raw: unknown): NodoArbol {
 /** `a.gm-boton[data-variante]`. Sin destino permitido, el `<a>` sale sin href. */
 export function specBoton(raw: unknown, ctx?: CtxSpec): NodoArbol {
   const a = attrsBoton(raw);
-  const href = hrefDe(a.href, ctx);
-  const nueva = a.nuevaPestana && !!href && esExterno(href);
+  // `pago:<id>` no pasa por `hrefSeguro` (no lo conoce): lo resuelve render.ts (`resolverHref`) al paso
+  // de nombre y email de la publicada, o a `#` donde no hay paso (vista previa, exportar). Sin
+  // resolvedor (el DOM del editor) se escribe como se guardó, igual que `pagina:<id>`.
+  const pago = hrefPagoValido(a.href);
+  const href = pago ? (ctx?.resolverHref ? ctx.resolverHref(pago) ?? undefined : pago) : hrefDe(a.href, ctx);
+  // El paso de pago abre en la MISMA pestaña: es el camino de compra, no un sitio de afuera.
+  const nueva = !pago && a.nuevaPestana && !!href && esExterno(href);
   return el('a', {
     class: 'gm-boton', 'data-variante': a.variante, href,
     target: nueva ? '_blank' : undefined, rel: nueva ? 'noopener noreferrer' : undefined,
@@ -721,7 +856,20 @@ export function specInsertado(raw: unknown, ctx?: CtxSpec): NodoArbol {
   const a = attrsInsertado(raw);
   const clase = claseDeProveedor(a.proveedor) ?? undefined;
   const attrsDiv: AttrsArbol = { class: 'gm-insertado', 'data-proveedor': a.proveedor || undefined, 'data-clase': clase };
-  if (!a.src) return el('div', { ...attrsDiv, 'data-vacia': 'si' });
+  if (!a.src) {
+    // El VSL vacío de un diseño, en una miniatura que pide MARCADORES: un video 16:9 con un ▶, sin
+    // texto (la grilla de Diseños tiene que mostrar que la landing lleva video; pedido de Martín,
+    // 14/10/2026). La publicada, la exportación y la vista del visitante en el teléfono no lo
+    // dibujan (render.ts no saca un insertado vacío) y el editor tiene su NodeView. Una agenda
+    // vacía no se dibuja en ningún modo. El ▶ va RELLENO (`play-relleno`, el peso «fill» de Phosphor),
+    // como el de un reproductor: el `play` de contorno del catálogo es el de «Presentar».
+    if (ctx?.marcadores && modo(ctx) === 'miniatura' && clase === 'video') {
+      return el('div', { ...attrsDiv, 'data-marcador': 'si', 'data-pista': 'si' },
+        el('div', { class: 'gm-marcador', 'data-play': 'si' },
+          el('span', { class: 'gm-marcador-play', 'data-icono': 'play-relleno', 'aria-hidden': 'true' })));
+    }
+    return el('div', { ...attrsDiv, 'data-vacia': 'si' });
+  }
   if (modo(ctx) === 'miniatura') {
     return el('div', { ...attrsDiv, 'data-marcador': 'si' }, el('div', { class: 'gm-marcador' }, nombreDeProveedor(a.proveedor) ?? ''));
   }
@@ -744,25 +892,30 @@ function idDom(id: string): string {
 }
 const NAME_CAMPO: Partial<Record<TipoCampo, string>> = { nombre: 'nombre', email: 'email', telefono: 'telefono', empresa: 'empresa' };
 
-function specCampo(c: CampoFormulario, i: number): NodoArbol {
+/** Un texto que viene de un ATRIBUTO, como hijos: tal cual, o con lo que hay que completar marcado. */
+type Marcar = (texto: string) => Hijo[];
+const tal = (texto: string): Hijo[] => [texto];
+
+function specCampo(c: CampoFormulario, i: number, marcar: Marcar = tal): NodoArbol {
   const dom = idDom(c.id || `i${i}`);
   // `name` de los campos libres: «respuesta-<dígitos>», que no contiene ninguna palabra que el
   // Pixel lea como contacto (email, tel, nombre, name, empresa…: lib/landing-token.ts).
   const name = NAME_CAMPO[c.tipo] ?? `respuesta-${dom.slice(3)}`;
   const req = c.requerido ? '' : undefined;
-  const rotulo = el('label', { class: 'gm-campo-etiqueta', for: dom, 'data-requerido': si(c.requerido) }, c.etiqueta);
+  const rotulo = el('label', { class: 'gm-campo-etiqueta', for: dom, 'data-requerido': si(c.requerido) }, ...marcar(c.etiqueta));
   if (c.tipo === 'opciones') {
     // Radios. El Pixel arma la respuesta con `labels[0].textContent` del input marcado: con el
     // radio adentro de la etiqueta de su opción, la clave sería «Compra: Compra». Un `<label
     // hidden for>` con la PREGUNTA va antes (orden del documento = primero en `labels`): el
     // Pixel lee «¿Compras o rentas?: Compra», y como está oculto no se dibuja ni se anuncia.
+    // Esa etiqueta oculta NUNCA se marca: es lo que lee el Pixel.
     return el('fieldset', { class: 'gm-campo', 'data-tipo': c.tipo },
-      el('legend', { class: 'gm-campo-etiqueta', 'data-requerido': si(c.requerido) }, c.etiqueta),
+      el('legend', { class: 'gm-campo-etiqueta', 'data-requerido': si(c.requerido) }, ...marcar(c.etiqueta)),
       ...c.opciones.flatMap((op, k): Hijo[] => [
         el('label', { for: `${dom}-${k}`, hidden: '' }, c.etiqueta),
         el('label', { class: 'gm-opcion' },
           el('input', { type: 'radio', id: `${dom}-${k}`, name, value: op, required: req }),
-          el('span', {}, op)),
+          el('span', {}, ...marcar(op))),
       ]));
   }
   let control: NodoArbol;
@@ -787,23 +940,52 @@ function specCampo(c: CampoFormulario, i: number): NodoArbol {
  * `method="post"` y sin `action`: si el script de la página no corriera, el envío va por POST a
  * la misma ruta (que no lo acepta) y los datos NUNCA quedan en la URL, como pasaría con un GET.
  * El mensaje de éxito ya viene escrito (oculto): el script sólo lo muestra.
+ *
+ * Con `ctx.completar` (la miniatura de TRABAJO), los «[ ]» de las etiquetas, las preguntas, las opciones
+ * y el botón van marcados como en el texto (pendiente de los huecos resaltados, tanda 6: en la miniatura
+ * el formulario era lo único sin marcar). Lo oculto (la etiqueta que lee el Pixel, el éxito) nunca, y la
+ * publicada tampoco: el Pixel arma cada respuesta con `labels[0].textContent`.
  */
 export function specFormulario(raw: unknown, ctx?: CtxSpec): NodoArbol {
   const a = attrsFormulario(raw);
   const redirigir = a.redirigir ? hrefDe(a.redirigir, ctx) : undefined;
+  const marcar: Marcar = ctx?.completar ? hijosACompletar : tal;
   return el('form', {
     class: 'gm-formulario', method: 'post', 'data-exito': a.exito, 'data-redirigir': redirigir,
     inert: modo(ctx) === 'miniatura' ? '' : undefined,
   },
-  ...a.campos.map(specCampo),
-  el('button', { type: 'submit', class: 'gm-boton', 'data-variante': 'primario' }, a.boton),
+  ...a.campos.map((c, i) => specCampo(c, i, marcar)),
+  el('button', { type: 'submit', class: 'gm-boton', 'data-variante': 'primario' }, ...marcar(a.boton)),
   el('p', { class: 'gm-formulario-exito', hidden: '', 'aria-live': 'polite' }, a.exito));
 }
 
-/** `.gm-grafico > svg` (el mismo árbol que dibuja el NodeView: grafico-svg.ts). */
-export function specGrafico(raw: unknown): NodoArbol {
+/**
+ * La tinta de lo que hay que completar adentro del SVG de un gráfico: la franja de `.gm-completar`
+ * (un `background`) no se dibuja en un `<tspan>`, así que va el relleno del acento, opaco (las
+ * categorías y la leyenda son tenues, `fill-opacity: 0.7`).
+ */
+const TINTA_A_COMPLETAR_SVG = 'fill:var(--gm-acento-texto, #2f6fed);fill-opacity:1';
+
+/** El árbol del gráfico con los «[ ]» de sus `<text>` (título, categorías, leyenda) en un `<tspan>`. El `<title>` y el `aria-label` no se ven: quedan igual. */
+function graficoConACompletar(n: NodoArbol): NodoArbol {
+  const [tag, ...resto] = n;
+  const esTexto = tag === 'text' || tag.endsWith(' text');
+  return [tag, ...resto.flatMap((h): Hijo[] => {
+    if (Array.isArray(h)) return [graficoConACompletar(h as NodoArbol)];
+    if (!esTexto || typeof h !== 'string') return [h];
+    return tramosACompletar(h, rangosACompletar(h)).filter((t) => t.texto)
+      .map((t): Hijo => (t.completar ? ['tspan', { class: CLASE_A_COMPLETAR, style: TINTA_A_COMPLETAR_SVG }, t.texto] : t.texto));
+  })];
+}
+
+/**
+ * `.gm-grafico > svg` (el mismo árbol que dibuja el NodeView: grafico-svg.ts). Con `ctx.completar`
+ * (la miniatura de trabajo), los «[ ]» del título, las categorías y la leyenda van marcados.
+ */
+export function specGrafico(raw: unknown, ctx?: CtxSpec): NodoArbol {
   const g = normalizarGrafico(raw);
-  return el('div', { class: 'gm-grafico', 'data-tipo': g.tipo }, arbolDeGrafico(g));
+  const svg = arbolDeGrafico(g);
+  return el('div', { class: 'gm-grafico', 'data-tipo': g.tipo }, ctx?.completar ? graficoConACompletar(svg) : svg);
 }
 
 export function specEspaciador(raw: unknown): NodoArbol {

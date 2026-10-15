@@ -11,9 +11,14 @@
 //   · Un tramo sin dato («—», p. ej. con menos casos que el mínimo de la razón) ocupa lo mínimo y no compite
 //     por ser el más largo.
 //   · En una tarjeta angosta (< 520 px) los tramos pasan a ser renglones (nombre, barra, número): ocho tramos
-//     de 64 px no entran en fila.
+//     de 64 px no entran en fila. En renglones la barra conserva la PROPORCIÓN (`--peso`): con todas al ancho
+//     de su columna, el más largo se distinguía sólo por el color.
+//   · ⚠️ El `container-type` va en el envoltorio (.gr-tramos-caja), no en .gr-tramos: un @container no puede
+//     estilar al mismo elemento que lo declara (la consulta mira al ancestro). Así estaba, y en angosto los
+//     tramos quedaban en fila con el adentro de un renglón (medido con el arnés, 14/10/2026).
 //   · Cada tramo abre lo que hay atrás de su métrica (los leads de ese tramo), si tiene filas atrás.
 
+import type { CSSProperties } from 'react';
 import { fmtValor, type Resultado } from '@/lib/graficos-agregar';
 import { textoConMuestra, tramoMasLargo } from '@/lib/graficos-gordo';
 
@@ -24,22 +29,24 @@ export function Tramos({ r, color, compacto, alMetrica }: {
   const largo = tramoMasLargo(r.totales);
   const max = Math.max(0, ...r.totales.map((v) => (v != null && Number.isFinite(v) ? v : 0)));
   return (
-    <div className="gr-tramos" role="list">
-      {r.columnas.map((c, i) => {
-        const v = r.totales[i];
-        const peso = v != null && v > 0 && max > 0 ? v / max : 0;
-        const al = alMetrica(i);
-        const esLargo = i === largo;
-        return (
-          <button key={c.id} type="button" role="listitem" className={`gr-tramo${esLargo ? ' gr-tramo--largo' : ''}`}
-            style={{ flex: `${Math.max(0.35, peso)} 1 0` }} title={c.nombre}
-            {...(al ? { 'data-abre': '', onClick: al, 'aria-label': `Ver detalle: ${c.nombre}` } : { tabIndex: -1 })}>
-            <span className="gr-tramo-val" title={r.muestraChica?.[i] ? `n = ${r.muestraChica[i]!.den}` : undefined}>{textoConMuestra(v, r.muestraChica?.[i], c.formato, (x) => fmtValor(x, c.formato, compacto))}</span>
-            <span className="gr-tramo-pista" style={{ background: esLargo ? 'var(--bad)' : v != null && v > 0 ? color : 'var(--surface-2)', opacity: esLargo ? 1 : 0.85 }} />
-            <span className="gr-tramo-nom">{c.nombre}</span>
-          </button>
-        );
-      })}
+    <div className="gr-tramos-caja">
+      <div className="gr-tramos" role="list">
+        {r.columnas.map((c, i) => {
+          const v = r.totales[i];
+          const peso = v != null && v > 0 && max > 0 ? v / max : 0;
+          const al = alMetrica(i);
+          const esLargo = i === largo;
+          return (
+            <button key={c.id} type="button" role="listitem" className={`gr-tramo${esLargo ? ' gr-tramo--largo' : ''}`}
+              style={{ flex: `${Math.max(0.35, peso)} 1 0`, '--peso': Math.max(0.06, peso) } as CSSProperties} title={c.nombre}
+              {...(al ? { 'data-abre': '', onClick: al, 'aria-label': `Ver detalle: ${c.nombre}` } : { tabIndex: -1 })}>
+              <span className="gr-tramo-val" title={r.muestraChica?.[i] ? `n = ${r.muestraChica[i]!.den}` : undefined}>{textoConMuestra(v, r.muestraChica?.[i], c.formato, (x) => fmtValor(x, c.formato, compacto))}</span>
+              <span className="gr-tramo-pista" style={{ background: esLargo ? 'var(--bad)' : v != null && v > 0 ? color : 'var(--surface-2)', opacity: esLargo ? 1 : 0.85 }} />
+              <span className="gr-tramo-nom">{c.nombre}</span>
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }

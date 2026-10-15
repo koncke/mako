@@ -110,6 +110,9 @@ const LISTA = [
   ['descargar', 'download-simple', 'descargar bajar'],
   ['subir', 'upload-simple', 'subir cargar'],
   ['play', 'play', 'presentar reproducir'],
+  // El ▶ del VSL vacío en la miniatura de un diseño con video (especificacion.ts, `specInsertado`): relleno,
+  // como el de un reproductor; el de contorno se leía como un botón más («Diseños con video», 14/10/2026).
+  ['play-relleno', 'play', 'reproducir video', 'fill'],
   ['presentar', 'presentation', 'presentar pantalla diapositivas'],
   ['globo', 'globe', 'publicar sitio web internet'],
   ['puntos', 'dots-three', 'opciones menu'],
@@ -391,7 +394,7 @@ const salida = [
   '// editor-landing/iconos — subset de Phosphor Icons. GENERADO: no editar a mano',
   '// =============================================================================',
   '// Lo escribe scripts/gen-iconos-landing.mjs desde ' + pkgJson.name + '@' + pkgJson.version,
-  '// (peso «regular», viewBox 256; las estrellas de calificación, en «fill»). Para',
+  '// (peso «regular», viewBox 256; las estrellas de calificación y el ▶ del video, en «fill»). Para',
   '// sumar un ícono: agregar su fila a LISTA en el script y volver a correrlo (las',
   '// instrucciones están en su cabecera). ' + iconos.length + ' íconos.',
   '//',

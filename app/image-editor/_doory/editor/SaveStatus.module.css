@@ -1,0 +1,122 @@
+/*
+ * El estado de guardado vive sobre el degradado de la barra superior: blanco sobre violeta. Los avisos
+ * (conflicto, error, sin conexión) son chips claros para que se lean sobre el color.
+ */
+.cloud {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--cv-radius-sm);
+  color: var(--cv-header-text);
+}
+
+.pill {
+  display: inline-flex;
+  /* En una barra apretada el aviso cede (el texto se corta con «…») en vez de pisar lo demás. */
+  flex: 0 1 auto;
+  min-width: 30px;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 var(--cv-space-3);
+  border-radius: var(--cv-radius-full);
+  font: 600 var(--cv-text-sm) / 1 var(--cv-font-sans);
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Guardando, solo lectura, conectando: texto blanco sin fondo, como la nube */
+.neutral,
+.ok {
+  background: transparent;
+  color: var(--cv-header-text);
+}
+
+.warn {
+  background: var(--cv-color-warning-soft);
+  color: #3e2a14; /* Canva: texto del aviso de advertencia suave */
+}
+
+.error {
+  background: var(--cv-color-danger-soft);
+  color: #501b21; /* Canva: texto del aviso de error suave */
+}
+
+.live {
+  background: var(--cv-header-button-bg);
+  color: var(--cv-color-brand);
+}
+
+.liveDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--cv-color-brand);
+  box-shadow: 0 0 0 0 color-mix(in srgb, var(--cv-color-brand) 45%, transparent);
+  animation: beat 2.4s ease-out infinite;
+}
+
+.dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.spin {
+  animation: spin 0.9s linear infinite;
+}
+
+.retry {
+  flex: none;
+  margin-left: 2px;
+  padding: 4px 10px;
+  border: 0;
+  border-radius: var(--cv-radius-full);
+  background: var(--cv-color-danger);
+  color: var(--cv-color-on-brand);
+  font: 600 var(--cv-text-sm) / 1 var(--cv-font-sans);
+  cursor: pointer;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 1100px) {
+  .neutral .text,
+  .ok .text {
+    display: none;
+  }
+  .neutral,
+  .ok {
+    padding: 0 9px;
+  }
+}
+
+@keyframes beat {
+  70% {
+    box-shadow: 0 0 0 6px transparent;
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spin,
+  .liveDot {
+    animation: none;
+  }
+}

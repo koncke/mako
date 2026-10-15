@@ -1,0 +1,104 @@
+/* Una miniatura de página: la tira de abajo y la vista de cuadrícula (relevamiento §6). */
+.item {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+}
+
+.strip {
+  min-width: 40px;
+}
+.grid {
+  width: 200px;
+}
+
+/* La caja de alto fijo: todas las miniaturas apoyan en la misma línea. */
+.frame {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+
+.thumb {
+  position: relative;
+  flex: none;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  /* Canva: miniaturas con radio chico y sombra de reposo */
+  border-radius: 6px;
+  background: var(--cv-color-surface);
+  box-shadow: var(--cv-shadow-sm);
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+  cursor: pointer;
+  transition: outline-color var(--cv-duration-fast) var(--cv-ease-out);
+}
+.grid .thumb {
+  border-radius: var(--cv-radius-sm);
+}
+.thumb:hover {
+  /* Canva: al pasar, un anillo gris en el mismo lugar que el violeta de la elegida */
+  outline-color: var(--cv-color-border-strong);
+}
+.thumb:focus-visible {
+  outline-color: #3d8bff; /* Canva: borde de foco de teclado */
+}
+.thumb img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+}
+
+/* Canva: la elegida lleva un anillo #8B3DFF de 2 px separado 2 px de la miniatura */
+.active .thumb,
+.active .thumb:hover {
+  outline-color: var(--cv-selection-color);
+}
+
+.caption {
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--cv-color-text-muted);
+  font: 500 var(--cv-text-xs) / 1.2 var(--cv-font-sans);
+  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.grid .caption {
+  font-size: var(--cv-text-sm);
+}
+.active .caption {
+  color: var(--cv-color-text);
+  font-weight: 600;
+}
+
+/* Dónde cae la página que se arrastra */
+.before::before,
+.after::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 20px;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--cv-color-brand);
+}
+.before::before {
+  left: -8px;
+}
+.after::after {
+  right: -8px;
+}
+.grid.before::before {
+  left: -14px;
+}
+.grid.after::after {
+  right: -14px;
+}

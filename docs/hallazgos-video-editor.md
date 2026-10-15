@@ -772,6 +772,15 @@ La espera del modelo dentro del render está en «Los ganchos `ce-*`».
   canvas WebGL2 da un WebM vacío (con `preserveDrawingBuffer` apagado se lee alfa 0). Se muestrea con un
   bucle de `requestAnimationFrame` que copia el canvas a un 2D chico, descartando las lecturas con alfa 0.
 - ffmpeg 8 ya no acepta `-vsync`: es `-fps_mode passthrough`.
+- ⚠️ **«El renderizador se congeló: CDP no pudo ni capturar pantalla» puede ser una VENTANA OCULTA, no un
+  congelamiento.** Medido el 14/10 en el Chrome real con la extensión de Claude: la pestaña daba
+  `visibilityState: hidden` y `hasFocus: false`. JavaScript contestaba al instante y
+  `Page.captureScreenshot` vencía a los 30 s, que es el mismo síntoma del 13/10. Un
+  `requestAnimationFrame` no corrió en 3 s. Y la importación quedó en «Importando… 0 %» más de 45 s:
+  `showMediaUploadToast` (`media/upload-toast.ts`) espera dos cuadros antes de empezar, y una pestaña
+  oculta no dibuja ninguno. Antes de diagnosticar un congelamiento: `document.visibilityState` y un rAF
+  con tope. Si JS contesta y el rAF no, la ventana está minimizada o tapada, y el editor no avanza hasta
+  que se vea.
 
 - **«Failed to generate project thumbnail on exit» al ENTRAR al editor**: en desarrollo, React (Strict
   Mode) monta, desmonta y vuelve a montar cada efecto, y ese desmontaje falso disparaba la salida antes de
@@ -796,6 +805,18 @@ Medido el 11/10, con 16 GB y 6-7 sesiones abiertas.
   menos de ~2 GB libres. Y tras una caída la caché queda corrupta: rutas que existen dan 404. Se borra la
   caché y se levanta de nuevo (alcanza con `.next/dev`: `hallazgos-infra.md` → «Un 404 en
   `/api/auth/dev-login` casi nunca es la env»).
+- ⚠️ **Y ese «exit 1 sin una línea» casi seguro no es Next quedándose sin memoria: es el vigía de RAM**
+  (`taskkill /F` deja exactamente eso). Medido el 14/10: `next dev` dijo «Ready» y a los 2 min murió así.
+  `~/.claude/guardia/guardia.log` lo nombraba: `MATO pid … (dev, 1592 MB privados) por zona-roja; libre
+  antes 49 MB`. Antes de borrar la caché o culpar al motor, ese log. Y con otros chats trabajando, el
+  editor no compila en local: lo que se verifica va contra producción, en el Chrome de Martín.
+- ⚠️ **Y un `next dev` muerto a mitad deja `.next/dev/types/routes.d.ts` CORTADO, y el `tsc-ve` queda
+  ciego.** Medido el 15/10: cientos de `TS1005: ';' expected` en ese archivo, y ni una línea sobre el código
+  propio. tsc informa la sintaxis primero y, si hay alguna, no chequea tipos. Ese archivo lo genera Next y
+  es sólo del worktree: se borra `.next/dev/types` (sin enlaces adentro: los de `postcss` y `sharp` viven en
+  `.next/dev/node_modules`) y el chequeo vuelve.
+- **Al traer main a la rama `video-editor`, `npm install` en su worktree.** Su `node_modules` es propio
+  (no es un junction): el 14/10 le faltaban 145 paquetes nuevos de main (`fabric`, `@simplewebauthn/*`…).
 - **El typecheck acotado tarda ~40 s; el completo, 8 min con el lock.** `tsc-ve.mjs` se turna por el mismo
   lock de máquina (`%TEMP%/mako-typecheck.lock`). **`tsconfig.ve.json` no está versionado** (lo excluye
   `.git/info/exclude` del clon); en otro clon se recrea con:
@@ -858,6 +879,66 @@ mide sobre las ventanas que traen algo; sin ninguna, manda el absoluto de −40 
 - **Se construyó de cero, y no tenía que pasar sin avisar.** OpenCut classic no lo tiene
   (relevamiento §3) y en CapCut es «Identificar y eliminar muletillas» (Pro). La regla de Martín
   desde el 14/10: antes de construir, mirar la fuente; si no está, decírselo.
+
+## La API de MaKo y el chat al costado: el proyecto vive en el NAVEGADOR
+
+**Vive en:** `lib/api-mako/areas/video.def.ts` · `app/video-editor/espacio.ts` (decisión 5 del diseño) ·
+el molde del chat: `app/landing-generator/editor/paneles/PanelAgente.tsx` + `lib/editor-landing/ia.ts`
+
+Pedido de Martín (15/10, por «Estrategia 3 cuentas»): que el editor tenga un chat al costado para editar
+con prompt, como el Landing Generator, y que todos sus botones pasen a la API de MaKo.
+
+- **Inventario del 15/10: 0 funciones del editor declaradas en la API.** El área `video` tiene 14
+  operaciones, y son todas lecturas del Video Generator. Lo que tiene la pantalla: 59 acciones (9 internas),
+  22 herramientas de la línea de tiempo, 19 pestañas y 12 sub-pestañas del panel derecho, 27 secciones de
+  la biblioteca y 61 parámetros editables por clip (35 del motor y 26 propios). Son ≈160 contando las
+  repetidas: Dividir, por ejemplo, es atajo y también botón.
+- ⚠️ **El diagnóstico obvio («falta declararlas») es el equivocado: no hay de dónde leerlas.** Un runner de
+  la API corre en el server, y los proyectos y el material viven en IndexedDB/OPFS del navegador de quien
+  editó (decisión 5). Ni MaKo por WhatsApp, ni `/api/v1`, ni la skill pueden ver un proyecto. Antes de la
+  primera operación hay que decidir dónde vive el proyecto: por ejemplo, la línea de tiempo (JSON, sin el
+  video crudo) también en la base, y que la API PROPONGA cambios que el editor aplique al abrirse.
+- **El chat de adentro sí puede hacerse sin eso:** corre en la pestaña y aplica comandos del motor ahí
+  mismo. El molde del Landing: la respuesta es un CAMBIO PROPUESTO («Original | Modificado») que se acepta
+  o se descarta entero, y antes de aplicarlo se guarda una versión. Modelo: `landing-editor-ia`, `GEMINI()`
+  con la key del cliente por la cascada gratis, sin fila en `CLAUDE_PERMITIDO`.
+- **Lo que cuesta plata y el chat podría pedir** (Avatar de IA con créditos de Flow, Texto a voz con la
+  ElevenLabs del cliente) va con confirmación de pantalla y `rolMinimo: 'admin'`, nunca en el acto.
+
+**El chat, construido el 15/10** (`901786601`). Vive en `app/video-editor/_opencut/chat/`, `lib/editor-video/` y
+`app/api/video-editor/ia/route.ts`.
+- **El transporte no es el del Landing, y no podía serlo.** Una landing es texto y la IA la devuelve
+  entera. La línea de tiempo son ticks, ids de 36 caracteres y parámetros: devuelta entera, se rompe. Así
+  que la IA devuelve OPERACIONES de un catálogo cerrado (`chat-catalogo.ts`), con refs cortas (v1, t2…)
+  en lugar de ids, y el editor las aplica con los comandos del MOTOR en un `BatchCommand`. Así un corte
+  del chat se porta igual que el de la barra: imán, transiciones, fundidos. Para la persona el
+  comportamiento es el mismo del Landing.
+- **Las refs se conservan al aceptar** (`vistaDeLinea` con `refsPrevias`): entre el pedido y el «Aceptar»
+  pudo aparecer un texto adelante, y «t2» tiene que seguir siendo el mismo.
+- **Lo que tiene test y lo que no.** La vista, la revisión y el catálogo son puros y tienen 21 tests
+  probados rompiéndolos. Que los comandos hagan en pantalla lo que dice cada fila NO tiene test: hay que
+  mirarlo en el navegador, y no se miró.
+- **SIN HACER:**
+  - Verlo andar en el navegador (abrir, pedir, aceptar, restaurar, Ctrl+Z).
+  - Las operaciones que faltan: transiciones, animaciones, filtros y efectos, velocidad, recortar un
+    video o un audio, estilo y posición del texto, subtítulos automáticos.
+  - Una versión de respaldo como la del Landing («Antes de un cambio de IA»): el editor no tiene historial
+    de versiones, y la vuelta es «Restaurar» o Ctrl+Z.
+  - La API de MaKo, que espera la decisión de dónde vive el proyecto.
+
+## Lottie en un editor de VIDEO: qué aporta si la pieza termina en mp4
+
+- **El repo que vio Martín es `diffusionstudio/lottie`**: 5,6 k estrellas, MIT en el archivo `LICENSE` y en
+  `package.json`, verificado el 15/10. Su render es `canvaskit-wasm` (Skia, BSD-3). Pero no es una librería:
+  es una skill para un agente de código (Claude Code, Codex) que escribe `lottie.json` y lo revisa en un
+  reproductor local. A MaKo le sirve su conocimiento, no su código.
+- **En un mp4, un Lottie es una CAPA ANIMADA que se rasteriza al exportar**: un título animado, un sticker
+  animado, un lower third, el logo del negocio en movimiento. Vectorial, nítido a cualquier resolución y
+  liviano. En CapCut eso es «Plantillas de texto» (relevamiento de funciones §4.2), que el editor no tiene
+  porque no hay catálogo. Lottie generado con la marca del cliente es la forma de llenarlo.
+- **Lo que falta saber antes de construir:** si el Gemini del cliente escribe un Lottie que sirva (un
+  Lottie es un JSON largo y quisquilloso, sin medir), y qué renderer usar, el `lottie-web` en canvas (MIT)
+  o Skottie (≈7 MB).
 
 ## «Avatar de IA»: un avatar es un escenario del Video Generator
 

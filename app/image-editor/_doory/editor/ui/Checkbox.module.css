@@ -1,0 +1,80 @@
+/* Casilla de Canva: borde de campo, marcada en violeta #8B3DFF (hover #7630D7) con tilde blanca */
+.row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--cv-space-3);
+  min-height: 32px;
+  color: var(--cv-color-text);
+  cursor: pointer;
+}
+
+.disabled {
+  color: rgb(28 33 48 / 0.5);
+  cursor: not-allowed;
+}
+
+.input {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.box {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border: 1px solid rgb(28 33 48 / 0.5);
+  border-radius: 4px;
+  background: var(--cv-color-surface);
+  color: transparent;
+  transition: background var(--cv-duration-fast) var(--cv-ease-out), border-color var(--cv-duration-fast) var(--cv-ease-out);
+}
+
+.row:hover .box {
+  border-color: var(--cv-color-text);
+}
+
+.input:checked + .box,
+.input:indeterminate + .box {
+  border-color: var(--cv-color-brand);
+  background: var(--cv-color-brand);
+  color: #fff;
+}
+
+.row:hover .input:checked + .box,
+.row:hover .input:indeterminate + .box {
+  border-color: var(--cv-color-brand-hover);
+  background: var(--cv-color-brand-hover);
+}
+
+.input:focus-visible + .box {
+  box-shadow: var(--cv-focus-ring);
+}
+
+.input:disabled + .box {
+  border-color: rgb(57 70 96 / 0.14);
+  background: rgb(64 79 109 / 0.06);
+}
+
+.text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.label {
+  font: 400 var(--cv-text-base) / 1.4 var(--cv-font-sans);
+}
+
+.hint {
+  color: var(--cv-color-text-subtle);
+  font: 400 var(--cv-text-sm) / 1.4 var(--cv-font-sans);
+}

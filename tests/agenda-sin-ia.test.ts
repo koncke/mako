@@ -364,9 +364,13 @@ const DEVUELVEN_DATOS = [
   'horariosLibresDeGoogle',
   // 08/10/2026: lo que hay un día (con o sin invitados), y cancelar o cambiar un evento.
   'eventosDelDia', 'cancelarEventoDeReunion', 'cambiarEventoDeReunion',
-  // 13/10/2026: la agenda entre dos fechas, para DIBUJAR la tab Calendario (lib/calendario.ts). Ni su IA ni su
-  // área de la API la leen (tests/calendario.test.ts lo fija).
-  'eventosEntre',
+  // 14/10/2026: el token de la tab Calendario (lib/calendario-google.ts lee con él TODOS los calendarios y escribe
+  // en ellos). Da acceso a la agenda, así que cuenta como que llega a ella. Ni la IA del Calendario ni su área de la
+  // API lo usan (tests/calendario.test.ts lo fija). Reemplaza a `eventosEntre` (13/10), que leía sólo el principal.
+  'tokenDelCalendario',
+  // Y lo que lib/calendario-google.ts hace con él: no son exportaciones de este archivo, pero sembrarlas acá es lo que
+  // hace que el guard de abajo vea a un runner que las llame (`crear_evento_google`) y le exija `datosDeGoogle`.
+  'leerAgendaGoogle', 'crearEventoGoogle', 'cambiarEventoGoogle', 'borrarEventoGoogle', 'restaurarEventoGoogle',
 ];
 const NO_DEVUELVEN_DATOS = [
   'GCAL_SCOPE_LECTURA', 'GCAL_SCOPE_ESCRITURA', 'GCAL_SCOPE', 'googleRedirectUri',

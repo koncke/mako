@@ -151,9 +151,10 @@ test('/m apaga el cromo de escritorio sin volverse público', () => {
 });
 
 test('el título de la pestaña en /m usa los nombres de la barra', () => {
-  assert.equal(tituloDe('/m/hoy'), 'MaKo - Today');
+  assert.equal(tituloDe('/m/hoy'), 'MaKo - General');
+  assert.equal(tituloDe('/m/chats'), 'MaKo - Chats');
   assert.equal(tituloDe('/m/inbox'), 'MaKo - Inbox');
-  assert.equal(tituloDe('/m/mako'), 'MaKo');
+  assert.equal(tituloDe('/m/mako'), 'Pregúntale a MaKo', 'el nombre de la sidebar, que ya dice MaKo');
   assert.equal(tituloDe('/m/crm/12'), 'MaKo - CRM');
   assert.equal(tituloDe('/m/cuenta'), 'MaKo - Perfil');
   assert.equal(tituloDe('/m'), 'MaKo');
@@ -168,28 +169,31 @@ test('el manifest abre el repartidor y conserva la identidad', () => {
   assert.ok((m.icons ?? []).length >= 3, 'se perdieron los íconos');
   // LAS MISMAS RUTAS (13/10/2026): los atajos son las URLs de escritorio; el proxy le sirve /m al teléfono.
   assert.deepEqual((m.shortcuts ?? []).map((s) => [s.name, s.url]),
-    [['Today', '/general'], ['Inbox', '/mako/pendientes'], ['CRM', '/crm']]);
+    [['General', '/general'], ['Inbox', '/mako/pendientes'], ['CRM', '/crm']]);
 });
 
 test('la cabecera por defecto: título en la raíz, volver fijo en la subpantalla', () => {
   const t = (titulo: string, padre: { href: string; label: string } | null, trabajo = false, conBarra = true) => ({ titulo, padre, trabajo, conBarra });
   // Las raíces de la barra: el nombre, sin volver.
-  assert.deepEqual(cabeceraPorRuta('/m/hoy'), t('Today', null));
+  assert.deepEqual(cabeceraPorRuta('/m/hoy'), t('General', null));
   assert.deepEqual(cabeceraPorRuta('/m/crm'), t('CRM', null));
+  assert.deepEqual(cabeceraPorRuta('/m/chats'), t('Chats', null));
+  // Inbox dejó la barra (v3): es la campana de General, y vuelve a General.
+  assert.deepEqual(cabeceraPorRuta('/m/inbox'), t('Inbox', { href: '/m/hoy', label: 'General' }));
   assert.deepEqual(cabeceraPorRuta('/m/mas'), t('More', null));
   // Una subpantalla vuelve a su raíz; el título lo pone la página.
   assert.deepEqual(cabeceraPorRuta('/m/crm/12'), t('', { href: '/m/crm', label: 'CRM' }));
   // Las secciones de More vuelven a More; sus subpantallas, a la sección.
   assert.deepEqual(cabeceraPorRuta('/m/dashboard'), t('Dashboard', { href: '/m/mas', label: 'More' }));
-  assert.deepEqual(cabeceraPorRuta('/m/cs'), t('Customer Success', { href: '/m/mas', label: 'More' }));
+  assert.deepEqual(cabeceraPorRuta('/m/cs'), t('Clientes', { href: '/m/mas', label: 'More' }));
   assert.deepEqual(cabeceraPorRuta('/m/ads/9'), t('', { href: '/m/ads', label: 'Ads Manager' }));
   // La cuenta es la primera fila de More.
   assert.deepEqual(cabeceraPorRuta('/m/cuenta'), t('Perfil', { href: '/m/mas', label: 'More' }));
   assert.deepEqual(cabeceraPorRuta('/m/cuenta/instalar'), t('', { href: '/m/cuenta', label: 'Perfil' }));
-  assert.deepEqual(cabeceraPorRuta('/m/raro'), t('', { href: '/m/hoy', label: 'Today' }));
+  assert.deepEqual(cabeceraPorRuta('/m/raro'), t('', { href: '/m/hoy', label: 'General' }));
   // Pantallas de trabajo: sin título grande y sin barra de abajo.
-  assert.deepEqual(cabeceraPorRuta('/m/mako'), t('MaKo', { href: '/m/mas', label: 'More' }, true, false));
-  assert.deepEqual(cabeceraPorRuta('/m/video/7'), t('', { href: '/m/video', label: 'Video Generator' }, true, false));
+  assert.deepEqual(cabeceraPorRuta('/m/mako'), t('Pregúntale a MaKo', { href: '/m/mas', label: 'More' }, true, false));
+  assert.deepEqual(cabeceraPorRuta('/m/video/7'), t('', { href: '/m/video', label: 'Video' }, true, false));
   assert.deepEqual(cabeceraPorRuta('/m/landing/3'), t('', { href: '/m/landing', label: 'Landing Generator' }, true, false));
   assert.equal(esTrabajo('/m/video'), false, 'la LISTA de videos es una sección normal');
   // El chat de WhatsApp de un lead: de trabajo desde el server, y vuelve a SU ficha.
@@ -199,13 +203,15 @@ test('la cabecera por defecto: título en la raíz, volver fijo en la subpantall
   assert.equal(llevaBarra('/m/hoy'), true);
   assert.equal(llevaBarra('/m/video/7'), false);
   // Una sección que subió a la barra es una raíz: sin volver y CON barra (aunque sea de trabajo).
-  assert.deepEqual(cabeceraPorRuta('/m/mako', barraMovil('setter', 'pm')), t('MaKo', null, true, true));
+  assert.deepEqual(cabeceraPorRuta('/m/mako', barraMovil('setter', 'pm')), t('Pregúntale a MaKo', null, true, true));
   assert.deepEqual(cabeceraPorRuta('/m/dashboard', barraMovil('admin', 'pm')), t('Dashboard', null));
 });
 
 test('el nivel de una pantalla: ir más adentro desliza; cambiar de tab y volver, no', () => {
   // Cambiar de tab: 0 → 0.
-  for (const p of ['/m/hoy', '/m/crm', '/m/inbox', '/m/plan', '/m/mas']) assert.equal(nivel(p), 0, p);
+  for (const p of ['/m/hoy', '/m/crm', '/m/chats', '/m/plan', '/m/mas']) assert.equal(nivel(p), 0, p);
+  // Inbox se abre desde la campana de General: un nivel más adentro.
+  assert.equal(nivel('/m/inbox'), 1);
   // More → una sección (la MISMA profundidad de URL, pero un nivel más adentro).
   assert.equal(nivel('/m/dashboard'), 1);
   assert.equal(nivel('/m/cuenta'), 1);
@@ -278,4 +284,16 @@ test('nadie en /m navega con next/link ni pregunta startsWith(\'/m\')', () => {
       assert.doesNotMatch(src, /import\s*\{[^}]*\buseRouter\b[^}]*\}\s*from\s*['"]next\/navigation['"]/, `${f}: useRouter va de @/app/_ui/Link`);
     }
   }
+});
+
+// Martín (14/10/2026): llegar a las decisiones desde el teléfono como super admin sin saberse la URL.
+// Esa misma noche la renombró «Ticketera» y pidió entrar directo al mazo (la lista es secundaria).
+// Probado rompiéndolo: sin el `ctx.sesion.rol === 'admin'` delante de la fila → 14 / 1.
+test('More: «Ticketera» (el mazo de decisiones) sólo para el super admin, y fuera de SECCIONES_MAS', () => {
+  const mas = leer('app/m/mas/page.tsx').replace(/\/\/.*$/gm, '');
+  assert.match(mas, /ctx\.sesion\.rol === 'admin' && \(\s*<SeccionM titulo="Super admin">[\s\S]*?titulo="Ticketera" href=\{RUTA_TICKETERA\}/,
+    'la fila va detrás de la pregunta de super admin (la misma de getSesionAdmin)');
+  assert.match(mas, /const RUTA_TICKETERA = '\/m\/tickets\/decisiones'/);
+  // No es una tab del negocio: si estuviera en SECCIONES_MAS podría subir a la barra de un rol.
+  assert.doesNotMatch(leer('lib/movil-rutas.ts'), /id: 'decisiones'/);
 });

@@ -30,6 +30,7 @@ import {
 } from './nodos';
 import { TextStyleLanding, ColorLanding, TamTexto, ResaltadoLanding, Etiqueta, VariantesTexto } from './marcas';
 import { AtajosLanding, IdsUnicos, PartirConGuiones, PortapapelesFiel, Subidas, OpcionesDelDocumento, type OpcionesLanding } from './plugins';
+import { ResaltarACompletar } from './completar';
 
 /** El texto de la línea vacía donde está el cursor (Gamma: «Type / for blocks»). */
 export const PLACEHOLDER_GENERAL = 'Escribe algo o escribe «/» para ver los comandos';
@@ -135,5 +136,7 @@ export function extensionesBase(op: OpcionesBase = {}): Extensions {
     PortapapelesFiel,
     Subidas.configure({ subirArchivo: op.subirArchivo, avisar: op.avisar }),
     OpcionesDelDocumento.configure({ subirArchivo: op.subirArchivo, elegirImagen: op.elegirImagen, avisar: op.avisar }),
+    // Los textos a completar («[Tu especialidad]») resaltados, sin tocar el documento (14/10/2026).
+    ResaltarACompletar,
   ];
 }

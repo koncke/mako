@@ -13,11 +13,16 @@
 import type { Hito, Parte } from '../_registro/tipos';
 
 export const PARTES: Parte[] = [
-  { titulo: 'La tab y sus cinco capas', detalle: 'Publicaciones · Llamadas (CRM + Google) · Bloques · Plan · Objetivos y el Q', estado: 'hecha' },
-  { titulo: 'Plantillas y «¿Qué vas a crear hoy?»', detalle: 'Seis semanas tipo · MaKo propone sin ver la agenda · la persona confirma', estado: 'hecha' },
-  { titulo: 'La API de MaKo', detalle: 'listar_eventos_calendario · crear_evento_calendario (con «sí»)', estado: 'hecha' },
+  { titulo: 'La tab y sus capas', detalle: 'Publicaciones · Llamadas (CRM + Google) · Bloques · Plan · Se repite · Cobros · Objetivos y el Q', estado: 'hecha' },
+  { titulo: 'Plantillas de semana', detalle: 'Seis semanas tipo en «Crear» · «¿Qué vas a crear hoy?» se fue el 14/10', estado: 'hecha' },
+  { titulo: 'La API de MaKo', detalle: 'listar_eventos_calendario · crear_evento_calendario · crear_evento_google · link_agenda_llamada · ver_proximas_recurrentes', estado: 'hecha' },
+  { titulo: 'Conectar sin salir de la tab', detalle: 'El modal de Integraciones salta al entrar sin Google · la regla en todas las tabs', estado: 'hecha' },
+  { titulo: 'Agendar llamadas', detalle: 'Calendly (su popup) o Cal.com (sin medir) · la reserva entra por el webhook', estado: 'hecha' },
+  { titulo: 'Publicaciones en redes', detalle: 'Programar en Instagram, TikTok y YouTube por Zernio · espera la decisión de Martín', estado: 'cola' },
   { titulo: 'La entrega de servicio y la comunidad', detalle: 'Sesiones de CS agendadas · eventos en vivo del curso', estado: 'cola' },
-  { titulo: 'Arrastrar, roles y móvil', detalle: 'Mover un evento con el mouse · un closer viendo sus llamadas · el Calendario en /m', estado: 'cola' },
+  { titulo: 'La copia fiel de Google Calendar', detalle: 'Seis vistas · todos los calendarios de Google · crear, mover y borrar en Google · arrastrar', estado: 'hecha' },
+  { titulo: 'Las tareas de Google', detalle: 'Piden el permiso tasks.readonly: después de la aprobación de la verificación', estado: 'cola' },
+  { titulo: 'Roles y móvil', detalle: 'Un closer viendo sus llamadas · el Calendario en /m', estado: 'cola' },
 ];
 
 export const BITACORA: Hito[] = [
@@ -45,5 +50,67 @@ export const BITACORA: Hito[] = [
       'app/calendario/actions.ts', 'app/api/calendario/ia/route.ts', 'lib/api-mako/areas/calendario.def.ts', 'lib/api-mako/areas/calendario.run.ts',
       'tests/calendario.test.ts',
     ],
+  },
+  {
+    fecha: '14 oct', hora: '03:05', chat: 'General', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Una copia fiel de Google Calendar',
+    pedido: 'Por otro lado, el calendario quiero que sea una copia fiel a Google Calendar, y que refleje todas las tareas y eventos que se tienen en google calendar.',
+    puntos: [
+      'Preguntado el mismo día: las tareas de Google, después de la aprobación de la verificación de Google («Sólo eventos por ahora»); y lo que se crea, mueve o borra desde MaKo se escribe en Google («Sí, como Google»).',
+    ],
+  },
+  {
+    fecha: '14 oct', hora: '—', chat: 'General', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'La tab es Google Calendar: seis vistas, todos los calendarios y escribir en Google',
+    puntos: [
+      'La pantalla copia la web de Google Calendar: la barra con «Hoy» y el título como lo escribe Google, «Crear», el mes chico, «Mis calendarios» (las capas de MaKo) y los calendarios de la cuenta de Google con su color, Día · Semana · Mes · Año · Agenda · 4 días con las teclas de Google, la tarjeta del evento, crear con un clic o un arrastre, y mover o estirar arrastrando.',
+      'Se leen TODOS los calendarios de la cuenta (antes, sólo el principal). Lo de Google se crea, cambia, mueve y borra en Google (con «Deshacer» que devuelve el MISMO evento, y la pregunta de avisar a los invitados). La API de MaKo suma `crear_evento_google`, que escribe sin leer la agenda.',
+    ],
+    archivos: [
+      'lib/calendario-google-modelo.ts', 'lib/calendario-google.ts', 'lib/google-calendar.ts', 'lib/calendario-modelo.ts', 'lib/calendario.ts',
+      'app/calendario/CalendarioApp.tsx', 'app/calendario/VistaTiempo.tsx', 'app/calendario/VistasLista.tsx', 'app/calendario/Tarjetas.tsx',
+      'app/calendario/MiniMes.tsx', 'app/calendario/comun.ts', 'app/calendario/gc-css.ts', 'app/calendario/actions.ts', 'app/calendario/page.tsx',
+      'lib/api-mako/areas/calendario.def.ts', 'lib/api-mako/areas/calendario.run.ts', 'tests/calendario.test.ts', 'tests/agenda-sin-ia.test.ts',
+    ],
+  },
+  {
+    fecha: '14 oct', hora: '—', chat: 'Calendario', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Fuera «¿Qué vas a crear hoy?»; conectar sin salir de la tab; y que el Calendario tenga sentido con MaKo',
+    pedido: 'Con respecto al calendario:\n1. No pongas "¿Que vamos a crar hoy?", eso no es necesario, eliminalo completamente. En su lugar, si una persona entra allí y no tiene el google calendar conectado, que salte el modal que tenemos en integraciones allí mismo para que lo pueda conectar. Esto significa también el botón de "Conectar" si no lo tiene conectado debería saltar el pop-up ahí. Esto como regla siempre, en todas las tabs, para una integración jamás se debe salir de la tab.\n2. Ahora debes agregarle cosas y funciones de MaKo para que tenga sentido... Como agregar el calendly o cal, para agendar llamadas, ver los deadlines de los proyectos y tareas, ver las tareas recurrentes allí, poder gestionar publicaciones de Instagram, TikTok, YouTube, etc... Piensa en las cosas que podríamos hacer con el calendario.',
+    puntos: [
+      'El punto 1 es una REGLA para todas las tabs, no sólo del Calendario: quedó en AGENTS.md («Para conectar una integración JAMÁS se sale de la tab») con su guard.',
+    ],
+  },
+  {
+    fecha: '14 oct', hora: '07:12', chat: 'Calendario', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El modal de Integraciones en cualquier tab, y el Calendario con lo que se repite, los cobros y agendar llamadas',
+    puntos: [
+      '«¿Qué vas a crear hoy?» se fue entero: la caja, el armado de la semana con IA, su ruta y su feature de modelos. Las plantillas quedan en «Crear › Plantilla de semana».',
+      'La pieza para conectar sin salir de la tab ya existía (el modal suelto de /integraciones, del 12/10): le faltaban la vuelta del OAuth de Google a la tab de la que salió, el permiso real de la agenda y un portal en la pila de modales. Se montó en el Calendario (salta al entrar sin Google), Ads Manager, el CRM (Calificación, Campañas, cobrar con link, reagendar), el CRON de Automations (pagos, que abría una ventana), la voz con ElevenLabs, el email y el error de IA de «Pídeselo a MaKo». General y el Dashboard quedaron para su sesión.',
+      'Lo que ya había y no se veía: las reuniones CANCELADAS se dibujaban (conservan su hora y pierden la fecha). Y lo nuevo: «Se repite» (las próximas veces de cada tarea que se repite, con la cuenta del generador, sin crear filas), «Cobros» (las cuotas que vencen), el deadline de un proyecto abre ese proyecto, y «Agendar llamada» por Calendly o Cal.com. En la API de MaKo: link_agenda_llamada y ver_proximas_recurrentes.',
+      'Las publicaciones en redes por Zernio esperan una decisión: el 06/10 se sacó el programador de publicaciones.',
+    ],
+    commits: [{ sha: '184c0b3', msg: 'Calendario: sin «¿Qué vas a crear hoy?», conectar sin salir de la tab, y lo que se repite, los cobros y agendar llamadas', lineas: 1874, archivos: 44 }],
+    archivos: [
+      'app/_components/ConectarIntegracion.tsx', 'lib/integracion-en-tab.ts', 'app/integraciones/ServicioSuelto.tsx', 'app/integraciones/IntegracionesBoard.tsx',
+      'app/api/integraciones/google-calendar/route.ts', 'app/api/integraciones/google-calendar/callback/route.ts', 'lib/gcal-estado.ts',
+      'app/calendario/CalendarioApp.tsx', 'app/calendario/PlantillasSemana.tsx', 'app/calendario/AgendarLlamada.tsx', 'app/calendario/page.tsx', 'app/calendario/actions.ts',
+      'lib/calendario.ts', 'lib/calendario-modelo.ts', 'lib/agenda-link.ts', 'lib/calcom.ts', 'lib/api-mako/areas/calendario.def.ts', 'lib/api-mako/areas/calendario.run.ts',
+      'AGENTS.md', 'tests/calendario.test.ts', 'tests/gcal-estado.test.ts', 'tests/integracion-sin-salir.test.ts',
+    ],
+  },
+  {
+    fecha: '14 oct', hora: '—', chat: 'Calendario', cuenta: 'claude2',
+    actor: 'claude', tipo: 'cosecha',
+    titulo: 'Lo que costó, escrito',
+    puntos: [
+      'docs/hallazgos-calendario.md: la reunión cancelada, el ritmo de lo que se repite, los cobros, «Agendar llamada» (Cal.com sin medir) y lo que espera a Martín (las redes).',
+      'docs/hallazgos-integraciones.md: conectar sin salir de la tab — el diagnóstico obvio («hace falta un modal») era el equivocado.',
+    ],
+    archivos: ['docs/hallazgos-calendario.md', 'docs/hallazgos-integraciones.md', 'docs/hallazgos.md'],
   },
 ];

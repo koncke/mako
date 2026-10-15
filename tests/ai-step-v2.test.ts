@@ -287,8 +287,9 @@ test('el motor: contesta por el MEDIO, le pasa lo del caso al redactor, y sin el
   assert.match(grafo, /const pasos = expandirPasoIA\(secuencia\.pasos, \{ medio \}\);/);
   assert.match(grafo, /\.\.\.extrasDeCaso\(ia\),/);
   const red = fn(nut, 'async function redactarRespuesta(');
-  assert.match(red, /if \(sugerida && lead\?\.telefono && clas\.escenario\.audio\) \{\s*const r = await notaDeVozDeRespuesta\(/);
-  assert.match(red, /if \(!sinAudio && borradorOk && borradorId != null/, 'sin el audio salía sola igual');
+  // `!social` (TikTok fase 0, 14/10/2026): por las redes no hay audio (§6), tests/ai-step-redes.test.ts.
+  assert.match(red, /if \(sugerida && !social && lead\?\.telefono && clas\.escenario\.audio\) \{\s*const r = await notaDeVozDeRespuesta\(/);
+  assert.match(red, /if \(!social && !sinAudio && borradorOk && borradorId != null/, 'sin el audio salía sola igual');
   // Undécima tanda (punto 13): «Hasta» siempre es el objetivo. El corte «contestó una vez» se fue del redactor.
   assert.doesNotMatch(red, /unaVez|hasta === 'una'/, 'volvió el «Hasta: una respuesta»');
   // El tope de la voz: con `tope` no se corta, se rechaza.

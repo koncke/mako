@@ -75,7 +75,11 @@ test('el link sale por linkApp, con el workspace DESTINO y la pantalla MÓVIL', 
   assert.equal(armarPayloadPush({ tipo: 'mako-pendiente', titulo: 'x', cuerpo: 'x', ruta: '/mako/pendientes' }, 1).url, `${APP_BASE_URL}/mako/pendientes?ws=1`);
   assert.equal(armarPayloadPush({ tipo: 'x', titulo: 'x', cuerpo: 'x' }, 1).url, `${APP_BASE_URL}/general?ws=1`);
   // Una pantalla que no va al teléfono cae en la home, nunca en una de escritorio.
-  assert.equal(armarPayloadPush({ tipo: 'x', titulo: 'x', cuerpo: 'x', ruta: '/whatsapp' }, 1).url, `${APP_BASE_URL}/general?ws=1`);
+  assert.equal(armarPayloadPush({ tipo: 'x', titulo: 'x', cuerpo: 'x', ruta: '/funnel' }, 1).url, `${APP_BASE_URL}/general?ws=1`);
+  // v3 (14/10/2026): la bandeja de WhatsApp SÍ va al teléfono (la pestaña Chats). Los avisos que
+  // linkean a /whatsapp («las conversaciones», el borrador de seguimiento) abren Chats, no General.
+  // Con la bandeja unificada en main (/chats), el teléfono la abre por esa URL: es la misma pestaña.
+  assert.equal(armarPayloadPush({ tipo: 'x', titulo: 'x', cuerpo: 'x', ruta: '/whatsapp' }, 1).url, `${APP_BASE_URL}/chats?ws=1`);
   // v2 (11/10/2026): Ads Manager SÍ tiene pantalla en el teléfono (More → Ads Manager).
   assert.equal(armarPayloadPush({ tipo: 'x', titulo: 'x', cuerpo: 'x', ruta: '/ads-manager' }, 1).url, `${APP_BASE_URL}/ads-manager?ws=1`);
   // Un aviso sin link propio abre la pestaña Avisos del Inbox: la query de una ruta /m viaja.

@@ -39,10 +39,17 @@ export type HorarioEnvio = {
   hasta: number;
   /** Los días en que manda. Vacío no se guarda: un horario sin días es un motor apagado. */
   dias: DiaSemana[];
+  /**
+   * ¿Los avisos al EQUIPO («MaKo en WhatsApp») salen igual fuera del horario? (14/10/2026, docs/diseno-mako-nada-por-detras.md
+   * §2.4-h). Hasta ese día salían siempre, sin que la pantalla lo dijera: una regla escondida del motor (undécima tanda, M3 f).
+   * Prendido de fábrica, que es lo de antes; ausente en lo guardado = prendido. El carril del recordatorio corre igual
+   * siempre: un «15 min antes» no puede esperar a que abra.
+   */
+  avisosAlEquipo: boolean;
 };
 
 /** Lo que propone la pantalla al prenderlo: la ventana que el motor tenía fija, todos los días. */
-export const HORARIO_SUGERIDO: HorarioEnvio = { activo: true, desde: 9, hasta: 21, dias: [0, 1, 2, 3, 4, 5, 6] };
+export const HORARIO_SUGERIDO: HorarioEnvio = { activo: true, desde: 9, hasta: 21, dias: [0, 1, 2, 3, 4, 5, 6], avisosAlEquipo: true };
 
 const TODOS: DiaSemana[] = [0, 1, 2, 3, 4, 5, 6];
 
@@ -72,7 +79,8 @@ export function sanearHorario(raw: unknown): HorarioEnvio | null {
     ? [...new Set(o.dias.map(Number).filter((d): d is DiaSemana => Number.isInteger(d) && d >= 0 && d <= 6))].sort((a, b) => a - b)
     : TODOS;
   if (!dias.length) return null;
-  return { activo: o.activo === true, desde, hasta, dias };
+  // Sólo un `false` LITERAL lo apaga: lo guardado antes del 14/10 no lo trae, y es lo de antes (salen igual).
+  return { activo: o.activo === true, desde, hasta, dias, avisosAlEquipo: o.avisosAlEquipo !== false };
 }
 
 /** El horario que manda: sólo uno PRENDIDO. Apagado (o sin fila) es «sin límite». */

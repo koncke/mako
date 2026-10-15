@@ -1,0 +1,148 @@
+/* Menús de la barra superior: superficie blanca + sombra flotante de Canva (relevamiento §1.2 y §9.3). */
+.menu {
+  position: fixed;
+  z-index: var(--cv-z-drawer);
+  min-width: 264px;
+  max-width: min(360px, calc(100vw - 16px));
+  max-height: calc(100vh - 16px);
+  overflow-y: auto;
+  padding: var(--cv-space-2);
+  border-radius: var(--cv-radius-lg);
+  background: var(--cv-color-surface);
+  color: var(--cv-color-text);
+  box-shadow: var(--cv-shadow-lg);
+  font-family: var(--cv-font-sans);
+  animation: bar-menu-in var(--cv-duration-fast) var(--cv-ease-out);
+}
+
+.sub {
+  min-width: 240px;
+}
+
+.heading {
+  padding: var(--cv-space-1) var(--cv-space-2) var(--cv-space-2);
+  font: 600 var(--cv-text-lg) / 24px var(--cv-font-sans);
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: var(--cv-space-3);
+  width: 100%;
+  min-height: 40px;
+  padding: 0 var(--cv-space-2);
+  border: 0;
+  border-radius: var(--cv-radius-sm);
+  background: transparent;
+  color: inherit;
+  font: 400 var(--cv-text-base) / 22px var(--cv-font-sans);
+  text-align: left;
+  cursor: pointer;
+}
+
+.item:hover,
+.item:focus-visible,
+.item[aria-expanded='true'] {
+  outline: none;
+  background: var(--cv-color-bg-muted);
+}
+
+.item:focus-visible {
+  box-shadow: inset var(--cv-focus-ring);
+}
+
+.item[aria-disabled='true'] {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.item[aria-disabled='true']:hover {
+  background: transparent;
+}
+
+/* El botón violeta de ancho completo de los paneles de Canva («Descargar»). */
+.primary {
+  justify-content: center;
+  margin: var(--cv-space-1) 0;
+  background: var(--cv-color-cta);
+  color: var(--cv-color-on-cta);
+  font-weight: 600;
+}
+
+.primary:hover,
+.primary:focus-visible {
+  background: var(--cv-color-cta-hover);
+}
+
+.primary .label {
+  flex: none;
+}
+
+.primary .icon {
+  width: auto;
+  color: inherit;
+}
+
+.icon {
+  display: inline-flex;
+  flex: none;
+  justify-content: center;
+  width: 24px;
+  color: var(--cv-color-text);
+}
+
+.icon:empty {
+  width: 0;
+  margin-right: calc(var(--cv-space-3) * -1);
+}
+
+.label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hint {
+  flex: none;
+  color: var(--cv-color-text-subtle);
+  font-size: var(--cv-text-sm);
+}
+
+.kbd {
+  flex: none;
+  color: var(--cv-color-text-subtle);
+  font: 400 var(--cv-text-sm) / 1 var(--cv-font-sans);
+}
+
+.check {
+  display: inline-flex;
+  flex: none;
+  width: 16px;
+  color: var(--cv-color-brand);
+}
+
+.chevron {
+  flex: none;
+  color: var(--cv-color-text-subtle);
+}
+
+.sep {
+  height: 1px;
+  margin: var(--cv-space-2) 0;
+  background: var(--cv-color-border);
+}
+
+@keyframes bar-menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .menu {
+    animation: none;
+  }
+}

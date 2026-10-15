@@ -85,6 +85,9 @@ export const ELEMENTOS_QUE_NO_SALEN: Readonly<Partial<Record<TipoElemento, strin
   ia: 'su texto vive en otra tabla y puede nombrar personas',
   entidad: 'es la ficha de una llamada, un anuncio o un lead',
   accion: 'es un botón que escribe, y sin sesión falla',
+  // 14/10/2026: un bloque de la tab General (lib/general-piezas.ts) lo arma el server de /general con los datos del negocio
+  // (la plata, el CRM, el Plan): fuera de ahí no hay de dónde sacarlo, y por un link sería sacar todo eso a un tercero.
+  general: 'lo arma /general con los datos del negocio (la plata, el CRM, el Plan), y por un link saldrían a un tercero',
 };
 
 /**

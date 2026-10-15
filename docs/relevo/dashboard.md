@@ -1,42 +1,60 @@
-# Relevo — chat «Graphics» (la tab Dashboard)
+# Relevo — chat «Dashboard» (la tab Dashboard)
 
-<sub>Escrito el 14/10/2026 ~02:20 (hora de Argentina) por la cuenta 2, desde el chat que hizo el trabajo. Se pisa en cada relevo.</sub>
+<sub>Escrito el 14/10/2026 ~22:40 (hora de Argentina) por la cuenta 1 (claude1), desde el chat que hizo el trabajo. Se pisa en cada
+relevo. El anterior (chat «Graphics», cuenta 2) está en el historial: `git log -p -- docs/relevo/dashboard.md`.</sub>
 
 ## Dónde está
 
-**Todo lo del 13/10 está en main** desde el push integrado del chat «Estrategia 3 CUENTAS» (14/10 ~02:10, `e4c8a6d7`, que trae
-`graphics-1310` adentro con sus hashes). El contrato de la v5 sigue en [dashboard-v5.md](dashboard-v5.md); lo aprendido, en
-`docs/hallazgos-graficos.md`. Lo que entró:
+**El rediseño por tipo con capturas** (pedido de Martín del 14/10, 14:34: «Que rediseñe bloque por bloque y que tenga en cuenta
+mobile… con datos ficticios… Tanto bloques como las plantillas»). Se hizo de a dos chats, repartido por ARCHIVO:
 
-- `a30282bf` — **«¿Qué vas a crear hoy?» en «Nueva hoja»** (la caja de Automations, la misma) y **«Copiar dashboard»** con un token
-  `MAKO-DASH-…` (mig **0268** `dashboard_copias`, aplicada en prod). Viaja la definición, sin personas; en otro negocio se vacían los
-  filtros para mirar que eran de allá.
-- `35dc37f6` — **las plantillas se arman con los datos del negocio** (`/api/graficos/plantilla`: quita los vacíos y MaKo suma hasta 4
-  con datos). Lo mismo para lo que arma MaKo con un pedido y para la API.
-- `29a39259` — el **código muerto de los bloques, borrado**.
-- `9966e7bc` — **«A quién cobrarle» en la tab General**. Quedó ésta (`app/general/Cobranza.tsx`) y la del chat GENERAL se borró
-  (merge `11c2f4bd`, 14/10 ~02:20): ahora es el bloque `cobranza` de las vistas de /general, con el nombre de la vista al lado
-  (`alcance`) y recortada a sus funnels. Vacía, la vista de fábrica no la dibuja; una vista armada por la persona sí.
-- `25bd67c2` — **clic derecho en toda la tab** (opciones según dónde y en qué modo), el **botón de MaKo selectivo** (sólo tendencias
-  por día/semana/mes, embudos y dispersión; ausente = lo del tipo, `conMako`) y **editable en el lugar**: editando, su clic abre lo
-  que responde, las sugerencias y «Quitar el botón». La API: `pedido_mako`.
-- `2e97dd80` — el tope del typecheck (`CAP_HEAP_MB`) pasó de 3072 a 4096: con 3072 el chequeo completo ya moría corriendo.
-- El aviso **«El AI Analyst terminó»** lo conectó el chat Automations (`60186944`, `avisarAnalisisListo` en `analizarHoja`): no se toca
-  esa llamada (tests/plantillas-viejas, test 1).
+- **Este chat:** lo que dibuja `app/dashboard/Grafico.tsx` (números, ejes, torta, anillo, sankey, embudos, la tabla dinámica), los
+  datos de ejemplo (`lib/graficos-muestra.ts`), `intervaloPorAncho` (`lib/graficos-gordo.ts`) y la pila del celular
+  (`EditorInforme.tsx`). Commits `fb44d58d`, `1de9d05b`, `cdaebefa` y el de la cosecha.
+- **El chat «General»:** los tipos con archivo propio en `app/dashboard/graficos/` (tablas, tarjetas, dispersión, paneles, tramos,
+  barras gordas), el mapa (`MapaGeo.tsx`) y la revisión de las 13 plantillas enteras. Commits `aa08f395`, `6fcdc128`, `5e47a427`,
+  `105fc5f4`, `93012bf0`.
 
-⚠️ **Tres errores de tipos míos llegaron al push integrado** y los arregló «Estrategia 3 CUENTAS» en `e4c8a6d7`: commits hechos con el
-typecheck sin poder correr (RAM). Con la RAM así, un test verde no dice nada de los tipos: antes de dar algo por cerrado, el typecheck
-por el lock.
+Se integró en la rama `dashboard-bloques` (worktree `C:/dev/wt-dashboard`) y se pushea a main desde ahí.
+
+Lo aprendido, en `docs/hallazgos-graficos.md`: «Rediseño por tipo con capturas, mitad General» y «El rediseño por tipo, mitad
+Dashboard». El arnés de capturas vive FUERA del repo, en `C:/Users/marti/arnes-dashboard/` (`node build.mjs <raíz>` y
+`node capturar.cjs <regex> [tema] [plantillas]`).
+
+## Después: el épico (14/10 noche) y las portadas (15/10, esperando a Martín)
+
+- **En main:** el titular por hoja + ESCALA_EPICA (`68566ade`), el test arreglado (`4297cfa1`/`d636ffdc`) y el texto que
+  crece con su tarjeta (`d5384e97`). Cosecha en `docs/hallazgos-graficos.md` → «El Dashboard épico».
+- **Martín rechazó las plantillas** («todos parecen muy iguales», «muchos gráficos juntos parece dashboard»): la portada de
+  cada hoja tiene que ser UNA cosa con la FORMA de su objetivo. La propuesta de las 13 está en `docs/portadas-propuesta.md`
+  (la escribió el orquestador; no duplicarla). **NO implementar hasta que conteste** la decisión de la Ticketera.
+- Antes de implementar, mirar: (1) si los anuncios de `guiones` traen miniatura (`FilaResultado.imagen`) en todos los
+  workspaces, y (2) qué dibuja el mapa de calor sin puente ni grabaciones: ninguna portada puede quedar vacía (placeholder
+  con datos ficticios). Los ejemplos de personas (CS, Cobranza) son ficticios.
+- Los colores por hoja van en UNA tabla que escribe ESTE chat (`lib/graficos-identidad.ts`, acordado con General), después de
+  que Martín apruebe. Regla: mismo tema, mismo color en las dos galerías, y ninguno repetido adentro de una. Dashboard:
+  Marketing azul Meta · Comercial dorado MaKo · Ads coral · Landing celeste · VSL rojo play · Chat verde WhatsApp (--wa) ·
+  Closing violeta · CS teal · Productividad lima · CRM azul oscuro · Cobranza ámbar · Automatizaciones índigo · Contenido e
+  IA durazno. General: general Noche (si Martín dice A en general-meta-oscura; si no, dorado MaKo) · bienvenida durazno ·
+  foco lima · operacion índigo · ventas dorado MaKo · cobros ámbar · anuncios azul Meta · funnel-llamadas violeta ·
+  funnel-whatsapp verde WhatsApp · lanzamiento rojo play · servicio teal · curso celeste · instagram magenta.
+
+## Pedido en cola (15/10): borrar las hojas viejas y rehacer las de Mauricio, DESPUÉS de las portadas
+
+Martín: «eliminen las tabs viejas de los workspaces. Sólo en el caso de Mauricio, que vuelva a poner las tabs que estaban
+pero con su nuevo rediseño». Orden: aprobar portadas → implementarlas → recién ahí borrar y rehacer. Censo (sólo leyendo,
+15/10): 5 informes, 11 hojas; ws1 6 (Marketing, Comercial, Ads, Landing, Closing, Productividad), ws10 Ads, ws11 Cobranza +
+Marketing, ws13 Marketing, ws15 Marketing; todas de plantilla. Script de censo:
+`scratchpad/censo-hojas.mjs` (rehacerlo en el repo si hace falta). UN script con General para el borrado, con respaldo y
+comando para devolverlo, verificado con lo que lee el producto. Al armar el respaldo se compara cada hoja PIEZA POR PIEZA
+con su plantilla: si aparece UNA editada, se frena y se avisa al orquestador (es trabajo de alguien). La decisión de las
+portadas está publicada como `portadas-galerias`; nada se ejecuta antes de que Martín la apruebe y se implemente.
 
 ## Lo que falta
-- **Verlo en producción (ws3)**: «Nueva hoja» (la caja, el «+», una plantilla armándose con datos), «Copiar dashboard» y pegarlo, el
-  botón de MaKo editando y el clic derecho en el lienzo, un gráfico y un texto, mirando y editando.
-- **Publicar una hoja en «Creaciones» (las estrellas)**: cuando la rama `api-acciones-1310` (chat API de MaKo) llegue a main. Los
-  tres pasos, en `docs/hallazgos-graficos.md` → «Lo que quedó sin hacer».
+- **Verlo en producción (ws3)**: el editor con «Celular» sobre una plantilla (Comercial, Marketing) y la galería de «¿Qué vas a
+  crear hoy?». Nada se miró todavía con datos reales.
+- **Los otros seis temas** (Minimal, Suave, Contraste, Elevada, General, Editorial): el arnés se corrió sólo con MaKo
+  (`node capturar.cjs <regex> general` los dibuja).
+- **Sin mirar en el arnés**: «Conclusiones de MaKo», la Ficha y el mapa de calor de página (piden datos del server).
 - **Que Martín decida** si se borran `PulsoPaginas.tsx` + su ruta y su lib, y `ScriptsBrowser`/`GuionesFull` (~900 líneas sin usar).
-- **Copiar un dashboard por la API de MaKo** (`copiar_dashboard`, `pegar_dashboard`).
-- **El teléfono (`/m/dashboard`)** le sigue mostrando Marketing y Comercial fijos a quien no tiene informe.
 - El resto, en `docs/hallazgos-graficos.md` → «Lo que quedó sin hacer».
-
-**Pushes:** el orden lo coordina «Estrategia 3 CUENTAS» (GENERAL → CRM → Content Machine → API de MaKo, después Graphics). Antes de
-pushear, avisarle; nada de `tsc` completos fuera de turno.

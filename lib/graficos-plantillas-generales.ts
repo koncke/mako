@@ -40,19 +40,25 @@ export type DefinicionGeneral = {
   /** El control de período de arriba de la hoja: lo que muestra de entrada. */
   periodo: Preset;
   piezas: PiezaPlantilla[];
+  /** El tema de la hoja (la plantilla de lib/graficos-temas.ts). Ausente = el de MaKo. Lo usan las de General. */
+  tema?: string;
 };
 
 /** Una pieza (en la forma de la IA) → el componente crudo que entiende el catálogo, con su id. */
 function aComponente(p: PiezaPlantilla, id: (local: string) => string): Record<string, unknown> {
-  const { local, controles, seccion, ...resto } = p;
+  const { local, controles, seccion, elemento, ...resto } = p;
   const propio = id(local);
   if (typeof seccion === 'string') return { id: propio, clase: 'elemento', tipo: 'texto', texto: seccion, tamano: 'xl' };
+  // 14/10/2026 (las plantillas de General, lib/general-plantillas.ts): un ELEMENTO tal cual (un texto con variables, un
+  // bloque de General), con su tamaño. La IA no los escribe: sólo las plantillas.
+  if (elemento && typeof elemento === 'object') return { ...(elemento as Record<string, unknown>), id: propio, clase: 'elemento' };
   // El id fijo tiene que pasar `idValido` (hasta 40 caracteres): por eso corto.
   const ctrls = (controles ?? []).map((c, i) => ({ ...c, id: id(`${local}-c${i}`) }));
   return { ...resto, id: propio, clase: 'grafico', controles: ctrls };
 }
 
-function plantilla(d: DefinicionGeneral): PlantillaHoja {
+/** Una definición → la plantilla de «Nueva hoja». Exportada desde el 14/10/2026: la usan también las de General. */
+export function plantilla(d: DefinicionGeneral): PlantillaHoja {
   return {
     id: d.id, nombre: d.nombre, emoji: d.emoji, linea: d.linea,
     armar: (id) => {
@@ -63,6 +69,7 @@ function plantilla(d: DefinicionGeneral): PlantillaHoja {
         id: id(d.id), nombre: d.nombre, emoji: d.emoji, subtitulo: d.subtitulo,
         controles: [{ id: id(`${d.id}-periodo`), tipo: 'periodo', preset: d.periodo }],
         componentes: acomodar(componentes),
+        ...(d.tema ? { tema: { plantilla: d.tema, acento: null, fuente: null } } : {}),
       };
     },
   };

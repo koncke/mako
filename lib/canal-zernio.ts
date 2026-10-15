@@ -33,7 +33,8 @@ import { enviarDm, responderComentario, esLimiteDeMeta, estadosDeSeguimiento, Ze
 import {
   decidirSalida, plataformaDe, problemaDeAdjunto, tipoAdjuntoZernio, NOMBRE_CANAL, COLS_CONVERSACION_SOCIAL,
   conversacionDelPaso, conversacionDeFila, conversacionesPorLead, pedidoDeSeguimiento, canalDePlataforma, TOPE_TEXTO_SOCIAL,
-  type CanalSocial, type ConversacionesPorLead, type FilaConversacionSocial,
+  filasDeCharlaSocial, TOPE_CHARLA_SOCIAL,
+  type CanalSocial, type ConversacionesPorLead, type FilaConversacionSocial, type EntranteSocial, type SalienteSocial,
 } from './canal-social';
 import { leerTodo, type ConsultaPaginada } from './supabase-paginado';
 import { enTandas } from './ids-con-filas';
@@ -108,6 +109,36 @@ export async function siguenEnInstagram(ws: number, conversaciones: Conversacion
     return p ? [{ leadId, ...p }] : [];
   });
   return estadosDeSeguimiento(ws, pedidos);
+}
+
+/**
+ * LA CHARLA DEL LEAD POR ESE CANAL, para que el AI Step conteste (TikTok fase 0, 14/10/2026): lo que
+ * escribió (`ig_mensajes`, de TODAS sus conversaciones en esa plataforma) y lo que le salió
+ * (`nutricion_envios`), juntos por `filasDeCharlaSocial`. `null` = no se pudo leer: el redactor sigue con el
+ * mensaje de hoy solo, como en WhatsApp.
+ */
+export async function charlaSocialDelLead(leadId: number, canal: CanalSocial, tope: number = TOPE_CHARLA_SOCIAL): Promise<ReturnType<typeof filasDeCharlaSocial> | null> {
+  try {
+    const db = await getTenantDb();
+    const { data: convs, error } = await db.from('ig_conversaciones').select('id')
+      .eq('lead_id', leadId).eq('plataforma', plataformaDe(canal));
+    if (error) throw new Error(error.message);
+    const ids = ((convs ?? []) as Array<{ id: number }>).map((c) => c.id);
+    const [ent, sal] = await Promise.all([
+      ids.length
+        ? db.from('ig_mensajes').select('texto, adjuntos, created_at').in('conversacion_id', ids).eq('direccion', 'entrante')
+          .order('created_at', { ascending: false }).limit(tope)
+        : Promise.resolve({ data: [], error: null }),
+      db.from('nutricion_envios').select('texto_enviado, created_at').eq('lead_id', leadId).eq('canal', canal)
+        .eq('estado', 'enviado').not('texto_enviado', 'is', null).order('created_at', { ascending: false }).limit(tope),
+    ]);
+    if (ent.error) throw new Error(ent.error.message);
+    if (sal.error) throw new Error(sal.error.message);
+    return filasDeCharlaSocial((ent.data ?? []) as EntranteSocial[], (sal.data ?? []) as SalienteSocial[], tope);
+  } catch (e) {
+    console.error(`[canal-zernio] la charla del lead ${leadId} (${canal}): ${msg(e)}`);
+    return null;
+  }
 }
 
 /**

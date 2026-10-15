@@ -89,17 +89,17 @@ test('el nombre de la acción sale del catálogo cuando se lo pasan', () => {
   assert.deepEqual(r.evento, { t: 'accion', nodo: 'a1', texto: '⚡ Mover de etapa' });
 });
 
-test('el lead escribe: la salida se PAUSA y no vuelve a correr sola', () => {
+test('el lead escribe: la salida ESPERA a la respuesta y no se corta (14/10/2026)', () => {
   // Corre sólo el primer mensaje.
   const uno = siguiente(FLUJO, iniciar(FLUJO));
   assert.equal(uno.evento?.t, 'mensaje');
   const p = pausarPorRespuesta(uno.estado);
-  assert.equal(p.pausoLaSalida, true);
   assert.equal(p.estado.salidaPausada, true);
-  assert.equal(siguiente(FLUJO, p.estado).evento, null, 'con la salida pausada no sale nada más');
-  // Una salida que ya terminó no se «pausa»: no había nada corriendo.
+  assert.equal(p.siguen, uno.estado.hilos.length, 'lo que corría queda esperando, no se corta');
+  assert.equal(siguiente(FLUJO, p.estado).evento, null, 'mientras se clasifica la respuesta no sale nada más');
+  // Una salida que ya terminó no deja nada esperando.
   const terminada = correr(FLUJO, elegir(correr(FLUJO, iniciar(FLUJO)).estado, 'r1')).estado;
-  assert.equal(pausarPorRespuesta(terminada).pausoLaSalida, false);
+  assert.equal(pausarPorRespuesta(terminada).siguen, 0);
 });
 
 test('«Si responde» entra por el caso que eligió el clasificador, y su «MaKo contesta» se redacta con la guía local', () => {

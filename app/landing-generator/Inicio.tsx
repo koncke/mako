@@ -58,6 +58,21 @@
 //   · Lo que NO se copia de Gamma 5: los chats del agente, «Compartido contigo», «Medios»,
 //     «Inspiración», «Fuentes personalizadas» y el «Archivado» aparte de la Papelera (acá
 //     archivar ES la papelera).
+//
+// TANDA 6 (14/10/2026). Martín, textual: «2. La sección de "Importar con IA" no debería ser otra ruta, todo
+// siempre en la misma ruta. 3. La sección de "Crear con IA", le faltan las opciones de "Analizar Landing" y
+// "Replicar Landing" […] Y esta sección de "Crear con IA" debería estar en la tab principal de landing
+// generator, en la sección de "¿Qué vas a crear hoy?". […] 6. Las miniaturas y el título de abajo en las
+// plantillas, deberían estar englobadas en un contendor […] Elimina los subtitulos de cada plantilla. Y me
+// gustaría que esos bloques tengan como una sombra, que se separe del fondo.»
+//   · «Crear con IA» (crear/CrearConIA.tsx) se abre A LA DERECHA (`ia`, con su paso en la URL: `?paso=`), y
+//     «Replicar landing» también (`replicar`, crear/Replicar.tsx). La caja le pasa lo elegido (`alAccion`):
+//     una tarjeta, el pedido (en memoria, `ArranqueIA`), un archivo adjunto o un link pegado. Lo que adentro
+//     de Crear era un link a otra ruta del Panel es una función (`onSalir`, `onAnalizar`): con el Panel ya
+//     montado, un <Link> a /landing-generator con otra query no reinicia la derecha (es un useState).
+//   · /landing-generator/crear REDIRIGE acá con su query (`destinoCrear`), como /analizar.
+//   · Las tarjetas de la galería de Plantillas: miniatura y nombre en UNA tarjeta con sombra, sin la
+//     descripción. Y «Del generador anterior» (que estaba en el «+» de la caja) quedó en esa galería.
 // =============================================================================
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
@@ -66,7 +81,8 @@ import { IconoBorrar } from '@/app/_ui/BotonBorrar';
 import { TEMAS, temaPorId, type Tema } from '@/lib/editor-landing/temas';
 import type { Plantilla } from '@/lib/editor-landing/plantillas';
 import { CATEGORIAS_PRESENTACION, PLANTILLAS_PRESENTACION, type PlantillaPresentacion } from '@/lib/editor-landing/plantillas-presentaciones';
-import { tarjetasDe, urlPublica, type JsonNodo, type LandingContenido } from '@/lib/editor-landing/doc';
+import { tarjetasDe, type JsonNodo, type LandingContenido } from '@/lib/editor-landing/doc';
+import { urlLandingEn } from '@/lib/editor-landing/origen-landings';
 import type { LandingResumen, PedidoDocs, TemaPropio } from '@/lib/editor-landing/api-tipos';
 import {
   ICONO_TIPO, NOMBRE_TIPO, TIPOS_CREAR, pedidoDeDiseno, pedidoDePlantilla, plantillasDe, type PlantillaCrear, type TipoCrear,
@@ -74,14 +90,17 @@ import {
 import { DialogoObjetivo } from './crear/DialogoObjetivo';
 import CajaCrear from './CajaCrear';
 import PanelDiagnostico from './diagnostico/PanelDiagnostico';
+import { CrearConIA } from './crear/CrearConIA';
+import { ReplicarUnaPagina } from './crear/Replicar';
 import { normalizarUrl } from '@/lib/landing-url';
 import {
-  CSS_GP, DialogoGamma, Filtros, Ico, ItemMenu, MenuFlotante, MiniaturaLanding, MuestraTema, SeparadorMenu, TileTema,
-  URL_FUENTE_CHROME, haceCuanto, irDuro, pedirDocs, useAviso,
+  CSS_GP, DialogoBorradores, DialogoGamma, Filtros, Ico, ItemMenu, MenuFlotante, MiniaturaLanding, MuestraTema, SeparadorMenu,
+  TileTema, URL_FUENTE_CHROME, haceCuanto, irDuro, pedirDocs, useAviso,
 } from './MiniaturaLanding';
 import {
-  ICONO_FILA, SIN_TITULO, docDeUrl, enPapelera, esDiagnosticoDe, filasDelPanel, filtrarFilas, hostDe, normalizarTexto,
-  queryDeDerecha, urlDeBusqueda, urlParaAnalizar, type Analizada, type Derecha, type FilaPanel, type TipoFila,
+  ICONO_FILA, SIN_TITULO, copiaParaAplicar, derechaDeAccion, docDeUrl, enPapelera, esDiagnosticoDe, filasDelPanel, filtrarFilas, hostDe,
+  normalizarTexto, queryDeDerecha, urlDeBusqueda, urlParaAnalizar, type AccionCaja, type Analizada, type Derecha, type FilaPanel,
+  type PasoIA, type TipoFila,
 } from './panel-reglas';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -96,8 +115,12 @@ export type PropsInicio = {
   errorAnalizadas: string | null;
   propios: TemaPropio[];
   errorTemas: string | null;
-  /** APP_BASE_URL: «Copiar enlace público» y el cruce de las analizadas que son nuestras. */
-  base: string;
+  /**
+   * Las bases de las landings publicadas, la vigente primero (`basesLandings`, lib/app-url.ts: en
+   * producción hola-mako.site y la de antes, hola-mako.com/l). «Copiar enlace público» usa la
+   * primera; el cruce de las analizadas que son nuestras, todas. Las decide el server.
+   */
+  bases: string[];
   /** Date.now() del server: el primer render del navegador usa el mismo (hidratación). */
   ahora: number;
   /** Lo que pide la URL para la derecha (`derechaDeQuery`, en la página). */
@@ -135,6 +158,8 @@ export function Inicio(props: PropsInicio) {
   const [renombrando, setRenombrandoEstado] = useState<{ id: number; texto: string } | null>(null);
   const [dialogo, setDialogo] = useState<Dialogo | null>(null);
   const [creando, setCreando] = useState(false);
+  /** «Del generador anterior» abierto (con la hora de cuando se abrió, para el «hace…»), o null. */
+  const [borradores, setBorradores] = useState<number | null>(null);
   const busqueda = useRef<HTMLInputElement>(null);
   const contenidoRef = useRef<HTMLDivElement>(null);
   const campoNombre = useRef<HTMLInputElement>(null);
@@ -176,6 +201,12 @@ export function Inicio(props: PropsInicio) {
   const cerrarMenu = useCallback(() => setMenu(null), []);
   const cerrarDialogo = useCallback(() => setDialogo(null), []);
   const cerrarDiagnostico = useCallback(() => setDerecha({ tipo: 'crear' }), []);
+  const cerrarBorradores = useCallback(() => setBorradores(null), []);
+  /** Crear con IA cambió de paso o de tipo: la URL lo recuerda (lo de una vez, `arranque`, ya se usó). */
+  const recordarPaso = useCallback((paso: PasoIA, doc: TipoCrear) => {
+    setDerecha((d) => (d.tipo === 'ia' && (d.paso !== paso || d.doc !== doc) ? { tipo: 'ia', paso, doc } : d));
+  }, []);
+  const abrirAnalizar = useCallback(() => setDerecha({ tipo: 'diagnostico' }), []);
   // Una página de afuera recién analizada entra a la barra sin recargar (integración de la tanda 2).
   // Se compara normalizada: es la misma llave que la de landing_analyses, y no se duplica el renglón.
   const sumarAnalizada = useCallback((url: string) => {
@@ -184,7 +215,7 @@ export function Inicio(props: PropsInicio) {
   }, []);
 
   const temaDe = useCallback((id: string) => temaPorId(id, props.propios), [props.propios]);
-  const filas = useMemo(() => filtrarFilas(filasDelPanel(lista, analizadas, props.base), q), [lista, analizadas, props.base, q]);
+  const filas = useMemo(() => filtrarFilas(filasDelPanel(lista, analizadas, props.bases), q), [lista, analizadas, props.bases, q]);
   const urlBuscada = useMemo(() => urlDeBusqueda(q), [q]);
 
   // ── Acciones ─────────────────────────────────────────────────────────────
@@ -206,9 +237,20 @@ export function Inicio(props: PropsInicio) {
 
   /** Analizar una página por su dirección (el «Ir a» o la caja del Diagnóstico vacío): si es nuestra, su documento. */
   const analizarUrl = (url: string) => {
-    const propia = docDeUrl(url, lista, props.base);
+    const propia = docDeUrl(url, lista, props.bases);
     setDerecha(propia ? { tipo: 'diagnostico', docId: propia } : { tipo: 'diagnostico', url });
     setQ('');
+  };
+
+  /**
+   * Lo que se eligió en la caja «¿Qué vas a crear hoy?» (tanda 6), a la derecha: una tarjeta de «Crear con
+   * IA», el pedido (con su archivo adjunto, si hay) o el link pegado («Analiza esta landing» abre su
+   * Diagnóstico; «Replica esta landing», Replicar con el formato elegido, arrancando solo). La regla es
+   * `derechaDeAccion` (panel-reglas.ts, con test que la ejecuta).
+   */
+  const alAccion = (a: AccionCaja) => {
+    setDerecha(derechaDeAccion(a, lista, props.bases));
+    if (a.que === 'analizar') setQ('');
   };
 
   const guardarNombre = async () => {
@@ -251,7 +293,7 @@ export function Inicio(props: PropsInicio) {
   const copiarEnlace = async (d: LandingResumen) => {
     if (!d.slug) return;
     try {
-      await navigator.clipboard.writeText(urlPublica(props.base, d.slug));
+      await navigator.clipboard.writeText(urlLandingEn(props.bases[0], d.slug));
       avisar('Enlace copiado');
     } catch {
       avisar('No se pudo copiar');
@@ -406,9 +448,44 @@ export function Inicio(props: PropsInicio) {
   } else if (derecha.tipo === 'diagnostico') {
     // El `key` con la landing: cambiar de renglón remonta el panel (un useState sembrado de props
     // no se resiembra, AGENTS.md).
-    contenido = <PanelDiagnostico key={`${derecha.docId ?? ''}|${derecha.url ?? ''}`} docId={derecha.docId} url={derecha.url} onCerrar={cerrarDiagnostico} onAnalizada={sumarAnalizada} />;
+    contenido = (
+      <PanelDiagnostico
+        key={`${derecha.docId ?? ''}|${derecha.url ?? ''}`}
+        docId={derecha.docId}
+        url={derecha.url}
+        copia={derecha.url ? copiaParaAplicar(derecha.url, lista) : null}
+        onCerrar={cerrarDiagnostico}
+        onAnalizada={sumarAnalizada}
+      />
+    );
+  } else if (derecha.tipo === 'ia') {
+    // «Crear con IA» en la MISMA ruta (tanda 6). Sin `key`: cambiar de paso adentro no lo remonta.
+    contenido = (
+      <CrearConIA
+        analizadas={analizadas}
+        errorAnalizadas={props.errorAnalizadas}
+        propios={props.propios}
+        paso={derecha.paso}
+        tipo={derecha.doc}
+        arranque={derecha.arranque ?? null}
+        onSalir={cerrarDiagnostico}
+        onAnalizar={abrirAnalizar}
+        onPaso={recordarPaso}
+      />
+    );
+  } else if (derecha.tipo === 'replicar') {
+    contenido = <ReplicarUnaPagina key={derecha.url ?? ''} url={derecha.url} formato={derecha.formato} auto={derecha.auto} />;
   } else if (derecha.tipo === 'plantillas') {
-    contenido = <><h1 className="gp-cabeza-titulo">Plantillas</h1><GaleriaPlantillas onVer={(p) => setDialogo({ tipo: 'plantilla', plantilla: p })} onDiseno={(p) => setDialogo({ tipo: 'diseno', plantilla: p })} /></>;
+    contenido = (
+      <>
+        <h1 className="gp-cabeza-titulo">Plantillas</h1>
+        <GaleriaPlantillas
+          onVer={(p) => setDialogo({ tipo: 'plantilla', plantilla: p })}
+          onDiseno={(p) => setDialogo({ tipo: 'diseno', plantilla: p })}
+          onBorradores={() => setBorradores(Date.now())}
+        />
+      </>
+    );
   } else if (derecha.tipo === 'temas') {
     contenido = <><h1 className="gp-cabeza-titulo">Temas</h1><GaleriaTemas propios={props.propios} errorTemas={props.errorTemas} onVer={(t) => setDialogo({ tipo: 'tema', tema: t })} /></>;
   } else if (derecha.tipo === 'papelera') {
@@ -420,7 +497,7 @@ export function Inicio(props: PropsInicio) {
       </>
     );
   } else {
-    contenido = <CajaCrear />;
+    contenido = <CajaCrear onAccion={alAccion} />;
   }
 
   const mf = menu?.fila;
@@ -530,6 +607,7 @@ export function Inicio(props: PropsInicio) {
       {dialogo?.tipo === 'diseno' && (
         <DialogoObjetivo ocupado={creando} onElegir={(o) => usarDiseno(dialogo.plantilla, o)} onCerrar={cerrarDialogo} />
       )}
+      {borradores !== null && <DialogoBorradores onCerrar={cerrarBorradores} ws={ws} ahora={borradores} />}
       {dialogo?.tipo === 'tema' && (
         <DialogoGamma
           titulo="Vista previa del tema"
@@ -569,7 +647,12 @@ const esDePresentacion = (p: PlantillaGaleria): p is PlantillaPresentacion => 'f
  * `contenido()` arma ids NUEVOS en cada llamada, así que las muestras se arman después de
  * montar (si no, el HTML del server y el del navegador no coincidirían).
  */
-function GaleriaPlantillas({ onVer, onDiseno }: { onVer: (p: PlantillaGaleria) => void; onDiseno: (p: PlantillaCrear) => void }) {
+function GaleriaPlantillas({ onVer, onDiseno, onBorradores }: {
+  onVer: (p: PlantillaGaleria) => void;
+  onDiseno: (p: PlantillaCrear) => void;
+  /** «Del generador anterior»: los borradores de landing_drafts (vivía en el «+» de la caja hasta la tanda 6). */
+  onBorradores: () => void;
+}) {
   const [tipo, setTipo] = useState<TipoCrear>('landing');
   const [categoria, setCategoria] = useState<string>('todo');
   const [muestras, setMuestras] = useState<Record<string, JsonNodo | null> | null>(null);
@@ -602,6 +685,11 @@ function GaleriaPlantillas({ onVer, onDiseno }: { onVer: (p: PlantillaGaleria) =
           ))}
         </div>
         {tipo === 'presentacion' && <Filtros valor={categoria} opciones={opciones} onCambio={setCategoria} etiqueta="Categoría" />}
+        {tipo === 'landing' && (
+          <button type="button" className="gp-btn gp-btn-contorno gp-galeria-borradores" onClick={onBorradores}>
+            <Ico n="historial" t={14} /> Del generador anterior
+          </button>
+        )}
       </div>
       {lista.length ? (
         <div className="gp-grilla">
@@ -623,7 +711,6 @@ function GaleriaPlantillas({ onVer, onDiseno }: { onVer: (p: PlantillaGaleria) =
                 </div>
                 <div className="gp-card-info">
                   <div className="gp-card-titulo">{p.nombre}</div>
-                  <div className="gp-card-meta"><span>{p.descripcion}</span></div>
                 </div>
               </button>
             );
@@ -775,7 +862,7 @@ function DialogoEliminar({ frase, onCerrar, onConfirmar }: { frase: string; onCe
 // ─────────────────────────────────────────────────────────────────────────────
 
 const CSS_PANEL = `
-.gp.gp-panel { display: grid; grid-template-columns: 248px minmax(0, 1fr); min-height: 100vh; background: var(--gp-fondo); }
+.gp.gp-panel { display: grid; grid-template-columns: 248px minmax(0, 1fr); min-height: calc(100vh - var(--barra-agencia, 0px)); background: var(--gp-fondo); }
 .gp .gp-lateral { position: sticky; top: 0; align-self: start; display: flex; flex-direction: column; gap: 2px; height: 100vh; padding: 14px 10px 10px; background: var(--gp-superficie); border-right: 1px solid var(--gp-borde-suave); }
 .gp .gp-ir-a { display: flex; align-items: center; gap: 8px; flex: none; height: 34px; margin-bottom: 8px; padding: 0 10px; border-radius: 8px; background: var(--gp-fondo); color: var(--gp-debil); }
 .gp .gp-ir-a input { flex: 1; min-width: 0; border: 0; background: transparent; color: var(--gp-texto); font: inherit; font-size: 13.5px; outline: none; }
@@ -818,6 +905,8 @@ const CSS_PANEL = `
 .gp .gp-contenido { min-width: 0; padding: 24px 32px 48px; }
 .gp .gp-contenido[data-vista="crear"] { padding-top: 56px; }
 .gp .gp-contenido[data-vista="diagnostico"] { padding: 0; }
+/* Crear con IA trae su cielo y su aire (crear/CrearConIA.tsx, «.gp-crear»). */
+.gp .gp-contenido[data-vista="ia"] { padding: 0; }
 .gp .gp-cabeza-titulo { margin: 0 0 16px; font-size: 22px; font-weight: 600; color: var(--gp-titulo); }
 .gp .gp-analizar { max-width: 640px; margin: 40px auto 0; }
 .gp .gp-analizar .gp-cabeza-titulo { margin-bottom: 4px; }
@@ -844,7 +933,15 @@ const CSS_PANEL = `
 .gp .gp-btn-borrar:hover:not(:disabled) { background: var(--gp-peligro-fondo); }
 .gp .gp-card-usar { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); padding: 7px 14px; border-radius: 9999px; background: var(--gp-primario); color: var(--gp-primario-texto); font-size: 13px; font-weight: 600; opacity: 0; transition: opacity .15s; pointer-events: none; }
 .gp .gp-card-plantilla:hover .gp-card-usar, .gp .gp-card-plantilla:focus-visible .gp-card-usar { opacity: 1; }
-.gp .gp-card-plantilla .gp-card-meta > span { -webkit-line-clamp: 2; display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden; }
+/* Tanda 6 (punto 6): una plantilla es UNA tarjeta (miniatura + nombre) con borde y una sombra que la separa del fondo. */
+.gp .gp-card-plantilla { padding: 8px 8px 12px; border: 1px solid var(--gp-borde-suave); border-radius: 14px; background: var(--gp-superficie); box-shadow: 0 1px 2px rgba(0,0,0,.05), 0 8px 20px -8px rgba(0,0,0,.18); transition: box-shadow .15s, border-color .15s, transform .15s; }
+.gp .gp-card-plantilla .gp-card-mini { border-radius: 8px; box-shadow: 0 0 0 1px var(--gp-borde-suave); }
+.gp .gp-card-plantilla .gp-card-mini .gp-mini { border-radius: 8px; }
+.gp .gp-card-plantilla .gp-card-info { padding: 8px 4px 0; }
+.gp button.gp-card-plantilla:hover .gp-card-mini { box-shadow: 0 0 0 1px var(--gp-borde-suave); }
+.gp .gp-card-plantilla:hover, .gp .gp-card-plantilla:focus-visible { border-color: var(--gp-azul-300); box-shadow: 0 0 0 1px var(--gp-azul-300), 0 12px 24px -10px rgba(0,0,0,.25); transform: translateY(-2px); }
+[data-tema="oscuro"] .gp .gp-card-plantilla { box-shadow: 0 1px 2px rgba(0,0,0,.4), 0 10px 24px -8px rgba(0,0,0,.6); }
+.gp .gp-galeria-borradores { margin-left: auto; }
 
 /* Galerías y diálogos del Panel. */
 .gp .gp-galeria { display: flex; flex-direction: column; gap: 16px; }

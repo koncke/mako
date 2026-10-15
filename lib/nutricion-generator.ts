@@ -98,6 +98,19 @@ export async function getVozGuia(): Promise<string | null> {
 }
 
 /**
+ * La voz del negocio para quien escribe EN SU NOMBRE (14/10/2026, primero la tab Offer: «una configuración de
+ * voz de marca... para evitar que los textos generados suenen genéricos»). No es una configuración nueva: es la
+ * guía destilada del Chat Agent y, si todavía no la hay, la marca que el dueño declaró en el onboarding. null si
+ * no hay ninguna. NUNCA tira: sin voz se escribe igual, con el idioma de cada prompt.
+ */
+export async function vozDelNegocio(): Promise<string | null> {
+  const guia = await getVozGuia().catch(() => null);
+  if (guia) return guia;
+  const marca = await marcaDeclarada().catch(() => '');
+  return marca.trim() ? `Lo que el dueño declaró de su marca (todavía no hay una guía de voz destilada):\n${marca}` : null;
+}
+
+/**
  * ¿Hay guía de voz? Para decidir si se abre «Tu forma de escribir» (#745): un error de
  * lectura TIRA, porque `getVozGuia` lo convierte en «no hay» y el tutorial saltaría sobre
  * un negocio que ya la tiene.

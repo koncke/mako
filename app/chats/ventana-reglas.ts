@@ -147,7 +147,7 @@ export function armarHilo(mensajes: readonly MensajeChat[], ahora: Date): DiaHil
   let dia: DiaHilo | null = null;
   let ultimaFecha: Date | null = null;
   for (const m of mensajes) {
-    const f = fechaDe(m.fecha) ?? ultimaFecha ?? ahora;
+    const f: Date = fechaDe(m.fecha) ?? ultimaFecha ?? ahora;
     ultimaFecha = f;
     const k = claveDia(f);
     if (!dia || dia.dia !== k) {

@@ -1,0 +1,128 @@
+/*
+ * El menú de tamaño de una página (SizePanel), que abre el tamaño del encabezado de cada página. Las píldoras
+ * flotantes de Doory (zoom, páginas, el botón redondo del lienzo) se reemplazaron por la barra inferior de Canva
+ * (BottomBar.module.css).
+ */
+.sizePop {
+  width: 288px;
+  max-height: 70vh;
+  padding: var(--cv-space-4);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.presets {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+.preset {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 10px 8px;
+  border: 1px solid var(--cv-color-border-strong);
+  border-radius: var(--cv-radius-sm);
+  background: var(--cv-color-surface);
+  color: var(--cv-color-text);
+  font: 500 var(--cv-text-sm) / 1.25 var(--cv-font-sans);
+  text-align: center;
+  cursor: pointer;
+  transition:
+    border-color var(--cv-duration-fast) var(--cv-ease-out),
+    background var(--cv-duration-fast) var(--cv-ease-out);
+}
+.preset strong {
+  font-weight: 600;
+}
+.preset small {
+  color: var(--cv-color-text-muted);
+  font-size: var(--cv-text-xs);
+}
+.preset:hover {
+  background: var(--cv-color-bg-muted);
+}
+/* Canva: chip elegido con borde #8B3DFF y fondo #F1EAFF */
+.preset[aria-pressed='true'] {
+  border-color: var(--cv-selection-color);
+  background: var(--cv-color-brand-soft);
+}
+.preset:focus-visible {
+  outline: none;
+  box-shadow: var(--cv-focus-ring);
+}
+.titleRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+.titleRow small {
+  color: var(--cv-color-text-muted);
+  font: 400 var(--cv-text-xs) / 1 var(--cv-font-sans);
+}
+.dims {
+  display: flex;
+  gap: 8px;
+}
+.dims > div {
+  flex: 1;
+  min-width: 0;
+}
+.dimLabel {
+  margin-bottom: 4px;
+  color: var(--cv-color-text-muted);
+  font: 500 var(--cv-text-xs) / 1.2 var(--cv-font-sans);
+}
+.error {
+  margin: 6px 0 0;
+  color: var(--cv-color-danger);
+  font: 400 var(--cv-text-xs) / 1.4 var(--cv-font-sans);
+}
+.fullWidth {
+  width: 100%;
+  margin-top: 10px;
+}
+.hint {
+  margin: 6px 0 0;
+  color: var(--cv-color-text-muted);
+  font: 400 var(--cv-text-xs) / 1.5 var(--cv-font-sans);
+}
+.modes {
+  display: flex;
+  gap: 4px;
+}
+.modeBtn {
+  flex: 1;
+  height: 32px;
+  border: 1px solid var(--cv-color-border-strong);
+  border-radius: var(--cv-radius-sm);
+  background: var(--cv-color-surface);
+  color: var(--cv-color-text);
+  font: 500 var(--cv-text-sm) / 1 var(--cv-font-sans);
+  cursor: pointer;
+}
+.modeBtn:hover {
+  background: var(--cv-color-bg-muted);
+}
+.modeBtn[aria-pressed='true'] {
+  border-color: var(--cv-selection-color);
+  background: var(--cv-color-brand-soft);
+  color: var(--cv-violet-800); /* Canva: texto elegido #4A2E7E */
+}
+.modeBtn:focus-visible {
+  outline: none;
+  box-shadow: var(--cv-focus-ring);
+}
+.flipRow {
+  display: flex;
+  gap: 8px;
+}
+.flipRow > button {
+  flex: 1;
+  justify-content: center;
+}
+.unitRow {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 8px;
+}

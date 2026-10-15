@@ -9,14 +9,12 @@
 //
 // Es el generador clásico de Gamma («Usar generador clásico», relevo gamma-ui §4.B), con
 // sus pantallas y sus textos en español:
-//   inicio    «Crear con IA» · «¿Cómo te gustaría empezar?» · Pegar texto · Generar
-//             (⚡ Popular) · Importar archivo o URL · «Tus indicaciones recientes»;
 //   generar   «¿Qué te gustaría crear hoy?», cantidad de secciones, idioma, la caja
-//             «Describe lo que quieres hacer», «Ejemplos de instrucciones» + «Aleatorio»
-//             y «Generar esquema»;
+//             «Describe lo que quieres hacer», «Ejemplos de instrucciones» + «Aleatorio»,
+//             «Tus indicaciones recientes» y «Generar esquema»;
 //   pegar     «Escribe o pega aquí el contenido» + Generar · Condensar · Conservar;
 //   importar  «Importar con IA»: «Cargar un archivo» (→ /api/landing-generator/importar,
-//             multipart) o «Importar desde URL» (→ esquema en modo importar);
+//             multipart; su texto pasa a «Pegar texto»);
 //   esquema   el esquema editable (EditorEsquema), «Personaliza tu landing» (Temas,
 //             Contenido del texto, Visuales, Instrucciones adicionales) y la barra de
 //             abajo con «N secciones en total» y «Generar»;
@@ -43,8 +41,8 @@
 //   · Lo puro (troceo, colocación, guardado al final, deep link) vive arriba y tiene test
 //     (tests/editor-landing-crear.test.ts); la pantalla lo llama tal cual.
 //   · Lo que no se copia de Gamma: los formatos Documento y Social, las imágenes con IA (D5:
-//     van por Google Flow y se construyen después), Drive (no hay integración) y el modo
-//     Estudio.
+//     van por Google Flow y se construyen después), Drive (no hay integración), el modo
+//     Estudio e importar una URL (tanda 6: eso es Analizar o Replicar landing).
 //
 // TANDA 2 (11/10/2026, punto 6: «Al momento de crear nuevo tengo que elegir si crear landing,
 // presentación...»; decisión T4): el generador recibe el TIPO (`?tipo=presentacion`, de la caja
@@ -56,10 +54,26 @@
 // api-tipos que usa el editor). El tipo de una generación se CONGELA al arrancarla (`tipoGen`):
 // las tandas que siguen tienen que pedir lo mismo que el documento que se creó. Y la caja de
 // «Generar» suma el micrófono (`BotonDictar`, el de «Nueva automatización»).
+//
+// TANDA 6 (14/10/2026). Martín, textual: «2. La sección de "Importar con IA" no debería ser otra ruta,
+// todo siempre en la misma ruta. 3. La sección de "Crear con IA", le faltan las opciones de "Analizar
+// Landing" y "Replicar Landing". Y que el botón de "Importar" que solo sea importar, no que sea con URL,
+// para eso ya las otras opciones que te dije... Y esta sección de "Crear con IA" debería estar en la tab
+// principal de landing generator, en la sección de "¿Qué vas a crear hoy?".»
+//   · Se monta A LA DERECHA del Panel (Inicio.tsx); /landing-generator/crear redirige ahí. La pantalla
+//     «inicio» (las tarjetas «¿Cómo te gustaría empezar?») se fue a la caja del Panel (CajaCrear.tsx, «Crear
+//     con IA», con Analizar y Replicar landing), y con ella «Tus indicaciones recientes», que viven en
+//     Generar y en Pegar texto. «Inicio» y «Analizar una página» son funciones del Panel (`onSalir`,
+//     `onAnalizar`), no links: el Panel ya está montado y un <Link> a su misma ruta no le cambia la derecha.
+//   · «Importar» es SÓLO un archivo. «Importar desde URL» se fue: una página de afuera se ANALIZA o se
+//     REPLICA (crear/Replicar.tsx, con su formato y el lector del navegador cuando el server no puede).
+//   · El pedido de la caja llega EN MEMORIA (`arranque`, `ArranqueIA` de ../panel-reglas.ts): el texto (Plan
+//     o Express) o un archivo adjunto, que va a «Pegar texto» con lo escrito como instrucciones. El link
+//     viejo de la caja (`?desde=caja`) sigue leyendo sessionStorage (`tomarCaja`) mientras dura el deploy.
 // =============================================================================
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import Link, { useWs } from '@/app/_ui/Link';
+import { useWs } from '@/app/_ui/Link';
 import { OBJETIVOS_LANDING, type ObjetivoLanding } from '@/lib/landing-spec';
 import { NODO, nuevoId, type JsonNodo, type LandingContenido } from '@/lib/editor-landing/doc';
 import type {
@@ -70,9 +84,11 @@ import { temaPorId } from '@/lib/editor-landing/temas';
 import { resolverAnclas } from '@/lib/editor-landing/ia-bloques';
 import { ACCEPT_IMPORTAR, porQueNoPuedo, puedeLeerse } from '@/lib/formatos-archivo';
 import {
-  CSS_GP, Desplegable, Ico, MiniaturaLanding, guardarLocal, haceCuanto, hostDe, irDuro, leerLocal,
-  marcarReciente, pedirDocs, pedirIA, tomarCaja, URL_FUENTE_CHROME, type OpcionDesplegable,
+  Desplegable, Ico, MiniaturaLanding, guardarLocal, haceCuanto, hostDe, irDuro, leerLocal,
+  marcarReciente, pedirDocs, pedirIA, tomarCaja, type OpcionDesplegable,
 } from '../MiniaturaLanding';
+import { leerArchivo } from '../cliente';
+import type { ArranqueIA, PasoIA } from '../panel-reglas';
 import { CSS_ESQUEMA, EditorEsquema, esquemaParaEnviar, textoSecciones } from './EditorEsquema';
 import { SelectorTemaCrear, temaSugerido } from './SelectorTemaCrear';
 import { BotonDictar } from '@/app/plan/board/CrearTareaModal';
@@ -299,17 +315,20 @@ const FUENTES: readonly OpcionDesplegable<FuenteImagenes>[] = [
 
 const OBJETIVOS: readonly OpcionDesplegable<ObjetivoLanding>[] = OBJETIVOS_LANDING.map((o) => ({ valor: o.value, texto: o.label, sub: o.hint }));
 
-/** «Tus indicaciones recientes»: comodidad de ESTE navegador (localStorage), nunca un dato. */
-type Origen = 'generar' | 'pegar' | 'importar';
+/**
+ * «Tus indicaciones recientes»: comodidad de ESTE navegador (localStorage), nunca un dato. Por dónde
+ * entró el pedido: una instrucción (Generar) o un texto (Pegar, también el de un archivo importado).
+ * Tanda 6: las de «Importar desde URL» que hayan quedado guardadas se ignoran (esa entrada se fue).
+ */
+type Origen = 'generar' | 'pegar';
 type Indicacion = { modo: Origen; texto: string; t: number };
 const CLAVE_INDICACIONES = 'gp.crear.indicaciones';
 const TOPE_INDICACIONES = 6;
-const NOMBRE_ORIGEN: Record<Origen, string> = { generar: 'Generar', pegar: 'Pegar texto', importar: 'Importar' };
 
 function leerIndicaciones(): Indicacion[] {
   const l = leerLocal<unknown>(CLAVE_INDICACIONES, []);
   return Array.isArray(l)
-    ? (l as Indicacion[]).filter((x) => x && typeof x.texto === 'string' && x.texto.trim() && (x.modo === 'generar' || x.modo === 'pegar' || x.modo === 'importar') && typeof x.t === 'number')
+    ? (l as Indicacion[]).filter((x) => x && typeof x.texto === 'string' && x.texto.trim() && (x.modo === 'generar' || x.modo === 'pegar') && typeof x.t === 'number')
     : [];
 }
 
@@ -320,14 +339,11 @@ function recordarIndicacion(modo: Origen, texto: string): void {
   guardarLocal(CLAVE_INDICACIONES, [{ modo, texto: t, t: Date.now() }, ...otras].slice(0, TOPE_INDICACIONES));
 }
 
-/** Tope del archivo a importar: el de la ruta (por debajo de los ~18 MB del proxy). */
-const TOPE_IMPORTAR_BYTES = 15 * 1024 * 1024;
-
 // ─────────────────────────────────────────────────────────────────────────────
 // La pantalla
 // ─────────────────────────────────────────────────────────────────────────────
 
-type Paso = 'inicio' | Origen | 'esquema' | 'generando';
+type Paso = PasoIA | 'esquema' | 'generando';
 type Falla = { texto: string; reintentar?: () => void };
 
 export type PropsCrear = {
@@ -335,36 +351,38 @@ export type PropsCrear = {
   /** Si la lista de analizadas no se pudo leer (el «Sobre cuál» lo dice en vez de quedar vacío). */
   errorAnalizadas: string | null;
   propios: TemaPropio[];
-  /** Lo crudo de la query: lo valida la pantalla con la lista de este negocio. */
-  url: string | null;
-  objetivo: string | null;
-  paso: string | null;
-  /** Viene de la caja del Panel (el pedido está en sessionStorage). */
-  desdeCaja: boolean;
-  modoCaja: 'plan' | 'express';
-  /** Respaldo del pedido de la caja si sessionStorage no estaba. */
-  promptUrl: string | null;
-  /** Lo crudo de `?tipo=` (T4): 'presentacion' crea una presentación; lo demás, una landing. */
+  /** El paso por el que se entra (la tarjeta de la caja, o `?paso=` de la URL). */
+  paso: PasoIA;
+  /** Lo crudo del tipo (T4): 'presentacion' crea una presentación; lo demás, una landing. */
   tipo: string | null;
+  /** Lo que trae al abrirse, UNA vez: el pedido de la caja, su archivo, el link viejo o el deep link del Analyst. */
+  arranque: ArranqueIA | null;
+  /** «Inicio»: vuelve a la caja del Panel. */
+  onSalir: () => void;
+  /** «Analizar una página»: el Diagnóstico del Panel, para pegar una dirección. */
+  onAnalizar: () => void;
+  /** El paso de entrada o el tipo cambiaron: el Panel lo escribe en la URL. */
+  onPaso?: (paso: PasoIA, tipo: TipoCrear) => void;
 };
 
 export function CrearConIA(props: PropsCrear) {
   const { analizadas, errorAnalizadas, propios } = props;
   const ws = useWs();
 
-  const baseInicial = baseDelDeepLink(props.url, analizadas);
+  const arranque = props.arranque;
+  const baseInicial = baseDelDeepLink(arranque?.base, analizadas);
   const [paso, setPaso] = useState<Paso>(() => {
-    if (props.desdeCaja || baseInicial) return 'generar';
-    return props.paso === 'generar' || props.paso === 'pegar' || props.paso === 'importar' ? props.paso : 'inicio';
+    if (arranque?.archivo) return 'pegar';
+    if (arranque?.prompt || arranque?.sesion || baseInicial) return 'generar';
+    return props.paso;
   });
   const [origen, setOrigen] = useState<Origen>('generar');
   const [tipo, setTipo] = useState<TipoCrear>(() => tipoValido(props.tipo));
   const [prompt, setPrompt] = useState('');
   const [texto, setTexto] = useState('');
-  const [urlImportar, setUrlImportar] = useState('');
   const [params, setParams] = useState<ParamsGeneracion>(() => ({
     ...PARAMS_DEFAULT,
-    objetivo: objetivoValido(props.objetivo) ?? PARAMS_DEFAULT.objetivo,
+    objetivo: objetivoValido(arranque?.objetivo) ?? PARAMS_DEFAULT.objetivo,
     basadoEnUrl: baseInicial,
   }));
   const [esquema, setEsquema] = useState<Esquema | null>(null);
@@ -384,8 +402,8 @@ export function CrearConIA(props: PropsCrear) {
   const tema = useMemo(() => temaPorId(temaId, propios), [temaId, propios]);
 
   // Lo que leen los pasos asíncronos: la versión de AHORA, no la del render en que arrancaron.
-  const vivo = useRef({ prompt, texto, urlImportar, params, temaId, tipo });
-  useLayoutEffect(() => { vivo.current = { prompt, texto, urlImportar, params, temaId, tipo }; });
+  const vivo = useRef({ prompt, texto, params, temaId, tipo });
+  useLayoutEffect(() => { vivo.current = { prompt, texto, params, temaId, tipo }; });
   /**
    * El tipo de la generación EN CURSO, congelado al arrancarla: las tandas piden lo que se creó.
    * El ref lo leen los pasos asíncronos; el estado, la pantalla (un ref no se lee al dibujar).
@@ -395,6 +413,12 @@ export function CrearConIA(props: PropsCrear) {
   const genRef = useRef<EstadoGen | null>(null);
   const esqRef = useRef<Esquema | null>(null);
   const docRef = useRef<{ id: number; version: number; paginaId: string } | null>(null);
+  /**
+   * ¿Sigue montada? Adentro del Panel se puede salir a la mitad (la barra de la izquierda sigue ahí): la
+   * generación termina y se guarda igual, pero no se arrastra a la persona al editor desde otra pantalla.
+   */
+  const montada = useRef(true);
+  useEffect(() => { montada.current = true; return () => { montada.current = false; }; }, []);
 
   // Comodidades de este navegador: se leen después de montar (el server no las tiene).
   useEffect(() => {
@@ -424,7 +448,7 @@ export function CrearConIA(props: PropsCrear) {
       if (!r.ok) return { ok: false, error: r.conflicto ? `Otra pestaña cambió esta ${docDe(tipoGen.current)}.` : r.error };
       d.version = r.version;
       // Lo que cambió es QUÉ EXISTE (una landing con contenido): navegación dura.
-      irDuro(`/landing-generator/${d.id}`, ws);
+      if (montada.current) irDuro(`/landing-generator/${d.id}`, ws);
       return { ok: true };
     },
   }), [ws]);
@@ -449,8 +473,8 @@ export function CrearConIA(props: PropsCrear) {
       const v = vivo.current;
       const p = paramsDeTipo(v.params, tipoGen.current);
       const config: Partial<ConfigLanding> = configDeCreacion(tipoGen.current, v.temaId, {
-        modo: de === 'importar' ? 'importar' : 'ia',
-        pedido: (de === 'generar' ? v.prompt : de === 'pegar' ? v.texto : v.urlImportar).slice(0, 2_000),
+        modo: 'ia',
+        pedido: (de === 'generar' ? v.prompt : v.texto).slice(0, 2_000),
         objetivo: p.objetivo,
         basadoEnUrl: p.basadoEnUrl,
       });
@@ -469,14 +493,11 @@ export function CrearConIA(props: PropsCrear) {
     if (de === 'generar') {
       if (!v.prompt.trim()) return;
       cuerpo = { accion: 'esquema', modo: 'generar', prompt: v.prompt, params: paramsDeTipo(v.params, v.tipo) };
-    } else if (de === 'pegar') {
+    } else {
       if (!v.texto.trim()) return;
       cuerpo = { accion: 'esquema', modo: 'pegar', texto: v.texto, params: paramsDeTipo(v.params, v.tipo) };
-    } else {
-      if (!/^https?:\/\/\S+\.\S+/i.test(v.urlImportar.trim())) { setFalla({ texto: 'Escribe un enlace que empiece con https://' }); return; }
-      cuerpo = { accion: 'esquema', modo: 'importar', url: v.urlImportar.trim(), params: paramsDeTipo(v.params, v.tipo) };
     }
-    recordarIndicacion(de, de === 'generar' ? v.prompt : de === 'pegar' ? v.texto : v.urlImportar);
+    recordarIndicacion(de, de === 'generar' ? v.prompt : v.texto);
     setCargando('esquema');
     setFalla(null);
     const r = await pedirIA(cuerpo, 150_000);
@@ -489,18 +510,38 @@ export function CrearConIA(props: PropsCrear) {
     else setPaso('esquema');
   }, [generar]);
 
-  // La caja del Panel: el pedido llega por sessionStorage (o por la URL si no había) y se
-  // dispara UNA vez. El ref sobrevive al doble montaje del modo estricto.
+  // Lo que trae la caja del Panel (`arranque`), UNA vez: el ref sobrevive al doble montaje del modo estricto
+  // (un esquema se paga). Un archivo adjunto va a «Pegar texto» con lo escrito como instrucciones; un pedido,
+  // a «Generar». El link viejo de la caja (`sesion`) lo busca en sessionStorage y, si no está, en la URL.
   const arrancado = useRef(false);
   useEffect(() => {
-    if (arrancado.current || !props.desdeCaja) return;
+    if (arrancado.current) return;
     arrancado.current = true;
-    const caja = tomarCaja() ?? (props.promptUrl ? { prompt: props.promptUrl, modo: props.modoCaja } : null);
+    if (!arranque) return;
+    const express = arranque.modo === 'express';
+    if (arranque.archivo) {
+      const instrucciones = (arranque.prompt ?? '').trim().slice(0, MAX_INSTRUCCIONES);
+      const p = { ...vivo.current.params, instrucciones };
+      setTexto(arranque.archivo.texto);
+      setParams(p);
+      vivo.current = { ...vivo.current, texto: arranque.archivo.texto, params: p };
+      void pedirEsquema('pegar', express);
+      return;
+    }
+    const caja = arranque.sesion
+      ? tomarCaja() ?? (arranque.prompt ? { prompt: arranque.prompt, modo: arranque.modo ?? 'plan' } : null)
+      : arranque.prompt ? { prompt: arranque.prompt, modo: arranque.modo ?? 'plan' } : null;
     if (!caja) return;
     setPrompt(caja.prompt);
     vivo.current = { ...vivo.current, prompt: caja.prompt };
     void pedirEsquema('generar', caja.modo === 'express');
-  }, [props.desdeCaja, props.promptUrl, props.modoCaja, pedirEsquema]);
+  }, [arranque, pedirEsquema]);
+
+  // El paso de entrada y el tipo viajan en la URL (el Panel los escribe): un F5 vuelve acá.
+  const onPaso = props.onPaso;
+  useEffect(() => {
+    if (paso === 'generar' || paso === 'pegar' || paso === 'importar') onPaso?.(paso, tipo);
+  }, [paso, tipo, onPaso]);
 
   // Mientras se genera y no se guardó, cerrar la pestaña pierde lo generado: se avisa.
   const enCurso = paso === 'generando' && gen?.guardado !== 'listo';
@@ -515,24 +556,14 @@ export function CrearConIA(props: PropsCrear) {
 
   const subirArchivo = useCallback(async (f: File) => {
     if (!puedeLeerse(f.name, f.type)) { setFalla({ texto: porQueNoPuedo(f.name) }); return; }
-    if (f.size > TOPE_IMPORTAR_BYTES) { setFalla({ texto: 'El archivo pesa más de 15 MB.' }); return; }
     setCargando('archivo');
     setFalla(null);
-    try {
-      const form = new FormData();
-      form.append('file', f);
-      // Multipart, nunca una server action (tope de 1 MB). El ?ws= lo pega WsFetch.
-      const res = await fetch('/api/landing-generator/importar', { method: 'POST', body: form, signal: AbortSignal.timeout(305_000) });
-      const j = (await res.json().catch(() => null)) as { ok?: boolean; texto?: string; error?: string } | null;
-      if (!j?.ok || typeof j.texto !== 'string') { setFalla({ texto: j?.error || `No se pudo leer el archivo (${res.status}).` }); return; }
-      setTexto(j.texto);
-      setPaso('pegar');
-    } catch (e) {
-      const corte = e instanceof Error && (e.name === 'TimeoutError' || e.name === 'AbortError');
-      setFalla({ texto: corte ? 'Tardó demasiado. Prueba con un archivo más chico.' : 'Sin conexión. Vuelve a intentar.' });
-    } finally {
-      setCargando(null);
-    }
+    // El lector compartido con el «+» de la caja (../cliente.ts): multipart, con su plazo, nunca tira.
+    const r = await leerArchivo(f);
+    setCargando(null);
+    if (!r.ok) { setFalla({ texto: r.error }); return; }
+    setTexto(r.texto);
+    setPaso('pegar');
   }, []);
 
   // ── Generación: reintentos ───────────────────────────────────────────────
@@ -551,7 +582,8 @@ export function CrearConIA(props: PropsCrear) {
   // ── Render ───────────────────────────────────────────────────────────────
 
   const ir = (p: Paso) => { setFalla(null); setPaso(p); };
-  const atras: Paso | null = paso === 'inicio' || paso === 'generando' ? null : paso === 'esquema' ? origen : 'inicio';
+  // «Atrás» sólo desde el esquema (a donde se escribió); desde un paso de entrada, «Inicio» vuelve a la caja.
+  const atras: Paso | null = paso === 'esquema' ? origen : null;
   const ocupado = cargando !== null;
   const opcionesBase = useMemo<OpcionDesplegable<string>[]>(() => [
     { valor: '', texto: 'Sin landing de base', icono: 'cerrar' },
@@ -587,8 +619,9 @@ export function CrearConIA(props: PropsCrear) {
             ancho={340}
           />
           {errorAnalizadas && <span className="gp-nota-error">No se pudieron leer las landings analizadas.</span>}
-          {/* Sin analizadas el desplegable queda apagado: esto dice dónde se analiza (el ex Landing Analyst). */}
-          <Link href="/landing-generator/analizar" className="gp-enlace-boton">Analizar una página</Link>
+          {/* Sin analizadas el desplegable queda apagado: esto dice dónde se analiza (el ex Landing Analyst). Es una
+              función del Panel y no un link: el Panel ya está montado (ver la cabecera, tanda 6). */}
+          <button type="button" className="gp-enlace-boton" onClick={props.onAnalizar}>Analizar una página</button>
         </>
       )}
     </div>
@@ -642,59 +675,31 @@ export function CrearConIA(props: PropsCrear) {
 
   let cuerpo: ReactNode = null;
 
-  if (paso === 'inicio') {
-    cuerpo = (
-      <div className="gp-crear-centro">
-        <h1 className="gp-crear-h1">Crear con IA</h1>
-        <p className="gp-crear-sub">¿Cómo te gustaría empezar?</p>
-        <div className="gp-opciones">
-          <button type="button" className="gp-opcion" onClick={() => ir('pegar')}>
-            <span className="gp-ilus" data-tipo="pegar"><span className="gp-ilus-aa">Aa</span></span>
-            <span className="gp-opcion-titulo">Pegar texto</span>
-            <span className="gp-opcion-sub">Crear un esquema o contenido existente a partir de notas</span>
-          </button>
-          <button type="button" className="gp-opcion" onClick={() => ir('generar')}>
-            <span className="gp-ilus" data-tipo="generar"><Ico n="destellos" t={34} /></span>
-            <span className="gp-opcion-titulo">Generar <span className="gp-chip gp-chip-popular"><Ico n="rayo" t={11} /> Popular</span></span>
-            <span className="gp-opcion-sub">Crear a partir de una instrucción de una línea en unos segundos</span>
-          </button>
-          <button type="button" className="gp-opcion" onClick={() => ir('importar')}>
-            <span className="gp-ilus" data-tipo="importar"><Ico n="subir" t={34} /></span>
-            <span className="gp-opcion-titulo">Importar archivo o URL</span>
-            <span className="gp-opcion-sub">Mejora documentos, presentaciones o páginas web existentes</span>
-          </button>
-        </div>
-        <p className="gp-crear-link"><Link href="/landing-generator?vista=plantillas">Ver todas las plantillas</Link></p>
-        {recientes.length > 0 && (
-          <section className="gp-recientes" aria-labelledby="gp-recientes-titulo">
-            <h2 id="gp-recientes-titulo" className="gp-bloque-titulo">Tus indicaciones recientes</h2>
-            <ul>
-              {recientes.map((r) => (
-                <li key={`${r.modo}-${r.t}`}>
-                  <button
-                    type="button"
-                    className="gp-reciente"
-                    onClick={() => {
-                      if (r.modo === 'generar') setPrompt(r.texto);
-                      else if (r.modo === 'pegar') setTexto(r.texto);
-                      else setUrlImportar(r.texto);
-                      ir(r.modo);
-                    }}
-                  >
-                    <span className="gp-reciente-textos">
-                      <span className="gp-reciente-titulo">{r.texto.split('\n')[0].slice(0, 90)}</span>
-                      <span className="gp-reciente-sub">{NOMBRE_ORIGEN[r.modo]}{ahora ? ` · ${haceCuanto(r.t, ahora)}` : ''}</span>
-                    </span>
-                    <Ico n="chevron-derecha" t={14} />
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </section>
-        )}
-      </div>
+  /** «Tus indicaciones recientes» de ESE paso (las de Generar en Generar, las de Pegar en Pegar). */
+  const recientesDe = (modo: Origen) => {
+    const lista = recientes.filter((r) => r.modo === modo);
+    if (!lista.length) return null;
+    return (
+      <section className="gp-recientes" aria-labelledby={`gp-recientes-${modo}`}>
+        <h2 id={`gp-recientes-${modo}`} className="gp-separador-texto">Recientes</h2>
+        <ul>
+          {lista.map((r) => (
+            <li key={`${r.modo}-${r.t}`}>
+              <button type="button" className="gp-reciente" disabled={ocupado} onClick={() => (modo === 'generar' ? setPrompt(r.texto) : setTexto(r.texto))}>
+                <span className="gp-reciente-textos">
+                  <span className="gp-reciente-titulo">{r.texto.split('\n')[0].slice(0, 90)}</span>
+                  {ahora ? <span className="gp-reciente-sub">{haceCuanto(r.t, ahora)}</span> : null}
+                </span>
+                <Ico n="chevron-derecha" t={14} />
+              </button>
+            </li>
+          ))}
+        </ul>
+      </section>
     );
-  } else if (paso === 'generar') {
+  };
+
+  if (paso === 'generar') {
     const lista = EJEMPLOS_DE[tipo];
     const ejemplos = Array.from({ length: EJEMPLOS_VISIBLES }, (_, k) => lista[(ejemplo0 + k) % lista.length]);
     cuerpo = (
@@ -732,6 +737,7 @@ export function CrearConIA(props: PropsCrear) {
           <Ico n="ajustes" t={14} /> Personalizar
         </button>
         {personalizar && camposPersonalizar}
+        {recientesDe('generar')}
         <div className="gp-ejemplos-cabeza">
           <span className="gp-separador-texto">Ejemplos de instrucciones</span>
           <button type="button" className="gp-btn gp-btn-fantasma" onClick={() => setEjemplo0((n) => (n + EJEMPLOS_VISIBLES + Math.floor(Math.random() * 3)) % lista.length)}>
@@ -790,6 +796,7 @@ export function CrearConIA(props: PropsCrear) {
           )}
         </div>
         {lineaFalla}
+        {recientesDe('pegar')}
       </div>
     );
   } else if (paso === 'importar') {
@@ -827,18 +834,6 @@ export function CrearConIA(props: PropsCrear) {
                 onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) void subirArchivo(f); }}
               />
             </label>
-            <div className="gp-importar-tarjeta" data-color="agua">
-              <span className="gp-importar-cabeza"><Ico n="globo" t={36} /></span>
-              <span className="gp-importar-titulo">Importar desde URL</span>
-              <span className="gp-importar-lista">
-                <span><Ico n="check" t={12} /> Páginas web</span>
-                <span><Ico n="check" t={12} /> Entradas de blog o artículos</span>
-              </span>
-              <form className="gp-importar-url" onSubmit={(e) => { e.preventDefault(); void pedirEsquema('importar'); }}>
-                <input className="gp-campo" type="url" inputMode="url" value={urlImportar} placeholder="https://" aria-label="Enlace de la página" disabled={ocupado} onChange={(e) => setUrlImportar(e.target.value)} />
-                <button type="submit" className="gp-btn gp-btn-primario" disabled={!urlImportar.trim() || ocupado}>Importar</button>
-              </form>
-            </div>
           </div>
         )}
         {escribiendo}
@@ -864,7 +859,6 @@ export function CrearConIA(props: PropsCrear) {
             {origen === 'pegar' && (
               <p className="gp-instruccion-resumen">Texto pegado · {texto.length.toLocaleString('es-MX')} caracteres · <button type="button" className="gp-enlace-boton gp-en-linea" onClick={() => ir('pegar')}>Editar</button></p>
             )}
-            {origen === 'importar' && <p className="gp-instruccion-resumen">{hostDe(urlImportar)}</p>}
             {selectorTipo}
             {controles(!(origen !== 'generar' && params.modoTexto === 'conservar'))}
             {escribiendo}
@@ -962,11 +956,11 @@ export function CrearConIA(props: PropsCrear) {
 
   return (
     <div className="gma gp gp-crear" data-paso={paso}>
-      <style dangerouslySetInnerHTML={{ __html: CSS_GP + CSS_ESQUEMA + CSS_TIPO + CSS_CREAR }} />
-      <link rel="stylesheet" href={URL_FUENTE_CHROME} />
+      {/* CSS_GP y la letra los pone el Panel, que la monta (Inicio.tsx). */}
+      <style dangerouslySetInnerHTML={{ __html: CSS_ESQUEMA + CSS_TIPO + CSS_CREAR }} />
       {(paso !== 'generando' || crear === 'error') && (
         <div className="gp-crear-barra">
-          <Link href="/landing-generator" className="gp-btn gp-btn-contorno"><Ico n="casa" t={14} /> Inicio</Link>
+          <button type="button" className="gp-btn gp-btn-contorno" disabled={ocupado} onClick={props.onSalir}><Ico n="casa" t={14} /> Inicio</button>
           {atras && <button type="button" className="gp-btn gp-btn-fantasma" disabled={ocupado} onClick={() => ir(atras)}><Ico n="flecha-izquierda" t={14} /> Atrás</button>}
         </div>
       )}
@@ -1010,28 +1004,13 @@ const CSS_CREAR = `
 .gp .gp-crear-sub { margin: -8px 0 4px; text-align: center; font-size: 16px; color: var(--gp-tenue); }
 .gp .gp-crear-h2 { margin: 8px 0 0; font-size: 20px; font-weight: 600; color: var(--gp-titulo); }
 .gp .gp-crear-link { margin: 0; text-align: center; font-size: 14px; color: var(--gp-tenue); }
-.gp .gp-crear-link a { color: var(--gp-activo-texto); font-weight: 600; text-decoration: none; }
 .gp .gp-enlace-boton { display: inline-flex; align-items: center; gap: 6px; align-self: flex-start; padding: 0; border: 0; background: transparent; color: var(--gp-activo-texto); font-size: 14px; font-weight: 600; cursor: pointer; }
 .gp .gp-en-linea { display: inline; align-self: auto; }
 .gp .gp-oculto { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
 
-/* Las tres opciones de «Crear con IA». */
-.gp .gp-opciones { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
-.gp .gp-opcion { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 14px 14px 18px; border: 0; border-radius: 10px; background: var(--gp-superficie); box-shadow: var(--gp-sombra-tarjeta); text-align: center; cursor: pointer; transition: transform .18s, box-shadow .18s; }
-.gp .gp-opcion:hover { transform: translateY(-3px) scale(1.015); box-shadow: 0 10px 15px -3px rgba(0,0,0,.1), 0 4px 6px -2px rgba(0,0,0,.05); }
-.gp .gp-opcion-titulo { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: center; font-size: 16px; font-weight: 600; color: var(--gp-titulo); }
-.gp .gp-opcion-sub { font-size: 13px; line-height: 1.4; color: var(--gp-tenue); }
-.gp .gp-chip-popular { background: var(--gp-azul-100); color: var(--gp-azul-800); text-transform: uppercase; letter-spacing: .03em; font-size: 10.5px; }
-.gp .gp-ilus { position: relative; display: grid; place-items: center; width: 100%; aspect-ratio: 5 / 3; border-radius: 8px; overflow: hidden; color: #fff; }
-.gp .gp-ilus::after { content: ""; position: absolute; left: -10%; right: -10%; bottom: -35%; height: 70%; border-radius: 50%; background: rgba(255,255,255,.18); }
-.gp .gp-ilus[data-tipo="pegar"] { background: linear-gradient(180deg, #2b1a5c 0%, #6b3fa0 60%, #c58fd8 100%); }
-.gp .gp-ilus[data-tipo="generar"] { background: radial-gradient(circle at 70% 30%, #fff3c6 0 12%, transparent 13%), linear-gradient(180deg, #ffd6e0 0%, #ffb3c7 55%, #f08aa8 100%); }
-.gp .gp-ilus[data-tipo="importar"] { background: linear-gradient(180deg, #d7f5e9 0%, #a8e6cf 50%, #f7b8d0 100%); color: #1c481d; }
-.gp .gp-ilus-aa { position: relative; z-index: 1; font-size: 34px; font-weight: 700; letter-spacing: -0.02em; }
-.gp .gp-ilus .gp-ico { position: relative; z-index: 1; }
-
-/* Indicaciones recientes. */
+/* Indicaciones recientes (en Generar y en Pegar texto, tanda 6). */
 .gp .gp-recientes { display: flex; flex-direction: column; gap: 10px; margin-top: 8px; }
+.gp .gp-recientes .gp-separador-texto { margin: 0; }
 .gp .gp-recientes ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
 .gp .gp-reciente { display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px 16px; border: 0; border-radius: 10px; background: var(--gp-superficie); box-shadow: var(--gp-sombra-tarjeta); text-align: left; cursor: pointer; color: var(--gp-tenue); }
 .gp .gp-reciente:hover { box-shadow: 0 4px 6px -1px rgba(0,0,0,.1), 0 2px 4px -1px rgba(0,0,0,.06); }
@@ -1079,18 +1058,16 @@ const CSS_CREAR = `
 .gp .gp-ejemplo .gp-ico:first-child { color: var(--gp-azul-600); }
 
 /* Importar. */
-.gp .gp-importar { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.gp .gp-importar { display: grid; grid-template-columns: minmax(0, 380px); justify-content: center; gap: 16px; }
 .gp .gp-importar-tarjeta { position: relative; display: flex; flex-direction: column; gap: 10px; padding: 0 0 18px; border-radius: 12px; background: var(--gp-superficie); box-shadow: var(--gp-sombra-tarjeta); overflow: hidden; cursor: default; }
 .gp label.gp-importar-tarjeta { cursor: pointer; }
 .gp .gp-importar-cabeza { display: grid; place-items: center; height: 110px; color: #fff; }
 .gp .gp-importar-tarjeta[data-color="lila"] .gp-importar-cabeza { background: linear-gradient(135deg, #bd97fd, #8131dc); }
-.gp .gp-importar-tarjeta[data-color="agua"] .gp-importar-cabeza { background: linear-gradient(135deg, #5ee0d9, #04c8c6); }
 .gp .gp-importar-titulo { padding: 0 18px; font-size: 16px; font-weight: 600; color: var(--gp-titulo); }
 .gp .gp-importar-lista { display: flex; flex-direction: column; gap: 4px; padding: 0 18px; font-size: 13.5px; color: var(--gp-tenue); }
 .gp .gp-importar-lista .gp-ico { color: var(--gp-exito); }
 .gp .gp-importar-lista span { display: inline-flex; align-items: center; gap: 6px; }
 .gp .gp-importar-enlace { display: inline-flex; align-items: center; gap: 6px; padding: 0 18px; color: #b50084; font-weight: 600; font-size: 14px; }
-.gp .gp-importar-url { display: flex; gap: 8px; padding: 0 18px; }
 .gp .gp-cargando-archivo { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 28px; border-radius: 12px; background: var(--gp-superficie); box-shadow: var(--gp-sombra-tarjeta); text-align: center; color: var(--gp-tenue); font-size: 14px; }
 .gp .gp-cargando-archivo strong { color: var(--gp-titulo); }
 .gp .gp-barra { width: 100%; max-width: 360px; height: 6px; border-radius: 9999px; background: var(--gp-borde-suave); overflow: hidden; }
@@ -1129,7 +1106,7 @@ const CSS_CREAR = `
 @media (max-width: 760px) {
   .gp.gp-crear { padding: 16px 16px 0; }
   .gp .gp-crear-h1 { font-size: 30px; }
-  .gp .gp-opciones, .gp .gp-ejemplos, .gp .gp-importar { grid-template-columns: minmax(0, 1fr); }
+  .gp .gp-ejemplos, .gp .gp-importar { grid-template-columns: minmax(0, 1fr); }
   .gp .gp-generando { grid-template-columns: minmax(0, 1fr); }
   .gp .gp-gen-log { position: static; }
   .gp .gp-barra-abajo { margin: 0 -16px; padding: 10px 16px; grid-template-columns: 1fr auto; }

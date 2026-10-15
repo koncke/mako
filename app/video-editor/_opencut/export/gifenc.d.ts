@@ -1,4 +1,5 @@
-// gifenc 1.0.3 (MIT) no trae tipos. Sólo lo que usa export/gif.ts.
+// gifenc 1.0.3 (MIT) no trae tipos. Sólo lo que usa export/gif.ts — y `first`, que usa el Image Editor
+// (app/image-editor/_doory/editor/engine/export/video/gif.ts): las dos declaraciones del módulo se FUSIONAN y gana ésta.
 declare module "gifenc" {
 	export type Paleta = number[][];
 	export type FormatoColor = "rgb565" | "rgb444" | "rgba4444";
@@ -17,7 +18,7 @@ declare module "gifenc" {
 			index: Uint8Array,
 			width: number,
 			height: number,
-			opts?: { palette?: Paleta; delay?: number; repeat?: number; transparent?: boolean; dispose?: number },
+			opts?: { palette?: Paleta; delay?: number; repeat?: number; transparent?: boolean; dispose?: number; first?: boolean },
 		): void;
 		finish(): void;
 		bytes(): Uint8Array;

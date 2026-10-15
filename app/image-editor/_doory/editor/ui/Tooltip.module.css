@@ -1,0 +1,49 @@
+.wrap {
+  display: inline-flex;
+  min-width: 0;
+}
+
+/* Tooltip de Canva: oscuro (#0F1015), texto blanco de 12 px, radio 6 */
+.tip {
+  position: fixed;
+  z-index: var(--cv-z-toast);
+  pointer-events: none;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--cv-space-2);
+  padding: 4px 8px;
+  border-radius: 6px; /* Canva: radio 6 */
+  background: var(--cv-tooltip-bg);
+  color: var(--cv-tooltip-text);
+  font: 500 var(--cv-text-sm) / 1.5 var(--cv-font-sans);
+  white-space: nowrap;
+  box-shadow: var(--cv-shadow-sm);
+  animation: tip-in var(--cv-duration-fast) var(--cv-ease-out);
+}
+
+.top {
+  transform: translate(-50%, -100%);
+}
+.bottom {
+  transform: translate(-50%, 0);
+}
+.right {
+  transform: translate(0, -50%);
+}
+.left {
+  transform: translate(-100%, -50%);
+}
+
+/* El atajo va en gris claro al lado del rótulo, sin caja (como en Canva) */
+.kbd {
+  font: 500 var(--cv-text-sm) / 1.5 var(--cv-font-sans);
+  color: rgb(255 255 255 / 0.7);
+  background: none;
+  padding: 0;
+}
+
+@keyframes tip-in {
+  from {
+    opacity: 0;
+  }
+}

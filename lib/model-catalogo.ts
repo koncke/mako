@@ -142,12 +142,6 @@ export const CATALOGO_MODELOS: FeatureModelo[] = [
   { feature: 'experimentos', label: 'Experimentos / Retro del negocio', grupo: 'Análisis', def: GEMINI(), recomendado: GEMINI(), nota: 'El análisis más pesado del producto. Bajó a Gemini con el veto: sin corridas desde el 5/7. Si vuelve a hacer falta Opus, va con fila y fecha en lib/veto-claude.ts.' },
   // El Dashboard (11/10/2026): las dos van GRATIS y sin fallback pago. Lo que sale se VE (una hoja que
   // se puede deshacer, un análisis que se puede volver a pedir) y pasa por un saneo determinista.
-  // /general (13/10/2026): «¿Qué vas a crear hoy?» en Nueva vista. Gratis y sin fallback pago: elige bloques de un
-  // catálogo de ocho y lo revalida `deIAVista` (lib/general-vistas-modelo.ts). Lo que sale se ve y se edita.
-  { feature: 'general-vista-ia', label: 'Armar una vista de General con IA', grupo: 'Análisis', def: GEMINI(), recomendado: GEMINI(), pii: false, nota: '«¿Qué vas a crear hoy?» en Nueva vista de General: elige bloques del catálogo y los funnels u ofertas que nombra la persona. Los ids los revalida el código (lib/general-vistas-modelo.ts).' },
-  // El Calendario (13/10/2026): «¿Qué vas a crear hoy?» propone eventos de la semana. Gratis y sin fallback pago.
-  // ⚠️ El modelo ve el pedido y las fechas de la semana, NUNCA la agenda (la agenda no pasa por IA).
-  { feature: 'calendario-ia', label: 'Proponer eventos del Calendario con IA', grupo: 'Análisis', def: GEMINI(), recomendado: GEMINI(), pii: false, nota: '«¿Qué vas a crear hoy?» del Calendario: propone publicaciones, bloques y llamadas para la semana. No ve la agenda; la persona confirma antes de que se agende (lib/calendario-ia.ts).' },
   { feature: 'dashboard-hoja-ia', label: 'Armar una hoja del Dashboard con IA', grupo: 'Análisis', def: GEMINI(), recomendado: GEMINI(), pii: false, nota: '«Pídeselo a MaKo» en Nueva hoja: elige gráficos del catálogo por su nombre. Los ids, el lugar y el estilo los pone el código (lib/graficos-ia.ts).' },
   { feature: 'dashboard-analista', label: 'AI Analyst del Dashboard', grupo: 'Análisis', def: GEMINI(), recomendado: GEMINI(), pii: false, nota: 'MaKo lee lo que MUESTRAN los gráficos de una hoja (números ya agregados, sin nombres de leads ni conversaciones) y escribe qué pasa y qué hacer. A mano o programado (lib/graficos-analisis.ts).' },
   { feature: 'dashboard-conclusiones', label: 'Conclusiones de MaKo (cajas del Dashboard)', grupo: 'Análisis', def: GEMINI(), recomendado: GEMINI(), pii: true, nota: 'Cada caja escribe lo que pidió quien armó la hoja, sobre lo que muestran sus gráficos o, adentro del pop-up de una llamada, sobre su análisis y su transcript (por eso PII). Al configurarla, a mano o programada; nunca al abrir la hoja. Sólo IA gratis (lib/graficos-ia-elemento.ts).' },
@@ -218,6 +212,11 @@ export const CATALOGO_MODELOS: FeatureModelo[] = [
   // CLAUDE_PERMITIDO a propósito. Sin PII: el brief del negocio y lo que la persona escribe.
   { feature: 'landing-editor', label: 'Generar una landing en el editor (Landing Generator)', grupo: 'Copywriting', def: GEMINI(), recomendado: GEMINI(), nota: 'Arma el esquema (desde un pedido, un texto pegado o una página importada) y escribe las secciones de a tres, con su diseño y la búsqueda de cada foto. Las fotos las pone el código desde un banco de imágenes, nunca la IA. Sin PII.' },
   { feature: 'landing-editor-ia', label: 'Editar con IA en el editor de landings (Landing Generator)', grupo: 'Copywriting', def: GEMINI(), recomendado: GEMINI(), nota: 'Edición con IA de la landing o de una sección (respeta las bloqueadas), las acciones de texto (mejorar, acortar, traducir…), «Probar nuevo diseño» y las notas del orador. Sin PII.' },
+  // El chat del Video Editor (lib/editor-video/ia.ts): el mismo trato que landing-editor-ia
+  // (decisión del 15/10/2026). GRATIS, Claude vetado sin fila en CLAUDE_PERMITIDO, ni de
+  // respaldo: lo que vuelve es una PROPUESTA que la persona mira antes de aplicar, así que un
+  // proveedor más flojo se ve y se descarta.
+  { feature: 'video-editor-ia', label: 'Editar con IA en el Video Editor', grupo: 'Copywriting', def: GEMINI(), recomendado: GEMINI(), nota: 'El chat al costado del editor: lee la línea de tiempo (nombres, tiempos y textos de los clips) y propone cortes, textos, borrados y volúmenes que la persona acepta o descarta. Sin PII.' },
   // Los tres writers de contenido de Instagram (lib/ig-writer.ts). Mismo perfil
   // que landing-writer: copy con voz de marca sobre el brief del negocio, sin PII
   // (el pedido del usuario + funnel + perfil público) → default GRATIS.

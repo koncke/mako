@@ -1,0 +1,200 @@
+.slot {
+  position: relative;
+  flex: none;
+}
+
+/*
+ * El encabezado de página de Canva (relevamiento §6): a la izquierda «Página 1 - Agregar título de página», a la
+ * derecha los íconos de la página. Sin cajas ni chips: texto del cromo sobre el gris del área del lienzo.
+ */
+.header {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cv-space-2);
+  padding: 0 0 var(--cv-space-1);
+}
+
+.lead {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1 1 auto;
+  min-width: 0;
+  color: var(--cv-color-text-muted);
+  font: 500 var(--cv-text-base) / 1 var(--cv-font-sans);
+}
+[data-active] .lead {
+  color: var(--cv-color-text);
+}
+
+.number {
+  flex: none;
+  white-space: nowrap;
+}
+
+.dash {
+  flex: none;
+}
+
+/* El título: un campo que parece texto hasta que se lo toca (Canva: «Agregar título de página»). */
+.titleInput {
+  min-width: 48px;
+  max-width: 100%;
+  height: 28px;
+  padding: 0 6px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-overflow: ellipsis;
+  transition:
+    background var(--cv-duration-fast) var(--cv-ease-out),
+    border-color var(--cv-duration-fast) var(--cv-ease-out);
+}
+.titleInput::placeholder {
+  color: var(--cv-color-text-subtle);
+  opacity: 1;
+}
+.titleInput:hover {
+  background: var(--cv-color-bg-muted);
+}
+/* Canva: el campo con foco va blanco con el borde violeta #8B3DFF */
+.titleInput:focus {
+  outline: none;
+  border-color: var(--cv-selection-color);
+  background: var(--cv-color-surface);
+  color: var(--cv-color-text);
+}
+
+.titleText {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Los íconos de la página: aparecen en la página elegida, al pasar el mouse o con foco de teclado. */
+.actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 2px;
+  color: var(--cv-color-text);
+  opacity: 0;
+  transition: opacity var(--cv-duration-base) var(--cv-ease-out);
+}
+.slot:hover .actions,
+.slot:focus-within .actions,
+[data-active] .actions {
+  opacity: 1;
+}
+@media (hover: none) {
+  .actions {
+    opacity: 1;
+  }
+}
+
+/* El tamaño y el tiempo de la página, en texto chico antes de los íconos. */
+.meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-right: var(--cv-space-1);
+}
+
+.size {
+  height: 28px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--cv-color-text-muted);
+  font: 500 var(--cv-text-sm) / 28px var(--cv-font-sans);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.sizeButton {
+  cursor: pointer;
+}
+.sizeButton:hover,
+.sizeButton[aria-expanded='true'] {
+  background: var(--cv-color-bg-muted);
+  color: var(--cv-color-text);
+}
+.sizeButton:focus-visible {
+  outline: none;
+  box-shadow: var(--cv-focus-ring);
+}
+
+/* A page without a time shows its clock only where the page's other controls show. */
+.time[data-unset] {
+  opacity: 0;
+}
+.slot:hover .time,
+.slot:focus-within .time,
+[data-active] .time {
+  opacity: 1;
+}
+@media (hover: none) {
+  .time {
+    opacity: 1;
+  }
+}
+
+/* La página: blanca, sin borde, con la sombra suave de Canva. */
+.artboard {
+  position: relative;
+  z-index: 1;
+  background: var(--cv-color-surface);
+  box-shadow: var(--cv-shadow-artboard);
+  user-select: none;
+}
+
+.snapshot {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  animation: fade-in var(--cv-duration-base) var(--cv-ease-out);
+}
+
+.host {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+}
+
+.skeleton {
+  position: absolute;
+  inset: 0;
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+.empty {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  margin: 0;
+  padding: var(--cv-space-6);
+  color: var(--cv-color-text-subtle);
+  font: 400 var(--cv-text-sm) / 1.5 var(--cv-font-sans);
+  text-align: center;
+  pointer-events: none;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+.header[hidden] {
+  display: none;
+}

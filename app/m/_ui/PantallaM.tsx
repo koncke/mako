@@ -18,6 +18,15 @@
 // rebote nativo no compite: /m apaga el overscroll vertical del documento
 // (app/m/m.css), que además es lo que saca el pull-to-refresh de Chrome.
 //
+// ⚠️ LOS EVENTOS SE ESCUCHAN EN EL DOCUMENTO, NO EN EL DIV DE LA PÁGINA (14/10/2026). Martín
+// deslizaba hacia abajo «como en cualquier app y no pasa nada»: el dedo caía en el título grande
+// (lo dibuja el shell, fuera de esta página) o en el espacio vacío debajo de una lista corta, y ahí
+// no había nadie escuchando. Ahora vale el gesto desde cualquier lugar de la pantalla, salvo:
+//   · adentro de un sheet (se baja tirando: ese gesto es suyo);
+//   · en un scroll anidado que NO está arriba de todo (la columna de un tablero, un hilo): tirar
+//     ahí sube esa lista. Se pregunta subiendo por los ancestros, no por una marca: cualquier
+//     contenedor con overflow que ya bajó se queda con el gesto.
+//
 // Física (app/m/_ui/gestos.ts): resistencia de rubber-band desde el primer px,
 // se dispara a los 64 px (con un tic háptico al cruzar), se queda en 48 mientras
 // carga y se pliega en 200 ms. Sin red no refresca: vuelve y la cinta ya dice por qué.
@@ -28,6 +37,19 @@ import { useRouter } from '@/app/_ui/Link';
 import { haptico } from '@/lib/haptico';
 import { distanciaDePull, ejeDelGesto, RETENCION_PULL, UMBRAL_PULL } from './gestos';
 import { useShellM } from './contexto';
+
+/** ¿El dedo cayó en algo que se queda con el gesto vertical? Un sheet, o un scroll anidado que ya bajó. */
+function otroDuenoDelGesto(t: EventTarget | null): boolean {
+  if (!(t instanceof Element)) return false;
+  if (t.closest('.m-sheet-capa, [data-m-sin-pull]')) return true;
+  for (let n: Element | null = t; n && n !== document.body; n = n.parentElement) {
+    if (n.scrollTop > 0) {
+      const oy = getComputedStyle(n).overflowY;
+      if (oy === 'auto' || oy === 'scroll') return true;
+    }
+  }
+  return false;
+}
 
 export function PantallaM({ refrescable = false, children }: {
   /** Tirar hacia abajo para refrescar: Today, Inbox, CRM y Plan. Nunca el chat ni un sheet. */
@@ -101,6 +123,9 @@ export function PantallaM({ refrescable = false, children }: {
 
     const inicio = (e: TouchEvent) => {
       if (e.touches.length !== 1 || window.scrollY > 0 || cargandoRef.current) { y0 = null; return; }
+      // Un sheet o un scroll anidado que no está arriba de todo (la columna de un tablero) se
+      // quedan con el gesto: tirar ahí baja el sheet o sube esa lista, no refresca la página.
+      if (otroDuenoDelGesto(e.target)) { y0 = null; return; }
       y0 = e.touches[0].clientY;
       x0 = e.touches[0].clientX;
       tirando = false;
@@ -140,15 +165,16 @@ export function PantallaM({ refrescable = false, children }: {
       dist = 0;
     };
 
-    el.addEventListener('touchstart', inicio, { passive: true });
-    el.addEventListener('touchmove', mover, { passive: true });
-    el.addEventListener('touchend', fin, { passive: true });
-    el.addEventListener('touchcancel', fin, { passive: true });
+    // En el documento (ver la cabecera): el título grande y el vacío de abajo también tiran.
+    document.addEventListener('touchstart', inicio, { passive: true });
+    document.addEventListener('touchmove', mover, { passive: true });
+    document.addEventListener('touchend', fin, { passive: true });
+    document.addEventListener('touchcancel', fin, { passive: true });
     return () => {
-      el.removeEventListener('touchstart', inicio);
-      el.removeEventListener('touchmove', mover);
-      el.removeEventListener('touchend', fin);
-      el.removeEventListener('touchcancel', fin);
+      document.removeEventListener('touchstart', inicio);
+      document.removeEventListener('touchmove', mover);
+      document.removeEventListener('touchend', fin);
+      document.removeEventListener('touchcancel', fin);
     };
     // `pintar` sólo toca refs; `router` es estable (app/_ui/Link lo memoiza).
     // eslint-disable-next-line react-hooks/exhaustive-deps

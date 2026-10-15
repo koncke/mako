@@ -139,14 +139,20 @@ export type AccionesHoja = {
  *     a otro lado señalaría la hoja equivocada.
  * `acciones` en null = no se puede guardar (el closer, un link compartido): sólo se elige.
  */
-export function MenuHojas({ hojas, activa, puedeNueva, acciones, onIr, onNueva }: {
+export function MenuHojas({ hojas, activa, puedeNueva, acciones, onIr, onNueva, archivadas = [], onRestaurar, onBorrarArchivada }: {
   hojas: readonly Hoja[];
   activa: string;
   puedeNueva: boolean;
   acciones: AccionesHoja | null;
   onIr: (id: string) => void;
   onNueva: () => void;
+  /** Las eliminadas (14/10/2026): «Archivados», un texto sutil al pie, con restaurar y eliminar para siempre. */
+  archivadas?: readonly Hoja[];
+  onRestaurar?: (id: string) => void;
+  onBorrarArchivada?: (id: string) => void;
 }) {
+  const [verArchivadas, setVerArchivadas] = useState<HTMLElement | null>(null);
+  const [aBorrar, setABorrar] = useState<string | null>(null);
   const [q, setQ] = useState('');
   const [opciones, setOpciones] = useState<{ id: string; ancla: HTMLElement } | null>(null);
   const [renombrando, setRenombrando] = useState<string | null>(null);
@@ -179,7 +185,7 @@ export function MenuHojas({ hojas, activa, puedeNueva, acciones, onIr, onNueva }
           {op('Subir', 'arriba', () => acciones.onMover(deOpciones.id, -1), i <= 0)}
           {op('Bajar', 'abajo', () => acciones.onMover(deOpciones.id, 1), i >= hojas.length - 1)}
           <div className="lk-sep-h" />
-          {op('Eliminar', 'borrar', () => acciones.onEliminar(deOpciones.id), hojas.length <= 1, true)}
+          {op('Eliminar', 'borrar', () => acciones.onEliminar(deOpciones.id), false, true)}
         </div>
       </Flotante>
     );
@@ -225,8 +231,35 @@ export function MenuHojas({ hojas, activa, puedeNueva, acciones, onIr, onNueva }
           </div>
         );
       })}
-      {!visibles.length && <div className="lk-hojas-vacio">Ninguna hoja se llama así.</div>}
+      {!visibles.length && busca && <div className="lk-hojas-vacio">Ninguna hoja se llama así.</div>}
       {submenu}
+      {/* «Archivados», sutil y al pie (como «Limpiar filtros» en el CRM): lo eliminado, para restaurarlo o borrarlo para
+          siempre. Borrar pide un segundo clic sobre el mismo botón, que dice la consecuencia. */}
+      {archivadas.length > 0 && onRestaurar && onBorrarArchivada && (
+        <button type="button" className="lk-archivados" aria-haspopup="menu" aria-expanded={!!verArchivadas}
+          onClick={(e) => setVerArchivadas(verArchivadas ? null : e.currentTarget)}>
+          Archivados ({archivadas.length})
+        </button>
+      )}
+      {verArchivadas && onRestaurar && onBorrarArchivada && (
+        <Flotante ancla={verArchivadas} onCerrar={() => { setVerArchivadas(null); setABorrar(null); }} ancho={280} lado="derecha" anidado>
+          <div className="lk-lista" role="menu" aria-label="Hojas archivadas">
+            {archivadas.map((h) => (
+              <div key={h.id} className="lk-archivada">
+                <span className="lk-hoja-nombre" title={h.nombre}>{h.emoji && <span aria-hidden>{h.emoji} </span>}{h.nombre}</span>
+                <button type="button" className="lk-archivada-btn" title="Restaurar" aria-label={`Restaurar ${h.nombre}`} onClick={() => { setVerArchivadas(null); onRestaurar(h.id); }}>
+                  <IconoMenu nombre="restaurar" size={16} />
+                </button>
+                <button type="button" className={`lk-archivada-btn lk-archivada-btn--peligro${aBorrar === h.id ? ' lk-archivada-btn--confirmar' : ''}`}
+                  title="Eliminar para siempre" aria-label={aBorrar === h.id ? `Confirmar: eliminar ${h.nombre} para siempre` : `Eliminar ${h.nombre} para siempre`}
+                  onClick={() => { if (aBorrar === h.id) { setABorrar(null); onBorrarArchivada(h.id); } else setABorrar(h.id); }}>
+                  {aBorrar === h.id ? 'Eliminar para siempre' : <IconoMenu nombre="borrar" size={16} />}
+                </button>
+              </div>
+            ))}
+          </div>
+        </Flotante>
+      )}
     </div>
   );
 }

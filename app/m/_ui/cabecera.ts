@@ -21,7 +21,7 @@
 // =============================================================================
 
 import {
-  DESTINOS_MOVIL, HOME_MOVIL, RUTA_MAS, SECCIONES_MAS, esRutaMovil, seccionDeRuta,
+  DESTINOS_MOVIL, HOME_MOVIL, RUTA_INBOX, RUTA_MAS, SECCIONES_MAS, esRutaMovil, seccionDeRuta,
 } from '@/lib/movil-rutas';
 
 export type PadreM = { href: string; label: string };
@@ -65,7 +65,9 @@ const CHAT_LEAD = /^\/m\/crm\/([^/]+)\/chat$/;
  */
 export function esTrabajo(pathname: string | null | undefined): boolean {
   const p = limpia(pathname);
-  return dentro(p, '/m/mako') || /^\/m\/(video|landing)\/[^/]+/.test(p) || CHAT_LEAD.test(p) || p === RUTA_CONFIGURAR;
+  return dentro(p, '/m/mako') || /^\/m\/(video|landing)\/[^/]+/.test(p) || CHAT_LEAD.test(p) || p === RUTA_CONFIGURAR
+    // El mazo de decisiones: ✕ y ✓ viven en la franja del pulgar, donde iría la barra.
+    || p === '/m/tickets/decisiones';
 }
 
 /** El lugar de la barra cuya raíz es esta ruta (o null). */
@@ -104,6 +106,8 @@ export function cabeceraPorRuta(
   if (seccion) return { titulo: seccion.label, padre: MAS, trabajo, conBarra: !trabajo };
 
   if (p === RUTA_CUENTA) return { titulo: TITULO_CUENTA, padre: MAS, trabajo: false, conBarra: true };
+  // La campana de General (v3: Inbox dejó la barra): se titula Inbox y vuelve a General.
+  if (p === RUTA_INBOX) return { titulo: 'Inbox', padre: { href: HOY.href, label: HOY.label }, trabajo: false, conBarra: true };
 
   // El chat de un lead vuelve a SU ficha, no a la lista del CRM (la página lo pisa igual con
   // el nombre del lead; acá queda bien desde el HTML del server).

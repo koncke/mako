@@ -120,9 +120,12 @@ export function panelStyle(open: boolean): CSSProperties {
  * cambiaba de pantalla. Con `alignSelf` deja de estirarse y con `marginBottom` el aire no es
  * clicable. El dibujo no cambia: 2 + 18 = los 20 de antes. Lo fija tests/barra-clic-operate.test.ts.
  */
+// ⚠️ Y DESDE EL 14/10/2026 NO ES UN LINK (Martín: «Cuando clickeo en MaKo en la sidebar, me redirecciona a general, que no
+// pase eso, que si clickeo MaKo no pase nada»): es la marca, un `<span>`. La geometría de arriba se queda (el margen
+// sigue poniendo el aire hasta OPERATE) y la animación al pasar el cursor también.
 export function Marca({ open }: { open: boolean }) {
   return (
-    <Link href="/general" className="mk-marca" title="Ir a General"
+    <span className="mk-marca"
       style={{ display: 'flex', alignItems: 'center', gap: 9, padding: open ? '2px 6px 2px' : '2px 0 2px', marginBottom: 18, alignSelf: open ? 'flex-start' : 'center', justifyContent: open ? 'flex-start' : 'center', flex: 'none', textDecoration: 'none' }}>
       <span className="mk-marca__logo" style={{ display: 'flex', flex: 'none' }}><MakoLogo size={32} /></span>
       {open && (
@@ -130,7 +133,7 @@ export function Marca({ open }: { open: boolean }) {
           <MakoWord base="#F3F0E7">MaKo</MakoWord>
         </span>
       )}
-    </Link>
+    </span>
   );
 }
 

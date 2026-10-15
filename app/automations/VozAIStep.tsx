@@ -24,7 +24,7 @@ import { Modal, Button, Checkbox } from '@/app/_ui';
 import { Dropdown, type DropdownOption } from '@/app/components/Dropdown';
 import { inpLienzo } from '@/app/_components/Lienzo';
 import { useVoiceRecorder } from '@/app/whatsapp/_shared/VoiceRecorder';
-import Link from '@/app/_ui/Link';
+import { BotonIntegracion } from '@/app/_components/ConectarIntegracion';
 
 const SANS = "'Geist', sans-serif";
 const CLONAR_PROPIA = '__clonar_propia';
@@ -198,7 +198,7 @@ function ModalClonar({ destino, hayKey, onCerrar, onListo }: {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12, fontFamily: SANS }}>
         {!hayKey && (
           <div style={{ fontSize: 13, color: 'var(--warn)', lineHeight: 1.5 }}>
-            Falta conectar ElevenLabs. <Link href="/integraciones?servicio=elevenlabs" target="_blank">Conectar ElevenLabs</Link>
+            Falta conectar ElevenLabs. <BotonIntegracion servicio="elevenlabs" style={{ fontWeight: 600, textDecoration: 'underline' }}>Conectar ElevenLabs</BotonIntegracion>
           </div>
         )}
         {destino === 'otra' && (

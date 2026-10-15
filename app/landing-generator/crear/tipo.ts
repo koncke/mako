@@ -126,29 +126,10 @@ export function pedidoDePlantilla(p: PlantillaCrear): Extract<PedidoDocs, { acci
   return { accion: 'crear', titulo: p.nombre, contenido: p.contenido(), config };
 }
 
-/** Tope del pedido cuando viaja en la URL (sin sessionStorage): el mismo del Panel. */
-export const TOPE_PROMPT_URL = 1_500;
-const RUTA_CREAR = '/landing-generator/crear';
-
-/**
- * A dónde manda la caja al enviar. El pedido va por sessionStorage (`dejarCaja`); si no se pudo
- * guardar (ventana privada estricta), viaja en la URL, recortado. El tipo va en la URL SIEMPRE
- * que sea una presentación: `PedidoCaja` (MiniaturaLanding.tsx) no lo lleva, y sin él el
- * generador crearía una landing.
- */
-export function rutaCaja(t: TipoCrear, modo: 'plan' | 'express', prompt: string, guardado: boolean): string {
-  const q = new URLSearchParams({ desde: 'caja', modo });
-  if (t === 'presentacion') q.set('tipo', t);
-  if (!guardado) q.set('prompt', prompt.trim().slice(0, TOPE_PROMPT_URL));
-  return `${RUTA_CREAR}?${q.toString()}`;
-}
-
-/** Un paso del generador (Importar archivo o URL), con el tipo elegido. */
-export function rutaPaso(t: TipoCrear, paso: 'generar' | 'pegar' | 'importar'): string {
-  const q = new URLSearchParams({ paso });
-  if (t === 'presentacion') q.set('tipo', t);
-  return `${RUTA_CREAR}?${q.toString()}`;
-}
+// Tanda 6 (14/10/2026): se fueron `rutaCaja` y `rutaPaso`. Martín: «La sección de "Importar con IA" no
+// debería ser otra ruta, todo siempre en la misma ruta». La caja ya no navega a /landing-generator/crear:
+// «Crear con IA» se abre a la derecha del Panel con el pedido EN MEMORIA (`ArranqueIA`, ../panel-reglas.ts),
+// y /landing-generator/crear redirige al Panel con su query (`destinoCrear`).
 
 /**
  * Los ejemplos que se escriben solos en la caja (`useEjemploQueSeEscribe`). GENÉRICOS a

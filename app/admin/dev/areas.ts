@@ -102,27 +102,28 @@ export const AREAS: AreaDev[] = [
   {
     slug: 'general', titulo: 'General', familia: 'Operate', grupo: 'General',
     estado: 'listo', verEnApp: '/general',
-    alcance: 'La casa del cliente al entrar: hero de la meta, resumen del mes, semáforo del negocio y worklist de pendientes.',
+    alcance: 'La casa de cada persona al entrar: el editor del Dashboard con su propio informe, las plantillas de General y los bloques de siempre (el objetivo y la acción del día, los KPIs, el semáforo, el mes) más los nuevos (mi día, llamadas, prioridades, cobranza, funnel, publicaciones).',
     vive: [
       'app/general/page.tsx', 'app/general/actions.ts', 'lib/queries.ts', 'lib/pagos.ts', 'lib/meta-health.ts',
-      // Las vistas personalizables (13/10/2026): cada persona elige bloques, orden y funnels u ofertas.
-      'app/general/BarraVistas.tsx', 'app/general/NuevaVista.tsx', 'app/general/EditarVista.tsx',
-      'app/general/Cobranza.tsx', 'app/general/Bloques.tsx', 'app/api/general',
-      'lib/general-vistas-modelo.ts', 'lib/general-vistas.ts', 'lib/general-alcance.ts', 'lib/general-vistas-ia.ts',
+      // Desde el 14/10/2026 General es el editor del Dashboard con su propio informe y sus bloques (lib/general-piezas.ts).
+      'app/general/Cobranza.tsx', 'app/general/datos.ts', 'app/general/datos-tipos.ts', 'app/general/ProveedorGeneral.tsx', 'app/general/bloques/',
+      'lib/general-alcance.ts', 'lib/general-piezas.ts', 'lib/general-plantillas.ts',
+      'app/dashboard/ElementoGeneral.tsx',
     ],
     proyectos: ['Feature: General'],
   },
   {
     slug: 'calendario', titulo: 'Calendario', familia: 'Operate', grupo: 'General',
     estado: 'listo', verEnApp: '/calendario',
-    alcance: 'La tab Calendario: publicaciones, bloques de trabajo y llamadas propias, con las reuniones del CRM, la agenda de Google, los deadlines del Plan y el Quarter leídos de donde viven. Plantillas de semana y «¿Qué vas a crear hoy?» (MaKo propone, la persona confirma).',
+    alcance: 'La tab Calendario: publicaciones, bloques de trabajo y llamadas propias, con las reuniones del CRM, la agenda de Google, los deadlines del Plan, las próximas veces de lo que se repite, los cobros que vencen y el Quarter leídos de donde viven. Plantillas de semana, «Agendar llamada» (Calendly o Cal.com) y conectar Google sin salir de la tab.',
     vive: [
-      'app/calendario', 'app/api/calendario', 'lib/calendario.ts', 'lib/calendario-modelo.ts', 'lib/calendario-ia.ts',
+      'app/calendario', 'lib/calendario.ts', 'lib/calendario-modelo.ts', 'lib/calendario-google.ts', 'lib/calendario-google-modelo.ts',
+      'lib/agenda-link.ts', 'app/_components/ConectarIntegracion.tsx', 'lib/integracion-en-tab.ts',
       'lib/api-mako/areas/calendario.def.ts', 'lib/api-mako/areas/calendario.run.ts',
       'supabase/migrations/0271_calendario_eventos.sql', 'tests/calendario.test.ts',
     ],
     hallazgos: 'hallazgos-calendario',
-    nota: 'La agenda de Google se DIBUJA y nada más: ni la IA del Calendario ni su área de la API la leen (la agenda no pasa por IA). Y las reuniones del CRM tienen la fecha sin hora (fecha_junta_1) y con hora (junta_1_at) en dos columnas distintas.',
+    nota: 'La agenda de Google se DIBUJA y nada más: su área de la API no la lee (la agenda no pasa por IA; el Calendario ya no tiene IA propia). Las reuniones del CRM tienen la fecha sin hora (fecha_junta_1) y con hora (junta_1_at) en dos columnas, y una cancelada conserva la hora y pierde la fecha.',
   },
   {
     slug: 'foco-hoy', titulo: 'Foco / Hoy', familia: 'Operate', grupo: 'General',
@@ -255,7 +256,7 @@ export const AREAS: AreaDev[] = [
     vive: [
       'docs/diseno-chats.md', 'app/chats', 'app/api/chats', 'lib/chats.ts', 'lib/chats-tipos.ts', 'lib/chats-reglas.ts',
       'lib/chats-links.ts', 'lib/api-mako/areas/chats.def.ts', 'lib/api-mako/areas/chats.run.ts',
-      'supabase/migrations/0275_chats.sql', 'tests/chats-registro.test.ts',
+      'supabase/migrations/0284_chats.sql', 'tests/chats-registro.test.ts',
     ],
     proyectos: ['Feature: WhatsApp'],
     hallazgos: 'hallazgos-comunicacion',
@@ -608,7 +609,7 @@ export const AREAS: AreaDev[] = [
     // área con poca historia, da un área invisible (AGENTS.md, «Una ruta que apunta a la nada…»).
     slug: 'landing-generator', titulo: 'Landing Generator', familia: 'Sales Machine',
     estado: 'listo', verEnApp: '/landing-generator',
-    alcance: 'El editor de landings y presentaciones copiado de Gamma 5: Panel con una barra de documentos (landings, presentaciones y páginas de afuera analizadas, cada una con su «⋯»), la caja «¿Qué vas a crear hoy?» con dictado y las plantillas de cada tipo, y el Diagnóstico como recorrido con comentarios guardados y «Solucionar con IA» o «Replicar»; «Crear con IA» en dos pasos (esquema que se edita, secciones en tandas) desde el funnel, el perfil y —si la página ya pasó por el Landing Analyst— sus hallazgos; edición por secciones y bloques en TipTap (menú «/», barra de formato, 52 diseños, temas, comentarios, historial, Edición con IA); exportar a PDF, PNG, PPTX y HTML; y publicar como foto en hola-mako.com/l/<slug> o en el dominio del cliente, multipágina, con el Pixel de MaKo, el Píxel de Meta y el «HTML personalizado» servido aislado en /l/html. Una landing se ve como una página continua (secciones a sangre); las tarjetas con proporción son de las presentaciones.',
+    alcance: 'El editor de landings y presentaciones copiado de Gamma 5: Panel con una barra de documentos (landings, presentaciones y páginas de afuera analizadas, cada una con su «⋯»), la caja «¿Qué vas a crear hoy?» con dictado y las plantillas de cada tipo, y el Diagnóstico como recorrido con comentarios guardados y «Solucionar con IA» o «Replicar»; «Crear con IA» en dos pasos (esquema que se edita, secciones en tandas) desde el funnel, el perfil y —si la página ya pasó por el Landing Analyst— sus hallazgos; edición por secciones y bloques en TipTap (menú «/», barra de formato, 52 diseños, temas, comentarios, historial, Edición con IA); exportar a PDF, PNG, PPTX y HTML; y publicar como foto en hola-mako.site/<slug> o en el dominio del cliente, multipágina, con el Pixel de MaKo, el Píxel de Meta y el «HTML personalizado» servido aislado en /l/html. Una landing se ve como una página continua (secciones a sangre); las tarjetas con proporción son de las presentaciones.',
     vive: [
       'app/landing-generator', 'app/api/landing-generator', 'app/l', 'lib/editor-landing', 'lib/imagenes-stock.ts',
       'supabase/migrations/0246_editor_landing.sql', 'scripts/gen-iconos-landing.mjs', 'docs/diseno-editor-landing.md',
@@ -755,6 +756,15 @@ export const AREAS: AreaDev[] = [
     vive: ['app/video-editor', 'public/ve', 'docs/diseno-editor-video.md', 'docs/editor-video', 'tests/video-editor-integracion.test.ts'],
     proyectos: ['Feature: Video Editor'],
     hallazgos: 'hallazgos-video-editor',
+  },
+  {
+    slug: 'image-editor', titulo: 'Image Editor', familia: 'Content Machine', grupo: 'Image',
+    estado: 'parcial', verEnApp: '/image-editor',
+    alcance: 'El «Canva» de MaKo: el editor de diseño de Doory (fabric.js 7, licencia de atribución) portado y re-vestido como Canva por tandas. Diseños multipágina, texto, formas, imágenes, marcos, QR, capas, recortar, filtros, animaciones, presentar y descargar PNG/JPG/PDF/SVG. Hoy guarda en el navegador por workspace y lo ve sólo el super admin, con el crédito de Doory en cada apertura.',
+    // ⚠️ Sin nav.ts: es de los archivos más calientes del repo y desplazaría el Change History propio.
+    vive: ['app/image-editor', 'docs/diseno-editor-imagen.md', 'docs/editor-imagen', 'tests/image-editor-integracion.test.ts'],
+    hallazgos: 'hallazgos-editor-imagen',
+    nota: 'Lo que hay adentro de _doory/ es código de un tercero con licencia de atribución: modificarlo no saca la obligación del crédito (app/image-editor/editor/CreditoDoory.tsx).',
   },
   {
     slug: 'reels', titulo: 'Reels', familia: 'Content Machine', grupo: 'Instagram',
@@ -1024,7 +1034,7 @@ export const AREAS: AreaDev[] = [
     // guarda los números. Se amplió al escribir la bitácora — la regla de AGENTS.md
     // «Una ruta que apunta a la nada»: el vive[] cubre dónde cae el trabajo de
     // verdad, no solo los componentes de la pantalla.
-    vive: ['app/admin/estrategia/datos.ts', 'app/admin/estrategia/Estrategia.tsx', 'app/admin/estrategia/page.tsx', 'app/vsl/estrategia/page.tsx', 'app/admin/dev/pricing/modelo.ts', 'app/admin/dev/pricing/Pricing.tsx', 'app/admin/dev/pricing/Piezas.tsx', 'tests/pricing-modelo.test.ts', 'docs/costos-ia-y-planes.md', 'docs/embudo-y-high-ticket.md', 'app/vsl/landing-html.ts'],
+    vive: ['app/admin/estrategia/datos.ts', 'app/admin/estrategia/Estrategia.tsx', 'app/admin/estrategia/page.tsx', 'app/vsl/estrategia/page.tsx', 'app/admin/dev/pricing/modelo.ts', 'app/admin/dev/pricing/Pricing.tsx', 'app/admin/dev/pricing/Piezas.tsx', 'tests/pricing-modelo.test.ts', 'docs/costos-ia-y-planes.md', 'docs/embudo-y-high-ticket.md', 'app/vsl/landing-html.ts', 'app/admin/runway/', 'app/m/decisiones/', 'lib/admin-decisiones.ts', 'scripts/decisiones.ts', 'tests/runway-decisiones.test.ts', 'app/tickets/decisiones/', 'app/m/tickets/', 'tests/tickets-decisiones-mazo.test.ts'],
     proyectos: ['Vender MaKo: Oferta y precios'],
     hallazgos: 'hallazgos-landing',
     nota: 'Está partido en dos mitades que no se hablan, y es lo primero que hay que entender: (1) la oferta y la estrategia viven en /admin/estrategia (antes /vsl/estrategia, que redirige; desde el 10/10/2026 importa sus números de modelo.ts y del runway) —MIX, unit economics, la escalera para que «cualquier lead compre algo»—; (2) los planes de software con cupo de MaKo Tokens viven en app/admin/dev/pricing/modelo.ts, que ya tiene su propio registro en /admin/dev con slug `pricing` (app/admin/dev/areas.ts) — no duplicarlo. Regla del archivo modelo.ts: cada número declara si es `medido` (de anthropic_usage en prod), `publicado` (precio de lista con fecha) o `supuesto`; un número sin origen no se agrega. La única superficie pública de precio es el bloque «Precio de fundador» de app/vsl/landing-html.ts, que no da cifra.',
@@ -1238,7 +1248,7 @@ export const AREAS: AreaDev[] = [
     slug: 'auth-session', titulo: 'Auth & Session', familia: 'Infra', grupo: 'Seguridad',
     estado: 'listo',
     alcance: 'Login con Google, token firmado, roles. El inventario tenía la pantalla, no el mecanismo.',
-    vive: ['lib/auth-session.ts', 'lib/auth.ts', 'app/api/auth/google/route.ts', 'app/api/auth/callback/google/route.ts', 'app/api/auth/logout/route.ts', 'app/api/auth/me/route.ts', 'app/api/auth/dev-login/route.ts'],
+    vive: ['lib/auth-session.ts', 'lib/auth.ts', 'app/api/auth/google/route.ts', 'app/api/auth/callback/google/route.ts', 'app/api/auth/logout/route.ts', 'app/api/auth/me/route.ts', 'app/api/auth/dev-login/route.ts', 'app/api/auth/2fa/route.ts', 'app/login/2fa', 'lib/mfa.ts', 'lib/mfa-reglas.ts', 'lib/sesion-cookies.ts', 'app/api/perfil/seguridad/route.ts', 'app/perfil/seguridad', 'supabase/migrations/0266_segundo_factor.sql', 'tests/mfa.test.ts'],
   },
   {
     slug: 'access-gate', titulo: 'Access Gate', familia: 'Infra', grupo: 'Seguridad',

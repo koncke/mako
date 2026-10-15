@@ -910,7 +910,8 @@ export const AREA_KEYWORDS: Readonly<Record<Area, RegExp>> = {
   experimentos: /\b(experimentos?|hip[oó]tesis|retro\b|retrospectiva|conclusi[oó]n)/i,
   landing: /\b(landing|p[aá]gina|p[ií]xel|pixel|tracking|vsl)/i,
   closing: /\b(llamadas?|closing|closers?|transcri|fathom|objeci[oó]n)/i,
-  negocio: /\b(avatar(es)?|razon(es)? de compra|ofertas?|productos?|precios?|persona de marca|voz de marca|onboarding|conocimiento|metodolog[ií]a|fase del negocio|tutorial)/i,
+  // `offer`: la tab se llama así («mostrame la conclusión de Offer» caía en experimentos, 14/10/2026).
+  negocio: /\b(avatar(es)?|razon(es)? de compra|ofertas?|offer\b|productos?|precios?|persona de marca|voz de marca|onboarding|conocimiento|metodolog[ií]a|fase del negocio|tutorial)/i,
   contenido: /\b(guion(es)?|reels?|carrusel(es)?|carousels?|stor(y|ies)|historias|contenido|copy|ideas? de contenido|youtube|miniatura)/i,
   video: /\b(videos?|clips?|flow\b|escenas?|montaje)/i,
   integraciones: /\b(integraci[oó]n(es)?|conectad[oa]|calendly|chatwoot|resend|google calendar|salud de meta|keys? de ia)/i,

@@ -163,6 +163,13 @@ export const CSS_G2: string = [
   '.gmx-nv-etq{flex:none;font-size:12px;font-weight:600;color:var(--gmx-tenue);padding:0 6px}',
   '.gmx-nv-vacio{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;min-height:120px;padding:18px;border:1.5px dashed rgba(127,127,127,.45);border-radius:10px;background:rgba(127,127,127,.06);text-align:center;color:var(--gmx-texto-2);cursor:pointer}',
   '.gmx-nv-vacio .gmx-ico{color:var(--gmx-azul)}',
+  // El hueco de un VIDEO (el VSL de un diseño, 14/10/2026): 16:9 como el video que va a ocupar, con un ▶.
+  // min-height:auto y no 0: con 0 el 16:9 es estricto y en una columna angosta el ▶ y los textos se
+  // salen de la caja (medido en Chrome con una maqueta de este hueco a 180 px de ancho: caja de 101 px
+  // y contenido de 122); con auto, la caja crece.
+  '.gmx-nv-vacio[data-clase="video"]{aspect-ratio:16/9;min-height:auto}',
+  '.gmx-nv-play{display:grid;place-items:center;width:56px;height:56px;border-radius:50%;background:var(--gmx-azul)}',
+  '.gmx-nv-vacio .gmx-nv-play .gmx-ico{color:#ffffff;margin-left:3px}',
 ].join('\n');
 
 /** La hoja del chrome de G2. React 19 la sube al head y la deduplica por `href`. */
@@ -269,6 +276,9 @@ export function Flotante({ ancla, onCerrar, etiqueta, ancho, children, clase, al
 
   useEffect(() => {
     const fuera = (e: PointerEvent) => {
+      // Con una capa encima (el modal de /integraciones que abre «Conectar Stripe»), el clic es de ELLA:
+      // cerrar acá se llevaba el modal puesto al primer clic adentro.
+      if (!esElDeArriba()) return;
       const t = e.target as Element | null;
       if (!t || !(t instanceof Element)) return;
       if (ref.current?.contains(t)) return;

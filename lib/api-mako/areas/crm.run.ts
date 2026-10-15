@@ -73,6 +73,8 @@ import { linkApp, APP_BASE_URL } from '@/lib/app-url';
 import { ofertasDelLead, asignarOfertaAlLead, crearOfertaParaLead } from '@/lib/oferta-lead';
 import { validarOfertaNueva } from '@/lib/oferta-modelo';
 import { usuarioInstagram } from '@/app/crm/campo-inline';
+import { sugerenciasDeUnCrm, volverAMostrar } from '@/lib/sugerencias-crm-server';
+import { plantillaPorId } from '@/lib/plantillas-automatizaciones';
 import {
   invalidar, hoyDelWorkspace, esFechaIso, etapasDelFunnelDefault, etapasDelFunnelDeLead, faltantesDeUnLead, leadsFiltrados, conteoPorEtapa,
   nombresAsignables, marcarPendientesIgnorados, guardarEntradas, guardarDeal, existeIdentidadFiscal, proponerLote,
@@ -680,6 +682,63 @@ export const RUNNERS: Runners = {
         lead: { id: lead.id, nombre: lead.nombre },
         etiquetas: suyas.map((e) => ({ ...vistaEtiqueta(e, productos), puesta_at: e.puesta_at, puesta_por: ctx.canal === 'http' ? autorPublico(e.puesta_por) : e.puesta_por })),
       });
+    }),
+  },
+
+  // Lo MISMO que ve el botón plegado del CRM (lib/sugerencias-crm-server.ts: calculado una vez y
+  // guardado unos minutos, menos lo callado). Para crear una, crear_automatizacion_desde_plantilla con la
+  // plantilla, la etapa (su key) y el producto que trae `crear`: la etapa en palabras de esa operación
+  // acepta también la key, y el producto desempata si dos CRM tienen una etapa con el mismo nombre.
+  sugerencias_crm: {
+    leer: async (input, ctx) => {
+      const r = await sugerenciasDeUnCrm(ctx.ws, n(input.embudoId) ?? null);
+      if (!r) return json({ crm: null, nota: 'Este negocio todavía no tiene un CRM.', sugerencias: [] });
+      return json({
+        crm: r.foto.crm,
+        etapas: r.foto.etapas,
+        total_leads: r.foto.total_leads,
+        ...(r.foto.total_leads == null ? { nota_leads: 'No se pudieron leer los leads: no hay sugerencias del tablero y los conteos vienen en null (no es cero).' } : {}),
+        automatizaciones_del_negocio: r.foto.automatizaciones,
+        sugerencias: r.sugerencias.map((s) => ({
+          id: s.id,
+          de: s.clase === 3 ? 'el estado del tablero' : 'el CRM armado',
+          texto: s.texto,
+          etapa: s.etapa,
+          ...(s.accion.tipo === 'plantilla' ? {
+            crear: {
+              plantilla: s.accion.plantilla,
+              plantilla_nombre: plantillaPorId(s.accion.plantilla)?.nombre ?? null,
+              etapa: s.accion.disparador ? s.accion.disparador.split(':').slice(2).join(':') : null,
+              producto: r.crm.nombre,
+              solo_admin: true,
+            },
+          } : {}),
+          ...(s.accion.tipo === 'link' ? { pantalla: s.accion.href } : {}),
+          ...(s.accion.tipo === 'chat' ? { revisar: s.accion.pedido } : {}),
+        })),
+        // Lo callado con «Ahora no» en ESTE CRM, con hasta cuándo: se deshace con volver_a_mostrar_sugerencia.
+        calladas: r.calladas?.map(({ sugerencia: s, hasta }) => ({ id: s.id, texto: s.texto, etapa: s.etapa, hasta })) ?? null,
+        ...(r.calladas == null ? { nota_calladas: 'No se pudo leer lo callado: se muestran todas y calladas viene en null (no es «ninguna»).' } : {}),
+        calculado_at: r.calculadoAt,
+      });
+    },
+  },
+  volver_a_mostrar_sugerencia: {
+    preparar: async (input, ctx) => {
+      const r = await sugerenciasDeUnCrm(ctx.ws, n(input.embudoId) ?? null);
+      if (!r) return { error: 'Este negocio todavía no tiene un CRM.' };
+      if (!r.calladas) return { error: 'No pude leer lo callado de este CRM. Intenta de nuevo.' };
+      const id = String(input.sugerenciaId ?? '').trim();
+      const c = r.calladas.find((x) => x.sugerencia.id === id);
+      if (!c) return { error: `«${id}» no está callada en «${r.crm.nombre}».`, disponibles: r.calladas.map((x) => ({ id: x.sugerencia.id, texto: x.sugerencia.texto })) };
+      return { payload: { embudoId: r.crm.id, sugerenciaId: id }, resumen: `Volver a mostrar en «${r.crm.nombre}»: «${c.sugerencia.texto}».` };
+    },
+    ejecutar: (payload, ctx) => seguro('volver a mostrar la sugerencia', async () => {
+      const v = await volverAMostrar(ctx.ws, Number(payload.embudoId), String(payload.sugerenciaId));
+      if (!v.ok) return { ok: false, resumen: v.error };
+      // Sin cambio, «Listo» sería un éxito falso: ya estaba a la vista (otra persona o venció).
+      if (!v.cambio) return { ok: false, resumen: 'Esa sugerencia ya estaba a la vista: no se cambió nada.' };
+      return { ok: true, resumen: 'Listo: la sugerencia vuelve a la lista de ese CRM.' };
     }),
   },
 

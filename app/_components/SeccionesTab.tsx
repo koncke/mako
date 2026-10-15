@@ -92,9 +92,14 @@ export function SeccionesTab() {
               color: activa ? 'var(--primary)' : 'var(--dim)',
               background: activa ? 'var(--primary-bg)' : 'transparent',
               fontWeight: activa ? 600 : 500,
+              display: 'inline-flex', alignItems: 'center', gap: 6,
             }}
           >
             {s.seccion ?? s.label}
+            {/* Una sección que todavía no está se ve, pero lo dice: el mismo chip que la barra lateral (Sidebar.tsx). */}
+            {s.comingSoon && (
+              <span style={{ fontSize: 9, letterSpacing: '.06em', textTransform: 'uppercase', border: '1px solid currentColor', borderRadius: 5, padding: '1px 5px', opacity: 0.6 }}>pronto</span>
+            )}
           </Link>
         );
       })}

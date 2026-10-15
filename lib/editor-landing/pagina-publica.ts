@@ -41,9 +41,11 @@
 //
 // 2. `script-src` SIN 'unsafe-inline': los dos scripts inline propios (el de la página y el
 //    del Píxel de Meta) entran por su HASH, calculado acá. Es la segunda capa contra un
-//    escape que se le escape al renderizador: una página publicada vive en hola-mako.com, el
+//    escape que se le escape al renderizador: una página publicada vivía en hola-mako.com, el
 //    mismo origen que la sesión de MaKo, y un script inyectado podría llamar /api/* como el
-//    que mira (D4: «nada de JavaScript de terceros en hola-mako.com»).
+//    que mira (D4: «nada de JavaScript de terceros en hola-mako.com»). Desde la tanda 4 vive en
+//    hola-mako.site (sin la cookie de MaKo), y la política se queda igual: en local y en los
+//    previews sigue sirviéndose bajo el host de la app.
 //    ⚠️ Y EL COSTO, que hay que decir: un <iframe srcdoc> HEREDA la política del padre, así
 //    que el bloque «HTML personalizado» (render.ts lo pone en un iframe sandbox con srcdoc)
 //    NO ejecuta sus scripts en la página publicada. Arreglarlo no es aflojar esta política:
@@ -78,9 +80,10 @@
 import { createHash } from 'node:crypto';
 import { CONFIG_DEFAULT, type ConfigLanding } from './api-tipos';
 import { CSS_CONTENIDO } from './css';
-import { PREFIJO_PUBLICO, rutaValida, slugValido, urlPublica } from './doc';
+import { PREFIJO_PUBLICO, rutaInternaL, rutaValida, slugValido } from './doc';
 import { origenImagenes } from './especificacion';
-import { APP_BASE_URL } from '../app-url';
+import { baseLandingsPara, urlLandingEn, urlVistaEn } from './origen-landings';
+import { APP_BASE_URL, baseLandings } from '../app-url';
 import { FORMA_TOKEN, lineaCargador } from '../pixel-cargador';
 import { DOMINIOS_IFRAME, HOSTS_IFRAME } from '../embeds';
 
@@ -158,6 +161,11 @@ export type Entorno = {
   appBaseUrl: string;
   /** `https://<proyecto>.supabase.co/storage/v1/object/public/landing-imagenes/`, o null. */
   prefijoBucket: string | null;
+  /**
+   * La base de las landings (tanda 4: `https://hola-mako.site` en producción), para la canónica y el
+   * og:url. Sin ella, la de local (`<appBaseUrl>/l`): la usan los tests que no la pasan.
+   */
+  baseLandings?: string;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -171,8 +179,11 @@ export type Entorno = {
  * que el render dejó pasar.
  */
 export function entornoActual(): Entorno {
-  return { appBaseUrl: APP_BASE_URL, prefijoBucket: origenImagenes() || null };
+  return { appBaseUrl: APP_BASE_URL, prefijoBucket: origenImagenes() || null, baseLandings: baseLandings() };
 }
+
+/** La base de las landings de un entorno (ver `Entorno.baseLandings`). */
+const baseDe = (e: Entorno): string => e.baseLandings ?? baseLandingsPara({ produccion: false, appBaseUrl: e.appBaseUrl });
 
 function origenDe(url: string): string | null {
   try {
@@ -280,6 +291,15 @@ function idiomaDe(v: unknown): string {
 //     La clase que esconde (`gm-anim`) la pone ESTE script: sin JavaScript —un crawler, la
 //     vista previa de WhatsApp— no hay nada escondido. Animan las secciones y lo que el
 //     renderizador marque con `data-animar`.
+//     ⚠️ LO QUE YA ESTÁ EN PANTALLA NO SE ESCONDE (14/10/2026, relevamiento de animaciones,
+//     docs/hallazgos-editor-landing.md → «el interruptor "Animaciones" hace parpadear el hero»):
+//     este script va al final del <body>, así que el navegador ya pintó el hero cuando llega.
+//     Medido en la publicada real (390×844, CPU ×4): el H1 se veía, se apagaba ~0,3 s y volvía
+//     con el fade, y el LCP pasaba de 236-404 ms a 1.428-3.004 ms. Por eso, ANTES de poner
+//     `gm-anim`, la primera sección y todo lo que corta la pantalla quedan `gm-visto` con
+//     `animation: none` en línea (ellos y los hijos que la hoja anima): quietos y a la vista. Va
+//     acá y no en la hoja porque la hoja de cada publicada es una foto congelada y el script no:
+//     llega a todas sin republicar. Lo que está más abajo anima como siempre al entrar.
 // (c) Los desplegables son <details> nativos: andan sin JavaScript y no hay nada acá.
 //
 // ⚠️ ES UN STRING QUE SE SIRVE: sin barras invertidas, sin backticks y sin `${` adentro
@@ -353,8 +373,38 @@ export const SCRIPT_PAGINA = [
   '      io.unobserve(entradas[j].target);',
   '    }',
   "  }, { rootMargin: '0px 0px -6% 0px', threshold: 0.06 });",
+  '  var alto = w.innerHeight || (d.documentElement && d.documentElement.clientHeight) || 0;',
+  '  function tiene(el, c) { return !!(el && el.classList && el.classList.contains && el.classList.contains(c)); }',
+  '  function sinAnimar(el) {',
+  "    el.classList.add('gm-visto');",
+  "    if (el.style) el.style.animation = 'none';",
+  '  }',
+  '  function quieto(el) {',
+  '    sinAnimar(el);',
+  '    var hs = el.children || [];',
+  '    for (var a = 0; a < hs.length; a++) {',
+  "      if (!tiene(hs[a], 'gm-tarjeta-cuerpo')) continue;",
+  '      var nietos = hs[a].children || [];',
+  "      for (var b = 0; b < nietos.length; b++) if (nietos[b].style) nietos[b].style.animation = 'none';",
+  '    }',
+  "    var marcados = el.querySelectorAll ? el.querySelectorAll('[data-animar]') : [];",
+  '    for (var m = 0; m < marcados.length; m++) sinAnimar(marcados[m]);',
+  '  }',
+  '  function enPantalla(el) {',
+  '    if (!el.getBoundingClientRect) return false;',
+  '    var r = el.getBoundingClientRect();',
+  '    return r.top < alto && r.bottom > 0;',
+  '  }',
+  '  var primera = true, vigilar = [];',
+  '  for (var k = 0; k < els.length; k++) {',
+  "    var esTarjeta = tiene(els[k], 'gm-tarjeta');",
+  "    if (tiene(els[k], 'gm-visto')) { if (esTarjeta) primera = false; continue; }",
+  '    if ((esTarjeta && primera) || enPantalla(els[k])) quieto(els[k]);',
+  '    else vigilar.push(els[k]);',
+  '    if (esTarjeta) primera = false;',
+  '  }',
   "  d.documentElement.classList.add('gm-anim');",
-  '  for (var k = 0; k < els.length; k++) io.observe(els[k]);',
+  '  for (var v = 0; v < vigilar.length; v++) io.observe(vigilar[v]);',
   '})();',
 ].join('\n');
 
@@ -683,18 +733,20 @@ export async function responderPublico(req: Request, pedido: PedidoPublico, dep:
     const slug = pedido.slug, ruta = pedido.ruta;
     const slugMin = slug.toLowerCase(), rutaMin = ruta.toLowerCase();
     if ((slugMin !== slug || rutaMin !== ruta) && slugValido(slugMin) && rutaValida(rutaMin)) {
+      // La ruta INTERNA (/l/…) del host que contestó: en hola-mako.site las mayúsculas ya las corrige el
+      // proxy antes de reescribir (`decidirLandings`), así que esto sólo corre en local y en los previews.
       const u = new URL(req.url);
-      u.pathname = urlPublica('', slugMin, rutaMin);
+      u.pathname = rutaInternaL(slugMin, rutaMin);
       return new Response(null, { status: 308, headers: { Location: u.toString(), 'Cache-Control': CACHE_ERROR } });
     }
     if (!slugValido(slug) || !rutaValida(ruta)) return respuestaError(404, sinCuerpo);
     modo = 'publico';
-    urlCanonica = pedido.base ? `${pedido.base}${ruta ? `/${ruta}` : '/'}` : urlPublica(entorno.appBaseUrl, slug, ruta);
+    urlCanonica = pedido.base ? `${pedido.base}${ruta ? `/${ruta}` : '/'}` : urlLandingEn(baseDe(entorno), slug, ruta);
   } else {
     const ruta = pedido.ruta ?? '';
     if (!FORMA_TOKEN_VISTA.test(pedido.token) || !rutaValida(ruta)) return respuestaError(404, sinCuerpo);
     modo = 'vista';
-    urlCanonica = `${entorno.appBaseUrl}${PREFIJO_PUBLICO}/vista/${pedido.token}${ruta ? `/${ruta}` : ''}`;
+    urlCanonica = urlVistaEn(baseDe(entorno), pedido.token, ruta);
   }
 
   let lectura: LecturaPublica | null;

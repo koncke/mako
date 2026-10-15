@@ -1,0 +1,15 @@
+.toolbar {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+/* Separador de Canva: raya de 1 px con el borde de interfaz (#39466024), 24 de alto */
+.sep {
+  flex: none;
+  align-self: center;
+  width: 1px;
+  height: 24px;
+  margin: 0 var(--cv-space-1);
+  background: var(--cv-color-border);
+}

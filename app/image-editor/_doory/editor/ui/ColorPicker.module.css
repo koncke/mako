@@ -1,0 +1,239 @@
+/*
+ * «Agregar un color nuevo» de Canva: espectro con radio 8, barra de tono, cuentagotas a la izquierda del campo
+ * hexadecimal y muestras como baldosas cuadradas de esquinas redondeadas (seis por fila).
+ */
+.picker {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cv-space-3);
+  width: 264px;
+}
+
+.sv {
+  position: relative;
+  height: 160px;
+  border-radius: var(--cv-radius-sm);
+  cursor: crosshair;
+  touch-action: none;
+  outline: none;
+}
+.sv:focus-visible {
+  box-shadow: var(--cv-focus-ring);
+}
+
+.svHandle {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  margin: -8px 0 0 -8px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.2), 0 1px 4px rgb(0 0 0 / 0.3);
+  pointer-events: none;
+}
+
+.slidersCol {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.hexRow {
+  display: flex;
+  align-items: center;
+  gap: var(--cv-space-2);
+}
+
+/* Cuentagotas: botón secundario cuadrado de Canva */
+.eye {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--cv-color-border-strong);
+  border-radius: var(--cv-radius-sm);
+  background: var(--cv-color-surface);
+  color: var(--cv-color-text);
+  cursor: pointer;
+}
+.eye:hover {
+  background: rgb(64 79 109 / 0.06);
+}
+.eye:focus-visible {
+  outline: none;
+  box-shadow: var(--cv-focus-ring);
+}
+
+/* Campo hexadecimal de Canva: muestra del color a la izquierda y el código */
+.hexField {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--cv-space-2);
+  height: 40px;
+  min-width: 0;
+  padding: 0 var(--cv-space-3);
+  border: 1px solid var(--cv-color-border-strong);
+  border-radius: var(--cv-radius-sm);
+  background: var(--cv-color-surface);
+  cursor: text;
+}
+.hexField:hover {
+  border-color: rgb(28 33 48 / 0.5);
+}
+.hexField:focus-within {
+  border-color: var(--cv-color-brand);
+  box-shadow: 0 0 0 1px var(--cv-color-brand);
+}
+.hexChip {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  box-shadow: inset 0 0 0 1px rgb(57 70 96 / 0.2);
+}
+.hexField input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--cv-color-text);
+  font: 400 var(--cv-text-base) / 1 var(--cv-font-sans);
+  text-transform: uppercase;
+  font-variant-numeric: tabular-nums;
+}
+.hexField input[aria-invalid='true'] {
+  color: var(--cv-color-danger);
+}
+.hexField:has(input[aria-invalid='true']) {
+  border-color: var(--cv-color-danger);
+}
+
+.range {
+  -webkit-appearance: none;
+  appearance: none;
+  display: block;
+  width: 100%;
+  height: 12px;
+  margin: 0;
+  border-radius: 99px;
+  cursor: pointer;
+}
+.range:focus-visible {
+  outline: none;
+  box-shadow: var(--cv-focus-ring);
+}
+.hue {
+  background: linear-gradient(to right, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00);
+}
+.alphaWrap {
+  border-radius: 99px;
+  background: repeating-conic-gradient(var(--cv-color-border-strong) 0% 25%, var(--cv-color-surface) 0% 50%) 50% / 10px 10px;
+}
+.range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: transparent;
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.2), 0 1px 4px rgb(0 0 0 / 0.3);
+}
+.range::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: transparent;
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.2);
+}
+
+.inputs {
+  display: flex;
+  gap: 6px;
+}
+
+.input {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  flex: 1;
+}
+.input span {
+  color: var(--cv-color-text-subtle);
+  font: 400 var(--cv-text-xs) / 1 var(--cv-font-sans);
+  text-align: center;
+}
+.input input {
+  width: 100%;
+  height: 32px;
+  padding: 0 4px;
+  border: 1px solid var(--cv-color-border-strong);
+  border-radius: var(--cv-radius-sm);
+  background: var(--cv-color-surface);
+  color: var(--cv-color-text);
+  font: 400 var(--cv-text-sm) / 1 var(--cv-font-sans);
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.input input:hover {
+  border-color: rgb(28 33 48 / 0.5);
+}
+.input input:focus {
+  outline: none;
+  border-color: var(--cv-color-brand);
+  box-shadow: 0 0 0 1px var(--cv-color-brand);
+}
+
+.swatchArea {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cv-space-4);
+  max-height: 240px;
+  overflow: auto;
+  padding: 2px;
+  margin: -2px;
+}
+
+.row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cv-space-2);
+}
+/* Título de sección de Canva (titleXSmall: 14/700) */
+.rowLabel {
+  color: var(--cv-color-text);
+  font: 700 var(--cv-text-base) / 20px var(--cv-font-sans);
+}
+.swatches {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: var(--cv-space-2);
+}
+.swatch {
+  aspect-ratio: 1;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 6px; /* Canva: baldosa de color con esquinas redondeadas */
+  box-shadow: inset 0 0 0 1px rgb(57 70 96 / 0.14);
+  cursor: pointer;
+}
+.swatch:hover {
+  box-shadow: inset 0 0 0 1px rgb(57 70 96 / 0.14), 0 0 0 2px var(--cv-color-surface), 0 0 0 4px rgb(57 70 96 / 0.2);
+}
+.swatch:focus-visible {
+  outline: none;
+  box-shadow: var(--cv-focus-ring);
+}
+/* Canva: la muestra elegida lleva un aro violeta separado por un filete blanco */
+.swatchOn,
+.swatchOn:hover {
+  box-shadow: inset 0 0 0 1px rgb(57 70 96 / 0.14), 0 0 0 2px var(--cv-color-surface), 0 0 0 4px var(--cv-selection-color);
+}

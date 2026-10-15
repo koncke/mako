@@ -52,6 +52,7 @@ import { BLOQUES } from '../lib/editor-landing/catalogo-bloques';
 import { NODO, docPagina, type JsonNodo } from '../lib/editor-landing/doc';
 import { sanearContenido, CONTENIDO_TIPTAP } from '../lib/editor-landing/validar';
 import { PLANTILLAS, DISENOS_SECCION } from '../lib/editor-landing/plantillas';
+import { DISENOS_LANDING, OBJETIVOS_LANDING, landingDesde } from '../lib/editor-landing/disenos-landing';
 
 const RAIZ = join(import.meta.dirname, '..');
 const leer = (f: string) => readFileSync(join(RAIZ, f), 'utf8').replace(/\r\n/g, '\n');
@@ -121,6 +122,54 @@ test('lo que el saneo deja pasar (las plantillas y los diseños de sección) se 
     try { schema.nodeFromJSON({ type: 'doc', content: [d.crear()] }).check(); } catch (e) { rechazados.push(`diseño ${d.id}: ${(e as Error).message}`); }
   }
   assert.deepEqual(rechazados, []);
+});
+
+// Los cruces diseño × objetivo (14/10/2026: el VSL del diseño mete un insertado en una COLUMNA del hero
+// y la pista del proveedor en el insertado vacío). Que el saneo los deje pasar no alcanza: si el esquema
+// no los acepta, TipTap abre la landing nueva VACÍA. Y sin perder nodos ni la pista (un atributo que el
+// nodo no declara, TipTap lo tira al cargar sin avisar).
+// Rotura (14/10/2026, en memoria, restaurada y verificada por hash; base: 14 pasan, 0 fallan): el nodo
+// `insertado` de TipTap sin declarar `proveedor` (nodos.ts) → 13 / 1, sólo éste: el esquema carga igual
+// y la pista se pierde callada.
+test('los cruces de DISENOS_LANDING se cargan en el editor sin perder nodos ni la pista del video', () => {
+  const contar = (n: { content?: unknown[] }): number => 1 + (n.content ?? []).reduce<number>((s, h) => s + contar(h as { content?: unknown[] }), 0);
+  const mal: string[] = [];
+  let pistas = 0;
+  for (const d of DISENOS_LANDING) {
+    for (const o of OBJETIVOS_LANDING) {
+      const { contenido } = sanearContenido(landingDesde(d, o.id)!);
+      for (const pg of contenido.paginas) {
+        try {
+          const doc = schema.nodeFromJSON(pg.doc);
+          doc.check();
+          const vuelta = doc.toJSON() as JsonNodo;
+          if (contar(vuelta) !== contar(pg.doc)) mal.push(`${d.id} × ${o.id}/${pg.ruta || 'inicio'}: ${contar(pg.doc)} nodos → ${contar(vuelta)}`);
+          doc.descendants((n) => { if (n.type.name === NODO.insertado && !n.attrs.src && n.attrs.proveedor === 'youtube') pistas++; });
+        } catch (e) {
+          mal.push(`${d.id} × ${o.id}/${pg.ruta || 'inicio'}: ${(e as Error).message}`);
+        }
+      }
+    }
+  }
+  assert.deepEqual(mal, []);
+  assert.ok(pistas >= DISENOS_LANDING.filter((d) => d.video).length * OBJETIVOS_LANDING.length, `la pista del video se perdió al cargar (${pistas})`);
+});
+
+// Tanda 6 (pendiente de los diseños con video): al pegar el HTML de un video VACÍO sin su JSON del
+// editor, la pista del proveedor se perdía (el respaldo era `attrsInsertado({})`) y Publicar dejaba de
+// avisar «Falta el enlace del video». Ahora viaja en `data-proveedor`, que el render ya escribe.
+// Rotura (14/10/2026, de memoria, verificada por hash; base 15 / 0): el respaldo vuelve a
+// `attrsInsertado({})` → 14 / 1, sólo éste.
+test('pegar el HTML de un video vacío sin su JSON conserva la pista del proveedor (y no inventa una)', () => {
+  const regla = (schema.nodes[NODO.insertado].spec.parseDOM ?? []).find((r) => 'tag' in r && r.tag === 'div.gm-insertado');
+  assert.ok(regla && 'getAttrs' in regla && typeof regla.getAttrs === 'function', 'la regla de div.gm-insertado');
+  const div = (attrs: Record<string, string>) => ({ getAttribute: (k: string) => attrs[k] ?? null, querySelector: () => null }) as unknown as HTMLElement;
+  const leerDiv = (attrs: Record<string, string>) => (regla as { getAttrs: (el: HTMLElement) => unknown }).getAttrs(div(attrs));
+  assert.deepEqual(leerDiv({ class: 'gm-insertado', 'data-proveedor': 'youtube', 'data-clase': 'video' }), { src: '', proveedor: 'youtube', alto: null });
+  assert.deepEqual(leerDiv({ class: 'gm-insertado', 'data-proveedor': 'cualquiera' }), { src: '', proveedor: '', alto: null }, 'una pista que no es de la lista no entra');
+  assert.deepEqual(leerDiv({ class: 'gm-insertado' }), { src: '', proveedor: '', alto: null });
+  // El render la escribe (la otra punta del viaje).
+  assert.match(sinComentarios(leer('lib/editor-landing/especificacion.ts')), /'data-proveedor': a\.proveedor \|\| undefined/);
 });
 
 test('moverTarjeta: todas las combinaciones, sin perder ni duplicar', () => {

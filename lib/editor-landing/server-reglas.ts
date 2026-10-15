@@ -12,7 +12,8 @@
 
 import { normalizarUrl } from '../landing-url';
 import { hoyEnTz, diasAntes } from '../date-utils';
-import { slugDe, slugValido, urlPublica, rutaValida, SLUGS_RESERVADOS, PREFIJO_PUBLICO, TOPES, type LandingContenido, type Pagina } from './doc';
+import { slugDe, slugValido, rutaValida, SLUGS_RESERVADOS, TOPES, type LandingContenido, type Pagina } from './doc';
+import { urlLandingEn } from './origen-landings';
 import {
   CONFIG_DEFAULT, TIPOS_IMAGEN, TIPOS_VIDEO, TOPE_IMAGEN_BYTES, TOPE_VIDEO_BYTES,
   type ConfigLanding, type TemaPropio,
@@ -85,11 +86,6 @@ export function slugPublicable(s: string): boolean {
   return slugValido(s) && !RUTAS_DE_L.has(s);
 }
 
-/** El link privado al borrador: `<base>/l/vista/<token>` (la ruta de app/l/vista/[token]). */
-export function urlVistaPrevia(base: string, token: string): string {
-  return `${base.replace(/\/$/, '')}${PREFIJO_PUBLICO}/vista/${token}`;
-}
-
 /** Lo que mandó la pantalla, como se compara: sin espacios ni mayúsculas. */
 export function slugPedido(raw: unknown): string {
   return typeof raw === 'string' ? raw.trim().toLowerCase() : '';
@@ -145,6 +141,25 @@ export function cambiosSinPublicar(f: { publicado_at: string | null; publicado_v
   return !!f.publicado_at && f.publicado_version !== f.version;
 }
 
+/** Lo que la API le dice a quien confirma despublicar (`antesDeDespublicar`, server.ts). */
+export type AntesDeDespublicar = {
+  version: number;
+  publicado_version: number | null;
+  /** Lo guardado ya no es lo publicado: volver a publicar sube ESE borrador, no lo que hoy está en internet. */
+  cambiosSinPublicar: boolean;
+  /** El dominio propio VERIFICADO, que también deja de mostrarla; null si no tiene. */
+  dominio: string | null;
+};
+
+/**
+ * El armado de `antesDeDespublicar`, PURO (verificación de la tanda 6: el test leía el fuente y fijaba
+ * cómo se lee, no la forma de lo que devuelve; cruzar `version` con `publicado_version` quedaba en verde).
+ * `f` es la fila de la landing ya leída; `dominio`, el de la lectura aparte (`dominioDeLectura`).
+ */
+export function resumenAntesDeDespublicar(f: { version: number; publicado_at: string | null; publicado_version: number | null }, dominio: string | null): AntesDeDespublicar {
+  return { version: f.version, publicado_version: f.publicado_version, cambiosSinPublicar: cambiosSinPublicar(f), dominio };
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // La FOTO publicada (landing_docs.publicado)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -177,6 +192,12 @@ export type FotoPublicada = {
    * Opcional: una foto anterior a la tanda 2 no lo trae (y su página dibuja el bloque con srcdoc).
    */
   htmlLibre?: Record<string, string>;
+  /**
+   * Tanda 4: los productos que cobran los «Botón de pago» de lo publicado (`productosDePago`,
+   * pago-landing.ts). De acá lo lee el paso de pago (`productosDeFoto`, sobre la fila CRUDA: `leerFoto`
+   * no lo copia, igual que `htmlLibre`). Opcional: una foto anterior no lo trae y no cobra nada.
+   */
+  pagos?: number[];
 };
 
 /**
@@ -242,22 +263,26 @@ export function leerFoto(raw: unknown): FotoPublicada | null {
 
 /**
  * Las URLs de una landing publicada, NORMALIZADAS con la misma función que usa el Landing Analyst
- * (`normalizarUrl`, lib/landing-url.ts): host sin www, sin query, sin barra final. Una por página
- * (`/l/<slug>` y `/l/<slug>/<ruta>`).
+ * (`normalizarUrl`, lib/landing-url.ts): host sin www, sin query, sin barra final. Una por página y
+ * por BASE (`basesLandings`, lib/app-url.ts): desde la tanda 4 la landing vive en
+ * `hola-mako.site/<slug>`, y lo medido antes en `hola-mako.com/l/<slug>` sigue siendo suyo. El Pixel
+ * escribe `location.href`: la URL que ve el visitante, nunca la ruta interna a la que el proxy reescribe.
  *
  * ⚠️ LAS DOS PUNTAS SE NORMALIZAN CON LA MISMA FUNCIÓN. `landing_visits.landing_url` la escribe el
  * Pixel con sus utm y su `fbclid`; si un lado se normalizara distinto, el cruce fallaría en silencio
  * y la pantalla diría «nadie la visitó» sobre una página con tráfico (AGENTS.md, «Dos escritores con
  * dos ritmos son dos claves»).
  */
-export function urlsAMedir(base: string, slug: string | null, rutas: readonly string[]): string[] {
+export function urlsAMedir(bases: readonly string[], slug: string | null, rutas: readonly string[]): string[] {
   if (!slug || !slugValido(slug)) return [];
   const out: string[] = [];
-  for (const r of rutas) {
-    if (!rutaValida(r)) continue;
-    let u: string;
-    try { u = normalizarUrl(urlPublica(base, slug, r)); } catch { continue; }
-    if (!out.includes(u)) out.push(u);
+  for (const base of bases) {
+    for (const r of rutas) {
+      if (!rutaValida(r)) continue;
+      let u: string;
+      try { u = normalizarUrl(urlLandingEn(base, slug, r)); } catch { continue; }
+      if (!out.includes(u)) out.push(u);
+    }
   }
   return out;
 }
@@ -272,10 +297,11 @@ export function esUrlMedida(landingUrl: string | null | undefined, medidas: Read
  * El PREFILTRO de la consulta (`ilike`): trae CANDIDATOS, y la decisión la toma `esUrlMedida` con
  * una igualdad exacta después (AGENTS.md, «Un patrón trae CANDIDATOS»). Un slug válido no tiene `%`
  * ni `_`, pero se escapan igual: el día que la forma del slug cambie, este patrón no se vuelve un
- * comodín.
+ * comodín. `%/<slug>%` y no `%/l/<slug>%` (tanda 4): tiene que traer también las visitas de
+ * `hola-mako.site/<slug>`, que no llevan `/l`.
  */
 export function prefiltroVisitas(slug: string): string {
-  return `%/l/${slug.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
+  return `%/${slug.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
 }
 
 /**

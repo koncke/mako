@@ -1,0 +1,42 @@
+/* La tira de miniaturas: el mismo gris del cromo que el área del lienzo y la barra inferior (Canva 2025–26). */
+.strip {
+  flex: none;
+  background: var(--cv-chrome);
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--cv-color-border-strong) transparent;
+}
+
+.list {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--cv-space-3);
+  margin: 0;
+  padding: var(--cv-space-3) var(--cv-space-4) var(--cv-space-2);
+  list-style: none;
+  width: max-content;
+  min-width: 100%;
+}
+
+/* Canva: al final de la tira, una baldosa gris con «+» del alto de las miniaturas */
+.add {
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: var(--cv-color-border); /* Canva: neutro normal #39466024 */
+  color: var(--cv-color-text);
+  cursor: pointer;
+  transition: background var(--cv-duration-fast) var(--cv-ease-out);
+}
+.add:hover {
+  background: var(--cv-color-border-strong);
+}
+.add:focus-visible {
+  outline: 2px solid #3d8bff; /* Canva: borde de foco de teclado */
+  outline-offset: 2px;
+}

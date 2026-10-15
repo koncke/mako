@@ -58,7 +58,12 @@ const SALIDA_SIN_CHEQUEAR = 99;
 // minutos antes: el programa está JUSTO en 3 GB y cualquier tanda de commits lo cruza. No es un archivo
 // que lo infle: son 4.278 archivos y 57 MB de TypeScript (los cursos y las bitácoras son .ts), y crece
 // todos los días. 4096 deja ~1 GB de aire; el piso de RAM sube solo (≈ 5,3 GB).
-const CAP_HEAP_MB = 4096;
+//
+// ⚠️ 14/10/2026, 13:15: 4096 TAMPOCO, y el «~1 GB de aire» duró doce horas. El push del Image Editor
+// (Doory portado: ~560 archivos en app/image-editor más fabric, jspdf y yjs) murió con «Mark-Compact
+// 4083.4 -> 4079.5 MB … heap out of memory» a los 285 s, sobre origin/main 45fe2cb7f, que con 4096
+// había pasado minutos antes. Un editor portado entero suma de a un GB: 5120. El piso sube solo (≈ 6,3 GB).
+const CAP_HEAP_MB = 5120;
 
 /**
  * ¿El dueño del lock sigue vivo? `process.kill(pid, 0)` no mata: pregunta.

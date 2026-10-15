@@ -1520,7 +1520,7 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido
                  ⚠️ LA PROP **ES** LA CAPACIDAD (`repo.prioridadManual`): el tablero del
                  cliente no tiene con qué escribir una prioridad a mano, así que ahí la
                  tabla no dibuja el agarre en vez de ofrecer un gesto que contesta 403. */
-              onSoltar={board.repo.prioridadManual ? (id, sugerido) => setSoltada({ entidad: 'tarea', id, sugerido }) : undefined} /></div>
+              onSoltar={board.repo.prioridadManual ? (id, sugerido, lugar) => setSoltada({ entidad: 'tarea', id, sugerido, lugar }) : undefined} /></div>
           : <Kanban tasks={visibles} board={board} topProjectId={topProjectId} sortMode={sortMode} sortDir={sortDir} frenanA={frenanA} ask={ask} sel={selTareasVista} setSel={setSelTareasVista} onOpen={setOpenId} onNew={(p) => { setNuevaTareaPrio(p ?? null); setNuevaTarea(true); }} onWarn={setOpenId} onOpenProj={setOpenProj} onEliminar={setEliminarTaskId} onSoltar={(id, destino, sugerido, lugar) => setSoltada({ entidad: 'tarea', id, destino, sugerido, lugar })} />)}
         {view === 'proyectos' && <ProyectosView board={board} topProjectId={topProjectId} onOpen={setOpenProj} onNew={() => setNuevoProj(true)} projFilter={doneFilter} q={q} campos={campos} fOrigen={fOrigen} pasaCliente={pasaClienteProy} sortMode={sortMode} sortDir={sortDir} tabla={tabla}
           onSoltar={(id, sugerido) => setSoltada({ entidad: 'proyecto', id, sugerido })} />}
@@ -1536,7 +1536,7 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido
         onClose={() => { setOpenId(null); setOpenProj(null); setPeekProjId(null); setMakoHintId(null); }} />}
       {peekProj && openTask && <ProjectDetailModal proj={peekProj} board={board} topProjectId={topProjectId} trabajando={trabajandoIA.has(peekProj.id)} z={130} onBack={() => setPeekProjId(null)} onAsignarCliente={() => setAsignarCli({ tipo: 'proyecto', id: peekProj.id })} onPortada={(ancla) => setPortadaDe({ id: peekProj.id, ancla })} onIcono={(ancla) => setIconoDe({ id: peekProj.id, ancla })} onEncuadre={(y) => board.patchLabelLog(peekProj.id, { portadaY: y }, 'Acomodó la portada')}
         onOpenTask={(id) => { setPeekProjId(null); setOpenId(id); }} onNewTask={() => { setNuevaTareaProj(peekProj.id); setNuevaTarea(true); }} ask={ask}
-        onPrioridad={() => setSoltada({ entidad: 'proyecto', id: peekProj.id })} onMako={() => setMakoProjId(peekProj.id)} onDelete={() => setEliminarProjId(peekProj.id)} onEliminarTask={setEliminarTaskId} onSoltarTask={board.repo.prioridadManual ? (id, sugerido) => setSoltada({ entidad: 'tarea', id, sugerido }) : undefined}
+        onPrioridad={() => setSoltada({ entidad: 'proyecto', id: peekProj.id })} onMako={() => setMakoProjId(peekProj.id)} onDelete={() => setEliminarProjId(peekProj.id)} onEliminarTask={setEliminarTaskId} onSoltarTask={board.repo.prioridadManual ? (id, sugerido, lugar) => setSoltada({ entidad: 'tarea', id, sugerido, lugar }) : undefined}
         onClose={() => setPeekProjId(null)} />}
       {/* LA AUDIENCIA. Reemplaza a `DebateModal` en el camino del SCORE (la FECHA se sigue
           debatiendo aparte: es otra pregunta). Tres cosas cambian y las tres importan: la
@@ -1578,7 +1578,7 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido
       {nuevaTarea && <CrearTareaModal proyectoInicial={nuevaTareaProj} prioInicial={nuevaTareaPrio} ejemplos={tasks.filter((t) => t.progress < 100).map((t) => ({ title: t.title, score: t.score }))} onCrear={crearConGuardian} onDone={(id) => { setNuevaTarea(false); setNuevaTareaProj(null); setNuevaTareaPrio(null); setOpenId(id); setMakoHintId(id); }} onClose={() => { setNuevaTarea(false); setNuevaTareaProj(null); setNuevaTareaPrio(null); }} />}
       {openProjLabel && <ProjectDetailModal proj={openProjLabel} board={board} topProjectId={topProjectId} taskAbierta={!!openTask} trabajando={trabajandoIA.has(openProjLabel.id)} onAsignarCliente={() => setAsignarCli({ tipo: 'proyecto', id: openProjLabel.id })} onPortada={(ancla) => setPortadaDe({ id: openProjLabel.id, ancla })} onIcono={(ancla) => setIconoDe({ id: openProjLabel.id, ancla })} onEncuadre={(y) => board.patchLabelLog(openProjLabel.id, { portadaY: y }, 'Acomodó la portada')}
         onBack={welcomeVisible ? () => setOpenProj(null) : undefined} backLabel="Volver"
-        onOpenTask={setOpenId} onNewTask={() => { setNuevaTareaProj(openProjLabel.id); setNuevaTarea(true); }} ask={ask} onPrioridad={() => setSoltada({ entidad: 'proyecto', id: openProjLabel.id })} onMako={() => setMakoProjId(openProjLabel.id)} onDelete={() => setEliminarProjId(openProjLabel.id)} onEliminarTask={setEliminarTaskId} onSoltarTask={board.repo.prioridadManual ? (id, sugerido) => setSoltada({ entidad: 'tarea', id, sugerido }) : undefined} onClose={() => setOpenProj(null)} />}
+        onOpenTask={setOpenId} onNewTask={() => { setNuevaTareaProj(openProjLabel.id); setNuevaTarea(true); }} ask={ask} onPrioridad={() => setSoltada({ entidad: 'proyecto', id: openProjLabel.id })} onMako={() => setMakoProjId(openProjLabel.id)} onDelete={() => setEliminarProjId(openProjLabel.id)} onEliminarTask={setEliminarTaskId} onSoltarTask={board.repo.prioridadManual ? (id, sugerido, lugar) => setSoltada({ entidad: 'tarea', id, sugerido, lugar }) : undefined} onClose={() => setOpenProj(null)} />}
       {makoProj && <MakoProyectoModal proj={{ name: makoProj.name, emoji: makoProj.emoji, detalle: makoProj.detalle }} onApply={(nombre, emoji, det) => board.patchLabelLog(makoProj.id, { name: nombre, emoji, detalle: det }, 'MaKo mejoró el proyecto', 'ia')} onClose={() => setMakoProjId(null)} />}
       {/* ⛔ ACÁ SE MONTABA `FechaDebateModal`, y se fue el 23/09/2026 con el botón que lo
           abría: la fecha se cambia en el selector y listo. El archivo queda en el repo —el
@@ -3527,6 +3527,76 @@ function ColHeader({ p, count }: { p: Prio; count: number }) {
 
 // ── vista Prioridades: Objetivo Principal a la IZQUIERDA (alto, clickeable) + las
 // 3 tareas a la DERECHA (feedback #11 y #3). ─────────────────────────────────────
+/**
+ * La tarjeta de una tarea en la vista Prioridades. Exportada (14/10/2026) para que la tab General dibuje la MISMA
+ * (Martín: «Tenemos un diseño de tarjetas para las tareas y proyectos del plan e hiciste cualquier cosa»): una segunda
+ * copia del dibujo es la que se queda vieja. Recibe lo que antes leía del tablero (`board`) ya resuelto, así la monta
+ * cualquiera que tenga la tarea y sus proyectos.
+ */
+export function TarjetaPrioridad({ t, puesto, proyectos, emoji, onOpen, onOpenProj, onCompletar }: {
+  t: BoardTask;
+  /** 1, 2, 3…: el número del círculo. */
+  puesto: number;
+  /** Los proyectos de la tarea que existen en el tablero. */
+  proyectos: Label[];
+  /** El ícono de la tarea cuando no tiene proyecto. */
+  emoji: string;
+  onOpen: (id: string) => void;
+  onOpenProj: (id: string) => void;
+  onCompletar: () => void;
+}) {
+  // A qué proyecto pertenece. Antes solo se decía cuando la tarjeta NO era del
+  // Objetivo Principal (entraba para completar las 3); ahora se dice siempre,
+  // porque saber de qué parte del plan es una tarea no debería depender de
+  // abrirla. El chip es el mismo del detalle: color del proyecto. UNO solo +
+  // "+N" (con su desplegable al pasar el mouse): con dos chips largos, el
+  // proyecto le ganaba en peso visual al título, que es lo que hay que leer.
+  return (
+    // ⚠️ MAS COMPACTA, Y LO QUE SE RECORTA ES EL AIRE, NO EL TEXTO. «Que no
+    // sean tan altas las tareas, que sea un poco mas compacto, asi el proyecto
+    // de al lado no queda larguisimo» (27/09/2026) — y el sintoma que nombra es
+    // el que importa: la columna izquierda es UNA tarjeta que estira hasta el
+    // alto de las cinco de la derecha, asi que cada pixel de mas aca se paga
+    // alla multiplicado por cinco. De 20/24 de padding y tres separaciones de
+    // 10/12/14 a 14/18 y 7/8: ~32 px menos por tarjeta, ~160 en la columna.
+    <div onClick={() => onOpen(t.id)} data-prioridad={t.id} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: '14px 18px', boxShadow: '0 1px 2px rgba(18,21,27,.05)', cursor: 'pointer', transition: 'border-color .12s' }}
+      onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--border-strong)')} onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'var(--border)')}>
+      {/* Como el proyecto de al lado (feedback jul-18): arriba ranking + proyecto
+          + #id + prioridad; el título abajo, en su línea. El emoji suelto se fue:
+          era el del proyecto, y ahora va DENTRO del chip en vez de repetido. */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 7, minWidth: 0 }}>
+        <span title={`Prioridad ${puesto}`} style={{ width: 22, height: 22, borderRadius: '50%', background: 'var(--primary)', color: '#fff', fontSize: 13, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none', fontFamily: MONO }}>{puesto}</span>
+        {proyectos.length > 0
+          ? <span style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}><LabelChips chips={proyectos} max={1} cap={240} onOpen={onOpenProj} /></span>
+          : <span style={{ fontSize: 22, lineHeight: 1, flex: 'none' }}>{emoji}</span>}
+        <span style={{ fontFamily: MONO, fontSize: 12, color: 'var(--faint)', flex: 'none' }}>#{t.num}</span>
+        <span style={{ flex: 1, minWidth: 0 }} />
+        {!t.deadline && <WarnMark title="Falta el deadline" size={16} />}
+        <ScoreBadge score={t.score} />
+      </div>
+      {/* DOS LÍNEAS: «permite el salto de línea 1 vez» (25/09/2026). A 19px una
+          sola cortaba casi todos los títulos, y tres renglones empujan el deadline
+          y el check fuera de la vista y hacen que dos tarjetas de la misma lista
+          midan distinto. El entero sigue en el `title`. */}
+      <div title={t.title} style={{ fontSize: 17, fontWeight: 600, lineHeight: 1.3, color: 'var(--ink)', letterSpacing: '-0.01em', marginBottom: 8, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 2 }}>{t.title}</div>
+      {/* El DEADLINE a la vista y el check para completar. Antes acá vivían la
+          barra de avance, el % y la checklist plegable: los tres se fueron con
+          la checklist («una tarea se completa o no se completa»), y lo que
+          faltaba era justamente cuándo vence y cuánto falta. */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+        {t.deadline && <LineaDeadline iso={t.deadline} hoy={hoyISO()} hecho={t.progress >= 100} tam={13} mono={false} color="var(--dim)" style={{ flex: 'none' }} />}
+        <span style={{ flex: 1 }} />
+        <button onClick={(e) => { e.stopPropagation(); onCompletar(); }}
+          aria-label={`Marcar «${t.title}» como completada`} title="Marcar como completada"
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', borderRadius: 9, padding: '5px 11px', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', fontFamily: SANS }}>
+          <CheckHecho done={t.progress >= 100} size={14} />
+          Completar
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function Prioridades({ tasks, board, objetivo, cliente = null, onOpen, onOpenProj }: { tasks: BoardTask[]; board: Board; objetivo: Label | null;
   /** El cliente cuyo trabajo se está mirando —el del filtro, o el de la ficha que monta el
    *  tablero—, o `null`. Sólo cambia los dos VACÍOS: ahí «no queda ninguna tarea en todo el
@@ -3596,59 +3666,11 @@ function Prioridades({ tasks, board, objetivo, cliente = null, onOpen, onOpenPro
               <div style={{ fontSize: 14, maxWidth: 400, lineHeight: 1.5 }}>{cliente ? `${cliente} no tiene tareas abiertas.` : 'No queda ninguna tarea abierta en todo el plan. Crea una nueva o saca los pendientes de tu última reunión.'}</div>
             </div>
           )}
-          {tasks.map((t, i) => {
-            // A qué proyecto pertenece. Antes solo se decía cuando la tarjeta NO era del
-            // Objetivo Principal (entraba para completar las 3); ahora se dice siempre,
-            // porque saber de qué parte del plan es una tarea no debería depender de
-            // abrirla. El chip es el mismo del detalle: color del proyecto. UNO solo +
-            // "+N" (con su desplegable al pasar el mouse): con dos chips largos, el
-            // proyecto le ganaba en peso visual al título, que es lo que hay que leer.
-            const proys = t.labels.map((id) => board.labelById(id)).filter((l): l is Label => l != null);
-            return (
-              // ⚠️ MAS COMPACTA, Y LO QUE SE RECORTA ES EL AIRE, NO EL TEXTO. «Que no
-              // sean tan altas las tareas, que sea un poco mas compacto, asi el proyecto
-              // de al lado no queda larguisimo» (27/09/2026) — y el sintoma que nombra es
-              // el que importa: la columna izquierda es UNA tarjeta que estira hasta el
-              // alto de las cinco de la derecha, asi que cada pixel de mas aca se paga
-              // alla multiplicado por cinco. De 20/24 de padding y tres separaciones de
-              // 10/12/14 a 14/18 y 7/8: ~32 px menos por tarjeta, ~160 en la columna.
-              <div key={t.id} onClick={() => onOpen(t.id)} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: '14px 18px', boxShadow: '0 1px 2px rgba(18,21,27,.05)', cursor: 'pointer', transition: 'border-color .12s' }}
-                onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--border-strong)')} onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'var(--border)')}>
-                {/* Como el proyecto de al lado (feedback jul-18): arriba ranking + proyecto
-                    + #id + prioridad; el título abajo, en su línea. El emoji suelto se fue:
-                    era el del proyecto, y ahora va DENTRO del chip en vez de repetido. */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 7, minWidth: 0 }}>
-                  <span title={`Prioridad ${i + 1}`} style={{ width: 22, height: 22, borderRadius: '50%', background: 'var(--primary)', color: '#fff', fontSize: 13, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none', fontFamily: MONO }}>{i + 1}</span>
-                  {proys.length > 0
-                    ? <span style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}><LabelChips chips={proys} max={1} cap={240} onOpen={onOpenProj} /></span>
-                    : <span style={{ fontSize: 22, lineHeight: 1, flex: 'none' }}>{emojiTarea(board, t)}</span>}
-                  <span style={{ fontFamily: MONO, fontSize: 12, color: 'var(--faint)', flex: 'none' }}>#{t.num}</span>
-                  <span style={{ flex: 1, minWidth: 0 }} />
-                  {!t.deadline && <WarnMark title="Falta el deadline" size={16} />}
-                  <ScoreBadge score={t.score} />
-                </div>
-                {/* DOS LÍNEAS: «permite el salto de línea 1 vez» (25/09/2026). A 19px una
-                    sola cortaba casi todos los títulos, y tres renglones empujan el deadline
-                    y el check fuera de la vista y hacen que dos tarjetas de la misma lista
-                    midan distinto. El entero sigue en el `title`. */}
-                <div title={t.title} style={{ fontSize: 17, fontWeight: 600, lineHeight: 1.3, color: 'var(--ink)', letterSpacing: '-0.01em', marginBottom: 8, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 2 }}>{t.title}</div>
-                {/* El DEADLINE a la vista y el check para completar. Antes acá vivían la
-                    barra de avance, el % y la checklist plegable: los tres se fueron con
-                    la checklist («una tarea se completa o no se completa»), y lo que
-                    faltaba era justamente cuándo vence y cuánto falta. */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-                  {t.deadline && <LineaDeadline iso={t.deadline} hoy={hoyISO()} hecho={t.progress >= 100} tam={13} mono={false} color="var(--dim)" style={{ flex: 'none' }} />}
-                  <span style={{ flex: 1 }} />
-                  <button onClick={(e) => { e.stopPropagation(); board.toggleDone(t.id); }}
-                    aria-label={`Marcar «${t.title}» como completada`} title="Marcar como completada"
-                    style={{ display: 'inline-flex', alignItems: 'center', gap: 6, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', borderRadius: 9, padding: '5px 11px', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', fontFamily: SANS }}>
-                    <CheckHecho done={t.progress >= 100} size={14} />
-                    Completar
-                  </button>
-                </div>
-              </div>
-            );
-          })}
+          {tasks.map((t, i) => (
+            <TarjetaPrioridad key={t.id} t={t} puesto={i + 1}
+              proyectos={t.labels.map((id) => board.labelById(id)).filter((l): l is Label => l != null)}
+              emoji={emojiTarea(board, t)} onOpen={onOpen} onOpenProj={onOpenProj} onCompletar={() => board.toggleDone(t.id)} />
+          ))}
         </div>
       </div>
     </div>
@@ -5490,7 +5512,7 @@ function ProjectDetailModal({ proj, board, topProjectId, taskAbierta = false, tr
   /** soltaste una TAREA en la tabla de adentro del proyecto. Este modal no tiene el estado
    *  del pop-up (vive en `BoardShell`), así que la capacidad entra por acá: sin la prop, la
    *  tabla no dibuja el agarre. Es el mismo criterio que `onAgarrar` de `ProyectoCardTile`. */
-  onSoltarTask?: (id: string, sugerido: number) => void;
+  onSoltarTask?: (id: string, sugerido: number, lugar?: Lugar) => void;
   /** borrar UNA tarea del proyecto. Sin esto, la fila de la tabla no dibuja el tacho — que
    *  es cómo se ve desde afuera que este modal no pasó la capacidad. */
   onEliminarTask?: (id: string) => void; onClose: () => void;

@@ -353,8 +353,12 @@ test('la prueba se corre sobre una landing ELEGIDA, no sobre «abrila vos»', ()
   assert.ok(/previo\?\.urls/.test(probar), 'las landings que ya mandaron eventos se ofrecen: pedir que tipee una URL que ya tenemos es trabajo inventado');
   // Ya no se abre `u` pelada: lleva pegado el marcador de la prueba. Lo que hay
   // que afirmar es que se abre en OTRA pestaña, no la forma exacta de la URL.
-  assert.ok(/window\.open\(`\$\{base\}\$\{sep\}mko_test=/.test(probar), 'la prueba abre la página, como el Test Events de Meta');
-  assert.ok(/'_blank', 'noopener'/.test(probar), 'siempre en otra pestaña');
+  // Tanda 6 (14/10/2026): la pestaña se abre VACÍA en el clic (`window.open('about:blank', '_blank')`, para
+  // detectar el bloqueo) y navega al final, con `opener = null` antes (lo que daba `noopener`).
+  // Rotura (14/10/2026, de memoria, verificada por hash; base 66 / 0): sin `pestana.opener = null` -> 65 / 1.
+  assert.ok(/pestana\.location\.replace\(`\$\{base\}\$\{sep\}mko_test=/.test(probar), 'la prueba abre la página, como el Test Events de Meta');
+  assert.ok(/pestana = window\.open\('about:blank', '_blank'\)/.test(probar), 'siempre en otra pestaña');
+  assert.ok(/pestana\.opener = null;\s*pestana\.location\.replace\(/.test(probar), 'la página de afuera no puede tocar la pestaña de MaKo');
   assert.ok(/localStorage\.setItem\(URL_KEY/.test(probar), 'la URL se recuerda: se elige una vez, no en cada prueba');
 
   const lib = leer('../lib/landing-token.ts');
@@ -392,7 +396,7 @@ test('el panel usa las piezas de la casa, no HTML crudo', () => {
   const idle = probar.slice(probar.indexOf('if (!activo) {\n    return ('), probar.lastIndexOf('{avisoViejo}'));
   const botones = idle.match(/<Button\b/g) ?? [];
   assert.equal(botones.length, 1, `el arranque de la prueba tiene que tener UN botón y tiene ${botones.length}`);
-  assert.ok(/window\.open\(`/.test(probar) && /const arrancar/.test(probar), 'el único botón abre la página');
+  assert.ok(/pestana\.location\.replace\(`/.test(probar) && /const arrancar/.test(probar), 'el único botón abre la página');
 });
 
 test('el código usa LA MISMA barra que una credencial, no una pieza propia', () => {
@@ -764,7 +768,9 @@ test('el probador muestra SOLO los eventos de esta prueba', () => {
   // ⚠️ El hash va SIEMPRE al final: `pagina.com/#registro?mko_test=x` deja el
   // parámetro DENTRO del hash y `location.search` no lo ve nunca — y esa landing
   // es justamente la que se prueba con `#registro`.
-  assert.ok(/const \[base, hash\] = u\.split\('#'\)/.test(panel), 'con un ancla en la URL el parámetro quedaría adentro del hash');
+  // Verificación de la tanda 6 (15/10/2026): sobre `destino`, la dirección ya validada (`urlParaAbrir`,
+  // tests/landing-paginas.test.ts), y el separador se mira ANTES del hash (`x.com/#a?b` llevaba `&`).
+  assert.ok(/const \[base, hash\] = destino\.split\('#'\);\s*const sep = base\.includes\('\?'\)/.test(panel), 'con un ancla en la URL el parámetro quedaría adentro del hash');
   // Y el marcador viaja en CADA consulta, incluida la del intervalo: pasar
   // `traer` directo a setInterval le entrega el contador del timer como primer
   // argumento, y el filtro se perdía a los 3 segundos.
@@ -918,8 +924,12 @@ test('la prueba abre una ventana de prueba de MaKo ENCIMA de la landing', () => 
   const iLanding = panel.indexOf('mko_test=${id}');
   const iVentana = panel.indexOf('/integraciones/escuchando?p=');
   assert.ok(iVentana > 0 && iLanding > iVentana, 'la ventana de MaKo se abre primero: es la única cuyo bloqueo se puede detectar');
-  assert.ok(/if \(!chico\) \{/.test(panel), 'si el navegador la bloquea, la prueba NO puede arrancar');
-  assert.ok(/Permite las ventanas emergentes/.test(panel), 'y hay que decir cómo se arregla');
+  // Tanda 6 (14/10/2026): también si la cierra un bloqueador al instante, y el aviso es el de la flecha a
+  // la barra (app/landing-generator/lector/AvisoVentanasBloqueadas.tsx, tests/editor-landing-lector.test.ts).
+  // Tanda 6: la pestaña de la landing también se abre en el clic y su bloqueo también frena la prueba (sin
+  // permiso para el sitio Chrome deja UNA ventana por clic, y la landing quedaba bloqueada callada).
+  assert.ok(/if \(!chico \|\| chico\.closed \|\| !pestana \|\| pestana\.closed\) \{/.test(panel), 'si el navegador la bloquea, la prueba NO puede arrancar');
+  assert.ok(/<AvisoVentanasBloqueadas abierto=\{sinPermiso\}/.test(panel), 'y hay que decir cómo se arregla');
   assert.ok(/chico\?\.focus\(\)|chico\.focus\(\)/.test(panel), 'sin el focus, la ventana queda debajo de la landing');
   // La pestaña de atrás NO cambia: sigue mostrando la misma prueba. Un panel que
   // se reemplaza por «esto corre en otro lado» obliga a volver para enterarse de
@@ -976,7 +986,9 @@ test('«qué es cada video» es un PASO de la prueba, no un formulario colgado',
     /const hayVideos = candidatosVideo\.length > 0/.test(panel),
     'el lápiz para corregir la identificación mira la misma lista que la puerta, o se abre una y la otra no',
   );
-  assert.ok(/if \(paso !== 'videos' && sinNombre\.length > 0\) \{ setPaso\('videos'\); return; \}/.test(panel),
+  // Tanda 6 (14/10/2026): la condición se lee ANTES de abrir la ventana de la prueba (que se abre en el clic,
+  // sin ningún `await` antes): con el paso de los videos por delante no hace falta ventana.
+  assert.ok(/const vaAVideos = paso !== 'videos' && sinNombre\.length > 0;/.test(panel) && /if \(vaAVideos\) \{ setPaso\('videos'\); return; \}/.test(panel),
     'con videos sin nombre, «Probar» tiene que preguntar ANTES de los pasos');
   // ⚠️ Y «Siguiente» NO exige contestar: un paso que bloquea sobre algo opcional
   // convierte la prueba en un trámite. La pregunta vuelve sola la próxima vez,
@@ -1656,7 +1668,7 @@ test('un video oculto no vuelve a pedir que lo identifiques', () => {
   assert.ok(/!ocultosVideo\.includes\(d\.id\)/.test(panel), 'un video oculto no puede contar como «sin nombre»');
   // Y es lo que gobierna el salto al paso: si esto se rompe, la prueba vuelve a
   // frenarse en una pregunta ya contestada.
-  assert.ok(/if \(paso !== 'videos' && sinNombre\.length > 0\)/.test(panel), 'el paso se dispara por los que faltan identificar');
+  assert.ok(/const vaAVideos = paso !== 'videos' && sinNombre\.length > 0;/.test(panel), 'el paso se dispara por los que faltan identificar');
 });
 
 test('cerrar la ventana de la prueba la TERMINA, y avisa', () => {

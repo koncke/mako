@@ -13,7 +13,7 @@ import { usePathname } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { RUTA_ALUMNO } from '@/lib/rutas-publicas';
 import { esRutaMovil } from '@/lib/movil-rutas';
-import { useVistaMovil } from './VistaMovil';
+import { useTelefono, useVistaMovil } from './VistaMovil';
 
 /** ¿La ruta es una landing pública? (no debe mostrar chrome de la app). */
 export function isPublicLandingPath(pathname: string | null | undefined): boolean {
@@ -57,6 +57,9 @@ export function esVistaSinChrome(pathname: string | null | undefined): boolean {
     // ancho para navegar a lugares a los que nadie va a ir desde acá — lo único
     // que se hace en esta ventana es mirar entrar eventos y cerrarla.
     || /^\/integraciones\/escuchando\/?$/.test(p)
+    // La ventana de «Presentar con notas» del Image Editor: la segunda ventana que se
+    // mira mientras se presenta (notas, reloj, la siguiente). Por la misma razón.
+    || /^\/image-editor\/presentador\/?$/.test(p)
     // ⚠️ El Video Editor YA NO está acá. Iba a pantalla completa como CapCut (diseño
     // §9) y Martín pidió lo contrario el 12/10 («que la barra lateral no desaparezca
     // del todo mientras se edita», validado el 13/10): el editor se dibuja adentro
@@ -81,6 +84,11 @@ export function esVistaSinChrome(pathname: string | null | undefined): boolean {
 export function HideOnPublicLanding({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const movil = useVistaMovil();
-  if (movil || esVistaSinChrome(pathname)) return null;
+  const telefono = useTelefono();
+  // ⚠️ EN UN TELÉFONO, EL CROMO DE ESCRITORIO NO SE DIBUJA NUNCA (14/10/2026), tampoco en una pantalla
+  // sin versión del teléfono (/inicio, /onboarding…): Martín vio la Sidebar angosta y el resto en
+  // blanco durante segundos al abrir la app (era /inicio, pintado antes de su redirect). Lo que se usa
+  // en la computadora ya lo tapa <DesvioMovil>; quien pidió «Versión completa» no es `telefono`.
+  if (movil || telefono || esVistaSinChrome(pathname)) return null;
   return <>{children}</>;
 }

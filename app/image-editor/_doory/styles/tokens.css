@@ -1,0 +1,161 @@
+/*
+ * Tokens del Image Editor — la paleta de CANVA, medida (docs/editor-imagen/relevamiento-canva-armazon.md §1.2–1.4).
+ *
+ * Los NOMBRES son los de Doory (prefijados `--cv-` en el port, para no pisar los namespaces de Tailwind 4); los
+ * VALORES son los de Canva: el violeta #8B3DFF de acción y selección, el gris #F6F7F8 del cromo de 2025–26 (riel, área
+ * del lienzo, barra inferior), superficies blancas, bordes y textos del sistema de diseño de Canva, sus sombras y su
+ * escala tipográfica (14/22 el texto general, 11 los rótulos del riel). Los valores se copiaron a mano: el CSS de
+ * `@canva/app-ui-kit` no se copia (su licencia lo limita a apps dentro de Canva).
+ *
+ * Los componentes usan estas variables y nunca un color suelto. Un solo tema: claro (el default de Canva).
+ */
+.cv {
+  /* Violeta de Canva (acción, selección, foco de campo) */
+  --cv-violet-50: #f3ecff;
+  --cv-violet-100: #f1eaff;
+  --cv-violet-200: #e7dbff;
+  --cv-violet-300: #d4bfff;
+  --cv-violet-400: #a370fc;
+  --cv-violet-500: #8b3dff;
+  --cv-violet-600: #7630d7;
+  --cv-violet-700: #612dae;
+  --cv-violet-800: #4a2e7e;
+  --cv-violet-900: #352459;
+  --cv-violet-950: #1d1340;
+
+  /* Tinta y acentos (nombres de Doory; valores de Canva) */
+  --cv-ink: #0e1318;
+  --cv-paper: #ffffff;
+  --cv-pastel-lilac: #e7dbff;
+  --cv-pastel-pink: #ffd6d8;
+  --cv-pastel-blush: #ffd6d8;
+  --cv-pastel-butter: #f1eaff;
+  --cv-pastel-mint: #c3eac4;
+  --cv-pastel-sky: #cce1ff;
+
+  /* Semántica — claro */
+  --cv-color-brand: #8b3dff;
+  --cv-color-brand-hover: #7630d7;
+  --cv-color-brand-active: #612dae;
+  --cv-color-brand-soft: #f1eaff;
+  --cv-color-brand-soft-hover: #e7dbff;
+  --cv-color-on-brand: #ffffff;
+  --cv-accent-lilac: #8b3dff;
+
+  /* Botón primario de Canva: violeta lleno, sin sombra corrida */
+  --cv-color-cta: #8b3dff;
+  --cv-color-cta-hover: #7630d7;
+  --cv-color-on-cta: #ffffff;
+  --cv-color-cta-shadow: transparent;
+
+  --cv-color-bg: #f6f7f8;
+  --cv-color-bg-subtle: #f6f7f8;
+  --cv-color-bg-muted: rgb(64 79 109 / 0.06);
+  --cv-color-surface: #ffffff;
+  --cv-color-surface-raised: #ffffff;
+  --cv-color-canvas-workspace: #f6f7f8; /* el área del lienzo de Canva (2025–26: también riel y barra inferior) */
+  --cv-color-border: rgb(57 70 96 / 0.14);
+  --cv-color-border-strong: rgb(53 65 90 / 0.2);
+  --cv-color-text: #0e1318;
+  --cv-color-text-muted: rgb(16 18 25 / 0.7);
+  --cv-color-text-subtle: rgb(19 22 32 / 0.6);
+  --cv-color-overlay: rgb(36 44 61 / 0.4);
+  /* La pantalla de presentación es negra en todo tema: es una pantalla proyectada, no cromo. */
+  --cv-color-stage: #000000;
+  --cv-color-on-stage: #ffffff;
+
+  --cv-color-success: #008009;
+  --cv-color-success-soft: #c3eac4;
+  --cv-color-warning: #ad5a00;
+  --cv-color-warning-soft: #ffd9ad;
+  --cv-color-danger: #db142c;
+  --cv-color-danger-soft: #ffd6d8;
+  --cv-color-info: #1a62ff;
+  --cv-color-info-soft: #cce1ff;
+
+  --cv-focus-ring: 0 0 0 2px #3d8bff;
+  --cv-selection-color: #8b3dff; /* marco de selección, tiradores y miniatura elegida */
+  --cv-guide-color: #ff4fd8; /* guías de alineación: rosa/magenta (sin medir en vivo, §13 del relevamiento) */
+
+  /* Cromo propio de Canva */
+  --cv-header-gradient: linear-gradient(90deg, #02c4cc 0%, #2db5cf 10%, #41a7d2 20%, #4e97d5 30%, #5888d9 40%, #6079db 50%, #686ade 60%, #6e5ae0 70%, #744be3 80%, #793be6 90%, #7d2ae8 100%);
+  --cv-header-text: #ffffff;
+  --cv-header-hover: rgb(255 255 255 / 0.16);
+  --cv-header-button-bg: rgb(255 255 255 / 0.92);
+  --cv-header-button-border: rgb(255 255 255 / 0.4);
+  --cv-chrome: #f6f7f8;
+  --cv-rail-active-bg: #ffffff;
+  --cv-panel-radius: 14px;
+  --cv-tooltip-bg: #0f1015;
+  --cv-tooltip-text: #ffffff;
+
+  /* Tipografía: Canva Sans no se copia; Noto Sans es el respaldo de su propia pila (métricas pensadas para él) */
+  --cv-font-sans: var(--cv-font-ui, 'Noto Sans'), 'Noto Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+  --cv-font-display: var(--cv-font-sans);
+  --cv-font-hand: 'Caveat', 'Segoe Print', 'Bradley Hand', cursive;
+  --cv-font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --cv-text-xs: 11px; /* rótulos del riel */
+  --cv-text-sm: 12px; /* tooltips, pies */
+  --cv-text-base: 14px; /* texto general, menús, barra */
+  --cv-text-lg: 16px; /* título de panel */
+  --cv-text-xl: 18px;
+  --cv-text-2xl: 24px; /* título de diálogo */
+  --cv-text-3xl: 32px;
+  --cv-text-4xl: 36px;
+  --cv-text-5xl: 42px; /* titular del inicio */
+  --cv-leading-tight: 1.25;
+  --cv-leading-normal: 1.5714; /* 22/14 */
+
+  /* Espacio (base 8 px de Canva; la escala de 4 de Doory se conserva) */
+  --cv-space-1: 4px;
+  --cv-space-2: 8px;
+  --cv-space-3: 12px;
+  --cv-space-4: 16px;
+  --cv-space-5: 20px;
+  --cv-space-6: 24px;
+  --cv-space-8: 32px;
+  --cv-space-10: 40px;
+  --cv-space-12: 48px;
+  --cv-space-16: 64px;
+  --cv-space-24: 96px;
+
+  /* Forma y profundidad (radio estándar 12, agudo 10, píldora) */
+  --cv-radius-sm: 8px;
+  --cv-radius-md: 10px;
+  --cv-radius-lg: 12px;
+  --cv-radius-xl: 16px;
+  --cv-radius-full: 9999px;
+  --cv-shadow-sm: 0 0 0 0.5px rgb(64 79 109 / 0.06), 0 1px 2px rgb(21 30 130 / 0.12), 0 2px 4px rgb(21 30 130 / 0.06);
+  --cv-shadow-md: 0 0 0 0.5px rgb(64 79 109 / 0.07), 0 2px 5px rgb(21 30 130 / 0.12), 0 6px 12px rgb(21 30 130 / 0.06);
+  --cv-shadow-lg: 0 0 0 0.5px rgb(64 79 109 / 0.06), 0 8px 16px rgb(21 30 130 / 0.12), 0 24px 24px rgb(21 30 130 / 0.06);
+  --cv-shadow-artboard: 0 0 0 0.5px rgb(64 79 109 / 0.06), 0 1px 2px rgb(21 30 130 / 0.1);
+  --cv-shadow-card: 0 0 0 0.5px rgb(64 79 109 / 0.07), 0 2px 5px rgb(21 30 130 / 0.12), 0 6px 12px rgb(21 30 130 / 0.06);
+
+  /* Movimiento */
+  --cv-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --cv-duration-fast: 120ms;
+  --cv-duration-base: 200ms;
+  --cv-duration-slow: 320ms;
+
+  /* Distribución (relevamiento §1: barra 54–56, riel 72, panel ~350) */
+  --cv-editor-topbar-h: 56px;
+  --cv-editor-rail-w: 72px;
+  --cv-editor-panel-w: 350px;
+  --cv-editor-toolbar-h: 48px;
+  --cv-editor-bottombar-h: 40px;
+  --cv-z-dropdown: 50;
+  --cv-z-sticky: 100;
+  --cv-z-drawer: 200;
+  --cv-z-modal: 300;
+  --cv-z-toast: 400;
+
+  color-scheme: light;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cv {
+    --cv-duration-fast: 0ms;
+    --cv-duration-base: 0ms;
+    --cv-duration-slow: 0ms;
+  }
+}

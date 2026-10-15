@@ -400,7 +400,8 @@ test('los cierres SIN envío dejan su fila: «la reunión ya pasó» y el tope d
   // (08/10/2026: «anclada» = el `ancla` de siempre O la espera «antes de la reunión» del flujo;
   // y «el primero» es `esPrimerPaso`, con el tope de la secuencia o el de su condición de entrada.)
   // (Undécima tanda: `preparaReunion(sec)` por la forma del flujo; el re-anclado de abajo es sólo del `ancla` de siempre.)
-  const reunion = proc.slice(proc.indexOf('if (anclada || preparaReunion(sec))'), proc.indexOf('if (anclada && minAntes == null) {'));
+  // (14/10/2026: SÓLO el paso anclado, `if (anclada) {`: el resto lo dice la condición visible «Su reunión sigue en pie».)
+  const reunion = proc.slice(proc.indexOf('if (anclada) {'), proc.indexOf('if (anclada && minAntes == null) {'));
   assert.match(reunion, /await anotarCierreSinEnvio\(insc, paso, lead, 'la reunión ya pasó'\);\s*continue;/);
   const antig = proc.slice(proc.indexOf('if (esPrimerPaso(sec.pasos, insc.paso_actual) && topeAntig != null'), proc.indexOf("if (paso.requiere === 'ya_contactado'"));
   assert.match(antig, /await anotarCierreSinEnvio\(insc, paso, lead, `llegó hace más de \$\{topeAntig\} h`\);\s*continue;/);

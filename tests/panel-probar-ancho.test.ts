@@ -310,7 +310,8 @@ test('las piezas puras: cuándo llega, quién lo manda y la vista previa de la f
 test('«Probar» 1: el lead de la prueba se elige por canal al arrancar, y la condición lo usa', () => {
   const src = PANEL();
   const arrancar = src.slice(src.indexOf('const arrancarRefs = () => {'), src.indexOf('const reiniciar = (deVerdad = false) => {'));
-  assert.match(arrancar, /simRef\.current = iniciar\(flujoVivo\);\n\s+contactoRef\.current = contactoDe\(flujoVivo\);/, 'el contacto no se elige al arrancar con el flujo que se prueba');
+  // Con el medio de la prueba (TikTok fase 0, 14/10/2026): tests/ai-step-redes.test.ts.
+  assert.match(arrancar, /simRef\.current = iniciar\(flujoVivo, \{ medio: medioIA \}\);\n\s+contactoRef\.current = contactoDe\(flujoVivo\);/, 'el contacto no se elige al arrancar con el flujo que se prueba');
   assert.match(src, /contactoParaProbar\(f, \(p\) => canalDelPaso\(p\) === canal, CANALES_PROBAR\[canal\]\.contacto, leadRef\.current, ctx\.current\.nombres\)/);
   const caso = src.slice(src.indexOf("case 'condicion': {"), src.indexOf("case 'fin':"));
   assert.match(caso, /hechosDeLeadNuevo\(\{\n\s+\.\.\.leadRef\.current, \.\.\.contactoRef\.current, yaContactado:/, 'la condición vuelve a decidir con teléfono y email siempre');
@@ -396,7 +397,8 @@ test('«Probar» 2: los emisores salen de lo vinculado del negocio, y viaja sól
 test('el simulador de cada canal se elige en UN lugar (la parte «canales» enchufa ahí)', () => {
   const src = PANEL();
   assert.match(src, /let simulador: ReactNode;\n\s+switch \(canal\) \{\n\s+case 'email':/);
-  assert.match(src, /<div style=\{\{ flex: 1, minHeight: 0, position: 'relative' \}\}>\n\s+\{simulador\}\n\s+<\/div>/);
+  // (14/10/2026: con más de un escenario, la barra de contactos a la izquierda y el simulador en su caja.)
+  assert.match(src, /<div style=\{\{ flex: 1, minHeight: 0, position: 'relative' \}\}>[\s\S]{0,400}\{conBarra \? <div style=\{\{ position: 'absolute', top: 0, bottom: 0, right: 0, left: ANCHO_BARRA_ESCENARIOS \+ 8 \}\}>\{simulador\}<\/div> : simulador\}\n\s+<\/div>/);
   // La parte «canales» enchufó Instagram y Messenger acá (sexta tanda, al integrar): una fila y un `case`.
   assert.deepEqual(Object.keys(CANALES_PROBAR).sort(), ['email', 'instagram', 'messenger', 'whatsapp']);
   // La cabecera lee el canal de `CANALES_PROBAR`, no de un `esEmail ?`.

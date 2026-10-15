@@ -10,6 +10,7 @@
 
 import type { JsonNodo, LandingContenido } from './doc';
 import type { ObjetivoLanding } from '../landing-spec';
+import type { FallaEnNavegador, Lectura } from './lectura-tipos';
 
 export type Falla = { ok: false; error: string; conflicto?: boolean; versionActual?: number };
 
@@ -113,11 +114,22 @@ export type LandingResumen = {
   papelera: boolean;
   slug: string | null;
   publicadoAt: string | null;
+  /**
+   * El dominio propio VERIFICADO de la landing (tanda 4), o null. Con él el Panel reconoce como nuestra
+   * una página analizada en `https://<dominio>` (antes aparecía «de afuera»).
+   */
+  dominio?: string | null;
   /** La primera sección, para dibujar la miniatura del Panel en el navegador. */
   primera: JsonNodo | null;
   /** T1/T3: el ícono del renglón y la forma de la miniatura (sin el campo: una página). Lo llena `listar` desde `config`. */
   formato?: FormatoDoc;
   proporcion?: Proporcion;
+  /**
+   * La página de AFUERA de la que es copia (`config.origen.basadoEnUrl` de una replicada), o null. Con
+   * esto «Aplicar» en el Diagnóstico de esa página usa la copia que ya existe en vez de replicar de nuevo
+   * (verificación de la tanda 6: cada «Aplicar» armaba otra copia, con IA paga).
+   */
+  replicaDe?: string | null;
 };
 
 export type LandingCompleta = {
@@ -132,6 +144,13 @@ export type LandingCompleta = {
   cambiosSinPublicar: boolean;
   sitioActivo: boolean;
   urlPublica: string | null;
+  /**
+   * La base de la dirección pública (lo que va antes del slug, sin barra final): `https://hola-mako.site`
+   * en producción, `<app>/l` en local y en los previews (tanda 4). La decide el SERVER
+   * (`baseLandings`, lib/app-url.ts): el navegador no sabe en qué entorno corre. La usa el diálogo
+   * Publicar para mostrar la dirección antes de publicar.
+   */
+  baseLandings: string;
   creado: string;
   actualizado: string;
   /** La estrella del menú ⋯ (y del Panel). */
@@ -159,6 +178,12 @@ export type Analitica = {
   /** % de visitantes que llegó a cada sección (por scroll), si el Pixel lo midió. null = no medido, NUNCA 0. */
   alcancePorSeccion: { tarjetaId: string; pct: number | null }[] | null;
   enAnalyst: boolean;                // si el Landing Analyst ya la tiene declarada
+  /**
+   * Los pedidos del Botón de pago que se rechazaron en los mismos días (Paquete 3 de la tanda 6, mig 0282;
+   * se muestra desde la verificación de la tanda 6). null = no se pudo leer o todavía no se cuentan: no se
+   * dibuja nada (nunca un «0» que no se sabe).
+   */
+  rechazosPago?: { total: number; dias: number } | null;
 };
 
 export type TemaPropio = { id: string; nombre: string; base: string; cambios: Record<string, unknown> };
@@ -192,7 +217,10 @@ export type PedidoDocs =
   | { accion: 'guardarTema'; tema: TemaPropio }
   | { accion: 'borrarTema'; temaId: string }
   | { accion: 'borradoresViejos' }                         // landing_drafts del generador anterior
-  | { accion: 'importarBorrador'; draftId: number };
+  | { accion: 'importarBorrador'; draftId: number }
+  // Tanda 4: con qué cobra el «Botón de pago» (las pasarelas conectadas y los productos activos del
+  // catálogo). Lo leen el control del botón y el aviso de Publicar (pago-landing.ts).
+  | { accion: 'cobro' };
 
 // ─────────────────────────────────────────────────────────────────────────────
 // IA (POST /api/landing-generator/ia)
@@ -225,12 +253,18 @@ export type Esquema = { titulo: string; secciones: SeccionEsquema[] };
 export const ACCIONES_TEXTO = ['mejorar', 'corregir', 'acortar', 'ampliar', 'simplificar', 'especifico', 'tono', 'traducir', 'continuar'] as const;
 export type AccionTexto = (typeof ACCIONES_TEXTO)[number];
 
+/**
+ * `esquema` en modo «importar» (tanda 6): `url` (se baja TAL CUAL, con su www y su query) o `lectura`
+ * (la página ya leída en el navegador de la persona, lectura-tipos.ts: no se baja nada). Si la página
+ * no se lee desde el server, la respuesta es `FallaEnNavegador` (HTTP 422).
+ */
 export type PedidoIA =
-  | { accion: 'esquema'; modo: 'generar' | 'pegar' | 'importar'; prompt?: string; texto?: string; url?: string; params: ParamsGeneracion }
+  | { accion: 'esquema'; modo: 'generar' | 'pegar' | 'importar'; prompt?: string; texto?: string; url?: string; lectura?: Lectura; params: ParamsGeneracion }
   | { accion: 'secciones'; esquema: Esquema; indices: number[]; params: ParamsGeneracion; temaId: string }
   | { accion: 'editar'; instruccion: string; tarjetas: JsonNodo[]; alcance: 'landing' | 'seccion'; params?: Partial<ParamsGeneracion> }
   | { accion: 'texto'; tipo: AccionTexto; texto: string; contexto?: string; tono?: string; idioma?: string }
-  | { accion: 'disenos'; tarjeta: JsonNodo }
+  /** `params.formato` (tanda 6): en una presentación las alternativas son diapositivas, no secciones de página. */
+  | { accion: 'disenos'; tarjeta: JsonNodo; params?: Partial<ParamsGeneracion> }
   | { accion: 'notas'; tarjeta: JsonNodo };
 
 export type RespuestaIA =
@@ -239,6 +273,8 @@ export type RespuestaIA =
   | { ok: true; texto: string }
   | { ok: true; opciones: JsonNodo[] }
   | { ok: true; notas: string }
+  /** Tanda 6: «Importar» de una página que se arma en el navegador o que nos rechaza (`pegable`, `enNavegador`, `motivo`). */
+  | FallaEnNavegador
   | Falla;
 
 // ─────────────────────────────────────────────────────────────────────────────

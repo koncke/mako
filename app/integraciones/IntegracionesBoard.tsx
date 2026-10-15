@@ -17,7 +17,9 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, 
 import { useSearchParams } from 'next/navigation';
 import { useRouter, useWs } from '@/app/_ui/Link';
 import { conWs } from '@/lib/ws-tab';
+import { volverDeLaPestana } from '@/lib/integracion-en-tab';
 import { esPasarela } from '@/lib/cobros-tipos';
+import { esFuenteQueAvisa } from '@/lib/fuentes-leads-catalogo';
 import { SelectorLanding } from './SelectorLanding';
 import { AsignarProducto } from './AsignarProducto';
 import type { RechazoGracias } from '@/lib/landing-gracias-reglas';
@@ -334,7 +336,9 @@ export function IntegracionesBoard({ integraciones, health, metaError, incidente
   // puesta y el aviso sin registrar) tampoco se cuentan acá: eso se ve y se arregla adentro del
   // modal, que es donde está la persona cuando pasa (lib/cobros-conexion.ts lo dice al guardar).
   // La grilla las sigue mostrando «Por configurar», que es la verdad.
-  const opcionalSinConectar = (i: Integracion) => esPasarela(i.key) && sevOf(i) !== 'good';
+  // Y las fuentes que avisan (Hotmart, Skool; Leads Scraper, 14/10/2026), por lo mismo: la mayoría
+  // de los negocios no vende por Hotmart ni tiene un Skool.
+  const opcionalSinConectar = (i: Integracion) => (esPasarela(i.key) || esFuenteQueAvisa(i.key)) && sevOf(i) !== 'good';
   const medidas = integraciones.filter((i) => !opcionalSinConectar(i));
   const total = medidas.length;
   const conectadas = medidas.filter((i) => sevOf(i) === 'good').length;
@@ -354,7 +358,7 @@ export function IntegracionesBoard({ integraciones, health, metaError, incidente
     // pendiente que haya que resolver → no lo empujamos a "Requiere tu atención"
     // (sería ruido para un cliente que ni programa).
     if (i.key === 'agente') continue;
-    // Stripe y Mercado Pago, por lo mismo (ver `opcionalSinConectar`, más arriba).
+    // Stripe, Mercado Pago, Hotmart y Skool, por lo mismo (ver `opcionalSinConectar`, más arriba).
     if (opcionalSinConectar(i)) continue;
     let motivo = i.estado === 'falta' ? i.detalle : 'Requiere atención';
     let accion: string | undefined;
@@ -1338,8 +1342,11 @@ function SaldoEditor({ provider, gemini, saldo, restante, gastoMes, onGuardado }
 // ⚠️ EXPORTADO (decimotercera tanda, punto 5: «No crees un nuevo modal de conectar la API, reutiliza exactamente el mismo
 // que ya tenemos en integraciones»): Automations lo abre para Zernio sin cambiar de pestaña (`ServicioSuelto`,
 // ./ServicioSuelto.tsx, cargado a demanda). Un segundo modal para lo mismo es el que deja de decir lo mismo.
-export function ServicioModal({ i, sev, chipWord, gcal, health, metaError, usage, cuota, snippetLanding, cargadorLanding, pixel, agenteActual, appUrl, onClose, onCambio, onRefetchUsage }: {
+export function ServicioModal({ i, sev, chipWord, gcal, health, metaError, usage, cuota, snippetLanding, cargadorLanding, pixel, agenteActual, appUrl, aviso, onClose, onCambio, onRefetchUsage }: {
   i: Integracion; sev: 'good' | 'warn' | 'bad';
+  /** Cómo salió el último intento por OAuth, cuando el modal se abre en otra tab (`ServicioSuelto`): ahí no está el
+   *  cartel de arriba de /integraciones, así que lo dice el modal. */
+  aviso?: { kind: 'ok' | 'err'; txt: string } | null;
   /** Reemplaza la palabra del chip cuando el estado tiene un nombre propio ("Falta permiso"). */
   chipWord?: string;
   /** Permiso real de la agenda de Google (lo pide el board una vez, ver arriba). */
@@ -1435,8 +1442,18 @@ export function ServicioModal({ i, sev, chipWord, gcal, health, metaError, usage
     // El `?ws=` va explícito: es un <a> de página entera, y el paso 1 resuelve el
     // workspace destino del request. Sin esto, la agencia parada adentro de un
     // cliente le conectaba la agenda a su PROPIO workspace, sin ningún error.
+    //
+    // ⚠️ Y LLEVA LA PANTALLA A LA QUE VOLVER (14/10/2026, igual que «Conectar con Meta» en ServicioConfigForm): este
+    // modal se abre en cualquier tab (`ServicioSuelto`), y el callback volvía siempre a /integraciones — conectar desde
+    // el Calendario te sacaba del Calendario. Martín: «para una integración jamás se debe salir de la tab».
     const completa = !!gcal?.conectado && gcal.puedeMover;
-    actions.push({ label: completa ? 'Reconectar Google Calendar' : 'Conectar Google Calendar', href: conWs('/api/integraciones/google-calendar', wsPestana), primary: true, sameTab: true });
+    actions.push({
+      label: completa ? 'Reconectar Google Calendar' : 'Conectar Google Calendar', primary: true,
+      onClick: () => {
+        const volver = volverDeLaPestana(window.location.pathname, window.location.search);
+        window.location.href = conWs(`/api/integraciones/google-calendar?volver=${encodeURIComponent(volver)}`, wsPestana);
+      },
+    });
     // LA SALIDA. `disconnectGoogleCalendarAction` existía desde el día uno y su
     // único caller era GoogleCalendarPanel, que no está montado en ninguna página:
     // o sea que no había forma de soltar una agenda. Mientras conectar era
@@ -1491,6 +1508,11 @@ export function ServicioModal({ i, sev, chipWord, gcal, health, metaError, usage
 
           {/* ── El ÚNICO scroller ── */}
           <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '0 26px 22px' }}>
+          {aviso && (
+            <div role="status" style={{ marginBottom: 15, padding: '11px 13px', borderRadius: 11, fontSize: 12.5, fontWeight: 600, lineHeight: 1.5, background: aviso.kind === 'ok' ? 'var(--good-bg)' : 'var(--bad-bg)', color: aviso.kind === 'ok' ? 'var(--good)' : 'var(--bad)' }}>
+              {aviso.txt}
+            </div>
+          )}
           {/* Estado en vivo de Meta: es una alerta, no una descripción. */}
           {alerta && (
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 15, padding: '11px 13px', borderRadius: 11, background: sev === 'good' ? 'var(--surface-2)' : sev === 'warn' ? 'var(--warn-bg)' : 'var(--bad-bg)', color: sev === 'good' ? 'var(--dim)' : sev === 'warn' ? 'var(--warn)' : 'var(--bad)', fontSize: 12.5, lineHeight: 1.5 }}>

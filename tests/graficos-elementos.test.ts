@@ -213,7 +213,8 @@ test('el SVG de una línea o una flecha se pinta con el color de la paleta (o la
 test('el texto: la letra de la hoja, el tamaño y el peso según el tamaño, la alineación y un párrafo por renglón', () => {
   for (const [k, t] of Object.entries(TAMANOS_TEXTO)) {
     const html = renderToStaticMarkup(createElement(CuerpoElemento, { e: el({ tipo: 'texto', texto: 'Uno\nDos\n\nTres', tamano: k, alinear: 'centro', color: 2 }), colores: PALETA, editando: false, onCambiar: () => {} }));
-    assert.match(html, new RegExp(`font-size:${t.px}px`), `${k}: ${html}`);
+    // Desde el 14/10/2026 (épico) el texto crece con su tarjeta: los px son el PISO de un clamp en cqi; el chico no crece.
+    assert.match(html, k === 's' ? new RegExp(`font-size:${t.px}px`) : new RegExp(`font-size:clamp\\(${t.px}px, [\\d.]+cqi, \\d+px\\)`), `${k}: ${html}`);
     assert.match(html, new RegExp(`font-weight:${t.peso}`));
     assert.match(html, /text-align:center/);
     assert.match(html, /font-family:var\(--dash-letra, inherit\)/);

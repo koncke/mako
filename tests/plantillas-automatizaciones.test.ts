@@ -288,13 +288,13 @@ test('lo que habla de la reunión vuelve a mirarla: detrás de una espera «ante
     assert.ok(miraLaReunion(pasos, x.id!), `lead-agendo/${x.id}: sale sin mirar si la reunión sigue por delante`);
   }
   assert.ok(vistos >= 10, `sólo ${vistos} tarjetas que salen`);
-  // El aviso «Nuevo agendado» (la_mk1) va DETRÁS de «Próxima reunión»: subido al CRON, le avisaría al grupo de todos los
-  // que ya estaban en la etapa al prender la automatización.
+  // El aviso «Nuevo agendado» (la_mk1) va DETRÁS de «Su reunión sigue en pie» (era «Próxima reunión en» hasta el 14/10/2026):
+  // subido al CRON, le avisaría al grupo de todos los que ya estaban en la etapa al prender la automatización.
   const padres = padresDe(pasos, 'la_mk1');
   assert.equal(padres.length, 1);
   const cond = nodoPorId(pasos, padres[0].id)!;
   assert.equal(claseDe(cond), 'condicion');
-  assert.ok(cond.ramas!.find((r) => r.id === padres[0].puerto)!.filas.some((f) => f.campo === 'reunion_en'), 'la_mk1 no cuelga de «Próxima reunión»');
+  assert.ok(cond.ramas!.find((r) => r.id === padres[0].puerto)!.filas.some((f) => f.campo === 'reunion_en_pie'), 'la_mk1 no cuelga de «Su reunión sigue en pie»');
 });
 
 test('«Un Lead Agendó Llamada»: TRES caminos desde el CRON (recordatorios y equipo, confirmar, email)', () => {

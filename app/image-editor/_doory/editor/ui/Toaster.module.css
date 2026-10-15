@@ -1,0 +1,88 @@
+/* Aviso de Canva: banda oscura abajo al centro, texto blanco 14, radio 8, acción en violeta claro */
+.stack {
+  position: absolute;
+  z-index: var(--cv-z-toast);
+  left: 50%;
+  bottom: 72px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--cv-space-2);
+  transform: translateX(-50%);
+  pointer-events: none;
+  width: min(480px, calc(100% - 32px));
+}
+
+.toast {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--cv-space-3);
+  width: fit-content;
+  max-width: 100%;
+  min-height: 48px;
+  padding: 8px var(--cv-space-2) 8px var(--cv-space-4);
+  border: 0;
+  border-radius: var(--cv-radius-sm);
+  background: var(--cv-tooltip-bg);
+  color: #fff;
+  box-shadow: var(--cv-shadow-lg);
+  font: 400 var(--cv-text-base) / 1.4 var(--cv-font-sans);
+  animation: toast-in var(--cv-duration-slow) var(--cv-ease-out);
+}
+
+.icon {
+  display: inline-flex;
+  color: #a370fc; /* Canva: violeta del tema oscuro */
+}
+.success .icon {
+  color: #3fc451; /* Canva: verde legible sobre fondo oscuro */
+}
+.error .icon {
+  color: #fd4958; /* Canva: error del tema oscuro */
+}
+
+.message {
+  flex: 1;
+  min-width: 0;
+}
+
+.action {
+  border: 0;
+  background: transparent;
+  color: #a370fc;
+  font: 600 var(--cv-text-base) / 1 var(--cv-font-sans);
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 6px;
+}
+.action:hover {
+  background: rgb(255 255 255 / 0.07);
+}
+
+.close {
+  display: inline-flex;
+  border: 0;
+  background: transparent;
+  color: rgb(255 255 255 / 0.7);
+  padding: 6px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.close:hover {
+  background: rgb(255 255 255 / 0.07);
+  color: #fff;
+}
+
+.action:focus-visible,
+.close:focus-visible {
+  outline: none;
+  box-shadow: var(--cv-focus-ring);
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}

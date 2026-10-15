@@ -1,0 +1,7 @@
+/* Holds the place of the timeline while its code downloads, so the workspace does not jump when it arrives. */
+.placeholder {
+  flex: none;
+  min-height: 44px;
+  border-top: 1px solid var(--cv-color-border);
+  background: var(--cv-color-surface);
+}

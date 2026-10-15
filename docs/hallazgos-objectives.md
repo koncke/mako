@@ -199,7 +199,7 @@ que eso no se rompa:
 
 ## Restaurar un diseño no es restaurar el código: la forma vuelve, los bugs no
 
-**Vive en:** `app/general/Cabecera.tsx` - `app/general/page.tsx` (`Semáforo`) - `lib/focus.ts`
+**Vive en:** `app/general/Cabecera.tsx` (desde el 14/10/2026, `app/general/bloques/Meta.tsx`) - `app/general/page.tsx` (`Semáforo`) - `lib/focus.ts`
 (`sinFuentes`) - `lib/objectives-modelo.ts` (`elegirObjetivoPrincipal`)
 
 Cuatro commits del 6 y 7/09/2026 (`30a37bdc`, `b3805511`, `ad608da3`, `86478448`) mezclaron
@@ -310,7 +310,7 @@ otra cosa que la meta.
 
 ## El relleno de una isla oscura se deriva del TEXTO de esa isla
 
-**Vive en:** `app/general/Cabecera.tsx` (`RELLENO`, `RELLENO_LINEA`) - `app/globals.css:916`
+**Vive en:** `app/general/Cabecera.tsx` (`RELLENO`, `RELLENO_LINEA`; se borró el 14/10/2026: la isla oscura es la opción «Fondo» de cada bloque, `app/dashboard/ElementoGeneral.tsx`) - `app/globals.css:916`
 
 Adentro de la isla oscura hacen falta un relleno y una línea elevados, y el repo los venía
 escribiendo a mano como `rgba(255,255,255,.05)`. Eso se rompe donde nadie mira:
@@ -457,6 +457,10 @@ escriben en `notificaciones`, que sigue sin existir en producción (la 0048 nunc
 
 ## /general personalizable: cada persona elige sus VISTAS, y un bloque que no filtra no finge (13/10/2026)
 
+> ⚠️ **Reemplazada el 14/10/2026** por [General es el editor del Dashboard con su propio informe](#general-es-el-editor-del-dashboard-con-su-propio-informe-14102026):
+> las vistas, su IA y su ruta se retiraron. Queda por lo que enseñaron (el alcance que no matchea nada, el semáforo que
+> dependía de la cabecera). Los archivos que nombra ya no existen, salvo `lib/general-alcance.ts` y `app/general/Bloques.tsx`.
+
 **El pedido.** Martín: «Que los usuarios puedan elegir que ver, si quieren ver "Prioridades" del PLAN, como el
 caso de Mauricio, las cuotas a cobrar... Otros querrán ver su objetivo», y en el mismo turno: «Que hayan templates
 de tab general. Y que se puedan crear más de una, e incluso asignarles ofertas y/o funnels». Y Mauricio, en la
@@ -528,14 +532,373 @@ no que se analiza. Es la lista del teléfono en escritorio, y lo que importa al 
 - **Un negocio que no cobra en cuotas no ve la sección**: sin filas y sin error es ruido en la pantalla de lo que se hace hoy. Si
   la lectura falla, la sección está y lo dice.
 
+## General es el editor del Dashboard con su propio informe (14/10/2026)
+
+**El pedido.** Martín, al ver las vistas del 13/10: «La personalización que hiciste en GENERAL es nula... Mirá que
+tienes de donde inspirarte, pero no lo hiciste... Tenemos un constructor de landing y gráficos para poder personalizar
+la tab general... intenta replicar lo que tenemos en dashboard, solo que claro, aquí no hace falta tantos gráficos y
+tiene otro objetivo la tab... también crea templates... Me imagino una que diga "Bienvenido NOMBRE..." Los bloques
+también deberían ser editables». Y después: «Piensa en todos los bloques que un usuario, con los diferentes funnels
+que tenemos... podría llegar a querer ver».
+
+**El diagnóstico obvio era el equivocado, y lo había elegido yo.** El 13/10 se leyó «que los usuarios puedan elegir
+qué ver» como «elegir bloques de una lista y ordenarlos»: una máquina nueva (vistas, su IA, su ruta, su barra) al lado
+de un editor que ya hacía todo eso y más. El pedido nombraba la fuente («tenemos de donde inspirarte») y la fuente era
+el Dashboard. Antes de construir una personalización, la pregunta es **qué pantalla del producto ya la tiene**: si
+existe, la segunda es la misma con otro dato, no otra máquina (AGENTS.md, «Antes de construir una máquina nueva…»).
+
+**Cómo quedó.** `/general` monta `EditorInforme` con `informe="general"`. Lo único que cambia es el DATO y lo que el
+editor sabe dibujar de más:
+
+- **El informe es otro**: `general.informe.<sub>` (`claveDe`/`inicialDe` en lib/graficos-tablero.ts), con el mismo
+  compare-and-set por versión. Quien nunca armó el suyo ve `informeGeneralInicial()` (ids fijos), y **mirar no lo
+  guarda**. Un informe guardado sin hojas vuelve a la inicial: General nunca queda en blanco.
+- **Los bloques de General son un ELEMENTO** (`tipo: 'general'`, lib/general-piezas.ts). El editor no aprende a leer
+  el objetivo, los KPIs ni el Plan: el server de /general los arma con las lecturas de siempre (app/general/piezas.tsx)
+  y viajan ya dibujados por contexto (`ContextoGeneral`, app/dashboard/ElementoGeneral.tsx). Un componente de cliente
+  puede recibir JSX armado en el server como prop, y eso es lo que evita duplicar cinco lecturas en el cliente.
+- **Se arman TODOS los bloques, no los de la hoja abierta**: se puede insertar cualquiera mientras se edita y cambiar de
+  hoja no vuelve al server. Cada lectura falla sola y su bloque lo dice.
+- **El funnel se elige por bloque** («Tu funnel hoy», «A quién cobrarle»: `piezaPorFunnel`). El server arma UNA
+  variante por funnel (hasta 8) con `clavePieza(pieza, funnel)`, y el elemento la busca con la MISMA función: elegir en
+  el panel cambia el bloque sin volver al server. Para la cobranza se pregunta de qué funnel es cada CLIENTE CON CUOTAS
+  (`funnelsDeLeads`, la lista chica), nunca los ids de todos los leads del negocio.
+- **Los textos entienden variables** (`{{saludo}}`, `{{nombre}}`, `{{negocio}}`, `{{fecha}}`, `{{trimestre}}`): se
+  resuelven al DIBUJAR (`conVariables`), nunca se guardan resueltas, y la que no tiene valor queda cruda.
+
+**Las trampas que salieron:**
+
+- **Parametrizar el editor rompió SIETE tests anclados por regex** (la guía, el ⋮ Compartir, el AI Analyst, la lista de
+  tipos de elemento). Ninguno era un bug: eran guards que leen el fuente del editor. Se actualizaron con su porqué; la
+  lección es que **sumar una variante a un componente que tiene guards de fuente es tocar esos guards en el mismo
+  commit**, y correr `tests/graficos*` y `tests/dashboard-*` antes de dar el editor por terminado.
+- **Un tipo de elemento nuevo aparece SOLO en todas las listas que derivan de `TIPOS_ELEMENTO`**, incluidas las que no
+  pueden dibujarlo: la API del Dashboard lo ofrecía en `insertar_elemento_dashboard` y fallaba con «No pude armar el
+  elemento» (el saneo lo tira sin pieza). Se sacó de `ELEMENTOS_DE_LA_API` con un error que dice dónde va, y el
+  catálogo lo marca `solo_en_general`. Lo mismo vale para los links compartidos (`ELEMENTOS_QUE_NO_SALEN`).
+- **El análisis programado (cron) lee los informes guardados**, y el de General vive en otra clave:
+  `leerInformeGuardado` (lib/graficos-analisis-server.ts) junta las hojas de los dos, o las cajas de Conclusiones de
+  una hoja de General no correrían nunca.
+- **Un pop-up no tiene General que dibujar**: el saneo tira un bloque de General con `enPopup`. Copiar una hoja de
+  General al Dashboard deja los bloques diciendo «se ve en la tab General»: aceptado, no se migran.
+- **El tsc del chequeo angosto murió sin imprimir nada con 2 GB libres** (el vigía de RAM). Con 2,9 GB y
+  `--max-old-space-size=2560` pasó. No era el código: AGENTS.md, «si el pre-push falla sin imprimir una sola línea».
+- **Y un chequeo angosto cubre los archivos de SU lista, a la hora en que corrió.** La bitácora de `/admin/dev` también
+  tipa (`Hito` exige `puntos`), se escribió después del chequeo, y el hito de un pedido sin `puntos` llegó al pre-push
+  del orquestador (lo arregló en `46958506`). Lo que se escribe en la cosecha entra a la lista y se vuelve a chequear.
+
+**Segunda vuelta, el mismo día (04:47).** Martín: «Toda la topbar la deberías copiar de Dashboard menos la barra de
+busqueda y el filtro que no sirven en general... Y lo mismo que en Dashboard, para un usuario nuevo, deberías proponerle un
+template». Quedó así: la barra de General es la del Dashboard sin `BarraControles` (título, Editar, ⋮), y quien nunca armó
+la suya arranca EN BLANCO como el Dashboard (`sinPaginas`), con la caja y las plantillas de General como páginas (la entrada
+de docs/hallazgos-graficos.md, «La pantalla en blanco es "¿Qué vas a crear hoy?"»). Dos cosas que se mueven con eso:
+
+- **La API de MaKo lee el informe como lo ve la pantalla** (`informeDe`, lib/api-mako/areas/general.run.ts): sin hojas para
+  quien nunca armó el suyo. Leyendo el crudo, `crear_hoja_general` guardaba la General de siempre JUNTO con la nueva, una
+  hoja que la persona nunca vio.
+- **El análisis programado ya no mira la General de siempre** de quien no guardó nada (lib/graficos-analisis-server.ts): sin
+  informe guardado, cero hojas de General.
+- El modal «Personalizar vista» que Martín vio al apretar Editar era la versión de las VISTAS: la captura es de antes del
+  deploy de 46958506.
+
+**Vive en:** `app/general/page.tsx` · `app/general/datos.ts` (era `piezas.tsx`) · `app/dashboard/ElementoGeneral.tsx` ·
+`app/dashboard/EditorInforme.tsx` · `app/dashboard/Elemento.tsx` · `lib/general-piezas.ts` · `lib/general-plantillas.ts` ·
+`lib/general-alcance.ts` · `lib/graficos-tablero.ts` · `lib/graficos-catalogo.ts` · `lib/graficos-analisis-server.ts` ·
+`lib/api-mako/areas/general.run.ts` · `lib/api-mako/areas/dashboard.helpers.ts` · `tests/general-editor.test.ts`.
+*14/10/2026, claude2 (56efcbaa).*
+
+**Tercera vuelta, el mismo día (con dos capturas de General editándose).** Martín: «Diseña nuevamente todos los "Bloque
+general", la mayoría son solamente texto... Si no hay datos aún, se debería ver el placeholder siempre», «Todos los
+desplegables de edición de un bloque y en general la edición del bloque hazlo mejor», «Tenemos un diseño de tarjetas para
+las tareas y proyectos del plan e hiciste cualquier cosa», «Hay bloques que en la configuración se deben definir allí mismo
+ciertas cosas... Como el objetivo del trimestre, que me gustaría que se llamen (OKRs)» y «Pon muchos menos gráficos
+disponibles en General». Lo que no se ve en el código y gobierna lo que venga:
+
+- **Un bloque que viaja YA DIBUJADO no puede tener opciones.** La primera versión mandaba cada bloque como JSX armado en el
+  server (`armarPiezas`), y por eso el panel sólo podía cambiar de bloque o de funnel: «cuántas», «cuántos días» o «cómo se
+  ve» habrían sido una variante más por combinación, o volver al server. Desde esta vuelta el server lee DATOS
+  (app/general/datos.ts, tipos en datos-tipos.ts) y cada bloque se dibuja en el navegador con sus opciones (app/general/
+  bloques/). El funnel elegido se resuelve igual: el server cuenta todos los funnels con su id y el bloque elige el suyo.
+- **El Dashboard no carga el código de General**: el dibujo de un bloque lo pone quien monta el contexto
+  (`ProveedorGeneral`, app/general/ProveedorGeneral.tsx), y el editor sólo llama a `dibujar`, `configurar` y `muestra`
+  (app/dashboard/ElementoGeneral.tsx). Importar los bloques desde ElementoGeneral habría metido General —y el tablero del
+  Plan que traen sus tarjetas— en el bundle del Dashboard.
+- **Las opciones las declara el bloque** (`opciones` en lib/general-piezas.ts, de 2 a 4 valores con su default) y el saneo
+  guarda sólo las que el bloque tiene, con un valor que existe y distinto del default (`sanearOpciones`). Un valor viejo
+  que ya no existe vuelve al default al leer (`opcionDe`). En el panel van como botones a la vista; «Bloque» y «Funnel»,
+  con el desplegable de la casa y el ícono de cada bloque.
+- **Las tarjetas del Plan son las del Plan.** La de una tarea vivía en línea adentro de la vista Prioridades de BoardShell:
+  se sacó a `TarjetaPrioridad` (exportada, mismo dibujo) y la usan las dos pantallas; la de proyecto ya era
+  `ProyectoCardTile`. General las trae con `next/dynamic` (BoardShell es el tablero entero: un pedazo aparte, sólo si hay un
+  bloque del Plan). «Completar» es la escritura del teléfono (`marcarHechaAction`, app/m/plan/acciones.ts), que ya sabe
+  escribir en los dos tableros.
+- **El placeholder es el bloque con datos de ejemplo** (app/general/bloques/muestras.ts, ficticios), apagado y con la
+  acción que lo llena encima («＋ Nuevo OKR», «Abrir el Plan»…). Las mismas muestras son la vista previa del menú «Bloques de
+  General» (tres por fila, sin títulos de grupo).
+- ⚠️ **Lo que depende de la hora se dibuja después de montar.** Los bloques se dibujan también en el server: la raya de
+  «Ahora» de Mi día, el «hace una hora» de las llamadas y las fechas de ejemplo (que salen de hoy y de la zona del navegador)
+  darían un HTML distinto en el server y en el primer dibujo del navegador, que es romper la hidratación sin un error a la
+  vista. Van con `useAhora` (null hasta montar) y el `Placeholder` dibuja la muestra recién montado.
+- **Los OKRs se definen ahí mismo**: cada tarjeta abre `EditarObjetivo`, el placeholder trae «＋ Nuevo OKR» y el panel de
+  «OKRs» (y del hero) lista los OKRs con «Editar» (`configurarBloque`). La entidad sigue siendo `objectives`: cambió cómo se
+  nombra en pantalla.
+- **General acota lo que trae del Dashboard** (`TIPOS_GENERAL`, `FUENTES_GENERAL`, `ELEMENTOS_FUERA_DE_GENERAL`): la
+  galería, «Añadir datos», el panel de un gráfico (que igual ofrece el conjunto que ya tiene) y la barra de inserción (sin
+  código, Conclusiones de MaKo ni Acción). Las plantillas de General sólo usan eso: un gráfico de afuera sería uno que
+  nadie puede volver a elegir. Lo fija tests/general-bloques.test.ts.
+- **La API de MaKo hace lo mismo que el panel**: `agregar_bloque_general` acepta `opciones` y `configurar_bloque_general`
+  cambia las de un bloque que ya está (su título y su funnel también). Un parámetro `object` del registro declara sus
+  `campos` (el test del registro lo exige): son la unión de las opciones de todos los bloques, y el runner rechaza la de
+  otro bloque diciendo cuáles tiene.
+- **«La tab que creé en el workspace de Leandro»** era la única General guardada en toda la base: `general.informe.1` del
+  ws 9 (el de Martín), con la hoja de la captura (`gmv7upmz01jrm`, «Página 1»). En ws 10 no había ninguna. Se borró con
+  respaldo y compare-and-set; General vuelve a arrancar en blanco.
+
+**Vive en:** `app/general/datos.ts` · `app/general/datos-tipos.ts` · `app/general/ProveedorGeneral.tsx` ·
+`app/general/bloques/` · `app/dashboard/ElementoGeneral.tsx` · `app/dashboard/Elemento.tsx` (`PropsGeneral`) ·
+`lib/general-piezas.ts` · `app/plan/board/BoardShell.tsx` (`TarjetaPrioridad`) · `lib/plan-hoy.ts`
+(`leerPlanHoyConTablero`) · `lib/api-mako/areas/general.*` · `tests/general-bloques.test.ts`.
+*14/10/2026, claude2.*
+
+## General, cuarta vuelta: un bloque es una tarjeta de la hoja, y una plantilla contesta una pregunta (14/10/2026)
+
+**El pedido** (Martín, 11:54, con tres capturas de una hoja recién creada en el ws1): «Mucho espacio en blanco en el
+template, bloques que no se ven, los gráficos no tienen sentido, mira como se rompe "Leads por producto y etapa"... Y
+pusiste ese dato 2 veces en diferentes gráficos... elegiste mostrar "Leads por origen" y "Pendientes del CRM" cuando hay
+datos mucho más interesantes... como datos de facturación, de Meta», «todos nacen con bloques que ocupan todo el ancho y
+quedan feos... No tienen títulos, no tienen separaciones claras», «Rediseña completamente el grafico de "Objetivo" y "Acción
+del día", deben ser 2 gráficos diferentes... que el primero se llame "Meta objetivo". Y que no tenga un diseño dark»,
+«muchos bloques los copiaste de otros lados, como el de Prioridades, pero no están interactuando con el diseño de la
+página», «Los templates deben ser simples» y «Faltan bloques... como el de "Tareas Prioritarias"... 1 tarea, 3 tareas, 5,
+10... Piensa en cada bloque y como debería poder editarse».
+
+**El diagnóstico obvio era el equivocado: no eran los bloques, era el MARCO.** Un elemento del editor va sin tarjeta
+(`.lk-comp--elemento`: fondo y borde transparentes, sin aire), y los bloques de General heredaban eso: sobre el fondo de la
+página, sin el marco que tienen los gráficos de al lado, se leían como algo pegado de otra app —y un placeholder apagado sin
+marco directamente no se veía—. Cada bloque tenía, además, su propio título (22 o 25 px) contra los 19 px del tema. La cura
+fue una línea de clase (`lk-comp--general`) y que el título de un bloque use las mismas variables que el de un gráfico
+(`--dash-titulo-*`, `.gb-tit`), no rediseñar cada bloque otra vez.
+
+**Lo que gobierna lo que venga:**
+
+- **Adentro de la tarjeta no va otra tarjeta.** Lo que se agrupa (un OKR, una métrica del mes, un proyecto) es una LOSA
+  (`gb-losa`: el color del texto al 4,5% sobre transparente, sin borde), y una lista es filas con su línea (`gb-fila`). La
+  losa se da vuelta sola con el fondo oscuro porque sale de `--ink`. Las tarjetas que vienen del Plan van adentro de
+  `gb-plan`, que les cambia `--surface` por la losa y les saca el borde.
+- **El fondo oscuro es una OPCIÓN de cada bloque** (`fondo`, lib/general-piezas.ts) y la aplica el MARCO, no el bloque:
+  `data-oscuro` redefine los tokens (tinta, grises, líneas, superficie) a los de la isla y la tarjeta se pinta con `:has`.
+  Un bloque escrito con los tokens de la casa se da vuelta sin saberlo; uno con colores fijos, no.
+- **La Meta objetivo y la Acción del día son dos bloques** (app/general/bloques/Meta.tsx), claros, con las decisiones del
+  08/09 intactas (la barra con la marca del tiempo, «a esta altura» y no «vas a llegar», sin meta no hay número). El id
+  `cabecera` no cambió: lo guardan los informes. ../Cabecera.tsx y ../Ahora.tsx se borraron.
+- **El título propio de un bloque va por contexto** (`useTituloPropio`): antes se dibujaba aparte, arriba, y escondía el del
+  bloque por CSS — dos títulos, y lo que el bloque decía al lado quedaba huérfano.
+- **El tamaño de un bloque es el de su CONTENIDO**, y en una plantilla **los bloques van de a dos con el mismo alto**:
+  `acomodar` estira la fila al más alto, y un bloque estirado es espacio en blanco. «Pendientes del CRM» medía 7 filas para
+  dibujar 4. Lo fija el test de las plantillas (un bloque que la fila estira, falla).
+- **«El mismo dato dos veces» es la misma métrica VISTA IGUAL** (conjunto + métricas + dimensión): un número y su serie por
+  día son dos lecturas; «Leads por etapa» al lado de «Tu funnel hoy» es la misma. La captura mostraba «Leads por
+  producto y etapa» rompiéndose: un desglose por etapa al lado del funnel, y ninguna plantilla de General lo trae ahora.
+- **Una plantilla contesta UNA pregunta**, con pocas piezas, títulos de parte (una Sección sin fondo ni pliegue) y lo más
+  importante en número: la plata (cobrado, vendido) y lo que cuesta conseguirla (la inversión, el costo por lead) le ganan a
+  un desglose por origen. Entró «Anuncios» (Meta).
+- **«Proyectos del Plan» dibuja la anatomía de la tarjeta del Plan** (portada, marca, título, avance, deadline) con las piezas
+  del Plan (`fondoPortada`, `Marca`, `LineaDeadline`, `projProgress`): la tarjeta del tablero mide 360 px de alto, que en una
+  hoja es un hueco. «Prioridades del Plan» sigue con las tarjetas del Plan tal cual.
+- **Los bloques nuevos** («Tareas prioritarias», «Próximos deadlines») leen lo que ya lee el Plan, y su «hoy» es el del
+  negocio que manda el server (`d.d.hoy`): el plazo de un deadline sale igual en los dos lados.
+- ⚠️ **Adentro de una hoja de estilos en template literal no va ningún backtick, ni en un comentario**: el comentario del
+  marco nombraba `--gb-fondo` entre backticks y partió `editor-css.ts` (lo cazó el typecheck: «',' expected»). Y en un
+  heredoc de Bash los backticks se EJECUTAN: un script de reemplazo escrito así contestó «No such file or directory» con
+  tres pedazos del texto.
+
+**Sin verse en pantalla todavía**: los altos de cada bloque salen de medir lo que dibuja, no de mirarlo (no se levantó un
+`next dev`). Va a ws3 después del deploy.
+
+**Vive en:** `app/general/bloques/` (`comun.tsx`, `Meta.tsx`, `Plan.tsx`) · `app/dashboard/ElementoGeneral.tsx` ·
+`app/dashboard/editor-css.ts` (`.lk-comp--general`) · `app/dashboard/EditorInforme.tsx` · `lib/general-piezas.ts` ·
+`lib/general-plantillas.ts` · `app/general/datos.ts` · `app/general/KpisCard.tsx` · `app/general/Cobranza.tsx` ·
+`tests/general-bloques.test.ts`.
+*14/10/2026, claude2 (e6818ee0).*
+
+## General, quinta vuelta: de un vistazo, en grande, y medido en pantalla (14/10/2026)
+
+**El pedido** (Martín, 13:26, con dos capturas de «¿Qué vas a crear hoy?»): «Rediseña bloque por bloque, sacale una captura
+o algo y date feedback a vos mismo para perfeccionarlo en diseño. Por ejemplo, el bloque del semáforo tiene un espacio en
+blanco grande e innecesario... Haz esto también para mobile... las plantillas de GENERAL, no se parezcan tanto a un
+dashboard... aquí en general todo tiene que ser más minimalista, textos enormes, cosas grandes, porque justamente es para ver
+de una pasada lo que el usuario quiera ver... Ya si quiere profundizar entra a dashboard» y «El diseño mobile no se ve bien
+de los bloques».
+
+**Lo que se vio en las capturas (ws3, producción, con «Editar → Celular»)** y lo que salió:
+
+- **La Acción del día tenía un hueco del alto de la tarjeta entre la razón y el botón**: el botón iba al pie con
+  `marginTop: auto`. Va pegado a la razón.
+- **El semáforo dejaba media tarjeta en blanco**: la columna de lámparas medía lo que la tarjeta y la lista tenía tres
+  renglones. Ahora el titular manda («2 cosas para atender», en grande y del color del semáforo), las lámparas van en fila
+  al lado, y el bloque pide 6 filas.
+- **«Tu funnel hoy» mostraba diez etapas en cero y una barra de scroll**, con «2 leads» arriba: los dos estaban en etapas
+  que el funnel ya no tiene. Con más de 6 etapas se dibujan sólo las que tienen leads, el total va en grande y lo que no
+  tiene etapa se dice.
+- **«El mes» tenía barra de scroll y dos barras por métrica** (un gráfico del Dashboard): cuatro números grandes y el
+  anterior en texto.
+- **«A quién cobrarle» vacío repetía su título**: la muestra del placeholder es el componente entero, con su cabecera.
+  La muestra va `sinCabeza`.
+- **En el celular, cuatro números del mes eran cuatro tarjetas a lo ancho**: la pila pone los números de a dos.
+
+**La regla que queda: en General, cada bloque tiene UNA cosa en grande** (el número de la meta, la acción, cuántas cosas
+para atender, cuántos por cobrar, la próxima llamada, los leads sin marcar, el total del funnel) **y su letra va en `cqi`**:
+`.gen-pieza` lleva `container-type: inline-size`, así que la misma letra crece en una tarjeta ancha y baja en media hoja o
+en el teléfono, sin media queries y sin tocar el estilo en línea. ⚠️ Un bloque que se dibuja FUERA de `.gen-pieza` (la
+vista previa del menú) necesita su propio contenedor (`.lk-bloque-escala`): sin uno, `cqi` se mide contra la ventana.
+Y las plantillas de General son bloques antes que gráficos: sin tablas ni series, y como mucho cuatro números.
+
+**Vive en:** `app/general/bloques/` (`Meta.tsx`, `Norte.tsx`, `Negocio.tsx`, `Agenda.tsx`, `Plan.tsx`) ·
+`app/general/Cobranza.tsx` · `app/dashboard/ElementoGeneral.tsx` · `app/dashboard/editor-css.ts` (`.lk-pila`) ·
+`lib/general-plantillas.ts` · `tests/general-bloques.test.ts`.
+*14/10/2026, claude2.*
+
+## General, sexta vuelta: bloque por bloque con capturas, y las plantillas con el tema General (14/10/2026)
+
+**El pedido** (Martín, 14:10 y 14:16): «no veo que hayas modificado bloque por bloque y las cosas que te pedi» y «No solo
+los bloques, sino los templates, con el feedback que te di que se vea como una tab general, no como un dashboard... Cosas
+grandes, textos grandes, que sea simple de leer».
+
+**Cómo se miró, y sirve para la próxima:** un arnés fuera del repo dibuja cada bloque con los datos de ejemplo de
+`muestras.ts` a su tamaño de escritorio y a 364 px (el celular), y cada plantilla armada con `lugarEnMiniatura`, con la
+hoja de estilos de la app; Playwright saca una captura por sección. Corre los componentes en Node con `tsx` y tres stubs:
+`server-only` vacío, todo módulo `'use server'` reemplazado por acciones que no hacen nada, y el `Link` de la casa como un
+`<a>`. ⚠️ Lo que llega con `next/dynamic` (las tarjetas del Plan de «Prioridades del Plan») NO se dibuja ahí: ese bloque se
+mira en el navegador.
+
+**Lo que mostraron las capturas, y lo que salió:**
+
+- **Las listas se cortaban a la mitad** (deadlines, a quién cobrarle): una tarjeta de alto fijo con `overflow: auto`
+  dibujaba media fila y un scroll adentro. Ahora una lista muestra sólo las filas que ENTRAN enteras (`gb-cabe`, una
+  columna flex que envuelve: lo que no entra pasa a una segunda columna que queda afuera). ⚠️ Necesita un alto DEFINIDO
+  (la cadena `lk-comp` → `.gen-pieza` → `.gb`, todas flex con `min-height: 0`); en la pila del celular el bloque mide lo
+  que dibuja y se ve la lista entera. Y el costo: si la última fila no entra por un par de píxeles, queda un hueco del
+  alto de una fila — se arregla con el alto del bloque, no sacando la regla.
+- **Lo repetido no llenaba la fila**: OKRs, proyectos y publicaciones usaban `repeat(auto-fill, …)`, que crea las
+  columnas aunque estén vacías (tres OKRs en una hoja entera dejaban un tercio libre). Va `auto-fit`.
+- **Lo que no llena el alto va centrado** (`gb-centro`): la Acción del día al lado de la Meta objetivo, los OKRs, los
+  pendientes.
+- **Los KPIs eran bloques de color de 350 px de ancho y 132 px de alto fijos**, con el número en 15 px: las barras llenan el
+  alto del bloque con un ancho tope, y arriba el número en grande «14 de 20».
+- **En el celular, la fila de una tarea partía el proyecto y el deadline en «vi…»**: la línea envuelve.
+- **La muestra escribía la plata en otro formato que la app** («US$30.000» contra el `$18,600` de `fmtUSD`): los ejemplos
+  usan el formato del formateador.
+- **El tamaño de cada bloque, al de su contenido**: OKRs 5 filas, Proyectos 6, Publicaciones 5, Pendientes 6, y el funnel
+  en barras pide 7 (con 6, «Ganado» —lo único que importa del funnel— quedaba afuera).
+
+**Las plantillas se leen como General y no como el Dashboard por el TEMA, no por sacar gráficos:** el tema nuevo
+«General» (lib/graficos-temas.ts) va sin borde ni filete, la tarjeta flota, el título y el número del catálogo más grandes
+(52 px: con 60 la comparación se caía abajo en una tarjeta de un tercio) y la etiqueta en la letra de la hoja. Las doce
+plantillas nacen con él (`tema` en `DefinicionGeneral`), y la comparación «↑ 1,3×» deja de ir en mono cuando la etiqueta
+no va en mono. «Cobros» perdió sus columnas por semana.
+
+**Vive en:** `app/general/bloques/comun.tsx` (`gb-cabe`, `gb-centro`) · `app/general/bloques/` · `app/general/KpisCard.tsx` ·
+`app/general/Cobranza.tsx` · `lib/general-piezas.ts` · `lib/general-plantillas.ts` · `lib/graficos-plantillas-generales.ts`
+(`tema`) · `lib/graficos-temas.ts` · `app/dashboard/Grafico.tsx` · `tests/general-bloques.test.ts`.
+*14/10/2026, claude2.*
+
+## General, séptima vuelta: ÉPICA, con la escala del teléfono (14/10/2026)
+
+**El pedido** (Martín, 14/10 ~23:00, por el orquestador): «Lo mismo que hicimos en mobile, que sea EPICO la vista General,
+quiero que le envies a los templates de general en desktop, se ven muy como dashboards y quiero que sean como lo tenemos
+en mobile, epicos, pocas cosas, textos gigantes, bloques grandes, etc... Hay que rediseñar los bloques y los templates para
+que cumplan con este criterio.»
+
+**Lo que no se ve leyendo el código, y es lo primero que hay que saber:** el General del TELÉFONO no tiene bloques propios.
+`app/m/hoy/GeneralM.tsx` monta `ElementoGeneral` + `ProveedorGeneral`, o sea ESTOS bloques. Agrandarlos para escritorio
+agranda el teléfono, que Martín ya aprobó (v3, `docs/prototipos/mako-mobile-tableros.html`). Por eso cada tamaño va contra la
+tarjeta (`cqi`, `.gen-pieza` es el contenedor) y se mira a ~358 px antes de dar algo por terminado.
+
+**La escala** (`app/general/bloques/comun.tsx`: `gb-p`, `gb-s`, `gb-frase`, `gb-t`, `gb-d`, `gb-delta`):
+
+- ⚠️ **Un % fijo del ancho no sirve para las dos pantallas.** El teléfono pone el número protagonista en 40 px con ~326 px de
+  contenido (12cqi). Con 12cqi, media hoja de escritorio daba 61 px, que era lo que ya había: «épico» no cambiaba nada. Cada
+  tamaño es una RECTA que pasa por el valor del teléfono y sube más rápido: el protagonista `clamp(40px, 22cqi − 32px,
+  128px)` da 40 en el teléfono, ~80 en media hoja y 128 a lo ancho. Lo mismo la frase de la acción (23 → ~44 → 60), las
+  baldosas del mes y el texto de una fila.
+- **La proporción del teléfono**: el protagonista ≈ 3× el rótulo, lo secundario ≈ 2×, y nada en el medio. El rótulo de cada
+  tarjeta pasa a ser el ÚNICO texto chico: 13 px en mayúsculas, del tema «General» (lib/graficos-temas.ts).
+- **La baldosa del mes es su propio contenedor** (`containerType` en la losa): cuatro a lo ancho no se pasan y dos en el
+  teléfono quedan en 27 px.
+- **Un total al lado de lo que explica en una tarjeta ancha** (`gb-par`, con `@container`): a 128 px, arriba de las
+  barras, el total del funnel se comía el alto y cortaba las etapas (Operación diaria, 12×7).
+- **Los números del catálogo comparten la escala con el Dashboard** (`ESCALA_EPICA`, lib/graficos-gordo.ts, la hizo
+  Dashboard la misma noche). En una plantilla de General miden 5 filas (`ALTO_NUMERO`, `conNumerosAltos` en
+  lib/general-plantillas.ts): a 3, el tope por alto los dejaba como antes.
+
+**Lo que se sacó** (lo que el teléfono ya había sacado): el pie de la meta («Q4 · quedan 78 días · Vendido · 14/20
+clientes», queda con «Qué muestra: Con el detalle»), el porqué de la acción (con «El porqué: Se ve»), la línea «mismo
+período del mes anterior», el cuadradito con la fecha y los chips «Hoy»/«Mañana» de las llamadas, los chips del trimestre
+y de «Principal» de los OKRs, el proyecto de cada tarea (opción), la cuarta métrica de cada plantilla y la línea de la
+fecha de la Bienvenida. La meta pasa de barra a ANILLO (avance + tiempo, el del teléfono).
+
+⚠️ **Una decisión abierta, en la Ticketera (`general-meta-oscura`):** en el teléfono la Meta va OSCURA y la Acción AZUL; en
+escritorio, la tercera vuelta del 14/10 pidió que la Meta «no tenga un diseño dark... por defecto tiene que ser como el
+resto». Se dejó clara. Si elige oscura + azul en las plantillas, es `opciones: { fondo: 'oscuro' }` en cada plantilla, y el
+azul es un fondo nuevo que aplica `app/dashboard/ElementoGeneral.tsx` (de Dashboard).
+
+**Cómo se miró**: `C:/Users/marti/arnes-dashboard-general/` (fuera del repo): `entrada-general.tsx` dibuja cada plantilla
+de General como la galería (`MiniaturaHoja` a escala 1 adentro de `ProveedorGeneral` con datos de ejemplo) y, con
+`PILA=1`, como la pila del teléfono con los bloques REALES (`ElementoGeneral`). El fixture de `DatosGeneral` es el del
+arnés de la sexta vuelta.
+
+- ⚠️ **«Prioridades del Plan» se escala DESDE AFUERA, con CSS sobre la tarjeta montada.** Son las tarjetas del Plan
+  (`TarjetaPrioridad`, BoardShell, con estilos inline): no se tocan, son del chat del Plan. El envoltorio `gb-plan` les
+  agranda el título (`div[title]`) y el número de puesto (`span[title^="Prioridad "]`) con `cqi` y `!important`. Lo que
+  ancla es el atributo `title` de la tarjeta: si el Plan cambia su markup, la escala deja de aplicarse SIN un error (la
+  tarjeta vuelve a su tamaño, nada se rompe). Se mira en el arnés antes de dar por bueno un cambio de BoardShell.
+
+**Vive en:** `app/general/bloques/` (`comun.tsx`, `Meta.tsx`, `Negocio.tsx`, `Agenda.tsx`, `Norte.tsx`, `Plan.tsx`) ·
+`app/general/Cobranza.tsx` · `app/general/KpisCard.tsx` · `lib/general-piezas.ts` (los defaults: detalle, razón,
+llamadas, proyecto) · `lib/general-plantillas.ts` · `lib/graficos-temas.ts` (el tema «General»).
+*14/10/2026, claude1, chat General.*
+
 ## Lo que quedó sin hacer
 
-- **Las vistas de /general (13/10/2026): cinco bloques miden el negocio entero aunque la vista tenga un funnel.**
-  El objetivo, los KPIs, el semáforo, el mes y los pendientes salen de `leerVistaGeneral` (`lib/vista-general.ts`),
-  que no recibe alcance. Hoy lo dicen («Todo el negocio»); filtrarlos es pasarle los ids de leads del alcance
-  (`idsDeLeadsEnFunnels`, lib/general-alcance.ts) a sus lecturas. Vive en `app/general/page.tsx`.
-- **El Today de MaKo Mobile no mira las vistas**: dibuja lo de siempre. Si se quiere la misma personalización en el
-  teléfono, lee `leerVistasGeneral()` y la vista activa. Vive en `app/m/hoy`.
+- **General épico (14/10/2026):** «Mi día» quedó con la línea de tiempo de siempre, sólo con letra más grande
+  (app/general/bloques/Agenda.tsx). Y los datos de ejemplo de «Avance promedio» (cursos) salen como un número y no como
+  un %, en lib/graficos-muestra.ts. (Las Prioridades del Plan ya escalan, y el «Muy grande» de la Bienvenida lo hizo
+  crecer Dashboard en `d5384e97`.)
+
+- **El Dashboard, con el mismo tratamiento (pedido de Martín del 14/10, 14:34).** «Dale este mismo feedback al
+  dashboard... Que rediseñe bloque por bloque y que tenga en cuenta mobile. Que vaya viendo con datos ficticios o con algun
+  dato de algun workspace que todo se vea bien en diseño. Tanto bloques como las plantillas.» No se arrancó: la cuenta
+  estaba al 95% semanal. El método es el arnés de la sexta vuelta (arriba), con los gráficos del catálogo dibujados con
+  `CuerpoGrafico` + `resultadoDeMuestra` (lib/graficos-muestra.ts) en vez de los bloques, y las plantillas de
+  `PLANTILLAS_HOJA` (lib/graficos-plantillas.ts). Vive en `app/dashboard/`.
+- **La plata se escribe en dos formatos en la misma hoja (14/10/2026).** Los gráficos del catálogo («US$2.882», con punto)
+  y los bloques de General y el resto de la app (`fmtUSD`, lib/format.ts: «$18,600», con coma). Una hoja de General con un
+  número del catálogo al lado de un bloque muestra los dos. Unificarlo es elegir uno y cambiar el otro formateador; toca al
+  Dashboard entero.
+- **«Prioridades del Plan» no se miró en el arnés**: sus tarjetas llegan con `next/dynamic`. Se mira en el navegador.
+
+- **«Fondo: Oscuro» no da vuelta los colores FIJOS de un bloque (14/10/2026).** Lo que usa los tokens de la casa se da
+  vuelta solo; los tipos de «Pendientes del CRM» (`TIPOS_PENDIENTE`, app/general/bloques/Negocio.tsx), los formatos de las
+  publicaciones (`COLOR_FORMATO`, Agenda.tsx) y la columna de las lámparas del semáforo (`var(--sidebar)` sobre una tarjeta
+  que ya es `--sidebar`, Norte.tsx) se quedan como están. Se ve recién cuando alguien elige oscuro.
+- **`.mk-cabecera` (app/_ui/ui.css) ya no lo usa nadie**: era la grilla de la cabecera oscura de ../Cabecera.tsx.
+
+- **Los bloques de General no obedecen los filtros de la hoja (14/10/2026).** Un filtro de período o de campo en la
+  barra de una hoja de General recorta los GRÁFICOS, no los bloques (y desde la tercera vuelta General ni siquiera muestra
+  la barra de filtros). Sólo «Tu funnel hoy» y «A quién cobrarle» se atan a un funnel, desde su propio panel. El objetivo,
+  los KPIs, el semáforo, el mes y los pendientes miden el negocio entero (salen de `leerVistaGeneral`, lib/vista-general.ts,
+  sin alcance). Vive en `app/general/datos.ts`.
+- **El «Conectar» del semáforo SIN FUENTES sigue yendo a /integraciones, a propósito.** No nombra UNA integración (una
+  fuente puede ser Meta, el CRM, un pago…), y abrir la grilla entera es lo que hace la pieza de la regla nueva
+  (`LinkIntegracion`, app/_components/ConectarIntegracion.tsx) con un link que no nombra ninguna. Las alertas del
+  semáforo, la acción del día y «Conectar una IA» del AI Analyst sí abren su modal ahí mismo (abd91fdb).
+- **Más de 8 funnels**: los bloques que se atan a uno se arman hasta 8 (`TOPE_FUNNELS`, app/general/datos.ts); el
+  noveno dice «Ese funnel ya no está». Ningún workspace llega hoy.
+- **El pop-up de un gráfico de General se busca en el tablero del DASHBOARD** (lo marcó el chat de Graphics al revisar
+  56efcbaa). La acción `datos` con `popupDe` lee el dueño con `informeDeRol(rol) ?? leerTablero()` (app/api/graficos/route.ts,
+  ~línea 114), que es el informe del Dashboard. Un admin cae a la definición que manda la pantalla y anda; un rol con
+  «hoja única» (closer, setter) recibiría 403. Hoy General es sólo del admin y no muerde; si algún día otro rol ve
+  General, esa lectura tiene que mirar `general.informe.<sub>` (`leerInformeGeneral`, lib/graficos-tablero.ts).
 - **Una «Prioridades del Plan» por funnel no existe**: las tareas del tablero no tienen funnel, tienen proyecto.
 - **«A quién cobrarle» sigue TAMBIÉN en el Dashboard** (la sección de la hoja Comercial): Martín pidió ponerla en General y no
   dijo si se saca de allá. Se le preguntó el 13/10.

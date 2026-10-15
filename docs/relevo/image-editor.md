@@ -1,0 +1,60 @@
+# Relevo — Image Editor (el Canva de MaKo), 14/10/2026 tarde
+
+Chat: «Image Editor» (cuenta claude1). Antes: «Canva en Content Machine» (claude2). Lo escribe el chat que hizo el trabajo.
+
+## El pedido
+
+> «Quiero que implementes end to end un "Canva" dentro de MaKo, tal cual, copialo todo, tanto en
+> diseño como funcionalidades. Revisa si hay algún repo que nos ahorre trabajo. Dejalo en "Content
+> Machine" en una tab que sea "Image"»
+
+Y sobre la base: **«Copia a Doory, y luego lo modificamos completamente para que sea original de MaKo,
+pero quiero la plantilla para ir trabajando».** El 14/10 a la tarde, por el orquestador: cerrar lo
+pendiente que no dependa de Martín y dejarle en una línea las opciones de lo que sí.
+
+## Dónde quedó
+
+- **Rama `editor-imagen`, worktree `C:/dev/wt-canva`.** Tandas 1 y 2 en main desde el 14/10 13:26
+  (`353c81a8`). Encima: `c7a77fcb` (la vista del presentador) y `5136c1ce` (tanda 3, la base), más la
+  cosecha. Si abajo no dice «en main», no se pusheó.
+- **EN MAIN desde el 14/10 17:17 (`a4e74003`)**, deploy Ready: el presentador, la tanda 3 y su cosecha. Las
+  plantillas en español (`b9a7dae2`) salen en el push siguiente.
+- **Tanda 3 hecha:** diseños, «Subidos» y miniaturas en Supabase (mig **0278, ya aplicada en prod**: sólo
+  agrega dos tablas y el bucket `image-editor`). Lo que la etapa 1 dejó en el navegador de alguien sube solo
+  la primera vez que abre el editor, con su mismo enlace. Plano: `docs/diseno-editor-imagen.md`.
+- **Verificado:** el editor andando en un banco (esbuild + Chrome sin ventana, sin dev server: pasa los 5 GB)
+  — crear, texto, plantilla, imagen, guardar y reabrir, PNG y PDF, presentador; el server contra la base
+  real en el ws 3 (23 pasos, limpiando todo al final); 887 tests de los que barren el árbol en verde.
+- **Verificado en producción el 14/10 a la noche, del lado del CLIENTE** (Chrome con la sesión de Mauricio: rol
+  global «usuario», admin del ws 1, capa completo): `/image-editor`, `/image-editor/<id>` y
+  `/image-editor/presentador` lo mandan a `/crm`; `/api/image-editor/disenos` y `/subidos` contestan 404 «No existe»
+  (la puerta, no el proxy: sin sesión el proxy dice 401); en su barra no hay ningún link al editor.
+- **NO verificado:** el camino del super admin en producción (la tab, la barra, el `?ws=`, guardar en la base). El Chrome con
+  Claude in Chrome no estaba conectado para claude1. Qué mirar con la sesión de Martín: crear un diseño,
+  subir una imagen, cerrar y abrir desde otra pestaña (tiene que estar), descargar PNG, el crédito de Doory al pie.
+
+## Abierto a todos los workspaces (15/10)
+
+Martín: **«Que Image aparezca en todos los workspace.»** Sin `adminOnly` en las cuatro secciones, guard = la pregunta
+de toda tab (admin del workspace y la tab en su capa; `pm` no la tiene, como el Video Editor), «pronto» en Image
+Generator y Thumbnails también en la barra de secciones. Cada negocio ve ahora el crédito de Doory al pie del editor.
+La rama `opcion-image-en-clientes` y la decisión `image-ws-cliente` quedaron sin objeto.
+
+## Lo que decide Martín (en una línea cada una)
+
+- **¿Le escribimos a Siam (autor de Doory) pidiendo MIT?** Sin eso el cartel se queda y no se abre a clientes.
+- **¿Fotos de Unsplash con una key de MaKo?** ¿Y un modelo para quitar fondo de objetos?
+- **La API del editor:** la pregunta `image-api-gating` era «mientras sea sólo tuyo»; con el editor abierto, se
+  declara con el permiso de siempre (`gating.tab: 'image-editor'`, `rolMinimo: 'admin'`). Falta su sí.
+- **Una pestaña de Canva** (`canva.com/design/DAHX-ICTUd4`) en el grupo de los agentes: si se creó en su cuenta, papelera.
+
+## Lo que sigue (no depende de él)
+
+1. ~~Las 10 plantillas en español~~: hecho el 14/10 (texto del lienzo y miniaturas, medidas en la hoja de contactos).
+2. Tanda 5: lo de Canva que Doory no trae, por los paquetes de `docs/editor-imagen/relevamiento-canva-funciones.md`.
+3. Tanda 4: alojar las fuentes (hoy jsDelivr). Marca, versiones, compartir y comentarios con tablas propias.
+4. ~~`docs/editor-imagen/relevamiento-canva-funciones.md`~~: escrito el 14/10; trae los 8 paquetes de la tanda 5 en orden.
+
+## Para retomar
+
+`Leé docs/relevo/image-editor.md y docs/hallazgos-editor-imagen.md y seguimos.`

@@ -27,13 +27,16 @@ import { NODO, TOPES, type JsonNodo, type LandingContenido, type Pagina } from '
 import type { ConfigLanding } from './api-tipos';
 import { estiloDeTema, varsDeFondoPropio, type Tema } from './temas';
 import { svgIcono } from './iconos';
+import { claseDeProveedor } from '../embeds';
 import {
-  NORMALIZAR_MARCAS, ORDEN_MARCAS, SPEC_MARCAS, SPEC_NODOS, attrsHtmlLibre, attrsImagen, attrsInsertado,
-  attrsTarjeta, attrsVideo, hrefPermitido, idValido, srcImagen, type CtxSpec, type ModoRender,
+  CLASE_A_COMPLETAR, NORMALIZAR_MARCAS, ORDEN_MARCAS, SPEC_MARCAS, SPEC_NODOS, attrsColumnas, attrsHtmlLibre, attrsImagen,
+  attrsInsertado, attrsTarjeta, attrsVideo, hrefPermitido, idValido, rangosACompletar, srcImagen, tramosACompletar,
+  type CtxSpec, type ModoRender,
 } from './especificacion';
 import { HtmlCrudo, escaparTexto, htmlDeArbol, type AttrsArbol, type HijoArbol, type NodoArbol } from './grafico-svg';
 import { sanearConfig } from './validar';
 import { urlBloqueHtmlLibre } from './html-libre';
+import { productoDeHref, urlPasoPago } from './pago-landing';
 
 export { ORIGEN_IMAGENES, origenImagenes, srcPermitido, hrefPermitido } from './especificacion';
 export type { ModoRender } from './especificacion';
@@ -47,6 +50,16 @@ export type { ModoRender } from './especificacion';
 export type OpRender = {
   modo: ModoRender;
   incluirOcultas?: boolean;
+  /**
+   * Los MARCADORES de lo que falta, sólo en 'miniatura' (14/10/2026): el VSL vacío de un diseño
+   * se dibuja como un ▶ y un video suelto en la sección va más angosto (css.ts, `data-marcadores`).
+   * Lo pide quien dibuja una miniatura de TRABAJO (la grilla de Diseños, el Panel, Crear, la tira
+   * de secciones, el Agente); no lo pide quien muestra lo que vería un visitante (app/m/landing),
+   * que tiene que coincidir con la publicada, donde el VSL vacío no sale.
+   * También marca los textos A COMPLETAR («[Tu especialidad]», especificacion.ts) con un
+   * `span.gm-completar` (pedido de Martín, 14/10/2026: «que eso se vea también en la miniatura»).
+   */
+  marcadores?: boolean;
   urlBase?: string;
   paginas?: ReadonlyArray<Pick<Pagina, 'id' | 'ruta'>>;
   /**
@@ -55,6 +68,13 @@ export type OpRender = {
    * privado) y su JavaScript corre. Sin esto, sale con `srcdoc` como siempre (exportar, miniaturas).
    */
   htmlLibre?: { docId: number; vista?: string | null };
+  /**
+   * Tanda 4: los botones de pago (`pago:<productoId>`, pago-landing.ts) llevan al paso de nombre y email
+   * de la PUBLICADA, `<urlBase>/pagar/<productoId>`. Sólo lo pide publicar.ts: en la vista previa del
+   * borrador, la exportación y las miniaturas no hay paso que sirva ese pedido (el link privado no
+   * cobra), y el botón queda en `#`.
+   */
+  pagos?: boolean;
 };
 
 /** La dirección de MaKo del sello «Hecho con MaKo». */
@@ -68,6 +88,8 @@ type Ctx = {
   modo: ModoRender;
   incluirOcultas: boolean;
   urlBase: string | null;
+  /** `op.pagos`: el botón de pago lleva al paso de la publicada (si no, `#`). */
+  pagos: boolean;
   rutas: Map<string, string>;
   /** La sección que tiene el formulario en lo que se está dibujando (red de `#t-formulario`). */
   formulario: string | null;
@@ -105,9 +127,12 @@ function ctxDe(op?: Partial<OpRender>, tema?: Tema, formulario: string | null = 
   for (const p of op?.paginas ?? []) {
     if (p && typeof p.id === 'string' && typeof p.ruta === 'string') rutas.set(p.id, p.ruta);
   }
-  const ctx: Ctx = { modo, incluirOcultas: op?.incluirOcultas === true, urlBase: baseValida(op?.urlBase), rutas, formulario, spec: { modo }, nodos: 0 };
+  const ctx: Ctx = { modo, incluirOcultas: op?.incluirOcultas === true, urlBase: baseValida(op?.urlBase), pagos: op?.pagos === true, rutas, formulario, spec: { modo }, nodos: 0 };
   ctx.spec = {
     modo,
+    marcadores: modo === 'miniatura' && op?.marcadores === true,
+    // Los textos a completar van con los marcadores: lo mismo que «falta» en una miniatura de trabajo.
+    completar: modo === 'miniatura' && op?.marcadores === true,
     resolverHref: (h) => resolverHref(h, ctx),
     // La tinta de una sección con fondo propio la calcula el tema (temas.ts).
     varsFondo: tema ? (relleno) => varsDeFondoPropio(tema, relleno) : undefined,
@@ -128,6 +153,10 @@ function resolverHref(h: string, ctx: Ctx): string | null {
   // RED: un botón «al formulario» que nadie resolvió (`resolverAnclas` de ia-bloques.ts lo resuelve
   // al juntar las tandas y al aceptar una edición de la IA) apunta a la sección que lo tiene.
   if (h === ANCLA_FORMULARIO_PENDIENTE) return ctx.formulario ? `#t-${ctx.formulario}` : h;
+  // El botón de pago (tanda 4): con la MISMA base que las páginas del sitio. Sin paso que lo sirva (o
+  // sin base), `#`: un `pago:` crudo en un `<a>` haría que el navegador busque una aplicación.
+  const producto = productoDeHref(h);
+  if (producto !== null) return ctx.pagos && ctx.urlBase ? urlPasoPago(ctx.urlBase, producto) : '#';
   if (!h.startsWith('pagina:')) return h;
   const ruta = ctx.rutas.get(h.slice('pagina:'.length));
   if (ruta === undefined || !ctx.urlBase) return '#';
@@ -216,17 +245,45 @@ function marcasDe(raw: unknown, ctx: Ctx): MarcaLista[] {
   return out.sort((a, b) => a.orden - b.orden).map((x) => x.m);
 }
 
+/** El texto de un nodo de texto tal como se escribe: sin caracteres de control y con su tope. */
+const textoDe = (h: Record<string, unknown>): string => (typeof h.text === 'string' ? h.text.replace(CONTROL, '').slice(0, TOPES.caracteresTexto) : '');
+
+/**
+ * Lo que aporta cada hijo al texto CORRIDO de su bloque, donde se buscan los textos a completar: un
+ * texto, el suyo; cualquier otro nodo (un salto de línea, un bloque), un `\n` que corta el corchete
+ * (la regla no cruza saltos); lo que el recorrido no dibuja, nada.
+ */
+const parteCorrida = (h: unknown): string => (!esObj(h) || typeof h.type !== 'string' ? '' : h.type === 'text' ? textoDe(h) : '\n');
+
+/** Un texto escapado, con los pedazos a completar (los `rangos`, medidos desde `base`) en un `span.gm-completar`. */
+function htmlConACompletar(texto: string, rangos: ReadonlyArray<readonly [number, number]>, base: number): string {
+  return tramosACompletar(texto, rangos, base)
+    .map((t) => (t.completar ? htmlDeArbol(['span', { class: CLASE_A_COMPLETAR }, t.texto]) : escaparTexto(t.texto)))
+    .join('');
+}
+
 /**
  * Los hijos de un nodo. Los textos seguidos que comparten marcas comparten la etiqueta (como el
  * serializador de ProseMirror): «**Hola _mundo_**» sale `<strong>Hola <em>mundo</em></strong>`,
  * no dos `<strong>`.
+ * En una miniatura de trabajo (`ctx.spec.completar`), los textos a completar se buscan en el texto
+ * CORRIDO de los hijos y no en cada texto: «[tu **cliente** ideal]» son tres textos (la negrita los
+ * parte) y se marcan igual, con un `span.gm-completar` ADENTRO de cada marca (un span para «[tu »,
+ * otro adentro del `<strong>` para «cliente» y otro para « ideal]»): un span que cruzara la negrita
+ * dejaría etiquetas mal anidadas. Es lo mismo que hace ProseMirror con la decoración del editor.
  */
 function htmlDeHijos(hijos: unknown, ctx: Ctx, prof: number): string {
   if (!Array.isArray(hijos)) return '';
   let out = '';
   const abiertas: MarcaLista[] = [];
   const cerrarHasta = (n: number) => { while (abiertas.length > n) out += abiertas.pop()!.cierra; };
-  for (const h of hijos) {
+  const partes = ctx.spec.completar ? hijos.map(parteCorrida) : null;
+  const rangos = partes ? rangosACompletar(partes.join('')) : [];
+  let base = 0;
+  for (let k = 0; k < hijos.length; k++) {
+    const h: unknown = hijos[k];
+    const desde = base;
+    base += partes ? partes[k].length : 0;
     if (!esObj(h) || typeof h.type !== 'string') continue;
     if (h.type === 'text' || h.type === 'hardBreak') {
       const marcas = marcasDe(h.marks, ctx);
@@ -235,7 +292,7 @@ function htmlDeHijos(hijos: unknown, ctx: Ctx, prof: number): string {
       cerrarHasta(comun);
       for (let i = comun; i < marcas.length; i++) { out += marcas[i].abre; abiertas.push(marcas[i]); }
       if (h.type === 'hardBreak') out += '<br>';
-      else if (typeof h.text === 'string') out += escaparTexto(h.text.replace(CONTROL, '').slice(0, TOPES.caracteresTexto));
+      else if (typeof h.text === 'string') out += rangos.length ? htmlConACompletar(textoDe(h), rangos, desde) : escaparTexto(textoDe(h));
       continue;
     }
     cerrarHasta(0);
@@ -257,19 +314,56 @@ function htmlDeNodo(n: Record<string, unknown>, ctx: Ctx, prof: number): string 
   if (tipo === NODO.tarjeta && attrsTarjeta(attrs).oculta && !ctx.incluirOcultas) return '';
   if (tipo === NODO.imagen && !attrsImagen(attrs).src) return '';
   if (tipo === NODO.video && !attrsVideo(attrs).src) return '';
-  if (tipo === NODO.insertado && !attrsInsertado(attrs).src) return '';
+  // El insertado vacío tampoco, salvo en una miniatura que pide MARCADORES y con pista de VIDEO: el
+  // VSL de un diseño se ve como un ▶ en la grilla (specInsertado; pedido de Martín, 14/10/2026).
+  // Una agenda vacía, nunca.
+  if (tipo === NODO.insertado && !attrsInsertado(attrs).src && !(ctx.spec.marcadores && claseDeProveedor(attrsInsertado(attrs).proveedor) === 'video')) return '';
   if (tipo === NODO.htmlLibre && !attrsHtmlLibre(attrs).html) return '';
   const conSvg = conIconos(spec(attrs, ctx.spec));
   const arbol = ctx.modo === 'miniatura' ? sinInteractivos(conSvg) : conSvg;
+  if (tipo === NODO.columnas) {
+    const columnas = htmlDeColumnas(n, arbol, ctx, prof);
+    if (columnas !== null) return columnas;
+  }
   const contenido = Array.isArray(n.content) ? htmlDeHijos(n.content, ctx, prof + 1) : '';
   return htmlDeArbol(arbol, contenido);
+}
+
+/**
+ * Las columnas, sin las que salen VACÍAS. Una columna cuyo único contenido no se dibuja (el VSL de
+ * un diseño «al costado» sin el enlace pegado: el insertado vacío no sale en la publicada, en la
+ * exportación ni en una miniatura sin marcadores) dejaba `<div class="gm-columna"></div>`: el texto
+ * apretado en 5/12 y 7/12 en blanco (medido el 14/10/2026: los 10 objetivos de los dos diseños con
+ * video al costado, en la publicada y al exportar). Esa columna se omite y `--gm-cols` se rearma con
+ * los anchos de las que quedan; si queda UNA, su contenido sale suelto en la sección (sin grilla), y
+ * si no queda ninguna, ''. Sin nada que omitir, sale exactamente como antes. `null` = no son sólo
+ * columnas (un JSON que no pasó por el saneo): el camino de siempre.
+ */
+function htmlDeColumnas(n: Record<string, unknown>, arbol: NodoArbol, ctx: Ctx, prof: number): string | null {
+  const hijos = Array.isArray(n.content) ? n.content : [];
+  if (!hijos.length || !hijos.every((c) => esObj(c) && c.type === NODO.columna)) return null;
+  // Cada columna cuenta como un nodo y respeta el tope de profundidad, como en htmlDeNodo.
+  const interiores = hijos.map((c): string | null => {
+    if (prof + 1 > PROFUNDIDAD_MAX || ++ctx.nodos > NODOS_MAX) return null;
+    const col = c as Record<string, unknown>;
+    return Array.isArray(col.content) ? htmlDeHijos(col.content, ctx, prof + 2) : '';
+  });
+  const columna = (interior: string) => htmlDeArbol(conIconos(SPEC_NODOS[NODO.columna]({}, ctx.spec)), interior);
+  const vivas = interiores.flatMap((h, i) => (h ? [i] : []));
+  if (vivas.length === hijos.length) return htmlDeArbol(arbol, interiores.map((h) => columna(h as string)).join(''));
+  if (!vivas.length) return '';
+  if (vivas.length === 1) return interiores[vivas[0]] as string;
+  const a = attrsColumnas(n.attrs);
+  const anchos = a.anchos.length === hijos.length ? vivas.map((i) => a.anchos[i]) : [];
+  const grilla = conIconos(SPEC_NODOS[NODO.columnas]({ anchos, divisores: a.divisores }, ctx.spec));
+  return htmlDeArbol(ctx.modo === 'miniatura' ? sinInteractivos(grilla) : grilla, vivas.map((i) => columna(interiores[i] as string)).join(''));
 }
 
 /** La raíz `.gm-doc` con las variables del tema INLINE (así conviven miniaturas de temas distintos). */
 function raiz(interior: string, tema: Tema, ctx: Ctx, extra: AttrsArbol = {}): string {
   let estilo = '';
   try { estilo = String(estiloDeTema(tema) ?? ''); } catch { estilo = ''; }
-  return htmlDeArbol(['div', { class: 'gm-doc', style: estilo || undefined, 'data-modo': ctx.modo, ...extra }, 0], interior);
+  return htmlDeArbol(['div', { class: 'gm-doc', style: estilo || undefined, 'data-modo': ctx.modo, 'data-marcadores': ctx.spec.marcadores ? 'si' : undefined, ...extra }, 0], interior);
 }
 
 const tarjetasDePagina = (p: unknown): Record<string, unknown>[] => {

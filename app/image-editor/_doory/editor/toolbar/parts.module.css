@@ -1,0 +1,581 @@
+/*
+ * La barra del objeto de Canva 2025–26 (relevamiento-canva-armazon.md §4): una barra FLOTANTE blanca, centrada
+ * arriba del lienzo, que cambia con la selección. Botones de ícono de 32 px con hover gris, separadores finos,
+ * rótulos de texto («Efectos», «Animar», «Posición») a 14 px. Todo con los tokens --cv-*; lo que la paleta no
+ * trae va con el valor de Canva y su comentario.
+ */
+
+/* ── El ancla y la barra ── */
+
+/* Fila de alto cero arriba del área del lienzo: la barra flota sobre el lienzo sin correrlo. */
+.anchor {
+  position: relative;
+  z-index: var(--cv-z-sticky);
+  flex: none;
+  height: 0;
+}
+
+.dock {
+  position: absolute;
+  top: var(--cv-space-2);
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  padding: 0 var(--cv-space-4);
+  pointer-events: none;
+}
+
+.bar {
+  display: flex;
+  align-items: center;
+  max-width: 100%;
+  height: var(--cv-editor-toolbar-h);
+  padding: 0 var(--cv-space-2);
+  border-radius: var(--cv-radius-lg);
+  background: var(--cv-color-surface);
+  box-shadow: var(--cv-shadow-md);
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  pointer-events: auto;
+  animation: bar-in var(--cv-duration-fast) var(--cv-ease-out);
+}
+.bar::-webkit-scrollbar {
+  display: none;
+}
+
+.row {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 2px;
+  flex-wrap: nowrap;
+}
+/* Los envoltorios del tooltip son los ítems: que no se aplasten (la barra se desplaza de costado). */
+.row > * {
+  flex: none;
+}
+
+.divider {
+  flex: none;
+  width: 1px;
+  height: 24px;
+  margin: 0 var(--cv-space-1);
+  background: var(--cv-color-border);
+}
+
+@keyframes bar-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+/* ── Botones de la barra ── */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  flex: none;
+  min-width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px; /* Canva: botón de la barra, radio 6 */
+  background: transparent;
+  color: var(--cv-color-text);
+  font: 400 var(--cv-text-base) / 1 var(--cv-font-sans);
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background var(--cv-duration-fast) var(--cv-ease-out),
+    color var(--cv-duration-fast) var(--cv-ease-out);
+}
+.btn:hover:not(:disabled) {
+  background: var(--cv-color-bg-muted);
+}
+.btn:active:not(:disabled) {
+  background: rgb(57 70 96 / 0.14); /* Canva: botón terciario presionado #39466024 */
+}
+.btn:focus-visible {
+  outline: none;
+  box-shadow: var(--cv-focus-ring);
+}
+.btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.btn svg {
+  flex: none;
+}
+
+/* Elegido (negrita prendida, panel abierto): el violeta suave de Canva. */
+.on,
+.on:hover:not(:disabled) {
+  background: var(--cv-color-brand-soft);
+  color: var(--cv-violet-800);
+}
+
+.danger:hover:not(:disabled) {
+  background: var(--cv-color-danger-soft);
+  color: var(--cv-color-danger);
+}
+
+/* Botón con rótulo: «Efectos», «Animar», «Posición», «Editar foto»… */
+.textBtn {
+  padding: 0 var(--cv-space-2);
+}
+
+.featured {
+  color: var(--cv-color-brand);
+}
+
+/* «Listo» del recorte: el botón primario violeta de Canva, a la altura de la barra. */
+.primary,
+.primary:hover:not(:disabled) {
+  padding: 0 var(--cv-space-3);
+  background: var(--cv-color-cta);
+  color: var(--cv-color-on-cta);
+  font-weight: 600;
+}
+.primary:hover:not(:disabled) {
+  background: var(--cv-color-cta-hover);
+}
+
+/* ── Fuente, tamaño y color del texto ── */
+
+.fontBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cv-space-2);
+  flex: none;
+  width: 148px; /* Canva: caja de la fuente ~148 px */
+  height: 32px;
+  padding: 0 var(--cv-space-2) 0 10px;
+  border: 1px solid var(--cv-color-border-strong);
+  border-radius: 6px;
+  background: var(--cv-color-surface);
+  color: var(--cv-color-text);
+  font: 400 var(--cv-text-base) / 1 var(--cv-font-sans);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color var(--cv-duration-fast) var(--cv-ease-out);
+}
+.fontBtn:hover:not(:disabled) {
+  border-color: rgb(28 33 48 / 0.5); /* Canva: borde de campo en hover #1C213080 */
+}
+.fontBtn:focus-visible,
+.fontBtn[aria-expanded='true'] {
+  outline: none;
+  border-color: var(--cv-color-brand);
+}
+.fontName {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.caret {
+  flex: none;
+  color: var(--cv-color-text-muted);
+}
+
+/* `−  24  +`: los botones sin borde, el número en una caja con borde (como Canva). */
+.stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  flex: none;
+}
+.stepBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--cv-color-text);
+  cursor: pointer;
+  transition: background var(--cv-duration-fast) var(--cv-ease-out);
+}
+.stepBtn:hover:not(:disabled) {
+  background: var(--cv-color-bg-muted);
+}
+.stepBtn:focus-visible {
+  outline: none;
+  box-shadow: var(--cv-focus-ring);
+}
+.stepBtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.stepInput {
+  width: 44px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid var(--cv-color-border-strong);
+  border-radius: 6px;
+  background: var(--cv-color-surface);
+  color: var(--cv-color-text);
+  font: 400 var(--cv-text-base) / 1 var(--cv-font-sans);
+  text-align: center;
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+.stepInput:hover {
+  border-color: rgb(28 33 48 / 0.5); /* Canva: #1C213080 */
+}
+.stepInput:focus {
+  outline: none;
+  border-color: var(--cv-color-brand);
+}
+.stepInput[aria-invalid='true'] {
+  border-color: var(--cv-color-danger);
+}
+.stepInput::-webkit-outer-spin-button,
+.stepInput::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/*
+ * El mosaico de color de la barra (relleno, fondo de página, borde): un cuadrado redondeado de 24 px dentro de un
+ * área de 32. El botón lo dibuja `chrome/ColorTool`; acá sólo se le cambia la forma.
+ */
+.colorSlot {
+  display: inline-flex;
+  flex: none;
+  border-radius: 6px;
+  transition: background var(--cv-duration-fast) var(--cv-ease-out);
+}
+.colorSlot:hover {
+  background: var(--cv-color-bg-muted);
+}
+.colorSlot button,
+.colorSlot button:hover {
+  width: 24px;
+  height: 24px;
+  margin: 4px;
+  border-width: 1px;
+  border-color: var(--cv-color-border-strong);
+  border-radius: 4px; /* Canva: mosaico de color, radio 4 */
+  transform: none;
+}
+
+/* «A» con la barra de color (color del texto): es `ColorTool variant="text"` (chrome/ColorTool.module.css). */
+
+/* «Duración» de la página: el reloj de `presenter/DurationChip` con el aspecto de un botón de la barra. */
+/* Los selectores llevan atributos para ganarle a `.chip[data-unset][aria-expanded]` del chip original. */
+.durationSlot button[type='button'] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: auto;
+  min-width: 32px;
+  height: 32px;
+  padding: 0 var(--cv-space-2);
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--cv-color-text);
+  font: 400 var(--cv-text-base) / 1 var(--cv-font-sans);
+}
+.durationSlot button[type='button'][data-unset] {
+  width: 32px;
+  padding: 0;
+}
+.durationSlot button[type='button']:hover {
+  background: var(--cv-color-bg-muted);
+  color: var(--cv-color-text);
+}
+.durationSlot button[type='button'][aria-haspopup][aria-expanded='true'] {
+  background: var(--cv-color-brand-soft);
+  color: var(--cv-violet-800);
+}
+.durationSlot svg {
+  width: 18px;
+  height: 18px;
+}
+
+/* ── Contenido de los popovers de la barra ── */
+
+.popBody {
+  padding: var(--cv-space-4);
+}
+.popInline {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: var(--cv-space-1);
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cv-space-4);
+  max-width: 100%;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Rótulo de sección de un popover: «Interlineado», «Filtros»… (Canva: titleXSmall 14/20, 600). */
+.label {
+  margin: 0 0 var(--cv-space-2);
+  color: var(--cv-color-text);
+  font: 600 var(--cv-text-base) / 20px var(--cv-font-sans);
+}
+.labelRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cv-space-3);
+}
+.labelValue {
+  color: var(--cv-color-text-muted);
+  font-weight: 400;
+}
+
+.input {
+  width: 100%;
+  height: 40px;
+  padding: 0 var(--cv-space-3);
+  border: 1px solid var(--cv-color-border-strong);
+  border-radius: var(--cv-radius-sm);
+  background: var(--cv-color-surface);
+  color: var(--cv-color-text);
+  font: 400 var(--cv-text-base) / 1.2 var(--cv-font-sans);
+  transition: border-color var(--cv-duration-fast) var(--cv-ease-out);
+}
+.input:hover {
+  border-color: rgb(28 33 48 / 0.5); /* Canva: #1C213080 */
+}
+.input:focus {
+  outline: none;
+  border-color: var(--cv-color-brand);
+}
+.input[aria-invalid='true'] {
+  border-color: var(--cv-color-danger);
+}
+
+.hint {
+  margin: var(--cv-space-2) 0 0;
+  color: var(--cv-color-text-muted);
+  font: 400 var(--cv-text-sm) / 18px var(--cv-font-sans);
+}
+
+.slider {
+  width: 100%;
+  height: 4px;
+  border-radius: 4px;
+  background: rgb(57 70 96 / 0.14);
+  outline: none;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+}
+.slider::-webkit-slider-thumb {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--cv-color-surface);
+  border-radius: 50%;
+  background: var(--cv-color-brand);
+  box-shadow: var(--cv-shadow-sm);
+  cursor: pointer;
+}
+.slider::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--cv-color-surface);
+  border-radius: 50%;
+  background: var(--cv-color-brand);
+  cursor: pointer;
+}
+.slider:focus-visible {
+  box-shadow: var(--cv-focus-ring);
+}
+.curveWrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.curveWrap .slider {
+  position: relative;
+  z-index: 1;
+}
+.curveTick {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 2px;
+  height: 14px;
+  margin: -7px 0 0 -1px;
+  border-radius: 1px;
+  background: var(--cv-color-text-subtle);
+  pointer-events: none;
+}
+
+/* Lista de un popover (Voltear, Mayúsculas, extremos de línea): filas de 36 px como el menú de Canva. */
+.menuList {
+  display: flex;
+  flex-direction: column;
+  min-width: 200px;
+  padding: var(--cv-space-2) 0;
+}
+.menuItem {
+  display: flex;
+  align-items: center;
+  gap: var(--cv-space-3);
+  width: 100%;
+  min-height: 36px;
+  padding: 0 var(--cv-space-4);
+  border: 0;
+  background: transparent;
+  color: var(--cv-color-text);
+  font: 400 var(--cv-text-base) / 1.2 var(--cv-font-sans);
+  text-align: left;
+  cursor: pointer;
+}
+.menuItem:hover:not(:disabled),
+.menuItem:focus-visible {
+  outline: none;
+  background: var(--cv-color-bg-muted);
+}
+.menuItem:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.menuItem[aria-checked='true'] {
+  color: var(--cv-violet-800);
+  font-weight: 600;
+}
+.menuIcon {
+  display: inline-flex;
+  width: 20px;
+  justify-content: center;
+  color: var(--cv-color-text-muted);
+}
+.menuLabel {
+  flex: 1;
+  min-width: 0;
+}
+.menuKbd {
+  margin-left: var(--cv-space-4);
+  color: var(--cv-color-text-subtle);
+  font: 400 var(--cv-text-sm) / 1 var(--cv-font-sans);
+}
+.menuSep {
+  height: 1px;
+  margin: var(--cv-space-2) 0;
+  background: var(--cv-color-border);
+}
+
+/* ── «⋯ Más»: acciones arriba y secciones plegables abajo ── */
+
+.overflow {
+  display: flex;
+  flex-direction: column;
+  max-height: min(70vh, 560px);
+  padding: var(--cv-space-2) 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.overflow > .menuSep {
+  margin: var(--cv-space-1) 0;
+}
+.accordion + .accordion {
+  border-top: 1px solid var(--cv-color-border);
+}
+.accordionHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 40px;
+  padding: 0 var(--cv-space-4);
+  border: 0;
+  background: transparent;
+  color: var(--cv-color-text);
+  font: 600 var(--cv-text-base) / 1.2 var(--cv-font-sans);
+  text-align: left;
+  cursor: pointer;
+}
+.accordionHead:hover {
+  background: var(--cv-color-bg-muted);
+}
+.accordionHead:focus-visible {
+  outline: none;
+  box-shadow: inset var(--cv-focus-ring);
+}
+.accordionHead svg {
+  color: var(--cv-color-text-muted);
+  transition: transform var(--cv-duration-fast) var(--cv-ease-out);
+}
+.accordionBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cv-space-3);
+  padding: var(--cv-space-1) var(--cv-space-4) var(--cv-space-4);
+}
+
+/* ── Botones dentro de un popover ── */
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 40px;
+  padding: 0 var(--cv-space-4);
+  border: 1px solid var(--cv-color-border-strong);
+  border-radius: var(--cv-radius-sm);
+  background: transparent;
+  color: var(--cv-color-text);
+  font: 600 var(--cv-text-base) / 1 var(--cv-font-sans);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background var(--cv-duration-fast) var(--cv-ease-out);
+}
+.button:hover:not(:disabled) {
+  background: var(--cv-color-bg-muted);
+}
+.button:focus-visible {
+  outline: none;
+  box-shadow: var(--cv-focus-ring);
+}
+.button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.buttonGhost {
+  border-color: transparent;
+}
+.buttonPrimary {
+  border-color: transparent;
+  background: var(--cv-color-cta);
+  color: var(--cv-color-on-cta);
+}
+.buttonPrimary:hover:not(:disabled) {
+  background: var(--cv-color-cta-hover);
+}
+.buttonWide {
+  width: 100%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bar {
+    animation: none;
+  }
+}

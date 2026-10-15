@@ -174,7 +174,9 @@ export function AskAgent({ tarjetaId, ancla, onCerrar, modo = 'editar' }: PropsA
     setFase({ f: 'corriendo' });
     const corte = new AbortController();
     corteRef.current = corte;
-    const r = await pedirIA({ accion: 'disenos', tarjeta: original }, { signal: corte.signal });
+    // El formato, como `editar` (verificación de la tanda 6: el server ya lo recibía y la pantalla no lo
+    // mandaba, así que en una presentación «Probar nuevo diseño» proponía secciones de página).
+    const r = await pedirIA({ accion: 'disenos', tarjeta: original, params: { formato: formatoDe(ctxRef.current.config) } }, { signal: corte.signal });
     // Una corrida vieja (cortada) no pisa a la que la reemplazó: ver el efecto de abajo.
     if (!vivo.current || corteRef.current !== corte) return;
     if (!r.ok) { setFase(cortadoPorUsuario(r) ? { f: 'pedir' } : { f: 'mensaje', texto: r.error, error: true }); return; }

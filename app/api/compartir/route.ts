@@ -35,7 +35,7 @@ import { REMITENTE_MAKO, EMAIL_MAKO } from '@/lib/app-url';
 import { escapeHtml } from '@/lib/email-html';
 import { getCapaActual, getRolWsEfectivo, getWorkspace, getWorkspaceActual, runWithWorkspace, wsSuperAdmin } from '@/lib/workspace';
 import { tabEnCapa } from '@/lib/capas';
-import { leerTableroVersionado } from '@/lib/graficos-tablero';
+import { leerTableroVisible } from '@/lib/graficos-tablero';
 import {
   crearShare, listarShares, revocarShare, agregarInvitado, listarInvitados,
   revocarInvitado, marcarEnviado, getShare, parseDestinatarios, regenerarTokenInvitado, regenerarTokenShare,
@@ -118,7 +118,7 @@ const sufijoDe = (share: Pick<Share, 'recurso'>, hoja: unknown): string => {
 /** El nombre de HOY del informe de esa persona. Es un rótulo: si la lectura falla, null y decide el que llama. */
 async function nombreDelInforme(adm: AdminInforme): Promise<string | null> {
   try {
-    const t = await runWithWorkspace(adm.ws, () => leerTableroVersionado(adm.sub));
+    const t = await runWithWorkspace(adm.ws, () => leerTableroVisible(adm.sub));
     return t.tablero.nombre?.trim() || null;
   } catch {
     return null;

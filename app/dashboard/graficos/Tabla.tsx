@@ -17,6 +17,11 @@
 //     columnas de texto; las arma el agregador en `FilaResultado.extra`.
 //   · En el mapa de calor, una métrica de «menos es mejor» se tiñe de rojo: más alto, peor.
 //   · Letra: nada por debajo de 13 px (las cabeceras, en la letra de la hoja y sin mayúsculas en mono).
+//   · LA CABECERA VA EN DOS RENGLONES como mucho (`.gr-th`): en una línea, las cohortes y «Clientes por cobrar» decían
+//     «Cobrado e…», «Tasa de ci…», «Madurez del m…» (medido con el arnés en las plantillas, 14/10/2026).
+//   · ANGOSTA (< 480 px, el celular): las columnas miden menos (ANCHO_ANGOSTA) y las celdas tienen menos aire. Con las
+//     de escritorio, a 364 px entraban el nombre y UNA métrica, y en la tabla con barras el nombre quedaba en
+//     «Campaña …» al lado de una barra de 200 px.
 //   · LAS ACCIONES EN LA FILA (v5, `Grafico.tabla.acciones`: «Marcar cobrada» de un clic con Deshacer): una columna
 //     al final, la MISMA del detalle de un número (../entidades/acciones-fila.tsx). La pide `useColumnaAcciones`, que
 //     sin su provider (editando, en un link compartido, o una tabla sin acciones) no dibuja nada. Su ancho se
@@ -43,6 +48,10 @@ function propsFila(clave: string, alFila?: (clave: string) => void) {
 type Col = { tipo: 'metrica'; i: number } | { tipo: 'extra'; id: string; nombre: string };
 
 const ANCHO = { nombre: 160, barra: 200, numero: 104, extra: 128, acciones: 160 };
+// La barra no baja de 140 en angosto: con menos, al lado de su número quedaba un punto y no una barra.
+const ANCHO_ANGOSTA = { nombre: 112, barra: 140, numero: 84, extra: 104, acciones: 160 };
+/** Por debajo de este ancho la tabla va angosta (el mismo corte que el @container de estilos-html.ts). */
+const CORTE_ANGOSTA = 480;
 
 export function Tabla({ r, modo, barraEn, color, menosEsMejor, extras, total, compacto, alFila }: {
   r: Resultado; modo: 'plana' | 'barras' | 'calor';
@@ -61,9 +70,10 @@ export function Tabla({ r, modo, barraEn, color, menosEsMejor, extras, total, co
     ...extras.map((e): Col => ({ tipo: 'extra', id: e.id, nombre: e.nombre })),
     ...r.columnas.map((_, i): Col => ({ tipo: 'metrica', i })).filter((c) => !(conBarra && c.tipo === 'metrica' && c.i === barraEn)),
   ];
-  const ancho = Math.max(0, (tam?.w ?? 0) - (acciones ? ANCHO.acciones : 0));
-  const anchoBarra = conBarra ? Math.min(360, Math.max(ANCHO.barra, Math.round(ancho * 0.34))) : 0;
-  const entran = ancho ? columnasQueEntran(ancho, resto.length, { nombre: ANCHO.nombre, barra: anchoBarra, numero: ANCHO.numero }) : resto.length;
+  const A = tam && tam.w < CORTE_ANGOSTA ? ANCHO_ANGOSTA : ANCHO;
+  const ancho = Math.max(0, (tam?.w ?? 0) - (acciones ? A.acciones : 0));
+  const anchoBarra = conBarra ? Math.min(360, Math.max(A.barra, Math.round(ancho * 0.34))) : 0;
+  const entran = ancho ? columnasQueEntran(ancho, resto.length, { nombre: A.nombre, barra: anchoBarra, numero: A.numero }) : resto.length;
   const visibles = resto.slice(0, entran);
   const max = r.columnas.map((_, i) => Math.max(0, ...r.filas.map((f) => Math.abs(f.valores[i] ?? 0))));
   const celda = (f: FilaResultado, c: Col) => {
@@ -83,16 +93,16 @@ export function Tabla({ r, modo, barraEn, color, menosEsMejor, extras, total, co
         <colgroup>
           <col />
           {conBarra && <col style={{ width: anchoBarra }} />}
-          {visibles.map((c) => <col key={c.tipo === 'extra' ? c.id : c.i} style={{ width: c.tipo === 'extra' ? ANCHO.extra : ANCHO.numero }} />)}
-          {acciones && <col style={{ width: ANCHO.acciones }} />}
+          {visibles.map((c) => <col key={c.tipo === 'extra' ? c.id : c.i} style={{ width: c.tipo === 'extra' ? A.extra : A.numero }} />)}
+          {acciones && <col style={{ width: A.acciones }} />}
         </colgroup>
         <thead>
           <tr>
             <th className="gr-izq" />
-            {conBarra && <th className="gr-izq" title={r.columnas[barraEn].nombre}>{r.columnas[barraEn].nombre}</th>}
+            {conBarra && <th className="gr-izq" title={r.columnas[barraEn].nombre}><span className="gr-th">{r.columnas[barraEn].nombre}</span></th>}
             {visibles.map((c) => (c.tipo === 'extra'
-              ? <th key={c.id} className="gr-izq" title={c.nombre}>{c.nombre}</th>
-              : <th key={c.i} title={r.columnas[c.i].nombre}>{r.columnas[c.i].nombre}</th>))}
+              ? <th key={c.id} className="gr-izq" title={c.nombre}><span className="gr-th">{c.nombre}</span></th>
+              : <th key={c.i} title={r.columnas[c.i].nombre}><span className="gr-th">{r.columnas[c.i].nombre}</span></th>))}
             {acciones && <th aria-label="Acciones" />}
           </tr>
         </thead>

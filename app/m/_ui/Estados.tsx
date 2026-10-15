@@ -37,6 +37,42 @@ export function VacioM({ frase, accion }: {
 }
 
 /**
+ * El esqueleto con la FORMA DEL TABLERO (KanbanM): la barra de etapas, una columna entera y la
+ * siguiente asomando. Es el de los `loading.tsx` del CRM y de Clientes (v3, 14/10/2026): sin él,
+ * tocar la pestaña dejaba la pantalla anterior congelada hasta que el server terminaba (medido:
+ * 1,8-3,3 s el CRM, más el arranque de la instancia después de cada deploy). Aparece a los 300 ms.
+ */
+export function SkeletonTablero({ conArriba = false }: { conArriba?: boolean }) {
+  return (
+    <div className="m-skel-kb" aria-busy="true" aria-label="Cargando el tablero">
+      {conArriba && <span className="mk-skel m-skel-kb__arriba" />}
+      <div className="m-skel-kb__etapas">
+        {Array.from({ length: 5 }, (_, i) => <span key={i} className="mk-skel" />)}
+      </div>
+      <div className="m-skel-kb__pista">
+        {[0, 1].map((c) => (
+          <div key={c} className="m-skel-kb__col">
+            <span className="mk-skel m-skel-kb__cab" />
+            {Array.from({ length: c ? 2 : 4 }, (_, i) => <span key={i} className="mk-skel m-skel-kb__tj" />)}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** El esqueleto de la portada (General): el saludo lo pone el shell; acá, la tarjeta oscura y dos más. */
+export function SkeletonTarjetas() {
+  return (
+    <div className="m-skel-tarjetas" aria-busy="true" aria-label="Cargando">
+      <span className="mk-skel m-skel-tarjetas__heroe" />
+      <span className="mk-skel m-skel-tarjetas__t" />
+      <span className="mk-skel m-skel-tarjetas__t" />
+    </div>
+  );
+}
+
+/**
  * El esqueleto con la FORMA de la fila (círculo + dos líneas + riel), para la
  * primera carga. Aparece recién a los 300 ms: una carga rápida no parpadea.
  */

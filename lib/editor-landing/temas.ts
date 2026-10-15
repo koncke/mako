@@ -61,6 +61,8 @@ export type Tema = {
   etiquetas: readonly EtiquetaTema[];
   /** true = los valores salen de mirar una captura, no de la config medida de Gamma. */
   aproximado: boolean;
+  /** true = un tema PROPIO de MaKo (el de su landing, app/vsl): ni medido de Gamma ni de captura. */
+  deMako?: true;
   fuentes: { titulo: FuenteTema; cuerpo: FuenteTema };
   /** El fondo de la PÁGINA, detrás de las secciones. */
   fondo: Relleno;
@@ -138,6 +140,41 @@ export const FUENTES: Readonly<Record<string, DefFuente>> = {
   'Martel Sans': { pesos: [200, 300, 400, 600, 700, 800, 900], tipo: 'sans' },
   'Noto Sans TC': { pesos: P100_900, tipo: 'sans' },
   'Source Sans 3': { pesos: [200, 300, 400, 500, 600, 700, 800, 900], tipo: 'sans' },
+  // La de la landing de MaKo (app/vsl/Landing.tsx): para el tema «MaKo» (14/10/2026).
+  'Geist': { pesos: P100_900, tipo: 'sans' },
+  // Tanda 6 (14/10/2026), decisión de Martín: al replicar una landing de afuera «se COPIA el estilo
+  // (colores y fuentes leídos en el navegador → tema propio)». Las que más usan las landings y no estaban
+  // (lib/editor-landing/estilo-original.ts las elige; con éstas la réplica lleva la MISMA fuente más
+  // seguido, y no la más parecida). Cada lista de pesos MEDIDA contra la API css2 ese día: las 47
+  // familias de este bloque contestaron 200 con exactamente esos pesos.
+  'Barlow': { pesos: P100_900, tipo: 'sans' },
+  'Mulish': { pesos: [200, 300, 400, 500, 600, 700, 800, 900], tipo: 'sans' },
+  'Karla': { pesos: [200, 300, 400, 500, 600, 700, 800], tipo: 'sans' },
+  'Quicksand': { pesos: [300, 400, 500, 600, 700], tipo: 'sans' },
+  'Josefin Sans': { pesos: [100, 200, 300, 400, 500, 600, 700], tipo: 'sans' },
+  'Figtree': { pesos: [300, 400, 500, 600, 700, 800, 900], tipo: 'sans' },
+  'Lexend': { pesos: P100_900, tipo: 'sans' },
+  'Urbanist': { pesos: P100_900, tipo: 'sans' },
+  'Heebo': { pesos: P100_900, tipo: 'sans' },
+  'Ubuntu': { pesos: [300, 400, 500, 700], tipo: 'sans' },
+  'PT Sans': { pesos: [400, 700], tipo: 'sans' },
+  'Noto Sans': { pesos: P100_900, tipo: 'sans' },
+  'Nunito Sans': { pesos: [200, 300, 400, 500, 600, 700, 800, 900], tipo: 'sans' },
+  'Cabin': { pesos: [400, 500, 600, 700], tipo: 'sans' },
+  'Titillium Web': { pesos: [200, 300, 400, 600, 700, 900], tipo: 'sans' },
+  'Kanit': { pesos: P100_900, tipo: 'sans' },
+  'Libre Franklin': { pesos: P100_900, tipo: 'sans' },
+  'Red Hat Display': { pesos: [300, 400, 500, 600, 700, 800, 900], tipo: 'sans' },
+  'Exo 2': { pesos: P100_900, tipo: 'sans' },
+  'Jost': { pesos: P100_900, tipo: 'sans' },
+  'Hind': { pesos: [300, 400, 500, 600, 700], tipo: 'sans' },
+  'Assistant': { pesos: [200, 300, 400, 500, 600, 700, 800], tipo: 'sans' },
+  'Prompt': { pesos: P100_900, tipo: 'sans' },
+  'Syne': { pesos: [400, 500, 600, 700, 800], tipo: 'sans' },
+  'Epilogue': { pesos: P100_900, tipo: 'sans' },
+  'Albert Sans': { pesos: P100_900, tipo: 'sans' },
+  'Be Vietnam Pro': { pesos: P100_900, tipo: 'sans' },
+  'Roboto Condensed': { pesos: P100_900, tipo: 'sans' },
   // ── Serif ──
   'Playfair Display': { pesos: [400, 500, 600, 700, 800, 900], tipo: 'serif' },
   'Lora': { pesos: [400, 500, 600, 700], tipo: 'serif' },
@@ -149,15 +186,37 @@ export const FUENTES: Readonly<Record<string, DefFuente>> = {
   'Cormorant Garamond': { pesos: [300, 400, 500, 600, 700], tipo: 'serif' },
   'DM Serif Display': { pesos: [400], tipo: 'serif' },
   'Source Serif 4': { pesos: [200, 300, 400, 500, 600, 700, 800, 900], tipo: 'serif' },
+  // Tanda 6 (ver el bloque de las sans): medidas contra la API css2.
+  'Roboto Slab': { pesos: P100_900, tipo: 'serif' },
+  'Noto Serif': { pesos: P100_900, tipo: 'serif' },
+  'PT Serif': { pesos: [400, 700], tipo: 'serif' },
+  'Bitter': { pesos: P100_900, tipo: 'serif' },
+  'EB Garamond': { pesos: [400, 500, 600, 700, 800], tipo: 'serif' },
+  'Cormorant': { pesos: [300, 400, 500, 600, 700], tipo: 'serif' },
+  'Crimson Text': { pesos: [400, 600, 700], tipo: 'serif' },
   // ── Display ──
   'Anton': { pesos: [400], tipo: 'display' },
   'Bebas Neue': { pesos: [400], tipo: 'display' },
   'Oswald': { pesos: [200, 300, 400, 500, 600, 700], tipo: 'display' },
+  // Tanda 6 (ver el bloque de las sans): medidas contra la API css2.
+  'Barlow Condensed': { pesos: P100_900, tipo: 'display' },
+  'Unbounded': { pesos: [200, 300, 400, 500, 600, 700, 800, 900], tipo: 'display' },
+  'Archivo Black': { pesos: [400], tipo: 'display' },
+  'Abril Fatface': { pesos: [400], tipo: 'display' },
+  'Teko': { pesos: [300, 400, 500, 600, 700], tipo: 'display' },
+  'Fjalla One': { pesos: [400], tipo: 'display' },
+  'Righteous': { pesos: [400], tipo: 'display' },
+  'Pacifico': { pesos: [400], tipo: 'display' },
+  'Dancing Script': { pesos: [400, 500, 600, 700], tipo: 'display' },
+  'Caveat': { pesos: [400, 500, 600, 700], tipo: 'display' },
   // ── Mono ──
   'Fira Mono': { pesos: [400, 500, 700], tipo: 'mono' },
   'IBM Plex Mono': { pesos: [100, 200, 300, 400, 500, 600, 700], tipo: 'mono' },
   'JetBrains Mono': { pesos: [100, 200, 300, 400, 500, 600, 700, 800], tipo: 'mono' },
   'Space Mono': { pesos: [400, 700], tipo: 'mono' },
+  // Tanda 6 (ver el bloque de las sans): medidas contra la API css2.
+  'Roboto Mono': { pesos: [100, 200, 300, 400, 500, 600, 700], tipo: 'mono' },
+  'Inconsolata': { pesos: [200, 300, 400, 500, 600, 700, 800, 900], tipo: 'mono' },
 };
 
 const RESPALDO_FUENTE: Record<TipoFuente, string> = {
@@ -349,6 +408,7 @@ type Crudo = {
   grupo: GrupoTema;
   etiquetas: EtiquetaTema[];
   aproximado?: boolean;
+  deMako?: true;
   fuenteTitulo: [string, number];
   fuenteCuerpo: [string, number];
   fondo: Relleno;
@@ -382,6 +442,7 @@ function definir(c: Crudo): Tema {
     grupo: c.grupo,
     etiquetas: c.etiquetas,
     aproximado: c.aproximado ?? false,
+    ...(c.deMako ? { deMako: true as const } : {}),
     fuentes: {
       titulo: { familia: c.fuenteTitulo[0], peso: c.fuenteTitulo[1] },
       cuerpo: { familia: c.fuenteCuerpo[0], peso: c.fuenteCuerpo[1] },
@@ -771,6 +832,21 @@ const CRUDOS: Crudo[] = [
     boton: '#4169c8', botonTexto: '#ffffff',
     paleta: ['#4169c8', '#6495ed', '#a3bff5', '#1a2540', '#f4b860', '#3159b8'],
   },
+
+  // ── Los de MaKo (14/10/2026) ───────────────────────────────────────────────
+  // Pedido de Martín, mirando la grilla de Diseños: «Puedes inspirarte en otras plantillas de VSL Funnel
+  // e incluso en la misma plantilla de MaKo.» Los valores son los de la landing de MaKo (app/vsl):
+  // Geist 600/400, fondo gris azulado, tarjeta blanca, botón y enlaces en el azul de la marca.
+  {
+    nombre: 'MaKo', grupo: 'claro', etiquetas: ['profesional'], deMako: true,
+    fuenteTitulo: ['Geist', 600], fuenteCuerpo: ['Geist', 400],
+    fondo: '#f5f7fa',
+    tarjeta: '#ffffff', borde: '#eaecf1', sombra: true,
+    texto: '#4a515e', titulo: '#12151b', acento: '#2f6fed', enlace: '#2f6fed',
+    boton: '#2f6fed', botonTexto: '#ffffff', redondez: 'lg', redondezBoton: 'lg',
+    interlineado: [1.65, 1.15], tracking: [0, -0.03],
+    paleta: ['#2f6fed', '#1b2240', '#f2b01e', '#1e9e57', '#dc2626', '#8b7cf6'],
+  },
 ];
 
 function congelar<T>(o: T): T {
@@ -781,7 +857,7 @@ function congelar<T>(o: T): T {
   return o;
 }
 
-/** El catálogo, en el orden de la galería: primero los medidos, después los Standard. */
+/** El catálogo, en el orden de la galería: primero los medidos, después los Standard y al final los de MaKo. */
 export const TEMAS: readonly Tema[] = congelar(CRUDOS.map(definir));
 
 /** El default de CONFIG_DEFAULT.tema (lib/editor-landing/api-tipos.ts). */

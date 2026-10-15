@@ -1,0 +1,39 @@
+/* Aviso de conflicto bajo la barra superior: el aviso de advertencia suave de Canva (fondo #FFD9AD, texto #3E2A14). */
+.banner {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--cv-space-3);
+  padding: var(--cv-space-2) var(--cv-space-4);
+  border-bottom: 1px solid var(--cv-color-border);
+  background: var(--cv-color-warning-soft);
+  color: #3e2a14; /* Canva: texto del aviso de advertencia suave */
+  font: 400 var(--cv-text-base) / 22px var(--cv-font-sans);
+}
+.icon {
+  flex: none;
+  color: var(--cv-color-warning);
+}
+.text {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: var(--cv-space-2);
+  flex: 1;
+  min-width: 0;
+}
+.text strong {
+  font-weight: 600;
+}
+.text span {
+  opacity: 0.85;
+}
+.actions {
+  display: flex;
+  gap: var(--cv-space-2);
+  flex-wrap: wrap;
+}
+@media (max-width: 720px) {
+  .banner {
+    flex-wrap: wrap;
+  }
+}

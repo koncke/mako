@@ -26,6 +26,7 @@ export const CSS = `
 .lk-app { flex: 1; min-height: 0; display: flex; flex-direction: column; background: var(--bg); min-width: 0; }
 /* Quien nunca guardó un informe: el lienzo vacío con «Nuevo Dashboard» en el medio (EditorInforme, enBlanco). */
 .lk-en-blanco { min-height: calc(100dvh - 200px); padding: 0; }
+.lk-en-blanco-crear { display: flex; flex-direction: column; gap: 16px; max-width: 1080px; margin: 0 auto; padding: 36px 24px 56px; box-sizing: border-box; }
 
 /* La TOPBAR, como la de Looker (tanda del 11/10): a la izquierda el emoji y, apilados, el título de la hoja
    (con su ▾) y el subtítulo, donde Looker pone «Archivo · Vista · Página · Ayuda»; a la derecha los
@@ -118,14 +119,34 @@ export const CSS = `
 .lk-cuerpo { flex: 1; min-height: 0; display: flex; align-items: stretch; min-width: 0; }
 .lk-lienzo { flex: 1; min-width: 0; overflow-y: auto; overflow-x: hidden; background: var(--bg); }
 .lk-pagina { padding: 14px 24px 40px; box-sizing: border-box; min-width: 0; }
+/* La vista por dispositivo de la edición (./EditorInforme.tsx, DISPOSITIVOS): la página al ancho del dispositivo, con
+   su marco. El ancho lo mide el editor (useContainerWidth), así que por debajo de 640 px es la pila del celular. */
+.lk-lienzo[data-dispositivo] { background: var(--surface-2); }
+.lk-pagina[data-dispositivo] { margin: 18px auto 32px; background: var(--bg); border: 1px solid var(--border-strong); }
+.lk-pagina[data-dispositivo="tableta"] { width: 820px; max-width: calc(100% - 32px); border-radius: 22px; padding: 18px 18px 36px; }
+.lk-pagina[data-dispositivo="movil"] { width: 390px; max-width: calc(100% - 32px); border-radius: 30px; padding: 16px 12px 36px; }
+.lk-disp { display: inline-flex; align-items: center; gap: 2px; }
+.lk-disp .lk-herr[aria-pressed="true"] { background: var(--velo-hover); color: var(--primary); }
 .lk-vacio { display: grid; place-items: center; gap: 12px; padding: 120px 0; color: var(--dim); font-size: 14px; text-align: center; }
 .lk-vacio p { margin: 0; }
-.lk-pila { display: flex; flex-direction: column; gap: 12px; }
+/* La pila del celular: una tarjeta debajo de la otra, y los NÚMEROS de a dos (un número solo a lo ancho del teléfono es
+   una tarjeta enorme con un dato chico). */
+.lk-pila { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.lk-pila > * { grid-column: 1 / -1; }
+.lk-pila > .lk-comp--kpi { grid-column: auto; }
+.lk-pila > .lk-comp--titular { grid-column: 1 / -1; }
 
 /* Las tarjetas: las de MaKo, con el tema de la hoja. */
 .lk-comp { display: flex; flex-direction: column; gap: 10px; padding: var(--dash-tarjeta-pad, 20px 22px); box-sizing: border-box; background: var(--dash-tarjeta-fondo, var(--surface)); border: 1px solid var(--dash-tarjeta-borde, var(--border)); border-radius: var(--dash-tarjeta-radio, 16px); box-shadow: var(--dash-tarjeta-sombra, none); overflow: hidden; font-family: var(--dash-letra, 'Geist', system-ui, sans-serif); color: var(--ink); min-width: 0; }
 .lk-comp--filete { border-top: 3px solid var(--lk-filete, var(--border-strong)); }
 .lk-comp--elemento { background: transparent; border-color: transparent; box-shadow: none; padding: 0; }
+.lk-comp--elemento { container-type: inline-size; }
+/* Un bloque de General es una TARJETA DE LA HOJA, como un gráfico (14/10/2026, Martín: «no están interactuando con el
+   diseño de la página»): el marco del tema, y adentro el bloque (app/general/bloques/comun.tsx). --gb-fondo es el fondo
+   de la tarjeta, para lo que se dibuja ENCIMA de ella (la caja del placeholder, las tarjetas del Plan). Con «Fondo:
+   Oscuro» (lib/general-piezas.ts) la tarjeta entera es la isla oscura: los tokens los da vuelta ./ElementoGeneral.tsx. */
+.lk-comp--general { gap: 0; --gb-fondo: var(--dash-tarjeta-fondo, var(--surface)); }
+.lk-comp--general:has(> .gen-pieza[data-oscuro]) { background: var(--sidebar); border-color: var(--sidebar-line); }
 .lk-comp--kpi { justify-content: center; }
 .lk--editando .lk-comp { cursor: move; }
 .lk--editando .lk-comp:hover { outline: 1px dashed var(--border-strong); outline-offset: -1px; }
@@ -133,7 +154,7 @@ export const CSS = `
 .lk-comp-cab { display: flex; align-items: flex-start; gap: 8px; min-width: 0; }
 .lk-comp-tit { flex: 1 1 auto; display: flex; align-items: center; gap: 6px; min-width: 0; font-size: var(--dash-titulo-tam, 19px); font-weight: var(--dash-titulo-peso, 600); text-transform: var(--dash-titulo-mayus, none); letter-spacing: var(--dash-titulo-espacio, -0.015em); line-height: 1.25; color: var(--ink); }
 .lk-comp-tit > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.lk-comp--kpi .lk-comp-tit { font-size: 14px; color: var(--dim); }
+.lk-comp--kpi .lk-comp-tit { font-size: 15px; color: var(--dim); }
 .lk-comp--mono .lk-comp-tit { font-family: 'Geist Mono', monospace; font-weight: 400; font-size: 13px; text-transform: uppercase; letter-spacing: .1em; color: var(--dim); }
 .lk-comp-sub { margin-top: -6px; font-size: 13px; color: var(--faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .lk-comp-acciones { flex: none; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: flex-end; max-width: 70%; cursor: default; }
@@ -144,9 +165,29 @@ export const CSS = `
 @keyframes lkGiro { to { transform: rotate(360deg); } }
 .lk .recharts-wrapper *:focus, .lk .recharts-surface:focus { outline: none; }
 .lk .react-grid-item.react-grid-placeholder { background: var(--primary); opacity: .15; border-radius: 12px; }
-.lk .react-grid-item > .react-resizable-handle { opacity: 0; }
-.lk .react-grid-item.lk-comp--sel > .react-resizable-handle { opacity: 1; }
-.lk .react-grid-item > .react-resizable-handle::after { border-right-color: var(--dim); border-bottom-color: var(--dim); }
+/* Los ocho tiradores (14/10/2026, Martín: «Debería poder editar el tamaño de un bloque desde cualquiera de sus costados...
+   Y elimina la flecha que aparece detrás del contorno azul»). La «flecha» era el ::after de react-grid-layout (un ángulo
+   girado por lado). Cada lado es una franja de 8 px ADENTRO del borde —la tarjeta recorta con overflow: hidden, afuera no
+   se vería— con su cursor; las esquinas, 14 px. Elegida, la tarjeta muestra un cuadradito blanco en cada uno de los ocho,
+   como Looker: dice que de ahí se agarra. Sin elegir no se dibuja nada (la franja sigue: el cursor avisa). */
+.lk .react-grid-item > .react-resizable-handle { opacity: 1; background: none; transform: none; margin: 0; z-index: 3; }
+.lk .react-grid-item > .react-resizable-handle::after { content: none; }
+.lk .react-grid-item > .react-resizable-handle-n, .lk .react-grid-item > .react-resizable-handle-s { left: 14px; right: 14px; width: auto; height: 8px; }
+.lk .react-grid-item > .react-resizable-handle-n { top: 0; }
+.lk .react-grid-item > .react-resizable-handle-s { bottom: 0; }
+.lk .react-grid-item > .react-resizable-handle-e, .lk .react-grid-item > .react-resizable-handle-w { top: 14px; bottom: 14px; width: 8px; height: auto; }
+.lk .react-grid-item > .react-resizable-handle-e { right: 0; }
+.lk .react-grid-item > .react-resizable-handle-w { left: 0; }
+.lk .react-grid-item > :is(.react-resizable-handle-ne, .react-resizable-handle-nw, .react-resizable-handle-se, .react-resizable-handle-sw) { width: 14px; height: 14px; z-index: 4; }
+.lk .react-grid-item.lk-comp--sel > .react-resizable-handle::after { content: ''; position: absolute; width: 7px; height: 7px; box-sizing: border-box; background: var(--surface); border: 1.5px solid var(--primary); border-radius: 2px; inset: auto; }
+.lk .react-grid-item.lk-comp--sel > .react-resizable-handle-n::after { top: 0; left: calc(50% - 3.5px); }
+.lk .react-grid-item.lk-comp--sel > .react-resizable-handle-s::after { bottom: 0; left: calc(50% - 3.5px); }
+.lk .react-grid-item.lk-comp--sel > .react-resizable-handle-e::after { right: 0; top: calc(50% - 3.5px); }
+.lk .react-grid-item.lk-comp--sel > .react-resizable-handle-w::after { left: 0; top: calc(50% - 3.5px); }
+.lk .react-grid-item.lk-comp--sel > .react-resizable-handle-ne::after { top: 0; right: 0; }
+.lk .react-grid-item.lk-comp--sel > .react-resizable-handle-nw::after { top: 0; left: 0; }
+.lk .react-grid-item.lk-comp--sel > .react-resizable-handle-se::after { bottom: 0; right: 0; }
+.lk .react-grid-item.lk-comp--sel > .react-resizable-handle-sw::after { bottom: 0; left: 0; }
 @media (hover: none) { .lk-hoja-mas, .lk-comp--kpi .lk-mako { opacity: 1; } }
 
 /* Mientras corre un recorrido, lo que aparece al pasar el cursor se ve (si no, el recorte señala la nada). */
@@ -209,6 +250,15 @@ export const CSS = `
 .lk-opcion-linea { font-size: 12px; color: var(--dim); }
 .lk-opcion .lk-agg, .lk-opcion .lk-tipo-campo { width: 30px; color: var(--dim); }
 .lk-sep-h { height: 1px; background: var(--border); margin: 4px 0; }
+/* «Archivados» al pie del desplegable de hojas: sutil, como «Limpiar filtros» del CRM (./Cabecera.tsx, MenuHojas). */
+.lk-archivados { display: block; width: 100%; margin-top: 4px; padding: 9px 10px 4px; border: none; border-top: 1px solid var(--border); background: none; font: inherit; font-size: 12.5px; color: var(--dim); text-align: center; cursor: pointer; }
+.lk-archivados:hover, .lk-archivados[aria-expanded="true"] { color: var(--ink); }
+.lk-archivada { display: flex; align-items: center; gap: 4px; padding: 4px 6px 4px 10px; min-height: 36px; font-size: 13.5px; }
+.lk-archivada .lk-hoja-nombre { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--dim); }
+.lk-archivada-btn { flex: none; display: inline-flex; align-items: center; justify-content: center; min-width: 30px; height: 30px; padding: 0 6px; border: none; border-radius: 8px; background: none; color: var(--dim); cursor: pointer; font: inherit; font-size: 12.5px; font-weight: 600; }
+.lk-archivada-btn:hover { box-shadow: inset 0 0 0 999px var(--velo-hover); color: var(--ink); }
+.lk-archivada-btn--peligro:hover, .lk-archivada-btn--confirmar { color: var(--bad); }
+.lk-archivada-btn--confirmar { box-shadow: inset 0 0 0 999px color-mix(in srgb, var(--bad) 10%, transparent); }
 .lk-buscar { display: flex; align-items: center; gap: 8px; margin: 0 12px 8px; height: 36px; padding: 0 12px; border-radius: 18px; background: var(--surface-2); color: var(--dim); }
 .lk-buscar input { flex: 1; min-width: 0; border: none; outline: none; font: inherit; font-size: 14px; background: transparent; color: var(--ink); }
 .lk-buscar--lista { margin: 4px 8px 6px; }
@@ -216,6 +266,16 @@ export const CSS = `
 
 /* La galería «Añadir un gráfico». */
 .lk-galeria { padding: 4px 12px 10px; }
+/* «Bloques de General»: tres por fila, cada uno con su vista previa (el bloque con datos de ejemplo, a escala). La
+   escala es fija (el ancho de la tarjeta es fijo: el flotante mide 812): 640 px de bloque en 230 de vista. */
+.lk-bloques { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; padding: 10px 12px 12px; }
+@media (max-width: 760px) { .lk-bloques { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.lk-bloque { display: flex; flex-direction: column; gap: 3px; padding: 0; border: none; background: none; text-align: left; cursor: pointer; font: inherit; color: var(--ink); min-width: 0; }
+.lk-bloque-vista { position: relative; display: block; height: 150px; margin-bottom: 6px; border-radius: 10px; overflow: hidden; background: var(--surface); box-shadow: 0 0 0 1px var(--border); pointer-events: none; transition: box-shadow .12s; }
+.lk-bloque:hover .lk-bloque-vista, .lk-bloque:focus-visible .lk-bloque-vista { box-shadow: 0 0 0 2px var(--primary); }
+.lk-bloque-escala { position: absolute; left: 0; top: 0; width: 640px; padding: 18px; box-sizing: border-box; transform: scale(.36); transform-origin: top left; container-type: inline-size; }
+.lk-bloque-nombre { font-size: 13.5px; font-weight: 600; }
+.lk-bloque-linea { font-size: 12px; color: var(--dim); line-height: 1.35; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
 .lk-galeria-tit { font-size: 13px; color: var(--ink); margin: 10px 0 6px; font-weight: 600; }
 .lk-galeria-fila { display: flex; flex-wrap: wrap; gap: 6px; }
 .lk-galeria-tipo { display: grid; place-items: center; width: 50px; height: 42px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); cursor: pointer; padding: 0; color: var(--ink); }

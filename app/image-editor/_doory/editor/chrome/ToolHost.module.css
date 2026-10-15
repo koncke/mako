@@ -1,0 +1,169 @@
+.drawerScroll {
+  max-height: calc(100vh - 120px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/*
+ * ── El panel lateral de Canva 2025–26: tarjeta blanca flotante ──
+ * ~350 px (canva.dev: «roughly 350px»), radio ~14 px, sombra elevada, separada ~8 px del riel y de la barra superior
+ * (relevamiento-canva-armazon.md §1 y §1.1). El gris de alrededor es el del cromo (el `.body` del editor).
+ */
+.sidebar {
+  flex: none;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  width: var(--cv-editor-panel-w);
+  min-height: 0;
+  margin: 8px 8px 8px 4px; /* + los 4 px de aire de la baldosa del riel = 8 px de separación */
+  overflow: hidden;
+  border-radius: var(--cv-panel-radius);
+  background: var(--cv-color-surface);
+  box-shadow: var(--cv-shadow-md);
+  animation: sidebar-in var(--cv-duration-base) var(--cv-ease-out);
+}
+.sidebar:focus {
+  outline: none;
+}
+.sidebar:focus-visible {
+  box-shadow: var(--cv-focus-ring), var(--cv-shadow-md);
+}
+.sidebarHead {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 52px;
+  padding: 12px 8px 4px 16px;
+}
+/* Canva titleSmall: 16 / 24, semibold */
+.sidebarTitle {
+  margin: 0;
+  overflow: hidden;
+  color: var(--cv-color-text);
+  font: 600 var(--cv-text-lg) / 24px var(--cv-font-sans);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.close {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  border-radius: var(--cv-radius-sm);
+  background: transparent;
+  color: var(--cv-color-text-muted);
+  cursor: pointer;
+  transition:
+    background var(--cv-duration-fast) var(--cv-ease-out),
+    color var(--cv-duration-fast) var(--cv-ease-out);
+}
+.close:hover {
+  background: var(--cv-color-bg-muted);
+  color: var(--cv-color-text);
+}
+.close:active {
+  background: rgb(57 70 96 / 0.14); /* Canva: terciario presionado */
+}
+.close:focus-visible {
+  outline: none;
+  box-shadow: var(--cv-focus-ring);
+}
+/* Una sola barra de desplazamiento por panel (canva.dev); las bibliotecas largas scrollean su grilla. */
+.sidebarBody {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+  padding: 8px 16px 16px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--cv-color-border-strong) transparent;
+}
+@keyframes sidebar-in {
+  from {
+    transform: translateX(-8px);
+    opacity: 0;
+  }
+}
+
+/* ── Bottom sheet (below the desktop breakpoint) ── */
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: calc(var(--cv-z-drawer) - 1);
+  background: var(--cv-color-overlay);
+  animation: fade 0.2s ease;
+}
+.sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: var(--cv-z-drawer);
+  display: flex;
+  flex-direction: column;
+  max-height: min(68dvh, 620px);
+  background: var(--cv-color-surface);
+  border-radius: var(--cv-panel-radius) var(--cv-panel-radius) 0 0;
+  box-shadow: var(--cv-shadow-lg);
+  animation: sheet-in 0.22s var(--cv-ease-out);
+}
+.sheet:focus {
+  outline: none;
+}
+.grab {
+  align-self: center;
+  width: 36px;
+  height: 4px;
+  margin: 8px 0 2px;
+  border-radius: 4px;
+  background: var(--cv-color-border-strong);
+}
+.sheetHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 8px 4px 16px;
+}
+.sheetBody {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.sheetBody > .sidebarBody {
+  overflow: visible;
+  padding: 8px 16px 16px;
+}
+@keyframes sheet-in {
+  from {
+    transform: translateY(24px);
+    opacity: 0;
+  }
+}
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sidebar,
+  .sheet,
+  .backdrop {
+    animation: none;
+  }
+}

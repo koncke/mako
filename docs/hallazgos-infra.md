@@ -33,6 +33,63 @@ donde el rescate lo sabía, lo dice. El registro completo de las corridas está 
 
 ---
 
+## `/.well-known/` no se sirve: el proxy lo manda a /login (14/10/2026)
+
+**Síntoma (anticipado, sin pasar todavía):** para publicar MaKo en Play Store (TWA) y en el App Store, el dominio tiene
+que servir `/.well-known/assetlinks.json` y `/.well-known/apple-app-site-association` con 200, tipo JSON y sin redirección.
+Hoy un pedido sin sesión a cualquiera de los dos termina en `/login`: la TWA abre con la barra del navegador a la vista
+(se ve como un sitio, no como una app) y iOS no verifica el dominio (ni los universal links ni las passkeys del 2FA,
+cuyo RP ID es `hola-mako.com`). No da error en ningún lado: se ve «casi bien».
+
+**Causa:** el matcher de `proxy.ts` excluye `.png`, `.js` y `.webmanifest`, pero no `.json` ni las rutas sin extensión
+(el archivo de Apple no tiene), y `PUBLICOS` (`lib/rutas-publicas.ts`) no incluye `/.well-known`. **La regla:** se suma
+como RUTA EXACTA a `PUBLICOS` (las dos rutas, no la carpeta) junto con los archivos, y se verifica con `curl -sI` sin
+cookie, mirando que no haya `Location`. **Vive en:** proxy.ts · lib/rutas-publicas.ts. El resto del relevamiento de las
+tiendas, en hallazgos-mobile.md → «El prototipo v3 y el relevamiento de las tiendas».
+
+## `revalidatePath('/x')` refresca la pantalla que llamó la action, aunque sea otra ruta (14/10/2026)
+
+Medido al verificar el tablero de Clientes del teléfono. `moverEntregaAction` llama a
+`revalidatePath('/customer-success')`, y la pantalla que la llamó era /m/cs: igual volvió re-renderizada. En Next 16.2,
+`revalidatePath` marca la respuesta de la server action como revalidada sin mirar la ruta (revalidate.js lo dice en un
+TODO), y el cliente vuelve a pedir el árbol de la página actual.
+
+- **No hace falta un `router.refresh()` después de una action que revalida.** Ponerlo es un viaje de más.
+- **La trampa es al revés:** una action que NO revalida (la idempotente: `cambio: false`, «ya estaba ahí») deja la
+  pantalla vieja. Ahí sí va `router.refresh()`.
+- Un comentario que dice «la action revalida otra ruta, así que esta pantalla no se entera» está mal desde Next 16.
+  Si un día lo arreglan (el TODO), lo que hoy se refresca solo deja de hacerlo.
+
+## Medir producción: dónde están las duraciones reales y qué las explica (14/10/2026)
+
+Medido al investigar «MaKo Mobile tarda 10 s».
+- **Las duraciones por pedido salen de `GET https://api.vercel.com/logs/request-logs`** (projectId, ownerId=teamId,
+  startDate/endDate en ms; filtros `requestPath` exacto o `search` por substring). Trae duración de función, tipo
+  de arranque, instancia, UA, referer y `isPrefetchRequest`, con unas 24 h de retención.
+  - El parámetro `page` se ignora: se pagina moviendo `endDate`.
+  - Devuelve 50 filas por llamada.
+  - `/v1/.../runtime-logs` es un tail en vivo, sin duraciones; los `events` de un deployment sólo traen el build.
+  - Script: `collect3.mjs` de la medición. Desde Git Bash va con `MSYS_NO_PATHCONV=1`, si no `/inicio` llega como
+    `C:/Program Files/Git/inicio`.
+- **Qué consulta hizo cada render: los `edge_logs` de Supabase** (Management API, `analytics/endpoints/logs`,
+  `response.origin_time`). No traen el traceId de la app: se atribuye por ventana de tiempo.
+- **Regiones**: las funciones corren en iad1 (`functionDefaultRegions`, vercel.json no fija región) y la base en
+  us-west-2. Son 97 ms de mediana por ida y vuelta (p90 127) con la base en ≤3 ms: cada ola de consultas EN SERIE
+  cuesta eso. El borde gru1 suma ~155 ms por pedido.
+- **El arranque de cada instancia** (instrumentation.ts → `hidratarCredenciales`, la siembra de webhook_routing, la
+  migración env→base): unas 8 idas en serie, 1,3-2,7 s. 51 de 114 terminaron en TimeoutError: el plazo corre con la
+  instancia congelada. Con 28 deploys por día, el primer toque a cada pantalla después de un push paga +1,5-3,5 s.
+- **Un `redirect()` de página puede llegar como redirect de CLIENTE (200), no como 307**: /inicio respondió 200 y
+  pintó su layout antes de redirigir. Lo que tiene que redirigir sin dibujar nada (un repartidor) va en el proxy.
+- **`select('*', { count: 'exact', head: true })` NO dice que una tabla no existe** (supabase-js, medido el
+  15/10/2026): para chat_estado, chat_leidos y chat_eventos, que no están en producción, devolvió `error: null` y
+  `count: null`, y se leía «existe, 0 filas». Con `head: true` no hay cuerpo y el PGRST205 no se parsea. Para saber si
+  una tabla existe va un `select('*').limit(1)` normal, y siempre contra una tabla inventada de control: las dos
+  tienen que dar lo mismo, o el chequeo no dice nada.
+- **Un componente de cliente que importa una constante de un módulo con `node:crypto`** (WS_DISENO, de
+  lib/auth-session.ts) mete crypto-browserify, stream y buffer en el bundle: ~450 KB crudos en TODA página. Turbopack
+  no lo recorta, esbuild sí; medir con esbuild engaña en esto.
+
 ## Supabase: leer y escribir sin perder datos
 
 ### ⚠️ `getSetting` devuelve `null` tanto si falló la lectura como si no hay fila, y eso expulsa a un cliente onboardeado al wizard
@@ -2729,6 +2786,18 @@ usa el que ya está.
 por IPv6. Antes de medir contra el server de otro, un `curl --max-time 20`; si no contesta,
 no se lo mata —es de otra sesión— y se levanta uno propio desde un worktree (ver «Las tres
 cosas que hay que recrear a mano»).
+
+### ⚠️ Un `next dev` de un worktree llega a ~6 GB y el vigía lo mata: la corrida tiene que ser CORTA (14/10/2026)
+
+Medido verificando el 2FA desde `C:/Users/marti/wt-2fa`: en ~15 minutos el dev server pasó los 5 GB
+privados y `vigia.ps1` lo mató por «fuga next dev» (`MATO pid … 5949 MB privados`). `--max-old-space-size`
+no lo frena: lo que crece es la memoria nativa de Turbopack, no el heap de V8. El síntoma en el arnés es
+un `page.goto: Timeout` en el medio del recorrido, que se lee como un bug de la pantalla.
+
+Y la otra trampa del mismo día: Turbopack compacta su caché en disco (`Finished filesystem cache
+database compaction in 60s`) y mientras tanto las primeras requests no contestan. **Antes del arnés,
+un `curl` a cada pantalla que se va a recorrer** (calienta la compilación y espera la compactación);
+después, el recorrido entero en una sola pasada y el server apagado al terminar.
 
 ### ⚠️ El worktree para tener dev server propio: sirve, pero NO desde el scratchpad
 
@@ -5855,3 +5924,118 @@ solo template.
 
 **Vive en:** `app/m/_ui/tema.ts` · `app/_components/TemaOscuroScript.tsx` · `tests/minificador-templates.test.ts` ·
 *2026-10-13 chat MaKo Mobile (cuenta 2)*
+
+## La zona del ws1 era Buenos Aires: los recordatorios decían la hora de otro país (bug 8, 14/10/2026)
+
+Síntoma (reunión del 13/10, Mauricio): «los temporizadores no coinciden con los textos» de los recordatorios por WhatsApp.
+El diagnóstico obvio era la plantilla o el cálculo de `{{reunion_faltan}}` (los dos estaban bien, medido). Lo que estaba mal
+era el DATO: `mako.timezone` del ws1 (Mauricio, Mexicali) era `America/Argentina/Buenos_Aires`, con origen «navegador» y
+`por: mbustos@elevate.com.mx`, escrito el 12/10 02:00 UTC por `detectarZonaAction`. La regla de quién cuenta como «el
+usuario» se cumplió (era la sesión de un admin propio): alguien entró con la cuenta de Mauricio desde Argentina, o su
+máquina tiene mal la zona. Medido en un envío real: la reunión de Guillermo (lead 2593) era a las 10:00 de Tijuana y los
+recordatorios dijeron «mañana a las 2:00 p. m.» y «empieza en 59 minutos, a las 2:00 p. m.». También corría con esa zona
+el horario de envío del negocio. Se corrigió a `America/Tijuana` con origen «persona» (la detección ya no la pisa).
+Las demás zonas medidas el 14/10 son coherentes (Leila en Cancún; Código Inmobiliario, Leandro y Martín en Argentina).
+**Regla:** una detección automática mide la máquina de quien mira, no al negocio: el navegador de un admin propio
+también puede estar en otro país. **Sin hacer:** cruzarla antes de escribir con señales del propio negocio (el país de
+su número de WhatsApp, la zona de su Calendly o de su cuenta de Meta) y no escribir si no coinciden.
+
+**Vive en:** `app/_components/zona-actions.ts` (`detectarZonaAction`) · `lib/timezone.ts` (`fijarZonaDelNegocio`) · `lib/zona-negocio-reglas.ts`
+
+## Mergear en el worktree de un push mientras corre su pre-push: el tsc lee un árbol MEZCLADO (14/10/2026)
+
+**Síntoma:** el push integrado se bloqueó con 13 «has no exported member» (`basesLandings`, `urlPublicaLanding`,
+`rutaInternaL`, `urlLandingVigente`) en archivos del Landing Generator, con los exports a la vista en el archivo.
+
+**Causa:** el pre-push corre `tsc` sobre el ÁRBOL DE TRABAJO, no sobre el commit que se pushea, y tarda ~3 min. El push
+salió a las 12:49:28 con HEAD `50a111b1c`; a las 12:49:46 el orquestador mergeó `landing-int` en el MISMO worktree
+(`11cecb1ee`). El `tsc` leyó `lib/app-url.ts` antes del merge y `lib/editor-landing/*.ts` después. Y lo que viaja es el
+HEAD del momento del push (`50a`), no lo que quedó en el disco: aun en verde, el push habría mandado otra cosa que la
+chequeada.
+
+⚠️ **El diagnóstico obvio era el equivocado:** «el merge de landing perdió los exports». Lo descarta un comando por lado:
+`git show 50a111b1c:lib/app-url.ts | grep -c basesLandings` → 0, en `11cecb1ee` → 5, en el disco → presentes.
+
+**Regla:** un worktree con un push en curso NO se toca —ni merge, ni checkout, ni edición— hasta que el push termine. Lo
+que haya que sumar espera al próximo, o va a otro worktree. Y ante un «no exported member» sobre un export que está en el
+archivo: `git show <commit>:<ruta>` de los dos lados, y la hora del merge contra la hora del push.
+
+**En la misma corrida había dos errores REALES**, del CRM juntado con Automations: `TS2589` en
+`lib/sugerencias-crm-server.ts:126` (va `as unknown as ConsultaPaginada`, como `lib/email-marketing.ts`) y el `id`
+opcional de un paso en `tests/sugerencias-crm.test.ts`. Arreglados en `b8b41ab8b`. Separar lo falso de lo real fue mirar
+qué archivos tocaba el merge de la carrera: los del CRM no estaban.
+
+**Vive en:** `.git/hooks/pre-push` (chequea el disco) · el procedimiento del push integrado, en `docs/relevo/estrategia-3-cuentas.md`
+
+## Un paquete que está en el `node_modules` del clon y NO en `package.json`: el typecheck pasa y el deploy muere (14/10/2026)
+
+**Síntoma:** el push del Image Editor (`45fe2cb7f..353c81a84`) pasó el pre-push entero y el deploy quedó en **Error**:
+`Module not found: Can't resolve 'qrcode'` en `app/image-editor/_doory/editor/engine/objects/qr.ts:12` (un `import()`
+dinámico). Producción siguió sirviendo la versión anterior, sin un aviso.
+
+**Causa:** `qrcode` 1.5.4 y `@types/qrcode` estaban en el `node_modules` del clon, sueltos (los dejó otra sesión), y en
+ningún lado de `package.json` ni de `package-lock.json`. El `tsc` del pre-push resuelve contra ese `node_modules`
+(los worktrees lo comparten por junction), así que da verde; Vercel instala desde el lock, y ahí no existe. Es la familia
+de «el catálogo importa fichas que no están en git»: **la pregunta no es si el archivo existe en el disco, es si existe
+en lo que se despliega.**
+
+⚠️ **Y el `node_modules` compartido lo empeora:** el chat del Image Editor copió sus ocho paquetes a mano «SIN npm
+install, porque tiene paquetes sueltos de otra sesión que un install borraría». Con eso, que algo compile en el clon ya
+no dice nada de si está declarado.
+
+**Arreglo:** `npm install <pkg> --package-lock-only` en un worktree (escribe `package.json` y el lock, no toca
+`node_modules`). Así se sumaron `qrcode` y `@types/qrcode`.
+
+**Cómo se mide en un minuto:** cruzar los imports de `git ls-files app lib` contra las dependencias de
+`git show HEAD:package.json`. El 14/10 dio, del Image Editor, `qrcode` (rompía), `onnxruntime-web` (llega por
+`@huggingface/transformers`, frágil) y cinco `@fontsource-variable/*` en `presenter/view/main.tsx`, que nadie importa.
+**Sin hacer:** ese cruce como test o como chequeo del pre-push (con un parser, no con regex: la regex caza texto de
+comentarios).
+
+**Vive en:** `package.json` · `package-lock.json` · `app/image-editor/_doory/editor/engine/objects/qr.ts`
+
+## El tsc «acotado» con `files` chequeaba el repo ENTERO: `extends` hereda el `include` (14/10/2026)
+
+**Síntoma:** un tsconfig temporal que extiende el del repo y lista sólo los archivos de la rama en
+`"files"` se quedaba sin heap con 2 GB, igual que el completo. Y peor: dio «0 errores» con un
+error de tipos metido a propósito, porque el vigía lo mató (salida 1, sin texto) y el script que
+contaba errores leyó cero.
+
+**Causa:** en un tsconfig, `files`, `include` y `exclude` se heredan del que se extiende **cada uno
+por separado**. Poner `files` no apaga el `include` del repo: lo suma. El «acotado» era el completo.
+
+**Regla:** el tsconfig acotado lleva `"include": []` además de `"files"`:
+
+```json
+{ "extends": "<repo>/tsconfig.json", "compilerOptions": { "noEmit": true, "incremental": false },
+  "include": [], "files": ["<repo>/next-env.d.ts", "<repo>/app/…/Tocado.tsx"] }
+```
+
+Medido: con eso, un módulo puro y su test chequean con 1,5 GB de heap en segundos, y cinco archivos
+del Plan con todo lo que importan (829 archivos de `app/` y `lib/`, `BoardShell.tsx` incluido)
+terminan con 2 GB. Y **un verde de un tsc se prueba rompiéndolo como un test**: metiendo un error,
+la corrida tiene que salir con 2 y el error impreso. Una salida 1 sin una línea es el vigía, no un
+resultado (ver «El typecheck que "salía con 1 sin errores"»).
+
+⚠️ **Y en un worktree NUEVO `next-env.d.ts` no existe**: está gitignorado, lo genera Next. Sin él no entran los tipos de
+`styled-jsx`, y todo `<style jsx>` que el acotado alcance por los imports da un TS2322 falso («Property 'jsx' does not
+exist»; medido con `app/conocimientos/Compartir.tsx`, que llega desde el Dashboard). Se copia del clon y se suma a `files`.
+Y la lista de la rama sale contra el merge-base (`git diff --name-only --diff-filter=d $(git merge-base HEAD origin/main)`):
+contra `origin/main` entran los archivos que otro agregó después y el tsc contesta «File not found».
+
+**Vive en:** el tsconfig temporal de cada chat (scratchpad) · la memoria `pc-techo-ram-chrome`, que
+enseñaba la receta sin el `include` · *2026-10-14 Plan - Perro Guardián*
+
+## `Mazo.tsx` y `mazo.ts` en la misma carpeta: en Windows el import trae el OTRO archivo (14/10/2026)
+
+**Síntoma:** un test que dibujaba `<MazoDecisiones>` tiró «Element type is invalid: expected a string… but got: undefined». El componente estaba exportado y el nombre bien escrito.
+
+**Causa:** `import { MazoDecisiones } from '…/decisiones/Mazo'` prueba las extensiones en orden (`.ts` antes que `.tsx`), y el disco de Windows no distingue mayúsculas: `Mazo.ts` encontró `mazo.ts`, el módulo de lógica pura de al lado, que no exporta el componente. Llega `undefined` y el error sale al DIBUJAR, lejos del import.
+
+**El diagnóstico obvio era el equivocado:** «falta el export» o «default contra named import». Ninguno.
+
+**Y en Vercel no pasaría** (Linux distingue mayúsculas): es un bug que existe sólo en el clon de Windows, o sea justo donde se prueba.
+
+**La regla:** en una carpeta no conviven dos módulos cuyo nombre difiere sólo en mayúsculas, aunque la extensión sea distinta. La lógica pura de un componente lleva otro nombre (`reglas.ts`, `*-reglas.ts`, que es la convención de la casa).
+
+**Vive en:** app/tickets/decisiones/reglas.ts

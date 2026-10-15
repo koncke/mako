@@ -36,7 +36,7 @@ import { runWithWorkspace } from '@/lib/workspace';
 import { hoyEnTijuana } from '@/lib/date-utils';
 import { rateLimit } from '@/lib/rate-limit';
 import {
-  campoDe, camposDeFuente, conMako, efectivoDe, esElemento, esGrafico, fuenteDe, hojaVacia, metricaDe, sanearTablero,
+  campoDe, camposDeFuente, conMako, efectivoDe, esElemento, esGrafico, fuenteDe, hojaVacia, metricaDe, hojasVisibles, sanearTablero,
   tituloDe,
   type Componente, type Elemento, type Grafico, type Hoja,
 } from '@/lib/graficos-catalogo';
@@ -44,7 +44,7 @@ import { PLANTILLAS_TEMA } from '@/lib/graficos-temas';
 import { PLANTILLAS_HOJA, instanciarPlantilla, plantillaHojaDe, tableroInicial } from '@/lib/graficos-plantillas';
 import { cortarEnHoyDe, datosDeGraficos, hastaDeFuente, valoresDeCampo, type PedidoDatos } from '@/lib/graficos-datos';
 import { detalleDeGrafico } from '@/lib/graficos-detalle';
-import { guardarTableroSi, leerTableroVersionado, listarTablerosGuardados, type TableroVersionado } from '@/lib/graficos-tablero';
+import { guardarTableroSi, leerTableroVisible, listarTablerosGuardados, type TableroVersionado } from '@/lib/graficos-tablero';
 import { analizarHoja, arrancarAMano, cancelarCorrida, programar, vistaDe, NoProgramable } from '@/lib/graficos-analisis-server';
 import { queTableroLeer } from '@/lib/graficos-lectura';
 import { generarHojaIA } from '@/lib/graficos-ia-generar';
@@ -149,7 +149,7 @@ async function resolver(input: In, ctx: Ctx, modo: 'leer' | 'persona'): Promise<
   const e = elegirPersona({ informes, miembros, pedido: str(input, 'persona'), sinPersonaVaElInicial: modo === 'leer', enFlujo: enFlujo(ctx) });
   if (!e.ok) return { error: e.error, ...(http || !e.disponibles.length ? {} : { disponibles: e.disponibles }) };
   const lectura: TableroVersionado = e.persona
-    ? await infra('leer el informe', () => leerTableroVersionado(e.persona!.sub))
+    ? await infra('leer el informe', () => leerTableroVisible(e.persona!.sub))
     : { estado: 'inicial', tablero: tableroInicial(), version: null, actualizado: null };
   return { eleccion: e, sub: e.persona?.sub ?? null, lectura, etiqueta: etiquetaPersona(e, http), http };
 }
@@ -231,7 +231,7 @@ async function aplicar(payload: In, ctx: Ctx): Promise<Ejecutado> {
     if (!/^\d+$/.test(sub)) return { ok: false, resumen: 'La propuesta no dice de quién es el informe: vuelve a pedirla.' };
     const version = typeof payload.version === 'string' ? payload.version : null;
     const cambio = payload.cambio as Cambio;
-    const actual = await leerTableroVersionado(sub);
+    const actual = await leerTableroVisible(sub);
     if (actual.version !== version) return { ok: false, resumen: TEXTO_CAMBIO };
     const ap = aplicarCambio(actual.tablero, cambio);
     if (!ap.ok) return { ok: false, resumen: ap.error };
@@ -371,7 +371,7 @@ export const RUNNERS: Runners = {
         const u = usuarios.get(c.sub);
         if (!u) continue;
         let hojas: Array<{ id: string; nombre: string }> = [];
-        try { hojas = (sanearTablero(JSON.parse(c.raw ?? 'null'))?.hojas ?? []).map((h) => ({ id: h.id, nombre: h.nombre })); } catch { hojas = []; }
+        try { const t = sanearTablero(JSON.parse(c.raw ?? 'null')); hojas = (t ? hojasVisibles(t) : []).map((h) => ({ id: h.id, nombre: h.nombre })); } catch { hojas = []; }
         listados.push({ persona: { sub: c.sub, email: (u.email ?? '').toLowerCase(), nombre: u.nombre ?? '' }, actualizado: c.actualizado, hojas });
       }
       const sinPersona = crudos.length - listados.length;
@@ -950,7 +950,7 @@ export const RUNNERS: Runners = {
         const hojaId = typeof payload.hojaId === 'string' ? payload.hojaId : '';
         if (!/^\d+$/.test(sub) || !hojaId) return { ok: false, resumen: 'La propuesta no dice qué hoja analizar: vuelve a pedirla.' };
         const ids = Array.isArray(payload.ids) ? (payload.ids as unknown[]).map(String) : null;
-        const lectura = await leerTableroVersionado(sub);
+        const lectura = await leerTableroVisible(sub);
         const hoja = lectura.tablero.hojas.find((h) => h.id === hojaId);
         if (!hoja) return { ok: false, resumen: 'Esa hoja ya no está en el informe.' };
         // El mismo tope que la pantalla: 15 por hora por persona (app/api/graficos/analisis/route.ts).
@@ -1019,7 +1019,7 @@ export const RUNNERS: Runners = {
         const sub = typeof payload.sub === 'string' ? payload.sub : '';
         const hojaId = typeof payload.hojaId === 'string' ? payload.hojaId : '';
         if (!/^\d+$/.test(sub) || !hojaId) return { ok: false, resumen: 'La propuesta no dice qué hoja programar: vuelve a pedirla.' };
-        const lectura = await leerTableroVersionado(sub);
+        const lectura = await leerTableroVisible(sub);
         if (!lectura.tablero.hojas.some((h) => h.id === hojaId)) return { ok: false, resumen: 'Esa hoja ya no está en el informe.' };
         const vista = await programar({
           usuario: sub, hojaId, cron: payload.cron ?? null,
@@ -1188,7 +1188,7 @@ export const RUNNERS: Runners = {
         const hojaId = typeof payload.hojaId === 'string' ? payload.hojaId : '';
         const elementoId = typeof payload.elementoId === 'string' ? payload.elementoId : '';
         if (!/^\d+$/.test(sub) || !hojaId || !elementoId) return { ok: false, resumen: 'La propuesta no dice qué caja escribir: vuelve a pedirla.' };
-        const lectura = await leerTableroVersionado(sub);
+        const lectura = await leerTableroVisible(sub);
         const hoja = lectura.tablero.hojas.find((h) => h.id === hojaId);
         if (!hoja) return { ok: false, resumen: 'Esa hoja ya no está en el informe.' };
         // El mismo tope que la pantalla, y la MISMA cuenta: 30 por hora por persona (app/api/graficos/ia-elemento).

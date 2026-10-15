@@ -15,6 +15,7 @@ import { scoreFromPrio, prioFromScore, curveTaskScores, sanearHist } from '@/app
 import { sanearDep, puedeDepender, resolverDeps, estaBloqueada, type Dep, type EntidadDep, type ClaseDep } from '@/app/plan/board/dependencias';
 import { diasQuieta, diasAlDeadline, ajusteTemporal, empujeDeadline, castigoQuietud } from '@/app/plan/board/envejecer';
 import { quarterDeFecha } from '@/app/plan/board/cuando';
+import { respetarFijadas } from '@/app/plan/board/lugar-al-soltar';
 import { saneaPortada, saneaIcono, yPortada } from '@/lib/portadas';
 // «Se repite para siempre» (mig 0163). El predicado y el filtro salen de un módulo de
 // datos y NO se reescriben acá: es la misma regla que aplican las pantallas y el test.
@@ -909,7 +910,13 @@ export async function recurvarPlanOwner(): Promise<{ movidas: number; total: num
     // `abiertas` y no `filas`: el grafo tiene que VER las recurrentes para saber que un
     // proyecto está vivo, y quien no compite lo decide él (`est.orden` ya viene sin ellas).
     const est = resolverDeps({ tareas: abiertas, deps });
-    const curva = curveTaskScores(est.orden.map((t) => ({ id: t.id, score: est.urgencia[t.id] ?? t.score })));
+    // ⚠️ Y EL REPARTO SE CORRIGE ALREDEDOR DE LO FIJADO (14/10/2026). Sin esto, la vecina que
+    // un arrastre corrió volvía al número de su puesto y quedaba encima de la soltada: 240 de
+    // 513 lugares se deshacían en la primera corrida (con esto, 0). Ver `respetarFijadas`.
+    const curva = respetarFijadas(
+      filas.map((t) => ({ id: t.id, num: t.num, mostrado: t.mostrado, manual: t.manual })),
+      curveTaskScores(est.orden.map((t) => ({ id: t.id, score: est.urgencia[t.id] ?? t.score }))),
+    );
     const cambian = filas.filter((t) => !t.manual && curva[t.id] != null && curva[t.id] !== t.mostrado);
     // De a tandas: 550 updates sueltos en paralelo saturan el pool de conexiones.
     const TANDA = 40;

@@ -211,7 +211,8 @@ test('⚠️ una lectura por ENTIDAD que el texto NOMBRA, y el motor la usa en s
   assert.deepEqual([...fuentesQueNombra('{{negocio_oferta}} y {{negocio_lead_magnet}}')].sort(), ['lead_magnet', 'perfil']);
   const motor = sinComentarios(leer('lib/nutricion.ts'));
   const usos = motor.match(/await datosParaElLead\(JSON\.stringify\((paso|p)\), valoresVariablesLead\(/g) ?? [];
-  assert.equal(usos.length, 4, `el motor resuelve el «{ }» en ${usos.length} de sus 4 envíos (WhatsApp, email, «Si responde», Instagram/Messenger)`);
+  // El quinto, desde TikTok fase 0 (14/10/2026): un mensaje fijo de la rama de un AI Step de Instagram o Messenger.
+  assert.equal(usos.length, 5, `el motor resuelve el «{ }» en ${usos.length} de sus 5 envíos (WhatsApp, email, «Si responde», Instagram/Messenger, y «Si responde» por las redes)`);
   // Lo oficial (las plantillas de Meta) sigue con lo de siempre: sus parámetros los registra Meta.
   assert.match(motor, /bodyParams: valoresVariablesLead\(lead, \{ negocio \}\),/);
   // `datosParaElLead` no lee nada si lo que el texto nombra ya lo tiene el motor en la mano.

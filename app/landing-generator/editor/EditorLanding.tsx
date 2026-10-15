@@ -750,12 +750,13 @@ function Armazon({ doc, temasPropios, creadoPor, autor }: PropsEditorLanding & {
     reemplazarTarjetas,
     insertarTarjetas,
     urlPublica,
+    baseLandings: doc.baseLandings,
     cambiosSinPublicar,
     recargar,
   }), [
     docId, titulo, setTitulo, contenido, config, setConfig, tema, version, estado, guardarAhora, paginaActual,
     irAPagina, setPaginas, editor, tarjetaActiva, irATarjeta, modoIA, setModoIA, panelIzq, setPanelIzq, panelDer,
-    dialogo, elegirImagenEstable, avisar, reemplazarTarjetas, insertarTarjetas, urlPublica, cambiosSinPublicar, recargar,
+    dialogo, elegirImagenEstable, avisar, reemplazarTarjetas, insertarTarjetas, urlPublica, doc.baseLandings, cambiosSinPublicar, recargar,
   ]);
 
   // ─────────────────────────────────────────────────────────────────────────

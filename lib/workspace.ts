@@ -176,7 +176,7 @@ const TENANT_TABLES = new Set<string>([
   // El Calendario (mig 0271, 13/10/2026): lo que la persona agenda. Sin esta línea getTenantDb() es
   // PASSTHROUGH y el calendario de un negocio mostraría las publicaciones de todos.
   'calendario_eventos',
-  // La tab Chats (mig 0275, 14/10/2026): el estado de cada conversación, lo que leyó cada persona y los eventos
+  // La tab Chats (mig 0284, 14/10/2026): el estado de cada conversación, lo que leyó cada persona y los eventos
   // del hilo. Sin estas líneas getTenantDb() es PASSTHROUGH: la bandeja de un negocio vería cerradas las
   // conversaciones que cerró OTRO, y `chat_leidos` mezclaría las marcas de dos negocios con la misma clave.
   'chat_estado', 'chat_leidos', 'chat_eventos',
@@ -213,6 +213,9 @@ const TENANT_TABLES = new Set<string>([
   'landing_docs', 'landing_doc_versiones', 'landing_doc_comentarios',
   // Los comentarios del diagnóstico de una landing (mig 0264, tanda 2 T5): N filas por workspace.
   'landing_sugerencias',
+  // El Image Editor (la copia de Canva, mig 0278): los diseños y «Subidos». N filas por workspace:
+  // sin esta línea el inicio del editor de un negocio listaría los diseños de TODOS.
+  'image_disenos', 'image_subidos',
   // Canal Instagram vía Zernio (mig 0136). La tab se retiró el 06/10/2026 y ya no
   // las lee ni las escribe nadie, pero las TABLAS quedan en la base (sin migración
   // de drop), así que siguen acá: si alguien vuelve a leerlas por getTenantDb, que

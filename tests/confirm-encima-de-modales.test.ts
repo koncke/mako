@@ -65,7 +65,9 @@ test('el confirm se dibuja por encima de todos los overlays de la app', () => {
   // (app/_components/DesvioMovil.tsx) es lo mismo en un teléfono: REEMPLAZA a la pantalla de
   // escritorio entera —tiene que ganarle a cualquier modal de esa pantalla— y debajo no queda nada
   // que se pueda tocar, así que ningún «¿seguro?» de ahí abajo tiene que verse.
-  const EXCEPCIONES = ['app/login/page.tsx', 'app/_ui/Confirm.tsx', 'app/_components/DesvioMovil.tsx'];
+  // El segundo paso del login (14/10/2026) es la misma tarjeta que /login, tapando el layout:
+  // ahí no se abre ningún «¿seguro?».
+  const EXCEPCIONES = ['app/login/page.tsx', 'app/login/2fa/page.tsx', 'app/_ui/Confirm.tsx', 'app/_components/DesvioMovil.tsx'];
   const tapan: string[] = [];
   for (const p of tsx(RAIZ)) {
     const rel = p.replace(/\\/g, '/').replace(/^.*?\/(app\/)/, '$1');

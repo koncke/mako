@@ -1,51 +1,79 @@
 'use client';
 
 // =============================================================================
-// CalendarioApp — la tab Calendario: la semana o el mes, con sus cinco capas
+// CalendarioApp — la tab Calendario: una copia fiel de Google Calendar, con lo de MaKo y lo de Google juntos
 // =============================================================================
-// Martín: «que sea simple de usar, que sirva para todos los casos... y que no sea restrictivo». De arriba abajo:
-//   · la barra: ‹ Hoy ›, el rango, Semana | Mes, las CAPAS (Publicaciones, Llamadas, Bloques, Plan, Objetivos: cada
-//     una con su color y su interruptor) y «＋ Nuevo»;
-//   · la grilla: siete columnas de lunes a domingo; cada renglón con su color de capa. Lo de día completo arriba,
-//     lo demás por hora. Un clic en el hueco de un día crea ahí; un clic en algo propio lo abre; lo de afuera lleva
-//     a donde vive (la ficha del lead, la tarjeta del Plan, /general).
+// Martín, 14/10/2026: «el calendario quiero que sea una copia fiel a Google Calendar, y que refleje todas las tareas y
+// eventos que se tienen en google calendar». De arriba abajo, como en Google:
+//   · LA BARRA: ☰ (la barra lateral), el logo con el día de hoy, «Hoy», ‹ ›, el título («octubre de 2026») y, a la
+//     derecha, la vista (Día, Semana, Mes, Año, Agenda, 4 días).
+//   · LA BARRA LATERAL: «Crear» (un evento, una publicación, un bloque, una llamada, una semana con una plantilla, o
+//     agendar una llamada por Calendly o Cal.com), el mes chico, «Mis calendarios» de MaKo y los calendarios de la cuenta
+//     de Google, cada uno con su casilla.
+//   · LA HOJA: la vista. Un clic (o un arrastre) en un hueco crea; un clic en algo abre su tarjeta; lo que se puede
+//     mover se arrastra.
 //
 // Lo que no se ve en la firma:
-//   · LA VISTA Y LA FECHA VIAJAN EN LA URL (`?vista=&fecha=`) y las LEE EL SERVER: el link que se copia es lo que
-//     se ve, y cambiar de semana trae lo de esa semana. Se navega con el router de la casa (preserva el `?ws=`).
-//   · LAS CAPAS PRENDIDAS SON UNA PREFERENCIA DEL NAVEGADOR (localStorage, con try/catch): no deciden nada que se
-//     guarde, sólo qué se dibuja. Sin la clave, todas prendidas.
-//   · «NO PUDE LEER» SE DICE, una línea por fuente (`fallos`): un calendario vacío sobre una lectura caída diría
-//     que la semana está libre.
-//   · DESPUÉS DE ESCRIBIR, `router.refresh()`: lo que cambia es un dato de esta pantalla. Borrar deja el «Deshacer»
-//     en un toast que vive acá (no en el modal, que se desmonta), y vuelve a poner la MISMA fila.
+//   · LA VISTA Y LA FECHA VIAJAN EN LA URL (`?vista=&fecha=`) y las LEE EL SERVER: el link que se copia es lo que se
+//     ve. Se navega con el router de la casa (preserva el `?ws=`).
+//   · QUÉ CALENDARIOS SE VEN ES UNA PREFERENCIA DEL NAVEGADOR (localStorage con el workspace en la clave, con try/catch):
+//     sin la clave, los de MaKo prendidos y los de Google como estén tildados en Google.
+//   · LO DE GOOGLE SE ESCRIBE EN GOOGLE (decisión del 14/10/2026): crear, cambiar, mover y borrar, en los calendarios
+//     donde la cuenta puede editar. Lo de MaKo (publicaciones, bloques, llamadas propias) sigue en MaKo.
+//   · MOVER CON INVITADOS PREGUNTA, como Google: «¿avisar el cambio?». Sin invitados, se mueve y listo.
+//   · BORRAR DEJA «DESHACER» en el toast, que devuelve el MISMO evento (el de MaKo y el de Google).
+//   · LO QUE SE MOVIÓ SE VE EN SU LUGAR NUEVO EN EL ACTO (`movidos`), hasta que llega la lectura nueva: sin eso, la
+//     tarjeta vuelve a donde estaba durante el viaje al server y se lee como que no se movió.
+//   · SIN GOOGLE CALENDAR, AL ENTRAR SALTA EL MODAL DE CONECTARLO (14/10/2026, Martín: «si una persona entra allí y no
+//     tiene el google calendar conectado, que salte el modal que tenemos en integraciones allí mismo»). Una vez por
+//     sesión del navegador y por negocio (sessionStorage): cerrarlo no lo vuelve a abrir al cambiar de semana. Y el
+//     «Conectar»/«Reconectar» del aviso abre ESE modal acá, nunca navega a /integraciones; el OAuth vuelve a esta tab
+//     (`?gcal=`, `useVueltaDeGoogle`). Reemplaza a «¿Qué vas a crear hoy?», que se fue entero («eliminalo
+//     completamente»): la galería ya no se abre sola y el armado de la semana con IA no existe más.
 
-import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
-import Link, { useRouter } from '@/app/_ui/Link';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useRouter, useWs } from '@/app/_ui/Link';
 import { Toast, useToast } from '@/app/_ui';
+import { Modal } from '@/app/_ui/Modal';
 import { Button } from '@/app/_ui/Button';
-import { IconoMenu } from '@/app/_ui/iconos-menu';
 import {
-  CAPAS_CALENDARIO, DIAS_CORTOS, colorDeCapa, filtrarPorCapas, horaDe, itemsPorDia, moverFecha, rotuloDeRango,
-  lunesDe, diaDe, ROTULO_FORMATO,
-  type CapaCalendario, type ItemCalendario, type VistaCalendario, type EntradaEvento, type PlantillaCalendario,
+  CAPAS_CALENDARIO, VISTAS_CALENDARIO, diaDe, horaDe, lunesDe, moverFecha, rangoDeVista, rotuloDeRango, sinDuplicarLlamadas,
+  type CapaCalendario, type EntradaEvento, type ItemCalendario, type PlantillaCalendario, type VistaCalendario,
 } from '@/lib/calendario-modelo';
-import type { FallosCalendario } from '@/lib/calendario';
-import { crearEventosAction, cambiarEventoAction, marcarEventoAction, borrarEventoAction, restaurarEventoAction } from './actions';
-import { EventoModal, ICONO_FORMATO, ICONO_TIPO, type EventoEditable } from './EventoModal';
-import { NuevoEnCalendario } from './NuevoEnCalendario';
-
-const CLAVE_CAPAS = 'calendario.capas';
-
-/** Cuántos renglones se ven por día en el mes antes de «+N más». */
-const EN_EL_MES = 3;
+import type { FallosCalendario, GoogleDelCalendario } from '@/lib/calendario';
+import type { EntradaEventoGoogle } from '@/lib/calendario-google-modelo';
+import {
+  crearEventosAction, cambiarEventoAction, marcarEventoAction, borrarEventoAction, restaurarEventoAction,
+  crearEventoGoogleAction, cambiarEventoGoogleAction, borrarEventoGoogleAction, restaurarEventoGoogleAction,
+} from './actions';
+import { EventoModal, type EventoEditable } from './EventoModal';
+import { PlantillasSemana } from './PlantillasSemana';
+import { AgendarLlamada } from './AgendarLlamada';
+import { useConectarIntegracion, useVueltaDeGoogle } from '@/app/_components/ConectarIntegracion';
+import { CSS_GC } from './gc-css';
+import { COLOR_CAPA, LLAVES_MAKO, NOMBRE_CAPA, llaveDe } from './comun';
+import { MiniMes, Flecha } from './MiniMes';
+import { VistaTiempo, type NuevoRango } from './VistaTiempo';
+import { VistaAgenda, VistaAnio, VistaMes } from './VistasLista';
+import { EventoGoogleModal, RapidoNuevo, TarjetaEvento, duracionEntre, type BorradorNuevo, type EdicionGoogle } from './Tarjetas';
 
 type Abierto =
-  | { t: 'nuevo' }
-  | { t: 'evento'; inicial: EventoEditable }
+  | { t: 'tarjeta'; item: ItemCalendario; ancla: DOMRect }
+  | { t: 'rapido'; ancla: DOMRect; borrador: BorradorNuevo }
+  | { t: 'propio'; inicial: EventoEditable }
+  | { t: 'google'; inicial: EdicionGoogle }
+  | { t: 'plantillas' }
+  | { t: 'agendar' }
+  | { t: 'avisar'; item: ItemCalendario; entrada: EntradaEventoGoogle; mov: Movido }
   | null;
 
-export function CalendarioApp({ vista, fecha, hoy, tz, dias, items, fallos, pendienteOnboarding }: {
+/** Dónde quedó algo que se acaba de mover, mientras viaja al server. */
+type Movido = { inicio: string; fin: string | null };
+
+const hhmm = (min: number) => `${String(Math.floor(min / 60) % 24).padStart(2, '0')}:${String(min % 60).padStart(2, '0')}`;
+const llavePreferencia = (ws: number | null) => `calendario.visibles.${ws ?? 'propio'}`;
+
+export function CalendarioApp({ vista, fecha, hoy, tz, dias, items, fallos, google }: {
   vista: VistaCalendario;
   fecha: string;
   hoy: string;
@@ -53,107 +81,171 @@ export function CalendarioApp({ vista, fecha, hoy, tz, dias, items, fallos, pend
   dias: string[];
   items: ItemCalendario[];
   fallos: FallosCalendario;
-  /** El onboarding de la tab no está hecho: se abre «Nuevo» la primera vez (es la primera semana). */
-  pendienteOnboarding: boolean;
+  google: GoogleDelCalendario | null;
 }) {
   const router = useRouter();
-  const [prendidas, setPrendidas] = useState<Set<CapaCalendario>>(() => new Set(CAPAS_CALENDARIO.map((c) => c.id)));
+  const ws = useWs();
+  const calendarios = useMemo(() => google?.calendarios ?? [], [google]);
+  const googleEscribe = !!google?.puedeEscribir;
+  const editables = useMemo(() => (googleEscribe ? calendarios.filter((c) => c.editable) : []), [calendarios, googleEscribe]);
+  const porDefecto = useMemo(() => new Set([...LLAVES_MAKO, ...calendarios.filter((c) => c.seleccionado).map((c) => `g:${c.id}`)]), [calendarios]);
+  const [elegidas, setElegidas] = useState<Record<string, boolean>>({});
+  const visibles = useMemo(() => {
+    const s = new Set(porDefecto);
+    for (const [k, v] of Object.entries(elegidas)) { if (v) s.add(k); else s.delete(k); }
+    return s;
+  }, [porDefecto, elegidas]);
+  const [lado, setLado] = useState(true);
   const [abierto, setAbierto] = useState<Abierto>(null);
+  const [menuVista, setMenuVista] = useState<DOMRect | null>(null);
+  const [menuCrear, setMenuCrear] = useState<DOMRect | null>(null);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { toast, show, clear } = useToast(5000);
+  const [movidos, setMovidos] = useState<Record<string, Movido>>({});
+  const [plegados, setPlegados] = useState<Record<string, boolean>>({});
+  const { toast, show, clear } = useToast(6000);
 
-  // La preferencia de capas: se lee al montar (nunca pisa una decisión: no hay otra fuente de esto).
+  // La lectura nueva manda: lo movido ya está donde quedó.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { setMovidos({}); }, [items]);
+
+  // La preferencia de qué se ve: se lee al montar (no pisa nada que se haya decidido en esta pantalla).
   useEffect(() => {
     try {
-      const raw = window.localStorage.getItem(CLAVE_CAPAS);
-      if (!raw) return;
-      const ids = JSON.parse(raw);
-      if (Array.isArray(ids)) {
-        const validas = ids.filter((x): x is CapaCalendario => CAPAS_CALENDARIO.some((c) => c.id === x));
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        setPrendidas(new Set(validas));
-      }
-    } catch { /* sin almacenamiento: todas prendidas */ }
-  }, []);
-  // La primera vez (onboarding pendiente) se abre la galería: armar la primera semana ES el onboarding.
-  useEffect(() => {
-    if (!pendienteOnboarding) return;
-    try { if (window.sessionStorage.getItem('calendario.bienvenida')) return; window.sessionStorage.setItem('calendario.bienvenida', '1'); } catch { /* igual se abre */ }
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setAbierto({ t: 'nuevo' });
-  }, [pendienteOnboarding]);
-
-  const alternarCapa = (c: CapaCalendario) => {
-    setPrendidas((p) => {
-      const n = new Set(p);
-      if (n.has(c)) n.delete(c); else n.add(c);
-      try { window.localStorage.setItem(CLAVE_CAPAS, JSON.stringify([...n])); } catch { /* preferencia: no pasa nada */ }
+      const raw = window.localStorage.getItem(llavePreferencia(ws));
+      const v = raw ? JSON.parse(raw) : null;
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      if (v && typeof v === 'object') setElegidas(Object.fromEntries(Object.entries(v).filter(([, x]) => typeof x === 'boolean')) as Record<string, boolean>);
+    } catch { /* sin almacenamiento: lo de por defecto */ }
+  }, [ws]);
+  const alternar = (llave: string) => {
+    setElegidas((e) => {
+      const n = { ...e, [llave]: !visibles.has(llave) };
+      try { window.localStorage.setItem(llavePreferencia(ws), JSON.stringify(n)); } catch { /* preferencia: no pasa nada */ }
       return n;
     });
   };
 
-  const ir = useCallback((v: VistaCalendario, f: string) => router.push(`/calendario?vista=${v}&fecha=${f}`), [router]);
-  const visibles = useMemo(() => filtrarPorCapas(items, prendidas), [items, prendidas]);
-  const porDia = useMemo(() => itemsPorDia(visibles, dias, tz), [visibles, dias, tz]);
-  const lunes = lunesDe(vista === 'semana' ? fecha : (dias.includes(hoy) ? hoy : fecha));
+  // Conectar una integración SIN salir de la tab (AGENTS.md): el modal de /integraciones, montado acá. Al conectarse,
+  // se vuelve a leer la pantalla (los calendarios de Google, el link de agenda).
+  const integracion = useConectarIntegracion({ onConectado: () => router.refresh() });
+  const abrirIntegracion = integracion.abrir;
+  const googleOk = useCallback(() => { show('Google Calendar conectado'); router.refresh(); }, [show, router]);
+  const vueltaGoogle = useVueltaDeGoogle(abrirIntegracion, googleOk);
 
-  // ── Escrituras ──
-  const crear = async (entradas: EntradaEvento[], origen: 'user' | 'plantilla' | 'ia', mensaje: string): Promise<boolean> => {
+  // Sin Google Calendar, al ENTRAR salta el modal de conectarlo: una vez por sesión del navegador y por negocio, y se
+  // cierra. Si el OAuth acaba de volver (`?gcal=`), lo abre `useVueltaDeGoogle` con lo que pasó.
+  const sinGoogle = fallos.google === 'sin-conexion';
+  useEffect(() => {
+    if (!sinGoogle || vueltaGoogle) return;
+    const llave = `calendario.conectarGoogle.${ws ?? 'propio'}`;
+    try { if (window.sessionStorage.getItem(llave)) return; window.sessionStorage.setItem(llave, '1'); } catch { /* sin almacenamiento: igual se ofrece */ }
+    abrirIntegracion('google');
+  }, [sinGoogle, vueltaGoogle, ws, abrirIntegracion]);
+
+  const ir = useCallback((v: VistaCalendario, f: string) => { setAbierto(null); router.push(`/calendario?vista=${v}&fecha=${f}`); }, [router]);
+
+  // Los atajos de Google: t (hoy), j/n (siguiente), k/p (anterior), c (crear), y la tecla de cada vista.
+  useEffect(() => {
+    const tecla = (e: KeyboardEvent) => {
+      if (e.ctrlKey || e.metaKey || e.altKey || abierto || integracion.abierto) return;
+      const el = e.target as HTMLElement | null;
+      if (el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName))) return;
+      const k = e.key.toLowerCase();
+      const v = VISTAS_CALENDARIO.find((x) => x.tecla === k);
+      if (v) { ir(v.id, fecha); return; }
+      if (k === 't') ir(vista, hoy);
+      else if (k === 'j' || k === 'n') ir(vista, moverFecha(vista, fecha, 1));
+      else if (k === 'k' || k === 'p') ir(vista, moverFecha(vista, fecha, -1));
+      else if (k === 'c') nuevoDesdeBoton();
+    };
+    document.addEventListener('keydown', tecla);
+    return () => document.removeEventListener('keydown', tecla);
+  });
+
+  // Lo que se dibuja: lo prendido, en su lugar nuevo si se acaba de mover, y sin la llamada repetida (la del CRM y su
+  // evento de Google son la misma: si las dos están a la vista, queda la del CRM, que lleva a la ficha).
+  const aDibujar = useMemo(() => {
+    const prendidos = items
+      .filter((it) => visibles.has(llaveDe(it)))
+      .map((it) => (movidos[it.id] ? { ...it, ...movidos[it.id] } : it));
+    const crm = prendidos.filter((i) => i.fuente === 'crm');
+    const google = prendidos.filter((i) => i.fuente === 'google');
+    const sinRepetir = new Set(sinDuplicarLlamadas(crm, google).map((i) => i.id));
+    return prendidos.filter((i) => i.fuente !== 'google' || sinRepetir.has(i.id));
+  }, [items, visibles, movidos]);
+  const enVista = useMemo(() => new Set(rangoDeVista(vista, fecha).dias), [vista, fecha]);
+
+  // ── Crear ──
+  const borradorEn = (f: string, ini: number | null, fin: number | null): BorradorNuevo => ({
+    tipo: 'evento', titulo: '', fecha: f, hora: ini == null ? null : hhmm(ini), horaFin: fin == null ? null : hhmm(Math.min(fin, 24 * 60 - 1)),
+    formato: 'reel', calendarioId: editables.find((c) => c.primario)?.id ?? editables[0]?.id ?? null,
+  });
+  const nuevoDesdeBoton = () => {
+    const f = enVista.has(hoy) ? hoy : fecha;
+    setError(null);
+    setAbierto({ t: 'rapido', ancla: new DOMRect(window.innerWidth / 2 - 230, 120, 0, 0), borrador: borradorEn(f, 10 * 60, 11 * 60) });
+  };
+  const nuevoEnRango = (r: NuevoRango, ancla: DOMRect) => { setError(null); setAbierto({ t: 'rapido', ancla, borrador: borradorEn(r.fecha, r.ini, r.fin) }); };
+
+  const entradaPropia = (b: BorradorNuevo): EntradaEvento => ({
+    titulo: b.titulo.trim() || (b.tipo === 'publicacion' ? 'Publicación' : b.tipo === 'llamada' ? 'Llamada' : 'Bloque de trabajo'),
+    tipo: b.tipo === 'evento' ? 'bloque' : b.tipo, formato: b.tipo === 'publicacion' ? b.formato : null,
+    fecha: b.fecha, hora: b.hora, duracionMin: b.hora ? duracionEntre(b.hora, b.horaFin) : null,
+  });
+  const entradaGoogle = (b: BorradorNuevo): EntradaEventoGoogle => ({
+    titulo: b.titulo, fecha: b.fecha, hora: b.hora, duracionMin: b.hora ? duracionEntre(b.hora, b.horaFin) ?? 60 : null, fechaFin: null,
+  });
+
+  const correr = async (fn: () => Promise<{ ok: boolean; error?: string }>, ok: string, deshacer?: () => Promise<unknown>): Promise<boolean> => {
     setGuardando(true); setError(null);
     try {
-      const r = await crearEventosAction(entradas, origen);
-      if (!r.ok) { setError(r.error); show(r.error, undefined, 'bad'); return false; }
+      const r = await fn();
+      if (!r.ok) { setError(r.error ?? 'No se pudo guardar.'); return false; }
       setAbierto(null);
-      const ids = r.ids;
-      show(mensaje, origen === 'user' ? undefined : () => { void deshacerLote(ids); });
+      show(ok, deshacer ? () => { void deshacer().then(() => router.refresh()).catch(() => show('No se pudo deshacer', undefined, 'bad')); } : undefined);
       router.refresh();
       return true;
     } catch {
-      show('Sin conexión', undefined, 'bad');
+      setError('Sin conexión. Prueba de nuevo.');
       return false;
     } finally { setGuardando(false); }
   };
-  const deshacerLote = async (ids: string[]) => {
-    try { for (const id of ids) await borrarEventoAction(id); router.refresh(); }
-    catch { show('No se pudo deshacer', undefined, 'bad'); }
-  };
 
-  const guardarEvento = async (inicial: EventoEditable, e: EntradaEvento) => {
-    if (!inicial.id) { await crear([e], 'user', 'Agendado'); return; }
-    setGuardando(true); setError(null);
-    try {
-      const r = await cambiarEventoAction(inicial.id, e);
-      if (!r.ok) { setError(r.error); return; }
-      setAbierto(null);
-      show('Guardado');
-      router.refresh();
-    } catch { setError('Sin conexión. Prueba de nuevo.'); }
-    finally { setGuardando(false); }
+  const guardarRapido = (b: BorradorNuevo) => {
+    if (b.calendarioId) {
+      void correr(() => crearEventoGoogleAction(b.calendarioId!, entradaGoogle(b)), 'Evento guardado');
+      return;
+    }
+    void correr(() => crearEventosAction([entradaPropia(b)], 'user'), 'Agendado');
   };
-
-  const borrar = async (id: string) => {
-    setGuardando(true);
-    try {
-      const b = await borrarEventoAction(id);
-      setAbierto(null);
-      show('Borrado', b ? () => { void restaurarEventoAction(b).then(() => router.refresh()).catch(() => show('No se pudo deshacer', undefined, 'bad')); } : undefined);
-      router.refresh();
-    } catch { show('No se pudo borrar', undefined, 'bad'); }
-    finally { setGuardando(false); }
-  };
-
-  const marcar = async (id: string, hecho: boolean) => {
-    try { await marcarEventoAction(id, hecho); setAbierto(null); show(hecho ? 'Hecho' : 'Pendiente'); router.refresh(); }
-    catch { show('No se pudo guardar', undefined, 'bad'); }
-  };
-
-  /** Abrir lo propio para editarlo; lo de afuera navega (es un Link). */
-  const abrirPropio = (it: ItemCalendario) => {
-    if (it.fuente !== 'propio' || !it.tipo) return;
+  const masOpciones = (b: BorradorNuevo) => {
     setError(null);
+    if (b.calendarioId) setAbierto({ t: 'google', inicial: { eventoId: null, calendarioId: b.calendarioId, entrada: entradaGoogle(b), invitados: 0 } });
+    else setAbierto({ t: 'propio', inicial: { ...entradaPropia(b), titulo: b.titulo.trim() } });
+  };
+
+  // ── Lo que ya existe ──
+  const editar = (it: ItemCalendario) => {
+    setError(null);
+    if (it.google) {
+      const g = it.google;
+      setAbierto({
+        t: 'google',
+        inicial: {
+          eventoId: g.id, calendarioId: g.calendarioId, invitados: g.invitados,
+          entrada: {
+            titulo: g.titulo === '(Sin título)' ? '' : g.titulo, fecha: g.fecha ?? diaDe(g.inicio, tz), hora: g.diaCompleto ? null : horaDe(g.inicio, tz),
+            fechaFin: g.fechaFin, duracionMin: g.fin ? Math.round((Date.parse(g.fin) - Date.parse(g.inicio)) / 60_000) : 60,
+            ubicacion: g.ubicacion, descripcion: g.descripcion, colorId: g.colorId,
+          },
+        },
+      });
+      return;
+    }
+    if (it.fuente !== 'propio' || !it.tipo) return;
     setAbierto({
-      t: 'evento',
+      t: 'propio',
       inicial: {
         id: it.id.replace(/^propio:/, ''), titulo: it.titulo, tipo: it.tipo, formato: it.formato ?? null,
         fecha: diaDe(it.inicio, tz), hora: it.diaCompleto ? null : horaDe(it.inicio, tz),
@@ -162,188 +254,280 @@ export function CalendarioApp({ vista, fecha, hoy, tz, dias, items, fallos, pend
       },
     });
   };
-  const nuevoEn = (dia: string) => { setError(null); setAbierto({ t: 'evento', inicial: { titulo: '', tipo: 'publicacion', formato: 'reel', fecha: dia, hora: '10:00', duracionMin: null } }); };
 
-  const avisos = lineasDeFallo(fallos);
+  const borrar = (it: ItemCalendario, avisar = true) => {
+    if (it.google) {
+      const g = it.google;
+      void correr(() => borrarEventoGoogleAction(g.calendarioId, g.id, avisar && g.invitados > 0), 'Evento borrado', () => restaurarEventoGoogleAction(g.calendarioId, g.id));
+      return;
+    }
+    const id = it.id.replace(/^propio:/, '');
+    setGuardando(true);
+    void borrarEventoAction(id).then((b) => {
+      setAbierto(null);
+      show('Evento borrado', b ? () => { void restaurarEventoAction(b).then(() => router.refresh()).catch(() => show('No se pudo deshacer', undefined, 'bad')); } : undefined);
+      router.refresh();
+    }).catch(() => show('No se pudo borrar', undefined, 'bad')).finally(() => setGuardando(false));
+  };
+
+  const marcar = (it: ItemCalendario, hecho: boolean) => {
+    void marcarEventoAction(it.id.replace(/^propio:/, ''), hecho)
+      .then(() => { setAbierto(null); show(hecho ? 'Hecho' : 'Pendiente'); router.refresh(); })
+      .catch(() => show('No se pudo guardar', undefined, 'bad'));
+  };
+
+  /** Arrastrado o estirado en la grilla: el día y los minutos nuevos. */
+  const mover = (it: ItemCalendario, f: string, ini: number, fin: number) => {
+    const mov: Movido = { inicio: aInstante(f, ini, tz), fin: aInstante(f, fin, tz) };
+    if (it.google) {
+      const g = it.google;
+      const entrada: EntradaEventoGoogle = { titulo: g.titulo === '(Sin título)' ? '' : g.titulo, fecha: f, hora: hhmm(ini), duracionMin: fin - ini };
+      if (g.invitados > 0) { setAbierto({ t: 'avisar', item: it, entrada, mov }); return; }
+      moverGoogle(it, entrada, mov, false);
+      return;
+    }
+    if (it.fuente !== 'propio' || !it.tipo) return;
+    setMovidos((m) => ({ ...m, [it.id]: mov }));
+    const entrada: EntradaEvento = {
+      titulo: it.titulo, tipo: it.tipo, formato: it.formato ?? null, fecha: f, hora: hhmm(ini), duracionMin: it.fin ? fin - ini : null, notas: it.notas ?? '',
+    };
+    void cambiarEventoAction(it.id.replace(/^propio:/, ''), entrada).then((r) => {
+      if (!r.ok) { show(r.error, undefined, 'bad'); setMovidos((m) => { const n = { ...m }; delete n[it.id]; return n; }); return; }
+      router.refresh();
+    }).catch(() => show('No se pudo mover', undefined, 'bad'));
+  };
+  const moverGoogle = (it: ItemCalendario, entrada: EntradaEventoGoogle, mov: Movido, avisar: boolean) => {
+    const g = it.google!;
+    setAbierto(null);
+    setMovidos((m) => ({ ...m, [it.id]: mov }));
+    void cambiarEventoGoogleAction(g.calendarioId, g.id, entrada, avisar).then((r) => {
+      if (!r.ok) { show(r.error, undefined, 'bad'); setMovidos((m) => { const n = { ...m }; delete n[it.id]; return n; }); return; }
+      router.refresh();
+    }).catch(() => show('No se pudo mover', undefined, 'bad'));
+  };
+
+  const avisos = lineasDeAviso(fallos, google);
+  const titulo = rotuloDeRango(vista, fecha);
+  const nombreVista = VISTAS_CALENDARIO.find((v) => v.id === vista)?.nombre ?? 'Semana';
 
   return (
-    <div data-calendario="" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+    <div className="gc" data-calendario="">
+      <style>{CSS_GC}</style>
       {toast && <Toast state={toast} onClose={clear} />}
 
-      {/* La barra */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-          <button type="button" aria-label={vista === 'semana' ? 'Semana anterior' : 'Mes anterior'} style={FLECHA} onClick={() => ir(vista, moverFecha(vista, fecha, -1))}>‹</button>
-          <Button variant="secondary" size="sm" onClick={() => ir(vista, hoy)}>Hoy</Button>
-          <button type="button" aria-label={vista === 'semana' ? 'Semana siguiente' : 'Mes siguiente'} style={FLECHA} onClick={() => ir(vista, moverFecha(vista, fecha, 1))}>›</button>
+      {/* La barra de arriba */}
+      <header className="gc-barra">
+        <button type="button" className="gc-ico" aria-label={lado ? 'Ocultar el menú principal' : 'Mostrar el menú principal'} aria-expanded={lado} onClick={() => setLado((x) => !x)}>
+          <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden><path d="M3 6h18M3 12h18M3 18h18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
+        </button>
+        <span className="gc-logo">
+          <span className="gc-logo-dia" aria-hidden>{Number(hoy.slice(8))}</span>
+          <span className="gc-logo-txt">Calendario</span>
+        </span>
+        <button type="button" className="gc-hoy" onClick={() => ir(vista, hoy)}>Hoy</button>
+        <button type="button" className="gc-ico" aria-label="Anterior" title="Anterior" onClick={() => ir(vista, moverFecha(vista, fecha, -1))}><Flecha dir="izq" /></button>
+        <button type="button" className="gc-ico" aria-label="Siguiente" title="Siguiente" onClick={() => ir(vista, moverFecha(vista, fecha, 1))}><Flecha dir="der" /></button>
+        <h1 className="gc-titulo" data-rango="">{titulo}</h1>
+        <div className="gc-derecha">
+          <button type="button" className="gc-vista-boton" aria-haspopup="menu" aria-expanded={!!menuVista}
+            onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setMenuVista(menuVista ? null : r); }}>
+            {nombreVista}<Flecha dir="abajo" tam={18} />
+          </button>
         </div>
-        <span data-rango="" style={{ fontSize: 20, fontWeight: 600, color: 'var(--ink)', letterSpacing: '-0.01em', textTransform: 'capitalize' }}>{rotuloDeRango(vista, fecha)}</span>
-        <div role="tablist" aria-label="Vista" style={{ display: 'inline-flex', padding: 3, borderRadius: 10, background: 'var(--surface-2)', border: '1px solid var(--border)', marginLeft: 'auto' }}>
-          {(['semana', 'mes'] as const).map((v) => (
-            <button key={v} type="button" role="tab" aria-selected={vista === v} onClick={() => ir(v, fecha)}
-              style={{ padding: '6px 14px', borderRadius: 8, border: 'none', fontSize: 13.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', background: vista === v ? 'var(--surface)' : 'transparent', color: vista === v ? 'var(--ink)' : 'var(--dim)', boxShadow: vista === v ? '0 1px 3px color-mix(in srgb, var(--ink) 12%, transparent)' : 'none' }}>
-              {v === 'semana' ? 'Semana' : 'Mes'}
+      </header>
+      {menuVista && (
+        <MenuFlotante ancla={menuVista} alinear="derecha" onCerrar={() => setMenuVista(null)}>
+          {VISTAS_CALENDARIO.map((v) => (
+            <button key={v.id} type="button" role="menuitemradio" aria-checked={vista === v.id} onClick={() => { setMenuVista(null); ir(v.id, fecha); }}>
+              <span>{v.nombre}</span><kbd>{v.tecla.toUpperCase()}</kbd>
             </button>
           ))}
-        </div>
-        <Button variant="primary" size="sm" onClick={() => { setError(null); setAbierto({ t: 'nuevo' }); }}>＋ Nuevo</Button>
-      </div>
+        </MenuFlotante>
+      )}
 
-      {/* Las capas: el color de cada una y su interruptor. */}
-      <div role="group" aria-label="Qué se ve" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-        {CAPAS_CALENDARIO.map((c) => {
-          const on = prendidas.has(c.id);
-          return (
-            <button key={c.id} type="button" aria-pressed={on} data-capa={c.id} onClick={() => alternarCapa(c.id)}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 7, height: 32, padding: '0 12px', borderRadius: 999, fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit', border: `1px solid ${on ? 'var(--border-strong)' : 'var(--border)'}`, background: on ? 'var(--surface)' : 'transparent', color: on ? 'var(--ink)' : 'var(--faint)' }}>
-              <span aria-hidden style={{ width: 9, height: 9, borderRadius: '50%', background: c.color, opacity: on ? 1 : 0.3 }} />
-              {c.nombre}
-            </button>
-          );
-        })}
-      </div>
+      <div className="gc-cuerpo">
+        <aside className="gc-lado" hidden={!lado} aria-label="Calendarios">
+          <button type="button" className="gc-crear" aria-haspopup="menu" onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setMenuCrear(menuCrear ? null : r); }}>
+            <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden><path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" /></svg>
+            Crear
+            <Flecha dir="abajo" tam={18} />
+          </button>
+          <MiniMes key={fecha.slice(0, 7)} mes={fecha} hoy={hoy} elegidos={enVista} onDia={(d) => ir(vista === 'anio' || vista === 'agenda' ? 'dia' : vista, d)} />
 
-      {avisos.length > 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <Grupo titulo="Mis calendarios" plegado={!!plegados.mako} onPlegar={() => setPlegados((p) => ({ ...p, mako: !p.mako }))}>
+            {CAPAS_CALENDARIO.map((c) => (
+              <CasillaCalendario key={c.id} nombre={NOMBRE_CAPA[c.id as CapaCalendario]} color={COLOR_CAPA[c.id as CapaCalendario]}
+                prendido={visibles.has(`mk:${c.id}`)} onCambiar={() => alternar(`mk:${c.id}`)} />
+            ))}
+          </Grupo>
+          {calendarios.length > 0 && (
+            <Grupo titulo={google?.cuenta ?? 'Google Calendar'} plegado={!!plegados.google} onPlegar={() => setPlegados((p) => ({ ...p, google: !p.google }))}>
+              {calendarios.map((c) => (
+                <CasillaCalendario key={c.id} nombre={c.nombre} color={c.color} prendido={visibles.has(`g:${c.id}`)} onCambiar={() => alternar(`g:${c.id}`)} />
+              ))}
+            </Grupo>
+          )}
           {avisos.map((a) => (
-            <span key={a.texto} style={{ fontSize: 13, color: a.tono === 'dim' ? 'var(--dim)' : 'var(--warn)' }}>
-              {a.texto}{a.href && <> · <Link href={a.href} style={{ color: 'var(--primary)', fontWeight: 600, textDecoration: 'none' }}>{a.link}</Link></>}
-            </span>
+            <p key={a.texto} className={`gc-aviso${a.mal ? ' gc-aviso--mal' : ''}`}>
+              {a.texto}{a.servicio && <> <button type="button" className="gc-aviso-boton" onClick={() => abrirIntegracion(a.servicio!)}>{a.link}</button></>}
+            </p>
           ))}
-        </div>
-      )}
+        </aside>
+        {menuCrear && (
+          <MenuFlotante ancla={menuCrear} alinear="izquierda" onCerrar={() => setMenuCrear(null)}>
+            <button type="button" role="menuitem" onClick={() => { setMenuCrear(null); nuevoDesdeBoton(); }}><span>Evento</span></button>
+            <button type="button" role="menuitem" onClick={() => { setMenuCrear(null); setError(null); setAbierto({ t: 'propio', inicial: { titulo: '', tipo: 'publicacion', formato: 'reel', fecha: enVista.has(hoy) ? hoy : fecha, hora: '10:00', duracionMin: null } }); }}><span>Publicación</span></button>
+            <button type="button" role="menuitem" onClick={() => { setMenuCrear(null); setError(null); setAbierto({ t: 'propio', inicial: { titulo: '', tipo: 'bloque', fecha: enVista.has(hoy) ? hoy : fecha, hora: '10:00', duracionMin: 120 } }); }}><span>Bloque de trabajo</span></button>
+            <button type="button" role="menuitem" onClick={() => { setMenuCrear(null); setError(null); setAbierto({ t: 'propio', inicial: { titulo: '', tipo: 'llamada', fecha: enVista.has(hoy) ? hoy : fecha, hora: '10:00', duracionMin: 30 } }); }}><span>Llamada</span></button>
+            <div className="gc-menu-sep" />
+            <button type="button" role="menuitem" onClick={() => { setMenuCrear(null); setAbierto({ t: 'agendar' }); }}><span>Agendar llamada</span></button>
+            <button type="button" role="menuitem" onClick={() => { setMenuCrear(null); setAbierto({ t: 'plantillas' }); }}><span>Plantilla de semana</span></button>
+          </MenuFlotante>
+        )}
 
-      {vista === 'semana'
-        ? <Semana dias={dias} porDia={porDia} hoy={hoy} tz={tz} onNuevo={nuevoEn} onAbrir={abrirPropio} />
-        : <Mes dias={dias} porDia={porDia} hoy={hoy} tz={tz} mes={fecha.slice(0, 7)} onNuevo={nuevoEn} onAbrir={abrirPropio} onVerSemana={(d) => ir('semana', d)} />}
+        <main className="gc-hoja" data-lado={lado ? 'si' : 'no'} aria-label={titulo}>
+          {(vista === 'semana' || vista === 'dia' || vista === '4dias') && (
+            <VistaTiempo dias={dias} items={aDibujar} hoy={hoy} tz={tz} googleEscribe={googleEscribe}
+              onAbrir={(item, ancla) => setAbierto({ t: 'tarjeta', item, ancla })}
+              onNuevo={nuevoEnRango} onMover={mover} onIrDia={(d) => ir('dia', d)} />
+          )}
+          {vista === 'mes' && (
+            <VistaMes dias={dias} mes={fecha.slice(0, 7)} items={aDibujar} hoy={hoy} tz={tz}
+              onAbrir={(item, ancla) => setAbierto({ t: 'tarjeta', item, ancla })}
+              onNuevo={(d, ancla) => nuevoEnRango({ fecha: d, ini: null, fin: null }, ancla)} onIrDia={(d) => ir('dia', d)} />
+          )}
+          {vista === 'anio' && <VistaAnio anio={Number(fecha.slice(0, 4))} hoy={hoy} onIrDia={(d) => ir('dia', d)} onIrMes={(f) => ir('mes', f)} />}
+          {vista === 'agenda' && (
+            <VistaAgenda dias={dias} items={aDibujar} hoy={hoy} tz={tz} onAbrir={(item, ancla) => setAbierto({ t: 'tarjeta', item, ancla })} onIrDia={(d) => ir('dia', d)} />
+          )}
+        </main>
+      </div>
 
-      {abierto?.t === 'nuevo' && (
-        <NuevoEnCalendario lunes={lunes} guardando={guardando} onCerrar={() => setAbierto(null)}
-          onBlanco={() => nuevoEn(dias.includes(hoy) ? hoy : lunes)}
-          onPlantilla={(p: PlantillaCalendario, entradas) => { void crear(entradas, 'plantilla', `${p.nombre}: ${entradas.length} agendados`); }}
-          onConfirmarIA={(entradas, aviso) => { void crear(entradas, 'ia', aviso ?? (entradas.length === 1 ? '1 agendado' : `${entradas.length} agendados`)); }} />
+      {abierto?.t === 'tarjeta' && (
+        <TarjetaEvento item={abierto.item} ancla={abierto.ancla} tz={tz} calendarios={calendarios} googleEscribe={googleEscribe}
+          onCerrar={() => setAbierto(null)}
+          onEditar={() => editar(abierto.item)}
+          onBorrar={() => borrar(abierto.item)}
+          onHecho={(h) => marcar(abierto.item, h)} />
       )}
-      {abierto?.t === 'evento' && (
+      {abierto?.t === 'rapido' && (
+        <RapidoNuevo ancla={abierto.ancla} inicial={abierto.borrador} editables={editables} guardando={guardando} error={error}
+          onCerrar={() => setAbierto(null)} onGuardar={guardarRapido} onMas={masOpciones} />
+      )}
+      {abierto?.t === 'propio' && (
         <EventoModal inicial={abierto.inicial} guardando={guardando} error={error}
           onCerrar={() => setAbierto(null)}
-          onGuardar={(e) => { void guardarEvento(abierto.inicial, e); }}
-          onBorrar={abierto.inicial.id ? () => { void borrar(abierto.inicial.id!); } : undefined}
-          onHecho={abierto.inicial.id ? (h) => { void marcar(abierto.inicial.id!, h); } : undefined} />
+          onGuardar={(e) => {
+            const id = abierto.inicial.id;
+            void correr(() => (id ? cambiarEventoAction(id, e) : crearEventosAction([e], 'user')), id ? 'Guardado' : 'Agendado');
+          }}
+          onBorrar={abierto.inicial.id ? () => borrar({ id: `propio:${abierto.inicial.id}`, fuente: 'propio', capa: 'bloques', titulo: '', inicio: '', fin: null, diaCompleto: false, href: null }) : undefined}
+          onHecho={abierto.inicial.id ? (h) => marcar({ id: `propio:${abierto.inicial.id}`, fuente: 'propio', capa: 'bloques', titulo: '', inicio: '', fin: null, diaCompleto: false, href: null }, h) : undefined} />
       )}
+      {abierto?.t === 'google' && (
+        <EventoGoogleModal inicial={abierto.inicial} editables={editables} guardando={guardando} error={error}
+          onCerrar={() => setAbierto(null)}
+          onGuardar={(e, avisar) => {
+            void correr(() => (e.eventoId
+              ? cambiarEventoGoogleAction(e.calendarioId, e.eventoId, e.entrada, avisar)
+              : crearEventoGoogleAction(e.calendarioId, e.entrada)), e.eventoId ? 'Evento guardado' : 'Evento creado');
+          }}
+          onBorrar={abierto.inicial.eventoId ? () => {
+            const i = abierto.inicial;
+            void correr(() => borrarEventoGoogleAction(i.calendarioId, i.eventoId!, i.invitados > 0), 'Evento borrado', () => restaurarEventoGoogleAction(i.calendarioId, i.eventoId!));
+          } : undefined} />
+      )}
+      {abierto?.t === 'avisar' && (
+        <Modal titulo="¿Avisar a los invitados?" ancho={440} onCerrar={() => setAbierto(null)}
+          pie={<>
+            <Button variant="secondary" onClick={() => moverGoogle(abierto.item, abierto.entrada, abierto.mov, false)}>No avisar</Button>
+            <Button variant="primary" onClick={() => moverGoogle(abierto.item, abierto.entrada, abierto.mov, true)}>Avisar</Button>
+          </>}>
+          <p style={{ margin: 0, fontSize: 14, color: 'var(--ink)' }}>Google les manda el cambio de «{abierto.item.titulo}» por correo.</p>
+        </Modal>
+      )}
+      {abierto?.t === 'plantillas' && (
+        <PlantillasSemana lunes={lunesDe(enVista.has(hoy) ? hoy : fecha)} guardando={guardando} onCerrar={() => setAbierto(null)}
+          onPlantilla={(p: PlantillaCalendario, entradas) => { void correr(() => crearEventosAction(entradas, 'plantilla'), `${p.nombre}: ${entradas.length} agendados`); }} />
+      )}
+      {abierto?.t === 'agendar' && (
+        <AgendarLlamada onCerrar={() => setAbierto(null)} onCopiado={() => show('Link copiado')}
+          onConectar={(s) => { setAbierto(null); abrirIntegracion(s); }}
+          // La reserva entra al CRM por el webhook, que tarda unos segundos: se vuelve a leer después.
+          onAgendada={() => { show('Llamada agendada'); window.setTimeout(() => router.refresh(), 5000); }} />
+      )}
+      {integracion.modal}
     </div>
   );
 }
 
-/** Una línea por fuente que no se pudo leer (y la de Google sin conectar, en gris, con su link). */
-function lineasDeFallo(f: FallosCalendario): Array<{ texto: string; tono: 'warn' | 'dim'; href?: string; link?: string }> {
-  const out: Array<{ texto: string; tono: 'warn' | 'dim'; href?: string; link?: string }> = [];
-  if (f.propios) out.push({ texto: 'No pude leer tus eventos.', tono: 'warn' });
-  if (f.crm) out.push({ texto: 'No pude leer las reuniones del CRM.', tono: 'warn' });
-  if (f.google === 'error') out.push({ texto: 'No pude leer tu agenda de Google.', tono: 'warn' });
-  if (f.google === 'sin-conexion') out.push({ texto: 'Tu agenda de Google no está conectada.', tono: 'dim', href: '/integraciones', link: 'Conectar' });
-  if (f.plan) out.push({ texto: 'No pude leer los deadlines del Plan.', tono: 'warn' });
-  if (f.objetivos) out.push({ texto: 'No pude leer los objetivos.', tono: 'warn' });
+/** Un instante a partir de un día y unos minutos en la zona del negocio (sólo para dibujar lo movido en el acto). */
+function aInstante(fecha: string, min: number, tz: string): string {
+  // Primera pasada: la hora de pared como si fuera UTC; segunda: corregida por el desvío de la zona ese día.
+  const base = Date.parse(`${fecha}T${hhmm(Math.min(min, 24 * 60 - 1))}:00Z`);
+  const desvio = (t: number) => {
+    const p = new Intl.DateTimeFormat('en-US', { timeZone: tz, hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date(t));
+    const v = (k: string) => Number(p.find((x) => x.type === k)?.value);
+    return Date.UTC(v('year'), v('month') - 1, v('day'), v('hour') % 24, v('minute')) - t;
+  };
+  const t1 = base - desvio(base);
+  return new Date(base - desvio(t1)).toISOString();
+}
+
+function Grupo({ titulo, plegado, onPlegar, children }: { titulo: string; plegado: boolean; onPlegar: () => void; children: React.ReactNode }) {
+  return (
+    <div className="gc-grupo">
+      <button type="button" className="gc-grupo-cab" aria-expanded={!plegado} onClick={onPlegar}>
+        <span>{titulo}</span><Flecha dir={plegado ? 'abajo' : 'arriba'} tam={18} />
+      </button>
+      {!plegado && <div>{children}</div>}
+    </div>
+  );
+}
+
+function CasillaCalendario({ nombre, color, prendido, onCambiar }: { nombre: string; color: string; prendido: boolean; onCambiar: () => void }) {
+  return (
+    <button type="button" className="gc-cal" role="checkbox" aria-checked={prendido} onClick={onCambiar} title={nombre}>
+      <span className="gc-casilla" style={{ borderColor: color, background: prendido ? color : 'transparent' }} aria-hidden>
+        {prendido && <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden><path d="M5 12l5 5L20 7" stroke="#fff" strokeWidth="3" fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg>}
+      </span>
+      <span className="gc-cal-nombre">{nombre}</span>
+    </button>
+  );
+}
+
+function MenuFlotante({ ancla, alinear, onCerrar, children }: { ancla: DOMRect; alinear: 'izquierda' | 'derecha'; onCerrar: () => void; children: React.ReactNode }) {
+  useEffect(() => {
+    const cerrar = (e: Event) => { if (!(e.target as HTMLElement)?.closest?.('.gc-menu')) onCerrar(); };
+    const tecla = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.stopImmediatePropagation(); onCerrar(); } };
+    const t = window.setTimeout(() => document.addEventListener('pointerdown', cerrar, true), 0);
+    document.addEventListener('keydown', tecla, true);
+    return () => { window.clearTimeout(t); document.removeEventListener('pointerdown', cerrar, true); document.removeEventListener('keydown', tecla, true); };
+  }, [onCerrar]);
+  const estilo = alinear === 'derecha'
+    ? { top: ancla.bottom + 4, right: Math.max(8, window.innerWidth - ancla.right) }
+    : { top: ancla.bottom + 4, left: ancla.left };
+  return <div className="gc-menu" role="menu" style={estilo}>{children}</div>;
+}
+
+/**
+ * Lo que la barra lateral dice debajo de los calendarios: lo que no se pudo leer y la cuenta de Google sin conectar.
+ * ⚠️ «Conectar» y «Reconectar» abren el modal de Google AHÍ (`servicio`), nunca un link a /integraciones (AGENTS.md:
+ * para una integración no se sale de la tab).
+ */
+function lineasDeAviso(f: FallosCalendario, g: GoogleDelCalendario | null): Array<{ texto: string; mal: boolean; servicio?: string; link?: string }> {
+  const out: Array<{ texto: string; mal: boolean; servicio?: string; link?: string }> = [];
+  if (f.propios) out.push({ texto: 'No pude leer tus eventos.', mal: true });
+  if (f.crm) out.push({ texto: 'No pude leer las reuniones del CRM.', mal: true });
+  if (f.plan) out.push({ texto: 'No pude leer los deadlines del Plan.', mal: true });
+  if (f.recurrentes) out.push({ texto: 'No pude leer lo que se repite.', mal: true });
+  if (f.cobros) out.push({ texto: 'No pude leer los cobros.', mal: true });
+  if (f.objetivos) out.push({ texto: 'No pude leer los Objetivos.', mal: true });
+  if (f.google === 'error') out.push({ texto: 'No pude leer tu Google Calendar.', mal: true });
+  if (f.google === 'sin-conexion') out.push({ texto: 'Conecta tu Google Calendar para ver sus eventos aquí.', mal: false, servicio: 'google', link: 'Conectar' });
+  if (g?.fallaron.length) out.push({ texto: `No pude leer: ${g.fallaron.join(', ')}.`, mal: true });
+  if (g?.recortado) out.push({ texto: 'Hay más eventos de los que entran en esta vista.', mal: false });
+  if (g && !g.puedeEscribir) out.push({ texto: 'Tu Google Calendar está conectado sólo para leer.', mal: false, servicio: 'google', link: 'Reconectar' });
   return out;
 }
 
-// ── La semana ─────────────────────────────────────────────────────────────────────────────────
-
-function Semana({ dias, porDia, hoy, tz, onNuevo, onAbrir }: {
-  dias: string[]; porDia: Map<string, ItemCalendario[]>; hoy: string; tz: string;
-  onNuevo: (dia: string) => void; onAbrir: (it: ItemCalendario) => void;
-}) {
-  return (
-    <div data-semana="" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 10 }}>
-      {dias.map((d, i) => {
-        const es = d === hoy;
-        const lista = porDia.get(d) ?? [];
-        return (
-          <section key={d} data-dia={d} style={{ display: 'flex', flexDirection: 'column', minHeight: 260, background: 'var(--surface)', border: `1px solid ${es ? 'var(--primary)' : 'var(--border)'}`, borderRadius: 14, overflow: 'hidden' }}>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, padding: '10px 12px 8px', borderBottom: '1px solid var(--border)' }}>
-              <span style={{ fontSize: 12.5, fontWeight: 600, color: es ? 'var(--primary)' : 'var(--dim)' }}>{DIAS_CORTOS[i]}</span>
-              <span style={{ fontSize: 22, fontWeight: 600, color: es ? 'var(--primary)' : 'var(--ink)', fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>{Number(d.slice(8, 10))}</span>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: 8 }}>
-              {lista.map((it) => <Renglon key={it.id} it={it} tz={tz} onAbrir={onAbrir} />)}
-            </div>
-            {/* El hueco del día: crear ahí. Un botón de verdad (teclado y lector), que ocupa lo que queda. */}
-            <button type="button" aria-label={`Nuevo evento el ${d}`} onClick={() => onNuevo(d)} className="cal-hueco"
-              style={{ flex: 1, minHeight: 40, border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--faint)', fontSize: 18, fontFamily: 'inherit' }}>
-              <span aria-hidden className="cal-mas">＋</span>
-            </button>
-          </section>
-        );
-      })}
-      <style>{`.cal-hueco .cal-mas{opacity:0;transition:opacity .12s}.cal-hueco:hover .cal-mas,.cal-hueco:focus-visible .cal-mas{opacity:1}`}</style>
-    </div>
-  );
-}
-
-// ── El mes ────────────────────────────────────────────────────────────────────────────────────
-
-function Mes({ dias, porDia, hoy, tz, mes, onNuevo, onAbrir, onVerSemana }: {
-  dias: string[]; porDia: Map<string, ItemCalendario[]>; hoy: string; tz: string; mes: string;
-  onNuevo: (dia: string) => void; onAbrir: (it: ItemCalendario) => void; onVerSemana: (dia: string) => void;
-}) {
-  return (
-    <div data-mes="" style={{ overflowX: 'auto' }} className="mk-scroll-x">
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(110px, 1fr))', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden', background: 'var(--surface)', minWidth: 770 }}>
-        {DIAS_CORTOS.map((n) => (
-          <div key={n} style={{ padding: '8px 10px', fontSize: 12.5, fontWeight: 600, color: 'var(--dim)', borderBottom: '1px solid var(--border)', background: 'var(--surface-2)' }}>{n}</div>
-        ))}
-        {dias.map((d, i) => {
-          const lista = porDia.get(d) ?? [];
-          const fuera = d.slice(0, 7) !== mes;
-          const es = d === hoy;
-          return (
-            <div key={d} data-dia={d} style={{ minHeight: 112, padding: 6, display: 'flex', flexDirection: 'column', gap: 4, borderTop: i < 7 ? 'none' : '1px solid var(--border)', borderLeft: i % 7 === 0 ? 'none' : '1px solid var(--border)', background: fuera ? 'var(--surface-2)' : 'var(--surface)' }}>
-              <button type="button" onClick={() => onNuevo(d)} aria-label={`Nuevo evento el ${d}`}
-                style={{ alignSelf: 'flex-start', border: 'none', background: es ? 'var(--primary)' : 'transparent', color: es ? '#fff' : fuera ? 'var(--faint)' : 'var(--ink)', borderRadius: 999, minWidth: 26, height: 26, padding: '0 6px', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', fontVariantNumeric: 'tabular-nums' }}>
-                {Number(d.slice(8, 10))}
-              </button>
-              {lista.slice(0, EN_EL_MES).map((it) => <Renglon key={it.id} it={it} tz={tz} onAbrir={onAbrir} compacto />)}
-              {lista.length > EN_EL_MES && (
-                <button type="button" onClick={() => onVerSemana(d)} style={{ alignSelf: 'flex-start', border: 'none', background: 'none', padding: '0 4px', color: 'var(--primary)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
-                  +{lista.length - EN_EL_MES} más
-                </button>
-              )}
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-// ── Un renglón ────────────────────────────────────────────────────────────────────────────────
-
-function Renglon({ it, tz, onAbrir, compacto = false }: { it: ItemCalendario; tz: string; onAbrir: (it: ItemCalendario) => void; compacto?: boolean }) {
-  const color = colorDeCapa(it.capa);
-  const icono = it.formato ? ICONO_FORMATO[it.formato] : it.tipo ? ICONO_TIPO[it.tipo] : null;
-  const contenido = (
-    <>
-      <span aria-hidden style={{ flex: 'none', width: 3, alignSelf: 'stretch', borderRadius: 2, background: color }} />
-      <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 1 }}>
-        <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: compacto ? 12 : 13, color: it.hecho ? 'var(--faint)' : 'var(--ink)', fontWeight: 500, textDecoration: it.hecho ? 'line-through' : 'none', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
-          {!it.diaCompleto && <span style={{ flex: 'none', color: 'var(--dim)', fontVariantNumeric: 'tabular-nums' }}>{horaDe(it.inicio, tz)}</span>}
-          {icono && !compacto && <span aria-hidden style={{ flex: 'none', display: 'inline-flex', color: 'var(--dim)' }}><IconoMenu nombre={icono} size={13} /></span>}
-          <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>{it.titulo}</span>
-        </span>
-        {!compacto && it.detalle && <span style={{ fontSize: 11.5, color: 'var(--dim)', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{it.detalle}</span>}
-      </span>
-    </>
-  );
-  const estilo: CSSProperties = {
-    display: 'flex', alignItems: 'stretch', gap: 7, padding: compacto ? '3px 5px' : '6px 7px', borderRadius: 8, textAlign: 'left',
-    background: `color-mix(in srgb, ${color} 9%, var(--surface))`, border: 'none', textDecoration: 'none', cursor: 'pointer', fontFamily: 'inherit', width: '100%', boxSizing: 'border-box',
-  };
-  const titulo = [it.titulo, it.detalle, it.formato ? ROTULO_FORMATO[it.formato] : null].filter(Boolean).join(' · ');
-  if (it.fuente === 'propio') return <button type="button" data-item={it.id} title={titulo} style={estilo} onClick={() => onAbrir(it)}>{contenido}</button>;
-  if (it.href) return <Link href={it.href} data-item={it.id} title={titulo} style={estilo}>{contenido}</Link>;
-  return <div data-item={it.id} title={titulo} style={{ ...estilo, cursor: 'default' }}>{contenido}</div>;
-}
-
-const FLECHA: CSSProperties = {
-  width: 32, height: 32, display: 'grid', placeItems: 'center', borderRadius: 9, border: '1px solid var(--border-strong)',
-  background: 'var(--surface)', color: 'var(--ink)', fontSize: 18, lineHeight: 1, cursor: 'pointer', fontFamily: 'inherit',
-};

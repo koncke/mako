@@ -16,7 +16,7 @@ import type { Hito, Parte } from '../_registro/tipos';
 export const PARTES: Parte[] = [
   { titulo: 'La bandeja de respond.io', detalle: 'Bandeja · lista de 3 líneas · ventana del chat · drawer del contacto, con sus tokens', estado: 'sigue' },
   { titulo: 'Un contacto, todos sus canales', detalle: 'WhatsApp de cada línea + Instagram + Messenger en un hilo · el composer elige por dónde', estado: 'sigue' },
-  { titulo: 'Estado y no leído en el servidor', detalle: 'Cerrar · reabrir · posponer · leído por persona (mig 0275)', estado: 'sigue' },
+  { titulo: 'Estado y no leído en el servidor', detalle: 'Cerrar · reabrir · posponer · leído por persona (mig 0284)', estado: 'sigue' },
   { titulo: 'La tab en el producto', detalle: 'Barra (Operate, antes de WhatsApp) · capas · badge · links profundos · API de MaKo (área chats)', estado: 'hecha' },
   { titulo: 'WhatsApp sale del menú', detalle: 'Cuando Martín valide que Chats lo reemplaza: /whatsapp queda para conectar números', estado: 'cola' },
   { titulo: 'v2', detalle: 'Snippets con «/» · @menciones · bandejas a medida · Chats en el teléfono (/m/chats)', estado: 'cola' },

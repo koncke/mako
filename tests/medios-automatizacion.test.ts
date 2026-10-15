@@ -180,9 +180,12 @@ test('conectar vacía las lecturas cacheadas: el estado de los medios y los cana
   const cron = fuente('app/automations/EditorDisparadores.tsx');
   assert.match(cron, /useAlConectarMedio\(\(\) => \{ canalesDeLaVisita = null; setVuelta\(\(v\) => v \+ 1\); \}\);/, 'el CRON sigue diciendo «Conecta tu…» después de conectar');
   assert.match(cron, /\}, \[activo, vuelta\]\);/);
-  // Y la página de Facebook se abre en una ventana con el `?ws=` (un window.open también navega).
-  assert.match(cron, /window\.open\(conWs\('\/integraciones', ws\), 'mako-integraciones', /);
-  assert.match(cron, /if \(v\.closed\) \{ window\.clearInterval\(t\); avisarMedioConectado\(\); \}/);
+  // Y los pagos (Stripe o Mercado Pago) se conectan con el modal de /integraciones ABIERTO ACÁ (14/10/2026: «para una
+  // integración jamás se debe salir de la tab»; antes, /integraciones en una ventana): al conectarse, se vuelve a
+  // preguntar. Rotura (base en verde): sacar el `onConectado` de Stripe → 1 fallo.
+  assert.doesNotMatch(cron, /window\.open\(/);
+  assert.match(cron, /<BotonIntegracion servicio="stripe" [^>]*onConectado=\{\(\) => avisarMedioConectado\(\)\}>/);
+  assert.match(cron, /<BotonIntegracion servicio="mercadopago" [^>]*onConectado=\{\(\) => avisarMedioConectado\(\)\}>/);
 });
 
 test('la tarjeta lleva el chip y Probar dice «Conectar»', () => {

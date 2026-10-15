@@ -1,0 +1,48 @@
+/* Control segmentado de Canva: riel gris suave y la opción elegida como pastilla blanca con sombra */
+.group {
+  display: inline-flex;
+  padding: 2px;
+  gap: 2px;
+  border-radius: var(--cv-radius-sm);
+  background: rgb(64 79 109 / 0.06); /* Canva: neutro sutil #404F6D0F */
+}
+
+.option {
+  position: relative;
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 32px;
+  height: 32px;
+  padding: 0 var(--cv-space-3);
+  border-radius: 6px; /* Canva: radio interno = 8 − 2 */
+  color: var(--cv-color-text-muted);
+  font: 600 var(--cv-text-base) / 1 var(--cv-font-sans);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background var(--cv-duration-fast) var(--cv-ease-out), color var(--cv-duration-fast) var(--cv-ease-out);
+}
+
+.option:hover {
+  color: var(--cv-color-text);
+}
+
+.on {
+  background: var(--cv-color-surface);
+  color: var(--cv-color-text);
+  box-shadow: var(--cv-shadow-sm);
+}
+
+.radio {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.option:has(.radio:focus-visible) {
+  box-shadow: var(--cv-focus-ring);
+}

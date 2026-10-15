@@ -24,6 +24,8 @@
 //   POST { accion: 'valores', campo, desde, hasta, fuentes? }                        → { valores: [{ valor, filas }] }
 //   POST { accion: 'detalle', grafico, desde, hasta, filtros?, agrupar?, sel }        → { detalle: RespuestaDetalle }
 //   POST { accion: 'guardar', version, tablero }                                      → { tablero, version } · 409 si cambió
+//   POST ?informe=general { accion: 'guardar', … } (14/10/2026): lo mismo sobre el informe de la tab General, que es
+//        este editor con otro informe (lib/graficos-tablero.ts). Sólo el admin, y con General en su capa.
 //
 // El DETALLE (lib/graficos-detalle.ts) es lo que hay atrás de un número clickeado: las cosas que lo forman,
 // cada una con sus ids y, en `puede`, qué tabs tiene la capa — de eso dependen los botones de cada fila.
@@ -47,7 +49,7 @@ import { esFechaValida } from '@/lib/date-utils';
 import { esGrafico, MAX_COMPONENTES, type Componente, type Tablero } from '@/lib/graficos-catalogo';
 import { datosDeGraficos, valoresDeCampo, type PedidoDatos } from '@/lib/graficos-datos';
 import { detalleDeGrafico } from '@/lib/graficos-detalle';
-import { guardarTableroVersion, leerTablero } from '@/lib/graficos-tablero';
+import { guardarInformeGeneralVersion, guardarTableroVersion, leerTablero } from '@/lib/graficos-tablero';
 import { fuentesDeCampoDeRol, hojaDeRol, informeDeRol, puedePedir } from '@/lib/graficos-plantillas';
 
 /** Los componentes del pop-up del gráfico `id` (en cualquier hoja del informe), o null si no está o no tiene. */
@@ -77,6 +79,18 @@ export async function POST(req: Request) {
   let body: Record<string, unknown>;
   try { body = await req.json(); } catch { return err(400, 'JSON inválido'); }
   if (unica && !puedePedir(rol, body)) return err(403, unica.error);
+
+  if (body.accion === 'guardar' && new URL(req.url).searchParams.get('informe') === 'general') {
+    if (rol !== 'admin' || !tabEnCapa('general', capa)) return err(403, 'Sólo el admin de la cuenta');
+    if (!('version' in body)) return err(409, 'Recarga la página para seguir editando');
+    try {
+      const r = await guardarInformeGeneralVersion(body.tablero, typeof body.version === 'string' ? body.version : null);
+      if (!r.ok) return NextResponse.json({ error: 'El informe cambió en otra pestaña', conflicto: true }, { status: 409 });
+      return NextResponse.json({ tablero: r.tablero, version: r.version });
+    } catch (e) {
+      return err(400, e instanceof Error ? e.message : 'No se pudo guardar');
+    }
+  }
 
   if (body.accion === 'guardar') {
     // v5: el autoguardado manda la VERSIÓN que leyó (compare-and-set, como la API de MaKo). Sin `version` es

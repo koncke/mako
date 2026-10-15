@@ -19,15 +19,21 @@ import { getCapaActual, getRolWsEfectivo } from '@/lib/workspace';
 import { tabEnCapa } from '@/lib/capas';
 import { esquema, secciones, editar, texto, disenos, notas, type ResultadoIA } from '@/lib/editor-landing/ia';
 import type { PedidoIA, RespuestaIA } from '@/lib/editor-landing/api-tipos';
+import type { SeLeeEnNavegador } from '@/lib/editor-landing/lectura-tipos';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
 
-const falla = (status: number, error: string) => Response.json({ ok: false, error } satisfies RespuestaIA, { status });
+const falla = (status: number, error: string, extra: Partial<SeLeeEnNavegador> = {}) =>
+  Response.json({ ok: false, error, ...extra } satisfies RespuestaIA, { status });
 
-/** El resultado de ia.ts como respuesta: el `status` interno elige el código y NO viaja en el cuerpo. */
+/**
+ * El resultado de ia.ts como respuesta: el `status` interno elige el código y NO viaja en el cuerpo.
+ * Tanda 6: cuando la página a importar no se lee desde el server, viajan `pegable`, `enNavegador` y
+ * `motivo` (lectura-tipos.ts) para que la pantalla ofrezca leerla en el navegador o pegar el texto.
+ */
 function responder<T extends object>(r: ResultadoIA<T>): Response {
-  if (!r.ok) return falla(r.status, r.error);
+  if (!r.ok) return falla(r.status, r.error, r.enNavegador ? { pegable: true, enNavegador: true, motivo: r.motivo } : {});
   return Response.json(r);
 }
 
@@ -44,7 +50,7 @@ export async function POST(req: Request) {
   try {
     switch (body.accion) {
       case 'esquema':
-        return responder(await esquema({ modo: body.modo, prompt: body.prompt, texto: body.texto, url: body.url, params: body.params }));
+        return responder(await esquema({ modo: body.modo, prompt: body.prompt, texto: body.texto, url: body.url, lectura: body.lectura, params: body.params }));
       case 'secciones':
         return responder(await secciones({ esquema: body.esquema, indices: body.indices, params: body.params, temaId: body.temaId }));
       case 'editar':
@@ -52,7 +58,7 @@ export async function POST(req: Request) {
       case 'texto':
         return responder(await texto({ tipo: body.tipo, texto: body.texto, contexto: body.contexto, tono: body.tono, idioma: body.idioma }));
       case 'disenos':
-        return responder(await disenos({ tarjeta: body.tarjeta }));
+        return responder(await disenos({ tarjeta: body.tarjeta, params: body.params }));
       case 'notas':
         return responder(await notas({ tarjeta: body.tarjeta }));
       default:

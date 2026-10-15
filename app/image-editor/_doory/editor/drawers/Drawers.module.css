@@ -1,0 +1,658 @@
+/*
+ * Los paneles de agregar (Elementos, Texto, Subidos, Herramientas, Apps) con las medidas y colores de Canva
+ * (docs/editor-imagen/relevamiento-canva-armazon.md §1.2–1.4 y §3.2): textos 14/22, subtítulos de sección 14/20
+ * semibold, botón primario violeta de 40 px con radio 8, baldosas sin borde que se agrisan al pasar.
+ */
+
+/* ── Botón primario de ancho completo («Agregar un cuadro de texto», «Subir archivos») ── */
+.cta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  height: 40px;
+  padding: 0 16px;
+  border: none;
+  border-radius: var(--cv-radius-sm);
+  background: var(--cv-color-cta);
+  color: var(--cv-color-on-cta);
+  font: 600 var(--cv-text-base) / 22px var(--cv-font-sans);
+  cursor: pointer;
+  transition: background var(--cv-duration-fast) var(--cv-ease-out);
+}
+.cta:hover {
+  background: var(--cv-color-cta-hover);
+}
+.cta:active {
+  background: var(--cv-color-brand-active);
+}
+.cta:focus-visible {
+  outline: none;
+  box-shadow: var(--cv-focus-ring);
+}
+.cta:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ── Títulos de sección y «Ver todo» ── */
+.sectionTitle {
+  margin: 8px 0 0;
+  color: var(--cv-color-text);
+  font: 600 var(--cv-text-base) / 20px var(--cv-font-sans);
+}
+.sectionHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 8px;
+}
+.sectionHead .sectionTitle {
+  margin: 0;
+}
+.seeAll {
+  flex: none;
+  height: 28px;
+  padding: 0 8px;
+  border: none;
+  border-radius: var(--cv-radius-sm);
+  background: transparent;
+  color: var(--cv-color-text-muted);
+  font: 600 var(--cv-text-sm) / 18px var(--cv-font-sans);
+  cursor: pointer;
+}
+.seeAll:hover {
+  background: var(--cv-color-bg-muted);
+  color: var(--cv-color-text);
+}
+.seeAll:focus-visible {
+  outline: none;
+  box-shadow: var(--cv-focus-ring);
+}
+
+/* «‹ Gráficos»: la cabecera de una sección abierta con «Ver todo» */
+.subHead {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+  margin: 0 0 0 -6px;
+}
+.back {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  border-radius: var(--cv-radius-sm);
+  background: transparent;
+  color: var(--cv-color-text);
+  cursor: pointer;
+}
+.back:hover {
+  background: var(--cv-color-bg-muted);
+}
+.back:focus-visible {
+  outline: none;
+  box-shadow: var(--cv-focus-ring);
+}
+.subTitle {
+  margin: 0;
+  color: var(--cv-color-text);
+  font: 600 var(--cv-text-base) / 20px var(--cv-font-sans);
+}
+
+/* ── Baldosas de formas, líneas, marcos y gráficos de datos ── */
+.tiles,
+.tiles3 {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+.tiles3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  aspect-ratio: 1 / 1;
+  min-width: 0;
+  padding: 10px;
+  border: none;
+  border-radius: var(--cv-radius-sm);
+  background: transparent;
+  color: #a0a6b1; /* Canva: el gris de las formas del panel (se agregan en gris y se recolorean) */
+  cursor: pointer;
+  transition: background var(--cv-duration-fast) var(--cv-ease-out);
+}
+.tile:hover {
+  background: var(--cv-color-bg-muted);
+}
+.tile:active {
+  background: rgb(57 70 96 / 0.14);
+}
+.tile:focus-visible {
+  outline: none;
+  box-shadow: var(--cv-focus-ring);
+}
+.tileGlyph {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+.tileGlyph svg {
+  width: 100%;
+  max-width: 48px;
+  height: 100%;
+  max-height: 48px;
+}
+.tileLabelled {
+  aspect-ratio: auto;
+  padding: 12px 6px 10px;
+  background: var(--cv-color-bg-subtle);
+  color: var(--cv-color-text);
+}
+.tileLabelled .tileGlyph svg {
+  max-width: 32px;
+  max-height: 32px;
+}
+.tileLabel {
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--cv-color-text);
+  font: 500 var(--cv-text-sm) / 16px var(--cv-font-sans);
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.chartThumb {
+  width: 100%;
+  max-width: 52px;
+  height: auto;
+  object-fit: contain;
+  pointer-events: none;
+}
+
+/* ── Texto ── */
+.textStyles {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.textStyle {
+  display: block;
+  width: 100%;
+  padding: 10px 16px;
+  border: 1px solid var(--cv-color-border-strong);
+  border-radius: var(--cv-radius-sm);
+  background: var(--cv-color-surface);
+  color: var(--cv-color-text);
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--cv-duration-fast) var(--cv-ease-out);
+}
+.textStyle:hover {
+  background: var(--cv-color-bg-muted);
+}
+.textStyle:active {
+  background: rgb(57 70 96 / 0.14);
+}
+.textStyle:focus-visible {
+  outline: none;
+  box-shadow: var(--cv-focus-ring);
+}
+.tsHeading {
+  display: block;
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+.tsSub {
+  display: block;
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+.tsBody {
+  display: block;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.5;
+}
+
+.pairings {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.pairCard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-width: 0;
+  aspect-ratio: 4 / 3;
+  padding: 10px;
+  border: none;
+  border-radius: var(--cv-radius-sm);
+  background: var(--cv-color-bg-subtle);
+  color: var(--cv-color-text);
+  cursor: pointer;
+  transition: background var(--cv-duration-fast) var(--cv-ease-out);
+}
+.pairCard:hover {
+  background: var(--cv-color-bg-muted);
+}
+.pairCard:focus-visible {
+  outline: none;
+  box-shadow: var(--cv-focus-ring);
+}
+.pairHead {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  font-size: 17px;
+  line-height: 1.15;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pairBody {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--cv-color-text-muted);
+  font-size: 11px;
+  line-height: 1.4;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.optionRow {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 72px;
+  padding: 10px 8px;
+  border: none;
+  border-radius: var(--cv-radius-sm);
+  background: var(--cv-color-bg-subtle);
+  color: var(--cv-color-text);
+  font: 500 var(--cv-text-sm) / 16px var(--cv-font-sans);
+  cursor: pointer;
+  transition: background var(--cv-duration-fast) var(--cv-ease-out);
+}
+.option:hover {
+  background: var(--cv-color-bg-muted);
+}
+.option:focus-visible {
+  outline: none;
+  box-shadow: var(--cv-focus-ring);
+}
+.listGlyph {
+  display: block;
+  color: var(--cv-color-text);
+  font: 600 14px / 1.2 var(--cv-font-sans);
+  letter-spacing: 0.04em;
+}
+
+/* ── Subidos ── */
+.drop {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: -4px;
+  padding: 4px;
+  border: 2px dashed transparent;
+  border-radius: var(--cv-radius-lg);
+  transition:
+    border-color var(--cv-duration-fast) var(--cv-ease-out),
+    background var(--cv-duration-fast) var(--cv-ease-out);
+}
+.drop[data-over] {
+  border-color: var(--cv-color-brand);
+  background: var(--cv-color-brand-soft);
+}
+.dropHint {
+  margin: 0;
+  color: var(--cv-color-text-subtle);
+  font: 400 var(--cv-text-sm) / 18px var(--cv-font-sans);
+  text-align: center;
+}
+.uploads {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.upItem {
+  position: relative;
+  min-width: 0;
+}
+.upThumb {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  padding: 0;
+  overflow: hidden;
+  border: none;
+  border-radius: var(--cv-radius-sm);
+  background: var(--cv-color-bg-subtle);
+  cursor: pointer;
+}
+.upThumb img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+  transition: filter var(--cv-duration-fast) var(--cv-ease-out);
+}
+.upThumb:hover img {
+  filter: brightness(0.92);
+}
+.upThumb:focus-visible {
+  outline: none;
+  box-shadow: var(--cv-focus-ring);
+}
+.upDelete {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: var(--cv-radius-sm);
+  background: rgb(19 22 32 / 0.6); /* Canva: botón sobre imagen */
+  color: #ffffff;
+  cursor: pointer;
+}
+.upItem:hover .upDelete,
+.upItem:focus-within .upDelete {
+  display: flex;
+}
+.upDelete:hover {
+  background: var(--cv-color-danger);
+}
+.upDelete:focus-visible {
+  outline: none;
+  box-shadow: var(--cv-focus-ring);
+}
+
+.tabs {
+  display: flex;
+  flex: none;
+  gap: 16px;
+  border-bottom: 1px solid var(--cv-color-border);
+}
+.tab {
+  position: relative;
+  height: 36px;
+  padding: 0 2px;
+  border: none;
+  background: transparent;
+  color: var(--cv-color-text-muted);
+  font: 600 var(--cv-text-base) / 1 var(--cv-font-sans);
+  cursor: pointer;
+}
+.tab:hover {
+  color: var(--cv-color-text);
+}
+/* Canva: la pestaña elegida lleva una raya violeta abajo */
+.tab[aria-selected='true'] {
+  color: var(--cv-color-text);
+}
+.tab[aria-selected='true']::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--cv-color-brand);
+}
+.tab:focus-visible {
+  outline: none;
+  box-shadow: var(--cv-focus-ring);
+}
+
+.status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--cv-color-text-muted);
+  font: 500 var(--cv-text-sm) / 18px var(--cv-font-sans);
+}
+.spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--cv-color-border);
+  border-top-color: var(--cv-color-brand);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+.note {
+  margin: 4px 0 0;
+  color: var(--cv-color-text-subtle);
+  font: 400 var(--cv-text-sm) / 18px var(--cv-font-sans);
+  text-align: center;
+}
+.error {
+  margin: 0;
+  color: var(--cv-color-danger);
+  font: 500 var(--cv-text-sm) / 18px var(--cv-font-sans);
+}
+.more {
+  width: 100%;
+  height: 32px;
+  border: 1px solid var(--cv-color-border-strong);
+  border-radius: var(--cv-radius-sm);
+  background: var(--cv-color-surface);
+  color: var(--cv-color-text);
+  font: 600 var(--cv-text-sm) / 1 var(--cv-font-sans);
+  cursor: pointer;
+}
+.more:hover:not(:disabled) {
+  background: var(--cv-color-bg-muted);
+}
+.more:disabled {
+  opacity: 0.5;
+}
+
+/* Fotos de stock (sólo si el servidor las ofrece) */
+.search {
+  position: relative;
+  display: flex;
+  flex: none;
+  align-items: center;
+  height: 40px;
+  padding: 0 12px 0 40px;
+  border: 1px solid var(--cv-color-border-strong);
+  border-radius: var(--cv-radius-sm);
+  background: var(--cv-color-surface);
+}
+.search:focus-within {
+  border-color: var(--cv-color-brand);
+  box-shadow: 0 0 0 1px var(--cv-color-brand);
+}
+.search svg {
+  position: absolute;
+  left: 14px;
+  color: var(--cv-color-text-muted);
+}
+.search input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  border: none;
+  background: transparent;
+  color: var(--cv-color-text);
+  font: 400 var(--cv-text-base) / 1 var(--cv-font-sans);
+}
+.search input:focus {
+  outline: none;
+}
+.search input::placeholder {
+  color: var(--cv-color-text-subtle);
+}
+.photos {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.photo {
+  position: relative;
+  display: block;
+  padding: 0;
+  overflow: hidden;
+  border: none;
+  border-radius: var(--cv-radius-sm);
+  background: var(--cv-color-bg-subtle);
+  cursor: pointer;
+  aspect-ratio: 4 / 3;
+}
+.photo img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: filter var(--cv-duration-fast) var(--cv-ease-out);
+}
+.photo:hover img {
+  filter: brightness(0.92);
+}
+.photo:focus-visible {
+  outline: none;
+  box-shadow: var(--cv-focus-ring);
+}
+.photo:disabled {
+  opacity: 0.5;
+  cursor: progress;
+}
+.credit {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 14px 6px 4px;
+  overflow: hidden;
+  background: linear-gradient(to top, var(--cv-color-overlay), transparent);
+  color: var(--cv-color-on-brand);
+  font: 500 10px / 1.2 var(--cv-font-sans);
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity var(--cv-duration-fast);
+}
+.photo:hover .credit,
+.photo:focus-visible .credit {
+  opacity: 1;
+}
+
+/* ── Apps y Herramientas: mosaicos con ícono sobre color suave y rótulo abajo ── */
+.apps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px 8px;
+}
+.app {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 6px 2px;
+  border: none;
+  border-radius: var(--cv-radius-lg);
+  background: transparent;
+  color: var(--cv-color-text);
+  cursor: pointer;
+  transition: background var(--cv-duration-fast) var(--cv-ease-out);
+}
+.app:hover {
+  background: var(--cv-color-bg-muted);
+}
+.app:focus-visible {
+  outline: none;
+  box-shadow: var(--cv-focus-ring);
+}
+.app[aria-pressed='true'] .appIcon {
+  box-shadow: 0 0 0 2px var(--cv-color-brand);
+}
+.appIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: var(--cv-radius-lg);
+  background: var(--cv-pastel-lilac);
+  color: var(--cv-violet-800);
+}
+.appIcon svg {
+  width: 26px;
+  height: 26px;
+}
+.appLabel {
+  max-width: 100%;
+  overflow: hidden;
+  font: 500 var(--cv-text-sm) / 16px var(--cv-font-sans);
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.lilac {
+  background: var(--cv-pastel-lilac);
+}
+.sky {
+  background: var(--cv-pastel-sky);
+  color: #182c59; /* Canva: texto de aviso info */
+}
+.mint {
+  background: var(--cv-pastel-mint);
+  color: #133416; /* Canva: texto de aviso éxito */
+}
+.pink {
+  background: var(--cv-pastel-pink);
+  color: #501b21; /* Canva: texto de aviso error */
+}
+.butter {
+  background: #ffd9ad; /* Canva: aviso de advertencia, fondo suave */
+  color: #3e2a14;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation: none;
+  }
+}

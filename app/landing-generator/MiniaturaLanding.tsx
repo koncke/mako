@@ -97,23 +97,17 @@ export function haceCuanto(fecha: string | number, ahora: number): string {
 export { hostDe } from './panel-reglas';
 
 /**
- * La caja «¿Qué quieres crear?» del Panel le pasa el pedido a Crear por sessionStorage y no
+ * La caja «¿Qué quieres crear?» del Panel le pasaba el pedido a Crear por sessionStorage y no
  * por la URL: el pedido puede ser largo y trae datos del negocio, y una URL queda en el
  * historial y en los logs de cada request. Se consume UNA vez (se borra al leer) y vence a
  * los 10 minutos: un F5 en Crear no vuelve a disparar una generación.
+ * Tanda 6 (14/10/2026): Crear se abre a la derecha del Panel y el pedido le llega EN MEMORIA
+ * (`ArranqueIA`, panel-reglas.ts), así que nadie lo DEJA más acá. `tomarCaja` queda para el link
+ * de una pestaña con la pantalla de antes durante el deploy (`?desde=caja`, que /crear redirige).
  */
 const CLAVE_CAJA = 'gp.crear.caja';
 const VIDA_CAJA_MS = 10 * 60_000;
 export type PedidoCaja = { prompt: string; modo: 'plan' | 'express' };
-
-export function dejarCaja(p: PedidoCaja): boolean {
-  try {
-    window.sessionStorage.setItem(CLAVE_CAJA, JSON.stringify({ ...p, t: Date.now() }));
-    return true;
-  } catch {
-    return false;
-  }
-}
 
 export function tomarCaja(): PedidoCaja | null {
   try {
@@ -156,7 +150,9 @@ export function MiniaturaLanding({ tarjeta: t, tema, formato = 'pagina', proporc
   aspecto?: string;
   entera?: boolean;
 }) {
-  const html = useMemo(() => htmlDeTarjeta(t ?? TARJETA_VACIA, tema, { modo: 'miniatura', incluirOcultas: true }), [t, tema]);
+  // Con MARCADORES (render.ts): la grilla de Diseños, el Panel y Crear son miniaturas de TRABAJO, y
+  // el VSL vacío de un diseño tiene que verse como un ▶ (pedido de Martín, 14/10/2026).
+  const html = useMemo(() => htmlDeTarjeta(t ?? TARJETA_VACIA, tema, { modo: 'miniatura', incluirOcultas: true, marcadores: true }), [t, tema]);
   const diapo = formato === 'presentacion';
   const prop: Proporcion = proporcion === '4:3' ? '4:3' : '16:9';
   const cuadro = diapo ? (prop === '4:3' ? '4 / 3' : '16 / 9') : aspecto;
@@ -520,8 +516,9 @@ export function useAviso(): { avisar: (texto: string, deshacer?: () => void) => 
 /**
  * «Del generador anterior»: los borradores de landing_drafts, convertidos (specADoc, del lado
  * del server) al abrirlos. Vivía en el Panel detrás de «Importar ▾»; la tanda 2 sacó esa fila de
- * botones (T1: «Muchos botones a la derecha»), así que se ofrece desde la caja de crear (el «+»)
- * y vive acá, en lo común del Panel y de Crear.
+ * botones (T1: «Muchos botones a la derecha») y pasó al «+» de la caja de crear. La tanda 6
+ * (Martín: «elimina todas las opciones actuales dentro del "+"») lo llevó a la galería de
+ * Plantillas del Panel (Inicio.tsx). Vive acá, en lo común del Panel y de Crear.
  */
 export function DialogoBorradores({ onCerrar, ws, ahora }: { onCerrar: () => void; ws: number | null; ahora: number }) {
   const [borradores, setBorradores] = useState<BorradorViejo[] | null>(null);
@@ -674,8 +671,8 @@ export const CSS_GP = `
 .gp .gp-menu-sep { height: 1px; margin: 6px 4px; background: var(--gp-borde-suave); }
 
 /* Diálogo */
-.gp .gp-velo { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(19,19,20,.48); }
-.gp .gp-dialogo { max-width: 100%; max-height: calc(100vh - 32px); display: flex; flex-direction: column; border-radius: 16px; background: var(--gp-superficie); color: var(--gp-texto); box-shadow: var(--gp-sombra-xl); outline: none; }
+.gp .gp-velo { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; padding: calc(16px + var(--barra-agencia, 0px)) 16px 16px; background: rgba(19,19,20,.48); }
+.gp .gp-dialogo { max-width: 100%; max-height: calc(100vh - 32px - var(--barra-agencia, 0px)); display: flex; flex-direction: column; border-radius: 16px; background: var(--gp-superficie); color: var(--gp-texto); box-shadow: var(--gp-sombra-xl); outline: none; }
 .gp .gp-dialogo-cabeza { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 18px 16px 4px 24px; }
 .gp .gp-dialogo-titulo { margin: 0; font-size: 20px; font-weight: 600; color: var(--gp-titulo); line-height: 1.25; }
 .gp .gp-dialogo-cuerpo { padding: 8px 24px 16px; overflow-y: auto; font-size: 14px; line-height: 1.5; }

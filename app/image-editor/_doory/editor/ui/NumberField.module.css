@@ -1,0 +1,72 @@
+/* Campo numérico con el campo de Canva: borde rgba(53,65,90,.2), hover más oscuro y foco violeta #8B3DFF */
+.field {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 var(--cv-space-2) 0 10px;
+  border: 1px solid var(--cv-color-border-strong);
+  border-radius: var(--cv-radius-sm);
+  background: var(--cv-color-surface);
+  transition: border-color var(--cv-duration-fast) var(--cv-ease-out), box-shadow var(--cv-duration-fast) var(--cv-ease-out);
+}
+
+.field:hover:not(.disabled) {
+  border-color: rgb(28 33 48 / 0.5);
+}
+
+.field:focus-within {
+  border-color: var(--cv-color-brand);
+  box-shadow: 0 0 0 1px var(--cv-color-brand);
+}
+
+.disabled {
+  background: rgb(64 79 109 / 0.06);
+  color: rgb(28 33 48 / 0.5);
+}
+
+.label {
+  flex: none;
+  color: var(--cv-color-text-subtle);
+  font: 400 var(--cv-text-sm) / 1 var(--cv-font-sans);
+  user-select: none;
+}
+
+.scrub {
+  cursor: ew-resize;
+  touch-action: none;
+}
+
+.sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+
+.input {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--cv-color-text);
+  font: 400 var(--cv-text-base) / 1 var(--cv-font-sans);
+  font-variant-numeric: tabular-nums;
+}
+
+.disabled .input {
+  color: rgb(28 33 48 / 0.5);
+}
+
+.suffix {
+  color: var(--cv-color-text-subtle);
+  font: 400 var(--cv-text-sm) / 1 var(--cv-font-sans);
+}
+
+.glyph {
+  display: inline-flex;
+  color: var(--cv-color-text-subtle);
+}

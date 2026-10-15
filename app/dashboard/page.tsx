@@ -99,6 +99,9 @@ export default async function Page({ searchParams }: { searchParams: Promise<Bus
       const pedidaHoja = pedida ? (agregar ?? tablero.hojas.find((h) => h.id === destino.hojaId) ?? null) : null;
       if (pedidaHoja) { tablero = { ...tablero, hojas: [] }; agregar = pedidaHoja; hoja = pedidaHoja; lleno = false; }
       else sinPaginas = true;
+    } else if (tablero.enBlanco && !agregar) {
+      // Se eliminaron todas las hojas (quedaron en Archivados): la pantalla en blanco, como quien nunca armó una.
+      sinPaginas = true;
     }
   }
   const pedidos0 = pedidosDeHoja(hoja, {}, hoy, 0, ocultosPorPlegado(hoja.componentes, plegadasDeEntrada(hoja.componentes)));

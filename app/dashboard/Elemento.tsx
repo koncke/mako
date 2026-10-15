@@ -55,6 +55,9 @@ import type { LoQueSeVe } from './PanelAnalista';
 import { ElementoIA, PropsIA } from './ElementoIA';
 import { ElementoAccion, PropsAccion } from './ElementoAccion';
 import { PiezaEntidad, PropsEntidad } from './entidades/PiezaEntidad';
+import { ElementoGeneral, useEnGeneral, useFunnelsGeneral, useGeneral, useVariablesInforme } from './ElementoGeneral';
+import { PIEZAS_GENERAL, VARIABLES_TEXTO, conVariables, esPiezaGeneral, opcionDe, opcionesDePieza, piezaPorFunnel } from '@/lib/general-piezas';
+import { Dropdown } from '@/app/components/Dropdown';
 
 /**
  * Lo que la pantalla le cuenta a un elemento además de él mismo (interfaz I3). Todo opcional salvo la hoja: sin
@@ -115,6 +118,21 @@ export const TAMANOS_TEXTO: Record<Tamano, { px: number; peso: number; alto: num
   xl: { px: 36, peso: 700, alto: 1.12, nombre: 'Muy grande' },
 };
 
+/**
+ * ÉPICO (14/10/2026): el texto crece con su tarjeta, como el número (ESCALA_EPICA). Los px de arriba son el PISO (lo de
+ * siempre, y lo que se ve en el celular); el techo y la pendiente en unidades del contenedor (`.lk-comp--elemento` lleva
+ * `container-type`). Un «Muy grande» de 36 px FIJOS era, en una hoja donde todo lo demás crece, el primer renglón que se
+ * lee y el que dejaba la jerarquía plana. El chico no crece: es el cuerpo.
+ */
+const CRECE_TEXTO: Record<Tamano, { cqi: number; max: number } | null> = {
+  s: null, m: { cqi: 2, max: 22 }, l: { cqi: 3, max: 34 }, xl: { cqi: 4.2, max: 52 },
+};
+export const tamTextoCss = (tamano: Tamano): string => {
+  const t = TAMANOS_TEXTO[tamano] ?? TAMANOS_TEXTO.m;
+  const c = CRECE_TEXTO[tamano];
+  return c ? `clamp(${t.px}px, ${c.cqi}cqi, ${c.max}px)` : `${t.px}px`;
+};
+
 const ALINEAR_CSS: Record<Alinear, CSSProperties['textAlign']> = { izquierda: 'left', centro: 'center', derecha: 'right' };
 
 /** Un salto de línea es un PÁRRAFO (el modelo lo dice así). Los `\r` de un pegado desde Windows no cuentan. */
@@ -125,7 +143,7 @@ function estiloTexto(e: Elemento, colores: readonly string[]): CSSProperties {
   return {
     // La letra de la HOJA (varsDeTema la pinta en el contenedor del lienzo); sin tema, la de la app.
     fontFamily: 'var(--dash-letra, inherit)',
-    fontSize: t.px, fontWeight: t.peso, lineHeight: t.alto,
+    fontSize: tamTextoCss(e.tamano), fontWeight: t.peso, lineHeight: t.alto,
     letterSpacing: t.px >= 26 ? '-0.015em' : undefined,
     textAlign: ALINEAR_CSS[e.alinear] ?? 'left',
     color: colorDeElemento(e, colores),
@@ -292,6 +310,7 @@ export function CuerpoElemento({ e, colores, editando, onCambiar, ctx }: {
     );
   }
   if (e.tipo === 'accion') return <ElementoAccion e={e} contexto={ctx?.abierto ?? null} editando={editando} soloLectura={!!ctx?.compartido} onCambio={ctx?.onCambio} />;
+  if (e.tipo === 'general') return <ElementoGeneral e={e} />;
   if (e.tipo === 'entidad') return <PiezaEntidad e={e} contexto={ctx?.abierto ?? null} periodo={ctx?.periodo ?? null} soloLectura={!!ctx?.compartido} onCambio={ctx?.onCambio} />;
   return <CuerpoForma e={e} colores={colores} />;
 }
@@ -384,6 +403,8 @@ function CuerpoTexto({ e, colores, editando, onCambiar }: { e: Elemento; colores
   const { borrador, escribir, enLugar, abrir, cerrar, tope } = useEnLugar(e, editando, onCambiar);
   const campo = useRef<HTMLTextAreaElement>(null);
   useFocoAlAbrir(campo, enLugar);
+  // Las variables («{{nombre}}», lib/general-piezas.ts) se resuelven al MIRAR; editando se ven con sus llaves.
+  const variables = useVariablesInforme();
 
   const estilo = estiloTexto(e, colores);
 
@@ -417,7 +438,7 @@ function CuerpoTexto({ e, colores, editando, onCambiar }: { e: Elemento; colores
     >
       {vacio
         ? (editando ? <span style={{ color: 'var(--faint)', fontWeight: 400 }}>Doble clic para escribir</span> : null)
-        : parrafosDe(e.texto).map((p, i) => (
+        : parrafosDe(editando ? e.texto : conVariables(e.texto, variables)).map((p, i) => (
           // Un renglón vacío es un párrafo vacío: sin el espacio duro no ocupa nada y el salto se pierde.
           <p key={i} style={{ margin: 0, marginTop: i ? '0.35em' : 0 }}>{p || ' '}</p>
         ))}
@@ -560,7 +581,7 @@ function CuerpoForma({ e, colores }: { e: Elemento; colores: readonly string[] }
  * «imagen» que en cualquier otro menú de la app. El resto (texto, línea, flecha y sección) se dibuja acá.
  */
 const DEL_SET = {
-  imagen: 'imagen', enlace: 'link', video: 'video', insertado: 'insertar', ia: 'mako', accion: 'accion', entidad: 'archivo',
+  imagen: 'imagen', enlace: 'link', video: 'video', insertado: 'insertar', ia: 'mako', accion: 'accion', entidad: 'archivo', general: 'plan',
 } as const satisfies Partial<Record<TipoElemento, NombreIconoMenu>>;
 const esDelSet = (t: TipoElemento): t is keyof typeof DEL_SET => Object.prototype.hasOwnProperty.call(DEL_SET, t);
 
@@ -740,7 +761,7 @@ function PanelElemento({ e, colores, onCambiar, onDuplicar, onBorrar, onCerrar, 
         </Seccion>
       )}
       {e.tipo === 'enlace' && <SeccionesEnlace e={e} onCambiar={onCambiar} />}
-      {(e.tipo === 'seccion' || e.tipo === 'ia' || e.tipo === 'entidad') && (
+      {(e.tipo === 'seccion' || e.tipo === 'ia' || e.tipo === 'entidad' || e.tipo === 'general') && (
         <Seccion>
           <label htmlFor={idTexto} style={S.titulo}>Título</label>
           <input id={idTexto} value={e.texto} maxLength={topeDeTextoElemento(e.tipo)} onChange={(ev) => onCambiar({ texto: ev.target.value })} style={S.campo} />
@@ -751,6 +772,8 @@ function PanelElemento({ e, colores, onCambiar, onDuplicar, onBorrar, onCerrar, 
       {e.tipo === 'ia' && hoja && <PropsIA e={e} hoja={hoja} popupDe={popupDe} contexto={contexto} vista={vista} onCambiar={onCambiar} />}
       {e.tipo === 'accion' && <PropsAccion e={e} entidad={entidad} onCambiar={onCambiar} />}
       {e.tipo === 'entidad' && <PropsEntidad e={e} entidad={entidad} onCambiar={onCambiar} />}
+      {e.tipo === 'general' && <PropsGeneral e={e} onCambiar={onCambiar} />}
+      {e.tipo === 'texto' && <AyudaVariables />}
 
       {CON_TAMANO.includes(e.tipo) && (
         <Seccion titulo="Tamaño">
@@ -1004,5 +1027,82 @@ function SeccionesImagen({ e, onCambiar }: { e: Elemento; onCambiar: (p: Partial
         <input id={idAlt} value={e.texto} maxLength={300} placeholder="Qué muestra la imagen" onChange={(ev) => onCambiar({ texto: ev.target.value })} style={S.campo} />
       </Seccion>
     </>
+  );
+}
+
+// ── Los bloques de General (14/10/2026) ────────────────────────────────────────────────────────────────────────────
+
+/**
+ * El panel de un bloque de General. La segunda vuelta del 14/10/2026 (Martín: «Todos los desplegables de edición de un
+ * bloque y en general la edición del bloque hazlo mejor, porque no tiene muchas opciones»):
+ *   · «Bloque» y «Funnel» son el desplegable de la casa, con el ícono de cada bloque (los `<select>` nativos se fueron);
+ *   · cada OPCIÓN que el bloque declara (lib/general-piezas.ts) va como botones de una sola elección, todas a la vista
+ *     (son 2 a 4 valores: un desplegable las escondería);
+ *   · lo que el bloque define ahí mismo (los OKRs) lo pone General (`configurar`, app/general/ProveedorGeneral.tsx).
+ * Cambiar de bloque no arrastra el funnel ni las opciones a uno que no los conoce: el saneo los tira igual.
+ */
+function PropsGeneral({ e, onCambiar }: { e: Elemento; onCambiar: (p: Partial<Elemento>) => void }) {
+  const funnels = useFunnelsGeneral();
+  const general = useGeneral();
+  const g = e.general;
+  const pieza = g?.pieza;
+  if (!pieza || !g) return null;
+  const funnel = g.funnel ?? null;
+  // Un bloque que se ata a un funnel: sin elegir, el principal («Tu funnel hoy») o todo el negocio («A quién cobrarle»).
+  // Uno elegido que ya no está se muestra igual, marcado: un valor que no está entre las opciones no se ve, y el primer
+  // clic escribiría otro.
+  const conFunnel = piezaPorFunnel(pieza) && funnels;
+  const perdido = !!conFunnel && funnel != null && !funnels.some((f) => f.id === funnel);
+  const opciones = opcionesDePieza(pieza);
+  const extra = general?.configurar(e) ?? null;
+  const cambiarOpcion = (id: string, v: string) => onCambiar({ general: { ...g, opciones: { ...(g.opciones ?? {}), [id]: v } } });
+  return (
+    <>
+      <Seccion titulo="Bloque">
+        <Dropdown value={pieza} ariaLabel="Qué bloque es"
+          options={PIEZAS_GENERAL.map((p) => ({ value: p.id, label: p.nombre, sub: p.linea, icono: p.icono as NombreIconoMenu }))}
+          onChange={(v) => {
+            // El funnel viaja sólo con los bloques que lo usan, y las opciones no se arrastran a otro bloque.
+            if (esPiezaGeneral(v)) onCambiar({ general: funnel != null && piezaPorFunnel(v) ? { pieza: v, funnel } : { pieza: v } });
+          }} />
+      </Seccion>
+      {conFunnel && (
+        <Seccion titulo="Funnel">
+          <Dropdown value={funnel != null ? String(funnel) : ''} ariaLabel="De qué funnel"
+            options={[
+              { value: '', label: pieza === 'cobranza' ? 'Todo el negocio' : 'El principal', icono: 'etapa' },
+              ...funnels.map((f) => ({ value: String(f.id), label: f.nombre, icono: 'etapa' as const })),
+              ...(perdido ? [{ value: String(funnel), label: 'Un funnel que ya no está', icono: 'cerrar' as const }] : []),
+            ]}
+            onChange={(v) => {
+              const n = Number(v);
+              const { funnel: _f, ...resto } = g;
+              onCambiar({ general: n > 0 ? { ...resto, funnel: n } : resto });
+            }} />
+        </Seccion>
+      )}
+      {opciones.map((o) => (
+        <Seccion key={o.id} titulo={o.nombre}>
+          <Opciones etiqueta={o.nombre} valor={opcionDe(pieza, g.opciones, o.id)} onElegir={(v) => cambiarOpcion(o.id, v)}
+            opciones={o.valores.map((v) => ({
+              id: v.id, nombre: v.nombre,
+              contenido: <>{v.icono && <IconoMenu nombre={v.icono as NombreIconoMenu} size={15} />}<span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v.nombre}</span></>,
+            }))} />
+        </Seccion>
+      ))}
+      {extra && <Seccion>{extra}</Seccion>}
+    </>
+  );
+}
+
+/** En General, el panel de un Texto dice qué variables entiende (sólo ahí tienen valor). */
+function AyudaVariables() {
+  if (!useEnGeneral()) return null;
+  return (
+    <Seccion titulo="Variables">
+      <span style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.5 }}>
+        {VARIABLES_TEXTO.map((v) => `{{${v.id}}}`).join(' · ')}
+      </span>
+    </Seccion>
   );
 }

@@ -1514,4 +1514,66 @@ FEEDBACK PROBAR:
       "Corrección del diagnóstico del bug 5: la fecha sin hora explica la primera pasada (a mano, 19:57), pero la reserva por Calendly de las 02:05 traía la hora y aun así no reinició el flujo. Esa segunda regla escondida es parte del inventario.",
     ],
   },
+  {
+    fecha: "14 oct", hora: "08:30", chat: "chatbot", cuenta: "claude2",
+    actor: "martin", tipo: "prompt",
+    titulo: "Seguir con todo lo pendiente, y TikTok y LinkedIn en Automations",
+    pedido: "Continua con todo lo pendiente... Y también:\n\nImplementar TikTok y LinkedIn... Intentar automatizar el chatbot para TikTok y Linkedin, eso sería un gran diferencial, ya que Manychat no se conecta a esas apps...",
+    puntos: [
+      "Lo primero de lo pendiente fue el bug 5. «Si el lead contesta: sigue / se corta» quedó por camino del CRON, con «sigue» de fábrica (decisión de Martín del 14/10), en c0c46bad. La migración de las existentes es scripts/migrar-si-contesta.ts y va ANTES del deploy.",
+      "TikTok y LinkedIn salieron de una investigación con fuentes (workflow wf_5ff0c95d-2ac; plan en docs/diseno-tiktok-linkedin.md). TikTok se puede por Zernio, sólo para contestar: 10 mensajes en 48 h, sin escribir primero. LinkedIn no se puede de forma legal. ManyChat SÍ tiene TikTok desde enero de 2025.",
+      "Antes de TikTok falta que el AI Step conteste por redes: hoy una respuesta de Instagram o Messenger sólo pausa.",
+    ],
+  },
+  {
+    fecha: "14 oct", hora: "06:40", chat: "chatbot", cuenta: "claude2",
+    actor: "martin", tipo: "prompt",
+    titulo: "«Si el lead contesta» es una CONDITION; Probar con contactos por escenario; TikTok al lado de IG",
+    pedido: "1. En \"Probar\" para las automatizaciones que tengas varios casos, varias condiciones, ese chat de \"probar\" debería al lado tener la sidebar de diferentes contactos de WhatsApp o de IG o lo que sea, con el mismo diseño de esas apps, y justamente que ahí caigan los diferentes escenarios para la prueba. Y si puedo por WhatsApp, debo elegir un escenario para probarlo en caso de que tenga más de 1 escenario.\n2. \"Si el lead contesta\" NO debería ir en el CRON, debería ser una CONDITION... Es obvio eso.\n3. ¿Cómo podemos deprecar Zernio para tiktok? Pasar por aprobación?\n4. El botón de TikTok en el CRON como siempre, al lado del de IG...\n5. Y que pasó con LinkedIn?",
+    puntos: [
+      "«Si el lead contesta» rehecho como la condición «No contestó desde que entró» (`contesto`): que el lead conteste ya no corta nada por su cuenta. Se fueron el panel del CRON, `si_contesta` y la operación de la API. Las plantillas la traen en los seguimientos; las existentes se convierten con scripts/migrar-contesto-condicion.ts, después del deploy.",
+      "Borrada también la guarda escondida «la reunión ya pasó»: lo dice «Su reunión sigue en pie», y el reintento la vuelve a pasar.",
+      "TikTok sin Zernio = pedir la Business Messaging API directo a TikTok (app propia, revisión, Advanced Access por cuenta). LinkedIn: sin vía legal para DMs; queda afuera.",
+    ],
+  },
+  {
+    fecha: "14 oct", hora: "17:16", chat: "Chatbot", cuenta: "claude1",
+    actor: "claude", tipo: "implementacion",
+    titulo: "TikTok fase 0: el AI Step contesta por Instagram y Messenger",
+    puntos: [
+      "Del pedido «Implementar TikTok y LinkedIn… automatizar el chatbot» (14/10): antes de TikTok, que el AI Step conteste por las redes. Hasta hoy un DM sólo se anotaba.",
+      "El AI Step de ese medio contesta por ese canal: la charla de Instagram (lo que escribió y lo que le salió), «Sola» por Zernio con las mismas puertas, «Para aprobar» con el texto en el aviso, sin audio.",
+      "El AI Step ofrece Instagram y Messenger; «Probar» contesta con el del medio que se prueba; «Cambia WhatsApp por Instagram» muda el AI Step en vez de sacarlo.",
+      "Sin probar contra un DM real: ningún workspace recibió un evento de Zernio. Falta la cuenta de prueba en ws3.",
+    ],
+    commits: [
+      { sha: "c9cdbdf3a", msg: "Automations: el AI Step contesta por Instagram y Messenger (TikTok fase 0)", lineas: 752, archivos: 21 },
+    ],
+    archivos: ["docs/hallazgos-chatbot.md — «TikTok fase 0»", "docs/diseno-tiktok-linkedin.md §4"],
+  },
+  {
+    fecha: "14 oct", hora: "17:25", chat: "Chatbot", cuenta: "claude1",
+    actor: "claude", tipo: "implementacion",
+    titulo: "«Probar en vivo» por la API: UN escenario, no todos los pasos",
+    puntos: [
+      "probar_secuencia mandaba cada mensaje del array: con una condición, el «Sí» y el «No» juntos. Ahora manda el camino de un escenario, el mismo de «Probar» y de escenarios_secuencia; con varios, pide cuál.",
+      "Un paso de Instagram o Messenger se mandaba como email: ahora se saltea con su aviso.",
+    ],
+    commits: [
+      { sha: "d488977f0", msg: "Automations: probar_secuencia manda UN escenario", lineas: 249, archivos: 7 },
+    ],
+    archivos: ["docs/hallazgos-chatbot.md — «probar_secuencia manda UN escenario»"],
+  },
+  {
+    fecha: "14 oct", hora: "19:00", chat: "Chatbot", cuenta: "claude1",
+    actor: "claude", tipo: "implementacion",
+    titulo: "«Los avisos al equipo salen igual»: una casilla del horario de oficina",
+    puntos: [
+      "Con horario de oficina, la tarjeta «MaKo en WhatsApp» salía fuera de horario sin que nada lo dijera. Ahora es una casilla del horario, prendida de fábrica (lo de antes); apagada, fuera del horario sale sólo el recordatorio de la reunión.",
+    ],
+    commits: [
+      { sha: "87bdf9530", msg: "Automations: «Los avisos al equipo salen igual», una casilla del horario de oficina", lineas: 81, archivos: 5 },
+    ],
+    archivos: ["docs/hallazgos-chatbot.md — «Los avisos al equipo salen igual»"],
+  },
 ];

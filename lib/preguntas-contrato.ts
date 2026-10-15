@@ -32,8 +32,12 @@
 //      abiertas. El modelo quedaba acorralado y elegía el tipo menos malo.
 
 /**
- * Los formatos en los que se puede contestar una pregunta. Cada uno tiene UN
- * campo en pantalla (ver `PreguntaCampo` en app/plan/board/guardian-form.tsx).
+ * Los formatos en los que se puede contestar una pregunta.
+ *
+ * El alta de tareas ya no pregunta nada (05/10/2026, `tests/alta-sin-preguntas.test.ts`),
+ * y el campo que las dibujaba en pantalla (`PreguntaCampo`) se borró el 14/10 por no
+ * tener ningún call site. Los tipos y el saneo quedan porque todavía los usan los que
+ * leen preguntas guardadas.
  */
 export type TipoPregunta = 'opcion' | 'multi' | 'escala' | 'fecha' | 'texto' | 'comparacion';
 
@@ -151,7 +155,7 @@ export function sanearPregunta(p: unknown, avisar?: (motivo: string) => void): P
     // ⚠️ FUERA el atajo que el renderer YA agrega, y fuera los repetidos.
     //
     // El bug, visto en pantalla el 11/8: «Todavía no hay fecha» aparecía DOS veces y
-    // las dos marcadas. `PreguntaCampo` pinta `[...opciones, SIN_FECHA]` —el atajo
+    // las dos marcadas. El campo de pantalla pintaba `[...opciones, SIN_FECHA]` —el atajo
     // siempre va— así que cuando el modelo lo manda entre sus opciones (y lo manda,
     // porque el contrato se lo ofrece como ejemplo) sale duplicado. Y las dos quedan
     // en azul porque la marca compara por TEXTO: el mismo string matchea las dos filas.
@@ -177,18 +181,6 @@ export function sanearPregunta(p: unknown, avisar?: (motivo: string) => void): P
   return { pregunta, opciones, tipo, sobre: sobre.length ? sobre : undefined };
 }
 
-/** Log uniforme de las degradaciones, para poder ver en prod qué tipea mal cada modelo. */
-export const avisoSaneo = (donde: string) => (motivo: string): void => {
-  console.warn(`[preguntas] ${donde}: ${motivo}`);
-};
-
-// ── El contrato que se le explica a los modelos ───────────────────────────────
-// UN texto, importado por TODOS los prompts que escriben preguntas. Antes cada
-// uno tenía su propia versión —cinco copias, cada una con reglas distintas— y la
-// de reuniones ni siquiera definía qué era una `escala`, pero la ofrecía en el
-// enum. Un modelo al que le ofrecen un valor sin explicárselo lo usa de comodín.
-
-/** Catálogo de tipos + reglas de coherencia. Va en el system de cada generador. */
 /**
  * El atajo «sin fecha» que TODA pregunta de fecha ofrece. Vive acá y no en el
  * componente porque lo necesitan los dos: el renderer para pintarlo una vez, y el
@@ -213,28 +205,6 @@ export function dedupOpciones(ops: string[]): string[] {
   }
   return out;
 }
-
-export const CONTRATO_TIPOS_PREGUNTA = `TIPO Y OPCIONES — TIENEN QUE SER COHERENTES ENTRE SÍ. Es donde más se falla, y una pregunta incoherente es una pregunta que el dueño no puede contestar:
-· "opcion" → una sola respuesta, excluyente. OBLIGATORIO: 2 a 6 opciones cortas y concretas.
-· "multi" → pueden valer VARIAS a la vez. OBLIGATORIO: 2 a 6 opciones. NO agregues "Todas" ni "Ambas": para eso tilda varias.
-· "comparacion" → enfrentar DOS ítems para ver cuál pesa más. OBLIGATORIO: EXACTAMENTE 2 opciones, y cada una es uno de los ítems.
-· "fecha" → **para todo "¿para cuándo?", "¿qué fecha?", "¿hay deadline?"**. El dueño ve un CALENDARIO. Puedes sumar 2-4 "opciones" como atajos ("Esta semana", "Este mes", "Todavía no hay fecha"), pero no hacen falta.
-· "escala" → intensidad de 1 a 5, y NADA MÁS. NO lleva opciones: el dueño ve los números pelados. Por eso la pregunta TIENE que decir qué significan los dos extremos, dentro del enunciado mismo: "¿Qué tan firme es esa fecha? (1 = es una idea, 5 = ya está comprometida con el cliente)".
-· "texto" → un campo abierto. ⛔⛔ **CASI NUNCA.** La regla del dueño es NUNCA campos abiertos: un textarea vacío es la pregunta que más se saltea. Úsalo solo si de verdad no existe ningún otro campo que la conteste, y antes de usarlo intenta dos veces convertirla en "opcion" o en "fecha". Si mandas cualquier otro tipo sin las opciones que ese tipo exige, la pregunta **se descarta entera** — no se convierte en un campo abierto.
-
-⛔ NUNCA uses "escala" para preguntar CUÁNDO ni CUÁNTO. "¿Cuál es el deadline?" con botones del 1 al 5 no se puede contestar: el 3 no es una fecha. Si preguntas cuándo, el tipo es "fecha"; si preguntas cuánto, dale opciones con rangos concretos.
-⛔ Una "escala" sin los extremos explicados en el enunciado es una pregunta muerta.
-⛔ Una "opcion", "multi" o "comparacion" SIN opciones no se puede contestar: el dueño ve el texto y ningún botón. Si no se te ocurren opciones concretas, cambia la pregunta hasta que se te ocurran, o no la hagas.
-
-⛔⛔ CADA OPCIÓN TIENE QUE SER UNA RESPUESTA POSIBLE A LA PREGUNTA. Lee tu enunciado y lee tus opciones: si al elegir una la frase no queda contestada, está mal.
-  MAL (pasó de verdad): "¿los cinco grupos son fijos o hay que validar si algún módulo no encaja?" con opciones ["CRM", "Chats", "Plan", "Dashboard"]. El enunciado es "¿A o B?" y abajo hay una lista de sustantivos: ninguna opción lo contesta.
-  BIEN: o las opciones son las dos alternativas ("Son fijos" / "Hay que revisarlos"), o cambias el enunciado para que la lista SÍ lo conteste ("¿Qué módulos no encajan?", tipo multi).
-  Nunca dejes un enunciado binario con una lista de nombres abajo.`;
-
-/** La forma exacta del JSON. Incluye el enum COMPLETO, sin valores sin explicar. */
-export const JSON_PREGUNTAS = `Devuelve EXCLUSIVAMENTE un objeto JSON válido (sin markdown) con esta forma EXACTA:
-{ "preguntas": [ { "pregunta": "<corta y concreta, sobre un HECHO>", "tipo": "opcion|multi|fecha|escala|comparacion|texto", "opciones": ["...", "..."], "sobre": ["<título exacto de cada tarea de la que habla>"] } ] }
-Si no hace falta ninguna, { "preguntas": [] }.`;
 
 // ── `sobre`: de qué tarea habla la pregunta ───────────────────────────────────
 

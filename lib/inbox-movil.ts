@@ -27,6 +27,7 @@
 // =============================================================================
 
 import 'server-only';
+import { cache } from 'react';
 import { getCapaActual, getRolWsEfectivo, getTenantDb, getWorkspaceActual } from '@/lib/workspace';
 import { tzDeWorkspace, TZ_DEFAULT } from '@/lib/timezone';
 import { pendientesDelWorkspace, type Pendiente } from '@/lib/mako-pendientes';
@@ -258,7 +259,17 @@ export async function leerParaDecidir(quien?: QuienMira): Promise<ParaDecidir> {
  */
 export async function contarParaDecidir(quien?: QuienMira): Promise<ConteoParaDecidir> {
   const q = quien ?? (await quienMira());
-  const tipos = tiposVisibles(q.rol, q.capa);
+  return contarPorPedido(q.rol, q.capa);
+}
+
+/**
+ * ⚠️ UNA VEZ POR PEDIDO (React `cache`, 14/10/2026). En General la misma cuenta corría DOS veces por
+ * render: el layout la pide para el número de la barra y la página para la campana (medido en los
+ * edge_logs de Supabase). La clave son el rol y la capa SUELTOS: `cache` compara los argumentos por
+ * identidad, y un objeto `{ rol, capa }` nuevo en cada llamada nunca acertaría.
+ */
+const contarPorPedido = cache(async (rol: QuienMira['rol'], capa: QuienMira['capa']): Promise<ConteoParaDecidir> => {
+  const tipos = tiposVisibles(rol, capa);
   if (!tipos.length) return { total: 0, porTipo: {} };
   const ws = await getWorkspaceActual();
   if (ws == null) return { total: null, porTipo: Object.fromEntries(tipos.map((t) => [t, null])) };
@@ -284,7 +295,7 @@ export async function contarParaDecidir(quien?: QuienMira): Promise<ConteoParaDe
   // producción el 11/10/2026, eran 68 de 68 en el ws 9 y casi todos los 138 del ws 1, y el
   // badge decía 99+ sobre cosas que el teléfono no puede resolver.
   return { total: sumarConteos(porTipo, tipos.filter((t) => DECIDIBLES_EN_TELEFONO.has(t))), porTipo };
-}
+});
 
 /** Lo que se aprueba desde el teléfono. El resto (borradores, contactos) es de la computadora. */
 export const DECIDIBLES_EN_TELEFONO: ReadonlySet<TipoDecision> = new Set<TipoDecision>(['pendiente', 'accion', 'confirmacion']);

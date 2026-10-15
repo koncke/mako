@@ -9,7 +9,10 @@
 //
 // PROBADO ROMPIÉNDOLO (11/10/2026): 19 roturas, una por vez sobre el archivo real, restaurado desde
 // la copia en memoria y verificado por hash. Con todo en su lugar: 25 pass / 0 fail. Las 18 primeras
-// se corrieron con 24 tests (dieron 23 / 1) y la última con 25 (dio 24 / 1); en todas cayó SU test:
+// se corrieron con 24 tests (dieron 23 / 1) y la última con 25 (dio 24 / 1); en todas cayó SU test.
+// Tanda 4 (14/10/2026, hola-mako.site), base 25 / 0, con el arnés de editor-landing-origen:
+// `prefiltroVisitas` con `%/l/…%` (deja afuera hola-mako.site) → 24 / 1 «analítica: las URLs medidas…»;
+// `urlsAMedir` con una sola base → 24 / 1 (el mismo). Las de 11/10:
 //   · `tocaVersionAutomatica` con `>` en vez de `>=`              → versión automática (los 10 min justos)
 //   · `puedeBorrarse` en NEGATIVO (`papelera_at !== null`)        → borrar: SÓLO lo de la papelera
 //   · el `delete` de `borrar` sin `.not('papelera_at', …)`        → borrar: lo exige EN LA CONSULTA
@@ -37,7 +40,7 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   tocaVersionAutomatica, MINUTOS_VERSION_AUTO, puedeBorrarse, candidatosSlug, primeraLibre, motivoSlugInvalido,
-  slugPedido, slugPublicable, urlVistaPrevia, cambiosSinPublicar, urlsAMedir, esUrlMedida, prefiltroVisitas, visitasPorDia, mezclarConfig,
+  slugPedido, slugPublicable, cambiosSinPublicar, urlsAMedir, esUrlMedida, prefiltroVisitas, visitasPorDia, mezclarConfig,
   sanearTitulo, idValido, vistaTokenValido, tarjetaIdValido, validarSubida, pathDeSubida, subidaDelWs,
   archivoDeBiblioteca, EXT_DE_TIPO, sniffImagen, sniffMedia, paginasParaPublicar, metaDePagina, leerFoto,
   sanearTemasPropios, TOPE_TEMAS,
@@ -45,6 +48,7 @@ import {
 import { CONFIG_DEFAULT, TIPOS_IMAGEN, TIPOS_VIDEO, TOPE_IMAGEN_BYTES, TOPE_VIDEO_BYTES } from '../lib/editor-landing/api-tipos';
 import { slugValido, tarjeta, titulo, parrafo, docPagina, type LandingContenido } from '../lib/editor-landing/doc';
 import { TABLAS_DE_INQUILINO } from '../lib/tablas-de-inquilino';
+import { urlVistaEn } from '../lib/editor-landing/origen-landings';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const leer = (rel: string) => readFileSync(resolve(ROOT, rel), 'utf8').replace(/\r\n/g, '\n');
@@ -118,7 +122,9 @@ test('slug: ninguna carpeta fija de app/l puede ser el slug de una landing (tapa
     assert.equal(motivoSlugInvalido(n), 'Reservada');
     assert.ok(!candidatosSlug(n).includes(n), `no se sugiere «${n}»`);
   }
-  assert.equal(urlVistaPrevia('https://hola-mako.com/', 'A'.repeat(43)), `https://hola-mako.com/l/vista/${'A'.repeat(43)}`);
+  // Tanda 4: el link privado se arma con la base de las landings (`<app>/l` en local, hola-mako.site en producción).
+  assert.equal(urlVistaEn('https://hola-mako.com/l/', 'A'.repeat(43)), `https://hola-mako.com/l/vista/${'A'.repeat(43)}`);
+  assert.equal(urlVistaEn('https://hola-mako.site', 'A'.repeat(43), 'gracias'), `https://hola-mako.site/vista/${'A'.repeat(43)}/gracias`);
 });
 
 // ── Publicado ────────────────────────────────────────────────────────────────
@@ -169,19 +175,28 @@ test('la foto guardada: se lee entera o no se sirve', () => {
 // ── Analítica ────────────────────────────────────────────────────────────────
 
 test('analítica: las URLs medidas son las publicadas, normalizadas como las normaliza el Landing Analyst', () => {
-  const urls = urlsAMedir('https://www.hola-mako.com/', 'oferta', ['', 'gracias', 'No Vale', 'gracias']);
-  assert.deepEqual(urls, ['https://hola-mako.com/l/oferta', 'https://hola-mako.com/l/oferta/gracias']);
-  assert.deepEqual(urlsAMedir('https://hola-mako.com', null, ['']), []);
+  // Tanda 4: una por página Y por base — hola-mako.site (la vigente) y hola-mako.com/l (lo medido antes).
+  const urls = urlsAMedir(['https://hola-mako.site', 'https://www.hola-mako.com/l/'], 'oferta', ['', 'gracias', 'No Vale', 'gracias']);
+  assert.deepEqual(urls, [
+    'https://hola-mako.site/oferta', 'https://hola-mako.site/oferta/gracias',
+    'https://hola-mako.com/l/oferta', 'https://hola-mako.com/l/oferta/gracias',
+  ]);
+  assert.deepEqual(urlsAMedir(['https://hola-mako.site'], null, ['']), []);
   const medidas = new Set(urls);
-  assert.equal(esUrlMedida('https://hola-mako.com/l/oferta?utm_source=fb&fbclid=xyz', medidas), true, 'el Pixel guarda la URL con sus utm');
+  assert.equal(esUrlMedida('https://hola-mako.site/oferta?utm_source=fb&fbclid=xyz', medidas), true, 'el Pixel guarda la URL que ve el visitante, con sus utm');
+  assert.equal(esUrlMedida('https://hola-mako.com/l/oferta?utm_source=fb&fbclid=xyz', medidas), true, 'lo medido antes de la mudanza sigue siendo de la landing');
   assert.equal(esUrlMedida('https://www.hola-mako.com/l/oferta/gracias/', medidas), true);
   // El prefiltro trae CANDIDATOS que no son: la decisión es la igualdad exacta.
-  assert.equal(esUrlMedida('https://hola-mako.com/l/oferta-2', medidas), false);
+  assert.equal(esUrlMedida('https://hola-mako.site/oferta-2', medidas), false);
   assert.equal(esUrlMedida('https://hola-mako.com/l/ofertas', medidas), false);
+  assert.equal(esUrlMedida('https://otra.com/oferta', medidas), false, 'el mismo camino en otro host no es esta landing');
   assert.equal(esUrlMedida(null, medidas), false);
   assert.equal(esUrlMedida('::no es url::', medidas), false);
-  assert.equal(prefiltroVisitas('oferta'), '%/l/oferta%');
-  assert.equal(prefiltroVisitas('a_b%'), '%/l/a\\_b\\%%', 'un comodín en el slug no se vuelve comodín');
+  // `%/<slug>%`: trae las dos formas (con y sin `/l`); `ilike` lo compara igual que este LIKE.
+  assert.equal(prefiltroVisitas('oferta'), '%/oferta%');
+  assert.equal(prefiltroVisitas('a_b%'), '%/a\\_b\\%%', 'un comodín en el slug no se vuelve comodín');
+  const like = (patron: string, s: string) => new RegExp('^' + patron.replace(/[.*+?^${}()|[\]]/g, '\\$&').replace(/%/g, '.*') + '$', 'i').test(s);
+  for (const u of urls) assert.ok(like(prefiltroVisitas('oferta'), u), `el prefiltro deja afuera ${u}`);
 });
 
 test('analítica: visitas por DÍA LOCAL del negocio, 30 días con los vacíos en 0', () => {

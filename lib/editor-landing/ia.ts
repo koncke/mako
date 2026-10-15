@@ -57,6 +57,8 @@ import {
 } from './ia-reglas';
 import { NODO, TOPES, textoDe, type JsonNodo } from './doc';
 import type { Esquema, ParamsGeneracion, FuenteImagenes, AccionTexto } from './api-tipos';
+import { fallaEnNavegador, motivoDeError, motivoDePagina, sanearLectura } from './lectura-reglas';
+import type { MotivoEnNavegador, SeLeeEnNavegador } from './lectura-tipos';
 import { REGLAS_DIAPOSITIVAS_ESQUEMA, REGLAS_DIAPOSITIVAS_SECCIONES, REGLAS_DIAPOSITIVAS_EDITAR } from './plantillas-presentaciones';
 
 /**
@@ -77,14 +79,18 @@ export const FEATURE_EDITAR = 'landing-editor-ia';
 /**
  * El resultado de cada operación: el `ok: true` de RespuestaIA o la falla con su
  * mensaje. `status` lo usa SOLO la ruta para el código HTTP (400 = el pedido vino
- * mal, 502 = la IA no pudo) y no viaja en el cuerpo: el contrato es `Falla`.
+ * mal, 422 = la página no se puede leer desde el server, 502 = la IA no pudo) y no
+ * viaja en el cuerpo: el contrato es `Falla` (o `FallaEnNavegador`, con
+ * `pegable`/`enNavegador`/`motivo`, tanda 6).
  */
-export type ResultadoIA<T> = ({ ok: true } & T) | { ok: false; error: string; status: 400 | 502 };
+export type ResultadoIA<T> = ({ ok: true } & T) | ({ ok: false; error: string; status: 400 | 422 | 502 } & Partial<SeLeeEnNavegador>);
 
 /** El pedido vino mal: no se llamó a ninguna IA. */
 const invalido = (error: string) => ({ ok: false as const, error, status: 400 as const });
 /** La IA contestó pero no dejó nada usable. */
 const sinResultado = (error: string) => ({ ok: false as const, error, status: 502 as const });
+/** La página no se lee desde el server y en el navegador de la persona sí (tanda 6, lectura-tipos.ts). */
+const enNavegador = (motivo: MotivoEnNavegador) => ({ ...fallaEnNavegador(motivo), status: 422 as const });
 
 /**
  * Cuánto puede tardar cada pedido. Las secciones tienen que entrar en menos de 60 s
@@ -202,7 +208,13 @@ function esTarjeta(n: unknown): n is JsonNodo {
 // esquema
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type PedidoEsquema = { modo: 'generar' | 'pegar' | 'importar'; prompt?: string; texto?: string; url?: string; params?: Partial<ParamsGeneracion> };
+/**
+ * `lectura` (tanda 6, sólo en «importar»): la página ya LEÍDA en el navegador de la persona (el lector
+ * del Diagnóstico, lectura-tipos.ts). Con ella no se baja nada: es la salida para la página que se arma
+ * con JavaScript o que no deja leerse a nuestro servidor. Llega del navegador sin forma confiable: la
+ * sanea `sanearLectura`.
+ */
+export type PedidoEsquema = { modo: 'generar' | 'pegar' | 'importar'; prompt?: string; texto?: string; url?: string; lectura?: unknown; params?: Partial<ParamsGeneracion> };
 
 /**
  * El esquema de la landing. Tres puertas, como la pantalla de crear de Gamma:
@@ -210,7 +222,8 @@ export type PedidoEsquema = { modo: 'generar' | 'pegar' | 'importar'; prompt?: s
  *   · Pegar texto: los `---` cortan secciones, y el modo de texto decide qué se
  *     hace con lo que pegó (Generar · Condensar · Conservar);
  *   · Importar: la URL de una landing (lo que la persona ya tiene) por el mismo
- *     extractor que usa el Landing Analyst, con su guarda anti-SSRF.
+ *     extractor que usa el Landing Analyst, con su guarda anti-SSRF; o, si esa
+ *     página no se lee desde el server, su `lectura` hecha en el navegador.
  * «Conservar» NO pasa por la IA: el texto de la persona es el esquema.
  */
 export async function esquema(p: PedidoEsquema): Promise<ResultadoIA<{ esquema: Esquema }>> {
@@ -228,16 +241,34 @@ export async function esquema(p: PedidoEsquema): Promise<ResultadoIA<{ esquema: 
     texto = String(p.texto ?? '').slice(0, MAX_TEXTO_ENTRADA).trim();
     if (!texto) return invalido('Pega el texto primero.');
   } else if (p.modo === 'importar') {
-    const url = String(p.url ?? '').trim();
-    if (!url) return invalido('Falta el enlace.');
-    try {
-      const pagina = await extraerLanding(url);
-      if (pagina.bloqueada || !pagina.texto.trim()) return invalido('No pude leer el texto de esa página.');
-      texto = pagina.texto.slice(0, MAX_TEXTO_ENTRADA);
-      tituloFallback = pagina.titulo || tituloFallback;
-    } catch (e) {
-      // El extractor ya escribe el motivo para una persona («La página respondió 403…»).
-      return { ok: false, error: e instanceof Error ? e.message : 'No pude abrir esa página.', status: 502 };
+    // Tanda 6. Pedido de Martín (14/10/2026): «El mimso error que nos saltaba con Mauricio "No pude
+    // leer el texto de esa página". Soluciona eso...». Ese texto era TODO lo que se contestaba cuando
+    // la página no traía texto en el HTML (una app de React/Vite/Lovable: `<div id="root"></div>` y
+    // scripts) o nos rechazaba (403 de un antibots): un callejón. Ahora la respuesta dice POR QUÉ y que
+    // en el navegador de la persona sí se lee (`enNavegador`, lectura-tipos.ts): la pantalla ofrece el
+    // lector o pegar el texto, y la lectura vuelve por acá en `lectura`.
+    const lectura = p.lectura === undefined || p.lectura === null ? null : sanearLectura(p.lectura);
+    if (p.lectura !== undefined && p.lectura !== null && !lectura) return invalido('La lectura de la página llegó vacía.');
+    if (lectura) {
+      texto = lectura.texto.slice(0, MAX_TEXTO_ENTRADA);
+      if (!texto.trim()) return invalido('Tu navegador no encontró texto en esa página. Pega el texto.');
+    } else {
+      const url = String(p.url ?? '').trim();
+      if (!url) return invalido('Falta el enlace.');
+      try {
+        // TAL CUAL la pegó la persona: `normalizarUrl` le saca el www y el querystring (es la LLAVE de
+        // landing_analyses, no una dirección para bajar), y hay hosts que sólo existen con www.
+        const pagina = await extraerLanding(url, { talCual: true });
+        const motivo = motivoDePagina(pagina);
+        if (motivo) return enNavegador(motivo);
+        texto = pagina.texto.slice(0, MAX_TEXTO_ENTRADA);
+        tituloFallback = pagina.titulo || tituloFallback;
+      } catch (e) {
+        const motivo = motivoDeError(e);
+        if (motivo) return enNavegador(motivo);
+        // El extractor ya escribe el motivo para una persona («La página respondió 404…»).
+        return { ok: false, error: e instanceof Error ? e.message : 'No pude abrir esa página.', status: 502 };
+      }
     }
   } else {
     return invalido('Modo desconocido.');
@@ -255,9 +286,11 @@ export async function esquema(p: PedidoEsquema): Promise<ResultadoIA<{ esquema: 
   const exactas = trozos.length > 1 ? esquemaConservado(trozos.join('\n---\n'), tituloFallback) : undefined;
   const cantidad = exactas ? exactas.secciones.length : params.cantidad;
 
+  // Lo importado (bajado o leído en el navegador) es la página de un TERCERO, no algo que escribió la
+  // persona: va con su propia etiqueta, igual de no confiable.
   const contenido = p.modo === 'generar'
     ? contenidoNoConfiable(pedido, 'pedido')
-    : contenidoNoConfiable(trozos.length > 1 ? textoConTrozos(trozos) : texto, 'texto_de_la_persona');
+    : contenidoNoConfiable(trozos.length > 1 ? textoConTrozos(trozos) : texto, p.modo === 'importar' ? 'pagina_importada' : 'texto_de_la_persona');
   const instrucciones = [
     params.instrucciones ? contenidoNoConfiable(params.instrucciones.slice(0, MAX_INSTRUCCIONES), 'instrucciones') : '',
     p.modo !== 'generar' ? lineaModoTexto(params.modoTexto) : '',
@@ -280,7 +313,7 @@ export async function esquema(p: PedidoEsquema): Promise<ResultadoIA<{ esquema: 
     const hastaMs = t0 + PLAZOS.esquema.ia;
     const salida = await chatClaude(sys, [{ role: 'user', content: user }], {
       feature: FEATURE_GENERAR,
-      motivo: `Esquema de ${diapos ? 'presentación' : 'landing'}${p.modo === 'importar' ? ' (importada)' : p.modo === 'pegar' ? ' (texto pegado)' : ''}`,
+      motivo: `Esquema de ${diapos ? 'presentación' : 'landing'}${p.modo === 'importar' ? (p.lectura ? ' (leída en el navegador)' : ' (importada)') : p.modo === 'pegar' ? ' (texto pegado)' : ''}`,
       maxTokens: 4_000,
       effort: 'medium',
       hastaMs,
@@ -500,19 +533,38 @@ export async function texto(p: PedidoTexto): Promise<ResultadoIA<{ texto: string
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
+ * El formato de la landing en «Probar nuevo diseño» (tanda 6; pendiente de la tanda 2: «"Probar nuevo
+ * diseño" no recibe el formato»). Sin él, en una PRESENTACIÓN proponía secciones de página que no
+ * entran en la diapositiva. Va al slot `{{formato}}` detrás de FORMATO_DISENOS (es el único slot que
+ * tiene disenosSystem): el prompt editable no cambia.
+ *
+ * ⚠️ NO SON `REGLAS_DIAPOSITIVAS_EDITAR` NI `REGLAS_PAGINA` (las de editar), A PROPÓSITO: las dos piden
+ *    algo que acá contradice el pedido. «Si no entra, pártelo en dos», cuando cada tarjeta devuelta es
+ *    UNA alternativa (partida, cada mitad pierde texto y `conservaElTexto` las descarta); y «cada una
+ *    lleva el copy que una página necesita para convencer», cuando acá el texto se conserva palabra por
+ *    palabra. Es la regla de GRAMATICA_IA: el formato de un pedido no contradice al system.
+ */
+const REGLAS_DISENOS = {
+  diapositiva: 'Es una PRESENTACIÓN: la sección es UNA diapositiva de tamaño fijo, con una sola idea. Cada alternativa tiene que entrar ENTERA en la diapositiva (estructuras compactas: columnas, un diseño optimizado, cajas), nunca algo que se lea con scroll. No la partas en dos: cada tarjeta que devuelves es una alternativa completa.',
+  pagina: 'Es una LANDING, una página que se lee de corrido con scroll; NO es una presentación: ninguna alternativa se arma ni se nombra como diapositiva.',
+} as const;
+
+/**
  * Hasta 3 alternativas de UNA sección que dicen lo mismo con otra forma. Cada una
  * sale con el id de la original (la reemplaza al elegirla), conserva su imagen y
  * sus notas, y pasa el chequeo de que el texto se conservó (`conservaElTexto`).
+ * `params.formato` decide si las alternativas son diapositivas o secciones de página.
  */
-export async function disenos(p: { tarjeta: unknown }): Promise<ResultadoIA<{ opciones: JsonNodo[] }>> {
+export async function disenos(p: { tarjeta: unknown; params?: Partial<ParamsGeneracion> }): Promise<ResultadoIA<{ opciones: JsonNodo[] }>> {
   const t0 = Date.now();
   if (!esTarjeta(p.tarjeta)) return invalido('Falta la sección.');
   const original = p.tarjeta;
   if (attrsDe(original).bloqueadaIA === true) return invalido('Esa sección está bloqueada.');
   const formularioId = idTarjetaConFormulario([original]);
   const vista = tarjetaABloques(original, { formularioId });
+  const formato = `${FORMATO_DISENOS}\n${esDiapositivas(p.params) ? REGLAS_DISENOS.diapositiva : REGLAS_DISENOS.pagina}`;
   try {
-    const sys = await system(PROMPTS_EDITOR.disenosSystem, { gramatica: GRAMATICA_IA, formato: FORMATO_DISENOS });
+    const sys = await system(PROMPTS_EDITOR.disenosSystem, { gramatica: GRAMATICA_IA, formato });
     const user = await renderPrompt(PROMPTS_EDITOR.disenosUser.key, PROMPTS_EDITOR.disenosUser.tpl, {
       seccion: contenidoNoConfiable(JSON.stringify(vista, null, 1), 'seccion'),
     });

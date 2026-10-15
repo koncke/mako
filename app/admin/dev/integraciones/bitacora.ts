@@ -36,6 +36,7 @@ export const PARTES: Parte[] = [
   { titulo: 'Probar el Pixel en vivo', detalle: 'Ventana de MaKo apoyada sobre la landing · chequeos que se adaptan a lo que la página tiene · marcador para ver SOLO tu prueba', estado: 'hecha' },
   { titulo: 'Grabar las visitas y el mapa de calor', detalle: 'Clarity salió del producto el 6/10: graba MaKo (siempre prendida, sin interruptor), y el mapa de calor vive en Landing Analyst · falta que los clientes repeguen el código (Pixel v22): les llega el WhatsApp y un aviso fijo en la app', estado: 'sigue' },
   { titulo: 'Identificar tus videos', detalle: 'Nombre propio, título real de Panda y ocultar los ajenos · falta que la curva de retención se filtre por video: la capacidad existe hace meses y nadie se la pasa', estado: 'sigue' },
+  { titulo: 'Las fuentes que avisan (Leads Scraper)', detalle: 'Hotmart y Skool (por Zapier) entran solos al CRM, ruteados por el hash de su secreto · falta mirarlo con una cuenta real, el funnel por fuente y el aviso al equipo', estado: 'sigue' },
   { titulo: 'Dar de alta un servicio sin cuatro listas', detalle: 'Hoy una integración se declara en el catálogo, en CAT_ORDER, en capas.ts, en el de íconos y en el del método; olvidar una la deja invisible y sin error', estado: 'cola' },
 ];
 
@@ -895,6 +896,58 @@ export const BITACORA: Hito[] = [
       'tests/tutoriales-legibles.test.ts — el recuadro y las slides',
       'lib/metodo-catalogo.ts · lib/servicio-slides.ts — los textos condensados',
       'docs/hallazgos-integraciones.md — «13/10/2026: el guard de "opcional", para TODOS los servicios»',
+    ],
+  },
+  // ── 14 oct: el Leads Scraper (chat «Leads Scraper») ─────────────────────────
+  {
+    fecha: '14 oct', hora: '—', chat: 'Leads Scraper', cuenta: 'claude1',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Scrapear leads de varias fuentes y que entren solos al CRM',
+    pedido: '«Pasale al chat de Leads Scraping que implemente end to end esa funcionalidad, nuevamente basandose en repos publicos o copiando lo que hacen otras apps, para poder scrapear por completo en diferentes bases de datos a leads, y que se sumen automáticamente al CRM... Puede ser de IG, de LinkedIn, de Skool, de Hotmart, de grupos de WhatsApp, etc...»',
+    puntos: [
+      'Lo trajo la sesión «Estrategia 3 cuentas», con el texto literal; la hora en que lo dijo Martín no está en ningún commit. El encargo pedía ANTES del código un relevamiento: qué fuentes son viables, con qué repo o técnica, y qué riesgo tiene cada una.',
+      'El contexto que cambia el diseño: la prospección en frío sobre 1.000+ contactos, y que hoy no hay forma de separar los 100 mejores dentro del CRM.',
+    ],
+  },
+  {
+    fecha: '14 oct', hora: '16:12', chat: 'Leads Scraper', cuenta: 'claude1',
+    actor: 'claude', tipo: 'investigacion',
+    titulo: 'El relevamiento: dos clases de fuente, y LinkedIn NO se scrapea',
+    puntos: [
+      '**Dos clases de fuente que no se tratan igual.** Las que AVISAN (el propio público: Hotmart, el Skool propio, los comentarios de Instagram por Zernio, los grupos de WhatsApp propios, el CSV de conexiones de LinkedIn) entran solas. Las que SE BUSCAN (Google Maps, Instagram público) van a una lista aparte con puntaje: así se separan los 100 mejores sin ensuciar el CRM.',
+      '⚠️ **LINKEDIN ESTÁ EN EL PEDIDO Y NO SE HIZO, A PROPÓSITO — no es un olvido.** Scrapear LinkedIn viola el §8.2 de su Acuerdo de Usuario y LinkedIn lo hace cumplir en tribunales: le ganó a hiQ (2022), Proxycurl cerró en 07/2025 y quedó bajo una orden judicial permanente, y en 10/2025 demandó a ProAPIs. En 03/2025 bajó las páginas de Apollo y Seamless por sus extensiones, y banea la cuenta personal de quien automatiza. Además, sus términos prohíben usar sus datos para crear leads o «enriquecer un CRM» (ya estaba en docs/diseno-tiktok-linkedin.md). Lo que sí se propuso: el CSV de conexiones (export oficial, entra por el importador) y un botón «Guardar en MaKo» en la extensión, de a uno, como folkX. Antes de reimplementarlo, leer docs/diseno-leads-scraper.md §3.',
+      'Instagram sin login se puede: en Meta v. Bright Data (2024) se falló que scrapear lo público sin cuenta no viola los términos de Meta. Sacar los seguidores de una cuenta exige login, y eso termina en baneo. Los grupos de WhatsApp ajenos esconden muchos números (`@lid`, 2025), y escribirles en frío arriesga la línea.',
+      '**Tener el dato no da permiso para escribir:** por Instagram la API no deja iniciar un DM, Resend exige opt-in, y un WhatsApp en frío desde la línea no oficial la arriesga. El primer mensaje a un prospecto frío sale a mano y MaKo lo registra.',
+      'Ocho decisiones quedaron para Martín, en el tablero de /admin/runway que arma Estrategia (§7 del documento).',
+    ],
+    commits: [
+      { sha: 'fed864ca6', msg: 'docs: relevamiento del Leads Scraper (fuentes, repos y riesgo de cada una)', lineas: 205, archivos: 1 },
+    ],
+    archivos: [
+      'docs/diseno-leads-scraper.md — el relevamiento: fuentes, repos, riesgos, el diseño de «Prospectos» y las decisiones',
+    ],
+  },
+  {
+    fecha: '14 oct', hora: '16:45', chat: 'Leads Scraper', cuenta: 'claude1',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Hotmart y Skool entran solos al CRM, ruteados por el hash de su secreto',
+    puntos: [
+      'Las dos fuentes que no necesitaban ninguna decisión (luz verde de Estrategia). Hotmart por su webhook v2.0.0; Skool por Zapier, con una clave que inventa el negocio y viaja en un header.',
+      '**Lo que no se ve:** ninguna de las dos trae un identificador público de la cuenta, sólo un SECRETO, y un secreto no va en claro a `webhook_routing`. La fila guarda su sha256 (`identificadorDeRuteo`) y el webhook compara el header contra la credencial en tiempo constante, con el MISMO 401 para «no te conozco» y «no coincide».',
+      'La forma del cuerpo de Hotmart salió de un repo público (`trichains/hotmart-webhooks`, MIT): el teléfono de una compra viene partido (DDD de Brasil) y el del carrito abandonado entero. Con un comprador de México no está medido.',
+      'Una sola puerta, `lib/fuentes-leads.ts`: busca por contacto, completa lo vacío o crea, y anota la línea del historial una vez (los reintentos de Hotmart no la repiten). No mueve de etapa ni inscribe en automatizaciones: eso se decide a la vista, en Automations.',
+      '⚠️ **Sin hacer:** mirarlo con una cuenta real; elegir el funnel por fuente (hoy entra al del negocio); el aviso al equipo; y que una compra de Hotmart dispare el CRON «Pagos», que hoy se apaga sin Stripe o Mercado Pago.',
+    ],
+    commits: [
+      { sha: '06f058b15', msg: 'Leads Scraper: Hotmart y Skool entran solos al CRM (las fuentes que avisan)', lineas: 1270, archivos: 21 },
+    ],
+    archivos: [
+      'app/api/webhooks/hotmart/route.ts · app/api/webhooks/skool/route.ts — los dos webhooks',
+      'lib/hotmart-evento.ts · lib/skool-evento.ts — qué dice cada aviso, puros y con test',
+      'lib/fuentes-leads.ts — la puerta única al CRM; lib/fuentes-leads-catalogo.ts — cuáles son',
+      'lib/ruteo-hash.ts — el ruteo por el hash de un secreto',
+      'lib/metodo-catalogo.ts · lib/metodo-verificar.ts · lib/integraciones-catalogo.ts · app/_components/ServicioVisual.tsx · lib/servicio-slides.ts — los cuatro registros y las slides',
+      'docs/hallazgos-integraciones.md — «Hotmart y Skool: un webhook que sólo trae un SECRETO se rutea por su hash»',
     ],
   },
 ];

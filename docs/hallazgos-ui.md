@@ -57,6 +57,32 @@ están arregladas. El registro de corridas está en [corridas-multiagente.md](co
 
 ---
 
+## En un iPad, la foto de perfil de la sidebar quedaba abajo del borde: `100vh` en Safari (14/10/2026)
+
+Martín, desde un iPad: «no se llega a ver la foto de perfil, para ir a configuraciones… todo como muy achicado, los
+iconos muy chicos». Y la regla que dejó: «La app de MaKo se debe adaptar al tamaño de la pantalla siempre» (AGENTS.md,
+«La app se adapta al tamaño de la pantalla, SIEMPRE»).
+
+- **Un iPad recibe la vista de COMPUTADORA**, no /m: iPadOS 13+ manda UA de Macintosh, y una tablet Android sin
+  «Mobile» también queda en escritorio (lib/movil-dispositivo.ts). Si recibe /m o la de computadora adaptada es una
+  decisión de producto pendiente.
+- **La causa del perfil cortado no es el contenido.** La columna plegada mide unos 660 px (padding 40, marca 54, ~12
+  filas de 35 más el aire entre familias, pie de 108), y entra en los ~700 visibles de un iPad apaisado. Lo que la
+  corta es `height: 100vh` del `<aside data-sidebar>`: en Safari, `100vh` es el alto con la barra del navegador
+  escondida, ~50 px más que lo visible. El perfil va pegado al fondo (`margin-top: auto`), justo en esos 50 px.
+  - Es el mismo síntoma que ya había dado la barra de la agencia (el comentario de `--barra-agencia` en globals.css),
+    con otra causa.
+  - Arreglo: `100dvh` dentro de `@supports`, en la regla genérica y en la de la barra de agencia, que va DESPUÉS
+    porque las dos tienen la misma especificidad y `!important` (tests/sidebar-alto-visible.test.ts).
+- **Chrome no lo reproduce**: en Chrome `100vh` es la ventana, así que una captura a 1024×768 con la emulación dice
+  que entra. Se razona con los números o se mira en un iPad.
+- **Lo que quedó sin hacer** (decisiones de producto, en la Ticketera):
+  - qué se agranda y desde qué ancho para que no se vea «achicado»: las filas de la sidebar miden 35 px de toque y la
+    letra 13 px;
+  - que los desplegables, que se abren al pasar el cursor, tengan su equivalente al tocar;
+  - la `<nav>` de la sidebar todavía tiene `overflow-y: auto`: con una familia abierta en una pantalla baja, scrollea,
+    y la regla dice que no.
+
 ## Primitives y sistema visual
 
 ### La esquina de abajo a la derecha es UN contenedor, y un deep-link tiene que poder repetirse
@@ -3699,3 +3725,106 @@ un Escape cierra las dos cosas en vez de sólo la lista.
 
 **Vive en:** `app/components/Dropdown.tsx` (`fuente`, `portalTo`) · `app/_cursos/SelectorFuente.tsx` · `app/_cursos/CursoUgc.tsx`
 (`MenuMarca`) · *2026-10-14 Customer Success*
+
+---
+
+## El clic derecho de la casa: `MenuContextual`, y las guardas que lo dejan convivir con la ficha (14/10/2026)
+
+Nació para el tablero del CRM («implementa el click derecho en todo el CRM», Martín, 14/10) y es GENÉRICO: qué
+opciones salen lo decide cada pantalla con una función pura con test (en el CRM, `opcionesCrm`). La pieza resuelve
+sólo cómo se abre en el punto del cursor, cómo se ubica sin salirse de la ventana, el teclado y el cierre (clic
+afuera, rueda, resize, perder la ventana). Lo que costó está en sus guardas.
+
+**Un menú fuera de la pila de modales es «nada encima», y su Escape cerraba también la ficha.** La ficha del lead
+cierra con Escape sólo si `profundidadModales()` da 0. El `MenuFlotante` de `app/_components/Lienzo.tsx`, uno de los
+moldes, no se registra en la pila, y ése es el defecto que no se copió. `MenuContextual` entra como capa anidada
+(`useCapaModal(true, { anidada: true })`): no esconde lo de abajo, pero cuenta como algo encima. Su Escape va en
+captura sobre `document`, contesta sólo si es la capa de arriba (`esElDeArriba`) y frena con
+`stopImmediatePropagation`, por lo que explica «Dos `Modal` apilados se cerraban los DOS con un solo Escape», más
+arriba.
+
+**En la pila, el primer render mide 0×0.** Es la trampa de «Un campo que se mide en su primer efecto adentro de un
+Modal mide CERO», más arriba, en un menú: `idx` es -1 y `visible` da false hasta el efecto de la pila. Un menú
+ubicado con tamaño cero se pinta un instante afuera de la ventana. Se espera al `ResizeObserver` con el tamaño real
+(`if (!r.width && !r.height) return;`) y va con opacidad 0 hasta ubicarse.
+
+**Un clic derecho afuera NO cierra en el `pointerdown`.** Lo resuelve su `contextmenu`: cierra éste y la pantalla
+abre el del lugar nuevo en el mismo gesto. Cerrando en el `pointerdown`, el `contextmenu` llegaba a una pantalla a
+medio redibujar.
+
+**La raíz que escucha el clic derecho recibe también los de la ficha y los modales.** En el CRM, un clic derecho en
+la ficha del lead, en un desplegable o en un modal abría el menú del tablero. Los eventos de React suben por el árbol
+de React, no por el DOM: `LeadEditModal`, los `Dropdown` y los `Modal` viven adentro del `<main>` del tablero aunque
+se dibujen en el `<body>` (la misma trampa del `createPortal` de [hallazgos-crm.md](hallazgos-crm.md) → «Un
+modal dentro de otro: el Escape ya tenía guarda, el CLICK no»). La regla: todo `onContextMenu` en una raíz arranca con
+`e.defaultPrevented || t.closest('[role="dialog"], [role="menu"], [role="listbox"]')`, y quien quiera su propio clic
+derecho adentro llama a `e.preventDefault()`.
+
+⚠️ **El diagnóstico obvio no alcanzaba: `closest('[role=dialog]')` no cubre el fondo oscuro de un `Modal`.** El
+`role="dialog"` está en la caja (`.mk-modal`), no en `.mk-modal__fondo` (`app/_ui/Modal.tsx:207`): un clic derecho en
+el fondo de cualquier modal abría el menú del tablero encima. Lo que cubre todo es
+`document.querySelector('[aria-modal="true"]')`, que ya ponen Modal, WizardShell, Confirm y LeadSheet. Contar la pila
+(`profundidadModales() > 0`) no sirve, porque mientras se resuelve el segundo clic derecho el propio menú está en la
+pila.
+
+**Un renglón rojo se verifica en el `style` de su `<button>`.** El tacho de la casa (`IconoMenu nombre='borrar'`) se
+pinta rojo solo, así que un test que busca `color:var(--bad)` cerca de «Eliminar» daba verde con el rótulo en negro.
+Salió a la luz rompiéndolo.
+
+**Vive en:** `app/_ui/MenuContextual.tsx` · `app/_components/pila-modales.ts` · `app/crm/CrmBoard.tsx`
+(`alClicDerecho`, el ejemplo de las guardas) · `app/_ui/Modal.tsx` · `tests/crm-menu-contextual.test.ts`
+
+### Lo que quedó sin hacer
+
+- Los estilos con `:hover`/`:focus` van en un `<style>` propio (`ESTILOS`, en `app/_ui/MenuContextual.tsx`), y
+  `app/_ui/LEEME.md` (regla de crecimiento 3) los pide en `app/_ui/ui.css`. Mudarlos es una línea.
+- La pieza no está en el barrel `app/_ui/index.ts` ni en el catálogo `/admin/ui` (LEEME, regla 5).
+- `app/_ui/iconos-menu.tsx` no tiene flechas izquierda/derecha. El menú usa `FlechaIzquierdaIcon`/`FlechaDerechaIcon`
+  de `app/crm/iconos`.
+- Un clic IZQUIERDO afuera cierra en el `pointerdown` y el clic sigue de largo: si cae en una tarjeta, abre la ficha.
+  El menú nativo de Chrome, en cambio, se lo traga. No se decidió cuál se quiere.
+- Sin ver en un navegador: el segundo clic derecho con el menú abierto, el Escape con la ficha abierta y el submenú
+  recorrido en diagonal con el mouse.
+
+
+## El mazo de la Ticketera: «los botones se superponen con la card» (14/10/2026)
+
+**Vive en:** `app/tickets/decisiones/Mazo.tsx` · `app/tickets/decisiones/mazo.css`
+
+Martín, con una captura del teléfono: «mira como los botones se superponen con la card… quiero un buen
+diseño». **El diagnóstico obvio —la franja del pulgar está mal puesta— era el equivocado.** Los tres
+controles estaban en su fila, afuera de la pila, con su `gap` de 12 px. Lo que se metía debajo era la
+tarjeta de ATRÁS.
+
+La cuenta, que es lo que no se ve leyendo: la carta de atrás se dibuja con `position: absolute; inset: 0`
+(o sea, la caja entera de la pila), escalada a 0,94 y bajada 14 px para que asome. Y tenía
+`transform-origin: 50% 110%` —el origen FUERA de su propia caja, 10% por debajo del borde inferior—. Con
+ese origen, escalar NO achica alrededor del centro: mueve los bordes. El borde de abajo de una caja de
+alto `h` va a parar a `1,1h + 0,94 × (h − 1,1h) = 1,006h`, o sea **0,6 % de `h` por DEBAJO de la pila**
+(≈ 7 px con la tarjeta del teléfono), más los 14 px del desplazamiento: **21 px afuera contra 12 px de
+gap**. Se mete 9 px detrás de los botones, y como la tarjeta de adelante es opaca y tapa casi todo, lo
+único que se ve es un borde gris redondeado asomando por detrás del ✕.
+
+- **Una pieza escalada con el `transform-origin` fuera de su caja se sale de su contenedor.** El origen
+  queda en el centro y la de atrás asoma por ARRIBA (desplazamiento NEGATIVO), que es el único lado donde
+  no hay nada que tapar. Lo fija `tests/tickets-decisiones-mazo.test.ts` (rotura: devolver el +14 → 15
+  pases, 1 fallo; devolver el `transform-origin` al CSS → ídem).
+- **Y la franja del pulgar es opaca y va encima** (`z-index: 5` + `background: var(--bg)`): es la red para
+  todo lo demás que se mueva ahí adentro —el resorte del arrastre, una tarjeta más alta de lo previsto—,
+  no el arreglo.
+
+### «Arrastré sin querer una tarjeta y ya no tengo forma de volver»
+
+El mazo tenía deshacer desde el primer día y sólo adentro del aviso de «Respondida», que dura 4,5 s. O sea
+que no cubría ninguno de los dos casos en que hace falta: una tarjeta que se fue de un gesto sin querer
+(ésa salía como «Después» y **no dejaba aviso**) y una que se contestó y el aviso ya se fue.
+
+- **«Volver» vive en la cabecera y SIEMPRE**, apagado cuando no hay nada que traer; nunca escondido. Un
+  control que aparece sólo cuando ya pasó lo malo es un control que se descubre tarde.
+- **Y deshacer ESCRIBE en la base** (`deshacerDecision` → `deshacerRespuesta`, que vuelve a poner
+  `respuesta`, `respuesta_texto` y `respondida_at` en null): la regla de la casa dice que si el cambio ya
+  se guardó, revertir sólo la pantalla miente hasta el próximo F5 — y acá es peor, porque el chat que
+  preguntó se llevaría una respuesta que Martín ya deshizo. Si el chat YA la había recogido
+  (`recogida_at`), el aviso lo dice: deshacer acá no desanda lo que el chat hizo con ella.
+- La que vuelve ENTRA por donde salió (misma dirección, al revés), que es cómo se entiende qué se deshizo
+  sin leer nada.

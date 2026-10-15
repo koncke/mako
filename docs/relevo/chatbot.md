@@ -1,5 +1,34 @@
 # Relevo: Automations (ex /chatbot) y las secuencias
 
+> **ESTADO AL 14/10/2026 ~17:20 AR (`claude1`, chat «Chatbot», worktree `C:/dev/wt-undecima`, rama `undecima`).**
+> Verificado contra git y la base a las ~16:00: lo de abajo (13:20) es cierto; las dos migraciones que quedan dan 0 en
+> dry run. **HECHO: el 1 de la lista (TikTok fase 0)**, `c9cdbdf3a`: el AI Step contesta por Instagram y Messenger
+> (detalle y lo que quedó sin hacer en docs/hallazgos-chatbot.md → «TikTok fase 0»). SIN probar contra un DM real.
+> **HECHO también el 2** (`d488977f0`): `probar_secuencia` manda UN escenario. **SIGUE:** el 4 y el 5;
+> el 3 (feedback 6 y 11, lienzo) al final, por choque con otros chats. **Coordinación:** la rama `crm-bloques-b5` del chat
+> «CRM» (C:/Users/marti/wtc-b5) tiene 2 commits sin integrar sobre archivos de Automations (5129d8dde y 87889880f «A
+> MEDIAS»): se le preguntó qué toca; no hubo respuesta a las 17:20.
+
+> **ESTADO AL 14/10/2026 ~13:20 AR (`claude2` al 88 % semanal: lo que sigue NO está arrancado).** TODO lo de «nada por
+> detrás» está EN PRODUCCIÓN (282173d6e, Ready) y las TRES migraciones corridas y verificadas leyendo la base:
+> `migrar-si-contesta` (la mañana), `migrar-condicion-reunion` (#213 ws1, #241 ws13) y `migrar-contesto-condicion` (8:
+> #198, #209, #210, #238, #244, #245, #247, #249; las 8 pasan `validarParaGuardar` y `validarGrafo`; respaldo previo en
+> el scratchpad de la sesión 461dd390, `respaldo-contesto-2026-10-14.json`). Ya no hay guarda escondida de «la reunión ya
+> pasó» ni corte por respuesta: lo dicen «Su reunión sigue en pie» y «No contestó desde que entró». Probar tiene la barra
+> de escenarios. Rama `undecima` = origin/main (45fe2cb7f), sin nada propio pendiente.
+> **SIGUE, en orden (nada empezado):**
+> 1. TikTok fase 0: que el AI Step conteste por Instagram/Messenger (`pausarPorRespuesta` con `soloPausa` sólo anota;
+>    plan en docs/diseno-tiktok-linkedin.md §4). Después fase 1-2; el botón TikTok en la grilla del CRON va AL LADO DEL
+>    DE IG (Martín, 14/10). Falta de Martín: una cuenta TikTok Business de prueba (LATAM) para ws3.
+> 2. `probar_secuencia` de la API manda TODOS los pasos: que acepte un escenario (lib/setting-secuencias.ts).
+> 3. Feedback del 13/10: 6 (arrastrar para reordenar tarjetas y mensajes) y 11 (subir un audio rápido en WhatsApp).
+> 4. El resto del §2.4 de docs/diseno-mako-nada-por-detras.md (protecciones configurables y con aviso, AI Step «Deja de
+>    contestar si…», «Sale sola», «Reentrada» del CRON, texto visible del DELAY «antes de la reunión»).
+> 5. Videos redondos (`/message/sendPtv`), registro de acciones (sin dueño), la cola de siempre.
+> El chat CRM (frente b5, worktree C:/Users/marti/wtc-b5) está pasando el CRM automático a plantillas y toca
+> plantillas-automatizaciones, condiciones-catalogo, el motor y chatbot.def/run: se le pasaron las reglas de contesto/EN_PIE.
+> Tests rotos que NO son del área (otros chats): vista-general-modelo, cobranza.
+
 > **ESTADO AL CIERRE (12/10/2026 ~12:00 hora AR, `claude3` al 95 % semanal: no se arrancó nada más).** Todo lo hecho está
 > en main y desplegado: undécima (a29af1a9 + datos aplicados), duodécima (f9308753), decimotercera (9295305e), y la barra
 > (Offer en Sales Machine, «pronto» y Content Machine sólo super admin, Customer Success familia propia y al final). Se
@@ -88,6 +117,79 @@
 > lead desde el 10/10. O el alta de «Nuevo lead» no lo guardó (bug del CRM: medir `createLead` con ese teléfono, ¿duplicado?
 > ¿error tragado?), o lo borraron después de la llamada: se le preguntó a Martín. Sin lead no hay inscripción: la #213 no tenía
 > a quién mandarle.
+> **14/10 06:40 (reloj de la PC, Argentina) — Martín, después del corte de la app: «"Si el lead contesta" NO debería ir en el CRON, debería ser una CONDITION...
+> Es obvio eso».** Rehecho (commit «Si el lead contesta es una CONDITION»): que el lead conteste no corta nada; la condición
+> «No contestó desde que entró» (`contesto`) va después de cada espera; el panel del CRON, `si_contesta` y la operación
+> `cambiar_si_contesta_secuencia` se fueron. Hallazgo en docs/hallazgos-chatbot.md. También borrada la guarda escondida
+> «la reunión ya pasó» (el ÚLTIMO commit de la rama, aparte). **ORDEN NUEVO DEL DEPLOY, en DOS pushes:**
+> 1. Push de la rama SIN su último commit (la guarda): los 6 de 857f5ccc9..0b034457e + la condición `contesto`, y lo de
+>    `1a2fd15f` si todavía no salió.
+> 2. Con eso desplegado, las dos migraciones (dry run medido el 14/10):
+>    `ENV_FILE=C:/dev/mako-api/.env.local node --import tsx scripts/migrar-condicion-reunion.ts --apply` (#213 ws1, #241 ws13) y
+>    `ENV_FILE=C:/dev/mako-api/.env.local node --import tsx scripts/migrar-contesto-condicion.ts --apply` (10 automatizaciones:
+>    las 3 prendidas sólo pierden la clave; a las apagadas de ws10, ws11 y ws15 se les pone la condición).
+>    ⚠️ Al revés cortan: el código de antes no conoce `reunion_en_pie` ni `contesto` (la fila no se cumple).
+> 3. Recién ahí, el push del commit de la guarda.
+> Martín respondió también: el botón TikTok va en la grilla del CRON AL LADO DEL DE IG; LinkedIn queda afuera (explicado);
+> «¿cómo deprecar Zernio para TikTok?» = pedir Business Messaging API directo (respuesta en el chat). Y pidió: en «Probar»,
+> una barra de contactos (estilo WhatsApp/IG) con un contacto por escenario, y elegir el escenario al probar por WhatsApp.
+> **14/10 ~12:30: `migrar-si-contesta.ts --apply` CORRIDO** (10 automatizaciones; la 2ª pasada da 0). El push lo hace
+> «Estrategia 3 CUENTAS» con `1a2fd15f` (mi rama de antes del rebase, hasta «Pausar congela»). Los 6 commits de después
+> (857f5ccc9..0b034457e en la rama de hoy) van en el push siguiente, por cherry-pick. Después del deploy: la 2ª migración
+> (`migrar-condicion-reunion.ts --apply`) y el commit que borra la guarda.
+> **ESTADO 14/10 ~12:00 (rama `undecima`, 15 commits sobre origin/main, SIN push: espera turno de «Estrategia 3 CUENTAS»;
+> SIN tsc completo todavía, hay 2,6 GB libres):** hecho y con tests probados rompiéndolos —
+>  · bug 5 de raíz: «Si contesta: sigue / se corta» por camino (panel del CRON, API `cambiar_si_contesta_secuencia`);
+>  · bug 4: soltar una flecha sobre la pastilla de una espera; bug 8: la zona del ws1 era Buenos Aires → `America/Tijuana`
+>    (en DATOS, ya vale, sin deploy; hallazgo en docs/hallazgos-infra.md);
+>  · `reunion_en_pie` (+ cancelada = no agendó), el reintento re-evalúa la condición de arriba, «Pausar» congela, «Termina»
+>    en las filas sin flecha;
+>  · feedback del 13/10: 1 («Sola» con plata y en «Lo demás», con aviso; reemplaza la decisión del 06/10), 7 (⏹ Detener en
+>    Probar), 9 (el recorrido espera a MaKo), 10 (el error de crear con IA dice qué quedó mal); el 2 y el 3 ya estaban en la
+>    #213; «Publicar en Creaciones» en el ⋯.
+> FALTA, en orden: el push (con la migración `migrar-si-contesta` antes) → la 2ª migración + borrar la guarda (§2.3) →
+> feedback 6 (arrastrar para reordenar tarjetas y mensajes) y 11 (subir un audio rápido en WhatsApp) → el resto del §2.4 de
+> docs/diseno-mako-nada-por-detras.md (protecciones configurables y con aviso, AI Step «Deja de contestar si…», la casilla
+> «Sale sola», la «Reentrada» del CRON, el texto visible del DELAY «antes de la reunión») → TikTok fase 0 (que el AI Step
+> conteste por Instagram/Messenger; docs/diseno-tiktok-linkedin.md) → videos redondos (`/message/sendPtv`) → registro de
+> acciones (sin dueño) → la cola de siempre (Dashboard en ⚡, automatizaciones de SuperAdmin, Grupos de WhatsApp).
+> **ORDEN DEL DEPLOY de «nada por detrás» (14/10 ~10:00), en DOS pasos:**
+> 1. Push con `c0c46bad` (si contesta) + la condición `reunion_en_pie` + el reintento (§2.2). ANTES:
+>    `ENV_FILE=C:/dev/mako-api/.env.local node --import tsx scripts/migrar-si-contesta.ts --apply`.
+> 2. Con eso desplegado: `... scripts/migrar-condicion-reunion.ts --apply` (dry run medido: sólo las PRENDIDAS, #213 ws1 y
+>    #241 ws13; la #249 del ws11 y la #210 del ws4 están apagadas y no se tocan). Recién después, un commit que borra la
+>    guarda escondida (`if (anclada || preparaReunion(sec))` → sólo `anclada`, y el `sinReunion` de la inscripción a mano;
+>    tests reunion-ya-paso, motor-entrada-etapa, nutricion-inscripcion-manual, reunion-fecha-sola-del-dia) y su push.
+> ⚠️ Al revés corta los flujos: el código de producción no conoce `reunion_en_pie` (la fila no se cumple).
+> Hallazgo de la corrida: la #249 («Seguimiento a leads que no cierran», CRON en No compró + Agenda + Facturando) caía bajo
+> la guarda y se le cortaba todo el seguimiento de después de la reunión. Al borrarla, hace lo que dice su lienzo.
+> **14/10 ~08:30 — Martín, directo en este chat: «Continua con todo lo pendiente... Y también: Implementar TikTok y
+> LinkedIn».** Hecho: (1) «Si el lead contesta» por camino, `c0c46bad` (sin push todavía; el push es por turno con «Estrategia
+> 3 CUENTAS»). ⚠️ ANTES del deploy correr `ENV_FILE=C:/dev/mako-api/.env.local node --import tsx scripts/migrar-si-contesta.ts
+> --apply` (dry run medido: 10 automatizaciones; #213, #241 y #210 con la bienvenida en «sigue»). Verlo en ws3 después del
+> deploy. (2) TikTok/LinkedIn investigado: docs/diseno-tiktok-linkedin.md. TikTok sí, por Zernio, sólo para contestar; LinkedIn
+> no (sin vía legal); ManyChat YA tiene TikTok. Para arrancar TikTok hace falta de Martín: una cuenta TikTok Business de
+> prueba (LATAM) para ws3, el cupo de Zernio y dónde va el botón TikTok en la grilla de CRON (hoy 4+3). Fase 0 (que el AI Step
+> conteste por Instagram/Messenger) no depende de eso. Sigue en el orden: `reunion_en_pie` (§2.1), el reintento (§2.2),
+> migración y borrar la guarda (§2.3), «Pausar» congela, protecciones configurables y visibles, bugs 4 y 8.
+> **CIERRE (14/10 ~07:00, pedido de Martín vía «Estrategia 3 CUENTAS»: «que se pushee todo y que los chats cierren»).**
+> Hecho y en main (e4c8a6d7): bug 5 de la fecha sin hora (329d1443), el emisor del AI Analyst (60186944). Commiteado sin
+> push en la rama `undecima`: la cosecha del inventario (6b9363f4) y este cierre. **Martín DECIDIÓ las cuatro preguntas**
+> (docs/diseno-mako-nada-por-detras.md, «DECIDIDO»): «si contesta» por camino con «sigue» de fábrica; protecciones todas
+> configurables y con aviso; cancelada = no agendó; «Pausar» congela. **NADA de eso está implementado.** Orden para retomar:
+> 1) «Si contesta: se corta / sigue» por camino (lib/nutricion.ts `pausarPorRespuesta` + la flecha del CRON en
+>    app/automations; #213 a «sigue» en la bienvenida); 2) `reunion_en_pie` (lib/condiciones-catalogo.ts,
+>    lib/nutricion-grafo-motor.ts `catalogoDeLead`) con la cancelada = no agendó; 3) el reintento vuelve a pasar por su
+>    condición (lib/nutricion.ts ~4854); 4) migrar plantillas y #213/#241 (ws3 primero, --dry-run) y borrar la guarda;
+>    5) «Pausar» congela (lib/nutricion.ts ~431, ~3939); 6) protecciones configurables y visibles; 7) el resto del §2.4.
+> En cola, también: el botón «Publicar» de las estrellas (ya entró 92a2be21: `<BotonPublicar tipo="automatizacion" …/>`
+> en el «⋯»), los videos redondos (`/message/sendPtv`), el registro de acciones (sin dueño), y marcar como resueltos en
+> docs/hallazgos-crm.md los cuatro del CRM cuando salga su push (los hizo el chat CRM, en C:/Users/marti/wtcrm4).
+> **14/10 ~04:30, inventario hecho:** docs/diseno-mako-nada-por-detras.md (162 reglas escondidas, plan §2, «Stop» §3,
+> protecciones para Martín §4). **Bug 5, causa REAL (medida en `notificaciones`):** la reserva de Calendly sí reinició la
+> #213 (su aviso salió 02:05:16); a las 02:08 el lead CONTESTÓ un mensaje a mano de Mauricio y `pausarPorRespuesta` frenó
+> el audio de los 5 min. Siguiente: lo que Martín decida de §4 y de «si contesta»; mientras, §2.1 (`reunion_en_pie`) y §2.2
+> (el reintento vuelve a pasar por su condición), que no cambian el comportamiento.
 > **PEDIDO GRANDE de Martín (14/10 ~01:10): «Depreca absolutamente todas las cosas que MaKo haga por detrás»** (textual en la
 > bitácora; regla en la memoria `mako-nada-por-detras`). Toda regla escondida del motor (ej. «la reunión ya pasó» en
 > procesarEnvios) pasa a una CONDITION visible y configurable; si falta, se crea; los flujos vivos se rehacen con la condición

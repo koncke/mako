@@ -17,7 +17,7 @@
 // paleta y el PDF queda viejo.
 // =============================================================================
 
-import { DIMENSIONES, MARCA_COMPLETAR, PUNTOS_CONTROL, dimensionLabel, type ConclusionOferta, type PropuestaOferta, type PuntoControl } from './offer-marco';
+import { DIMENSIONES, MARCA_COMPLETAR, PUNTOS_CONTROL, avisosAfirmables, dimensionLabel, type ConclusionOferta, type PropuestaOferta, type PuntoControl } from './offer-marco';
 import { CANALES, dimensionDeFase, faseDef, repartoTexto, type Diagnostico } from './fase-diagnostico';
 import { PdfDoc } from './pdf-escritor';
 
@@ -156,7 +156,8 @@ export function pdfDeOferta(c: ConclusionOferta, meta: MetaPdfOferta): Uint8Arra
     doc.texto('Lo más fuerte', { tam: 10, fuente: 'Helvetica-Bold', color: C.bien, conSiguiente: 14 });
     doc.textoRico(tramosConCompletar(d.fuerte), { tam: 10, despues: 10 });
   }
-  if (c.calculo.alertas.length) caja(doc, 'Para tener en cuenta', c.calculo.alertas, C.ojoFondo, C.ojo);
+  const alertas = avisosAfirmables(c.calculo.alertas);
+  if (alertas.length) caja(doc, 'Para tener en cuenta', alertas, C.ojoFondo, C.ojo);
 
   if (d.cambios.length) {
     doc.texto('Lo primero que cambiaría', { tam: 12, fuente: 'Helvetica-Bold', conSiguiente: 30, despues: 4 });

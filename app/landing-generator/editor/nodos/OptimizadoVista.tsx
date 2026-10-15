@@ -85,6 +85,8 @@ export function htmlDeMiniatura(variante: VarianteOptimizado, tema: Tema): strin
     ],
   }));
   const t = tarjeta([{ type: NODO.optimizado, attrs: { variante, columnas: 'auto', mostrarIconos: true }, content: items }], { id: 'mini' });
+  // Sin MARCADORES (render.ts) a propósito: es una muestra del diseño optimizado con ítems de
+  // ejemplo, sin insertados; pedirlos no cambiaría nada de lo que se dibuja.
   return htmlDeTarjeta(t, tema, { modo: 'miniatura' });
 }
 
@@ -92,9 +94,15 @@ export function htmlDeMiniatura(variante: VarianteOptimizado, tema: Tema): strin
 // El ítem (NodeView de DOM)
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Dibuja `.gm-item` y su marca desde specOptimizadoItem (la misma forma que el render público). */
+/**
+ * Dibuja `.gm-item` y su marca desde specOptimizadoItem (la misma forma que el render público).
+ * Tanda 6 (14/10/2026), Martín: «los [] que el usuario debe completar, se queden como de otro color o algo
+ * diferencial». La cifra del ítem («[00]%», «[$000]») es el atributo `valor`, no texto del documento: la
+ * decoración del editor (extensiones/completar.ts) no la ve, así que la marca la pide ACÁ (`completar`).
+ * Sólo en el NodeView: `renderHTML` (getHTML, lo que se guarda y se publica) sigue sin la marca.
+ */
 function pintarItem(dom: HTMLElement, marca: HTMLElement, attrs: Record<string, unknown>): void {
-  const arbol = specOptimizadoItem(attrs);
+  const arbol = specOptimizadoItem(attrs, { completar: true });
   const a = arbol[1] as AttrsArbol;
   dom.className = a.class ?? 'gm-item';
   if (a['data-destacado']) dom.setAttribute('data-destacado', a['data-destacado']); else dom.removeAttribute('data-destacado');

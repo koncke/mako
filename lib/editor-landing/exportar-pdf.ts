@@ -15,7 +15,9 @@
 // Lo que no puede hacer, y por qué:
 //   · Elegir «Guardar como PDF» por la persona: el destino lo elige el diálogo del navegador.
 //   · Un iframe (video, agenda, HTML libre) no se imprime: sale su marcador.
-//   · El tamaño de hoja lo decide la impresora elegida (la hoja trae sólo el margen de 10 mm).
+//   · El tamaño de hoja de una PÁGINA WEB lo decide la impresora elegida (la hoja trae sólo el margen
+//     de 10 mm). Una PRESENTACIÓN sí lo propone: la hoja de su diapositiva, horizontal y a sangre
+//     (`hojaDeImpresion`, exportar-html.ts; antes salía vertical, pendiente de la tanda 2).
 // =============================================================================
 
 import { documentoExportable, esperarRecursos, htmlParaExportar, prepararParaCaptura, type OpExportar } from './exportar-html';
@@ -27,7 +29,10 @@ const TOPE_LIMPIEZA_MS = 120_000;
 
 export async function exportarPdf(op: OpExportar): Promise<void> {
   op.onProgreso?.(0.1);
-  const doc = documentoExportable({ titulo: op.titulo, html: htmlParaExportar(op), tema: op.tema, imprimir: true });
+  const doc = documentoExportable({
+    titulo: op.titulo, html: htmlParaExportar(op), tema: op.tema, imprimir: true,
+    formato: op.config.formato, proporcion: op.config.proporcion,
+  });
 
   const iframe = document.createElement('iframe');
   iframe.setAttribute('aria-hidden', 'true');

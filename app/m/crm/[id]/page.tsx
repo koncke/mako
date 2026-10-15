@@ -16,7 +16,7 @@
 
 import '../crm.css';
 import { requireMovil } from '@/lib/movil-guard';
-import { AvatarM, CabeceraM, PildoraM, VacioM } from '@/app/m/_ui';
+import { AvatarM, CabeceraM, PantallaM, PildoraM, VacioM } from '@/app/m/_ui';
 import { fichaV2 } from '../datos';
 import { FichaLead } from './FichaLead';
 
@@ -36,7 +36,7 @@ export default async function FichaLeadMovil({ params }: { params: Promise<{ id:
   const otros = f.productos.length - 1;
 
   return (
-    <>
+    <PantallaM refrescable>
       <CabeceraM titulo={f.nombre} grande={false} />
       <header className="m-crm-ficha" data-m-titulo-grande="">
         <AvatarM nombre={f.nombre} email={f.email} tam="xl" />
@@ -73,6 +73,6 @@ export default async function FichaLeadMovil({ params }: { params: Promise<{ id:
         } : null}
         respuestas={f.respuestas}
       />
-    </>
+    </PantallaM>
   );
 }

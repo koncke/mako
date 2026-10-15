@@ -620,9 +620,16 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, 
    * ⚠️ Y DEVUELVE EL RELOJ, no sólo la etapa (`relojPrevio`, que manda sólo el deshacer).
    * Sin él el server escribía `etapa_desde = ahora` y un cliente trabado hace tres semanas
    * volvía como recién llegado — mientras la pantalla mostraba la fecha vieja hasta el F5.
+   *
+   * ⚠️ Y LO QUE REPONE SALE DEL SERVER (`r.desde` + `r.relojPrevio`), NO DE ESTA PANTALLA
+   * (14/10/2026). La pantalla puede estar vieja: si MaKo pasó al cliente de Onboarding a Hito 1
+   * por el avance del curso y acá seguía en Onboarding, deshacer con lo de la pantalla lo
+   * devolvía a Onboarding con su reloj trabado y lo re-enrolaba en esas secuencias, perdiendo el
+   * avance; y si la pantalla creía que no tenía fila, se la borraba. Lo encontró MaKo Mobile
+   * (89367e3d2). Y si la etapa de antes ya no existe en el catálogo, no se ofrece: el server la
+   * rechazaría.
    */
   function moverEntrega(leadId: number, etapa: string, prodId: number, conDeshacer = true, relojPrevio?: string | null) {
-    const previa = asignacionDe(prodId)[leadId] ?? null;
     // ⚠️ ACA NO VA UNA GUARDA DE IDEMPOTENCIA, y costo verlo en el navegador: un
     // `if (previa?.etapa === etapa) return` parece gratis y ROMPE EL DESHACER. El
     // callback del toast se queda con la version de esta funcion del render que lo
@@ -640,11 +647,14 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, 
       // La misma regla que el server (`relojDeVuelta`): si no, la pantalla y la base dicen dos fechas.
       setMovs((v) => ({ ...v, [claveMov(leadId, prodId)]: { etapa: r.hacia, etapa_desde: relojDeVuelta(relojPrevio) ?? new Date().toISOString(), por: 'CRM' } }));
       if (!conDeshacer) return;
+      const desde = r.desde;
+      const relojDesde = r.relojPrevio;
       // El toast dice QUE paso, en tres palabras. El porque de la etapa vive en el
       // catalogo, no en un cartel de cinco segundos.
+      if (desde && !etapaExiste(prodId, desde)) { show(`En ${r.rotulo}`); return; }
       show(`En ${r.rotulo}`, () => {
         clear();
-        if (previa) moverEntrega(leadId, previa.etapa, prodId, false, previa.etapa_desde);
+        if (desde) moverEntrega(leadId, desde, prodId, false, relojDesde);
         else sacarEntrega(leadId, prodId, false);
       });
     });
@@ -662,15 +672,16 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, 
    * no tenía fila se la borra (`null`): escribirle la primera etapa le inventaría una
    * fila con un reloj que arranca hoy. Y vuelve a llamar al server: revertir sólo la
    * pantalla mentiría hasta el próximo F5.
+   *
+   * ⚠️ Lo que repone es lo que el SERVER tenía (`desde` + `relojPrevio` de cada resultado),
+   * no lo que esta pantalla creía: ver `moverEntrega`. Y al que estaba en una etapa que ya no
+   * existe no se lo devuelve (el server lo rechazaría).
    */
   function moverLote(leadIds: number[], destino: string | ((leadId: number) => string | null), prodId: number, conDeshacer = true) {
-    const asig = asignacionDe(prodId);
     const movs: Array<{ leadId: number; etapa: string | null }> = [];
-    const previas = new Map<number, Asignacion | null>();
     for (const leadId of leadIds) {
       const etapa = typeof destino === 'function' ? destino(leadId) : destino;
       if (!etapa) continue;
-      previas.set(leadId, asig[leadId] ?? null);
       movs.push({ leadId, etapa });
     }
     if (!movs.length) return;
@@ -694,22 +705,26 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, 
       if (!conDeshacer) return;
       const etapas = servicios.find((s) => s.productoId === prodId)?.etapas ?? [];
       const unaEtapa = new Set(movidos.map((x) => x.hacia)).size === 1 ? etapas.find((e) => e.key === movidos[0].hacia)?.label : null;
-      show(unaEtapa ? `${movidos.length} en ${unaEtapa}` : `${movidos.length} movidos`, () => {
+      const cartel = unaEtapa ? `${movidos.length} en ${unaEtapa}` : `${movidos.length} movidos`;
+      // Con su RELOJ: volver a la etapa de antes no es llegar hoy (ver `relojDeVuelta`).
+      const volver = movidos
+        .filter((x) => !x.desde || etapaExiste(prodId, x.desde))
+        .map((x) => ({ leadId: x.leadId, etapa: x.desde, relojPrevio: x.relojPrevio ?? null }));
+      if (!volver.length) { show(cartel); return; }
+      const relojDe = new Map(volver.map((x) => [x.leadId, x.relojPrevio]));
+      show(cartel, () => {
         clear();
-        // Con su RELOJ: volver a la etapa de antes no es llegar hoy (ver `relojDeVuelta`).
-        const volver = movidos.map((x) => {
-          const p = previas.get(x.leadId) ?? null;
-          return { leadId: x.leadId, etapa: p?.etapa ?? null, relojPrevio: p?.etapa_desde ?? null };
-        });
         empezar(async () => {
           const d = await atajar(moverEntregaLoteAction(prodId, volver), 'No se pudo deshacer.');
           if (!d.ok) { setMal(d.error); return; }
+          const ahoraD = new Date().toISOString();
           setMovs((v) => {
             const n = { ...v };
             for (const x of d.resultados) {
               if (!x.ok) continue;
-              const p = previas.get(x.leadId) ?? null;
-              n[claveMov(x.leadId, prodId)] = p;
+              n[claveMov(x.leadId, prodId)] = x.hacia
+                ? { etapa: x.hacia, etapa_desde: relojDeVuelta(relojDe.get(x.leadId)) ?? ahoraD, por: 'CRM' }
+                : null;
             }
             return n;
           });
@@ -726,6 +741,12 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, 
     const actual = asignacionDe(prodId)[leadId]?.etapa;
     const i = Math.max(0, etapas.findIndex((e) => e.key === actual));
     return etapas[i + 1]?.key ?? null;
+  }
+
+  /** Si la etapa sigue en el catálogo del servicio. Un deshacer hacia una que se borró lo
+   *  rechazaría el server, así que no se ofrece. */
+  function etapaExiste(prodId: number, key: string): boolean {
+    return (servicios.find((s) => s.productoId === prodId)?.etapas ?? []).some((e) => e.key === key);
   }
 
   /**

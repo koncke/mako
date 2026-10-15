@@ -430,7 +430,10 @@ export const Insertado = Node.create<OpcionesNodo>({
           const j = attrsDelJson(e, NODO.insertado);
           if (j) return j;
           const emb = leerIframe(e.querySelector('iframe'));
-          return emb ? attrsInsertado(emb) : attrsInsertado({});
+          // Vacío (el VSL de un diseño sin su enlace): la pista del proveedor viaja en `data-proveedor`
+          // (especificacion.ts la escribe). Sin ella, el HTML pegado sin el JSON perdía de qué era el
+          // hueco y Publicar ya no avisaba «Falta el enlace del video» (diseños con video, 14/10/2026).
+          return emb ? attrsInsertado(emb) : attrsInsertado({ proveedor: e.getAttribute('data-proveedor') });
         },
       },
       {

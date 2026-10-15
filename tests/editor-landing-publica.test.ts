@@ -360,6 +360,74 @@ test('la animación: sólo con la config prendida, con IntersectionObserver y si
   assert.match(doc({ config: config({}, { animaciones: false }) }), /<body>/);
 });
 
+// El parpadeo del hero (relevamiento de animaciones, 14/10/2026; docs/hallazgos-editor-landing.md): el script va al
+// final del <body> y el navegador ya pintó el hero cuando llega. Medido en la publicada real: el H1 se veía, se
+// apagaba ~0,3 s y volvía con el fade (LCP de 236-404 ms a 1.428-3.004 ms en el teléfono). Martín: la primera sección
+// queda QUIETA (opción A, la recomendada; si elige B —el fade sin parpadeo— esto cambia antes del push).
+// Una página de mentira con posiciones: la primera sección arriba (con un `[data-animar]` adentro, fuera de pantalla),
+// la segunda que corta la pantalla y la tercera abajo. `orden` anota cuándo se puso `gm-anim`.
+type Nodo = {
+  nombre: string; clases: Set<string>; style: Record<string, string>; children: Nodo[];
+  classList: { add: (c: string) => void; contains: (c: string) => boolean };
+  getBoundingClientRect: () => { top: number; bottom: number };
+  querySelectorAll: () => Nodo[];
+};
+function pagina(rects: Array<[number, number]>) {
+  const orden: string[] = [];
+  const nodo = (nombre: string, clases: string[], [top, bottom]: [number, number], children: Nodo[] = []): Nodo => {
+    const set = new Set(clases);
+    const n: Nodo = {
+      nombre, clases: set, style: {}, children,
+      classList: { add: (c: string) => { set.add(c); orden.push(`${nombre}+${c}`); }, contains: (c: string) => set.has(c) },
+      getBoundingClientRect: () => ({ top, bottom }),
+      querySelectorAll: () => children.flatMap((h) => [h, ...h.children]).filter((h) => h.clases.has('marcado')),
+    };
+    return n;
+  };
+  const marcado = nodo('marcado', ['marcado'], [900, 950]);
+  const hijosCuerpo = [nodo('titulo', [], [100, 200]), marcado];
+  const cuerpo0 = nodo('cuerpo0', ['gm-tarjeta-cuerpo'], [0, 1000], hijosCuerpo);
+  const t0 = nodo('t0', ['gm-tarjeta'], rects[0], [cuerpo0]);
+  const t1 = nodo('t1', ['gm-tarjeta'], rects[1], [nodo('cuerpo1', ['gm-tarjeta-cuerpo'], rects[1], [nodo('h1', [], rects[1])])]);
+  const t2 = nodo('t2', ['gm-tarjeta'], rects[2], [nodo('cuerpo2', ['gm-tarjeta-cuerpo'], rects[2], [nodo('h2', [], rects[2])])]);
+  const observados: Nodo[] = [];
+  class IOFalso { observe(el: Nodo) { observados.push(el); } unobserve() { /* nada */ } }
+  const document = {
+    addEventListener: () => { /* el formulario no importa acá */ },
+    body: { getAttribute: (n: string) => (n === 'data-gm-animar' ? '1' : null) },
+    documentElement: { clientHeight: 844, classList: { add: (c: string) => { orden.push(`html+${c}`); } } },
+    querySelectorAll: () => [t0, marcado, t1, t2],
+  };
+  const window = { location: { href: 'https://hola-mako.site/x' }, innerHeight: 844, matchMedia: () => ({ matches: false }), IntersectionObserver: IOFalso, addEventListener: () => {} };
+  runInContext(SCRIPT_PAGINA, createContext({ document, window, URL }));
+  return { t0, t1, t2, marcado, cuerpo0, observados, orden };
+}
+
+test('la animación NO esconde lo que ya está en pantalla: la primera sección queda quieta (el parpadeo del hero)', () => {
+  const p = pagina([[0, 800], [800 - 100, 1500], [1600, 2400]]);
+  for (const n of [p.t0, p.t1]) {
+    assert.ok(n.clases.has('gm-visto'), `${n.nombre}: ya vista, la hoja no la esconde`);
+    assert.equal(n.style.animation, 'none', `${n.nombre}: sin el fade de la sección`);
+    assert.ok(n.children[0].children.every((h) => h.style.animation === 'none'), `${n.nombre}: sin el «subir» de sus bloques`);
+  }
+  assert.ok(p.marcado.clases.has('gm-visto') && p.marcado.style.animation === 'none', 'lo marcado dentro de la primera sección, aunque esté fuera de pantalla, también quieto');
+  assert.ok(!p.t2.clases.has('gm-visto') && p.t2.style.animation === undefined, 'la de abajo anima como siempre');
+  assert.deepEqual(p.observados.map((n) => n.nombre), ['t2'], 'sólo se vigila lo que todavía no se vio');
+  const anim = p.orden.indexOf('html+gm-anim');
+  assert.ok(anim > p.orden.indexOf('t0+gm-visto') && anim > p.orden.indexOf('t1+gm-visto'), 'gm-anim se pone DESPUÉS de marcar lo visible: nunca hay un cuadro con el hero escondido');
+
+  // Si el navegador restauró el scroll a la mitad de la página, la primera igual queda quieta y lo que se ve también.
+  const q = pagina([[-2400, -1600], [-100, 700], [900, 1700]]);
+  assert.ok(q.t0.clases.has('gm-visto') && q.t1.clases.has('gm-visto') && !q.t2.clases.has('gm-visto'));
+  assert.deepEqual(q.observados.map((n) => n.nombre), ['t2']);
+});
+// PROBADO ROMPIÉNDOLO (14/10/2026), con la base en verde (este archivo entero, 27 / 0), restaurando de memoria:
+//   · sin `enPantalla(...)` en la condición (sólo la primera quieta) → 26 / 1 («t1: ya vista»);
+//   · `gm-anim` puesto ANTES del recorrido → 26 / 1 («gm-anim se pone DESPUÉS»);
+//   · sin `(esTarjeta && primera)` → 26 / 1 (el scroll restaurado deja t0 escondida);
+//   · `quieto` sin recorrer `[data-animar]` → 26 / 1 («lo marcado dentro de la primera sección»).
+// Restaurado: 27 / 0.
+
 // ─────────────────────────────────────────────────────────────────────────────
 // La respuesta de las rutas
 // ─────────────────────────────────────────────────────────────────────────────
@@ -515,16 +583,19 @@ function rutasBajo(dir: string): string[] {
   return out;
 }
 
-test('app/l tiene EXACTAMENTE las cinco rutas, sólo GET y HEAD, y ninguna lee la sesión', () => {
+test('app/l tiene EXACTAMENTE las seis rutas, sólo GET y HEAD, y ninguna lee la sesión', () => {
   // `/l` entra en PUBLICOS como prefijo porque la carpeta es pública por construcción: un
   // archivo nuevo acá adentro queda abierto sin sesión, así que tiene que decidirse a mano.
   // La cuarta (las otras páginas de un BORRADOR por el link privado) la sumó la integración del
   // 11/10/2026: es la misma lectura que la vista previa, con la ruta. La quinta (el «HTML
   // personalizado» aislado, T6) la sumó la integración de la tanda 2 (12/10/2026): no arma una
   // página sino un documento para un iframe, y su decisión (`responderHtmlLibre`) la cubre
-  // tests/editor-landing-htmllibre.test.ts.
+  // tests/editor-landing-htmllibre.test.ts. La sexta (el paso «nombre y email» del «Botón de pago»,
+  // tanda 4, 14/10/2026) arma su propio documento con un formulario que postea a /api/: su decisión
+  // (`responderPasoPago`) la cubre tests/editor-landing-pago.test.ts.
   const RUTAS_L = [
     'app/l/[slug]/[ruta]/route.ts',
+    'app/l/[slug]/pagar/[bloque]/route.ts',
     'app/l/[slug]/route.ts',
     'app/l/html/[docId]/[bloque]/route.ts',
     'app/l/vista/[token]/[ruta]/route.ts',
@@ -537,6 +608,7 @@ test('app/l tiene EXACTAMENTE las cinco rutas, sólo GET y HEAD, y ninguna lee l
     assert.deepEqual(exportados, ['GET', 'HEAD', 'dynamic'], `${f}: sólo lectura`);
     assert.doesNotMatch(src, /next\/headers|cookies\(|getTenantDb|getSesion|getWorkspaceActual/, `${f}: no mira la sesión`);
     if (f.startsWith('app/l/html/')) { assert.match(src, /responderHtmlLibre\(/, `${f}: la decisión vive en html-libre.ts`); continue; }
+    if (f.includes('/pagar/')) { assert.match(src, /responderPasoPago\(/, `${f}: la decisión vive en pago-pagina.ts`); continue; }
     assert.match(src, /responderPublico\(/, `${f}: la decisión vive en pagina-publica.ts`);
     // La vista previa entra como 'vista' (noindex, sin Pixel, no-store); las otras dos como 'pagina'.
     if (f.includes('vista')) assert.match(src, /responderPublico\(req, \{ tipo: 'vista', token(?:, ruta)? \}, \{ leer: \(\) => leerVistaPrevia\(token(?:, ruta)?\) \}\)/);

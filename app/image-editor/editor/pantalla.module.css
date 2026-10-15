@@ -1,0 +1,73 @@
+.pantalla {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--cv-chrome);
+}
+
+.editor {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+.aviso {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: var(--cv-color-text-muted);
+}
+
+.volver {
+  font-weight: 600;
+  color: var(--cv-color-text);
+}
+
+/* «‹ Inicio» en la barra superior: texto blanco sobre el degradado, como los botones de la barra de Canva
+   (alto 40, radio 8, velo blanco al pasar). Sin el logo de Canva. Colgado de `.editor` para ganarle al
+   `.cv :where(a)` de _doory/styles/global.css (misma especificidad: decidiría el orden de carga). */
+.editor .inicio {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  height: 40px;
+  padding: 0 12px 0 6px;
+  border-radius: var(--cv-radius-sm);
+  color: var(--cv-header-text);
+  font: 500 var(--cv-text-base) / 22px var(--cv-font-sans);
+  white-space: nowrap;
+  text-decoration: none;
+  transition: background var(--cv-duration-fast) var(--cv-ease-out);
+}
+
+.editor .inicio:hover {
+  background: var(--cv-header-hover);
+  color: var(--cv-header-text);
+  text-decoration: none;
+}
+
+.editor .inicio:focus-visible {
+  outline: 2px solid var(--cv-header-text);
+  outline-offset: 1px;
+}
+
+/* En el teléfono queda sólo la flecha (el rótulo va en el aria del enlace). */
+@media (max-width: 639px) {
+  .editor .inicio {
+    padding: 0 8px;
+  }
+  .editor .inicio span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+}

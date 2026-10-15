@@ -41,6 +41,8 @@ import { usePasteMedia } from "@/app/video-editor/_opencut/media/use-paste-media
 import { MobileGate } from "@/app/video-editor/_opencut/components/editor/mobile-gate";
 import { tamanosDe, useDisenoStore } from "@/app/video-editor/_opencut/components/editor/diseno-paneles";
 import { useEditor } from "@/app/video-editor/_opencut/editor/use-editor";
+import { PanelChat } from "@/app/video-editor/_opencut/chat/PanelChat";
+import { useChatAbierto } from "@/app/video-editor/_opencut/chat/estado";
 import { conEspacio } from "@/app/video-editor/espacio";
 import {
 	createPreviewOverlayControl,
@@ -89,8 +91,15 @@ export function EditorPage({ projectId }: { projectId: string }) {
 				<div className="flex h-full w-full flex-col overflow-hidden bg-(--cc-app)">
 					<AvisoRenderDegradado />
 					<EditorHeader />
-					<div className="min-h-0 min-w-0 flex-1 px-[10px] pb-[10px]">
-						<EditorLayout />
+					{/* Los paneles van en una caja `absolute inset-0`: un `size-full` contra el alto
+					    de un hijo flex no resuelve en Safari y el editor quedaría en cero (AGENTS.md). */}
+					<div className="flex min-h-0 min-w-0 flex-1 gap-2 px-[10px] pb-[10px]">
+						<div className="relative min-h-0 min-w-0 flex-1">
+							<div className="absolute inset-0">
+								<EditorLayout />
+							</div>
+						</div>
+						<ColumnaChat />
 					</div>
 					<MigrationDialog />
 				</div>
@@ -119,6 +128,26 @@ function AvisoRenderDegradado() {
 			>
 				<HugeiconsIcon icon={Cancel01Icon} className="size-3" />
 			</button>
+		</div>
+	);
+}
+
+/**
+ * «Editar con IA» (chat/PanelChat.tsx): una columna AFUERA de la distribución de CapCut, a la
+ * derecha y de alto entero, para que abrirla no cambie las proporciones medidas de los cuatro
+ * paneles (sólo se angostan). Cerrada no ocupa nada.
+ */
+function ColumnaChat() {
+	const abierto = useChatAbierto((s) => s.abierto);
+	const setAbierto = useChatAbierto((s) => s.setAbierto);
+	if (!abierto) return null;
+	return (
+		<div className="relative w-[320px] shrink-0">
+			<div className="absolute inset-0">
+				<Marco>
+					<PanelChat onCerrar={() => setAbierto(false)} />
+				</Marco>
+			</div>
 		</div>
 	);
 }

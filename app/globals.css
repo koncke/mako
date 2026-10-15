@@ -1147,9 +1147,22 @@ details[open] > summary .chev {
 /* Con la alerta sola, SOLO el riel del Sidebar ([data-sidebar]): la regla genérica estiraba
    al alto de la ventana cualquier <aside> de las pantallas admin mientras la voz estuviera
    caída (revisión del 11/09/2026). */
+/* ⚠️ EL ALTO VISIBLE, NO EL DE LA PANTALLA (14/10/2026, Martín desde un iPad: «no se llega a ver la
+   foto de perfil, para ir a configuraciones»). En Safari (iPad, iPhone) `100vh` es el alto con la barra
+   del navegador ESCONDIDA: con la barra a la vista, la sidebar —`sticky; height: 100vh`— queda ~50 px
+   más larga que lo que se ve, y su última fila, el perfil, pegada al fondo con `margin-top: auto`, cae
+   debajo del borde. Es el mismo síntoma que la barra de la agencia, de arriba, con otra causa. `100dvh`
+   es el alto visible y sigue a la barra cuando aparece o se esconde; el `100vh` en línea del Sidebar
+   queda para el navegador que no lo conoce. */
+@supports (height: 100dvh) {
+  aside[data-sidebar] { height: 100dvh !important; }
+}
 [data-barra-agencia] aside, [data-alerta-voz] aside[data-sidebar] {
   top: var(--barra-agencia) !important;
   height: calc(100vh - var(--barra-agencia)) !important;
+}
+@supports (height: 100dvh) {
+  [data-barra-agencia] aside, [data-alerta-voz] aside[data-sidebar] { height: calc(100dvh - var(--barra-agencia)) !important; }
 }
 
 /* =============================================================================

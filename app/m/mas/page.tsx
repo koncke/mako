@@ -1,11 +1,21 @@
 // =============================================================================
-// /m/mas — More: la lista agrupada estilo Ajustes (docs/diseno-mako-mobile-v2.md, «La barra inferior»)
+// /m/mas — More: la lista agrupada estilo Ajustes, por las FAMILIAS de la sidebar (v3, 14/10/2026)
 // =============================================================================
 //   1. Tu cuenta (avatar, nombre, negocio) → /m/cuenta
-//   2. Dashboard · Ads Manager · Customer Success · Automations
-//   3. Video Generator · Landing Generator
-//   4. MaKo (el chat), con el logo real como ícono
+//   2. Una caja por familia de la sidebar, con su nombre de escritorio y en su orden (Operate ·
+//      Analyze · Sales Machine · Content Machine · Customer Success): `gruposMas`
+//   3. Pregúntale a MaKo, con el logo real como ícono (fuera de las familias, como en escritorio)
+//   4. Ticketera, SÓLO para el super admin (el mazo de decisiones: /tickets/decisiones, en el teléfono
+//      /m/tickets/decisiones). Se llamó «Decisiones» y abría la lista hasta el 14/10/2026: Martín la
+//      renombró y pidió que se entre directo al mazo (la lista es la vista secundaria).
 //   5. Versión de computadora
+//
+// ⚠️ DECISIONES NO VA EN `SECCIONES_MAS`, A PROPÓSITO (14/10/2026, acordado con el chat «Pricing MaKo»,
+// dueño de la tab). SECCIONES_MAS es para tabs DEL NEGOCIO gateadas por una key de nav.ts (puedeVerKey),
+// y de ahí salen la barra del rol, la cabecera y el desvío. Decisiones no es una tab del negocio: es el
+// tablero de la PLATAFORMA, no tiene key en nav.ts, y su guard es «super admin» (getSesionAdmin =
+// sesión con rol 'admin', la misma pregunta que se hace acá). Si entrara a SECCIONES_MAS podría «subir
+// a la barra» de un rol al que le falta un destino, que es justo lo que no tiene que pasar.
 //
 // Lo que el rol no ve, NO aparece (`gruposMas` → `puedeVerKey`, la misma regla del Sidebar
 // y del guard de cada sección). Lo que subió a la barra (porque el rol no ve CRM o Plan) no
@@ -18,12 +28,17 @@ import { getWorkspace } from '@/lib/workspace';
 import { gruposMas } from '@/lib/movil-rutas';
 import { MakoLogo } from '@/app/_components/MakoBrand';
 import { FilaM } from '../_ui/FilaM';
+import { PantallaM } from '../_ui/PantallaM';
 import { AvatarM, ListaM } from '../_ui/Piezas';
+import { SeccionM } from '../_ui/SeccionM';
 import { RUTA_CUENTA } from '../_ui/cabecera';
 import { contarBadges } from '../badges';
 import { FilaVersionComputadora } from './VersionComputadora';
 
 export const dynamic = 'force-dynamic';
+
+/** La Ticketera del super admin: entra directo al mazo (app/m/tickets/decisiones; en la URL, /tickets/decisiones). */
+const RUTA_TICKETERA = '/m/tickets/decisiones';
 
 export default async function MasPagina() {
   const ctx = await requireMovil();
@@ -34,12 +49,12 @@ export default async function MasPagina() {
       : ctx.ws != null
         ? getWorkspace(ctx.ws).then((w) => w?.nombre?.trim() || null).catch(() => null)
         : Promise.resolve(null),
-    contarBadges({ rol: ctx.rol, capa: ctx.capa, ws: ctx.ws }, grupos.flat().map((s) => s.id)),
+    contarBadges({ rol: ctx.rol, capa: ctx.capa, ws: ctx.ws }, grupos.flatMap((g) => g.secciones.map((s) => s.id))),
   ]);
   const nombre = (ctx.sesion.nombre ?? '').trim();
 
   return (
-    <>
+    <PantallaM refrescable>
       <ListaM>
         <FilaM
           leading={<AvatarM nombre={nombre} email={ctx.sesion.email} tam="lg" />}
@@ -50,8 +65,9 @@ export default async function MasPagina() {
       </ListaM>
 
       {grupos.map((g) => (
-        <ListaM key={g[0].id}>
-          {g.map((s) => (
+        <SeccionM key={g.familia ?? 'mako'} titulo={g.titulo ?? undefined}>
+        <ListaM>
+          {g.secciones.map((s) => (
             <FilaM
               key={s.id}
               navegacion
@@ -65,13 +81,22 @@ export default async function MasPagina() {
             />
           ))}
         </ListaM>
+        </SeccionM>
       ))}
+
+      {ctx.sesion.rol === 'admin' && (
+        <SeccionM titulo="Super admin">
+          <ListaM>
+            <FilaM navegacion icono="admin" titulo="Ticketera" href={RUTA_TICKETERA} />
+          </ListaM>
+        </SeccionM>
+      )}
 
       <div className="m-mas-compu">
         <ListaM>
           <FilaVersionComputadora />
         </ListaM>
       </div>
-    </>
+    </PantallaM>
   );
 }

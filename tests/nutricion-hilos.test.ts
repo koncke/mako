@@ -213,7 +213,7 @@ test('el motor: reparte al entrar, toma UN hilo por vuelta y vuelve a la cola si
   // (Undécima tanda, M3 f: fuera del horario se toman sólo los hilos que corren igual —el carril del recordatorio,
   // «MaKo en WhatsApp»—; los demás se quedan como están. Ver tests/motor-carril-recordatorio.test.ts.)
   assert.match(PROC, /const vencidos = hilosVencidos\(hs, Date\.now\(\)\)\.filter\(\(x\) => !hilosVistos\.has\(`\$\{insc\.id\}:\$\{x\.h\}:\$\{x\.nodo\}`\)\);/);
-  assert.match(PROC, /const libres = fueraDeHorario && !enRespuesta \? vencidos\.filter\(\(x\) => seMueve\(indicePorId\(sec\.pasos, x\.nodo\)\)\) : vencidos;/);
+  assert.match(PROC, /const libres = fueraDeHorario \? vencidos\.filter\(\(x\) => seMueve\(indicePorId\(sec\.pasos, x\.nodo\)\)\) : vencidos;/);
   assert.match(PROC, /if \(libres\.length > 1\) \{ vistos\.delete\(insc\.id\); otraVuelta = true; \}/);
   // Toda escritura de la posición pasa por la puerta, y la puerta decide si hay hilos.
   assert.match(PROC, /if \(planDePosicion\(pasosInsc, leidoDePosicion\(insc, pasosInsc\), campos, o\)\.modo === 'hilos'\) return escribirHilos\(/);

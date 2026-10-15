@@ -13,7 +13,7 @@
 //   · una cerrada se reabre sola si el contacto escribe después; una pospuesta vuelve al vencer o si escribe;
 //   · «Míos», «Sin asignar», «Atiende MaKo», «Bloqueados»: un bloqueado vive SÓLO en su bandeja;
 //   · el contador del panel y la lista cuentan con la MISMA regla (si no, el panel dice 12 y la lista 11);
-//   · la migración 0275: las tres tablas con `workspace_id` sin `default 1`, RLS y revoke, y en las DOS listas de
+//   · la migración 0284: las tres tablas con `workspace_id` sin `default 1`, RLS y revoke, y en las DOS listas de
 //     inquilino (sin TENANT_TABLES getTenantDb es PASSTHROUGH: un negocio vería cerradas las de otro);
 //   · las rutas pasan TODAS por `puertaChats` (esconder la tab no protege), y WhatsApp se lee SIEMPRE con línea.
 //
@@ -31,7 +31,7 @@
 //   · `ordenarChats` con las sin fecha PRIMERO                                       → 15 / 2  (bandejas, orden)
 //   · `contarBandejas` sin el Set de cuentas (cuenta dos veces la misma línea)      → 16 / 1  (contador = lista)
 //   · `'chat_leidos'` fuera de TENANT_TABLES (lib/workspace.ts)                      → 16 / 1  (listas de inquilino)
-//   · la mig 0275 con `workspace_id … not null default 1 references …`            → 16 / 1  (migración)
+//   · la mig 0284 con `workspace_id … not null default 1 references …`            → 16 / 1  (migración)
 //   · el `check` de `chat_eventos.tipo` sin 'reanudada'                              → 16 / 1  (migración)
 //   · app/api/chats/contacto sin el `if (!puerta.ok) return …`                      → 16 / 1  (la puerta)
 //   · `getConversacionesNoOficial(600, false)` sin la línea en lib/chats.ts          → 16 / 1  (WhatsApp por línea)
@@ -417,7 +417,7 @@ test('formatos y estados de envío en el idioma del contrato', () => {
   assert.equal(statusDe('pending'), null);
 });
 
-// ── La base: migración 0275 y las listas de inquilino ─────────────────────────────
+// ── La base: migración 0284 y las listas de inquilino ─────────────────────────────
 
 const TABLAS = ['chat_estado', 'chat_leidos', 'chat_eventos'] as const;
 
@@ -430,10 +430,10 @@ test('las tres tablas de Chats están en las DOS listas de inquilino', () => {
   for (const t of TABLAS) assert.ok(tenant.includes(t), `${t} falta en TENANT_TABLES: getTenantDb sería PASSTHROUGH`);
 });
 
-test('la migración 0275: workspace sin default, RLS con revoke, claves primarias y los tipos de evento del código', () => {
-  const archivos = readdirSync(join(RAIZ, 'supabase/migrations')).filter((f) => f.startsWith('0275_'));
-  assert.deepEqual(archivos, ['0275_chats.sql'], 'el número 0275 es de una sola migración');
-  const sql = leer('supabase/migrations/0275_chats.sql').replace(/--.*$/gm, '').toLowerCase();
+test('la migración 0284: workspace sin default, RLS con revoke, claves primarias y los tipos de evento del código', () => {
+  const archivos = readdirSync(join(RAIZ, 'supabase/migrations')).filter((f) => f.startsWith('0284_'));
+  assert.deepEqual(archivos, ['0284_chats.sql'], 'el número 0284 es de una sola migración');
+  const sql = leer('supabase/migrations/0284_chats.sql').replace(/--.*$/gm, '').toLowerCase();
   const crear = (t: string) => {
     const r = sql.match(new RegExp(`create table if not exists ${t} \\(([\\s\\S]*?)\\n\\);`));
     assert.ok(r, `falta el create table idempotente de ${t}`);

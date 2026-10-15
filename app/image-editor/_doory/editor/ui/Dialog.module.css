@@ -1,0 +1,76 @@
+/*
+ * Diálogo de Canva (relevamiento §1.2–1.4): velo rgba(36,44,61,.4), tarjeta blanca con radio 16 y la sombra
+ * «flotante», título 24/600 (titleLarge), cuerpo con 24 px de margen y sin raya sobre el pie.
+ */
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--cv-z-modal);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--cv-space-4);
+  background: var(--cv-color-overlay);
+  animation: fade var(--cv-duration-base) var(--cv-ease-out);
+}
+
+.dialog {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-height: calc(100vh - 32px);
+  border: 0;
+  border-radius: var(--cv-radius-xl);
+  background: var(--cv-color-surface-raised);
+  color: var(--cv-color-text);
+  font: 400 var(--cv-text-base) / var(--cv-leading-normal) var(--cv-font-sans);
+  box-shadow: var(--cv-shadow-lg);
+  animation: rise var(--cv-duration-base) var(--cv-ease-out);
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--cv-space-3);
+  padding: var(--cv-space-6) var(--cv-space-4) var(--cv-space-2) var(--cv-space-6);
+}
+
+.title {
+  margin: 0;
+  padding-top: 2px;
+  font: 600 var(--cv-text-2xl) / var(--cv-leading-tight) var(--cv-font-display);
+  color: var(--cv-color-text);
+}
+
+.desc {
+  margin: 0;
+  padding: 0 var(--cv-space-6);
+  color: var(--cv-color-text-muted);
+  font: 400 var(--cv-text-base) / var(--cv-leading-normal) var(--cv-font-sans);
+}
+
+.body {
+  padding: var(--cv-space-4) var(--cv-space-6) var(--cv-space-6);
+  overflow: auto;
+}
+
+.footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--cv-space-2);
+  padding: 0 var(--cv-space-6) var(--cv-space-6);
+}
+
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.99);
+  }
+}

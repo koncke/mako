@@ -28,7 +28,7 @@ import {
 } from '../lib/editor-landing/html-libre';
 import {
   MAX_SECCIONES_FIEL, PRESUPUESTO_FIEL, absolutizarUrls, baseDeDocumento, contenidoDeCopiaFiel, copiaFiel, esRastreador,
-  headLimpio, modoReplicar, nodosDeNivel, partirCuerpo, urlParaReplicar,
+  headLimpio, modoReplicar, nodosDeNivel, partirCuerpo, seArmaEnNavegador, urlParaReplicar,
 } from '../lib/editor-landing/replicar-reglas';
 import { specHtmlLibre, htmlDeArbol } from '../lib/editor-landing/especificacion';
 import { htmlDeFragmento } from '../lib/editor-landing/render';
@@ -498,12 +498,48 @@ test('copia fiel: lo que no se deja partir va entero; lo que no entra, error; la
   assert.ok(pesada.ok && !pesada.partida, 'cuatro copias del head no entran: una sola');
 });
 
-test('copia fiel: una página que pide una contraseña no se copia tal cual (y «Como bloques» queda)', () => {
+test('copia fiel: una página que pide una contraseña no se copia tal cual (y el formato «Landing» queda)', () => {
   const login = PAGINA.replace('<button>Agenda</button>', '<form action="/login"><input type="password" name="clave"><button>Entrar</button></form>');
   const c = copiaFiel(login, 'https://banco.com/login');
   assert.equal(c.ok, false);
-  if (!c.ok) assert.match(c.error, /pide una contraseña.*«Como bloques»/);
+  // Tanda 6: los formatos de Replicar son Presentación, Landing y Página web; «Como bloques» ya no existe.
+  // Probado rompiéndolo (14/10/2026): con el mensaje viejo («Prueba «Como bloques».») -> 34 pasan / 1 falla.
+  if (!c.ok) assert.match(c.error, /pide una contraseña.*«Landing»/);
+  if (!c.ok) assert.equal(c.probar, 'landing', 'y la pantalla lo ofrece con un botón');
   assert.equal(copiaFiel(PAGINA, 'https://ejemplo.com/oferta').ok, true, 'la de siempre sí');
+});
+
+// Verificación de la tanda 6 (15/10/2026): replicar como «Página web» una app de Vite o Lovable (el caso real
+// del pedido 1) terminaba en «La página no trae nada para copiar.», sin salida.
+// PROBADO ROMPIÉNDOLO (15/10/2026, arnés que restaura de memoria y compara el sha256). Base: 36 / 0.
+//   H1 copiaFiel sin mirar si la página se arma en el navegador (lo de antes) → 35 / 1 (éste)
+//   H6 el detector sin mirar dónde termina el id (`id="rooted"` contaba) ....... → 35 / 1 (éste)
+// Restaurado: 36 / 0.
+test('copia fiel: una página que se ARMA en el navegador propone «Landing» (con `probar`); una vacía de verdad, no', () => {
+  const vite = '<!doctype html><html><head><title>App</title><script type="module" crossorigin src="/assets/index-abc.js"></script>'
+    + '<link rel="stylesheet" href="/assets/index-abc.css"></head><body><div id="root"></div></body></html>';
+  const c = copiaFiel(vite, 'https://ejemplo-spa.lovable.app/');
+  assert.equal(c.ok, false);
+  if (!c.ok) {
+    assert.equal(c.error, 'Esta página se arma en el navegador. Prueba el formato «Landing».');
+    assert.equal(c.probar, 'landing');
+  }
+  // Create React App: el aviso de <noscript> no cuenta como texto, y el contenedor vacío alcanza.
+  const cra = '<html><head><script defer src="/static/js/main.js"></script></head><body><noscript>You need to enable JavaScript to run this app.</noscript><div id="root"></div></body></html>';
+  const d = copiaFiel(cra, 'https://a.com');
+  assert.ok(!d.ok && d.probar === 'landing', 'CRA');
+  // Vacía de verdad: no se inventa que se arma en el navegador.
+  const vacia = copiaFiel('<html><head></head><body><div></div></body></html>', 'https://a.com');
+  assert.deepEqual(vacia, { ok: false, error: 'La página no trae nada para copiar.' });
+  // El detector, solo.
+  for (const h of ['<script type="module" src="/x.js"></script>', "<script type='module'>import('/x.js')</script>", '<div id="app"></div>', '<div class="x" id="__next" data-a="1">\n</div>', '<div id=root></div>']) {
+    assert.ok(seArmaEnNavegador(h), h);
+  }
+  for (const h of ['<div id="root"><h1>Hola</h1></div>', '<div data-id="root"></div>', '<div id="rooted"></div>', '<script src="/x.js"></script>', '<p>texto</p>']) {
+    assert.ok(!seArmaEnNavegador(h), h);
+  }
+  // Con texto la copia sigue como siempre, aunque traiga el módulo.
+  assert.equal(copiaFiel(PAGINA.replace('</head>', '<script type="module" src="/a.js"></script></head>'), 'https://ejemplo.com/oferta').ok, true);
 });
 
 test('el base: el de la página, si no el canonical, si no el pedido', () => {

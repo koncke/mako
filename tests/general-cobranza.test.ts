@@ -4,7 +4,10 @@
 // acción (app/general/Cobranza.tsx, `leerAQuienCobrar` en lib/datos-comercial-server.ts, `marcarPagoAction`).
 // =============================================================================
 // Probado ROMPIÉNDOLO (13/10/2026), con la base en verde y restaurando de memoria: los números van en el comentario
-// de cada test.
+// de cada test. Re-probado el 14/10/2026 al mudarse a app/general/piezas.tsx (base 4 / 0): el renglón con `—` da
+// 3 / 1, y el bloque sin su `error` da 3 / 1. Y otra vez el mismo día, al pasar los bloques a datos
+// (app/general/datos.ts + app/general/bloques/Negocio.tsx; base 4 / 0): el renglón con `—` → 3 / 1, y la lectura
+// caída dibujada con `error={null}` → 3 / 1.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -18,7 +21,10 @@ const sinComentarios = (src: string) => src
   .replace(/\/\*[\s\S]*?\*\//g, '')
   .replace(/\{\/\*[\s\S]*?\*\/\}/g, '');
 
-const PAGINA = sinComentarios(leer('app/general/page.tsx'));
+// Desde el 14/10/2026 la lista es un BLOQUE del editor de General (lib/general-piezas.ts): el server lee sus datos en
+// app/general/datos.ts y el bloque se dibuja en app/general/bloques/Negocio.tsx.
+const PAGINA = sinComentarios(leer('app/general/datos.ts'));
+const BLOQUE = sinComentarios(leer('app/general/bloques/Negocio.tsx'));
 const LISTA = sinComentarios(leer('app/general/Cobranza.tsx'));
 
 // Rotura: renglón distinto en General (`· vence` → `— vence`): 1 fallo.
@@ -30,19 +36,18 @@ test('el renglón de cada cuota es el MISMO que el del teléfono', () => {
   assert.equal(deGeneral, delTelefono);
 });
 
-// Desde el 14/10/2026 la sección es el bloque `cobranza` de las vistas de General (lib/general-vistas-modelo.ts),
-// recortado al alcance de la vista por `cobranzaDeLaVista`: vacía, sólo la vista de FÁBRICA la esconde.
-// Roturas: la lectura con una ventana (`c.hoy, desde, hasta`): 1 fallo. La sección siempre dibujada: 1 fallo. Sin el
-// recorte por alcance: 1 fallo. Vacía también en una vista armada por la persona: 1 fallo.
-test('la lectura es TODO lo pendiente, y la sección sale sólo con algo que cobrar o con el error', () => {
+// Desde el 14/10/2026 «A quién cobrarle» es un bloque que la persona pone, saca y acomoda en su General (el editor del
+// Dashboard con su informe): se dibuja donde lo puso, y vacío lo dice («Nadie con cuotas por cobrar.», ./Cobranza.tsx).
+// Roturas (base en verde): la lectura con una ventana (`c.hoy, desde, hasta`): 1 fallo. Sin el error al bloque (una
+// lectura caída dibujada como «nadie debe»): 1 fallo.
+test('la lectura es TODO lo pendiente, y una lectura caída se dice en el bloque', () => {
   const lib = sinComentarios(leer('lib/datos-comercial-server.ts'));
   const fn = lib.slice(lib.indexOf('export async function leerAQuienCobrar'), lib.indexOf('export async function leerComercial'));
   assert.match(fn, /getOutstandingDetalle\(c\.hoy, null, null\)/);
   assert.match(fn, /armarCobranza\(out\.items, c\.hoy\)\.filas/);
   assert.match(PAGINA, /const cobranzaLeida = leerAQuienCobrar\(\);/);
-  assert.match(PAGINA, /const filas = ids \? cobranza\.datos\.filas\.filter\(\(f\) => ids\.has\(f\.leadId\)\) : cobranza\.datos\.filas;/);
-  assert.match(PAGINA, /const deFabrica = !lectura\.vistas\.vistas\.length;/);
-  assert.match(PAGINA, /case 'cobranza': return cobranza && \(cobranza\.cobros\.length > 0 \|\| cobranza\.error \|\| !deFabrica\) \? \(\s*<section key=\{b\} style=\{SECCION\} data-bloque=\{b\}>\s*<Cobranza /);
+  assert.match(PAGINA, /cobranza: !cobranza\.ok \? \{ ok: false, error: 'No pude leer la cobranza\.' \} : \{/);
+  assert.match(BLOQUE, /if \(!d\.ok\) return <Cobranza filas=\{\[\]\} tz="" error=\{d\.error\} alcance=\{nombreFunnel\} \/>;/);
 });
 
 // Roturas: marcar sin `hoyEnTz(tz)` (la fecha en null): 1 fallo. Sin el candado `enCurso`: 1 fallo.

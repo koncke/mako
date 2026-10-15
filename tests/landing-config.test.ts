@@ -172,6 +172,43 @@ test('los productos son de la PÁGINA: una landing con productos y otra sin', ()
   assert.deepEqual(funnelIdsDeLanding(cfgs, 'VENDE-CURSOS.com'), [7, 9]);
 });
 
+// La mudanza de las landings del editor a hola-mako.site (integración de la tanda 4, 14/10/2026): una
+// página declarada ANTES (`hola-mako.com/l/<slug>`) y la que manda el Pixel DESPUÉS
+// (`hola-mako.site/<slug>`, `location.href`) son la misma landing. Sin la traducción en las dos puntas,
+// el lead caía en el embudo del negocio y no en el producto de la página, sin un error.
+// PROBADO ROMPIÉNDOLO (14/10/2026), base 24 / 0, restaurado de memoria (sha256 igual):
+//   · landingDe sin urlLandingVigente (la igualdad de antes)          → 23 / 1 (éste)
+//   · urlLandingVigente sólo del lado del pedido (no de lo guardado)  → 23 / 1 (éste)
+test('una landing del editor declarada antes de hola-mako.site sigue siendo la misma (y al revés)', () => {
+  const cfgs = parsearConfig(JSON.stringify([
+    { url: 'https://hola-mako.com/l/mi-oferta', funnelIds: [7] },
+    { url: 'https://hola-mako.site/webinar', funnelIds: [9] },
+    { url: 'https://hola-mako.com/l/sin-producto' },
+  ]));
+  // Declarada con la vieja, el Pixel manda la nueva (con los utm de la campaña).
+  assert.deepEqual(funnelIdsDeLanding(cfgs, 'https://hola-mako.site/mi-oferta?utm_source=fb&fbclid=1'), [7]);
+  assert.equal(landingDe(cfgs, 'https://hola-mako.site/mi-oferta')?.url, 'https://hola-mako.com/l/mi-oferta');
+  // Declarada con la nueva, llega la vieja (un link copiado antes de la mudanza).
+  assert.deepEqual(funnelIdsDeLanding(cfgs, 'https://www.hola-mako.com/l/webinar'), [9]);
+  // Dos landings distintas siguen siendo distintas, y lo que no es de MaKo no se traduce.
+  assert.deepEqual(funnelIdsDeLanding(cfgs, 'https://hola-mako.site/sin-producto'), []);
+  assert.equal(landingDe(cfgs, 'https://hola-mako.site/otra'), null);
+  assert.equal(landingDe(cfgs, 'https://tunegocio.com/l/mi-oferta'), null);
+  assert.equal(landingDe(cfgs, 'https://hola-mako.site/mi-oferta/gracias'), null, 'otra página del sitio es otra landing');
+});
+
+// Con una declarada en CADA dirección, la que coincide igual gana (antes la de arriba, la vieja, le
+// ganaba a la exacta: un OR en un solo find devuelve la primera fila que pasa, no la mejor).
+// PROBADO ROMPIÉNDOLO (14/10/2026): el find único con el OR de antes → 24 / 1 (éste); base 25 / 0.
+test('si la misma landing está declarada en las dos direcciones, gana la exacta', () => {
+  const cfgs = parsearConfig(JSON.stringify([
+    { url: 'https://hola-mako.com/l/mi-oferta', funnelIds: [7] },
+    { url: 'https://hola-mako.site/mi-oferta', funnelIds: [8] },
+  ]));
+  assert.deepEqual(funnelIdsDeLanding(cfgs, 'https://hola-mako.site/mi-oferta'), [8]);
+  assert.deepEqual(funnelIdsDeLanding(cfgs, 'https://hola-mako.com/l/mi-oferta'), [7]);
+});
+
 // PROBADO ROMPIENDOLO: cambiando el `idFila(...)` de `idsLimpios` por un cast
 // crudo, este archivo pasa de **pass 23 / fail 0** a **pass 22 / fail 1** (medido de nuevo el 06/10/2026, con el archivo en 23 tests).
 test('⚠️ el id puede llegar como STRING (bigint), la basura no pasa y no hay repetidos', () => {

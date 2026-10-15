@@ -160,13 +160,18 @@ export type FrenoDelFlujo = NonNullable<ReturnType<typeof frenoDelFlujo>>;
  */
 export type FrenoDeProbar = FrenoDelFlujo & { medio?: Medio; linea?: string | null };
 
-export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, negocio, canalCaido, tz, insetIzq, onAudioNuevo, secuencias, productos, disparadores, onProbar, probarAbierto = false, onCerrarProbar, onCambio, onCambioLocal, insetDer, handoffs, muelles, revelar, onSinPublicar, descartarBorrador, onAccionTodo, makoAlAbrir = false, pedidoAlAbrir = null, onChatMako }: {
+export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, negocio, canalCaido, tz, insetIzq, onAudioNuevo, secuencias, productos, disparadores, onProbar, probarAbierto = false, onCerrarProbar, onCambio, onCambioLocal, insetDer, handoffs, muelles, revelar, onSinPublicar, descartarBorrador, onAccionTodo, makoAlAbrir = false, pedidoAlAbrir = null, onChatMako, onMakoTrabajando }: {
   /**
    * EL CHAT DE MaKo ESTÁ ABIERTO (decimocuarta tanda, punto 3: «El chat de MaKo, debe ser como los otros chats, que se
    * abran al costado, no en el medio del flujo»). Lo lee la tab para reservarle el muelle de la DERECHA, el de «Probar»
    * (`muelles`, lib/lienzo-grafo.ts): el lienzo, «Publicar» y el editor se corren igual que con «Probar» abierto.
    */
   onChatMako?: (abierto: boolean) => void;
+  /**
+   * MaKo ESTÁ ARMANDO ESTE FLUJO (punto 9 del feedback del 13/10/2026: «el pop-up del recorrido recién cuando la IA
+   * terminó»). La tab espera a que termine para abrir el recorrido (`useRecorridoAutomations`, ChatAgentApp).
+   */
+  onMakoTrabajando?: (trabajando: boolean) => void;
   /**
    * ABRIR CON EL CHAT DE MaKo ABIERTO (duodécima tanda, §2.5 y §3.6): la recién creada con «Pídeselo a MaKo» y el link
    * `?sec=<id>&mako=1` (también el de la API). Se mira el FLANCO (false → true), también con el lienzo ya montado, y
@@ -380,6 +385,11 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
   const [editandoIA, setEditandoIA] = useState(false);
   /** MaKo está trabajando (lo avisa el chat): la capa tapa el lienzo y el chat queda encima. */
   const [chatTrabajando, setChatTrabajando] = useState(false);
+  // Sube a la tab (el recorrido espera a que MaKo termine); al desmontar, deja de trabajar.
+  const onMakoTrabajandoRef = useRef(onMakoTrabajando);
+  useEffect(() => { onMakoTrabajandoRef.current = onMakoTrabajando; });
+  useEffect(() => { onMakoTrabajandoRef.current?.(chatTrabajando); }, [chatTrabajando]);
+  useEffect(() => () => { onMakoTrabajandoRef.current?.(false); }, []);
   /**
    * EL PEDIDO QUE NACIÓ EN EL MODAL (punto 2), hasta que el chat lo manda (`onPedidoInicialUsado`). Se ajusta AL DIBUJAR
    * cuando llega uno nuevo (el lienzo puede estar montado ya: la fila se abre antes de que el server conteste).
@@ -1212,7 +1222,8 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
             lista={crons.lista} editando={cronAbierto} onEditar={setCronAbierto} onGuardar={crons.guardar}
             productos={productos} etiquetas={etiquetas} disparadores={disparadores} etiquetaEtapa={etiquetaEtapa}
             tz={tz} busy={busy != null} rolAdmin={rolAdmin}
-            pie={lineasWa.length > 1 ? (() => {
+            pie={<>
+              {lineasWa.length > 1 ? (() => {
               // ⚠️ La línea guardada entra SIEMPRE a las opciones, aunque se haya ido: un
               // `value` que no está entre sus opciones se dibuja como la primera y el primer
               // clic lo pisa (AGENTS.md, el `<select>` que borra datos).
@@ -1239,7 +1250,8 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
                   {caidaLaSec && <div style={{ fontSize: 11.5, color: 'var(--warn)' }}>Número desconectado</div>}
                 </div>
               );
-            })() : undefined}
+            })() : null}
+            </>}
           />
         )}
       />
