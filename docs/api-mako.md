@@ -592,7 +592,7 @@ Propone agregar una hoja nueva a la pantalla General de una persona, desde una p
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
 | `persona` | string | no | Email (o nombre) de la persona admin. Si se omite y la cuenta tiene una sola persona admin, es ésa. |
-| `plantilla` | string (general \\| bienvenida \\| foco \\| operacion \\| ventas \\| cobros \\| anuncios \\| funnel-llamadas \\| funnel-whatsapp \\| lanzamiento \\| servicio \\| curso) | sí | id de la plantilla de General. |
+| `plantilla` | string (general \\| bienvenida \\| foco \\| operacion \\| ventas \\| cobros \\| anuncios \\| funnel-llamadas \\| funnel-whatsapp \\| lanzamiento \\| servicio \\| curso \\| instagram) | sí | id de la plantilla de General. |
 | `nombre` | string | no | Cómo se llama la hoja (default: el de la plantilla). |
 
 ```bash
