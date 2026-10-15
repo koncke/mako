@@ -7,7 +7,10 @@
 - El inventario, en `docs/editor-video/inventario-copia-capcut.md`. De 158 funciones de CapCut: 74 hechas, 26 a
   medias, 42 faltan y se pueden copiar, y 16 quedan fuera con su motivo. «Hecho» es escrito, no visto andar.
 - **Los subtítulos van primero.** La transcripción ya existe: Whisper en el navegador, gratis, sin cuota del
-  cliente y con tiempos por palabra. El primer paso es guardar esos tiempos, que hoy se tiran.
+  cliente y con tiempos por palabra. **Hecho el 15/10 (`7ef765fcc`, sin pushear)**: los tiempos por palabra se
+  guardan; Enter, Retroceso y Supr dividen y combinan como en CapCut; «Buscar y reemplazar»; el chat suma
+  «subtitular todo» y «reemplazar en los subtítulos». SIGUE: resaltar palabras, eliminar las muletillas del
+  video, edición por transcripción. Nada de esto se vio en Chrome: la pestaña de la extensión sigue oculta.
 - Las plantillas de proyecto no tienen de dónde copiarse (es el catálogo de ByteDance): tenerlas es crear uno
   propio, y eso lo decide Martín.
 

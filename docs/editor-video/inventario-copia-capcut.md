@@ -1,6 +1,6 @@
 # Inventario de la copia de CapCut — qué tiene, qué está hecho, qué falta
 
-*15/10/2026, chat «Video Editor», cuenta claude1. Pedido de Martín (por «Estrategia 3 cuentas»): «Creo que Video
+*15/10/2026 (actualizado con los subtítulos del mismo día), chat «Video Editor», cuenta claude1. Pedido de Martín (por «Estrategia 3 cuentas»): «Creo que Video
 Editor no terminó de copiar todo lo que debía copiar de CapCut, tal vez que termine eso primero».*
 
 **La fuente** es el relevamiento de CapCut 9.3 (`relevamiento-capcut-funciones.md`, una fila por función que
@@ -17,7 +17,7 @@ secciones y herramientas, y los catálogos). Lo que falta y su archivo salen de 
 | Familia | CapCut | Hecho | A medias | Falta, y se puede copiar | Fuera, con su motivo |
 |---|---:|---:|---:|---:|---:|
 | Texto | 24 | 19 | 2 | 3 | 0 |
-| Subtítulos | 15 | 6 | 2 | 7 | 0 |
+| Subtítulos | 15 | 9 | 1 | 5 | 0 |
 | Audio | 20 | 5 | 5 | 3 | 7 |
 | Color, efectos, filtros y fondo | 19 | 7 | 1 | 10 | 1 |
 | Video básico, máscara y retoque | 18 | 5 | 4 | 8 | 1 |
@@ -27,7 +27,7 @@ secciones y herramientas, y los catálogos). Lo que falta y su archivo salen de 
 | Línea de tiempo y operaciones de clip | 23 | 12 | 6 | 5 | 0 |
 | Exportar | 12 | 6 | 2 | 2 | 2 |
 | Biblioteca y plantillas | 9 | 2 | 1 | 1 | 5 |
-| **Total** | **158** | **74** | **26** | **42** | **16** |
+| **Total** | **158** | **77** | **25** | **40** | **16** |
 
 - **«A medias»**: está, pero le falta una parte que CapCut sí tiene. Va escrita en la fila.
 - **«Fuera»**: no se copia por licencia, por costo, porque el navegador no puede o porque **no hay de dónde
@@ -55,8 +55,9 @@ Estado: ✓ hecho · ◐ a medias · ✗ falta y se puede copiar · ⊘ fuera.
 |---|---|---|
 | Subtítulos automáticos · Idioma de origen · Plantillas (12) · Importar SRT/LRC/ASS · Ingresar manualmente · Exportar SRT/TXT | ✓ | nunca vistos en Chrome |
 | Muletillas | ◐ | se identifican; eliminarlas no (lo cercano es «Borrar silencios») |
-| Tiempos por palabra | ◐ | Whisper los devuelve y **no se guardan**: sin esto no hay nada de lo que sigue |
-| Resaltar palabras clave · Dividir y combinar con Enter/Retroceso · Buscar y reemplazar | ✗ | `subtitles/components/` |
+| Tiempos por palabra | ✓ | se guardan desde el 15/10 (`subtitles/palabras.ts`) |
+| Dividir y combinar con Enter/Retroceso/Supr · Buscar y reemplazar | ✓ | 15/10, `subtitles/editar.ts`; sin ver en Chrome |
+| Resaltar palabras clave | ✗ | ya tiene los tiempos por palabra |
 | Edición basada en la transcripción (borrar el texto borra el video) | ✗ | palabras de Whisper → tramo de tiempo |
 | Subtítulos bilingües | ✗ | Translator de Chrome (gratis, sólo escritorio); NLLB no (CC BY-NC) |
 | Letras automáticas | ✗ | Whisper, peor con música |
@@ -177,11 +178,12 @@ y su contrato es un texto, sin tiempos por palabra confiables. La decisión 6 de
 para esto.
 
 **Lo que falta para que los subtítulos sean los de CapCut:**
-1. Mirarlos andar en Chrome: generar, plantillas, importar, manual, exportar SRT.
-2. **Guardar los tiempos por palabra en cada subtítulo.** Hoy se piden y se tiran. Todo lo de abajo depende de
-   esto.
-3. Resaltar palabras (tipo karaoke y palabras clave) · Dividir y combinar con Enter/Retroceso · Buscar y
-   reemplazar.
-4. Eliminar las muletillas y la edición basada en la transcripción.
+1. Mirarlos andar en Chrome: generar, plantillas, importar, manual, exportar SRT, y lo del 15/10.
+2. ~~Guardar los tiempos por palabra en cada subtítulo~~ — **hecho el 15/10** (`7ef765fcc`). Hasta ese día se
+   pedían y se tiraban.
+3. ~~Dividir y combinar con Enter/Retroceso · Buscar y reemplazar~~ — **hechos el 15/10**. Falta resaltar
+   palabras (tipo karaoke y palabras clave).
+4. Eliminar las muletillas del VIDEO (sus tiempos ya se guardan, marcados) y la edición basada en la
+   transcripción. Cortan el video: se construyen después de poder mirarlas en Chrome.
 5. Bilingües (Translator de Chrome) · Letras automáticas · Emojis de IA. Esta última necesita un modelo: va con
    el Gemini del cliente y la pantalla lo avisa antes de arrancar.
