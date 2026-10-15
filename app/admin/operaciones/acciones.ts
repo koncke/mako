@@ -42,7 +42,7 @@ export async function encolarPedidoAction(entrada: {
   const admin = await getSesionAdmin();
   if (!puedeOperar(admin, await wsSuperAdmin())) return { ok: false, error: NO_PUEDE };
   if (typeof entrada?.firmado !== 'string' || typeof entrada.firma !== 'string' || typeof entrada.clavePublica !== 'string') {
-    return { ok: false, error: 'Falta la firma del pedido.' };
+    return { ok: false, error: 'Falta la firma del trabajo.' };
   }
   try {
     return await encolarPedido({ ...entrada, autor: admin.email || admin.nombre || admin.sub });
@@ -54,7 +54,7 @@ export async function encolarPedidoAction(entrada: {
 export async function cancelarPedidoAction(id: string): Promise<{ ok: boolean; error?: string }> {
   const admin = await getSesionAdmin();
   if (!puedeOperar(admin, await wsSuperAdmin())) return { ok: false, error: NO_PUEDE };
-  if (typeof id !== 'string') return { ok: false, error: 'Falta el pedido.' };
+  if (typeof id !== 'string') return { ok: false, error: 'Falta el trabajo.' };
   try {
     const hecho = await cancelarPedido(id);
     return hecho ? { ok: true } : { ok: false, error: 'Ya salió: no se puede cancelar.' };

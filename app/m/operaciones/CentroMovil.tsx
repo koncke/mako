@@ -68,7 +68,13 @@ function hace(iso: string | null, ahora: number): string {
 
 const nombreCuenta = (c: string | null) => (c ? `Cuenta ${c.replace(/^claude/, '')}` : 'Sin cuenta');
 
-export function CentroMovil({ pedidos, carteros, ahora }: { pedidos: PedidoM[]; carteros: CarteroM[]; ahora: number }) {
+export function CentroMovil({ pedidos, carteros, hayToken, ahora }: {
+  pedidos: PedidoM[];
+  carteros: CarteroM[];
+  /** ¿Se creó el token del cartero? Sin él no sale nada: es la causa real de una lista vacía. */
+  hayToken: boolean;
+  ahora: number;
+}) {
   const [filtro, setFiltro] = useState<Filtro>('todos');
   const [abierto, setAbierto] = useState<string | null>(null);
   const problemas = useMemo(() => pedidos.filter((p) => CON_PROBLEMA.has(p.estado)).length, [pedidos]);
@@ -78,9 +84,9 @@ export function CentroMovil({ pedidos, carteros, ahora }: { pedidos: PedidoM[]; 
 
   return (
     <>
-      <SeccionM titulo="Pedidos">
+      <SeccionM titulo="Trabajos">
         <SegmentadoM<Filtro>
-          etiqueta="Qué pedidos"
+          etiqueta="Qué trabajos"
           valor={filtro}
           onCambio={setFiltro}
           opciones={[
@@ -90,7 +96,7 @@ export function CentroMovil({ pedidos, carteros, ahora }: { pedidos: PedidoM[]; 
           ]}
         />
         {visibles.length ? (
-          <ListaM etiqueta="Pedidos">
+          <ListaM etiqueta="Trabajos">
             {visibles.map((p) => (
               <FilaM
                 key={p.id}
@@ -102,7 +108,7 @@ export function CentroMovil({ pedidos, carteros, ahora }: { pedidos: PedidoM[]; 
             ))}
           </ListaM>
         ) : (
-          <VacioM frase={pedidos.length ? 'Nada con ese filtro.' : 'Todavía no hay pedidos.'} />
+          <VacioM frase={pedidos.length ? 'Nada con ese filtro.' : hayToken ? 'Todavía no mandaste ningún trabajo a los chats.' : 'Todavía no hay trabajos: falta crear el token del cartero.'} />
         )}
       </SeccionM>
 
@@ -123,13 +129,13 @@ export function CentroMovil({ pedidos, carteros, ahora }: { pedidos: PedidoM[]; 
             })}
           </ListaM>
         ) : (
-          <VacioM frase="Ningún cartero instalado todavía." />
+          <VacioM frase={hayToken ? 'Ningún cartero dio señal todavía.' : 'Ningún cartero instalado todavía.'} />
         )}
       </SeccionM>
 
-      <ComputadoraM que="Mandar pedidos e instalar un cartero" />
+      <ComputadoraM que="Mandar trabajos e instalar un cartero" />
 
-      <SheetM abierto={!!elegido} onCerrar={() => setAbierto(null)} titulo="Pedido">
+      <SheetM abierto={!!elegido} onCerrar={() => setAbierto(null)} titulo="Trabajo">
         {elegido && (
           <div className="m-operaciones-hoja">
             <div className="m-operaciones-estado">

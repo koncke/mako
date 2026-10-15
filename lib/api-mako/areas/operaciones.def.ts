@@ -24,8 +24,8 @@ const PLATAFORMA: Gating = { rolMinimo: 'admin', soloPlataforma: true };
 export const DEFS: readonly OperacionDef[] = [
   {
     id: 'ver_pedidos_operaciones', area: 'operaciones', tipo: 'lectura',
-    titulo: 'Pedidos del Centro de Operaciones',
-    descripcion: 'Los pedidos que Martín mandó desde el Centro de Operaciones a los chats de Claude Code de su PC, más recientes primero: a qué chat y de qué cuenta, el texto (recortado), el estado (escrito, entregando, entregado, no se pudo, no sé si llegó, hecho, comprobado, cancelado), el motivo si no salió y el cierre que dejó el chat (qué se decidió, qué quedó hecho, cómo se comprobó, qué sigue). Para MANDAR un pedido no hay operación: se firma en /admin/operaciones con la clave del dispositivo.',
+    titulo: 'Trabajos del Centro de Operaciones',
+    descripcion: 'Los trabajos que Martín mandó desde el Centro de Operaciones a los chats de Claude Code de su PC, más recientes primero: a qué chat y de qué cuenta, el texto (recortado), el estado (escrito, entregando, entregado, no se pudo, no sé si llegó, hecho, comprobado, cancelado), el motivo si no salió y el cierre que dejó el chat (qué se decidió, qué quedó hecho, cómo se comprobó, qué sigue). Para MANDAR un trabajo no hay operación: se firma en /admin/operaciones con la clave del dispositivo. En la pantalla se llaman «trabajos»: «pedido» es lo que Martín pide en un chat.',
     parametros: [
       { nombre: 'estado', rotulo: 'Estado', tipo: 'string', enum: ESTADOS, descripcion: 'filtra por estado.' },
       { nombre: 'limite', rotulo: 'Cuántos', tipo: 'number', entero: true, minimo: 1, maximo: 50, descripcion: 'cuántos devolver (default 20).' },
@@ -35,7 +35,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'ver_carteros_operaciones', area: 'operaciones', tipo: 'lectura',
     titulo: 'Carteros del Centro de Operaciones',
-    descripcion: 'El estado de los carteros del Centro de Operaciones, uno por cuenta de Claude: cuándo pasó cada uno por última vez, si está vivo, cuántos chats tiene abiertos y cuáles, y cuántas claves de firma acepta. Sirve para contestar «¿por qué no salió mi pedido?»: si el cartero de esa cuenta no pasa, el pedido espera.',
+    descripcion: 'El estado de los carteros del Centro de Operaciones, uno por cuenta de Claude: cuándo pasó cada uno por última vez, si está vivo, cuántos chats tiene abiertos y cuáles, y cuántas claves de firma acepta. Sirve para contestar «¿por qué no salió mi trabajo?»: si el cartero de esa cuenta no pasa, el trabajo espera.',
     parametros: [],
     salida: 'json', canales: SIN_HTTP, costo: 'gratis', gating: PLATAFORMA,
   },

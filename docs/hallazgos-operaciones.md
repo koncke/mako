@@ -185,6 +185,24 @@ mientras el super admin mira a un cliente (`!ctx.impersonando`), como el Sidebar
 **Vive en:** `app/m/operaciones/` · `app/m/mas/page.tsx` · `lib/movil-rutas.ts` (`rutaMovil`,
 `rutaEscritorio`) · `tests/operaciones.test.ts`
 
+## «Pedido» es la palabra de Martín: lo del Centro se llama «trabajo» (15/10/2026)
+
+**Síntoma.** Martín abrió el Centro en el teléfono y escribió «Me dice que todavía no hay pedidos, cuando
+tenemos muchos». La cola estaba vacía de verdad (el cartero no está instalado). Él leyó «pedidos» como SUS
+pedidos: lo que les pide al coordinador y a los chats.
+
+**Causa.** Un choque de nombres nuestro, no un malentendido suyo, y se iba a poner peor: la sección
+Progreso trae una pestaña «Pedidos» que sí son los suyos. Dos cosas distintas con el mismo nombre en la
+misma pantalla. El vacío, además, no decía la causa real.
+
+**Lo que quedó.** En escritorio, en el teléfono y en el prototipo, lo que el Centro despacha es un
+«trabajo» (como GitHub nombra la corrida, *run*, y no la petición). El vacío dice la causa: sin token,
+«falta crear el token del cartero»; con token, «Todavía no mandaste ningún trabajo a los chats». Las claves
+de la base y de la API no cambiaron, y un test frena «pedido» en los textos de esas pantallas.
+
+**Vive en:** `app/admin/operaciones/CentroOperaciones.tsx` · `app/m/operaciones/` ·
+`lib/api-mako/areas/operaciones.def.ts` (la descripción que lee MaKo) · `tests/operaciones.test.ts`
+
 ## Lo que creí medido y no estaba al día
 
 - **`soloPlataforma` ya existía en el registro de la API** (lo sumó el 2FA obligatorio el 14/10, por

@@ -31,6 +31,7 @@
 //   · su vista importando una acción que escribe → 1 fallo;
 //   · la sección «Super admin» de More sin apagarse mirando a un cliente → 1 fallo;
 //   · /m/operaciones sin su vuelta a /admin/operaciones → 1 fallo. Restaurado de memoria: 12 pases.
+// Y el nombre (15/10/2026): «Pedidos» de vuelta en el título del teléfono → 1 fallo de 13.
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -92,6 +93,18 @@ test('la página también pasa por puedeOperar antes de leer la cola', () => {
   const guarda = src.indexOf('puedeOperar(admin, await wsSuperAdmin())');
   const lectura = src.indexOf('listarPedidos()');
   assert.ok(guarda > 0 && lectura > guarda, 'la guarda va antes de listarPedidos');
+});
+
+// Martín, al abrirlo en el teléfono (15/10/2026): «Me dice que todavía no hay pedidos, cuando tenemos
+// muchos». Para él un «pedido» es lo que ÉL pide; lo que el Centro despacha se llama «trabajo».
+test('en las pantallas del Centro no hay «pedidos»: son trabajos (la palabra es de Martín)', () => {
+  const textos = (src: string) => [...src.matchAll(/'([^'\n]*)'|"([^"\n]*)"|>([^<>{}\n]+)</g)]
+    .map((m) => m[1] ?? m[2] ?? m[3] ?? '');
+  for (const f of ['app/admin/operaciones/CentroOperaciones.tsx', 'app/admin/operaciones/acciones.ts', 'app/admin/operaciones/page.tsx',
+    'app/m/operaciones/CentroMovil.tsx', 'app/m/operaciones/page.tsx']) {
+    const malos = textos(sinComentarios(leer(f))).filter((t) => /\bpedidos?\b/i.test(t));
+    assert.deepEqual(malos, [], `${f}: en la pantalla se dice «trabajo»`);
+  }
 });
 
 test('el Centro en el teléfono: el mismo guard antes de leer, sólo para mirar, y su puerta en More', async () => {
@@ -281,11 +294,14 @@ test('el Centro está en la barra de admin, y su key no se confunde con un regis
 test('el clasificador trae el área con sus palabras, y nunca con «pedido» suelto', async () => {
   const { AREA_KEYWORDS } = await import('../lib/mako-intencion');
   const re = AREA_KEYWORDS.operaciones;
-  for (const si of ['¿cómo van mis pedidos del centro?', '¿pasó el cartero?', 'mostrame el Centro de Operaciones', 'qué hay en la cola de pedidos', 'los pedidos a los chats de Claude']) {
+  // En la pantalla se llaman «trabajos» desde el 15/10/2026 («pedido» es lo que pide Martín): las dos palabras.
+  for (const si of ['¿cómo van mis pedidos del centro?', '¿pasó el cartero?', 'mostrame el Centro de Operaciones', 'qué hay en la cola de pedidos', 'los pedidos a los chats de Claude',
+    'qué hay en la cola de trabajos', 'los trabajos a los chats', '¿cómo van los trabajos del centro?']) {
     assert.match(si, re, si);
   }
   // Un pedido de un CLIENTE del negocio no es esto: con «pedido» suelto, cada consulta de ventas traería el área.
-  for (const no of ['quiero ver los pedidos de Juan', 'el pedido llegó tarde', 'pedidos de la semana', 'cómo va el chat con Ana']) {
+  for (const no of ['quiero ver los pedidos de Juan', 'el pedido llegó tarde', 'pedidos de la semana', 'cómo va el chat con Ana',
+    'los trabajos de la semana', 'el trabajo de Juan']) {
     assert.doesNotMatch(no, re, no);
   }
 });

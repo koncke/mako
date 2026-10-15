@@ -64,8 +64,8 @@ export default async function CentroOperacionesMovil() {
     const carteros: CarteroM[] = estado.carteros.map((k) => ({
       cuenta: k.cuenta, vistoAt: k.vistoAt, version: k.version, chats: k.chats.length,
     }));
-    return <>{cabecera}<CentroMovil pedidos={pedidos} carteros={carteros} ahora={ahora} /></>;
+    return <>{cabecera}<CentroMovil pedidos={pedidos} carteros={carteros} hayToken={estado.tokenPista != null} ahora={ahora} /></>;
   } catch {
-    return <>{cabecera}<ErrorM frase="No pude leer la cola de pedidos." arreglo={{ rotulo: 'Volver a More', href: RUTA_MAS }} /></>;
+    return <>{cabecera}<ErrorM frase="No pude leer la cola de trabajos." arreglo={{ rotulo: 'Volver a More', href: RUTA_MAS }} /></>;
   }
 }

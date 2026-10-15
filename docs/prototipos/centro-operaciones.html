@@ -257,7 +257,7 @@ tr.grupo th span { font-weight: 400; color: var(--dim); }
   <header class="doc-head">
     <p class="eyebrow">Propuesta · 15/10/2026 · para validar</p>
     <h1>Centro de Operaciones</h1>
-    <p class="lead">Rediseño copiando la estructura de GitHub Actions: primero la lista de pedidos, a la izquierda los chats, y crear un pedido es un botón que abre un panel. Los colores, la letra y los íconos son los de MaKo.</p>
+    <p class="lead">Rediseño copiando la estructura de GitHub Actions: primero la lista de trabajos, a la izquierda los chats, y crear un trabajo es un botón que abre un panel. Los colores, la letra y los íconos son los de MaKo.</p>
     <p class="fuente">Fuente: la pestaña Actions de <a href="https://github.com/vercel/next.js/actions" rel="noopener">github.com/vercel/next.js</a> (la lista, un workflow y una corrida), abierta el 15/10. El panel de «Run workflow» sólo se ve con sesión iniciada, así que sale de la guía oficial <a href="https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow" rel="noopener">Manually running a workflow</a>.</p>
   </header>
 
@@ -265,15 +265,15 @@ tr.grupo th span { font-weight: 400; color: var(--dim); }
     <div class="sec-head">
       <div>
         <h2 id="h-desk">En la computadora</h2>
-        <p class="sec-sub">Se puede usar: elegir un chat, abrir «Nuevo pedido», firmar, abrir un pedido, filtrar.</p>
+        <p class="sec-sub">Se puede usar: elegir un chat, abrir «Nuevo trabajo», firmar, abrir un trabajo, filtrar.</p>
       </div>
       <div class="seg" role="group" aria-label="Escenario">
-        <button type="button" data-esc="datos" aria-pressed="true">Con pedidos</button>
+        <button type="button" data-esc="datos" aria-pressed="true">Con trabajos</button>
         <button type="button" data-esc="vacio" aria-pressed="false">Recién instalado</button>
       </div>
     </div>
     <div class="scroll-x"><div class="marco marco--desk" id="mock-desk"></div></div>
-    <p class="ejemplo">Datos de ejemplo. Los chats y los pedidos no son reales.</p>
+    <p class="ejemplo">Datos de ejemplo. Los chats y los trabajos no son reales.</p>
   </section>
 
   <section class="sec" aria-labelledby="h-phone">
@@ -285,7 +285,7 @@ tr.grupo th span { font-weight: 400; color: var(--dim); }
       <div class="sec">
         <div class="sec-head"><div><h2>Qué arregla de la pantalla rechazada</h2></div></div>
         <ul class="arreglos">
-          <li><span class="antes">El cartel ámbar a lo ancho de la página</span><span class="ahora">No hay carteles de página. Lo que falta (un cartero sin señal, un chat cerrado) se dice en la franja del chat, donde se manda el pedido.</span></li>
+          <li><span class="antes">El cartel ámbar a lo ancho de la página</span><span class="ahora">No hay carteles de página. Lo que falta (un cartero sin señal, un chat cerrado) se dice en la franja del chat, donde se manda el trabajo.</span></li>
           <li><span class="antes">El desplegable muerto «Ningún cartero subió chats todavía»</span><span class="ahora">No hay desplegable de chats: el chat se elige a la izquierda, como un workflow. Sin chats, esa columna lo dice y lleva a instalar el cartero.</span></li>
           <li><span class="antes">«Sólo esto» en azul lleno al lado de «Y de ahora en más» en texto</span><span class="ahora">El alcance es un selector («Alcance: Sólo esto»), como la rama en GitHub: una opción, no dos botones de pesos distintos.</span></li>
           <li><span class="antes">El «Firmar y mandar» dorado, gigante y apagado</span><span class="ahora">Un botón normal, azul de la casa, al pie del panel. Siempre activo: si falta el texto, lo dice el campo.</span></li>
@@ -382,7 +382,7 @@ tr.grupo th span { font-weight: 400; color: var(--dim); }
           </tr>
           <tr>
             <td class="tab-nom">Centro de Operaciones<small>/admin/operaciones</small></td>
-            <td>Pedidos firmados a los chats de tu PC.</td>
+            <td>Trabajos firmados a los chats de tu PC.</td>
             <td class="cuando">15/10<small>nueva</small></td>
             <td class="base">—</td>
             <td><span class="ver ver--queda">Se queda</span><span class="porque">Es cómo les mandas trabajo a los chats sin abrirlos. El rediseño está arriba.</span></td>
@@ -511,9 +511,9 @@ tr.grupo th span { font-weight: 400; color: var(--dim); }
     return e === g;
   }
   function chats() { return ESC === 'datos' ? CHATS : []; }
-  function pedidos() { return ESC === 'datos' ? PEDIDOS : []; }
+  function trabajos() { return ESC === 'datos' ? PEDIDOS : []; }
   function chatDe(id) { for (var i = 0; i < CHATS.length; i++) if (CHATS[i].id === id) return CHATS[i]; return null; }
-  function pedidoDe(n) { for (var i = 0; i < PEDIDOS.length; i++) if (PEDIDOS[i].n === n) return PEDIDOS[i]; return null; }
+  function trabajoDe(n) { for (var i = 0; i < PEDIDOS.length; i++) if (PEDIDOS[i].n === n) return PEDIDOS[i]; return null; }
   function hora() { var d = new Date(); function z(x) { return (x < 10 ? '0' : '') + x; } return z(d.getHours()) + ':' + z(d.getMinutes()) + ':' + z(d.getSeconds()); }
   function lineaTiempo(p) {
     if (p.estado === 'escrito') return '<em>En cola</em>';
@@ -528,7 +528,7 @@ tr.grupo th span { font-weight: 400; color: var(--dim); }
   function renderAll() { for (var i = 0; i < mocks.length; i++) mocks[i].render(); }
 
   function crearMock(root, modo, inicial) {
-    var s = { vista: 'lista', chat: null, pedido: null, desde: null, estado: 'todos', cuenta: 0, q: '', panel: false, alcance: 'solo_esto', texto: '', error: '', menu: null, hoja: false, toast: '' };
+    var s = { vista: 'lista', chat: null, trabajo: null, desde: null, estado: 'todos', cuenta: 0, q: '', panel: false, alcance: 'solo_esto', texto: '', error: '', menu: null, hoja: false, toast: '' };
     for (var k in inicial) s[k] = inicial[k];
     var desk = modo === 'desk';
     var tToast = null;
@@ -542,7 +542,7 @@ tr.grupo th span { font-weight: 400; color: var(--dim); }
 
     function lado() {
       var cs = chats();
-      var h = '<button class="nav-it" data-act="todos" aria-current="' + (s.vista === 'lista' && !s.chat) + '">' + ic('home') + '<span class="nav-txt">Todos los pedidos</span></button>';
+      var h = '<button class="nav-it" data-act="todos" aria-current="' + (s.vista === 'lista' && !s.chat) + '">' + ic('home') + '<span class="nav-txt">Todos los trabajos</span></button>';
       h += '<div class="nav-lbl">Chats</div>';
       if (!cs.length) {
         h += '<p class="nav-vacio">Ninguno todavía. <button class="link" data-act="carteros">Instalar un cartero</button></p>';
@@ -585,22 +585,22 @@ tr.grupo th span { font-weight: 400; color: var(--dim); }
       h += '</span>';
       h += p.alcance === 'de_ahora_en_mas' ? '<span class="pill">de ahora en más</span>' : '<span></span>';
       h += '<span class="fila-lado"><span>' + ic('cal') + p.dia + '</span><span>' + ic('reloj') + lineaTiempo(p) + '</span></span>';
-      h += '</button><button class="kebab" data-act="menu" data-v="k' + p.n + '" aria-haspopup="menu" aria-expanded="' + (s.menu === 'k' + p.n) + '" aria-label="Más acciones del pedido ' + p.n + '">' + ic('kebab') + '</button>';
+      h += '</button><button class="kebab" data-act="menu" data-v="k' + p.n + '" aria-haspopup="menu" aria-expanded="' + (s.menu === 'k' + p.n) + '" aria-label="Más acciones del trabajo ' + p.n + '">' + ic('kebab') + '</button>';
       if (s.menu === 'k' + p.n) {
         h += '<div class="menu menu--fila" role="menu"><button role="menuitem" data-act="copiar" data-v="' + p.n + '">' + ic('copiar') + 'Copiar texto</button>';
-        if (p.estado === 'escrito') h += '<button role="menuitem" class="btn--peligro" data-act="cancelar" data-v="' + p.n + '">' + ic('cancelado') + 'Cancelar pedido</button>';
+        if (p.estado === 'escrito') h += '<button role="menuitem" class="btn--peligro" data-act="cancelar" data-v="' + p.n + '">' + ic('cancelado') + 'Cancelar trabajo</button>';
         h += '</div>';
       }
       return h + '</li>';
     }
 
     function panel(chat) {
-      var h = '<div class="pop" role="dialog" aria-label="Nuevo pedido a ' + esc(chat.titulo) + '">';
+      var h = '<div class="pop" role="dialog" aria-label="Nuevo trabajo a ' + esc(chat.titulo) + '">';
       h += '<label class="pop-sel" for="' + modo + '-alcance">Alcance:<select id="' + modo + '-alcance" data-in="alcance">';
       h += '<option value="solo_esto"' + (s.alcance === 'solo_esto' ? ' selected' : '') + '>Sólo esto</option>';
       h += '<option value="de_ahora_en_mas"' + (s.alcance === 'de_ahora_en_mas' ? ' selected' : '') + '>Y de ahora en más</option>';
       h += '</select>' + ic('chev') + '</label>';
-      h += '<label class="pop-lbl" for="' + modo + '-texto">Pedido</label>';
+      h += '<label class="pop-lbl" for="' + modo + '-texto">Trabajo</label>';
       h += '<textarea id="' + modo + '-texto" data-in="texto" placeholder="Qué tiene que hacer el chat"' + (s.error ? ' aria-invalid="true" aria-describedby="' + modo + '-err"' : '') + '>' + esc(s.texto) + '</textarea>';
       if (s.error) h += '<p class="err" id="' + modo + '-err">' + s.error + '</p>';
       h += '<p class="pop-nota">Se firma en este dispositivo y vence en 14 días.</p>';
@@ -610,26 +610,26 @@ tr.grupo th span { font-weight: 400; color: var(--dim); }
 
     function banda(chat) {
       var c = CARTEROS[chat.cuenta], txt, tono;
-      if (!c.vivo) { txt = 'El cartero de la cuenta ' + chat.cuenta + ' no da señal ' + c.visto + ': el pedido espera.'; tono = 'dot--bad'; }
-      else if (!chat.vivo) { txt = 'El chat está cerrado: el pedido sale cuando se abra.'; tono = 'dot--warn'; }
+      if (!c.vivo) { txt = 'El cartero de la cuenta ' + chat.cuenta + ' no da señal ' + c.visto + ': el trabajo espera.'; tono = 'dot--bad'; }
+      else if (!chat.vivo) { txt = 'El chat está cerrado: el trabajo sale cuando se abra.'; tono = 'dot--warn'; }
       else { txt = 'Lo entrega el cartero de la cuenta ' + chat.cuenta + '.'; tono = 'dot--ok'; }
       var h = '<div class="banda"><p><span class="dot ' + tono + '"></span><span>' + txt + '</span></p>';
-      h += '<button class="btn" data-act="panel" aria-expanded="' + s.panel + '">Nuevo pedido' + ic('chev') + '</button>';
+      h += '<button class="btn" data-act="panel" aria-expanded="' + s.panel + '">Nuevo trabajo' + ic('chev') + '</button>';
       if (s.panel) h += panel(chat);
       return h + '</div>';
     }
 
     function lista() {
       var chat = s.chat ? chatDe(s.chat) : null;
-      var todos = pedidos();
+      var todos = trabajos();
       var q = s.q.trim().toLowerCase();
       var ps = todos.filter(function (p) {
         return (!chat || p.chat === chat.id) && enGrupo(s.estado, p.estado) && (!s.cuenta || chatDe(p.chat).cuenta === s.cuenta) && (!q || p.texto.toLowerCase().indexOf(q) >= 0);
       });
-      var h = titulo(chat ? esc(chat.titulo) : 'Todos los pedidos');
-      h += chat ? '<p class="sub">claude' + chat.cuenta + ' · ' + chat.ref + '</p>' : '<p class="sub sub--txt">Pedidos firmados a los chats de Claude de tu PC</p>';
-      h += '<label class="buscar" for="' + modo + '-q"><span class="vh">Buscar pedidos</span><input id="' + modo + '-q" data-in="q" type="search" placeholder="Buscar pedidos" value="' + esc(s.q) + '"><span>' + ic('buscar') + '</span></label>';
-      h += '<div class="caja"><div class="caja-head"><span class="caja-n">' + ps.length + (ps.length === 1 ? ' pedido' : ' pedidos') + '</span>';
+      var h = titulo(chat ? esc(chat.titulo) : 'Todos los trabajos');
+      h += chat ? '<p class="sub">claude' + chat.cuenta + ' · ' + chat.ref + '</p>' : '<p class="sub sub--txt">Trabajos firmados a los chats de Claude de tu PC</p>';
+      h += '<label class="buscar" for="' + modo + '-q"><span class="vh">Buscar trabajos</span><input id="' + modo + '-q" data-in="q" type="search" placeholder="Buscar trabajos" value="' + esc(s.q) + '"><span>' + ic('buscar') + '</span></label>';
+      h += '<div class="caja"><div class="caja-head"><span class="caja-n">' + ps.length + (ps.length === 1 ? ' trabajo' : ' trabajos') + '</span>';
       if (todos.length) {
         if (!chat && desk) {
           h += filtro('cuenta', s.cuenta ? 'Cuenta ' + s.cuenta : 'Cuenta', !!s.cuenta, [[0, 'Todas', !s.cuenta], [1, 'Cuenta 1', s.cuenta === 1], [2, 'Cuenta 2', s.cuenta === 2], [3, 'Cuenta 3', s.cuenta === 3]], 'f-cuenta');
@@ -642,9 +642,9 @@ tr.grupo th span { font-weight: 400; color: var(--dim); }
       if (ps.length) {
         h += '<ul class="filas">' + ps.map(fila).join('') + '</ul>';
       } else if (!todos.length) {
-        h += '<div class="vacio"><strong>Todavía no hay pedidos</strong><span>Cuando un cartero suba tus chats, aparecen ' + (desk ? 'a la izquierda' : 'en la lista de chats') + '.</span><button class="btn" data-act="carteros">' + ic('cartero') + 'Instalar un cartero</button></div>';
+        h += '<div class="vacio"><strong>Todavía no hay trabajos</strong><span>Cuando un cartero suba tus chats, aparecen ' + (desk ? 'a la izquierda' : 'en la lista de chats') + '.</span><button class="btn" data-act="carteros">' + ic('cartero') + 'Instalar un cartero</button></div>';
       } else if (chat && !q && s.estado === 'todos') {
-        h += '<div class="vacio"><strong>Sin pedidos a este chat</strong><span>El primero se manda con «Nuevo pedido».</span></div>';
+        h += '<div class="vacio"><strong>Sin trabajos a este chat</strong><span>El primero se manda con «Nuevo trabajo».</span></div>';
       } else {
         h += '<div class="vacio"><strong>Nada con ese filtro</strong></div>';
       }
@@ -664,16 +664,16 @@ tr.grupo th span { font-weight: 400; color: var(--dim); }
     }
 
     function detalle() {
-      var p = pedidoDe(s.pedido);
+      var p = trabajoDe(s.trabajo);
       if (!p || ESC !== 'datos') { s.vista = 'lista'; return lista(); }
       var c = chatDe(p.chat), tono = TONO[p.estado], pasos = pasosDe(p);
-      var volverA = s.desde ? esc(chatDe(s.desde).titulo) : 'Todos los pedidos';
+      var volverA = s.desde ? esc(chatDe(s.desde).titulo) : 'Todos los trabajos';
       var accion = p.estado === 'escrito'
-        ? '<button class="btn btn--peligro" data-act="cancelar" data-v="' + p.n + '">Cancelar pedido</button>'
+        ? '<button class="btn btn--peligro" data-act="cancelar" data-v="' + p.n + '">Cancelar trabajo</button>'
         : '<button class="btn" data-act="copiar" data-v="' + p.n + '">' + ic('copiar') + 'Copiar texto</button>';
       var h = '<button class="volver" data-act="volver">' + ic('atras') + volverA + '</button>';
       h += '<div class="tit-row">' + (desk ? '' : '<button class="icon-btn icon-btn--suelto" data-act="hoja" aria-label="Chats y carteros">' + ic('lado') + '</button>') + '<h3 class="det-tit"><span class="st t-' + tono + '">' + ic(p.estado) + '</span><span>' + esc(p.texto.split(':')[0].split('.')[0]) + ' <span class="num">#' + p.n + '</span></span></h3>' + (desk ? accion : '') + '</div>';
-      h += '<div class="det"><nav class="det-nav" aria-label="Pedido ' + p.n + '"><button class="nav-it" aria-current="true">' + ic('home') + '<span class="nav-txt">Resumen</span></button><div class="nav-lbl">Recorrido</div>';
+      h += '<div class="det"><nav class="det-nav" aria-label="Trabajo ' + p.n + '"><button class="nav-it" aria-current="true">' + ic('home') + '<span class="nav-txt">Resumen</span></button><div class="nav-lbl">Recorrido</div>';
       pasos.forEach(function (x) { h += '<div class="nav-it' + (x.off ? ' nodo--off' : '') + '"><span class="t-' + TONO[x.st] + '">' + ic(x.st) + '</span><span class="nav-txt">' + x.nom + '</span></div>'; });
       h += '</nav><div class="det-main">';
       h += '<div class="caja"><dl class="resumen">';
@@ -684,7 +684,7 @@ tr.grupo th span { font-weight: 400; color: var(--dim); }
       h += '</dl></div>';
       h += '<div class="caja"><div class="card-head"><strong>Texto firmado</strong><span>clave 3f9a c21e · vence en 14 días</span></div>';
       h += '<pre class="texto">' + esc(p.texto) + '</pre><div class="texto-pie">Alcance: ' + (p.alcance === 'de_ahora_en_mas' ? 'Y de ahora en más' : 'Sólo esto') + '</div>';
-      h += '<div class="camino" aria-label="Recorrido del pedido">';
+      h += '<div class="camino" aria-label="Recorrido del trabajo">';
       pasos.forEach(function (x, i) {
         if (i) h += '<span class="union" aria-hidden="true"></span>';
         h += '<span class="nodo' + (x.off ? ' nodo--off' : '') + '"><span class="t-' + TONO[x.st] + '">' + ic(x.st) + '</span>' + x.nom + '<small>' + (x.t || '—') + '</small></span>';
@@ -697,7 +697,7 @@ tr.grupo th span { font-weight: 400; color: var(--dim); }
     function carteros() {
       var hay = ESC === 'datos';
       var h = titulo('Carteros');
-      h += '<p class="sub sub--txt">Uno por cuenta de Claude. Entregan los pedidos a los chats de esta PC.</p>';
+      h += '<p class="sub sub--txt">Uno por cuenta de Claude. Entregan los trabajos a los chats de esta PC.</p>';
       h += '<div class="caja"><div class="caja-head"><span class="caja-n">' + (hay ? '3 carteros' : '0 carteros') + '</span></div>';
       if (hay) {
         h += '<ul class="filas">';
@@ -705,7 +705,7 @@ tr.grupo th span { font-weight: 400; color: var(--dim); }
           var c = CARTEROS[n];
           h += '<li class="fila"><div class="fila-main fila-main--fija"><span class="st ' + (c.vivo ? 't-good' : 't-bad') + '">' + ic('cartero') + '</span>';
           h += '<span class="fila-body"><span class="fila-tit">Cuenta ' + n + '</span><span class="fila-meta">claude' + n + ' · versión 1.1.0 · ' + c.chats + (c.chats === 1 ? ' chat' : ' chats') + '</span>';
-          if (!c.vivo) h += '<span class="fila-motivo t-bad">Sin señal: sus pedidos esperan</span>';
+          if (!c.vivo) h += '<span class="fila-motivo t-bad">Sin señal: sus trabajos esperan</span>';
           h += '</span><span></span><span class="fila-lado"><span><span class="dot ' + (c.vivo ? 'dot--ok' : 'dot--bad') + '"></span>Visto ' + c.visto + '</span></span></div><span class="kebab-hueco"></span></li>';
         });
         h += '</ul>';
@@ -727,10 +727,10 @@ tr.grupo th span { font-weight: 400; color: var(--dim); }
 
     function render() {
       var h;
-      if (desk) h = '<div class="ce ce--desk"><nav class="ce-lado" aria-label="Pedidos y chats">' + lado() + '</nav><div class="ce-main">' + cuerpo() + '</div></div>';
+      if (desk) h = '<div class="ce ce--desk"><nav class="ce-lado" aria-label="Trabajos y chats">' + lado() + '</nav><div class="ce-main">' + cuerpo() + '</div></div>';
       else {
         h = '<div class="ce ce--phone"><div class="ce-main">' + cuerpo() + '</div></div>';
-        if (s.hoja) h += '<div class="hoja-fondo" data-act="hoja"></div><nav class="hoja ce" aria-label="Pedidos y chats">' + lado() + '</nav>';
+        if (s.hoja) h += '<div class="hoja-fondo" data-act="hoja"></div><nav class="hoja ce" aria-label="Trabajos y chats">' + lado() + '</nav>';
       }
       if (s.toast) h += '<div class="toast" role="status">' + esc(s.toast) + '</div>';
       root.innerHTML = h;
@@ -744,7 +744,7 @@ tr.grupo th span { font-weight: 400; color: var(--dim); }
     function firmar() {
       var chat = chatDe(s.chat), t = s.texto.trim();
       if (!t) {
-        s.error = 'Escribe el pedido.'; render();
+        s.error = 'Escribe el trabajo.'; render();
         var ta = root.querySelector('[data-in="texto"]'); if (ta) ta.focus();
         return;
       }
@@ -754,7 +754,7 @@ tr.grupo th span { font-weight: 400; color: var(--dim); }
       else if (!chat.vivo) p.motivo = 'El chat está cerrado: sale cuando se abra';
       PEDIDOS.unshift(p);
       s.texto = ''; s.error = ''; s.panel = false; s.alcance = 'solo_esto';
-      renderAll(); toast('Pedido #' + p.n + ' firmado');
+      renderAll(); toast('Trabajo #' + p.n + ' firmado');
       if (!p.motivo) {
         setTimeout(function () { if (p.estado !== 'escrito') return; p.estado = 'tomado'; p.t[1] = hora(); renderAll(); }, 1400);
         setTimeout(function () { if (p.estado !== 'tomado') return; p.estado = 'entregado'; p.t[2] = hora(); p.llego = '3 s'; renderAll(); }, 3200);
@@ -770,7 +770,7 @@ tr.grupo th span { font-weight: 400; color: var(--dim); }
         case 'todos': s.vista = 'lista'; s.chat = null; s.panel = false; s.hoja = false; break;
         case 'chat': s.vista = 'lista'; s.chat = v; s.panel = false; s.hoja = false; s.estado = 'todos'; break;
         case 'carteros': s.vista = 'carteros'; s.chat = null; s.panel = false; s.hoja = false; break;
-        case 'abrir': s.desde = s.chat; s.vista = 'detalle'; s.pedido = +v; s.panel = false; break;
+        case 'abrir': s.desde = s.chat; s.vista = 'detalle'; s.trabajo = +v; s.panel = false; break;
         case 'volver': s.vista = 'lista'; s.chat = s.desde; break;
         case 'panel': s.panel = !s.panel; s.error = ''; break;
         case 'menu': s.menu = s.menu === v ? null : v; break;
@@ -779,11 +779,11 @@ tr.grupo th span { font-weight: 400; color: var(--dim); }
         case 'hoja': s.hoja = !s.hoja; break;
         case 'firmar': firmar(); return;
         case 'cancelar': {
-          var p = pedidoDe(+v);
-          if (p && p.estado === 'escrito') { p.estado = 'cancelado'; p.motivo = null; renderAll(); toast('Pedido #' + p.n + ' cancelado'); }
+          var p = trabajoDe(+v);
+          if (p && p.estado === 'escrito') { p.estado = 'cancelado'; p.motivo = null; renderAll(); toast('Trabajo #' + p.n + ' cancelado'); }
           return;
         }
-        case 'copiar': { var q = pedidoDe(+v); copiar(q ? q.texto : '', 'Texto copiado'); return; }
+        case 'copiar': { var q = trabajoDe(+v); copiar(q ? q.texto : '', 'Texto copiado'); return; }
         case 'copiar-cmd': copiar('node scripts/operaciones/cartero.mjs instalar', 'Comando copiado'); return;
         case 'copiar-clave': copiar('3f9a c21e', 'Clave copiada'); return;
         case 'crear-clave': toast('En la app real crea la clave acá'); return;

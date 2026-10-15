@@ -1099,7 +1099,7 @@ export const AREA_KEYWORDS: Readonly<Record<Area, RegExp>> = {
   // nombrarlas desde un cliente no le suma nada (lo saca `gatingOk`). Para Martín sí: «¿cómo van mis pedidos del centro?»,
   // «¿pasó el cartero?». Palabras propias y nunca «pedido» suelto, que en un negocio es un pedido de un cliente.
   // MANDAR un pedido no está en el registro (exige la firma del dispositivo): no hay palabra que lo traiga.
-  operaciones: /\b(centro de operaciones|carteros?\b|cola de pedidos|pedidos? (?:a|al|para|de|del) (?:los |mis |un |el |la )?(?:chats?|centro)\b|chats? de claude)/i,
+  operaciones: /\b(centro de operaciones|carteros?\b|cola de (?:pedidos|trabajos)|(?:pedidos?|trabajos?) (?:a|al|para|de|del) (?:los |mis |un |el |la )?(?:chats?|centro)\b|chats? de claude)/i,
 };
 
 /** Las áreas que nombra un mensaje, en el orden de la tabla. Vacío = ninguna. */

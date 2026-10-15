@@ -1129,6 +1129,10 @@ código nuevo:
   comando para leerla. Un mensaje nuevo sin firma sigue ese molde: de MaKo no viaja ni una palabra.
 - **Una tarjeta de la Ticketera se publica con `destino`** (la sesión que pregunta, `local_…`/`cli_…`):
   `chat` es un nombre y con un nombre no se sabe a quién avisar (lib/decisiones-aviso.ts).
+- **En la pantalla, lo que despacha el Centro es un «trabajo»; «pedido» es lo que pide Martín.** Martín,
+  al abrirlo (15/10/2026): «Me dice que todavía no hay pedidos, cuando tenemos muchos». Las claves
+  (`operaciones_pedidos`, `ver_pedidos_operaciones`) no se renombran; lo que se dibuja, sí. Lo fija
+  tests/operaciones.test.ts.
 
 # Un guard sobre algo destructivo se escribe en POSITIVO
 

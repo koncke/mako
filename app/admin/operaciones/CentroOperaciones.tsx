@@ -103,7 +103,7 @@ export default function CentroOperaciones({ sub, pedidosIniciales, carterosInici
       if (!r.ok) { show({ msg: r.error, tono: 'bad' }); return; }
       setTexto('');
       setAlcance('solo_esto');
-      show({ msg: 'Pedido firmado', tono: 'good' });
+      show({ msg: 'Trabajo firmado', tono: 'good' });
       await refrescar();
     } catch (e) {
       show({ msg: e instanceof Error ? e.message : 'No pude firmar', tono: 'bad' });
@@ -133,7 +133,7 @@ export default function CentroOperaciones({ sub, pedidosIniciales, carterosInici
     <Pagina>
       <PageHeader
         titulo="Centro de Operaciones"
-        proposito="Pedidos firmados para los chats de Claude."
+        proposito="Trabajos firmados para los chats de Claude."
         estado={carteros.length
           ? <span style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>{carteros.map((k) => (
             <Status key={k.cuenta} tono={carteroVivo(k, ahora) ? 'good' : 'warn'}>{cuentaCorta(k.cuenta)} · {hace(k.vistoAt, ahora)}</Status>
@@ -141,7 +141,7 @@ export default function CentroOperaciones({ sub, pedidosIniciales, carterosInici
           : <Status tono="warn">Sin carteros</Status>}
       />
 
-      <Section titulo="Nuevo pedido" card>
+      <Section titulo="Nuevo trabajo" card>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {clave === null && (
             <Banner tono="warn" alcance="local" accion={{ label: 'Crear clave', onClick: nuevaClave }}>
@@ -166,7 +166,7 @@ export default function CentroOperaciones({ sub, pedidosIniciales, carterosInici
             onChange={(e) => setTexto(e.target.value)}
             rows={6}
             placeholder="Qué hay que hacer"
-            aria-label="Pedido"
+            aria-label="Trabajo"
             error={texto.length > MAX_TEXTO}
           />
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', justifyContent: 'space-between' }}>
@@ -186,9 +186,9 @@ export default function CentroOperaciones({ sub, pedidosIniciales, carterosInici
         </div>
       </Section>
 
-      <Section titulo="Pedidos">
+      <Section titulo="Trabajos">
         {pedidos.length === 0
-          ? <EmptyState titulo="Sin pedidos" detalle="El primero se escribe arriba." inline />
+          ? <EmptyState titulo="Todavía no mandaste ningún trabajo a los chats" detalle={estado.tokenPista ? 'El primero se escribe arriba.' : 'Falta el token del cartero: se crea abajo, en Carteros.'} inline />
           : (
             <div style={{ display: 'flex', flexDirection: 'column' }}>
               {pedidos.map((p) => {
