@@ -160,10 +160,11 @@ escribir esa fila:
 
 - quien tenga la `service_role` de Supabase, que vive en las variables de entorno de Vercel;
 - cualquier usuario con `rol: 'admin'`, que no es necesariamente Martín (`lib/auth.ts:87`);
-- un `next dev` local sin `AUTH_SECRET`, que contesta como admin a cualquiera de la red y escribe
-  en la base de producción. Hoy no pasa en ningún checkout, pero puede pasar: ver
-  [hallazgos-seguridad.md](hallazgos-seguridad.md) → «Un `next dev` sin `AUTH_SECRET` es un admin
-  abierto a la red».
+- un `next dev` local que le daba admin con escritura en producción a cualquiera de la red: abierto
+  por `/api/auth/dev-login` en todos los checkouts, y cerrado el 15/10 en `4e2fb425b` (ver
+  [hallazgos-seguridad.md](hallazgos-seguridad.md) → «`next dev` le daba un admin de producción a la
+  red, y la puerta ACTIVA era `dev-login`»). Muestra que esta lista no está cerrada: por eso se firma
+  el pedido y no se confía en quién escribe la fila.
 
 **Si el Centro no puede distinguir un pedido escrito por Martín de uno fabricado por otro, no se
 construye.** Lo que lo distingue:

@@ -1785,6 +1785,13 @@ mandaba a aprobar a Meta la plantilla del negocio).
 
 ## Un `next dev` sin `AUTH_SECRET` es un admin abierto a la red (15/10/2026)
 
+✅ **Cerrado el mismo día en `4e2fb425b`** (chat «Ciberseguridad»): ver «`next dev` le daba un admin de producción a la
+red, y la puerta ACTIVA era `dev-login`». ⚠️ **Y el «hoy no pasa en ningún checkout» de abajo midió la puerta
+equivocada.** Medí el camino que había descrito (la sesión dev sin el secreto) y lo declaré latente; la puerta que estaba
+ABIERTA era otra, `/api/auth/dev-login`, que respondía en todo `next dev` CON el secreto. **Antes de declarar latente un
+agujero, se enumeran TODAS las puertas que dan el mismo acceso, no sólo la que uno encontró.** Los números de línea de
+abajo son de antes del arreglo.
+
 La mitad ya estaba escrita (más arriba: «sin `gateConfigurado()` y fuera de producción, `lib/auth.ts` te devuelve
 admin de ws1 […] la trampa a cerrar antes de darle a MaKo cualquier capacidad de ejecutar sola»), y se la leía como una
 trampa de las PRUEBAS: «probarlo en local no prueba nada». Hay dos piezas más, y juntas cambian de qué se trata:
