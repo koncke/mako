@@ -1200,9 +1200,18 @@ editor, y un crítico que midió lo que faltaba). Las salidas y los scripts qued
 - **Parpadeo** en 5 de 6 corridas: el H1 se pinta VISIBLE (FCP 404-1.048 ms), el script lo pasa a opacidad 0 entre
   25 y 456 ms después, queda invisible 269-380 ms y recién ahí entra con el fade. Causa: `SCRIPT_PAGINA` va al final
   del `<body>` (`pagina-publica.ts:533-544`) y pone `html.gm-anim` cuando la página ya se pintó.
-- Arreglo propuesto (etapa 0, sin decidir todavía): antes de poner `gm-anim`, el script marca como vistas las
-  secciones que ya están en pantalla (la primera nunca se esconde). Va en el SCRIPT, que no queda congelado: llega a
-  todas las publicadas sin republicar. Decide Martín si la primera sección queda quieta o hace el fade sin parpadeo.
+- **Arreglado con la opción A** (rama `landing-parpadeo`; la recomendada, preparada a pedido del orquestador y SIN
+  pushear hasta que Martín conteste A o B): antes de poner `gm-anim`, el script deja `gm-visto` con
+  `animation: none` en línea la primera sección y todo lo que corta la pantalla (ellos, sus bloques y lo marcado con
+  `data-animar` adentro). Va en el SCRIPT, que no queda congelado: llega a todas las publicadas sin republicar.
+  Medido con el mismo arnés (publicada real armada con render.ts + armarDocumento, 390×844, CPU ×4): **el H1 queda en
+  opacidad 1 desde el primer cuadro en 6 de 6 corridas** (antes: 1 → 0 → fade, visible recién a los 1,3-2,7 s) y el
+  **LCP con «Animaciones» prendido da 248-588 ms** (sin animaciones, 256-424; antes, 1.428-3.004). Lo de más abajo sigue
+  animando al entrar. Si Martín elige B (el fade sin parpadeo), es otro arreglo y más frágil: se cambia antes del push.
+- Para volver a medirlo: armar la publicada real con `htmlDePagina(pagina, config, tema, { modo: 'publico' })` +
+  `armarDocumento(...)` de las primeras plantillas, servirla con Playwright (`ctx.route`, red externa cortada), CPU ×4
+  por CDP, y anotar por `requestAnimationFrame` la opacidad de `h1.gm-titulo` × su `.gm-tarjeta` (el parpadeo) y la
+  última entrada `largest-contentful-paint` (el LCP).
 
 ### El video: lo que es y lo que NO conviene copiar
 - La única página del video publicada es Scarlett (`scarlett-recepcionista.vercel.app`, leída en pantalla 29:47-30:30):
@@ -1221,9 +1230,13 @@ editor, y un crítico que midió lo que faltaba). Las salidas y los scripts qued
   prefers-reduced-motion.
 
 ### Las decisiones técnicas que salieron medidas
-- **GSAP queda fuera**: su licencia (gsap.com/community/standard-license, vigente desde 30/04/2025) prohíbe «tools that
-  allow users to build visual animations without code» que compitan con Webflow. Un panel de animaciones en MaKo cae
-  de lleno. (El GSAP propio de una web ajena dentro de la copia fiel no está alcanzado.)
+- **GSAP queda fuera POR LICENCIA** (no por gusto): la «Standard License» de GSAP (gsap.com/community/standard-license,
+  vigente desde el 30/04/2025, modificada el 30/05/2025, leída el 14/10/2026) dice «Prohibited Uses… tools that allow
+  users to build visual animations without code… that competes with Webflow's visual animation building capabilities»
+  y «Competitive Products… enables users to create, edit, or manage animations through a visual interface or builder
+  similar to Webflow». Un panel de animaciones en el Landing Generator cae de lleno, en el editor y en lo publicado.
+  Antes de sumar cualquier librería de animación, leer su licencia con esta pregunta. (El GSAP propio de una web ajena
+  que corre dentro de la copia fiel no está alcanzado: no lo distribuimos nosotros.)
 - **CSS nativo + el script propio con hash**: `animation-timeline` / `view()` / `scroll()` están en Chrome 115 y en
   Safari/iOS 26; Firefox estable (158) no. Sin polyfill: donde no hay soporte, la página queda completa y quieta. La
   publicada sólo corre `'self'` + el hash de `SCRIPT_PAGINA` (`pagina-publica.ts:446-453`): una librería de un CDN
@@ -1273,5 +1286,11 @@ movimiento (cinta, pasos, carrusel con snap, máquina de escribir, contador). 5.
 6. Plantillas con movimiento (perfil para los 9 diseños + 2-3 propias). 7. Replicar las animaciones. 8. Video IA por
 Flow. 9. Presentar: View Transitions y bloque a bloque.
 Sin probar en hardware real: un iPhone con iOS 18 y 26, un Android de gama baja y los navegadores de Instagram y
-Facebook, antes de prender un efecto por defecto. Quedan sin preguntar si MaKo Mobile (`/m/landing/[id]`) muestra las
-animaciones y si el ▶ del editor respeta el «reducir movimiento» de quien edita.
+Facebook, antes de prender un efecto por defecto.
+Las decisiones de Martín están en la Ticketera (refs `landing-anim-parpadeo`, `landing-video-modelo`,
+`landing-anim-panel`, `landing-video-fondo`, `landing-anim-default`, `landing-video-calidad`, `landing-replicar-scroll`).
+Dos chicas las resolvió el orquestador con criterio (14/10, no van al mazo): **MaKo Mobile muestra las animaciones**
+con la misma regla (sólo transform y opacity, nada atado al scroll, apagadas con «reducir movimiento»: si no, habría
+dos landings según el aparato y nadie previsualizaría lo que publica); y **el ▶ del editor reproduce aunque quien
+edita tenga «reducir movimiento»** (es una acción apretada a propósito), pero nada se auto-reproduce al abrir el
+panel: ahí manda la preferencia del sistema, con un renglón que lo diga.
