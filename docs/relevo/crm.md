@@ -23,7 +23,7 @@ código choca; son tres archivos, cada uno con su cura:
   commitea. Resuelto a mano, la lista diría que sale por HTTP algo que no sale (o al revés), y esa guarda existe
   para que exponer una operación sea una decisión y no un descuido.
 `tests/cobranza.test.ts` NO choca aunque b2 y main lo cambiaron: es el mismo cambio línea por línea (el recorte de
-`marcarPago` hasta el próximo export, `af2b73fa1` en main) y git lo junta solo.
+`marcarPago` hasta el próximo export, `b87443e9c` en main) y git lo junta solo.
 
 ## 0-Ω3. 14/10/2026 ~16:30 (chat «CRM», cuenta `claude1`): las dos ALTAS de b2, ARREGLADAS
 
