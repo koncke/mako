@@ -1,0 +1,282 @@
+// =============================================================================
+// Progreso del Centro de Operaciones — las reglas, sin base, sin red y sin React
+// =============================================================================
+// Pedido de Martín (15/10/2026): «quiero que dentro del Centro, construyas una sección de "Progreso"
+// donde se vea lo que estamos trabajando actualmente, mis pedidos y los pushes. Hazlo tipo tabla y
+// que este BIEN diseñado». Y horas después, desde el teléfono: «Sigo sin ver los pendientes».
+//
+// Tres vistas, copiadas de apps que ya resolvieron «en qué anda cada cosa»:
+//   · En curso: los frentes con actividad (la vista de tabla de GitHub Projects, agrupada).
+//   · Pedidos: lo que Martín pidió, y qué salió de cada pedido (el «Activity» de un issue de Linear).
+//   · Pushes: lo que llegó a producción (la lista de deployments de Vercel).
+//
+// ⚠️ LAS FUENTES SON LAS QUE YA EXISTEN, y cada una dice algo distinto:
+//   · Las bitácoras de /admin/dev (`app/admin/dev/<área>/bitacora.ts`) traen los pedidos TEXTUALES y lo
+//     que salió de cada uno. Viajan dentro del build: dicen lo que está DESPLEGADO, nunca lo que está
+//     escrito en la PC sin subir (eso lo sube el cartero, cuando esté instalado).
+//   · La API de Vercel trae cada push a producción con su commit, su estado y cuánto tardó.
+// ⚠️ Un pedido se ve recién cuando un chat lo anota en su bitácora: lo que Martín pidió y nadie anotó
+//    todavía no está, y la pantalla lo dice.
+// ⚠️ SIN `server-only`, a propósito: lo leen el servidor, las pantallas y los tests.
+
+/** Lo mínimo de un hito de bitácora (app/admin/dev/_registro/tipos.ts → Hito). */
+export type HitoP = {
+  fecha: string;
+  hora: string;
+  chat: string;
+  cuenta: string;
+  actor: string;
+  tipo: string;
+  titulo: string;
+  pedido?: string;
+  puntos: string[];
+  commits?: Array<{ sha: string; msg: string }>;
+};
+
+export type AreaP = { slug: string; titulo: string; bitacora: readonly HitoP[] };
+
+const MES: Record<string, number> = { ene: 0, feb: 1, mar: 2, abr: 3, may: 4, jun: 5, jul: 6, ago: 7, sep: 8, oct: 9, nov: 10, dic: 11 };
+/** Las bitácoras anotan la hora de Argentina (UTC-3, sin horario de verano). */
+const DESFASE_AR_MS = 3 * 60 * 60 * 1000;
+
+/**
+ * «15 oct» + «05:01» → el instante (hora de Argentina). La bitácora no escribe el año: es el de `ahora`,
+ * salvo que eso caiga más de un día en el futuro (una entrada de diciembre leída en enero).
+ */
+export function instanteHito(fecha: string, hora: string, ahora: number): number | null {
+  const m = String(fecha ?? '').trim().match(/^(\d{1,2})\s+([a-záéíóú]{3})/i);
+  if (!m) return null;
+  const mes = MES[m[2].toLowerCase()];
+  if (mes == null) return null;
+  const [hh, mm] = String(hora ?? '').split(':').map(Number);
+  const anio = new Date(ahora - DESFASE_AR_MS).getUTCFullYear();
+  const t = (y: number) => Date.UTC(y, mes, Number(m[1]), Number.isFinite(hh) ? hh : 0, Number.isFinite(mm) ? mm : 0) + DESFASE_AR_MS;
+  const este = t(anio);
+  return este > ahora + 86_400_000 ? t(anio - 1) : este;
+}
+
+export const ROTULO_TIPO: Record<string, string> = {
+  prompt: 'Pedido', implementacion: 'Hecho', correccion: 'Corrección', investigacion: 'Investigando', cosecha: 'Cosecha',
+};
+
+/** Las pestañas del Centro, en su orden: las tres de Progreso y la cola firmada. */
+export const PESTANAS_CENTRO = ['curso', 'pedidos', 'pushes', 'trabajos'] as const;
+export type PestanaCentro = (typeof PESTANAS_CENTRO)[number];
+
+// ── En curso ──────────────────────────────────────────────────────────────────────────────────
+export type Frente = {
+  slug: string;
+  area: string;
+  chat: string;
+  /** Lo último que pasó en ese frente. */
+  ultimo: string;
+  tipo: string;
+  instante: number;
+  /** Cuántos hitos tuvo en la ventana. */
+  movimientos: number;
+  /** Pedidos de la ventana que todavía no tienen nada hecho. */
+  pendientes: number;
+};
+
+/** Los frentes con actividad en los últimos `horas`, el más reciente primero. */
+export function frentesEnCurso(areas: readonly AreaP[], ahora: number, horas = 48): Frente[] {
+  const desde = ahora - horas * 3_600_000;
+  const out: Frente[] = [];
+  for (const a of areas) {
+    const conT = a.bitacora.map((h) => ({ h, t: instanteHito(h.fecha, h.hora, ahora) }))
+      .filter((x): x is { h: HitoP; t: number } => x.t != null && x.t >= desde && x.t <= ahora + 60_000);
+    if (!conT.length) continue;
+    const ult = conT.reduce((a2, b) => (b.t >= a2.t ? b : a2));
+    const pendientes = cadenas(a, ahora).filter((c) => c.instante >= desde && c.estado === 'pendiente').length;
+    out.push({
+      slug: a.slug, area: a.titulo, chat: ult.h.chat, ultimo: ult.h.titulo, tipo: ult.h.tipo,
+      instante: ult.t, movimientos: conT.length, pendientes,
+    });
+  }
+  return out.sort((x, y) => y.instante - x.instante);
+}
+
+// ── Pedidos ───────────────────────────────────────────────────────────────────────────────────
+export type EstadoPedidoP = 'pendiente' | 'en_curso' | 'hecho';
+export const ROTULO_PEDIDO: Record<EstadoPedidoP, string> = { pendiente: 'Pendiente', en_curso: 'En curso', hecho: 'Hecho' };
+
+export type PasoP = { instante: number | null; chat: string; tipo: string; titulo: string; commits: Array<{ sha: string; msg: string }> };
+
+export type PedidoP = {
+  /** Estable entre cargas: área + fecha + hora + el principio del texto. */
+  id: string;
+  texto: string;
+  titulo: string;
+  instante: number;
+  /** Dónde lo anotaron. Un mismo pedido puede estar en varias áreas: van todas. */
+  areas: string[];
+  /** El chat que lo tomó (el del primer paso después del pedido), o null si nadie todavía. */
+  tomo: string | null;
+  estado: EstadoPedidoP;
+  pasos: PasoP[];
+  commits: Array<{ sha: string; msg: string }>;
+  /** Cuántos pedidos más se anotaron en la misma tanda: lo que siguió responde a todos juntos. */
+  junto: number;
+};
+
+/** Lo que cierra un pedido: un paso que HIZO algo (la bitácora viaja con el build, así que está subido). */
+const CIERRA = new Set(['implementacion', 'correccion']);
+
+/**
+ * Los pedidos de UN área con lo que salió de cada uno. Un pedido es un hito `prompt`, y su respuesta es lo
+ * que sigue en la bitácora hasta el pedido siguiente (las bitácoras se escriben en orden, «se agrega AL
+ * FINAL»). Con una implementación, una corrección o un commit en esa respuesta está hecho; con pasos que
+ * sólo investigan, en curso; sin nada, pendiente.
+ *
+ * ⚠️ LOS PEDIDOS SE ANOTAN EN TANDA (medido el 15/10/2026): un chat anota los cuatro pedidos de un mensaje
+ * de Martín seguidos y DESPUÉS lo que hizo. Con «lo que sigue hasta el próximo prompt», 72 de los 80
+ * «pendientes» de 14 días tenían el trabajo hecho más abajo, y la pestaña decía 78 pendientes. Los prompts
+ * seguidos son una tanda y comparten la respuesta que viene después de la tanda (`junto` lo dice).
+ */
+export function cadenas(a: AreaP, ahora: number): PedidoP[] {
+  const out: PedidoP[] = [];
+  const b = a.bitacora;
+  for (let ini = 0; ini < b.length; ini++) {
+    if (b[ini].tipo !== 'prompt') continue;
+    let fin = ini;
+    while (fin + 1 < b.length && b[fin + 1].tipo === 'prompt') fin++;
+    const pasos: PasoP[] = [];
+    for (let j = fin + 1; j < b.length && b[j].tipo !== 'prompt'; j++) {
+      const p = b[j];
+      pasos.push({ instante: instanteHito(p.fecha, p.hora, ahora), chat: p.chat, tipo: p.tipo, titulo: p.titulo, commits: (p.commits ?? []).map((c) => ({ sha: c.sha, msg: c.msg })) });
+    }
+    const commits = pasos.flatMap((p) => p.commits);
+    const estado: EstadoPedidoP = commits.length || pasos.some((p) => CIERRA.has(p.tipo)) ? 'hecho' : pasos.length ? 'en_curso' : 'pendiente';
+    for (let i = ini; i <= fin; i++) {
+      const h = b[i];
+      const instante = instanteHito(h.fecha, h.hora, ahora);
+      if (instante == null) continue;
+      const texto = (h.pedido ?? '').trim() || h.titulo;
+      out.push({
+        id: `${a.slug}:${h.fecha}:${h.hora}:${texto.slice(0, 24)}`,
+        texto, titulo: h.titulo, instante, areas: [a.titulo],
+        tomo: pasos[0]?.chat ?? null,
+        estado, pasos, commits, junto: fin - ini,
+      });
+    }
+    ini = fin;
+  }
+  return out;
+}
+
+const normal = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().replace(/\s+/g, ' ').trim();
+
+/**
+ * Los pedidos de los últimos `dias`, de todas las áreas, el más reciente primero. El mismo pedido anotado
+ * en dos bitácoras (un pedido que tocó dos áreas) es UNO: se juntan sus áreas, sus pasos y sus commits, y
+ * vale el estado más avanzado.
+ */
+export function pedidosRecientes(areas: readonly AreaP[], ahora: number, dias = 14): PedidoP[] {
+  const desde = ahora - dias * 86_400_000;
+  const por = new Map<string, PedidoP>();
+  const orden: EstadoPedidoP[] = ['pendiente', 'en_curso', 'hecho'];
+  for (const a of areas) {
+    for (const p of cadenas(a, ahora)) {
+      if (p.instante < desde) continue;
+      const clave = `${normal(p.texto).slice(0, 160)}|${Math.round(p.instante / 3_600_000)}`;
+      const ya = por.get(clave);
+      if (!ya) { por.set(clave, p); continue; }
+      ya.areas = [...new Set([...ya.areas, ...p.areas])];
+      ya.pasos = [...ya.pasos, ...p.pasos];
+      const vistos = new Set(ya.commits.map((c) => c.sha));
+      ya.commits = [...ya.commits, ...p.commits.filter((c) => !vistos.has(c.sha))];
+      if (orden.indexOf(p.estado) > orden.indexOf(ya.estado)) ya.estado = p.estado;
+      ya.tomo = ya.tomo ?? p.tomo;
+      ya.junto = Math.max(ya.junto, p.junto);
+    }
+  }
+  return [...por.values()].sort((x, y) => y.instante - x.instante);
+}
+
+/** Lo que viaja a la pantalla de cada pedido, recortado (son ~300 en 14 días): el texto entero va
+ *  hasta 800 caracteres, y de cada paso, el título y hasta 6 commits. */
+export function recortarPedido(p: PedidoP): PedidoP {
+  const commit = (c: { sha: string; msg: string }) => ({ sha: c.sha, msg: c.msg.slice(0, 140) });
+  return {
+    ...p,
+    texto: p.texto.slice(0, 800),
+    pasos: p.pasos.slice(0, 12).map((s) => ({ ...s, titulo: s.titulo.slice(0, 200), commits: s.commits.slice(0, 6).map(commit) })),
+    commits: p.commits.slice(0, 20).map(commit),
+  };
+}
+
+// ── Pushes ────────────────────────────────────────────────────────────────────────────────────
+export type EstadoPush = 'listo' | 'error' | 'construyendo' | 'en_cola' | 'cancelado';
+export const ROTULO_PUSH: Record<EstadoPush, string> = {
+  listo: 'Listo', error: 'Error', construyendo: 'Construyendo', en_cola: 'En cola', cancelado: 'Cancelado',
+};
+
+export type PushP = {
+  id: string;
+  sha: string | null;
+  /** La primera línea del commit. Un redeploy sin git dice que lo es. */
+  mensaje: string;
+  /** El cuerpo del commit, sin los trailers (lo que el push trae, en palabras del que lo hizo). */
+  cuerpo: string;
+  estado: EstadoPush;
+  creado: number;
+  /** Cuánto tardó el build (de que arrancó a que quedó listo o falló), si se sabe. */
+  duracionMs: number | null;
+  /** El que está sirviendo producción ahora: el más nuevo que quedó listo. */
+  actual: boolean;
+  /** La cuenta de Claude del trailer `Claude-Cuenta`, si el commit lo trae. */
+  cuenta: string | null;
+};
+
+const ESTADO_VERCEL: Record<string, EstadoPush> = {
+  READY: 'listo', ERROR: 'error', BUILDING: 'construyendo', INITIALIZING: 'construyendo', QUEUED: 'en_cola', CANCELED: 'cancelado',
+};
+
+/** Una lista de deployments de producción de Vercel (`/v6/deployments`) → los pushes, el más nuevo primero. */
+export function pushesDeVercel(deployments: readonly Record<string, unknown>[]): PushP[] {
+  const out: PushP[] = deployments.map((d) => {
+    const meta = (d.meta ?? {}) as Record<string, unknown>;
+    const msg = typeof meta.githubCommitMessage === 'string' ? meta.githubCommitMessage.replace(/\r/g, '') : '';
+    const [primera = '', ...resto] = msg.split('\n');
+    const cuerpoLineas = resto.filter((l) => !/^(Claude-Cuenta|Co-Authored-By):/i.test(l.trim()));
+    const cuenta = msg.match(/^Claude-Cuenta:\s*(claude\d{1,2})\s*$/im)?.[1] ?? null;
+    const sha = typeof meta.githubCommitSha === 'string' && /^[0-9a-f]{7,40}$/.test(meta.githubCommitSha) ? meta.githubCommitSha.slice(0, 9) : null;
+    const creado = Number(d.created ?? d.createdAt) || 0;
+    const arranco = Number(d.buildingAt) || creado;
+    const listo = Number(d.ready) || 0;
+    const estado = ESTADO_VERCEL[String(d.state ?? d.readyState ?? '')] ?? 'en_cola';
+    return {
+      id: String(d.uid ?? sha ?? creado),
+      sha,
+      mensaje: primera.trim() || (sha ? sha : 'Redeploy sin datos de git'),
+      cuerpo: cuerpoLineas.join('\n').trim(),
+      estado,
+      creado,
+      duracionMs: listo > arranco && (estado === 'listo' || estado === 'error') ? listo - arranco : null,
+      actual: false,
+      cuenta,
+    };
+  }).sort((a, b) => b.creado - a.creado);
+  const vivo = out.find((p) => p.estado === 'listo');
+  if (vivo) vivo.actual = true;
+  return out;
+}
+
+// ── Formato ───────────────────────────────────────────────────────────────────────────────────
+/** «hace 20 s», «hace 4 min», «hace 2 h», «hace 3 días». */
+export function hace(instante: number | null, ahora: number): string {
+  if (instante == null || !Number.isFinite(instante)) return '—';
+  const s = Math.max(0, Math.round((ahora - instante) / 1000));
+  if (s < 60) return `hace ${s} s`;
+  if (s < 3600) return `hace ${Math.round(s / 60)} min`;
+  if (s < 86_400) return `hace ${Math.round(s / 3600)} h`;
+  const d = Math.round(s / 86_400);
+  return `hace ${d} ${d === 1 ? 'día' : 'días'}`;
+}
+
+/** «4m 56s», «46s». */
+export function duracion(ms: number | null): string {
+  if (ms == null) return '—';
+  const s = Math.round(ms / 1000);
+  return s >= 60 ? `${Math.floor(s / 60)}m ${s % 60}s` : `${s}s`;
+}

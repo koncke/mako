@@ -344,6 +344,9 @@ además del turno. Lo que gobierna a cualquier agente:
   TODA la red con la base de producción detrás: hasta el 15/10/2026, `/api/auth/dev-login` le daba un admin global a
   cualquiera de la misma WiFi. La ruta ya exige que el pedido nombre a la máquina (`devLoginPermitido`), pero un
   `curl` con el Host falseado sólo lo frena el `-H 127.0.0.1`. Se abre con `localhost`, como siempre.
+- ⚠️ **Pero con `-H 127.0.0.1` ninguna pantalla del TELÉFONO anda en local** (`ERR_TOO_MANY_REDIRECTS`: el rewrite
+  a `/m` sale como externo y vuelve a entrar al proxy). Para mirar el teléfono: `npx next dev -H localhost -p <puerto>`,
+  que también escucha sólo en la máquina. Detalle en docs/hallazgos-infra.md (15/10/2026).
 - **Hasta 3 workflows a la vez en la máquina** (eran 2; Martín pidió trabajar más al límite el 12/10/2026). Antes de lanzar uno de muchos agentes, preguntá
   si el trabajo lo necesita — con 7 chats abiertos, el tuyo no es el único.
 

@@ -1,0 +1,227 @@
+/* Progreso del Centro (app/admin/operaciones/Progreso.tsx). La tabla copia la de GitHub Projects y la
+   lista de pushes la de Vercel; los colores son los tokens de la casa. Todo con el prefijo `prog-`: Next
+   deja la hoja cargada al salir de la ruta. */
+
+.prog-nota {
+  margin: 0 0 10px;
+  font-size: var(--fs-sm);
+  color: var(--text-dim);
+}
+
+.prog-vacio {
+  margin: 0;
+  padding: 28px 16px;
+  text-align: center;
+  font-size: var(--fs-sm);
+  color: var(--text-dim);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--r-md);
+}
+
+.prog-caja {
+  overflow: hidden;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-md);
+  background: var(--surface);
+}
+
+.prog-tabla {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: var(--fs-sm);
+}
+
+.prog-tabla th {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
+  font-size: var(--fs-meta);
+  font-weight: 600;
+  color: var(--faint);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.prog-tabla td {
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--border);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: middle;
+  color: var(--ink);
+}
+
+.prog-tabla tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.prog-grupo td {
+  padding: 0;
+  background: var(--surface-2);
+}
+
+.prog-grupo__btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+}
+
+.prog-grupo__btn:hover {
+  background: var(--velo-hover);
+}
+
+.prog-chev {
+  display: inline-block;
+  width: 10px;
+  color: var(--faint);
+  transition: transform 140ms var(--ease-out);
+}
+
+.prog-chev--abierto {
+  transform: rotate(90deg);
+}
+
+.prog-n {
+  padding: 0 7px;
+  border-radius: 999px;
+  background: var(--border);
+  font-size: var(--fs-meta);
+  font-weight: 600;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.prog-fila {
+  cursor: pointer;
+}
+
+.prog-fila:hover td {
+  background: var(--velo-hover);
+}
+
+/* La fila se abre con el teclado: el foco se ve adentro de la fila (un box-shadow en un <tr> no se dibuja). */
+.prog-fila:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
+}
+
+.prog-dot {
+  display: inline-block;
+  flex: none;
+  width: 8px;
+  height: 8px;
+  margin-right: 8px;
+  border-radius: 50%;
+  vertical-align: 1px;
+  background: var(--faint);
+}
+
+.prog-dot--good { background: var(--good); }
+.prog-dot--bad { background: var(--bad); }
+.prog-dot--warn { background: var(--warn-fill, var(--warn)); }
+.prog-dot--info { background: var(--primary); }
+.prog-dot--neutro { background: var(--faint); }
+
+.prog-tipo {
+  font-weight: 600;
+}
+
+.prog-num {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-dim);
+}
+
+.prog-meta {
+  margin-left: 6px;
+  font-size: var(--fs-meta);
+  color: var(--text-dim);
+}
+
+.prog-mono,
+.prog-commit code {
+  font-family: 'Geist Mono', ui-monospace, Consolas, monospace;
+  font-size: var(--fs-meta);
+}
+
+.prog-link {
+  color: var(--primary);
+  text-decoration: none;
+}
+
+.prog-link:hover {
+  text-decoration: underline;
+}
+
+.prog-actual {
+  display: inline-block;
+  margin-right: 8px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--primary);
+  color: var(--on-primary);
+  font-size: var(--fs-meta);
+  font-weight: 600;
+}
+
+.prog-detalle td {
+  padding: 4px 12px 14px 32px;
+  white-space: normal;
+  background: var(--surface);
+  cursor: default;
+}
+
+.prog-actividad {
+  display: grid;
+  gap: 12px;
+  padding-top: 8px;
+  border-left: 2px solid var(--border);
+  padding-left: 14px;
+}
+
+.prog-paso strong {
+  font-weight: 600;
+}
+
+.prog-texto {
+  margin: 4px 0 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: var(--ink);
+}
+
+.prog-commit {
+  margin: 4px 0 0;
+  overflow-wrap: anywhere;
+  color: var(--text-dim);
+}
+
+/* Angosto (una tablet): fuera las columnas que menos dicen, nunca el estado ni el texto. */
+@media (max-width: 900px) {
+  .prog-opc {
+    display: none;
+  }
+}
+
+/* El botón de actualizar del encabezado, con la hora del dato que se ve. */
+.prog-actualizar {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.prog-actualizar .prog-meta {
+  margin-left: 0;
+  white-space: nowrap;
+}

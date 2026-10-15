@@ -18,7 +18,8 @@ const ESTRATEGIA = 'Estrategia 3 cuentas';
 export const PARTES: Parte[] = [
   { titulo: 'La cola con la firma', detalle: 'Escribir un pedido, firmarlo en el dispositivo, que un cartero lo entregue a un chat de Claude y que vuelva su cierre', estado: 'sigue' },
   { titulo: 'Un cartero por cuenta', detalle: 'Las tres cuentas corren a la vez: la app y dos terminales, cada una con su chat Cartero', estado: 'sigue' },
-  { titulo: 'El Centro en el teléfono', detalle: '/admin/operaciones en un celular cae hoy en «se usa en la computadora»', estado: 'cola' },
+  { titulo: 'El Centro en el teléfono', detalle: 'Para mirar, con su botón en More → «Super admin»; mandar sigue siendo de la computadora', estado: 'hecha' },
+  { titulo: 'Progreso', detalle: 'En curso, Pedidos y Pushes desde las bitácoras y Vercel; los chats abiertos y lo sin subir llegan con el cartero', estado: 'sigue' },
   { titulo: 'La cuota de las tres cuentas', detalle: 'Las tres ventanas (5 h, semanal y por modelo), cada una con su fecha', estado: 'cola' },
   { titulo: 'El señalador', detalle: 'Elegir un elemento de la pantalla en vez de mandar una captura', estado: 'cola' },
 ];
@@ -173,6 +174,36 @@ export const BITACORA: Hito[] = [
       'app/m/operaciones/ — la pantalla del teléfono',
       'app/m/mas/page.tsx — la sección «Super admin»',
       'lib/movil-rutas.ts — /admin/operaciones ↔ /m/operaciones',
+    ],
+  },
+  {
+    fecha: '15 oct', hora: '11:24', chat: ESTRATEGIA, cuenta: 'claude1', actor: 'martin', tipo: 'prompt',
+    titulo: 'Progreso: lo que estamos trabajando, mis pedidos y los pushes',
+    pedido: 'Para que sea más fácil de leer, quiero que dentro del Centro, construyas una sección de "Progreso" donde se vea lo que estamos trabajando actualmente, mis pedidos y los pushes. Hazlo tipo tabla y que este BIEN diseñado. Investiga ejemplos y copia.',
+    puntos: ['El coordinador lo pasó con «escritorio y celular en la misma tanda», empezando por En curso y Pushes, y que sirva sin el token del cartero.'],
+  },
+  {
+    fecha: '15 oct', hora: '13:21', chat: ESTRATEGIA, cuenta: 'claude1', actor: 'martin', tipo: 'prompt',
+    titulo: 'Ver los pendientes y poder refrescar',
+    pedido: 'Sigo sin ver los pendientes y poder refrescar en el centro!!! Solucionalo con urgencia por fsvor, muchas veces te lo pedi',
+    puntos: [],
+  },
+  {
+    fecha: '15 oct', hora: '14:08', chat: CH, cuenta: 'claude1', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Progreso en el Centro: En curso, Pedidos y Pushes, en la computadora y en el teléfono',
+    puntos: [
+      'Cuatro pestañas: En curso (qué área se movió y qué le queda), Pedidos (pendiente, en curso, hecho, con lo que salió de cada uno), Pushes (lo que llegó a producción) y Trabajos (la cola firmada de siempre).',
+      'Copiado de la vista de tabla de GitHub Projects, la lista de deployments de Vercel y el «Activity» de un issue de Linear; en el teléfono, la lista de GitHub Actions.',
+      'Sale de las bitácoras y de Vercel, así que anda sin el cartero; lo que está en la PC sin subir llega cuando el cartero se instale.',
+      'Decía 78 pendientes y eran 7: los chats anotan los pedidos en tanda, y ahora la tanda comparte lo que se hizo después.',
+      'Refrescar: tirar hacia abajo en el teléfono, «Actualizar» en la computadora, sin perder la pestaña.',
+    ],
+    archivos: [
+      'lib/progreso-reglas.ts — qué es pendiente, en curso y hecho, y los pushes de Vercel',
+      'lib/progreso.ts — leer las bitácoras y la API de Vercel',
+      'app/admin/operaciones/CentroPestanas.tsx — las pestañas y Actualizar',
+      'app/admin/operaciones/Progreso.tsx — las tablas de la computadora',
+      'app/m/operaciones/ProgresoMovil.tsx — las listas del teléfono',
     ],
   },
 ];

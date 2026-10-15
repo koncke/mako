@@ -25,14 +25,17 @@ import { rutaConWs, wsSuperAdmin } from '@/lib/workspace';
 import { conWs } from '@/lib/ws-tab';
 import { motivoDeEspera, puedeOperar } from '@/lib/operaciones-reglas';
 import { leerCarteros, listarPedidos } from '@/lib/operaciones';
-import { CabeceraM, ErrorM, PantallaM, VacioM } from '@/app/m/_ui';
-import { CentroMovil, type CarteroM, type PedidoM } from './CentroMovil';
+import { areasDeProgreso, leerPushes } from '@/lib/progreso';
+import { PESTANAS_CENTRO, frentesEnCurso, pedidosRecientes, recortarPedido, type PestanaCentro } from '@/lib/progreso-reglas';
+import { CabeceraM, PantallaM, VacioM } from '@/app/m/_ui';
+import type { CarteroM, PedidoM } from './CentroMovil';
+import { CentroMovilPestanas } from './ProgresoMovil';
 
 export const dynamic = 'force-dynamic';
 
 const RUTA = '/m/operaciones';
 
-export default async function CentroOperacionesMovil() {
+export default async function CentroOperacionesMovil({ searchParams }: { searchParams: Promise<{ tab?: string; todos?: string }> }) {
   const admin = await getSesionAdmin();
   if (!admin) redirect(await rutaConWs(HOME_MOVIL));
   const plataforma = await wsSuperAdmin();
@@ -44,28 +47,48 @@ export default async function CentroOperacionesMovil() {
   if (!puedeOperar(admin, plataforma)) {
     return <PantallaM>{cabecera}<VacioM frase="El Centro lo abre el super admin con su segundo factor." /></PantallaM>;
   }
-  try {
-    const [cola, estado] = await Promise.all([listarPedidos(), leerCarteros()]);
-    const ahora = Date.now();
-    const pedidos: PedidoM[] = cola.map((p) => ({
-      id: p.id,
-      creado: p.created_at,
-      texto: p.texto,
-      estado: p.estado,
-      chat: p.destino_titulo,
-      cuenta: p.destino_cuenta,
-      motivo: p.motivo,
-      espera: motivoDeEspera(p, estado.carteros, ahora),
-      tomado: p.tomado_at,
-      entregado: p.entregado_at,
-      cerrado: p.cerrado_at,
-      cierre: p.cierre,
-    }));
-    const carteros: CarteroM[] = estado.carteros.map((k) => ({
-      cuenta: k.cuenta, vistoAt: k.vistoAt, version: k.version, chats: k.chats.length,
-    }));
-    return <PantallaM>{cabecera}<CentroMovil pedidos={pedidos} carteros={carteros} hayToken={estado.tokenPista != null} ahora={ahora} /></PantallaM>;
-  } catch {
-    return <PantallaM>{cabecera}<ErrorM frase="No pude leer la cola de trabajos." arreglo={{ rotulo: 'Volver a More', href: RUTA_MAS }} /></PantallaM>;
-  }
+  const { tab, todos } = await searchParams;
+  const inicial: PestanaCentro = (PESTANAS_CENTRO as readonly string[]).includes(tab ?? '') ? (tab as PestanaCentro) : 'curso';
+  const ahora = Date.now();
+  const areas = areasDeProgreso();
+  // Cada lectura falla sola: Progreso (bitácoras y Vercel) se ve aunque la cola no se pueda leer.
+  const [cola, estado, pushes] = await Promise.all([
+    listarPedidos().catch(() => null),
+    leerCarteros().catch(() => null),
+    leerPushes(),
+  ]);
+  const trabajos: PedidoM[] | null = cola && estado ? cola.map((p) => ({
+    id: p.id,
+    creado: p.created_at,
+    texto: p.texto,
+    estado: p.estado,
+    chat: p.destino_titulo,
+    cuenta: p.destino_cuenta,
+    motivo: p.motivo,
+    espera: motivoDeEspera(p, estado.carteros, ahora),
+    tomado: p.tomado_at,
+    entregado: p.entregado_at,
+    cerrado: p.cerrado_at,
+    cierre: p.cierre,
+  })) : null;
+  const carteros: CarteroM[] | null = estado ? estado.carteros.map((k) => ({
+    cuenta: k.cuenta, vistoAt: k.vistoAt, version: k.version, chats: k.chats.length,
+  })) : null;
+  const verTodos = todos === '1';
+  return (
+    <PantallaM>
+      {cabecera}
+      <CentroMovilPestanas
+        inicial={inicial}
+        frentes={frentesEnCurso(areas, ahora)}
+        pedidos={pedidosRecientes(areas, ahora, verTodos ? 3650 : 14).map(recortarPedido)}
+        pushes={pushes}
+        todos={verTodos}
+        ahora={ahora}
+        cola={trabajos}
+        carteros={carteros}
+        hayToken={estado?.tokenPista != null}
+      />
+    </PantallaM>
+  );
 }

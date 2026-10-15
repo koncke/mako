@@ -1,35 +1,53 @@
-// =============================================================================
-// /admin/operaciones — el Centro de Operaciones (sólo Martín)
-// =============================================================================
-// Pedido de Martín (15/10/2026): «continua y termina el centro de operaciones, es lo que más me
-// interesa ahora». Desde acá se dejan pedidos firmados para los chats de Claude Code de la PC; los
-// entrega el cartero (scripts/operaciones/cartero.mjs). Diseño: docs/diseno-centro-de-operaciones.md.
-//
-// ⚠️ TRES CERROJOS: el proxy cierra /admin/* (SOLO_ADMIN), esta página pide `puedeOperar` (admin
-// global + workspace de la plataforma + segundo factor de verdad), y cada acción vuelve a
-// preguntar. La ruta NO está en PUBLICOS; la que sí está es /api/operaciones/cartero, que es otra
-// puerta, con su token.
-
 import { redirect } from 'next/navigation';
 import { getSesionAdmin } from '@/lib/auth';
 import { wsSuperAdmin } from '@/lib/workspace';
-import { ErrorState, Pagina, PermissionState } from '@/app/_ui';
-import { puedeOperar } from '@/lib/operaciones-reglas';
+import { Pagina, PermissionState } from '@/app/_ui';
+import { carteroVivo, puedeOperar } from '@/lib/operaciones-reglas';
 import { leerCarteros, listarPedidos } from '@/lib/operaciones';
-import CentroOperaciones from './CentroOperaciones';
+import { areasDeProgreso, leerPushes } from '@/lib/progreso';
+import { PESTANAS_CENTRO, frentesEnCurso, pedidosRecientes, recortarPedido, type PestanaCentro } from '@/lib/progreso-reglas';
+import { CentroPestanas } from './CentroPestanas';
+
+// =============================================================================
+// /admin/operaciones — el Centro: En curso · Pedidos · Pushes · Trabajos
+// =============================================================================
+// Las tres primeras son Progreso (lib/progreso.ts): salen de las bitácoras del build y de Vercel, así
+// que tienen datos sin el cartero ni su token. «Trabajos» es la cola firmada que despacha el cartero.
+// ⚠️ La guarda va antes de leer nada (tests/operaciones.test.ts).
 
 export const dynamic = 'force-dynamic';
 
-export default async function OperacionesPage() {
+export default async function OperacionesPage({ searchParams }: { searchParams: Promise<{ tab?: string; todos?: string }> }) {
   const admin = await getSesionAdmin();
   if (!admin) redirect('/inicio');
   if (!puedeOperar(admin, await wsSuperAdmin())) {
     return <Pagina><PermissionState motivo="rol" que="el Centro de Operaciones" /></Pagina>;
   }
-  try {
-    const [pedidos, carteros] = await Promise.all([listarPedidos(), leerCarteros()]);
-    return <CentroOperaciones sub={admin.sub} pedidosIniciales={pedidos} carterosIniciales={carteros} />;
-  } catch (e) {
-    return <Pagina><ErrorState titulo="No pude leer la cola" detalle={e instanceof Error ? e.message : undefined} /></Pagina>;
-  }
+  const { tab, todos } = await searchParams;
+  const inicial: PestanaCentro = (PESTANAS_CENTRO as readonly string[]).includes(tab ?? '') ? (tab as PestanaCentro) : 'curso';
+  const ahora = Date.now();
+  const areas = areasDeProgreso();
+  // Cada lectura falla sola: si la cola no se puede leer, Progreso se ve igual (y al revés).
+  const [cola, carteros, pushes] = await Promise.all([
+    listarPedidos().catch(() => null),
+    leerCarteros().catch(() => null),
+    leerPushes(),
+  ]);
+  const verTodos = todos === '1';
+  return (
+    <Pagina>
+      <CentroPestanas
+        inicial={inicial}
+        frentes={frentesEnCurso(areas, ahora)}
+        pedidos={pedidosRecientes(areas, ahora, verTodos ? 3650 : 14).map(recortarPedido)}
+        pushes={pushes}
+        todos={verTodos}
+        hayCartero={!!carteros?.carteros.some((k) => carteroVivo(k, ahora))}
+        ahora={ahora}
+        sub={admin.sub}
+        cola={cola}
+        carteros={carteros}
+      />
+    </Pagina>
+  );
 }

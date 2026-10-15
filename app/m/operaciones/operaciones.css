@@ -56,3 +56,57 @@
   color: var(--ink);
   overflow-wrap: anywhere;
 }
+
+/* Progreso en el teléfono (ProgresoMovil.tsx). */
+/* Cuatro pestañas y el número de pendientes no entran en cuartos iguales a 390 px («Pedi…»): cada una
+   toma lo que ocupa su texto. En una pantalla más angosta vuelve la elipsis del segmentado. */
+.m-operaciones-seg .m-seg {
+  grid-auto-columns: auto;
+}
+
+[data-m] .m-operaciones-hace {
+  font-size: var(--fs-meta);
+  color: var(--faint);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+[data-m] .m-operaciones-nota {
+  margin: 8px 4px 0;
+  font-size: var(--fs-meta);
+  color: var(--faint);
+}
+
+.m-operaciones-pasos {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0 0 0 14px;
+  border-left: 2px solid var(--border);
+  list-style: none;
+}
+
+.m-operaciones-pasos li {
+  display: grid;
+  gap: 3px;
+  font-size: var(--fs-md);
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
+.m-operaciones-paso-quien {
+  font-size: var(--fs-meta);
+  color: var(--faint);
+}
+
+.m-operaciones-commit {
+  font-family: 'Geist Mono', ui-monospace, Consolas, monospace;
+  font-size: var(--fs-meta);
+  color: var(--dim);
+  overflow-wrap: anywhere;
+}
+
+[data-m] .m-operaciones-cuerpo {
+  font-size: var(--fs-sm);
+  color: var(--dim);
+}

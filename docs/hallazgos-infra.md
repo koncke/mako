@@ -21,6 +21,7 @@ habilita a darle mejores prompts al otro Claude».
 - Hay features **terminadas, con migración y API propias, que ninguna página monta**: compilan y no existen → [Código construido que ninguna página monta](#código-construido-que-ninguna-página-monta).
 - Si Claude Code «se cierra solo» y la PC sigue andando, es el **proceso GPU** muriendo por la gráfica híbrida — y los tres diagnósticos obvios (memoria, energía, drivers) estaban los tres equivocados → [El equipo](#el-equipo-cuando-se-cierra-claude-code-y-no-es-claude-code).
 - El repo es **CRLF**: un reemplazo por bloque buscó `'\n];\n'`, no matcheó, se fue 700 líneas más abajo y **borró 76 KB con exit 0** → [Editar este repo](#editar-este-repo-archivos-grandes-saltos-de-línea-y-nombres).
+- Con **`npm run dev` (`-H 127.0.0.1`) toda pantalla del TELÉFONO da `ERR_TOO_MANY_REDIRECTS`** en local: el rewrite a `/m` sale como externo y vuelve a entrar al proxy. Con `-H localhost`, 200 → [Tests y entorno local](#️-con-npm-run-dev--h-127001-ninguna-pantalla-del-teléfono-se-puede-mirar-en-local-15102026).
 - Verificar contra **`127.0.0.1` en vez de `localhost`** deja la página entera y sin hidratar, sin un solo error en el navegador — y las dos explicaciones que uno tiene a mano («rompí yo», «lo rompió la otra sesión») parecen confirmarse → [Tests y entorno local](#️-127001-no-es-localhost-para-el-dev-server-la-página-se-ve-entera-y-no-hidrata).
 
 ⚠️ **Buena parte de lo que sigue es material de segunda mano.** Se rescató de los journals
@@ -2676,6 +2677,40 @@ Eso permitió verificar clicks, navegación y estado de React sin depender del p
 **Vive en:** cualquier verificación con `mcp__Claude_Browser__*` o Playwright contra
 `next dev` (corrida del 2026-08-12)
 
+### ⚠️ Con `npm run dev` (`-H 127.0.0.1`) NINGUNA pantalla del teléfono se puede mirar en local (15/10/2026)
+
+**Síntoma.** Con un user-agent de iPhone, cualquier pantalla con sesión (`/general`, `/admin/operaciones`)
+da `ERR_TOO_MANY_REDIRECTS` en el navegador. Con `curl`, un **307 a la MISMA URL**:
+`location: /admin/operaciones` pidiendo `/admin/operaciones`. En la computadora, la misma pantalla da 200.
+
+**El diagnóstico obvio era el equivocado.** Parecía el código nuevo (la pantalla del teléfono se acababa
+de reescribir) o la cuenta de prueba (el bucle del admin sin cliente de hallazgos-mobile.md). No era
+ninguno: `/general`, que nadie había tocado, hacía lo mismo. Y abrir la página por `localhost` en vez de
+`127.0.0.1` (la regla de la sección de arriba) **tampoco lo arregla**.
+
+**Causa.** El header lo dice: `x-middleware-rewrite: http://localhost:3317/m/operaciones`. El proxy
+reescribe al árbol `/m` con `new URL(destino, req.url)`, y en desarrollo `req.url` viene con
+`localhost`; con el server atado a `127.0.0.1`, Next trata ese rewrite como EXTERNO y lo pide de nuevo
+por HTTP. Ese pedido nuevo entra al proxy como `/m/operaciones`, y una URL `/m` se redirige a la de
+escritorio (`pedidoMovil`, lib/movil-desvio.ts): vuelta al principio. Con `next dev -H localhost` el
+mismo pedido contesta `x-middleware-rewrite: /m/operaciones` (relativo, interno) y **200**. En producción
+no pasa: el host del pedido y el del rewrite son el mismo.
+
+**Regla.** Para mirar el teléfono en local: `npx next dev -H localhost -p <puerto>`, y se abre con
+`localhost`. También escucha sólo en la máquina (`localhost` resuelve a loopback; no lo medí con
+`Get-NetTCPConnection`), así que no reabre el agujero de `dev-login` que cerró el `-H 127.0.0.1` de
+`npm run dev`. Cambiar el script `dev` es decisión del dueño de esa regla (AGENTS.md, «La guardia de RAM»).
+
+**Y dos trampas más de la misma verificación:**
+- **`TaskStop` sobre el `npx next dev` en segundo plano NO mata al server**: el `node` hijo siguió
+  escuchando el puerto, y el siguiente arranque murió con «Another next dev server is already running».
+  Se mata el árbol por `ParentProcessId` con `Stop-Process`, y se confirma con `Get-NetTCPConnection`.
+- **`root: 'C:/'` en la raíz de Turbopack no sirve para un worktree en `C:\dev`**: muere con
+  `Symlink [project]/node_modules is in a symlink loop`, porque **`C:\node_modules` es un symlink a sí
+  mismo** (existe desde el 30/08). No se toca: es de la máquina.
+
+**Vive en:** `proxy.ts` (`seguirOMovil`) · `lib/movil-desvio.ts` (`pedidoMovil`) · `package.json` (`dev`)
+
 ### ⚠️ El dev server puede quedarse mostrando un error de sintaxis que YA NO EXISTE
 
 **Síntoma:** toda la app tira 500 y el mensaje es un `Expected '}', got '<eof>'` en
@@ -2888,6 +2923,14 @@ variable quedó sin aislar**, y se dice así en vez de inventar la causa).
 La receta, entonces: worktree a una **ruta corta** (`C:\Users\marti\wt-<area>`), `ln -s`
 al `node_modules` del clon, `npx next dev -p <puerto>`. Y el guard de Next sigue siendo por
 DIRECTORIO, así que en el clon compartido `-p` no destraba nada.
+
+⚠️ **La variable sin aislar, aislada a medias (15/10/2026): el `ln -s` de Git Bash COPIA.** Sin
+`MSYS=winsymlinks:…`, `ln -s <clon>/node_modules node_modules` no crea un link: copia la carpeta
+entera (medido en `C:\Users\marti\wt-centro`: `drwxr-xr-x`, las 573 entradas del clon, unos dos
+minutos). Con ESA copia `next dev` anduvo a la primera. En cambio `C:\dev\mako-centro`, con un symlink
+de verdad (`lrwxrwxrwx`), murió con «points out of the filesystem root». O sea que lo más probable es
+que la receta ande porque `node_modules` no es un link. Si alguien la vuelve a tocar: un link de verdad
+no sirve; o la copia, o la raíz de Turbopack en una carpeta que contenga a los dos.
 
 ⚠️ **Y antes de armar nada, medí los puertos: «vivo» y «contesta» cambian en minutos.** La
 misma noche, `:3010` contestaba 500 en todo a las 05:0xZ; `:3011` contestaba

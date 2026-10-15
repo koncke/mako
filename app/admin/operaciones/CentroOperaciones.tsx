@@ -41,7 +41,9 @@ const hace = (iso: string | null, ahora: number): string => {
 
 const cuentaCorta = (c: string | null) => (c ? `Cuenta ${c.replace('claude', '')}` : 'Cuenta ?');
 
-export default function CentroOperaciones({ sub, pedidosIniciales, carterosIniciales }: {
+export default function CentroOperaciones({ sub, pedidosIniciales, carterosIniciales, embebido = false }: {
+  /** Dentro de la pestaña «Trabajos» del Centro: sin su propia página ni su encabezado. */
+  embebido?: boolean;
   sub: string;
   pedidosIniciales: Pedido[];
   carterosIniciales: EstadoCarteros;
@@ -129,17 +131,19 @@ export default function CentroOperaciones({ sub, pedidosIniciales, carterosInici
 
   const copiar = (s: string, msg: string) => { navigator.clipboard?.writeText(s).then(() => show({ msg, tono: 'good' })); };
 
-  return (
-    <Pagina>
-      <PageHeader
-        titulo="Centro de Operaciones"
-        proposito="Trabajos firmados para los chats de Claude."
-        estado={carteros.length
-          ? <span style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>{carteros.map((k) => (
-            <Status key={k.cuenta} tono={carteroVivo(k, ahora) ? 'good' : 'warn'}>{cuentaCorta(k.cuenta)} · {hace(k.vistoAt, ahora)}</Status>
-          ))}</span>
-          : <Status tono="warn">Sin carteros</Status>}
-      />
+  const contenido = (
+    <>
+      {!embebido && (
+        <PageHeader
+          titulo="Centro de Operaciones"
+          proposito="Trabajos firmados para los chats de Claude."
+          estado={carteros.length
+            ? <span style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>{carteros.map((k) => (
+              <Status key={k.cuenta} tono={carteroVivo(k, ahora) ? 'good' : 'warn'}>{cuentaCorta(k.cuenta)} · {hace(k.vistoAt, ahora)}</Status>
+            ))}</span>
+            : <Status tono="warn">Sin carteros</Status>}
+        />
+      )}
 
       <Section titulo="Nuevo trabajo" card>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -254,6 +258,7 @@ export default function CentroOperaciones({ sub, pedidosIniciales, carterosInici
       </Section>
 
       <Toast state={toast} onClose={ocultar} />
-    </Pagina>
+    </>
   );
+  return embebido ? contenido : <Pagina>{contenido}</Pagina>;
 }

@@ -203,6 +203,52 @@ de la base y de la API no cambiaron, y un test frena «pedido» en los textos de
 **Vive en:** `app/admin/operaciones/CentroOperaciones.tsx` · `app/m/operaciones/` ·
 `lib/api-mako/areas/operaciones.def.ts` (la descripción que lee MaKo) · `tests/operaciones.test.ts`
 
+## Progreso: «78 pendientes» que eran 7, y lo que la pantalla no puede ver (15/10/2026)
+
+Martín, desde el teléfono: «Sigo sin ver los pendientes y poder refrescar en el centro». El Centro pasó a
+tener cuatro pestañas (En curso · Pedidos · Pushes · Trabajos) en la computadora y en el teléfono, y las
+tres de Progreso **no dependen del cartero ni de su token**: salen de lo que ya existe.
+
+**De dónde sale cada una, y qué NO puede ver.**
+- **En curso y Pedidos** salen de las bitácoras de `/admin/dev` (`app/admin/dev/<área>/bitacora.ts`), que
+  viajan dentro del build. Dicen lo DESPLEGADO: lo que un chat tiene escrito en la PC sin subir, y los
+  chats abiertos ahora, no están. Eso lo va a traer el cartero cuando esté instalado; la pantalla lo dice.
+- **Un pedido aparece recién cuando un chat lo anota** en su bitácora. Lo que Martín pidió y nadie anotó
+  no existe para la pantalla.
+- **Pushes** sale de la API de Vercel (`/v6/deployments`, `VERCEL_API_TOKEN`, que ya estaba en
+  producción): el commit, el estado, cuánto tardó y la cuenta del trailer `Claude-Cuenta`.
+- **No hay lista de commits por push**: el token de GitHub de la plataforma (la credencial `GITHUB_TOKEN`
+  del ws 9, usuario `mbustos-digital`) contesta **404** en `hola-mako/dashboard-marketing` y también en
+  `mbustos-digital/dashboard-marketing` desde la transferencia del repo. Medido el 15/10. **Sin medir:**
+  `lib/cerrar-por-commits.ts` y `lib/github-commits.ts` usan ese token, y es probable que el cierre de
+  tareas del Plan por commits esté mudo desde ese día.
+
+**La trampa: el diagnóstico obvio de «pendiente» estaba mal.** La primera regla era la natural, «la
+respuesta de un pedido es lo que le sigue en la bitácora hasta el pedido siguiente», y la pestaña decía
+**78 pendientes**. Medido sobre las bitácoras reales: de 80 pedidos «pendientes» en 14 días, **72 tenían
+trabajo hecho más abajo en su misma área** y **77 venían seguidos de otro pedido**. Los chats anotan en
+TANDA: los cuatro pedidos de un mensaje de Martín, uno detrás del otro, y después lo que hicieron. Con la
+regla natural, sólo el último de la tanda recibía la respuesta. Y la segunda mitad del mismo error: una
+implementación anotada sin `commits` no cerraba nada, y la mayoría no los anota.
+
+La regla que quedó (`cadenas` en `lib/progreso-reglas.ts`): los pedidos seguidos son una tanda y comparten
+la respuesta que viene después; una implementación o una corrección cierran aunque no traigan commit. Con
+eso, **7 pendientes, 11 en curso, 268 hechos**. El detalle de cada pedido dice «Anotado junto con N
+pedidos más: lo que sigue responde a todos», porque a cuál de la tanda responde cada paso la bitácora no
+lo dice. Lo fija `tests/progreso.test.ts`, probado rompiéndolo (sin juntar la tanda: 6 pasan, 1 falla;
+sin la implementación como cierre: 6 y 1).
+
+**Lo que todavía puede mentir:** un pedido cuyo trabajo se anotó en OTRA área queda pendiente (el de las
+«estrellas de GitHub», anotado en API de MaKo, figura pendiente con las Estrellas en producción desde el
+14/10). Se juntan áreas sólo cuando el MISMO texto se anotó en las dos a la misma hora.
+
+**Refrescar:** en el teléfono, tirar hacia abajo (la pantalla está dentro de `PantallaM`); en la
+computadora, «Actualizar» en el encabezado, con la hora del dato, sin perder la pestaña (`router.refresh`).
+
+**Vive en:** `lib/progreso-reglas.ts` (las reglas, puras) · `lib/progreso.ts` (las lecturas) ·
+`app/admin/operaciones/{CentroPestanas,Progreso}.tsx` · `app/m/operaciones/ProgresoMovil.tsx` ·
+`tests/progreso.test.ts`
+
 ## Lo que creí medido y no estaba al día
 
 - **`soloPlataforma` ya existía en el registro de la API** (lo sumó el 2FA obligatorio el 14/10, por
@@ -219,9 +265,13 @@ de la base y de la API no cambiaron, y un test frena «pedido» en los textos de
   necesitan la clave del dispositivo.
 - **La Ticketera no muestra si el aviso llegó**: el dato está (`aviso_estado`), la pantalla no lo dibuja.
 - **Fase 2 del aviso**: firmar la respuesta al contestar, para que el aviso la lleve adentro.
-- **Implementar el rediseño** de `docs/prototipos/centro-operaciones.html` en
-  `app/admin/operaciones/CentroOperaciones.tsx`: espera la validación de Martín (15/10). La lógica de
-  firma, las acciones y el cartero no cambian; cambia la pantalla.
+- **Implementar el rediseño** de `docs/prototipos/centro-operaciones.html` en la pestaña Trabajos
+  (`app/admin/operaciones/CentroOperaciones.tsx`): APROBADO el 15/10, sin hacer. La lógica de firma, las
+  acciones y el cartero no cambian; cambia la pantalla.
+- **Progreso con lo que está en la PC**: los chats abiertos y lo escrito sin subir llegan con el cartero
+  (sube sus chats en cada vuelta); hoy En curso y Pedidos sólo ven lo desplegado.
+- **El token de GitHub de la plataforma (404 desde la transferencia)**: sin él no hay commits por push, y
+  hay que medir si el cierre por commits del Plan (`lib/cerrar-por-commits.ts`) está mudo.
 - **Instalar el cartero de verdad** (`instalar`, el token, las claves, `cartero claude1 app ~/.claude`
   y las carpetas) y abrir el chat «Cartero» con su cron: va después del deploy, contra producción.
 - **Las cuentas de terminal**: el `/login` de cada una (lo hace Martín), su marcador por directorio y
