@@ -6012,6 +6012,12 @@ terminan con 2 GB. Y **un verde de un tsc se prueba rompiéndolo como un test**:
 la corrida tiene que salir con 2 y el error impreso. Una salida 1 sin una línea es el vigía, no un
 resultado (ver «El typecheck que "salía con 1 sin errores"»).
 
+⚠️ **Y en un worktree NUEVO `next-env.d.ts` no existe**: está gitignorado, lo genera Next. Sin él no entran los tipos de
+`styled-jsx`, y todo `<style jsx>` que el acotado alcance por los imports da un TS2322 falso («Property 'jsx' does not
+exist»; medido con `app/conocimientos/Compartir.tsx`, que llega desde el Dashboard). Se copia del clon y se suma a `files`.
+Y la lista de la rama sale contra el merge-base (`git diff --name-only --diff-filter=d $(git merge-base HEAD origin/main)`):
+contra `origin/main` entran los archivos que otro agregó después y el tsc contesta «File not found».
+
 **Vive en:** el tsconfig temporal de cada chat (scratchpad) · la memoria `pc-techo-ram-chrome`, que
 enseñaba la receta sin el `include` · *2026-10-14 Plan - Perro Guardián*
 

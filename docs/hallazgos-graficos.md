@@ -638,7 +638,59 @@ para dashboard» y «Cuando clickeo en MaKo en la sidebar, me redirecciona a gen
 `tests/dashboard-archivadas.test.ts` · `tests/barra-clic-operate.test.ts`.
 *14/10/2026, claude2.*
 
+## Rediseño por tipo con capturas (14/10/2026), mitad General
+
+**El pedido** (Martín, 14/10, 14:34): «Dale este mismo feedback al dashboard... Que rediseñe bloque por bloque y que tenga
+en cuenta mobile. Que vaya viendo con datos ficticios o con algun dato de algun workspace que todo se vea bien en diseño.
+Tanto bloques como las plantillas.» Lo hicieron dos chats en paralelo, repartidos por ARCHIVO para no editar nunca el mismo:
+Dashboard, todo lo que dibuja `app/dashboard/Grafico.tsx`; General, los tipos con archivo propio en `app/dashboard/graficos/`
+(tabla, tarjetas, dispersión, barra de proporción, tramos, paneles, barras gordas), los mapas y las 13 plantillas. Para eso
+el CSS de esos tipos se mudó, sin cambiar una regla, a `graficos/estilos-html.ts`, que `estilos.tsx` incluye con
+`${CSS_HTML}` adentro de su MISMO template literal (el minificador no se come nada). La tabla comparte `.gr-tabla` con las
+dinámicas de Grafico.tsx: lo que cambia ahí lo ven las dos.
+
+**Cómo se miró:** el arnés de Dashboard (`C:/Users/marti/arnes-dashboard/`: esbuild empaqueta los componentes REALES con
+stubs y Chromium los fotografía, porque recharts mide con ResizeObserver y no sale en un render estático), cada caso en
+escritorio, angosto y celular (364 px), con `resultadoDeMuestra`. Para las plantillas, una página aparte que dibuja cada una
+ENTERA: el escritorio con `MiniaturaHoja` en un contenedor de 1180 px (escala 1) y la pila del celular. ⚠️ Dos chats no
+comparten la carpeta del arnés: `build.mjs` escribe `bundle.js` y `raiz.txt`, y el último build gana. Cada uno, su copia.
+
+**Lo que no se ve leyendo el código:**
+
+- **Un `@container` no estila al mismo elemento que declara `container-type`**: la consulta mira al ANCESTRO. `.gr-paneles`
+  y `.gr-tramos` declaraban el container y sus `@container` los cambiaban a ellos mismos, así que nunca aplicaba: en el
+  celular los paneles seguían en dos columnas y los tramos quedaban en fila con el adentro de un renglón. El container va en
+  un envoltorio (`.gr-paneles-caja`, `.gr-tramos-caja`, `.gr-barras-caja`). Estilar a los HIJOS sí anda (la tabla lo hacía
+  bien), por eso el bug no se ve leyendo el CSS.
+- **`justify-content: center` en una columna que puede desbordar esconde lo de arriba.** Con más filas de las que entran, las
+  primeras quedan fuera del scroll; y en una tarjeta de alto fijo (la barra de proporción en el celular) lo que sobra SUBE
+  encima del título de la tarjeta. Va `margin-top: auto` en el primer hijo y `margin-bottom: auto` en el último: centra si
+  entra y, si no, corta abajo.
+- **Correr el dominio de un eje numérico a mano apaga el redondeo de recharts.** Abrir las puntas para que una burbuja no se
+  cortara dio marcas «14%, 19%, 24%, 29%, 32%» y «2,6 · 6,6 · 9,1». Las marcas se calculan (`ejeLindo`, paso de 1, 2, 2,5 o 5
+  por una potencia de 10) y viajan en `ticks`; un eje fijo (`g.ejes`) manda igual que antes.
+- **Un mapa de ciudades no se ubica por los nombres.** El país se adivinaba contra el índice de REGIONES, y «Guadalajara» no
+  es una región: todo mapa de ciudades preguntaba «¿De qué país es el mapa?» con las coordenadas en la mano. Se ubica por
+  dónde caen los puntos (`geoContains` sobre `paises.json`). Y el encuadre deja de borde el radio de la burbuja más grande
+  (Tijuana, en la esquina de México, quedaba cortada).
+- **Una cabecera de tabla en un renglón se corta siempre** con 7-9 métricas («Tasa de ci…», «Madurez del m…»). Va en dos,
+  con un `span` (`.gr-th`): `line-clamp` sobre el `th` mismo rompe la tabla.
+- **En el celular, la barra de una «Tabla con barras» no baja de 140 px**: con las medidas de escritorio, a 364 px el nombre
+  quedaba en «Campaña …»; con 96, la barra era un punto al lado de su número.
+- **Una métrica sin nombre al lado de su barra no dice de qué es**: las tarjetas mostraban «US$395» y una barra, y las otras
+  métricas sí tenían rótulo. La principal lleva su nombre arriba y el número en grande.
+
+**Vive en:** `app/dashboard/graficos/` (`estilos-html.ts`, `Tabla.tsx`, `Tarjetas.tsx`, `Dispersion.tsx`, `eje-lindo.ts`,
+`Tramos.tsx`, `Paneles.tsx`, `BarrasGordas.tsx`) · `app/dashboard/MapaGeo.tsx` · `tests/graficos-eje-lindo.test.ts`.
+*14/10/2026, claude1, chat General.*
+
 ## Lo que quedó sin hacer
+
+- **Rediseño por tipo, mitad General (14/10/2026):** la etiqueta del último punto de un panel (`graficos/Etiquetas.tsx`) pisa
+  un poco el final de su línea; las tarjetas con pocas filas dejan media tarjeta vacía en las plantillas de Marketing y Ads
+  (12×12 y 12×16: con 10-50 anuncios reales se llenan); y el mapa por país es una franja en una tarjeta alta (Equal Earth es
+  ancho y no se recorta al continente de los datos). Y un gráfico mapa con dimensión «país» o «ciudad» y sin `g.mapa` cae a
+  nivel «región» en Grafico.tsx (`g.mapa?.nivel ?? 'region'`) y pregunta el país: se le pidió a Dashboard.
 
 - **Las miniaturas de «¿Qué vas a crear hoy?» muestran datos de EJEMPLO** (lib/graficos-muestra.ts), no los del negocio:
   medir todas al abrir serían ~150 gráficos. Si se quisiera el número real, pedirlo sólo para la miniatura que se VE
