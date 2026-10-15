@@ -61,7 +61,11 @@ Link fijo para el mail: `/perfil/seguridad#dispositivos`.
   automatización es de SuperAdmin). Datos atómicos: `ingreso_usuario_id`, `ingreso_negocio_id`, `ingreso_at` (ISO; la
   hora la formatea el resolver en la zona del negocio), `ingreso_dispositivo` («Chrome en Windows»), `ingreso_ubicacion`
   (sólo si §5.1 = A; ausente si no se sabe, nunca vacía) e `ingreso_dispositivo_id` (el id del equipo, para el dedup
-  `ingreso:<uid>:<equipo>`; no es citable).
+  `ingreso:<uid>:<equipo>`; no es citable). **Las variables del «{ }»** (acordadas con Automations, su
+  `docs/diseno-2fa-obligatorio.md` §8): citables `ingreso_dispositivo` («Dispositivo»), `ingreso_at` («Cuándo entró»,
+  lo formatea Automations en la hora del negocio) e `ingreso_ubicacion` («Ubicación aproximada», sólo si §5.1 = A);
+  `link_dispositivos` lo arma Automations y NO va en los datos; ocultas `ingreso_usuario_id`, `ingreso_negocio_id` e
+  `ingreso_dispositivo_id`.
 - **El destino**: `destinoDeUsuario(uid, 'email', 'aviso')` (lib/mfa, Ciberseguridad): el correo de la persona, por el
   remitente de MaKo (`equipo@hola-mako.com`, la key de la plataforma). Al feed de SuperAdmin va sólo «se le avisó a X»,
   sin el aparato ni la ubicación.
