@@ -75,8 +75,8 @@
   --rio-radius: 8px;
   --rio-radius-bubble: 6px;
   --rio-radius-chip: 4px;
-  /* ── Letra: Inter, la de respond.io (next/font la publica en --rio-inter, ./fuente.ts) ── */
-  --rio-font: var(--rio-inter), 'Inter', system-ui, sans-serif;
+  /* ── Letra: Inter, la de respond.io (hoja de Google desde el navegador, ./fuente.tsx) ── */
+  --rio-font: 'Inter', system-ui, sans-serif;
 
   display: flex;
   flex: 1;
