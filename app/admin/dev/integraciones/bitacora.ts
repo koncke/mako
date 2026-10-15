@@ -996,4 +996,16 @@ export const BITACORA: Hito[] = [
       'docs/hallazgos-crm.md — «Prospectos (Leads Scraper): lo que no se ve de la lista aparte»',
     ],
   },
+  {
+    fecha: '15 oct', hora: '06:18', chat: 'Leads Scraper', cuenta: 'claude1',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'La migración pasa a 0289, y Hotmart entra al funnel que declara «carrito»',
+    puntos: [
+      '⚠️ **La 0288 la tomó y la APLICÓ en prod el Centro de Operaciones a las 05:58**, minutos después de que este chat recorriera los worktrees y la viera libre. Se renumeró a 0289 sin dejar el archivo viejo en el clon (un huérfano se aplicaría solo). El número se fija al commitear, y se vuelve a mirar justo antes.',
+      'Decisión 9 hecha: una compra, un pago pendiente o un carrito de Hotmart entran al funnel que declara la entrada «carrito» (lib/funnel-de-entrada.ts, el mismo que usa la lista de prospectos para «Prospección»). Con ninguno o varios, al del negocio. A un lead que ya estaba se lo AGREGA a ese funnel.',
+    ],
+    commits: [
+      { sha: 'ceba48fad', msg: 'Leads Scraper: la migración pasa a 0289, y Hotmart entra al funnel que declara «carrito»', lineas: 121, archivos: 13 },
+    ],
+  },
 ];
