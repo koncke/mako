@@ -173,6 +173,8 @@ type Drafts = {
   queEs: string; fechaInicio: string; fechaTermino: string; duracion: string; frecuencia: string; modalidad: string; sesiones: string;
   resultado: string; garantia: string; obCliente: string; obPrestador: string;
   cuotas: DraftCuota[]; cuotasDirty: boolean;
+  /** Los ids de las impagas que se cargaron al abrir: el server borra sólo de éstas (una cuota nacida después queda). */
+  vistos: number[];
 };
 type ExtractResp = {
   error?: string; contrato_nombre?: string | null; total_usd?: number | null; duracion_meses?: number | null;
@@ -197,10 +199,12 @@ function buildDraft(lead: Lead, pagos: Pago[]): Drafts {
     obCliente: (lead.deal_obligaciones?.cliente ?? []).join('\n'), obPrestador: (lead.deal_obligaciones?.prestador ?? []).join('\n'),
     cuotas: pagos.map((p) => ({ key: p.id, id: p.id, numero: p.numero, monto: String(p.monto_usd), fecha: p.fecha_esperada ?? '', pagado: p.pagado, fecha_pago: p.fecha_pago })),
     cuotasDirty: false,
+    vistos: pagos.filter((p) => !p.pagado).map((p) => p.id),
   };
 }
 
-export type DealDetailsHandle = { save: () => Promise<void> };
+/** `sinTocar`: las cuotas que no se pudieron cambiar (link, recordatorio, o nacidas después de abrir), dichas. */
+export type DealDetailsHandle = { save: () => Promise<{ sinTocar: string | null } | void> };
 
 // =============================================================================
 export const DealDetailsCard = forwardRef<DealDetailsHandle, {
@@ -320,7 +324,7 @@ export const DealDetailsCard = forwardRef<DealDetailsHandle, {
         // sola) de una NUEVA ya cobrada, que no existe en ningún lado y hay que
         // insertarla. Sin el id, la mensualidad cobrada caía en el filtro de
         // `!c.pagado` de saveCuotasAction y el cobro se perdía entero.
-        await saveCuotasAction(lead.id, draft.cuotas.map((c) => ({ id: c.id, monto: parseFloat(c.monto) || 0, fecha: c.fecha || null, pagado: c.pagado, fecha_pago: c.fecha_pago })));
+        return await saveCuotasAction(lead.id, draft.cuotas.map((c) => ({ id: c.id, monto: parseFloat(c.monto) || 0, fecha: c.fecha || null, pagado: c.pagado, fecha_pago: c.fecha_pago })), draft.vistos);
       }
     },
   }), [lead.id, lead.deal_fiscal, ventaTipo]);

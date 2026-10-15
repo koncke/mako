@@ -1,0 +1,109 @@
+// =============================================================================
+// ficha/api — lo que ve y lo que pide MaKo de la ficha de un CRM (ver_ficha_funnel, cambiar_ficha_funnel)
+// =============================================================================
+// La API de MaKo habla en las palabras de un modelo («ancho 1/2», «estilo con tema editorial», «plantilla
+// auto»); el motor, en CambioFicha (lib/ficha/config.ts). Esta es la traducción, en los dos sentidos, PURA
+// para que el test la ejecute (tests/ficha-api.test.ts): los runners de lib/api-mako/areas/crm.run.ts sólo
+// leen la ficha y llaman a esto.
+// =============================================================================
+
+import type { FichaDelFunnel } from './config-server';
+import { sanearCambio, type CambioFicha } from './config';
+import { bloqueDef, bloquesDeLaTab, esTabFicha, vaEnTab, NOMBRE_TAB, TABS_FICHA, ANCHOS, DENSIDADES, type Ancho } from './catalogo';
+import { plantillaFicha, PLANTILLAS_FICHA } from './plantillas';
+
+/** Los valores de `cambio` de la operación: los mismos que declara su def (lib/api-mako/areas/crm.def.ts). */
+export const CAMBIOS_API = ['poner', 'quitar', 'mover', 'ancho', 'diseno', 'aviso', 'estilo', 'densidad', 'plantilla', 'volver'] as const;
+/** El ancho como lo dice una persona. */
+export const ANCHOS_API = ['1/4', '1/3', '1/2', 'completo'] as const;
+
+const ANCHO_DE: Readonly<Record<string, Ancho>> = { '1/4': 3, '1/3': 4, '1/2': 6, completo: 12 };
+const NOMBRE_ANCHO: Readonly<Record<Ancho, string>> = { 3: '1/4', 4: '1/3', 6: '1/2', 12: 'completo' };
+const POR_QUE: Readonly<Record<string, string>> = {
+  siempre: 'siempre avisa', 'a-mano': 'lo eligió alguien en este CRM', negocio: 'lo apagó el negocio para todos sus CRM',
+  plantilla: 'la plantilla no lo pide', 'de-entrada': 'de entrada',
+};
+
+const n = (v: unknown): number | undefined => (typeof v === 'number' && Number.isFinite(v) ? v : undefined);
+const s = (v: unknown): string | undefined => (typeof v === 'string' && v.trim() ? v.trim() : undefined);
+const b = (v: unknown): boolean | undefined => (typeof v === 'boolean' ? v : undefined);
+
+/** Del input de la operación al cambio del motor, saneado. Un bloque que no va devuelve los que sí van. */
+export function cambioDeInputApi(input: Record<string, unknown>): CambioFicha | { error: string; disponibles?: unknown } {
+  const tab = s(input.tab);
+  const bloque = s(input.bloque);
+  const base = { tab, bloque, ...(n(input.n) ? { n: n(input.n) } : {}) };
+  let crudo: Record<string, unknown>;
+  switch (s(input.cambio)) {
+    case 'poner': crudo = { op: 'poner', ...base, lugar: n(input.lugar), ancho: s(input.ancho) ? ANCHO_DE[s(input.ancho)!] ?? -1 : undefined, diseno: s(input.diseno) }; break;
+    case 'quitar': crudo = { op: 'quitar', ...base }; break;
+    case 'mover': crudo = { op: 'mover', ...base, lugar: n(input.lugar) }; break;
+    case 'ancho': crudo = { op: 'ancho', ...base, ancho: ANCHO_DE[s(input.ancho) ?? ''] }; break;
+    case 'diseno': crudo = { op: 'diseno', ...base, diseno: s(input.diseno) }; break;
+    case 'aviso': crudo = { op: 'aviso', paso: s(input.aviso), avisa: b(input.avisa) }; break;
+    case 'densidad': crudo = { op: 'densidad', densidad: s(input.densidad) }; break;
+    case 'plantilla': crudo = { op: 'plantilla', plantilla: s(input.plantilla) === 'auto' ? null : s(input.plantilla) }; break;
+    case 'volver': crudo = { op: 'volver', ...(tab ? { tab } : {}) }; break;
+    case 'estilo': {
+      const tema: Record<string, unknown> = {};
+      if (s(input.tema)) tema.plantilla = s(input.tema);
+      if (s(input.tipografia)) tema.fuente = s(input.tipografia);
+      if (input.acento !== undefined) {
+        const a = String(input.acento ?? '').trim();
+        if (a && a !== 'ninguno' && !/^#[0-9a-f]{6}$/i.test(a)) return { error: 'El acento va en hex, #RRGGBB.' };
+        tema.acento = a && a !== 'ninguno' ? a.toLowerCase() : null;
+      }
+      if (!Object.keys(tema).length) return { error: 'Falta qué cambiar del estilo: tema, acento o tipografia.' };
+      crudo = { op: 'tema', tema };
+      break;
+    }
+    default: return { error: 'Falta qué cambiar.' };
+  }
+  const c = sanearCambio(crudo);
+  if (!('error' in c)) return c;
+  const def = bloque ? bloqueDef(bloque) : undefined;
+  if (bloque && esTabFicha(tab) && (!def || !vaEnTab(def, tab))) {
+    return { error: c.error, disponibles: bloquesDeLaTab(tab).map((x) => x.id) };
+  }
+  return c;
+}
+
+/** Lo que ve MaKo de la ficha de un CRM: lo puesto, lo que avisa y por qué, y lo que se puede sumar. */
+export function salidaFichaApi(f: Pick<FichaDelFunnel, 'funnel' | 'eleccion' | 'efectiva'>) {
+  const ef = f.efectiva;
+  const tabs = Object.fromEntries(TABS_FICHA.map((tab) => {
+    const puestos = ef.tabs[tab];
+    const ya = new Set(puestos.map((p) => p.id));
+    return [tab, {
+      nombre: NOMBRE_TAB[tab],
+      sigue_a_la_plantilla: !ef.tocadas.includes(tab),
+      bloques: puestos.map((p, i) => {
+        const def = bloqueDef(p.id);
+        return {
+          lugar: i + 1, bloque: p.id, titulo: def?.titulo ?? p.id, ancho: NOMBRE_ANCHO[p.ancho],
+          diseno: p.diseno, diseno_nombre: def?.disenos.find((x) => x.id === p.diseno)?.nombre ?? p.diseno,
+          ...(p.icono ? { icono: p.icono } : {}), ...(p.opciones ? { opciones: p.opciones } : {}),
+          ...(def && def.avisa.length ? { completa: def.avisa } : {}),
+        };
+      }),
+      para_sumar: bloquesDeLaTab(tab).filter((d) => d.varias || !ya.has(d.id)).map((d) => ({
+        bloque: d.id, titulo: d.titulo, anchos: d.anchos.map((a) => NOMBRE_ANCHO[a]), disenos: d.disenos.map((x) => x.id),
+      })),
+    }];
+  }));
+  return {
+    crm: { id: f.funnel.id, nombre: f.funnel.nombre, principal: f.funnel.esDefault },
+    plantilla: {
+      id: ef.plantilla, nombre: plantillaFicha(ef.plantilla).nombre,
+      elegida_por: ef.plantillaAMano ? 'una persona' : 'MaKo',
+      la_de_mako: { id: f.eleccion.id, nombre: plantillaFicha(f.eleccion.id).nombre, porque: f.eleccion.porque },
+    },
+    tabs,
+    nota: 'Si una tab sale en la ficha lo decide el CRM: Reuniones sólo con una etapa de reunión, Pagos con una venta o un cobro, Tracking con datos de la visita o del anuncio.',
+    avisos: ef.avisos.map((a) => ({ dato: a.id, nombre: a.label, avisa: a.avisa, por_que: POR_QUE[a.por] ?? a.por })),
+    estilo: { tema: ef.estilo.tema.plantilla, acento: ef.estilo.tema.acento, tipografia: ef.estilo.tema.fuente, densidad: ef.estilo.densidad },
+    plantillas: PLANTILLAS_FICHA.map((p) => ({ id: p.id, nombre: p.nombre })),
+    densidades: DENSIDADES.map((x) => x.id),
+    anchos: ANCHOS.map((a) => NOMBRE_ANCHO[a.id]),
+  };
+}

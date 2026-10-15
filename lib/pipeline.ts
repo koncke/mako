@@ -9,8 +9,9 @@ import type { EstadoLead } from './leads';
 // de imports entre los dos está documentado en la cabecera de funnel-etapas.ts:
 // es inocuo porque acá solo se usan DENTRO de generateFunnel, nunca al cargar.
 import { reunionesDe, slotPorIndice } from './funnel-etapas';
-// Solo el TIPO del canal: `fase-diagnostico` no importa nada, así que no hay ciclo.
-import type { CanalId } from './fase-diagnostico';
+// El canal y su validador: `fase-diagnostico` no importa nada, así que no hay ciclo. El valor
+// (`esCanal`) lo usa `siembraDeCrm`, el alta de «Nuevo CRM» con «Otro, lo armo yo».
+import { esCanal, type CanalId } from './fase-diagnostico';
 
 export type StageTone =
   | 'neutral' | 'accent' | 'good' | 'bad' | 'warn' | 'info'
@@ -1136,6 +1137,12 @@ export const fechaFijaDelEvento = (canal: CanalId | null | undefined): boolean =
 // excepcional» y «No Show R3» (ver generateFunnel), y el cliente las ve el día 1.
 export type FunnelTemplate = { id: string; name: string; description: string; pipeline: Stage[]; suppressed?: string[] };
 const pk = (key: string, kind: StageKind): Stage => ({ ...DEFAULT_STAGES.find((s) => s.key === key)!, kind });
+/**
+ * La etapa donde se para la charla: la de `conversaciones`, `presencial`, el grupo del webinar y
+ * los tipos de «Nuevo CRM» que la usan (`TIPOS_CRM`). UNA definición: copiada en cada plantilla,
+ * un color cambiado en una dejaba dos «Conversación abierta» distintas.
+ */
+const CONVERSANDO: Stage = { key: 'conversando', label: 'Conversación abierta', dot: '#1FA855', tone: 'teal', kind: 'paso' };
 
 export const FUNNEL_TEMPLATES: FunnelTemplate[] = [
   {
@@ -1157,14 +1164,22 @@ export const FUNNEL_TEMPLATES: FunnelTemplate[] = [
     pipeline: [pk('lead', 'entrada'), pk('facturando', 'pago'), pk('ganado', 'cierre')],
   },
   {
+    // ⚠️ LAS CLAVES SON LAS CANÓNICAS, renombradas (14/10/2026, al sumar los tipos de «Nuevo
+    // CRM»). Eran `registro`, `grupo`, `webinar` y `checkout`, que `deriveStageKey` no conoce:
+    // un lead con la fecha del webinar derivaba `agenda`, el tablero no la tenía y lo dibujaba en
+    // la PRIMERA columna (la falla de docs/hallazgos-crm.md). Con `agenda` el webinar hereda
+    // `fecha_junta_1`/`asistio_j1`, sus requisitos y sus cohortes, como la sesión de `presencial`.
+    // El grupo va en `conversando` con `kind: 'grupo'`: a esa clave se llega moviendo el lead a
+    // mano, que es la verdad mientras nadie sepa quién está en el grupo. Los funnels ya sembrados
+    // con las claves viejas no cambian: una plantilla sólo se lee al CREAR.
     id: 'vsl',
     name: 'VSL + Webinar (lanzamiento)',
     description: 'Landing → low-ticket → grupo de WhatsApp → webinar → oferta. Con nutrición pre y post evento.',
     pipeline: [
-      { key: 'registro', label: 'Registro (landing)', dot: '#2F6DDB', tone: 'info', kind: 'entrada' },
-      { key: 'grupo', label: 'Grupo WhatsApp', dot: '#1FA855', tone: 'teal', kind: 'grupo' },
-      { key: 'webinar', label: 'Webinar', dot: '#E08A12', tone: 'accent', kind: 'reunion' },
-      { key: 'checkout', label: 'Oferta / Checkout', dot: '#C8870C', tone: 'orange', kind: 'pago' },
+      { ...pk('lead', 'entrada'), label: 'Registro (landing)' },
+      { ...CONVERSANDO, label: 'Grupo WhatsApp', kind: 'grupo' },
+      { ...pk('agenda', 'reunion'), label: 'Webinar' },
+      { ...pk('facturando', 'pago'), label: 'Oferta / Checkout', tone: 'orange' },
       pk('ganado', 'cierre'),
     ],
   },
@@ -1184,7 +1199,7 @@ export const FUNNEL_TEMPLATES: FunnelTemplate[] = [
     description: 'Lead → conversación abierta → cobro. Para quien vende por WhatsApp o DM.',
     pipeline: [
       pk('lead', 'entrada'),
-      { key: 'conversando', label: 'Conversación abierta', dot: '#1FA855', tone: 'teal', kind: 'paso' },
+      CONVERSANDO,
       pk('facturando', 'pago'),
       pk('ganado', 'cierre'),
     ],
@@ -1208,7 +1223,7 @@ export const FUNNEL_TEMPLATES: FunnelTemplate[] = [
     description: 'Lead → conversación → sesión presencial gratuita → cobro. Para quien cierra en persona.',
     pipeline: [
       pk('lead', 'entrada'),
-      { key: 'conversando', label: 'Conversación abierta', dot: '#1FA855', tone: 'teal', kind: 'paso' },
+      CONVERSANDO,
       { ...pk('agenda', 'reunion'), label: '1ª sesión sin costo' },
       pk('facturando', 'pago'),
       pk('ganado', 'cierre'),
@@ -1289,6 +1304,135 @@ export function templateDeCanal(canal: string | null | undefined): FunnelTemplat
   if (!canal) return null;
   const id = (TEMPLATE_POR_CANAL as Record<string, string>)[canal];
   return id ? FUNNEL_TEMPLATES.find((t) => t.id === id) ?? null : null;
+}
+
+// ── Los TIPOS de «Nuevo CRM» (14/10/2026, §2 de docs/diseno-ficha-bloques.md) ─────────────
+/**
+ * Lo que se elige en «Nuevo CRM»: un TIPO de la lista («DM funnel · comentan una palabra y les
+ * escribes»), que llena de una el canal, la entrada y las etapas. Pedido de Martín: «piensa en
+ * todos los bloques que un usuario, con los diferentes funnels que tenemos... podría llegar a
+ * querer ver», «también los funnels orgánico, de Instagram, LinkedIn, DM Funnel, YouTube, lead
+ * magnet». Lo de antes (canal y entradas a mano) queda como «Otro, lo armo yo» (`siembraDeCrm`).
+ *
+ * ⚠️ UN TIPO NO ES UN CANAL NUEVO. `CanalId` es la clave de tres `Record` (`ENCUENTRO_POR_CANAL`,
+ * `TEMPLATE_POR_CANAL`, `VOLUMEN_POR_CANAL`): un canal más pide su encuentro, su plantilla y su
+ * pregunta de volumen, y los que vienen acá no cambian ninguna de las tres. Cada tipo combina un
+ * canal y una entrada que YA existen, y la ficha del lead saca su plantilla de eso (§4 del
+ * documento: las etapas de reunión, el evento de fecha fija y la entrada), no del tipo.
+ *
+ * ⚠️ LAS ETAPAS SON LAS CLAVES CANÓNICAS, renombradas (`lead`, `agenda`, `agendaj2`, `facturando`,
+ * `ganado` y `conversando`), como `presencial`. Una clave nueva queda fuera de `deriveStageKey`: el
+ * lead que tiene la fecha de su reunión deriva `agenda`, el tablero no la encuentra y lo dibuja en
+ * la primera columna (lo que le pasaba a `vsl`). `tests/tipos-crm.test.ts` ubica un lead en cada
+ * etapa de cada tipo y falla con una clave que el cálculo no conozca.
+ *
+ * ⚠️ UNA SOLA ENTRADA POR TIPO, como el «Tipo de funnel» del editor (12/10/2026: «que solo se pueda
+ * elegir 1 opción»). La lee `tipoDeFunnel`, que toma la primera.
+ *
+ * Los textos se dibujan: cortos y con tuteo. El ícono de cada uno vive en la pantalla
+ * (app/crm/CrmToolbar.tsx), como el del tipo de funnel en el editor.
+ */
+export type TipoCrmId =
+  | 'llamada' | 'dos_reuniones' | 'webinar' | 'presencial' | 'conversaciones' | 'dm_funnel'
+  | 'instagram' | 'formulario_meta' | 'recurso_gratis' | 'linkedin' | 'youtube' | 'carrito';
+
+export type TipoCrm = {
+  id: TipoCrmId;
+  label: string;
+  /** Una línea: qué hace la gente y qué haces tú. */
+  linea: string;
+  canal: CanalId;
+  entradas: readonly EntradaId[];
+  pipeline: Stage[];
+  /** Las nutriciones que su plantilla ya apaga (se suman a `suppressedInicial` al crear). */
+  suppressed?: readonly string[];
+};
+
+/** El valor de «Otro, lo armo yo»: el canal y las entradas se eligen a mano, como antes. */
+export const TIPO_CRM_OTRO = 'otro' as const;
+
+/**
+ * Las etapas de una plantilla con algunos nombres cambiados. Sin la plantilla devuelve `[]` y no
+ * otra: `siembraDeCrm` falla cerrado con eso, y el test exige que ningún tipo quede vacío.
+ */
+function etapasDe(plantilla: string, nombres: Readonly<Record<string, string>> = {}): Pick<TipoCrm, 'pipeline' | 'suppressed'> {
+  const t = FUNNEL_TEMPLATES.find((x) => x.id === plantilla);
+  if (!t) return { pipeline: [] };
+  return {
+    pipeline: t.pipeline.map((st) => (nombres[st.key] ? { ...st, label: nombres[st.key] } : st)),
+    ...(t.suppressed?.length ? { suppressed: t.suppressed } : null),
+  };
+}
+
+export const TIPOS_CRM: readonly TipoCrm[] = [
+  { id: 'llamada', label: 'Llamada de venta', linea: 'Una llamada y cierras ahí', canal: 'llamadas', entradas: ['landing'], ...etapasDe('simple') },
+  // La plantilla `highticket` existía en el editor y ningún canal la sembraba: `llamadas` va a
+  // `simple` a propósito (TEMPLATE_POR_CANAL explica por qué pedir de más no es el lado seguro).
+  { id: 'dos_reuniones', label: 'Dos reuniones', linea: 'R1 y R2 antes de cerrar', canal: 'llamadas', entradas: ['landing'], ...etapasDe('highticket') },
+  { id: 'webinar', label: 'Webinar', linea: 'Vendes en un evento en vivo', canal: 'webinar', entradas: ['landing'], ...etapasDe('vsl') },
+  { id: 'presencial', label: 'Sesión presencial', linea: 'Cierras en una sesión gratis', canal: 'presencial', entradas: ['chat_entrante'], ...etapasDe('presencial') },
+  { id: 'conversaciones', label: 'Conversaciones por chat', linea: 'Te escriben y vendes por chat', canal: 'conversaciones', entradas: ['chat_entrante'], ...etapasDe('conversaciones') },
+  { id: 'dm_funnel', label: 'DM funnel', linea: 'Comentan una palabra y les escribes', canal: 'conversaciones', entradas: ['chat_entrante'], ...etapasDe('conversaciones', { lead: 'Lead entrante (comentó)' }) },
+  { id: 'instagram', label: 'Instagram orgánico', linea: 'Te escriben desde tu perfil', canal: 'conversaciones', entradas: ['chat_entrante'], ...etapasDe('conversaciones', { lead: 'Lead entrante (DM)' }) },
+  // La entrada `formulario_anuncio` estaba en el editor del funnel y «Nuevo CRM» no la ofrecía
+  // (ENTRADAS_OFRECIDAS). Incluye la inmobiliaria: sus preguntas van en la ficha, no en otro tipo.
+  { id: 'formulario_meta', label: 'Anuncio con formulario', linea: 'Dejan sus datos en el anuncio', canal: 'conversaciones', entradas: ['formulario_anuncio'], ...etapasDe('conversaciones') },
+  { id: 'recurso_gratis', label: 'Recurso gratis', linea: 'Lo piden en un formulario', canal: 'conversaciones', entradas: ['landing'], ...etapasDe('conversaciones', { lead: 'Pidió el recurso' }) },
+  // Prospección que cierra en UNA llamada: la conversación y después la reunión. No hay plantilla
+  // con esa forma, así que se arma acá con las mismas piezas (claves canónicas).
+  {
+    id: 'linkedin', label: 'LinkedIn', linea: 'Les escribes y agendan', canal: 'llamadas', entradas: ['chat_saliente'],
+    pipeline: [pk('lead', 'entrada'), CONVERSANDO, pk('agenda', 'reunion'), pk('ganado', 'cierre')],
+  },
+  { id: 'youtube', label: 'YouTube', linea: 'Del video a la agenda', canal: 'llamadas', entradas: ['landing'], ...etapasDe('simple') },
+  { id: 'carrito', label: 'Carrito', linea: 'Compran en tu página', canal: 'carrito', entradas: ['carrito'], ...etapasDe('directa') },
+];
+
+export const esTipoCrm = (v: unknown): v is TipoCrmId => typeof v === 'string' && TIPOS_CRM.some((t) => t.id === v);
+export const tipoCrmPorId = (v: unknown): TipoCrm | null => TIPOS_CRM.find((t) => t.id === v) ?? null;
+
+/** Con qué nace un CRM nuevo: el canal, la entrada, las etapas y las nutriciones que ya vienen apagadas. */
+export type SiembraCrm = {
+  /** `null` = «Otro, lo armo yo». */
+  tipo: TipoCrmId | null;
+  canal: CanalId;
+  entradas: EntradaId[];
+  pipeline: Stage[];
+  suppressed: string[];
+};
+
+/**
+ * Lo que elige la persona (o MaKo por su API) en «Nuevo CRM», saneado: un tipo de `TIPOS_CRM`, o
+ * `otro` con el canal y las entradas a mano. La comparten el modal y la op `crear_crm`, así un
+ * tipo no siembra una cosa en la pantalla y otra por WhatsApp.
+ *
+ * Falla CERRADO, como `templateDeCanal`: sin un tipo que exista, o con `otro` sin canal o sin
+ * entradas, devuelve el error y no una plantilla por default. Elegir por la persona es justo lo
+ * que este alta vino a hacer.
+ */
+export function siembraDeCrm(input: { tipo?: unknown; canal?: unknown; entradas?: unknown }): SiembraCrm | { error: string } {
+  if (input.tipo === TIPO_CRM_OTRO) {
+    if (!esCanal(input.canal)) return { error: 'Elige cómo lo vendes.' };
+    const tpl = templateDeCanal(input.canal);
+    if (!tpl) return { error: 'Ese canal no tiene etapas.' };
+    const entradas = parseEntradas(input.entradas);
+    if (!entradas.length) return { error: 'Elige cómo te llega la gente.' };
+    return { tipo: null, canal: input.canal, entradas, pipeline: tpl.pipeline, suppressed: [...(tpl.suppressed ?? [])] };
+  }
+  const t = tipoCrmPorId(input.tipo);
+  if (!t) return { error: 'Elige el tipo de CRM.' };
+  if (!t.pipeline.length) return { error: `«${t.label}» no tiene etapas.` };
+  return { tipo: t.id, canal: t.canal, entradas: [...t.entradas], pipeline: t.pipeline, suppressed: [...(t.suppressed ?? [])] };
+}
+
+/**
+ * Las nutriciones que nacen apagadas en un funnel NUEVO: las que trae su plantilla más las que
+ * calcula `suppressedInicial`. Es la misma cuenta que hace `crearFunnel` (lib/funnels.ts) al
+ * insertar; el alta de un tipo la necesita porque sus etapas se escriben DESPUÉS de crear el
+ * funnel con las de su canal (`crearCrm`, lib/nuevo-crm.ts), y con otras etapas cambian las ids.
+ */
+export function apagadasAlCrear(pipeline: Stage[], propias: readonly string[] = []): string[] {
+  return [...new Set([...propias, ...suppressedInicial(pipeline)])];
 }
 
 
