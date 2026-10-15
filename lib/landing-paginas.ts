@@ -115,6 +115,12 @@ export function esPreviewDeEditor(crudo: string): boolean {
     || /^id-preview[-.].+\.lovable\.app$/.test(h);
 }
 
+/**
+ * LA `normalizarUrl` del repo (hay UNA desde el 15/10/2026): «¿qué PÁGINA es ésta?». Es la llave de
+ * `landing.paginas`, `landing.config`, `landing.snapshot` y del cruce con `landing_visits`. La del Landing
+ * Analyst se llamaba igual y contesta otra pregunta: es `claveDeLanding` (lib/landing-url.ts, la cabecera
+ * dice por qué no se deriva de ésta). La forma no cambia sin migrar lo guardado: tests/landing-url-unica.test.ts.
+ */
 export function normalizarUrl(crudo: string): string | null {
   const s = (crudo ?? '').trim();
   if (!s) return null;

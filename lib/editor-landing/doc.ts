@@ -19,6 +19,9 @@
 // `doc` tiene SOLO tarjetas («secciones» en el español de Gamma 5) como hijos.
 // =============================================================================
 
+// Sólo TIPOS (el catálogo de animaciones es puro y no importa este módulo: sin ciclo en runtime).
+import type { AnimacionSeccion, Direccion, VideoFondo } from './animaciones';
+
 // ─────────────────────────────────────────────────────────────────────────────
 // JSON de ProseMirror (lo que guarda la base)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -261,6 +264,11 @@ export type AttrsTarjeta = {
   oculta: boolean;              // no se presenta ni se publica
   notas: string;                // notas del orador (privadas)
   bloqueadaIA: boolean;         // «Bloquear» para la IA (sugerencia, como en Gamma)
+  // Las animaciones (lib/editor-landing/animaciones.ts, el contrato): en la SECCIÓN y nunca en un bloque,
+  // porque «Editar con IA» rehace los bloques y la sección (sus attrs) sobrevive.
+  animacion: AnimacionSeccion;  // un efecto, 'ninguna', o null = hereda el estilo de la landing
+  animacionDireccion: Direccion | null; // sólo si el efecto de la sección ofrece direcciones
+  videoFondo: VideoFondo | null; // sólo con diseño 'fondo'; URLs del bucket landing-imagenes (hoy no se ofrece)
 };
 
 export const ATTRS_TARJETA_DEFAULT: Omit<AttrsTarjeta, 'id'> = {
@@ -279,6 +287,9 @@ export const ATTRS_TARJETA_DEFAULT: Omit<AttrsTarjeta, 'id'> = {
   oculta: false,
   notas: '',
   bloqueadaIA: false,
+  animacion: null,
+  animacionDireccion: null,
+  videoFondo: null,
 };
 
 export type AttrsColumnas = { anchos: number[]; divisores: boolean };

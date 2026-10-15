@@ -102,7 +102,7 @@ import CajaCrear from './CajaCrear';
 import PanelDiagnostico from './diagnostico/PanelDiagnostico';
 import { CrearConIA } from './crear/CrearConIA';
 import { ReplicarUnaPagina } from './crear/Replicar';
-import { normalizarUrl } from '@/lib/landing-url';
+import { claveDeLanding } from '@/lib/landing-url';
 import {
   CSS_GP, DialogoBorradores, DialogoGamma, Filtros, Ico, ItemMenu, MenuFlotante, MiniaturaLanding, MuestraTema, SeparadorMenu,
   TileTema, URL_FUENTE_CHROME, haceCuanto, irDuro, pedirDocs, useAviso,
@@ -231,7 +231,7 @@ export function Inicio(props: PropsInicio) {
   // Una página de afuera recién analizada entra a la barra sin recargar (integración de la tanda 2).
   // Se compara normalizada: es la misma llave que la de landing_analyses, y no se duplica el renglón.
   const sumarAnalizada = useCallback((url: string) => {
-    const clave = (u: string) => { try { return normalizarUrl(u); } catch { return u; } };
+    const clave = (u: string) => { try { return claveDeLanding(u); } catch { return u; } };
     setAnalizadas((l) => (l.some((a) => clave(a.url) === clave(url)) ? l : [{ url, veredicto: null, score: null }, ...l]));
   }, []);
 

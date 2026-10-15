@@ -296,7 +296,8 @@ function PanelInterno({ docId, url, copia = null, onCerrar, onAnalizada }: Props
     }
     if (!deNuestra && !lectura && !extra.lectura && !extra.texto) leidaEnServer.current = true;
     aplicarLista(r);
-    if (!deNuestra && r.url) onAnalizada?.(r.url);
+    // Lo pegado, no la llave que devuelve el análisis: el renglón nuevo de la barra baja lo que la persona pegó.
+    if (!deNuestra && r.url) onAnalizada?.(urlPegada ?? r.url);
     setFiltro('pendiente');
     avisar(r.nuevas ? (r.nuevas === 1 ? '1 comentario nuevo' : `${r.nuevas} comentarios nuevos`) : 'Sin comentarios nuevos');
     if (r.sugerencias.some((s) => s.estado === 'pendiente')) setQuiereRecorrido(true);

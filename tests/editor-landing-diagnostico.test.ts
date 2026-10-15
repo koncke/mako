@@ -23,7 +23,7 @@ import {
   paginaPrincipal, primeraFrase, resumenDeAnalisis, responderPaginaDiagnostico, srcPaginaDiagnostico, tarjetaDeRecorrido,
   textoParaAnalisis, ubicarCitaEnBloques, type Coincidencia,
 } from '../lib/editor-landing/diagnostico';
-import { normalizarUrl } from '../lib/landing-url';
+import { claveDeLanding } from '../lib/landing-url';
 import { NODO, type JsonNodo, type LandingContenido } from '../lib/editor-landing/doc';
 
 const RAIZ = join(__dirname, '..');
@@ -202,7 +202,7 @@ test('el objetivo es UNA landing nuestra o UNA url, y la url se normaliza como l
   assert.equal(objetivoDe({ docId: 12, url: 'https://a.com' }), null);
   assert.equal(objetivoDe({}), null);
   assert.equal(objetivoDe({ docId: -1 }), null);
-  assert.deepEqual(objetivoDe({ url: 'www.Ejemplo.com/oferta/?fbclid=1' }), { url: normalizarUrl('https://www.Ejemplo.com/oferta/?fbclid=1') });
+  assert.deepEqual(objetivoDe({ url: 'www.Ejemplo.com/oferta/?fbclid=1' }), { url: claveDeLanding('https://www.Ejemplo.com/oferta/?fbclid=1') });
   assert.deepEqual(objetivoDe({ url: 'www.Ejemplo.com/oferta/?fbclid=1' }), { url: 'https://ejemplo.com/oferta' });
   assert.equal(objetivoDe({ url: 'javascript:alert(1)' }), null);
 });

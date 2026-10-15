@@ -256,7 +256,7 @@ export async function esquema(p: PedidoEsquema): Promise<ResultadoIA<{ esquema: 
       const url = String(p.url ?? '').trim();
       if (!url) return invalido('Falta el enlace.');
       try {
-        // TAL CUAL la pegó la persona: `normalizarUrl` le saca el www y el querystring (es la LLAVE de
+        // TAL CUAL la pegó la persona: `claveDeLanding` le saca el www y el querystring (es la LLAVE de
         // landing_analyses, no una dirección para bajar), y hay hosts que sólo existen con www.
         const pagina = await extraerLanding(url, { talCual: true });
         const motivo = motivoDePagina(pagina);
