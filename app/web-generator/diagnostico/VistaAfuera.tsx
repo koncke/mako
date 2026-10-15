@@ -28,7 +28,7 @@ import { MARCA_MENSAJE, TOPES_DIAGNOSTICO, cajaDeMensaje, srcPaginaDiagnostico }
 import { EVENTO_MOVIO, cajaDeRect, recortarA, type ControlVista, type ObjetivoVista } from './vista';
 
 type CajaIframe = [number, number, number, number, number];
-type EstadoVista = 'cargando' | 'lista' | 'error' | 'muda' | 'vacia';
+type EstadoVista = 'cargando' | 'lista' | 'error' | 'muda' | 'vacia' | 'directo';
 
 /** Cuánto se espera el «listo» del script antes de decir que la página no se pudo mostrar. */
 const ESPERA_LISTO_MS = 12_000;
@@ -81,7 +81,13 @@ export function VistaAfuera({ url, objetivos, controlRef, senal, onUbicar }: {
     if (graciaRef.current) return;           // ya hay una cuenta corriendo
     graciaRef.current = setTimeout(() => {
       graciaRef.current = null;
-      setEstado((e) => (e === 'lista' || e === 'cargando' ? 'vacia' : e));
+      // NO SE MUESTRA UN CARTEL: SE MUESTRA LA PAGINA. Pedido de Martin (15/10/2026): «Quiero
+      // que se renderice de manera automatica ahi». El documento aislado sirve el HTML crudo, y
+      // una landing armada en un constructor lo trae vacio; la pagina REAL, en cambio, corre su
+      // propio JavaScript con SU origen y se ve. Se cae a eso solo cuando el aislado no pinto.
+      // Si el sitio se niega a ser embebido (X-Frame-Options o frame-ancestors) el recuadro queda
+      // vacio igual, y para eso sigue abajo la barra con el motivo y el boton de abrirla.
+      setEstado((e) => (e === 'lista' || e === 'cargando' ? 'directo' : e));
     }, ESPERA_PINTA_MS);
   }, []);
   useEffect(() => () => { if (graciaRef.current) clearTimeout(graciaRef.current); }, []);
@@ -160,21 +166,26 @@ export function VistaAfuera({ url, objetivos, controlRef, senal, onUbicar }: {
     return () => { if (controlRef.current === control) controlRef.current = null; };
   }, [controlRef, mandar]);
 
+  const directo = estado === 'directo';
   return (
     <div className="gdg-vista gdg-vista--afuera">
       <iframe
-        key={src}
+        key={directo ? url : src}
         ref={iframeRef}
         className="gdg-iframe"
-        src={src}
-        sandbox="allow-scripts"
+        src={directo ? url : src}
+        // Con la pagina real el origen es SUYO, no el nuestro: `allow-same-origin` le deja usar
+        // lo suyo (sus cookies, su storage) y no toca hola-mako.com. Sin `allow-popups` ni
+        // `allow-top-navigation`: no puede abrir ventanas ni llevarse la pestana.
+        sandbox={directo ? 'allow-scripts allow-same-origin' : 'allow-scripts'}
         referrerPolicy="no-referrer"
         title="Vista de la página"
       />
-      {(estado === 'error' || estado === 'muda' || estado === 'vacia') && (
+      {(estado === 'error' || estado === 'muda' || estado === 'vacia' || estado === 'directo') && (
         <div className="gdg-vista-aviso" role="status">
           <p>
             {estado === 'error' && mensaje ? mensaje
+              : estado === 'directo' ? 'Esta página se dibuja con JavaScript: se muestra la página real.'
               : estado === 'vacia' ? 'Esta página se dibuja con JavaScript y acá no llega a verse.'
               : 'No pude mostrar la página aquí.'}
           </p>
