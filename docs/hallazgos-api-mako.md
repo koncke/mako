@@ -1282,3 +1282,100 @@ que crear y copiar devuelven el link al editor.
   Regla: lo que una `.run.ts` importa no llega a un guard de página (`requireRolWs`, `redirect`); la pregunta de acceso
   va en un módulo de `lib/` sin `next/navigation`. Lo fija el test 7 de `tests/api-mako-imagen.test.ts` (carga el
   runner en un node suelto con esa condición). Y el texto: «aquí», no «acá» (`tests/puente-panel-copy.test.ts`).
+
+## El editor entero del Web Generator (15/10/2026, tanda 7: 40 operaciones más en `landing`)
+
+**Vive en:** `lib/api-mako/areas/landing-editor.{def,run}.ts` · `landing-contenido.helpers.ts` ·
+`lib/editor-landing/server.ts` (`generarConIA`, `editarConIA`, `bibliotecaDeImagenes`) · `lib/mako-intencion.ts`
+(`esPedidoDeLanding`, `RELEVANCIA_LANDING`) · `tests/api-mako-landing-contenido.test.ts` · `tests/mako-intencion-landing.test.ts`
+
+Pedido de Martín (15/10, 00:10): «Ambos, tienen que pasarle absolutamente todos los botones. Todas las funciones a la API
+de MaKo». Reabrió lo que la tanda 4 dejó fuera a propósito (generar con IA, editar el contenido). El detalle de la
+pantalla está en [hallazgos-editor-landing.md](hallazgos-editor-landing.md) → «Tanda 7».
+
+**El número.** El inventario de la pantalla contó 82 funciones de negocio: 23 estaban en la API. Con las 40 nuevas
+quedaron **69 de 82** (`514f84468`), y **70** con `listar_imagenes_landing` de la corrección (`1412d13ee`). Varias
+cuentan como hechas siendo PARCIALES: reescribir con IA el texto seleccionado y los diseños alternativos sólo se cubren
+con `editar_landing_con_ia`, y leer un archivo a texto por HTTP sólo lo convierte el doer de WhatsApp. **Las 12 sin
+declarar, y por qué:** el formato de una selección (fuera del editor no hay selección), las propiedades de Imagen y
+Video, los datos de un Gráfico y los elementos de un Diseño optimizado (las cuatro, por `editar_landing_con_ia`);
+subir un archivo desde el dispositivo (la API no recibe bytes; por enlace sí, el parámetro `imagen` lo copia a la
+biblioteca); exportar a PDF, PPTX, PNG o HTML (corre en el navegador); comentar y borrar como equipo (abajo); leer la
+página en el navegador de la persona (hace falta su navegador); y guardar, quitar o ver la clave de Stripe (ninguna
+operación administra credenciales). Afuera a propósito, sin contarlas: el código del HTML personalizado (un modelo
+inyectando código en una página pública), combinar o dividir secciones (con mover, borrar y agregar se llega), el alto
+de un insertado y un video por enlace a la biblioteca.
+
+- **Sumar 40 operaciones a un área sacó de WhatsApp a las que ya estaban.** «necesito que publiques la página de
+  gracias» dejó de llevar `publicar_landing`. `ordenarPorRelevancia` (`registro.ts`) suma un punto por cada raíz de 5
+  letras del mensaje que aparece en la descripción, y el presupuesto de 12.000 caracteres entra en ese orden: las 40
+  descripciones repetían «creada en el editor», «(de listar_landings_creadas)» y «no publica (publicar_landing…)», cada
+  una sumaba publi/cread/lista/pagin y le ganaba a `publicar_landing`. **Regla:** en una tanda grande, la frase que se
+  repite en todas las descripciones no lleva las raíces de las intenciones de OTRAS operaciones (acá, `VERSION` en
+  `landing-editor.def.ts`), y antes de commitear se corre el test del turno de WhatsApp del área.
+- **La relevancia que pone el clasificador va CORTA.** Con `{ tipo: 'editar' }` ya funcionando, 4 de los 6 pedidos de
+  editar seguían sin su herramienta: `RELEVANCIA_LANDING.editar` nombraba de todo («cambiar texto sección bloque enlace
+  tema dominio…») y les repartía puntos parejos a las 40 operaciones; las más grandes llenaban el presupuesto. Con
+  `'landings creadas'` deciden las palabras de la persona: 6 de 6, y `listar_landings_creadas` (de dónde sale el id)
+  va en todos. **Regla:** para un pedido amplio, la relevancia del clasificador trae sólo lo auxiliar; la herramienta la
+  eligen las palabras del mensaje. Se mide con `herramientasDelTurno`, no a ojo.
+- ⚠️ **Sin hacer:** «quítale el formulario a la landing» se clasifica bien como editar, pero `acomodar_bloque_landing`
+  no entra en el presupuesto: la raíz «quita» empuja primero a `quitar_dominio_landing` y `quitar_cobro_landing`. No
+  está en ningún test. `lib/api-mako/registro.ts` (`ordenarPorRelevancia`).
+- **Editar por WhatsApp** (`esPedidoDeLanding`, regla 5-bis, antes de la 6 de los links sueltos): verbo de pedido (con
+  tilde, con pronombre —también «le»—, suelto al arranque o con modal) a ≤3 palabras de una pieza de la landing, sin
+  otra área en el medio ni justo después («el titular DEL ANUNCIO» es de Ads), y la landing nombrada sin contar los
+  links ni «la página de Facebook». La forma suelta sin tilde sólo vale al arranque: la tercera persona no es un pedido.
+- **Un runner escrito `id: fabrica({...})` es invisible para el test del registro**: `tests/api-mako-registro.test.ts`
+  encuentra los runners con `^\s{2}id:\s*\{`, que exige la llave después de los dos puntos («agregar_seccion_landing …
+  no tiene runner»). Va `id: { ...fabrica({...}) }`. Y un segundo `.run.ts` de un área se declara en `RUNS_DE_AREA`
+  del mismo test (hoy `landing: ['landing', 'landing-editor']` y `metricas: ['metricas', 'dashboard']`).
+- **Segunda vez: el server no puede importar reglas puras que viven en un `'use client'`** (la primera, arriba, en la
+  API copiada de GitHub): en el bundle del server devuelve referencias de cliente, no las funciones. Se copiaron a
+  `landing-contenido.helpers.ts` con un test que compara cada copia con la de la pantalla (los tests en node sí
+  importan el original). ⚠️ **Sin hacer: unificarlas** — mover a módulos sin `'use client'` las de
+  `app/web-generator/editor/PanelPaginas.tsx` (`rutaLibreApi`, `hacerInicioApi`), `crear/SelectorTemaCrear.tsx`
+  (`temaSugeridoApi`) y `editor/paneles/EstiloSeccion.tsx` (`ESTILO_RESTABLECIDO_API`), importarlas de ahí y borrar
+  las copias.
+- **`textoDe` (`doc.ts`) no sirve para buscar una frase**: junta los hijos de un párrafo o un título con un separador,
+  así que «Agenda tu **llamada**» sale partida y la frase no aparece, sin decir por qué. Para buscar lo que lee el
+  visitante, los nodos de texto de un contenedor se juntan SIN separador (`textosEnLinea`).
+- **Los descartes del saneo no se comparan contra la landing entera**: sus mensajes llevan la posición («sección 3») y
+  una landing vieja trae descartes propios. Se sanea SOLA cada sección tocada, antes y después, y frenan sólo los que
+  aparecen después (`descartesNuevos`); la sección vieja se completa con `ATTRS_TARJETA_DEFAULT` antes de comparar, o
+  «ya está así» falla sobre lo guardado antes de un atributo nuevo. Y agregar o duplicar exige ids NUEVOS en los campos
+  del formulario y vaciar el del HTML personalizado (`conIdsNuevos`): el saneo los regeneraría, pero dejando un
+  descarte cada vez.
+- **`analizar_landing` no era el botón «Analizar»**: llamaba a `analizarLanding` suelto, sin guardar los hallazgos y sin
+  la red de plataforma. Ahora pasa por `diagnostico-server.analizar`, con la URL tal cual.
+- **`estadoDominio` ESCRIBE** (con DNS y Vercel listos pasa la fila de pendiente a verificado): no puede ser una
+  lectura. `ver_dominio_landing` lee sólo la fila; verificar es una acción (`verificar_dominio_landing`).
+- **Un comentario del equipo creado por la API no lo podría borrar nadie**: `comentar` (`lib/editor-landing/server.ts`)
+  toma el autor de la cookie, por WhatsApp o HTTP quedaría `autor_sub` null, y `esComentarioPropio`
+  (`server-reglas.ts`) dice que uno sin autor no es de nadie: sólo lo borra el super admin. Por eso no se declararon
+  comentar ni borrar. ⚠️ **Decide Martín:** un autor «MaKo» en `comentar` y que `puedeBorrarComentario` deje a un admin
+  borrar los de MaKo; con eso salen `comentar_landing` y `borrar_comentario_equipo_landing`.
+- ⚠️ **Las versiones «Antes de un cambio de MaKo» no se podan.** Cada edición por la API deja una de hasta 1,5 MB y
+  `podarVersionesAuto` (`server.ts`) sólo poda «Guardado automático»: un token detallado que edite en bucle llena el
+  historial. Decidir si se suman al filtro o si va un tope por hora.
+- **Lo que gasta plata va en pantalla, sólo admin y sin HTTP** (generar, editar y diagnosticar con IA): el techo de 60
+  s de `/api/v1` no alcanza, y quien confirma en `/mako/revisar` tiene 300 s. Generar corta a los 240 s y lo que no
+  salió se arma desde el esquema (`sin_diseno`: la pantalla, en cambio, espera a que la persona toque «Completar con el
+  esquema»). ⚠️ **Sin hacer:** «Aplicar todos» va justo contra ese techo: no empieza otra vuelta pasados 90 s, pero una
+  vuelta de `ia.editar` dura hasta 200 s, más el `preparar()` que se vuelve a correr al confirmar. Si se corta entre el
+  guardado y la marca de resuelto, los comentarios quedan pendientes ya aplicados. Bajar a ~60 s o medir desde que
+  arranca la confirmación (`landing-editor.run.ts`, `PLAZO_EMPEZAR_VUELTA_MS`).
+- Las imágenes de afuera (`imagen`, `fondoImagen`, `favicon`, `imagenCompartir`, `logo`) se copian al CONFIRMAR, con
+  `copiarUrlABucket` y su baranda SSRF; si la copia falla, la pendiente se consume con el error.
+- **Dos roturas dieron verde por la razón equivocada.** Sacar la marca del voseo («cambiá») no rompía nada: el turno
+  igual llevaba la herramienta por otro camino, y hubo que probarlo en `esPedidoDeLanding` (el tipo). Y «restaurar»
+  mezclando en vez de reemplazar el tema daba verde porque el caso sólo tocaba los colores, que la mezcla superficial
+  pisaba igual: se sumó una fuente. **Si una rotura da verde, el caso no ejercita la diferencia**: se agrega uno que la
+  ejercite, y el comentario dice que la primera versión daba verde.
+- **Cambiar descripciones de un `.def.ts` deja rojo `tests/api-mako-registro.test.ts`** («la referencia generada está al
+  día») con un diff de 700 KB que no nombra la causa: `node --import tsx scripts/generar-api-doc.mjs` va ANTES de la
+  suite de api-mako, no después del rojo.
+- El guard de rótulos de `tests/editor-acciones.test.ts` no deja una minúscula seguida de una mayúscula
+  (`[a-zá-ú][A-Z]`) y sólo exceptúa «WhatsApp»: «Hecho con MaKo» no pasa como rótulo (quedó «Créditos al pie»).
+
+*15/10/2026, chat «Landing Generator» (`claude1`), tanda 7 (`514f84468`, `1412d13ee`).*

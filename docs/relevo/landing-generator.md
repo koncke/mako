@@ -1,4 +1,8 @@
-# Relevo · Landing Generator (el editor copiado de Gamma)
+# Relevo · Web Generator, ex Landing Generator (el editor copiado de Gamma)
+
+> **Estado al 15/10/2026 05:20: la TANDA 7 está HECHA y SIN PUSHEAR** (rama `web-t7`, worktree `C:/dev/wt-web-t7`). Lo
+> primero es su push: ver «Tanda 7» al final. La tab se llama Web Generator y vive en `/web-generator`
+> (`app/web-generator`); este archivo conserva su nombre porque lo citan comentarios del código.
 
 Chat del 11/10/2026 (cuenta claude3). Escrito por la sesión que hizo el trabajo, al cruzar el 85%
 semanal.
@@ -261,18 +265,68 @@ quién decide: `docs/hallazgos-editor-landing.md` → «Tanda 6». Bitácora: `a
 
 ## Lo que sigue (15/10)
 
-1. **Las 7 decisiones que el orquestador tomó con criterio** (15/10, ver «Tanda 6 → Lo que quedó sin hacer»): construir
-   (1) `allow-popups-to-escape-sandbox` en el HTML personalizado (`html-libre.ts`, `SANDBOX_PUBLICO`), (5) el www
-   automático al conectar un dominio raíz, redirigiendo (`dominios*.ts`), y (11) «Aplicar» de una landing de afuera deja
-   el original RESUELTO (`PanelDiagnostico.tsx`, `aplicarAfuera`). (8) checkout de Stripe con dominio propio: MEDIR en
-   Chrome y Safari antes de decidir. Las otras tres (estáticos, HSTS, despublicar reversible) quedan como están.
-2. **«Todos los botones a la API de MaKo»** (Martín, 14/10, textual: «Ambos, tienen que pasarle absolutamente todos los
-   botones. Todas las funciones a la API de MaKo.»): reabre lo que la tanda 4 dejó fuera A PROPÓSITO (generar con IA,
-   editar el contenido). El inventario (cuántos botones, cuántos declarados) lo corre el workflow `wf_b629deb0-0b1`,
-   junto con el relevamiento de Lottie. Más `esPedidoDeLanding` (lib/mako-intencion.ts) y el `maxDuration` de
-   `/api/mako-doer` para los 240 s de replicar por chat.
-3. **El parpadeo del hero**: arreglado con la opción A en la rama `landing-parpadeo` (worktree `C:/dev/wt-landing-parpadeo`,
-   medido: 6/6 sin parpadeo, LCP 248-588 ms con «Animaciones» prendido). Espera la respuesta de Martín
-   (`landing-anim-parpadeo` en la Ticketera, bloqueante). Si A → merge a landing-t6 y push; si B → rehacer.
-4. **Animaciones** (después del 3, y con las 7 decisiones de la Ticketera): relevamiento en
-   `docs/hallazgos-editor-landing.md` → «Animaciones» (dos secciones), etapas 0-9.
+1. ~~**Las 7 decisiones que el orquestador tomó con criterio**~~: (1) `allow-popups-to-escape-sandbox`, (5) el www
+   automático y (11) «Aplicar» de afuera deja el original resuelto se CONSTRUYERON en la tanda 7. Sigue: (8) checkout de
+   Stripe con dominio propio: MEDIR en Chrome y Safari antes de decidir. Las otras tres (estáticos, HSTS, despublicar
+   reversible) quedan como están.
+2. ~~**«Todos los botones a la API de MaKo»**~~ (Martín, 15/10 00:10, textual: «Ambos, tienen que pasarle absolutamente
+   todos los botones. Todas las funciones a la API de MaKo»): hecho en la tanda 7 (70 de 82 funciones; las 12 que
+   faltan, con su motivo, en `docs/hallazgos-api-mako.md`), con `esPedidoDeLanding` y los 420 s donde corre de verdad.
+3. **El parpadeo del hero**: la rama `landing-parpadeo` ya está en main (`f90398723`, y medido en producción en
+   `c717510c6`).
+4. **Animaciones** (con las decisiones de la Ticketera `landing-anim-panel` y `landing-anim-default`, que siguen sin
+   contestar): relevamiento en `docs/hallazgos-editor-landing.md` → «Animaciones» (tres secciones, Lottie incluido),
+   etapas 0-9. Es la segunda mitad del punto 8 de la tanda 7 («faltan los nuevos diseños con animaciones»).
+
+## Tanda 7 (15/10/2026, cuenta claude1, chat «Landing Generator») — HECHA, SIN PUSHEAR
+
+Pedidos de Martín, literales en `app/admin/dev/landing-generator/bitacora.ts`: el feedback de la tanda 6 en ocho puntos
+(01:02, por «Estrategia 3 cuentas»: todo se llama «Web Generator», el cuadro de chat se TRANSFORMA en vez de navegar,
+Generar = Pegar texto, Importar y los links como estados del mismo cuadro, el ▶ descentrado, faltan diseños con
+animaciones) y «todas las funciones a la API de MaKo» (00:10).
+
+**Qué trae** (rama `web-t7`, worktree `C:/dev/wt-web-t7`, 18 commits sobre origin/main + el merge `b325297dc`):
+- La tab se llama **Web Generator** en la ruta (`/web-generator`), la sidebar, el More del teléfono, el onboarding y lo
+  que cuenta MaKo; todo link viejo (`/landing-generator/…`, `/landing-writer`) redirige al mismo lugar con la query.
+- **UN cuadro con modos**: Generar · Importar · Analizar landing · Replicar landing arriba del cuadro; elegir uno lo
+  transforma, nada navega, y lo tipeado no se pierde. Importar y los links vuelven al texto como miniatura o chips;
+  arrastrar un archivo o un link anda en cualquier modo. «Plan» y «Más ajustes» llevan las opciones; sin tarjetas de
+  ejemplos ni «Aleatorio»; «Pegar texto» es pegar en el cuadro.
+- El ▶ de los videos centrado en su círculo, en la galería Y en el editor.
+- Dominio propio: al conectar una raíz, MaKo suma el www redirigiendo a ella.
+- Diagnóstico: «Aplicar» un comentario de una landing de afuera deja el original resuelto, con «Ver en tu copia»; y
+  cuando las IAs del cliente no contestan, usa la red de plataforma y dice la causa real (también la tab Landing Analyst).
+- El HTML personalizado abre ventanas sin el sandbox (un checkout ajeno ya no falla); la página de afuera del
+  Diagnóstico tiene su propia política y la ventana del lector suelta su opener (dos agujeros cerrados).
+- **API de MaKo**: el editor entero (40 operaciones: crear y editar con IA, el contenido, el tema, el sitio, el dominio,
+  el historial, la biblioteca), y por WhatsApp llegan «publicá / creame / replicá / analizá / cambiá… mi landing».
+  420 s donde una confirmación por chat corre replicar.
+
+**Para pushear** (es lo PRIMERO): origin/main avanzó durante la corrección (9 commits al 05:20). `cd C:/dev/wt-web-t7 &&
+git fetch -q && git merge-tree --write-tree origin/main HEAD` (con main en `b8b298600` daba limpio), `git merge origin/main`,
+`node --import tsx scripts/generar-api-doc.mjs --check`, los lotes de tests de la rama y los que leen el fuente de lo
+que tocaron los dos lados (docs/hallazgos-infra.md), y `git push origin HEAD:main` (el pre-push corre el typecheck
+completo). Después, `vercel ls` y verlo en producción.
+
+**Lo que quedó sin hacer, con su archivo** (el detalle en `docs/hallazgos-editor-landing.md` → «Tanda 7» y
+`docs/hallazgos-api-mako.md` → «El editor entero del Web Generator»):
+- Reclamar una raíz AJENA bloquea su www para otro negocio y no vence; las raíces conectadas antes de la tanda 7 no
+  tienen www; `agregarAVercel` sólo mira el 409 (`lib/editor-landing/dominios.ts`, `dominios-reglas.ts`). La pestaña
+  «Dominios» no explica el www (`app/web-generator/editor/dialogos/DialogoPublicar.tsx`, `PARA_REGISTRO`).
+- «quítale el formulario a la landing» no trae `acomodar_bloque_landing` (`lib/api-mako/registro.ts`).
+- Las reglas copiadas de archivos `'use client'` a `lib/api-mako/areas/landing-contenido.helpers.ts`, sin unificar.
+- «Aplicar todos» por la API va justo contra los 300 s de `/mako/revisar` (`landing-editor.run.ts`,
+  `PLAZO_EMPEZAR_VUELTA_MS`).
+- Las versiones «Antes de un cambio de MaKo» no se podan (`lib/editor-landing/server.ts`, `podarVersionesAuto`).
+- El rótulo «PowerPoint, Word o PDF» se queda corto (`app/web-generator/CajaCrear.tsx`); MaKo Mobile (`/m/landing`)
+  sin el cuadro (`lib/movil-rutas.ts`); el guard de links viejos no ve uno absoluto
+  (`tests/web-generator-renombre.test.ts`).
+- **Verlo con clics** (Martín, en `/web-generator?ws=3`): la lista está en el hallazgo.
+
+**Decisiones de Martín pendientes:**
+1. El proyecto del Plan sigue llamándose «Landing Generator» (y «Feature: Landing Generator», y la URL
+   `/admin/dev/landing-generator`): renombrarlo migrando las tareas por id, o dejarlo así a propósito.
+2. El aviso del www cuando el www de la raíz sirve OTRA cosa: ¿informativo, o un «No uso www» que lo suelta?
+3. El camino del Pixel conserva `window.opener` (una landing declarada del negocio): ¿se acepta?
+4. Comentar como MaKo por la API: un autor «MaKo» que un admin pueda borrar (sin eso no hay `comentar_landing`).
+5. Los diseños con animaciones esperan `landing-anim-panel` y `landing-anim-default` (Ticketera).

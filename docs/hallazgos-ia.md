@@ -3971,3 +3971,49 @@ volvió a medir: no se hacen llamadas con las keys de un cliente. Las dos cosas 
 caídas, docs/diseno-ia-claves-caidas.md); cambiar la key del ws1 (lo decide Martín con Mauricio).
 **Vive en:** lib/ia-cuotas.ts (`anotarRebote429`), lib/ai-cheap.ts (:613 y :1059, donde se anota),
 app/api/cron/fathom-plan/route.ts, app/api/cron/cs-sesiones-entrega/route.ts.
+
+## El Diagnóstico de una landing decía «no pude» sin la causa: `chatClaude` no le pasaba la red a la cascada (15/10/2026)
+
+**Síntoma:** en el ws1, el Diagnóstico del Web Generator (y la tab Landing Analyst) contestaba el texto genérico de
+fallo de IA, sin ninguna pista. `landing_analyses` guardó «Claude vetado — …» con 445 palabras leídas en el navegador.
+
+⚠️ **El diagnóstico obvio era el equivocado**: ni el tamaño, ni un timeout, ni el JSON. Medido: el pedido armado con las
+funciones de la casa son 2.405 tokens de entrada (`countTokens` de Gemini, que no gasta cuota), ~10.540 con los 8.000 de
+salida: entra en todos los proveedores menos Groq gratis (8.000 por minuto). No hubo 413, ni timeout, ni JSON roto. Y
+una sola llamada del mismo tamaño con la Gemini de la plataforma (ws9, cuenta 1, `gemini-flash-latest`) dio 200 en
+72,4 s con el JSON entero.
+
+**Causa:** al ws1 no le contesta ninguna de sus keys (la Gemini muerta desde el 08/10, arriba; Mistral 429, OpenAI sin
+crédito, OpenRouter sin una respuesta buena, Groq salteado por tamaño). Y dos fallas nuestras lo tapaban:
+- **`chatClaude` corría la cascada SIN red de plataforma**: la opción existía en `chatCheapCascade` y `chatClaude` no la
+  pasaba, así que quien llamaba por `chatClaude` no la podía pedir.
+- **Los errores de la cascada se quedaban adentro de `chatClaude`**: llegaba sólo «Claude vetado», y
+  `diagnostico-server` lo traducía con `errorDeCascada([])`, la lista vacía. De ahí el texto genérico.
+- Y la red no miraba el techo de entrada: Groq, salteado por tamaño, nunca entraba en `probados`, y `otroPrimero` lo
+  ponía PRIMERO: dos 413 seguros antes de llegar a Gemini.
+
+**Trampa del entorno:** el endpoint `runtime-logs` de la API de Vercel sólo transmite EN VIVO, no trae historial; y lo
+que no es 200 ni 429 no queda en ninguna tabla (`anthropic_usage` sólo anota los 429, arriba). No se puede saber qué
+contestó Gemini a las 04:19 UTC (no fue un 429). Desde `09613eebb`, los errores de las keys del negocio salen en
+pantalla y los de la red van al log, nunca al texto.
+
+**Lo que quedó:** `chatClaude` pasa `redDePlataforma`, `hastaMs`, los errores y `validar` a la cascada, y le devuelve al
+que llama los errores de las keys del negocio. El Diagnóstico (las dos ramas, nuestra y de afuera) y la tab Landing
+Analyst piden la red y un plazo de 250 s (la ruta tiene `maxDuration` 300); el uso queda en el Saldo de IA con el motivo
+«⚠ red de plataforma». `analizarCopy` pasa `validar: analisisUsable`: un JSON que el parser de la casa
+(`lib/json-del-modelo.ts`) no puede leer hace probar con la cuenta o el proveedor siguiente, en vez de llegar como
+«Unexpected end of JSON input». Medido: ese parser TIRA con un JSON cortado a la mitad (no lo «repara» cerrando llaves),
+así que un análisis truncado no pasa como completo. La copia ingenua de `parseJsonObject` que tenía
+`lib/landing-analyst.ts` (la cuarta del repo) se borró. Y un 413 solo ya no dice «Prueba de nuevo»: dice que el pedido
+es más largo de lo que acepta la IA gratis y que conecte Gemini (`esCascadaSinRespuesta`, `lib/ia-mensajes.ts`).
+
+**Regla:** toda opción nueva de `chatCheapCascade` se pasa por `chatClaude`, o quien llama por ahí no la puede pedir; y
+los errores de la cascada vuelven al que llama, que es quien arma el texto para la persona.
+
+**Sin hacer:** el análisis tarda ~72 s con `flash-latest`; no se verificó en producción (la rama `web-t7` no estaba
+desplegada al escribir esto).
+
+**Vive en:** `lib/anthropic.ts` (`chatClaude`) · `lib/ai-cheap.ts` (la red y el techo de entrada) · `lib/landing-analyst.ts`
+(`analizarCopy`, `analizarLanding` con `{ redDePlataforma, hastaMs }`, `analisisUsable`) ·
+`lib/editor-landing/diagnostico-server.ts` · `app/api/landing-analyst/analyze/route.ts` · `lib/ia-mensajes.ts` ·
+`tests/landing-analyst-red.test.ts` · *tanda 7 del Web Generator (`09613eebb`, `fd3bb3687`)*

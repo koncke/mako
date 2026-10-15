@@ -875,6 +875,19 @@ Ocho cosas que no se ven en el código y ya mordieron:
    sin la herramienta (08/10/2026). Y el presupuesto de 12.000 caracteres ordena por
    relevancia CONTRA EL TEXTO: sumar un área sin sumar relevancia no trae la acción.
 
+**Y al sumar operaciones a un área** (15/10/2026, 40 de una vez en `landing`;
+docs/hallazgos-api-mako.md → «El editor entero del Web Generator»):
+
+- **Un runner hecho con una fábrica va `id: { ...fabrica({...}) }`**, nunca `id: fabrica({...})`:
+  `tests/api-mako-registro.test.ts` encuentra los runners con `^\s{2}id:\s*\{` y el otro no lo
+  ve. Un segundo `.run.ts` de un área se declara en `RUNS_DE_AREA` del mismo test.
+- **En una tanda grande, las descripciones no repiten las raíces de OTRAS operaciones** («creada
+  en el editor», «no publica (publicar_landing…)»): `ordenarPorRelevancia` suma un punto por raíz,
+  y las 40 nuevas le ganaron el presupuesto a `publicar_landing`, que dejó de llegar por WhatsApp.
+  Antes de commitear se corre el test del turno de WhatsApp del área. Y la relevancia que pone el
+  clasificador para un pedido amplio va CORTA (lo auxiliar): una larga reparte puntos parejos y
+  deja afuera la herramienta que se pidió.
+
 `/api/v1` es la única carpeta que entra a `PUBLICOS` como PREFIJO: toda ella es bearer por
 construcción, y `tests/api-mako-registro.test.ts` enumera en positivo los `route.ts` que puede
 tener. Una ruta nueva ahí falla ese test hasta que alguien decide que también es bearer.
@@ -1080,6 +1093,14 @@ controle otro la cumple), y un id que acuña el navegador no autentica nada. Lo 
 prefijo propio, atada a id, URL, usuario y negocio, que vence; `lib/editor-landing/lector-firma.ts`). Y abrir una
 página de afuera SIN sandbox y con `opener` exige que el host esté entre lo que el negocio DECLARÓ, no que su HTML
 «diga» algo (reverse tabnabbing). Medido y cerrado el 14/10/2026: docs/hallazgos-editor-landing.md → «Tanda 6».
+
+⚠️ **Y cada ruta que sirve contenido ajeno tiene SU constante de política** (15/10/2026): `allow-popups-to-escape-sandbox`
+se decidió para el HTML personalizado de hola-mako.site y le llegó a la página de afuera del Diagnóstico, que vive en el
+origen de la app, porque las dos usaban `CSP_HTML_LIBRE`. Los tests fijan qué constante usa cada bloque de
+`next.config.ts`. **Y una ventana que sirve contenido de un tercero y necesita contestarle a su opener lo guarda en una
+variable y suelta `window.opener` apenas carga**: la cabecera `sandbox` no sobrevive a que la página se navegue sola, y
+el documento nuevo haría `opener.location = <phishing>` sobre la pestaña de MaKo (medido;
+`lib/editor-landing/lector-script.ts`). docs/hallazgos-editor-landing.md → «Tanda 7».
 
 # El Centro de Operaciones es una puerta a la PC de Martín: una fila es un prompt
 
@@ -5680,6 +5701,13 @@ una vuelta cada uno y valen para cualquier guard que busque una ruta en el fuent
 - **Un reemplazo de texto no distingue la pantalla de lo que se llama igual**: la ruta REST
   de un área (`/api/v1/<área>/…`) o una carpeta homónima de `/admin/dev` (un `./<área>/`
   relativo que resuelve a otro lado). Se resuelve la ruta antes de cambiarla.
+- **Si la ruta tiene SUBRUTAS, se redirige con UNA página catch-all opcional** en la carpeta
+  vieja (`app/<vieja>/[[...resto]]/page.tsx`) al mismo camino bajo la nueva, con la query
+  entera, codificando cada tramo y descartando `.`, `..` y vacíos (molde:
+  `lib/ruta-web-generator.ts`). **Y el guard acepta `/` después de la ruta**:
+  `` ['"`]/<ruta>(['"`?#/]|$) ``. El de /chatbot (que no tenía subrutas) copiado tal cual
+  dejaba pasar `/landing-generator/${id}`, justo el link que MaKo manda por chat (15/10/2026,
+  `docs/hallazgos-editor-landing.md` → «Tanda 7»).
 
 # Una ruta que apunta a la nada no rompe nada, y por eso es cara
 

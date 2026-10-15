@@ -5279,6 +5279,10 @@ vecino.
 - **El Bash se come las barras**, también en un heredoc entre comillas: `\\` llegó como `\`; un
   `node -e` perdió otra; y un escape de NUL (barra, `u` y cuatro ceros) pasado por un script de
   python llegó como el byte crudo, con lo que el reemplazo no encontró nada, sin error.
+- **Y el Bash EJECUTA los backticks de un `node -e "…"`** (15/10, tanda 7 del Web Generator): un parche que
+  escribía un comentario con una palabra entre backticks dio «bash: pensar: No such file». Ese tiró antes de
+  escribir; uno que tire después deja el parche a medias en silencio. Un parche con backticks va a un `.cjs`
+  escrito con Write (o se hace con Edit), nunca entre comillas dobles del Bash.
 - **Las herramientas Write y Edit convierten ALGUNOS escapes `\uXXXX` en el carácter crudo**:
   pasó con U+00AD, U+200D, U+FE0F, U+2013, U+2014, U+2026, U+00BA y U+FF0B, y no con el NUL ni con
   la forma con llaves. Dejaron un guion blando invisible en `app/_cursos/laminas/comun.tsx` y un
@@ -5318,6 +5322,11 @@ herramienta y no en el código.
   CRLF: las cuatro primeras roturas de una revisión no se aplicaron, y un «no aplica» se lee igual
   que una rotura que el test no caza. El ancla se convierte al fin de línea DE ESE ARCHIVO (es la
   regla de AGENTS.md «El fin de línea es POR ARCHIVO», del lado del que rompe).
+  Volvió a pasar dos veces el 15/10 (tanda 7 del Web Generator: `lib/landing-writer.ts` y
+  `tests/editor-landing-origen.test.ts`), con un cambio de UNA línea: el archivo entero queda en LF,
+  el diff no muestra nada (git normaliza al commitear) pero `git status` lo da por modificado, y el
+  ancla con CR de un script posterior ya no calza. Se edita con node, reemplazando sobre el texto y
+  conservando el fin de línea, o con Edit; nunca con `sed -i`. Si ya pasó, se devuelve a CRLF con node.
 
 **Regla:** un banco o un script de roturas cuenta y reporta cuántas aplicó; un «0 aplicadas» es un
 fallo del banco, no un test sano.
@@ -6058,6 +6067,54 @@ Operaciones sumó `'operaciones'` a `AREAS` (`lib/api-mako/tipos.ts`). El acotad
 compartido (una unión, un `Record<…>`, la firma de una función exportada), el acotado lleva además a todos los que lo
 importan**: `git grep -l "<módulo del tipo>"` y se suman a `files`. Medido: con los 140 archivos que importan
 `api-mako/tipos`, el acotado cazó el TS2741 con 3 GB, y sin la línea arreglada salió con 2.
+
+⚠️ **Y el acotado que muere sin memoria NO era «la rama creció»: el diagnóstico obvio era el equivocado** (15/10/2026,
+tanda 7 del Web Generator). `C:/dev/tsc-landing.mjs` (heap fijo de 2560 MB) terminó con 276 archivos y, después de un
+commit grande, murió con 294: exit 134, «JavaScript heap out of memory» (no el 99 de «no conseguí turno»). El agente se
+lo atribuyó a ese commit y propuso subir el heap. Era el ALCANCE: el script diffeaba con dos puntos contra la PUNTA de
+`origin/main`, que otras sesiones movían con cada push, y metía los 107 archivos que main había cambiado por su cuenta
+(con el contenido viejo de la rama). Contra el merge-base eran 187: el mismo script, con el mismo heap, salió en 0. Y dos
+corridas a la vez se borraban la config compartida (`tsconfig.landing-acotado.json`): la segunda contestaba TS5058 «The
+specified path does not exist», que no es un error del código. Las dos cosas se arreglaron en el script (fuera del
+repo): alcance contra `git merge-base origin/main HEAD` y config por proceso (`tsconfig.landing-acotado-<pid>.json`).
+⚠️ Si al proceso lo matan en seco, ese archivo queda suelto en el worktree (no está en `.gitignore`). **Regla:** un
+alcance de «lo que cambió la rama» se mide contra el merge-base, nunca contra `origin/main`; y un archivo temporal que
+escribe una herramienta que corren varios a la vez lleva el pid en el nombre.
+
+## Con main adelantado, el diff de DOS puntos miente, y un merge rompe un test que no choca (15/10/2026)
+
+**Vive en:** cualquier rama de una corrida larga · *tanda 7 del Web Generator, rama `web-t7`*
+
+- **`git diff origin/main..HEAD` muestra lo nuevo de main como si la rama lo BORRARA.** Con la rama 47 commits atrás,
+  el diff de dos puntos daba `esPedidoDiseno` y las áreas `chats` e `imagen` del clasificador como borradas por la rama,
+  y no lo estaban. Lo que cambió la rama se mira con TRES puntos (`origin/main...HEAD`, contra el merge-base).
+- **Un merge rompe un test que no choca.** Después de juntar origin/main, `tests/mako-doer-plazo.test.ts` quedó en rojo
+  y la verificación no lo vio: la auditoría de seguridad de main (`52e2c0d07`) sacó a una constante la vista de
+  `app/api/mako-doer/route.ts` (`const vista = await vistaDe(ctx)`) y el test buscaba la forma vieja. El archivo se
+  juntó solo, sin conflicto, así que la lista de tests «del conflicto» no lo traía. **Regla:** después de un merge se
+  corren los tests que LEEN EL FUENTE de cualquier archivo que tocaron los DOS lados (el diff de tres puntos de cada
+  lado, y un grep de esas rutas en `tests/`), no sólo los de los archivos con conflicto.
+- **origin/main se movió otra vez durante la corrección** (4 commits más): un merge «antes del push» se rehace justo
+  antes del push, con `git merge-tree --write-tree origin/main HEAD` para saber si choca sin tocar el árbol.
+
+## El `maxDuration` por defecto de este proyecto es 300 s, y subirlo no alcanza (15/10/2026)
+
+**Vive en:** `tests/mako-doer-plazo.test.ts` · las rutas de abajo · *tanda 7 del Web Generator*
+
+- **Medido por la API de Vercel** (`GET /v9/projects/mako` → `defaultResourceConfig`): el proyecto tiene fluid compute
+  con `functionDefaultTimeout` 300 (plan Pro, tope 800). Una ruta sin `maxDuration` NO corta a los 10 s (ni a los 15,
+  el default de Pro sin fluid). Se declara igual, explícito, para no depender de esa configuración.
+- **El diagnóstico obvio era el equivocado:** el pendiente pedía `maxDuration` en `/api/mako-doer` «para los 240 s de
+  replicar por chat», y esa ruta es SÓLO LECTURA (`incluirAcciones: false`, sin `confirmar_accion`). Una confirmación
+  por chat corre en el webhook de Evolution, `/api/m/mako`, las server actions de `/m/mako`, `/m/inbox` y
+  `/mako/pendientes`, y `/api/crm/mako`: ahí va 420 (replicar tarda hasta ~275 s más los pasos del modelo). **Regla:**
+  antes de subir un `maxDuration`, encontrar qué ruta EJECUTA el trabajo (grep de `confirmarPendiente` /
+  `confirmar_accion`).
+- **Y subirlo no alcanza:** `app/m/mako/ChatMako.tsx` y `app/crm/mako-crm/ChatMakoCrm.tsx` cortan del lado del navegador
+  con su `TOPE_MS` (estaba en 305 s; ahora 425), y tres tests fijaban el 300 a mano (`m-inbox-cuenta`, `m-mako-chat`,
+  `mako-turno-app`). **Regla:** al cambiar el `maxDuration` de una ruta se buscan el `TOPE_MS` de quien la llama y los
+  asserts del número en `tests/`. El test de plazo exige que el corte del navegador quede entre el techo de la ruta y
+  el techo más 15 s.
 
 ## `Mazo.tsx` y `mazo.ts` en la misma carpeta: en Windows el import trae el OTRO archivo (14/10/2026)
 

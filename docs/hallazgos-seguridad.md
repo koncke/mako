@@ -1819,3 +1819,30 @@ el servidor no tiene, y rechaza las sesiones `sub: 'dev'`.
 como en producción. Y, de paso, `next dev -H 127.0.0.1` en el script.
 
 **Vive en:** `lib/auth.ts:74-77` · `lib/auth-session.ts:135-151` (`secret`, `gateConfigurado`) · `proxy.ts:419-424` · `package.json` (`"dev": "next dev"`) · *chat «Centro de Operaciones», 15/10/2026*
+
+## HTML de terceros en el origen de la app: cada ruta su política, y el sandbox no sobrevive a la navegación (15/10/2026)
+
+✅ **Cerrado en la rama `web-t7`** (`5beaca0e5`, sin pushear al escribir esto). Lo encontró la verificación de la tanda 7
+del Web Generator en `/api/landing-generator/diagnostico/pagina`, la ruta que sirve la página de AFUERA (de un tercero)
+en hola-mako.com: el iframe del Diagnóstico y la ventana del lector, que es de nivel superior y tiene de opener la
+pestaña de MaKo. El detalle, en [hallazgos-editor-landing.md](hallazgos-editor-landing.md) → «Tanda 7» → «La seguridad de
+la página de afuera».
+
+- **Una política aflojada para una ruta le llegó a otra.** `allow-popups-to-escape-sandbox` se decidió para el HTML
+  personalizado de las landings, que viven en hola-mako.site (una ventana sin sandbox ahí no corre con el origen de la
+  app). Pero la página de afuera usaba la MISMA constante (`CSP_HTML_LIBRE`), y en la ventana del lector pasó a abrir
+  ventanas sin sandbox en nuestro dominio. **Regla:** cada ruta que sirve contenido ajeno tiene SU constante de política
+  (`CSP_PAGINA_AFUERA`, `lib/editor-landing/html-libre.ts`), y los tests fijan qué constante usa cada bloque de
+  `next.config.ts`, no sólo que exista una.
+- **Reverse tabnabbing por la propia navegación de la página** (venía de la tanda 6). La cabecera `sandbox` vale para el
+  documento que la recibió: si la página se navega a sí misma (`location = 'https://otro'`), el documento nuevo ya no la
+  trae y conserva `window.opener`, así que `opener.location = <phishing>` se lleva la pestaña de MaKo. Medido en
+  Chromium headless con el lector real. **Regla:** una ventana que sirve contenido de un tercero y necesita contestarle a
+  su opener lo guarda en una variable y suelta `window.opener` apenas carga, antes que corran los scripts de la página
+  (`lib/editor-landing/lector-script.ts`). El sandbox del documento no la protege de su propia navegación.
+- ⚠️ **Decide Martín:** el camino del Pixel conserva el opener a propósito (es una landing DECLARADA del negocio y su
+  redirect vuelve a cargar el lector, que lo necesita para contestar). Si esa landing navega a un tercero, el
+  tabnabbing sigue abierto. `lector-script.ts`, `lector-pagina.ts` (`vaALaPaginaReal`).
+
+**Vive en:** `lib/editor-landing/html-libre.ts` · `lib/editor-landing/diagnostico.ts` · `next.config.ts` ·
+`lib/editor-landing/lector-script.ts` · `tests/editor-landing-origen.test.ts` · *tanda 7 del Web Generator, 15/10/2026*

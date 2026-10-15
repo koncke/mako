@@ -1,6 +1,7 @@
-# Hallazgos · Editor de landings (Landing Generator, copiado de Gamma)
+# Hallazgos · Editor de landings (Web Generator, ex Landing Generator, copiado de Gamma)
 
-El editor de landings copiado de Gamma 5 (`app/landing-generator`, `lib/editor-landing`, `app/l`);
+El editor de landings copiado de Gamma 5 (`app/web-generator` —hasta el 15/10/2026 `app/landing-generator`, que hoy sólo
+redirige—, `lib/editor-landing`, `app/l`);
 el diseño y los contratos, en [diseno-editor-landing.md](diseno-editor-landing.md). Lo que hay que
 saber ANTES de tocarlo. Lo que se hizo está en el commit. Corrida del 11/10/2026 (relevo de 6
 agentes, construcción de 12 paquetes en paralelo, integración).
@@ -17,7 +18,7 @@ agentes, construcción de 12 paquetes en paralelo, integración).
 | IA | `ia.ts` + `ia-bloques.ts` (la gramática que escribe el modelo) | features `landing-editor` y `landing-editor-ia`, gratis (Gemini) |
 | Datos | `server.ts`, `publicar.ts`, mig 0246 | `landing_docs` (+ versiones, comentarios), bucket `landing-imagenes` |
 | Página pública | `app/l/[slug]`, `app/l/vista/[token]`, `pagina-publica.ts` | route handlers con HTML completo, sin el layout raíz |
-| Editor | `app/landing-generator/editor/*` | armazón dueño del documento (`EditorLanding.tsx`) + contexto |
+| Editor | `app/web-generator/editor/*` | armazón dueño del documento (`EditorLanding.tsx`) + contexto |
 
 ## TipTap: el JSON que no cumple el esquema se pisa con un documento VACÍO
 
@@ -222,7 +223,7 @@ en el navegador y un revisor adversarial; acá va lo que costó.
   está» eran el mismo `null`; `ubicacion` devuelve `undefined` para lo primero.
 - **Una landing nuestra se analiza por `analizarCopy`, nunca por `analizarLanding`**: `landing_analyses` tiene
   una fila por URL y el Panel la listaría «de afuera» (hay un test que lo fija).
-  **Vive en:** `lib/editor-landing/diagnostico*.ts`, `app/landing-generator/diagnostico/*`, mig 0264.
+  **Vive en:** `lib/editor-landing/diagnostico*.ts`, `app/web-generator/diagnostico/*`, mig 0264.
 
 ### Presentaciones, crear y el Panel
 
@@ -263,12 +264,13 @@ en el navegador y un revisor adversarial; acá va lo que costó.
   hacia un 404. `proxy.ts` (matcher), `next.config.ts`. Medido en la tanda 4 y sigue pendiente (por qué, abajo).
 - ~~**Servir `/l/html` desde un dominio aparte, sólo para contenido de usuarios**~~: hecho en la tanda 4 (las
   landings y su `/l/html` viven en hola-mako.site; en producción hola-mako.com ya no lo sirve).
-- **Los popups del bloque heredan el sandbox** (un checkout ajeno puede fallar): decidir con Martín
-  `allow-popups-to-escape-sandbox`. `html-libre.ts` (`SANDBOX_PUBLICO`). Con las landings en hola-mako.site el
-  riesgo de aflojarlo es menor (un popup sin sandbox que cargue algo de su propio host ya no corre con el
-  origen de la app ni con su cookie), pero sigue siendo su decisión.
-- **La pestaña «Dominios» no avisa que una reserva venció** (`queFalta` no lo sabe); el `www.` no se agrega
-  solo; los subdominios `<slug>.hola-mako.com` quedan para Martín. `dominios-reglas.ts`.
+- ~~**Los popups del bloque heredan el sandbox** (un checkout ajeno puede fallar): decidir con Martín
+  `allow-popups-to-escape-sandbox`~~: hecho en la tanda 7 (`e80b9f1ae`, `SANDBOX_PUBLICO`). ⚠️ Esa constante
+  también era la política de la página de AFUERA del Diagnóstico, en el origen de la app: ver «Tanda 7» → «La
+  seguridad de la página de afuera».
+- ~~**La pestaña «Dominios» no avisa que una reserva venció**~~ (hecho en la tanda 6); ~~el `www.` no se agrega
+  solo~~ (tanda 7: se suma redirigiendo, con sus trampas en «Tanda 7»); los subdominios `<slug>.hola-mako.com`
+  quedan para Martín. `dominios-reglas.ts`.
 - **«Probar nuevo diseño» no recibe el formato** (el server `disenos` no toma params) y **el PDF de una
   presentación sale vertical**. `lib/editor-landing/ia.ts`, `exportar-pdf.ts`.
 - **Las rutas `analyze`, `sync` y `pulso` del Landing Analyst no miran el rol** (quedó como tarea aparte).
@@ -297,21 +299,21 @@ una, puede salir un pop-up... que te pregunte de que quieres crearla». Hecho si
   contra la vecina. **Regla: algo que cuelga del borde de una caja con `isolation` (o cualquier contexto de
   apilamiento) no le gana a la hermana de abajo por su z-index propio; o va adentro, o la caja entera sube
   de capa.** Va las dos cosas: la barra adentro, pegada abajo, y la sección activa con `z-index: 3`.
-  **Vive en:** `app/landing-generator/editor/extensiones/estilos-nodos.ts`.
+  **Vive en:** `app/web-generator/editor/extensiones/estilos-nodos.ts`.
 - **Las «plantillas» eran COPY con un tema pegado**: diez objetivos (agendar, webinar, lead magnet…), cada
   uno con su tema fijo, así que elegir cómo se VE era elegir qué DICE. Ahora son dos ejes que se cruzan al
   crear: `DISENOS_LANDING` (tema + hero + zigzag de las imágenes) y el objetivo (el copy de
   `PLANTILLAS`, por id). `landingDesde(diseño, objetivo)` arma el contenido; la caja de crear y la galería
   del Panel muestran los diseños y preguntan el objetivo en un pop-up (`DialogoObjetivo`). Las
   presentaciones no cambian (ahí la plantilla sí es una pieza entera). El `origen.plantilla` guarda
-  `<diseño>:<objetivo>`. **Vive en:** `lib/editor-landing/disenos-landing.ts`, `app/landing-generator/crear/`.
+  `<diseño>:<objetivo>`. **Vive en:** `lib/editor-landing/disenos-landing.ts`, `app/web-generator/crear/`.
 - **Las herramientas de MaKo entran VACÍAS y sin un bloque nuevo**: la agenda (Calendly o Cal.com) y el VSL
   (YouTube, Panda, Vimeo, Wistia) son el `insertado` de siempre con su proveedor de entrada (lo decide
   después el enlace que se pegue, `lib/embeds.ts`); el pago es un botón «Pagar ahora» al que se le pega el
   link de Stripe o Mercado Pago. Un `insertado` con `src` vacío pasa el saneo del server sin descartes:
   medido sobre los 80 cruces diseño × objetivo (`tests/editor-landing-disenos.test.ts`). En el menú de
   bloques son la categoría «Herramientas de MaKo» (Agenda, VSL, Botón de pago). **Vive en:**
-  `lib/editor-landing/catalogo-bloques.ts`, `app/landing-generator/editor/insertar.ts`.
+  `lib/editor-landing/catalogo-bloques.ts`, `app/web-generator/editor/insertar.ts`.
 - ~~**Sin hacer**: el botón de pago no arma el link desde la pasarela de MaKo (`lib/cobros.ts`, `crearCobro`):
   la persona pega el suyo.~~ Hecho en la tanda 4 (abajo). Sigue faltando mirarlo con clics (la barra en una
   sección del medio y en la última, y el pop-up desde el Panel y desde la caja).
@@ -592,9 +594,9 @@ del registro (`lib/api-mako/areas/landing.def.ts` / `.run.ts`, lo puro en `landi
 
 ### Lo que quedó sin hacer (tanda 4)
 
-- **BLOQUEANTE: `esPedidoDeLanding` en `lib/mako-intencion.ts`** (después de `esPedidoAutomatizacion` y de
-  su uso, la regla 6-bis). Sin eso, la API existe por WhatsApp sólo para las frases de arriba. Al
-  aplicarlo, sacarle el `todo` al último test de `tests/api-mako-landing-editor.test.ts`.
+- ~~**BLOQUEANTE: `esPedidoDeLanding` en `lib/mako-intencion.ts`**~~: hecho en la tanda 7 (`8e053b359`; los
+  pedidos de EDITAR, en `1412d13ee`). Va como regla 5-bis, ANTES de la 6: la 6 («links sin instrucción») guardaba
+  «replicá esta página https://…» como material. El `todo` ya corre.
 - **⚠️ pasar a urlPublicaLanding al integrar** (las publicadas se mudan a https://hola-mako.site/<slug>):
   `urlDeLanding` en `lib/api-mako/areas/landing-editor.helpers.ts`. Y `aCompleta` (server.ts) y
   `publicar()` (publicar.ts) arman la suya con `urlPublica(APP_BASE_URL, …)`. Al cambiarla, la aserción
@@ -611,7 +613,9 @@ del registro (`lib/api-mako/areas/landing.def.ts` / `.run.ts`, lo puro en `landi
   frena un `.from(` ahí). `estadoDominio` (`dominios.ts`) NO sirve para un resumen: sale a Vercel y al DNS
   y puede escribir el estado. Y decidir si sigue `reversible: true` (el test lo fija hoy).
 - **El dominio propio no está en `url_publica`**: una landing con dominio verificado sale con la de MaKo.
-- **Fuera de la API, a propósito**: generar con IA, editar o guardar el contenido. **Fuera por ahora**:
+- ~~**Fuera de la API, a propósito**: generar con IA, editar o guardar el contenido~~: Martín lo reabrió el 15/10
+  («Todas las funciones a la API de MaKo») y entró en la tanda 7 (`514f84468`, 40 operaciones); lo que sigue afuera,
+  con su motivo, en docs/hallazgos-api-mako.md → «El editor entero del Web Generator». **Fuera por ahora** (14/10):
   pausar el sitio, renombrar, duplicar, papelera, la analítica de 30 días y crear una presentación desde
   una plantilla (las seis cosas existen en `server.ts`; cada una es una def y un runner).
 - **Verlo con clics**: proponer `publicar_landing` desde el chat de la app y confirmarlo en
@@ -824,7 +828,7 @@ VSL Funnel... Puedes inspirarte en otras plantillas de VSL Funnel e incluso en l
 
 - Un hero alto (Título display de 5em + 2.75em de padding) deja el video FUERA del cuadro sin un error: la miniatura
   muestra el titular y nada más. Lo que se ve en la grilla se mide en el cuadro, no en la página.
-- **Vive en:** app/landing-generator/MiniaturaLanding.tsx (.gp-mini).
+- **Vive en:** app/web-generator/MiniaturaLanding.tsx (.gp-mini).
 
 ### El test de insertar no cargaba los diseños en TipTap
 
@@ -928,10 +932,10 @@ VSL Funnel... Puedes inspirarte en otras plantillas de VSL Funnel e incluso en l
 ## La caja de pedir, compartida con /automations (12/10/2026, decimocuarta tanda de Automations)
 
 - La caja de «¿Qué vas a crear hoy?» (el campo con el ejemplo que se escribe solo, el micrófono y el ↑) vive en
-  `app/landing-generator/CajaPedido.tsx`. La monta también el modal «Nueva automatización». El «+» y «Plan | Express»
+  `app/web-generator/CajaPedido.tsx`. La monta también el modal «Nueva automatización». El «+» y «Plan | Express»
   siguen en `CajaCrear.tsx` (`antes`). **Regla:** un cambio de la caja es para las dos puertas. Lo de una sola va en
   `antes`.
-- `Ico` salió a `app/landing-generator/Ico.tsx` (MiniaturaLanding lo re-exporta). Quien no es el editor importa de
+- `Ico` salió a `app/web-generator/Ico.tsx` (MiniaturaLanding lo re-exporta). Quien no es el editor importa de
   ahí: MiniaturaLanding trae el render de la landing.
 - ⚠️ Los tokens `--gp-*` de CSS_GP leen `--gma-*` con respaldo CLARO. Fuera de `.gma` (sin gamma.css) el oscuro no
   los da vuelta. Afuera, `.gp.cp-casa` + `CSS_TOKENS_CASA`.
@@ -1087,17 +1091,18 @@ triage del backlog, paquetes, verificación y corrección). Lo construido está 
 - ~~Migraciones 0281 y 0282~~: **aplicadas en producción el 15/10/2026 antes del deploy**, y verificadas después
   (la columna es jsonb; la función de la 0282 sólo la ejecuta service_role). En esta casa las aplica quien las
   escribió, con `scripts/apply-migration.mjs`, ANTES o junto con el deploy cuando el código nuevo lee lo que agregan.
-- **Decide Martín** (el triage, en la Ticketera): `allow-popups-to-escape-sandbox` en el HTML personalizado; bloquear
-  o no los estáticos de MaKo en hola-mako.site; HSTS propio; subdominios por landing; el www automático al conectar un
-  dominio raíz; el proveedor de IA del Diagnóstico en el ws1; si despublicar sigue reversible; el `form-action` con un
-  checkout de Stripe en dominio propio; avisar al dueño cuando falla la pasarela en un pago de landing. Y de esta
-  tanda: «Preguntar a MaKo» usa el chat de la casa (`/api/chart-insights`, Claude PAGO); y si los comentarios de una
-  página de afuera se marcan resueltos al pasar a la copia (`aplicarAfuera`, PanelDiagnostico.tsx).
-- **De otra área:** `esPedidoDeLanding` en `lib/mako-intencion.ts` (MaKo Doer: por WhatsApp no llegan «publicá la
-  landing…»; el `todo` de `tests/api-mako-landing-editor.test.ts`); la cadena de pago que termina en hola-mako.com y
-  `cobroReusable` sin el modo (Integraciones, `lib/cobros.ts`); la atribución del Pixel en los enlaces `/pagar/` y
-  `pixel-servido.ts` sin la URL tal cual (VSL Tracking); `/api/mako-doer` sin `maxDuration` para los 240 s de
-  replicar por chat (MaKo Doer); lo que cuenta `lib/mako-capacidades.ts` de la tab (MaKo UX/UI).
+- **Decide Martín** (el triage, en la Ticketera): ~~`allow-popups-to-escape-sandbox` en el HTML personalizado~~ (sí,
+  tanda 7); bloquear o no los estáticos de MaKo en hola-mako.site; HSTS propio; subdominios por landing; ~~el www
+  automático al conectar un dominio raíz~~ (sí, tanda 7); el proveedor de IA del Diagnóstico en el ws1; si despublicar
+  sigue reversible; el `form-action` con un checkout de Stripe en dominio propio; avisar al dueño cuando falla la
+  pasarela en un pago de landing. Y de esta tanda: «Preguntar a MaKo» usa el chat de la casa (`/api/chart-insights`,
+  Claude PAGO); ~~y si los comentarios de una página de afuera se marcan resueltos al pasar a la copia~~ (sí, tanda 7).
+  Las tres tachadas las decidió el orquestador con criterio, por Martín, el 15/10 (docs/relevo/landing-generator.md).
+- **De otra área:** ~~`esPedidoDeLanding` en `lib/mako-intencion.ts`~~ (tanda 7); la cadena de pago que termina en
+  hola-mako.com y `cobroReusable` sin el modo (Integraciones, `lib/cobros.ts`); la atribución del Pixel en los enlaces
+  `/pagar/` y `pixel-servido.ts` sin la URL tal cual (VSL Tracking); ~~`/api/mako-doer` sin `maxDuration` para los
+  240 s de replicar por chat~~ (era la ruta equivocada: tanda 7, docs/hallazgos-infra.md); ~~lo que cuenta
+  `lib/mako-capacidades.ts` de la tab~~ (tanda 7, `ed807c5d8`, con un guard).
 - **MaKo Mobile**: con el teléfono, /landing-generator se reescribe a /m/landing, que no tiene Crear con IA, Analizar,
   Replicar ni el «+» (`lib/movil-rutas.ts`).
 - El detector de voseo (`VOSEO`, `lib/puestas-data.ts:490`) no conoce pegá, elegí, subí, probá ni escribí: un guard
@@ -1110,6 +1115,179 @@ triage del backlog, paquetes, verificación y corrección). Lo construido está 
 - **Verlo con clics** (lo hace Martín): la tab con Crear con IA, el «+», el link pegado, Replicar con sus 3 formatos,
   el Diagnóstico de varias páginas con «Aplicar» y Deshacer, la línea ámbar de pagos rechazados en «Análisis», y todo
   a 390 px. Las capturas del arnés quedaron en el scratchpad de la sesión 4eb065fe (`t6p-vista/capturas`).
+
+## Tanda 7 (15/10/2026): Web Generator, UN cuadro con modos, el ▶, el www y la API entera
+
+Dos pedidos de Martín (literales en `app/admin/dev/landing-generator/bitacora.ts`): el feedback de la tanda 6 en ocho
+puntos (01:02: «Quiero que todo se llame ahora "Web Generator"…», el cuadro que se TRANSFORMA en vez de navegar, el ▶
+descentrado) y «Ambos, tienen que pasarle absolutamente todos los botones. Todas las funciones a la API de MaKo» (00:10).
+Siete agentes en `C:/dev/wt-web-t7` (rama `web-t7`): renombre, cuadro, motor, API, dos verificadores y la corrección.
+
+### El renombre
+- **Una ruta con SUBRUTAS se redirige con UNA página catch-all opcional** en la carpeta vieja:
+  `app/landing-generator/[[...resto]]/page.tsx` → `redirect(await rutaConWs(destinoWebGenerator(resto, await
+  searchParams)))`. Cubre `/<id>`, `/crear`, `/analizar` y cualquier subruta que aparezca después; el destino codifica
+  cada tramo y descarta `.`, `..` y los vacíos, así que nunca sale de `/web-generator`. **Vive en:**
+  `lib/ruta-web-generator.ts` (`destinoWebGenerator`, `RUTAS_VIEJAS_WEB_GENERATOR`), la página de arriba.
+- **El guard de /chatbot copiado tal cual dejaba pasar justo los links que más viajan**: `` ['"`]/chatbot(['"`?#]|$) ``
+  no caza `/landing-generator/${id}` ni `'/landing-generator/crear'`, los links del editor que MaKo manda por chat.
+  /chatbot no tenía subrutas. El patrón es `` ['"`]/<ruta>(['"`?#/]|$) `` (la rotura «irDuro viejo en Replicar» da 5/2
+  sólo con el `/`). ⚠️ Sigue sin ver un link absoluto o armado con una base (`https://hola-mako.com/landing-generator/12`,
+  `${base}/landing-generator/${id}`): hoy no hay ninguno (grep del repo entero), pero el guard no lo frenaría.
+  **Vive en:** `tests/web-generator-renombre.test.ts` (`LINK_VIEJO`).
+- **Lo que NO se renombró, a propósito** (claves escritas en la base u otros contratos): la key `landing-writer` del
+  nav, de `requireRolWs`/`tabEnCapa` y del onboarding con sus pasos (`generar`, `guardar`, `lg_publicar`); el área
+  `landing` de la API y sus operaciones; `/api/landing-generator/*` y `/api/v1/landing/*`; tablas y buckets; los
+  proyectos del tablero («Landing Generator», «Feature: Landing Generator»); la carpeta, el slug y la key de
+  `/admin/dev/landing-generator`; el feature `landing-writer` de model-catalogo. Qué nombra todavía la ruta vieja fuera
+  de `app/web-generator`, y por qué, está en el commit `ebc9057cc`.
+- **El reemplazo masivo «Landing Generator» → «Web Generator» rompe citas de Martín y referencias históricas**: cambió
+  una cita textual en `app/landing-analyst/LandingAnalystApp.tsx` («Lo de Landing Analyst se muda a Landing Generator y
+  Landing Analyst se ELIMINA») y `lib/landing-writer.ts:19` pasó a nombrar un `app/web-generator/LandingWriterApp.tsx`
+  que nunca existió. **Regla:** después de un reemplazo de nombre se barre el diff buscando «…» y «Martín» y se revierten
+  las citas; una ruta de archivo se cambia sólo si el archivo se movió (así se actualizaron los «Vive en» de este
+  documento: cada ruta, verificada en el disco).
+
+### El cuadro con modos (puntos 2-7)
+- **Cuatro pantallas eran cuatro componentes, y cambiar de opción perdía lo tipeado.** Cada modo es una derecha con su
+  lugar de siempre en la URL (`?paso=importar`, `?analizar=`, `?vista=replicar`) y todas montan el MISMO componente en
+  el mismo lugar del árbol: React conserva el estado. El cuadro avisa su modo para arriba (`onModo`), el Panel se lo
+  devuelve como prop y el cuadro lo toma DURANTE EL RENDER (`if (modo !== modoVisto) { … setEstado(elegirModo(…)) }`),
+  no en un efecto, así nunca dibuja el modo viejo. **Vive en:** `app/web-generator/Inicio.tsx` (`modoCaja`),
+  `panel-reglas.ts` (`modoCajaDe`, `derechaDeCaja`, `derechaDeVuelta`).
+- **Un popover con desplegables adentro no puede ser `MenuFlotante`**: el desplegable de adentro abre en OTRO portal y
+  MenuFlotante cierra con cualquier mousedown fuera de su ref, así que elegir una opción cerraba la capa entera. Va una
+  capa propia (`role=dialog`) que ignora `t.closest('[role="menu"]')`, registrada con `useCapaModal(true, { anidada:
+  true })`: Escape cierra sólo lo de arriba. **Vive en:** `app/web-generator/crear/AjustesCaja.tsx` (`CapaComo`).
+- **Un campo de texto en un panel pegado a un `<form>` manda el pedido con Enter** (envío implícito, en «Tono» o «Escribe
+  para»). El panel se dibuja FUERA del form, después de `CajaPedido`, y un test fija ese orden. **Vive en:**
+  `app/web-generator/CajaCrear.tsx` (`PanelMasAjustes`).
+- **En un renglón con `flex-wrap`, el corte lo decide la base, no el `min-width`**: con `flex: 1 1 200px; min-width:
+  140px` el campo bajaba de renglón a 390 px con lugar de sobra al lado de los chips. Base = min-width (120px). **Vive
+  en:** `app/web-generator/CajaPedido.tsx` (`.gp-cc-linea > .gp-cc-entrada`).
+- Contar `aria-pressed="true"` en el HTML de un componente que mete su CSS con `<style>` cuenta también los selectores
+  (dio 4, no 1): se recorta el bloque del grupo antes de contar (`tests/web-generator-cuadro.test.ts`).
+- «Pegar texto» y «Generar» eran la misma puerta (punto 4): un texto largo (500 caracteres o 5 renglones,
+  `TEXTO_LARGO_*`) pegado en el cuadro ofrece solo «Tu texto» (de guía / resumir / tal cual). Analizar y Replicar
+  siguen sin aceptar instrucciones (sus rutas no tienen el campo): lo escrito junto a un link con su pastilla queda a la
+  vista y una línea avisa antes de mandar (`avisoDeTexto`); sin la pastilla, el link pasa a ser una REFERENCIA dentro
+  del pedido. **Vive en:** `app/web-generator/crear/caja-modos.ts`.
+- `CajaPedido`, compartida con /automations y el Dashboard, sólo sumó props OPCIONALES; ChatMako y NuevaHoja no pasan
+  ninguna (lo fija un test). El contrato de cada prop está en el commit `3602f3f79`.
+
+### El ▶ del video (punto 8)
+- **El diagnóstico obvio era el equivocado**: «al triángulo le falta su corrimiento óptico a la derecha», y era al
+  revés. El `play-relleno` de Phosphor ya trae el centroide en el centro del viewBox (x≈127 de 256; su caja va de 64 a
+  240) y el `margin-left: 9%` lo corría otra vez: centroide +4,35 % del diámetro en los 8 diseños con video por igual
+  (se nota más en el gris claro de «Clásico claro», el segundo). **Regla:** antes de compensar un ícono se mide su
+  centroide (`getScreenCTM` + `getPointAtLength` sobre el path); un ícono «fill» de Phosphor ya viene compensado.
+- **Y DOS hojas dibujan el mismo ▶.** La galería sale de `css.ts`; el video vacío del EDITOR, lo primero que ve Martín
+  al crear desde un diseño, sale de `CSS_G2` en `BarraFormato.tsx`, con el ícono de CONTORNO y `margin-left: 3px`
+  (+2,54 %). Arreglar `css.ts` no lo tocaba, y la verificación lo encontró. **Regla:** un arreglo visual se busca en
+  todas las hojas que dibujan el elemento, y el test mide las dos. El primer test, además, daba verde con lo que no
+  encontraba (juntaba sólo el selector EXACTO: `.gm-marcador-play>svg` o un `padding` en el círculo pasaban): ahora
+  barre toda regla que nombre al marcador y exige que exista la del tamaño. **Vive en:** `lib/editor-landing/css.ts`,
+  `app/web-generator/editor/BarraFormato.tsx` (`CSS_G2`), `editor/nodos/InsertadoVista.tsx`,
+  `tests/editor-landing-play-centrado.test.ts`. (La tarea hablaba de «9 diseños con video»: son 8, Minimal no lleva.)
+
+### Dominio propio: el www automático
+- La forma, medida contra el proyecto: `POST /v10/projects/{p}/domains` con `{ name, redirect, redirectStatusCode:
+  308 }` (así ya estaban www.hola-mako.site, www.hola-mako.com y www.makodigital.app).
+- ⚠️ **`DELETE /v9/…/domains/{d}` acepta `removeRedirects`, que borra TODO lo que redirige a ese dominio**, también lo
+  que MaKo no puso. No se usa: el www se suelta solo, ANTES que la raíz, por el DELETE con guard (`soltarWww`).
+- **La referencia de Vercel dice que un dominio que ya está en el proyecto contesta 400, no 409.** `agregarWwwAVercel`
+  mira los dos; `agregarAVercel` (la raíz) sigue mirando sólo el 409 (sin hacer).
+- **Un dominio que en el proyecto REDIRIGE nunca llega al proxy** (Vercel redirige en el borde): conectarlo como
+  landing la dejaba «verificada» sin verse nunca. `agregarAVercel` lo rechaza diciendo qué hacer.
+- ⚠️ **Sin hacer: reclamar una raíz AJENA bloquea su www para cualquier otro negocio, y ese bloqueo no vence.** El
+  reclamo de siempre (pendiente, sin verificar) suma el www apenas se conecta, y el www no es una fila con reserva de
+  72 h: el dueño real que quiere su landing en www.sudominio.com recibe «Ese dominio ya lleva a sudominio.com…», de una
+  landing que no es suya. Antes de la tanda 7, reclamar la raíz no tocaba el www. Arreglo propuesto: sumar el www recién
+  cuando la raíz pasa a VERIFICADA (en `estadoDominio` con verificar), que además cubre las raíces conectadas antes de
+  la tanda 7, que hoy no lo reciben (sólo se suma al conectar). `dominios.ts` (`sumarWww` desde `conectarDominio`,
+  `agregarAVercel`), `dominios-reglas.ts` (`sumarWww` no mira si la raíz está verificada).
+- ⚠️ **Decide Martín:** si el www de la raíz sirve OTRA cosa a propósito (su sitio en otro host), MaKo lo suma igual y
+  la pestaña dice «Falta el registro de www» para siempre, sin forma de descartarlo (`queFalta` con `wwwApunta`). ¿El
+  aviso pasa a informativo, o un «No uso www» suelta el www?
+- Sin hacer: la pestaña no dice que MaKo suma el www, y la fila del CNAME www lleva el title genérico (sumar `'www'` a
+  `RegistroDns['para']` y su texto a `PARA_REGISTRO` en `app/web-generator/editor/dialogos/DialogoPublicar.tsx`).
+- **Vive en:** `lib/editor-landing/dominios.ts`, `dominios-reglas.ts` (`wwwDeRaiz`, `sumarWww`, `soltarWww`),
+  `tests/editor-landing-dominios.test.ts`.
+
+### Los comentarios de una landing de afuera, al pasar a la copia
+- «Aplicar» un comentario de una landing de afuera deja el original RESUELTO. **La referencia del original a su copia
+  no se puede guardar sin migración**: `landing_sugerencias` no tiene la columna, y meterla en el jsonb `hallazgo` no
+  sirve porque `normalizarHallazgos` (`diagnostico.ts`) reconstruye el objeto con una lista blanca y se la come al leer.
+  **Regla:** lo que haya que leer de vuelta va en una columna (con su migración y la tolerancia PGRST204) o se DERIVA.
+  Acá se deriva de `mapa` + `docId` y de `copiaParaAplicar`: si la copia se borra, «Ver en tu copia» desaparece y el
+  comentario sigue resuelto («Reabrir» lo vuelve a pendiente). **Vive en:** `lib/editor-landing/diagnostico-aplicar.ts`,
+  `diagnostico-server.ts` (`aSugerencia`), `diagnostico.ts` (`originalesAResolver`).
+
+### La seguridad de la página de afuera
+- **Una política aflojada para una ruta le llegó a otra.** `allow-popups-to-escape-sandbox` se decidió para el bloque
+  «HTML personalizado», que vive en hola-mako.site. Pero `CSP_HTML_LIBRE` era también la política de
+  `/api/landing-generator/diagnostico/pagina`, que sirve HTML de TERCEROS en el ORIGEN DE LA APP (el iframe del
+  Diagnóstico y la ventana del lector): en la ventana, la página de afuera pasó a abrir ventanas sin sandbox. El
+  comentario («las landings viven en hola-mako.site») no valía para esa ruta. **Regla:** cada ruta que sirve contenido
+  ajeno tiene su PROPIA constante de política (acá `CSP_PAGINA_AFUERA`: `sandbox allow-scripts`, sin ventanas ni
+  formularios; el lector ya ataja `window.open` y los submit), y los tests fijan QUÉ constante usa cada bloque de
+  `next.config.ts` (en el fuente y en `tests/editor-landing-origen.test.ts`, que evalúa `nextConfig.headers()`), no
+  sólo que la política exista.
+- **El sandbox por CSP no sobrevive a que la página se navegue sola (reverse tabnabbing; venía de la tanda 6).** La
+  página aislada puede hacer `location = 'https://otro'`; el documento nuevo ya no trae la cabecera sandbox y conservaba
+  `window.opener`, así que hacía `opener.location = <phishing>` sobre la pestaña de MaKo. La protección de la tanda 6
+  («no puede navegar a su opener») no lo cubría. Medido en Chromium headless con el `JS_LECTOR` real: sin soltar el
+  opener, la pestaña de MaKo terminó en la de phishing. Ahora el lector, en la ventana, guarda el opener (`abre`) y hace
+  `window.opener = null` antes que corran los scripts de la página; la referencia guardada sigue sirviendo para
+  `postMessage`. **Regla:** una ventana que sirve contenido de un tercero y necesita contestarle a su opener lo guarda en
+  una variable y suelta `window.opener` apenas carga (AGENTS.md, «Servir contenido de AFUERA…»; docs/hallazgos-seguridad.md).
+- ⚠️ **Decide Martín: el camino del Pixel conserva `window.opener` a propósito**: es una landing DECLARADA del negocio
+  y su redirect vuelve a cargar el lector, que necesita el opener para contestar. Si esa página se navega a un tercero,
+  el tabnabbing sigue siendo posible. `lector-script.ts`, `lector-pagina.ts` (`vaALaPaginaReal`).
+- **Vive en:** `lib/editor-landing/html-libre.ts` (`SANDBOX_PAGINA_AFUERA`, `CSP_PAGINA_AFUERA`,
+  `CABECERAS_PAGINA_AFUERA`), `diagnostico.ts` (`CABECERAS_PAGINA_DIAGNOSTICO`), `next.config.ts`,
+  `lib/editor-landing/lector-script.ts`.
+
+### Lo que MaKo cuenta de la pantalla
+- La pantalla cambió y MaKo siguió dictando «abre Diagnóstico», «toca "Crear nuevo"» y «toca "Generar esquema"»: la
+  cabecera del bloque prometía «los pasos nombran SÓLO botones que existen» y nada lo miraba. Ahora lo mira
+  `tests/mako-capacidades-botones.test.ts`, que busca cada rótulo entre comillas de los pasos en `app/web-generator` SIN
+  comentarios: `Inicio.tsx` todavía nombra «Crear nuevo» en un comentario, y un guard que lee el fuente crudo se engaña
+  con eso. **Vive en:** `lib/mako-capacidades.ts` (`landing-diagnosticar`, `landing-escribir`).
+- El Diagnóstico de una landing que en el ws1 decía «no pude» sin causa no era el tamaño ni un timeout: `chatClaude` no
+  le pasaba la red de plataforma a la cascada. Está en docs/hallazgos-ia.md (vive en `lib/anthropic.ts`). Las trampas
+  del entorno de esta tanda (el typecheck acotado sin memoria, el diff de dos puntos, el merge que rompe un test que no
+  choca, `maxDuration`) están en docs/hallazgos-infra.md; las de la API, en docs/hallazgos-api-mako.md.
+
+### Lo que quedó sin hacer (tanda 7)
+- **La rama `web-t7` está SIN PUSHEAR** (15/10, 05:16). origin/main avanzó 4 commits más durante la corrección (hasta
+  `b8b298600`): antes del push, otro merge (`git merge-tree` da limpio; de lo nuestro toca sólo
+  `lib/api-mako/areas/chatbot.run.ts`), `node --import tsx scripts/generar-api-doc.mjs --check` y los lotes de tests.
+  El typecheck completo lo corre el pre-push.
+- **Decide Martín:** el proyecto del Plan «Landing Generator» y «Feature: Landing Generator» siguen con el nombre viejo,
+  igual que la URL `/admin/dev/landing-generator` (las tareas se atan por el nombre: renombrar es migrarlas por id, o
+  dejarlo así a propósito; `lib/plan-proyectos-catalogo.ts:144`, `app/admin/dev/areas.ts`). Y, arriba: el aviso del
+  www que sirve otra cosa y el opener del camino del Pixel. Comentar como MaKo, en docs/hallazgos-api-mako.md.
+- **Los diseños con animaciones** (segunda mitad del punto 8) siguen fuera, a propósito: esperan `landing-anim-panel` y
+  `landing-anim-default` en la Ticketera.
+- El reclamo de una raíz ajena que bloquea el www sin vencer, las raíces de antes sin www, el 400 de `agregarAVercel` y
+  la pestaña que no explica el www (arriba, en «Dominio propio»).
+- El contenedor de Importar y el «+» dicen «PowerPoint, Word o PDF», y el cuadro lee también Excel, OpenDocument,
+  texto, audio y video (`app/web-generator/CajaCrear.tsx:353` y `:509`, `ACCEPT_ARCHIVO`).
+- MaKo Mobile (`/m/landing`) no tiene nada del cuadro (`lib/movil-rutas.ts`).
+- Comentarios que siguen con el sandbox viejo escrito: `app/l/html/[docId]/[bloque]/route.ts:6`,
+  `app/web-generator/editor/nodos/HtmlLibreVista.tsx:23` y `docs/diseno-editor-landing.md` (T6).
+- Otros documentos siguen nombrando `app/landing-generator/` (esta cosecha actualizó sólo este y
+  diseno-editor-landing.md): `docs/relevo/crm-tanda-b1.md`, `docs/relevo/dashboard-v4.md`, `docs/dev-tabs-mapa.md`,
+  `docs/hallazgos-chatbot.md`, `docs/hallazgos-landing.md`, `docs/hallazgos-mobile.md`, `docs/hallazgos-video-editor.md`,
+  `docs/editor-imagen/relevamiento-integracion-mako.md`, `docs/diseno-mako-mobile-v2.md` y algunos relevos.
+- **Verlo con clics** (Martín, en `/web-generator?ws=3`): la sidebar y el More del teléfono dicen «Web Generator»; un
+  `/landing-generator/<id>?ws=3` viejo cae en su editor; los cuatro modos, pegar un link y seguir escribiendo, Backspace
+  sobre los chips, arrastrar un PDF y una imagen reales del escritorio (el arnés simuló el drop) y un link desde una
+  pestaña, «Plan» → «Más ajustes», mandar cada modo con un esquema real, «Volver» desde Crear; el ▶ de la galería y del
+  editor; «Dominios» con una raíz real (el www en Vercel con 308 y la fila CNAME www); un Diagnóstico de afuera con
+  «Aplicar» y «Ver en tu copia»; y por WhatsApp «publicá la landing del webinar», «replicá esta página https://…»,
+  «cambia el titular de mi landing…». Todo a 390 px.
 
 ## Animaciones: el video de fondo del hero (relevamiento del 14/10/2026, sin código)
 
@@ -1190,7 +1368,7 @@ video; las animaciones de página y qué se puede replicar de una web ajena van 
 
 ## Animaciones: Lottie y «Text-to-Lottie» (relevamiento del 15/10/2026, sin código)
 
-Pedido de Martín (14/10, por «Estrategia 3 cuentas»), con un post de Instagram: «Es para crear animaciones... Y en ese
+Pedido de Martín (15/10 00:10, por «Estrategia 3 cuentas»), con un post de Instagram: «Es para crear animaciones... Y en ese
 caso son tipo Lottie, muy utilizado en landing. Pero puede investigar otras skills o investigar otras animaciones».
 Workflow `wf_b629deb0-0b1`; las mediciones y los scripts quedaron en el scratchpad de la sesión 4eb065fe (`lottie/`).
 
