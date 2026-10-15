@@ -6072,3 +6072,11 @@ importan**: `git grep -l "<módulo del tipo>"` y se suman a `files`. Medido: con
 **La regla:** en una carpeta no conviven dos módulos cuyo nombre difiere sólo en mayúsculas, aunque la extensión sea distinta. La lógica pura de un componente lleva otro nombre (`reglas.ts`, `*-reglas.ts`, que es la convención de la casa).
 
 **Vive en:** app/tickets/decisiones/reglas.ts
+
+### Un `tsc` que sale con 1 y SIN UNA LÍNEA no es un tsconfig roto: lo mató el vigía (15/10/2026)
+
+**Síntoma.** El chequeo de tipos acotado (`node … tsc -p <tsconfig del scratchpad>`) salió con código 1 y ninguna salida,
+ni con `--extendedDiagnostics`. Se leía como un tsconfig mal armado y se fue a revisar el JSON. **Causa:** lo mató
+`vigia.ps1` por zona roja (`[vigia] MATO pid … tsc` en `~/.claude/guardia/guardia.log`). Un proceso matado no imprime
+nada. **Regla:** ante un `tsc` mudo, mirar primero el log de la guardia. Acotado a menos archivos, o con más RAM libre,
+pasa. · *2026-10-15 Automations*
