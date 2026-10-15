@@ -553,6 +553,37 @@ chat de Automations (`docs/diseno-2fa-obligatorio.md` en su rama); la regla es d
 `dejar_de_exigir_2fa`, `ver_exigencia_2fa`) · `supabase/migrations/0283_mfa_obligatorio.sql` ·
 `tests/mfa-obligatorio.test.ts` · *14/10/2026, chat «Ciberseguridad» con «Automations»*
 
+### ⚠️ `next dev` le daba un admin de producción a la red, y la puerta ACTIVA era `dev-login` (15/10/2026)
+
+El chat del Centro de Operaciones encontró la mitad latente (la sección «Un `next dev` sin `AUTH_SECRET` es un admin
+abierto a la red», en su rama): sin `AUTH_SECRET`, el proxy dejaba pasar todo en local y `getUsuarioActual` devolvía un
+admin del ws1. **Midiendo eso apareció la mitad que ya estaba abierta**, y que el diagnóstico obvio no veía porque
+miraba la falta del secreto:
+
+- ⚠️ **`/api/auth/dev-login` respondía en todo `next dev` CON el secreto**, o sea en todos los checkouts. Su guarda
+  sólo preguntaba «¿estoy en Vercel o en producción?», y `next dev` escucha en `0.0.0.0` (Next 16.2.6). Así que
+  `GET http://<ip-de-la-pc>:3000/api/auth/dev-login?ws=9` le daba a cualquiera de la misma red un admin global (con
+  `mfa: 'dev'`) con escritura en la base de PRODUCCIÓN. Y sin estar en la red también: una página web por DNS
+  rebinding, desde el navegador de quien tiene el `next dev` corriendo. Se pagaba cada vez que un chat levantaba un
+  `next dev` para verificar algo.
+- **Las tres capas** (`lib/auth-session.ts`, `tests/dev-local.test.ts` con 8 roturas):
+  1. `npm run dev` = `next dev -H 127.0.0.1`: desde la red no se llega al puerto. Medido con un servidor atado a
+     127.0.0.1: `localhost` y `127.0.0.1` responden desde node y desde curl; la IP de la red, ECONNREFUSED. Next 16 deja
+     pasar `localhost` y el host del servidor en sus recursos de desarrollo (`block-cross-site-dev.js`), así que abrir
+     por `localhost` sigue funcionando.
+  2. `esHostLocal` en `dev-login`, en la sesión sin secreto y en el proxy sin secreto: frena el DNS rebinding (el Host
+     es el dominio del atacante) y el navegador de otro en la red. No frena un `curl` con el Host falseado a mano:
+     para eso está la capa 1.
+  3. Sin `AUTH_SECRET`, la sesión dev exige además `MAKO_DEV_SIN_LOGIN=1`; sin el permiso, el proxy contesta 503 y
+     dice qué falta, en vez de mandar a un /login que no puede firmar.
+- **Lo que queda**: un `npx next dev` pelado (sin el script) sigue escuchando en la red; la capa 2 le corta el
+  rebinding, pero no el `curl`. Y `next start` local también escucha en la red, pero ahí `dev-login` no existe y hace
+  falta un login de verdad.
+
+**Vive en:** `lib/auth-session.ts` (`esHostLocal`, `devLoginPermitido`, `sinLoginPermitido`) · `proxy.ts` ·
+`lib/auth.ts` · `app/api/auth/dev-login/route.ts` · `package.json` (`dev`) · `tests/dev-local.test.ts` ·
+*15/10/2026, chat «Ciberseguridad», a partir del aviso del chat «Centro de Operaciones»*
+
 ### ⚠️ Ningún guard que mire el eje de workspace puede restringir a la agencia: el único que sirve es `getSesionAdmin()`
 
 Tres guards con nombre de «solo la agencia» y ninguno lo cumple, por la misma razón de

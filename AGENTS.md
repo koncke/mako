@@ -340,6 +340,10 @@ además del turno. Lo que gobierna a cualquier agente:
   son los otros chats, que se caen todos juntos.
 - **Un `next dev` que lanzás en segundo plano lo APAGÁS al terminar.** Sobrevive a tu sesión y
   nadie más sabe que es tuyo; hoy lo para un vigía recién a los 5 GB.
+- ⚠️ **Y se levanta con `npm run dev`, que escucha sólo en 127.0.0.1.** Un `npx next dev` pelado escucha en
+  TODA la red con la base de producción detrás: hasta el 15/10/2026, `/api/auth/dev-login` le daba un admin global a
+  cualquiera de la misma WiFi. La ruta ya exige que el pedido nombre a la máquina (`devLoginPermitido`), pero un
+  `curl` con el Host falseado sólo lo frena el `-H 127.0.0.1`. Se abre con `localhost`, como siempre.
 - **Hasta 3 workflows a la vez en la máquina** (eran 2; Martín pidió trabajar más al límite el 12/10/2026). Antes de lanzar uno de muchos agentes, preguntá
   si el trabajo lo necesita — con 7 chats abiertos, el tuyo no es el único.
 
