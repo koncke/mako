@@ -884,7 +884,9 @@ function EmbudoVertical({ pasos, base, compacto, alPaso }: { pasos: Array<{ nomb
             <Clic al={alPaso?.(i) ?? null} etiqueta={`Ver detalle: ${p.nombre}`} estilo={{ flex: '1 1 0', minHeight: 44, maxHeight: 92, background: base, clipPath: clip(i), padding: 2 }}>
               <div style={{ height: '100%', background: tono(i), clipPath: clip(i), display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', lineHeight: 1, minWidth: 0 }}>
                 {/* Tinta fija: el relleno es claro también en el tema oscuro. */}
-                <span style={{ fontSize: LETRA.leyenda, fontWeight: 500, color: '#454C57', marginBottom: 5, whiteSpace: 'nowrap' }}>{p.nombre}</span>
+                {/* El nombre entra en la parte ANGOSTA del escalón (su borde de abajo), con «…»: centrado y sin tope, el trapecio
+                    lo cortaba por los dos lados en el celular («lificadas que asistier»). */}
+                <span title={p.nombre} style={{ fontSize: LETRA.leyenda, fontWeight: 500, color: '#454C57', marginBottom: 5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: `${Math.max(20, 100 - 2 * corte(i + 1, n) - 6)}%` }}>{p.nombre}</span>
                 <span style={{ fontWeight: 600, fontSize: 27, letterSpacing: '-0.02em', color: '#12151B', fontVariantNumeric: 'tabular-nums' }}>{fmtValor(p.valor, p.formato, compacto)}</span>
               </div>
             </Clic>

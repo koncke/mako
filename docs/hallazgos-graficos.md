@@ -684,13 +684,89 @@ comparten la carpeta del arnés: `build.mjs` escribe `bundle.js` y `raiz.txt`, y
 `Tramos.tsx`, `Paneles.tsx`, `BarrasGordas.tsx`) · `app/dashboard/MapaGeo.tsx` · `tests/graficos-eje-lindo.test.ts`.
 *14/10/2026, claude1, chat General.*
 
+## El rediseño por tipo, mitad Dashboard: cada gráfico mirado en escritorio, angosto y celular (14/10/2026)
+
+**El pedido** (Martín, 14:34, para el Dashboard después de la sexta vuelta de General): «Que rediseñe bloque por bloque y que
+tenga en cuenta mobile. Que vaya viendo con datos ficticios o con algún dato de algún workspace que todo se vea bien en
+diseño. Tanto bloques como las plantillas.» Se repartió por ARCHIVO con el chat General (su mitad, arriba): acá lo que se
+dibuja en `Grafico.tsx` (números, ejes, torta, sankey, embudos, la tabla dinámica), los datos de ejemplo y la pila del
+celular.
+
+**Cómo se miró, y sirve para la próxima: un arnés en un navegador de verdad, no un render estático.** El de General
+(`renderToStaticMarkup`) no sirve para el Dashboard: todo gráfico con ejes se mide con `ResizeObserver`
+(`graficos/medida.tsx`) y en el server no dibuja nada. El arnés vive FUERA del repo (`C:/Users/marti/arnes-dashboard/`):
+`build.mjs` empaqueta con el esbuild del repo los componentes reales (`CuerpoGrafico`, `CuerpoElemento`) con cuatro stubs
+(`server-only`, `next/navigation`, `next/dynamic` como `React.lazy`, el `Link` de la casa, y todo módulo `'use server'`
+como un módulo CJS que acepta cualquier nombre), y `capturar.cjs` saca una captura por caso con Playwright. Cada caso
+sale en tres tamaños: el de escritorio (su w × h en la grilla de 12), angosto, y la pila del celular (364 px; 176 si es
+un número). Los casos están en `casos.ts` y estresan lo que rompe: nombres largos, 12 categorías, números grandes. ⚠️ El
+bundle y `raiz.txt` son UNO: dos chats que buildean a la vez se pisan (cada uno copia la carpeta).
+
+**Lo que mostraron las capturas, y lo que salió:**
+
+- **El minigráfico no dibujaba la línea en ningún tamaño** y **la tendencia la perdía en el celular**: el número y su
+  chip ocupaban todo el alto. El minigráfico va en una fila (número a la izquierda, línea a la derecha, desde 240 px) y la
+  tendencia guarda 36 px para su línea. El chip va AL LADO del número si entra sin achicarlo más de un 20 %, y eso se
+  decide MIDIENDO (`NumeroGrande`): con `flex-wrap` bajaba siempre en el celular.
+- **La bala salía cortada a su propio tamaño de nacimiento (6 × 3)**: 28 + 12 + 24 px apilados no entran en 48. Con
+  lugar va en una fila; si no, apilada y más chica.
+- **La aguja del indicador con rangos cruzaba el número**: es un tramo que apunta al arco, no una línea desde el centro.
+- **El «0» del eje Y se encimaba con la primera fecha**, en todos los gráficos de ejes: `tickMargin`.
+- **Las etiquetas del eje X**: una columna de 12 categorías nombraba una de cada tres (barras que no se sabe qué son) y el
+  histograma encimaba «US$59–US$97US$135–US$174». `intervaloPorAncho` (lib/graficos-gordo.ts) deja las que ENTRAN: en el
+  tiempo como mucho cinco (seis o menos, todas), en categorías todas, inclinadas si no entran derechas. El histograma
+  escribe «US$59–97».
+- **Las leyendas de recharts salen en orden ALFABÉTICO** (`itemSorter` vale `'value'` por default en recharts 3): en
+  unas columnas apiladas la leyenda decía «Curso, Mentoría, Programa principal» sobre una pila que arranca por Programa
+  principal. Todo `<Legend>` lleva `itemSorter={null}`, y un test lo exige.
+- **El anillo con nombres largos**: la leyenda de recharts vive ADENTRO del SVG, se comía la mitad del alto, el anillo
+  quedaba del tamaño de una moneda y el total del centro (que la daba por una línea) se dibujaba encima de ella. La torta
+  y el anillo llevan leyenda HTML (`Torta`): un renglón por porción con «…» y su %, al costado si hay lugar, debajo si no;
+  el total sale del ancho del HUECO.
+- **El sankey**: todos los flujos del mismo azul y los nombres de la izquierda escritos encima de los flujos. Los nombres
+  van afuera de cada columna y cada flujo lleva el color de donde sale.
+- **El embudo**: los nombres se salían de la tarjeta («Impresi») y el número del último escalón quedaba sobre un
+  triángulo de 10 px. Margen derecho para los nombres, y el número afuera cuando el escalón es angosto.
+- **La tabla dinámica en el celular** decía «Nu…» y «Mento ría»: la esquina nombra las filas (antes decía la métrica),
+  la columna de nombres es más ancha, la cabecera va en dos renglones, y en el celular no hay barras ni total y la plata
+  va corta.
+- **En la pila del celular, el alto de la grilla es del escritorio**: un CPM de 3 × 6 eran 276 px para un número, un
+  título de 2 filas tenía una barra de scroll adentro y la barra de proporción cortaba su leyenda. Los números, la barra
+  de proporción, el texto, el enlace, la sección y la acción miden lo que dibujan (`ALTO_LIBRE_EN_PILA` y
+  `ELEMENTOS_ALTO_LIBRE_EN_PILA`, EditorInforme.tsx). Un gráfico con ejes NO: necesita un alto para dibujar.
+
+**Los datos de ejemplo eran parte del problema, y se ven también en la galería de plantillas.** `resultadoDeMuestra`
+(lib/graficos-muestra.ts) dibuja cada miniatura de «¿Qué vas a crear hoy?». Daba conteos con decimales («4,8 leads»),
+sumaba una razón en plata (un «Costo por lead US$6.403»), un embudo al revés («92 de 58»), una dinámica que no sumaba, y
+amontonaba en el origen la matriz de Productividad (ejes 0-100 con valores de 1 a 15). Ahora: conteos enteros, una
+razón promedia (mira `metrica.razon`, no sólo el formato), el embudo baja, el total de una fila es la suma de sus celdas,
+los puntos se reparten adentro de los ejes fijos, y hay ejemplos de guiones, proyectos, regiones, países, ciudades (con
+su `geo`), edad, género y plataforma.
+
+**El diagnóstico obvio que era el equivocado: «el gráfico está mal» era, varias veces, «el dato de ejemplo está mal».**
+Un embudo que se ensancha o un CPL de seis mil dólares se leen como un gráfico roto, y la primera reacción es tocar el
+dibujo. Antes de arreglar un gráfico en la galería, mirá si el número que dibuja es creíble.
+
+**Vive en:** `app/dashboard/Grafico.tsx` (`NumeroGrande`, `KpiConLinea`, `Bala`, `Indicador`, `Torta`, `NodoSankey`,
+`EnlaceSankey`, `Dinamica`) · `app/dashboard/graficos/estilos.tsx` (`.gr-leyenda`, `.gr-dinamica`) · `lib/graficos-gordo.ts`
+(`intervaloPorAncho`) · `lib/graficos-muestra.ts` · `app/dashboard/EditorInforme.tsx` (la pila) ·
+`tests/graficos-dibujo-celular.test.ts`.
+*14/10/2026, claude1 (chat Dashboard).*
+
 ## Lo que quedó sin hacer
 
+- **Rediseño por tipo, mitad Dashboard (14/10/2026):** NADA de esto se vio todavía en producción ni con datos reales: el
+  arnés dibuja datos de ejemplo y sólo con el tema MaKo (los otros seis temas, sin mirar). Después del deploy, ws3 en el
+  editor con «Celular». Sin mirar en el arnés: «Conclusiones de MaKo», la Ficha y el mapa de calor de página (piden datos
+  del server). Un número alto (3 × 6) va centrado pero no crece con el alto. La leyenda HTML de la torta no prende ni
+  apaga porciones (la de recharts tampoco lo hacía en la torta). Y sigue esperando a Martín si se borran
+  `PulsoPaginas.tsx` y `ScriptsBrowser`/`GuionesFull`.
 - **Rediseño por tipo, mitad General (14/10/2026):** la etiqueta del último punto de un panel (`graficos/Etiquetas.tsx`) pisa
   un poco el final de su línea; las tarjetas con pocas filas dejan media tarjeta vacía en las plantillas de Marketing y Ads
   (12×12 y 12×16: con 10-50 anuncios reales se llenan); y el mapa por país es una franja en una tarjeta alta (Equal Earth es
   ancho y no se recorta al continente de los datos). Y un gráfico mapa con dimensión «país» o «ciudad» y sin `g.mapa` cae a
-  nivel «región» en Grafico.tsx (`g.mapa?.nivel ?? 'region'`) y pregunta el país: se le pidió a Dashboard.
+  nivel «región» en Grafico.tsx (`g.mapa?.nivel ?? 'region'`) y pregunta el país: **arreglado** en cdaebefa1 (el nivel sale de
+  la dimensión).
 
 - **Las miniaturas de «¿Qué vas a crear hoy?» muestran datos de EJEMPLO** (lib/graficos-muestra.ts), no los del negocio:
   medir todas al abrir serían ~150 gráficos. Si se quisiera el número real, pedirlo sólo para la miniatura que se VE
