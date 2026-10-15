@@ -34,7 +34,7 @@ const texto = (local: string, t: string, tamano: 's' | 'm' | 'l' | 'xl' = 'l'): 
  * su línea debajo. Martín, 14/10/2026: «No tienen títulos, no tienen separaciones claras, no se entienden».
  */
 const parte = (local: string, t: string): PiezaPlantilla =>
-  ({ local, elemento: { tipo: 'seccion', texto: t, tamano: 'l', seccion: { fondo: null, plegable: false, abierto: true }, w: 12, h: 2 } });
+  ({ local, elemento: { tipo: 'seccion', texto: t, tamano: 'l', seccion: { fondo: null, plegable: false, abierto: true }, w: 12, h: 1 } });
 /** Un número del período, comparado con el anterior. */
 const numero = (local: string, fuente: string, metrica: string, titulo: string, extra: Record<string, unknown> = {}): PiezaPlantilla =>
   ({ local, tipo: 'numero', fuente, metricas: [metrica], dimension: null, titulo, comparar: true, ...extra });
@@ -62,6 +62,13 @@ const numero = (local: string, fuente: string, metrica: string, titulo: string, 
  *   · CON EL TEMA «General» (lib/graficos-temas.ts): tarjetas que flotan sin borde ni filete, el título y el número más
  *     grandes y la etiqueta en la letra de la hoja. Es lo que hace que la hoja se lea como la tab General y no como el
  *     Dashboard aunque traiga un número del catálogo; el tema se cambia como en cualquier hoja.
+ * Y la séptima, ÉPICA (14/10/2026, Martín: «Lo mismo que hicimos en mobile, que sea EPICO la vista General... pocas
+ * cosas, textos gigantes, bloques grandes»):
+ *   · TRES NÚMEROS COMO MUCHO por plantilla (eran cuatro): cuatro de 3 columnas son la fila de un Dashboard.
+ *   · LOS NÚMEROS MÁS ALTOS (`ALTO_NUMERO`, `conNumerosAltos`): a 3 filas la escala épica del número (lib/graficos-gordo.ts)
+ *     se queda sin alto y el número sale como antes.
+ *   · LAS PARTES («Hoy», «Clientes») PEGADAS a lo suyo: una fila de alto, no dos (eran un hueco del alto de una tarjeta).
+ *   · LA BIENVENIDA ES EL SALUDO solo: la línea de la fecha era la segunda línea que el teléfono saca.
  */
 const TEMA = 'general';
 
@@ -85,7 +92,6 @@ export const DEFINICIONES_GENERAL: readonly DefinicionGeneral[] = [
     subtitulo: '', tema: TEMA, periodo: 'este_mes',
     piezas: [
       texto('hola', '{{saludo}}, {{nombre}}', 'xl'),
-      texto('hoy', 'Hoy es {{fecha}} · {{trimestre}}', 'm'),
       bloque('accion', { h: 8 }), bloque('agenda'),
       bloque('kpis'),
     ],
@@ -137,13 +143,12 @@ export const DEFINICIONES_GENERAL: readonly DefinicionGeneral[] = [
   },
   {
     id: 'anuncios', nombre: 'Anuncios', emoji: '📣',
-    linea: 'Cuánto inviertes en Meta, cuántos leads te trae y dónde están.',
+    linea: 'Cuánto inviertes en Meta, cuántos leads te trae y a qué costo.',
     subtitulo: '', tema: TEMA, periodo: 'ult30',
     piezas: [
       numero('gasto', 'meta', 'gasto', 'Inversión'),
       numero('leads', 'meta', 'leads', 'Leads'),
       numero('cpl', 'meta', 'cpl', 'Costo por lead'),
-      numero('ctr', 'meta', 'ctr', 'CTR'),
       bloque('funnel', { w: 12, h: 7, opciones: { estilo: 'barras' } }),
     ],
   },
@@ -155,7 +160,6 @@ export const DEFINICIONES_GENERAL: readonly DefinicionGeneral[] = [
     piezas: [
       bloque('llamadas'), bloque('agenda'),
       parte('cierre', 'Cómo cierras'),
-      numero('agendas', 'leads', 'agendas', 'Agendaron'),
       numero('asistencia', 'leads', 'tasa_asistencia', 'Tasa de asistencia', { fecha: 'agenda' }),
       numero('cierre', 'leads', 'tasa_cierre', 'Tasa de cierre', { fecha: 'agenda' }),
       numero('vendido', 'leads', 'vendido', 'Vendido', { fecha: 'cierre' }),
@@ -166,7 +170,6 @@ export const DEFINICIONES_GENERAL: readonly DefinicionGeneral[] = [
     linea: 'Cuántos escriben, qué tan rápido respondes y cuántos compran.',
     subtitulo: '', tema: TEMA, periodo: 'ult30',
     piezas: [
-      numero('chats', 'conversaciones', 'chats', 'Chats'),
       numero('sin-responder', 'conversaciones', 'sin_responder', 'Esperando respuesta', { fecha: 'actual', comparar: false }),
       numero('respuesta', 'conversaciones', 'mediana_respuesta', 'Tiempo de respuesta'),
       numero('ventas', 'leads', 'cierres', 'Ventas'),
@@ -183,7 +186,6 @@ export const DEFINICIONES_GENERAL: readonly DefinicionGeneral[] = [
       numero('visitas', 'visitas', 'visitantes', 'Visitantes'),
       numero('play', 'vsl', 'play_rate', 'Le dan play al video'),
       numero('leads', 'leads', 'leads', 'Registros'),
-      numero('gasto', 'negocio', 'gasto', 'Inversión en anuncios'),
     ],
   },
   {
@@ -204,7 +206,6 @@ export const DEFINICIONES_GENERAL: readonly DefinicionGeneral[] = [
     subtitulo: '', tema: TEMA, periodo: 'ult30',
     piezas: [
       numero('alumnos', 'avance_cursos', 'alumnos', 'Alumnos activos', { comparar: false }),
-      numero('clases', 'avance_cursos', 'clases', 'Clases vistas'),
       numero('avance', 'avance_cursos', 'pct', 'Avance promedio', { comparar: false }),
       numero('ventas', 'leads', 'cierres', 'Ventas'),
       bloque('publicaciones'),
@@ -212,8 +213,37 @@ export const DEFINICIONES_GENERAL: readonly DefinicionGeneral[] = [
   },
 ];
 
+/** Cuántas filas mide un número del catálogo en una plantilla de General (el del catálogo mide 3). */
+export const ALTO_NUMERO = 5;
+
+type Pieza = { clase?: unknown; tipo?: unknown; x: number; y: number; w: number; h: number };
+
+/**
+ * La hoja con sus números más altos: cada fila que es SÓLO de números del catálogo pasa a `ALTO_NUMERO` filas, y lo de
+ * abajo baja lo que ella creció. El lugar lo pone `acomodar` (lib/graficos-ia.ts), que no sabe de General; acá sólo se
+ * estira, así nada se pisa (las filas de `acomodar` no se cruzan).
+ */
+export function conNumerosAltos<T extends { componentes?: unknown }>(hoja: T): T {
+  const cs = Array.isArray(hoja.componentes) ? (hoja.componentes as Pieza[]) : null;
+  if (!cs) return hoja;
+  const filas = [...new Set(cs.map((c) => c.y))].sort((a, b) => a - b);
+  const baja = new Map<number, number>();
+  let corrido = 0;
+  const alto = new Map<number, number>();
+  for (const y of filas) {
+    baja.set(y, corrido);
+    const fila = cs.filter((c) => c.y === y);
+    const soloNumeros = fila.every((c) => c.clase === 'grafico' && c.tipo === 'numero');
+    const h = Math.max(...fila.map((c) => c.h));
+    if (soloNumeros && h < ALTO_NUMERO) { alto.set(y, ALTO_NUMERO); corrido += ALTO_NUMERO - h; }
+  }
+  const componentes = cs.map((c) => ({ ...c, y: c.y + (baja.get(c.y) ?? 0), h: alto.get(c.y) ?? c.h }));
+  return { ...hoja, componentes };
+}
+
 /** La galería de General, en orden. «Hoja en blanco» va primera siempre (la pone el modal). */
-export const PLANTILLAS_GENERAL: readonly PlantillaHoja[] = DEFINICIONES_GENERAL.map(plantilla);
+export const PLANTILLAS_GENERAL: readonly PlantillaHoja[] = DEFINICIONES_GENERAL.map(plantilla)
+  .map((p) => ({ ...p, armar: (id: (local: string) => string) => conNumerosAltos(p.armar(id)) }));
 
 /** Lo que /general tiene de propio en la galería (la de su «Nueva hoja»): éstas, nunca las del Dashboard. */
 export const esPlantillaGeneral = (id: string): boolean => PLANTILLAS_GENERAL.some((p) => p.id === id);

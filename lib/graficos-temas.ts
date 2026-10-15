@@ -148,8 +148,10 @@ export const PLANTILLAS_TEMA: readonly PlantillaTema[] = [
     // la tarjeta flota, el título y el número más grandes y la etiqueta en la letra de la hoja (no en mono).
     id: 'general', nombre: 'General', linea: 'Números enormes y tarjetas que flotan, para leer de una pasada.',
     paleta: PALETA_MAKO,
-    tarjeta: { fondo: 'surface', borde: 'no', radio: 20, sombra: true, filete: false },
-    titulo: { tam: 20, peso: 600, mayus: false },
+    // ÉPICO (14/10/2026, la séptima vuelta): el título de cada tarjeta es un RÓTULO —13 px, mayúsculas— y lo grande es lo
+    // de adentro, como el teléfono que Martín aprobó (app/general/bloques/comun.tsx tiene la escala).
+    tarjeta: { fondo: 'surface', borde: 'no', radio: 22, sombra: true, filete: false },
+    titulo: { tam: 13, peso: 700, mayus: true },
     kpi: { etiqueta: 'letra', tamValor: 52 },
     graficos: { etiquetas: true, leyenda: 'arriba', cuadricula: false, ejes: true, trazo: 4, radioBarra: 10, compacto: false },
     fuente: 'geist',

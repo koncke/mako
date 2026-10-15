@@ -45,15 +45,15 @@ export function BloquePendientes({ d }: { d: DatosGeneral['pendientes'] }) {
         // El número, la barra partida por tipo y la leyenda, uno debajo del otro: entra en media hoja sin saltos.
         <div className="gb-centro" style={{ display: 'flex', flexDirection: 'column', gap: 10, minWidth: 0 }}>
           <span style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-            <span className="gb-num" style={{ fontSize: 'clamp(44px, 13cqi, 80px)', fontWeight: 750, letterSpacing: '-0.035em', lineHeight: 0.95, color: 'var(--bad)' }}>{p.total}</span>
-            <span style={{ fontSize: 'clamp(14px, 3cqi, 18px)', color: 'var(--dim)' }}>{p.total === 1 ? 'lead sin marcar' : 'leads sin marcar'}</span>
+            <span className="gb-p" style={{ color: 'var(--bad)' }}>{p.total}</span>
+            <span className="gb-d">{p.total === 1 ? 'lead sin marcar' : 'leads sin marcar'}</span>
           </span>
-          <div aria-hidden style={{ display: 'flex', height: 10, borderRadius: 999, overflow: 'hidden', background: 'var(--gb-losa-2)' }}>
+          <div aria-hidden style={{ display: 'flex', height: 'clamp(10px, calc(2cqi + 4px), 20px)', borderRadius: 999, overflow: 'hidden', background: 'var(--gb-losa-2)' }}>
             {tipos.map((t) => <span key={t.k} style={{ width: `${(t.n / total) * 100}%`, background: t.c }} />)}
           </div>
           <div style={{ display: 'flex', gap: '6px 14px', flexWrap: 'wrap' }}>
             {tipos.map((t) => (
-              <span key={t.k} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, color: 'var(--dim)' }}>
+              <span key={t.k} className="gb-d" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                 <span aria-hidden style={{ width: 8, height: 8, borderRadius: 2, background: t.c }} />
                 <b className="gb-num" style={{ color: 'var(--ink)' }}>{t.n}</b> {t.l}
               </span>
@@ -113,15 +113,15 @@ function Embudo({ c }: { c: ConteoFunnel }) {
 function Barras({ c }: { c: ConteoFunnel }) {
   const tope = Math.max(1, ...c.etapas.map((e) => e.n));
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 'clamp(8px, 1.6cqi, 14px)' }}>
       {c.etapas.map((e) => (
-        <div key={e.key} style={{ display: 'grid', gridTemplateColumns: 'minmax(90px, 170px) 1fr 52px', alignItems: 'center', gap: 12 }}>
-          <span style={{ fontSize: 13, color: 'var(--dim)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.label}</span>
+        <div key={e.key} style={{ display: 'grid', gridTemplateColumns: 'minmax(90px, 26%) 1fr auto', alignItems: 'center', gap: 'clamp(10px, 2cqi, 18px)' }}>
+          <span className="gb-d" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.label}</span>
           {/* La barra se recorta al 100% y su carril lleva overflow: hidden (AGENTS.md). */}
-          <span style={{ display: 'block', height: 12, borderRadius: 999, background: 'var(--gb-losa-2)', overflow: 'hidden' }}>
+          <span style={{ display: 'block', height: 'clamp(12px, calc(2.2cqi + 4px), 26px)', borderRadius: 999, background: 'var(--gb-losa-2)', overflow: 'hidden' }}>
             <span style={{ display: 'block', height: '100%', borderRadius: 999, width: `${Math.min(100, (e.n / tope) * 100)}%`, background: e.dot || 'var(--primary)', opacity: e.n ? 1 : 0 }} />
           </span>
-          <span className="gb-num" style={{ textAlign: 'right', fontWeight: 700, fontSize: 14, color: e.n ? 'var(--ink)' : 'var(--faint)' }}>{fmtNum(e.n)}</span>
+          <span className="gb-t gb-num" style={{ textAlign: 'right', fontWeight: 800, minWidth: '2ch', color: e.n ? 'var(--ink)' : 'var(--faint)' }}>{fmtNum(e.n)}</span>
         </div>
       ))}
     </div>
@@ -145,9 +145,9 @@ export function BloqueFunnel({ d, funnel, op }: { d: DatosGeneral['funnels']; fu
       {c && c.total > 0 ? (
         <>
           {/* El total, de un vistazo (la quinta vuelta: «textos enormes, cosas grandes»). */}
-          <span style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 12 }}>
-            <span className="gb-num" style={{ fontSize: 'clamp(36px, 10cqi, 64px)', fontWeight: 750, letterSpacing: '-0.035em', lineHeight: 0.95 }}>{fmtNum(c.total)}</span>
-            <span style={{ fontSize: 'clamp(14px, 3cqi, 18px)', color: 'var(--dim)' }}>{c.total === 1 ? 'lead' : 'leads'} en el funnel</span>
+          <span style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 'clamp(12px, 2.4cqi, 22px)', flexWrap: 'wrap' }}>
+            <span className="gb-p">{fmtNum(c.total)}</span>
+            <span className="gb-d">{c.total === 1 ? 'lead' : 'leads'} en el funnel</span>
           </span>
           {conLeads(c).etapas.length ? <CuerpoFunnel c={conLeads(c)} estilo={estilo} /> : null}
           {c.sinEtapa > 0 && <span style={{ marginTop: 8, fontSize: 12.5, color: 'var(--faint)' }}>{c.sinEtapa === c.total ? 'Todos están' : `${c.sinEtapa} están`} en una etapa que el funnel ya no tiene</span>}
@@ -206,24 +206,24 @@ function ResumenMes({ c, desgloses, comparar }: { c: ResumenComparativo; desglos
     { label: 'Cash Collected', m: c.cash_usd, f: fmtUSD },
   ];
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(170px,1fr))', gap: 12 }}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 'clamp(10px, 1.6cqi, 16px)' }}>
       {items.map((it) => {
         const dg = desgloses[it.label];
         const sube = it.m.actual > it.m.anterior;
         const igual = it.m.actual === it.m.anterior;
         const color = igual ? 'var(--faint)' : it.invertir ? 'var(--dim)' : sube ? 'var(--good)' : 'var(--bad)';
         const delta = it.m.anterior > 0 ? Math.round(((it.m.actual - it.m.anterior) / it.m.anterior) * 100) : null;
-        // Una LOSA por métrica (./comun.tsx), no una tarjeta dentro de la tarjeta del bloque.
-        const tarjeta: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 8, padding: '12px 14px', borderRadius: 12, background: 'var(--gb-losa)', border: 'none', cursor: dg ? 'pointer' : 'default', textAlign: 'left', font: 'inherit', color: 'inherit' };
+        // Una LOSA por métrica (./comun.tsx), no una tarjeta dentro de la tarjeta del bloque. La baldosa del teléfono: el
+        // número primero y en grande, su rótulo y su delta. La losa es el CONTENEDOR del número (`container-type`): mide
+        // contra su ancho y no contra el del bloque, así cuatro a lo ancho no se pasan y dos en el teléfono quedan en 27 px.
+        // Sin la línea «mismo período del mes anterior: $1,650» (la saca el teléfono): el anterior está en el título del
+        // bloque y en el desglose.
+        const tarjeta: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 4, padding: 'clamp(12px, 2cqi, 18px) clamp(14px, 2cqi, 20px)', borderRadius: 16, background: 'var(--gb-losa)', border: 'none', cursor: dg ? 'pointer' : 'default', textAlign: 'left', font: 'inherit', color: 'inherit', containerType: 'inline-size', minWidth: 0 };
         const inner = (
           <>
-            <span style={{ fontSize: 13, color: 'var(--dim)' }}>{it.label}</span>
-            <span style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-              <span className="gb-num" style={{ fontWeight: 750, fontSize: 'clamp(26px, 4.4cqi, 44px)', color: 'var(--ink)', letterSpacing: '-0.03em', lineHeight: 1 }}>{it.f(it.m.actual)}</span>
-              {comparar && delta != null && !igual && <span className="gb-num" style={{ fontSize: 12.5, fontWeight: 700, color }}>{delta > 0 ? '▲' : '▼'} {Math.abs(delta)}%</span>}
-            </span>
-            {/* Sin las dos barras de antes (eran un gráfico del Dashboard): el anterior en texto, que es lo que se lee. */}
-            {comparar && <span style={{ fontSize: 12.5, color: 'var(--faint)' }}>{c.etiqueta_anterior}: {it.f(it.m.anterior)}</span>}
+            <span className="gb-num" style={{ fontWeight: 800, fontSize: 'clamp(26px, calc(24cqi - 6px), 76px)', color: 'var(--ink)', letterSpacing: '-0.035em', lineHeight: 1.02 }}>{it.f(it.m.actual)}</span>
+            <span style={{ fontSize: 'clamp(13.5px, calc(3cqi + 9px), 17px)', color: 'var(--dim)' }}>{it.label}</span>
+            {comparar && delta != null && !igual && <span className="gb-num" style={{ fontSize: 'clamp(12.5px, calc(2.6cqi + 8px), 16px)', fontWeight: 700, color }}>{delta > 0 ? '↑' : '↓'} {Math.abs(delta)}%</span>}
           </>
         );
         return dg

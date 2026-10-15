@@ -69,14 +69,14 @@ export const PIEZAS_GENERAL = [
   {
     id: 'cabecera', nombre: 'Meta objetivo', icono: 'fijar', linea: 'El OKR que manda: cuánto llevas, cuánto falta y si vas a tiempo.', w: 6, h: 7,
     opciones: [
-      { id: 'detalle', nombre: 'Qué muestra', def: 'completo', valores: [{ id: 'completo', nombre: 'Con el ritmo', icono: 'grafico' }, { id: 'simple', nombre: 'Sólo el avance', icono: 'numero' }] },
+      { id: 'detalle', nombre: 'Qué muestra', def: 'simple', valores: [{ id: 'simple', nombre: 'El avance y el ritmo', icono: 'numero' }, { id: 'completo', nombre: 'Con el detalle', icono: 'grafico' }] },
       FONDO,
     ],
   },
   {
     id: 'accion', nombre: 'Acción del día', icono: 'accion', linea: 'Lo que más conviene hacer hoy, y por qué.', w: 6, h: 7,
     opciones: [
-      { id: 'razon', nombre: 'El porqué', def: 'si', valores: [{ id: 'si', nombre: 'Se ve', icono: 'ver' }, { id: 'no', nombre: 'Oculto', icono: 'ocultar' }] },
+      { id: 'razon', nombre: 'El porqué', def: 'no', valores: [{ id: 'si', nombre: 'Se ve', icono: 'ver' }, { id: 'no', nombre: 'Oculto', icono: 'ocultar' }] },
       FONDO,
     ],
   },
@@ -148,7 +148,7 @@ export const PIEZAS_GENERAL = [
     id: 'llamadas', nombre: 'Próximas llamadas', icono: 'telefono', linea: 'Las reuniones del CRM que vienen, con su closer.', w: 6, h: 8,
     opciones: [
       { id: 'dias', nombre: 'Los próximos', def: '7', valores: [{ id: '1', nombre: 'Hoy' }, { id: '3', nombre: '3 días' }, { id: '7', nombre: '7 días' }, { id: '14', nombre: '14 días' }] },
-      { id: 'limite', nombre: 'Cuántas', def: '4', valores: [{ id: '3', nombre: '3' }, { id: '4', nombre: '4' }, { id: '6', nombre: '6' }, { id: '8', nombre: '8' }] },
+      { id: 'limite', nombre: 'Cuántas', def: '3', valores: [{ id: '3', nombre: '3' }, { id: '4', nombre: '4' }, { id: '6', nombre: '6' }, { id: '8', nombre: '8' }] },
       FONDO,
     ],
   },

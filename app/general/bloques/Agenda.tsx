@@ -17,7 +17,7 @@ import { colorDe } from '@/app/calendario/comun';
 import { ROTULO_FORMATO, diaDe, horaDe, sumarDias, type ItemCalendario, type FormatoPublicacion } from '@/lib/calendario-modelo';
 import { opcionDe, numeroDe, type OpcionesElegidas } from '@/lib/general-piezas';
 import type { DatosGeneral } from '../datos-tipos';
-import { Cabeza, Fallo, Placeholder, diaCorto, diaDeSemana, useAhora } from './comun';
+import { Cabeza, Fallo, Placeholder, diaCorto, useAhora } from './comun';
 import { calendarioMuestra, hoyMuestra } from './muestras';
 
 type Cal = { items: ItemCalendario[]; tz: string; hoy: string; falla: boolean };
@@ -143,26 +143,21 @@ function TarjetasLlamadas({ c, items }: { c: Cal; items: ItemCalendario[] }) {
   const manana = sumarDias(c.hoy, 1);
   return (
     <div className="gb-cabe">
-      {items.map((it, i) => {
+      {items.map((it) => {
         const dia = diaDe(it.inicio, c.tz);
-        const color = colorDe(it);
         const cuando = diaCorto(dia, c.hoy, manana);
-        // La PRÓXIMA va en grande (la quinta vuelta, 14/10/2026: «textos enormes, cosas grandes»): es la que se mira.
-        const grande = i === 0;
+        // La fila del teléfono (la séptima vuelta, ÉPICA): la HORA en grande, el nombre y con quién. El día va sólo si
+        // no es hoy, chiquito arriba de la hora; el cuadradito con la fecha y los chips «Hoy»/«Mañana» se fueron.
         return (
-          // Filas con su línea, no una tarjeta por llamada: la fecha en su cuadradito, como un evento de calendario.
-          <Link key={it.id} href={destino(it)} className="gb-fila" style={grande ? { paddingBottom: 14 } : undefined}>
-            <span aria-hidden style={{ flex: 'none', width: grande ? 58 : 42, height: grande ? 62 : 44, borderRadius: grande ? 14 : 10, background: `color-mix(in srgb, ${color} 14%, transparent)`, color, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }}>
-              <span style={{ fontSize: grande ? 12 : 10.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em' }}>{diaDeSemana(dia)}</span>
-              <span style={{ fontSize: grande ? 26 : 18, fontWeight: 700 }} className="gb-num">{Number(dia.slice(8, 10))}</span>
+          <Link key={it.id} href={destino(it)} className="gb-fila" style={{ gap: 'clamp(12px, 3cqi, 24px)', padding: 'clamp(10px, 2cqi, 16px) 0' }}>
+            <span style={{ flex: 'none', display: 'flex', flexDirection: 'column', minWidth: '4.2ch' }}>
+              {cuando !== 'Hoy' && <span style={{ fontSize: 'clamp(11.5px, calc(1.2cqi + 8px), 14px)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.05em', color: 'var(--faint)' }}>{cuando}</span>}
+              <span className="gb-num" style={{ fontSize: 'clamp(22px, calc(6cqi + 2px), 40px)', fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.05, color: 'var(--ink)' }}>{horaDe(it.inicio, c.tz)}</span>
             </span>
-            <span style={{ display: 'flex', flexDirection: 'column', gap: grande ? 5 : 3, minWidth: 0, flex: 1 }}>
-              <span style={grande ? { ...NOMBRE, fontSize: 'clamp(17px, 4.2cqi, 24px)', fontWeight: 700, letterSpacing: '-0.015em' } : NOMBRE}>{it.titulo}</span>
-              <span style={{ fontSize: grande ? 'clamp(13.5px, 2.8cqi, 16px)' : 12.5, color: 'var(--dim)' }} className="gb-num">{horaDe(it.inicio, c.tz)}{it.detalle ? ` · ${it.detalle}` : ''}</span>
+            <span style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0, flex: 1 }}>
+              <span className="gb-t" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{it.titulo}</span>
+              {it.detalle && <span className="gb-d" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{it.detalle}</span>}
             </span>
-            {(cuando === 'Hoy' || cuando === 'Mañana') && (
-              <span className="gb-chip" style={cuando === 'Hoy' ? { background: color, color: '#fff', borderColor: 'transparent' } : undefined}>{cuando}</span>
-            )}
           </Link>
         );
       })}
