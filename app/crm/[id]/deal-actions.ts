@@ -207,25 +207,18 @@ export async function saveDealSectionsAction(leadId: number, patch: DealSections
   // 1) Que sea de ESTE negocio: el update de abajo, con un lead ajeno, da 0 filas sin error, y el historial igual
   //    anotaba «Guardó: …» sobre el id de otro.
   // 2) El documento fiscal lo pone la base, no el navegador (ver `fiscalConDocDeLaBase`).
-  const { data: enBase, error: eBase } = await db.from('leads').select('deal_fiscal').eq('id', leadId).maybeSingle();
+  const { data: enBaseRow, error: eBase } = await db.from('leads')
+    .select('deal_fiscal, deal_servicio, deal_promesa, deal_obligaciones').eq('id', leadId).maybeSingle();
   if (eBase) throw new Error(`No pude leer el lead ${leadId}: ${eBase.message}`);
-  if (!enBase) throw new Error('No encontré este lead.');
-  const fiscalEnBase = (enBase as { deal_fiscal: Lead['deal_fiscal'] }).deal_fiscal;
+  if (!enBaseRow) throw new Error('No encontré este lead.');
+  // Trae las CUATRO secciones porque el merge de abajo (tanda B del CRM) las necesita.
+  const enBase = enBaseRow as Partial<Pick<Lead, 'deal_fiscal' | 'deal_servicio' | 'deal_promesa' | 'deal_obligaciones'>>;
   const sus: Record<string, number | null> = {};
   if (patch.suscripcion_monto_usd !== undefined) sus.suscripcion_monto_usd = patch.suscripcion_monto_usd;
   if (patch.suscripcion_meses !== undefined) sus.suscripcion_meses = patch.suscripcion_meses;
   const tocaPlata = patch.monto_cierre_usd !== undefined || Object.keys(sus).length > 0;
   // El «antes» del diff: sin poder leerlo se guarda igual y queda sólo el evento de abajo.
   const before = tocaPlata ? await getLead(leadId).catch(() => null) : null;
-  const tocaSecciones = patch.deal_fiscal !== undefined || patch.deal_servicio !== undefined || patch.deal_promesa !== undefined || patch.deal_obligaciones !== undefined;
-  let enBase: Partial<Pick<Lead, 'deal_fiscal' | 'deal_servicio' | 'deal_promesa' | 'deal_obligaciones'>> = {};
-  if (tocaSecciones) {
-    const { data, error } = await db.from('leads').select('deal_fiscal, deal_servicio, deal_promesa, deal_obligaciones').eq('id', leadId).maybeSingle();
-    // Sin poder leer lo que hay, NO se escribe encima: reemplazar a ciegas es lo que borraba el documento fiscal.
-    if (error) throw new Error(`No pude leer el deal del lead ${leadId}: ${error.message}`);
-    if (!data) throw new Error('No encontré este lead.');
-    enBase = data as typeof enBase;
-  }
   const mergeo = <T extends object>(previo: T | null | undefined, nuevo: T | null | undefined) => (nuevo == null ? nuevo : { ...(previo ?? {}), ...nuevo });
   // El documento fiscal lo escribe SÓLO su subida (/api/extract-deal-fiscal): el que viene en el patch es el de la
   // foto que tenía la pantalla, y gana siempre el de la base.

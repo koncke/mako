@@ -84,7 +84,9 @@ test('las listas de cada plantilla son las del documento, tab por tab', () => {
     const d = DOC.get(p.id);
     assert.ok(d, `${p.id} no está en el documento`);
     for (const tab of TABS_FICHA) {
-      const esperado = d.tabs[tab] ?? 'respaldo';
+      // El tipo va ANOTADO: el retorno de plantillasDelDocumento() se infiere en circulo y TS lo
+      // resuelve como any (TS7022), que apaga la unica comprobacion que este test hace.
+      const esperado: string[] | 'respaldo' | 'misma-llamada' = d.tabs[tab] ?? 'respaldo';
       if (esperado === 'respaldo') assert.equal(p.tabs[tab], undefined, `${p.id} · ${tab}: el documento no le da lista (usa la del respaldo)`);
       else if (esperado === 'misma-llamada') assert.deepEqual(p.tabs[tab], plantillaFicha('dos-reuniones').tabs[tab], `${p.id} · ${tab}`);
       else assert.deepEqual([...(p.tabs[tab] ?? [])], esperado, `${p.id} · ${tab}`);
