@@ -8287,3 +8287,20 @@ con una sola key de Gemini se quedó sin nada. Lo encontró un cliente.
   deja caído.
 
 Detalle y medición: docs/hallazgos-ia.md («`gemini-flash-latest` dejó de aceptar `minimal`», 15/10/2026).
+
+# Una regla que vive en un COMPONENTE no la cumple otra entrada
+
+Lo que decide cómo queda un dato (qué se apaga al elegir una animación, qué se vuelve a partir al cambiar la
+fuente de un subtítulo) escrito adentro de una pestaña sólo vale para quien toca esa pestaña. El chat, la API o
+una plantilla escriben el mismo dato por otro lado y lo dejan inconsistente, sin error. La regla sale a un módulo
+PURO que usan la pantalla y las otras entradas (molde: `app/video-editor/_opencut/animaciones/elegir.ts`, fijado
+por un test que lee el fuente). Lo mismo al revés: todo lo que copia «todos los params» de un elemento (aplicar a
+todos, plantillas) excluye a mano lo que NO es un control: «Aplicar en todos los subtítulos» le copiaba a cada uno
+los tiempos por palabra del elegido y los dejaba sin los suyos (docs/hallazgos-video-editor.md, 15/10/2026).
+
+# En el Video Editor, un import de VALOR de `_opencut/wasm` no carga fuera del navegador
+
+`wasm/media-time.ts` importa `wasm/opencut.ts`, que baja e instancia el WASM con top-level await: cualquier
+módulo que importe de ahí `TICKS_PER_SECOND`, `roundMediaTime` o `addMediaTime` (directo o por `timeline/index.ts`,
+`animation/`…) no carga en los tests de node. Lo que se quiera probar recibe los ticks por segundo y lo que llega
+al motor por PARÁMETRO, e importa sólo TIPOS (molde: `transcripcion/cortar.ts`, con `tps` y `dividir`).
