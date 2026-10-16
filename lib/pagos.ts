@@ -51,6 +51,8 @@ export type Pago = {
   // Lo cargado a mano (mig 0292): por qué y cómo se cobró. null en lo de la pasarela y en lo viejo.
   concepto?: string | null;
   metodo?: string | null;
+  /** Nació ya cobrada: un pago suelto o una mensualidad registrada a mano (mig 0295). Deshacerla la quita. */
+  nacio_cobrada?: boolean | null;
   created_at: string;
 };
 
@@ -251,7 +253,7 @@ export async function reconciliarYGuardar(
  */
 export async function guardarCuotasPorId(
   leadId: number,
-  cuotas: ReadonlyArray<{ id?: number | null; monto_usd: number; fecha_esperada: string | null }>,
+  cuotas: ReadonlyArray<{ id?: number | null; numero?: number | null; monto_usd: number; fecha_esperada: string | null }>,
   opts: { vistos?: ReadonlySet<number> } = {},
 ): Promise<PlanDeCuotas> {
   return reconciliarYGuardar(leadId, cuotas, 'porId', opts);
@@ -453,15 +455,31 @@ async function anularLinksAlCobrar(pagoId: number, cobroId: number | null): Prom
  * Marca un pago como cobrado (o lo revierte). Sincroniza total_cobrado_usd y
  * fecha_primer_pago del lead.
  */
+/**
+ * ⚠️ DESHACER UNA CUOTA QUE NACIÓ COBRADA LA QUITA (mig 0295, 16/10/2026). Un pago suelto o una mensualidad registrada
+ * a mano nacen con vencimiento = el día del pago: desmarcarlos los dejaba VENCIDOS («Debe $X», y la cobranza los
+ * recordaba) por una deuda que nunca existió. Sólo lo cargado a mano: lo de la pasarela se revierte con «Devolver».
+ *
+ * Se quita por el ÚNICO borrado de cuotas, el de la reconciliación (`guardarCuotasPorId`, con esa cuota como la única
+ * vista), que ya la ve impaga: ningún escritor borra cuotas por su cuenta (tests/pagos-escritura.test.ts). Si algo la
+ * protege (un link sin pagar, un recordatorio corriendo), queda impaga como antes y se devuelve false.
+ * `marcarPago` lee la cuota con `*`: sin la mig 0295 la columna no existe, y pedirla por nombre rompía todo marcar.
+ */
+async function quitarSiNacioCobrada(pagoId: number, fila: { lead_id: number; cobro_id?: number | null; proveedor?: string | null; nacio_cobrada?: boolean | null }): Promise<boolean> {
+  if (fila.nacio_cobrada !== true || fila.proveedor || fila.cobro_id != null) return false;
+  const cambios = await guardarCuotasPorId(fila.lead_id, [], { vistos: new Set([pagoId]) });
+  return cambios.borrar.some((b) => b.id === pagoId);
+}
+
 export async function marcarPago(
   pagoId: number,
   pagado: boolean,
   fechaPago: string | null = new Date().toISOString().slice(0, 10),
-): Promise<void> {
+): Promise<{ quitada: boolean }> {
   const supabase = (await getTenantDb());
   const { data: pago, error: getErr } = await supabase
     .from('pagos')
-    .select('lead_id, cobro_id')
+    .select('*')
     .eq('id', pagoId)
     .single();
   if (getErr) throw new Error(`Error leyendo pago ${pagoId}: ${getErr.message}`);
@@ -474,6 +492,7 @@ export async function marcarPago(
     })
     .eq('id', pagoId);
   if (error) throw new Error(`Error marcando pago ${pagoId}: ${error.message}`);
+  const quitada = !pagado && (await quitarSiNacioCobrada(pagoId, pago));
 
   await sincronizarTotalCobrado(pago.lead_id as number);
 
@@ -500,6 +519,7 @@ export async function marcarPago(
     }
     await anularLinksAlCobrar(pagoId, pago.cobro_id ?? null);
   }
+  return { quitada };
 }
 
 /**
@@ -591,6 +611,8 @@ export async function registrarPagoSuelto(
   const { data, error } = await db.from('pagos')
     .insert({
       lead_id: leadId, numero: base + 1, monto_usd: redondo, fecha_esperada: datos.fecha, pagado: false, pago_hora: datos.hora?.trim() || null,
+      // Nace cobrada (mig 0295): deshacerla la quita, no la deja como deuda vencida.
+      nacio_cobrada: true,
       ...(enMoneda ? { moneda: enMoneda.moneda, monto_original: enMoneda.montoOriginal } : {}),
     })
     .select('id').single();

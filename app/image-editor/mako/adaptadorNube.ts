@@ -22,6 +22,7 @@ import { removeMissingAssetReferences } from '../_doory/features/editor/adapters
 import { collectLocalAssetIds, rewriteLocalAssetSrcs } from '../_doory/lib/document';
 import type { LocalRepository } from '../_doory/lib/local/repository';
 import type { Subido } from '@/lib/image-editor/tipos';
+import type { SenalesNegocio } from '@/lib/plantillas-sugeridas';
 import { serviciosCatalogo } from './servicios';
 import { IMAGEN_DIRECTA, aRaster, borrarSubido, guardarDiseno, listarSubidos, subirArchivo, subirMiniatura, tipoDeAudio } from './nube';
 
@@ -94,10 +95,12 @@ export function crearAdaptadorNube(o: {
   repoLocal: LocalRepository | null;
   /** «Copiar y redimensionar»: crea el diseño nuevo y lo abre (la cáscara sabe navegar). */
   duplicar: (input: { title: string; document: DoryDocument }) => Promise<void>;
+  /** Lo que se sabe del negocio (lo lee la page): el panel de plantillas pone primero las sugeridas. */
+  senales?: SenalesNegocio | null;
 }): EditorAdapter {
   let ultimaMiniatura = 0;
   const hechos = new Map<string, { url: string; assetId?: string }>();
-  const nube = serviciosCatalogo();
+  const nube = serviciosCatalogo(o.senales);
   return {
     async save({ document, title, thumbnail }) {
       const doc = await subirLocales(document, o.repoLocal, hechos);

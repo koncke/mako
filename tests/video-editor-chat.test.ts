@@ -913,9 +913,10 @@ test('50: la API de MaKo LISTA las plantillas (gratis, con la tab del editor) y 
   assert.deepEqual(ad.huecos.find((h) => h.nombre === 'antes'), { nombre: 'antes', tipo: 'clip', acepta: 'ambos', segundos: 5, opcional: false });
   assert.deepEqual(ad.huecos.find((h) => h.nombre === 'final'), { nombre: 'final', tipo: 'clip', acepta: 'ambos', segundos: 3, opcional: true });
   assert.deepEqual(api.plantillas[0].huecos.find((h) => h.nombre === 'gancho'), { nombre: 'gancho', tipo: 'texto', max_caracteres: 28, ejemplo: 'ESTO LO CAMBIA TODO' });
-  // El runner (server-only) devuelve eso y nada más.
+  // El runner (server-only) devuelve eso y nada más, con las sugeridas para el negocio primero
+  // (tests/plantillas-sugeridas-editores.test.ts).
   const run = sinComentarios(leer('lib/api-mako/areas/video.run.ts'));
-  assert.ok(run.includes('\n  listar_plantillas_video: {\n    leer: async () => json(plantillasParaApi()),\n  },'), 'el runner de listar_plantillas_video');
+  assert.ok(run.includes('\n  listar_plantillas_video: {\n    leer: async () => json(plantillasParaApi(await senalesDelNegocio().catch(() => null))),\n  },'), 'el runner de listar_plantillas_video');
 });
 
 // Roturas (15/10/2026), cada una sola y restaurada desde memoria; base 21 de 21:

@@ -162,7 +162,15 @@ export function TemplatesPanel({ close }: { close: () => void }) {
                         {tpl.thumbnail_url ? <img className={styles.thumb} src={tpl.thumbnail_url} alt="" loading="lazy" draggable={false} /> : <span className={styles.blank}>{tpl.title}</span>}
                         {tpl.page_count > 1 ? <span className={styles.pages}>{t.templates.pageCount(tpl.page_count)}</span> : null}
                       </button>
-                      <span className={styles.title}>{tpl.title}</span>
+                      <div className={styles.meta}>
+                        <span className={styles.title}>{tpl.title}</span>
+                        {/* MaKo: the business's suggested templates come first (mako/plantillas.ts); the reason goes in the title. */}
+                        {tpl.suggested_reason ? (
+                          <span className={styles.suggested} title={tpl.suggested_reason}>
+                            {t.templates.suggested}
+                          </span>
+                        ) : null}
+                      </div>
                     </div>
                   )
                 })}

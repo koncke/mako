@@ -342,7 +342,8 @@ test('(8) «Si responde» despacha a responderConGrafo, y «MaKo contesta» usa 
   assert.ok(despacho < asistir.indexOf("update({ estado: 'handoff'"), 'el despacho va ANTES del hand-off');
   const grafo = fn(NUTRI, 'async function responderConGrafo(');
   assert.match(grafo, /const escenarios = escenariosDeRespuesta\(pasos\);/);
-  assert.match(grafo, /await clasificarEscenario\(texto \?\? '', lista\)/, 'el clasificador de siempre, con los casos de la tarjeta');
+  // (16/10/2026: en vivo, con la red de plataforma, el plazo y la marca de PII: tests/ai-step-red-y-voz.test.ts.)
+  assert.match(grafo, /await clasificarEscenario\(texto \?\? '', lista, \{ redDePlataforma: true, hastaMs: c\.hastaMs, pii: true \}\)/, 'el clasificador de siempre, con los casos de la tarjeta');
   assert.match(grafo, /await redactarRespuesta\(c, \{/, '«MaKo contesta» redacta por otro camino');
   assert.ok(grafo.indexOf('await hayMensajeMasNuevo(c)') < grafo.indexOf('for (let vuelta'), 'la relectura va antes de recorrer la rama');
   assert.doesNotMatch(grafo, /estado: 'handoff'/, '«Si responde» no congela la inscripción');

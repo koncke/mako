@@ -168,6 +168,27 @@ export async function huecosDisponibles(
 }
 
 /**
+ * CON CUÁNTA ANTICIPACIÓN SE PUEDE AGENDAR HOY (16/10/2026, Martín: «si MaKo sabe por la API que el evento permite
+ * agendar con poca anticipación (por ejemplo 3 h), el delay "1 día antes" lo advierte»).
+ *
+ * ⚠️ LA API DE CALENDLY NO PUBLICA LA «ANTICIPACIÓN MÍNIMA» de un event type (es un ajuste de la pantalla). Lo que sí
+ * da son los huecos libres: el PRIMERO de cada event type activo dice con cuánto se puede agendar AHORA. Si hay uno en
+ * 3 h, alguien puede agendar con 3 h. Es una MEDICIÓN (cambia con la agenda), y así se dice: «hay huecos a 3 h».
+ * Devuelve el event type con el hueco más cercano, o null si ninguno tiene huecos en la semana.
+ */
+export async function primerHuecoLibre(ahoraMs = Date.now()): Promise<{ minutos: number; evento: string } | null> {
+  let mejor: { minutos: number; evento: string } | null = null;
+  for (const t of await listarEventTypes()) {
+    const [primero] = await huecosDisponibles(t.uri, { dias: 7 });
+    const ms = primero ? Date.parse(primero.startIso) : NaN;
+    if (!Number.isFinite(ms)) continue;
+    const minutos = Math.max(0, Math.round((ms - ahoraMs) / 60_000));
+    if (!mejor || minutos < mejor.minutos) mejor = { minutos, evento: t.nombre };
+  }
+  return mejor;
+}
+
+/**
  * Un link de Calendly LISTO PARA TOCAR: el formulario con el nombre y el email
  * ya puestos, para que el otro solo elija horario y confirme.
  *

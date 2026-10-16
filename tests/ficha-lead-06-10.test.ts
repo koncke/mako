@@ -117,8 +117,11 @@ test('la cara va en la CABECERA de las dos puertas, y la tarjeta ya no dibuja ot
   assert.match(cab, /icono=\{icono\} foto=\{foto\}/, 'y lo que devuelve la cadena es lo que dibuja la marca');
   assert.doesNotMatch(sinComentarios(leer('app/crm/lead-view/InfoPrincipalCard.tsx')), /LeadFoto/);
   // La foto del email sale armada del server en las dos puertas.
+  // ⚠️ Desde el 14/10/2026 las dos puertas leen con la MISMA action (la ruta llama a `getLeadFullAction`,
+  // tests/ficha-armador.test.ts), así que la foto sale armada en UN lugar y la ruta no la arma aparte.
   assert.match(sinComentarios(leer('app/crm/actions.ts')), /const fotoEmail = lead\.email\?\.trim\(\) \? urlGravatar\(lead\.email, 160\) : null;/);
-  assert.match(sinComentarios(leer('app/crm/[id]/page.tsx')), /fotoEmail=\{lead\.email\?\.trim\(\) \? urlGravatar\(lead\.email, 160\) : null\}/);
+  assert.match(sinComentarios(leer('app/crm/[id]/page.tsx')), /await getLeadFullAction\(idNum\)/);
+  assert.doesNotMatch(sinComentarios(leer('app/crm/[id]/page.tsx')), /urlGravatar/, 'la ruta vuelve a armar la foto por su cuenta');
 });
 
 // ── 1. El producto en el pop-up, con el NOMBRE del producto ─────────────────────
@@ -137,11 +140,11 @@ test('el pop-up tiene el desplegable de producto, y las dos puertas muestran el 
   assert.match(sheet, /<FunnelYEtapa ficha=\{fichaProd\}[^>]*ariaLabel="Cambiar etapa o funnel"/, 'el desplegable del funnel y su etapa, uno solo');
   assert.doesNotMatch(sheet, /<ProductoDelLead|<EtapaEnProducto|ariaLabel="Cambiar etapa"/, 'volvieron los dos desplegables');
   assert.match(sheet, /useProductosDeLaFicha\(\{\s*leadId: lead\.id, casa: lead\.funnel_id, foto: productos,/, 'el desplegable se dibuja al toque con los productos que la ficha ya tiene');
-  for (const f of ['app/crm/actions.ts', 'app/crm/[id]/page.tsx']) {
-    // Con `nombreVisible` (lib/lead-funnel-reglas.ts) desde el 08/10/2026: la regla era una
-    // copia en 11 lugares y ahora es una función, ejecutada en tests/inbox-agregar-al-crm.test.ts.
-    assert.match(sinComentarios(leer(f)), /nombre: nombreVisible\(f\)/, `${f} muestra «Funnel principal»`);
-  }
+  // Con `nombreVisible` (lib/lead-funnel-reglas.ts) desde el 08/10/2026: la regla era una
+  // copia en 11 lugares y ahora es una función, ejecutada en tests/inbox-agregar-al-crm.test.ts.
+  // ⚠️ Desde el 14/10/2026 la ruta lee con la action del pop-up: los productos salen de UN lugar.
+  assert.match(sinComentarios(leer('app/crm/actions.ts')), /nombre: nombreVisible\(f\)/, 'app/crm/actions.ts muestra «Funnel principal»');
+  assert.match(sinComentarios(leer('app/crm/[id]/page.tsx')), /await getLeadFullAction\(idNum\)/, 'la ruta arma los productos por su cuenta');
 });
 
 // ── 5. Sin «Reactivar» ─────────────────────────────────────────────────────────

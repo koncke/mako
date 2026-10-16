@@ -354,6 +354,23 @@ no se llamaba.
 **Vive en:** `app/offer/OfferApp.tsx` (`AudioGrabado.path`, `descartarSubida`) ·
 `app/api/offer/route.ts` (`case 'descartar-subida'`)
 
+### Y ese «descartar-subida» borraba también la nota que SÍ se mandó (16/10/2026)
+
+Síntoma (leído en el código al copiar la pantalla al teléfono, no medido): una nota de voz enviada
+desde escritorio deja de sonar. `enviarAudio` llamaba a `descartarSubida(a.path)` con todo lo que no
+volvía a la barra, también con `'salio'`; ese `path` es el que el mensaje guarda y el que firma GET
+/api/offer/audio. El servidor no lo frena: `'descartar-subida'` sólo mira que el path sea del workspace.
+**El diagnóstico obvio era el equivocado:** «se borra porque falló la transcripción»; la 422 la borra el
+servidor, y la nota BUENA la borraba la pantalla. Y un test lo fijaba: tests/offer-v2-pantalla.test.ts
+exigía el `descartarSubida(a.path);` suelto.
+
+**La regla:** un binario se suelta sólo cuando el envío se TIRA (413/415/422 o un audio que no se puede
+convertir): `if (res === 'tirar') descartarSubida(a.path);`. Lo que salió vive en el mensaje y se borra
+con la conversación. Probado rompiéndolo: el borrado suelto da 9 / 1.
+
+**Vive en:** `app/offer/OfferApp.tsx` (`enviarAudio`) · `app/m/offer/OfferM.tsx` (la misma regla) ·
+tests/offer-v2-pantalla.test.ts (§ 6) · tests/m-offer.test.ts («orquestación»)
+
 ### «Guardar si no hay» vivía en la ruta con la clave copiada, y un test cuidaba la copia
 
 La ruta tenía el insert-if-absent entero con `'negocio.fase.diagnostico'` escrito a mano, y un test
@@ -527,3 +544,111 @@ Lo que no se ve en el código:
 `tests/offer-archivero.test.ts` (13 tests, 30 roturas cazadas)
 
 *15/10/2026, cuenta claude3.*
+
+## El chat no desaparece, y Offer es el onboarding (16/10/2026)
+
+**El pedido que no estaba escrito.** Martín pidió al Cerebro «el chat no debe desaparecer jamás… Había
+dado feedback de esto, revisalo». No estaba en ningún lado del repo ni de la memoria: estaba en la
+transcripción de Fathom de la llamada con Leila del 12/10 (la API de Fathom, `recording_id 191910109`; el
+link que anotaba el repo, `calls/858545195`, da 404). Dos momentos, los dos de Martín:
+- **00:37:00**, con la pantalla de carga tapando el chat: «en lugar de que cambie el chat, que siga
+  manteniendo el mismo chat pero que MaKo te envíe un mensaje diciéndote ya estoy trabajando en hacer tu
+  diagnóstico o en hacer tu oferta… te mando una notificación cuando esté listo».
+- **00:42:47**, con la oferta en una pantalla aparte: «yo de hecho quisiera que jamás se salga el recuadro
+  del chat… de última que haya como una preview de un pop-up».
+- ⚠️ Fathom pega voces: lo que figura como Martín a veces es Leila leyendo la pantalla (el «programa de
+  autonomía operativa» del 00:37:00 es la oferta leída de la pantalla, no Martín).
+
+**Síntoma → causa.** Apretar «Armar mi oferta» REEMPLAZABA el chat por la vista Generando y, al terminar,
+por la de la Conclusión (`setVista('generando')` / `setVista('conclusion')` en `OfferApp.tsx`). El chat
+volvía sólo con «Seguir afinando». **Ahora no hay vistas:** armar es un mensaje más del hilo
+(`GenerandoEnChat` dentro de una burbuja, con sus dos pasos y su reintento, `armando` de `ChatOffer`) y la
+oferta se ve en un `Modal` ENCIMA del chat, desde «Ver mi oferta» del PDF o del riel. El PDF llega como
+mensaje y la ventana NO se abre sola (en el onboarding, la persona está eligiendo su CRM mientras tanto).
+
+**Offer es el onboarding.** El mismo motor (`OfferApp` con `arranque`) es /onboarding: sin selector, la
+conversación nace sola en el funnel PRINCIPAL y alrededor van los mensajes del arranque. Lo que eso exige
+de este motor, y vale para tocarlo después:
+- **Los mensajes del arranque llevan id `arr-…`** y la opción del último mensaje se reparte por eso: si es
+  `arr-`, contesta el arranque; si no, Offer.
+- **`visible` (la conversación con los del arranque alrededor) va en `useMemo`**: un arreglo nuevo en cada
+  tecla hace que el hilo se vuelva a desplazar con cada letra (la misma trampa que `ChatOffer` ya cuidaba).
+- **Después de «¡Listo!» el composer NO va a Offer**: los mensajes del arranque van DESPUÉS de los de la
+  oferta, así que un turno nuevo quedaría arriba de la tarjeta final. La oferta sigue en la tab.
+- **«Probarlo» no se ofrece en el onboarding** (`conProbar`): Experiments rebota al onboarding mientras está
+  pendiente, y además sacaría a la persona del chat.
+
+**El crédito de Claude** entra en `pedir` ANTES de su bucle de la red gratis (no pidiéndole
+`redDePlataforma` a la cascada, que volvería a probar las mismas keys gratis y no conoce el respaldo flojo
+ni `hastaRedMs`). Lo habilita la lista del veto sólo mientras `onboardingPendiente()`.
+
+**Lo que quedó SIN hacer:**
+- ~~El aviso al terminar si la persona se fue~~ **HECHO el 16/10**: la oferta se arma en el servidor y avisa
+  (ver «La oferta se arma en el servidor, y MaKo avisa cuando está», abajo).
+- **El resto del feedback de esa llamada, sin tocar:** que detecte las ofertas de menor a mayor precio
+  («¿qué le vendes después?», 00:34:26); que distinga low ticket de high ticket y servicio hecho por vos /
+  con vos / para vos (00:38:54, 00:39:11: no prometer implementar algo que hace el cliente en un curso);
+  que no vuelva a proponer el diagnóstico cuando ya tiene las respuestas (00:35:43); que la oferta salga
+  menos corporativa (00:41:03, 00:44:48); y que el PDF separe el diagnóstico de su oferta actual de la
+  propuesta nueva (00:45:30). La voz de marca (00:46:06) ya estaba hecha (`db81f96`).
+- **No se vio en el navegador**: la RAM de la máquina no dejaba levantar la app. Lo cubren los tests de
+  fuente y lo puro ejecutado.
+
+**Vive en:** `app/offer/OfferApp.tsx` (sin vistas; `ArranqueOffer`; la Conclusión en un `Modal`) ·
+`app/offer/ChatOffer.tsx` (`armando`, `onVerOferta`, `avatar`, `extra`, `soloTexto`) ·
+`app/offer/Generando.tsx` (`GenerandoEnChat`) · `app/offer/Conclusion.tsx` (`conProbar`) ·
+`lib/offer-ia.ts` (el crédito en `pedir`) · `tests/onboarding-arranque.test.ts`, `tests/offer-ia-cableado.test.ts`
+
+*16/10/2026, cuenta claude3.*
+
+## La oferta se arma en el servidor, y MaKo avisa cuando está (16/10/2026)
+
+**El pedido** (Martín, llamada con Leila del 12/10, 00:37:00): que MaKo arme la oferta sin que la persona se quede
+esperando en la pestaña, «te mando una notificación cuando esté listo».
+
+**El diagnóstico obvio era el equivocado.** Parecía que alcanzaba con avisar al final. Pero «Armar mi oferta» eran DOS
+pedidos que esperaba el NAVEGADOR (`diagnosticar` y `generar`, cada uno de hasta ~285 s): si la persona cerraba la
+pestaña durante el primero, el segundo no salía nunca y la oferta no se hacía. Con el segundo ya en curso, sí
+terminaba (nada en la ruta mira `req.signal`). Y en el onboarding, volver a montar la pantalla re-corría el
+diagnóstico desde cero: pagaba la IA otra vez, y si el primer `generar` seguía vivo, su CAS fallaba con un 409.
+
+**Ahora:** `armar` anota el armado en la fila (`offer_sesiones.armado`, mig 0296: cuándo, en qué paso, de dónde, quién
+y el error), contesta al toque y corre los dos pasos en un `after()` (`armarPorDetras`). La pantalla sólo relee cada
+4 s mientras `sesion.armando.corriendo`, y lo que dibuja sale de lo guardado: una recarga, otra pestaña o la persona
+que vuelve ven el mismo armado. Al terminar, el evento de la plataforma `oferta_lista` (docs/diseno-avisos-plataforma.md §7).
+
+**Lo que conviene saber antes de tocarlo:**
+- **`maxDuration = 800`** (como /api/retro): los dos pasos en una sola invocación son ≤285 + ≤288 s. Cada paso cuenta
+  su plazo desde SU arranque (`inicio` de lib/offer-ia.ts), no desde el pedido.
+- **Cada escritura es de ESTE intento** (`armado.intento`, por CAS): un armado viejo que termina tarde no pisa el
+  nuevo. Y `armar` es idempotente: con uno corriendo, devuelve la conversación sin arrancar otro (el doble clic, la
+  pantalla del onboarding que se vuelve a montar, dos pestañas).
+- **Un armado que se cortó no queda «armando» para siempre:** pasados `ARMADO_VENCE_MS` (15 min, más que el
+  `maxDuration`), la vista lo muestra como fallido («Se cortó…») y se puede volver a pedir.
+- **El reintento arranca desde el paso que falló:** con `borrador` (el diagnóstico hecho), desde la oferta.
+- **La columna está en las COLS:** la mig 0296 va ANTES del deploy (se aplicó el 16/10 con
+  scripts/apply-migration.mjs; es aditiva y el código de antes no la lee).
+- **MaKo Mobile sigue con los dos pasos sueltos** (app/m/offer/OfferM.tsx): `diagnosticar` y `generar` se quedaron
+  para él. Si se lo pasa a `armar`, el teléfono gana lo mismo.
+
+**El aviso:** se emite SIEMPRE al terminar (Martín no pidió «sólo si se fue», y un evento de la plataforma no admite
+condiciones hoy). Va por `emitirEventoDePlataforma`, nunca por `emitirDelCatalogo`: sin fila, éste cae al camino viejo
+y mandaría el `ejemplo` del catálogo como si fuera real.
+
+**Lo que quedó SIN hacer:**
+- **Correr la mudanza después del deploy:** `node scripts/mudanza-avisos-plataforma.mts --eventos=oferta_lista
+  --aplicar`. Sin esa fila en el ws 9, la oferta se arma en el servidor igual, pero no avisa.
+- **Sin grupo de MaKo no llega el WhatsApp.** En el onboarding pasa seguido: el teléfono se pide DESPUÉS de la oferta.
+  Lo ve en el chat cuando vuelve. «En la app» de escritorio no existe todavía: la tabla `notificaciones` no está en
+  producción y no hay campanita (docs/hallazgos-chatbot.md, «Lo que el evento de la oferta lista destapó del motor»).
+- **Verificado en el ws3 el 16/10** (build parcial + `next start`, la IA de verdad): `armar` contestó en 1,4 s; la página
+  se cerró a los 3 s, en pleno diagnóstico; el servidor pasó a «oferta» a los 33 s y terminó a los 113 s (versión 1,
+  el PDF en el chat, el armado borrado). El aviso dio `sinFila` y lo dijo en el log, como debe hasta la mudanza. Al
+  volver, la oferta estaba en el chat y el onboarding siguió con lo que faltaba del diagnóstico. El ws3 quedó como estaba.
+
+**Vive en:** `app/api/offer/route.ts` (`armar`, `armarPorDetras`, `diagnosticarSesion`, `generarSesion`) ·
+`lib/offer-reglas.ts` (`sanearArmado`, `armadoEnCurso`, `armadoParaVista`) · `lib/offer-sesiones.ts` (la columna) ·
+`app/offer/OfferApp.tsx` (`armar`, la relectura) · `lib/oferta-lista.ts` y `lib/oferta-lista-server.ts` (el aviso) ·
+`supabase/migrations/0296_offer_armado.sql` · `tests/offer-armado-servidor.test.ts` (14 roturas)
+
+*16/10/2026, cuenta claude3.*

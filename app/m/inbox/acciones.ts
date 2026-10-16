@@ -24,7 +24,7 @@
 //   4. El error vuelve CORTO para un toast cuando lo decide esta puerta; el de la acción
 //      de escritorio pasa tal cual (puede ser el resultado de lo que se ejecutó).
 //
-// ⚠️ LA PÁGINA QUE LAS MONTA DECLARA `export const maxDuration = 300`: el techo de la
+// ⚠️ LA PÁGINA QUE LAS MONTA DECLARA `export const maxDuration = 420`: el techo de la
 // PÁGINA gobierna sus server actions, y confirmar una acción de MaKo puede correr IA o
 // analizar una llamada. Sin eso la plataforma corta a mitad y la propuesta queda
 // «aplicándose» sin resultado (app/mako/pendientes/page.tsx).

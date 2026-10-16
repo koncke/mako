@@ -30,6 +30,7 @@ import { parseJsonObject } from '../json-del-modelo';
 import { objetoConUnaReparacion, SalidaInvalida, SYSTEM_REPARAR_JSON } from '../editor-landing/ia-reglas';
 import { FORMATO_CHAT, TOPES_CHAT, catalogoParaPrompt, validarOperaciones, type OperacionChat } from './chat-catalogo';
 import { CHAT_VIDEO_SYSTEM_TEMPLATE, CHAT_VIDEO_USER_TEMPLATE, PROMPTS_CHAT_VIDEO } from './chat-prompts';
+import { senalesDelNegocio } from '../plantillas-sugeridas-server';
 
 export const FEATURE_CHAT_VIDEO = 'video-editor-ia';
 
@@ -90,15 +91,20 @@ export async function editarVideo(p: PedidoChatVideo): Promise<ResultadoChatVide
   const alcance = p.alcance === 'seleccion' ? 'los elementos elegidos ("elegidos" en la LÍNEA DE TIEMPO)' : 'todo el video';
 
   try {
+    // Las plantillas del catálogo van con las sugeridas para ESTE negocio primero, como en la pestaña
+    // (lib/plantillas-sugeridas.ts): lo guardado, sin IA. Sin señales, el orden de siempre.
+    const [senales, user] = await Promise.all([
+      senalesDelNegocio().catch(() => null),
+      renderPrompt(PROMPTS_CHAT_VIDEO.user.key, CHAT_VIDEO_USER_TEMPLATE, {
+        instruccion: contenidoNoConfiable(instruccion, 'instruccion'),
+        alcance,
+        linea: contenidoNoConfiable(linea, 'linea_de_tiempo'),
+      }),
+    ]);
     const sys = await brandSystem(await renderPrompt(PROMPTS_CHAT_VIDEO.system.key, CHAT_VIDEO_SYSTEM_TEMPLATE, {
-      catalogo: catalogoParaPrompt(),
+      catalogo: catalogoParaPrompt(senales),
       formato: FORMATO_CHAT,
     }));
-    const user = await renderPrompt(PROMPTS_CHAT_VIDEO.user.key, CHAT_VIDEO_USER_TEMPLATE, {
-      instruccion: contenidoNoConfiable(instruccion, 'instruccion'),
-      alcance,
-      linea: contenidoNoConfiable(linea, 'linea_de_tiempo'),
-    });
     const hastaIA = t0 + PLAZO_IA_MS;
     const salida = await chatClaude(sys, [{ role: 'user', content: user }], {
       feature: FEATURE_CHAT_VIDEO,

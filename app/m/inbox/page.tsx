@@ -1,10 +1,16 @@
 // =============================================================================
-// /m/inbox — lo que espera una decisión, y los avisos que ya salieron (v2)
+// /m/inbox — «Avisos», la campana de General: lo que espera una decisión y los avisos (v3)
 // =============================================================================
+// En el teléfono la URL es la de escritorio, /mako/pendientes (`rutaEscritorio`); la pantalla
+// junta lo que escritorio reparte en cuatro: /mako/pendientes, /mako/revisar, /crm/revisar,
+// los borradores del plan y la tarjeta del CRM automático (InboxM.tsx dice cómo se destila y
+// de qué apps se copió). Prototipo: docs/prototipos/mako-mobile-tableros.html, `PANTALLAS.avisos`.
+//
 // Server component: lee las CINCO bandejas (`leerParaDecidir`, lib/inbox-movil.ts) y
 // el feed de avisos del workspace (`listNotificaciones`), y le pasa al cliente lo que
 // ya está decidido — quién ve qué lo resolvió la lectura con la regla del Sidebar.
-// El título («Inbox») lo pone el shell; esta pantalla no dibuja título ni «Actualizado».
+// El título lo pone el shell (app/m/_ui/cabecera.ts, `RUTA_INBOX`; el v3 lo llama «Avisos»);
+// esta pantalla no dibuja título ni «Actualizado».
 //
 // ⚠️ `maxDuration = 420` NO ES DECORATIVO: el techo de la PÁGINA gobierna sus server
 // actions, y confirmar una acción de MaKo puede correr IA o analizar una llamada. Sin

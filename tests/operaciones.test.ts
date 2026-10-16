@@ -40,7 +40,7 @@ import { join } from 'node:path';
 import { createHash, generateKeyPairSync, sign } from 'node:crypto';
 import {
   armarFirmable, claveIdDe, leerFirmable, motivoDeEspera, nuevoPayload, puedeOperar,
-  sanearChats, todosLosChats, type PayloadPedido, type VistaCartero,
+  sanearChats, sanearEntregables, todosLosChats, type PayloadPedido, type VistaCartero,
 } from '../lib/operaciones-reglas';
 import { esPublica } from '../lib/rutas-publicas';
 import { ADMIN_FAMILIAS, itemsDe } from '../app/_components/nav';
@@ -266,7 +266,8 @@ test('contra un servidor que MIENTE, el cartero no entrega lo no firmado ni lo y
     writeFileSync(join(dir, 'entregados.json'), JSON.stringify(['aaaaaaaa-0000-4000-8000-000000000002']));
     const salida = await new Promise<string>((ok, mal) => execFile(process.execPath,
       [join(RAIZ, 'scripts/operaciones/cartero.mjs'), 'ciclo', '--cuenta', 'claude2'],
-      { env: { ...process.env, CARTERO_DIR: dir, CARTERO_APP_DIR: appDir } },
+      // El Runner corre en la carpeta de la sesión (cartero 1.4.0): sin decirlo, sería la de quien corre el test.
+      { env: { ...process.env, CARTERO_DIR: dir, CARTERO_APP_DIR: appDir, CARTERO_CONFIG_DIR: cfgDir } },
       (e, so, se) => (e ? mal(new Error(se || e.message)) : ok(so))));
     const o = JSON.parse(salida) as { entregar: Array<{ id: string; to: string; mensaje: string }> };
     assert.deepEqual(o.entregar.map((e) => e.id), ['aaaaaaaa-0000-4000-8000-000000000001'], 'sale SÓLO el bueno');
@@ -349,4 +350,30 @@ test('motivoDeEspera: cartero de esa cuenta, chat vivo o cerrado', () => {
   // La cuenta la pone el cartero que lo subió, si el chat no trae la suya.
   assert.equal(todosLosChats(carteros).find((c) => c.local === LOCAL)?.cuenta, 'claude1');
   assert.equal(sanearChats([{ local: 'CRM' }, { local: LOCAL, titulo: 'x' }]).length, 1, 'un id que no es local_/cli_ no entra');
+});
+
+test('MaKo reclama sólo lo que el cartero dice que la PC alcanza, y nunca un chat que no subió vivo', () => {
+  // SendMessage no cruza carpetas de config (16/10/2026): un chat vivo sin Runner en su carpeta no se reclama, o
+  // se quedaría en el buzón de la PC hasta vencerse. Probado rompiéndolo: devolviendo la lista tal cual llega, falla
+  // «un chat que no subió» (se reclamaría para un destino cualquiera); sin el respaldo de los vivos, falla el de
+  // «un cartero de antes» (no entregaría nada hasta actualizarlo).
+  const otro = 'cli_0b1c2d3e-4f50-4a61-8b72-9c83d4e5f601';
+  const cerrado = 'local_00000000-0000-4000-8000-000000000000';
+  const chats = sanearChats([
+    { local: LOCAL, titulo: 'CRM', vivo: true, runner: true },
+    { local: otro, titulo: 'Pagos', vivo: true, runner: false },
+    { local: cerrado, titulo: 'Viejo', vivo: false },
+  ]);
+  assert.equal(chats[0].runner, true);
+  assert.equal(chats[1].runner, false);
+  assert.equal('runner' in chats[2], false, 'sin el dato, no se inventa');
+  assert.deepEqual(sanearEntregables([LOCAL], chats), [LOCAL]);
+  assert.deepEqual(sanearEntregables([LOCAL, cerrado, 'cli_99999999-2222-4333-8444-555555555555', 7], chats), [LOCAL], 'un chat que no subió, o cerrado, no se reclama');
+  assert.deepEqual(sanearEntregables(undefined, chats), [LOCAL, otro], 'un cartero de antes de la 1.4.0: todos sus vivos, como siempre');
+  // Y el ciclo los usa para reclamar pedidos y avisos (no la lista de vivos).
+  const src = sinComentarios(leer('lib/operaciones.ts'));
+  const ciclo = src.slice(src.indexOf('export async function cicloCartero'));
+  assert.match(ciclo, /const vivos = sanearEntregables\(e\.entregables, chats\)/);
+  assert.match(ciclo, /\.in\('destino', vivos\)/);
+  assert.match(src, /if \(!mio\?\.vivo \|\| !entregables\.has\(mio\.local\)\) continue;/);
 });

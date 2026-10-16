@@ -659,3 +659,6 @@ const CSS = `
 .an-check { display: flex; align-items: flex-start; gap: 8px; font-size: 13px; line-height: 1.35; color: var(--ink); cursor: pointer; }
 @media (max-width: 760px) { .an { position: fixed; top: var(--barra-agencia, 0px); right: 0; bottom: 0; z-index: 56; width: 100%; max-width: 100vw; border: none; border-radius: 0; box-shadow: none; } }
 `;
+
+/** El marco del panel lateral (`.an`, el de arriba): lo comparte «Editar con MaKo» (./PanelEditarMako.tsx). */
+export { CSS as CSS_PANEL_LATERAL };

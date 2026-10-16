@@ -52,7 +52,7 @@ const leer = (p: string) => crudo(p).replace(/^\s*\/\/.*$/gm, '').replace(/\/\*[
 
 const MONTAJES: Array<[string, string]> = [
   ['../app/crm/LeadSheet.tsx', 'modal'],
-  ['../app/crm/[id]/page.tsx', 'ruta /crm/[id]'],
+  ['../app/crm/[id]/LeadDetailBody.tsx', 'ruta /crm/[id]'],
 ];
 
 // ── 1 · La regla, ejecutada ──────────────────────────────────────────────────
@@ -98,21 +98,31 @@ test('updateLead ya no exige reunión para el calificado', () => {
 // Desde el 13/10/2026 (Martín: «quiero que en esta tab se configure la opción de "¿Era
 // cualificado?" para alimentar a CAPI... Que no esté más en tracking»). Probado rompiéndolo:
 // devolverla a Tracking en el pop-up, 6 / 1.
+//
+// ⚠️ CAMBIADO A PROPÓSITO EL 14/10/2026 (la ficha por bloques): las dos puertas montan la MISMA ficha
+// (`FichaPorBloques`) y la tarjeta se monta UNA vez, como el bloque `calificacion` del Resumen
+// (app/crm/lead-view/ficha/registro-resumen.tsx). Dónde va lo dice la plantilla: en la de respaldo,
+// después del contacto y antes de lo que contestó; en el catálogo, su tab es el Resumen y no va en
+// Tracking. Re-verificado rompiéndolo: el bloque con `tambienEn: ['tracking']` → 6 / 1; la ruta montando
+// <CalificacionCard> a mano → 6 / 1.
 
-test('Resumen ofrece marcar calificado en los dos montajes, y Tracking ya no', () => {
+test('Resumen ofrece marcar calificado en los dos montajes, y Tracking ya no', async () => {
+  const { bloqueDef } = await import('../lib/ficha/catalogo');
+  const { PLANTILLA_RESPALDO } = await import('../lib/ficha/plantillas');
   for (const [ruta, cual] of MONTAJES) {
     const f = leer(ruta);
-    assert.equal((f.match(/<CalificacionCard lead=\{lead\} \/>/g) ?? []).length, 1, `${cual}: el control de calificación va UNA vez`);
-    // En Resumen: entre la información principal y las respuestas del formulario.
-    const iInfo = f.indexOf('<InfoPrincipalCard');
-    const iCal = f.indexOf('<CalificacionCard');
-    const iResp = f.indexOf('<RespuestasFormulario');
-    assert.ok(iInfo >= 0 && iCal > iInfo && iResp > iCal, `${cual}: «¿Era calificado?» no está en Resumen`);
-    // Y fuera de Tracking: entre Origen y Comportamiento no queda nada.
-    const iOrigen = f.indexOf('<OrigenCard');
-    const iComp = f.indexOf('<ComportamientoCard');
-    assert.ok(iOrigen >= 0 && iComp > iOrigen && !f.slice(iOrigen, iComp).includes('CalificacionCard'), `${cual}: sigue en Tracking`);
+    assert.match(f, /<FichaPorBloques\b/, `${cual}: no monta la ficha compartida`);
+    assert.ok(!f.includes('<CalificacionCard'), `${cual}: monta la calificación a mano, fuera de la ficha`);
   }
+  const reg = leer('../app/crm/lead-view/ficha/registro-resumen.tsx');
+  assert.equal((reg.match(/<CalificacionCard lead=\{ctx\.lead\} \/>/g) ?? []).length, 1, 'el control de calificación va UNA vez');
+  const def = bloqueDef('calificacion')!;
+  assert.equal(def.tab, 'resumen');
+  assert.ok(!def.tambienEn.includes('tracking'), 'sigue en Tracking');
+  const resumen = PLANTILLA_RESPALDO.tabs.resumen!;
+  const i = resumen.indexOf('calificacion');
+  assert.ok(resumen.indexOf('contacto') < i && i < resumen.indexOf('lo-que-contesto'), '«¿Era calificado?» no está en Resumen, entre el contacto y lo que contestó');
+  assert.ok(!leer('../app/crm/lead-view/ficha/registro-tracking.tsx').includes('CalificacionCard'), 'Tracking vuelve a dibujar la calificación');
 });
 
 test('el control de Tracking escribe por el camino que avisa a Meta', () => {

@@ -36,6 +36,39 @@ function Paso({ label, estado }: { label: string; estado: EstadoPaso }) {
   );
 }
 
+/**
+ * MaKo armando la oferta, ADENTRO de una burbuja del chat (16/10/2026). La vista de pantalla completa de
+ * abajo reemplazaba al chat; Martín, en la llamada del 12/10: «en lugar de que cambie el chat, que siga
+ * manteniendo el mismo chat pero que MaKo te envíe un mensaje diciéndote ya estoy trabajando». Los mismos
+ * dos pasos y el mismo reintento desde el paso que falló.
+ */
+export function GenerandoEnChat({ paso, corriendo, error, onReintentar }: {
+  paso: PasoGeneracion;
+  corriendo: boolean;
+  error: string | null;
+  onReintentar: () => void;
+}) {
+  const fallo = !!error && !corriendo;
+  const estadoDiag: EstadoPaso = paso === 'diagnostico' ? (fallo ? 'fallo' : 'activo') : 'hecho';
+  const estadoOferta: EstadoPaso = paso === 'oferta' ? (fallo ? 'fallo' : 'activo') : paso === 'listo' ? 'hecho' : 'pendiente';
+  return (
+    <div role="status" aria-live="polite" style={{ display: 'flex', flexDirection: 'column', gap: 10, minWidth: 220 }}>
+      <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)' }}>{fallo ? 'No pude terminar tu oferta.' : 'Estoy armando tu oferta.'}</span>
+      <ol style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <Paso label="Diagnóstico" estado={estadoDiag} />
+        <Paso label="Oferta nueva" estado={estadoOferta} />
+      </ol>
+      {!fallo && <span style={{ fontSize: 'var(--fs-sm)', color: 'var(--dim)' }}>Puede tardar unos minutos.</span>}
+      {fallo && (
+        <>
+          <span role="alert" style={{ fontSize: 'var(--fs-sm)', lineHeight: 1.45, color: 'var(--bad)' }}>{error}</span>
+          <div><Button variant="secondary" size="sm" onClick={onReintentar}>{paso === 'oferta' ? 'Reintentar la oferta' : 'Reintentar el diagnóstico'}</Button></div>
+        </>
+      )}
+    </div>
+  );
+}
+
 export function Generando({ paso, corriendo, error, onReintentar, onVolver }: {
   /** El paso en curso (o el que falló). */
   paso: PasoGeneracion;

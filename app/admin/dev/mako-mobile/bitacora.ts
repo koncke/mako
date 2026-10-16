@@ -131,4 +131,43 @@ export const BITACORA: Hito[] = [
     commits: [{ sha: '97b2e56d', msg: 'MaKo Mobile: tirar hacia abajo refresca en TODAS las pantallas (venía apagado por defecto)', lineas: 380, archivos: 29 }],
     archivos: ['app/m/_ui/PantallaM.tsx', 'app/tickets/decisiones/Mazo.tsx', 'app/tickets/decisiones/reglas.ts', 'tests/movil-refrescar.test.ts'],
   },
+  {
+    fecha: '15 oct', hora: '21:54', chat: CH, sesion: 'local_38c56f56-c724-42ba-92ff-9679cfdeedf5', cuenta: 'claude3', actor: 'claude', tipo: 'implementacion',
+    titulo: 'More completo, tanda 1 de 3: el mapa de las 14 secciones, Calendario, Avisos y Tu cuenta (sin commit todavía: la hora es la de la integración)',
+    puntos: [
+      'Pedido de Martín del 14/10: «Implementá TODAS las tabs que construimos, todo», con la regla del v3: «en el celular todo se ve SIMILAR al escritorio, pero con menos texto y menos cosas».',
+      'More pasa de 7 a 14 secciones, en el orden de la sidebar. Cada ruta de escritorio de las nuevas abre su pantalla en el teléfono y conserva lo que su página lee de la URL: un push que vuelve a la computadora no pierde la pestaña.',
+      'Calendario, copiado de la app de Google Calendar: Día y Agenda (las vistas de escritorio que entran en un teléfono), crear un evento con el «+», marcar hecho y borrar con Deshacer. Lee con la misma función que escritorio, y lo que comparten se mudó a un módulo de los dos.',
+      'La campana de General se llama Avisos, como en el v3, y sus botones dicen lo mismo que en escritorio («Confirmar y ejecutar», «Descartar propuesta»); un test los cruza contra el código de escritorio.',
+      'Tu cuenta, copiada de la cuenta de Google: las secciones de la computadora en su orden, el modo oscuro y los avisos de este teléfono. Refrescar ahora trae lo nuevo y la fila de instalar no desaparece en Android.',
+      'El mapa no sale solo: un test falla mientras falten las seis pantallas de las tandas 2 y 3, porque con el desvío prendido una sección sin página es un 404 en todo teléfono. Nada se miró en un navegador ni en un teléfono.',
+    ],
+    archivos: ['lib/movil-rutas.ts', 'app/m/calendario/', 'app/calendario/comun.ts', 'app/m/inbox/inbox-ui.ts', 'app/m/cuenta/CuentaM.tsx', 'tests/movil-mas-secciones.test.ts', 'tests/m-calendario.test.ts', 'tests/m-avisos.test.ts', 'tests/m-cuenta.test.ts', 'docs/hallazgos-mobile.md'],
+  },
+  {
+    fecha: '16 oct', hora: '02:10', chat: CH, sesion: 'local_38c56f56-c724-42ba-92ff-9679cfdeedf5', cuenta: 'claude3', actor: 'claude', tipo: 'implementacion',
+    titulo: 'More completo, tanda 2 de 3: Second Brain, Experiments y Offer en el teléfono (sin commit todavía: la hora es la de la integración)',
+    puntos: [
+      'Second Brain, copiado de Obsidian y Notion en el teléfono: buscar (también con MaKo), el mapa en chico, «Tu negocio» con sus cinco carpetas, cada área y cada dato en una hoja, y subirle al Archivero archivos, fotos de la cámara o una web. Editar las áreas, el mapa interactivo y Exportar quedan en la computadora.',
+      'Experiments con sus cuatro vistas de escritorio en el mismo orden (Retro · Experiments · Conclusions · Análisis): decidir el plan de una Retro como el Triage de Linear, la tarjeta de cada experimento como la de un ticker de la app de Bolsa, el alta con MaKo y el Análisis con sus tres rangos. Generar una Retro nueva sigue en la computadora.',
+      'Offer, como la app de ChatGPT: el chat entero (texto, links, documentos y nota de voz), armar la oferta y bajar cada versión del PDF, guardarla en el funnel y «Probarlo», que lleva a Experiments.',
+      'Lo que las tres comparten con escritorio salió de los componentes de la computadora a módulos de los dos (el conteo y el color del mapa, la subida al Archivero, el formato de los números, los grupos de piezas), y escritorio ya los usa: no quedó ninguna copia escrita dos veces salvo la orquestación del chat de Offer, que está anotada.',
+      'Copiando Offer apareció un bug de la computadora: la nota de voz que sí se mandaba se borraba y dejaba de sonar. Arreglado en los dos lados, con su test.',
+      'Nada se miró en un navegador ni en un teléfono. Falta la tanda 3 (Copywriting, Curso y Comunidad): sin ellas el mapa no se puede subir.',
+    ],
+    archivos: ['app/m/second-brain/', 'app/m/experimentos/', 'app/m/offer/', 'lib/cerebro-areas.ts', 'lib/archivero-subida.ts', 'lib/experimentos-formato.ts', 'app/offer/ayudas.ts', 'app/offer/OfferApp.tsx', 'tests/m-second-brain.test.ts', 'tests/m-experimentos.test.ts', 'tests/m-offer.test.ts', 'docs/hallazgos-mobile.md'],
+  },
+  {
+    fecha: '16 oct', hora: '04:40', chat: CH, sesion: 'local_38c56f56-c724-42ba-92ff-9679cfdeedf5', cuenta: 'claude3', actor: 'claude', tipo: 'implementacion',
+    titulo: 'More completo, tanda 3 de 3: Ads Writer, Curso y Comunidad en el teléfono (sin commit todavía: la hora es la de la integración)',
+    puntos: [
+      'Con esta tanda las 14 secciones de More tienen su pantalla, y el mapa ya se puede subir: con el teléfono prendido para todos, una sección sin pantalla habría sido una página rota.',
+      'Ads Writer con sus tres vistas de escritorio en el mismo orden (Anuncios · Guiones · Analizar guion): «Escribir el próximo guion» fijo abajo, en la misma celda que elige la computadora; copiar un guion, leerlo como un teleprompter, y valorar uno escrito o dictado. No hay un campo libre para pedir el copy, porque escritorio lo prohíbe a pedido de Martín: el dictado fue al guion a valorar.',
+      'Curso, copiado del Classroom de Skool: el curso elegido, sus módulos y clases en el orden de escritorio, poner una clase en Público o Privado con Deshacer, y su avance entre los alumnos. El avance va por clase y no como tabla, porque Martín sacó esa vista del Curso el 07/10.',
+      'Comunidad, copiada de la app de Skool: leer el feed, dar like, comentar y responder, votar una encuesta, publicar un post de texto, buscar, y ver Miembros y el Ranking. Calendario, About y la moderación quedan en la computadora.',
+      'Lo que las tres reusan de escritorio salió de los componentes de la computadora a módulos de los dos (el próximo guion y la cobertura, el orden de la galería, el parser del gancho, los íconos de la comunidad), y escritorio ya los usa.',
+      'Para que decida Martín: la Comunidad la muestra la barra sólo al admin, pero su página y sus acciones dejan entrar a cualquier rol del equipo. El teléfono quedó como la barra. Nada se miró en un navegador ni en un teléfono.',
+    ],
+    archivos: ['app/m/copywriting/', 'app/m/curso/', 'app/m/comunidad/', 'app/ads-writer/reglas.ts', 'lib/guion-secciones.ts', 'app/ads-writer/analizar.ts', 'app/_comunidad/iconos.tsx', 'tests/m-copywriting.test.ts', 'tests/m-curso.test.ts', 'tests/m-comunidad.test.ts', 'tests/layout-sin-suspense.test.ts', 'docs/hallazgos-mobile.md', 'docs/hallazgos-seguridad.md'],
+  },
 ];

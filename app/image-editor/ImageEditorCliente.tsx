@@ -18,6 +18,7 @@
 // ver ahí por qué), que comparte con la ventana del presentador.
 
 import dynamic from 'next/dynamic';
+import type { SenalesNegocio } from '@/lib/plantillas-sugeridas';
 import { FuenteUi } from './fuenteUi';
 import './_doory/styles/tokens.css';
 import './_doory/styles/global.css';
@@ -25,7 +26,13 @@ import './_doory/styles/global.css';
 const Inicio = dynamic(() => import('./inicio/Inicio').then((m) => m.Inicio), { ssr: false });
 const PantallaEditor = dynamic(() => import('./editor/PantallaEditor').then((m) => m.PantallaEditor), { ssr: false });
 
-export function ImageEditorCliente({ vista, disenoId, ws }: { vista: 'inicio' | 'editor'; disenoId?: string; ws: number | null }) {
+export function ImageEditorCliente({ vista, disenoId, ws, senales = null }: {
+  vista: 'inicio' | 'editor';
+  disenoId?: string;
+  ws: number | null;
+  /** Lo que se sabe del negocio: el panel de plantillas pone primero las sugeridas (mako/plantillas.ts). */
+  senales?: SenalesNegocio | null;
+}) {
   const editor = vista === 'editor' && !!disenoId;
   return (
     <div
@@ -36,7 +43,7 @@ export function ImageEditorCliente({ vista, disenoId, ws }: { vista: 'inicio' | 
         : { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'auto' }}
     >
       <FuenteUi />
-      {editor ? <PantallaEditor disenoId={disenoId} ws={ws} /> : <Inicio ws={ws} />}
+      {editor ? <PantallaEditor disenoId={disenoId} ws={ws} senales={senales} /> : <Inicio ws={ws} />}
     </div>
   );
 }

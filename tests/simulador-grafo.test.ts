@@ -86,7 +86,10 @@ test('quien prueba elige la rama: cada una lleva a lo suyo', () => {
 test('el nombre de la acción sale del catálogo cuando se lo pasan', () => {
   const parado = correr(FLUJO, iniciar(FLUJO)).estado;
   const r = siguiente(FLUJO, elegir(parado, 'si_no'), { accion: (op) => (op === 'mover_lead_etapa' ? 'Mover de etapa' : null) });
-  assert.deepEqual(r.evento, { t: 'accion', nodo: 'a1', texto: '⚡ Mover de etapa' });
+  // Con su tarjeta (16/10/2026): el panel dibuja lo que hace la «MaKo en WhatsApp» (lib/probar-grupo.ts).
+  assert.ok(r.evento?.t === 'accion');
+  assert.deepEqual({ ...r.evento, paso: undefined }, { t: 'accion', nodo: 'a1', texto: '⚡ Mover de etapa', paso: undefined });
+  assert.equal(r.evento.paso.id, 'a1');
 });
 
 test('el lead escribe: la salida ESPERA a la respuesta y no se corta (14/10/2026)', () => {

@@ -77,7 +77,7 @@ async function formularioDelLead(leadId: number | null | undefined): Promise<str
  * `opts.leadId` suma lo que contestó en el formulario como evidencia DICHA por el lead
  * (#361): «factura menos de lo que pide el programa» está ahí, no en la charla.
  */
-export async function evaluarCalificacion(secuenciaId: number, historial: TurnoSim[], opts?: { leadId?: number | null }): Promise<{ califica: boolean | null; razon: string }> {
+export async function evaluarCalificacion(secuenciaId: number, historial: TurnoSim[], opts?: { leadId?: number | null } & EnVivo): Promise<{ califica: boolean | null; razon: string }> {
   const secs = await getSecuenciasConStats();
   const sec = secs.find((s) => s.id === secuenciaId);
   const est = sec ? parseEstrategia(sec.estrategia) : null;
@@ -99,7 +99,9 @@ CONVERSACIÓN
 ${charla}
 ${formulario ? `\n${formulario}\n` : ''}
 ¿El lead califica? Responde "no" SOLO si hay evidencia explícita de una regla de descalificación en lo que DIJO el lead (en la charla o en el formulario). Si no hay evidencia suficiente, "no_se".`,
-    json: true, feature: 'setting-calificar', maxTokens: 300,
+    // En vivo, con la red de plataforma (16/10/2026, `EnVivo`): corre con cada respuesta del AI Step, y sin ella un
+    // negocio sin key propia no calificaba nunca. Nunca descalifica por las dudas, con la key que sea.
+    json: true, feature: 'setting-calificar', maxTokens: 300, ...enVivo(opts),
   });
   try {
     const o = JSON.parse(raw.replace(/```(?:json)?/gi, '').trim()) as { califica?: string; razon?: string };
@@ -144,7 +146,31 @@ export type OpcionesSetter = {
    * simulador; en producción es un lead real y decir «el ensayo» ahí era mentirle al dueño.
    */
   tema?: string;
-};
+} & EnVivo;
+
+/**
+ * LA RED DE PLATAFORMA Y EL PLAZO, COMO OPCIÓN DEL QUE LLAMA (16/10/2026, docs/mapa-ia-24h.md, decisión A de Martín:
+ * «lo que responde en vivo, con API»). Nunca fija en la función: la comparten caminos con reglas distintas.
+ *   · `redDePlataforma`: si las keys del negocio no pueden (o no tiene), las gratis de la agencia, otro proveedor
+ *     primero, con el motivo «⚠ red de plataforma». La piden el MOTOR (`asistirRespuesta`: sin ella, un negocio sin key
+ *     propia dejaba al lead sin respuesta) y el PROBAR (el simulador y el ensayo: AGENTS.md, «todo camino de IA que use
+ *     un cliente necesita su red»). NO la piden las lecturas de la API (`simular_respuesta_setter`,
+ *     `evaluar_calificacion_charla`): un agente externo las puede llamar en bucle, y gastaría la cuota gratis de la
+ *     agencia de la que viven las respuestas en vivo de todos.
+ *   · `hastaMs`: el plazo del pedido. El motor corre adentro del webhook (`maxDuration` 420 s): sin plazo, una red que
+ *     no contesta lo mataba a la mitad, sin borrador ni aviso.
+ *   · ⛔ `pii`: el pedido lleva lo que escribió o dijo un LEAD REAL (el motor). Entonces la red va SÓLO por lo que no
+ *     entrena —el crédito de Claude de la plataforma—, y si no contesta, se corta: nunca las keys gratis (el plan gratis
+ *     de Gemini entrena con lo que recibe; AGENTS.md, 16/10/2026). El Probar no lo pasa: ahí el «lead» es el dueño.
+ */
+export type EnVivo = { redDePlataforma?: boolean; hastaMs?: number; pii?: boolean };
+
+/** Lo que el que llama pidió de `EnVivo`, como lo toma `chatCheapCascade`. */
+const enVivo = (o: EnVivo | undefined): EnVivo => ({
+  ...(o?.redDePlataforma ? { redDePlataforma: true } : {}),
+  ...(o?.hastaMs ? { hastaMs: o.hastaMs } : {}),
+  ...(o?.pii ? { pii: true } : {}),
+});
 
 /** Respuesta de MaKo-setter al último mensaje del lead (el simulador y el modo asistido). */
 export async function responderSimulador(secuenciaId: number, historial: TurnoSim[], opts: OpcionesSetter = {}): Promise<SimularResult> {
@@ -232,16 +258,24 @@ export async function responderSimulador(secuenciaId: number, historial: TurnoSi
 
   const { chatCheapCascade, CASCADA_GRATIS, errorDeCascada } = await import('./ai-cheap');
   const errores: string[] = [];
+  // ⚠️ EN VIVO, CON LA RED DE PLATAFORMA (16/10/2026, `EnVivo`): la respuesta del AI Step a un lead REAL. Sin la red, un
+  // negocio sin key propia (o con su única key caída) dejaba al lead sin respuesta y el aviso decía «No pude dejarte un
+  // borrador». Los errores de la red van aparte: no eligen el texto que lee el cliente (`errorDeCascada` mira los suyos).
+  const erroresRed: string[] = [];
   const respuesta = await chatCheapCascade({
     system,
     user: `${transcripcion}\n\n${pedidoFinal(porInsistir)}`,
     maxTokens: 500, feature: 'setting-simulador', motivo: 'Respuesta del setter',
-    provs: CASCADA_GRATIS, erroresOut: errores,
+    provs: CASCADA_GRATIS, erroresOut: errores, erroresPlataformaOut: erroresRed, ...enVivo(opts),
   });
   // «MaKo no respondió. Vuelve a intentarlo.» era verdad y no servía para nada: si lo
   // que pasó es que se acabó la cuota, reintentar no arregla nada y el usuario lo
   // descubre reintentando diez veces.
-  if (!respuesta || !respuesta.trim()) return { ok: false, error: await errorDeCascada(errores, tema) };
+  // Sin red POR LLEVAR DATOS DEL LEAD (16/10/2026): el remedio no es otra key gratis, es su Claude (`CONECTA_TU_CLAUDE`).
+  if (!respuesta || !respuesta.trim()) {
+    const { sinRedPorDatos, CONECTA_TU_CLAUDE } = await import('./fallo-ia-texto');
+    return { ok: false, error: sinRedPorDatos(erroresRed) ? CONECTA_TU_CLAUDE : await errorDeCascada(errores, tema) };
+  }
   const marca = respuesta.match(MARCA_FIN);
   const limpio = respuesta.replace(MARCA_FIN, '').trim();
   // El modelo contestó SÓLO el marcador de cierre: entendió que la charla terminó y no

@@ -15,10 +15,14 @@
 //   editor redibuja desde su `qr`, y las fotos son «stand-ins» dibujados con formas.
 // · Fuentes que usan: Anton, Archivo, Lora, Oswald, Pinyon Script y Playfair Display; todas están
 //   en `./fuentes.ts` (si una faltara, el texto caería a la del sistema sin avisar).
+// · Primero las SUGERIDAS para este negocio (Martín, 16/10/2026; lib/plantillas-sugeridas.ts y la
+//   tabla ./plantillas-etiquetas.ts), con `suggested_reason`: el panel dibuja «Sugerido».
 
 import type { EditorServices } from '../_doory/types/adapter';
 import type { Page, TemplateCategory, TemplateDetail, TemplateSummary } from '../_doory/types/api';
 import type { DoryDocument } from '../_doory/types/document';
+import { ordenarConSugeridas, type SenalesNegocio } from '@/lib/plantillas-sugeridas';
+import { ETIQUETAS_IMAGEN } from './plantillas-etiquetas';
 
 interface Categoria {
   slug: string;
@@ -221,8 +225,22 @@ function pagina<T>(todo: T[], q?: { page?: number; page_size?: number }): Page<T
   return { count: todo.length, next: desde + tam < todo.length ? 'next' : null, previous: null, results: todo.slice(desde, desde + tam) };
 }
 
-/** El servicio `templates` del adaptador de MaKo. */
-export function servicioPlantillas(): EditorServices['templates'] {
+/**
+ * La galería en el orden en que se muestra: las sugeridas para ESTE negocio primero, con su porqué, y las demás en el
+ * orden de siempre. `i` es el lugar de siempre (el `use_count` de mentira sale de ahí). Sin señales, el orden de siempre.
+ */
+function enOrden(senales: SenalesNegocio | null | undefined) {
+  return ordenarConSugeridas(PLANTILLAS.map((p, i) => ({ id: p.slug, p, i })), ETIQUETAS_IMAGEN, senales)
+    .map(({ plantilla: { p, i }, porque }) => ({ p, i, porque }));
+}
+
+/**
+ * El servicio `templates` del adaptador de MaKo. Con las señales del negocio, las sugeridas van primero y marcadas.
+ * ⚠️ Se ordena la galería ENTERA, una vez, y cada pedido filtra y pagina lo ya ordenado: el panel ve sólo una página
+ * (no podría ordenar él), y ordenar lo ya filtrado volvería «Sugerido» a una que no está entre las tres primeras.
+ */
+export function servicioPlantillas(senales?: SenalesNegocio | null): EditorServices['templates'] {
+  const galeria: TemplateSummary[] = enOrden(senales).map(({ p, i, porque }) => ({ ...resumen(p, i), ...(porque ? { suggested_reason: porque } : {}) }));
   return {
     async categories(): Promise<TemplateCategory[]> {
       return CATEGORIAS.map((c, i) => ({
@@ -236,7 +254,7 @@ export function servicioPlantillas(): EditorServices['templates'] {
     },
     async list(q) {
       const aguja = q.q ? plano(q.q.trim()) : '';
-      let todas = PLANTILLAS.map(resumen).filter((t) => {
+      let todas = galeria.filter((t) => {
         if (q.category && t.category?.slug !== q.category) return false;
         if (q.orientation && t.orientation !== q.orientation) return false;
         if (q.preset && t.preset !== q.preset) return false;
@@ -269,11 +287,14 @@ export function servicioPlantillas(): EditorServices['templates'] {
 // ── Para la API de MaKo (lib/api-mako/areas/imagen.run.ts) ──
 // Sin el motor: este módulo sólo importa TIPOS de `_doory/`, así que el server lo puede leer.
 
-/** El catálogo, con lo que la API muestra de cada plantilla. */
-export function catalogoPlantillas(): { slug: string; titulo: string; categoria: string; ancho: number; alto: number; paginas: number; descripcion: string }[] {
-  return PLANTILLAS.map((p) => ({
+/**
+ * El catálogo, con lo que la API muestra de cada plantilla. Con las señales del negocio, en el orden del panel: las
+ * sugeridas primero, con `sugerida: "<porqué>"`.
+ */
+export function catalogoPlantillas(senales?: SenalesNegocio | null): { slug: string; titulo: string; categoria: string; ancho: number; alto: number; paginas: number; descripcion: string; sugerida?: string }[] {
+  return enOrden(senales).map(({ p, porque }) => ({
     slug: p.slug, titulo: p.title, categoria: CATEGORIAS.find((c) => c.slug === p.categoria)?.name ?? p.categoria,
-    ancho: p.width, alto: p.height, paginas: p.page_count, descripcion: p.description,
+    ancho: p.width, alto: p.height, paginas: p.page_count, descripcion: p.description, ...(porque ? { sugerida: porque } : {}),
   }));
 }
 

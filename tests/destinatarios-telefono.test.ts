@@ -53,12 +53,13 @@ test('El teléfono se pide con selector de país en LOS DOS lados', () => {
   // El onboarding ya lo tenía; el editor de destinatarios pedía el número con un
   // input pelado y un placeholder, delegando la lada en el usuario. Un número sin
   // código de país no existe en WhatsApp, así que no se puede sumar a un grupo.
-  for (const ruta of ['../app/perfil/DestinatariosLista.tsx', '../app/onboarding/OnboardingWizard.tsx']) {
+  // (El onboarding es el chat de arranque desde el 16/10/2026: el teléfono se pide en su tarjeta.)
+  for (const ruta of ['../app/perfil/DestinatariosLista.tsx', '../app/onboarding/ChatArranque.tsx']) {
     assert.ok(leer(ruta).includes('TelefonoConPais'),
       `${ruta} dejó de usar el campo compartido: vuelve a depender de que el usuario escriba la lada`);
   }
-  // Y el wizard no volvió a tener su propio separador.
-  assert.ok(!/function splitTelefono/.test(leer('../app/onboarding/OnboardingWizard.tsx')),
+  // Y el onboarding no volvió a tener su propio separador.
+  assert.ok(!/function splitTelefono/.test(leer('../app/onboarding/ChatArranque.tsx')),
     'volvió la copia local de splitTelefono: es la que se queda vieja');
 });
 

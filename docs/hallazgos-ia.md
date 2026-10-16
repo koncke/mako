@@ -4204,6 +4204,11 @@ corta antes») y los tests ahora preguntan qué hay antes de la llamada.
   audio (`transcribirAudio`) y el guion de audio de Automations (`app/api/chat-agent/redactar`). Son de otras áreas: la
   regla de AGENTS.md les pide aplicarla ellos mismos.
 - **Las otras ~50 llamadas sin red** siguen sin ella: el coordinador decide el orden sobre `docs/mapa-ia-24h.md`.
+  Segunda tanda, el mismo día y sin datos de clientes (red gratis): el diagnóstico de una landing (ya la tenía desde el
+  15/10; ahora con test de punta a punta), importar un archivo para armar la landing, carruseles/reels/stories
+  (`generarPieza`) y planificar el anuncio en video (el plan y la reparación de su JSON). Las lecturas del CRM con
+  datos de clientes (contrato, comprobante, documento fiscal) siguen sin red, y sin key ya dicen qué conectar: «Carga
+  una API key de Gemini u OpenAI en Integraciones», que es lo correcto porque la lectura por visión no usa Claude.
 - **Ningún camino se probó contra la red de verdad con un workspace sin keys**: sin `next dev` por la RAM.
 
 · *2026-10-16 chat «Onboarding» (claude3)*
@@ -4236,6 +4241,26 @@ pocos dólares contra 400 por mes.
 - **Si una de esas organizaciones de Console tiene crédito comprado o auto-recarga, al acabarse el incluido sigue
   cobrando** (lo dice la página de Anthropic). No se puede ver desde acá: lo revisa Martín en platform.claude.com.
 - Sólo la cascada de texto: ni visión, ni audio, ni el doer.
+
+### Y el mismo día: el crédito, SÓLO en el onboarding
+
+Martín, textual: «Sobre esto: "usando sólo el crédito de Claude", no, no lo hagas así... Yo debo decirte cuando
+utilizar creditos, no tenemos infinitos... Por ahora solo en onboarding.» En pocas horas tres caminos se habían
+enchufado solos al crédito (el AI Step, las Conclusiones del Dashboard y el análisis del lead), cada uno con un buen
+argumento, y ninguno lo había pedido él. **Un recurso que cuesta y se acaba no se habilita desde el que lo usa: se
+habilita en una lista, en el que lo da.** Desde ahí `CREDITO_HABILITADO_PARA` (lib/veto-claude.ts) es la única
+compuerta: hoy El Archivero, la extracción del brief y Productos, mientras el onboarding del negocio está en curso
+(`onboardingPendiente`, lo mismo que decide si va al wizard). Los otros tres reciben null de `conCreditoDeLaPlataforma`
+sin tocar su código, y su cascada sigue como antes: con datos de clientes, sin nada gratis que entrene. Para el análisis
+del lead eso es «sin IA propia, no hay análisis», y el mensaje pasó de «El análisis falló: Claude vetado…» a decir que
+conecte su Claude. Probado rompiéndolo: cinco roturas, cinco cazadas.
+
+**Y la cuenta 2 como el Claude PROPIO de Leandro (ws10)**, por pedido de Martín («que cada usuario traiga sus cuentas
+de GPT o Claude... Vinculalo para el caso de Leandro también»): `scripts/claude-propio-de-un-negocio.mts` la guarda como
+la `ANTHROPIC_API_KEY` del negocio con el mismo `guardarCredencial` de /integraciones. Sólo acepta como origen una de
+las claves del crédito, se niega con el ws de la plataforma y el del dueño, no pisa una clave distinta y relee. La cuenta
+2 sigue de reserva en el crédito del onboarding, detrás de la 1. ⚠️ Los dos scripts leen el `.env.local` del
+directorio desde el que se corren: van desde el clon (que lo tiene) y con el código ya en main, no desde un worktree.
 
 · *2026-10-16 chat «Onboarding» (claude3)*
 

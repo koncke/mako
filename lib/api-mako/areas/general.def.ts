@@ -243,7 +243,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'listar_hojas_general', area: 'general', tipo: 'lectura',
     titulo: 'Ver las hojas de General',
-    descripcion: 'Las hojas de la pantalla General de una persona (cada una con sus bloques, gráficos y textos), más las plantillas, los bloques de General y los funnels del negocio (para atar un bloque a uno) que existen para armar o completar una. Úsala antes de crear_hoja_general o agregar_bloque_general.',
+    descripcion: 'Las hojas de la pantalla General de una persona (cada una con sus bloques, gráficos y textos), más las plantillas (primero las sugeridas para este negocio, con su porqué), los bloques de General y los funnels del negocio (para atar un bloque a uno) que existen para armar o completar una. Úsala antes de crear_hoja_general o agregar_bloque_general.',
     parametros: [
       { nombre: 'persona', tipo: 'string', max: 120, descripcion: 'Email (o nombre) de la persona admin. Si se omite y la cuenta tiene una sola persona admin, es ésa.' },
     ],
@@ -252,15 +252,30 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'crear_hoja_general', area: 'general', tipo: 'accion', confirmacion: 'chat',
     titulo: 'Crear una hoja de General',
-    descripcion: 'Propone agregar una hoja nueva a la pantalla General de una persona, desde una plantilla de General (por id: la General de siempre, Bienvenida, Operación diaria, una por tipo de funnel…). Pide las plantillas con listar_hojas_general.',
+    descripcion: 'Propone agregar una hoja nueva a la pantalla General de una persona: desde una plantilla de General (por id: la General de siempre, Bienvenida, Operación diaria, una por tipo de funnel…; las pide listar_hojas_general) o con un `pedido` en palabras para que MaKo la arme con IA gratis, con lo que General ofrece y sus bloques («mis tareas prioritarias y lo cobrado del mes»). Con pedido, MaKo la arma ANTES de proponerla. Usa una plantilla O un pedido.',
     parametros: [
       { nombre: 'persona', tipo: 'string', max: 120, descripcion: 'Email (o nombre) de la persona admin. Si se omite y la cuenta tiene una sola persona admin, es ésa.' },
-      { nombre: 'plantilla', tipo: 'string', obligatorio: true, enum: PLANTILLAS, descripcion: 'id de la plantilla de General.' },
-      { nombre: 'nombre', tipo: 'string', max: 60, descripcion: 'Cómo se llama la hoja (default: el de la plantilla).' },
+      { nombre: 'plantilla', tipo: 'string', enum: PLANTILLAS, descripcion: 'id de la plantilla de General. Usa esto O pedido.' },
+      { nombre: 'pedido', tipo: 'string', max: 1200, descripcion: 'Qué quiere ver al entrar, en palabras, para que MaKo arme la hoja. Usa esto O plantilla.' },
+      { nombre: 'nombre', tipo: 'string', max: 60, descripcion: 'Cómo se llama la hoja (default: el de la plantilla o el que elija MaKo).' },
     ],
-    canales: TODOS, costo: 'gratis', gating: GATING,
+    canales: TODOS, costo: 'ia', lenta: true, gating: GATING,
     reversible: true,
     escribe: 'agrega una hoja al informe de General de esa persona (app_settings general.informe.<persona>), con compare-and-set',
+  },
+  {
+    // 16/10/2026: el «Editar con MaKo» de la hoja abierta de General, también por la API (lib/graficos-ia-editar.ts).
+    id: 'editar_hoja_general_con_ia', area: 'general', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Editar una hoja de General con MaKo',
+    descripcion: 'Cambia una hoja de General con un pedido en palabras («agrega mis tareas prioritarias y quita el semáforo»): MaKo arma el cambio con IA gratis ANTES de proponerlo (agregar, quitar o cambiar bloques, números y títulos, con lo que General ofrece) y el resumen dice qué cambia. Lo que el pedido no nombra queda como está. Si alguien toca la hoja antes de confirmar, no se aplica.',
+    parametros: [
+      { nombre: 'persona', tipo: 'string', max: 120, descripcion: 'Email (o nombre) de la persona admin. Si se omite y la cuenta tiene una sola persona admin, es ésa.' },
+      { nombre: 'hoja', tipo: 'string', max: 40, descripcion: 'id de la hoja (de listar_hojas_general). Si se omite, la primera.' },
+      { nombre: 'pedido', tipo: 'string', obligatorio: true, max: 1200, descripcion: 'Qué cambiar en la hoja, en palabras.' },
+    ],
+    canales: TODOS, costo: 'ia', lenta: true, gating: GATING,
+    reversible: false,
+    escribe: 'cambia una hoja del informe de General de esa persona (app_settings general.informe.<persona>), con compare-and-set',
   },
   {
     id: 'agregar_bloque_general', area: 'general', tipo: 'accion', confirmacion: 'chat',

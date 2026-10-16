@@ -411,7 +411,17 @@ export type OfferSesionVista = {
    * más es un rótulo; invitar a reintentar en falso es mandar a repetir algo que no se arregla repitiendo.
    */
   ligada: boolean;
+  /**
+   * El armado en el servidor (mig 0296, `armadoParaVista` en lib/offer-reglas.ts): en curso con su paso, o
+   * fallido con el error. null = no hay ninguno. Mientras corre, la pantalla relee hasta que aparezca la
+   * conclusión: el armado sigue aunque la persona cierre la pestaña.
+   */
+  armando: ArmadoVista | null;
 };
+
+/** El paso del armado de la oferta en el servidor. */
+export type PasoArmado = 'diagnostico' | 'oferta';
+export type ArmadoVista = { paso: PasoArmado; corriendo: boolean; error: string | null };
 
 export type ModoSesion = 'crear' | 'analizar';
 

@@ -131,7 +131,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'listar_plantillas_video', area: 'video', tipo: 'lectura',
     titulo: 'Plantillas de anuncio del editor',
-    descripcion: 'El catálogo de plantillas de anuncio vertical (9:16) del Video Editor (/video-editor): id, nombre, qué es, cuánto dura y sus huecos. Un hueco de clip se llena con un video o una foto (con los segundos que pide: un video más corto no entra; una foto sirve siempre; uno opcional puede quedar con su muestra); uno de texto, con hasta su máximo de caracteres (trae el texto de ejemplo). Usar una plantilla NO se puede por la API: el proyecto vive en el navegador de quien edita. Se usa en el editor, en la pestaña Plantillas o pidiéndoselo al chat «Editar con IA».',
+    descripcion: 'El catálogo de plantillas de anuncio vertical (9:16) del Video Editor (/video-editor): id, nombre, qué es, cuánto dura y sus huecos, primero las sugeridas para este negocio (con su porqué en "sugerida"). Un hueco de clip se llena con un video o una foto (con los segundos que pide: un video más corto no entra; una foto sirve siempre; uno opcional puede quedar con su muestra); uno de texto, con hasta su máximo de caracteres (trae el texto de ejemplo). Usar una plantilla NO se puede por la API: el proyecto vive en el navegador de quien edita. Se usa en el editor, en la pestaña Plantillas o pidiéndoselo al chat «Editar con IA».',
     parametros: [],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: GATING_EDITOR,
   },

@@ -28,7 +28,7 @@ import type { CanalId } from '../fase-diagnostico';
 import type { StepId } from '../stage-requirements';
 import { elegirPlantilla, type EleccionPlantilla } from './plantillas';
 import {
-  aplicarCambio, fichaEfectiva, sanearFicha, normalizar,
+  aplicarCambio, apagadosDeLaCasa, fichaEfectiva, sanearFicha, normalizar,
   type CambioFicha, type FichaEfectiva, type FichaGuardada, type RespaldoNegocio,
 } from './config';
 
@@ -98,13 +98,30 @@ export async function leerFichaDeFunnel(funnelId: number | null): Promise<FichaD
   return fila ? armar(fila, canal, respaldo) : null;
 }
 
+/**
+ * La ficha del funnel de UN LEAD (su casa, `leads.funnel_id`). La casa NULL es el funnel del negocio, y un
+ * funnel que ya no existe (borrado) cae a ése. Nunca tira: «no pude leer» es null, y quien la dibuja arma la
+ * de respaldo. La leen las dos puertas de escritorio (`getLeadFullAction`, app/crm/actions.ts) y la ficha
+ * del teléfono (app/m/crm/datos.ts): con una sola lectura, el teléfono no puede ordenar con otra ficha.
+ */
+export async function fichaDelFunnelDelLead(funnelId: number | null): Promise<FichaDelFunnel | null> {
+  try {
+    const f = await leerFichaDeFunnel(funnelId);
+    if (f || funnelId == null) return f;
+    return await leerFichaDeFunnel(null);
+  } catch (e) {
+    console.error('[ficha] no se pudo leer la ficha del funnel del lead:', e instanceof Error ? e.message : e);
+    return null;
+  }
+}
+
 export type ResultadoGuardarFicha =
   | { ok: true; ficha: FichaDelFunnel; antes: FichaGuardada; cambio: boolean }
   | { ok: false; error: string };
 
 /**
  * Aplica UN cambio a la ficha de un funnel y lo guarda. `antes` es lo guardado justo antes (para
- * «Deshacer»: `{ op: 'restaurar', ficha: antes }`). `cambio: false` = ya estaba así y no se escribió nada.
+ * «Deshacer»: `{ op: 'restaurar', ficha: antes, esperado: ficha.guardada }`). `cambio: false` = ya estaba así y no se escribió nada.
  */
 export async function cambiarFichaDeFunnel(funnelId: number | null, c: CambioFicha): Promise<ResultadoGuardarFicha> {
   const [canal, respaldo] = await Promise.all([canalDelNegocio(), respaldoDelNegocio()]);
@@ -144,8 +161,9 @@ export type AvisosDelWorkspace = {
 
 /**
  * UNA lectura de todos los funnels del workspace (también los archivados: un lead puede seguir teniendo
- * de casa uno archivado) y los apagados de cada uno. Un funnel que no está en el mapa (borrado) usa lo
- * del negocio.
+ * de casa uno archivado) y los apagados de cada uno. Una casa que no está en el mapa (un funnel borrado, o
+ * un id que no es de este workspace) es como una NULL: el funnel del negocio, igual que en `apagadosDeFunnel`
+ * y en la ficha (`apagadosDeLaCasa`, ./config.ts; tests/ficha-casa-huerfana.test.ts).
  */
 export async function avisosDelWorkspace(): Promise<AvisosDelWorkspace> {
   const [canal, respaldo] = await Promise.all([canalDelNegocio(), respaldoDelNegocio()]);
@@ -160,13 +178,7 @@ export async function avisosDelWorkspace(): Promise<AvisosDelWorkspace> {
     for (const f of filas) porId.set(Number(f.id), armar(f, canal, respaldo).efectiva.apagados);
     // La casa NULL es el del negocio: el `es_default`, o el primero (el mismo orden que lib/funnels.ts).
     const defaultId = filas.length ? Number((filas.find((f) => f.es_default === true) ?? filas[0]).id) : null;
-    return {
-      porFunnel: true,
-      apagadosDe: (fid) => {
-        const id = fid == null ? defaultId : Number(fid);
-        return (id != null ? porId.get(id) : undefined) ?? delNegocio;
-      },
-    };
+    return { porFunnel: true, apagadosDe: (fid) => apagadosDeLaCasa(porId, defaultId, delNegocio, fid) };
   } catch (e) {
     console.error('[ficha] no se pudieron leer los avisos por funnel, vale lo del negocio:', e instanceof Error ? e.message : e);
     return { porFunnel: false, apagadosDe: () => delNegocio };

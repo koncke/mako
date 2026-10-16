@@ -60,6 +60,7 @@ import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState, ty
 import { createPortal } from 'react-dom';
 import { SvcIcon, ICON, BrandDefs } from './ServicioVisual';
 import { MakoLogo } from './MakoBrand';
+import { Icon } from './icons';
 // La papelera de la casa, roja siempre (sexta tanda, general 9): UNA definición para toda la app.
 import { IconoBorrar, BotonBorrar, BotonCerrar } from '@/app/_ui/BotonBorrar';
 import { Dropdown, IconoOpcion, type DropdownOption } from '../components/Dropdown';
@@ -545,6 +546,14 @@ export function Lienzo({
   }, []);
 
   /** Las opciones de un ＋ como opciones del menú, con su ícono y su grupo. */
+  /**
+   * UNA PUNTA SOLTADA EN EL VACÍO: LA PRIMERA OPCIÓN ES DESCONECTARLA (16/10/2026, Martín: «Muchas flechas NO se pueden
+   * "desconectar"»). Sacar la punta de una tarjeta y dejarla en el lienzo es «desconectar»; hasta ese día sólo ofrecía
+   * una tarjeta nueva, y cerrar el menú la dejaba como estaba. Es la papelera de la flecha (`onQuitarFlecha`).
+   */
+  const itemDesconectar = (a: AristaFlujo): ItemMenuLienzo[] => (onQuitarFlecha
+    ? [{ id: '__desconectar', label: 'Desconectar', icono: <Icon name="tijera" size={16} />, grupo: -1, onElegir: () => { setFantasma(null); onQuitarFlecha(a); } }]
+    : []);
   const comoItems = (opciones: OpcionAgrupada[], elegir: (v: string) => void): ItemMenuLienzo[] =>
     opciones.map((o) => ({
       id: o.value, label: o.label, grupo: o.grupo, deshabilitado: o.disabled,
@@ -623,14 +632,14 @@ export function Lienzo({
       // LA PUNTA DE UNA FLECHA QUE YA ESTABA: a otra tarjeta, o al vacío (el menú de una nueva, ahí).
       if (g.arista) {
         if (g.sobre) { if (g.sobre !== g.arista.hasta) onReconectar?.(g.arista, g.sobre); return; }
-        if (!onReconectarANueva) return;
+        if (!onReconectarANueva && !onQuitarFlecha) return;
         const a = g.arista;
         const punto = aGrafo(e.clientX, e.clientY);
-        const opciones: OpcionAgrupada[] = opcionesEn ? opcionesEn(a.desde, a.puerto ?? 'sig', false) : (opcionesAgregar ?? []);
-        if (!opciones.length) return;
-        const elegir = (v: string) => { setFantasma(null); onReconectarANueva(a, v, punto); };
+        const opciones: OpcionAgrupada[] = onReconectarANueva ? (opcionesEn ? opcionesEn(a.desde, a.puerto ?? 'sig', false) : (opcionesAgregar ?? [])) : [];
+        if (!opciones.length && !onQuitarFlecha) return;
+        const elegir = (v: string) => { setFantasma(null); onReconectarANueva?.(a, v, punto); };
         setMenu(null);
-        setFantasma({ desde: a.desde, puerto: a.puerto ?? 'sig', x1: g.sx, y1: g.sy, x2: punto.x, y2: punto.y, menuX: e.clientX + 6, menuY: e.clientY - 14, items: comoItems(opciones, elegir) });
+        setFantasma({ desde: a.desde, puerto: a.puerto ?? 'sig', x1: g.sx, y1: g.sy, x2: punto.x, y2: punto.y, menuX: e.clientX + 6, menuY: e.clientY - 14, items: [...itemDesconectar(a), ...comoItems(opciones, elegir)] });
         return;
       }
       if (g.sobre) { onConectar?.(g.desde, g.fila, g.sobre); return; }
@@ -1399,9 +1408,13 @@ export function Lienzo({
               al pasar el cursor por la flecha y se arrastra como el círculo de una salida (`bajarPunta`). */}
           {/* ⚠️ Durante un arrastre se esconden TODAS MENOS LA LLEVADA (15/10/2026): ésa tiene el puntero capturado, y
               desmontarla dejaba el arrastre trabado para siempre (ver la red del arrastre, arriba). */}
+          {/* ⚠️ Y LA DE UNA FLECHA CON ESPERAS ENCIMA TAMBIÉN (16/10/2026, Martín: «Muchas flechas NO se pueden
+              "desconectar"... en "Un Lead Agendó Llamada" solo puedo desconectar la flecha del CONDITION»). Las de la
+              cadena de recordatorios llevan su pastilla («1 hora antes», «5 min») y no tenían punta: no se agarraban.
+              Quien la recibe (`onReconectar`, FlujoLienzo) ya sale de la ÚLTIMA espera: las pastillas se quedan. */}
           {onReconectar && !revelando && grafo.aristas.map((a, i) => {
             if (arrastreFlecha && arrastreFlecha.indice !== i) return null;
-            if (a.sinMas || a.esperas?.length) return null;
+            if (a.sinMas) return null;
             const h = grafo.nodos.find((n) => n.id === a.hasta);
             if (!h) return null;
             const p = puntoDeEntrada(h);
@@ -1440,7 +1453,7 @@ export function Lienzo({
               return (
                 <button key={`pildora-${i}-${e.id}`} type="button" data-no-pan data-pildora={e.id} data-arista-pildora={i} data-t={t}
                   onClick={(ev) => { ev.stopPropagation(); onSeleccion(activa ? null : e.id); }}
-                  title={`Esperar ${e.texto}`} aria-label={`Esperar ${e.texto}`} aria-pressed={activa}
+                  title={e.aviso ? `Esperar ${e.texto} · ⚠ ${e.aviso}` : `Esperar ${e.texto}`} aria-label={`Esperar ${e.texto}`} aria-pressed={activa}
                   style={{
                     position: 'absolute', left: p.x, top: p.y, transform: 'translate(-50%, -50%)',
                     height: ALTO_PILDORA_FLECHA, padding: '0 9px', borderRadius: 999, whiteSpace: 'nowrap',
@@ -1452,6 +1465,8 @@ export function Lienzo({
                     opacity: !vista ? 0 : arrastreFlecha && sobreFlecha !== e.id ? ATENUADO : 1, transition: 'opacity .12s ease',
                   }}>
                   <span aria-hidden style={{ fontSize: 11 }}>⏳</span>{e.texto}
+                  {/* «Si agenda más cerca» (16/10/2026, `avisoAgendaCerca`): la frase va en el `title`. */}
+                  {e.aviso && <span data-aviso-pildora style={{ fontSize: 10.5, color: 'var(--warn)' }}>⚠</span>}
                 </button>
               );
             });

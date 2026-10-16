@@ -66,6 +66,7 @@
 }
 [data-m] .m-operaciones-caja textarea:focus { outline: none; border-color: var(--primary-weak); }
 [data-m] .m-operaciones-caja .co-enviar { width: 42px; height: 42px; margin-left: 0; }
+[data-m] .m-operaciones-caja .co-mic { width: 42px; height: 42px; margin-left: 0; }
 [data-m] .m-operaciones-caja__estado { min-width: 0; font-size: var(--fs-meta); color: var(--faint); }
 [data-m] .m-operaciones-caja--quieta { flex-direction: row; align-items: center; justify-content: space-between; gap: 10px; }
 [data-m] .m-operaciones-espera { color: var(--warn); }

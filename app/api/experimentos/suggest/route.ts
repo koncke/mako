@@ -7,12 +7,15 @@
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
+import { soloAdminDeTab } from '@/lib/puerta-admin-tab';
 import { sugerirExperimento } from '@/lib/experimentos';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 120;
 
 export async function POST(req: NextRequest) {
+  const cerrada = await soloAdminDeTab('experimentos');
+  if (cerrada) return cerrada;
   let body: { hipotesis?: string; contexto?: string };
   try { body = await req.json(); } catch { return Response.json({ ok: false, error: 'JSON inválido' }, { status: 400 }); }
   const hipotesis = (body.hipotesis ?? '').trim();

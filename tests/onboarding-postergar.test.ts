@@ -127,41 +127,59 @@ test('resolverlo de verdad (done) gana sobre el flag de postergado', () => {
 });
 
 // =============================================================================
-// «Seguir sin Meta» tiene que LIBERAR, no posponer el mismo muro tres pantallas
+// El chat de arranque: postergar tiene que LIBERAR, y nunca mentir que algo se hizo
 // =============================================================================
-// Reportado en vivo: «el paso de "Seguir sin Meta" no funcionó, luego igualmente le
-// pide sí o sí». El botón hacía su trabajo —marcaba el paso postergado y saltaba la
-// sección— pero la pantalla de la primera Retro declaraba `servicio: 'meta'` para
-// heredar los slides de Meta y con eso heredó también el BLOQUEO: le dibujaba adentro
-// el formulario del token y no la dejaba avanzar. Y esa pantalla no es postergable, así
-// que ahí no había salida ninguna.
+// Desde el 16/10/2026 el onboarding es una conversación (app/onboarding/ChatArranque.tsx) y el wizard se
+// borró. Lo que estos tests fijaban del wizard («Seguir sin Meta» liberaba de verdad; el formulario no se
+// escondía) se muda acá, sobre la regla que comparten las dos puertas (`aplicarCambiosDePaso`) y sobre lo
+// que el chat decide cerrar (`cierreDePasos`): el teléfono y Meta se POSTERGAN si no se hicieron —sin
+// destino, los reportes no le llegan a nadie— y con eso el onboarding se CIERRA y queda el recordatorio.
 //
-// Un botón que ofrece una salida y después no la da es peor que no ofrecerla: la
-// próxima vez el cliente no le cree.
-import { readFileSync as leerArchivo } from 'node:fs';
-import { resolve as resolverRuta } from 'node:path';
+// PROBADO ROMPIÉNDOLO (16/10/2026, arnés romper-arranque.mjs en el scratchpad, restaura de memoria). Base:
+// 16 pasan, 0 fallan. `cierreDePasos` marcando hecho el teléfono sin verificar → 2 fallos, 14 pases;
+// `aplicarCambiosDePaso` sin la guarda de postergables → 1 fallo, 15 pases; el cierre preguntando por el
+// ÚLTIMO paso en vez de TODOS → 1 fallo, 15 pases.
+import { aplicarCambiosDePaso, PasoNoPostergable } from '../lib/onboarding-contrato';
+import { cierreDePasos } from '../lib/onboarding-arranque';
 
-const WIZARD = leerArchivo(resolverRuta(import.meta.dirname, '../app/onboarding/OnboardingWizard.tsx'), 'utf8');
-
-test('lo COSMÉTICO y lo que EXIGE conectar son dos campos distintos', () => {
-  // `servicio` = ícono, slides y eyebrow. `exige` = lo único que bloquea.
-  assert.ok(/\bexige\?: string;/.test(WIZARD), 'desapareció el campo que separa exigir de decorar');
-  // El gate sale de `exige`, NUNCA de `servicio`: ahí estaba el bug.
-  assert.ok(!/servicioReq\s*=\s*[^;]*p\.servicio/.test(WIZARD), 'el bloqueo volvió a salir del campo cosmético');
-  assert.ok(/esPantallaDeConexion\s*=\s*Boolean\(p\.exige/.test(WIZARD), 'el form dejó de derivar de `exige`');
+test('el chat posterga el teléfono y Meta que no se hicieron: nunca los marca hechos', () => {
+  const completo = CAPAS.completo.onboarding;
+  const cambios = cierreDePasos(completo, { telefonoVerificado: false, metaConectado: false });
+  assert.deepEqual(cambios.find((c) => c.paso === 'tabs'), { paso: 'tabs', postergar: true });
+  assert.deepEqual(cambios.find((c) => c.paso === 'integraciones'), { paso: 'integraciones', postergar: true });
+  // Hechos de verdad, se marcan hechos.
+  const hechos = cierreDePasos(completo, { telefonoVerificado: true, metaConectado: true });
+  assert.deepEqual(hechos.find((c) => c.paso === 'tabs'), { paso: 'tabs', done: true });
+  assert.deepEqual(hechos.find((c) => c.paso === 'integraciones'), { paso: 'integraciones', done: true });
+  // Y cada paso de la capa tiene su cambio: ninguno queda abierto por olvido.
+  assert.deepEqual(cambios.map((c) => c.paso), [...completo]);
 });
 
-test('un servicio POSTERGADO no puede volver a bloquear río abajo', () => {
-  // Es la mitad que faltaba: si `integraciones` quedó postergado, ninguna pantalla
-  // posterior puede exigir esa conexión como condición para avanzar.
-  assert.ok(/servicioReq = esPantallaDeConexion && !pasoPostergado\('integraciones'\)/.test(WIZARD),
-    'el bloqueo dejó de mirar si el cliente ya había postergado');
+test('postergar desde el chat CIERRA el onboarding y deja el recordatorio en /general', () => {
+  for (const capa of Object.values(CAPAS)) {
+    if (!capa.onboarding.length) continue;
+    const s = estadoInicial('in_progress');
+    const cambios = cierreDePasos(capa.onboarding, { telefonoVerificado: false, metaConectado: false }) as Array<{ paso: PasoOnboarding; done?: boolean; postergar?: boolean }>;
+    aplicarCambiosDePaso(s, cambios, capa.onboarding, 'test@x', '2026-10-16T00:00:00Z');
+    assert.equal(s.status, 'done', `capa ${capa.id}: el chat terminó y el onboarding quedó abierto`);
+    const recordatorios = pendientesDeOnboarding(s, capa.onboarding, () => true);
+    assert.deepEqual(recordatorios, capa.onboarding.filter((p) => esPostergable(p)), `capa ${capa.id}: lo postergado no quedó como recordatorio`);
+  }
 });
 
-test('postergar NO esconde el formulario: se puede volver a conectar', () => {
-  // El error inverso, y es igual de caro: si al postergar desaparece el form, el
-  // cliente se queda sin forma de terminar lo que dejó pendiente cuando vuelva.
-  assert.ok(/\{p\.exige && esPantallaDeConexion && \(/.test(WIZARD),
-    'el formulario volvió a colgar del gate en vez de la pantalla');
-  assert.ok(/La dejaste para después/.test(WIZARD), 'perdió el aviso de que puede seguir');
+test('la regla compartida rechaza postergar lo que no depende de nada de afuera', () => {
+  const s = estadoInicial('in_progress');
+  assert.throws(() => aplicarCambiosDePaso(s, [{ paso: 'productos', postergar: true }], ['productos'], 'x', 'ahora'), PasoNoPostergable);
+  assert.equal(s.status, 'in_progress', 'un pedido rechazado no puede dejar el estado a medias');
 });
+
+test('la regla compartida cierra cuando están TODOS, no cuando se cerró el último', () => {
+  const s = estadoInicial('in_progress');
+  const pasos: PasoOnboarding[] = ['negocio', 'productos', 'tabs'];
+  aplicarCambiosDePaso(s, [{ paso: 'tabs', postergar: true }], pasos, 'x', 'ahora');
+  assert.equal(s.status, 'in_progress', 'cerrar el último paso no cierra si faltan los otros');
+  aplicarCambiosDePaso(s, [{ paso: 'negocio', done: true }, { paso: 'productos', done: true }], pasos, 'x', 'ahora');
+  assert.equal(s.status, 'done');
+  assert.equal(s.completedBy, 'x');
+});
+

@@ -19,19 +19,24 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  ACCESORIOS, CARAS, COLORES, FORMAS, TOPE_MUNECOS, aspectoAlAzar, aspectoDe, claveDeMuneco, elegidoPara, sanearAspecto, sanearMunecos,
+  CARAS, COLORES, FORMAS, TOPE_MUNECOS, aspectoAlAzar, aspectoDe, claveDeMuneco, elegidoPara, sanearAspecto, sanearMunecos,
   type Aspecto,
 } from '../lib/centro-munecos';
 import { TOPE_NOMBRE, nombreValido, textoDeRenombre } from '../lib/centro-chats';
 
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
-const UNO: Aspecto = { forma: 'gota', color: '--grafo-voz', cara: 'lengua', accesorio: 'antena' };
+const UNO: Aspecto = { forma: 'gota', color: '--grafo-voz', cara: 'lengua' };
 
 test('lo que llega se sanea: una pieza que no existe no se guarda, y la clave es el nombre normalizado', () => {
   assert.deepEqual(sanearAspecto(UNO), UNO);
   assert.equal(sanearAspecto({ ...UNO, forma: 'dragon' }), null, 'una forma que no existe');
   assert.equal(sanearAspecto({ ...UNO, color: '#ff0000' }), null, 'un color que no es de la paleta');
   assert.equal(sanearAspecto({ forma: 'gota' }), null, 'le faltan piezas');
+  // Sin accesorios desde el 16/10/2026 («Elimina los accesorios de los personajes»): uno guardado antes con el suyo se
+  // sigue leyendo, sin él. Probado rompiéndolo: exigiendo las cuatro piezas de antes, el guardado viejo se pierde.
+  assert.deepEqual(sanearAspecto({ ...UNO, accesorio: 'antena' }), UNO, 'lo guardado antes, sin su accesorio');
+  assert.deepEqual(sanearMunecos({ CRM: { ...UNO, accesorio: 'gorro' } }), { crm: UNO });
+  assert.equal('accesorio' in aspectoDe('Automations'), false, 'el de siempre tampoco lo trae');
   const m = sanearMunecos({ ' CRM ': UNO, Graphics: { ...UNO, cara: 'x' }, '': UNO });
   assert.deepEqual(Object.keys(m), ['crm'], 'el inválido y el vacío se van; la clave, normalizada');
   assert.deepEqual(sanearMunecos('no es un objeto'), {});
@@ -49,8 +54,8 @@ test('lo elegido le gana al de siempre, y un sub-chat es de la familia de su jef
   assert.equal(claveDeMuneco('  Ádmin  CRM '), 'admin crm');
   // Al azar, siempre algo válido (con el azar en los dos bordes).
   for (const r of [0, 0.5, 0.999999]) assert.ok(sanearAspecto(aspectoAlAzar(() => r)));
-  // Y hay de dónde elegir: más cuerpos, caras y accesorios que antes (5 cuerpos y una sola cara).
-  assert.ok(FORMAS.length >= 7 && CARAS.length >= 6 && ACCESORIOS.length >= 6 && COLORES.length >= 9);
+  // Y hay de dónde elegir: más cuerpos y caras que antes (5 cuerpos y una sola cara).
+  assert.ok(FORMAS.length >= 7 && CARAS.length >= 6 && COLORES.length >= 9);
 });
 
 test('guardar un muñeco lee el mapa estricto: una caída de la base no borra lo elegido', () => {

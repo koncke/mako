@@ -135,10 +135,13 @@ const PANEL = readFileSync(new URL('../app/automations/PanelProbar.tsx', import.
 // rotura 7 (volver a un caso lo vuelve a correr: sin restaurar el hilo guardado): 9 pass / 1 fail, cae éste.
 test('el panel: la píldora de cuándo cae, el lead que escribe, y volver a un caso sin repetir la animación', () => {
   const arrancar = PANEL.slice(PANEL.indexOf('const arrancarRefs = () => {'), PANEL.indexOf('const reiniciar = (deVerdad = false) => {'));
-  assert.match(arrancar, /leadEscribio\.current = false;\n\s+pildoraDelCaso\(\);\n\s+luego\(150, avanzar\);/);
-  assert.match(PANEL, /if \(conBarra && caso && k >= 0 && caso\.cuando\.length\) sistema\(`\$\{nombreDelCaso\(k\)\}: \$\{caso\.cuando\.join\(' · '\)\}`\);/);
-  assert.match(PANEL, /if \(!evento\.enRespuesta && escRef\.current\?\.respuesta && !leadEscribio\.current\) \{\n\s+luego\(ENTRE_MS \+ resto \+ LEAD_PIENSA_MS, \(\) => \{ void escribirComoLead\(\); \}\);/);
-  assert.match(PANEL, /const j = await postar\(\{ action: 'mensaje-lead', titulo: r\.titulo, cuando: r\.cuando, ultimo \}\);[\s\S]{0,300}await enviarTexto\(texto\);/);
+  // (16/10/2026: el mensaje del lead pedido por adelantado se vacía con el caso; tests/probar-chip-caso.test.ts.)
+  assert.match(arrancar, /leadEscribio\.current = false; mensajeDelLead\.current = null;\n\s+pildoraDelCaso\(\);\n\s+luego\(150, avanzar\);/);
+  // (16/10/2026: el encabezado del caso es su propio tipo, `ChipDelCaso`, y no una pastilla del sistema.)
+  assert.match(PANEL, /caso: \{ titulo: nombreDelCaso\(k\), hechos: caso\.cuando, contesta \}/);
+  assert.match(PANEL, /if \(!evento\.enRespuesta && escRef\.current\?\.respuesta && !leadEscribio\.current\) \{\n\s+void pedirMensajeDelLead\(\);\n\s+luego\(ENTRE_MS \+ resto \+ LEAD_PIENSA_MS, \(\) => \{ void escribirComoLead\(\); \}\);/);
+  assert.match(PANEL, /mensajeDelLead\.current = postar\(\{ action: 'mensaje-lead', titulo: r\.titulo, cuando: r\.cuando, ultimo \}\)/);
+  assert.match(PANEL, /const texto = await pedirMensajeDelLead\(\);[\s\S]{0,120}await enviarTexto\(texto\);/);
   const elegir = PANEL.slice(PANEL.indexOf('const elegirEscenario = (id: string) => {'), PANEL.indexOf('// Su renglón de la barra dice lo último'));
   assert.match(elegir, /if \(guardado && guardado\.firma === firmaViva && !realRef\.current\) \{\n\s+cortar\(\);\n\s+msgsRef\.current = guardado\.mensajes;/);
   assert.match(PANEL, /<ChatHilo\n\s+key=\{escenarioSel\?\.id \?\? 'uno'\}/, 'el hilo se remonta por caso: lo restaurado no entra animado');

@@ -13,6 +13,8 @@ import { tabEnCapa } from '@/lib/capas';
 import { hoyEnTijuana } from '@/lib/date-utils';
 import { instanciarPlantilla, plantillaHojaDe } from '@/lib/graficos-plantillas';
 import { hojaConDatos } from '@/lib/graficos-con-datos-server';
+import { esPlantillaGeneral } from '@/lib/general-plantillas';
+import { ALCANCE_GENERAL } from '@/lib/graficos-ia';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -28,15 +30,19 @@ export async function POST(req: Request) {
   const rol = await getRolWsEfectivo();
   if (rol == null) return err(401, 'no autenticado');
   if (rol !== 'admin') return err(403, 'Sólo el admin de la cuenta');
-  if (!tabEnCapa('graphics', await getCapaActual())) return err(404, 'No existe');
 
   let body: Record<string, unknown>;
   try { body = await req.json(); } catch { return err(400, 'JSON inválido'); }
   const p = typeof body?.plantilla === 'string' ? plantillaHojaDe(body.plantilla.slice(0, 40)) : undefined;
   if (!p) return err(400, 'Esa plantilla no existe.');
+  // 16/10/2026: una plantilla de General es de la tab General (la puerta y lo que MaKo le suma: sólo lo que General
+  // ofrece; antes le sumaba gráficos del catálogo entero del Dashboard).
+  const general = esPlantillaGeneral(p.id);
+  if (general) { if (!tabEnCapa('general', await getCapaActual())) return err(404, 'No existe'); }
+  else if (!tabEnCapa('graphics', await getCapaActual())) return err(404, 'No existe');
 
   // La hoy del Dashboard es la de siempre (app/dashboard/page.tsx): la misma con que la pantalla va a pedir los datos.
-  const r = await hojaConDatos(instanciarPlantilla(p), { hoy: hoyEnTijuana(), hastaMs: inicio + PLAZO_MS, sumar: { nombre: p.nombre, linea: p.linea } });
+  const r = await hojaConDatos(instanciarPlantilla(p), { hoy: hoyEnTijuana(), hastaMs: inicio + PLAZO_MS, sumar: { nombre: p.nombre, linea: p.linea }, alcance: general ? ALCANCE_GENERAL : undefined });
   console.log(`[graficos/plantilla] ${p.id}: ${r.quitados} sin datos, ${r.agregados} sumados${r.sinNada ? ', ninguno con datos' : ''} (${Date.now() - inicio} ms)`);
   return NextResponse.json({ ok: true, hoja: r.hoja, aviso: r.aviso });
 }

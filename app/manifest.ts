@@ -58,7 +58,8 @@ export default function manifest(): MetadataRoute.Manifest {
     // versión del teléfono a un teléfono (lib/movil-rutas.ts → `rutaEscritorio`).
     shortcuts: [
       { name: 'General', url: '/general', icons: [{ src: '/icon-192.png', sizes: '192x192', type: 'image/png' }] },
-      { name: 'Inbox', url: '/mako/pendientes', icons: [{ src: '/icon-192.png', sizes: '192x192', type: 'image/png' }] },
+      // La campana de General se titula Avisos (TITULO_INBOX, lib/movil-rutas.ts; 15/10/2026).
+      { name: 'Avisos', url: '/mako/pendientes', icons: [{ src: '/icon-192.png', sizes: '192x192', type: 'image/png' }] },
       { name: 'CRM', url: '/crm', icons: [{ src: '/icon-192.png', sizes: '192x192', type: 'image/png' }] },
     ],
   };

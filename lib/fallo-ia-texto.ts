@@ -135,6 +135,33 @@ export function causaDelFallo(errores: string[], keysDelCliente: number, ctx: Co
   return 'proveedor_caido';
 }
 
+/**
+ * LA CAUSA EN UNA FRASE, para un renglón de un aviso al DUEÑO (16/10/2026: «no pude escuchar su nota de voz: …», el AI
+ * Step). Es la misma `causaDelFallo`, sin el link ni el pedido de `textoFalloIA`: el aviso de un lead no es el lugar del
+ * tutorial. Y como ella, se elige con los errores de las keys DEL NEGOCIO, nunca con los de la red de plataforma.
+ */
+export function fraseDelFallo(causa: CausaFalloIA): string {
+  switch (causa) {
+    case 'sin_keys': return 'no hay ninguna API key de IA cargada';
+    case 'sin_cuota': return 'las keys de IA del negocio no tienen cuota ahora';
+    case 'sin_respaldo': return 'la única key de IA del negocio no contestó';
+    case 'proveedor_caido': return 'los proveedores de IA no contestaron';
+    case 'mensaje_muy_largo': return 'es demasiado largo para la IA';
+    case 'fallo_nuestro': return 'falló de nuestro lado';
+  }
+}
+
+/**
+ * SIN RED POR LLEVAR DATOS DE CLIENTES (16/10/2026, Martín por Cerebro: el crédito de Claude, «por ahora solo en
+ * onboarding», y si el AI Step con datos del lead se queda sin red, «que avise ("Conecta tu Claude…") y nunca use un
+ * gratis»). La cascada saltea la red gratis de la agencia cuando el pedido lleva datos de clientes y lo anota en
+ * `erroresPlataformaOut` con este comienzo (lib/ai-cheap.ts, `chatCheapCascade` y `transcribirAudio`).
+ */
+export const sinRedPorDatos = (erroresRed: readonly string[]): boolean => erroresRed.some((e) => e.startsWith('red gratis salteada:'));
+
+/** Lo que se le dice al negocio entonces: la MISMA frase que lib/lead-insights.ts y lib/graficos-ia-elemento.ts. */
+export const CONECTA_TU_CLAUDE = 'Conecta tu Claude en Integraciones: lleva datos de tus clientes, y MaKo no los manda a una IA gratis que entrena con ellos';
+
 /** Qué era lo que MaKo estaba por hacer, para que la frase no quede genérica. */
 export type QueIntentaba = 'contestar' | 'escuchar tu audio' | 'armar el borrador';
 

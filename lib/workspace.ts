@@ -148,6 +148,10 @@ const TENANT_TABLES = new Set<string>([
   // Los productos de un lead ADEMÁS de su casa (mig 0207). Sin esta línea getTenantDb no acota
   // por cliente y el tablero de un producto dibujaría los agregados de TODOS los workspaces.
   'lead_funnel',
+  // Los eventos de la agenda (Calendly, Cal.com) vinculados a una etapa de reunión (mig 0293). Sin esta
+  // línea, el webhook leería los vínculos de TODOS los negocios y una reserva podría caer en el embudo
+  // de otro (el ruteo puro igual los filtra por workspace: lib/agenda-evento-etapa.ts).
+  'agenda_evento_etapa',
   // Las ETIQUETAS del CRM (mig 0224): el catálogo de cada negocio y qué lead tiene cuál. Sin estas
   // líneas `getTenantDb()` es PASSTHROUGH: el CRUD listaría las etiquetas de TODOS los negocios y
   // «¿este lead ya la tiene?» contestaría con filas de otro cliente.

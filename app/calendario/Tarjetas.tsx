@@ -23,12 +23,18 @@ import { BotonBorrar, IconoBorrar } from '@/app/_ui/BotonBorrar';
 import { useCapaModal } from '@/app/_components/pila-modales';
 import { useCerrarEstable } from '@/app/customer-success/curso/dialogo-foco';
 import {
-  FORMATOS_PUBLICACION, ROTULO_FORMATO, ROTULO_TIPO, diaDe, fechaLarga, horaDe, sumarDias,
-  type FormatoPublicacion, type ItemCalendario, type TipoEvento,
+  FORMATOS_PUBLICACION, ROTULO_FORMATO, ROTULO_TIPO, sumarDias,
+  type FormatoPublicacion, type ItemCalendario,
 } from '@/lib/calendario-modelo';
 import { COLORES_EVENTO_GOOGLE, TOPE_TITULO_GOOGLE, type CalendarioGoogle, type EntradaEventoGoogle } from '@/lib/calendario-google-modelo';
-import { COLOR_CAPA, NOMBRE_CAPA, colorDe } from './comun';
-import { rangoGoogle } from './VistaTiempo';
+import {
+  COLOR_CAPA, NOMBRE_CAPA, TIPOS_RAPIDO, colorDe, duracionEntre, lineaDeFecha, minutosDeHora as minutos, nombreCalendarioDe, rotuloDeIr, vaAGoogle,
+  type BorradorNuevo, type TipoRapido,
+} from './comun';
+
+// Lo que también usa el teléfono vive en ./comun (puro) desde el 15/10/2026; acá se re-exporta para quien lo
+// importaba de este archivo.
+export { TIPOS_RAPIDO, duracionEntre, lineaDeFecha, type BorradorNuevo, type TipoRapido };
 
 // ── Íconos de la tarjeta (los de Google: lápiz, abrir, cerrar, reloj, lugar, texto, calendario, personas, video) ──
 function Svg({ d, tam = 20 }: { d: string; tam?: number }) {
@@ -96,20 +102,6 @@ function Fila({ icono, children }: { icono: ReactNode; children: ReactNode }) {
   return <div className="gc-tarjeta-fila"><span>{icono}</span><div>{children}</div></div>;
 }
 
-/** La línea de la fecha de un renglón: «miércoles, 14 de octubre · 10 – 11 a.m.». */
-export function lineaDeFecha(it: ItemCalendario, tz: string): string {
-  if (it.google?.diaCompleto && it.google.fecha) {
-    const ini = fechaLarga(it.google.fecha);
-    return it.google.fechaFin && it.google.fechaFin !== it.google.fecha ? `${ini} – ${fechaLarga(it.google.fechaFin)}` : ini;
-  }
-  const dia = fechaLarga(diaDe(it.inicio, tz));
-  if (it.diaCompleto) return dia;
-  const fin = it.fin ? horaDe(it.fin, tz) : null;
-  const finDia = it.fin ? diaDe(it.fin, tz) : null;
-  if (finDia && finDia !== diaDe(it.inicio, tz)) return `${dia}, ${rangoGoogle(horaDe(it.inicio, tz), null)} – ${fechaLarga(finDia)}, ${rangoGoogle(fin!, null)}`;
-  return `${dia} · ${rangoGoogle(horaDe(it.inicio, tz), fin)}`;
-}
-
 export function TarjetaEvento({ item, ancla, tz, calendarios, googleEscribe, onCerrar, onEditar, onBorrar, onHecho }: {
   item: ItemCalendario;
   ancla: DOMRect;
@@ -125,12 +117,11 @@ export function TarjetaEvento({ item, ancla, tz, calendarios, googleEscribe, onC
   const { ref, pos } = usePosicion(ancla, 448);
   useFlotante(onCerrar, ref);
   const g = item.google;
-  const cal = g ? calendarios.find((c) => c.id === g.calendarioId) : null;
   const editable = item.fuente === 'propio' || (!!g?.editable && googleEscribe);
   const lugar = g?.ubicacion || null;
-  const nombreCalendario = cal?.nombre ?? NOMBRE_CAPA[item.capa];
+  const nombreCalendario = nombreCalendarioDe(item, calendarios);
   const ir = item.href && !g ? item.href : null;
-  const rotuloIr = item.fuente === 'crm' || item.fuente === 'cobro' ? 'Abrir la ficha' : item.fuente === 'plan' ? 'Abrir en el Plan' : item.fuente === 'objetivo' ? 'Ver en General' : 'Abrir';
+  const rotuloIr = rotuloDeIr(item);
 
   return createPortal(
     <div ref={ref} className="gc gc-tarjeta" style={{ ...pos, height: 'auto' }} role="dialog" aria-label={item.titulo}>
@@ -177,36 +168,7 @@ export function TarjetaEvento({ item, ancla, tz, calendarios, googleEscribe, onC
 }
 
 // ── Crear en el lugar ──────────────────────────────────────────────────────────────────────────────────────────────
-
-/** Qué se crea: un evento (de Google si hay dónde, si no de MaKo) o uno de MaKo de un tipo. */
-export type TipoRapido = 'evento' | TipoEvento;
-export const TIPOS_RAPIDO: ReadonlyArray<{ id: TipoRapido; nombre: string }> = [
-  { id: 'evento', nombre: 'Evento' },
-  { id: 'publicacion', nombre: 'Publicación' },
-  { id: 'bloque', nombre: 'Bloque de trabajo' },
-  { id: 'llamada', nombre: 'Llamada' },
-];
-
-/** Lo que se armó en «crear»: con eso se guarda o se abre «Más opciones». */
-export type BorradorNuevo = {
-  tipo: TipoRapido;
-  titulo: string;
-  fecha: string;
-  /** 'HH:MM' o null = todo el día. */
-  hora: string | null;
-  horaFin: string | null;
-  formato: FormatoPublicacion;
-  /** El calendario de Google, si el evento va a Google; null = MaKo. */
-  calendarioId: string | null;
-};
-
-const minutos = (h: string) => Number(h.slice(0, 2)) * 60 + Number(h.slice(3, 5));
-/** Cuánto dura entre dos horas del mismo día (o hasta la medianoche si el fin es anterior). */
-export const duracionEntre = (ini: string, fin: string | null): number | null => {
-  if (!fin) return null;
-  const d = minutos(fin) - minutos(ini);
-  return d > 0 ? d : 24 * 60 - minutos(ini);
-};
+// (Los tipos, el borrador y `duracionEntre` viven en ./comun desde el 15/10/2026: el teléfono crea con lo mismo.)
 
 export function RapidoNuevo({ ancla, inicial, editables, guardando, error, onCerrar, onGuardar, onMas }: {
   ancla: DOMRect;
@@ -225,7 +187,7 @@ export function RapidoNuevo({ ancla, inicial, editables, guardando, error, onCer
   const tituloRef = useRef<HTMLInputElement>(null);
   useEffect(() => { tituloRef.current?.focus(); }, []);
   const poner = (p: Partial<BorradorNuevo>) => setB((x) => ({ ...x, ...p }));
-  const aGoogle = b.tipo === 'evento' && editables.length > 0;
+  const aGoogle = vaAGoogle(b, editables);
   const color = aGoogle ? (editables.find((c) => c.id === b.calendarioId)?.color ?? editables[0].color)
     : COLOR_CAPA[b.tipo === 'publicacion' ? 'publicaciones' : b.tipo === 'llamada' ? 'llamadas' : 'bloques'];
   const enviar = () => { if (!guardando) onGuardar({ ...b, calendarioId: aGoogle ? (b.calendarioId ?? editables[0].id) : null }); };

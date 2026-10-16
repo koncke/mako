@@ -700,6 +700,11 @@ export async function chatCheapCascade(opts: { system: string; user: string; jso
       //   · la API de Anthropic no entrena con lo que recibe, y el plan gratis de Gemini sí.
       // Con un cliente nuevo usando de 5 a 58 llamadas en su primera semana, 10 por semana son unos
       // pocos dólares contra 400 por mes. Si el crédito no contesta, siguen las keys gratis.
+      //
+      // ⚠️ Y SÓLO PARA LO QUE MARTÍN HABILITÓ (16/10/2026: «Yo debo decirte cuando utilizar creditos, no
+      // tenemos infinitos... Por ahora solo en onboarding»): la lista es `CREDITO_HABILITADO_PARA`
+      // (lib/veto-claude.ts) y hoy son las funciones del wizard, mientras el onboarding está en curso.
+      // Para todo lo demás `conCreditoDeLaPlataforma` devuelve null y esto sigue como si no existiera.
       if (wsActual != null && quedan() >= MIN_INTENTO_MS) {
         const { conCreditoDeLaPlataforma } = await import('./anthropic');
         const c = await conCreditoDeLaPlataforma({
@@ -1348,7 +1353,13 @@ const EXT_POR_MIME = (mime: string): string =>
     : mime.includes('wav') ? 'wav'
     : mime.includes('webm') ? 'webm' : 'ogg';
 
-export type SttOpts = { language?: string; prompt?: string; feature?: string; motivo?: string };
+export type SttOpts = { language?: string; prompt?: string; feature?: string; motivo?: string;
+  /**
+   * ¿El audio es de un cliente del negocio (la nota de voz de un lead)? Entonces NO va a la red de plataforma: sus keys
+   * son el plan gratis de Gemini y Groq, y el de Gemini entrena con lo que recibe (AGENTS.md, 16/10/2026). Para escuchar
+   * no hay crédito de Claude: con esto, sólo las keys del negocio.
+   */
+  pii?: boolean };
 
 // Gemini manda el audio DENTRO del request (inline_data), así que hay un techo de
 // tamaño. Una nota de voz de WhatsApp pesa kilobytes; un audio largo se va a Whisper.
@@ -1572,8 +1583,13 @@ export async function transcribirAudio(base64: string, mime: string, opts?: SttO
   const { wsSuperAdmin, getWorkspaceActual } = await import('./workspace');
   const wsSA = await wsSuperAdmin().catch(() => null);
   const wsActual = await getWorkspaceActual().catch(() => null);
+  // ⛔ CON DATOS DE CLIENTES (`o.pii`, 16/10/2026: la nota de voz de un lead), la red NO: las keys gratis de la agencia
+  // son el plan gratis de Gemini y Groq, y el de Gemini entrena con lo que recibe. Mandar algo a entrenar no se deshace
+  // (AGENTS.md). Para escuchar no hay crédito de Claude que vaya primero: sin las keys del negocio, no se escucha.
+  if (o.pii) {
+    erroresPlataforma.push('red gratis salteada: el audio es de un cliente del negocio y el plan gratis entrena con lo que recibe');
   // El super admin ya probó SUS keys en el paso 1: repetirlas es gastar tiempo en lo que ya falló.
-  if (wsSA != null && wsActual !== wsSA) {
+  } else if (wsSA != null && wsActual !== wsSA) {
     const red = await provsGratisDePlataforma().catch(() => []);
     const groqPrimero = [...red.filter((r) => r.provider !== 'gemini'), ...red.filter((r) => r.provider === 'gemini')];
     for (const r of groqPrimero) {

@@ -3,13 +3,14 @@
   display: inline-flex; flex: none; gap: 2px; padding: 3px;
   border-radius: 12px; background: var(--surface-2);
 }
-.ticketera-vistas a {
+.ticketera-vistas a, .ticketera-vistas button {
   display: inline-flex; align-items: center; min-height: 36px; padding: 0 14px;
   border-radius: 9px; font-size: 14.5px; font-weight: 600; color: var(--dim); text-decoration: none;
   touch-action: manipulation;
+  border: 0; background: transparent; font-family: inherit; cursor: pointer;
 }
-.ticketera-vistas a[aria-current="page"] {
+.ticketera-vistas a[aria-current="page"], .ticketera-vistas button[aria-current="page"] {
   background: var(--surface); color: var(--ink);
   box-shadow: 0 1px 3px color-mix(in srgb, var(--ink) 12%, transparent);
 }
-.ticketera-vistas a:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.ticketera-vistas a:focus-visible, .ticketera-vistas button:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }

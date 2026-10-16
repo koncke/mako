@@ -43,6 +43,8 @@ const AVISO_DE: Array<[RegExp, string[]]> = [
   [/datos y documento fiscal/, ['dealFiscal', 'dealFiscalDoc']], [/datos fiscales/, ['dealFiscal']], [/\bservicio\b/, ['dealServicio']],
   [/\bpromesa\b/, ['dealPromesa']], [/\bobligaciones\b/, ['dealObligaciones']], [/\bempresa\b/, ['empresa']], [/\bplan\b/, ['plan']],
   [/\bcalificado\b/, ['calificado']], [/\bsetter\b/, ['setter']],
+  // 16/10/2026: con `cuotas` en Pagos, el comprobante dejó de nacer apagado solo en Formulario de Meta y Te escriben.
+  [/comprobante de pago/, ['comprobante']],
 ];
 
 type PlantillaDoc = { tabs: Record<string, string[] | 'respaldo' | 'misma-llamada'>; apagados: Set<string> };
@@ -119,7 +121,8 @@ test('los avisos que nacen apagados: los del documento MÁS los de bloques que l
   // El respaldo y la de dos reuniones: «los avisos quedan como hoy» / «todos los avisos del deal prendidos».
   assert.deepEqual(apagadosDePlantilla(PLANTILLA_RESPALDO), []);
   assert.deepEqual(apagadosDePlantilla(plantillaFicha('dos-reuniones')), []);
-  // Derivados: Landing no pone setter-y-closer, Te escriben no pone cuotas ni datos fiscales.
+  // Derivados: Landing no pone setter-y-closer, Te escriben no pone datos fiscales. El comprobante de Te escriben es
+  // explícito desde el 16/10/2026 (Pagos ya trae `cuotas`), y sigue apagado.
   assert.ok(apagadosDePlantilla(plantillaFicha('landing')).includes('setter'));
   assert.ok(apagadosDePlantilla(plantillaFicha('te-escriben')).includes('comprobante'));
   assert.ok(apagadosDePlantilla(plantillaFicha('te-escriben')).includes('dealFiscalDoc'));

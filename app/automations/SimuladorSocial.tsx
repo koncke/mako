@@ -16,6 +16,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import type { HiloMsg } from '../whatsapp/_shared/ChatHilo';
 import { IDENTIDAD_SOCIAL, NOMBRE_CANAL, type CanalSocial } from '@/lib/canal-social';
 import { BurbujaSocial, ArchivoSocial, CabeceraSocial, LogoSocial } from './social-ui';
+import { ChipDelCaso } from './ChipDelCaso';
 
 const CSS = `
 @keyframes mk-social-entra { from { opacity: 0; transform: translateY(6px) scale(.98); } to { opacity: 1; transform: none; } }
@@ -50,6 +51,8 @@ export function SimuladorSocial({ canal, mensajes, typing, onEnviarTexto, negoci
       <CabeceraSocial canal={canal} nombre={negocio.trim() || 'Tu negocio'} detalle={NOMBRE_CANAL[canal]} derecha={<LogoSocial canal={canal} size={20} />} />
       <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: 12, display: 'flex', flexDirection: 'column', gap: 6 }}>
         {mensajes.map((m) => {
+          // El encabezado de un caso (16/10/2026): su propio diseño, no una pastilla ni una burbuja.
+          if (m.tipo === 'caso' && m.caso) return <ChipDelCaso key={m.id} caso={m.caso} />;
           if (m.tipo === 'sistema') {
             return (
               <div key={m.id} className="mk-social-msg" style={{ alignSelf: 'center', maxWidth: '90%', padding: '3px 10px', borderRadius: 999, background: 'var(--surface-2)', fontSize: 11.5, color: m.tono === 'bad' ? 'var(--bad)' : m.tono === 'ok' ? 'var(--good)' : 'var(--dim)', animation: 'mk-social-entra .22s ease-out' }}>{m.texto}</div>

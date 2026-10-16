@@ -55,8 +55,11 @@ export function LeadTabs({ tabs, initial, onChange, actions, fija, irA }: {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- sólo cuando llega un pedido nuevo
   }, [irA?.n]);
 
+  // ⚠️ `minHeight: var(--touch)`: 40 px con mouse (lo que ya medía) y 44 en una pantalla táctil, un iPad con la
+  // computadora adaptada (app/globals.css, `pointer: coarse`; Martín, 14/10/2026: «La app de MaKo se debe
+  // adaptar al tamaño de la pantalla siempre»).
   const tabBtn = (active: boolean): CSSProperties => ({
-    position: 'relative', padding: '11px 2px', marginRight: 22, border: 'none', background: 'transparent',
+    position: 'relative', padding: '11px 2px', marginRight: 22, border: 'none', background: 'transparent', minHeight: 'var(--touch)',
     fontFamily: SANS, fontSize: 15, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap', flex: 'none',
     color: active ? 'var(--primary)' : 'var(--dim)',
     borderBottom: '2px solid ' + (active ? 'var(--primary)' : 'transparent'),

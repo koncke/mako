@@ -22,6 +22,7 @@ import { chatCheapCascade, CASCADA_GRATIS } from './ai-cheap';
 import { renderPrompt } from './prompt-render';
 import { contenidoNoConfiable } from './prompt-render-pure';
 import type { EscenarioSecuencia } from './setting-estrategia';
+import type { EnVivo } from './setting-simulador';
 import type { PasoSecuencia } from './nutricion';
 import { raizRespuesta, juntarPasosIA } from './flujo-grafo';
 import { agregarCasoAlGrafo } from './nutricion-grafo-motor';
@@ -67,7 +68,7 @@ export type Clasificacion =
  * si algo falla, devuelve "no encaja" y dispara el hand-off. El modo de falla
  * seguro es que conteste un humano, nunca que el sistema improvise.
  */
-export async function clasificarEscenario(mensaje: string, escenarios: EscenarioSecuencia[]): Promise<Clasificacion> {
+export async function clasificarEscenario(mensaje: string, escenarios: EscenarioSecuencia[], opts: EnVivo = {}): Promise<Clasificacion> {
   const texto = (mensaje ?? '').trim();
   if (!texto) return { encaja: false, motivo: 'el lead no escribió texto' };
   if (!escenarios.length) return { encaja: false, motivo: 'esta secuencia todavía no tiene casos definidos' };
@@ -84,6 +85,13 @@ export async function clasificarEscenario(mensaje: string, escenarios: Escenario
       motivo: 'Clasificar si el lead se salió del guion',
       provs: CASCADA_GRATIS,
       validar: (t) => typeof parseJsonLoose(t).caso !== 'undefined',
+      // ⚠️ EN VIVO, CON LA RED DE PLATAFORMA (16/10/2026, `EnVivo`, lib/setting-simulador.ts): la puerta del AI Step con
+      // un lead REAL. Sin IA esto devuelve '' y el lead cae en «Otra cosa»: un negocio sin key propia nunca le contestaba
+      // a nadie. Sólo si lo pide el motor: el Probar no le contesta a nadie y no gasta la cuota de la agencia.
+      ...(opts.redDePlataforma ? { redDePlataforma: true } : {}),
+      ...(opts.hastaMs ? { hastaMs: opts.hastaMs } : {}),
+      // ⛔ Lo que escribió un lead real (el motor): la red sólo por el crédito de Claude, nunca las keys gratis.
+      ...(opts.pii ? { pii: true } : {}),
     });
   } catch {
     return { encaja: false, motivo: 'no se pudo clasificar el mensaje' };

@@ -312,8 +312,46 @@ export type DatosCasoIA = {
 
 export type Espera =
   | { modo: 'tiempo'; minutos: number }
-  /** Hasta N minutos ANTES de la próxima reunión del lead (lo que era `ancla: 'reunion'`). */
-  | { modo: 'antes_reunion'; minutos: number };
+  /**
+   * Hasta N minutos ANTES de la próxima reunión del lead (lo que era `ancla: 'reunion'`). `siAgendaCerca`: qué pasa
+   * cuando el lead llega con menos de la mitad de ese tiempo (`llegaTarde`). Ausente = no sale (16/10/2026).
+   */
+  | { modo: 'antes_reunion'; minutos: number; siAgendaCerca?: SiAgendaCerca };
+
+/**
+ * «SI AGENDA MÁS CERCA» (16/10/2026, Martín, textual: «si está configurado "1 día antes" y se agendó dentro de 3 horas,
+ * que simplemente no salga»). Una espera «antes de la reunión» a la que el lead llega TARDE —falta menos de la MITAD de
+ * su tiempo: «1 día antes» con la reunión en 3 h— no le manda lo que sigue: se saltea hasta la próxima espera
+ * (`resolverControl`, lib/nutricion-grafo-motor.ts, y el simulador). 'sale' es lo de antes del 16/10: sale enseguida.
+ *
+ * ⚠️ LA MITAD, NO «YA PASÓ»: el lead llega a la espera unos minutos después de agendar (el cron, un «Esperar 5 min» de
+ * antes). Con «ya pasó», agendar 24 h y 3 min antes salteaba el «1 día antes». Con la mitad, sólo lo que de verdad
+ * quedó cerca. Y NO es una regla escondida: la tarjeta lo dice («Si agenda con menos de 12 h, no sale») y se cambia.
+ */
+export type SiAgendaCerca = 'no_sale' | 'sale';
+export const OPCIONES_SI_AGENDA_CERCA: readonly SiAgendaCerca[] = ['no_sale', 'sale'];
+
+/** ¿Lo de esta espera sale aunque el lead haya agendado cerca? Sólo si se eligió: de fábrica, no. */
+export const saleSiAgendaCerca = (e: Espera | undefined): boolean => e?.modo === 'antes_reunion' && e.siAgendaCerca === 'sale';
+
+/** La mitad del tiempo de la espera, en minutos ENTEROS desde 2 min («15 min antes» → 8 min): lo que dice la tarjeta. */
+export function minutosDeCerca(e: Espera): number {
+  const m = Math.max(0, Number(e.minutos) || 0);
+  return m >= 2 ? Math.round(m / 2) : m / 2;
+}
+
+/** ¿El lead llega TARDE a esta espera (falta menos de la mitad de su tiempo) y lo que sigue no sale? */
+export function llegaTarde(e: Espera | undefined, faltanMin: number): boolean {
+  if (!e || e.modo !== 'antes_reunion' || saleSiAgendaCerca(e)) return false;
+  return faltanMin < minutosDeCerca(e);
+}
+
+/** La frase de la tarjeta: «Si agenda con menos de 12 h, no sale» / «Si agenda más cerca, sale enseguida». */
+export function textoSiAgendaCerca(e: Espera | undefined): string | null {
+  if (!e || e.modo !== 'antes_reunion') return null;
+  if (saleSiAgendaCerca(e)) return 'Si agenda más cerca, sale enseguida';
+  return `Si agenda con menos de ${textoDuracion(segundosDeMinutos(minutosDeCerca(e)))}, no sale`;
+}
 
 /** Un salto: a otra automatización (se lo inscribe) o a otra tarjeta de ésta. */
 export type DestinoIrA = { secuencia_id: number } | { nodo: string };

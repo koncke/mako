@@ -201,7 +201,13 @@ export async function guardarMensajeUpsert(instance: string, data: UpsertData): 
     // El texto va para el modo asistido: MaKo redacta el borrador de respuesta.
     // `origen`: por el no oficial, el aviso de una charla que el setter ya no sigue es el
     // ÚNICO aviso de este mensaje (Chatwoot avisa cada uno por su cuenta). Ver pausarPorRespuesta.
-    try { await pausarPorRespuesta(leadId, { texto: texto ?? undefined, linea: instance, origen: 'no_oficial' }); } catch { /* no fatal */ }
+    // Y SU NOTA DE VOZ (16/10/2026): el AI Step la escucha antes de clasificar (le llegaba texto vacío y caía en
+    // «Otra cosa»). Sin `base64` en el webhook se le pide a la instancia; `waMessageId` es la fila donde queda lo que
+    // dijo. `recibidoAt`: la hora del PROPIO mensaje, para la guarda de «entró uno más nuevo» mientras se escuchaba.
+    const audio = tipo === 'audio' ? { base64: mediaBase64 ?? null, mime: mediaMime ?? 'audio/ogg', waMessageId: key.id, chatJid, instancia: instance } : null;
+    // Sólo si WhatsApp la trae: `tsToISO` sin hora devuelve «ahora», que no es la del mensaje.
+    const recibidoAt = Number(data.messageTimestamp) > 0 ? tsToISO(data.messageTimestamp) : null;
+    try { await pausarPorRespuesta(leadId, { texto: texto ?? undefined, linea: instance, origen: 'no_oficial', audio, recibidoAt }); } catch { /* no fatal */ }
   }
 }
 

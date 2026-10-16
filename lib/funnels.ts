@@ -26,8 +26,8 @@
 // =============================================================================
 
 import 'server-only';
-import type { Stage, FunnelTransition } from './pipeline';
-import { DEFAULT_PIPELINE, mergeFunnelData, suppressedInicial } from './pipeline';
+import type { Stage, FunnelTransition, EntradaId } from './pipeline';
+import { DEFAULT_PIPELINE, mergeFunnelData, parseEntradas, suppressedInicial } from './pipeline';
 import { getTenantDb } from './workspace';
 import { leerTodo } from './supabase-paginado';
 import { casaParaEscribir } from './lead-funnel-reglas';
@@ -295,6 +295,28 @@ export async function leerFunnels(): Promise<FunnelResumen[] | null> {
     }));
   } catch (e) {
     console.error(`[funnels] listarFunnels: ${e instanceof Error ? e.message : String(e)}`);
+    return null;
+  }
+}
+
+/**
+ * El canal, las entradas y si está declarado, de cada funnel ACTIVO: lo que lib/plantillas-sugeridas.ts usa para
+ * ordenar las galerías. Las entradas pasan por `parseEntradas`, y quien las cuenta sólo de un funnel declarado es
+ * `senalesDe` (la regla de `filaAFunnel`). Lee `data->entradas` y no `data` entero: el pipeline y las nutriciones no
+ * hacen falta para esto. null = la lectura falló (que no es «no tiene funnels»).
+ */
+export async function canalesYEntradasDeFunnels(): Promise<Array<{ canal: string | null; declarado: boolean; entradas: EntradaId[] }> | null> {
+  try {
+    const supabase = await getTenantDb();
+    const { data, error } = await supabase
+      .from('funnels').select('canal, declarado, entradas:data->entradas')
+      .eq('activo', true);
+    if (error) { console.error(`[funnels] canalesYEntradasDeFunnels: ${error.message}`); return null; }
+    return ((data ?? []) as unknown as Array<{ canal: string | null; declarado: boolean | null; entradas: unknown }>).map((f) => ({
+      canal: f.canal ?? null, declarado: f.declarado === true, entradas: parseEntradas(f.entradas),
+    }));
+  } catch (e) {
+    console.error(`[funnels] canalesYEntradasDeFunnels: ${e instanceof Error ? e.message : String(e)}`);
     return null;
   }
 }

@@ -90,7 +90,6 @@ const QUEDAN: Record<string, { porque: string; pendiente?: true }> = {
   'app/landing-analyst/LandingAnalystApp.tsx': { porque: 'ver el código del Pixel (la landing)' },
   'app/landing-analyst/PulsoPaginas.tsx': { porque: 'copiar la línea del Pixel (la landing)' },
   'app/marketing/salud/page.tsx': { porque: 'un alias de ruta que redirige a /integraciones' },
-  'app/onboarding/Listo.tsx': { porque: 'el resumen del onboarding: lleva a la lista de lo que falta' },
   'app/general/bloques/Norte.tsx': { porque: 'el «Conectar» del semáforo SIN FUENTES no nombra una integración: va a la grilla (abd91fdb, docs/hallazgos-objectives.md)' },
 };
 
