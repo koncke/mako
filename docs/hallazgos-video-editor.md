@@ -1131,6 +1131,30 @@ todo el editor:
   `timeline/defaults → creation`): lo puro recibe los params por defecto, `tps`, `fps` y la medida por parámetro.
 - **La máquina de escribir y el glitch SÍ existen** (el relevamiento de plantillas decía que no; corregido).
 
+**Tanda 1 de las plantillas (15/10, catálogo y armado, puros; `lib/editor-video/plantillas.ts`,
+`_opencut/plantillas/{huecos,geometria,armar,escena}.ts`, test `tests/video-editor-plantillas.test.ts`, 46 roturas):**
+- ⚠️ **«En un lienzo el doble de grande, las escalas van ×2» era el diagnóstico equivocado.** El compositor encaja
+  la fuente RELATIVO al lienzo (`computeVisualTransform`): en 2160x3840 la escala y el tamaño de letra quedan
+  IGUALES; lo que va ×2 son las posiciones y el relleno del fondo (su param es em·alto/6). `letterSpacing` va en px
+  crudos. Regla: la escala es relativa al lienzo; posición, relleno y espaciado se escalan a mano.
+- **`partirYUbicar` ubica la caja CON la tarjeta**: la caja visual incluye el fondo (`getTextVisualRect`) pero el
+  ancho disponible se mide sólo con la letra. Alineado a la izquierda, el borde de la tarjeta va al margen y la
+  tarjeta puede salir hasta margen + ancho + 2·relleno. Con margen 0,11 en 1080: relleno ≤ 27 px a la izquierda,
+  ≤ 54 px centrado.
+- **Un default que inventa un dato**: `plantillaPorId` de `subtitles/estilos.ts` devuelve el predeterminado con un id
+  desconocido (nunca `null`): validar con `PLANTILLAS_SUBTITULO.some`. La de `lib/editor-video/plantillas.ts`, con el
+  mismo nombre, sí devuelve `null`.
+- **La máquina de escribir no va por letra**: revela una fracción de un tiempo total (`revelacionTexto`), así que un
+  texto más largo se escribe más rápido y el cursor que parpadea del Typewriter de Remotion no existe.
+- **Cargan en node** (verificado): `animaciones/{elegir,catalogo,calcular}`, `transiciones/{catalogo,claves,reglas}`,
+  `text/{estilos-predefinidos,typography}`, `subtitles/estilos`, `params/extra/{recorte,animaciones,texto}`,
+  `recorte/geometria`, `timeline/placement/track-factory`.
+- `0.45*60` da 27.000000000000004: las comprobaciones en un borde justo necesitan tolerancia.
+- **SIN HACER de la tanda 1**: la zona segura se probó con anchos de letra ESTIMADOS (verla en el navegador); en el
+  peor caso (24 caracteres en Montserrat 60) un beneficio puede partirse en dos renglones y pisar al siguiente;
+  Congelar (`commands/timeline/element/congelar.ts`) tiene que excluir también `PREFIJO_PLANTILLA`, como excluye
+  `PREFIJO_TRANSICION`.
+
 ## Lottie en un editor de VIDEO: qué aporta si la pieza termina en mp4
 
 - **El repo que vio Martín es `diffusionstudio/lottie`**: 5,6 k estrellas, MIT en el archivo `LICENSE` y en
