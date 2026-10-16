@@ -704,22 +704,28 @@ un aviso —el nuevo enmascarado, por si el anterior era de un desconocido— co
 después del cambio, como MaKo (la key y el remitente de la plataforma), y no frena la respuesta.
 **Vive en:** `lib/invitaciones.ts` (`avisarCambioDeEmailDeAcceso`) · `app/api/pagar/email/route.ts` · `tests/pagar-publico.test.ts`.
 
-### «Tu plan»: cancelar uno mismo, y lo que cancelar todavía NO hace (15/10/2026)
+### «Darme de baja»: un botón propio, y lo que la baja todavía NO hace (15/10/2026)
 
-**Qué es:** «Configuración del negocio → Tu plan» (app/configuraciones/plan), como todo SaaS (lo decidió Estrategia).
-El plan del negocio es el cobro de la PLATAFORMA cuya alta creó ese workspace (`alta_ws`): se lee con el cliente de
-servicio y SÓLO por `alta_ws = ws`, porque el cobro es de otro inquilino. Stripe abre su portal de cliente (cancelar al
-final del período, tarjeta, facturas); Mercado Pago, que no tiene portal, cancela con un botón; sin cobro por la
-pasarela, «escríbenos».
-**Dos trampas del portal de Stripe:** sin una configuración GUARDADA en la cuenta, crear la sesión falla en modo real
-(se crea si no hay una por defecto); y la sesión no lleva Idempotency-Key: es de un uso y vence en minutos, y una clave
-repetida devolvería, dentro de las 24 h, una sesión vencida.
-**Lo que cancelar NO hace:** dejar de cobrar no le saca el plan al workspace. No existe el estado de suscripción por
-workspace (la fila «Estado de suscripción por workspace» de la tabla de abajo): la capa queda. Cancelar corta la plata,
-no el acceso; eso sigue siendo a mano desde /admin.
-**Vive en:** `app/configuraciones/plan/*` · `lib/cobros.ts` (`suscripcionDeMakoDe`, `portalDeMiPlan`, `cancelarMiPlan`) ·
-`lib/stripe-api.ts` (`portalDeSuscripcionStripe`) · `lib/ajustes-secciones.ts` · la lectura `ver_mi_plan` de la API ·
-`tests/mi-plan.test.ts`.
+**Qué es:** «Configuración del negocio → Tu plan» (app/configuraciones/plan), con un botón «Darme de baja» propio de MaKo.
+Se hizo primero con el portal de cliente de Stripe, y **Estrategia lo corrigió el mismo día**: el portal no cubre
+Mercado Pago (que no tiene uno) y un botón propio cumple la Resolución 316/2018 de Argentina si aplica (el botón a la
+vista, sin trámites previos, y un código de baja). La 316 nació para telefonía, internet y TV paga y se extendió a
+seguros, streaming y planes de ahorro: que alcance a un SaaS para empresas no está claro, pero cumplir su mínimo es barato.
+**Cómo, copiado:** Stripe (stripe.com/docs/subscriptions/canceling-pausing) y Paddle
+(developer.paddle.com/build/subscriptions/cancel-subscriptions) programan la baja al FINAL del período pagado: quien pagó
+el mes lo usa. Vive junto al plan, en la configuración del negocio, y son dos pasos (el botón y una confirmación que dice
+qué pasa). Al terminar se ve el código de baja, que también llega por email. Mercado Pago no tiene «al final del período»:
+se cancela en el acto.
+**Dos trampas:** la columna `suscripcion_estado` tiene un CHECK (`activa`/`cancelada`), así que «baja pedida» (Stripe la
+sigue cobrando… hasta el fin del período) vive en el `motivo` con un prefijo, como la renovación fallida; y la clave de
+idempotencia de la baja NO puede ser la de cancelar en el acto (`idemBaja`): Stripe rechaza una clave repetida con otro
+pedido dentro de las 24 h, y el super admin puede cancelarla del todo el mismo día.
+**Lo que la baja NO hace:** dejar de cobrar no le saca el plan al workspace. No existe el estado de suscripción por
+workspace (la fila «Estado de suscripción por workspace» de la tabla de abajo): la capa queda. La baja corta la plata, no
+el acceso; eso sigue siendo a mano desde /admin.
+**Vive en:** `app/configuraciones/plan/*` · `lib/cobros.ts` (`suscripcionDeMakoDe`, `darDeBajaMiPlan`) ·
+`lib/stripe-api.ts` (`programarBajaStripe`) · `lib/cobros-reglas.ts` (`codigoDeBaja`, `textoBajaPedida`) ·
+`lib/invitaciones.ts` (`mandarCodigoDeBaja`) · la API (`ver_mi_plan`, `dar_de_baja_mi_plan`) · `tests/mi-plan.test.ts`.
 
 ### Cuatro «decisiones de Martín» que no eran suyas (15/10/2026)
 

@@ -144,9 +144,17 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'ver_mi_plan', area: 'negocio', tipo: 'lectura',
     titulo: 'Plan de MaKo del negocio',
-    descripcion: 'El plan de MaKo de este negocio y cómo se lo cobra MaKo: por Stripe o por Mercado Pago (con el monto por mes y si está activo o cancelado), o acordado a mano. Para cancelarlo o cambiar la tarjeta, el admin va a Configuración del negocio → Tu plan (la respuesta trae el link): MaKo no lo cancela por el chat.',
+    descripcion: 'El plan de MaKo de este negocio y cómo se lo cobra MaKo: por Stripe o por Mercado Pago (con el monto por mes y si está activo, con la baja pedida o dado de baja), o acordado a mano. Para darlo de baja: dar_de_baja_mi_plan (se confirma en una pantalla), o el botón «Darme de baja» de Configuración del negocio → Tu plan (la respuesta trae el link).',
     parametros: [],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: { rolMinimo: 'admin' },
+  },
+  {
+    id: 'dar_de_baja_mi_plan', area: 'negocio', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/mako/revisar', reversible: false,
+    titulo: 'Dar de baja el plan de MaKo',
+    descripcion: 'PROPONE dar de baja el plan de MaKo de este negocio (lo que le cobra MaKo por Stripe o Mercado Pago), y devuelve el código de baja. En Stripe deja de cobrarse al final del mes pagado y se sigue usando hasta entonces; en Mercado Pago deja de cobrarse en el acto. Se confirma en una pantalla, nunca por el chat. Si el plan se acordó a mano, se rechaza: hay que escribirle a MaKo. Revisa antes ver_mi_plan.',
+    escribe: 'programa la baja en Stripe (o cancela la suscripción en Mercado Pago), deja el código en el cobro de MaKo y el historial del lead en el CRM de MaKo',
+    parametros: [],
+    canales: TODOS, costo: 'externo', gating: { rolMinimo: 'admin' },
   },
   {
     id: 'listar_tabs_por_configurar', area: 'negocio', tipo: 'lectura',

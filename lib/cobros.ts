@@ -36,7 +36,7 @@ import { darDeAltaCliente, esCapaVendible } from './alta-cliente';
 import { COLS_COBRO, NOMBRE_PASARELA, cobroDeFila, esTokenCobro, type Cobro, type EstadoAlta, type EstadoCobro, type Pasarela, type TipoCobro } from './cobros-tipos';
 import { valoresDelPago } from './variables-del-lead';
 import {
-  avisoPagoPorLinkAnulado, decidirCobro, esRenovacion, finDelPlazo, idemAnular, idemBaja, idemCobro, idemReembolso, mesesTranscurridos,
+  avisoPagoPorLinkAnulado, codigoDeBaja, decidirCobro, esBajaPedida, textoBajaPedida, esRenovacion, finDelPlazo, idemAnular, idemBaja, idemCobro, idemReembolso, mesesTranscurridos,
   esDevolucionFallida, montoUsdDeLaCuota, montoUsdDelCobro, pasaAPagado, textoDevolucionFallida, textoPagoRegistrado, urlPorVencer, ESTADOS_QUE_PASAN_A_PAGADO,
 } from './cobros-reglas';
 import { formatoMonto } from './pasarela-moneda';
@@ -46,7 +46,7 @@ import { emitirDelCatalogo } from './avisos';
 import { linkResumenLead } from './lead-resumen';
 import { enrolarPorPago, type SubtipoPago } from './pago-entrante';
 import {
-  asegurarEventosStripe, cancelarSuscripcionStripe, portalDeSuscripcionStripe, crearCheckoutStripe, expirarCheckoutStripe, leerCheckoutStripe, modoDeClaveStripe, programarFinSuscripcionStripe, reembolsarStripe,
+  asegurarEventosStripe, cancelarSuscripcionStripe, programarBajaStripe, crearCheckoutStripe, expirarCheckoutStripe, leerCheckoutStripe, modoDeClaveStripe, programarFinSuscripcionStripe, reembolsarStripe,
 } from './stripe-api';
 import { urlAvisoStripe } from './cobros-conexion';
 import { buscarPagosMp, cancelarSuscripcionMp, crearPreferenciaMp, crearSuscripcionMp, instanteMp, leerCuentaMp, reembolsarMp, vencerPreferenciaMp } from './mercadopago-api';
@@ -1046,26 +1046,39 @@ export async function suscripcionDeMakoDe(ws: number): Promise<Cobro | null> {
   return data ? cobroDeFila(data as Record<string, unknown>) : null;
 }
 
-/** El portal de cliente de Stripe para el plan de MaKo de este negocio: cancelar, cambiar la tarjeta y ver las facturas. */
-export async function portalDeMiPlan(ws: number, returnUrl: string): Promise<{ ok: true; url: string } | { ok: false; error: string }> {
-  const c = await suscripcionDeMakoDe(ws);
-  if (!c || c.proveedor !== 'stripe' || !c.proveedor_suscripcion_id) return { ok: false, error: 'Tu plan no se cobra con Stripe.' };
-  const stripe = await credStripe(c.workspace_id);
-  if (!stripe) return { ok: false, error: `No pudimos abrir el portal. Escríbenos a ${EMAIL_MAKO}.` };
-  const r = await portalDeSuscripcionStripe(stripe.key, { suscripcionId: c.proveedor_suscripcion_id, returnUrl });
-  return r.ok ? { ok: true, url: r.url } : { ok: false, error: `Stripe no abrió el portal: ${motivoSinDatos(r.error)}` };
-}
+export type ResultadoBaja = { ok: true; resumen: string; codigo: string; finAt: string | null } | { ok: false; resumen: string };
 
 /**
- * Cancela el plan de MaKo de este negocio cuando lo cobra MERCADO PAGO, que no tiene portal. El de Stripe se cancela en
- * su portal (al final del período pagado), y el aviso `customer.subscription.deleted` lo cierra acá.
+ * «DARME DE BAJA» (15/10/2026, lo decidió Estrategia: un botón propio, que cubre las dos pasarelas). Se copia a los SaaS
+ * y a las pasarelas (Stripe y Paddle programan la baja al FINAL del período pagado): en Stripe, `cancel_at_period_end` y
+ * se usa hasta esa fecha; Mercado Pago no tiene «al final del período» y se cancela en el acto (no hay más cobros). Las
+ * dos dejan el CÓDIGO de baja en el cobro, en el historial del lead del comprador en el CRM de MaKo, y quien llama lo
+ * manda por email. Pedirla dos veces devuelve la misma: el primer código, sin otra llamada a la pasarela.
  */
-export async function cancelarMiPlan(ws: number, autor: string): Promise<{ ok: boolean; resumen: string }> {
+export async function darDeBajaMiPlan(ws: number, autor: string): Promise<ResultadoBaja> {
   const c = await suscripcionDeMakoDe(ws);
-  if (!c) return { ok: false, resumen: `Tu plan no se cobra por la pasarela: escríbenos a ${EMAIL_MAKO} para cancelarlo.` };
-  if (c.proveedor === 'stripe') return { ok: false, resumen: 'Tu plan se cancela desde el portal de Stripe.' };
-  if (c.suscripcion_estado === 'cancelada') return { ok: false, resumen: 'Tu plan ya estaba cancelado.' };
-  return cancelarSuscripcionCobro(c.workspace_id, c.id, autor);
+  if (!c) return { ok: false, resumen: `Tu plan no se cobra por la pasarela: escríbenos a ${EMAIL_MAKO} para darte de baja.` };
+  const codigo = codigoDeBaja(c.id);
+  if (c.suscripcion_estado === 'cancelada') return { ok: false, resumen: `Tu plan ya estaba dado de baja (código ${codigo}).` };
+  if (esBajaPedida(c.motivo)) return { ok: true, resumen: c.motivo ?? '', codigo, finAt: null };
+  const pedida = new Date().toISOString();
+  let finAt: string | null = null;
+  if (c.proveedor === 'stripe') {
+    const stripe = await credStripe(c.workspace_id);
+    if (!stripe || !c.proveedor_suscripcion_id) return { ok: false, resumen: `No pudimos darte de baja. Escríbenos a ${EMAIL_MAKO}.` };
+    // Su propia clave: la de `idemBaja` es la de cancelar EN EL ACTO (DELETE), y una clave repetida con otro pedido dentro
+    // de las 24 h Stripe la rechaza (si el super admin la cancela del todo el mismo día).
+    const r = await programarBajaStripe(stripe.key, c.proveedor_suscripcion_id, `${idemBaja(c.id)}-al-fin`);
+    if (!r.ok) return { ok: false, resumen: `Stripe no tomó la baja: ${motivoSinDatos(r.error)}` };
+    finAt = r.finAt;
+  } else {
+    const r = await cancelarSuscripcionCobro(c.workspace_id, c.id, autor);
+    if (!r.ok) return { ok: false, resumen: r.resumen };
+  }
+  const texto = textoBajaPedida({ codigo, pedida, finAt });
+  await actualizar(c.workspace_id, c.id, { motivo: texto });
+  if (c.lead_id) await runWithWorkspace(c.workspace_id, () => logLeadEvent(c.lead_id!, 'Baja del plan', `${texto} Pedida por ${autor}.`.slice(0, 300), autor));
+  return { ok: true, resumen: texto, codigo, finAt };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

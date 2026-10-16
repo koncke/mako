@@ -324,6 +324,26 @@ export async function avisarCambioDeEmailDeAcceso(p: { anterior: string; nuevoEn
   return r.enviado ? { enviado: true } : { enviado: false, error: r.error };
 }
 
+/**
+ * El CÓDIGO DE BAJA por email (15/10/2026, «Darme de baja»): el comprobante de que el negocio pidió la baja de su plan de
+ * MaKo, a la dirección de quien la pidió (la Resolución 316/2018 de Argentina pide mandarlo, si aplica). Habla MaKo. Nunca tira.
+ */
+export async function mandarCodigoDeBaja(p: { to: string; codigo: string; plan: string; finAt: string | null }): Promise<{ enviado: boolean; error?: string }> {
+  const destino = (p.to ?? '').trim().toLowerCase();
+  if (!destino) return { enviado: false, error: 'no hay a quién mandarlo' };
+  const cuerpo = [
+    'Hola,',
+    '',
+    `Recibimos la baja de tu plan ${p.plan} de MaKo. Tu código de baja es: ${p.codigo}`,
+    '',
+    p.finAt ? `Lo puedes seguir usando hasta el ${p.finAt.slice(0, 10)}, y desde ahí no se te cobra más.` : 'Desde ahora no se te cobra más.',
+    '',
+    `Si no fuiste tú, o quieres volver, escríbenos a ${EMAIL_MAKO}.`,
+  ].join('\n');
+  const r = await enviarDePlataforma({ to: destino, asunto: `Tu baja de MaKo: ${p.codigo}`, preheader: 'El comprobante de tu baja.', cuerpo, tag: 'baja-plan' });
+  return r.enviado ? { enviado: true } : { enviado: false, error: r.error };
+}
+
 export async function invitarAlCursoPorEmail(p: {
   /** El workspace del ALUMNO: decide el remitente. */
   ws: number;

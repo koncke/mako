@@ -177,6 +177,20 @@ export const esLaVueltaDelDia = (ms: number): boolean => {
   return d.getUTCHours() === 6 && d.getUTCMinutes() < 30;
 };
 
+/**
+ * «DARME DE BAJA» del plan de MaKo (15/10/2026). Hasta que Stripe la cierra al final del período, la suscripción sigue
+ * `activa` (la columna tiene un CHECK con `activa`/`cancelada`), así que el pedido queda en el `motivo` del cobro con
+ * este prefijo —el mismo recurso que la renovación fallida—. El CÓDIGO de baja es el comprobante que se le da a quien la
+ * pide (la Resolución 316/2018 de Argentina pide uno, si aplica): uno por cobro, sin datos personales.
+ */
+export const PREFIJO_BAJA_PEDIDA = 'Baja pedida';
+export const esBajaPedida = (motivo: string | null | undefined): boolean => typeof motivo === 'string' && motivo.startsWith(PREFIJO_BAJA_PEDIDA);
+export const codigoDeBaja = (cobroId: number): string => `BAJA-${cobroId}`;
+export function textoBajaPedida(p: { codigo: string; pedida: string; finAt: string | null }): string {
+  const fin = p.finAt ? ` Deja de cobrarse el ${p.finAt.slice(0, 10)}.` : '';
+  return `${PREFIJO_BAJA_PEDIDA} el ${p.pedida.slice(0, 10)} (código ${p.codigo}).${fin}`;
+}
+
 /** ¿Este pago confirmado es una RENOVACIÓN (otra factura de la misma suscripción) y no el primero? */
 export function esRenovacion(c: { tipo: TipoCobro; proveedor_pago_id: string | null }, proveedorPagoId: string): boolean {
   return c.tipo === 'suscripcion' && !!c.proveedor_pago_id && c.proveedor_pago_id !== proveedorPagoId;

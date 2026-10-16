@@ -8,8 +8,8 @@
 //   · el plazo de respuesta: DECIDIDO, 5 días hábiles, lo común en SaaS (lo decidió Estrategia);
 //   · la garantía del programa grupal, que hoy se acuerda en la llamada: en la Ticketera de Martín
 //     (`garantia-grupal`; la recomendada, 100% después de la primera sesión);
-//   · cancelar sin escribir: DECIDIDO copiar a todo SaaS, y HECHO el mismo día: «Configuración del negocio → Tu
-//     plan» (app/configuraciones/plan), con el portal de cliente de Stripe o el botón de Mercado Pago.
+//   · darse de baja sin escribir: DECIDIDO (Estrategia, 15/10) y HECHO el mismo día: el botón «Darme de baja» de
+//     «Configuración del negocio → Tu plan» (app/configuraciones/plan), propio de MaKo para cubrir Stripe y Mercado Pago.
 //
 // Mismo molde que /terminos y /privacidad: el revisor de la pasarela la abre SIN cuenta y a veces
 // sin JavaScript (va en PUBLICOS de lib/rutas-publicas.ts, y tests/layout-sin-suspense.test.ts la lee
@@ -50,8 +50,9 @@ export default function Page() {
           pago, hasta que los canceles.
         </li>
         <li>
-          <strong>Puedes cancelar cuando quieras</strong>, tú mismo desde{' '}
-          <strong>Configuración del negocio → Tu plan</strong>. Al cancelar, no se te cobra el mes siguiente.
+          <strong>Puedes darte de baja cuando quieras</strong>, tú mismo con el botón «Darme de baja» de{' '}
+          <strong>Configuración del negocio → Tu plan</strong>. Al darte de baja, no se te cobra el mes siguiente, y te
+          llega un código de baja por email.
         </li>
         <li>
           <strong>El mes ya pagado no se reembolsa</strong>, ni entero ni en parte, salvo en los casos
@@ -89,7 +90,7 @@ export default function Page() {
 
       <H id="como">4. Cómo cancelar, y cómo pedir un reembolso</H>
       <p>
-        Para <strong>cancelar</strong> no hace falta escribir: desde{' '}
+        Para <strong>darte de baja</strong> no hace falta escribir: el botón «Darme de baja» de{' '}
         <strong>Configuración del negocio → Tu plan</strong>. Si prefieres que lo hagamos nosotros, o para pedir{' '}
         <strong>un reembolso</strong>, escríbenos a {mail}, mejor desde el email con el que pagaste, con:
       </p>

@@ -116,6 +116,7 @@ crear_modulo_curso
 crear_oferta_lead
 crear_presentacion_desde_plantilla
 crear_secuencia_email
+dar_de_baja_mi_plan
 dar_estrella
 declarar_entradas_funnel
 desarchivar_secuencia

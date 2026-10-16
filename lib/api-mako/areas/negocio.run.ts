@@ -26,7 +26,8 @@ import { getDiagnosticoFase, setDiagnosticoFase } from '@/lib/fase-store';
 import { leerSesion, listarSesionesOffer } from '@/lib/offer-sesiones';
 import { PUNTOS_CONTROL, avisosAfirmables, dimensionLabel } from '@/lib/offer-marco';
 import { EMAIL_MAKO, linkApp } from '@/lib/app-url';
-import { suscripcionDeMakoDe } from '@/lib/cobros';
+import { darDeBajaMiPlan, suscripcionDeMakoDe } from '@/lib/cobros';
+import { esBajaPedida } from '@/lib/cobros-reglas';
 import { getWorkspace } from '@/lib/workspace';
 import { capaDef } from '@/lib/capas';
 import { formatoMonto } from '@/lib/pasarela-moneda';
@@ -125,11 +126,28 @@ export const RUNNERS: Runners = {
       if (!sus) return json({ plan, cobro: 'acordado con MaKo', para_cambiar_o_cancelar: `escribir a ${EMAIL_MAKO}`, link: donde });
       return json({
         plan, cobro: NOMBRE_PASARELA[sus.proveedor], monto_por_mes: formatoMonto(sus.monto, sus.moneda),
-        estado: sus.suscripcion_estado === 'cancelada' ? 'cancelado' : 'activo',
-        para_cambiar_o_cancelar: sus.proveedor === 'stripe' ? 'el portal de Stripe, desde Tu plan' : 'el botón Cancelar de Tu plan',
+        estado: sus.suscripcion_estado === 'cancelada' ? 'dado de baja' : esBajaPedida(sus.motivo) ? 'baja pedida' : 'activo',
+        ...(esBajaPedida(sus.motivo) ? { baja: sus.motivo } : {}),
+        para_darse_de_baja: 'dar_de_baja_mi_plan, o el botón «Darme de baja» de Tu plan',
         link: donde,
       });
     },
+  },
+
+  // «Darme de baja» (15/10/2026): la misma función que el botón de Tu plan (lib/cobros.ts, `darDeBajaMiPlan`).
+  dar_de_baja_mi_plan: {
+    preparar: seguro(async (_input, ctx) => {
+      const sus = await suscripcionDeMakoDe(ctx.ws);
+      if (!sus) return { error: `El plan de este negocio no se cobra por la pasarela: para darlo de baja hay que escribir a ${EMAIL_MAKO}.` };
+      if (sus.suscripcion_estado === 'cancelada') return { error: 'El plan ya estaba dado de baja.', yaEstaba: true };
+      if (esBajaPedida(sus.motivo)) return { error: sus.motivo ?? 'La baja ya estaba pedida.', yaEstaba: true };
+      const como = sus.proveedor === 'stripe' ? 'Deja de cobrarse al final del mes pagado, y se sigue usando hasta entonces.' : 'Mercado Pago deja de cobrarlo en el acto.';
+      return { payload: {}, resumen: `Dar de baja el plan de MaKo (${formatoMonto(sus.monto, sus.moneda)} por mes, por ${NOMBRE_PASARELA[sus.proveedor]}). ${como}` };
+    }),
+    ejecutar: sinLanzar(async (_payload, ctx) => {
+      const r = await darDeBajaMiPlan(ctx.ws, ctx.actor?.trim() || 'MaKo');
+      return r.ok ? { ok: true, resumen: r.resumen, datos: { codigo: r.codigo } } : { ok: false, resumen: r.resumen };
+    }),
   },
 
   ver_archivero: {
