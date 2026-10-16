@@ -79,6 +79,7 @@ import { ARMAR_AI_STEP_SYSTEM_TEMPLATE } from './ai-step-armar';
 import { OBJECIONES_SYSTEM_TEMPLATE } from './ai-step-ensayo';
 import { HOJA_IA_SYSTEM_TEMPLATE } from './graficos-ia';
 import { TAB_IA_SYSTEM_TEMPLATE } from './ficha/ia';
+import { EDITAR_HOJA_IA_SYSTEM_TEMPLATE } from './graficos-ia-edicion';
 import { ANALISTA_SYSTEM_TEMPLATE } from './graficos-analisis';
 import { ELEMENTO_IA_SYSTEM_TEMPLATE } from './graficos-ia-elemento';
 import { LEAD_INSIGHTS_SYSTEM_TEMPLATE, LEAD_INSIGHTS_USER_TEMPLATE } from './lead-insights';
@@ -512,6 +513,14 @@ export const REGISTRY: Group[] = [
         variables: [], scope: 'static-only', sensitive: false,
         default: TAB_IA_SYSTEM_TEMPLATE,
         context: '«¿Qué vas a crear hoy?» en la galería de una tab de la ficha del lead (Resumen, Reuniones, Pagos o Tracking). El modelo elige bloques POR SU ID del catálogo de esa tab que le llega; el código descarta lo que no existe y corrige anchos y diseños (lib/ficha/ia.ts → deIATab). No le pidas títulos, colores ni íconos: los pone el código. Y no lo pases a voseo.',
+      },
+      // «Editar con MaKo» (16/10/2026): el panel de la hoja abierta, en el Dashboard y en General. Sin slots, por lo mismo.
+      {
+        key: 'dashboard.editar-ia.system', source: 'override',
+        label: 'Editar una hoja del Dashboard o de General con IA (system)', kind: 'system', dynamic: true,
+        variables: [], scope: 'static-only', sensitive: false,
+        default: EDITAR_HOJA_IA_SYSTEM_TEMPLATE,
+        context: '«Editar con MaKo» en una hoja abierta del Dashboard o de General. El modelo devuelve OPERACIONES (agregar, quitar, cambiar) con ids del catálogo y de la hoja, nunca la hoja entera; el código descarta lo que no existe, deja quieto lo demás y acomoda lo nuevo (lib/graficos-ia-edicion.ts → aplicarEdicion).',
       },
       {
         key: 'dashboard.analista.system', source: 'override',

@@ -40,7 +40,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'listar_plantillas_imagen', area: 'imagen', tipo: 'lectura',
     titulo: 'Ver las plantillas del Image Editor',
-    descripcion: 'Las plantillas del Image Editor: slug, título, categoría, tamaño y páginas. Un diseño nuevo puede empezar de una (crear_diseno_imagen con `plantilla`).',
+    descripcion: 'Las plantillas del Image Editor: slug, título, categoría, tamaño y páginas, primero las sugeridas para este negocio (con su porqué en "sugerida"). Un diseño nuevo puede empezar de una (crear_diseno_imagen con `plantilla`).',
     parametros: [],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: GATING,
   },

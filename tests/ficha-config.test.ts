@@ -124,7 +124,10 @@ test('los cambios: poner, mover, ancho, diseño, y lo que no se puede', () => {
   assert.equal(diseno.ok, false, 'un diseño de otro bloque');
   assert.equal(aplicarCambio({}, { op: 'poner', tab: 'resumen', bloque: 'contacto' }, 'landing', R).ok, false, 'ya está');
   assert.equal(aplicarCambio({}, { op: 'quitar', tab: 'resumen', bloque: 'contacto' }, 'landing', R).ok, false, 'contacto no se quita');
-  assert.equal(aplicarCambio({}, { op: 'quitar', tab: 'pagos', bloque: 'cuotas' }, 'formulario-meta', R).ok, false, 'no está puesto');
+  // ⚠️ REESCRITO EL 16/10/2026: era `cuotas`, que la lista de Formulario de Meta no trae. Desde la ficha por tab, la
+  //    tab Pagos de un funnel sin tocar es la plantilla de Pagos sugerida para su tipo («Cobrar una venta», que SÍ trae
+  //    cuotas: lib/ficha/plantillas-pagos.ts). La regla no cambió: quitar lo que no está puesto es un error.
+  assert.equal(aplicarCambio({}, { op: 'quitar', tab: 'pagos', bloque: 'datos-fiscales' }, 'formulario-meta', R).ok, false, 'no está puesto');
   // Ya está así: nada que escribir.
   const igual = ok(aplicarCambio({}, { op: 'densidad', densidad: 'normal' }, 'landing', R));
   assert.equal(igual.cambio, false);

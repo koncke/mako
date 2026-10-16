@@ -41,6 +41,7 @@ import { getLeadPlan, getPagosByLead, savePlanPagos, saveLeadPlanManual, marcarP
 import { avisoDeConservadas } from '@/lib/pagos-campo';
 // Sólo para la lectura cobranza_lead (14/10/2026): lo cobrado con la misma cuenta que la ficha.
 import { cobradoDelLead, esCuotaDevuelta } from '@/lib/cobrado-lead';
+import { estadoDeCuenta, movimientosDelLead } from '@/lib/pagos-vistazo';
 import { listarCobros } from '@/lib/cobros';
 import { centavos, diferenciaPendiente, type RestoDeCobro } from '@/lib/pagos-diferencia';
 import { getResumenLead, linkResumenLead } from '@/lib/lead-resumen';
@@ -73,6 +74,10 @@ import { eventTypeDeReunion, linkParaAgendar } from '@/lib/calendly-agenda';
 import { listReviewPendientes } from '@/lib/review-queue';
 import { listProductos, upsertProducto } from '@/lib/productos';
 import { productosDelLead, agregarAProducto, quitarDeProducto, moverEtapaEnProducto } from '@/lib/lead-funnel';
+// El evento de agenda vinculado a una etapa de reunión (16/10/2026): las mismas funciones que la pantalla.
+import {
+  listarEventosDeAgenda, prepararVinculo, vincularEvento, buscarVinculo, desvincularEvento, type AgendaDelNegocio,
+} from '@/lib/agenda-evento-etapa-server';
 import { puedeQuitar, aQuienPromover, etapaDeEntrada, type ProductoDelLead } from '@/lib/lead-funnel-reglas';
 import {
   listarEtiquetas, etiquetaPorId, etiquetasDeLead, conteoPorEtiqueta, crearEtiqueta, editarEtiqueta,
@@ -505,6 +510,22 @@ export const RUNNERS: Runners = {
           ...(cob.cuadra && !cob.cuadra.cuadra ? { no_cuadra: `El plan suma USD ${cob.cuadra.diferenciaUsd > 0 ? 'más' : 'menos'} que el cierre (diferencia ${cob.cuadra.diferenciaUsd}).` } : {}),
           ...(cob.seDibuja ? {} : { nota: cob.tipo === 'sin_cobro' ? 'Becado: no tiene cobrado.' : 'Sin venta ni cuotas cargadas.' }),
         },
+        // ⚠️ EL ESTADO DE CUENTA Y LOS MOVIMIENTOS SON LOS DE LA TAB PAGOS (16/10/2026, lib/pagos-vistazo.ts): qué debe,
+        // qué hacer ahora y lo que ya pasó con la plata. MaKo contesta con lo MISMO que ve la persona en la ficha.
+        estado_de_cuenta: (() => {
+          const e = estadoDeCuenta({ cobrado: cob, pagos: plan.pagos, ganado: lead.estado_lead === 'ganado', hoy });
+          return e ? {
+            titular: e.titular, detalle: e.detalle, tono: e.tono, falta_usd: e.faltaUsd,
+            que_hacer: e.accion ? { accion: e.accion.tipo, boton: e.accion.boton, ...(e.accion.tipo === 'cobrar-cuota' ? { pago_id: e.accion.pagoId } : {}) } : null,
+          } : null;
+        })(),
+        ...(() => {
+          const m = movimientosDelLead({ pagos: plan.pagos, cobros });
+          return {
+            movimientos: m.movimientos.slice(0, 20).map((x) => ({ fecha: x.fecha, tipo: x.tipo, que: x.titulo, monto: x.montoTexto, como: x.via, ...(x.detalle ? { detalle: x.detalle } : {}) })),
+            ...(m.avisos.length ? { avisos: m.avisos.map((a) => a.texto) } : {}),
+          };
+        })(),
         cuotas,
         ...(cuotas.length ? {} : { nota_cuotas: 'Sin cuotas cargadas: no hay plan de pagos, no significa que no deba nada.' }),
       });
@@ -896,6 +917,59 @@ export const RUNNERS: Runners = {
       if (!r.ok) return { ok: false, resumen: r.error };
       if (!r.cambio) return { ok: false, resumen: 'La tab ya estaba así: no se cambió nada.' };
       return { ok: true, resumen: `Listo: ${describirCambio(c)}.` };
+    }),
+  },
+
+  // ── El evento de agenda vinculado a una etapa de reunión (16/10/2026) ───────────
+  // Las MISMAS funciones que la pantalla (lib/agenda-evento-etapa-server.ts): una implementación.
+  listar_eventos_agenda: {
+    leer: async () => {
+      let a: AgendaDelNegocio;
+      try { a = await listarEventosDeAgenda(); } catch { return fallo('No pude leer los eventos de la agenda. Intenta de nuevo.'); }
+      return json({
+        eventos: a.eventos.map((e) => ({
+          proveedor: e.proveedor, evento: e.identificador, nombre: e.nombre, duracion_min: e.duracionMin,
+          de_integraciones: e.credencial, en_la_cuenta: e.enLaCuenta,
+          vinculado_a: e.vinculo ? { embudoId: e.vinculo.funnelId, crm: e.vinculo.funnel, etapa: e.vinculo.etapa, etapa_nombre: e.vinculo.etapaNombre, reunion: e.vinculo.reunion } : null,
+        })),
+        etapas_vinculables: a.etapas.map((x) => ({ embudoId: x.funnelId, crm: x.funnel, etapa: x.etapa, etapa_nombre: x.etapaNombre, reunion: x.reunion })),
+        agendas: a.proveedores,
+        ...(a.sePuedeVincular ? {} : { nota: 'Falta un paso de la base (migración 0293): se ve la lista, pero todavía no se puede vincular.' }),
+      });
+    },
+  },
+  vincular_evento_etapa: {
+    preparar: async (input) => {
+      const p = await prepararVinculo({ proveedor: input.proveedor, evento: input.evento, funnelId: input.embudoId, etapa: input.etapa });
+      if (!p.ok) return { error: p.error };
+      if (p.yaEstaba) return { error: `«${p.evento.nombre}» ya está vinculado a «${p.etapaNombre}» de «${p.funnel}».`, yaEstaba: true };
+      return {
+        payload: { proveedor: p.evento.proveedor, evento: p.evento.identificador, embudoId: p.funnelId, etapa: p.etapa },
+        resumen: `Vincular «${p.evento.nombre}» (${p.evento.proveedor === 'calcom' ? 'Cal.com' : 'Calendly'}) a «${p.etapaNombre}» de «${p.funnel}»: quien lo reserve cae ahí, como su ${p.reunion}.`,
+      };
+    },
+    ejecutar: (payload, ctx) => seguro('vincular el evento', async () => {
+      const r = await vincularEvento({ proveedor: payload.proveedor, evento: payload.evento, funnelId: payload.embudoId, etapa: payload.etapa, autor: autorDe(ctx) });
+      if (!r.ok) return { ok: false, resumen: r.error };
+      if (r.yaEstaba) return { ok: false, resumen: 'Ese evento ya estaba vinculado ahí: no se cambió nada.' };
+      return { ok: true, resumen: `Listo: quien reserve «${r.evento.nombre}» cae en «${r.etapaNombre}» de «${r.funnel}».`, datos: { evento: r.evento.identificador, embudoId: r.funnelId, etapa: r.etapa } };
+    }),
+  },
+  desvincular_evento_etapa: {
+    preparar: async (input) => {
+      let v: Awaited<ReturnType<typeof buscarVinculo>>;
+      try { v = await buscarVinculo({ proveedor: input.proveedor, evento: input.evento }); } catch { return { error: 'No pude leer los vínculos. Intenta de nuevo.' }; }
+      if (!v) return { error: 'Ese evento no está vinculado a ninguna etapa.', yaEstaba: true };
+      return {
+        payload: { proveedor: v.proveedor, evento: v.identificador },
+        resumen: `Desvincular «${v.nombre ?? v.identificador}» de su etapa: sus reservas vuelven a la R1 o R2 de Integraciones y al CRM principal.`,
+      };
+    },
+    ejecutar: (payload) => seguro('desvincular el evento', async () => {
+      const r = await desvincularEvento({ proveedor: payload.proveedor, evento: payload.evento });
+      if (!r.ok) return { ok: false, resumen: r.error };
+      if (!r.cambio) return { ok: false, resumen: 'Ese evento ya no estaba vinculado: no se cambió nada.' };
+      return { ok: true, resumen: `Listo: «${r.vinculo.nombre ?? r.vinculo.identificador}» ya no está vinculado a ninguna etapa.` };
     }),
   },
 

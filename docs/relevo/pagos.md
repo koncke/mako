@@ -5,6 +5,18 @@ integración con Mercado Pago y con Stripe, tipo pasarela de pagos... Lo voy a u
 vender MaKo, pero también los usuarios pueden alojarlo... revisa si hay que meterlo en diferentes lugares, como
 la API de MaKo, como automatios, como el CRM, etc...».
 
+**16/10/2026 — LA TAB PAGOS DEL LEAD, EN BLOQUES (rama `pagos-tab-bloques`, sobre `crm-armador`).** Pedido de
+Martín, que pasó Cerebro: «la tab de PAGOS que está un desastre también en funcionalidad, no se entiende... NO tengas
+miedo a ELIMINAR todo». Dónde está cada cosa:
+
+- **El marco** (tabs, armador, plantillas, galería) es del chat CRM. **El contenido** es de Pagos:
+  `app/crm/lead-view/ficha/{reglas-pagos.ts, registro-pagos.tsx, pagos/}`, las filas de Pagos del catálogo y de la §3
+  del diseño, las listas de Pagos de `lib/ficha/plantillas.ts` y `lib/ficha/plantillas-pagos.ts` (la galería).
+- **El relevamiento** está en [hallazgos-pagos.md](../hallazgos-pagos.md): lo que no se entendía, lo de plata que no se
+  podía perder, las trampas y lo que quedó sin hacer.
+- **Falta verla en el navegador**, en escritorio y en el teléfono. Customer Success sigue con DealDetailsCard: es la
+  tanda T3, con el CRM.
+
 ## Lo que hay que leer primero
 
 1. [docs/diseno-pasarela-pagos.md](../diseno-pasarela-pagos.md) — el contrato (y su §4.10: lo que cambió al construirlo).

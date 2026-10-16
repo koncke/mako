@@ -1968,8 +1968,32 @@ que la cascada no conoce. `'offer'` quedó en la lista ese día, con `soloDurant
   `{action:'start'}` (→ `iniciarExtraccion`) es `OnboardingWizard.tsx:274`. El cron
   (`app/api/cron/onboarding-extraccion`) sólo SIGUE las que están `running`, y su comentario («solo se dispara al
   verificar esa credencial») describía al wizard. Borrar el wizard con Meta siempre postergado deja a todo negocio
-  nuevo sin su histórico, sin un error. La salida: arrancarla en la puerta única de la conexión
-  (`guardarConexionMeta`, lib/meta-conexion.ts), con una guarda de «no arrancó todavía».
+  nuevo sin su histórico, sin un error. **Arreglado el mismo día** (`ce583d578`): `arrancarHistoricoEnSegundoPlano`
+  (lib/onboarding-extract.ts) lo llaman TODAS las puertas que guardan Meta. `guardarConexionMeta` no era la única: elegir
+  la cuenta o la página cuando hay varias, guardar los campos a mano en /integraciones, `/api/metodo` y la acción
+  `guardar` del wizard escriben Meta por su cuenta, y elegir la página es justo lo que destraba los leads. Tres trampas
+  que salieron haciéndolo:
+  - **La lectura tolerante del estado devuelve el INICIAL con la base caída**, y guardarlo le pone `pending` a un
+    onboarding terminado: el cliente vuelve al arranque. Quien escribe fuera del wizard lee con
+    `getEstadoOnboardingEstricto`.
+  - **Un arranque por credencial, no por puerta, son cinco escrituras del estado ENTERO en paralelo** (cada `after` de
+    `guardarConexionMeta` leería y guardaría lo suyo). Por eso va una vez al final de cada puerta, no en
+    `guardarCredencial`.
+  - **«Simular» queda afuera, a propósito**: copia las credenciales del ws1 (Mauricio) al de prueba, y arrancar ahí el
+    histórico traería sus leads a otro workspace. `tests/historico-al-conectar.test.ts` enumera en positivo cada
+    archivo que llama a `guardarCredencial`: uno nuevo falla hasta que alguien decida.
+  - **Y lo mismo para Fathom, YouTube y Panda** (`f33a78559`): cada integración revive SU parte
+    (`JOBS_DEL_HISTORICO`) y las puertas genéricas pasan el servicio que guardaron. El de Fathom corre el mismo
+    `syncClosingCalls` que el cron de cierre, que ya analiza todas las llamadas sin repetir: adelanta el gasto de Claude,
+    no lo suma. Y salieron dos huecos que ya estaban:
+    - ⚠️ **El cron del histórico recorría sólo a quien tiene META** (`correrRonda('meta', …)`): un negocio con Fathom y
+      sin Meta quedaba con sus llamadas marcadas y nadie que las corriera, sin un error. `correrRonda` acepta una lista
+      (cualquiera de) y el cron pasa `Object.keys(JOBS_DEL_HISTORICO)`.
+    - ⚠️ **El VSL del histórico nunca corrió para un cliente**: `jobAplica` y `jobVsl` leían los videos sólo del
+      setting `youtube_vsl_video_id`, cuyo único escritor (la acción `config` de /api/onboarding) no lo llama nadie;
+      /integraciones los guarda como CREDENCIAL (`YOUTUBE_VSL_VIDEO_ID`). Es la forma de la tarea #171 (dos lectores de
+      la misma pregunta), y `configWs` (lib/cron-workspaces.ts) ya la había arreglado para los crons de YouTube y Panda
+      y no para éste. Un test vecino lo fijaba al revés («que para ELLOS es lo correcto»); se actualizó con su porqué.
 - ⚠️ **`negocio` es el BRIEF, no el nombre.** Las tres pantallas del brief cierran `negocio` (acción `brief` →
   `saveAnswers` en `mako.onboarding.answers`), y en la capa `pm` es lo que el Perro necesita para priorizar
   (`briefGrupos`). Lo leen los generadores (`contenido.run.ts:420`, `video.helpers.ts:349`) y el perfil del negocio

@@ -137,7 +137,8 @@ test('el catálogo que ve MaKo al sumar tiene SÓLO los conjuntos con datos', ()
   assert.match(cat, /^- pagos «/m);
   assert.doesNotMatch(cat, /^- leads «/m, 'el catálogo recortado trae un conjunto sin datos');
   assert.match(catalogoParaIA(), new RegExp(`^- ${leads.id} «`, 'm'), 'sin recortar, todos');
-  assert.match(sinComentarios(leer('lib/graficos-ia-generar.ts')), /opts\.soloFuentes \? userDeHoja\(pedido, FUENTES\.filter\(\(f\) => opts\.soloFuentes!\.includes\(f\.id\)\)\) : userDeHoja\(pedido\)/);
+  // 16/10/2026: con el ALCANCE de la hoja al lado (General ofrece poco): los conjuntos con datos siguen siendo el recorte.
+  assert.match(sinComentarios(leer('lib/graficos-ia-generar.ts')), /const fuentes = opts\.soloFuentes \? FUENTES\.filter\(\(f\) => opts\.soloFuentes!\.includes\(f\.id\)\) : FUENTES;\s*const user = userDeHoja\(pedido, fuentes, opts\.alcance\);/);
 });
 
 // ── Las puertas: la plantilla, «¿Qué vas a crear hoy?», la API y el botón de MaKo ──────────────
@@ -146,7 +147,8 @@ test('las tres puertas que crean una hoja pasan por hojaConDatos (la plantilla s
   const plantilla = sinComentarios(leer('app/api/graficos/plantilla/route.ts'));
   assert.match(plantilla, /if \(rol !== 'admin'\) return err\(403/);
   assert.match(plantilla, /tabEnCapa\('graphics', await getCapaActual\(\)\)/);
-  assert.match(plantilla, /hojaConDatos\(instanciarPlantilla\(p\), \{ hoy: hoyEnTijuana\(\), hastaMs: inicio \+ PLAZO_MS, sumar: \{ nombre: p\.nombre, linea: p\.linea \} \}\)/);
+  // 16/10/2026: una plantilla de General suma sólo lo que General ofrece (`alcance`).
+  assert.match(plantilla, /hojaConDatos\(instanciarPlantilla\(p\), \{ hoy: hoyEnTijuana\(\), hastaMs: inicio \+ PLAZO_MS, sumar: \{ nombre: p\.nombre, linea: p\.linea \}, alcance: general \? ALCANCE_GENERAL : undefined \}\)/);
   const ia = sinComentarios(leer('app/api/graficos/ia/route.ts'));
   assert.match(ia, /await hojaConDatos\(r\.hoja, \{ hoy: hoyEnTijuana\(\), hastaMs: inicio \+ 115_000 \}\)/);
   assert.doesNotMatch(ia, /sumar:/, 'lo que armó MaKo con el pedido no se completa con otra cosa');

@@ -2158,6 +2158,69 @@ darlo de alta a mano en Cal.com, igual que en Calendly (Chatwoot y Evolution sí
 registran solos). Y el widget del CRM para agendar DESDE MaKo, que hoy es solo de Calendly
 (`lib/calendly-agenda.ts`, `app/crm/calendly-widget.ts`).
 
+### El evento de agenda VINCULADO a una etapa: quién cae dónde (16/10/2026)
+
+**Pedido (Martín, 16/10):** que una etapa de reunión se vincule a un evento de Calendly o Cal.com
+«para que sepa que leads deben caer allí cuando se agendan y no caer en otra etapa u otro funnel».
+Hasta ese día, con varios funnels, todo agendado caía en el PRINCIPAL: `upsertLeadFromCalendly`
+crea el lead con `funnel_id` null y la R1/R2 sale de `CALENDLY/CALCOM_EVENT_TYPE_J1/J2`.
+
+**La referencia obvia NO hace esto, y eso cambia dónde se diseña.** La integración de Calendly con
+HubSpot (calendly.com/help/calendly-hubspot) crea o actualiza el CONTACTO y le suma la reunión como
+actividad («if the contact already exists… a meeting activity is added without changing the
+contact's existing details»); el negocio en un pipeline y una etapa lo crea un WORKFLOW de HubSpot
+filtrado por la reunión. Pipedrive no tiene integración propia con Calendly (las del Marketplace son
+de terceros; Outfunnel elige el TIPO DE REUNIÓN en la conexión y de ahí crea el deal) y su Scheduler
+sólo crea una actividad. Lo que se tomó: el vínculo es POR TIPO DE EVENTO → (embudo, etapa), uno por
+evento; el contacto que ya existe NO cambia de casa (se lo agrega); cancelar no mueve la tarjeta.
+
+**Lo que no se ve en el código:**
+
+- **El vínculo sin su fila en `webhook_routing` no sirve.** El webhook sabe de qué negocio es la
+  reserva por ese índice, ANTES de leer nada del negocio. Vincular reclama la fila (primer
+  reclamante gana: si el evento es de otro negocio, no se vincula) y desvincular la suelta SÓLO si
+  ni la R1/R2 de Integraciones ni otro vínculo la usan: el evento de la R1 suele ser el mismo que se
+  vincula, y soltarlo dejaba la R1 «sin_ruteo».
+- **Se vincula por el identificador canónico, nunca por el nombre.** El ruteo compara EXACTO
+  (`webhook-routing.ts` sólo baja a minúsculas los emails) y `clasificarJunta` es tolerante
+  (mayúsculas, slug): una R1 cargada como «llamada de descubrimiento» clasifica bien y no rutea si en
+  Calendly se llama «Llamada de descubrimiento». Por eso el vínculo guarda la URI del event type
+  (Calendly) o su id (Cal.com), que es lo que el webhook manda siempre.
+- **En Cal.com, el `title` del webhook es el de la RESERVA, no el del tipo de evento** («Strategy
+  Session between Organizer and Guest», el ejemplo de BOOKING_CREATED de su doc de webhooks; el
+  nombre del tipo viene en `eventTitle`). `normalizarReserva` leía `title`, así que una R1/R2 cargada
+  por su NOMBRE —lo que la ayuda de Integraciones ofrece— no clasificaba ni ruteaba: la reserva se
+  perdía «sin workspace». Ahora lee `eventTitle` (y `title` de respaldo). Medido en producción el
+  16/10: el único negocio con Cal.com (ws13) cargó slugs, así que no le pasó a nadie; no se midió
+  contra un webhook real, sólo contra la doc.
+- **Dos eventos se pueden llamar igual** (uno por closer): el ruteo compara el identificador, no el
+  nombre, y vincular por nombre con dos que calzan pide el identificador en vez de elegir uno.
+- **La fecha de reunión es UNA por lead** (dos pares de columnas). Un lead cuya casa es otro funnel y
+  reserva la R1 vinculada de éste queda agregado acá en esa etapa, pero su `fecha_junta_1` se escribe
+  igual (la necesitan el recordatorio y el No Show): en su casa, si tiene las etapas de siempre, la
+  derivada lo muestra en «Agenda R1». Es lo de antes para cualquier reserva; no se arregló.
+- **Reubicar con el lead RELEÍDO.** El de la R2 que trae el webhook es el de antes de escribir la
+  fecha: con él la derivada todavía es la R1, se movía a la R2 «a mano» y quedaba un override que
+  después frena la derivación (asistió a la R2 → Facturando). Con la fecha ya escrita, en un embudo
+  con las etapas de siempre la derivada YA es la vinculada y no se escribe nada.
+- **Al reescribir una marca de un test por `indexOf`, mirá si un -1 lo deja pasar.**
+  `tests/calcom-respuestas.test.ts` medía `iEnrolar > iR2` con la marca `if (tipo === 'j2')`; al
+  cambiar la rama a `if (!decision.puedeCrearLead)`, `indexOf` dio -1 y el test pasó SOLO. Ahora
+  exige que la marca exista.
+
+**Vive en:** `lib/agenda-evento-etapa.ts` (puro: `rutaDeEvento`, `decidirReserva`, `moverAlReservar`)
+· `lib/agenda-evento-etapa-server.ts` · los dos webhooks · `app/crm/agenda-evento-actions.ts` · la
+API (`listar_eventos_agenda`, `vincular_evento_etapa`, `desvincular_evento_etapa`) · mig 0293 ·
+`tests/agenda-evento-etapa.test.ts` (21, probado con 15 roturas).
+
+**Lo que quedó SIN hacer:** la pantalla (el desplegable en el pop-up de etapas,
+`app/crm/EtapasModal.tsx`); `scripts/backfill-calendly.ts` recupera reservas sin mirar los vínculos
+(caen en el principal); MaKo reservando la R1/R2 por WhatsApp (`eventTypeDeReunion`) sigue usando
+J1/J2 y no el evento del funnel del lead; borrar un embudo borra su vínculo (cascade) pero no suelta
+la fila de `webhook_routing`; agregar a un producto en una etapa no pone la etiqueta vinculada a esa
+etapa (tampoco lo hace al agregar en la de entrada); y listar los tipos de evento de Cal.com no se
+midió contra una cuenta real.
+
 ### ⚠️ «Falta activar la landing»: pedirle al cliente que declare lo que ya declaró
 
 *2026-08-25 — el dueño: «¿cómo que falta activar la landing? ¿qué sentido tiene?»*

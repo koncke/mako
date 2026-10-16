@@ -127,6 +127,7 @@ descartar_item_plan_retro
 deshacer_item_plan_retro
 despublicar_landing
 destacados_periodo_retro
+desvincular_evento_etapa
 detectar_fatiga_adsets
 detectar_piezas_landing
 diagnosticar_funnel
@@ -142,7 +143,9 @@ editar_cuota
 editar_dato_deal
 editar_etiqueta
 editar_grafico_dashboard
+editar_hoja_con_ia_dashboard
 editar_hoja_dashboard
+editar_hoja_general_con_ia
 editar_lead_magnet
 editar_meta_secuencia_email
 editar_obligacion_deal
@@ -259,6 +262,7 @@ listar_disenos_landing
 listar_etapas_email
 listar_etiquetas
 listar_etiquetas_whatsapp
+listar_eventos_agenda
 listar_eventos_calendario
 listar_eventos_pixel_meta
 listar_experimentos
@@ -519,5 +523,6 @@ verificar_aprobacion_meta
 verificar_dominio_envio
 verificar_ganadores_reusables
 verificar_pagina_pixel
+vincular_evento_etapa
 vista_experimentos
 volver_a_mostrar_sugerencia

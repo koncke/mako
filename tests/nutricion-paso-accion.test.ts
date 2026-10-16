@@ -376,6 +376,7 @@ test('el lienzo ofrece «⚡ Acción», la edita con el editor compartido y la a
   // El simulador muestra lo que le LLEGA al lead: una acción no le llega. ⚠️ MUDADO EL 08/10/2026:
   // «Probar» recorre el flujo con lib/simulador-grafo.ts, y ahí una acción es una PÍLDORA que la
   // nombra (no se ejecuta), nunca una burbuja. Antes era el filtro `pasosQueLlegan` de
-  // SimuladorWhatsApp.tsx; lo ejecuta tests/simulador-grafo.test.ts.
-  assert.match(sinComentarios(leer('lib/simulador-grafo.ts')), /case 'accion':\n(\s*\n)?\s+return \{ evento: \{ t: 'accion', nodo: id, texto: `⚡ \$\{nombreAccion\(p, nombres\)\}` \}/);
+  // SimuladorWhatsApp.tsx; lo ejecuta tests/simulador-grafo.test.ts. Desde el 16/10/2026 el evento lleva además la
+  // tarjeta (`paso`): la «MaKo en WhatsApp» le escribe al chat del grupo de la prueba (tests/probar-grupo-mako.test.ts).
+  assert.match(sinComentarios(leer('lib/simulador-grafo.ts')), /case 'accion':\n(\s*\n)?\s+return \{ evento: \{ t: 'accion', nodo: id, texto: `⚡ \$\{nombreAccion\(p, nombres\)\}`, paso: p \}/);
 });

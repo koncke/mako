@@ -350,7 +350,27 @@ El 15/10 el build de Vercel de `ea8cfdec1` (y su redeploy) murió con «next/fon
 - Regla: nada de `next/font/google` en el editor. Si alguna vez hace falta alojar la fuente, `next/font/local` con el
   woff2 en el repo, nunca algo que pida una red ajena para compilar. `app/chats/fuente.ts` (Inter) tiene el mismo riesgo.
 
+## Las plantillas sugeridas: el panel recibe PÁGINAS, así que el orden va en el servicio
+
+Para poner primero las sugeridas para el negocio (16/10; la regla compartida en docs/plantillas-sugeridas.md, test
+`tests/plantillas-sugeridas-editores.test.ts`), el lugar obvio era `TemplatesPanel.tsx`, que es donde se ven. **No
+sirve:** el panel pide `templates.list({ page, page_size: 24, q, category, orientation })` y recibe UNA página ya
+filtrada. Ordenar ahí ordena una página, y ordenar lo ya filtrado elige las sugeridas entre las que quedaron: con
+cuatro que coinciden y tres de tope, filtrar por «Negocios» deja sola a la cuarta y la marca «Sugerido» (la rotura
+que el test caza). **La galería entera se ordena una vez en el servicio** (`servicioPlantillas(senales)`,
+`mako/plantillas.ts`) y cada pedido filtra y pagina lo ya ordenado.
+
+- Las señales bajan de la page (`[diseno]/page.tsx`) por `ImageEditorCliente` → `PantallaEditor` →
+  `crearAdaptadorNube({ senales })` → `serviciosCatalogo(senales)`. El panel sólo lee `suggested_reason`, un campo que
+  MaKo le sumó a `TemplateSummary` (`_doory/types/api.ts`).
+- El inicio no sugiere nada a propósito: su chip «Plantillas» muestra TAMAÑOS en blanco, no plantillas.
+- La mitad de las 10 de Doory no dice nada de cómo vende un negocio (frase, inversores, concierto, boda, currículum,
+  YouTube): van `{}` (`mako/plantillas-etiquetas.ts`), y a quien vende por llamada no se le sugiere ninguna.
+
 ## Lo que quedó SIN hacer (con el archivo donde vive)
+
+- **«Sugerido» en el panel de plantillas, sin mirar en el navegador** (ws9, con un funnel declarado): el orden, el
+  texto al lado del nombre y el `title` con el porqué (`_doory/editor/panels/TemplatesPanel.tsx`).
 
 - **Mirarlo en producción con la sesión de Martín** (la cáscara: la tab, la barra lateral, el `?ws=`, guardar): el
   banco ve el editor, no MaKo alrededor. El lado del cliente sí se verificó en producción (14/10, sesión de Mauricio,

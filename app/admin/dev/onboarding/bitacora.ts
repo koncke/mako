@@ -484,4 +484,54 @@ export const BITACORA: Hito[] = [
       "tests/onboarding-sin-api.test.ts — que no frene y que lo de después tenga red",
     ],
   },
+  {
+    fecha: "16 oct", hora: "—", chat: "Cerebro", sesion: "local_0f38f4d5-0e64-411e-b6c8-6d6ead20baed", cuenta: "claude3",
+    actor: "martin", tipo: "prompt",
+    titulo: "El onboarding pasa a ser el chat de Offer",
+    pedido: "el onboarding será ese chat de offer",
+    puntos: [
+      "Lo lleva el chat Offer: nombre, oferta, funnel y primer CRM, lo más ágil posible.",
+      "Al chat «Onboarding» le tocó qué tiene que quedar escrito al terminar, el crédito de Claude para el chat, y que el histórico de Meta no dependa del wizard.",
+    ],
+  },
+  {
+    fecha: "16 oct", hora: "04:34", chat: "Onboarding", sesion: "local_79844152-91d5-49c1-b833-c917ed1fc4a6", cuenta: "claude3",
+    actor: "claude", tipo: "implementacion",
+    titulo: "Conectar Meta trae el histórico de leads, sin el wizard",
+    puntos: [
+      "El histórico de leads y métricas arranca al conectar Meta por cualquier puerta: pegar el token, «Conectar con Meta», elegir la cuenta o la página, o guardar a mano.",
+      "Una sola vez: reconectar no repite nada. Corre en segundo plano y si falla no tumba la conexión.",
+      "Antes lo arrancaba sólo el wizard: quien postergaba Meta y lo conectaba después se quedaba sin su histórico, sin un error.",
+    ],
+    commits: [
+      { sha: "ce583d5", msg: "Onboarding: conectar Meta arranca el histórico de leads, no sólo el wizard", lineas: 384, archivos: 9 },
+    ],
+    archivos: [
+      "lib/onboarding-extract.ts — el arranque, estricto y en segundo plano",
+      "lib/onboarding-contrato.ts — cuándo arrancar, y que arrancar dos veces no duplique",
+      "lib/meta-conexion.ts — la conexión de Meta lo llama",
+      "app/api/integraciones/credencial/route.ts — elegir y guardar a mano lo llaman",
+      "tests/historico-al-conectar.test.ts — diez roturas, todas caen (se renombró al sumar Fathom, YouTube y Panda)",
+    ],
+  },
+  {
+    fecha: "16 oct", hora: "05:03", chat: "Onboarding", sesion: "local_79844152-91d5-49c1-b833-c917ed1fc4a6", cuenta: "claude3",
+    actor: "claude", tipo: "implementacion",
+    titulo: "Conectar Fathom, YouTube o Panda también trae su histórico",
+    puntos: [
+      "Conectar Fathom trae las llamadas del histórico, y YouTube o Panda las métricas del VSL. Cada una revive sólo su parte, una vez.",
+      "El proceso que corre el histórico recorría sólo a los negocios con Meta: uno con Fathom y sin Meta se quedaba sin sus llamadas. Ahora recorre a cualquiera de las cuatro.",
+      "El VSL del histórico nunca había corrido para un cliente: buscaba los videos donde no los guarda nadie. Ahora los lee de /integraciones, como los reportes diarios.",
+    ],
+    commits: [
+      { sha: "f33a785", msg: "Onboarding: conectar Fathom, YouTube o Panda también revive su parte del histórico", lineas: 343, archivos: 10 },
+    ],
+    archivos: [
+      "lib/onboarding-contrato.ts — qué trabajos destraba cada integración",
+      "lib/onboarding-extract.ts — el arranque por integración, y el VSL con configWs",
+      "lib/cron-workspaces.ts — la ronda con una lista de integraciones",
+      "app/api/cron/onboarding-extraccion/route.ts — recorre a cualquiera de las cuatro",
+      "tests/historico-al-conectar.test.ts — catorce roturas, todas caen",
+    ],
+  },
 ];

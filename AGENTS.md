@@ -2580,6 +2580,11 @@ crea los cobros, aplica lo que confirma la pasarela (webhook o cron) y devuelve 
   cliente que vende con su Stripe no crea inquilinos.
 - **La moneda la decide la pasarela, y en un formulario que cobra la pasarela se pregunta ANTES del monto.** El
   valor en USD de un cobro es el que alguien declaró; nunca una tasa inventada.
+- **Lo que un lead pagó y debe se cuenta con `cobradoDelLead` (lib/cobrado-lead.ts), y lo que se DICE de eso con
+  lib/pagos-vistazo.ts** («Debe $500», «Al día», qué hacer ahora, los movimientos). Lo usan la tab Pagos, el teléfono
+  y la API de MaKo (`cobranza_lead`). Una pantalla nueva que muestre plata de un lead no suma cuotas por su cuenta.
+  La tarjeta de antes lo hacía, y decía «Pagado por completo» de una mensualidad activa y dibujaba como deuda una
+  cuota DEVUELTA ([docs/hallazgos-pagos.md](docs/hallazgos-pagos.md)).
 
 # Un flag de visibilidad protege la PANTALLA; la API hay que cerrarla aparte
 
@@ -3173,6 +3178,13 @@ ahí pasan las dos puertas —pegar un token y el botón «Conectar con Meta»�
 de arriba, incluido el caso que no cubría: con VARIAS páginas no se guardaba ningún token de
 página, así que reconectar dejaba el viejo. Una tercera puerta que escriba las filas a mano es
 la que se va a olvidar de esto. (07/10/2026)
+
+⚠️ **Y conectar Meta ARRANCA EL HISTÓRICO de leads y métricas** (16/10/2026; hasta ese día lo arrancaba sólo el
+wizard). Igual Fathom, YouTube y Panda, cada una SU parte (`JOBS_DEL_HISTORICO`, lib/onboarding-contrato.ts). Toda puerta
+que guarde una integración llama una vez, al final, a `arrancarHistoricoEnSegundoPlano(ws, servicio)`
+(lib/onboarding-extract.ts: lee el estado ESTRICTO y no tumba la conexión; lo que no tiene histórico no hace nada).
+`tests/historico-al-conectar.test.ts` enumera cada archivo que llama a `guardarCredencial`: uno nuevo falla hasta que se
+decida. Una integración nueva con histórico se suma a `JOBS_DEL_HISTORICO`, y el cron la recorre sola.
 
 ⚠️ **Y `META_APP_SECRET` es el secreto de la app VIEJA**, con el que se verifica la firma de
 cada lead del webhook. El de la app MaKo es `MAKO_META_APP_SECRET` (`lib/meta-login.ts`).
@@ -8399,6 +8411,11 @@ costó, en [docs/hallazgos-objectives.md](docs/hallazgos-objectives.md) → «Ge
   el suyo por el id del elemento.
 - **Lo que existe en otra tab se monta, no se copia**: las tarjetas del Plan son las de BoardShell (`TarjetaPrioridad`,
   `ProyectoCardTile`, traídas con `next/dynamic`), y escribir pasa por la acción que ya existe (`marcarHechaAction`).
+- **Lo que arma o cambia la IA en una hoja lleva el ALCANCE de su informe, en las dos capas** (16/10/2026): el catálogo
+  que lee el modelo y `piezaDeIA`, que descarta lo de afuera (`ALCANCE_GENERAL`, lib/graficos-ia.ts). «Pídeselo», las
+  plantillas que MaKo completa (`hojaConDatos`) y «Editar con MaKo» lo pasan; un camino nuevo de IA sobre una hoja de
+  General también. Y la IA EDITA con operaciones (`aplicarEdicion`, lib/graficos-ia-edicion.ts), nunca reescribiendo la
+  hoja, y el cambio lo aplica el editor con `mutar`: docs/hallazgos-graficos.md → «Editar con MaKo».
 - **General ofrece poco del Dashboard** (`TIPOS_GENERAL`, `FUENTES_GENERAL`, `ELEMENTOS_FUERA_DE_GENERAL`), y sus
   plantillas no usan nada de afuera.
 - **Un tipo de elemento nuevo en `TIPOS_ELEMENTO` aparece solo en todas las listas que derivan de él**: la API del
@@ -8524,3 +8541,19 @@ los tiempos por palabra del elegido y los dejaba sin los suyos (docs/hallazgos-v
 módulo que importe de ahí `TICKS_PER_SECOND`, `roundMediaTime` o `addMediaTime` (directo o por `timeline/index.ts`,
 `animation/`…) no carga en los tests de node. Lo que se quiera probar recibe los ticks por segundo y lo que llega
 al motor por PARÁMETRO, e importa sólo TIPOS (molde: `transcripcion/cortar.ts`, con `tps` y `dividir`).
+
+# Una reserva de agenda decide a DÓNDE va por un solo camino, y la agenda tiene tres fuentes de ruteo
+
+Desde el 16/10/2026 una etapa de reunión puede tener vinculado un evento de Calendly o Cal.com (mig 0293,
+`lib/agenda-evento-etapa.ts`): quien lo reserva cae en ESA etapa de ESE funnel, y no en el principal.
+
+- **Todo lo que crea o ubica un lead desde una reserva** (los dos webhooks hoy; un backfill, MaKo reservando
+  o un proveedor nuevo mañana) pasa por `rutaDeReserva` + `decidirReserva`, y al lead que ya existía lo ubica
+  `ubicarReservaVinculada` (lo AGREGA si su casa es otro funnel; no le cambia la casa). Sin eso, el evento
+  vinculado cae en el funnel principal y la R sale de J1/J2. La R2 nunca crea un lead.
+  `tests/agenda-evento-etapa.test.ts` lo fija en los dos webhooks.
+- **En `webhook_routing` la agenda tiene TRES fuentes** (la R1, la R2 y los eventos vinculados) bajo el mismo
+  servicio. `borrarRoutingDeWs` se lleva todas: quien lo use después vuelve a reclamar lo que sigue en uso
+  (`reclamarRuteoDeAgenda`), y para soltar UNA se pregunta antes si alguien más la usa.
+- **Un vínculo se guarda con el identificador que manda el webhook** (Calendly: la URI del event type; Cal.com:
+  su id), nunca con el nombre: el ruteo compara exacto y dos eventos se pueden llamar igual.

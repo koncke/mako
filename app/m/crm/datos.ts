@@ -44,7 +44,12 @@ import { datosSinMarcarDeLead, leerInsumosDatosLead } from '@/lib/datos-del-lead
 import { verTrackingDeLead } from '@/lib/tracking-ficha-server';
 import { tieneEtapaDeReunion } from '@/lib/etapa-reunion';
 import type { Lead } from '@/lib/leads';
-import { piezasDelTelefono, tabsQueVe, type PiezaPuesta } from './ficha-bloques';
+import { piezasDelTelefono, saldoDelTelefono, tabsQueVe, type PiezaPuesta, type SaldoTelefono } from './ficha-bloques';
+import { listarCobros } from '@/lib/cobros';
+import { cobradoDelLead } from '@/lib/cobrado-lead';
+import { estadoDeCuenta } from '@/lib/pagos-vistazo';
+import { planEnLead, tieneDeal } from '@/lib/muestra-pagos';
+import { pipelineStageOf } from '@/lib/pipeline';
 import {
   cuandoEnLista, etapaEnTablero, lineaActividad, llegoPor, proximaLlamada, seMueveEnElTelefono, seSacaEnElTelefono,
   FUERA_DE_ACTIVIDAD, type LineaActividad,
@@ -71,6 +76,8 @@ export type FichaV2 = {
   piezas: PiezaPuesta[];
   /** «N sin marcar», el MISMO número que el escritorio. null = no se pudo contar (no se dibuja). */
   sinMarcar: number | null;
+  /** El estado de cuenta en una fila (la pieza `saldo`), con la MISMA cuenta que el escritorio. null = nada que contar. */
+  saldo: SaldoTelefono | null;
 };
 
 /**
@@ -79,25 +86,51 @@ export type FichaV2 = {
  * pantalla de escritorio), las etapas DEL LEAD para saber si ve Reuniones, la regla de Tracking, y
  * «N sin marcar» con sus insumos. Nunca tira: lo que falla no se dibuja.
  */
-async function fichaDelFunnel(lead: Lead | null): Promise<{ piezas: PiezaPuesta[]; sinMarcar: number | null }> {
+async function fichaDelFunnel(lead: Lead | null): Promise<{ piezas: PiezaPuesta[]; sinMarcar: number | null; saldo: SaldoTelefono | null }> {
   // El respaldo del negocio sólo cambia redes, ingreso, dirección, sexo y cohorte: ninguna tiene versión de
   // teléfono, así que el vacío da las mismas piezas que la pantalla de escritorio con su `resumen`.
   const respaldo = fichaEfectiva('respaldo', null, RESPALDO_VACIO);
-  if (!lead) return { piezas: piezasDelTelefono(respaldo.tabs, ['resumen']), sinMarcar: null };
+  if (!lead) return { piezas: piezasDelTelefono(respaldo.tabs, ['resumen']), sinMarcar: null, saldo: null };
   const [ficha, insumos, verTracking] = await Promise.all([
     fichaDelFunnelDelLead(lead.funnel_id ?? null),
     leerInsumosDatosLead(lead),
     verTrackingDeLead(lead.funnel_id),
   ]);
   const efectiva = ficha?.efectiva ?? respaldo;
-  const piezas = piezasDelTelefono(efectiva.tabs, tabsQueVe({ verTracking, verReuniones: tieneEtapaDeReunion(insumos.stages) }));
+  const verPagos = tieneDeal({ estado: lead.estado_lead, etapa: pipelineStageOf(lead), cuotas: insumos.pagos.length, planEnLead: planEnLead(lead) });
+  const piezas = piezasDelTelefono(efectiva.tabs, tabsQueVe({ verTracking, verReuniones: tieneEtapaDeReunion(insumos.stages), verPagos }));
   let sinMarcar: number | null = null;
   try {
     sinMarcar = (await datosSinMarcarDeLead(lead, insumos)).datos.avisar.length;
   } catch (e) {
     console.error(`[m/crm] datos sin marcar ${lead.id}: ${msg(e)}`);
   }
-  return { piezas, sinMarcar };
+  return { piezas, sinMarcar, saldo: verPagos ? await saldoDelLead(lead, insumos.pagos) : null };
+}
+
+/**
+ * El estado de cuenta del lead, con la cuenta del escritorio (`cobradoDelLead` + `estadoDeCuenta`): las cuotas y,
+ * para una suscripción de la pasarela, sus cobros (una renovación rechazada se dice). Nunca tira: sin los cobros,
+ * cuenta con las cuotas.
+ */
+async function saldoDelLead(lead: Lead, pagos: Awaited<ReturnType<typeof leerInsumosDatosLead>>['pagos']): Promise<SaldoTelefono | null> {
+  try {
+    const ws = await getWorkspaceActual();
+    const [cobros, hoy] = await Promise.all([
+      ws != null ? listarCobros(ws, { leadId: lead.id, limite: 50 }).catch(() => []) : Promise.resolve([]),
+      hoyEnWorkspace(),
+    ]);
+    const fila = lead as unknown as Record<string, unknown>;
+    const cobrado = cobradoDelLead({
+      ventaTipo: lead.venta_tipo ?? null, montoCierreUsd: lead.monto_cierre_usd ?? null, suscripcionMontoUsd: lead.suscripcion_monto_usd ?? null,
+      suscripcionMeses: lead.suscripcion_meses ?? null, fechaCierre: lead.fecha_cierre ?? null,
+      suscripcionCanceladaAt: (fila.suscripcion_cancelada_at as string | null | undefined) ?? null, pagos, cobros, hoy,
+    });
+    return saldoDelTelefono(estadoDeCuenta({ cobrado, pagos, ganado: lead.estado_lead === 'ganado', hoy }));
+  } catch (e) {
+    console.error(`[m/crm] estado de cuenta ${lead.id}: ${msg(e)}`);
+    return null;
+  }
 }
 
 /** Las notas que viajan (la ficha dibuja 3 y el resto abre en un sheet); las más viejas, en el historial de escritorio. */
