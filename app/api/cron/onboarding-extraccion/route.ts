@@ -63,9 +63,10 @@ export async function GET(request: NextRequest) {
 
   const t0 = Date.now();
   // Se recorren los workspaces con META conectado, que es exactamente el conjunto que
-  // puede tener una extracción viva: `iniciarExtraccion` solo se dispara al verificar
-  // esa credencial. Adentro se vuelve a preguntar por el estado real, así que un
-  // workspace con Meta y sin extracción pendiente no cuesta nada.
+  // puede tener una extracción viva: la arranca conectar Meta, por cualquiera de sus
+  // puertas (`arrancarHistoricoEnSegundoPlano`, lib/onboarding-extract.ts; hasta el
+  // 16/10/2026, sólo el wizard). Adentro se vuelve a preguntar por el estado real, así
+  // que un workspace con Meta y sin extracción pendiente no cuesta nada.
   //
   // `rotacion` con clave PROPIA (no la del servicio): si dos crons de Meta comparten
   // cursor, se lo pisan y la rotación deja de repartir. Con la rotación, un cliente con

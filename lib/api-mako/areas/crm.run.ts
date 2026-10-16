@@ -74,6 +74,10 @@ import { eventTypeDeReunion, linkParaAgendar } from '@/lib/calendly-agenda';
 import { listReviewPendientes } from '@/lib/review-queue';
 import { listProductos, upsertProducto } from '@/lib/productos';
 import { productosDelLead, agregarAProducto, quitarDeProducto, moverEtapaEnProducto } from '@/lib/lead-funnel';
+// El evento de agenda vinculado a una etapa de reunión (16/10/2026): las mismas funciones que la pantalla.
+import {
+  listarEventosDeAgenda, prepararVinculo, vincularEvento, buscarVinculo, desvincularEvento, type AgendaDelNegocio,
+} from '@/lib/agenda-evento-etapa-server';
 import { puedeQuitar, aQuienPromover, etapaDeEntrada, type ProductoDelLead } from '@/lib/lead-funnel-reglas';
 import {
   listarEtiquetas, etiquetaPorId, etiquetasDeLead, conteoPorEtiqueta, crearEtiqueta, editarEtiqueta,
@@ -876,6 +880,59 @@ export const RUNNERS: Runners = {
       // Los avisos de la ficha cambian lo que cuenta «Datos sin marcar» (la caché de leads).
       invalidar('leads');
       return { ok: true, resumen: `Listo: ${describirCambio(c)}.` };
+    }),
+  },
+
+  // ── El evento de agenda vinculado a una etapa de reunión (16/10/2026) ───────────
+  // Las MISMAS funciones que la pantalla (lib/agenda-evento-etapa-server.ts): una implementación.
+  listar_eventos_agenda: {
+    leer: async () => {
+      let a: AgendaDelNegocio;
+      try { a = await listarEventosDeAgenda(); } catch { return fallo('No pude leer los eventos de la agenda. Intenta de nuevo.'); }
+      return json({
+        eventos: a.eventos.map((e) => ({
+          proveedor: e.proveedor, evento: e.identificador, nombre: e.nombre, duracion_min: e.duracionMin,
+          de_integraciones: e.credencial, en_la_cuenta: e.enLaCuenta,
+          vinculado_a: e.vinculo ? { embudoId: e.vinculo.funnelId, crm: e.vinculo.funnel, etapa: e.vinculo.etapa, etapa_nombre: e.vinculo.etapaNombre, reunion: e.vinculo.reunion } : null,
+        })),
+        etapas_vinculables: a.etapas.map((x) => ({ embudoId: x.funnelId, crm: x.funnel, etapa: x.etapa, etapa_nombre: x.etapaNombre, reunion: x.reunion })),
+        agendas: a.proveedores,
+        ...(a.sePuedeVincular ? {} : { nota: 'Falta un paso de la base (migración 0293): se ve la lista, pero todavía no se puede vincular.' }),
+      });
+    },
+  },
+  vincular_evento_etapa: {
+    preparar: async (input) => {
+      const p = await prepararVinculo({ proveedor: input.proveedor, evento: input.evento, funnelId: input.embudoId, etapa: input.etapa });
+      if (!p.ok) return { error: p.error };
+      if (p.yaEstaba) return { error: `«${p.evento.nombre}» ya está vinculado a «${p.etapaNombre}» de «${p.funnel}».`, yaEstaba: true };
+      return {
+        payload: { proveedor: p.evento.proveedor, evento: p.evento.identificador, embudoId: p.funnelId, etapa: p.etapa },
+        resumen: `Vincular «${p.evento.nombre}» (${p.evento.proveedor === 'calcom' ? 'Cal.com' : 'Calendly'}) a «${p.etapaNombre}» de «${p.funnel}»: quien lo reserve cae ahí, como su ${p.reunion}.`,
+      };
+    },
+    ejecutar: (payload, ctx) => seguro('vincular el evento', async () => {
+      const r = await vincularEvento({ proveedor: payload.proveedor, evento: payload.evento, funnelId: payload.embudoId, etapa: payload.etapa, autor: autorDe(ctx) });
+      if (!r.ok) return { ok: false, resumen: r.error };
+      if (r.yaEstaba) return { ok: false, resumen: 'Ese evento ya estaba vinculado ahí: no se cambió nada.' };
+      return { ok: true, resumen: `Listo: quien reserve «${r.evento.nombre}» cae en «${r.etapaNombre}» de «${r.funnel}».`, datos: { evento: r.evento.identificador, embudoId: r.funnelId, etapa: r.etapa } };
+    }),
+  },
+  desvincular_evento_etapa: {
+    preparar: async (input) => {
+      let v: Awaited<ReturnType<typeof buscarVinculo>>;
+      try { v = await buscarVinculo({ proveedor: input.proveedor, evento: input.evento }); } catch { return { error: 'No pude leer los vínculos. Intenta de nuevo.' }; }
+      if (!v) return { error: 'Ese evento no está vinculado a ninguna etapa.', yaEstaba: true };
+      return {
+        payload: { proveedor: v.proveedor, evento: v.identificador },
+        resumen: `Desvincular «${v.nombre ?? v.identificador}» de su etapa: sus reservas vuelven a la R1 o R2 de Integraciones y al CRM principal.`,
+      };
+    },
+    ejecutar: (payload) => seguro('desvincular el evento', async () => {
+      const r = await desvincularEvento({ proveedor: payload.proveedor, evento: payload.evento });
+      if (!r.ok) return { ok: false, resumen: r.error };
+      if (!r.cambio) return { ok: false, resumen: 'Ese evento ya no estaba vinculado: no se cambió nada.' };
+      return { ok: true, resumen: `Listo: «${r.vinculo.nombre ?? r.vinculo.identificador}» ya no está vinculado a ninguna etapa.` };
     }),
   },
 

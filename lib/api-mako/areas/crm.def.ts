@@ -467,6 +467,42 @@ export const DEFS: readonly OperacionDef[] = [
     reversible: true, escribe: 'guarda el cambio en la ficha del CRM (funnels.data.ficha, sólo lo que difiere de la plantilla); cambia lo que ven y lo que avisa la ficha de todos sus leads',
   },
 
+  // ── El evento de agenda VINCULADO a una etapa de reunión (16/10/2026, lib/agenda-evento-etapa.ts) ──
+  // Quien reserva ese evento de Calendly o Cal.com cae en esa etapa de ese CRM (y no en el principal). Las
+  // mismas funciones que las server actions de la pantalla (app/crm/agenda-evento-actions.ts). Los
+  // identificadores van SIN enum: son URIs e ids de la cuenta del negocio.
+  {
+    id: 'listar_eventos_agenda', area: 'crm', tipo: 'lectura',
+    titulo: 'Eventos de agenda y su etapa',
+    descripcion: 'Los tipos de evento de Calendly y Cal.com del negocio: cuál es la R1 o la R2 de Integraciones y a qué etapa de reunión de qué CRM está vinculado cada uno (quien lo reserva cae en esa etapa). Trae las etapas que se pueden vincular. Paso previo a vincular_evento_etapa. Solo el administrador.',
+    parametros: [],
+    salida: 'json', canales: TODOS, costo: 'gratis', gating: TAB_ADMIN,
+  },
+  {
+    id: 'vincular_evento_etapa', area: 'crm', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Vincular un evento a una etapa',
+    descripcion: 'PROPONE vincular un evento de Calendly o Cal.com a una etapa de reunión de un CRM (queda pendiente hasta el «sí»): desde ahí, quien lo reserva cae en esa etapa de ese CRM; si ya está en otro, se lo agrega sin moverlo. Un evento va a una sola etapa. Evento, embudoId y etapa salen de listar_eventos_agenda. Solo el administrador.',
+    parametros: [
+      { nombre: 'proveedor', tipo: 'string', obligatorio: true, enum: ['calendly', 'calcom'], descripcion: 'la agenda: calendly o calcom.' },
+      { nombre: 'evento', tipo: 'string', obligatorio: true, max: 300, descripcion: 'el identificador del evento (de listar_eventos_agenda), o su nombre.' },
+      { nombre: 'embudoId', tipo: 'number', obligatorio: true, entero: true, minimo: 1, descripcion: 'el CRM, por el id de su embudo (de listar_eventos_agenda).' },
+      { nombre: 'etapa', tipo: 'string', obligatorio: true, max: 80, descripcion: 'key de la etapa de reunión (de listar_eventos_agenda).' },
+    ],
+    canales: TODOS, costo: 'gratis', gating: TAB_ADMIN,
+    reversible: true, escribe: 'guarda el vínculo del evento con la etapa (agenda_evento_etapa) y lo registra en el índice de webhooks (webhook_routing); sus reservas pasan a caer en esa etapa de ese CRM',
+  },
+  {
+    id: 'desvincular_evento_etapa', area: 'crm', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Desvincular un evento de su etapa',
+    descripcion: 'PROPONE sacar el vínculo de un evento de Calendly o Cal.com con su etapa (queda pendiente hasta el «sí»): sus reservas vuelven a la R1 o R2 de Integraciones y al CRM principal. Solo el administrador.',
+    parametros: [
+      { nombre: 'proveedor', tipo: 'string', obligatorio: true, enum: ['calendly', 'calcom'], descripcion: 'la agenda: calendly o calcom.' },
+      { nombre: 'evento', tipo: 'string', obligatorio: true, max: 300, descripcion: 'el identificador del evento (de listar_eventos_agenda), o su nombre.' },
+    ],
+    canales: TODOS, costo: 'gratis', gating: TAB_ADMIN,
+    reversible: true, escribe: 'borra el vínculo del evento (agenda_evento_etapa) y suelta su fila del índice de webhooks si ya nadie la usa',
+  },
+
   // ── Acciones heredadas ─────────────────────────────────────────────────────────
   {
     id: 'proponer_cambio_etapa', area: 'crm', tipo: 'accion', confirmacion: 'chat', tipoPendiente: 'lead_etapa',

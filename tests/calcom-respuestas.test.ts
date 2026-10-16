@@ -343,6 +343,10 @@ test('CABLEADO: la agenda R1 inscribe por evento, como Calendly, después de cre
   assert.ok(iUpsert > 0 && iEnrolar > iUpsert, 'se inscribe al lead que acaba de quedar creado');
   // Y no en la cancelación ni en la R2.
   const iCancela = RUTA.indexOf("if (accion === 'cancela')");
-  const iR2 = RUTA.indexOf("if (tipo === 'j2')");
+  // La rama de la R2 abre con `!decision.puedeCrearLead` desde el 16/10/2026 (antes `tipo === 'j2'`: la R la decide
+  // `decidirReserva`, lib/agenda-evento-etapa.ts). Con la marca vieja `indexOf` daba -1 y esto pasaba SOLO: se exige
+  // que las dos marcas estén, para que el próximo cambio de marca falle en vez de aflojarse.
+  const iR2 = RUTA.indexOf('if (!decision.puedeCrearLead)');
+  assert.ok(iCancela > 0 && iR2 > 0, 'no encontré la cancelación o la rama de la R2');
   assert.ok(iEnrolar > iCancela && iEnrolar > iR2);
 });
