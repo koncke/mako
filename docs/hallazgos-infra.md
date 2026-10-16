@@ -2366,10 +2366,18 @@ no tiene protección (en privado Free no se puede: las reglas piden Pro), así q
 `GITHUB_TOKEN` puede avanzarla. La credencial del clon pushea pero no es admin: los ajustes de
 Actions del repo no se pudieron leer.
 
-**Lo que NO está medido** y hay que mirar en el primer run: cuántos minutos gasta, si toda la
-suite da verde en Linux (puede haber tests que dependan de archivos que sólo están en la
-notebook), y si Vercel despliega el fast-forward que hace Actions (los pushes del `GITHUB_TOKEN`
-no disparan otros workflows; los webhooks de apps, como el de Vercel, sí deberían).
+**Medido en los primeros runs (coordinador, 15/10 a la noche):** el run 38825749646 dio verde —
+tipos y **10.500 tests en ~10 min**—, avanzó `main` a `24c0ad441` por fast-forward, y **Vercel
+desplegó solo el push que hizo Actions** (Ready): lo que estaba sin medir quedó confirmado. El
+primero había caído por UN test que armaba su cwd con `.pathname.replace(/^\//, '')`: en Linux
+deja una ruta relativa y `git` da ENOENT (arreglado con `fileURLToPath` en
+`fuentes-sin-next-font`; la regla, en AGENTS.md). El segundo se canceló por un rojo REAL de
+Automations, y el sistema hizo lo que tenía que hacer: `main` no avanzó. Barrido después: no
+queda ningún test con la forma rota (`.pathname.replace(/^\/([A-Za-z]:)/, '$1')`, la variante
+que aparece en dieciséis tests, anda en los dos sistemas porque en Linux no toca nada); el único que daba
+un verde vacío en Linux era el del pre-push, que leía `.git/hooks/pre-push` y ahí se salteaba:
+ahora lee la copia versionada, y otro test exige que el instalado sea igual a ella. Con ~10 min
+por run, los 2.000 minutos alcanzan para ~200 pushes por mes.
 
 **El vigía, en la misma tanda:** se levanta solo (un disparador cada 5 min además del de inicio de
 sesión: el 13/10 estuvo 6 horas muerto con un solo disparador; probado matándolo, volvió en 21 s),

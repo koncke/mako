@@ -301,10 +301,22 @@ worktree, encontraron por separado los mismos 7 rojos en cuatro tests que cortab
 con `'\n}\n'`: en el clon los archivos estaban en LF y pasaban. Todo test que haga
 `readFileSync` de un fuente normaliza con `.replace(/\r\n/g, '\n')` ANTES de buscar.
 
+⚠️ **Y LOS TESTS CORREN TAMBIÉN EN LINUX (GitHub Actions): una ruta sale de `fileURLToPath`,
+nunca de `.pathname`.** El 15/10/2026 el primer run de Actions cayó por un test que armaba
+su cwd con `new URL('..', import.meta.url).pathname.replace(/^\//, '')`: en Windows deja
+`C:/…`, en Linux deja una ruta RELATIVA (`home/runner/…`) y `git` contesta ENOENT. Va
+`fileURLToPath(new URL('..', import.meta.url))` (o `dirname(fileURLToPath(import.meta.url))`),
+que además decodifica los `%20`. Y lo mismo vale para lo que en la notebook existe y en Linux
+no: un test que lee algo fuera de git (`.git/hooks`, `.next/`, el home) **lee la copia
+versionada**, o se saltea diciendo por qué. Uno que se saltea mudo da verde sin haber mirado
+nada (pasaba con el del pre-push hasta ese mismo día).
+
 ⚠️ **Si el árbol compartido tiene trabajo ajeno que no compila, se pushea desde un worktree
 limpio — nunca con `--no-verify`.** `git worktree add --detach <ruta> main`, un junction a
-`node_modules` (`New-Item -ItemType Junction`), `git push origin HEAD:main` desde ahí, y
-después `git worktree remove --force` + `git worktree prune`.
+`node_modules` (`New-Item -ItemType Junction`), `git push origin HEAD:integracion` desde ahí, y
+después `git worktree remove --force` + `git worktree prune`. Desde el 15/10 casi no hace
+falta: un push a `integracion` ya no corre el `tsc` sobre el árbol de trabajo, y Actions
+chequea el COMMIT, no el disco.
 
 ⚠️ **Y en ese worktree `npm run build` NO corre tal cual**: con `node_modules` como junction,
 Turbopack aborta con «Symlink [project]/node_modules is invalid, it points out of the filesystem

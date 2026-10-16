@@ -43,13 +43,12 @@ test('npm run typecheck pasa por el lock, no llama a tsc directo', () => {
  * Verificado rompiéndolo: con el hook llamando `npm run --silent typecheck` a secas,
  * 1 fallo / 2 pases; con el lock cableado, 3 pases.
  */
-test('el pre-push de este clon pasa el typecheck por el lock', () => {
-  let hook: string;
-  try {
-    hook = leer('../.git/hooks/pre-push');
-  } catch {
-    return; // sin hook (clon nuevo o worktree): nada que exigir acá
-  }
+test('el pre-push pasa el typecheck por el lock', () => {
+  // Se lee la copia VERSIONADA (scripts/claude-hooks/pre-push), que existe en todos lados.
+  // Hasta el 15/10/2026 se leía .git/hooks/pre-push, que en GitHub Actions no existe: ahí el
+  // test se salteaba y daba verde sin haber mirado nada. Que el instalado sea esa misma copia
+  // lo fija el test de abajo.
+  const hook = leer('../scripts/claude-hooks/pre-push');
   assert.match(
     hook,
     /typecheck-lock\.mjs/,
@@ -62,6 +61,20 @@ test('el pre-push de este clon pasa el typecheck por el lock', () => {
     /git rev-parse --git-common-dir/,
     'la ruta del lock sale de --git-common-dir (el clon principal), no cableada a mano: ' +
       'cableada, el hook deja de funcionar si alguien mueve o reclona el repo.',
+  );
+});
+
+const hookInstalado = (() => { try { return leer('../.git/hooks/pre-push'); } catch { return null; } })();
+
+test('el pre-push instalado es la copia del repo', { skip: hookInstalado === null && 'sin hook instalado (GitHub Actions, un worktree o un clon nuevo)' }, () => {
+  // Los hooks no se versionan: si alguien edita el instalado y no la copia (o al revés), los
+  // tests de arriba miran un hook que no es el que corre. Verificado rompiéndolo: cambiar el 99
+  // de la copia da 2 fallos (la regla del 99 y ésta).
+  assert.equal(
+    hookInstalado,
+    leer('../scripts/claude-hooks/pre-push'),
+    '.git/hooks/pre-push difiere de scripts/claude-hooks/pre-push: reinstalalo con la receta de AGENTS.md ' +
+      '(avisándole antes al coordinador: lo comparten todos los chats), o subí el cambio a la copia.',
   );
 });
 
@@ -136,9 +149,9 @@ test('el lock distingue «no pude chequear» de «hay errores» con un código p
     /soltar\(\);\s*\n\s*process\.exit\(SALIDA_SIN_CHEQUEAR\);/,
     'el freno por falta de RAM también sale con SALIDA_SIN_CHEQUEAR',
   );
-  // Y el hook tiene que mirarlo, o el mensaje final vuelve a mentir.
-  let hook: string;
-  try { hook = leer('../.git/hooks/pre-push'); } catch { return; }
+  // Y el hook tiene que mirarlo, o el mensaje final vuelve a mentir. Se lee la copia
+  // VERSIONADA: el hook instalado no existe en GitHub Actions y ahí esto se salteaba.
+  const hook = leer('../scripts/claude-hooks/pre-push');
   assert.match(hook, /-eq 99/, 'el pre-push distingue el 99 y no dice «hay errores de tipos»');
   assert.match(hook, /NO es un error de tipos/, 'y lo dice con todas las letras');
 });
