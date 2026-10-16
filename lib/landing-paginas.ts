@@ -68,6 +68,10 @@ const PARAMS_DE_MEDICION = [
   // carga y el flag que esconde su badge. Los tres cambian en cada recarga del
   // editor, así que sin esto una tarde de edición deja veinte renglones.
   '__lovable_sha', '__lovable_load_id', 'forceHideBadge',
+  // El de la lectura de MaKo (PARAM_LEER de lib/editor-landing/lector.ts): cambia en cada lectura, y un Pixel pegado
+  // ANTES del 16/10 que pierda la ventana de MaKo (la página se recargó sola) la mediría como una página nueva por
+  // lectura. Así cae en la misma página (revisión de la tanda 8). Una página real nunca lo trae.
+  'mako_leer',
 ];
 
 function hostCanonico(hostname: string): string {

@@ -465,7 +465,10 @@ export const SCRIPT_PAGINA = [
   "      entradas[j].target.classList.add('gm-visto');",
   '      io.unobserve(entradas[j].target);',
   '    }',
-  "  }, { rootMargin: '0px 0px -6% 0px', threshold: 0.06 });",
+  // threshold 0, no 0.06 (revisión de la tanda 8, 16/10/2026): una sección más alta que ~16 pantallas (una «Página
+  // web» copiada con su HTML entero, un FAQ larguísimo en el teléfono) nunca llegaba a mostrar el 6 % de su alto, y
+  // con gm-anim quedaba en opacity 0 PARA SIEMPRE. Con 0 entra en cuanto cruza la línea del margen (-6 % de abajo).
+  "  }, { rootMargin: '0px 0px -6% 0px', threshold: 0 });",
   '  var alto = w.innerHeight || (d.documentElement && d.documentElement.clientHeight) || 0;',
   '  function tiene(el, c) { return !!(el && el.classList && el.classList.contains && el.classList.contains(c)); }',
   '  function sinAnimar(el) {',
@@ -545,6 +548,9 @@ export const SCRIPT_PAGINA = [
   "    var ts = sec.querySelectorAll ? sec.querySelectorAll('h1, h2, h3') : [];",
   '    for (var a = 0; a < ts.length; a++) {',
   '      if (conDegradado(ts[a])) continue;',
+  // Un título con un enlace o un botón adentro no se parte (revisión de la tanda 8): los pedazos van aria-hidden, y
+  // el enlace se quedaba sin nombre accesible (WCAG 4.1.2); el aria-label del título no lo anuncian todos los lectores.
+  "      if (ts[a].querySelectorAll && (ts[a].querySelectorAll('a').length || ts[a].querySelectorAll('button').length)) continue;",
   "      var nodos = [], rotulo = { t: '' };",
   '      juntar(ts[a], nodos, rotulo);',
   '      var largo = rotulo.t.length;',

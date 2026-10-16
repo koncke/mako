@@ -1831,6 +1831,40 @@ servida con `ctx.route` y la red cortada, Chromium sin ventana, CPU ×4, a 390×
   arriba, porque el hero de las plantillas es corto y 3 secciones entran en la primera pantalla.
 - **Sin medir:** que un título con degradado partido se vea vacío mientras anima (sólo se comprobó que no se parte).
 
+### La revisión adversarial de lo invisible (16/10/2026)
+
+**Vive en:** `lib/editor-landing/pagina-publica.ts` (el observador, `partirTitulos`) · `app/web-generator/editor/animacion-reglas.ts`
+(`ENTRADA_EN_PANTALLA`) · `lib/landing-token.ts` (el Pixel, `PARAM_LEER`) · `lib/landing-paginas.ts` (`PARAMS_DE_MEDICION`) ·
+`lib/landing-analyst.ts` (`analizarLanding`) · `lib/editor-landing/replicar-animaciones.ts` (`scrollEnHtml`, `etiquetas`)
+
+Un agente de sólo lectura repasó las ocho preguntas de lo invisible. Quedaron bien: las publicadas viejas con el script
+nuevo, nada escondido en la app, el saneo, la API, Replicar sin ejecutar nada ajeno, `claveDeLanding`, el opener y
+«Editar con IA»/«Aplicar» conservando los attrs. Lo que encontró, todo arreglado salvo lo último:
+- **(MEDIA, de antes) Una sección más alta que ~16 pantallas quedaba INVISIBLE para siempre.** El observador entraba con
+  `threshold: 0.06`, y una sección de más de ~13.000 px (una «Página web» copiada con su HTML entero, un FAQ larguísimo
+  en el teléfono) nunca llegaba a mostrar el 6 % de su alto: con `gm-anim`, opacity 0 sin vuelta. Ahora `threshold: 0`
+  (entra al cruzar la línea del margen), en la publicada y en el ▶ del editor (el test del panel los ata). Va en el
+  SCRIPT: le llega a todas las publicadas sin republicar. Sin medir en Chromium (la regla de RAM): lo sostienen la cuenta
+  y el comportamiento del observador por debajo del primer umbral.
+- **(MEDIA, de esta tanda) El opener suelto en el camino del Pixel ensuciaba las analíticas.** Si la landing se recargaba
+  sola durante una lectura, el documento nuevo ya no veía el opener y su Pixel medía una visita real con `?mako_leer=<id>`
+  (una página basura por lectura). Ahora el Pixel (`/m.js`, la versión que se sirve siempre) no mide nunca con un
+  `mako_leer` válido, haya o no opener; y `mako_leer` pasó a los parámetros de medición, así que con un Pixel pegado
+  antes cae en la misma página. ⚠️ El primer test de esto dio verde SIN el arreglo: el arnés chocaba contra lo que no
+  simulaba antes de llegar a medir, y «0 pedidos» salía igual. Se afinó marcando si el script llega a leer la cookie del
+  visitante (lo primero que hace al medir): con eso la rotura cae.
+- **(BAJA) Los títulos con un enlace o un botón adentro perdían el nombre accesible del enlace** (los pedazos van
+  `aria-hidden`; WCAG 4.1.2). Ahora no se parten.
+- **(BAJA) El arreglo del 403 no cubría lo leído en el navegador ni el texto pegado**: esas ramas guardaban la llave como
+  `url_final`. Ahora guardan lo que pegó la persona si es la misma landing.
+- **(BAJA) Buscar efectos de scroll en el HTML era cuadrático** con un «<a » repetido sin cerrar (240 KB → 43 s, medido) y
+  trababa el server, que baja hasta 5 MB al replicar. Acotar las regex a 2.000 bajó a 1,4 s pero seguía creciendo; ahora
+  `etiquetas` recorre etiqueta por etiqueta en una pasada (5 MB → 6 ms) y un «<» suelto no se traga lo de después.
+- **Sin hacer (latente; ANTES de prender el video de fondo):** si la IA o la API ponen una imagen nueva en el hero, el
+  `videoFondo` no se borra y su póster tapa la imagen nueva; y «Probar nuevo diseño» pasa a `diseno: 'sin'` un hero que
+  sólo tiene video. El arreglo: tratar `videoFondo` como el acento (reemplazar la imagen lo borra; si hay video, cuenta
+  como imagen). **Vive en:** `lib/editor-landing/ia-bloques.ts:933`, `lib/editor-landing/ia-reglas.ts:796`.
+
 ### Trampas del entorno de esta tanda
 
 - **Mandarle un mensaje a un agente que está DENTRO de un Workflow no le llega: levanta una COPIA desde su transcript.**

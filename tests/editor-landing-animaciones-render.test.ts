@@ -623,3 +623,25 @@ test('un título largo de a letra termina de entrar en 5 s como mucho; uno corto
   assert.ok(ultimo > lugar(us[0]), 'siguen entrando de a uno, en orden');
   assert.deepEqual(unidades(corto).map((u) => u.getAttribute('style')), ['--gm-u:0', '--gm-u:1', '--gm-u:2', '--gm-u:3'], 'uno corto no cambia');
 });
+
+// Revisión de la tanda 8 (16/10/2026): (a) un título con un enlace o un botón adentro no se parte (los pedazos van
+// aria-hidden y el enlace se quedaba sin nombre accesible); (b) el observador entra con threshold 0: con 0.06, una
+// sección más alta que ~16 pantallas no llegaba nunca a mostrar el 6 % y quedaba en opacity 0 para siempre.
+// Roturas (a mano y restaurado; base en verde: 19 / 0 en este archivo):
+//   · partirTitulos sin la guarda del enlace ............................................. 18 / 1 (éste)
+//   · el observador de vuelta con threshold: 0.06 ........................................ 18 / 1 (éste)
+test('un título con un enlace no se parte, y el observador entra con threshold 0 (una sección muy alta no queda escondida)', () => {
+  const conEnlace = el('h2', {}, el('a', { href: '#agenda' }, 'Agenda tu llamada'));
+  const conBoton = el('h3', {}, 'Hola ', el('button', {}, 'ver'));
+  const normal = el('h2', {}, 'Sin enlace');
+  const raiz = el('main', {},
+    seccionDom({ 'data-anim': 'desvanecer' }, [0, 800], el('h1', {}, 'Arriba')),
+    seccionDom({ 'data-anim': 'desvanecer', 'data-anim-texto': 'palabra' }, [1600, 2400], conEnlace, conBoton, normal),
+  );
+  correr(raiz).correr();
+  assert.equal(unidades(conEnlace).length, 0, 'el título con enlace entra entero');
+  assert.equal(conEnlace.getAttribute('aria-label'), null);
+  assert.equal(unidades(conBoton).length, 0, 'el título con botón entra entero');
+  assert.equal(unidades(normal).length, 2, 'uno sin enlace se sigue partiendo');
+  assert.ok(SCRIPT_PAGINA.includes("{ rootMargin: '0px 0px -6% 0px', threshold: 0 }"), 'el observador entra con threshold 0');
+});
