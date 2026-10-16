@@ -165,7 +165,10 @@ en el acto se iba del editor con el cambio a medias. Borrar OTRA landing confirm
 la manda a la Papelera (se restaura); la ABIERTA nunca se borra desde el chat: se dice dónde está «⋯ › Eliminar». Si la
 ruta falla o tarda más de `PLAZO_PEDIDOS_MS`, el mensaje entero va a «editar», como antes.
 
-- **Automations**: su función en `objetosDeTab` y el fetch de arriba en su chat.
+- **Automations**: su función en `objetosDeTab` y el fetch de arriba en su chat. **16/10/2026: hecho en la rama
+  `wip/automations-pedidos`, SIN SUBIR**: la revisión encontró regresiones del chat de siempre, varias del resolver
+  (con el lienzo vacío, «crea una automatización» es de ESTA; un nombre de otra dentro de una edición no es un pedido
+  aparte). Detalle en docs/hallazgos-chatbot.md («Los pedidos sueltos en el chat de Automations»).
 - **El chat único del Second Brain** (Centro de Operaciones): el mismo fetch con `tab` = el área de lo que esté abierto.
 - **Correr la operación de OTRA tab** desde la burbuja: hoy `otra-tab` deja el link (y la operación como dato); ejecutarla
   pasa por el registro (`ejecutar.ts`), que propone y confirma como siempre.

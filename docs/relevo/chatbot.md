@@ -11,11 +11,11 @@
 >   respaldo-store-ws1-meta.json).
 > - **El interruptor de «meta-cuenta-frenada» del ws1 se apagó A MANO** (decisión de Cerebro) y NO hay que prenderlo:
 >   con el evento, ese interruptor no lo lee nadie.
-> - **A medio subir (SIN COMMIT en `undecima`, C:/dev/wt-undecima):** los pedidos sueltos de Web Generator enganchados
->   en el chat de MaKo (app/automations/pedidos-chat.ts, pedidos-cliente.ts, ChatMako.tsx, la ruta app/api/mako/pedidos con
->   `chatbot`, el hilo de props hasta ChatAgentApp; test tests/automations-pedidos-chat.test.ts, 9/9 roturas cazadas,
->   tsc 0). Faltaba: el resultado de su revisión adversarial y de la suite completa, la cosecha y el hito. Y el arreglo
->   del nombre de las dos plantillas de la cuenta publicitaria (≤ 40) con su test.
+> - **Los pedidos sueltos de Web Generator en el chat de MaKo: en la rama `wip/automations-pedidos` (1639ae566), SIN
+>   SUBIR.** La revisión adversarial confirmó regresiones del chat de siempre (con el lienzo vacío, «crea una
+>   automatización» no llega a MaKo; un nombre de otra en una edición se lleva el mensaje; crear otra choca con lo no
+>   publicado). La lista y qué arreglar, en docs/hallazgos-chatbot.md («Los pedidos sueltos en el chat de Automations»).
+>   El arreglo del nombre de las plantillas de la cuenta publicitaria ya está en `undecima` (5d216e51c).
 > - **Siguiente (orden de Cerebro):** (2) la campanita de escritorio y el «sin grupo de MaKo» visible en la tarjeta
 >   (incluye el ws4 «Cliente de Diseño», que sin grupo reintenta cada hora). El mapeo con las trampas está en
 >   docs/hallazgos-comunicacion.md («La campanita de escritorio y el «sin grupo de MaKo»»). Después: el lote 2 y 3 de
