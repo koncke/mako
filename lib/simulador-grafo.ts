@@ -142,7 +142,26 @@ export type EstadoSim = {
    * (`asistirRespuesta` con `{ medio }`). Ausente = WhatsApp. Lo pone `iniciar`.
    */
   medio?: MedioAIStep;
+  /**
+   * EL MINUTO VIRTUAL DE LA PRÓXIMA REUNIÓN DEL LEAD (16/10/2026, Martín: «salen primero los "1 hora antes de la
+   * reunión" cuando tendrían que salir antes los "⏳ Esperar 5 min"... si tenemos varias condiciones de "antes de...",
+   * eso debe funcionar bien»). Con él, una espera «N antes de la reunión» lleva el reloj a la reunión menos N, como el
+   * motor (`nutricion-grafo-motor.ts`: si eso ya pasó, sigue enseguida). Sin él, no lo mueve: no hay de qué descontar.
+   * Lo pone `iniciar` desde los hechos del lead de la prueba (`reunionMinDe`).
+   */
+  reunionMin?: number;
 };
+
+/**
+ * El minuto (contado desde que el lead entra) de su próxima reunión, de los hechos de la prueba (`hechosDeLeadNuevo`:
+ * quien entra por una etapa de reunión tiene una mañana a esta hora). `undefined` = no tiene.
+ */
+export function reunionMinDe(hechos: HechosLead | null | undefined): number | undefined {
+  const r = hechos?.catalogo?.lead?.proximaReunionMs;
+  const ahora = hechos?.ahoraMs;
+  if (r == null || ahora == null || !Number.isFinite(r) || !Number.isFinite(ahora)) return undefined;
+  return Math.max(0, Math.round((r - ahora) / 60_000));
+}
 
 /** Los nombres que el texto de una píldora necesita y este módulo no tiene. */
 export type NombresSim = NombresParaTexto & {
@@ -368,12 +387,13 @@ export function correoDeEjemplo(
 
 // ── Recorrer ───────────────────────────────────────────────────────────────────
 
-export function iniciar(pasos: readonly PasoGrafo[], op: { medio?: MedioAIStep } = {}): EstadoSim {
+export function iniciar(pasos: readonly PasoGrafo[], op: { medio?: MedioAIStep; reunionMin?: number } = {}): EstadoSim {
   // Un hilo por raíz: la principal y cada flecha en paralelo del CRON, todas en el minuto 0.
   const hilos = raicesSalida(pasos).slice(0, TOPE_HILOS).map((cursor) => ({ cursor, reloj: 0 }));
   return {
     hilos, rama: 'salida', eligiendo: null, salidaPausada: false, terminado: false, saltos: 0, eventos: 0, ahora: 0, caso: null,
     ...(op.medio && op.medio !== 'whatsapp' ? { medio: op.medio } : {}),
+    ...(op.reunionMin != null ? { reunionMin: op.reunionMin } : {}),
   };
 }
 
@@ -464,11 +484,14 @@ function correrHilo<P extends PasoGrafo>(pasos: readonly P[], estado: EstadoSim,
     case 'esperar': {
       if (!h.esperado) {
         // No espera: suma al reloj de SU hilo y lo dice cuando le vuelve a tocar (ver `HiloSim`).
-        // «N antes de la reunión» no mueve el reloj: la prueba no tiene una reunión de la que
-        // descontar, y un número inventado ordenaría los hilos con un dato que no existe.
-        const min = p.espera?.modo === 'tiempo' ? Math.max(0, Number(p.espera.minutos) || 0) : 0;
+        // «N antes de la reunión» lleva el reloj a la reunión menos N, como el motor; si eso ya pasó, enseguida
+        // (16/10/2026: sin esto quedaba en el minuto 0 y salía antes que el «Esperar 5 min» de otro camino). Sin
+        // reunión no lo mueve: un número inventado ordenaría los hilos con un dato que no existe.
+        const min = Math.max(0, Number(p.espera?.minutos) || 0);
+        const reloj = p.espera?.modo === 'tiempo' ? h.reloj + min
+          : st.reunionMin != null ? Math.max(h.reloj, st.reunionMin - min) : h.reloj;
         const hilos = st.hilos.slice();
-        hilos[k] = { cursor: h.cursor, reloj: h.reloj + min, esperado: true };
+        hilos[k] = { cursor: h.cursor, reloj, esperado: true };
         return { evento: null, estado: { ...st, hilos } };
       }
       return { evento: { t: 'espera', nodo: id, texto: `⏳ ${textoEspera(p.espera)}` }, estado: { ...base, hilos: avanzar(h.reloj) } };
@@ -686,7 +709,7 @@ export function escenariosDePrueba(
     }
     cerrar(elec, dich, vistosAca, hechos);
   };
-  visitar(iniciar(pasosIn, { medio: o.medio }), new Map(), {}, [], []);
+  visitar(iniciar(pasosIn, { medio: o.medio, reunionMin: reunionMinDe(o.hechos) }), new Map(), {}, [], []);
 
   // CUÁNDO CAE CADA UNO, sólo con lo que lo DISTINGUE (visto en producción el 15/10/2026: «Tiene WhatsApp · Tiene email»
   // en los seis casos alargaban la píldora sin decir nada). Un hecho que vale lo mismo en todos los escenarios no va.
@@ -827,7 +850,7 @@ export const CONTACTO_COMPLETO: ContactoPrueba = { tieneTelefono: true, tieneEma
  */
 export function mensajesDelRecorrido<P extends PasoGrafo>(pasos: readonly P[], lead: LeadNuevoPrueba = {}, nombres: NombresSim = {}): P[] {
   const ahoraMs = lead.ahoraMs ?? Date.now();
-  let st = iniciar(pasos);
+  let st = iniciar(pasos, { reunionMin: reunionMinDe(hechosDeLeadNuevo({ ...lead, ahoraMs })) });
   let contactado = false;
   const out: P[] = [];
   // Cada vuelta muestra un evento o decide una condición: el tope de eventos corta cualquier bucle.
@@ -850,8 +873,8 @@ export function mensajesDelRecorrido<P extends PasoGrafo>(pasos: readonly P[], l
  * nodo). Una condición que el escenario no nombra corta ahí: no se inventa un camino. Lo que no es un mensaje no se
  * devuelve.
  */
-export function mensajesDelEscenario<P extends PasoGrafo>(pasos: readonly P[], elecciones: Readonly<Record<string, string>>, nombres: NombresSim = {}): P[] {
-  let st = iniciar(pasos);
+export function mensajesDelEscenario<P extends PasoGrafo>(pasos: readonly P[], elecciones: Readonly<Record<string, string>>, nombres: NombresSim = {}, op: { reunionMin?: number } = {}): P[] {
+  let st = iniciar(pasos, { reunionMin: op.reunionMin });
   const out: P[] = [];
   for (let vuelta = 0; vuelta < TOPE_EVENTOS * 2 + 4; vuelta++) {
     if (st.eligiendo) {
@@ -878,15 +901,17 @@ export function mensajesDelEscenario<P extends PasoGrafo>(pasos: readonly P[], e
 export function escenariosDeLaSecuencia(
   s: Parameters<typeof leadNuevoDelCron>[0] & { pasos: readonly PasoGrafo[]; estrategia: unknown },
   idDeClave: (clave: string) => number | null,
-): { pasos: PasoGrafo[]; escenarios: EscenarioPrueba[]; faltan: number } {
+): { pasos: PasoGrafo[]; escenarios: EscenarioPrueba[]; faltan: number; reunionMin?: number } {
   const pasos = flujoParaProbar(s.pasos as PasoGrafo[], s.estrategia as EstrategiaLegada, { idDeClave }).pasos;
+  const hechos = hechosDeLeadNuevo(leadNuevoDelCron(s));
   const { escenarios, faltan } = escenariosDePrueba(pasos, {
-    hechos: hechosDeLeadNuevo(leadNuevoDelCron(s)),
+    hechos,
     cuenta: (p) => (p.canal ?? 'whatsapp') === 'whatsapp',
   });
   // Sin los escenarios en que el lead CONTESTA (15/10/2026): por la API no hay quién escriba como el lead, y
   // `probar_secuencia` mandaría lo mismo que el primero. Son de la pantalla.
-  return { pasos, escenarios: escenarios.filter((e) => !e.respuesta), faltan };
+  // La reunión del lead de la prueba viaja: `mensajesDelEscenario` ordena con ella los «antes de la reunión».
+  return { pasos, escenarios: escenarios.filter((e) => !e.respuesta), faltan, reunionMin: reunionMinDe(hechos) };
 }
 
 /**

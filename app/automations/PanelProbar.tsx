@@ -111,7 +111,7 @@ import {
   flujoParaProbar, firmaFlujo, iniciar, siguiente, pausarPorRespuesta, entrarEnRespuesta,
   escenarioParaRedactar, textoDeEjemplo, correoDeEjemplo, debeSalirDeVerdad, burbujaDeArchivo,
   hechosDeLeadNuevo, leadNuevoDelCron, elegirComoLead, sanearDestinoPrueba, contactoParaProbar, CONTACTO_COMPLETO,
-  elegir, escenariosDePrueba, type EscenarioPrueba,
+  elegir, escenariosDePrueba, reunionMinDe, type EscenarioPrueba,
   type EstadoSim, type NombresSim, type OpcionRama, type MensajePrueba, type DestinosGuardados, type ContactoPrueba, type EmisorPrueba,
 } from '@/lib/simulador-grafo';
 import { partesDe, type ParteMensaje } from '@/lib/mensaje-partes';
@@ -972,6 +972,11 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
   const leadRef = useRef(leadDelCron);
   useEffect(() => { leadRef.current = leadDelCron; }, [leadDelCron]);
   /**
+   * LA REUNIÓN DEL LEAD DE LA PRUEBA, en minutos desde que entra (16/10/2026, `reunionMinDe`): los «antes de la reunión»
+   * se ordenan contra ella, como en el motor. La da el CRON (quien entra por una etapa de reunión la tiene mañana).
+   */
+  const reunionDeLaPrueba = (): number | undefined => reunionMinDe(hechosDeLeadNuevo(leadRef.current));
+  /**
    * Si el lead de la prueba tiene teléfono / email (sexta tanda, «Probar» 1): se ELIGE al arrancar
    * para que le llegue lo del canal que se prueba (`contactoParaProbar`). Lo usa cada condición.
    */
@@ -1263,7 +1268,7 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
   /** Arranca la prueba desde la primera tarjeta, con el flujo que se ve ahora. */
   const arrancarRefs = () => {
     flujoRef.current = flujoVivo;
-    simRef.current = iniciar(flujoVivo, { medio: medioIA });
+    simRef.current = iniciar(flujoVivo, { medio: medioIA, reunionMin: reunionDeLaPrueba() });
     contactoRef.current = contactoDe(flujoVivo);
     msgsRef.current = [];
     correosRef.current = [];
