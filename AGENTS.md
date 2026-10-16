@@ -3851,6 +3851,14 @@ voz con un mensaje que le pedía cargar otra key. Dos reglas al escribir un cami
   que el que falló, y con el motivo «⚠ red de plataforma»** (`provsGratisDePlataforma`; el molde
   es `transcribirAudio` en `lib/ai-cheap.ts`). Y los errores de la red viajan SEPARADOS de los
   del cliente: con ellos se fabricaría el texto que lee él.
+- ⚠️ **Y NADA LA CORTA ANTES: un `if (!(await docsIADisponible()))` (o `cheapDisponible`, o una
+  pregunta previa como `hayIAParaCrear`) delante de la llamada apaga la red sin que se note.** La
+  red queda escrita y no corre nunca para un cliente sin keys, que desde el 15/10/2026 es cualquier
+  cliente nuevo (el paso de la IA del wizard es opcional). Medido el 16/10: El Archivero tenía tres
+  cortes así y un cliente sin keys se trababa en el wizard; Offer y la API de MaKo, uno cada uno. Un
+  test que sólo mira que `redDePlataforma: true` esté escrito da VERDE con el corte puesto: el test
+  también pregunta qué hay ANTES (molde: `tests/onboarding-sin-api.test.ts`). «Conecta tu IA» se
+  dice DESPUÉS de que la red falló, con `errorDeCascada`.
 - **Un 429 del MINUTO también se cubre con otro modelo, y repetir un PEDIDO no repite
   herramientas.** El 07/10/2026 a Brigitte (una sola key) una pregunta de 6-8 pedidos de ~15k
   tokens llenó el cupo del minuto, y el 429 tiraba el turno con seis pasos hechos por una regla

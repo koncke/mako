@@ -250,4 +250,29 @@ export const BITACORA: Hito[] = [
       'tests/veto-claude-clave-negocio.test.ts — la frontera, probada rompiéndola',
     ],
   },
+  {
+    fecha: '16 oct', hora: '00:39', chat: 'Onboarding', sesion: 'local_79844152-91d5-49c1-b833-c917ed1fc4a6', cuenta: 'claude3',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'La red de la plataforma para la primera semana de un cliente sin API',
+    puntos: [
+      'Medido antes: la key de Gemini de la plataforma más usada hizo 29 pedidos en un día contra 250, y los 194 rechazos del 13/10 fueron por minuto y del propio ws9. Con 10 clientes nuevos por semana, por día alcanza.',
+      'Ads Writer, Offer, crear landing, crear automatización y buscar en el Second Brain, de a uno y con un test cada uno.',
+      '⚠️ **La red escrita no es la red corriendo:** El Archivero, Offer y la API de MaKo cortaban ANTES a quien no tenía keys propias. El de El Archivero trababa el wizard. Regla en AGENTS.md.',
+      'El análisis del lead quedó afuera: datos personales de los leads por las keys de la agencia, que pueden estar en el plan gratis de Google. Lo decide Martín.',
+    ],
+    commits: [
+      { sha: 'cb2bf9cf', msg: 'IA: Ads Writer corre con la red de la plataforma para un cliente sin API', lineas: 70, archivos: 3 },
+      { sha: 'bdf04eb6', msg: 'IA: Offer corre con la red de la plataforma para un cliente sin API', lineas: 60, archivos: 5 },
+      { sha: 'fe0b43f9', msg: 'IA: crear una landing corre con la red de la plataforma para un cliente sin API', lineas: 20, archivos: 2 },
+      { sha: 'daebfcc8', msg: 'Onboarding: El Archivero ya no corta a quien no tiene IA propia antes de la red', lineas: 77, archivos: 4 },
+      { sha: '5b4c7999', msg: 'IA: crear una automatización con IA por MaKo cuenta la red de la plataforma', lineas: 34, archivos: 2 },
+      { sha: 'b9b7fc10', msg: 'IA: buscar en el Second Brain corre con la red de la plataforma', lineas: 11, archivos: 2 },
+    ],
+    archivos: [
+      'tests/red-primera-semana.test.ts — un test por herramienta, probado rompiéndolo',
+      'app/api/onboarding/archivero/route.ts — sin los tres cortes antes de la red',
+      'lib/offer-ia.ts — `pedir` ya no corta a quien no tiene IA propia',
+      'lib/flujo-ia-crear.ts — `hayIAParaCrear` cuenta la red',
+    ],
+  },
 ];

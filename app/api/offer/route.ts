@@ -414,7 +414,8 @@ async function leer(ws: number, body: Record<string, unknown>, inicio: number): 
     if (error || !data) return no(400, `No encontré «${nombre}» en la subida. Vuelve a subirlo.`);
     const contenido = new Uint8Array(await data.arrayBuffer());
     const file = new File([contenido], nombre, { type: mime || data.type || '' });
-    const lectura = await archivoATexto(file, { feature: 'offer', motivo: `Offer: leer «${nombre}»` });
+    // Con la red: Offer es de la primera semana de un cliente nuevo, que no trae una API (16/10/2026).
+    const lectura = await archivoATexto(file, { feature: 'offer', motivo: `Offer: leer «${nombre}»`, redDePlataforma: true });
     const texto = (lectura.texto ?? '').trim();
     if (!texto) return no(422, lectura.warning || `No pude sacar texto de «${nombre}». Si es una foto o un escaneo borroso, prueba con otra versión o pega el texto en el chat.`);
     const recortado = texto.length > TOPE_TEXTO_DOC;

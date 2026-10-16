@@ -190,6 +190,9 @@ export async function generarRazones(): Promise<GenResult> {
       feature: 'razones', motivo: 'Matriz de motivaciones de compra por avatar',
       provs: CASCADA_DOCS, modelos: MODELO_DOCS, validar: (t) => parseRazones(t, avatares).length > 0,
       erroresOut: errores,
+      // Es de lo primero que toca un cliente nuevo, y desde el 15/10/2026 un cliente nuevo no
+      // trae una API: sin la red ve «conecta tu IA» en su primera semana (docs/mapa-ia-24h.md).
+      redDePlataforma: true,
     });
     if (!text) return { ok: false, error: await errorDeCascada(errores, 'generar las razones') };
     const razones = parseRazones(text, avatares);
@@ -397,6 +400,7 @@ Devolvé solo el JSON.`;
       feature: 'razones', motivo: fijado ? `Preguntas cerradas del ángulo ${fijado.nombre}` : 'Sugerencia de ángulo y estructura del guion',
       provs: CASCADA_DOCS, modelos: MODELO_DOCS, validar: (t) => parsear(t) !== null,
       erroresOut: errores,
+      redDePlataforma: true, // primera semana de un cliente sin API (ver generarRazones)
     });
     if (!text) return { ok: false, error: await errorDeCascada(errores, 'preparar el guion') };
     const sugerencia = parsear(text);
@@ -519,6 +523,7 @@ Escribe el guion del video con el ángulo "${angulo.nombre}" y la estructura "${
       feature: 'razones', motivo: `Guion de video (ángulo ${angulo.nombre})`,
       provs: CASCADA_DOCS, modelos: MODELO_DOCS, validar: (t) => t.trim().length > 40,
       erroresOut: errores,
+      redDePlataforma: true, // primera semana de un cliente sin API (ver generarRazones)
     });
     if (!texto.trim()) return { ok: false, error: await errorDeCascada(errores, 'escribir el guion') };
     const item: GuionItem = {
