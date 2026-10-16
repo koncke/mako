@@ -27,6 +27,7 @@ import { getRolWsEfectivo, getWorkspaceActual, OWNER_WS, wsSuperAdmin } from '@/
 import { verificarServicio } from '@/lib/metodo-verificar';
 import { descubrirMeta, pixelesDeCuenta } from '@/lib/meta-descubrir';
 import { conectarMetaDisponible, guardarConexionMeta } from '@/lib/meta-conexion';
+import { arrancarHistoricoEnSegundoPlano } from '@/lib/onboarding-extract';
 import { leerResultadoMeta } from '@/lib/meta-login';
 import { descubrirGithub } from '@/lib/github-descubrir';
 import { ayudaDeCampo, ENVS_METODO, servicioDeEnv, servicioMetodo } from '@/lib/metodo-catalogo';
@@ -311,6 +312,8 @@ export async function POST(req: NextRequest) {
         await auditarCredencial(ctx.ws, env, 'guardar', ctx.autor);
         guardadas++;
       }
+      // Los campos de Meta guardados a mano también conectan Meta: arranca el histórico (una vez, en segundo plano).
+      if (servicio.key === 'meta' && guardadas > 0) await arrancarHistoricoEnSegundoPlano(ctx.ws);
       const estado = await estadoServicio(servicio.key, ctx);
       return NextResponse.json({ ok: true, guardadas, servicio: estado });
     }
@@ -456,6 +459,8 @@ export async function POST(req: NextRequest) {
       } else {
         return NextResponse.json({ ok: false, error: 'tipo inválido' }, { status: 400 });
       }
+      // Elegir la cuenta o la página es lo que destraba las métricas y los leads del histórico.
+      if (!conflicto) await arrancarHistoricoEnSegundoPlano(ctx.ws);
 
       const estado = await estadoServicio('meta', ctx);
       return NextResponse.json({

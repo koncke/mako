@@ -213,6 +213,11 @@ export async function POST(req: NextRequest) {
           }
           guardados++;
         }
+        // Guardar Meta conecta Meta: arranca el histórico (una vez, en segundo plano; lib/onboarding-extract.ts).
+        if (servicio.key === 'meta' && guardados > 0) {
+          const { arrancarHistoricoEnSegundoPlano } = await import('@/lib/onboarding-extract');
+          await arrancarHistoricoEnSegundoPlano(ws);
+        }
         return NextResponse.json({ ok: true, guardados, conectada: await integracionConectada(servicio.key) });
       }
 
