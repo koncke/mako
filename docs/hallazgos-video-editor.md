@@ -1039,8 +1039,24 @@ Hecho el 15/10 (pasos 2–4 del plan de subtítulos). Biblioteca › Subtítulos
   `ripple/iman.ts → conLoVinculado` y `subtitles/editar.ts → paramsConTexto`, y las usan el botón, el panel y el
   chat (test 42 del chat). `paramsConTexto` mira TODAS las palabras guardadas: el panel también perdía los
   tiempos al corregir un subtítulo partido con «Dividir».
-- **SIN HACER:** verlo en el navegador; copiar y pegar partes del video desde el texto; «Mostrar texto
-  eliminado»; marcar pausas y repeticiones (CapCut: «Pausa, repetición y duda»); CapCut fuerza el imán de la
+- **Visto en PRODUCCIÓN el 15/10** (hola-mako.com, Chrome de Martín, su negocio, un clip de 11 s con voz de
+  Windows): Whisper bajó el modelo (~2 min la primera vez) y subtituló; la «Transcripción» mostró un párrafo por
+  subtítulo, la palabra bajo el cabezal marcada y las 2 muletillas («Eh,», «Bueno,») aunque «Identificar las
+  muletillas» estaba APAGADO; «Eliminar las muletillas» llevó el video de 10:29 a 8:20; Deshacer y Rehacer
+  volvieron exacto; elegir «de prueba.» y el botón «Eliminar» quitó 0,9 s y dejó «Este es un video».
+- ⚠️ **Supr en la transcripción borraba además el CLIP elegido de la línea de tiempo** (medido ahí mismo: el
+  video pasó de 8:20 a 5:13 y se fue la frase entera). El atajo global (`actions/use-keybindings.ts`) escucha
+  en CAPTURA sobre el documento y sólo se aparta si el foco está en un campo de texto: un `div` con `tabIndex`
+  no lo es. Arreglado con `data-teclas-propias="delete backspace"`: el panel declara sus teclas y el atajo
+  global las respeta. Regla: un panel que usa una tecla que también es atajo global la declara así.
+- **Se colgó la pestaña al aplicar la plantilla «Palabra resaltada»**, con 1,2 GB libres en la máquina y el
+  modelo de Whisper cargado en la pestaña: no se pudo separar bug de falta de memoria (como el congelamiento
+  del 13/10 con «Agregar texto predeterminado»). Leyendo el dibujo del karaoke no hay un bucle que no termine.
+  Reproducirlo con RAM libre y la página recién cargada (sin Whisper en memoria). El dibujo no se puede probar
+  en node: arrastra el WASM.
+- **SIN HACER:** verlo en el navegador lo que falta (karaoke, el chat); copiar y pegar partes del video desde
+  el texto; la puntuación final de una palabra borrada se va con ella («…de prueba.» → «…video», sin punto);
+  «Mostrar texto eliminado»; marcar pausas y repeticiones (CapCut: «Pausa, repetición y duda»); CapCut fuerza el imán de la
   principal mientras se edita por transcripción (`pc_text_cut_mode_lock_cant_change`) y acá no.
 
 ## «Animaciones de subtítulos» (karaoke): la palabra que se dice cambia de color

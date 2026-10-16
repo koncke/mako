@@ -272,6 +272,15 @@ test('20: el corte y su deshacer no pasan por el imán (la cuenta ya trae todo e
   assert.equal((fuente.match(/updateTracks\([^)]*\{ sinIman: true \}\)/g) ?? []).length, 2);
 });
 
+test('21: Supr en la transcripción es de la transcripción: el atajo global no borra además el clip elegido', () => {
+  // Medido en producción el 15/10: elegir «de prueba.» y Supr borró el CLIP de 3 s que estaba
+  // elegido en la línea de tiempo (el atajo global escucha en captura sobre el documento).
+  const vista = readFileSync(new URL('../app/video-editor/_opencut/transcripcion/components/transcripcion-view.tsx', import.meta.url), 'utf8');
+  assert.ok(vista.includes('data-teclas-propias="delete backspace"'));
+  const atajos = readFileSync(new URL('../app/video-editor/_opencut/actions/use-keybindings.ts', import.meta.url), 'utf8');
+  assert.ok(atajos.includes('closest("[data-teclas-propias]")'), 'el atajo global mira si la tecla es de un panel');
+});
+
 test('16: tramosConClip separa lo que tiene clip debajo de lo que no', () => {
   const { con, sin } = tramosConClip(escena(), [[ms(1), ms(2)], [ms(11), ms(12)]]);
   assert.equal(con.length, 1);
