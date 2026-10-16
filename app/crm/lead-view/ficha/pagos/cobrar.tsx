@@ -20,9 +20,9 @@ import { nombreCuota } from '@/lib/pagos-campo';
 import { usd, type AccionDeCobro } from '@/lib/pagos-vistazo';
 import { marcarPagoAction } from '@/app/crm/actions';
 import { marcarPagoManualAction } from '@/app/crm/[id]/deal-actions';
-import { guardarCuotasAction, guardarVentaAction } from '@/app/crm/[id]/pagos-campo-actions';
+import { guardarVentaAction } from '@/app/crm/[id]/pagos-campo-actions';
+import { agregarCuotaAction } from './cuotas-actions';
 import { CobrarCuotaConLink } from '@/app/crm/[id]/CobrarConLink';
-import { esCuotaDevuelta } from '@/lib/cobrado-lead';
 import type { CtxFicha } from '../tipos';
 import { refrescarCobros, useCobrosDelLead, useMonedaDelNegocio } from './datos';
 import { Aviso, ElegirComoCobrar, MarcarPagada, RegistrarPago, VerComprobante } from './piezas';
@@ -75,7 +75,11 @@ export function useCobrar(ctx: CtxFicha) {
       await marcarPagoAction(q.id, lead.id, false, null);
       cambio();
       show(`${nombreCuota(q.numero)} desmarcada`, () => start(async () => {
-        await marcarPagoManualAction(q.id, lead.id, { fecha: q.fecha_pago ?? new Date().toISOString().slice(0, 10), hora: q.pago_hora ?? null }).catch(() => {});
+        // Con lo que tenía: la moneda, lo cobrado en ella, el concepto y el método (lo que no viene, el server lo limpia).
+        await marcarPagoManualAction(q.id, lead.id, {
+          monto: Number(q.monto_usd), fecha: q.fecha_pago ?? new Date().toISOString().slice(0, 10), hora: q.pago_hora ?? null,
+          moneda: q.moneda ?? null, montoOriginal: q.monto_original ?? null, concepto: q.concepto ?? null, metodo: q.metodo ?? null,
+        }).catch(() => {});
         cambio();
       }));
     } catch (e) { show(e instanceof Error ? e.message : String(e), undefined, 'bad'); }
@@ -127,11 +131,10 @@ function Caja({ titulo, onCerrar, pie, children }: { titulo: string; onCerrar: (
 
 /**
  * Una cuota FUTURA más, al final del plan: «Agregar la cuota» (lo que falta para llegar a la venta) o «+ Agregar
- * una cuota». Va por `guardarCuotasAction` con TODAS las impagas por su id (ninguna se borra ni cambia de id: de su
- * id cuelgan el link, el recordatorio y el dedup) más la nueva sin id.
+ * una cuota». Va SOLA (`agregarCuotaAction`): mandar todas las impagas con lo que tenía la pantalla le volvía a
+ * escribir su valor viejo a una que otra pestaña había cambiado (revisión del 16/10/2026).
  */
 function AgregarCuota({ ctx, faltaUsd, onCerrar, onHecho }: { ctx: CtxFicha; faltaUsd: number | null; onCerrar: () => void; onHecho: (m: string) => void }) {
-  const impagas = ctx.data.pagos.filter((q) => !q.pagado && !esCuotaDevuelta(q));
   const ultima = [...ctx.data.pagos].map((q) => q.fecha_esperada).filter((f): f is string => !!f).sort().pop() ?? ctx.hoy;
   const [monto, setMonto] = useState(faltaUsd ? String(faltaUsd) : '');
   const [fecha, setFecha] = useState(unMesDespues(ultima < ctx.hoy ? ctx.hoy : ultima));
@@ -142,9 +145,7 @@ function AgregarCuota({ ctx, faltaUsd, onCerrar, onHecho }: { ctx: CtxFicha; fal
     if (!Number.isFinite(m) || m <= 0) { setError('El monto tiene que ser mayor a cero.'); return; }
     if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) { setError('Falta la fecha.'); return; }
     start(async () => {
-      const r = await guardarCuotasAction(ctx.lead.id,
-        [...impagas.map((q) => ({ id: q.id, monto: Number(q.monto_usd), fecha: q.fecha_esperada })), { id: null, monto: m, fecha }],
-        null, impagas.map((q) => q.id));
+      const r = await agregarCuotaAction(ctx.lead.id, { monto: m, fecha });
       if (!r.ok) { setError(r.error); return; }
       onHecho(`Cuota de ${usd(m)} agregada`);
     });

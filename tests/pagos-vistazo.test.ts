@@ -24,6 +24,7 @@
 //   · los movimientos del más viejo al más nuevo;
 //   · un contracargo no es aviso;
 //   · el reconocedor de contracargos sin «La disputa se», o sin la fase de Mercado Pago (lib/cobros-reglas.ts).
+// Y la revisión del 16/10/2026, con 10 tests (10 / 0): lo devuelto ofrecido otra vez como lo que falta → 9 / 1.
 // Correr: node --import tsx --test tests/pagos-vistazo.test.ts
 // =============================================================================
 
@@ -77,6 +78,22 @@ test('una cuota DEVUELTA no es deuda: no se cobra, no suma al pendiente y se dic
   assert.equal(r.cuando, 'devuelta por Stripe');
   const e = estado({ cierre: 1000, pagos: [devuelta] });
   assert.deepEqual([e?.titular, e?.faltaUsd, e?.accion], ['Devuelto', 0, null], 'una venta devuelta no «todavía no tiene pagos»');
+});
+
+test('una devolución PARCIAL no se ofrece volver a cobrar: es «Devuelto en parte», sin botón', () => {
+  // Revisión del 16/10/2026: venta de 1000 en dos cuotas de 500, una devuelta por Stripe. Salía «Faltan $500 ·
+  // Agregar la cuota»: volver a cobrar lo que se devolvió.
+  const e = estado({ cierre: 1000, pagos: [
+    cuota({ numero: 1, monto_usd: 500, pagado: true, fecha_pago: '2026-10-01' }),
+    cuota({ numero: 2, monto_usd: 500, proveedor: 'stripe', cobro_id: 4 }),
+  ] });
+  assert.deepEqual([e?.titular, e?.accion, e?.faltaUsd], ['Devuelto en parte', null, 0]);
+  // Y lo que falta de verdad, además de lo devuelto, sí se ofrece.
+  const e2 = estado({ cierre: 1500, pagos: [
+    cuota({ numero: 1, monto_usd: 500, pagado: true, fecha_pago: '2026-10-01' }),
+    cuota({ numero: 2, monto_usd: 500, proveedor: 'stripe', cobro_id: 4 }),
+  ] });
+  assert.deepEqual([e2?.titular, e2?.accion?.tipo], ['Faltan $500', 'agregar-cuota']);
 });
 
 test('el renglón: la cobrada a mano se deshace; la de la pasarela, no (se devuelve en su cobro)', () => {

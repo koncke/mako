@@ -124,7 +124,8 @@ test('los cambios: poner, mover, ancho, diseño, y lo que no se puede', () => {
   assert.equal(diseno.ok, false, 'un diseño de otro bloque');
   assert.equal(aplicarCambio({}, { op: 'poner', tab: 'resumen', bloque: 'contacto' }, 'landing', R).ok, false, 'ya está');
   assert.equal(aplicarCambio({}, { op: 'quitar', tab: 'resumen', bloque: 'contacto' }, 'landing', R).ok, false, 'contacto no se quita');
-  assert.equal(aplicarCambio({}, { op: 'quitar', tab: 'pagos', bloque: 'cuotas' }, 'formulario-meta', R).ok, false, 'no está puesto');
+  // (16/10/2026: era `cuotas`, que desde la tab Pagos en bloques sí está en Formulario de Meta; `contrato` no.)
+  assert.equal(aplicarCambio({}, { op: 'quitar', tab: 'pagos', bloque: 'contrato' }, 'formulario-meta', R).ok, false, 'no está puesto');
   // Ya está así: nada que escribir.
   const igual = ok(aplicarCambio({}, { op: 'densidad', densidad: 'normal' }, 'landing', R));
   assert.equal(igual.cambio, false);
