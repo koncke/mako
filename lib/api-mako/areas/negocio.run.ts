@@ -25,7 +25,12 @@ import { generarPreguntasCerradas, getSchema } from '@/lib/onboarding';
 import { getDiagnosticoFase, setDiagnosticoFase } from '@/lib/fase-store';
 import { leerSesion, listarSesionesOffer } from '@/lib/offer-sesiones';
 import { PUNTOS_CONTROL, avisosAfirmables, dimensionLabel } from '@/lib/offer-marco';
-import { linkApp } from '@/lib/app-url';
+import { EMAIL_MAKO, linkApp } from '@/lib/app-url';
+import { suscripcionDeMakoDe } from '@/lib/cobros';
+import { getWorkspace } from '@/lib/workspace';
+import { capaDef } from '@/lib/capas';
+import { formatoMonto } from '@/lib/pasarela-moneda';
+import { NOMBRE_PASARELA } from '@/lib/cobros-tipos';
 import { lugarSeccion } from '@/lib/secciones-negocio';
 import { faseDef, diagnosticar, PREGUNTAS, CANALES, type CanalId } from '@/lib/fase-diagnostico';
 import { getEstadoOnboarding } from '@/lib/onboarding-state';
@@ -108,6 +113,22 @@ export const RUNNERS: Runners = {
       const campos = await camposPerfil(ctx.ws);
       const huecos = campos.filter((c) => c.valor == null).length;
       return json({ campos, total: campos.length, huecos, nota: '`pregunta` es cómo se le pide el dato al dueño, no el dato. `valor: null` = nunca se cargó.' });
+    },
+  },
+
+  // El plan de MaKo del negocio (15/10/2026, «Tu plan»): lo que la PLATAFORMA le cobra, leído por `alta_ws`.
+  ver_mi_plan: {
+    leer: async (_input, ctx) => {
+      const [ws, sus] = await Promise.all([getWorkspace(ctx.ws), suscripcionDeMakoDe(ctx.ws)]);
+      const plan = capaDef(ws?.capa).nombre;
+      const donde = linkApp('/configuraciones/plan', ctx.ws);
+      if (!sus) return json({ plan, cobro: 'acordado con MaKo', para_cambiar_o_cancelar: `escribir a ${EMAIL_MAKO}`, link: donde });
+      return json({
+        plan, cobro: NOMBRE_PASARELA[sus.proveedor], monto_por_mes: formatoMonto(sus.monto, sus.moneda),
+        estado: sus.suscripcion_estado === 'cancelada' ? 'cancelado' : 'activo',
+        para_cambiar_o_cancelar: sus.proveedor === 'stripe' ? 'el portal de Stripe, desde Tu plan' : 'el botón Cancelar de Tu plan',
+        link: donde,
+      });
     },
   },
 

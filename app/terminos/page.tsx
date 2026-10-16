@@ -23,7 +23,7 @@ export const metadata = {
   description: 'Las condiciones de uso de MaKo: qué hace, qué esperamos de ti y qué no prometemos.',
 };
 
-const ACTUALIZADO = '11 de octubre de 2026';
+const ACTUALIZADO = '15 de octubre de 2026';
 
 // ⚠️ Los mismos tres datos que en /privacidad, y por el mismo motivo: no salen
 // del código. Si cambian, cambian en los dos lugares. El responsable sale de la
@@ -173,9 +173,9 @@ export default function Page() {
           renuevan solos cada mes, con el mismo medio de pago, hasta que los canceles.
         </li>
         <li>
-          <strong>Puedes cancelar cuando quieras</strong>, escribiéndonos a{' '}
-          <a href={`mailto:${EMAIL_MAKO}`}>{EMAIL_MAKO}</a>. Cancelar corta el cobro siguiente: no se
-          te vuelve a cobrar.
+          <strong>Puedes cancelar cuando quieras</strong>, tú mismo desde <strong>Configuración del negocio → Tu
+          plan</strong>, o escribiéndonos a <a href={`mailto:${EMAIL_MAKO}`}>{EMAIL_MAKO}</a>. Cancelar corta el
+          cobro siguiente: no se te vuelve a cobrar.
         </li>
         <li>
           Lo que ya pagaste se devuelve sólo en los casos de la{' '}

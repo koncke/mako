@@ -704,6 +704,23 @@ un aviso —el nuevo enmascarado, por si el anterior era de un desconocido— co
 después del cambio, como MaKo (la key y el remitente de la plataforma), y no frena la respuesta.
 **Vive en:** `lib/invitaciones.ts` (`avisarCambioDeEmailDeAcceso`) · `app/api/pagar/email/route.ts` · `tests/pagar-publico.test.ts`.
 
+### «Tu plan»: cancelar uno mismo, y lo que cancelar todavía NO hace (15/10/2026)
+
+**Qué es:** «Configuración del negocio → Tu plan» (app/configuraciones/plan), como todo SaaS (lo decidió Estrategia).
+El plan del negocio es el cobro de la PLATAFORMA cuya alta creó ese workspace (`alta_ws`): se lee con el cliente de
+servicio y SÓLO por `alta_ws = ws`, porque el cobro es de otro inquilino. Stripe abre su portal de cliente (cancelar al
+final del período, tarjeta, facturas); Mercado Pago, que no tiene portal, cancela con un botón; sin cobro por la
+pasarela, «escríbenos».
+**Dos trampas del portal de Stripe:** sin una configuración GUARDADA en la cuenta, crear la sesión falla en modo real
+(se crea si no hay una por defecto); y la sesión no lleva Idempotency-Key: es de un uso y vence en minutos, y una clave
+repetida devolvería, dentro de las 24 h, una sesión vencida.
+**Lo que cancelar NO hace:** dejar de cobrar no le saca el plan al workspace. No existe el estado de suscripción por
+workspace (la fila «Estado de suscripción por workspace» de la tabla de abajo): la capa queda. Cancelar corta la plata,
+no el acceso; eso sigue siendo a mano desde /admin.
+**Vive en:** `app/configuraciones/plan/*` · `lib/cobros.ts` (`suscripcionDeMakoDe`, `portalDeMiPlan`, `cancelarMiPlan`) ·
+`lib/stripe-api.ts` (`portalDeSuscripcionStripe`) · `lib/ajustes-secciones.ts` · la lectura `ver_mi_plan` de la API ·
+`tests/mi-plan.test.ts`.
+
 ### Cuatro «decisiones de Martín» que no eran suyas (15/10/2026)
 
 La tabla de abajo tenía seis filas marcadas «decisión de Martín». Pasadas por la vara de AGENTS.md (lo que copia lo que

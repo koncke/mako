@@ -142,6 +142,13 @@ export const DEFS: readonly OperacionDef[] = [
     salida: 'json', canales: TODOS, costo: 'gratis', gating: { rolMinimo: 'admin' },
   },
   {
+    id: 'ver_mi_plan', area: 'negocio', tipo: 'lectura',
+    titulo: 'Plan de MaKo del negocio',
+    descripcion: 'El plan de MaKo de este negocio y cómo se lo cobra MaKo: por Stripe o por Mercado Pago (con el monto por mes y si está activo o cancelado), o acordado a mano. Para cancelarlo o cambiar la tarjeta, el admin va a Configuración del negocio → Tu plan (la respuesta trae el link): MaKo no lo cancela por el chat.',
+    parametros: [],
+    salida: 'json', canales: TODOS, costo: 'gratis', gating: { rolMinimo: 'admin' },
+  },
+  {
     id: 'listar_tabs_por_configurar', area: 'negocio', tipo: 'lectura',
     titulo: 'Tabs que faltan configurar',
     descripcion: 'Las tabs que el plan del negocio incluye y que todavía no terminó de configurar (Ads Writer, Video Generator, WhatsApp, Automations, Email…), en el orden en que conviene hacerlas y con el link a cada una. Lista vacía = no le falta configurar ninguna. Úsala para «¿qué me falta configurar?» después del onboarding.',

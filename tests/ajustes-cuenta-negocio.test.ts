@@ -32,9 +32,10 @@ const TODAS = { general: true, integraciones: true, metodo: true };
 
 test('las dos listas: el orden y los rótulos que aprobó Martín', () => {
   assert.deepEqual(SECCIONES_CUENTA.map((s) => s.label), ['Información personal', 'Seguridad', 'Notificaciones', 'Instalar la app']);
-  assert.deepEqual(seccionesNegocio(TODAS).map((s) => s.label), ['General', 'Equipo', 'Integraciones', 'Notificaciones', 'Identidades fiscales', 'Método']);
+  // «Tu plan» se sumó el 15/10/2026: cancelar uno mismo el plan de MaKo, como todo SaaS (lo decidió Estrategia).
+  assert.deepEqual(seccionesNegocio(TODAS).map((s) => s.label), ['General', 'Equipo', 'Integraciones', 'Notificaciones', 'Identidades fiscales', 'Tu plan', 'Método']);
   // Sin General (hoy, quien no es el super admin), sin Integraciones (no lo compró) y sin Método (no es la agencia).
-  assert.deepEqual(seccionesNegocio({ general: false, integraciones: false, metodo: false }).map((s) => s.key), ['equipo', 'notificaciones', 'fiscal']);
+  assert.deepEqual(seccionesNegocio({ general: false, integraciones: false, metodo: false }).map((s) => s.key), ['equipo', 'notificaciones', 'fiscal', 'plan']);
   // Mirando a un cliente, «Tu cuenta» muestra su perfil; lo tuyo sólo si es donde estás parado.
   assert.deepEqual(seccionesCuenta(true, 'info').map((s) => s.key), ['info']);
   assert.deepEqual(seccionesCuenta(true, 'seguridad').map((s) => s.key), ['info', 'seguridad']);

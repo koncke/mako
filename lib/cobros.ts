@@ -24,7 +24,7 @@ import crypto from 'node:crypto';
 import { getSupabaseServer } from './supabase';
 import { getTenantDb, runWithWorkspace, wsSuperAdmin } from './workspace';
 import { credDelCliente } from './credenciales';
-import { APP_BASE_URL } from './app-url';
+import { APP_BASE_URL, EMAIL_MAKO } from './app-url';
 import { getLead, logLeadEvent, setPipelineStage } from './leads';
 import { getPipelineStagesDeLead } from './funnels';
 import { etapaDeGanado } from './pipeline';
@@ -46,7 +46,7 @@ import { emitirDelCatalogo } from './avisos';
 import { linkResumenLead } from './lead-resumen';
 import { enrolarPorPago, type SubtipoPago } from './pago-entrante';
 import {
-  asegurarEventosStripe, cancelarSuscripcionStripe, crearCheckoutStripe, expirarCheckoutStripe, leerCheckoutStripe, modoDeClaveStripe, programarFinSuscripcionStripe, reembolsarStripe,
+  asegurarEventosStripe, cancelarSuscripcionStripe, portalDeSuscripcionStripe, crearCheckoutStripe, expirarCheckoutStripe, leerCheckoutStripe, modoDeClaveStripe, programarFinSuscripcionStripe, reembolsarStripe,
 } from './stripe-api';
 import { urlAvisoStripe } from './cobros-conexion';
 import { buscarPagosMp, cancelarSuscripcionMp, crearPreferenciaMp, crearSuscripcionMp, instanteMp, leerCuentaMp, reembolsarMp, vencerPreferenciaMp } from './mercadopago-api';
@@ -1023,6 +1023,49 @@ export async function cancelarSuscripcionCobro(ws: number, id: number, autor: st
   await aplicarSuscripcionCancelada(c);
   if (c.lead_id) await runWithWorkspace(ws, () => logLeadEvent(c.lead_id!, 'Suscripción cancelada', `Pedido por ${autor}`, autor));
   return { ok: true, resumen: `Listo: la suscripción ${c.concepto} no se cobra más.` };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// El plan de MaKo de un negocio (lo que le cobra la PLATAFORMA): «Configuración del negocio → Tu plan»
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * La suscripción con la que la PLATAFORMA le cobra MaKo a este negocio (15/10/2026, «cancelar uno mismo»): el cobro del
+ * workspace de MaKo cuya alta creó ESTE workspace (`alta_ws`), de suscripción y pagado; el más reciente. Se lee con el
+ * cliente de servicio porque el cobro es de OTRO inquilino (la plataforma), y por eso SÓLO por `alta_ws = ws`: un negocio
+ * ve su plan y nunca el de otro. null = a este negocio MaKo no se le cobra por la pasarela (se acordó a mano, o es la
+ * plataforma misma).
+ */
+export async function suscripcionDeMakoDe(ws: number): Promise<Cobro | null> {
+  const plataforma = await wsSuperAdmin();
+  if (ws === plataforma) return null;
+  const { data, error } = await getSupabaseServer().from('cobros').select(COLS_COBRO)
+    .eq('workspace_id', plataforma).eq('alta_ws', ws).eq('tipo', 'suscripcion').eq('estado', 'pagado')
+    .order('pagado_at', { ascending: false }).limit(1).maybeSingle();
+  if (error) throw new Error(`No pude leer el plan de MaKo del negocio ${ws}: ${error.message}`);
+  return data ? cobroDeFila(data as Record<string, unknown>) : null;
+}
+
+/** El portal de cliente de Stripe para el plan de MaKo de este negocio: cancelar, cambiar la tarjeta y ver las facturas. */
+export async function portalDeMiPlan(ws: number, returnUrl: string): Promise<{ ok: true; url: string } | { ok: false; error: string }> {
+  const c = await suscripcionDeMakoDe(ws);
+  if (!c || c.proveedor !== 'stripe' || !c.proveedor_suscripcion_id) return { ok: false, error: 'Tu plan no se cobra con Stripe.' };
+  const stripe = await credStripe(c.workspace_id);
+  if (!stripe) return { ok: false, error: `No pudimos abrir el portal. Escríbenos a ${EMAIL_MAKO}.` };
+  const r = await portalDeSuscripcionStripe(stripe.key, { suscripcionId: c.proveedor_suscripcion_id, returnUrl });
+  return r.ok ? { ok: true, url: r.url } : { ok: false, error: `Stripe no abrió el portal: ${motivoSinDatos(r.error)}` };
+}
+
+/**
+ * Cancela el plan de MaKo de este negocio cuando lo cobra MERCADO PAGO, que no tiene portal. El de Stripe se cancela en
+ * su portal (al final del período pagado), y el aviso `customer.subscription.deleted` lo cierra acá.
+ */
+export async function cancelarMiPlan(ws: number, autor: string): Promise<{ ok: boolean; resumen: string }> {
+  const c = await suscripcionDeMakoDe(ws);
+  if (!c) return { ok: false, resumen: `Tu plan no se cobra por la pasarela: escríbenos a ${EMAIL_MAKO} para cancelarlo.` };
+  if (c.proveedor === 'stripe') return { ok: false, resumen: 'Tu plan se cancela desde el portal de Stripe.' };
+  if (c.suscripcion_estado === 'cancelada') return { ok: false, resumen: 'Tu plan ya estaba cancelado.' };
+  return cancelarSuscripcionCobro(c.workspace_id, c.id, autor);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

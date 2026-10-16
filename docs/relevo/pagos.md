@@ -99,7 +99,7 @@ En este orden, de lo que más plata toca a lo que menos:
 5. ~~La fecha de la cuota y el MRR al cancelar~~ → HECHO el 15/10 (rama `pagos-fecha-cuota`): la cuota con la fecha del pago, y la cancelada por la pasarela sale del MRR en el acto (la que terminó su plazo, no se marca cancelada).
 6. ~~En `/mako/revisar`, el `cobroId` de un reembolso se puede editar~~ → HECHO el 15/10 (rama `pagos-revisar-reembolso`, `fijoAlRevisar`). Cerrado también en Ads, Email, WhatsApp y el chatbot (rama `pagos-fijo-ads-email`), con un barrido que lo exige en toda acción de plata o envío.
 7. ~~El cambio de email tras el alta: falta un código al email ACTUAL~~ → HECHO el 15/10 de OTRA manera (rama `pagos-email-aviso`): un código bloqueaba al que tipeó mal su email; va un aviso al email anterior, como Google y GitHub.
-7b. **Lo siguiente sin bloqueo (decidido por Estrategia el 15/10, copiar a todo SaaS): cancelar uno mismo.** Para la pasarela, el
-   portal de cliente de Stripe (Customer Portal); Mercado Pago no tiene uno. Mientras no exista, `/reembolsos` y `/terminos` §8
-   dicen «por email», como hoy, y al hacerlo se cambian los dos textos. El fijoAlRevisar de Ads y Email, que iba antes, ya está.
+7b. ~~Cancelar uno mismo~~ → HECHO el 15/10 (rama `pagos-portal-plan`): «Configuración del negocio → Tu plan», con el portal de
+   cliente de Stripe o el botón de Mercado Pago; /reembolsos y /terminos remiten ahí. Cancelar corta la plata, NO el acceso (no
+   existe el estado de suscripción por workspace): eso sigue a mano.
 8. Más grandes, con su propio diseño: precios en moneda local en el catálogo (`lib/productos.ts`), `crear_link_pago` en el «⚡ Acción» (área de Automations, `lib/editor-acciones.ts`), y los topes de `/api/pagar/email` fuera de la memoria (`lib/rate-limit.ts`).

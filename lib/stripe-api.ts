@@ -442,6 +442,39 @@ export async function programarFinSuscripcionStripe(key: string, subId: string, 
   return { ok: true, cancelAt };
 }
 
+/**
+ * El PORTAL DE CLIENTE de Stripe para una suscripción (15/10/2026, «cancelar uno mismo», como todo SaaS): ahí quien paga
+ * cancela (al final del período pagado), cambia la tarjeta y ve sus facturas, con la pantalla de Stripe. Hace falta una
+ * configuración del portal en la cuenta: sin una guardada, crear la sesión falla en modo real, así que si no hay una por
+ * defecto se crea (cancelar al final del período, tarjeta y facturas). La sesión NO lleva Idempotency-Key a propósito:
+ * cada una es de un uso y vence en minutos; una clave repetida devolvería, dentro de las 24 h, una sesión ya vencida.
+ */
+export async function portalDeSuscripcionStripe(key: string, p: { suscripcionId: string; returnUrl: string }): Promise<R<{ url: string }>> {
+  const s = await llamar(key, 'GET', `/v1/subscriptions/${encodeURIComponent(p.suscripcionId)}`);
+  if (!s.ok) return fallo(s);
+  const cliente = idDe(s.body.customer);
+  if (!cliente) return { ok: false, status: 502, error: 'Stripe no devolvió el cliente de la suscripción.' };
+  const confs = await llamar(key, 'GET', '/v1/billing_portal/configurations', { is_default: true, active: true, limit: 1 });
+  if (!confs.ok) return fallo(confs);
+  if (!(Array.isArray(confs.body.data) && confs.body.data.length)) {
+    const c = await llamar(key, 'POST', '/v1/billing_portal/configurations', {
+      business_profile: { headline: 'MaKo' },
+      default_return_url: p.returnUrl,
+      features: {
+        subscription_cancel: { enabled: true, mode: 'at_period_end' },
+        payment_method_update: { enabled: true },
+        invoice_history: { enabled: true },
+      },
+    }, 'mako-portal-config');
+    if (!c.ok) return fallo(c);
+  }
+  const r = await llamar(key, 'POST', '/v1/billing_portal/sessions', { customer: cliente, return_url: p.returnUrl, locale: 'es-419' });
+  if (!r.ok) return fallo(r);
+  const url = str(r.body.url);
+  if (!url) return { ok: false, status: 502, error: 'Stripe no devolvió el link del portal.' };
+  return { ok: true, url };
+}
+
 /** DELETE /v1/subscriptions/{id}: cancela EN EL ACTO (status `canceled`). */
 export async function cancelarSuscripcionStripe(key: string, subId: string, idem: string): Promise<R<{ estado: string | null }>> {
   const r = await llamar(key, 'DELETE', `/v1/subscriptions/${encodeURIComponent(subId)}`, undefined, idem);

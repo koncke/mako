@@ -473,6 +473,7 @@ ver_integracion
 ver_integraciones
 ver_landing_creada
 ver_metricas_video_panda
+ver_mi_plan
 ver_moneda_negocio
 ver_montaje_anuncio
 ver_mrr_activo
