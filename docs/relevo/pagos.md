@@ -92,7 +92,7 @@ pregunta a la Ticketera: `node --import tsx scripts/decisiones.ts listar`, y la 
 En este orden, de lo que más plata toca a lo que menos:
 1. ~~Un link de MP anulado se puede pagar igual y nadie avisa~~ → HECHO el 15/10 (rama `pagos-mp-anulado`): al anular, MaKo vence la preferencia de MP (o cancela la suscripción sin autorizar); si igual entra un pago, lo dice el cobro y el historial («la plata entró dos veces» si la cuota ya estaba cobrada), y el cron relee los anulados.
 2. ~~Un reembolso de Stripe se da por hecho con `pending`~~ → HECHO el 15/10 (rama `pagos-reembolso-stripe`): se escucha `refund.failed` y una devolución que falla se revierte (cobro y cuota); los avisos ya registrados se ponen al día antes de reembolsar.
-3. El Outstanding del Dashboard cuenta como deuda las cuotas devueltas (`lib/pagos.ts`, `getOutstandingTotal`).
+3. ~~El Outstanding del Dashboard cuenta como deuda las cuotas devueltas~~ → HECHO el 15/10 (rama `pagos-outstanding-devueltas`): el Outstanding, «A quién cobrarle» y el Revenue con «Todo» sacan las devueltas con `esCuotaDevuelta`.
 3b. Contracargos (decidido 15/10): al historial y al motivo del cobro, y desmarcar la cuota cuando la plata salió; sumar `charge.dispute.created` y `charge.dispute.closed` a `EVENTOS_STRIPE` (`lib/cobros-eventos.ts`, `lib/cobros.ts`, `lib/stripe-api.ts`).
 3c. El MRR cuenta la mensualidad de un link de suscripción pagado por un lead de pago único (decidido 15/10; `lib/queries.ts`, `getMrrActivo`).
 4. Un producto de suscripción con plazo se cobra sin fin (`cancel_at` en Stripe, `end_date` en MP) (`lib/cobros.ts`, `lib/stripe-api.ts`).
