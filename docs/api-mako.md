@@ -12498,7 +12498,7 @@ curl -L \
 
 ### `GET /api/v1/video/proyectos/{proyecto}` — Línea de tiempo de un proyecto
 
-La línea de tiempo de un proyecto del Video Editor, tal como la lee su chat «Editar con IA»: la duración total, el lienzo, las pistas (la principal marcada) con cada elemento —su ref corta (v1 video, i2 foto, t3 texto, a4 audio, s5 sticker…), inicio y fin en segundos, el texto o el nombre, el volumen y lo que tiene puesto (transición, animación, filtro, estilo)—, los medios de Multimedia (m1, m2…) y los nombres disponibles (transiciones, animaciones, filtros, efectos, curvas de velocidad, fuentes). Es la copia que subió el editor (dice cuándo): cambiarla no se puede desde acá, porque el proyecto vive en el navegador de quien lo edita; se cambia en el editor o pidiéndoselo a su chat. Si el proyecto es muy grande, avisa en vez de mandarla.
+La línea de tiempo de un proyecto del Video Editor, tal como la lee su chat «Editar con IA»: la duración total, el lienzo, las pistas (la principal marcada) con cada elemento —su ref corta (v1 video, i2 foto, t3 texto, a4 audio, s5 sticker…), inicio y fin en segundos, el texto o el nombre, el volumen y lo que tiene puesto (transición, animación, filtro, estilo)—, los medios de Multimedia (m1, m2…) y los nombres disponibles (transiciones, animaciones, filtros, efectos, curvas de velocidad, fuentes). Es la copia que subió el editor (dice cuándo): cambiarla no se puede desde aquí, porque el proyecto vive en el navegador de quien lo edita; se cambia en el editor o pidiéndoselo a su chat. Si el proyecto es muy grande, avisa en vez de mandarla.
 
 - **Ruta por operación:** `GET /api/v1/video/ver_proyecto_video`
 - **Token detallado:** permiso `video=read` (Solo lectura en «Video Generator»)
