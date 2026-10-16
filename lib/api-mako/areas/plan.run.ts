@@ -58,7 +58,7 @@ import { esRecurrente, sinRecurrentes, soloRecurrentes } from '@/lib/plan-recurr
 import {
   leerTablero, usaPlanBoard, buscarTarea, buscarProyecto, tareaCompacta, nombresDeProyectos,
   linkTarea, linkProyecto, linkBorrador, soloFueraDeHttp, fuenteParaCanal, terminosDelGlosario,
-  diasParada, DIAS_PARADA_NOTORIA,
+  diasParada, DIAS_PARADA_NOTORIA, prioridadParaAgente,
   type Tablero, type TareaPlan,
 } from './plan.helpers';
 
@@ -209,7 +209,13 @@ export const RUNNERS: Runners = {
         board: tab.board,
         id: t.id, ...(t.num != null ? { num: t.num } : {}), titulo: t.titulo, link: linkTarea(t.id),
         proyecto: t.proyectoId ? { id: t.proyectoId, nombre: nombres.get(t.proyectoId) ?? null } : null,
-        score: t.score, score_razon: t.scoreRazon, prioridad: t.prioridad, avance_pct: t.avance,
+        // La prioridad y la COLUMNA como en la lista (`tareaCompacta`), y no crudas (16/10/2026):
+        // una «Sin priorizar» del cliente salía «media» y una del dueño «futuro», y el detalle era
+        // la única vista donde MaKo no sabía en qué columna estaba la tarea ni por qué se atoró.
+        score: t.score, score_razon: t.scoreRazon, prioridad: prioridadParaAgente(t),
+        estado: t.estado, columna: etiquetaEstado(t.estado),
+        ...(t.estado === 'en_seguimiento' ? { atorada_por: t.motivoAtorada } : {}),
+        avance_pct: t.avance,
         deadline: t.deadline, deadline_razon: t.deadlineRazon, quarter: t.quarter, en_prioridad: t.enPrioridad,
         // ⚠️ ACÁ NO ALCANZA CON `tareaCompacta` (mig 0165): esta lectura arma su propio JSON
         // campo por campo, así que la marca y el ritmo se escriben otra vez o el detalle de

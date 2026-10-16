@@ -61,13 +61,14 @@ export function repoPlan(): Repo {
     // ⚠️ SON DOS CAMPOS Y NO TRES DESDE LA 0167: la RRULE reemplazó a `frecuencia` +
     // `frecuencia_dia`, que eran dos columnas para un solo estado. Así que si alguna vez
     // hay que hacer enumerar a esa ruta, son `recurrente` y `recurrencia`, juntos.
-    saveTask: async (d) => { await apiPlan({ action: 'guardar-tarea', tarea: d }); },
+    // `progresoGuardado` (16/10/2026): lo que dice si ESTA pestaña tocó el avance — ver `guardarPlanTarea`.
+    saveTask: async (d, o) => { await apiPlan({ action: 'guardar-tarea', tarea: d, progresoGuardado: o?.progresoGuardado }); },
     deleteTask: async (id) => { await apiPlan({ action: 'borrar-tarea', id }); },
     // MOVER EN EL KANBAN (16/10/2026). Una acción propia y no `saveTask`: el estado y el lugar
     // NO viajan en el guardado de la fila entera (`guardarPlanTarea` los saca del payload, para
     // que una pestaña vieja no devuelva de columna lo que se movió desde otra).
     mover: async (id, estado, orden, opts) => {
-      const j = await apiPlan({ action: 'mover-tarea', id, estado, orden, motivo: opts?.motivo, historial: opts?.historial });
+      const j = await apiPlan({ action: 'mover-tarea', id, estado, orden, motivo: opts?.motivo, historial: opts?.historial, progreso: opts?.progreso });
       if (!j.ok || !j.tarea) throw new Error(j.error || 'No se pudo mover.');
       return j.tarea;
     },

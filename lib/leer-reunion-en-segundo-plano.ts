@@ -11,8 +11,9 @@ import 'server-only';
 // Ahora es el MISMO molde que la lectura de archivos (lib/importar-en-segundo-plano.ts): el pedido
 // deja el borrador de esa reunión en 'procesando' y contesta al instante; la lectura sigue en
 // `after()`, y cuando termina llena ese borrador (o lo marca con su error). El modal sólo mira el
-// borrador: puede cerrarse y volver, o quedarse esperando. Al final, la lectura CRUZA el borrador
-// contra el tablero y lo sella (lib/reunion-cruce.ts): el navegador ya no corre ninguna IA.
+// borrador: puede cerrarse y volver, o quedarse esperando. Antes de mostrarlo, la lectura CRUZA las
+// tareas contra el tablero y las escribe ya selladas (lib/reunion-cruce.ts): el navegador ya no
+// corre ninguna IA, y nunca ve un borrador a medio cruzar.
 //
 // ⚠️ EL CONTEXTO DE WORKSPACE NO VIAJA SOLO: `after()` corre fuera del `runWithWorkspace` del
 // pedido. El ws se captura en la ruta y se re-envuelve acá (docs/hallazgos-infra.md).
@@ -26,7 +27,7 @@ import { glosarioTexto } from './glosario';
 import { getSetting, setSetting } from './settings';
 import { marcarProcesado, marcarFallado, marcarSinCompromisos, type PropuestaTarea } from './plan-propuesta';
 import { resolverClienteDeReunion, nombreDeProyectoPara } from './reunion-cliente';
-import { cruzarBorrador } from './reunion-cruce';
+import { cruzarTareas } from './reunion-cruce';
 import { soltarLectura } from './reunion-leyendo';
 
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
@@ -100,15 +101,20 @@ export async function completarBorradorDeReunion(opts: {
       const cli = await resolverClienteDeReunion({ titulo, participantes: out.participantes ?? [] }).catch(() => null);
       const proyCliente = cli ? await nombreDeProyectoPara(cli).catch(() => '') : '';
       const mias = out.tareas.filter((t) => !t.esDeOtro).length;
+      // EL CRUCE, ACÁ Y ANTES DE MOSTRARLAS (16/10/2026): el modal ya no lo corre, y tampoco ve el
+      // borrador hasta que esté cruzado. Hasta ese día esto marcaba «pendiente» y DESPUÉS cruzaba: el
+      // sondeo del modal tomaba las filas sin el cruce, su autosave lo borraba (con el sello puesto),
+      // y cargar creaba la duplicada (`cruzarTareas`, lib/reunion-cruce.ts). Con el reloj que quede;
+      // si no entra o el modelo no contesta, sale sin sello y lo cruza el barrido del cron.
+      const tareas = tareasDeLaExtraccion(out.tareas, proyectos, proyCliente);
+      const cruce = await cruzarTareas(tareas, { excluirId: borradorId, hasta: opts.hasta })
+        .catch((e) => ({ tareas, cruzado: false, marcadas: 0, motivo: msg(e) }));
       await marcarProcesado(borradorId, {
-        tareas: tareasDeLaExtraccion(out.tareas, proyectos, proyCliente),
+        tareas: cruce.tareas, cruzado: cruce.cruzado,
         resumen: `MaKo leyó «${titulo ?? 'la reunión'}» y sacó ${mias} compromiso${mias === 1 ? '' : 's'} tuyo${mias === 1 ? '' : 's'}.${partesFallidas ? ` (${partesFallidas} tramo(s) sin leer)` : ''}`,
         clienteNombre: cli?.nombre, clienteLeadId: cli?.leadId,
       });
-      // EL CRUCE, ACÁ: el modal ya no lo corre. Con el reloj que quede; si no entra, lo hace el
-      // barrido del cron. «Agregar» no lo espera nunca.
-      const cruce = await cruzarBorrador(borradorId, { hasta: opts.hasta }).catch((e) => ({ sellado: false, motivo: msg(e) }));
-      console.log(`[leer-reunion-bg] ws ${ws} · ${borradorId} · ${out.tareas.length} tareas en ${Math.round((Date.now() - t0) / 1000)}s · ${cruce.sellado ? 'cruzada' : `sin cruzar (${'motivo' in cruce ? cruce.motivo : ''})`}`);
+      console.log(`[leer-reunion-bg] ws ${ws} · ${borradorId} · ${out.tareas.length} tareas en ${Math.round((Date.now() - t0) / 1000)}s · ${cruce.cruzado ? 'cruzada' : `sin cruzar (${cruce.motivo ?? ''})`}`);
     });
   } catch (e) {
     console.error(`[leer-reunion-bg] ws ${ws} · ${borradorId}: ${msg(e)}`);

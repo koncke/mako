@@ -52,7 +52,7 @@ import { prioFromScore, sanearHist, type GuardPatch, type Hist } from '@/app/pla
 import {
   TANDA, CANDADO_MS, PAUSA_ENTRE_TANDAS_MS,
   idsDelTrabajo, fijadasFuera, planDeTanda, vara, idEntradaRP, textoEntradaRP, conEntrada, trasFalla,
-  alcanzaElReloj, estaLibre, esDelPlanCliente,
+  alcanzaElReloj, estaLibre, esDelPlanCliente, enBandeja, conHora, MAX_INTENTOS,
   type TableroRP, type EstadoRP, type FaseRP, type CambioRP, type Repriorizacion, type TareaRP,
 } from './plan-repriorizar-nucleo';
 
@@ -109,8 +109,10 @@ type Destino = { proyectoId: string; nombre: string };
 type Adaptador = {
   /** Todas las tareas (livianas: sin detalle ni historial) y los proyectos. */
   leer(): Promise<{ tareas: TareaRP[]; proyectos: Array<{ id: string; nombre: string }> }>;
-  /** Las de la tanda, con detalle e historial. */
-  completas(ids: string[], base: Map<string, TareaRP>): Promise<TareaCompleta[]>;
+  /** Las de la tanda, con detalle e historial, LEÍDAS DE NUEVO de la base (todo lo que decide:
+   *  fijada, proyectos, abierta). Se llama antes del modelo y otra vez justo antes de escribir
+   *  cada una: ver `procesarTanda`. */
+  completas(ids: string[]): Promise<TareaCompleta[]>;
   /** El Perro: el número de cada una contra la vara. */
   puntuar(nuevas: GuardTaskIn[], existentes: Array<{ titulo: string; score: number }>, contexto: string): Promise<{ tareas: GuardScore[]; faltantes: string[]; modelo?: string }>;
   /** El proyecto de las que están en la bandeja (por id de tarea). Sólo destinos que existen o
@@ -118,8 +120,9 @@ type Adaptador = {
   rutear(tareas: TareaCompleta[], proyectos: Array<{ id: string; nombre: string }>): Promise<Map<string, Destino>>;
   /** Escribe lo que cambió y devuelve el cambio para la pantalla. */
   escribir(t: TareaCompleta, w: { juicio?: GuardScore; destino?: Destino; entrada: Hist }): Promise<CambioRP>;
-  /** Lo que va una vez al final. */
-  cierre(ids: string[], ultimos: Map<string, number>): Promise<{ cambios: CambioRP[]; aviso?: string }>;
+  /** Lo que va una vez al final. `publicar` deja cambios a la vista de la pantalla ANTES de que
+   *  termine (el reparto del dueño, mientras el Perro juzga los proyectos). */
+  cierre(ids: string[], ultimos: Map<string, number>, publicar: (cs: CambioRP[]) => Promise<void>): Promise<{ cambios: CambioRP[]; aviso?: string }>;
 };
 
 /** El norte del negocio y el objetivo del trimestre, como en `priorizarNuevasOwner`: sin eso el
@@ -132,34 +135,44 @@ async function contextoDelNegocio(): Promise<string> {
 const pendienteDe = (estado: unknown, avance: number): boolean =>
   avance < 100 && estaPendiente(esEstado(estado) ? estado : estadoDeAvance(avance));
 
+// ⚠️ ESTOS `select` ENUMERAN COLUMNAS: lo que no se nombra no llega, y `score_manual` y `estado`
+// son justo las que deciden quién se toca (AGENTS.md → el reparto ya lo pagó con `recurrente`).
+// Una lista por tablero, compartida por la lectura del tablero y la relectura de la tanda.
+const COLS_DUENO = 'id, title, labels, score, score_manual, recurrente, progress, estado';
+const COLS_CLIENTE = 'id, titulo, categorias, score, score_manual, recurrente, progreso, estado, origen, retro_id, experimento_id';
+
+const tareaDueno = (r: Row): TareaRP => ({
+  id: str(r.id), titulo: str(r.title) || 'Tarea',
+  proyectos: Array.isArray(r.labels) ? (r.labels as unknown[]).map(String) : [],
+  score: int(r.score), fijada: r.score_manual === true, recurrente: !!r.recurrente,
+  pendiente: pendienteDe(r.estado, int(r.progress)), delPlan: true,
+});
+const tareaCliente = (r: Row): TareaRP => ({
+  id: String(r.id), titulo: str(r.titulo) || 'Tarea',
+  proyectos: Array.isArray(r.categorias) ? (r.categorias as unknown[]).map((c) => String(Number(c))) : [],
+  score: int(r.score), fijada: r.score_manual === true, recurrente: !!r.recurrente,
+  pendiente: pendienteDe(r.estado, int(r.progreso)),
+  delPlan: esDelPlanCliente({ origen: str(r.origen) || null, retro_id: r.retro_id == null ? null : int(r.retro_id), experimento_id: r.experimento_id == null ? null : int(r.experimento_id) }),
+});
+
 const DUENO: Adaptador = {
   async leer() {
     const db = await getTenantDb();
-    // ⚠️ ESTE `select` ENUMERA COLUMNAS: lo que no se nombra no llega, y `score_manual` y `estado`
-    // son justo las que deciden quién se toca (AGENTS.md → el reparto ya lo pagó con `recurrente`).
     const [tRes, pRes] = await Promise.all([
-      db.from('plan_tareas').select('id, title, labels, score, score_manual, recurrente, progress, estado'),
+      db.from('plan_tareas').select(COLS_DUENO),
       db.from('plan_proyectos').select('id, name'),
     ]);
     if (tRes.error) throw new Error(`plan_tareas: ${tRes.error.message}`);
     if (pRes.error) throw new Error(`plan_proyectos: ${pRes.error.message}`);
-    const tareas = ((tRes.data ?? []) as Row[]).map((r): TareaRP => ({
-      id: str(r.id), titulo: str(r.title) || 'Tarea',
-      proyectos: Array.isArray(r.labels) ? (r.labels as unknown[]).map(String) : [],
-      score: int(r.score), fijada: r.score_manual === true, recurrente: !!r.recurrente,
-      pendiente: pendienteDe(r.estado, int(r.progress)), delPlan: true,
-    }));
+    const tareas = ((tRes.data ?? []) as Row[]).map(tareaDueno);
     const proyectos = ((pRes.data ?? []) as Row[]).map((p) => ({ id: str(p.id), nombre: str(p.name) }));
     return { tareas, proyectos };
   },
-  async completas(ids, base) {
+  async completas(ids) {
     if (!ids.length) return [];
-    const { data, error } = await (await getTenantDb()).from('plan_tareas').select('id, detalle, historial').in('id', ids);
+    const { data, error } = await (await getTenantDb()).from('plan_tareas').select(`${COLS_DUENO}, detalle, historial`).in('id', ids);
     if (error) throw new Error(`plan_tareas (la tanda): ${error.message}`);
-    return ((data ?? []) as Row[]).flatMap((r) => {
-      const t = base.get(str(r.id));
-      return t ? [{ ...t, detalle: str(r.detalle), historial: sanearHist(r.historial) }] : [];
-    });
+    return ((data ?? []) as Row[]).map((r) => ({ ...tareaDueno(r), detalle: str(r.detalle), historial: sanearHist(r.historial) }));
   },
   async puntuar(nuevas, existentes, contexto) {
     // `conCapacidades: false`: las tareas del dueño son de CONSTRUIR el producto, no de usarlo (ver
@@ -202,27 +215,33 @@ const DUENO: Adaptador = {
     if (error) throw new Error(`plan_tareas ${t.id}: ${error.message}`);
     return cambio;
   },
-  async cierre(ids, ultimos) {
+  async cierre(ids, ultimos, publicar) {
     // EL REPARTO, recién ahora: con todos los juicios nuevos escritos, la pirámide se rehace sobre
     // el tablero entero (aritmética, cero tokens). Respeta lo fijado y no reparte las libres.
     await recurvarPlanOwner();
+    const db = await getTenantDb();
+    // Lo que el reparto movió, para la pantalla: sin esto, la pestaña abierta tiene el número de la
+    // tanda y el próximo guardado (el upsert de la fila entera) deshace el reparto.
+    const delReparto: CambioRP[] = [];
+    for (let i = 0; i < ids.length; i += 100) {
+      const { data } = await db.from('plan_tareas').select('id, score').in('id', ids.slice(i, i + 100));
+      for (const r of (data ?? []) as Row[]) {
+        const s = int(r.score);
+        if (ultimos.get(str(r.id)) !== s) delReparto.push({ k: 't', id: str(r.id), score: s, priority: prioFromScore(s) });
+      }
+    }
+    // ⚠️ SE PUBLICA YA, ANTES DE JUZGAR LOS PROYECTOS (16/10/2026, revisión adversarial). El juicio
+    // de los proyectos es UNA llamada al Perro de hasta ~90 s, y hasta el 16/10 estos números
+    // viajaban recién después: durante ese minuto la base tenía el reparto y la pestaña no, y
+    // cualquier guardado de una tarjeta lo deshacía.
+    await publicar(delReparto);
     // Y los PROYECTOS: entraron números nuevos, así que la comparación entre proyectos cambió. Si
     // el Perro no contesta, los proyectos quedan como estaban y se dice (no corta el trabajo: las
     // tareas ya están).
     let aviso: string | undefined;
     const p = await priorizarProyectosOwner('Re-priorizar todo').catch((e) => ({ error: msg(e) } as { error?: string }));
     if (p.error) aviso = `Los proyectos quedaron como estaban: ${p.error}`.slice(0, 480);
-    const db = await getTenantDb();
     const cambios: CambioRP[] = [];
-    // Lo que el reparto movió, para la pantalla: sin esto, la pestaña abierta tiene el número de la
-    // tanda y el próximo guardado (el upsert de la fila entera) deshace el reparto.
-    for (let i = 0; i < ids.length; i += 100) {
-      const { data } = await db.from('plan_tareas').select('id, score').in('id', ids.slice(i, i + 100));
-      for (const r of (data ?? []) as Row[]) {
-        const s = int(r.score);
-        if (ultimos.get(str(r.id)) !== s) cambios.push({ k: 't', id: str(r.id), score: s, priority: prioFromScore(s) });
-      }
-    }
     if (!p.error) {
       const { data } = await db.from('plan_proyectos').select('id, score, score_razon');
       for (const r of (data ?? []) as Row[]) cambios.push({ k: 'p', id: str(r.id), score: int(r.score), scoreRazon: str(r.score_razon) || undefined });
@@ -237,28 +256,19 @@ const CLIENTE: Adaptador = {
     // Las columnas que deciden, nombradas (ver el del dueño). `origen`, `retro_id` y
     // `experimento_id`: qué es del Plan y qué de la Retro o de un experimento (`esDelPlanCliente`).
     const [tRes, cats] = await Promise.all([
-      db.from('experimento_tareas').select('id, titulo, categorias, score, score_manual, recurrente, progreso, estado, origen, retro_id, experimento_id'),
+      db.from('experimento_tareas').select(COLS_CLIENTE),
       listCategorias(),
     ]);
     if (tRes.error) throw new Error(`experimento_tareas: ${tRes.error.message}`);
-    const tareas = ((tRes.data ?? []) as Row[]).map((r): TareaRP => ({
-      id: String(r.id), titulo: str(r.titulo) || 'Tarea',
-      proyectos: Array.isArray(r.categorias) ? (r.categorias as unknown[]).map((c) => String(Number(c))) : [],
-      score: int(r.score), fijada: r.score_manual === true, recurrente: !!r.recurrente,
-      pendiente: pendienteDe(r.estado, int(r.progreso)),
-      delPlan: esDelPlanCliente({ origen: str(r.origen) || null, retro_id: r.retro_id == null ? null : int(r.retro_id), experimento_id: r.experimento_id == null ? null : int(r.experimento_id) }),
-    }));
+    const tareas = ((tRes.data ?? []) as Row[]).map(tareaCliente);
     return { tareas, proyectos: cats.map((c) => ({ id: String(c.id), nombre: c.nombre })) };
   },
-  async completas(ids, base) {
+  async completas(ids) {
     const nums = ids.map(Number).filter(Number.isFinite);
     if (!nums.length) return [];
-    const { data, error } = await (await getTenantDb()).from('experimento_tareas').select('id, detalle, historial').in('id', nums);
+    const { data, error } = await (await getTenantDb()).from('experimento_tareas').select(`${COLS_CLIENTE}, detalle, historial`).in('id', nums);
     if (error) throw new Error(`experimento_tareas (la tanda): ${error.message}`);
-    return ((data ?? []) as Row[]).flatMap((r) => {
-      const t = base.get(String(r.id));
-      return t ? [{ ...t, detalle: str(r.detalle), historial: sanearHist(r.historial) }] : [];
-    });
+    return ((data ?? []) as Row[]).map((r) => ({ ...tareaCliente(r), detalle: str(r.detalle), historial: sanearHist(r.historial) }));
   },
   async puntuar(nuevas, existentes, contexto) {
     const r = await puntuarNuevas(nuevas, existentes, contexto, 'Re-priorizar todo (cliente)');
@@ -303,7 +313,7 @@ const CLIENTE: Adaptador = {
     return cambio;
   },
   // El tablero del cliente no tiene reparto ni juicio de proyectos: su Perro ubica, no curva.
-  async cierre() { return { cambios: [] }; },
+  async cierre() { return { cambios: [] as CambioRP[] }; },
 };
 
 const adaptador = (t: TableroRP): Adaptador => (t === 'dueno' ? DUENO : CLIENTE);
@@ -376,9 +386,8 @@ async function procesarTanda(trabajoId: number, ad: Adaptador, idsTanda: string[
   const bandeja = new Set(proyectos.filter((p) => esProyectoBandeja(p.nombre)).map((p) => p.id));
   const esBandeja = (id: string) => bandeja.has(id);
   const plan = planDeTanda(idsTanda, tareas, esBandeja);
-  const base = new Map(tareas.map((t) => [t.id, t]));
   const enJuego = [...new Set([...plan.puntuar, ...plan.rutear].map((t) => t.id))];
-  const completas = new Map((await ad.completas(enJuego, base)).map((t) => [t.id, t]));
+  const completas = new Map((await ad.completas(enJuego)).map((t) => [t.id, t]));
   const nombreProy = new Map(proyectos.map((p) => [p.id, p.nombre]));
 
   // 1) EL PROYECTO PRIMERO, para que el Perro puntúe sabiendo dónde vive cada una.
@@ -405,13 +414,25 @@ async function procesarTanda(trabajoId: number, ad: Adaptador, idsTanda: string[
   const porId = new Map(juicios.map((j) => [j.id, j]));
 
   // 3) ESCRIBIR, de a una (son 20): cada una con su entrada de historial de MaKo.
+  //
+  // ⚠️ CONTRA LA FILA RELEÍDA JUSTO ANTES DE ESCRIBIRLA, no contra la foto de arriba (16/10/2026,
+  // revisión adversarial). Entre esa foto y este momento pasa la llamada al Perro —de 30 a 90 s—, y
+  // la persona sigue usando el tablero: decidir con la foto le ponía el número de la IA a una tarea
+  // que ella acababa de fijar a mano (y con su candado puesto, como si lo hubiera elegido ella),
+  // borraba la entrada de historial de un arrastre hecho en ese minuto, y le cambiaba el proyecto a
+  // una que ella ya había sacado de la bandeja. Releída, lo fijado no se toca, la que se cerró se
+  // saltea, el proyecto sólo cambia si sigue en la bandeja, y el historial es el de AHORA. Lo que
+  // queda es el instante entre esta lectura y la escritura, el mismo de cualquier lectura-y-escritura
+  // del tablero (`editarTarea`, `moverTarea`).
   const cambios: CambioRP[] = [];
-  let puntuadas = 0, ruteadas = 0;
+  let puntuadas = 0, ruteadas = 0, fijadasEnElMedio = 0;
   for (const id of enJuego) {
-    const t = completas.get(id);
-    if (!t) continue;
+    if (!completas.has(id)) continue;
+    const [t] = await ad.completas([id]);
+    if (!t || !t.pendiente || !t.delPlan) continue;
+    if (t.fijada && !plan.fijadas.some((f) => f.id === id)) fijadasEnElMedio++;
     const juicio = t.fijada || t.recurrente ? undefined : porId.get(id);
-    const destino = ruteo.get(id);
+    const destino = enBandeja(t, esBandeja) ? ruteo.get(id) : undefined;
     if (!juicio && !destino) continue;
     const entrada: Hist = {
       id: idEntradaRP(trabajoId, id), ts: Date.now(), actor: 'ia',
@@ -421,7 +442,7 @@ async function procesarTanda(trabajoId: number, ad: Adaptador, idsTanda: string[
     if (juicio) puntuadas++;
     if (destino) ruteadas++;
   }
-  return { cambios, puntuadas, ruteadas, fijadas: plan.fijadas.length, sinPuntuar: faltantes.length, modelo };
+  return { cambios, puntuadas, ruteadas, fijadas: plan.fijadas.length + fijadasEnElMedio, sinPuntuar: faltantes.length, modelo };
 }
 
 /**
@@ -443,10 +464,26 @@ export async function avanzarRepriorizacion(id: number, opts: { hasta: number; p
       const fase: FaseRP = fila.fase === 'cierre' ? 'cierre' : 'tareas';
       if (!estaLibre(str(fila.tomada_hasta) || null)) break;
       if (!alcanzaElReloj(fase, opts.hasta)) break;
-      // TOMARLA: compare-and-set sobre `vuelta`. De dos drenajes que llegan juntos, gana uno.
+      const queTanda = fase === 'cierre' ? 'Cierre' : `Tanda ${Math.floor(int(fila.hechas) / TANDA) + 1}`;
+      // ⚠️ UNA TANDA QUE SE TOMÓ `MAX_INTENTOS` VECES Y NUNCA SE SOLTÓ NO SE TOMA OTRA VEZ (16/10/2026,
+      // revisión adversarial). Si la función se muere a mitad (Vercel la corta por `maxDuration`, un
+      // deploy), no corre el `catch`: hasta ese día `intentos` no subía, el candado vencía a los 4
+      // minutos, el sondeo de la pantalla la volvía a empujar, y la MISMA tanda se repetía para
+      // siempre —gastando red gratis— sin que el trabajo pasara nunca a «error». Ahora el intento se
+      // cuenta al TOMARLA (abajo), así que tres muertes seguidas cortan el trabajo como tres fallos.
+      if (int(fila.intentos) >= MAX_INTENTOS) {
+        await db.from(TABLA).update({
+          estado: 'error', terminado_at: new Date().toISOString(), tomada_hasta: null, updated_at: new Date().toISOString(),
+          error: `${queTanda}: no terminó ${int(fila.intentos)} veces seguidas (se cortó antes de soltarla)`.slice(0, 480),
+        }).eq('id', id).eq('estado', 'corriendo').eq('vuelta', int(fila.vuelta));
+        estado = 'error';
+        break;
+      }
+      // TOMARLA: compare-and-set sobre `vuelta`. De dos drenajes que llegan juntos, gana uno. Y el
+      // intento se cuenta ACÁ, no en el `catch` (ver arriba): soltarla bien lo vuelve a 0.
       const vuelta = int(fila.vuelta) + 1;
       const { data: tomada } = await db.from(TABLA)
-        .update({ vuelta, tomada_hasta: new Date(Date.now() + CANDADO_MS).toISOString(), updated_at: new Date().toISOString() })
+        .update({ vuelta, intentos: int(fila.intentos) + 1, tomada_hasta: new Date(Date.now() + CANDADO_MS).toISOString(), updated_at: new Date().toISOString() })
         .eq('id', id).eq('estado', 'corriendo').eq('vuelta', int(fila.vuelta)).select('id');
       if (!tomada || !(tomada as unknown[]).length) break;
 
@@ -471,7 +508,7 @@ export async function avanzarRepriorizacion(id: number, opts: { hasta: number; p
           await soltar({
             hechas: ya, puntuadas: int(fila.puntuadas) + r.puntuadas, ruteadas: int(fila.ruteadas) + r.ruteadas,
             fijadas: int(fila.fijadas) + r.fijadas, sin_puntuar: int(fila.sin_puntuar) + r.sinPuntuar,
-            cambios: [...cambiosPrevios, ...r.cambios], intentos: 0, tomada_hasta: null,
+            cambios: [...cambiosPrevios, ...conHora(r.cambios)], intentos: 0, tomada_hasta: null,
             ...(r.modelo ? { modelo: r.modelo.slice(0, 80) } : {}),
             ...(termino && !fin ? { fase: 'cierre' } : {}),
             ...(fin ? { estado: 'hecho', terminado_at: new Date().toISOString() } : {}),
@@ -480,15 +517,26 @@ export async function avanzarRepriorizacion(id: number, opts: { hasta: number; p
         } else {
           const ultimos = new Map<string, number>();
           for (const c of cambiosPrevios) if (c.k === 't' && c.score != null) ultimos.set(c.id, c.score);
-          const r = await ad.cierre(ids, ultimos);
+          // Lo que el cierre publica ANTES de terminar (el reparto del dueño): a la fila ya, con la
+          // vuelta que se tomó, sin soltar el candado.
+          let publicados: CambioRP[] = [];
+          const publicar = async (cs: CambioRP[]) => {
+            if (!cs.length) return;
+            publicados = [...publicados, ...conHora(cs)];
+            const { error } = await db.from(TABLA).update({ cambios: [...cambiosPrevios, ...publicados], updated_at: new Date().toISOString() }).eq('id', id).eq('vuelta', vuelta);
+            if (error) console.warn(`[plan-repriorizar] ${id}: no pude publicar el reparto antes del cierre: ${error.message}`);
+          };
+          const r = await ad.cierre(ids, ultimos, publicar);
           await soltar({
-            cambios: [...cambiosPrevios, ...r.cambios], intentos: 0, tomada_hasta: null,
+            cambios: [...cambiosPrevios, ...publicados, ...conHora(r.cambios)], intentos: 0, tomada_hasta: null,
             estado: 'hecho', terminado_at: new Date().toISOString(), ...(r.aviso ? { error: r.aviso } : {}),
           });
           tandas++;
         }
       } catch (e) {
-        const f = trasFalla(int(fila.intentos), `${fase === 'cierre' ? 'Cierre' : `Tanda ${Math.floor(hechas / TANDA) + 1}`}: ${msg(e)}`);
+        // `fila.intentos` es el de ANTES de tomarla: `trasFalla` le suma uno, que es el que ya se
+        // escribió al tomarla.
+        const f = trasFalla(int(fila.intentos), `${queTanda}: ${msg(e)}`);
         console.warn(`[plan-repriorizar] ${id} · ${f.error} (intento ${f.intentos})`);
         await soltar({ intentos: f.intentos, error: f.error, estado: f.estado, tomada_hasta: f.tomadaHasta, ...(f.terminado ? { terminado_at: f.terminado } : {}) });
         // Un fallo no se reintenta en el MISMO drenaje: la espera (`tomada_hasta`) es justamente para

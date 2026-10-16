@@ -201,11 +201,13 @@ export function ListaPlan({ listas, columnasTareas, proyectos, recurrentes, fech
     try { r = await moverTareaAction(id, destino); } catch { return { ok: false, error: 'Sin conexión' }; }
     if (!r.ok) return { ok: false, error: r.error };
     if (r.yaEstaba) return { ok: true };
-    const { antes, entryId } = r;
+    // El Deshacer vuelve a la columna CON el avance y el motivo que tenía: sin ellos, deshacer un
+    // «Mover a Completada» de una tarea al 40% la dejaba al 0%.
+    const { antes, antesAvance, antesMotivo, entryId } = r;
     return {
       ok: true,
       deshacer: async () => {
-        try { const d = await moverTareaAction(id, antes, { entryId }); return d.ok; } catch { return false; }
+        try { const d = await moverTareaAction(id, antes, { entryId, progreso: antesAvance, motivo: antesMotivo }); return d.ok; } catch { return false; }
       },
     };
   };

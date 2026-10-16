@@ -77,3 +77,26 @@ export function aplicarCruces(
   });
   return { tareas, marcadas };
 }
+
+/**
+ * LO QUE ENCONTRÓ EL CRUCE NO LO BORRA UNA COPIA VIEJA DEL BORRADOR (16/10/2026, revisión
+ * adversarial). El modal guarda la revisión (el autosave) y carga con SUS filas, que son las que
+ * tenía al abrir: si el cruce del server terminó mientras estaba abierto (el barrido del cron, o
+ * cualquier lectura que no alcanzó a cruzar antes de mostrarse), esas filas no traen `enriquece`, y
+ * guardarlas tal cual borraba el resultado —con el sello puesto, así que nadie volvía a cruzar— y
+ * «Cargar» creaba la tarjeta duplicada.
+ *
+ * Una fila que llega SIN `enriquece` recupera el que tiene guardado la fila del mismo título. Nadie
+ * lo saca a propósito: «es otra tarea» se dice con `ampliar: false` (que viaja y se respeta), no
+ * borrando la marca. Una fila que trae el suyo, manda.
+ */
+export function conCruceGuardado(entrantes: PropuestaTarea[], guardadas: readonly PropuestaTarea[]): PropuestaTarea[] {
+  const porTitulo = new Map<string, NonNullable<PropuestaTarea['enriquece']>>();
+  for (const g of guardadas) if (g.enriquece) porTitulo.set(normTit(g.titulo), g.enriquece);
+  if (!porTitulo.size) return entrantes;
+  return entrantes.map((t) => {
+    if (t.enriquece) return t;
+    const e = porTitulo.get(normTit(t.titulo));
+    return e ? { ...t, enriquece: e } : t;
+  });
+}

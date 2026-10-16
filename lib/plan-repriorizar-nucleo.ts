@@ -54,6 +54,22 @@ export const RELOJ_MIN_CIERRE_MS = 100_000;
 export const PAUSA_ENTRE_TANDAS_MS = 1_500;
 /** Cada cuánto mira el tablero el progreso mientras corre. */
 export const SONDEO_MS = 4_000;
+/**
+ * Cada cuánto mira el tablero si hay un trabajo NUEVO cuando no está mirando uno (y además al volver
+ * a la pestaña). ⚠️ Hasta el 16/10/2026 sólo miraba al abrir y mientras corría uno que había visto:
+ * un «Re-priorizar todo» arrancado por WhatsApp, desde el teléfono o desde otra pestaña no le llegaba
+ * nunca, y el próximo guardado de una tarjeta (la fila ENTERA, con el número viejo) deshacía lo que
+ * el trabajo había escrito.
+ */
+export const VIGILANCIA_MS = 45_000;
+/**
+ * Al ABRIR el tablero con un trabajo corriendo, se pintan sólo los cambios de los últimos segundos
+ * antes de montar: lo anterior ya vino en lo que se cargó. ⚠️ Repintarlos todos (lo que se hacía
+ * hasta el 16/10) pisaba en la pantalla lo que una persona cambió DESPUÉS de que el trabajo
+ * escribiera esa tarea —y el próximo guardado lo devolvía a la base—. El margen cubre el hueco
+ * entre que el server leyó el tablero y que la pantalla montó.
+ */
+export const MARGEN_APERTURA_MS = 15_000;
 /** Las entradas de historial que se conservan por tarjeta (el mismo tope que el Perro). */
 export const TOPE_HIST = 40;
 
@@ -66,8 +82,17 @@ export const TOPE_HIST = 40;
  * proyecto (el dueño los re-juzga en el cierre).
  */
 export type CambioRP =
-  | ({ k: 't' } & GuardPatch)
-  | { k: 'p'; id: string; score: number; scoreRazon?: string };
+  | ({ k: 't'; ts?: number } & GuardPatch)
+  | { k: 'p'; id: string; score: number; scoreRazon?: string; ts?: number };
+
+/** Le pone la HORA en que se publicó a cada cambio que no la tiene (ms). Es lo que deja que un
+ *  tablero que abre a mitad del trabajo pinte sólo lo que no vino en lo que cargó (`cambiosDesde`). */
+export const conHora = (cs: readonly CambioRP[], ahora = Date.now()): CambioRP[] =>
+  cs.map((c) => (typeof c.ts === 'number' ? c : { ...c, ts: ahora }));
+
+/** Los cambios publicados desde `desdeMs`. Uno sin hora (de antes del 16/10) cuenta como viejo. */
+export const cambiosDesde = (cs: readonly CambioRP[], desdeMs: number): CambioRP[] =>
+  cs.filter((c) => typeof c.ts === 'number' && c.ts >= desdeMs);
 
 /** El trabajo como lo leen la pantalla y la API de MaKo. */
 export type Repriorizacion = {
@@ -275,7 +300,7 @@ export function cambiosParaPantalla(cs: readonly CambioRP[]): { tareas: GuardPat
   const proyectos: GuardProjPatch[] = [];
   for (const c of cs) {
     if (c.k === 'p') proyectos.push({ id: c.id, score: c.score, scoreRazon: c.scoreRazon ?? '', emoji: '', detalle: '' });
-    else { const { k: _k, ...p } = c; tareas.push(p); }
+    else { const { k: _k, ts: _ts, ...p } = c; tareas.push(p); }
   }
   return { tareas, proyectos };
 }

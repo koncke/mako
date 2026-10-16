@@ -23,10 +23,11 @@ import { decidirRecurrente } from '@/lib/plan-criterio-reglas';
 import { tipoDeResponsable } from '@/lib/reunion-reparto';
 import type { Pregunta, TipoPregunta } from '@/lib/preguntas-contrato';
 import { corregirMarca } from '@/lib/mako-gramatica';
-import type { Prio, Fuente, FuenteTipo } from '@/app/plan/board/types';
+import type { Prio, Fuente, FuenteTipo } from '@/app/plan/board/types';
 
 import { tableroDeCapa } from './tablero-de-capa';
 import { recortarPrueba, renglonDeCierre } from './cierre-tarjeta';
+import { conCruceGuardado } from './cruce-borrador';
 
 type Row = Record<string, unknown>;
 const wsActual = async (): Promise<number> => (await getWorkspaceActual()) ?? OWNER_WS;
@@ -276,6 +277,9 @@ export type CrearPropuestaDraft = {
   /** 'procesando' = la fila nace VACÍA y alguien la va a llenar después (la lectura de
    *  archivos en segundo plano). No aparece en la lista de pendientes hasta que se llene. */
   estado?: 'pendiente' | 'procesando';
+  /** Las tareas ya vienen CRUZADAS contra el tablero (`cruzarTareas`, lib/reunion-cruce.ts): el
+   *  sello (`cruzado_at`) va en la misma escritura que las hace visibles (16/10/2026). */
+  cruzado?: boolean;
 };
 
 /** El cliente, saneado. leadId 0 es «cliente que es un workspace, no un lead»: no va a la FK. */
@@ -308,9 +312,11 @@ export async function crearPropuesta(draft: CrearPropuestaDraft): Promise<string
         if (!fila.cliente_nombre && draft.clienteNombre?.trim()) {
           await db.from('plan_propuestas').update(clienteDelBorrador(draft)).eq('id', str(fila.id));
         }
-        // 'fallado' también revive: volver a subir el archivo que falló ES el reintento.
+        // 'fallado' también revive: volver a subir el archivo que falló ES el reintento. Si revive a
+        // 'procesando' viene una lectura NUEVA: el sello del cruce era de las tareas viejas y se va
+        // (si no, la lectura nueva nunca se cruzaba, 16/10/2026).
         if (str(fila.estado) === 'descartada' || str(fila.estado) === 'fallado') {
-          await db.from('plan_propuestas').update({ estado: draft.estado ?? 'pendiente' }).eq('id', str(fila.id));
+          await db.from('plan_propuestas').update({ estado: draft.estado ?? 'pendiente', ...(draft.estado === 'procesando' ? { cruzado_at: null } : {}) }).eq('id', str(fila.id));
           console.log(`[plan-propuesta] borrador ${str(fila.id)} revivido: se volvió a extraer la fuente`);
         }
         // ⚠️ UNA FILA «PROCESANDO» SE LLENA, NO SE DEVUELVE VACÍA (16/10/2026). Desde que leer una
@@ -321,6 +327,8 @@ export async function crearPropuesta(draft: CrearPropuestaDraft): Promise<string
         if (str(fila.estado) === 'procesando' && draft.estado !== 'procesando' && tareas.length) {
           await db.from('plan_propuestas').update({
             estado: 'pendiente', tareas, resumen: (draft.resumen ?? '').slice(0, 300),
+            // El sello va con las tareas que lo ganaron: cruzadas → sellado; si no, sin sello.
+            cruzado_at: draft.cruzado ? new Date().toISOString() : null,
             ...(draft.fuenteTitulo ? { fuente_titulo: draft.fuenteTitulo.slice(0, 200) } : {}),
             ...(draft.fuenteUrl ? { fuente_url: draft.fuenteUrl.slice(0, 500) } : {}),
             ...(draft.fuenteFecha ? { fuente_fecha: draft.fuenteFecha } : {}),
@@ -340,6 +348,7 @@ export async function crearPropuesta(draft: CrearPropuestaDraft): Promise<string
       fuente_titulo: draft.fuenteTitulo?.slice(0, 200) ?? null, fuente_url: draft.fuenteUrl?.slice(0, 500) ?? null,
       fuente_fecha: draft.fuenteFecha ?? null,
       ...clienteDelBorrador(draft),
+      ...(draft.cruzado && tareas.length ? { cruzado_at: new Date().toISOString() } : {}),
     });
     if (error) throw new Error(`crearPropuesta: ${error.message}`);
     return id;
@@ -371,12 +380,38 @@ function rowToPropuesta(r: Row): Propuesta {
  * gastar tokens leyendo la reunión: sin este candado, cada corrida horaria volvería a
  * analizar la misma grabación.
  */
+//
+// ⚠️ UNA FILA «PROCESANDO» NO CUENTA (16/10/2026, revisión adversarial). La deja el modal ANTES de
+// leer (la lectura a mano en segundo plano), y si esa lectura se muere a mitad —Vercel la corta por
+// `maxDuration`, un deploy— no corre ni su `catch` ni su `finally`: la fila quedaba «procesando» para
+// siempre, el cron la salteaba por esta función y desde la pantalla no había cómo reintentar. Ahora
+// el cron sigue hasta el candado de lectura (`tomarLectura`): si alguien la está leyendo, la saltea
+// ahí; si nadie, la lee y llena esa misma fila (`crearPropuesta` llena una «procesando»).
 export async function existePropuestaRef(ref: string, ws?: number): Promise<boolean> {
   const destino = ws ?? (await wsActual());
   return runWithWorkspace(destino, async () => {
     const db = await getTenantDb();
-    const { data } = await db.from('plan_propuestas').select('id').eq('ref', ref).maybeSingle();
-    return !!data;
+    const { data } = await db.from('plan_propuestas').select('id, estado').eq('ref', ref).maybeSingle();
+    return !!data && str((data as Row).estado) !== 'procesando';
+  });
+}
+
+/**
+ * La reunión se leyó ENTERA y sin compromisos en OTRO lado que el que dejó la fila «procesando» (el
+ * cron o el webhook ganaron el candado, y el modal había dejado su fila esperando). Sin esto la fila
+ * quedaba «procesando» para siempre: `crearPropuesta` sólo la llena cuando trae tareas, y el modal
+ * sólo volvía a mirar (16/10/2026, revisión adversarial). Queda como la deja la lectura a mano
+ * (`marcarSinCompromisos`). Sólo toca una fila «procesando» de esa `ref`.
+ */
+export async function resolverProcesandoSinCompromisos(ref: string, ws?: number): Promise<boolean> {
+  const destino = ws ?? (await wsActual());
+  return runWithWorkspace(destino, async () => {
+    const db = await getTenantDb();
+    const { data, error } = await db.from('plan_propuestas')
+      .update({ estado: 'fallado', tareas: [], resumen: RESUMEN_SIN_COMPROMISOS })
+      .eq('ref', ref).eq('estado', 'procesando').select('id');
+    if (error) { console.error(`[plan-propuesta] resolverProcesandoSinCompromisos ${ref}: ${error.message}`); return false; }
+    return ((data ?? []) as unknown[]).length > 0;
   });
 }
 
@@ -585,10 +620,13 @@ export async function aplicarPropuestas(lotes: LoteAplicar[]): Promise<Resultado
       // SU tablero por su propio camino).
       // Con tablero único entran TAMBIÉN las de otros — incluidas las que el modal manda
       // aparte como `restantes`: el modal no sabe de este modo, y decide el server.
-      const baseCruda = (lote.tareas
+      // Lo que el modal manda es SU copia: si el cruce del server terminó con el modal abierto, no
+      // trae `enriquece`, y sin recuperarlo la tarea que ya estaba se creaba otra vez
+      // (`conCruceGuardado`, 16/10/2026).
+      const baseCruda = conCruceGuardado((lote.tareas
         ? [...lote.tareas, ...(tableroUnico ? (lote.restantes ?? []) : [])]
         : (prop?.tareas ?? []).filter((t) => tableroUnico || !t.esDeOtro)
-      ).map(limpiarTarea).filter((t): t is PropuestaTarea => !!t);
+      ).map(limpiarTarea).filter((t): t is PropuestaTarea => !!t), prop?.tareas ?? []);
       // ANTI-DOBLE-ALTA: el borrador que conserva tareas de OTRAS personas queda
       // 'pendiente', así que el guard de estado no alcanza — apretar dos veces (o
       // reintentar tras un corte) volvía a crear las mismas tareas. Lo ya aplicado
@@ -847,7 +885,7 @@ export async function aplicarPropuestas(lotes: LoteAplicar[]): Promise<Resultado
  */
 /** El borrador pasa de 'procesando' a 'pendiente' con lo que salió. Es el final feliz
  *  de la lectura en segundo plano: hasta acá la fila existía vacía. */
-export async function marcarProcesado(id: string, datos: { tareas: Array<Record<string, unknown>>; resumen?: string; avisos?: string[]; clienteNombre?: string; clienteLeadId?: number }): Promise<void> {
+export async function marcarProcesado(id: string, datos: { tareas: Array<Record<string, unknown>>; resumen?: string; avisos?: string[]; clienteNombre?: string; clienteLeadId?: number; cruzado?: boolean }): Promise<void> {
   return enWs(async () => {
     const limpias = datos.tareas.map(limpiarTarea).filter((t): t is PropuestaTarea => !!t);
     const db = await getTenantDb();
@@ -855,8 +893,12 @@ export async function marcarProcesado(id: string, datos: { tareas: Array<Record<
     // El CLIENTE de la reunión (mig 0160), si la lectura lo reconoció: es lo que deja que «Cargar»
     // (sin IA) cree su proyecto «Cliente: X» en vez de mandar las tareas a la bandeja.
     const cliente = datos.clienteNombre?.trim() ? clienteDelBorrador(datos) : {};
+    // EL SELLO DEL CRUCE VA CON ESTAS TAREAS, y se escribe SIEMPRE (16/10/2026): puesto si la lectura
+    // las cruzó antes de mostrarlas (`cruzarTareas`), BORRADO si no. Un sello que queda de una
+    // lectura anterior («Volver a analizar» sobre un borrador ya cruzado) decía «ya se cruzó» sobre
+    // tareas que nadie cruzó, y el barrido no las tocaba nunca.
     const { error } = await db.from('plan_propuestas')
-      .update({ estado: limpias.length ? 'pendiente' : 'descartada', tareas: limpias, resumen, ...cliente })
+      .update({ estado: limpias.length ? 'pendiente' : 'descartada', tareas: limpias, resumen, ...cliente, cruzado_at: datos.cruzado && limpias.length ? new Date().toISOString() : null })
       .eq('id', id);
     if (error) console.error(`[plan-propuesta] marcarProcesado ${id}: ${error.message}`);
   });
@@ -880,11 +922,12 @@ export async function marcarSinCompromisos(id: string): Promise<void> {
 }
 
 /** Vuelve a poner un borrador en 'procesando' (volver a leer una reunión que ya tenía borrador).
- *  Las ya cargadas (`aplicadas`) se quedan: lo que se cargue después no las duplica. */
+ *  Las ya cargadas (`aplicadas`) se quedan: lo que se cargue después no las duplica. El sello del
+ *  cruce se va: era de la lectura vieja (ver `marcarProcesado`). */
 export async function ponerProcesando(id: string, resumen: string): Promise<void> {
   return enWs(async () => {
     const db = await getTenantDb();
-    const { error } = await db.from('plan_propuestas').update({ estado: 'procesando', resumen: resumen.slice(0, 300) }).eq('id', id);
+    const { error } = await db.from('plan_propuestas').update({ estado: 'procesando', resumen: resumen.slice(0, 300), cruzado_at: null }).eq('id', id);
     if (error) console.error(`[plan-propuesta] ponerProcesando ${id}: ${error.message}`);
   });
 }
@@ -932,11 +975,18 @@ export async function estadoDePropuesta(id: string): Promise<{ estado: string; n
 
 export async function guardarRevision(id: string, tareas: PropuestaTarea[], marcarCruzado = false): Promise<boolean> {
   return enWs(async () => {
-    const limpias = tareas.map(limpiarTarea).filter((t): t is PropuestaTarea => !!t);
+    let limpias = tareas.map(limpiarTarea).filter((t): t is PropuestaTarea => !!t);
     if (!limpias.length) return false;
     const db = await getTenantDb();
-    const { data } = await db.from('plan_propuestas').select('estado').eq('id', id).maybeSingle();
+    const { data } = await db.from('plan_propuestas').select('estado, tareas').eq('id', id).maybeSingle();
     if (!data || str((data as Row).estado, 'pendiente') !== 'pendiente') return false;
+    // El AUTOSAVE del modal guarda SU copia de las filas: si el cruce del server terminó mientras
+    // estaba abierto, esa copia no trae `enriquece` y lo borraba (16/10/2026, `conCruceGuardado`).
+    // El que escribe el cruce (`marcarCruzado`) trae el resultado nuevo y manda.
+    if (!marcarCruzado) {
+      const guardadas = asArr<unknown>((data as Row).tareas).map(limpiarTarea).filter((t): t is PropuestaTarea => !!t);
+      limpias = conCruceGuardado(limpias, guardadas);
+    }
     // `cruzado_at` (mig 0123) es lo que hace que el cruce anti-duplicados corra UNA vez
     // por borrador y no en cada apertura del modal. El resultado en sí viaja adentro de
     // cada tarea (`enriquece`); esta marca es lo único que distingue «se cruzó y no

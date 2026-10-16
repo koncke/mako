@@ -478,7 +478,10 @@ export type Repo = {
    */
   catalogo?: Array<{ nombre: string; emoji: string; que: string }>;
   createTask(draft: BoardTask): Promise<BoardTask>;  // devuelve canónica (id puede cambiar)
-  saveTask(task: BoardTask): Promise<void>;          // upsert de una tarea existente
+  /** Upsert de una tarea existente. `progresoGuardado`: el último avance que la base le confirmó
+   *  a ESTA pestaña (lo lleva `useBoard`); si el de la tarea es el mismo, la pestaña no tocó el
+   *  avance y el server se queda con el de la fila (16/10/2026, `guardarPlanTarea`). */
+  saveTask(task: BoardTask, opts?: { progresoGuardado?: number }): Promise<void>;
   deleteTask(id: string): Promise<void>;
   createLabel(draft: Label): Promise<Label>;         // devuelve canónica (id server)
   saveLabel(label: Label): Promise<void>;
@@ -549,7 +552,7 @@ export type Repo = {
    * ⚠️ OPCIONAL porque el tipo lo implementan también tableros armados a mano (tests, la demo
    * de Customer Success); los DOS tableros reales la tienen (TodoBoard y `repoPlan`).
    */
-  mover?(id: string, estado: EstadoTarea, orden?: number, opts?: { motivo?: string | null; historial?: Hist[] }): Promise<BoardTask | null>;
+  mover?(id: string, estado: EstadoTarea, orden?: number, opts?: { motivo?: string | null; historial?: Hist[]; progreso?: number }): Promise<BoardTask | null>;
   /**
    * ¿LAS TARJETAS DE ESTE TABLERO SABEN QUIÉN LAS HACE? (`BoardTask.responsableTipo`, mig 0159).
    * Es lo que dibuja el filtro «Responsable» del kanban (16/10/2026). Sólo el del CLIENTE:

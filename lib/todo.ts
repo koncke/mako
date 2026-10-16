@@ -567,7 +567,8 @@ export async function crearTareasDesde(
  */
 export async function moverTarea(
   id: number, estado: EstadoTarea, orden?: number,
-  opts: { motivo?: string | null; historial?: HistEntry[] } = {},
+  /** `progreso`: el avance de ANTES, sólo para el Deshacer de un mover (`trasMover`). */
+  opts: { motivo?: string | null; historial?: HistEntry[]; progreso?: number } = {},
 ): Promise<{ ok: true; tarea: Tarea } | { ok: false; error: string; status: number }> {
   if (!esEstado(estado)) return { ok: false, error: `estado inválido: ${String(estado)}`, status: 400 };
   const supabase = (await getTenantDb());
@@ -579,7 +580,7 @@ export async function moverTarea(
   const no = motivoParaNoMover({ recurrente: !!fila.recurrente }, estado);
   if (no) return { ok: false, error: no, status: 409 };
   const antes = estadoOk(fila.estado);
-  const r = trasMover({ estado: antes, progreso: clampPct(fila.progreso), motivo: txtOk(fila.motivo_atorada) }, estado, opts.motivo);
+  const r = trasMover({ estado: antes, progreso: clampPct(fila.progreso), motivo: txtOk(fila.motivo_atorada) }, estado, opts.motivo, opts.progreso);
   const patch: Record<string, unknown> = {
     estado: r.estado,
     progreso: r.progreso,

@@ -41,10 +41,22 @@ export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user
   // guarda con el estado FRESCO (evita el clobber de precomputar `next`). ──
   const dirty = useRef<Set<string>>(new Set());
   const markDirty = (id: string) => { dirty.current.add(id); };
+  // EL ÚLTIMO AVANCE QUE LA BASE CONFIRMÓ, por tarea (16/10/2026): viaja con cada guardado
+  // (`progresoGuardado`) para que el server sepa si ESTA pestaña tocó el avance. Sin eso, el del
+  // dueño comparaba el avance viejo de la pestaña contra la fila: una tarea completada desde el
+  // teléfono (100%) volvía a «En proceso» al 40% en cuanto la pestaña vieja le corregía el título.
+  // Es la misma primera capa que el cliente tiene en TodoBoard (`progresoGuardado`). No es estado
+  // de React: no dibuja nada.
+  const avanceGuardado = useRef<Map<string, number> | null>(null);
+  if (avanceGuardado.current === null) avanceGuardado.current = new Map(initialTasks.map((t) => [t.id, t.progress]));
+  const confirmarAvance = (t: { id: string; progress: number } | null | undefined) => { if (t) avanceGuardado.current!.set(t.id, t.progress); };
   useEffect(() => {
     if (dirty.current.size === 0) return;
     const ids = [...dirty.current]; dirty.current.clear();
-    for (const id of ids) { const t = tasks.find((x) => x.id === id); if (t) void repo.saveTask(t).catch((e) => console.error('[board] saveTask', e)); }
+    for (const id of ids) {
+      const t = tasks.find((x) => x.id === id);
+      if (t) void repo.saveTask(t, { progresoGuardado: avanceGuardado.current!.get(t.id) }).then(() => confirmarAvance(t)).catch((e) => console.error('[board] saveTask', e));
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tasks]);
 
@@ -192,6 +204,7 @@ export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user
         // La columna y el LUGAR los decide el server (`ordenTope`: arriba de la columna). Sin esto
         // la tarjeta local no tiene `orden` y el kanban no sabe dónde dibujarla hasta el F5.
         estado: canon.estado ?? x.estado, orden: canon.orden ?? x.orden } : x)));
+      confirmarAvance(canon);
       markDirty(canon.id);
       draft.labels.forEach((lid) => logProject(lid, `Agregó la tarea «${v.slice(0, 38)}»`));
       return { ...draft, id: canon.id };
@@ -286,7 +299,7 @@ export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user
     show(cambiaCol ? `Movió a ${etiquetaEstado(estado)}` : cambiaMotivo ? 'Motivo guardado' : 'Cambió el lugar', () => { void deshacerMover(id, antes, entry?.id); });
     try {
       const canon = await repo.mover(id, estado, lugar, { motivo, historial });
-      if (canon) setTasks((ts) => ts.map((x) => (x.id === id ? { ...x, estado: canon.estado ?? x.estado, progress: canon.progress, motivoAtorada: canon.motivoAtorada ?? null, orden: canon.orden ?? x.orden } : x)));
+      if (canon) { confirmarAvance({ id, progress: canon.progress }); setTasks((ts) => ts.map((x) => (x.id === id ? { ...x, estado: canon.estado ?? x.estado, progress: canon.progress, motivoAtorada: canon.motivoAtorada ?? null, orden: canon.orden ?? x.orden } : x))); }
       return true;
     } catch (e) {
       console.error('[board] mover', e);
@@ -306,11 +319,12 @@ export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user
     const historial = entryId ? vivo.historial.filter((h) => h.id !== entryId) : undefined;
     setTasks((ts) => ts.map((x) => (x.id === id ? { ...x, ...antes, ...(entryId ? { historial: x.historial.filter((h) => h.id !== entryId) } : {}) } : x)));
     try {
-      const canon = await repo.mover(id, antes.estado, antes.orden, { motivo: antes.motivoAtorada, historial });
-      // Mover acomoda el avance (reabrir = 0%). Si antes tenía otro, vuelve por el guardado, con
-      // el estado explícito para que la columna no lo recalcule en la pantalla.
-      if (canon && canon.progress !== antes.progress) patch(id, { progress: antes.progress, estado: antes.estado });
-      else if (canon) setTasks((ts) => ts.map((x) => (x.id === id ? { ...x, estado: canon.estado ?? x.estado, motivoAtorada: canon.motivoAtorada ?? null, orden: canon.orden ?? x.orden } : x)));
+      // EL AVANCE DE ANTES VIAJA EN EL MISMO MOVER (`progreso`, 16/10/2026). Hasta ese día volvía
+      // por un SEGUNDO guardado de la tarjeta, y el server lo leía como «cambió el avance»
+      // (`estadoAlGuardar`): una tarjeta en «Por iniciar» al 40%, completada y deshecha, quedaba en
+      // «Por iniciar» en la pantalla y en «En proceso» en la base hasta el F5.
+      const canon = await repo.mover(id, antes.estado, antes.orden, { motivo: antes.motivoAtorada, historial, progreso: antes.progress });
+      if (canon) { confirmarAvance({ id, progress: canon.progress }); setTasks((ts) => ts.map((x) => (x.id === id ? { ...x, estado: canon.estado ?? x.estado, progress: canon.progress, motivoAtorada: canon.motivoAtorada ?? null, orden: canon.orden ?? x.orden } : x))); }
     } catch (e) {
       console.error('[board] deshacer mover', e);
       show('No se pudo deshacer');

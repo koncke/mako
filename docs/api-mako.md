@@ -758,7 +758,7 @@ curl -L \
 
 ### `GET /api/v1/plan/tareas/ficha` — Ficha completa de una tarea
 
-Todo lo de UNA tarea: título, detalle, score y su razón, deadline y su razón, avance, historial reciente (quién tocó qué: user, ia = MaKo, code = Claude Code), fuente (reunión, WhatsApp, archivo), notas, quarter y qué la bloquea. Pide por id, o por número visible (#412) en el tablero del super-admin.
+Todo lo de UNA tarea: título, detalle, score y su razón, prioridad («sin_priorizar» si nadie la puntuó), la columna del kanban (estado) y, si está Atorada, por qué; deadline y su razón, avance, historial reciente (quién tocó qué: user, ia = MaKo, code = Claude Code), fuente (reunión, WhatsApp, archivo), notas, quarter y qué la bloquea. Pide por id, o por número visible (#412) en el tablero del super-admin.
 
 - **Ruta por operación:** `GET /api/v1/plan/ver_tarea_plan`
 - **Token detallado:** permiso `plan=read` (Solo lectura en «Plan»)

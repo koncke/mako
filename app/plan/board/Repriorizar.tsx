@@ -17,11 +17,16 @@
 //     entera desde el navegador, y una tarjeta con el número viejo en memoria se lo devolvería a la
 //     base en el próximo guardado.
 // Al terminar, un toast corto. Si se cortó, la línea lo dice con «Reintentar».
+//
+// ⚠️ Y SIN UN TRABAJO A LA VISTA, IGUAL MIRA (16/10/2026, revisión adversarial): cada
+// `VIGILANCIA_MS` y al volver a la pestaña. Un trabajo arrancado por WhatsApp, desde el teléfono u
+// otra pestaña no avisa a nadie; si esta pestaña no lo ve, el próximo guardado de una tarjeta que
+// ese trabajo ya tocó le devuelve el número, el proyecto y el historial de antes.
 // =============================================================================
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Repo, GuardPatch, GuardProjPatch } from './types';
-import { SONDEO_MS, lineaDeProgreso, avisoAlTerminar, cambiosParaPantalla, type Repriorizacion } from '@/lib/plan-repriorizar-nucleo';
+import { SONDEO_MS, VIGILANCIA_MS, MARGEN_APERTURA_MS, lineaDeProgreso, avisoAlTerminar, cambiosParaPantalla, cambiosDesde, type Repriorizacion } from '@/lib/plan-repriorizar-nucleo';
 import { MONO, SANS } from '@/app/_ui/tokens';
 
 type Opciones = {
@@ -47,13 +52,15 @@ export function useRepriorizar(rp: Repo['repriorizar'], o: Opciones) {
   const actual = useRef<Repriorizacion | null>(null);
   /** Hasta dónde se pintaron los cambios de qué trabajo: el `desde` del próximo sondeo. */
   const visto = useRef<{ id: number; n: number } | null>(null);
+  /** Cuándo montó el tablero: lo que el trabajo publicó antes ya vino en lo que se cargó. */
+  const montado = useRef(Date.now());
 
   const absorber = useCallback((t: Repriorizacion | null, pintar: boolean) => {
     if (!t) return;
     const prev = actual.current;
     if (pintar && t.cambios.length) {
       const { tareas, proyectos } = cambiosParaPantalla(t.cambios);
-      oRef.current.aplicar(tareas, proyectos);
+      if (tareas.length || proyectos.length) oRef.current.aplicar(tareas, proyectos);
     }
     visto.current = { id: t.id, n: t.nCambios };
     // EL FINAL QUE SE VIO: sólo si este mismo tablero lo estaba mirando correr. Un trabajo que ya
@@ -78,7 +85,9 @@ export function useRepriorizar(rp: Repo['repriorizar'], o: Opciones) {
   }, [absorber]);
 
   // AL ABRIR: ¿hay uno corriendo? Primero sin cambios (un trabajo terminado puede traer un tablero
-  // entero de cambios que ya están en lo que se cargó); si corre, entonces sí, desde el principio.
+  // entero de cambios que ya están en lo que se cargó). Si corre, sólo lo que publicó en los últimos
+  // segundos antes de montar (`MARGEN_APERTURA_MS`): lo anterior ya está en lo que se cargó, y
+  // repintarlo pisaría lo que alguien cambió DESPUÉS de que el trabajo lo escribiera.
   useEffect(() => {
     if (!hay) return;
     let vivo = true;
@@ -87,12 +96,38 @@ export function useRepriorizar(rp: Repo['repriorizar'], o: Opciones) {
         const r = rpRef.current!;
         const t = await r.estado(Number.MAX_SAFE_INTEGER);
         if (!vivo || !t) return;
-        if (t.estado === 'corriendo') { const t0 = await r.estado(0); if (vivo) absorber(t0, true); }
+        if (t.estado === 'corriendo') {
+          const t0 = await r.estado(0);
+          if (vivo && t0) absorber({ ...t0, cambios: cambiosDesde(t0.cambios, montado.current - MARGEN_APERTURA_MS) }, true);
+        }
         else { visto.current = { id: t.id, n: t.nCambios }; actual.current = t; setTrabajo(t); }
       } catch (e) { console.warn('[repriorizar] estado al abrir:', e instanceof Error ? e.message : String(e)); }
     })();
     return () => { vivo = false; };
   }, [hay, absorber]);
+
+  // SIN UN TRABAJO CORRIENDO A LA VISTA: cada `VIGILANCIA_MS` (sólo con la pestaña visible) y al
+  // volver a ella. `pedir` ya sabe qué hacer con uno nuevo: si el id no es el que se vio, trae sus
+  // cambios desde el principio y los pinta (todos son posteriores a esta pantalla), y si corre,
+  // el sondeo de abajo toma la posta.
+  const corriendoAhora = trabajo?.estado === 'corriendo';
+  useEffect(() => {
+    if (!hay || corriendoAhora) return;
+    let vivo = true;
+    const mirar = () => {
+      if (!vivo || (typeof document !== 'undefined' && document.hidden)) return;
+      void pedir().catch((e) => console.warn('[repriorizar] vigilancia:', e instanceof Error ? e.message : String(e)));
+    };
+    const timer = setInterval(mirar, VIGILANCIA_MS);
+    const alVolver = () => { if (typeof document === 'undefined' || !document.hidden) mirar(); };
+    document.addEventListener('visibilitychange', alVolver);
+    window.addEventListener('focus', alVolver);
+    return () => {
+      vivo = false; clearInterval(timer);
+      document.removeEventListener('visibilitychange', alVolver);
+      window.removeEventListener('focus', alVolver);
+    };
+  }, [hay, corriendoAhora, pedir]);
 
   // EL SONDEO, sólo mientras corre. Con la pestaña escondida, más espaciado (el cron lo sigue igual).
   const corriendo = trabajo?.estado === 'corriendo';

@@ -31,7 +31,7 @@ import { archivoATexto } from './archivo-a-texto';
 import { extraerTareasDeTexto } from './plan-fathom';
 import { glosarioTexto } from './glosario';
 import { marcarProcesado, marcarFallado } from './plan-propuesta';
-import { cruzarBorrador } from './reunion-cruce';
+import { cruzarTareas } from './reunion-cruce';
 import type { ProyectoRef, Yo } from './plan-fathom';
 
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
@@ -89,17 +89,19 @@ export async function completarBorradorDeArchivos(opts: {
           recurrente: t.recurrente,
         }));
 
+      // EL CRUCE CON EL PLAN, ACÁ Y ANTES DE MOSTRARLAS (16/10/2026): el modal ya no lo corre, y no
+      // ve el borrador hasta que esté cruzado — marcarlo «pendiente» y cruzar después dejaba al modal
+      // con filas sin el cruce, que su autosave borraba (`cruzarTareas`, lib/reunion-cruce.ts). Si no
+      // entra en el reloj, sale sin sello y lo hace el barrido del cron; «Agregar» no lo espera.
+      const cruce = tareas.length
+        ? await cruzarTareas(tareas, { excluirId: borradorId, hasta: opts.hasta }).catch((e) => ({ tareas, cruzado: false, marcadas: 0, motivo: msg(e) }))
+        : { tareas, cruzado: false, marcadas: 0, motivo: 'sin tareas' };
       await marcarProcesado(borradorId, {
-        tareas,
+        tareas: cruce.tareas, cruzado: cruce.cruzado,
         resumen: conTexto.length === 1 ? `De «${conTexto[0].nombre}»` : `De ${conTexto.length} archivos`,
         avisos,
       });
-      // EL CRUCE CON EL PLAN, ACÁ (16/10/2026): el modal ya no lo corre. Si no entra en el reloj, lo
-      // hace el barrido del cron (lib/reunion-cruce.ts); «Agregar» no lo espera.
-      const cruce = tareas.length
-        ? await cruzarBorrador(borradorId, { hasta: opts.hasta }).catch((e) => ({ sellado: false, motivo: msg(e) }))
-        : { sellado: false, motivo: 'sin tareas' };
-      console.log(`[importar-bg] ws ${ws} · ${borradorId} · ${tareas.length} tareas en ${Math.round((Date.now() - t0) / 1000)}s · ${cruce.sellado ? 'cruzado' : 'sin cruzar'}`);
+      console.log(`[importar-bg] ws ${ws} · ${borradorId} · ${tareas.length} tareas en ${Math.round((Date.now() - t0) / 1000)}s · ${cruce.cruzado ? 'cruzado' : 'sin cruzar'}`);
     });
   } catch (e) {
     console.error(`[importar-bg] ws ${ws} · ${borradorId}: ${msg(e)}`);

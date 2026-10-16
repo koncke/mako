@@ -260,6 +260,53 @@ async function main() {
     m9p, trasMoverPlan, d9p, trasDeshacerPlan: { ...resumenPlan(filaPlan(p9.id)), hist: textos(filaPlan(p9.id)) },
   };
 
+  // 10. LA REVISIÓN ADVERSARIAL (16/10/2026): el Deshacer vuelve al avance (y al motivo) de antes, en
+  //     UNA escritura; y una pestaña vieja del dueño no reabre lo que se completó en otro lado.
+  reset();
+  // a) Teléfono, cliente: «En proceso» al 40% → Completada → Deshacer (con lo que devolvió el mover).
+  const c10 = await enWs(() => todo.crearTarea({ titulo: 'al 40', estado: 'en_curso' }));
+  await enWs(() => todo.editarTarea(c10.id, { progreso: 40 }));
+  const m10 = await enWs(() => mv.moverEnTablero('cliente', String(c10.id), 'hecho'));
+  if (m10.ok) await enWs(() => mv.moverEnTablero('cliente', String(c10.id), m10.antes, { entryId: m10.entryId, progreso: m10.antesAvance, motivo: m10.antesMotivo }));
+  const telCli = resumenCli(filaCli(c10.id));
+  // …y una «Atorada» con su motivo vuelve con el motivo.
+  const a10 = await enWs(() => todo.crearTarea({ titulo: 'atorada', estado: 'en_seguimiento', motivo_atorada: 'el cliente no contesta' } as never));
+  const ma10 = await enWs(() => mv.moverEnTablero('cliente', String(a10.id), 'hecho'));
+  if (ma10.ok) await enWs(() => mv.moverEnTablero('cliente', String(a10.id), ma10.antes, { entryId: ma10.entryId, progreso: ma10.antesAvance, motivo: ma10.antesMotivo }));
+  const telAtorada = resumenCli(filaCli(a10.id));
+  // Teléfono, dueño: lo mismo.
+  const p10 = await enWs(() => plan.crearPlanTarea(borrador({ title: 'al 40', estado: 'en_curso', progress: 40 })));
+  const mp10 = await enWs(() => mv.moverEnTablero('dueno', p10.id, 'hecho'));
+  if (mp10.ok) await enWs(() => mv.moverEnTablero('dueno', p10.id, mp10.antes, { entryId: mp10.entryId, progreso: mp10.antesAvance, motivo: mp10.antesMotivo }));
+  const telPlan = resumenPlan(filaPlan(p10.id));
+  // b) Escritorio: «Por iniciar» al 40% (arrastrada a mano) → Completada → Deshacer, que manda el
+  //    avance de antes EN el mover (`progreso`). Hasta el 16/10 volvía por un segundo guardado y la
+  //    base la pasaba a «En proceso». Un 100% fuera de «Completada» no se acepta.
+  const e10 = await enWs(() => todo.crearTarea({ titulo: 'por iniciar al 40' }));
+  await enWs(() => todo.editarTarea(e10.id, { progreso: 40 }));
+  await enWs(() => todo.moverTarea(e10.id, 'por_hacer'));
+  const antesEsc = resumenCli(filaCli(e10.id));
+  await enWs(() => todo.moverTarea(e10.id, 'hecho'));
+  await enWs(() => todo.moverTarea(e10.id, 'por_hacer', undefined, { progreso: 40 }));
+  const escCli = resumenCli(filaCli(e10.id));
+  await enWs(() => todo.moverTarea(e10.id, 'en_curso', undefined, { progreso: 100 }));
+  const cienFuera = resumenCli(filaCli(e10.id));
+  const ep10 = await enWs(() => plan.crearPlanTarea(borrador({ title: 'por iniciar al 40', estado: 'por_hacer', progress: 40 })));
+  await enWs(() => plan.moverPlanTarea(ep10.id, 'hecho'));
+  await enWs(() => plan.moverPlanTarea(ep10.id, 'por_hacer', undefined, { progreso: 40 }));
+  const escPlan = resumenPlan(filaPlan(ep10.id));
+  // c) Pestaña VIEJA del dueño: la tarea al 40% se completa desde el teléfono; la pestaña —que la
+  //    tiene al 40% y la base le confirmó 40— le corrige el título.
+  const v10 = await enWs(() => plan.crearPlanTarea(borrador({ title: 'vieja', estado: 'en_curso', progress: 40 })));
+  const pestana = (await enWs(() => plan.listPlanBoard())).tareas.find((t) => t.id === v10.id)!;
+  await enWs(() => mv.moverEnTablero('dueno', v10.id, 'hecho'));
+  await enWs(() => plan.guardarPlanTarea({ ...pestana, title: 'vieja (tilde corregida)' }, { progresoGuardado: 40 }));
+  const viejaNoTocoAvance = { ...resumenPlan(filaPlan(v10.id)), title: filaPlan(v10.id).title };
+  // …y si la pestaña SÍ movió el avance (40 → 60), manda la persona: la reabre.
+  await enWs(() => plan.guardarPlanTarea({ ...pestana, progress: 60 }, { progresoGuardado: 40 }));
+  const viejaMovioAvance = resumenPlan(filaPlan(v10.id));
+  out.revision = { telCli, telAtorada, telPlan, antesEsc, escCli, cienFuera, escPlan, viejaNoTocoAvance, viejaMovioAvance };
+
   process.stdout.write('@@RESULTADO@@' + JSON.stringify(out));
 }
 

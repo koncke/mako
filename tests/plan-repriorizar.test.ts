@@ -36,6 +36,7 @@ import { join } from 'node:path';
 import {
   TANDA, MAX_INTENTOS, ESPERA_REINTENTO_MS, esDelPlanCliente, idsDelTrabajo, fijadasFuera, planDeTanda, vara,
   idEntradaRP, textoEntradaRP, conEntrada, trasFalla, lineaDeProgreso, avisoAlTerminar, cambiosParaPantalla, alcanzaElReloj,
+  conHora, cambiosDesde, VIGILANCIA_MS,
   type TareaRP,
 } from '../lib/plan-repriorizar-nucleo';
 import { DEFS } from '../lib/api-mako/areas/plan.def';
@@ -165,11 +166,11 @@ const R = JSON.parse(salida.slice(salida.indexOf('@@RESULTADO@@') + '@@RESULTADO
   cliente: {
     r1: { id: number; yaCorria: boolean; total: number; estado: string }; r2: { id: number; yaCorria: boolean };
     foto: string[]; sondeo: { ok: boolean; estado: string; agendadas: number; iaAntesDeCorrer: number };
-    llamadas: Array<{ ids: string[]; vara: string[]; varaScores: number[]; hechasAlLlamar: number | null; motivo: string }>;
+    llamadas: Array<{ ids: string[]; vara: string[]; varaScores: number[]; hechasAlLlamar: number | null; intentosAlLlamar: number | null; motivo: string }>;
     rutear: Array<{ titulos: string[]; destinos: string[] }>;
     final: { estado: string; hechas: number; total: number; puntuadas: number; ruteadas: number; fijadas: number; sinPuntuar: number; error: string | null; modelo: string | null; intentos: number; terminado: boolean; actor: string };
     tareas: Record<string, TareaFinal>; categorias: string[];
-    cambios: { n: number; ids: string[]; conScore: number; ejemplo: Record<string, unknown> | null };
+    cambios: { n: number; ids: string[]; conScore: number; ejemplo: Record<string, unknown> | null; conHora: number };
     desdeFinal: { n: number | null; nCambios: number | null }; ia: string[];
   };
   carrera: { ids: number[]; yaCorria: boolean[]; choques: number; error: string | null; corriendo: number; filas: number };
@@ -192,14 +193,25 @@ const R = JSON.parse(salida.slice(salida.indexOf('@@RESULTADO@@') + '@@RESULTADO
     tbandeja: { labels: string[]; score: number; base: number };
     t1: { score: number; base: number; razon: string; manual: boolean };
     trec: { score: number };
-    cambiosP: number; cambiosT: number; cambioT1: Array<{ score: number; scoreBase: number | null }>; ia: string[];
+    cambiosP: number; cambiosT: number; cambioT1: Array<{ score: number; scoreBase: number | null }>; repartoAntesDeLosProyectos: boolean; ia: string[];
   };
+  carreraCliente: {
+    fijada: { score: number; manual: boolean; razon: string; entradas: number };
+    movida: { estado: string; hist: string[]; score: number };
+    sacadaAMano: { categorias: number[]; hist: string[]; score: number };
+    cerrada: { score: number; entradas: number };
+    fijadas: number; estado: string; cambiosDe1002: number;
+  };
+  carreraDueno: { fijada: { score: number; manual: boolean; razon: string }; movida: { hist: string[]; base: number } };
+  muerta: { av: { tandas: number; estado: string }; estado: string; error: string | null; terminado: boolean; llamadas: number; hechas: number };
   api: {
     antes: { trabajo: unknown }; prep: { payload?: { tablero: string }; resumen?: string; error?: string };
     ej: { ok: boolean; resumen: string; datos?: { trabajoId: number; total: number } };
     prep2: { error?: string; yaEstaba?: boolean };
     despues: { trabajo: { estado: string; avance: string; total: number; pidio: string } };
     agendadas: number; filas: Array<{ origen: string; actor: string; total: number }>;
+    fichaLibre: { prioridad: string; estado: string; columna: string };
+    fichaAtorada: { prioridad: string; estado: string; columna: string; atoradaPor: string };
   };
   rutaCliente: {
     fijar: number; trasFijar: boolean; guardar: number; trasGuardar: boolean; soltar: number; trasSoltar: boolean;
@@ -462,6 +474,79 @@ test('los dos tableros reales traen la capacidad, la demo no, y el menú sólo l
   assert.match(shell, /label: 'Re-priorizar todo'/);
 });
 
+// ── La revisión adversarial (16/10/2026) ─────────────────────────────────────────────
+// Dos revisores reprodujeron que el trabajo decidía con la FOTO de antes del modelo (30 a 90 s) y
+// pisaba lo que la persona hacía mientras; que una pestaña que no vio arrancar el trabajo deshacía lo
+// que escribió; que el reparto del dueño viajaba a la pantalla recién después del juicio de los
+// proyectos; y que una tanda cortada por Vercel se repetía para siempre.
+
+test('la CARRERA: lo que la persona hace mientras el modelo piensa NO se pisa (cliente)', () => {
+  const x = R.carreraCliente;
+  assert.deepEqual(x.fijada, { score: 80, manual: true, razon: 'La fijaste a mano', entradas: 0 }, 'antes: score 41 con el candado puesto y la razón de la IA');
+  assert.equal(x.cambiosDe1002, 0, 'y a la pantalla no le llega un número que pise el suyo');
+  assert.equal(x.movida.estado, 'en_curso');
+  assert.ok(x.movida.hist.includes('hmov'), 'la entrada «Movió a En proceso» se queda (antes: se borraba)');
+  assert.ok(x.movida.hist.some((h) => h.startsWith('rp')), 'y la de MaKo se suma');
+  assert.deepEqual(x.sacadaAMano.categorias, [79], 'la que la persona sacó de la bandeja se queda donde la puso');
+  assert.ok(x.sacadaAMano.hist.includes('hproy'));
+  assert.ok(x.sacadaAMano.score > 0, 'el número sí se escribe');
+  assert.deepEqual(x.cerrada, { score: 0, entradas: 0 }, 'la que se cerró en el medio se saltea');
+  assert.equal(x.fijadas, 1, 'la fijada en el medio se cuenta como respetada');
+  assert.equal(x.estado, 'hecho');
+});
+
+test('la CARRERA en el dueño: lo fijado en el medio no se toca, el historial de ahora se conserva', () => {
+  const x = R.carreraDueno;
+  assert.deepEqual(x.fijada, { score: 77, manual: true, razon: 'La fijaste a mano' });
+  assert.ok(x.movida.hist.includes('hmov'));
+  assert.ok(x.movida.hist.some((h) => h.startsWith('rp')));
+  assert.equal(x.movida.base, 40, 'la que no se tocó sí recibe el juicio');
+});
+
+test('una tanda que se MUERE a mitad cuenta como intento: a la tercera se corta, sin volver a llamar', () => {
+  assert.deepEqual(R.cliente.llamadas.map((l) => l.intentosAlLlamar), [1, 1, 1], 'el intento se cuenta al TOMARLA (y soltarla bien lo vuelve a 0)');
+  assert.equal(R.cliente.final.intentos, 0);
+  const x = R.muerta;
+  assert.equal(x.llamadas, 0, 'una tanda tomada tres veces sin soltarse no se toma una cuarta');
+  assert.equal(x.estado, 'error');
+  assert.match(x.error ?? '', /^Tanda 1: no terminó 3 veces/);
+  assert.equal(x.terminado, true);
+  assert.equal(x.av.estado, 'error');
+});
+
+test('el reparto del dueño llega a la fila ANTES del juicio de los proyectos (~90 s de Perro)', () => {
+  assert.equal(R.dueno.repartoAntesDeLosProyectos, true, 'antes viajaba recién al final: un minuto con la base y la pantalla distintas');
+  assert.equal(R.dueno.final.estado, 'hecho');
+});
+
+test('cada cambio lleva su HORA, y al abrir se pintan sólo los recientes', () => {
+  assert.equal(R.cliente.cambios.conHora, R.cliente.cambios.n, 'todos los cambios publicados tienen `ts`');
+  const ahora = Date.parse('2026-10-16T12:00:00Z');
+  const cs = conHora([{ k: 't', id: 'a', score: 1 }, { k: 'p', id: 'p', score: 2, ts: 5 }], ahora);
+  assert.deepEqual(cs.map((c) => c.ts), [ahora, 5], 'el que ya tenía hora la conserva');
+  assert.deepEqual(cambiosDesde([...cs, { k: 't', id: 'sinHora', score: 3 }], ahora - 1).map((c) => c.id), ['a'], 'uno sin hora cuenta como viejo');
+  assert.deepEqual(cambiosParaPantalla(cs).tareas, [{ id: 'a', score: 1 }], 'la hora no viaja al GuardPatch');
+});
+
+test('la pantalla mira AUNQUE no haya un trabajo a la vista, y al abrir no repinta lo viejo', () => {
+  const src = leer('app', 'plan', 'board', 'Repriorizar.tsx');
+  // Sin un trabajo corriendo: cada VIGILANCIA_MS y al volver a la pestaña.
+  const vig = src.slice(src.indexOf('const corriendoAhora'), src.indexOf('// EL SONDEO'));
+  assert.match(vig, /if \(!hay \|\| corriendoAhora\) return;/);
+  assert.match(vig, /setInterval\(mirar, VIGILANCIA_MS\)/);
+  assert.match(vig, /addEventListener\('visibilitychange', alVolver\)/);
+  assert.match(vig, /addEventListener\('focus', alVolver\)/);
+  assert.match(vig, /void pedir\(\)/);
+  // Al abrir con uno corriendo: sólo los cambios de los últimos segundos antes de montar.
+  assert.match(src, /cambiosDesde\(t0\.cambios, montado\.current - MARGEN_APERTURA_MS\)/);
+  assert.ok(VIGILANCIA_MS <= 60_000);
+});
+
+test('ver_tarea_plan dice la prioridad y la COLUMNA como la lista (no la columna cruda)', () => {
+  assert.deepEqual(R.api.fichaLibre, { prioridad: 'sin_priorizar', estado: 'por_hacer', columna: 'Por iniciar' }, 'antes: «media», y sin columna');
+  assert.deepEqual(R.api.fichaAtorada, { prioridad: 'media', estado: 'en_seguimiento', columna: 'Atorada', atoradaPor: 'Esperando al cliente' });
+});
+
 // =============================================================================
 // PROBADO ROMPIÉNDOLO (16/10/2026), contra una base en verde (27 de 27). Veintinueve roturas,
 // veintinueve cazadas; cada una restaurada de memoria. Fallos / pases de 27:
@@ -496,4 +581,15 @@ test('los dos tableros reales traen la capacidad, la demo no, y el menú sólo l
 //   la pantalla no toma la base (`conPatchDelServer`) .................................... 1 / 26
 // La segunda capa (escribir ignora lo fijado) daba 0 / 27 hasta que el modelo de mentira empezó a
 // «colar» ids que no se le preguntaron: una capa que ninguna entrada dispara no está probada.
+//
+// Y LA REVISIÓN ADVERSARIAL (16/10/2026), contra una base en verde (34 de 34). Ocho roturas, ocho
+// cazadas, cada una restaurada. Fallos / pases de 34:
+//   escribir con la foto de antes del modelo (`completas.get(id)`, sin releer) ........... 2 / 32
+//   el intento no se cuenta al TOMAR la tanda ............................................. 1 / 33
+//   sin el corte a los `MAX_INTENTOS` tomados sin soltar .................................. 1 / 33
+//   el reparto del dueño viaja recién al final (sin `publicar`) ........................... 1 / 33
+//   los cambios de la tanda sin hora (sin `conHora`) ...................................... 1 / 33
+//   la pantalla mira sólo mientras corre un trabajo que vio ............................... 1 / 33
+//   al abrir, la pantalla repinta TODOS los cambios ....................................... 1 / 33
+//   `ver_tarea_plan` con la prioridad cruda ............................................... 1 / 33
 // =============================================================================

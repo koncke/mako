@@ -30,6 +30,7 @@ import { textoAvisoPostLlamada } from '@/lib/lead-resumen';
 import { datosPostLlamada } from '@/lib/reunion-grabada';
 import { esGrabacionDeEntrega } from '@/lib/insights-llamada-reparto';
 import { procesarReunionesNuevas } from '@/lib/reunion-auto';
+import { wsEnLaRonda } from '@/lib/cron-workspaces';
 
 export const dynamic = 'force-dynamic';
 // El follow-up post-llamada (Closing Analyst + redacción con Claude) corre en
@@ -148,6 +149,12 @@ export async function POST(request: NextRequest) {
     const hasta = tStart + 280_000;
     after(() => runWithWorkspace(wsPlan, async () => {
       try {
+        // La MISMA vara que el cron (`correrRonda`): activo y con Fathom conectado. Sin esto, un
+        // workspace pausado o dado de baja recibía la lectura y el WhatsApp de «tareas al plan».
+        if (!(await wsEnLaRonda('fathom', wsPlan))) {
+          console.log(`[webhook:fathom] plan ws=${wsPlan}: no está activo o no tiene Fathom conectado — no se lee`);
+          return;
+        }
         const r = await procesarReunionesNuevas(wsPlan, { hasta, max: 1, ...(Number.isFinite(rid) && rid > 0 ? { soloRecording: rid } : {}) });
         console.log(`[webhook:fathom] plan ws=${wsPlan} recording=${Number.isFinite(rid) ? rid : '—'}: miradas=${r.miradas} alPlan=${r.alPlan} borradores=${r.conTareas} tareas=${r.tareas}${r.enCurso ? ` · ya la leía otro` : ''}`);
       } catch (e) {

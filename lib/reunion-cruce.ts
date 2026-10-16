@@ -47,40 +47,33 @@ async function abiertasConDetalle(): Promise<ItemUniverso[]> {
 
 export type ResultadoCruce = { sellado: boolean; marcadas: number; conIA: boolean; motivo?: string };
 
-/**
- * Cruza UN borrador pendiente contra el tablero y contra los otros borradores pendientes (la misma
- * reunión grabada por dos personas llega como dos borradores), y lo sella. Corre en el workspace
- * del contexto: quien llama envuelve con `runWithWorkspace`.
- */
-export async function cruzarBorrador(id: string, opts: { hasta?: number } = {}): Promise<ResultadoCruce> {
-  const prop = await getPropuesta(id);
-  if (!prop || prop.estado !== 'pendiente') return { sellado: false, marcadas: 0, conIA: false, motivo: 'el borrador no está pendiente' };
-  if (prop.cruzadoAt) return { sellado: true, marcadas: 0, conIA: false, motivo: 'ya estaba cruzado' };
-  const candidatas = candidatasDelCruce(prop.tareas);
+/** Lo que hace falta para escribir un cruce: contra qué se cruzó y qué devolvió el modelo. */
+type Cruce = { candidatas: PropuestaTarea[]; universo: ItemUniverso[]; cruces: Parameters<typeof aplicarCruces>[2] };
 
+/**
+ * EL CRUCE EN SÍ, sin escribir nada: contra el tablero y contra los otros borradores pendientes (la
+ * misma reunión grabada por dos personas llega como dos borradores). `corrio: false` = no se pudo
+ * (no hay que sellar); `cruce: null` con `corrio: true` = no había nada que cruzar (se sella igual).
+ */
+async function hacerCruce(tareas: PropuestaTarea[], opts: { excluirId?: string; hasta?: number; etiqueta: string }): Promise<{ corrio: boolean; cruce: Cruce | null; conIA: boolean; motivo?: string }> {
+  const candidatas = candidatasDelCruce(tareas);
   const [delTablero, otros] = await Promise.all([
-    abiertasConDetalle().catch((e) => { console.error(`[reunion-cruce] ${id}: no pude leer el tablero (${msg(e)})`); return null; }),
+    abiertasConDetalle().catch((e) => { console.error(`[reunion-cruce] ${opts.etiqueta}: no pude leer el tablero (${msg(e)})`); return null; }),
     listPropuestasPendientes(8).catch(() => []),
   ]);
   // «No pude leer el tablero» NO es «el tablero está vacío»: sellar ahí diría «se cruzó y no
   // encontró nada» sobre un cruce que no se hizo.
-  if (delTablero == null) return { sellado: false, marcadas: 0, conIA: false, motivo: 'no pude leer el tablero' };
+  if (delTablero == null) return { corrio: false, cruce: null, conIA: false, motivo: 'no pude leer el tablero' };
   const deOtrosBorradores: ItemUniverso[] = otros
-    .filter((p) => p.id !== id)
+    .filter((p) => p.id !== opts.excluirId)
     .flatMap((p) => p.tareas.filter((t) => !t.esDeOtro))
     .map((t, k) => ({ id: `${PREFIJO_BORRADOR}${k}`, titulo: t.titulo, detalle: t.detalle ?? '' }));
   const universo = [...delTablero, ...deOtrosBorradores];
-
   // Nada que cruzar, o nada contra qué: se sella SIN IA.
-  if (!candidatas.length || !universo.length) {
-    const ok = await guardarRevision(id, prop.tareas, true);
-    return { sellado: ok, marcadas: 0, conIA: false, motivo: ok ? 'nada que cruzar' : 'no pude sellar' };
-  }
+  if (!candidatas.length || !universo.length) return { corrio: true, cruce: null, conIA: false, motivo: 'nada que cruzar' };
   if (opts.hasta != null && Date.now() + CRUCE_MS > opts.hasta) {
-    return { sellado: false, marcadas: 0, conIA: false, motivo: 'sin tiempo en esta corrida' };
+    return { corrio: false, cruce: null, conIA: false, motivo: 'sin tiempo en esta corrida' };
   }
-
-  let cruces;
   try {
     const out = await cruzarCandidatas(
       candidatas.map((t) => ({ titulo: t.titulo, detalle: t.detalle ?? '' })),
@@ -88,16 +81,49 @@ export async function cruzarBorrador(id: string, opts: { hasta?: number } = {}):
       'Cruzar el borrador de una reunión con el plan (en segundo plano)',
       opts.hasta,
     );
-    cruces = out.cruces;
+    return { corrio: true, cruce: { candidatas, universo, cruces: out.cruces }, conIA: true };
   } catch (e) {
-    console.error(`[reunion-cruce] ${id}: el cruce falló (${msg(e)}) — queda SIN sellar, lo reintenta el barrido`);
-    return { sellado: false, marcadas: 0, conIA: true, motivo: msg(e) };
+    console.error(`[reunion-cruce] ${opts.etiqueta}: el cruce falló (${msg(e)}) — queda SIN sellar, lo reintenta el barrido`);
+    return { corrio: false, cruce: null, conIA: true, motivo: msg(e) };
   }
+}
 
+/**
+ * CRUZA LAS TAREAS ANTES DE QUE EL BORRADOR SE VEA (16/10/2026, revisión adversarial). Las tres
+ * lecturas —el cron, la de una reunión a mano y la de archivos— dejaban el borrador «pendiente» y
+ * RECIÉN DESPUÉS lo cruzaban (hasta ~60 s). En esa ventana el modal lo tomaba sin el cruce, su
+ * autosave lo guardaba sin la marca `enriquece` (con el sello ya puesto, así que nadie volvía a
+ * cruzarlo), y «Cargar» creaba la tarjeta duplicada. Ahora las tres cruzan acá, en memoria, y
+ * escriben tareas y sello en la MISMA escritura que las hace visibles. `cruzado: false` = no se pudo
+ * (sin tiempo, el modelo no contestó): el borrador sale sin sello y lo cruza el barrido.
+ */
+export async function cruzarTareas(tareas: PropuestaTarea[], opts: { excluirId?: string; hasta?: number } = {}): Promise<{ tareas: PropuestaTarea[]; cruzado: boolean; marcadas: number; motivo?: string }> {
+  const r = await hacerCruce(tareas, { ...opts, etiqueta: opts.excluirId ?? 'lectura' });
+  if (!r.corrio) return { tareas, cruzado: false, marcadas: 0, motivo: r.motivo };
+  if (!r.cruce) return { tareas, cruzado: true, marcadas: 0, motivo: r.motivo };
+  const out = aplicarCruces(tareas, r.cruce.candidatas, r.cruce.cruces, r.cruce.universo);
+  return { tareas: out.tareas, cruzado: true, marcadas: out.marcadas };
+}
+
+/**
+ * Cruza UN borrador pendiente que ya está a la vista (el barrido: el cruce de la lectura falló o no
+ * entró en el reloj) y lo sella. Corre en el workspace del contexto: quien llama envuelve con
+ * `runWithWorkspace`.
+ */
+export async function cruzarBorrador(id: string, opts: { hasta?: number } = {}): Promise<ResultadoCruce> {
+  const prop = await getPropuesta(id);
+  if (!prop || prop.estado !== 'pendiente') return { sellado: false, marcadas: 0, conIA: false, motivo: 'el borrador no está pendiente' };
+  if (prop.cruzadoAt) return { sellado: true, marcadas: 0, conIA: false, motivo: 'ya estaba cruzado' };
+  const r = await hacerCruce(prop.tareas, { excluirId: id, hasta: opts.hasta, etiqueta: id });
+  if (!r.corrio) return { sellado: false, marcadas: 0, conIA: r.conIA, motivo: r.motivo };
+  if (!r.cruce) {
+    const ok = await guardarRevision(id, prop.tareas, true);
+    return { sellado: ok, marcadas: 0, conIA: false, motivo: ok ? 'nada que cruzar' : 'no pude sellar' };
+  }
   // Se RELEE antes de escribir: mientras el modelo pensaba, alguien pudo corregir la revisión.
   const fresca = await getPropuesta(id);
   if (!fresca || fresca.estado !== 'pendiente') return { sellado: false, marcadas: 0, conIA: true, motivo: 'el borrador cambió de estado mientras se cruzaba' };
-  const { tareas, marcadas } = aplicarCruces(fresca.tareas as PropuestaTarea[], candidatas, cruces, universo);
+  const { tareas, marcadas } = aplicarCruces(fresca.tareas as PropuestaTarea[], r.cruce.candidatas, r.cruce.cruces, r.cruce.universo);
   const ok = await guardarRevision(id, tareas, true);
   if (marcadas) console.log(`[reunion-cruce] ${id}: ${marcadas} tarea(s) ya estaban (en el plan o en otro borrador)`);
   return { sellado: ok, marcadas, conIA: true, motivo: ok ? undefined : 'no pude sellar' };

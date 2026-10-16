@@ -101,7 +101,9 @@ export async function POST(req: NextRequest) {
     if (action === 'guardar-tarea') {
       const t = body.tarea as BoardTask | undefined;
       if (!t?.id) return NextResponse.json({ ok: false, error: 'falta la tarea' }, { status: 400 });
-      await guardarPlanTarea(t);
+      // El último avance que la base le confirmó a la pestaña (16/10/2026): ver `guardarPlanTarea`.
+      const progresoGuardado = typeof body.progresoGuardado === 'number' && Number.isFinite(body.progresoGuardado) ? body.progresoGuardado : undefined;
+      await guardarPlanTarea(t, { progresoGuardado });
       return NextResponse.json({ ok: true });
     }
     // MOVER EN EL KANBAN (16/10/2026): la capacidad `mover` de `repoPlan`. Escribe por columna
@@ -116,7 +118,9 @@ export async function POST(req: NextRequest) {
       // `undefined` = «no me dijeron» (conserva el motivo si ya estaba atorada); `null` lo borra.
       const motivo = body.motivo === null ? null : typeof body.motivo === 'string' ? body.motivo : undefined;
       const historial = Array.isArray(body.historial) ? (body.historial as Hist[]) : undefined;
-      const r = await moverPlanTarea(id, estado, orden, { motivo, historial });
+      // El avance de ANTES: sólo lo manda el «Deshacer» de un mover (`trasMover`, 16/10/2026).
+      const progreso = typeof body.progreso === 'number' && Number.isFinite(body.progreso) ? body.progreso : undefined;
+      const r = await moverPlanTarea(id, estado, orden, { motivo, historial, progreso });
       return r.ok ? NextResponse.json({ ok: true, tarea: r.tarea }) : NextResponse.json({ ok: false, error: r.error }, { status: r.status });
     }
     if (action === 'borrar-tarea') {

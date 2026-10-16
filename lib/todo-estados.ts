@@ -171,8 +171,18 @@ export function trasMover(
   actual: { estado: EstadoTarea; progreso: number; motivo: string | null },
   destino: EstadoTarea,
   motivo?: unknown,
+  /**
+   * EL AVANCE QUE TENÍA, cuando quien mueve lo sabe: el «Deshacer» de un mover (16/10/2026). Sin
+   * esto, deshacer un «Mover a Completada» de una tarea al 40% la devolvía a su columna al 0%
+   * (`avanceAlMover` reabre en 0) — y el escritorio lo arreglaba con un SEGUNDO guardado que el
+   * server leía como «cambió el avance» y la pasaba de «Por iniciar» a «En proceso». Va en la
+   * MISMA escritura que el estado. Manda salvo que contradiga la columna: «Completada» es 100%
+   * siempre, y fuera de ahí un 100% no se acepta (sería una abierta terminada).
+   */
+  avance?: number,
 ): { estado: EstadoTarea; progreso: number; motivo: string | null } {
-  const progreso = avanceAlMover(destino, actual.progreso);
+  const dado = typeof avance === 'number' && Number.isFinite(avance) ? Math.max(0, Math.min(100, Math.round(avance))) : null;
+  const progreso = destino !== 'hecho' && dado != null && dado < 100 ? dado : avanceAlMover(destino, actual.progreso);
   if (destino !== 'en_seguimiento') return { estado: destino, progreso, motivo: null };
   if (motivo === undefined) return { estado: destino, progreso, motivo: actual.estado === 'en_seguimiento' ? actual.motivo : null };
   return { estado: destino, progreso, motivo: motivoAtoradaOk(motivo) };

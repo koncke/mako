@@ -28,7 +28,7 @@ import 'server-only';
 // =============================================================================
 
 import { listReunionesRecientes, extraerTareasDeReunion, cacheKeyReunion, ROL_CONSULTOR, ROL_DESCONOCIDO, type ProyectoRef, type ReunionMeta, type Yo } from './plan-fathom';
-import { crearPropuesta, existePropuestaRef, type PropuestaTarea } from './plan-propuesta';
+import { crearPropuesta, existePropuestaRef, resolverProcesandoSinCompromisos, type PropuestaTarea } from './plan-propuesta';
 import { criterioDelWorkspace } from './plan-criterio';
 import { juzgarConCriterio, type SalidaJuez } from './plan-criterio-juez';
 import { normCita, type Veredicto } from './plan-criterio-reglas';
@@ -46,8 +46,8 @@ import { resolverClienteDeReunion, nombreDeProyectoPara } from './reunion-client
 import type { TipoReunion } from './reunion-clasificar';
 import { linkApp, APP_BASE_URL as APP_URL } from './app-url';
 import { tableroDeCapa } from './tablero-de-capa';
-import { cruzarBorrador } from './reunion-cruce';
-import { registrarDescartadas, registrarNoLeida } from './reunion-descartadas';
+import { cruzarTareas } from './reunion-cruce';
+import { registrarDescartadas, registrarNoLeida, marcarDescartadaLeida } from './reunion-descartadas';
 import { tomarLectura, soltarLectura } from './reunion-leyendo';
 
 /**
@@ -430,9 +430,19 @@ export async function procesarReunionesNuevas(ws: number, opts: { horas?: number
           // diez reuniones del ws1 entre el 08 y el 15/10 (la ventana de 26 h se termina y nadie
           // vuelve a mirarla). En el modal de Fathom, en «Sin leer», con «Leer igual».
           await registrarNoLeida(r, `No pude leer ${partesFallidas} tramo(s): la IA no contestó. La reintento sola.`);
+          // (Una fila «Leyendo…» que el modal dejó esperando esta lectura se QUEDA así a propósito:
+          // la próxima corrida la vuelve a leer —`existePropuestaRef` no cuenta las «procesando»— y
+          // la llena. Marcarla «fallado» la sacaría del reintento: el cron saltea una ref que ya
+          // tiene borrador.)
         } else {
           // Vacío legítimo: leída entera y sin compromisos. Esa sí se cierra.
           await setSetting(KEY_VISTA(r.recordingId), new Date().toISOString()).catch(() => {});
+          // ⚠️ Y SE CIERRA EN TODOS LADOS (16/10/2026, revisión adversarial): la fila «Leyendo…» que
+          // el modal dejó esperando esta lectura (si no, «procesando» para siempre), y la de «Sin
+          // leer» de un intento anterior que falló (si no, 14 días con «Reintentar» sobre una
+          // reunión que ya se leyó bien).
+          await resolverProcesandoSinCompromisos(ref, ws).catch(() => false);
+          await marcarDescartadaLeida(r.recordingId);
           console.warn(`[reunion-auto] ws=${ws} recording=${r.recordingId} «${r.titulo}»: leída completa, sin compromisos`);
         }
         continue;
@@ -536,10 +546,25 @@ export async function procesarReunionesNuevas(ws: number, opts: { horas?: number
         .map((p) => p.nombre || p.email.split('@')[0])
         .slice(0, 3).join(', ');
 
+      // EL CRUCE CONTRA EL TABLERO, ACÁ Y NO EN EL MODAL (16/10/2026, «Fathom sin fricción»). Lo
+      // corría el modal al abrirse y no dejaba cargar mientras tanto («Cruzando con tu plan…», 20 a
+      // 40 s). Ahora el borrador llega a la pantalla ya cruzado y SELLADO (`cruzado_at`): el modal
+      // sólo dibuja lo que encontró. Con el MISMO reloj: si no entra, sale sin sellar y lo cruza el
+      // barrido de la próxima corrida (`cruzarPendientes`); el modal no lo espera nunca.
+      //
+      // ⚠️ ANTES DE CREAR EL BORRADOR, no después (revisión adversarial del mismo día): cruzado
+      // después, el borrador pasaba hasta un minuto «pendiente» sin cruzar, y un modal que lo abría
+      // en ese minuto —el caso normal con el webhook, que lee justo cuando termina la reunión—
+      // cargaba la duplicada o la borraba con su autosave.
+      const cruce = await cruzarTareas(propuestas, { hasta })
+        .catch((e) => ({ tareas: propuestas, cruzado: false, marcadas: 0, motivo: e instanceof Error ? e.message : String(e) }));
+      if (cruce.cruzado) out.cruzados = (out.cruzados ?? 0) + 1;
+      else console.warn(`[reunion-auto] ws=${ws} recording=${r.recordingId}: el borrador queda SIN cruzar (${cruce.motivo ?? 'sin motivo'}) — lo cruza el barrido`);
+
       // ⛔ Acá se armaban preguntas de contexto para responder antes de cargar. El alta
       // dejó de preguntar el 05/10/2026: el Perro decide fecha y prioridad solo.
       const propId = await crearPropuesta({
-        ws, ref, tareas: propuestas, origen: 'fathom',
+        ws, ref, tareas: cruce.tareas, cruzado: cruce.cruzado, origen: 'fathom',
         fuenteTitulo: r.titulo, fuenteUrl: r.url ?? undefined, fuenteFecha: r.fecha ?? undefined,
         // CON QUÉ CLIENTE fue (mig 0160). Antes se usaba para elegir el proyecto y se
         // tiraba: al confirmar ya no había reunión a la cual preguntarle, y las tareas
@@ -568,14 +593,6 @@ export async function procesarReunionesNuevas(ws: number, opts: { horas?: number
       } else {
         console.warn(`[reunion-auto] ws=${ws} recording=${r.recordingId}: ${partesFallidas} tramo(s) SIN leer — borrador parcial, NO se cachea ni se cierra: el próximo cron reintenta`);
       }
-      // EL CRUCE CONTRA EL TABLERO, ACÁ Y NO EN EL MODAL (16/10/2026, «Fathom sin fricción»). Lo
-      // corría el modal al abrirse y no dejaba cargar mientras tanto («Cruzando con tu plan…», 20 a
-      // 40 s). Ahora el borrador llega a la pantalla ya cruzado y SELLADO (`cruzado_at`): el modal
-      // sólo dibuja lo que encontró. Con el MISMO reloj: si no entra, queda sin sellar y lo cruza el
-      // barrido de la próxima corrida (`cruzarPendientes`); el modal no lo espera nunca.
-      const cruce = await cruzarBorrador(propId, { hasta }).catch((e) => ({ sellado: false, marcadas: 0, conIA: false, motivo: e instanceof Error ? e.message : String(e) }));
-      if (cruce.sellado) out.cruzados = (out.cruzados ?? 0) + 1;
-      else console.warn(`[reunion-auto] ws=${ws} recording=${r.recordingId}: el borrador queda SIN cruzar (${cruce.motivo ?? 'sin motivo'}) — lo cruza el barrido`);
       out.conTareas += 1;
       // ⚠️ SE CUENTA LO MISMO QUE SE PROMETE. `mias` sale de `aCrear` (lo tildado) y
       // `otras` salía de `propuestas.length - mias`, o sea del TOTAL: con juez, ahí

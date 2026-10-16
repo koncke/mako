@@ -145,6 +145,21 @@ export async function correrPorWorkspace(
 }
 
 /**
+ * ¿Le toca a ESTE workspace lo que el cron de `servicio` hace? La MISMA vara que `correrRonda`:
+ * activo y con la integración conectada. Para lo que dispara lo mismo FUERA del cron (16/10/2026:
+ * el webhook de Fathom lee la reunión al terminar, y hasta ese día lo hacía también para un
+ * workspace pausado o dado de baja, con su WhatsApp de «tareas al plan» incluido). Ante la duda
+ * (no se pudo leer), no: es lo que hace la ronda con el workspace que no puede evaluar.
+ */
+export async function wsEnLaRonda(servicio: string, ws: number): Promise<boolean> {
+  try {
+    const w = (await listarWorkspaces()).find((x) => x.id === ws);
+    if (!w || w.estado !== 'activo') return false;
+    return await integracionConectada(servicio, ws);
+  } catch { return false; }
+}
+
+/**
  * Config del workspace actual, buscando en los DOS almacenes. Ej.:
  *   const ids = await configWs('youtube_vsl_video_id', process.env.YOUTUBE_VSL_VIDEO_ID);
  *

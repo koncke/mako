@@ -66,8 +66,16 @@ export async function marcarHechaAction(id: string, hecha: boolean, deshacer?: D
  */
 export async function moverTareaAction(id: string, estado: string, deshacer?: DeshacerMover): Promise<ResultadoMoverTarea> {
   if (typeof id !== 'string' || typeof estado !== 'string') return { ok: false, error: 'Tarea inválida' };
+  // Con el avance y el motivo de ANTES (16/10/2026, lo que devolvió el mover). Lo que no tenga la
+  // forma se ignora: el Deshacer sigue, con la regla de siempre para el avance.
   const desh = deshacer == null ? undefined
-    : (typeof deshacer === 'object' && typeof deshacer.entryId === 'string' && deshacer.entryId) ? { entryId: deshacer.entryId.slice(0, 80) } : null;
+    : (typeof deshacer === 'object' && typeof deshacer.entryId === 'string' && deshacer.entryId)
+      ? {
+        entryId: deshacer.entryId.slice(0, 80),
+        ...(typeof deshacer.progreso === 'number' && Number.isFinite(deshacer.progreso) ? { progreso: deshacer.progreso } : {}),
+        ...(deshacer.motivo === null ? { motivo: null } : typeof deshacer.motivo === 'string' ? { motivo: deshacer.motivo.slice(0, 200) } : {}),
+      }
+      : null;
   if (desh === null) return { ok: false, error: 'Ya no se puede deshacer' };
 
   if (!(await getUsuarioActual())) return { ok: false, error: 'Sesión vencida' };

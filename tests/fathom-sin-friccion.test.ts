@@ -33,7 +33,7 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { destinoSinIA, esProyectoBandeja, PROYECTO_SIN_PROYECTO } from '../lib/plan-bandeja';
-import { aplicarCruces, candidatasDelCruce, PREFIJO_BORRADOR } from '../lib/cruce-borrador';
+import { aplicarCruces, candidatasDelCruce, conCruceGuardado, PREFIJO_BORRADOR } from '../lib/cruce-borrador';
 import { motivoDelTipo, clasificarReunion } from '../lib/reunion-clasificar';
 import type { FathomMeeting } from '../lib/fathom-api';
 import type { PropuestaTarea } from '../lib/plan-propuesta';
@@ -69,12 +69,20 @@ const R = JSON.parse(salida.slice(salida.indexOf('@@RESULTADO@@') + '@@RESULTADO
     enRuta: Array<{ id: number; tipo: string; motivo: string }>; trasLeer: number[]; leida11: boolean;
   };
   cron: {
+    borradorDuranteElCruce: boolean | null;
     r: { miradas: number; alPlan: number; conTareas: number; cruzados: number; descartadasAnotadas: number | null };
     cruces: number;
     b901: { estado: string; cruzado: boolean; primera: { id: string; confianza: string } | null; incluir0: boolean | null } | null;
     noLeidas: Array<{ id: number; tipo: string; motivo: string }>;
     candados: string[];
   };
+  r1: { modal: { procesando?: boolean; borradorId?: string } | null; encoladas: number; estado: string | null; sondeo: string; sinCompromisos: boolean | null };
+  r2: { mismoBorrador: boolean; relanzadas: number; cron: { nuevas: number; conTareas: number }; mismaFila: boolean; estado: string | null; n: number; filas: number };
+  r3: { duranteElCruce: { estado: string } | null; vista: { estado: string; cruzado: boolean; enriquece0: string | null }; cruces: number };
+  r4: { estado: string | null; cruces: number; selloViejo: boolean; cruzado: boolean; enriquece0: string | null; trasFallarElCruce: { estado: string | null; cruzadoAt: string | null } };
+  r5: { errores: number; cerrada4747: boolean; sinLeer4747: string | null; cerrada4848: boolean; leida4848: boolean };
+  r6: { guardo: boolean; trasAutosave: string | null; ampliadas: number; creadas: number; tablero: string[] };
+  r7: { activo: boolean; conFathomPausado: boolean; pausado: boolean; sinFathom: boolean; noExiste: boolean };
   sinMock: string[];
 };
 
@@ -136,6 +144,10 @@ test('el CRON cruza el borrador recién creado y lo SELLA (el modal ya no cruza 
   assert.ok(c.b901, 'la reunión de equipo dejó su borrador');
   assert.equal(c.b901!.estado, 'pendiente', 'el borrador espera: Mauricio decide qué cargar');
   assert.equal(c.b901!.cruzado, true, 'sale del cron con `cruzado_at`');
+  // Actualizado A PROPÓSITO el 16/10/2026 (revisión adversarial): el cruce corre ANTES de crear el
+  // borrador, no después — cruzado después, pasaba hasta un minuto «pendiente» sin cruzar y un modal
+  // que lo abría en ese minuto cargaba la duplicada.
+  assert.equal(c.borradorDuranteElCruce, false, 'mientras el modelo cruza, el borrador todavía no se ve');
   assert.equal(c.b901!.primera?.id, '500', 'lo que ya está en el tablero viene marcado');
   assert.equal(c.b901!.incluir0, false, 'con confianza alta, destildada');
   assert.deepEqual(c.candados, ['libre', 'libre'], 'el candado de lectura se suelta siempre (también en la que falló)');
@@ -323,6 +335,94 @@ test('aplicarCruces casa por TÍTULO normalizado y respeta lo que ya decidió la
   assert.equal(tareas[2].enriquece?.razon, 'la marcó la persona', 'no pisa una marca existente');
 });
 
+// ── 5) La revisión adversarial (16/10/2026): lecturas que se cruzan, se mueren o se pisan ─────────
+// Dos revisores reprodujeron cada caso contra el código de la rama; éstos son esos escenarios,
+// corriendo las funciones reales (y la ruta de verdad) contra la base de mentira.
+
+test('la carrera SIN compromisos: la fila «Leyendo…» del modal no queda «procesando» para siempre', () => {
+  const x = R.r1;
+  assert.equal(x.modal?.procesando, true, 'el modal pidió leerla mientras el cron la leía');
+  assert.equal(x.encoladas, 0, 'y no lanzó una segunda lectura (el candado era del cron)');
+  assert.equal(x.estado, 'fallado', 'el cron no encontró nada: la fila del modal se entera');
+  assert.equal(x.sinCompromisos, true, 'y el sondeo lo dibuja como lectura vacía, no como error');
+});
+
+test('una lectura del modal que se MUERE (Vercel la corta) se reintenta: tocándola, o sola en el cron', () => {
+  const x = R.r2;
+  assert.equal(x.mismoBorrador, true);
+  assert.equal(x.relanzadas, 1, 'tocar la fila «Leyendo…» con el candado vencido RELANZA la lectura');
+  assert.deepEqual(x.cron, { nuevas: 1, conTareas: 1 }, 'el cron ya no saltea una ref con una fila «procesando» huérfana');
+  assert.equal(x.mismaFila, true, 'llena ESA fila, no crea otra');
+  assert.equal(x.estado, 'pendiente');
+  assert.equal(x.n, 1);
+  assert.equal(x.filas, 1);
+  // Y el modal: una fila «Leyendo…» llama a `extraer` (el server decide si mira o relanza).
+  const modal = leer('app', 'plan', 'board', 'ReunionExtractModal.tsx');
+  assert.doesNotMatch(modal, /leyendo && b \? \(\(\) => \{[^}]*esperarBorrador/, 'la fila «Leyendo…» sólo volvía a mirar');
+});
+
+test('leer a mano: el modal NUNCA ve el borrador «pendiente» sin cruzar (y lo ve con la marca)', () => {
+  const x = R.r3;
+  assert.equal(x.cruces, 1);
+  assert.equal(x.duranteElCruce?.estado, 'procesando', 'mientras el modelo cruza, el sondeo sigue viendo «Leyendo…»');
+  assert.equal(x.vista.estado, 'pendiente');
+  assert.equal(x.vista.cruzado, true, 'sale sellado en la misma escritura');
+  assert.equal(x.vista.enriquece0, '500', 'y el modal recibe la marca: «ya está en tu plan»');
+});
+
+test('«Volver a analizar» un borrador ya sellado: la lectura NUEVA se cruza y se sella de nuevo', () => {
+  const x = R.r4;
+  assert.equal(x.estado, 'pendiente');
+  assert.equal(x.cruces, 1, 'antes: 0 — el sello viejo decía «ya estaba cruzado»');
+  assert.equal(x.selloViejo, false);
+  assert.equal(x.cruzado, true);
+  assert.equal(x.enriquece0, '500');
+  assert.deepEqual(x.trasFallarElCruce, { estado: 'pendiente', cruzadoAt: null }, 'sin cruce no hay sello: lo cruza el barrido');
+});
+
+test('Fathom que TOSE (503) no cierra la reunión como «sin compromisos»; una vuelta buena la saca de «Sin leer»', () => {
+  const x = R.r5;
+  assert.equal(x.cerrada4747, false, 'sin `partesFallidas`, un 503 pasajero la cerraba para siempre');
+  assert.equal(x.sinLeer4747, 'fallo', 'queda en «Sin leer» y el cron la reintenta');
+  assert.equal(x.errores, 1);
+  assert.equal(x.cerrada4848, true, 'la leída entera y vacía sí se cierra');
+  assert.equal(x.leida4848, true, 'y sale de «Sin leer»: si no, 14 días con «Reintentar» sobre una reunión ya leída');
+});
+
+test('el cruce terminó con el modal ABIERTO: su autosave y su «Agregar» no lo borran', () => {
+  const x = R.r6;
+  assert.equal(x.guardo, true);
+  assert.equal(x.trasAutosave, '500', 'el autosave con SUS filas (sin la marca) la borraba');
+  assert.equal(x.ampliadas, 1, '«Agregar» con SU copia amplía la que ya está…');
+  assert.equal(x.creadas, 0, '…en vez de crear la duplicada');
+  assert.equal(x.tablero.length, 1);
+});
+
+test('el webhook usa la MISMA vara que el cron: activo y con Fathom conectado', () => {
+  assert.deepEqual(R.r7, { activo: true, conFathomPausado: false, pausado: false, sinFathom: false, noExiste: false });
+  const hook = leer('app', 'api', 'webhooks', 'fathom', 'route.ts');
+  const a = hook.indexOf("wsEnLaRonda('fathom', wsPlan)");
+  assert.ok(a > 0, 'el webhook no pregunta si le toca a ese workspace');
+  assert.ok(a < hook.indexOf('procesarReunionesNuevas(wsPlan'), 'y lo pregunta ANTES de leer');
+});
+
+test('conCruceGuardado: una copia vieja recupera la marca por título; la que trae la suya manda', () => {
+  const guardadas: PropuestaTarea[] = [
+    { titulo: 'Montar el flujo', enriquece: { id: '500', razon: 'ya está', confianza: 'alta' }, incluir: false },
+    { titulo: 'Otra', enriquece: { id: '7', razon: 'r', confianza: 'media' } },
+  ];
+  const r = conCruceGuardado([
+    { titulo: '  MONTAR el flujo ' },                                                           // sin marca → la recupera
+    { titulo: 'Otra', enriquece: { id: '9', razon: 'la persona', confianza: 'alta' }, ampliar: false }, // trae la suya → manda
+    { titulo: 'Nueva' },                                                                        // no estaba → igual
+  ], guardadas);
+  assert.equal(r[0].enriquece?.id, '500');
+  assert.equal(r[0].incluir, undefined, 'sólo la marca: lo demás es de quien guarda');
+  assert.equal(r[1].enriquece?.id, '9');
+  assert.equal(r[1].ampliar, false, '«es otra tarea» se respeta');
+  assert.equal(r[2].enriquece, undefined);
+});
+
 // =============================================================================
 // ROTURAS PROBADAS (16/10/2026), base en verde primero (20 de 20), cada una restaurada. Doce
 // roturas, doce cazadas (entre paréntesis, cuántos de los 20 cayeron):
@@ -335,7 +435,8 @@ test('aplicarCruces casa por TÍTULO normalizado y respeta lo que ya decidió la
 //                → caen «NO llama a ninguna IA» y «el proyecto sale SIN IA» (2 de 20)
 //   4. destinoSinIA aceptando el nombre propuesto aunque no exista
 //                → caen «el proyecto sale SIN IA» y «destinoSinIA» (2 de 20)
-//   5. reunion-auto sin la llamada a cruzarBorrador después de crearPropuesta
+//   5. reunion-auto sin el cruce (hasta el 16/10 era `cruzarBorrador` DESPUÉS de crearPropuesta; desde
+//      la revisión adversarial es `cruzarTareas` ANTES, y lo prueba la rotura F11 de abajo)
 //                → cae «el CRON cruza el borrador recién creado» (1 de 20)
 //   6. cruzarBorrador sellando también cuando el modelo falló
 //                → cae «si la IA falla NO sella» (1 de 20)
@@ -347,4 +448,20 @@ test('aplicarCruces casa por TÍTULO normalizado y respeta lo que ya decidió la
 //  10. la ruta `reuniones` sin filtrar las que ya tienen borrador → cae «la ruta las ofrece» (1 de 20)
 //  11. «Agregar» apagado hasta que todos los borradores estén cruzados → cae «el modal no cruza» (1 de 20)
 //  12. `extraer` sin `marcarDescartadaLeida` («Leer igual» no la saca) → cae «la ruta las ofrece» (1 de 20)
+//
+// Y LA REVISIÓN ADVERSARIAL (16/10/2026), base en verde (28 de 28). Doce roturas, doce cazadas, cada
+// una en SU test (entre paréntesis, cuántos de los 28 cayeron):
+//   F1. `existePropuestaRef` contando las «procesando» → cae «una lectura que se MUERE» (1 de 28)
+//   F2. el cron sin `resolverProcesandoSinCompromisos` → cae «la carrera SIN compromisos» (1 de 28)
+//   F3. la lectura a mano marcando «pendiente» ANTES de cruzar → cae «leer a mano» (1 de 28)
+//   F4. `marcarProcesado` / `ponerProcesando` sin borrar el sello viejo → cae «Volver a analizar» (1 de 28)
+//   F5. `extraerTareasDeReunion` sin `partesFallidas` cuando Fathom no contestó → cae «Fathom que TOSE» (1 de 28)
+//   F6. la vuelta buena sin `marcarDescartadaLeida` → cae «Fathom que TOSE» (1 de 28)
+//   F7. `guardarRevision` sin `conCruceGuardado` → cae «con el modal ABIERTO» (1 de 28)
+//   F8. `aplicarPropuestas` sin `conCruceGuardado` → cae «con el modal ABIERTO» (1 de 28)
+//   F9. `wsEnLaRonda` sin mirar el estado → cae «el webhook» (1 de 28; daba 0 hasta que el escenario
+//       pausó un workspace CON Fathom: el otro pausado decía «no» sólo por no tener claves)
+//  F10. el webhook sin `wsEnLaRonda` → cae «el webhook» (1 de 28)
+//  F11. el cron creando el borrador ANTES de cruzar → cae «el CRON cruza» (1 de 28)
+//  F12. la fila «Leyendo…» que sólo vuelve a mirar → cae «una lectura que se MUERE» (1 de 28)
 // =============================================================================

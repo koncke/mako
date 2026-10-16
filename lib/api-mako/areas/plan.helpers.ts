@@ -244,13 +244,20 @@ export const diasParada = (t: TareaPlan, ahora = Date.now()): number =>
  *  prompt, igual que `se_repite: false` en las 300 tareas normales. */
 export const DIAS_PARADA_NOTORIA = 30;
 
+/**
+ * La prioridad como se le DICE al agente. «Sin priorizar» (score 0, 16/10/2026) viaja con su
+ * nombre: con la banda del número diría «futuro» en el dueño, y la columna `prioridad` del cliente
+ * diría «media» (su default, `prioridadOk`) — dos juicios que nadie hizo, que el agente repetiría
+ * como tales. UNA función para la lista (`tareaCompacta`) y el detalle (`ver_tarea_plan`): el
+ * detalle armaba su JSON a mano y se había quedado con la columna cruda.
+ */
+export const prioridadParaAgente = (t: Pick<TareaPlan, 'score' | 'prioridad'>): string => (t.score > 0 ? t.prioridad : 'sin_priorizar');
+
 export function tareaCompacta(t: TareaPlan, nombreProyecto: Map<string, string>) {
   const parada = diasParada(t);
   return {
     id: t.id, ...(t.num != null ? { num: t.num } : {}), titulo: t.titulo, score: t.score,
-    // «Sin priorizar» (score 0, 16/10/2026) viaja con su nombre: con la banda del número diría
-    // «futuro», que es un juicio que nadie hizo — y el agente lo repetiría como tal.
-    prioridad: t.score > 0 ? t.prioridad : 'sin_priorizar',
+    prioridad: prioridadParaAgente(t),
     // La columna, sólo cuando NO es la de siempre: «Por iniciar» es lo normal de una abierta, y
     // una clave más en 300 tareas es ruido en el prompt (la misma regla que `se_repite`).
     ...(t.estado !== 'por_hacer' ? { estado: t.estado } : {}),

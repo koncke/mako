@@ -55,7 +55,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'ver_tarea_plan', area: 'plan', tipo: 'lectura',
     titulo: 'Ficha completa de una tarea',
-    descripcion: 'Todo lo de UNA tarea: título, detalle, score y su razón, deadline y su razón, avance, historial reciente (quién tocó qué: user, ia = MaKo, code = Claude Code), fuente (reunión, WhatsApp, archivo), notas, quarter y qué la bloquea. Pide por id, o por número visible (#412) en el tablero del super-admin.',
+    descripcion: 'Todo lo de UNA tarea: título, detalle, score y su razón, prioridad («sin_priorizar» si nadie la puntuó), la columna del kanban (estado) y, si está Atorada, por qué; deadline y su razón, avance, historial reciente (quién tocó qué: user, ia = MaKo, code = Claude Code), fuente (reunión, WhatsApp, archivo), notas, quarter y qué la bloquea. Pide por id, o por número visible (#412) en el tablero del super-admin.',
     parametros: [
       { nombre: 'id', tipo: 'string', descripcion: 'id de la tarea (de listar_tareas_plan o buscar_tareas_plan). También acepta «#412».', max: 80 },
       { nombre: 'num', tipo: 'number', descripcion: 'número visible #N (solo tablero del super-admin). Pasa id o num.', entero: true, minimo: 1 },

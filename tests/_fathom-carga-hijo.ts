@@ -57,6 +57,8 @@ Modulo._load = function (this: unknown, pedido: string, padre: unknown, esMain: 
       cruzarCandidatas: async (candidatas: unknown[], existentes: unknown[], _motivo?: string, hastaMs?: number) => {
         ia.push('cruzarCandidatas');
         crucesPedidos.push({ candidatas: candidatas.length, universo: existentes.length, conReloj: typeof hastaMs === 'number' });
+        // MIENTRAS EL MODELO PIENSA (16/10/2026): lo que vería un modal que sondea en este momento.
+        if (alCruzar) await alCruzar();
         if (!respuestaCruce) throw new Error('mako-guardian: gemini no contestó y esta feature no se degrada ni se paga (sin respuesta).');
         return { cruces: respuestaCruce };
       },
@@ -69,7 +71,8 @@ Modulo._load = function (this: unknown, pedido: string, padre: unknown, esMain: 
     return {
       ...real,
       listReunionesRecientes: async (...a: unknown[]) => (reunionesFalsas ? { reuniones: reunionesFalsas, nextCursor: null } : real.listReunionesRecientes(...a)),
-      extraerTareasDeReunion: async (...a: unknown[]) => (extraccionFalsa ? extraccionFalsa(Number(a[0])) : real.extraerTareasDeReunion(...a)),
+      // `null` de la mentira = la real (un escenario puede mezclar las dos: R5 lee una de verdad).
+      extraerTareasDeReunion: async (...a: unknown[]) => ((extraccionFalsa ? await extraccionFalsa(Number(a[0])) : null) ?? real.extraerTareasDeReunion(...a)),
     };
   }
   return cargarOriginal.call(this, pedido, padre, esMain);
@@ -77,6 +80,10 @@ Modulo._load = function (this: unknown, pedido: string, padre: unknown, esMain: 
 /** La lista de Fathom y la extracción de mentira del escenario `cron` (`null` = las reales). */
 let reunionesFalsas: Fila[] | null = null;
 let extraccionFalsa: ((recordingId: number) => unknown) | null = null;
+/** Se corre ADENTRO del cruce de mentira, mientras «el modelo piensa» (`null` = nada). */
+let alCruzar: (() => Promise<void>) | null = null;
+/** Fathom «tose» en estas rutas: las grabaciones contestan 503 (pasajero) en vez del 404 de siempre. */
+let fathomCaido: (ruta: string) => boolean = () => false;
 /** Lo que contesta el cruce de mentira (`null` = no contesta, como un 429 sin respaldo). */
 let respuestaCruce: Array<{ i: number; accion: 'enriquece'; idExistente: string; razon: string; confianza: 'alta' | 'media' }> | null = null;
 const crucesPedidos: Array<{ candidatas: number; universo: number; conReloj: boolean }> = [];
@@ -208,7 +215,8 @@ globalThis.fetch = (async (entrada: RequestInfo | URL, init: RequestInit = {}) =
   // (la lectura termina «sin compromisos» sin llamar a ninguna IA).
   if (u.host === 'api.fathom.ai') {
     fathom.push(u.pathname.replace('/external/v1', ''));
-    return u.pathname.endsWith('/meetings') ? json(200, { items: [], next_cursor: null }) : json(404, { error: 'no está' });
+    if (u.pathname.endsWith('/meetings')) return json(200, { items: [], next_cursor: null });
+    return fathomCaido(u.pathname) ? json(503, { error: 'Fathom tose' }) : json(404, { error: 'no está' });
   }
   ia.push(u.host + u.pathname);
   return json(500, { error: { message: 'IA de mentira: este test no deja llamar a ningún proveedor' } });
@@ -234,7 +242,7 @@ const WS_DUENO = 1;
 async function main() {
   const modo = process.argv[2] ?? 'todo';
   const { runWithWorkspace } = await import('../lib/workspace');
-  const reset = () => { for (const t of Object.keys(db)) db[t] = []; ia = []; fathom = []; respuestaCruce = null; crucesPedidos.length = 0; despues.length = 0; reunionesFalsas = null; extraccionFalsa = null; };
+  const reset = () => { for (const t of Object.keys(db)) db[t] = []; ia = []; fathom = []; respuestaCruce = null; crucesPedidos.length = 0; despues.length = 0; reunionesFalsas = null; extraccionFalsa = null; alCruzar = null; fathomCaido = () => false; };
   const out: Record<string, unknown> = {};
 
   const sembrarWorkspace = (capa: 'completo' | 'superadmin') => {
@@ -454,15 +462,161 @@ async function main() {
       // la 903 se lee y FALLA entera (la IA no contestó): antes no dejaba ningún rastro
       : { tareas: [], dudas: [], partesFallidas: 2, transcript: '', participantes: [] });
     respuestaCruce = [{ i: 0, accion: 'enriquece', idExistente: '500', razon: 'el mismo creativo', confianza: 'alta' }];
+    // ¿Existía ya el borrador mientras el modelo cruzaba? (16/10/2026: no tiene que existir: se cruza
+    // ANTES de que se vea, y nace sellado.)
+    let borradorDuranteElCruce: boolean | null = null;
+    alCruzar = async () => { borradorDuranteElCruce = db.plan_propuestas.some((p) => p.ref === 'fathom:901'); };
     const r = await runWithWorkspace(WS_CLIENTE, () => auto.procesarReunionesNuevas(WS_CLIENTE, { hasta: Date.now() + 280_000 }));
+    alCruzar = null;
     const b901 = db.plan_propuestas.find((p) => p.ref === 'fathom:901');
     out.cron = {
+      borradorDuranteElCruce,
       r: { miradas: r.miradas, alPlan: r.alPlan, conTareas: r.conTareas, cruzados: r.cruzados ?? 0, descartadasAnotadas: r.descartadasAnotadas ?? null },
       cruces: crucesPedidos.length,
       b901: b901 ? { estado: b901.estado, cruzado: b901.cruzado_at != null, primera: ((b901.tareas as Fila[]) ?? [])[0]?.enriquece ?? null, incluir0: ((b901.tareas as Fila[]) ?? [])[0]?.incluir ?? null } : null,
       noLeidas: db.plan_reuniones_descartadas.map((f) => ({ id: Number(f.recording_id), tipo: f.tipo, motivo: String(f.motivo ?? '') })),
       candados: db.app_settings.filter((s) => String(s.key).startsWith('mako.reunion.leyendo.')).map((s) => String(s.value)),
     };
+  }
+
+  // ── LA REVISIÓN ADVERSARIAL (16/10/2026): las lecturas que se cruzan, se mueren o se pisan ──────
+  if (modo === 'revision' || modo === 'todo') {
+    const pp = await import('../lib/plan-propuesta');
+    const auto = await import('../lib/reunion-auto');
+    const rd = await import('../lib/reunion-descartadas');
+    const cw = await import('../lib/cron-workspaces');
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const ruta = require('../app/api/plan-fathom/route') as { POST: (req: Request) => Promise<Response> };
+    const post = (body: Record<string, unknown>) => runWithWorkspace(WS_CLIENTE, async () => {
+      const res = await ruta.POST(new Request('http://app.test/api/plan-fathom', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }));
+      return { status: res.status, j: await res.json() as Record<string, unknown> };
+    });
+    const cron = () => runWithWorkspace(WS_CLIENTE, () => auto.procesarReunionesNuevas(WS_CLIENTE, { hasta: Date.now() + 280_000 }));
+    const borr = (ref: string) => db.plan_propuestas.find((p) => p.ref === ref) as Fila | undefined;
+    const reunion = (id: number) => ({ recordingId: id, titulo: `Junta ${id}`, fecha: '2026-10-16T15:00:00Z', durMin: 30, url: null, involucrados: [], tipo: 'equipo', motivo: 'equipo', participantes: [], host: { nombre: 'Martín', email: 'martin@mako.test' } });
+    const cand = (titulo: string) => ({ titulo, detalle: 'algo', prioridad: 'media', proyectoId: null, proyectoNombre: '', dueño: '', dueñoEmail: '', esDeOtro: false });
+    const FLUJO = 'Montar la automatización del flujo post-agenda';
+    const AUDIOS = 'Configurar la automatización del envío de audios post-agendamiento';
+    const conFlujo = () => db.experimento_tareas.push(defaults('experimento_tareas', { workspace_id: WS_CLIENTE, id: 500, titulo: FLUJO, estado: 'por_hacer', score: 70, orden: 1, origen: 'manual' }));
+    const cruceDelFlujo = [{ i: 0, accion: 'enriquece' as const, idExistente: '500', razon: 'es el mismo flujo', confianza: 'alta' as const }];
+    const vencerCandado = (rid: number) => { const k = db.app_settings.find((s) => s.key === `mako.reunion.leyendo.${rid}`); if (k) k.value = new Date(Date.now() - 400_000).toISOString(); };
+    const enriquece0 = (f?: Fila) => ((((f?.tareas as Fila[]) ?? [])[0]?.enriquece as Fila | undefined)?.id as string | undefined) ?? null;
+
+    // R1) La carrera sin compromisos: el cron (o el webhook) lee la 4242 y, MIENTRAS, el modal pide
+    //     leerla: deja su fila «procesando» y no consigue el candado. El cron no encuentra nada.
+    reset(); sembrarWorkspace('completo');
+    reunionesFalsas = [reunion(4242)];
+    let respModal: Record<string, unknown> | null = null;
+    extraccionFalsa = async () => {
+      respModal = (await post({ action: 'extraer', recordingId: 4242, titulo: 'Junta 4242', proyectos: [] })).j;
+      return { tareas: [], dudas: [], partesFallidas: 0, transcript: 'texto', participantes: [] };
+    };
+    await cron();
+    const id1 = String(borr('fathom:4242')?.id ?? '');
+    const s1 = await post({ action: 'estado-borrador', id: id1 });
+    out.r1 = { modal: respModal, encoladas: despues.length, estado: borr('fathom:4242')?.estado ?? null, sondeo: s1.j.estado, sinCompromisos: s1.j.sinCompromisos ?? null };
+
+    // R2) La lectura del modal se MUERE (Vercel la corta): no corre ni su `catch` ni su `finally`.
+    reset(); sembrarWorkspace('completo');
+    const m2 = (await post({ action: 'extraer', recordingId: 4343, titulo: 'Junta 4343', proyectos: [] })).j;
+    despues.length = 0; // nunca corre
+    vencerCandado(4343);
+    // a) Tocar la fila «Leyendo…» otra vez (el modal ahora llama a `extraer`): la RELANZA.
+    const m2b = (await post({ action: 'extraer', recordingId: 4343, titulo: 'Junta 4343', proyectos: [] })).j;
+    const relanzadas = despues.length;
+    despues.length = 0; // y se vuelve a morir
+    vencerCandado(4343);
+    // b) Nadie la toca: la próxima corrida del cron la lee y llena ESA fila.
+    reunionesFalsas = [reunion(4343)];
+    extraccionFalsa = async () => ({ tareas: [cand('Mandar la propuesta al cliente')], dudas: [], partesFallidas: 0, transcript: 't', participantes: [] });
+    const c2 = await cron();
+    out.r2 = {
+      mismoBorrador: m2b.borradorId === m2.borradorId, relanzadas,
+      cron: { nuevas: c2.nuevas, conTareas: c2.conTareas }, mismaFila: borr('fathom:4343')?.id === m2.borradorId,
+      estado: borr('fathom:4343')?.estado ?? null, n: ((borr('fathom:4343')?.tareas as unknown[]) ?? []).length, filas: db.plan_propuestas.length,
+    };
+
+    // R3) Leer a mano: el modal NUNCA ve el borrador «pendiente» sin cruzar.
+    reset(); sembrarWorkspace('completo'); conFlujo();
+    extraccionFalsa = async () => ({ tareas: [cand(AUDIOS), cand('Escribir el guion del webinar')], dudas: [], partesFallidas: 0, transcript: 't', participantes: [] });
+    respuestaCruce = cruceDelFlujo;
+    const m3 = (await post({ action: 'extraer', recordingId: 4444, titulo: 'Junta 4444', proyectos: [] })).j;
+    const id3 = String(m3.borradorId);
+    let duranteElCruce: Record<string, unknown> | null = null;
+    alCruzar = async () => { const e = (await post({ action: 'estado-borrador', id: id3, conReunion: true })).j; duranteElCruce = { estado: e.estado }; };
+    for (const fn of despues.splice(0)) await fn();
+    alCruzar = null;
+    const e3 = (await post({ action: 'estado-borrador', id: id3, conReunion: true })).j;
+    const vista = { estado: e3.estado, cruzado: !!e3.cruzadoAt, enriquece0: (((e3.guardadas as Fila[]) ?? [])[0]?.enriquece as Fila | undefined)?.id ?? null };
+    out.r3 = { duranteElCruce, vista, cruces: crucesPedidos.length };
+
+    // R4) «Volver a analizar» una reunión cuyo borrador YA estaba sellado: la lectura nueva se cruza.
+    reset(); sembrarWorkspace('completo'); conFlujo();
+    borrador(WS_CLIENTE, '4545', [{ titulo: 'Otra cosa' }], { estado: 'aplicada', cruzado_at: '2026-10-15T10:00:00Z', aplicadas: [{ titulo: 'Otra cosa', tareaId: '9' }] });
+    extraccionFalsa = async () => ({ tareas: [cand(AUDIOS)], dudas: [], partesFallidas: 0, transcript: 't', participantes: [] });
+    respuestaCruce = cruceDelFlujo;
+    await post({ action: 'extraer', recordingId: 4545, titulo: 'Junta 4545', proyectos: [], reanalizar: true });
+    for (const fn of despues.splice(0)) await fn();
+    const b4 = borr('fathom:4545');
+    const r4 = { estado: b4?.estado ?? null, cruces: crucesPedidos.length, selloViejo: b4?.cruzado_at === '2026-10-15T10:00:00Z', cruzado: b4?.cruzado_at != null, enriquece0: enriquece0(b4) };
+    // …y si esta vez el cruce NO sale (el modelo no contesta): el sello viejo tampoco se queda, para
+    // que el barrido del cron lo cruce.
+    reset(); sembrarWorkspace('completo'); conFlujo();
+    borrador(WS_CLIENTE, '4546', [{ titulo: 'Otra cosa' }], { estado: 'aplicada', cruzado_at: '2026-10-15T10:00:00Z' });
+    extraccionFalsa = async () => ({ tareas: [cand(AUDIOS)], dudas: [], partesFallidas: 0, transcript: 't', participantes: [] });
+    respuestaCruce = null;
+    await post({ action: 'extraer', recordingId: 4546, titulo: 'Junta 4546', proyectos: [], reanalizar: true });
+    for (const fn of despues.splice(0)) await fn();
+    out.r4 = { ...r4, trasFallarElCruce: { estado: borr('fathom:4546')?.estado ?? null, cruzadoAt: borr('fathom:4546')?.cruzado_at ?? null } };
+
+    // R5) Fathom TOSE (503) cuando se lee la 4747: no es «sin compromisos». Y la 4848 —que un
+    //     intento anterior dejó en «Sin leer»— se lee bien y vacía: sale de la lista.
+    reset(); sembrarWorkspace('completo');
+    reunionesFalsas = [reunion(4747), reunion(4848)];
+    fathomCaido = (ruta) => ruta.includes('/4747/');
+    extraccionFalsa = async (rid) => (rid === 4848 ? { tareas: [], dudas: [], partesFallidas: 0, transcript: 'texto', participantes: [] } : null);
+    await runWithWorkspace(WS_CLIENTE, () => rd.registrarNoLeida(reunion(4848), 'No pude leer 2 tramo(s): la IA no contestó. La reintento sola.'));
+    const c5 = await cron();
+    const vista5 = (rid: number) => db.app_settings.some((s) => s.key === `mako.reunion.auto.${rid}`);
+    const fila5 = (rid: number) => db.plan_reuniones_descartadas.find((f) => Number(f.recording_id) === rid);
+    out.r5 = {
+      errores: c5.errores, cerrada4747: vista5(4747), sinLeer4747: fila5(4747)?.tipo ?? null,
+      cerrada4848: vista5(4848), leida4848: fila5(4848)?.leida_at != null,
+    };
+
+    // R6) El cruce terminó con el modal ABIERTO: su autosave y su «Agregar» traen SU copia, sin la marca.
+    reset(); sembrarWorkspace('completo'); conFlujo();
+    borrador(WS_CLIENTE, 'p6', [
+      { titulo: AUDIOS, detalle: 'algo', enriquece: { id: '500', razon: 'ya está en tu plan como «Montar…»', confianza: 'alta' }, incluir: false },
+      { titulo: 'Escribir el guion del webinar', detalle: 'algo' },
+    ], { cruzado_at: '2026-10-16T12:00:00Z' });
+    const g6 = await runWithWorkspace(WS_CLIENTE, () => pp.guardarRevision('p6', [{ titulo: AUDIOS, detalle: 'algo' }, { titulo: 'Escribir el guion del webinar', detalle: 'algo', incluir: false }]));
+    const trasAutosave = enriquece0(db.plan_propuestas.find((p) => p.id === 'p6'));
+    const a6 = await runWithWorkspace(WS_CLIENTE, () => pp.aplicarPropuestas([{ id: 'p6', tareas: [{ titulo: AUDIOS, detalle: 'Con los audios de bienvenida.' }] }]));
+    out.r6 = { guardo: g6, trasAutosave, ampliadas: a6.ampliadas, creadas: a6.ids.length, tablero: db.experimento_tareas.map((t) => t.titulo) };
+
+    // R7) El webhook: la MISMA vara que el cron (activo y con Fathom conectado).
+    reset();
+    db.workspaces.push({ id: 1, nombre: 'Activo', slug: 'a', estado: 'activo', capa: 'completo' });
+    db.workspaces.push({ id: 2, nombre: 'Pausado', slug: 'p', estado: 'pausado', capa: 'completo' });
+    db.workspaces.push({ id: 3, nombre: 'Sin Fathom', slug: 's', estado: 'activo', capa: 'completo' });
+    // Los TRES campos de Fathom (lib/metodo-catalogo.ts) para el ws 1, que cae al env (OWNER_WS).
+    const antesEnv = { host: process.env.FATHOM_HOST_EMAIL, secreto: process.env.FATHOM_WEBHOOK_SECRET };
+    process.env.FATHOM_HOST_EMAIL = 'martin@mako.test';
+    process.env.FATHOM_WEBHOOK_SECRET = 'whsec_de_mentira';
+    const activo = await cw.wsEnLaRonda('fathom', 1);
+    // El MISMO workspace, con Fathom conectado, pausado: no le toca (sin esto, el 2 da «no» sólo
+    // porque no tiene claves, y la vara del estado no se probaba).
+    db.workspaces[0].estado = 'pausado';
+    const conFathomPausado = await cw.wsEnLaRonda('fathom', 1);
+    out.r7 = {
+      activo, conFathomPausado, pausado: await cw.wsEnLaRonda('fathom', 2),
+      sinFathom: await cw.wsEnLaRonda('fathom', 3), noExiste: await cw.wsEnLaRonda('fathom', 99),
+    };
+    process.env.FATHOM_HOST_EMAIL = antesEnv.host;
+    process.env.FATHOM_WEBHOOK_SECRET = antesEnv.secreto;
+    if (antesEnv.host === undefined) delete process.env.FATHOM_HOST_EMAIL;
+    if (antesEnv.secreto === undefined) delete process.env.FATHOM_WEBHOOK_SECRET;
   }
 
   out.sinMock = [...sinMock];

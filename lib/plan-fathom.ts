@@ -31,6 +31,7 @@ import {
   meetingDurationMin,
   transcriptToText,
   externalInviteeEmails,
+  FathomSinRespuestaError,
   type FathomMeeting,
 } from './fathom-api';
 import { getLeadsByEmail } from './closing';
@@ -854,9 +855,16 @@ ${texto}`);
 export async function extraerTareasDeReunion(recordingId: number, proyectos: ProyectoRef[], yo: Yo, opts: ExtractOpts = {}): Promise<ExtractOut> {
   // summary (markdown) + transcript + action items estructurados (traen assignee.email,
   // hoy el dueño real que Fathom ya calculó). Si algo falla, seguimos con lo que haya.
+  // ⚠️ «Fathom no contestó» NO es «no hay contenido» (16/10/2026, revisión adversarial). Los dos
+  // `catch` caían a vacío, y una lectura vacía SIN `partesFallidas` es «leída entera, sin
+  // compromisos»: el cron la cierra para siempre (`KEY_VISTA`). Con el webhook, que lee en el minuto
+  // en que termina la reunión, un 5xx pasajero de Fathom cerraba la reunión sin rastro. Se anota si
+  // alguno de los dos falló por eso (`FathomSinRespuestaError`, ya con sus reintentos adentro).
+  let fathomCallado = false;
+  const pasajero = (e: unknown) => { if (e instanceof FathomSinRespuestaError) fathomCallado = true; };
   const [summary, transcript, page] = await Promise.all([
-    fetchRecordingSummary(recordingId).catch(() => null),
-    fetchRecordingTranscript(recordingId).catch(() => []),
+    fetchRecordingSummary(recordingId).catch((e) => { pasajero(e); return null; }),
+    fetchRecordingTranscript(recordingId).catch((e) => { pasajero(e); return []; }),
     listMeetingsPage({ limit: 25, includeActionItems: true }).catch(() => ({ items: [], next_cursor: null } as const)),
   ]);
   const resumen = summary?.markdown_formatted?.trim() ?? '';
@@ -868,7 +876,8 @@ export async function extraerTareasDeReunion(recordingId: number, proyectos: Pro
   // (extraerTareasDeTexto): el tope queda como red de seguridad para no bajar un
   // transcript absurdo, en ~6 horas de charla.
   const texto = transcriptToText(transcript, 400000);
-  if (!resumen && !texto) return { tareas: [], dudas: [], cabecera: '', transcript: '' };
+  // Vacía porque Fathom no contestó → UN tramo fallido: quien llama la reintenta en vez de cerrarla.
+  if (!resumen && !texto) return { tareas: [], dudas: [], cabecera: '', transcript: '', ...(fathomCallado ? { partesFallidas: 1 } : {}) };
 
   // Los action items estructurados de Fathom (con su dueño ya atribuido) le dan al
   // modelo la pista de quién asumió qué, sin que lo tenga que adivinar del transcript.

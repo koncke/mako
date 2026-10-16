@@ -182,7 +182,7 @@ export function TodoBoard({ tareas, categorias, demo, user, wsId, vistaInicial, 
     mover: async (id, estado, orden, opts) => {
       // Sin base no hay canónica: la pantalla se queda con su estado optimista (`trasMover`).
       if (demo) return null;
-      const j = await api({ action: 'mover', id: Number(id), estado, orden, motivo: opts?.motivo, historial: opts?.historial });
+      const j = await api({ action: 'mover', id: Number(id), estado, orden, motivo: opts?.motivo, historial: opts?.historial, progreso: opts?.progreso });
       if (!j.ok || !j.tarea) throw new Error(j.error || 'No se pudo mover.');
       confirmar(j.tarea);
       return toBoard(j.tarea);

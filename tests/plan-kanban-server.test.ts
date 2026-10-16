@@ -32,6 +32,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
+import { readFileSync } from 'node:fs';
 
 const RAIZ = join(__dirname, '..');
 
@@ -155,3 +156,65 @@ test('el teléfono: mueve por el camino de cada tablero y el Deshacer saca SU en
   assert.deepEqual([T.trasMoverPlan.estado, T.trasMoverPlan.progress, T.trasMoverPlan.hist[0]], ['hecho', 100, 'Movió a Completada']);
   assert.deepEqual([T.d9p.ok, T.trasDeshacerPlan.estado, T.trasDeshacerPlan.progress, T.trasDeshacerPlan.hist.length], [true, 'por_hacer', 0, T.trasMoverPlan.hist.length - 1]);
 });
+
+// ── LA REVISIÓN ADVERSARIAL (16/10/2026) ───────────────────────────────────────────
+// Dos revisores reprodujeron, con las funciones reales, tres formas de que la base y la pantalla
+// terminaran distintas después de un Deshacer o de un guardado de una pestaña vieja:
+//   · el Deshacer del TELÉFONO de un «Mover a Completada» dejaba la tarea al 0% (y una «Atorada» sin
+//     su motivo): ahora el mover devuelve el avance y el motivo de antes y el Deshacer los manda;
+//   · el Deshacer del ESCRITORIO devolvía el avance por un SEGUNDO guardado, que el server leía como
+//     «cambió el avance»: una «Por iniciar» al 40% quedaba «En proceso» en la base. Ahora va en el
+//     mismo mover (`progreso`);
+//   · una pestaña VIEJA del dueño reabría una tarea completada en otro lado al corregirle el título:
+//     ahora viaja el último avance que la base le confirmó (`progresoGuardado`), como en el cliente.
+//
+// ⚠️ PROBADO ROMPIÉNDOLO (16/10/2026), base en verde (12 de 12), cada rotura restaurada. Las
+// roturas y lo que tiraron están al final del bloque.
+const RV = (R as unknown as { revision: Record<string, ResCli & ResPlan & { title?: string }> }).revision;
+const leerFuente = (...p: string[]) => readFileSync(join(RAIZ, ...p), 'utf8');
+
+test('el Deshacer del teléfono vuelve con el avance y el motivo de antes, en las dos mitades', () => {
+  assert.deepEqual([RV.telCli.estado, RV.telCli.progreso], ['en_curso', 40], 'cliente: antes quedaba al 0%');
+  assert.deepEqual([RV.telAtorada.estado, RV.telAtorada.motivo], ['en_seguimiento', 'el cliente no contesta'], 'y la «Atorada», con su motivo');
+  assert.deepEqual([RV.telPlan.estado, RV.telPlan.progress], ['en_curso', 40], 'dueño: antes quedaba al 0%');
+  // El teléfono manda lo que devolvió el mover (y la action lo deja pasar).
+  assert.match(leerFuente('app', 'm', 'plan', 'ListaPlan.tsx'), /moverTareaAction\(id, antes, \{ entryId, progreso: antesAvance, motivo: antesMotivo \}\)/);
+  assert.match(leerFuente('app', 'm', 'plan', 'acciones.ts'), /progreso: deshacer\.progreso/);
+});
+
+test('el Deshacer del escritorio manda el avance EN el mover: la base y la pantalla quedan iguales', () => {
+  assert.deepEqual([RV.antesEsc.estado, RV.antesEsc.progreso], ['por_hacer', 40]);
+  assert.deepEqual([RV.escCli.estado, RV.escCli.progreso], ['por_hacer', 40], 'cliente: antes la base la pasaba a «En proceso»');
+  assert.deepEqual([RV.escPlan.estado, RV.escPlan.progress], ['por_hacer', 40], 'dueño: lo mismo');
+  assert.equal(RV.cienFuera.progreso, 40, 'un 100% fuera de «Completada» no se acepta');
+  // useBoard ya no hace el segundo guardado, y las dos rutas y los dos repos llevan `progreso`.
+  const ub = leerFuente('app', 'plan', 'board', 'useBoard.ts');
+  const desh = ub.slice(ub.indexOf('const deshacerMover'), ub.indexOf('const setMotivoAtorada'));
+  assert.match(desh, /repo\.mover\(id, antes\.estado, antes\.orden, \{ motivo: antes\.motivoAtorada, historial, progreso: antes\.progress \}\)/);
+  assert.doesNotMatch(desh, /\bpatch\(id,/, 'el segundo guardado era el que la base leía como «cambió el avance»');
+  assert.match(leerFuente('app', 'api', 'todo', 'route.ts'), /moverTarea\(id, estado, orden, \{ motivo, historial, progreso \}\)/);
+  assert.match(leerFuente('app', 'api', 'plan-board', 'route.ts'), /moverPlanTarea\(id, estado, orden, \{ motivo, historial, progreso \}\)/);
+  assert.match(leerFuente('app', 'plan', 'TodoBoard.tsx'), /action: 'mover'[^\n]*progreso: opts\?\.progreso/);
+  assert.match(leerFuente('app', 'plan', 'board', 'repo-plan.ts'), /action: 'mover-tarea'[^\n]*progreso: opts\?\.progreso/);
+});
+
+test('una pestaña VIEJA del dueño no reabre lo que se completó en otro lado (y si ella movió el avance, manda)', () => {
+  assert.deepEqual([RV.viejaNoTocoAvance.estado, RV.viejaNoTocoAvance.progress], ['hecho', 100], 'antes: «En proceso» al 40%');
+  assert.equal(RV.viejaNoTocoAvance.title, 'vieja (tilde corregida)', 'el título sí se guarda');
+  assert.deepEqual([RV.viejaMovioAvance.estado, RV.viejaMovioAvance.progress], ['en_curso', 60]);
+  // El dato viaja: useBoard lo lleva por tarea y el repo del dueño lo manda.
+  const ub = leerFuente('app', 'plan', 'board', 'useBoard.ts');
+  assert.match(ub, /repo\.saveTask\(t, \{ progresoGuardado: avanceGuardado\.current!\.get\(t\.id\) \}\)/);
+  assert.match(leerFuente('app', 'plan', 'board', 'repo-plan.ts'), /action: 'guardar-tarea', tarea: d, progresoGuardado: o\?\.progresoGuardado/);
+  assert.match(leerFuente('app', 'api', 'plan-board', 'route.ts'), /guardarPlanTarea\(t, \{ progresoGuardado \}\)/);
+});
+
+// ROTURAS DE LA REVISIÓN ADVERSARIAL (16/10/2026), base en verde (12 de 12), cada una restaurada.
+// Cinco roturas, cinco cazadas:
+//   K1. `trasMover` ignorando el avance dado (vuelve a `avanceAlMover`)
+//                       → caen «el Deshacer del teléfono» y «el Deshacer del escritorio» (2 de 12)
+//   K2. `alDeshacer` (lib/plan-mover.ts) sin pasar avance ni motivo → cae «el Deshacer del teléfono» (1 de 12)
+//   K3. `guardarPlanTarea` sin `progresoGuardado` (compara el avance viejo contra la fila)
+//                       → cae «una pestaña VIEJA del dueño» (1 de 12)
+//   K4. `deshacerMover` (useBoard) otra vez con el segundo guardado → cae «el Deshacer del escritorio» (1 de 12)
+//   K5. `trasMover` aceptando un 100% fuera de «Completada» → cae «el Deshacer del escritorio» (1 de 12)

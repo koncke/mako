@@ -419,8 +419,15 @@ export async function crearPlanTarea(draft: BoardTask): Promise<BoardTask> {
  * Lo único que mueve la columna desde acá es el AVANCE, y sólo si CAMBIÓ respecto de la fila
  * (`estadoAlGuardar`): llegar a 100% la completa, bajar de 100% la reabre. Por eso se lee la
  * fila antes: «¿cambió?» se contesta contra la base, no contra el navegador.
+ *
+ * ⚠️ Y ESO SOLO NO ALCANZA CON UNA PESTAÑA VIEJA (16/10/2026, revisión adversarial): la tarea al
+ * 40% se completa desde el teléfono (base: 100%), y la pestaña que la tiene al 40% le corrige el
+ * título — el 40% «cambió» contra la fila y la tarea volvía a «En proceso». `progresoGuardado` es
+ * el último avance que la base le confirmó a ESA pestaña (`useBoard`): si el de la tarjeta es el
+ * mismo, la pestaña no tocó el avance y manda la fila (avance y columna). Es la primera capa que
+ * el cliente ya tenía (`avanceSiCambio` en `editPatch`). Sin el dato (otro llamador), lo de antes.
  */
-export async function guardarPlanTarea(t: BoardTask): Promise<void> {
+export async function guardarPlanTarea(t: BoardTask, opts: { progresoGuardado?: number } = {}): Promise<void> {
   return enPlan(async () => {
     const db = await getTenantDb();
     const { data: prev, error: e0 } = await db.from('plan_tareas').select('estado, progress, motivo_atorada').eq('id', t.id).limit(1);
@@ -431,7 +438,10 @@ export async function guardarPlanTarea(t: BoardTask): Promise<void> {
     const g = (prev ?? [])[0] as Row | undefined;
     if (g) {
       const antes: EstadoTarea = esEstado(g.estado) ? g.estado : estadoDeAvance(int(g.progress));
-      fila.estado = estadoAlGuardar({ estado: antes, progreso: int(g.progress) }, int(t.progress));
+      const base = opts.progresoGuardado;
+      const noLoToco = typeof base === 'number' && Number.isFinite(base) && int(t.progress) === Math.round(base);
+      if (noLoToco) fila.progress = int(g.progress);
+      fila.estado = estadoAlGuardar({ estado: antes, progreso: int(g.progress) }, int(fila.progress));
       fila.motivo_atorada = fila.estado === 'en_seguimiento' ? motivoAtoradaOk(g.motivo_atorada) : null;
       delete fila.orden;
     }
@@ -452,7 +462,8 @@ export async function guardarPlanTarea(t: BoardTask): Promise<void> {
  */
 export async function moverPlanTarea(
   id: string, estado: EstadoTarea, orden?: number,
-  opts: { motivo?: string | null; historial?: Hist[] } = {},
+  /** `progreso`: el avance de ANTES, sólo para el Deshacer de un mover (`trasMover`). */
+  opts: { motivo?: string | null; historial?: Hist[]; progreso?: number } = {},
 ): Promise<{ ok: true; tarea: BoardTask } | { ok: false; error: string; status: number }> {
   if (!esEstado(estado)) return { ok: false, error: `estado inválido: ${String(estado)}`, status: 400 };
   return enPlan(async () => {
@@ -464,7 +475,7 @@ export async function moverPlanTarea(
     const t = rowToTask(fila);
     const no = motivoParaNoMover({ recurrente: esRecurrente(t) }, estado);
     if (no) return { ok: false as const, error: no, status: 409 };
-    const r = trasMover({ estado: t.estado ?? estadoDeAvance(t.progress), progreso: t.progress, motivo: t.motivoAtorada ?? null }, estado, opts.motivo);
+    const r = trasMover({ estado: t.estado ?? estadoDeAvance(t.progress), progreso: t.progress, motivo: t.motivoAtorada ?? null }, estado, opts.motivo, opts.progreso);
     const patch: Row = {
       estado: r.estado, progress: r.progreso, motivo_atorada: r.motivo,
       orden: typeof orden === 'number' && Number.isFinite(orden) ? orden : await ordenTopePlan(db, r.estado),

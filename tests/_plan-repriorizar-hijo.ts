@@ -22,12 +22,16 @@ const Modulo = require('node:module') as { _load: (pedido: string, padre: unknow
 const cargarOriginal = Modulo._load;
 const despues: Array<() => unknown> = [];
 
-type LlamadaPuntuar = { ids: string[]; titulos: string[]; vara: string[]; varaScores: number[]; motivo: string; conCapacidades: boolean | undefined; hechasAlLlamar: number | null };
+type LlamadaPuntuar = { ids: string[]; titulos: string[]; vara: string[]; varaScores: number[]; motivo: string; conCapacidades: boolean | undefined; hechasAlLlamar: number | null; intentosAlLlamar: number | null };
 const llamadas = {
   puntuar: [] as LlamadaPuntuar[],
   rutear: [] as Array<{ titulos: string[]; destinos: string[] }>,
   proyectos: 0,
+  /** Los cambios que la fila del trabajo YA tenía cuando el Perro juzgó los proyectos (el cierre). */
+  cambiosAlJuzgarProyectos: null as Array<Record<string, unknown>> | null,
 };
+/** Lo que hace la PERSONA mientras el modelo piensa (se corre una vez, adentro de `puntuarNuevas`). */
+let alPuntuar: (() => void) | null = null;
 /** ¿Falla la llamada n (0, 1, …) a `puntuarNuevas`? */
 let fallaPuntuar: (n: number) => boolean = () => false;
 let trabajoEnCurso: number | null = null;
@@ -51,7 +55,9 @@ Modulo._load = function (this: unknown, pedido: string, padre: unknown, esMain: 
         llamadas.puntuar.push({
           ids: nuevas.map((x) => x.id), titulos: nuevas.map((x) => x.titulo), vara: existentes.map((e) => e.titulo), varaScores: existentes.map((e) => e.score),
           motivo: motivo ?? '', conCapacidades: opts?.conCapacidades, hechasAlLlamar: fila ? Number(fila.hechas) : null,
+          intentosAlLlamar: fila ? Number(fila.intentos) : null,
         });
+        if (alPuntuar) { const f = alPuntuar; alPuntuar = null; f(); }
         if (fallaPuntuar(n)) throw new Error('mako-guardian: gemini no contestó (HTTP 429) y esta feature no se degrada ni se paga');
         // Un número por tarea, distinto y estable: 40 + la posición en la tanda.
         const extra = colar.map((id) => ({ id, score: 3, razon: 'colado', impacto: 1, esfuerzo: 1 }));
@@ -72,6 +78,8 @@ Modulo._load = function (this: unknown, pedido: string, padre: unknown, esMain: 
       },
       puntuarProyectos: async (proyectos: Array<{ id: string }>) => {
         llamadas.proyectos++;
+        const fila = trabajoEnCurso == null ? null : pg.db.plan_repriorizaciones.find((f) => f.id === trabajoEnCurso);
+        llamadas.cambiosAlJuzgarProyectos = fila ? structuredClone((fila.cambios as Array<Record<string, unknown>>) ?? []) : null;
         return { proyectos: proyectos.map((p, i) => ({ id: p.id, score: 90 - i * 7, razon: `le gana a otro (${p.id})` })) };
       },
     };
@@ -149,8 +157,8 @@ async function main() {
   const out: Record<string, unknown> = {};
   const db = pg.db;
   const reset = () => {
-    pg.vaciar(); llamadas.puntuar.length = 0; llamadas.rutear.length = 0; llamadas.proyectos = 0;
-    fallaPuntuar = () => false; trabajoEnCurso = null; despues.length = 0; ia.length = 0; colar = [];
+    pg.vaciar(); llamadas.puntuar.length = 0; llamadas.rutear.length = 0; llamadas.proyectos = 0; llamadas.cambiosAlJuzgarProyectos = null;
+    fallaPuntuar = () => false; trabajoEnCurso = null; despues.length = 0; ia.length = 0; colar = []; alPuntuar = null;
     base.choques = 0; base.casPerdidos = 0; base.ocultarCorriendo = 0;
     db.workspaces.push({ id: WS_CLI, nombre: 'Cliente', slug: 'cli', estado: 'activo', capa: 'completo', created_at: ahoraIso() });
     db.workspaces.push({ id: WS_DUE, nombre: 'MaKo', slug: 'mako', estado: 'activo', capa: 'superadmin', created_at: ahoraIso() });
@@ -206,7 +214,7 @@ async function main() {
       r2: { id: r2.trabajo.id, yaCorria: r2.yaCorria },
       foto,
       sondeo: { ok: sondeo?.ok, estado: sondeo?.trabajo?.estado, agendadas, iaAntesDeCorrer },
-      llamadas: llamadas.puntuar.map((l) => ({ ids: l.ids, vara: l.vara, varaScores: l.varaScores, hechasAlLlamar: l.hechasAlLlamar, motivo: l.motivo })),
+      llamadas: llamadas.puntuar.map((l) => ({ ids: l.ids, vara: l.vara, varaScores: l.varaScores, hechasAlLlamar: l.hechasAlLlamar, intentosAlLlamar: l.intentosAlLlamar, motivo: l.motivo })),
       rutear: structuredClone(llamadas.rutear),
       final: { estado: f.estado, hechas: f.hechas, total: f.total, puntuadas: f.puntuadas, ruteadas: f.ruteadas, fijadas: f.fijadas, sinPuntuar: f.sin_puntuar, error: f.error, modelo: f.modelo, intentos: f.intentos, terminado: !!f.terminado_at, actor: f.actor },
       tareas: Object.fromEntries([1001, 1045, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010].map((id) => [id, {
@@ -214,7 +222,7 @@ async function main() {
         entradas: hist(id).filter((h) => h.id.startsWith('rp')).map((h) => ({ id: h.id, actor: h.actor, text: h.text })),
       }])),
       categorias: db.tarea_categorias.map((c) => c.nombre),
-      cambios: { n: cambios.length, ids: cambios.map((c) => String(c.id)), conScore: cambios.filter((c) => c.score != null).length, ejemplo: cambios.find((c) => c.id === '1001') ?? null },
+      cambios: { n: cambios.length, ids: cambios.map((c) => String(c.id)), conScore: cambios.filter((c) => c.score != null).length, ejemplo: cambios.find((c) => c.id === '1001') ?? null, conHora: cambios.filter((c) => typeof c.ts === 'number').length },
       desdeFinal: { n: desdeFinal?.cambios.length ?? null, nCambios: desdeFinal?.nCambios ?? null },
       ia: [...ia],
     };
@@ -332,8 +340,68 @@ async function main() {
       cambiosP: cambios.filter((c) => c.k === 'p').length,
       cambiosT: cambios.filter((c) => c.k === 't').length,
       cambioT1: cambios.filter((c) => c.id === 't1').map((c) => ({ score: c.score, scoreBase: c.scoreBase ?? null })),
+      // ¿El reparto ya estaba en la fila cuando el Perro empezó a juzgar los proyectos (~90 s)?
+      repartoAntesDeLosProyectos: (llamadas.cambiosAlJuzgarProyectos ?? []).some((c) => c.id === 't1' && c.score === t('t1').score && c.historialEntry == null),
       ia: [...ia],
     };
+  }
+
+  // ── 9) LA CARRERA (revisión adversarial, 16/10/2026): la persona usa el tablero MIENTRAS el modelo
+  //       piensa. Fija una prioridad, mueve una tarjeta, saca otra de la bandeja a mano. ───────────
+  {
+    reset(); sembrarCliente(3, false);
+    tarea({ id: 2007, titulo: 'Mandar el anuncio nuevo', score: 0, categorias: [78] });
+    const r = await enCli(() => rp.iniciarRepriorizacion({ tablero: 'cliente', actor: 'Ana', origen: 'tablero' }));
+    trabajoEnCurso = r.trabajo.id;
+    alPuntuar = () => {
+      Object.assign(et(1002), { score: 80, score_manual: true, score_razon: 'La fijaste a mano', prioridad: 'alta' });
+      Object.assign(et(1001), { estado: 'en_curso', historial: [{ id: 'hmov', ts: Date.now(), actor: 'user', text: 'Movió a En proceso' }] });
+      Object.assign(et(2007), { categorias: [79], historial: [{ id: 'hproy', ts: Date.now(), actor: 'user', text: 'La pasó a «Ventas»' }] });
+      Object.assign(et(1003), { estado: 'hecho', progreso: 100 });
+    };
+    await enCli(() => rp.avanzarRepriorizacion(r.trabajo.id, { hasta: lejos(), pausaMs: 0 }));
+    const f = fila(r.trabajo.id);
+    const textos = (id: number) => ((et(id).historial as Array<{ id: string; text: string }>) ?? []).map((h) => h.id);
+    out.carreraCliente = {
+      fijada: { score: et(1002).score, manual: et(1002).score_manual, razon: et(1002).score_razon, entradas: textos(1002).filter((x) => x.startsWith('rp')).length },
+      movida: { estado: et(1001).estado, hist: textos(1001), score: et(1001).score },
+      sacadaAMano: { categorias: et(2007).categorias, hist: textos(2007), score: et(2007).score },
+      cerrada: { score: et(1003).score, entradas: textos(1003).filter((x) => x.startsWith('rp')).length },
+      fijadas: f.fijadas, estado: f.estado,
+      cambiosDe1002: ((f.cambios as Array<Record<string, unknown>>) ?? []).filter((c) => c.id === '1002' && c.score != null).length,
+    };
+
+    // El dueño: lo mismo (escribe por `update` directo, no por `editarTarea`).
+    reset();
+    const pt = (x: Fila) => db.plan_tareas.push({ workspace_id: WS_DUE, estado: 'por_hacer', progress: 0, score_base: null, score_manual: false, labels: ['pdash'], historial: [], recurrente: false, detalle: 'algo', deadline: '', created_at: ahoraIso(), ...x });
+    db.plan_proyectos.push({ workspace_id: WS_DUE, id: 'pdash', name: 'Dashboard', score: 60, historial: [], score_manual: false, recurrente: false, detalle: '' });
+    pt({ id: 'd1', num: 1, title: 'Uno', score: 0 });
+    pt({ id: 'd2', num: 2, title: 'Dos', score: 0 });
+    const rd = await enDue(() => rp.iniciarRepriorizacion({ tablero: 'dueno', actor: 'Martín', origen: 'tablero' }));
+    trabajoEnCurso = rd.trabajo.id;
+    const pd = (id: string) => db.plan_tareas.find((x) => x.id === id) as Fila;
+    alPuntuar = () => {
+      Object.assign(pd('d2'), { score: 77, score_base: 77, score_manual: true, score_razon: 'La fijaste a mano' });
+      Object.assign(pd('d1'), { historial: [{ id: 'hmov', ts: Date.now(), actor: 'user', text: 'Movió a En proceso' }], estado: 'en_curso' });
+    };
+    await enDue(() => rp.avanzarRepriorizacion(rd.trabajo.id, { hasta: lejos(), pausaMs: 0 }));
+    out.carreraDueno = {
+      fijada: { score: pd('d2').score, manual: pd('d2').score_manual, razon: pd('d2').score_razon },
+      movida: { hist: ((pd('d1').historial as Array<{ id: string }>) ?? []).map((h) => h.id), base: pd('d1').score_base },
+    };
+  }
+
+  // ── 10) UNA TANDA QUE SE MUERE A MITAD (Vercel la corta): el intento se cuenta al TOMARLA, y a la
+  //        tercera tomada sin soltar el trabajo se corta sin volver a llamar al modelo. ─────────────
+  {
+    reset(); sembrarCliente(25, false);
+    const r = await enCli(() => rp.iniciarRepriorizacion({ tablero: 'cliente', actor: 'Ana', origen: 'tablero' }));
+    trabajoEnCurso = r.trabajo.id;
+    // Tres tomadas que nunca se soltaron: `intentos` quedó en 3 y el candado venció.
+    Object.assign(fila(r.trabajo.id), { intentos: 3, vuelta: 3, tomada_hasta: new Date(Date.now() - 1000).toISOString() });
+    const av = await enCli(() => rp.avanzarRepriorizacion(r.trabajo.id, { hasta: lejos(), pausaMs: 0 }));
+    const f = fila(r.trabajo.id);
+    out.muerta = { av, estado: f.estado, error: f.error, terminado: !!f.terminado_at, llamadas: llamadas.puntuar.length, hechas: f.hechas };
   }
 
   // ── 7) LA API DE MAKO: repriorizar_plan y ver_repriorizacion_plan ──────────────────────────────
@@ -349,7 +417,17 @@ async function main() {
     const ej = await enCli(() => run.ejecutar((prep.payload ?? {}) as Record<string, unknown>, ctx));
     const prep2 = await enCli(() => run.preparar({}, ctx));
     const despuesDe = await leer();
-    out.api = { antes, prep, ej, prep2, despues: despuesDe, agendadas: despues.length, filas: db.plan_repriorizaciones.map((f) => ({ origen: f.origen, actor: f.actor, total: f.total })) };
+    // `ver_tarea_plan` (revisión adversarial, 16/10/2026): la prioridad y la columna como en la lista.
+    Object.assign(et(1001), { estado: 'en_seguimiento', motivo_atorada: 'Esperando al cliente' });
+    const verT = RUNNERS.ver_tarea_plan as { leer: (i: Record<string, unknown>, c: never) => Promise<string | { content: string }> };
+    const ficha = async (id: string) => { const x = await enCli(() => verT.leer({ id }, ctx)); return JSON.parse(typeof x === 'string' ? x : x.content) as Record<string, unknown>; };
+    const libre = await ficha('1012');
+    const atorada = await ficha('1001');
+    out.api = {
+      antes, prep, ej, prep2, despues: despuesDe, agendadas: despues.length, filas: db.plan_repriorizaciones.map((f) => ({ origen: f.origen, actor: f.actor, total: f.total })),
+      fichaLibre: { prioridad: libre.prioridad, estado: libre.estado, columna: libre.columna },
+      fichaAtorada: { prioridad: atorada.prioridad, estado: atorada.estado, columna: atorada.columna, atoradaPor: atorada.atorada_por },
+    };
   }
 
   // ── 8) EL CANDADO DEL CLIENTE, POR LA RUTA DE VERDAD (/api/todo) ─────────────────────────────

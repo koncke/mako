@@ -651,8 +651,12 @@ export function ReunionExtractModal({ labels, archivoInicial, onCrear, onAmpliar
                         // lo mismo). Se entra a ver lo que salió: las tarjetas que ya están
                         // en el plan y lo que quedó del lado de otras personas.
                         const b = borradores[r.recordingId];
-                        // 'procesando' (se está leyendo) y 'fallado' (no salió) NO son «ya leída»: el
-                        // primero vuelve a mirar la lectura en curso, el segundo deja leerla de nuevo.
+                        // 'procesando' (se está leyendo) y 'fallado' (no salió) NO son «ya leída»: los
+                        // dos vuelven a pedir la lectura (`extraer`), y el SERVER decide. Si alguien la
+                        // está leyendo, contesta «procesando» y el modal mira esa lectura; si la que
+                        // dejó la fila se murió a mitad (Vercel la cortó), la lanza de nuevo. Hasta el
+                        // 16/10/2026 una fila «Leyendo…» sólo volvía a mirar, y una lectura muerta
+                        // quedaba «Leyendo…» para siempre sin forma de reintentar.
                         const leyendo = b?.estado === 'procesando';
                         const fallo = b?.estado === 'fallado';
                         const yaLeida = !!b && !!onAbrirBorrador && !leyendo && !fallo;
@@ -673,8 +677,7 @@ export function ReunionExtractModal({ labels, archivoInicial, onCrear, onAmpliar
                         const cerrada = b?.estado === 'aplicada' || b?.estado === 'descartada';
                         return (
                           <button key={r.recordingId} type="button" onClick={() => (yaLeida ? onAbrirBorrador!(r.recordingId, { titulo: r.titulo, fecha: r.fecha, n: yaEnPlan + (b?.pendientesMias ?? 0) + (b?.pendientesOtros ?? 0) })
-                            : leyendo && b ? (() => { setElegida(r); setFase('extrayendo'); setErr(''); setBorradorId(b.id); setEnSegundoPlano(true); void esperarBorrador(b.id, r); })()
-                              : extraer(r))}
+                            : extraer(r))}
                             // Sin leer = APAGADA. Lo que MaKo ya miró tiene que saltar a la
                             // vista; lo que todavía no, se ve pero no compite. Una lista donde
                             // todo pesa igual obliga a leer los 40 títulos.
