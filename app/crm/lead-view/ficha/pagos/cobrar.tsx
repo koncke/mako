@@ -19,7 +19,7 @@ import type { Pago } from '@/lib/pagos';
 import { nombreCuota } from '@/lib/pagos-campo';
 import { usd, type AccionDeCobro } from '@/lib/pagos-vistazo';
 import { marcarPagoAction } from '@/app/crm/actions';
-import { marcarPagoManualAction } from '@/app/crm/[id]/deal-actions';
+import { marcarPagoManualAction, registrarPagoSueltoAction } from '@/app/crm/[id]/deal-actions';
 import { guardarVentaAction } from '@/app/crm/[id]/pagos-campo-actions';
 import { agregarCuotaAction } from './cuotas-actions';
 import { CobrarCuotaConLink } from '@/app/crm/[id]/CobrarConLink';
@@ -69,11 +69,24 @@ export function useCobrar(ctx: CtxFicha) {
     try { await marcarPagoAction(q.id, lead.id, false, null); cambio(); }
     catch (e) { show(e instanceof Error ? e.message : String(e), undefined, 'bad'); }
   });
-  /** Desmarcar una cuota cobrada a mano, con Deshacer que la vuelve a marcar con su fecha y hora. */
+  /**
+   * Desmarcar una cuota cobrada a mano, con Deshacer que la vuelve a marcar con su fecha y hora. Si nació cobrada (un
+   * pago suelto o una mensualidad a mano), el server la QUITA (mig 0295) y el Deshacer la vuelve a registrar igual.
+   */
   const desmarcar = (q: Pago) => start(async () => {
     try {
-      await marcarPagoAction(q.id, lead.id, false, null);
+      const { quitada } = await marcarPagoAction(q.id, lead.id, false, null);
       cambio();
+      if (quitada) {
+        show('Pago quitado', () => start(async () => {
+          await registrarPagoSueltoAction(lead.id, {
+            monto: Number(q.monto_usd), fecha: q.fecha_pago ?? new Date().toISOString().slice(0, 10), hora: q.pago_hora ?? null,
+            moneda: q.moneda ?? null, montoOriginal: q.monto_original ?? null, concepto: q.concepto ?? null, metodo: q.metodo ?? null,
+          }).catch(() => {});
+          cambio();
+        }));
+        return;
+      }
       show(`${nombreCuota(q.numero)} desmarcada`, () => start(async () => {
         // Con lo que tenía: la moneda, lo cobrado en ella, el concepto y el método (lo que no viene, el server lo limpia).
         await marcarPagoManualAction(q.id, lead.id, {

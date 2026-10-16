@@ -1263,10 +1263,11 @@ export const RUNNERS: Runners = {
         invalidar('pagos', 'leads');
         return { ok: true, resumen: `Listo: cuota cobrada el ${fechaPago} por ${r.monto} USD${r.pendiente != null ? `; quedan ${r.pendiente} USD pendientes en una cuota nueva` : ''}.` };
       }
-      await marcarPago(Number(payload.pagoId), pagado, fechaPago);
-      await logLeadEvent(Number(payload.leadId), pagado ? 'Pago registrado' : 'Pago desmarcado', pagado ? `Cuota marcada como pagada${fechaPago ? ` (${fechaPago})` : ''}` : 'Cuota desmarcada', autorDe(ctx));
+      const { quitada } = await marcarPago(Number(payload.pagoId), pagado, fechaPago);
+      await logLeadEvent(Number(payload.leadId), pagado ? 'Pago registrado' : quitada ? 'Pago quitado' : 'Pago desmarcado', pagado ? `Cuota marcada como pagada${fechaPago ? ` (${fechaPago})` : ''}` : quitada ? 'Se quitó un pago registrado a mano' : 'Cuota desmarcada', autorDe(ctx));
       invalidar('pagos', 'leads');
-      return { ok: true, resumen: pagado ? `Listo: cuota marcada como cobrada el ${fechaPago}.` : 'Listo: la cuota volvió a figurar sin cobrar.' };
+      // Un pago que nació cobrado (suelto o mensualidad a mano) no vuelve como deuda: se quita (mig 0295).
+      return { ok: true, resumen: pagado ? `Listo: cuota marcada como cobrada el ${fechaPago}.` : quitada ? 'Listo: se quitó el pago (era uno registrado a mano, no una cuota del plan).' : 'Listo: la cuota volvió a figurar sin cobrar.' };
     }),
   },
   registrar_pago_suelto: {

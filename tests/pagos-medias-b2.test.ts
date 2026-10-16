@@ -91,7 +91,8 @@ test('⚠️ toda escritura que cambia un vencimiento olvida el dedup de esa cuo
 
 test('⚠️ marcar pagada una cuota anula sus links sin pagar, salvo el cobro que la salda, y sin tumbar el pago', () => {
   const marcar = bloque(PAGOS, 'export async function marcarPago(');
-  assert.match(marcar, /\.select\('lead_id, cobro_id'\)/);
+  // (16/10/2026: `*`, para leer `nacio_cobrada` sin romper una base sin la mig 0295; trae `cobro_id` igual.)
+  assert.match(marcar, /\.select\('\*'\)/);
   const iSi = marcar.indexOf('if (pagado) {');
   const iAnular = marcar.indexOf('await anularLinksAlCobrar(pagoId, pago.cobro_id ?? null);');
   assert.ok(iSi > 0 && iAnular > iSi, 'sólo al marcar PAGADO, y pasando el cobro propio');
