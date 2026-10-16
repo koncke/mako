@@ -8,20 +8,25 @@
 // Verificado rompiéndolo: sacar `include: []` da 1 fallo; sacar `types: ['node']` da 1 fallo.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { resolve } from 'node:path';
 import { armarTsconfig } from '../scripts/tsc-acotado.mjs';
 
-const REPO = 'C:\\repo\\dashboard-marketing';
+// El repo de mentira se arma con `resolve` y no como un «C:\repo…» fijo: en Linux (GitHub Actions)
+// una ruta de Windows es RELATIVA, y `resolve` le pega delante el cwd del runner. Pasó en el run
+// 38845971505 (16/10/2026): 2 rojos sólo en Actions, verde en la notebook.
+const REPO = resolve('/repo/dashboard-marketing');
+const R = REPO.split('\\').join('/');
 
 test('el tsconfig acotado chequea SÓLO la lista: files con rutas absolutas e include vacío', () => {
   const c = armarTsconfig(REPO, ['app/x/a.ts', 'lib/b.tsx']);
   assert.deepEqual(c.include, [], 'sin include vacío, extends hereda el del repo y se chequea todo');
-  assert.deepEqual(c.files, ['C:/repo/dashboard-marketing/app/x/a.ts', 'C:/repo/dashboard-marketing/lib/b.tsx']);
-  assert.equal(c.extends, 'C:/repo/dashboard-marketing/tsconfig.json', 'mismas reglas que el completo; absoluto porque el json vive fuera del repo');
+  assert.deepEqual(c.files, [`${R}/app/x/a.ts`, `${R}/lib/b.tsx`]);
+  assert.equal(c.extends, `${R}/tsconfig.json`,'mismas reglas que el completo; absoluto porque el json vive fuera del repo');
 });
 
 test('trae los tipos de Node (en el completo entran por next-env.d.ts, que un archivo suelto no ve)', () => {
   const c = armarTsconfig(REPO, ['app/x/a.ts']);
-  assert.deepEqual(c.compilerOptions.typeRoots, ['C:/repo/dashboard-marketing/node_modules/@types']);
+  assert.deepEqual(c.compilerOptions.typeRoots, [`${R}/node_modules/@types`]);
   assert.deepEqual(c.compilerOptions.types, ['node']);
 });
 
