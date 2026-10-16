@@ -30,6 +30,12 @@
 //   · `/video-generator?plan=<uuid>` a la lista y no al anuncio          → 9 / 1
 //   · `/landing-generator/<id>` a la lista y no a esa landing           → 9 / 1
 //   · el closer sin Closing en su capa ve la fila Dashboard en More      → 9 / 1
+// 15/10/2026, las siete de More (Calendario, Second Brain, Experiments, Offer, Copywriting, Curso y
+// Comunidad; base 11 / 0), de a una y restaurando:
+//   · Curso mapeado DESPUÉS del `dentro(p, '/customer-success')` de Clientes  → 10 / 1 (las siete)
+//   · `/analisis` sin la pestaña Análisis fijada (`fija`)                     → 10 / 1 (las siete)
+//   · `QUERY_DE_SECCION.experimentos` sin 'tab' (el push abría Retro)          → 10 / 1 (las siete)
+// Quién ve cada una y que cada fila sea la de la sidebar: tests/movil-mas-secciones.test.ts.
 // =============================================================================
 
 import test from 'node:test';
@@ -38,7 +44,7 @@ import { TODOS_LOS_ITEMS, USER_NAV } from '../app/_components/nav';
 import { NOMBRES_ICONO } from '../app/_components/icons';
 import {
   DESTINOS_MOVIL, SECCIONES_MAS, HOME_MOVIL, RUTA_MAS, esRutaMovil, puedeVerKey, destinosVisibles, destinoActivo,
-  barraMovil, gruposMas, seccionesMasVisibles, seccionDeRuta, rutaMovil, rutaMovilOHome,
+  barraMovil, gruposMas, seccionesMasVisibles, seccionDeRuta, rutaMovil, rutaMovilOHome, rutaEscritorio,
 } from '../lib/movil-rutas';
 
 type Rol = Parameters<typeof barraMovil>[0];
@@ -75,16 +81,24 @@ test('v3: CRM · Chats · General · Plan · More; More por las familias de la s
   // Chats hereda la key de la bandeja de escritorio (/whatsapp): quien no la ve, no ve la pestaña.
   // La key de la bandeja UNIFICADA (/chats); ve lo mismo que `whatsapp` en todas las capas (tests/chats-registro).
   assert.equal(DESTINOS_MOVIL.find((d) => d.id === 'chats')?.navKey, 'chats');
+  // 15/10/2026: las siete del prototipo v3, cada una en su lugar de la sidebar (Copywriting se gatea con la key
+  // de su sección Ads Writer: la de la tab unificada no está en TODOS_LOS_ITEMS).
   assert.deepEqual(SECCIONES_MAS.map((s) => [s.id, s.navKey, s.familia]), [
-    ['ads', 'ads-manager', 'operate'], ['dashboard', 'graphics', 'analyze'], ['landing', 'landing-writer', 'sales'],
-    ['automations', 'setting', 'sales'], ['video', 'video-generator', 'content'], ['cs', 'customer-success', 'customer'],
+    ['calendario', 'calendario', 'operate'], ['ads', 'ads-manager', 'operate'],
+    ['second-brain', 'second-brain', 'analyze'], ['dashboard', 'graphics', 'analyze'], ['experimentos', 'experimentos', 'analyze'],
+    ['offer', 'offer', 'sales'], ['landing', 'landing-writer', 'sales'], ['automations', 'setting', 'sales'],
+    ['video', 'video-generator', 'content'], ['copywriting', 'ads-writer', 'content'],
+    ['cs', 'customer-success', 'customer'], ['curso', 'cs-curso', 'customer'], ['comunidad', 'cs-comunidad', 'customer'],
     ['mako', 'mako', null],
   ]);
 });
 
 test('admin de un cliente completo: la barra de cinco y More con todo, una caja por familia', () => {
   assert.deepEqual(barra('admin', 'completo'), ['crm', 'chats', 'hoy', 'plan', 'mas']);
-  assert.deepEqual(mas('admin', 'completo'), [['ads'], ['dashboard'], ['landing', 'automations'], ['video'], ['cs'], ['mako']]);
+  assert.deepEqual(mas('admin', 'completo'), [
+    ['calendario', 'ads'], ['second-brain', 'dashboard', 'experimentos'], ['offer', 'landing', 'automations'],
+    ['video', 'copywriting'], ['cs', 'curso', 'comunidad'], ['mako'],
+  ]);
   // Cada caja lleva el nombre de su familia en la sidebar; MaKo va última y sin título, como en escritorio.
   assert.deepEqual(familias('admin', 'completo'),
     ['Operate', 'Analyze', 'Sales Machine', 'Content Machine', 'Customer Success', null]);
@@ -102,9 +116,10 @@ test('quién ve qué en More: lo que nav.ts le da a cada rol, y nada más', () =
   assert.equal(puedeVerKey('graphics', 'closer', 'pm'), true, 'el nav solo se la daría');
   assert.ok(!seccionesMasVisibles('closer', 'pm').some((s) => s.id === 'dashboard'));
   assert.ok(seccionesMasVisibles('admin', 'pm').some((s) => s.id === 'dashboard'), 'el admin sí');
-  // Ads Manager, Customer Success, Video y Landing son de admin.
+  // Ads Manager, Customer Success, Video y Landing son de admin; las siete del 15/10/2026, también.
   for (const rol of ['closer', 'setter'] as const) {
-    for (const k of ['ads-manager', 'customer-success', 'video-generator', 'landing-writer']) {
+    for (const k of ['ads-manager', 'customer-success', 'video-generator', 'landing-writer',
+      'calendario', 'second-brain', 'experimentos', 'offer', 'ads-writer', 'cs-curso', 'cs-comunidad']) {
       assert.equal(puedeVerKey(k, rol, 'completo'), false, `${rol} ve ${k}`);
     }
   }
@@ -115,10 +130,12 @@ test('quién ve qué en More: lo que nav.ts le da a cada rol, y nada más', () =
 });
 
 test('el hueco: si el rol no ve uno de los cuatro, lo ocupa la primera sección de More que ve (y no se repite en More)', () => {
-  // La capa pm no ve CRM ni la bandeja aunque sea admin (tabEnCapa manda): suben Dashboard y MaKo.
+  // La capa pm no ve CRM ni la bandeja aunque sea admin (tabEnCapa manda): suben las dos primeras de More
+  // que ve, en el orden de la sidebar. Desde el 15/10/2026 Calendario (Operate, que la capa pm tiene desde el
+  // 13/10: los deadlines del Plan) va antes que Dashboard (Analyze), y MaKo se queda en More.
   assert.equal(puedeVerKey('crm', 'admin', 'pm'), false);
-  assert.deepEqual(barra('admin', 'pm'), ['dashboard', 'mako', 'hoy', 'plan', 'mas']);
-  assert.deepEqual(mas('admin', 'pm'), []);
+  assert.deepEqual(barra('admin', 'pm'), ['calendario', 'dashboard', 'hoy', 'plan', 'mas']);
+  assert.deepEqual(mas('admin', 'pm'), [['mako']]);
   // Un setter en pm: sólo ve MaKo de More, y sube (queda un hueco sin llenar: la barra es de cuatro).
   assert.deepEqual(barra('setter', 'pm'), ['mako', 'hoy', 'plan', 'mas']);
   assert.deepEqual(mas('setter', 'pm'), []);
@@ -181,7 +198,7 @@ test('el mapa v2: cada pantalla de escritorio de una sección de More cae en su 
   assert.equal(rutaMovil('/ads-manager'), '/m/ads');
   assert.equal(rutaMovil('/ads-manager/123?ws=4'), '/m/ads');
   assert.equal(rutaMovil('/customer-success'), '/m/cs');
-  assert.equal(rutaMovil('/customer-success/curso'), '/m/cs');
+  assert.equal(rutaMovil('/customer-success?vista=avance'), '/m/cs');
   for (const p of ['/automations', '/automations?sec=12', '/chatbot?sec=12', '/chat-bot', '/chat-agent', '/setting']) {
     assert.equal(rutaMovil(p), '/m/automations', p);
   }
@@ -199,6 +216,40 @@ test('el mapa v2: cada pantalla de escritorio de una sección de More cae en su 
   assert.equal(rutaMovil('/landing-generator/42'), '/m/landing/42');
   assert.equal(rutaMovil('/landing-generator/crear'), '/m/landing');
   assert.equal(rutaMovil('/landing-writer/5'), '/m/landing');
+});
+
+test('las siete de More (15/10/2026): cada pantalla de escritorio, y sus alias, caen en su sección', () => {
+  const casos: [string, string | null][] = [
+    ['/calendario', '/m/calendario'], ['/calendario?vista=mes&fecha=2026-10-14&gcal=ok&ws=13', '/m/calendario?vista=mes&fecha=2026-10-14'],
+    ['/second-brain', '/m/second-brain'], ['/second-brain?area=voz&vista=persona', '/m/second-brain?area=voz&vista=persona'],
+    ['/experimentos', '/m/experimentos'], ['/experimentos?tab=conclusions&ws=3', '/m/experimentos?tab=conclusions'],
+    // /analisis redirige en escritorio a la pestaña Análisis con la query entera, y su `tab` no se puede pisar.
+    ['/analisis', '/m/experimentos?tab=analisis'],
+    ['/analisis?desde=2026-06-01&hasta=2026-08-31&tab=retro', '/m/experimentos?desde=2026-06-01&hasta=2026-08-31&tab=analisis'],
+    // El informe congelado que se mandó por WhatsApp no tiene pantalla en el teléfono: se queda en la suya.
+    ['/analisis/trimestre', null],
+    ['/offer', '/m/offer'], ['/offer?oferta=7&funnel=2', '/m/offer?oferta=7&funnel=2'], ['/offer-analyst', '/m/offer'],
+    ['/ads-writer', '/m/copywriting'], ['/ads-writer?tab=analizar', '/m/copywriting?tab=analizar'], ['/content-machine', '/m/copywriting'],
+    // Lo demás de la tab Copywriting es del super admin: en la computadora.
+    ['/youtube-writer', null], ['/stories', null], ['/ideas', null],
+    // Curso y Comunidad ANTES que Clientes (`dentro(p, '/customer-success')` se quedaba con las dos).
+    ['/customer-success/curso', '/m/curso'], ['/customer-success/curso?producto=3', '/m/curso?producto=3'],
+    ['/customer-success/curso/vista?producto=3', '/m/curso?producto=3'],
+    // El Avance se fue del Curso a Clientes: el link viejo, en escritorio, redirige ahí.
+    ['/customer-success/curso?vista=avance&producto=3', '/m/cs'],
+    ['/customer-success/comunidad', '/m/comunidad'], ['/customer-success/comunidad?post=12&ws=3', '/m/comunidad?post=12'],
+    // El prefijo va con barra.
+    ['/calendariox', null], ['/offerx', null], ['/second-brainx', null],
+  ];
+  for (const [p, esperado] of casos) assert.equal(rutaMovil(p), esperado, p);
+  // Un Web Push sale por `rutaMovilOHome` y VUELVE a escritorio (lib/push-payload.ts: linkApp → conWs →
+  // rutaEscritorio): lo que no se conserva acá, la computadora también lo pierde.
+  for (const p of ['/experimentos?tab=analisis', '/ads-writer?tab=analizar', '/customer-success/comunidad?post=12',
+    '/calendario?vista=mes&fecha=2026-10-14', '/second-brain?area=voz&vista=persona', '/offer?oferta=7']) {
+    assert.equal(rutaEscritorio(rutaMovilOHome(p)), p, p);
+  }
+  assert.equal(rutaEscritorio(rutaMovilOHome('/offer-analyst')), '/offer');
+  assert.equal(rutaEscritorio(rutaMovilOHome('/analisis?desde=2026-06-01')), '/experimentos?desde=2026-06-01&tab=analisis');
 });
 
 test('un link sin equivalente móvil cae en la home', () => {

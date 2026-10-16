@@ -108,7 +108,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'ver_catalogo_dashboard', area: 'metricas', tipo: 'lectura',
     titulo: 'Catálogo del Dashboard',
-    descripcion: 'Lo que se puede armar en el Dashboard: los conjuntos de datos con sus fechas, dimensiones y métricas, los tipos de gráfico con lo que pide cada uno, las plantillas de hoja, los estilos, los filtros, los elementos (con las acciones de un botón), los períodos y los campos para filtrar. Úsala ANTES de agregar un gráfico o consultar datos: los ids que piden las otras operaciones salen de aquí. Con `conjunto`, el detalle de ese conjunto con los nombres; con `seccion`, sólo esa parte. Por HTTP acepta ?formato=md|json.',
+    descripcion: 'Lo que se puede armar en el Dashboard: los conjuntos de datos con sus fechas, dimensiones y métricas, los tipos de gráfico con lo que pide cada uno, las plantillas de hoja (primero las sugeridas para este negocio, con su porqué), los estilos, los filtros, los elementos (con las acciones de un botón), los períodos y los campos para filtrar. Úsala ANTES de agregar un gráfico o consultar datos: los ids que piden las otras operaciones salen de aquí. Con `conjunto`, el detalle de ese conjunto con los nombres; con `seccion`, sólo esa parte. Por HTTP acepta ?formato=md|json.',
     parametros: [
       conjunto(false, ' Con esto, el detalle de ese conjunto.'),
       { nombre: 'seccion', tipo: 'string', rotulo: 'Sección', enum: ['conjuntos', 'tipos', 'plantillas', 'estilos', 'filtros', 'elementos', 'periodos', 'campos'], descripcion: 'Sólo esta parte del catálogo. Los campos (para filtrar) sólo salen pidiéndolos.' },
@@ -203,6 +203,20 @@ export const DEFS: readonly OperacionDef[] = [
     ],
     confirmacion: 'chat', reversible: true,
     escribe: 'agrega una hoja al informe guardado de esa persona (app_settings, graficos.tablero.<su id>)',
+    canales: TODOS, costo: 'ia', lenta: true,
+    gating: GATING,
+  },
+  {
+    // 16/10/2026: el «Editar con MaKo» de la hoja abierta, también por la API (la misma cascada: lib/graficos-ia-editar.ts).
+    id: 'editar_hoja_con_ia_dashboard', area: 'metricas', tipo: 'accion',
+    titulo: 'Editar una hoja del Dashboard con MaKo',
+    descripcion: 'Cambia una hoja del Dashboard con un pedido en palabras («agrega el CPL por semana y quita la torta de orígenes»): MaKo arma el cambio con IA gratis ANTES de proponerlo (agregar, quitar o cambiar gráficos y títulos de sección, o el nombre de la hoja) y el resumen dice qué cambia. Lo que el pedido no nombra queda como está. Si alguien toca la hoja antes de confirmar, no se aplica. No corre en una automatización.',
+    parametros: [
+      persona, hojaObligatoria,
+      { nombre: 'pedido', tipo: 'string', obligatorio: true, max: 1200, rotulo: 'Pedido', descripcion: 'Qué cambiar en la hoja, en palabras.' },
+    ],
+    confirmacion: 'chat', reversible: false,
+    escribe: 'cambia una hoja del informe guardado de esa persona (app_settings, graficos.tablero.<su id>)',
     canales: TODOS, costo: 'ia', lenta: true,
     gating: GATING,
   },

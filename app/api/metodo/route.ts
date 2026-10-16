@@ -91,6 +91,12 @@ export async function POST(req: NextRequest) {
         }
         guardadas++;
       }
+      // Guardar una integración con histórico (Meta, Fathom, YouTube, Panda) arranca SU parte, una vez y en
+      // segundo plano (lib/onboarding-extract.ts).
+      if (guardadas > 0) {
+        const { arrancarHistoricoEnSegundoPlano } = await import('@/lib/onboarding-extract');
+        await arrancarHistoricoEnSegundoPlano(ws, servicio.key);
+      }
       return NextResponse.json({ ok: true, guardadas, servicios: await estadoServicios(ws) });
     }
 

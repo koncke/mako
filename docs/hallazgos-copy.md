@@ -179,6 +179,11 @@ visible y descartar a mano; casi todo lo que sale es legítimo (`está`, `aquí`
   ningún error**. Ya está en AGENTS.md y se repite acá porque es la trampa que hace que un
   test de voseo pase en verde sin cubrir nada: **cualquier prueba que se escriba tiene que
   incluir una palabra terminada en vocal acentuada**, o el bug pasa verde.
+  **Quedan dos guards de tab con ese agujero, sin arreglar** (medido con node el 15/10/2026, al escribir
+  tests/m-cuenta.test.ts): tests/curso-admin.test.ts:289 y tests/email-remitente.test.ts:294 usan `\b(…)\b`, y de
+  sus listas sólo `tenés` da true; «Elegí un curso», «Mirá el video», «Pegá el link», «Conectá tu cuenta» o «Usá tu
+  dominio» pasan. El arreglo es `/(?<!\p{L})(…)(?!\p{L})/iu`, y al ponerlo hay que correr el test: puede aparecer
+  voseo vivo que hoy no ve.
 
 ## Qué queda FUERA de alcance, y por qué
 

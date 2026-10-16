@@ -22,6 +22,7 @@ const sinAcentos = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g,
 import { Input, NoResults, EmptyState, Tag, Button } from '../_ui';
 import { GuionCard, GuionCardFantasma, GUION_CARD_MIN, type GuionCardData } from './GuionCard';
 import { GuionLector } from './GuionLector';
+import { masRecientePrimero } from './reglas';
 import {
   ESTADOS_GUION, ESTADO_GUION_LABEL, COLOR_ESTADO_GUION,
   fechaGuion, diaGuion, type EstadoGuion, type GuionItem,
@@ -115,14 +116,9 @@ export function GuionesGlobal({ celdas, avatares, angulos, cargando, onEstado, o
       }
       return true;
     });
-    // Los «sin fecha» van SIEMPRE al final: en ascendente encabezarían la lista
-    // fingiendo ser los más viejos.
-    return out.sort((a, b) => {
-      if (!a.g.creadoEn && !b.g.creadoEn) return 0;
-      if (!a.g.creadoEn) return 1;
-      if (!b.g.creadoEn) return -1;
-      return b.g.creadoEn - a.g.creadoEn;
-    });
+    // El más nuevo primero y los «sin fecha» al final: la regla vive en ./reglas.ts, la misma que
+    // ordena el historial del teléfono (app/m/copywriting).
+    return out.sort((a, b) => masRecientePrimero(a.g, b.g));
   }, [filas, q, estadosOn, fAngulo, fAvatar, desde, hasta]);
 
   const nFiltros = (fAngulo ? 1 : 0) + (fAvatar ? 1 : 0) + (desde || hasta ? 1 : 0);

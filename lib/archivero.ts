@@ -181,7 +181,8 @@ export async function camposParaExtraer(): Promise<Array<{ key: string; label: s
  * (getAnswers/getManual devuelven {} en los dos casos, y sobre eso saveAnswers borraría el brief). Mismo
  * criterio que `mapaEstricto` de lib/api-mako/areas/negocio.helpers.ts.
  */
-async function mapaParaEscribir(key: string): Promise<Record<string, string>> {
+/** Un mapa JSON de app_settings leído ESTRICTO, para escribir encima (la lectura caída tira, nunca devuelve {}). Lo usa también el chat de arranque. */
+export async function mapaParaEscribir(key: string): Promise<Record<string, string>> {
   const raw = await getSettingEstricto(key);
   if (!raw) return {};
   let v: unknown;

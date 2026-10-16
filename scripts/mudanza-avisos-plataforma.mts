@@ -35,6 +35,7 @@ const TODOS: ReadonlyArray<{ plantilla: string; evento: string }> = [
   { plantilla: 'mako-whatsapp-volvio', evento: 'whatsapp_volvio' },
   { plantilla: 'mako-reunion-grabada', evento: 'reunion_grabada' },
   { plantilla: 'mako-reporte-semanal', evento: 'reporte_semanal' },
+  { plantilla: 'mako-oferta-lista', evento: 'oferta_lista' },
 ];
 // POR TANDAS DE DEPLOY (16/10/2026): la fila de un evento cuyo código todavía no está en producción no correría, así
 // que se mudan sólo los desplegados. Sin `--eventos`, todos.

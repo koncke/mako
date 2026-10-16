@@ -370,6 +370,8 @@ export async function saveCuotasAction(
       fecha_esperada: c.fecha ?? hoy,
       pagado: true,
       fecha_pago: c.fecha_pago || c.fecha || hoy,
+      // Nace cobrada (mig 0295): deshacerla la quita, no la deja como deuda.
+      nacio_cobrada: true,
     }));
     const { error } = await db.from('pagos').insert(rows);
     if (error) throw new Error(`Error registrando el cobro del lead ${leadId}: ${error.message}`);

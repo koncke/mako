@@ -14,6 +14,22 @@ en el documento de cada área. Lo de la skill del cliente, en
 
 ---
 
+## El filtro por TAB no existe, y el presupuesto de 12.000 caracteres no alcanza para un jefe (16/10/2026)
+
+**Síntoma (medido leyendo, para el diseño del chat único, `docs/diseno-mako-ai-native.md`).** La idea obvia para darle a
+cada tab su chat era «el turno carga las operaciones de la tab». No hay cómo: `toolsDelRegistro` filtra por `area`, no
+por `gating.tab` (`lib/api-mako/registro.ts`, el filtro), y las dos cosas no calzan: `graphics` es el área `metricas`,
+`script` es el área `ads` (mezclada con las 39 de Ads Manager) y `landing-an` es el área `landing` (con las 65 de
+`landing-writer`). Fijar áreas metía Ads Manager y Web Generator enteros en el Dashboard.
+
+**Y aunque existiera, no entra.** El turno carga hasta `PRESUPUESTO_REGISTRO_CHARS` = 12.000 (`lib/doer-herramientas.ts`);
+sólo las acciones del Dashboard (`graphics`) son 26.377 caracteres, las del CRM 60.800. Cuando se pasa, el corte se
+avisa con un `console.warn` y nada más.
+
+**La regla:** un chat por tab lleva una LISTA de claves de gating (las tabs retiradas siguen guardando operaciones: con sólo
+`graphics`, el Dashboard pierde 15 de sus 32 acciones), un filtro nuevo en `FiltroTools`, y un tope propio medido para
+ese panel; si algo queda afuera, el turno lo sabe y lo dice. Detalle y números: `docs/diseno-mako-ai-native.md`, (a) y (b).
+
 ## ⚠️ Pasar una acción a `pantalla` no la saca del chat: la tool vieja del mismo nombre gana
 
 **Síntoma.** `proponer_presupuesto_campana` se declaró `confirmacion: 'pantalla'` (mueve
@@ -1403,3 +1419,26 @@ texto (`borrar_borrador_plantilla`); lo vio el barrido. Un parámetro declarado 
 acciones: el ancla de un cambio así es la acción, no la línea.
 **Vive en:** `lib/api-mako/acciones.ts` (`aplicarPropuestaGenerica`) · `lib/api-mako/tipos.ts` (`Parametro.fijoAlRevisar`)
 · `lib/bandeja-filas.ts` (`plano`) · `app/mako/revisar/[id]/RevisarAccion.tsx` · `tests/revisar-fijo.test.ts`.
+
+## 183 caracteres en `cambiar_ficha_funnel` dejaron a «mover la reunión» fuera de WhatsApp (16/10/2026)
+
+Sumarle el parámetro del ícono a `cambiar_ficha_funnel` puso en rojo `tests/agenda-whatsapp.test.ts`: con «no,
+movela al viernes a las 10», `proponer_mover_reunion` dejó de viajar en el turno de WhatsApp.
+
+- **El diagnóstico obvio era el equivocado.** «Cambió la relevancia» no: el puntaje era el mismo (4 contra 4) y
+  el orden también.
+- **La causa es el presupuesto, no el orden.** El doer manda como mucho 12.000 caracteres de esquema
+  (`PRESUPUESTO_REGISTRO_CHARS`, lib/doer-herramientas.ts), y `toolsDelRegistro` saltea la que no entra.
+  `cambiar_ficha_funnel` pesa casi 4.000 y, por el «cambi» de su id, empata arriba en cualquier «cambiá…» o
+  «movela…». El turno estaba a 97 caracteres del tope; con +183, la de mover la reunión no entró. Sólo queda un
+  `console.warn`.
+- **El arreglo fue achicar la misma op:** las listas largas de ids (bloques, avisos, íconos) salen del `enum`, se
+  validan en la traducción (lib/ficha/api.ts) y un id malo vuelve con `disponibles`. `tests/ficha-api.test.ts`
+  le pone un tope de 3.796 caracteres.
+
+**La regla:** antes de commitear una op, medir `JSON.stringify(aToolDef(def)).length` y correr el test del turno
+de WhatsApp. Una op grande que empata arriba se come el lugar de las chicas.
+
+**Vive en:** lib/doer-herramientas.ts · lib/api-mako/registro.ts (`toolsDelRegistro`, `ordenarPorRelevancia`) ·
+lib/api-mako/areas/crm.def.ts (`cambiar_ficha_funnel`) · tests/ficha-api.test.ts ·
+*16/10/2026, chat «CRM» (claude3), corrida wf_e3cc574c-723 (`665f5bed1`).*

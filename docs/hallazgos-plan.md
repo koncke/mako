@@ -12,6 +12,20 @@ verificá contra el código.** Las marcadas ⚠️ estaban vivas la última vez 
 
 La regla que produce este documento está en [AGENTS.md](../AGENTS.md) → «La cosecha».
 
+## Leer los proyectos del tablero por su NOMBRE pide `nucleo()`, y ampliar una tarea puede comerse su detalle (16/10/2026)
+
+Lo encontró la revisión del Plan adentro del Centro de Operaciones (docs/hallazgos-operaciones.md → «El Plan adentro de
+cada jefe»). Las dos cosas viven acá:
+
+- **El tablero guarda «Feature: CRM», no «CRM»** (`canonNombre`, `lib/plan-board.ts`). Todo lector que busque un
+  proyecto por el nombre de una tab tiene que comparar con `nucleo()` (lib/plan-proyectos-catalogo.ts). Con el nombre
+  entero, la lista sale vacía y no hay error. Un test con fixture «CRM» lo deja pasar: los fixtures van con el prefijo.
+- **`fusionarDetalle` (lib/detalle-fusion.ts) se queda con el texto NUEVO entero cuando éste contiene el arranque del
+  viejo**, y se pierde lo que el viejo tenía después (lo que sumó el Perro, por ejemplo). Pasa cuando la misma tarea se
+  vuelve a proponer con el mismo texto: el cruce la detecta como repetida y la «amplía». Leído en el código, no probado
+  con una tarea real. El Centro lo evita mirando antes si ya hay una abierta con ese título; el arreglo de fondo (unir sin
+  perder la cola del viejo) está SIN HACER.
+
 ## Lo que más muerde acá
 
 - **El detalle rico que cargás nunca llega entero al tablero**: hay un sexto escritor aguas abajo que lo reescribe y dos topes de 600 caracteres que nadie tenía en el inventario → [El detalle y el contexto de las tareas](#el-detalle-y-el-contexto-de-las-tareas).
@@ -1454,7 +1468,7 @@ El chequeo de «no te dejo eliminar esto» es 100 % client-side: la API solo dev
 **Actualizado el 16/09/2026.** El gate de «terminá lo anterior» ya se implementó y corre en la ruta, antes de arrancar el stream (app/api/retro/route.ts:83-107). Lo que sigue vivo:
 
 - **Está escrito adentro de la ruta, no en una lib.** Ningún otro canal lo puede reusar, y un «deja» del Perro no se guarda: cada `generar` vuelve a debatir con el motivo que traiga ESE request. Por eso la API de MaKo no expone `generar_retro` ni `debatir_gate_retro`: un debate ganado por otro canal no destraba nada. Para exponerlas, primero hay que sacar el gate a lib/retro-gate.ts y persistir el veredicto.
-- **Ni `/api/retro` ni `/api/experimentos` miran sesión ni rol.** El único control de rol del área es `requireRolWs([])` en app/experimentos/page.tsx:33, que solo deja pasar a `admin`. Un closer o un setter no ve la tab, pero las rutas le dejan cerrar experimentos o aceptar ítems de la Retro. **La página no protege la API**: si la tab es solo para admin, la ruta que escribe también tiene que exigirlo.
+- **Ni `/api/retro` ni `/api/experimentos` miran sesión ni rol.** **Cerrado el 16/10/2026**: todo handler de `/api/experimentos/**` y /api/retro abre con `soloAdminDeTab('experimentos')` (lib/puerta-admin-tab.ts, tests/puerta-admin-tab.test.ts; detalle en hallazgos-seguridad.md). Lo que decía: El único control de rol del área es `requireRolWs([])` en app/experimentos/page.tsx:33, que solo deja pasar a `admin`. Un closer o un setter no ve la tab, pero las rutas le dejan cerrar experimentos o aceptar ítems de la Retro. **La página no protege la API**: si la tab es solo para admin, la ruta que escribe también tiene que exigirlo.
 
 **Vive en:** app/api/retro/route.ts:83-107; app/api/experimentos/route.ts; app/experimentos/page.tsx:33; app/experimentos/EliminarModal.tsx:101-133; lib/retro-gate.ts · *2026-07-17 retro-mapa · 2026-09-16 api-mako-areas*
 

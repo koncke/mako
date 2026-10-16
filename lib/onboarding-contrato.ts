@@ -15,7 +15,7 @@
 // esto para que nadie tenga que saber que son dos archivos.
 // =============================================================================
 
-import { PASOS_ONBOARDING, type PasoOnboarding } from './capas';
+import { PASOS_ONBOARDING, esPostergable, type PasoOnboarding } from './capas';
 
 export type OnboardingStatus = 'pending' | 'in_progress' | 'skipped' | 'done';
 export type JobStatus = 'pending' | 'running' | 'done' | 'error' | 'skipped';
@@ -129,4 +129,143 @@ export function pendientesDeOnboarding(
   sigueFaltando: (p: PasoOnboarding) => boolean,
 ): PasoOnboarding[] {
   return pasos.filter((p) => s.steps[p]?.postergado && !s.steps[p]?.done && sigueFaltando(p));
+}
+
+/** Lo que se hace con UN paso al cerrarlo: hecho, o postergado (sólo los de `PASOS_POSTERGABLES`). */
+export type CambioDePaso = { paso: PasoOnboarding; done?: boolean; postergar?: boolean };
+
+/** Un paso que no se puede postergar: no depende de nada de afuera. */
+export class PasoNoPostergable extends Error {
+  constructor(public readonly paso: string) {
+    super(`El paso «${paso}» no se puede dejar pendiente: no depende de nada de afuera.`);
+  }
+}
+
+/**
+ * Aplica los cambios a un estado y decide si el onboarding quedó CERRADO. Es la regla que comparten el
+ * wizard (acción 'paso' de /api/onboarding) y el chat de arranque (/api/onboarding/arranque): con dos
+ * copias, una cerraba el onboarding con una regla y la otra con otra, y el cliente quedaba encerrado o
+ * entraba con un paso sin hacer. Pura y sin `server-only` para que un test la ejecute.
+ *
+ * Postergar se valida ACÁ, en positivo, contra el catálogo: esconder el botón no protege nada. Y el
+ * cierre pregunta «¿están TODOS cerrados?» (`onboardingCompleto`), nunca «¿cerraste el último?».
+ */
+export function aplicarCambiosDePaso(
+  s: OnboardingState,
+  cambios: CambioDePaso[],
+  pasos: PasoOnboarding[],
+  quien: string,
+  ahora: string,
+): OnboardingState {
+  for (const c of cambios) if (c.postergar && !esPostergable(c.paso)) throw new PasoNoPostergable(c.paso);
+  if (s.status === 'pending') { s.status = 'in_progress'; s.startedAt = s.startedAt ?? ahora; }
+  for (const c of cambios) {
+    s.step = c.paso;
+    // `postergado` y `done` conviven: postergar no cierra el paso, lo saca del camino. Cuando el
+    // cliente lo resuelva de verdad, se marca `done` encima.
+    if (c.postergar) s.steps[c.paso].postergado = true;
+    if (c.done) s.steps[c.paso].done = true;
+  }
+  if (s.status !== 'done' && onboardingCompleto(s, pasos)) {
+    s.status = 'done';
+    s.completedAt = ahora;
+    s.completedBy = quien;
+  }
+  return s;
+}
+
+/**
+ * El estado tal como está guardado, mergeado sobre el esqueleto (tolera estados viejos o incompletos).
+ * `null` = no hay fila: un cliente nuevo. Un JSON que no se entiende TIRA: quien lee tolerante lo
+ * convierte en el estado inicial, y quien va a ESCRIBIR no puede (pisaría el estado real con uno vacío).
+ */
+export function estadoDeLoGuardado(raw: string | null): OnboardingState {
+  if (!raw) return estadoInicial();
+  const parsed = JSON.parse(raw) as OnboardingState;
+  const base = estadoInicial(parsed.status ?? 'pending');
+  return {
+    ...base,
+    ...parsed,
+    steps: { ...base.steps, ...(parsed.steps ?? {}) },
+    extraction: {
+      ...base.extraction,
+      ...(parsed.extraction ?? {}),
+      jobs: { ...base.extraction.jobs, ...(parsed.extraction?.jobs ?? {}) },
+    },
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// El histórico al conectar una integración
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Qué trabajos del histórico destraba conectar cada integración (lib/onboarding-extract.ts → `jobAplica`).
+ * Lo que no está acá no tiene histórico: guardarlo no arranca nada.
+ */
+export const JOBS_DEL_HISTORICO: Readonly<Record<string, readonly JobKey[]>> = {
+  meta: ['meta_metrics', 'meta_leads', 'ad_transcripts', 'script_analyses'],
+  fathom: ['fathom_calls'],
+  youtube: ['vsl_metrics'],
+  panda: ['vsl_metrics'],
+};
+export const JOBS_DE_META = JOBS_DEL_HISTORICO.meta;
+/** ¿Guardar esta integración puede destrabar algo del histórico? */
+export const sirveAlHistorico = (servicio: string): boolean => (JOBS_DEL_HISTORICO[servicio]?.length ?? 0) > 0;
+
+/**
+ * ¿Conectar `servicio` tiene que (re)arrancar el histórico? Sí cuando nunca arrancó, y cuando alguno de
+ * SUS trabajos quedó salteado (se corrió sin la integración, o sin la página o el video elegido) o con
+ * error (una key que no servía). No cuando ya está pendiente, corriendo o hecho: reconectar no repite nada.
+ *
+ * Hasta el 16/10/2026 lo arrancaba SÓLO el wizard, al verificar Meta en su pantalla. Postergar una
+ * integración y conectarla después desde /integraciones (el caso que `pendientesDeOnboarding` ya contempla)
+ * dejaba al negocio sin su histórico para siempre, y con el chat de Offer como onboarding era todo negocio
+ * nuevo.
+ */
+export function historicoPorArrancar(extraction: ExtractionState, servicio: string): boolean {
+  const jobs = JOBS_DEL_HISTORICO[servicio] ?? [];
+  if (jobs.length === 0) return false;
+  if (extraction.status === 'idle') return true;
+  return jobs.some((k) => {
+    const st = extraction.jobs[k]?.status;
+    return st === 'skipped' || st === 'error';
+  });
+}
+
+/**
+ * La parte pura de `iniciarExtraccion`: con lo que ya se sabe de cada trabajo (`aplica`), lo pone a correr.
+ * Lo hecho y lo que corre NO se tocan (con su cursor): por eso arrancar dos veces no duplica nada. Lo que no
+ * aplica queda salteado con su motivo; si ya no queda nada por hacer, la extracción se da por terminada.
+ */
+export function reevaluarExtraccion(
+  s: OnboardingState,
+  aplica: Record<JobKey, { aplica: boolean; motivo?: string }>,
+  ahora: string,
+): OnboardingState {
+  if (s.extraction.status === 'idle') {
+    s.extraction.status = 'running';
+    s.extraction.startedAt = ahora;
+  } else if (s.extraction.status === 'done' || s.extraction.status === 'error') {
+    // re-evaluación (conectó algo nuevo o reintenta): volver a correr
+    s.extraction.status = 'running';
+    s.extraction.finishedAt = null;
+  }
+  for (const key of JOB_KEYS) {
+    const job = s.extraction.jobs[key];
+    if (job.status === 'done' || job.status === 'running') continue;
+    const a = aplica[key];
+    if (a.aplica) {
+      if (job.status !== 'pending') { job.status = 'pending'; job.error = null; }
+    } else {
+      job.status = 'skipped';
+      job.detail = a.motivo ?? null;
+    }
+    job.updatedAt = ahora;
+  }
+  if (!JOB_KEYS.some((k) => s.extraction.jobs[k].status === 'pending' || s.extraction.jobs[k].status === 'running')) {
+    s.extraction.status = 'done';
+    s.extraction.finishedAt = ahora;
+  }
+  return s;
 }

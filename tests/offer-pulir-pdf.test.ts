@@ -103,7 +103,8 @@ test('el documento del chat: como un archivo de WhatsApp (PDF, nombre) y baja co
   const chat = sinComentarios(leer('app/offer/ChatOffer.tsx'));
   const mako = bloque(chat, "if (m.de === 'mako') {", 'if (!m.adjuntos?.length) return null;');
   assert.match(mako, /const pdf = pdfDeMensaje\(m\);/);
-  const iDoc = mako.indexOf('{pdf && <DocumentoPdf sesionId={sesion.id} version={pdf.version} onError={onError} />}');
+  // (Desde el 16/10/2026 con `onVer`: «Ver mi oferta» la abre en una ventana encima del chat.)
+  const iDoc = mako.indexOf('{pdf && <DocumentoPdf sesionId={sesion.id} version={pdf.version} onError={onError} onVer={onVerOferta} />}');
   assert.ok(iDoc > 0, 'el documento no se dibuja');
   assert.ok(iDoc < mako.indexOf('<Markdown text={m.texto} />'), 'el documento va arriba y el texto como su pie');
   // El documento baja por descargarPdf con SU versión.

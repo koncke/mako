@@ -54,6 +54,8 @@ import { runWithWorkspace, wsSuperAdmin } from '@/lib/workspace';
 import { getSetting, getSettingEstricto, setSetting } from '@/lib/settings';
 import { credWsEstricta, envCred } from '@/lib/credenciales';
 import { wsPorIdentificadorEstricto } from '@/lib/webhook-routing';
+import { decidirReserva } from '@/lib/agenda-evento-etapa';
+import { rutaDeReserva, ubicarReservaVinculada } from '@/lib/agenda-evento-etapa-server';
 
 const KEYWORDS_TEL = ['tel', 'phone', 'celular', 'móvil', 'movil'];
 
@@ -406,6 +408,11 @@ export async function POST(request: NextRequest) {
    // Zona del inquilino, SOLO para el texto de los avisos. Nunca lanza: un
    // setting roto no puede tirar un webhook que ya validó firma.
    const tzWs = await tzDeWorkspace(ws).catch(() => TZ_DEFAULT);
+   // ¿El evento está VINCULADO a una etapa de reunión de un embudo? (16/10/2026, lib/agenda-evento-etapa.ts.)
+   // Si lo está, qué reunión es y a qué embudo va lo dice la ETAPA, no J1/J2; sin vínculo `ruta` es null y todo
+   // sigue EXACTAMENTE como antes. Estricta, como la R1/R2 de arriba: si la base no contesta, sale por la red de
+   // afuera (transitorio → 503 y Calendly reintenta) en vez de mandar la reserva al funnel principal.
+   const vinculada = await rutaDeReserva('calendly', candidatosWs, ws);
    switch (body.event) {
     case 'invitee.created': {
       const payload = body.payload;
@@ -416,9 +423,10 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // ── Ruteo J1/J2 (Fase 10) ──
-      const tipoJunta = clasificarJunta(payload.scheduled_event, cfgJuntas);
-      if (tipoJunta === 'j2') {
+      // ── Ruteo J1/J2 (Fase 10), o el de la etapa vinculada ──
+      // `decidirReserva` (puro, con test): la R, si puede crear un lead y a dónde va. La R2 NUNCA crea.
+      const decision = decidirReserva(vinculada.ruta, clasificarJunta(payload.scheduled_event, cfgJuntas));
+      if (!decision.puedeCrearLead) {
         const emailJ2 = payload.email?.trim() || null;
         const nombreJ2 = (payload.name || `${payload.first_name ?? ''} ${payload.last_name ?? ''}`.trim()).trim() || null;
         const telefonoJ2 = extractAnswer(payload.questions_and_answers, KEYWORDS_TEL);
@@ -442,6 +450,9 @@ export async function POST(request: NextRequest) {
             // El form de la R2 tiene sus propias respuestas: se guardan POR reunión
             // (antes se descartaban — solo existían columnas para el set de R1).
             await saveLeadRespuestas(lead.id, 'R2', payload.questions_and_answers, fechaJ2);
+            // Evento vinculado: a SU embudo y SU etapa (agregado si su casa es otra). ANTES del aviso y de los
+            // flujos, para que una automatización de «agendó» ya lo vea donde cayó.
+            const ubicacion = decision.destino ? await ubicarReservaVinculada(lead, vinculada, 'Calendly') : null;
             // Aviso al dueño: el lead agendó su R2 (best-effort, no bloquea).
             await emitirDelCatalogo('reunion-nuevo-agendado', {
               // ⚠️ Dedup POR RESERVA — los webhooks se reentregan. El `uri` del
@@ -456,8 +467,8 @@ export async function POST(request: NextRequest) {
             // Flujos configurados por el dueño: disparar 'lead.agendo' (R2).
             // La MISMA clave que el aviso de arriba: Calendly reentrega, y una reentrega no repite los pasos.
             await dispararEvento('lead.agendo', { ws, leadId: lead.id, leadNombre: lead.nombre, reunion: 'R2', dedupKey: `calendly:${payload.scheduled_event?.uri ?? emailJ2}|${startTimeIso}` });
-            console.log(`[webhook:calendly] J2 → lead id=${lead.id} email=${emailJ2 ?? '—'} fecha_j2=${fechaJ2} ms=${ms}`);
-            return Response.json({ ok: true, event: body.event, tipo: 'j2', action: 'set_j2', lead_id: lead.id, ms });
+            console.log(`[webhook:calendly] J2 → lead id=${lead.id} email=${emailJ2 ?? '—'} fecha_j2=${fechaJ2}${ubicacion ? ` etapa: ${ubicacion}` : ''} ms=${ms}`);
+            return Response.json({ ok: true, event: body.event, tipo: 'j2', action: 'set_j2', lead_id: lead.id, ...(ubicacion ? { ubicacion } : {}), ms });
           }
           // Sin match: a la cola de revisión manual (tab Hoy).
           await enqueueJ2SinMatch({
@@ -473,7 +484,7 @@ export async function POST(request: NextRequest) {
           return responderFalloDeProceso(err, { evento: body.event, rama: 'j2', payload });
         }
       }
-      // tipoJunta 'j1' o 'desconocido' → flujo actual sin cambios.
+      // R1 (J1, un evento desconocido o uno vinculado a la primera reunión de su embudo) → crea o actualiza.
 
       const email = payload.email?.trim();
       const nombre = (payload.name || `${payload.first_name ?? ''} ${payload.last_name ?? ''}`.trim()).trim();
@@ -562,7 +573,8 @@ export async function POST(request: NextRequest) {
           respuesta_inversion,
           respuesta_decisor,
           visitor_id,
-        });
+        // Evento vinculado: el lead NUEVO nace en ese embudo y esa etapa. Sin vínculo es null: lo de antes.
+        }, { alCrear: vinculada.alCrear });
 
         // El link para entrar a la R1, para el recordatorio al lead (mig 0204). Va en un update
         // APARTE de `upsertLeadFromCalendly` y no tira: sin la migración puesta, la reserva
@@ -573,11 +585,15 @@ export async function POST(request: NextRequest) {
         // como legacy/compat; la ficha lee lead_respuestas primero).
         await saveLeadRespuestas(lead.id, 'R1', qa, fechaJ1);
 
+        // Evento vinculado y el lead YA existía: a SU embudo y SU etapa, sin cambiarle la casa (si es otra, se
+        // lo AGREGA). El nuevo ya nació ahí. ANTES del aviso y de los flujos, que lo tienen que ver donde cayó.
+        const ubicacion = decision.destino && !created ? await ubicarReservaVinculada(lead, vinculada, 'Calendly') : null;
+
         // (Hasta el 09/10/2026 acá se le creaba al lead nuevo su contacto y su conversación en
         // Chatwoot; se fue con la integración.)
 
         console.log(
-          `[webhook:calendly] ${created ? 'INSERT' : 'UPDATE'} lead id=${lead.id} email=${email} fecha_j1=${fechaJ1} utm_campaign=${utm_campaign ?? '—'} ms=${ms}`,
+          `[webhook:calendly] ${created ? 'INSERT' : 'UPDATE'} lead id=${lead.id} email=${email} fecha_j1=${fechaJ1} utm_campaign=${utm_campaign ?? '—'}${ubicacion ? ` etapa: ${ubicacion}` : ''} ms=${ms}`,
         );
 
         // CAPI: evento "Schedule" server-side (la verdad del agendamiento) para
@@ -626,6 +642,7 @@ export async function POST(request: NextRequest) {
           event: body.event,
           action: created ? 'created' : 'updated',
           lead_id: lead.id,
+          ...(decision.destino ? { funnel_id: decision.destino.funnelId, etapa: decision.destino.etapa, ...(ubicacion ? { ubicacion } : {}) } : {}),
           ms,
         });
       } catch (err) {
@@ -663,7 +680,9 @@ export async function POST(request: NextRequest) {
         const cualLink = juntaQueSeCancela(lead, startTimeIso);
         if (cualLink) await guardarLinkDeReunion(lead.id, cualLink, null, { soloSiInicio: startTimeIso });
         // Aviso al dueño: reunión cancelada → sugerir reagendar (best-effort).
-        const tipoCancelada = clasificarJunta(payload.scheduled_event, cfgJuntas) === 'j2' ? 'R2' : 'R1';
+        // Con evento vinculado, la R la dice su etapa. La cancelación NO mueve la tarjeta (borra la fecha, como
+        // antes): es lo de HubSpot con Calendly, que marca la reunión cancelada y deja el negocio donde está.
+        const tipoCancelada = decidirReserva(vinculada.ruta, clasificarJunta(payload.scheduled_event, cfgJuntas)).reunion;
         await emitirDelCatalogo('reunion-cancelada', {
           // La pregunta vieja («¿le mando un WhatsApp para conseguir otro
           // horario?») no tenía a dónde ir: nadie escuchaba la respuesta. Ahora

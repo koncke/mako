@@ -54,13 +54,19 @@ export async function productosDelLead(leadId: number): Promise<{ productos: Pro
 /**
  * Agrega el lead a un producto: una fila en la etapa de ENTRADA de ese producto. Si ya está
  * (por casa o por fila), no hace nada. Devuelve si lo agregó, para el deshacer.
+ *
+ * `opts.etapa` (16/10/2026): entra en ESA etapa y no en la de entrada. Lo usa la reserva de un evento
+ * de agenda vinculado a una etapa de reunión (lib/agenda-evento-etapa-server.ts): el que reservó la R1
+ * de ese producto entra en su R1, no en «Lead entrante». Si la etapa no es de ese embudo, no agrega.
  */
-export async function agregarAProducto(leadId: number, funnelId: number, opts?: { autor?: string }): Promise<{ agregado: boolean; etapa: string | null }> {
+export async function agregarAProducto(leadId: number, funnelId: number, opts?: { autor?: string; etapa?: string }): Promise<{ agregado: boolean; etapa: string | null }> {
   const { productos } = await productosDelLead(leadId);
   if (productos.some((p) => p.funnelId === funnelId)) return { agregado: false, etapa: null };
   const funnels = await listarFunnels();
   if (!funnels.some((f) => f.id === funnelId)) throw new Error('Ese funnel no existe.');
-  const etapa = etapaDeEntrada(await etapasDeProducto(funnelId));
+  const etapas = await etapasDeProducto(funnelId);
+  if (opts?.etapa != null && !etapas.some((s) => s.key === opts.etapa)) throw new Error('Esa etapa no existe en ese funnel.');
+  const etapa = opts?.etapa ?? etapaDeEntrada(etapas);
   if (!etapa) throw new Error('Ese funnel no tiene etapas.');
   const autor = await autorDelMovimiento(opts?.autor);
   const db = await getTenantDb();

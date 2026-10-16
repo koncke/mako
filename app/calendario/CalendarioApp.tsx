@@ -37,7 +37,7 @@ import { Toast, useToast } from '@/app/_ui';
 import { Modal } from '@/app/_ui/Modal';
 import { Button } from '@/app/_ui/Button';
 import {
-  CAPAS_CALENDARIO, VISTAS_CALENDARIO, diaDe, horaDe, lunesDe, moverFecha, rangoDeVista, rotuloDeRango, sinDuplicarLlamadas,
+  CAPAS_CALENDARIO, VISTAS_CALENDARIO, diaDe, horaDe, lunesDe, moverFecha, rangoDeVista, rotuloDeRango,
   type CapaCalendario, type EntradaEvento, type ItemCalendario, type PlantillaCalendario, type VistaCalendario,
 } from '@/lib/calendario-modelo';
 import type { FallosCalendario, GoogleDelCalendario } from '@/lib/calendario';
@@ -51,11 +51,11 @@ import { PlantillasSemana } from './PlantillasSemana';
 import { AgendarLlamada } from './AgendarLlamada';
 import { useConectarIntegracion, useVueltaDeGoogle } from '@/app/_components/ConectarIntegracion';
 import { CSS_GC } from './gc-css';
-import { COLOR_CAPA, LLAVES_MAKO, NOMBRE_CAPA, llaveDe } from './comun';
+import { COLOR_CAPA, NOMBRE_CAPA, entradaGoogle, entradaPropia, llaveDe, sinLlamadasRepetidas, visiblesPorDefecto } from './comun';
 import { MiniMes, Flecha } from './MiniMes';
 import { VistaTiempo, type NuevoRango } from './VistaTiempo';
 import { VistaAgenda, VistaAnio, VistaMes } from './VistasLista';
-import { EventoGoogleModal, RapidoNuevo, TarjetaEvento, duracionEntre, type BorradorNuevo, type EdicionGoogle } from './Tarjetas';
+import { EventoGoogleModal, RapidoNuevo, TarjetaEvento, type BorradorNuevo, type EdicionGoogle } from './Tarjetas';
 
 type Abierto =
   | { t: 'tarjeta'; item: ItemCalendario; ancla: DOMRect }
@@ -88,7 +88,7 @@ export function CalendarioApp({ vista, fecha, hoy, tz, dias, items, fallos, goog
   const calendarios = useMemo(() => google?.calendarios ?? [], [google]);
   const googleEscribe = !!google?.puedeEscribir;
   const editables = useMemo(() => (googleEscribe ? calendarios.filter((c) => c.editable) : []), [calendarios, googleEscribe]);
-  const porDefecto = useMemo(() => new Set([...LLAVES_MAKO, ...calendarios.filter((c) => c.seleccionado).map((c) => `g:${c.id}`)]), [calendarios]);
+  const porDefecto = useMemo(() => visiblesPorDefecto(calendarios), [calendarios]);
   const [elegidas, setElegidas] = useState<Record<string, boolean>>({});
   const visibles = useMemo(() => {
     const s = new Set(porDefecto);
@@ -169,10 +169,7 @@ export function CalendarioApp({ vista, fecha, hoy, tz, dias, items, fallos, goog
     const prendidos = items
       .filter((it) => visibles.has(llaveDe(it)))
       .map((it) => (movidos[it.id] ? { ...it, ...movidos[it.id] } : it));
-    const crm = prendidos.filter((i) => i.fuente === 'crm');
-    const google = prendidos.filter((i) => i.fuente === 'google');
-    const sinRepetir = new Set(sinDuplicarLlamadas(crm, google).map((i) => i.id));
-    return prendidos.filter((i) => i.fuente !== 'google' || sinRepetir.has(i.id));
+    return sinLlamadasRepetidas(prendidos);
   }, [items, visibles, movidos]);
   const enVista = useMemo(() => new Set(rangoDeVista(vista, fecha).dias), [vista, fecha]);
 
@@ -188,14 +185,8 @@ export function CalendarioApp({ vista, fecha, hoy, tz, dias, items, fallos, goog
   };
   const nuevoEnRango = (r: NuevoRango, ancla: DOMRect) => { setError(null); setAbierto({ t: 'rapido', ancla, borrador: borradorEn(r.fecha, r.ini, r.fin) }); };
 
-  const entradaPropia = (b: BorradorNuevo): EntradaEvento => ({
-    titulo: b.titulo.trim() || (b.tipo === 'publicacion' ? 'Publicación' : b.tipo === 'llamada' ? 'Llamada' : 'Bloque de trabajo'),
-    tipo: b.tipo === 'evento' ? 'bloque' : b.tipo, formato: b.tipo === 'publicacion' ? b.formato : null,
-    fecha: b.fecha, hora: b.hora, duracionMin: b.hora ? duracionEntre(b.hora, b.horaFin) : null,
-  });
-  const entradaGoogle = (b: BorradorNuevo): EntradaEventoGoogle => ({
-    titulo: b.titulo, fecha: b.fecha, hora: b.hora, duracionMin: b.hora ? duracionEntre(b.hora, b.horaFin) ?? 60 : null, fechaFin: null,
-  });
+  // `entradaPropia` y `entradaGoogle` (el borrador como evento de MaKo o de Google) viven en ./comun: el teléfono
+  // crea con las mismas.
 
   const correr = async (fn: () => Promise<{ ok: boolean; error?: string }>, ok: string, deshacer?: () => Promise<unknown>): Promise<boolean> => {
     setGuardando(true); setError(null);

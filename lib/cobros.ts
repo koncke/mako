@@ -218,6 +218,11 @@ async function cuotaParaLink(leadId: number, pagoId: number): Promise<{ ok: true
     .order('created_at', { ascending: false }).limit(1);
   if (e2) return { ok: false, error: `No pude revisar los links de la cuota: ${e2.message}` };
   const pendiente = (links ?? [])[0] ? cobroDeFila((links as Record<string, unknown>[])[0]) : null;
+  // ⚠️ UN LINK YA PAGADO CUYO PAGO TODAVÍA NO SE ASENTÓ (revisión del 16/10/2026): la cuota sigue impaga hasta que el
+  // aviso se reintenta o pasa el cron, y otro link para ella era otro cobro posible de la misma plata.
+  const { data: pagados, error: e3 } = await db.from('cobros').select('id').eq('lead_id', leadId).eq('pago_id', pagoId).eq('estado', 'pagado').limit(1);
+  if (e3) return { ok: false, error: `No pude revisar los links de la cuota: ${e3.message}` };
+  if ((pagados ?? []).length) return { ok: false, error: 'Esa cuota ya se pagó con un link: se marca sola en unos minutos.' };
   return { ok: true, cuota: { id: Number(q.id), numero: Number(q.numero), monto_usd: montoUsd }, pendiente };
 }
 
@@ -319,6 +324,12 @@ export async function crearCobro(ws: number, p: {
       monto_usd: montoUsd, email, nombre: nombre?.slice(0, 200) ?? null, estado: 'pendiente',
       alta_capa: altaCapa, creado_por: p.creadoPor,
     }).select(COLS_COBRO).single();
+    // ⚠️ DOS PEDIDOS A LA VEZ PARA LA MISMA CUOTA (mig 0295): el segundo choca con `cobros_un_link_vivo_por_cuota` y
+    // se devuelve el link que ganó, como cuando ya existía (`yaEstaba`). Dos links vivos eran dos cobros de la misma plata.
+    if (error && cuota && error.code === '23505' && /cobros_un_link_vivo_por_cuota/.test(error.message ?? '')) {
+      const otra = await cuotaParaLink(lead.id, cuota.id);
+      if (otra.ok && otra.pendiente) return { ok: true, cobro: otra.pendiente, link: linkDelCobro(otra.pendiente.token), yaEstaba: true };
+    }
     if (error || !fila) return { ok: false, error: `No pude guardar el cobro: ${error?.message ?? 'sin respuesta'}` };
     const cobro = cobroDeFila(fila as Record<string, unknown>);
 

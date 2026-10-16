@@ -97,7 +97,7 @@ export type BloqueId =
   // Tracking
   | 'visitas' | 'video-visto' | 'actividad-en-pagina' | 'grabacion-de-visita' | 'anuncio-de-origen'
   // Pagos
-  | 'oferta' | 'links-de-pago' | 'confirmacion-de-pago' | 'venta' | 'cobrado' | 'cuotas' | 'suscripcion'
+  | 'oferta' | 'links-de-pago' | 'confirmacion-de-pago' | 'venta' | 'cobrado' | 'cuotas' | 'movimientos' | 'suscripcion'
   | 'recordatorios-de-cobro' | 'contrato' | 'datos-fiscales' | 'servicio-vendido' | 'promesa-y-garantia'
   | 'obligaciones' | 'excepciones' | 'cliente-en-cs'
   // Customer Success
@@ -243,10 +243,16 @@ export const BLOQUES: readonly BloqueDef[] = [
     disenos: [d('fecha', 'Caja con la fecha'), d('alerta', 'Alerta sin pago')], avisa: [], quitable: true, sinDatos: 'raya', icono: 'check' },
   { id: 'venta', tab: 'pagos', tambienEn: [], titulo: 'Venta', anchos: [4, 6], ancho: 6,
     disenos: [d('cajas', 'Tres cajas'), d('renglon', 'Renglón'), d('numero', 'Número grande')], avisa: ['monto'], quitable: true, sinDatos: 'raya', icono: 'dinero' },
-  { id: 'cobrado', tab: 'pagos', tambienEn: ['resumen', 'cs-resumen', 'cs-pagos'], titulo: 'Cobrado', anchos: [3, 4, 6, 12], ancho: 6,
+  // «Estado de cuenta» desde el 16/10/2026 (la tab Pagos en bloques): qué debe, qué pagó y qué hago ahora. El id no
+  // cambia (es lo que se guarda en `funnels.data.ficha`).
+  { id: 'cobrado', tab: 'pagos', tambienEn: ['resumen', 'cs-resumen', 'cs-pagos'], titulo: 'Estado de cuenta', anchos: [3, 4, 6, 12], ancho: 6,
     disenos: [d('numero', 'Número grande con barra'), d('chip', 'Chip de semáforo'), d('anillo', 'Anillo')], avisa: [], quitable: true, sinDatos: 'se-calla', icono: 'grafico' },
   { id: 'cuotas', tab: 'pagos', tambienEn: ['cs-pagos'], titulo: 'Cuotas', anchos: [6, 12], ancho: 12,
     disenos: [d('tabla', 'Tabla'), d('lista', 'Lista con chips'), d('proxima', 'Sólo la próxima'), d('calendario', 'Calendario')], avisa: ['plan', 'comprobante'], quitable: true, sinDatos: 'raya', icono: 'plan' },
+  // 16/10/2026: todo lo que movió plata, del más nuevo al más viejo (cobros a mano y de la pasarela, rechazos,
+  // devoluciones), con los avisos de los cobros arriba (contracargo, devolución que falló). Sin movimientos se calla.
+  { id: 'movimientos', tab: 'pagos', tambienEn: ['cs-pagos'], titulo: 'Movimientos', anchos: [6, 12], ancho: 12,
+    disenos: [d('lista', 'Lista'), d('ultimos', 'Los últimos 5')], avisa: [], quitable: true, sinDatos: 'se-calla', icono: 'reloj' },
   // «Sólo en una suscripción». El monto de una suscripción es `suscripcion_monto_usd` (lib/stage-requirements.ts).
   { id: 'suscripcion', tab: 'pagos', tambienEn: ['cs-pagos'], titulo: 'Suscripción', anchos: [4, 6], ancho: 6,
     disenos: [d('numero', 'Número grande'), d('tarjeta', 'Tarjeta con el estado'), d('meses', 'Línea de meses')], avisa: ['monto'], quitable: true, sinDatos: 'se-calla', icono: 'repetir' },

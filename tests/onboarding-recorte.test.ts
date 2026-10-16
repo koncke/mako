@@ -29,6 +29,8 @@ import { TAB_ONBOARDINGS } from '../lib/tab-onboarding-catalogo';
 import { CAPAS, PASOS_ONBOARDING } from '../lib/capas';
 
 const leer = (p: string) => readFileSync(resolve(import.meta.dirname, p), 'utf8');
+/** Con LF: en un clon de Windows el fuente llega en CRLF y un corte por '\n}\n' no lo encuentra. */
+const leerLF = (p: string) => leer(p).replace(/\r\n/g, '\n');
 
 /** El fuente sin comentarios: las aserciones en negativo matchean la PROSA que explica
  *  el bug si no se los saca, y ya pasó — un test que se encuentra a sí mismo. */
@@ -152,14 +154,13 @@ test('cada onboarding de tab tiene un nombre corto legible', () => {
   }
 });
 
-test('el wizard global no promete una tab que ya no es su destino', () => {
-  // Terminar el onboarding ya NO redirige a /plan: levanta la pantalla de cierre, donde
-  // el cliente elige. Un botón que dice «Ver mi plan →» y aterriza en otra cosa es la
-  // clase de mentira chica que hace que nadie lea los botones.
-  const src = leer('../app/onboarding/OnboardingWizard.tsx');
-  assert.ok(/setCierre\(/.test(src), 'el wizard dejó de levantar la pantalla de cierre');
-  assert.ok(!/confirmLabel=\{[^}]*'Ver mi plan/.test(sinComentarios(src)),
-    'el botón final volvió a prometer /plan');
+test('el onboarding no salta solo a otra pantalla: termina con caminos que la persona elige', () => {
+  // Desde el 16/10/2026 el onboarding es el chat de arranque (el wizard y su pantalla de cierre se
+  // borraron). Terminar NO redirige: MaKo deja una tarjeta con los caminos y la persona elige. Y el chat
+  // no se va nunca (Martín, 12/10: «que jamás se salga el recuadro del chat»).
+  const src = sinComentarios(leerLF('../app/onboarding/ChatArranque.tsx'));
+  assert.doesNotMatch(src, /window\.location|router\.push|redirect\(/, 'el chat de arranque navega solo');
+  assert.match(src, /function TarjetaListo/, 'el chat dejó de terminar con su tarjeta de caminos');
 });
 
 test('el botón de avance tiene tinta propia para su fondo, en TODAS las paletas', () => {
@@ -222,25 +223,24 @@ test('el cliente que ya hizo la fábrica de creativos no la rehace', () => {
   }
 });
 
-test('la pantalla de cierre no ofrece caminos que la capa no puede abrir', () => {
-  // La capa 'pm' hace onboarding y llega a esta pantalla, pero solo ve el plan y MaKo:
-  // sus links a creativos, CRM, Retro y /general rebotan contra requireCapa y lo dejan
-  // en otro lado sin explicación. Cuatro caminos ofrecidos y ninguno cumple.
-  const route = sinComentarios(leer('../app/api/onboarding/listo/route.ts'));
-  assert.match(route, /const ve = \{/, 'el endpoint dejó de calcular qué ve la capa');
-  assert.match(route, /pendientes, config, ve \}/, 'el endpoint calcula `ve` y no lo devuelve');
-  const listo = sinComentarios(leer('../app/onboarding/Listo.tsx'));
-  for (const k of ['ve.creativos', 've.crm', 've.retro']) {
-    assert.ok(listo.includes(k), `la pantalla de cierre no consulta ${k}`);
-  }
+test('el cierre del onboarding no ofrece caminos que la capa no puede abrir', () => {
+  // La capa 'pm' hace onboarding pero sólo ve el plan y MaKo: un link al CRM, a Offer o a /general
+  // rebota contra requireCapa y lo deja en otro lado sin explicación. La tarjeta final los muestra sólo
+  // en el modo 'oferta' (las capas que ven el CRM), y la entrada a MaKo es el Plan en el modo 'plan'.
+  const src = sinComentarios(leerLF('../app/onboarding/ChatArranque.tsx'));
+  const ini = src.indexOf('function TarjetaListo');
+  const tarjeta = src.slice(ini, src.indexOf('\n}\n', ini));
+  assert.ok(ini > 0 && tarjeta.length > 100, 'no encuentro la tarjeta final');
+  assert.match(tarjeta, /modo === 'oferta' && <Link href="\/crm"/, 'el CRM se ofrece a una capa que no lo ve');
+  assert.match(tarjeta, /modo === 'oferta' && <Link href="\/offer"/, 'Offer se ofrece a una capa que no lo ve');
+  assert.match(tarjeta, /modo === 'oferta' \? '\/general' : '\/plan'/, 'la entrada a MaKo no mira la capa');
 });
 
-test('la pantalla de cierre no manda a ningún lado sin la pestaña del cliente', () => {
-  // La CUARTA forma de navegar. Un link sin `?ws=` no falla: te deja mirando otra cuenta.
-  const src = sinComentarios(leer('../app/onboarding/Listo.tsx'));
-  const hrefs = [...src.matchAll(/href=\{([^}]*)\}/g)].map((m) => m[1]);
-  assert.ok(hrefs.length > 0, 'no encontré ningún link en la pantalla de cierre');
-  for (const h of hrefs) {
-    assert.match(h, /conWs\(/, `un link de la pantalla de cierre no pasa por conWs(): ${h}`);
-  }
+test('el cierre del onboarding no manda a ningún lado sin la pestaña del cliente', () => {
+  // La CUARTA forma de navegar. Un link sin `?ws=` no falla: te deja mirando otra cuenta. El chat usa el
+  // Link de la casa (app/_ui/Link), que lleva la pestaña sola; nunca `next/link`.
+  const src = sinComentarios(leerLF('../app/onboarding/ChatArranque.tsx'));
+  assert.match(src, /import Link from '@\/app\/_ui\/Link'/, 'los links del cierre dejaron de llevar la pestaña del cliente');
+  assert.doesNotMatch(src, /from 'next\/link'|from 'next\/navigation'/, 'el chat volvió a navegar sin la pestaña');
+  assert.ok([...src.matchAll(/<Link href=/g)].length >= 2, 'no encontré los links del cierre');
 });

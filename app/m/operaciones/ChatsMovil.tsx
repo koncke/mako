@@ -22,16 +22,21 @@ import { Button, Field, Input } from '@/app/_ui';
 import { Icon } from '@/app/_components/icons';
 import type { Alcance } from '@/lib/operaciones-reglas';
 import {
-  SECCION_CHATS, avanceDelChat, comoSale, esperaDe, historialDelChat, nombreCuenta, nombreValido, partesDelNombre, porJefe, seccionesDeChats,
+  CEREBRO, SECCION_CEREBRO, SECCION_CHATS, avanceDelChat, comoSale, enQueTrabaja, esperaDe, historialDelChat, nombreCuenta, nombreValido, partesDelNombre, porJefe, seccionesDeChats,
   textoDeEnvio, textoDeRenombre, vistaPrevia, type CarteroP, type ChatCentro, type TrabajoP,
 } from '@/lib/centro-chats';
 import type { PedidoP, PushP } from '@/lib/progreso-reglas';
-import Link from '@/app/_ui/Link';
+import type { AccionResponder, Decision } from '@/app/admin/runway/decisiones';
+import { preguntasDelChat, respuestasDelChat } from '@/lib/centro-preguntas';
+import { Pregunta } from '@/app/admin/operaciones/Pregunta';
+import { MunecoNuevo, NuevoChat, type BorradorNuevoChat } from '@/app/admin/operaciones/NuevoChat';
+import { comandoNuevoChat } from '@/lib/runner';
 import { Hilo, Tick } from '@/app/admin/operaciones/Hilo';
 import { Muneco, animoDe } from '@/app/admin/operaciones/Muneco';
 import { BarraAvanceMovil } from '@/app/admin/operaciones/Avance';
 import { ElegirMuneco } from '@/app/admin/operaciones/ElegirMuneco';
 import { guardarMunecoAction } from '@/app/admin/operaciones/acciones';
+import { Microfono } from '@/app/admin/operaciones/Microfono';
 import { aspectoDe, elegidoPara, type Aspecto, type MunecosElegidos } from '@/lib/centro-munecos';
 
 const ESTADO: Record<ChatCentro['estado'], string> = { trabajando: 'Trabajando', abierto: 'Abierto', cerrado: 'Cerrado', sin_dato: '' };
@@ -50,7 +55,11 @@ const edad = (t: number | null, ahora: number): string => {
   return `${Math.round(s / 86_400)} d`;
 };
 
-export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, esperas, firma, onEnviado, munecos, onMunecos }: {
+export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, esperas, firma, onEnviado, munecos, onMunecos, decisiones, responder, tabs }: {
+  tabs: readonly string[];
+  /** Las tarjetas de la Ticketera: cada chat contesta las suyas al final de su conversación, pegadas a la caja. */
+  decisiones: readonly Decision[];
+  responder: AccionResponder;
   chats: ChatCentro[];
   carteros: CarteroP[];
   pedidos: PedidoP[];
@@ -73,12 +82,14 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
   const [alcance, setAlcance] = useState<Alcance>('solo_esto');
   const [enviando, setEnviando] = useState(false);
   const [opciones, setOpciones] = useState(false);
+  const [nuevo, setNuevo] = useState<BorradorNuevoChat | null>(null);
   const [renombre, setRenombre] = useState<{ texto: string; error: string | null; mandando: boolean } | null>(null);
   const [eligiendo, setEligiendo] = useState<{ aspecto: Aspecto; guardando: boolean } | null>(null);
   const toast = useToastM();
   const porId = useMemo(() => new Map(pedidos.map((p) => [p.id, p])), [pedidos]);
   const elegido = chats.find((c) => c.clave === abierto) ?? null;
-  const lineas = elegido ? historialDelChat(elegido, porId, trabajos) : [];
+  const lineas = elegido ? historialDelChat(elegido, porId, trabajos, respuestasDelChat(elegido, decisiones, carteros)) : [];
+  const preguntas = elegido ? preguntasDelChat(elegido, decisiones, carteros) : [];
   const hilo = useRef<HTMLDivElement>(null);
   // Como un chat: abre en lo último. La hoja monta su cuerpo en un portal y lo mide después del primer pintado,
   // así que se baja en el cuadro siguiente (en el mismo efecto no hay todavía qué scrollear).
@@ -87,7 +98,7 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
     return () => clearTimeout(t);
   }, [abierto, lineas.length]);
 
-  const secciones = useMemo(() => seccionesDeChats(chats), [chats]);
+  const secciones = useMemo(() => seccionesDeChats(chats, tabs), [chats, tabs]);
 
   if (!chats.length) return <VacioM frase="Conecta un Runner desde la computadora para ver tus chats aquí." />;
 
@@ -155,6 +166,7 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
             aria-label={`Escribe a ${elegido.titulo}`}
             disabled={enviando}
           />
+          <Microfono valor={texto} onValor={(v) => setBorradores((b) => ({ ...b, [elegido.clave]: v }))} onError={(m) => toast(m)} apagado={enviando} />
           <button type="button" className="co-enviar" onClick={mandar} disabled={enviando || !texto.trim()} aria-label="Firmar y mandar">
             {enviando ? <span className="co-enviar__giro" aria-hidden /> : <Icon name="flecha" size={18} />}
           </button>
@@ -177,12 +189,25 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
 
   return (
     <>
+      {/* «Nuevo chat», arriba de todos (NuevoChat.tsx): el comando para abrirlo en la PC. */}
+      <ListaM etiqueta="Nuevo chat">
+        <FilaM leading={<MunecoNuevo size={40} />} titulo="Nuevo chat" onClick={() => setNuevo({ nombre: '', cuenta: 'claude1' })} navegacion />
+      </ListaM>
+      <SheetM abierto={!!nuevo && !elegido} onCerrar={() => setNuevo(null)} titulo="Nuevo chat"
+        pie={nuevo ? (
+          <PieM consecuencia="Pégalo en PowerShell, en la PC.">
+            <Button variant="primary" size="lg" full disabled={!nombreValido(nuevo.nombre.trim())}
+              onClick={async () => { toast((await copiar(comandoNuevoChat(nuevo.cuenta, nuevo.nombre))) ? 'Copiado' : 'No pude copiar'); setNuevo(null); }}>Copiar comando</Button>
+          </PieM>
+        ) : undefined}>
+        {nuevo && <NuevoChat borrador={nuevo} onCambio={setNuevo} onCopiar={async (t) => toast((await copiar(t)) ? 'Copiado' : 'No pude copiar')} />}
+      </SheetM>
       {secciones.map(({ clave: k, titulo, chats: lista }) => {
         const todas = enteras.has(k);
         const corte = todas ? lista : lista.slice(0, VISIBLES);
         return (
-          <SeccionM key={k} titulo={titulo ?? 'Chats'}>
-            <ListaM etiqueta={titulo ?? 'Chats'}>
+          <SeccionM key={k} titulo={titulo ?? (k === SECCION_CEREBRO ? CEREBRO : 'Chats')}>
+            <ListaM etiqueta={titulo ?? (k === SECCION_CEREBRO ? CEREBRO : 'Chats')}>
               {(k === SECCION_CHATS
                 ? porJefe(corte).flatMap((g) => [
                   ...(g.chat ? [{ c: g.chat, sub: false }] : []),
@@ -190,7 +215,8 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
                 ])
                 : corte.map((c) => ({ c, sub: false }))
               ).map(({ c, sub }) => {
-                const p = vistaPrevia(historialDelChat(c, porId, trabajos));
+                const lineasC = historialDelChat(c, porId, trabajos, respuestasDelChat(c, decisiones, carteros));
+                const p = vistaPrevia(lineasC);
                 const vivo = c.estado === 'trabajando' && !c.viejo;
                 const espera = esperaDe(c, esperas);
                 return (
@@ -200,7 +226,7 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
                     leading={<span className={sub ? 'm-operaciones-sub' : undefined}><Muneco titulo={c.titulo} aspecto={elegidoPara(munecos, c.titulo)} animo={animoDe(c)} size={sub ? 32 : 40} espera={espera} /></span>}
                     titulo={<span className="m-operaciones-texto1">{sub ? `↳ ${partesDelNombre(c.titulo).sub}` : c.titulo}</span>}
                     segunda={vivo
-                      ? <span className="m-operaciones-vivo">trabajando…</span>
+                      ? <span className="m-operaciones-vivo">{enQueTrabaja(lineasC) ?? 'trabajando…'}</span>
                       : espera > 0 ? <span className="m-operaciones-espera">Espera tu respuesta</span>
                       : p ? <span className="m-operaciones-previa">{p.tick ? <Tick estado={p.tick} /> : p.propio ? 'Tú: ' : ''}{p.texto}</span>
                         : undefined}
@@ -266,14 +292,10 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
                 <Icon name="mas" size={20} />
               </button>
             </div>
-            <BarraAvanceMovil nodos={avanceDelChat(lineas)} pushes={pushes} ahora={ahora} />
-            {esperaDe(elegido, esperas) > 0 && (
-              <Link href="/m/tickets/decisiones" className="co-espera" style={{ margin: 0 }}>
-                {esperaDe(elegido, esperas) === 1 ? 'Una tarjeta espera tu respuesta' : `${esperaDe(elegido, esperas)} tarjetas esperan tu respuesta`}
-                <span className="co-espera__ir">Contestar</span>
-              </Link>
-            )}
+            <BarraAvanceMovil nodos={avanceDelChat(lineas)} pushes={pushes} ahora={ahora} chat={elegido} />
             <Hilo lineas={lineas} pushes={pushes ?? []} ahora={ahora} vacio="Escríbele abajo para empezar." quien={{ titulo: elegido.titulo, aspecto: elegidoPara(munecos, elegido.titulo), animo: animoDe(elegido), dato: metaDe(elegido) }} />
+            {/* Lo que espera de Martín, al final de la conversación y pegado a la caja: AskUserQuestion de Claude Code. */}
+            {preguntas.length > 0 && <Pregunta key={elegido.clave} preguntas={preguntas} responder={responder} />}
           </div>
         )}
       </SheetM>

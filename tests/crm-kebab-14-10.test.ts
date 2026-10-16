@@ -95,17 +95,25 @@ test('no vuelven al «⋯» «Avisos de datos sin marcar», «Qué muestra el Re
   assert.match(acc, /title="Importar, exportar y editar las etapas"/, 'el title del «⋯» no describe lo que hay adentro');
 });
 
-test('se fue la PERILLA, no la función: los modales tienen otra puerta y el motor su manija', () => {
-  // Los dos modales siguen abriéndose desde la ficha hasta que llegue el constructor por
-  // bloques. Se barre el repo (y no tres archivos fijos) para que mover la puerta de lugar no
-  // rompa el test: lo que no puede pasar es que no quede NINGUNA.
+test('se fue la PERILLA, no la función: lo que configuraban los modales tiene otra puerta y el motor su manija', () => {
+  // Los dos modales siguieron abriéndose desde la ficha hasta que llegó el constructor por bloques.
+  //
+  // ⚠️ CAMBIADO A PROPÓSITO EL 14/10/2026 (la ficha por bloques llegó): qué muestra la ficha y de qué
+  // datos avisa MaKo se eligen en «Personalizar», en la ficha misma y POR FUNNEL
+  // (app/crm/lead-view/ficha/PanelFicha.tsx). El modal del Resumen se borró. El de los avisos ya no se
+  // abre desde la ficha; le queda UNA puerta, el panel «A revisar» (lo del negocio, que es el respaldo de
+  // cada funnel), fuera de este frente. Re-verificado rompiéndolo: el panel de la ficha sin sus
+  // interruptores de avisos → 1 fallo; `<ResumenModal` de vuelta en InfoPrincipalCard → 1 fallo.
   const archivos = execFileSync('git', ['ls-files', 'app', 'components'], { cwd: RAIZ, encoding: 'utf8' })
     .split(/\r?\n/).map((f) => f.trim()).filter((f) => /\.tsx$/.test(f));
   assert.ok(archivos.length > 100, `git ls-files devolvió ${archivos.length} archivos: esto no corrió en el repo`);
   const puertas = (modal: string) => archivos.filter((f) =>
     !f.endsWith(`/${modal}.tsx`) && existsSync(resolve(RAIZ, f)) && new RegExp(`<${modal}\\b`).test(sinComentarios(leer(f))));
-  assert.ok(puertas('AvisosDatosModal').length > 0, '«Avisos de datos sin marcar» se quedó sin ninguna puerta');
-  assert.ok(puertas('ResumenModal').length > 0, '«Qué muestra el Resumen» se quedó sin ninguna puerta');
+  assert.deepEqual(puertas('ResumenModal'), [], 'volvió el modal del Resumen: la ficha se arma en «Personalizar»');
+  assert.deepEqual(puertas('AvisosDatosModal'), ['app/_components/MakoConfirmGate.tsx'], 'el modal de avisos volvió a la ficha');
+  const panel = sinComentarios(leer('app/crm/lead-view/ficha/PanelFicha.tsx'));
+  assert.match(panel, /op: 'aviso', paso: d\.id, avisa: v/, 'la ficha perdió los interruptores de «datos sin marcar»');
+  assert.match(panel, /<PanelEstilo\b/, 'la ficha perdió su estilo');
 
   // El motor NO se apaga con el botón: lo pidió el chat de Automations hasta que sus
   // plantillas lo reemplacen. El flag sigue a mano por la API de MaKo.

@@ -62,6 +62,9 @@ const PATHS: Record<string, ReactNode> = {
   reloj: (<><circle cx="12" cy="12" r="8.5" /><path d="M12 7.5V12l3 2" /></>),
   flecha: (<><path d="M12 19V5" /><path d="m6 11 6-6 6 6" /></>),
   calendario: (<><rect x="3.5" y="5" width="17" height="15.5" rx="2" /><path d="M3.5 10h17M8 3v4M16 3v4" /></>),
+  // El «+» de crear (el botón flotante del Calendario del teléfono, 15/10/2026): `mas` son los tres
+  // puntos de More, no un «más». Trazo propio, como `search`: a 26 px el de 1,85 se lee fino.
+  plus: (<path d="M12 5v14M5 12h14" strokeWidth="2.2" />),
   // Parlante con dos ondas. `ads` es el mismo parlante con una sola onda, pero ese
   // ya significa "Ads" en el sidebar: reusarlo haría que el mismo dibujo quisiera
   // decir dos cosas. La segunda onda lo separa y además lee más como "volumen".

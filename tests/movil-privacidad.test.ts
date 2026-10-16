@@ -83,7 +83,10 @@ for (const ruta of RUTAS_ESCRITORIO) {
     const corteId = pos(g, 'esSesionDelTelefono(Number(sessionId))', 'el corte por id');
     assert.ok(corteId < pos(g, 'getSessionMessages(Number(sessionId))', 'la lectura de mensajes'), 'el corte por id va DESPUÉS de leer los mensajes');
     const corteKey = pos(g, 'esChatDelTelefono(chartKey)', 'el corte por clave');
-    assert.ok(corteKey < pos(g, 'listSessions(chartKey, arch)', 'la lista por clave'), 'el corte por clave va DESPUÉS de listar');
+    // 16/10/2026: /api/chart-insights lista con la clave GUARDADA (la de la persona si no es admin,
+    // lib/chart-chats-reglas.ts); el corte del teléfono sigue yendo antes.
+    const lista = ruta === 'app/api/chart-insights/route.ts' ? 'listSessions(guardada, arch)' : 'listSessions(chartKey, arch)';
+    assert.ok(corteKey < pos(g, lista, 'la lista por clave'), 'el corte por clave va DESPUÉS de listar');
   });
 
   test(`A3. ${ruta} POST: ninguna acción por id toca un chat del teléfono`, () => {

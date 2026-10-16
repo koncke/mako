@@ -302,7 +302,7 @@ function FilaDimension({ label, nota, abierta, onAlternar }: { label: string; no
   );
 }
 
-function VistaDiagnostico({ d, calculo }: { d: DiagnosticoOferta; calculo: CalculoDiagnostico }) {
+function VistaDiagnostico({ d, calculo, conProbar = true }: { d: DiagnosticoOferta; calculo: CalculoDiagnostico; conProbar?: boolean }) {
   const [abierta, setAbierta] = useState<string | null>(null);
   const notas = lista(d?.dimensiones);
   const cambios = lista(d?.cambios).filter((c) => c && tiene(txt(c.titulo)));
@@ -353,7 +353,7 @@ function VistaDiagnostico({ d, calculo }: { d: DiagnosticoOferta; calculo: Calcu
               </div>
               {/* Un cambio es una HIPÓTESIS (regla 10 del marco): se prueba en
                   Experiments, que abre el alta con la hipótesis ya escrita. */}
-              {tiene(txt(c.hipotesis)) && (
+              {conProbar && tiene(txt(c.hipotesis)) && (
                 <ButtonLink href={`/experimentos?tab=experiments&hipotesis=${encodeURIComponent(c.hipotesis)}`} variant="secondary" size="sm">
                   Probarlo
                 </ButtonLink>
@@ -597,9 +597,14 @@ const PESTANAS: ReadonlyArray<{ id: Pestana; label: string }> = [
   { id: 'oferta', label: 'Oferta nueva' },
 ];
 
-export function Conclusion({ sesion, conclusion, onSeguir, onGuardar }: {
+export function Conclusion({ sesion, conclusion, onSeguir, onGuardar, conProbar = true }: {
   sesion: OfferSesionVista;
   conclusion: ConclusionOferta;
+  /**
+   * «Probarlo» en cada cambio propuesto (abre el alta en Experiments). En el onboarding NO: esa pantalla
+   * todavía no se puede abrir (rebota al onboarding) y sacaría a la persona del chat.
+   */
+  conProbar?: boolean;
   /** Vuelve al chat (la conclusión sigue a un clic, con «Ver mi oferta»). */
   onSeguir: () => void;
   /** Guarda la oferta nueva (v2: ligada al funnel de la conversación). Tira si falla; devuelve el aviso del motor, si hay. */
@@ -632,7 +637,7 @@ export function Conclusion({ sesion, conclusion, onSeguir, onGuardar }: {
         </div>
         <div role="tabpanel" id={`${id}-panel`} aria-labelledby={`${id}-tab-${pestana}`}>
           {pestana === 'diagnostico'
-            ? <VistaDiagnostico d={conclusion.diagnostico} calculo={conclusion.calculo} />
+            ? <VistaDiagnostico d={conclusion.diagnostico} calculo={conclusion.calculo} conProbar={conProbar} />
             : <VistaOferta p={conclusion.propuesta} provisional={provisionalDe(conclusion)} />}
         </div>
       </div>

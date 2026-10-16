@@ -336,15 +336,16 @@ test('la ruta: la puerta de /api/graficos, la cascada GRATIS, la traducción en 
   assert.doesNotMatch(src, /chatClaude|anthropic|chatCheapTools/i, 'nada que cobre');
   assert.match(src, /chatCheapCascade\(\{[\s\S]*?feature: FEATURE_HOJA_IA/);
   assert.match(src, /PROVS_GRATIS_PIN\.includes\(pin\.provider as ProvName\) \? pin : null/, 'un pin pago se ignora');
-  assert.match(src, /validar: \(t\) => \{[\s\S]*?deIAHoja\(obj\)[\s\S]*?if \(r\.errores\.length\)/);
+  // 16/10/2026: la traducción lleva el ALCANCE de la hoja (General ofrece poco): lo de afuera se descarta en el validar.
+  assert.match(src, /validar: \(t\) => \{[\s\S]*?deIAHoja\(obj, p\.alcance\)[\s\S]*?if \(r\.errores\.length\)/);
   assert.match(src, /getPromptText\('dashboard\.hoja-ia\.system', HOJA_IA_SYSTEM_TEMPLATE\)/);
-  assert.match(src, /userDeHoja\(pedido\)/, 'el pedido va por userDeHoja (envuelto como dato)');
+  assert.match(src, /userDeHoja\(pedido, fuentes, opts\.alcance\)/, 'el pedido va por userDeHoja (envuelto como dato)');
   assert.match(src, /falloDeIA\(errores, hayIA\)/);
   // La red de plataforma va DESPUÉS de los intentos con las keys del negocio, con la misma traducción en el
   // validar, y antes del error (Martín, 11/10/2026: «siempre tiene que probar con otros provedoores»).
   const iRed = src.indexOf('await porLaRedDePlataforma(');
   assert.ok(iRed > src.indexOf("motivo: 'Corregir la hoja del Dashboard con IA'") && iRed < src.indexOf('falloDeIA(errores, hayIA)'), 'la red, entre el último intento del negocio y el error');
-  assert.match(src.slice(iRed, iRed + 900), /deIAHoja\(parseJsonObject\(t\)\)/);
+  assert.match(src.slice(iRed, iRed + 900), /deIAHoja\(parseJsonObject\(t\), alcance\)/);
   assert.match(src, /const maxTokens = salidaParaIA\(tokensAprox\(p\.system\) \+ tokensAprox\(p\.user\), techoDeEntrada\('groq'\)\)/);
   assert.doesNotMatch(src, /guardarTablero|\.from\(|getTenantDb|setSetting/, 'la ruta no guarda: la hoja la mete el editor con mutar');
   const md = Number(/export const maxDuration = (\d+);/.exec(src)?.[1]);

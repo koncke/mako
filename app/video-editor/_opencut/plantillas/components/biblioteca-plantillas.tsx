@@ -20,12 +20,17 @@
 //
 // Ninguna fuente entera al abrir la pestaña: cada miniatura pide sus letras al
 // entrar en pantalla (hallazgos → «lo que se cuelga no es el karaoke»).
+//
+// Primero las SUGERIDAS para este negocio, con «Sugerido» chico y gris debajo del
+// nombre y el porqué en el `title` (Martín, 16/10/2026; docs/plantillas-sugeridas.md).
+// Las señales llegan de la page por ../../../sugeridas.tsx.
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import { useRouter } from "@/app/_ui/Link";
 import { rutaEditor } from "@/app/video-editor/ruta";
+import { useSenalesNegocio } from "@/app/video-editor/sugeridas";
 import { useEditor } from "@/app/video-editor/_opencut/editor/use-editor";
 import {
 	ContenidoBiblioteca,
@@ -33,7 +38,7 @@ import {
 	formatearDuracion,
 } from "@/app/video-editor/_opencut/components/editor/panels/assets/views/biblioteca-ui";
 import { cn } from "@/app/video-editor/_opencut/utils/ui";
-import { PLANTILLAS, type Plantilla } from "@/lib/editor-video/plantillas";
+import { plantillasEnOrden, type Plantilla } from "@/lib/editor-video/plantillas";
 import { AVISO_FALLO_PLANTILLA, usarPlantilla } from "../instanciar";
 import { lineaVacia } from "../uso";
 import { MiniaturaPlantilla } from "./miniatura-plantilla";
@@ -43,11 +48,14 @@ export const rutaPlantillaNueva = (id: string) => `/video-editor/nuevo?plantilla
 
 function TarjetaPlantilla({
 	plantilla,
+	porque,
 	usando,
 	ocupada,
 	onUsar,
 }: {
 	plantilla: Plantilla;
+	/** Por qué va sugerida para este negocio («Vendes con checkout»); null = su lugar de siempre. */
+	porque: string | null;
 	/** Esta tarjeta se está armando. */
 	usando: boolean;
 	/** Otra (o ésta) se está armando: no se pide otra. */
@@ -97,6 +105,12 @@ function TarjetaPlantilla({
 			<span className="w-full truncate text-[11px] leading-4 text-(--cc-text-2)" title={plantilla.nombre}>
 				{plantilla.nombre}
 			</span>
+			{/* Abajo del nombre y no a su derecha: con 92 px de tarjeta, al lado lo cortaba a cinco letras. */}
+			{porque && (
+				<span className="-mt-1 w-full truncate text-[10px] leading-4 font-medium text-(--cc-text-3)" title={porque}>
+					Sugerido
+				</span>
+			)}
 		</div>
 	);
 }
@@ -105,6 +119,8 @@ export function BibliotecaPlantillas() {
 	const editor = useEditor();
 	const router = useRouter();
 	const [usando, setUsando] = useState<string | null>(null);
+	const senales = useSenalesNegocio();
+	const plantillas = useMemo(() => plantillasEnOrden(senales), [senales]);
 
 	const usar = async (plantilla: Plantilla) => {
 		if (usando) return;
@@ -128,10 +144,11 @@ export function BibliotecaPlantillas() {
 	return (
 		<ContenidoBiblioteca>
 			<GrillaBiblioteca minimo={92}>
-				{PLANTILLAS.map((p) => (
+				{plantillas.map(({ plantilla: p, porque }) => (
 					<TarjetaPlantilla
 						key={p.id}
 						plantilla={p}
+						porque={porque}
 						usando={usando === p.id}
 						ocupada={usando !== null}
 						onUsar={() => void usar(p)}

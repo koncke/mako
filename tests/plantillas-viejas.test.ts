@@ -88,6 +88,8 @@ const EMISORES = (() => {
   const sumar = (id: string, e: { archivo: string; texto: boolean }) => out.set(id, [...(out.get(id) ?? []), e]);
   for (const [archivo, src] of FUENTES) {
     for (const m of src.matchAll(/emitirDelCatalogo\(\s*'([a-z0-9-]+)'/g)) sumar(m[1], { archivo, texto: pasaTexto(llamada(src, m.index!)) });
+    // Los eventos de la PLATAFORMA que no tienen camino viejo se emiten así (16/10/2026, `oferta_lista`): nunca llevan texto.
+    for (const m of src.matchAll(/emitirEventoDePlataforma\(\s*'([a-z0-9-]+)'/g)) sumar(m[1], { archivo, texto: false });
     for (const m of src.matchAll(/emitirAviso\(\s*\{/g)) {
       const t = /tipo:\s*'([a-z0-9-]+)'/.exec(llamada(src, m.index!));
       if (t) sumar(t[1], { archivo, texto: true });   // `emitirAviso` siempre recibe su texto

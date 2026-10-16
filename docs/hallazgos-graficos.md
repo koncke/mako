@@ -7,6 +7,16 @@ viejas). El informe inicial es la réplica de las tabs viejas de Marketing y Com
 Analysts (Ads, Landing, Closing, Productividad) son plantillas de «Nueva hoja». Lo que se hizo está en
 el commit; acá va lo que hay que saber **antes** de tocarlo.
 
+## «Pídeselo a MaKo» en General arma una hoja con tipos del Dashboard (16/10/2026, leído, no probado en el navegador)
+
+- «Pídeselo a MaKo» manda sólo `{pedido}` (`app/dashboard/NuevaHoja.tsx`), `lib/graficos-ia-generar.ts` no conoce General
+  y ni `sanearHoja` (`lib/graficos-catalogo.ts`) ni `guardarTableroSi` miran `TIPOS_GENERAL`, que sólo usa el editor. O
+  sea: General guarda una hoja con tipos del Dashboard, contra «General ofrece poco del Dashboard».
+- **Ejecutar una operación del Dashboard por la API escribe en el servidor y deja afuera la pila de deshacer**: con el editor
+  abierto hay dos escritores y el autoguardado da 409 o pisa. Por eso `app/api/graficos/ia/route.ts` NO escribe. **Regla
+  para un chat que edita la hoja abierta:** la acción confirmada devuelve el informe cambiado y el editor lo aplica con
+  `mutar` (un solo escritor, el Ctrl+Z vivo). Por WhatsApp y HTTP sigue escribiendo. Ver `docs/diseno-mako-ai-native.md`, (b).
+
 ## Cómo está armado, en una tabla
 
 | Pieza | Vive en | Qué decide |
@@ -967,7 +977,8 @@ X) · `lib/graficos-gordo.ts` (`BARRA.separacionGrupo`) · `lib/graficos-plantil
 ## La IA del Dashboard tiene su PROPIA red, y el corte por datos de clientes no la cubría (16/10/2026)
 
 **Vive en:** `lib/graficos-ia-red.ts` (`porLaRedDePlataforma`, `llevaDatosDeClientes`) · `lib/graficos-analisis-server.ts`
-(`pedirIAGratis`) · `lib/graficos-ia-generar.ts` · `tests/graficos-ia-red.test.ts`
+(`pedirIAGratis`) · `lib/graficos-ia-elemento.ts` (`CAJAS_SIN_DATOS_DE_CLIENTES`, `avisoSinIA`) · `lib/graficos-ia-generar.ts` ·
+`tests/graficos-ia-red.test.ts`
 
 La regla del 16/10 (los datos de los clientes de un cliente nunca van a un proveedor que entrena; AGENTS.md, la red de
 plataforma) se puso en `chatCheapCascade`. El AI Analyst, las «Conclusiones de MaKo» y «Pídeselo a MaKo» no pasan por
@@ -978,15 +989,105 @@ cumpla, devuelve `null` y quien llama dice lo de siempre: que el negocio conecte
 - ⚠️ **Un test viejo fijaba lo contrario.** `tests/graficos-analisis.test.ts` exigía que la red no nombrara `anthropic`
   («gratis por construcción»): con la regla nueva, el crédito de Claude es lo que va PRIMERO. Ahora admite sólo esa
   importación (`conCreditoDeLaPlataforma`) y sigue prohibiendo todo lo demás que cobra por pedido.
-- ⚠️ **La marca `pii` es de la feature ENTERA.** «dashboard-conclusiones» la lleva porque una caja de un pop-up lee el
-  transcript de una llamada, así que también las cajas que sólo leen números agregados se quedan sin keys gratis.
-  Mientras el crédito de Claude no esté activo en producción (docs/hallazgos-ia.md, «la tercera puerta del veto»), un
-  negocio sin key propia ve «conecta tu IA» en TODAS sus Conclusiones. El AI Analyst y «Pídeselo a MaKo» no llevan la
-  marca y siguen con las gratis.
+- ⚠️ **La marca `pii` del catálogo es de la feature ENTERA, y corta de más.** «dashboard-conclusiones» la lleva porque
+  la caja del pop-up de una llamada lee el transcript; con eso solo, también las cajas que leen números agregados se
+  quedaban sin keys gratis (y, sin el crédito de Claude activo, sin IA en un negocio sin key propia). Ahora cada caja
+  dice lo suyo, EN POSITIVO como `DIMENSIONES_PUBLICAS`: van sin la marca las que leen GRÁFICOS (mandan lo mismo que el
+  AI Analyst, con las personas y los filtros sobre ellas como «Closer 1») y un ANUNCIO (números de Meta y lo que
+  escribió quien armó la campaña). Una llamada, un lead, y todo lo que se sume mañana, la llevan. El catálogo sigue con
+  `pii: true`: es el default cerrado y el que muestra el sello PII en /modelos-ia.
+- **El test fija también el PORQUÉ:** que la caja de gráficos mande `paraModelo(e)` y que los campos del anuncio sean
+  los revisados. Un campo nuevo en `entradaDeAnuncio` (los comentarios, por ejemplo) lo hace fallar: se revisa antes.
+- ⚠️ **Sin crédito, el aviso de siempre mandaba a conectar una IA que entrena.** El mismo 16/10 Martín dejó el crédito
+  de Claude de la plataforma SÓLO para el onboarding, así que una caja con datos de clientes queda con las keys del
+  negocio y nada más. Sin ninguna, `errorDeCascada` decía «conecta una IA gratis, con Gemini alcanza». Ahora dice
+  «Conecta tu Claude en Integraciones» (`avisoSinIA`), sólo si no se probó ninguna key del negocio: la cascada sin
+  keys no deja errores. Si una key suya falló, su error es el que sirve.
+- ⚠️ **Y ese aviso era falso, por una pregunta antes de la cascada.** `pedirIAGratis` llamaba a `chatCheapCascade`
+  sólo si `docsIADisponible()`, que cuenta Gemini, Groq, OpenRouter, Mistral y OpenAI pero NO la clave de Claude del
+  negocio, que es el primer intento de la cascada (la segunda puerta del veto). Un negocio que conectara su Claude
+  seguía sin IA en el Dashboard. Es la trampa de AGENTS.md («y nada la corta antes»), y no se veía leyendo la red.
 
-**Lo que quedó SIN hacer:** afinar el corte por caja (pasar `pii: false` desde `pedirIAGratis` cuando la caja no lee
-pop-ups ni llamadas: `lib/graficos-ia-elemento-server.ts`). Y nada se probó contra la red de verdad: sin `next dev`
-por la RAM.
+**Lo que quedó SIN hacer:** nada se probó contra la red de verdad (sin `next dev` por la RAM). Si Claude está pausado
+para todos (`claudePausado`), un negocio con su Claude conectado igual ve «Conecta tu Claude»: la pausa no deja error.
+*16/10/2026, claude3 (chat Dashboard).*
+
+## Las plantillas sugeridas: los ejes suman por separado, y el arnés dibujaba una copia de la galería (16/10/2026)
+
+**Vive en:** `lib/plantillas-sugeridas.ts` (la regla) · `lib/plantillas-sugeridas-server.ts` (las señales) ·
+`lib/graficos-plantillas-etiquetas.ts` (las dos tablas) · `app/dashboard/NuevaHoja.tsx` · `tests/plantillas-sugeridas.test.ts`.
+Cómo se enchufa otra galería: [plantillas-sugeridas.md](plantillas-sugeridas.md).
+
+- ⚠️ **Los ejes suman por separado, y una plantilla de UN canal con un eje genérico se le sugiere a quien vende por otro.**
+  Con `cuello: ['conversion']` en «Ventas por WhatsApp», a un negocio que vende por llamada le salía sugerida (el cuello
+  coincidía). Lo mismo Closing a quien vende por chat. Los tests de la regla daban verde: lo mostró el arnés, mirando la
+  galería. Las de un canal se etiquetan sólo con su canal y sus entradas, y un test lo fija.
+- ⚠️ **El modo `galeria` del arnés era una COPIA del marcado de la tarjeta**, no el componente: un cambio en
+  `CrearHoja` no se veía ahí. El modo `crear` (`node capturar.cjs "" mako crear`) monta `CrearHoja` de verdad, con
+  señales de ejemplo, en escritorio, celular, General y sin señales.
+- **Se ordena la galería ENTERA y después se filtra lo buscado.** Al revés, buscar algo que deja afuera a las tres
+  sugeridas le pasaría el «Sugerido» a la cuarta.
+- **Las señales llegan desde la página del server**, en paralelo con el informe, y no por un fetch de la galería: la
+  pantalla en blanco muestra la galería al cargar, y un orden que llega después haría saltar las tarjetas.
+
+**Visto en producción** (16/10/2026, después del run 32, la sesión de Martín en el ws9, sin crear nada): las señales del
+ws9 son vender por chat, con entradas por chat saliente y entrante (`GET /api/plantillas/senales`). El Dashboard en blanco
+ofrece Chat Analyst, Comercial y Automatizaciones con «Sugerido», y General, «Ventas por WhatsApp» (la única de General
+para quien vende por chat): lo mismo que da la regla.
+
+**Lo que quedó SIN hacer:** mirarlo en un negocio que venda por llamada o cobre una suscripción (el ws9 sólo prueba el
+chat). Y enchufar las otras galerías (Automations, Web Generator, Video Editor, Image Editor, CRM): las reparte Cerebro.
+*16/10/2026, claude3 (chat Dashboard).*
+
+## «Editar con MaKo»: operaciones sobre la hoja abierta, y lo de General que la IA no sabía (16/10/2026)
+
+**Vive en:** `lib/graficos-ia-edicion.ts` (lo puro: el system, `hojaParaIA`, `aplicarEdicion`, `firmaDeHoja`) ·
+`lib/graficos-ia-editar.ts` (la cascada) · `app/api/graficos/editar/route.ts` · `app/dashboard/PanelEditarMako.tsx` · el
+`ALCANCE_GENERAL` de `lib/graficos-ia.ts` · `editar_hoja_con_ia_dashboard` y `editar_hoja_general_con_ia` en la API ·
+`tests/graficos-ia-edicion.test.ts`. Es la etapa 1 de docs/diseno-mako-ai-native.md (rama `centro-chat`).
+
+Martín, 16/10: «en dashboard y general no está la edición con IA, y debería... quiero que la app sea AI NATIVE». Un panel
+a la derecha de la hoja (copiado del de Gemini en Google Workspace) donde una frase agrega, quita o cambia gráficos,
+títulos y bloques, con su Deshacer. Lo que no se ve en el código:
+
+- **El modelo devuelve OPERACIONES, no la hoja.** Una hoja reescrita entera perdería todo lo que el modelo no ve: el
+  lugar, el estilo, los filtros, los pop-ups. Lo que el pedido no nombra queda idéntico, y lo nuevo va abajo de todo (o
+  arriba) sin mover lo demás.
+- **No es `turnoApp`**, aunque el diseño del Centro lo proponía. A esta IA le llega la ESTRUCTURA de la hoja y el catálogo,
+  nunca un valor del negocio: corre por la feature de «Pídeselo» (`dashboard-hoja-ia`, sin la marca `pii`) y por la IA
+  gratis. `turnoApp` lee leads, y el diseño dejó abierto si esos datos llegan a una key gratis que entrena.
+- **Un solo escritor.** La ruta no guarda: el editor aplica con `mutar`, así hay Ctrl+Z y el autoguardado no recibe un
+  409 por un cambio que no hizo él. El panel aplica sólo si la hoja sigue siendo la que mandó (por referencia), y el
+  Deshacer sólo vale mientras la hoja sigue siendo la que dejó MaKo. Por la API, la misma idea con `firmaDeHoja`: si
+  alguien tocó la hoja entre la propuesta y el «sí», no se aplica.
+- ⚠️ **«Pídeselo a MaKo» en General armaba hojas con tipos del Dashboard, y por DOS caminos.** El diseño del Centro
+  encontró uno: la galería mandaba sólo `{pedido}` y `generarHojaIA` no sabía de General. El otro estaba al lado: una
+  PLANTILLA de General pasa por `hojaConDatos`, y ahí MaKo le «suma» gráficos con el catálogo entero. Ahora el
+  `ALCANCE_GENERAL` (sus tipos, sus conjuntos y sus bloques) va en las dos capas: el catálogo que lee el modelo y
+  `piezaDeIA`, que descarta lo de afuera. Y la ruta de plantillas pide la tab de General para una plantilla de General
+  (pedía la del Dashboard).
+- ⚠️ **Los tests que leen el código no ven un import duplicado.** El system nuevo se llamaba `EDITAR_IA_SYSTEM_TEMPLATE`,
+  igual que el de Automations (`lib/flujo-ia.ts`), y `lib/prompt-registry.ts` importaba los dos. Los 253 tests que leen
+  el registro dieron verde; lo cazó el tsc acotado del registro. Al registrar un prompt, ese archivo va en el tsc.
+- **El CSS del panel lateral (`.an`) vivía adentro del render del AI Analyst**: un segundo panel en el mismo lugar no lo
+  tenía. Se exporta (`CSS_PANEL_LATERAL`), y abrir un panel cierra el otro.
+
+**Probado con la IA de verdad** (16/10/2026, después del run 36, la sesión de Martín en el ws9, sin escribir nada: la hoja
+la dio `/api/graficos/plantilla` y se la mandó a `/api/graficos/editar`, que no guardan):
+- Dashboard, «Agrega los leads por semana y quita el CAC real»: agregó «Leads por semana» (una serie de `negocio.leads`
+  por semana, abajo de todo) en 11 s, y contestó que no quitaba nada porque la hoja no tenía el CAC real. Era cierto: en
+  el ws9 la plantilla Marketing sale sin él (`hojaConDatos` saca los gráficos que quedarían vacíos).
+- General, «Agrega mis tareas prioritarias y un gráfico de sankey de los leads»: agregó el bloque «Tareas prioritarias»
+  en 6 s y dijo que el sankey no está entre lo que ofrece. El alcance de General funcionó en la capa del modelo, antes
+  que en la del código.
+
+**Lo que quedó SIN hacer:**
+- **Mirar el panel en la pantalla de producción** (lo de arriba probó la ruta y el modelo; el panel, sólo el arnés).
+- **El hilo no se guarda**: es de la sesión, por hoja. Guardarlo es la etapa 2 del diseño (la pieza única de chat).
+- **Groq queda afuera casi siempre**: catálogo, hoja y pedido pasan los ~12.000 caracteres, y la cascada lo saltea sola.
+  Contestan Gemini y OpenRouter.
+- **No edita lo de adentro de un pop-up** ni las opciones de un bloque de General (eso sigue en su panel). Y el teléfono
+  (`/m/dashboard`) no tiene el panel.
 *16/10/2026, claude3 (chat Dashboard).*
 
 ## Lo que quedó sin hacer

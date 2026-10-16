@@ -1,15 +1,27 @@
 'use client';
 
 // =============================================================================
-// /m/inbox — «Para decidir · N | Avisos» (v2: docs/diseno-mako-mobile-v2.md, «Inbox»)
+// /m/inbox — «Avisos», la campana de General: «Para decidir · N | Avisos» (v3)
 // =============================================================================
-// Referencia visual: docs/prototipos/mako-mobile-v2.html, data-ir="inbox". Un segmentado
-// arriba (Avisos sólo para el admin, como en escritorio) y una lista agrupada:
-//   [★ o ícono gris]  qué, en concreto ............................  9:40  ›
-//                     una línea que la distingue de las otras
-// La estrella dorada va SÓLO si la propuso MaKo (decision-m.ts). Lo que se revisa en la
+// Referencia visual: docs/prototipos/mako-mobile-tableros.html, `PANTALLAS.avisos` (v3, el
+// que aprobó Martín el 14/10/2026). Destila /mako/pendientes, /mako/revisar, /crm/revisar,
+// los borradores del plan y la tarjeta del CRM automático: los MISMOS rótulos (inbox-ui.ts,
+// `BOTONES_ESCRITORIO` y `DATOS_ESCRITORIO`), menos texto.
+//
+// Apps de referencia:
+//   · la lista es la Inbox de GitHub Mobile y de Linear: baldosa de 32 a la izquierda, el
+//     título como frase, la hora a la derecha y, si no se leyó, el punto azul en el margen
+//     izquierdo (no un color en el texto);
+//   · el sheet de una decisión es el de las aprobaciones de Ramp: los datos como filas
+//     clave → valor, lo que se va a ejecutar entero, el primario abajo y el «no» como texto.
+//
+//   [baldosa]  qué, en concreto ...................................  9:40  ›
+//              una línea SÓLO si dice algo más (cuánto le queda a una pendiente)
+// La estrella dorada va SÓLO si la propuso MaKo (decision-m.ts), dentro de la misma baldosa
+// gris que las demás (v3: el dorado es la estrella, no el fondo). Lo que se revisa en la
 // computadora (borradores del plan, contactos, acciones con objetos) no compite con lo que
-// se aprueba acá: queda plegado en UNA fila gris al final.
+// se aprueba acá: queda plegado en UNA fila gris al final. Avisos (el feed) es sólo del
+// admin, como los avisos del negocio en escritorio: sin permiso, no hay segmentado.
 //
 // Todo lo que se decide pasa por el SheetM de la decisión, nunca por la fila: «una
 // aprobación no se da sin abrir» — lo que se va a ejecutar tiene que estar a la vista
@@ -54,9 +66,9 @@ import {
   confirmarPendienteMovil, cancelarPendienteMovil, confirmarAccionMovil, descartarAccionMovil, resolverConfirmacionMovil,
 } from './acciones';
 import {
-  armarPayload, cambioDeEtapa, consecuenciaDe, cuandoCorto, cuandoLargo, esEditable, esLineaCorta, esMensaje,
-  fraseDeFallas, minutosRestantes, origenCorto, rielDeVence, rotulosDe, segundaDe, toastDeExito, valorInicial,
-  yaNoPendiente, type VistaInbox,
+  armarPayload, cambioDeEtapa, consecuenciaDe, cuandoCorto, cuandoLargo, DATOS_ESCRITORIO, esEditable, esLineaCorta,
+  esMensaje, fraseDeFallas, minutosRestantes, origenCorto, rielDeVence, rotulosDe, segundaDe, toastDeExito,
+  valorInicial, yaNoPendiente, type VistaInbox,
 } from './inbox-ui';
 import type { DecisionM } from './decision-m';
 
@@ -173,7 +185,7 @@ export function InboxM({
             {avisos.map((a) => (
               <FilaM
                 key={a.id}
-                leading={<span className="m-inbox-marca m-inbox-marca--neutra" aria-hidden><Icon name={a.icono} size={20} /></span>}
+                leading={<Baldosa icono={a.icono} nuevo={a.nuevo} />}
                 titulo={a.titulo}
                 navegacion={!a.nuevo}
                 segunda={a.descripcion ?? undefined}
@@ -210,17 +222,30 @@ export function InboxM({
 
 // ── La fila ──────────────────────────────────────────────────────────────────
 
-/** A la izquierda: la estrella de MaKo sobre dorado si la propuso MaKo; si no, su ícono en gris. */
-function Marca({ item }: { item: Pick<DecisionM, 'deMako' | 'icono'> }) {
-  if (item.deMako) return <span className="m-inbox-marca"><MakoStar size={20} animate={false} /></span>;
-  return <span className="m-inbox-marca m-inbox-marca--neutra" aria-hidden><Icon name={item.icono} size={20} /></span>;
+/**
+ * A la izquierda, la baldosa de 32 de toda fila de /m (`.m-icono`, la de More): la estrella
+ * dorada si la propuso MaKo (MakoStar ya se anuncia «MaKo»), si no el ícono de su sección.
+ * `nuevo` = un aviso que la persona no vio: el punto azul en el margen izquierdo de la fila,
+ * como un no leído de GitHub Mobile o Linear.
+ */
+function Baldosa({ icono, mako = false, nuevo = false }: { icono: string; mako?: boolean; nuevo?: boolean }) {
+  const baldosa = mako
+    ? <span className="m-icono"><MakoStar size={18} animate={false} /></span>
+    : <IconoM nombre={icono} />;
+  if (!nuevo) return baldosa;
+  return (
+    <span className="m-inbox-lead">
+      <span className="m-inbox-nuevo" role="img" aria-label="Nuevo" />
+      {baldosa}
+    </span>
+  );
 }
 
 function FilaDecision({ item, ahora, onAbrir }: { item: DecisionM; ahora: number | null; onAbrir: () => void }) {
   const min = ahora != null ? minutosRestantes(item.venceAt, ahora) : null;
   return (
     <FilaM
-      leading={<Marca item={item} />}
+      leading={<Baldosa icono={item.icono} mako={item.deMako} />}
       titulo={item.titulo}
       segunda={segundaDe(item, min) ?? undefined}
       riel={<Cuando iso={item.creadaAt} ahora={ahora} />}
@@ -364,14 +389,19 @@ function SheetDecision({ item, ahora, onCerrar, onResuelto, onYaNo }: {
     const ficha = it.ficha;
     datos.push(<FilaDatoM key="lead" k="Lead" v={it.resumen} azul={!!ficha} onClick={ficha ? () => irAFicha(ficha) : undefined} />);
   } else if ((it.tipo === 'pendiente' || it.tipo === 'accion') && it.resumen && it.resumen !== it.titulo) {
-    datos.push(<FilaDatoM key="op" k="Acción" v={it.resumen} />);
+    // La operación salió de la fila (v3): acá se dice, con el rótulo de escritorio.
+    datos.push(<FilaDatoM key="op" k={DATOS_ESCRITORIO.operacion} v={it.resumen} />);
   }
   if (it.tipo === 'pendiente' && min != null) {
-    datos.push(<FilaDatoM key="vence" k="Vence" v={vencida ? 'Vencida' : `En ${rielDeVence(min)}`} />);
+    datos.push(<FilaDatoM key="vence" k={DATOS_ESCRITORIO.vence} v={vencida ? 'Vencida' : `En ${rielDeVence(min)}`} />);
   }
-  datos.push(<FilaDatoM key="origen" k="Origen" v={origenCorto(it.origen)} />);
+  datos.push(<FilaDatoM key="origen" k={DATOS_ESCRITORIO.origen} v={origenCorto(it.origen)} />);
   const cuando = ahora != null ? cuandoLargo(it.creadaAt, ahora) : null;
-  if (cuando && it.tipo !== 'pendiente') datos.push(<FilaDatoM key="cuando" k="Cuándo" v={cuando} />);
+  // Una pendiente ya dice cuándo vence (2 h después de propuesta): la hora de propuesta sobra.
+  // Un cambio del CRM no es una propuesta (MaKo ya lo hizo, o espera que se elija): «Cuándo».
+  if (cuando && it.tipo !== 'pendiente') {
+    datos.push(<FilaDatoM key="cuando" k={it.tipo === 'confirmacion' ? 'Cuándo' : DATOS_ESCRITORIO.propuesta} v={cuando} />);
+  }
 
   // ── El pie: el motivo si algo falló, la consecuencia en tinta, y los botones ──
   const aviso = error

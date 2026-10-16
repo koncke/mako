@@ -7,7 +7,7 @@
 //     o la landing lleva su ícono gris. Se compara contra las MISMAS funciones que escriben la
 //     etiqueta (etiquetaDeOrigen / etiquetaDeCanal), nunca contra un string a mano;
 //   · cada ícono que dibuja existe en app/_components/icons.tsx (uno inventado dibuja un punto);
-//   · la segunda línea, la consecuencia pegada al botón y el origen corto;
+//   · la consecuencia pegada al botón y el origen corto (la segunda línea: tests/m-avisos.test.ts);
 //   · `?vista=` y `?abrir=` validados (un `?abrir=` con basura no abre nada);
 //   · `aDecisionM`: lo que el server escribe no viaja al cliente, la ficha sólo si el link es de
 //     un lead, y lo complejo va a la computadora;
@@ -26,7 +26,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  cuandoCorto, segundaDe, consecuenciaDe, origenCorto, cambioDeEtapa, esLineaCorta, vistaDeParam, claveDeParam, toastDeExito,
+  cuandoCorto, consecuenciaDe, origenCorto, cambioDeEtapa, esLineaCorta, vistaDeParam, claveDeParam, toastDeExito,
 } from '../app/m/inbox/inbox-ui';
 import { propusoMako, iconoDeDecision, iconoDeRuta, aDecisionM } from '../app/m/inbox/decision-m';
 import { etiquetaDeOrigen } from '../lib/inbox-movil-reglas';
@@ -68,11 +68,8 @@ test('cuándo: la hora si fue hoy, «ayer», y nada si no se lee', () => {
   assert.equal(cuandoCorto('nope', ahora), null);
 });
 
-test('segunda línea, consecuencia, origen y el cambio de etapa', () => {
-  assert.equal(segundaDe({ tipo: 'pendiente', titulo: 'Mover a X', resumen: 'Mover de etapa', detalle: [] }, 42), 'Mover de etapa · vence en 42 min');
-  assert.equal(segundaDe({ tipo: 'pendiente', titulo: 'Mover a X', resumen: 'Mover de etapa', detalle: [] }, -1), 'Mover de etapa · Vencida');
-  assert.equal(segundaDe({ tipo: 'confirmacion', titulo: 'T', resumen: 'Ana', detalle: [{ rotulo: 'Etapa', valor: 'Asistió → Ganado' }] }, null), 'Etapa: Asistió → Ganado');
-  assert.equal(segundaDe({ tipo: 'accion', titulo: 'Igual', resumen: 'Igual', detalle: [] }, null), null);
+test('consecuencia, origen y el cambio de etapa', () => {
+  // (v3, 15/10/2026: la segunda línea de la fila se recortó y se fija en tests/m-avisos.test.ts.)
   assert.equal(consecuenciaDe({ tipo: 'confirmacion', accionMovil: 'resolver-confirmacion', opciones: [{ decision: 'confirmar', label: 'Dejar el cambio', tono: 'primary' }] }, false), 'MaKo ya hizo este cambio.');
   assert.equal(consecuenciaDe({ tipo: 'confirmacion', accionMovil: 'resolver-confirmacion', opciones: [{ decision: 'op:a', label: 'Pasar a X', tono: 'neutral' }] }, false), 'Todavía no se aplicó.');
   assert.equal(consecuenciaDe({ tipo: 'pendiente', accionMovil: 'confirmar-pendiente', deshacer: false }, false), 'Se ejecuta ahora y no se puede deshacer.');

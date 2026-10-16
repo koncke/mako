@@ -19,8 +19,9 @@
 //      mes sin acumularse. Y la API de Anthropic no entrena con lo que recibe;
 //   2. ⛔ LOS DATOS DE LOS CLIENTES DE UN CLIENTE NUNCA VAN A UN PROVEEDOR QUE ENTRENA CON LO QUE RECIBE (regla
 //      del 16/10/2026): si el pedido los lleva —la marca `pii` del catálogo (lib/model-catalogo.ts:
-//      «dashboard-conclusiones», porque una caja de un pop-up lee el transcript de una llamada) o `p.pii`— la
-//      red se corta acá, y el mensaje que arma quien llama manda a conectar una key;
+//      «dashboard-conclusiones», porque una caja de un pop-up lee el transcript de una llamada) o `p.pii` (las
+//      Conclusiones lo pasan caja por caja: `cajaLlevaDatosDeClientes`, lib/graficos-ia-elemento.ts)— la red se
+//      corta acá, y el mensaje que arma quien llama manda a conectar una key;
 //   3. las keys GRATIS de la agencia (`provsGratisDePlataforma`: el plan gratis de Gemini, que entrena, y Groq).
 
 import 'server-only';

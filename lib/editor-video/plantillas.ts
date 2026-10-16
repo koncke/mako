@@ -33,6 +33,9 @@
 // chat, la page y los tests, como chat-catalogo.ts).
 // =============================================================================
 
+import { ordenarConSugeridas, type ConSugerencia, type SenalesNegocio } from '../plantillas-sugeridas';
+import { ETIQUETAS_VIDEO } from './plantillas-etiquetas';
+
 export const LIENZO_REF = { ancho: 1080, alto: 1920 } as const;
 /** Meta Ads Guide «Instagram Reels» (15/10/2026): 14 % arriba, 35 % abajo, 6 % por lado. */
 export const ZONA_SEGURA = { arriba: 269, abajo: 1248, izquierda: 65, derecha: 1015 } as const;
@@ -381,6 +384,14 @@ export function plantillaPorId(id: unknown): Plantilla | null {
   return typeof id === 'string' ? (PLANTILLAS.find((p) => p.id === id) ?? null) : null;
 }
 
+/**
+ * La galería en el orden en que se muestra: primero las sugeridas para ESTE negocio, con su porqué, y después las
+ * demás en el orden de siempre (lib/plantillas-sugeridas.ts; la tabla, ./plantillas-etiquetas.ts). Sin señales, el
+ * orden de siempre. Lo usan la pestaña Plantillas, la API de MaKo y el chat: los tres, la misma lista.
+ */
+export const plantillasEnOrden = (senales: SenalesNegocio | null | undefined): ConSugerencia<Plantilla>[] =>
+  ordenarConSugeridas(PLANTILLAS, ETIQUETAS_VIDEO, senales);
+
 // ── Los huecos ───────────────────────────────────────────────────────────────
 
 export type Hueco = {
@@ -469,15 +480,18 @@ export function validarValores(p: Plantilla, v: unknown): { ok: true; valores: V
 // elegir una plantilla y decir qué llenar. Usarla por la API NO se puede: el proyecto vive
 // en el navegador de quien edita (docs/hallazgos-video-editor.md → «La API de MaKo y el
 // chat al costado»). Puro, para que lo pruebe un test sin el runner (que es server-only).
+// Las señales del negocio las lee el runner: sale el MISMO orden que la pestaña, con la
+// sugerida marcada (`sugerida: "<porqué>"`).
 
-export function plantillasParaApi() {
+export function plantillasParaApi(senales?: SenalesNegocio | null) {
   return {
     total: PLANTILLAS.length,
     formato: { relacion: '9:16', ancho: LIENZO_REF.ancho, alto: LIENZO_REF.alto },
-    plantillas: PLANTILLAS.map((p) => ({
+    plantillas: plantillasEnOrden(senales).map(({ plantilla: p, porque }) => ({
       id: p.id,
       nombre: p.nombre,
       descripcion: p.descripcion,
+      ...(porque ? { sugerida: porque } : {}),
       duracion_segundos: p.duracion,
       huecos: huecosDe(p).map((h) =>
         h.tipo === 'clip'
@@ -486,6 +500,7 @@ export function plantillasParaApi() {
       ),
     })),
     notas: [
+      'Primero van las sugeridas para este negocio (por cómo vende, según sus funnels, su oferta y su diagnóstico); "sugerida" dice por qué. Las demás, en el orden de la pestaña.',
       'Un hueco de clip se llena con un video o una foto de Multimedia: un video más corto que sus segundos no entra; una foto sirve siempre. Uno opcional puede quedar con su imagen de muestra.',
       'Usar una plantilla no se puede por la API: el proyecto vive en el navegador. Se usa en /video-editor, en la pestaña Plantillas o pidiéndoselo al chat «Editar con IA» con la línea de tiempo vacía.',
     ],

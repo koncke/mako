@@ -8,8 +8,12 @@
 // Mismo marco que el Video Editor: la barra lateral y la de secciones se quedan
 // (pedido de Martín del 12/10 para el Video Editor) y el editor llena el alto que
 // queda debajo de las secciones.
+//
+// Las señales del negocio (lib/plantillas-sugeridas-server.ts) se leen acá, en paralelo:
+// el panel de plantillas abre con las sugeridas primero y no salta (../mako/plantillas.ts).
 
 import { getWorkspaceActual } from '@/lib/workspace';
+import { senalesDelNegocio } from '@/lib/plantillas-sugeridas-server';
 import { Pagina } from '@/app/_ui';
 import { requireEditorImagen } from '../acceso';
 import { ImageEditorCliente } from '../ImageEditorCliente';
@@ -19,11 +23,11 @@ export const revalidate = 0;
 
 export default async function ImageEditorDisenoPage({ params }: { params: Promise<{ diseno: string }> }) {
   await requireEditorImagen();
-  const ws = await getWorkspaceActual();
+  const [ws, senales] = await Promise.all([getWorkspaceActual(), senalesDelNegocio().catch(() => null)]);
   const { diseno } = await params;
   return (
     <Pagina ancho="completo" densidad="compacta" style={{ padding: 0, height: 'calc(100vh - var(--alto-secciones, 0px))', display: 'flex', flexDirection: 'column' }}>
-      <ImageEditorCliente vista="editor" disenoId={diseno} ws={ws} />
+      <ImageEditorCliente vista="editor" disenoId={diseno} ws={ws} senales={senales} />
     </Pagina>
   );
 }

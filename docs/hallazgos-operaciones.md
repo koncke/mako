@@ -64,8 +64,8 @@ agrega RAM.
 Martín decidió que las tres cuentas corran juntas, la de la app y dos en terminal. Medido ese día:
 
 - **Cada directorio de configuración tiene su propio registro de sesiones.** Un chat de la app no ve
-  las sesiones de terminal de otra cuenta, y no está medido si `SendMessage` puede cruzar de un
-  directorio a otro. Por eso hay **un cartero por cuenta**, que entrega adentro de la suya.
+  las sesiones de terminal de otra cuenta, y `SendMessage` NO cruza de un directorio a otro (medido el 16/10: ver
+  «SendMessage no cruza carpetas»). La frontera es la carpeta, no la cuenta: hay **un Runner por carpeta**.
 - **`~/.claude-martin` (cuenta 2) nunca se logueó por terminal** y sus `settings.json` tienen `hooks: {}`:
   una sesión ahí corre sin bitácora, sin guardia de RAM, sin relevo tras caída y sin avisos de cuota.
 - **El marcador de cuenta es UNO** (`~/.claude/cuenta-activa.txt`, ruta fija en `bitacora-sesion.sh`):
@@ -558,6 +558,288 @@ Martín con un clic y lo nombra «Jefe › Sub», o el jefe renombra uno existen
 `lib/centro-munecos.ts` · `lib/centro-munecos-db.ts` · `app/admin/operaciones/ElegirMuneco.tsx` · `Muneco.tsx` ·
 `CentroApp.tsx` (el «⋯» y los modales) · `app/m/operaciones/ChatsMovil.tsx` · `tests/centro-munecos.test.ts`
 
+## SendMessage no cruza carpetas: un Runner por CARPETA, y el buzón es de la PC (16/10/2026)
+
+**El pedido.** Martín: «habiamos dicho de no usar más a Claude desde la app de desktop, sino desde powershell o algo así
+que ahí si permite tener 3 cuentas abiertas al mismo tiempo». Cada cuenta corre en su terminal con su
+`CLAUDE_CONFIG_DIR` (el perfil de PowerShell: `claude1` → `~/.claude`, `claude2` → `~/.claude-martin`, `claude3` →
+`~/.claude-cuenta3`), y el Runner tiene que entregarles a las tres.
+
+**Medido.** Desde la app (`~/.claude`), `SendMessage` al canal de la sesión de terminal de la cuenta 2 contesta
+«ENOINBOX: no-key — refusing to send to an unvouched pipe». La sesión deja su `.key` en `<carpeta>/sessions/` y el que
+manda la busca en SU carpeta; `ListAgents` también lista sólo las de la propia. Copiar la `.key` a otra carpeta lo
+haría andar, y es justo lo que NO se hace: es la protección contra un canal que nadie avaló.
+
+**El diagnóstico obvio era el equivocado: la frontera no es la cuenta, es la CARPETA.** El 15/10 se armó «un cartero por
+cuenta». Pero la app guarda las sesiones de CUALQUIER cuenta en `~/.claude`, que es también la carpeta de `claude1`: un
+Runner en la app (o en la terminal de la cuenta 1) le llega a la app entera y a la terminal de la 1, y a la terminal
+de la 2 o la 3, nunca. Y al revés: LEER sí cruza (son archivos), así que cualquier Runner ve las tres cuentas enteras
+y sólo cambia a quién le puede entregar. De ahí el diseño (cartero 1.4.0):
+
+- **Cada chat vivo sube `runner`**: si hay una sesión viva llamada Runner (o Cartero) en su carpeta. El registro trae el
+  `name` de las dos clases de sesión (la de la app y la de `claude2 -n Runner`, medido en `claude --help` ese día).
+- **MaKo reclama sólo `entregables`** (vivos con un Runner en su carpeta, siempre un subconjunto de lo que ese
+  cartero subió vivo: `sanearEntregables`). Lo demás queda «escrito» hasta que se abra ese Runner, en vez de vencerse
+  en el buzón. Un cartero de antes, sin la lista, reclama todos sus vivos, como siempre.
+- **El buzón es de la PC, no del Runner**: lo reclamado va con la carpeta del chat, y cada Runner entrega sólo lo de la
+  suya. Dos Runners en la MISMA carpeta (la app y `claude1` comparten `~/.claude`) no mandan lo mismo: el primero que
+  lo lista crea `<id>.mano` con `wx` (atómico) y se lo queda; si el dueño se cerró sin acusarlo, lo toma otro.
+- **El vencimiento (30 min) vale para lo de cualquier carpeta**: si sólo cada Runner venciera lo suyo, lo de un Runner
+  cerrado no lo vencería nadie y quedaría «tomado» para siempre.
+- **La carpeta propia sale de `CLAUDE_PID`**: Claude Code se lo pasa a los comandos que corre, y la sesión está en
+  `<carpeta>/sessions/<pid>.json`. Si no, `CLAUDE_CONFIG_DIR` (lo pone `claude2`). `ciclo` sin `--cuenta` da la vuelta
+  por las cuentas que tienen una fuente en su carpeta: el de `~/.claude` por las tres (la app), el de
+  `~/.claude-martin` sólo por la 2.
+- **La pantalla lo dice**: una sesión de terminal abierta sin Runner en su carpeta no dice «sale ya» aunque la cuenta
+  tenga otro Runner dando vueltas: «Abre el Runner en la terminal de la cuenta 2 para que salga» (`comoSale`).
+
+**Lo que costó ver:**
+- **Los tests heredan el `CLAUDE_PID` de la sesión que los corre**: el cartero del test creía estar en `~/.claude` (ahí
+  está la sesión real) y no entregaba nada. Los tests le dicen su carpeta con `CARTERO_CONFIG_DIR`.
+- **En la terminal no hay `set_session_title`** (es de la app) y `/rename` existe pero lo escribe la persona, no el
+  modelo. El renombre desde el Centro le pide al chat de terminal que deje en el cierre «Escribe /rename … en la terminal
+  de este chat» (`textoDeRenombre`). Un chat de terminal nace con nombre si se abre con `claude2 -n "CRM"`.
+- **Entre el cartero nuevo y el servidor viejo** (antes del deploy): el servidor ignora `entregables` y reclama todos los
+  vivos; un trabajo para una terminal sin Runner espera 30 min en el buzón y sale «Se cerró el Runner de esa terminal:
+  ábrelo y vuelve a mandarlo». Con el deploy, no se reclama.
+
+**Lo que encontró la revisión adversarial** (dos revisores y un refutador por hallazgo; los 13 se confirmaron, todos
+arreglados con su test en `tests/cartero-carpetas.test.ts`):
+- **Un cierre se podía PERDER, y era el diagnóstico obvio el equivocado**: «se sube y se borra» valía con un cartero
+  por cuenta. Con el buzón compartido, el Runner de la cuenta 1 subía los cierres de la PC sin el acuse que estaba en
+  el buzón de la 2; MaKo aplica un cierre sólo sobre un pedido ENTREGADO, no lo tomaba, y la PC lo borraba igual. Ahora
+  cada vuelta sube los acuses de TODAS las cuentas, MaKo devuelve `cierresIds`, y un cierre se borra sólo si entró (o
+  después de un día).
+- **El vencimiento por cuenta dejaba cosas «entregando» para siempre**: cada Runner da la vuelta por las cuentas de su
+  carpeta, así que lo de la cuenta 1 sólo lo vencía el Runner de `~/.claude`. Recorre todos los buzones.
+- **Un Runner que se cerró con algo en la mano no se reemplaza mandándolo otra vez**: no se sabe si alcanzó a mandarlo.
+  Sale «El Runner se cerró a mitad de la entrega: míralo en el chat» (`tomar`).
+- **Cualquier chat que corriera `ciclo` o `pendientes` se quedaba con el buzón**: probar el script desde un chat lo
+  marcaba como suyo y nunca lo mandaba. Si la sesión que lo corre está registrada y no se llama Runner, no corre
+  (`exigirRunner`; medido desde este chat: «no es el Runner»).
+- **Con el nombre no alcanza**: un chat «Runner» al que nadie le pegó las instrucciones no da vueltas. Cuenta si además
+  dejó su latido en los últimos 6 minutos (`latidos/`, lo escribe cada vuelta).
+- **`entregados.json` perdía ids** con dos Runners acusando a la vez (leer-cambiar-escribir): ahora es un archivo por
+  id (`entregados/`), y el json viejo se sigue leyendo. Y entre listar y marcar, el gemelo vuelve a mirar si el acuse
+  ya lo sacó del buzón.
+- **La pantalla elegía la sesión sin Runner** cuando el mismo chat estaba abierto en dos cuentas (`pesoSesion`), el
+  panel ofrecía `claude2 -n Runner` para un chat de la app, y `scripts/decisiones.ts` decía «se avisa en la próxima
+  vuelta» de un chat al que nadie llega (`explicarAviso`).
+
+**Lo que quedó:** las carpetas de terminal no tienen los hooks de `~/.claude` (bitácora, guardia de RAM, avisos de
+cuota): ver «Tres cuentas a la vez».
+
+**Vive en:** `scripts/operaciones/cartero.mjs` (`dirPropio`, `carpetasConRunner`, `verChats`, `pendientes`, `tomar`,
+`exigirRunner`, `latir`, `vuelta`) · `lib/operaciones-reglas.ts` (`runner`, `sanearEntregables`) · `lib/operaciones.ts` (`cicloCartero`) ·
+`lib/centro-chats.ts` (`comoSale`, `textoDeRenombre`) · `lib/runner.ts` (`COMANDO_TERMINAL`, las instrucciones) ·
+`tests/cartero-carpetas.test.ts` (la PC entera, contra un servidor falso)
+
+## La pregunta de cada chat como la de Claude Code, y la Ticketera adentro del Centro (16/10/2026)
+
+**El pedido.** Martín: «prefiero ahí donde está "Una tarjeta espera tu respuesta en la Ticketera" que salga lo mismo que
+hoy sale en claude, las opciones», «La ticketera con los desplegables queda para el botón de "ticketera" de arriba», y
+mirándolo en producción: «Me dice "Espera tu respuesta" y aún no me salta lo que te pedí tipo claude» y «No veo el botón
+de la ticketera dentro del Centro».
+
+**De dónde se copió la pregunta.** La app de escritorio no trae el dibujo de AskUserQuestion en su paquete (el
+`app.asar` sólo tiene la notificación: la pantalla se carga de claude.ai), así que se leyó del CLI 2.1.299 de esta PC,
+que sí lo trae: las opciones numeradas con su título y su descripción, «(Recommended)», «Type something.» como último
+renglón, «Enter to select · Tab/Arrow keys to navigate · Esc to cancel», y «Review your answers / Submit answers» al
+final. Se copió todo menos el repaso del final: acá cada respuesta se guarda al elegirla (como la Ticketera), así no
+hay un envío que se pueda perder. La descripción de una opción es nueva (`detalle`, hasta 140 letras); las opciones de
+antes que la traen en el texto («Sí — porque…») se parten en la raya.
+
+**De qué chat es una tarjeta se decide UNA vez** (`lib/centro-preguntas.ts`): su `destino` manda; sin él, el nombre, y
+sólo si un único chat se llama así. El globito del muñeco, la pregunta de arriba de la caja y la respuesta en la
+conversación salen de esa misma función: un test fija que el globito y la pregunta cuentan lo mismo.
+
+**El diagnóstico obvio era el equivocado: «elimina la ruta» no era «saca el ítem de la barra».** El 15/10 Martín reclamó
+que la Ticketera NO estaba en la barra de admin («Eso esta mal»). Se dejó el ítem (y la fila de More) como atajo a la
+Ticketera adentro del Centro (`?ticketera=`): una sola Ticketera, con dos puertas.
+
+**Lo que costó ver** (de la revisión adversarial: dos revisores y un refutador por hallazgo, 7 de 7 confirmados; el
+commit 81d842745 dice 5 porque se escribió antes de la segunda tanda):
+- **La pregunta abierta se seguía por su POSICIÓN**: el refresco de cada 8 s mete adelante una tarjeta que frena, y lo que
+  Martín escribía para una se guardaba en la otra (medido por el refutador). Ahora por su id (`preguntaAbierta`), y si
+  la abierta se contesta en otro lado mientras escribe, se dice. Y un rechazo de la acción (sin red, un deploy nuevo) ya
+  no la deja en «…».
+- **Next no vuelve a montar una página cuando sólo cambia la query, y la prop tampoco sigue a la URL.** El ítem
+  «Ticketera» de la barra, estando en el Centro, cambiaba la URL y no la pantalla. Seguir a la prop no alcanzaba: un
+  `replaceState` con el estado de Next (lo que hacía `anotarEnUrl`) no le avisa al router, que se queda con la URL
+  vieja. Ahora `anotarEnUrl` pasa `null` (el router copia su estado y se entera) y la vista sigue a `useSearchParams`.
+  Lo mismo hacía «Ver la lista» del mazo vacío (un link a la misma página): adentro del Centro cambia la vista ahí.
+- **Una página de /m a la que nadie llega es un test rojo** (`tests/movil-mismas-rutas.test.ts`: cada página de /m
+  tiene que volver a sí misma). El proxy manda todo /m/* a su URL de escritorio, y ésa ahora cae en el Centro: las
+  páginas viejas del teléfono no se dejan como redirect, se borran (la URL vieja igual llega, por el mapa de rutas).
+- **`/admin/runway` perdía la query** (era la única puerta que no la pasaba por `aLaTicketera`), el botón que cierra la
+  Ticketera dejaba `?ticketera=` en la URL, y las acciones revalidaban dos rutas que ya no dibujan nada.
+
+**Vive en:** `lib/centro-preguntas.ts` · `app/admin/operaciones/Pregunta.tsx` · `TicketeraCentro.tsx` · `CentroApp.tsx` ·
+`app/m/operaciones/TicketeraMovil.tsx` · `app/tickets/decisiones/reglas.ts` (`aLaTicketera`) · `lib/movil-rutas.ts` ·
+`tests/centro-preguntas.test.ts`
+
+## El Uso de las tres cuentas sale de la barra de estado de cada Runner (16/10/2026)
+
+**El pedido.** Martín: «El "Uso" debe ser visible siempre, me imagino como un desplegable donde hoy está "Cartero". Y que
+"Cartero" (que ya no debería llamarse así), sea también el mismo desplegable... Que ahí se vean ambas cosas», y en
+producción: «Falta el poder visualizar el USO».
+
+**De dónde sale (medido en el CLI 2.1.299 de esta PC).** En la terminal no hay `get_usage` (es de la app) ni nada guardado
+en la carpeta de config (`~/.claude-martin` no tiene ningún caché de cuota). Lo que sí hay: la barra de estado de Claude
+Code recibe por stdin `rate_limits.five_hour` y `rate_limits.seven_day`, cada una con `used_percentage` y `resets_at`
+**en segundos unix**, y admite `refreshInterval`. El Runner se abre con esa barra (`--settings` apuntando a
+`runner-settings.json`, que escribe `cartero.mjs instalar`): así se mide sin tocar la configuración de Martín, sólo en
+esa sesión. `cartero.mjs uso` anota la cuota de la cuenta de su carpeta; cada vuelta la sube; MaKo la guarda en
+`operaciones_carteros.cuota` (de la mig 0285, sin usar hasta hoy). De la cuenta que está en la app, la semanal sale de
+`~/.claude/uso-semanal.txt` (lo que mide `get_usage`, con la cuenta en el 4º campo), si es más nueva.
+
+**Lo que no se ve y se cuida:** pasado el reinicio de una ventana, su porcentaje ya no vale (se dice «Se reinició»); una
+medición de más de 30 minutos lleva su edad; el botón muestra la semana MÁS usada (la que se termina primero); y una vuelta
+sin medición no borra la que había.
+
+**Lo que encontró la revisión adversarial** (un revisor y un refutador por hallazgo, 5 de 5 confirmados, con su test):
+- **El diagnóstico obvio era el equivocado: «medido» no es cuándo corrió la barra.** La barra corre cada minuto aunque no
+  llegue ninguna respuesta de la API (el CLI guarda la observación real, pero no la pasa por stdin): re-sellar el mismo
+  número escondía un Runner que dejó de dar vueltas. Ahora la edad es la de la última OBSERVACIÓN: otros números, o que
+  la sesión haya hablado con la API (`cost.total_api_duration_ms`).
+- **«Runner activo» no puede salir de `visto_at`**: el Runner de ~/.claude recorre las tres cuentas y les refresca la
+  fecha. Activo es que su terminal MIDA (una 5 horas medida hace poco); si no, «Sin el Runner de su terminal».
+- **La semanal de la app puede ser de otra cuenta** (el 4º campo lo pone un marcador que se atrasa): si su reinicio no es
+  el que vio la terminal de esa cuenta, no se usa. Y al ganar ella, la 5 horas vieja de la terminal no viaja con su fecha.
+- **El botón prefiere lo medido hace poco**, y si sólo hay números viejos, los muestra con su edad.
+
+**No verificado:** que la barra de estado reciba la cuota en una sesión de terminal real de cada cuenta (se probó el
+comando con la entrada medida en el CLI, no con un Runner abierto). Lo dice el Centro: hasta que el Runner de una cuenta
+se abra con su comando, esa cuenta sale «Se mide cuando su Runner está abierto con su comando».
+
+**Vive en:** `lib/centro-uso.ts` · `app/admin/operaciones/Uso.tsx` · `scripts/operaciones/cartero.mjs` (`uso`,
+`cuotaDeBarraDeEstado`, `cuotaDe`) · `lib/runner.ts` (`COMANDO_TERMINAL`) · `tests/centro-uso.test.ts`
+
+## Sin accesorios, en qué trabaja cada chat, y un «Nuevo chat» que el Centro no puede abrir solo (16/10/2026)
+
+**El pedido.** «Elimina los accesorios de los personajes», «Cuando un chat dice "Trabajando..." debo saber en qué está
+trabajando» y «Falta la opción de "Nuevo chat" tipo placeholder arriba de todos los chats».
+
+- **Sacar una pieza del muñeco no puede romper lo guardado**: los elegidos viven en app_settings con su `accesorio`, y
+  `sanearAspecto` exigía las cuatro piezas. Ahora lee tres e ignora la cuarta: lo elegido se sigue viendo, sin ella.
+- **«En qué trabaja» es lo último EN CURSO** (un pedido empezado, o un trabajo que le llegó y no cerró), no lo último que
+  pasó: un trabajo escrito que todavía no le llegó no es en lo que está. En un flex, el texto largo no lleva «…»: la fila
+  lo dibuja como bloque.
+- **Medido: el Centro no puede abrir un chat de Claude Code.** Una página web no abre una terminal, start_session no está
+  habilitada en esas sesiones, y la pestaña de terminal de la app (que sí carga el perfil de PowerShell: `Get-Command
+  claude2` da la función) sólo la abre una sesión de la app, con Martín aprobando cada comando y sin dejar escribir nada
+  fuera de ASCII. Así que «Nuevo chat» arma el comando exacto (`claude2 -n 'CRM › Funnels'`, la comilla doblada para
+  PowerShell) y Martín lo pega. Lo que queda: que el Runner de esa terminal lo abra solo pide un tipo de trabajo firmado
+  nuevo («abrir un chat»), y eso toca el formato de lo firmado: no se hizo sin el OK de Martín.
+
+**Vive en:** `app/admin/operaciones/NuevoChat.tsx` · `lib/runner.ts` (`comandoNuevoChat`) · `lib/centro-chats.ts`
+(`enQueTrabaja`) · `lib/centro-munecos.ts` · `tests/centro-fila.test.ts`
+
+## «Review» y el dictado: lo que entra por el cierre y lo que se firma (16/10/2026)
+
+**Los pedidos.** El 6: «"Review"... que graficamente me diga que tengo que ir a revisar de las cosas que ha implementado,
+si puede dejarme el link». El 7: «Agrega la funcionalidad de dictar con audio, como ya lo hacemos en otros lados... Y la
+de adjuntar archivos o imagenes al chat».
+
+- **Lo que se revisa lo deja el chat, no se adivina.** El cierre suma `--revisar "/crm?lead=12"` (cartero 1.6.0) y el hito
+  de la bitácora, `revisar`. Sólo una ruta interna: el Runner la rechaza al escribirla y el servidor la vuelve a sanear
+  (`rutaParaRevisar`). Es la MISMA regla que `esHrefInterno` de la Ticketera, pero escrita aparte: ese módulo importa
+  `operaciones-reglas`, e importarla al revés era circular. Un test fija que las dos digan lo mismo.
+- **«Avance» se llama «Plan», con dos sub-tabs** (copiadas del control segmentado de Linear): «Plan» (el Plan del jefe y
+  lo pedido) y «Review» (lo terminado con página, con «Revisar»). Mientras el visor no exista, «Revisar» abre la página
+  misma: un link al visor daba 404. El interruptor es `VISOR_REVISAR` (lib/centro-chats.ts) y un test falla si no dice lo
+  mismo que el archivo del visor: lo enciende el chat del visor en su commit.
+- **El dictado es el de la casa** (`app/_components/useDictar.ts`, el del alta del Plan y del chat de MaKo del
+  teléfono): el texto se PEGA en la caja y se firma al mandar, como lo escrito. El audio no viaja a la PC.
+- **Los adjuntos NO están, a propósito.** El trabajo firmado lleva sólo texto; un archivo tiene que subirse a MaKo y que
+  el Runner lo BAJE a la PC, que es una puerta nueva hacia la PC de Martín. El diseño mínimo: subirlo a un bucket privado,
+  poner en el texto FIRMADO su ruta y su sha256, y que el Runner lo baje con su token y lo descarte si la huella no
+  coincide. Se construye con el OK de Martín.
+
+**Vive en:** `lib/operaciones-reglas.ts` (`rutaParaRevisar`, `sanearCierres`) · `scripts/operaciones/cartero.mjs` (`cierre`)
+· `lib/centro-chats.ts` (`porRevisar`, `enlaceRevisar`) · `app/admin/operaciones/Microfono.tsx` ·
+`tests/centro-revisar.test.ts`
+
+## El Plan adentro de cada jefe: las operaciones de la API, aplicadas en el acto, por una RUTA (16/10/2026)
+
+**El pedido.** «Los chats y el Centro deberían poder conectarse con el PLAN... Crear tareas nuevas, marcar como
+completadas, etc». La convención ya estaba: los proyectos del tablero del super admin se llaman como una tab, y los
+jefes también. Cada jefe ES un proyecto.
+
+- **El proyecto se llama «Feature: CRM», no «CRM».** El tablero guarda el nombre canónico con su prefijo. La primera
+  versión comparaba el nombre entero y la lista salía SIEMPRE vacía con datos reales; el test pasaba porque su fixture
+  decía «CRM». Lo encontró la revisión. Se compara con `nucleo()` (lib/plan-proyectos-catalogo.ts), y el fixture usa
+  los nombres como los guarda el tablero. Un jefe que no es un proyecto del catálogo («Automations») lo dice en pantalla.
+- **Sin puerta nueva de escritura.** Se lee con `listar_tareas_plan` + `ver_proyecto_plan` (hasta 100 abiertas del
+  proyecto, sin el tope de las 300 de más puntaje de toda la lista) y se escribe con `proponer_tareas_plan` y
+  `proponer_cierre_tareas` aplicadas EN EL ACTO (`aplicarEnElActo`, lib/api-mako/flujo.ts), el camino de las
+  automatizaciones. Quien confirma es Martín con su clic.
+- **Es una RUTA (`/api/centro/plan`), no una server action.** Al aplicar corre el Perro (30 a 60 s), y el navegador
+  manda las server actions DE A UNA: como acción, mandarle algo a otro chat quedaba esperando a que el Perro terminara.
+- **Nada queda a medias.** Antes de proponer se mira si ya hay una abierta con ese título («Ya está en el Plan»): sumarla
+  otra vez la fusionaba con ésa o dejaba el borrador colgado en /plan/revisar. Si el borrador no se aplica, se descarta.
+  `aplicarEnElActo` ahora devuelve `datos` con el borrador y cuántas nacieron: con 0, el aviso dice «Ya estaba: le
+  sumé esto» en vez de «Sumada».
+- **Un mensaje NO se vuelve tarea solo.** La propuesta era «los pedidos de Martín a un jefe son tareas de ese proyecto».
+  No se hizo así: un mensaje del Centro puede ser una pregunta o un «dale», y el Plan ya se limpió una vez de 64
+  proyectos inventados. «Sumar al Plan» es un clic, sin preguntas, en cada pedido sin terminar.
+
+**SIN HACER:**
+- Cuando un chat cierra un trabajo «hecho», proponer el cierre de su tarea: falta el vínculo trabajo ↔ tarea (una
+  columna en `operaciones_pedidos` o una marca en el detalle). Vive en `lib/operaciones.ts` → `cicloCartero`.
+- Lo «SIN HACER» de los relevos (`docs/relevo/*.md`, 13 renglones en 4 archivos) cargado como tareas de su jefe.
+- El alta queda firmada con el origen de la tool heredada (WhatsApp) y `ctx.actor` no se usa: lo compensa el texto del
+  detalle y de la evidencia, que dicen «Centro de Operaciones».
+
+**Vive en:** `lib/centro-plan.ts` · `lib/centro-plan-reglas.ts` · `app/api/centro/plan/route.ts` ·
+`app/admin/operaciones/PlanJefe.tsx` · `tests/centro-plan.test.ts`
+
+## El avance «casi nulo» no era la ventana de 14 días: el historial colgaba de nombres que ningún chat tiene (16/10/2026)
+
+**El pedido.** «Elimina lo de "Antes del 16/10"... Eso debería estar dentro de los mismos chats, como el historial y el
+progreso... Deberías traer mayor historial porque el "progreso" de la mayoría es casi nulo... Sobre todo me interesa ver
+las cosas que pedí y están pendientes».
+
+- **El diagnóstico obvio era el equivocado.** «Traer más historial» sonaba a abrir la ventana de 14 días. Medido: con
+  TODAS las fechas sólo suman 92 pedidos (295 → 387). Lo que vaciaba el avance era otra cosa: **75 de los 81 chats de las
+  bitácoras se conocen sólo por un nombre que ningún chat vivo tiene** («Chatbot» 62 hitos, «Graphics» 33, «Funnel y oferta
+  del CRM» 20...), y todo eso caía en «Antes del 16/10». Ahora va al jefe que se llama como el ÁREA de su bitácora: con
+  los carteros reales, CRM pasó a tener 61 pedidos terminados, Automations 47, Customer Success 26 (y 3 pendientes).
+- **Lo pendiente no estaba en ningún chat.** Un pedido sin pasos (nadie lo empezó) sólo iba a `pidioAca`, que desde la
+  punta 3 no se dibuja: los pendientes, justo lo que Martín quería ver, no salían en ningún lado. Ahora van al chat donde
+  se pidieron (es el que los tiene que hacer).
+- **Un jefe sin chat abierto se lista sólo con algo sin terminar** («Local Dev Environment», 6 pendientes): dice que ese
+  jefe hace falta. Lo terminado queda en su historial y aparece cuando alguien abre un chat con ese nombre.
+- **El peso:** los pedidos de todas las fechas son 575 KB (eran 448 KB con 14 días); lo terminado hace más de 14 días
+  viaja corto (`pedidosDelCentro`). Si crece, el paso siguiente es pedir el historial al abrir el chat.
+- **Los relevos no se parsean:** son prosa, y sólo 4 tienen «SIN HACER» (13 renglones). Lo pendiente de un relevo va al
+  PLAN como tarea del proyecto de su tab (punta 4b), que es de donde el Centro lee lo pendiente.
+- **Trampa de herramienta:** un reemplazo cuya ancla es el PRINCIPIO de un renglón deja el resto del renglón pegado
+  después del texto nuevo. Pasó en la cosecha de la punta 3 y partió una regla de `AGENTS.md` en dos; las anclas van
+  con el renglón entero.
+
+**Vive en:** `lib/centro-chats.ts` (`chatsDeBitacoras`, `completarChats` paso 3, `gruposDelAvance`) ·
+`lib/progreso-reglas.ts` (`pedidosDelCentro`) · `tests/centro-chats.test.ts` · `tests/centro-avance.test.ts`
+
+## El Cerebro aparte, los jefes por tab, y un pedido sólo en el chat que lo trabajó (16/10/2026)
+
+**El pedido.** «No estás aplicando la modularización y organización de chats... dentro de ese chat dice "Lo trabajó Centro
+de Operaciones"... Si lo trabajó otro, no debería salir allí... hay otro que se llama "dashboard-marketing-7d"... Quiero
+chats con los nombres de las tabs que sean "jefes"», y que el orquestador no es un jefe más.
+
+- **Un chat jefe se reconoce por el nombre de una tab, y la lista ya existía en dos registros**: las etiquetas de la barra
+  (`app/_components/nav.ts`) y los títulos de las áreas (`app/admin/dev/areas.ts`, que nombran también lo que no tiene
+  tab: «Closing Analyst»). Se arma en el servidor (`app/admin/operaciones/tabs.ts`) y viaja como una lista chica: el
+  registro de áreas es grande. Lo que no coincide va a «Sin asignar», plegado: renombrarlo lo pasa a su jefe.
+- **El Cerebro es UN chat con sus nombres de antes** («Estrategia 3 cuentas» en las otras cuentas, hasta que se renombren:
+  sólo Martín puede firmar ese renombre, desde su dispositivo). Mismo muñeco que tenía.
+- **«Lo trabajó…» en el chat que pasó el pedido era el diagnóstico obvio y era el equivocado**: no faltaba el chip de la
+  cuenta (lo que se había pedido antes), sobraba la línea. Un pedido sale sólo en el chat que lo trabajó; `pidioAca` se
+  sigue calculando (dice de dónde vino) pero no se dibuja.
+
+**Vive en:** `lib/centro-chats.ts` (`CEREBRO`, `esCerebro`, `seccionesDeChats`) · `app/admin/operaciones/tabs.ts` ·
+`tests/centro-jefes.test.ts`
+
 ## Lo que creí medido y no estaba al día
 
 - **`soloPlataforma` ya existía en el registro de la API** (lo sumó el 2FA obligatorio el 14/10, por
@@ -581,11 +863,9 @@ Martín con un clic y lo nombra «Jefe › Sub», o el jefe renombra uno existen
   Sus instrucciones se copian desde el Centro (Runners → Nuevo Runner; viven en `lib/runner.ts`). Y el Token de cada
   dispositivo, pegado en el Runner.
 - ~~Los textos de Avance y Pushes~~: las dos vistas se fueron en la punta 2 (el avance está en cada chat).
-- **Que un trabajo llegue a una cuenta que NO está abierta**: hoy espera a que la app pase a esa cuenta (o a que corra
-  en terminal con su Cartero). Para las tres en paralelo: `/login` de la 1 y la 2 en terminal (lo hace Martín), su
-  cartero como `cli` y un Cartero en cada una. ⚠️ El cartero acepta UNA fuente por cuenta (`app` o `cli`): una cuenta
-  con chats en la app y en terminal a la vez necesita las dos (scripts/operaciones/cartero.mjs → `carteroDe`). Y no
-  está medido si `SendMessage` cruza de un directorio de configuración a otro.
+- **Abrir el Runner de cada cuenta en su terminal** (lo hace Martín: `claude2 -n Runner` en PowerShell y pegarle las
+  instrucciones; los pasos en docs/relevo/centro-operaciones.md). Desde la 1.4.0 (16/10) una cuenta tiene varias fuentes
+  (la app y su terminal), la PC ya las tiene declaradas, y `SendMessage` está medido: no cruza carpetas.
 - ~~Implementar el rediseño de `docs/prototipos/centro-operaciones.html`~~: lo reemplazó el de punta a punta del 16/10.
 - **Dos ideas de Sintra y Grok Bot que no se hicieron** (16/10): una caja de pedido GENERAL arriba del equipo («¿Qué
   necesitás hoy?», con un «Para:» que elige al empleado, como el de Grok Bot) y chips con contadores («3 te esperan»).
@@ -600,8 +880,8 @@ Martín con un clic y lo nombra «Jefe › Sub», o el jefe renombra uno existen
 - **El token de GitHub de la plataforma (404 desde la transferencia)**: sin él no hay commits por push ni
   cierre de tareas del Plan por commits. El repo cableado al owner viejo ya se arregló (dcad6ddd2); falta
   que Martín le dé al token acceso a `hola-mako/dashboard-marketing`.
-- **Las cuentas de terminal**: el `/login` de cada una (lo hace Martín), su marcador por directorio y
-  sus hooks, y un chat Cartero en cada una. Hasta entonces, sólo entrega el cartero de la app.
+- **Las cuentas de terminal**: logueadas las tres (Martín, 16/10: «Listo las 3 cuentas»); falta su marcador por
+  directorio y sus hooks, y abrir el Runner en cada una.
 - **La opción C** (un hook con `asyncRewake` en la carpeta del Cartero, que lo despierta sin gastar
   turnos): documentado que despierta a una sesión ociosa; no probado con `Stop`. Necesita el OK de
   Martín porque es configuración.
