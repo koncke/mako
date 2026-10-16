@@ -231,6 +231,9 @@ export const CSS = `
 .lk-comp-tit > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .lk-comp--kpi .lk-comp-tit { font-size: 15px; color: var(--dim); }
 .lk-comp--mono .lk-comp-tit { font-family: 'Geist Mono', monospace; font-weight: 400; font-size: 13px; text-transform: uppercase; letter-spacing: .1em; color: var(--dim); }
+/* En la pila del celular un número va en media fila (176 px): el rótulo en un renglón quedaba «RATIO DE …», «TASA DE ASIST…»
+   y no se sabía qué número era (visto en producción, 15/10/2026). Ahí va en dos renglones. */
+.lk-pila > .lk-comp--kpi .lk-comp-tit > span:first-child { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow-wrap: anywhere; }
 .lk-comp-sub { margin-top: -6px; font-size: 13px; color: var(--faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .lk-comp-acciones { flex: none; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: flex-end; max-width: 70%; cursor: default; }
 .lk-mako { display: inline-flex; transition: opacity .15s; }

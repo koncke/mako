@@ -945,6 +945,20 @@ arnés, las 13 plantillas en el escritorio y en la pila del celular, y cada tipo
 - **El tema de una plantilla manda sobre el del arnés**: `capturar.cjs "" <tema> plantillas` saca las 13 cada una en su
   propio tema. Los temas se miran en el modo por tipo (`capturar.cjs "" <tema>`, y `lamina-grilla.cjs` junta los casos).
 
+**Lo que se vio en PRODUCCIÓN después del deploy** (`24c0ad441`, la sesión de super admin de Martín en su Chrome, ws9):
+
+- La pila funciona como en el arnés: «SCL P90», que quedaba sola, va a lo ancho, y ninguna pieza deja más de 44 px de aire
+  abajo (antes, media pantalla).
+- ⚠️ **Un defecto que el arnés no mostraba:** el rótulo de un número de media fila se cortaba en un renglón («RATIO DE …»,
+  «TASA DE ASIST…»), y así no se sabe qué número es. En la pila va en dos renglones.
+- ⚠️ **Cómo se mira el celular en producción, y lo que NO sirve:** la ventana de la extensión no se deja angostar (sigue en
+  1536 px); un iframe del mismo sitio lo bloquea la política de encuadre (bien); y la sesión firmada a mano con
+  `token-dev.mts` producción la manda a `/login`. Lo que anda es la **«Vista de celular» del editor** (Editar → el ícono
+  del teléfono), que dibuja la misma pila a 364 px. En un teléfono de verdad, MaKo Mobile lleva `/dashboard` a
+  `/m/dashboard`, que es OTRA pantalla.
+- **El informe es por persona**: el super admin mirando el ws1 ve SU informe en ese workspace (la galería, si no tiene), no
+  el de Mauricio. Para probar sin escribir en un cliente, las hojas se arman en el ws9 y se borran al final.
+
 **Vive en:** `app/dashboard/pila.ts` · `app/dashboard/EditorInforme.tsx` (`tarjeta`) · `app/dashboard/graficos/estilos-html.ts`
 (`.gr-barras`) · `app/dashboard/graficos/Tabla.tsx` (`portada`) · `app/dashboard/Grafico.tsx` (`separacion`, el margen del eje
 X) · `lib/graficos-gordo.ts` (`BARRA.separacionGrupo`) · `lib/graficos-plantillas-analysts.ts` (Productividad).
