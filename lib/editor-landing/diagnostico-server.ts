@@ -32,7 +32,7 @@ import { getTenantDb, getWorkspaceActual } from '../workspace';
 import { leerTodo } from '../supabase-paginado';
 import { analizarCopy, analizarLanding, getComportamiento, type LandingComportamiento } from '../landing-analyst';
 import { errorDeCascada } from '../ai-cheap';
-import { normalizarUrl } from '../landing-url';
+import { claveDeLanding } from '../landing-url';
 import { extraerLanding } from '../landing-fetch';
 import { abrir } from './server';
 import { motivoDePagina, sanearLectura } from './lectura-reglas';
@@ -249,7 +249,7 @@ async function analizarNuestra(ws: number, obj: { docId: number }, lectura: Lect
   if (palabras < TOPES_DIAGNOSTICO.palabras) return falla('Tiene muy poco texto para diagnosticarla.');
 
   let url: string | null = null;
-  try { url = doc.urlPublica ? normalizarUrl(doc.urlPublica) : null; } catch { url = null; }
+  try { url = doc.urlPublica ? claveDeLanding(doc.urlPublica) : null; } catch { url = null; }
   try {
     // Publicada: el comportamiento real de su URL (visitas, scroll, agendas). Sin publicar: «sin
     // datos», y el prompt del Landing Analyst ya sabe decirlo sin inventar.

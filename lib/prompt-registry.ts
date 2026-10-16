@@ -743,14 +743,14 @@ export const REGISTRY: Group[] = [
     // lib/editor-video/chat-prompts.ts). Las keys y los slots los fija tests/video-editor-chat.test.ts.
     group: 'Editor de video (Video Editor)',
     icon: '🎬',
-    blurb: 'MaKo en el chat del Video Editor: lee la línea de tiempo y propone cambios (textos, cortes, borrados, volumen) que la persona acepta o descarta.',
+    blurb: 'MaKo en el chat del Video Editor: lee la línea de tiempo y propone cambios (textos, cortes, transiciones, animaciones, filtros, color, velocidad, estilo, posición, audio) que la persona acepta o descarta.',
     entries: [
       {
         key: 'video_editor.chat.system', source: 'override',
         label: 'Editar con IA (system)', kind: 'system', dynamic: true,
         variables: [v('catalogo', 'las operaciones que el editor sabe aplicar (sale del código)'), v('formato', 'forma del JSON de la respuesta')], scope: 'static-only', sensitive: true,
         default: CHAT_VIDEO_SYSTEM_TEMPLATE,
-        context: 'Convierte el pedido de la persona en operaciones del catálogo. {{catalogo}} sale del código (lib/editor-video/chat-catalogo.ts): si se borra, la IA no sabe qué puede hacer y nada se aplica. NO borres «PROHIBIDO INVENTAR» ni la regla de no inventar referencias. Lo que no está en el catálogo se descarta en código igual.',
+        context: 'Convierte el pedido de la persona en operaciones del catálogo. {{catalogo}} sale del código (lib/editor-video/chat-catalogo.ts): si se borra, la IA no sabe qué puede hacer y nada se aplica. NO borres «PROHIBIDO INVENTAR» ni la regla de no inventar referencias. Lo que no está en el catálogo se descarta en código igual. Una versión guardada antes del 15/10/2026 dice que transiciones, filtros y efectos no se pueden: restablécela.',
       },
       {
         key: 'video_editor.chat.user', source: 'override',
@@ -932,7 +932,7 @@ export const REGISTRY: Group[] = [
         label: 'Extractor de campos de El Archivero', kind: 'system', dynamic: true,
         variables: [v('lista', 'los campos pedidos (clave: qué pide)')], scope: 'static-only', sensitive: true,
         default: ARCHIVERO_EXTRACT_TEMPLATE,
-        context: 'Lee UN documento del cliente (de a uno, para atribuir qué campo salió de qué archivo) y completa los campos del negocio, devolviendo JSON con un "razonamiento" de UNA frase sobre qué aportó ese documento. Regla clave: si un dato no aparece, lo omite (NO inventa). Conserva el formato JSON {"campos":{…},"razonamiento":"…"}, el slot {{lista}} y la regla de "no inventar".',
+        context: 'Lee UN documento del cliente (de a uno, para atribuir qué campo salió de qué archivo) y completa los campos del negocio, devolviendo JSON con un "razonamiento" de UNA frase sobre qué aportó ese documento. Regla clave: si un dato no aparece, lo omite (NO inventa). Conserva el formato JSON {"campos":{…},"razonamiento":"…"}, el slot {{lista}} y la regla de "no inventar". Lo usan la pantalla del Archivero y, desde el 15/10/2026, cada archivo que el dueño manda en el chat de Offer (una extracción por documento, que puede pagar: decisión de Martín).',
       },
       {
         key: 'productos.system', source: 'override',
@@ -1270,7 +1270,7 @@ export const REGISTRY: Group[] = [
   {
     group: 'Offer (MaKo conversa, diagnostica y arma la oferta)',
     icon: '🎯',
-    blurb: 'La tab Offer: MaKo le pregunta al dueño por su oferta de a una pregunta, la diagnostica con la rúbrica de 9 dimensiones y escribe la oferta nueva para el PDF.',
+    blurb: 'La tab Offer: MaKo le pregunta al dueño por su oferta de a una pregunta, la diagnostica con la rúbrica de 9 dimensiones y escribe la oferta nueva para el PDF. Estos prompts no pagan; los archivos que el dueño manda quedan también en El Archivero con SU extractor (grupo «Extracción de documentos»), que sí puede pagar.',
     entries: [
       {
         key: 'offer.turno.system', source: 'override',

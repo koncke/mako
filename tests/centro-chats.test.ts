@@ -101,3 +101,89 @@ test('la lista se agrupa como una app de chat: trabajando ahora arriba (sólo co
   assert.equal(g('abierto', false, '2026-09-30T20:00:00Z'), 'antes');
   assert.equal(g('abierto', false, null), 'antes');
 });
+
+// ── La caja de escribir (16/10/2026) ───────────────────────────────────────────────────────────
+// Martín: «NO es funcional, no puedo mandar un prompt por allí a mis otras cuentas». Lo que se fija acá es lo que,
+// roto, no da error: una caja que manda algo que la PC va a rechazar, o que dice «sale ya» sobre algo que espera.
+
+test('la caja: sin sesión no hay a quién; sin clave, se crea; con la clave que la PC no acepta, no manda', async () => {
+  // Probado rompiéndolo: aceptando la clave aunque ningún cartero la tenga, falla el tercer assert (y los
+  // demás pasan); mirando sólo al cartero de LA cuenta del chat, falla el de «otro cartero la vio».
+  const { comoSale } = await import('../lib/centro-chats');
+  const chat = { sesion: S(1), cuenta: 'claude1', estado: 'abierto' as const };
+  const fresco = '2026-10-15T15:59:00Z';
+  assert.deepEqual(comoSale({ ...chat, sesion: null }, [], 'k1', AHORA), { puede: false, por: 'sin_direccion' });
+  assert.deepEqual(comoSale(chat, [], undefined, AHORA), { puede: false, por: 'leyendo_clave' });
+  assert.deepEqual(comoSale(chat, [], null, AHORA), { puede: false, por: 'sin_clave' });
+  const sinLaClave = [{ cuenta: 'claude1', vistoAt: fresco, claves: ['otra'] }];
+  assert.deepEqual(comoSale(chat, sinLaClave, 'k1', AHORA), { puede: false, por: 'clave_no_aceptada' }, 'la PC la va a rechazar');
+  // Las claves son de la PC: alcanza con que un cartero la haya visto, aunque el de esta cuenta tenga la foto vieja.
+  const otroLaVio = [{ cuenta: 'claude1', vistoAt: fresco, claves: [] }, { cuenta: 'claude3', vistoAt: fresco, claves: ['k1'] }];
+  assert.equal(comoSale(chat, otroLaVio, 'k1', AHORA).puede, true, 'otro cartero la vio');
+  // Sin ningún cartero que haya informado, no se sabe: sale, y espera al cartero.
+  assert.deepEqual(comoSale(chat, [], 'k1', AHORA), { puede: true, espera: 'cartero', cuenta: 'claude1' });
+});
+
+test('la caja dice qué espera: el cartero quieto, el chat cerrado (con su cuenta), o nada si sale ya', async () => {
+  // Probado rompiéndolo: sin mirar la edad del cartero, el primer assert da «sale ya» sobre un cartero de hace
+  // tres horas (falla éste).
+  const { comoSale, textoDeEnvio } = await import('../lib/centro-chats');
+  const k = (vistoAt: string) => [{ cuenta: 'claude3', vistoAt, claves: ['k1'] }];
+  const abierto = { sesion: S(1), cuenta: 'claude3', estado: 'abierto' as const };
+  const quieto = comoSale(abierto, k('2026-10-15T13:00:00Z'), 'k1', AHORA);
+  assert.deepEqual(quieto, { puede: true, espera: 'cartero', cuenta: 'claude3' });
+  assert.equal(textoDeEnvio(quieto), 'Sale cuando el cartero de la cuenta 3 dé su vuelta.');
+  const cerrado = comoSale({ ...abierto, estado: 'cerrado' }, k('2026-10-15T15:59:00Z'), 'k1', AHORA);
+  assert.equal(textoDeEnvio(cerrado), 'Sale cuando abras este chat en la cuenta 3.', 'dice la cuenta: puede ser otra que la abierta');
+  const ya = comoSale(abierto, k('2026-10-15T15:59:00Z'), 'k1', AHORA);
+  assert.deepEqual(ya, { puede: true, espera: null, cuenta: 'claude3' });
+  assert.equal(textoDeEnvio(ya), null);
+});
+
+test('la lista se rehace en la pantalla con la MISMA función: base de las bitácoras + lo que sube el cartero', async () => {
+  // Probado rompiéndolo: si completarChats no resetea el estado de la base, un chat que el cartero dejó de ver
+  // sigue «trabajando» en el refresco (8 pasan y falla éste). ⚠️ La primera versión refrescaba con el cartero
+  // viéndolo todavía, y así la rotura daba 9 en verde: el estado se pisaba igual.
+  const { chatsDeBitacoras, completarChats } = await import('../lib/centro-chats');
+  const area: AreaP = { slug: 'x', titulo: 'X', bitacora: [hito('10:00', 'implementacion', 'CRM', { sesion: S(1) })] };
+  const carteros: CarteroP[] = [{ cuenta: 'claude1', vistoAt: '2026-10-15T15:59:00Z', chats: [chat(1, 'CRM renombrado', true, 'busy'), chat(2, 'Otro', true, 'idle')] }];
+  const trabajos = [{ id: 't1', destino: S(3), destino_titulo: 'Plan', destino_cuenta: 'claude2', created_at: '2026-10-15T12:00:00Z' }];
+  const deUna = chatsDelCentro({ carteros, areas: [area], pedidos: [], trabajos, ahora: AHORA });
+  const enDos = completarChats(chatsDeBitacoras({ areas: [area], pedidos: [], ahora: AHORA }), { carteros, trabajos, ahora: AHORA });
+  assert.deepEqual(enDos, deUna, 'el server y la pantalla arman la misma lista');
+  assert.equal(enDos.find((c) => c.clave === S(1))?.titulo, 'CRM renombrado', 'el título es el de la app (se puede renombrar)');
+  // El refresco, con el cartero que ya no ve al chat 1 (se cerró la app de esa cuenta): no puede seguir «trabajando».
+  const despues = completarChats(enDos, { carteros: [{ ...carteros[0], chats: [chat(2, 'Otro', true, 'idle')] }], trabajos: [], ahora: AHORA });
+  assert.equal(despues.find((c) => c.clave === S(1))?.estado, 'sin_dato');
+});
+
+test('el segundo renglón de la fila es lo ÚLTIMO que pasó: un trabajo con su tick, o el paso de un chat', async () => {
+  // Probado rompiéndolo: quedándose con la PRIMERA línea en vez de la más nueva, falla el primer assert.
+  const { vistaPrevia } = await import('../lib/centro-chats');
+  const w = { id: 't1', destino: S(1), destino_titulo: 'CRM', destino_cuenta: 'claude1', created_at: '2026-10-15T15:00:00Z', texto: 'Arregla el filtro\ny lo demás', estado: 'entregado' as const };
+  const p = vistaPrevia([
+    { tipo: 'trabajo', instante: Date.parse('2026-10-15T12:00:00Z'), trabajo: { ...w, texto: 'Uno viejo', estado: 'hecho' } },
+    { tipo: 'trabajo', instante: Date.parse(w.created_at), trabajo: w },
+  ]);
+  assert.deepEqual(p, { texto: 'Arregla el filtro', propio: true, tick: 'entregado', instante: Date.parse(w.created_at) }, 'el último, en un renglón');
+  const conCierre = vistaPrevia([{ tipo: 'trabajo', instante: Date.parse(w.created_at), trabajo: { ...w, estado: 'hecho', cerrado_at: '2026-10-15T15:30:00Z', cierre: { decidido: '', hecho: 'Filtro arreglado', comprobado: '', sigue: '', prueba: null } } }]);
+  assert.equal(conCierre?.texto, 'Filtro arreglado', 'el cierre es lo último: lo que contestó el chat');
+  assert.equal(conCierre?.propio, false);
+  assert.equal(vistaPrevia([]), null);
+});
+
+test('la barra: una sección por cuenta (la que corre primero) y lo anterior al 16/10 aparte, al final', async () => {
+  // Probado rompiéndolo: dejando lo «por nombre» adentro de su cuenta, falla el último assert (la sección
+  // de antes no existe y el «CRM» sin sesión queda al lado del de verdad).
+  const { seccionesDeChats, chatsDeBitacoras, completarChats } = await import('../lib/centro-chats');
+  const area: AreaP = { slug: 'x', titulo: 'X', bitacora: [hito('10:00', 'implementacion', 'CRM')] }; // sin sesión
+  const carteros: CarteroP[] = [
+    { cuenta: 'claude1', vistoAt: '2026-10-15T15:59:00Z', chats: [chat(1, 'CRM', false)] },
+    { cuenta: 'claude3', vistoAt: '2026-10-15T15:59:00Z', chats: [{ ...chat(3, 'CRM', true, 'idle'), cuenta: 'claude3' }] },
+  ];
+  const cs = completarChats(chatsDeBitacoras({ areas: [area], pedidos: [], ahora: AHORA }), { carteros, trabajos: [], ahora: AHORA });
+  const secs = seccionesDeChats(cs);
+  assert.deepEqual(secs.map((s) => s.titulo), ['Cuenta 3', 'Cuenta 1', 'Antes del 16/10'], 'la que tiene chats abiertos primero');
+  assert.deepEqual(secs.map((s) => s.chats.length), [1, 1, 1]);
+  assert.equal(secs[2].chats[0].porNombre, true);
+});

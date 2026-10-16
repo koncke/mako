@@ -118,9 +118,14 @@ export const JS_LECTOR = String.raw`function (id, camino, origenMako) {
   // sandbox y, con window.opener, haría opener.location = '<phishing>' sobre la pestaña de MaKo (reverse
   // tabnabbing). Soltarlo corta la relación en el navegador, no sólo la variable: después de navegar, la
   // página nueva ve window.opener en null. El lector le sigue hablando por «abre», la referencia guardada,
-  // que la página no alcanza. En el camino del Pixel NO: la página es una landing DECLARADA del negocio, y si
-  // se redirige, su Pixel vuelve a cargar el lector, que necesita el opener para contestar.
-  if (camino === 'ventana') { try { window.opener = null; } catch (e) {} }
+  // que la página no alcanza.
+  // Desde el 15/10/2026 también en el camino del Pixel (decisión del coordinador, a criterio): una landing
+  // DECLARADA del negocio igual puede traer scripts de terceros o navegar a otro sitio. El costo, aceptado: si
+  // la landing se redirige sola DESPUÉS de cargar el lector, su Pixel ya no ve opener y esa lectura se pierde.
+  // Lo que NO cierra: el rato entre que carga la página y que corre esta línea (la página ve window.opener).
+  // Cerrarlo del todo pide que el lector conteste por el server: docs/hallazgos-editor-landing.md → «Tanda 8»
+  // → «Lo que quedó sin hacer».
+  try { window.opener = null; } catch (e) {}
   var T0 = Date.now();
   var TOPE = 17000, QUIETO = 800, TOPE_QUIETO = 10000, TOPE_TOQUES = 7000;
   var MAX_DESP = 40, MAX_CLICS = 25, MAX_PIEZAS = 480, MAX_CHARS = 58000, MAX_NODOS = 25000;

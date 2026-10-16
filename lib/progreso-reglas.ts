@@ -67,8 +67,11 @@ export const ROTULO_TIPO: Record<string, string> = {
  * que ya están terminadas, empezadas, etc...»): la unidad de la pantalla es lo que él pidió, y lo demás es el
  * camino que hizo. Y después (15/10, tarde): «Al principio debería haber una tab que simule los chats», y «No
  * entiendo para nada la tab de "trabajos", eliminala». Chats va primero; Trabajos ya no es una pestaña.
+ * Y el 16/10, con el rediseño de punta a punta («Eliminando las tabs innecesarias»): «Áreas» se fue —lo que
+ * decía es la lista de chats— y las otras dos dejaron de ser pestañas: son accesos de la barra. Un `?tab=areas`
+ * viejo abre los chats.
  */
-export const PESTANAS_CENTRO = ['chats', 'pedidos', 'pushes', 'areas'] as const;
+export const PESTANAS_CENTRO = ['chats', 'avance', 'pushes'] as const;
 export type PestanaCentro = (typeof PESTANAS_CENTRO)[number];
 
 // ── En curso ──────────────────────────────────────────────────────────────────────────────────

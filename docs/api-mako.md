@@ -29,7 +29,7 @@
 
 - **General** (`general`): `leer_resumen_objetivos` · `ver_trimestre_actual` · `listar_objetivos` · `ver_objetivo_principal` · `ver_tablero_kpis` · `listar_kpis` · `sugerir_kpis` · `listar_fuentes_kpi` · `medir_fuente_kpi` · `ver_capacidad_instalada` · `medir_tramo_r1_r2` · `listar_pendientes_arranque` · `registrar_valor_kpi` · `cerrar_objetivo` · `apagar_kpi` · `guardar_capacidad` · `guardar_objetivo` · `guardar_kpi` · `sembrar_kpis_sugeridos` · `listar_hojas_general` · `crear_hoja_general` · `agregar_bloque_general` · `configurar_bloque_general`
 - **Plan** (`plan`): `ver_plan` · `listar_tareas_plan` · `ver_tarea_plan` · `ver_proyecto_plan` · `listar_proyectos_plan` · `ver_prioridades_plan` · `listar_tareas_vencidas` · `listar_tareas_paradas` · `listar_tareas_sin_datos` · `buscar_tareas_plan` · `listar_dependencias_plan` · `listar_borradores_plan` · `ver_borrador_plan` · `ver_estado_borrador` · `ver_borrador_de_reunion` · `listar_proyectos_vacios` · `ver_senales_negocio` · `descartar_borrador_plan` · `actualizar_avance_tarea` · `agregar_dependencia_plan` · `quitar_dependencia_plan` · `guardar_termino_glosario` · `proponer_tareas_plan` · `proponer_cierre_tareas` · `proponer_ampliar_tareas`
-- **CRM** (`crm`): `buscar_leads` · `ficha_lead` · `reuniones_recientes` · `ver_funnel` · `listar_horarios_reunion` · `listar_leads` · `contar_leads_por_etapa` · `transiciones_desde_etapa` · `requisitos_para_mover` · `faltantes_del_lead` · `reuniones_proximas` · `cobranza_lead` · `tracking_lead` · `journey_lead` · `duplicados_lead` · `propuestas_lead_pendientes` · `confirmaciones_crm_automatico` · `estado_crm_automatico` · `evaluar_crm_automatico` · `link_agenda_calendly` · `link_resumen_lead` · `r2_sin_lead` · `listar_productos` · `listar_etiquetas` · `etiquetas_lead` · `sugerencias_crm` · `volver_a_mostrar_sugerencia` · `proponer_cambio_etapa` · `proponer_agendar_reunion` · `proponer_lead` · `marcar_asistencia_reunion` · `marcar_calificado` · `agregar_nota_lead` · `asignar_closer_setter` · `mover_a_nutricion_manual` · `marcar_pago_cobrado` · `registrar_pago_suelto` · `ignorar_datos_sin_marcar` · `reactivar_datos_sin_marcar` · `resolver_confirmacion_crm` · `declarar_entradas_funnel` · `crear_etiqueta` · `editar_etiqueta` · `archivar_etiqueta` · `poner_etiqueta_lead` · `sacar_etiqueta_lead` · `oferta_del_lead` · `asignar_oferta_lead` · `crear_oferta_lead` · `editar_contacto_lead` · `agregar_link_fathom` · `marcar_reunion_manual` · `guardar_plan_pagos` · `guardar_cuotas` · `guardar_deal_details` · `activar_crm_automatico` · `guardar_producto` · `proponer_leads`
+- **CRM** (`crm`): `buscar_leads` · `ficha_lead` · `reuniones_recientes` · `ver_funnel` · `listar_horarios_reunion` · `listar_leads` · `contar_leads_por_etapa` · `transiciones_desde_etapa` · `requisitos_para_mover` · `faltantes_del_lead` · `reuniones_proximas` · `cobranza_lead` · `tracking_lead` · `journey_lead` · `duplicados_lead` · `propuestas_lead_pendientes` · `confirmaciones_crm_automatico` · `estado_crm_automatico` · `evaluar_crm_automatico` · `link_agenda_calendly` · `link_resumen_lead` · `r2_sin_lead` · `listar_productos` · `listar_etiquetas` · `etiquetas_lead` · `sugerencias_crm` · `volver_a_mostrar_sugerencia` · `ver_ficha_funnel` · `cambiar_ficha_funnel` · `proponer_cambio_etapa` · `proponer_agendar_reunion` · `proponer_lead` · `marcar_asistencia_reunion` · `marcar_calificado` · `agregar_nota_lead` · `asignar_closer_setter` · `mover_a_nutricion_manual` · `marcar_pago_cobrado` · `registrar_pago_suelto` · `ignorar_datos_sin_marcar` · `reactivar_datos_sin_marcar` · `resolver_confirmacion_crm` · `declarar_entradas_funnel` · `tipos_de_crm` · `crear_crm` · `crear_etiqueta` · `editar_etiqueta` · `archivar_etiqueta` · `poner_etiqueta_lead` · `sacar_etiqueta_lead` · `oferta_del_lead` · `asignar_oferta_lead` · `crear_oferta_lead` · `editar_contacto_lead` · `agregar_link_fathom` · `marcar_reunion_manual` · `guardar_plan_pagos` · `guardar_cuotas` · `guardar_deal_details` · `activar_crm_automatico` · `guardar_producto` · `proponer_leads`
 - **Ads (Manager y Analyst)** (`ads`): `listar_campanas_meta` · `ver_estado_meta` · `ver_salud_cuenta_meta` · `listar_conjuntos_meta` · `listar_anuncios_meta` · `listar_anuncios_con_problemas_meta` · `listar_recomendaciones_meta` · `ver_rendimiento_anuncios` · `ver_cuenta_meta` · `listar_publicos_meta` · `buscar_intereses_meta` · `buscar_lugares_meta` · `listar_formularios_meta` · `listar_pixeles_meta` · `listar_eventos_pixel_meta` · `listar_conversiones_meta` · `listar_identidades_meta` · `verificar_ganadores_reusables` · `listar_motivos_venta_llamada` · `ver_publico_conjunto_meta` · `ver_textos_anuncio_meta` · `ver_datos_campana_meta` · `ver_datos_conjunto_meta` · `verificar_aprobacion_meta` · `listar_incidentes_meta` · `ver_base_formulario_meta` · `listar_publicaciones_mako_meta` · `listar_guiones_analizados` · `ver_ficha_guion` · `ver_estado_analisis_guiones` · `ver_cuadrante_retencion` · `ver_perfil_guiones` · `listar_angulos_guion` · `listar_avatares_guion` · `listar_guiones_valorados` · `ver_transcript_anuncio` · `proponer_estado_campana` · `proponer_renombrar_campana` · `proponer_estado_conjunto` · `proponer_estado_anuncio` · `proponer_renombrar_entidad_meta` · `proponer_presupuesto_campana` · `proponer_presupuesto_conjunto` · `proponer_eliminar_entidad_meta` · `proponer_agregar_anuncio` · `proponer_editar_textos_anuncio` · `proponer_crear_publico_meta` · `proponer_crear_formulario_meta` · `proponer_sincronizar_guiones` · `proponer_reanalizar_guion` · `proponer_corregir_angulo_guion` · `proponer_corregir_avatar_guion` · `proponer_borrar_guion_valorado` · `proponer_agregar_angulo` · `proponer_editar_angulo` · `proponer_borrar_angulo` · `proponer_agregar_avatar` · `proponer_editar_avatar` · `proponer_borrar_avatar`
 - **WhatsApp** (`whatsapp`): `listar_plantillas_aprobadas` · `listar_borradores_plantilla` · `estado_plantillas_meta` · `variables_plantilla` · `estado_envio_whatsapp` · `listar_etiquetas_whatsapp` · `etapa_inbox_de_lead` · `lead_insiste_con_lo_mismo` · `crear_contacto_chatwoot_lead` · `borrar_borrador_plantilla` · `reconciliar_plantillas` · `crear_borrador_whatsapp_empresa` · `guardar_borrador_plantilla` · `enviar_plantilla_a_meta` · `editar_plantilla_meta` · `borrar_plantilla_meta`
 - **Email** (`email`): `kpis_email` · `listar_secuencias_email` · `ficha_secuencia_email` · `listar_etapas_email` · `listar_triggers_email` · `listar_broadcasts` · `ficha_broadcast` · `listar_segmentos_email` · `contar_segmento_email` · `estado_email` · `remitente_email` · `envio_email_habilitado` · `crear_secuencia_email` · `editar_meta_secuencia_email` · `cancelar_programacion_broadcast` · `verificar_dominio_envio` · `editar_pasos_secuencia_email` · `crear_broadcast` · `editar_broadcast` · `programar_broadcast` · `enviar_broadcast` · `enviar_prueba_broadcast` · `eliminar_broadcast` · `activar_envio_real_email`
@@ -47,7 +47,7 @@
 - **Curso (módulos y clases)** (`curso`): `listar_cursos` · `ver_curso` · `ver_clase_curso` · `crear_modulo_curso` · `renombrar_modulo_curso` · `ordenar_modulos_curso` · `crear_clase_curso` · `editar_clase_curso` · `mover_clase_curso` · `borrar_clase_curso` · `restaurar_clase_curso`
 - **Calendario** (`calendario`): `listar_eventos_calendario` · `crear_evento_calendario` · `link_agenda_llamada` · `ver_proximas_recurrentes`
 - **Creaciones de la comunidad (estrellas)** (`creaciones`): `listar_creaciones` · `ver_creacion` · `mis_creaciones` · `dar_estrella` · `quitar_estrella` · `publicar_creacion` · `retirar_creacion` · `usar_creacion`
-- **Cobros (Stripe y Mercado Pago)** (`cobros`): `listar_cobros` · `ver_cobro` · `crear_link_pago` · `anular_link_pago` · `reembolsar_cobro` · `cancelar_suscripcion`
+- **Cobros (Stripe y Mercado Pago)** (`cobros`): `listar_cobros` · `ver_cobro` · `crear_link_pago` · `anular_link_pago` · `reembolsar_cobro` · `cancelar_suscripcion` · `ver_moneda_negocio` · `cambiar_moneda_negocio` · `editar_dato_deal` · `editar_obligacion_deal` · `editar_venta_lead` · `editar_cuota` · `crear_link_cuota` · `cortar_recordatorio_cuota` · `estado_suscripcion_manual`
 - **MaKo (pendientes, propuestas, chats)** (`mako`): `listar_pendientes` · `confirmar_accion` · `cancelar_accion` · `ver_pendiente` · `listar_propuestas_revisar` · `ver_propuesta_accion` · `resumen_bandejas_confirmacion` · `listar_capacidades_mako`
 
 ## General — `general`
@@ -1349,7 +1349,7 @@ curl -L \
 
 ## CRM — `crm`
 
-Tab **CRM** (`/crm`). 27 lecturas · 31 acciones.
+Tab **CRM** (`/crm`). 29 lecturas · 33 acciones.
 
 ### `GET /api/v1/crm/busqueda/leads` — Buscar leads por texto
 
@@ -1569,7 +1569,7 @@ curl -L \
 
 ### `GET /api/v1/crm/leads/{leadId}/faltantes` — Datos que le faltan a un lead
 
-Los datos que la etapa ACTUAL de un lead adeuda para que el tablero sea confiable (asistencia, calificado, Fathom, monto, plan de pagos, comprobantes, motivo, setter, empresa, Deal Details), respetando sus excepciones declaradas. Sirve para explicar por qué un lead aparece en «Datos sin marcar» y qué cargar. Lista vacía = el lead está al día.
+Los datos que la etapa ACTUAL de un lead adeuda para que el tablero sea confiable (asistencia, calificado, Fathom, monto, plan de pagos, comprobantes, motivo, setter, empresa, Deal Details), respetando sus excepciones declaradas. Sirve para explicar por qué un lead aparece en «Datos sin marcar» y qué cargar. Lista vacía = el lead está al día. sin_marcar es el número que muestra su ficha y su fila en «A revisar»: lo que falta menos lo ignorado y lo que el CRM de ese lead no avisa (no_avisan dice cuál y por qué).
 
 - **Ruta por operación:** `GET /api/v1/crm/faltantes_del_lead`
 - **Token detallado:** permiso `crm=read` (Solo lectura en «CRM»)
@@ -1982,6 +1982,73 @@ curl -L \
   "https://hola-mako.com/api/v1/crm/sugerencias/SUGERENCIA_ID/silencio"
 ```
 
+### `GET /api/v1/crm/ficha` — Ver la ficha de un CRM
+
+Cómo se arma la ficha del lead en UN CRM del negocio, para todos sus leads: la plantilla (la que elige MaKo según las etapas de reunión y cómo entra la gente, o la que eligió alguien) y por qué, los bloques de cada tab en orden (Resumen, Reuniones, Pagos y Tracking) con su ancho y su diseño, de qué «datos sin marcar» avisa y por qué no avisa de los otros, y el estilo (tema, acento, tipografía y tamaño de las tarjetas). Trae también, por tab, los bloques que se pueden sumar con sus anchos y diseños, y las plantillas. Es el paso previo a cambiar_ficha_funnel. Sin embudoId, el CRM principal.
+
+- **Ruta por operación:** `GET /api/v1/crm/ver_ficha_funnel`
+- **Token detallado:** permiso `crm=read` (Solo lectura en «CRM»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** gratis
+- **Requiere la tab:** crm
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `embudoId` | number | no | el CRM, por el id de su embudo (de productos_del_lead). Sin él, el CRM principal del negocio. |
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/crm/ficha"
+```
+
+### `PATCH /api/v1/crm/ficha` — Cambiar la ficha de un CRM
+
+PROPONE UN cambio en la ficha del lead de UN CRM (queda pendiente hasta el «sí»), para todos sus leads: poner, quitar o mover un bloque, cambiarle el ancho o el diseño, prender o apagar el aviso de un dato sin marcar, cambiar el estilo o el tamaño de las tarjetas, usar otra plantilla o volver a la plantilla. Los ids de bloques, diseños y avisos salen de ver_ficha_funnel. «Contacto» no se puede quitar y las asistencias siempre avisan. Quitar un bloque no apaga su aviso. Solo el administrador. Sin embudoId, el CRM principal.
+
+- **Ruta por operación:** `POST /api/v1/crm/cambiar_ficha_funnel`
+- **Token detallado:** permiso `crm=write` (Lectura y escritura en «CRM»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** guarda el cambio en la ficha del CRM (funnels.data.ficha, sólo lo que difiere de la plantilla); cambia lo que ven y lo que avisa la ficha de todos sus leads
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** crm
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `embudoId` | number | no | el CRM, por el id de su embudo (de productos_del_lead). Sin él, el CRM principal del negocio. |
+| `cambio` | string (poner \\| quitar \\| mover \\| ancho \\| diseno \\| aviso \\| estilo \\| densidad \\| plantilla \\| volver) | sí | qué cambiar: poner, quitar o mover un bloque (con tab y bloque; mover y poner con lugar), ancho o diseno de un bloque, aviso (con aviso y avisa), estilo (con tema, acento o tipografia), densidad (el tamaño de las tarjetas), plantilla (con plantilla) o volver (a la plantilla: con tab, sólo esa tab; sin tab, toda la ficha y sus avisos). |
+| `tab` | string (resumen \\| reuniones \\| pagos \\| tracking) | no | la tab del bloque. En volver, la tab que vuelve a la plantilla. |
+| `bloque` | string | no | el id del bloque (de ver_ficha_funnel), por ejemplo cuotas o redes-y-web. |
+| `lugar` | number | no | en poner y mover: el lugar en la tab, 1 es el primero. Sin él, poner lo suma al final. |
+| `ancho` | string (1/4 \\| 1/3 \\| 1/2 \\| completo) | no | en poner y ancho: el ancho del bloque sobre la grilla de la ficha. Cada bloque acepta sólo algunos (ver_ficha_funnel). |
+| `diseno` | string | no | en poner y diseno: el id del diseño del bloque (de ver_ficha_funnel). |
+| `n` | number | no | si el bloque está más de una vez en la tab (respuesta-destacada), cuál: 1 es el primero. |
+| `aviso` | string (fechaJ1 \\| asistenciaR1 \\| calificado \\| fathomR1 \\| fechaJ2 \\| asistenciaR2 \\| fathomR2 \\| monto \\| plan \\| comprobante \\| dealServicio \\| dealPromesa \\| dealFiscal \\| dealFiscalDoc \\| dealObligaciones \\| motivo \\| closer \\| setter \\| telefono \\| empresa) | no | en aviso: el dato sin marcar (de ver_ficha_funnel). |
+| `avisa` | boolean | no | en aviso: true para que avise, false para que no. |
+| `tema` | string (mako \\| minimal \\| suave \\| contraste \\| elevada \\| general \\| editorial) | no | en estilo: la plantilla de estilo, la misma del Dashboard. |
+| `acento` | string | no | en estilo: el color de acento en hex, #RRGGBB. Vacío para volver al de la plantilla de estilo. |
+| `tipografia` | string (geist \\| inter \\| poppins \\| nunito \\| atkinson \\| hanken \\| dmsans \\| worksans \\| figtree \\| rubik \\| karla \\| publicsans \\| lora \\| merriweather \\| sourceserif \\| crimson \\| bitter \\| eb \\| maquina \\| jetbrains \\| spline \\| bricolage \\| instrument \\| fraunces) | no | en estilo: la tipografía de toda la ficha. |
+| `densidad` | string (compacta \\| normal \\| amplia) | no | en densidad: el tamaño de las tarjetas. |
+| `plantilla` | string (dos-reuniones \\| una-llamada \\| evento \\| formulario-meta \\| landing \\| te-escriben \\| prospeccion \\| carrito \\| respaldo \\| auto) | no | en plantilla: la plantilla de la ficha, o auto para la que elige MaKo. Arranca de cero los bloques y los avisos; el estilo queda. |
+
+```bash
+curl -L \
+  -X PATCH \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/crm/ficha" \
+  -d '{"cambio":"poner"}'
+```
+
 ### `PUT /api/v1/crm/leads/{leadId}/etapa` — Mover un lead de etapa
 
 PROPONE mover un lead a otra etapa del funnel (queda pendiente hasta el «sí»; no lo ejecuta). Cubre cerrar como ganado (pasa el monto en USD), marcar perdido o descalificado (pasa el motivo), mandar a nutrición o reactivar. Consigue el leadId con buscar_leads y la key con ver_funnel. Si falta el monto o el motivo lo pide; lo que este canal no puede cargar (fecha de reunión, asistencia, Fathom) no bloquea y queda declarado en el historial.
@@ -2297,14 +2364,14 @@ curl -L \
 
 ### `PUT /api/v1/crm/leads/{leadId}/faltantes/silencio` — Ignorar datos sin marcar
 
-PROPONE silenciar los pendientes de un lead en «Datos sin marcar» (queda pendiente hasta el «sí»): deja de contar en el worklist y en el contador, pero siguen visibles en su ficha. No silencia una reunión pasada sin decisión, que se sigue pidiendo. Se deshace con reactivar_datos_sin_marcar.
+PROPONE ignorar los datos sin marcar de un lead (queda pendiente hasta el «sí»), igual que la ✕ de «A revisar»: dejan de contar en el worklist, en el contador y en su ficha, también los que le falten después, y quedan en «Ver más», donde una persona los puede volver a mostrar. No ignora la asistencia a una reunión pasada, que se sigue pidiendo. Se deshace con reactivar_datos_sin_marcar.
 
 - **Ruta por operación:** `POST /api/v1/crm/ignorar_datos_sin_marcar`
 - **Token detallado:** permiso `crm=write` (Lectura y escritura en «CRM»)
 - **Token clásico:** alcance mínimo proponer
 - **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
 - **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
-- **Escribe:** marca pendientes_ignorados en el lead y deja historial
+- **Escribe:** guarda los datos ignorados del lead en datos_ignorados (lo mismo que la pantalla) y deja historial
 - **Reversible:** sí
 - **Costo:** gratis
 - **Requiere la tab:** crm
@@ -2324,14 +2391,14 @@ curl -L \
 
 ### `DELETE /api/v1/crm/leads/{leadId}/faltantes/silencio` — Reactivar datos sin marcar
 
-PROPONE deshacer ignorar_datos_sin_marcar sobre un lead (queda pendiente hasta el «sí»): el lead vuelve a contar en «Datos sin marcar» con todo lo que le falta.
+PROPONE deshacer ignorar_datos_sin_marcar sobre un lead (queda pendiente hasta el «sí»): el lead vuelve a contar en «Datos sin marcar» con todo lo que le falta, también lo que se ignoró desde su ficha o desde «A revisar».
 
 - **Ruta por operación:** `POST /api/v1/crm/reactivar_datos_sin_marcar`
 - **Token detallado:** permiso `crm=write` (Lectura y escritura en «CRM»)
 - **Token clásico:** alcance mínimo proponer
 - **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
 - **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
-- **Escribe:** limpia pendientes_ignorados del lead y deja historial
+- **Escribe:** vacía los datos ignorados del lead (y la marca vieja de lead ignorado) y deja historial
 - **Reversible:** sí
 - **Costo:** gratis
 - **Requiere la tab:** crm
@@ -2407,6 +2474,60 @@ curl -L \
   -H "Content-Type: application/json" \
   "https://hola-mako.com/api/v1/crm/entradas" \
   -d '{"entradas":["formulario_anuncio"]}'
+```
+
+### `GET /api/v1/crm/tipos` — Tipos de CRM para crear
+
+Los tipos de CRM que se pueden crear con crear_crm, los mismos de «Nuevo CRM» en la pantalla: llamada de venta, dos reuniones (high-ticket), webinar, sesión presencial, conversaciones por chat, DM funnel (comentan una palabra clave), Instagram orgánico, anuncio con formulario de Meta, recurso gratis (lead magnet), LinkedIn, YouTube y carrito. Por cada uno, su id, qué es en una línea, cómo se vende, cómo llega la gente y las etapas con las que nace el tablero. Úsala antes de crear_crm cuando no está claro cuál corresponde. El tipo otro arma el CRM con el canal y las entradas que se pasen.
+
+- **Ruta por operación:** `GET /api/v1/crm/tipos_de_crm`
+- **Token detallado:** permiso `crm=read` (Solo lectura en «CRM»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** gratis
+- **Requiere la tab:** crm
+
+_Sin parámetros._
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/crm/tipos"
+```
+
+### `POST /api/v1/crm/embudos` — Crear un CRM nuevo
+
+PROPONE crear un CRM nuevo del negocio, con su propio tablero de etapas, de un tipo de tipos_de_crm (queda pendiente hasta el «sí»). El tipo pone las etapas, cómo se vende y cómo llega la gente, igual que «Nuevo CRM» en la pantalla; con tipo otro se pasan el canal y las entradas. No toca los CRM que ya existen. Devuelve el embudoId del CRM nuevo, que es el que piden productos_del_lead y agregar_lead_a_producto. Solo el administrador.
+
+- **Ruta por operación:** `POST /api/v1/crm/crear_crm`
+- **Token detallado:** permiso `crm=write` (Lectura y escritura en «CRM»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** crea un producto, su oferta y su embudo, con las etapas y la entrada del tipo
+- **Reversible:** no
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** crm
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `nombre` | string | sí | cómo se llama el CRM, por ejemplo «Mentoría». No puede ser «Funnel principal», que es el del negocio. |
+| `tipo` | string (llamada \\| dos_reuniones \\| webinar \\| presencial \\| conversaciones \\| dm_funnel \\| instagram \\| formulario_meta \\| recurso_gratis \\| linkedin \\| youtube \\| carrito \\| otro) | sí | el tipo de CRM (de tipos_de_crm), u otro para elegir a mano el canal y las entradas. |
+| `canal` | string (llamadas \\| conversaciones \\| carrito \\| webinar \\| presencial) | no | solo con tipo otro, y obligatorio ahí: cómo se cierra la venta (de él salen las etapas). |
+| `entradas` | string[] (landing \\| agenda_sola \\| chat_entrante \\| chat_saliente \\| carrito) | no | solo con tipo otro, y al menos una ahí: cómo llega la gente (hasta 3). |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/crm/embudos" \
+  -d '{"nombre":"NOMBRE","tipo":"llamada"}'
 ```
 
 ### `POST /api/v1/crm/etiquetas` — Crear una etiqueta del CRM
@@ -13489,7 +13610,7 @@ curl -L \
 
 ## Cobros (Stripe y Mercado Pago) — `cobros`
 
-Tab **CRM** (`/crm`). 2 lecturas · 4 acciones.
+Tab **CRM** (`/crm`). 3 lecturas · 12 acciones.
 
 ### `GET /api/v1/cobros/cobros` — Cobros de Stripe y Mercado Pago
 
@@ -13652,6 +13773,277 @@ curl -L \
   -H "Authorization: Bearer <TU-TOKEN>" \
   -H "X-MaKo-Api-Version: 2026-10-08" \
   "https://hola-mako.com/api/v1/cobros/cobros/COBRO_ID/cancelacion-suscripcion"
+```
+
+### `GET /api/v1/cobros/moneda` — Moneda del negocio
+
+La moneda en que el negocio carga lo que cobra a mano (pagos registrados en la ficha o por registrar_pago_suelto): código ISO de 3 letras. Sin configurar es USD. No es la moneda de Stripe ni la de Mercado Pago, que la define cada cuenta. Los totales del CRM siguen en dólares.
+
+- **Ruta por operación:** `GET /api/v1/cobros/ver_moneda_negocio`
+- **Token detallado:** permiso `cobros=read` (Solo lectura en «Cobros (Stripe y Mercado Pago)»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** gratis
+- **Requiere la tab:** crm
+
+_Sin parámetros._
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/cobros/moneda"
+```
+
+### `PUT /api/v1/cobros/moneda` — Cambiar la moneda del negocio
+
+PROPONE cambiar la moneda en que el negocio carga lo que cobra a mano (el valor inicial al registrar un pago). Sólo el administrador. No cambia nada de lo ya cobrado ni la moneda de Stripe o Mercado Pago.
+
+- **Ruta por operación:** `POST /api/v1/cobros/cambiar_moneda_negocio`
+- **Token detallado:** permiso `cobros=write` (Lectura y escritura en «Cobros (Stripe y Mercado Pago)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** guarda la moneda del negocio en su configuración (app_settings)
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** crm
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `moneda` | string | sí | código ISO de 3 letras: USD, MXN, ARS, COP, CLP, EUR… |
+
+```bash
+curl -L \
+  -X PUT \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/cobros/moneda" \
+  -d '{"moneda":"MONEDA"}'
+```
+
+### `PATCH /api/v1/cobros/deals/{leadId}` — Editar un dato del deal
+
+PROPONE cambiar UN dato del trato de un lead: los datos fiscales (razón social, identificación fiscal, domicilio, correo de facturación), el servicio vendido (qué es, inicio, término, duración, frecuencia, modalidad, sesiones), la promesa (resultado y garantía), el inicio del servicio cargado a mano o quién factura (facturado_por_id, una identidad fiscal del negocio). Sólo cambia ese dato: los demás y el documento fiscal subido quedan. valor vacío lo borra. Para las obligaciones usa editar_obligacion_deal; para el monto, el tipo o la fecha de cierre, editar_venta_lead.
+
+- **Ruta por operación:** `POST /api/v1/cobros/editar_dato_deal`
+- **Token detallado:** permiso `cobros=write` (Lectura y escritura en «Cobros (Stripe y Mercado Pago)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** cambia ese campo del deal en el lead (merge del jsonb, o la columna) y deja el antes y el después en el historial
+- **Reversible:** sí
+- **Costo:** gratis
+- **Requiere la tab:** crm
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `leadId` | number | sí | id del lead (de buscar_leads). |
+| `seccion` | string (fiscal \\| servicio \\| promesa \\| lead) | sí | fiscal, servicio, promesa, o lead para fecha_inicio_servicio y facturado_por_id. |
+| `campo` | string (razon \\| id_fiscal \\| domicilio \\| correo \\| que_es \\| fecha_inicio \\| fecha_termino \\| duracion \\| frecuencia \\| modalidad \\| sesiones \\| resultado \\| garantia \\| fecha_inicio_servicio \\| facturado_por_id) | sí | el dato de esa sección: fiscal → razon, id_fiscal, domicilio, correo; servicio → que_es, fecha_inicio, fecha_termino, duracion, frecuencia, modalidad, sesiones; promesa → resultado, garantia; lead → fecha_inicio_servicio, facturado_por_id. |
+| `valor` | string | no | el valor nuevo. Las fechas en AAAA-MM-DD; facturado_por_id es el id de la identidad fiscal. Vacío lo borra. |
+
+```bash
+curl -L \
+  -X PATCH \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/cobros/deals/LEAD_ID" \
+  -d '{"seccion":"fiscal","campo":"razon"}'
+```
+
+### `PATCH /api/v1/cobros/deals/{leadId}/obligaciones` — Editar una obligación del deal
+
+PROPONE agregar, editar o quitar UN renglón de las obligaciones del trato de un lead: lo que tiene que hacer el cliente o lo que tiene que hacer el prestador. Los demás renglones quedan. Pide renglon (empezando en 1) para editar o quitar; si la lista cambió antes del «sí», no se escribe.
+
+- **Ruta por operación:** `POST /api/v1/cobros/editar_obligacion_deal`
+- **Token detallado:** permiso `cobros=write` (Lectura y escritura en «Cobros (Stripe y Mercado Pago)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** cambia ese renglón de deal_obligaciones del lead y deja el antes y el después en el historial
+- **Reversible:** sí
+- **Costo:** gratis
+- **Requiere la tab:** crm
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `leadId` | number | sí | id del lead (de buscar_leads). |
+| `parte` | string (cliente \\| prestador) | sí | cliente (lo que tiene que hacer el cliente) o prestador (lo que tiene que hacer el negocio). |
+| `accion` | string (agregar \\| editar \\| quitar) | sí | agregar un renglón al final, editar uno o quitar uno. |
+| `renglon` | number | no | el número del renglón a editar o quitar, empezando en 1. |
+| `texto` | string | no | el texto del renglón (para agregar o editar). |
+
+```bash
+curl -L \
+  -X PATCH \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/cobros/deals/LEAD_ID/obligaciones" \
+  -d '{"parte":"cliente","accion":"agregar"}'
+```
+
+### `PATCH /api/v1/cobros/ventas/{leadId}` — Editar la venta de un lead
+
+PROPONE cambiar la venta de un lead: el tipo (unico = pago único, suscripcion, sin_cobro = becado), el monto en USD (en una suscripción es la mensualidad), el plazo de una suscripción en meses (vacío = mes a mes) o la fecha de cierre. Pasar a suscripción deja la mensualidad por cargar; pasar a becado no se puede si ya hay cuotas cobradas; tipo=unico sobre un becado lo saca de «Sin cobro». No gana ni mueve el lead de etapa. Si el tipo cambió antes del «sí», no se escribe.
+
+- **Ruta por operación:** `POST /api/v1/cobros/editar_venta_lead`
+- **Token detallado:** permiso `cobros=write` (Lectura y escritura en «Cobros (Stripe y Mercado Pago)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** cambia venta_tipo, monto_cierre_usd o suscripcion_monto_usd, suscripcion_meses o fecha_cierre del lead (compare-and-set sobre el tipo) y deja el antes y el después en el historial
+- **Reversible:** sí
+- **Costo:** gratis
+- **Requiere la tab:** crm
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `leadId` | number | sí | id del lead (de buscar_leads). |
+| `tipo` | string (unico \\| suscripcion \\| sin_cobro) | no | unico (pago único), suscripcion o sin_cobro (becado o bonificado). |
+| `montoUsd` | number | no | el monto de cierre en USD; en una suscripción, la mensualidad. |
+| `plazoMeses` | number | no | sólo una suscripción: cuántos meses dura. Sin valor queda como estaba. |
+| `fechaCierre` | string | no | AAAA-MM-DD de la fecha de cierre. |
+
+```bash
+curl -L \
+  -X PATCH \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/cobros/ventas/LEAD_ID"
+```
+
+### `PATCH /api/v1/cobros/cuotas/{cuotaId}` — Editar una cuota del plan
+
+PROPONE cambiar el monto en USD o el vencimiento de UNA cuota sin cobrar de un lead, por su id (el pago_id de cobranza_lead). No borra ni recrea la cuota: su link de pago y sus recordatorios siguen apuntando a ella. No se puede: una cuota cobrada (se corrige desmarcándola con marcar_pago_cobrado); el monto de una cuota con un link sin pagar (anula el link primero); nada de una cuota con un recordatorio de cobro en curso (córtalo con cortar_recordatorio_cuota).
+
+- **Ruta por operación:** `POST /api/v1/cobros/editar_cuota`
+- **Token detallado:** permiso `cobros=write` (Lectura y escritura en «Cobros (Stripe y Mercado Pago)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** cambia monto_usd o fecha_esperada de esa fila de pagos y deja el antes y el después en el historial
+- **Reversible:** sí
+- **Costo:** gratis
+- **Requiere la tab:** crm
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `leadId` | number | sí | id del lead dueño de la cuota. |
+| `cuotaId` | number | sí | id de la cuota del CRM: el pago_id de cobranza_lead. No es un cobroId. |
+| `montoUsd` | number | no | el monto nuevo de la cuota, en USD. |
+| `vence` | string | no | AAAA-MM-DD del vencimiento nuevo. |
+
+```bash
+curl -L \
+  -X PATCH \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/cobros/cuotas/CUOTA_ID" \
+  -d '{"leadId":1}'
+```
+
+### `POST /api/v1/cobros/cuotas/{cuotaId}/links-pago` — Cobrar una cuota con un link
+
+PROPONE crear un link de pago de Stripe, con la cuenta del negocio, que cobra UNA cuota sin cobrar de un lead por su monto exacto en USD (el pago_id de cobranza_lead). Al pagarse, la cuota queda cobrada y se cortan sus recordatorios. Si la cuota ya tiene un link sin pagar, devuelve ése. Mercado Pago cobra en la moneda de su cuenta: ese link se crea desde la ficha del lead. El link le llega a la persona por aparte: NO lo escribas ni lo copies.
+
+- **Ruta por operación:** `POST /api/v1/cobros/crear_link_cuota`
+- **Token detallado:** permiso `cobros=write` (Lectura y escritura en «Cobros (Stripe y Mercado Pago)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** crea el cobro en `cobros` atado a la cuota y su checkout de Stripe con la cuenta del negocio, y deja historial en el lead
+- **Reversible:** sí
+- **Costo:** externo
+- **Requiere la tab:** crm
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `leadId` | number | sí | id del lead dueño de la cuota. |
+| `cuotaId` | number | sí | id de la cuota del CRM: el pago_id de cobranza_lead. No es un cobroId. |
+| `pasarela` | string (stripe \\| mercadopago) | no | stripe (la cuota está en dólares). Sin valor, Stripe. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/cobros/cuotas/CUOTA_ID/links-pago" \
+  -d '{"leadId":1}'
+```
+
+### `DELETE /api/v1/cobros/cuotas/{cuotaId}/recordatorios` — Cortar el recordatorio de una cuota
+
+PROPONE cortar los recordatorios de cobro que están corriendo para UNA cuota de un lead (el pago_id de cobranza_lead): MaKo deja de recordársela. Es lo mismo que pasa solo al marcarla cobrada. No se deshace: un recordatorio cortado no se reabre. Úsala cuando digan «no le recuerdes más la cuota 3» o antes de editar una cuota con un recordatorio en curso.
+
+- **Ruta por operación:** `POST /api/v1/cobros/cortar_recordatorio_cuota`
+- **Token detallado:** permiso `cobros=write` (Lectura y escritura en «Cobros (Stripe y Mercado Pago)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** cierra como cortadas las corridas de cobranza pendientes de esa cuota (flujo_corridas) y deja historial en el lead
+- **Reversible:** no
+- **Costo:** gratis
+- **Requiere la tab:** crm
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `leadId` | number | sí | id del lead dueño de la cuota. |
+| `cuotaId` | number | sí | id de la cuota del CRM: el pago_id de cobranza_lead. No es un cobroId. |
+
+```bash
+curl -L \
+  -X DELETE \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/cobros/cuotas/CUOTA_ID/recordatorios" \
+  -d '{"leadId":1}'
+```
+
+### `PUT /api/v1/cobros/ventas/{leadId}/suscripcion` — Cancelar o reactivar una suscripción manual
+
+PROPONE cancelar o reactivar la suscripción de un lead que se registra a mano (la que NO cobra Stripe ni Mercado Pago). Cancelarla la cuenta hasta hoy: deja de sumar al MRR y la ficha la dice cancelada. Sólo el administrador. Una suscripción que cobra la pasarela se cancela con cancelar_suscripcion (deja de cobrarle la tarjeta).
+
+- **Ruta por operación:** `POST /api/v1/cobros/estado_suscripcion_manual`
+- **Token detallado:** permiso `cobros=write` (Lectura y escritura en «Cobros (Stripe y Mercado Pago)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** marca suscripcion_cancelada_at y ajusta suscripcion_meses del lead (o los devuelve al reactivar) y deja historial
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** crm
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `leadId` | number | sí | id del lead de la suscripción. |
+| `estado` | string (cancelada \\| activa) | sí | cancelada o activa (reactivar). |
+
+```bash
+curl -L \
+  -X PUT \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/cobros/ventas/LEAD_ID/suscripcion" \
+  -d '{"estado":"cancelada"}'
 ```
 
 ## MaKo (pendientes, propuestas, chats) — `mako`

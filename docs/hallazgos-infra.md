@@ -2318,6 +2318,70 @@ de la conversación se usa), y conviene mirarlo **antes** de que fuerce un upgra
 **⚠️ Pendiente: versionado de la app.** Que al pushear se refresquen solas las tabs y aparezca un
 modal fijo de «nueva versión disponible, actualizá», con numeración de versiones (2026-07-16).
 
+### ⚠️ El tope de heap del build es POR HEAP, no del build: 4096 no garantiza entrar en 8 GB (15/10/2026)
+
+**Síntoma:** pushes verdes que no llegaban a producción; el deploy terminaba en `out_of_memory` a los
+~7 min, y uno colgado 29 min trabó la cola. Se curó con `NODE_OPTIONS=--max-old-space-size=4096` en
+el proyecto de Vercel (Production y Preview); 7168 murió en 2 min.
+
+**Por qué 7168 fue peor, leído en el código de Next 16.2.6** (no medido en Vercel): el tope lo
+heredan el hilo principal y el worker de Turbopack, que corre como hilo con su propio heap
+(`turbopackBuildWithWorker`, `isolatedMemory: false`, `enableWorkerThreads: true`, en
+`node_modules/next/dist/build/turbopack-build/index.js`; se usa salvo `NEXT_TURBOPACK_USE_WORKER=0`).
+Los workers de páginas estáticas lo **sacan** (`isolatedMemory: true` en `build/index.js`, con el
+comentario «remove --max-old-space-size flag as it can cause memory issues»). Y la memoria nativa de
+Turbopack (Rust) no la limita ningún flag de V8. O sea: con 4096 el techo teórico son dos heaps de 4
+GB **más** lo nativo **más** los workers de páginas, en una máquina de 8. Anda porque no se llenan a
+la vez, no porque entre por construcción.
+
+**El margen no está medido.** Vercel no informa la memoria de un build, y Next sólo la reporta con el
+flag `--experimental-debug-memory-usage` de la línea de comandos (no hay variable que lo prenda), así
+que medirlo exige un deploy de preview con ese comando. Lo que sí hay: los builds de la hora siguiente
+salieron Ready en 1-2 min.
+
+**Lo que quedó:** la regla en AGENTS.md («El build de Vercel tiene un tope de memoria que NO está en el
+repo»), y `next.config.ts` avisa en el log si el build corre en Vercel sin el tope
+(`tests/build-tope-memoria.test.ts`, que carga la config en un node aparte con y sin la variable).
+Palanca gratis por probar si vuelve a morir: `NEXT_TURBOPACK_USE_WORKER=0`. Subir la máquina es de Martín.
+
+**Vive en:** el proyecto de Vercel (Environment Variables) · `next.config.ts` · *2026-10-15*
+
+### El typecheck se fue de la notebook: rama `integracion` + GitHub Actions + fast-forward (15/10/2026)
+
+**Síntoma:** el push del coordinador murió con 240 MB libres. El `tsc` completo pide 3-5 GB, la
+notebook de 16 GB la comparten 10-20 chats, y el pre-push era el único lugar donde corría.
+
+**Lo que se armó** (decidido por el coordinador en nombre de Martín, dentro del tier gratis):
+se pushea a `integracion`; `.github/workflows/integracion.yml` corre `next typegen` (los tipos de
+rutas que en la notebook deja `.next/`), `tsc`, las guardas y los tests, y si da verde hace
+`git push origin HEAD:refs/heads/main`, que sin `--force` sólo puede ser fast-forward. Las doce
+guardas del pre-push salieron del hook (que no se versiona) a `scripts/guardas-push.sh`, que
+corren los dos. El pre-push local (copia versionada en `scripts/claude-hooks/pre-push`) corre el
+`tsc` sólo si el push va a `main`: el camino de emergencia queda protegido igual que antes.
+`vercel.json` apaga los deploys de `integracion`.
+
+**Lo medido de GitHub, por la API con la credencial del clon:** el repo es privado y su dueño
+`hola-mako` es una cuenta de USUARIO, no una organización (Free: 2.000 min/mes de Actions); `main`
+no tiene protección (en privado Free no se puede: las reglas piden Pro), así que el
+`GITHUB_TOKEN` puede avanzarla. La credencial del clon pushea pero no es admin: los ajustes de
+Actions del repo no se pudieron leer.
+
+**Lo que NO está medido** y hay que mirar en el primer run: cuántos minutos gasta, si toda la
+suite da verde en Linux (puede haber tests que dependan de archivos que sólo están en la
+notebook), y si Vercel despliega el fast-forward que hace Actions (los pushes del `GITHUB_TOKEN`
+no disparan otros workflows; los webhooks de apps, como el de Vercel, sí deberían).
+
+**El vigía, en la misma tanda:** se levanta solo (un disparador cada 5 min además del de inicio de
+sesión: el 13/10 estuvo 6 horas muerto con un solo disparador; probado matándolo, volvió en 21 s),
+prefiere matar un `tsc` que corre FUERA del lock antes que el del pre-push (el del lock se
+reconoce porque su padre es `typecheck-lock.mjs`), y como `Stop-ScheduledTask` ya no lo pausa, se
+pausa con el archivo `~/.claude/guardia/vigia-pausa` (vale 45 min). Y una trampa que se vio esa
+noche: la RAM llegó a 447 MB con la memoria repartida en 24 `node` medianos (4,9 GB, ninguno de
+más de 400 MB), y el vigía, que mata de a uno al más grande, no encontró nada que matar.
+
+**Vive en:** `.github/workflows/integracion.yml` · `scripts/guardas-push.sh` ·
+`scripts/claude-hooks/pre-push` · `~/.claude/guardia/vigia.ps1` · *2026-10-15*
+
 ---
 
 ## Zonas horarias
@@ -4147,6 +4211,27 @@ formas, da 1 fallo cada una.
 
 **Vive en:** `~/.claude/guardia/` · `~/.claude/settings.json` · `scripts/typecheck-lock.mjs` ·
 *2026-10-11*
+
+#### 15/10: «se cayó a las 19:09» fue un CAMBIO DE CUENTA, y el relevo veía caídas que no eran
+
+Lo que se reportó como caída fue el logout para pasar a la cuenta 3: el log dice
+`Navigated to /logout` → `Login-state transition (loggedOut: false → true` a las 19:09:09, y el
+proceso principal de la app (`electron_main:25024` en las líneas `process-memory`) es **el mismo
+antes y después**. Los chats sí se cortaron —11 de 13 procesos de chat arrancaron de nuevo a las
+19:2x—, así que despertarlos estuvo bien; lo que estaba mal era el diagnóstico.
+
+⚠️ **Y la segunda instancia ya no dice `Not main instance`** (app 2.4x). Un «Starting app» de un
+clic en un link `claude://` o de la vuelta de un login se leía como arranque: el de las 13:12, con la
+app viva, le mandó «retomá» a un chat que no se había cortado. Lo que no miente es el PID del proceso
+principal: un arranque de verdad lo cambia. Ese día hubo **una sola caída real** (13:19-13:20, PID
+15484 → 18532) y una actualización (17:13).
+
+El relevo ahora: descarta los arranques con el mismo `electron_main`, trata el logout como corte
+propio (`tipo: 'cuenta'`, y si la app además se reinicia dentro de los 2 min, también es «cuenta»), y
+—desde el 14/10, de otra sesión— no lista chats de otra cuenta, porque desde ésta no se pueden
+despertar. Probado contra los cuatro eventos del 15/10 con `diagnostico --hasta`.
+
+**Vive en:** `~/.claude/guardia/relevo.mjs` (copia en `scripts/claude-hooks/guardia/`) · *2026-10-15*
 
 ## La integración con Claude nunca funcionó desde afuera
 
@@ -6241,6 +6326,7 @@ que ya estaban en `origin/main`. **Causa:** el orquestador sube rebaseando sobre
 hashes; el `main` local quedó con las versiones viejas, y el commit nuevo se hizo arriba de ellas. **Regla:** antes de
 apoyar una rama en el commit de otro chat, `git log --oneline origin/main..<ese commit>`. Si trae algo más que ese
 commit, NO se apoya: se rebasea ese commit solo sobre `origin/main`, o se deja que suba primero. · *15/10/2026, chat «Ciberseguridad»*
+
 ## Un Workflow con `isolation: 'worktree'` muere ENTERO si el cwd de la sesión quedó fuera del repo (15/10/2026)
 
 **Síntoma:** una corrida de 6 agentes devolvió un informe que empezaba diciendo que la medición
@@ -6291,7 +6377,7 @@ transferencia).
 contando `ahead` muestra como trabajo pendiente lo que ya está hecho.
 
 **Vive en:** (proceso: git en el clon compartido)
-\n
+
 
 ## Una pasada en producción con el Chrome de Martín: la sesión puede ser la de un CLIENTE, y `?ws=3` no avisa (15/10/2026)
 

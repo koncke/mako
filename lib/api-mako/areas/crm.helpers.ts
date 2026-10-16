@@ -31,7 +31,10 @@ import { listarUsuarios } from '@/lib/usuarios';
 import { tzDeWorkspace, TZ_DEFAULT } from '@/lib/timezone';
 import { hoyEnTz } from '@/lib/date-utils';
 import { crearPropuesta } from '@/lib/propuestas';
-import type { Step } from '@/lib/stage-requirements';
+import type { Step, StepId } from '@/lib/stage-requirements';
+import { IGNORABLES, avisanDelLead, sanearIds } from '@/lib/datos-aviso';
+import { escribirDatosIgnorados } from '@/lib/datos-aviso-config';
+import { apagadosDeFunnel } from '@/lib/ficha/config-server';
 
 /** La caché de lecturas (listLeads, getJuntasProximas…) vence sola a los 60 s; esto
  *  la adelanta. ⚠️ NO `updateTag`: solo corre dentro de una server action, y
@@ -179,13 +182,42 @@ export async function nombresAsignables(ws: number): Promise<string[]> {
   return [...new Set([...equipo, ...usados].filter((n): n is string => !!n && n !== MAKO_SETTER))].sort();
 }
 
-/** Copia de ignorarPendientesAction / reactivarPendientesAction (app/crm/actions.ts). */
-export async function marcarPendientesIgnorados(leadId: number, ignorar: boolean, autor: string): Promise<void> {
-  const db = await getTenantDb();
-  const { error } = await db.from('leads').update({ pendientes_ignorados: ignorar ? new Date().toISOString() : null }).eq('id', leadId);
-  if (error) throw new Error(`No se pudo ${ignorar ? 'ignorar' : 'reactivar'}: ${error.message}`);
-  await logLeadEvent(leadId, 'Datos sin marcar', ignorar ? 'ignorados' : 'reactivados', autor);
-  invalidar('leads');
+/**
+ * Ignorar (o volver a contar) los datos sin marcar de un lead, IGUAL que la pantalla (14/10/2026): por
+ * `escribirDatosIgnorados` (lib/datos-aviso-config.ts), la misma escritura del dato suelto de la ficha y
+ * de la ✕ de «A revisar», en `leads.datos_ignorados`. Hasta ese día la API escribía `pendientes_ignorados`
+ * (el lead entero, mig 0109): lo que ignoraba MaKo no salía en «Ver más» y no se podía volver a mostrar.
+ *
+ * Son TODOS los ignorables, no sólo los que hoy faltan: «ignorar sus datos» deja de contar al lead también
+ * con lo que le falte después (lo que hacía la marca vieja, y lo que espera un flujo que ignora a un
+ * «Spam»), y ahora cada uno aparece en «Ver más» cuando falta. Volver a contar los saca todos, también la
+ * marca vieja y la empresa omitida. Las asistencias nunca se ignoran.
+ */
+export async function ignorarDatosDeUnLead(leadId: number, ignorar: boolean, autor: string): Promise<{ ok: true; cambio: boolean } | { ok: false; error: string }> {
+  const r = await escribirDatosIgnorados(leadId, IGNORABLES, ignorar, autor);
+  if (!r.ok) return r;
+  if (r.cambio) invalidar('leads');
+  return { ok: true, cambio: r.cambio };
+}
+
+/** ¿El lead ya tiene ignorado todo lo ignorable? (ignorar no tendría nada que hacer). */
+export function todoIgnorado(lead: Pick<Lead, 'datos_ignorados' | 'pendientes_ignorados'>): boolean {
+  if (lead.pendientes_ignorados) return true;
+  const ya = new Set(sanearIds(lead.datos_ignorados));
+  return IGNORABLES.every((id) => ya.has(id));
+}
+
+/** ¿El lead tiene algo ignorado? (volver a contar no tendría nada que hacer). */
+export const algoIgnorado = (lead: Pick<Lead, 'datos_ignorados' | 'pendientes_ignorados' | 'empresa_omitido'>): boolean =>
+  !!lead.pendientes_ignorados || !!lead.empresa_omitido || sanearIds(lead.datos_ignorados).length > 0;
+
+/**
+ * Lo que le falta a un lead y qué AVISA, con la ficha de SU funnel: lo mismo que cuenta «N sin marcar» de
+ * su ficha y su fila en «A revisar» (`avisanDelLead`, lib/datos-aviso.ts).
+ */
+export async function datosSinMarcarDeUnLead(lead: Lead): Promise<{ faltan: Step[]; avisan: Step[]; apagados: StepId[] }> {
+  const [faltan, apagados] = await Promise.all([faltantesDeUnLead(lead), apagadosDeFunnel(lead.funnel_id ?? null)]);
+  return { faltan, avisan: avisanDelLead(faltan, lead, apagados), apagados };
 }
 
 /** Copia de declararEntradasAction sin el evento: se conserva el que ya estaba.

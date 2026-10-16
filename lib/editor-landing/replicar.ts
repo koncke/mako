@@ -110,7 +110,7 @@ async function crearLanding(titulo: string, contenido: LandingContenido, config:
 async function replicarFiel(url: string, receta: ConfigReplica): Promise<ResultadoReplicar> {
   let html: string;
   try {
-    // TAL CUAL: `normalizarUrl` le saca el www, y hay hosts que sólo existen con www.
+    // TAL CUAL: `claveDeLanding` le saca el www, y hay hosts que sólo existen con www.
     html = await htmlDePagina(url, { talCual: true });
   } catch (e) {
     // Una página que nos rechaza se lee en el navegador de la persona, pero la copia idéntica necesita

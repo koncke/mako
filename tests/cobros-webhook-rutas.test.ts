@@ -134,6 +134,17 @@ test('pasarela_eventos: reclama un error y un procesando VIEJO con compare-and-s
   assert.match(EVENTOS, /motivo: r\.motivo \? motivoSinDatos\(r\.motivo\)/, 'el motivo se guarda sin datos personales');
 });
 
+test('mercadopago: el aviso SIN dueño deja una fila por DÍA, no una por aviso', () => {
+  // Revisión del 11/10/2026: ese camino no tiene firma ni dueño, y con una fila por `data.id` cualquiera hacía
+  // crecer pasarela_eventos sin límite mandando ids al azar.
+  const p = post(MP);
+  const ini = p.indexOf('if (ws == null) {');
+  const rama = p.slice(ini, p.indexOf("estado: 'ignorado'", ini));
+  assert.ok(ini > 0 && rama.includes('anotarEvento('), 'no encontré la rama «sin workspace»');
+  assert.match(rama, /eventoId: `sin-workspace:\$\{new Date\(\)\.toISOString\(\)\.slice\(0, 10\)\}`/, 'la clave de la fila no es la del día');
+  assert.doesNotMatch(rama, /n\.id/, 'la clave lleva el id del aviso: una fila por cada uno que llegue');
+});
+
 // ── Las roturas (11/10/2026) ───────────────────────────────────────────────────
 // Una por vez, restaurando de memoria (un script que guarda el texto y lo vuelve a escribir, nunca
 // git). Sin romper: 15 pasan / 0 fallan. Cada una de estas → 14 / 1, y falla la pregunta que nombra:
@@ -144,3 +155,5 @@ test('pasarela_eventos: reclama un error y un procesando VIEJO con compare-and-s
 //   lib/cobros-webhook.ts: sin el chequeo de `collector_id` · un cobro buscado con otro ws · la clave
 //     leída sólo con `credDelCliente` (sin la estricta).
 //   lib/pasarela-eventos.ts: el reclamo sólo de `error` (sin el `procesando` viejo).
+// Y el 15/10/2026 (16 / 0 en verde), el aviso de MP sin dueño: con la clave por aviso (como estaba) o por día y por id
+// → 15 / 1 cada una.

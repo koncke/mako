@@ -12,9 +12,23 @@
 import 'server-only';
 import { getTenantDb, getWorkspaceActual } from './workspace';
 import { cachedRead, TAG, TTL } from './cache';
-import { VENTA_SIN_COBRO } from './venta-tipo';
+import { VENTA_SIN_COBRO, ventaTipoDe, type VentaTipo } from './venta-tipo';
 import { pasaAGanado } from './crm-curso-al-ganar-reglas';
 import { centavos, diferenciaPendiente, type RestoDeCobro } from './pagos-diferencia';
+import {
+  aplicarObligacion, cuotasDelPlan, esCampoLeadDeal, esSeccionDeal, etiquetaDePago, fusionarCampo, pagoEnMoneda, patchDeVenta,
+  diferenciaDePlan, reconciliarCuotas, rotuloCampoDeal, rotuloObligacion, valorDeCampoDeal, CAMPOS_LEAD_DEAL, COLUMNA_SECCION, MONEDA_POR_DEFECTO,
+  type CambioObligacion, type CambioVenta, type CampoLeadDeal, type CuotaDeseada, type CuotaExistente, type FilaVenta,
+  type ModoReconciliar, type Obligaciones, type PlanDeCuotas, type PlanUniforme, type Proteccion, type SeccionDeal,
+} from './pagos-campo';
+import { getLead, logLeadChanges, logLeadEvent } from './leads';
+import { esCuotaDevuelta } from './cobrado-lead';
+import { normalizarMoneda } from './pasarela-moneda';
+import { cambiarSettingSi, getSettingEstricto, getSetting, setSetting } from './settings';
+import { keyEspaciado } from './espaciado';
+import { AVISOS_DE_CUOTA, claveDedupCuota, cuotasReprogramadas } from './cobranza';
+import { plazoAlReactivar } from './suscripcion-manual';
+import { laCobraLaPasarela } from './cobros-reglas';
 
 export type Pago = {
   id: number;
@@ -34,6 +48,9 @@ export type Pago = {
   proveedor_pago_id?: string | null;
   moneda?: string | null;          // la del cobro real; null = USD
   monto_original?: number | null;  // en esa moneda
+  // Lo cargado a mano (mig 0292): por qué y cómo se cobró. null en lo de la pasarela y en lo viejo.
+  concepto?: string | null;
+  metodo?: string | null;
   created_at: string;
 };
 
@@ -91,24 +108,23 @@ export async function getLeadPlan(leadId: number): Promise<LeadPlan> {
   };
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Helpers de fecha
-// ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * Suma `meses` a una fecha YYYY-MM-DD y fija el día en `dia` (1-28, ya capado).
- * Trabaja en UTC para no depender del huso del server.
- */
-function fechaCuota(base: string, meses: number, dia: number): string {
-  const [y, m] = base.split('-').map(Number);
-  // m es 1-based; pasamos a Date con (m-1)+meses; el día se setea explícito
-  const d = new Date(Date.UTC(y, m - 1 + meses, dia));
-  return d.toISOString().slice(0, 10);
-}
+// El calendario del plan (inicial en el cierre, la cuota N el `dia_de_pago` del mes N, en UTC) vive desde el
+// 14/10/2026 en `cuotasDelPlan` (lib/pagos-campo.ts), puro y con tests.
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Mutations
 // ─────────────────────────────────────────────────────────────────────────────
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Reconciliar las cuotas POR ID (14/10/2026, docs/diseno-ficha-bloques.md §3 Pagos)
+// ─────────────────────────────────────────────────────────────────────────────
+// ⚠️ NINGÚN ESCRITOR DE CUOTAS BORRA E INSERTA. Hasta el 14/10 `saveLeadPlanManual` borraba todas las impagas y
+// las volvía a insertar: cada guardado de «Editar deal» le cambiaba el id a cada cuota, y de ese id cuelgan el
+// link que la salda (`cobros.pago_id`, que el FK pone en null), el corte de la cobranza al pagarla
+// (`cerrarCorridasDeCuota` busca `ctx.cuotaId`: el recordatorio de la cuota «vieja» seguía saliendo después del
+// pago) y el dedup del recordatorio (`cuota:${pago_id}`, lib/cobranza.ts: la «nueva» volvía a entrar). La regla
+// de qué se actualiza, qué se inserta y qué se borra es `reconciliarCuotas` (lib/pagos-campo.ts, pura y con
+// tests); acá sólo se lee lo que protege a una cuota y se escribe.
 
 /**
  * ⚠️ EL LEAD TIENE QUE SER DE ESTE NEGOCIO antes de escribirle una cuota (auditoría de seguridad del 14/10/2026).
@@ -130,105 +146,183 @@ export async function asegurarLeadDelNegocio(leadId: number): Promise<void> {
 
 /**
  * Guarda el plan de pagos de un lead y (re)genera las filas de `pagos`.
+ * Qué protege a cada cuota impaga: un link sin pagar que la salda (`cobros.pago_id`, pendiente o rechazado) o
+ * un recordatorio de cobranza abierto (`flujo_corridas.ctx.cuotaId`, pendiente).
  *
- * Regla de regeneración: SOLO toca las filas NO pagadas. Las cuotas ya cobradas
- * quedan intactas (su monto/fecha real es histórico). Si el plan se achica, las
- * cuotas no pagadas que sobran se borran.
+ * ⚠️ TIRA si no pudo leer: «no pude ver si tiene un link» NO es «no tiene». Con un default vacío, una falla de
+ * lectura dejaba borrar la cuota de un link que el cliente está por pagar.
+ */
+export async function proteccionesDeCuotas(leadId: number, ids: readonly number[]): Promise<Map<number, Proteccion[]>> {
+  const out = new Map<number, Proteccion[]>();
+  if (!ids.length) return out;
+  const db = await getTenantDb();
+  const marcar = (id: number, p: Proteccion) => { const l = out.get(id) ?? []; if (!l.includes(p)) l.push(p); out.set(id, l); };
+  const [links, corridas] = await Promise.all([
+    db.from('cobros').select('pago_id').eq('lead_id', leadId).in('estado', ['pendiente', 'fallido']).in('pago_id', [...ids]),
+    db.from('flujo_corridas').select('ctx').eq('estado', 'pendiente').in('ctx->>cuotaId', ids.map(String)),
+  ]);
+  if (links.error) throw new Error(`No pude revisar los links de pago de las cuotas: ${links.error.message}`);
+  if (corridas.error) throw new Error(`No pude revisar los recordatorios de las cuotas: ${corridas.error.message}`);
+  for (const r of (links.data ?? []) as Array<{ pago_id: number | null }>) if (r.pago_id != null) marcar(Number(r.pago_id), 'link');
+  for (const r of (corridas.data ?? []) as Array<{ ctx: { cuotaId?: unknown } | null }>) {
+    const id = Number(r.ctx?.cuotaId);
+    if (Number.isFinite(id) && ids.includes(id)) marcar(id, 'recordatorio');
+  }
+  return out;
+}
+
+/** Las cuotas del lead como las lee `reconciliarCuotas`, con lo que protege a cada impaga. */
+async function cuotasParaReconciliar(leadId: number): Promise<CuotaExistente[]> {
+  const pagos = await getPagosByLead(leadId);
+  const prot = await proteccionesDeCuotas(leadId, pagos.filter((q) => !q.pagado).map((q) => q.id));
+  return pagos.map((q) => ({
+    id: q.id, numero: q.numero, monto_usd: Number(q.monto_usd), fecha_esperada: q.fecha_esperada, pagado: q.pagado,
+    devuelta: esCuotaDevuelta(q), protegida: prot.get(q.id) ?? [],
+  }));
+}
+
+/**
+ * Escribe lo que decidió `reconciliarCuotas`: primero actualiza por id, después inserta y AL FINAL borra. Si algo
+ * falla a mitad de camino, quedan cuotas de más (se ven y se quitan), nunca de menos (una deuda que desaparece).
+ * Cada escritura lleva `lead_id` y `pagado = false`: una cuota que se cobró mientras tanto no se pisa ni se borra.
+ */
+async function escribirReconciliacion(leadId: number, plan: PlanDeCuotas): Promise<void> {
+  const db = await getTenantDb();
+  for (const u of plan.actualizar) {
+    const { error } = await db.from('pagos').update({ monto_usd: u.monto_usd, fecha_esperada: u.fecha_esperada })
+      .eq('id', u.id).eq('lead_id', leadId).eq('pagado', false);
+    if (error) throw new Error(`Error actualizando la cuota ${u.id}: ${error.message}`);
+  }
+  if (plan.insertar.length) {
+    const rows = plan.insertar.map((i) => ({ lead_id: leadId, numero: i.numero, monto_usd: i.monto_usd, fecha_esperada: i.fecha_esperada }));
+    const { error } = await db.from('pagos').insert(rows);
+    if (error) throw new Error(`Error guardando cuotas del lead ${leadId}: ${error.message}`);
+  }
+  if (plan.borrar.length) {
+    const { error } = await db.from('pagos').delete().in('id', plan.borrar.map((b) => b.id)).eq('lead_id', leadId).eq('pagado', false);
+    if (error) throw new Error(`Error quitando cuotas del lead ${leadId}: ${error.message}`);
+  }
+  await olvidarAvisosDeCuotas(cuotasReprogramadas(plan.actualizar));
+}
+
+/** Un instante viejo: el dedup lo lee como «salió hace mucho» y la cuota puede volver a entrar. */
+const DEDUP_OLVIDADO = new Date(0).toISOString();
+
+/**
+ * Deja que una cuota REPROGRAMADA vuelva a entrar a la cobranza (`cuotasReprogramadas`, lib/cobranza.ts): el dedup
+ * de sus dos avisos pasa a «salió hace mucho». Se hace con compare-and-set contra lo que se leyó, la misma
+ * operación con que el cron reclama, así que un cron que justo la está reclamando gana y no sale dos veces.
  *
- * fecha base = fecha_cierre del lead (o hoy si no hay). El inicial vence en la
- * fecha del cierre; la cuota N vence el `dia_de_pago` del mes N siguiente.
+ * No tira: si falla, la cuota queda como estaba antes de esto (sin recordatorio de la fecha nueva), y eso no
+ * puede tumbar la edición que ya se escribió. Sin negocio no hace nada: `app_settings` caería al ws1.
+ */
+async function olvidarAvisosDeCuotas(pagoIds: readonly number[]): Promise<void> {
+  if (!pagoIds.length) return;
+  try {
+    if ((await getWorkspaceActual()) == null) return;
+    for (const id of pagoIds) {
+      for (const aviso of AVISOS_DE_CUOTA) {
+        const key = keyEspaciado(aviso, claveDedupCuota(id));
+        const previo = await getSettingEstricto(key);
+        if (previo && previo !== DEDUP_OLVIDADO) await cambiarSettingSi(key, previo, DEDUP_OLVIDADO);
+      }
+    }
+  } catch (e) {
+    console.error(`[pagos] no pude reabrir la cobranza de las cuotas ${pagoIds.join(', ')}:`, e instanceof Error ? e.message : e);
+  }
+}
+
+/** Reconcilia una lista de cuotas impagas y sincroniza lo cobrado. Devuelve lo que hizo (y lo que NO tocó). */
+export async function reconciliarYGuardar(
+  leadId: number, deseadas: readonly CuotaDeseada[], modo: ModoReconciliar, opts: { soloNumeros?: ReadonlySet<number>; vistos?: ReadonlySet<number> } = {},
+): Promise<PlanDeCuotas> {
+  await asegurarLeadDelNegocio(leadId);
+  const plan = reconciliarCuotas(await cuotasParaReconciliar(leadId), deseadas, modo, opts);
+  await escribirReconciliacion(leadId, plan);
+  await sincronizarTotalCobrado(leadId);
+  return plan;
+}
+
+/**
+ * Las cuotas impagas de una pantalla que manda el ID de cada una (Editar deal, `saveCuotasAction`): la que trae
+ * id se actualiza POR ID, la que no se inserta, y la impaga que no vino se borra — salvo que tenga un link sin
+ * pagar o un recordatorio corriendo, que se conserva y se devuelve en `conservar`. NO gana el lead: ganarlo es
+ * mover de etapa, no guardar cuotas.
+ */
+export async function guardarCuotasPorId(
+  leadId: number,
+  cuotas: ReadonlyArray<{ id?: number | null; monto_usd: number; fecha_esperada: string | null }>,
+  opts: { vistos?: ReadonlySet<number> } = {},
+): Promise<PlanDeCuotas> {
+  return reconciliarYGuardar(leadId, cuotas, 'porId', opts);
+}
+
+export type ResultadoPlan = { pagos: Pago[]; cambios: PlanDeCuotas };
+
+/**
+ * Arma o ajusta el plan UNIFORME (inicial, cuota, cantidad y día de pago) y reconcilia sus cuotas por número:
+ * la cuota N que ya existe se actualiza POR ID, la que falta se inserta, la que sobra se borra si no tiene link
+ * ni recordatorio, y las cobradas no se tocan (cubren su número). NO gana el lead.
+ *
+ * fecha base = fecha_cierre del lead (o hoy si no hay). El inicial vence en la fecha del cierre; la cuota N vence
+ * el `dia_de_pago` del mes N siguiente (el calendario de siempre, `cuotasDelPlan`).
+ *
+ * Con `opts.antes` (el plan que había: un AJUSTE desde la ficha) se aplica sólo la DIFERENCIA (`diferenciaDePlan`):
+ * no se pisa una cuota movida a mano ni se borra una que no es del plan. Sin él (el wizard de Ganado, la API
+ * `guardar_plan_pagos`), el plan se reimpone entero, como siempre.
+ */
+export async function ajustarPlanPagos(leadId: number, plan: PlanUniforme, hoy: string, opts: { antes?: PlanUniforme } = {}): Promise<ResultadoPlan> {
+  // ⚠️ EL LEAD TIENE QUE SER DE ESTE NEGOCIO antes de escribirle una cuota (auditoría del 14/10/2026).
+  // Va acá y no en savePlanPagos porque éste es el choke point: por acá escriben savePlanPagos y la
+  // server action de pagos campo por campo, que recibe el leadId del navegador. El `.single()` de abajo
+  // tira con un lead ajeno, pero es una guarda por accidente: pasarlo a `maybeSingle()` la borraría sin
+  // que nada falle. Al integrar la rama de Pagos (anterior a la auditoría) esta llamada se habría perdido.
+  await asegurarLeadDelNegocio(leadId);
+  const supabase = (await getTenantDb());
+  const { data: leadRow, error: leadErr } = await supabase.from('leads').select('fecha_cierre').eq('id', leadId).single();
+  if (leadErr) throw new Error(`Error leyendo lead ${leadId}: ${leadErr.message}`);
+  const base = (leadRow?.fecha_cierre as string | null) ?? hoy;
+
+  const { error: planErr } = await supabase.from('leads').update({
+    cobro_inicial_usd: plan.cobro_inicial_usd,
+    monto_cuota_usd: plan.monto_cuota_usd,
+    total_cuotas: plan.total_cuotas,
+    dia_de_pago: plan.dia_de_pago,
+  }).eq('id', leadId);
+  if (planErr) throw new Error(`Error guardando plan del lead ${leadId}: ${planErr.message}`);
+
+  let cambios: PlanDeCuotas;
+  if (opts.antes) {
+    const { deseadas, tocar } = diferenciaDePlan(opts.antes, plan, base);
+    cambios = await reconciliarYGuardar(leadId, deseadas, 'slots', { soloNumeros: tocar });
+  } else {
+    cambios = await reconciliarYGuardar(leadId, cuotasDelPlan(plan, base), 'slots');
+  }
+  return { pagos: await getPagosByLead(leadId), cambios };
+}
+
+/**
+ * Guarda el plan de pagos de un lead y (re)genera las filas de `pagos`. Lo llaman el wizard de Ganado
+ * (app/crm/actions.ts), `savePlanPagosAction` y la API (`guardar_plan_pagos`): es `ajustarPlanPagos` con la firma
+ * de siempre. Desde el 14/10/2026 no borra una cuota con un link sin pagar ni con un recordatorio corriendo.
  */
 export async function savePlanPagos(
   leadId: number,
   plan: PlanPagos,
   hoy: string = new Date().toISOString().slice(0, 10),
 ): Promise<Pago[]> {
-  // Hoy el `.single()` de abajo ya tira con un lead ajeno (0 filas), pero es una guarda por accidente: pasarlo a
-  // `maybeSingle()` la borraría sin que nada falle, y el upsert de abajo pisaría por (lead_id, numero) la cuota
-  // del otro negocio. La explícita no depende de eso.
-  await asegurarLeadDelNegocio(leadId);
-  const supabase = (await getTenantDb());
-
-  // Necesitamos la fecha de cierre como ancla del calendario
-  const { data: leadRow, error: leadErr } = await supabase
-    .from('leads')
-    .select('fecha_cierre')
-    .eq('id', leadId)
-    .single();
-  if (leadErr) throw new Error(`Error leyendo lead ${leadId}: ${leadErr.message}`);
-  const base = (leadRow?.fecha_cierre as string | null) ?? hoy;
-
-  // Persistir las columnas del plan en el lead
-  const { error: planErr } = await supabase
-    .from('leads')
-    .update({
-      cobro_inicial_usd: plan.cobro_inicial_usd,
-      monto_cuota_usd: plan.monto_cuota_usd,
-      total_cuotas: plan.total_cuotas,
-      dia_de_pago: plan.dia_de_pago,
-    })
-    .eq('id', leadId);
-  if (planErr) throw new Error(`Error guardando plan del lead ${leadId}: ${planErr.message}`);
-
-  const existentes = await getPagosByLead(leadId);
-  const pagados = new Set(existentes.filter((p) => p.pagado).map((p) => p.numero));
-
-  // Construir las filas DESEADAS del plan
-  const totalCuotas = plan.total_cuotas ?? 0;
-  const dia = plan.dia_de_pago ?? 1;
-  const deseadas: Array<{ numero: number; monto_usd: number; fecha_esperada: string }> = [];
-
-  if (plan.cobro_inicial_usd && plan.cobro_inicial_usd > 0) {
-    deseadas.push({ numero: 0, monto_usd: plan.cobro_inicial_usd, fecha_esperada: base });
-  }
-  if (plan.monto_cuota_usd && plan.monto_cuota_usd > 0) {
-    for (let n = 1; n <= totalCuotas; n++) {
-      deseadas.push({
-        numero: n,
-        monto_usd: plan.monto_cuota_usd,
-        fecha_esperada: fechaCuota(base, n, dia),
-      });
-    }
-  }
-
-  const numerosDeseados = new Set(deseadas.map((d) => d.numero));
-
-  // 1) Borrar filas NO pagadas que ya no están en el plan
-  const aBorrar = existentes
-    .filter((p) => !p.pagado && !numerosDeseados.has(p.numero))
-    .map((p) => p.id);
-  if (aBorrar.length > 0) {
-    const { error } = await supabase.from('pagos').delete().in('id', aBorrar);
-    if (error) throw new Error(`Error borrando pagos obsoletos: ${error.message}`);
-  }
-
-  // 2) Upsert de las deseadas que NO estén ya pagadas (a las pagadas no se tocan)
-  const aUpsert = deseadas
-    .filter((d) => !pagados.has(d.numero))
-    .map((d) => ({
-      lead_id: leadId,
-      numero: d.numero,
-      monto_usd: d.monto_usd,
-      fecha_esperada: d.fecha_esperada,
-    }));
-  if (aUpsert.length > 0) {
-    // onConflict (lead_id, numero): si ya existía una fila no pagada, actualiza
-    // monto/fecha sin tocar pagado/fecha_pago (defaults solo aplican al insert).
-    const { error } = await supabase
-      .from('pagos')
-      .upsert(aUpsert, { onConflict: 'lead_id,numero' });
-    if (error) throw new Error(`Error guardando pagos del plan: ${error.message}`);
-  }
-
-  await sincronizarTotalCobrado(leadId);
-  return getPagosByLead(leadId);
+  return (await ajustarPlanPagos(leadId, plan, hoy)).pagos;
 }
 
 /**
  * Plan MANUAL desde el CRM: guarda las cuotas TAL CUAL (cada una su monto y su
  * fecha), sin la generación uniforme de savePlanPagos. Persiste también total,
  * duración y fechas del lead. Conserva las cuotas ya pagadas (no se tocan); las
- * no pagadas se reemplazan por la lista nueva.
+ * no pagadas se RECONCILIAN con la lista nueva (ver `reconciliarCuotas`, modo 'lista').
+ *
+ * ⚠️ GANA EL LEAD, y por eso desde el 14/10/2026 sólo lo llaman los caminos que CIERRAN la venta: el wizard de
+ * Ganado (`completeStageMoveAction`, app/crm/actions.ts) y la API `guardar_cuotas`, que lo avisa en su resumen.
+ * Guardar cuotas desde una pantalla (Editar deal, los bloques de Pagos) es `guardarCuotasPorId`, que no gana.
  */
 export type PlanManual = {
   total_usd: number | null;
@@ -238,9 +332,10 @@ export type PlanManual = {
   cuotas: Array<{ monto_usd: number; fecha_esperada: string | null }>;
 };
 
-export async function saveLeadPlanManual(leadId: number, p: PlanManual): Promise<void> {
-  // Antes de TODO: el `maybeSingle` y el update de abajo, con un lead ajeno, dan null y 0 filas sin error, y las
-  // cuotas se insertaban igual con el lead_id del otro negocio.
+export async function saveLeadPlanManual(leadId: number, p: PlanManual): Promise<PlanDeCuotas> {
+  // ⚠️ EL LEAD TIENE QUE SER DE ESTE NEGOCIO (auditoría del 14/10/2026). El maybeSingle y el update de
+  // abajo, con un lead ajeno, dan null y 0 filas SIN error, y las cuotas se insertaban igual con el
+  // lead_id del otro negocio. La rama de Pagos es anterior a la auditoría y no la traía.
   await asegurarLeadDelNegocio(leadId);
   const supabase = (await getTenantDb());
 
@@ -269,25 +364,89 @@ export async function saveLeadPlanManual(leadId: number, p: PlanManual): Promise
     }
   }
 
-  // Conservar cuotas pagadas; reemplazar las no pagadas por la lista nueva.
-  const existentes = await getPagosByLead(leadId);
-  const pagados = existentes.filter((q) => q.pagado);
-  const noPagadosIds = existentes.filter((q) => !q.pagado).map((q) => q.id);
-  if (noPagadosIds.length > 0) {
-    const { error } = await supabase.from('pagos').delete().in('id', noPagadosIds);
-    if (error) throw new Error(`Error limpiando cuotas previas: ${error.message}`);
-  }
+  // Conservar cuotas pagadas; las no pagadas se RECONCILIAN con la lista nueva, sin borrar e insertar (ver
+  // «Reconciliar las cuotas POR ID» arriba). La lista llega sin ids (el wizard, la API): modo 'lista'.
+  return reconciliarYGuardar(leadId, p.cuotas.map((c) => ({ monto_usd: c.monto_usd, fecha_esperada: c.fecha_esperada })), 'lista');
+}
 
-  const base = pagados.length > 0 ? Math.max(...pagados.map((q) => q.numero)) : 0;
-  const rows = p.cuotas
-    .filter((c) => c.monto_usd > 0)
-    .map((c, i) => ({ lead_id: leadId, numero: base + 1 + i, monto_usd: c.monto_usd, fecha_esperada: c.fecha_esperada }));
-  if (rows.length > 0) {
-    const { error } = await supabase.from('pagos').insert(rows);
-    if (error) throw new Error(`Error guardando cuotas del lead ${leadId}: ${error.message}`);
+/**
+ * Edita UNA cuota impaga por su id: el monto, el vencimiento o los dos, sin borrar ni reinsertar nada (el link,
+ * el recordatorio y el dedup siguen apuntando a la misma cuota). Lo que no se puede, lo dice:
+ *   · una cuota cobrada se corrige desde el pago (desmarcarla), no acá: su monto es lo que entró;
+ *   · con un link sin pagar, el monto no cambia (el link cobraría otro); la fecha sí;
+ *   · con un recordatorio corriendo, nada: el recordatorio lleva el monto y la fecha de ESTA cuota.
+ * Devuelve el antes y el después (para el historial y para Deshacer, que llama a esta misma función).
+ */
+export async function editarCuota(
+  leadId: number,
+  pagoId: number,
+  cambio: { monto?: number | null; fecha?: string | null },
+): Promise<{ antes: { monto_usd: number; fecha_esperada: string | null }; despues: { monto_usd: number; fecha_esperada: string | null }; numero: number }> {
+  const db = await getTenantDb();
+  const { data, error } = await db.from('pagos').select('id, numero, monto_usd, fecha_esperada, pagado, proveedor, cobro_id').eq('id', pagoId).eq('lead_id', leadId).maybeSingle();
+  if (error) throw new Error(`Error leyendo la cuota ${pagoId}: ${error.message}`);
+  if (!data) throw new Error('Esa cuota no existe en este lead.');
+  const q = data as { numero: number; monto_usd: number; fecha_esperada: string | null; pagado: boolean; proveedor: string | null; cobro_id: number | null };
+  if (q.pagado) throw new Error('Esa cuota ya está cobrada: para corregirla, desmárcala primero.');
+  if (esCuotaDevuelta(q)) throw new Error('Esa cuota se devolvió: no se edita.');
+  const antes = { monto_usd: Number(q.monto_usd), fecha_esperada: q.fecha_esperada };
+  const despues = { ...antes };
+  if (cambio.monto !== undefined) {
+    const m = Number(cambio.monto);
+    if (!Number.isFinite(m) || m <= 0) throw new Error('El monto tiene que ser mayor a cero.');
+    despues.monto_usd = centavos(m);
   }
+  if (cambio.fecha !== undefined) {
+    if (cambio.fecha != null && !/^\d{4}-\d{2}-\d{2}$/.test(cambio.fecha)) throw new Error('La fecha tiene que ser AAAA-MM-DD.');
+    despues.fecha_esperada = cambio.fecha;
+  }
+  const cambiaMonto = Math.abs(despues.monto_usd - antes.monto_usd) >= 0.005;
+  const cambiaFecha = despues.fecha_esperada !== antes.fecha_esperada;
+  if (!cambiaMonto && !cambiaFecha) return { antes, despues, numero: q.numero };
+  const prot = (await proteccionesDeCuotas(leadId, [pagoId])).get(pagoId) ?? [];
+  if (prot.includes('recordatorio')) throw new Error('Tiene un recordatorio de cobro en curso: córtalo para editarla.');
+  if (prot.includes('link') && cambiaMonto) throw new Error('Tiene un link de pago sin pagar: anúlalo para cambiar el monto.');
+  const { data: hecho, error: e2 } = await db.from('pagos').update({ monto_usd: despues.monto_usd, fecha_esperada: despues.fecha_esperada })
+    .eq('id', pagoId).eq('lead_id', leadId).eq('pagado', false).select('id');
+  if (e2) throw new Error(`Error guardando la cuota ${pagoId}: ${e2.message}`);
+  if (!hecho?.length) throw new Error('La cuota cambió mientras tanto (¿se cobró?). Recarga la ficha.');
+  await olvidarAvisosDeCuotas(cuotasReprogramadas([{ id: pagoId, fecha_esperada: despues.fecha_esperada, antes }]));
+  return { antes, despues, numero: q.numero };
+}
 
-  await sincronizarTotalCobrado(leadId);
+/**
+ * Corta los recordatorios de cobranza de UNA cuota del lead (el «Cortarlo» del bloque `recordatorios-de-cobro`):
+ * es el mismo corte que hace `marcarPago` al cobrarla. La cuota tiene que ser de ese lead: el id llega de afuera.
+ */
+export async function cortarRecordatoriosDeCuota(leadId: number, pagoId: number): Promise<number> {
+  const db = await getTenantDb();
+  const { data, error } = await db.from('pagos').select('id').eq('id', pagoId).eq('lead_id', leadId).maybeSingle();
+  if (error) throw new Error(`Error leyendo la cuota ${pagoId}: ${error.message}`);
+  if (!data) throw new Error('Esa cuota no existe en este lead.');
+  const ws = await getWorkspaceActual();
+  if (ws == null) throw new Error('Sin negocio.');
+  const { cerrarCorridasDeCuota } = await import('./flujo-corridas');
+  // `tirar`: este corte lo pide una persona, y «no pude escribir» no es «no había nada que cortar» (revisión del
+  // 14/10/2026: la API contestaba eso ante un 5xx, y después editarCuota rechazaba por «recordatorio en curso»).
+  return cerrarCorridasDeCuota(ws, pagoId, { tirar: true });
+}
+
+/**
+ * ⚠️ AL COBRAR UNA CUOTA SE ANULAN SUS LINKS SIN PAGAR (`anularLinksDeCuota`, lib/cobros.ts): un link vivo de una
+ * cuota ya cobrada se podía pagar otra vez (revisión del 14/10/2026). Lo llama `marcarPago`, que es por donde pasan
+ * la ficha, el doer, la API y la pasarela. Si la salda la pasarela, su propio cobro (`cobro_id`) queda afuera.
+ * Desmarcar no los reabre: un link anulado no vuelve. No tira: lo peor es que el link siga vivo, como antes.
+ */
+async function anularLinksAlCobrar(pagoId: number, cobroId: number | null): Promise<void> {
+  try {
+    const ws = await getWorkspaceActual();
+    if (ws == null) return;
+    const { anularLinksDeCuota } = await import('./cobros');
+    const n = await anularLinksDeCuota(ws, pagoId, 'MaKo (la cuota ya se cobró)', cobroId == null ? null : Number(cobroId));
+    if (n) console.log(`[pagos] cuota ${pagoId} pagada → ${n} link(s) de pago anulado(s)`);
+  } catch (e) {
+    console.error('[pagos] no pude anular los links de la cuota:', e instanceof Error ? e.message : String(e));
+  }
 }
 
 /**
@@ -302,7 +461,7 @@ export async function marcarPago(
   const supabase = (await getTenantDb());
   const { data: pago, error: getErr } = await supabase
     .from('pagos')
-    .select('lead_id')
+    .select('lead_id, cobro_id')
     .eq('id', pagoId)
     .single();
   if (getErr) throw new Error(`Error leyendo pago ${pagoId}: ${getErr.message}`);
@@ -339,6 +498,7 @@ export async function marcarPago(
       // que el recordatorio siguiente salga, y eso se ve. Perder el pago, no.
       console.error('[pagos] no pude cortar los recordatorios:', e instanceof Error ? e.message : String(e));
     }
+    await anularLinksAlCobrar(pagoId, pago.cobro_id ?? null);
   }
 }
 
@@ -357,26 +517,37 @@ export async function marcarPago(
 export async function cobrarCuota(
   pagoId: number,
   leadId: number,
-  datos: { monto?: number | null; fecha: string; hora?: string | null; resto?: RestoDeCobro },
-): Promise<{ original: number; monto: number | null; pendiente: number | null; descuento: number }> {
+  datos: { monto?: number | null; fecha: string; hora?: string | null; resto?: RestoDeCobro } & DatosDeMoneda,
+): Promise<{ original: number; monto: number | null; pendiente: number | null; descuento: number; moneda: string | null; montoOriginal: number | null }> {
   if (!datos.fecha) throw new Error('La fecha del pago es obligatoria.');
   // La cuota ya se lee con `lead_id`, pero la diferencia de abajo es un INSERT con ese leadId.
   await asegurarLeadDelNegocio(leadId);
   const db = await getTenantDb();
-  const { data: antes, error: eLeer } = await db.from('pagos').select('monto_usd, fecha_esperada, pagado').eq('id', pagoId).eq('lead_id', leadId).maybeSingle();
+  const { data: antes, error: eLeer } = await db.from('pagos').select('monto_usd, fecha_esperada, pagado, proveedor').eq('id', pagoId).eq('lead_id', leadId).maybeSingle();
   if (eLeer) throw new Error(`Error leyendo el pago ${pagoId}: ${eLeer.message}`);
   if (!antes) throw new Error('Esa cuota no existe en este lead.');
-  const fila = antes as { monto_usd: number; fecha_esperada: string | null; pagado: boolean };
+  const fila = antes as { monto_usd: number; fecha_esperada: string | null; pagado: boolean; proveedor: string | null };
+  // ⚠️ LO ÚLTIMO QUE SE DIJO DEL COBRO MANDA (revisión del 14/10/2026): la moneda, el monto original, el concepto y el
+  // método se escribían sólo si venían, así que una cuota cobrada en MXN, desmarcada y vuelta a cobrar en USD seguía
+  // diciendo «MX$8.600». En una cuota a mano, lo que no vino se limpia; lo de la pasarela no se toca.
+  const aMano = !fila.proveedor;
   const original = Number(fila.monto_usd) || 0;
   const monto = datos.monto != null && Number.isFinite(datos.monto) && datos.monto > 0 ? centavos(datos.monto) : null;
+  // La moneda en que se cobró (decisión 7). `monto` sigue siendo DÓLARES; sin `moneda`, todo como siempre.
+  const enMonedaR = datos.moneda ? pagoEnMoneda({ montoUsd: monto ?? original, moneda: datos.moneda, montoOriginal: datos.montoOriginal }) : null;
+  if (enMonedaR && !enMonedaR.ok) throw new Error(enMonedaR.error);
+  const enMoneda = enMonedaR && enMonedaR.ok ? enMonedaR : null;
   const pend = diferenciaPendiente(original, monto, { yaPagada: fila.pagado, resto: datos.resto });
   const descuento = !fila.pagado && datos.resto === 'descuento' && monto != null && monto < original ? centavos(original - monto) : 0;
 
   // Hora (y monto si vino uno válido) primero; marcarPago sincroniza después.
   const upd: Record<string, unknown> = { pago_hora: datos.hora?.trim() || null };
   if (monto != null) upd.monto_usd = monto;
+  if (enMoneda) { upd.moneda = enMoneda.moneda; upd.monto_original = enMoneda.montoOriginal; }
+  else if (aMano) { upd.moneda = null; upd.monto_original = null; }
   const { error } = await db.from('pagos').update(upd).eq('id', pagoId);
   if (error) throw new Error(`Error actualizando el pago ${pagoId}: ${error.message}`);
+  await etiquetarPago(pagoId, datos, { limpiar: aMano });
 
   if (pend > 0) {
     const existentes = await getPagosByLead(leadId);
@@ -390,7 +561,10 @@ export async function cobrarCuota(
   }
 
   await marcarPago(pagoId, true, datos.fecha);
-  return { original, monto, pendiente: pend > 0 ? pend : null, descuento };
+  return {
+    original, monto, pendiente: pend > 0 ? pend : null, descuento,
+    moneda: enMoneda?.moneda ?? null, montoOriginal: enMoneda?.montoOriginal ?? null,
+  };
 }
 
 /**
@@ -398,22 +572,163 @@ export async function cobrarCuota(
  * última, que pasa por `marcarPago` —lo cobrado del lead y el corte de los recordatorios—. No toca el monto de
  * cierre: si fue una venta nueva, se corrige en el deal. Lo llaman la ficha y la API de MaKo (`registrar_pago_suelto`).
  */
-export async function registrarPagoSuelto(leadId: number, datos: { monto: number; fecha: string; hora?: string | null }): Promise<{ pagoId: number; monto: number }> {
+export async function registrarPagoSuelto(
+  leadId: number,
+  datos: { monto: number; fecha: string; hora?: string | null } & DatosDeMoneda,
+): Promise<{ pagoId: number; monto: number; moneda: string | null; montoOriginal: number | null }> {
   const monto = Number(datos.monto);
   if (!Number.isFinite(monto) || monto <= 0) throw new Error('El monto tiene que ser mayor a cero.');
   if (!datos.fecha || !/^\d{4}-\d{2}-\d{2}$/.test(datos.fecha)) throw new Error('La fecha del pago es obligatoria.');
+  // `monto` es DÓLARES; con `moneda`, se guarda además en lo que se cobró (decisión 7, `pagoEnMoneda`).
+  const enMonedaR = datos.moneda ? pagoEnMoneda({ montoUsd: monto, moneda: datos.moneda, montoOriginal: datos.montoOriginal }) : null;
+  if (enMonedaR && !enMonedaR.ok) throw new Error(enMonedaR.error);
+  const enMoneda = enMonedaR && enMonedaR.ok ? enMonedaR : null;
   await asegurarLeadDelNegocio(leadId);
   const db = await getTenantDb();
   const existentes = await getPagosByLead(leadId);
   const base = existentes.length > 0 ? Math.max(...existentes.map((q) => q.numero)) : 0;
   const redondo = centavos(monto);
   const { data, error } = await db.from('pagos')
-    .insert({ lead_id: leadId, numero: base + 1, monto_usd: redondo, fecha_esperada: datos.fecha, pagado: false, pago_hora: datos.hora?.trim() || null })
+    .insert({
+      lead_id: leadId, numero: base + 1, monto_usd: redondo, fecha_esperada: datos.fecha, pagado: false, pago_hora: datos.hora?.trim() || null,
+      ...(enMoneda ? { moneda: enMoneda.moneda, monto_original: enMoneda.montoOriginal } : {}),
+    })
     .select('id').single();
   if (error || !data) throw new Error(`No pude registrar el pago: ${error?.message ?? 'sin fila'}`);
   const pagoId = Number((data as { id: number }).id);
+  await etiquetarPago(pagoId, datos);
   await marcarPago(pagoId, true, datos.fecha);
-  return { pagoId, monto: redondo };
+  return { pagoId, monto: redondo, moneda: enMoneda?.moneda ?? null, montoOriginal: enMoneda?.montoOriginal ?? null };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Lo cargado a mano: moneda, concepto y método (decisión 7 de docs/diseno-ficha-bloques.md)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Lo que un pago a mano suma a su monto en dólares. ⚠️ Sin `moneda` es USD como siempre (ver `pagoEnMoneda`,
+ * lib/pagos-campo.ts): la moneda del negocio la pone la PANTALLA como valor inicial, no el server a ciegas.
+ */
+export type DatosDeMoneda = {
+  /** ISO de 3 letras. null/ausente = dólares (lo de siempre). */
+  moneda?: string | null;
+  /** Lo cobrado en `moneda` (obligatorio si no es USD). */
+  montoOriginal?: number | null;
+  concepto?: string | null;
+  /** Uno de METODOS_PAGO (lib/pagos-campo.ts); lo desconocido queda 'otro'. */
+  metodo?: string | null;
+};
+
+/**
+ * Concepto y método del pago (mig 0292). ⚠️ UPDATE APARTE Y QUE NO TIRA: si la migración todavía no corrió, la
+ * columna no existe y PostgREST rechazaría la fila ENTERA. Perder la etiqueta se ve en el historial; perder el
+ * pago, no. Molde: las omisiones del wizard de Ganado (app/crm/actions.ts, «update APARTE»).
+ */
+async function etiquetarPago(pagoId: number, datos: DatosDeMoneda, opts: { limpiar?: boolean } = {}): Promise<void> {
+  const e = etiquetaDePago(datos);
+  // `limpiar`: volver a cobrar una cuota a mano sin concepto ni método borra los de la vez anterior.
+  if (!e.concepto && !e.metodo && !opts.limpiar) return;
+  try {
+    const { error } = await (await getTenantDb()).from('pagos').update({ concepto: e.concepto, metodo: e.metodo }).eq('id', pagoId);
+    if (error) console.error(`[pagos] el concepto y el método del pago ${pagoId} no se guardaron (¿falta la migración?): ${error.message}`);
+  } catch (err) {
+    console.error(`[pagos] etiquetar el pago ${pagoId}:`, err instanceof Error ? err.message : err);
+  }
+}
+
+/**
+ * Las líneas de un cambio de Pagos en el HISTORIAL del lead (`lead_audit`), con el antes y el después y el actor,
+ * en UN insert: comparten el instante y la ficha las muestra como un solo movimiento (molde: `logLeadChanges`,
+ * lib/leads.ts, que sólo conoce las columnas de AUDIT_FIELDS y no los jsonb del deal ni las cuotas).
+ * No rompe la escritura si falla: lo peor es una línea de menos, que se ve; perder el cambio, no.
+ */
+export async function anotarEnHistorial(
+  leadId: number,
+  filas: ReadonlyArray<{ campo: string; valor_anterior: string | null; valor_nuevo: string | null }>,
+  autor: string,
+): Promise<void> {
+  if (!filas.length) return;
+  try {
+    const rows = filas.map((f) => ({
+      lead_id: leadId, campo: f.campo.slice(0, 120), autor,
+      valor_anterior: f.valor_anterior == null ? null : f.valor_anterior.slice(0, 2000),
+      valor_nuevo: f.valor_nuevo == null ? null : f.valor_nuevo.slice(0, 2000),
+    }));
+    const { error } = await (await getTenantDb()).from('lead_audit').insert(rows);
+    if (error) console.error(`[pagos] historial del lead ${leadId}: ${error.message}`);
+  } catch (e) {
+    console.error(`[pagos] historial del lead ${leadId}:`, e instanceof Error ? e.message : e);
+  }
+}
+
+/** La clave de la moneda del negocio en `app_settings` (decisión 7: va por negocio, como el resto de la config). */
+export const KEY_MONEDA_NEGOCIO = 'negocio.moneda';
+
+/**
+ * La moneda en que el NEGOCIO carga lo que cobra a mano. Hasta el 14/10/2026 no existía en ningún lado (todo el
+ * CRM asumía dólares): sin configurar, es USD, que es lo que hacía. No es la de la pasarela, que la decide la
+ * cuenta de Stripe o de Mercado Pago (`monedasCobroAction`).
+ */
+export async function monedaDelNegocio(): Promise<string> {
+  try {
+    return normalizarMoneda(await getSetting(KEY_MONEDA_NEGOCIO)) ?? MONEDA_POR_DEFECTO;
+  } catch {
+    return MONEDA_POR_DEFECTO;
+  }
+}
+
+/** Guarda la moneda del negocio. Quien llama ya verificó que es el admin. */
+export async function guardarMonedaDelNegocio(moneda: string): Promise<string> {
+  const m = normalizarMoneda(moneda);
+  if (!m) throw new Error('Esa moneda no existe (va el código de 3 letras: USD, MXN, ARS…).');
+  // ⚠️ SIN NEGOCIO NO SE ESCRIBE (revisión del 14/10/2026): `setSetting` cae al ws1 cuando no hay workspace, y el super
+  // admin sin `?ws` ni negocio propio le cambiaba la moneda al CRM de Mauricio, que es un cliente.
+  if ((await getWorkspaceActual()) == null) throw new Error('Sin negocio: la moneda es de cada negocio (entra con ?ws).');
+  await setSetting(KEY_MONEDA_NEGOCIO, m);
+  return m;
+}
+
+/**
+ * Cancela (o reactiva) una suscripción MANUAL: la que no cobra una pasarela y se registra mes a mes. Como la de la
+ * pasarela (`aplicarSuscripcionCancelada`, lib/cobros.ts), la pasa a PLAZO FIJO hasta hoy (`suscripcion_meses` =
+ * meses transcurridos), así el MRR deja de contarla; y además deja la fecha en `suscripcion_cancelada_at`
+ * (mig 0292), que es lo que distingue «cancelada» de «terminó su plazo». Reactivar devuelve el plazo de antes.
+ *
+ * ⚠️ EL PLAZO DE ANTES SE GUARDA AL CANCELAR (`suscripcion_meses_antes`, la misma mig). Pisar `suscripcion_meses`
+ * con los meses transcurridos lo perdía, y reactivar escribía `mesesAlReactivar ?? null`: la API pasa siempre null,
+ * así que una suscripción de 12 meses cancelada en el mes 3 y reactivada por MaKo quedaba mes a mes, y el MRR la
+ * contaba para siempre (revisión del 14/10/2026). Ahora reactivar devuelve lo que vino o, si no vino, el guardado.
+ * Una cancelada antes de esta columna no tiene guardado: vuelve mes a mes, como antes.
+ *
+ * Compare-and-set sobre el tipo: sólo una suscripción. Devuelve el plazo que había (para Deshacer).
+ */
+export async function cambiarEstadoSuscripcionManual(
+  leadId: number,
+  estado: 'cancelada' | 'activa',
+  opts: { hoy: string; mesesAlCancelar: number; mesesAlReactivar?: number | null; autor: string },
+): Promise<{ cambio: boolean; mesesAntes: number | null; canceladaAntes: string | null }> {
+  const db = await getTenantDb();
+  const before = await getLead(leadId).catch(() => null);
+  const { data, error } = await db.from('leads').select('venta_tipo, suscripcion_meses, suscripcion_cancelada_at, suscripcion_meses_antes').eq('id', leadId).maybeSingle();
+  if (error) throw new Error(`No pude leer la suscripción: ${error.message}`);
+  if (!data) throw new Error('No encontré ese lead en este negocio.');
+  const fila = data as { venta_tipo: string | null; suscripcion_meses: number | null; suscripcion_cancelada_at: string | null; suscripcion_meses_antes: number | null };
+  if (fila.venta_tipo !== 'suscripcion') throw new Error('Ese lead no es una suscripción.');
+  const mesesAntes = fila.suscripcion_meses ?? null;
+  const canceladaAntes = fila.suscripcion_cancelada_at ?? null;
+  if ((estado === 'cancelada') === !!canceladaAntes) return { cambio: false, mesesAntes, canceladaAntes };
+  const patch = estado === 'cancelada'
+    ? { suscripcion_cancelada_at: `${opts.hoy}T12:00:00Z`, suscripcion_meses: opts.mesesAlCancelar, suscripcion_meses_antes: mesesAntes }
+    : { suscripcion_cancelada_at: null, suscripcion_meses: plazoAlReactivar(opts.mesesAlReactivar, fila.suscripcion_meses_antes), suscripcion_meses_antes: null };
+  const { data: hecho, error: e2 } = await db.from('leads').update(patch).eq('id', leadId).eq('venta_tipo', 'suscripcion').select('id');
+  if (e2) throw new Error(`No pude guardar la suscripción: ${e2.message}`);
+  const cambio = !!hecho?.length;
+  if (cambio) {
+    // El plazo deja su diff («Plazo de la suscripción», AUDIT_FIELDS): la ficha lo sabe REVERTIR desde el historial.
+    await logLeadChanges(leadId, before, await getLead(leadId).catch(() => null), opts.autor);
+    await anotarEnHistorial(leadId, [{ campo: 'Suscripción', valor_anterior: estado === 'cancelada' ? 'Activa' : 'Cancelada', valor_nuevo: estado === 'cancelada' ? 'Cancelada' : 'Activa' }], opts.autor);
+  }
+  return { cambio, mesesAntes, canceladaAntes };
 }
 
 /**
@@ -503,9 +818,14 @@ export async function registrarCobroDeProveedor(p: {
   // eso lo tiene que ver una persona, no esconderse).
   if (p.pagoId) {
     // De ESTE lead: un pagoId que viniera de otro lado no puede saldar la cuota de otra persona.
-    const cuota = await db.from('pagos').select('id, pagado, proveedor_pago_id').eq('id', p.pagoId).eq('lead_id', p.leadId).maybeSingle();
+    const cuota = await db.from('pagos').select('id, pagado, proveedor_pago_id, monto_usd').eq('id', p.pagoId).eq('lead_id', p.leadId).maybeSingle();
     if (cuota.error) throw new Error(`Error leyendo la cuota ${p.pagoId}: ${cuota.error.message}`);
-    if (cuota.data && !cuota.data.pagado && !cuota.data.proveedor_pago_id) {
+    // ⚠️ Y POR LO MISMO QUE COBRA (14/10/2026, el link por cuota): saldarla la marca pagada por SU monto, no por el del
+    // link. Si alguien la cambió después de crear el link, marcarla mentiría en el cash: entra como una cuota nueva
+    // y la persona ve las dos. NO salda otra del mismo monto: el casamiento por monto de abajo es sólo para los links
+    // SIN cuota (`!p.pagoId`); un link de la cuota 2 pagado de nuevo es plata que entró dos veces, no la cuota 3.
+    const mismoMonto = !!cuota.data && Math.abs(Number(cuota.data.monto_usd) - p.montoUsd) < 0.01;
+    if (cuota.data && !cuota.data.pagado && !cuota.data.proveedor_pago_id && mismoMonto) {
       const { error } = await db.from('pagos').update(marca).eq('id', p.pagoId).is('proveedor_pago_id', null);
       if (error) {
         if (error.code === PG_DUPLICADO) return { pagoId: p.pagoId, yaEstaba: true };
@@ -852,4 +1172,189 @@ async function _getCuotasPendientes(
   }
 
   return { vencidas, porVencer };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// El deal CAMPO POR CAMPO (14/10/2026, docs/diseno-ficha-bloques.md §3 Pagos)
+// ─────────────────────────────────────────────────────────────────────────────
+// Lo llaman los bloques de Pagos (app/crm/[id]/pagos-campo-actions.ts, que cortan sin sesión) y la API de MaKo
+// (lib/api-mako/areas/cobros.run.ts, adentro de runWithWorkspace). Las reglas son puras (lib/pagos-campo.ts);
+// acá se lee la fila del NEGOCIO, se escribe con compare-and-set y se deja la línea del historial con el actor.
+//
+// ⚠️ EL MERGE DE UN JSONB ES READ-MODIFY-WRITE, y dos pestañas editando dos campos de la misma sección en el
+// mismo segundo se pisarían una a la otra. Por eso el update va con `.eq('updated_at', lo_leido)` (el trigger de
+// la mig 0001 lo mueve en cada escritura del lead) y se reintenta con la fila fresca: la segunda escritura
+// mergea sobre la primera en vez de borrarla.
+
+type Fallo = { ok: false; error: string; faltan?: string[] };
+const esFallo = (x: unknown): x is Fallo => !!x && typeof x === 'object' && (x as { ok?: unknown }).ok === false;
+
+/** La fila del lead de ESTE negocio con las columnas pedidas, o null. */
+async function filaDelLead(leadId: number, cols: string): Promise<Record<string, unknown> | null> {
+  if (!Number.isInteger(leadId) || leadId <= 0) return null;
+  const { data, error } = await (await getTenantDb()).from('leads').select(cols).eq('id', leadId).maybeSingle();
+  if (error) throw new Error(`No pude leer el lead ${leadId}: ${error.message}`);
+  return (data as Record<string, unknown> | null) ?? null;
+}
+
+/**
+ * Read-modify-write de UNA columna del lead con compare-and-set sobre `updated_at`, hasta 3 vueltas. `armar` recibe
+ * el valor fresco y devuelve el nuevo (o null para no escribir). Devuelve lo que armó la vuelta que escribió.
+ */
+async function escribirConCas<T extends object = object>(leadId: number, col: string, armar: (actual: unknown) => ({ nuevo: unknown } & T) | Fallo | null): Promise<({ ok: true; escribio: boolean } & Partial<T>) | Fallo> {
+  const db = await getTenantDb();
+  for (let vuelta = 0; vuelta < 3; vuelta++) {
+    const fila = await filaDelLead(leadId, `${col}, updated_at`);
+    if (!fila) return { ok: false, error: 'No encontré ese lead en este negocio.' };
+    const r = armar(fila[col]);
+    if (r == null) return { ok: true, escribio: false };
+    if (esFallo(r)) return r;
+    const { nuevo, ...resto } = r as { nuevo: unknown } & T;
+    let q = db.from('leads').update({ [col]: nuevo }).eq('id', leadId);
+    q = fila.updated_at == null ? q.is('updated_at', null) : q.eq('updated_at', fila.updated_at as string);
+    const { data, error } = await q.select('id');
+    if (error) return { ok: false, error: `No pude guardar: ${error.message}` };
+    if (data?.length) return { ok: true, escribio: true, ...(resto as unknown as Partial<T>) };
+  }
+  return { ok: false, error: 'El lead cambió mientras guardabas. Vuelve a intentarlo.' };
+}
+
+export type CambioCampoDeal =
+  | { seccion: SeccionDeal; campo: string; valor: string | null }
+  | { seccion: 'lead'; campo: CampoLeadDeal; valor: string | number | null };
+
+/**
+ * Un campo del deal: de una sección jsonb (MERGE, el resto y el documento fiscal quedan) o uno de los dos sueltos
+ * (`fecha_inicio_servicio`, `facturado_por_id`, que tiene que ser una identidad fiscal de ESTE negocio).
+ * Devuelve el valor de antes, que es el Deshacer (se vuelve a llamar con él).
+ */
+export async function escribirCampoDeal(leadId: number, c: CambioCampoDeal, autor: string): Promise<{ ok: true; cambio: boolean; antes: string | number | null; despues: string | number | null } | Fallo> {
+  if (c.seccion === 'lead') {
+    if (!esCampoLeadDeal(c.campo)) return { ok: false, error: 'Ese dato no existe en el deal.' };
+    let valor: string | number | null = c.valor == null || c.valor === '' ? null : c.valor;
+    if (c.campo === 'fecha_inicio_servicio' && valor != null && (typeof valor !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(valor))) return { ok: false, error: 'La fecha tiene que ser AAAA-MM-DD.' };
+    let nombreNuevo: string | null = null;
+    if (c.campo === 'facturado_por_id' && valor != null) {
+      const id = Number(valor);
+      if (!Number.isInteger(id) || id <= 0) return { ok: false, error: 'Esa identidad fiscal no existe.' };
+      const { data, error } = await (await getTenantDb()).from('identidades_fiscales').select('id, nombre').eq('id', id).maybeSingle();
+      if (error) return { ok: false, error: `No pude leer la identidad fiscal: ${error.message}` };
+      if (!data) return { ok: false, error: 'Esa identidad fiscal no es de este negocio.' };
+      valor = id;
+      nombreNuevo = String((data as { nombre: string }).nombre);
+    }
+    const fila = await filaDelLead(leadId, c.campo);
+    if (!fila) return { ok: false, error: 'No encontré ese lead en este negocio.' };
+    const antes = (fila[c.campo] as string | number | null) ?? null;
+    if (String(antes ?? '') === String(valor ?? '')) return { ok: true, cambio: false, antes, despues: valor };
+    const { error } = await (await getTenantDb()).from('leads').update({ [c.campo]: valor }).eq('id', leadId);
+    if (error) return { ok: false, error: `No pude guardar: ${error.message}` };
+    let nombreAntes: string | null = antes == null ? null : String(antes);
+    if (c.campo === 'facturado_por_id' && antes != null) {
+      const { data } = await (await getTenantDb()).from('identidades_fiscales').select('nombre').eq('id', Number(antes)).maybeSingle();
+      nombreAntes = (data as { nombre?: string } | null)?.nombre ?? `#${String(antes)}`;
+    }
+    await anotarEnHistorial(leadId, [{ campo: CAMPOS_LEAD_DEAL[c.campo], valor_anterior: nombreAntes, valor_nuevo: nombreNuevo ?? (valor == null ? null : String(valor)) }], autor);
+    return { ok: true, cambio: true, antes, despues: valor };
+  }
+  if (!esSeccionDeal(c.seccion)) return { ok: false, error: 'Esa sección no existe en el deal.' };
+  const seccion = c.seccion;
+  const v = valorDeCampoDeal(seccion, c.campo, c.valor);
+  if (!v.ok) return v;
+  const r = await escribirConCas<{ antes: string | null }>(leadId, COLUMNA_SECCION[seccion], (actual) => {
+    const m = fusionarCampo(actual as Record<string, unknown> | null, c.campo, v.valor);
+    return m.cambio ? { nuevo: m.seccion, antes: m.antes } : null;
+  });
+  if (!r.ok) return r;
+  if (!r.escribio) return { ok: true, cambio: false, antes: v.valor, despues: v.valor };
+  const antes = r.antes ?? null;
+  await anotarEnHistorial(leadId, [{ campo: rotuloCampoDeal(seccion, c.campo), valor_anterior: antes, valor_nuevo: v.valor }], autor);
+  return { ok: true, cambio: true, antes, despues: v.valor };
+}
+
+/** Un renglón de las obligaciones (agregar, editar o quitar), con compare-and-set y su Deshacer. */
+export async function escribirObligacion(leadId: number, cambio: CambioObligacion, autor: string): Promise<{ ok: true; obligaciones: Obligaciones; deshacer: CambioObligacion } | Fallo> {
+  let aplicado: { obligaciones: Obligaciones; antes: string | null; despues: string | null; deshacer: CambioObligacion } | null = null;
+  const r = await escribirConCas(leadId, 'deal_obligaciones', (actual) => {
+    const a = aplicarObligacion(actual, cambio);
+    if (!a.ok) return a;
+    aplicado = a;
+    return { nuevo: a.obligaciones };
+  });
+  if (!r.ok) return r;
+  const hecho = aplicado as { obligaciones: Obligaciones; antes: string | null; despues: string | null; deshacer: CambioObligacion } | null;
+  if (!hecho) return { ok: false, error: 'No se guardó nada.' };
+  await anotarEnHistorial(leadId, [{ campo: rotuloObligacion(cambio.parte), valor_anterior: hecho.antes, valor_nuevo: hecho.despues }], autor);
+  return { ok: true, obligaciones: hecho.obligaciones, deshacer: hecho.deshacer };
+}
+
+const ROTULO_TIPO: Readonly<Record<VentaTipo, string>> = { unico: 'Pago único', suscripcion: 'Suscripción', sin_cobro: 'Sin cobro' };
+
+/**
+ * Un dato de la venta (monto, plazo, fecha o tipo), con compare-and-set sobre `venta_tipo` como Editar deal
+ * (deal-actions.ts): una pantalla vieja no le cuelga una mensualidad a un pago único. `tipoVisto` es el tipo que
+ * dibujó la pantalla: si ya no es ése, no se escribe. Salir de «sin cobro» va por `quitarSinCobro` (su CAS).
+ *
+ * La plata deja su diff con `logLeadChanges` (AUDIT_FIELDS: «Monto de cierre», «Suscripción (USD/mes)», «Plazo de
+ * la suscripción»), que la ficha sabe REVERTIR; la fecha y el tipo dejan su línea con el antes y el después.
+ */
+export async function escribirVenta(leadId: number, cambio: CambioVenta, opts: { autor: string; tipoVisto?: VentaTipo | null }): Promise<{ ok: true; cambio: boolean; ventaTipo: VentaTipo; deshacer: CambioVenta[] } | Fallo> {
+  const fila = await filaDelLead(leadId, 'venta_tipo, monto_cierre_usd, suscripcion_monto_usd, suscripcion_meses, fecha_cierre');
+  if (!fila) return { ok: false, error: 'No encontré ese lead en este negocio.' };
+  const tipo = ventaTipoDe(fila.venta_tipo as string | null);
+  if (opts.tipoVisto && opts.tipoVisto !== tipo) return { ok: false, error: 'El tipo de venta cambió en otra pantalla. Recarga la ficha.' };
+  // ⚠️ UNA SUSCRIPCIÓN QUE COBRA LA PASARELA NO SE CAMBIA DESDE EL CRM (revisión del 14/10/2026): pasarla a pago
+  // único, o cambiarle la mensualidad o el plazo, dejaba al MRR contando otra cosa mientras Stripe o Mercado Pago
+  // seguían cobrando lo de siempre (y la renovación siguiente entraba como cuota de un pago único). Es la misma
+  // condición con que se niega cancelarla a mano (`laCobraLaPasarela`). La fecha sí se corrige.
+  if (tipo === 'suscripcion' && cambio.campo !== 'fecha') {
+    const { data: cs, error: eC } = await (await getTenantDb()).from('cobros').select('tipo, estado, suscripcion_estado').eq('lead_id', leadId).eq('tipo', 'suscripcion');
+    if (eC) return { ok: false, error: `No pude revisar si la cobra la pasarela: ${eC.message}` };
+    if (laCobraLaPasarela((cs ?? []) as Array<{ tipo: string; estado: string; suscripcion_estado: string | null }>)) {
+      return { ok: false, error: 'Esta suscripción la cobra la pasarela: se cambia o se cancela desde su cobro, en Links de pago.' };
+    }
+  }
+  const cuotas = await getPagosByLead(leadId);
+  const cobradas = cuotas.filter((q) => q.pagado).length;
+  const impagas = cuotas.filter((q) => !q.pagado && !esCuotaDevuelta(q)).length;
+  const p = patchDeVenta(fila as FilaVenta, cambio, { hayCobradas: cobradas > 0, impagas });
+  if (!p.ok) {
+    if ('usarQuitarSinCobro' in p && p.usarQuitarSinCobro) {
+      const q = await quitarSinCobro(leadId, opts.autor);
+      return q.cambio
+        ? { ok: true, cambio: true, ventaTipo: 'unico', deshacer: [{ campo: 'tipo', valor: VENTA_SIN_COBRO }] }
+        : { ok: false, error: 'El tipo de venta cambió en otra pantalla. Recarga la ficha.' };
+    }
+    return p;
+  }
+  if (p.nada) return { ok: true, cambio: false, ventaTipo: tipo, deshacer: [] };
+  const before = await getLead(leadId).catch(() => null);
+  const db = await getTenantDb();
+  let q = db.from('leads').update(p.patch).eq('id', leadId);
+  if (p.tipoEsperado) q = q.eq('venta_tipo', p.tipoEsperado);
+  const { data, error } = await q.select('id');
+  if (error) return { ok: false, error: `No pude guardar la venta: ${error.message}` };
+  if (!data?.length) return { ok: false, error: 'El tipo de venta cambió en otra pantalla. Recarga la ficha.' };
+  const after = await getLead(leadId).catch(() => null);
+  await logLeadChanges(leadId, before, after, opts.autor);
+  const lineas: Array<{ campo: string; valor_anterior: string | null; valor_nuevo: string | null }> = [];
+  if (cambio.campo === 'fecha') lineas.push({ campo: 'Fecha de cierre', valor_anterior: (fila.fecha_cierre as string | null) ?? null, valor_nuevo: cambio.valor ?? null });
+  const nuevoTipo = cambio.campo === 'tipo' ? ventaTipoDe(cambio.valor) : tipo;
+  if (nuevoTipo !== tipo) lineas.push({ campo: 'Tipo de venta', valor_anterior: ROTULO_TIPO[tipo], valor_nuevo: ROTULO_TIPO[nuevoTipo] });
+  await anotarEnHistorial(leadId, lineas, opts.autor);
+  return { ok: true, cambio: true, ventaTipo: nuevoTipo, deshacer: p.deshacer };
+}
+
+/**
+ * Saca a un lead de «Sin cobro»: vuelve a pago único, con compare-and-set sobre el tipo. Es la regla de
+ * `quitarSinCobroAction` (deal-actions.ts) para quien no es una pantalla con sesión (la API) o la llama por
+ * dentro (`escribirVenta`); la acción se queda con la suya, que la tarjeta del deal usa tal cual.
+ */
+export async function quitarSinCobro(leadId: number, autor: string): Promise<{ cambio: boolean }> {
+  const { data, error } = await (await getTenantDb()).from('leads')
+    .update({ venta_tipo: 'unico' }).eq('id', leadId).eq('venta_tipo', VENTA_SIN_COBRO).select('id');
+  if (error) throw new Error(`No se pudo cambiar el tipo de venta: ${error.message}`);
+  if (!data?.length) return { cambio: false };
+  await logLeadEvent(leadId, 'Tipo de venta', 'Con cobro', autor);
+  return { cambio: true };
 }

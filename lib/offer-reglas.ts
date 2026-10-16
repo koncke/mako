@@ -43,7 +43,7 @@ import { CANALES, PREGUNTAS, VOLUMEN_POR_CANAL, diagnosticar, type CanalId, type
 import {
   DIMENSION_IDS, DIMENSIONES_CRITICAS, MARCA_COMPLETAR, PIEZAS, PIEZA_KEYS, PREGUNTAS_GUIA,
   dimensionLabel, esDimensionId, esPiezaKey, faltanMinimas, piezaLabel,
-  type AdjuntoVista, type ArbolOffer, type BonoPropuesto, type CalculoDiagnostico, type CambioPropuesto, type DiagnosticoOferta,
+  type AdjuntoVista, type ArbolOffer, type ArchiveroDoc, type BonoPropuesto, type CalculoDiagnostico, type CambioPropuesto, type DiagnosticoOferta,
   type DimensionId, type EcuacionFila, type Entregable, type FaseRuta, type FuentePieza, type ModoSesion,
   type NotaDimension, type OfferMensaje, type OfferSesionResumen, type PiezaKey, type PiezaSabida, type PiezasSabidas,
   type PropuestaOferta, type PuntoControlFinal, type VariableValor,
@@ -274,8 +274,11 @@ function sanearPdf(raw: unknown): MensajeGuardado['pdf'] {
   return typeof v === 'number' && Number.isInteger(v) && v > 0 ? { version: v } : undefined;
 }
 
-/** Un documento leído, como se guarda en `offer_sesiones.documentos` (con su texto). */
-export type DocumentoGuardado = { id: string; nombre: string; via: string; texto: string; chars: number; aviso?: string; at: string };
+/**
+ * Un documento leído, como se guarda en `offer_sesiones.documentos` (con su texto). `archivero` = qué pasó
+ * al guardarlo también en El Archivero (lib/offer-marco.ts → ArchiveroDoc); lo escribe `conArchivero`.
+ */
+export type DocumentoGuardado = { id: string; nombre: string; via: string; texto: string; chars: number; aviso?: string; archivero?: ArchiveroDoc; at: string };
 
 /** Tope del texto que se guarda de un documento. */
 export const TOPE_TEXTO_DOC = 40_000;
@@ -294,15 +297,35 @@ export function sanearDocumentos(raw: unknown): DocumentoGuardado[] {
       id: o.id, nombre: o.nombre, via: typeof o.via === 'string' ? o.via : 'texto', texto: t,
       chars: typeof o.chars === 'number' && Number.isFinite(o.chars) ? o.chars : t.length,
       ...(typeof o.aviso === 'string' && o.aviso.trim() ? { aviso: o.aviso } : {}),
+      ...conArchiveroSaneado(o.archivero),
       at: typeof o.at === 'string' ? o.at : '',
     });
   }
   return out;
 }
 
+/**
+ * El estado del Archivero, tal como vuelve de la base. ⚠️ Sin esto, la próxima escritura de la conversación
+ * lo BORRA: `sanearDocumentos` y `sanearAdjuntos` rearman cada objeto con los campos que conocen.
+ */
+export function sanearArchiveroDoc(raw: unknown): ArchiveroDoc | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const o = raw as Record<string, unknown>;
+  if (o.ok === true && typeof o.id === 'string' && o.id.trim()) {
+    return { ok: true, id: o.id, ...(typeof o.aviso === 'string' && o.aviso.trim() ? { aviso: o.aviso } : {}) };
+  }
+  if (o.ok === false && typeof o.motivo === 'string' && o.motivo.trim()) return { ok: false, motivo: o.motivo };
+  return undefined;
+}
+const conArchiveroSaneado = (raw: unknown): { archivero?: ArchiveroDoc } => {
+  const a = sanearArchiveroDoc(raw);
+  return a ? { archivero: a } : {};
+};
+
 /** Lo que de un documento ve la pantalla: todo MENOS el texto. */
 export const adjuntoDe = (d: DocumentoGuardado): AdjuntoVista => ({
   id: d.id, nombre: d.nombre, via: d.via, chars: d.chars, ...(d.aviso ? { aviso: d.aviso } : {}),
+  ...(d.archivero ? { archivero: d.archivero } : {}),
 });
 
 function sanearAdjuntos(raw: unknown): AdjuntoVista[] {
@@ -315,7 +338,47 @@ function sanearAdjuntos(raw: unknown): AdjuntoVista[] {
       via: typeof a.via === 'string' ? a.via : 'texto',
       chars: typeof a.chars === 'number' ? a.chars : 0,
       ...(typeof a.aviso === 'string' && a.aviso.trim() ? { aviso: a.aviso } : {}),
+      ...conArchiveroSaneado(a.archivero),
     }));
+}
+
+// ── El documento, también en El Archivero ────────────────────────────────────
+// Decisión de Martín (Ticketera, 15/10/2026 05:32, ref `offer-archivero`): «¿El Archivero del chat guarda
+// el archivo y paga una extracción por documento? → A · Sí». Lo hace la ruta POR DETRÁS (lib/archivero.ts
+// → registrarDocumentoSinPisar); acá, lo que decide.
+
+/**
+ * Qué lectura de 'leer' va también al Archivero: un ARCHIVO del negocio (texto, Word, PDF, imagen,
+ * planilla, presentación, OpenDocument). NO un audio o un video subido como documento (`via: 'audio'`): El
+ * Archivero no los acepta en su pantalla y lo que se guardaría es la grabación entera para sacarle campos
+ * de una transcripción. La página de un link ('leer-link') tampoco pasa por acá: no hay archivo que
+ * guardar, y lo que Martín aprobó es guardar el archivo.
+ */
+export function seArchivaDesdeOffer(via: string): boolean {
+  return ['texto', 'docx', 'pdf', 'pdf-vision', 'imagen', 'planilla', 'diapositivas', 'opendocument'].includes(via);
+}
+
+/** El `motivo` de la extracción en el Saldo de IA: la feature es la del Archivero, el motivo dice de dónde vino. */
+export const motivoArchivoOffer = (nombre: string): string => `Offer → El Archivero: extraer campos de «${recortar(nombre, 120)}»`;
+
+/**
+ * La conversación con el resultado del Archivero anotado en el documento Y en los adjuntos de los
+ * mensajes que lo llevan (son copias: el chip se dibuja desde el mensaje). null = el documento ya no está
+ * en esta conversación, no hay nada que anotar. No toca nada más: ni el texto, ni las piezas, ni el
+ * borrador.
+ */
+export function conArchivero(
+  f: { documentos: DocumentoGuardado[]; mensajes: MensajeGuardado[] }, docId: string, estado: ArchiveroDoc,
+): { documentos: DocumentoGuardado[]; mensajes?: MensajeGuardado[] } | null {
+  if (!f.documentos.some((d) => d.id === docId)) return null;
+  const documentos = f.documentos.map((d) => (d.id === docId ? { ...d, archivero: estado } : d));
+  let tocados = 0;
+  const mensajes = f.mensajes.map((m) => {
+    if (!m.adjuntos?.some((a) => a.id === docId)) return m;
+    tocados++;
+    return { ...m, adjuntos: m.adjuntos.map((a) => (a.id === docId ? { ...a, archivero: estado } : a)) };
+  });
+  return tocados ? { documentos, mensajes } : { documentos };
 }
 
 /** Los rótulos de las piezas mínimas que faltan, para decírselo al dueño en una frase. */

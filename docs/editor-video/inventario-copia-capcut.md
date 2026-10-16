@@ -54,11 +54,12 @@ Estado: ✓ hecho · ◐ a medias · ✗ falta y se puede copiar · ⊘ fuera.
 | Función | | Nota |
 |---|---|---|
 | Subtítulos automáticos · Idioma de origen · Plantillas (12) · Importar SRT/LRC/ASS · Ingresar manualmente · Exportar SRT/TXT | ✓ | nunca vistos en Chrome |
-| Muletillas | ◐ | se identifican; eliminarlas no (lo cercano es «Borrar silencios») |
+| Muletillas · Eliminar las muletillas del video | ✓ | 15/10, `transcripcion/`: se identifican (también las que siguen en el texto) y se cortan del video; sin ver en Chrome |
 | Tiempos por palabra | ✓ | se guardan desde el 15/10 (`subtitles/palabras.ts`) |
 | Dividir y combinar con Enter/Retroceso/Supr · Buscar y reemplazar | ✓ | 15/10, `subtitles/editar.ts`; sin ver en Chrome |
+| Animaciones de subtítulos (karaoke: palabra o frase pronunciada, opacidad de lo no dicho) | ✓ | 15/10, `text/resaltado.ts`; sin «Palabra/Frase no pronunciada» por separado; sin ver en Chrome |
 | Resaltar palabras clave | ✗ | ya tiene los tiempos por palabra |
-| Edición basada en la transcripción (borrar el texto borra el video) | ✗ | palabras de Whisper → tramo de tiempo |
+| Edición basada en la transcripción (borrar el texto borra el video) | ◐ | 15/10, «Transcripción» en Subtítulos: elegir y eliminar; sin copiar/pegar partes ni «Mostrar texto eliminado»; sin ver en Chrome |
 | Subtítulos bilingües | ✗ | Translator de Chrome (gratis, sólo escritorio); NLLB no (CC BY-NC) |
 | Letras automáticas | ✗ | Whisper, peor con música |
 | Emojis de IA | ✗ | necesita un modelo: va con el Gemini del cliente y se avisa antes |
@@ -181,9 +182,9 @@ para esto.
 1. Mirarlos andar en Chrome: generar, plantillas, importar, manual, exportar SRT, y lo del 15/10.
 2. ~~Guardar los tiempos por palabra en cada subtítulo~~ — **hecho el 15/10** (`7ef765fcc`). Hasta ese día se
    pedían y se tiraban.
-3. ~~Dividir y combinar con Enter/Retroceso · Buscar y reemplazar~~ — **hechos el 15/10**. Falta resaltar
-   palabras (tipo karaoke y palabras clave).
-4. Eliminar las muletillas del VIDEO (sus tiempos ya se guardan, marcados) y la edición basada en la
-   transcripción. Cortan el video: se construyen después de poder mirarlas en Chrome.
+3. ~~Dividir y combinar con Enter/Retroceso · Buscar y reemplazar~~ — **hechos el 15/10**. ~~Resaltar
+   palabras tipo karaoke~~ — **hecho el 15/10** (cuenta 3). Falta resaltar palabras CLAVE.
+4. ~~Eliminar las muletillas del VIDEO y la edición basada en la transcripción~~ — **escritas el 15/10**
+   (cuenta 3, orden aprobado por el coordinador). Cortan el video y NO se miraron en Chrome: es lo primero.
 5. Bilingües (Translator de Chrome) · Letras automáticas · Emojis de IA. Esta última necesita un modelo: va con
    el Gemini del cliente y la pantalla lo avisa antes de arrancar.

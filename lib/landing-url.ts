@@ -7,16 +7,24 @@
 // páginas DECLARADAS en el Pixel contra las ya analizadas. landing-fetch la
 // re-exporta: sigue habiendo UNA.
 //
-// ⚠️ NO ES LA MISMA que `normalizarUrl` de lib/landing-paginas.ts (la del Pixel),
-// que conserva el www, el protocolo y el query que no reconoce. Cruzar una con
-// otra sin pasar las dos por ÉSTA muestra como «nunca analizada» una página que se
-// analiza todos los días.
+// ⚠️ SE LLAMABA `normalizarUrl`, COMO LA DEL PIXEL (lib/landing-paginas.ts), y no es la misma: aquélla
+// conserva el www, el protocolo y el query que no es de medición, y funde los deploys de Netlify. Dos
+// funciones con un nombre y contratos opuestos se importaban una por otra sin que nada avisara (el
+// runner de la API tenía que renombrarlas al importarlas). Desde el 15/10/2026 hay UNA `normalizarUrl`
+// (la del Pixel) y ésta es `claveDeLanding`: contesta OTRA pregunta, «¿qué LANDING analizada es ésta?»,
+// y su resultado es la llave de `landing_analyses.url`. No puede llamar a la otra: la del Pixel ya
+// fundió el host del deploy y soltó las credenciales, y derivar ésta de aquélla cambiaría la llave de
+// filas guardadas (tests/landing-url-unica.test.ts las fija contra las implementaciones de antes).
+//
+// ⚠️ ES UNA LLAVE, NO UNA DIRECCIÓN. Sin la barra final, sin el www y sin el query, hay hosts que
+// contestan 403 o no existen: para BAJAR la página va `urlTalCual` (abajo), con lo que pegó la persona.
 // =============================================================================
 
 import { urlLandingVigente } from './editor-landing/dominios-reglas';
 
 /**
- * Normaliza la URL de una landing a la entidad que se analiza.
+ * La LLAVE de una landing en el Landing Analyst (`landing_analyses.url`): la entidad que se analiza.
+ * Tira si no es una URL (el que llama decide; ver la cabecera para por qué no es `normalizarUrl`).
  *
  * SE TIRA EL QUERYSTRING ENTERO, no una lista de params conocidos. Se intentó lo
  * segundo y no alcanza: medido contra producción (5/8/2026), el workspace de un
@@ -31,7 +39,7 @@ import { urlLandingVigente } from './editor-landing/dominios-reglas';
  * el intercambio consciente hasta que exista el soporte de A/B y multi-landing,
  * que hoy es una tarea a futuro del plan.
  */
-export function normalizarUrl(input: string): string {
+export function claveDeLanding(input: string): string {
   const bruto = input.trim();
   const conEsquema = /^https?:\/\//i.test(bruto) ? bruto : `https://${bruto}`;
   const u = new URL(conEsquema);
@@ -44,7 +52,7 @@ export function normalizarUrl(input: string): string {
 }
 
 /**
- * Las visitas de UNA landing (`url`, ya normalizada con `normalizarUrl`) entre las del workspace, y si
+ * Las visitas de UNA landing (`url`, ya normalizada con `claveDeLanding`) entre las del workspace, y si
  * su gente entró también a OTRA landing (`compartidos`: la profundidad del VSL se atribuye por
  * visitante y hay que decir que es ambigua). Lo usa `getComportamiento` (lib/landing-analyst.ts, el
  * Diagnóstico); vive acá, sin `server-only`, para que un test lo EJECUTE.
@@ -58,7 +66,7 @@ export function normalizarUrl(input: string): string {
 export function visitasDeLaLanding<V extends { visitor_id: string; landing_url: string | null }>(visitas: readonly V[], url: string): { mias: V[]; compartidos: boolean } {
   // La URL guardada por el beacon trae utm/fbclid: se compara NORMALIZADA contra
   // la que se analizó. Sin esto el mismo aterrizaje con y sin utm no cruza.
-  const norm = (u: string | null): string | null => { if (!u) return null; try { return normalizarUrl(u); } catch { return null; } };
+  const norm = (u: string | null): string | null => { if (!u) return null; try { return claveDeLanding(u); } catch { return null; } };
   const clave = urlLandingVigente(url);
   const mias = visitas.filter((v) => { const u = norm(v.landing_url); return u !== null && urlLandingVigente(u) === clave; });
   const visitantes = new Set(mias.map((v) => v.visitor_id).filter(Boolean));
@@ -84,11 +92,11 @@ export const MINUTOS_CORTE_ANALISIS = 15;
  */
 export function faltanAnalizar(declaradas: string[], existentes: string[]): string[] {
   const ya = new Set<string>();
-  for (const e of existentes) { try { ya.add(normalizarUrl(e)); } catch { /* una fila rota no tapa nada */ } }
+  for (const e of existentes) { try { ya.add(claveDeLanding(e)); } catch { /* una fila rota no tapa nada */ } }
   const out: string[] = [];
   for (const d of declaradas) {
     let u: string;
-    try { u = normalizarUrl(d); } catch { continue; }
+    try { u = claveDeLanding(d); } catch { continue; }
     if (ya.has(u) || out.includes(u)) continue;
     out.push(u);
   }
@@ -106,14 +114,14 @@ export function analisisCortado(estado: string | null | undefined, actualizado: 
  * La MISMA URL que pegó la persona, lista para bajar: se le pone el esquema si falta y se le saca el
  * hash (que no viaja al server). **Conserva el `www.` y el querystring entero.**
  *
- * Es la contracara de `normalizarUrl`, y la diferencia no es un detalle: aquélla responde «¿qué LANDING
+ * Es la contracara de `claveDeLanding`, y la diferencia no es un detalle: aquélla responde «¿qué LANDING
  * es ésta?» —y para eso el query sobra, porque `?sfnsn=` y `__lovable_load_id` fabricaban una entidad
  * nueva por visita—, y ésta responde «¿qué PÁGINA quiere que lea?». Un `?page_id=245` de un WordPress
  * sin permalinks no es ruido de medición: ES la página. Normalizada, baja la home — otra oferta — y la
  * IA anota piezas de ahí sin que nada avise, que es el peor desenlace posible.
  *
  * Lo usa `extraerLanding(url, { talCual: true })` desde Offer, donde el dueño pega el link de SU página.
- * No se usa para la identidad de una landing: eso sigue siendo `normalizarUrl`, y mezclarlas haría
+ * No se usa para la identidad de una landing: eso sigue siendo `claveDeLanding`, y mezclarlas haría
  * aparecer la misma página como veinticuatro.
  */
 export function urlTalCual(input: string): string {
@@ -122,4 +130,14 @@ export function urlTalCual(input: string): string {
   u.hostname = u.hostname.toLowerCase();
   u.hash = '';
   return u.toString();
+}
+
+/**
+ * La dirección real para BAJAR una landing analizada: `url_final` si su llave es la de la fila; si no, null (y se
+ * baja la llave). La llave (`claveDeLanding`: sin barra final, sin www, sin query) sirve para buscar la fila, no
+ * para pedir la página: hay sitios que contestan 403 a la llave y 200 a la dirección real (15/10/2026).
+ */
+export function direccionParaBajar(llave: string, urlFinal: string | null | undefined): string | null {
+  if (!urlFinal) return null;
+  try { return claveDeLanding(urlFinal) === llave ? urlFinal : null; } catch { return null; }
 }

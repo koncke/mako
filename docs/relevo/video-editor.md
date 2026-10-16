@@ -2,6 +2,22 @@
 
 *12/10/2026, chat «Video Editor», cuenta claude3 (semana al 88 %).*
 
+## 15/10 noche (cuenta 3): pasos 2–4 de los subtítulos y el chat con todo lo que el editor sabe hacer
+
+Orden aprobado por el coordinador «Estrategia 3 cuentas». Escrito y con tests, **NADA visto en Chrome**:
+- **Edición por transcripción**: Biblioteca › Subtítulos › «Transcripción» (y el botón de la barra): elegir
+  palabras y Supr las saca del video y del subtítulo. **«Eliminar las muletillas»** del video, ahí mismo.
+- **Karaoke**: «Animaciones de subtítulos» en el panel de un subtítulo (palabra o frase pronunciada, opacidad de
+  lo no dicho) y tres plantillas («Karaoke», «Palabra resaltada», «Atenuado»).
+- **El chat «Editar con IA»**: de 11 a 32 operaciones (transiciones, animaciones, filtros, color, velocidad,
+  recortar, estilo y posición del texto, audio, revertir, congelar, cortar por frase/tramo, muletillas,
+  karaoke). Lo que no sabe hacer lo dice.
+- Lo aprendido, en `docs/hallazgos-video-editor.md` (secciones del 15/10) y dos reglas nuevas al final de
+  AGENTS.md. **Lo primero que sigue**: mirarlo en Chrome (transcripción, karaoke y cada operación del chat), y
+  después el punto 3 del orden: las cinco plantillas de anuncio (relevamiento en
+  `docs/editor-video/relevamiento-plantillas.md`, con lo investigado en la web el 15/10 al final). Regla de RAM del coordinador: nada de workflows de varios agentes ni tsc completo
+  en la notebook (el completo y los tests corren en GitHub Actions, rama `integracion`).
+
 ## 15/10 (cuenta 1): PRIMERO TERMINAR LA COPIA DE CAPCUT (Martín: «tal vez que termine eso primero»)
 
 - El inventario, en `docs/editor-video/inventario-copia-capcut.md`. De 158 funciones de CapCut: 74 hechas, 26 a

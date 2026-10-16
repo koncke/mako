@@ -76,6 +76,9 @@ test('el layout lee la sesión ANTES de dibujar: es lo que vuelve dinámicas a t
 // también falla, para que no quede un permiso escrito para algo que nadie usa.
 const LOADING_PERMITIDOS = [
   'app/crm/loading.tsx',
+  // El Centro de Operaciones (16/10/2026): /admin es privado entero, y Martín se quejó de que «tarda mucho en
+  // aparecer». El esqueleto es la forma de la pantalla (la barra y la caja), para que nada salte al llegar.
+  'app/admin/operaciones/loading.tsx',
   // MaKo Mobile (v2, 11/10/2026): /m es PRIVADO entero (cada page.tsx llama a requireMovil), así
   // que su esqueleto no esconde nada público. Es lo que hace sentir nativa la entrada a una
   // sección cuya lectura tarda (la pauta, el informe, el historial de videos, las landings).

@@ -53,7 +53,8 @@ export const DEFAULT_SCHEMA: Group[] = [
 ];
 
 const SCHEMA_KEY = 'mako.onboarding.schema';
-const ANSWERS_KEY = 'mako.onboarding.answers';
+/** Exportada para quien lee las answers ESTRICTO antes de escribir encima (lib/archivero.ts): la clave no se copia. */
+export const ANSWERS_KEY = 'mako.onboarding.answers';
 
 export async function getSchema(): Promise<Group[]> {
   const raw = await getSetting(SCHEMA_KEY);
@@ -124,7 +125,13 @@ export async function extractAnswersFromText(texto: string, fields: Array<{ key:
 // campos que encontró + una frase corta de qué aportó ese documento.
 export const ARCHIVERO_EXTRACT_TEMPLATE = `Eres un extractor de datos del negocio. Recibes el texto de UN documento del cliente y una lista de CAMPOS. Devuelve SOLO JSON con ESTA forma exacta, y el "razonamiento" SIEMPRE presente: {"razonamiento": "<2-3 frases>", "campos": {"<clave>": "<valor>"}}. El "razonamiento" (OBLIGATORIO, nunca vacío) son 2-3 frases que EMPIEZAN nombrando qué tipo de documento es (Avatar, Oferta, Nicho, Producto, o mixto) y DESCRIBEN con detalle qué entendiste del negocio a partir de él, para que el cliente vea que lo leíste bien. Escribe el razonamiento en español NEUTRO (de "tú", sin voseo argentino). (ej: "Documento de Avatar y Oferta. Define al cliente ideal —un profesional estancado— y su dolor de depender de sí mismo, y describe la oferta 'Negocio que Escala' con su promesa de escalar sin perder el control."). Luego, en "campos", para cada campo pon el valor que corresponda según el texto, conciso y en las palabras del cliente; si un campo no aparece o no se puede inferir con confianza, omítelo (NO lo inventes). Si el documento no aporta ningún campo útil, "campos" vacío pero el "razonamiento" igual explica qué es el documento. Claves válidas de "campos" (clave: qué pide):\n{{lista}}`;
 
-export async function extraerDeArchivo(texto: string, fields: Array<{ key: string; label: string }>, maxChars = 24000): Promise<{ campos: Record<string, string>; razonamiento: string; sinIA: boolean; motivoSinIA?: string }> {
+/**
+ * `opts`: a quién se le anota el gasto en el Saldo de IA y el plazo. Sin nada, lo de siempre (feature 'El
+ * Archivero', «Extraer campos de un documento del negocio»). El chat de Offer pasa su `motivo` desde el
+ * 15/10/2026 (decisión de Martín: cada documento que el dueño manda ahí paga UNA extracción) y un `hastaMs`
+ * ABSOLUTO, porque corre por detrás de una ruta con maxDuration.
+ */
+export async function extraerDeArchivo(texto: string, fields: Array<{ key: string; label: string }>, maxChars = 24000, opts: { feature?: string; motivo?: string; hastaMs?: number } = {}): Promise<{ campos: Record<string, string>; razonamiento: string; sinIA: boolean; motivoSinIA?: string }> {
   if (!texto.trim() || fields.length === 0) return { campos: {}, razonamiento: '', sinIA: false };
   const lista = fields.map((f) => `- ${f.key}: ${f.label}`).join('\n');
   const sys = await renderPrompt('archivero.extract.system', ARCHIVERO_EXTRACT_TEMPLATE, { lista });
@@ -132,7 +139,7 @@ export async function extraerDeArchivo(texto: string, fields: Array<{ key: strin
   // usamos modelos capaces (70b/flash) y `validar` para que, si uno falla, rescate el
   // siguiente. Sin esto, un doc de +10k chars volvía "sin datos útiles" (bug reportado).
   const errores: string[] = [];
-  const out = await chatCheapCascade({ system: sys, user: texto.slice(0, maxChars), json: true, maxTokens: 2000, feature: 'El Archivero', motivo: 'Extraer campos de un documento del negocio', provs: CASCADA_DOCS, modelos: MODELO_DOCS, validar: esJsonObjeto, erroresOut: errores, redDePlataforma: true });
+  const out = await chatCheapCascade({ system: sys, user: texto.slice(0, maxChars), json: true, maxTokens: 2000, feature: opts.feature || 'El Archivero', motivo: opts.motivo || 'Extraer campos de un documento del negocio', provs: CASCADA_DOCS, modelos: MODELO_DOCS, validar: esJsonObjeto, erroresOut: errores, redDePlataforma: true, ...(opts.hastaMs ? { hastaMs: opts.hastaMs } : {}) });
   // out vacío: puede ser "sin ninguna key en el workspace" O "hay key pero la cascada
   // falló igual" (cuota, rate-limit, key vencida). El caller (route) YA validó lo
   // primero con docsIADisponible() antes de llegar hasta acá, así que si pasa por

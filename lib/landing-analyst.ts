@@ -28,12 +28,12 @@ import { esCascadaSinRespuesta } from './ia-mensajes';
 import { contenidoNoConfiable, getPromptText, renderPrompt } from './prompt-render';
 import { getFunnelDefault } from './funnels';
 import { perfilNegocioTexto } from './onboarding';
-import { extraerLanding, normalizarUrl, type LandingExtraida } from './landing-fetch';
+import { extraerLanding, claveDeLanding, type LandingExtraida } from './landing-fetch';
 import { bloqueadaParaGuardar } from './landing-extraer';
 import { LINEA_LEIDA_EN_NAVEGADOR, lineasProbadas, mensajeEnNavegador, motivoDeError } from './editor-landing/lectura-reglas';
 import type { Lectura, MotivoEnNavegador } from './editor-landing/lectura-tipos';
 import { esPreviewDeEditor } from './landing-paginas';
-import { analisisCortado, visitasDeLaLanding } from './landing-url';
+import { analisisCortado, direccionParaBajar, visitasDeLaLanding } from './landing-url';
 // La profundidad del VSL NO se calcula acá: se reusa el módulo que ya resolvió
 // el problema (mig 0121 — el player de Panda no le da la duración al navegador,
 // así que el dato crudo son los segundos y el % se deriva). Su regla, que este
@@ -240,7 +240,7 @@ export async function urlsDescubiertas(): Promise<Array<{ url: string; visitas: 
     // que además cambia en cada recarga. Ver `esPreviewDeEditor`.
     if (esPreviewDeEditor(v.landing_url)) continue;
     let u: string;
-    try { u = normalizarUrl(v.landing_url); } catch { continue; }
+    try { u = claveDeLanding(v.landing_url); } catch { continue; }
     cuenta.set(u, (cuenta.get(u) ?? 0) + 1);
   }
   return [...cuenta.entries()].sort((a, b) => b[1] - a[1]).map(([url, n]) => ({ url, visitas: n }));
@@ -697,7 +697,7 @@ export async function analizarLanding(
   opts: { origen?: 'auto'; lectura?: Lectura; leer?: string } & OpcionesAnalisis = {},
 ): Promise<AnalizarResultado> {
   let url: string;
-  try { url = normalizarUrl(urlInput); }
+  try { url = claveDeLanding(urlInput); }
   catch { return { ok: false, error: 'Esa no es una dirección válida. Pega la URL completa de tu landing.', url: urlInput }; }
 
   const manual = (copyManual ?? '').trim();
@@ -728,7 +728,7 @@ export async function analizarLanding(
     };
   } else {
     // La que pegó la persona, si es la MISMA página que la llave (si no, la llave).
-    const leer = (() => { try { return opts.leer && normalizarUrl(opts.leer) === url ? opts.leer : null; } catch { return null; } })();
+    const leer = (() => { try { return opts.leer && claveDeLanding(opts.leer) === url ? opts.leer : null; } catch { return null; } })();
     try {
       pagina = await extraerLanding(leer ?? url, leer ? { talCual: true } : {});
       // La fila guarda la llave, no la dirección con www o query que se bajó.
@@ -959,21 +959,31 @@ export async function landingsParaCerebro(): Promise<Array<{
   }).filter((l) => l.url);
 }
 
-export async function listarAnalizadas(): Promise<Array<{ url: string; veredicto: string | null; score: number | null }>> {
+/**
+ * `url` es la LLAVE de la fila (sin barra final, sin www, sin query: `claveDeLanding`) y sirve para buscarla, no
+ * para bajar la página: hay sitios que contestan 403 a la llave y 200 a la dirección real (15/10/2026, el
+ * coordinador vio la misma pantalla pedir la página dos veces). Para BAJAR va `leer`: la dirección a la que llegó
+ * la última lectura (`url_final`), sólo si sigue siendo la misma landing (su llave es la de la fila).
+ */
+export async function listarAnalizadas(): Promise<Array<{ url: string; leer: string | null; veredicto: string | null; score: number | null }>> {
   const supabase = (await getTenantDb());
   const { data, error } = await supabase
     .from('landing_analyses')
-    .select('url, veredicto, score')
+    .select('url, url_final, veredicto, score')
     .eq('status', 'analizada')
     .order('analyzed_at', { ascending: false, nullsFirst: false });
   if (error) throw new Error(`Error leyendo landings: ${error.message}`);
-  return ((data ?? []) as Array<{ url: string; veredicto: string | null; score: unknown }>)
-    .map((l) => { const n = Number(l.score); return { url: l.url, veredicto: l.veredicto, score: Number.isFinite(n) ? n : null }; });
+  return ((data ?? []) as Array<{ url: string; url_final: string | null; veredicto: string | null; score: unknown }>)
+    .map((l) => {
+      const n = Number(l.score);
+      return { url: l.url, leer: direccionParaBajar(l.url, l.url_final), veredicto: l.veredicto, score: Number.isFinite(n) ? n : null };
+    });
 }
+
 
 /** Borra el análisis de una landing (la saca de la lista, no borra tracking). */
 export async function borrarAnalisis(url: string): Promise<void> {
   const supabase = (await getTenantDb());
-  const { error } = await supabase.from('landing_analyses').delete().eq('url', normalizarUrl(url));
+  const { error } = await supabase.from('landing_analyses').delete().eq('url', claveDeLanding(url));
   if (error) throw new Error(`Error borrando el análisis: ${error.message}`);
 }

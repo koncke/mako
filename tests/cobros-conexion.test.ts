@@ -2,7 +2,7 @@
 // Conectar Stripe y Mercado Pago: qué se guarda, en qué orden, y qué NO
 // =============================================================================
 // lib/cobros-conexion.ts es lo que corre cuando alguien pega su clave de cobro en /integraciones
-// (la acción 'descubrir-pago' de /api/integraciones/credencial). Tres reglas que fallan calladas:
+// (la acción 'descubrir-pago' de /api/integraciones/credencial). Cuatro reglas que fallan calladas:
 //
 //   1. NADA SE GUARDA SI EL PROVEEDOR NO ACEPTA LA CLAVE. El tilde genérico del formulario guarda
 //      sin probar cuando faltan campos obligatorios, y en una pasarela siempre faltan (los
@@ -11,6 +11,9 @@
 //      nada. Con la clave guardada y la cuenta ajena, los links se crearían en una cuenta cuyos
 //      avisos le llegan a otro.
 //   3. CAMBIAR DE CUENTA SUELTA LA VIEJA y borra la firma que era de ella.
+//   4. QUITAR LA CLAVE DESCONECTA DEL TODO: los tres campos, el ruteo y (en Stripe) el aviso de MaKo
+//      en la cuenta del negocio. Borrar sólo la clave dejaba la cuenta reclamada sin forma de
+//      soltarla, y el aviso apuntando a un MaKo que ya no lo acepta.
 //
 // Los módulos llevan `server-only`: el comportamiento lo ejecuta un node aparte
 // (tests/_cobros-conexion-hijo.ts, con `--conditions=react-server`) con `fetch` de mentira para
@@ -23,6 +26,16 @@
 //   · el webhook registrado sin `?acct=` en la URL                                  → 6 / 1
 //   · descubrirMercadoPago sin `borrarVieja` de la clave del aviso                  → 6 / 1
 //   · la whitelist de 'guardar' de /api/metodo vuelve a aceptar los derivados       → 6 / 1
+// Y el 15/10/2026, con DESCONECTAR (4. abajo; 8 pases, 0 fallos en verde):
+//   · desconectarPasarela sin sacar el aviso de la cuenta de Stripe                 → 7 / 1
+//   · borrando sólo la clave pegada (la cuenta queda reclamada)                     → 7 / 1
+//   · si Stripe no deja borrar el aviso, vuelve sin desconectar                     → 7 / 1
+//   · sin decirle que quite la URL del panel de Mercado Pago                        → 7 / 1
+//   · la ruta 'borrar' sin la rama de la pasarela (o con la condición apagada)      → 7 / 1
+// Y con las claves de cobro FUERA del entorno (9 pases, 0 fallos en verde):
+//   · aplicarAEnv sin saltear CLAVES_DE_PASARELA                                    → 8 / 1
+//   · MERCADOPAGO_ACCESS_TOKEN fuera de CLAVES_DE_PASARELA                          → 8 / 1
+//   · 'revelar' leyendo con credWs (cae al process.env del ws1)                     → 8 / 1
 // Correr: node --import tsx --test tests/cobros-conexion.test.ts
 
 import { test } from 'node:test';
@@ -36,7 +49,7 @@ const leer = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8').replace(/\r\
 const sinComentarios = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
 
 type Creds = Record<string, string | null>;
-type Caso = { r: { ok: boolean; status?: number; nadaGuardado?: boolean; completa?: boolean; mensaje?: string; error?: string; guardadas?: string[]; facts?: Array<{ k: string; v: string }> }; creds?: Creds; ruteo?: string[]; log?: string[]; endpoints?: Array<{ url: string }> };
+type Caso = { r: { ok: boolean; status?: number; nadaGuardado?: boolean; completa?: boolean; mensaje?: string; aviso?: string | null; error?: string; guardadas?: string[]; facts?: Array<{ k: string; v: string }> }; creds?: Creds; ruteo?: string[]; log?: string[]; endpoints?: Array<{ url: string }> };
 
 const salida = execFileSync(process.execPath, ['--conditions=react-server', '--import', 'tsx', join(RAIZ, 'tests', '_cobros-conexion-hijo.ts')], {
   cwd: RAIZ, encoding: 'utf8', maxBuffer: 8 * 1024 * 1024, stdio: ['ignore', 'pipe', 'ignore'],
@@ -114,6 +127,51 @@ test('Mercado Pago: la cuenta y el token; al cambiar de cuenta se borra la clave
   assert.deepEqual(m.ruteo, ['mercadopago/222→13'], 'la cuenta vieja quedó reclamada');
   assert.equal(m.creds?.MERCADOPAGO_WEBHOOK_SECRET, null, 'la clave del aviso de la cuenta vieja rechazaría cada aviso firmado de la nueva');
   assert.ok(m.r.facts?.some((f) => f.k === 'Modo' && /Prueba/.test(f.v)), 'una cuenta de prueba se dice');
+});
+
+test('DESCONECTAR suelta la cuenta: los tres campos, el ruteo y el aviso de MaKo en Stripe (nunca uno ajeno)', () => {
+  const c = R.desconecta;
+  assert.deepEqual(c.r, { ok: true, aviso: null });
+  assert.deepEqual(Object.values(c.creds ?? {}).filter(Boolean), [], 'quedó un derivado: «conectada» a medias y sin forma de verlo');
+  assert.deepEqual(c.ruteo, [], 'la cuenta sigue reclamada: en otro workspace saldría «quítala de ahí primero» sin cómo');
+  assert.deepEqual(c.endpoints?.map((e) => e.url), ['https://otro-sistema.test/hook'],
+    'en la cuenta del negocio quedó un aviso de MaKo (Stripe reintenta tres días y le manda mails de fallo), o se borró uno ajeno');
+  const log = c.log ?? [];
+  assert.ok(log.indexOf('stripe GET /v1/webhook_endpoints') < log.indexOf('db DELETE credenciales workspace_id=9&clave=STRIPE_SECRET_KEY'),
+    'el aviso se borra CON la clave: después de borrarla no hay con qué');
+  assert.equal(R.desconectaLuegoOtro.r.ok, true, 'la cuenta desconectada se puede conectar en otro workspace');
+  assert.deepEqual(R.desconectaLuegoOtro.ruteo, ['stripe/acct_A→13']);
+
+  const s = R.desconectaSinPermiso;
+  assert.equal(s.r.ok, true, 'sin permiso para borrar el aviso se desconecta IGUAL');
+  assert.match(s.r.aviso ?? '', /Stripe → Webhooks/, 'y se dice dónde borrarlo a mano');
+  assert.deepEqual(Object.values(s.creds ?? {}).filter(Boolean), []);
+  assert.deepEqual(s.ruteo, []);
+
+  const m = R.mpDesconecta;
+  assert.match(m.r.aviso ?? '', /Mercado Pago → Webhooks/, 'el aviso de Mercado Pago vive en SU panel');
+  assert.deepEqual(Object.values(m.creds ?? {}).filter(Boolean), []);
+  assert.deepEqual(m.ruteo, []);
+
+  // Y la ruta: quitar la clave de una pasarela pasa por desconectarPasarela, no por el borrado de un campo suelto.
+  const ruta = sinComentarios(leer('app/api/integraciones/credencial/route.ts'));
+  const iBorrar = ruta.indexOf("body.action === 'borrar'");
+  const rama = ruta.slice(iBorrar, ruta.indexOf('eliminarCredencial(ctx.ws, env)', iBorrar));
+  assert.ok(iBorrar > 0 && rama.length > 0, 'no encontré la rama «borrar» de la ruta');
+  assert.match(rama, /if \(pasarela\) \{\s*const r = await desconectarPasarela\(ctx\.ws, pasarela, ctx\.autor\);\s*return /, 'borrar la clave de una pasarela deja la cuenta reclamada');
+});
+
+test('las claves de cobro del ws1 no se copian a process.env (ni al conectar ni en el boot), y el «ojito» lee la del negocio', () => {
+  const c = R.envDelDueno;
+  assert.deepEqual(c.log, ['control=si', 'guardadas=5'], 'el caso no corrió: sin conectar y sin hidratar, no prueba nada');
+  assert.deepEqual(Object.entries(c.creds ?? {}).filter(([, v]) => v), [],
+    'una clave de cobro del ws1 (Mauricio, un cliente) quedó en process.env: credWs/credWsEstricta de otro camino cobrarían con su cuenta');
+  // revelar: credWs cae a process.env para el ws1 y mostraría como suya una clave que no lo es.
+  const ruta = sinComentarios(leer('app/api/integraciones/credencial/route.ts'));
+  const iRevelar = ruta.indexOf("body.action === 'revelar'");
+  assert.ok(iRevelar > 0, 'no encontré la rama «revelar» de la ruta');
+  assert.match(ruta.slice(iRevelar, ruta.indexOf("body.action ===", iRevelar + 10)),
+    /esClaveDePasarela\(env\) \? await credDelCliente\(env, ctx\.ws\) : await credWs\(env, ctx\.ws\)/);
 });
 
 test('los derivados no entran por ningún «guardar», y la clave de la pasarela va al descubrimiento', () => {

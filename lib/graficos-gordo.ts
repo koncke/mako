@@ -50,7 +50,7 @@ export const ETIQUETA = { tam: 15, peso: 600, halo: 4, alto: 21, aire: 8, separa
 /** El trazo de una línea: el del tema, acotado. Con extremos y uniones redondeados. */
 export const TRAZO = { min: 3.5, max: 5, base: 4 } as const;
 export const RADIO_BARRA_MIN = 6;
-export const BARRA = { maxVertical: 56, separacion: '22%', horizontal: 26, radioHorizontal: 8 } as const;
+export const BARRA = { maxVertical: 56, separacion: '22%', separacionGrupo: '12%', horizontal: 26, radioHorizontal: 8 } as const;
 export const PUNTOS = { todosHasta: 12, r: 5, borde: 3, ultimo: 6, activo: 8 } as const;
 /** Arriba, lugar para una etiqueta; a los costados, lo justo. */
 export const MARGEN = { top: 20, right: 12, bottom: 4, left: 4 } as const;

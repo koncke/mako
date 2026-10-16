@@ -437,10 +437,15 @@ reescribir la clave entera. Molde: `persistirBrief` y `completarHuecoPerfil` en
 `lib/api-mako/areas/negocio.helpers.ts:131-164`.
 
 **Lo que quedó SIN hacer.** Las dos rutas del Archivero siguen llamando a `buildEstado(true)`; el
-arreglo va en `lib/archivero.ts:172-175`. La API de MaKo no lo tocó porque es la lib que pinta
+arreglo va en `buildEstado` (`lib/archivero.ts`). La API de MaKo no lo tocó porque es la lib que pinta
 la pantalla del Archivero, y lo esquiva por su lado.
 
-**Vive en:** `lib/archivero.ts:73-75,138-153,172-179` · `lib/onboarding.ts:67-69` ·
+**15/10/2026:** `computeEffective` se mudó, sin cambios, a `lib/archivero-registro.ts` (sin
+`server-only`, para que un test lo ejecute; `lib/archivero.ts` la re-exporta). Y El Archivero tiene una
+SEGUNDA PUERTA que no pasa por `buildEstado`: ver «El Archivero tiene una segunda puerta» más abajo.
+
+**Vive en:** `lib/archivero.ts` (`esCampoArchivero`, `buildEstado`) · `lib/archivero-registro.ts`
+(`computeEffective`) · `lib/onboarding.ts:67-69` ·
 `app/api/onboarding/route.ts:235-243` · `app/api/onboarding/archivero/route.ts:122` ·
 `app/api/onboarding/archivero/manual/route.ts:43` · *2026-09-16 api-mako-areas*
 
@@ -1146,6 +1151,28 @@ lentes · 38 hallazgos, 12 sobrevivieron, 5 bloqueaban.*
 
 ---
 
+## El Archivero tiene una segunda puerta: un documento que otra pantalla ya leyó (15/10/2026)
+
+Desde la decisión de Martín del 15/10 (ref `offer-archivero`: «¿El Archivero del chat guarda el archivo y
+paga una extracción por documento? → A · Sí»), cada archivo que el dueño manda en el chat de Offer queda
+también en El Archivero. Entra por `registrarDocumentoSinPisar` (`lib/archivero.ts`), y **cualquier otra
+pantalla que quiera guardar un documento en El Archivero entra por ahí**, no copiando la ruta:
+
+- **Es dueña del binario que recibe**: lo mueve a `<ws>/<id>` (el formato de `pathSubidoValido`) o lo borra.
+  Nunca queda suelto.
+- **El id sale del contenido** (`idDeContenido`: sha256 del workspace + los bytes), y el lugar se gana
+  MOVIENDO el binario antes de pagar la extracción: dos envíos del mismo archivo pagan uno. Mirar si la
+  fila existe no alcanza, porque la extracción tarda segundos.
+- **No llama a `buildEstado(true)`** (ver «`buildEstado(true)` reescribe el brief…»): suma sólo las claves de ese documento
+  (`answersConDocumento`), con lecturas estrictas antes de escribir.
+- **No regenera el panorama** (sería otra llamada paga) y paga UNA extracción, anotada como «El
+  Archivero» con el motivo de quien la pidió.
+
+El detalle y lo que enseñó, en `docs/hallazgos-offer.md` → «El Archivero desde el chat (15/10/2026)».
+
+**Vive en:** `lib/archivero.ts` (`registrarDocumentoSinPisar`, `reclamarLugar`) · `lib/archivero-registro.ts`
+· `tests/offer-archivero.test.ts`
+
 ## El prototipo conversacional: cuatro trampas de escenas y animación (04/09/2026)
 
 Salieron auditando el prototipo del onboarding-como-chat (el canvas de Claude Design), pero
@@ -1647,6 +1674,16 @@ DE PLATAFORMA: medido el 10/10, `provsGratisDePlataforma()` tiene tres llamadore
 ninguno es del arranque. El Archivero lee con `leerDocumentoIA` y los productos con
 `chatCheapCascade` sobre `CASCADA_DOCS`, las dos sólo con las keys del cliente. Y
 `ProductosView.tsx:242` sigue pintando el error sin el botón para sumar otra key.
+
+**Cerrada el 13/10 (`26b8eabe`) y verificada el 15/10 (`fa6a2ac3`).** Al correr las siete roturas
+de `tests/onboarding-red-plataforma.test.ts`, una no la cazaba: «`chatCheap` deja de pasar
+`wsKey`» daba 8 de 8 en verde. El assert buscaba
+`const p = await proveedor(opts.provider, opts.clave, opts.wsKey);` en `lib/ai-cheap.ts` entero,
+y esa línea está DOS veces: en `chatCheap` y en `chatCheapTools`. Romper la de `chatCheap` dejaba
+viva la otra, y el test seguía en verde. Es la regla de AGENTS.md («un guard que lee el archivo
+entero encuentra lo que el archivo dice de sí»), pagada otra vez. Ahora el assert mira el cuerpo
+de la función (`bloque(AI, 'chatCheap(')`). Si una línea aparece dos veces en un archivo, un
+assert sobre el archivo entero no puede distinguir cuál se rompió.
 
 ### Lo que quedó SIN hacer
 

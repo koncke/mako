@@ -52,11 +52,15 @@ test('funnel "Venta directa · sin reunión": ganado solo pide datos de venta', 
 });
 
 test('funnel "VSL": el webinar (reunión) y el cierre validan lo suyo', () => {
+  // ⚠️ CAMBIADO A PROPÓSITO el 14/10/2026: el webinar y el checkout usan las claves canónicas
+  // (`agenda` y `facturando`), renombradas. Con las viejas este test pasaba igual sobre claves que
+  // el pipeline ya no tenía: preguntaba por una etapa que no existe.
   const vsl = FUNNEL_TEMPLATES.find((t) => t.id === 'vsl')!.pipeline;
-  assert.equal(funnelReqInfo(vsl, 'webinar').numReuniones, 1);
+  assert.equal(funnelReqInfo(vsl, 'agenda').numReuniones, 1);
   assert.equal(funnelReqInfo(vsl, 'ganado').esVenta, true);
   // checkout es 'pago' → no exige venta (el cierre sí).
-  assert.equal(funnelReqInfo(vsl, 'checkout').esVenta, false);
+  assert.equal(funnelReqInfo(vsl, 'facturando').esVenta, false);
+  assert.equal(vsl.find((s) => s.key === 'facturando')?.label, 'Oferta / Checkout');
 });
 
 // ─────────────────────────────────────────────────────────────────────────────

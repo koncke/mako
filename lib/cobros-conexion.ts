@@ -28,7 +28,7 @@ import 'server-only';
 import { APP_BASE_URL } from './app-url';
 import { auditarCredencial, credDelCliente, eliminarCredencial, guardarCredencial, IdentificadorOcupadoError } from './credenciales';
 import { soltarIdentificador, upsertRouting, wsPorIdentificadorEstricto } from './webhook-routing';
-import { asegurarWebhookStripe, leerCuentaStripe, type CuentaStripe } from './stripe-api';
+import { asegurarWebhookStripe, borrarWebhooksStripe, leerCuentaStripe, type CuentaStripe } from './stripe-api';
 import { leerCuentaMp, type CuentaMp } from './mercadopago-api';
 import { NOMBRE_PASARELA, type Pasarela } from './cobros-tipos';
 
@@ -276,4 +276,45 @@ export async function descubrirMercadoPago(ws: number, token: string, autor: str
 /** El descubrimiento de la pasarela que corresponda. */
 export function descubrirPasarela(p: Pasarela, ws: number, clave: string, autor: string | null, opts: { guardarClave: boolean }): Promise<ResultadoConexionPago> {
   return p === 'stripe' ? descubrirStripe(ws, clave, autor, opts) : descubrirMercadoPago(ws, clave, autor, opts);
+}
+
+/** Los campos de cada pasarela, en el orden en que se borran (la clave pegada, al final). */
+export const CAMPOS_PASARELA: Readonly<Record<Pasarela, readonly string[]>> = {
+  stripe: ['STRIPE_WEBHOOK_SECRET', 'STRIPE_ACCOUNT_ID', 'STRIPE_SECRET_KEY'],
+  mercadopago: ['MERCADOPAGO_WEBHOOK_SECRET', 'MERCADOPAGO_USER_ID', 'MERCADOPAGO_ACCESS_TOKEN'],
+};
+
+/**
+ * DESCONECTAR del todo (revisión del 11/10/2026: «quitar la clave no suelta la cuenta»). Borrar sólo la clave
+ * pegada dejaba guardados la cuenta, su fila de ruteo y la firma del aviso: al conectar esa misma cuenta en
+ * otro workspace salía «quítala de ahí primero», y desde la pantalla no había cómo (los derivados no se ven).
+ * Y en Stripe el aviso quedaba registrado en la cuenta del negocio, apuntando a un MaKo que ya no lo acepta:
+ * Stripe reintenta tres días y le manda mails de fallo.
+ *
+ * Así: primero, con la clave todavía guardada, se saca el aviso de MaKo de la cuenta de Stripe (si falla, se
+ * desconecta igual y se dice); después se borran los TRES campos — al borrar el id de la cuenta se va su fila
+ * de ruteo (`eliminarCredencial`, ROUTING_CREDS). En Mercado Pago el aviso vive en el panel del negocio: se le
+ * dice que lo quite ahí.
+ */
+export async function desconectarPasarela(ws: number, p: Pasarela, autor: string | null): Promise<{ ok: true; aviso: string | null }> {
+  let aviso: string | null = null;
+  if (p === 'stripe') {
+    const [key, acct] = await Promise.all([credDelCliente('STRIPE_SECRET_KEY', ws), credDelCliente('STRIPE_ACCOUNT_ID', ws)]);
+    if (key && acct) {
+      const r = await borrarWebhooksStripe(key, urlAvisoStripe(acct));
+      if (!r.ok) {
+        console.warn(`[cobros-conexion] ws ${ws}: no se pudo borrar el aviso de Stripe: ${errorDeStripe(r, key)}`);
+        aviso = 'Borra el aviso de MaKo en Stripe → Webhooks.';
+      }
+    }
+  } else {
+    aviso = 'Quita la URL de MaKo en Mercado Pago → Webhooks.';
+  }
+  for (const env of CAMPOS_PASARELA[p]) {
+    const habia = await credDelCliente(env, ws);
+    // Se borra AUNQUE no se lea: una fila que no descifra, o un ruteo sin su fila, también atan la cuenta.
+    await eliminarCredencial(ws, env);
+    if (habia) await auditarCredencial(ws, env, 'borrar', autor);
+  }
+  return { ok: true, aviso };
 }

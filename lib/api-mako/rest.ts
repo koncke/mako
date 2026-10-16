@@ -97,6 +97,8 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['GET', '/crm/automatizaciones/simulacion', 'evaluar_crm_automatico'],
   ['GET', '/crm/busqueda/duplicados', 'duplicados_lead'],
   ['GET', '/crm/busqueda/leads', 'buscar_leads'],
+  // Un CRM nuevo por su tipo (14/10/2026): crea el embudo y devuelve su embudoId.
+  ['POST', '/crm/embudos', 'crear_crm'],
   ['PUT', '/crm/entradas', 'declarar_entradas_funnel'],
   ['GET', '/crm/estadisticas/leads', 'contar_leads_por_etapa'],
   ['GET', '/crm/etapas', 'ver_funnel'],
@@ -105,6 +107,10 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['POST', '/crm/etiquetas', 'crear_etiqueta'],
   ['PATCH', '/crm/etiquetas/{etiquetaId}', 'editar_etiqueta'],
   ['PUT', '/crm/etiquetas/{etiquetaId}/archivado', 'archivar_etiqueta'],
+  // La ficha del lead por bloques de UN CRM (14/10/2026): el CRM va por `?embudoId=` (opcional: sin él, el
+  // principal), como `/crm/sugerencias`. PATCH porque cambia UNA parte (un bloque, un aviso, el estilo).
+  ['GET', '/crm/ficha', 'ver_ficha_funnel'],
+  ['PATCH', '/crm/ficha', 'cambiar_ficha_funnel'],
   ['POST', '/crm/importaciones', 'proponer_leads'],
   ['GET', '/crm/leads', 'listar_leads'],
   ['POST', '/crm/leads', 'proponer_lead'],
@@ -150,6 +156,8 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['GET', '/crm/sugerencias', 'sugerencias_crm'],
   // Deshacer un «Ahora no»: borrar el silencio, como `/crm/leads/{leadId}/faltantes/silencio`.
   ['DELETE', '/crm/sugerencias/{sugerenciaId}/silencio', 'volver_a_mostrar_sugerencia'],
+  // Los tipos de «Nuevo CRM» (14/10/2026), los que acepta POST /crm/embudos.
+  ['GET', '/crm/tipos', 'tipos_de_crm'],
   // ── ads ───────────────────────────────────────────────────────────────────
   ['GET', '/ads/angulos', 'listar_angulos_guion'],
   ['POST', '/ads/angulos', 'proponer_agregar_angulo'],
@@ -550,6 +558,17 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['PUT', '/cobros/cobros/{cobroId}/cancelacion-suscripcion', 'cancelar_suscripcion'],
   ['POST', '/cobros/links-pago', 'crear_link_pago'],
   ['PUT', '/cobros/links-pago/{cobroId}/anulacion', 'anular_link_pago'],
+  // Pagos campo por campo (14/10/2026): el deal, la venta y las cuotas son recursos del lead y de la cuota; el link
+  // de UNA cuota se crea sobre ella, y cortar su recordatorio lo borra (DELETE, como GitHub con una suscripción).
+  ['GET', '/cobros/moneda', 'ver_moneda_negocio'],
+  ['PUT', '/cobros/moneda', 'cambiar_moneda_negocio'],
+  ['PATCH', '/cobros/deals/{leadId}', 'editar_dato_deal'],
+  ['PATCH', '/cobros/deals/{leadId}/obligaciones', 'editar_obligacion_deal'],
+  ['PATCH', '/cobros/ventas/{leadId}', 'editar_venta_lead'],
+  ['PUT', '/cobros/ventas/{leadId}/suscripcion', 'estado_suscripcion_manual'],
+  ['PATCH', '/cobros/cuotas/{cuotaId}', 'editar_cuota'],
+  ['POST', '/cobros/cuotas/{cuotaId}/links-pago', 'crear_link_cuota'],
+  ['DELETE', '/cobros/cuotas/{cuotaId}/recordatorios', 'cortar_recordatorio_cuota'],
   // ── creaciones (13/10/2026: la galería y sus estrellas, como GitHub) ─────────
   // La estrella es un recurso de la creación: PUT la da y DELETE la saca (GitHub: PUT/DELETE /user/starred/{repo}).
   ['GET', '/creaciones/creaciones', 'listar_creaciones'],

@@ -45,6 +45,10 @@ import {
   ALTOS_ESPACIADOR, ALTOS_HTML_LIBRE, ANCHOS_IMAGEN, COLORES_TEMA, TAMANOS_TEXTO, TONOS_RECUADRO,
   type VarianteOptimizado,
 } from './doc';
+import {
+  CORTE_CELULAR, EFECTOS, ESTILOS_PAGINA, animacionCss, efectoPorId, keyframesAnimaciones, nombreKeyframes,
+  type DefEfecto, type DefEstilo, type Direccion, type IdEfecto,
+} from './animaciones';
 
 const D = '.gm-doc';
 
@@ -788,18 +792,111 @@ const PAGINA: string[] = [
 // pantalla. Acá van los tiempos de Gamma: la sección aparece y sus bloques suben en
 // cascada. Va después de la hoja del documento y la pisa con la misma especificidad.
 
+//
+// EL CATÁLOGO (15/10/2026, lib/editor-landing/animaciones.ts, el contrato): cada sección lleva en el DOM
+// `data-anim` (el efecto, o «ninguna»), `data-anim-dir` y `data-anim-texto` (render.ts, `datosDeAnimacion`).
+//   · Con `data-anim`, los BLOQUES (`> .gm-tarjeta-cuerpo > *`) entran con el efecto, en cascada, con el valor
+//     EXACTO de `animacionCss(efecto, dir, k)`: una regla por efecto, dirección y escalón (hasta 9, como antes).
+//     La sección misma sólo hace la entrada de opacidad (gm-aparecer): un transform o un filter en la SECCIÓN la
+//     vuelve el contenedor de lo `position: fixed` de adentro (la barra de CTA, el WhatsApp).
+//   · `data-anim="ninguna"`: ni se esconde ni anima.
+//   · SIN `data-anim` (el HTML de antes del catálogo, o el interruptor apagado): las reglas de siempre
+//     (gm-entrada). La hoja de cada publicada queda congelada con su HTML, y una foto sin hoja recibe ésta.
+//   · Enfoque (`soloEscritorio`, lleva `filter`) cae a Desvanecer en el teléfono: en el teléfono, sólo
+//     transform, opacity y clip-path (los hallazgos). El corte es el del bloque 17 (`CORTE_CELULAR`).
+//   · Los títulos de una sección con `data-anim-texto` los parte el script de la publicada en `span.gm-u`
+//     (`--gm-u` = su lugar): cada pedazo entra con el efecto del texto del estilo, escalonado.
+// LAS MISMAS reglas por efecto valen para `.gm-doc .gm-tarjeta.gm-reproducir` (el ▶ del editor y las tiles del
+// panel, que ponen y sacan la clase): ahí NO hay `html.gm-anim` (en la app escondería las miniaturas, que viven
+// en el mismo documento) y nada se esconde cuando no reproduce — la animación va con `backwards`, así que el
+// cuadro de partida sólo existe mientras corre. «Reducir movimiento» apaga TODO en la publicada; la clase
+// `gm-reproducir` no la apaga a propósito (el ▶ es una acción apretada, decidido el 14/10: lo que se reproduce
+// solo, como una tile al abrir el panel, lo decide el panel mirando la preferencia antes de poner la clase).
+
+const CUERPO = ' > .gm-tarjeta-cuerpo > ';
+/** Los escalones de la cascada: del 1 al 8 su `:nth-child`, y del 9 en adelante el mismo (como antes). */
+const ESCALONES = 9;
+const enLugar = (k: number): string => (k < ESCALONES ? ':nth-child(' + k + ')' : ':nth-child(n+' + ESCALONES + ')');
+
+/** Cada efecto del catálogo con su `[data-anim]` (y su `[data-anim-dir]` si tiene direcciones). */
+type Variante = { efecto: IdEfecto; dir: Direccion | null; sel: string; def: DefEfecto };
+const VARIANTES: Variante[] = (EFECTOS as readonly DefEfecto[]).flatMap((def): Variante[] => {
+  const efecto = def.id as IdEfecto;
+  const base = '[data-anim="' + efecto + '"]';
+  if (!def.direcciones?.length) return [{ efecto, dir: null, sel: base, def }];
+  return def.direcciones.map((dir) => ({ efecto, dir, sel: base + '[data-anim-dir="' + dir + '"]', def }));
+});
+
+/** La sección que ANIMA: la publicada (vista por el script) o la del editor y las tiles (reproduciendo). */
+const PUBLICADA = (v: string) => 'html.gm-anim .gm-tarjeta' + v + '.gm-visto';
+const REPRODUCE = (v: string, p = D) => p + ' .gm-tarjeta' + v + '.gm-reproducir';
+
+/** Una regla por escalón para un efecto: `animacionCss` del contrato, tal cual. */
+function cascada(secciones: string[], efecto: IdEfecto, dir: Direccion | null): string[] {
+  return rango(ESCALONES).map((k) => r(secciones.map((s) => s + CUERPO + enLugar(k)), 'animation: ' + animacionCss(efecto, dir, k - 1) + ';'));
+}
+
+/** Los títulos partidos (`span.gm-u`): por palabra van en bloque (si no, un transform no los mueve). */
+const TEXTOS: Array<{ por: 'palabra' | 'letra'; efecto: IdEfecto; escalonMs: number }> = [];
+for (const e of ESTILOS_PAGINA as readonly DefEstilo[]) if (e.texto && !TEXTOS.some((t) => t.por === e.texto?.por)) TEXTOS.push(e.texto);
+function textoPartido(secciones: (v: string) => string, t: (typeof TEXTOS)[number]): string[] {
+  const def = efectoPorId(t.efecto) as DefEfecto;
+  const sel = secciones('[data-anim-texto="' + t.por + '"]') + ' .gm-u';
+  return [
+    r(sel, (t.por === 'palabra' ? 'display: inline-block; ' : '') + 'animation: ' + nombreKeyframes(t.efecto, null) + ' ' + def.duracionMs + 'ms ' + def.curva +
+      ' backwards; animation-delay: calc(var(--gm-u, 0) * ' + t.escalonMs + 'ms + 150ms);'),
+    // El título partido no entra entero: entran sus pedazos (con el fade del bloque encima, la máquina de
+    // escribir no se veía). Va en una regla sola: un navegador sin `:has` la ignora y el título se desvanece.
+    r(secciones('[data-anim-texto="' + t.por + '"]') + CUERPO + ':is(h1, h2, h3):has(.gm-u)', 'animation: none;'),
+  ];
+}
+
 const ANIMACION: string[] = [
   '/* ── 16. Animación de entrada ── */',
   '@keyframes gm-aparecer { from { opacity: 0; } }',
   '@keyframes gm-entrada { from { opacity: 0; transform: translateY(20px); } }',
-  r(['html.gm-anim .gm-tarjeta:not(.gm-visto)', 'html.gm-anim [data-animar]:not(.gm-visto)'], 'opacity: 0;'),
-  r('html.gm-anim .gm-tarjeta.gm-visto', 'animation: gm-aparecer 0.6s ease backwards;'),
-  r(['html.gm-anim .gm-tarjeta.gm-visto > .gm-tarjeta-cuerpo > *', 'html.gm-anim [data-animar].gm-visto'], 'animation: gm-entrada 1s cubic-bezier(0.22, 1, 0.36, 1) 0.15s backwards;'),
-  ...rango(7).map((k) => r('html.gm-anim .gm-tarjeta.gm-visto > .gm-tarjeta-cuerpo > :nth-child(' + (k + 1) + ')', 'animation-delay: ' + (0.15 + k * 0.08).toFixed(2) + 's;')),
-  r('html.gm-anim .gm-tarjeta.gm-visto > .gm-tarjeta-cuerpo > :nth-child(n+9)', 'animation-delay: 0.79s;'),
+  keyframesAnimaciones(),
+  r(['html.gm-anim .gm-tarjeta:not(.gm-visto):not([data-anim="ninguna"])', 'html.gm-anim [data-animar]:not(.gm-visto)'], 'opacity: 0;'),
+  r('html.gm-anim .gm-tarjeta.gm-visto:not([data-anim="ninguna"])', 'animation: gm-aparecer 0.6s ease backwards;'),
+  // Lo de siempre, para las secciones SIN `data-anim` (HTML de antes del catálogo).
+  r(['html.gm-anim .gm-tarjeta.gm-visto:not([data-anim]) > .gm-tarjeta-cuerpo > *', 'html.gm-anim [data-animar].gm-visto'], 'animation: gm-entrada 1s cubic-bezier(0.22, 1, 0.36, 1) 0.15s backwards;'),
+  ...rango(7).map((k) => r('html.gm-anim .gm-tarjeta.gm-visto:not([data-anim]) > .gm-tarjeta-cuerpo > :nth-child(' + (k + 1) + ')', 'animation-delay: ' + (0.15 + k * 0.08).toFixed(2) + 's;')),
+  r('html.gm-anim .gm-tarjeta.gm-visto:not([data-anim]) > .gm-tarjeta-cuerpo > :nth-child(n+9)', 'animation-delay: 0.79s;'),
+  // El catálogo: una regla por efecto, dirección y escalón, para la publicada y para lo que reproduce.
+  ...VARIANTES.flatMap((v) => cascada([PUBLICADA(v.sel), REPRODUCE(v.sel)], v.efecto, v.dir)),
+  ...TEXTOS.flatMap((t) => [...textoPartido(PUBLICADA, t), ...textoPartido((v) => REPRODUCE(v), t)]),
+  // Enfoque (y todo efecto `soloEscritorio`) en el teléfono: Desvanecer. En la página real, por el corte del
+  // bloque 17; en la vista «Teléfono» del editor, por `data-dispositivo` (una media query no la ve).
+  // ⚠️ En UNA línea que no es «@media (max-width: 768px) {» a secas: los tests del bloque 17 buscan esa línea
+  //    exacta como el principio del bloque del celular.
+  '@media ' + CORTE_CELULAR + ' { ' +
+    VARIANTES.filter((v) => v.def.soloEscritorio).flatMap((v) => cascada([PUBLICADA(v.sel), REPRODUCE(v.sel)], 'desvanecer', null)).join('\n') + ' }',
+  ...VARIANTES.filter((v) => v.def.soloEscritorio).flatMap((v) => cascada([REPRODUCE(v.sel, D + '[data-dispositivo="movil"]')], 'desvanecer', null)),
   '@media (prefers-reduced-motion: reduce) { ' +
-    r(['html.gm-anim .gm-tarjeta', 'html.gm-anim .gm-tarjeta > .gm-tarjeta-cuerpo > *', 'html.gm-anim [data-animar]'], 'opacity: 1 !important; animation: none !important;') +
+    r(['html.gm-anim .gm-tarjeta', 'html.gm-anim .gm-tarjeta > .gm-tarjeta-cuerpo > *', 'html.gm-anim [data-animar]', 'html.gm-anim .gm-tarjeta .gm-u'], 'opacity: 1 !important; animation: none !important;') +
     ' ' + r([D + ' .gm-boton', D + ' .gm-marca', D + ' .gm-desplegable-titulo::after'], 'transition: none;') + ' }',
+];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 16b. El video de fondo del hero (animaciones.ts, `VideoFondo`; especificacion.ts, `acentoConVideo`)
+// ─────────────────────────────────────────────────────────────────────────────
+// El póster (`img`) y el video llenan el acento del diseño «fondo» con el ajuste y el encuadre de la imagen; el
+// velo de la superposición (`.gm-acento::after`) va encima de los dos. El video está invisible hasta que el script
+// de la publicada lo marca `data-andando` (con el evento `playing`: iOS en ahorro de energía no reproduce solo, y
+// un video quieto sin cuadro taparía el póster). La pausa (WCAG 2.2.2) la crea el mismo script recién entonces.
+
+const VIDEO_FONDO_CSS: string[] = [
+  '/* ── 16b. Video de fondo del hero ── */',
+  r([D + ' .gm-acento > .gm-acento-poster', D + ' .gm-acento > .gm-acento-video'], 'position: absolute; inset: 0; display: block; width: 100%; height: 100%; object-fit: cover; border-radius: inherit;'),
+  r([D + ' .gm-acento[data-ajuste="contener"] > .gm-acento-poster', D + ' .gm-acento[data-ajuste="contener"] > .gm-acento-video'], 'object-fit: contain;'),
+  r(D + ' .gm-acento > .gm-acento-video', 'opacity: 0; transition: opacity 0.6s ease;'),
+  r(D + ' .gm-acento > .gm-acento-video[data-andando]', 'opacity: 1;'),
+  r(D + ' .gm-video-pausa', 'position: absolute; right: 1em; bottom: 1em; z-index: 2; display: grid; place-items: center; width: 2.5em; height: 2.5em; padding: 0; border: 0; border-radius: 50%; background: rgba(0,0,0,0.5); color: #ffffff; cursor: pointer;'),
+  r(D + ' .gm-video-pausa::before', 'content: ""; box-sizing: border-box; width: 0.75em; height: 0.85em; border-left: 0.25em solid currentColor; border-right: 0.25em solid currentColor;'),
+  r(D + ' .gm-video-pausa[data-pausado]::before', 'width: 0.8em; border: 0; background: currentColor; clip-path: polygon(10% 0, 100% 50%, 10% 100%);'),
+  r(D + ' .gm-video-pausa:focus-visible', 'outline: 0.15em solid #ffffff; outline-offset: 0.15em;'),
+  '@media (prefers-reduced-motion: reduce) { ' + r([D + ' .gm-acento > .gm-acento-video', D + ' .gm-video-pausa'], 'display: none;') + ' }',
+  '@media print { ' + r([D + ' .gm-acento > .gm-acento-video', D + ' .gm-video-pausa'], 'display: none;') + ' }',
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -914,7 +1011,7 @@ const RESPONSIVE: string[] = [
   '}',
   ...tableta(D + '[data-dispositivo="tableta"]'),
   ...tableta(D + '[data-dispositivo="movil"]'),
-  '@media (max-width: 768px) {',
+  '@media ' + CORTE_CELULAR + ' {',
   ...movil(D),
   '}',
   ...movil(D + '[data-dispositivo="movil"]'),
@@ -947,7 +1044,7 @@ const IMPRESION: string[] = [
  */
 export const CSS_CONTENIDO: string = [
   ...RAIZ, ...TARJETA, ...ACENTO, ...TIPOGRAFIA, ...MARCAS_TEXTO, ...BLOQUES, ...OPTIMIZADO,
-  ...SITIO, ...PRESENTACION, ...PAGINA, ...ANIMACION, ...RESPONSIVE, ...IMPRESION,
+  ...SITIO, ...PRESENTACION, ...PAGINA, ...ANIMACION, ...VIDEO_FONDO_CSS, ...RESPONSIVE, ...IMPRESION,
 ].join('\n');
 
 /** Las variantes que la hoja reparte por modo (para el test: ninguna queda sin forma). */

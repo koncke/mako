@@ -123,7 +123,7 @@ con su archivo.</sub>
 |---|---|---|
 | **#171** el histórico de leads de Meta no llegaba nunca | cerrada, con guard probado rompiéndolo (5 roturas, 5 cazadas) y la suite entera en verde | `4da4b720` |
 | **#201** Instagram figuraba «leída» vacía | cerrada, con guard probado rompiéndolo (7 de 7) | `3ea8f2bf` |
-| **#734** la cuota de Gemini frenaba el arranque | **código cerrado y typecheck en cero**; su test compila y NO se corrió | `26b8eabe` |
+| **#734** la cuota de Gemini frenaba el arranque | código cerrado; **test probado rompiéndolo el 15/10** (7 de 7, ver abajo) | `26b8eabe` · `fa6a2ac3` |
 | **#801** el Ads Manager sin onboarding | sin empezar | — |
 | **#737** el video tutorial | no es código: lo graba Martín | — |
 
@@ -147,16 +147,18 @@ parecerse a las otras. El defecto era más grande que Instagram: una página de 
 caracteres pasaba el `!texto.trim()` y se guardaba como documento leído, y ese texto le daba
 de comer al panorama, que es el perfil del negocio.
 
-### #734 — lo que falta, que es la verificación
+### #734 — verificada el 15/10
 
 El código está: la red de plataforma llega a `chatCheapCascade` y al camino de VISIÓN
 (`leerDocumentoIA`), encendida en los 11 puntos del arranque, con los errores de nuestras keys
 en lista aparte y `chatCheap` aceptando `wsKey`. `npx tsc --noEmit` devolvió cero errores.
 
-**Lo que queda, y es lo primero al retomar:** correr
-`tests/onboarding-red-plataforma.test.ts` —la base y las SIETE roturas que su encabezado
-enumera— restaurando de memoria, nunca con `git checkout`. Hasta que eso corra, de ese archivo
-se sabe que compila y nada más.
+**El 15/10 (chat «Onboarding», claude3) se corrieron la base y las siete roturas**, restaurando
+de memoria: base 8/0, y seis de las siete caían 7/1 de entrada. La séptima —«`chatCheap` deja de
+pasar `wsKey`», o sea la red reintentando con la key del cliente— daba **8/0**: el assert leía
+`lib/ai-cheap.ts` entero y la misma línea vive en `chatCheapTools`. Ahora mira el cuerpo de
+`chatCheap` y cae 7/1. Commit `fa6a2ac3`, en la rama `onboarding-734-verificacion` (la sube el
+coordinador). Los números quedaron en el encabezado del test.
 
 ### Lo que sigue sin hacer, con su archivo
 

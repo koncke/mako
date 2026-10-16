@@ -47,6 +47,15 @@ export function montoUsdDeLaCuota(p: { montoCuota?: number | null; monedaCuota?:
  * esconderla sería peor. `reembolsado` no: un «aprobado» que llega después de un reembolso es una
  * reentrega vieja.
  */
+/**
+ * ¿La suscripción del lead la cobra la pasarela? Un cobro de suscripción PAGADO y no cancelado. Es la condición con
+ * que se niega cancelar a mano una suscripción (la ficha y la API) y cambiarle el tipo, la mensualidad o el plazo
+ * desde el CRM (`escribirVenta`, lib/pagos.ts): el CRM diría una cosa mientras la tarjeta se sigue cobrando otra.
+ */
+export function laCobraLaPasarela(cobros: ReadonlyArray<{ tipo: string; estado: string; suscripcion_estado?: string | null }>): boolean {
+  return cobros.some((c) => c.tipo === 'suscripcion' && c.estado === 'pagado' && c.suscripcion_estado !== 'cancelada');
+}
+
 export const ESTADOS_QUE_PASAN_A_PAGADO: readonly EstadoCobro[] = ['pendiente', 'fallido', 'anulado'];
 export const pasaAPagado = (e: EstadoCobro): boolean => ESTADOS_QUE_PASAN_A_PAGADO.includes(e);
 

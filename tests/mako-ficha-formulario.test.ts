@@ -71,7 +71,10 @@ test('los topes: un formulario enorme no se come el presupuesto del modelo', () 
 test('ficha_lead lo devuelve, y las DOS descripciones se lo dicen al modelo', () => {
   const tools = sinComentarios(leer('lib/mako-tools.ts'));
   const caso = tools.slice(tools.indexOf("case 'ficha_lead':"), tools.indexOf("case 'historial_whatsapp':"));
-  assert.match(caso, /return JSON\.stringify\(\{ lead: resumenLead\(lead\), respuestas, \.\.\.formularioParaModelo\(lead\.meta_field_data\) \}\)/);
+  // ⚠️ CAMBIADO A PROPÓSITO (14/10/2026, tanda B del CRM): el `lead` suma lo que la ficha muestra
+  // (`datosDeLaFicha`) y al lado va lo de la landing; lo que este test cuida —formulario_meta en la
+  // salida— sigue igual. Lo nuevo lo fija tests/mako-ficha-lead.test.ts.
+  assert.match(caso, /respuestas, \.\.\.formularioParaModelo\(lead\.meta_field_data\), \.\.\.landingParaModelo\(lead\.optin_respuestas\),/);
   // La de MAKO_TOOLS es la que lee el modelo de WhatsApp; la del registro, HTTP y la doc.
   const desc = tools.match(/name: 'ficha_lead',\s*description: '([^']+)'/)?.[1] ?? '';
   assert.match(desc, /formulario de Meta \(formulario_meta/);
