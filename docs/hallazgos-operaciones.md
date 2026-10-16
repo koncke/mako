@@ -480,6 +480,44 @@ tramo), así el renombre de Martín y la convención del chat jefe no lo vuelven
 `scripts/operaciones/cartero.mjs` (`esElCartero`, los motivos) · `app/m/operaciones/CentroMovil.tsx` (`RunnerMovil`) ·
 `tests/centro-textos.test.ts`
 
+## El avance pasa a cada chat, como los milestones de Linear, y la cuenta es un chip (15/10/2026)
+
+**El pedido.** «Elimina lo de "Avances y pushes", quiero que cada chat tenga arriba, en su topbar un botón para ver los
+avances, que despliegue la sidebar derecha, que sea algo similar a lo que tenemos en "offer"», con un roadmap «simple,
+épico y entendible», el estado como el color del punto («gris = no empezado») y «Pedido hace» y los pushes en el detalle.
+Y «No quiero que exista "cuenta 1, cuenta 2, 3" en la sidebar de chats... eso debe estar dentro de cada chat, con un chip».
+
+**Copiado de** la barra derecha de Offer (`app/offer/PiezasRail.tsx`: la tarjeta que estira con flex, el título con su
+conteo fijo y la lista que scrollea; en el teléfono, la barra «8/13» que se abre) y del panel «Project Milestones» de
+Linear, mirado en su documentación (linear.app/docs/project-milestones, un video del panel de detalles del proyecto): el
+rombo que cambia según el estado, el que está en curso en amarillo, el nombre y la fecha. Linear no se pudo abrir sin
+cuenta: la referencia es su doc, y se dice.
+
+**Qué es un nodo** (`avanceDelChat`, lib/centro-chats.ts): una línea del historial del chat. Un pedido de la bitácora que
+trabajó ese chat (con SUS pasos y SUS commits), uno que se le pidió ahí y trabajó otro (con los de todos y quién lo
+trabajó), o un trabajo firmado que se le mandó desde el Centro (su título es su primer renglón; el color sale de los
+ticks: entregado = en curso, sin salir = rojo). La cuenta de cada paso viaja ahora en `PasoP.cuenta`.
+
+**Lo que costó ver:**
+- **En el teléfono la conversación abre en lo último**, así que una barra arriba del hilo quedaba fuera de la vista. Va
+  `position: sticky` contra `.m-sheet__cuerpo`, que es lo que scrollea.
+- **«Subió hace X» sólo se sabe cuando el commit ENCABEZA un push** (`pushDelCommit`: por la hora acertaba 110 de 202).
+  Lo que la bitácora de la versión publicada nombra ya está en producción por construcción, así que el resto dice «En
+  producción», que es exacto. Y mientras Vercel no contestó, `pushes` es null, no `[]`: con la lista vacía el avance
+  diría «En producción» igual, pero nunca afirma un «subió» sin leerla.
+- **Sin los grupos por cuenta, dos «CRM» quedan iguales en la lista.** Hasta que la punta siguiente los una por nombre,
+  la fila lleva el chip de la cuenta SÓLO en los títulos repetidos (`titulosRepetidos`).
+- **«Pedido hace» se escribe «Lo pediste hace»**: el guard de las pantallas del Centro no deja la palabra «pedido» en lo
+  que se dibuja (tests/operaciones.test.ts), y «lo pediste» dice lo mismo.
+
+**Lo que quedó:** el avance mira 14 días (el «Ver todos» de la vista vieja se fue con ella); `novedades`
+(lib/progreso-reglas.ts) quedó sin quien lo llame, sólo con su test: era la lista de Pushes. La barra no tiene el
+porcentaje de Linear («23% of 63»): un nodo es una cosa pedida, no un milestone con issues adentro.
+
+**Vive en:** `app/admin/operaciones/Avance.tsx` · `lib/centro-chats.ts` (`avanceDelChat`, `seccionesDeChats`,
+`titulosRepetidos`) · `app/admin/operaciones/Conversacion.tsx` (el botón y la cabecera) · `app/m/operaciones/ChatsMovil.tsx` ·
+`tests/centro-avance.test.ts`
+
 ## Lo que creí medido y no estaba al día
 
 - **`soloPlataforma` ya existía en el registro de la API** (lo sumó el 2FA obligatorio el 14/10, por
@@ -502,8 +540,7 @@ tramo), así el renombre de Martín y la convención del chat jefe no lo vuelven
 - **El chat Runner en cada cuenta que esté corriendo** (15/10): sin él, lo que se escribe en la caja queda «escrito».
   Sus instrucciones se copian desde el Centro (Runners → Nuevo Runner; viven en `lib/runner.ts`). Y el Token de cada
   dispositivo, pegado en el Runner.
-- **Los textos de Avance y Pushes no se reescribieron** (15/10): esas dos vistas se van en la punta siguiente (el avance
-  pasa a cada chat), y se escriben de nuevo con la regla.
+- ~~Los textos de Avance y Pushes~~: las dos vistas se fueron en la punta 2 (el avance está en cada chat).
 - **Que un trabajo llegue a una cuenta que NO está abierta**: hoy espera a que la app pase a esa cuenta (o a que corra
   en terminal con su Cartero). Para las tres en paralelo: `/login` de la 1 y la 2 en terminal (lo hace Martín), su
   cartero como `cli` y un Cartero en cada una. ⚠️ El cartero acepta UNA fuente por cuenta (`app` o `cli`): una cuenta
