@@ -132,9 +132,9 @@ test('la caja dice qué espera: el cartero quieto, el chat cerrado (con su cuent
   const abierto = { sesion: S(1), cuenta: 'claude3', estado: 'abierto' as const };
   const quieto = comoSale(abierto, k('2026-10-15T13:00:00Z'), 'k1', AHORA);
   assert.deepEqual(quieto, { puede: true, espera: 'cartero', cuenta: 'claude3' });
-  assert.equal(textoDeEnvio(quieto), 'Sale cuando el cartero de la cuenta 3 dé su vuelta.');
+  assert.equal(textoDeEnvio(quieto), 'Abre el chat Runner en la app de Claude para que salga.');
   const cerrado = comoSale({ ...abierto, estado: 'cerrado' }, k('2026-10-15T15:59:00Z'), 'k1', AHORA);
-  assert.equal(textoDeEnvio(cerrado), 'Sale cuando abras este chat en la cuenta 3.', 'dice la cuenta: puede ser otra que la abierta');
+  assert.equal(textoDeEnvio(cerrado), 'Abre este chat en la cuenta 3 para que lo reciba.', 'dice la cuenta: puede ser otra que la abierta');
   const ya = comoSale(abierto, k('2026-10-15T15:59:00Z'), 'k1', AHORA);
   assert.deepEqual(ya, { puede: true, espera: null, cuenta: 'claude3' });
   assert.equal(textoDeEnvio(ya), null);

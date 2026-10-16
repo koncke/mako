@@ -23,14 +23,16 @@ import { mensajeEvolution } from './evolution-sonda';
 import { instanciaVoz, setInstanciaVoz } from './mako-grupo';
 import { getSettingEstricto, cambiarSettingSi } from './settings';
 import { runWithWorkspace, OWNER_WS, wsSuperAdmin } from './workspace';
+import { KEY_CANAL_INSTANCIA } from './linea-plataforma';
 
 const BASE = (process.env.EVOLUTION_BASE_URL || '').replace(/\/$/, '');
 const KEY = process.env.EVOLUTION_API_KEY || '';
 
 /** Nombre BASE de la instancia del canal. Las rotadas se llaman `${base}_<sufijo>`. */
 export const INSTANCIA_SUPERADMIN = 'mako_superadmin';
-/** Qué instancia ES hoy el canal de MaKo. Cambia cuando se rota una trabada. */
-export const KEY_CANAL_INSTANCIA = 'mako.canal.instancia';
+/** Qué instancia ES hoy el canal de MaKo. Cambia cuando se rota una trabada. Vive en lib/linea-plataforma.ts (15/10/2026),
+ *  que la necesita sin importar este módulo (importa lib/evolution.ts, que importa aquél). */
+export { KEY_CANAL_INSTANCIA };
 
 /**
  * El valor CRUDO del setting del canal: null si la fila no existe.

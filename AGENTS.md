@@ -220,7 +220,10 @@ navegador de un VISITANTE de la landing de un cliente, asi que si queda viejo el
 es el de `public/` y no hay un solo error que lo diga. Es la misma familia que el zip de la
 extension y que `plugin/`. Desde el 15/10/2026 las doce que no son el typecheck viven en
 `scripts/guardas-push.sh`, que corren el pre-push y GitHub Actions: una guarda nueva se agrega
-AHÍ, no en el hook.
+AHÍ, no en el hook. La primera es un `tsc` ACOTADO a las bitácoras de `/admin/dev`
+(`scripts/tsc-bitacoras.mjs`, ~4 s y ~300 MB): un hito sin `puntos` (TS2741) frenó tres pushes
+el 14/10 y el 15/10 tiró un run entero de Actions. Si el `tsc` no termina (lo mató el vigía, o
+se quedó sin heap), no frena el push: eso no es un error de tipos, y Actions corre el completo.
 
 ⚠️ El último se agregó el 29/08/2026, después de que **producción estuviera 46 minutos en
 la versión vieja sin que nada lo dijera**: un commit subió `catalogo.ts` con 18 imports
@@ -301,10 +304,22 @@ worktree, encontraron por separado los mismos 7 rojos en cuatro tests que cortab
 con `'\n}\n'`: en el clon los archivos estaban en LF y pasaban. Todo test que haga
 `readFileSync` de un fuente normaliza con `.replace(/\r\n/g, '\n')` ANTES de buscar.
 
+⚠️ **Y LOS TESTS CORREN TAMBIÉN EN LINUX (GitHub Actions): una ruta sale de `fileURLToPath`,
+nunca de `.pathname`.** El 15/10/2026 el primer run de Actions cayó por un test que armaba
+su cwd con `new URL('..', import.meta.url).pathname.replace(/^\//, '')`: en Windows deja
+`C:/…`, en Linux deja una ruta RELATIVA (`home/runner/…`) y `git` contesta ENOENT. Va
+`fileURLToPath(new URL('..', import.meta.url))` (o `dirname(fileURLToPath(import.meta.url))`),
+que además decodifica los `%20`. Y lo mismo vale para lo que en la notebook existe y en Linux
+no: un test que lee algo fuera de git (`.git/hooks`, `.next/`, el home) **lee la copia
+versionada**, o se saltea diciendo por qué. Uno que se saltea mudo da verde sin haber mirado
+nada (pasaba con el del pre-push hasta ese mismo día).
+
 ⚠️ **Si el árbol compartido tiene trabajo ajeno que no compila, se pushea desde un worktree
 limpio — nunca con `--no-verify`.** `git worktree add --detach <ruta> main`, un junction a
-`node_modules` (`New-Item -ItemType Junction`), `git push origin HEAD:main` desde ahí, y
-después `git worktree remove --force` + `git worktree prune`.
+`node_modules` (`New-Item -ItemType Junction`), `git push origin HEAD:integracion` desde ahí, y
+después `git worktree remove --force` + `git worktree prune`. Desde el 15/10 casi no hace
+falta: un push a `integracion` ya no corre el `tsc` sobre el árbol de trabajo, y Actions
+chequea el COMMIT, no el disco.
 
 ⚠️ **Y en ese worktree `npm run build` NO corre tal cual**: con `node_modules` como junction,
 Turbopack aborta con «Symlink [project]/node_modules is invalid, it points out of the filesystem
@@ -1170,6 +1185,12 @@ código nuevo:
   puedo mandar un prompt por allí»): la caja de `Conversacion.tsx` y la del teléfono firman por `mandar.ts`. Un
   formulario aparte para mandar no vuelve. Y la caja no manda lo que la PC va a rechazar ni dice «sale ya» sobre lo que
   espera: lo decide `comoSale` (lib/centro-chats.ts), con test.
+- **En pantalla el cartero se llama RUNNER y la clave del dispositivo es «tu Token»** (15/10/2026; Martín: «No quiero
+  que se llame más "cartero", sino un nombre más formal, tecnico... profesional»). Copiado de los self-hosted runners de
+  GitHub Actions; el nombre y las instrucciones de su chat viven en `lib/runner.ts`. En el código, la base y la PC sigue
+  siendo el cartero (`cartero.mjs`, `operaciones_carteros`, `ver_carteros_operaciones`): las claves no se renombran. La
+  PC lo reconoce por el título del chat («Runner» o «Cartero», también como «Centro de Operaciones › Runner»:
+  `esElCartero`). Un texto nuevo del Centro no dice «cartero» ni «clave»: lo fija tests/centro-textos.test.ts.
 
 # Un guard sobre algo destructivo se escribe en POSITIVO
 
@@ -1466,6 +1487,31 @@ glosario, está en otro idioma.** Lo que se escribe es lo que la cosa ES para qu
 lee — «la junta del 3 de septiembre», «Código Inmobiliario»— y el identificador, si hace
 falta para trabajar, va en el detalle o en el comentario del código. Vale para títulos de
 tarjetas, toasts, avisos, mensajes de WhatsApp y cualquier texto que salga del repo.
+
+⚠️ **Y UN AVISO DICE QUÉ HACER Y PARA QUÉ, NUNCA EL ESTADO INTERNO.** Martín, 15/10/2026,
+sobre la caja del Centro de Operaciones: **«Jamás pongas mensajes no claros como "Este
+dispositivo todavía no firma.", es mucho mejor "Crea tu Token para comenzar a chatear"»**.
+La primera frase es verdad y no sirve: describe cómo está el sistema por dentro, y quien la
+lee tiene que deducir qué hacer. La segunda arranca con la acción, nombra la cosa como la ve
+él (su Token, no «la clave de firma») y dice para qué.
+
+| No | Sí |
+|---|---|
+| «Este dispositivo todavía no firma.» | «Crea tu Token para comenzar a chatear.» |
+| «La PC todavía no acepta la clave de este dispositivo.» | «Pégale tu Token al Runner para comenzar a chatear.» |
+| «Sale cuando el cartero de la cuenta 3 dé su vuelta.» | «Abre el chat Runner en la app de Claude para que salga.» |
+| «Ningún chat todavía: aparecen cuando el cartero da su vuelta.» | «Conecta un Runner para ver tus chats aquí.» |
+
+- **La prueba antes de escribir un aviso:** ¿arranca con un verbo que la persona puede hacer, y
+  dice para qué? Si arranca con el sujeto del sistema («Este dispositivo…», «La PC…», «El
+  cartero…»), está describiendo el estado.
+- **Vale también para el motivo de un fallo** que se dibuja (el de un mensaje que no salió):
+  «Venció con el chat cerrado: ábrelo y vuelve a mandarlo», no «Venció sin que su chat
+  estuviera abierto».
+- **Y lo que no tiene acción** (un estado que sólo se mira: «Activo», «trabajando…») va como
+  rótulo corto, no como frase.
+- En el Centro lo fija `tests/centro-textos.test.ts` (frases prohibidas y que la caja arranque
+  con la acción); en el resto, se revisa a mano con esta tabla.
 
 ⚠️ **Y CUANDO LA PANTALLA SÍ MUESTRA UN PORQUÉ, ES EL PORQUÉ DE LA DECISIÓN QUE
 ESTÁ AL LADO — no el del problema.** Una columna «por qué» pegada a una columna

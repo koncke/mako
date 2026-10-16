@@ -8900,17 +8900,31 @@ corrió**: los números del 14/10 son sobre la base vieja `2c19b2d69` y main se 
 
 **Lo que NO entra, con el archivo:** el armador de la ficha (b1, `3eb46606a`) se lleva puestos
 `app/crm/lead-view/ResumenModal.tsx` y `app/crm/resumen-actions.ts` sin que el reemplazo esté
-cableado; mientras no entre, `app/crm/lead-view/AvisosDatosModal.tsx:32` y `:44` llaman sin
-`funnelId`, así que prender ahí un aviso que la plantilla del funnel apaga **no hace nada**. Y las
+cableado. **En producción (15/10, `24c0ad441`) la ficha se ve igual que antes:** de la «ficha por
+bloques» sólo corre el MOTOR (plantillas y avisos por funnel, y las ops de la API de MaKo). Y las
 plantillas T1/T2/T3/T6 de b5 (`87889880f`) no existen, así que el motor del CRM automático
 **no se puede apagar** (`KEY_CRM_AUTO`).
+
+**El panel de avisos de la ficha leía los del NEGOCIO — ARREGLADO el 15/10/2026.**
+`AvisosDatosModal` llamaba a sus dos actions sin `funnelId`, y el lead cuenta los de SU funnel. No
+sólo no se podía prender lo que la plantilla apaga: el panel lo MOSTRABA prendido (producción, ws9,
+funnel de Prospección: «¿Era lead calificado?» prendido en el panel, apagado por la plantilla, y
+«1 sin marcar» que no lo contaba). La precedencia que lo explica está en `estadoAvisos`
+(lib/ficha/config.ts): **a mano en el funnel > negocio > plantilla**. El negocio sólo puede APAGAR;
+prender lo que apaga la plantilla se hace en la ficha del funnel. Ahora la ficha (página y panel
+lateral) le pasa la casa del lead (`lead.funnel_id ?? null`, null = el producto del negocio) y
+«A revisar», que mezcla funnels, sigue con los del negocio. ⚠️ En las actions `undefined` es «el
+negocio» y `null` es «el funnel del negocio»: el modal llama SIN argumento en vez de pasar
+`undefined`, para no depender de cómo viaja un undefined a una server action.
+Test: `tests/ficha-avisos.test.ts` (probado rompiéndolo).
 
 **Dos reglas del merge:** `docs/api-mako.md` y `tests/api-mako-http.snapshot.txt` los tocan b1, b2,
 b3 y b5 — **no se resuelven a mano, se regeneran** (`scripts/generar-api-doc.mjs`) una sola vez al
 final. Y los merges van **sin rebase**: `crm-bloques` ya mergeó main así.
 
-**Vive en:** lib/pagos.ts · app/crm/[id]/deal-actions.ts · lib/api-mako/areas/crm.def.ts
-\n
+**Vive en:** lib/pagos.ts · app/crm/[id]/deal-actions.ts · lib/api-mako/areas/crm.def.ts ·
+app/crm/lead-view/AvisosDatosModal.tsx · lib/ficha/config.ts (`estadoAvisos`)
+
 ---
 
 ## Las cuotas que no se pueden tocar duplicaban la deuda, y un ajuste parcial borraba el plan (14/10/2026)

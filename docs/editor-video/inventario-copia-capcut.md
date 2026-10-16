@@ -136,7 +136,8 @@ Estado: ✓ hecho · ◐ a medias · ✗ falta y se puede copiar · ⊘ fuera.
 | Bloquear/Ocultar/Silenciar pista | ◐ | desde el reproductor se mueven clips de pistas bloqueadas |
 | Portada | ◐ | no se incrusta; «Editar portada» apagado |
 | Clip combinado · Agrupar | ✗ | el motor no los tiene |
-| Altura de la pista · Reemplazar el clip | ✗ | |
+| Altura de la pista | ✗ | |
+| Reemplazar el clip | ✓ | 15/10, `_opencut/reemplazo/`: menú, «Sustituir» en las muestras de plantilla y soltar sobre una muestra; sin ver en Chrome |
 | Atajos I/O, Shift+X, Ctrl+R, Shift+B, Ctrl+J, Tab | ✗ | `actions/definitions.ts` |
 
 ### Exportar (12)

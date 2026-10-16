@@ -8,9 +8,16 @@
 // CRM una opción para configurar esto, donde el usuario pueda elegir que datos le parecen
 // importante que MaKo le notifique».
 //
-// Cada interruptor se guarda al tocarlo: no hay «Guardar» que olvidarse de apretar. Es del
-// NEGOCIO (lo decide el admin) y cambia el worklist, «A revisar» y los avisos de todo el equipo.
-// La asistencia a una reunión que ya pasó no se puede apagar (lib/datos-aviso.ts → NO_IGNORABLES).
+// Cada interruptor se guarda al tocarlo: no hay «Guardar» que olvidarse de apretar. Lo decide el
+// admin y cambia el worklist, «A revisar» y los avisos de todo el equipo. La asistencia a una
+// reunión que ya pasó no se puede apagar (lib/datos-aviso.ts → NO_IGNORABLES).
+//
+// ⚠️ DESDE LA FICHA DE UN LEAD VA CON `funnelId` (su casa; null = el producto del negocio). Desde el
+// 14/10/2026 los avisos son POR FUNNEL (decisión 1 de docs/diseno-ficha-bloques.md) y el lead cuenta
+// los de SU funnel, que arranca con los de su plantilla. Sin `funnelId` el modal lee y guarda los del
+// NEGOCIO, el respaldo de todos los funnels: abierto así desde la ficha, en un funnel de Prospección
+// mostraba «¿Era lead calificado?» prendido mientras la plantilla lo tenía apagado, y no había cómo
+// prenderlo (medido en producción, ws9, 15/10/2026). «A revisar» mezcla funnels: ahí va sin él.
 // =============================================================================
 
 import { useEffect, useState } from 'react';
@@ -22,18 +29,26 @@ import { avisosDatosAction, guardarAvisosDatosAction } from '../datos-sin-marcar
 
 const GRUPOS = ['Reuniones', 'Venta', 'Equipo y contacto'] as const;
 
-export function AvisosDatosModal({ onCerrar, onGuardado }: { onCerrar: () => void; onGuardado?: () => void }) {
+export function AvisosDatosModal({ funnelId, onCerrar, onGuardado }: {
+  /** La casa del lead (null = el producto del negocio). Sin él (undefined), los del negocio. */
+  funnelId?: number | null;
+  onCerrar: () => void;
+  onGuardado?: () => void;
+}) {
   const [apagados, setApagados] = useState<StepId[] | null>(null);
   const [puede, setPuede] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const delFunnel = funnelId !== undefined;
 
   useEffect(() => {
     let vivo = true;
-    void avisosDatosAction()
+    // Sin argumento y no `undefined`: el undefined de las actions distingue «el negocio» de «el
+    // funnel del negocio» (null), y así no depende de cómo viaje un undefined al server.
+    void (delFunnel ? avisosDatosAction(funnelId) : avisosDatosAction())
       .then((r) => { if (vivo) { setApagados(r.apagados); setPuede(r.puedeEditar); } })
       .catch(() => { if (vivo) setErr('No se pudo leer.'); });
     return () => { vivo = false; };
-  }, []);
+  }, [delFunnel, funnelId]);
 
   const cambiar = (id: StepId, avisa: boolean) => {
     if (!apagados) return;
@@ -41,7 +56,7 @@ export function AvisosDatosModal({ onCerrar, onGuardado }: { onCerrar: () => voi
     const nuevos = avisa ? apagados.filter((x) => x !== id) : [...apagados, id];
     setApagados(nuevos);
     setErr(null);
-    void guardarAvisosDatosAction(nuevos).then((r) => {
+    void (delFunnel ? guardarAvisosDatosAction(nuevos, funnelId) : guardarAvisosDatosAction(nuevos)).then((r) => {
       if (!r.ok) { setApagados(antes); setErr(r.error); return; }
       onGuardado?.();
     }).catch(() => { setApagados(antes); setErr('No se pudo guardar.'); });
@@ -51,7 +66,9 @@ export function AvisosDatosModal({ onCerrar, onGuardado }: { onCerrar: () => voi
     <Modal titulo="Avisos de datos sin marcar" onCerrar={onCerrar} ancho={460}>
       <div>
         <p style={{ margin: '0 0 14px', fontSize: 13, color: 'var(--dim)' }}>
-          {puede ? 'MaKo te avisa de los que están prendidos.' : 'Solo el administrador puede cambiarlo.'}
+          {!puede ? 'Solo el administrador puede cambiarlo.'
+            : delFunnel ? 'En este funnel, MaKo te avisa de los prendidos.'
+            : 'En todos los funnels, salvo lo que cambie cada uno.'}
         </p>
         {err && <p role="alert" style={{ margin: '0 0 12px', fontSize: 13, color: 'var(--bad)', fontWeight: 600 }}>{err}</p>}
         {!apagados ? (

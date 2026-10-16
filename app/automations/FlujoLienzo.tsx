@@ -681,7 +681,7 @@ export function FlujoLienzo({
           {espera && <ChipEspera nodo={n} texto={espera} />}
           {chip && (
             <ChipMedio nodo={n} texto={chip.texto} frena={chip.frena} motivo={MOTIVO_MEDIO[chip.medio]}
-              onConectar={rolAdmin && paso ? () => setConectarMedio({ medio: chip.medio, linea: chip.medio === 'whatsapp' ? lineaDePaso(paso, linea?.actual ?? null) : null }) : undefined} />
+              onConectar={!chip.informa && rolAdmin && paso ? () => setConectarMedio({ medio: chip.medio, linea: chip.medio === 'whatsapp' ? lineaDePaso(paso, linea?.actual ?? null) : null }) : undefined} />
           )}
           </>
         );
@@ -1304,11 +1304,15 @@ function EditorMako({ paso, id, busy, onPasos, eventoMako, triggerTipo, adjuntos
       />
     </div>
   ) : null;
+  // UN EVENTO DE LA PLATAFORMA (15/10/2026, `EventoMako.plataforma`): la tarjeta le llega al grupo del NEGOCIO que lo emitió
+  // (`negocioWs`, lib/flujos.ts), no al tuyo. Nada por detrás: lo dice.
+  const aNegocio = EVENTOS_MAKO.find((e) => e.subtipo === eventoMako)?.plataforma === true;
   return (
     <>
+    {aNegocio && <div data-mako-a-negocio style={{ fontSize: 12, color: 'var(--dim)', marginBottom: 8 }}>Le llega al grupo del negocio del evento.</div>}
     {campoFuera}
     <EditorMensajeWhatsApp
-      paso={dto} autor="MaKo" vozMako placeholder="Mensaje para tu equipo"
+      paso={dto} autor="MaKo" vozMako placeholder={aNegocio ? 'Mensaje para el negocio' : 'Mensaje para tu equipo'}
       audios={[]} permiteAudio={false} permiteAdjuntos adjuntos={adjuntos} onAdjuntoNuevo={onAdjuntoNuevo}
       datos={datos} redactaCon={contexto} permiteIA paraGuion={paraGuion} disparador={disparador} negocio={negocio}
       onPartirConEspera={(i, m) => onPasos((prev) => { const r = partirConEspera(prev, id, i, m); return r.ok ? r.pasos : prev; }, true)}

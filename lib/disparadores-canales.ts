@@ -33,7 +33,9 @@ import { disparadoresDe, type Disparador, type EstadoCanal, type EstadoCanales, 
 import { pasarelasConectadas } from './cobros';
 import { NOMBRE_PASARELA } from './cobros-tipos';
 import { getTenantDb, getWorkspaceActual } from './workspace';
-import { listarLineas, type LineaRow } from './evolution';
+import { listarLineas, lineasParaMandar, type LineaRow } from './evolution';
+import { estadoAlertaVoz } from './canal-vigilante';
+import { ETIQUETA_LINEA_MAKO } from './linea-plataforma';
 import { lineaPorDefault } from './lineas-whatsapp';
 import { asegurarWebhook, cuentasConectadas, zernioConfigurado } from './zernio';
 import { esColumnaInexistente } from './nutricion-grafo-motor';
@@ -90,6 +92,17 @@ const NO_SE: EstadoMedio = { conectado: null, motivo: MOTIVO_NO_SE };
 const estadoDeLinea = (l: LineaRow | null): EstadoMedio =>
   l && l.estado === 'conectado' && l.numero ? { conectado: true, cuenta: l.numero } : { conectado: false, motivo: MOTIVO_MEDIO.whatsapp };
 
+/**
+ * LA LÍNEA DE MaKo, en la plataforma (15/10/2026, lib/linea-plataforma.ts): la mide su vigilante (`estadoAlertaVoz`, con
+ * memo de 30 s), no su fila. Manda, pero NO escucha 1 a 1 (`noEscucha`): la tarjeta que espera una respuesta lo dice.
+ */
+async function estadoLineaDeMaKo(): Promise<EstadoMedio> {
+  const a = await estadoAlertaVoz().catch(() => null);
+  if (!a || (!a.caida && a.sinConfirmar)) return { ...NO_SE, noEscucha: true };
+  if (a.caida) return { conectado: false, motivo: 'La línea de MaKo está caída', noEscucha: true };
+  return { conectado: true, cuenta: ETIQUETA_LINEA_MAKO, noEscucha: true };
+}
+
 /** Con tope: un proveedor que no contesta no cuelga la pantalla ni el Publicar. */
 function conTope<T>(p: Promise<T>, ms: number): Promise<T> {
   return Promise.race([p, new Promise<T>((_, rej) => setTimeout(() => rej(new Error('sin respuesta')), ms))]);
@@ -105,8 +118,12 @@ export async function estadoMedios(usa: readonly Medio[]): Promise<EstadoMedios>
   await Promise.all(usa.map(async (m) => {
     try {
       if (m === 'whatsapp') {
-        const lineas = await listarLineas();
-        out.whatsapp = { porDefecto: estadoDeLinea(lineaPorDefault(lineas)), lineas: Object.fromEntries(lineas.map((l) => [l.instance_name, estadoDeLinea(l)])) };
+        // Las MISMAS líneas con las que se manda (`lineasParaMandar`): en la plataforma, la de MaKo primero.
+        const wsWa = ws ?? await getWorkspaceActual().catch(() => null);
+        const { lineas, deMaKo } = wsWa != null ? await lineasParaMandar(wsWa) : { lineas: await listarLineas(), deMaKo: null };
+        const deMakoEstado = deMaKo ? await estadoLineaDeMaKo() : null;
+        const estado = (l: LineaRow | null): EstadoMedio => (l && deMakoEstado && l.instance_name === deMaKo ? deMakoEstado : estadoDeLinea(l));
+        out.whatsapp = { porDefecto: estado(lineaPorDefault(lineas)), lineas: Object.fromEntries(lineas.map((l) => [l.instance_name, estado(l)])) };
       } else if (m === 'email') {
         out.email = (await emailConectado()) ? { conectado: true } : { conectado: false, motivo: MOTIVO_MEDIO.email };
       } else {

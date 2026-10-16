@@ -963,7 +963,7 @@ triage del backlog, paquetes, verificación y corrección). Lo construido está 
   «Conservar» cortaba una sección por pregunta) y la respuesta cerrada NO está en el HTML. Emparejar pregunta y
   respuesta por CONTENCIÓN en el DOM, no por orden: con el orden, «¿Tienes otra duda? Escríbenos» se pegaba como
   respuesta de la última pregunta. Lo de adentro de un `<nav>` no es copy (el megamenú metía ~1.800 palabras).
-- `normalizarUrl` le saca el www y el query: es la LLAVE de `landing_analyses`, no una dirección para bajar. Los hosts
+- `normalizarUrl` (desde el 15/10/2026, `claveDeLanding`) le saca el www y el query: es la LLAVE de `landing_analyses`, no una dirección para bajar. Los hosts
   que sólo existen con www fallaban. **Regla:** se baja con la URL tal cual; la normalizada sólo como clave.
 - 401/403/406/429 se leen en el navegador de la persona; 404 y 5xx no (`ErrorDeLectura`, `bloqueaLaLectura`).
 - La ventana aislada (origen opaco): un `<script type="module" crossorigin>` sin CORS no carga (se mete en línea como
@@ -1622,3 +1622,109 @@ con la misma regla (sólo transform y opacity, nada atado al scroll, apagadas co
 dos landings según el aparato y nadie previsualizaría lo que publica); y **el ▶ del editor reproduce aunque quien
 edita tenga «reducir movimiento»** (es una acción apretada a propósito), pero nada se auto-reproduce al abrir el
 panel: ahí manda la preferencia del sistema, con un renglón que lo diga.
+
+## Tanda 8 (15/10/2026): las animaciones, una sola `normalizarUrl` y el `window.opener` del Pixel
+
+Pedido de Martín (14/10, a «¿cuál de los dos frentes?»): «las dos cosas», las animaciones de la página Y el video de
+fondo en loop, y poder replicarlas al copiar una web. Las decisiones del 15/10 llegaron por el coordinador «Estrategia 3
+cuentas» y están arriba, en «Etapas propuestas… y lo que falta decidir». Chat «Landing Generator», cuenta claude3.
+Rama `web-anim` (worktree `C:/dev/wt-web-anim`).
+
+### El contrato y el render (commit `607ceb205`, sale ANTES que el panel)
+
+**Vive en:** `lib/editor-landing/animaciones.ts` (el contrato) · `doc.ts`, `api-tipos.ts`, `validar.ts`,
+`especificacion.ts`, `render.ts`, `css.ts` (bloque 16), `pagina-publica.ts`, `publicar.ts` ·
+`tests/editor-landing-animaciones.test.ts`, `tests/editor-landing-animaciones-render.test.ts`
+
+- **Dos niveles, resueltos en el RENDER, no en el navegador.** La landing tiene un estilo
+  (`config.pagina.estiloAnimacion`, 8, con los nombres de la «Animación de página» del Image Editor); cada sección
+  guarda un efecto propio, `'ninguna'` o `null` (= hereda). `animacionDeSeccion(seccion, pagina, índice)` decide, y la
+  sección sale con `data-anim` / `data-anim-dir` / `data-anim-texto`. «Alterna» (Deslizar) cuenta sólo las secciones
+  VISIBLES: una oculta no corre la paridad.
+- **«Subir» es EXACTAMENTE la entrada de siempre** (20 px, 1 s, la curva de Gamma, 80 ms entre bloques) y es el estilo
+  por defecto: una landing que nunca eligió nada no cambia. Lo fija el test con el string entero.
+- **El transform va en los BLOQUES, nunca en la sección** (la sección sigue con la entrada de opacidad): una sección con
+  transform se vuelve el contenedor de lo `position:fixed` de adentro (la barra de CTA, el WhatsApp).
+- **El HTML viejo sigue igual**: una publicada sin `data-anim` (hoja congelada) cae en las reglas de siempre
+  (`gm-entrada`). La hoja nueva sólo agrega.
+- **«Enfoque» (filter: blur) cae a «Desvanecer» en el teléfono**, por la regla de «sólo transform, opacity y clip-path».
+  Un solo corte (`CORTE_CELULAR = '(max-width: 768px)'`) para la hoja, el `sizes` del póster y el script.
+- **El hash de la CSP no hubo que tocarlo**: ya se calcula del script real (`hashScript(SCRIPT_PAGINA)`), y el test
+  compara con el `<script>` servido.
+- **«Palabras» y «Máquina de escribir» parten los títulos en `span.gm-u`** sin cambiar el `textContent` y con
+  `aria-label` del texto original, y NUNCA lo que ya estaba en pantalla al cargar (el arreglo del parpadeo). ⚠️ **Los
+  títulos con DEGRADADO (6 temas, `background-clip: text`) no se parten**: un pedazo que anima opacidad o transform se
+  pinta en su propia capa y se vería vacío hasta terminar. Es lo esperado de Chrome, SIN MEDIR en un navegador.
+- **La hoja creció de 105 a 173 KB sin comprimir (+4,9 KB gzip, +2,2 KB brotli)**: una regla por efecto, dirección y
+  escalón, y queda congelada en cada foto. Si alguna vez pesa, la salida es pasar el escalón y la dirección a variables
+  CSS (~6 KB).
+- **Trampa de los tests de la hoja:** un test del bloque 17 busca la línea EXACTA `@media (max-width: 768px) {` como
+  comienzo del bloque del celular; otro `@media` con el mismo corte antes lo rompía (1 de 626). Lo que use ese corte va
+  en una sola línea.
+- **El video de fondo, el LUGAR sin la pantalla**: `AttrsTarjeta.videoFondo` (`src`, `srcMovil`, `poster`,
+  `posterMovil`: sin el póster vertical, el horizontal no calza con el primer cuadro del video del teléfono y pesa 3-4
+  veces más), sólo URLs del bucket y siempre con póster (`videoFondoValido`). La publicada dibuja el póster como imagen y
+  un `<video>` sin `autoplay` que el script carga después del load, muestra con `playing`, pausa fuera de pantalla y con
+  la pestaña oculta, no carga con reduced-motion ni Save-Data, y lleva un botón de pausa (WCAG 2.2.2).
+  `VIDEO_FONDO.disponible` es `false`: ninguna pantalla ni la API lo ofrecen.
+
+### El 403 «sin la barra / con la barra»: el diagnóstico obvio era el equivocado
+
+**Vive en:** `lib/landing-url.ts` (`claveDeLanding`, `direccionParaBajar`) · `lib/landing-analyst.ts` (`listarAnalizadas`) ·
+`app/web-generator/panel-reglas.ts` (`filasDelPanel`) · `app/web-generator/diagnostico/PanelDiagnostico.tsx` ·
+`app/api/landing-analyst/analyze/route.ts` · `tests/landing-url-unica.test.ts`
+
+- **Síntoma** (lo vio el coordinador): la misma pantalla pedía la página dos veces, una sin la barra final del dominio
+  (403) y otra con ella (200). **El diagnóstico obvio era «hay dos `normalizarUrl`»**, y era cierto que había dos, pero
+  las dos sacan la barra. **La causa real: la LLAVE de `landing_analyses`** (sin barra, sin www, sin query) **se usaba
+  como DIRECCIÓN.** Una analizada abierta desde la barra del Web Generator bajaba su llave; recién pegada, se bajaba lo
+  pegado. Hay sitios que contestan 403 a la forma sin barra.
+- **Ahora:** `listarAnalizadas` devuelve también `leer` = `url_final` si su llave es la de la fila
+  (`direccionParaBajar`); el renglón de la barra baja eso, el Diagnóstico registra lo pegado, y la ruta del Landing
+  Analyst le pasa `leer` a `analizarLanding`. **Regla: la llave busca la fila; para bajar va lo pegado o `url_final`.**
+- **Una sola `normalizarUrl`**: la del Pixel (`lib/landing-paginas.ts`, «¿qué página es?»). La de `lib/landing-url.ts`
+  se llama `claveDeLanding` («¿qué landing analizada es?») y NO se derivó de la otra: la del Pixel funde los hosts de
+  deploy de Netlify, suelta credenciales y exige un punto en el host, y derivarla dejaba huérfanas filas ya guardadas
+  (el test compara contra las dos implementaciones de antes congeladas, sobre 48 entradas). El test frena una segunda
+  `normalizarUrl` exportada o importada de otro módulo (con `git grep --untracked`: leer los ~5.300 fuentes tardaba
+  15-30 s con la máquina cargada; el grep, 1 s).
+
+### El `window.opener` del camino del Pixel: lo que se cerró y lo que NO
+
+**Vive en:** `lib/editor-landing/lector-script.ts` (`JS_LECTOR`) · `lib/landing-token.ts` (el Pixel: `PARAM_LEER`) ·
+`tests/editor-landing-lector.test.ts`
+
+- **Hecho (decisión del coordinador, a criterio):** el lector suelta `window.opener` apenas arranca TAMBIÉN en el camino
+  del Pixel, como ya hacía la ventana aislada, y sigue contestando por la referencia que guardó. Corta lo que la
+  página, un script de terceros o un sitio al que navegue podrían hacerle a la pestaña de MaKo DESPUÉS de ese momento
+  (`opener.location = '<phishing>'`, el tabnabbing inverso). **Costo aceptado:** si la landing se redirige sola con
+  JavaScript después de cargar el lector, su Pixel ya no ve opener y esa lectura se pierde.
+- **El riesgo que QUEDA:** el rato entre que carga la página y que corre esa línea. Ahí la página (o un script de
+  terceros que cargue antes que el Pixel) ve `window.opener` y podría navegar la pestaña de MaKo.
+- **Por qué no se cerró del todo (coordinador, 15/10: «mucho costo para un hueco chico»; no va a la Ticketera):** esa
+  conexión es más que la vuelta de la lectura. (1) El Pixel ya pegado la usa para saber «es MaKo leyendo»: no cuenta la
+  visita y carga el lector; sin ella, cada lectura cuenta como una visita real con una página extra `?mako_leer=` en las
+  analíticas del cliente, y nunca se lee nada. (2) No hay un camino de vuelta por el server para reusar: la firma y la
+  ruta de la ventana sólo autorizan a MOSTRAR la página, y la ventana también contesta por esa conexión.
+- **El plan, si algún día aparece un abuso real:** que la pestaña de MaKo abra la landing con `noopener` y el lector
+  conteste por el server con la firma de la lectura: una ruta pública nueva (en `lib/rutas-publicas.ts`, sólo POST con
+  la firma), una tabla donde dejar la lectura (migración) que la pestaña sondea, y un Pixel nuevo (v25) que reconozca la
+  lectura por la firma en vez de por el opener. Le llega sólo a quien usa la línea corta `/m.js`; quien pegó el código
+  entero sigue con el de hoy hasta repegarlo. Y el envío final del lector se corta en 64 KB.
+- **De paso:** `mako_leer` no está en `PARAMS_DE_MEDICION` (`lib/landing-paginas.ts`): si alguna vez se mide una visita
+  de lectura, queda una página basura por cada una. No se tocó porque cambia la forma de la llave; va junto con el
+  plan de arriba.
+
+### Trampas del entorno de esta tanda
+
+- **Mandarle un mensaje a un agente que está DENTRO de un Workflow no le llega: levanta una COPIA desde su transcript.**
+  La regla de RAM del coordinador, mandada a los dos paquetes que corrían, creó dos instancias más de cada uno, y las
+  dos escribieron los mismos archivos sin enterarse (un test se pisó a los 20:00:37). Se paró el Workflow y siguieron
+  las copias. **Regla:** a un agente de un Workflow no se le escribe; si hay que cambiarle las reglas, se para la
+  corrida y se retoma con el guion editado.
+- **Los fuentes del worktree son CRLF aunque `grep -c $'\r'` del Git Bash diga 0**, y `sed -i` del Git Bash los deja en
+  LF (git lo normaliza al commitear: el diff no se infla). Un arnés que busca texto con `\n` no encuentra nada en
+  silencio.
+- **Con la máquina sin RAM (240 MB libres, 12 chats) el tsc completo no se corre**: se valida con el ACOTADO
+  (`"include": []` + `"files"` de lo que cambia y sus consumidores, heap de 2,5 GB), probado metiendo un error a
+  propósito. Para este commit: 37 archivos, 40 s, y el error inyectado salió (TS2322).

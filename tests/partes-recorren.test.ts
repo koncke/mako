@@ -122,7 +122,8 @@ test('«Probar»: cada parte en orden, cada una sale de verdad UNA vez, y el aud
   assert.match(parte, /tipo: 'audio', mediaUrl: a\.url, texto: null,/);
   assert.doesNotMatch(panel, /a\.transcript/, 'volvió la transcripción del audio');
   // El que sigue espera a que termine de aparecer el mensaje entero.
-  assert.match(panel, /const resto = mostrarPaso\(paso, evento\.nodo, undefined, evento\.enRespuesta\); luego\(ENTRE_MS \+ resto, avanzar\);/);
+  // (15/10/2026: en un escenario de respuesta, después del primer mensaje escribe el lead; si no, sigue como siempre.)
+  assert.match(panel, /const resto = mostrarPaso\(paso, evento\.nodo, undefined, evento\.enRespuesta\);[\s\S]{0,500}?luego\(ENTRE_MS \+ resto \+ LEAD_PIENSA_MS, \(\) => \{ void escribirComoLead\(\); \}\);[\s\S]{0,80}?luego\(ENTRE_MS \+ resto, avanzar\);/);
 });
 
 // ── ROTURAS (09/10/2026) ───────────────────────────────────────────────────────────────────────

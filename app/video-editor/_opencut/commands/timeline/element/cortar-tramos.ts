@@ -104,12 +104,14 @@ export class CortarTramosCommand extends Command {
 		}
 		this.before = before;
 		this.hecho = resumenDe(r, sinClip);
-		editor.timeline.updateTracks(r.tracks);
+		// Sin el imán: la cuenta ya dejó cada cosa en su lugar (también lo vinculado), y el
+		// deshacer vuelve a la foto EXACTA de antes (ver `updateTracks`).
+		editor.timeline.updateTracks(r.tracks, { sinIman: true });
 		return undefined;
 	}
 
 	undo(): void {
-		if (this.before) EditorCore.getInstance().timeline.updateTracks(this.before);
+		if (this.before) EditorCore.getInstance().timeline.updateTracks(this.before, { sinIman: true });
 	}
 }
 

@@ -39,7 +39,7 @@ import { BuscadorBiblioteca, normalizarBusqueda } from "@/app/video-editor/_open
 import { TICKS_PER_SECOND } from "@/app/video-editor/_opencut/wasm";
 import type { TextElement } from "@/app/video-editor/_opencut/timeline";
 import { cn } from "@/app/video-editor/_opencut/utils/ui";
-import { bordeInferiorDe, partirYUbicar } from "../build-subtitle-text-element";
+import { bordeInferiorDe } from "../build-subtitle-text-element";
 import {
 	actualizarSubtitulos,
 	aplicarEstiloASubtitulos,
@@ -48,8 +48,7 @@ import {
 	subtitulosDe,
 	type SubtituloEnPista,
 } from "../insert";
-import { combinarSubtitulo, dividirSubtitulo, palabrasDelSubtitulo, reemplazarEnSubtitulos } from "../editar";
-import { codificarPalabras, PARAM_PALABRAS, rehacerPalabras } from "../palabras";
+import { combinarSubtitulo, dividirSubtitulo, paramsConTexto, reemplazarEnSubtitulos } from "../editar";
 import { ColorPicker } from "@/app/video-editor/_opencut/components/ui/color-picker";
 import {
 	BotonRestablecer,
@@ -138,38 +137,11 @@ function Linea({
 			setBorrador(guardado);
 			return;
 		}
-		const lienzo = lienzoDe(editor);
-		const borde = bordeInferiorDe({ params: element.params, lienzo });
-		const ubicado = partirYUbicar({
-			params: { ...element.params, content: texto },
-			lienzo,
-			ubicacion: borde != null ? { bordeInferior: borde } : {},
-		});
-		// Corregir una palabra no cambia cuándo se dijo: si siguen siendo las mismas palabras,
-		// los tiempos se quedan; si cambió cuántas son, el subtítulo se queda sin ellos.
-		const guardadas = palabrasDelSubtitulo(element);
-		const rehechas = guardadas ? rehacerPalabras(guardadas, texto) : null;
-		const palabras = rehechas
-			? codificarPalabras({
-					palabras: rehechas.palabras,
-					origen: (element.startTime - element.trimStart) / TICKS_PER_SECOND,
-					precision: rehechas.precision,
-				})
-			: "";
-		// La X la decide el cliente si movió el subtítulo: sólo cambia el texto y la Y.
+		// Corregir una palabra no cambia cuándo se dijo: la regla vive en subtitles/editar.ts
+		// (`paramsConTexto`), que la usa también el chat.
 		actualizarSubtitulos({
 			editor,
-			cambios: [
-				{
-					trackId: track.id,
-					elementId: element.id,
-					params: {
-						content: ubicado.content,
-						"transform.positionY": ubicado["transform.positionY"],
-						...(element.params[PARAM_PALABRAS] ? { [PARAM_PALABRAS]: palabras } : {}),
-					},
-				},
-			],
+			cambios: [{ trackId: track.id, elementId: element.id, params: paramsConTexto(editor, element, texto) }],
 		});
 	};
 

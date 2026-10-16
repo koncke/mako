@@ -10,7 +10,7 @@
 // Diseño: docs/diseno-editor-landing.md (D2, D4, D6, D8).
 // =============================================================================
 
-import { normalizarUrl } from '../landing-url';
+import { claveDeLanding } from '../landing-url';
 import { hoyEnTz, diasAntes } from '../date-utils';
 import { slugDe, slugValido, rutaValida, SLUGS_RESERVADOS, TOPES, type LandingContenido, type Pagina } from './doc';
 import { urlLandingEn } from './origen-landings';
@@ -263,7 +263,7 @@ export function leerFoto(raw: unknown): FotoPublicada | null {
 
 /**
  * Las URLs de una landing publicada, NORMALIZADAS con la misma función que usa el Landing Analyst
- * (`normalizarUrl`, lib/landing-url.ts): host sin www, sin query, sin barra final. Una por página y
+ * (`claveDeLanding`, lib/landing-url.ts): host sin www, sin query, sin barra final. Una por página y
  * por BASE (`basesLandings`, lib/app-url.ts): desde la tanda 4 la landing vive en
  * `hola-mako.site/<slug>`, y lo medido antes en `hola-mako.com/l/<slug>` sigue siendo suyo. El Pixel
  * escribe `location.href`: la URL que ve el visitante, nunca la ruta interna a la que el proxy reescribe.
@@ -280,7 +280,7 @@ export function urlsAMedir(bases: readonly string[], slug: string | null, rutas:
     for (const r of rutas) {
       if (!rutaValida(r)) continue;
       let u: string;
-      try { u = normalizarUrl(urlLandingEn(base, slug, r)); } catch { continue; }
+      try { u = claveDeLanding(urlLandingEn(base, slug, r)); } catch { continue; }
       if (!out.includes(u)) out.push(u);
     }
   }
@@ -290,7 +290,7 @@ export function urlsAMedir(bases: readonly string[], slug: string | null, rutas:
 /** ¿Esta visita es de una de las URLs medidas? Sin tirar: una URL rota guardada no es de nadie. */
 export function esUrlMedida(landingUrl: string | null | undefined, medidas: ReadonlySet<string>): boolean {
   if (!landingUrl) return false;
-  try { return medidas.has(normalizarUrl(landingUrl)); } catch { return false; }
+  try { return medidas.has(claveDeLanding(landingUrl)); } catch { return false; }
 }
 
 /**

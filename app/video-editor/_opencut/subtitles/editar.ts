@@ -26,8 +26,10 @@ import { bordeInferiorDe, partirYUbicar } from "./build-subtitle-text-element";
 import { lienzoDe, subtitulosDe } from "./insert";
 import {
 	codificarPalabras,
+	coincidenConTexto,
 	combinar,
 	dividirEnCursor,
+	leerCodificadas,
 	PARAM_PALABRAS,
 	palabrasDe,
 	reemplazarEnTexto,
@@ -49,6 +51,32 @@ export function palabrasDelSubtitulo(el: TextElement): PalabrasGuardadas | null 
 		recorteInicio: seg(el.trimStart),
 		duracion: seg(el.duration),
 	});
+}
+
+/**
+ * Los params de un subtítulo con OTRO texto escrito a mano (el panel «Subtítulos» y
+ * `cambiar_texto` del chat): las líneas se vuelven a partir con el borde de abajo donde
+ * estaba (la X la decide quien lo movió), y los tiempos por palabra siguen si son las
+ * mismas palabras (una corrección de ortografía); si cambió cuántas son, se van.
+ * Se miran TODAS las palabras guardadas, no sólo las visibles: un subtítulo partido con
+ * «Dividir» guarda el texto entero, y re-guardar sólo las visibles las anulaba.
+ */
+export function paramsConTexto(editor: EditorCore, element: TextElement, texto: string): ParamValues {
+	const lienzo = lienzoDe(editor);
+	const borde = bordeInferiorDe({ params: element.params, lienzo });
+	const ubicado = partirYUbicar({
+		params: { ...element.params, content: texto },
+		lienzo,
+		ubicacion: borde != null ? { bordeInferior: borde } : {},
+	});
+	const params: ParamValues = { content: ubicado.content, "transform.positionY": ubicado["transform.positionY"] };
+	if (!element.params[PARAM_PALABRAS]) return params;
+	const g = leerCodificadas(element.params[PARAM_PALABRAS]);
+	const valen = g && coincidenConTexto(g.palabras, String(element.params.content ?? "")) ? g : null;
+	const rehechas = valen ? rehacerPalabras(valen, texto) : null;
+	// Relativas al origen del recorte, como estaban: `origen: 0`.
+	params[PARAM_PALABRAS] = rehechas ? codificarPalabras({ palabras: rehechas.palabras, origen: 0, precision: rehechas.precision }) : "";
+	return params;
 }
 
 /** El texto de un subtítulo con los saltos de línea juntados: lo que DICE. */

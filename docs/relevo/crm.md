@@ -6,6 +6,24 @@ el briefing anterior (`b5f7fb55`, 10/10 17:10) con todo verificado contra el ár
 **Rutas de esta área:** `app/crm/**`, `lib/leads.ts`, `lib/funnel*.ts`, `lib/crm*.ts`,
 `lib/lead-*.ts`, `lib/campana-*.ts`, `lib/etiquetas*.ts`, `lib/pipeline.ts`.
 
+## 0-Ω6. 15/10/2026, 21:30 (chat «CRM», cuenta `claude3`): la tanda B EN PRODUCCIÓN, y lo que se vio
+
+**En main desde `24c0ad441`** (deploy Ready, lo subió el coordinador). Las migraciones, en su orden:
+`0290` y `0292` aplicadas ANTES del deploy y verificadas en el catálogo (6/6 columnas, 2/2 checks); `0291`
+DESPUÉS, y **tocó 0 leads**: `ig_conversaciones` sigue con 0 filas, como el 09/10. Es idempotente, así que no
+hace falta volver a correrla: los leads de Instagram nuevos traen el @ desde el alta.
+
+**La pasada en producción** (sesión de super admin de Martín en el ws9, sin ver como ningún cliente; antes,
+`/api/auth/me`): la página y el panel lateral de la ficha muestran lo mismo, «N sin marcar» sigue la plantilla
+del funnel (Prospección no pide «calificado» ni el deal), «Nuevo CRM» muestra los 12 tipos (abierto y
+cancelado), sin errores de consola. **De la «ficha por bloques» sólo está el MOTOR**: el armador (los bloques y
+«Personalizar») sigue en el WIP `3eb46606a` y la ficha se ve igual que antes. Pagos (b2) no se pudo mirar: el
+ws9 no tiene leads en una etapa de cobro y no se movió ninguno para verlo.
+
+**Arreglado en `855160673`:** el panel «Avisos de datos sin marcar» de la ficha leía y guardaba los del NEGOCIO;
+ahora los del funnel del lead (docs/hallazgos-crm.md, «Lo que quedó medido de las cinco ramas»).
+
+**SIN HACER:** el armador de b1 (`3eb46606a`, «WIP — NO INTEGRAR») y b5 (`lib/flujo-ia.ts`, de Automations).
 ## 0-Ω5. 15/10/2026 (chat «CRM», cuenta `claude3`): la tanda B INTEGRADA en `wt-crm-int`, lista para subir
 
 **Punta: `8ecb233d7`** en `C:/dev/wt-crm-int` (b4, b3, b1 y b2, con main del 15/10 mergeado — merge, nunca rebase).

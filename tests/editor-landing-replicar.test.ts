@@ -176,7 +176,7 @@ test('formatoReplicar: el formato manda; sin él, el modo viejo de la tanda 2 du
 
 test('Importar: baja la URL TAL CUAL, acepta la lectura del navegador y contesta enNavegador (nunca el callejón)', () => {
   const ia = sinComentarios(leer('lib/editor-landing/ia.ts'));
-  assert.match(ia, /extraerLanding\(url, \{ talCual: true \}\)/, 'normalizarUrl le saca el www: hay hosts que sólo existen con www');
+  assert.match(ia, /extraerLanding\(url, \{ talCual: true \}\)/, 'claveDeLanding le saca el www: hay hosts que sólo existen con www');
   assert.match(ia, /sanearLectura\(p\.lectura\)/);
   assert.match(ia, /motivoDePagina\(pagina\)[\s\S]{0,80}enNavegador\(motivo\)/);
   assert.match(ia, /motivoDeError\(e\)[\s\S]{0,80}enNavegador\(motivo\)/);

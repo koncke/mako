@@ -437,10 +437,15 @@ reescribir la clave entera. Molde: `persistirBrief` y `completarHuecoPerfil` en
 `lib/api-mako/areas/negocio.helpers.ts:131-164`.
 
 **Lo que quedó SIN hacer.** Las dos rutas del Archivero siguen llamando a `buildEstado(true)`; el
-arreglo va en `lib/archivero.ts:172-175`. La API de MaKo no lo tocó porque es la lib que pinta
+arreglo va en `buildEstado` (`lib/archivero.ts`). La API de MaKo no lo tocó porque es la lib que pinta
 la pantalla del Archivero, y lo esquiva por su lado.
 
-**Vive en:** `lib/archivero.ts:73-75,138-153,172-179` · `lib/onboarding.ts:67-69` ·
+**15/10/2026:** `computeEffective` se mudó, sin cambios, a `lib/archivero-registro.ts` (sin
+`server-only`, para que un test lo ejecute; `lib/archivero.ts` la re-exporta). Y El Archivero tiene una
+SEGUNDA PUERTA que no pasa por `buildEstado`: ver «El Archivero tiene una segunda puerta» más abajo.
+
+**Vive en:** `lib/archivero.ts` (`esCampoArchivero`, `buildEstado`) · `lib/archivero-registro.ts`
+(`computeEffective`) · `lib/onboarding.ts:67-69` ·
 `app/api/onboarding/route.ts:235-243` · `app/api/onboarding/archivero/route.ts:122` ·
 `app/api/onboarding/archivero/manual/route.ts:43` · *2026-09-16 api-mako-areas*
 
@@ -1146,6 +1151,28 @@ lentes · 38 hallazgos, 12 sobrevivieron, 5 bloqueaban.*
 
 ---
 
+## El Archivero tiene una segunda puerta: un documento que otra pantalla ya leyó (15/10/2026)
+
+Desde la decisión de Martín del 15/10 (ref `offer-archivero`: «¿El Archivero del chat guarda el archivo y
+paga una extracción por documento? → A · Sí»), cada archivo que el dueño manda en el chat de Offer queda
+también en El Archivero. Entra por `registrarDocumentoSinPisar` (`lib/archivero.ts`), y **cualquier otra
+pantalla que quiera guardar un documento en El Archivero entra por ahí**, no copiando la ruta:
+
+- **Es dueña del binario que recibe**: lo mueve a `<ws>/<id>` (el formato de `pathSubidoValido`) o lo borra.
+  Nunca queda suelto.
+- **El id sale del contenido** (`idDeContenido`: sha256 del workspace + los bytes), y el lugar se gana
+  MOVIENDO el binario antes de pagar la extracción: dos envíos del mismo archivo pagan uno. Mirar si la
+  fila existe no alcanza, porque la extracción tarda segundos.
+- **No llama a `buildEstado(true)`** (ver «`buildEstado(true)` reescribe el brief…»): suma sólo las claves de ese documento
+  (`answersConDocumento`), con lecturas estrictas antes de escribir.
+- **No regenera el panorama** (sería otra llamada paga) y paga UNA extracción, anotada como «El
+  Archivero» con el motivo de quien la pidió.
+
+El detalle y lo que enseñó, en `docs/hallazgos-offer.md` → «El Archivero desde el chat (15/10/2026)».
+
+**Vive en:** `lib/archivero.ts` (`registrarDocumentoSinPisar`, `reclamarLugar`) · `lib/archivero-registro.ts`
+· `tests/offer-archivero.test.ts`
+
 ## El prototipo conversacional: cuatro trampas de escenas y animación (04/09/2026)
 
 Salieron auditando el prototipo del onboarding-como-chat (el canvas de Claude Design), pero
@@ -1827,3 +1854,24 @@ sacarla. Ningún generador lee sus recomendaciones (`elegirAngulo` elige de la b
 `app/second-brain/AreasHub.tsx` · `app/second-brain/VistaCerebro.tsx`
 
 *15/10/2026 · chat «Offer» (cuenta claude1) · no se miró en el navegador.*
+
+## «Se queda en Cargando tu onboarding…» no era un bug: era la máquina sin RAM (15/10/2026)
+
+**Vive en:** `app/onboarding/OnboardingWizard.tsx:227` (el `fetch('/api/onboarding')`) y `:304` (el «Cargando…»)
+
+El chat de Video Editor reportó que `/video-editor?ws=3` redirigía a `/onboarding?ws=3` y se quedaba en «Cargando tu
+onboarding…». El sospechoso obvio era el retiro del hub de esa mañana, y **era el equivocado**: ese commit no tocó la rama
+del wizard. Medido en el Chrome de Martín, sin escribir nada, por los dos caminos (directo y por el redirect, con el 307
+llegando al navegador): documento a ~1,5 s, `/api/onboarding?ws=3` 200 en ~2,4 s, datos a la vista a ~4,2 s, cero
+errores de consola. A las 21:05, cuando falló, la máquina tenía ~1 GB libre y Whisper cargado en otra pestaña: era una
+hidratación lenta, no una carga trabada.
+
+- **Cómo se distinguen las dos cosas sin adivinar:** «Cargando…» es lo que el server pinta siempre (`data` arranca en
+  null), y si el GET falla el wizard pinta el error en rojo. Así que «se queda cargando» es (a) no hidrató o (b) el GET no
+  vuelve. Lo decide la pestaña Network: si sale el pedido a `/api/onboarding` y cuánto tarda.
+- **Lo que quedó SIN hacer:** el `fetch` de la carga no lleva `signal`. Con la conexión caída a mitad no resuelve nunca
+  y la pantalla queda en «Cargando…» para siempre, sin decir nada. Va con `AbortSignal.timeout` y un mensaje que diga
+  qué hacer (AGENTS.md, «Un tope que vive en la RUTA no protege al cliente»). Y `/api/auth/me` se pide dos veces en
+  paralelo al cargar.
+
+*15/10/2026 · chat «Onboarding» (claude3), con la medición del chat «MaKo Editor» en el Chrome de Martín.*

@@ -64,7 +64,7 @@ export const DEFS: readonly OperacionDef[] = [
     // LOS ESCENARIOS DE «PROBAR» (14/10/2026): los mismos contactos de la barra de Probar (`escenariosDePrueba`).
     id: 'escenarios_secuencia', area: 'chatbot', tipo: 'lectura',
     titulo: 'Escenarios de prueba de una secuencia',
-    descripcion: 'Los caminos distintos de UNA automatización por sus condiciones, los mismos que «Probar» muestra como contactos de su barra: qué sale en cada condición, en orden, y cuántos mensajes de WhatsApp le llegan por ese camino. El primero es el de un lead recién llegado por su CRON. Hasta 8; `faltan` dice cuántas ramas quedaron afuera. Úsala para saber qué conviene probar antes de prenderla; el `numero` de cada uno es el que recibe probar_secuencia. Pide antes el secuenciaId con listar_secuencias_nutricion.',
+    descripcion: 'Los caminos distintos de UNA automatización por sus condiciones, los mismos que «Probar» muestra como contactos de su barra: cuándo cae cada uno (`cuando`: los hechos del lead que lo deciden, como «Su reunión sigue en pie»), qué sale en cada condición, en orden, y cuántos mensajes de WhatsApp le llegan por ese camino. Un mismo hecho vale lo mismo en todo el flujo, y dos caminos que mandan lo mismo son uno. El primero es el de un lead recién llegado por su CRON. Hasta 8; `faltan` dice cuántos quedaron afuera. Úsala para saber qué conviene probar antes de prenderla; el `numero` de cada uno es el que recibe probar_secuencia. Pide antes el secuenciaId con listar_secuencias_nutricion.',
     parametros: [pSecuenciaId],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: { tab: TAB },
   },

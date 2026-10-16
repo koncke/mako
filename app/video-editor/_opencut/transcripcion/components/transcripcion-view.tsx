@@ -199,6 +199,9 @@ export function TranscripcionView() {
 			<div
 				ref={contenedor}
 				tabIndex={0}
+				// Supr y Retroceso son de la transcripción (actions/use-keybindings.ts): sin esto, el
+				// atajo global borraba además el clip elegido de la línea de tiempo.
+				data-teclas-propias="delete backspace"
 				onKeyDown={alTeclado}
 				className="scrollbar-thin min-h-0 flex-1 overflow-y-auto px-3 pb-3 outline-none select-none"
 				aria-label="Transcripción"

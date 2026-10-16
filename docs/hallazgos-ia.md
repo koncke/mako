@@ -4059,3 +4059,45 @@ dejar de valer solo; el error tiene que llegar entero, y el parámetro tiene que
 **Sin hacer.** Ver si `lib/transcribe.ts` y `lib/embeddings.ts` (OpenAI, que manda objetos) necesitan
 `leerErrorProveedor`. Y que un 400 de un proveedor también deje fila (docs/diseno-ia-claves-caidas.md, el registro).
 · *2026-10-15 Automations*
+
+## Que el cliente use SU Claude o su ChatGPT en vez de una API: qué se puede y qué no (15/10/2026)
+
+**El pedido.** Martín, el 15/10: «quiero implementar esto en todos los workspace de los clientes, para que puedan
+conectar sus cuentas de lo que sea, Claude, GPT, etc... Entonces deprecamos todas las "API gratuitas"». Su modelo
+es el del Centro de Operaciones: Claude Code abierto en una PC, y MaKo mandándole pedidos.
+
+**El diagnóstico obvio era el equivocado, dos veces.** Primero se contestó «Claude lo prohíbe» sin distinguir:
+lo prohibido es que OTRA app use el token de la suscripción, no que el cliente corra el Claude Code oficial. Y
+después se dio por hecho que «lo automático no lo cubre ninguna suscripción»: las routines de Claude Code en la
+nube SÍ corren solas con la suscripción del cliente. Lo que de verdad decide es la cuota y la latencia, no el
+mecanismo.
+
+**Lo verificado en fuente primaria (15/10/2026, hora de Argentina):**
+
+| Qué | Estado | Fuente |
+|---|---|---|
+| Usar el token OAuth de Pro/Max en otro software (lo de OpenClaw) | **Prohibido**, y se hace cumplir sin aviso | code.claude.com/docs/en/legal-and-compliance |
+| Automatizar la CLI oficial (`claude -p`, `claude setup-token` para scripts) | **Permitido** como mecanismo; los topes suponen uso «ordinary, individual» | code.claude.com/docs/en/authentication · Consumer Terms (8/10/2025) |
+| Alojar Claude Code del cliente en un servidor de MaKo | Permitido con condiciones: MaKo firma los Commercial Terms, binario sin tocar, login de Anthropic, MaKo no paga ni revende el uso | legal-and-compliance |
+| Routines (Claude Code en la nube del cliente) | Permitido; disparo por API (`POST /fire`): **30/h por routine y 100/h por cuenta**, horario mínimo 1 h, arranque en frío (latencia no publicada) | code.claude.com/docs/en/routines (research preview) |
+| Que MaKo le dé órdenes 24/7 al Claude Code del cliente para atender leads | **Zona gris**: se parece a «enrutar pedidos por credenciales del plan en nombre de los usuarios». La página manda a consultar a ventas | legal-and-compliance |
+| Topes de Pro/Max | Ventana de 5 h y semanal, compartidas con el uso del dueño; **sin números publicados**; al tocarlos, corta | support.claude.com/en/articles/11145838 |
+| Crédito de API incluido en Max 5x / 20x | **US$100 / US$200 por mes**, con una API key de Console vinculada; al acabarse corta, no cobra | platform.claude.com/docs/en/about-claude/api-credits-for-subscribers |
+| «Use your ChatGPT plan» en apps de terceros | Sólo socios y apps de código abierto (lista de espera); sin audio, transcripción ni imágenes generadas | developers.openai.com/siwc/quickstart · DevDay 29/09/2026 |
+| Usage Policy de Anthropic | Un bot que le habla a gente de afuera dice que es una IA al empezar cada chat | anthropic.com/legal/aup |
+
+**Lo que ninguna suscripción de chat cubre:** transcripción, voz, generación de imagen o video, embeddings
+(Anthropic recomienda Voyage). Entender una imagen (una captura) sí entra.
+
+**La regla que queda:**
+1. MaKo **nunca** toca el token de la suscripción de un cliente: ni lo guarda, ni lo usa, ni ofrece «Iniciar sesión
+   con Claude» en su pantalla.
+2. Lo que SÍ se puede ya: MaKo como herramienta (MCP / la API de MaKo) **dentro** del Claude o del ChatGPT del
+   cliente, y el crédito de API de Max cargado como clave propia en el BYOK que ya existe.
+3. Lo que necesita respuesta en vivo (un lead que escribe por WhatsApp) no se apoya en una suscripción: cuota sin
+   números, compartida con el dueño y que corta en silencio. Siempre con respaldo de API.
+4. Antes de construir «MaKo le da órdenes al Claude Code del cliente las 24 horas», preguntarle a ventas de Anthropic.
+
+**Vive en:** la decisión, en la Ticketera (`clientes-conectan-su-ia`); la memoria `ia-del-cliente-suscripcion`; el
+BYOK en `lib/credenciales.ts` y `/integraciones`.
+· *2026-10-15 Estrategia 3 cuentas*

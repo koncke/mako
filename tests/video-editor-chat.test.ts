@@ -647,6 +647,59 @@ test('39: resaltar las palabras (karaoke): a todos los subtítulos con los param
   assert.doesNotMatch(catalogoParaPrompt(), /resaltar palabras de los subtítulos \(karaoke\)/, 'ya no figura entre lo que no se puede');
 });
 
+test('40: recortar y dividir van RELATIVOS a dónde está el clip al aplicarse, y rehacer vuelve a armar el comando', () => {
+  // Con el imán, recortar un clip corre los que siguen: en segundos absolutos de la vista,
+  // «recorta 2 s al inicio de cada clip» recortaba 2, 4 y 8 s (revisión del 15/10).
+  const r = revisar([
+    { op: 'recortar', ref: 'v1', inicio: 0.5 },
+    { op: 'recortar', ref: 'v2', inicio: 7 },
+    { op: 'dividir', ref: 'v1', en: 3 },
+  ]);
+  const bases = (r.resueltas as Array<Extract<OperacionResuelta, { op: 'recortar' | 'dividir' }>>).map((x) => x.base);
+  assert.deepEqual(bases, [0, 6, 0.5], 'dividir v1 después de recortarlo: en la simulación ya empieza en 0,5');
+  const fuente = sinComentarios(leer('app/video-editor/_opencut/chat/comandos.ts'));
+  assert.match(fuente, /splitTime: segundos\(r\.en \+ corrimiento\(actual, r\.base\)\)/);
+  assert.match(fuente, /const s = pedido \+ corrimiento\(actual, r\.base\)/);
+  // Al rehacer, lo nuevo del lote vuelve en otra pista: `Diferido` se arma de nuevo.
+  assert.match(fuente, /redo\(\): CommandResult \| undefined \{\s*return this\.execute\(\);/);
+});
+
+test('41: lo que el corte por texto no puede acompañar va aparte, y nada toca los subtítulos de una pista bloqueada', () => {
+  const p = (id: string, texto: string, inicio: number, fin: number, muletilla = false) => ({ id, elementId: id.split('#')[0], texto, inicio, fin, muletilla });
+  const parrafos: ParrafoTx[] = [
+    { elementId: 'sub1', trackId: 'ps', inicio: 0, fin: 3, texto: 'hola mundo', bloqueado: false, palabras: [p('sub1#0', 'hola', 0, 0.5), p('sub1#1', 'eh', 0.6, 0.8, true), p('sub1#2', 'mundo', 0.9, 1.4)] },
+  ];
+  const tx = { transcripcion: { parrafos, idioma: 'es' } };
+  // Un recorte de la principal corre el video y los subtítulos se quedan: el corte por texto va aparte.
+  const conRecorte = revisar([{ op: 'recortar', ref: 'v2', inicio: 7 }, { op: 'cortar_frase', frase: 'hola mundo' }], tx);
+  assert.deepEqual(conRecorte.resueltas.map((x) => x.op), ['recortar']);
+  assert.match(motivos(conRecorte), /pedido aparte: los otros cambios corren el video de la pista principal/);
+  // Un recorte de un audio que no es de la principal, no.
+  assert.deepEqual(revisar([{ op: 'recortar', ref: 'a1', fin: 5 }, { op: 'eliminar_muletillas' }], tx).resueltas.map((x) => x.op), ['recortar', 'eliminar_muletillas']);
+  // Normalizar o revertir un clip que los cortes parten: sólo se procesaría el primer pedazo.
+  const largas = revisar([{ op: 'normalizar', ref: 'v1', activo: true }, { op: 'revertir', ref: 'v1', revertido: true }, { op: 'normalizar', ref: 'a1', activo: true }, { op: 'eliminar_muletillas' }], tx);
+  assert.deepEqual(largas.resueltas.map((x) => x.op), ['eliminar_muletillas', 'normalizar']);
+  assert.match(motivos(largas), /normalizar vid1\.mp4 va en un pedido aparte: los cortes parten el clip/);
+  assert.match(motivos(largas), /revertir vid1\.mp4 va en un pedido aparte/);
+  // Un subtítulo de una pista bloqueada no cuenta para cortar.
+  const bloqueado = { transcripcion: { parrafos: parrafos.map((x) => ({ ...x, bloqueado: true })), idioma: 'es' } };
+  assert.equal(revisar([{ op: 'cortar_frase', frase: 'hola mundo' }], bloqueado).resueltas.length, 0);
+  // Las mayúsculas cambian el ancho: en un subtítulo, como la fuente, van por el panel.
+  const may = revisar([{ op: 'estilo_texto', ref: 't2', estilo: { mayusculas: 'mayusculas' } }]);
+  assert.equal(may.resueltas.length, 0);
+  assert.match(motivos(may), /subtítulo se cambian en el panel Texto/);
+});
+
+test('42: el chat cumple las reglas del botón y del panel: borrar con lo vinculado, y el texto de un subtítulo con sus tiempos', () => {
+  // Una regla, un lugar (AGENTS.md → «Una regla que vive en un COMPONENTE no la cumple otra entrada»).
+  const comandos = sinComentarios(leer('app/video-editor/_opencut/chat/comandos.ts'));
+  assert.ok(comandos.includes('conLoVinculado({ tracks, refs: elements })'), 'el borrar del chat, como el botón');
+  assert.ok(comandos.includes('paramsConTexto(EditorCore.getInstance(), actual, r.texto)'), 'cambiar_texto de un subtítulo, como el panel');
+  assert.ok(sinComentarios(leer('app/video-editor/_opencut/actions/use-editor-actions.ts')).includes('conLoVinculado({ tracks, refs: aBorrar })'));
+  assert.ok(sinComentarios(leer('app/video-editor/_opencut/subtitles/components/pestana-subtitulos.tsx')).includes('paramsConTexto(editor, element, texto)'));
+  assert.match(revisar([{ op: 'borrar', refs: ['v2'] }]).cambios[0].antes, /lo que tiene encima/);
+});
+
 // Roturas (15/10/2026), cada una sola y restaurada desde memoria; base 21 de 21:
 // · lo borrado sigue vivo para las que siguen          → 1 fallo (10)
 // · la pista bloqueada se toca                         → 1 fallo (11)
@@ -687,6 +740,15 @@ test('39: resaltar las palabras (karaoke): a todos los subtítulos con los param
 // · R21 la vista no muestra el resaltado actual · R22 un modo inventado se acepta
 // · R23 resalta también los textos que no son subtítulos · R24 sigue en «no se puede»
 // → cada una 39/1 (39). Restaurado: 40/0.
+//
+// Los arreglos de la revisión adversarial (tests 40 y 41, 15/10), base 42 de 42:
+// · R25 recortar sin la base · R26 dividir en segundos absolutos · R27 Diferido rehace el
+//   comando viejo → cada una 41/1 (40).
+// · R28 el corte por texto va con un recorte de la principal · R29 normalizar el clip que se
+//   corta · R30 los subtítulos bloqueados cuentan · R31 mayúsculas en un subtítulo se aceptan
+//   → cada una 41/1 (41). Restaurado: 42/0.
+// · R32 el borrar del chat sin lo vinculado · R33 cambiar_texto de un subtítulo sin la regla del
+//   panel · R34 la fila de borrar no avisa lo vinculado → cada una 42/1 (42). Restaurado: 43/0.
 //
 // Lo que NO cubre: que los comandos del motor hagan en pantalla lo que dice la fila
 // (chat/comandos.ts, chat/aplicar.ts). Eso se mira en el navegador

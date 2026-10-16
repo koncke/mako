@@ -121,9 +121,9 @@ export async function encolarPedido(entrada: {
   firmado: string; firma: string; clavePublica: string; autor: string;
 }, ahora = Date.now()): Promise<ResultadoEncolar> {
   const l = leerFirmable(entrada.firmado, ahora);
-  if (!l.ok) return { ok: false, error: `El pedido no es válido: ${l.motivo}.` };
+  if (!l.ok) return { ok: false, error: `Vuelve a mandarlo (${l.motivo}).` };
   if (!firmaCoincide(entrada.firmado, entrada.firma, entrada.clavePublica)) {
-    return { ok: false, error: 'La firma no corresponde a la clave de este dispositivo.' };
+    return { ok: false, error: 'Vuelve a mandarlo: la firma no coincide con tu Token.' };
   }
   const { error } = await getSupabaseServer().from(T_PEDIDOS).insert({
     id: l.p.id,
@@ -139,8 +139,8 @@ export async function encolarPedido(entrada: {
   if (error) {
     // 23505: el id ya existe. Es el mismo pedido firmado dos veces (doble clic, reintento): no se
     // duplica, y se contesta como lo que es.
-    if (error.code === '23505') return { ok: false, error: 'Ese pedido ya estaba en la cola.' };
-    return { ok: false, error: `No pude guardar el pedido: ${error.message}` };
+    if (error.code === '23505') return { ok: false, error: 'Ya estaba mandado.' };
+    return { ok: false, error: `No pude guardarlo, vuelve a mandarlo: ${error.message}` };
   }
   return { ok: true, id: l.p.id };
 }
@@ -278,7 +278,7 @@ export async function cicloCartero(token: string, entrada: unknown): Promise<Sal
   // Lo vencido no se entrega: se dice, con el motivo.
   const limite = new Date(Date.now() - 15 * 86_400_000).toISOString();
   const { data: venc } = await db.from(T_PEDIDOS)
-    .update({ estado: 'no_entregado', motivo: 'Venció sin que su chat estuviera abierto', updated_at: ahoraIso })
+    .update({ estado: 'no_entregado', motivo: 'Venció con el chat cerrado: ábrelo y vuelve a mandarlo', updated_at: ahoraIso })
     .eq('estado', 'escrito').lt('created_at', limite).select('id');
 
   // Lo que ESTE cartero puede entregar ahora: pedidos escritos para uno de SUS chats vivos.

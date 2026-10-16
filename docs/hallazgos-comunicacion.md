@@ -9824,3 +9824,39 @@ Corrida de sólo lectura del chat de Automations (`claude2`), con el plan en doc
 - **Nada de Zernio se probó con tráfico real:** el 12/10 los ws10, 11 y 13 tenían `webhook_ok=false`.
 
 **Vive en:** `lib/zernio.ts` · `lib/zernio-entrante.ts` · `lib/canal-zernio.ts` · `lib/canal-social.ts` · `app/api/webhooks/zernio/route.ts`
+
+## SuperAdmin decía «WhatsApp y email sin conectar» y los de MaKo existen: ninguno era del ws 9 (15/10/2026)
+
+Martín: «en SuperAdmin me dice que no tengo conectado WhatsApp y Gmail, cuando si lo tengo... Está el WhatsApp de
+MaKo y el Gmail de MaKo». **El diagnóstico obvio era el equivocado:** «pregunta por OWNER_WS (el 1) y no por la
+plataforma (el 9)». No era eso: `wsSuperAdmin()` resuelve bien el 9. El problema es que **ni la línea ni el remitente
+de MaKo eran del ws 9**.
+
+**Email: resuelto con datos, no con código.** La regla ya estaba escrita (decisión 22 de
+docs/diseno-undecima-tanda.md): «La plataforma sólo manda a SUS leads con el dominio de MaKo si lo reclama en
+/email (hoy no)». Nadie lo había reclamado. Se hizo el 15/10 con lo mismo que escribe /api/email/dominio, en
+compare-and-set sobre las tres settings vacías del ws 9:
+- `resend_domain` hola-mako.com, con su `resend_domain_id` (verificado, sa-east-1);
+- `resend_from` «MaKo <equipo@hola-mako.com>».
+El script es `reclamar-dominio-plataforma.mjs`, en el scratchpad de la sesión 36f4eb6c. **El envío real del ws 9
+sigue APAGADO:** lo prende Martín.
+⚠️ Por /email no se podía hacer: «crear» da de alta el dominio en Resend, y hola-mako.com ya existe ahí.
+
+**WhatsApp: DECIDIDO el camino (a) (coordinador, 15/10) y hecho en lib/linea-plataforma.ts.** La línea de MaKo (`mako_superadmin_<sufijo>`, …2605) no está en
+`evolution_instancias`, a propósito: no es de ningún negocio. El webhook la manda al ws 1 SÓLO para los mensajes de
+grupo (el Doer) e ignora los 1 a 1 (`unoAuno && !esNombreDeCanal`). El ws 9 tiene una línea propia, `mako_ws9`, que
+quedó en «conectando» sin número. Así que Automations del ws 9 dice «Sin conectar» y además **no puede mandar** por
+WhatsApp. Hay tres caminos:
+- (a) la línea de MaKo cuenta como la del ws 9 sólo para MANDAR (avisos a personas y grupos), sabiendo que no escucha
+  1 a 1;
+- (b) que también escuche 1 a 1 para el ws 9: toca el webhook y la trampa de OWNER_WS;
+- (c) que Martín conecte un número en `mako_ws9`.
+Lo que quedó: en la plataforma, la línea de MaKo es la de POR DEFECTO para mandar y para el estado
+(`lineasParaMandar`, lib/evolution.ts). Sólo la ven el envío (`lineaDeEnvio`) y el estado de Automations; las operaciones de
+la línea (`lineaEstricta`: QR, desconectar, webhook, renombrar) NO, para que nadie re-escanee la línea de MaKo desde el
+ws 9. Un AI Step o un «Si responde» en esa línea lleva el chip «No escucha respuestas» (nada por detrás). Para un
+negocio cliente no cambia nada: `lineaDeMaKoPara` devuelve null fuera de la plataforma.
+
+**Vive en:** `lib/disparadores-canales.ts` (`estadoMedios`) · `lib/evolution.ts` (`listarLineas`) · `lib/mako-canal.ts` ·
+`app/api/webhooks/evolution/route.ts` (`wsDeInstancia`) · `lib/email-remitente.ts` (`porDominio`) ·
+`app/api/email/dominio/route.ts`

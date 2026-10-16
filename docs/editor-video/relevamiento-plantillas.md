@@ -45,15 +45,18 @@ la persona: elegís una, ponés tus clips y tus textos, y queda armada.
 | Beneficios | Lista que aparece punto por punto sobre el clip | Animated List · Text Highlight |
 | Oferta con cuenta regresiva | Cuenta regresiva y llamado a la acción | Countdown Timer · End Card |
 
-**Lo que falta en el motor para algunas**: la máquina de escribir, el glitch y el comparador no existen como
-animación ni como efecto. O se construyen (con la idea de la plantilla de Remotion) o esas plantillas esperan.
-Ninguna se hace con material de LottieFiles.
+**Lo que falta en el motor para algunas**: ~~la máquina de escribir, el glitch y el comparador no existen~~ —
+corregido el 15/10: la máquina de escribir (`animaciones/catalogo.ts`, entrada `maquina-escribir`) y el glitch
+(transición y efecto) SÍ existen; sólo falta el comparador deslizante. Ninguna se hace con material de
+LottieFiles.
 
-## Lo que decide Martín
+## Lo que decidió Martín (vía «Estrategia 3 cuentas», 15/10)
 
-- ¿Arrancan estas cinco, o hay otras que vende más (por ejemplo, las de un formato del Video Generator)?
-- ¿Las plantillas vienen con música? Hoy no hay biblioteca de música con licencia (`lib/musica-catalogo.ts`):
-  sin eso, una plantilla sale sin música o con la que ponga la persona.
+- Arrancan estas cinco, con lo que el editor ya tiene; las que piden máquina de escribir, glitch o comparador
+  esperan.
+- Música: no hay biblioteca con licencia (`lib/musica-catalogo.ts`), así que las plantillas salen sin música o
+  con la que ponga la persona.
+- El plan de construcción: [plan-plantillas-anuncio.md](plan-plantillas-anuncio.md).
 
 ## Investigado el 15/10 (cuenta 3), para armarlas
 

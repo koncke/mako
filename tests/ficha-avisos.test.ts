@@ -21,6 +21,13 @@
 //   · una lectura de los funnels POR LEAD adentro del loop del worklist               → 6 / 1
 //   · la API de MaKo escribiendo `pendientes_ignorados` otra vez                       → 6 / 1
 //   · `funnel_id` fuera de PENDIENTES_COLS                                             → 6 / 1
+//
+// Y el panel de avisos de la ficha (15/10/2026, base 8/0), restaurando de memoria:
+//   · LeadSheet abre el panel sin el funnel del lead                                  → 7 / 1
+//   · LeadDetailBody abre el panel sin el funnel del lead                             → 7 / 1
+//   · el panel lee siempre los del negocio                                            → 7 / 1
+//   · el panel guarda siempre en el negocio                                           → 7 / 1
+//   · «A revisar» abre el panel de un funnel                                          → 7 / 1
 // =============================================================================
 
 import { test } from 'node:test';
@@ -136,6 +143,25 @@ test('la API de MaKo ignora IGUAL que la pantalla: en datos_ignorados, por la mi
   }
   assert.match(tramo(run, 'ignorar_datos_sin_marcar: {', 'reactivar_datos_sin_marcar: {'), /ignorarDatosDeUnLead\(Number\(payload\.leadId\), true, autorDe\(ctx\)\)/);
   assert.match(tramo(run, 'reactivar_datos_sin_marcar: {', 'resolver_confirmacion_crm: {'), /ignorarDatosDeUnLead\(Number\(payload\.leadId\), false, autorDe\(ctx\)\)/);
+});
+
+test('el panel de avisos que se abre desde la ficha lee y guarda los de SU funnel; el de «A revisar», los del negocio', () => {
+  // Por qué importa: un lead de un funnel de Prospección no avisa de «calificado» (su plantilla lo apaga)
+  // aunque el negocio no lo apague. Con los del negocio, el panel lo mostraba prendido (ws9, 15/10/2026).
+  assert.ok(fichaEfectiva('prospeccion', {}, RESPALDO_VACIO).apagados.includes('calificado'));
+  assert.ok(!RESPALDO_VACIO.apagados.includes('calificado'));
+  const modal = sinComentarios(leer('app/crm/lead-view/AvisosDatosModal.tsx'));
+  assert.match(modal, /avisosDatosAction\(funnelId\)/, 'el panel no lee los avisos del funnel');
+  assert.match(modal, /guardarAvisosDatosAction\(nuevos, funnelId\)/, 'el panel no guarda en el funnel');
+  for (const r of ['app/crm/LeadSheet.tsx', 'app/crm/[id]/LeadDetailBody.tsx']) {
+    const usos = [...sinComentarios(leer(r)).matchAll(/<AvisosDatosModal\b[\s\S]*?\/>/g)].map((m) => m[0]);
+    assert.ok(usos.length > 0, `${r}: ya no abre el panel de avisos`);
+    for (const u of usos) assert.match(u, /funnelId=\{lead\.funnel_id \?\? null\}/, `${r}: abre el panel de avisos sin el funnel del lead`);
+  }
+  // «A revisar» mezcla leads de varios funnels: ahí van los del negocio, el respaldo de todos.
+  const gate = [...sinComentarios(leer('app/_components/MakoConfirmGate.tsx')).matchAll(/<AvisosDatosModal\b[\s\S]*?\/>/g)].map((m) => m[0]);
+  assert.ok(gate.length > 0, '«A revisar» ya no abre el panel de avisos');
+  for (const u of gate) assert.doesNotMatch(u, /funnelId/, '«A revisar» abre el panel de un funnel');
 });
 
 test('la escritura de lo ignorado es UNA, en lib, con historial', () => {

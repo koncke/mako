@@ -27,7 +27,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { analisisCortado, faltanAnalizar, normalizarUrl, MINUTOS_CORTE_ANALISIS } from '../lib/landing-url';
+import { analisisCortado, faltanAnalizar, claveDeLanding, MINUTOS_CORTE_ANALISIS } from '../lib/landing-url';
 
 const RAIZ = join(__dirname, '..');
 const leer = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8').replace(/\r\n/g, '\n');
@@ -45,7 +45,7 @@ test('falta analizar lo declarado SIN fila, normalizado como Landing Analyst', (
   assert.deepEqual(faltanAnalizar(['https://x.com'], ['https://www.x.com/']), []);
   // Repetidas cuentan una vez, y una URL rota no voltea el resto.
   assert.deepEqual(faltanAnalizar(['https://z.com', 'z.com', 'http://[::1'], []), ['https://z.com']);
-  assert.equal(normalizarUrl('HTTPS://WWW.Ejemplo.com/a/?b=1#c'), 'https://ejemplo.com/a');
+  assert.equal(claveDeLanding('HTTPS://WWW.Ejemplo.com/a/?b=1#c'), 'https://ejemplo.com/a');
 });
 
 test('un pendiente viejo es un análisis cortado; un pendiente nuevo o un error, no', () => {

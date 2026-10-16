@@ -454,10 +454,11 @@ test('el Pixel v24: con ?mako_leer= y la ventana de MaKo detrás no mide nada y 
 // la ventana antes) → la página nueva tenía opener y se llevó la pestaña de MaKo a la de phishing.
 // PROBADO ROMPIÉNDOLO (15/10/2026; corrido junto con editor-landing-htmllibre, -diagnostico y -origen, base 108 / 0):
 //   · lector-script.ts sin soltar el opener                         → 107 / 1 (éste)
-//   · lector-script.ts soltándolo también en el camino del Pixel     → 107 / 1 (éste)
 //   · lector-script.ts soltándolo ANTES de guardarlo en «abre»       → 107 / 1 (éste)
 // Restaurado: 108 / 0.
-test('la ventana aislada suelta su opener al cargar y le sigue hablando a MaKo; el camino del Pixel no lo suelta', () => {
+// Desde el 15/10/2026 (tanda 8, decisión del coordinador) el camino del Pixel TAMBIÉN lo suelta: una landing declarada
+// puede traer scripts de terceros. Probado rompiéndolo con `if (camino === 'ventana')` de vuelta → 1 fallo (éste).
+test('el lector suelta el opener al cargar, en la ventana Y en el camino del Pixel, y le sigue hablando a MaKo', () => {
   const correr = (camino: 'ventana' | 'pixel') => {
     const enviados: Array<{ fase: unknown; origen: string }> = [];
     const opener = { postMessage: (m: { fase?: unknown }, origen: string) => { enviados.push({ fase: m?.fase, origen }); } };
@@ -470,7 +471,7 @@ test('la ventana aislada suelta su opener al cargar y le sigue hablando a MaKo; 
   assert.equal(aislada.ventana.opener, null, 'la ventana aislada suelta el opener');
   assert.deepEqual(aislada.enviados[0], { fase: 'hola', origen: MAKO }, 'y le sigue hablando a MaKo por la referencia guardada');
   const pixel = correr('pixel');
-  assert.equal(pixel.ventana.opener, pixel.opener, 'en el camino del Pixel el opener queda (un redirect vuelve a cargar el lector)');
+  assert.equal(pixel.ventana.opener, null, 'en el camino del Pixel también se suelta');
   assert.deepEqual(pixel.enviados[0], { fase: 'hola', origen: MAKO });
 });
 

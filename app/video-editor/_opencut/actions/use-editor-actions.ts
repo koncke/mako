@@ -30,7 +30,7 @@ import { invokeAction } from "@/app/video-editor/_opencut/actions";
 import { canToggleSourceAudio } from "@/app/video-editor/_opencut/timeline/audio-separation";
 import { clampDb, hasAnimatedVolume } from "@/app/video-editor/_opencut/timeline/audio-state";
 import { getElementKeyframes } from "@/app/video-editor/_opencut/animation";
-import { elementosVinculados } from "@/app/video-editor/_opencut/ripple/iman";
+import { conLoVinculado } from "@/app/video-editor/_opencut/ripple/iman";
 import {
 	objetivosEnCabezal,
 	pistasEnOrden,
@@ -286,22 +286,10 @@ export function useEditorActions() {
 						return;
 					}
 					// Vinculación: lo que está encima de un clip borrado de la pista
-					// principal se va con él (se hace acá, no en el imán: ver ripple/iman.ts).
-					if (useTimelineStore.getState().vinculacion) {
-						const ids = new Set(aBorrar.map((r) => r.elementId));
-						for (const ref of aBorrar) {
-							if (ref.trackId !== tracks.main.id) continue;
-							const clip = tracks.main.elements.find((e) => e.id === ref.elementId);
-							if (!clip) continue;
-							for (const vinculado of elementosVinculados({ tracks, clip })) {
-								if (!ids.has(vinculado.elementId)) {
-									ids.add(vinculado.elementId);
-									aBorrar.push(vinculado);
-								}
-							}
-						}
-					}
-					editor.timeline.deleteElements({ elements: aBorrar });
+					// principal se va con él (ripple/iman.ts → conLoVinculado, que usa también el chat).
+					editor.timeline.deleteElements({
+						elements: useTimelineStore.getState().vinculacion ? conLoVinculado({ tracks, refs: aBorrar }) : aBorrar,
+					});
 					return;
 				}
 				default:

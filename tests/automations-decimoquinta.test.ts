@@ -114,7 +114,8 @@ test('punto 4: crear o editar una tarjeta no abre el modal de conectar; sólo el
   // En el lienzo, `setConectarMedio` sólo en handlers: el chip «Sin conectar» y el cierre del modal.
   const llamadas = [...LIENZO_FLUJO.matchAll(/setConectarMedio\(/g)].map((m) => LIENZO_FLUJO.slice(Math.max(0, m.index! - 40), m.index! + 20));
   assert.equal(llamadas.length, 3, `cambió quién abre el modal: ${llamadas.join(' | ')}`);
-  assert.match(LIENZO_FLUJO, /onConectar=\{rolAdmin && paso \? \(\) => setConectarMedio\(/);
+  // (15/10/2026: el chip que sólo INFORMA —«No escucha respuestas», la línea de MaKo en la plataforma— no abre nada.)
+  assert.match(LIENZO_FLUJO, /onConectar=\{!chip\.informa && rolAdmin && paso \? \(\) => setConectarMedio\(/);
   assert.match(LIENZO_FLUJO, /onCerrar=\{\(\) => setConectarMedio\(null\)\} onConectado=\{\(\) => setConectarMedio\(null\)\}/);
   // Publicar, Probar y Activar lo siguen abriendo (SecuenciaPerfil).
   const perfil = fuente('app/automations/SecuenciaPerfil.tsx');

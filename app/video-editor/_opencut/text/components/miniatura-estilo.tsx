@@ -14,7 +14,8 @@
 //           guardado con curva se ve recto en la tarjeta (en el video, curvo).
 //   Fondo   el color con su opacidad y las esquinas en proporción.
 
-import type { CSSProperties } from "react";
+import { useRef, type CSSProperties } from "react";
+import { cssFamilia, useFuenteMuestra } from "@/app/video-editor/_opencut/fonts/muestras";
 import type { ParamValue } from "@/app/video-editor/_opencut/params";
 import { cn } from "@/app/video-editor/_opencut/utils/ui";
 import {
@@ -91,6 +92,15 @@ export function MiniaturaEstilo({
 	tamanoPx?: number;
 	className?: string;
 }) {
+	const visible = aplicarMayusculas(texto, leerMayusculas(params));
+	// Sólo las letras de la muestra, cuando la tarjeta entra en pantalla (fonts/muestras.ts).
+	const ref = useRef<HTMLSpanElement>(null);
+	const muestra = useFuenteMuestra({
+		ref,
+		familia: typeof params.fontFamily === "string" ? params.fontFamily : null,
+		peso: params.fontWeight === "bold" ? 700 : 400,
+		texto: visible,
+	});
 	return (
 		<div
 			className={cn(
@@ -98,8 +108,8 @@ export function MiniaturaEstilo({
 				className,
 			)}
 		>
-			<span className="max-w-full text-center" style={estiloCss(params, tamanoPx)}>
-				{aplicarMayusculas(texto, leerMayusculas(params))}
+			<span ref={ref} className="max-w-full text-center" style={{ ...estiloCss(params, tamanoPx), fontFamily: cssFamilia(muestra) }}>
+				{visible}
 			</span>
 		</div>
 	);

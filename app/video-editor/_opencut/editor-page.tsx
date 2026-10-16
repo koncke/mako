@@ -36,6 +36,7 @@ import { PreviewPanel } from "@/app/video-editor/_opencut/preview/components";
 import { EditorHeader } from "@/app/video-editor/_opencut/components/editor/editor-header";
 import { EditorProvider } from "@/app/video-editor/_opencut/components/providers/editor-provider";
 import { MigrationDialog } from "@/app/video-editor/_opencut/project/components/migration-dialog";
+import { DialogoReemplazar } from "@/app/video-editor/_opencut/reemplazo/dialogo-reemplazar";
 import { usePanelStore } from "@/app/video-editor/_opencut/editor/panel-store";
 import { usePasteMedia } from "@/app/video-editor/_opencut/media/use-paste-media";
 import { MobileGate } from "@/app/video-editor/_opencut/components/editor/mobile-gate";
@@ -102,6 +103,8 @@ export function EditorPage({ projectId }: { projectId: string }) {
 						<ColumnaChat />
 					</div>
 					<MigrationDialog />
+					{/* «Reemplazar el clip» / «Sustituir» (reemplazo/): uno solo, lo abre la línea de tiempo. */}
+					<DialogoReemplazar />
 				</div>
 			</EditorProvider>
 		</MobileGate>
