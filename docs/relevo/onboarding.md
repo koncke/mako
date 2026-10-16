@@ -27,6 +27,17 @@
 - **El modelo gratis de OpenRouter** (`minimax/minimax-m3:free` ya no existía; lo midió Web Generator) pasó a ser UNO,
   `MODELO_OPENROUTER_GRATIS` = `nvidia/nemotron-3.5-super-vl:free`, medido con un pedido real (`de33ad192`). Antes de
   cambiarlo: `VERIFICAR_OPENROUTER=1 npx tsx --test tests/openrouter-modelo.test.ts`.
+- **PENDIENTE, decidido por Cerebro y sin arrancar (la cuota llegó al 92%):**
+  1. **La red propia del doer de WhatsApp corta con datos de clientes, POR TURNO.** Sólo si el turno trae herramientas
+     que leen leads o conversaciones; la charla sigue. El aviso: «Conecta tu Claude para que MaKo lea tus leads», con
+     el link a /integraciones (`linkApp`). Dónde: el bucle sobre `provsGratisDePlataforma` en `lib/mako-doer-in.ts`
+     (busca `LA RED DE PLATAFORMA`). Qué herramientas viajan lo decide `herramientasDelTurno`
+     (`lib/doer-herramientas.ts`): la pregunta «¿lee leads o conversaciones?» tiene que salir de un dato del registro de
+     la API (el área de cada operación, o una marca nueva en la def), no de una lista de nombres a mano. Test probado
+     rompiéndolo, con el turno que CORRE (molde: `tests/agenda-whatsapp.test.ts`).
+  2. **Borrar las dos filas del ws1 que son copias de la plataforma** (`GEMINI_API_KEY` y `OPENAI_API_KEY`). Antes,
+     guardar SÓLO sus huellas sha256; borrar por id y releer. Es un borrado en producción sobre la cuenta de un cliente:
+     se hace con el sí de Martín en el chat que lo ejecuta. Ya no se usan como propias (`provsDe`), así que no urge.
 - **Queda abierto:** los comentarios de otras áreas que nombran al wizard como vivo (lib/capas.ts,
   lib/paises.ts, app/onboarding/FaseUI.tsx, OnboardingForm.tsx, app/automations/*) son historia y no
   rompen nada. Y la ruta /api/onboarding/extraccion queda sin llamadores en la app: sirve para pedir un
