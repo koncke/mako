@@ -1978,6 +1978,22 @@ export function rotuloDisparo(secs: readonly SeccionDisparo[], valor: string, te
 }
 
 /**
+ * «PROBAR» APAGADO MIENTRAS FALTE ALGO (16/10/2026, Martín: «tengo una automatización con solo un CRON sin completar nada
+ * y me deja apretar el botón probar... No debería...»). El porqué en 3-4 palabras, que se ve al lado del botón; null = se
+ * puede probar. En orden: el disparador (sin él no hay a quién probarle nada), alguna tarjeta, y lo que frena Publicar.
+ */
+export function motivoParaNoProbar(o: { cronSinElegir: boolean; pasos: readonly PasoGrafo[]; frena: boolean }): string | null {
+  if (o.cronSinElegir) return 'Completa el disparador';
+  if (!o.pasos.some((p) => claseDe(p) !== 'inicio')) return 'Agrega un mensaje';
+  if (o.frena) return 'Completa una tarjeta';
+  return null;
+}
+
+/** ¿El CRON está sin elegir? Ninguno, o todos «Elige qué la dispara» (`manual` sin horario: `TEXTO_SIN_ELEGIR`). */
+export const cronSinElegir = (lista: ReadonlyArray<{ trigger_tipo: string; cron?: unknown }>): boolean =>
+  !lista.length || lista.every((d) => d.trigger_tipo === 'manual' && !d.cron);
+
+/**
  * LOS CANALES QUE «PROBAR» OFRECE (tercera tanda, decisión 14): los que el flujo USA, en el orden
  * WhatsApp → Email. Sin ningún mensaje, WhatsApp (el teléfono es lo que «Probar» abre por default).
  */

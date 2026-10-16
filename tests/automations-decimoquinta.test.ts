@@ -172,10 +172,12 @@ test('punto 7: el «+» sube un archivo o una imagen y pega un flujo; ya no repi
   assert.match(ruta, /import \{ archivoATexto \} from '@\/lib\/archivo-a-texto';/);
   assert.match(ruta, /if \(ws == null \|\| rol !== 'admin'\) return falla\(403,/);
   assert.match(ruta, /await archivoATexto\(file, \{ feature: 'chatbot-crear-ia',/);
-  assert.match(CHAT, /void leerArchivoParaPedido\(file, ac\.signal\)\.then\(/);
+  // ⚠️ DESDE EL 16/10/2026 SE LEE RECIÉN AL MANDAR, y sólo si es INSTRUCCIONES (tests/crear-ia-adjunto.test.ts): un lead
+  // magnet adjunto es contenido del flujo y va a la biblioteca sin leerlo.
+  assert.match(CHAT, /void leerArchivoParaPedido\(a\.file, ac\.signal\)\.then\(/);
   assert.match(fuente('app/automations/archivo-pedido-cliente.ts'), /await fetch\(RUTA_ARCHIVO_PEDIDO, \{ method: 'POST', body: cuerpo, signal \}\)/);
   assert.match(fuente('app/api/chat-agent/secuencias/archivo/route.ts'), /const TOPE_BYTES = 15 \* 1024 \* 1024;/, 'el tope de la caja y el de la ruta');
-  assert.match(CHAT, /onPedido\(pedidoConArchivo\(texto, \{ nombre: archivo\.nombre, texto: archivo\.texto \}\)\)/);
+  assert.match(CHAT, /onPedido\(r\.ok \? pedidoConArchivo\(escrito, \{ nombre: a\.nombre, texto: r\.texto \}\) : pedidoSinLeer\(escrito, a\.nombre\)\)/);
 });
 
 test('punto 7: el pedido con un archivo entra en el tope de MaKo, con lo escrito primero', () => {

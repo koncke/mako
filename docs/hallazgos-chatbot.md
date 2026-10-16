@@ -4923,3 +4923,37 @@ a 3 h recibía el «mañana es tu reunión» al instante, y el «1 h antes» tam
 **Vive en:** `lib/flujo-grafo.ts` (`llegaTarde`, `textoSiAgendaCerca`) · `lib/nutricion-grafo-motor.ts`
 (`resolverControl`, `sanearEspera`) · `lib/simulador-grafo.ts` · `lib/flujo-conversacion.ts` (`avisoAgendaCerca`) ·
 `lib/agenda-anticipacion.ts` · `app/automations/FlujoLienzo.tsx` (`EditorEspera`) · test: `tests/agenda-cerca.test.ts`
+
+## «Crear con IA» por Instagram: 140 s y un error de la revisión, el adjunto leído con visión, y «Probar» sin nada (16/10/2026)
+
+Tres bugs que Martín vio el mismo día (por Cerebro, A1-A3).
+
+- ⚠️ **El diagnóstico obvio («la IA tarda») era el equivocado. MEDIDO en `anthropic_usage` (ws10, 16/10 06:07-06:10
+  UTC):** Groq contestó en segundos. El flujo traía `"canal": "whatsapp"` en un pedido de Instagram, la revisión lo
+  rechazó y la cascada (que pasa al siguiente proveedor cuando `validar` dice que no) probó OpenRouter: 97 s, y el mismo
+  error. Después vino el reintento con los errores: 76 s más. La causa estaba en el código: `canalDeTarjeta` respetaba el
+  «whatsapp» que el modelo escribe por costumbre. Ahora, en un flujo social, un mensaje NUEVO al lead sale por ese canal
+  sin otra vuelta. Editando, un mensaje que ya estaba conserva el suyo si el cambio no lo nombra (`mantenerCanal`).
+- **La regla de la IA «por Instagram sólo texto y link» quedó atrás del editor:** el editor social sube archivos desde
+  la decimocuarta tanda y el motor los manda por partes (`enviarPasoSocial`). Ahora la IA pone un archivo por Instagram
+  o Messenger si ese canal lo acepta (`problemaDeAdjunto`: Instagram, foto, video o PDF), y si no, lo saca con su
+  porqué. (La primera respuesta a un COMENTARIO sigue siendo sólo texto: eso lo decide el motor.)
+- **El error que ve la persona no lleva lo que le habla al modelo** (`paraLaPersona`: sin «: usa "canal": …» ni las
+  claves del JSON).
+- **El adjunto se razona ANTES de leerlo** (lib/archivo-del-pedido.ts). Lo que el flujo DA («dando este lead magnet»,
+  «mándales el PDF») es CONTENIDO: va a la biblioteca de archivos sin leerlo, el pedido lo nombra con su id, y `deIA`
+  lo pone en el último mensaje al lead si el modelo no lo puso. Lo que dice CÓMO armarlo, o un archivo solo, es
+  INSTRUCCIONES y se lee como antes. Si subir o leer falla, el pedido sale igual y lo dice. ⚠️ **La decisión es del
+  código, no de una IA:** el caso que la pidió fue justamente la IA caída.
+- **«Probar» apagado mientras falte algo**, con el porqué al lado en 3-4 palabras (`motivoParaNoProbar`): «Completa el
+  disparador», «Agrega un mensaje» o «Completa una tarjeta». Esta última se puede tocar y lleva a la tarjeta, como
+  Publicar.
+
+**Sin hacer:** el plazo por intento sigue en 100 s: OpenRouter gratis contestó en 76 y 97 s, y cortarlo antes dejaría
+sin respuesta al negocio que sólo tiene ese proveedor vivo. La espera dice «hasta 5 min» porque es el tope de la ruta
+(tests/flujo-ia-arreglos.test.ts).
+
+**Vive en:** `lib/flujo-ia.ts` (`canalDeTarjeta`, `nodoDe`, `validarIA`, `conElArchivoDelPedido`, `paraLaPersona`) ·
+`lib/archivo-del-pedido.ts` · `app/automations/ChatMako.tsx` (`BarraPideselo`) · `app/automations/archivo-pedido-cliente.ts`
+· `lib/flujo-conversacion.ts` (`motivoParaNoProbar`) · `app/automations/SecuenciaPerfil.tsx` · tests:
+`tests/crear-ia-instagram-solo.test.ts`, `tests/crear-ia-adjunto.test.ts`, `tests/probar-apagado.test.ts`
