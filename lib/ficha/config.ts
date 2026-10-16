@@ -284,6 +284,25 @@ export function estadoAvisos(plantilla: PlantillaFicha, guardada: FichaGuardada 
   });
 }
 
+/**
+ * Los apagados de la CASA de un lead (`leads.funnel_id`) cuando ya se leyeron todos los funnels del workspace
+ * (el worklist, `avisosDelWorkspace` en ./config-server.ts). `idDelNegocio` es el funnel del negocio (el
+ * `es_default`, o el primero); `delNegocio`, el respaldo del negocio, para cuando no hay ningún funnel.
+ *
+ * ⚠️ UNA CASA QUE NO ESTÁ EN EL MAPA ES COMO UNA NULL: el funnel del negocio, no el respaldo pelado. Es la
+ *    regla de mig 0181 («un `funnel_id` que apunta a un funnel que ya no existe se comporta igual que un
+ *    NULL») y la de los lectores de UN funnel (`apagadosDeFunnel`, `fichaDelFunnelDelLead`), que cuentan la
+ *    ficha. Con el respaldo pelado, un lead con la casa borrada salía con 12 datos en «A revisar» y 6 en su
+ *    ficha (revisión del 16/10/2026, tests/ficha-casa-huerfana.test.ts).
+ */
+export function apagadosDeLaCasa(
+  porFunnel: ReadonlyMap<number, readonly StepId[]>, idDelNegocio: number | null, delNegocio: readonly StepId[], casa: number | null | undefined,
+): StepId[] {
+  const propia = casa == null ? undefined : porFunnel.get(Number(casa));
+  const delFunnelDelNegocio = idDelNegocio == null ? undefined : porFunnel.get(idDelNegocio);
+  return [...(propia ?? delFunnelDelNegocio ?? delNegocio)];
+}
+
 /** Completa las opciones que le faltan a un bloque de una tab tocada (uno puesto por la API sin opciones). */
 function conOpciones(b: BloquePuesto, respaldo: RespaldoNegocio): BloquePuesto {
   const def = bloqueDef(b.id);
