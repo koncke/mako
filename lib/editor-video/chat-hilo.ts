@@ -44,6 +44,8 @@ export type MensajeGuardado =
       cambios?: CambioChat[]; descartes?: string[]; estado?: EstadoPropuesta; aviso?: string; propuesta?: PropuestaGuardada;
       /** Llegó por la API de MaKo (video_editor_propuestas, mig 0300): se cierra en la base al resolverla. */
       propuestaApi?: { id: string; canal: string };
+      /** Una burbuja de un pedido que no es del proyecto abierto (chat/pedidos.ts): sus links, de adentro de la app. */
+      links?: Array<{ texto: string; href: string }>;
     };
 
 export const TOPES_HILO = {
@@ -122,6 +124,14 @@ function mensaje(x: unknown): MensajeGuardado | null {
   if (typeof x.aviso === 'string' && x.aviso) m.aviso = x.aviso.slice(0, 500);
   const api = x.propuestaApi as { id?: unknown; canal?: unknown } | undefined;
   if (api && typeof api.id === 'string' && UUID.test(api.id) && typeof api.canal === 'string') m.propuestaApi = { id: api.id, canal: api.canal.slice(0, 20) };
+  // Los links de una burbuja: sólo de ADENTRO de la app (`/algo`, nunca `//otro.com` ni `javascript:`), pocos y cortos.
+  const links = (Array.isArray(x.links) ? x.links : []).slice(0, 4).flatMap((l) => {
+    const o = l as { texto?: unknown; href?: unknown };
+    return typeof o.texto === 'string' && o.texto && typeof o.href === 'string' && /^\/(?!\/)[^\s<>"]{0,300}$/.test(o.href)
+      ? [{ texto: o.texto.slice(0, 80), href: o.href }]
+      : [];
+  });
+  if (links.length) m.links = links;
   // Una propuesta sin lo que hace falta para aceptarla no puede quedar «pendiente».
   if ((m.estado === 'pendiente' || m.estado === 'sin-version') && !m.propuesta) m.estado = 'descartada';
   return m;

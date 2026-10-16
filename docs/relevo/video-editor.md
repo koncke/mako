@@ -2,6 +2,12 @@
 
 *12/10/2026, chat «Video Editor», cuenta claude3 (semana al 88 %).*
 
+## Antes de cada punta (además de los tests del área)
+
+`tests/puente-panel-copy.test.ts` (la guarda de voseo: barre el repo ENTERO, también las descripciones de la API y
+los avisos de un runner, que le llegan a la persona por WhatsApp) y `tests/progreso.test.ts`. El run 43 cayó por un
+«acá» en `ver_proyecto_video` (babf5e2a5); había otro en `video.run.ts` (6a0d2d8d5). Y mergear origin/main antes.
+
 ## ⏸ EN PAUSA desde el 16/10 (Martín: «Por ahora posponemos lo de Video Editor», por el Cerebro)
 
 Quedan sin hacer, con el paso a paso más abajo («16/10 madrugada»): **la tanda 5 de las plantillas** (mirar en el
@@ -21,6 +27,8 @@ Mientras tanto este chat hace la etapa 3 del diseño AI-native (docs/diseno-mako
    mismo canal se junta en una propuesta (mig **0300**, `video_editor_propuestas`), y el editor la muestra en su chat
    para aceptarla con el mismo «Aceptar». Ningún canal escribe la línea de tiempo. Fuera de los flujos de Automations.
    **Falta verlo de punta a punta** con las tres migraciones aplicadas: un pedido por WhatsApp y aceptarlo en el editor.
+4. **«Entender el pedido» en el chat** (hecho, pedido del Cerebro): lo del proyecto abierto a la IA, lo demás burbujas
+   con link (docs/diseno-mako-pedidos.md). El del Image Editor NO se hizo: el Image Editor no tiene chat todavía.
 
 ## 16/10 mañana (cuenta 3): las plantillas sugeridas, en los dos editores
 

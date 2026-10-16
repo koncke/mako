@@ -4290,6 +4290,12 @@ apoyó en lo que ya había. Cuatro de esas piezas no servían como parecían:
   tiene páginas como en Canva. Lo mismo «otro gráfico» en el Dashboard (no es otra hoja) y «el otro clip» en el Video
   Editor (no es otro proyecto). `PARTES_DE_LO_ABIERTO` va por la tab donde se dice, con palabras de cualquier área, y
   gana aunque la IA etiquete la otra área.
+- **Y al revés: una palabra de OTRA área que, dentro de una tab, nombra OTRO objeto de esa tab.** El Video Editor
+  llama «proyecto» a cada video (como CapCut, y su inicio lista proyectos), y «proyecto» es palabra de `plan`: al
+  enganchar su chat (16/10), «créame otro proyecto» contestaba «Eso se hace en Plan» y «borra el otro proyecto» no
+  era «el otro». `OBJETOS_DE_LA_TAB` es la otra cara de `PARTES_DE_LO_ABIERTO`: el objeto directo con esa palabra, o
+  un pedido que nombra esa área SÓLO con esa palabra, son de esta tab; fuera de su tab sigue siendo del Plan
+  (tests/video-editor-pedidos-chat.test.ts, prueba 6b).
 - **Los objetos del Video Editor no se pueden listar en el servidor**: sus proyectos viven en IndexedDB (decisión 5 de
   su diseño). Para esa tab, y sólo para ella (`TABS_CON_OBJETOS_EN_EL_NAVEGADOR`), la lista la manda su chat y la ruta
   la valida (`objetosDelNavegador`). Y las hojas del Dashboard son POR PERSONA: los objetos son las del informe de quien

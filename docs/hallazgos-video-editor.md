@@ -1337,6 +1337,25 @@ docs/hallazgos-api-mako.md («El Video Editor en la API»).
   en el editor); que el link `?propuesta=` lleve a ESA propuesta (hoy abre el panel con todas); que una propuesta
   vieja venza (hoy queda abierta hasta que alguien la resuelve); avisarle a la persona por WhatsApp cuando la acepta.
 
+## «Entender el pedido» en el chat (16/10): lo que no es del proyecto abierto, una burbuja con su link
+
+**Vive en:** `app/video-editor/_opencut/chat/pedidos.ts` (puro) · `PanelChat.tsx` (`pedirEdicion`, `pedirPedidos`) ·
+la ruta compartida `app/api/mako/pedidos/route.ts` · el núcleo `lib/mako-pedidos.ts` · test
+`tests/video-editor-pedidos-chat.test.ts` (15 roturas). El contrato: docs/diseno-mako-pedidos.md.
+
+- **El chat pregunta ANTES de su IA**, con sus proyectos del navegador (`storageService.loadAllProjectsMetadata()`
+  como `objetos`: el servidor no los tiene). Lo del proyecto abierto va a la IA con su texto; sin nada del abierto, no
+  se gasta la IA. Si la ruta falla o tarda, el mensaje entero va a la IA, como antes. Las sugerencias no pasan por la
+  ruta: son nuestras y de edición.
+- ⚠️ **Borrar un proyecto NO se hace desde el chat**: en el editor un proyecto borrado no va a una papelera, se va con
+  su material. La burbuja dice dónde se borra (el inicio) y deja el link; el abierto, igual.
+- ⚠️ **«Proyecto» es palabra del Plan para el núcleo**, y en el editor es un video: «créame otro proyecto» decía «Eso se
+  hace en Plan». Se arregló en el núcleo (`OBJETOS_DE_LA_TAB`, docs/hallazgos-ia.md), no acá.
+- **La validación de la respuesta es la del Web Generator** (`interpretacionDe`, reexportada): una regla, un lugar.
+  Los links de una burbuja se frenan dos veces si no son de adentro de la app (la validación y la burbuja), y el hilo
+  guardado tampoco los acepta.
+- **SIN HACER:** verlo en el navegador (un pedido doble, «el otro proyecto» con dos candidatos, un link a otra tab).
+
 ## Lo que quedó SIN hacer
 
 **Del 14/10 (barra lateral, Borrar silencios, Avatar de IA)**
