@@ -1091,6 +1091,24 @@ Hecho el 15/10, sin mirar en el navegador. «Subtítulos pronunciados»: Palabra
   (`subtitles/ass.ts`); avisar que con precisión «segmento» el karaoke es aproximado; el subrayado de lo no
   dicho sale opaco; resaltar palabras CLAVE. Colores y opacidades de las plantillas, elegidos a ojo.
 
+## Lo que encontró el relevamiento de las plantillas de anuncio (15/10, antes de construirlas)
+
+El plan entero, con archivo:línea de cada cosa: `docs/editor-video/plan-plantillas-anuncio.md`. Lo que vale para
+todo el editor:
+- ⚠️ **Soltar un archivo de Multimedia ENCIMA de un clip visual no hace nada, y no avisa**: la línea de tiempo
+  encuentra el clip y el controlador vuelve sin hacer nada (el stub de OpenCut «Replace media source — not yet
+  implemented», `timeline/controllers/drag-drop-controller.ts`). Leído, no visto.
+- **La zona segura de Meta en 9:16** (guía oficial, verificada el 15/10): libre el 14 % de arriba, el 35 % de abajo
+  y el 6 % de cada lado. Los subtítulos verticales hoy quedan con el borde de abajo al 22 % (`subtitles/estilos.ts`):
+  adentro de la franja que tapa Meta. Subirlos cambia todos los proyectos: va aparte.
+- **Una forma o un sticker mide `min(ancho, alto)` del lienzo a escala 1** (un rectángulo de W×H en 1080x1920 lleva
+  `scaleX = W/1080`, `scaleY = H/1080`); **el relleno del fondo de un texto es `em × alto / 6`** sin importar el
+  tamaño de letra (con letra chica en 9:16 la tarjeta queda casi sin relleno); **`letterSpacing` va en px crudos**
+  (no escala con el lienzo).
+- **`params/registry.ts` y `timeline/element-utils.ts` tampoco cargan en node** (llegan al WASM por
+  `timeline/defaults → creation`): lo puro recibe los params por defecto, `tps`, `fps` y la medida por parámetro.
+- **La máquina de escribir y el glitch SÍ existen** (el relevamiento de plantillas decía que no; corregido).
+
 ## Lottie en un editor de VIDEO: qué aporta si la pieza termina en mp4
 
 - **El repo que vio Martín es `diffusionstudio/lottie`**: 5,6 k estrellas, MIT en el archivo `LICENSE` y en
