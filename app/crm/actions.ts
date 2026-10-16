@@ -302,6 +302,16 @@ export async function getLeadFullAction(id: number): Promise<LeadFullData | null
   // La pestaña «Tracking» (punto 18): arranca acá para correr en paralelo con todo lo de abajo, y
   // no tira nunca (lib/tracking-ficha-server.ts).
   const verTrackingP = verTrackingDeLead(lead.funnel_id);
+  // ⚠️ LO QUE NO DEPENDE DE NADA DE ABAJO ARRANCA YA (16/10/2026, Martín: «mejora la eficiencia al abrir el detail de un
+  // lead, tarda un montón en cargar»). Estas cinco lecturas esperaban a que terminaran las nueve de abajo —y el
+  // resumen del negocio, a TODO— sin usar nada de ellas. `temprano` les cuelga un catch mudo para que un rechazo antes
+  // de su `await` no sea un «unhandled rejection»; el `await` de abajo lo sigue tirando igual que antes.
+  const temprano = <T,>(pr: Promise<T>): Promise<T> => { pr.catch(() => {}); return pr; };
+  const insightGenP = temprano(getUltimoInsightGenerado(id));
+  const equipoP = temprano(getEquipoAction());
+  const funnelsP = listarFunnels().catch(() => []);
+  const cobroP = temprano(senalesDeCobroAction(id));
+  const resumenP = temprano(resumenDelNegocio());
   // ⚠️ LOS INSUMOS DE «N SIN MARCAR» (el plan, las etapas DEL LEAD, las respuestas de la R2 y si el encuentro
   // se graba) salen de `leerInsumosDatosLead` (lib/datos-del-lead.ts), la MISMA lectura que la ficha del
   // teléfono: con insumos propios, el número volvía a dar distinto en cada pantalla.
@@ -332,7 +342,7 @@ export async function getLeadFullAction(id: number): Promise<LeadFullData | null
   // calor del proyecto), y se fueron el 06/10/2026 con Clarity entero: la grabación
   // la hace MaKo y se dibuja adentro de la ficha. Nunca rompe la ficha:
   // `replayDeLead` no tira y distingue «no pude leer».
-  const [insightGen, equipo, replay, funnels, cobro] = await Promise.all([getUltimoInsightGenerado(id), getEquipoAction(), replayDeLead(lead.visitor_id, ultimaActividad), listarFunnels().catch(() => []), senalesDeCobroAction(id)]);
+  const [insightGen, equipo, replay, funnels, cobro] = await Promise.all([insightGenP, equipoP, replayDeLead(lead.visitor_id, ultimaActividad), funnelsP, cobroP]);
   const { pagos, stages, respuestas } = insumos;
   const campana = resolverNombreCampana(lead.utm_campaign, campMap);
   // El anuncio puede venir por meta_ad_id (instant form) o por utm_content (Calendly):
@@ -350,7 +360,7 @@ export async function getLeadFullAction(id: number): Promise<LeadFullData | null
   const fotoEmail = lead.email?.trim() ? urlGravatar(lead.email, 160) : null;
   const [ficha, rolWs] = await Promise.all([fichaP, rolP]);
   const rol = rolDeFicha(rolWs);
-  return { lead, stages, pagos, vslEng, videos, replay, campana, adNombre, adId: adIdCand, visitas, insights, tracking, pixelPuesto, respuestas, respuestasForm: respuestasPropias(lead.meta_field_data), respuestasLanding: respuestasGuardadas(lead.optin_respuestas), resumen: await resumenDelNegocio(), cohorte: cohorteDeLead(lead), insightGen, faltantesInsight, faltantes, datos, equipo, closerDetectado, productos, fotoEmail, cobro, verTracking: await verTrackingP,
+  return { lead, stages, pagos, vslEng, videos, replay, campana, adNombre, adId: adIdCand, visitas, insights, tracking, pixelPuesto, respuestas, respuestasForm: respuestasPropias(lead.meta_field_data), respuestasLanding: respuestasGuardadas(lead.optin_respuestas), resumen: await resumenP, cohorte: cohorteDeLead(lead), insightGen, faltantesInsight, faltantes, datos, equipo, closerDetectado, productos, fotoEmail, cobro, verTracking: await verTrackingP,
     ficha, rol, verPrivado: vePrivado(rol, lead.closer, sesion), puedeEditarFicha: rol === 'admin' };
 }
 
