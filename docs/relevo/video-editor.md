@@ -2,6 +2,24 @@
 
 *12/10/2026, chat «Video Editor», cuenta claude3 (semana al 88 %).*
 
+## ⏸ EN PAUSA desde el 16/10 (Martín: «Por ahora posponemos lo de Video Editor», por el Cerebro)
+
+Quedan sin hacer, con el paso a paso más abajo («16/10 madrugada»): **la tanda 5 de las plantillas** (mirar en el
+Chrome de Martín, ws9, las 7 plantillas, «Utilizar plantilla», «Sustituir» con video y con imagen, Ctrl+Z, el deshacer
+entre proyectos, `usar_plantilla`/`reemplazar_clip` por el chat, exportar y medir con ffprobe) y **la medida «después»
+de las fuentes** (LoAF en el proyecto `711d3216…`, Subtítulos › Plantillas; el «antes»: 20 cuadros largos, 2577 ms de
+bloqueo). Más las plantillas sugeridas, también sin mirar. Las dos piden su ventana de Chrome SIN minimizar.
+Mientras tanto este chat hace la etapa 3 del diseño AI-native (docs/diseno-mako-ai-native.md): el hilo del chat
+«Editar con IA» guardado y sus operaciones en la API de MaKo, por tandas:
+1. **El hilo guardado** (hecho): por persona y proyecto, mig **0298** (`video_editor_chats`, va ANTES o JUNTO con el
+   deploy; la aplica el coordinador). Lo aprendido, en los hallazgos («El hilo del chat, guardado»).
+2. **El proyecto también en la base, para leerlo por la API** (sigue): el editor sube la VISTA de la línea de tiempo
+   (la misma que lee el chat, con sus refs, ≤60 k) al guardar; `listar_proyectos_video` y `ver_proyecto_video`.
+3. **Las operaciones del chat como acciones de la API** (después): cada una PROPONE (`confirmacion: 'pantalla'`, con
+   `proponer()` propio) a una propuesta abierta del proyecto; el editor la muestra en el chat como una más y se
+   acepta con el mismo `aceptarPropuesta` (que ya revisa contra la línea de tiempo de ahora con las refs de antes).
+   El proyecto vive en el navegador: ningún canal escribe la línea de tiempo, sólo la persona en el editor.
+
 ## 16/10 mañana (cuenta 3): las plantillas sugeridas, en los dos editores
 
 - **Hecho** (pedido del Cerebro, sobre el módulo compartido del Dashboard): la pestaña Plantillas del Video Editor y

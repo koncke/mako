@@ -8551,6 +8551,18 @@ módulo que importe de ahí `TICKS_PER_SECOND`, `roundMediaTime` o `addMediaTime
 `animation/`…) no carga en los tests de node. Lo que se quiera probar recibe los ticks por segundo y lo que llega
 al motor por PARÁMETRO, e importa sólo TIPOS (molde: `transcripcion/cortar.ts`, con `tps` y `dividir`).
 
+# Un hilo de chat que se GUARDA: lo que se guarda tiene que poder volver a usarse
+
+Desde el 16/10/2026 los chats que vivían en la memoria de la pestaña empiezan a guardarse (etapa 3 de
+docs/diseno-mako-ai-native.md; molde: `lib/editor-video/chat-hilo.ts`, el del Video Editor).
+- **Se guarda lo que sirve después de recargar, no el objeto de la pantalla.** Una propuesta pendiente guarda lo
+  necesario para aceptarla (y al leerla se vuelve a validar); el deshacer y las pistas de «antes» no viajan, así que
+  un botón que dependa de ellos («Restaurar») no se dibuja en lo que volvió de la base.
+- **Un estado intermedio guardado («aplicando») se resuelve al abrir y NUNCA vuelve a «pendiente»**: se cortó a la
+  mitad, y ofrecerlo otra vez aplica dos veces lo que ya entró.
+- **La persona sale de la sesión** (`personaDeSesion`), nunca del pedido; y dos pestañas se unen por id de mensaje
+  ante el 409 del compare-and-set, sin pisarse.
+
 # El onboarding es una conversación: lo que gobierna una pregunta nueva
 
 Desde el 16/10/2026 /onboarding es el CHAT DE ARRANQUE (`app/onboarding/ChatArranque.tsx`, sobre el motor de
