@@ -1065,12 +1065,17 @@ Hecho el 15/10 (pasos 2–4 del plan de subtítulos). Biblioteca › Subtítulos
   (`visibilityState` sigue en «visible»), y contar cuadros o vueltas de `setTimeout` da una página «trabada» que
   no lo está. La API Long Animation Frames (`PerformanceObserver` de `long-animation-frame`) separa script de
   estilo/layout y no se confunde con eso.
-- **SIN HACER (lo primero):** que una biblioteca no cargue todas sus fuentes de golpe al montarse
-  (`subtitles/components/assets-view.tsx` → `PlantillasSubtitulosView`, `text/components/biblioteca-estilos.tsx`,
-  `fonts/google-fonts.ts` → `loadFullFont`): de a una y en tiempo libre, o las miniaturas desde el atlas de
-  fuentes como el selector. Medirlo antes y después con Long Animation Frames, en un servidor local con RAM
-  (sin eso no se sabe si arregla). De paso: la lista del selector de fuentes salió VACÍA en producción (sin
-  verificar si fue el freno de la ventana).
+- **Arreglado el 15/10 (falta medir el «después» en producción):** ninguna biblioteca carga sus fuentes
+  enteras al abrirse. Cada miniatura pide a Google SÓLO las letras que dibuja (`&text=`), con un nombre de familia
+  propio («Anton · muestra 400», una `FontFace`, sin hojas de estilo) y recién al entrar en pantalla
+  (`fonts/muestras.ts`, `useFuenteMuestra`), como el menú de fuentes de Google; la fuente entera llega al elegir
+  (subtítulos) o al pasar el mouse por la tarjeta (texto, antes de arrastrarla). El «antes» medido: abrir
+  Subtítulos › Plantillas agregaba 5 hojas y 38 caras, con ~2,6 s de bloqueo. Test `tests/video-editor-fuentes.test.ts`.
+- ⚠️ **La lista del selector de fuentes salía VACÍA en producción, y no era el freno de la ventana**: cada renglón
+  es una máscara con la imagen del atlas, y apuntaba a `/fonts/font-chunk-N.avif`, que no existe (las imágenes
+  viven en `public/ve/fonts/` desde el port; el atlas JSON sí se pedía bien). Sin la máscara, el renglón no se ve.
+  Ahora usa `FONT_CHUNK_PATH_PREFIX` de `fonts/google-fonts.ts`. Regla: una ruta de `public/ve/` vive en UNA
+  constante.
 - **SIN HACER:** verlo en el navegador lo que falta (el chat); copiar y pegar partes del video desde
   el texto; la puntuación final de una palabra borrada se va con ella («…de prueba.» → «…video», sin punto);
   «Mostrar texto eliminado»; marcar pausas y repeticiones (CapCut: «Pausa, repetición y duda»); CapCut fuerza el imán de la
