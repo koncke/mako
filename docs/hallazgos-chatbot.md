@@ -4675,3 +4675,34 @@ chat quedaba en unos 300 px en una pantalla de 1536. Ahora:
 (`escenariosDePrueba`, `claveHecho`, `salidaConHechos`) · `app/automations/PanelProbar.tsx` (`BarraEscenarios`,
 `pildoraDelCaso`, `escribirComoLead`, `hilos`) · `lib/probar-lead.ts` · `lib/lienzo-grafo.ts` (`probarAnchoContactos`)
 · tests: `tests/lienzo-punta-flecha.test.ts`, `tests/probar-casos.test.ts`
+
+## Los Mensajes de MaKo a sus clientes pasan a ser automatizaciones de SuperAdmin: las trampas de mudarlos (15/10/2026)
+
+El 2 de las doce de Martín. El diseño, en docs/diseno-avisos-plataforma.md. Medido: el catálogo tiene 72 avisos, sólo 7
+con evento de MaKo, y **65 los mandaba el código por fuera de una automatización**. Mudados: la línea caída y la que
+volvió. La receta sirve para los demás.
+
+- ⚠️ **`textoConDatos` toma un dato VACÍO (`''`) como un valor.** El renglón «📱 {{linea_numero}}» quedaba con el «📱»
+  solo para una línea sin número ni etiqueta. Un dato que no se sabe tiene que FALTAR, no venir vacío: así el renglón
+  se va entero (`datosCaida`, lib/linea-vigilancia.ts). Vale para todo emisor que pase `datos`.
+- ⚠️ **El vigilante de líneas lee `wa`** para marcar «avisado», y sin esa marca el «volvió» no sale nunca. El camino por
+  evento devolvía `wa: false` siempre («ningún llamador de estos tres lee `wa`»). Para uno de la plataforma ahora dice si
+  corrió. **Antes de mudar un aviso: `grep` de quién lee su resultado.**
+- **Sin hueco y sin duplicado:** mientras la plataforma no tenga NINGUNA fila con el evento (ni pausada), el aviso sale
+  como antes (`sinFila`); con una, decide ella. Por eso la mudanza va en dos pasos: el deploy, y después el script que
+  crea la fila prendida (scripts/mudanza-avisos-plataforma.mts).
+- **El texto de siempre sale de los mismos datos** que cita la plantilla (`datosCaida` → `textoCaida`), así no pueden
+  decir cosas distintas. Como el código y la plantilla se mueven juntos, lo que fija que el CLIENTE reciba lo mismo es
+  la comparación letra por letra con el texto de antes, no la comparación entre los dos. (La rotura que cambiaba el
+  texto pasó verde hasta que se sumó.)
+- Un evento de la plataforma **no trae lead**: una CONDITION no se cumpliría nunca y se rechaza, como en los de una
+  persona.
+- En /mensajes desaparecen al volverse eventos, como los demás. Mientras no haya fila, el envío de siempre sigue leyendo
+  su interruptor del store, que ya no se ve. Es por el rato entre el deploy y el script.
+
+**SIN HACER:** correr el script después del deploy; `reunion-ocurrio-fathom`; `reporte-semanal` (sale por email al
+dueño: necesita otra tarjeta); y los otros 61, por familias.
+
+**Vive en:** `lib/disparadores.ts` (`EventoMako.plataforma`) · `lib/aviso-evento.ts` (`emitirPorEvento`, `sinFila`) ·
+`lib/avisos.ts` (`emitirDelCatalogo`) · `lib/flujos.ts` (`negocioWs`) · `lib/linea-vigilancia.ts` (`datosCaida`) ·
+`lib/plantillas-automatizaciones.ts` (`PLANTILLAS_PLATAFORMA`) · test: `tests/avisos-plataforma.test.ts`

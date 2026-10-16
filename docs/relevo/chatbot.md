@@ -1,5 +1,11 @@
 # Relevo: Automations (ex /chatbot) y las secuencias
 
+> **16/10/2026 ~01:30 AR (`claude3`) — EL 2, EMPEZADO:** la pieza que faltaba está construida (729789dfa), y los dos
+> primeros avisos están mudados: «WhatsApp caído» y «volvió». Diseño y estado en docs/diseno-avisos-plataforma.md.
+> **PASO PENDIENTE, DESPUÉS DEL DEPLOY:** `node --conditions react-server --import tsx scripts/mudanza-avisos-plataforma.mts
+> --aplicar` crea y prende las dos filas del ws 9. Hasta entonces, el aviso sale como siempre (`sinFila`).
+> **Siguiente:** `reunion-ocurrio-fathom`, `reporte-semanal` (sale por email: otra tarjeta) y los otros 61 por familias.
+
 > **15/10/2026 ~22:30 AR (`claude3`) — LO DECIDIDO del 2 y el 3 (coordinador «Estrategia 3 cuentas», sin Ticketera:
 > «siempre intentar evitar mandar tickets, y resolverlo por tu propia cuenta. Solo si es 100% necesario»):**
 > - **3, la línea de WhatsApp de SuperAdmin = camino (a).** En la plataforma (ws 9), la línea de MaKo (…2605) es la de

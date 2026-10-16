@@ -1657,4 +1657,20 @@ FEEDBACK PROBAR:
     ],
     archivos: ["docs/hallazgos-chatbot.md — «Las doce de Martín del 15/10»", "docs/hallazgos-comunicacion.md — SuperAdmin sin conectar", "docs/relevo/chatbot.md — las doce, literal"],
   },
+  {
+    fecha: "16 oct", hora: "01:30", chat: "Chatbot", cuenta: "claude3",
+    actor: "claude", tipo: "implementacion",
+    titulo: "Los Mensajes de MaKo a sus clientes empiezan a ser automatizaciones de SuperAdmin",
+    puntos: [
+      "En Automations de SuperAdmin aparecen «Se Cayó el WhatsApp de un Negocio» y «Volvió el WhatsApp de un Negocio»: el aviso que MaKo le manda a un cliente cuando su WhatsApp se cae, ahora como automatización.",
+      "Lo que le llega al cliente no cambia una letra, y no hay un rato sin aviso: hasta que exista la automatización, sale como siempre.",
+      "En SuperAdmin, la línea de WhatsApp de MaKo es la que manda, y se ve conectada. Un AI Step ahí dice «No escucha respuestas».",
+      "Quedan 63 avisos por mudar, de a uno, empezando por la grabación de Fathom y el reporte semanal.",
+    ],
+    commits: [
+      { sha: "383aaf5d1", msg: "SuperAdmin: la línea de MaKo es la de Automations de la plataforma para mandar, y lo que no escucha lo dice", lineas: 234, archivos: 11 },
+      { sha: "729789dfa", msg: "SuperAdmin: «WhatsApp caído» y «volvió» pasan a ser automatizaciones de la plataforma, sin hueco", lineas: 355, archivos: 15 },
+    ],
+    archivos: ["docs/diseno-avisos-plataforma.md", "docs/hallazgos-chatbot.md — los Mensajes de MaKo a sus clientes", "docs/hallazgos-comunicacion.md — SuperAdmin sin conectar"],
+  },
 ];
