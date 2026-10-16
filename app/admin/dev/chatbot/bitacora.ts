@@ -1748,4 +1748,27 @@ FEEDBACK PROBAR:
     ],
     archivos: ["docs/hallazgos-chatbot.md — «Probar» ponía los «antes de la reunión» antes que un «Esperar 5 min»", "docs/hallazgos-chatbot.md — «Probar»: el encabezado del caso, la sidebar y el «escribiendo…»"],
   },
+  {
+    fecha: "16 oct", hora: "05:23", chat: "Chatbot", cuenta: "claude3",
+    sesion: "local_b1f59213-087e-4203-83e1-b3f59eadbaed",
+    actor: "claude", tipo: "implementacion",
+    titulo: "Crear con IA por Instagram sin vueltas, el lead magnet como archivo, y el «1 día antes» que ya no llega tarde",
+    puntos: [
+      "Pedirle a MaKo una automatización por Instagram ya no termina en un error después de dos minutos: los mensajes salen por Instagram desde el primer intento.",
+      "Un archivo adjunto al pedido, como un lead magnet, va dentro del mensaje que se lo entrega al lead, sin que MaKo tenga que leerlo.",
+      "«Probar» queda apagado mientras falte el disparador o una tarjeta, y al lado dice qué falta.",
+      "Si un lead agenda con poca anticipación, el recordatorio «1 día antes» ya no le llega tarde; si Calendly permite agendar así, la espera lo avisa.",
+      "En «Probar», el grupo de MaKo aparece primero, con su nombre real, y cada caso le deja su mensaje.",
+    ],
+    commits: [
+      { sha: "fa3ebeedf", msg: "Probar: el grupo de MaKo es el primer contacto, con su nombre real, y cada caso le deja su mensaje", lineas: 456, archivos: 10 },
+      { sha: "0c5b0fa8e", msg: "Automations: «1 día antes» con la reunión a pocas horas ya no sale, y Calendly lo avisa en la espera", lineas: 490, archivos: 17 },
+      { sha: "3e6eb0e25", msg: "Crear con IA por Instagram sin reintentos, el adjunto que se razona antes de leerlo, y «Probar» apagado sin disparador", lineas: 575, archivos: 12 },
+    ],
+    archivos: [
+      "docs/hallazgos-chatbot.md — «Probar»: el grupo de MaKo como primer contacto",
+      "docs/hallazgos-chatbot.md — «1 día antes» con la reunión en 3 h",
+      "docs/hallazgos-chatbot.md — «Crear con IA» por Instagram: 140 s y un error de la revisión",
+    ],
+  },
 ];
