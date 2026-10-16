@@ -694,6 +694,16 @@ terminó. Si ya cobró todas las mensualidades del plazo, terminó: no se toca, 
 `lib/cobros-eventos.ts` (`eventoStripe`: `creado`) · `lib/cobros-webhook.ts` · `lib/queries.ts` (`getMrrActivo`) ·
 `tests/cuota-fecha-y-cancelacion.test.ts`.
 
+### Cambiar el email de acceso: un aviso al anterior, no un código (15/10/2026)
+
+**El pendiente decía «falta un código al email actual»** para que quien tiene el link de la compra no pueda quedarse con
+la cuenta cambiando el email. **Era el remedio equivocado:** el caso legítimo más común del cambio es que el email se
+tipeó MAL al pagar, y ahí no le llega ningún código a nadie: lo bloqueaba justo a quien lo necesita. **Regla, copiada
+de Google y GitHub:** el email nuevo se prueba solo (hay que entrar con Google con ESA dirección) y al anterior le llega
+un aviso —el nuevo enmascarado, por si el anterior era de un desconocido— con a dónde escribir para revertirlo. Sale
+después del cambio, como MaKo (la key y el remitente de la plataforma), y no frena la respuesta.
+**Vive en:** `lib/invitaciones.ts` (`avisarCambioDeEmailDeAcceso`) · `app/api/pagar/email/route.ts` · `tests/pagar-publico.test.ts`.
+
 ### Cuatro «decisiones de Martín» que no eran suyas (15/10/2026)
 
 La tabla de abajo tenía seis filas marcadas «decisión de Martín». Pasadas por la vara de AGENTS.md (lo que copia lo que
@@ -744,10 +754,8 @@ implementación en un worktree propio (`C:/dev/wt-pagos`) y una rama aparte para
 | **Pasarela:** precios en moneda local en el catálogo (para que la API y las automatizaciones creen links de Mercado Pago) | `lib/productos.ts`, `lib/api-mako/areas/cobros.run.ts` |
 | **Pasarela:** un contracargo de Mercado Pago se cuenta pero NO mueve la cuota: falta medir con las claves de prueba qué dice `coverage_applied` (GET del contracargo, otro tópico de aviso) y qué significan de verdad `settled`/`reimbursed` | `lib/cobros-eventos.ts` (`planDePagoMp`), `lib/cobros-webhook.ts`, `lib/mercadopago-api.ts` |
 | **Pasarela:** `crear_link_pago` en la lista corta del «⚡ Acción» (necesita un control propio para el producto del catálogo) | `lib/editor-acciones.ts` |
-| **Pasarela:** en `/mako/revisar` el `cobroId` de un reembolso se puede editar y el título sigue mostrando el original | `lib/api-mako/acciones.ts` |
 | **Pasarela:** Stripe no abre cuentas a negocios radicados en Argentina, y la primera venta a un mexicano arranca el reloj del RFC (`stripe-reloj` en el modelo) | `app/admin/dev/pricing/modelo.ts:635,1272`, decisión de Martín |
 | **Pasarela:** revisar los BORRADORES legales | `app/reembolsos/page.tsx`, `app/terminos/page.tsx` §8 |
-| **Pasarela (revisión):** el cambio de email tras el alta tiene ventana de 48 h, pero lo puede hacer quien PAGÓ aunque no sea el dueño de la cuenta: falta un código al email actual | `app/pagar/cambio-email.ts`, `app/api/pagar/email/route.ts` |
 | **Pasarela (revisión):** los topes de `/api/pagar/email` viven en memoria (por instancia); el «ya es de otro» ya gasta el intento (15/10) | `app/api/pagar/email/route.ts`, `lib/rate-limit.ts` |
 | **Pasarela (revisión):** un aviso de MP sin firma con el `user_id` de un negocio conectado provoca una relectura con SU token (las filas `sin-workspace` ya tienen techo: una por día, 15/10) | `app/api/webhooks/mercadopago/route.ts` |
 
