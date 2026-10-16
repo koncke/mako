@@ -1,5 +1,21 @@
 # Relevo: Automations (ex /chatbot) y las secuencias
 
+> **16/10/2026 ~07:00 AR (`claude3`) — LOS DOS HUECOS DEL AI STEP (docs/mapa-ia-24h.md), por orden del coordinador
+> antes que los 61 avisos:**
+> (1) **la red de plataforma**: clasificar, redactar y calificar la piden en vivo (`EnVivo`, con plazo) y en el Probar.
+> Las lecturas de la API no la piden, a propósito.
+> (2) **las notas de voz**: el motor las escucha antes de clasificar, guarda lo que dijo en su mensaje, y el aviso del
+> negocio lo cita con 🎤.
+> ⛔ Con la regla de PII del mismo día: lo del lead va sólo por el crédito de Claude (`pii: true`), y la nota de voz
+> nunca a la red gratis. Sin keys del negocio, la nota no se escucha y el aviso dice por qué.
+> **Reporte semanal:** #256 creada y verificada (son cuatro filas, #253-#256).
+> Una revisión adversarial encontró 11 defectos en la primera versión, todos arreglados. Las trampas, en
+> docs/hallazgos-chatbot.md («El AI Step en vivo»).
+> **Commits:** a378040a6 (el AI Step) y 73667ff88 (las flechas: la punta de una flecha con espera, y «Desconectar» al
+> soltarla en el vacío; falta verlo con clics después del deploy).
+> **Siguiente (orden de Cerebro, 16/10):** el resto del feedback de Martín (Probar en la sidebar, el orden de los «antes de», el grupo de MaKo, Calendly, la
+> configuración por automatización y la sidebar de chat), y después los 61 avisos por familias.
+
 > **16/10/2026 ~05:00 AR (`claude3`) — TRES FILAS EN PRODUCCIÓN:** con e50eaf6c2 desplegada (main fc31e0564), la mudanza
 > creó y prendió en el ws 9 **#253** «Se Cayó el WhatsApp de un Negocio», **#254** «Volvió el WhatsApp de un Negocio» y
 > **#255** «Terminó la Reunión de un Negocio» (`--eventos=whatsapp_caido,whatsapp_volvio,reunion_grabada`). Verificadas
