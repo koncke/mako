@@ -26,6 +26,11 @@
 //     fila con el ws del cliente y la del «sin crédito» tapaba a la otra. Ahora exige todas → 8/1
 //   - los errores del crédito van a la lista del cliente                   → 8/1
 //   - el gasto de MaKo vuelve a sumar el crédito                           → 8/1
+// Y el PARA QUÉ (16/10/2026, «Por ahora solo en onboarding»; base 11/0):
+//   - el veto deja de mirar la lista de lo habilitado                      → 10/1
+//   - el veto ignora «sólo durante el onboarding»                          → 10/1
+//   - el análisis del lead entra a la lista sin que Martín lo habilite      → 10/1
+//   - conCreditoDeLaPlataforma no le pasa al veto si el onboarding sigue    → 10/1
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

@@ -23,7 +23,8 @@
 //     `hayIAParaCrear` mirando sólo las keys del negocio → 3/1 cada una.
 //   Second Brain (16/10/2026, base 5/0): la búsqueda sin red → 4/1.
 //   Análisis del lead (16/10/2026, base 6/0): el corte por datos de clientes que no corta, el corte sin mirar la
-//     marca `pii`, el análisis sin red, y `lead_insights` sin la marca → 5/1 cada una.
+//     marca `pii`, el análisis sin red, y `lead_insights` sin la marca → 5/1 cada una. Y sin IA propia, el
+//     mensaje de vuelta a «Claude vetado» en vez de decir qué conectar → 5/1.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -98,6 +99,10 @@ test('Análisis del lead: con red, pero NUNCA por las keys gratis (son datos de 
     'el corte por datos de clientes tiene que ir DESPUÉS del crédito de Claude y ANTES de las keys gratis');
   assert.match(src.slice(corte, gratis), /return '';/, 'el corte tiene que terminar ahí, no seguir a las keys gratis');
   assert.match(src, /const conPII = opts\.pii \?\? CATALOGO_MODELOS\.some\(\(f\) => f\.feature === opts\.feature && f\.pii === true\);/);
+  // Y como el crédito NO está habilitado para el análisis del lead («Por ahora solo en onboarding»), sin una
+  // key propia no hay análisis: el mensaje dice qué conectar, no «Claude vetado».
+  const lead = sinComentarios(leer('lib/lead-insights.ts'));
+  assert.match(lead, /if \(!\(await tieneIAPropia\(\)\)\) \{\s*return \{ ok: false, motivo: 'Conecta tu Claude/, 'sin IA propia, el análisis del lead no dice qué conectar');
 });
 
 test('Second Brain: buscar por significado', () => {

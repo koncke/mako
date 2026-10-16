@@ -3744,17 +3744,22 @@ primero, por `conClaveDelNegocio` (lib/anthropic.ts), con un solo modelo barato 
 - Lo fija `tests/veto-claude-clave-negocio.test.ts`, probado rompiéndolo (7 de 7). El porqué, en la cabecera del veto.
 
 **Y una TERCERA puerta, también desde el 16/10/2026: el crédito de API de dos planes Max de Martín** («Vinculalas a
-MaKo»). Ya está pago con la suscripción y al acabarse corta en vez de cobrar, así que cubre la IA de texto de los
-clientes cuyas keys no contestaron: va primero en la red de plataforma de `chatCheapCascade`, antes de las keys
-gratis (`conCreditoDeLaPlataforma`, lib/anthropic.ts). Lo que gobierna código nuevo:
+MaKo»). Ya está pago con la suscripción y al acabarse corta en vez de cobrar, y va primero en la red de plataforma de
+`chatCheapCascade`, antes de las keys gratis (`conCreditoDeLaPlataforma`, lib/anthropic.ts). Lo que gobierna código
+nuevo:
 
+- ⚠️ **SÓLO PARA LO QUE MARTÍN HABILITÓ, y hoy es el onboarding.** Textual (16/10/2026): «Yo debo decirte cuando
+  utilizar creditos, no tenemos infinitos... Por ahora solo en onboarding.» La lista es `CREDITO_HABILITADO_PARA`
+  (lib/veto-claude.ts): las funciones del wizard, y sólo mientras el onboarding del negocio está en curso
+  (`onboardingPendiente`). Para todo lo demás el crédito dice que no y la cascada sigue como si no existiera. Un
+  camino nuevo NO se suma a la lista por su cuenta: lo pide Martín.
 - **Pasan SÓLO las dos claves con nombre** (`CLAVES_CREDITO_PLATAFORMA`), leídas por ese nombre del entorno o de la
   fila del workspace de la plataforma, estrictas. `ANTHROPIC_API_KEY` no se lee ahí, y `evaluarCreditoDeLaPlataforma`
   rechaza cualquier otra clave. Nunca en el Plan, con un solo modelo barato, y con fecha de revisión (`hasta`).
 - **Su gasto no es de MaKo ni del cliente**: la fila va al workspace del cliente que lo usó (`recordUsage(…, ws)`;
   sin eso caía al ws1) con la marca `MOTIVO_CREDITO_PLATAFORMA` al principio, y `costos-ia` y el panel de cada
   negocio la ponen en 0 y la muestran aparte.
-- Lo fija `tests/veto-claude-credito-plataforma.test.ts`, probado rompiéndolo (9 de 9).
+- Lo fija `tests/veto-claude-credito-plataforma.test.ts`, probado rompiéndolo (9 de 9, y 4 de 4 la lista).
 
 # Un default que cobra es un cobro silencioso
 
@@ -3885,11 +3890,12 @@ voz con un mensaje que le pedía cargar otra key. Dos reglas al escribir un cami
 - ⛔ **LOS DATOS DE LOS CLIENTES DE UN CLIENTE NUNCA VAN A UN PROVEEDOR QUE ENTRENA CON LO QUE RECIBE**
   (16/10/2026). Mandar algo a entrenar no se deshace, y la opción segura no cuesta nada. Las keys
   gratis de la agencia son el plan gratis de Gemini (que entrena, con revisión humana) y de Groq. El
-  orden de la red es: primero el crédito de Claude de la plataforma (la API de Anthropic no entrena),
-  después una key de Gemini con facturación si se identifica cuál es, y las del plan gratis sólo al
-  final y NUNCA con datos personales. En `chatCheapCascade` lo decide la marca `pii` del catálogo
-  (`lib/model-catalogo.ts`) o `opts.pii`: con datos de clientes, si nada que no entrene contesta, se
-  corta y el cliente conecta su key. Una feature nueva que lea leads, conversaciones o llamadas se marca
+  orden de la red es: el crédito de Claude de la plataforma (la API de Anthropic no entrena) SÓLO en lo
+  que Martín habilitó —hoy el onboarding, ver la tercera puerta del veto—, después una key de Gemini con
+  facturación si se identifica cuál es, y las del plan gratis sólo al final y NUNCA con datos personales.
+  En `chatCheapCascade` lo decide la marca `pii` del catálogo (`lib/model-catalogo.ts`) o `opts.pii`: con
+  datos de clientes, si nada que no entrene contesta, se corta, y el mensaje dice que conecte su Claude
+  (no «Claude vetado» ni «falló»: molde, el `catch` de `lib/lead-insights.ts`). Una feature nueva que lea leads, conversaciones o llamadas se marca
   `pii: true`. Y un camino con su PROPIA red (un bucle sobre `provsGratisDePlataforma`) aplica la
   misma regla él mismo: el corte de la cascada no lo cubre.
 - **La red va como OPCIÓN del que llama, nunca fija en una función compartida** (`EnVivo`,

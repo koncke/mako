@@ -4237,6 +4237,19 @@ pocos dólares contra 400 por mes.
   cobrando** (lo dice la página de Anthropic). No se puede ver desde acá: lo revisa Martín en platform.claude.com.
 - Sólo la cascada de texto: ni visión, ni audio, ni el doer.
 
+### Y el mismo día: el crédito, SÓLO en el onboarding
+
+Martín, textual: «Sobre esto: "usando sólo el crédito de Claude", no, no lo hagas así... Yo debo decirte cuando
+utilizar creditos, no tenemos infinitos... Por ahora solo en onboarding.» En pocas horas tres caminos se habían
+enchufado solos al crédito (el AI Step, las Conclusiones del Dashboard y el análisis del lead), cada uno con un buen
+argumento, y ninguno lo había pedido él. **Un recurso que cuesta y se acaba no se habilita desde el que lo usa: se
+habilita en una lista, en el que lo da.** Desde ahí `CREDITO_HABILITADO_PARA` (lib/veto-claude.ts) es la única
+compuerta: hoy El Archivero, la extracción del brief y Productos, mientras el onboarding del negocio está en curso
+(`onboardingPendiente`, lo mismo que decide si va al wizard). Los otros tres reciben null de `conCreditoDeLaPlataforma`
+sin tocar su código, y su cascada sigue como antes: con datos de clientes, sin nada gratis que entrene. Para el análisis
+del lead eso es «sin IA propia, no hay análisis», y el mensaje pasó de «El análisis falló: Claude vetado…» a decir que
+conecte su Claude. Probado rompiéndolo: cinco roturas, cinco cazadas.
+
 · *2026-10-16 chat «Onboarding» (claude3)*
 
 
