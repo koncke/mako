@@ -97,6 +97,52 @@ export function textoDevolucionFallida(p: { razon: string | null; sigueDevuelto:
     : `La devolución falló en Stripe${por}: la plata sigue cobrada.`;
 }
 
+/** Lo que dice el cliente en una disputa de Stripe (`reason`), en palabras. Lo que no se conoce no se inventa. */
+const RAZON_DISPUTA: Readonly<Record<string, string>> = {
+  fraudulent: 'dice que no reconoce la compra',
+  unrecognized: 'no reconoce el cargo',
+  product_not_received: 'dice que no recibió lo que compró',
+  product_unacceptable: 'dice que lo que recibió no era lo prometido',
+  duplicate: 'dice que se le cobró dos veces',
+  subscription_canceled: 'dice que había cancelado la suscripción',
+  credit_not_processed: 'dice que no le hicieron una devolución prometida',
+};
+
+/**
+ * ⚠️ UN CONTRACARGO SE CUENTA (15/10/2026): hasta este día quedaba sólo en una fila de `pasarela_eventos`. El texto va al
+ * historial del lead y al motivo del cobro. La fase (lib/cobros-eventos.ts, FaseContracargo) dice qué pasó con la plata.
+ */
+export function textoContracargo(p: { pasarela: Pasarela; fase: 'abierto' | 'plata_salio' | 'plata_volvio' | 'cerrado' | 'mp'; estado?: string | null; razon?: string | null }): string {
+  const nombre = NOMBRE_PASARELA[p.pasarela];
+  const razon = p.razon && RAZON_DISPUTA[p.razon] ? ` (${RAZON_DISPUTA[p.razon]})` : '';
+  switch (p.fase) {
+    case 'abierto':
+      return `El cliente disputó este cargo con su banco${razon}: ${nombre} abrió una disputa.`;
+    case 'plata_salio':
+      return `${nombre} descontó la plata por la disputa${razon}: el pago queda como no cobrado mientras se resuelve.`;
+    case 'plata_volvio':
+      return `${nombre} devolvió la plata de la disputa: el pago vuelve a estar cobrado.`;
+    case 'cerrado':
+      if (p.estado === 'won') return 'La disputa se ganó: la plata queda cobrada.';
+      if (p.estado === 'lost') return 'La disputa se perdió: la plata no vuelve.';
+      if (p.estado === 'warning_closed') return 'La consulta del banco se cerró sin disputa.';
+      return `La disputa se cerró${p.estado ? ` (${p.estado})` : ''}.`;
+    case 'mp':
+      return p.estado === 'in_process'
+        ? 'Contracargo en Mercado Pago: el cliente desconoció el pago con su banco y está en revisión. Revísalo en tu cuenta de Mercado Pago.'
+        : `Contracargo en Mercado Pago${p.estado ? ` (${p.estado})` : ''}: revisa en tu cuenta de Mercado Pago cómo quedó la plata.`;
+  }
+}
+
+/**
+ * ¿Es la vuelta del cron de cobros que hace lo de UNA VEZ POR DÍA? El cron corre a los :17 y :47 de cada hora
+ * (vercel.json): la de las 06:17 UTC es la única con hora 6 y minuto < 30.
+ */
+export const esLaVueltaDelDia = (ms: number): boolean => {
+  const d = new Date(ms);
+  return d.getUTCHours() === 6 && d.getUTCMinutes() < 30;
+};
+
 /** ¿Este pago confirmado es una RENOVACIÓN (otra factura de la misma suscripción) y no el primero? */
 export function esRenovacion(c: { tipo: TipoCobro; proveedor_pago_id: string | null }, proveedorPagoId: string): boolean {
   return c.tipo === 'suscripcion' && !!c.proveedor_pago_id && c.proveedor_pago_id !== proveedorPagoId;

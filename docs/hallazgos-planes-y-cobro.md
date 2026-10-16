@@ -629,6 +629,33 @@ la regla da «no devuelta» para todas y no saca nada, sin error.
 **Vive en:** `lib/pagos.ts` (`getOutstandingDetalle`, `getOutstandingTotal`) · `lib/graficos-datos-extra.ts`
 (`filasRevenue`) · `tests/outstanding-sin-devueltas.test.ts`.
 
+### Contracargos: la documentación de Mercado Pago se contradice, y en Stripe la plata se lee de la disputa (15/10/2026)
+
+**Síntoma:** un contracargo de Mercado Pago quedaba sólo en una fila de `pasarela_eventos`; Stripe ni lo escuchaba. La
+plata se iba de la cuenta del negocio y la cuota seguía «cobrada».
+**El diagnóstico obvio era el equivocado (el de este mismo documento, más abajo):** la decisión del 15/10 decía «en MP,
+`charged_back` con `settled` es plata debitada al vendedor». Al hacerlo: la documentación de MP se CONTRADICE. La página
+de contracargos de Checkout Pro dice que `settled` es una decisión en contra del vendedor y `reimbursed` a favor; la de
+estados de transacción dice que `settled` es la plata devuelta al comprador y `reimbursed` acreditada al vendedor; la
+de estados de orden dice que `reimbursed` es devuelto al pagador. Lo confiable es `coverage_applied` del objeto del
+contracargo (otra API, otro tópico de aviso), que no está medido. **Regla:** en MP el contracargo se CUENTA (historial
+y motivo, una vez por cada `status_detail`) y NO mueve la cuota hasta medirlo con las claves de prueba.
+**Stripe, en cambio, lo dice sin ambigüedad**, pero no en el tipo del evento: la plata sale con
+`charge.dispute.funds_withdrawn` y vuelve con `charge.dispute.funds_reinstated` (nombres verificados en
+docs.stripe.com/api/events/types; uno inexistente haría fallar CONECTAR). Los avisos pueden llegar desordenados, así
+que dónde está la plata se lee de la disputa RELEÍDA: sus `balance_transactions` (un retiro es negativo, un reintegro
+positivo). Con la plata afuera, la cuota se desmarca como un reembolso; si vuelve, se vuelve a marcar; las dos son
+idempotentes. Una disputa PARCIAL no mueve la cuota (no se parte), y un cargo ya devuelto entero tampoco.
+**Y la trampa 2 de la devolución fallida se cumplió:** un contracargo llega sin que MaKo haga nada, así que poner al día
+los eventos del aviso sólo al reembolsar no alcanzaba. El cron de cobros lo hace una vez por día (`esLaVueltaDelDia`, la
+vuelta de las 06:17 UTC; `mantenerAvisosStripe`).
+**Al probarlo rompiéndolo:** «la plata salió» mirando si hay movimientos (y no su SIGNO) pasaba el test, porque los casos
+eran sólo retiro, retiro + reintegro, y nada. Hizo falta el caso de un reintegro solo.
+**Vive en:** `lib/stripe-api.ts` (`EVENTOS_STRIPE`, `leerDisputaStripe`) · `lib/cobros-eventos.ts` (`faseDeDisputa`,
+`planDePagoMp`) · `lib/cobros-webhook.ts` (rama `disputa`, `contracargo` de MP) · `lib/cobros.ts` (`aplicarContracargo`,
+`mantenerAvisosStripe`) · `lib/cobros-reglas.ts` (`textoContracargo`, `esLaVueltaDelDia`) ·
+`app/api/cron/cobros-reconciliar/route.ts` · `tests/contracargos.test.ts`.
+
 ### Cuatro «decisiones de Martín» que no eran suyas (15/10/2026)
 
 La tabla de abajo tenía seis filas marcadas «decisión de Martín». Pasadas por la vara de AGENTS.md (lo que copia lo que
@@ -651,11 +678,10 @@ preguntarle. Quedan suyas dos: el RFC / Stripe en Argentina (fiscal y precio) y 
 - **Los pagos que NO creó MaKo se siguen ignorando con rastro; un CONTRACARGO se muestra, y desmarca la cuota sólo
   cuando el proveedor dice que la plata salió.** Un pago sin el token de un cobro no tiene lead: importarlo crearía
   fichas sin dueño o duplicadas. El contracargo, en cambio, es plata de un cobro nuestro: hoy queda sólo en una fila
-  de `pasarela_eventos` que nadie mira. Se decide como lo cuentan los proveedores: en Mercado Pago `charged_back` con
-  `settled` es plata debitada al vendedor (como un reembolso) y con `reimbursed` la cubrió MP (no cambia nada); en
-  Stripe, `charge.dispute.created` avisa y `charge.dispute.closed` con `lost` la debita. Siempre al historial del lead
-  y al motivo del cobro. Falta el código (lib/cobros-eventos.ts `planDePagoMp`, lib/cobros.ts, y sumar los dos
-  eventos de disputa a `EVENTOS_STRIPE`); confirmar los `status_detail` de MP contra su documentación al hacerlo.
+  de `pasarela_eventos` que nadie mira. Siempre al historial del lead y al motivo del cobro. **HECHO el mismo día, con una
+  corrección:** lo que esta entrada decía de Mercado Pago (`settled` = plata debitada) NO se sostiene, su documentación
+  se contradice; ver «Contracargos: la documentación de Mercado Pago se contradice…» arriba. En Stripe la plata se lee
+  de la disputa (sus `balance_transactions`), no de `closed`/`lost`.
 
 *Corrida del 11/10/2026: relevamiento de 8 agentes, la base escrita a mano, 7 agentes de
 implementación en un worktree propio (`C:/dev/wt-pagos`) y una rama aparte para Automations.*
@@ -677,7 +703,7 @@ implementación en un worktree propio (`C:/dev/wt-pagos`) y una rama aparte para
 | **Pasarela:** probar con claves REALES — si una clave restringida (`rk_`) puede leer `GET /v1/account` y si la `notification_url` de MP llega firmada; y si MP respeta el vencimiento de una preferencia que se anuló con el checkout ya abierto (`vencerPreferenciaMp`) | `lib/cobros-conexion.ts`, `lib/metodo-catalogo.ts` (tutorial), `app/api/webhooks/mercadopago/route.ts` |
 | **Pasarela:** un producto de suscripción con plazo (`suscripcion_meses`) se cobra como suscripción sin fin | `lib/cobros.ts`, `lib/stripe-api.ts` |
 | **Pasarela:** precios en moneda local en el catálogo (para que la API y las automatizaciones creen links de Mercado Pago) | `lib/productos.ts`, `lib/api-mako/areas/cobros.run.ts` |
-| **Pasarela (decidido 15/10):** un contracargo se muestra (historial y motivo) y desmarca la cuota cuando el proveedor dice que la plata salió (MP `charged_back`+`settled`, Stripe `charge.dispute.closed` perdida); Stripe todavía no escucha `charge.dispute.*` | `lib/cobros-eventos.ts` (`planDePagoMp`), `lib/cobros.ts`, `lib/stripe-api.ts` (`EVENTOS_STRIPE`) |
+| **Pasarela:** un contracargo de Mercado Pago se cuenta pero NO mueve la cuota: falta medir con las claves de prueba qué dice `coverage_applied` (GET del contracargo, otro tópico de aviso) y qué significan de verdad `settled`/`reimbursed` | `lib/cobros-eventos.ts` (`planDePagoMp`), `lib/cobros-webhook.ts`, `lib/mercadopago-api.ts` |
 | **Pasarela:** `crear_link_pago` en la lista corta del «⚡ Acción» (necesita un control propio para el producto del catálogo) | `lib/editor-acciones.ts` |
 | **Pasarela:** en `/mako/revisar` el `cobroId` de un reembolso se puede editar y el título sigue mostrando el original | `lib/api-mako/acciones.ts` |
 | **Pasarela:** Stripe no abre cuentas a negocios radicados en Argentina, y la primera venta a un mexicano arranca el reloj del RFC (`stripe-reloj` en el modelo) | `app/admin/dev/pricing/modelo.ts:635,1272`, decisión de Martín |
@@ -685,7 +711,6 @@ implementación en un worktree propio (`C:/dev/wt-pagos`) y una rama aparte para
 | **Pasarela (revisión):** el cambio de email tras el alta tiene ventana de 48 h, pero lo puede hacer quien PAGÓ aunque no sea el dueño de la cuenta: falta un código al email actual | `app/pagar/cambio-email.ts`, `app/api/pagar/email/route.ts` |
 | **Pasarela (revisión):** los topes de `/api/pagar/email` viven en memoria (por instancia); el «ya es de otro» ya gasta el intento (15/10) | `app/api/pagar/email/route.ts`, `lib/rate-limit.ts` |
 | **Pasarela (revisión):** un aviso de MP sin firma con el `user_id` de un negocio conectado provoca una relectura con SU token (las filas `sin-workspace` ya tienen techo: una por día, 15/10) | `app/api/webhooks/mercadopago/route.ts` |
-| **Pasarela:** una devolución hecha desde el PANEL de Stripe, en una cuenta conectada antes del 15/10, no avisa si falla hasta que el negocio reconecte o MaKo haga una devolución (`asegurarEventosStripe` sólo corre al reembolsar desde MaKo) | `lib/stripe-api.ts`, `lib/cobros.ts` (`reembolsarCobro`), el cron si hiciera falta |
 | **Pasarela (revisión):** el MRR al cancelar una suscripción redondea por meses (puede contar un mes de más o de menos) | `lib/cobros-reglas.ts` (`mesesTranscurridos`) |
 | **Pasarela (revisión):** la fecha de la cuota es la del procesamiento, no la del pago (un aviso tardío la corre de mes) | `lib/cobros.ts` (`aplicarPagoAprobado`) |
 | **Pasarela (decidido 15/10):** un lead de pago único que paga un link de SUSCRIPCIÓN sigue de pago único, y su mensualidad tiene que contar en el MRR desde el cobro activo | `lib/queries.ts` (`getMrrActivo`) |

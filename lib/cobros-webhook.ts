@@ -26,16 +26,17 @@ import { revalidateTag } from 'next/cache';
 import { credDelCliente, credWsEstricta } from './credenciales';
 import { TAG } from './cache';
 import {
-  aplicarPagoAprobado, aplicarPagoFallido, aplicarReembolso, aplicarReembolsoFallido, aplicarSuscripcionCancelada, cobroDelAviso,
+  aplicarContracargo, aplicarPagoAprobado, aplicarPagoFallido, aplicarReembolso, aplicarReembolsoFallido, aplicarSuscripcionCancelada, cobroDelAviso,
 } from './cobros';
 import type { Cobro } from './cobros-tipos';
+import { textoContracargo } from './cobros-reglas';
 import {
-  avisoStripe, buscarDePagoMp, claveEventoMp, confirmarCargo, confirmarCheckout, confirmarDevolucionFallida, confirmarFactura, esDelCobro,
+  avisoStripe, buscarDePagoMp, claveEventoMp, confirmarCargo, confirmarCheckout, confirmarDevolucionFallida, confirmarFactura, esDelCobro, faseDeDisputa,
   mismoModo, nombreModo, planDePagoMp, suscripcionMpCancelada, tokenReleido,
   type ClaveCobro, type EventoStripe, type NotificacionMp, type PlanPagoMp, type ResultadoEvento,
 } from './cobros-eventos';
 import {
-  facturaDePagoStripe, leerCargoStripe, leerCheckoutStripe, leerFacturaStripe, leerReembolsoStripe, leerSuscripcionStripe, modoDeClaveStripe,
+  facturaDePagoStripe, leerCargoStripe, leerCheckoutStripe, leerDisputaStripe, leerFacturaStripe, leerReembolsoStripe, leerSuscripcionStripe, modoDeClaveStripe,
 } from './stripe-api';
 import { leerCuotaSuscripcionMp, leerPagoMp, leerSuscripcionMp, type PagoMp } from './mercadopago-api';
 
@@ -153,6 +154,30 @@ export async function procesarEventoStripe(ws: number, ev: EventoStripe): Promis
     await aplicarSuscripcionCancelada(c);
     invalidarLecturas();
     return procesado(c.id);
+  }
+
+  if (objeto === 'disputa') {
+    // ⚠️ UN CONTRACARGO (15/10/2026). El texto sale de la FASE (el tipo del evento); la plata, de la disputa releída
+    // (`retirada` / `reintegrada`, sus balance_transactions), no del evento: los avisos pueden llegar desordenados.
+    const fase = faseDeDisputa(ev.tipo);
+    if (!fase) return ignorado(`evento ${ev.tipo}: no es de una disputa`);
+    const d = await leerDisputaStripe(key, id);
+    if (!d.ok) throw errorDelProveedor('Stripe', 'la disputa', d);
+    if (!d.cargo) return ignorado('la disputa releída no dice de qué cargo es');
+    const cargo = await leerCargoStripe(key, d.cargo);
+    if (!cargo.ok) throw errorDelProveedor('Stripe', 'el cargo', cargo);
+    const pi = cargo.paymentIntent ?? d.paymentIntent ?? aviso.buscar.pagoId ?? null;
+    const { b, pagoId } = await cobroDelPagoStripe(key, ws, ev, null, pi);
+    if ('ignorar' in b) return b.ignorar;
+    // Una disputa PARCIAL no mueve la cuota (no se parte), y un cargo ya devuelto entero tampoco (la cuota ya salió).
+    const total = d.monto != null && cargo.monto != null && d.monto >= cargo.monto - 0.005;
+    const plataAfuera = !total || cargo.reembolsado ? null : d.retirada && !d.reintegrada;
+    await aplicarContracargo(b.cobro, {
+      fase, texto: textoContracargo({ pasarela: 'stripe', fase, estado: d.estado, razon: d.motivo }),
+      plataAfuera, proveedorPagoId: pagoId, fechaCargo: cargo.creado,
+    });
+    invalidarLecturas();
+    return procesado(b.cobro.id, `contracargo: ${fase}${total ? '' : ' (parcial)'}`);
   }
 
   if (objeto === 'reembolso') {
@@ -317,6 +342,15 @@ export async function aplicarNotificacionMp(ws: number, l: LecturaMp): Promise<R
     await aplicarReembolso(c, { proveedorPagoId: pago.id, total: true });
     invalidarLecturas();
     return procesado(c.id);
+  }
+  if (plan.accion === 'contracargo') {
+    // Se CUENTA, sin mover la cuota (`plataAfuera: null`): MP documenta `settled`/`reimbursed` de dos maneras opuestas.
+    await aplicarContracargo(c, {
+      fase: 'mp', texto: textoContracargo({ pasarela: 'mercadopago', fase: 'mp', estado: plan.detalle }),
+      plataAfuera: null, proveedorPagoId: pago.id, fechaCargo: pago.fecha,
+    });
+    invalidarLecturas();
+    return procesado(c.id, `contracargo: ${plan.detalle ?? 'sin detalle'}`);
   }
   return ignorado(plan.motivo, c.id);
 }

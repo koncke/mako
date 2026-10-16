@@ -41,7 +41,7 @@ import {
 } from './cobros-reglas';
 import { formatoMonto } from './pasarela-moneda';
 import { esCuotaDevuelta, esRenovacionFallida, PREFIJO_RENOVACION_FALLIDA } from './cobrado-lead';
-import { motivoSinDatos } from './cobros-eventos';
+import { motivoSinDatos, type FaseContracargo } from './cobros-eventos';
 import { emitirDelCatalogo } from './avisos';
 import { linkResumenLead } from './lead-resumen';
 import { enrolarPorPago, type SubtipoPago } from './pago-entrante';
@@ -768,6 +768,37 @@ export async function aplicarReembolsoFallido(c: Cobro, p: { proveedorPagoId: st
       await logLeadEvent(c.lead_id, 'Devolución fallida', `${esElPrimero ? '' : 'Renovación de '}${c.concepto}: ${texto}`.slice(0, 300), NOMBRE_PASARELA[c.proveedor]);
     }
   });
+}
+
+/**
+ * ⚠️ UN CONTRACARGO (15/10/2026). Se CUENTA siempre: el historial del lead y el motivo del cobro (antes quedaba sólo en una
+ * fila de `pasarela_eventos`). La cuota se mueve sólo con `plataAfuera` (lo decide quien llama, con lo que dice la
+ * pasarela): `true` la desmarca como un reembolso (impaga y sin vencimiento: no es deuda), `false` la vuelve a marcar con
+ * la fecha del cargo, `null` no la toca (Mercado Pago, o un contracargo PARCIAL: la cuota no se parte). Las dos son
+ * idempotentes, así que un aviso repetido o desordenado no la mueve dos veces. El cobro sigue «Pagado».
+ */
+export async function aplicarContracargo(c: Cobro, p: { fase: FaseContracargo; texto: string; plataAfuera: boolean | null; proveedorPagoId: string | null; fechaCargo: string | null }): Promise<void> {
+  await runWithWorkspace(c.workspace_id, async () => {
+    const pagoId = p.proveedorPagoId ?? c.proveedor_pago_id;
+    if (c.lead_id && pagoId && p.plataAfuera != null) {
+      if (p.plataAfuera) await desmarcarCobroDeProveedor({ leadId: c.lead_id, proveedor: c.proveedor, proveedorPagoId: pagoId });
+      else {
+        const fecha = await hoyEnWorkspace(p.fechaCargo ? new Date(p.fechaCargo) : new Date());
+        await remarcarCobroDeProveedor({ leadId: c.lead_id, proveedor: c.proveedor, proveedorPagoId: pagoId, fechaPago: fecha });
+      }
+    }
+    await actualizar(c.workspace_id, c.id, { motivo: p.texto });
+    if (c.lead_id) await logLeadEvent(c.lead_id, 'Contracargo', p.texto.slice(0, 300), NOMBRE_PASARELA[c.proveedor]);
+  });
+}
+
+/**
+ * Una vez por día (el cron de cobros, `esLaVueltaDelDia`): que el aviso de Stripe de este negocio escuche la lista de HOY.
+ * Un contracargo llega sin que MaKo haga nada, así que no alcanza con ponerlo al día al reembolsar (15/10/2026).
+ */
+export async function mantenerAvisosStripe(ws: number): Promise<void> {
+  const stripe = await credStripe(ws);
+  if (stripe) await asegurarEventosDelAviso(ws, stripe.key);
 }
 
 /**
