@@ -1,0 +1,399 @@
+/*
+ * «MaKo IA» con la cara del panel de Canva AI: el saludo con la chispa en el degradado, píldoras de sugerencias, la
+ * persona en burbuja lila a la derecha, MaKo suelto a la izquierda y el cuadro de abajo con el enviar redondo.
+ * Usa los tokens `--cv-*` del editor (el panel se dibuja dentro de `.cv`): el tema oscuro lo pone el editor.
+ * El cuerpo del panel (ToolHost.module.css, `.sidebarBody`) es una columna: el hilo scrollea y el cuadro queda abajo.
+ */
+.panel {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+  font: var(--cv-text-base) / var(--cv-leading-normal) var(--cv-font-sans);
+  color: var(--cv-color-text);
+}
+
+.hilo {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+
+.saludo {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  padding: 24px 8px 8px;
+  text-align: center;
+}
+.chispa {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  margin-bottom: 6px;
+  border: 2px solid transparent;
+  border-radius: var(--cv-radius-full);
+  background:
+    linear-gradient(var(--cv-color-surface), var(--cv-color-surface)) padding-box,
+    var(--cv-header-gradient) border-box;
+  color: var(--cv-color-brand);
+}
+.saludoTitulo {
+  margin: 0;
+  font: 600 var(--cv-text-lg) / 24px var(--cv-font-sans);
+}
+.saludoTexto {
+  margin: 0;
+  color: var(--cv-color-text-muted);
+}
+
+.yo {
+  max-width: 88%;
+  align-self: flex-end;
+  padding: 8px 12px;
+  border-radius: 16px 16px 4px 16px;
+  background: var(--cv-color-brand-soft);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.alcanceMsg {
+  display: block;
+  margin-bottom: 2px;
+  font-size: 11px;
+  font-weight: 600;
+  opacity: 0.8;
+}
+
+.mako {
+  display: grid;
+  gap: 8px;
+}
+.makoTexto,
+.error {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.error {
+  padding: 8px 12px;
+  border-radius: var(--cv-radius-md);
+  background: var(--cv-color-danger-soft);
+  color: var(--cv-color-danger);
+}
+
+.links,
+.sugerencias,
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.link,
+.pildora {
+  padding: 6px 12px;
+  border: 1px solid var(--cv-color-border);
+  border-radius: var(--cv-radius-full);
+  background: var(--cv-color-surface);
+  color: var(--cv-color-text);
+  font: 500 12px / 1.3 var(--cv-font-sans);
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+.link {
+  color: var(--cv-color-brand);
+}
+.link:hover,
+.pildora:hover {
+  background: var(--cv-color-bg-muted);
+}
+.pildora:focus-visible,
+.link:focus-visible,
+.chip:focus-visible,
+.enviar:focus-visible {
+  outline: none;
+  box-shadow: var(--cv-focus-ring);
+}
+
+.pensando {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--cv-color-text-muted);
+}
+.girando {
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--cv-color-border-strong);
+  border-top-color: transparent;
+  border-radius: var(--cv-radius-full);
+  animation: girar 0.8s linear infinite;
+}
+@keyframes girar {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* La revisión de una propuesta: «Original | Modificado» */
+.revision {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border-radius: var(--cv-radius-lg);
+  background: var(--cv-color-bg-subtle);
+}
+.revisionHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.revisionResumen {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 12px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.comparar {
+  display: flex;
+  flex: none;
+  padding: 2px;
+  border-radius: var(--cv-radius-sm);
+  background: var(--cv-color-bg-muted);
+}
+.comparar button {
+  height: 24px;
+  padding: 0 8px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--cv-color-text-muted);
+  font: 500 11px / 1 var(--cv-font-sans);
+  cursor: pointer;
+}
+.comparar button[aria-pressed='true'] {
+  background: var(--cv-color-surface);
+  color: var(--cv-color-text);
+  box-shadow: var(--cv-shadow-sm);
+}
+.filas {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.fila {
+  display: grid;
+  gap: 2px;
+  padding: 8px 10px;
+  border-radius: var(--cv-radius-md);
+  background: var(--cv-color-surface);
+}
+.fila p {
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--cv-color-text-muted);
+  font-size: 12px;
+}
+.filaHead {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.filaHead b {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 12px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.etiqueta {
+  flex: none;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--cv-color-bg-muted);
+  color: var(--cv-color-text-muted);
+  font-size: 10px;
+  font-weight: 600;
+}
+.etiqueta[data-tipo='agrega'] {
+  background: var(--cv-color-brand-soft);
+  color: var(--cv-color-brand);
+}
+.etiqueta[data-tipo='quita'] {
+  background: var(--cv-color-danger-soft);
+  color: var(--cv-color-danger);
+}
+.tachado {
+  text-decoration: line-through;
+}
+.mas {
+  color: var(--cv-color-text-subtle);
+  font-size: 11px;
+}
+.nota,
+.cuidado,
+.alerta {
+  margin: 0;
+  padding: 6px 10px;
+  border-radius: var(--cv-radius-md);
+  font-size: 11.5px;
+}
+.nota {
+  background: var(--cv-color-surface);
+  color: var(--cv-color-text-muted);
+}
+.cuidado {
+  background: var(--cv-color-warning-soft);
+  color: var(--cv-color-warning);
+}
+.alerta {
+  background: var(--cv-color-danger-soft);
+  color: var(--cv-color-danger);
+}
+.botones {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.primario,
+.secundario {
+  height: 32px;
+  padding: 0 14px;
+  border-radius: var(--cv-radius-sm);
+  font: 600 12px / 1 var(--cv-font-sans);
+  cursor: pointer;
+}
+.primario {
+  border: none;
+  background: var(--cv-color-brand);
+  color: var(--cv-color-on-brand);
+}
+.primario:hover {
+  background: var(--cv-color-brand-hover);
+}
+.secundario {
+  border: 1px solid var(--cv-color-border-strong);
+  background: var(--cv-color-surface);
+  color: var(--cv-color-text);
+}
+.secundario:hover {
+  background: var(--cv-color-bg-muted);
+}
+.hecho,
+.apagado {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-right: auto;
+  font-size: 12px;
+  font-weight: 600;
+}
+.hecho {
+  color: var(--cv-color-success);
+}
+.apagado {
+  color: var(--cv-color-text-subtle);
+}
+
+/* El pie: el alcance y el cuadro */
+.pie {
+  display: grid;
+  flex: none;
+  gap: 8px;
+}
+.chip {
+  height: 26px;
+  max-width: 100%;
+  padding: 0 10px;
+  overflow: hidden;
+  border: 1px solid var(--cv-color-border);
+  border-radius: var(--cv-radius-full);
+  background: transparent;
+  color: var(--cv-color-text-muted);
+  font: 500 11.5px / 1 var(--cv-font-sans);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.chip[aria-pressed='true'] {
+  border-color: var(--cv-color-brand);
+  color: var(--cv-color-brand);
+}
+.cuadro {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px 8px;
+  border: 1px solid var(--cv-color-border-strong);
+  border-radius: var(--cv-radius-lg);
+  background: var(--cv-color-surface);
+}
+.cuadro:focus-within {
+  border-color: var(--cv-color-brand);
+}
+.cuadro textarea {
+  min-height: 40px;
+  max-height: 160px;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--cv-color-text);
+  font: var(--cv-text-base) / 1.45 var(--cv-font-sans);
+  resize: none;
+  outline: none;
+}
+.cuadro textarea::placeholder {
+  color: var(--cv-color-text-subtle);
+}
+.cuadroPie {
+  display: flex;
+  justify-content: flex-end;
+}
+.enviar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  border-radius: var(--cv-radius-full);
+  background: var(--cv-header-gradient);
+  color: #fff;
+  cursor: pointer;
+}
+.enviar:disabled {
+  background: var(--cv-color-bg-muted);
+  color: var(--cv-color-text-subtle);
+  cursor: default;
+}
+.cuadradito {
+  display: block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  background: currentColor;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .girando {
+    animation-duration: 2s;
+  }
+}

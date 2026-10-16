@@ -193,8 +193,9 @@ ruta falla o tarda más de `PLAZO_PEDIDOS_MS`, el mensaje entero va a «editar»
   `tests/video-editor-pedidos-chat.test.ts`): manda sus proyectos como `objetos`; lo del proyecto abierto va a su IA y
   lo demás son burbujas con link. Borrar un proyecto NO se hace desde el chat (no hay papelera: se va con su
   material); la burbuja dice dónde. Y «proyecto», que es palabra del Plan, ahí es otro video (`OBJETOS_DE_LA_TAB`).
-- **Image Editor y Dashboard**: sus objetos ya están (16/10); falta que sus chats llamen a la ruta. ⚠️ El Image Editor
-  todavía NO TIENE chat (es la etapa 4 de docs/diseno-mako-ai-native.md): hay que construirle uno antes de engancharlo.
+- **Image Editor y Dashboard**: sus objetos ya están (16/10); falta que sus chats llamen a la ruta. El Image Editor ya
+  tiene chat («MaKo IA», 16/10: `app/image-editor/mako/chat/acciones.ts`, `pedirEdicion`): se engancha como el del
+  Video Editor, antes de su IA, con `tab: 'imagen'` y los diseños del server (no hace falta mandar `objetos`).
 - **El chat único del Second Brain** (Centro de Operaciones): el mismo fetch con `tab` = el área de lo que esté abierto.
 - **Correr la operación de OTRA tab** desde la burbuja: hoy `otra-tab` deja el link (y la operación como dato); ejecutarla
   pasa por el registro (`ejecutar.ts`), que propone y confirma como siempre.

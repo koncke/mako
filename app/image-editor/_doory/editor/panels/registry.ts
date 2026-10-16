@@ -52,6 +52,13 @@ export interface PanelDefinition {
   readOnly?: boolean
 }
 
+/**
+ * El panel del chat «MaKo IA» (app/image-editor/mako/chat/PanelMakoIA.tsx, registrado en mako/registro.ts). No es una
+ * pestaña del riel: lo abre el botón redondo de su pie (chrome/RielCanva.tsx) y, en pantallas chicas, el último botón
+ * de la tira de abajo (`CompactTools` de TopBar.tsx).
+ */
+export const PANEL_IA = 'mako-ia'
+
 export const panels = new Registry<PanelDefinition>((a, b) => a.order - b.order)
 
 export function registerPanel(panel: PanelDefinition): () => void {

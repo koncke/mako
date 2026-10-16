@@ -40,7 +40,8 @@
  * de la tab Offer, `offer_sesiones`, mig 0254; 126 con `cobros` y `pasarela_eventos` de la pasarela, mig
  * 0255; 129 el mismo día con las tres del editor de landings, mig 0246; 130 el 13/10/2026 con `calendario_eventos`, mig 0271; las del Image Editor, `image_disenos` e
  * `image_subidos`, mig 0278, el 14/10; las tres de la tab Chats, `chat_estado`, `chat_leidos` y `chat_eventos`, mig 0284; y el hilo
- * del chat del Video Editor, `video_editor_chats`, mig 0298, la copia de sus proyectos, `video_editor_proyectos`, mig 0299, y lo que la API propone en ellos, `video_editor_propuestas`, mig 0300, el 16/10), en orden alfabético.
+ * del chat del Video Editor, `video_editor_chats`, mig 0298, la copia de sus proyectos, `video_editor_proyectos`, mig 0299, y lo que la API propone en ellos, `video_editor_propuestas`, mig 0300, el 16/10; y el hilo del chat del Image Editor,
+ * `image_editor_chats`, mig 0303), en orden alfabético.
  *
  * ⚠️ EL ORDEN NO ES EL DE BORRADO. 39 de las 87 claves foráneas que apuntan a
  * `workspaces` no cascadean, y adentro de un inquilino hay hijos antes que padres
@@ -72,7 +73,7 @@ export const TABLAS_DE_INQUILINO = [
   'evolution_instancias', 'evolution_labels', 'evolution_stage_labels', 'experimento_tareas',
   'experimentos', 'flow_puentes', 'flow_trabajos', 'formatos',
   'funnel_config', 'funnel_ofertas', 'funnels', 'identidades_fiscales',
-  'ig_conversaciones', 'ig_mensajes', 'image_disenos', 'image_subidos', 'kpi_registros', 'kpis',
+  'ig_conversaciones', 'ig_mensajes', 'image_disenos', 'image_editor_chats', 'image_subidos', 'kpi_registros', 'kpis',
   'landing_analyses', 'landing_doc_comentarios', 'landing_doc_versiones', 'landing_docs', 'landing_drafts', 'landing_sugerencias', 'landing_visits', 'lead_audit',
   'lead_funnel', 'lead_insights', 'lead_magnets', 'lead_orden', 'lead_respuestas', 'leads',
   'mako_acciones_pendientes', 'mako_confirmaciones', 'mako_doer_buffer', 'mako_doer_conv',

@@ -226,6 +226,9 @@ export const CATALOGO_MODELOS: FeatureModelo[] = [
   // respaldo: lo que vuelve es una PROPUESTA que la persona mira antes de aplicar, así que un
   // proveedor más flojo se ve y se descarta.
   { feature: 'video-editor-ia', label: 'Editar con IA en el Video Editor', grupo: 'Copywriting', def: GEMINI(), recomendado: GEMINI(), nota: 'El chat al costado del editor: lee la línea de tiempo (nombres, tiempos y textos de los clips) y propone cortes, textos, borrados y volúmenes que la persona acepta o descarta. Sin PII.' },
+  // El chat «MaKo IA» del Image Editor (lib/image-editor/chat/ia.ts): el mismo trato que video-editor-ia (16/10/2026).
+  // GRATIS, Claude vetado sin fila en CLAUDE_PERMITIDO, ni de respaldo: vuelve una PROPUESTA que la persona mira.
+  { feature: 'image-editor-ia', label: 'Editar con IA en el Image Editor', grupo: 'Copywriting', def: GEMINI(), recomendado: GEMINI(), nota: 'El chat del editor de imágenes: lee el diseño (textos, formas, medidas y colores de cada elemento) y propone cambios de texto, estilo, posición, color, capas y páginas que la persona acepta o descarta. Sin PII.' },
   // Los tres writers de contenido de Instagram (lib/ig-writer.ts). Mismo perfil
   // que landing-writer: copy con voz de marca sobre el brief del negocio, sin PII
   // (el pedido del usuario + funnel + perfil público) → default GRATIS.
