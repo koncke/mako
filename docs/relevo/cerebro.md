@@ -139,3 +139,16 @@ tandas 2-3; la tanda 5 del editor de video POSPUESTA por Martín). Todos esos ch
   Trae `supabase/migrations/0303_chart_chats_bloques.sql`, que CHOCA con la 0303 del Image Editor (`c7e0779aa`). Al
   sumarla: renombrar la de Centro a **0305** (y sus menciones), aplicarla con `node scripts/apply-migration.mjs`
   (sólo agrega; el código la tolera ausente). Lo que sigue del Second Brain está en docs/relevo/centro-operaciones.md.
+
+## ACTUALIZACIÓN DEL CIERRE (16/10 ~12:05 AR, 96% semanal)
+
+- **Todo lo terminado está en main** (run 46, `3c5803547`): el Plan, la fuga de PII, Video Editor 2-3 + pedidos, el chat del
+  Image Editor (tanda 1), Second Brain tandas 1-4 + servidor 7-10, Offer 3, Dashboard, Web Generator, MaKo Mobile.
+  El test del turno de WhatsApp lo arregló Video Editor (`mover_tarea_plan` no viaja cuando se mueve a un día).
+- Migraciones aplicadas: 0294, 0295, 0296, 0298-0303, 0305. **0304 reservada** (propuestas del Image Editor). La
+  reconciliación de la 0294 corrió: 0 filas que corregir.
+- **Pendiente, cada uno con su relevo:** Image Editor tandas 2-3 (docs/relevo/video-editor.md, 0304), Second Brain
+  pantallas 10/8/7/9 y luego 6/5 y la etapa 5 (docs/relevo/centro-operaciones.md), CRM ficha v2 (Resumen → Reuniones/
+  Tracking → tarjeta → CS), Automations (pedidos en su chat con las regresiones anotadas, campanita, «sin grupo»),
+  Onboarding (corte del doer de WhatsApp con PII; borrar las 2 filas copiadas del ws1 cuando Martín diga sí),
+  Web Generator (producto en texto libre), Video Editor tanda 5 POSPUESTA por Martín.
