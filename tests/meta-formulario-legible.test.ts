@@ -103,17 +103,24 @@ test('⚠️ el webhook manda los DATOS, no el texto armado (si no, /automations
   assert.match(llamada, /lead_telefono:/, 'el teléfono viaja en `datos`, con su «sin teléfono» si falta');
 });
 
-test('⚠️ la ruta y el pop-up dibujan la MISMA pieza', () => {
+test('⚠️ la ruta y el pop-up dibujan la MISMA pieza', async () => {
   // ⚠️ CAMBIADO A PROPÓSITO EL 14/10/2026 (la ficha por bloques): las dos puertas montan la MISMA ficha
   // (`FichaPorBloques`) y las respuestas son el bloque `lo-que-contesto`, que monta RespuestasFormulario
   // una vez, con lo que el server trajo (`respuestasDelBloque`, app/crm/lead-view/ficha/reglas-resumen.ts).
   const ruta = sinComentarios(leer('app/crm/[id]/LeadDetailBody.tsx'));
   const popup = sinComentarios(leer('app/crm/LeadSheet.tsx'));
-  const bloque = sinComentarios(leer('app/crm/lead-view/ficha/registro-resumen.tsx'));
+  // ⚠️ REESCRITO EL 16/10/2026 (el Resumen nativo): RespuestasFormulario se fue. El bloque es resumen/respuestas.tsx, que
+  // dibuja `respuestasDelBloque` (las fuentes del bloque, reglas-resumen.ts), y lo que lee de cada fuente lo decide
+  // `respuestasPorFuente` (resumen/logica.ts), que se EJECUTA acá. Re-verificado rompiéndolo: la fuente de Meta leyendo
+  // otro campo → 1 fallo.
+  const bloque = sinComentarios(leer('app/crm/lead-view/ficha/resumen/respuestas.tsx'));
   const reglas = sinComentarios(leer('app/crm/lead-view/ficha/reglas-resumen.ts'));
   for (const src of [ruta, popup]) assert.match(src, /<FichaPorBloques\b/, 'el pop-up es por donde se abre una ficha casi siempre');
-  assert.match(bloque, /<RespuestasFormulario key=\{f\.fuente\} respuestas=\{f\.respuestas\} de=\{f\.fuente\} \/>/);
-  assert.match(reglas, /ctx\.data\.respuestasForm/, 'el bloque lee las respuestas que resolvió el server');
+  assert.match(bloque, /const fuentes = respuestasDelBloque\(ctx, puesto\);/);
+  assert.match(reglas, /return respuestasPorFuente\(ctx\.data, fuentesDe\(p\)\);/, 'el bloque lee las respuestas que resolvió el server');
+  const { respuestasPorFuente } = await import('../app/crm/lead-view/ficha/resumen/logica');
+  assert.deepEqual(respuestasPorFuente({ respuestasForm: [{ pregunta: 'Zona', respuesta: 'Sur' }] }, ['meta']),
+    [{ fuente: 'meta', respuestas: [{ pregunta: 'Zona', respuesta: 'Sur' }] }], 'la fuente de Meta es lo que resolvió el server (`respuestasForm`)');
   for (const [nombre, src] of [['ruta', ruta], ['pop-up', popup], ['ficha', bloque]] as const) {
     assert.doesNotMatch(src, /Respondió en el formulario/, `la ${nombre} volvió a tener su propia copia de la sección`);
   }

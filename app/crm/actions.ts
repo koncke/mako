@@ -84,7 +84,10 @@ import { eventTypeDeReunion } from '@/lib/calendly-agenda';
 import { leadsAMarkdown, type LeadDoc } from './leads-markdown';
 import { MAX_FILAS_IMPORT, MAX_MONTO_IMPORT, MOTIVO_DECIDIBLE, destinoDe, entra, entraGanado, type FilaImport } from './leads-importar';
 import { ORIGEN_LEAD, origenLista } from './origen-lead';
-import { VIA_INLINE, esCampoInline, montoEnRiesgo, ponerLinkFathom, valorDeCampo, type ValorInline } from './campo-inline';
+import {
+  VIA_INLINE, esCampoInline, montoEnRiesgo, ponerLinkFathom, valorDeCampo, type ValorInline,
+  esCampoContacto, mismoDatoDeContacto, mismoValorDeCampo, valorGuardadoDeCampo, YA_LO_CAMBIARON,
+} from './campo-inline';
 // El usuario de Instagram del ALTA (punto 28) se normaliza con la MISMA regla que el de la ficha.
 import { usuarioInstagram } from './campo-inline';
 // Qué grabación es de la R2: la MISMA función que reparte los análisis entre los
@@ -2384,6 +2387,52 @@ export async function guardarCampoLeadAction(id: number, campo: string, valor: V
   revalidatePath('/crm');
   revalidatePath(`/crm/${id}`);
   revalidatePath('/general');
+}
+
+/**
+ * EL «DESHACER» DE UN CAMPO DE LA FICHA, SIN PISAR A OTRO (verificación de la ficha v2, 16/10/2026).
+ *
+ * El aviso «Guardado · Deshacer» vive 5 segundos y su Deshacer escribía `antes` a ciegas: si en ese medio otra persona
+ * (o el webhook de Calendly, el motor, Fathom) cambió el MISMO campo, se lo pisaba. Ahora viaja lo que el guardado
+ * escribió (`esperado`) y sólo se deshace si el campo sigue diciendo eso (`mismoValorDeCampo`, app/crm/campo-inline.ts).
+ * Si no, no escribe y lo dice. Escribir es `guardarCampoLeadAction`: el mismo camino, el mismo historial y el mismo
+ * aviso a Meta. Devuelve el resultado (no tira): en producción Next esconde el mensaje de un error de server action.
+ */
+export async function deshacerCampoLeadAction(id: number, campo: string, antes: ValorInline, esperado: ValorInline): Promise<{ ok: true } | { ok: false; error: string }> {
+  const sesion = await getUsuarioActual().catch(() => null);
+  if (!sesion) return { ok: false, error: 'Tu sesión venció' };
+  if (!esCampoInline(campo)) return { ok: false, error: 'Ese campo no se edita aquí' };
+  try {
+    const lead = await getLead(id);
+    if (!lead) return { ok: false, error: 'No encontré el lead' };
+    const hoy = valorGuardadoDeCampo(campo, lead as unknown as Record<string, unknown>, etiquetaEsR2);
+    if (!mismoValorDeCampo(campo, hoy, valorDeCampo(campo, esperado))) return { ok: false, error: YA_LO_CAMBIARON };
+    await guardarCampoLeadAction(id, campo, antes);
+    return { ok: true };
+  } catch (e) {
+    console.error(`[crm] deshacer ${campo} del lead ${id}:`, e instanceof Error ? e.message : e);
+    return { ok: false, error: 'No se pudo deshacer' };
+  }
+}
+
+/**
+ * El mismo «Deshacer» para los datos de contacto que se guardan por `saveLeadMetaAction` (el email, el teléfono, la
+ * empresa, las redes, la dirección y el sexo del Resumen): sólo si el dato sigue diciendo lo que se escribió.
+ */
+export async function deshacerContactoLeadAction(id: number, campo: string, antes: string | null, esperado: string | null): Promise<{ ok: true } | { ok: false; error: string }> {
+  const sesion = await getUsuarioActual().catch(() => null);
+  if (!sesion) return { ok: false, error: 'Tu sesión venció' };
+  if (!esCampoContacto(campo)) return { ok: false, error: 'Ese dato no se edita aquí' };
+  try {
+    const lead = await getLead(id);
+    if (!lead) return { ok: false, error: 'No encontré el lead' };
+    if (!mismoDatoDeContacto(campo, (lead as unknown as Record<string, unknown>)[campo], esperado)) return { ok: false, error: YA_LO_CAMBIARON };
+    await saveLeadMetaAction(id, { [campo]: antes } as LeadMetaInput);
+    return { ok: true };
+  } catch (e) {
+    console.error(`[crm] deshacer ${campo} del lead ${id}:`, e instanceof Error ? e.message : e);
+    return { ok: false, error: 'No se pudo deshacer' };
+  }
 }
 
 export type MiembroEquipo = { nombre: string; email: string; foto_url: string | null };

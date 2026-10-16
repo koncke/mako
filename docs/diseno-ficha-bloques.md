@@ -402,3 +402,23 @@ al detail de un lead, que le salten los templates y el ¿Qué vas a crear hoy?»
   recibe `epico: true` y decide cómo se agranda.
 - **«Volver a la plantilla»** de una tab devuelve su lista, su nombre y su épica (su plantilla elegida queda); el de
   toda la ficha, todo menos el estilo. Elegir otra plantilla para toda la ficha deja los nombres.
+
+## 7. El Resumen nativo (16/10/2026)
+
+Cada bloque del Resumen con datos de hoy es una pieza propia (app/crm/lead-view/ficha/resumen/), con su diseño normal y
+el épico, que escribe su campo en el lugar: `siguiente-accion`, `posibles-duplicados`, `contacto`, `redes-y-web`,
+`direccion`, `sexo`, `setter-y-closer`, `proxima-reunion`, `calificacion`, `ingreso-estimado`, `tiempo-en-etapa`,
+`motivo-de-salida`, `plazo-nutricion`, `lo-que-contesto` (ahora también lo que contestó al agendar),
+`respuesta-destacada`, `origen`, `pagina-de-registro`, `publicacion-de-entrada` y `notas`. La referencia: los
+«Highlights» y los «Record details» de Attio y la columna del medio de HubSpot.
+
+- **Las plantillas del Resumen** (lib/ficha/plantillas-resumen.ts) son las listas de la §4 ARMADAS, con los datos de un
+  vistazo arriba: «Antes de la llamada» (las dos de llamada), «Antes del evento», «Lo que contestó» (formulario de
+  Meta), «Su registro» (landing), «La charla» (te escriben), «Para prospectar», «Si compró» (carrito), «Completa»
+  (respaldo), más «Épica» y «Para llamarlo», que se eligen. Cada una tiene, como mínimo, los bloques de la lista de su
+  tipo.
+- **Opciones de un bloque** (las redes, las fuentes, la pregunta destacada): se eligen en «Personalizar», en la barra
+  del bloque, y por la API (`cambiar_ficha_funnel`, cambio `opciones`).
+- **Sin componente todavía** (no se dibujan ni se ofrecen): `pase-a-humano`, `cambios-de-mako`, `charla-whatsapp`,
+  `charla-dm`, `mensaje-listo`, `automatizaciones-en-curso` y `lo-que-le-mandamos`; también los diseños «Tarjeta con
+  el mapa» de la dirección y «Miniatura y comentario» de la publicación.

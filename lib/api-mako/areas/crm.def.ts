@@ -434,12 +434,12 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'cambiar_ficha_funnel', area: 'crm', tipo: 'accion', confirmacion: 'chat',
     titulo: 'Cambiar la ficha de un CRM',
-    descripcion: 'PROPONE UN cambio en la ficha del lead de UN CRM (pendiente hasta el «sí»), para todos sus leads: poner, quitar o mover un bloque, su ancho, diseño o ícono, el aviso de un dato sin marcar, el estilo, el tamaño de las tarjetas, la plantilla (de la ficha o de una tab), el nombre de una tab, su vista épica, o volver a la plantilla. Los ids salen de ver_ficha_funnel. «Contacto» no se quita y las asistencias siempre avisan. Solo el administrador. Sin embudoId, el CRM principal.',
+    descripcion: 'PROPONE UN cambio en la ficha del lead de UN CRM (pendiente hasta el «sí»), para todos sus leads: poner, quitar o mover un bloque, su ancho, diseño o ícono, el aviso de un dato sin marcar, el estilo, la densidad, la plantilla (de la ficha o de una tab), el nombre de una tab, su vista épica, o volver a la plantilla. Los ids salen de ver_ficha_funnel. «Contacto» no se quita y las asistencias siempre avisan. Solo el administrador. Sin embudoId, el CRM principal.',
     parametros: [
       { nombre: 'embudoId', tipo: 'number', entero: true, minimo: 1, descripcion: 'el CRM, por el id de su embudo (de productos_del_lead). Sin él, el CRM principal del negocio.' },
       {
-        nombre: 'cambio', tipo: 'string', obligatorio: true, enum: ['poner', 'quitar', 'mover', 'ancho', 'diseno', 'icono', 'aviso', 'estilo', 'densidad', 'plantilla', 'volver', 'nombre', 'epica'],
-        descripcion: 'qué cambiar: poner, quitar o mover un bloque (con tab y bloque; mover y poner con lugar), ancho, diseno o icono de un bloque, aviso (con aviso y avisa), estilo (tema, acento o tipografia), densidad, plantilla, nombre o epica de una tab (con tab), o volver a la plantilla (con tab, sólo esa).',
+        nombre: 'cambio', tipo: 'string', obligatorio: true, enum: ['poner', 'quitar', 'mover', 'ancho', 'diseno', 'icono', 'opciones', 'aviso', 'estilo', 'densidad', 'plantilla', 'volver', 'nombre', 'epica'],
+        descripcion: 'qué cambiar: poner, quitar o mover un bloque (con tab y bloque; mover y poner con lugar), su ancho, diseno, icono u opciones, aviso (con aviso y avisa), estilo (tema, acento o tipografia), densidad, plantilla, nombre o epica de una tab (con tab), o volver a la plantilla (con tab, sólo esa).',
       },
       { nombre: 'tab', tipo: 'string', enum: [...TABS_FICHA], descripcion: 'la tab.' },
       // Sin enum, a propósito: son 56 ids y el ToolDef viaja en cada turno. preparar() valida y devuelve los disponibles.
@@ -450,6 +450,8 @@ export const DEFS: readonly OperacionDef[] = [
       // Sin enum, a propósito (como bloque): son ~70 íconos. preparar() valida y devuelve los disponibles.
       { nombre: 'icono', tipo: 'string', max: 30, descripcion: 'en icono: el id (de los iconos de ver_ficha_funnel), o de-siempre: el del bloque.' },
       { nombre: 'n', tipo: 'number', entero: true, minimo: 1, maximo: 40, descripcion: 'si el bloque está más de una vez en la tab (respuesta-destacada), cuál: 1 es el primero.' },
+      // (16/10/2026) UNO de texto y no tres (redes, fuentes, pregunta): viaja en el turno de WhatsApp. Lo traduce lib/ficha/api.ts.
+      { nombre: 'opcion', tipo: 'string', max: 200, descripcion: 'en opciones: redes (web,instagram,youtube,linkedin), fuentes (meta,landing,agenda) o la pregunta destacada.' },
       // ⚠️ SIN ENUM DESDE EL 15/10/2026 (eran 21 ids): este ToolDef viaja en el turno del doer de WhatsApp, que tiene
       // 12.000 caracteres para TODAS las del CRM, y por el «cambiar» de su id entra entre las primeras en cualquier
       // «cambiá…». Sumarle el ícono dejó afuera a proponer_mover_reunion (tests/agenda-whatsapp.test.ts). Los ids

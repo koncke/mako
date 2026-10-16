@@ -69,7 +69,15 @@ test('las DOS puertas de la ficha respetan lo elegido, y Customer Success no se 
   assert.deepEqual(fuentes({}), ['meta', 'landing'], 'lo de siempre: los dos formularios');
   assert.deepEqual(fuentes({ form_meta: false }), ['landing'], 'el formulario de Meta');
   assert.deepEqual(fuentes({ form_landing: false }), ['meta'], 'el de la landing');
-  assert.match(sinComentarios(leer('../app/crm/lead-view/ficha/registro-resumen.tsx')), /resumen=\{data\.resumen \?\? \{\}\}/, 'la tarjeta recibe lo elegido');
+  // ⚠️ 16/10/2026 (el Resumen nativo): la ficha del CRM ya no monta InfoPrincipalCard (la sigue montando Customer
+  // Success, sin `resumen`). Lo que eligió el negocio llega por la ficha del funnel: las redes de `redes-y-web` y si
+  // entran la dirección y el sexo (lib/ficha/config.ts, `listaDeIds`), y la cohorte en el contacto. Se EJECUTA.
+  // Re-verificado rompiéndolo (base 7/0): el contacto dibujando la cohorte sin mirar lo elegido → 6 / 1.
+  const redes = (resumen: Record<string, boolean>) => fichaEfectiva('respaldo', null, { resumen, apagados: [] }).tabs.resumen.find((b) => b.id === 'redes-y-web')?.opciones?.redes;
+  assert.deepEqual(redes({}), ['web', 'instagram'], 'lo de siempre: la web y el Instagram');
+  assert.deepEqual(redes({ instagram: false, linkedin: true }), ['web', 'linkedin']);
+  assert.ok(fichaEfectiva('respaldo', null, { resumen: { direccion: true }, apagados: [] }).tabs.resumen.some((b) => b.id === 'direccion'), 'la dirección prendida entra');
+  assert.match(sinComentarios(leer('../app/crm/lead-view/ficha/resumen/contacto.tsx')), /seVe\(data\.resumen \?\? \{\}, 'cohorte'\)/, 'la cohorte sigue lo elegido');
   const UI = sinComentarios(leer('../app/crm/lead-view/InfoPrincipalCard.tsx'));
   assert.match(UI, /const ve = \(id: CampoResumen\) => resumen === undefined \|\| seVe\(resumen, id\);/, 'sin `resumen` se ve lo de siempre');
   assert.doesNotMatch(UI, /setConfigurando|nombre="configurar"/, 'volvió el engranaje: la ficha se arma en «Personalizar»');

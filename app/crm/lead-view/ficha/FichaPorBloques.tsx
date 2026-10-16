@@ -138,19 +138,35 @@ export function FichaPorBloques({ data, parchear, altoChat, initialTab, onTab, f
     if (funnelId != null) setCerradas(leerCerradas(funnelId));
   }, [funnelId]);
 
-  const ctx: CtxFicha = {
-    data, lead, stages, etapa, hoy,
-    rol: data.rol ?? 'otro', esAdmin: data.rol === 'admin', verPrivado: !!data.verPrivado,
-    releer: refrescar,
-    parchear: parchear ?? (() => refrescar()),
-  };
-
   // Las tabs que salen, con sus reglas de siempre (las de las dos puertas).
   const verReuniones = tieneEtapaDeReunion(stages);
   const verPagos = muestraPagos({ estado: lead.estado_lead, etapa, cuotas: pagos.length, planEnLead: planEnLead(lead), ...data.cobro });
   const verTracking = data.verTracking ?? true;
   const delLead: TabFicha[] = ['resumen', ...(verTracking ? ['tracking' as const] : []), ...(verReuniones ? ['reuniones' as const] : []), ...(verPagos ? ['pagos' as const] : [])];
   const tabsBloques: TabFicha[] = enEdicion ? ['resumen', 'tracking', ...(verReuniones ? ['reuniones' as const] : []), 'pagos'] : delLead;
+
+  // «Solucionar» un dato: a la tab donde se dibuja su campo, y señalado. Lo piden la cabecera (`pedido`, una vez por
+  // pedido) y, desde el 16/10/2026, los bloques (`ctx.solucionar`: «Completar» de la siguiente acción). Un solo camino.
+  const [irA, setIrA] = useState<{ key: string; n: number } | null>(null);
+  const [senal, setSenal] = useState<{ id: StepId; label: string } | null>(null);
+  const ctx: CtxFicha = {
+    data, lead, stages, etapa, hoy,
+    rol: data.rol ?? 'otro', esAdmin: data.rol === 'admin', verPrivado: !!data.verPrivado,
+    releer: refrescar,
+    parchear: parchear ?? (() => refrescar()),
+    irATab: (clave) => setIrA({ key: clave, n: Date.now() }),
+    solucionar: (paso) => solucionar(paso, Date.now()),
+  };
+  function solucionar(paso: StepId, n: number) {
+    setEditando(false);
+    const t = tabDelDato(paso, delLead, {
+      listaDe: (tab) => efectiva.tabs[tab], reglasDe: entradaDe, vacio: (p, r) => !!r.estaVacio?.(ctx, p), verPrivado: ctx.verPrivado,
+    });
+    if (!t) { onNoEsta(); return; }
+    const d = [...(data.datos?.avisar ?? []), ...(data.datos?.ocultos ?? [])].find((x) => x.id === paso);
+    setIrA({ key: CLAVE_DE_TAB[t], n });
+    setSenal({ id: paso, label: d?.label ?? 'este dato' });
+  }
 
   // Un cambio de la ficha, con la selección que le sigue: el bloque movido sigue elegido, el recién puesto
   // queda elegido, y lo que cambia la lista entera la suelta.
@@ -188,19 +204,9 @@ export function FichaPorBloques({ data, parchear, altoChat, initialTab, onTab, f
     return () => document.removeEventListener('keydown', tecla);
   }, [enEdicion, sel, efectiva, ff, cambiar]);
 
-  // «Solucionar» un dato: a la tab donde se dibuja su campo, y señalado. Una vez por pedido.
-  const [irA, setIrA] = useState<{ key: string; n: number } | null>(null);
-  const [senal, setSenal] = useState<{ id: StepId; label: string } | null>(null);
+  // El «Solucionar» de la cabecera, una vez por pedido.
   useEffect(() => {
-    if (!pedido) return;
-    setEditando(false);
-    const t = tabDelDato(pedido.id, delLead, {
-      listaDe: (tab) => efectiva.tabs[tab], reglasDe: entradaDe, vacio: (p, r) => !!r.estaVacio?.(ctx, p), verPrivado: ctx.verPrivado,
-    });
-    if (!t) { onNoEsta(); return; }
-    const d = [...(data.datos?.avisar ?? []), ...(data.datos?.ocultos ?? [])].find((x) => x.id === pedido.id);
-    setIrA({ key: CLAVE_DE_TAB[t], n: pedido.n });
-    setSenal({ id: pedido.id, label: d?.label ?? 'este dato' });
+    if (pedido) solucionar(pedido.id, pedido.n);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- sólo cuando llega un pedido nuevo
   }, [pedido?.n]);
 

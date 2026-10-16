@@ -6,6 +6,107 @@ el briefing anterior (`b5f7fb55`, 10/10 17:10) con todo verificado contra el ár
 **Rutas de esta área:** `app/crm/**`, `lib/leads.ts`, `lib/funnel*.ts`, `lib/crm*.ts`,
 `lib/lead-*.ts`, `lib/campana-*.ts`, `lib/etiquetas*.ts`, `lib/pipeline.ts`.
 
+## 0-Ω11. CIERRE del 16/10/2026 ~12:00 (chat «CRM», cuenta `claude3`, al 96% semanal): qué quedó y cómo se retoma
+
+Se cerró por el umbral del 95%. Ningún agente quedó corriendo; el worktree está limpio.
+
+**EN PRODUCCIÓN (lo subió Cerebro):**
+- La ficha por bloques (armador de b1) — run 30.
+- El marco de la ficha v2 (galería por tab con «Sugerido», «¿Qué vas a crear hoy?» la primera vez, renombrar con
+  doble clic, vista épica, `armar_tab_ficha`) — run 42, `8f8d9809c`.
+- La etapa de reunión ↔ evento de Calendly/Cal.com, el MOTOR (sin pantalla: se vincula por la API de MaKo), con la
+  mig 0293 aplicada — run 33.
+- La tab Pagos en bloques, del chat Pagos (runs 34 a 38, mig 0295).
+
+**LISTO PARA SUBIR, sin subir:** rama `crm-ficha-v2`, punta `38317b6bc`, en `C:/dev/wt-crm-ficha2`: el Resumen NATIVO
+(§0-Ω9) y su verificación (§0-Ω10), con main mergeado. Se le pasó a Cerebro, que es el único que sube. ⚠️ Al
+desplegar, el Resumen de TODOS los funnels que nadie tocó cambia de diseño (a propósito), también en el ws 1.
+
+**SIN HACER, en este orden, con cómo se retoma:**
+1. **T2 de la ficha v2: Reuniones y Tracking rehechos, y la tarjeta del lead en el kanban personalizable.** El
+   script de la corrida está en el scratchpad de la sesión e86e3994 (`wf-ficha-v2-t1b-t2.js`, run
+   `wf_11c85ef0-999`): relanzarlo con `resumeFromRunId` saca de caché el Resumen y la verificación T1 y sigue por
+   «reuniones-y-tracking» (se cortó a los segundos de arrancar; no dejó nada). Si el scratchpad ya no está, los
+   prompts se rearman con este relevo y docs/diseno-ficha-bloques.md. De a un agente (RAM).
+2. **T3: la tab Pagos de Customer Success, de a dos con el chat Pagos.** CS sigue montando DealDetailsCard; cuando
+   pase a bloques, se borran juntos DealDetailsCard, EditarDeal, `?edit=1` y «Completar con IA»
+   (docs/hallazgos-pagos.md §4).
+3. **La PANTALLA de la etapa ↔ evento de agenda** (elegir el evento en el pop-up de etapas, app/crm/EtapasModal.tsx)
+   y su revisión: run `wf_03f40761-f44`, worktree `C:/dev/wt-crm-agenda` (mergear main antes). El contrato de la
+   pantalla está en `app/crm/agenda-evento-actions.ts` y en la cabecera de lib/agenda-evento-etapa.ts.
+4. **Avisarle al chat Pagos** que `epico` ya está en PropsBloque: puede sacar el cast `(props as { epico?: boolean })`
+   de app/crm/lead-view/ficha/registro-pagos.tsx (su sesión no estaba al cerrar).
+5. **Mirar con datos reales** (nadie lo hizo: no hubo RAM para `next dev`): el ws 3 con sesión de super admin, el
+   pop-up y /crm/2615 y 2664 a 1440, 1024, 820 y 390, «Personalizar», la galería y la caja contra la IA de verdad, y
+   el teléfono con user-agent de iPhone.
+6. Lo que dejaron sin hacer los frentes, con su archivo: §0-Ω9 y §0-Ω10 (bloques del Resumen sin componente, el
+   Deshacer del historial y el de CS todavía a ciegas, el setter/closer repetidos en ReunionesCard hasta la T2).
+## 0-Ω10. 16/10/2026 (frente «verificación» de la tanda 1 de la ficha v2, cuenta `claude3`): mirada y revisada
+
+Rama `crm-ficha-v2` en `C:/dev/wt-crm-ficha2`. Con 4,8 GB libres no se levantó `next dev`: se miró en el BANCO (las dos
+puertas reales con datos de mentira) a 1440, 1024×768 y 820×1180 táctiles y 390×844, el pop-up y /crm/[id]: la primera
+vez (la caja y la galería con «Sugerido»), elegir, la épica, renombrar una tab, «Personalizar» con Opciones, cada bloque
+del Resumen normal y épico, la tab Pagos del chat Pagos montada, y el teléfono (banco nuevo con las filas del Resumen).
+
+**Qué cambia para Martín y los clientes al desplegar (además del 0-Ω9):**
+- Ningún funnel pierde la web, el Instagram ni el ingreso estimado del Resumen: cinco plantillas de entrada (Evento,
+  Formulario de Meta, Landing, Te escriben y Carrito) los habían dejado afuera al partir el contacto en bloques.
+- «De dónde vino» en una línea dice también la campaña y el conjunto, no sólo el anuncio.
+- «Deshacer» de un campo de la ficha no pisa lo que otra persona cambió en esos 5 segundos: avisa «Alguien ya lo cambió».
+- En la tablet, el contacto pone el rótulo arriba cuando su tarjeta es angosta (el email ya no sale de a tres letras),
+  los tres botones de la calificación no se cortan, y el motivo de salida entra como texto (los chips siguen eligibles).
+
+**SIN HACER (con su archivo):**
+- Mirarlo con datos reales en el ws 3, con 5 GB libres (receta en docs/hallazgos-crm.md → «La ficha por bloques MIRADA
+  por primera vez»).
+- El Deshacer del historial (`revertAuditChangeAction`, app/crm/actions.ts) y el guardado de InfoPrincipalCard (Customer
+  Success) siguen a ciegas.
+- La fila «Redes» del teléfono no sigue las Opciones del bloque (app/m/crm/ficha-bloques.ts, `resumenDelTelefono`).
+
+## 0-Ω9. 16/10/2026 (frente «Resumen» de la ficha v2, cuenta `claude3`): el Resumen NATIVO
+
+Rama `crm-ficha-v2` en `C:/dev/wt-crm-ficha2`, sobre main `2f913cddc` (el marco del 0-Ω8 ya está en main). Martín,
+16/10: «completamente diferente en diseño y funcionalidad... NO tengas miedo a ELIMINAR todo lo que existe hoy... Los
+datos de los leads se van a guardar». Referencias: los «Highlights» y los «Record details» de Attio y la columna del
+medio de HubSpot (documentación oficial; no se entró a las apps); la épica, General y MaKo Mobile v3.
+
+**Qué cambia para Martín y los clientes al desplegar:**
+- El Resumen ya no son las tarjetas de antes: cada bloque es una pieza propia que se lee de un vistazo y se corrige
+  en el lugar (con «Deshacer» y su línea en el historial, los mismos campos de siempre). Arriba, los datos de un
+  vistazo (calificación con tres botones, cuánto lleva en la etapa contra su plazo, el ingreso estimado); después la
+  próxima reunión (día, hora, cuánto falta, «Entrar», y «¿Vino?» cuando pasó), el setter y el closer, el contacto
+  como lista de propiedades o con la botonera Llamar · WhatsApp · Email, lo que contestó (ahora también lo de la
+  agenda), de dónde vino, las notas y, si salió, el motivo con sus categorías.
+- Bloques nuevos con datos de hoy: la siguiente acción (la reunión sin marcar, la que viene, el próximo paso de la
+  llamada, lo que sigue según MaKo o los datos que faltan, con su botón), las fichas parecidas (mismo email o
+  teléfono), cuánto lleva en la etapa, el setter y el closer, la página donde se registró, cómo entró por
+  Instagram/Messenger, la respuesta destacada, la dirección y el sexo.
+- Cada bloque tiene su versión ÉPICA (un número o una frase protagonista, sin metadata).
+- La galería del Resumen: «Antes de la llamada», «Antes del evento», «Lo que contestó», «Su registro», «La charla»,
+  «Para prospectar», «Si compró», «Épica», «Para llamarlo» y «Completa», con «Sugerido» la de su tipo. Un funnel sin
+  tocar ve la suya (la ficha cambia de diseño para todos: a propósito).
+- Personalizando, «Opciones» en la barra del bloque: qué redes van, qué fuentes de respuestas y qué pregunta se
+  destaca. MaKo lo hace también (`cambiar_ficha_funnel`, cambio `opciones`).
+- El teléfono suma una fila por bloque nuevo (siguiente, equipo, calificación, en la etapa, ingreso, motivo, plazo,
+  redes, página, cómo entró, dirección, sexo).
+
+**Tests:** el barrido de lo tocado (los tests del área, la API de MaKo, el teléfono y los guards que barren el repo):
+5.618 de 5.620 en verde, 0 fallos (2 skipped). tests/ficha-resumen.test.ts nuevo y 15 reescritos porque leían las
+tarjetas que se fueron, con sus roturas medidas. El tsc fue el ACOTADO (`scripts/tsc-acotado.mjs`, en tandas de 8 a 24
+archivos: con 3 GB libres, una de 82 la mató el vigía). Mirado en un banco (las dos puertas reales con datos de
+mentira) a 1440, 1024 táctil, 820×1180 táctil y 390 táctil, normal, épica y un lead perdido; «Opciones» probado de
+punta a punta (manda UN cambio `opciones`).
+
+**SIN HACER (con su archivo):**
+- Los bloques del Resumen sin componente: `pase-a-humano`, `cambios-de-mako`, `charla-whatsapp` (tienen datos: son
+  los siguientes), `charla-dm`, `mensaje-listo`, `automatizaciones-en-curso`, `lo-que-le-mandamos`
+  (app/crm/lead-view/ficha/registro-resumen.tsx).
+- Sacar de ReunionesCard el setter y el closer, el chip de la calificación y lo que contestó al agendar, que ahora
+  están también en el Resumen (tanda 2, app/crm/lead-view/ReunionesCard.tsx); y el bloque `cohorte` de Reuniones
+  (hoy la dibuja el contacto).
+- Unificar la siguiente acción del teléfono con la de escritorio (app/m/crm/reglas.ts vs resumen/logica.ts).
+- Mirarlo con datos reales (verificación de la tanda 1).
+
 ## 0-Ω8. 16/10/2026 (frente «marco» de la ficha v2, cuenta `claude3`): cada tab personalizable
 
 Rama `crm-ficha-v2` en `C:/dev/wt-crm-ficha2`, sobre main `81b966b86`. Martín, 16/10: «Sobre todo que sea
@@ -34,7 +135,7 @@ archivos nuevos (tests/ficha-tabs.test.ts, tests/ficha-galeria.test.ts) probados
 
 **SIN HACER (con su archivo):**
 - Mirarla en el ws 3 con datos reales y la caja contra la IA de verdad (en el banco la ruta iba simulada).
-- La épica por dentro de cada bloque: el frente del Resumen (registro-resumen.tsx) y Pagos (registro-pagos.tsx).
+- La épica por dentro de cada bloque: Pagos (registro-pagos.tsx). La del Resumen, hecha (0-Ω9).
 - Las plantillas de Pagos ya están (el merge de main trajo las cuatro del chat Pagos): la tab Pagos de un funnel sin
   tocar es la sugerida para su tipo. Mirarla con datos reales (registro-pagos.tsx, lib/ficha/plantillas-pagos.ts).
 - La tarjeta del lead en el kanban personalizable (tanda 2).

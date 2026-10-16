@@ -11,6 +11,10 @@ import { adondeDe, destinoCAPI } from '../lib/meta-capi-payload';
  * Verificado rompiéndolo (base 4/0): `adondeDe` sin mirar el token, 1 fallo; el envío con su propia
  * lectura del destino, 1 fallo; la sonda que no distingue «no pude leer», 1 fallo; la tarjeta
  * afirmando siempre «Meta aprende», 1 fallo.
+ *
+ * ⚠️ REESCRITO EL 16/10/2026 (el Resumen nativo): la tarjeta es el bloque `calificacion` del Resumen
+ * (app/crm/lead-view/ficha/resumen/calificacion.tsx). Lo que se fija no cambia. Re-verificado rompiéndolo: el bloque
+ * afirmando siempre «Meta aprende» → 3 / 1.
  */
 
 const leer = (r: string) => readFileSync(new URL(r, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
@@ -40,7 +44,7 @@ test('«no pude leer» no es «no tiene píxel»: con la base caída no se acusa
 });
 
 test('la tarjeta dice «no le llega» sólo si no le llega, y lleva a conectarlo', () => {
-  const UI = sinComentarios(leer('../app/crm/lead-view/CalificacionCard.tsx'));
+  const UI = sinComentarios(leer('../app/crm/lead-view/ficha/resumen/calificacion.tsx'));
   assert.match(UI, /const noLlega = adonde === 'sin_pixel' \|\| adonde === 'sin_token';/);
   assert.match(UI, /: noLlega\s*\? \(<>No le llega a Meta:/);
   // 14/10/2026 (Martín: «para una integración jamás se debe salir de la tab»): el «Conectar →» abre el modal de Meta

@@ -9394,3 +9394,161 @@ lib/ficha/ia-generar.ts · app/api/crm/ficha/armar/route.ts · app/crm/lead-view
 FichaPorBloques.tsx · PanelFicha.tsx · app/crm/lead-view/LeadTabs.tsx · tests/ficha-tabs.test.ts ·
 tests/ficha-galeria.test.ts.
 *16/10/2026, frente «marco» de la ficha v2 (claude3).*
+
+## El Resumen NATIVO de la ficha: lo que no se ve en el código (16/10/2026)
+
+El frente «Resumen» de la ficha v2 (rama `crm-ficha-v2`): cada bloque del Resumen dejó de envolver una tarjeta de antes
+(InfoPrincipalCard, CalificacionCard, RespuestasFormulario, OrigenCard, MotivoYPlazoCard; las cuatro últimas se
+borraron) y es una pieza propia en `app/crm/lead-view/ficha/resumen/`, con lo que DICE en un módulo puro
+(`resumen/logica.ts`) y cuándo se calla en `reglas-resumen.ts`. Referencias: los «Highlights» y los «Record details» de
+Attio y la columna del medio de HubSpot (documentación oficial, no se entró a las apps); la épica, General y MaKo
+Mobile v3.
+
+- **Cambiar el Resumen de entrada cambia la ficha de TODOS los funnels sin tocar, y es a propósito.** Las plantillas
+  armadas del Resumen (`lib/ficha/plantillas-resumen.ts`) son la de entrada de cada tipo, como las de Pagos. Lo que NO
+  puede pasar es que un aviso de «datos sin marcar» se quede sin dónde llenarse: los avisos siguen saliendo de la
+  plantilla del FUNNEL (`lib/ficha/plantillas.ts`), así que cada plantilla del Resumen tiene, como mínimo, los bloques
+  de la lista de su tipo. **Regla:** una plantilla de tab que es la de entrada de un tipo ⊇ la lista de ese tipo para
+  esa tab. Lo fija tests/ficha-resumen.test.ts («sin perder un bloque de la lista de su tipo»); sacarle las notas al
+  del carrito lo pone rojo.
+- **Un bloque que lee lo suyo al montarse y no tiene nada que decir dejaba un HUECO en la grilla.** `estaVacio` corre
+  ANTES de que el bloque lea (los duplicados, el estado de cuenta de Pagos), así que el armador le reserva la celda y el
+  componente devuelve null: queda una fila vacía con su `gap`. **Regla:** el bloque devuelve null y el marco lo
+  esconde (`.fb:not(.fb--editando) .fb-bloque:has(> .fb-cuerpo:empty)`, ../ficha-css.ts); personalizando, el marco dice
+  «Sin datos en este lead». Nunca un texto «no hay nada» adentro: eso es ruido fijo.
+- **«Solucionar» desde un bloque es el MISMO camino que la cabecera.** La siguiente acción ofrece «Completar» y
+  «¿Vino?»: llaman a `ctx.solucionar(paso)`, que es la función que ya atendía el pedido de la cabecera (`tabDelDato` +
+  el señalador, o el asistente). Antes vivía adentro de un `useEffect` atado a `pedido.n` y un bloque no tenía cómo
+  pedirlo. **Regla:** lo que un bloque necesita de la ficha (cambiar de tab, solucionar) va en `CtxFicha`, no en un
+  evento propio.
+- **Un dato pedido tiene que tener su campo en el bloque que «cubre» ese dato.** La próxima reunión declara que cubre
+  las fechas y las asistencias (`PASOS_DE_REUNION`), así que «Solucionar» la elige. Eso sólo es verdad si el bloque
+  dibuja el campo cuando la etapa lo pide: por eso `estadoReuniones` mira lo que pide la etapa (`pide`) además del
+  reloj (una asistencia pedida va a «¿Vino?» aunque el navegador diga que la reunión no pasó) y suma la fecha de la
+  junta que falta. ⚠️ El diagnóstico obvio («la asistencia se marca cuando pasó la hora») dejaba un dato pedido sin
+  campo: el reloj del navegador y el del server que contó el dato no coinciden.
+- **El setter y el closer, y lo que contestó al agendar, quedaron en DOS lugares**: su bloque del Resumen y
+  ReunionesCard (la tab Reuniones, que es de la tanda 2). Es el mismo campo por el mismo camino, así que no se
+  contradicen, pero «Solucionar» el setter ahora va al Resumen (la primera tab). Cuando Reuniones se parta en bloques,
+  sale de ReunionesCard (§5 del diseño: «cada dato queda en un solo bloque»).
+- **`cambiar_ficha_funnel` tenía 26 caracteres de más al sumar `opciones`** (3.822 contra el tope de 3.796, el turno
+  de WhatsApp). Se pagó con UN parámetro de texto (`opcion`: las redes, las fuentes o la pregunta, según el bloque) en
+  vez de tres, y diciendo «la densidad» donde decía «el tamaño de las tarjetas». **Regla:** una op nueva de la ficha
+  entra a la API midiendo el ToolDef, no a ojo (`JSON.stringify(aToolDef(def)).length`).
+- **Los tres botones de la calificación son un PRIMITIVO de la ficha (`TriBotones`, CampoEditable.tsx), pero su CSS es
+  del Resumen** (`.fr-seg`, resumen/estilo.ts, que monta `<EstiloResumen />`). Usarlo fuera del Resumen sin esa hoja
+  lo dibuja como tres botones sin estilo.
+- **NotasCard es de las dos fichas** (la del CRM y la de Customer Success). Los diseños «Últimas 3» y «La última» son
+  props (`limite`, `plegada`, `epico`) con defaults que dejan la de CS igual; las notas no se duplicaron.
+- **Los duplicados no se buscan por el nombre solo**: `duplicadosDeLead` sin email ni teléfono lee la tabla ENTERA (un
+  nombre de pila corto no filtra), y eso al abrir cada ficha es caro y casi siempre un falso parecido.
+- **El tsc ACOTADO con 3 GB libres: en tandas chicas pasa, en una grande lo mata el vigía.** Una lista de 82 archivos
+  (la ficha entera con sus tests) salió con código 1 y cero texto aunque nada tenía errores; partida en tandas de 8 a 24
+  archivos con `node scripts/tsc-acotado.mjs <archivos> --heap=2048`, las cuatro pasaron. Lo que pesa no es la lista
+  sino lo que arrastra (un componente que importa app/crm/actions.ts trae medio repo).
+- **Quince tests fallaron por el LUGAR** (leían OrigenCard, CalificacionCard, RespuestasFormulario, MotivoYPlazoCard o
+  el registro con la tarjeta envuelta). Se reescribieron leyendo el bloque nuevo, y donde se pudo, EJECUTANDO la regla
+  pura (`canalDeEntrada`, `respuestasPorFuente`); cada uno dice por qué cambió y su rotura medida.
+
+**Lo que quedó SIN hacer:**
+- Los bloques del Resumen sin datos hoy, que siguen sin componente (no se dibujan ni se ofrecen): `pase-a-humano`,
+  `cambios-de-mako`, `charla-whatsapp`, `charla-dm`, `mensaje-listo`, `automatizaciones-en-curso`,
+  `lo-que-le-mandamos` (están en las plantillas para el día que lo tengan). `cambios-de-mako`, `pase-a-humano` y
+  `charla-whatsapp` SÍ tienen datos (propuestas, `chat_agent_handoffs`, `hiloWhatsApp`): son los siguientes.
+- Sacar de ReunionesCard el setter, el closer, la calificación y lo que contestó al agendar (la tanda 2, Reuniones).
+- La cohorte vive adentro del contacto hasta que Reuniones tenga su bloque `cohorte` (`incluye: ['cohorte']`).
+- «Tarjeta con el mapa» de la dirección (un iframe de Google Maps manda la dirección del lead al abrir la ficha:
+  decidir) y «Miniatura y comentario» de la publicación (no guardamos la miniatura).
+- La siguiente acción del teléfono sigue con su regla (`siguienteAccion`, app/m/crm/reglas.ts, sin la asistencia
+  primero); la de escritorio es `siguienteAccionDe`. Unificarlas pide que `fichaMovil` traiga la asistencia y los ids de
+  lo que falta.
+- La respuesta destacada no tiene versión de teléfono (el teléfono no lee las respuestas de Meta ni de la landing).
+- Mirarlo con datos reales (el frente de verificación de la tanda 1).
+
+**Vive en:** app/crm/lead-view/ficha/resumen/ · reglas-resumen.ts · registro-resumen.tsx · tipos.ts (`irATab`,
+`solucionar`) · FichaPorBloques.tsx · Armador.tsx (Opciones) · ficha-css.ts · lib/ficha/plantillas-resumen.ts ·
+lib/ficha/plantillas-tab.ts · lib/ficha/api.ts (`opciones`) · app/crm/lead-view/CampoEditable.tsx (`TriBotones`) ·
+app/m/crm/ficha-bloques.ts (`resumenDelTelefono`) · tests/ficha-resumen.test.ts.
+*16/10/2026, frente «Resumen» de la ficha v2 (claude3).*
+
+## La verificación del Resumen nativo: «los bloques de su tipo» no alcanzaba, y «Deshacer» pisaba a otro (16/10/2026)
+
+El frente de verificación de la tanda 1 de la ficha v2 (rama `crm-ficha-v2`). La máquina tuvo 4,8 GB libres toda la
+corrida, así que no se levantó `next dev`: se miró en el banco (las dos puertas reales con datos de mentira, a 1440,
+1024×768 y 820×1180 táctiles y 390×844), más un banco nuevo del teléfono con las filas del Resumen. Lo que se midió en
+producción fue sólo de lectura (`select`).
+
+- **Al desplegar, cinco tipos de funnel dejaban de ver la web, el Instagram y el ingreso estimado de sus leads.** El
+  contacto de antes era InfoPrincipalCard ENTERA, y adentro traía la web, Instagram y el ingreso (los de fábrica de
+  `crm.resumen.campos`; medido el 16/10: ningún negocio lo cambió, 0 filas). El Resumen nativo los partió en sus bloques
+  (`redes-y-web`, `ingreso-estimado`) y las plantillas de entrada de Evento, Formulario de Meta (sin redes), Landing, Te
+  escriben y Carrito no los pusieron. Medido: el ws 11 (tres funnels de evento) tiene 3 leads con ingreso y 1 con
+  Instagram que hoy se ven. ⚠️ **El diagnóstico obvio era el equivocado**: «cada plantilla tiene como mínimo los bloques
+  de la lista de su tipo» es cierto, pero mira IDS de bloque; lo que se perdió estaba ADENTRO de uno (`incluye` se achicó
+  de cinco a uno). **Regla:** al partir un bloque (achicar su `incluye`), lo que salió de adentro entra como bloque en
+  cada plantilla de entrada que tenía el bloque. Lo fija tests/ficha-resumen-lo-de-antes.test.ts (cada dato de fábrica
+  de `crm.resumen.campos` → su bloque, en los nueve tipos).
+- **«Una línea» de dónde vino se callaba la campaña y el conjunto** (decía el canal y el anuncio), y es la de entrada de
+  Evento, Landing y Te escriben. OrigenCard mostraba siempre Campaña › Conjunto › Anuncio («UN camino, no tres datos»).
+  Ahora la línea dice el camino entero (`lineaDeOrigen`, resumen/logica.ts).
+- **«Deshacer» de un campo escribía el valor de antes A CIEGAS.** El aviso vive 5 segundos; si en ese medio otra persona
+  (o el webhook de Calendly, el motor, Fathom) cambió el mismo campo, se lo pisaba sin decir nada. ⚠️ El diagnóstico
+  obvio («el historial guarda todo») no cubre esto: queda la línea, pero nadie se entera de que se pisó. Ahora el
+  Deshacer manda lo que él escribió y el server sólo deshace si el campo sigue diciendo eso (`deshacerCampoLeadAction`,
+  `deshacerContactoLeadAction`; la comparación con la normalización del guardado, app/crm/campo-inline.ts: la fecha por
+  el día, el monto como número, el link de Fathom el de SU reunión). **Regla:** un Deshacer que reemplaza un valor lleva
+  `esperado`, como el de la ficha del funnel y el del deal. Y **devuelve** el resultado, no tira: en producción Next
+  esconde el mensaje de un error de server action, y el aviso diría «No se pudo deshacer» sin decir por qué.
+- **La fila de propiedad decidía rótulo arriba o al lado por la VENTANA** (`@media 720px`): un bloque de ½ en la tablet
+  mide 347 px con la ventana a 820, y el email salía de a tres letras por renglón al lado de sus dos botones de 44 px. Es
+  la regla que ya estaba escrita (una tarjeta que puede caer en un bloque de cualquier ancho decide por SU ancho, sin
+  `container-type`) y el Resumen nuevo la volvió a romper. **Cómo, sin container queries:** el rótulo con
+  `flex: 0 1 calc((440px - 100%) * 999)` en una fila `flex-wrap`: en una fila de menos de 440 px la base es enorme (va
+  sola arriba), en una más ancha da negativo, se recorta a 0 y el rótulo queda en su `min-width` (30%).
+- **Un `<span style="display: contents">` rompe los selectores de hijo directo.** Las migas de dónde vino envolvían cada
+  paso así, y `.fr-migas > .fr-sep` / `> .fr-fuerte` no los alcanzaban: el separador no salía tenue ni el anuncio en
+  negrita. Para agrupar sin caja: `Fragment` con `key`.
+- **Los tres botones de la calificación se cortaban** («No califica…» en un bloque de ⅓ a 1440): repartían el ancho en
+  partes iguales (`1 1 0`). Por su texto (`1 1 auto`) entran.
+- **El motivo de salida entraba con sus chips en las ocho plantillas**, contra una decisión del 12/10 que estaba escrita
+  en la tarjeta que se borró (MotivoYPlazoCard): los chips «Precio / Timing / …» viven donde se DECIDE la salida (el
+  wizard de la etapa); en la ficha se CORRIGE uno ya escrito. Al borrar una tarjeta se borró también el porqué. Ahora
+  entra como texto y los chips siguen siendo un diseño que el admin elige. **Regla:** antes de borrar un componente,
+  leer sus comentarios `⚠️` y mudar las decisiones que todavía mandan al lugar nuevo.
+
+**Lo que se miró y estaba bien:** las dos acciones nuevas (`tiempoEnEtapaAction`, `duplicadosDelLeadAction`) cortan sin
+sesión antes de leer y leen con `getTenantDb` (un id ajeno no existe; `duplicadosDeLead` también es del workspace);
+`opciones` en la API pasa por el mismo `cambiar_ficha_funnel` (admin, del workspace); cada bloque que escribe lo hace por
+`guardarCampoLeadAction` o `saveLeadMetaAction` (historial con autor y valor); «N sin marcar» no cambió de camino (los
+avisos salen de la plantilla del FUNNEL, no de la de la tab); la IA de «¿Qué vas a crear hoy?» usa la cascada gratis y la
+red de plataforma, ve el pedido y el catálogo (ningún dato de un lead) y no escribe: devuelve bloques que la pantalla
+aplica por el camino del admin.
+
+**Lo que quedó SIN hacer:**
+- Mirarlo con datos reales en el ws 3 (4,8 GB libres: el banco mide el layout, no los datos).
+- El Deshacer del HISTORIAL (`revertAuditChangeAction`) y el guardado de InfoPrincipalCard (la ficha de Customer
+  Success) siguen escribiendo a ciegas: se arregló el de los primitivos de la ficha (`useGuardarCampo`) y el del contacto
+  del Resumen (`useGuardarMeta`).
+- La fila «Redes» del teléfono muestra toda red con dato; no sigue las Opciones del bloque (`resumenDelTelefono`).
+- A 820 táctil, un email largo todavía corta su última letra al lado de los dos botones de 44 px.
+
+**Vive en:** lib/ficha/plantillas-resumen.ts · app/crm/lead-view/ficha/resumen/logica.ts (`lineaDeOrigen`) · origen.tsx ·
+estilo.ts · app/crm/campo-inline.ts (`mismoValorDeCampo`, `mismoDatoDeContacto`) · app/crm/actions.ts
+(`deshacerCampoLeadAction`, `deshacerContactoLeadAction`) · app/crm/lead-view/CampoEditable.tsx (`useGuardarCampo`) ·
+resumen/piezas.tsx (`useGuardarMeta`) · tests/ficha-resumen-lo-de-antes.test.ts.
+*16/10/2026, frente «verificación» de la ficha v2 (claude3).*
+
+## El typecheck acotado de una rama tiene que llevar sus TESTS cambiados (16/10/2026)
+
+El run 30 de Cerebro (la ficha por bloques) cayó en Tipos por `tests/crm-campo-inline.test.ts:342`: el test le pasaba
+`puesto` como segundo argumento a `REGLAS_RESUMEN['plazo-nutricion'].estaVacio`, y el `satisfies` de las reglas
+infiere la firma de la función escrita (`(ctx) => …`), así que sobra un argumento (TS2554).
+
+- **El diagnóstico obvio era el equivocado:** «el acotado dio limpio». Dio limpio porque ese test, que el WIP había
+  cambiado, no estaba en `files`: cada frente puso SUS archivos, no los de la rama.
+- **La regla:** el acotado lleva TODO lo que la rama cambia respecto de su base (`git diff --name-only
+  <base>...HEAD`, tests incluidos) más los que importan un tipo cambiado. Con poca RAM, en tandas de 8 a 24
+  archivos (§0-Ω9); salida 1 sin texto es «no se miró».
+
+**Vive en:** el proceso de validar una rama (memoria del tsc acotado; docs/hallazgos-infra.md) ·
+`satisfies ReglasDeTab` en app/crm/lead-view/ficha/reglas-*.ts · *16/10/2026, chat «CRM» (claude3); lo arregló Cerebro en integración.*
