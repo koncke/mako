@@ -1061,8 +1061,12 @@ el mensaje entero sigue como antes. El contrato y el enganche: `docs/diseno-mako
   propósito (para sumar herramientas): «cambia el precio», «quita el video» o «un formulario para
   leads» nombran otra área y son cambios de lo abierto. Otra tab sólo si el verbo CREA un objeto
   de esa área, o lo etiquetó la IA (validada).
-- **Los objetos de la tab los da la ruta (`objetosDeTab`), una función por área**, nunca el
-  navegador: con eso se resuelve «la otra» y, con dos candidatos, se pregunta con los dos.
+- **Los objetos de la tab los da la ruta (`objetosDeTab`), una función por área y con la MISMA
+  puerta que su pantalla**, nunca el navegador: con eso se resuelve «la otra» y, con dos
+  candidatos, se pregunta con los dos. La única excepción son los objetos que SÓLO viven en el
+  navegador (los proyectos del Video Editor, en IndexedDB): `TABS_CON_OBJETOS_EN_EL_NAVEGADOR`.
+- **Si una palabra nombra una PARTE de lo abierto depende de la TAB, no del área**: «página» es
+  de `landing`, pero en el Image Editor es una página del diseño. Va en `PARTES_DE_LO_ABIERTO`.
 
 # Un permiso de UN inquilino sobre OTRO son DOS decisiones, y ninguna se deriva de la otra
 

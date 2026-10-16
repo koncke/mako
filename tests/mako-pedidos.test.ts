@@ -8,15 +8,16 @@
 // `visible()` como en la ruta: ningún id se inventa acá.
 //
 // Cada test se probó ROMPIÉNDOLO (arnés que restaura de memoria y verifica el hash), con la base en verde. Los
-// números de cada rotura están en el comentario de su test: R1–R13 se midieron con 12 tests, R14 con 13.
+// números de cada rotura están en el comentario de su test: R1–R13 se midieron con 12 tests, R14 con 13 y R20–R27
+// con 18.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  FEATURE_PEDIDOS, dudaDeLasReglas, interpretarCon, leerRespuestaIA, llevaDatosPersonales, partirPedidos,
-  resolverPedidos, type ContextoPedidos, type ObjetoChat, type OperacionChat, type PedirEtiquetas,
+  FEATURE_PEDIDOS, MAX_OBJETOS, TABS_CON_OBJETOS_EN_EL_NAVEGADOR, dudaDeLasReglas, interpretarCon, leerRespuestaIA,
+  llevaDatosPersonales, objetosDelNavegador, partirPedidos, resolverPedidos, type ContextoPedidos, type ObjetoChat, type OperacionChat, type PedirEtiquetas,
 } from '../lib/mako-pedidos';
 import { REGISTRO, ordenarPorRelevancia, porId, visible, type Vista } from '../lib/api-mako/registro';
 import { AREA_INFO, esAccion, esLectura, type OperacionDef } from '../lib/api-mako/tipos';
@@ -302,4 +303,99 @@ test('NUNCA Claude: ni la red de la cascada (que arranca por el crédito de Clau
   assert.doesNotMatch(nucleo, /from '\.\/api-mako\/registro'|from '@\/lib\/api-mako\/registro'/);
   // No es pública.
   assert.doesNotMatch(leer('lib/rutas-publicas.ts'), /mako\/pedidos/);
+});
+
+// ── Los vecinos: Image Editor, Dashboard y Video Editor (16/10/2026, pedido de Cerebro) ──────────────────────
+// `AREA_KEYWORDS` es por ÁREA y «parte de lo abierto» es por TAB: «página» es palabra de `landing`, pero en un
+// diseño del Image Editor es una página del diseño; «gráfico» es de `metricas`, y en el Dashboard es parte de la
+// hoja abierta. Los objetos de cada tab, como los arma la ruta (el orden de su lista).
+const D1: ObjetoChat = { id: '0b9e5f4c-1a2b-4c3d-8e9f-0a1b2c3d4e51', nombre: 'Flyer promo de verano', tocadoAt: '2026-10-16T08:00:00Z' };
+const D2: ObjetoChat = { id: '0b9e5f4c-1a2b-4c3d-8e9f-0a1b2c3d4e52', nombre: 'Banner del webinar', tocadoAt: '2026-10-15T08:00:00Z' };
+const D3: ObjetoChat = { id: '0b9e5f4c-1a2b-4c3d-8e9f-0a1b2c3d4e53', nombre: 'Historia de testimonios', tocadoAt: '2026-10-14T08:00:00Z' };
+const H1: ObjetoChat = { id: 'marketing', nombre: 'Marketing' };
+const H2: ObjetoChat = { id: 'comercial', nombre: 'Comercial' };
+const H3: ObjetoChat = { id: 'closing', nombre: 'Closing' };
+const P1: ObjetoChat = { id: 'p-1', nombre: 'Anuncio curso', tocadoAt: '2026-10-16T07:00:00Z' };
+const P2: ObjetoChat = { id: 'p-2', nombre: 'Reel testimonios', tocadoAt: '2026-10-15T07:00:00Z' };
+const ctxDe = (tab: ContextoPedidos['tab'], actual: ObjetoChat, objetos: ObjetoChat[]): ContextoPedidos =>
+  ({ tab, actual, objetos, operaciones: opsDe(VISTA_ADMIN), ordenar, ws: WS });
+const sobre = async (t: string, ctx: ContextoPedidos) => (await interpretarCon(t, ctx, null)).pedidos;
+
+// Roturas (sobre 18 tests): R20 (`PARTES_DE_LO_ABIERTO.imagen` fuera) y R21 (el corte `if (parte && actual)` del
+// área ajena fuera): 17 de 18 cada una, cae éste.
+test('Image Editor: «otra página» es del diseño abierto; «otro diseño», un diseño; «otra landing», el Web Generator', async () => {
+  const ctx = ctxDe('imagen', D1, [D1, D2, D3]);
+  for (const t of ['Crea otra página con la promo', 'Borra la otra página', 'Agrega una página con los precios']) {
+    assert.deepEqual(await sobre(t, ctx), [{ sobre: 'actual', texto: t }], t);
+  }
+  const [nuevo] = await sobre('Créame otro diseño para la promo de invierno', ctx);
+  assert.ok(nuevo.sobre === 'nuevo' && nuevo.operacion === 'crear_diseno_imagen', JSON.stringify(nuevo));
+  const [otro] = await sobre('Borra el otro diseño', ctx);
+  assert.ok(otro.sobre === 'otro' && otro.objeto === null && otro.confirmar, JSON.stringify(otro));
+  assert.deepEqual(otro.sobre === 'otro' ? otro.candidatos.map((o) => o.id) : [], [D2.id, D3.id], 'los dos más recientes');
+  assert.equal(otro.sobre === 'otro' ? otro.operacion : null, 'borrar_diseno_imagen');
+  const [porNombre] = await sobre('Cambia el título del banner del webinar', ctx);
+  assert.ok(porNombre.sobre === 'otro' && porNombre.objeto?.id === D2.id, JSON.stringify(porNombre));
+  const [landing] = await sobre('Créame otra landing para la promo', ctx);
+  assert.ok(landing.sobre === 'otra-tab' && landing.area === 'landing', JSON.stringify(landing));
+});
+
+// Rotura R22 (`PARTES_DE_LO_ABIERTO.metricas` fuera): 17 de 18, cae éste.
+test('Dashboard: «otro gráfico» es de la hoja abierta; «otra hoja», una hoja nueva; «la hoja Comercial», ésa', async () => {
+  const ctx = ctxDe('metricas', H1, [H1, H2, H3]);
+  for (const t of ['Crea otro gráfico con el CAC', 'Agrega otro gráfico de inversión', 'Borra el otro gráfico']) {
+    assert.deepEqual(await sobre(t, ctx), [{ sobre: 'actual', texto: t }], t);
+  }
+  const [nueva] = await sobre('Crea otra hoja para el equipo comercial', ctx);
+  assert.ok(nueva.sobre === 'nuevo' && nueva.operacion === 'crear_hoja_dashboard', JSON.stringify(nueva));
+  const [cual] = await sobre('Borra la otra hoja', ctx);
+  assert.ok(cual.sobre === 'otro' && cual.objeto === null && cual.candidatos.length === 2 && cual.confirmar, JSON.stringify(cual));
+  assert.equal(cual.sobre === 'otro' ? cual.operacion : null, 'borrar_hoja_dashboard');
+  const [esa] = await sobre('Borra la hoja Comercial', ctx);
+  assert.ok(esa.sobre === 'otro' && esa.objeto?.id === H2.id && esa.confirmar, JSON.stringify(esa));
+});
+
+// Rotura R23 (`PARTES_DE_LO_ABIERTO.video` fuera): 17 de 18, cae éste.
+test('Video Editor: «el otro clip» es del proyecto abierto; «el otro video», el otro proyecto', async () => {
+  const ctx = ctxDe('video', P1, [P1, P2]);
+  for (const t of ['Borra el otro clip', 'Corta la otra escena a la mitad']) {
+    assert.deepEqual(await sobre(t, ctx), [{ sobre: 'actual', texto: t }], t);
+  }
+  const [otro] = await sobre('Borra el otro video', ctx);
+  assert.ok(otro.sobre === 'otro' && otro.objeto?.id === P2.id && otro.confirmar, JSON.stringify(otro));
+});
+
+// Rotura R24 (aceptar ids repetidos): 17 de 18. Rotura R25 (sin el tope de MAX_OBJETOS): 17 de 18. Cae éste.
+test('los objetos del navegador (sólo el Video Editor): validados, sin repetidos, con tope y sin tirar nunca', () => {
+  assert.deepEqual([...TABS_CON_OBJETOS_EN_EL_NAVEGADOR], ['video']);
+  for (const malo of [null, undefined, 'x', 3, { id: 'a' }]) assert.deepEqual(objetosDelNavegador(malo), []);
+  const r = objetosDelNavegador([
+    { id: 'p-1', nombre: '  Anuncio   curso ', tocadoAt: '2026-10-16T07:00:00.000Z' },
+    { id: 'p-1', nombre: 'repetido' },
+    { id: 7, nombre: 'Con id numérico', tocadoAt: 'ayer' },
+    { id: '', nombre: 'sin id' }, { id: 'x'.repeat(65), nombre: 'id largo' }, { id: 'p-3' }, 'basura', null,
+    { id: 'p-4', nombre: 'n'.repeat(300) },
+  ]);
+  assert.deepEqual(r.map((o) => o.id), ['p-1', '7', 'p-4']);
+  assert.equal(r[0].nombre, 'Anuncio curso');
+  assert.equal(r[0].tocadoAt, '2026-10-16T07:00:00.000Z');
+  assert.equal(r[1].tocadoAt, null, 'una fecha que no se entiende no ordena');
+  assert.equal(r[2].nombre.length, 200);
+  const muchos = Array.from({ length: MAX_OBJETOS + 50 }, (_, i) => ({ id: `p${i}`, nombre: `P ${i}` }));
+  assert.equal(objetosDelNavegador(muchos).length, MAX_OBJETOS);
+});
+
+// Rotura R26 (el Dashboard sin su puerta: `rol !== 'admin' || …` fuera): 17 de 18. Rotura R27 (los objetos del
+// navegador en TODAS las tabs): 17 de 18. Cae éste.
+test('la ruta: cada tab con la MISMA puerta que su pantalla, y los objetos del navegador sólo donde viven ahí', () => {
+  const ruta = leer('app/api/mako/pedidos/route.ts').replace(/^\s*\/\/.*$/gm, '');
+  const cuerpo = (desde: string) => { const i = ruta.indexOf(desde); assert.ok(i >= 0, desde); return ruta.slice(i, ruta.indexOf('\n  }\n', i)); };
+  const imagen = cuerpo("if (tab === 'imagen') {");
+  assert.match(imagen, /if \(rol !== 'admin' \|\| !\(await veEditorImagen\(\)\.catch\(\(\) => false\)\)\) return \[\];/);
+  assert.match(imagen, /listarDisenos\(ws\)/);
+  const dashboard = cuerpo("if (tab === 'metricas') {");
+  assert.match(dashboard, /if \(rol !== 'admin' \|\| !tabEnCapa\('graphics', await getCapaActual\(\)\.catch\(\(\) => null\)\)\) return \[\];/);
+  assert.match(dashboard, /const l = await leerTablero\(\);\s*if \(l\.estado !== 'propio'\) return \[\];/, 'quien nunca guardó ve la pantalla sin páginas');
+  assert.match(dashboard, /hojasVisibles\(l\.tablero\)/);
+  assert.match(ruta, /const objetos = TABS_CON_OBJETOS_EN_EL_NAVEGADOR\.includes\(tab\) \? objetosDelNavegador\(body\.objetos\) : await objetosDeTab\(tab, rol, ws\);/);
 });
