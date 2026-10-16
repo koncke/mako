@@ -2379,6 +2379,15 @@ un verde vacío en Linux era el del pre-push, que leía `.git/hooks/pre-push` y 
 ahora lee la copia versionada, y otro test exige que el instalado sea igual a ella. Con ~10 min
 por run, los 2.000 minutos alcanzan para ~200 pushes por mes.
 
+**Y un rojo que se ve en segundos no puede costar un run.** El run 38830968542 cayó en «Tipos»
+por un hito `tipo: 'prompt'` sin `puntos` en `app/admin/dev/chatbot/bitacora.ts` (TS2741), la
+misma trampa que frenó tres pushes el 14/10. Las bitácoras se escriben a mano en cada tanda y son
+lo que más se rompe así, así que la primera guarda barata del push es ahora un `tsc` ACOTADO a
+ellas (`scripts/tsc-bitacoras.mjs` + `scripts/tsconfig.bitacoras.json`, que extiende el
+principal e incluye sólo las 55): **3,8 s y 291 MB de pico**, medido sobre el árbol bueno (0); un
+hito sin `puntos` da 1 con el TS2741 exacto. Si el `tsc` no termina (código 1 y cero salida: lo
+mató el vigía; o sin heap), el push sigue: no es un error de tipos y Actions corre el completo.
+
 **El vigía, en la misma tanda:** se levanta solo (un disparador cada 5 min además del de inicio de
 sesión: el 13/10 estuvo 6 horas muerto con un solo disparador; probado matándolo, volvió en 21 s),
 prefiere matar un `tsc` que corre FUERA del lock antes que el del pre-push (el del lock se
