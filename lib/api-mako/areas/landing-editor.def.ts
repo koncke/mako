@@ -31,8 +31,10 @@ import { REDONDECES } from '@/lib/editor-landing/temas';
 // Las listas que aceptan las operaciones: las MISMAS que validan los planes (landing-contenido.helpers.ts).
 import {
   ACCIONES_SECCION, ACCIONES_BLOQUE, ACCIONES_PAGINA, BLOQUES_API, FORMATOS_IA, MODOS_TEXTO_API, OBJETIVOS_GENERAR,
-  TEXTOS_POR_SECCION_API, IMAGENES_API,
+  TEXTOS_POR_SECCION_API, IMAGENES_API, EFECTOS_API,
 } from './landing-listas.helpers';
+// Puro: el catálogo de animaciones (el CONTRATO del panel «Animar»). Los nombres de las descripciones salen de ahí.
+import { EFECTOS, ESTILOS_PAGINA, GRUPOS_EFECTO, DIRECCIONES, IDS_ESTILO, ESTILO_DEFAULT, type DefEfecto } from '@/lib/editor-landing/animaciones';
 
 const TODOS = ['whatsapp', 'app', 'http'] as const;
 const SIN_HTTP = ['whatsapp', 'app'] as const;
@@ -44,8 +46,29 @@ const P_SECCION_OPCIONAL: Parametro = { nombre: 'seccion', rotulo: 'Sección', t
 const P_IMAGEN = (que: string): Parametro => ({ nombre: 'imagen', rotulo: 'Imagen', tipo: 'string', max: 2000, descripcion: `${que}: el enlace de una imagen (MaKo la copia a la biblioteca de la landing al confirmar) o "" para quitarla.` });
 const COLOR = (nombre: string, que: string): Parametro => ({ nombre, tipo: 'string', max: 7, descripcion: `${que}, como #rrggbb.` });
 
-/** Lo que cierra la descripción de toda edición: la versión de antes y que no publica. */
-const VERSION = 'Antes guarda una versión «Antes de un cambio de MaKo» (se vuelve atrás con restaurar_version_landing); lo que está en internet no cambia hasta volver a subirla.';
+/**
+ * Lo que cierra la descripción de toda edición: la versión de antes y que no publica. Sin raíces de las intenciones de
+ * OTRAS operaciones (AGENTS.md, «en una tanda grande…»): decía «lo que está en internet no cambia hasta volver a
+ * subirla», y «subirla» le sumaba a las 16 ediciones el punto de «subí los cambios» (publicar_landing). Con la operación
+ * de las animaciones, que nombra «cambi» en su id, publicar_landing quedó afuera de ese turno (15/10/2026).
+ */
+const VERSION = 'Antes guarda una versión «Antes de un cambio de MaKo» (se vuelve atrás con restaurar_version_landing); no toca la versión al aire.';
+
+// El catálogo de animaciones va EN los parámetros de cambiar_animacion_landing (el `enum` y su descripción), sin una
+// lectura aparte como listar_temas_landing: los temas tienen lectura porque cada negocio suma los suyos («ws:»), y el
+// catálogo de animaciones es fijo, el mismo para todos (lib/editor-landing/animaciones.ts). Una lectura sería un viaje
+// más y una herramienta más en los 12.000 caracteres del turno de WhatsApp para decir lo que el esquema ya dice.
+// Corto a propósito: el `enum` ya trae los ids, y el esquema entero viaja en el presupuesto del turno de WhatsApp.
+const sinTilde = (s: string): string => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+/** El id, y el nombre entre paréntesis sólo si no es el id sin tildes («maquina (Máquina de escribir)»). */
+const rotulo = (d: { id: string; nombre: string }): string => `${d.id}${sinTilde(d.nombre) !== d.id ? ` (${d.nombre})` : ''}`;
+/** Por grupo, como la grilla del panel: «Básicas: desvanecer…; Movimiento: deslizar…». */
+const CATALOGO_EFECTOS = GRUPOS_EFECTO
+  .map((g) => `${g.nombre}: ${(EFECTOS as readonly DefEfecto[]).filter((d) => d.grupo === g.id).map(rotulo).join(', ')}`)
+  .join('; ');
+const CATALOGO_ESTILOS = ESTILOS_PAGINA.map((e) => `${rotulo(e)}${e.id === ESTILO_DEFAULT ? ' (el de siempre)' : ''}`).join(', ');
+/** Los efectos que tienen dirección («deslizar y barrido»). */
+const CON_DIRECCION = (EFECTOS as readonly DefEfecto[]).filter((d) => d.direcciones?.length).map((d) => d.id).join(' y ');
 
 export const DEFS_EDITOR: readonly OperacionDef[] = [
   // ── Lecturas ────────────────────────────────────────────────────────────────
@@ -59,7 +82,7 @@ export const DEFS_EDITOR: readonly OperacionDef[] = [
   {
     id: 'ver_configuracion_landing', area: 'landing', tipo: 'lectura',
     titulo: 'Configuración de una landing creada',
-    descripcion: 'La configuración de una landing del editor del Web Generator, lo que ver_landing_creada no trae: el tema, el formato (landing o presentación) y su relación de aspecto, las animaciones, la imagen de fondo, los ajustes del sitio (nombre, título y descripción para buscadores, indexación, Píxel de Meta, «Hecho con MaKo», ícono, imagen para compartir), la navegación (barra, logo, enlaces, botones y pie) y con qué se pidió crearla (la instrucción de origen). Úsala antes de cambiar algo de eso. Necesita el id (de listar_landings_creadas).',
+    descripcion: 'La configuración de una landing del editor del Web Generator, lo que ver_landing_creada no trae: el tema, el formato (landing o presentación) y su relación de aspecto, las animaciones (también las de cada sección), la imagen de fondo, los ajustes del sitio (nombre, título y descripción para buscadores, indexación, Píxel de Meta, «Hecho con MaKo», ícono, imagen para compartir), la navegación (barra, logo, enlaces, botones y pie) y con qué se pidió crearla (la instrucción de origen). Úsala antes de cambiar algo de eso. Necesita el id (de listar_landings_creadas).',
     parametros: [P_ID],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: G_WRITER,
   },
@@ -367,6 +390,27 @@ export const DEFS_EDITOR: readonly OperacionDef[] = [
       { nombre: 'fondoImagen', rotulo: 'Imagen de fondo', tipo: 'string', max: 2000, descripcion: 'El enlace de una imagen de fondo (MaKo la copia a la biblioteca de la landing al confirmar) o "" para quitarla.' },
       { nombre: 'ancho', rotulo: 'Ancho', tipo: 'string', enum: ANCHOS_TARJETA, descripcion: 'El ancho de todas las secciones.' },
       { nombre: 'alineacion', rotulo: 'Alineación', tipo: 'string', enum: ALINEACIONES_TARJETA, descripcion: 'La alineación del contenido de todas las secciones.' },
+    ],
+    canales: TODOS, costo: 'gratis', gating: G_WRITER,
+    escribe: 'la configuración y el contenido de la landing (landing_docs) y una versión «Antes de un cambio de MaKo» en su historial',
+  },
+  // Las animaciones (15/10/2026, el panel «Animar»: lib/editor-landing/animaciones.ts es el contrato). Dos niveles, como el
+  // panel: el interruptor y el estilo de TODA la landing, y el efecto de UNA sección; nunca por bloque («Editar con IA»
+  // rehace los bloques y perdería el ajuste). El VIDEO DE FONDO no se ofrece por la API, a propósito: lo genera sólo MaKo
+  // cuando el puente a Flow pueda devolverlo (`VIDEO_FONDO.disponible` es false); el día que pueda, es otra operación
+  // con su propia confirmación (gasta video), no un parámetro más de ésta.
+  {
+    id: 'cambiar_animacion_landing', area: 'landing', tipo: 'accion', confirmacion: 'chat', reversible: true,
+    titulo: 'Animaciones y efectos de una landing',
+    descripcion: `Las animaciones de una landing del editor del Web Generator (el panel «Animar»): el interruptor y el estilo de TODA la landing, o el efecto de entrada de UNA sección (nunca de un bloque; sin efecto propio, usa el estilo). Sólo cambia lo que se pasa; lo de ahora, en ver_configuracion_landing. ${VERSION}`,
+    parametros: [
+      P_ID,
+      { nombre: 'activas', rotulo: 'Animaciones', tipo: 'boolean', descripcion: 'true las prende en toda la landing; false las apaga.' },
+      { nombre: 'estilo', rotulo: 'Estilo de la landing', tipo: 'string', enum: IDS_ESTILO, descripcion: `El de toda la landing: ${CATALOGO_ESTILOS}.` },
+      { nombre: 'seccion', rotulo: 'Sección', tipo: 'string', max: 64, descripcion: 'Su id o su número en la página (1 = la primera), de ver_secciones_landing.' },
+      { nombre: 'efecto', rotulo: 'Efecto', tipo: 'string', enum: EFECTOS_API, descripcion: `El de la sección. ${CATALOGO_EFECTOS}. ninguna = quieta; heredar = usa el estilo.` },
+      { nombre: 'direccion', rotulo: 'Dirección', tipo: 'string', enum: DIRECCIONES, descripcion: `Desde dónde entra (sólo ${CON_DIRECCION}). Sin ella, se conserva la de antes si el efecto nuevo la tiene.` },
+      { nombre: 'pagina', rotulo: 'Página', tipo: 'string', max: 64, descripcion: 'Con «seccion» por número: el id de la página. Por defecto, la de inicio.' },
     ],
     canales: TODOS, costo: 'gratis', gating: G_WRITER,
     escribe: 'la configuración y el contenido de la landing (landing_docs) y una versión «Antes de un cambio de MaKo» en su historial',

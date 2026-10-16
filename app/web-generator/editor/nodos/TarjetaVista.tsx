@@ -116,6 +116,8 @@ export default function TarjetaVista(props: NodeViewProps & { selectionInside?: 
   }, [ctx, editor]);
 
   const indiceActual = () => seccionPorId(editor.state.doc, id)?.indice ?? -1;
+  /** Un hero con video de fondo (sólo con el diseño «fondo»: especificacion.ts, `specTarjeta`). */
+  const conVideo = a.diseno === 'fondo' && !!a.videoFondo;
 
   // ── La imagen de acento ──
   const elegirImagen = useCallback(async () => {
@@ -124,8 +126,9 @@ export default function TarjetaVista(props: NodeViewProps & { selectionInside?: 
     const url = await elegir({ modo: 'imagen', sugerencia: tituloDeTarjeta(node.toJSON() as JsonNodo) || undefined });
     if (!url) return;
     if (!srcImagen(url)) { avisar('Imagen no válida'); return; }
-    setAttrs({ imagenSrc: url, diseno: a.diseno === 'sin' ? 'izquierda' : a.diseno });
-  }, [ctx, editor, node, setAttrs, a.diseno, avisar]);
+    // Reemplazar el acento de un hero con video lo reemplaza entero (el póster del video taparía la imagen nueva).
+    setAttrs({ imagenSrc: url, diseno: a.diseno === 'sin' ? 'izquierda' : a.diseno, ...(conVideo ? { videoFondo: null } : {}) });
+  }, [ctx, editor, node, setAttrs, a.diseno, avisar, conVideo]);
 
   const subirAcento = useCallback(async (f: File) => {
     if (!(TIPOS_IMAGEN as readonly string[]).includes(f.type)) { avisar('Formato no admitido'); return; }
@@ -135,13 +138,13 @@ export default function TarjetaVista(props: NodeViewProps & { selectionInside?: 
     setSubiendo(true);
     try {
       const url = await subir(f);
-      if (srcImagen(url)) setAttrs({ imagenSrc: url, diseno: a.diseno === 'sin' ? 'izquierda' : a.diseno });
+      if (srcImagen(url)) setAttrs({ imagenSrc: url, diseno: a.diseno === 'sin' ? 'izquierda' : a.diseno, ...(conVideo ? { videoFondo: null } : {}) });
     } catch {
       avisar('No se pudo subir');
     } finally {
       setSubiendo(false);
     }
-  }, [ctx, editor, setAttrs, a.diseno, avisar]);
+  }, [ctx, editor, setAttrs, a.diseno, avisar, conVideo]);
 
   // Soltar una imagen sobre el acento la sube y la pone. Listeners NATIVOS sobre el elemento: el
   // de ProseMirror vive en la raíz del editor (más arriba) y el de React más arriba todavía, así
@@ -280,7 +283,11 @@ export default function TarjetaVista(props: NodeViewProps & { selectionInside?: 
   const asaRef = useRef<HTMLButtonElement | null>(null);
   const desdeMenu = (accion: () => void) => () => { setPanel(null); accion(); };
 
-  const conImagen = a.diseno !== 'sin' && !!a.imagenSrc;
+  // El hero con VIDEO de fondo (animaciones.ts, `VideoFondo`) se dibuja con su póster, como en el render del editor
+  // (especificacion.ts, `acentoConVideo`): el video sólo corre en la publicada. Hoy ninguna pantalla pone un
+  // `videoFondo` (`VIDEO_FONDO.disponible` es false), pero el lugar queda coherente con lo que se publica.
+  const srcAcento = conVideo && a.videoFondo ? a.videoFondo.poster : a.imagenSrc;
+  const conImagen = a.diseno !== 'sin' && !!srcAcento;
   const mostrarAcento = a.diseno !== 'sin';
   const n = editor.state.doc.childCount;
   const iMenu = panel?.tipo === 'menu' ? indiceActual() : -1;
@@ -298,7 +305,7 @@ export default function TarjetaVista(props: NodeViewProps & { selectionInside?: 
           data-vacio={conImagen ? undefined : 'si'}
           contentEditable={false}
           suppressContentEditableWarning
-          style={conImagen ? { backgroundImage: `url("${a.imagenSrc}")`, backgroundPosition: `${a.imagenFocoX}% ${a.imagenFocoY}%` } : undefined}
+          style={conImagen ? { backgroundImage: `url("${srcAcento}")`, backgroundPosition: `${a.imagenFocoX}% ${a.imagenFocoY}%` } : undefined}
         >
           {editable && a.diseno !== 'fondo' && (
             <div className="gma gmc gmc-acento-capa" onMouseDown={sinRobarFoco} onDoubleClick={(e) => { if (!(e.target as HTMLElement).closest('button, .gmc-foco')) void elegirImagen(); }}>
@@ -334,7 +341,8 @@ export default function TarjetaVista(props: NodeViewProps & { selectionInside?: 
               <>
                 <button type="button" className="gmc-btn" title="Reemplazar imagen" aria-label="Reemplazar imagen" onClick={() => void elegirImagen()}><Ico n="refrescar" /></button>
                 <button type="button" className="gmc-btn" title="Cambiar punto de enfoque" aria-label="Cambiar punto de enfoque" onClick={() => setFoco(true)}><Ico n="objetivo" /></button>
-                <button type="button" className="gmc-btn" title="Quitar imagen de acento" aria-label="Quitar imagen de acento" onClick={() => setAttrs({ imagenSrc: null })}><IconoBorrar size={15} /></button>
+                {/* Con video, el póster ES el acento: quitarlo se lleva el video (si no, el botón no hacía nada). */}
+                <button type="button" className="gmc-btn" title="Quitar imagen de acento" aria-label="Quitar imagen de acento" onClick={() => setAttrs(conVideo ? { imagenSrc: null, videoFondo: null } : { imagenSrc: null })}><IconoBorrar size={15} /></button>
               </>
             )}
         </div>
@@ -452,6 +460,8 @@ export default function TarjetaVista(props: NodeViewProps & { selectionInside?: 
           <SepMenu />
           <FilaMenu icono="paleta" texto="Cambiar el color de fondo" onClick={() => setPanel({ tipo: 'estilo', ancla: asaRef.current ?? panel.ancla })} />
           <FilaMenu icono="diseno" texto={`Editar estilo de ${uno}`} onClick={() => setPanel({ tipo: 'estilo', ancla: asaRef.current ?? panel.ancla })} />
+          {/* El panel «Animar» en la vista de ESTA sección (paneles/PanelAnimacion.tsx). */}
+          {ctx && <FilaMenu icono="brillo" texto={`Animar ${uno}`} onClick={desdeMenu(() => ctx.abrirAnimar('seccion', id))} />}
           <FilaMenu icono="refrescar" texto="Restablecer estilo" onClick={desdeMenu(() => setAttrs(ESTILO_RESTABLECIDO))} />
           <FilaMenu icono="notas" texto="Notas del orador" onClick={() => setPanel({ tipo: 'notas', ancla: asaRef.current ?? panel.ancla })} />
           <FilaMenu icono="enlace" texto="Copiar enlace" onClick={desdeMenu(copiarEnlace)} />
