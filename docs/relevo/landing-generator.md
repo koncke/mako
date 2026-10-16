@@ -347,3 +347,40 @@ con animaciones) quedaron DECIDIDAS el 15/10 y anotadas arriba, en «Lo que sigu
 - `landing-subdominio` → «A · Seguir como están, ya funcionando»: lo publicado se queda en `hola-mako.site/<slug>`.
 - Y la regla nueva de AGENTS.md (`272b7e038`): ninguna pantalla se diseña de cero; se copia de una app que ya lo
   resolvió, abriendo la fuente de verdad y nombrándola en el commit.
+
+## Tanda 8 (15-16/10/2026, cuenta claude3, chat «Landing Generator»): las animaciones — EN PRODUCCIÓN
+
+Pedido de Martín (14/10): «las dos cosas», las animaciones de la página Y el video de fondo en loop, y replicarlas al
+copiar una web. Decisiones del 15/10 en la bitácora (las de Martín sobre el video, textuales) y en
+`docs/hallazgos-editor-landing.md` → «Tanda 8». Worktree `C:/dev/wt-web-anim`, rama `web-anim`. Los pushes los hizo el
+coordinador «Estrategia 3 cuentas», de a uno (el atributo nuevo tenía que estar desplegado antes que el panel):
+
+| Commit | Qué | main |
+|---|---|---|
+| `607ceb205` + `08a1d25ba` | el modelo y el render (sin pantalla), el lugar del video de fondo, una sola `normalizarUrl`, el 403, el opener del Pixel | `0c75ba490` Ready |
+| `7135a8235` | el panel «Animar» (copia del Image Editor y de la ayuda de Canva) y `cambiar_animacion_landing` | `3ddb2826b` Ready |
+| `ec9226345` | replicar las animaciones de una web ajena, con el aviso del scroll | `9536a351a` Ready |
+
+**Lo que tiene que mirar Martín con clics** (sobre su negocio, sin `?ws=`; con su sesión el ws3 lleva al onboarding):
+1. https://hola-mako.com/web-generator → «+ Nueva landing» → un diseño → «Agendar llamada».
+2. En el editor, «Animar» en la barra: pasar el mouse por los efectos (cada uno se reproduce solo).
+3. Clic en una sección y elegir un efecto: esa sección se reproduce una vez.
+4. «Página»: elegir un estilo y «Reproducir la página».
+5. Publicar y abrir la publicada para verlo como un visitante. Después, la landing de prueba a la Papelera.
+
+**Lo que sigue, con su archivo:**
+- **El video de fondo** espera al puente a Flow: cuando MaKo pueda leer el resultado de un clip y enseñar la operación
+  de «Frames» (cuadro inicial y final), se prende `VIDEO_FONDO.disponible` (`lib/editor-landing/animaciones.ts`) y el
+  componente `VideoDeFondo` (`app/web-generator/editor/paneles/PanelAnimacion.tsx`) deja de devolver null. El modelo,
+  el saneo y el render de la publicada ya están. Medir Flow en el ws3 sigue siendo de Martín (es su Chrome).
+- **Las etapas sin empezar:** 4 (efectos de scroll y componentes con movimiento: cinta, pasos, carrusel, máquina de
+  escribir, contador), 6 (plantillas con movimiento por diseño, mirando las de Canva) y 9 (Presentar con View
+  Transitions).
+- **Chicos:** mostrar en el editor de la copia los otros avisos de Replicar («sin diseño», «sin el estilo», «imágenes no
+  copiadas»), hoy sólo los lee MaKo; la línea del scroll desde «Aplicar» del Diagnóstico; «quita el botón de la web» que
+  sale como despublicar y «analiza las animaciones…» que no llega a analizar (`lib/mako-intencion.ts`); sumar «animar» a
+  los infinitivos del guard del voseo.
+- **El `window.opener` del Pixel**: cerrado en parte (el lector lo suelta al arrancar). El cierre completo NO se hace
+  (decisión del coordinador: mucho costo para un hueco chico); el riesgo que queda y el plan, en los hallazgos.
+- **Sin medir en un navegador real**: con la regla de RAM no se levantó la app. La publicada se midió armada sin la base
+  en Chromium sin ventana (ver los hallazgos → «Tanda 8» → la verificación).
