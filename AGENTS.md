@@ -972,6 +972,10 @@ docs/hallazgos-api-mako.md → «El editor entero del Web Generator»):
   Antes de commitear se corre el test del turno de WhatsApp del área. Y la relevancia que pone el
   clasificador para un pedido amplio va CORTA (lo auxiliar): una larga reparte puntos parejos y
   deja afuera la herramienta que se pidió.
+- **Una op que ya es grande no suma enums de ids** (16/10/2026, `cambiar_ficha_funnel`: +183 caracteres
+  dejaron a `proponer_mover_reunion` fuera de WhatsApp sin cambiar ningún puntaje). La lista de bloques,
+  avisos o íconos se valida en la traducción y devuelve `disponibles`. Se mide
+  `JSON.stringify(aToolDef(def)).length` y, si la op importa, un test le pone tope.
 
 `/api/v1` es la única carpeta que entra a `PUBLICOS` como PREFIJO: toda ella es bearer por
 construcción, y `tests/api-mako-registro.test.ts` enumera en positivo los `route.ts` que puede
@@ -1901,6 +1905,12 @@ logueados: **un campo nuevo lo hereda sin que nadie se acuerde**.
   Revertir sólo la pantalla es mentir hasta el próximo F5. Acá el deshacer vuelve a llamar
   al mismo camino con el valor anterior — y restaura también el estado que ese cambio trajo
   de arrastre (el candado de `score_manual` lo puso el cambio, no la persona).
+- ⚠️ **Y si el deshacer REEMPLAZA entero (restaura una foto), lleva lo `esperado`.** Un compare-and-set del server
+  protege a los cambios que se aplican como parche sobre lo de hoy, no a «pon esto entero»: sin `esperado`, el
+  Deshacer de una persona borra lo que otra guardó después. La pila es POR ENTIDAD (una pantalla puede cambiar de
+  entidad sin desmontarse) y el corte de «mientras guarda, no» va en la función, porque el atajo de teclado no mira
+  el `disabled` del botón. El caso: la ficha del funnel (app/crm/lead-view/ficha/guardado-ficha.ts,
+  docs/hallazgos-crm.md, 16/10/2026).
 - **Al mudarlo, sacá los que quedaron a mano** o salen dos: `toggleDone` y `moveTo` tenían
   su propio `show` encima del que ahora dispara el choke point.
 - **Y filtrá por AUTOR.** Lo que hace la IA no se deshace con un toast —queda en el
@@ -7558,6 +7568,11 @@ Martín: «eso está muy mal».
 - **La cura es UNA función que llamen los dos lectores**, y un guard que CUENTE cuántos
   lugares resuelven el dato. Dos implementaciones de la misma pregunta no divergen por
   descuido: divergen porque una se arregla y la otra no se entera.
+- **Y cuando uno lee de a uno y el otro en LOTE (un mapa), el BORDE va en esa misma función.** La clave que no
+  está en el mapa (un id borrado, uno de otro workspace, el NULL) es justo donde se separan, porque el lector de a
+  uno la resuelve con otra lectura y el del lote con un `?? respaldo`. Medido el 16/10/2026: un lead con la casa
+  borrada contaba con el funnel del negocio en su ficha y con el respaldo pelado del negocio en el worklist,
+  «6 sin marcar» contra 12 en «A revisar» (`apagadosDeLaCasa`, lib/ficha/config.ts).
 
 # Un horario que se repite se ancla en la OCURRENCIA ANTERIOR, nunca en `now()`
 

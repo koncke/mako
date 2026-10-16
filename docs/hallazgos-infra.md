@@ -6473,3 +6473,20 @@ pushea, la suite entera con `--test-concurrency=2`, que entra en la RAM con much
   `node --env-file=C:/dev/mako-api/.env.local --conditions react-server --import tsx <script>`, o el `--env=` del
   script (scripts/mudanza-avisos-plataforma.mts). `dotenv` tampoco se resuelve desde un script del scratchpad,
   porque busca los paquetes desde la carpeta del script. Con `--env-file`, Node lo carga solo.
+
+## Commitear por ruta con un archivo BORRADO: `git add` falla y `git commit --` no (16/10/2026)
+
+`git add -- <rutas>` con una ruta que ya no existe en el disco corta con «pathspec did not match» y no agrega
+NADA, aunque el borrado ya esté en el índice. **La regla:** `git add --` sólo con las rutas que existen, y
+`git commit -F <msg> -- <todas>`, borradas incluidas, que `git commit` sí acepta.
+
+*16/10/2026, chat «CRM» (claude3), al commitear la ficha por bloques (se fueron ResumenModal y resumen-actions).*
+
+## La emulación táctil de CDP queda pegada en la pestaña (16/10/2026)
+
+Después de `Emulation.setTouchEmulationEnabled({ enabled: true })`, volver a `false` en la misma pestaña no devuelve
+el puntero fino: los casos de escritorio midieron `matchMedia('(pointer: coarse)') = true`. **La regla:** lo
+táctil y lo de mouse se miden en pestañas distintas, o lo de mouse primero. Un «coarse: true» en un caso de
+escritorio es la emulación pegada, no la hoja.
+
+*16/10/2026, chat «CRM» (claude3), midiendo la ficha por bloques a 1280 y a 390 táctil.*
