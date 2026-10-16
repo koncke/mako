@@ -61,6 +61,8 @@ export const HECHO: SeccionChecklist[] = [
     { id: 'crm-ficha-rapida', t: 'La ficha del lead abre más rápido (cinco lecturas en paralelo); falta medirla.' },
     { id: 'crm-ai-analyst', t: 'En la ficha, «⋯» con «AI Analyst» (panel a la izquierda) y «Copiar el link»; ya no hay tab MaKo Analyst.' },
     { id: 'crm-estilo-hoja', t: 'Ficha en edición: «Estilo de la hoja» arriba (épica, tarjetas, tema); la barra lateral, más corta.' },
+    { id: 'crm-galeria-sola', t: 'La galería ya no se abre sola: cada tab usa su sugerida; tocar un template lo elige.' },
+    { id: 'crm-asignar-evento', t: '«Asignar evento» en el «⋯» de las etapas de reunión (Calendly y Cal.com).', ruta: '/crm' },
   ] },
   { titulo: 'Automations', items: [
     { id: 'aut-flechas', t: 'Toda flecha se desconecta; el paso con IA escucha notas de voz.', ruta: '/automations' },
@@ -108,7 +110,7 @@ export const PENDIENTE: SeccionChecklist[] = [
   ] },
   // Feedback del 16/10 a la tarde: textual y con su archivo en docs/feedback-16-10-crm-onboarding-second-brain.md.
   { titulo: 'Tu feedback del 16/10 a la tarde', items: [
-    { id: 'p16-crm-evento', t: 'CRM: «Asignar evento» en las etapas de reunión (Calendly, Cal o Calendar), y crear uno ahí.' },
+    { id: 'p16-crm-calendar', t: 'CRM: «Asignar evento» también con Google Calendar.' },
     { id: 'p16-crm-velocidad', t: 'CRM: que la ficha del lead abra rápido.' },
     { id: 'p16-crm-hojas', t: 'CRM: tabs como las hojas del Dashboard, templates con miniaturas propias, sin la barra lateral.' },
     { id: 'p16-crm-obligatorio', t: 'CRM: «Obligatorio» en cada bloque decide los datos sin marcar; el «Ver» igual que «A revisar».' },

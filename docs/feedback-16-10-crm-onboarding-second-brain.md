@@ -28,6 +28,16 @@ modo claro** (`b401cd017`, «pon en white mode la tab de Second Brain»). Las ci
 ## CRM
 
 ### Hecho (commits `9f595cc6f`, `4e9411a71`, `f0c8f0da0`, `f777d1d4f`, `7c0d07b9d`, `c52533e94` y `8cd7447e6`)
+- [x] **3.** «Asignar evento» en el «⋯» de cada etapa de REUNIÓN (`c7f7b5609`, app/crm/EventosDeEtapaModal.tsx), con
+  el logo de Meet y el diseño de la tabla de campañas: marcar vincula, desmarcar quita, «Traer acá» mueve uno que
+  está en otra etapa, «Crear un evento en Calendly / Cal.com» abre su página y «Actualizar» lo trae. **Google
+  Calendar no** (el motor sólo conoce Calendly y Cal.com), y crear el evento NO es «ahí mismo»: sus APIs no crean
+  tipos de evento desde acá. Nadie lo miró con una cuenta de Calendly real.
+- [x] **Galería (pedido aparte del 16/10, `5863e9734`).** «Si el usuario aún no eligió plantilla no le salte toda la
+  plantilla abajo con el botón de "usar sugerida"» y «en los workspace que ya tienen leads, simplemente ponles las
+  plantillas sugeridas... que no aparezca el "¿Qué vas a crear hoy?"»: la galería ya no se abre sola (cada tab usa
+  su sugerida, sin escribir nada), y tocar un template lo elige y cierra. La barra «Usar» queda sólo para lo que arma
+  MaKo con la caja. `abreSola`, `cerradas` y «Ahora no» quedaron sin uso en FichaPorBloques.tsx: borrarlos.
 - [x] **4, la velocidad (en parte, `f808b91d0`).** En getLeadFullAction (app/crm/actions.ts) cinco lecturas que no
   dependían de nada (insight generado, equipo, CRMs, señales de cobro y el resumen del negocio, que esperaba a TODO)
   arrancan junto con las nueve de arriba. **No se midió contra producción**: medir el pop-up antes y después; lo
@@ -68,7 +78,8 @@ modo claro** (`b401cd017`, «pon en white mode la tab de Second Brain»). Las ci
   no tenía RAM para `next dev`): mirarlo a 1440, 1024 y 390.
 
 ### Sin hacer
-3. **«Asignar evento» en las etapas de reunión.** «...con el logo de Meet, y que ahí se puedan seleccionar de la misma
+3. ~~«Asignar evento» en las etapas de reunión~~ (hecho, ver arriba; queda Google Calendar).
+   Lo de antes, para el contexto: **«Asignar evento» en las etapas de reunión.** «...con el logo de Meet, y que ahí se puedan seleccionar de la misma
    manera (en diseño) que la lista de campañas, la lista de eventos de Calendly o Cal o Calendar... Y que tenga la
    opción ahí mismo de crear un nuevo evento para asignarse a esa etapa.» El MOTOR ya está en producción (mig 0293,
    app/crm/agenda-evento-actions.ts, lib/agenda-evento-etapa.ts); falta la pantalla, que era el punto 3 del relevo de
