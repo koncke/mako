@@ -1453,7 +1453,7 @@ export function Lienzo({
               return (
                 <button key={`pildora-${i}-${e.id}`} type="button" data-no-pan data-pildora={e.id} data-arista-pildora={i} data-t={t}
                   onClick={(ev) => { ev.stopPropagation(); onSeleccion(activa ? null : e.id); }}
-                  title={`Esperar ${e.texto}`} aria-label={`Esperar ${e.texto}`} aria-pressed={activa}
+                  title={e.aviso ? `Esperar ${e.texto} · ⚠ ${e.aviso}` : `Esperar ${e.texto}`} aria-label={`Esperar ${e.texto}`} aria-pressed={activa}
                   style={{
                     position: 'absolute', left: p.x, top: p.y, transform: 'translate(-50%, -50%)',
                     height: ALTO_PILDORA_FLECHA, padding: '0 9px', borderRadius: 999, whiteSpace: 'nowrap',
@@ -1465,6 +1465,8 @@ export function Lienzo({
                     opacity: !vista ? 0 : arrastreFlecha && sobreFlecha !== e.id ? ATENUADO : 1, transition: 'opacity .12s ease',
                   }}>
                   <span aria-hidden style={{ fontSize: 11 }}>⏳</span>{e.texto}
+                  {/* «Si agenda más cerca» (16/10/2026, `avisoAgendaCerca`): la frase va en el `title`. */}
+                  {e.aviso && <span data-aviso-pildora style={{ fontSize: 10.5, color: 'var(--warn)' }}>⚠</span>}
                 </button>
               );
             });

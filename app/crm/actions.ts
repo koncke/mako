@@ -1208,20 +1208,22 @@ export async function marcarPagoAction(
   leadId: number,
   pagado: boolean,
   fechaPago: string | null,
-): Promise<void> {
+): Promise<{ quitada: boolean }> {
   await exigirAccesoAMarcarPago(pagoId, leadId);
-  await marcarPago(pagoId, pagado, fechaPago);
+  const { quitada } = await marcarPago(pagoId, pagado, fechaPago);
+  // `quitada`: era un pago que nació cobrado (suelto o mensualidad a mano) y deshacerlo lo quitó (mig 0295).
   // Queda registrado en Change History (marcar y desmarcar).
   await logLeadEvent(
     leadId,
-    pagado ? 'Pago registrado' : 'Pago desmarcado',
-    pagado ? `Cuota marcada como pagada${fechaPago ? ` (${fechaPago})` : ''}` : 'Cuota desmarcada',
+    pagado ? 'Pago registrado' : quitada ? 'Pago quitado' : 'Pago desmarcado',
+    pagado ? `Cuota marcada como pagada${fechaPago ? ` (${fechaPago})` : ''}` : quitada ? 'Se quitó un pago registrado a mano' : 'Cuota desmarcada',
     await autorActual(),
   );
   bust(TAG.pagos, TAG.leads);
   revalidatePath(`/crm/${leadId}`);
   revalidatePath('/dashboard');
   revalidatePath('/general');
+  return { quitada };
 }
 
 /**

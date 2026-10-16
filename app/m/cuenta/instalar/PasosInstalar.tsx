@@ -1,36 +1,37 @@
 'use client';
 
 // =============================================================================
-// Instalar MaKo en un iPhone — un paso por pantalla, ícono grande
+// Instalar MaKo — un paso por pantalla, ícono grande (iPhone y Android)
 // =============================================================================
 // iOS no tiene aviso de instalación (no hay `beforeinstallprompt`) y sólo da Web Push
 // a la app agregada a inicio (16.4+). Así que el camino es manual y se cuenta de a un
 // paso: Compartir → Agregar a inicio → abrir desde el ícono. El último paso importa:
 // los avisos se activan desde la app INSTALADA, no desde esta pestaña de Safari.
 //
-// v2: el nombre va chico en la barra («Instalar MaKo», con «‹ Perfil» a la izquierda) y la
+// v3 (15/10/2026): «Instalar la app» es una sección de «Tu cuenta» y su fila está siempre, así
+// que esta pantalla también la abre un Android al que Chrome no le dejó el aviso (ya se descartó,
+// u otro navegador): ahí los pasos son los del menú del navegador (`pasosInstalar`, cuenta-ui.ts).
+// Qué teléfono es se lee DESPUÉS de montar (el server no lo sabe): mientras tanto, sólo el nombre.
+//
+// El nombre va chico en la barra («Instalar la app», con «‹ Tu cuenta» a la izquierda) y la
 // pantalla es el paso. El h1 queda para el lector de pantalla (`grande={false}`).
 // =============================================================================
 
 import { useEffect, useState } from 'react';
 import { Button, ButtonLink } from '@/app/_ui/Button';
 import { Icon } from '@/app/_components/icons';
-import { estaInstalada } from '@/lib/movil-instalar';
+import { esIOS, estaInstalada } from '@/lib/movil-instalar';
+import { SECCIONES_CUENTA } from '@/lib/ajustes-secciones';
 import { CabeceraM } from '../../_ui/CabeceraM';
+import { pasosInstalar } from '../cuenta-ui';
 
-const TITULO = 'Instalar la app'; // el mismo rótulo que «Tu cuenta» en la computadora
-
-// ⚠️ El set de íconos no tiene el de «Compartir» de iOS: va el del navegador.
-const PASOS: ReadonlyArray<{ icono: string; frase: string }> = [
-  { icono: 'web', frase: 'Toca Compartir en la barra de Safari.' },
-  { icono: 'grid', frase: 'Elige «Agregar a inicio».' },
-  { icono: 'mako', frase: 'Abre MaKo desde el ícono nuevo.' },
-];
+// El mismo rótulo que «Tu cuenta» en la computadora (lib/ajustes-secciones.ts).
+const TITULO = SECCIONES_CUENTA.find((s) => s.key === 'instalar')?.label ?? 'Instalar la app';
 
 export function PasosInstalar() {
   const [paso, setPaso] = useState(0);
-  const [instalada, setInstalada] = useState(false);
-  useEffect(() => { setInstalada(estaInstalada()); }, []);
+  const [plat, setPlat] = useState<{ ios: boolean; instalada: boolean } | null>(null);
+  useEffect(() => { setPlat({ ios: esIOS(), instalada: estaInstalada() }); }, []);
 
   const cabecera = (
     <>
@@ -39,7 +40,9 @@ export function PasosInstalar() {
     </>
   );
 
-  if (instalada) {
+  if (!plat) return <div className="m-cuenta-paso">{cabecera}</div>;
+
+  if (plat.instalada) {
     return (
       <div className="m-cuenta-paso">
         {cabecera}
@@ -52,13 +55,14 @@ export function PasosInstalar() {
     );
   }
 
-  const p = PASOS[paso];
-  const ultimo = paso === PASOS.length - 1;
+  const pasos = pasosInstalar(plat.ios);
+  const p = pasos[paso];
+  const ultimo = paso === pasos.length - 1;
   return (
     <div className="m-cuenta-paso" aria-live="polite">
       {cabecera}
       <span className="m-cuenta-paso__ico"><Icon name={p.icono} size={64} /></span>
-      <span className="m-cuenta-paso__n">{`Paso ${paso + 1} de ${PASOS.length}`}</span>
+      <span className="m-cuenta-paso__n">{`Paso ${paso + 1} de ${pasos.length}`}</span>
       <p className="m-cuenta-paso__frase">{p.frase}</p>
       <div className="m-cuenta-paso__acciones">
         {ultimo

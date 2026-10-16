@@ -32,8 +32,9 @@ export async function getEstadoOnboarding(): Promise<OnboardingState> {
 /**
  * Como `getEstadoOnboarding`, pero si la base no contesta o lo guardado no se entiende, TIRA. La tolerante
  * devuelve el estado INICIAL, que sirve para dibujar y es un desastre para escribir: un `setEstadoOnboarding`
- * sobre él le pone `pending` a un onboarding terminado y manda al cliente de vuelta al arranque. Lo usa quien
- * escribe fuera del arranque (el histórico al conectar Meta, lib/onboarding-extract.ts).
+ * sobre él le pone `pending` a un onboarding terminado y manda al cliente de vuelta al arranque. Lo usa TODO lo
+ * que escribe el estado (`patchEstadoOnboarding`, `iniciarExtraccion`, el cierre): la tolerante queda para
+ * dibujar y para decidir sin escribir.
  */
 export async function getEstadoOnboardingEstricto(): Promise<OnboardingState> {
   return estadoDeLoGuardado(await getSettingEstricto(ONBOARDING_KEY));
@@ -43,9 +44,18 @@ export async function setEstadoOnboarding(state: OnboardingState): Promise<void>
   await setSetting(ONBOARDING_KEY, JSON.stringify(state));
 }
 
-/** Mutación cómoda: lee, aplica el patch y persiste. Devuelve el estado nuevo. */
+/**
+ * Mutación cómoda: lee, aplica el patch y persiste. Devuelve el estado nuevo.
+ *
+ * ⚠️ Lee ESTRICTO, y es a propósito: escribe el estado ENTERO, así que sobre la lectura tolerante (que con la
+ * base caída devuelve el estado inicial) le ponía `pending` a un onboarding terminado. Hasta el 16/10/2026 leía
+ * tolerante, y ese mismo día dejó de ser un riesgo chico: el histórico arranca al conectar una integración
+ * (`arrancarHistoricoEnSegundoPlano`), así que el cron corre sus ticks —que escriben por acá en cada paso de
+ * cada trabajo— también sobre negocios que ya terminaron el onboarding. Con la base caída, ahora tira y no
+ * escribe nada.
+ */
 export async function patchEstadoOnboarding(fn: (s: OnboardingState) => void): Promise<OnboardingState> {
-  const s = await getEstadoOnboarding();
+  const s = await getEstadoOnboardingEstricto();
   fn(s);
   await setEstadoOnboarding(s);
   return s;

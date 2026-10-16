@@ -32,7 +32,14 @@
 // =============================================================================
 
 import { useMemo, useState, useRef, useEffect, useCallback, Fragment, type CSSProperties } from 'react';
-import { AREAS, NIVEL1, AUTORIA_TEXTO, radioNodo, colorArea, type Cerebro, type NodoCerebro, type AreaId, type Punto } from '@/lib/cerebro-modelo';
+import { AREAS, NIVEL1, AUTORIA_TEXTO, radioNodo, type Cerebro, type NodoCerebro, type AreaId, type Punto } from '@/lib/cerebro-modelo';
+// Lo que el Second Brain del teléfono (app/m/second-brain) lee IGUAL que este mapa: el conteo de cada área,
+// los grados, el color de cada punto y qué documento se puede mirar. Vive en un módulo puro porque este es
+// 'use client' (AGENTS.md, MaKo Mobile: lo que /m reusa se muda a lib; nunca una copia).
+import {
+  OPACIDAD_PENDIENTE, contarPorArea, esImagenDocumento, gradosDe, rellenoNodo, rutaVistaDocumento, sePuedeVerDocumento,
+} from '@/lib/cerebro-areas';
+import { conWs, wsDeBusqueda } from '@/lib/ws-tab';
 import type { NodoFisico, Simulacion } from './fisica';
 import { MONO } from '@/app/_ui/tokens';
 import { Button, Eyebrow } from '@/app/_ui';
@@ -63,8 +70,8 @@ const ATENUADO = 0.2;
  *  bloque de estilos: si el temporizador es más corto, los nodos se desmontan a mitad
  *  del fade y se ven cortarse. */
 const MS_SALIDA = 300;
-/** El «todavía no existe»: mismo círculo relleno, más apagado. Nunca un aro punteado. */
-const PENDIENTE = 0.5;
+/** El «todavía no existe»: mismo círculo relleno, más apagado (lib/cerebro-areas.ts). Nunca un aro punteado. */
+const PENDIENTE = OPACIDAD_PENDIENTE;
 /** Amplitud de la flotación, en unidades de mundo. Con 3 el recorrido era de ~2 px de
  *  pantalla y no se leía como flotar: se leía como que el texto TEMBLABA. 16 da un
  *  movimiento intencional. Va en unidades de mundo, así que el zoom lo escala solo. */
@@ -82,15 +89,13 @@ const frenarDragNativo = (e: React.DragEvent) => e.preventDefault();
  *  `window.fetch`, y un `<iframe>` no pasa por ahí. Por eso se lo pega a mano — sin
  *  esto, el super-admin mirando a un cliente recibe un 404 «Archivo no encontrado». */
 function urlPreview(idNodo: string): string {
-  const id = idNodo.slice(4);   // saca el prefijo 'doc:'
-  const ws = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('ws') : null;
-  return `/api/onboarding/archivero/download?id=${encodeURIComponent(id)}&preview=1${ws ? `&ws=${encodeURIComponent(ws)}` : ''}`;
+  return conWs(rutaVistaDocumento(idNodo), wsDeBusqueda(typeof window !== 'undefined' ? window.location.search : null));
 }
 
-const esImagen = (mime?: string | null) => !!mime && mime.startsWith('image/');
+const esImagen = esImagenDocumento;
 /** Qué se puede mostrar de verdad adentro del navegador. Un .docx o un .xlsx bajan, no
  *  se previsualizan: ofrecer «Ver» sobre ellos abre un visor vacío. */
-const sePuedeVer = (mime?: string | null) => esImagen(mime) || (!!mime && (mime.includes('pdf') || mime.startsWith('text/')));
+const sePuedeVer = sePuedeVerDocumento;
 
 /** FNV-1a, el mismo hash que usa la semilla del layout en el servidor: así el nodo
  *  flota con la misma fase en cada visita en vez de sortearla en cada carga. */
@@ -218,12 +223,7 @@ export function Grafo({ cerebro, onAbrirArea, onVerse, filtro, onFiltro: setFilt
 
   const porId = useMemo(() => new Map(nodos.map((n) => [n.id, n])), [nodos]);
 
-  const grados = useMemo(() => {
-    const g: Record<string, number> = {};
-    for (const n of nodos) g[n.id] = 0;
-    for (const a of aristas) { if (a.de in g) g[a.de]++; if (a.a in g) g[a.a]++; }
-    return g;
-  }, [nodos, aristas]);
+  const grados = useMemo(() => gradosDe(nodos, aristas), [nodos, aristas]);
 
   const vecinos = useMemo(() => {
     const m = new Map<string, Set<string>>();
@@ -494,13 +494,8 @@ export function Grafo({ cerebro, onAbrirArea, onVerse, filtro, onFiltro: setFilt
   // ── Color ──────────────────────────────────────────────────────────────────
   // Precedencia, de arriba abajo, el primero que matchea gana. Es la de Obsidian:
   // el color de grupo gana contra el tipo pero nunca tapa un estado interactivo.
-  const rellenoDe = (n: NodoCerebro): string => {
-    if (n.id === 'raiz') return 'var(--ink)';
-    if (n.alerta) return 'var(--warn-fill)';
-    if (n.destacado) return 'var(--mako)';
-    return colorArea(n.area);
-    return 'var(--dim)';
-  };
+  // La regla vive en lib/cerebro-areas.ts (`rellenoNodo`): el teléfono pinta cada punto con la misma.
+  const rellenoDe = (n: NodoCerebro): string => rellenoNodo(n);
 
 
 
@@ -797,14 +792,7 @@ export function Grafo({ cerebro, onAbrirArea, onVerse, filtro, onFiltro: setFilt
 
   /** Cuántos datos REALES tiene cada sección. No cuenta el nodo de la propia área ni los
    *  pendientes: un «3 datos» que incluye lo que falta miente sobre lo que hay. */
-  const porArea = useMemo(() => {
-    const c: Partial<Record<AreaId, number>> = {};
-    for (const n of nodos) {
-      if (n.id === 'raiz' || n.id.startsWith('area:') || n.id.startsWith('n1:') || n.autoria === 'pendiente') continue;
-      c[n.area] = (c[n.area] ?? 0) + 1;
-    }
-    return c;
-  }, [nodos]);
+  const porArea = useMemo(() => contarPorArea(nodos), [nodos]);
 
   /** El área «en foco» no es un estado propio: ES el filtro cuando hay UNA sección
    *  elegida. Con dos o más no hay foco — atenuar «todo menos estas tres» no dice nada

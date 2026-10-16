@@ -5415,7 +5415,9 @@ async function escucharDelLead(
       : undefined,
     porQue: async (e) => {
       if (!(e instanceof SttSinEscucha)) return e instanceof Error ? e.message.slice(0, 140) : 'falló';
-      const [{ causaDelFallo, fraseDelFallo }, { clavesCargadas }] = await Promise.all([import('@/lib/fallo-ia-texto'), import('@/lib/ia-keys-ws')]);
+      const [{ causaDelFallo, fraseDelFallo, sinRedPorDatos, CONECTA_TU_CLAUDE }, { clavesCargadas }] = await Promise.all([import('@/lib/fallo-ia-texto'), import('@/lib/ia-keys-ws')]);
+      // La nota de voz es un dato del lead: sin red por eso, el remedio es su Claude (16/10/2026).
+      if (sinRedPorDatos(e.erroresPlataforma)) return CONECTA_TU_CLAUDE;
       let keys = 0;
       for (const prov of ['gemini', 'groq', 'openai']) keys += (await clavesCargadas(prov).catch(() => [])).length;
       return fraseDelFallo(causaDelFallo(e.errores, keys));

@@ -151,6 +151,17 @@ export function fraseDelFallo(causa: CausaFalloIA): string {
   }
 }
 
+/**
+ * SIN RED POR LLEVAR DATOS DE CLIENTES (16/10/2026, Martín por Cerebro: el crédito de Claude, «por ahora solo en
+ * onboarding», y si el AI Step con datos del lead se queda sin red, «que avise ("Conecta tu Claude…") y nunca use un
+ * gratis»). La cascada saltea la red gratis de la agencia cuando el pedido lleva datos de clientes y lo anota en
+ * `erroresPlataformaOut` con este comienzo (lib/ai-cheap.ts, `chatCheapCascade` y `transcribirAudio`).
+ */
+export const sinRedPorDatos = (erroresRed: readonly string[]): boolean => erroresRed.some((e) => e.startsWith('red gratis salteada:'));
+
+/** Lo que se le dice al negocio entonces: la MISMA frase que lib/lead-insights.ts y lib/graficos-ia-elemento.ts. */
+export const CONECTA_TU_CLAUDE = 'Conecta tu Claude en Integraciones: lleva datos de tus clientes, y MaKo no los manda a una IA gratis que entrena con ellos';
+
 /** Qué era lo que MaKo estaba por hacer, para que la frase no quede genérica. */
 export type QueIntentaba = 'contestar' | 'escuchar tu audio' | 'armar el borrador';
 

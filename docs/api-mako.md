@@ -45,7 +45,7 @@
 - **Integraciones** (`integraciones`): `ver_integraciones` · `ver_integracion` · `probar_conexion_integracion` · `ver_estado_google_calendar` · `ver_cuotas_ia` · `ver_activacion_tab` · `ver_estado_agente_claude` · `link_configurar_integracion`
 - **Cuenta, equipo y notificaciones** (`equipo`): `ver_workspace` · `ver_zona_horaria_workspace` · `ver_preferencias_notificaciones` · `listar_avisos_disponibles` · `esta_aviso_activo` · `ver_estado_plantilla_reporte` · `fijar_zona_horaria_workspace` · `configurar_reporte` · `configurar_seccion_reporte` · `configurar_aviso_whatsapp` · `asegurar_plantilla_reporte`
 - **Curso (módulos y clases)** (`curso`): `listar_cursos` · `ver_curso` · `ver_clase_curso` · `crear_modulo_curso` · `renombrar_modulo_curso` · `ordenar_modulos_curso` · `crear_clase_curso` · `editar_clase_curso` · `mover_clase_curso` · `borrar_clase_curso` · `restaurar_clase_curso`
-- **Calendario** (`calendario`): `listar_eventos_calendario` · `crear_evento_calendario` · `link_agenda_llamada` · `ver_proximas_recurrentes`
+- **Calendario** (`calendario`): `listar_eventos_calendario` · `crear_evento_calendario` · `link_agenda_llamada` · `anticipacion_agenda` · `ver_proximas_recurrentes`
 - **Creaciones de la comunidad (estrellas)** (`creaciones`): `listar_creaciones` · `ver_creacion` · `mis_creaciones` · `dar_estrella` · `quitar_estrella` · `publicar_creacion` · `retirar_creacion` · `usar_creacion`
 - **Cobros (Stripe y Mercado Pago)** (`cobros`): `listar_cobros` · `ver_cobro` · `crear_link_pago` · `anular_link_pago` · `reembolsar_cobro` · `cancelar_suscripcion` · `ver_moneda_negocio` · `cambiar_moneda_negocio` · `editar_dato_deal` · `editar_obligacion_deal` · `editar_venta_lead` · `editar_cuota` · `crear_link_cuota` · `cortar_recordatorio_cuota` · `estado_suscripcion_manual`
 - **MaKo (pendientes, propuestas, chats)** (`mako`): `listar_pendientes` · `confirmar_accion` · `cancelar_accion` · `ver_pendiente` · `listar_propuestas_revisar` · `ver_propuesta_accion` · `resumen_bandejas_confirmacion` · `listar_capacidades_mako`
@@ -13534,7 +13534,7 @@ curl -L \
 
 ## Calendario — `calendario`
 
-Tab **Calendario** (`/calendario`). 3 lecturas · 1 acciones.
+Tab **Calendario** (`/calendario`). 4 lecturas · 1 acciones.
 
 ### `GET /api/v1/calendario/eventos` — Ver los eventos del Calendario
 
@@ -13619,6 +13619,28 @@ curl -L \
   -H "Authorization: Bearer <TU-TOKEN>" \
   -H "X-MaKo-Api-Version: 2026-10-08" \
   "https://hola-mako.com/api/v1/calendario/links-agenda"
+```
+
+### `GET /api/v1/calendario/anticipacion` — Con cuánta anticipación se puede agendar
+
+El hueco libre más cercano de los tipos de reunión activos de Calendly: con cuánto se puede agendar hoy una llamada (por ejemplo, 3 h). Calendly no publica su «anticipación mínima»: esto es lo MEDIDO en la agenda de esta semana y cambia con ella. Sirve para saber si un recordatorio «1 día antes de la reunión» puede no llegar a salir (quien agenda con menos de la mitad de ese tiempo no lo recibe). Sin Calendly conectado devuelve `minutos: null` con el motivo.
+
+- **Ruta por operación:** `GET /api/v1/calendario/anticipacion_agenda`
+- **Token detallado:** permiso `calendario=read` (Solo lectura en «Calendario»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** externo
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** calendario
+
+_Sin parámetros._
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/calendario/anticipacion"
 ```
 
 ### `GET /api/v1/calendario/recurrentes` — Próximas veces de las tareas que se repiten

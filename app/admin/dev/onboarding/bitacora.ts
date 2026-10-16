@@ -581,6 +581,24 @@ export const BITACORA: Hito[] = [
     ],
   },
   {
+    fecha: "16 oct", hora: "06:00", chat: "Onboarding", sesion: "local_79844152-91d5-49c1-b833-c917ed1fc4a6", cuenta: "claude3",
+    actor: "claude", tipo: "correccion",
+    titulo: "Un tropiezo de la base ya no reabre un onboarding terminado",
+    puntos: [
+      "Si la base no contestaba justo cuando el histórico se iba actualizando, un negocio que ya había terminado el onboarding podía volver al arranque. Ahora ese paso falla y se reintenta, sin tocar nada.",
+      "El crédito de Claude quedó en lo que usa el chat de arranque: la conversación y los documentos. El paso Productos del wizard ya no existe.",
+    ],
+    commits: [
+      { sha: "e8caef3", msg: "Onboarding: toda escritura del estado lee estricto, y 'productos' sale del crédito", lineas: 161, archivos: 7 },
+    ],
+    archivos: [
+      "lib/onboarding-state.ts — patchEstadoOnboarding lee estricto",
+      "lib/onboarding-extract.ts — iniciarExtraccion lee estricto",
+      "lib/veto-claude.ts — 'productos' fuera del crédito",
+      "tests/onboarding-escritura-estricta.test.ts — cuatro roturas, todas caen",
+    ],
+  },
+  {
     fecha: "16 oct", hora: "08:21", chat: "Offer", sesion: "local_34d54ef6-523c-46f8-b83f-9fd310dfd667", cuenta: "claude3",
     actor: "claude", tipo: "correccion",
     titulo: "El onboarding nuevo, recorrido en el Cliente de Prueba",

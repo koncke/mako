@@ -195,8 +195,9 @@ test('la red de plataforma: la pide el motor, con plazo y con PII, para clasific
   assert.match(ensayo, /clasificarEscenario\(historial\[historial\.length - 1\]\.texto, escenarios, \{ redDePlataforma: true \}\)/);
   assert.match(ensayo, /escenario: elegido\.escenario, redDePlataforma: true \}\)/);
   assert.doesNotMatch(leer('lib/api-mako/areas/chatbot.run.ts'), /(responderSimulador|evaluarCalificacion)\([^\n]*redDePlataforma/, 'la API pidió la red');
-  // El texto del fallo se elige con los errores DEL NEGOCIO (`errores`), no con los de la red.
-  assert.match(responder, /return \{ ok: false, error: await errorDeCascada\(errores, tema\) \};/);
+  // El texto del fallo se elige con los errores DEL NEGOCIO (`errores`), no con los de la red. Desde el 16/10/2026 (la tarde),
+  // salvo el salto de la red por datos de clientes: ahí dice «Conecta tu Claude» (tests/ai-step-conecta-claude.test.ts).
+  assert.match(responder, /return \{ ok: false, error: sinRedPorDatos\(erroresRed\) \? CONECTA_TU_CLAUDE : await errorDeCascada\(errores, tema\) \};/);
   // La red ya hace lo pedido (lib/ai-cheap.ts): otro proveedor primero y el motivo «⚠ red de plataforma».
   const ai = leer('lib/ai-cheap.ts');
   assert.match(ai, /const otroPrimero = \[\.\.\.red\.filter\(\(r\) => !probados\.has\(r\.provider\)\), \.\.\.red\.filter\(\(r\) => probados\.has\(r\.provider\)\)\];/);

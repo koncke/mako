@@ -165,6 +165,23 @@ arrastre; mover y estirar arrastrando.
 (`leerGoogle`) · `app/calendario/` · `lib/api-mako/areas/calendario.*` · `tests/calendario.test.ts` ·
 `tests/agenda-sin-ia.test.ts`. *14/10/2026, claude2.*
 
+## El Calendario en el teléfono comparte un módulo PURO con escritorio (15/10/2026)
+
+MaKo Mobile tiene Calendario (app/m/calendario: Día · Agenda, crear, marcar hecho, borrar con Deshacer). Lee con
+`leerCalendario`, igual que escritorio, y lo que dibuja igual (`visiblesPorDefecto`, `sinLlamadasRepetidas`, los
+colores, `tituloDe`, `lineaDeFecha`, `TIPOS_RAPIDO`, `vaAGoogle`…) se mudó a **app/calendario/comun.ts**, que no es
+`'use client'`; VistaTiempo.tsx y Tarjetas.tsx lo importan de ahí y lo re-exportan. Una pieza nueva que usen los dos va
+ahí, nunca copiada en /m (tests/m-calendario.test.ts fija que comun.ts no sea `'use client'`).
+
+- **Una función que PARECE pura puede estar fijada por un test que lee la fuente.** Mudar `lineasDeAviso` de
+  CalendarioApp.tsx a comun.ts rompe tests/calendario.test.ts:286, que busca sus textos ('servicio: google, link:
+  Conectar') DENTRO de CalendarioApp.tsx. Se quedó donde estaba. **Regla:** antes de sacar una función de un archivo,
+  `grep` de sus textos en tests/; si un test fija la fuente, se deja o se cambia el test en el mismo commit.
+
+**Vive en:** app/calendario/comun.ts · app/calendario/{CalendarioApp,VistaTiempo,Tarjetas}.tsx · app/m/calendario/ ·
+tests/m-calendario.test.ts · tests/calendario.test.ts. Las trampas del teléfono, en hallazgos-mobile.md («Las pantallas
+de More que faltaban»). *15/10/2026, claude3.*
+
 ## Lo que quedó SIN hacer
 
 - **Las TAREAS de Google** (decisión de Martín del 14/10: después de la aprobación de la verificación). Piden el permiso
@@ -202,7 +219,9 @@ arrastre; mover y estirar arrastrando.
   (molde: tests/agenda-whatsapp.test.ts).
 - **Los roles**: la tab es sólo del admin porque dibuja la agenda de Google del negocio. Si un closer tiene que ver
   sus llamadas, hace falta una capa sin Google.
-- **MaKo Mobile** no tiene Calendario: en el teléfono se ve la pantalla de escritorio.
+- **En el teléfono** (app/m/calendario, 15/10/2026) quedan en la computadora Semana, Mes, Año, 4 días, plantillas,
+  agendar por Calendly, editar o mover un evento, elegir qué calendarios se ven y conectar Google; y el teléfono no
+  marca el paso `cal_agenda` del onboarding (escritorio lo marca en app/calendario/page.tsx al leer bien Google).
 
 **Vive en:** `supabase/migrations/0271_calendario_eventos.sql` · `lib/calendario-modelo.ts` (`proximasVeces`,
 `itemDeCuota`) · `lib/calendario.ts` (`leerCrm`, `recurrentesDelRango`, `leerCobros`) · `lib/plan-hoy.ts` (`tableroDelPlan`) ·

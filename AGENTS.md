@@ -2612,6 +2612,10 @@ el catálogo justo para eso y **no la llamaba nadie**: código muerto.
    cliente con `?ws=N` — por ahí la tarjeta del token del repo se dibujaba adentro del
    panel de dos clientes. Va `wsActual === await wsSuperAdmin()`. Es la otra mitad de la
    regla de `OWNER_WS` que ya está más arriba, y ya falló tres veces.
+5. **Una ruta /api que sólo usa una tab sólo-admin abre con `soloAdminDeTab('<nav>')`** (lib/puerta-admin-tab.ts):
+   el mismo corte que `requireRolWs([], { nav })` de su página, que redirige y a un fetch no le sirve. La página (y la
+   del teléfono, `requireMovil`) cierra la pantalla; la ruta queda abierta si no lo dice ella. Se pagó en
+   Experiments, Retro y la búsqueda del Second Brain (16/10/2026; tests/puerta-admin-tab.test.ts).
 
 **Y el corolario que decide dónde escribir:** se guarda DONDE SE LEE. Ese modal guardaba
 con `ctx.ws` mientras `lib/github-commits.ts` leía de `wsSuperAdmin()`: cargarlo desde el
@@ -3772,7 +3776,7 @@ nuevo:
 
 - ⚠️ **SÓLO PARA LO QUE MARTÍN HABILITÓ, y hoy es el onboarding.** Textual (16/10/2026): «Yo debo decirte cuando
   utilizar creditos, no tenemos infinitos... Por ahora solo en onboarding.» La lista es `CREDITO_HABILITADO_PARA`
-  (lib/veto-claude.ts): las funciones del wizard y el chat de Offer que lo reemplaza, y sólo mientras el onboarding
+  (lib/veto-claude.ts): el chat de Offer, que es el onboarding, y lo que usa de El Archivero, y sólo mientras el onboarding
   del negocio está en curso (`onboardingPendiente`). Para todo lo demás el crédito dice que no y la cascada sigue como si no existiera. Un
   camino nuevo NO se suma a la lista por su cuenta: lo pide Martín.
 - **Pasan SÓLO las dos claves con nombre** (`CLAVES_CREDITO_PLATAFORMA`), leídas por ese nombre del entorno o de la
@@ -5659,6 +5663,11 @@ El diagnóstico obvio («alguien borró la etapa en el editor») era el equivoca
 - **El olor:** una función de lectura con un `catch`/`if (error)` que devuelve un default, y
   un call site que con ese resultado hace un `insert`, un `update` o un envío. Es la misma
   familia que «No pude leer» es un tercer estado, del lado del que decide.
+- **Y es peor si lo que se escribe es el objeto ENTERO.** El estado del onboarding se guarda completo: una
+  escritura sobre `getEstadoOnboarding` (tolerante: con la base caída da el estado INICIAL) le ponía `pending`
+  a un onboarding terminado y mandaba al cliente de vuelta al arranque. Todo lo que lo escribe lee con
+  `getEstadoOnboardingEstricto`, y `patchEstadoOnboarding` ya lo hace (16/10/2026;
+  `tests/onboarding-escritura-estricta.test.ts`).
 
 # Dos escritores con dos ritmos son dos claves
 
@@ -8451,12 +8460,16 @@ técnicas están en [docs/diseno-mako-mobile.md](docs/diseno-mako-mobile.md), lo
   Machine, Content Machine, Customer Success) en su orden, y no repite lo que ya está en la barra (CRM · Chats ·
   General · Plan · More, con General AL MEDIO y como la que abre). Antes de dibujar una pantalla nueva: relevar la de
   escritorio y buscar referencias de apps reales (son parte del pedido). El prototipo vigente:
-  docs/prototipos/mako-mobile-tableros.html.
+  docs/prototipos/mako-mobile-tableros.html. **Y lo que escritorio NO tiene, o sacó, el teléfono tampoco lo suma**,
+  aunque el pedido lo nombre o la ruta lo acepte: antes de un campo o una vista nueva se busca «pedido explícito» y lo
+  que se sacó en los comentarios de la tab (Ads Writer prohíbe el campo libre para pedir un guion; Curso no tiene Avance
+  desde el 07/10).
 - **LAS MISMAS RUTAS (13/10/2026, decisión de Martín): /m es la carpeta INTERNA, nunca una URL.** Un teléfono abre
   /crm, /general, /plan… y el proxy le sirve la página de /m en esa misma URL (`pedidoMovil`, lib/movil-desvio.ts);
   una URL /m vieja se redirige a la de escritorio. Adentro de /m todo sigue hablando en rutas /m: al NAVEGAR, `conWs`
   las traduce (`rutaEscritorio`), así que un `href="/m/…"` sale bien solo — pero un `redirect('/m…')` PELADO, sin
-  `rutaConWs`, no pasa por ahí. Al LEER la URL, el shell usa `useRutaInterna`. **Una página nueva de app/m necesita su
+  `rutaConWs`, no pasa por ahí. Al LEER la URL, el shell usa `useRutaInterna`; al ESCRIBIRLA desde el cliente
+  (`replaceState`), se parte de `new URL(window.location.href)` y se toca sólo la query. **Una página nueva de app/m necesita su
   fila en `rutaEscritorio`** (y, si sólo existe en el teléfono, en `SOLO_TELEFONO`, con su respaldo de escritorio):
   `tests/movil-mismas-rutas.test.ts` recorre cada page.tsx y falla nombrándola.
 - **«¿Es móvil?» se pregunta con `esRutaMovil` (`lib/movil-rutas.ts`), nunca con `startsWith('/m')`**: eso
@@ -8484,7 +8497,10 @@ técnicas están en [docs/diseno-mako-mobile.md](docs/diseno-mako-mobile.md), lo
 - **Una sección de More se agrega en UN lugar, `SECCIONES_MAS` (lib/movil-rutas.ts)**, con la key de nav.ts que la
   gatea; de ahí salen More, la barra del rol (si le falta un destino, sube la primera de More), la cabecera, el
   título de la pestaña (lib/titulo-tab.ts) y el desvío. Su `page.tsx` llama a `requireMovil({ navKey })` con esa
-  misma key, y su `loading.tsx`, si lo tiene, va en `LOADING_PERMITIDOS` (tests/layout-sin-suspense.test.ts).
+  misma key, y su `loading.tsx`, si lo tiene, va en `LOADING_PERMITIDOS` (tests/layout-sin-suspense.test.ts). Si su
+  página de escritorio lee la URL, las claves van en `QUERY_DE_SECCION`: un push vuelve a la computadora por
+  `rutaEscritorio`, y la clave que se cae al ir al teléfono se cae también allá. Una tab UNIFICADA de escritorio se
+  gatea con la key de la sección que muestra (`ads-writer`, no `copywriting`: esa no está en TODOS_LOS_ITEMS).
 - **Lo que una pantalla de /m reusa de escritorio no puede vivir en un módulo `'use client'`**: el server no lo puede
   llamar y el cliente se lleva la pantalla entera al bundle. Se muda a lib o a un módulo puro y escritorio lo
   re-exporta (`tomas-estado.ts`, `deSiempreDisparador`, `borradorAlAbrir`); nunca una copia en /m.

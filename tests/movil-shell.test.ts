@@ -171,7 +171,7 @@ test('/m apaga el cromo de escritorio sin volverse público', () => {
 test('el título de la pestaña en /m usa los nombres de la barra', () => {
   assert.equal(tituloDe('/m/hoy'), 'MaKo - General');
   assert.equal(tituloDe('/m/chats'), 'MaKo - Chats');
-  assert.equal(tituloDe('/m/inbox'), 'MaKo - Inbox');
+  assert.equal(tituloDe('/m/inbox'), 'MaKo - Avisos', 'la campana se titula Avisos (prototipo v3), como su cabecera');
   assert.equal(tituloDe('/m/mako'), 'Pregúntale a MaKo', 'el nombre de la sidebar, que ya dice MaKo');
   assert.equal(tituloDe('/m/crm/12'), 'MaKo - CRM');
   assert.equal(tituloDe('/m/cuenta'), 'MaKo - Tu cuenta');
@@ -187,7 +187,7 @@ test('el manifest abre el repartidor y conserva la identidad', () => {
   assert.ok((m.icons ?? []).length >= 3, 'se perdieron los íconos');
   // LAS MISMAS RUTAS (13/10/2026): los atajos son las URLs de escritorio; el proxy le sirve /m al teléfono.
   assert.deepEqual((m.shortcuts ?? []).map((s) => [s.name, s.url]),
-    [['General', '/general'], ['Inbox', '/mako/pendientes'], ['CRM', '/crm']]);
+    [['General', '/general'], ['Avisos', '/mako/pendientes'], ['CRM', '/crm']]);
 });
 
 test('la cabecera por defecto: título en la raíz, volver fijo en la subpantalla', () => {
@@ -196,8 +196,10 @@ test('la cabecera por defecto: título en la raíz, volver fijo en la subpantall
   assert.deepEqual(cabeceraPorRuta('/m/hoy'), t('General', null));
   assert.deepEqual(cabeceraPorRuta('/m/crm'), t('CRM', null));
   assert.deepEqual(cabeceraPorRuta('/m/chats'), t('Chats', null));
-  // Inbox dejó la barra (v3): es la campana de General, y vuelve a General.
-  assert.deepEqual(cabeceraPorRuta('/m/inbox'), t('Inbox', { href: '/m/hoy', label: 'General' }));
+  // Inbox dejó la barra (v3): es la campana de General, se titula Avisos y vuelve a General.
+  // Probado rompiéndolo (15/10/2026): TITULO_INBOX = 'Inbox' → 14 / 2 (pestaña y cabecera); el atajo del
+  // manifest con 'Inbox' → 15 / 1. Base 16 / 0.
+  assert.deepEqual(cabeceraPorRuta('/m/inbox'), t('Avisos', { href: '/m/hoy', label: 'General' }));
   assert.deepEqual(cabeceraPorRuta('/m/mas'), t('More', null));
   // Una subpantalla vuelve a su raíz; el título lo pone la página.
   assert.deepEqual(cabeceraPorRuta('/m/crm/12'), t('', { href: '/m/crm', label: 'CRM' }));

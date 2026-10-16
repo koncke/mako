@@ -37,23 +37,14 @@
 import Link from '@/app/_ui/Link';
 import { Section, Alert, Badge, MONO } from '@/app/_ui';
 import type { AnalisisNegocio } from '@/lib/analisis-modelo';
+import { RANGOS_ANALISIS, n0Analisis, pctAnalisis, rangoHace } from '@/lib/experimentos-formato';
 
-const pct = (v: number | null): string => (v == null ? '—' : `${Math.round(v * 100)}%`);
-const n0 = (v: number | null): string => (v == null ? '—' : Math.round(v).toLocaleString('es-MX'));
-
-/** Un rango preseteado. Los tres que se piden de verdad. */
-const RANGOS: Array<{ label: string; dias: number }> = [
-  { label: '30 días', dias: 30 },
-  { label: '90 días', dias: 90 },
-  { label: '12 meses', dias: 365 },
-];
-
-function hace(dias: number): { desde: string; hasta: string } {
-  const hoy = new Date();
-  const d = new Date(hoy.getTime() - dias * 86_400_000);
-  const iso = (x: Date) => x.toISOString().slice(0, 10);
-  return { desde: iso(d), hasta: iso(hoy) };
-}
+// Los formateadores y los rangos viven en lib/experimentos-formato.ts (módulo PURO, 15/10/2026): el
+// Análisis del teléfono (app/m/experimentos/AnalisisM.tsx) escribe los MISMOS números con ellos.
+const pct = pctAnalisis;
+const n0 = n0Analisis;
+const RANGOS = RANGOS_ANALISIS;
+const hace = (dias: number) => rangoHace(dias);
 
 export function VistaAnalisis({ datos, error }: { datos: AnalisisNegocio | null; error: string }) {
   if (error || !datos) {

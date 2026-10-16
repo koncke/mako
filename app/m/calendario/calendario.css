@@ -1,0 +1,254 @@
+/* =============================================================================
+   /m/calendario — el Calendario del teléfono (la app de Google Calendar, con las piezas de app/m/_ui)
+   =============================================================================
+   Todas las clases llevan el nombre ENTERO de la carpeta (`m-calendario-*`): Next deja la hoja cargada al salir de
+   la ruta. Sólo tokens de app/globals.css (y `--m-abajo`, de app/m/m.css). `--c` es el color del calendario del
+   evento (el hex de escritorio, `colorDe`): la tarjeta se tiñe con él y lleva su franja a la izquierda.
+   ============================================================================= */
+
+.m-calendario { display: block; }
+
+/* ── Hoy (la acción de la cabecera): el cuadrito con el número, como el ícono de Google ── */
+.m-calendario-hoy__caja {
+  display: grid; place-items: center; box-sizing: border-box;
+  width: 24px; height: 24px; padding-top: 2px;
+  border: 2px solid currentColor; border-top-width: 4px; border-radius: 5px;
+  font-size: 11px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums;
+}
+
+/* ── Las vistas ── */
+.m-calendario-seg { margin: 0 0 10px; }
+
+/* ── El mes («Octubre ▾») y las flechas ── */
+.m-calendario-mes { display: flex; align-items: center; gap: 2px; min-height: 44px; margin: 0 -6px 2px 0; }
+.m-calendario-mes__boton {
+  flex: 1; min-width: 0; display: inline-flex; align-items: center; gap: 4px;
+  min-height: 44px; padding: 0 4px; border: 0; background: none; cursor: pointer; text-align: left;
+  font: inherit; font-size: var(--fs-sect); font-weight: 600; letter-spacing: -0.012em; color: var(--ink);
+  -webkit-tap-highlight-color: transparent;
+}
+.m-calendario-mes__boton span { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.m-calendario-mes__boton svg { flex: none; color: var(--dim); transition: transform var(--dur-press) var(--ease-out); }
+.m-calendario-mes__boton[aria-expanded="true"] svg { transform: rotate(180deg); }
+.m-calendario-flecha {
+  flex: none; display: grid; place-items: center; width: 44px; height: 44px;
+  border: 0; border-radius: 999px; background: none; padding: 0; color: var(--ink); cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.m-calendario-flecha:active { background: var(--velo-hover); }
+/* El chevron del set apunta hacia abajo: girado, es ‹ y ›. */
+.m-calendario-flecha--antes svg { transform: rotate(90deg); }
+.m-calendario-flecha--despues svg { transform: rotate(-90deg); }
+
+/* ── La tira de la semana ── */
+.m-calendario-semana {
+  display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 2px;
+  margin: 0 -6px 14px;
+}
+.m-calendario-semana__dia {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+  min-height: 64px; padding: 4px 0; border: 0; border-radius: 14px; background: none; cursor: pointer;
+  font: inherit; color: var(--dim); -webkit-tap-highlight-color: transparent;
+}
+.m-calendario-semana__dia:active { background: var(--velo-hover); }
+.m-calendario-semana__ini { font-size: 12px; font-weight: 600; line-height: 1; }
+.m-calendario-semana__num {
+  display: grid; place-items: center; width: 34px; height: 34px; border-radius: 999px;
+  font-size: 17px; font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums;
+}
+.m-calendario-semana__dia[data-hoy] .m-calendario-semana__ini,
+.m-calendario-semana__dia[data-hoy] .m-calendario-semana__num { color: var(--primary-strong); }
+.m-calendario-semana__dia[aria-current="date"] .m-calendario-semana__num { background: var(--primary); color: var(--on-primary); }
+.m-calendario-semana__dia[data-fuera] { opacity: .5; }
+/* El punto de «hay algo»: ocupa su lugar siempre (los números no saltan). */
+.m-calendario-semana__punto { width: 5px; height: 5px; border-radius: 999px; background: transparent; }
+.m-calendario-semana__punto[data-hay] { background: var(--faint); }
+
+/* ── El mes chico ── */
+.m-calendario-minimes { margin: 0 -6px 14px; }
+.m-calendario-minimes__ini,
+.m-calendario-minimes__fila { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 2px; }
+.m-calendario-minimes__ini span {
+  display: grid; place-items: center; height: 28px;
+  font-size: 12px; font-weight: 600; color: var(--faint);
+}
+.m-calendario-minimes__dia {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  min-height: 48px; padding: 2px 0; border: 0; border-radius: 12px; background: none; cursor: pointer;
+  font: inherit; color: var(--ink); -webkit-tap-highlight-color: transparent;
+}
+.m-calendario-minimes__dia:active { background: var(--velo-hover); }
+.m-calendario-minimes__num {
+  display: grid; place-items: center; width: 32px; height: 32px; border-radius: 999px;
+  font-size: 15px; font-weight: 500; font-variant-numeric: tabular-nums;
+}
+.m-calendario-minimes__dia[data-afuera] { color: var(--faint); }
+.m-calendario-minimes__dia[data-hoy] .m-calendario-minimes__num { color: var(--primary-strong); font-weight: 700; }
+.m-calendario-minimes__dia[aria-current="date"] .m-calendario-minimes__num { background: var(--primary); color: var(--on-primary); }
+
+/* ── El evento: la tarjeta teñida con su franja ── */
+.m-calendario-ev {
+  position: relative; box-sizing: border-box;
+  display: flex; flex-direction: column; justify-content: center; gap: 1px;
+  width: 100%; min-width: 0; min-height: 56px; margin: 0; padding: 8px 12px 8px 10px;
+  border: 0; border-left: 4px solid var(--c, var(--primary)); border-radius: 12px;
+  background: color-mix(in srgb, var(--c, var(--primary)) 15%, var(--surface));
+  color: var(--ink); font: inherit; text-align: left; cursor: pointer;
+  -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+}
+.m-calendario-ev:active { background-image: linear-gradient(var(--velo-hover), var(--velo-hover)); }
+.m-calendario-ev:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--primary); }
+.m-calendario-ev__t {
+  min-width: 0; font-size: var(--fs-md); font-weight: 600; line-height: 1.3;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.m-calendario-ev__c {
+  min-width: 0; font-size: var(--fs-sm); line-height: 1.3; color: var(--dim);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.m-calendario-ev[data-compacto] { min-height: 44px; }
+.m-calendario-ev[data-hecho] { opacity: .6; }
+.m-calendario-ev[data-tachado] .m-calendario-ev__t { text-decoration: line-through; }
+
+/* ── La Agenda ── */
+.m-calendario-agenda { display: flex; flex-direction: column; gap: 16px; }
+[data-m] .m-calendario-banda {
+  margin: 8px 4px 12px;
+  font-size: var(--fs-card); font-weight: 600; letter-spacing: -0.01em; color: var(--ink);
+}
+.m-calendario-grupo { display: grid; grid-template-columns: 48px minmax(0, 1fr); gap: 8px; align-items: start; }
+.m-calendario-grupo__dia {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  min-height: 56px; padding: 2px 0 0; border: 0; border-radius: 12px; background: none; cursor: pointer;
+  font: inherit; color: var(--dim); -webkit-tap-highlight-color: transparent;
+}
+.m-calendario-grupo__sem { font-size: 12px; font-weight: 600; line-height: 1.2; }
+.m-calendario-grupo__num {
+  display: grid; place-items: center; width: 36px; height: 36px; border-radius: 999px;
+  font-size: 20px; font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums;
+}
+.m-calendario-grupo[data-hoy] .m-calendario-grupo__sem { color: var(--primary-strong); }
+.m-calendario-grupo[data-hoy] .m-calendario-grupo__num { background: var(--primary); color: var(--on-primary); }
+.m-calendario-grupo__eventos { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+
+/* ── El Día: lo de todo el día y la grilla de horas (1 px por minuto) ── */
+.m-calendario-todo { display: flex; flex-direction: column; gap: 6px; margin: 0 0 10px 52px; }
+.m-calendario-mas { align-self: flex-start; margin: 0; padding: 0 4px; }
+.m-calendario-grilla { position: relative; margin: 0 0 6px; }
+.m-calendario-hora {
+  position: absolute; left: 0; right: 0; display: block; margin: 0; padding: 0;
+  border: 0; background: none; cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+/* La línea de la hora, desde la columna de los rótulos. */
+.m-calendario-hora::before {
+  content: ''; position: absolute; top: 0; left: 52px; right: 0; height: 1px; background: var(--border);
+}
+.m-calendario-hora:active::after {
+  content: ''; position: absolute; top: 1px; bottom: 0; left: 52px; right: 0; border-radius: 8px; background: var(--velo-hover);
+}
+.m-calendario-hora__rot {
+  position: absolute; top: -8px; left: 0; width: 44px; text-align: right;
+  font-size: 12px; line-height: 16px; color: var(--faint); font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+/* El evento en la grilla: la misma tarjeta, ubicada por su hora (top, alto y columna van en línea). */
+.m-calendario-bloque {
+  position: absolute; z-index: 1; min-height: 0; justify-content: flex-start;
+  padding: 4px 8px 4px 7px; border-left-width: 3px; border-radius: 8px; overflow: hidden;
+  background: color-mix(in srgb, var(--c, var(--primary)) 22%, var(--surface));
+}
+.m-calendario-bloque .m-calendario-ev__t { font-size: var(--fs-sm); line-height: 18px; }
+.m-calendario-bloque .m-calendario-ev__c { font-size: 12.5px; line-height: 17px; }
+/* La línea de ahora (la roja de Google), con su punto. */
+.m-calendario-ahora {
+  position: absolute; z-index: 2; left: 48px; right: 0; height: 2px; margin-top: -1px;
+  background: var(--bad); pointer-events: none;
+}
+.m-calendario-ahora::before {
+  content: ''; position: absolute; left: -5px; top: -4px; width: 10px; height: 10px; border-radius: 999px; background: var(--bad);
+}
+
+/* ── Lo que avisa ── */
+[data-m] .m-calendario-nota-chica { margin: 0 4px 12px; font-size: var(--fs-sm); color: var(--dim); }
+
+/* ── La hoja de un evento ── */
+.m-calendario-hoja-fecha { display: flex; align-items: flex-start; gap: 12px; margin: 0 4px 16px; }
+.m-calendario-hoja-fecha > i {
+  flex: none; width: 14px; height: 14px; margin-top: 4px; border-radius: 4px; background: var(--c, var(--primary));
+}
+[data-m] .m-calendario-hoja-fecha__t { font-size: var(--fs-md); line-height: 1.45; color: var(--ink); }
+[data-m] .m-calendario-hoja-fecha__t[data-tachado] { text-decoration: line-through; }
+[data-m] .m-calendario-hoja-fecha__c { margin-top: 2px; font-size: var(--fs-sm); line-height: 1.4; color: var(--dim); }
+[data-m] .m-calendario-nota {
+  margin: 14px 0 0; padding: 12px 16px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg);
+  font-size: var(--fs-md); line-height: 1.5; color: var(--ink);
+  white-space: pre-wrap; overflow-wrap: anywhere;
+}
+
+/* ── Nuevo evento ── */
+.m-calendario-titulo {
+  box-sizing: border-box; width: 100%; min-height: 52px; margin: 0 0 4px; padding: 8px 4px;
+  border: 0; border-bottom: 1px solid var(--border); border-radius: 0; background: none; outline: none;
+  font: inherit; font-size: 22px; font-weight: 500; color: var(--ink);
+}
+.m-calendario-titulo:focus { border-bottom-color: var(--primary); }
+.m-calendario-titulo::placeholder { color: var(--faint); }
+.m-calendario-tipos { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 16px; }
+.m-calendario-tipo {
+  min-height: 44px; padding: 0 16px; box-sizing: border-box;
+  border: 1px solid var(--border-strong); border-radius: 999px; background: var(--surface); color: var(--ink);
+  font: inherit; font-size: var(--fs-md); font-weight: 500; cursor: pointer;
+  touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+}
+.m-calendario-tipo[aria-pressed="true"] { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
+.m-calendario-campo {
+  display: flex; align-items: center; gap: 12px; min-height: 60px; padding: 6px 14px 6px 16px;
+  background: var(--surface); cursor: pointer;
+}
+.m-calendario-campo__k {
+  flex: 1; min-width: 0; display: inline-flex; align-items: center; gap: 10px;
+  font-size: var(--fs-md); color: var(--ink);
+}
+.m-calendario-campo__color { flex: none; width: 12px; height: 12px; border-radius: 4px; }
+.m-calendario-campo__v {
+  flex: none; max-width: 60%; min-height: 44px; margin: 0; padding: 0;
+  border: 0; background: none; outline: none; -webkit-appearance: none; appearance: none;
+  font: inherit; font-size: 16px; color: var(--primary-strong); text-align: right; text-align-last: right;
+}
+.m-calendario-campo__v::-webkit-date-and-time-value { text-align: right; }
+.m-calendario-campo__v:focus-visible { box-shadow: 0 0 0 2px var(--primary); border-radius: 6px; }
+.m-calendario-campo__txt {
+  flex: none; max-width: 60%; font-size: 16px; color: var(--dim); text-align: right;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+[data-m] .m-calendario-error {
+  display: flex; align-items: baseline; gap: 8px; margin: 12px 4px 0;
+  font-size: var(--fs-sm); line-height: 1.4; color: var(--ink);
+}
+/* El color va en la marca, nunca en el texto (app/m/_ui/LEEME.md). */
+.m-calendario-error::before {
+  content: ''; flex: none; width: 8px; height: 8px; border-radius: 999px; background: var(--bad); transform: translateY(-1px);
+}
+
+/* ── El «+» flotante (va por portal a #m-pie, fuera de la columna) y lo que deja libre al final ── */
+.m-calendario-fab {
+  position: fixed; z-index: 38;
+  right: calc(16px + env(safe-area-inset-right, 0px)); bottom: calc(var(--m-abajo, 0px) + 16px);
+  display: grid; place-items: center; width: 56px; height: 56px; padding: 0;
+  border: 0; border-radius: 18px; background: var(--primary); color: var(--on-primary); cursor: pointer;
+  box-shadow: 0 8px 22px color-mix(in srgb, var(--primary) 35%, transparent);
+  transition: transform var(--dur-press) var(--ease-out);
+  -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+}
+.m-calendario-fab:active { transform: scale(.95); }
+.m-calendario-fab:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--bg), 0 0 0 5px var(--primary); }
+.m-calendario-hueco { height: 72px; }
+
+/* ── Cargando ── */
+.m-calendario-skel-seg { height: 44px; border-radius: var(--r-md); margin: 0 0 12px; }
+.m-calendario-skel-mes { height: 28px; width: 40%; border-radius: 8px; margin: 8px 4px 14px; }
+.m-calendario-skel-semana { height: 56px; border-radius: 14px; margin: 0 0 16px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .m-calendario-mes__boton svg, .m-calendario-fab { transition: none; }
+}

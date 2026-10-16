@@ -59,7 +59,8 @@ import { ordenarAvisos, rondaAbierta, respuestaMako, textoDeCreada, ELIGE_TU, OT
 import type { PasoGrafo } from '@/lib/flujo-grafo';
 import { useStreamIA, RUTA_IA, TOPE_CLIENTE_MS, TEXTO_FASE, ORDEN_FASES, type EstadoIA, type ListoStreamIA } from './stream-ia';
 import { EJEMPLOS, PLACEHOLDER_QUIETO, ACCEPT_ARCHIVO_FLUJO, pedidoConArchivo, type ListoCrearIA } from './CrearConIA';
-import { leerArchivoParaPedido } from './archivo-pedido-cliente';
+import { leerArchivoParaPedido, subirArchivoDelPedido } from './archivo-pedido-cliente';
+import { usoDelArchivo, pedidoConContenido, pedidoSinLeer } from '@/lib/archivo-del-pedido';
 import { copiaPegada, rotuloFlujoPegado } from '@/lib/flujo-copia';
 import { resumenDePegado } from './copia-flujo-cliente';
 import { useEscucharChatMako } from './chat-mako-eventos';
@@ -528,7 +529,11 @@ export const PEGALO_A_MANO = 'Pega el flujo en la caja (Ctrl+V).';
 export const PLACEHOLDER_ARCHIVO = 'Qué hacer con el archivo (opcional)';
 
 /** El archivo de la caja: leyéndose, leído (con su texto) o que no se pudo leer. */
-type ArchivoCaja = { nombre: string; imagen: boolean } & ({ estado: 'leyendo' } | { estado: 'listo'; texto: string } | { estado: 'error' });
+/**
+ * El archivo de la caja (16/10/2026, lib/archivo-del-pedido.ts): se ELIGE y recién al mandar se decide para qué es.
+ * 'subiendo' = contenido del flujo, a la biblioteca sin leerlo; 'leyendo' = instrucciones, se lee.
+ */
+type ArchivoCaja = { nombre: string; imagen: boolean; file: File; estado: 'elegido' | 'subiendo' | 'leyendo' };
 
 /**
  * LA CAJA DE «PÍDESELO A MaKo» (décima tanda, punto 6; decimotercera, puntos 1, 2 y 4; decimocuarta, puntos 1 y 2;
@@ -540,8 +545,10 @@ type ArchivoCaja = { nombre: string; imagen: boolean } & ({ estado: 'leyendo' } 
  * sin escribir, punto 6), el «+» azul, el micrófono de la casa (dicta en el campo; se lee antes de mandar) y el ↑.
  *
  * El «+» (decimoquinta, punto 7, `accionesMas`):
- *   · «Subir archivo o imagen»: lo lee el server con el lector de la casa (`archivoATexto`; una imagen, por visión) y
- *     queda como chip arriba del campo. Al enviar, va al pedido con lo escrito (`pedidoConArchivo`, ./CrearConIA.tsx).
+ *   · «Subir archivo o imagen»: queda como chip arriba del campo, SIN LEERLO. Al enviar se decide con lo escrito
+ *     (16/10/2026, lib/archivo-del-pedido.ts): si es CONTENIDO del flujo («dando este lead magnet») va a la biblioteca
+ *     y el pedido lo nombra; si es INSTRUCCIONES, lo lee el server (`archivoATexto`; una imagen, por visión) y va al
+ *     pedido (`pedidoConArchivo`, ./CrearConIA.tsx). Si falla, el pedido sale igual.
  *   · «Pegar un flujo»: lee el portapapeles. Lo mismo que pegar con Ctrl+V en el campo.
  * UN FLUJO PEGADO (decimoquinta, punto 8: «en lugar de ver el token debería decir "Flujo copiado: NOMBRE DEL FLUJO"»):
  * un token o el texto entero de una copia SALE del campo (`copiaPegada`) y en su lugar se lee «Flujo copiado: <nombre>»
@@ -598,31 +605,50 @@ export function BarraPideselo({ onPedido, onFlujo, deshabilitado, inicial }: {
       ponerFlujo(pegado.copia);
     }).catch(() => setError(PEGALO_A_MANO));
   };
+  // ⚠️ ELEGIR NO LO LEE (16/10/2026, Martín: «otras como esta, son docs o cosas para DENTRO de la automatización... Debe
+  // razonar»): hasta ese día se leía con visión apenas se elegía, y con la IA caída («gemini high demand») la caja no
+  // dejaba mandar. Ahora se decide AL MANDAR, con lo escrito (`usoDelArchivo`).
   const subir = (file: File) => {
     quitarFlujo();
     quitarArchivo();
     setError(null);
-    const base = { nombre: file.name, imagen: file.type.startsWith('image/') };
+    setArchivo({ nombre: file.name, imagen: file.type.startsWith('image/'), file, estado: 'elegido' });
+  };
+  /**
+   * EL ARCHIVO, AL MANDAR: CONTENIDO del flujo («dando este lead magnet») se sube a la biblioteca SIN LEERLO y el pedido lo
+   * nombra con su id; INSTRUCCIONES se lee. Si subir o leer falla, el pedido sale IGUAL y lo dice (`pedidoSinLeer`): la
+   * creación no depende del archivo.
+   */
+  const mandarConArchivo = (a: ArchivoCaja, escrito: string) => {
     const ac = new AbortController();
     subida.current = ac;
-    setArchivo({ ...base, estado: 'leyendo' });
-    void leerArchivoParaPedido(file, ac.signal).then((r) => {
+    if (usoDelArchivo(escrito) === 'contenido') {
+      setArchivo({ ...a, estado: 'subiendo' });
+      void subirArchivoDelPedido(a.file, ac.signal).then((r) => {
+        if (ac.signal.aborted) return;
+        setArchivo(null);
+        onPedido(r.ok ? pedidoConContenido(escrito, { nombre: a.nombre, id: r.id }) : pedidoSinLeer(escrito, a.nombre, 'subir'));
+      });
+      return;
+    }
+    setArchivo({ ...a, estado: 'leyendo' });
+    void leerArchivoParaPedido(a.file, ac.signal).then((r) => {
       if (ac.signal.aborted) return;
-      if (!r.ok) { setArchivo({ ...base, estado: 'error' }); setError(r.error); return; }
-      setArchivo({ ...base, estado: 'listo', texto: r.texto });
+      setArchivo(null);
+      onPedido(r.ok ? pedidoConArchivo(escrito, { nombre: a.nombre, texto: r.texto }) : pedidoSinLeer(escrito, a.nombre));
     });
   };
   const alMas = (v: string) => {
     if (v === MAS_ARCHIVO) elegirArchivo.current?.click();
     else if (v === MAS_PEGAR) pegarDelPortapapeles();
   };
-  /** ¿Se puede mandar? Un flujo con nombre, un archivo leído, o algo escrito (y nada leyéndose). */
-  const listo = flujo ? !!flujo.nombre : archivo ? archivo.estado === 'listo' : !!texto.trim();
+  /** ¿Se puede mandar? Un flujo con nombre, un archivo elegido, o algo escrito (y nada subiéndose ni leyéndose). */
+  const listo = flujo ? !!flujo.nombre : archivo ? archivo.estado === 'elegido' : !!texto.trim();
   const mandar = () => {
     if (deshabilitado || !listo) return;
     setError(null);
     if (flujo) { onFlujo?.(flujo.copia); return; }
-    if (archivo?.estado === 'listo') { onPedido(pedidoConArchivo(texto, { nombre: archivo.nombre, texto: archivo.texto })); return; }
+    if (archivo?.estado === 'elegido') { mandarConArchivo(archivo, texto); return; }
     onPedido(texto.trim());
   };
   return (
@@ -632,8 +658,8 @@ export function BarraPideselo({ onPedido, onFlujo, deshabilitado, inicial }: {
         ejemplos={EJEMPLOS} animar={!archivo} placeholderQuieto={archivo ? PLACEHOLDER_ARCHIVO : PLACEHOLDER_QUIETO}
         etiqueta="Qué tiene que hacer la automatización" deshabilitado={deshabilitado} onError={setError}
         adjunto={archivo ? (
-          <ChipCaja icono={archivo.imagen ? 'imagen' : 'archivo'} texto={archivo.nombre} error={archivo.estado === 'error'}
-            detalle={archivo.estado === 'leyendo' ? 'Leyendo…' : null} onQuitar={quitarArchivo} etiquetaQuitar="Quitar el archivo" />
+          <ChipCaja icono={archivo.imagen ? 'imagen' : 'archivo'} texto={archivo.nombre}
+            detalle={archivo.estado === 'leyendo' ? 'Leyendo…' : archivo.estado === 'subiendo' ? 'Subiendo…' : null} onQuitar={quitarArchivo} etiquetaQuitar="Quitar el archivo" />
         ) : null}
         enLugarDelCampo={flujo ? (
           <ChipCaja icono="flujo" texto={rotuloFlujoPegado(flujo.nombre ?? '…')} onQuitar={quitarFlujo} etiquetaQuitar="Quitar el flujo" />

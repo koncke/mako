@@ -51,7 +51,7 @@ import {
   type PasoGrafo, type NombresParaTexto, type HechosLead, type MedioAIStep, type FilaCondicion,
   claseDe, idDe, indicePorId, nodoPorId, normalizar, puertosDe, raicesSalida, raizRespuesta,
   textoEspera, textoRama, TOPE_HILOS, RESULTADO_SI_NO, paralelosDeResultado, elegirSalida, expandirPasoIA,
-  extrasDeCaso, gruposDeRama, cumpleFila, textoFila, escenariosDeRespuesta,
+  extrasDeCaso, gruposDeRama, cumpleFila, textoFila, escenariosDeRespuesta, llegaTarde,
 } from './flujo-grafo';
 
 /**
@@ -106,7 +106,11 @@ export type CasoElegido = { id: string | null; titulo: string; cuando: string };
  * empezar a esperar, el email del día 0 aparecería DEBAJO de «Esperar 1 día» y se leería como
  * que llega al día siguiente.
  */
-export type HiloSim = { cursor: string; reloj: number; esperado?: true };
+/**
+ * `tarde`: llegó tarde a una espera «antes de la reunión» (`llegaTarde`, 16/10/2026) y `saltea`: lo que sigue a esa espera
+ * no sale hasta la próxima, como en el motor (`resolverControl`).
+ */
+export type HiloSim = { cursor: string; reloj: number; esperado?: true; tarde?: true; saltea?: true };
 
 export type EstadoSim = {
   /**
@@ -438,9 +442,9 @@ function salidasDe(pasos: readonly PasoGrafo[], i: number): { sig: string | null
  * que se prueba es lo LOCAL, sin publicar, y puede ser un flujo que no se podría guardar. Lo que
  * no entra no se abre; el tope de eventos corta el resto.
  */
-function seguir(hilos: readonly HiloSim[], k: number, sig: string | null, paralelos: readonly string[], reloj: number): HiloSim[] {
+function seguir(hilos: readonly HiloSim[], k: number, sig: string | null, paralelos: readonly string[], reloj: number, saltea = false): HiloSim[] {
   const out = hilos.slice();
-  if (sig) out[k] = { cursor: sig, reloj };
+  if (sig) out[k] = saltea ? { cursor: sig, reloj, saltea: true } : { cursor: sig, reloj };
   else out.splice(k, 1);
   for (const d of paralelos) if (out.length < TOPE_HILOS) out.push({ cursor: d, reloj });
   return out;
@@ -455,6 +459,9 @@ function cerrarHilo<P extends PasoGrafo>(estado: EstadoSim, k: number, texto: st
   if (!hilos.length) return fin(estado, texto);
   return { evento: null, estado: { ...estado, hilos } };
 }
+
+/** Lo que dice la pastilla de una espera «antes de la reunión» a la que se llegó tarde (`llegaTarde`). */
+export const NO_SALE_AGENDO_CERCA = 'agendó más cerca: no sale';
 
 /**
  * Corre UNA tarjeta del hilo `k`. `evento: null` = avanzó sin nada que mostrar (contó una espera,
@@ -476,6 +483,11 @@ function correrHilo<P extends PasoGrafo>(pasos: readonly P[], estado: EstadoSim,
     const s = salidasDe(pasos, i);
     return seguir(st.hilos, k, s.sig, st.rama === 'respuesta' ? [] : s.paralelos, reloj);
   };
+  // «SI AGENDA MÁS CERCA» (16/10/2026): lo que sigue a una espera a la que se llegó tarde no sale, hasta la próxima.
+  if (h.saltea && (claseDe(p) === 'mensaje' || claseDe(p) === 'accion')) {
+    const hilos = seguir(st.hilos, k, salidasDe(pasos, i).sig, [], h.reloj, true);
+    return hilos.length ? { evento: null, estado: { ...st, hilos } } : fin(st, 'Fin');
+  }
   switch (claseDe(p)) {
     case 'mensaje':
       return { evento: { t: 'mensaje', nodo: id, paso: p, enRespuesta: st.rama === 'respuesta' }, estado: { ...base, hilos: avanzar(h.reloj) } };
@@ -491,9 +503,15 @@ function correrHilo<P extends PasoGrafo>(pasos: readonly P[], estado: EstadoSim,
         const min = Math.max(0, Number(p.espera?.minutos) || 0);
         const reloj = p.espera?.modo === 'tiempo' ? h.reloj + min
           : st.reunionMin != null ? Math.max(h.reloj, st.reunionMin - min) : h.reloj;
+        const tarde = st.reunionMin != null && llegaTarde(p.espera, st.reunionMin - h.reloj);
         const hilos = st.hilos.slice();
-        hilos[k] = { cursor: h.cursor, reloj, esperado: true };
+        hilos[k] = tarde ? { cursor: h.cursor, reloj, esperado: true, tarde: true } : { cursor: h.cursor, reloj, esperado: true };
         return { evento: null, estado: { ...st, hilos } };
+      }
+      // Llegó tarde: se dice, y lo de esta espera (y sus flechas en paralelo) no sale.
+      if (h.tarde) {
+        const hilos = seguir(st.hilos, k, salidasDe(pasos, i).sig, [], h.reloj, true);
+        return { evento: { t: 'espera', nodo: id, texto: `⏳ ${textoEspera(p.espera)} · ${NO_SALE_AGENDO_CERCA}` }, estado: { ...base, hilos } };
       }
       return { evento: { t: 'espera', nodo: id, texto: `⏳ ${textoEspera(p.espera)}` }, estado: { ...base, hilos: avanzar(h.reloj) } };
     }
@@ -587,7 +605,8 @@ export function elegir(estado: EstadoSim, puerto: string): EstadoSim {
   const h = estado.hilos[e.hilo];
   if (!h) return { ...estado, eligiendo: null };
   const paralelos = estado.rama === 'respuesta' ? [] : (o.paralelos ?? []);
-  return { ...estado, eligiendo: null, hilos: seguir(estado.hilos, e.hilo, o.destino, paralelos, h.reloj) };
+  // Una condición en lo que se saltea («Si agenda más cerca») se decide igual, y lo de después sigue salteado.
+  return { ...estado, eligiendo: null, hilos: seguir(estado.hilos, e.hilo, o.destino, paralelos, h.reloj, h.saltea === true) };
 }
 
 // ── LOS ESCENARIOS DE «PROBAR» (14/10/2026) ─────────────────────────────────────────────────────────

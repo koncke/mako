@@ -145,6 +145,75 @@ el MRR un 85% (hallazgos-crm.md).
   pestaña lo cambió» sobre algo que sí se había guardado.
 - **La regla.** Un candado (`enCurso`): un guardado a la vez.
 
+### `venta` ya no trae las cuotas: tres plantillas se quedaron sin ellas
+
+- **Síntoma.** Lo encontró la revisión del 16/10/2026, antes de que lo viera nadie. Formulario de Meta (ws15 y ws17),
+  Te escriben y Carrito tenían `venta` en Pagos y no `cuotas`.
+- **Por qué pasó.** Con la tarjeta de antes no hacía falta, porque `venta` ERA DealDetailsCard y las traía adentro.
+  Partida en bloques, esos funnels perdían marcar, deshacer, el comprobante y el plan.
+- **La regla.** Una tab Pagos con `venta` o `cobrado` lleva `cuotas` (tests/pagos-tab-bloques.test.ts). En esas dos
+  plantillas el comprobante se apagó explícito, para no cambiarles los avisos.
+- **Fichas guardadas.** Una lista personalizada se usa tal cual (`fichaEfectiva`), pero el 16/10 no había ninguna en
+  producción (0 funnels con `data.ficha`), así que no hizo falta migrar.
+
+### Mandar la lista ENTERA reescribe con valores viejos
+
+- **Síntoma.** Quitar o agregar una cuota mandaba todas las impagas con lo que tenía la pantalla, y armar el plan
+  mandaba los cuatro campos. Si otra pestaña o MaKo había cambiado una cuota en el medio, volvía a su valor viejo, sin
+  aviso.
+- **Por qué el server no lo frena.** Compara contra la base y escribe lo que vino: no sabe qué vio la pantalla.
+- **La regla.** Una escritura manda SÓLO lo que la persona tocó:
+  - `quitarCuotaAction` y `agregarCuotaAction` (pagos/cuotas-actions.ts) mandan una cuota;
+  - el plan manda lo que cambió contra el plan como estaba al abrir.
+
+### Un Deshacer que vuelve a insertar no es la misma cuota
+
+- **Qué pasaba.** Volver a insertar una cuota quitada le daba otro id y otro número:
+  - el inicial volvía como «Cuota N»;
+  - su recordatorio se volvía a mandar, porque el dedup es por id.
+- **La regla.**
+  - Quitar pide confirmación y no tiene Deshacer.
+  - El Deshacer de un ajuste del plan devuelve cada cuota con su número: `reconciliarCuotas` en modo `porId` lo
+    respeta si está libre.
+
+### Con un descuento o un pago de más, Deshacer perdía deuda
+
+- **Qué pasaba.** Ya pasaba con la tarjeta de antes. El Deshacer se ofrecía cuando no quedaba pendiente, y un
+  descuento o un pago de más tampoco dejan pendiente. Desmarcar no devuelve el monto: una cuota de 1000 cobrada con 600
+  y descuento quedaba debiendo 600.
+- **La regla.** Deshacer sólo si se cobró EXACTO lo de la cuota.
+
+### Lo devuelto no es lo que falta
+
+- **Qué pasaba.** Una cuota devuelta sale de las cuotas pero la venta sigue con su monto. La diferencia se ofrecía
+  como «Agregar la cuota»: volver a cobrar lo que se devolvió.
+- **La regla.** Ahora dice «Devuelto en parte», sin botón, y sólo ofrece lo que falta además de lo devuelto.
+
+### «No pude leer los cobros» no es «no hay pasarela»
+
+- **Qué pasaba.** Con `cobros ?? []`, una suscripción que cobra Stripe se leía como manual mientras cargaba o si la
+  lectura fallaba. Ofrecía «Registrar el mes cobrado», que duplicaba lo cobrado.
+- **La regla.** Sin los cobros leídos no se decide la fuente, ni en la tab ni en la API (`cobranza_lead`).
+
+### Un link pagado que todavía no se asentó
+
+- **Qué pasaba.** Entre el pago y que el aviso o el cron lo asienten, la cuota sigue impaga. Ofrecía otro link para la
+  misma plata.
+- **La regla.** `cuotaParaLink` (lib/cobros.ts) no crea el link de una cuota que ya tiene un cobro pagado.
+
+### Quitar una fila de `pagos` va por la reconciliación, aunque no sea un plan
+
+- **Qué pasó** (mig 0295, 16/10/2026). Deshacer un pago que nació cobrado lo tiene que QUITAR. El reflejo fue un
+  `.from('pagos').delete()` en `marcarPago`, y lo frenó la guarda de tests/pagos-escritura.test.ts: en lib/pagos.ts
+  hay UN solo borrado de cuotas, el de la reconciliación.
+- **Por qué la guarda tiene razón.** Cada escritor que borraba y volvía a insertar les cambiaba el id a las cuotas y
+  rompía el link, el corte de la cobranza y su dedup.
+- **La regla.** Se deja impaga y se reconcilia con esa cuota como la única vista
+  (`guardarCuotasPorId(lead, [], { vistos: [id] })`): la quita el borrado de siempre, que además respeta lo que la
+  protege. `marcarPago` lee la cuota con `*`, así una base sin la migración no rompe todo marcar.
+- **Medido al aplicarla.** 0 cuotas con dos links vivos y 0 cobros en producción. El índice
+  `cobros_un_link_vivo_por_cuota` se creó sin choques.
+
 ### El teléfono muestra el estado de cuenta también desde el Resumen
 
 - **Qué pasa.** Cuatro plantillas ya traían `cobrado` en el Resumen. Con `cobrado → 'saldo'`, el teléfono lo dibuja
@@ -161,5 +230,6 @@ el MRR un 85% (hallazgos-crm.md).
 | Diseños que no se dibujan: `cobrado` anillo, `cuotas` lista y calendario, `suscripcion` tarjeta y meses, y los de `oferta` (OfertaDelLead es sólo el desplegable) | registro-pagos.tsx | No se ofrecen: el menú «Diseño» sólo muestra los que están en `disenos` |
 | **No se vio en el navegador**, ni en escritorio ni en el teléfono | — | No hubo RAM para `next dev`. Hay que mirarlo en producción con un ganado con cuotas, una suscripción y un lead abierto |
 | El teléfono muestra el saldo pero no cobra: no hay «Mandar link» | app/m/crm/[id]/FichaLead.tsx | El teléfono destila. El cobro con link en el teléfono es otra pieza |
+| Marcar a mano una cuota cuyo link ya se pagó pero no se asentó: después el cron la asienta como otra cuota y lo cobrado se cuenta dos veces | lib/pagos.ts, `cobrarCuota` | Frenarlo puede trabar una cuota para siempre si el pago entró por otro monto. Se ve el link pagado en «Links de pago» |
 | `epico` llega en PropsBloque en la próxima tanda del CRM. Hasta entonces se lee con un cast | pagos/bloques-cobro.tsx, `esEpico` | Lo hace el CRM |
 | `PlantillaTab` está declarado localmente. Va el import de lib/ficha/plantillas-tab.ts cuando el CRM lo cree | lib/ficha/plantillas-pagos.ts | Lo hace el CRM |
