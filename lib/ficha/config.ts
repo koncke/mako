@@ -101,6 +101,11 @@ export const TOPE_BLOQUES_TAB = 40;
 const TOPE_PREGUNTA = 200;
 /** El nombre de una tab: corto, entra en la fila de pestañas (Martín: el texto que se dibuja es corto). */
 export const TOPE_NOMBRE_TAB = 24;
+/**
+ * Las otras pestañas de la ficha, que no se personalizan (app/crm/lead-view/ficha/FichaPorBloques.tsx): una tab de
+ * datos no puede llamarse como ellas, o la fila tendría dos «Historial».
+ */
+export const NOMBRES_DE_OTRAS_TABS: readonly string[] = ['MaKo Analyst', 'Historial'];
 
 /** El nombre de una tab tal como llega: sin espacios de más ni caracteres de control, con tope. Vacío → null. */
 export function sanearNombreTab(raw: unknown): string | null {
@@ -746,8 +751,9 @@ export function aplicarCambio(actual: FichaGuardada, c: CambioFicha, elegida: Pl
       break;
     case 'nombre': {
       const nombre = c.nombre ?? null;
-      const otra = nombre ? TABS_FICHA.find((t) => t !== c.tab && ef.nombres[t].toLocaleLowerCase('es') === nombre.toLocaleLowerCase('es')) : undefined;
-      if (otra) return { ok: false, error: `Ya hay una tab que se llama «${ef.nombres[otra]}».` };
+      const mismo = (x: string) => !!nombre && x.toLocaleLowerCase('es') === nombre.toLocaleLowerCase('es');
+      const otra = TABS_FICHA.filter((t) => t !== c.tab).map((t) => ef.nombres[t]).concat(NOMBRES_DE_OTRAS_TABS).find(mismo);
+      if (otra) return { ok: false, error: `Ya hay una tab que se llama «${otra}».` };
       if (nombre) g.nombres = { ...(g.nombres ?? {}), [c.tab]: nombre };
       else if (g.nombres) delete g.nombres[c.tab];
       break;

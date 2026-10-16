@@ -15,6 +15,7 @@
 //   · `normalizar` borrando la plantilla de tab elegida cuando es la de entrada (la sugerida no queda)   → 9 / 2
 //   · el nombre de una tab sin tope (25 caracteres pasan)                                                → 10 / 1
 //   · dos tabs con el mismo nombre                                                                        → 10 / 1
+//   · una tab que se llama como una pestaña fija («Historial»)                                            → 10 / 1
 //   · «volver» de una tab borrando también su plantilla elegida                                           → 10 / 1
 //   · la plantilla de toda la ficha borrando los nombres de las tabs                                      → 10 / 1
 //   · `armar` sin dejar la tab configurada (MaKo arma lo mismo que la plantilla)                          → 10 / 1
@@ -144,6 +145,7 @@ test('el nombre de una tab: corto, saneado, sin repetir otro, y «el de siempre�
   assert.ok(f.configuradas.includes('pagos'), 'ponerle nombre es configurarla');
   assert.equal(aplicarCambio(r.ficha, { op: 'nombre', tab: 'tracking', nombre: 'cobranza' }, 'una-llamada', R).ok, false, 'dos tabs con el mismo nombre');
   assert.equal(aplicarCambio({}, { op: 'nombre', tab: 'tracking', nombre: 'Resumen' }, 'una-llamada', R).ok, false);
+  assert.equal(aplicarCambio({}, { op: 'nombre', tab: 'pagos', nombre: 'historial' }, 'una-llamada', R).ok, false, 'tampoco como una de las pestañas fijas');
   assert.deepEqual(ok(aplicarCambio(r.ficha, { op: 'nombre', tab: 'pagos', nombre: null }, 'una-llamada', R)).ficha, {}, 'sin nombre, el de siempre');
   assert.deepEqual(normalizar({ nombres: { pagos: 'Pagos' } }, 'una-llamada', R), {}, 'el nombre de siempre no se guarda');
   const s = sanearCambio({ op: 'nombre', tab: 'pagos', nombre: '  Cobro  ' });
