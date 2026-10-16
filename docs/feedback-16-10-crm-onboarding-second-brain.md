@@ -38,6 +38,11 @@ modo claro** (`b401cd017`, «pon en white mode la tab de Second Brain»). Las ci
   plantillas sugeridas... que no aparezca el "¿Qué vas a crear hoy?"»: la galería ya no se abre sola (cada tab usa
   su sugerida, sin escribir nada), y tocar un template lo elige y cierra. La barra «Usar» queda sólo para lo que arma
   MaKo con la caja. `abreSola`, `cerradas` y «Ahora no» quedaron sin uso en FichaPorBloques.tsx: borrarlos.
+- [x] **4.6, «Obligatorio» (`7ce7578ee`).** En la barra de cada bloque (modo edición, app/crm/lead-view/ficha/
+  Armador.tsx): prende o apaga, por funnel, el aviso de los datos que el bloque dibuja (`cubreDe`), menos la asistencia
+  de una reunión pasada (avisa siempre). Es el mismo `op: 'aviso'` que los interruptores de la barra lateral: cuando
+  esa sección se borre, no se pierde nada. Falta el flujo del engranaje de «A revisar» (el lead ficticio y «¿Ignorar
+  siempre?», punto 6).
 - [x] **4, la velocidad (en parte, `f808b91d0`).** En getLeadFullAction (app/crm/actions.ts) cinco lecturas que no
   dependían de nada (insight generado, equipo, CRMs, señales de cobro y el resumen del negocio, que esperaba a TODO)
   arrancan junto con las nueve de arriba. **No se midió contra producción**: medir el pop-up antes y después; lo

@@ -63,6 +63,7 @@ export const HECHO: SeccionChecklist[] = [
     { id: 'crm-estilo-hoja', t: 'Ficha en edición: «Estilo de la hoja» arriba (épica, tarjetas, tema); la barra lateral, más corta.' },
     { id: 'crm-galeria-sola', t: 'La galería ya no se abre sola: cada tab usa su sugerida; tocar un template lo elige.' },
     { id: 'crm-asignar-evento', t: '«Asignar evento» en el «⋯» de las etapas de reunión (Calendly y Cal.com).', ruta: '/crm' },
+    { id: 'crm-obligatorio', t: 'Ficha en edición: «Obligatorio» en cada bloque decide qué entra en «datos sin marcar».' },
   ] },
   { titulo: 'Automations', items: [
     { id: 'aut-flechas', t: 'Toda flecha se desconecta; el paso con IA escucha notas de voz.', ruta: '/automations' },
@@ -113,7 +114,7 @@ export const PENDIENTE: SeccionChecklist[] = [
     { id: 'p16-crm-calendar', t: 'CRM: «Asignar evento» también con Google Calendar.' },
     { id: 'p16-crm-velocidad', t: 'CRM: que la ficha del lead abra rápido.' },
     { id: 'p16-crm-hojas', t: 'CRM: tabs como las hojas del Dashboard, templates con miniaturas propias, sin la barra lateral.' },
-    { id: 'p16-crm-obligatorio', t: 'CRM: «Obligatorio» en cada bloque decide los datos sin marcar; el «Ver» igual que «A revisar».' },
+    { id: 'p16-crm-ficticio', t: 'CRM: el engranaje de «A revisar» abre un lead de ejemplo con «¿Ignorar siempre?».' },
     { id: 'p16-crm-chat2', t: 'CRM: el chat de MaKo con la cara del Second Brain y el muñeco de la tab.' },
     { id: 'p16-crm-editar2', t: 'CRM: en el «⋯» de la ficha, exportar y el tutorial; al editar, el chat para editar la vista.' },
     { id: 'p16-onb-pdf', t: 'Onboarding: sin el análisis de Offer; sólo ordenar en un PDF lo que vendes.' },
