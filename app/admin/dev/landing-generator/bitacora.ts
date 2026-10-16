@@ -556,4 +556,34 @@ export const BITACORA: Hito[] = [
       'lib/landing-url.ts — claveDeLanding y direccionParaBajar (el 403)',
     ],
   },
+  {
+    fecha: '16 oct', hora: '03:21', chat: 'Landing Generator', cuenta: 'claude3',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Que todos los chats de MaKo entiendan los pedidos sueltos, empezando por el del Web Generator',
+    pedido: 'En el chat de MaKo en Automations, como en general esto en todos los chats... Si hablo con un "sub-chat" y en algún momento le digo algo como "Quiero eliminar la otra automatización que tengo porque podría unificarla..." Que sepa como hacerlo, y a que automatización se refiere incluso sin nombrarla, interpretandolo y de última preguntando... Y si en cualquier momento, por ejemplo, estoy creando una automatización, o un dashboard, una web, o lo que sea y le digo algo como "Feedback sobre lo actual... Y luego <y también quiero que me crees otra landing para mi otro producto...>" ahí debe saber interpretarlo y llamar a la función para crear otra landing, e incluso proponerle "¿Quieres que primero terminemos esto y luego creamos la otra landing?..." o cosas así... Es más incluso si se está trabajando en una tab y se envía un mensaje totalmente diferente, relacionado a otra tab, que el chat le deje ahí en el chat el link para ir a donde corresponde. Esto se logra teniendo el "Second Brain" con todo, y la API de MaKo, que facilita que todos tengan contexto de todo, en todo momento.',
+    puntos: [
+      'Llegó por el coordinador «Cerebro», con sus decisiones: un módulo en lib/ con las acciones del registro de la API (nunca una lista propia); contestar lo actual y proponer lo otro con Sí / Después; borrar siempre confirma; primero el chat del Web Generator y un enganche documentado para Automations; la IA de la red de texto sin el crédito de Claude, y con datos de leads nunca un gratis que entrena.',
+    ],
+  },
+  {
+    fecha: '16 oct', hora: '09:30', chat: 'Landing Generator', cuenta: 'claude3',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Los pedidos sueltos: el módulo compartido y el chat del Web Generator enganchado',
+    puntos: [
+      'Un mensaje se separa en pedidos y cada uno es de lo abierto, de OTRA landing (cuál; con dos, pregunta con las dos más recientes), una landing NUEVA, u OTRA tab (con su link). Lo abierto sigue a «editar» como siempre; el resto son burbujas de MaKo.',
+      '«¿Terminamos esto y después creamos otra landing?» con Sí / Después; «Crear ahora» abre Crear con IA con el pedido escrito; «Sí» espera a que se acepte o descarte el cambio de la landing abierta. Borrar otra landing confirma y la manda a la Papelera; la abierta nunca se borra desde el chat.',
+      'La IA sólo entra cuando las reglas dudan, sólo etiqueta y es gratis. Si la interpretación falla o tarda, el chat hace lo de antes.',
+      'Automations y el chat del Second Brain enganchan con POST /api/mako/pedidos (docs/diseno-mako-pedidos.md).',
+    ],
+    commits: [
+      { sha: 'f8c69a7bd', msg: 'MaKo entiende los pedidos sueltos: separa el mensaje, sabe cuál es «la otra», propone el orden y deja el link de otra tab', lineas: 2276, archivos: 12 },
+      { sha: '195df92d2', msg: 'Web Generator: el «Sí» de «¿Terminamos esto y después creamos otra landing?» espera a que termines esto', lineas: 110, archivos: 5 },
+    ],
+    archivos: [
+      'lib/mako-pedidos.ts — el núcleo puro: separar, resolver, la propuesta',
+      'lib/mako-pedidos-ia.ts — la IA que etiqueta, sólo gratis',
+      'app/api/mako/pedidos/route.ts — el punto de enganche de todos los chats',
+      'app/web-generator/editor/pedidos-chat.ts + paneles/PanelAgente.tsx — las burbujas del chat del editor',
+    ],
+  },
 ];
