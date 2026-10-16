@@ -140,12 +140,12 @@ export async function extraerDeArchivo(texto: string, fields: Array<{ key: strin
   // siguiente. Sin esto, un doc de +10k chars volvía "sin datos útiles" (bug reportado).
   const errores: string[] = [];
   const out = await chatCheapCascade({ system: sys, user: texto.slice(0, maxChars), json: true, maxTokens: 2000, feature: opts.feature || 'El Archivero', motivo: opts.motivo || 'Extraer campos de un documento del negocio', provs: CASCADA_DOCS, modelos: MODELO_DOCS, validar: esJsonObjeto, erroresOut: errores, redDePlataforma: true, ...(opts.hastaMs ? { hastaMs: opts.hastaMs } : {}) });
-  // out vacío: puede ser "sin ninguna key en el workspace" O "hay key pero la cascada
-  // falló igual" (cuota, rate-limit, key vencida). El caller (route) YA validó lo
-  // primero con docsIADisponible() antes de llegar hasta acá, así que si pasa por
-  // acá con vacío, es lo segundo — motivoDeErroresCascada interpreta los errores
-  // crudos para decir POR QUÉ, en vez del "reintentá en un momento" genérico que
-  // antes tapaba una cuota agotada (reporte de Martín).
+  // out vacío: puede ser "sin ninguna key y la red de la plataforma tampoco contestó" O
+  // "hay key pero la cascada falló igual" (cuota, rate-limit, key vencida). Hasta el
+  // 16/10/2026 el route cortaba antes a quien no tenía keys; ya no (un cliente nuevo no trae
+  // una API), así que el route distingue los dos casos al armar el aviso (`mensajeSinIA`).
+  // motivoDeErroresCascada interpreta los errores crudos para decir POR QUÉ, en vez del
+  // "reintentá en un momento" genérico que antes tapaba una cuota agotada (reporte de Martín).
   if (!out) return { campos: {}, razonamiento: '', sinIA: true, motivoSinIA: motivoDeErroresCascada(errores) ?? undefined };
   const parsed = parseJsonLoose(out);
   const raw = (parsed.campos && typeof parsed.campos === 'object' ? parsed.campos : {}) as Record<string, unknown>;
