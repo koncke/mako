@@ -317,6 +317,21 @@ export const BITACORA: Hito[] = [
     ],
   },
   {
+    fecha: '16 oct', hora: '14:40', chat: 'Centro de Operaciones', sesion: 'local_428051c1-0369-4df2-ae6b-bcb42f63b64b', cuenta: 'claude3',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Los adjuntos del chat se guardan en el Archivero',
+    puntos: [
+      'La caja del Second Brain suma el «+», pegar y arrastrar: fotos y PDF. Al recargar vuelven, en la computadora y en el teléfono.',
+      'El PDF que manda el admin también queda en El Archivero, y el chip dice cómo quedó. Lo de un lead (el Analyst del CRM) no va.',
+      'La API de MaKo suma lo_que_hizo_chat_mako y renombrar_chat_mako. Del riel, el grupo de WhatsApp y el muñeco de cada chat está la parte de servidor.',
+    ],
+    archivos: [
+      'lib/chat-mako-bloques.ts, chat-mako-adjuntos.ts — los adjuntos',
+      'supabase/migrations/0303_chart_chats_bloques.sql — la columna',
+      'app/_chat/ArchivosHilo.tsx — la miniatura y la ficha',
+    ],
+  },
+  {
     fecha: '16 oct', hora: '11:40', chat: 'Centro de Operaciones', sesion: 'local_428051c1-0369-4df2-ae6b-bcb42f63b64b', cuenta: 'claude3',
     actor: 'claude', tipo: 'implementacion',
     titulo: 'El Second Brain del teléfono es el chat con MaKo, con el Mapa aparte',

@@ -23,6 +23,44 @@ hay), `lib/cerebro-layout.ts` (dónde va cada uno), `lib/cerebro-modelo.ts` (la 
 
 ---
 
+## Los adjuntos del chat se guardan: tres llamadores, un turno, y El Archivero que MUEVE (16/10/2026)
+
+Tanda 4 de la etapa 2 (docs/diseno-mako-ai-native.md). Pedido de Martín: «los adjuntos se guardan en el archivero».
+
+- **`turnoApp` tiene TRES llamadores, no dos.** El Second Brain y el teléfono, sí, pero también el MaKo Analyst de un
+  lead (`/api/crm/analyst` → `turnoDelLead`). La primera versión guardaba y archivaba para todos: el PDF de un LEAD
+  (su contrato, su propuesta) iba a El Archivero del negocio y `answersConDocumento` pisaba el perfil con sus datos.
+  Lo cazó la revisión adversarial, no un test. Ahora guardar es una opción de quien llama (`guardarAdjuntos`), y sólo
+  la prenden `/api/mako/chat` y `/api/m/mako`.
+- **`registrarDocumentoSinPisar` MUEVE su origen, no lo copia.** «Se hace cargo del binario»: al volver, el archivo
+  quedó en `<ws>/<id>` o se borró. Si el chat le pasaba su propio adjunto, la miniatura se rompía. Le va una COPIA
+  (`<ws>/chatdoc/<uuid>`), y cada uno es dueño de lo suyo: el del chat se va con la conversación, el de El Archivero
+  con su pantalla. Sólo el PDF del ADMIN: El Archivero alimenta el perfil del negocio.
+- **El plazo de lo que corre en `after()` se mide desde que EMPEZÓ el pedido.** Con fotos (visión, ~52 s cada una) leer
+  los archivos lleva minutos. Contado desde después, el plazo pasaba el `maxDuration` y la función podía morir con
+  el binario ya movido y sin su fila.
+- **Un `<img src>` no pasa por el `fetch` de la casa** (WsFetch): el `?ws=` va a mano con `conWs`. Sin él, el super
+  admin mirando un cliente pide el archivo en SU workspace y no lo encuentra.
+- **La pantalla nunca ve el path.** Ve `<id del mensaje>:<n>`, y la ruta busca el path de nuevo, mira de quién es la
+  conversación y firma 300 s. El path de la base se sanea (`esRutaDeChat`) antes de firmarlo o borrarlo.
+- **Un test de una regex necesita un caso hecho SÓLO del alfabeto permitido.** Un uuid aflojado a `[0-9a-f./-]+`
+  pasaba todos los casos malos, porque todos tenían una letra fuera del hexa («x», «.jpg»). Lo cazan `3/chat/..` y
+  `3/chat/abc`.
+- **Pegar desde Excel o Word trae texto Y una imagen.** Interceptar los archivos del portapapeles sin mirar si hay
+  `text/plain` le robaba el texto a la persona.
+- La migración 0303 sólo agrega, y el código la tolera ausente: sin la columna el mensaje se guarda sin bloques y el
+  binario se borra en el acto. La 0299 que decía el plan ya la había tomado Video Editor (y del 0300 al 0302 están en
+  integración).
+
+**SIN HACER:**
+- `chart_sessions.previa` (la segunda línea de la barra), que pedía el plan: no se hizo.
+- El teléfono no tiene vista previa local de los archivos mientras salen: muestra los nombres hasta que vuelven.
+- Tandas 7 a 10: está la parte de servidor, falta la pantalla. Detalle en docs/relevo/centro-operaciones.md.
+
+**Vive en:** `lib/chat-mako-bloques.ts` (puro) · `lib/chat-mako-adjuntos.ts` · `lib/chart-chats.ts` · `lib/mako-turno-app.ts`
+(`guardarAdjuntos`, `urlDeAdjunto`) · `app/api/mako/chat/route.ts` · `app/_chat/ArchivosHilo.tsx` ·
+tests/chat-mako-bloques.test.ts, tests/second-brain-chat.test.ts (dieciséis roturas)
+
 ## «Pregúntale a MaKo» es el Second Brain: la clave se queda, y lo de antes se lee (16/10/2026)
 
 Tanda 2 de la etapa 2 (docs/diseno-mako-ai-native.md).

@@ -1287,6 +1287,9 @@ código nuevo:
     la cara del Centro (app/_chat/, centro.css), el turno del teléfono (lib/mako-turno-app.ts) por `/api/mako/chat`.
     Una página que entra a más gente y muestra una parte sólo al admin la corta EN EL SERVIDOR con `esAdminDeTab`
     (lib/puerta-admin-tab.ts), y no la calcula para los demás.
+    **El turno (`turnoApp`) lo usan TRES chats** (el Second Brain, el teléfono y el MaKo Analyst de un lead): lo que
+    escribe FUERA del hilo (guardar archivos, El Archivero, cualquier efecto nuevo) va detrás de una opción que prende
+    quien llama (`guardarAdjuntos`), nunca para todos. El PDF de un lead no es un documento del negocio.
   - **Cada jefe ES un proyecto del Plan** (16/10/2026; los dos se llaman como la tab). El Centro lee y escribe el Plan
     SÓLO con las operaciones de la API de MaKo (`listar_tareas_plan`, `proponer_tareas_plan`, `proponer_cierre_tareas`)
     aplicadas en el acto con `ctxDelCentro` (lib/centro-plan.ts), por la ruta `/api/centro/plan` y NO por una server
