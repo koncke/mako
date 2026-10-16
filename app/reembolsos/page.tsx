@@ -4,11 +4,13 @@
 // ⚠️ BORRADOR (11/10/2026) PARA QUE MARTÍN LO REVISE. Se escribió junto con la pasarela de pagos
 // (Stripe y Mercado Pago): las dos piden esta página para aprobar la cuenta ANTES del primer cobro,
 // y /terminos (sección 8) remite acá. Está escrita de MÍNIMA a propósito: no promete nada que el
-// producto no haga hoy. Lo que hay que decidir y no está decidido:
-//   · el plazo de respuesta (puse 5 días hábiles);
-//   · la garantía del programa grupal, que hoy se acuerda en la llamada (el modelo de pricing hablaba
-//     de «100% después de la sesión 1», app/admin/dev/pricing/modelo.ts: no está decidido);
-//   · si se ofrece cancelar sin escribir (hoy no hay un portal: se cancela pidiéndolo).
+// producto no haga hoy. Lo que estaba sin decidir (15/10/2026):
+//   · el plazo de respuesta: DECIDIDO, 5 días hábiles, lo común en SaaS (lo decidió Estrategia);
+//   · la garantía del programa grupal, que hoy se acuerda en la llamada: en la Ticketera de Martín
+//     (`garantia-grupal`; la recomendada, 100% después de la primera sesión);
+//   · cancelar sin escribir: DECIDIDO copiar a todo SaaS (cancelar uno mismo, con el portal de cliente de Stripe).
+//     Mientras no exista, esta página y /terminos dicen «por email», como hoy. Es lo siguiente sin bloqueo de
+//     docs/relevo/pagos.md.
 //
 // Mismo molde que /terminos y /privacidad: el revisor de la pasarela la abre SIN cuenta y a veces
 // sin JavaScript (va en PUBLICOS de lib/rutas-publicas.ts, y tests/layout-sin-suspense.test.ts la lee

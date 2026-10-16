@@ -754,8 +754,8 @@ implementación en un worktree propio (`C:/dev/wt-pagos`) y una rama aparte para
 | **Pasarela:** precios en moneda local en el catálogo (para que la API y las automatizaciones creen links de Mercado Pago) | `lib/productos.ts`, `lib/api-mako/areas/cobros.run.ts` |
 | **Pasarela:** un contracargo de Mercado Pago se cuenta pero NO mueve la cuota: falta medir con las claves de prueba qué dice `coverage_applied` (GET del contracargo, otro tópico de aviso) y qué significan de verdad `settled`/`reimbursed` | `lib/cobros-eventos.ts` (`planDePagoMp`), `lib/cobros-webhook.ts`, `lib/mercadopago-api.ts` |
 | **Pasarela:** `crear_link_pago` en la lista corta del «⚡ Acción» (necesita un control propio para el producto del catálogo) | `lib/editor-acciones.ts` |
-| **Pasarela:** Stripe no abre cuentas a negocios radicados en Argentina, y la primera venta a un mexicano arranca el reloj del RFC (`stripe-reloj` en el modelo) | `app/admin/dev/pricing/modelo.ts:635,1272`, decisión de Martín |
-| **Pasarela:** revisar los BORRADORES legales | `app/reembolsos/page.tsx`, `app/terminos/page.tsx` §8 |
+| **Pasarela:** vender planes de MaKo a México arranca el reloj del RFC: en la Ticketera de Martín (`cobrar-mako-en-mexico`); con la A se integra la rama `pagos-mexico-guarda`, ya probada. Stripe en Argentina es «segunda ola» (modelo.ts:641) | `lib/cobros.ts` (`crearCobro`), `app/admin/dev/pricing/modelo.ts` |
+| **Pasarela:** la garantía del programa grupal (`garantia-grupal`, Ticketera de Martín); y cancelar uno mismo con el portal de cliente de Stripe (decidido por Estrategia el 15/10; hasta entonces, «por email») | `app/reembolsos/page.tsx`, `app/terminos/page.tsx` §8 |
 | **Pasarela (revisión):** los topes de `/api/pagar/email` viven en memoria (por instancia); el «ya es de otro» ya gasta el intento (15/10) | `app/api/pagar/email/route.ts`, `lib/rate-limit.ts` |
 | **Pasarela (revisión):** un aviso de MP sin firma con el `user_id` de un negocio conectado provoca una relectura con SU token (las filas `sin-workspace` ya tienen techo: una por día, 15/10) | `app/api/webhooks/mercadopago/route.ts` |
 
