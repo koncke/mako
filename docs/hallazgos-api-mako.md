@@ -1391,10 +1391,15 @@ de OTRO cliente, mientras la pantalla seguía mostrando el título de Juan.
 hace cumplir (un valor distinto se rechaza; uno vacío vuelve al guardado: el formulario llega del navegador, la
 pantalla sola no alcanza), `plano` lo lleva al cliente y `RevisarAccion` lo pinta de sólo lectura. Si es otro, se
 propone de nuevo. Copia del panel de Stripe: el cargo que se devuelve no se cambia en el diálogo de devolución.
-**Hecho en cobros** (`cobroId` de `reembolsar_cobro` y `cancelar_suscripcion`). **Sin hacer, con el mismo agujero y
-plata de por medio** (no son del chat de Pagos): `proponer_presupuesto_campana` (`campaignId`),
-`proponer_presupuesto_conjunto` y `proponer_agregar_anuncio` (`adsetId`), `proponer_editar_textos_anuncio` (`adId`) en
-lib/api-mako/areas/ads.def.ts, y `programar_broadcast` / `enviar_broadcast` (`id`, el `idBroadcast`) en
-lib/api-mako/areas/email.def.ts. Y, sin plata, cualquier otra acción de pantalla cuyo título nombre a alguien.
+**Hecho el mismo día, en todas las de plata o envío** (lo pidió Estrategia: ni Ads Manager ni Email tenían chat): el
+`cobroId` de cobros; `P_CAMPAIGN`, `P_ADSET` y `P_AD` de Ads (y el `nivel` + `id` de `proponer_eliminar_entidad_meta`,
+que no es plata pero no se deshace); el `idBroadcast` de Email; el borrador de `enviar_plantilla_a_meta` y el paso de
+`enviar_plantilla_meta_paso` (en esa acción sola: `pOrden` en otra puede ser un valor que se corrige). **Y un BARRIDO**
+(tests/revisar-fijo.test.ts): toda acción de pantalla con `costo: 'dinero'` o que manda algo (`enviar_*`, `programar_*`) y
+tiene un id, tiene que traer uno fijo: la próxima no nace con el agujero. Queda afuera, sin plata ni envío, cualquier
+otra acción de pantalla cuyo título nombre a alguien.
+**Al hacerlo:** el reemplazo del `id` de `enviar_plantilla_a_meta` cayó primero en OTRA acción con la misma línea de
+texto (`borrar_borrador_plantilla`); lo vio el barrido. Un parámetro declarado inline se repite tal cual en varias
+acciones: el ancla de un cambio así es la acción, no la línea.
 **Vive en:** `lib/api-mako/acciones.ts` (`aplicarPropuestaGenerica`) · `lib/api-mako/tipos.ts` (`Parametro.fijoAlRevisar`)
 · `lib/bandeja-filas.ts` (`plano`) · `app/mako/revisar/[id]/RevisarAccion.tsx` · `tests/revisar-fijo.test.ts`.
