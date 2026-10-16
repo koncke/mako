@@ -24,6 +24,7 @@ import { credWsEstricta, envCred } from '@/lib/credenciales';
 import { responderFalloDeRuteo } from '@/lib/webhook-fallo-ruteo';
 import { redactarFollowUpPostLlamada } from '@/lib/post-llamada';
 import { textoAvisoPostLlamada } from '@/lib/lead-resumen';
+import { datosPostLlamada } from '@/lib/reunion-grabada';
 import { esGrabacionDeEntrega } from '@/lib/insights-llamada-reparto';
 
 export const dynamic = 'force-dynamic';
@@ -214,7 +215,9 @@ export async function POST(request: NextRequest) {
         // la charla — eso vive en la pantalla que linkea (ver lib/lead-resumen.ts).
         try {
           const texto = await textoAvisoPostLlamada({ leadId: lead.id, nombre, reunion, duracionMin: dur });
-          await emitirDelCatalogo('reunion-ocurrio-fathom', { texto });
+          // El lead y los DATOS van con el texto (15/10/2026): la automatización de la plataforma («Terminó la Reunión de un
+          // Negocio») los cita por nombre; sin ella, sale el texto de siempre.
+          await emitirDelCatalogo('reunion-ocurrio-fathom', { texto, lead: { id: lead.id, nombre }, datos: datosPostLlamada({ reunion, duracionMin: dur }) });
         } catch (err3) {
           console.error(`[webhook:fathom] aviso post-llamada lead=${lead.id} falló: ${err3 instanceof Error ? err3.message : String(err3)}`);
         }

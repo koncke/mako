@@ -16,7 +16,7 @@
 //   · sólo se ofrecen en la plataforma, y no aceptan una CONDITION (no hay lead).
 //
 // ⚠️ PROBADO ROMPIENDO (15/10/2026, scratchpad romper-plataforma.mjs, una rotura por vez y restaurada con sha1 igual).
-// Base 6 pass / 0 fail; los números medidos de cada rotura, al lado de su test.
+// Base 7 pass / 0 fail; los números medidos de cada rotura, al lado de su test.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -24,6 +24,7 @@ import { readFileSync } from 'node:fs';
 import { emitirPorEvento, pasosDelEvento, MOTIVO_EVENTO, type DepsEvento, type FilaEvento } from '../lib/aviso-evento';
 import { eventosOfrecidos, TRIGGER_AVISO_MAKO } from '../lib/disparadores';
 import { datosCaida, datosVolvio, textoCaida, textoVolvio } from '../lib/linea-vigilancia';
+import { datosPostLlamada } from '../lib/reunion-grabada';
 import { plantillaPorId, plantillasPara, pasosDePlantilla } from '../lib/plantillas-automatizaciones';
 import { textoConDatos } from '../lib/variables-del-lead';
 import { partesDeMako } from '../lib/mako-tarjeta';
@@ -56,7 +57,7 @@ function deps(filas: FilaEvento[]) {
 const HECHOS = { motivo: { desvinculado: true, cuando: '2026-10-03T15:00:00Z' }, desde: null, linea: '+5215512345678', link: 'https://hola-mako.com/whatsapp', tz: 'America/Mexico_City' };
 const OPTS = { texto: textoCaida(HECHOS), datos: datosCaida(HECHOS), dedupKey: 'mako_ws13', dedupTtlMin: 60 };
 
-// rotura 1 (las filas se leen en el negocio, no en la plataforma): 5 pass / 1 fail, cae éste.
+// rotura 1 (las filas se leen en el negocio, no en la plataforma): 6 pass / 1 fail, cae éste.
 test('lo emite el negocio, lo corren las filas de la PLATAFORMA, y la tarjeta le llega al negocio', async () => {
   const { d, anotado } = deps([fila(301)]);
   const r = await emitirPorEvento(CAT, NEGOCIO, OPTS, d);
@@ -65,11 +66,11 @@ test('lo emite el negocio, lo corren las filas de la PLATAFORMA, y la tarjeta le
   assert.equal(anotado.corridas[0].ws, PLATAFORMA, 'la corrida es de la plataforma');
   assert.equal(anotado.corridas[0].ctx.negocioWs, NEGOCIO, 'la tarjeta va al negocio que lo emitió');
   assert.deepEqual(anotado.corridas[0].ctx.datos, OPTS.datos);
-  // rotura 2 (`wa` siempre false): 5 pass / 1 fail, cae éste. Sin esto el vigilante no marca «avisado» y el «volvió» no sale.
+  // rotura 2 (`wa` siempre false): 6 pass / 1 fail, cae éste. Sin esto el vigilante no marca «avisado» y el «volvió» no sale.
   assert.equal(r.wa, true, 'lo que corrió se dice: el vigilante marca «avisado» con esto');
 });
 
-// rotura 3 (sin el `sinFila`): 5 pass / 1 fail, cae éste.
+// rotura 3 (sin el `sinFila`): 6 pass / 1 fail, cae éste.
 test('la mudanza no deja hueco: sin fila en la plataforma, `sinFila` (sale como antes); con una pausada, decide ella', async () => {
   const sin = deps([]);
   const r = await emitirPorEvento(CAT, NEGOCIO, OPTS, sin.d);
@@ -83,7 +84,7 @@ test('la mudanza no deja hueco: sin fila en la plataforma, `sinFila` (sale como 
   assert.match(leer('lib/avisos.ts'), /const r = await emitirPorEvento\(cat, ws, opts, await depsDelEvento\(\)\);\n(\s*\/\/[^\n]*\n)*\s*if \(!r\.sinFila\) return r;/);
 });
 
-// rotura 4 (`datosCaida` con otro texto: el de los clientes cambiaría): 5 pass / 1 fail, cae éste.
+// rotura 4 (`datosCaida` con otro texto: el de los clientes cambiaría): 6 pass / 1 fail, cae éste.
 test('el texto: la plantilla con los datos dice lo mismo que el código de siempre', () => {
   const tarjeta = (id: string) => {
     const p = pasosDePlantilla(plantillaPorId(id)!)[0] as unknown as PasoGrafo;
@@ -106,7 +107,7 @@ test('el texto: la plantilla con los datos dice lo mismo que el código de siemp
   assert.doesNotMatch(textoConDatos(tarjeta('mako-whatsapp-caido'), datosCaida({ ...HECHOS, linea: null })), /📱/);
 });
 
-// rotura 5 (se ofrecen en un negocio): 5 pass / 1 fail, cae éste.
+// rotura 5 (se ofrecen en un negocio): 5 pass / 2 fail, caen éste y el de Fathom.
 test('sólo en la plataforma: el evento en el CRON y la plantilla en la galería', () => {
   const sub = (o: { plataforma?: boolean }) => eventosOfrecidos('mako', null, o).map((e) => e.subtipo);
   assert.ok(!sub({}).includes('whatsapp_caido') && !sub({}).includes('whatsapp_volvio'), 'un negocio no los ve');
@@ -116,7 +117,7 @@ test('sólo en la plataforma: el evento en el CRON y la plantilla en la galería
   assert.ok(ids({ plataforma: true }).includes('mako-whatsapp-caido') && ids({ plataforma: true }).includes('mako-whatsapp-volvio'));
 });
 
-// rotura 6 (una CONDITION pasa en un evento de la plataforma): 5 pass / 1 fail, cae éste.
+// rotura 6 (una CONDITION pasa en un evento de la plataforma): 6 pass / 1 fail, cae éste.
 test('un evento de la plataforma no trae lead: una CONDITION no corre, y la plantilla sí', () => {
   assert.equal(pasosDelEvento(pasosCaido(), 'whatsapp_caido').problema, null, 'la plantilla corre');
   const conCondicion = [
@@ -124,6 +125,27 @@ test('un evento de la plataforma no trae lead: una CONDITION no corre, y la plan
     ...pasosCaido(),
   ] as unknown as PasoGrafo[];
   assert.equal(pasosDelEvento(conCondicion, 'whatsapp_caido').problema, MOTIVO_EVENTO.condicionPersona);
+});
+
+// LA GRABACIÓN DE FATHOM (el tercero mudado): trae al LEAD del negocio, y la tarjeta lo cita con los datos de siempre.
+// rotura 7 (`datosPostLlamada` con la duración vacía en vez de faltar): 6 pass / 1 fail, cae éste.
+test('Fathom: el lead y la reunión que terminó; sin duración, su renglón se va solo', async () => {
+  const p = pasosDePlantilla(plantillaPorId('mako-reunion-grabada')!)[0] as unknown as PasoGrafo;
+  const parte = partesDeMako((p.accion as { params?: Record<string, unknown> }).params)[0];
+  const tarjeta = parte && 'cuerpo' in parte ? String(parte.cuerpo) : '';
+  const lead = { nombre_completo: 'Laura Gil', link_lead: 'https://hola-mako.com/crm/482/resumen' };
+  const con = textoConDatos(tarjeta, { ...lead, ...datosPostLlamada({ reunion: 'R1', duracionMin: 42 }) });
+  assert.equal(con, '✅ Terminó la *R1 con Laura Gil*.\n⏱️ 42 min\n\n👉 Mira el resumen de la llamada:\nhttps://hola-mako.com/crm/482/resumen');
+  const sin = textoConDatos(tarjeta, { ...lead, ...datosPostLlamada({ reunion: 'R2', duracionMin: null }) });
+  assert.doesNotMatch(sin, /⏱️/, 'sin duración, el renglón no queda con el reloj solo');
+  assert.match(sin, /^✅ Terminó la \*R2 con Laura Gil\*\./, 'y la frase principal sigue');
+  // Lo emite el negocio con su lead: la corrida lo lleva, y la tarjeta le llega al negocio.
+  const { d, anotado } = deps([{ ...fila(302), disparadores: [{ id: 'd1', trigger_tipo: TRIGGER_AVISO_MAKO, subtipo: 'reunion_grabada' }], pasos: pasosDePlantilla(plantillaPorId('mako-reunion-grabada')!) }]);
+  await emitirPorEvento({ id: 'reunion-ocurrio-fathom', titulo: 'Reunión ocurrió', categoria: 'aviso', semaforo: 'na' }, NEGOCIO, { lead: { id: 482, nombre: 'Laura Gil' }, datos: datosPostLlamada({ reunion: 'R1', duracionMin: 42 }) }, d);
+  assert.equal(anotado.corridas[0].ctx.leadId, 482);
+  assert.equal(anotado.corridas[0].ctx.negocioWs, NEGOCIO);
+  assert.ok(!eventosOfrecidos('mako', null, {}).some((e) => e.subtipo === 'reunion_grabada'), 'un negocio no lo ve');
+  assert.match(leer('app/api/webhooks/fathom/route.ts'), /emitirDelCatalogo\('reunion-ocurrio-fathom', \{ texto, lead: \{ id: lead\.id, nombre \}, datos: datosPostLlamada\(\{ reunion, duracionMin: dur \}\) \}\)/);
 });
 
 test('el runner manda la tarjeta al negocio del evento, con sus datos y sus links', () => {

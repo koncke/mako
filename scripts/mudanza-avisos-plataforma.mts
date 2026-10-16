@@ -8,7 +8,8 @@
 //   1. si la plataforma ya tiene una automatización viva con ese evento, nada (correrlo dos veces no duplica);
 //   2. la crea por la MISMA puerta que «Nueva automatización» (`crearDesdePlantilla`, con `plataforma: true`);
 //   3. la prende por la MISMA puerta que «Activar» (`setSecuenciaActiva`, que valida lo mismo que Publicar).
-// ⚠️ VA DESPUÉS DEL DEPLOY de 729789dfa: con el código de antes, el evento no existe y la fila no correría. Antes de la
+// ⚠️ VA DESPUÉS DEL DEPLOY del código de cada evento (la línea: 729789dfa; Fathom: el commit que lo suma). Con el código
+// de antes, el evento no existe y la fila no correría. Antes de la
 // fila, el aviso sale como siempre (`sinFila`); desde la fila, sólo por ella. Ni hueco ni doble.
 //
 //   node --conditions react-server --import tsx scripts/mudanza-avisos-plataforma.mts             → SIMULACRO (default)
@@ -29,6 +30,7 @@ config({ path: arg('env') ?? '.env.local' });
 const MUDADOS: ReadonlyArray<{ plantilla: string; evento: string }> = [
   { plantilla: 'mako-whatsapp-caido', evento: 'whatsapp_caido' },
   { plantilla: 'mako-whatsapp-volvio', evento: 'whatsapp_volvio' },
+  { plantilla: 'mako-reunion-grabada', evento: 'reunion_grabada' },
 ];
 
 const { runWithWorkspace, getTenantDb, wsSuperAdmin } = await import('../lib/workspace');

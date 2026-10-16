@@ -107,7 +107,7 @@ export function tramosConVariables(linea: string): Array<{ txt: string; esVar: b
  */
 export type FuenteDato = 'nombre' | 'ficha' | 'zona' | 'producto' | 'etiquetas' | 'pagos' | 'curso'
   | 'perfil' | 'lead_magnet' | 'momento' | 'negocio' | 'links' | 'evento' | 'cuota' | 'cobro'
-  | 'proxima' | 'respuestas' | 'pago' | 'escrito' | 'analisis' | 'cuenta' | 'linea';
+  | 'proxima' | 'respuestas' | 'pago' | 'escrito' | 'analisis' | 'cuenta' | 'linea' | 'grabacion';
 
 /**
  * A quién le llega el mensaje: al lead (las automatizaciones), al equipo (MaKo en WhatsApp) o a un USUARIO de MaKo
@@ -138,8 +138,10 @@ export type VariableAviso = {
    *               pasa el emisor (`analizarHoja`, lib/graficos-analisis-server.ts) armado con `valoresDelAnalisis`.
    * · `linea`   — necesita la LÍNEA de WhatsApp de un negocio que se cayó o volvió (los eventos de la plataforma
    *               `whatsapp_caido` y `whatsapp_volvio`): lo pasa lib/lineas-vigilante.ts (`datosCaida`), por código.
+   * · `grabacion` — necesita la REUNIÓN QUE TERMINÓ y quedó grabada (el evento de la plataforma `reunion_grabada`):
+   *               lo pasa el webhook de Fathom (`datosPostLlamada`, lib/reunion-grabada.ts).
    */
-  alcance: 'siempre' | 'lead' | 'cuota' | 'mensaje' | 'pago' | 'escrito' | 'analisis' | 'restablecer' | 'linea';
+  alcance: 'siempre' | 'lead' | 'cuota' | 'mensaje' | 'pago' | 'escrito' | 'analisis' | 'restablecer' | 'linea' | 'grabacion';
   /**
    * UN DATO SECRETO (15/10/2026, docs/diseno-2fa-obligatorio.md §3 y §8): el link de restablecer la contraseña (y
    * después el código del 2FA por correo). Sale SÓLO en el mail a la persona y NUNCA se guarda: `sinSecretos` lo saca
@@ -339,6 +341,10 @@ export const VARIABLES_AVISO: VariableAviso[] = [
   { key: 'linea_titulo', label: 'Qué le pasó', ejemplo: 'Se desconectó tu WhatsApp', alcance: 'linea', grupo: 'linea', fuente: 'linea', soloPara: 'equipo' },
   { key: 'linea_motivo', label: 'Qué pasa y qué hacer', ejemplo: 'WhatsApp cerró la sesión del dispositivo vinculado el 3 de octubre: tu teléfono está bien, pero por ese número no entran ni salen mensajes. Vuelve a escanear el QR:', alcance: 'linea', grupo: 'linea', fuente: 'linea', soloPara: 'equipo' },
   { key: 'linea_link', label: 'Link para reconectarla', ejemplo: 'https://hola-mako.com/whatsapp', alcance: 'linea', grupo: 'linea', fuente: 'linea', soloPara: 'equipo' },
+  // ── La reunión que TERMINÓ y quedó grabada (15/10/2026, el evento de la plataforma `reunion_grabada`): la pasa el
+  //    webhook de Fathom. No es la «Próxima reunión»: ésa todavía no pasó.
+  { key: 'grabacion_reunion', label: 'Qué reunión terminó', ejemplo: 'R1', alcance: 'grabacion', grupo: 'reuniones', rama: 'La que terminó', fuente: 'grabacion', soloPara: 'equipo' },
+  { key: 'grabacion_duracion', label: 'Cuánto duró', ejemplo: '42 min', alcance: 'grabacion', grupo: 'reuniones', rama: 'La que terminó', fuente: 'grabacion', soloPara: 'equipo' },
 
   // ── Campaña: de dónde vino. Son nombres internos (de la campaña, del anuncio): para el equipo.
   { key: 'lead_origen', label: 'Por dónde entró', ejemplo: 'instant_form', alcance: 'lead', grupo: 'campana', fuente: 'ficha', soloPara: 'equipo' },
@@ -475,6 +481,8 @@ export type ContextoDatos = {
   conLead: boolean; conCuota?: boolean; conMensaje?: boolean; conPago?: boolean; conEscrito?: boolean; conAnalisis?: boolean; destino?: DestinoMensaje;
   /** La línea de WhatsApp de un negocio (los eventos de la plataforma `whatsapp_caido` y `whatsapp_volvio`). */
   conLinea?: boolean;
+  /** La reunión que terminó y quedó grabada (el evento de la plataforma `reunion_grabada`). */
+  conGrabacion?: boolean;
   /** El link de restablecer la contraseña (sólo el evento `contrasena_restablecer`, y sólo al mail a la persona). */
   conRestablecer?: boolean;
 };
@@ -504,6 +512,7 @@ function alcanzaPara(a: VariableAviso['alcance'], opts: ContextoDatos): boolean 
   if (a === 'analisis') return opts.conAnalisis === true;
   if (a === 'restablecer') return opts.conRestablecer === true;
   if (a === 'linea') return opts.conLinea === true;
+  if (a === 'grabacion') return opts.conGrabacion === true;
   return false;
 }
 

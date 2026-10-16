@@ -658,6 +658,22 @@ export const PLANTILLAS_PLATAFORMA: readonly PlantillaAutomatizacion[] = [
       mako('wv_mk', '🟢 *Volvió tu WhatsApp*\n📱 {{linea_numero}}\nPor ese número ya entran y salen mensajes otra vez.', null),
     ],
   },
+  {
+    // La grabación de Fathom (`reunion-ocurrio-fathom`, 10/10/2026: «El de Fathom también debería ser algo que se configura
+    // en SuperAdmin»). Sale DESPUÉS del Closing Analyst, con el link a la pantalla del resumen (`{{link_lead}}`). La
+    // duración en su renglón: sin ella, se va sola y no se lleva la frase.
+    id: 'mako-reunion-grabada',
+    nombre: 'Terminó la Reunión de un Negocio',
+    emoji: '✅',
+    linea: 'Le avisa al grupo de un negocio que terminó una reunión con un lead, con el link al resumen de la llamada.',
+    origen: 'el webhook de Fathom (reunion-ocurrio-fathom), después de que MaKo analiza la charla',
+    objetivo: 'clientes',
+    soloPlataforma: true,
+    cron: { fijo: TRIGGER_AVISO_MAKO, evento: 'reunion_grabada' },
+    pasos: [
+      mako('rg_mk', '✅ Terminó la *{{grabacion_reunion}} con {{nombre_completo}}*.\n⏱️ {{grabacion_duracion}}\n\n👉 Mira el resumen de la llamada:\n{{link_lead}}', null),
+    ],
+  },
 ];
 
 export const PLANTILLAS_REEMPLAZADAS: Readonly<Record<string, string | null>> = {

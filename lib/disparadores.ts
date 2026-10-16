@@ -193,7 +193,7 @@ export const EVENTOS_PAGO: readonly EventoCanal[] = [
 
 /** Cuál de los «Eventos de MaKo» (`EVENTOS_MAKO`). */
 export type SubtipoMako = 'reunion_pronto' | 'lead_contesta' | 'cuota_vencida' | 'lead_agendo' | 'pago_recibido' | 'analisis_listo' | 'contrasena_restablecer'
-  | 'whatsapp_caido' | 'whatsapp_volvio';
+  | 'whatsapp_caido' | 'whatsapp_volvio' | 'reunion_grabada';
 
 /**
  * PARA QUÉ LE ESCRIBE A LA PERSONA un evento de una PERSONA (15/10/2026, docs/diseno-2fa-obligatorio.md §8): lo DECLARA
@@ -223,7 +223,7 @@ export type PropositoPersona = 'restablecer' | 'aviso' | 'codigo';
  * dejarían de salir. Ni `apagado`: eso las frenaría al guardar.
  */
 export type EventoMako = EventoCanal & {
-  subtipo: SubtipoMako; aviso: string; trae: ReadonlyArray<'lead' | 'mensaje' | 'cuota' | 'pago' | 'escrito' | 'analisis' | 'restablecer' | 'linea'>; retirado?: true;
+  subtipo: SubtipoMako; aviso: string; trae: ReadonlyArray<'lead' | 'mensaje' | 'cuota' | 'pago' | 'escrito' | 'analisis' | 'restablecer' | 'linea' | 'grabacion'>; retirado?: true;
   /**
    * UN MENSAJE DE MaKo A SUS CLIENTES (15/10/2026, el 2 de las doce: «un Mensaje de MaKo ES una automatización»): lo
    * emite el negocio X (su línea se cayó), pero lo corren las automatizaciones de la PLATAFORMA, y su tarjeta «MaKo en
@@ -265,6 +265,9 @@ export const EVENTOS_MAKO: readonly EventoMako[] = [
   // de un negocio se cae y vuelve: lo mide lib/lineas-vigilante.ts, que pasa los datos de la línea (`datosCaida`).
   { subtipo: 'whatsapp_caido', aviso: 'wa-desconectado', label: 'Se cae el WhatsApp de un negocio', trae: ['linea'], plataforma: true },
   { subtipo: 'whatsapp_volvio', aviso: 'wa-reconectado', label: 'Vuelve el WhatsApp de un negocio', trae: ['linea'], plataforma: true },
+  // Fathom entrega la grabación de una reunión de un negocio con SU lead, y MaKo terminó de analizarla
+  // (app/api/webhooks/fathom/route.ts): el lead y la grabación (`datosPostLlamada`, lib/reunion-grabada.ts).
+  { subtipo: 'reunion_grabada', aviso: 'reunion-ocurrio-fathom', label: 'Termina la reunión de un negocio y queda la grabación', trae: ['lead', 'grabacion'], plataforma: true },
 ];
 
 /**
