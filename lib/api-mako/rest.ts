@@ -45,6 +45,7 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['PUT', '/general/capacidad', 'guardar_capacidad'],
   ['GET', '/general/hojas', 'listar_hojas_general'],
   ['POST', '/general/hojas', 'crear_hoja_general'],
+  ['POST', '/general/hojas/{hoja}/ediciones', 'editar_hoja_general_con_ia'],
   ['POST', '/general/hojas/{hoja}/bloques', 'agregar_bloque_general'],
   ['PATCH', '/general/hojas/{hoja}/bloques/{elemento}', 'configurar_bloque_general'],
   ['GET', '/general/kpis', 'listar_kpis'],
@@ -101,6 +102,11 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['POST', '/crm/embudos', 'crear_crm'],
   ['PUT', '/crm/entradas', 'declarar_entradas_funnel'],
   ['GET', '/crm/estadisticas/leads', 'contar_leads_por_etapa'],
+  // El evento de agenda vinculado a una etapa de reunión (16/10/2026). El evento va en el CUERPO (o en la query del
+  // DELETE), no en la ruta: en Calendly es una URI con barras. PUT porque FIJA a qué etapa va el evento.
+  ['GET', '/crm/eventos-agenda', 'listar_eventos_agenda'],
+  ['PUT', '/crm/eventos-agenda/vinculo', 'vincular_evento_etapa'],
+  ['DELETE', '/crm/eventos-agenda/vinculo', 'desvincular_evento_etapa'],
   ['GET', '/crm/etapas', 'ver_funnel'],
   ['GET', '/crm/etapas/{etapa}/transiciones', 'transiciones_desde_etapa'],
   ['GET', '/crm/etiquetas', 'listar_etiquetas'],
@@ -318,6 +324,8 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['POST', '/metricas/dashboard/hojas', 'crear_hoja_dashboard'],
   ['GET', '/metricas/dashboard/hojas/{hoja}', 'leer_hoja_dashboard'],
   ['PATCH', '/metricas/dashboard/hojas/{hoja}', 'editar_hoja_dashboard'],
+  // 16/10/2026: «Editar con MaKo» crea una EDICIÓN de la hoja (MaKo la arma y se propone), como una copia crea una copia.
+  ['POST', '/metricas/dashboard/hojas/{hoja}/ediciones', 'editar_hoja_con_ia_dashboard'],
   ['DELETE', '/metricas/dashboard/hojas/{hoja}', 'borrar_hoja_dashboard'],
   ['POST', '/metricas/dashboard/hojas/{hoja}/copias', 'duplicar_hoja_dashboard'],
   ['POST', '/metricas/dashboard/hojas/{hoja}/componentes', 'agregar_grafico_dashboard'],

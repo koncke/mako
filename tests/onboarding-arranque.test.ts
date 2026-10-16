@@ -23,7 +23,8 @@
 // fallo, 21 pases»: una lectura caída abre otra conversación · la oferta no se guarda en el cierre · los
 // reportes van al que mira y no al negocio · una opción vieja contesta la pregunta de hoy · «[completar]»
 // entra al brief · el nombre provisorio (un email) ya no se reemplaza · el plan queda «armando» para siempre
-// · se ofrece un email como nombre · el producto lleva un precio inventado.
+// · se ofrece un email como nombre · el producto lleva un precio inventado. Y tras el merge con main: la
+// puerta del cierre vuelve a leer tolerante, «1 fallo, 21 pases».
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -272,7 +273,13 @@ test('el onboarding se cierra por UNA puerta: la del wizard y la del chat son la
   const cerrar = bloque(server, 'export async function cerrarArranque', 'export function tipoValido');
   assert.match(cerrar, /cierreDePasos\(h\.pasosCapa/);
   assert.match(cerrar, /await cerrarPasosOnboarding\(cambios, quien\)/);
-  assert.match(sinComentarios(leer('lib/onboarding-state.ts')), /aplicarCambiosDePaso\(s, cambios, pasos/);
+  const estado = sinComentarios(leer('lib/onboarding-state.ts'));
+  assert.match(estado, /aplicarCambiosDePaso\(s, cambios, pasos/);
+  // Lee ESTRICTO: con la base caída, la lectura tolerante da el estado inicial y cerrar un paso encima
+  // guardaba un onboarding a medio hacer sobre uno terminado.
+  const puerta = bloque(estado, 'export async function cerrarPasosOnboarding', 'export async function pasosDeCapaActual');
+  assert.match(puerta, /await getEstadoOnboardingEstricto\(\)/);
+  assert.doesNotMatch(puerta, /patchEstadoOnboarding|getEstadoOnboarding\(\)/, 'la puerta del cierre volvió a leer tolerante');
 });
 
 test('la ruta del arranque: la puerta primero, el CRM ANTES de guardar la elección, lo guardado leído estricto', () => {

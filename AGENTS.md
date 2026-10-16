@@ -2580,6 +2580,11 @@ crea los cobros, aplica lo que confirma la pasarela (webhook o cron) y devuelve 
   cliente que vende con su Stripe no crea inquilinos.
 - **La moneda la decide la pasarela, y en un formulario que cobra la pasarela se pregunta ANTES del monto.** El
   valor en USD de un cobro es el que alguien declaró; nunca una tasa inventada.
+- **Lo que un lead pagó y debe se cuenta con `cobradoDelLead` (lib/cobrado-lead.ts), y lo que se DICE de eso con
+  lib/pagos-vistazo.ts** («Debe $500», «Al día», qué hacer ahora, los movimientos). Lo usan la tab Pagos, el teléfono
+  y la API de MaKo (`cobranza_lead`). Una pantalla nueva que muestre plata de un lead no suma cuotas por su cuenta.
+  La tarjeta de antes lo hacía, y decía «Pagado por completo» de una mensualidad activa y dibujaba como deuda una
+  cuota DEVUELTA ([docs/hallazgos-pagos.md](docs/hallazgos-pagos.md)).
 
 # Un flag de visibilidad protege la PANTALLA; la API hay que cerrarla aparte
 
@@ -3174,6 +3179,13 @@ de arriba, incluido el caso que no cubría: con VARIAS páginas no se guardaba n
 página, así que reconectar dejaba el viejo. Una tercera puerta que escriba las filas a mano es
 la que se va a olvidar de esto. (07/10/2026)
 
+⚠️ **Y conectar Meta ARRANCA EL HISTÓRICO de leads y métricas** (16/10/2026; hasta ese día lo arrancaba sólo el
+wizard). Igual Fathom, YouTube y Panda, cada una SU parte (`JOBS_DEL_HISTORICO`, lib/onboarding-contrato.ts). Toda puerta
+que guarde una integración llama una vez, al final, a `arrancarHistoricoEnSegundoPlano(ws, servicio)`
+(lib/onboarding-extract.ts: lee el estado ESTRICTO y no tumba la conexión; lo que no tiene histórico no hace nada).
+`tests/historico-al-conectar.test.ts` enumera cada archivo que llama a `guardarCredencial`: uno nuevo falla hasta que se
+decida. Una integración nueva con histórico se suma a `JOBS_DEL_HISTORICO`, y el cron la recorre sola.
+
 ⚠️ **Y `META_APP_SECRET` es el secreto de la app VIEJA**, con el que se verifica la firma de
 cada lead del webhook. El de la app MaKo es `MAKO_META_APP_SECRET` (`lib/meta-login.ts`).
 Pisar el primero con el valor del segundo no da error al guardar: rechaza todos los leads
@@ -3760,8 +3772,8 @@ nuevo:
 
 - ⚠️ **SÓLO PARA LO QUE MARTÍN HABILITÓ, y hoy es el onboarding.** Textual (16/10/2026): «Yo debo decirte cuando
   utilizar creditos, no tenemos infinitos... Por ahora solo en onboarding.» La lista es `CREDITO_HABILITADO_PARA`
-  (lib/veto-claude.ts): las funciones del wizard, y sólo mientras el onboarding del negocio está en curso
-  (`onboardingPendiente`). Para todo lo demás el crédito dice que no y la cascada sigue como si no existiera. Un
+  (lib/veto-claude.ts): las funciones del wizard y el chat de Offer que lo reemplaza, y sólo mientras el onboarding
+  del negocio está en curso (`onboardingPendiente`). Para todo lo demás el crédito dice que no y la cascada sigue como si no existiera. Un
   camino nuevo NO se suma a la lista por su cuenta: lo pide Martín.
 - **Pasan SÓLO las dos claves con nombre** (`CLAVES_CREDITO_PLATAFORMA`), leídas por ese nombre del entorno o de la
   fila del workspace de la plataforma, estrictas. `ANTHROPIC_API_KEY` no se lee ahí, y `evaluarCreditoDeLaPlataforma`
@@ -8399,6 +8411,11 @@ costó, en [docs/hallazgos-objectives.md](docs/hallazgos-objectives.md) → «Ge
   el suyo por el id del elemento.
 - **Lo que existe en otra tab se monta, no se copia**: las tarjetas del Plan son las de BoardShell (`TarjetaPrioridad`,
   `ProyectoCardTile`, traídas con `next/dynamic`), y escribir pasa por la acción que ya existe (`marcarHechaAction`).
+- **Lo que arma o cambia la IA en una hoja lleva el ALCANCE de su informe, en las dos capas** (16/10/2026): el catálogo
+  que lee el modelo y `piezaDeIA`, que descarta lo de afuera (`ALCANCE_GENERAL`, lib/graficos-ia.ts). «Pídeselo», las
+  plantillas que MaKo completa (`hojaConDatos`) y «Editar con MaKo» lo pasan; un camino nuevo de IA sobre una hoja de
+  General también. Y la IA EDITA con operaciones (`aplicarEdicion`, lib/graficos-ia-edicion.ts), nunca reescribiendo la
+  hoja, y el cambio lo aplica el editor con `mutar`: docs/hallazgos-graficos.md → «Editar con MaKo».
 - **General ofrece poco del Dashboard** (`TIPOS_GENERAL`, `FUENTES_GENERAL`, `ELEMENTOS_FUERA_DE_GENERAL`), y sus
   plantillas no usan nada de afuera.
 - **Un tipo de elemento nuevo en `TIPOS_ELEMENTO` aparece solo en todas las listas que derivan de él**: la API del
@@ -8412,6 +8429,12 @@ costó, en [docs/hallazgos-objectives.md](docs/hallazgos-objectives.md) → «Ge
   el mismo tema con el mismo color en las dos galerías, ninguno repetido adentro de una). Una plantilla nueva sin las dos
   no pasa `tests/graficos-portadas.test.ts`. Lo que una portada promete se mide ANTES con el lector que la va a dibujar (la
   de Instagram prometía leads que no existen): docs/hallazgos-graficos.md → «Las portadas».
+- **Toda galería de plantillas pone primero las SUGERIDAS para el negocio, con un «Sugerido» sutil** (16/10/2026, Martín:
+  «en todos los lugares que usamos templates»): `ordenarConSugeridas` (lib/plantillas-sugeridas.ts) con la tabla de
+  etiquetas de esa galería; las del Dashboard y General viven en `lib/graficos-plantillas-etiquetas.ts`, una fila por
+  plantilla (`tests/plantillas-sugeridas.test.ts` no deja pasar una plantilla sin la suya). Sin IA al abrir: las señales
+  salen de lo DECLARADO (`senalesDelNegocio`). Una plantilla de UN canal no lleva un eje genérico: los ejes suman por
+  separado y se la sugeriría a quien vende por otro. Cómo se enchufa otra galería: docs/plantillas-sugeridas.md.
 
 # MaKo Mobile (/m): lo que gobierna una pantalla nueva del teléfono
 
@@ -8524,10 +8547,27 @@ chat». Lo que costó, en `docs/hallazgos-onboarding.md` y `docs/hallazgos-offer
   deciden qué se pregunta. Y antes de sumarla: ¿algo deja de andar el primer día sin ella? Si no, se deduce o
   se pide después en su tab.
 - **El onboarding se cierra por UNA puerta, `cerrarPasosOnboarding`** (lib/onboarding-state.ts, regla
-  `aplicarCambiosDePaso`). Un paso que depende de afuera (el teléfono, Meta) se POSTERGA si no se hizo; nunca
-  se marca hecho.
+  `aplicarCambiosDePaso`), que lee el estado ESTRICTO: con la base caída, escribir sobre la lectura tolerante
+  pisa un onboarding terminado. Un paso que depende de afuera (el teléfono, Meta) se POSTERGA si no se hizo;
+  nunca se marca hecho.
 - **Lo que el chat crea se ve ADENTRO del chat** (una tarjeta, un mensaje) y todo lo que lleva a otro lado es
   un link que la persona elige, con el `Link` de la casa. Ningún paso navega solo. Vale igual para la tab Offer:
   ninguna vista reemplaza al chat (lo que hay que mirar entero va en un `Modal` encima).
 - **El brief que deja el chat se FUNDE** (sólo llena lo vacío) **y se lee estricto antes de escribir**: lo
   leen los generadores y el Perro, y con la base caída `saveAnswers` sobre `{}` lo borraba.
+
+# Una reserva de agenda decide a DÓNDE va por un solo camino, y la agenda tiene tres fuentes de ruteo
+
+Desde el 16/10/2026 una etapa de reunión puede tener vinculado un evento de Calendly o Cal.com (mig 0293,
+`lib/agenda-evento-etapa.ts`): quien lo reserva cae en ESA etapa de ESE funnel, y no en el principal.
+
+- **Todo lo que crea o ubica un lead desde una reserva** (los dos webhooks hoy; un backfill, MaKo reservando
+  o un proveedor nuevo mañana) pasa por `rutaDeReserva` + `decidirReserva`, y al lead que ya existía lo ubica
+  `ubicarReservaVinculada` (lo AGREGA si su casa es otro funnel; no le cambia la casa). Sin eso, el evento
+  vinculado cae en el funnel principal y la R sale de J1/J2. La R2 nunca crea un lead.
+  `tests/agenda-evento-etapa.test.ts` lo fija en los dos webhooks.
+- **En `webhook_routing` la agenda tiene TRES fuentes** (la R1, la R2 y los eventos vinculados) bajo el mismo
+  servicio. `borrarRoutingDeWs` se lleva todas: quien lo use después vuelve a reclamar lo que sigue en uso
+  (`reclamarRuteoDeAgenda`), y para soltar UNA se pregunta antes si alguien más la usa.
+- **Un vínculo se guarda con el identificador que manda el webhook** (Calendly: la URI del event type; Cal.com:
+  su id), nunca con el nombre: el ruteo compara exacto y dos eventos se pueden llamar igual.

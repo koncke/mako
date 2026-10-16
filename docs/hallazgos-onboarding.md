@@ -1956,7 +1956,56 @@ chat vive en otra ruta, o `/onboarding` dibuja el chat, o los cuatro apuntan a l
 (`lib/veto-claude.ts`) con `soloDuranteElOnboarding`. ⚠️ Pero hoy no alcanzaría: `pedir` (`lib/offer-ia.ts`) llama a
 `chatCheapCascade` SIN `redDePlataforma`, y el crédito vive adentro de esa red; después corre su propio bucle sobre las
 keys gratis. Para que el crédito llegue, `pedir` tiene que pedir la red de la cascada, o llamar a
-`conCreditoDeLaPlataforma` antes de su bucle.
+`conCreditoDeLaPlataforma` antes de su bucle. **Las dos juntas, no**: la red de la cascada ya trae las keys gratis de
+la agencia, y con el bucle de `pedir` detrás se prueban dos veces por pedido (el doble de su cuota por minuto, que es
+lo que muerde). Offer eligió la segunda (16/10): su red tiene un plazo propio (`hastaRedMs`) y un respaldo «flojo»
+que la cascada no conoce. `'offer'` quedó en la lista ese día, con `soloDuranteElOnboarding`: sin esa llamada en
+`pedir`, la fila no hace nada.
+
+**5. Tres trampas del diseño del chat de arranque** (Offer propuso: reusar las claves de `PASOS_ONBOARDING`, sacar
+`gemini` y `archivero` de las capas, postergar siempre Meta y borrar el wizard). Medidas el 16/10 contra origin/main:
+- ⚠️ **El histórico de Meta lo arranca SÓLO el wizard.** El único que llama a `POST /api/onboarding/extraccion`
+  `{action:'start'}` (→ `iniciarExtraccion`) es `OnboardingWizard.tsx:274`. El cron
+  (`app/api/cron/onboarding-extraccion`) sólo SIGUE las que están `running`, y su comentario («solo se dispara al
+  verificar esa credencial») describía al wizard. Borrar el wizard con Meta siempre postergado deja a todo negocio
+  nuevo sin su histórico, sin un error. **Arreglado el mismo día** (`ce583d578`): `arrancarHistoricoEnSegundoPlano`
+  (lib/onboarding-extract.ts) lo llaman TODAS las puertas que guardan Meta. `guardarConexionMeta` no era la única: elegir
+  la cuenta o la página cuando hay varias, guardar los campos a mano en /integraciones, `/api/metodo` y la acción
+  `guardar` del wizard escriben Meta por su cuenta, y elegir la página es justo lo que destraba los leads. Tres trampas
+  que salieron haciéndolo:
+  - **La lectura tolerante del estado devuelve el INICIAL con la base caída**, y guardarlo le pone `pending` a un
+    onboarding terminado: el cliente vuelve al arranque. Quien escribe fuera del wizard lee con
+    `getEstadoOnboardingEstricto`.
+  - **Un arranque por credencial, no por puerta, son cinco escrituras del estado ENTERO en paralelo** (cada `after` de
+    `guardarConexionMeta` leería y guardaría lo suyo). Por eso va una vez al final de cada puerta, no en
+    `guardarCredencial`.
+  - **«Simular» queda afuera, a propósito**: copia las credenciales del ws1 (Mauricio) al de prueba, y arrancar ahí el
+    histórico traería sus leads a otro workspace. `tests/historico-al-conectar.test.ts` enumera en positivo cada
+    archivo que llama a `guardarCredencial`: uno nuevo falla hasta que alguien decida.
+  - **Y lo mismo para Fathom, YouTube y Panda** (`f33a78559`): cada integración revive SU parte
+    (`JOBS_DEL_HISTORICO`) y las puertas genéricas pasan el servicio que guardaron. El de Fathom corre el mismo
+    `syncClosingCalls` que el cron de cierre, que ya analiza todas las llamadas sin repetir: adelanta el gasto de Claude,
+    no lo suma. Y salieron dos huecos que ya estaban:
+    - ⚠️ **El cron del histórico recorría sólo a quien tiene META** (`correrRonda('meta', …)`): un negocio con Fathom y
+      sin Meta quedaba con sus llamadas marcadas y nadie que las corriera, sin un error. `correrRonda` acepta una lista
+      (cualquiera de) y el cron pasa `Object.keys(JOBS_DEL_HISTORICO)`.
+    - ⚠️ **El VSL del histórico nunca corrió para un cliente**: `jobAplica` y `jobVsl` leían los videos sólo del
+      setting `youtube_vsl_video_id`, cuyo único escritor (la acción `config` de /api/onboarding) no lo llama nadie;
+      /integraciones los guarda como CREDENCIAL (`YOUTUBE_VSL_VIDEO_ID`). Es la forma de la tarea #171 (dos lectores de
+      la misma pregunta), y `configWs` (lib/cron-workspaces.ts) ya la había arreglado para los crons de YouTube y Panda
+      y no para éste. Un test vecino lo fijaba al revés («que para ELLOS es lo correcto»); se actualizó con su porqué.
+- ⚠️ **`negocio` es el BRIEF, no el nombre.** Las tres pantallas del brief cierran `negocio` (acción `brief` →
+  `saveAnswers` en `mako.onboarding.answers`), y en la capa `pm` es lo que el Perro necesita para priorizar
+  (`briefGrupos`). Lo leen los generadores (`contenido.run.ts:420`, `video.helpers.ts:349`) y el perfil del negocio
+  (`negocio.helpers.ts:105`). Cerrar `negocio` con sólo los nombres los deja escribiendo sin conocer el negocio. Y al
+  escribirlo se lee ESTRICTO y se funde: `getAnswers()` devuelve `{}` si la base no contesta, y `saveAnswers` sobre eso
+  borra el brief (`negocio.helpers.ts:133`).
+- ⚠️ **La capa `pm` no tiene Offer, CRM ni productos** (`navKeys` = todo, mako, productivity-analyst, graphics,
+  calendario). Su paso `plan` es el que cierra con «Crear mi primer proyecto» y dispara el plan de arranque: es el
+  producto entero de esa capa, y no se le puede sacar por uniformar las capas.
+
+Lo que sí se sostiene solo: `ver_estado_onboarding` (API de MaKo) sale de `capa.onboarding`, y `registrarLogin` con
+«llenar el nombre sólo si está vacío» respeta también el que escribió quien invitó (`crearUsuario` lo guarda).
 
 *16/10/2026 · chat «Onboarding» (claude3), medido contra el código, sin subagentes.*
 
@@ -2031,6 +2080,11 @@ vuelven a morder a quien toque esto:
 - **El nombre provisorio es un email.** Las altas de customer-success y de la agencia guardan el correo
   como nombre cuando no hay uno; el login de Google sólo llenaba el VACÍO y ese ya no lo estaba. Llena también el que contiene `@` — y el chat no
   ofrece un email como «¿te llamo así?».
+- **La puerta del cierre leía TOLERANTE** (`patchEstadoOnboarding`): con la base caída da el estado inicial,
+  y cerrar un paso encima guardaba un onboarding a medio hacer sobre uno terminado. Lo destapó el merge con
+  `getEstadoOnboardingEstricto` del chat de Onboarding; `cerrarPasosOnboarding` lee estricto. Ojo: el resto
+  de los `patchEstadoOnboarding` (la extracción, datos-mau, «Completar como Mauricio» en `clonar-dueno`)
+  sigue leyendo tolerante.
 - **Un error de IA en el chat no puede encerrar.** Sin key propia y con la red caída, el chat quedaba sin
   salida: el error trae «Conectar mi propia IA» (el modal de integraciones, sin salir de la tab).
 

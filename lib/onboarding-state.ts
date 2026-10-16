@@ -7,10 +7,10 @@
 // ve el wizard. Un workspace sin fila = 'pending' (cliente nuevo).
 
 import 'server-only';
-import { getSetting, setSetting } from './settings';
+import { getSetting, getSettingEstricto, setSetting } from './settings';
 import { getCapaActual, getWorkspaceActual, getRolWsEfectivo, OWNER_WS } from './workspace';
 import { capaDef, type PasoOnboarding } from './capas';
-import { aplicarCambiosDePaso, estadoInicial, type CambioDePaso, type OnboardingState } from './onboarding-contrato';
+import { aplicarCambiosDePaso, estadoDeLoGuardado, estadoInicial, type CambioDePaso, type OnboardingState } from './onboarding-contrato';
 
 // La FORMA del estado y las reglas puras viven en `onboarding-contrato.ts`, sin
 // 'server-only', para que las pueda importar un test (lo que se decide ahí es si un
@@ -23,24 +23,20 @@ export const ONBOARDING_KEY = 'onboarding.state';
 /** Estado del workspace ACTUAL. Sin fila → pending (cliente nuevo). */
 export async function getEstadoOnboarding(): Promise<OnboardingState> {
   try {
-    const raw = await getSetting(ONBOARDING_KEY);
-    if (!raw) return estadoInicial();
-    const parsed = JSON.parse(raw) as OnboardingState;
-    // Tolerancia a estados viejos/incompletos: mergear sobre el esqueleto.
-    const base = estadoInicial(parsed.status ?? 'pending');
-    return {
-      ...base,
-      ...parsed,
-      steps: { ...base.steps, ...(parsed.steps ?? {}) },
-      extraction: {
-        ...base.extraction,
-        ...(parsed.extraction ?? {}),
-        jobs: { ...base.extraction.jobs, ...(parsed.extraction?.jobs ?? {}) },
-      },
-    };
+    return estadoDeLoGuardado(await getSetting(ONBOARDING_KEY));
   } catch {
     return estadoInicial();
   }
+}
+
+/**
+ * Como `getEstadoOnboarding`, pero si la base no contesta o lo guardado no se entiende, TIRA. La tolerante
+ * devuelve el estado INICIAL, que sirve para dibujar y es un desastre para escribir: un `setEstadoOnboarding`
+ * sobre él le pone `pending` a un onboarding terminado y manda al cliente de vuelta al arranque. Lo usa quien
+ * escribe fuera del arranque (el histórico al conectar Meta, lib/onboarding-extract.ts).
+ */
+export async function getEstadoOnboardingEstricto(): Promise<OnboardingState> {
+  return estadoDeLoGuardado(await getSettingEstricto(ONBOARDING_KEY));
 }
 
 export async function setEstadoOnboarding(state: OnboardingState): Promise<void> {
@@ -86,6 +82,10 @@ export async function onboardingPendiente(): Promise<boolean> {
  * de arranque (/api/onboarding/arranque). La regla es `aplicarCambiosDePaso` (onboarding-contrato.ts, con
  * test); acá sólo se lee la capa y se persiste. Tira `PasoNoPostergable` si se pide postergar lo que no se
  * puede.
+ *
+ * Lee ESTRICTO (`getEstadoOnboardingEstricto`), no con `patchEstadoOnboarding`: con la base caída, la lectura
+ * tolerante devuelve el estado inicial y cerrar un paso encima guardaba un onboarding a medio hacer sobre uno
+ * terminado. Caída, tira, y la pantalla reintenta.
  */
 export async function cerrarPasosOnboarding(
   cambios: CambioDePaso[],
@@ -93,10 +93,11 @@ export async function cerrarPasosOnboarding(
   extra?: (s: OnboardingState) => void,
 ): Promise<OnboardingState> {
   const pasos = await pasosDeCapaActual();
-  return patchEstadoOnboarding((s) => {
-    extra?.(s);
-    aplicarCambiosDePaso(s, cambios, pasos, quien, new Date().toISOString());
-  });
+  const s = await getEstadoOnboardingEstricto();
+  extra?.(s);
+  aplicarCambiosDePaso(s, cambios, pasos, quien, new Date().toISOString());
+  await setEstadoOnboarding(s);
+  return s;
 }
 
 /** Los pasos del wizard que le tocan al workspace actual, según su capa. */

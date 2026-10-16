@@ -59,7 +59,7 @@ export const PLANTILLA_RESPALDO: PlantillaFicha = {
   tabs: {
     resumen: ['proxima-reunion', 'contacto', 'redes-y-web', 'ingreso-estimado', 'calificacion', 'lo-que-contesto', 'origen', 'setter-y-closer', 'notas', 'motivo-de-salida', 'plazo-nutricion'],
     reuniones: ['reunion-1', 'reunion-2', 'agendar-reunion', 'lo-que-salio-de-la-llamada', 'cohorte'],
-    pagos: ['oferta', 'links-de-pago', 'confirmacion-de-pago', 'cobrado', 'venta', 'cuotas', 'suscripcion', 'contrato', 'datos-fiscales', 'servicio-vendido', 'promesa-y-garantia', 'obligaciones'],
+    pagos: ['cobrado', 'venta', 'cuotas', 'oferta', 'links-de-pago', 'movimientos', 'suscripcion', 'confirmacion-de-pago', 'contrato', 'datos-fiscales', 'servicio-vendido', 'promesa-y-garantia', 'obligaciones'],
     tracking: ['visitas', 'video-visto', 'actividad-en-pagina', 'grabacion-de-visita'],
   },
   apagados: [],
@@ -73,7 +73,7 @@ export const PLANTILLAS_FICHA: readonly PlantillaFicha[] = [
     tabs: {
       resumen: ['siguiente-accion', 'posibles-duplicados', 'cambios-de-mako', 'proxima-reunion', 'contacto', 'lo-que-contesto', 'video-visto', 'calificacion', 'setter-y-closer', 'tiempo-en-etapa', 'ingreso-estimado', 'cobrado', 'charla-whatsapp', 'origen', 'redes-y-web', 'notas', 'motivo-de-salida', 'plazo-nutricion'],
       reuniones: ['reunion-1', 'reunion-2', 'lo-que-salio-de-la-llamada', 'agendar-reunion', 'mensaje-listo', 'diagnostico-mako', 'cohorte', 'ciclo-de-venta'],
-      pagos: ['oferta', 'links-de-pago', 'confirmacion-de-pago', 'venta', 'cobrado', 'cuotas', 'suscripcion', 'recordatorios-de-cobro', 'contrato', 'datos-fiscales', 'servicio-vendido', 'promesa-y-garantia', 'obligaciones', 'excepciones', 'cliente-en-cs'],
+      pagos: ['cobrado', 'venta', 'cuotas', 'oferta', 'links-de-pago', 'confirmacion-de-pago', 'movimientos', 'suscripcion', 'recordatorios-de-cobro', 'contrato', 'datos-fiscales', 'servicio-vendido', 'promesa-y-garantia', 'obligaciones', 'excepciones', 'cliente-en-cs'],
       tracking: TRACKING_LLAMADA,
     },
     apagados: [],
@@ -83,7 +83,7 @@ export const PLANTILLAS_FICHA: readonly PlantillaFicha[] = [
     tabs: {
       resumen: ['siguiente-accion', 'posibles-duplicados', 'proxima-reunion', 'contacto', 'lo-que-contesto', 'video-visto', 'calificacion', 'setter-y-closer', 'ingreso-estimado', 'cobrado', 'charla-whatsapp', 'origen', 'notas', 'motivo-de-salida', 'plazo-nutricion'],
       reuniones: ['reunion-1', 'lo-que-salio-de-la-llamada', 'agendar-reunion', 'mensaje-listo', 'diagnostico-mako', 'ciclo-de-venta'],
-      pagos: ['oferta', 'links-de-pago', 'confirmacion-de-pago', 'venta', 'cobrado', 'cuotas', 'suscripcion', 'contrato', 'datos-fiscales', 'servicio-vendido', 'promesa-y-garantia', 'obligaciones', 'cliente-en-cs'],
+      pagos: ['cobrado', 'venta', 'cuotas', 'oferta', 'links-de-pago', 'confirmacion-de-pago', 'movimientos', 'suscripcion', 'contrato', 'datos-fiscales', 'servicio-vendido', 'promesa-y-garantia', 'obligaciones', 'cliente-en-cs'],
       tracking: TRACKING_LLAMADA,
     },
     apagados: [],
@@ -94,7 +94,7 @@ export const PLANTILLAS_FICHA: readonly PlantillaFicha[] = [
     tabs: {
       resumen: ['siguiente-accion', 'posibles-duplicados', 'proxima-reunion', 'contacto', 'charla-whatsapp', 'lo-que-contesto', 'lo-que-le-mandamos', 'automatizaciones-en-curso', 'setter-y-closer', 'tiempo-en-etapa', 'cobrado', 'origen', 'notas', 'motivo-de-salida', 'plazo-nutricion'],
       reuniones: ['reunion-1', 'ciclo-de-venta'],
-      pagos: ['suscripcion', 'cobrado', 'links-de-pago', 'cuotas', 'venta', 'oferta', 'recordatorios-de-cobro', 'cliente-en-cs'],
+      pagos: ['cobrado', 'suscripcion', 'links-de-pago', 'cuotas', 'movimientos', 'venta', 'oferta', 'recordatorios-de-cobro', 'cliente-en-cs'],
     },
     apagados: ['dealFiscal', 'dealFiscalDoc', 'dealServicio', 'dealPromesa', 'dealObligaciones'],
   },
@@ -103,7 +103,7 @@ export const PLANTILLAS_FICHA: readonly PlantillaFicha[] = [
     id: 'formulario-meta', nombre: 'Formulario de Meta',
     tabs: {
       resumen: ['siguiente-accion', 'posibles-duplicados', 'contacto', 'lo-que-contesto', 'calificacion', 'origen', 'charla-whatsapp', 'automatizaciones-en-curso', 'tiempo-en-etapa', 'setter-y-closer', 'ingreso-estimado', 'proxima-reunion', 'notas', 'motivo-de-salida', 'plazo-nutricion'],
-      pagos: ['oferta', 'links-de-pago', 'venta', 'cobrado'],
+      pagos: ['cobrado', 'oferta', 'links-de-pago', 'venta', 'movimientos'],
       tracking: ['anuncio-de-origen', 'visitas', 'actividad-en-pagina'],
     },
     apagados: ['empresa', 'plan', 'dealServicio', 'dealPromesa', 'dealObligaciones', 'dealFiscal'],
@@ -113,7 +113,7 @@ export const PLANTILLAS_FICHA: readonly PlantillaFicha[] = [
     id: 'landing', nombre: 'Landing con opt-in',
     tabs: {
       resumen: ['siguiente-accion', 'posibles-duplicados', 'contacto', 'lo-que-contesto', 'pagina-de-registro', 'origen', 'proxima-reunion', 'charla-whatsapp', 'automatizaciones-en-curso', 'lo-que-le-mandamos', 'tiempo-en-etapa', 'calificacion', 'notas', 'motivo-de-salida', 'plazo-nutricion'],
-      pagos: ['oferta', 'links-de-pago', 'venta', 'cobrado', 'cuotas', 'suscripcion'],
+      pagos: ['cobrado', 'oferta', 'links-de-pago', 'venta', 'cuotas', 'movimientos', 'suscripcion'],
       tracking: ['visitas', 'video-visto', 'actividad-en-pagina', 'grabacion-de-visita', 'anuncio-de-origen'],
     },
     apagados: ['dealServicio', 'dealPromesa', 'dealObligaciones', 'dealFiscal'],
@@ -124,7 +124,7 @@ export const PLANTILLAS_FICHA: readonly PlantillaFicha[] = [
     id: 'te-escriben', nombre: 'Te escriben',
     tabs: {
       resumen: ['siguiente-accion', 'posibles-duplicados', 'charla-dm', 'charla-whatsapp', 'pase-a-humano', 'mensaje-listo', 'contacto', 'publicacion-de-entrada', 'origen', 'setter-y-closer', 'tiempo-en-etapa', 'automatizaciones-en-curso', 'notas', 'motivo-de-salida', 'plazo-nutricion'],
-      pagos: ['oferta', 'links-de-pago', 'confirmacion-de-pago', 'venta', 'cobrado', 'suscripcion'],
+      pagos: ['cobrado', 'oferta', 'links-de-pago', 'confirmacion-de-pago', 'venta', 'suscripcion', 'movimientos'],
     },
     apagados: ['calificado', 'empresa', 'plan', 'dealFiscal'],
   },
@@ -133,7 +133,7 @@ export const PLANTILLAS_FICHA: readonly PlantillaFicha[] = [
     id: 'prospeccion', nombre: 'Prospección',
     tabs: {
       resumen: ['siguiente-accion', 'posibles-duplicados', 'contacto', 'redes-y-web', 'lo-que-le-mandamos', 'charla-whatsapp', 'charla-dm', 'tiempo-en-etapa', 'setter-y-closer', 'ingreso-estimado', 'notas', 'motivo-de-salida', 'plazo-nutricion'],
-      pagos: ['oferta', 'links-de-pago', 'confirmacion-de-pago', 'venta', 'cobrado', 'suscripcion', 'cuotas'],
+      pagos: ['cobrado', 'oferta', 'links-de-pago', 'confirmacion-de-pago', 'venta', 'suscripcion', 'cuotas', 'movimientos'],
     },
     apagados: ['dealFiscal'],
   },
@@ -143,7 +143,7 @@ export const PLANTILLAS_FICHA: readonly PlantillaFicha[] = [
     id: 'carrito', nombre: 'Carrito',
     tabs: {
       resumen: ['siguiente-accion', 'posibles-duplicados', 'contacto', 'cobrado', 'origen', 'lo-que-contesto', 'charla-whatsapp', 'notas', 'motivo-de-salida', 'plazo-nutricion'],
-      pagos: ['links-de-pago', 'venta', 'cobrado', 'suscripcion', 'oferta', 'cliente-en-cs'],
+      pagos: ['cobrado', 'links-de-pago', 'movimientos', 'venta', 'suscripcion', 'oferta', 'cliente-en-cs'],
       tracking: ['video-visto', 'actividad-en-pagina', 'grabacion-de-visita', 'visitas', 'anuncio-de-origen'],
     },
     apagados: ['setter', 'calificado', 'empresa', 'plan', 'dealServicio', 'dealPromesa', 'dealObligaciones', 'dealFiscal', 'dealFiscalDoc'],
@@ -158,7 +158,7 @@ export const PLANTILLAS_FICHA: readonly PlantillaFicha[] = [
  */
 export const PLANTILLA_CS: Readonly<Record<TabCs, readonly BloqueId[]>> = {
   'cs-resumen': ['senal-de-atencion', 'reloj-del-programa', 'contacto', 'cobrado', 'servicio-vendido', 'promesa-y-garantia', 'obligaciones', 'notas'],
-  'cs-pagos': ['cobrado', 'cuotas', 'suscripcion', 'links-de-pago', 'recordatorios-de-cobro', 'contrato', 'datos-fiscales'],
+  'cs-pagos': ['cobrado', 'cuotas', 'suscripcion', 'links-de-pago', 'movimientos', 'recordatorios-de-cobro', 'contrato', 'datos-fiscales'],
 };
 
 export const IDS_PLANTILLA: readonly PlantillaId[] = PLANTILLAS_FICHA.map((p) => p.id);

@@ -492,6 +492,47 @@ export const BITACORA: Hito[] = [
     puntos: [
       "Llegó por el Cerebro, que se lo repartió al chat «Offer». Y con él, el feedback de la llamada con Leila del 12/10: el chat de Offer no puede desaparecer jamás.",
       "Los pasos de hoy quedaron escritos, pantalla por pantalla, en docs/onboarding-pasos-anteriores.md.",
+      "Al chat «Onboarding» le tocó qué tiene que quedar escrito al terminar, el crédito de Claude para el chat, y que el histórico de Meta no dependa del wizard.",
+    ],
+  },
+  {
+    fecha: "16 oct", hora: "04:34", chat: "Onboarding", sesion: "local_79844152-91d5-49c1-b833-c917ed1fc4a6", cuenta: "claude3",
+    actor: "claude", tipo: "implementacion",
+    titulo: "Conectar Meta trae el histórico de leads, sin el wizard",
+    puntos: [
+      "El histórico de leads y métricas arranca al conectar Meta por cualquier puerta: pegar el token, «Conectar con Meta», elegir la cuenta o la página, o guardar a mano.",
+      "Una sola vez: reconectar no repite nada. Corre en segundo plano y si falla no tumba la conexión.",
+      "Antes lo arrancaba sólo el wizard: quien postergaba Meta y lo conectaba después se quedaba sin su histórico, sin un error.",
+    ],
+    commits: [
+      { sha: "ce583d5", msg: "Onboarding: conectar Meta arranca el histórico de leads, no sólo el wizard", lineas: 384, archivos: 9 },
+    ],
+    archivos: [
+      "lib/onboarding-extract.ts — el arranque, estricto y en segundo plano",
+      "lib/onboarding-contrato.ts — cuándo arrancar, y que arrancar dos veces no duplique",
+      "lib/meta-conexion.ts — la conexión de Meta lo llama",
+      "app/api/integraciones/credencial/route.ts — elegir y guardar a mano lo llaman",
+      "tests/historico-al-conectar.test.ts — diez roturas, todas caen (se renombró al sumar Fathom, YouTube y Panda)",
+    ],
+  },
+  {
+    fecha: "16 oct", hora: "05:03", chat: "Onboarding", sesion: "local_79844152-91d5-49c1-b833-c917ed1fc4a6", cuenta: "claude3",
+    actor: "claude", tipo: "implementacion",
+    titulo: "Conectar Fathom, YouTube o Panda también trae su histórico",
+    puntos: [
+      "Conectar Fathom trae las llamadas del histórico, y YouTube o Panda las métricas del VSL. Cada una revive sólo su parte, una vez.",
+      "El proceso que corre el histórico recorría sólo a los negocios con Meta: uno con Fathom y sin Meta se quedaba sin sus llamadas. Ahora recorre a cualquiera de las cuatro.",
+      "El VSL del histórico nunca había corrido para un cliente: buscaba los videos donde no los guarda nadie. Ahora los lee de /integraciones, como los reportes diarios.",
+    ],
+    commits: [
+      { sha: "f33a785", msg: "Onboarding: conectar Fathom, YouTube o Panda también revive su parte del histórico", lineas: 343, archivos: 10 },
+    ],
+    archivos: [
+      "lib/onboarding-contrato.ts — qué trabajos destraba cada integración",
+      "lib/onboarding-extract.ts — el arranque por integración, y el VSL con configWs",
+      "lib/cron-workspaces.ts — la ronda con una lista de integraciones",
+      "app/api/cron/onboarding-extraccion/route.ts — recorre a cualquiera de las cuatro",
+      "tests/historico-al-conectar.test.ts — catorce roturas, todas caen",
     ],
   },
   {
@@ -516,6 +557,27 @@ export const BITACORA: Hito[] = [
       "app/api/onboarding/arranque/route.ts — la ruta del chat",
       "lib/onboarding-state.ts — cerrarPasosOnboarding, la puerta única del cierre",
       "tests/onboarding-arranque.test.ts — probado con 18 roturas",
+    ],
+  },
+  {
+    fecha: "16 oct", hora: "05:49", chat: "Offer", sesion: "local_34d54ef6-523c-46f8-b83f-9fd310dfd667", cuenta: "claude3",
+    actor: "claude", tipo: "correccion",
+    titulo: "Nueve bugs del chat de arranque, antes de subirlo",
+    puntos: [
+      "Un revisor encontró nueve; el que más mordía: cada cliente nuevo terminaba con DOS ofertas iguales («X» y «X · versión 1»), porque el brief se escribía antes que la oferta.",
+      "El precio que dice el dueño queda como texto (no se inventa un monto), «[completar]» no entra al brief, y una pestaña vieja ya no contesta la pregunta de hoy.",
+      "Un «no pude leer» ya no abre otra conversación de oferta, los reportes van al negocio y no a quien mira, y un error de IA trae «Conectar mi propia IA».",
+      "La puerta del cierre lee el estado estricto: con la base caída guardaba un onboarding a medio hacer sobre uno terminado.",
+    ],
+    commits: [
+      { sha: "e028c53", msg: "Onboarding: los nueve bugs de la revisión del chat de arranque", lineas: 340, archivos: 9 },
+    ],
+    archivos: [
+      "lib/onboarding-arranque-server.ts — el orden del cierre: la oferta antes que el brief",
+      "lib/onboarding-arranque.ts — la opción con su texto, sinMarca, el nombre que no es un email",
+      "app/onboarding/ChatArranque.tsx — tieneSesion y sesionCaida, los reintentos",
+      "lib/onboarding-state.ts — la puerta del cierre, estricta",
+      "tests/onboarding-arranque.test.ts — nueve roturas más, todas caen",
     ],
   },
 ];

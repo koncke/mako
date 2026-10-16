@@ -126,7 +126,12 @@ test('«Solucionar» va a la tab donde ESTA ficha dibuja el campo, entre las que
   const oR1 = { ...o, vacio: vacioCon(conR1) };
   assert.ok(bloquesDeLaGrilla(respaldo.tabs.resumen, { reglasDe, vacio: vacioCon(conR1), editando: false, verPrivado: true }).some((b) => b.def.id === 'proxima-reunion'));
   assert.equal(tabDelDato('fechaJ1', todas, oR1), 'reuniones', 'el banner «Va bien» del Resumen no tiene el campo de la fecha');
-  assert.equal(tabDelDato('monto', todas, o), 'pagos');
+  // ⚠️ CAMBIADO A PROPÓSITO EL 16/10/2026 (la tab Pagos en bloques, docs/hallazgos-pagos.md): `venta` ya no es la
+  // tarjeta entera que se dibujaba siempre. Sin deal se calla, SALVO que se esté pidiendo su dato (la etapa de cierre
+  // de un funnel propio pide el monto antes de que el lead figure ganado). Las dos cosas, ejecutadas:
+  const pidiendoMonto = ctxDe({}, { faltantes: [{ id: 'monto', label: 'Monto de cierre' }] });
+  assert.equal(tabDelDato('monto', todas, { ...o, vacio: vacioCon(pidiendoMonto) }), 'pagos', 'el dato pedido se carga en Pagos');
+  assert.equal(tabDelDato('monto', todas, { ...o, vacio: vacioCon(ctxDe({ estado_lead: 'ganado' })) }), 'pagos');
   assert.equal(tabDelDato('setter', ['resumen', 'pagos'], o), null, 'sin la tab Reuniones, el asistente');
   assert.equal(tabDelDato('motivo', todas, o), null, 'un lead que no salió no dibuja el motivo: el asistente');
 });

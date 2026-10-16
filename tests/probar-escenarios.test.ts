@@ -72,7 +72,9 @@ test('una plantilla de verdad: «Un Lead Entró» abre sus caminos, con tope', (
 
 const PANEL = readFileSync(new URL('../app/automations/PanelProbar.tsx', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 test('el panel: la barra sólo con más de un escenario, y la condición sale por lo que dice el escenario', () => {
-  assert.match(PANEL, /const conBarra = canal !== 'email' && escenarios\.length > 1;/);
+  // Desde el 16/10/2026 también con un solo caso si la automatización le escribe al grupo de MaKo: el grupo es el primer
+  // contacto (tests/probar-grupo-mako.test.ts).
+  assert.match(PANEL, /const conBarra = canal !== 'email' && \(escenarios\.length > 1 \|\| conGrupo\);/);
   const caso = PANEL.slice(PANEL.indexOf("case 'condicion': {"), PANEL.indexOf("case 'fin':"));
   const forzar = caso.search(/const forzado = escRef\.current\?\.elecciones\[evento\.nodo\];\n\s+if \(forzado && simRef\.current\.rama === 'salida' && evento\.opciones\.some\(\(o\) => o\.puerto === forzado\)\) \{\n\s+simRef\.current = elegir\(simRef\.current, forzado\);/);
   assert.ok(forzar >= 0, 'la condición no sale por lo que dice el escenario');
