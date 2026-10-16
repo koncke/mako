@@ -62,7 +62,8 @@ test('ningún texto que se dibuja dice «cartero», «clave» ni un estado inter
   const { textoDeEnvio } = await import('../lib/centro-chats');
   const casos = [
     { puede: false, por: 'sin_direccion' }, { puede: false, por: 'sin_clave' }, { puede: false, por: 'clave_no_aceptada' },
-    { puede: true, espera: 'cartero', cuenta: 'claude1' }, { puede: true, espera: 'chat_cerrado', cuenta: 'claude2' },
+    { puede: true, espera: 'cartero', cuenta: 'claude1', donde: 'app' }, { puede: true, espera: 'cartero', cuenta: 'claude2', donde: 'terminal' },
+    { puede: true, espera: 'chat_cerrado', cuenta: 'claude2', donde: 'terminal' },
   ] as const;
   for (const e of casos) {
     const t = textoDeEnvio(e) ?? '';
@@ -75,7 +76,8 @@ test('la caja dice qué hacer: cada frase arranca con la acción, y la de Martí
   assert.equal(textoDeEnvio({ puede: false, por: 'sin_clave' }), 'Crea tu Token para comenzar a chatear.');
   const casos = [
     { puede: false, por: 'sin_direccion' }, { puede: false, por: 'sin_clave' }, { puede: false, por: 'clave_no_aceptada' },
-    { puede: true, espera: 'cartero', cuenta: 'claude1' }, { puede: true, espera: 'chat_cerrado', cuenta: 'claude2' },
+    { puede: true, espera: 'cartero', cuenta: 'claude1', donde: 'app' }, { puede: true, espera: 'cartero', cuenta: 'claude2', donde: 'terminal' },
+    { puede: true, espera: 'chat_cerrado', cuenta: 'claude2', donde: 'terminal' },
   ] as const;
   for (const e of casos) {
     const t = textoDeEnvio(e);
@@ -83,7 +85,7 @@ test('la caja dice qué hacer: cada frase arranca con la acción, y la de Martí
     assert.match(t, /^(Abre|Crea|Pégale|Copia|Escribe)\b/, `«${t}»: arranca con lo que hay que hacer`);
     assert.match(t, /\bpara\b/, `«${t}»: y dice para qué`);
   }
-  assert.equal(textoDeEnvio({ puede: true, espera: null, cuenta: 'claude3' }), null, 'si sale ya, no hay nada que decir');
+  assert.equal(textoDeEnvio({ puede: true, espera: null, cuenta: 'claude3', donde: 'app' }), null, 'si sale ya, no hay nada que decir');
 });
 
 test('la PC reconoce al Runner por su nombre nuevo, el viejo y como sub-chat de su jefe', async () => {

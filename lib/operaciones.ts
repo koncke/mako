@@ -19,7 +19,9 @@ import 'server-only';
 // mismo — y además cada cartero lleva su registro de lo entregado (scripts/operaciones/).
 //
 // ⚠️ HAY UN CARTERO POR CUENTA (las tres corren a la vez). Cada uno reclama SÓLO pedidos para los
-// chats vivos que él mismo subió en esa vuelta: el de la cuenta 2 no se lleva lo de la 3.
+// chats vivos que él mismo subió en esa vuelta: el de la cuenta 2 no se lleva lo de la 3. Y desde la
+// 1.4.0 (16/10/2026), sólo los que dice `entregables`: SendMessage no cruza carpetas de config, así
+// que un chat vivo sin un Runner en su carpeta no se reclama (queda escrito hasta que se abra).
 //
 // ⚠️ EN LA MISMA VUELTA VAN LOS AVISOS DE LA TICKETERA (15/10/2026): cuando Martín contesta una
 // tarjeta, el cartero del chat que la preguntó le avisa. Las reglas, en lib/decisiones-aviso.ts. Un
@@ -30,7 +32,7 @@ import { createHash, createPublicKey, randomBytes, randomUUID, verify } from 'no
 import { getSupabaseServer } from './supabase';
 import {
   CUENTA_RE, POR_VUELTA, claveIdDe, estadoDeCierre, leerFirmable, sanearAcuses, sanearChats,
-  sanearCierres, sanearClaves, todosLosChats, type ChatCartero, type Cierre, type EstadoPedido,
+  sanearCierres, sanearClaves, sanearEntregables, todosLosChats, type ChatCartero, type Cierre, type EstadoPedido,
 } from './operaciones-reglas';
 import { AVISOS_POR_VUELTA, destinoDeDecision, filaAviso, mismoInstante, necesitaAviso } from './decisiones-aviso';
 
@@ -176,6 +178,8 @@ export type SalidaCiclo = {
   vencidos: number;
   acuses: number;
   cierres: number;
+  /** Los cierres que entraron (cartero 1.4.0): la PC borra ésos y vuelve a subir los demás. */
+  cierresIds: string[];
 };
 
 const T_DECISIONES = 'admin_decisiones';
@@ -186,7 +190,9 @@ const T_DECISIONES = 'admin_decisiones';
  * tarjeta espera a la vuelta en que se abra: no se pierde. Cada una se reclama con compare-and-set
  * sobre la respuesta y el intento anterior, así dos vueltas (o dos carteros) no la avisan dos veces.
  */
-async function avisosParaElCartero(cuenta: string, chatsDeEste: ChatCartero[], ahoraIso: string): Promise<AvisoParaEntregar[]> {
+async function avisosParaElCartero(
+  cuenta: string, chatsDeEste: ChatCartero[], entregables: ReadonlySet<string>, ahoraIso: string,
+): Promise<AvisoParaEntregar[]> {
   const db = getSupabaseServer();
   const ahora = Date.parse(ahoraIso);
   const { data: filas, error } = await db.from(T_DECISIONES)
@@ -211,7 +217,7 @@ async function avisosParaElCartero(cuenta: string, chatsDeEste: ChatCartero[], a
     const r = destinoDeDecision(d, todos);
     if (!r.ok || r.chat.cuenta !== cuenta) continue;
     const mio = chatsDeEste.find((c) => c.local === r.chat.local);
-    if (!mio?.vivo) continue;
+    if (!mio?.vivo || !entregables.has(mio.local)) continue;
     const id = randomUUID();
     let q = db.from(T_DECISIONES).update({
       aviso_id: id, aviso_de: f.respondida_at, aviso_destino: mio.local, aviso_estado: 'tomado', aviso_at: ahoraIso,
@@ -268,11 +274,13 @@ export async function cicloCartero(token: string, entrada: unknown): Promise<Sal
 
   // Los cierres que dejaron los chats: sólo sobre un pedido ENTREGADO.
   let cierres = 0;
+  const cierresIds: string[] = [];
   for (const c of sanearCierres(e.cierres)) {
     const { data } = await db.from(T_PEDIDOS).update({
       estado: estadoDeCierre(c.cierre), cierre: c.cierre, cerrado_at: ahoraIso, updated_at: ahoraIso,
     }).eq('id', c.id).eq('estado', 'entregado').select('id');
     cierres += (data ?? []).length;
+    if ((data ?? []).length) cierresIds.push(c.id);
   }
 
   // Lo vencido no se entrega: se dice, con el motivo.
@@ -281,8 +289,8 @@ export async function cicloCartero(token: string, entrada: unknown): Promise<Sal
     .update({ estado: 'no_entregado', motivo: 'Venció con el chat cerrado: ábrelo y vuelve a mandarlo', updated_at: ahoraIso })
     .eq('estado', 'escrito').lt('created_at', limite).select('id');
 
-  // Lo que ESTE cartero puede entregar ahora: pedidos escritos para uno de SUS chats vivos.
-  const vivos = chats.filter((c) => c.vivo).map((c) => c.local);
+  // Lo que ESTE cartero puede entregar ahora: pedidos escritos para uno de SUS chats vivos que la PC alcanza.
+  const vivos = sanearEntregables(e.entregables, chats);
   const pedidos: PedidoParaEntregar[] = [];
   if (vivos.length) {
     const { data: cand, error: eCand } = await db.from(T_PEDIDOS).select('id')
@@ -301,9 +309,9 @@ export async function cicloCartero(token: string, entrada: unknown): Promise<Sal
   let avisos: AvisoParaEntregar[] = [];
   let avisosError: string | null = null;
   try {
-    if (vivos.length) avisos = await avisosParaElCartero(cuenta, chats, ahoraIso);
+    if (vivos.length) avisos = await avisosParaElCartero(cuenta, chats, new Set(vivos), ahoraIso);
   } catch (err) {
     avisosError = err instanceof Error ? err.message.slice(0, 200) : 'error';
   }
-  return { pedidos, avisos, avisosError, vencidos: (venc ?? []).length, acuses, cierres };
+  return { pedidos, avisos, avisosError, vencidos: (venc ?? []).length, acuses, cierres, cierresIds };
 }

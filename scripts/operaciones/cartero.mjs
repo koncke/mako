@@ -5,10 +5,21 @@
 // Lleva a los chats de Claude Code los pedidos que Martín firma en /admin/operaciones. Diseño:
 // docs/diseno-centro-de-operaciones.md §2 y §3; lo que costó: docs/hallazgos-operaciones.md.
 //
-// ⚠️ HAY UN CARTERO POR CUENTA. Las tres cuentas corren a la vez (decisión de Martín, 15/10): una
-// en la app de escritorio y las otras en terminal, cada una con su CLAUDE_CONFIG_DIR. Cada
-// directorio tiene SU registro de sesiones (`<dir>/sessions/*.json`) y SendMessage funciona adentro
-// de una cuenta, así que cada cartero lee el suyo y entrega en el suyo. Se elige con `--cuenta`.
+// ⚠️ HAY UN RUNNER POR CARPETA, NO POR CUENTA (16/10/2026). Martín pasó las tres cuentas a la
+// terminal («no usar más a Claude desde la app de desktop, sino desde powershell»), cada una con su
+// CLAUDE_CONFIG_DIR (claude1 → ~/.claude, claude2 → ~/.claude-martin, claude3 → ~/.claude-cuenta3).
+// Cada carpeta tiene SU registro de sesiones (`<dir>/sessions/*.json`) y SendMessage sólo llega a las
+// sesiones registradas en la carpeta del que manda (medido el 16/10: a una de otra carpeta contesta
+// «ENOINBOX: no-key»). LEER sí se puede de todas, así que:
+//   · cualquier Runner ve las tres cuentas enteras y reclama lo que ALGÚN Runner puede entregar
+//     (`entregables`: el chat vivo, y un Runner abierto en SU carpeta);
+//   · lo reclamado va al buzón de la PC (compartido) con la carpeta del chat, y cada Runner entrega
+//     sólo lo de la suya (`pendientes`). Dos Runners en la misma carpeta (la app y la terminal de la
+//     cuenta 1 comparten ~/.claude) no lo mandan dos veces: el primero que lo lista se lo queda.
+//   · `ciclo` sin `--cuenta` da la vuelta por las cuentas que tienen una fuente en su carpeta.
+// La carpeta propia sale de CLAUDE_PID (la sesión que corre esto está en `<dir>/sessions/<pid>.json`)
+// o de CLAUDE_CONFIG_DIR. ⚠️ Nunca se copian las `.key` de una carpeta a otra: es la protección de
+// SendMessage contra un canal que nadie avaló.
 //
 // ⚠️ UN SCRIPT NO PUEDE ESCRIBIRLE A UNA SESIÓN. No hay una vía documentada: los named pipes del
 // registro son el protocolo INTERNO de Claude Code y no se usan. Por eso este script hace TODO
@@ -36,14 +47,16 @@
 //   url <https://…>                a dónde consultar (default https://hola-mako.com)
 //   token <mkop_…>                 el token de los carteros (se acuña en /admin/operaciones)
 //   clave <SPKI base64>            acepta una clave de firma más (una por dispositivo)
-//   cartero <claudeN> app|cli <dir>  declara el cartero de una cuenta y su directorio de config
+//   cartero <claudeN> app|cli <dir>  suma una fuente de chats a una cuenta (la app, o la terminal de
+//                                  esa carpeta de config); una cuenta puede tener las dos
 //   carpeta <carpeta> <claudeN>    qué cuenta es cada carpeta de la app (claude-code-sessions)
 //   repo <ruta>                    el clon desde el que los chats leen la Ticketera (default: el de
 //                                  OneDrive); va en el aviso de una respuesta
-//   estado [cuenta]                qué tiene configurado y qué ve
-//   ciclo [cuenta]                 una vuelta: sube lo que ve y los acuses; dice qué entregar
-//   pendientes [cuenta]            lo que está en el buzón esperando que el chat Cartero lo mande
-//   acuse [cuenta] <id> ok | error <motivo>   lo anota el chat Cartero después de cada SendMessage
+//   estado [cuenta]                qué tiene configurado, en qué carpeta corre y qué ve
+//   ciclo [cuenta]                 una vuelta: sube lo que ve y los acuses; dice qué entregar. Sin
+//                                  cuenta, por todas las de su carpeta
+//   pendientes [cuenta]            lo del buzón que le toca mandar a ESTE Runner (su carpeta)
+//   acuse [cuenta] <id> ok | error <motivo>   lo anota el Runner después de cada SendMessage
 //   cierre <id> --hecho "…" [--decidido "…"] [--comprobado "…"] [--sigue "…"] [--prueba "…"]
 //                                  lo corre el CHAT QUE RECIBIÓ el pedido, al terminarlo
 //   esperar [cuenta] [--max-seg N] (opción C, a probar) espera hasta que haya algo y sale con 2
@@ -54,13 +67,21 @@ import os from 'node:os';
 import path from 'node:path';
 import crypto from 'node:crypto';
 
-export const VERSION = '1.3.0';
+export const VERSION = '1.4.0';
 const HOME = os.homedir();
 const DIR = process.env.CARTERO_DIR || path.join(HOME, '.claude', 'operaciones');
 const APP = process.env.CARTERO_APP_DIR || path.join(process.env.APPDATA || path.join(HOME, 'AppData', 'Roaming'), 'Claude', 'claude-code-sessions');
 const CFG = path.join(DIR, 'config.json');
 const CLAVES = path.join(DIR, 'claves.txt');
 const LEDGER = path.join(DIR, 'entregados.json');
+/** Desde la 1.4.0 lo entregado es UN ARCHIVO POR ID: con varios Runners acusando a la vez, leer-cambiar-escribir
+ *  `entregados.json` perdía ids (el último que escribe pisa al otro). El json viejo se sigue leyendo. */
+const ENTREGADOS = path.join(DIR, 'entregados');
+const LATIDOS = path.join(DIR, 'latidos');
+/** Un Runner que no dio una vuelta en este rato no cuenta como abierto (su cron corre cada 2 minutos). */
+const LATIDO_VENCE_MS = 6 * 60 * 1000;
+/** Un cierre que MaKo no aceptó se vuelve a subir en cada vuelta, hasta este tope (su acuse puede llegar después). */
+const CIERRE_VENCE_MS = 24 * 3600 * 1000;
 const CIERRES = path.join(DIR, 'cierres');
 const LOG = path.join(DIR, 'cartero.log');
 /** Un pedido en el buzón sin acuse por más que esto pasa a «no sé si llegó». */
@@ -83,6 +104,56 @@ const expandir = (p) => String(p ?? '').replace(/^~(?=[\\/]|$)/, HOME);
 const ESTE = path.join(DIR, 'cartero.mjs');
 const buzonDe = (cuenta) => path.join(DIR, cuenta, 'buzon');
 const acusesDe = (cuenta) => path.join(DIR, cuenta, 'acuses');
+const resolver = (d) => path.resolve(expandir(d));
+const mismoDir = (a, b) => resolver(a).toLowerCase() === resolver(b).toLowerCase();
+/** «~/.claude-martin»: la carpeta como la escribe Martín, para mostrarla. */
+const rotuloDir = (d) => {
+  const rel = path.relative(HOME, resolver(d));
+  return rel && !rel.startsWith('..') && !path.isAbsolute(rel) ? `~/${rel.split(path.sep).join('/')}` : resolver(d);
+};
+/** Las cuentas que tienen un buzón en la PC. */
+const cuentasConBuzon = () => { try { return fs.readdirSync(DIR).filter((d) => CUENTA_RE.test(d)); } catch { return []; } };
+
+// ── las fuentes y la carpeta de este Runner ──────────────────────────────────────────────────
+/** De dónde salen los chats de una cuenta. Desde la 1.4.0 son varias (la app y la terminal); la forma
+ *  de antes, `{ fuente, configDir }`, se sigue leyendo como una sola. */
+function fuentesDe(k) {
+  const lista = Array.isArray(k?.fuentes) ? k.fuentes : k ? [k] : [];
+  const vistas = new Set();
+  const out = [];
+  for (const f of lista) {
+    if (!f || (f.fuente !== 'app' && f.fuente !== 'cli')) continue;
+    const configDir = f.configDir || '~/.claude';
+    const clave = `${f.fuente}:${resolver(configDir).toLowerCase()}`;
+    if (!vistas.has(clave)) { vistas.add(clave); out.push({ fuente: f.fuente, configDir }); }
+  }
+  return out;
+}
+
+/** Todas las carpetas de config que nombra la configuración. */
+const carpetasDe = (cfg) => {
+  const out = [];
+  for (const k of Object.values(cfg.carteros ?? {})) for (const f of fuentesDe(k)) if (!out.some((d) => mismoDir(d, f.configDir))) out.push(f.configDir);
+  return out;
+};
+
+/** La carpeta de config de la sesión que corre ESTE proceso: Claude Code le pasa su pid a la terminal
+ *  (CLAUDE_PID) y la sesión está registrada en `<dir>/sessions/<pid>.json`. Si no, CLAUDE_CONFIG_DIR (el
+ *  que pone `claude2` en el perfil de PowerShell), y si no, ~/.claude. CARTERO_CONFIG_DIR manda (los tests). */
+export function dirPropio(cfg = config(), env = process.env) {
+  if (env.CARTERO_CONFIG_DIR) return resolver(env.CARTERO_CONFIG_DIR);
+  const pid = Number(env.CLAUDE_PID);
+  if (Number.isInteger(pid) && pid > 0) {
+    for (const d of [...carpetasDe(cfg), env.CLAUDE_CONFIG_DIR, '~/.claude'].filter(Boolean)) {
+      if (fs.existsSync(path.join(resolver(d), 'sessions', `${pid}.json`))) return resolver(d);
+    }
+  }
+  return resolver(env.CLAUDE_CONFIG_DIR || '~/.claude');
+}
+
+/** Las cuentas por las que da la vuelta un Runner: las que tienen una fuente en su carpeta. */
+const cuentasDeLaCarpeta = (cfg, dir) => Object.keys(cfg.carteros ?? {})
+  .filter((c) => CUENTA_RE.test(c) && fuentesDe(cfg.carteros[c]).some((f) => mismoDir(f.configDir, dir)));
 
 // ── el contrato del pedido (el test diferencial lo compara con lib/operaciones-reglas.ts) ─────
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
@@ -166,41 +237,89 @@ function chatsDeLaApp(cuenta, cwds, carpetas) {
   return out;
 }
 
-/** Marca vivos los chats de la app, y suma las sesiones de terminal vivas (fuente `cli`). */
-function leerRegistro(cuenta, configDir, fuente, cwds, chats) {
-  const dir = path.join(expandir(configDir), 'sessions');
+/** Las sesiones vivas registradas en una carpeta de config (las de la app y las de la terminal). */
+function sesionesVivas(configDir) {
+  const dir = path.join(resolver(configDir), 'sessions');
   let archivos = [];
-  try { archivos = fs.readdirSync(dir).filter((f) => /^\d+\.json$/.test(f)); } catch { return; }
-  for (const f of archivos) {
-    const s = leerJson(path.join(dir, f), null);
-    if (!s?.messagingSocketPath || !vive(Number(s.pid))) continue;
+  try { archivos = fs.readdirSync(dir).filter((f) => /^\d+\.json$/.test(f)); } catch { return []; }
+  return archivos.map((f) => leerJson(path.join(dir, f), null)).filter((s) => s?.messagingSocketPath && vive(Number(s.pid)));
+}
+
+/** Las carpetas con un Runner abierto: una sesión viva que se llama Runner (o Cartero). El registro trae el nombre
+ *  de las dos clases de sesión (el de la app y el de `claude -n Runner`). La de quien corre esto cuenta siempre:
+ *  el que da la vuelta ES el Runner de su carpeta. */
+function carpetasConRunner(cfg, propio) {
+  const out = new Set([resolver(propio).toLowerCase()]);
+  for (const d of carpetasDe(cfg)) {
+    // Con el nombre no alcanza: un chat llamado Runner al que nadie le pegó las instrucciones no da vueltas, y MaKo le
+    // reclamaría trabajos que se vencerían en el buzón. Cuenta si además dio una vuelta hace poco (su latido).
+    if (latidoFresco(d) && sesionesVivas(d).some((s) => esElCartero(s.name))) out.add(resolver(d).toLowerCase());
+  }
+  return out;
+}
+
+const latidoDe = (d) => path.join(LATIDOS, `${crypto.createHash('sha256').update(resolver(d).toLowerCase()).digest('hex').slice(0, 16)}.json`);
+/** Lo anota cada vuelta de un Runner: «en esta carpeta hay un Runner dando vueltas». */
+const latir = (d) => escribirJson(latidoDe(d), { dir: rotuloDir(d), at: new Date().toISOString(), pid: DUENO });
+function latidoFresco(d) {
+  const l = leerJson(latidoDe(d), null);
+  const t = l ? Date.parse(l.at) : NaN;
+  return Number.isFinite(t) && Date.now() - t < LATIDO_VENCE_MS;
+}
+
+/** La sesión que corre esto, si está registrada en su carpeta (CLAUDE_PID). */
+function sesionPropia(propio, env = process.env) {
+  const pid = Number(env.CLAUDE_PID);
+  if (!Number.isInteger(pid) || pid <= 0) return null;
+  return leerJson(path.join(resolver(propio), 'sessions', `${pid}.json`), null);
+}
+
+/** `ciclo` y `pendientes` toman lo del buzón para mandarlo: si los corre un chat que NO es el Runner (uno que lo prueba,
+ *  o uno cualquiera), se quedaría con trabajos que nunca manda. Si la sesión se sabe y tiene otro nombre, no corre. */
+function exigirRunner(propio) {
+  const s = sesionPropia(propio);
+  const nombre = typeof s?.name === 'string' ? s.name.trim() : '';
+  if (nombre && !esElCartero(nombre)) {
+    throw new Error(`este chat («${nombre}») no es el Runner: lo del buzón lo manda el chat Runner (claudeN -n Runner)`);
+  }
+}
+
+/** Marca vivos los chats de la app, y suma las sesiones de terminal vivas (fuente `cli`). Cada chat vivo lleva
+ *  su carpeta (`dir`): es la única desde la que SendMessage le llega. */
+function leerRegistro(cuenta, configDir, fuente, cwds, chats) {
+  const dir = resolver(configDir);
+  for (const s of sesionesVivas(configDir)) {
     const estado = s.status === 'busy' || s.status === 'idle' ? s.status : null;
     if (fuente === 'app') {
       const c = s.hostSessionId ? chats.get(s.hostSessionId) : null;
-      if (c) Object.assign(c, { vivo: true, estado, pipe: s.messagingSocketPath });
-    } else if (UUID_RE.test(s.sessionId ?? '') && enCwds(s.cwd, cwds) && s.entrypoint !== 'claude-desktop' && !esElCartero(s.name)) {
+      if (c) Object.assign(c, { vivo: true, estado, pipe: s.messagingSocketPath, dir });
+    } else if (UUID_RE.test(s.sessionId ?? '') && enCwds(s.cwd, cwds) && s.entrypoint !== 'claude-desktop'
+      && (s.kind == null || s.kind === 'interactive') && !esElCartero(s.name)) {
       const local = `cli_${s.sessionId}`;
       chats.set(local, {
         local, titulo: String(s.name || `${path.basename(String(s.cwd || ''))} · ${s.sessionId.slice(0, 8)}`).slice(0, 120),
-        cuenta, vivo: true, estado, pipe: s.messagingSocketPath,
+        cuenta, vivo: true, estado, pipe: s.messagingSocketPath, dir,
         actividad: s.updatedAt ? new Date(s.updatedAt).toISOString() : null,
       });
     }
   }
 }
 
-function carteroDe(cuenta) {
-  const cfg = config();
-  const k = cfg.carteros?.[cuenta];
-  if (!k) throw new Error(`no hay cartero para ${cuenta}: node cartero.mjs cartero ${cuenta} app|cli <dir>`);
-  return { cfg, fuente: k.fuente === 'cli' ? 'cli' : 'app', configDir: k.configDir || '~/.claude' };
+function fuentesDeLaCuenta(cfg, cuenta) {
+  const fuentes = fuentesDe(cfg.carteros?.[cuenta]);
+  if (!fuentes.length) throw new Error(`la cuenta ${cuenta} no tiene de dónde sacar chats: node cartero.mjs cartero ${cuenta} app|cli <dir>`);
+  return fuentes;
 }
 
-function verChats(cuenta) {
-  const { cfg, fuente, configDir } = carteroDe(cuenta);
+/** Los chats de una cuenta, de todas sus fuentes. `runner` = hay un Runner abierto en la carpeta del chat (sin él,
+ *  nadie le puede entregar: la pantalla lo dice, y MaKo no reclama lo suyo). */
+function verChats(cuenta, cfg = config(), runners = carpetasConRunner(cfg, dirPropio(cfg))) {
+  const fuentes = fuentesDeLaCuenta(cfg, cuenta);
   const cwds = Array.isArray(cfg.cwds) && cfg.cwds.length ? cfg.cwds : CWDS_DEFAULT;
-  const chats = fuente === 'app' ? chatsDeLaApp(cuenta, cwds, cfg.carpetas ?? {}) : new Map();
-  leerRegistro(cuenta, configDir, fuente, cwds, chats);
+  const chats = new Map();
+  if (fuentes.some((f) => f.fuente === 'app')) for (const [k, c] of chatsDeLaApp(cuenta, cwds, cfg.carpetas ?? {})) chats.set(k, { ...c, dir: null });
+  for (const f of fuentes) leerRegistro(cuenta, f.configDir, f.fuente, cwds, chats);
+  for (const c of chats.values()) c.runner = c.vivo && c.dir ? runners.has(c.dir.toLowerCase()) : null;
   return chats;
 }
 
@@ -239,44 +358,70 @@ function listar(dir) {
   try { return fs.readdirSync(dir).filter((f) => f.endsWith('.json')).map((f) => path.join(dir, f)); } catch { return []; }
 }
 
-async function ciclo(cuenta) {
-  const { cfg } = carteroDe(cuenta);
+async function ciclo(cuenta, cfg = config(), propio = dirPropio(cfg), runners = carpetasConRunner(cfg, propio)) {
   if (!cfg.token) throw new Error('falta el token: node cartero.mjs token <mkop_…>');
   const url = (cfg.url || 'https://hola-mako.com').replace(/\/$/, '');
   const spkis = claves();
-  const ledger = new Set(leerJson(LEDGER, []));
-  const chats = verChats(cuenta);
+  const viejo = new Set(leerJson(LEDGER, []));
+  const yaSalio = (id) => viejo.has(id) || fs.existsSync(path.join(ENTREGADOS, id));
+  const chats = verChats(cuenta, cfg, runners);
   const BUZON = buzonDe(cuenta);
   const ACUSES = acusesDe(cuenta);
 
-  // Lo que quedó en el buzón sin acuse demasiado tiempo: no se sabe si salió. Se dice así.
-  for (const f of listar(BUZON)) {
-    const b = leerJson(f, null);
-    if (b && Date.now() - Date.parse(b.reclamado) > BUZON_VENCE_MS && !fs.existsSync(path.join(ACUSES, `${b.id}.json`))) {
-      escribirJson(path.join(ACUSES, `${b.id}.json`), { id: b.id, estado: 'incierto', motivo: 'El Runner no confirmó si le llegó: míralo en el chat' });
-      fs.rmSync(f, { force: true });
+  // Lo que quedó en el buzón sin acuse demasiado tiempo: no se sabe si salió. Se dice así. Recorre los buzones de
+  // TODAS las cuentas, no sólo el de la vuelta: cada Runner da la vuelta por las cuentas de su carpeta, y lo de una
+  // cuenta cuyo Runner se cerró no lo vencería nadie (quedaría «entregando» para siempre).
+  for (const c of cuentasConBuzon()) {
+    for (const f of listar(buzonDe(c))) {
+      const b = leerJson(f, null);
+      if (b && Date.now() - Date.parse(b.reclamado) > BUZON_VENCE_MS && !fs.existsSync(path.join(acusesDe(c), `${b.id}.json`))) {
+        const tomado = fs.existsSync(manoDe(f));
+        escribirJson(path.join(acusesDe(c), `${b.id}.json`), {
+          id: b.id, estado: 'incierto',
+          motivo: tomado ? 'El Runner no confirmó si le llegó: míralo en el chat' : 'Se cerró el Runner de esa terminal: ábrelo y vuelve a mandarlo',
+        });
+        fs.rmSync(f, { force: true });
+        fs.rmSync(manoDe(f), { force: true });
+      }
     }
   }
 
-  const acuses = listar(ACUSES).map((f) => leerJson(f, null)).filter(Boolean);
-  // Los cierres son de la PC, no de una cuenta: los sube el cartero que pase primero.
-  const cierres = listar(CIERRES).map((f) => leerJson(f, null)).filter(Boolean);
+  // Los acuses de TODAS las cuentas, y los cierres (que son de la PC). Juntos, porque MaKo aplica un cierre sólo
+  // sobre un pedido ENTREGADO: si un Runner subiera los cierres sin el acuse que está en el buzón de otra cuenta, el
+  // cierre no entraría (MaKo aplica cada acuse por su id, sin mirar la cuenta: subirlos en cualquier vuelta es seguro).
+  const archivosAcuse = cuentasConBuzon().flatMap((c) => listar(acusesDe(c)));
+  const acuses = archivosAcuse.map((f) => leerJson(f, null)).filter(Boolean);
+  const archivosCierre = listar(CIERRES);
+  const cierres = archivosCierre.map((f) => leerJson(f, null)).filter(Boolean);
+  // Lo que ALGÚN Runner de la PC puede entregar: el chat vivo, con un Runner abierto en su carpeta. MaKo reclama
+  // sólo eso; lo demás queda escrito y sale cuando se abra ese Runner (no se vence en el buzón).
+  const entregables = [...chats.values()].filter((c) => c.vivo && c.pipe && c.runner).map((c) => c.local);
   const r = await fetch(`${url}/api/operaciones/cartero`, {
     method: 'POST',
     headers: { 'content-type': 'application/json', authorization: `Bearer ${cfg.token}` },
     body: JSON.stringify({
       cuenta, version: VERSION,
-      chats: [...chats.values()].map(({ pipe, ...c }) => c),
-      claves: spkis.map(claveId), acuses, cierres,
+      // Ni la dirección del canal ni la carpeta salen de la PC.
+      chats: [...chats.values()].map(({ pipe, dir, ...c }) => c),
+      entregables, claves: spkis.map(claveId), acuses, cierres,
     }),
     signal: AbortSignal.timeout(30_000),
   });
   const salida = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error(`MaKo contestó ${r.status}: ${salida.error ?? 'sin detalle'}`);
 
-  // Lo que se subió ya está en MaKo: se borra de acá.
-  for (const a of acuses) fs.rmSync(path.join(ACUSES, `${a.id}.json`), { force: true });
-  for (const c of cierres) fs.rmSync(path.join(CIERRES, `${c.id}.json`), { force: true });
+  // Lo que se subió ya está en MaKo: se borra de acá (sólo lo que se listó ANTES de subir).
+  for (const f of archivosAcuse) fs.rmSync(f, { force: true });
+  // Un cierre se borra cuando MaKo dice que lo aplicó (`cierresIds`). El que no entró (su acuse todavía no llegó, o
+  // un servidor de antes que no dice cuáles) se vuelve a subir en la vuelta siguiente, hasta un día.
+  const aplicados = new Set(Array.isArray(salida.cierresIds) ? salida.cierresIds : []);
+  for (const f of archivosCierre) {
+    const c = leerJson(f, null);
+    let edad = 0;
+    try { edad = Date.now() - fs.statSync(f).mtimeMs; } catch { continue; }
+    if (c && aplicados.has(c.id)) fs.rmSync(f, { force: true });
+    else if (edad > CIERRE_VENCE_MS) { fs.rmSync(f, { force: true }); log(`CIERRE ${c?.id ?? path.basename(f)} no entró en un día: se descarta`); }
+  }
 
   const ahora = Date.now();
   const rechazarId = (id, motivo) => {
@@ -291,14 +436,14 @@ async function ciclo(cuenta) {
     const l = leerFirmable(firmado, ahora);
     if (!l.ok) { rechazar(`Vuelve a mandarlo (${l.motivo})`); continue; }
     if (l.p.id !== id) { rechazar('Vuelve a mandarlo: el id no coincide con la firma'); continue; }
-    if (ledger.has(id)) { rechazar('Ya se había entregado: no sale dos veces'); continue; }
+    if (yaSalio(id)) { rechazar('Ya se había entregado: no sale dos veces'); continue; }
     const chat = chats.get(l.p.destino);
     if (!chat?.vivo || !chat.pipe) { rechazar('El chat se cerró: ábrelo y vuelve a mandarlo'); continue; }
     escribirJson(path.join(BUZON, `${id}.json`), {
-      id, reclamado: new Date().toISOString(), clave: quien,
+      id, reclamado: new Date().toISOString(), clave: quien, dir: chat.dir,
       to: `uds:${chat.pipe}`, titulo: chat.titulo, mensaje: mensaje(l.p),
     });
-    log(`[${cuenta}] BUZON ${id} → ${chat.titulo}`);
+    log(`[${cuenta}] BUZON ${id} → ${chat.titulo} (${rotuloDir(chat.dir)})`);
   }
 
   // Los avisos de la Ticketera: el texto se arma acá; de lo que mande MaKo sólo se usan el id, el
@@ -310,11 +455,11 @@ async function ciclo(cuenta) {
     if (typeof id !== 'string' || !UUID_RE.test(id)) { log(`[${cuenta}] aviso con id inválido`); continue; }
     if (typeof a.ref !== 'string' || !REF_DECISION.test(a.ref)) { rechazarId(id, 'Aviso con una referencia inválida'); continue; }
     if (typeof a.destino !== 'string' || !DESTINO_RE.test(a.destino)) { rechazarId(id, 'Aviso con un destino inválido'); continue; }
-    if (ledger.has(id)) { rechazarId(id, 'Ya se había entregado: no sale dos veces'); continue; }
+    if (yaSalio(id)) { rechazarId(id, 'Ya se había entregado: no sale dos veces'); continue; }
     const chat = chats.get(a.destino);
     if (!chat?.vivo || !chat.pipe) { rechazarId(id, 'El chat se cerró antes de avisar'); continue; }
     escribirJson(path.join(BUZON, `${id}.json`), {
-      id, tipo: 'aviso', reclamado: new Date().toISOString(), clave: null,
+      id, tipo: 'aviso', reclamado: new Date().toISOString(), clave: null, dir: chat.dir,
       to: `uds:${chat.pipe}`, titulo: chat.titulo, mensaje: mensajeAviso(a.ref, repo),
     });
     avisos++;
@@ -327,21 +472,85 @@ async function ciclo(cuenta) {
   };
 }
 
-function pendientes(cuenta) {
-  return listar(buzonDe(cuenta)).map((f) => leerJson(f, null)).filter(Boolean)
-    .sort((a, b) => a.reclamado.localeCompare(b.reclamado))
-    .map(({ id, to, titulo, mensaje }) => ({ id, to, titulo, mensaje }));
+// ── quién entrega qué ────────────────────────────────────────────────────────────────────────
+/** La marca de «lo tiene este Runner», al lado de lo del buzón. */
+const manoDe = (f) => f.replace(/\.json$/, '.mano');
+/** Quién es este Runner: el pid de su sesión, que es el mismo en cada comando que corre (el de `node` cambia). */
+const DUENO = String(process.env.CLAUDE_PID || process.env.CLAUDE_CODE_SESSION_ID || `pid:${process.ppid}`);
+
+/** ¿Lo manda este Runner? Dos Runners en la MISMA carpeta (la app y la terminal de la cuenta 1 comparten
+ *  ~/.claude) verían lo mismo: el primero que lo lista se lo queda (crear la marca con `wx` es atómico).
+ *  ⚠️ Si el que lo tenía se cerró sin acusarlo, NO se vuelve a mandar: no se sabe si alcanzó a hacerlo, y un pedido
+ *  sale una vez. Se dice «no sé si llegó» y Martín decide. */
+function tomar(f) {
+  const mano = manoDe(f);
+  try {
+    fs.writeFileSync(mano, DUENO, { flag: 'wx' });
+    // Lo pudieron acusar entre que se listó y se marcó (el acuse borra primero lo del buzón): entonces ya salió.
+    if (!fs.existsSync(f)) { fs.rmSync(mano, { force: true }); return false; }
+    return true;
+  } catch { /* ya lo tiene alguien */ }
+  let dueno = '';
+  try { dueno = fs.readFileSync(mano, 'utf8').trim(); } catch { return false; }
+  if (dueno === DUENO) return fs.existsSync(f);
+  if (/^\d+$/.test(dueno) && !vive(Number(dueno))) {
+    const b = leerJson(f, null);
+    if (b && UUID_RE.test(b.id ?? '')) {
+      escribirJson(path.join(path.dirname(path.dirname(f)), 'acuses', `${b.id}.json`), {
+        id: b.id, estado: 'incierto', motivo: 'El Runner se cerró a mitad de la entrega: míralo en el chat',
+      });
+      log(`INCIERTO ${b.id}: su Runner (${dueno}) se cerró sin acusarlo`);
+    }
+    fs.rmSync(f, { force: true });
+    fs.rmSync(mano, { force: true });
+  }
+  return false;
+}
+
+/** Lo del buzón que le toca a ESTE Runner: lo de los chats de su carpeta (lo de antes de la 1.4.0 no dice
+ *  carpeta: era de la app, ~/.claude), y que no tenga otro Runner. Sin cuenta, de todas. */
+function pendientes(cuenta, propio = dirPropio()) {
+  const cuentas = cuenta ? [cuenta] : cuentasConBuzon();
+  return cuentas.flatMap((c) => listar(buzonDe(c)).map((f) => ({ f, b: leerJson(f, null) })))
+    .filter(({ b }) => b && mismoDir(b.dir || '~/.claude', propio))
+    .sort((x, y) => x.b.reclamado.localeCompare(y.b.reclamado))
+    .filter(({ f }) => tomar(f))
+    .map(({ b: { id, to, titulo, mensaje } }) => ({ id, to, titulo, mensaje }));
 }
 
 function acuse(cuenta, id, resultado, motivo) {
   if (!UUID_RE.test(id ?? '')) throw new Error('id inválido');
-  const b = path.join(buzonDe(cuenta), `${id}.json`);
-  if (!fs.existsSync(b)) throw new Error('ese pedido no está en el buzón');
+  // Sin cuenta, se busca en todos los buzones: el id es único.
+  const c = cuenta || cuentasConBuzon().find((x) => fs.existsSync(path.join(buzonDe(x), `${id}.json`)));
+  const b = c ? path.join(buzonDe(c), `${id}.json`) : null;
+  if (!b || !fs.existsSync(b)) throw new Error('ese pedido no está en el buzón');
   const ok = resultado === 'ok';
-  escribirJson(path.join(acusesDe(cuenta), `${id}.json`), { id, estado: ok ? 'entregado' : 'no_entregado', motivo: ok ? null : (motivo || 'No le llegó: vuelve a mandarlo') });
-  if (ok) { const l = new Set(leerJson(LEDGER, [])); l.add(id); escribirJson(LEDGER, [...l].slice(-5000)); }
+  escribirJson(path.join(acusesDe(c), `${id}.json`), { id, estado: ok ? 'entregado' : 'no_entregado', motivo: ok ? null : (motivo || 'No le llegó: vuelve a mandarlo') });
+  if (ok) { fs.mkdirSync(ENTREGADOS, { recursive: true }); fs.writeFileSync(path.join(ENTREGADOS, id), ''); }
+  // Primero lo del buzón y después la marca: un Runner gemelo que crea la marca entre medio ve que ya no está.
   fs.rmSync(b, { force: true });
-  log(`[${cuenta}] ACUSE ${id} ${ok ? 'ok' : `error: ${motivo}`}`);
+  fs.rmSync(manoDe(b), { force: true });
+  log(`[${c}] ACUSE ${id} ${ok ? 'ok' : `error: ${motivo}`}`);
+}
+
+/** Una vuelta de ESTE Runner: por cada cuenta con una fuente en su carpeta (o la que se le pida), y después lo
+ *  que le toca entregar. Si una cuenta falla, las otras siguen. */
+async function vuelta(cuenta) {
+  const cfg = config();
+  const propio = dirPropio(cfg);
+  exigirRunner(propio);
+  latir(propio);
+  const runners = carpetasConRunner(cfg, propio);
+  const cuentas = cuenta ? [cuenta] : cuentasDeLaCarpeta(cfg, propio);
+  if (!cuentas.length) {
+    throw new Error(`esta carpeta (${rotuloDir(propio)}) no es de ninguna cuenta: node cartero.mjs cartero <claudeN> cli ${rotuloDir(propio)}`);
+  }
+  if (cuenta) return { ...(await ciclo(cuenta, cfg, propio, runners)), entregar: pendientes(cuenta, propio) };
+  const porCuenta = {};
+  for (const c of cuentas) {
+    try { porCuenta[c] = await ciclo(c, cfg, propio, runners); } catch (e) { porCuenta[c] = { error: e.message }; log(`[${c}] CICLO falló: ${e.message}`); }
+  }
+  return { carpeta: rotuloDir(propio), cuentas: porCuenta, entregar: pendientes(null, propio) };
 }
 
 function cierre(id, args) {
@@ -370,11 +579,18 @@ function estado(cuenta) {
     token: cfg.token ? `…${String(cfg.token).slice(-4)}` : null,
     claves: claves().map(claveId), carteros: cfg.carteros ?? {}, carpetas: cfg.carpetas ?? {},
   };
+  // En qué carpeta corre este Runner, por qué cuentas da la vuelta y en qué carpetas hay un Runner abierto.
+  const propio = dirPropio(cfg);
+  const runners = carpetasConRunner(cfg, propio);
+  Object.assign(base, {
+    carpeta: rotuloDir(propio), cuentasDeLaCarpeta: cuentasDeLaCarpeta(cfg, propio),
+    carpetasConRunner: carpetasDe(cfg).filter((d) => runners.has(resolver(d).toLowerCase())).map(rotuloDir),
+  });
   if (!cuenta) return base;
-  const chats = [...verChats(cuenta).values()];
+  const chats = [...verChats(cuenta, cfg, runners).values()];
   return {
     ...base, cuenta, chats: chats.length,
-    vivos: chats.filter((c) => c.vivo).map((c) => c.titulo),
+    vivos: chats.filter((c) => c.vivo).map((c) => `${c.titulo} (${rotuloDir(c.dir)}${c.runner ? '' : ', sin Runner'})`),
     buzon: listar(buzonDe(cuenta)).length, acuses: listar(acusesDe(cuenta)).length, cierres: listar(CIERRES).length,
   };
 }
@@ -382,10 +598,10 @@ function estado(cuenta) {
 async function esperar(cuenta, maxSeg) {
   const fin = Date.now() + maxSeg * 1000;
   while (Date.now() < fin) {
-    try { await ciclo(cuenta); } catch (e) { log(`[${cuenta}] ESPERAR: el ciclo falló: ${e.message}`); }
-    const p = pendientes(cuenta);
+    let p = [];
+    try { p = (await vuelta(cuenta)).entregar; } catch (e) { log(`[${cuenta ?? 'carpeta'}] ESPERAR: el ciclo falló: ${e.message}`); }
     if (p.length) {
-      process.stderr.write(`Hay ${p.length} pedido(s) o aviso(s) para entregar. Corré: node "${ESTE}" pendientes --cuenta ${cuenta}\n`);
+      process.stderr.write(`Hay ${p.length} pedido(s) o aviso(s) para entregar. Corré: node "${ESTE}" pendientes${cuenta ? ` --cuenta ${cuenta}` : ''}\n`);
       process.exit(2);
     }
     await new Promise((r) => setTimeout(r, 15_000));
@@ -403,7 +619,7 @@ if (esMain) {
   const cuenta = iC >= 0 ? todos[iC + 1] : process.env.CARTERO_CUENTA;
   const args = iC >= 0 ? todos.filter((_, i) => i !== iC && i !== iC + 1) : todos;
   const [cmd, ...resto] = args;
-  const conCuenta = () => { if (!CUENTA_RE.test(cuenta ?? '')) throw new Error('falta --cuenta claudeN'); return cuenta; };
+  const cuentaOpcional = () => { if (cuenta == null || cuenta === '') return null; if (!CUENTA_RE.test(cuenta)) throw new Error('la cuenta es claudeN'); return cuenta; };
   const imprimir = (v) => process.stdout.write(JSON.stringify(v, null, 2) + '\n');
   try {
     switch (cmd) {
@@ -424,8 +640,10 @@ if (esMain) {
         const [c, fuente, dir] = resto;
         if (!CUENTA_RE.test(c ?? '') || (fuente !== 'app' && fuente !== 'cli') || !dir) throw new Error('uso: cartero <claudeN> app|cli <dir>');
         const cfg = config();
-        escribirJson(CFG, { ...cfg, carteros: { ...(cfg.carteros ?? {}), [c]: { fuente, configDir: dir } } });
-        imprimir({ ok: true }); break;
+        // Se SUMA a las que ya tiene (la app y la terminal de una cuenta conviven); repetida no se duplica.
+        const fuentes = fuentesDe({ fuentes: [...fuentesDe(cfg.carteros?.[c]), { fuente, configDir: dir }] });
+        escribirJson(CFG, { ...cfg, carteros: { ...(cfg.carteros ?? {}), [c]: { fuentes } } });
+        imprimir({ ok: true, fuentes }); break;
       }
       case 'carpeta': {
         if (!CUENTA_RE.test(resto[1] ?? '')) throw new Error('uso: carpeta <uuid> <claudeN>');
@@ -439,11 +657,12 @@ if (esMain) {
         escribirJson(CFG, { ...config(), repo: dir }); imprimir({ ok: true, repo: dir }); break;
       }
       case 'estado': imprimir(estado(cuenta && CUENTA_RE.test(cuenta) ? cuenta : null)); break;
-      case 'ciclo': { const c = conCuenta(); const r = await ciclo(c); imprimir({ ...r, entregar: pendientes(c) }); break; }
-      case 'pendientes': imprimir(pendientes(conCuenta())); break;
-      case 'acuse': acuse(conCuenta(), resto[0], resto[1], resto.slice(2).join(' ')); imprimir({ ok: true }); break;
+      // Sin --cuenta: por todas las de la carpeta de este Runner (1.4.0).
+      case 'ciclo': imprimir(await vuelta(cuentaOpcional())); break;
+      case 'pendientes': { const propio = dirPropio(); exigirRunner(propio); imprimir(pendientes(cuentaOpcional(), propio)); break; }
+      case 'acuse': acuse(cuentaOpcional(), resto[0], resto[1], resto.slice(2).join(' ')); imprimir({ ok: true }); break;
       case 'cierre': cierre(resto[0], resto.slice(1)); imprimir({ ok: true }); break;
-      case 'esperar': { const i = resto.indexOf('--max-seg'); await esperar(conCuenta(), i >= 0 ? Number(resto[i + 1]) || 3000 : 3000); break; }
+      case 'esperar': { const i = resto.indexOf('--max-seg'); await esperar(cuentaOpcional(), i >= 0 ? Number(resto[i + 1]) || 3000 : 3000); break; }
       default:
         process.stderr.write('comandos: instalar | url | token | clave | cartero | carpeta | repo | estado | ciclo | pendientes | acuse | cierre | esperar\n');
         process.exit(1);

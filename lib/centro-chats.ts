@@ -54,9 +54,14 @@ export type ChatCentro = {
   miembros: string[];
   /** Una por cuenta en la que vive (puede haber dos en la misma), la que recibe primero. */
   sesiones: SesionDeChat[];
+  /** Abierta, pero sin un Runner en su carpeta de config: nadie le puede entregar (cartero 1.4.0). */
+  sinRunner?: boolean;
 };
 
-export type SesionDeChat = { sesion: string; cuenta: string | null; estado: EstadoChat; vistoAt: number | null; viejo: boolean; actividad: number | null };
+export type SesionDeChat = {
+  sesion: string; cuenta: string | null; estado: EstadoChat; vistoAt: number | null; viejo: boolean; actividad: number | null;
+  sinRunner?: boolean;
+};
 
 /** Lo mínimo de un cartero (lib/operaciones.ts → Cartero). `claves`: las que acepta la PC (para la caja de escribir). */
 export type CarteroP = { cuenta: string; vistoAt: string | null; chats: readonly ChatCartero[]; claves?: readonly string[] };
@@ -178,6 +183,7 @@ export function completarChats(base: readonly ChatCentro[], { carteros, trabajos
       c.estado = !ch.vivo ? 'cerrado' : ch.estado === 'busy' ? 'trabajando' : 'abierto';
       c.vistoAt = visto;
       c.viejo = viejo;
+      c.sinRunner = ch.vivo && ch.runner === false;
       mover(c, fecha(ch.actividad));
     }
   }
@@ -203,7 +209,13 @@ export function completarChats(base: readonly ChatCentro[], { carteros, trabajos
 
 /** Qué tan lista está una sesión para recibir: trabajando o abierta con el dato fresco gana; después, la más reciente. */
 const PESO_ESTADO: Record<EstadoChat, number> = { trabajando: 0, abierto: 1, cerrado: 2, sin_dato: 3 };
-const pesoSesion = (s: Pick<SesionDeChat, 'estado' | 'viejo'>) => (s.viejo && s.estado !== 'cerrado' && s.estado !== 'sin_dato' ? 2 : PESO_ESTADO[s.estado]);
+/** Una abierta SIN Runner en su carpeta recibe peor que una abierta con él (aunque esté trabajando), y mejor que una
+ *  cerrada: con el mismo chat abierto en dos cuentas, se le escribe a la que alguien puede entregar. */
+const pesoSesion = (s: Pick<SesionDeChat, 'estado' | 'viejo' | 'sinRunner'>) => {
+  const abierta = s.estado !== 'cerrado' && s.estado !== 'sin_dato';
+  if (s.viejo && abierta) return 2;
+  return abierta && s.sinRunner ? 1.5 : PESO_ESTADO[s.estado];
+};
 
 /**
  * Junta en UN chat todo lo que se llama igual (sin mayúsculas ni tildes): sus sesiones de las tres cuentas, lo que
@@ -222,7 +234,7 @@ export function unirPorNombre(chats: readonly ChatCentro[]): ChatCentro[] {
   for (const [k, lista] of grupos) {
     const sesiones: SesionDeChat[] = lista
       .filter((c) => c.sesion)
-      .map((c) => ({ sesion: c.sesion!, cuenta: c.cuenta, estado: c.estado, vistoAt: c.vistoAt, viejo: c.viejo, actividad: c.actividad }))
+      .map((c) => ({ sesion: c.sesion!, cuenta: c.cuenta, estado: c.estado, vistoAt: c.vistoAt, viejo: c.viejo, actividad: c.actividad, ...(c.sinRunner ? { sinRunner: true } : {}) }))
       .sort((a, b) => pesoSesion(a) - pesoSesion(b) || (b.actividad ?? 0) - (a.actividad ?? 0));
     const mejor = sesiones[0];
     const nombre = lista.find((c) => c.sesion === mejor?.sesion) ?? lista[0];
@@ -236,6 +248,7 @@ export function unirPorNombre(chats: readonly ChatCentro[]): ChatCentro[] {
       estado: mejor?.estado ?? 'sin_dato',
       vistoAt: mejor?.vistoAt ?? null,
       viejo: mejor?.viejo ?? false,
+      ...(mejor?.sinRunner ? { sinRunner: true } : {}),
       actividad: Math.max(...lista.map((c) => c.actividad ?? 0)) || null,
       pedidos: unica(lista.flatMap((c) => c.pedidos)),
       pidioAca: unica(lista.flatMap((c) => c.pidioAca)),
@@ -363,12 +376,13 @@ export type Envio =
   | { puede: false; por: 'sin_clave' }
   /** La PC no acepta la clave de este dispositivo: se copia y se carga allá. */
   | { puede: false; por: 'clave_no_aceptada' }
-  /** Sale: ya (`espera: null`), cuando el cartero de su cuenta dé una vuelta, o cuando se abra el chat. */
-  | { puede: true; espera: null | 'cartero' | 'chat_cerrado'; cuenta: string | null };
+  /** Sale: ya (`espera: null`), cuando el cartero de su cuenta dé una vuelta, o cuando se abra el chat. `donde`:
+   *  si la sesión es de la app o de una terminal, que es donde hay que abrir su Runner. */
+  | { puede: true; espera: null | 'cartero' | 'chat_cerrado'; cuenta: string | null; donde: 'app' | 'terminal' };
 
 export function comoSale(
   chat: Pick<ChatCentro, 'sesion' | 'cuenta' | 'estado'>,
-  carteros: readonly Pick<CarteroP, 'cuenta' | 'vistoAt' | 'claves'>[],
+  carteros: readonly (Pick<CarteroP, 'cuenta' | 'vistoAt' | 'claves'> & { chats?: CarteroP['chats'] })[],
   /** El id corto de la clave de ESTE dispositivo; null = no tiene; undefined = todavía no se sabe. */
   claveId: string | null | undefined,
   ahora: number,
@@ -379,10 +393,16 @@ export function comoSale(
   // Sin ningún cartero que haya dicho qué acepta, no se sabe: se deja salir, y espera al cartero.
   const informaron = carteros.filter((k) => Array.isArray(k.claves));
   if (informaron.length && !informaron.some((k) => k.claves!.includes(claveId))) return { puede: false, por: 'clave_no_aceptada' };
+  const donde = chat.sesion.startsWith('cli_') ? 'terminal' : 'app';
+  const sale = (espera: null | 'cartero' | 'chat_cerrado'): Envio => ({ puede: true, espera, cuenta: chat.cuenta, donde });
   const suyo = carteros.find((k) => k.cuenta === chat.cuenta);
-  if (!carteroVivo(suyo, ahora)) return { puede: true, espera: 'cartero', cuenta: chat.cuenta };
-  if (chat.estado !== 'trabajando' && chat.estado !== 'abierto') return { puede: true, espera: 'chat_cerrado', cuenta: chat.cuenta };
-  return { puede: true, espera: null, cuenta: chat.cuenta };
+  if (!carteroVivo(suyo, ahora)) return sale('cartero');
+  if (chat.estado !== 'trabajando' && chat.estado !== 'abierto') return sale('chat_cerrado');
+  // ⚠️ El cartero de la cuenta puede estar dando vueltas desde OTRA carpeta: SendMessage no cruza carpetas de config
+  // (16/10/2026), así que una sesión abierta sin un Runner en la suya espera a ese Runner (`runner`, cartero 1.4.0).
+  const sesion = carteros.flatMap((k) => k.chats ?? []).find((x) => x.local === chat.sesion && x.vivo);
+  if (sesion?.runner === false) return sale('cartero');
+  return sale(null);
 }
 
 /** «Cuenta 3», o null si no se sabe. */
@@ -404,7 +424,9 @@ export function textoDeEnvio(e: Envio): string | null {
     return null;
   }
   const n = e.cuenta ? e.cuenta.replace(/^claude/, '') : '?';
-  if (e.espera === 'cartero') return 'Abre el chat Runner en la app de Claude para que salga.';
+  if (e.espera === 'cartero') {
+    return e.donde === 'terminal' ? `Abre el Runner en la terminal de la cuenta ${n} para que salga.` : 'Abre el chat Runner en la app de Claude para que salga.';
+  }
   if (e.espera === 'chat_cerrado') return `Abre este chat en la cuenta ${n} para que lo reciba.`;
   return null;
 }
@@ -467,8 +489,10 @@ export function nombreValido(v: string): { ok: true; nombre: string } | { ok: fa
   return { ok: true, nombre };
 }
 /** Lo que se le manda a cada sesión del chat. */
+/** ⚠️ En la TERMINAL no hay set_session_title (es de la app) y `/rename` lo escribe Martín, no el modelo (16/10/2026):
+ *  ahí el chat se lo dice en el cierre, que es lo que el Centro muestra de ese trabajo. */
 export const textoDeRenombre = (nombre: string) =>
-  `Renombra este chat a «${nombre}»: usa set_session_title sobre esta misma sesión. No hagas nada más.`;
+  `Renombra este chat a «${nombre}»: usa set_session_title sobre esta misma sesión. Si no la tienes (en la terminal no está), no la busques: deja en el cierre --sigue "Escribe /rename ${nombre} en la terminal de este chat". No hagas nada más.`;
 
 // ── El avance de UN chat (Martín, 15/10/2026) ─────────────────────────────────────────────────────────────────
 // «quiero que cada chat tenga arriba, en su topbar un botón para ver los avances, que despliegue la sidebar derecha,

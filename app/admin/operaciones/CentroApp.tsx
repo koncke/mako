@@ -404,7 +404,7 @@ export function CentroApp({ base, colaInicial, carterosIniciales, decisionesInic
               <Input data-autofocus value={renombrando.texto} maxLength={120} disabled={renombrando.mandando}
                 onChange={(e) => setRenombrando({ ...renombrando, texto: e.target.value, error: null })} />
             </Field>
-            <p className="co-nota">{new Set(deRenombre.sesiones.map((s) => s.cuenta)).size > 1 ? `Se renombra en sus ${new Set(deRenombre.sesiones.map((s) => s.cuenta)).size} cuentas.` : 'Se renombra en la app de Claude.'}</p>
+            <p className="co-nota">{new Set(deRenombre.sesiones.map((s) => s.cuenta)).size > 1 ? `Se renombra en sus ${new Set(deRenombre.sesiones.map((s) => s.cuenta)).size} cuentas.` : 'Se renombra en su chat.'}</p>
           </form>
         </Modal>
       )}

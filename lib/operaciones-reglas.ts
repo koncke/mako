@@ -158,6 +158,12 @@ export type ChatCartero = {
   estado: 'busy' | 'idle' | null;
   /** La última actividad que registra la app, ISO. */
   actividad: string | null;
+  /**
+   * ¿Hay un Runner abierto en la carpeta de config de esta sesión? SendMessage sólo llega a las sesiones de la
+   * MISMA carpeta (medido el 16/10/2026: «ENOINBOX: no-key»), y cada cuenta de terminal tiene la suya: un chat vivo
+   * sin Runner en su carpeta no recibe. Falta (undefined) en lo que subió un cartero de antes de la 1.4.0.
+   */
+  runner?: boolean;
 };
 
 const corto = (v: unknown, max: number): string => (typeof v === 'string' ? v.trim().slice(0, max) : '');
@@ -181,9 +187,22 @@ export function sanearChats(x: unknown): ChatCartero[] {
       vivo: o.vivo === true,
       estado: o.estado === 'busy' || o.estado === 'idle' ? o.estado : null,
       actividad: act && Number.isFinite(Date.parse(act)) ? act : null,
+      ...(typeof o.runner === 'boolean' ? { runner: o.runner } : {}),
     });
   }
   return out;
+}
+
+/**
+ * Lo que un cartero dice que la PC puede entregar ahora (1.4.0): sus chats vivos con un Runner en su carpeta. Sólo
+ * cuenta lo que ESTE mismo cartero subió vivo en la vuelta: no se reclama nada para un chat que no mostró. Sin la
+ * lista (un cartero de antes), todos sus vivos, como siempre.
+ */
+export function sanearEntregables(x: unknown, chats: readonly ChatCartero[]): string[] {
+  const vivos = chats.filter((c) => c.vivo).map((c) => c.local);
+  if (!Array.isArray(x)) return vivos;
+  const pedidos = new Set(x.filter((v): v is string => typeof v === 'string'));
+  return vivos.filter((l) => pedidos.has(l));
 }
 
 export function sanearClaves(x: unknown): string[] {

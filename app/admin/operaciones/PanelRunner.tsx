@@ -24,7 +24,7 @@ import { Icon } from '@/app/_components/icons';
 import { carteroVivo } from '@/lib/operaciones-reglas';
 import { nombreCuenta } from '@/lib/centro-chats';
 import { hace } from '@/lib/progreso-reglas';
-import { INSTRUCCIONES_RUNNER } from '@/lib/runner';
+import { COMANDO_TERMINAL, INSTRUCCIONES_RUNNER } from '@/lib/runner';
 import type { EstadoCarteros } from '@/lib/operaciones';
 import type { ClaveDispositivo } from './clave-dispositivo';
 import { crearTokenCarteroAction } from './acciones';
@@ -98,12 +98,19 @@ function Lista({ estado, clave, ahora, onCrearClave, onCopiar, onNuevo }: Props 
         {runners.map((k) => {
           const vivo = carteroVivo(k, ahora);
           const abiertos = k.chats.filter((c) => c.vivo).length;
+          // Abierta en la TERMINAL sin un Runner en SU carpeta: el de otra carpeta no le llega (lib/runner.ts). Uno de la
+          // app sin Runner se arregla abriendo el de la app, no con este comando: no se cuenta acá.
+          const sinRunner = k.chats.filter((c) => c.vivo && c.runner === false && c.local.startsWith('cli_')).length;
+          const comando = COMANDO_TERMINAL(k.cuenta);
           return (
             <div key={k.cuenta} className="co-runner__fila" role="listitem">
               <span className={`co-punto co-punto--${vivo ? 'trabajando' : 'viejo'}`} aria-hidden />
               <span className="co-runner__nombre">
                 {nombreCuenta(k.cuenta)}
-                {!vivo && <span className="co-runner__hacer">Abre el chat Runner en la app de Claude para conectarlo</span>}
+                {!vivo && <span className="co-runner__hacer">{`Escribe «${comando}» en PowerShell para conectarlo`}</span>}
+                {vivo && sinRunner > 0 && (
+                  <span className="co-runner__hacer">{`Escribe «${comando}» en PowerShell para llegarle a su terminal`}</span>
+                )}
               </span>
               {vivo && <span className="co-runner__etiqueta">{`${abiertos} ${abiertos === 1 ? 'chat abierto' : 'chats abiertos'}`}</span>}
               <span className="co-runner__estado" title={k.vistoAt ? `Se conectó ${hace(Date.parse(k.vistoAt), ahora)}` : undefined}>
@@ -152,8 +159,8 @@ function Nuevo({ estado, clave, onCrearClave, onCopiar }: Props) {
   return (
     <div className="co-runner">
       <section className="co-runner__paso">
-        <p className="co-runner__paso-titulo"><span>1</span>Crea su chat</p>
-        <p>Abre un chat nuevo en la app de Claude, llámalo Runner y pégale esto.</p>
+        <p className="co-runner__paso-titulo"><span>1</span>Ábrelo en la terminal</p>
+        <p>Abre PowerShell, escribe <code>{COMANDO_TERMINAL('claude2')}</code> (claude1 o claude3 para las otras cuentas, uno por cuenta) y pégale esto.</p>
         <Codigo texto={INSTRUCCIONES_RUNNER} aviso="Copiado: pégalo en el chat Runner" onCopiar={onCopiar} alto={150} />
       </section>
 
