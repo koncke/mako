@@ -1062,9 +1062,17 @@ títulos y bloques, con su Deshacer. Lo que no se ve en el código:
 - **El CSS del panel lateral (`.an`) vivía adentro del render del AI Analyst**: un segundo panel en el mismo lugar no lo
   tenía. Se exporta (`CSS_PANEL_LATERAL`), y abrir un panel cierra el otro.
 
+**Probado con la IA de verdad** (16/10/2026, después del run 36, la sesión de Martín en el ws9, sin escribir nada: la hoja
+la dio `/api/graficos/plantilla` y se la mandó a `/api/graficos/editar`, que no guardan):
+- Dashboard, «Agrega los leads por semana y quita el CAC real»: agregó «Leads por semana» (una serie de `negocio.leads`
+  por semana, abajo de todo) en 11 s, y contestó que no quitaba nada porque la hoja no tenía el CAC real. Era cierto: en
+  el ws9 la plantilla Marketing sale sin él (`hojaConDatos` saca los gráficos que quedarían vacíos).
+- General, «Agrega mis tareas prioritarias y un gráfico de sankey de los leads»: agregó el bloque «Tareas prioritarias»
+  en 6 s y dijo que el sankey no está entre lo que ofrece. El alcance de General funcionó en la capa del modelo, antes
+  que en la del código.
+
 **Lo que quedó SIN hacer:**
-- **Probarlo con la IA de verdad.** Sin `next dev` por la RAM: el panel se vio en el arnés (`node capturar.cjs "" mako
-  editar`) y la regla tiene sus tests, pero nadie le pidió un cambio a un modelo todavía.
+- **Mirar el panel en la pantalla de producción** (lo de arriba probó la ruta y el modelo; el panel, sólo el arnés).
 - **El hilo no se guarda**: es de la sesión, por hoja. Guardarlo es la etapa 2 del diseño (la pieza única de chat).
 - **Groq queda afuera casi siempre**: catálogo, hoja y pedido pasan los ~12.000 caracteres, y la cascada lo saltea sola.
   Contestan Gemini y OpenRouter.
