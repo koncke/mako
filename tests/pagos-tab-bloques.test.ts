@@ -180,6 +180,29 @@ test('los bloques no refrescan la página a mano y piden los cobros UNA vez por 
   assert.match(datos, /if \(primero\) \{ leerCobros\(leadId\); leerOpciones\(leadId\); \}/, 'se lee sólo con el primer bloque que mira');
 });
 
+test('una cuota con un link vivo o un recordatorio corriendo lo dice, no ofrece lo que el server rechaza, y el recordatorio se corta', () => {
+  // Revisión del 16/10/2026: el server no deja editar una cuota con un recordatorio en curso («córtalo para editarla»)
+  // ni cambiar el monto con un link sin pagar, y la tab no tenía dónde cortarlo: un callejón sin salida.
+  assert.match(COBRO, /proteccionesDeCuotasAction\(lead\.id\)\.then\(\(p\) => \{ if \(vivo\) setProtegidas\(p\); \}\)/);
+  assert.match(COBRO, /const montoEditable = r\.editable && !prot\.includes\('link'\) && !prot\.includes\('recordatorio'\);/);
+  assert.match(COBRO, /const fechaEditable = r\.editable && !prot\.includes\('recordatorio'\);/);
+  assert.match(COBRO, /\{montoEditable && !editando\s*\? <EnLinea valor=\{String\(Number\(q\.monto_usd\)\)\}/);
+  assert.match(COBRO, /\{r\.accion === 'marcar' && prot\.includes\('recordatorio'\) && <Button[^\n]*onClick=\{\(\) => cortar\(q\)\}>Cortar el recordatorio<\/Button>/);
+  assert.match(COBRO, /await cortarRecordatoriosCuotaAction\(lead\.id, q\.id\)/);
+  const acc = fuente(`${DIR}/cuotas-actions.ts`);
+  const fn = acc.slice(acc.indexOf('export async function proteccionesDeCuotasAction'));
+  assert.ok(fn.indexOf('if (!(await haySesion())) return {};') > 0 && fn.indexOf('await asegurarLeadDelNegocio(leadId);') > fn.indexOf('haySesion'), 'sin sesión o con un lead ajeno, nada');
+});
+
+test('el campo en el lugar guarda UNA vez: Enter y el blur que le sigue no son dos guardados', () => {
+  // Revisión del 16/10/2026: la segunda llamada iba contra el valor VIEJO del prop; en una obligación volvía con
+  // «otra pestaña lo cambió» sobre lo que sí se guardó.
+  const src = fuente(`${DIR}/EnLinea.tsx`);
+  const salir = src.slice(src.indexOf('const salir = async () => {'), src.indexOf('const tecla ='));
+  assert.ok(salir.indexOf('if (enCurso.current) return;') >= 0 && salir.indexOf('if (enCurso.current) return;') < salir.indexOf('await onGuardar(v)'));
+  assert.ok(salir.indexOf('enCurso.current = true;') < salir.indexOf('await onGuardar(v)') && salir.indexOf('enCurso.current = false;') > salir.indexOf('await onGuardar(v)'));
+});
+
 test('la API de MaKo cuenta el estado de cuenta y los movimientos con las MISMAS funciones que la tab', () => {
   // AGENTS.md: toda feature nueva va a la API. `cobranza_lead` es la lectura que MaKo usa para «¿qué hago con X?».
   const run = fuente('lib/api-mako/areas/crm.run.ts');
