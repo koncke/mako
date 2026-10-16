@@ -187,7 +187,7 @@ export function LeadSheet({ data, onClose, initialTab, solucionarAlAbrir, verDat
 
   return (
     <FichaCambioProvider value={releer}>
-    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 80, background: 'rgba(18,21,27,.52)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: `${MARGEN_FICHA_LEAD}px clamp(10px,3vw,20px)` }}>
+    <div data-ficha-overlay onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 80, background: 'rgba(18,21,27,.52)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: `${MARGEN_FICHA_LEAD}px clamp(10px,3vw,20px)` }}>
       {/* ⚠️ MÁS ANCHO (punto 14 del 12/10/2026: «bastante más ancho, para aprovechar más el
           espacio»): eran 760. El número vive en lead-view/ficha-medidas.ts, que también lee el
           esqueleto de carga. Sin `aria-labelledby`: el nombre ahora es un campo editable, y un

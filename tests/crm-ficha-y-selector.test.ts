@@ -187,10 +187,13 @@ test('MaKo Analyst (ex «Análisis») va pegado a Historial, en las DOS fichas',
   // Las dos montan la MISMA `FichaPorBloques` (app/crm/lead-view/ficha/), que es la que las declara UNA
   // vez. Se lee el orden ahí, y que las dos puertas la monten. Re-verificado rompiéndolo: MaKo Analyst
   // antes de Pagos en FichaPorBloques → 1 fallo; la ruta con su `tabs={[` de vuelta → 1 fallo.
-  const esperado = ['Resumen', 'Tracking', 'Reuniones', 'Pagos', 'MaKo Analyst', 'Historial'];
+  // ⚠️ Y DESDE EL 16/10/2026 «MaKo Analyst» NO ES UNA PESTAÑA: es el panel «AI Analyst» que abre el «⋯» (Martín:
+  // «Esto reemplaza a la tab de "MaKo Analyst", se debería eliminar esa tab»). Probado rompiéndolo (16/10/2026, base
+  // del archivo sin fallos): la pestaña de vuelta → 1 fallo; `irATab('insights')` sin abrir el panel → 1 fallo.
+  const esperado = ['Resumen', 'Tracking', 'Reuniones', 'Pagos', 'Historial'];
 
   const ficha = leer('../app/crm/lead-view/ficha/FichaPorBloques.tsx');
-  assert.deepEqual(etiquetas(ficha, 'const tabs: LeadTabDef[] = [').slice(0, 6), esperado, 'la ficha (las dos puertas)');
+  assert.deepEqual(etiquetas(ficha, 'const tabs: LeadTabDef[] = [').slice(0, 5), esperado, 'la ficha (las dos puertas)');
   for (const ruta of ['../app/crm/LeadSheet.tsx', '../app/crm/[id]/LeadDetailBody.tsx', '../app/crm/[id]/page.tsx']) {
     assert.ok(!leer(ruta).includes('tabs={['), `${ruta}: vuelve a declarar sus tabs a mano`);
   }
@@ -198,9 +201,11 @@ test('MaKo Analyst (ex «Análisis») va pegado a Historial, en las DOS fichas',
     assert.match(leer(ruta), /<FichaPorBloques\b/, `${ruta}: no monta la ficha compartida`);
   }
 
-  // La `key` NO cambió con el rótulo: viaja en los links (`?tab=insights`), y renombrarla dejaría
-  // esos links abriendo la primera pestaña sin decir nada.
-  assert.match(ficha, /key: 'insights', label: 'MaKo Analyst'/, 'la key de la pestaña cambió');
+  // Los links viejos (`?tab=insights`) y «Ver análisis» de la siguiente acción abren el PANEL, no la primera pestaña.
+  assert.doesNotMatch(ficha, /key: 'insights'/, 'volvió la pestaña MaKo Analyst');
+  assert.match(ficha, /const \[analyst, setAnalyst\] = useState\(initialTab === 'insights'\);/);
+  assert.match(ficha, /irATab: \(clave\) => \{ if \(clave === 'insights'\) \{ setAnalyst\(true\); return; \}/);
+  assert.match(ficha, /\{ value: 'analyst', label: 'AI Analyst', icono: 'mako' \}/, 'el «⋯» perdió el AI Analyst');
 });
 
 test('las DOS fichas hablan el mismo idioma y muestran lo mismo', () => {

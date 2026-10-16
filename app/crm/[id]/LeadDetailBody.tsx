@@ -201,7 +201,8 @@ export function LeadDetailBody({ data, initialTab, initialEdit, initialSoluciona
   );
 
   return (
-    <div>
+    // `data-ficha-ruta`: con el AI Analyst abierto (el panel de la izquierda), la página se corre para dejarle lugar.
+    <div data-ficha-ruta>
       {header}
       {editandoDeal ? (
         <EditarDeal

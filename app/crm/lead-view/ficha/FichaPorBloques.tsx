@@ -40,6 +40,8 @@
 // =============================================================================
 
 import { useCallback, useEffect, useState, type CSSProperties, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
+import { Dropdown } from '@/app/components/Dropdown';
 import dynamic from 'next/dynamic';
 import { deriveStageKey } from '@/lib/pipeline';
 import { tieneEtapaDeReunion } from '@/lib/etapa-reunion';
@@ -148,13 +150,19 @@ export function FichaPorBloques({ data, parchear, altoChat, initialTab, onTab, f
   // «Solucionar» un dato: a la tab donde se dibuja su campo, y señalado. Lo piden la cabecera (`pedido`, una vez por
   // pedido) y, desde el 16/10/2026, los bloques (`ctx.solucionar`: «Completar» de la siguiente acción). Un solo camino.
   const [irA, setIrA] = useState<{ key: string; n: number } | null>(null);
+  // ⚠️ «AI ANALYST» YA NO ES UNA PESTAÑA (16/10/2026, Martín: «"AI Analyst" que abra el chat de MaKo para analizar el
+  // detail de ese lead en específico... Esto reemplaza a la tab de "MaKo Analyst"... cuando se abra el chat de MaKo al
+  // costado izquierdo, todo el modal del detail se desplace a la derecha»). Es un panel aparte, a la izquierda, que
+  // se abre desde el «⋯». Lo que pedía la pestaña vieja (`?tab=insights`, «Ver análisis» de la siguiente acción) lo
+  // abre a él.
+  const [analyst, setAnalyst] = useState(initialTab === 'insights');
   const [senal, setSenal] = useState<{ id: StepId; label: string } | null>(null);
   const ctx: CtxFicha = {
     data, lead, stages, etapa, hoy,
     rol: data.rol ?? 'otro', esAdmin: data.rol === 'admin', verPrivado: !!data.verPrivado,
     releer: refrescar,
     parchear: parchear ?? (() => refrescar()),
-    irATab: (clave) => setIrA({ key: clave, n: Date.now() }),
+    irATab: (clave) => { if (clave === 'insights') { setAnalyst(true); return; } setIrA({ key: clave, n: Date.now() }); },
     solucionar: (paso) => solucionar(paso, Date.now()),
   };
   function solucionar(paso: StepId, n: number) {
@@ -328,17 +336,7 @@ export function FichaPorBloques({ data, parchear, altoChat, initialTab, onTab, f
     ...(tabsBloques.includes('tracking') ? [deTab('tracking')] : []),
     ...(tabsBloques.includes('reuniones') ? [deTab('reuniones')] : []),
     ...(tabsBloques.includes('pagos') ? [{ ...deTab('pagos'), badge: pagos.filter((p) => !p.pagado).length }] : []),
-    // MaKo Analyst es un chat atado a este lead (punto 19 del 12/10/2026), con el análisis de las llamadas
-    // debajo, plegado y sólo si hay algo. La `key` sigue siendo 'insights': viaja en los links (`?tab=`).
-    {
-      key: 'insights', label: 'MaKo Analyst',
-      content: (
-        <AnalystDelLead lead={lead} stages={stages} tienePlan={pagos.length > 0} inicial={data.insightGen}
-          faltantesIniciales={data.faltantesInsight}
-          llamadas={data.insights.map((i) => ({ tipo: i.tipo, fecha: i.started_at, url: i.share_url }))}
-          alto={altoChat} />
-      ),
-    },
+    // «MaKo Analyst» dejó de ser una pestaña el 16/10/2026: es el panel «AI Analyst» (ver `analyst`).
     // El recorrido junto al registro de cambios: la otra mitad de «qué pasó».
     {
       key: 'actividad', label: 'Historial',
@@ -365,10 +363,53 @@ export function FichaPorBloques({ data, parchear, altoChat, initialTab, onTab, f
     </button>
   ) : undefined;
 
+  // El «⋯» al lado de «Editar», como el del Dashboard. Lo ve todo el que ve la ficha (el AI Analyst era una pestaña
+  // de todos); «Editar» sigue siendo sólo del admin.
+  const copiarLink = () => {
+    const ws = new URLSearchParams(window.location.search).get('ws');
+    const url = `${window.location.origin}/crm/${lead.id}${ws ? `?ws=${encodeURIComponent(ws)}` : ''}`;
+    void navigator.clipboard?.writeText(url).then(() => show('Link copiado'), () => show('No se pudo copiar', undefined, 'bad'));
+  };
+  const menu = (
+    <Dropdown value="" placeholder="⋯" align="right" resetAfterSelect sinFlecha ariaLabel="Más opciones de la ficha"
+      buttonStyle={{ width: 32, height: 32, padding: 0, justifyContent: 'center', border: '1px solid var(--border-strong)', borderRadius: 999, background: 'var(--surface)', color: 'var(--dim)', fontSize: 16, lineHeight: 1 }}
+      options={[
+        { value: 'analyst', label: 'AI Analyst', icono: 'mako' },
+        { value: 'link', label: 'Copiar el link', icono: 'link' },
+      ]}
+      onChange={(v) => { if (v === 'analyst') setAnalyst(true); else if (v === 'link') copiarLink(); }} />
+  );
+  const acciones = <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>{boton}{menu}</span>;
+
+  // El panel del AI Analyst: aparte de la ficha (por portal), a la izquierda, y la ficha se corre a la derecha para
+  // dejarle lugar (el `<style>` vive sólo mientras está abierto). El clic adentro no cierra la ficha: el evento sube
+  // por el árbol de React hasta la caja de la ficha, que lo frena.
+  const panelAnalyst = analyst && typeof document !== 'undefined' ? createPortal(
+    <aside aria-label={`AI Analyst de ${lead.nombre || 'este lead'}`} onClick={(e) => e.stopPropagation()}
+      style={{ position: 'fixed', top: 0, left: 0, bottom: 0, zIndex: 90, width: 'min(420px, 100vw)', display: 'flex', flexDirection: 'column', background: 'var(--surface)', borderRight: '1px solid var(--border)', boxShadow: '12px 0 32px rgba(18,21,27,.18)' }}>
+      <style>{'[data-ficha-overlay]{padding-left:calc(min(420px, 100vw) + 20px)!important}[data-ficha-ruta]{padding-left:min(420px, 100vw)}'}</style>
+      <header style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', borderBottom: '1px solid var(--border)', borderTop: '3px solid var(--mako)' }}>
+        <IconoMenu nombre="mako" size={18} />
+        <strong style={{ flex: 1, fontSize: 15, color: 'var(--ink)' }}>AI Analyst</strong>
+        <button type="button" onClick={() => setAnalyst(false)} title="Cerrar" aria-label="Cerrar el AI Analyst"
+          style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 30, height: 30, border: 'none', borderRadius: 8, background: 'none', color: 'var(--dim)', cursor: 'pointer', padding: 0 }}>
+          <IconoMenu nombre="cerrar" size={16} />
+        </button>
+      </header>
+      <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '10px 12px' }}>
+        <AnalystDelLead lead={lead} stages={stages} tienePlan={pagos.length > 0} inicial={data.insightGen}
+          faltantesIniciales={data.faltantesInsight}
+          llamadas={data.insights.map((i) => ({ tipo: i.tipo, fecha: i.started_at, url: i.share_url }))}
+          alto="calc(100vh - 90px)" />
+      </div>
+    </aside>,
+    document.body,
+  ) : null;
+
   return (
     <div className={['fb', enEdicion && 'fb--editando', ...estilo.clases].filter(Boolean).join(' ')} style={estilo.vars as CSSProperties}>
       <style>{CSS_FICHA}</style>
-      <LeadTabs initial={initialTab} onChange={onTab} irA={irA} fija={{ fondo: fondoTabs }} actions={boton} tabs={tabs}
+      <LeadTabs initial={initialTab} onChange={onTab} irA={irA} fija={{ fondo: fondoTabs }} actions={acciones} tabs={tabs}
         maxNombre={TOPE_NOMBRE_TAB} onRenombrar={enEdicion ? (key, nombre) => {
           const tab = TABS_FICHA.find((t) => CLAVE_DE_TAB[t] === key);
           if (tab) cambiar({ op: 'nombre', tab, nombre: nombre || null });
@@ -382,6 +423,7 @@ export function FichaPorBloques({ data, parchear, altoChat, initialTab, onTab, f
           onElegir={(id) => ponerBloque(agregar.tab, id)} onCerrar={() => setAgregar(null)} />
       )}
       <Toast state={toast} onClose={clear} />
+      {panelAnalyst}
     </div>
   );
 }
