@@ -1379,3 +1379,26 @@ de un insertado y un video por enlace a la biblioteca.
   (`[a-zá-ú][A-Z]`) y sólo exceptúa «WhatsApp»: «Hecho con MaKo» no pasa como rótulo (quedó «Créditos al pie»).
 
 *15/10/2026, chat «Landing Generator» (`claude1`), tanda 7 (`514f84468`, `1412d13ee`).*
+
+## 183 caracteres en `cambiar_ficha_funnel` dejaron a «mover la reunión» fuera de WhatsApp (16/10/2026)
+
+Sumarle el parámetro del ícono a `cambiar_ficha_funnel` puso en rojo `tests/agenda-whatsapp.test.ts`: con «no,
+movela al viernes a las 10», `proponer_mover_reunion` dejó de viajar en el turno de WhatsApp.
+
+- **El diagnóstico obvio era el equivocado.** «Cambió la relevancia» no: el puntaje era el mismo (4 contra 4) y
+  el orden también.
+- **La causa es el presupuesto, no el orden.** El doer manda como mucho 12.000 caracteres de esquema
+  (`PRESUPUESTO_REGISTRO_CHARS`, lib/doer-herramientas.ts), y `toolsDelRegistro` saltea la que no entra.
+  `cambiar_ficha_funnel` pesa casi 4.000 y, por el «cambi» de su id, empata arriba en cualquier «cambiá…» o
+  «movela…». El turno estaba a 97 caracteres del tope; con +183, la de mover la reunión no entró. Sólo queda un
+  `console.warn`.
+- **El arreglo fue achicar la misma op:** las listas largas de ids (bloques, avisos, íconos) salen del `enum`, se
+  validan en la traducción (lib/ficha/api.ts) y un id malo vuelve con `disponibles`. `tests/ficha-api.test.ts`
+  le pone un tope de 3.796 caracteres.
+
+**La regla:** antes de commitear una op, medir `JSON.stringify(aToolDef(def)).length` y correr el test del turno
+de WhatsApp. Una op grande que empata arriba se come el lugar de las chicas.
+
+**Vive en:** lib/doer-herramientas.ts · lib/api-mako/registro.ts (`toolsDelRegistro`, `ordenarPorRelevancia`) ·
+lib/api-mako/areas/crm.def.ts (`cambiar_ficha_funnel`) · tests/ficha-api.test.ts ·
+*16/10/2026, chat «CRM» (claude3), corrida wf_e3cc574c-723 (`665f5bed1`).*

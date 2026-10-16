@@ -2385,4 +2385,32 @@ export const BITACORA: Hito[] = [
       'tests/ficha-avisos.test.ts',
     ],
   },
+  {
+    fecha: '16 oct', hora: '03:05', chat: 'CRM', sesion: 'local_753ca3bb-9d6a-4337-9f5b-e993ccfc5661', cuenta: 'claude3',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'La ficha del lead por bloques, con «Personalizar», en escritorio, tablet y teléfono',
+    puntos: [
+      'Una sola ficha para el pop-up y la página. Con la plantilla de respaldo se ve como antes.',
+      '«Personalizar» (sólo el admin): agregar, quitar, mover, ancho, diseño e ícono; plantilla, estilo y avisos del funnel; Deshacer; Escritorio · Tablet · Celular.',
+      'En la tablet, dos bloques por fila como mucho y toques de 44 px. El teléfono sigue la ficha del funnel.',
+      'Revisado lo invisible: permisos, workspace, Deshacer contra otro admin y «N sin marcar» igual en todas las puertas.',
+      'Copiado del editor del Dashboard; para «por funnel», la documentación de HubSpot. Sin mirar con datos reales: no hubo RAM.',
+    ],
+    commits: [
+      { sha: 'bdeca4755', msg: 'CRM: la ficha del lead se arma por bloques, igual en el panel y en la página, con «Personalizar» para el admin', lineas: 3472, archivos: 52 },
+      { sha: 'b9089597d', msg: 'Ficha del lead: al personalizarla, se ve como en escritorio, tablet o celular', lineas: 178, archivos: 5 },
+      { sha: '0f3a97c5e', msg: 'API de MaKo: también cambia el ícono de un bloque de la ficha, como «Personalizar»', lineas: 85, archivos: 5 },
+      { sha: '665f5bed1', msg: 'API de MaKo: la herramienta de la ficha no le quita lugar a «mover la reunión» en WhatsApp', lineas: 57, archivos: 4 },
+      { sha: '61608aee1', msg: 'Ficha del lead: se acomoda a la tablet y al celular, y en el iPad todo se toca con el dedo', lineas: 243, archivos: 8 },
+      { sha: 'cc6cf405b', msg: 'MaKo Mobile: la ficha del lead sigue a la ficha de su funnel, y dice «N sin marcar» como la computadora', lineas: 646, archivos: 12 },
+      { sha: '60a4b7107', msg: 'Ficha del lead: se lee bien de ½, en la tablet y al personalizarla', lineas: 251, archivos: 7 },
+      { sha: '51d02e856', msg: 'Ficha del lead: «Deshacer» ya no le borra la ficha a otro funnel ni lo que guardó otra persona', lineas: 465, archivos: 7 },
+      { sha: '6b6c2ea8b', msg: '«A revisar» cuenta igual que la ficha a un lead cuyo funnel ya no existe', lineas: 136, archivos: 3 },
+    ],
+    archivos: [
+      'app/crm/lead-view/ficha/ — armador, FichaPorBloques, PanelFicha, registros por tab',
+      'app/m/crm/ficha-bloques.ts — lo que ve el teléfono',
+      'lib/ficha/ — el motor (ya en main)',
+    ],
+  },
 ];

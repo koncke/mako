@@ -6,6 +6,43 @@ el briefing anterior (`b5f7fb55`, 10/10 17:10) con todo verificado contra el ár
 **Rutas de esta área:** `app/crm/**`, `lib/leads.ts`, `lib/funnel*.ts`, `lib/crm*.ts`,
 `lib/lead-*.ts`, `lib/campana-*.ts`, `lib/etiquetas*.ts`, `lib/pipeline.ts`.
 
+## 0-Ω7. 16/10/2026 (chat «CRM», cuenta `claude3`): la PANTALLA de la ficha por bloques, lista para subir
+
+Rama `crm-armador` en `C:/dev/wt-crm-armador` (el código, hasta `6b6c2ea8b`), sobre `crm-avisos-funnel` (ya en main).
+Es el armador de b1 (el WIP `3eb46606a`) terminado por la corrida `wf_e3cc574c-723`, de a un agente: escritorio,
+celular, navegador y revisión de lo invisible. Copia el editor del Dashboard (Looker) con su selector de dispositivo;
+para «por funnel», la documentación de HubSpot (no se abrió la app).
+
+**Qué cambia para Martín y los clientes al desplegar:**
+- La ficha (pop-up y /crm/[id]) es UNA pieza, por bloques. Con la plantilla de respaldo se ve como antes; el origen
+  pasa al Resumen y la cohorte a Reuniones, como decide el diseño, y los engranajes del Resumen y de «Datos sin
+  marcar» se van.
+- «Personalizar» (sólo admin): agregar, quitar, mover, ancho, diseño, ícono; el panel con la plantilla, el estilo y
+  los avisos del funnel; guarda solo con «Deshacer»; Escritorio · Tablet · Celular. No aparece en un celular.
+- Tablet: dos bloques por fila como mucho y toques de 44 px. Teléfono (/m): la ficha sigue a la del funnel y dice
+  «N sin marcar» como la computadora; «Próxima llamada» y «Última llamada» se callan donde el bloque no va.
+- «Información principal» pasa a una columna cuando la tarjeta es angosta (también en la ficha de CS).
+
+**Tests:** el barrido final de la revisión, 466 archivos: 5.575/0 (1 skipped). Sin migraciones. El tsc fue el
+ACOTADO; el completo lo corre el pre-push.
+
+**SIN MIRAR con datos reales:** no hubo RAM para `next dev` (1,3 a 4,9 GB libres). Se miró en un banco (las
+puertas reales con datos de mentira) a 1440, 1024, 820 y 390. Falta, en el ws3 con sesión de super admin: el pop-up
+y /crm/2615 a esos tamaños, «Personalizar» de punta a punta (y al terminar, `data->'ficha'` en null en los funnels
+8 y 30), el teléfono con UA de iPhone y un iPad de verdad (el arrastre con el dedo no se probó).
+
+**SIN HACER (con su archivo):**
+- Tanda B2: los bloques que no existen como tarjeta, los 12 de Pagos sueltos, la salida de «Editar deal →», CS con
+  su plantilla fija, el DM desde la ficha y el coaching (app/crm/lead-view/ficha/registro-<tab>.tsx).
+- `crm.resumen.campos` se quedó sin quien lo cambie (se fue ResumenModal): nadie puede prender LinkedIn, YouTube,
+  dirección o sexo hasta que esos bloques tengan componente (lib/resumen-ficha-config.ts).
+- Las opciones por bloque (redes, fuentes, pregunta) no se eligen en ningún lado (Armador.tsx, lib/ficha/api.ts).
+- «Deshacer» no tiene op en la API y la ficha no tiene historial (hace falta una tabla).
+- `saveFunnelDe` escribe `funnels.data` sin compare-and-set: puede pisar la ficha (lib/funnels.ts).
+- El alta y la importación escriben el funnel que manda el navegador sin validarlo (app/crm/actions.ts).
+- Clonar la configuración copia la ficha del dueño al cliente nuevo: decidir (lib/clonar-config.ts).
+- En un iPad parado el panel de «Personalizar» queda debajo de la ficha, y la barra de edición se va con el scroll
+  (ficha-css.ts).
 ## 0-Ω6. 15/10/2026, 21:30 (chat «CRM», cuenta `claude3`): la tanda B EN PRODUCCIÓN, y lo que se vio
 
 **En main desde `24c0ad441`** (deploy Ready, lo subió el coordinador). Las migraciones, en su orden:

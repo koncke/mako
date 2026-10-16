@@ -9236,3 +9236,28 @@ en un evento. Se crea la primera vez que se usa, adentro de un `useCallback`, co
 **Vive en:** `app/crm/lead-view/ficha/guardado-ficha.ts` · `app/crm/lead-view/ficha/useFichaDelFunnel.ts` ·
 `lib/ficha/config.ts` (`restaurar` con `esperado`; `apagadosDeLaCasa`) · `lib/ficha/config-server.ts`
 (`avisosDelWorkspace`) · `tests/ficha-guardado.test.ts` · `tests/ficha-casa-huerfana.test.ts`.
+
+## La ficha por bloques: tres trampas de construirla (16/10/2026)
+
+- **Angostar un contenedor no dispara los `@media`: miran la ventana.** La vista «Celular» de «Personalizar» no
+  apilaba aunque la hoja tenía su `@media (max-width: 720px)`. Y `container-type` (también `transform` y
+  `filter`) está prohibido en un ancestro de las tarjetas: ata a ese ancestro los modales y toasts con
+  `position: fixed`. La vista por dispositivo repite cada corte con `[data-dispositivo]` y decide por el
+  DISPOSITIVO, no por el ancho medido: en el pop-up la «Tablet» queda en ~692 px y por ancho se apilaría cuando una
+  tablet de 820 no apila.
+- **Un ancho calculado que cambia por pantalla va como variable CSS, nunca en `gridColumn` en línea.** El
+  `style={{ gridColumn: span N }}` le gana a cualquier `@media`; el `!important` sirve para un valor fijo (1 / -1),
+  no para la tablet, que reparte la fila con sus propios anchos. Van `--fb-span` y `--fb-span-t` y la hoja elige
+  (`spansPorDispositivo`, armar.ts). Lo fija tests/ficha-pantallas.test.ts.
+- **Los tests que leen el fuente fallan por el LUGAR, no por la lógica.** Mudar la lectura de la ficha a
+  `getLeadFullAction` y la cuenta de «N sin marcar» a lib/datos-del-lead.ts puso en rojo tres tests sin cambiar una
+  regla (ficha-armador, mako-ficha-lead y pago-comprobante, que sólo apareció en el barrido completo). Antes de
+  mudar una lectura: `grep` en tests/ de CADA símbolo que se mueve, y el barrido completo (10.598 tests, ~27 min con
+  `--test-concurrency=4`). El test se reescribe citando dónde vive ahora; nunca se afloja.
+- **Las roturas de la cabecera de un WIP se vuelven a medir.** La de tests/ficha-armador.test.ts decía «base
+  15/0» y doce roturas cazadas: la base era 11/0 y dos roturas daban verde, porque el caso ya lo excluía otro filtro
+  (un banner que no se dibujaba, un bloque ya puesto). Un «no se ofrece» se prueba con un caso que ningún otro
+  filtro excluya.
+
+**Vive en:** app/crm/lead-view/ficha/ficha-css.ts · armar.ts · Armador.tsx · tests/ficha-pantallas.test.ts ·
+*16/10/2026, chat «CRM» (claude3), corrida wf_e3cc574c-723.*

@@ -920,6 +920,10 @@ docs/hallazgos-api-mako.md → «El editor entero del Web Generator»):
   Antes de commitear se corre el test del turno de WhatsApp del área. Y la relevancia que pone el
   clasificador para un pedido amplio va CORTA (lo auxiliar): una larga reparte puntos parejos y
   deja afuera la herramienta que se pidió.
+- **Una op que ya es grande no suma enums de ids** (16/10/2026, `cambiar_ficha_funnel`: +183 caracteres
+  dejaron a `proponer_mover_reunion` fuera de WhatsApp sin cambiar ningún puntaje). La lista de bloques,
+  avisos o íconos se valida en la traducción y devuelve `disponibles`. Se mide
+  `JSON.stringify(aToolDef(def)).length` y, si la op importa, un test le pone tope.
 
 `/api/v1` es la única carpeta que entra a `PUBLICOS` como PREFIJO: toda ella es bearer por
 construcción, y `tests/api-mako-registro.test.ts` enumera en positivo los `route.ts` que puede
