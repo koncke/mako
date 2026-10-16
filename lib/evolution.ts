@@ -20,6 +20,7 @@ import { getTenantDb, getWorkspaceActual } from '@/lib/workspace';
 import { APP_BASE_URL } from '@/lib/app-url';
 import { hayQueRecrear, mensajeEvolution, motivoDeEvolution, veredictoSondeo, type Sondeo } from './evolution-sonda';
 import { elegirLinea, esLineaDelWorkspace, instanceNameDeWs, nombreLineaNueva, lineaPorDefault } from './lineas-whatsapp';
+import { lineaDeMaKoPara, ETIQUETA_LINEA_MAKO } from './linea-plataforma';
 
 // El nombre de la primera línea vive en lib/lineas-whatsapp.ts (sin `server-only`, con
 // test). Se re-exporta para que ningún import cambie.
@@ -809,10 +810,30 @@ export async function repararWebhook(linea?: string | null): Promise<{ ok: boole
 // hasta el 06/10) un saliente no aparecería en el hilo de ninguna.
 export type EnvioResult = { ok: true; id: string; chatJid: string; instance: string } | { ok: false; error: string };
 
+/**
+ * LAS LÍNEAS CON LAS QUE SE MANDA (15/10/2026, lib/linea-plataforma.ts): las del negocio y, en la PLATAFORMA, la de
+ * MaKo PRIMERO y como la de por defecto (las suyas siguen, sin ser la de por defecto). Sólo para MANDAR y para el estado
+ * de Automations: las operaciones de la línea (QR, desconectar, webhook) siguen con `lineaEstricta`, que no la ve.
+ */
+export async function lineasParaMandar(ws: number): Promise<{ lineas: LineaRow[]; deMaKo: string | null }> {
+  const [propias, deMaKo] = await Promise.all([listarLineas(), lineaDeMaKoPara(ws)]);
+  if (!deMaKo) return { lineas: propias, deMaKo: null };
+  // `estado` de la fila no dice nada: el estado de la línea de MaKo lo mide su vigilante (lib/disparadores-canales.ts).
+  const deMako: LineaRow = {
+    id: 0, instance_name: deMaKo, instance_id: null, estado: 'conectado', numero: null, perfil_nombre: 'MaKo',
+    ultima_conexion_at: null, etiqueta: ETIQUETA_LINEA_MAKO, es_default: true,
+  };
+  return { lineas: [deMako, ...propias.filter((l) => l.instance_name !== deMaKo).map((l) => ({ ...l, es_default: false }))], deMaKo };
+}
+
 /** Elegir la línea de un envío sin tirar: el motivo vuelve como el error del envío. */
 async function lineaDeEnvio(linea?: string | null): Promise<{ ok: true; instance: string } | { ok: false; error: string }> {
-  try { return { ok: true, instance: await lineaEstricta(linea) }; }
-  catch (e) { return { ok: false, error: e instanceof Error ? e.message : 'No pude elegir la línea de WhatsApp.' }; }
+  try {
+    const ws = await wsEstricto();
+    const { lineas, deMaKo } = await lineasParaMandar(ws);
+    const e = elegirLinea(lineas, linea, ws, deMaKo);
+    return e.ok ? { ok: true, instance: e.instance } : { ok: false, error: e.motivo };
+  } catch (e) { return { ok: false, error: e instanceof Error ? e.message : 'No pude elegir la línea de WhatsApp.' }; }
 }
 
 // Envía un texto libre por una línea no oficial del workspace (sin `linea`, la de por

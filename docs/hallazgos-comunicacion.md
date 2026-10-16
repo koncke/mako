@@ -9842,7 +9842,7 @@ El script es `reclamar-dominio-plataforma.mjs`, en el scratchpad de la sesión 3
 sigue APAGADO:** lo prende Martín.
 ⚠️ Por /email no se podía hacer: «crear» da de alta el dominio en Resend, y hola-mako.com ya existe ahí.
 
-**WhatsApp: SIN HACER, espera una decisión.** La línea de MaKo (`mako_superadmin_<sufijo>`, …2605) no está en
+**WhatsApp: DECIDIDO el camino (a) (coordinador, 15/10) y hecho en lib/linea-plataforma.ts.** La línea de MaKo (`mako_superadmin_<sufijo>`, …2605) no está en
 `evolution_instancias`, a propósito: no es de ningún negocio. El webhook la manda al ws 1 SÓLO para los mensajes de
 grupo (el Doer) e ignora los 1 a 1 (`unoAuno && !esNombreDeCanal`). El ws 9 tiene una línea propia, `mako_ws9`, que
 quedó en «conectando» sin número. Así que Automations del ws 9 dice «Sin conectar» y además **no puede mandar** por
@@ -9851,7 +9851,11 @@ WhatsApp. Hay tres caminos:
   1 a 1;
 - (b) que también escuche 1 a 1 para el ws 9: toca el webhook y la trampa de OWNER_WS;
 - (c) que Martín conecte un número en `mako_ws9`.
-Se propuso (a) al coordinador.
+Lo que quedó: en la plataforma, la línea de MaKo es la de POR DEFECTO para mandar y para el estado
+(`lineasParaMandar`, lib/evolution.ts). Sólo la ven el envío (`lineaDeEnvio`) y el estado de Automations; las operaciones de
+la línea (`lineaEstricta`: QR, desconectar, webhook, renombrar) NO, para que nadie re-escanee la línea de MaKo desde el
+ws 9. Un AI Step o un «Si responde» en esa línea lleva el chip «No escucha respuestas» (nada por detrás). Para un
+negocio cliente no cambia nada: `lineaDeMaKoPara` devuelve null fuera de la plataforma.
 
 **Vive en:** `lib/disparadores-canales.ts` (`estadoMedios`) · `lib/evolution.ts` (`listarLineas`) · `lib/mako-canal.ts` ·
 `app/api/webhooks/evolution/route.ts` (`wsDeInstancia`) · `lib/email-remitente.ts` (`porDominio`) ·
