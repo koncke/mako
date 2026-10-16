@@ -95,7 +95,9 @@ test('el texto: la plantilla con los datos dice lo mismo que el código de siemp
   assert.equal(textoCaida(HECHOS), '🔴 *Se desconectó tu WhatsApp* (+5215512345678). WhatsApp cerró la sesión del dispositivo vinculado el 3 de octubre: tu teléfono está bien, pero por ese número no entran ni salen mensajes. Vuelve a escanear el QR: https://hola-mako.com/whatsapp — MaKo');
   assert.equal(textoCaida({ ...HECHOS, motivo: null, desde: '2026-10-03T15:00:00Z' }), '🔴 *Se cortó tu WhatsApp* (+5215512345678). Por ese número no entran ni salen mensajes desde el 3 de octubre. Puede volver solo; si sigue así, reconéctalo: https://hola-mako.com/whatsapp — MaKo');
   assert.equal(textoVolvio({ linea: null }), '🟢 *Volvió tu WhatsApp*. Por ese número ya entran y salen mensajes otra vez. — MaKo');
-  const plano = (t: string) => t.replace(/\s*—\s*MaKo$/, '').replace(/\s*\n\s*/g, ' ').replace(/\s*📱\s*/g, ' ');
+  // La firma «— MaKo» cuenta (16/10/2026): una tarjeta TAL CUAL no le suma envoltorio, así que va en la plantilla.
+  // rotura 8 (la plantilla de la caída sin firma): 6 pass / 1 fail, cae éste.
+  const plano = (t: string) => t.replace(/\s*\n\s*/g, ' ').replace(/\s*📱\s*/g, ' ');
   for (const motivo of [HECHOS.motivo, null]) {
     const h = { ...HECHOS, motivo };
     const conPlantilla = textoConDatos(tarjeta('mako-whatsapp-caido'), datosCaida(h));
@@ -135,7 +137,8 @@ test('Fathom: el lead y la reunión que terminó; sin duración, su renglón se 
   const tarjeta = parte && 'cuerpo' in parte ? String(parte.cuerpo) : '';
   const lead = { nombre_completo: 'Laura Gil', link_lead: 'https://hola-mako.com/crm/482/resumen' };
   const con = textoConDatos(tarjeta, { ...lead, ...datosPostLlamada({ reunion: 'R1', duracionMin: 42 }) });
-  assert.equal(con, '✅ Terminó la *R1 con Laura Gil*.\n⏱️ 42 min\n\n👉 Mira el resumen de la llamada:\nhttps://hola-mako.com/crm/482/resumen');
+  // Con la firma de siempre (lib/lead-resumen.ts, `textoAvisoPostLlamada`). rotura 9 (sin firma): 6 pass / 1 fail.
+  assert.equal(con, '✅ Terminó la *R1 con Laura Gil*.\n⏱️ 42 min\n\n👉 Mira el resumen de la llamada:\nhttps://hola-mako.com/crm/482/resumen\n\n— MaKo');
   const sin = textoConDatos(tarjeta, { ...lead, ...datosPostLlamada({ reunion: 'R2', duracionMin: null }) });
   assert.doesNotMatch(sin, /⏱️/, 'sin duración, el renglón no queda con el reloj solo');
   assert.match(sin, /^✅ Terminó la \*R2 con Laura Gil\*\./, 'y la frase principal sigue');
