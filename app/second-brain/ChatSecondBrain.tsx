@@ -32,8 +32,10 @@ import {
   idLocal, itemsDeRespuesta, itemsDeSesion, leerRespuesta, trasTarjeta, type EstadoPropuesta, type ItemHilo, type Leido,
 } from '@/app/m/mako/chat-ui';
 import {
-  ARRANQUES_SECOND_BRAIN, JEFE_SECOND_BRAIN, SIN_TITULO, SUBS_VISIBLES, arbolDelJefe, edadCorta, filtrarSubs, nombreDeSub, tituloDe,
+  ARRANQUES_SECOND_BRAIN, AVISO_ANTES, JEFE_SECOND_BRAIN, SECCION_ANTES, SIN_TITULO, SUBS_VISIBLES, arbolDelJefe, edadCorta, filtrarSubs,
+  nombreDeSub, tituloDe,
 } from '@/lib/chat-mako-reglas';
+import type { ChatDeAntes } from '@/lib/chat-mako-indice';
 import type { MensajeChat, ResultadoTarjeta, RespuestaTurno, SesionChat, TarjetaPendiente } from '@/lib/mako-turno-app-reglas';
 import '@/app/admin/operaciones/centro.css';
 import '@/app/_chat/chat.css';
@@ -46,8 +48,9 @@ const TOPE_LECTURA_MS = 30_000;
 
 type Abierta = { sesion: SesionChat; mensajes: MensajeChat[]; propuestas: TarjetaPendiente[] };
 type ItemMsg = Extract<ItemHilo, { k: 'msg' }>;
-/** Lo elegido en la barra: una conversación, o un chat que todavía no tiene (el jefe sin nada, o «Nuevo chat»). */
-type Elegido = { id: number } | { virtual: 'jefe' | 'nuevo' };
+/** Lo elegido en la barra: una conversación, un chat que todavía no tiene (el jefe sin nada, o «Nuevo chat»), o un
+ *  chat de antes (de «Pregúntale a MaKo»: se lee y no se escribe). */
+type Elegido = { id: number } | { virtual: 'jefe' | 'nuevo' } | { antes: number };
 
 async function pedir<T>(url: string, init: RequestInit = {}): Promise<Leido<T>> {
   let status = 0; let cuerpo = '';
@@ -93,6 +96,9 @@ export function ChatSecondBrain({ veMapa, mapa, chatInicial }: {
   const [tarjeta, setTarjeta] = useState<{ id: number; accion: 'confirmar' | 'cancelar' } | null>(null);
   const [busca, setBusca] = useState('');
   const [todas, setTodas] = useState(false);
+  /** Los chats de «Pregúntale a MaKo» (null = todavía no se pidieron: se piden al abrir la sección). */
+  const [antes, setAntes] = useState<ChatDeAntes[] | null>(null);
+  const [antesAbierta, setAntesAbierta] = useState(false);
   const [ahora, setAhora] = useState(() => Date.now());
   const ocupadoRef = useRef(false);
   const sesionRef = useRef<number | null>(null);
@@ -135,15 +141,27 @@ export function ChatSecondBrain({ veMapa, mapa, chatInicial }: {
     setCargado(true);
   }, []);
 
+  const idAntes = elegido && 'antes' in elegido ? elegido.antes : null;
   useEffect(() => {
     if (!elegido) return;
     sesionRef.current = idElegido;
+    if (idAntes != null) {
+      let vivo = true;
+      setCargado(false); setErrorCarga(null);
+      void pedir<{ mensajes: MensajeChat[] }>(`${RUTA}?antesId=${idAntes}`).then((l) => {
+        if (!vivo) return;
+        if (!l.ok) { setErrorCarga(l.reintentable ? l.error : 'No pude abrir el chat.'); setCargado(true); return; }
+        setItems(itemsDeSesion(l.datos.mensajes ?? [], []));
+        setCargado(true);
+      });
+      return () => { vivo = false; };
+    }
     if (idElegido == null) { setItems([]); setErrorCarga(null); setCargado(true); return; }
     if (recienCreada.current === idElegido) { recienCreada.current = null; return; }
     let vivo = true;
     void cargarHilo(idElegido, () => vivo);
     return () => { vivo = false; };
-  }, [elegido, idElegido, cargarHilo]);
+  }, [elegido, idElegido, idAntes, cargarHilo]);
 
   useEffect(() => { if (elegido) anotarEnUrl(idElegido); }, [elegido, idElegido]);
 
@@ -176,6 +194,13 @@ export function ChatSecondBrain({ veMapa, mapa, chatInicial }: {
     setElegido(e);
     setTexto('');
     window.setTimeout(() => caja.current?.focus({ preventScroll: true }), 0);
+  };
+
+  const alternarAntes = () => {
+    setAntesAbierta((v) => !v);
+    if (antes == null) {
+      void pedir<{ antes: ChatDeAntes[] }>(`${RUTA}?antes=1`).then((l) => setAntes(l.ok ? l.datos.antes ?? [] : []));
+    }
   };
 
   const marcar = (id: string, cambio: Partial<ItemMsg>) =>
@@ -266,8 +291,9 @@ export function ChatSecondBrain({ veMapa, mapa, chatInicial }: {
   const corte = todas || busca.trim() ? subs : subs.filter((s, i) => i < SUBS_VISIBLES || s.id === idElegido);
   const esJefe = elegido != null && (('virtual' in elegido && elegido.virtual === 'jefe') || (arbol.jefe != null && idElegido === arbol.jefe.id));
   const sub = idElegido != null && !esJefe ? (sesiones ?? []).find((s) => s.id === idElegido) ?? null : null;
-  const nombre = esJefe ? JEFE_SECOND_BRAIN : sub ? tituloDe(sub) : SIN_TITULO;
-  const nombreMuneco = esJefe ? JEFE_SECOND_BRAIN : nombreDeSub(sub ?? { titulo: null });
+  const deAntes = idAntes != null ? (antes ?? []).find((a) => a.id === idAntes) ?? null : null;
+  const nombre = esJefe ? JEFE_SECOND_BRAIN : idAntes != null ? (deAntes?.titulo?.trim() || 'Chat de antes') : sub ? tituloDe(sub) : SIN_TITULO;
+  const nombreMuneco = esJefe ? JEFE_SECOND_BRAIN : idAntes != null ? SECCION_ANTES : nombreDeSub(sub ?? { titulo: null });
   const animo = trabajo ? 'trabajando' : 'despierto';
   const hrefMapa = `/second-brain?panel=mapa${idElegido ? `&chat=${idElegido}` : ''}`;
 
@@ -332,6 +358,16 @@ export function ChatSecondBrain({ veMapa, mapa, chatInicial }: {
               {busca.trim() && !subs.length && <p className="co-lista__vacio">Ningún chat con ese nombre.</p>}
             </div>
           )}
+          {/* Los chats de «Pregúntale a MaKo», de sólo lectura, plegados al final (los grupos por fecha de ChatGPT). */}
+          <div className="co-cuenta">
+            <button type="button" className="co-cuenta__cab" aria-expanded={antesAbierta} onClick={alternarAntes}>
+              {SECCION_ANTES}
+              <span className={`co-chev${antesAbierta ? '' : ' co-chev--cerrado'}`} aria-hidden><Icon name="chevron" size={14} /></span>
+            </button>
+            {antesAbierta && antes == null && <p className="co-lista__vacio">Cargando…</p>}
+            {antesAbierta && antes != null && !antes.length && <p className="co-lista__vacio">No hay chats de antes.</p>}
+            {antesAbierta && (antes ?? []).map((a) => fila(`a${a.id}`, { antes: a.id }, a.titulo?.trim() || 'Chat de antes', 'Antes', a.updatedAt, false))}
+          </div>
         </nav>
       </aside>
 
@@ -355,7 +391,7 @@ export function ChatSecondBrain({ veMapa, mapa, chatInicial }: {
             <Muneco titulo={nombreMuneco} animo={animo} size={34} />
             <div className="co-cab__texto">
               <h1 className="co-cab__titulo" title={nombre}>{nombre}</h1>
-              <span className="co-cab__meta">{esJefe ? 'Tu chat con MaKo' : JEFE_SECOND_BRAIN}</span>
+              <span className="co-cab__meta">{esJefe ? 'Tu chat con MaKo' : idAntes != null ? SECCION_ANTES : JEFE_SECOND_BRAIN}</span>
             </div>
           </header>
 
@@ -368,10 +404,10 @@ export function ChatSecondBrain({ veMapa, mapa, chatInicial }: {
             ) : !items.length && !trabajo ? (
               <div className="co-portada">
                 <Muneco titulo={nombreMuneco} animo="despierto" size={76} />
-                <p className="co-portada__nombre">¿En qué te ayudo?</p>
-                <div className="ch-arranques">
+                <p className="co-portada__nombre">{idAntes != null ? 'Este chat está vacío.' : '¿En qué te ayudo?'}</p>
+                {idAntes == null && <div className="ch-arranques">
                   {ARRANQUES_SECOND_BRAIN.map((a) => <button key={a} type="button" className="co-chip" onClick={() => enviar(a)}>{a}</button>)}
-                </div>
+                </div>}
               </div>
             ) : (
               <HiloMako items={items} quien={{ nombre: nombreMuneco }} ahora={ahora} escribiendo={trabajo ? { segs } : null}
@@ -380,6 +416,12 @@ export function ChatSecondBrain({ veMapa, mapa, chatInicial }: {
           </div>
 
           <div className="co-caja-wrap">
+            {idAntes != null ? (
+              <div className="co-caja co-caja--quieta">
+                <p>{AVISO_ANTES}</p>
+                <button type="button" className="co-chip" onClick={() => elegir({ virtual: 'nuevo' })}>Seguir en uno nuevo</button>
+              </div>
+            ) : (
             <div className="co-caja">
               <textarea
                 ref={caja} rows={1} value={texto}
@@ -395,6 +437,7 @@ export function ChatSecondBrain({ veMapa, mapa, chatInicial }: {
                 </button>
               </div>
             </div>
+            )}
             <p className="co-caja__estado" aria-live="polite">{faltaMic ?? ''}</p>
           </div>
         </section>

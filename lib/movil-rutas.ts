@@ -151,7 +151,8 @@ export const SECCIONES_MAS: readonly DefSeccionMas[] = [
   { id: 'cs', label: 'Clientes', href: '/m/cs', icon: 'users', navKey: 'customer-success', familia: 'customer' },
   { id: 'curso', label: 'Curso', href: '/m/curso', icon: 'video', navKey: 'cs-curso', familia: 'customer' },
   { id: 'comunidad', label: 'Comunidad', href: '/m/comunidad', icon: 'comunidad', navKey: 'cs-comunidad', familia: 'customer' },
-  { id: 'mako', label: 'Pregúntale a MaKo', href: '/m/mako', icon: 'mako', navKey: 'mako', familia: null },
+  // «Second Brain» desde el 16/10/2026, como la barra de escritorio (app/_components/nav.ts → MAKO_NAV).
+  { id: 'mako', label: 'Second Brain', href: '/m/mako', icon: 'cerebro', navKey: 'mako', familia: null },
 ];
 
 /** El nombre de la PANTALLA de una sección (la cabecera, su «volver» y la pestaña): `titulo` o, si no, el de la fila. */

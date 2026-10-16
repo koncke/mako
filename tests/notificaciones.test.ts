@@ -121,10 +121,10 @@ test('una ruta sin entrada en el menú igual queda legible', () => {
 
 test('la marca no se repite cuando ya está en el nombre de la sección', () => {
   // "MaKo - WhatsApp de MaKo" se leía dos veces el producto.
-  // El rótulo de la tab se pasó a neutro («Pregúntale»). El NOMBRE del proyecto en
-  // lib/plan-proyectos-catalogo.ts sigue siendo «Feature: Preguntale a MaKo»: ese es
-  // una CLAVE guardada en la base, no copy, y renombrarlo huérfana las tarjetas.
-  assert.equal(tituloDe('/mako'), 'Pregúntale a MaKo');
+  // Desde el 16/10/2026 /mako es el Second Brain (el chat con MaKo): su título es el de la entrada de la barra. El
+  // NOMBRE del proyecto en lib/plan-proyectos-catalogo.ts sigue siendo «Feature: Preguntale a MaKo»: ese es una CLAVE
+  // guardada en la base, no copy, y renombrarlo huérfana las tarjetas.
+  assert.equal(tituloDe('/mako'), 'MaKo - Second Brain', 'sin la marca en el nombre, la pestaña la suma (una vez)');
   assert.equal(tituloDe('/agencia'), 'WhatsApp de MaKo');
 });
 

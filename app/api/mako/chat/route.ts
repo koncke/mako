@@ -3,6 +3,8 @@
 // =============================================================================
 // GET  ?sesiones=1                                   → { ok, sesiones }             las de ESTA persona
 // GET  ?sessionId=N                                  → { ok, sesion, mensajes, propuestas }
+// GET  ?antes=1                                      → { ok, antes }    los chats de «Pregúntale a MaKo» (sólo lectura)
+// GET  ?antesId=N                                    → { ok, sesion, mensajes }
 // POST { action:'new' }                              → { ok, sesion }               sin saludo del modelo
 // POST { action:'send', sessionId, mensaje }         → RespuestaTurno
 // POST { action:'confirmar'|'cancelar', sessionId, pendienteId } → ResultadoTarjeta
@@ -23,6 +25,7 @@ import {
   personaDelRequest, listarSesiones, abrirSesion, nuevaSesion, turnoApp, confirmarDesdeTarjeta, cancelarDesdeTarjeta,
 } from '@/lib/mako-turno-app';
 import { CONTEXTO_SECOND_BRAIN } from '@/lib/chat-mako-reglas';
+import { chatsDeAntes, hiloDeAntes, quienChateaDelRequest } from '@/lib/chat-mako-indice';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 420;
@@ -40,6 +43,16 @@ export async function GET(req: NextRequest) {
   const sp = req.nextUrl.searchParams;
   try {
     if (sp.get('sesiones')) return json({ ok: true, sesiones: await listarSesiones(persona) });
+    // «Antes»: lo que tenía /mako, con SU regla de quién ve qué (lib/chat-mako-indice.ts).
+    if (sp.get('antes') || sp.has('antesId')) {
+      const q = await quienChateaDelRequest();
+      if (!q) return json({ ok: false, error: 'Tu sesión venció.' }, 401);
+      if (sp.get('antes')) return json({ ok: true, antes: await chatsDeAntes(q) });
+      const id = enteroDe(sp.get('antesId'));
+      const hilo = id == null ? null : await hiloDeAntes(q, id);
+      if (!hilo) return json({ ok: false, error: 'No encuentro ese chat.' }, 404);
+      return json({ ok: true, ...hilo });
+    }
     if (sp.has('sessionId')) {
       const id = enteroDe(sp.get('sessionId'));
       const abierta = id == null ? null : await abrirSesion(persona, id);
