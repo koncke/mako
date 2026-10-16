@@ -301,4 +301,19 @@ export const BITACORA: Hito[] = [
       'lib/chat-mako-reglas.ts — el jefe y sus sub-chats',
     ],
   },
+  {
+    fecha: '16 oct', hora: '10:30', chat: 'Centro de Operaciones', sesion: 'local_428051c1-0369-4df2-ae6b-bcb42f63b64b', cuenta: 'claude3',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: '«Pregúntale a MaKo» es el Second Brain: la barra, las redirecciones y «Antes»',
+    puntos: [
+      'La entrada de la barra se llama «Second Brain» y lleva a /second-brain; la clave sigue siendo mako (de ella cuelgan el teléfono, la bandeja e Inbox).',
+      '/mako y /mako-doer redirigen; sus chats quedan en «Antes», de sólo lectura, con la regla de quién ve qué que tenía /mako.',
+      'La API de MaKo suma listar_chats_mako y hilo_chat_mako: MaKo puede leer otro chat de la misma persona.',
+    ],
+    archivos: [
+      'app/_components/nav.ts, Sidebar.tsx — la entrada',
+      'lib/chat-mako-indice.ts — «Antes» y los chats de la persona',
+      'lib/api-mako/areas/mako.def.ts, mako.run.ts — las dos lecturas',
+    ],
+  },
 ];
