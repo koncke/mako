@@ -27,7 +27,7 @@ import { useCallback, useEffect, useRef, useState, type CSSProperties } from 're
 import { createPortal } from 'react-dom';
 import { useCapaModal } from '@/app/_components/pila-modales';
 import { ubicarPanel } from '@/app/_components/PortadaPicker';
-import { IconoMenu } from '@/app/_ui/iconos-menu';
+import { IconoMenu, type NombreIconoMenu } from '@/app/_ui/iconos-menu';
 import { Toast, useToast } from '@/app/_ui/Toast';
 import { ignorarDatoAction } from '../datos-sin-marcar-actions';
 import type { DatoDeLaFicha, EstadoDatos } from '@/lib/datos-aviso';
@@ -44,6 +44,24 @@ const iconoBtn: CSSProperties = {
   display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, flex: 'none',
   borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--dim)', cursor: 'pointer', padding: 0,
 };
+
+/**
+ * El ícono del BLOQUE de cada dato: va donde «A revisar» pone la cara del lead («El desplegable en el detail del lead,
+ * de datos sin marcar debería ser igual que en todo el CRM... Solo que en lugar de foto de perfil del lead, un ícono
+ * del bloque que falta marcar», Martín, 16/10/2026). `Record` a propósito: un dato nuevo sin ícono no compila.
+ */
+const ICONO_DATO: Record<StepId, NombreIconoMenu> = {
+  fechaJ1: 'calendario', asistenciaR1: 'check', calificado: 'calificado', fathomR1: 'video',
+  fechaJ2: 'calendario', asistenciaR2: 'check', fathomR2: 'video', r2Respuestas: 'pregunta',
+  monto: 'dinero', plan: 'plan', motivo: 'texto', setter: 'persona', closer: 'persona',
+  telefono: 'telefono', empresa: 'cliente',
+  dealServicio: 'producto', dealPromesa: 'cita', dealFiscal: 'archivo', dealObligaciones: 'escudo', dealFiscalDoc: 'archivo',
+  comprobante: 'dinero',
+};
+
+/** Ignorar: el basurero ROJO de «A revisar». Completar: su flecha AZUL. */
+const ignorarBtn: CSSProperties = { ...iconoBtn, color: 'var(--bad)', borderColor: 'color-mix(in srgb, var(--bad) 40%, var(--border))' };
+const completarBtn: CSSProperties = { ...iconoBtn, border: 'none', background: 'var(--primary)', color: '#fff' };
 
 const ROTULO: Record<DatoDeLaFicha['estado'], string> = {
   falta: '', ignorado: 'Ignorado', sin_aviso: 'Sin aviso', resuelto: 'Listo',
@@ -192,20 +210,22 @@ function Desplegable({ ancla, datos, verMas, onVerMas, onSolucionar, onIgnorar, 
 
   // Si no queda nada que avise, lo escondido se ve directo: no hay «Ver más» que apretar.
   const mostrarOcultos = verMas || datos.avisar.length === 0;
-  const fila = (d: DatoDeLaFicha) => {
+  // ⚠️ LA MISMA FILA QUE «A REVISAR» (app/_components/MakoConfirmGate.tsx, 16/10/2026): el ícono del bloque en un
+  // cuadrado del tamaño de la cara, el nombre, y a la derecha el basurero rojo (ignorar) y la flecha azul (completar).
+  // La primera fila va sin raya: la cabecera ya tiene la suya.
+  const fila = (d: DatoDeLaFicha, i: number) => {
     const falta = d.estado !== 'resuelto';
     return (
-      <li key={d.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 4px', borderTop: '1px solid var(--border)' }}>
-        <span style={{ flex: 1, minWidth: 0, fontSize: 13.5, fontWeight: 600, color: falta ? 'var(--ink)' : 'var(--dim)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.label}</span>
+      <li key={d.id} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '8px 0', borderTop: i === 0 ? 'none' : '1px solid var(--border)' }}>
+        <span aria-hidden style={{ flex: 'none', width: 28, height: 28, borderRadius: 8, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'var(--surface-2)', color: falta ? 'var(--ink)' : 'var(--faint)' }}>
+          <IconoMenu nombre={ICONO_DATO[d.id]} size={15} />
+        </span>
+        <span style={{ flex: '0 1 auto', minWidth: 0, fontSize: 13.5, fontWeight: 600, color: falta ? 'var(--ink)' : 'var(--dim)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.label}</span>
         {d.estado !== 'falta' && <span style={{ flex: 'none', fontSize: 12, color: 'var(--faint)' }}>{ROTULO[d.estado]}</span>}
-        {falta && (
-          <button type="button" style={iconoBtn} onClick={() => onSolucionar(d.id)} title={`Completar: ${d.label}`} aria-label={`Completar ${d.label}`}>
-            <IconoMenu nombre="editar" size={15} />
-          </button>
-        )}
+        <span aria-hidden style={{ flex: 1 }} />
         {d.estado === 'falta' && d.ignorable && (
-          <button type="button" style={iconoBtn} onClick={() => onIgnorar(d.id, true)} title={`Ignorar: no avisar de ${d.label}`} aria-label={`Ignorar ${d.label}`}>
-            <IconoMenu nombre="silenciar" size={15} />
+          <button type="button" style={ignorarBtn} onClick={() => onIgnorar(d.id, true)} title={`Ignorar: no avisar de ${d.label}`} aria-label={`Ignorar ${d.label}`}>
+            <IconoMenu nombre="borrar" size={15} />
           </button>
         )}
         {d.estado === 'ignorado' && (
@@ -213,25 +233,34 @@ function Desplegable({ ancla, datos, verMas, onVerMas, onSolucionar, onIgnorar, 
             <IconoMenu nombre="avisar" size={15} />
           </button>
         )}
+        {falta && (
+          <button type="button" style={completarBtn} onClick={() => onSolucionar(d.id)} title={`Completar: ${d.label}`} aria-label={`Completar ${d.label}`}>
+            <IconoMenu nombre="mover" size={15} />
+          </button>
+        )}
       </li>
     );
   };
+  const visibles = [...datos.avisar, ...(mostrarOcultos ? datos.ocultos : [])];
 
   return createPortal(
     <div ref={panelRef} role="dialog" aria-label="Datos sin marcar" tabIndex={-1}
       style={{
         position: 'fixed', zIndex: capa.z, left: pos?.left ?? 0, top: pos?.top ?? 0,
         opacity: pos ? 1 : 0, pointerEvents: pos ? undefined : 'none',
-        width: 320, maxWidth: 'calc(100vw - 20px)', maxHeight: 'min(440px, calc(100vh - 20px))', overflowY: 'auto',
+        width: 360, maxWidth: 'calc(100vw - 20px)', maxHeight: 'min(440px, calc(100vh - 20px))', overflowY: 'auto',
         background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 13,
-        boxShadow: '0 16px 40px rgba(18,21,27,.18)', padding: '10px 12px', fontFamily: SANS,
+        boxShadow: '0 16px 40px rgba(18,21,27,.18)', padding: '0 14px 8px', fontFamily: SANS,
       }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingBottom: 6 }}>
-        <span style={{ flex: 1, fontSize: 13.5, fontWeight: 700, color: 'var(--ink)' }}>Datos sin marcar</span>
+      {/* La cabecera de «A revisar»: el título, el número en su chip y la raya abajo. */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '12px 0', borderBottom: '1px solid var(--border)', marginBottom: 2 }}>
+        <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>Datos sin marcar</span>
+        {datos.avisar.length > 0 && (
+          <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 19, height: 19, padding: '0 5px', borderRadius: 999, background: 'var(--warn)', color: '#fff', fontSize: 11, fontWeight: 700, lineHeight: 1 }}>{datos.avisar.length}</span>
+        )}
       </div>
       <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
-        {datos.avisar.map(fila)}
-        {mostrarOcultos && datos.ocultos.map(fila)}
+        {visibles.map(fila)}
       </ul>
       {!mostrarOcultos && datos.ocultos.length > 0 && (
         <button type="button" onClick={onVerMas}
