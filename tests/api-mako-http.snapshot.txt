@@ -52,6 +52,7 @@ buscar_leads
 buscar_lugares_meta
 buscar_tareas_plan
 buscar_tutorial
+cambiar_animacion_landing
 cambiar_espera_paso
 cambiar_estado_comentario_landing
 cambiar_ficha_funnel

@@ -173,7 +173,19 @@ export function esPedidoDiseno(n: string): boolean {
 //   · Y la landing NOMBRADA en el mensaje (una landing, una página, un sitio, una web), sin contar los links ni «la
 //     página de Facebook»: «agrega un video al reel» o «cambia el tema del mail» no son de acá.
 //   · Va DESPUÉS de los otros cinco: «publicá la landing» es publicar aunque publicar también la cambie.
-export type PedidoDeLanding = { tipo: 'publicar' | 'despublicar' | 'crear' | 'replicar' | 'analizar' | 'editar' };
+//
+// ANIMAR una landing (15/10/2026, el panel «Animar»: `cambiar_animacion_landing`). Medido con el turno que CORRE antes
+// de esta regla: «anima mi landing», «ponle la animación Deslizar a la sección 2» y «quita las animaciones de la landing»
+// salían `capturar` dudosa, con 2 herramientas y ninguna de landing. «animar» no era un verbo de editar, la animación no
+// era una pieza (y a 4 palabras de «landing» quedaba lejos), y la segunda frase no nombra la landing.
+//   · Un verbo de cambiar (también «animar», «prender», «apagar», «activar», «usar») a ≤3 palabras de la ANIMACIÓN (o
+//     del efecto), o «animar» a ≤3 palabras de una pieza («anima mi landing», «anímala»); con el corte de otra área.
+//   · La landing nombrada, o una SECCIÓN: el efecto por sección sólo existe acá («ponle Deslizar a la sección 2»).
+//   · Va ANTES de despublicar: «quita las animaciones de la web» no es sacarla de internet. Por eso no lleva los verbos de
+//     publicar ni de compartir: «sube la landing con animaciones» sigue siendo publicar.
+//   · «anima» con pronombre no lleva «le/les»: «animales» no es un pedido.
+//   · Su propio tipo, `animar`, con la relevancia de un pedido CHICO (ver `RELEVANCIA_LANDING`).
+export type PedidoDeLanding = { tipo: 'publicar' | 'despublicar' | 'crear' | 'replicar' | 'analizar' | 'editar' | 'animar' };
 
 /** Lo que pone primero las herramientas de cada pedido en el presupuesto (y la lista para encontrar el id). */
 export const RELEVANCIA_LANDING: Readonly<Record<PedidoDeLanding['tipo'], string>> = {
@@ -187,10 +199,15 @@ export const RELEVANCIA_LANDING: Readonly<Record<PedidoDeLanding['tipo'], string
   // puntos parejos a las 40 del editor, las grandes llenaban los 12.000 caracteres y 4 de los 6 pedidos de la prueba
   // llegaban sin su herramienta; con «landings creadas», los 6 con la suya y con `listar_landings_creadas` (el id).
   editar: 'landings creadas',
+  // Animar es un pedido CHICO (como publicar): nombra su herramienta («Animaciones y efectos…», cambiar_animacion_landing) y
+  // la lista para el id. Medido el 15/10/2026 con el turno que corre: con la de editar, «puedes animar mi landing?» y
+  // «ponle el efecto barrido… a la sección de testimonios» empataban en 4 puntos con una docena de operaciones declaradas
+  // antes y la de animar quedaba afuera de los 12.000 caracteres.
+  animar: 'animacion efectos landings creadas',
 };
 
 /** El voseo con tilde de estos verbos, en el texto CRUDO: se marca con «§» antes de normalizar (la tilde se pierde). */
-const VOSEO_LANDING = /(^|[\s,.;:!¡¿?"'(])(publicá|despublicá|subí|creá|armá|hacé|generá|diseñá|montá|prepará|replicá|copiá|cloná|analizá|revisá|auditá|diagnosticá|evaluá|sacá|quitá|bajá|cambiá|agregá|añadí|poné|ocultá|escondé|mostrá|mové|borrá|eliminá|editá|traducí|duplicá|conectá|verificá|compartí|actualizá|modificá|reemplazá|corregí|arreglá|sumá|meté)(?=[\s,.;:!?"')]|$)/gi;
+const VOSEO_LANDING = /(^|[\s,.;:!¡¿?"'(])(publicá|despublicá|subí|creá|armá|hacé|generá|diseñá|montá|prepará|replicá|copiá|cloná|analizá|revisá|auditá|diagnosticá|evaluá|sacá|quitá|bajá|cambiá|agregá|añadí|poné|ocultá|escondé|mostrá|mové|borrá|eliminá|editá|traducí|duplicá|conectá|verificá|compartí|actualizá|modificá|reemplazá|corregí|arreglá|sumá|meté|animá|activá|desactivá|prendé|apagá|encendé|usá)(?=[\s,.;:!?"')]|$)/gi;
 const PRON_LANDING = '(?:mela|melo|nosla|noslo|la|lo|las|los|me|nos)';
 /** El verbo inequívoco: con la tilde marcada o con el pronombre pegado. */
 const verboFuerte = (raices: string) => `\\b(?:${raices})(?:§|${PRON_LANDING}\\b)`;
@@ -254,6 +271,27 @@ const PEDIDO_EDITAR = new RegExp(`(?:${[
 const PAGINA_DE_REDES = /\bpaginas? (?:de|del|en) (?:facebook|fb|instagram|ig|tiktok|linkedin|youtube)\b|\bfan ?pages?\b/g;
 const nombraLaLanding = (n: string): boolean => NOMBRA_LANDING.test(n.replace(/https?:\/\/\S+/g, ' ').replace(PAGINA_DE_REDES, ' '));
 
+// ── Animar (ver la cabecera del bloque) ──
+/** Los verbos de cambiar una animación: sin los de publicar, compartir ni crear (esos ganan con una landing animada). */
+const RAICES_ANIMAR = 'cambia|agrega|anade|anadi|pon|pone|quita|saca|elimina|borra|edita|modifica|actualiza|activa|desactiva|prende|apaga|enciende|usa|mete|suma';
+const MODAL_ANIMAR = 'animar|cambiar|agregar|anadir|poner|quitar|sacar|eliminar|borrar|editar|modificar|actualizar|activar|desactivar|prender|apagar|encender|usar|meter|sumar'
+  + '|animes|cambies|agregues|anadas|pongas|quites|saques|elimines|borres|edites|modifiques|actualices|actives|desactives|prendas|apagues|enciendas|uses|metas|sumes';
+/** «anima» con la tilde marcada o con pronombre, pero sin «le/les»: «animales» no es un pedido. */
+const VERBO_ANIMA = '\\banima(?:§|(?:mela|melo|nosla|noslo|las|los|la|lo|me|nos)\\b)';
+const VERBOS_ANIMAR = [
+  `\\b(?:${RAICES_ANIMAR})(?:§|${PRON_EDITAR}\\b)`, VERBO_ANIMA,
+  `^(?:${RAICES_ANIMAR}|anima)\\b(?![\\s,]+de\\b)`,
+  `\\b(?:puedes|podes|podrias|podras|puede|podria|quiero que|queria que|necesito que|quisiera que|te pido que)\\s+(?:me\\s+|nos\\s+|le\\s+)?(?:${MODAL_ANIMAR})(?:${PRON_EDITAR})?\\b`,
+].join('|');
+const ANIMACION = '(?:animacion(?:es)?|animad[oa]s?|efectos?)\\b';
+/** Un verbo de cambiar a ≤3 palabras de la animación, o «animar» a ≤3 de una pieza de la landing. */
+const PEDIDO_ANIMACION = new RegExp(`(?:${VERBOS_ANIMAR})(?:${SEP_LANDING}(?!${OTRO_QUE_EDITAR})\\S+?){0,3}?${SEP_LANDING}${ANIMACION}${NO_DE_OTRO}`);
+const PEDIDO_ANIMAR = new RegExp(`(?:${VERBO_ANIMA}|^anima\\b|\\b(?:puedes|podes|podrias|podras|puede|podria|quiero que|queria que|necesito que|quisiera que|te pido que)\\s+(?:me\\s+|nos\\s+|le\\s+)?(?:animar|animes)(?:${PRON_EDITAR})?\\b)(?:${SEP_LANDING}(?!${OTRO_QUE_EDITAR})\\S+?){0,3}?${SEP_LANDING}${PIEZA_LANDING}${NO_DE_OTRO}`);
+const NOMBRA_SECCION = /\bsecci(?:on|ones)\b/;
+/** ¿Pide cambiar las animaciones de una landing? La landing nombrada, o una sección (el efecto por sección es de acá). */
+const pideAnimar = (n: string): boolean =>
+  (PEDIDO_ANIMACION.test(n) || PEDIDO_ANIMAR.test(n)) && (nombraLaLanding(n) || NOMBRA_SECCION.test(n.replace(PAGINA_DE_REDES, ' ')));
+
 /** ¿Le pide a MaKo algo sobre una landing del Web Generator? Recibe el texto CRUDO de la persona. */
 export function esPedidoDeLanding(texto: string): PedidoDeLanding | null {
   const crudo = (texto || '').trim();
@@ -261,6 +299,8 @@ export function esPedidoDeLanding(texto: string): PedidoDeLanding | null {
   const n = norm(crudo.replace(VOSEO_LANDING, (_m, antes: string, verbo: string) => `${antes}${norm(verbo)}§`))
     .replace(PRELUDIO_CRM, '').trim();
   if (!n || ARRANCA_PREGUNTANDO.test(n) || ES_DEL_PLAN.test(n)) return null;
+  // Antes de despublicar: «quita las animaciones de la web» es animar, no sacarla de internet.
+  if (pideAnimar(n)) return { tipo: 'animar' };
   if (PEDIDO_DESPUBLICAR.test(n) || (SACAR_DE_INTERNET.test(n) && NOMBRA_LANDING.test(n))) return { tipo: 'despublicar' };
   if (PEDIDO_PUBLICAR.test(n)) return { tipo: 'publicar' };
   if (PEDIDO_REPLICAR.test(n)) return { tipo: 'replicar' };

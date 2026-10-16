@@ -11,7 +11,8 @@
 // el título editable «Sin título» · el estado del guardado · Compartir · el botón partido azul
 // [⤒ Publicar ▾] · ⋯ · el avatar); a la izquierda el panel del agente (✨, se colapsa con ⇤) o
 // el de páginas; sobre el lienzo la barra de herramientas redondeada (✨ para reabrir el agente si se
-// plegó —el interruptor Edición manual / Edición con IA de Gamma se sacó el 12/10—, Deshacer/Rehacer, «⊞ Agregar bloque», la zona contextual de formato y
+// plegó —el interruptor Edición manual / Edición con IA de Gamma se sacó el 12/10—, Deshacer/Rehacer, «⊞ Agregar bloque»,
+// «Animar» —el panel de animaciones, copiado del Image Editor y de Canva el 15/10: paneles/PanelAnimacion.tsx—, la zona contextual de formato y
 // la vista por dispositivo); la tira de secciones; y el lienzo con el fondo del tema y las
 // secciones al centro. Abajo a la derecha, el zoom «100%» y el «?» de los atajos.
 //
@@ -74,9 +75,9 @@ import {
 import type { IdBloque } from '@/lib/editor-landing/catalogo-bloques';
 import {
   EditorLandingContext,
-  type CtxEditorLanding, type Dialogo, type EstadoGuardado, type OpcionesImagen, type PanelDer, type PanelIzq,
+  type CtxEditorLanding, type Dialogo, type EstadoGuardado, type ModoAnimar, type OpcionesImagen, type PanelDer, type PanelIzq, type PedidoAnimar,
 } from './contexto';
-import { extensionesLanding } from './extensiones';
+import { extensionesLanding, ponerAnimacionDePagina } from './extensiones';
 import BarraFormato from './BarraFormato';
 import AsaBloque from './AsaBloque';
 import MenuBarra from './MenuBarra';
@@ -92,6 +93,7 @@ import PanelTema, { EVENTO_TEMAS_PROPIOS } from './paneles/PanelTema';
 import { URL_FUENTE_CHROME, marcarReciente } from '../cliente';
 import PanelComentarios from './paneles/PanelComentarios';
 import PanelHistorial from './paneles/PanelHistorial';
+import PanelAnimacion from './paneles/PanelAnimacion';
 import DialogoCompartir from './dialogos/DialogoCompartir';
 import DialogoPublicar from './dialogos/DialogoPublicar';
 import DialogoExportar from './dialogos/DialogoExportar';
@@ -235,6 +237,8 @@ function Armazon({ doc, temasPropios, creadoPor, autor }: PropsEditorLanding & {
   /** La persona plegó el agente: cerrar el panel de páginas no lo vuelve a abrir. */
   const agentePlegado = useRef(false);
   const [panelDer, setPanelDer] = useState<PanelDer>(null);
+  /** Lo último que pidieron al abrir «Animar» (la vista; ver `abrirAnimar`). */
+  const [pedidoAnimar, setPedidoAnimar] = useState<PedidoAnimar | null>(null);
   const [dialogo, setDialogo] = useState<Dialogo>(null);
   const [tiraVisible, setTiraVisible] = useState(true);
   const [zoom, setZoom] = useState(100);
@@ -593,6 +597,37 @@ function Armazon({ doc, temasPropios, creadoPor, autor }: PropsEditorLanding & {
     setTarjetaActiva(id);
   }, [setTarjetaActiva]);
 
+  /**
+   * Abre «Animar» (paneles/PanelAnimacion.tsx) en una vista. Con `tarjetaId` («Animar sección» del menú de una
+   * sección) esa sección pasa a ser la activa: el cursor va adentro SIN scroll (la persona la está mirando: abrió su
+   * menú), así el panel y la tira hablan de la misma.
+   */
+  const abrirAnimar = useCallback((modo: ModoAnimar, tarjetaId?: string) => {
+    const e = editorRef.current;
+    if (tarjetaId && e && !e.isDestroyed) {
+      const s = seccionPorId(e.state.doc, tarjetaId);
+      if (s) {
+        try {
+          e.view.dispatch(e.state.tr.setSelection(TextSelection.near(e.state.doc.resolve(s.pos + 1))));
+        } catch { /* una sección sin texto: alcanza con marcarla activa */ }
+        setTarjetaActiva(tarjetaId);
+      }
+    }
+    setPedidoAnimar((p) => ({ modo, n: (p?.n ?? 0) + 1 }));
+    setPanelDer('animacion');
+  }, [setTarjetaActiva]);
+
+  // Las secciones del lienzo llevan los data-* de su animación por un plugin de decoraciones
+  // (animacion-reglas.ts): la config le llega acá. `revision` cambia al abrir cada página (un EditorState nuevo).
+  const animacionesPagina = config.pagina.animaciones;
+  const estiloPagina = config.pagina.estiloAnimacion;
+  useEffect(() => {
+    if (!editor || editor.isDestroyed) return;
+    try {
+      ponerAnimacionDePagina(editor.view, { animaciones: animacionesPagina, estiloAnimacion: estiloPagina });
+    } catch { /* la vista todavía no está montada: el próximo `revision` lo vuelve a intentar */ }
+  }, [editor, revision, animacionesPagina, estiloPagina]);
+
   /** Arma nodos de ProseMirror a partir del JSON de una pieza; null si alguno no entra en el esquema. */
   const nodosDe = useCallback((e: Editor, nuevas: JsonNodo[]): NodoPM[] | null => {
     try {
@@ -742,6 +777,7 @@ function Armazon({ doc, temasPropios, creadoPor, autor }: PropsEditorLanding & {
     setPanelIzq,
     panelDer,
     setPanelDer,
+    abrirAnimar,
     dialogo,
     setDialogo,
     subirArchivo,
@@ -755,7 +791,7 @@ function Armazon({ doc, temasPropios, creadoPor, autor }: PropsEditorLanding & {
     recargar,
   }), [
     docId, titulo, setTitulo, contenido, config, setConfig, tema, version, estado, guardarAhora, paginaActual,
-    irAPagina, setPaginas, editor, tarjetaActiva, irATarjeta, modoIA, setModoIA, panelIzq, setPanelIzq, panelDer,
+    irAPagina, setPaginas, editor, tarjetaActiva, irATarjeta, modoIA, setModoIA, panelIzq, setPanelIzq, panelDer, abrirAnimar,
     dialogo, elegirImagenEstable, avisar, reemplazarTarjetas, insertarTarjetas, urlPublica, doc.baseLandings, cambiosSinPublicar, recargar,
   ]);
 
@@ -1026,6 +1062,14 @@ function Armazon({ doc, temasPropios, creadoPor, autor }: PropsEditorLanding & {
                 onClick={(e) => setAgregarBloque(agregarBloque ? null : e.currentTarget)}>
                 <Ico n="grilla-mas" t={16} /> <span className="gma-herr-texto">Agregar bloque</span>
               </button>
+              {/* «Animar» (Canva: «On the toolbar above the editor, select Animate»; el AnimateTool del Image Editor):
+                  abre o cierra el panel, en la vista de la sección activa si la hay. */}
+              <button type="button" className="gma-herr-boton gma-tip" data-tip="Animar" aria-label="Animar"
+                aria-pressed={panelDer === 'animacion'} disabled={!editor || paginaRota}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => (panelDer === 'animacion' ? setPanelDer(null) : abrirAnimar(tarjetaActivaRef.current ? 'seccion' : 'pagina'))}>
+                <Ico n="brillo" t={16} /> <span className="gma-herr-texto">Animar</span>
+              </button>
               <span className="gma-sep" />
               <div className="gma-herr-ctx">
                 <BarraFormato modo="fija" />
@@ -1115,10 +1159,11 @@ function Armazon({ doc, temasPropios, creadoPor, autor }: PropsEditorLanding & {
 
           {/* ── Panel derecho ── */}
           {panelDer ? (
-            <aside className="gma-der" aria-label={panelDer === 'tema' ? 'Tema' : panelDer === 'comentarios' ? 'Comentarios' : 'Historial de versiones'}>
+            <aside className="gma-der" aria-label={panelDer === 'tema' ? 'Tema' : panelDer === 'comentarios' ? 'Comentarios' : panelDer === 'animacion' ? 'Animar' : 'Historial de versiones'}>
               {panelDer === 'tema' ? <PanelTema onCerrar={cerrarPanelDer} /> : null}
               {panelDer === 'comentarios' ? <PanelComentarios /> : null}
               {panelDer === 'historial' ? <PanelHistorial /> : null}
+              {panelDer === 'animacion' ? <PanelAnimacion onCerrar={cerrarPanelDer} pedido={pedidoAnimar} /> : null}
             </aside>
           ) : null}
         </div>
