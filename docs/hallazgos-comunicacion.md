@@ -9860,3 +9860,36 @@ negocio cliente no cambia nada: `lineaDeMaKoPara` devuelve null fuera de la plat
 **Vive en:** `lib/disparadores-canales.ts` (`estadoMedios`) · `lib/evolution.ts` (`listarLineas`) · `lib/mako-canal.ts` ·
 `app/api/webhooks/evolution/route.ts` (`wsDeInstancia`) · `lib/email-remitente.ts` (`porDominio`) ·
 `app/api/email/dominio/route.ts`
+
+## Lo que MaKo manda por detrás: las trampas del inventario (16/10/2026)
+
+El inventario entero, con cada envío, su disparo, dónde sale y qué lo frena: **docs/inventario-nada-por-detras.md** (un
+barrido de sólo lectura del repo con cinco ángulos y un crítico). Lo que no está a la vista leyendo el código de a un
+archivo:
+
+- ⚠️ **Hay DOS motores de automatización vivos.** Las filas de Automations y los «flujos» del store de /mensajes
+  (`listarFlujosActivos`, lib/plantillas.ts:398), que corren desde Calendly, Cal.com, Fathom, Meta (`dispararEvento`) y la
+  cobranza (`correrFlujoDe`), y mandan directo al grupo (lib/flujos.ts:375, :421). Las insistencias (lib/insistencias.ts:152)
+  reenvían sin mirar ningún interruptor.
+- **Si quien llama pasa `texto`, ese texto PISA la plantilla del store** (lib/avisos.ts:560): el negocio edita en /mensajes
+  un texto que nunca sale. Con `contexto`, lo redacta una IA (tracking-apagado, retro-lista).
+- **Toda tarjeta «MaKo en WhatsApp» manda además un push** (lib/avisos.ts:266) que el lienzo no dibuja. Sólo «MaKo por
+  email» lo apaga.
+- **Una tarjeta de evento «de antes» (sin partes) sale con el rótulo «━━ … ━━» pegado** (`emitirTarjetaDelEvento` sólo
+  pasa `rotulo: false` con partes o email, lib/flujos.ts:549): lo que llega no es lo que dice la tarjeta.
+- **`emitirPorEvento` devuelve `wa: true` apenas corrió una fila** (lib/aviso-evento.ts:475), aunque la tarjeta haya quedado
+  esperando el horario de oficina o haya fallado. lib/lineas-vigilante.ts lo toma como «llegó» y marca la línea avisada.
+- ⚠️ **Los reportes diario y horario corren sin `runWithWorkspace`**: el contexto cae a OWNER_WS, el ws 1, que es un
+  CLIENTE (Mauricio) (lib/notify.ts:55; lib/notif-destinatarios.ts:72). El horario no tiene dedup.
+- **Frenos que no frenan:** `reunion-cancelada` no tiene ningún dedup ante las reentregas de Calendly
+  (app/api/webhooks/calendly/route.ts:667); `lead-fusionado` deduplica 60 min SIN clave, así que se come la fusión de otro
+  lead (lib/leads.ts:855).
+- **`avisos-programados` es una puerta paralela:** cualquier id del catálogo, también un evento, se puede agendar desde
+  /mensajes, y el cron lo manda por `emitirAviso` directo, por fuera de su automatización (lib/avisos-programados.ts:168-197).
+- **Un paso «⚡ Acción» corre la acción sin «sí»** (lib/api-mako/flujo.ts): las que mandan algo (invitar a Google
+  Calendar, reenviar el acceso a MaKo, un broadcast) salen con un texto que la tarjeta no dibuja.
+- **Terceros que escriben por MaKo:** Google (`sendUpdates=all`: invitaciones, cambios y cancelaciones) y Calendly
+  (`/invitees`, `/cancellation`). El texto lo escriben ellos; lib/google-calendar.ts:633 manda «Creado desde el CRM al
+  reagendar la reunión.» como descripción que ve el lead.
+
+**Vive en:** docs/inventario-nada-por-detras.md (la lista y el orden de la mudanza)
