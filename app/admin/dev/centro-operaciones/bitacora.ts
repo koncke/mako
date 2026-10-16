@@ -434,4 +434,21 @@ export const BITACORA: Hito[] = [
       'tests/centro-preguntas.test.ts — siete, cada uno probado rompiéndolo',
     ],
   },
+  {
+    fecha: '16 oct', hora: '03:29', chat: CH, sesion: SESION_CH_3, cuenta: 'claude3', actor: 'claude', tipo: 'implementacion',
+    titulo: 'El Uso de las tres cuentas, siempre a la vista, junto a sus Runners',
+    puntos: [
+      'Martín: «El "Uso" debe ser visible siempre... donde hoy está "Cartero"» y «Falta el poder visualizar el USO».',
+      'Abajo de los chats, «Uso 71% Cuenta 2»: la semana más usada. Al tocarlo, cada cuenta con su Runner, la sesión de 5 horas y la semana, con su barra y cuándo se reinicia (copiado de claude.ai → Uso).',
+      'Se mide con la barra de estado de cada Runner (se abre con --settings, sin tocar la configuración de Martín); la semanal de la app sale de get_usage.',
+      'La revisión adversarial confirmó 5 y se arreglaron: el número que se re-sellaba como de ahora, el «activo» que salía del Runner de otra cuenta, la semanal de otra cuenta.',
+    ],
+    commits: [{ sha: 'e84a3e3bc', msg: 'feat(operaciones): el Uso de las tres cuentas, siempre a la vista, junto a sus Runners', lineas: 695, archivos: 13 }],
+    archivos: [
+      'lib/centro-uso.ts — la cuota, cuándo está vieja, el número del botón y el estado del Runner',
+      'app/admin/operaciones/Uso.tsx — el botón y su desplegable',
+      'scripts/operaciones/cartero.mjs — la barra de estado (uso) y la cuota que sube la vuelta (1.5.0)',
+      'tests/centro-uso.test.ts — diez, con el diferencial de la barra de estado',
+    ],
+  },
 ];

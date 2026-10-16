@@ -678,6 +678,43 @@ commit 81d842745 dice 5 porque se escribió antes de la segunda tanda):
 `app/m/operaciones/TicketeraMovil.tsx` · `app/tickets/decisiones/reglas.ts` (`aLaTicketera`) · `lib/movil-rutas.ts` ·
 `tests/centro-preguntas.test.ts`
 
+## El Uso de las tres cuentas sale de la barra de estado de cada Runner (16/10/2026)
+
+**El pedido.** Martín: «El "Uso" debe ser visible siempre, me imagino como un desplegable donde hoy está "Cartero". Y que
+"Cartero" (que ya no debería llamarse así), sea también el mismo desplegable... Que ahí se vean ambas cosas», y en
+producción: «Falta el poder visualizar el USO».
+
+**De dónde sale (medido en el CLI 2.1.299 de esta PC).** En la terminal no hay `get_usage` (es de la app) ni nada guardado
+en la carpeta de config (`~/.claude-martin` no tiene ningún caché de cuota). Lo que sí hay: la barra de estado de Claude
+Code recibe por stdin `rate_limits.five_hour` y `rate_limits.seven_day`, cada una con `used_percentage` y `resets_at`
+**en segundos unix**, y admite `refreshInterval`. El Runner se abre con esa barra (`--settings` apuntando a
+`runner-settings.json`, que escribe `cartero.mjs instalar`): así se mide sin tocar la configuración de Martín, sólo en
+esa sesión. `cartero.mjs uso` anota la cuota de la cuenta de su carpeta; cada vuelta la sube; MaKo la guarda en
+`operaciones_carteros.cuota` (de la mig 0285, sin usar hasta hoy). De la cuenta que está en la app, la semanal sale de
+`~/.claude/uso-semanal.txt` (lo que mide `get_usage`, con la cuenta en el 4º campo), si es más nueva.
+
+**Lo que no se ve y se cuida:** pasado el reinicio de una ventana, su porcentaje ya no vale (se dice «Se reinició»); una
+medición de más de 30 minutos lleva su edad; el botón muestra la semana MÁS usada (la que se termina primero); y una vuelta
+sin medición no borra la que había.
+
+**Lo que encontró la revisión adversarial** (un revisor y un refutador por hallazgo, 5 de 5 confirmados, con su test):
+- **El diagnóstico obvio era el equivocado: «medido» no es cuándo corrió la barra.** La barra corre cada minuto aunque no
+  llegue ninguna respuesta de la API (el CLI guarda la observación real, pero no la pasa por stdin): re-sellar el mismo
+  número escondía un Runner que dejó de dar vueltas. Ahora la edad es la de la última OBSERVACIÓN: otros números, o que
+  la sesión haya hablado con la API (`cost.total_api_duration_ms`).
+- **«Runner activo» no puede salir de `visto_at`**: el Runner de ~/.claude recorre las tres cuentas y les refresca la
+  fecha. Activo es que su terminal MIDA (una 5 horas medida hace poco); si no, «Sin el Runner de su terminal».
+- **La semanal de la app puede ser de otra cuenta** (el 4º campo lo pone un marcador que se atrasa): si su reinicio no es
+  el que vio la terminal de esa cuenta, no se usa. Y al ganar ella, la 5 horas vieja de la terminal no viaja con su fecha.
+- **El botón prefiere lo medido hace poco**, y si sólo hay números viejos, los muestra con su edad.
+
+**No verificado:** que la barra de estado reciba la cuota en una sesión de terminal real de cada cuenta (se probó el
+comando con la entrada medida en el CLI, no con un Runner abierto). Lo dice el Centro: hasta que el Runner de una cuenta
+se abra con su comando, esa cuenta sale «Se mide cuando su Runner está abierto con su comando».
+
+**Vive en:** `lib/centro-uso.ts` · `app/admin/operaciones/Uso.tsx` · `scripts/operaciones/cartero.mjs` (`uso`,
+`cuotaDeBarraDeEstado`, `cuotaDe`) · `lib/runner.ts` (`COMANDO_TERMINAL`) · `tests/centro-uso.test.ts`
+
 ## Lo que creí medido y no estaba al día
 
 - **`soloPlataforma` ya existía en el registro de la API** (lo sumó el 2FA obligatorio el 14/10, por

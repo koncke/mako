@@ -1196,6 +1196,9 @@ código nuevo:
   conservan la query). Las dos contestan con `responderDecision`. Código nuevo que dibuje tarjetas de un chat pregunta
   de qué chat son a `lib/centro-preguntas.ts` (con `destino`, o por un nombre único), nunca por su cuenta: así el
   globito, la pregunta y la conversación cuentan lo mismo. Una opción puede traer su `detalle` (la descripción).
+- **EL USO DE UNA CUENTA SALE DE LA BARRA DE ESTADO DE SU RUNNER** (16/10/2026; Martín: «El "Uso" debe ser visible
+  siempre»): `rate_limits` por stdin, con `resets_at` en SEGUNDOS (lib/centro-uso.ts, `cartero.mjs uso`), y la semanal de
+  la app desde `~/.claude/uso-semanal.txt`. Un porcentaje pasado su reinicio no se muestra como de ahora.
 - **UN RUNNER POR CARPETA DE CONFIG, NO POR CUENTA** (16/10/2026; Martín pasó las tres cuentas a la terminal, cada una
   con su `CLAUDE_CONFIG_DIR`). `SendMessage` sólo llega a las sesiones registradas en la carpeta del que manda (medido:
   «ENOINBOX: no-key»), y la app comparte `~/.claude` con `claude1`. Código nuevo que entregue algo a un chat: lo

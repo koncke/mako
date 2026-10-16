@@ -42,8 +42,9 @@ Renombra este chat a "Runner" con set_session_title. Desde ahora eres el Runner 
 **Para que las tres cuenten a la vez (16/10, cartero 1.4.0 instalado y con las tres terminales declaradas)**: las tres
 están logueadas; falta abrir un Runner por cuenta de terminal. Lo que hace Martín, una ventana de PowerShell por cuenta:
 
-1. Abre PowerShell y escribe `claude2 -n Runner` (para la cuenta 3, `claude3 -n Runner`; para la 1, `claude1 -n Runner`
-   cuando deje de usar la app).
+1. Abre PowerShell y pega el comando de la cuenta (Centro → Uso → Nuevo Runner, uno por cuenta con su botón de copiar):
+   `claude2 -n Runner --settings $HOME\.claude\operaciones\runner-settings.json` (y lo mismo con `claude3`; `claude1`
+   cuando deje de usar la app). El `--settings` le pone la barra de estado que mide el Uso de esa cuenta (16/10/2026).
 2. Pégale las instrucciones (Centro → Runners → Nuevo Runner → Copiar).
 3. La primera vez que pida permiso para `node ~/.claude/operaciones/cartero.mjs …`, elige la opción que no vuelve a
    preguntar: si no, la vuelta de cada 2 minutos se frena esperándolo.
