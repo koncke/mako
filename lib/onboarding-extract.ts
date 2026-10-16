@@ -107,7 +107,8 @@ async function jobAplica(key: JobKey): Promise<{ aplica: boolean; motivo?: strin
  * llamar esto revive el job (skipped → pending). Nunca degrada done/running.
  */
 export async function iniciarExtraccion(estado?: OnboardingState): Promise<OnboardingState> {
-  const s = estado ?? await getEstadoOnboarding();
+  // Estricta: esto guarda el estado ENTERO, y la tolerante con la base caída lo inventaría (lib/onboarding-state.ts).
+  const s = estado ?? await getEstadoOnboardingEstricto();
   // Lo que aplica se pregunta ANTES (es asíncrono), sólo para lo que todavía no está hecho ni corriendo,
   // y la decisión es pura (lib/onboarding-contrato.ts → `reevaluarExtraccion`, con test).
   const aplica = {} as Record<JobKey, { aplica: boolean; motivo?: string }>;

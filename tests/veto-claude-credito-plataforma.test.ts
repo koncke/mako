@@ -34,6 +34,8 @@
 // Y el chat de Offer, que ES el onboarding desde el 16/10/2026 (base 11/0):
 //   - sin la fila de 'offer' en la lista                                   → 10/1
 //   - 'offer' con soloDuranteElOnboarding: false                          → 10/1
+// Y 'productos', que salió con el wizard (base 11/0; el ejemplo de lo habilitado pasó a 'El Archivero'):
+//   - 'productos' vuelve a la lista                                       → 10/1
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -55,7 +57,7 @@ const HOY = new Date('2026-10-16T12:00:00Z');
 
 test('las dos claves del crédito pasan, cada una con su cuenta y el modelo barato', () => {
   for (const [clave, cuenta] of [[C1, 1], [C2, 2]] as const) {
-    const v = evaluarCreditoDeLaPlataforma({ feature: 'productos', clave, creditos: [C1, C2], hoy: HOY, onboardingEnCurso: true });
+    const v = evaluarCreditoDeLaPlataforma({ feature: 'El Archivero', clave, creditos: [C1, C2], hoy: HOY, onboardingEnCurso: true });
     assert.equal(v.ok, true, `la cuenta ${cuenta} no pasó`);
     if (!v.ok) continue;
     assert.equal(v.permiso.cuenta, cuenta);
@@ -66,22 +68,22 @@ test('las dos claves del crédito pasan, cada una con su cuenta y el modelo bara
 
 test('LA FRONTERA: ninguna otra clave pasa por la puerta del crédito', () => {
   // La de siempre de la plataforma (ANTHROPIC_API_KEY): es la que el veto cerró el 13/8.
-  assert.equal(evaluarCreditoDeLaPlataforma({ feature: 'productos', clave: PLATAFORMA, creditos: [C1, C2], hoy: HOY, onboardingEnCurso: true }).ok, false,
+  assert.equal(evaluarCreditoDeLaPlataforma({ feature: 'El Archivero', clave: PLATAFORMA, creditos: [C1, C2], hoy: HOY, onboardingEnCurso: true }).ok, false,
     'la clave de siempre de la plataforma pasó como crédito: MaKo pagaría sin lista blanca');
   // La de un negocio tampoco: ésa tiene su propia puerta.
-  assert.equal(evaluarCreditoDeLaPlataforma({ feature: 'productos', clave: NEGOCIO, creditos: [C1, C2], hoy: HOY, onboardingEnCurso: true }).ok, false);
+  assert.equal(evaluarCreditoDeLaPlataforma({ feature: 'El Archivero', clave: NEGOCIO, creditos: [C1, C2], hoy: HOY, onboardingEnCurso: true }).ok, false);
   // Sin claves del crédito cargadas, nada pasa, ni una clave vacía «igual» a un casillero vacío.
-  assert.equal(evaluarCreditoDeLaPlataforma({ feature: 'productos', clave: C1, creditos: [null, undefined], hoy: HOY, onboardingEnCurso: true }).ok, false);
-  assert.equal(evaluarCreditoDeLaPlataforma({ feature: 'productos', clave: '', creditos: ['', null], hoy: HOY, onboardingEnCurso: true }).ok, false);
+  assert.equal(evaluarCreditoDeLaPlataforma({ feature: 'El Archivero', clave: C1, creditos: [null, undefined], hoy: HOY, onboardingEnCurso: true }).ok, false);
+  assert.equal(evaluarCreditoDeLaPlataforma({ feature: 'El Archivero', clave: '', creditos: ['', null], hoy: HOY, onboardingEnCurso: true }).ok, false);
   // Y una tercera clave no se cuela por estar en la lista: sólo hay dos cuentas.
-  assert.equal(evaluarCreditoDeLaPlataforma({ feature: 'productos', clave: PLATAFORMA, creditos: [C1, C2, PLATAFORMA], hoy: HOY, onboardingEnCurso: true }).ok, false);
+  assert.equal(evaluarCreditoDeLaPlataforma({ feature: 'El Archivero', clave: PLATAFORMA, creditos: [C1, C2, PLATAFORMA], hoy: HOY, onboardingEnCurso: true }).ok, false);
   // Con espacios sigue siendo la misma clave del crédito.
-  assert.equal(evaluarCreditoDeLaPlataforma({ feature: 'productos', clave: `  ${C1}\n`, creditos: [C1, C2], hoy: HOY, onboardingEnCurso: true }).ok, true);
+  assert.equal(evaluarCreditoDeLaPlataforma({ feature: 'El Archivero', clave: `  ${C1}\n`, creditos: [C1, C2], hoy: HOY, onboardingEnCurso: true }).ok, true);
 });
 
 test('PARA QUÉ: sólo lo que Martín habilitó, y hoy es el onboarding en curso («Por ahora solo en onboarding»)', () => {
   // Lo habilitado, y nada más: las funciones del wizard del primer ingreso.
-  assert.deepEqual(CREDITO_HABILITADO_PARA.map((h) => h.feature).sort(), ['El Archivero', 'onboarding-extract', 'productos', 'offer'].sort(),
+  assert.deepEqual(CREDITO_HABILITADO_PARA.map((h) => h.feature).sort(), ['El Archivero', 'onboarding-extract', 'offer'].sort(),
     'la lista de lo que usa el crédito cambió: habilitar algo más lo decide Martín');
   // El chat de Offer ES el onboarding desde el 16/10/2026 («el onboarding será ese chat de offer»): lo usa
   // mientras el onboarding está en curso, y la tab Offer de después, no.
@@ -89,6 +91,9 @@ test('PARA QUÉ: sólo lo que Martín habilitó, y hoy es el onboarding en curso
     'el chat de Offer del primer ingreso no llega al crédito');
   assert.equal(evaluarCreditoDeLaPlataforma({ feature: 'offer', clave: C1, creditos: [C1, C2], hoy: HOY, onboardingEnCurso: false }).ok, false,
     'la tab Offer usa el crédito con el onboarding ya cerrado');
+  // 'productos' era el paso del wizard, y salió con él (16/10/2026): nada lo llama durante el onboarding.
+  assert.equal(evaluarCreditoDeLaPlataforma({ feature: 'productos', clave: C1, creditos: [C1, C2], hoy: HOY, onboardingEnCurso: true }).ok, false,
+    'el paso Productos del wizard, que ya no existe, sigue usando el crédito');
   for (const h of CREDITO_HABILITADO_PARA) {
     assert.equal(h.soloDuranteElOnboarding, true, `${h.feature} usaría el crédito fuera del onboarding`);
     assert.ok(!FEATURES_DEL_PLAN.includes(h.feature), `${h.feature} es del Plan`);
@@ -100,7 +105,7 @@ test('PARA QUÉ: sólo lo que Martín habilitó, y hoy es el onboarding en curso
       `«${f}» usa el crédito sin que Martín lo habilitara`);
   }
   // Lo habilitado, con el onboarding terminado (o sin saberlo): tampoco.
-  assert.equal(evaluarCreditoDeLaPlataforma({ feature: 'productos', clave: C1, creditos: [C1, C2], hoy: HOY, onboardingEnCurso: false }).ok, false);
+  assert.equal(evaluarCreditoDeLaPlataforma({ feature: 'El Archivero', clave: C1, creditos: [C1, C2], hoy: HOY, onboardingEnCurso: false }).ok, false);
   assert.equal(evaluarCreditoDeLaPlataforma({ feature: 'El Archivero', clave: C1, creditos: [C1, C2], hoy: HOY }).ok, false,
     'sin saber si el onboarding está en curso, se toma que no');
   assert.equal(evaluarCreditoDeLaPlataforma({ feature: 'El Archivero', clave: C1, creditos: [C1, C2], hoy: HOY, onboardingEnCurso: true }).ok, true);
@@ -113,19 +118,19 @@ test('el Plan nunca paga IA, tampoco con el crédito', () => {
 });
 
 test('el pánico, la falta de feature, otro modelo y el vencimiento cierran la puerta', () => {
-  assert.equal(evaluarCreditoDeLaPlataforma({ feature: 'productos', clave: C1, creditos: [C1, C2], pausa: true, hoy: HOY, onboardingEnCurso: true }).ok, false);
+  assert.equal(evaluarCreditoDeLaPlataforma({ feature: 'El Archivero', clave: C1, creditos: [C1, C2], pausa: true, hoy: HOY, onboardingEnCurso: true }).ok, false);
   assert.equal(evaluarCreditoDeLaPlataforma({ feature: '', clave: C1, creditos: [C1, C2], hoy: HOY, onboardingEnCurso: true }).ok, false);
-  assert.equal(evaluarCreditoDeLaPlataforma({ feature: 'productos', model: 'claude-opus-4-8', clave: C1, creditos: [C1, C2], hoy: HOY, onboardingEnCurso: true }).ok, false);
+  assert.equal(evaluarCreditoDeLaPlataforma({ feature: 'El Archivero', model: 'claude-opus-4-8', clave: C1, creditos: [C1, C2], hoy: HOY, onboardingEnCurso: true }).ok, false);
   const despues = new Date(`${CREDITO_DE_LA_PLATAFORMA.hasta}T12:00:00Z`);
   despues.setUTCDate(despues.getUTCDate() + 1);
-  assert.equal(evaluarCreditoDeLaPlataforma({ feature: 'productos', clave: C1, creditos: [C1, C2], hoy: despues, onboardingEnCurso: true }).ok, false);
+  assert.equal(evaluarCreditoDeLaPlataforma({ feature: 'El Archivero', clave: C1, creditos: [C1, C2], hoy: despues, onboardingEnCurso: true }).ok, false);
 });
 
 test('la marca del gasto del crédito se reconoce, no se confunde con la del negocio, y la puerta 1 sigue igual', () => {
   assert.equal(esDelCreditoDeLaPlataforma(`${MOTIVO_CREDITO_PLATAFORMA} (cuenta 1) · Armar el catálogo`), true);
   assert.equal(esDeLaClaveDelNegocio(`${MOTIVO_CREDITO_PLATAFORMA} (cuenta 1)`), false);
   assert.equal(esDelCreditoDeLaPlataforma('Analizar la llamada de Ana'), false);
-  assert.equal(evaluarPermiso({ feature: 'productos' }).ok, false, 'una feature cualquiera sigue sin poder pagarle a Claude por la lista blanca');
+  assert.equal(evaluarPermiso({ feature: 'El Archivero' }).ok, false, 'una feature cualquiera sigue sin poder pagarle a Claude por la lista blanca');
 });
 
 // ── El cableado ───────────────────────────────────────────────────────────────

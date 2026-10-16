@@ -1994,6 +1994,17 @@ que la cascada no conoce. `'offer'` quedó en la lista ese día, con `soloDurant
       /integraciones los guarda como CREDENCIAL (`YOUTUBE_VSL_VIDEO_ID`). Es la forma de la tarea #171 (dos lectores de
       la misma pregunta), y `configWs` (lib/cron-workspaces.ts) ya la había arreglado para los crons de YouTube y Panda
       y no para éste. Un test vecino lo fijaba al revés («que para ELLOS es lo correcto»); se actualizó con su porqué.
+  - ⚠️ **Y TODA escritura del estado lee estricto, no sólo el arranque y el cierre** (16/10, después de que el chat
+    Offer pasara `cerrarPasosOnboarding` a la estricta y señalara «el resto de los `patchEstadoOnboarding` sigue
+    leyendo tolerante»: eso quedó cerrado). `patchEstadoOnboarding` y `iniciarExtraccion` leen con
+    `getEstadoOnboardingEstricto`. No era teórico: con el arranque al conectar, el cron corre los ticks del histórico
+    —que escriben por `patchEstadoOnboarding` en cada paso— sobre negocios que YA terminaron el onboarding, y un
+    5xx de la base en uno de esos patches los mandaba de vuelta al arranque. Ahora el tick tira, el cron lo anota y
+    sigue con el siguiente. Lo fija `tests/onboarding-escritura-estricta.test.ts`: cada función que escribe el
+    estado, y cada archivo que llama a `setEstadoOnboarding`, en positivo.
+  - Y el crédito de Claude quedó en lo que el chat de arranque usa de verdad: `'offer'`, `'El Archivero'` y
+    `'onboarding-extract'` (la extracción del brief de los documentos que le mandan). `'productos'` salió con el
+    wizard: nada lo llama mientras el onboarding está en curso.
 - ⚠️ **`negocio` es el BRIEF, no el nombre.** Las tres pantallas del brief cierran `negocio` (acción `brief` →
   `saveAnswers` en `mako.onboarding.answers`), y en la capa `pm` es lo que el Perro necesita para priorizar
   (`briefGrupos`). Lo leen los generadores (`contenido.run.ts:420`, `video.helpers.ts:349`) y el perfil del negocio
