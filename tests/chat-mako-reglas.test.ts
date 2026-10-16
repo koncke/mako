@@ -14,8 +14,11 @@
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { JEFE_SECOND_BRAIN, SIN_TITULO, arbolDelJefe, baseDeLaPersona, edadCorta, filtrarSubs, nombreDeSub, sesionDelCanal, tituloDe } from '../lib/chat-mako-reglas';
+import {
+  JEFE_SECOND_BRAIN, SIN_TITULO, arbolDelJefe, baseDeLaPersona, edadCorta, estadoDeLoHecho, filtrarSubs, linksDePedidos, nombreDeSub, sesionDelCanal, tituloDe,
+} from '../lib/chat-mako-reglas';
 import type { SesionChat } from '../lib/mako-turno-app-reglas';
+import { PILL_PROPUESTA } from '../app/m/mako/chat-ui';
 
 const s = (id: number, titulo: string | null, updatedAt: string): SesionChat => ({ id, titulo, pinned: false, updatedAt });
 
@@ -66,4 +69,42 @@ test('de quién es un chat: la base de su clave, y la conversación del turno po
   assert.equal(sesionDelCanal('app:flujo:centro'), null, 'una automatización no es una conversación');
   assert.equal(sesionDelCanal('120363@g.us'), null, 'WhatsApp tampoco');
   assert.equal(sesionDelCanal('api:9'), null);
+});
+
+test('«entender el pedido» en el Second Brain: sólo SUMA links a otras pantallas, saneados', () => {
+  // ⚠️ Probado ROMPIÉNDOLO (16/10/2026), base 6 / 0, cada una → 5 / 1 (éste): aceptando `//` (sale de la app); sin
+  //    sacar el propio Second Brain; sin el tope de tres.
+  const otra = (titulo: string, link: string) => ({ sobre: 'otra-tab', texto: 'x', area: 'crm', titulo, link, operacion: null, confirmar: false });
+  // Lo que devuelve /api/mako/pedidos para «mándale un seguimiento a los leads y también créame otra landing».
+  const r = { ok: true, origen: 'reglas', propuesta: null, pedidos: [
+    { sobre: 'actual', texto: 'algo' },
+    otra('CRM', '/crm?ws=3'),
+    { sobre: 'nuevo', texto: 'x', operacion: null },
+    otra('Web Generator', '/web-generator?ws=3'),
+  ] };
+  assert.deepEqual(linksDePedidos(r), [{ titulo: 'CRM', link: '/crm?ws=3' }, { titulo: 'Web Generator', link: '/web-generator?ws=3' }]);
+  // Lo de la red se lee como dato: nada fuera de la app, nada repetido, nunca el propio Second Brain, como mucho tres.
+  for (const link of ['//evil.com/crm', 'https://evil.com', 'javascript:alert(1)', 'crm', '/\\evil.com']) {
+    assert.deepEqual(linksDePedidos({ pedidos: [otra('CRM', link)] }), [], link);
+  }
+  assert.deepEqual(linksDePedidos({ pedidos: [otra('Second Brain', '/second-brain?ws=3')] }), []);
+  assert.equal(linksDePedidos({ pedidos: [otra('CRM', '/crm'), otra('CRM', '/crm?ws=3')] }).length, 1);
+  assert.equal(linksDePedidos({ pedidos: ['/a', '/b', '/c', '/d'].map((l) => otra('X', l)) }).length, 3);
+  for (const malo of [null, undefined, 'x', { pedidos: 'x' }, { ok: false, error: 'Muchos mensajes seguidos.' }]) assert.deepEqual(linksDePedidos(malo), []);
+});
+
+test('«Lo que hizo»: el estado de cada acción en las palabras de la tarjeta, y lo vencido sin escribir', () => {
+  // ⚠️ Probado ROMPIÉNDOLO (16/10/2026), base 7 / 0, cada una → 6 / 1 (éste): una pendiente vencida que sigue
+  //    «pendiente» (sin mirar el plazo); 'confirmada' como «hecho» (todavía corre); un estado desconocido como «hecho».
+  const ahora = Date.parse('2026-10-16T12:00:00Z');
+  assert.equal(estadoDeLoHecho('pendiente', '2026-10-16T13:00:00Z', ahora), 'pendiente');
+  assert.equal(estadoDeLoHecho('pendiente', '2026-10-16T11:59:59Z', ahora), 'vencida', 'nadie la venció todavía, pero ya no se puede confirmar');
+  assert.equal(estadoDeLoHecho('pendiente', null, ahora), 'pendiente');
+  assert.equal(estadoDeLoHecho('confirmada', null, ahora), 'aplicando', 'reclamada: todavía corre');
+  assert.equal(estadoDeLoHecho('ejecutada', null, ahora), 'hecho');
+  assert.equal(estadoDeLoHecho('cancelada', null, ahora), 'cancelada');
+  assert.equal(estadoDeLoHecho('vencida', null, ahora), 'vencida');
+  for (const e of ['error', 'raro', '']) assert.equal(estadoDeLoHecho(e, null, ahora), 'fallo', e);
+  // Cada estado tiene su píldora en la tarjeta del chat (la misma palabra en el riel y en la tarjeta).
+  for (const e of ['pendiente', 'aplicando', 'hecho', 'cancelada', 'vencida', 'fallo'] as const) assert.ok(PILL_PROPUESTA[e]?.texto, e);
 });

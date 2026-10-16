@@ -90,4 +90,23 @@ export const DEFS: readonly OperacionDef[] = [
     parametros: [{ nombre: 'id', tipo: 'number', entero: true, obligatorio: true, descripcion: 'id del chat (de listar_chats_mako).' }],
     salida: 'json', canales: ['app'], costo: 'gratis',
   },
+  // Etapa 2 de docs/diseno-mako-ai-native.md, tandas 7 y 9 (16/10/2026): el riel «Lo que hizo» y renombrar un chat.
+  {
+    id: 'lo_que_hizo_chat_mako', area: 'mako', tipo: 'lectura',
+    titulo: 'Lo que MaKo hizo en un chat',
+    descripcion: 'Las acciones que MaKo propuso en UNO de los chats de la persona en el Second Brain y cómo quedó cada una (esperando el ok, en curso, hecha, cancelada, vencida, falló), la más reciente primero. Sin id, las de ESTE chat. Úsala cuando pregunte «¿qué hiciste?» o «¿se mandó lo de ayer?», y antes de proponer algo que quizás ya propusiste.',
+    parametros: [{ nombre: 'id', tipo: 'number', entero: true, descripcion: 'id del chat (de listar_chats_mako); sin él, este chat.' }],
+    salida: 'json', canales: ['app'], costo: 'gratis',
+  },
+  {
+    id: 'renombrar_chat_mako', area: 'mako', tipo: 'accion', confirmacion: 'chat', reversible: true,
+    titulo: 'Renombrar un chat con MaKo',
+    descripcion: 'PROPONE cambiarle el nombre a uno de los chats de la persona en el Second Brain; queda pendiente de confirmación y NO se ejecuta hasta el «sí». El id sale de listar_chats_mako (sin id, este chat). El chat «Second Brain» no se renombra.',
+    escribe: 'cambia el nombre del chat en la barra del Second Brain',
+    parametros: [
+      { nombre: 'id', tipo: 'number', entero: true, descripcion: 'id del chat (de listar_chats_mako); sin él, este chat.' },
+      { nombre: 'nombre', tipo: 'string', obligatorio: true, max: 120, descripcion: 'el nombre nuevo, no vacío.' },
+    ],
+    canales: ['app'], costo: 'gratis',
+  },
 ];
