@@ -4198,6 +4198,8 @@ corta antes») y los tests ahora preguntan qué hay antes de la llamada.
   (`7068a0903`; la regla en AGENTS.md). El ws9 tiene un crédito de Gemini de US$10 cargado el 22/07
   (`saldo.gemini`), pero la base no dice a cuál de las tres keys corresponde: «la key de Gemini con facturación» del
   orden de la red queda sin usar hasta que alguien la identifique en Google Cloud.
+- **Y el corte tampoco miraba las keys «del negocio» que son copias de la plataforma**: la del ws1 lo era. Cerrado el
+  mismo día en `provsDe` (ver «La key de la plataforma copiada en la fila de un cliente», más abajo).
 - **Los caminos con su PROPIA red (un bucle sobre `provsGratisDePlataforma`, no la cascada) no tienen ese corte**, y
   algunos llevan datos de clientes: el doer de WhatsApp (`lib/mako-doer-in.ts`; `mako-doer-in` es `pii` en el
   catálogo), los gráficos con IA (`lib/graficos-ia-red.ts`; `dashboard-conclusiones` es `pii`), la transcripción de
@@ -4340,3 +4342,44 @@ Y `linkPantalla` (lib/api-mako/link.ts) no sirve para un link de ADENTRO de la a
 - **No se probó con la IA de verdad ni en el navegador** (sin `next dev` por la RAM): las reglas y la IA con un doble.
 
 · *2026-10-16 chat «Web Generator» (claude3)*
+
+## La key de la plataforma copiada en la fila de un cliente: los datos del ws1 iban a un Gemini gratis (16/10/2026)
+
+**Vive en:** lib/ai-cheap.ts (`provsDe`, `provDe`, `soloLasPropias`, `huellasDeLaPlataforma`) · lib/ia-keys.ts
+(`sinCopiasDeLaPlataforma`)
+
+El Centro de Operaciones vio, sin medir, que el turno con herramientas (`chatCheapToolsCascade`) le daba al ws1
+(Mauricio, un cliente) la key de IA de la PLATAFORMA, y que esa cascada no tiene el corte por datos de clientes.
+
+**Lo medido** (sólo lectura, comparando huellas sha256, sin imprimir ninguna key): la `GEMINI_API_KEY` de la FILA del
+ws1 es la MISMA que una de la plataforma, y su `OPENAI_API_KEY` también; Groq, Mistral y OpenRouter sí son suyas.
+
+**El diagnóstico obvio era el equivocado.** Se sospechaba de `credWs`, que al ws1 le presta la key del ENTORNO cuando
+no tiene la fila. Pero la fila existe: es una COPIA. Por eso el arreglo no podía ser sólo «leer con `credDelCliente`»
+(que se hizo igual: `provDe` ya no usa `credWs`). Y el agujero no era de la cascada con herramientas: era de TODAS.
+Cada cascada prueba primero las keys «del negocio» (`provsDe`), y el corte por datos de clientes miraba sólo la red
+de la plataforma. Así, el análisis del lead, las notas de voz, el doer y el turno con herramientas del ws1 mandaban
+datos de SUS clientes a la key gratis de la agencia, que entrena con lo que recibe.
+
+**La regla** (la misma que ya valía para la clave de Anthropic del negocio y para la de Resend): una key de la
+plataforma copiada en la fila de un cliente sigue siendo de la plataforma. `provsDe` saca de las «propias» toda key
+cuya huella coincide con una de la plataforma (las de su workspace y las del entorno). Fuera de ahí, la de la
+plataforma sólo entra por la red, que es la que corta con datos de clientes. Es un punto único: texto, herramientas,
+documentos, audio y el doer pasan por ahí. El workspace de la plataforma usa las suyas tal cual. Si las huellas no se
+pueden leer, no se arriesga ninguna (fail-closed). La caché es de proceso y guarda huellas, nunca keys. Lo fija
+`tests/ia-keys-propias.test.ts`, probado rompiéndolo (ocho roturas, todas caen).
+
+**Lo que cambia para el ws1:** sin datos de clientes, lo que antes corría con esa copia ahora corre con sus keys
+propias, y si fallan, con la red (la misma key de la plataforma, registrada como red). Con datos de clientes corre
+sólo con sus keys propias. El turno con herramientas no tiene red: para el ws1 queda Groq, Mistral y OpenRouter.
+
+### Lo que quedó SIN hacer
+
+- ⚠️ **La red PROPIA del doer de WhatsApp no corta con datos de clientes** (`lib/mako-doer-in.ts`, el bucle sobre
+  `provsGratisDePlataforma`; `mako-doer-in` es `pii` en el catálogo). Es el agujero más grande de esta familia: con
+  las keys de un negocio caídas, la conversación con sus leads va a las keys gratis de la agencia. Arreglarlo cambia
+  lo que contesta MaKo por WhatsApp a quien no tiene keys propias (con datos de clientes se cortaría), así que se
+  escaló al coordinador en vez de tocarlo.
+- El ws1 sigue teniendo esas dos filas copiadas. Ya no se usan como suyas; borrarlas es una decisión aparte.
+
+· *2026-10-16 chat «Onboarding» (claude3)*

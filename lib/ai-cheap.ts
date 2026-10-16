@@ -25,9 +25,10 @@
 import 'server-only';
 import { recordUsage, recordSttUsage } from '@/lib/anthropic-usage';
 import type { ToolDef, ToolRunner, RichMsg, ToolsResult } from '@/lib/anthropic';
-import { credWs } from '@/lib/credenciales';
+import { createHash } from 'node:crypto';
+import { credDelCliente, credWs, credWsEstricta } from '@/lib/credenciales';
 import { ordenarCuentas, ordenarPorCuota, anotarRebote429 } from '@/lib/ia-cuotas';
-import { clavesAProbar, clavesDe } from '@/lib/ia-keys';
+import { clavesAProbar, clavesDe, sinCopiasDeLaPlataforma } from '@/lib/ia-keys';
 import { clavesCargadas } from '@/lib/ia-keys-ws';
 import { mensajeIAFallo, motivoDeErroresCascada } from '@/lib/ia-mensajes';
 import { corregirMarca } from '@/lib/mako-gramatica';
@@ -106,9 +107,59 @@ async function provDe(nombre: ProvName, clave?: string, wsKey?: number): Promise
   const cl = clave ?? clavesProv(nombre)[0];
   // `wsKey` SOLO lo pasa la red de plataforma (ver `provsGratisDePlataforma`).
   // Sin él se comporta igual que siempre: la fila del workspace en curso.
-  const key = await credWs(cl, wsKey);
+  // ⚠️ `credDelCliente`, NUNCA `credWs`: `credWs` le presta al ws1 (Mauricio, un cliente) la key del ENTORNO
+  // cuando no tiene la fila, o sea la de la plataforma como si fuera suya (16/10/2026). La de la plataforma
+  // entra sólo por la red, que es la que sabe cortar con datos de clientes.
+  const key = await credDelCliente(cl, wsKey);
   if (!key) return null;
   return { ...cfgDe(nombre), key, clave: cl };
+}
+
+const HUELLAS_TTL_MS = 10 * 60_000;
+/** Huellas de las keys de la plataforma por proveedor. Es dato de la PLATAFORMA (igual para todos los inquilinos) y
+ *  guarda huellas, nunca keys: por eso puede vivir en memoria del proceso. */
+const huellasCache = new Map<ProvName, { hasta: number; huellas: Set<string> }>();
+const huellaDeKey = (k: string): string => createHash('sha256').update(k.trim()).digest('hex').slice(0, 16);
+
+/**
+ * Las huellas de las keys de la PLATAFORMA para un proveedor: las de su workspace y las del entorno. ESTRICTO: si
+ * algo no se pudo leer, `null` (y `sinCopiasDeLaPlataforma` no deja pasar ninguna: no se arriesga con datos de
+ * clientes por un bache de la base).
+ */
+async function huellasDeLaPlataforma(nombre: ProvName, wsSA: number): Promise<Set<string> | null> {
+  const c = huellasCache.get(nombre);
+  if (c && c.hasta > Date.now()) return c.huellas;
+  try {
+    const huellas = new Set<string>();
+    for (const cl of clavesProv(nombre)) {
+      const env = process.env[cl]?.trim();
+      if (env) huellas.add(huellaDeKey(env));
+    }
+    const cargadas = clavesDe(nombre).length ? await clavesCargadas(nombre, wsSA) : clavesProv(nombre);
+    for (const cl of cargadas) {
+      const v = await credWsEstricta(cl, wsSA);
+      if (v?.trim()) huellas.add(huellaDeKey(v));
+    }
+    huellasCache.set(nombre, { hasta: Date.now() + HUELLAS_TTL_MS, huellas });
+    return huellas;
+  } catch (e) {
+    console.warn(`[ai-cheap] no pude leer las keys de la plataforma de ${nombre}: ${e instanceof Error ? e.message : String(e)}`);
+    return null;
+  }
+}
+
+/** Las instancias que el workspace en curso puede usar como PROPIAS (lib/ia-keys.ts → `sinCopiasDeLaPlataforma`). */
+async function soloLasPropias(nombre: ProvName, provs: Prov[]): Promise<Prov[]> {
+  if (!provs.length) return provs;
+  const { getWorkspaceActual, wsSuperAdmin } = await import('./workspace');
+  const [ws, wsSA] = await Promise.all([getWorkspaceActual().catch(() => null), wsSuperAdmin().catch(() => null)]);
+  const huellas = wsSA == null ? null : ws === wsSA ? new Set<string>() : await huellasDeLaPlataforma(nombre, wsSA);
+  const propias = sinCopiasDeLaPlataforma(provs, { ws, wsPlataforma: wsSA, huellas, huella: huellaDeKey });
+  if (propias.length < provs.length) {
+    const fuera = provs.filter((p) => !propias.includes(p)).map((p) => p.clave).join(', ');
+    console.warn(`[ai-cheap] ws ${ws}: ${fuera} ${huellas == null ? 'sin verificar contra la plataforma' : 'es una copia de una key de la plataforma'}: no cuenta como propia`);
+  }
+  return propias;
 }
 
 /**
@@ -164,12 +215,15 @@ export async function provsDe(nombre: ProvName): Promise<Prov[]> {
     const p = await provDe(nombre, cl);
     if (p) out.push(p);
   }
+  // Las «propias» que son una copia de una key de la plataforma no cuentan como propias (16/10/2026, la del ws1):
+  // acá, y no en cada cascada, porque por acá pasan TODAS (texto, herramientas, documentos, audio, el doer).
+  const propias = await soloLasPropias(nombre, out);
   // PROACTIVO: la cuenta con más cuota disponible primero. Sin esto la cascada
   // arranca siempre por la 1, y si esa está al tope cada llamada paga un 429 de
   // peaje antes de llegar a la 2 — con tres cuentas, tres peajes por llamada.
-  if (out.length < 2) return out;
-  const orden = await ordenarCuentas(nombre, out.map((p) => p.clave)).catch(() => out.map((p) => p.clave));
-  return orden.map((c) => out.find((p) => p.clave === c)).filter((p): p is Prov => !!p);
+  if (propias.length < 2) return propias;
+  const orden = await ordenarCuentas(nombre, propias.map((p) => p.clave)).catch(() => propias.map((p) => p.clave));
+  return orden.map((c) => propias.find((p) => p.clave === c)).filter((p): p is Prov => !!p);
 }
 
 /** Cómo se nombra un proveedor en logs y errores. Con varias cuentas, «gemini» a

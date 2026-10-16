@@ -313,4 +313,22 @@ export const BITACORA: Hito[] = [
       'AGENTS.md — la regla, en la sección de la red de plataforma',
     ],
   },
+  {
+    fecha: '16 oct', hora: '10:44', chat: 'Onboarding', sesion: 'local_79844152-91d5-49c1-b833-c917ed1fc4a6', cuenta: 'claude3',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Los datos de los clientes de Mauricio ya no van a la key gratis de la agencia',
+    puntos: [
+      'La key de Gemini que el ws1 tenía como propia era una copia de una de la plataforma. Con ella, sus pedidos con datos de sus clientes iban a una IA gratis que entrena.',
+      'Ahora una key de la plataforma copiada en la cuenta de un negocio no cuenta como suya. Vale para el chat, las herramientas, los documentos y las notas de voz.',
+      'Queda el doer de WhatsApp: su red propia no corta con datos de clientes. Se escaló porque cambia lo que contesta MaKo a quien no tiene keys.',
+    ],
+    commits: [
+      { sha: 'b78bb977', msg: 'IA: una key de la plataforma copiada en la fila de un negocio no cuenta como suya', lineas: 249, archivos: 5 },
+    ],
+    archivos: [
+      'lib/ai-cheap.ts — provsDe saca las copias de la plataforma',
+      'lib/ia-keys.ts — la regla, pura',
+      'tests/ia-keys-propias.test.ts — ocho roturas, todas caen',
+    ],
+  },
 ];
