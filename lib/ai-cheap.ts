@@ -34,6 +34,7 @@ import { corregirMarca } from '@/lib/mako-gramatica';
 import { salidaDegenerada } from '@/lib/stt-degenerado';
 import { crearRotacion, leerErrorProveedor, tipoDeFallo } from '@/lib/ia-rotacion-modelo';
 import { aprenderSinMinimal, esfuerzoParaGemini, rechazaElEsfuerzo } from '@/lib/gemini-esfuerzo';
+import { CATALOGO_MODELOS } from '@/lib/model-catalogo';
 
 export type ProvName = 'groq' | 'openai' | 'gemini' | 'cerebras' | 'mistral' | 'openrouter';
 /** `clave` = de QUÉ credencial salió esta key. Con varias cuentas del mismo
@@ -528,7 +529,9 @@ export function techoDeEntrada(p: ProvName): number | undefined {
  * a las suyas: el 429 crónico de una key de la agencia ya fabricó un «te quedaste
  * sin cuota» con la del cliente contestando HTTP 200 (01/10/2026).
  */
-export async function chatCheapCascade(opts: { system: string; user: string; json?: boolean; maxTokens?: number; temperature?: number; feature?: string; motivo?: string; provs?: ProvName[]; timeoutMs?: number; modelos?: Partial<Record<ProvName, string>>; validar?: (t: string) => boolean; erroresOut?: string[]; esfuerzo?: EsfuerzoBarato; hastaMs?: number; sinRespaldoDeModelo?: boolean; redDePlataforma?: boolean; erroresPlataformaOut?: string[] }): Promise<string> {
+export async function chatCheapCascade(opts: { system: string; user: string; json?: boolean; maxTokens?: number; temperature?: number; feature?: string; motivo?: string; provs?: ProvName[]; timeoutMs?: number; modelos?: Partial<Record<ProvName, string>>; validar?: (t: string) => boolean; erroresOut?: string[]; esfuerzo?: EsfuerzoBarato; hastaMs?: number; sinRespaldoDeModelo?: boolean; redDePlataforma?: boolean; erroresPlataformaOut?: string[];
+  /** ¿El pedido lleva datos de los clientes del negocio? Por default lo dice la marca `pii` del catálogo. */
+  pii?: boolean }): Promise<string> {
   const quedan = (): number => (opts.hastaMs ?? Number.POSITIVE_INFINITY) - Date.now();
   // El timeout de UN intento: el de siempre, o lo que queda del plazo si es menos.
   const plazoDeIntento = (): number => Math.min(opts.timeoutMs ?? 30_000, quedan());
@@ -712,6 +715,17 @@ export async function chatCheapCascade(opts: { system: string; user: string; jso
           opts.erroresPlataformaOut?.push(c.error);
           console.error(`[ai-cheap] crédito de Claude de la plataforma sin respuesta: ${c.error.slice(0, 300)}`);
         }
+      }
+      // ⛔ LOS DATOS DE LOS CLIENTES DE UN CLIENTE NUNCA VAN A UN PROVEEDOR QUE ENTRENA CON LO QUE RECIBE
+      // (regla del 16/10/2026). Las keys gratis de la agencia son el plan gratis de Gemini y de Groq, y
+      // el de Gemini entrena (con revisión humana): mandar algo a entrenar no se deshace. Un pedido con
+      // datos personales (la marca `pii` del catálogo, o `opts.pii`) usa sólo lo que NO entrena —su
+      // propia key, arriba, o el crédito de Claude de la plataforma— y si nada de eso contesta, se
+      // termina acá: el cliente conecta la suya (el mensaje lo arma `errorDeCascada`).
+      const conPII = opts.pii ?? CATALOGO_MODELOS.some((f) => f.feature === opts.feature && f.pii === true);
+      if (conPII) {
+        opts.erroresPlataformaOut?.push('red gratis salteada: el pedido lleva datos de clientes y el plan gratis entrena con lo que recibe');
+        return '';
       }
       // ⚠️ EL TECHO DE ENTRADA VALE TAMBIÉN PARA LA RED. Arriba se saltea a quien no le entra
       // el pedido; acá no se miraba, y como Groq nunca entra en `probados` cuando se lo

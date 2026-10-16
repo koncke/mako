@@ -22,6 +22,8 @@
 //   Crear una automatización (16/10/2026, base 4/0): la pasada sin red, la copia del JSON roto sin red, y
 //     `hayIAParaCrear` mirando sólo las keys del negocio → 3/1 cada una.
 //   Second Brain (16/10/2026, base 5/0): la búsqueda sin red → 4/1.
+//   Análisis del lead (16/10/2026, base 6/0): el corte por datos de clientes que no corta, el corte sin mirar la
+//     marca `pii`, el análisis sin red, y `lead_insights` sin la marca → 5/1 cada una.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -78,6 +80,24 @@ test('Offer: sin IA propia no corta antes de la red, y lee los documentos con re
   const lector = sinComentarios(leer('lib/archivo-a-texto.ts'));
   assert.equal((lector.match(/leerDocumentoIA\(\{[^\n]*redDePlataforma: opts\.redDePlataforma/g) || []).length, 2,
     'las dos lecturas por visión (PDF escaneado e imagen) tienen que pasar la red que pide el que llama');
+});
+
+test('Análisis del lead: con red, pero NUNCA por las keys gratis (son datos de los clientes del cliente)', () => {
+  // Regla del 16/10/2026: los datos de los clientes de un cliente nunca van a un proveedor que entrena con
+  // lo que recibe. El plan gratis de Gemini entrena; el crédito de Claude de la plataforma no.
+  conRed('lib/lead-insights.ts', 'generarInsightLead');
+  const catalogo = leer('lib/model-catalogo.ts');
+  assert.match(catalogo, /feature: 'lead_insights'[^\n]*pii: true/, 'el análisis del lead tiene que estar marcado como datos de clientes');
+  // En la cascada: el crédito, después el corte por datos de clientes, y recién después las keys gratis.
+  const src = sinComentarios(leer('lib/ai-cheap.ts'));
+  const red = src.indexOf('if (opts.redDePlataforma) {');
+  const credito = src.indexOf('conCreditoDeLaPlataforma(', red);
+  const corte = src.indexOf('if (conPII) {', red);
+  const gratis = src.indexOf('provsGratisDePlataforma()', red);
+  assert.ok(red > 0 && credito > red && corte > credito && gratis > corte,
+    'el corte por datos de clientes tiene que ir DESPUÉS del crédito de Claude y ANTES de las keys gratis');
+  assert.match(src.slice(corte, gratis), /return '';/, 'el corte tiene que terminar ahí, no seguir a las keys gratis');
+  assert.match(src, /const conPII = opts\.pii \?\? CATALOGO_MODELOS\.some\(\(f\) => f\.feature === opts\.feature && f\.pii === true\);/);
 });
 
 test('Second Brain: buscar por significado', () => {
