@@ -49,7 +49,11 @@ modo claro** (`b401cd017`, «pon en white mode la tab de Second Brain»). Las ci
   tablero; los datos sin marcar se resuelven en «A revisar», que abre la ficha encima. Test:
   tests/worklist-pendientes.test.ts. El ejemplo de app/admin/ui/Gramatica.tsx ya no manda ahí (`c57c29ded`).
 - [x] **4, en parte.** «Templates» en la barra de edición (era «Plantillas»), y la galería sin «Ahora no» (la primera
-  vez se elige un template) ni «Vista previa: …» (app/crm/lead-view/ficha/GaleriaTab.tsx).
+  vez se elige un template) ni «Vista previa: …» (app/crm/lead-view/ficha/GaleriaTab.tsx). Y (`b1de6bcef`) el
+  desplegable **«Estilo de la hoja»** arriba, como el del Dashboard (app/crm/lead-view/ficha/EstiloDeLaHoja.tsx): la
+  vista épica de la tab, el tamaño de las tarjetas y el tema. De la barra lateral (PanelFicha.tsx) se fueron el nombre
+  de la tab (doble clic en la pestaña), su plantilla, la épica y el estilo; QUEDAN la plantilla de toda la ficha y los
+  avisos, que se van con los puntos 5 y 6. Falta mejorar el «Estilo de la hoja» del Dashboard («quedó limitado»).
 - [x] **1.** Renombrar un CRM: el desplegable cambia al instante (el pop-up le avisa el nombre al mandarlo) y el
   editor ya no muestra el nombre viejo. La causa: desde el 13/10 el CRM tiene nombre propio y `embudoEnDetalleAction`
   (app/crm/actions.ts) seguía devolviendo el del PRODUCTO; ahora usa `nombreVisible`, como el desplegable. Guardar al

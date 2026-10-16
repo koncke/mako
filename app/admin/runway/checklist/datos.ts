@@ -60,6 +60,7 @@ export const HECHO: SeccionChecklist[] = [
     { id: 'crm-editar-azul', t: 'En la ficha, «Personalizar» ahora es «Editar», en azul como en el Dashboard.' },
     { id: 'crm-ficha-rapida', t: 'La ficha del lead abre más rápido (cinco lecturas en paralelo); falta medirla.' },
     { id: 'crm-ai-analyst', t: 'En la ficha, «⋯» con «AI Analyst» (panel a la izquierda) y «Copiar el link»; ya no hay tab MaKo Analyst.' },
+    { id: 'crm-estilo-hoja', t: 'Ficha en edición: «Estilo de la hoja» arriba (épica, tarjetas, tema); la barra lateral, más corta.' },
   ] },
   { titulo: 'Automations', items: [
     { id: 'aut-flechas', t: 'Toda flecha se desconecta; el paso con IA escucha notas de voz.', ruta: '/automations' },
