@@ -20,7 +20,7 @@
 // ⚠️ LA URL dice qué chat está abierto (`?chat=<id>`), reescrita con `replaceState(null, …)`: el `__NA` de Next en el
 //    estado hace que el router la pise (docs/hallazgos-operaciones.md).
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type DragEvent, type KeyboardEvent, type ReactNode } from 'react';
 import { useRouter } from '@/app/_ui/Link';
 import { Icon } from '@/app/_components/icons';
 import { Muneco } from '@/app/admin/operaciones/Muneco';
@@ -29,8 +29,12 @@ import { Microfono } from '@/app/admin/operaciones/Microfono';
 import { HiloMako } from '@/app/_chat/HiloMako';
 import type { ItemPropuesta } from '@/app/_chat/TarjetaAccion';
 import {
-  idLocal, itemsDeRespuesta, itemsDeSesion, leerRespuesta, trasTarjeta, type EstadoPropuesta, type ItemHilo, type Leido,
+  archivosDeRespuesta, idLocal, itemsDeRespuesta, itemsDeSesion, leerRespuesta, problemaDeSeleccion, tipoDeElegido, trasTarjeta,
+  type EstadoPropuesta, type ItemHilo, type Leido,
 } from '@/app/m/mako/chat-ui';
+import { achicarImagen } from '@/app/m/mako/subir';
+import { IconoChat } from '@/app/m/mako/iconos';
+import { ACCEPT_ADJUNTOS_CHAT, ERROR_ADJUNTO } from '@/lib/mako-adjuntos';
 import {
   ARRANQUES_SECOND_BRAIN, AVISO_ANTES, JEFE_SECOND_BRAIN, SECCION_ANTES, SIN_TITULO, SUBS_VISIBLES, arbolDelJefe, edadCorta, filtrarSubs,
   nombreDeSub, tituloDe,
@@ -51,6 +55,9 @@ type ItemMsg = Extract<ItemHilo, { k: 'msg' }>;
 /** Lo elegido en la barra: una conversación, un chat que todavía no tiene (el jefe sin nada, o «Nuevo chat»), o un
  *  chat de antes (de «Pregúntale a MaKo»: se lee y no se escribe). */
 type Elegido = { id: number } | { virtual: 'jefe' | 'nuevo' } | { antes: number };
+/** Un archivo elegido en la caja, antes de mandar. `url` es su vista previa (`blob:`): la usa también la burbuja
+ *  mientras sale, y se suelta cuando vuelve guardado o cuando se quita. */
+type ArchivoElegido = { id: string; file: File; tipo: 'image' | 'document'; url: string };
 
 async function pedir<T>(url: string, init: RequestInit = {}): Promise<Leido<T>> {
   let status = 0; let cuerpo = '';
@@ -65,6 +72,14 @@ const postJson = <T,>(cuerpo: Record<string, unknown>) =>
 /** Un turno o una tarjeta: lo que puede tardar lo que dura la ruta (confirmar replicar_landing corre ~275 s). */
 const postLargo = <T,>(cuerpo: Record<string, unknown>) =>
   pedir<T>(RUTA, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(cuerpo), signal: AbortSignal.timeout(TOPE_MS) });
+/** Un turno con archivos: multipart, como el teléfono (el `?ws=` lo pone el `fetch` de la casa, WsFetch). */
+const postArchivos = <T,>(sessionId: number, mensaje: string, archivos: readonly ArchivoElegido[]) => {
+  const fd = new FormData();
+  fd.append('sessionId', String(sessionId));
+  fd.append('mensaje', mensaje);
+  for (const a of archivos) fd.append('adjuntos', a.file, a.file.name);
+  return pedir<T>(RUTA, { method: 'POST', body: fd, signal: AbortSignal.timeout(TOPE_MS) });
+};
 
 const anotarEnUrl = (id: number | null) => {
   try {
@@ -104,9 +119,15 @@ export function ChatSecondBrain({ veMapa, mapa, chatInicial }: {
   const sesionRef = useRef<number | null>(null);
   /** La conversación que se acaba de crear con el primer mensaje: su hilo YA está dibujado, no se recarga. */
   const recienCreada = useRef<number | null>(null);
-  const envios = useRef(new Map<string, string>());
+  const envios = useRef(new Map<string, { texto: string; archivos: ArchivoElegido[] }>());
   const hilo = useRef<HTMLDivElement>(null);
   const caja = useRef<HTMLTextAreaElement>(null);
+  /** Los archivos elegidos en la caja (el ref los tiene al día para sumar sin esperar un render). */
+  const [elegidos, setElegidos] = useState<ArchivoElegido[]>([]);
+  const elegidosRef = useRef<ArchivoElegido[]>([]);
+  const ponerElegidos = (xs: ArchivoElegido[]) => { elegidosRef.current = xs; setElegidos(xs); };
+  const [soltando, setSoltando] = useState(false);
+  const entrada = useRef<HTMLInputElement>(null);
 
   useEffect(() => { const t = window.setInterval(() => setAhora(Date.now()), 60_000); return () => window.clearInterval(t); }, []);
 
@@ -189,6 +210,8 @@ export function ChatSecondBrain({ veMapa, mapa, chatInicial }: {
     if (ocupadoRef.current) return;
     setConChat(true);
     setFaltaMic(null);
+    for (const a of elegidosRef.current) URL.revokeObjectURL(a.url);
+    ponerElegidos([]);
     // Con el Mapa abierto, volver a una conversación es volver a la página sin `panel` (lo arma el servidor).
     if (mapa) { router.push('id' in e ? `/second-brain?chat=${e.id}` : '/second-brain'); }
     setElegido(e);
@@ -207,7 +230,7 @@ export function ChatSecondBrain({ veMapa, mapa, chatInicial }: {
     setItems((xs) => xs.map((x) => (x.id === id && x.k === 'msg' ? { ...x, ...cambio } : x)));
 
   // ── El turno ──
-  const mandar = async (idU: string, mensaje: string) => {
+  const mandar = async (idU: string, mensaje: string, archivos: readonly ArchivoElegido[]) => {
     setTrabajo({ desde: Date.now() });
     try {
       let sid = sesionRef.current;
@@ -221,9 +244,14 @@ export function ChatSecondBrain({ veMapa, mapa, chatInicial }: {
         setSesiones((ss) => [...(ss ?? []), n.datos.sesion]);
         setElegido({ id: sid });
       }
-      const l = await postLargo<RespuestaTurno>({ action: 'send', sessionId: sid, mensaje });
+      const l = archivos.length
+        ? await postArchivos<RespuestaTurno>(sid, mensaje, archivos)
+        : await postLargo<RespuestaTurno>({ action: 'send', sessionId: sid, mensaje });
       if (!l.ok) { marcar(idU, { estado: l.reintentable ? 'error' : 'incierto', error: l.error }); return; }
-      marcar(idU, { estado: undefined, error: undefined });
+      // Los archivos volvieron guardados: la burbuja pasa a pedirlos por su mensaje y la vista previa se suelta.
+      const guardados = archivosDeRespuesta(l.datos);
+      marcar(idU, { estado: undefined, error: undefined, ...(guardados.length ? { archivos: guardados } : {}) });
+      if (guardados.length) { for (const a of archivos) URL.revokeObjectURL(a.url); envios.current.delete(idU); }
       setItems((xs) => {
         const vistas = new Set(xs.flatMap((x) => (x.k === 'propuesta' ? [x.t.pendienteId] : [])));
         return [...xs, ...itemsDeRespuesta(l.datos, vistas)];
@@ -235,18 +263,60 @@ export function ChatSecondBrain({ veMapa, mapa, chatInicial }: {
     }
   };
 
-  const enviar = (mensaje: string) => {
+  const enviar = (mensaje: string, archivos: readonly ArchivoElegido[] = []): boolean => {
     const t = mensaje.trim();
-    if (!t || ocupadoRef.current || !cargado || errorCarga) return;
+    if ((!t && !archivos.length) || ocupadoRef.current || !cargado || errorCarga) return false;
     ocupadoRef.current = true;
     setFaltaMic(null);
     const idU = idLocal('u');
-    envios.current.set(idU, t);
-    setItems((xs) => [...xs, { k: 'msg', id: idU, role: 'user', texto: t, at: new Date().toISOString(), estado: 'enviando' }]);
-    void mandar(idU, t);
+    envios.current.set(idU, { texto: t, archivos: [...archivos] });
+    const locales = archivos.map((a) => ({ nombre: a.file.name, tipo: a.tipo, local: a.url }));
+    setItems((xs) => [...xs, { k: 'msg', id: idU, role: 'user', texto: t, at: new Date().toISOString(), estado: 'enviando', ...(locales.length ? { archivos: locales } : {}) }]);
+    void mandar(idU, t, archivos);
+    return true;
   };
 
-  const enviarCaja = () => { const t = texto.trim(); if (!t || ocupadoRef.current) return; enviar(t); setTexto(''); };
+  const enviarCaja = () => {
+    const t = texto.trim();
+    if ((!t && !elegidosRef.current.length) || ocupadoRef.current) return;
+    // La vista previa NO se suelta acá: la burbuja que sale la sigue mostrando hasta que vuelve guardada.
+    if (enviar(t, elegidosRef.current)) { setTexto(''); ponerElegidos([]); }
+  };
+
+  // ── Los archivos de la caja: el «+», pegar y arrastrar. Los mismos topes que la ruta (4 archivos, 4 MB). ──
+  const sumarArchivos = async (lista: readonly File[]) => {
+    if (!lista.length) return;
+    setFaltaMic(null);
+    const validos = lista.filter((f) => tipoDeElegido(f) != null);
+    if (validos.length < lista.length) setFaltaMic(ERROR_ADJUNTO.formato);
+    const listos: File[] = [];
+    for (const f of validos) {
+      try { listos.push(await achicarImagen(f)); } catch (e) { setFaltaMic(e instanceof Error ? e.message : 'No pude leer esa imagen.'); }
+    }
+    if (!listos.length) return;
+    const problema = problemaDeSeleccion([...elegidosRef.current.map((a) => a.file.size), ...listos.map((f) => f.size)]);
+    if (problema) { setFaltaMic(problema); return; }
+    ponerElegidos([...elegidosRef.current, ...listos.map((f) => ({
+      id: idLocal('f'), file: f, tipo: tipoDeElegido(f) === 'image' ? 'image' as const : 'document' as const, url: URL.createObjectURL(f),
+    }))]);
+    caja.current?.focus({ preventScroll: true });
+  };
+  const quitarArchivo = (id: string) => {
+    const a = elegidosRef.current.find((x) => x.id === id);
+    if (a) URL.revokeObjectURL(a.url);
+    ponerElegidos(elegidosRef.current.filter((x) => x.id !== id));
+  };
+  const puedeSoltar = idAntes == null && cargado && !errorCarga;
+  const conArchivos = (e: DragEvent) => Array.from(e.dataTransfer?.types ?? []).includes('Files');
+  const arrastre = {
+    onDragOver: (e: DragEvent) => { if (!puedeSoltar || !conArchivos(e)) return; e.preventDefault(); setSoltando(true); },
+    onDragLeave: (e: DragEvent) => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setSoltando(false); },
+    onDrop: (e: DragEvent) => {
+      if (!puedeSoltar || !conArchivos(e)) return;
+      e.preventDefault(); setSoltando(false);
+      void sumarArchivos(Array.from(e.dataTransfer.files));
+    },
+  };
   const tecla = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     // Enter manda; Shift+Enter baja de renglón. Mientras se compone un acento (IME), Enter es del teclado.
     if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); enviarCaja(); }
@@ -258,7 +328,7 @@ export function ChatSecondBrain({ veMapa, mapa, chatInicial }: {
     if (!t || ocupadoRef.current) return;
     setItems((xs) => xs.filter((x) => x.id !== id));
     envios.current.delete(id);
-    enviar(t);
+    enviar(t.texto, t.archivos);
   };
 
   // ── Las tarjetas ──
@@ -383,7 +453,7 @@ export function ChatSecondBrain({ veMapa, mapa, chatInicial }: {
           <div className="ch-mapa__cuerpo">{mapa}</div>
         </section>
       ) : (
-        <section className="co-panel" aria-label={`Conversación con ${nombre}`}>
+        <section className={`co-panel${soltando ? ' ch-soltar' : ''}`} aria-label={`Conversación con ${nombre}`} {...arrastre}>
           <header className="co-cab">
             <button type="button" className="co-acceso co-cab__volver" style={{ width: 'auto' }} onClick={() => setConChat(false)} aria-label="Volver a los chats">
               <span style={{ display: 'inline-flex', transform: 'rotate(90deg)' }}><Icon name="chevron" size={18} /></span>
@@ -423,15 +493,40 @@ export function ChatSecondBrain({ veMapa, mapa, chatInicial }: {
               </div>
             ) : (
             <div className="co-caja">
+              {elegidos.length > 0 && (
+                <ul className="ch-elegidos" aria-label="Archivos para mandar">
+                  {elegidos.map((a) => (
+                    <li key={a.id} className="ch-elegido">
+                      {/* eslint-disable-next-line @next/next/no-img-element -- la vista previa local (blob:) */}
+                      {a.tipo === 'image' ? <img src={a.url} alt="" /> : <IconoChat nombre="archivo" size={20} />}
+                      <span className="ch-elegido__nombre" title={a.file.name}>{a.file.name}</span>
+                      <button type="button" className="ch-elegido__quitar" onClick={() => quitarArchivo(a.id)} aria-label={`Quitar ${a.file.name}`}>
+                        <Icon name="x" size={14} />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
               <textarea
                 ref={caja} rows={1} value={texto}
                 onChange={(e) => setTexto(e.target.value)} onKeyDown={tecla}
+                onPaste={(e) => {
+                  // Una celda de Excel o un párrafo de Word viajan como texto Y como imagen: si hay texto, se pega el texto.
+                  const fs = Array.from(e.clipboardData.files);
+                  if (fs.length && !Array.from(e.clipboardData.types).includes('text/plain')) { e.preventDefault(); void sumarArchivos(fs); }
+                }}
                 placeholder="Escríbele a MaKo" aria-label="Escríbele a MaKo"
                 disabled={!cargado || !!errorCarga}
               />
               <div className="co-caja__barra">
+                <button type="button" className="ch-adjuntar" onClick={() => entrada.current?.click()} disabled={!cargado || !!errorCarga}
+                  aria-label="Adjuntar fotos o PDF" title="Adjuntar fotos o PDF">
+                  <Icon name="plus" size={18} />
+                </button>
+                <input ref={entrada} type="file" accept={ACCEPT_ADJUNTOS_CHAT} multiple hidden
+                  onChange={(e) => { const fs = Array.from(e.target.files ?? []); e.target.value = ''; void sumarArchivos(fs); }} />
                 <Microfono valor={texto} onValor={(v) => { setFaltaMic(null); setTexto(v); }} onError={setFaltaMic} apagado={!cargado || !!errorCarga} />
-                <button type="button" className="co-enviar" onClick={enviarCaja} disabled={!!trabajo || !texto.trim() || !cargado || !!errorCarga}
+                <button type="button" className="co-enviar" onClick={enviarCaja} disabled={!!trabajo || (!texto.trim() && !elegidos.length) || !cargado || !!errorCarga}
                   aria-label="Mandar" title="Mandar (Enter)">
                   {trabajo ? <span className="co-enviar__giro" aria-hidden /> : <Icon name="flecha" size={18} />}
                 </button>

@@ -19,7 +19,10 @@ import {
   type ChartMsg, type ChartSession,
 } from '@/lib/chart-chats';
 import { claveVisible, personaDeSesion, prefijoDePersona, puedeUsarSesion, type QuienChatea } from '@/lib/chart-chats-reglas';
-import { baseDeLaPersona } from '@/lib/chat-mako-reglas';
+import { TITULO_GRUPO, baseDeLaPersona } from '@/lib/chat-mako-reglas';
+import { getGrupoJidMaKo } from '@/lib/mako-grupo';
+import { hiloDelGrupo } from '@/lib/mako-doer-conv';
+import type { MensajeChat } from '@/lib/mako-turno-app-reglas';
 
 /** Quién pide: admin o no, y su persona (la regla de /mako y de chart-insights). null = sin sesión. */
 export async function quienChateaDelRequest(): Promise<(QuienChatea & { sub: string }) | null> {
@@ -80,4 +83,35 @@ export async function hiloDelSecondBrain(sessionIdDelTurno: number, id: number):
   const s = await getSession(id);
   if (!s || s.chart_key !== t.base) return null;
   return { sesion: s, mensajes: await getSessionMessages(s.id) };
+}
+
+// ── El grupo de WhatsApp de MaKo (tanda 8, 16/10/2026): un chat más del índice, de SÓLO LECTURA y sólo del admin ─────
+//
+// ⚠️ SÓLO EL ADMIN: el grupo trae montos y leads (pii). El corte va acá, en el servidor; la pantalla ni lo pide.
+// ⚠️ SÓLO EL GRUPO OFICIAL (`getGrupoJidMaKo`). Nunca se listan los `grupo_jid` distintos de `mako_doer_conv`: ahí
+//    también caen los avisos al dueño con el jid del grupo SuperAdmin guardado con el workspace del cliente
+//    (lib/avisos.ts) y, en el ws1, los grupos de prueba.
+// ⚠️ SE MUESTRA Y NO VA A NINGÚN MODELO: no entra en `listar_chats_mako` ni en `hilo_chat_mako` (decisión 11 del plan
+//    de la etapa 2). El jid no sale del servidor.
+
+export type GrupoDeMaKo = { titulo: string; ultimoAt: string | null };
+
+/** El grupo de MaKo del negocio, para la barra. null = no es admin, o el negocio no tiene grupo. */
+export async function grupoDeMaKo(p: { ws: number; rol: 'admin' | 'miembro' }): Promise<GrupoDeMaKo | null> {
+  if (p.rol !== 'admin') return null;
+  const jid = await getGrupoJidMaKo(p.ws);
+  if (!jid) return null;
+  const { filas } = await hiloDelGrupo(p.ws, jid, { limite: 1 });
+  return { titulo: TITULO_GRUPO, ultimoAt: filas[0]?.created_at ?? null };
+}
+
+/** Una página del hilo del grupo (las anteriores a `antes`). null = no es admin, o el negocio no tiene grupo. */
+export async function hiloDelGrupoMaKo(
+  p: { ws: number; rol: 'admin' | 'miembro' }, antes: string | null,
+): Promise<{ mensajes: MensajeChat[]; hayMas: boolean } | null> {
+  if (p.rol !== 'admin') return null;
+  const jid = await getGrupoJidMaKo(p.ws);
+  if (!jid) return null;
+  const { filas, hayMas } = await hiloDelGrupo(p.ws, jid, { antes, limite: 60 });
+  return { mensajes: filas.map((f) => ({ role: f.role, content: f.content, created_at: f.created_at })), hayMas };
 }

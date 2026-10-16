@@ -13,6 +13,12 @@
 //   · construyendo el cerebro fuera del `if (veMapa…)` → 1 fallo («la página»);
 //   · `veMapa` con un `rol === 'admin'` a mano → 1 fallo («la página»);
 //   · el POST de la ruta leyendo el cuerpo antes de la persona → 1 fallo («la ruta»).
+// Los adjuntos (tanda 4, 16/10/2026), base 5 / 0, cada rotura → 4 / 1 («los adjuntos»): `urlDeAdjunto` sin mirar de quién
+// es la conversación; el turno sin soltar los binarios de un mensaje que quedó sin bloques; El Archivero para cualquier
+// rol; abrir devolviendo las filas crudas (con el path); `deleteSession` sin los binarios; el `<img>` sin `conWs`; el
+// `formData()` antes de mirar el largo. Y lo que encontró la revisión adversarial (16/10/2026), base 5 / 0 → 4 / 1 cada
+// una: subir sin mirar `guardarAdjuntos` (el PDF de un LEAD iba a El Archivero del negocio por el Analyst del CRM); el
+// plazo de El Archivero desde después de leer los archivos.
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -79,5 +85,44 @@ test('el índice: un chat de otro no existe, «Antes» usa la regla de /mako, y 
   const ruta = sinComentarios(leer('app/api/mako/chat/route.ts'));
   const i = ruta.indexOf("if (sp.get('antes') || sp.has('antesId')) {");
   assert.ok(i > 0 && ruta.indexOf('await quienChateaDelRequest()', i) > i, '«Antes» pide quién chatea antes de leer');
+});
+
+// Tanda 4 (16/10/2026): los adjuntos guardados. Las reglas puras están en tests/chat-mako-bloques.test.ts; acá, el
+// cableado que las hace valer en el servidor.
+test('los adjuntos: se abren por su mensaje mirando de quién es, no quedan sueltos, y sólo el PDF del admin va a El Archivero', () => {
+  const ruta = sinComentarios(leer('app/api/mako/chat/route.ts'));
+  assert.match(ruta, /urlDeAdjunto\(persona, sp\.get\('adjunto'\)\)/, 'el adjunto sale de su mensaje, nunca de un path del navegador');
+  assert.ok(!/createSignedUrl|storage\.from/.test(ruta), 'la ruta no firma por su cuenta');
+  const multi = ruta.slice(ruta.indexOf("startsWith('multipart/form-data')"));
+  const largo = multi.indexOf('TOPE_TOTAL_BYTES + MARGEN_MULTIPART_BYTES');
+  assert.ok(largo > 0 && largo < multi.indexOf('req.formData()'), 'el largo se mira antes de leer el cuerpo');
+
+  const turno = sinComentarios(leer('lib/mako-turno-app.ts'));
+  const url = turno.slice(turno.indexOf('export async function urlDeAdjunto('));
+  const cuerpoUrl = url.slice(0, url.indexOf('\n}\n'));
+  const deQuien = cuerpoUrl.indexOf('sesionDe(persona, m.session_id)');
+  assert.ok(deQuien > 0 && deQuien < cuerpoUrl.indexOf('urlFirmadaDeAdjunto('), 'de quién es la conversación, ANTES de firmar');
+  assert.match(cuerpoUrl, /sanearBloques\(persona\.ws, m\.bloques\)/, 'el path se sanea con el workspace de la persona');
+  assert.match(turno, /mensajes: mensajes\.map\(\(m\) => aMensajeChat\(persona\.ws, m\)\)/, 'abrir no devuelve las filas crudas (con el path)');
+  assert.match(turno, /if \(bloques\.length && !msg\.conBloques\) await borrarAdjuntos\(/, 'un mensaje que quedó sin sus bloques suelta los binarios');
+  // Revisión del 16/10/2026: el MaKo Analyst de un lead usa este mismo turno, y su PDF es del lead. Guardar (y El
+  // Archivero) es SÓLO de quien lo pide: el Second Brain y el teléfono.
+  assert.match(turno, /adjuntos\.length && entrada\.guardarAdjuntos \? await subirAdjuntos\(/, 'subir sólo si quien llama lo pide');
+  assert.equal((ruta.match(/guardarAdjuntos: true/g) ?? []).length, 1, 'el Second Brain lo pide (sólo en el envío con archivos)');
+  assert.match(sinComentarios(leer('app/api/m/mako/route.ts')), /guardarAdjuntos: true/, 'el teléfono lo pide');
+  assert.ok(!/guardarAdjuntos/.test(sinComentarios(leer('lib/mako-analyst-lead.ts'))), 'el Analyst del lead no');
+  assert.match(turno, /archivarPdfsDelChat\(ws, msg\.id, inicio, pdfs\)/, 'el plazo de El Archivero corre desde que empezó el turno');
+  const archivar = turno.indexOf('archivarPdfsDelChat(ws');
+  assert.ok(archivar > 0, 'el turno pasa los PDF a El Archivero');
+  const antes = turno.slice(0, archivar);
+  assert.ok(antes.slice(antes.lastIndexOf('if (')).startsWith("if (persona.rol === 'admin'"), 'sólo los del admin (El Archivero alimenta el perfil del negocio)');
+
+  const cc = sinComentarios(leer('lib/chart-chats.ts'));
+  const del = cc.slice(cc.indexOf('export async function deleteSession('));
+  const binarios = del.indexOf('.remove(paths)');
+  assert.ok(binarios > 0 && binarios < del.indexOf(".from('chart_chats').delete()"), 'los binarios se van antes que las filas que los nombran');
+  assert.match(del, /filter\(esRutaDeChatDeAlguno\)/, 'y sólo los que tienen la forma de un adjunto del chat');
+
+  assert.match(leer('app/_chat/ArchivosHilo.tsx'), /conWs\(rutaDeArchivo\(a\.ref\), ws\)/, 'el <img> no pasa por WsFetch: el ?ws= va a mano');
 });
 

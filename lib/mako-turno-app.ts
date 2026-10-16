@@ -51,7 +51,12 @@ import { getSetting, setSetting } from '@/lib/settings';
 import { tzDeWorkspace, TZ_DEFAULT } from '@/lib/timezone';
 import { runWithWorkspace, getWorkspaceActual, getRolWsEfectivo, getCapaActual } from '@/lib/workspace';
 import { getUsuarioActual } from '@/lib/auth';
-import { createSession, getSession, listSessions, getSessionMessages, appendMessage, renameSession, tituloDesde, type ChartSession } from '@/lib/chart-chats';
+import {
+  createSession, getSession, listSessions, getSessionMessages, getSessionMessagesConBloques, getMensajeConBloques, appendMessage,
+  renameSession, tituloDesde, type ChartSession, type ChartMsgConBloques,
+} from '@/lib/chart-chats';
+import { adjuntosVisibles, leerRef, sanearBloques } from '@/lib/chat-mako-bloques';
+import { archivarPdfsDelChat, borrarAdjuntos, subirAdjuntos, urlFirmadaDeAdjunto } from '@/lib/chat-mako-adjuntos';
 import { archivoATexto } from '@/lib/archivo-a-texto';
 import { aFila } from '@/lib/bandeja-filas';
 import { puedeVerKey } from '@/lib/movil-rutas';
@@ -144,10 +149,31 @@ export async function abrirSesion(persona: PersonaChat, sessionId: number): Prom
     const s = await sesionDe(persona, sessionId);
     if (!s) return null;
     const [mensajes, propuestas] = await Promise.all([
-      getSessionMessages(s.id),
+      getSessionMessagesConBloques(s.id),
       tarjetasVigentes(persona.ws, canalKeyDeSesion(s.id)),
     ]);
-    return { sesion: aSesion(s), mensajes, propuestas };
+    return { sesion: aSesion(s), mensajes: mensajes.map((m) => aMensajeChat(persona.ws, m)), propuestas };
+  });
+}
+
+/** Un mensaje guardado, para la pantalla: sus adjuntos sin el path (lib/chat-mako-bloques.ts). */
+function aMensajeChat(ws: number, m: ChartMsgConBloques): MensajeChat {
+  const bloques = sanearBloques(ws, m.bloques);
+  return { role: m.role, content: m.content, created_at: m.created_at, ...(bloques.length ? { adjuntos: adjuntosVisibles(m.id, bloques) } : {}) };
+}
+
+/**
+ * El link firmado de un adjunto guardado (`ref` = `<id del mensaje>:<n>`), o null. Mira de QUIÉN es la conversación
+ * del mensaje ANTES de firmar: los chats son por persona, así que el admin no abre los adjuntos de un closer.
+ */
+export async function urlDeAdjunto(persona: PersonaChat, ref: unknown): Promise<string | null> {
+  const r = leerRef(ref);
+  if (!r) return null;
+  return runWithWorkspace(persona.ws, async () => {
+    const m = await getMensajeConBloques(r.msgId);
+    if (!m || !(await sesionDe(persona, m.session_id))) return null;
+    const b = sanearBloques(persona.ws, m.bloques)[r.i];
+    return b ? urlFirmadaDeAdjunto(b.path) : null;
   });
 }
 
@@ -183,6 +209,11 @@ export type EntradaTurnoApp = {
    * turno de siempre.
    */
   contexto?: string;
+  /**
+   * Guardar los archivos (mig 0305) y pasar los PDF del admin a El Archivero. Lo prenden SÓLO el Second Brain y el chat
+   * del teléfono (las rutas /api/mako/chat y /api/m/mako). Sin esto, el turno de siempre: los lee y no los guarda.
+   */
+  guardarAdjuntos?: boolean;
 };
 
 /** El cartel de la plataforma: se muestra y NO se guarda (AGENTS.md, «Un cartel de la
@@ -196,6 +227,8 @@ const AVISO_NO_LEI = (nombre: string) => `No pude leer «${nombre}».`;
  * ni archivos tira: eso lo frena antes quien llama.
  */
 export async function turnoApp(persona: PersonaChat, sessionId: number, entrada: EntradaTurnoApp): Promise<RespuestaTurno | null> {
+  // Desde acá corre el plazo de la ruta: lo que se hace DESPUÉS de responder (El Archivero) se mide contra esto.
+  const inicio = Date.now();
   return runWithWorkspace(persona.ws, async () => {
     const s = await sesionDe(persona, sessionId);
     if (!s) return null;
@@ -208,9 +241,12 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     // Los archivos se LEEN antes: el bloque nativo no le llega al modelo del doer (ver la
     // cabecera). El lector es el mismo del importador del tablero.
     const lecturas: Array<{ nombre: string; texto: string }> = [];
+    const textos: Array<string | null> = [];
     for (const a of adjuntos) {
       const leido = await archivoATexto(new File([a.bytes as BlobPart], a.nombre, { type: a.mime })).catch(() => null);
-      if (leido?.texto?.trim()) lecturas.push({ nombre: a.nombre, texto: leido.texto.trim() });
+      const texto = leido?.texto?.trim() || null;
+      textos.push(texto);
+      if (texto) lecturas.push({ nombre: a.nombre, texto });
       else avisos.push(AVISO_NO_LEI(a.nombre));
     }
     // Lo que queda en la MEMORIA del chat: el texto de la persona, o el placeholder del archivo.
@@ -226,9 +262,31 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     const previos = await getSessionMessages(s.id);
 
     // LO QUE ESCRIBIÓ LA PERSONA SE GUARDA SIEMPRE, antes del modelo.
+    // Los archivos se guardan (mig 0305): el binario ANTES, y su referencia en el mismo insert del mensaje
+    // (lib/chat-mako-adjuntos.ts). Si el mensaje quedó sin ella, el binario no queda suelto.
     const guardados: MensajeChat[] = [];
-    await appendMessage(s.id, 'user', textoMemoria);
-    guardados.push({ role: 'user', content: textoMemoria });
+    // ⚠️ SÓLO SI QUIEN LLAMA LO PIDE (`guardarAdjuntos`): el Second Brain y el chat del teléfono. El MaKo Analyst de un
+    //    lead usa este mismo turno, y su PDF es del LEAD: no va a El Archivero del negocio (revisión del 16/10/2026).
+    const subidos = adjuntos.length && entrada.guardarAdjuntos ? await subirAdjuntos(ws, adjuntos) : [];
+    const bloques = subidos.map((x) => x.bloque);
+    let msg: Awaited<ReturnType<typeof appendMessage>>;
+    try {
+      msg = await appendMessage(s.id, 'user', textoMemoria, bloques);
+    } catch (e) {
+      await borrarAdjuntos(bloques.map((b) => b.path)); // el mensaje no quedó: sus binarios tampoco
+      throw e;
+    }
+    if (bloques.length && !msg.conBloques) await borrarAdjuntos(bloques.map((b) => b.path));
+    const conArchivos = msg.conBloques && msg.id != null ? adjuntosVisibles(msg.id, bloques) : [];
+    guardados.push({ role: 'user', content: textoMemoria, ...(conArchivos.length ? { adjuntos: conArchivos } : {}) });
+    // Un PDF del ADMIN, también a El Archivero, después de responder (lib/chat-mako-adjuntos.ts dice por qué sólo él).
+    if (persona.rol === 'admin' && msg.conBloques && msg.id != null) {
+      const pdfs = subidos.flatMap(({ bloque, de }, i) => {
+        const texto = textos[de];
+        return bloque.tipo === 'document' && texto ? [{ i, contenido: adjuntos[de].bytes, nombre: bloque.nombre, mime: bloque.mime, texto }] : [];
+      });
+      await archivarPdfsDelChat(ws, msg.id, inicio, pdfs);
+    }
     let titulo = s.titulo;
     if (!titulo) {
       titulo = tituloDesde(textoPersona || textoMemoria);

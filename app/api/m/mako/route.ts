@@ -61,7 +61,7 @@ export async function GET(req: NextRequest) {
 async function mandar(persona: PersonaChat, sessionId: number | null, mensaje: string, adjuntos: AdjuntoListo[]) {
   if (sessionId == null) return json({ ok: false, error: 'Falta el chat.' }, 400);
   if (!mensaje.trim() && !adjuntos.length) return json({ ok: false, error: 'Escribe algo.' }, 400);
-  const r = await turnoApp(persona, sessionId, { mensaje, adjuntos });
+  const r = await turnoApp(persona, sessionId, { mensaje, adjuntos, guardarAdjuntos: true });
   if (!r) return json({ ok: false, error: 'No encuentro ese chat.' }, 404);
   // Un fallo del modelo NO es un error HTTP: el mensaje quedó guardado y el aviso viaja adentro.
   return json({ ...r });

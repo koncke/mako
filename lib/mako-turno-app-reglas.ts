@@ -20,6 +20,7 @@ import { rutaMovil, TITULO_INBOX } from './movil-rutas';
 import { consecuenciaDeshacer, lineasDelPayload, type LineaDetalle } from './inbox-movil-reglas';
 import type { Pendiente } from './mako-pendientes';
 import type { FilaPendiente } from '../app/mako/pendientes/BandejaPendientes';
+import type { AdjuntoVisible } from './chat-mako-bloques';
 
 // ── De quién es una sesión ────────────────────────────────────────────────────
 
@@ -285,7 +286,11 @@ export const TEXTO_SOLO_TARJETA = 'Te lo dejé listo para que lo confirmes.';
 
 // ── El historial que vuelve al modelo ─────────────────────────────────────────
 
-export type MensajeChat = { role: 'user' | 'assistant'; content: string; created_at?: string };
+export type MensajeChat = {
+  role: 'user' | 'assistant'; content: string; created_at?: string;
+  /** Los archivos guardados del mensaje (mig 0305, lib/chat-mako-bloques.ts): sin el path; no van al modelo. */
+  adjuntos?: AdjuntoVisible[];
+};
 
 /** Los últimos `max` mensajes, arrancando en `user` y sin dos seguidos del mismo rol (un
  *  turno que falló deja el mensaje de la persona sin respuesta, y eso no se borra). */

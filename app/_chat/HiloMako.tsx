@@ -14,8 +14,9 @@
 import type { ReactNode } from 'react';
 import { Markdown } from '@/app/_components/Markdown';
 import { Muneco } from '@/app/admin/operaciones/Muneco';
-import { ERROR_INCIERTO, type ItemHilo } from '@/app/m/mako/chat-ui';
+import { ERROR_INCIERTO, textoConArchivos, type ItemHilo } from '@/app/m/mako/chat-ui';
 import { TarjetaAccion, type ItemPropuesta } from './TarjetaAccion';
+import { ArchivosHilo } from './ArchivosHilo';
 
 const hora = (iso: string | null): string => {
   const t = iso ? Date.parse(iso) : NaN;
@@ -72,12 +73,13 @@ export function HiloMako({ items, quien, ahora, escribiendo, tarjeta, onTarjeta,
       if (d && d !== ultimoDia) { filas.push(<span key={`d-${x.id}`} className="co-dia">{rotuloDia(x.at, ahora)}</span>); ultimoDia = d; }
     }
     if (x.k === 'msg' && x.role === 'user') {
+      const archivos = x.archivos ?? [];
+      const texto = archivos.length ? textoConArchivos(x.texto) : x.texto;
+      const pie = <span className="co-burbuja__pie">{x.estado === 'enviando' ? 'Enviando…' : hora(x.at)}</span>;
       filas.push(
         <div key={x.id} className="co-yo">
-          <p className="co-burbuja">
-            {x.texto}
-            <span className="co-burbuja__pie">{x.estado === 'enviando' ? 'Enviando…' : hora(x.at)}</span>
-          </p>
+          {archivos.length > 0 && <ArchivosHilo archivos={archivos} />}
+          {texto ? <p className="co-burbuja">{texto}{pie}</p> : <p className="ch-pie-suelto">{pie}</p>}
           {x.estado === 'error' && (
             <p className="co-nota co-nota--mal" role="alert">{x.error}{' '}
               <button type="button" className="ch-enlace" onClick={() => onReintentar(x.id)}>Reintentar</button></p>

@@ -1,38 +1,61 @@
-# Relevo — Centro de Operaciones (15/10/2026; cuenta 3)
+# Relevo — Centro de Operaciones (16/10/2026, 14:45; cuenta 3 al 95% semanal)
 
-Escrito por el chat «Centro de Operaciones» de la cuenta 3 (`local_428051c1…`). Lo que costó cada cosa está en
-`docs/hallazgos-operaciones.md` (la última entrada es la de esta ventana); lo que pidió Martín, textual, en
-`app/admin/dev/centro-operaciones/bitacora.ts`.
+Escrito por el chat «Centro de Operaciones» de la cuenta 3 (`local_428051c1…`), que cerró por el 95% de uso semanal.
+Lo que costó cada cosa está en `docs/hallazgos-second-brain.md` y `docs/hallazgos-mobile.md` (las entradas del 16/10);
+lo pedido, textual, en `app/admin/dev/second-brain/bitacora.ts` y `app/admin/dev/centro-operaciones/bitacora.ts`.
 
-## Dónde quedó
+## Dónde quedó: la etapa 2 del Second Brain (docs/diseno-mako-ai-native.md)
 
-**El 16/10 (madrugada), los 11 puntos de Martín más el 12 y el 13**, en la rama `centro-chat` (la sube el
-coordinador; merge, nunca rebase). Una punta cada dos o tres puntos:
+Orden de Martín, por el Cerebro: «Termina con todo, faltan mis pedidos del Second Brain» (etapa 2 completa y después la 5).
+Rama `centro-chat` (la sube el coordinador; merge, nunca rebase). Lo que sigue tiene el archivo de cada pieza (el plan
+entero quedó en el scratchpad de la sesión, que no viaja):
 
-| Punta | Puntos | Qué | Estado |
-|---|---|---|---|
-| B | — | Un Runner por carpeta de config | `a5df91c3c` + `d4c2624b5` |
-| 1 | 1, 2, 11 | La pregunta tipo Claude Code arriba de la caja, la Ticketera adentro del Centro, el Uso siempre a la vista | `81d842745` … `f41d956eb` |
-| 2 | 5, 10, 9 | Muñecos sin accesorios, en qué trabaja cada chat, «Nuevo chat» | `4a004a28a` + `f0eb6a80c` |
-| 3 | 4, 8 | El Cerebro aparte, los jefes por tab, «Sin asignar», cada pedido sólo en el chat que lo trabajó | `f83efea40` + `70519ffa4` |
-| 4a | 3 | Sin «Antes del 16/10»: el historial de cada tab en su jefe, lo pendiente primero | `b8b008f02` |
-| 4b | 12 | El Plan adentro de cada jefe: sus tareas, «Marcar hecha», «Sumar al Plan» (por `/api/centro/plan`) | ver el log |
-| 6 y 7, parte | 6, 7 | El campo `revisar` del cierre (cartero 1.6.0) y el micrófono en la caja | ver el log |
-| — | 13 | `docs/diseno-second-brain-centro.md` (sin construir: se le pasa al coordinador) | ver el log |
-| — | diseño | `docs/diseno-mako-ai-native.md` (sin construir; Martín elige el alcance en la sección f) | `f9c10d2db` |
+| Tanda | Qué | Estado |
+|---|---|---|
+| 1 | La pieza única en `/second-brain` (jefe «Second Brain» y sus sub-chats, conversación, caja) | `ad60dedfa` + `a26929c4d` |
+| 2 | «Pregúntale a MaKo» es el Second Brain; `/mako` y `/mako-doer` redirigen; «Antes» | `1af0906b6` + `1971c9a89` |
+| 3 | El teléfono: `/m/second-brain` es el chat, el Mapa en `/m/second-brain/mapa` | `36fcaa16e` |
+| 4 | Los adjuntos se guardan en el Archivero (mig **0305**) + lo que encontró la revisión | `4da56c37c` + `129eed9b9` |
+| 7, 8, 9, 10 | La parte de SERVIDOR, sin pantalla todavía (abajo) | el commit de este relevo |
+| 5, 6 | Sin empezar | — |
 
-**Lo que sigue, en este orden:**
-1. **El 6: mi parte está hecha** («Plan» con las sub-tabs «Plan» y «Review», `porRevisar`, `enlaceRevisar` y el
-   `--revisar` del cierre, cartero 1.6.0). Falta el VISOR, que hace «Centro de Operaciones › Review»: cuando cree
-   `app/admin/operaciones/revisar/page.tsx`, enciende `VISOR_REVISAR` (lib/centro-chats.ts) en el mismo commit. Mientras
-   tanto «Revisar» abre la página misma.
-2. **El 7, los adjuntos:** NO están, a propósito: un archivo tiene que bajar a la PC, y eso es una puerta nueva. El
-   diseño mínimo está en hallazgos-operaciones.md → «Review y el dictado». Necesita el OK de Martín.
-3. **El 13:** `docs/diseno-second-brain-centro.md`, escrito y sin construir: pasárselo al coordinador.
-4. Lo «SIN HACER» de la 4b (en hallazgos-operaciones.md → «El Plan adentro de cada jefe»).
+⚠️ **La migración 0305 (`chart_chats.bloques`) la aplica el Cerebro** (`node scripts/apply-migration.mjs
+supabase/migrations/0305_chart_chats_bloques.sql`). Sólo agrega y el código la tolera ausente: sin ella los adjuntos le
+llegan a MaKo pero no vuelven al recargar. El número lo dio el Cerebro: la 0299 es de Video Editor, 0300-0302 del Plan y
+del Video Editor, y 0303-0304 están RESERVADAS para el Image Editor sin estar en ningún árbol (salió como 0303 y se
+renumeró el 16/10).
+
+**Lo que sigue, en este orden** (cada uno con su archivo listo):
+1. **Tanda 10, «entender el pedido»** (`/api/mako/pedidos` ya está en main). La regla pura está: `linksDePedidos`
+   (lib/chat-mako-reglas.ts, con test). Falta la pantalla: en `mandar` de app/second-brain/ChatSecondBrain.tsx, pedir
+   `POST /api/mako/pedidos {texto, tab: 'mako'}` EN PARALELO al turno, y colgar los links debajo de la respuesta de
+   MaKo. ⚠️ NO partir el mensaje: en el Second Brain no hay nada abierto, y todo lo que nombra un área sería «otra
+   tab» (MaKo dejaría de contestar). Se suma el link, no se saca la respuesta.
+2. **Tanda 8, el grupo de WhatsApp en la barra (sólo admin).** Está `grupoDeMaKo` y `hiloDelGrupoMaKo`
+   (lib/chat-mako-indice.ts), `hiloDelGrupo` (lib/mako-doer-conv.ts), `TITULO_GRUPO`, `AVISO_GRUPO` y `antesValido`
+   (lib/chat-mako-reglas.ts). Falta: `GET /api/mako/chat?grupo=1` y `?grupoHilo=1&antes=` con `persona` de
+   `personaDelRequest`, la fila en la barra y la caja reemplazada por `AVISO_GRUPO`. NO va a la API de MaKo (no va a
+   ningún modelo: pii).
+3. **Tanda 7, el riel «Lo que hizo».** Está `loQueHizo` (lib/chat-mako-hecho.ts), `estadoDeLoHecho` (con test) y la
+   lectura `lo_que_hizo_chat_mako` de la API. Falta el riel en la pieza (`ListaAvance` de Avance.tsx, con
+   `PILL_PROPUESTA`) y su `GET ?hecho=<sessionId>` (mirando `sesionDe` antes de leer).
+4. **Tanda 9, muñecos y Renombrar.** Está el almacén `lib/chat-munecos(-db).ts` (compare-and-set, con test) y la acción
+   `renombrar_chat_mako`. Falta el «⋯» de cada fila (Renombrar con `nombreValido`, «Cambiar su muñeco» con el
+   `ElegirMuneco` del Centro) y leer `munecosDeChats` al listar. La acción `muneco_chat_mako` se sacó hasta que la
+   pantalla lea los muñecos (un «Listo» que no cambia nada en pantalla sería mentira).
+5. **Tanda 6** (sub-chats del CRM y del lead en la barra; «Second Brain › <Área>»; el Mapa limpio) y **tanda 5** (el
+   Centro como adaptador de la pieza; es la herramienta diaria de Martín: probar las tres cuentas). Después, la
+   **etapa 5** (chats y creaciones como nodos del grafo, con el layout guardado).
+
+**SIN HACER que no es de la etapa:** retirar `/api/mako-doer` (sin pantalla desde la tanda 2); el hilo del teléfono no dibuja
+listas de Markdown. (La guarda de PII en el turno con herramientas ya la hizo Onboarding, `08892dc41`.)
 
 **Lo que necesita a Martín:** renombrar los «Estrategia 3 cuentas» de las otras cuentas a «Cerebro» (con «⋯ Renombrar»:
-firma su dispositivo); la prueba de punta a punta de un trabajo firmado; abrir los Runners de terminal (abajo).
+firma su dispositivo); la prueba de punta a punta de un trabajo firmado; abrir los Runners de terminal (abajo); el OK para
+que un archivo baje a la PC (los adjuntos del CENTRO, no los del Second Brain); el alcance de la sección (f) del diseño
+AI-native.
+
+## El Centro (lo de antes del 16/10, sigue valiendo)
 
 - **El Centro es una app de chat, con cada chat como un empleado** (Grok Bot), en producción desde el 15/10. A la
   izquierda los chats, a la derecha la conversación con su **caja de escribir abajo**. En el teléfono, lo mismo.

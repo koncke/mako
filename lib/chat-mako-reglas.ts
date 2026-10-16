@@ -89,3 +89,72 @@ export const AVISO_ANTES = 'Este chat es de antes. Sigue en uno nuevo.';
 
 /** Las preguntas de arranque, con el hilo vacío: lo que más se le pide al chat central. */
 export const ARRANQUES_SECOND_BRAIN = ['¿Qué hago hoy?', '¿Cómo viene el mes?', '¿Qué sabes de mi negocio?'] as const;
+
+// ── «Entender el pedido» en el Second Brain (tanda 10, 16/10/2026) ───────────────────────────────────────────────
+
+/** Un link a la pantalla donde se hace algo que la persona pidió (`otra-tab` de /api/mako/pedidos). */
+export type IrA = { titulo: string; link: string };
+/** Como mucho, los links debajo de una respuesta. */
+const MAX_IR_A = 3;
+
+/**
+ * Los links que el Second Brain deja debajo de la respuesta de MaKo: los pedidos de OTRA tab que entendió
+ * /api/mako/pedidos (docs/diseno-mako-pedidos.md, «El punto de enganche»).
+ *
+ * ⚠️ EN EL SECOND BRAIN NO SE PARTE EL MENSAJE. En un editor, lo de otra tab se saca del mensaje y queda sólo el link;
+ *    acá no hay nada abierto, así que TODO lo que nombra un área sería «otra tab», y el chat central dejaría de
+ *    contestar. MaKo contesta el mensaje entero con sus herramientas (las de todas las áreas) y esto SUMA el link para
+ *    ir a la pantalla («que el chat le deje ahí el link para ir a donde corresponde», Martín).
+ * ⚠️ La respuesta es de la red: se lee como dato. Sólo links RELATIVOS de la app (ni `//` ni un esquema), sin repetir,
+ *    y nunca el propio Second Brain.
+ */
+export function linksDePedidos(r: unknown): IrA[] {
+  const pedidos = r && typeof r === 'object' && Array.isArray((r as { pedidos?: unknown }).pedidos) ? (r as { pedidos: unknown[] }).pedidos : [];
+  const out: IrA[] = [];
+  for (const p of pedidos) {
+    if (!p || typeof p !== 'object') continue;
+    const o = p as Record<string, unknown>;
+    if (o.sobre !== 'otra-tab' || typeof o.link !== 'string' || typeof o.titulo !== 'string' || !o.titulo.trim()) continue;
+    const link = o.link.trim();
+    if (!link.startsWith('/') || link.startsWith('//') || link.includes('\\')) continue;
+    const ruta = link.split(/[?#]/)[0];
+    if (ruta === '/second-brain' || ruta.startsWith('/second-brain/')) continue;
+    if (out.some((x) => x.link.split(/[?#]/)[0] === ruta)) continue;
+    out.push({ titulo: o.titulo.trim().slice(0, 60), link });
+    if (out.length >= MAX_IR_A) break;
+  }
+  return out;
+}
+
+/** El grupo de WhatsApp de MaKo en la barra del Second Brain (tanda 8): se lee acá y se contesta allá. */
+export const TITULO_GRUPO = 'MaKo en WhatsApp';
+export const AVISO_GRUPO = 'Se contesta en el grupo de WhatsApp.';
+
+/** ¿Es un momento válido para pedir la página anterior del grupo? (`?antes=` de la ruta: una fecha ISO, nada más). */
+export function antesValido(v: unknown): string | null {
+  if (typeof v !== 'string' || v.length > 40 || !/^\d{4}-\d{2}-\d{2}T[\d:.]+(Z|[+-]\d{2}:?\d{2})$/.test(v)) return null;
+  return Number.isFinite(Date.parse(v)) ? v : null;
+}
+
+// ── «Lo que hizo» (tanda 7) ──────────────────────────────────────────────────────────────────────────────────────
+
+/** Cómo quedó una acción que MaKo dejó en el chat (lo que dibuja el riel). Los rótulos salen de PILL_PROPUESTA. */
+export type EstadoHecho = 'pendiente' | 'aplicando' | 'hecho' | 'cancelada' | 'vencida' | 'fallo';
+export type HechoChat = { id: number; tipo: string; resumen: string; estado: EstadoHecho; at: string; resueltoAt: string | null };
+
+/**
+ * El estado de una fila de `mako_acciones_pendientes`, en las palabras de la tarjeta del chat (`EstadoPropuesta` de
+ * app/m/mako/chat-ui.ts). Una pendiente con el plazo pasado es «vencida» aunque la fila todavía diga 'pendiente':
+ * nadie la venció (esto es una lectura; `vencerExpiradas` escribe).
+ */
+export function estadoDeLoHecho(estado: string, venceAt: string | null, ahora: number): EstadoHecho {
+  if (estado === 'pendiente') {
+    const t = venceAt ? Date.parse(venceAt) : NaN;
+    return Number.isFinite(t) && t <= ahora ? 'vencida' : 'pendiente';
+  }
+  if (estado === 'confirmada') return 'aplicando';
+  if (estado === 'ejecutada') return 'hecho';
+  if (estado === 'cancelada') return 'cancelada';
+  if (estado === 'vencida') return 'vencida';
+  return 'fallo';
+}
