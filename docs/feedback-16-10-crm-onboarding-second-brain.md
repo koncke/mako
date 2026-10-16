@@ -28,6 +28,10 @@ modo claro** (`b401cd017`, «pon en white mode la tab de Second Brain»). Las ci
 ## CRM
 
 ### Hecho (commits `9f595cc6f`, `4e9411a71`, `f0c8f0da0`, `f777d1d4f`, `7c0d07b9d`, `c52533e94` y `8cd7447e6`)
+- [x] **4, la velocidad (en parte, `f808b91d0`).** En getLeadFullAction (app/crm/actions.ts) cinco lecturas que no
+  dependían de nada (insight generado, equipo, CRMs, señales de cobro y el resumen del negocio, que esperaba a TODO)
+  arrancan junto con las nueve de arriba. **No se midió contra producción**: medir el pop-up antes y después; lo
+  que siga lento probablemente está en `leerInsumosDatosLead`, `getTrackingEvents` o `replayDeLead`.
 - [x] **10, en parte.** «Personalizar» pasó a ser «Editar», en azul como el del Dashboard; ya editando, «Ver» con borde
   (app/crm/lead-view/ficha/FichaPorBloques.tsx y ficha-css.ts). Falta el «⋯» con exportar, compartir, tutorial y «AI
   Analyst», y sacar la tab «MaKo Analyst».
@@ -64,8 +68,8 @@ modo claro** (`b401cd017`, «pon en white mode la tab de Second Brain»). Las ci
    CRM (worktree C:/dev/wt-crm-agenda, mergear main antes). Nuevo: el «⋯» de la etapa con «Asignar evento», la tabla con
    el diseño de la de campañas, Google Calendar además de Calendly y Cal.com, y «crear evento» ahí mismo.
 4. **La ficha en modo edición.**
-   - «Primero mejora la eficiencia al abrir el detail de un lead, tarda un montón en cargar.» Medir qué espera
-     LeadEditModal (app/crm/LeadEditModal.tsx, la action que trae `LeadFullData`) antes de tocar nada.
+   - «Primero mejora la eficiencia al abrir el detail de un lead, tarda un montón en cargar.» Una primera pasada ya
+     está (ver «Hecho»); falta MEDIR el pop-up en producción y atacar lo que siga lento.
    - «Elimina la opción de "Vista previa: Antes de la llamada" y la de "Ahora no"» (app/crm/lead-view/ficha/
      GaleriaTab.tsx: la barra «Vista previa» lleva el botón que elige, así que se va JUNTO con el rediseño del punto 5).
    - «En la vista de edición, elimina la sidebar» (app/crm/lead-view/ficha/PanelFicha.tsx), porque: el **Nombre** se
