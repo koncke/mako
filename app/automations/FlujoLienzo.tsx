@@ -681,7 +681,7 @@ export function FlujoLienzo({
           {espera && <ChipEspera nodo={n} texto={espera} />}
           {chip && (
             <ChipMedio nodo={n} texto={chip.texto} frena={chip.frena} motivo={MOTIVO_MEDIO[chip.medio]}
-              onConectar={rolAdmin && paso ? () => setConectarMedio({ medio: chip.medio, linea: chip.medio === 'whatsapp' ? lineaDePaso(paso, linea?.actual ?? null) : null }) : undefined} />
+              onConectar={!chip.informa && rolAdmin && paso ? () => setConectarMedio({ medio: chip.medio, linea: chip.medio === 'whatsapp' ? lineaDePaso(paso, linea?.actual ?? null) : null }) : undefined} />
           )}
           </>
         );

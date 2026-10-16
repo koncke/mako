@@ -1,5 +1,43 @@
 # Relevo: Automations (ex /chatbot) y las secuencias
 
+> **15/10/2026 ~22:30 AR (`claude3`) — LO DECIDIDO del 2 y el 3 (coordinador «Estrategia 3 cuentas», sin Ticketera:
+> «siempre intentar evitar mandar tickets, y resolverlo por tu propia cuenta. Solo si es 100% necesario»):**
+> - **3, la línea de WhatsApp de SuperAdmin = camino (a).** En la plataforma (ws 9), la línea de MaKo (…2605) es la de
+>   POR DEFECTO de Automations para MANDAR (avisos a personas y grupos) y se ve conectada (Martín: «Está el WhatsApp de
+>   MaKo... no entiendo por qué no aparece»). Lo que entra sigue yendo al canal de MaKo. Por «nada por detrás», un AI
+>   Step o un «Si responde» en el ws 9 dice «No escucha respuestas» en vez de quedarse esperando. (b), que escuche 1 a
+>   1, NO: toca el webhook y la trampa de OWNER_WS por algo que nadie pidió. (c) es lo que ya existe, «conectar otro
+>   número». Nada de esto vale para un negocio cliente. Código: lib/linea-plataforma.ts. Sólo el ENVÍO (`lineaDeEnvio`)
+>   y el estado la ven; QR, desconectar y webhook no.
+> - **3, el email:** remitente equipo@hola-mako.com con la key de la plataforma (el dominio se reclamó, decisión 22). La
+>   guarda de que nunca valga para un cliente es `porDominio` (lib/email-remitente.ts), con test en
+>   tests/linea-plataforma.test.ts.
+> - **2 = los Mensajes de MaKo pasan a ser automatizaciones del ws 9** (memoria: «un Mensaje de MaKo ES una
+>   automatización» y «MaKo nada por detrás»). MEDIDO: el catálogo (lib/avisos-catalogo.ts) tiene **72**. Sólo **7** tienen
+>   evento de MaKo (lib/disparadores.ts, `EVENTOS_MAKO`): lead_contesta, cuota_vencida, pago_recibido, analisis_listo y
+>   contrasena_restablecer, más reunion_pronto y lead_agendo, que están retirados. Los otros **65 los manda el código**
+>   por fuera de una automatización. Los de SuperAdmin primero: wa-desconectado, wa-reconectado, reunion-ocurrio-fathom
+>   y reporte-semanal.
+>   **LA RECETA, que falta construir una vez:**
+>   (1) el evento se emite en el ws 9 con el NEGOCIO como dato, como hoy `contrasena_restablecer`;
+>   (2) una tarjeta sólo de SuperAdmin, «MaKo al grupo del negocio», que mande con la voz de MaKo al grupo del negocio
+>   del evento. **No existe**: es la pieza nueva;
+>   (3) la plantilla de SuperAdmin y la fila del ws 9;
+>   (4) el código deja de mandar ese aviso cuando la automatización está prendida (nunca los dos, nunca ninguno).
+>   Después, de a uno, con la lista de arriba.
+
+> **ESTADO AL 15/10/2026 ~21:40 AR (`claude3`, worktree `C:/dev/wt-undecima`, rama `undecima`; pushea el coordinador).**
+> De las doce (abajo, literal): **HECHAS en la rama**, sin verlas en producción:
+> - 1, la punta de la flecha (50d4266b3);
+> - 5, 6, 9, 10, 11 y 12, «Probar» (e3da9f2b6);
+> - 7 y 8, el ancho (también e3da9f2b6).
+> Además está el chat del lienzo que editaba al preguntarle (b0430eba4) y el rojo de forma que dejó (ad53737fe).
+> **3, a medias:** el email de MaKo quedó reclamado en el ws 9 (datos; el envío real sigue apagado), y la línea de
+> WhatsApp espera una decisión (a, b o c en docs/hallazgos-comunicacion.md).
+> **2, sin empezar:** falta que Martín diga qué espera ver en SuperAdmin.
+> **4 y 7 sin mirar en el navegador:** su Chrome tenía la sesión de Mauricio. Falta la sesión de super admin para la
+> pasada en ws3 de producción, y el OK para borrar dos mensajes de prueba del chat de MaKo de la #198 (ws1).
+
 > **LAS DOCE COSAS QUE REPORTÓ MARTÍN (15/10/2026; hasta hoy vivían sólo en un mensaje del coordinador de la cuenta 1
 > al chat de Automations de esa cuenta, 17:23 UTC, que nunca se leyó). Ninguna estaba cerrada al escribirlas.** Las tres
 > de antes (Joan, conectar la flecha, esperar a que abra la oficina) SÍ están en main. El texto de Martín, literal:

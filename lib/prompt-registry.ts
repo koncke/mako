@@ -74,6 +74,7 @@ import { PASO_IA_SYSTEM_TEMPLATE } from './paso-ia';
 import { GUION_PASO_SYSTEM_TEMPLATE } from './guion-audio';
 import { CREAR_IA_SYSTEM_TEMPLATE, EDITAR_IA_SYSTEM_TEMPLATE } from './flujo-ia';
 import { EXPLICAR_IA_SYSTEM_TEMPLATE } from './flujo-ia-consulta';
+import { MENSAJE_LEAD_SYSTEM_TEMPLATE } from './probar-lead';
 import { ARMAR_AI_STEP_SYSTEM_TEMPLATE } from './ai-step-armar';
 import { OBJECIONES_SYSTEM_TEMPLATE } from './ai-step-ensayo';
 import { HOJA_IA_SYSTEM_TEMPLATE } from './graficos-ia';
@@ -522,6 +523,13 @@ export const REGISTRY: Group[] = [
         variables: [], scope: 'static-only', sensitive: false,
         default: EDITAR_IA_SYSTEM_TEMPLATE,
         context: 'El chat de MaKo en una automatización que ya existe. El modelo devuelve SÓLO lo que cambia: "cambiar" (por el id real; la tarjeta conserva su lugar y los leads parados en ella), "quitar" (una condición o un si_responde se llevan lo que cuelga), "agregar" (tramos en una salida VACÍA o en paralelo) y "disparador" (una clave, sólo si el pedido cambia qué la dispara). El código lo aplica y lo revisa (lib/flujo-ia.ts → deIAEdicion y erroresEdicion): el paso de WhatsApp a Instagram o Messenger lo hace el código, y un DM con un CRON que no es de su canal termina en la pregunta «¿Cambio qué la dispara?». No borres la forma del JSON, la regla de no pisar una salida ocupada ni la de no COPIAR un mensaje para cambiarle el canal (era el bug: una copia en paralelo). La forma vieja (sólo "agregar") sigue entrando. No borres "respuesta": si el modelo contesta en vez de cambiar, el código no aplica nada de lo que traiga junto (era el bug del 15/10: «No cambies nada, sólo explícamelo» terminó en «Cambié 1»). No lo alargues: cada token de más le resta salida a Groq. Y no lo pases a voseo: los mensajes le llegan al cliente del negocio.',
+      },
+      {
+        key: 'automations.probar.lead', source: 'override',
+        label: '«Probar» — lo que escribe el lead de un escenario que contesta (system)', kind: 'system', dynamic: true,
+        variables: [], scope: 'static-only', sensitive: false,
+        default: MENSAJE_LEAD_SYSTEM_TEMPLATE,
+        context: 'En «Probar», los escenarios en los que el lead CONTESTA (uno por caso del AI Step): el modelo escribe el mensaje del lead que tiene que caer en ese caso, y después lo clasifica el clasificador del motor como siempre (lib/probar-lead.ts). El caso y lo último que le llegó viajan en el mensaje user. No borres la forma del JSON {"mensaje"}: sin ella, el lead escribe el «cuándo» del caso. Puede ser informal: es el lead.',
       },
       {
         key: 'chatbot.explicar-ia.system', source: 'override',

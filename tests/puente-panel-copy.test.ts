@@ -493,6 +493,10 @@ export const FUERA_DE_ALCANCE: { ruta: string; porque: string }[] = [
     porque: 'ídem: rutea el mensaje ENTRANTE («¿quién sos?», «dale»)',
   },
   {
+    ruta: 'lib/flujo-ia-consulta.ts',
+    porque: 'decide si lo que la persona ESCRIBE en el chat del lienzo es una pregunta («decime», «contame», «¿podés…?»): sin las formas no reconoce lo que escriben',
+  },
+  {
     ruta: 'lib/reaccion-emoji.ts',
     porque: 'reconoce el agradecimiento entrante («sos un genio») para reaccionar',
   },

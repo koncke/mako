@@ -14,6 +14,9 @@
 // POST { action: 'responder', secuenciaId, historial, escenario } → { respuesta }
 //      Redacta un «MaKo contesta» con el redactor del motor (`responderSimulador`) y el caso
 //      LOCAL como guía.
+// POST { action: 'mensaje-lead', titulo, cuando, ultimo } → { mensaje }
+//      Lo que ESCRIBE el lead de un escenario que contesta (15/10/2026, lib/probar-lead.ts): un mensaje que cae en ese
+//      caso del AI Step. Siempre ok: sin IA, el «cuándo» del caso.
 // POST { action: 'enviar-real', secuenciaId, destino, mensaje, primero, emisor? } → { enviados }
 //      Manda DE VERDAD un mensaje que apareció en el panel (lib/prueba-paso.ts). Sólo admin, con
 //      tope por (workspace, destino): 10 mensajes cada 10 minutos. `emisor` (sexta tanda): `{ linea }`
@@ -35,6 +38,9 @@ import { buscarUsuarioPorEmail } from '@/lib/usuarios';
 import { escenariosDeRespuesta, normalizar, TOPE_NODOS, TOPE_GUIA, TOPE_OBJETIVO, TOPE_EJEMPLO, TOPE_EJEMPLOS, type PasoGrafo } from '@/lib/flujo-grafo';
 import { destinoDelQueMira, destinosGuardados, sanearDestinoPrueba, sanearMensajePrueba, sanearEmisorPrueba } from '@/lib/simulador-grafo';
 import { enviarPasoDePrueba, guardarDestinoDeQuienPrueba } from '@/lib/prueba-paso';
+import { chatCheapCascade } from '@/lib/ai-cheap';
+import { getPromptText } from '@/lib/prompt-render';
+import { MENSAJE_LEAD_SYSTEM_TEMPLATE, userMensajeLead, mensajeLeadDe } from '@/lib/probar-lead';
 import type { EscenarioSecuencia } from '@/lib/setting-estrategia';
 
 export const dynamic = 'force-dynamic';
@@ -154,6 +160,19 @@ export async function POST(req: NextRequest) {
       const r = await responderSimulador(id, historial, { escenario });
       if (!r.ok) return json({ ok: false, error: r.error }, 400);
       return json({ ok: true, respuesta: r.respuesta });
+    }
+
+    // ── Lo que escribe el lead de un escenario que contesta (15/10/2026) ──────
+    if (body.action === 'mensaje-lead') {
+      const caso = { titulo: String(body.titulo ?? '').slice(0, 200), cuando: String(body.cuando ?? '').slice(0, 1000) };
+      const system = await getPromptText('automations.probar.lead', MENSAJE_LEAD_SYSTEM_TEMPLATE);
+      // La cascada gratis con la red de plataforma (AGENTS.md: todo camino de IA que use un cliente necesita su red). Si
+      // no contesta, el «cuándo» del caso: la prueba sigue igual.
+      const raw = await chatCheapCascade({
+        system, user: userMensajeLead({ ...caso, ultimo: String(body.ultimo ?? '') }), json: true, maxTokens: 150, temperature: 0.8,
+        feature: 'setting-simulador', motivo: 'Probar: lo que escribe el lead', redDePlataforma: true,
+      }).catch((e) => { console.error(`[api:chat-agent/simulador mensaje-lead] ${msg(e)}`); return ''; });
+      return json({ ok: true, mensaje: mensajeLeadDe(raw, caso) });
     }
 
     // ── Mandar DE VERDAD un mensaje que apareció en el panel ──────────────────

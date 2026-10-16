@@ -315,7 +315,7 @@ export const RUNNERS: Runners = {
       const { escenarios, faltan } = escenariosDeLaSecuencia(s, (clave) => secuencias.find((x) => x.clave === clave)?.id ?? null);
       return json({
         id: s.id, nombre: s.nombre,
-        escenarios: escenarios.map((e, k) => ({ numero: k + 1, camino: e.pasos, mensajes_whatsapp: e.mensajes })),
+        escenarios: escenarios.map((e, k) => ({ numero: k + 1, cuando: e.cuando, camino: e.pasos, mensajes_whatsapp: e.mensajes })),
         faltan,
       });
     },

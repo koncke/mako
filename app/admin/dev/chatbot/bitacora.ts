@@ -1633,4 +1633,28 @@ FEEDBACK PROBAR:
     ],
     archivos: ["docs/hallazgos-chatbot.md — «El chat del lienzo editaba cuando le preguntabas»", "docs/hallazgos-infra.md — la sesión del Chrome"],
   },
+  {
+    fecha: "15 oct", hora: "21:30", chat: "Chatbot", cuenta: "claude3",
+    actor: "martin", tipo: "prompt",
+    titulo: "Las doce cosas de Automations (vivían sólo en un mensaje entre chats)",
+    pedido: "«En Automatios, cuando agarro el extremo de la flecha, no donde está el +, sino donde esta la punta de la flecha, si la saco se bugea, se queda trabada y no se puede mover más, ni apretando esc. Y también en Automations de SuperAdmin no veo las automatizaciones que armamos para los clientes de MaKo... Y en SuperAdmin me dice que no tengo conectado WhatsApp y Gmail, cuando si lo tengo... Mira como se bugea la vista de \"Probar\"... Pusiste una cantidad impresionante de chats en la auth de \"Un lead agendó llamada\", revisa por qué tantos casos... En ninguno de esos casos el LEAD responde para simular el AI Step... La barra donde se escriben los mensajes esta rota, se ve compacta... En general la tab se me muy compacta... Cuando ingreso a un contacto debería saltar la animación de la prueba, pero luego si me voy a otro contacto y vuelvo ya no debería... Los nombres de los contactos deberían ser mucho más cortos... tal vez \"Caso 1\"... Elimina lo de \"Hay más caminos\"... Ten presets de fotos de perfil en lugar de \"1,2,3...\"»",
+  },
+  {
+    fecha: "15 oct", hora: "21:30", chat: "Chatbot", cuenta: "claude3",
+    actor: "claude", tipo: "correccion",
+    titulo: "La punta de la flecha ya no queda trabada, y «Probar» con casos que tienen sentido",
+    puntos: [
+      "La punta de la flecha se podía agarrar pero no soltar: al empezar el arrastre se escondía justo la punta que lo llevaba. Ahora se suelta, y Esc cancela.",
+      "«Un Lead Agendó Llamada» tenía 8 casos y uno afuera, casi todos imposibles. Ahora cada caso es una combinación de hechos del lead, y los que se ven igual son uno: quedan 3.",
+      "Con un AI Step, un caso más por cada uno de sus casos, en el que el lead contesta solo y el AI Step le responde.",
+      "Los contactos se llaman «Caso 1, 2…», con foto, y la conversación empieza diciendo cuándo cae ese caso. Sin «Hay más caminos». Volver a un caso ya probado lo muestra como quedó.",
+      "Con la lista de contactos, «Probar» es más ancho; si no entra, la lista pasa a una fila de fotos arriba del chat.",
+      "SuperAdmin: el email de MaKo quedó conectado (se reclamó hola-mako.com en el ws 9; el envío real sigue apagado). La línea de WhatsApp espera una decisión.",
+    ],
+    commits: [
+      { sha: "50d4266b3", msg: "Lienzo: la punta de la flecha ya no queda trabada al arrastrarla, y Esc cancela el arrastre", lineas: 93, archivos: 2 },
+      { sha: "e3da9f2b6", msg: "Probar: casos coherentes y con nombre corto, el lead que contesta, y la lista de contactos con lugar", lineas: 552, archivos: 14 },
+    ],
+    archivos: ["docs/hallazgos-chatbot.md — «Las doce de Martín del 15/10»", "docs/hallazgos-comunicacion.md — SuperAdmin sin conectar", "docs/relevo/chatbot.md — las doce, literal"],
+  },
 ];
