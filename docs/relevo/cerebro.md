@@ -92,3 +92,11 @@ tira el typecheck (hay guarda); SendMessage NO cruza carpetas de config (ENOINBO
 - **Después del Ready del 45 (el Plan):** correr las DOS sentencias de reconciliación de la cabecera de `supabase/migrations/0294_plan_kanban_estado.sql`. Las migraciones del Plan se renumeraron a 0300/0301 (ya aplicadas; el número es sólo el nombre del archivo).
 - En curso: Centro (Second Brain etapa 2 tanda 2 → etapa 5), CRM (ficha v2: Resumen → T1 verificación → Reuniones/Tracking → tarjeta del kanban → T2; T3 = CS con Pagos), Automations (pedidos sueltos en su chat, campanita y «sin grupo»), Offer («10 horas semanales», selección múltiple, «[Completar:» con mayúscula), Video Editor (tanda 3: acciones que proponen + gancho de pedidos en video e imagen; la tanda 5 POSPUESTA por Martín), Dashboard (gancho de pedidos en «Editar con MaKo»), Web Generator (Groq en la edición con IA, «mi otro producto», «Crear ahora»), Onboarding (posible fuga PII en `chatCheapToolsCascade` + modelo muerto de OpenRouter en `MODELO_DOCS`).
 - Antes de cada push: SIEMPRE `tests/puente-panel-copy.test.ts` y `tests/progreso.test.ts` (tiraron los runs 36, 39 y 43).
+
+## Al cortar (16/10 ~11:00 AR, uso semanal de la cuenta 3 al 92%)
+
+- main = run 44 (`7c2fc7488`). Run 45 (`2e88e9737`) corriendo: Plan (con 0300/0301 renumeradas), Video Editor tandas 2-3 (0302 renumerada, APLICADA), «entender el pedido» en Editar con MaKo, la fuga de PII de Onboarding (08892dc41), botones de Web Generator, `export {}` en los hijos de tests. La 46 sube sola (`esperar_y_subir.sh`): pedidos en el chat del Video Editor (6e2634a5a) y Offer tanda 3 (1294fbdfb).
+- **Después del Ready del 45:** correr las dos sentencias de reconciliación de `supabase/migrations/0294_plan_kanban_estado.sql` (cabecera).
+- Migraciones: 0298, 0299, 0302 aplicadas por el Cerebro; 0300/0301 (Plan) aplicadas por el workflow; **0303 y 0304 reservadas para el chat del Image Editor (Video Editor)**: las aplica el Cerebro cuando llegue la punta.
+- Onboarding: cortar la red propia del doer de WhatsApp con datos de clientes (por turno) y borrar las dos filas copiadas de la plataforma en el ws1 (con huellas). Decidido por el Cerebro con la regla PII del 16/10.
+- Second Brain: Centro, tanda 2 (barra, /mako → /second-brain, «Antes»). CRM: ficha v2 (Resumen → T1 → Reuniones/Tracking → tarjeta del kanban → T2 → T3).
