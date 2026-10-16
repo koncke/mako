@@ -66,9 +66,8 @@ const CHAT_LEAD = /^\/m\/crm\/([^/]+)\/chat$/;
  */
 export function esTrabajo(pathname: string | null | undefined): boolean {
   const p = limpia(pathname);
-  return dentro(p, '/m/mako') || /^\/m\/(video|landing)\/[^/]+/.test(p) || CHAT_LEAD.test(p) || p === RUTA_CONFIGURAR
-    // El mazo de decisiones: ✕ y ✓ viven en la franja del pulgar, donde iría la barra.
-    || p === '/m/tickets/decisiones';
+  // El mazo de la Ticketera vive en /m/operaciones?ticketera= desde el 16/10/2026: su <CabeceraM trabajo> saca la barra.
+  return dentro(p, '/m/mako') || /^\/m\/(video|landing)\/[^/]+/.test(p) || CHAT_LEAD.test(p) || p === RUTA_CONFIGURAR;
 }
 
 /** El lugar de la barra cuya raíz es esta ruta (o null). */

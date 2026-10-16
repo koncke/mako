@@ -33,12 +33,18 @@ import { leerDecisiones } from '@/lib/admin-decisiones';
 import { leerMunecos } from '@/lib/centro-munecos-db';
 import { CabeceraM, PantallaM, VacioM } from '@/app/m/_ui';
 import { CentroAppMovil } from './CentroAppMovil';
+import { TicketeraMovil } from './TicketeraMovil';
+import { deshacerDecision, responderDecision } from '@/app/admin/runway/acciones';
+// La Ticketera vive adentro del Centro (16/10/2026): sus hojas las importa la página.
+import '@/app/tickets/decisiones/mazo.css';
+import '@/app/tickets/decisiones/vistas.css';
+import '@/app/admin/runway/decisiones.css';
 
 export const dynamic = 'force-dynamic';
 
 const RUTA = '/m/operaciones';
 
-export default async function CentroOperacionesMovil() {
+export default async function CentroOperacionesMovil({ searchParams }: { searchParams: Promise<{ ticketera?: string }> }) {
   const admin = await getSesionAdmin();
   if (!admin) redirect(await rutaConWs(HOME_MOVIL));
   const plataforma = await wsSuperAdmin();
@@ -50,6 +56,20 @@ export default async function CentroOperacionesMovil() {
   if (!puedeOperar(admin, plataforma)) {
     return <PantallaM>{cabecera}<VacioM frase="Entra como super admin, con tu segundo factor, para usar el Centro." /></PantallaM>;
   }
+  // La Ticketera entera (la fila de arriba de los chats, y las rutas de antes): pantalla de trabajo, como era.
+  const { ticketera } = await searchParams;
+  if (ticketera === 'tarjetas' || ticketera === 'lista') {
+    const lectura = await leerDecisiones().catch(() => null);
+    return (
+      <PantallaM>
+        <CabeceraM titulo="Ticketera" trabajo padre={{ href: RUTA, label: 'Centro' }} />
+        <TicketeraMovil
+          lectura={lectura ?? { ok: false, faltaTabla: false, error: 'no se pudieron leer' }}
+          vistaInicial={ticketera} responder={responderDecision} deshacer={deshacerDecision}
+        />
+      </PantallaM>
+    );
+  }
   const ahora = Date.now();
   const areas = areasDeProgreso();
   // Cada lectura falla sola: los chats (de las bitácoras) se ven aunque la cola no se pueda leer.
@@ -59,7 +79,7 @@ export default async function CentroOperacionesMovil() {
     leerDecisiones().catch(() => null),
     leerMunecos(),
   ]);
-  const decisiones = tarjetas?.ok ? tarjetas.decisiones.map((d) => ({ chat: d.chat, destino: d.destino ?? null, respuesta: d.respuesta })) : null;
+  const decisiones = tarjetas?.ok ? tarjetas.decisiones : null;
   const pedidos = pedidosRecientes(areas, ahora, 14).map(recortarPedido);
   return (
     <PantallaM>
@@ -73,6 +93,7 @@ export default async function CentroOperacionesMovil() {
         pedidos={pedidos}
         ahora={ahora}
         sub={admin.sub}
+        responder={responderDecision}
       />
     </PantallaM>
   );

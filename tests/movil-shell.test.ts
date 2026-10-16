@@ -313,7 +313,7 @@ test('More: «Ticketera» (el mazo de decisiones) sólo para el super admin, y f
   const mas = leer('app/m/mas/page.tsx').replace(/\/\/.*$/gm, '');
   assert.match(mas, /ctx\.sesion\.rol === 'admin' && !ctx\.impersonando && \(\s*<SeccionM titulo="Super admin">[\s\S]*?titulo="Ticketera" href=\{RUTA_TICKETERA\}/,
     'la fila va detrás de la pregunta de super admin (la misma de getSesionAdmin), sin mirar a un cliente');
-  assert.match(mas, /const RUTA_TICKETERA = '\/m\/tickets\/decisiones'/);
+  assert.match(mas, /const RUTA_TICKETERA = '\/m\/operaciones\?ticketera=tarjetas'/, 'un atajo a la Ticketera adentro del Centro (16/10/2026)');
   // No es una tab del negocio: si estuviera en SECCIONES_MAS podría subir a la barra de un rol.
   assert.doesNotMatch(leer('lib/movil-rutas.ts'), /id: 'decisiones'/);
 });

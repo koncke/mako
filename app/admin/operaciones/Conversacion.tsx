@@ -21,20 +21,23 @@ import type { Alcance } from '@/lib/operaciones-reglas';
 import { avanceDelChat, conteoAvance, historialDelChat, nombreCuenta, textoDeEnvio, type ChatCentro, type Envio, type TrabajoP } from '@/lib/centro-chats';
 import type { Aspecto } from '@/lib/centro-munecos';
 import { hace, type PedidoP, type PushP } from '@/lib/progreso-reglas';
-import Link from '@/app/_ui/Link';
+import type { AccionResponder, Decision } from '@/app/admin/runway/decisiones';
 import { Hilo } from './Hilo';
+import { Pregunta } from './Pregunta';
 import { RielAvance } from './Avance';
 import { Muneco, animoDe } from './Muneco';
-
-/** La Ticketera, donde se contesta lo que un empleado espera (app/_components/nav.ts → admin-ticketera). */
-const RUTA_TICKETERA = '/tickets/decisiones';
 
 const ESTADO_CHAT: Record<ChatCentro['estado'], string> = { trabajando: 'Trabajando', abierto: 'Abierto', cerrado: 'Cerrado', sin_dato: '' };
 
 export function Conversacion({
   chat, pedidos, trabajos, pushes, ahora, espera, envio, texto, onTexto, alcance, onAlcance, enviando, onMandar, onCrearClave, onCopiarClave, onVolver,
-  avance, onAvance, aspecto, onMenu, onMuneco,
+  avance, onAvance, aspecto, onMenu, onMuneco, preguntas, respuestas, responder,
 }: {
+  /** Las tarjetas de la Ticketera que ESTE chat espera (lib/centro-preguntas.ts): se contestan arriba de la caja. */
+  preguntas: readonly Decision[];
+  /** Las suyas ya contestadas: van en la conversación como respuestas de Martín. */
+  respuestas: readonly Decision[];
+  responder: AccionResponder;
   chat: ChatCentro;
   /** Cuántas tarjetas de la Ticketera esperan una respuesta de Martín para este chat. */
   espera: number;
@@ -63,7 +66,7 @@ export function Conversacion({
   onCopiarClave: () => void;
   onVolver: () => void;
 }) {
-  const lineas = historialDelChat(chat, pedidos, trabajos);
+  const lineas = historialDelChat(chat, pedidos, trabajos, respuestas);
   const hilo = useRef<HTMLDivElement>(null);
   const caja = useRef<HTMLTextAreaElement>(null);
 
@@ -130,13 +133,9 @@ export function Conversacion({
       </div>
 
       <div className="co-caja-wrap">
-        {/* Lo que el empleado espera de Martín, arriba de la caja: como Grok Bot cuando vuelve a pedir aprobación. */}
-        {espera > 0 && (
-          <Link href={RUTA_TICKETERA} className="co-espera">
-            {`${espera === 1 ? 'Una tarjeta espera' : `${espera} tarjetas esperan`} tu respuesta en la Ticketera`}
-            <span className="co-espera__ir">Contestar</span>
-          </Link>
-        )}
+        {/* Lo que el empleado espera de Martín, arriba de la caja, como AskUserQuestion de Claude Code (Pregunta.tsx).
+            La que se contesta se va de acá y queda en la conversación. */}
+        {preguntas.length > 0 && <Pregunta key={chat.clave} preguntas={preguntas} responder={responder} />}
         {envio.puede ? (
           <div className="co-caja">
             <textarea

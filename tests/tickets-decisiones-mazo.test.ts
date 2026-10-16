@@ -9,7 +9,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { colaInicial, marcadaInicial, porDecidir, puedeMandar, rotuloMandar, veredictoGesto, TICKETERA } from '../app/tickets/decisiones/reglas';
+import { aLaTicketera, colaInicial, marcadaInicial, porDecidir, puedeMandar, rotuloMandar, veredictoGesto, TICKETERA, TICKETERA_LISTA } from '../app/tickets/decisiones/reglas';
 import { MazoDecisiones } from '../app/tickets/decisiones/Mazo';
 import { OTRA, RESUELTA, type Decision } from '../app/admin/runway/decisiones';
 import { rutaEscritorio, rutaMovil } from '../lib/movil-rutas';
@@ -17,7 +17,14 @@ import { esTrabajo } from '../app/m/_ui/cabecera';
 
 const leer = (r: string) => readFileSync(new URL(`../${r}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 const sinComentarios = (s: string) => s.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
-const PAGINAS = ['app/tickets/decisiones/page.tsx', 'app/tickets/decisiones/lista/page.tsx', 'app/m/tickets/decisiones/page.tsx', 'app/m/decisiones/page.tsx'];
+/** Desde el 16/10/2026 la Ticketera vive adentro del Centro: la dibujan sus dos páginas (la computadora y el teléfono). */
+const PAGINAS = ['app/admin/operaciones/page.tsx', 'app/m/operaciones/page.tsx'];
+/** Y las rutas de antes son puertas: traen al Centro con la vista que eran, sin leer nada. */
+const PUERTAS: Record<string, string> = {
+  'app/tickets/decisiones/page.tsx': "aLaTicketera('tarjetas', await searchParams)",
+  'app/tickets/decisiones/lista/page.tsx': "aLaTicketera('lista', await searchParams)",
+  'app/admin/runway/page.tsx': "await rutaConWs(aLaTicketera('tarjetas', await searchParams))",
+};
 
 let n = 0;
 function dec(p: Partial<Decision> = {}): Decision {
@@ -115,39 +122,55 @@ test('«Resuelta» sale sin elegir: manda RESUELTA y está en la franja del pulg
 });
 
 // Rotura «sin la fila del teléfono en rutaMovil» → 11 pases, 1 fallo.
-test('en el teléfono, la MISMA URL sirve la página de /m: el mazo como pantalla de trabajo', () => {
-  assert.equal(rutaMovil('/tickets/decisiones'), '/m/tickets/decisiones');
-  assert.equal(rutaEscritorio('/m/tickets/decisiones'), '/tickets/decisiones');
-  assert.equal(rutaMovil('/admin/runway'), '/m/tickets/decisiones', 'la entrada vieja va al mazo');
+test('en el teléfono, las rutas de antes van a la Ticketera del Centro, con la vista que eran', () => {
+  // La Ticketera vive adentro del Centro desde el 16/10/2026 (`?ticketera=`).
+  assert.equal(rutaMovil('/tickets/decisiones'), '/m/operaciones?ticketera=tarjetas');
+  assert.equal(rutaMovil('/tickets/decisiones/lista'), '/m/operaciones?ticketera=lista');
+  assert.equal(rutaMovil('/admin/runway'), '/m/operaciones?ticketera=tarjetas', 'la entrada más vieja va al mazo');
+  assert.equal(rutaMovil('/admin/operaciones?ticketera=lista'), '/m/operaciones?ticketera=lista', 'la vista viaja');
+  assert.equal(rutaMovil('/admin/operaciones?tab=avance'), '/m/operaciones', 'un ?tab= viejo no');
+  assert.equal(rutaEscritorio('/m/tickets/decisiones'), '/admin/operaciones?ticketera=tarjetas');
+  assert.equal(rutaEscritorio('/m/decisiones'), '/admin/operaciones?ticketera=lista');
   assert.equal(rutaMovil('/tickets'), null, 'la tab de los clientes no se toca');
-  assert.equal(esTrabajo('/m/tickets/decisiones'), true, 'sin la barra de abajo desde el HTML del server');
   assert.match(sinComentarios(leer('app/m/mas/page.tsx')), /titulo="Ticketera" href=\{RUTA_TICKETERA\}/);
-  assert.match(leer('app/m/mas/page.tsx'), /const RUTA_TICKETERA = '\/m\/tickets\/decisiones'/, 'More entra directo al mazo');
+  assert.match(leer('app/m/mas/page.tsx'), /const RUTA_TICKETERA = '\/m\/operaciones\?ticketera=tarjetas'/, 'More es un atajo a la Ticketera del Centro');
+});
+
+test('las rutas de antes no se pierden la query: un aviso que trae a una tarjeta sigue llegando', () => {
+  assert.equal(TICKETERA, '/admin/operaciones?ticketera=tarjetas');
+  assert.equal(TICKETERA_LISTA, '/admin/operaciones?ticketera=lista');
+  assert.equal(aLaTicketera('lista', { ws: '9', d: 'centro-firma', ticketera: 'tarjetas' }), '/admin/operaciones?ws=9&d=centro-firma&ticketera=lista', 'la vista la pone la puerta');
+  assert.equal(aLaTicketera('tarjetas', { x: ['a', 'b'], vacio: undefined }, '/m/operaciones'), '/m/operaciones?x=a&x=b&ticketera=tarjetas');
+  for (const [r, llamada] of Object.entries(PUERTAS)) {
+    const src = sinComentarios(leer(r));
+    assert.ok(src.includes(`redirect(${llamada})`), `${r}: trae al Centro con ${llamada}`);
+    assert.doesNotMatch(src, /leerDecisiones|responderDecision/, `${r}: una puerta no lee ni contesta`);
+  }
 });
 
 // Rotura «sin el notFound del guard» → 11 pases, 1 fallo.
-test('sólo el super admin: el guard va antes de leer, en las cuatro páginas', () => {
+test('sólo el super admin: la guarda del Centro va antes de leer, en las dos páginas', () => {
   for (const r of PAGINAS) {
     const src = sinComentarios(leer(r));
     const guard = src.indexOf('await getSesionAdmin()');
-    const lee = src.indexOf('await leerDecisiones()');
-    assert.ok(guard > 0 && lee > guard, `${r}: getSesionAdmin antes de leer`);
-    assert.match(src.slice(guard, lee), /if \(!admin\) (notFound\(\)|redirect\()/, `${r}: sin sesión de admin no sigue`);
+    const opera = src.indexOf('puedeOperar(admin');
+    const lee = src.indexOf('leerDecisiones()');
+    assert.ok(guard > 0 && opera > guard && lee > opera, `${r}: getSesionAdmin y puedeOperar antes de leer`);
+    assert.match(src.slice(guard, opera), /if \(!admin\) redirect\(/, `${r}: sin sesión de admin no sigue`);
   }
 });
 
 // Rotura «la página del teléfono con una acción propia» → 11 pases, 1 fallo.
-test('una sola fuente: las cuatro páginas contestan con la misma acción, y se llaman «Ticketera»', () => {
+test('una sola fuente: las dos páginas contestan con la misma acción, y se llama «Ticketera»', () => {
   for (const r of PAGINAS) {
     const src = sinComentarios(leer(r));
     assert.match(src, /import \{[^}]*responderDecision[^}]*\} from '@\/app\/admin\/runway\/acciones'/, r);
     assert.match(src, /responder=\{responderDecision\}/, r);
-    assert.match(src, /titulo="Ticketera"/, `${r}: se llama Ticketera`);
   }
+  assert.match(sinComentarios(leer('app/m/operaciones/page.tsx')), /<CabeceraM titulo="Ticketera"/, 'el teléfono: se llama Ticketera');
+  assert.match(sinComentarios(leer('app/admin/operaciones/TicketeraCentro.tsx')), />Ticketera</, 'la computadora: se llama Ticketera');
   const mazo = sinComentarios(leer('app/tickets/decisiones/Mazo.tsx'));
   assert.doesNotMatch(mazo, /admin_decisiones|fetch\(/, 'el mazo no lee ni escribe por su cuenta');
-  assert.match(sinComentarios(leer('app/admin/runway/page.tsx')), /redirect\(await rutaConWs\(TICKETERA\)\)/);
-  assert.equal(TICKETERA, '/tickets/decisiones');
 });
 
 // Rotura «la salida y el rechazo sin esperarse» (pedido.then suelto) → 11 pases, 1 fallo.
@@ -253,7 +276,7 @@ test('la tarjeta de atrás asoma por ARRIBA: por abajo se metía detrás de los 
 
 // Rotura «la página del teléfono sin deshacer» → 15 pases, 1 fallo.
 test('las dos páginas del mazo pasan el deshacer; la lista no lo necesita', () => {
-  for (const r of ['app/tickets/decisiones/page.tsx', 'app/m/tickets/decisiones/page.tsx']) {
+  for (const r of PAGINAS) {
     const src = sinComentarios(leer(r));
     assert.match(src, /deshacerDecision/, `${r}: sin la acción, volver no despega la respuesta`);
     assert.match(src, /deshacer=\{deshacerDecision\}/, r);
@@ -281,7 +304,8 @@ test('la ticketera tiene su ítem en la barra de ADMIN, apuntando al mazo', () =
   const admin = nav.slice(nav.indexOf('export const ADMIN_FAMILIAS'), nav.indexOf('export const ADMIN_NAV'));
   assert.ok(admin.length > 500, `el recorte de ADMIN_FAMILIAS quedó en ${admin.length}: está mirando otra cosa`);
 
-  const fila = admin.split('\n').find((l) => l.includes("href: '/tickets/decisiones'"));
+  // Desde el 16/10/2026 es un atajo a la Ticketera ADENTRO del Centro (`TICKETERA`), no otra pantalla.
+  const fila = admin.split('\n').find((l) => l.includes(`href: '${TICKETERA}'`));
   assert.ok(fila, 'la ticketera no tiene ítem en ADMIN_FAMILIAS: en la computadora no hay puerta');
   assert.match(fila!, /match:\s*starts\('\/tickets\/decisiones'\)/, 'el ítem no se marca como activo al estar en la ticketera');
 

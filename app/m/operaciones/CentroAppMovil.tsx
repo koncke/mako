@@ -24,6 +24,7 @@ import { fotoCentroAction, pushesCentroAction } from '@/app/admin/operaciones/ac
 import { copiar, useFirma } from '@/app/admin/operaciones/mandar';
 import { RunnerMovil } from './RunnerMovil';
 import { ChatsM } from './ChatsMovil';
+import type { AccionResponder } from '@/app/admin/runway/decisiones';
 
 const REFRESCO_MS = 8000;
 
@@ -33,7 +34,7 @@ const trabajoDe = (p: Pedido): TrabajoP => ({
   texto: p.texto, estado: p.estado, motivo: p.motivo, entregado_at: p.entregado_at, cerrado_at: p.cerrado_at, cierre: p.cierre,
 });
 
-export function CentroAppMovil({ base, colaInicial, carterosIniciales, decisionesIniciales, munecosIniciales, pedidos, ahora: ahoraServer, sub }: {
+export function CentroAppMovil({ base, colaInicial, carterosIniciales, decisionesIniciales, munecosIniciales, pedidos, ahora: ahoraServer, sub, responder }: {
   /** La mitad de la lista que sale de las bitácoras (lib/centro-chats.ts → chatsDeBitacoras). */
   base: ChatCentro[];
   colaInicial: Pedido[] | null;
@@ -44,6 +45,8 @@ export function CentroAppMovil({ base, colaInicial, carterosIniciales, decisione
   pedidos: PedidoP[];
   ahora: number;
   sub: string;
+  /** La acción de la Ticketera: contestar la pregunta de un chat acá es contestarla allá. */
+  responder: AccionResponder;
 }) {
   const [cola, setCola] = useState<Pedido[]>(colaInicial ?? []);
   const [locales, setLocales] = useState<TrabajoP[]>([]);
@@ -76,13 +79,31 @@ export function CentroAppMovil({ base, colaInicial, carterosIniciales, decisione
   }, [refrescar]);
   useEffect(() => { let vivo = true; pushesCentroAction().then((p) => { if (vivo) setPushes(p); }).catch(() => {}); return () => { vivo = false; }; }, []);
 
+  // Lo contestado arriba de la caja se ve en el acto (el refresco trae la verdad).
+  const responderAca: AccionResponder = async (prev, fd) => {
+    const r = await responder(prev, fd);
+    if (r.ok) {
+      const id = Number(fd.get('id'));
+      const clave = String(fd.get('clave') ?? '');
+      const texto = String(fd.get('texto') ?? '').trim();
+      setDecisiones((ds) => ds.map((d) => (d.id !== id ? d : { ...d, respuesta: clave, respuestaTexto: texto || null, respondidaAt: new Date().toISOString(), recogidaAt: null })));
+    }
+    return r;
+  };
+  const pendientes = decisiones.filter((d) => !d.respuesta && d.urgencia !== 'aviso').length;
+
   const copiarClave = async () => { if (firma.clave) toast(await copiar(firma.clave.spki) ? 'Copiado: pégalo en el Runner' : 'No pude copiar'); };
   const crearClave = async () => { toast((await firma.crear()) ? 'Token creado' : 'No pude crear tu Token'); };
   const activos = carteros.filter((k) => carteroVivo(k, ahora)).length;
 
   return (
     <>
+      {/* La Ticketera entera, arriba de los chats (Martín: «No veo el botón de la ticketera dentro del Centro»). */}
+      <ListaM etiqueta="Ticketera">
+        <FilaM icono="soporte" titulo="Ticketera" segunda={pendientes ? `${pendientes} por decidir` : 'Nada por decidir'} href="/m/operaciones?ticketera=tarjetas" navegacion />
+      </ListaM>
       <ChatsM
+        decisiones={decisiones} responder={responderAca}
         chats={chats} carteros={carteros} pedidos={pedidos} trabajos={trabajos} pushes={pushes?.ok ? pushes.pushes : null} ahora={ahora}
         esperas={esperas} firma={firma} onEnviado={(t) => { setLocales((l) => [t, ...l]); refrescar(); }}
         munecos={munecos} onMunecos={setMunecos}

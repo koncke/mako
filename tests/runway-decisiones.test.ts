@@ -118,23 +118,25 @@ test('la Ticketera es del super admin: la acción, la lista, y /admin/runway lle
   const accion = sinComentarios(leer('app/admin/runway/acciones.ts'));
   assert.match(accion, /export async function responderDecision\([\s\S]*?\{\s*const admin = await getSesionAdmin\(\);\s*if \(!admin\) return/);
   const runway = sinComentarios(leer('app/admin/runway/page.tsx'));
-  assert.match(runway, /const admin = await getSesionAdmin\(\);\s*if \(!admin\) redirect\('\/inicio'\);\s*redirect\(await rutaConWs\(TICKETERA\)\);/);
-  const lista = sinComentarios(leer('app/tickets/decisiones/lista/page.tsx'));
-  assert.match(lista, /const admin = await getSesionAdmin\(\);\s*if \(!admin\) notFound\(\);/);
-  const movil = sinComentarios(leer('app/m/decisiones/page.tsx'));
-  assert.match(movil, /const admin = await getSesionAdmin\(\);\s*if \(!admin\) redirect\(/);
-  assert.match(movil, /requireMovil\(/);
+  assert.match(runway, /const admin = await getSesionAdmin\(\);\s*if \(!admin\) redirect\('\/inicio'\);\s*redirect\(await rutaConWs\(aLaTicketera\('tarjetas', await searchParams\)\)\);/);
+  // La lista vive adentro del Centro desde el 16/10/2026: las dos páginas que la dibujan pasan por su guarda.
+  for (const r of ['app/admin/operaciones/page.tsx', 'app/m/operaciones/page.tsx']) {
+    const src = sinComentarios(leer(r));
+    assert.match(src, /const admin = await getSesionAdmin\(\);\s*if \(!admin\) redirect\(/, r);
+    assert.match(src, /puedeOperar\(admin/, r);
+  }
+  assert.match(sinComentarios(leer('app/m/operaciones/page.tsx')), /requireMovil\(/);
   // Y la tabla no entra por el scope de inquilinos: es de la plataforma.
   assert.doesNotMatch(leer('lib/workspace.ts'), /'admin_decisiones'/);
 });
 
-test('el teléfono abre la MISMA lista en la misma URL, y /admin/runway va directo al mazo', () => {
-  // Rota: sacar la fila de la lista en rutaMovil → 9 pases, 1 fallo (el teléfono vería «se usa en la computadora»).
-  assert.equal(rutaMovil('/tickets/decisiones/lista'), '/m/decisiones');
-  assert.equal(rutaEscritorio('/m/decisiones'), '/tickets/decisiones/lista');
-  assert.equal(rutaMovil('/admin/runway'), '/m/tickets/decisiones', 'la entrada vieja abre el mazo');
+test('el teléfono abre la MISMA lista adentro del Centro, y /admin/runway va directo al mazo', () => {
+  // Rota: sacar la fila de la lista en rutaMovil → 1 fallo (el teléfono vería «se usa en la computadora»).
+  assert.equal(rutaMovil('/tickets/decisiones/lista'), '/m/operaciones?ticketera=lista');
+  assert.equal(rutaEscritorio('/m/decisiones'), '/admin/operaciones?ticketera=lista');
+  assert.equal(rutaMovil('/admin/runway'), '/m/operaciones?ticketera=tarjetas', 'la entrada vieja abre el mazo');
   assert.equal(rutaMovil('/admin/runway/foto'), null, 'la foto es ancha: se queda en la computadora');
-  assert.match(leer('app/m/decisiones/page.tsx'), /<TableroDecisiones /);
+  assert.match(leer('app/m/operaciones/TicketeraMovil.tsx'), /<TableroDecisiones /);
 });
 
 test('la tabla nace con RLS, sin grants a anon, y su CHECK dice las mismas urgencias que el código', () => {

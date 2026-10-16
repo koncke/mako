@@ -25,6 +25,7 @@
 import { CARTERO_VIVO_MS, DESTINO_RE, carteroVivo, type ChatCartero, type Cierre, type EstadoPedido } from './operaciones-reglas';
 import { instanteHito, type AreaP, type PasoP, type PedidoP } from './progreso-reglas';
 import { destinoDeDecision } from './decisiones-aviso';
+import { textoDeRespuesta, type Decision } from '../app/admin/runway/decisiones';
 
 export type EstadoChat = 'trabajando' | 'abierto' | 'cerrado' | 'sin_dato';
 
@@ -309,10 +310,16 @@ export type LineaChat =
   /** Un pedido que Martín le hizo a ESTE chat y trabajó otro: quedó repartido. */
   | { tipo: 'derivado'; instante: number; pedido: PedidoP; trabajaron: string[] }
   /** Un trabajo firmado que se le mandó desde el Centro (con su texto, su estado y el cierre, si lo dejó). */
-  | { tipo: 'trabajo'; instante: number; trabajo: TrabajoP };
+  | { tipo: 'trabajo'; instante: number; trabajo: TrabajoP }
+  /** Lo que Martín contestó a una pregunta de ESTE chat (la de arriba de la caja o la Ticketera): es su respuesta. */
+  | { tipo: 'respuesta'; instante: number; decision: Decision };
 
 /** La conversación de un chat, la más vieja arriba (como un chat). */
-export function historialDelChat(chat: ChatCentro, pedidos: ReadonlyMap<string, PedidoP>, trabajos: readonly TrabajoP[]): LineaChat[] {
+export function historialDelChat(
+  chat: ChatCentro, pedidos: ReadonlyMap<string, PedidoP>, trabajos: readonly TrabajoP[],
+  /** Sus preguntas ya contestadas (`respuestasDelChat`, lib/centro-preguntas.ts). */
+  respuestas: readonly Decision[] = [],
+): LineaChat[] {
   const out: LineaChat[] = [];
   for (const id of chat.pedidos) {
     const p = pedidos.get(id);
@@ -327,6 +334,10 @@ export function historialDelChat(chat: ChatCentro, pedidos: ReadonlyMap<string, 
   for (const w of trabajos) {
     const t = fecha(w.created_at);
     if (chat.trabajos.includes(w.id) && t != null) out.push({ tipo: 'trabajo', instante: t, trabajo: w });
+  }
+  for (const d of respuestas) {
+    const t = fecha(d.respondidaAt);
+    if (t != null) out.push({ tipo: 'respuesta', instante: t, decision: d });
   }
   return out.sort((x, y) => x.instante - y.instante);
 }
@@ -347,6 +358,8 @@ export function vistaPrevia(lineas: readonly LineaChat[]): VistaPrevia | null {
       const c = l.trabajo.cierre;
       const t = fecha(l.trabajo.cerrado_at ?? null);
       if (c && t != null) ver({ texto: renglon(c.hecho || c.decidido), propio: false, tick: null, instante: t });
+    } else if (l.tipo === 'respuesta') {
+      ver({ texto: renglon(textoDeRespuesta(l.decision)), propio: true, tick: null, instante: l.instante });
     } else {
       ver({ texto: renglon(l.pedido.texto), propio: true, tick: null, instante: l.instante });
       if (l.tipo === 'pedido') for (const s of l.pasos) if (s.instante != null) ver({ texto: renglon(s.titulo), propio: false, tick: null, instante: s.instante });
@@ -558,31 +571,34 @@ export function mensajeDeCommit(msg: string): string {
 
 /** El avance de un chat: un nodo por línea de su historial, el más viejo arriba (como un roadmap). */
 export function avanceDelChat(lineas: readonly LineaChat[]): NodoAvance[] {
-  return lineas.map((l): NodoAvance => {
-    if (l.tipo === 'trabajo') {
-      const w = l.trabajo;
-      const texto = (w.texto ?? '').trim();
-      return {
-        id: `t:${w.id}`, origen: 'trabajo', titulo: tituloDeTexto(texto), prompt: texto, instante: l.instante,
-        estado: estadoDeTrabajo(w.estado), cuentas: unicas([w.destino_cuenta]), pasos: [], commits: [], trabajaron: [],
-        cierre: w.cierre ? (w.cierre.hecho || w.cierre.decidido || null) : null,
-        motivo: estadoDeTrabajo(w.estado) === 'no_salio' ? w.motivo ?? null : null,
-      };
-    }
-    const p = l.pedido;
-    if (l.tipo === 'derivado') {
-      return {
-        id: `d:${p.id}`, origen: 'derivado', titulo: p.titulo, prompt: p.texto, instante: l.instante, estado: ESTADO_DE_PEDIDO[p.estado],
-        cuentas: unicas(p.pasos.map((s) => s.cuenta)), pasos: [], commits: sinRepetir(p.commits), trabajaron: l.trabajaron, cierre: null, motivo: null,
-      };
-    }
+  // Una respuesta a una pregunta no es algo que se le pidió: no es un nodo del avance.
+  return lineas.flatMap((l): NodoAvance[] => (l.tipo === 'respuesta' ? [] : [nodoDe(l)]));
+}
+
+function nodoDe(l: Exclude<LineaChat, { tipo: 'respuesta' }>): NodoAvance {
+  if (l.tipo === 'trabajo') {
+    const w = l.trabajo;
+    const texto = (w.texto ?? '').trim();
     return {
-      id: `p:${p.id}`, origen: 'pedido', titulo: p.titulo, prompt: p.texto, instante: l.instante, estado: ESTADO_DE_PEDIDO[p.estado],
-      cuentas: unicas(l.pasos.map((s) => s.cuenta)),
-      pasos: l.pasos.map((s) => ({ tipo: s.tipo, titulo: s.titulo, instante: s.instante })),
-      commits: sinRepetir(l.pasos.flatMap((s) => s.commits)), trabajaron: [], cierre: null, motivo: null,
+      id: `t:${w.id}`, origen: 'trabajo', titulo: tituloDeTexto(texto), prompt: texto, instante: l.instante,
+      estado: estadoDeTrabajo(w.estado), cuentas: unicas([w.destino_cuenta]), pasos: [], commits: [], trabajaron: [],
+      cierre: w.cierre ? (w.cierre.hecho || w.cierre.decidido || null) : null,
+      motivo: estadoDeTrabajo(w.estado) === 'no_salio' ? w.motivo ?? null : null,
     };
-  });
+  }
+  const p = l.pedido;
+  if (l.tipo === 'derivado') {
+    return {
+      id: `d:${p.id}`, origen: 'derivado', titulo: p.titulo, prompt: p.texto, instante: l.instante, estado: ESTADO_DE_PEDIDO[p.estado],
+      cuentas: unicas(p.pasos.map((s) => s.cuenta)), pasos: [], commits: sinRepetir(p.commits), trabajaron: l.trabajaron, cierre: null, motivo: null,
+    };
+  }
+  return {
+    id: `p:${p.id}`, origen: 'pedido', titulo: p.titulo, prompt: p.texto, instante: l.instante, estado: ESTADO_DE_PEDIDO[p.estado],
+    cuentas: unicas(l.pasos.map((s) => s.cuenta)),
+    pasos: l.pasos.map((s) => ({ tipo: s.tipo, titulo: s.titulo, instante: s.instante })),
+    commits: sinRepetir(l.pasos.flatMap((s) => s.commits)), trabajaron: [], cierre: null, motivo: null,
+  };
 }
 
 /** El conteo del encabezado, como el «8/13» de Offer: los terminados sobre el total. */
@@ -595,9 +611,13 @@ export const conteoAvance = (nodos: readonly NodoAvance[]) => ({ hechos: nodos.f
  * el cartero avisa la respuesta: por su `destino` (la sesión) o, sin él, por un título EXACTO y único. Con dos
  * chats del mismo nombre no adivina, y la tarjeta no se le pega a ninguno.
  */
-export type DecisionEspera = { chat: string; destino?: string | null; respuesta: string | null };
+/** Las tarjetas de la Ticketera como las tiene el Centro: enteras (16/10/2026), porque cada chat dibuja SUS preguntas
+ *  arriba de la caja (app/admin/operaciones/Pregunta.tsx) y sus respuestas en la conversación. */
+export type DecisionEspera = Decision;
 
-export function esperasPorChat(decisiones: readonly DecisionEspera[], carteros: readonly Pick<CarteroP, 'cuenta' | 'chats'>[]): Record<string, number> {
+export function esperasPorChat(
+  decisiones: readonly Pick<Decision, 'chat' | 'destino' | 'respuesta'>[], carteros: readonly Pick<CarteroP, 'cuenta' | 'chats'>[],
+): Record<string, number> {
   const chats = carteros.flatMap((k) => k.chats.map((c) => ({ ...c, cuenta: c.cuenta ?? k.cuenta })));
   const out: Record<string, number> = {};
   for (const d of decisiones) {

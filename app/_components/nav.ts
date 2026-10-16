@@ -497,7 +497,10 @@ export const ADMIN_FAMILIAS: NavFamilia[] = [
         // servía de puerta. Va al lado del Centro de Operaciones porque son el mismo trabajo: los
         // dos son cómo Martín le contesta a los chats. Sólo super admin, y la key tampoco lleva
         // el prefijo 'dev-' (tests/dev-areas.test.ts lo reserva a los registros).
-        { key: 'admin-ticketera', label: 'Ticketera', href: '/tickets/decisiones', icon: 'soporte', match: starts('/tickets/decisiones') },
+        // ⚠️ Desde el 16/10/2026 la Ticketera vive ADENTRO del Centro (Martín: «elimines la ruta de la ticketera y lo
+        // pongas dentro del centro de operaciones»): este ítem es un atajo a esa vista (`TICKETERA`, ?ticketera=), no
+        // otra pantalla. Su `match` es el de la ruta vieja: en el Centro se marca el ítem del Centro.
+        { key: 'admin-ticketera', label: 'Ticketera', href: '/admin/operaciones?ticketera=tarjetas', icon: 'soporte', match: starts('/tickets/decisiones') },
       ],
       // El cerebro de MaKo y la formación: con qué sabe, con qué piensa, y de
       // dónde se entrena el equipo. «Contexto de MaKo» estaba detrás del avatar

@@ -26,7 +26,9 @@ import {
   textoDeEnvio, textoDeRenombre, vistaPrevia, type CarteroP, type ChatCentro, type TrabajoP,
 } from '@/lib/centro-chats';
 import type { PedidoP, PushP } from '@/lib/progreso-reglas';
-import Link from '@/app/_ui/Link';
+import type { AccionResponder, Decision } from '@/app/admin/runway/decisiones';
+import { preguntasDelChat, respuestasDelChat } from '@/lib/centro-preguntas';
+import { Pregunta } from '@/app/admin/operaciones/Pregunta';
 import { Hilo, Tick } from '@/app/admin/operaciones/Hilo';
 import { Muneco, animoDe } from '@/app/admin/operaciones/Muneco';
 import { BarraAvanceMovil } from '@/app/admin/operaciones/Avance';
@@ -50,7 +52,10 @@ const edad = (t: number | null, ahora: number): string => {
   return `${Math.round(s / 86_400)} d`;
 };
 
-export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, esperas, firma, onEnviado, munecos, onMunecos }: {
+export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, esperas, firma, onEnviado, munecos, onMunecos, decisiones, responder }: {
+  /** Las tarjetas de la Ticketera: cada chat contesta las suyas al final de su conversación, pegadas a la caja. */
+  decisiones: readonly Decision[];
+  responder: AccionResponder;
   chats: ChatCentro[];
   carteros: CarteroP[];
   pedidos: PedidoP[];
@@ -78,7 +83,8 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
   const toast = useToastM();
   const porId = useMemo(() => new Map(pedidos.map((p) => [p.id, p])), [pedidos]);
   const elegido = chats.find((c) => c.clave === abierto) ?? null;
-  const lineas = elegido ? historialDelChat(elegido, porId, trabajos) : [];
+  const lineas = elegido ? historialDelChat(elegido, porId, trabajos, respuestasDelChat(elegido, decisiones, carteros)) : [];
+  const preguntas = elegido ? preguntasDelChat(elegido, decisiones, carteros) : [];
   const hilo = useRef<HTMLDivElement>(null);
   // Como un chat: abre en lo último. La hoja monta su cuerpo en un portal y lo mide después del primer pintado,
   // así que se baja en el cuadro siguiente (en el mismo efecto no hay todavía qué scrollear).
@@ -190,7 +196,7 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
                 ])
                 : corte.map((c) => ({ c, sub: false }))
               ).map(({ c, sub }) => {
-                const p = vistaPrevia(historialDelChat(c, porId, trabajos));
+                const p = vistaPrevia(historialDelChat(c, porId, trabajos, respuestasDelChat(c, decisiones, carteros)));
                 const vivo = c.estado === 'trabajando' && !c.viejo;
                 const espera = esperaDe(c, esperas);
                 return (
@@ -267,13 +273,9 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
               </button>
             </div>
             <BarraAvanceMovil nodos={avanceDelChat(lineas)} pushes={pushes} ahora={ahora} />
-            {esperaDe(elegido, esperas) > 0 && (
-              <Link href="/m/tickets/decisiones" className="co-espera" style={{ margin: 0 }}>
-                {esperaDe(elegido, esperas) === 1 ? 'Una tarjeta espera tu respuesta' : `${esperaDe(elegido, esperas)} tarjetas esperan tu respuesta`}
-                <span className="co-espera__ir">Contestar</span>
-              </Link>
-            )}
             <Hilo lineas={lineas} pushes={pushes ?? []} ahora={ahora} vacio="Escríbele abajo para empezar." quien={{ titulo: elegido.titulo, aspecto: elegidoPara(munecos, elegido.titulo), animo: animoDe(elegido), dato: metaDe(elegido) }} />
+            {/* Lo que espera de Martín, al final de la conversación y pegado a la caja: AskUserQuestion de Claude Code. */}
+            {preguntas.length > 0 && <Pregunta key={elegido.clave} preguntas={preguntas} responder={responder} />}
           </div>
         )}
       </SheetM>

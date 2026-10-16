@@ -45,6 +45,7 @@
 
 import './centro.css';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Button, Field, Input, Modal, Toast, useToast } from '@/app/_ui';
 import { MenuContextual } from '@/app/_ui/MenuContextual';
 import { Icon } from '@/app/_components/icons';
@@ -63,6 +64,10 @@ import { Conversacion } from './Conversacion';
 import { Tick } from './Hilo';
 import { Muneco, animoDe } from './Muneco';
 import { PanelRunner, TituloRunner, type VistaRunner } from './PanelRunner';
+import { TicketeraCentro } from './TicketeraCentro';
+import { preguntasDelChat, respuestasDelChat } from '@/lib/centro-preguntas';
+import type { AccionDeshacer, AccionResponder, Decision } from '@/app/admin/runway/decisiones';
+import type { VistaTicketera } from '@/app/tickets/decisiones/CambioVista';
 import { fotoCentroAction, guardarMunecoAction, pushesCentroAction } from './acciones';
 import { copiar, useFirma } from './mandar';
 
@@ -90,7 +95,10 @@ function anotarEnUrl(cambios: Record<string, string | null>) {
   try {
     const u = new URL(window.location.href);
     for (const [k, v] of Object.entries(cambios)) { if (v == null) u.searchParams.delete(k); else u.searchParams.set(k, v); }
-    window.history.replaceState(window.history.state, '', `${u.pathname}${u.search}`);
+    // Con `null` y no con el estado de Next: así el router se entera (copia su estado y despacha un RESTORE) y
+    // `useSearchParams` sigue a la URL. Con el estado de Next, el router se queda con la URL vieja y un link a la misma
+    // vista no hace nada (revisión adversarial, 16/10/2026).
+    window.history.replaceState(null, '', `${u.pathname}${u.search}`);
   } catch { /* la URL es una comodidad: si falla, la pantalla sigue igual */ }
 }
 
@@ -116,12 +124,20 @@ function Previa({ c, p, espera }: { c: ChatCentro; p: VistaPrevia | null; espera
   );
 }
 
-export function CentroApp({ base, colaInicial, carterosIniciales, decisionesIniciales, munecosIniciales, pedidos, ahora: ahoraServer, sub, chatInicial }: {
+export function CentroApp({
+  base, colaInicial, carterosIniciales, decisionesIniciales, munecosIniciales, pedidos, ahora: ahoraServer, sub, chatInicial,
+  responder, deshacer, ticketeraInicial,
+}: {
   base: ChatCentro[];
   colaInicial: Pedido[] | null;
   carterosIniciales: EstadoCarteros | null;
-  /** Las tarjetas de la Ticketera (lo mínimo); null si no se pudieron leer. */
+  /** Las tarjetas de la Ticketera, enteras; null si no se pudieron leer. */
   decisionesIniciales: DecisionEspera[] | null;
+  /** Las acciones de la Ticketera (app/admin/runway/acciones.ts): contestar acá es contestar allá. */
+  responder: AccionResponder;
+  deshacer: AccionDeshacer;
+  /** `?ticketera=`: las rutas viejas de la Ticketera traen acá, con la vista que eran. */
+  ticketeraInicial: VistaTicketera | null;
   /** Los muñecos que Martín eligió, por nombre (lib/centro-munecos-db.ts). */
   munecosIniciales: MunecosElegidos;
   pedidos: PedidoP[];
@@ -132,6 +148,8 @@ export function CentroApp({ base, colaInicial, carterosIniciales, decisionesInic
   const [cola, setCola] = useState<Pedido[]>(colaInicial ?? []);
   const [estado, setEstado] = useState<EstadoCarteros | null>(carterosIniciales);
   const [decisiones, setDecisiones] = useState<DecisionEspera[]>(decisionesIniciales ?? []);
+  const [decisionesOk, setDecisionesOk] = useState(decisionesIniciales != null);
+  const [ticketera, setTicketera] = useState<VistaTicketera | null>(ticketeraInicial);
   const [ahora, setAhora] = useState(ahoraServer);
   const [pushes, setPushes] = useState<LecturaPushes | null>(null);
   const [busca, setBusca] = useState('');
@@ -166,12 +184,21 @@ export function CentroApp({ base, colaInicial, carterosIniciales, decisionesInic
     return (chats.find((c) => c.sesion) ?? chats[0])?.clave ?? null;
   });
   // En una ventana angosta se ve la lista o la conversación (como WhatsApp en el teléfono).
-  const [conChat, setConChat] = useState(chatInicial != null);
+  const [conChat, setConChat] = useState(chatInicial != null || ticketeraInicial != null);
+  // ⚠️ LA VISTA SIGUE A LA URL, no a la prop: un link a esta misma página con otro `?ticketera=` (el ítem «Ticketera» de
+  // la barra de admin) no la vuelve a montar, y la prop puede no cambiar aunque la URL sí (la prop es la de la última
+  // vez que dibujó el server). `useSearchParams` sí cambia, también con lo que anota `anotarEnUrl`.
+  const qTicketera = useSearchParams().get('ticketera');
+  useEffect(() => {
+    const v: VistaTicketera | null = qTicketera === 'lista' || qTicketera === 'tarjetas' ? qTicketera : null;
+    setTicketera(v);
+    if (v) setConChat(true);
+  }, [qTicketera]);
   const actual = chats.find((c) => c.clave === elegido) ?? null;
 
   const refrescar = useCallback(async () => {
     const f = await fotoCentroAction();
-    if (f.ok) { setCola(f.pedidos); setEstado(f.carteros); if (f.decisiones) setDecisiones(f.decisiones); }
+    if (f.ok) { setCola(f.pedidos); setEstado(f.carteros); if (f.decisiones) { setDecisiones(f.decisiones); setDecisionesOk(true); } }
     setAhora(Date.now());
   }, []);
   useEffect(() => {
@@ -183,13 +210,35 @@ export function CentroApp({ base, colaInicial, carterosIniciales, decisionesInic
   // Vercel, después de dibujar.
   useEffect(() => { let vivo = true; pushesCentroAction().then((p) => { if (vivo) setPushes(p); }).catch(() => {}); return () => { vivo = false; }; }, []);
 
-  const elegir = (clave: string) => { setElegido(clave); setConChat(true); anotarEnUrl({ tab: null, todos: null, chat: clave }); };
+  const elegir = (clave: string) => { setElegido(clave); setTicketera(null); setConChat(true); anotarEnUrl({ tab: null, todos: null, ticketera: null, chat: clave }); };
+  const abrirTicketera = (v: VistaTicketera) => { setTicketera(v); setConChat(true); anotarEnUrl({ ticketera: v }); };
+  const cerrarTicketera = () => { setTicketera(null); anotarEnUrl({ ticketera: null }); };
+
+  // ── Las preguntas de cada chat (la Ticketera de ESE chat, arriba de su caja) ──────────────────────
+  // Contestar acá o en la Ticketera guarda lo mismo; lo de acá se ve en el acto (el refresco trae la verdad).
+  const anotarRespuesta = (id: number, clave: string | null, texto: string) => setDecisiones((ds) => ds.map((d) => (d.id !== id ? d : {
+    ...d, respuesta: clave, respuestaTexto: clave ? texto.trim() || null : null, respondidaAt: clave ? new Date().toISOString() : null, recogidaAt: null,
+  })));
+  const responderAca: AccionResponder = async (prev, fd) => {
+    const r = await responder(prev, fd);
+    if (r.ok) anotarRespuesta(Number(fd.get('id')), String(fd.get('clave') ?? ''), String(fd.get('texto') ?? ''));
+    return r;
+  };
+  const deshacerAca: AccionDeshacer = async (fd) => {
+    const r = await deshacer(fd);
+    if (r.ok) anotarRespuesta(Number(fd.get('id')), null, '');
+    return r;
+  };
+  const pendientesTicketera = decisiones.filter((d) => !d.respuesta && d.urgencia !== 'aviso').length;
 
   // ── La barra: una lista, lo que trabaja primero ────────────────────────────────────────────────
   const filtro = normal(busca.trim());
   const visibles = filtro ? chats.filter((c) => normal(c.titulo).includes(filtro)) : chats;
   const secciones = useMemo(() => seccionesDeChats(visibles), [visibles]);
-  const previas = useMemo(() => new Map(chats.map((c) => [c.clave, vistaPrevia(historialDelChat(c, porId, trabajos))])), [chats, porId, trabajos]);
+  const previas = useMemo(
+    () => new Map(chats.map((c) => [c.clave, vistaPrevia(historialDelChat(c, porId, trabajos, respuestasDelChat(c, decisiones, carteros)))])),
+    [chats, porId, trabajos, decisiones, carteros],
+  );
 
   const alternar = (set: Set<string>, k: string) => { const n = new Set(set); if (n.has(k)) n.delete(k); else n.add(k); return n; };
 
@@ -280,7 +329,7 @@ export function CentroApp({ base, colaInicial, carterosIniciales, decisionesInic
         <button
           type="button" title={c.titulo}
           className={`co-fila${c.sesion ? '' : ' co-fila--sin-dir'}`}
-          aria-current={actual?.clave === c.clave ? 'true' : undefined}
+          aria-current={!ticketera && actual?.clave === c.clave ? 'true' : undefined}
           onClick={() => elegir(c.clave)}
           onContextMenu={(e) => { e.preventDefault(); abrirMenu(c.clave, e.clientX, e.clientY); }}
         >
@@ -309,6 +358,12 @@ export function CentroApp({ base, colaInicial, carterosIniciales, decisionesInic
             <Icon name="search" size={16} />
             <input type="search" value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar" aria-label="Buscar un chat" />
           </label>
+          {/* La Ticketera entera, arriba de los chats: como «Buscar» y «Biblioteca» en la barra de ChatGPT. */}
+          <button type="button" className="co-acceso co-acceso--ticketera" aria-pressed={ticketera != null}
+            onClick={() => (ticketera ? cerrarTicketera() : abrirTicketera('tarjetas'))}>
+            <Icon name="soporte" size={17} />Ticketera
+            {pendientesTicketera > 0 && <span className="co-acceso__n">{pendientesTicketera}</span>}
+          </button>
         </div>
 
         <nav className="co-lista" aria-label="Chats">
@@ -357,7 +412,13 @@ export function CentroApp({ base, colaInicial, carterosIniciales, decisionesInic
         </div>
       </aside>
 
-      {actual && envio ? (
+      {ticketera ? (
+          <TicketeraCentro
+            decisiones={decisionesOk ? decisiones : null} vista={ticketera} onVista={abrirTicketera}
+            responder={responderAca} deshacer={deshacerAca}
+            onVolver={() => { cerrarTicketera(); setConChat(false); }}
+          />
+        ) : actual && envio ? (
           <Conversacion
             chat={actual} pedidos={porId} trabajos={trabajos} pushes={pushes?.ok ? pushes.pushes : null} ahora={ahora}
             avance={avance} onAvance={cambiarAvance}
@@ -365,6 +426,9 @@ export function CentroApp({ base, colaInicial, carterosIniciales, decisionesInic
             onMenu={(x, y) => abrirMenu(actual.clave, x, y)}
             onMuneco={() => setEligiendo({ clave: actual.clave, aspecto: aspectoDe(actual.titulo, elegidoPara(munecos, actual.titulo)), guardando: false })}
             espera={esperaDe(actual, esperas)}
+            preguntas={preguntasDelChat(actual, decisiones, carteros)}
+            respuestas={respuestasDelChat(actual, decisiones, carteros)}
+            responder={responderAca}
             envio={envio} texto={texto} onTexto={setTexto} alcance={alcance} onAlcance={setAlcance} enviando={enviando}
             onMandar={mandar} onCrearClave={crearClave}
             onCopiarClave={() => firma.clave && copiarConAviso(firma.clave.spki, 'Copiado: pégalo en el Runner')}
