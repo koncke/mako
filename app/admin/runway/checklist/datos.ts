@@ -51,6 +51,7 @@ export const HECHO: SeccionChecklist[] = [
     { id: 'crm-asignar-campanas', t: '«⋯» de «Lead entrante»: «Asignar campañas» con el logo de Meta.' },
     { id: 'crm-a-revisar-1610', t: '«A revisar»: número junto al nombre, basurero rojo, «Ignorar todos»; «Revisar» abre el «Ver».' },
     { id: 'crm-cabecera-1610', t: 'Cabecera del lead sin «Sin empresa», con la foto grande y el nombre pegado, como en Clientes.' },
+    { id: 'crm-renombrar-1610', t: 'Renombrar un CRM cambia el desplegable al instante y el editor ya no muestra el nombre viejo.' },
   ] },
   { titulo: 'Automations', items: [
     { id: 'aut-flechas', t: 'Toda flecha se desconecta; el paso con IA escucha notas de voz.', ruta: '/automations' },
@@ -98,7 +99,6 @@ export const PENDIENTE: SeccionChecklist[] = [
   ] },
   // Feedback del 16/10 a la tarde: textual y con su archivo en docs/feedback-16-10-crm-onboarding-second-brain.md.
   { titulo: 'Tu feedback del 16/10 a la tarde', items: [
-    { id: 'p16-crm-nombre', t: 'CRM: renombrar se guarda solo al salir del campo, y el editor muestra el nombre nuevo.' },
     { id: 'p16-crm-evento', t: 'CRM: «Asignar evento» en las etapas de reunión (Calendly, Cal o Calendar), y crear uno ahí.' },
     { id: 'p16-crm-velocidad', t: 'CRM: que la ficha del lead abra rápido.' },
     { id: 'p16-crm-hojas', t: 'CRM: tabs como las hojas del Dashboard, templates con miniaturas propias, sin la barra lateral.' },

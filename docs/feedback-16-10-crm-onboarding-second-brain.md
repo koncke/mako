@@ -3,8 +3,8 @@
 Lo mandó al Cerebro el 16/10 a la tarde con cinco capturas (el editor de etapas con «Asignar campañas», el «Ver» de
 datos sin marcar de la ficha, «A revisar», la ficha de un cliente en /customer-success y la de un lead en /crm). Pidió
 «Guarda todo este feedback para las próximas cuentas» e «implementa lo que puedas del CRM, sobre todo las cosas
-simples». La cuenta 3 estaba al 97% semanal: se hizo lo simple (commit `9f595cc6f`) y el resto queda acá, **con su
-archivo**, para la cuenta que siga. Las citas son textuales.
+simples». La cuenta 3 estaba al 97% semanal: se hizo lo simple (commits `9f595cc6f` y `4e9411a71`) y el resto queda
+acá, **con su archivo**, para la cuenta que siga. Las citas son textuales.
 
 **Quién lo retoma:** el chat **CRM** (relevo: docs/relevo/crm.md, que apunta acá), el chat **Onboarding**
 (docs/relevo/onboarding.md) y el chat **Centro de Operaciones** para el Second Brain (docs/relevo/centro-operaciones.md).
@@ -26,7 +26,11 @@ archivo**, para la cuenta que siga. Las citas son textuales.
 
 ## CRM
 
-### Hecho (commit `9f595cc6f`)
+### Hecho (commits `9f595cc6f` y `4e9411a71`)
+- [x] **1.** Renombrar un CRM: el desplegable cambia al instante (el pop-up le avisa el nombre al mandarlo) y el
+  editor ya no muestra el nombre viejo. La causa: desde el 13/10 el CRM tiene nombre propio y `embudoEnDetalleAction`
+  (app/crm/actions.ts) seguía devolviendo el del PRODUCTO; ahora usa `nombreVisible`, como el desplegable. Guardar al
+  salir del campo y al cerrar ya estaba (app/crm/EtapasModal.tsx). Test: tests/crm-renombrar-16-10.test.ts.
 - [x] **2.** El «⋯» de «Lead entrante» dice «Asignar campañas» con el logo de Meta (app/crm/CrmBoard.tsx).
 - [x] **6, en parte.** En «A revisar» (app/_components/MakoConfirmGate.tsx): el número va pegado al nombre, la primera
   fila no tiene raya (no choca con la de la cabecera) y la ✕ es un basurero rojo.
@@ -37,12 +41,6 @@ archivo**, para la cuenta que siga. Las citas son textuales.
   no tenía RAM para `next dev`): mirarlo a 1440, 1024 y 390.
 
 ### Sin hacer
-1. **Renombrar un CRM se guarda solo.** «Cuando cambio el nombre de un CRM debe cambiarse automáticamente, incluso si
-   no le doy "enter" y clickeo afuera del modal de edición del CRM... Si se cambió pero luego de unos segundos y
-   debería ser automático... Y fijate el bug que en el modal ya me aparece bien el nombre y luego en la edición del
-   CRM me aparece el viejo nombre.» Vive en el desplegable de CRMs (app/crm/CrmToolbar.tsx, el lápiz de cada uno) y el
-   pop-up de etapas (app/crm/EtapasModal.tsx). Guardar al salir del campo (blur), al instante en pantalla, y que el
-   pop-up lea el nombre nuevo (sospecha: lee una copia del funnel tomada al abrir).
 3. **«Asignar evento» en las etapas de reunión.** «...con el logo de Meet, y que ahí se puedan seleccionar de la misma
    manera (en diseño) que la lista de campañas, la lista de eventos de Calendly o Cal o Calendar... Y que tenga la
    opción ahí mismo de crear un nuevo evento para asignarse a esa etapa.» El MOTOR ya está en producción (mig 0293,
