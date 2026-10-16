@@ -1577,6 +1577,11 @@ export type HechosLead = {
    * tanda, punto 17), y la dice con el mismo `textoRama`.
    */
   catalogo?: HechosCatalogo;
+  /**
+   * LOS DATOS DEL EVENTO de la corrida (16/10/2026, lib/dato-evento.ts): lo que pasó su emisor (`ctx.datos`). Sólo en una
+   * corrida de un evento de MaKo; ausente = no hay evento, y una condición sobre un dato da «no sé».
+   */
+  evento?: Readonly<Record<string, string>>;
 };
 
 /**

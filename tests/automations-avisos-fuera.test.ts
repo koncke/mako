@@ -82,7 +82,9 @@ test('el runner de los EVENTOS duerme en ESE paso hasta que abre, con el context
   const cuerpo = flujos.slice(i, flujos.indexOf('\n}\n', i));
   const orden = [cuerpo.indexOf('if (esperaApertura(pasos, i)) {'), cuerpo.indexOf("if (pasos[i]?.tipo === 'condicion' && hechos === undefined)")];
   assert.ok(orden[0] > 0 && orden[0] < orden[1], 'la condición se decide antes de mirar el horario');
-  assert.match(cuerpo, /if \(corridaId\) await avanzar\(ws, corridaId, i, i, hasta, ctx\);\n\s*else await abrirCorrida\(ws, flujoId, i, hasta, ctx, \{ reintento: true \}\);\n\s*return;/);
+  // (16/10/2026, revisión de B3: duerme en la PRIMERA condición de la cadena que la trajo hasta acá, o en ESTE paso si no
+  // vino de ninguna: tests/dato-evento.test.ts.)
+  assert.match(cuerpo, /const dormirEn = cadena \?\? i;\n\s*if \(corridaId\) await avanzar\(ws, corridaId, i, dormirEn, hasta, ctx\);\n\s*else await abrirCorrida\(ws, flujoId, dormirEn, hasta, ctx, \{ reintento: true \}\);\n\s*return;/);
   assert.match(cuerpo, /apertura === 'ilegible' \? new Date\(Date\.now\(\) \+ REINTENTO_HORARIO_MS\)/, '«no sé» mandaba igual');
 });
 

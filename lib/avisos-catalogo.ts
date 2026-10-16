@@ -324,6 +324,10 @@ export const AVISOS_SOLO_SUPERADMIN: readonly string[] = [
   'reporte-semanal',
   // La oferta quedó lista (16/10/2026): la arma el servidor y avisa la automatización de la plataforma.
   'oferta-lista',
+  // La cuenta publicitaria frenada y su «ya está» (16/10/2026): eventos de la plataforma, con su texto y su techo en la
+  // automatización de SuperAdmin (docs/inventario-nada-por-detras.md, lote 1).
+  'meta-cuenta-frenada',
+  'meta-cuenta-recuperada',
 ];
 
 export const esAvisoSoloSuperAdmin = (id: string): boolean => AVISOS_SOLO_SUPERADMIN.includes(id);
@@ -430,29 +434,18 @@ Abre la extensión de MaKo y toca *Conectar*. Las tomas no se cobraron: cuando v
   {
     id: 'meta-cuenta-frenada', titulo: 'Cuenta Meta deshabilitada / entrega frenada', categoria: 'aviso', porDefecto: 'on',
     prioridad: 'alta', semaforo: 'rojo', requiereRespuesta: false, yaImplementado: 'si',
-    // ⚠️ ESTE AVISO INSISTE. No lo manda `emitirDelCatalogo` una vez: lo repite
-    // `lib/alerta-critica.ts` cada 10-20 minutos MIENTRAS la entrega siga
-    // frenada, con el texto subiendo de tono y el contador de tiempo perdido.
-    // El `ejemplo` de acá es la PRIMERA vez; las siguientes son más cortas.
-    // Editar este texto no cambia el de la insistencia (un mensaje de emergencia
-    // no se reescribe cada quince minutos) — se toca en alerta-critica.ts.
-    disparador: 'Cron alerta-critica: revisa cada 10 min y AVISA cada 1 hora mientras haya un incidente ABIERTO en service_incidents con entrega frenada o severidad roja (detectar rápido e insistir seguido son dos cosas distintas). Se repite hasta que se resuelva; al resolverse sale meta-cuenta-recuperada. Si dos workspaces comparten la misma cuenta publicitaria, avisa UNA vez.',
-    ejemplo: `━━ 📣 ANUNCIOS ━━
-🚨🚨🚨 *DETÉN TODO* 🚨🚨🚨
+    // ⚠️ DESDE EL 16/10/2026 ES UN EVENTO DE LA PLATAFORMA (`meta_cuenta_frenada`): lo emite `lib/alerta-critica.ts` cada
+    // hora MIENTRAS el incidente siga abierto, con sus HECHOS, y lo que se dice —un texto literal por estado— y hasta
+    // cuántas veces —«Aviso número ≤ 3»— lo decide la automatización de SuperAdmin (`mako-meta-cuenta-frenada`). Hasta ese
+    // día lo mandaba `emitirAviso` directo, sin techo (el «18ª vez» del grupo de Mauricio).
+    disparador: 'Cron alerta-critica: revisa cada 10 min y emite el evento cada 1 hora mientras haya un incidente ABIERTO en service_incidents con entrega frenada o severidad roja, confirmado por Meta. Qué dice y hasta cuántas veces lo decide la automatización de SuperAdmin; al resolverse sale meta-cuenta-recuperada. Si dos workspaces comparten la misma cuenta publicitaria, avisa UNA vez.',
+    ejemplo: `🚨 Tu cuenta publicitaria está *SUSPENDIDA POR FALTA DE PAGO*
+📉 Anuncios: sin entregar
+🕐 Hace 35 min que está así.
+✅ Paga el saldo que debes en el Business Manager de Meta.
+👉 https://hola-mako.com/integraciones
 
-⛔ Tu cuenta publicitaria está *SUSPENDIDA POR FALTA DE PAGO*.
-🛑 Hace *35 min* que no corre un solo anuncio.
-
-💸 *Cada minuto que pasa es plata tirada:*
-❌ No entra *ningún* lead nuevo.
-❌ El día perdido no se recupera.
-
-✅ *QUÉ HACER:* Paga el saldo que debes en el Business Manager de Meta.
-
-👉 *RESUÉLVELO YA:*
-https://hola-mako.com/integraciones
-
-🔁 Te voy a seguir avisando hasta que esté arreglado. — MaKo`,
+— MaKo`,
   },
   {
     id: 'meta-cuenta-riesgo', titulo: 'Cuenta Meta en revisión de riesgo (ámbar)', categoria: 'aviso',
@@ -463,12 +456,10 @@ https://hola-mako.com/integraciones
   {
     id: 'meta-cuenta-recuperada', titulo: 'Cuenta Meta recuperada (volvió a verde)', categoria: 'aviso',
     prioridad: 'baja', semaforo: 'verde', requiereRespuesta: false, yaImplementado: 'si',
-    // Es la contracara de la insistencia y por eso NO es opcional: si MaKo
-    // persiguió veinte veces y después se calla, el dueño no sabe si dejó de
-    // avisar porque se resolvió o porque el aviso se rompió.
-    disparador: 'Cron alerta-critica: el incidente que se venía persiguiendo pasó a resuelto.',
-    ejemplo: `━━ 📣 ANUNCIOS ━━
-✅✅ *LISTO, YA ESTÁ ENTREGANDO* ✅✅
+    // Es la contracara de la insistencia: si MaKo avisó y después se calla, el dueño no sabe si dejó de avisar porque se
+    // resolvió o porque el aviso se rompió. Desde el 16/10/2026, el evento de la plataforma `meta_cuenta_recuperada`.
+    disparador: 'Cron alerta-critica: el incidente que se venía avisando pasó a resuelto. Lo dice la automatización de SuperAdmin.',
+    ejemplo: `✅✅ *LISTO, YA ESTÁ ENTREGANDO* ✅✅
 
 🟢 Tu cuenta publicitaria volvió a la normalidad.
 🔕 Dejo de insistir.

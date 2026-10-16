@@ -306,8 +306,9 @@ test('⚠️ sin lead, los datos del CRM NO SE MUESTRAN', () => {
   assert.equal(
     // 13/10/2026: y el ANÁLISIS del Dashboard (`conAnalisis`, «El AI Analyst termina un análisis»).
     // 15/10/2026: y la LÍNEA de un negocio (`conLinea`, los eventos de la plataforma de la línea caída y la que volvió).
-    // 16/10/2026: y el REPORTE semanal ya armado (`conReporte`, el evento de la plataforma `reporte_semanal`).
-    variablesOfrecidas({ conLead: true, conCuota: true, conMensaje: true, conPago: true, conEscrito: true, conAnalisis: true, conLinea: true, conGrabacion: true, conReporte: true, conOferta: true }).flatMap((g) => g.items).length,
+    // 16/10/2026: y el REPORTE semanal ya armado (`conReporte`, el evento de la plataforma `reporte_semanal`), y la CUENTA
+    // PUBLICITARIA frenada (`conAnuncios`, `meta_cuenta_frenada`).
+    variablesOfrecidas({ conLead: true, conCuota: true, conMensaje: true, conPago: true, conEscrito: true, conAnalisis: true, conLinea: true, conGrabacion: true, conReporte: true, conOferta: true, conAnuncios: true }).flatMap((g) => g.items).length,
     // (15/10/2026: lo que es SÓLO para una persona —el link de restablecer— no es del equipo.)
     VARIABLES_AVISO.filter((v) => !v.oculta && v.soloPara !== 'lead' && v.soloPara !== 'usuario').length,
     'con lead, cuota, el texto del código, el pago, lo escrito y el análisis se puede resolver TODO lo del equipo',
