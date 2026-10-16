@@ -59,7 +59,10 @@ export async function POST(req: Request) {
   if (file.size > TOPE_IMPORTAR_BYTES) return falla(413, 'El archivo pesa más de 15 MB.');
 
   try {
-    const lectura = await archivoATexto(file);
+    // Con la red para la lectura por visión (un PDF escaneado, una imagen): armar una landing es de la primera
+    // semana de un cliente nuevo, que no trae una API (16/10/2026). Sin datos de clientes: es el material del
+    // negocio. El esquema que se arma después ya la tiene (lib/editor-landing/ia.ts).
+    const lectura = await archivoATexto(file, { redDePlataforma: true });
     const texto = lectura.texto.replace(/\r\n?/g, '\n').trim();
     if (!texto) {
       // El lector ya escribe por qué (formato, tamaño, sin voz): se le pasa tal cual.

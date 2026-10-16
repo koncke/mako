@@ -4204,6 +4204,11 @@ corta antes») y los tests ahora preguntan qué hay antes de la llamada.
   audio (`transcribirAudio`) y el guion de audio de Automations (`app/api/chat-agent/redactar`). Son de otras áreas: la
   regla de AGENTS.md les pide aplicarla ellos mismos.
 - **Las otras ~50 llamadas sin red** siguen sin ella: el coordinador decide el orden sobre `docs/mapa-ia-24h.md`.
+  Segunda tanda, el mismo día y sin datos de clientes (red gratis): el diagnóstico de una landing (ya la tenía desde el
+  15/10; ahora con test de punta a punta), importar un archivo para armar la landing, carruseles/reels/stories
+  (`generarPieza`) y planificar el anuncio en video (el plan y la reparación de su JSON). Las lecturas del CRM con
+  datos de clientes (contrato, comprobante, documento fiscal) siguen sin red, y sin key ya dicen qué conectar: «Carga
+  una API key de Gemini u OpenAI en Integraciones», que es lo correcto porque la lectura por visión no usa Claude.
 - **Ningún camino se probó contra la red de verdad con un workspace sin keys**: sin `next dev` por la RAM.
 
 · *2026-10-16 chat «Onboarding» (claude3)*

@@ -347,6 +347,9 @@ export async function generarPieza(ws: number, formato: FormatoIg, pedido: strin
       maxTokens: 8000,
       feature: FEATURE_POR_FORMATO[formato],
       motivo: `Escribir ${NOMBRE_FORMATO[formato]} de Instagram`,
+      // Carruseles, reels y stories son de la primera semana de un cliente nuevo, que no trae una API
+      // (16/10/2026). Sin datos de clientes: el material es del negocio, así que va la red gratis.
+      redDePlataforma: true,
     });
     return { ok: true, pieza: parsePieza(formato, salida) };
   } catch (e) {
