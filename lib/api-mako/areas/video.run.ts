@@ -32,6 +32,7 @@ import { EXTENSION_VERSION } from '@/lib/extension-version';
 import { CATALOGO_ESCENARIOS, escenarioPorId, escenariosParaCamara } from '@/lib/escenarios-data';
 import type { Camara } from '@/lib/puestas-data';
 import { CREDITOS_POR_DURACION, creditosDeClip } from '@/lib/costo-clip';
+import { plantillasParaApi } from '@/lib/editor-video/plantillas';
 import { causaDeMotivo, causaFlow, textoFlow, type CausaFlow } from '@/lib/flow-fallo-texto';
 import { getEstadoTab, onboardingTabPendiente, tabOnboardingDef } from '@/lib/tab-onboarding-state';
 import {
@@ -479,6 +480,11 @@ export const RUNNERS: Runners = {
         ...(cayoATodos ? { nota: 'Ningún lugar declara esa cámara: se listan todos.' } : {}),
       });
     },
+  },
+
+  // El catálogo del Video Editor: constante y puro (lo arma lib/editor-video/plantillas.ts).
+  listar_plantillas_video: {
+    leer: async () => json(plantillasParaApi()),
   },
 
   ver_contexto_video: {

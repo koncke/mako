@@ -26,10 +26,17 @@
 // Lo que tarda (revertir, congelar, medir para normalizar, subtitular) y los cortes por
 // tiempo o por frase van AL FINAL, después de todo lo demás (chat/aplicar.ts): la revisión
 // los procesa en una segunda pasada, en ese orden, para que las filas digan lo que pasa.
+//
+// Las plantillas de anuncio (plan-plantillas-anuncio.md §5): la vista marca cada elemento
+// que salió de una plantilla con su "hueco" (y "muestra" si es la imagen para sustituir) y
+// lista los medios de Multimedia con una ref corta (m1, m2…), que usan reemplazar_clip y
+// usar_plantilla. usar_plantilla va SOLA y con la línea de tiempo vacía: se revisa antes que
+// todo lo demás.
 // =============================================================================
 
 import type { SceneTracks, TimelineElement, TimelineTrack, ElementType } from "@/app/video-editor/_opencut/timeline/types";
 import type { ParamValue, ParamValues } from "@/app/video-editor/_opencut/params";
+import type { MediaAsset } from "@/app/video-editor/_opencut/media/types";
 import {
 	AJUSTES_COLOR,
 	MEZCLAS,
@@ -42,6 +49,9 @@ import {
 	type OperacionChat,
 	type TransformChat,
 } from "@/lib/editor-video/chat-catalogo";
+import { huecosDe, largoTexto, plantillaPorId } from "@/lib/editor-video/plantillas";
+import { leerMarcas, type MarcasPlantilla } from "@/app/video-editor/_opencut/plantillas/huecos";
+import { aceptaDe, aceptaMedio, mediosParaReemplazo, type Acepta } from "@/app/video-editor/_opencut/reemplazo/puro";
 import { ANIM, categoriasPara } from "@/app/video-editor/_opencut/params/extra/animaciones";
 import { DEFAULTS_TEXTO, TEXTO } from "@/app/video-editor/_opencut/params/extra/texto";
 import {
@@ -142,14 +152,37 @@ export type RefElemento = {
 	nuevo?: boolean;
 	/** Un audio que salió de «Extraer audio» de un video: los cortes lo parten como a su video. */
 	extraido?: boolean;
+	/** Video o imagen: el medio de Multimedia que muestra. */
+	mediaId?: string;
+	/** Video o imagen: qué medio acepta (su hueco del catálogo; un clip común, «ambos»). */
+	acepta?: Acepta;
+	/** Lo que salió de una plantilla (plantillas/huecos.ts): de cuál y qué hueco. */
+	plantilla?: string;
+	hueco?: string;
+	/** Un clip que es la imagen de muestra de su hueco (sin sustituir). */
+	muestra?: boolean;
+	/** El hueco se puede dejar con su muestra (el fondo del cierre). */
+	opcional?: boolean;
+	/** Al sustituirlo por un video, entra sin sonido. */
+	silenciar?: boolean;
+	/** Un texto de hueco: el tope de caracteres del catálogo. */
+	maxCaracteres?: number;
 	estado: EstadoElemento;
 };
+
+/** Un medio de Multimedia que el chat puede usar (reemplazar_clip, usar_plantilla). `duracion` en segundos, sin redondear. */
+export type RefMedio = { ref: string; mediaId: string; nombre: string; tipo: "video" | "imagen"; duracion?: number; sinAudio?: boolean };
+
+/** Lo que la vista lee de un medio de Multimedia (MediaAsset). */
+export type MedioVista = Pick<MediaAsset, "id" | "name" | "type" | "duration" | "ephemeral" | "hasAudio">;
 
 export type VistaLinea = {
 	/** Lo que se le manda a la IA. */
 	json: string;
 	/** ref → elemento, para revisar y aplicar. */
 	refs: Map<string, RefElemento>;
+	/** ref («m1») → medio de Multimedia. */
+	medios: Map<string, RefMedio>;
 	/** Las refs de lo elegido en la línea de tiempo al mandar. */
 	elegidos: string[];
 	disponibles: Disponibles;
@@ -464,10 +497,27 @@ function disponiblesJson(d: Disponibles): Record<string, unknown> | undefined {
 	};
 }
 
+/** Lo que una plantilla dejó marcado en un elemento, como lo lee el chat (y el tope de su texto, del catálogo). */
+function deHueco(el: TimelineElement, m: MarcasPlantilla | null): Partial<RefElemento> {
+	if (!m?.hueco) return {};
+	const clip = el.type === "video" || el.type === "image";
+	const plantilla = el.type === "text" ? plantillaPorId(m.plantilla) : null;
+	const tope = plantilla ? huecosDe(plantilla).find((h) => h.nombre === m.hueco && h.tipo === "texto")?.maxCaracteres : undefined;
+	return {
+		plantilla: m.plantilla,
+		hueco: m.hueco,
+		...(clip && m.muestra ? { muestra: true } : {}),
+		...(m.opcional ? { opcional: true } : {}),
+		...(m.silenciar ? { silenciar: true } : {}),
+		...(tope ? { maxCaracteres: tope } : {}),
+	};
+}
+
 /**
- * La escena para la IA. `refsPrevias` (elementId → ref) conserva las referencias de una
- * vista anterior: al ACEPTAR se vuelve a mirar la línea de tiempo de ese momento, y «t2»
- * tiene que seguir siendo el mismo texto aunque se haya agregado otro adelante.
+ * La escena para la IA. `refsPrevias` (id → ref, de los elementos y de los medios) conserva
+ * las referencias de una vista anterior: al ACEPTAR se vuelve a mirar la línea de tiempo de
+ * ese momento, y «t2» tiene que seguir siendo el mismo texto aunque se haya agregado otro
+ * adelante (y «m2», el mismo medio aunque se haya importado otro).
  */
 export function vistaDeLinea({
 	tracks,
@@ -479,12 +529,15 @@ export function vistaDeLinea({
 	lienzo = null,
 	mediosSinAudio = new Set<string>(),
 	conPalabras = false,
+	medios = [],
 }: {
 	tracks: SceneTracks;
 	tps: number;
 	cabezal: number;
 	elegidos: ReadonlyArray<{ trackId: string; elementId: string }>;
 	refsPrevias?: ReadonlyMap<string, string>;
+	/** Multimedia (editor.media.getAssets()): se listan los videos y las fotos, sin los ocultos. */
+	medios?: ReadonlyArray<MedioVista>;
 	disponibles?: Disponibles;
 	/** El tamaño del lienzo en píxeles (para que la IA ubique con «transformar»). */
 	lienzo?: { ancho: number; alto: number } | null;
@@ -541,6 +594,8 @@ export function vistaDeLinea({
 					...("hidden" in el ? { oculto: el.hidden === true } : {}),
 					...(el.type === "text" && el.params?.subtitulo === true ? { subtitulo: true } : {}),
 					...(el.type === "audio" && typeof el.params?.[EXTRAIDO_DE] === "string" ? { extraido: true } : {}),
+					...(el.type === "video" || el.type === "image" ? { mediaId: el.mediaId, acepta: aceptaDe(el.params ?? {}) } : {}),
+					...deHueco(el, leerMarcas(el.params)),
 					estado: leerEstado(el, tipo, tps, mediosSinAudio),
 				};
 				refs.set(ref, r);
@@ -566,8 +621,36 @@ export function vistaDeLinea({
 			...(sonoro ? { volumen_db: r.volumenDb, silenciado: r.silenciado } : {}),
 			...(r.oculto ? { oculto: true } : {}),
 			...(r.subtitulo ? { subtitulo: true } : {}),
+			...(r.hueco ? { hueco: r.hueco } : {}),
+			...(r.muestra ? { muestra: true, ...(r.opcional ? { opcional: true } : {}) } : {}),
+			...(r.acepta && r.acepta !== "ambos" ? { acepta: r.acepta } : {}),
+			...(r.maxCaracteres ? { max_caracteres: r.maxCaracteres } : {}),
 			...estadoJson(r, disponibles, estiloSubtitulos),
 		})),
+	}));
+
+	// Multimedia: los videos y las fotos que se pueden usar (sin los ocultos: muestras,
+	// cuadros congelados, revertidos), con la misma regla que el diálogo «Reemplazar el clip».
+	const usables = mediosParaReemplazo(medios, "ambos");
+	const mediosRefs = new Map<string, RefMedio>();
+	for (const a of usables.slice(0, TOPES_CHAT.medios)) {
+		const ref = refsPrevias?.get(a.id) ?? nueva("m");
+		const video = a.type === "video";
+		mediosRefs.set(ref, {
+			ref,
+			mediaId: a.id,
+			nombre: a.name,
+			tipo: video ? "video" : "imagen",
+			...(video ? { duracion: a.duration ?? 0 } : {}),
+			...(video && a.hasAudio === false ? { sinAudio: true } : {}),
+		});
+	}
+	const mediosJson = [...mediosRefs.values()].map((m) => ({
+		ref: m.ref,
+		nombre: corto(m.nombre, 60),
+		tipo: m.tipo,
+		...(m.duracion !== undefined ? { duracion: r2(m.duracion) } : {}),
+		...(m.sinAudio ? { sin_audio: true } : {}),
 	}));
 
 	const porId = new Map([...refs.values()].map((r) => [r.elementId, r.ref] as const));
@@ -580,9 +663,11 @@ export function vistaDeLinea({
 		...(primerSubtitulo ? { transcripcion_por_palabra: conPalabras } : {}),
 		...(estiloSubtitulos ? { estilo_subtitulos: JSON.parse(estiloSubtitulos) } : {}),
 		pistas: pistasJson.filter((p) => p.elementos.length > 0 || p.tipo === "video"),
+		medios: mediosJson,
+		...(usables.length > TOPES_CHAT.medios ? { medios_sin_listar: usables.length - TOPES_CHAT.medios } : {}),
 		...(disponiblesJson(disponibles) ? { disponibles: disponiblesJson(disponibles) } : {}),
 	});
-	return { json, refs, elegidos: refsElegidas, disponibles, lienzo };
+	return { json, refs, medios: mediosRefs, elegidos: refsElegidas, disponibles, lienzo };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -623,6 +708,8 @@ export type OperacionResuelta =
 	/** Claves del efecto `ajuste` del motor → valor. */
 	| { op: "ajustar_color"; el: RefElemento; valores: Record<string, number> }
 	| { op: "separar_audio"; el: RefElemento }
+	/** «Reemplazar el clip» con el medio `mediaId` (si es una muestra, también las de su hueco). */
+	| { op: "reemplazar_clip"; el: RefElemento; mediaId: string }
 	| { op: "reemplazar_en_subtitulos"; buscar: string; reemplazo: string; cuantos: number }
 	// Al final, en este orden: los cortes (dentro del lote) y lo que tarda (después).
 	| { op: "cortar_tramo"; inicio: number; fin: number }
@@ -632,7 +719,9 @@ export type OperacionResuelta =
 	/** `desde`: segundos desde el principio del clip, como lo vio la IA. */
 	| { op: "congelar"; el: RefElemento; desde: number }
 	| { op: "normalizar"; el: RefElemento; objetivo: string }
-	| { op: "generar_subtitulos" };
+	| { op: "generar_subtitulos" }
+	/** Sola, con la línea de tiempo vacía. `medios`: hueco → id del medio de Multimedia. */
+	| { op: "usar_plantilla"; plantilla: string; textos: Record<string, string>; medios: Record<string, string> };
 
 export type Revision = { resueltas: OperacionResuelta[]; cambios: CambioChat[]; descartes: string[] };
 
@@ -739,29 +828,85 @@ function textoAnimaciones(anim: ParamValues | undefined, d: Disponibles): string
  * cortes—, sí). Las filas que devuelve son las de «Original | Modificado».
  */
 export function revisarOperaciones({
-	operaciones,
+	operaciones: pedidas,
 	vista,
 	alcance,
 	transcripcion,
 }: {
 	operaciones: readonly OperacionChat[];
-	vista: Pick<VistaLinea, "refs" | "elegidos"> & Partial<Pick<VistaLinea, "disponibles">>;
+	vista: Pick<VistaLinea, "refs" | "elegidos"> & Partial<Pick<VistaLinea, "disponibles" | "medios">>;
 	alcance: "video" | "seleccion";
 	/** Los subtítulos con tiempos por palabra (cortar_frase, eliminar_muletillas). */
 	transcripcion?: TranscripcionChat;
 }): Revision {
 	const d = vista.disponibles ?? DISPONIBLES_VACIOS;
+	const medios = vista.medios ?? new Map<string, RefMedio>();
 	const resueltas: OperacionResuelta[] = [];
 	const cambios: CambioChat[] = [];
 	const descartes: string[] = [];
 	// La simulación: dónde queda cada elemento y cómo, a medida que se aplican las anteriores.
-	type Sim = { inicio: number; fin: number; borrado: boolean; texto?: string; volumenDb?: number; silenciado?: boolean; oculto?: boolean; e: EstadoElemento };
+	type Sim = { inicio: number; fin: number; borrado: boolean; texto?: string; volumenDb?: number; silenciado?: boolean; oculto?: boolean; muestra?: boolean; e: EstadoElemento };
 	const refs = new Map(vista.refs);
 	const estado = new Map<string, Sim>();
 	const simular = (r: RefElemento) =>
-		estado.set(r.ref, { inicio: r.inicio, fin: r.fin, borrado: false, texto: r.texto, volumenDb: r.volumenDb, silenciado: r.silenciado, oculto: r.oculto, e: JSON.parse(JSON.stringify(r.estado)) as EstadoElemento });
+		estado.set(r.ref, { inicio: r.inicio, fin: r.fin, borrado: false, texto: r.texto, volumenDb: r.volumenDb, silenciado: r.silenciado, oculto: r.oculto, muestra: r.muestra, e: JSON.parse(JSON.stringify(r.estado)) as EstadoElemento });
 	for (const r of refs.values()) simular(r);
 	const elegidos = new Set(vista.elegidos);
+
+	/** usar_plantilla, con sus medios resueltos (lo que no sirve queda con su muestra, y se dice). */
+	const resolverPlantilla = (op: Extract<OperacionChat, { op: "usar_plantilla" }>) => {
+		const p = plantillaPorId(op.id);
+		if (!p) { descartes.push(`no existe la plantilla «${corto(op.id, 30)}»`); return; }
+		const huecos = new Map(huecosDe(p).map((h) => [h.nombre, h]));
+		const filas: CambioChat[] = [];
+		const llenos: Record<string, string> = {};
+		for (const [nombre, refMedio] of Object.entries(op.clips)) {
+			const h = huecos.get(nombre);
+			const m = medios.get(refMedio);
+			if (!h || h.tipo !== "clip") { descartes.push(`la plantilla no tiene el hueco de clip «${corto(nombre, 30)}»`); continue; }
+			if (!m) { descartes.push(`no encontré el medio «${corto(refMedio, 20)}» en Multimedia: «${nombre}» queda con la muestra`); continue; }
+			if (!aceptaMedio(h.acepta ?? "ambos", m.tipo === "video" ? "video" : "image")) {
+				descartes.push(`«${nombre}» pide ${h.acepta === "video" ? "un video" : "una foto"}: queda con la muestra`);
+				continue;
+			}
+			// Como el armado (plantillas/armar.ts): un video más corto que su hueco no entra.
+			if (m.tipo === "video" && (m.duracion ?? 0) + 0.0005 < h.segundos) {
+				descartes.push(`«${corto(m.nombre, 40)}» dura ${textoSegundos(m.duracion ?? 0)} y «${nombre}» pide ${textoSegundos(h.segundos)}: queda con la muestra`);
+				continue;
+			}
+			llenos[nombre] = m.mediaId;
+			filas.push({ tipo: "agrega", titulo: `Clip «${nombre}»`, antes: "", despues: corto(m.nombre, 60) });
+		}
+		for (const [nombre, texto] of Object.entries(op.textos)) filas.push({ tipo: "agrega", titulo: `Texto «${nombre}»`, antes: "", despues: `«${corto(texto, 80)}»` });
+		const quedan = [...huecos.values()].filter((h) => h.tipo === "clip" && !h.opcional && !(h.nombre in llenos)).length;
+		resueltas.push({ op: "usar_plantilla", plantilla: p.id, textos: { ...op.textos }, medios: llenos });
+		cambios.push(
+			{
+				tipo: "agrega",
+				titulo: `Plantilla «${p.nombre}»`,
+				antes: "",
+				despues: `${textoSegundos(p.duracion)} en 9:16${quedan ? ` · ${quedan === 1 ? "1 clip de muestra" : `${quedan} clips de muestra`} para sustituir` : ""}`,
+			},
+			...filas,
+		);
+	};
+
+	// ── usar_plantilla: SOLA y con la línea de tiempo VACÍA (plantillas/instanciar.ts) ──
+	// Con algo en la línea de tiempo no se arma (la pestaña abre un proyecto nuevo, como
+	// CapCut) y lo demás del pedido sigue su revisión. Vacía, la plantilla va y lo demás se
+	// descarta: sus elementos todavía no existen (no tienen ref hasta el pedido siguiente).
+	let operaciones = pedidas;
+	const usos = pedidas.filter((o): o is Extract<OperacionChat, { op: "usar_plantilla" }> => o.op === "usar_plantilla");
+	if (usos.length) {
+		if (refs.size > 0) {
+			descartes.push("una plantilla se usa con la línea de tiempo vacía: «Utilizar plantilla», en la pestaña Plantillas, la arma en un proyecto nuevo");
+			operaciones = pedidas.filter((o) => o.op !== "usar_plantilla");
+		} else {
+			resolverPlantilla(usos[0]);
+			if (pedidas.length > 1) descartes.push("lo demás va en otro pedido, con la plantilla ya armada: sus elementos todavía no existen");
+			return { resueltas, cambios, descartes };
+		}
+	}
 
 	const resolver = (ref: string): { el: RefElemento } | { motivo: string } => {
 		const el = refs.get(ref);
@@ -823,6 +968,40 @@ export function revisarOperaciones({
 		}
 	};
 
+	/** Los segundos de fuente que recorre un clip: su largo × su velocidad (una foto, su largo). */
+	const recorreDeFuente = (o: RefElemento): number => {
+		const so = estado.get(o.ref)!;
+		return (so.fin - so.inicio) * (o.tipo === "video" ? (so.e.velocidad ?? 1) : 1);
+	};
+
+	/**
+	 * Cómo queda un clip con otro medio (reemplazo/puro.ts → elementoReemplazado): el mismo
+	 * lugar, otro archivo y quizá otro TIPO (una muestra que pasa a video se puede silenciar
+	 * en el mismo pedido). Conserva la velocidad sólo de video a video.
+	 */
+	const simularReemplazo = (o: RefElemento, medio: RefMedio) => {
+		const so = estado.get(o.ref)!;
+		const tipo: TipoRef = medio.tipo === "video" ? "video" : "imagen";
+		const velocidad = o.tipo === "video" ? (so.e.velocidad ?? 1) : 1;
+		const recorre = recorreDeFuente(o);
+		refs.set(o.ref, { ...o, tipo, titulo: corto(medio.nombre, 40), mediaId: medio.mediaId, muestra: false });
+		so.muestra = false;
+		if (tipo !== "video") return;
+		so.e = {
+			...so.e,
+			velocidad,
+			curva: o.tipo === "video" ? (so.e.curva ?? null) : null,
+			recorte: [0, r2(Math.max(0, (medio.duracion ?? 0) - recorre) / velocidad)],
+			fundidos: so.e.fundidos ?? { entrada: 0, salida: 0 },
+			normalizado: null,
+			revertido: false,
+			audioSeparado: false,
+			sinAudio: medio.sinAudio === true,
+		};
+		if (o.tipo !== "video") { so.volumenDb = 0; so.silenciado = false; }
+		if (o.silenciar) so.silenciado = true;
+	};
+
 	/** Una propiedad con ◇: cambiar su valor base no se vería. */
 	const conFotograma = (el: RefElemento, st: Sim, grupo: string | null | undefined): boolean => {
 		if (!grupo || !st.e.fotogramas?.includes(grupo)) return false;
@@ -854,6 +1033,7 @@ export function revisarOperaciones({
 	const subtitulaAhora = operaciones.some((o) => o.op === "generar_subtitulos");
 
 	for (const op of operaciones) {
+		if (op.op === "usar_plantilla") continue; // Ya se miró arriba: con la línea de tiempo con algo, no va.
 		if (op.op === "cortar_frase" || op.op === "cortar_tramo" || op.op === "eliminar_muletillas") { cortes.push(op); continue; }
 		if (op.op === "generar_subtitulos" || op.op === "revertir" || op.op === "congelar") { diferidas.push(op); continue; }
 		if (op.op === "reemplazar_en_subtitulos") {
@@ -959,6 +1139,12 @@ export function revisarOperaciones({
 			case "cambiar_texto": {
 				if (el.tipo !== "texto") { descartes.push(`${el.titulo} no es un texto`); break; }
 				if (op.texto === st.texto) break;
+				// El tope del hueco es el mismo que al usar la plantilla (lib/editor-video/plantillas.ts → validarValores).
+				const largo = largoTexto(op.texto.replace(/\s+/g, " "));
+				if (el.maxCaracteres && largo > el.maxCaracteres) {
+					descartes.push(`el texto de «${el.hueco}» admite hasta ${el.maxCaracteres} caracteres (tiene ${largo})`);
+					break;
+				}
 				cambios.push({ tipo: "cambia", titulo: el.titulo, antes: `«${corto(st.texto ?? "", 80)}»`, despues: `«${corto(op.texto, 80)}»` });
 				st.texto = op.texto;
 				resueltas.push({ op: "cambiar_texto", el, texto: op.texto });
@@ -1108,6 +1294,41 @@ export function revisarOperaciones({
 						: { tipo: "quita", titulo: `Audio extraído de ${el.titulo}`, antes: "en su propia pista (vuelve al video)", despues: "" },
 				);
 				resueltas.push({ op: "separar_audio", el });
+				break;
+			}
+			case "reemplazar_clip": {
+				if (!solo(CLIPS, "es un clip de video o imagen")) break;
+				const medio = medios.get(op.medio);
+				if (!medio) { descartes.push(`no encontré el medio «${corto(op.medio, 20)}» en Multimedia`); break; }
+				const acepta = el.acepta ?? "ambos";
+				if (!aceptaMedio(acepta, medio.tipo === "video" ? "video" : "image")) {
+					descartes.push(`${el.titulo} pide ${acepta === "video" ? "un video" : "una foto"}`);
+					break;
+				}
+				// Una muestra llena también las otras muestras de su hueco, salvo las de una pista
+				// bloqueada (reemplazo/puro.ts → objetivosDelReemplazo).
+				const hermanas = st.muestra && el.hueco
+					? [...refs.values()].filter((o) => {
+							const so = estado.get(o.ref);
+							return o.ref !== el.ref && CLIPS.has(o.tipo) && !o.bloqueada && o.plantilla === el.plantilla && o.hueco === el.hueco && !!so && !so.borrado && so.muestra === true;
+						})
+					: [];
+				// Lo que recorre de fuente cada uno: su largo × su velocidad; el video tiene que alcanzar para el que más (CapCut rechaza el corto).
+				const necesita = Math.max(...[el, ...hermanas].map(recorreDeFuente));
+				if (medio.tipo === "video" && (medio.duracion ?? 0) < necesita - 0.01) {
+					descartes.push(`«${corto(medio.nombre, 40)}» dura ${textoSegundos(medio.duracion ?? 0)} y ${el.titulo} pide ${textoSegundos(necesita)} de video`);
+					break;
+				}
+				if (!st.muestra && el.mediaId === medio.mediaId) break;
+				const otras = hermanas.length === 1 ? "otra muestra" : `${hermanas.length} muestras más`;
+				cambios.push({
+					tipo: "cambia",
+					titulo: el.titulo,
+					antes: st.muestra ? `muestra de «${el.hueco}»` : el.titulo,
+					despues: `${corto(medio.nombre, 60)}${hermanas.length ? ` · y ${otras} de «${el.hueco}»` : ""}`,
+				});
+				for (const o of [el, ...hermanas]) simularReemplazo(o, medio);
+				resueltas.push({ op: "reemplazar_clip", el, mediaId: medio.mediaId });
 				break;
 			}
 			case "velocidad": {

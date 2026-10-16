@@ -34,7 +34,13 @@
 //
 // ⚠️ Nada de esta lista cuesta plata (Avatar de IA y Texto a voz no están). Una
 // operación que cobre entra con su confirmación de pantalla aparte, nunca acá.
+//
+// Las plantillas de anuncio (tanda 4 del plan docs/editor-video/plan-plantillas-anuncio.md):
+// el `para` de usar_plantilla se arma desde el catálogo (./plantillas.ts, puro) con los ids,
+// la duración, los huecos y sus topes: una plantilla nueva entra sola al prompt.
 // =============================================================================
+
+import { PLANTILLAS, huecosDe, plantillaPorId, validarValores, type Plantilla } from './plantillas';
 
 /** Entrada · Salida · Combinado (video e imagen) · Bucle (texto, sticker y forma). */
 export type CategoriaAnimChat = 'entrada' | 'salida' | 'combinado' | 'bucle';
@@ -146,7 +152,11 @@ export type OperacionChat =
   | { op: 'generar_subtitulos' }
   | { op: 'cortar_frase'; frase: string; vez?: number }
   | { op: 'cortar_tramo'; inicio: number; fin: number }
-  | { op: 'eliminar_muletillas' };
+  | { op: 'eliminar_muletillas' }
+  /** `medio`: la ref de un medio de Multimedia («m1»), de "medios" en la vista. */
+  | { op: 'reemplazar_clip'; ref: string; medio: string }
+  /** `textos`: hueco → texto; `clips`: hueco → ref de un medio. */
+  | { op: 'usar_plantilla'; id: string; textos: Record<string, string>; clips: Record<string, string> };
 
 export type IdOperacion = OperacionChat['op'];
 
@@ -179,6 +189,8 @@ export const TOPES_CHAT = {
   espaciadoMax: 100,
   interlineadoMin: 0.5,
   interlineadoMax: 4,
+  /** Los medios de Multimedia que lista la vista (los demás sólo se cuentan). */
+  medios: 100,
   /** Cuánto se le puede mandar a la IA de una vez (la vista de la línea de tiempo, en JSON). */
   vistaMax: 60_000,
   instruccion: 2_000,
@@ -188,6 +200,26 @@ export const TOPES_CHAT = {
 const REF = '"ref" es la de la LÍNEA DE TIEMPO';
 const IDS = (lista: string) => `"id" es uno de DISPONIBLES.${lista} (copia el id exacto; no inventes otros)`;
 
+const segundosTexto = (s: number) => `${String(Math.round(s * 10) / 10).replace('.', ',')} s`;
+
+/** Una plantilla en un renglón, como la lee la IA: id, nombre, duración, qué es y sus huecos con sus topes. */
+function plantillaEnRenglon(p: Plantilla): string {
+  const huecos = huecosDe(p);
+  const clips = huecos
+    .filter((h) => h.tipo === 'clip')
+    .map((h) => `${h.nombre} (${segundosTexto(h.segundos)}${h.acepta && h.acepta !== 'ambos' ? `, sólo ${h.acepta === 'video' ? 'video' : 'foto'}` : ''}${h.opcional ? ', opcional' : ''})`);
+  const textos = huecos.filter((h) => h.tipo === 'texto').map((h) => `${h.nombre} (hasta ${h.maxCaracteres}: «${h.muestra}»)`);
+  return `  · "${p.id}" «${p.nombre}», ${segundosTexto(p.duracion)}: ${p.descripcion} Clips: ${clips.join(', ')}. Textos: ${textos.join(', ')}.`;
+}
+
+/** Lo que lee la IA de usar_plantilla: la regla y el catálogo entero (sale de PLANTILLAS). */
+function paraUsarPlantilla(): string {
+  return [
+    'Arma una PLANTILLA de anuncio vertical, como «Utilizar plantilla»: pasa el lienzo a 9:16 y pone sus clips, textos, animaciones y transiciones. SÓLO con la línea de tiempo VACÍA (ningún elemento en "pistas") y SOLA en el pedido: lo que arma recién tiene ref en el pedido siguiente. "textos": {"hueco": "texto"} con lo que DICTA la persona, hasta el máximo de cada hueco; lo que no llenes queda con el texto de ejemplo para cambiarlo después con cambiar_texto (no lo inventes). "clips": {"hueco": "m1"} con la ref de un medio de "medios"; un video tiene que durar al menos los segundos de su hueco y una foto sirve siempre; lo que no llenes queda con una imagen de muestra para sustituir con reemplazar_clip (los opcionales pueden quedar así). Las plantillas ("id" «nombre», duración: qué es · huecos):',
+    ...PLANTILLAS.map(plantillaEnRenglon),
+  ].join('\n');
+}
+
 /** Las operaciones, para el texto que lee la IA. El orden es el de la lista que se le muestra. */
 export const OPERACIONES_CHAT: Array<{ op: IdOperacion; forma: string; para: string }> = [
   {
@@ -195,7 +227,16 @@ export const OPERACIONES_CHAT: Array<{ op: IdOperacion; forma: string; para: str
     forma: '{"op":"agregar_texto","texto":"…","inicio":0,"duracion":3,"ref":"n1"}',
     para: 'Agrega un texto en pantalla, en una pista de texto libre, con el estilo predeterminado (Arial 15, blanco, centrado en el lienzo). "ref" es opcional: si le pones una nueva ("n1", "n2"…), las operaciones que siguen pueden cambiarle el estilo, la posición o la animación en este mismo pedido.',
   },
-  { op: 'cambiar_texto', forma: '{"op":"cambiar_texto","ref":"t1","texto":"…"}', para: 'Cambia lo que dice un texto que ya existe.' },
+  {
+    op: 'cambiar_texto',
+    forma: '{"op":"cambiar_texto","ref":"t1","texto":"…"}',
+    para: 'Cambia lo que dice un texto que ya existe. Un texto con "hueco" (de una plantilla) se vuelve a partir en renglones y a ubicar solo, y admite hasta "max_caracteres".',
+  },
+  {
+    op: 'reemplazar_clip',
+    forma: '{"op":"reemplazar_clip","ref":"i1","medio":"m2"}',
+    para: 'Sustituye el archivo de un clip de video o imagen por un medio de "medios" ("medio": su ref, "m1"…), como «Reemplazar el clip»: conserva dónde está, cuánto dura, la transición, las animaciones, los efectos y la velocidad; del medio se usa el principio. Un video tiene que durar al menos lo que recorre el clip (su largo × su velocidad); una foto sirve siempre. En una MUESTRA de plantilla ("muestra": true) cubre el mismo recuadro y llena también las otras muestras de su "hueco" (el video tiene que alcanzar para la más larga); si el clip trae "acepta", sólo ese tipo. No agrega clips nuevos ni cambia audios.',
+  },
   { op: 'borrar', forma: '{"op":"borrar","refs":["v2","t1"]}', para: 'Borra uno o varios elementos (también una capa de efecto).' },
   { op: 'mover', forma: '{"op":"mover","ref":"t1","inicio":4}', para: 'Mueve un elemento en el tiempo, dentro de su pista, sin pisar a otro.' },
   {
@@ -318,6 +359,11 @@ export const OPERACIONES_CHAT: Array<{ op: IdOperacion; forma: string; para: str
     forma: '{"op":"eliminar_muletillas"}',
     para: 'Saca del video todas las muletillas («eh», «este», «o sea»…) que se identifiquen en los subtítulos con tiempos por palabra. Se aplica al final, después de las demás.',
   },
+  {
+    op: 'usar_plantilla',
+    forma: '{"op":"usar_plantilla","id":"testimonio","textos":{"cita":"…"},"clips":{"clip":"m1"}}',
+    para: paraUsarPlantilla(),
+  },
 ];
 
 /**
@@ -325,7 +371,7 @@ export const OPERACIONES_CHAT: Array<{ op: IdOperacion; forma: string; para: str
  * para que la IA lo DIGA en el resumen en vez de simularlo con otra operación.
  */
 export const NO_SE_PUEDE_CHAT =
-  'agregar o cambiar videos, imágenes, música, sonidos, stickers o formas de la biblioteca; voz en off o texto a voz; avatar de IA; fotogramas clave (animar la posición o la escala en el tiempo); máscaras; quitar el fondo o chroma key; recortar el encuadre del cuadro; el fondo del lienzo; las plantillas de estilo de texto o de subtítulos; resaltar palabras CLAVE de los subtítulos; duplicar o copiar elementos; pegar atributos; y cambiar una propiedad que tiene fotogramas clave ("fotogramas" en el elemento)';
+  'agregar a la línea de tiempo videos, imágenes, música, sonidos, stickers o formas de la biblioteca (sustituir el archivo de un clip que ya está, sí: reemplazar_clip); importar archivos a Multimedia (sólo se usan los de "medios"); usar una plantilla de anuncio en un proyecto que ya tiene algo (desde la pestaña Plantillas, «Utilizar plantilla» la arma en un proyecto nuevo); voz en off o texto a voz; avatar de IA; fotogramas clave (animar la posición o la escala en el tiempo); máscaras; quitar el fondo o chroma key; recortar el encuadre del cuadro; el fondo del lienzo; las plantillas de estilo de texto o de subtítulos; resaltar palabras CLAVE de los subtítulos; duplicar o copiar elementos; pegar atributos; y cambiar una propiedad que tiene fotogramas clave ("fotogramas" en el elemento)';
 
 const IDS_OP = new Set<string>(OPERACIONES_CHAT.map((o) => o.op));
 
@@ -353,6 +399,8 @@ const esObjeto = (x: unknown): x is Record<string, unknown> => !!x && typeof x =
 const esRef = (x: unknown): x is string => typeof x === 'string' && /^[a-z]\d{1,4}$/.test(x);
 /** Una ref NUEVA (la que la IA le pone a lo que agrega): «n1», «n2»… */
 const esRefNueva = (x: unknown): x is string => esRef(x) && x.startsWith('n');
+/** La ref de un medio de Multimedia ("medios" en la vista): «m1», «m2»… */
+const esRefMedio = (x: unknown): x is string => typeof x === 'string' && /^m\d{1,4}$/.test(x);
 const numero = (x: unknown): number | null => (typeof x === 'number' && Number.isFinite(x) ? x : null);
 const textoValido = (x: unknown): string | null => {
   if (typeof x !== 'string') return null;
@@ -498,6 +546,38 @@ function validarAjustes(raw: Record<string, unknown>): { ok: true; valores: Part
   }
   if (!Object.keys(valores).length) return { ok: false, motivo: 'un ajuste de color sin valores' };
   return { ok: true, valores };
+}
+
+/**
+ * Los "textos" y los "clips" de usar_plantilla. Lo que existe, lo vacío y el máximo de cada
+ * hueco los decide `validarValores` del catálogo (una regla, un lugar: lo usan también la
+ * page y la API); acá sólo la forma del chat (cada cosa en su lista, un clip con la ref de un medio).
+ */
+function valoresDePlantilla(
+  p: Plantilla,
+  textosRaw: unknown,
+  clipsRaw: unknown,
+): { ok: true; textos: Record<string, string>; clips: Record<string, string> } | { ok: false; motivo: string } {
+  if (textosRaw !== undefined && !esObjeto(textosRaw)) return { ok: false, motivo: '"textos" va como {"hueco": "texto"}' };
+  if (clipsRaw !== undefined && !esObjeto(clipsRaw)) return { ok: false, motivo: '"clips" va como {"hueco": "m1"}' };
+  const textos = (textosRaw ?? {}) as Record<string, unknown>;
+  const clips = (clipsRaw ?? {}) as Record<string, unknown>;
+  const tipo = new Map(huecosDe(p).map((h) => [h.nombre, h.tipo]));
+  for (const nombre of Object.keys(textos)) {
+    if (tipo.get(nombre) === 'clip') return { ok: false, motivo: `«${nombre.slice(0, 30)}» es un hueco de clip: va en "clips"` };
+  }
+  for (const [nombre, medio] of Object.entries(clips)) {
+    if (tipo.get(nombre) === 'texto') return { ok: false, motivo: `«${nombre.slice(0, 30)}» es un hueco de texto: va en "textos"` };
+    if (tipo.has(nombre) && !esRefMedio(medio)) return { ok: false, motivo: `«${nombre.slice(0, 30)}» va con la ref de un medio («m1», «m2»…)` };
+  }
+  const v = validarValores(p, { ...textos, ...Object.fromEntries(Object.entries(clips).map(([k, m]) => [k, { medio: m }])) });
+  if (!v.ok) return v;
+  const salida = { textos: {} as Record<string, string>, clips: {} as Record<string, string> };
+  for (const [nombre, valor] of Object.entries(v.valores)) {
+    if (typeof valor === 'string') salida.textos[nombre] = valor;
+    else salida.clips[nombre] = valor.medio;
+  }
+  return { ok: true, ...salida };
 }
 
 /**
@@ -719,6 +799,18 @@ export function validarOperacion(raw: unknown): Validada {
     }
     case 'eliminar_muletillas':
       return { ok: true, op: { op: 'eliminar_muletillas' } };
+    case 'reemplazar_clip': {
+      if (!esRef(ref) || !esRefMedio(raw.medio)) return { ok: false, motivo: 'un reemplazo de clip sin clip o sin medio («m1», «m2»…)' };
+      return { ok: true, op: { op: 'reemplazar_clip', ref, medio: raw.medio } };
+    }
+    case 'usar_plantilla': {
+      const extra = sobrantes(raw, ['id', 'textos', 'clips']);
+      if (extra) return { ok: false, motivo: `«${extra.slice(0, 30)}» no es algo de usar_plantilla` };
+      const p = plantillaPorId(typeof raw.id === 'string' ? raw.id.trim().toLowerCase() : null);
+      if (!p) return { ok: false, motivo: `«${String(raw.id ?? '').slice(0, 30)}» no es una plantilla (son: ${PLANTILLAS.map((x) => x.id).join(', ')})` };
+      const v = valoresDePlantilla(p, raw.textos, raw.clips);
+      return v.ok ? { ok: true, op: { op: 'usar_plantilla', id: p.id, textos: v.textos, clips: v.clips } } : v;
+    }
   }
 }
 

@@ -142,6 +142,7 @@ async function pedirEdicion(editor: EditorCore, instruccion: string, alcance: "v
 		lienzo: datos.lienzo,
 		mediosSinAudio: datos.mediosSinAudio,
 		conPalabras: datos.conPalabras,
+		medios: datos.medios,
 	});
 
 	if (vista.json.length > TOPES_CHAT.vistaMax) {
@@ -166,7 +167,11 @@ async function pedirEdicion(editor: EditorCore, instruccion: string, alcance: "v
 		terminar({ id: ++ultimoId, de: "mako", texto: r.resumen || "Sin cambios.", descartes: descartes.length ? descartes : undefined });
 		return;
 	}
-	const refsPorId = new Map([...vista.refs.values()].map((x) => [x.elementId, x.ref] as const));
+	// Las refs de los elementos y de los medios («m2» tiene que seguir siendo el mismo al aceptar).
+	const refsPorId = new Map([
+		...[...vista.refs.values()].map((x) => [x.elementId, x.ref] as const),
+		...[...vista.medios.values()].map((m) => [m.mediaId, m.ref] as const),
+	]);
 	terminar({
 		id: ++ultimoId,
 		de: "mako",

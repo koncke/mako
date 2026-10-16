@@ -289,6 +289,7 @@ listar_pendientes_arranque
 listar_pixeles_meta
 listar_plantillas_aprobadas
 listar_plantillas_imagen
+listar_plantillas_video
 listar_preguntas_diagnostico_fase
 listar_productos
 listar_propuestas_revisar

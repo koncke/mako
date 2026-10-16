@@ -464,6 +464,34 @@ export function validarValores(p: Plantilla, v: unknown): { ok: true; valores: V
   return { ok: true, valores };
 }
 
+// ── Lo que lee la API de MaKo (listar_plantillas_video) ──────────────────────
+// El catálogo en JSON, sin las piezas (tiempos, estilos, posiciones): lo que sirve para
+// elegir una plantilla y decir qué llenar. Usarla por la API NO se puede: el proyecto vive
+// en el navegador de quien edita (docs/hallazgos-video-editor.md → «La API de MaKo y el
+// chat al costado»). Puro, para que lo pruebe un test sin el runner (que es server-only).
+
+export function plantillasParaApi() {
+  return {
+    total: PLANTILLAS.length,
+    formato: { relacion: '9:16', ancho: LIENZO_REF.ancho, alto: LIENZO_REF.alto },
+    plantillas: PLANTILLAS.map((p) => ({
+      id: p.id,
+      nombre: p.nombre,
+      descripcion: p.descripcion,
+      duracion_segundos: p.duracion,
+      huecos: huecosDe(p).map((h) =>
+        h.tipo === 'clip'
+          ? { nombre: h.nombre, tipo: 'clip' as const, acepta: h.acepta ?? 'ambos', segundos: h.segundos, opcional: h.opcional === true }
+          : { nombre: h.nombre, tipo: 'texto' as const, max_caracteres: h.maxCaracteres ?? 0, ejemplo: h.muestra ?? '' },
+      ),
+    })),
+    notas: [
+      'Un hueco de clip se llena con un video o una foto de Multimedia: un video más corto que sus segundos no entra; una foto sirve siempre. Uno opcional puede quedar con su imagen de muestra.',
+      'Usar una plantilla no se puede por la API: el proyecto vive en el navegador. Se usa en /video-editor, en la pestaña Plantillas o pidiéndoselo al chat «Editar con IA» con la línea de tiempo vacía.',
+    ],
+  };
+}
+
 // ── La caja ESTIMADA de un texto ─────────────────────────────────────────────
 // Sin medir con la fuente (eso pasa en el navegador, subtitles/build-subtitle-text-
 // element.ts → partirYUbicar): la usan la miniatura de la pestaña y el test de la zona

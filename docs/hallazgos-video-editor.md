@@ -1200,6 +1200,25 @@ se ve HOY (aunque la hayan movido).
 - **SIN HACER:** todo lo visual en el navegador; la miniatura no dibuja transiciones, brillo ni curva; las muestras
   se guardan por proyecto en OPFS y nadie las recolecta.
 
+**Tanda 4 (15/10, el chat y la API; tests 43–50 del chat, 28 roturas):** el chat suma `usar_plantilla` (sólo con la
+línea de tiempo vacía; si viene con otras operaciones, va la plantilla y lo demás se descarta con su motivo) y
+`reemplazar_clip` (el comando del menú); la vista marca `hueco`/`muestra` y lista los `medios` (m1, m2…); un
+`cambiar_texto` en un hueco se vuelve a partir y ubicar con su ancla. La API de MaKo suma `listar_plantillas_video`
+(gratis, tab `video-editor`, las 7 con sus huecos); USAR una plantilla por la API sigue sin poder (el proyecto vive en
+el navegador).
+- ⚠️ **El fin de línea medido con Git Bash miente**: `grep -c $'\r'`, `sed -n` y `od -c` no mostraban CR en
+  `PanelChat.tsx` y node lo leía CRLF (un reemplazo con `\n` daba «0 veces»). Regla: se mide con node.
+- **Una operación que cambia el TIPO de un clip lo cambia también en la simulación de la revisión** (una muestra-foto
+  reemplazada por un video seguía «imagen» y un «silenciar» del mismo pedido se descartaba; `simularReemplazo`).
+- **Un comando que puede no hacer nada dentro de un lote se verifica después por su efecto** (`ReemplazarClipCommand`
+  devuelve `undefined` en silencio; `aplicar.ts` dice «no se pudo reemplazar X»).
+- **Exponer una operación por HTTP pide cuatro cosas**: la def, el runner, la ruta en `lib/api-mako/rest.ts` (sin
+  ella falla `api-mako-rest`) y regenerar `docs/api-mako.md` y el snapshot. Y `lib/api-mako/` NO entra en
+  `tsconfig.ve.json`: para revisarlo, sumarlo un momento al `include`.
+- **SIN HACER:** verlo en el navegador (`usar_plantilla` por chat, un reemplazo en un lote, el texto de un hueco
+  re-partido); partir una muestra y reemplazarla (la revisión no ve la mitad derecha; el chequeo de después lo dice);
+  si por WhatsApp «qué plantillas de video hay» llega a la herramienta nueva.
+
 ## Lottie en un editor de VIDEO: qué aporta si la pieza termina en mp4
 
 - **El repo que vio Martín es `diffusionstudio/lottie`**: 5,6 k estrellas, MIT en el archivo `LICENSE` y en
