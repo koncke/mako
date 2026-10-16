@@ -37,12 +37,10 @@ import {
   setMeetingManual,
   setBoardStageOverride,
   saveLeadMeta,
-  faltantesDeLead,
   getLead,
   getVisitasLandingMap,
   getVslEngagement,
   getTrackingEvents,
-  getLeadRespuestas,
   logLeadChanges,
   logLeadEvent,
   getLeadAudit,
@@ -113,9 +111,10 @@ import { tzDeWorkspace, TZ_DEFAULT } from '@/lib/timezone';
 import type { Step } from '@/lib/stage-requirements';
 import { getSupabaseServer } from '@/lib/supabase';
 import { getTenantDb, getWorkspaceActual, getRolWsEfectivo, getCapaActual, rutaConWs } from '@/lib/workspace';
-import { estadoDatosDeLead } from '@/lib/datos-aviso-config';
 import type { EstadoDatos } from '@/lib/datos-aviso';
-import { leerFichaDeFunnel, type FichaDelFunnel } from '@/lib/ficha/config-server';
+// La ficha del funnel del lead y «N sin marcar»: las MISMAS lecturas que la ficha del teléfono (app/m/crm/datos.ts).
+import { fichaDelFunnelDelLead, type FichaDelFunnel } from '@/lib/ficha/config-server';
+import { datosSinMarcarDeLead, leerInsumosDatosLead } from '@/lib/datos-del-lead';
 import { rolDeFicha, vePrivado, type RolFicha } from '@/lib/ficha/registro';
 import { tabEnCapa } from '@/lib/capas';
 
@@ -159,7 +158,6 @@ import { fmtDDMMYYYY } from '@/lib/date-utils';
 import { getCampaignNameMap, resolverNombreCampana, getAdNameMap, resolverNombreAd, adIdDeLead } from '@/lib/queries';
 import { savePlanPagos, saveLeadPlanManual, marcarPago, getPagosByLead, type PlanPagos, type Pago } from '@/lib/pagos';
 import { avisoDeConservadas } from '@/lib/pagos-campo';
-import { faltaComprobante } from '@/lib/pago-comprobante';
 import { senalesDeCobroAction } from './[id]/cobros-actions';
 import { verTrackingDeLead } from '@/lib/tracking-ficha-server';
 import { crearProductoConFunnel } from '@/lib/producto-con-funnel';
@@ -281,21 +279,6 @@ export type LeadFullData = {
 };
 
 /**
- * La ficha por bloques del funnel del lead. La casa NULL es el funnel del negocio, y un funnel que ya no
- * existe (borrado) cae a ése. Nunca tira: «no pude leer» es null, y la pantalla lo sabe manejar.
- */
-async function fichaDelFunnelDelLead(funnelId: number | null): Promise<FichaDelFunnel | null> {
-  try {
-    const f = await leerFichaDeFunnel(funnelId);
-    if (f || funnelId == null) return f;
-    return await leerFichaDeFunnel(null);
-  } catch (e) {
-    console.error('[ficha] no se pudo leer la ficha del funnel del lead:', e instanceof Error ? e.message : e);
-    return null;
-  }
-}
-
-/**
  * Carga TODO lo que la ficha necesita para mostrar un lead: el Lead completo, etapas, plan de pagos,
  * engagement del VSL, visitas a la landing, campaña resuelta y la ficha por bloques de su funnel.
  *
@@ -316,13 +299,14 @@ export async function getLeadFullAction(id: number): Promise<LeadFullData | null
   // La pestaña «Tracking» (punto 18): arranca acá para correr en paralelo con todo lo de abajo, y
   // no tira nunca (lib/tracking-ficha-server.ts).
   const verTrackingP = verTrackingDeLead(lead.funnel_id);
-  const [vslEng, pagos, campMap, adMap, stagesRaw, visitasMap, insights, tracking, videos, pixelPuesto] = await Promise.all([
+  // ⚠️ LOS INSUMOS DE «N SIN MARCAR» (el plan, las etapas DEL LEAD, las respuestas de la R2 y si el encuentro
+  // se graba) salen de `leerInsumosDatosLead` (lib/datos-del-lead.ts), la MISMA lectura que la ficha del
+  // teléfono: con insumos propios, el número volvía a dar distinto en cada pantalla.
+  const [insumos, vslEng, campMap, adMap, visitasMap, insights, tracking, videos, pixelPuesto] = await Promise.all([
+    leerInsumosDatosLead(lead),
     getVslEngagement(lead.visitor_id).catch(() => ({ plays: 0, max_pct: null, sin_datos: true, porVideo: [] }) as VslEngagement),
-    getPagosByLead(lead.id).catch(() => [] as Pago[]),
     getCampaignNameMap().catch(() => ({}) as Record<string, string>),
     getAdNameMap().catch(() => ({}) as Record<string, string>),
-    // DEL LEAD: la ficha pinta los requisitos de SU recorrido.
-    getPipelineStagesDeLead(lead).catch(() => DEFAULT_STAGES),
     getVisitasLandingMap([lead.visitor_id]).catch(() => new Map() as VisitasMap),
     getLeadInsights(id),
     getTrackingEvents(lead.visitor_id),
@@ -345,8 +329,8 @@ export async function getLeadFullAction(id: number): Promise<LeadFullData | null
   // calor del proyecto), y se fueron el 06/10/2026 con Clarity entero: la grabación
   // la hace MaKo y se dibuja adentro de la ficha. Nunca rompe la ficha:
   // `replayDeLead` no tira y distingue «no pude leer».
-  const [respuestas, insightGen, equipo, grabable, replay, funnels, cobro] = await Promise.all([getLeadRespuestas(lead), getUltimoInsightGenerado(id), getEquipoAction(), encuentroGrabable(), replayDeLead(lead.visitor_id, ultimaActividad), listarFunnels().catch(() => []), senalesDeCobroAction(id)]);
-  const stages = stagesRaw.length ? stagesRaw : DEFAULT_STAGES;
+  const [insightGen, equipo, replay, funnels, cobro] = await Promise.all([getUltimoInsightGenerado(id), getEquipoAction(), replayDeLead(lead.visitor_id, ultimaActividad), listarFunnels().catch(() => []), senalesDeCobroAction(id)]);
+  const { pagos, stages, respuestas } = insumos;
   const campana = resolverNombreCampana(lead.utm_campaign, campMap);
   // El anuncio puede venir por meta_ad_id (instant form) o por utm_content (Calendly):
   // si utm_content es un id numérico, lo resolvemos a nombre con el mapa de anuncios.
@@ -355,11 +339,7 @@ export async function getLeadFullAction(id: number): Promise<LeadFullData | null
   const adNombre = resolverNombreAd(adIdCand, lead.meta_ad_name ?? utmC, adMap);
   const visitas = visitasMap.get(lead.visitor_id ?? '') ?? { total_visitas: 0, dias_distintos: 0 };
   const faltantesInsight = faltantesParaInsights(lead, pagos.length > 0, stages);
-  // Un cobro confirmado por la pasarela no pide comprobante (lib/pago-comprobante.ts).
-  const comprobantesFaltantes = pagos.filter(faltaComprobante).length;
-  const extraReq = { comprobantesFaltantes, r2RespuestasOk: respuestas.R2.length > 0, pipeline: stages, grabable };
-  const faltantes = faltantesDeLead(lead, pagos.length > 0, extraReq);
-  const datos = await estadoDatosDeLead(lead, faltantes, pagos.length > 0, extraReq);
+  const { faltantes, datos } = await datosSinMarcarDeLead(lead, insumos);
   const closerDetectado = insights.find((i) => i.closer?.trim())?.closer ?? null;
   // El NOMBRE DEL PRODUCTO, no el del embudo: «Funnel principal» es el que puso la migración
   // y es el mismo en todos los workspaces (mismo criterio que el selector del tablero).

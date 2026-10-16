@@ -31,10 +31,15 @@
 //   768 px; el celular sin apilar los bloques; el armador fuera de la página del dispositivo; la ficha sin
 //   `dispositivoVisto` (queda angostada al volver a «Ver»); un `transform` en la página del dispositivo.
 //
-// ⚠️ UNA ASERCIÓN REESCRITA EL 15/10/2026 porque cambió DÓNDE vive lo que fija, no lo que fija: el celular de
-//   «Personalizar» apila SIN `!important`: el ancho del bloque dejó de ir en un `style` en línea (va en
-//   variables, ./Armador.tsx, para que la tablet corte por CSS) y ya no hay nada que pisar. El corte de la
-//   tablet y del celular lo fija tests/ficha-pantallas.test.ts. Re-medido: base 11/0; sin apilar → 10/1.
+// ⚠️ DOS ASERCIONES REESCRITAS EL 15/10/2026 porque cambió DÓNDE vive lo que fijan, no lo que fijan:
+//   · el celular de «Personalizar» apila SIN `!important`: el ancho del bloque dejó de ir en un `style` en
+//     línea (va en variables, ./Armador.tsx, para que la tablet corte por CSS) y ya no hay nada que pisar.
+//     El corte de la tablet y del celular lo fija tests/ficha-pantallas.test.ts;
+//   · «N sin marcar» se cuenta en lib/datos-del-lead.ts (`datosSinMarcarDeLead`, con los insumos de
+//     `leerInsumosDatosLead`), porque la ficha del teléfono tiene que dar el MISMO número. getLeadFullAction
+//     llama a las dos; el plan como booleano y `grabable` se fijan ahora ahí.
+//   Re-medido: base 11/0; `datosSinMarcarDeLead` sin `grabable` → 10/1; getLeadFullAction contando con
+//   `faltantesDeLead` por su cuenta → 10/1; el celular de «Personalizar» sin apilar → 10/1.
 // =============================================================================
 
 import { test } from 'node:test';
@@ -263,12 +268,17 @@ test('las DOS puertas montan la MISMA ficha con la MISMA lectura', () => {
   for (const propio of ['faltantesDeLead', 'estadoDatosDeLead', 'getPagosByLead', 'resumenDelNegocio', '<InfoPrincipalCard', 'tabs={']) {
     assert.ok(!ruta.includes(propio), `la ruta vuelve a armar por su cuenta: ${propio}`);
   }
-  // «N sin marcar» se cuenta UNA vez, con el plan como booleano y la grabación del encuentro.
+  // «N sin marcar» se cuenta UNA vez (lib/datos-del-lead.ts), con el plan como booleano y la grabación del
+  // encuentro, y getLeadFullAction lo pide ahí con los insumos de ahí (los mismos que lee el teléfono).
   const acc = sinComentarios(leer('app/crm/actions.ts'));
   const ini = acc.indexOf('export async function getLeadFullAction');
   const cuerpo = acc.slice(ini, acc.indexOf('\nexport ', ini + 10));
-  assert.match(cuerpo, /const extraReq = \{[^}]*grabable \}/);
-  assert.match(cuerpo, /faltantesDeLead\(lead, pagos\.length > 0, extraReq\)/);
+  assert.match(cuerpo, /leerInsumosDatosLead\(lead\),/);
+  assert.match(cuerpo, /const \{ faltantes, datos \} = await datosSinMarcarDeLead\(lead, insumos\);/);
+  assert.doesNotMatch(cuerpo, /faltantesDeLead\(|estadoDatosDeLead\(/, 'getLeadFullAction vuelve a contar «N sin marcar» por su cuenta');
+  const cuenta = sinComentarios(leer('lib/datos-del-lead.ts'));
+  assert.match(cuenta, /const extraReq = \{[^}]*grabable: i\.grabable \}/);
+  assert.match(cuenta, /faltantesDeLead\(lead, i\.pagos\.length > 0, extraReq\)/);
   assert.match(cuerpo, /if \(!sesion\) return null;/, 'sin sesión no se lee ningún lead (caería al ws1)');
 });
 

@@ -98,6 +98,23 @@ export async function leerFichaDeFunnel(funnelId: number | null): Promise<FichaD
   return fila ? armar(fila, canal, respaldo) : null;
 }
 
+/**
+ * La ficha del funnel de UN LEAD (su casa, `leads.funnel_id`). La casa NULL es el funnel del negocio, y un
+ * funnel que ya no existe (borrado) cae a ése. Nunca tira: «no pude leer» es null, y quien la dibuja arma la
+ * de respaldo. La leen las dos puertas de escritorio (`getLeadFullAction`, app/crm/actions.ts) y la ficha
+ * del teléfono (app/m/crm/datos.ts): con una sola lectura, el teléfono no puede ordenar con otra ficha.
+ */
+export async function fichaDelFunnelDelLead(funnelId: number | null): Promise<FichaDelFunnel | null> {
+  try {
+    const f = await leerFichaDeFunnel(funnelId);
+    if (f || funnelId == null) return f;
+    return await leerFichaDeFunnel(null);
+  } catch (e) {
+    console.error('[ficha] no se pudo leer la ficha del funnel del lead:', e instanceof Error ? e.message : e);
+    return null;
+  }
+}
+
 export type ResultadoGuardarFicha =
   | { ok: true; ficha: FichaDelFunnel; antes: FichaGuardada; cambio: boolean }
   | { ok: false; error: string };

@@ -120,15 +120,25 @@ test('el cableado: ficha_lead y buscar_leads usan la etapa efectiva y la ficha c
 //    por defecto, igual que `etapaParaModelo`.
 // Rotura: `getLeadFullAction` con `getPipelineStagesDefault()` en vez de las del lead → 5 / 1 (éste).
 // Rotura: sin caer a DEFAULT_STAGES cuando la lista viene vacía → 5 / 1 (éste).
+// ⚠️ Y OTRA VEZ EL MISMO 15/10/2026, más tarde: la lectura de las etapas se mudó a `leerInsumosDatosLead`
+//    (lib/datos-del-lead.ts), que comparten getLeadFullAction y la ficha del teléfono para que «N sin marcar»
+//    dé lo mismo en las dos. Re-medido: base 6/0; `leerInsumosDatosLead` con `getPipelineStagesDefault()` → 5/1;
+//    sin caer a DEFAULT_STAGES con la lista vacía → 5/1; getLeadFullAction leyendo sus etapas aparte → 5/1.
 test('la etapa de la ficha y la de MaKo salen de la misma lectura', () => {
   // La ficha: `getPipelineStagesDeLead(lead)` con DEFAULT_STAGES si falla o vino vacía. Si esto cambia,
   // MaKo vuelve a decir otra etapa que la pantalla: hay que cambiar las dos.
+  // ⚠️ Desde el 15/10/2026 esa lectura vive en lib/datos-del-lead.ts (`leerInsumosDatosLead`), la que también
+  // usa la ficha del teléfono para contar «N sin marcar», y getLeadFullAction toma de ahí sus etapas.
   const acc = sinComentarios(leer('../app/crm/actions.ts'));
   const ini = acc.indexOf('export async function getLeadFullAction');
   assert.ok(ini > 0, 'la lectura de la ficha ya no es getLeadFullAction');
   const cuerpo = acc.slice(ini, acc.indexOf('\nexport ', ini + 10));
-  assert.match(cuerpo, /getPipelineStagesDeLead\(lead\)\.catch\(\(\) => DEFAULT_STAGES\)/);
-  assert.match(cuerpo, /const stages = stagesRaw\.length \? stagesRaw : DEFAULT_STAGES;/);
+  assert.match(cuerpo, /leerInsumosDatosLead\(lead\),/);
+  assert.match(cuerpo, /const \{ pagos, stages, respuestas \} = insumos;/);
+  assert.doesNotMatch(cuerpo, /getPipelineStages/, 'getLeadFullAction vuelve a leer las etapas por su cuenta');
+  const insumos = sinComentarios(leer('../lib/datos-del-lead.ts'));
+  assert.match(insumos, /getPipelineStagesDeLead\(lead\)\.catch\(\(\) => DEFAULT_STAGES\)/);
+  assert.match(insumos, /const stages = stagesRaw\.length \? stagesRaw : DEFAULT_STAGES;/);
   // Y la ruta no lee las etapas por su cuenta: es la misma lectura que el pop-up.
   const page = sinComentarios(leer('../app/crm/[id]/page.tsx'));
   assert.match(page, /await getLeadFullAction\(idNum\)/);

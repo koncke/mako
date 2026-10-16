@@ -44,9 +44,13 @@ test('qué decide: cobrada a mano sin archivo falta; con archivo o por pasarela,
 // ⚠️ ERAN CUATRO Y DESDE EL 14/10/2026 SON TRES: la ruta /crm/[id] dejó de contar los faltantes por su
 // cuenta y lee con la action del pop-up (`getLeadFullAction`, app/crm/actions.ts), que ya está en la lista.
 // Cambiado a propósito: se fija además que la ruta no vuelva a contar sola.
+// ⚠️ Y EL 15/10/2026 EL DE LA FICHA SE MUDÓ de app/crm/actions.ts a lib/datos-del-lead.ts (`datosSinMarcarDeLead`),
+// la cuenta de «N sin marcar» que comparten las dos puertas de escritorio y la ficha del teléfono (que
+// getLeadFullAction no cuente por su cuenta lo fija tests/ficha-armador.test.ts). Cambió dónde vive, no lo
+// que se fija. Re-medido: base 5/0; lib/datos-del-lead.ts con el predicado viejo en vez de faltaComprobante → 4/1.
 const LLAMADORES = [
   'lib/queries.ts',
-  'app/crm/actions.ts',
+  'lib/datos-del-lead.ts',
   'lib/api-mako/areas/crm.helpers.ts',
 ];
 
