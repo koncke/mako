@@ -1002,6 +1002,28 @@ cumpla, devuelve `null` y quien llama dice lo de siempre: que el negocio conecte
 para todos (`claudePausado`), un negocio con su Claude conectado igual ve «Conecta tu Claude»: la pausa no deja error.
 *16/10/2026, claude3 (chat Dashboard).*
 
+## Las plantillas sugeridas: los ejes suman por separado, y el arnés dibujaba una copia de la galería (16/10/2026)
+
+**Vive en:** `lib/plantillas-sugeridas.ts` (la regla) · `lib/plantillas-sugeridas-server.ts` (las señales) ·
+`lib/graficos-plantillas-etiquetas.ts` (las dos tablas) · `app/dashboard/NuevaHoja.tsx` · `tests/plantillas-sugeridas.test.ts`.
+Cómo se enchufa otra galería: [plantillas-sugeridas.md](plantillas-sugeridas.md).
+
+- ⚠️ **Los ejes suman por separado, y una plantilla de UN canal con un eje genérico se le sugiere a quien vende por otro.**
+  Con `cuello: ['conversion']` en «Ventas por WhatsApp», a un negocio que vende por llamada le salía sugerida (el cuello
+  coincidía). Lo mismo Closing a quien vende por chat. Los tests de la regla daban verde: lo mostró el arnés, mirando la
+  galería. Las de un canal se etiquetan sólo con su canal y sus entradas, y un test lo fija.
+- ⚠️ **El modo `galeria` del arnés era una COPIA del marcado de la tarjeta**, no el componente: un cambio en
+  `CrearHoja` no se veía ahí. El modo `crear` (`node capturar.cjs "" mako crear`) monta `CrearHoja` de verdad, con
+  señales de ejemplo, en escritorio, celular, General y sin señales.
+- **Se ordena la galería ENTERA y después se filtra lo buscado.** Al revés, buscar algo que deja afuera a las tres
+  sugeridas le pasaría el «Sugerido» a la cuarta.
+- **Las señales llegan desde la página del server**, en paralelo con el informe, y no por un fetch de la galería: la
+  pantalla en blanco muestra la galería al cargar, y un orden que llega después haría saltar las tarjetas.
+
+**Lo que quedó SIN hacer:** mirarlo en producción con un negocio que tenga funnels declarados; el arnés usa señales de
+ejemplo. Y enchufar las otras galerías (Automations, Web Generator, Video Editor, Image Editor, CRM).
+*16/10/2026, claude3 (chat Dashboard).*
+
 ## Lo que quedó sin hacer
 
 - **Las portadas (15/10/2026):** mirado en producción en el ESCRITORIO con las 6 hojas de Mauricio; el celular, sólo en el

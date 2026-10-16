@@ -552,7 +552,7 @@ curl -L \
 
 ### `GET /api/v1/general/hojas` — Ver las hojas de General
 
-Las hojas de la pantalla General de una persona (cada una con sus bloques, gráficos y textos), más las plantillas, los bloques de General y los funnels del negocio (para atar un bloque a uno) que existen para armar o completar una. Úsala antes de crear_hoja_general o agregar_bloque_general.
+Las hojas de la pantalla General de una persona (cada una con sus bloques, gráficos y textos), más las plantillas (primero las sugeridas para este negocio, con su porqué), los bloques de General y los funnels del negocio (para atar un bloque a uno) que existen para armar o completar una. Úsala antes de crear_hoja_general o agregar_bloque_general.
 
 - **Ruta por operación:** `GET /api/v1/general/listar_hojas_general`
 - **Token detallado:** permiso `general=read` (Solo lectura en «General»)
@@ -7024,7 +7024,7 @@ curl -L \
 
 ### `GET /api/v1/metricas/dashboard/catalogo` — Catálogo del Dashboard
 
-Lo que se puede armar en el Dashboard: los conjuntos de datos con sus fechas, dimensiones y métricas, los tipos de gráfico con lo que pide cada uno, las plantillas de hoja, los estilos, los filtros, los elementos (con las acciones de un botón), los períodos y los campos para filtrar. Úsala ANTES de agregar un gráfico o consultar datos: los ids que piden las otras operaciones salen de aquí. Con `conjunto`, el detalle de ese conjunto con los nombres; con `seccion`, sólo esa parte. Por HTTP acepta ?formato=md|json.
+Lo que se puede armar en el Dashboard: los conjuntos de datos con sus fechas, dimensiones y métricas, los tipos de gráfico con lo que pide cada uno, las plantillas de hoja (primero las sugeridas para este negocio, con su porqué), los estilos, los filtros, los elementos (con las acciones de un botón), los períodos y los campos para filtrar. Úsala ANTES de agregar un gráfico o consultar datos: los ids que piden las otras operaciones salen de aquí. Con `conjunto`, el detalle de ese conjunto con los nombres; con `seccion`, sólo esa parte. Por HTTP acepta ?formato=md|json.
 
 - **Ruta por operación:** `GET /api/v1/metricas/ver_catalogo_dashboard`
 - **Token detallado:** permiso `metricas=read` (Solo lectura en «Dashboard y análisis»)

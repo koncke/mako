@@ -243,7 +243,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'listar_hojas_general', area: 'general', tipo: 'lectura',
     titulo: 'Ver las hojas de General',
-    descripcion: 'Las hojas de la pantalla General de una persona (cada una con sus bloques, gráficos y textos), más las plantillas, los bloques de General y los funnels del negocio (para atar un bloque a uno) que existen para armar o completar una. Úsala antes de crear_hoja_general o agregar_bloque_general.',
+    descripcion: 'Las hojas de la pantalla General de una persona (cada una con sus bloques, gráficos y textos), más las plantillas (primero las sugeridas para este negocio, con su porqué), los bloques de General y los funnels del negocio (para atar un bloque a uno) que existen para armar o completar una. Úsala antes de crear_hoja_general o agregar_bloque_general.',
     parametros: [
       { nombre: 'persona', tipo: 'string', max: 120, descripcion: 'Email (o nombre) de la persona admin. Si se omite y la cuenta tiene una sola persona admin, es ésa.' },
     ],

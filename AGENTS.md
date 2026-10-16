@@ -8391,6 +8391,12 @@ costó, en [docs/hallazgos-objectives.md](docs/hallazgos-objectives.md) → «Ge
   el mismo tema con el mismo color en las dos galerías, ninguno repetido adentro de una). Una plantilla nueva sin las dos
   no pasa `tests/graficos-portadas.test.ts`. Lo que una portada promete se mide ANTES con el lector que la va a dibujar (la
   de Instagram prometía leads que no existen): docs/hallazgos-graficos.md → «Las portadas».
+- **Toda galería de plantillas pone primero las SUGERIDAS para el negocio, con un «Sugerido» sutil** (16/10/2026, Martín:
+  «en todos los lugares que usamos templates»): `ordenarConSugeridas` (lib/plantillas-sugeridas.ts) con la tabla de
+  etiquetas de esa galería; las del Dashboard y General viven en `lib/graficos-plantillas-etiquetas.ts`, una fila por
+  plantilla (`tests/plantillas-sugeridas.test.ts` no deja pasar una plantilla sin la suya). Sin IA al abrir: las señales
+  salen de lo DECLARADO (`senalesDelNegocio`). Una plantilla de UN canal no lleva un eje genérico: los ejes suman por
+  separado y se la sugeriría a quien vende por otro. Cómo se enchufa otra galería: docs/plantillas-sugeridas.md.
 
 # MaKo Mobile (/m): lo que gobierna una pantalla nueva del teléfono
 

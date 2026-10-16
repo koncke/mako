@@ -55,7 +55,7 @@ test('EditorInforme: en blanco, la caja «¿Qué vas a crear hoy?» con las plan
   assert.match(src, /autoabrir: conGuia && !enBlanco && !editando/);
   // Un return aparte se dibujaba SIN los <style> del editor (12/10: el texto chiquito arriba a la izquierda).
   assert.doesNotMatch(src, /if \(enBlanco\) \{\s*return \(/);
-  assert.match(src, /\{enBlanco \? \(\s*<div className="lk-en-blanco lk-en-blanco-crear" onClick=\{\(e\) => e\.stopPropagation\(\)\}>\s*\{guardable && <CrearHoja onCrear=\{crearHoja\} enBlanco="Página 1" informe=\{informe\} \/>\}/);
+  assert.match(src, /\{enBlanco \? \(\s*<div className="lk-en-blanco lk-en-blanco-crear" onClick=\{\(e\) => e\.stopPropagation\(\)\}>\s*\{guardable && <CrearHoja onCrear=\{crearHoja\} enBlanco="Página 1" informe=\{informe\} senales=\{senales\} \/>\}/);
   assert.doesNotMatch(src, /Nuevo Dashboard/, 'volvió el botón en lugar de la caja');
   // En blanco el desplegable de hojas sólo existe si hay Archivados (para restaurar una).
   assert.match(src, /conHojas=\{enBlanco \? guardable && !!tablero\.archivadas\?\.length : /);
@@ -70,7 +70,7 @@ test('EditorInforme: en blanco, la caja «¿Qué vas a crear hoy?» con las plan
 test('NuevaHoja: el modal monta la MISMA pieza que la pantalla en blanco, y las plantillas van como páginas', () => {
   const src = leer('app/dashboard/NuevaHoja.tsx');
   assert.match(src, /export function CrearHoja\(/);
-  assert.match(src, /<Modal titulo="Nueva hoja" ancho=\{980\} sinFiletes onCerrar=\{cerrar\}>\s*<CrearHoja onCrear=\{onCrear\} onListo=\{cerrar\} enBlanco=\{enBlanco\} informe=\{informe\} \/>\s*<\/Modal>/);
+  assert.match(src, /<Modal titulo="Nueva hoja" ancho=\{980\} sinFiletes onCerrar=\{cerrar\}>\s*<CrearHoja onCrear=\{onCrear\} onListo=\{cerrar\} enBlanco=\{enBlanco\} informe=\{informe\} senales=\{senales\} \/>\s*<\/Modal>/);
   assert.equal((src.match(/<CajaPedido /g) ?? []).length, 1, 'una sola caja: la de CrearHoja');
   assert.match(src, /<MiniaturaHoja hoja=\{muestras\.get\(p\.id\) \?\? null\} \/>/);
   assert.match(src, /<span className="nh-usar">Usar plantilla<\/span>/);

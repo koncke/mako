@@ -48,6 +48,7 @@ import { guardarTableroSi, leerTableroVisible, listarTablerosGuardados, type Tab
 import { analizarHoja, arrancarAMano, cancelarCorrida, programar, vistaDe, NoProgramable } from '@/lib/graficos-analisis-server';
 import { queTableroLeer } from '@/lib/graficos-lectura';
 import { generarHojaIA } from '@/lib/graficos-ia-generar';
+import { senalesDelNegocio } from '@/lib/plantillas-sugeridas-server';
 import { hojaConDatos } from '@/lib/graficos-con-datos-server';
 import { TOPE_PEDIDO_IA } from '@/lib/graficos-ia';
 import { Alias, sanearCronAnalisis, type SalidaAnalisis } from '@/lib/graficos-analisis';
@@ -289,11 +290,13 @@ export const RUNNERS: Runners = {
     leer: async (input, ctx) => {
       const seccion = (str(input, 'seccion') || undefined) as SeccionCatalogo | undefined;
       const conjunto = str(input, 'conjunto') || undefined;
+      // Las plantillas salen con las sugeridas para ESTE negocio primero, como en la galería (lib/plantillas-sugeridas.ts).
+      const senales = !conjunto && (!seccion || seccion === 'plantillas') ? await senalesDelNegocio().catch(() => null) : null;
       if (formatoDe(input, ctx, 'md') === 'json') {
-        const j = catalogoJson({ conjunto, seccion });
+        const j = catalogoJson({ conjunto, seccion, senales });
         return 'error' in j && typeof j.error === 'string' ? fallo(j.error, j.disponibles) : { content: J(j), formato: 'json' };
       }
-      const md = catalogoMarkdown({ conjunto, seccion, compacto: ctx.canal !== 'http' });
+      const md = catalogoMarkdown({ conjunto, seccion, compacto: ctx.canal !== 'http', senales });
       return typeof md === 'string' ? md : fallo(md.error, md.disponibles);
     },
   },
