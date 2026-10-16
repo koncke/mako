@@ -64,8 +64,8 @@ agrega RAM.
 Martín decidió que las tres cuentas corran juntas, la de la app y dos en terminal. Medido ese día:
 
 - **Cada directorio de configuración tiene su propio registro de sesiones.** Un chat de la app no ve
-  las sesiones de terminal de otra cuenta, y no está medido si `SendMessage` puede cruzar de un
-  directorio a otro. Por eso hay **un cartero por cuenta**, que entrega adentro de la suya.
+  las sesiones de terminal de otra cuenta, y `SendMessage` NO cruza de un directorio a otro (medido el 16/10: ver
+  «SendMessage no cruza carpetas»). La frontera es la carpeta, no la cuenta: hay **un Runner por carpeta**.
 - **`~/.claude-martin` (cuenta 2) nunca se logueó por terminal** y sus `settings.json` tienen `hooks: {}`:
   una sesión ahí corre sin bitácora, sin guardia de RAM, sin relevo tras caída y sin avisos de cuota.
 - **El marcador de cuenta es UNO** (`~/.claude/cuenta-activa.txt`, ruta fija en `bitacora-sesion.sh`):
@@ -558,6 +558,82 @@ Martín con un clic y lo nombra «Jefe › Sub», o el jefe renombra uno existen
 `lib/centro-munecos.ts` · `lib/centro-munecos-db.ts` · `app/admin/operaciones/ElegirMuneco.tsx` · `Muneco.tsx` ·
 `CentroApp.tsx` (el «⋯» y los modales) · `app/m/operaciones/ChatsMovil.tsx` · `tests/centro-munecos.test.ts`
 
+## SendMessage no cruza carpetas: un Runner por CARPETA, y el buzón es de la PC (16/10/2026)
+
+**El pedido.** Martín: «habiamos dicho de no usar más a Claude desde la app de desktop, sino desde powershell o algo así
+que ahí si permite tener 3 cuentas abiertas al mismo tiempo». Cada cuenta corre en su terminal con su
+`CLAUDE_CONFIG_DIR` (el perfil de PowerShell: `claude1` → `~/.claude`, `claude2` → `~/.claude-martin`, `claude3` →
+`~/.claude-cuenta3`), y el Runner tiene que entregarles a las tres.
+
+**Medido.** Desde la app (`~/.claude`), `SendMessage` al canal de la sesión de terminal de la cuenta 2 contesta
+«ENOINBOX: no-key — refusing to send to an unvouched pipe». La sesión deja su `.key` en `<carpeta>/sessions/` y el que
+manda la busca en SU carpeta; `ListAgents` también lista sólo las de la propia. Copiar la `.key` a otra carpeta lo
+haría andar, y es justo lo que NO se hace: es la protección contra un canal que nadie avaló.
+
+**El diagnóstico obvio era el equivocado: la frontera no es la cuenta, es la CARPETA.** El 15/10 se armó «un cartero por
+cuenta». Pero la app guarda las sesiones de CUALQUIER cuenta en `~/.claude`, que es también la carpeta de `claude1`: un
+Runner en la app (o en la terminal de la cuenta 1) le llega a la app entera y a la terminal de la 1, y a la terminal
+de la 2 o la 3, nunca. Y al revés: LEER sí cruza (son archivos), así que cualquier Runner ve las tres cuentas enteras
+y sólo cambia a quién le puede entregar. De ahí el diseño (cartero 1.4.0):
+
+- **Cada chat vivo sube `runner`**: si hay una sesión viva llamada Runner (o Cartero) en su carpeta. El registro trae el
+  `name` de las dos clases de sesión (la de la app y la de `claude2 -n Runner`, medido en `claude --help` ese día).
+- **MaKo reclama sólo `entregables`** (vivos con un Runner en su carpeta, siempre un subconjunto de lo que ese
+  cartero subió vivo: `sanearEntregables`). Lo demás queda «escrito» hasta que se abra ese Runner, en vez de vencerse
+  en el buzón. Un cartero de antes, sin la lista, reclama todos sus vivos, como siempre.
+- **El buzón es de la PC, no del Runner**: lo reclamado va con la carpeta del chat, y cada Runner entrega sólo lo de la
+  suya. Dos Runners en la MISMA carpeta (la app y `claude1` comparten `~/.claude`) no mandan lo mismo: el primero que
+  lo lista crea `<id>.mano` con `wx` (atómico) y se lo queda; si el dueño se cerró sin acusarlo, lo toma otro.
+- **El vencimiento (30 min) vale para lo de cualquier carpeta**: si sólo cada Runner venciera lo suyo, lo de un Runner
+  cerrado no lo vencería nadie y quedaría «tomado» para siempre.
+- **La carpeta propia sale de `CLAUDE_PID`**: Claude Code se lo pasa a los comandos que corre, y la sesión está en
+  `<carpeta>/sessions/<pid>.json`. Si no, `CLAUDE_CONFIG_DIR` (lo pone `claude2`). `ciclo` sin `--cuenta` da la vuelta
+  por las cuentas que tienen una fuente en su carpeta: el de `~/.claude` por las tres (la app), el de
+  `~/.claude-martin` sólo por la 2.
+- **La pantalla lo dice**: una sesión de terminal abierta sin Runner en su carpeta no dice «sale ya» aunque la cuenta
+  tenga otro Runner dando vueltas: «Abre el Runner en la terminal de la cuenta 2 para que salga» (`comoSale`).
+
+**Lo que costó ver:**
+- **Los tests heredan el `CLAUDE_PID` de la sesión que los corre**: el cartero del test creía estar en `~/.claude` (ahí
+  está la sesión real) y no entregaba nada. Los tests le dicen su carpeta con `CARTERO_CONFIG_DIR`.
+- **En la terminal no hay `set_session_title`** (es de la app) y `/rename` existe pero lo escribe la persona, no el
+  modelo. El renombre desde el Centro le pide al chat de terminal que deje en el cierre «Escribe /rename … en la terminal
+  de este chat» (`textoDeRenombre`). Un chat de terminal nace con nombre si se abre con `claude2 -n "CRM"`.
+- **Entre el cartero nuevo y el servidor viejo** (antes del deploy): el servidor ignora `entregables` y reclama todos los
+  vivos; un trabajo para una terminal sin Runner espera 30 min en el buzón y sale «Se cerró el Runner de esa terminal:
+  ábrelo y vuelve a mandarlo». Con el deploy, no se reclama.
+
+**Lo que encontró la revisión adversarial** (dos revisores y un refutador por hallazgo; los 13 se confirmaron, todos
+arreglados con su test en `tests/cartero-carpetas.test.ts`):
+- **Un cierre se podía PERDER, y era el diagnóstico obvio el equivocado**: «se sube y se borra» valía con un cartero
+  por cuenta. Con el buzón compartido, el Runner de la cuenta 1 subía los cierres de la PC sin el acuse que estaba en
+  el buzón de la 2; MaKo aplica un cierre sólo sobre un pedido ENTREGADO, no lo tomaba, y la PC lo borraba igual. Ahora
+  cada vuelta sube los acuses de TODAS las cuentas, MaKo devuelve `cierresIds`, y un cierre se borra sólo si entró (o
+  después de un día).
+- **El vencimiento por cuenta dejaba cosas «entregando» para siempre**: cada Runner da la vuelta por las cuentas de su
+  carpeta, así que lo de la cuenta 1 sólo lo vencía el Runner de `~/.claude`. Recorre todos los buzones.
+- **Un Runner que se cerró con algo en la mano no se reemplaza mandándolo otra vez**: no se sabe si alcanzó a mandarlo.
+  Sale «El Runner se cerró a mitad de la entrega: míralo en el chat» (`tomar`).
+- **Cualquier chat que corriera `ciclo` o `pendientes` se quedaba con el buzón**: probar el script desde un chat lo
+  marcaba como suyo y nunca lo mandaba. Si la sesión que lo corre está registrada y no se llama Runner, no corre
+  (`exigirRunner`; medido desde este chat: «no es el Runner»).
+- **Con el nombre no alcanza**: un chat «Runner» al que nadie le pegó las instrucciones no da vueltas. Cuenta si además
+  dejó su latido en los últimos 6 minutos (`latidos/`, lo escribe cada vuelta).
+- **`entregados.json` perdía ids** con dos Runners acusando a la vez (leer-cambiar-escribir): ahora es un archivo por
+  id (`entregados/`), y el json viejo se sigue leyendo. Y entre listar y marcar, el gemelo vuelve a mirar si el acuse
+  ya lo sacó del buzón.
+- **La pantalla elegía la sesión sin Runner** cuando el mismo chat estaba abierto en dos cuentas (`pesoSesion`), el
+  panel ofrecía `claude2 -n Runner` para un chat de la app, y `scripts/decisiones.ts` decía «se avisa en la próxima
+  vuelta» de un chat al que nadie llega (`explicarAviso`).
+
+**Lo que quedó:** las carpetas de terminal no tienen los hooks de `~/.claude` (bitácora, guardia de RAM, avisos de
+cuota): ver «Tres cuentas a la vez».
+
+**Vive en:** `scripts/operaciones/cartero.mjs` (`dirPropio`, `carpetasConRunner`, `verChats`, `pendientes`, `tomar`,
+`exigirRunner`, `latir`, `vuelta`) · `lib/operaciones-reglas.ts` (`runner`, `sanearEntregables`) · `lib/operaciones.ts` (`cicloCartero`) ·
+`lib/centro-chats.ts` (`comoSale`, `textoDeRenombre`) · `lib/runner.ts` (`COMANDO_TERMINAL`, las instrucciones) ·
+`tests/cartero-carpetas.test.ts` (la PC entera, contra un servidor falso)
+
 ## Lo que creí medido y no estaba al día
 
 - **`soloPlataforma` ya existía en el registro de la API** (lo sumó el 2FA obligatorio el 14/10, por
@@ -581,11 +657,9 @@ Martín con un clic y lo nombra «Jefe › Sub», o el jefe renombra uno existen
   Sus instrucciones se copian desde el Centro (Runners → Nuevo Runner; viven en `lib/runner.ts`). Y el Token de cada
   dispositivo, pegado en el Runner.
 - ~~Los textos de Avance y Pushes~~: las dos vistas se fueron en la punta 2 (el avance está en cada chat).
-- **Que un trabajo llegue a una cuenta que NO está abierta**: hoy espera a que la app pase a esa cuenta (o a que corra
-  en terminal con su Cartero). Para las tres en paralelo: `/login` de la 1 y la 2 en terminal (lo hace Martín), su
-  cartero como `cli` y un Cartero en cada una. ⚠️ El cartero acepta UNA fuente por cuenta (`app` o `cli`): una cuenta
-  con chats en la app y en terminal a la vez necesita las dos (scripts/operaciones/cartero.mjs → `carteroDe`). Y no
-  está medido si `SendMessage` cruza de un directorio de configuración a otro.
+- **Abrir el Runner de cada cuenta en su terminal** (lo hace Martín: `claude2 -n Runner` en PowerShell y pegarle las
+  instrucciones; los pasos en docs/relevo/centro-operaciones.md). Desde la 1.4.0 (16/10) una cuenta tiene varias fuentes
+  (la app y su terminal), la PC ya las tiene declaradas, y `SendMessage` está medido: no cruza carpetas.
 - ~~Implementar el rediseño de `docs/prototipos/centro-operaciones.html`~~: lo reemplazó el de punta a punta del 16/10.
 - **Dos ideas de Sintra y Grok Bot que no se hicieron** (16/10): una caja de pedido GENERAL arriba del equipo («¿Qué
   necesitás hoy?», con un «Para:» que elige al empleado, como el de Grok Bot) y chips con contadores («3 te esperan»).
@@ -600,8 +674,8 @@ Martín con un clic y lo nombra «Jefe › Sub», o el jefe renombra uno existen
 - **El token de GitHub de la plataforma (404 desde la transferencia)**: sin él no hay commits por push ni
   cierre de tareas del Plan por commits. El repo cableado al owner viejo ya se arregló (dcad6ddd2); falta
   que Martín le dé al token acceso a `hola-mako/dashboard-marketing`.
-- **Las cuentas de terminal**: el `/login` de cada una (lo hace Martín), su marcador por directorio y
-  sus hooks, y un chat Cartero en cada una. Hasta entonces, sólo entrega el cartero de la app.
+- **Las cuentas de terminal**: logueadas las tres (Martín, 16/10: «Listo las 3 cuentas»); falta su marcador por
+  directorio y sus hooks, y abrir el Runner en cada una.
 - **La opción C** (un hook con `asyncRewake` en la carpeta del Cartero, que lo despierta sin gastar
   turnos): documentado que despierta a una sesión ociosa; no probado con `Stop`. Necesita el OK de
   Martín porque es configuración.

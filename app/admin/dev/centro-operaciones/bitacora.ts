@@ -398,4 +398,22 @@ export const BITACORA: Hito[] = [
       'app/admin/operaciones/CentroApp.tsx — el «⋯», Renombrar y la lista por jefe',
     ],
   },
+  {
+    fecha: '16 oct', hora: '01:22', chat: CH, sesion: SESION_CH_3, cuenta: 'claude3', actor: 'claude', tipo: 'implementacion',
+    titulo: 'El Runner entrega a las terminales de las tres cuentas, uno por carpeta',
+    puntos: [
+      'Martín: «habiamos dicho de no usar más a Claude desde la app de desktop, sino desde powershell». Medido: SendMessage no cruza carpetas de config («ENOINBOX: no-key»).',
+      'Cada cuenta de terminal tiene su Runner («claude2 -n Runner»); el que escribe a un chat de terminal sin Runner ve «Abre el Runner en la terminal de la cuenta 2 para que salga».',
+      'El buzón es de la PC: MaKo reclama sólo lo que un Runner alcanza y cada Runner manda lo de su carpeta, una vez. Instalado en la PC (cartero 1.4.0) con las tres terminales declaradas.',
+      'La revisión adversarial encontró 13 cosas y las 13 se arreglaron; la más seria, un cierre que se perdía si lo subía el Runner de otra cuenta antes que su acuse.',
+    ],
+    commits: [{ sha: 'a5df91c3c', msg: 'feat(operaciones): el Runner entrega a las terminales de las tres cuentas, uno por carpeta', lineas: 842, archivos: 13 }],
+    archivos: [
+      'scripts/operaciones/cartero.mjs — las fuentes, la carpeta propia, el buzón compartido, la marca, el latido',
+      'lib/operaciones.ts — reclama sólo los entregables y dice qué cierres entraron',
+      'lib/centro-chats.ts — la caja y la sesión elegida miran si hay Runner',
+      'lib/runner.ts — cómo se abre en la terminal, y sus instrucciones',
+      'tests/cartero-carpetas.test.ts — la PC entera contra un servidor falso',
+    ],
+  },
 ];

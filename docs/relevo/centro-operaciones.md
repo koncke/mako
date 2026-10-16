@@ -28,9 +28,10 @@ Escrito por el chat «Centro de Operaciones» de la cuenta 3 (`local_428051c1…
    Token (`9813c2b3…`); el de cada dispositivo que falte se pega igual. En el Centro: Runners → la fila «Este dispositivo» (o la caja de cualquier chat) dice «Pégale tu Token al
    Runner para comenzar a chatear» y ofrece «Copiar Token»; Martín lo pega en el chat Runner, que corre
    `cartero.mjs clave`. Uno por dispositivo (la compu y el teléfono).
-2. **El chat Runner corriendo en la cuenta abierta** (hoy, la 3; el 15/10 «pasó hace 41 s»). Sus instrucciones viven en
-   `lib/runner.ts` (`INSTRUCCIONES_RUNNER`) y se copian desde el Centro: Runners → **Nuevo Runner** → «Copiar». Cada
-   cuenta que esté abierta en la app necesita su propio chat Runner con ese texto.
+2. **Un Runner en cada CARPETA donde haya chats abiertos** (16/10: `SendMessage` no cruza carpetas de config, medido).
+   Sus instrucciones viven en `lib/runner.ts` (`INSTRUCCIONES_RUNNER`) y se copian desde el Centro: Runners → **Nuevo
+   Runner** → «Copiar». El de la app (`~/.claude`) le llega a la app y a la terminal de la cuenta 1; las cuentas 2 y 3
+   en terminal necesitan el suyo (los pasos, abajo).
 3. **Renombrar el chat que hoy se llama «Cartero».** La línea para pegarle (la PC ya lo reconoce por los dos nombres,
    `esElCartero` en cartero.mjs 1.3.0, instalado el 15/10):
 
@@ -38,9 +39,19 @@ Escrito por el chat «Centro de Operaciones» de la cuenta 3 (`local_428051c1…
 Renombra este chat a "Runner" con set_session_title. Desde ahora eres el Runner del Centro de Operaciones: el trabajo es el mismo (cada 2 minutos, ciclo y entregar), y si te pego un token que empieza con mkop_, corre `node ~/.claude/operaciones/cartero.mjs token <el token>` y confírmalo en una línea.
 ```
 
-**Para que las tres cuenten a la vez**: `/login` de la 1 y la 2 en una terminal, su cartero como `cli`, y un Runner en
-cada terminal. No está medido si `SendMessage` cruza de un directorio de configuración a otro
-(hallazgos-operaciones.md → «Lo que quedó sin hacer»).
+**Para que las tres cuenten a la vez (16/10, cartero 1.4.0 instalado y con las tres terminales declaradas)**: las tres
+están logueadas; falta abrir un Runner por cuenta de terminal. Lo que hace Martín, una ventana de PowerShell por cuenta:
+
+1. Abre PowerShell y escribe `claude2 -n Runner` (para la cuenta 3, `claude3 -n Runner`; para la 1, `claude1 -n Runner`
+   cuando deje de usar la app).
+2. Pégale las instrucciones (Centro → Runners → Nuevo Runner → Copiar).
+3. La primera vez que pida permiso para `node ~/.claude/operaciones/cartero.mjs …`, elige la opción que no vuelve a
+   preguntar: si no, la vuelta de cada 2 minutos se frena esperándolo.
+4. Deja la ventana abierta (puede ir minimizada): cerrarla apaga el Runner de esa cuenta, y el Centro lo dice («Abre el
+   Runner en la terminal de la cuenta 2 para que salga»).
+
+Para que un chat de terminal se llame como su tab y se una con los de las otras cuentas: `claude2 -n "CRM"`. Por qué
+una carpeta y no una cuenta: hallazgos-operaciones.md → «SendMessage no cruza carpetas».
 
 ## No verificado
 

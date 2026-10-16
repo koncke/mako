@@ -1191,6 +1191,14 @@ código nuevo:
   siendo el cartero (`cartero.mjs`, `operaciones_carteros`, `ver_carteros_operaciones`): las claves no se renombran. La
   PC lo reconoce por el título del chat («Runner» o «Cartero», también como «Centro de Operaciones › Runner»:
   `esElCartero`). Un texto nuevo del Centro no dice «cartero» ni «clave»: lo fija tests/centro-textos.test.ts.
+- **UN RUNNER POR CARPETA DE CONFIG, NO POR CUENTA** (16/10/2026; Martín pasó las tres cuentas a la terminal, cada una
+  con su `CLAUDE_CONFIG_DIR`). `SendMessage` sólo llega a las sesiones registradas en la carpeta del que manda (medido:
+  «ENOINBOX: no-key»), y la app comparte `~/.claude` con `claude1`. Código nuevo que entregue algo a un chat: lo
+  reclama sólo si un Runner alcanza la carpeta de ese chat (`entregables`), lo deja en el buzón de la PC con esa carpeta,
+  y lo manda el Runner de esa carpeta (scripts/operaciones/cartero.mjs 1.4.0). Lo que la PC sube y después borra (un
+  cierre) se borra sólo si MaKo dice que ENTRÓ (`cierresIds`): con el buzón compartido, «se subió» no es «entró».
+  ⚠️ Nunca se copian las `.key` de `<carpeta>/sessions/` a otra carpeta para «hacerlo andar»: es la protección contra
+  un canal que nadie avaló.
 - **UN CHAT ES SU NOMBRE, Y UN SUB-CHAT SE LLAMA «<Jefe> › <Sub>»** (15/10/2026; Martín: «todos los chats de todas las
   cuentas se llamen igual» y «quiero que cada chat esté englobado en su chat "jefe" que siempre se debe llamar como la
   tab... ESO no lo quiero decidir yo, lo decide el chat jefe»). Lo que gobierna a cualquier chat:
@@ -1513,7 +1521,7 @@ lee tiene que deducir qué hacer. La segunda arranca con la acción, nombra la c
 |---|---|
 | «Este dispositivo todavía no firma.» | «Crea tu Token para comenzar a chatear.» |
 | «La PC todavía no acepta la clave de este dispositivo.» | «Pégale tu Token al Runner para comenzar a chatear.» |
-| «Sale cuando el cartero de la cuenta 3 dé su vuelta.» | «Abre el chat Runner en la app de Claude para que salga.» |
+| «Sale cuando el cartero de la cuenta 3 dé su vuelta.» | «Abre el Runner en la terminal de la cuenta 3 para que salga.» |
 | «Ningún chat todavía: aparecen cuando el cartero da su vuelta.» | «Conecta un Runner para ver tus chats aquí.» |
 
 - **La prueba antes de escribir un aviso:** ¿arranca con un verbo que la persona puede hacer, y
