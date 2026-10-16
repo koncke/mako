@@ -40,7 +40,7 @@
 - **Closing Analyst** (`closing`): `panorama_closing` · `metricas_closers` · `factores_cierre` · `tendencia_score` · `embudo_closing` · `estado_analisis_lead` · `lead_tiene_llamada` · `analizar_llamadas_lead` · `adjuntar_grabaciones_fathom`
 - **El negocio (onboarding, Second Brain, conocimiento)** (`negocio`): `contexto_negocio` · `ver_perfil_negocio` · `ver_archivero` · `ver_diagnostico_fase` · `listar_preguntas_diagnostico_fase` · `ver_estado_onboarding` · `ver_mi_plan` · `dar_de_baja_mi_plan` · `listar_tabs_por_configurar` · `listar_avatares_negocio` · `listar_lead_magnets` · `ver_personalidad_voz` · `buscar_en_segundo_cerebro` · `leer_segundo_cerebro_como_archivos` · `ver_glosario_negocio` · `buscar_conocimiento` · `buscar_tutorial` · `responder_pregunta_personalidad` · `guardar_campo_perfil` · `borrar_documento_archivero` · `guardar_diagnostico_fase` · `generar_avatares` · `afinar_avatares` · `editar_avatar_negocio` · `borrar_avatar_negocio` · `generar_lead_magnets` · `editar_lead_magnet` · `sugerir_productos` · `borrar_producto` · `guardar_muletillas_marca` · `reiniciar_personalidad`
 - **Content Machine** (`contenido`): `listar_anuncios_planteados` · `ver_anuncio_planteado` · `listar_guiones_anuncio` · `leer_guion_anuncio` · `cobertura_guiones_anuncio` · `catalogo_angulos_guion` · `catalogo_estructuras_guion` · `listar_formatos_creativo` · `opciones_siguiente_paso_guion` · `estado_contexto_contenido` · `estado_onboarding_contenido` · `limites_formato_instagram` · `mover_estado_guion_anuncio` · `elegir_formato_creativo_anuncio` · `recomendar_formatos_creativo` · `escribir_guion_anuncio` · `editar_texto_guion_anuncio` · `borrar_guion_anuncio`
-- **Video Generator** (`video`): `ver_puente_flow` · `listar_trabajos_flow` · `listar_anuncios_video` · `ver_anuncio_video` · `ver_montaje_anuncio` · `contar_escenarios_reusables` · `listar_guiones_para_video` · `listar_formatos_video` · `listar_lugares_grabacion` · `listar_plantillas_video` · `ver_contexto_video` · `ver_voz_cliente` · `estado_onboarding_video`
+- **Video Generator** (`video`): `ver_puente_flow` · `listar_trabajos_flow` · `listar_anuncios_video` · `ver_anuncio_video` · `ver_montaje_anuncio` · `contar_escenarios_reusables` · `listar_guiones_para_video` · `listar_formatos_video` · `listar_lugares_grabacion` · `listar_plantillas_video` · `listar_proyectos_video` · `ver_proyecto_video` · `ver_contexto_video` · `ver_voz_cliente` · `estado_onboarding_video`
 - **Image Editor (diseños)** (`imagen`): `listar_disenos_imagen` · `ver_diseno_imagen` · `listar_plantillas_imagen` · `crear_diseno_imagen` · `cambiar_textos_diseno_imagen` · `duplicar_diseno_imagen` · `borrar_diseno_imagen`
 - **Integraciones** (`integraciones`): `ver_integraciones` · `ver_integracion` · `probar_conexion_integracion` · `ver_estado_google_calendar` · `ver_cuotas_ia` · `ver_activacion_tab` · `ver_estado_agente_claude` · `link_configurar_integracion`
 - **Cuenta, equipo y notificaciones** (`equipo`): `ver_workspace` · `ver_zona_horaria_workspace` · `ver_preferencias_notificaciones` · `listar_avisos_disponibles` · `esta_aviso_activo` · `ver_estado_plantilla_reporte` · `fijar_zona_horaria_workspace` · `configurar_reporte` · `configurar_seccion_reporte` · `configurar_aviso_whatsapp` · `asegurar_plantilla_reporte`
@@ -12242,7 +12242,7 @@ curl -L \
 
 ## Video Generator — `video`
 
-Tab **Video Generator** (`/video-generator`). 13 lecturas · 0 acciones.
+Tab **Video Generator** (`/video-generator`). 15 lecturas · 0 acciones.
 
 ### `GET /api/v1/video/flow/conexion` — Conexión con Google Flow
 
@@ -12474,6 +12474,50 @@ curl -L \
   -H "Authorization: Bearer <TU-TOKEN>" \
   -H "X-MaKo-Api-Version: 2026-10-08" \
   "https://hola-mako.com/api/v1/video/plantillas"
+```
+
+### `GET /api/v1/video/proyectos` — Proyectos del Video Editor
+
+Los proyectos del Video Editor (/video-editor) de este negocio, del más reciente al más viejo: id, nombre, duración, cuándo se editó por última vez y el link para abrirlo. Es una COPIA que el editor sube mientras se edita: el proyecto vive en el navegador de quien lo edita, así que lo último puede tardar unos segundos en aparecer, y uno que no se abrió desde el 16/10/2026 todavía no está. El link lo abre en ese navegador; en otro, el editor no lo tiene. Para ver la línea de tiempo de uno, ver_proyecto_video.
+
+- **Ruta por operación:** `GET /api/v1/video/listar_proyectos_video`
+- **Token detallado:** permiso `video=read` (Solo lectura en «Video Generator»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** gratis
+- **Requiere la tab:** video-editor
+
+_Sin parámetros._
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/video/proyectos"
+```
+
+### `GET /api/v1/video/proyectos/{proyecto}` — Línea de tiempo de un proyecto
+
+La línea de tiempo de un proyecto del Video Editor, tal como la lee su chat «Editar con IA»: la duración total, el lienzo, las pistas (la principal marcada) con cada elemento —su ref corta (v1 video, i2 foto, t3 texto, a4 audio, s5 sticker…), inicio y fin en segundos, el texto o el nombre, el volumen y lo que tiene puesto (transición, animación, filtro, estilo)—, los medios de Multimedia (m1, m2…) y los nombres disponibles (transiciones, animaciones, filtros, efectos, curvas de velocidad, fuentes). Es la copia que subió el editor (dice cuándo): cambiarla no se puede desde aquí, porque el proyecto vive en el navegador de quien lo edita; se cambia en el editor o pidiéndoselo a su chat. Si el proyecto es muy grande, avisa en vez de mandarla.
+
+- **Ruta por operación:** `GET /api/v1/video/ver_proyecto_video`
+- **Token detallado:** permiso `video=read` (Solo lectura en «Video Generator»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** gratis
+- **Requiere la tab:** video-editor
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `proyecto` | string | sí | El id del proyecto (de listar_proyectos_video). |
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/video/proyectos/PROYECTO"
 ```
 
 ### `GET /api/v1/video/contexto` — Requisitos para filmar

@@ -17,7 +17,10 @@
 // paleta y el PDF queda viejo.
 // =============================================================================
 
-import { DIMENSIONES, MARCA_COMPLETAR, PUNTOS_CONTROL, avisosAfirmables, dimensionLabel, type ConclusionOferta, type PropuestaOferta, type PuntoControl } from './offer-marco';
+import {
+  DIMENSIONES, MARCA_COMPLETAR, PUNTOS_CONTROL, avisosAfirmables, dimensionLabel, loQueMeGusto, paraSubirCadaParte,
+  type ConclusionOferta, type PropuestaOferta, type PuntoControl,
+} from './offer-marco';
 import { CANALES, dimensionDeFase, faseDef, repartoTexto, type Diagnostico } from './fase-diagnostico';
 import { PdfDoc } from './pdf-escritor';
 
@@ -97,14 +100,20 @@ export function pdfDeOferta(c: ConclusionOferta, meta: MetaPdfOferta): Uint8Arra
   const p = c.propuesta;
   const d = c.diagnostico;
 
-  // ── Portada ────────────────────────────────────────────────────────────────
+  // ── Portada: NEUTRA (16/10/2026) ───────────────────────────────────────────
+  // Feedback de Martín en la llamada con Leila (12/10, 00:45:30): primero lo que MaKo encontró en la oferta de HOY
+  // («me gustó esto, esto y esto; esto lo cambiaría y lo haría de tal forma») y aparte «la propuesta que yo te armo».
+  // Antes la portada ponía el nombre de la oferta NUEVA arriba del puntaje de la de hoy, y se leían como una sola cosa.
   doc.rect(0, 0, doc.ancho, 6, { relleno: C.mako });
   doc.y = 40;
   doc.texto('MAKO · OFFER', { tam: 8, fuente: 'Helvetica-Bold', color: C.makoTinta, despues: 8 });
-  doc.texto(p.nombre || meta.titulo || 'Tu oferta', { tam: 24, fuente: 'Helvetica-Bold', interlinea: 1.2, despues: 6 });
-  if (lleno(p.frase)) doc.textoRico(tramosConCompletar(p.frase, C.dim), { tam: 13, interlinea: 1.4, despues: 8 });
-  const metaLinea = [meta.negocio, fecha, `Versión ${c.version}`].filter(Boolean).join('  ·  ');
+  doc.texto(lleno(meta.negocio) ? `La oferta de ${meta.negocio}` : 'Tu oferta', { tam: 24, fuente: 'Helvetica-Bold', interlinea: 1.2, despues: 6 });
+  doc.texto('Primero, lo que encontré en tu oferta de hoy: lo que me gustó y lo que cambiaría. Después, la propuesta que te armo.', { tam: 12, color: C.dim, interlinea: 1.4, despues: 8 });
+  const metaLinea = [fecha, `Versión ${c.version}`].filter(Boolean).join('  ·  ');
   doc.texto(metaLinea, { tam: 9, color: C.tenue, despues: 16 });
+
+  // ══ PARTE 1 · TU OFERTA HOY ══════════════════════════════════════════════════
+  parte(doc, 1, 'Tu oferta hoy');
 
   // ── Puntaje ────────────────────────────────────────────────────────────────
   const altoPanel = 74;
@@ -152,26 +161,40 @@ export function pdfDeOferta(c: ConclusionOferta, meta: MetaPdfOferta): Uint8Arra
     doc.y += 7;
   }
   doc.y += 4;
-  if (lleno(d.fuerte)) {
-    doc.texto('Lo más fuerte', { tam: 10, fuente: 'Helvetica-Bold', color: C.bien, conSiguiente: 14 });
-    doc.textoRico(tramosConCompletar(d.fuerte), { tam: 10, despues: 10 });
+  // Lo que ya hace bien: una LISTA (antes, «Lo más fuerte» era una sola frase).
+  const gusto = loQueMeGusto(c);
+  if (gusto.length) {
+    doc.texto('Lo que me gustó', { tam: 12, fuente: 'Helvetica-Bold', color: C.bien, conSiguiente: 16, despues: 4 });
+    for (const g of gusto) vineta(doc, g, C.bien);
+    doc.y += 8;
   }
   const alertas = avisosAfirmables(c.calculo.alertas);
   if (alertas.length) caja(doc, 'Para tener en cuenta', alertas, C.ojoFondo, C.ojo);
 
-  if (d.cambios.length) {
-    doc.texto('Lo primero que cambiaría', { tam: 12, fuente: 'Helvetica-Bold', conSiguiente: 30, despues: 4 });
+  // Lo que cambiaría, Y CÓMO: los cambios con su hipótesis, y parte por parte lo que sube cada nota floja (la
+  // `mejora` del diagnóstico, que antes sólo veía la pantalla).
+  const subir = paraSubirCadaParte(c);
+  if (d.cambios.length || subir.length) {
+    doc.texto('Lo que cambiaría, y cómo', { tam: 12, fuente: 'Helvetica-Bold', conSiguiente: 30, despues: 4 });
     d.cambios.forEach((cb, i) => {
       doc.texto(`${i + 1}. ${cb.titulo}`, { tam: 10.5, fuente: 'Helvetica-Bold', conSiguiente: 12 });
       if (lleno(cb.porque)) doc.textoRico(tramosConCompletar(cb.porque, C.dim), { tam: 9.5, sangria: 14 });
       if (lleno(cb.hipotesis)) doc.textoRico([{ t: 'Para probar: ', fuente: 'Helvetica-Bold', color: C.azul }, ...tramosConCompletar(cb.hipotesis, C.dim)], { tam: 9.5, sangria: 14 });
       doc.y += 6;
     });
+    if (subir.length) {
+      doc.texto('Para subir cada parte', { tam: 10.5, fuente: 'Helvetica-Bold', conSiguiente: 14, despues: 2 });
+      for (const s of subir) vineta(doc, `${s.label} (${s.nota}/10): ${s.mejora}`, C.ojo);
+      doc.y += 6;
+    }
   }
 
-  // ── La oferta nueva ────────────────────────────────────────────────────────
-  doc.y += 8;
-  seccion(doc, 'Tu oferta nueva');
+  // ══ PARTE 2 · LA PROPUESTA QUE TE ARMO ═══════════════════════════════════════
+  // En otra página: es otro documento dentro del mismo («tal vez un segundo PDF o en otra sección», 00:46:00).
+  doc.nuevaPagina();
+  parte(doc, 2, 'La propuesta que te armo');
+  doc.texto(p.nombre || meta.titulo || 'Tu oferta nueva', { tam: 20, fuente: 'Helvetica-Bold', interlinea: 1.2, despues: 6 });
+  if (lleno(p.frase)) doc.textoRico(tramosConCompletar(p.frase, C.dim), { tam: 12, interlinea: 1.4, despues: 12 });
   // Precio y bonos provisionales (tarjeta «rehacer», 12/10/2026): dependen de arreglar el cliente o la promesa.
   if (c.provisional) caja(doc, 'Precio y bonos provisionales', [c.provisional.motivo], C.ojoFondo, C.ojo);
   if (p.avisos?.length) caja(doc, 'Revísalo antes de usarla', p.avisos, C.ojoFondo, C.ojo);
@@ -276,6 +299,19 @@ function vineta(doc: PdfDoc, t: string, color: string): void {
   doc.asegurar(14);
   doc.textoEn(doc.margen + 4, doc.y + 10 * 0.95, '•', { tam: 10, color });
   doc.textoRico(tramosConCompletar(t), { tam: 9.5, sangria: 14, interlinea: 1.35 });
+}
+
+/**
+ * El comienzo de una de las dos PARTES del documento (16/10/2026): «Tu oferta hoy» y «La propuesta que te armo». Una banda
+ * con el número y el título, más grande que una sección: es lo que separa una cosa de la otra al hojearlo.
+ */
+function parte(doc: PdfDoc, n: number, titulo: string): void {
+  doc.asegurar(70);
+  const y0 = doc.y;
+  doc.rect(doc.margen, y0, doc.anchoUtil, 46, { relleno: C.makoFondo, radio: 10 });
+  doc.textoEn(doc.margen + 18, y0 + 18, `PARTE ${n}`, { tam: 8, fuente: 'Helvetica-Bold', color: C.makoTinta });
+  doc.textoEn(doc.margen + 18, y0 + 36, titulo, { tam: 17, fuente: 'Helvetica-Bold' });
+  doc.y = y0 + 46 + 18;
 }
 
 function seccion(doc: PdfDoc, titulo: string): void {

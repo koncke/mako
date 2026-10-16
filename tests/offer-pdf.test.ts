@@ -20,10 +20,22 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { pdfDeOferta, nombreArchivoOferta } from '../lib/offer-pdf';
 import { textoParaPdf, PdfDoc } from '../lib/pdf-escritor';
-import type { ConclusionOferta } from '../lib/offer-marco';
+import { loQueMeGusto, paraSubirCadaParte, type ConclusionOferta } from '../lib/offer-marco';
+import { parseDiagnostico } from '../lib/offer-reglas';
 import { diagnosticar, faseDef } from '../lib/fase-diagnostico';
+
+/** El texto de cada página por separado (para ver dónde arranca cada parte). */
+async function paginasPdf(bytes: Uint8Array): Promise<string[]> {
+  const M = Math as unknown as { sumPrecise?: (a: number[]) => number };
+  if (typeof M.sumPrecise !== 'function') M.sumPrecise = (a) => a.reduce((x, y) => x + y, 0);
+  const { extractText, getDocumentProxy } = await import('unpdf');
+  const { text } = await extractText(await getDocumentProxy(new Uint8Array(bytes)), { mergePages: false });
+  return Array.isArray(text) ? text : [text];
+}
 
 async function leerPdf(bytes: Uint8Array): Promise<{ texto: string; paginas: number }> {
   // pdfjs (dentro de unpdf) usa Math.sumPrecise, que no existe en Node < 22 (mismo
@@ -119,7 +131,7 @@ test('el PDF se LEE de vuelta: nombre, secciones, acentos, ñ y pie', async () =
   assert.ok(paginas >= 1);
   assert.match(texto, /Reto Plato Fuerte/);
   assert.match(texto, /Diagnóstico/);
-  assert.match(texto, /Tu oferta nueva/);
+  assert.match(texto, /La propuesta que te armo/);
   assert.match(texto, /Nutrición Ñandú/, 'los acentos o la ñ no llegaron');
   assert.match(texto, /mamás que trabajan/);
   assert.match(texto, /1 \//, 'falta el pie con el número de página');
@@ -239,4 +251,70 @@ test('el PDF: lo que falta para estar lista, lo provisional, los avisos y lo que
   assert.ok(plano.indexOf('datos para completar') < plano.indexOf('Lo que propuso MaKo'), 'separado de los datos a completar');
   const antes = (await leerPdf(pdfDeOferta(ejemplo(), { negocio: 'X', titulo: 'Y', fecha: new Date() }))).texto;
   for (const x of ['Para estar lista', 'provisional', 'Revísalo antes', 'Lo que propuso MaKo']) assert.ok(!antes.includes(x), `una conclusión vieja no trae «${x}»`);
+});
+
+// ── El PDF en DOS partes (16/10/2026) ───────────────────────────────────────
+// Feedback de Martín en la llamada con Leila (12/10, 00:45:30): «primero te tienen que decir… de tu oferta me gustó
+// esto, esto y esto, y esto lo cambiaría y haría tal forma. Y por el otro lado… esta es la propuesta que yo te armo».
+// Antes la única separación era un título, la portada ponía el nombre de la oferta NUEVA arriba del puntaje de la de
+// HOY, lo bueno era una sola frase y el «cómo subirla» de cada parte no llegaba al PDF.
+// PROBADO ROMPIÉNDOLO (16/10/2026, arnés romper-pdf.mjs): base 13/0; cada rotura cae, «1 fallo, 12 pases» (la de la
+// portada, 2): la propuesta no abre su página · la portada con el nombre de la oferta nueva · sin la lista de lo que
+// me gustó · sin «para subir cada parte» · el puntaje después de la segunda parte · las notas altas no suman · lo que
+// me gustó con repetidas · lo que sube, sin ordenar · el parser no saca repetidas · una conclusión vieja queda sin
+// fortalezas · la pantalla sigue con una sola frase.
+test('dos partes: «Tu oferta hoy» (lo que me gustó, lo que cambiaría y cómo) y, en otra página, «La propuesta que te armo»', async () => {
+  const c = ejemplo();
+  c.diagnostico.fuertes = ['Tienes casos reales: «12 mamás ya bajaron 5 kilos».', 'Cupos claros por grupo.'];
+  const { texto, paginas } = await leerPdf(pdfDeOferta(c, { negocio: 'Nutrición Ñandú', titulo: 'Mi oferta', fecha: new Date() }));
+  const plano = texto.replace(/\s+/g, ' ');
+  const i1 = plano.indexOf('Tu oferta hoy');
+  const i2 = plano.indexOf('La propuesta que te armo');
+  assert.ok(i1 > 0 && i2 > i1, 'las dos partes, en orden');
+  // La segunda parte ABRE su página: es la primera cosa de la página donde está, y la primera parte no está ahí.
+  const porPagina = await paginasPdf(pdfDeOferta(c, { negocio: 'Nutrición Ñandú', titulo: 'Mi oferta', fecha: new Date() }));
+  const p2 = porPagina.findIndex((x) => x.includes('La propuesta que te armo'));
+  assert.ok(p2 > 0 && paginas >= 2, 'la propuesta no va en otra página');
+  const inicio = porPagina[p2].replace(/\s+/g, ' ').trim();
+  assert.match(inicio, /^PARTE 2 La propuesta que te armo/, `la segunda parte no abre su página: «${inicio.slice(0, 80)}»`);
+  assert.ok(!porPagina[p2].includes('Tu oferta hoy'));
+  // La portada no lleva el nombre de la oferta nueva: aparece recién en la segunda parte.
+  assert.ok(plano.indexOf('Reto Plato Fuerte') > i2, 'el nombre de la oferta nueva quedó arriba, con la de hoy');
+  assert.match(plano.slice(0, i1), /La oferta de Nutrición Ñandú/);
+  assert.ok(plano.indexOf('PUNTAJE') > i1 && plano.indexOf('PUNTAJE') < i2, 'el puntaje es de la oferta de hoy');
+  // Lo que me gustó: la lista entera, en la primera parte.
+  const iG = plano.indexOf('Lo que me gustó');
+  assert.ok(iG > i1 && iG < i2);
+  assert.ok(plano.includes('12 mamás ya bajaron 5 kilos') && plano.includes('Cupos claros por grupo.'));
+  // Lo que cambiaría y CÓMO: los cambios y, parte por parte, lo que sube cada nota floja (la de la pantalla).
+  const iC = plano.indexOf('Lo que cambiaría, y cómo');
+  assert.ok(iC > iG && iC < i2);
+  assert.ok(plano.indexOf('Para subir cada parte') > iC && plano.indexOf('Para subir cada parte') < i2);
+  assert.ok(plano.includes('Diferenciación (3/10): Nombrar el método.'), 'falta la mejora de la nota más floja');
+  assert.ok(plano.indexOf('Diferenciación (3/10)') < plano.indexOf('Precio y cobro (4/10)'), 'de la más baja a la más alta');
+});
+
+test('lo que me gustó y lo que sube cada parte salen de lo que ya dejó el diagnóstico (sin IA nueva)', () => {
+  const c = ejemplo();
+  // Una conclusión de antes (sin `fuertes`) usa `fuerte`; las notas altas suman su porqué; sin repetidas.
+  const gusto = loQueMeGusto(c);
+  assert.equal(gusto[0], 'Ya hay 12 clientes que pagaron la misma oferta (validación real).');
+  assert.ok(gusto.includes('Cliente ideal: Coaches de nutrición que ya facturan.'), JSON.stringify(gusto));
+  assert.ok(!gusto.some((g) => g.startsWith('Promesa')), 'una nota de 6 no es algo que ya hace bien');
+  c.diagnostico.fuertes = ['A', 'A', 'B'];
+  assert.deepEqual(loQueMeGusto({ ...c, diagnostico: { ...c.diagnostico, dimensiones: [] } }), ['A', 'B']);
+  // Lo que sube: sólo las de 5 o menos, de la más baja a la más alta, con su mejora.
+  const subir = paraSubirCadaParte(ejemplo());
+  assert.deepEqual(subir.map((s) => s.nota), [2, 3, 4, 5]);
+  assert.equal(subir[0].mejora, 'Cohorte con fecha.');
+  // El parser: hasta 3 fortalezas, sin repetidas; `fuerte` sigue siendo la primera.
+  const d = parseDiagnostico({ ...c.diagnostico, fuerte: '', fuertes: ['uno', 'uno', 'dos', 'tres', 'cuatro'] });
+  assert.ok(d);
+  assert.deepEqual(d.fuertes, ['uno', 'dos', 'tres']);
+  assert.equal(d.fuerte, 'uno');
+  const viejo = parseDiagnostico({ ...c.diagnostico, fuertes: undefined });
+  assert.deepEqual(viejo?.fuertes, ['Ya hay 12 clientes que pagaron la misma oferta (validación real).']);
+  // Y la pantalla también muestra la lista (con el rótulo de siempre, que lo lee MaKo Mobile).
+  const pantalla = readFileSync(join(import.meta.dirname, '..', 'app/offer/Conclusion.tsx'), 'utf8');
+  assert.match(pantalla, /\{d\.fuertes!\.map\(\(f, i\) => <li key=\{i\}><T v=\{f\} \/><\/li>\)\}/);
 });

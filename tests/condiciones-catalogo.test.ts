@@ -310,7 +310,8 @@ test('resumenPagos y catalogoDeLead', () => {
 // que reemplaza la unión por fila. Y el punto 1: el selector de ancho completo, sin un tope propio.
 test('el editor: «＋ Condición» la primera, «＋ y» / «＋ o» las demás, sin «＋ Rama» ni «Todas / Cualquiera»', () => {
   const src = sinComentarios(leer('../app/automations/EditorCondicion.tsx'));
-  assert.match(src, /seccionesDeCondiciones\(ambito, cat\)/);
+  // (16/10/2026: en una fila de evento, con sus DATOS primero: `condicionesDelEvento`, tests/dato-evento.test.ts.)
+  assert.match(src, /seccionesDeCondiciones\(ambito, cat, datos\)/);
   assert.match(src, /＋ Condición/);
   assert.match(src, /texto="＋ y"[^>]*onElegir=\{agregar\('y'\)\}/);
   assert.match(src, /texto="＋ o"[^>]*onElegir=\{agregar\('o'\)\}/);

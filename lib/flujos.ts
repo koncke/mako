@@ -38,6 +38,7 @@ import { CLAVE_MENSAJE_MAKO } from './variables-aviso';
 import { avisoPorEmail, textoDePreparadas, type PartePreparada } from './mako-tarjeta';
 import type { ParteMensaje } from './mensaje-partes';
 import type { HechosLead } from './flujo-grafo';
+import { datoDeCampo, hechosDelEvento, soloDatosDelEvento } from './dato-evento';
 
 export type CtxFlujo = {
   ws?: number; leadId?: number; leadNombre?: string; reunion?: 'R1' | 'R2'; texto?: string;
@@ -175,6 +176,8 @@ export async function correrFlujoDe(avisoId: string, ws: number, ctx: CtxFlujo =
 export async function ejecutarPasos(
   flujoId: string, pasos: Paso[], ws: number, ctx: CtxFlujo,
   corrida?: { id: number; paso: number; desdeAt: Date; respondioAt: Date | null },
+  /** Cuántas tarjetas de un evento LLEGARON en esta vuelta (16/10/2026): lo pasa el emisor de eventos (`depsDelEvento`). */
+  entregas?: { llegaron: number },
 ): Promise<void> {
   let i = corrida?.paso ?? 0;
   let desde = corrida?.desdeAt ?? new Date();
@@ -186,6 +189,10 @@ export async function ejecutarPasos(
 
   // EL HORARIO DE OFICINA (15/10/2026): se lee UNA vez, recién cuando un paso lo pide (`esperaApertura`).
   let apertura: number | null | 'ilegible' | undefined;
+  // ⚠️ LA CADENA DE CONDITION QUE SE ACABA DE DECIDIR (16/10/2026): la primera de las que se decidieron seguidas en esta
+  // vuelta. Si la tarjeta a la que llevan espera a que abra la oficina, la corrida duerme en ESA condición y no en la
+  // tarjeta: al abrir se decide todo de nuevo con lo de ese momento. Se borra al ejecutar o esperar cualquier otro paso.
+  let cadena: number | null = null;
 
   for (let vuelta = 0; vuelta < pasos.length + 2; vuelta++) {
     // ⚠️ FUERA DEL HORARIO, LA TARJETA QUE ESPERA (Y SU CONDITION) NO SE DECIDE: duerme en ESTE paso hasta que abre, y
@@ -199,8 +206,9 @@ export async function ejecutarPasos(
       const hasta = apertura === 'ilegible' ? new Date(Date.now() + REINTENTO_HORARIO_MS)
         : apertura != null && apertura > Date.now() ? new Date(apertura) : null;
       if (hasta) {
-        if (corridaId) await avanzar(ws, corridaId, i, i, hasta, ctx);
-        else await abrirCorrida(ws, flujoId, i, hasta, ctx, { reintento: true });
+        const dormirEn = cadena ?? i;
+        if (corridaId) await avanzar(ws, corridaId, i, dormirEn, hasta, ctx);
+        else await abrirCorrida(ws, flujoId, dormirEn, hasta, ctx, { reintento: true });
         return;
       }
     }
@@ -249,6 +257,7 @@ export async function ejecutarPasos(
         const mio = await avanzar(ws, corridaId, i, d.siguiente, null);
         if (!mio) return;
       }
+      cadena = pasos[i]?.tipo === 'condicion' ? (cadena ?? i) : null;
       i = d.siguiente;
       desde = new Date();
       continue;
@@ -262,7 +271,8 @@ export async function ejecutarPasos(
       const mio = await avanzar(ws, corridaId, i, d.siguiente, null);
       if (!mio) return;
     }
-    try { await ejecutarPaso(flujoId, d.paso, ws, ctx); }
+    cadena = null;
+    try { if ((await ejecutarPaso(flujoId, d.paso, ws, ctx)) === true && entregas) entregas.llegaron += 1; }
     catch (e) { console.error(`[flujos] paso de ${flujoId}:`, e instanceof Error ? e.message : String(e)); }
     i = d.siguiente;
     desde = new Date();
@@ -281,11 +291,15 @@ export async function ejecutarPasos(
  * estado (AGENTS.md), y quien llama lo reintenta (`reintentoDeHechos`).
  */
 async function hechosDeLaCorrida(pasos: Paso[], ws: number, ctx: CtxFlujo): Promise<HechosLead | null | 'ilegible'> {
+  const filas = pasos.flatMap((p) => (p.tipo === 'condicion' ? p.rama.filas ?? [] : []));
+  // SÓLO LOS DATOS DEL EVENTO (16/10/2026, lib/dato-evento.ts): no hay lead que leer, y un evento de la plataforma no trae
+  // ninguno. Lo que trajo el emisor es lo que se pregunta.
+  if (soloDatosDelEvento(filas)) return hechosDelEvento(ctx.datos, Date.now());
   if (!ctx.leadId) return null;
   try {
-    const filas = pasos.flatMap((p) => (p.tipo === 'condicion' ? p.rama.filas ?? [] : []));
     const { hechosDeUnLead } = await import('./nutricion');
-    return await hechosDeUnLead(ws, ctx.leadId, filas);
+    const h = await hechosDeUnLead(ws, ctx.leadId, filas.filter((f) => datoDeCampo(f.campo) == null));
+    return h ? { ...h, evento: { ...(ctx.datos ?? {}) } } : h;
   } catch (e) {
     console.error(`[flujos] los hechos del lead #${ctx.leadId}:`, e instanceof Error ? e.message : String(e));
     return 'ilegible';
@@ -363,7 +377,8 @@ async function filaParaRetomar(filaId: number): Promise<FilaParaRetomar | null> 
   return (data as FilaParaRetomar | null) ?? null;
 }
 
-async function ejecutarPaso(flujoId: string, paso: Paso, ws: number, ctx: CtxFlujo): Promise<void> {
+/** `true` = una tarjeta de un evento de MaKo que LLEGÓ (al grupo o por email); lo demás no devuelve nada. */
+async function ejecutarPaso(flujoId: string, paso: Paso, ws: number, ctx: CtxFlujo): Promise<boolean | void> {
   // INSISTIR: el mensaje sale AHORA y además queda una insistencia abierta. Vuelve
   // cada `cadaMin` hasta `veces`, o hasta que alguien escriba «ok» en el grupo.
   // El techo (5 veces, 30 min) lo recorta `sanearInsistir` adentro de abrirInsistencia:
@@ -410,7 +425,7 @@ async function ejecutarPaso(flujoId: string, paso: Paso, ws: number, ctx: CtxFlu
       const propio = (paso.texto ?? '').trim();
       // La tarjeta «MaKo en WhatsApp» de un EVENTO DE MAKO sale como el aviso de siempre (ver la función), y con su
       // lista (undécima tanda), por partes y tal cual.
-      if (ctx.aviso) { await emitirTarjetaDelEvento(flujoId, { texto: propio, partes: paso.partes, email: paso.email }, ws, ctx, ctx.aviso); return; }
+      if (ctx.aviso) return emitirTarjetaDelEvento(flujoId, { texto: propio, partes: paso.partes, email: paso.email }, ws, ctx, ctx.aviso);
       const contexto = [ctx.leadNombre && `Lead: ${ctx.leadNombre}`, ctx.reunion && `Reunión: ${ctx.reunion}`, ctx.texto].filter(Boolean).join(' · ');
       // `conVariables` pone los datos con LA regla de todo envío (`textoConDatos`, undécima tanda): el renglón que nombra
       // un dato sin valor se va entero; lo que no es del catálogo queda crudo (y Publicar ya no lo deja pasar).
@@ -515,7 +530,7 @@ function nombreDelAviso(flujoId: string): string {
  */
 async function emitirTarjetaDelEvento(
   flujoId: string, tarjeta: { texto: string; partes?: ParteMensaje[]; email?: { asunto: string } }, ws: number, ctx: CtxFlujo, aviso: { id: string; titulo: string },
-): Promise<void> {
+): Promise<boolean> {
   // ⚠️ `{{mensaje_mako}}` SE SIGUE INYECTANDO hasta la limpieza (docs/diseno-undecima-tanda.md §8.7): #239 y #240 lo usan
   // hasta que el script de flujos las archive. Ya no se ofrece ni se publica (`problemasDeTokens`, lib/tokens-del-flujo.ts).
   // Los datos van con el renglón opcional (`conVariables` → `textoConDatos`): «📱 {{lead_telefono}}» sin teléfono no sale.
@@ -528,15 +543,15 @@ async function emitirTarjetaDelEvento(
   if (tarjeta.partes?.length) {
     const { prepararPartesGrupo, problemaDePartesGrupo } = await import('./mako-tarjeta-envio');
     const ajena = await problemaDePartesGrupo(tarjeta.partes);
-    if (ajena) { console.error(`[flujos] ${flujoId}: el aviso «${aviso.id}» no salió — ${ajena}`); return; }
+    if (ajena) { console.error(`[flujos] ${flujoId}: el aviso «${aviso.id}» no salió — ${ajena}`); return false; }
     const p = await prepararPartesGrupo(tarjeta.partes, resolver);
-    if (!p.ok) { console.error(`[flujos] ${flujoId}: el aviso «${aviso.id}» no salió — ${p.error}`); return; }
+    if (!p.ok) { console.error(`[flujos] ${flujoId}: el aviso «${aviso.id}» no salió — ${p.error}`); return false; }
     partes = p.partes;
     texto = textoDePreparadas(partes);
   } else {
-    if (!tarjeta.texto) return;
+    if (!tarjeta.texto) return false;
     texto = await resolver(tarjeta.texto);
-    if (!texto.trim()) return;
+    if (!texto.trim()) return false;
   }
   const cat = CATALOGO_AVISOS.find((c) => c.id === aviso.id);
   const { emitirAviso } = await import('./avisos');
@@ -551,4 +566,6 @@ async function emitirTarjetaDelEvento(
   if (!r.ok) console.error(`[flujos] ${flujoId}: el aviso «${aviso.id}» no salió`);
   else if (porEmail && !r.email) console.error(`[flujos] ${flujoId}: el aviso «${aviso.id}» no salió por email (ws ${wsDestino}: ¿sin destinatarios?)`);
   else if (partes && !r.wa && r.waError) console.error(`[flujos] ${flujoId}: el aviso «${aviso.id}» no salió al grupo — ${r.waError}`);
+  // LLEGÓ = al grupo o por email (16/10/2026): el feed y el push los escribe igual, y no avisan a nadie que no esté mirando.
+  return r.ok && (r.wa || r.email === true);
 }

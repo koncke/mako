@@ -23,6 +23,36 @@ hay), `lib/cerebro-layout.ts` (dónde va cada uno), `lib/cerebro-modelo.ts` (la 
 
 ---
 
+## El Second Brain es un chat: dos puertas, y el Mapa sólo cuando se pide (16/10/2026)
+
+**El pedido.** Martín, por el coordinador: «Termina con todo, faltan mis pedidos del Second Brain»; la etapa 2 de
+`docs/diseno-mako-ai-native.md`. Primera tanda: `/second-brain` pasa a ser el chat con MaKo, con la cara del Centro de
+Operaciones (barra de chats, conversación, caja con micrófono, la tarjeta que se confirma), y el grafo es «Mapa».
+
+- **Dos puertas, las dos en el servidor.**
+  - **El chat es de todos los que tienen MaKo** (closer y setter incluidos): `requireRolWs(['closer', 'setter'], { nav: 'mako' })`,
+    la misma clave del chat del teléfono.
+  - **El Mapa es del admin con la tab en su capa**: `esAdminDeTab('second-brain')` (`lib/puerta-admin-tab.ts`), la MISMA
+    regla de las rutas del Second Brain, sin una copia. A quien no le toca no se le calcula.
+- **El Mapa se calcula sólo cuando la URL lo pide** (`?panel=mapa`, o un `?area=` de los links de siempre).
+  `construirCerebro()` son 21 lecturas, y el chat no las necesita para el primer dibujo.
+- **La ruta del chat no puede ir en `app/api/second-brain/`.** Esa carpeta es sólo del admin por test
+  (`tests/puerta-admin-tab.test.ts`), y un closer recibiría 403. Va en `app/api/mako/chat`, con la puerta de MaKo
+  (`personaDelRequest`).
+- **El jefe «Second Brain» son las conversaciones del teléfono** (`mako-movil:u<id>`): no hubo nada que migrar.
+  - El jefe es la MÁS VIEJA, y las demás son sus sub-chats. Con la más reciente, el jefe saltaba de fila cada vez
+    que se escribía en otra.
+  - Un chat nuevo se crea con el primer mensaje, no al apretar «Nuevo chat».
+- **Los sub-chats heredan el muñeco del jefe sólo si el jefe está en `EQUIPO`** (`lib/centro-munecos.ts`). Sin
+  esa entrada, cada sub-chat salía con una forma y un color distintos. «Second Brain» es la gota.
+- **Trampas del entorno que muerden a cualquier pantalla de acá:**
+  - la capa superadmin tiene `userNavKeys: null`, así que pasa `requireCapa` con cualquier clave, pero el Sidebar
+    no le dibuja la entrada;
+  - la capa `pm` no tiene `second-brain`: ve el chat y no el Mapa.
+
+**Vive en:** `app/second-brain/page.tsx` · `app/second-brain/ChatSecondBrain.tsx` · `app/api/mako/chat/route.ts` ·
+`app/_chat/` · `lib/chat-mako-reglas.ts` · `tests/second-brain-chat.test.ts` · `tests/chat-mako-reglas.test.ts`
+
 ## Las doce métricas que deciden si se parece
 
 **Síntoma.** Se rehace el grafo con d3-force, se mira, parece una nube. El dueño lo mira y

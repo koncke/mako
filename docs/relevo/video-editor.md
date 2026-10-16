@@ -13,8 +13,9 @@ Mientras tanto este chat hace la etapa 3 del diseño AI-native (docs/diseno-mako
 «Editar con IA» guardado y sus operaciones en la API de MaKo, por tandas:
 1. **El hilo guardado** (hecho): por persona y proyecto, mig **0298** (`video_editor_chats`, va ANTES o JUNTO con el
    deploy; la aplica el coordinador). Lo aprendido, en los hallazgos («El hilo del chat, guardado»).
-2. **El proyecto también en la base, para leerlo por la API** (sigue): el editor sube la VISTA de la línea de tiempo
-   (la misma que lee el chat, con sus refs, ≤60 k) al guardar; `listar_proyectos_video` y `ver_proyecto_video`.
+2. **El proyecto también en la base, para leerlo por la API** (hecho): el editor sube la VISTA de la línea de tiempo
+   (la misma que lee el chat, con sus refs, ≤60 k) un rato después de cada cambio; `listar_proyectos_video` y
+   `ver_proyecto_video`. Mig **0299** (`video_editor_proyectos`, ANTES o JUNTO con el deploy).
 3. **Las operaciones del chat como acciones de la API** (después): cada una PROPONE (`confirmacion: 'pantalla'`, con
    `proponer()` propio) a una propuesta abierta del proyecto; el editor la muestra en el chat como una más y se
    acepta con el mismo `aceptarPropuesta` (que ya revisa contra la línea de tiempo de ahora con las refs de antes).

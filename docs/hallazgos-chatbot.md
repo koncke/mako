@@ -4980,19 +4980,53 @@ la plataforma. Ninguno de los tres se arregló en esa tanda: son del motor, y qu
   condiciones son SÓLO de un lead (`hechosDeLaCorrida` → `hechosDeUnLead`, lib/flujos.ts) y saldrían del ws 9, no de
   `negocioWs`. Por eso «avisar sólo si no vio su oferta» no se puede armar: necesitaría hechos DEL NEGOCIO, una fuente
   nueva en lib/condiciones-catalogo.ts y la hora del evento en `datos` (sobrevive al DELAY: `ctxParaDormir` sólo saca
-  `cuota_dias`).
+  `cuota_dias`). **16/10/2026, noche: resuelto en parte:** ya hay CONDITION sobre los DATOS DEL EVENTO (la
+  sección de abajo); los hechos DEL NEGOCIO siguen sin existir.
 - **Sin grupo de MaKo, la tarjeta de WhatsApp se pierde sin decirlo.** `enviarAlGrupoMaKo` contesta «el workspace no
   tiene grupo de MaKo todavía» (lib/mako-grupo.ts), `emitirAviso` sólo lo loguea y `emitirPorEvento` igual devuelve
   `wa: true` cuando corrió una fila. No hay respaldo por email: «email sólo si no hay grupo» no se puede escribir como
   una condición visible. El grupo nace con `setNumeroDuenoYSync`; un cliente que posterga el teléfono en el onboarding
-  no tiene grupo.
+  no tiene grupo. (16/10/2026, noche: el emisor devuelve además `llegaron`, lo que de verdad llegó; el respaldo sigue sin hacer.)
 - **No hay aviso «en la app» de escritorio.** No existe una tarjeta in-app: `emitirAviso` siempre llama
   `crearNotificacion`, pero la tabla `notificaciones` **no existe en producción** (docs/estado-del-arte.md), así que esas
   filas no van a ningún lado. Lo único que llega es el push de MaKo Mobile (salvo las tarjetas por email, `push: false`),
-  y no hay campanita en escritorio.
+  y no hay campanita en escritorio. **Medido el 16/10/2026 (noche): la tabla SÍ existe en producción** (mig 0250, 273 filas, la lee el
+  «Avisos» de MaKo Mobile); lo que falta es la campanita de escritorio (docs/hallazgos-comunicacion.md).
 
 **Vive en:** lib/aviso-evento.ts (`MOTIVO_EVENTO`, `emitirPorEvento`) · lib/flujos.ts (`hechosDeLaCorrida`,
 `emitirTarjetaDelEvento`) · lib/mako-grupo.ts (`enviarAlGrupoMaKo`) · lib/avisos.ts (`emitirAviso`) ·
 lib/notificaciones.ts
 
 *16/10/2026, chat «Offer» (claude3), al sumar el evento `oferta_lista`.*
+
+## La CONDITION sobre los datos del evento, con «Si no» (16/10/2026)
+
+- **Un evento de la plataforma no admitía CONDITION** (miraba los hechos de un LEAD, y no trae ninguno), así que el
+  código elegía la frase. Ahora una CONDITION puede preguntar los DATOS DEL EVENTO: el campo es `dato:<clave>` y su def
+  sale de la variable (`VariableAviso.condicion`: rótulo, tipo y opciones); se evalúa con lo que pasó el emisor, nunca
+  leyendo un lead. Un evento sin lead (de la plataforma o de una persona) pregunta sólo sus datos, y ninguno un dato que
+  no trae. Fuera de una fila de evento no se guarda (Publicar lo frena): no habría evento que la conteste.
+- ⚠️ **El runner de los eventos es una LISTA, no un grafo.** Una CONDITION con «Si no» o varias salidas se escribe en
+  fila: cada salida es una pregunta con `siNo` (el índice de la siguiente), su camino y un `fin` para no caer en la de al
+  lado; después, el camino del «Si no». Por eso **dos salidas no se pueden juntar en la misma tarjeta** (saldría dos
+  veces en la lista): Publicar lo frena con su motivo.
+- ⚠️ **La de UNA salida sin «Si no» conserva la traducción y la huella de antes.** Una corrida dormida guarda la firma
+  de la fila (`pasosParaRetomar`); traducirla como las nuevas le cambiaba la firma y cortaba todas las que esperaban.
+- **«No sé» y «no pude mirar» no son lo mismo.** Con varias salidas, un dato que falta va al «Si no» (como en el lienzo);
+  SIN hechos (no hay lead que leer, o ya no está) termina, también con «Si no»: si no, salía «sigue sin pagar» de un lead
+  borrado (lo cazó la revisión).
+- ⚠️ **Fuera del horario, se decide primero y se duerme en la PRIMERA condición de la cadena** (`cadena`, lib/flujos.ts).
+  Mirar adelante las dos salidas hacía esperar también a la que «Lo manda igual»; decidir y dormir en la tarjeta dejaba una
+  decisión de las 23 h para un mensaje de las 9. La de una salida sin «Si no» sigue mirando adelante, como siempre.
+- **Trampa de los tests:** el barrido de tests/plantillas-viejas.test.ts encuentra emisores por el id LITERAL en
+  `emitirDelCatalogo('…')`; un id que elige una función (`avisoDeCaida`) es invisible y el test dice «nadie lo emite». Y
+  los guardias que barren el repo entero (el voseo) sólo saltan en la suite completa.
+- **Trampa del merge:** un campo que se renombra (`sinFila` → `filas`) no choca en git si el otro lado sólo lo LEE en un
+  archivo nuevo (lib/oferta-lista-server.ts): el merge sale limpio y el tsc no. Después de mergear, tsc sobre lo que llegó.
+
+**Sin hacer:** «Crear con IA» no sabe armar condiciones de datos; «Probar» sigue cada condición por el «Sí».
+
+**Vive en:** `lib/dato-evento.ts` · `lib/condiciones-catalogo.ts` (`defDeDato`, `SECCION_DATOS`) · `lib/aviso-evento.ts`
+(`pasosDelEvento`, `condicionesDelEvento`, `esperaApertura`) · `lib/flujo-pasos.ts` (`decidir`) · `lib/flujos.ts`
+(`hechosDeLaCorrida`, `cadena`, `entregas`) · `lib/nutricion.ts` (el freno de `setSecuenciaPasos`) ·
+`app/automations/EditorCondicion.tsx` · test: `tests/dato-evento.test.ts`

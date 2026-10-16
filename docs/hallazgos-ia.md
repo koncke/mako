@@ -4285,6 +4285,15 @@ apoyó en lo que ya había. Cuatro de esas piezas no servían como parecían:
   otra página» elegía otra landing para la Papelera y «elimina esta página» decía «usa ⋯ › Eliminar» de la landing.
   Lo cazó la revisión, no un test. Una palabra de un área que dentro de su tab nombra una parte va a
   `PARTES_DE_LO_ABIERTO`; fuera de su tab sigue contando («créame otra página» en Automations va al Web Generator).
+  ⚠️ **Y la primera versión de la regla también estaba mal: era por ÁREA, y es por TAB.** Al sumar el Image Editor,
+  «crea otra página» en un diseño se iba al Web Generator: «página» es palabra de `landing` (otra área), y un diseño
+  tiene páginas como en Canva. Lo mismo «otro gráfico» en el Dashboard (no es otra hoja) y «el otro clip» en el Video
+  Editor (no es otro proyecto). `PARTES_DE_LO_ABIERTO` va por la tab donde se dice, con palabras de cualquier área, y
+  gana aunque la IA etiquete la otra área.
+- **Los objetos del Video Editor no se pueden listar en el servidor**: sus proyectos viven en IndexedDB (decisión 5 de
+  su diseño). Para esa tab, y sólo para ella (`TABS_CON_OBJETOS_EN_EL_NAVEGADOR`), la lista la manda su chat y la ruta
+  la valida (`objetosDelNavegador`). Y las hojas del Dashboard son POR PERSONA: los objetos son las del informe de quien
+  mira, y quien nunca guardó uno ve la pantalla sin páginas, así que su lista es [] y no las del inicial.
 - **Un `hastaMs` corto a `chatCheapCascade` no prueba NADA y devuelve '' como si no hubiera IA.** No arranca un intento
   si al plazo le quedan menos de 15 s (`MIN_INTENTO_MS`). Para un plazo de segundos: `hastaMs = inicio + 15 s + la
   ventana en que se puede ARRANCAR un intento`, cada intento acotado con `timeoutMs`, y el total cortado con una carrera.
@@ -4306,7 +4315,9 @@ Y `linkPantalla` (lib/api-mako/link.ts) no sirve para un link de ADENTRO de la a
 - **La clave PROPIA de Anthropic del negocio todavía puede contestar** dentro de la cascada (la segunda puerta): es su
   plata y su decisión. Cerrarla del todo pide una opción en `chatCheapCascade` (lib/ai-cheap.ts). Decide el coordinador.
 - **Automations**: su función en `objetosDeTab` (app/api/mako/pedidos/route.ts) y el fetch en su chat; hasta entonces,
-  «la otra automatización» contesta «¿Cuál? Dime su nombre.». **El chat único del Second Brain**, lo mismo.
+  «la otra automatización» contesta «¿Cuál? Dime su nombre.». **El chat único del Second Brain**, lo mismo. Image
+  Editor, Dashboard y Video Editor ya tienen sus objetos (16/10), pero sus chats todavía no llaman a la ruta: el del
+  Video Editor tiene que mandar `objetos` (cómo, en docs/diseno-mako-pedidos.md).
 - **Correr la operación de OTRA tab desde la burbuja**: hoy deja el link (y la operación como dato).
 - **No se probó con la IA de verdad ni en el navegador** (sin `next dev` por la RAM): las reglas y la IA con un doble.
 

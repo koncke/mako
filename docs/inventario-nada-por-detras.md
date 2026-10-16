@@ -48,6 +48,13 @@ faltaba. 243 entradas crudas, 132 únicas por el lugar del envío. Las líneas c
    código. Va como datos del evento («Vez número»), que la CONDITION corta («Vez es como mucho 3»).
 3. **Sin camino viejo:** un evento sin su fila no manda nada, y lo dice el registro.
 
+## Hecho
+
+- **Lote 1, 16/10/2026:** el WhatsApp caído con texto literal y sin camino viejo (7b2bc409a); la CONDITION sobre los datos
+  del evento con «Si no» y la alerta de la cuenta publicitaria como automatización con techo (B2+B3, revisadas). Piezas 1
+  y 3 hechas; de la 2, el techo sí (por estado y contando lo que llegó), y cada cuánto insiste sigue en el código
+  (`CADENCIA_MIN`).
+
 ## El orden
 
 - **Lote 1 (las dos capturas):** WhatsApp caído con texto literal (dos eventos: «se desconectó», cuando WhatsApp cerró

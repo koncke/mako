@@ -1,26 +1,25 @@
 // =============================================================================
-// alerta-critica-texto — QUÉ dice la alerta. Sin `server-only`, a propósito.
+// alerta-critica-texto — los HECHOS de la alerta de la cuenta publicitaria. Sin `server-only`, a propósito.
 // =============================================================================
 // Vive separado de `alerta-critica.ts` (que hace el trabajo sucio: leer la base,
-// decidir la cadencia, emitir) por la regla de la casa: lo que hay que poder
-// TESTEAR va en un módulo que un test pueda importar. Un mensaje que se manda
-// cada 10 minutos hasta que alguien pague es exactamente lo que no se puede
-// escribir a ciegas.
+// decidir la cadencia, emitir) para que un test lo pueda importar.
 //
-// DOS PEDIDOS DEL DUEÑO, y el segundo corrige al primero:
+// ⚠️ DESDE EL 16/10/2026 ACÁ NO HAY NINGUNA FRASE (docs/inventario-nada-por-detras.md,
+// lote 1: el «18ª vez» del grupo de Mauricio). Hasta ese día este módulo armaba el
+// mensaje entero —el titular por estado, «qué hacer», el contador «Es la Nª vez», la
+// escalada de las 6 h— y lo mandaba `emitirAviso` directo, sin automatización: nadie lo
+// podía ver ni cambiar, y no tenía techo. Ahora sale por el evento de la plataforma
+// `meta_cuenta_frenada`, y su automatización de SuperAdmin tiene el texto literal de
+// cada estado y el techo de avisos (`mako-meta-cuenta-frenada`,
+// lib/plantillas-automatizaciones.ts). Acá quedan los datos que cita.
 //
-//   1. «Que sea más dramático, usá más emojis (⚠️🚨)».
-//   2. «Y también que el mensaje sea CLARO. Que diga "Tu cuenta publicitaria
-//      está SUSPENDIDA por falta de pago" o algo así. No simplemente que está
-//      frenada».
-//
-// El segundo es el que importa y es una corrección de fondo, no de estilo:
-// «dejó de entregar» describe el SÍNTOMA y esconde la CAUSA. Con el síntoma no
-// se sabe qué hacer; con «suspendida por falta de pago» se sabe exactamente.
-// Un mensaje urgente que no dice qué hacer es solo ansiedad.
-//
-// Por eso el titular se arma desde `account_status` REAL de Meta y no de una
-// frase genérica: cada estado tiene su causa y su acción, y son distintas.
+// Lo que se aprendió con los textos de antes, y que la fila sigue respetando:
+//   · decir la CAUSA, no el síntoma: «suspendida por falta de pago» dice qué hacer,
+//     «dejó de entregar» no (pedido del dueño, 12/8);
+//   · no afirmar lo que Meta no confirmó: «sin entregar» sale sólo con `entrega_frenada`,
+//     y es un DATO (`anuncios_entrega`), no una frase que el texto da por hecha;
+//   · el motivo de Meta sólo cuando agrega algo: igual al estado, no se pasa y su renglón
+//     se va solo.
 // =============================================================================
 
 /** El estado del incidente, tal como lo guarda `service_incidents`. */
@@ -30,95 +29,41 @@ export type IncidenteTexto = {
   /** `disableReasonLabel()`: por qué la deshabilitaron, cuando aplica. */
   disableReason: string | null;
   entregaFrenada: boolean;
-  /**
-   * ¿`statusLabel` es de verdad un ESTADO que contestó Meta? (mig 0139)
-   *
-   * Opcional para que un call-site que no lo sepa no pueda quedarse mudo, y
-   * `=== false` abajo para que el default sea el comportamiento de siempre.
-   */
+  /** ¿`statusLabel` es de verdad un ESTADO que contestó Meta? (mig 0139). Sólo se avisa lo confirmado (`esCritico`). */
   confirmado?: boolean;
 };
 
 /**
- * De un estado de Meta al TITULAR y al QUÉ HACER, en castellano de persona.
- *
- * ⚠️ Las claves son EXACTAMENTE los valores de `ACCOUNT_STATUS` en
- * lib/meta-health.ts. Si allá se agrega o se renombra un estado, acá cae al
- * default —que dice la verdad pero sin la acción— y hay que sumarlo. El test
- * `alerta-critica.test.ts` compara las dos listas y falla cuando se separan:
- * un titular que se queda viejo es peor que uno genérico, porque suena exacto.
+ * LO QUE GUARDA LA INSISTENCIA DE UN INCIDENTE (settings `mako.alerta.insistencia.<id>`). `veces`: los avisos que LLEGARON en
+ * su `estado` (16/10/2026). Una marca de antes no tiene `estado`.
  */
-const CAUSA: Record<string, { titular: string; queHacer: string }> = {
-  'Saldo impago': {
-    titular: 'Tu cuenta publicitaria está *SUSPENDIDA POR FALTA DE PAGO*',
-    queHacer: 'Paga el saldo que debes en el Business Manager de Meta.',
-  },
-  'Deshabilitada': {
-    titular: 'Meta *DESHABILITÓ* tu cuenta publicitaria',
-    queHacer: 'Entra al Business Manager y pide la revisión de la cuenta.',
-  },
-  'En revisión de riesgo': {
-    titular: 'Meta puso tu cuenta *EN REVISIÓN DE RIESGO*',
-    queHacer: 'No toques nada estos días: ni presupuestos ni anuncios nuevos.',
-  },
-  'Pendiente de liquidación': {
-    titular: 'Tu cuenta quedó *PENDIENTE DE LIQUIDACIÓN*',
-    queHacer: 'Meta está esperando que se salde la cuenta. Revisa el método de pago.',
-  },
-  'En período de gracia': {
-    titular: 'Tu cuenta está *EN PERÍODO DE GRACIA*: se frena en cualquier momento',
-    queHacer: 'Regulariza el pago AHORA, antes de que corte.',
-  },
-  'Pendiente de cierre': {
-    titular: 'Tu cuenta publicitaria está *POR CERRARSE*',
-    queHacer: 'Entra ya al Business Manager: si se cierra, se pierde el historial.',
-  },
-  'Cerrada': {
-    titular: 'Tu cuenta publicitaria está *CERRADA*',
-    queHacer: 'Hay que apelar en el Business Manager o abrir una cuenta nueva.',
-  },
-};
+export type Insistencia = { ultimaIso: string; veces: number; estado?: string | null };
 
-/** Titular + acción. Sin match, se dice el estado crudo y NO se inventa la acción. */
-export function causaDe(i: IncidenteTexto): { titular: string; queHacer: string | null } {
-  const c = i.statusLabel ? CAUSA[i.statusLabel] : undefined;
-  if (c) return c;
-
-  // ⚠️ «Tu cuenta publicitaria está *___*» ES UNA RANURA DE ESTADO, y solo acepta
-  // un estado. Cualquier string que se meta ahí sale afirmado como si Meta lo
-  // hubiera dicho, con la gramática de la frase prestándole autoridad.
-  //
-  // Así se produjo, textual, el WhatsApp del 21/8/2026:
-  //   «⛔ Tu cuenta publicitaria está *NO SE PUDO LEER EL ESTADO DE META*.»
-  // El `statusLabel` que llegó no era un estado: era el mensaje de un error de
-  // lectura nuestro. El default «decir el estado crudo» era correcto para lo que
-  // se pensó —un `account_status` nuevo que Meta agregue y acá no esté mapeado—
-  // y asumía un TIPO que el dato no siempre tiene.
-  //
-  // Es la segunda capa: `esCritico()` en lib/alerta-critica.ts ya no deja pasar un
-  // incidente sin confirmar hasta acá. Van las dos porque `causaDe` también le pone
-  // el título al feed in-app, y porque una regla que vive en un solo lado es una
-  // regla que se cumple casi siempre.
-  if (i.confirmado === false) {
-    return {
-      titular: 'MaKo *no puede leer el estado* de tu cuenta publicitaria',
-      queHacer: 'Revisa la conexión con Meta: puede ser el token o el ID de la cuenta.',
-    };
-  }
-
-  const estado = i.statusLabel?.trim();
-  return {
-    titular: estado
-      ? `Tu cuenta publicitaria está *${estado.toUpperCase()}*`
-      : 'Tu cuenta publicitaria está *CAÍDA*',
-    // Inventar el paso a seguir para un estado que no conocemos es peor que no
-    // decirlo: manda a hacer algo que quizá no arregla nada.
-    queHacer: null,
-  };
+/**
+ * LOS AVISOS QUE LLEGARON DEL ESTADO DE AHORA (revisión del 16/10/2026): un estado nuevo («En período de gracia» → «Pendiente
+ * de cierre») vuelve a contar desde cero; si no, el techo callaba justo el empeoramiento. Una marca de antes, sin `estado`,
+ * cuenta como el mismo estado (el incidente que ya pasó el techo no vuelve a salir).
+ */
+export function vecesDelEstado(prev: Insistencia | null, estado: string | null): number {
+  if (!prev) return 0;
+  if (prev.estado === undefined || (prev.estado ?? null) === (estado ?? null)) return prev.veces;
+  return 0;
 }
 
-/** Los estados que este módulo sabe explicar (lo consume el test de sincronía). */
-export const ESTADOS_CON_CAUSA = Object.keys(CAUSA);
+/**
+ * LA MARCA DESPUÉS DE EMITIR EL EVENTO (revisión del 16/10/2026). `null` = no se pudo (no se leyeron las automatizaciones de
+ * la plataforma): no se escribe nada y el próximo tick reintenta. Si se emitió, se anota la hora —la cadencia corre desde
+ * acá— y SÓLO un aviso que LLEGÓ (al grupo o por email) suma al techo. Sin automatización prendida, o con la tarjeta sin
+ * llegar (sin grupo, la línea caída), vuelve a probar en la próxima cadencia sin gastar avisos: si no, el rato entre el
+ * deploy y la mudanza, o tres horas de línea caída, agotaban el techo sin que saliera ninguno.
+ */
+export function marcaTrasEmitir(
+  prev: Insistencia | null, estado: string | null, r: { ok: boolean; llegaron?: number }, ahoraIso: string,
+): Insistencia | null {
+  if (!r.ok) return null;
+  const veces = vecesDelEstado(prev, estado);
+  return { ultimaIso: ahoraIso, veces: (r.llegaron ?? 0) > 0 ? veces + 1 : veces, estado: estado ?? null };
+}
 
 export const horasYMinutos = (min: number): string => {
   if (min < 60) return `${min} min`;
@@ -128,86 +73,18 @@ export const horasYMinutos = (min: number): string => {
 };
 
 /**
- * Un párrafo es un array de líneas; los bloques vacíos se descartan enteros. Así
- * una línea opcional desaparece sin dejar un renglón en blanco de más.
+ * LOS DATOS DEL EVENTO `meta_cuenta_frenada` (lib/variables-aviso.ts, alcance `anuncios`): el estado que contestó Meta, si
+ * la entrega está frenada, hace cuánto, el motivo (si agrega algo) y qué número de aviso es (el primero es el 1). Lo que
+ * falta no se pasa: su renglón se va solo (`sinRenglonesVacios`).
  */
-const parrafos = (bloques: string[][]): string =>
-  bloques.map((b) => b.filter(Boolean).join('\n')).filter(Boolean).join('\n\n');
-
-/**
- * El mensaje. Sube de tono con el tiempo y NUNCA repite el mismo texto: un
- * mensaje idéntico cada 15 minutos se vuelve papel tapiz y se deja de leer.
- *
- * La primera vez dice la causa, qué se pierde y qué hacer. De ahí en adelante lo
- * que crece es el COSTO ACUMULADO —cuánto hace que está caída, cuántas veces se
- * avisó—, que es el dato que empuja a resolverlo.
- */
-export function textoAlerta(i: IncidenteTexto, minAbierto: number, veces: number, link: string): string {
-  const cuanto = horasYMinutos(minAbierto);
-  const { titular, queHacer } = causaDe(i);
-  // El motivo de Meta es una SEGUNDA capa (por qué la deshabilitaron) y solo se
-  // muestra cuando agrega algo: repetido debajo del titular es ruido.
-  const motivo = i.disableReason && i.disableReason !== i.statusLabel
-    ? `⚠️ Motivo de Meta: *${i.disableReason}*.`
-    : '';
-  // ⚠️ «No corre un solo anuncio» es un HECHO verificado (entrega_frenada), no una
-  // forma de decir. Si Meta no lo confirma, no se afirma.
-  //
-  // Esa regla estaba escrita acá desde el primer día y aplicada a UNA de las
-  // CUATRO afirmaciones del mensaje. Las otras tres —el titular del contador,
-  // «Seguís sin recibir un solo lead» y «No entra ningún lead nuevo»— salían
-  // siempre. Un cliente que estaba recibiendo leads con normalidad leyó las tres.
-  // Cuando una regla se cumple en un lugar y en los otros tres no, no está
-  // implementada: está documentada.
-  const consecuencia = i.entregaFrenada
-    ? `🛑 Hace *${cuanto}* que no corre un solo anuncio.`
-    : `🕐 Hace *${cuanto}* que está así.`;
-
-  if (veces === 0) {
-    return parrafos([
-      // «PARA TODO» es la conjugación correcta de parar y es exactamente por eso
-      // que no sirve: en neutro se lee como la preposición («para todo el mundo»)
-      // y esta es la primera línea de la alerta más grave que manda MaKo.
-      ['🚨🚨🚨 *DETÉN TODO* 🚨🚨🚨'],
-      [`⛔ ${titular}.`, consecuencia, motivo],
-      i.entregaFrenada
-        ? ['💸 *Cada minuto que pasa es plata tirada:*', '❌ No entra *ningún* lead nuevo.', '❌ El día perdido no se recupera.']
-        : [],
-      queHacer ? [`✅ *QUÉ HACER:* ${queHacer}`] : [],
-      ['👉 *RESUÉLVELO YA:*', link],
-      ['🔁 Te voy a seguir avisando hasta que esté arreglado. — MaKo'],
-    ]);
-  }
-
-  // A partir de la segunda, la primera línea es el CONTADOR: en el celular es lo
-  // único que se lee sin abrir, así que ahí va el tiempo perdido.
-  const insistencia = veces === 1
-    ? '🔁 Te lo repito porque sigue exactamente igual.'
-    : `🔁 Es la *${veces + 1}ª vez* que te aviso y sigue igual.`;
-  // La escalada aparece sola con el tiempo, sin tener que reescribir el texto.
-  // También cuelga de entrega_frenada: «medio día de leads perdido» es la misma
-  // afirmación que las otras, con otro sombrero.
-  const grave = i.entregaFrenada && minAbierto >= 6 * 60 ? '🆘 *Esto ya es medio día de leads perdido.*' : '';
-
-  return parrafos([
-    // El contador también AFIRMA: «3 H 25 MIN SIN ENTREGAR» es una medición de
-    // algo que solo sabemos cuando Meta confirmó que la entrega está frenada.
-    [i.entregaFrenada
-      ? `🚨⚠️ *${cuanto.toUpperCase()} SIN ENTREGAR* ⚠️🚨`
-      : `🚨⚠️ *${cuanto.toUpperCase()} SIN RESOLVER* ⚠️🚨`],
-    [`⛔ ${titular}.`, motivo, insistencia, grave],
-    i.entregaFrenada ? ['💸 Sigues sin recibir un solo lead.'] : [],
-    queHacer ? [`✅ ${queHacer}`] : [],
-    ['👉 ' + link],
-    ['— MaKo'],
-  ]);
-}
-
-/** El de «ya está», que es la contracara obligatoria de haber insistido. */
-export function textoRecuperada(): string {
-  return parrafos([
-    ['✅✅ *LISTO, YA ESTÁ ENTREGANDO* ✅✅'],
-    ['🟢 Tu cuenta publicitaria volvió a la normalidad.', '🔕 Dejo de insistir.'],
-    ['— MaKo'],
-  ]);
+export function datosCuentaFrenada(i: IncidenteTexto, minAbierto: number, veces: number): Record<string, string> {
+  const estado = i.statusLabel?.trim();
+  const motivo = i.disableReason?.trim();
+  return {
+    ...(estado ? { anuncios_estado: estado } : {}),
+    anuncios_entrega: i.entregaFrenada ? 'sin entregar' : 'entregando',
+    anuncios_hace: horasYMinutos(minAbierto),
+    ...(motivo && motivo !== estado ? { anuncios_motivo_meta: motivo } : {}),
+    anuncios_vez: String(veces + 1),
+  };
 }

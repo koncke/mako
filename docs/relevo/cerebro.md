@@ -15,7 +15,9 @@ Centro de Operaciones), junta las puntas y es el ÚNICO que sube. Decide con cri
 1. Worktree de integración: `C:/dev/wt-push-q` (con junction de node_modules). Se suman las puntas con
    `git merge --no-edit <sha>`, nunca rebase. Conflictos de `docs/hallazgos.md`: el script del scratchpad
    `unir_indice.py` (une filas por la base del merge); en `docs/hallazgos-*.md`, quedarse con las dos partes.
-2. Antes de subir: `node scripts/tsc-bitacoras.mjs` (0), `node scripts/rutas-windows-en-tests.mjs` (0) y los tests
+2. Antes de subir: `node scripts/tsc-bitacoras.mjs` (0), `node scripts/rutas-windows-en-tests.mjs` (0), SIEMPRE
+   `tests/puente-panel-copy.test.ts` (la guarda de voseo barre el repo: un «acá» de cualquier chat tiró los runs 39 y 43)
+   y `tests/progreso.test.ts` (un hito sin `sesion` tiró el 36), y los tests
    del área. NO el tsc completo local (la máquina no tiene RAM).
 3. `git push origin HEAD:refs/heads/integracion`. GitHub Actions corre tipos + guardas + los 10.800 tests
    (~10 min) y, con verde, avanza `main` por fast-forward; Vercel despliega solo (~2 min).

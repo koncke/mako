@@ -585,12 +585,12 @@ ni `hastaRedMs`). Lo habilita la lista del veto sólo mientras `onboardingPendie
 **Lo que quedó SIN hacer:**
 - ~~El aviso al terminar si la persona se fue~~ **HECHO el 16/10**: la oferta se arma en el servidor y avisa
   (ver «La oferta se arma en el servidor, y MaKo avisa cuando está», abajo).
-- **El resto del feedback de esa llamada, sin tocar:** que detecte las ofertas de menor a mayor precio
+- **El resto del feedback de esa llamada — HECHO el 16/10** (ver «Una entrada no es un alto ticket» y «El PDF en dos partes», abajo): que detecte las ofertas de menor a mayor precio
   («¿qué le vendes después?», 00:34:26); que distinga low ticket de high ticket y servicio hecho por vos /
   con vos / para vos (00:38:54, 00:39:11: no prometer implementar algo que hace el cliente en un curso);
   que no vuelva a proponer el diagnóstico cuando ya tiene las respuestas (00:35:43); que la oferta salga
-  menos corporativa (00:41:03, 00:44:48); y que el PDF separe el diagnóstico de su oferta actual de la
-  propuesta nueva (00:45:30). La voz de marca (00:46:06) ya estaba hecha (`db81f96`).
+  menos corporativa (00:41:03, 00:44:48); y ~~que el PDF separe el diagnóstico de su oferta actual de la
+  propuesta nueva (00:45:30)~~ (**hecho el 16/10**, «El PDF en dos partes», abajo). La voz de marca (00:46:06) ya estaba hecha (`db81f96`).
 - **No se vio en el navegador**: la RAM de la máquina no dejaba levantar la app. Lo cubren los tests de
   fuente y lo puro ejecutado.
 
@@ -650,5 +650,89 @@ y mandaría el `ejemplo` del catálogo como si fuera real.
 `lib/offer-reglas.ts` (`sanearArmado`, `armadoEnCurso`, `armadoParaVista`) · `lib/offer-sesiones.ts` (la columna) ·
 `app/offer/OfferApp.tsx` (`armar`, la relectura) · `lib/oferta-lista.ts` y `lib/oferta-lista-server.ts` (el aviso) ·
 `supabase/migrations/0296_offer_armado.sql` · `tests/offer-armado-servidor.test.ts` (14 roturas)
+
+*16/10/2026, cuenta claude3.*
+
+## El PDF en dos partes: «Tu oferta hoy» y «La propuesta que te armo» (16/10/2026)
+
+**El pedido** (Martín, llamada con Leila del 12/10, 00:45:30): primero, de la oferta de HOY, «me gustó esto, esto y
+esto, y esto lo cambiaría y haría tal forma»; después, aparte, «esta es la propuesta que yo te armo para vos».
+
+**Lo que lo mezclaba** (no era sólo un título):
+- La portada ponía el NOMBRE DE LA OFERTA NUEVA arriba del PUNTAJE DE LA ACTUAL: se leían como una sola cosa.
+- Lo bueno era una sola frase (`fuerte`); todo lo demás del diagnóstico mira lo flojo.
+- El «cómo subirla» de cada dimensión (`NotaDimension.mejora`) se veía en la pantalla y nunca llegaba al PDF.
+
+**Ahora:** portada neutra («La oferta de X», qué trae el documento) · **Parte 1 · Tu oferta hoy**: puntaje, lo que
+falta, el diagnóstico del negocio, el de la oferta, **«Lo que me gustó»** (lista) y **«Lo que cambiaría, y cómo»** (los
+3 cambios con su hipótesis y, parte por parte, la `mejora` de cada nota de 5 o menos) · **Parte 2 · La propuesta que te
+armo**, en página NUEVA, con el nombre y la frase de la oferta nueva arriba.
+- «Lo que me gustó» sale de lo que YA deja el diagnóstico (`loQueMeGusto`, lib/offer-marco.ts): las fortalezas, las
+  notas de 7 o más con su porqué y los puntos del control final que ya cumple. Sin IA nueva.
+- El diagnóstico ahora pide **`fuertes`, de 1 a 3** (citando al dueño, nunca inventadas para llenar). `fuerte` se queda
+  como la primera: lo leen la pantalla y MaKo Mobile, y las conclusiones viejas sólo tienen ésa.
+- **El rótulo de la pantalla no cambió** («Lo más fuerte», ahora con la lista): MaKo Mobile exige que sus rótulos
+  existan tal cual en `Conclusion.tsx` (tests/m-offer.test.ts).
+
+**Una trampa de los tests:** el lector del PDF (`leerPdf`) junta las páginas, así que «la propuesta va en otra página»
+contando páginas pasaba igual sin el salto (el documento ya era largo). Se lee por página (`paginasPdf`) y se pide que la
+segunda parte sea lo PRIMERO de su página.
+
+**Vive en:** `lib/offer-pdf.ts` (`pdfDeOferta`, `parte`) · `lib/offer-marco.ts` (`loQueMeGusto`, `paraSubirCadaParte`,
+`DiagnosticoOferta.fuertes`) · `lib/offer-reglas.ts` (`parseDiagnostico`) · `lib/offer-ia.ts` (regla 6 del diagnóstico) ·
+`app/offer/Conclusion.tsx` · `tests/offer-pdf.test.ts` (11 roturas)
+
+*16/10/2026, cuenta claude3.*
+
+## Una entrada no es un alto ticket: el nivel, quién hace el trabajo, las palabras del cliente (16/10/2026)
+
+El resto del feedback de la llamada con Leila (12/10), comprobado contra su conversación REAL (ws 11, la sesión 3:
+36 mensajes, «LíderMente», membresía grupal de 800 MXN al mes).
+
+**El diagnóstico obvio era el equivocado.** Parecía que el modelo se había equivocado al convertir la membresía de
+800 MXN al mes en un programa de 1.000 USD (unas 25 veces el precio). No: el MARCO daba por hecho el alto ticket en
+todos lados. Los tres prompts arrancaban con «negocio de alto ticket», la regla 8 de la propuesta mandaba «desde
+1.000 USD», la ruta pedía 90 a 180 días y el código avisaba «por debajo de 1.000 USD, el piso del high ticket». Y la
+pregunta de la escalera era fija, «¿qué le vendes ANTES (una entrada más barata)?»: suponía que lo cargado es la cima.
+
+**Ahora:**
+- **El nivel lo decide el CÓDIGO con el precio** (`nivelDeOferta`): bajo / medio / alto, con cortes POR MONEDA (una
+  membresía mensual tiene sus propios cortes). Viaja PEGADO al bloque de las piezas (`bloqueNivel`), que está en los
+  tres prompts, también en los editados desde /configuraciones (un slot nuevo no les llegaría; hoy nadie tiene uno).
+- **Una entrada se mejora EN SU NIVEL**: las reglas de alto ticket no aplican, el escalón caro va en «siguiente» y la
+  escalera pregunta «¿qué le vendes DESPUÉS?» (`preguntaEscalera`, también en la guía sin IA).
+- **El aviso al revés:** si la IA convierte una entrada en otra oferta (3 o más veces el precio en la misma moneda, o
+  un precio que ya es de alto ticket en otra), lo dice. Sin convertir monedas: la conversión con el tipo de cambio
+  fijo está prohibida en los lectores (tests/moneda-meta.test.ts) y para esto alcanza el orden de magnitud.
+- **Quién hace el trabajo:** el formato pregunta si lo hace el cliente solo, con acompañamiento o el negocio por él, y
+  la propuesta no promete «implementamos» para un curso (regla 17 y el aviso `prometeHacerloPorElCliente`).
+- **Las palabras del cliente:** toda la oferta (no sólo los mensajes) en las palabras de su cliente, y el aviso de la
+  jerga de consultor que el dueño no usó (`jergaAjena`: SOPs, KPIs, microgestión, descentralización…; los números,
+  que son para el dueño, no cuentan).
+- **El turno perdido:** «¿Quieres que avancemos con el diagnóstico de tu negocio?» lo inventó el modelo (no estaba en
+  ningún prompt): un paso que no existe. Con las mínimas, el código lo cambia por «Ya tengo lo necesario… toca Armar
+  mi oferta», y una opción de «diagnóstico» fuera del diagnóstico de fase se saca siempre.
+
+**Dos trampas al hacerlo:**
+- **La guarda de voseo (tests/puente-panel-copy.test.ts) barre el repo ENTERO**, comentarios y regex incluidos, y sus
+  excepciones son por ARCHIVO. Los detectores que tienen que nombrar «por vos» para reconocerlo van en un archivo
+  aparte (`lib/offer-quien-hace.ts`, exceptuado con su porqué), para no sacar de la guarda todo `offer-reglas.ts`, que
+  tiene copy que ve el dueño.
+- **Un caso del test que cumple por dos lados no prueba ninguno:** el de la agencia decía también «lo hacemos por ti»,
+  y sacar «agencia» de la regex no hacía caer nada.
+
+**La interpretación que tomé** (para que Martín la corrija): Offer sigue siendo para el alto ticket, pero cuando le
+cargan una ENTRADA no la convierte: la mejora como entrada y anota el alto ticket como el escalón siguiente.
+
+**Lo que quedó SIN hacer:**
+- **«Liberar 10 horas semanales»** (un número que Leila nunca dio) pasó el filtro de cifras de la frase: `filtrarCifras`
+  con `plazos` deja pasar toda cifra con unidad de tiempo como si fuera un plazo, y «horas semanales» es un resultado.
+- **Las otras ofertas se eligen de a una:** en el mensaje 4 Leila tenía tres y sólo pudo marcar una chip.
+- **No se armó una oferta contra la IA con estos cambios** (los prompts cambiaron: lo que diga el modelo se ve en la
+  próxima oferta real).
+
+**Vive en:** `lib/offer-reglas.ts` (`nivelDeOferta`, `preguntaEscalera`, `bloqueNivel`, `jergaAjena`,
+`prometeHacerloPorElCliente`, `mensajeDeMako`) · `lib/offer-quien-hace.ts` · `lib/offer-ia.ts` (los tres prompts) ·
+`lib/offer-marco.ts` (las piezas y la guía) · `tests/offer-nivel-y-voz.test.ts` (15 roturas)
 
 *16/10/2026, cuenta claude3.*

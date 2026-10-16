@@ -44,6 +44,7 @@ import { tamanosDe, useDisenoStore } from "@/app/video-editor/_opencut/component
 import { useEditor } from "@/app/video-editor/_opencut/editor/use-editor";
 import { PanelChat } from "@/app/video-editor/_opencut/chat/PanelChat";
 import { useChatAbierto } from "@/app/video-editor/_opencut/chat/estado";
+import { iniciarEspejo } from "@/app/video-editor/_opencut/chat/espejo";
 import { conEspacio } from "@/app/video-editor/espacio";
 import {
 	createPreviewOverlayControl,
@@ -85,6 +86,9 @@ export function EditorPage({ projectId }: { projectId: string }) {
 			});
 		};
 	}, [editor]);
+
+	// La copia de lectura del proyecto, para la API de MaKo: se sube un rato después de cada cambio (chat/espejo.ts).
+	useEffect(() => iniciarEspejo(editor), [editor]);
 
 	return (
 		<MobileGate>

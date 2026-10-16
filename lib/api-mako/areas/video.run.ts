@@ -34,6 +34,9 @@ import type { Camara } from '@/lib/puestas-data';
 import { CREDITOS_POR_DURACION, creditosDeClip } from '@/lib/costo-clip';
 import { plantillasParaApi } from '@/lib/editor-video/plantillas';
 import { senalesDelNegocio } from '@/lib/plantillas-sugeridas-server';
+import { NOTA_COPIA, idDelMotor, proyectoEntero, proyectoEnLista } from '@/lib/editor-video/espejo';
+import { leerEspejo, listarEspejos } from '@/lib/editor-video/espejo-server';
+import { linkApp } from '@/lib/app-url';
 import { causaDeMotivo, causaFlow, textoFlow, type CausaFlow } from '@/lib/flow-fallo-texto';
 import { getEstadoTab, onboardingTabPendiente, tabOnboardingDef } from '@/lib/tab-onboarding-state';
 import {
@@ -487,6 +490,31 @@ export const RUNNERS: Runners = {
   // negocio primero, como en la pestaña Plantillas (lib/plantillas-sugeridas.ts).
   listar_plantillas_video: {
     leer: async () => json(plantillasParaApi(await senalesDelNegocio().catch(() => null))),
+  },
+
+  // La COPIA de lectura de los proyectos del editor, que el editor sube mientras se edita (mig 0299,
+  // lib/editor-video/espejo.ts). Sin la tabla todavía, se dice; nunca se inventa una lista vacía como «no hay».
+  listar_proyectos_video: {
+    leer: async (_input, ctx) => {
+      const r = await listarEspejos(ctx.ws);
+      if (!r.ok) return json(r.sinTabla ? { proyectos: [], aviso: 'Los proyectos del editor todavía no se guardan en MaKo.' } : { error: 'No se pudieron leer los proyectos.' });
+      return json({
+        total: r.filas.length,
+        proyectos: r.filas.map((f) => proyectoEnLista(f, linkApp(`/video-editor/${f.proyecto_id}`, ctx.ws))),
+        ...(r.filas.length ? { nota: NOTA_COPIA } : { aviso: 'Todavía no hay proyectos: aparecen al abrirlos en el editor.' }),
+      });
+    },
+  },
+
+  ver_proyecto_video: {
+    leer: async (input, ctx) => {
+      const proyecto = str(input, 'proyecto') ?? '';
+      if (!idDelMotor(proyecto)) return json({ error: 'Falta el id del proyecto (de listar_proyectos_video).' });
+      const r = await leerEspejo(ctx.ws, proyecto);
+      if (!r.ok) return json({ error: r.sinTabla ? 'Los proyectos del editor todavía no se guardan en MaKo.' : 'No se pudo leer el proyecto.' });
+      if (!r.fila) return json({ error: `No hay un proyecto «${proyecto}» (los de listar_proyectos_video).` });
+      return json(proyectoEntero(r.fila, linkApp(`/video-editor/${r.fila.proyecto_id}`, ctx.ws)));
+    },
   },
 
   ver_contexto_video: {

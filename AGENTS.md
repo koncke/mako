@@ -1061,8 +1061,12 @@ el mensaje entero sigue como antes. El contrato y el enganche: `docs/diseno-mako
   propósito (para sumar herramientas): «cambia el precio», «quita el video» o «un formulario para
   leads» nombran otra área y son cambios de lo abierto. Otra tab sólo si el verbo CREA un objeto
   de esa área, o lo etiquetó la IA (validada).
-- **Los objetos de la tab los da la ruta (`objetosDeTab`), una función por área**, nunca el
-  navegador: con eso se resuelve «la otra» y, con dos candidatos, se pregunta con los dos.
+- **Los objetos de la tab los da la ruta (`objetosDeTab`), una función por área y con la MISMA
+  puerta que su pantalla**, nunca el navegador: con eso se resuelve «la otra» y, con dos
+  candidatos, se pregunta con los dos. La única excepción son los objetos que SÓLO viven en el
+  navegador (los proyectos del Video Editor, en IndexedDB): `TABS_CON_OBJETOS_EN_EL_NAVEGADOR`.
+- **Si una palabra nombra una PARTE de lo abierto depende de la TAB, no del área**: «página» es
+  de `landing`, pero en el Image Editor es una página del diseño. Va en `PARTES_DE_LO_ABIERTO`.
 
 # Un permiso de UN inquilino sobre OTRO son DOS decisiones, y ninguna se deriva de la otra
 
@@ -1279,6 +1283,10 @@ código nuevo:
     («Chatbot», un sub-chat cerrado) va al jefe que se llama como el área de su bitácora (`completarChats`, el paso 3).
     No hay sección «Antes del 16/10»; un jefe sin chat abierto se lista sólo si tiene algo sin terminar. Anotar en la
     bitácora del área que se tocó es lo que hace que el trabajo aparezca en su jefe.
+  - **El chat con MaKo de un cliente es la pieza de `/second-brain`** (16/10/2026, etapa 2 de docs/diseno-mako-ai-native.md):
+    la cara del Centro (app/_chat/, centro.css), el turno del teléfono (lib/mako-turno-app.ts) por `/api/mako/chat`.
+    Una página que entra a más gente y muestra una parte sólo al admin la corta EN EL SERVIDOR con `esAdminDeTab`
+    (lib/puerta-admin-tab.ts), y no la calcula para los demás.
   - **Cada jefe ES un proyecto del Plan** (16/10/2026; los dos se llaman como la tab). El Centro lee y escribe el Plan
     SÓLO con las operaciones de la API de MaKo (`listar_tareas_plan`, `proponer_tareas_plan`, `proponer_cierre_tareas`)
     aplicadas en el acto con `ctxDelCentro` (lib/centro-plan.ts), por la ruta `/api/centro/plan` y NO por una server
@@ -8651,6 +8659,11 @@ chat». Lo que costó, en `docs/hallazgos-onboarding.md` y `docs/hallazgos-offer
   deja el trabajo a medias, y una recarga ve lo mismo. Cada escritura de fondo lleva su `intento` (un trabajo
   viejo que termina tarde no pisa el nuevo) y lo que corre tiene un vencimiento. El molde: el armado de la
   oferta (`armar` / `armarPorDetras` en app/api/offer/route.ts, mig 0296).
+- **En Offer, una regla que depende del TICKET (precio mínimo, duración, cuotas, la pregunta de la escalera) se
+  condiciona al nivel** (`nivelDeOferta`, lib/offer-reglas.ts), que decide el código con el precio. El marco daba
+  por hecho el alto ticket, y convirtió una entrada de 800 MXN al mes en un programa de 1.000 USD. Lo que el
+  modelo tiene que saber del negocio va pegado a un bloque que ya está en el prompt (`bloqueNivel` en las piezas),
+  nunca en un slot nuevo: un prompt editado en /configuraciones no lo tendría.
 
 # Una reserva de agenda decide a DÓNDE va por un solo camino, y la agenda tiene tres fuentes de ruteo
 

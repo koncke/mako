@@ -283,4 +283,22 @@ export const BITACORA: Hito[] = [
     ],
     commits: [{ sha: '810ec670', msg: 'El mapa de la portada ya es una nube medida, no un árbol dibujado', lineas: 320, archivos: 2 }],
   },
+  {
+    fecha: '16 oct', hora: '09:50', chat: 'Centro de Operaciones', sesion: 'local_428051c1-0369-4df2-ae6b-bcb42f63b64b', cuenta: 'claude3',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El Second Brain es un chat: la pieza única, y el Mapa sólo para el admin',
+    pedido: 'Termina con todo, faltan mis pedidos del Second Brain',
+    puntos: [
+      'La etapa 2 de docs/diseno-mako-ai-native.md, primera tanda: /second-brain es el chat con MaKo con la cara del Centro de Operaciones.',
+      'La barra: «Nuevo chat», el jefe «Second Brain» y sus sub-chats, que son las conversaciones del teléfono (sin migrar nada).',
+      'El chat es de todos los que tienen MaKo (closer y setter incluidos); el Mapa, del admin de la tab, calculado sólo cuando se pide.',
+      'La conversación corre en el turno de siempre por /api/mako/chat, con la tarjeta que se confirma y el micrófono de la casa.',
+    ],
+    archivos: [
+      'app/second-brain/ChatSecondBrain.tsx — la pantalla',
+      'app/api/mako/chat/route.ts — la ruta (la puerta de MaKo)',
+      'app/_chat/HiloMako.tsx, TarjetaAccion.tsx, chat.css — las piezas',
+      'lib/chat-mako-reglas.ts — el jefe y sus sub-chats',
+    ],
+  },
 ];

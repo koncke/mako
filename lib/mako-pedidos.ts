@@ -100,6 +100,38 @@ export const FEATURE_PEDIDOS = 'mako-pedidos';
 /** Más que esto en un mensaje no es una lista de pedidos: es un documento pegado. */
 export const MAX_PEDIDOS = 6;
 
+/**
+ * Las tabs cuyos objetos viven en el NAVEGADOR y no en la base: ahí la lista la manda el chat (`objetos` del cuerpo
+ * de POST /api/mako/pedidos). El Video Editor guarda sus proyectos en IndexedDB (decisión 5 de su diseño,
+ * docs/hallazgos-video-editor.md → «el proyecto vive en el NAVEGADOR»): el servidor no los ve. En las demás tabs la
+ * lista la arma el servidor (`objetosDeTab`) y lo que mande el navegador se ignora. ⚠️ El área `video` es también la
+ * del Video Generator: su chat, si se engancha, no manda `objetos` y queda con [].
+ */
+export const TABS_CON_OBJETOS_EN_EL_NAVEGADOR: readonly Area[] = ['video'];
+/** Más objetos que esto no se miran: «la otra» entre cientos no se resuelve por nombre. */
+export const MAX_OBJETOS = 200;
+
+/**
+ * Los objetos que manda el navegador, validados: un array de `{ id, nombre, tocadoAt? }`; lo que no tiene esa forma
+ * se descarta (nunca tira), los nombres se cortan y entran hasta `MAX_OBJETOS`. Son SUYOS (su IndexedDB) y sólo
+ * vuelven a él, en una pregunta o un link: no se ejecuta nada con ellos ni van a la IA.
+ */
+export function objetosDelNavegador(raw: unknown): ObjetoChat[] {
+  if (!Array.isArray(raw)) return [];
+  const out: ObjetoChat[] = [];
+  const vistos = new Set<string>();
+  for (const x of raw.slice(0, MAX_OBJETOS)) {
+    if (!x || typeof x !== 'object') continue;
+    const o = x as { id?: unknown; nombre?: unknown; tocadoAt?: unknown };
+    const id = typeof o.id === 'string' || typeof o.id === 'number' ? String(o.id).trim() : '';
+    if (!id || id.length > 64 || vistos.has(id) || typeof o.nombre !== 'string') continue;
+    const t = typeof o.tocadoAt === 'string' && o.tocadoAt.length <= 40 && Number.isFinite(Date.parse(o.tocadoAt)) ? o.tocadoAt : null;
+    vistos.add(id);
+    out.push({ id, nombre: o.nombre.replace(/\s+/g, ' ').trim().slice(0, 200), tocadoAt: t });
+  }
+  return out;
+}
+
 // ── El texto, sin tildes y con las MISMAS posiciones ─────────────────────────
 
 const SIN_TILDE: Readonly<Record<string, string>> = {
@@ -156,12 +188,22 @@ const ANCLADAS: Readonly<Record<Area, RegExp>> = Object.fromEntries(
 ) as Record<Area, RegExp>;
 
 /**
- * Las palabras de un área que, DENTRO de su tab, nombran una PARTE de lo abierto y no otro objeto. En el Web
- * Generator un sitio tiene páginas («Añadir página», PanelPaginas.tsx): «crea otra página con los testimonios» es
- * una página más de la landing abierta, no otra landing. Fuera de su tab sí cuenta («créame otra página» en
- * Automations va al Web Generator).
+ * Las palabras que, DENTRO de una tab, nombran una PARTE de lo abierto y no otro objeto, sea del área que sea la
+ * palabra (`AREA_KEYWORDS` es por ÁREA; esto es por TAB). Sobre el texto plano:
+ *   · el Web Generator: un sitio tiene páginas («Añadir página», PanelPaginas.tsx): «crea otra página con los
+ *     testimonios» es una página más de la landing abierta, no otra landing;
+ *   · el Image Editor: un diseño tiene páginas, como en Canva. «Página» es palabra del área `landing`: sin esto,
+ *     «crea otra página» en un diseño se iba al Web Generator;
+ *   · el Dashboard: una hoja tiene gráficos y métricas («crea otro gráfico» no es otra hoja);
+ *   · el Video Editor: un proyecto tiene clips y escenas («borra el otro clip» no es otro proyecto).
+ * Fuera de su tab sí cuentan («créame otra página» en Automations va al Web Generator).
  */
-const PARTES_DE_LO_ABIERTO: Partial<Readonly<Record<Area, RegExp>>> = { landing: /^p[aá]ginas?$/i };
+const PARTES_DE_LO_ABIERTO: Partial<Readonly<Record<Area, RegExp>>> = {
+  landing: /^paginas?$/,
+  imagen: /^paginas?$/,
+  metricas: /^(?:graficos?|metricas?)$/,
+  video: /^(?:clips?|escenas?)$/,
+};
 
 const esParteDeLoAbierto = (tab: Area, palabra: string | undefined): boolean =>
   !!palabra && !!PARTES_DE_LO_ABIERTO[tab]?.test(plano(nfc(palabra)).trim());
@@ -389,8 +431,13 @@ function decidir(c: PedidoCrudo, ctx: ContextoPedidos): Decision {
   const l = leer(c.texto);
   const area = c.area ?? tab;
   const actual = ctx.actual ?? null;
+  // El objeto del verbo es una PARTE de lo abierto («crea otra página» en un diseño, «otro gráfico» en una hoja).
+  const parte = !!l.objeto && esParteDeLoAbierto(tab, ultimaPalabra(l.objeto.frase));
 
   if (area !== tab) {
+    // La palabra es de otra área, pero en esta tab nombra una parte de lo abierto: es un cambio de lo abierto,
+    // aunque la IA la haya etiquetado con la otra área.
+    if (parte && actual) return { pedido: { sobre: 'actual', texto: c.texto }, ambiguo: false, frase: null };
     // Fuerte: lo etiquetó la IA (validado), no hay nada abierto, o el verbo CREA un objeto de esa área
     // («agéndame una reunión», «créame otra landing»). Lo demás —«cambia el precio», «quita el video»— nombra
     // otra área pero casi siempre es un cambio de lo abierto: va a lo actual y la IA desempata (si está).
@@ -409,14 +456,14 @@ function decidir(c: PedidoCrudo, ctx: ContextoPedidos): Decision {
 
   // Crear algo de ESTA tab («créame otra landing») es uno nuevo; «crea una sección» o «crea otra página» es un
   // cambio de lo abierto.
-  if (c.verbo === 'crear' && l.objeto?.area === tab && !esParteDeLoAbierto(tab, ultimaPalabra(l.objeto.frase))) {
+  if (c.verbo === 'crear' && l.objeto?.area === tab && !parte) {
     return { pedido: { sobre: 'nuevo', texto: c.texto, operacion: operacionPara('crear', tab, c.texto, ctx) }, ambiguo: false, frase: l.objeto.frase, hacemos: hacemosDe(l) };
   }
   const otros = (ctx.objetos ?? []).filter((o) => o.id !== actual?.id);
   const r = referidos(l, c.referencia, otros, tab);
   if (r) return { pedido: sobreOtro(c, r.lista, ctx), ambiguo: false, frase: null };
   // «Elimina esta landing»: borrar lo ABIERTO tampoco va por el camino de siempre (el editor no borra).
-  if (c.verbo === 'borrar' && l.objeto?.area === tab && actual && !esParteDeLoAbierto(tab, ultimaPalabra(l.objeto.frase))) return { pedido: sobreOtro(c, [actual], ctx), ambiguo: false, frase: null };
+  if (c.verbo === 'borrar' && l.objeto?.area === tab && actual && !parte) return { pedido: sobreOtro(c, [actual], ctx), ambiguo: false, frase: null };
   return { pedido: { sobre: 'actual', texto: c.texto }, ambiguo: false, frase: null };
 }
 
