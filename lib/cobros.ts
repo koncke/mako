@@ -218,6 +218,11 @@ async function cuotaParaLink(leadId: number, pagoId: number): Promise<{ ok: true
     .order('created_at', { ascending: false }).limit(1);
   if (e2) return { ok: false, error: `No pude revisar los links de la cuota: ${e2.message}` };
   const pendiente = (links ?? [])[0] ? cobroDeFila((links as Record<string, unknown>[])[0]) : null;
+  // ⚠️ UN LINK YA PAGADO CUYO PAGO TODAVÍA NO SE ASENTÓ (revisión del 16/10/2026): la cuota sigue impaga hasta que el
+  // aviso se reintenta o pasa el cron, y otro link para ella era otro cobro posible de la misma plata.
+  const { data: pagados, error: e3 } = await db.from('cobros').select('id').eq('lead_id', leadId).eq('pago_id', pagoId).eq('estado', 'pagado').limit(1);
+  if (e3) return { ok: false, error: `No pude revisar los links de la cuota: ${e3.message}` };
+  if ((pagados ?? []).length) return { ok: false, error: 'Esa cuota ya se pagó con un link: se marca sola en unos minutos.' };
   return { ok: true, cuota: { id: Number(q.id), numero: Number(q.numero), monto_usd: montoUsd }, pendiente };
 }
 

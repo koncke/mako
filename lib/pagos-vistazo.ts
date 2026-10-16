@@ -144,13 +144,16 @@ export function estadoDeCuenta(e: { cobrado: Cobrado; pagos: readonly CuotaDelLe
 
   // ── Pago único ──
   if (vencidas.length) return deudaVencida();
+  const devuelto = redondo(e.pagos.filter((q) => esCuotaDevuelta(q)).reduce((s, q) => s + num(q.monto_usd), 0));
   if (c.cuotas.total === 0) {
-    const devuelto = redondo(e.pagos.filter((q) => esCuotaDevuelta(q)).reduce((s, q) => s + num(q.monto_usd), 0));
     if (devuelto > 0) return { ...base, titular: 'Devuelto', tono: 'gris', detalle: `Se le devolvió ${usd(devuelto)}`, accion: null };
     return { ...base, titular: `Vendido en ${usd(c.totalUsd ?? 0)}`, tono: 'ambar', detalle: 'Todavía no hay pagos ni cuotas.', accion: { tipo: 'registrar-pago', boton: 'Registrar el pago' } };
   }
   if (c.pendienteUsd <= 0 && c.cuadra && c.cuadra.diferenciaUsd < -0.5) {
-    const falta = redondo(-c.cuadra.diferenciaUsd);
+    // ⚠️ LO DEVUELTO NO ES LO QUE FALTA (revisión del 16/10/2026): una cuota devuelta sale de las cuotas pero la venta
+    // sigue con su monto, y la diferencia se ofrecía como «Agregar la cuota» (volver a cobrar lo que se devolvió).
+    const falta = redondo(-c.cuadra.diferenciaUsd - devuelto);
+    if (falta <= 0.5) return { ...base, faltaUsd: 0, titular: 'Devuelto en parte', tono: 'gris', detalle: `Se le devolvió ${usd(devuelto)}`, accion: null };
     return { ...base, faltaUsd: falta, titular: `Faltan ${usd(falta)}`, tono: 'ambar', detalle: 'Lo que falta no tiene cuota.', accion: { tipo: 'agregar-cuota', faltaUsd: falta, boton: 'Agregar la cuota' } };
   }
   if (c.pendienteUsd <= 0) {

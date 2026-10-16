@@ -137,8 +137,8 @@ function CamposDeCuando({ fecha, hora, metodo, setFecha, setHora, setMetodo }: {
 /**
  * «Marcar pagada» una cuota: con el comprobante (la IA lee monto, fecha y hora) o a mano.
  * ⚠️ UN PAGO DE MENOS PREGUNTA QUÉ PASA CON LA DIFERENCIA (Mauricio, 13/10/2026): queda pendiente (el default: el
- * cliente la sigue debiendo) o es un descuento. Con diferencia pendiente no hay Deshacer: desmarcar dejaría viva la
- * cuota nueva de la diferencia.
+ * cliente la sigue debiendo) o es un descuento. Con CUALQUIER diferencia no hay Deshacer: desmarcar dejaría viva la
+ * cuota nueva de la diferencia, o la cuota con el monto cobrado en vez del suyo.
  */
 export function MarcarPagada({ cuota, leadId, monedaNegocio, onCerrar, onHecho }: {
   cuota: Pago; leadId: number; monedaNegocio: string; onCerrar: () => void;
@@ -184,7 +184,9 @@ export function MarcarPagada({ cuota, leadId, monedaNegocio, onCerrar, onHecho }
     start(async () => {
       try {
         const r = await marcarPagoManualAction(cuota.id, leadId, { monto: p.monto, fecha, hora: hora || null, resto, moneda: p.moneda, montoOriginal: p.montoOriginal, metodo: metodo || null });
-        onHecho(r.pendiente != null ? `${nombre} cobrada · quedan ${usd(r.pendiente)} pendientes` : `${nombre} marcada como pagada`, r.pendiente == null);
+        // ⚠️ DESHACER SÓLO SI SE COBRÓ EXACTO LO DE LA CUOTA (revisión del 16/10/2026): con un descuento o un pago de
+        // más el pendiente también es null, y desmarcar no devuelve el monto: la cuota quedaba debiendo lo cobrado.
+        onHecho(r.pendiente != null ? `${nombre} cobrada · quedan ${usd(r.pendiente)} pendientes` : `${nombre} marcada como pagada`, r.pendiente == null && p.monto === valorUsd);
       } catch (e) { setError(msg(e)); }
     });
   };

@@ -103,10 +103,11 @@ export const PLANTILLAS_FICHA: readonly PlantillaFicha[] = [
     id: 'formulario-meta', nombre: 'Formulario de Meta',
     tabs: {
       resumen: ['siguiente-accion', 'posibles-duplicados', 'contacto', 'lo-que-contesto', 'calificacion', 'origen', 'charla-whatsapp', 'automatizaciones-en-curso', 'tiempo-en-etapa', 'setter-y-closer', 'ingreso-estimado', 'proxima-reunion', 'notas', 'motivo-de-salida', 'plazo-nutricion'],
-      pagos: ['cobrado', 'oferta', 'links-de-pago', 'venta', 'movimientos'],
+      pagos: ['cobrado', 'oferta', 'links-de-pago', 'venta', 'cuotas', 'movimientos'],
       tracking: ['anuncio-de-origen', 'visitas', 'actividad-en-pagina'],
     },
-    apagados: ['empresa', 'plan', 'dealServicio', 'dealPromesa', 'dealObligaciones', 'dealFiscal'],
+    // `comprobante` explícito desde el 16/10/2026: con `cuotas` en Pagos dejaría de nacer apagado solo, y este funnel no lo pedía.
+    apagados: ['empresa', 'plan', 'comprobante', 'dealServicio', 'dealPromesa', 'dealObligaciones', 'dealFiscal'],
   },
   {
     // Incluye el recurso gratis y el link de la bio o de YouTube; ws13 (landing con Cal.com sin etapa de reunión).
@@ -124,9 +125,10 @@ export const PLANTILLAS_FICHA: readonly PlantillaFicha[] = [
     id: 'te-escriben', nombre: 'Te escriben',
     tabs: {
       resumen: ['siguiente-accion', 'posibles-duplicados', 'charla-dm', 'charla-whatsapp', 'pase-a-humano', 'mensaje-listo', 'contacto', 'publicacion-de-entrada', 'origen', 'setter-y-closer', 'tiempo-en-etapa', 'automatizaciones-en-curso', 'notas', 'motivo-de-salida', 'plazo-nutricion'],
-      pagos: ['cobrado', 'oferta', 'links-de-pago', 'confirmacion-de-pago', 'venta', 'suscripcion', 'movimientos'],
+      pagos: ['cobrado', 'oferta', 'links-de-pago', 'confirmacion-de-pago', 'venta', 'cuotas', 'suscripcion', 'movimientos'],
     },
-    apagados: ['calificado', 'empresa', 'plan', 'dealFiscal'],
+    // `comprobante` explícito desde el 16/10/2026: con `cuotas` en Pagos dejaría de nacer apagado solo, y este funnel no lo pedía.
+    apagados: ['calificado', 'empresa', 'plan', 'comprobante', 'dealFiscal'],
   },
   {
     // Tú les escribes (WhatsApp, Instagram o LinkedIn) y cierras por chat. «El B2B de LinkedIn los suma con un toque».
@@ -143,7 +145,7 @@ export const PLANTILLAS_FICHA: readonly PlantillaFicha[] = [
     id: 'carrito', nombre: 'Carrito',
     tabs: {
       resumen: ['siguiente-accion', 'posibles-duplicados', 'contacto', 'cobrado', 'origen', 'lo-que-contesto', 'charla-whatsapp', 'notas', 'motivo-de-salida', 'plazo-nutricion'],
-      pagos: ['cobrado', 'links-de-pago', 'movimientos', 'venta', 'suscripcion', 'oferta', 'cliente-en-cs'],
+      pagos: ['cobrado', 'links-de-pago', 'cuotas', 'movimientos', 'venta', 'suscripcion', 'oferta', 'cliente-en-cs'],
       tracking: ['video-visto', 'actividad-en-pagina', 'grabacion-de-visita', 'visitas', 'anuncio-de-origen'],
     },
     apagados: ['setter', 'calificado', 'empresa', 'plan', 'dealServicio', 'dealPromesa', 'dealObligaciones', 'dealFiscal', 'dealFiscalDoc'],

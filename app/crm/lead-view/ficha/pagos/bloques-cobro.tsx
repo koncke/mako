@@ -25,7 +25,7 @@ import { marcaDato } from '@/lib/datos-aviso';
 import type { VentaTipo } from '@/lib/venta-tipo';
 import type { Pago } from '@/lib/pagos';
 import { ajustarPlanAction, cambiarEstadoSuscripcionAction, cortarRecordatoriosCuotaAction, editarCuotaAction, guardarCuotasAction, guardarVentaAction } from '@/app/crm/[id]/pagos-campo-actions';
-import { proteccionesDeCuotasAction } from './cuotas-actions';
+import { proteccionesDeCuotasAction, quitarCuotaAction } from './cuotas-actions';
 import type { Proteccion } from '@/lib/pagos-campo';
 import { cancelarSuscripcionAction } from '@/app/crm/[id]/cobros-actions';
 import { quitarSinCobroAction } from '@/app/crm/[id]/deal-actions';
@@ -45,14 +45,31 @@ const error = (r: { ok: boolean; error?: string }): string | null => (r.ok ? nul
 
 /** Lo cobrado del lead, con la MISMA cuenta que la API de MaKo (`cobradoDelLead`). */
 function useCobrado(ctx: CtxFicha) {
-  const { cobros } = useCobrosDelLead(ctx.lead.id);
+  const { cobros, error: sinLeer } = useCobrosDelLead(ctx.lead.id);
   const { lead, data } = ctx;
   const cobrado = cobradoDelLead({
     ventaTipo: lead.venta_tipo ?? null, montoCierreUsd: lead.monto_cierre_usd ?? null, suscripcionMontoUsd: lead.suscripcion_monto_usd ?? null,
     suscripcionMeses: lead.suscripcion_meses ?? null, fechaCierre: lead.fecha_cierre ?? null, suscripcionCanceladaAt: canceladaAt(ctx),
     pagos: data.pagos as CuotaParaCobrado[], cobros: cobros ?? [], hoy: ctx.hoy,
   });
-  return { cobrado, cobros };
+  // ⚠️ SIN LOS COBROS LEÍDOS NO SE SABE QUIÉN COBRA LA SUSCRIPCIÓN (revisión del 16/10/2026): con `cobros ?? []` la
+  // fuente salía «manual», y una suscripción que cobra la pasarela ofrecía «Registrar el mes cobrado» (duplicaba lo
+  // cobrado) y pintaba «Al día» una renovación que había fallado.
+  return { cobrado, cobros, leidos: cobros !== null && !sinLeer, sinLeer };
+}
+
+/**
+ * El Deshacer de un cambio de la venta, paso por paso y con el compare-and-set del tipo: si otra pantalla cambió el
+ * tipo en los segundos del aviso, no se escribe una mensualidad vieja como monto de un pago único (revisión del
+ * 16/10/2026). Cada paso sabe el tipo que dejó el anterior.
+ */
+async function deshacerVenta(leadId: number, pasos: Parameters<typeof guardarVentaAction>[1][], tipo: VentaTipo) {
+  let visto: VentaTipo = tipo;
+  for (const d of pasos) {
+    const r = await guardarVentaAction(leadId, d, { tipoVisto: visto });
+    if (!r.ok) return;
+    visto = r.ventaTipo;
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -63,9 +80,10 @@ const COLOR: Record<'verde' | 'ambar' | 'rojo' | 'gris', string> = { verde: 'var
 
 export function EstadoDeCuenta(props: PropsBloque) {
   const { ctx, diseno, titulo } = props;
-  const { cobrado } = useCobrado(ctx);
+  const { cobrado, leidos } = useCobrado(ctx);
   const cobrar = useCobrar(ctx);
-  const e = estadoDeCuenta({ cobrado, pagos: ctx.data.pagos, ganado: ganado(ctx), hoy: ctx.hoy });
+  const leido = estadoDeCuenta({ cobrado, pagos: ctx.data.pagos, ganado: ganado(ctx), hoy: ctx.hoy });
+  const e = leido && !leidos && leido.accion?.tipo === 'registrar-mes' ? { ...leido, accion: null } : leido;
   if (!e) return null;
   const epico = esEpico(props);
   const boton = e.accion && (
@@ -152,17 +170,19 @@ export function Cuotas(props: PropsBloque) {
       show('Cuota cambiada', () => start(async () => { await editarCuotaAction(lead.id, q.id, { monto: r.antes.monto, fecha: r.antes.fecha }); ctx.releer(); }));
       return null;
     });
+  // ⚠️ QUITAR VA SOLA Y CON CONFIRMACIÓN, SIN DESHACER (revisión del 16/10/2026). Sola: mandar la lista entera le
+  // reescribía su valor viejo a una cuota que otra pestaña había cambiado. Sin Deshacer: volver a insertarla le daba
+  // otro id y otro número (el inicial volvía como «Cuota N», y su recordatorio se volvía a mandar), así que no era
+  // la misma cuota. Lo que tiene un link sin pagar o un recordatorio corriendo no se quita: el server lo dice.
+  const [aQuitar, setAQuitar] = useState<Pago | null>(null);
   const quitar = (q: Pago) => start(async () => {
-    const impagas = vivas.filter((x) => !x.pagado);
-    const r = await guardarCuotasAction(lead.id, impagas.filter((x) => x.id !== q.id).map((x) => ({ id: x.id, monto: Number(x.monto_usd), fecha: x.fecha_esperada })), null, impagas.map((x) => x.id));
+    const r = await quitarCuotaAction(lead.id, q.id);
+    setAQuitar(null);
     if (!r.ok) { show(r.error, undefined, 'bad'); return; }
     ctx.releer();
-    // Lo que tiene un link sin pagar o un recordatorio corriendo no se quita: el server lo dice.
-    show(r.sinTocar ? `No se quitó: ${r.sinTocar}` : 'Cuota quitada', r.quitadas ? () => start(async () => {
-      await guardarCuotasAction(lead.id, [...impagas.filter((x) => x.id !== q.id).map((x) => ({ id: x.id, monto: Number(x.monto_usd), fecha: x.fecha_esperada })), { id: null, monto: Number(q.monto_usd), fecha: q.fecha_esperada }], null, impagas.filter((x) => x.id !== q.id).map((x) => x.id));
-      ctx.releer();
-    }) : undefined);
+    show(r.quitada ? 'Cuota quitada' : `No se quitó: ${r.motivo ?? 'cambió en otra pantalla'}`);
   });
+  const becado = lead.venta_tipo === 'sin_cobro';
 
   // «Sólo la próxima»: la vencida más vieja o la que vence primero, y cuántas más hay.
   const proxima = vivas.filter((q) => !q.pagado && q.fecha_esperada).sort((a, b) => String(a.fecha_esperada).localeCompare(String(b.fecha_esperada)))[0] ?? null;
@@ -172,7 +192,7 @@ export function Cuotas(props: PropsBloque) {
     <Tarjeta titulo={titulo} marca={marcaDato('plan')}
       derecha={!editando && (
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <Button variant="secondary" size="sm" onClick={cobrar.registrarPago}>Registrar un pago</Button>
+          {!becado && <Button variant="secondary" size="sm" onClick={cobrar.registrarPago}>Registrar un pago</Button>}
         </div>
       )}>
       {lista.length === 0 && !armando && (
@@ -208,9 +228,9 @@ export function Cuotas(props: PropsBloque) {
               {!editando && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                   {r.accion === 'marcar' && <Button variant={r.estado === 'vencida' ? 'primary' : 'secondary'} size="sm" onClick={() => cobrar.marcar(q)}>Marcar pagada</Button>}
-                  {r.accion === 'marcar' && cobrar.hayPasarela && <Button variant="tertiary" size="sm" onClick={() => cobrar.mandarLink(q)}>Mandar link</Button>}
+                  {r.accion === 'marcar' && cobrar.hayPasarela && !becado && <Button variant="tertiary" size="sm" onClick={() => cobrar.mandarLink(q)}>Mandar link</Button>}
                   {r.accion === 'marcar' && prot.includes('recordatorio') && <Button variant="tertiary" size="sm" onClick={() => cortar(q)}>Cortar el recordatorio</Button>}
-                  {r.accion === 'marcar' && <Button variant="tertiary" size="sm" onClick={() => quitar(q)}>Quitar</Button>}
+                  {r.accion === 'marcar' && <Button variant="tertiary" size="sm" onClick={() => setAQuitar(q)}>Quitar</Button>}
                   {q.pagado && q.comprobante_path && <Button variant="tertiary" size="sm" onClick={() => cobrar.verComprobante(q)}>Ver comprobante</Button>}
                   {r.accion === 'deshacer' && <Button variant="tertiary" size="sm" onClick={() => cobrar.desmarcar(q)}>Deshacer</Button>}
                 </div>
@@ -220,7 +240,14 @@ export function Cuotas(props: PropsBloque) {
         })}
       </div>
       {diseno === 'proxima' && vivas.filter((q) => !q.pagado).length > 1 && <p style={nada}>Y {vivas.filter((q) => !q.pagado).length - 1} cuota(s) más.</p>}
-      {!editando && diseno !== 'proxima' && (
+      {aQuitar && (
+        <div onClick={(e) => e.stopPropagation()}>
+          <Confirm title={`¿Quitar ${renglonDeCuota(aQuitar, ctx.hoy).nombre.toLowerCase()}?`} confirmLabel="Quitarla" cancelLabel="No"
+            message={`${usd(Number(aQuitar.monto_usd))}${aQuitar.fecha_esperada ? ` · vence el ${fmtDDMMYYYY(aQuitar.fecha_esperada)}` : ''}. Deja de contarse como deuda.`}
+            onCancel={() => setAQuitar(null)} onConfirm={() => quitar(aQuitar)} />
+        </div>
+      )}
+      {!editando && diseno !== 'proxima' && !becado && (
         armando
           ? <ArmarPlan ctx={ctx} onListo={(m) => { setArmando(false); if (m) show(m.texto, m.deshacer); }} />
           : (
@@ -245,17 +272,22 @@ export function Cuotas(props: PropsBloque) {
  */
 function ArmarPlan({ ctx, onListo }: { ctx: CtxFicha; onListo: (m: { texto: string; deshacer?: () => void } | null) => void }) {
   const l = ctx.lead;
+  // El plan como estaba AL ABRIR (no se recalcula si la ficha se relee mientras se escribe): se manda SÓLO lo que la
+  // persona cambió contra esto, y el server lo escribe encima de lo que tiene (`ajustarSobre`). Mandar los cuatro
+  // campos volvía a escribir un valor que otra pantalla había cambiado en el medio (revisión del 16/10/2026).
+  const [antes] = useState<PlanUniforme>(() => ({ cobro_inicial_usd: l.cobro_inicial_usd, monto_cuota_usd: l.monto_cuota_usd, total_cuotas: l.total_cuotas, dia_de_pago: l.dia_de_pago }));
   const [plan, setPlan] = useState({ inicial: l.cobro_inicial_usd ? String(l.cobro_inicial_usd) : '', cuota: l.monto_cuota_usd ? String(l.monto_cuota_usd) : '', cantidad: l.total_cuotas ? String(l.total_cuotas) : '', dia: l.dia_de_pago ? String(l.dia_de_pago) : '' });
   const [err, setErr] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const n = (s: string): number | null => (s.trim() === '' ? null : Number(s.replace(',', '.')));
   const nuevo: Partial<PlanUniforme> = { cobro_inicial_usd: n(plan.inicial), monto_cuota_usd: n(plan.cuota), total_cuotas: n(plan.cantidad), dia_de_pago: n(plan.dia) };
-  const antes: PlanUniforme = { cobro_inicial_usd: l.cobro_inicial_usd, monto_cuota_usd: l.monto_cuota_usd, total_cuotas: l.total_cuotas, dia_de_pago: l.dia_de_pago };
+  const cambiado = Object.fromEntries((Object.keys(nuevo) as Array<keyof PlanUniforme>).filter((k) => (nuevo[k] ?? null) !== (antes[k] ?? null)).map((k) => [k, nuevo[k]])) as Partial<PlanUniforme>;
   const v = ajustarSobre(antes, nuevo);
   const guardar = () => {
     if (!v.ok) { setErr(v.error); return; }
+    if (!Object.keys(cambiado).length) { onListo(null); return; }
     start(async () => {
-      const r = await ajustarPlanAction(l.id, nuevo);
+      const r = await ajustarPlanAction(l.id, cambiado);
       if (!r.ok) { setErr(r.error); return; }
       ctx.releer();
       const d = r.deshacer;
@@ -354,7 +386,7 @@ export function Movimientos({ ctx, titulo, diseno }: PropsBloque) {
 export function Suscripcion(props: PropsBloque) {
   const { ctx, titulo, editando } = props;
   const { lead } = ctx;
-  const { cobrado, cobros } = useCobrado(ctx);
+  const { cobrado, cobros, leidos, sinLeer } = useCobrado(ctx);
   const cobrar = useCobrar(ctx);
   const { toast, show, clear } = useToast();
   const [preguntar, setPreguntar] = useState(false);
@@ -368,7 +400,7 @@ export function Suscripcion(props: PropsBloque) {
       if (!r.ok) return r.error;
       ctx.parchear(patch);
       const atras = r.deshacer;
-      if (r.cambio) show('Guardado', () => { void (async () => { for (const d of atras) await guardarVentaAction(lead.id, d); ctx.releer(); })(); });
+      if (r.cambio) show('Guardado', () => { void deshacerVenta(lead.id, atras, r.ventaTipo).then(() => ctx.releer()); });
       return null;
     });
   const cancelar = async () => {
@@ -413,10 +445,11 @@ export function Suscripcion(props: PropsBloque) {
         {s.proximaRenovacion && s.estado === 'activa' && <span>Próxima el {fmtDDMMYYYY(s.proximaRenovacion)} · {cobrado.cuotas.cobradas} cobrada(s){s.fuente === 'pasarela' ? ' · la cobra la pasarela' : ''}</span>}
       </div>
       {s.renovacionFallida && <Aviso tono="rojo">{s.renovacionFallida}</Aviso>}
-      {s.sinRegistrar > 0 && <Aviso tono="ambar">{s.sinRegistrar === 1 ? 'Falta registrar 1 mes cobrado.' : `Faltan registrar ${s.sinRegistrar} meses cobrados.`}</Aviso>}
+      {sinLeer && <Aviso tono="ambar">No pude leer los cobros de la pasarela: no se sabe si la cobra ella.</Aviso>}
+      {leidos && s.sinRegistrar > 0 && <Aviso tono="ambar">{s.sinRegistrar === 1 ? 'Falta registrar 1 mes cobrado.' : `Faltan registrar ${s.sinRegistrar} meses cobrados.`}</Aviso>}
       {!editando && (
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          {s.fuente === 'manual' && s.estado === 'activa' && <Button variant="secondary" size="sm" onClick={cobrar.registrarMes}>Registrar el mes cobrado</Button>}
+          {leidos && s.fuente === 'manual' && s.estado === 'activa' && <Button variant="secondary" size="sm" onClick={cobrar.registrarMes}>Registrar el mes cobrado</Button>}
           {ctx.esAdmin && s.estado === 'activa' && <Button variant="tertiary" size="sm" onClick={() => setPreguntar(true)}>Cancelar la suscripción</Button>}
           {ctx.esAdmin && s.estado === 'cancelada' && s.fuente === 'manual' && <Button variant="tertiary" size="sm" onClick={() => void reactivar()}>Reactivarla</Button>}
         </div>
@@ -455,7 +488,7 @@ export function Venta({ ctx, titulo, diseno, editando }: PropsBloque) {
       if (!r.ok) return r.error;
       ctx.parchear({ ...patch, venta_tipo: r.ventaTipo });
       const atras = r.deshacer;
-      if (r.cambio) show('Guardado', () => { void (async () => { for (const d of atras) await guardarVentaAction(lead.id, d); ctx.releer(); })(); });
+      if (r.cambio) show('Guardado', () => { void deshacerVenta(lead.id, atras, r.ventaTipo).then(() => ctx.releer()); });
       return null;
     });
   /** Cambiar el tipo. DESDE «Sin cobro» se sale por su propia acción (compare-and-set), y después al tipo elegido. */

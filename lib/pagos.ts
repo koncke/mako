@@ -251,7 +251,7 @@ export async function reconciliarYGuardar(
  */
 export async function guardarCuotasPorId(
   leadId: number,
-  cuotas: ReadonlyArray<{ id?: number | null; monto_usd: number; fecha_esperada: string | null }>,
+  cuotas: ReadonlyArray<{ id?: number | null; numero?: number | null; monto_usd: number; fecha_esperada: string | null }>,
   opts: { vistos?: ReadonlySet<number> } = {},
 ): Promise<PlanDeCuotas> {
   return reconciliarYGuardar(leadId, cuotas, 'porId', opts);
