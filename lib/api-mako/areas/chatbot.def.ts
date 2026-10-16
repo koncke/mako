@@ -607,7 +607,9 @@ export const DEFS: readonly OperacionDef[] = [
     id: 'enviar_plantilla_meta_paso', area: 'chatbot', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/mako/revisar',
     titulo: 'Mandar a Meta la plantilla',
     descripcion: 'PROPONE convertir el texto de un paso de WhatsApp oficial en plantilla de Meta y mandarla a aprobar, y devuelve un link para confirmarlo. Usa IA y consume el cupo de plantillas de la cuenta de Meta (la cuenta se lee del inbox de Chatwoot del negocio). Si ya hay una plantilla con ese nombre aprobada o en revisión, no la reenvía ni la reemplaza, aunque el texto del paso haya cambiado. Solo pasos de WhatsApp oficial con texto; revisa antes plantillas_meta_de_secuencia.',
-    parametros: [pSecuenciaId, pOrden],
+    // El paso que se manda queda FIJO al revisar (`fijoAlRevisar`, 15/10/2026): sólo en esta acción, no en `pOrden` (en otra
+    // puede ser un valor que se corrige).
+    parametros: [{ ...pSecuenciaId, fijoAlRevisar: true }, { ...pOrden, fijoAlRevisar: true }],
     reversible: false, escribe: 'crea la plantilla en meta_templates, la envía a Meta y la vincula al paso en nutricion_secuencias',
     canales: SIN_HTTP, costo: 'ia', lenta: true, gating: { tab: TAB, rolMinimo: 'admin', integracion: 'chatwoot' },
   },

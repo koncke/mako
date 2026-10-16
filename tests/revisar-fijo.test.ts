@@ -8,15 +8,20 @@
 //      guardado — la pantalla sola no alcanza, el formulario llega del navegador;
 //   2. la pantalla lo pinta de sólo lectura, y la marca viaja al cliente (`plano`);
 //   3. las acciones de cobros que mueven plata o cortan una suscripción lo tienen en su `cobroId`.
-// Las de Ads y Email que mueven plata tienen el mismo agujero y no son de este chat: la lista, en
-// docs/hallazgos-api-mako.md («Lo que se edita al revisar…»).
+//   4. el BARRIDO: toda acción de pantalla con plata o envío que tiene un id, lo tiene fijo (Ads, Email, WhatsApp y el
+//      chatbot se cerraron el mismo día), así la próxima acción nueva no nace con el agujero.
 //
 // PROBADO ROMPIÉNDOLO (15/10/2026), una rotura por vez con un script que reemplaza en el fuente, corre y restaura.
-// Con el código como está: 4 pases, 0 fallos. Rota (pases / fallos):
+// Con el código como está: 6 pases, 0 fallos (4 antes del barrido). Rota (pases / fallos):
 //   · aplicarPropuestaGenerica sin rechazar un valor distinto                          → 3 / 1
 //   · plano() sin pasar la marca (la pantalla deja editarlo)                           → 3 / 1
 //   · el `cobroId` de cobros sin `fijoAlRevisar` (cae también la de la pantalla)        → 2 / 2
 //   · RevisarAccion sin deshabilitar el campo fijo                                      → 3 / 1
+// Y con el barrido (6 en verde):
+//   · `P_CAMPAIGN` de Ads sin el fijo (el barrido y la tabla)                          → 4 / 2
+//   · eliminar en Meta sin el `nivel` fijo (sólo la tabla: el `id` sigue fijo)          → 5 / 1
+//   · el `idBroadcast` de Email sin el fijo                                            → 4 / 2
+//   · el paso del chatbot que se manda a Meta sin el fijo                              → 4 / 2
 // Correr: node --import tsx --test tests/revisar-fijo.test.ts
 // =============================================================================
 
@@ -25,7 +30,7 @@ import assert from 'node:assert/strict';
 import Module from 'node:module';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { porId } from '../lib/api-mako/registro';
+import { REGISTRO, porId } from '../lib/api-mako/registro';
 import { esAccion } from '../lib/api-mako/tipos';
 
 // lib/bandeja-filas.ts es `server-only`: se neutraliza el marcador (el parche de tests/stripe-api.test.ts).
@@ -68,6 +73,44 @@ test('las acciones de cobros que se confirman en pantalla tienen el cobroId fijo
     assert.equal(d.confirmacion, 'pantalla', `${id} ya no se confirma en pantalla: revisar este test`);
     assert.equal(d.parametros.find((p) => p.nombre === 'cobroId')?.fijoAlRevisar, true, `${id}: el cobroId se puede cambiar al revisar`);
   }
+});
+
+/** Plata o envío: mueve plata o gasta créditos de terceros (`costo: 'dinero'`), o MANDA algo (`enviar_*`, `programar_*`). */
+const plataOEnvio = (d: { id: string; costo: string }) => d.costo === 'dinero' || /^(enviar|programar|mandar)_/.test(d.id);
+const esId = (nombre: string) => /(^id$|Id$|_id$)/.test(nombre);
+
+test('BARRIDO: toda acción de pantalla con plata o envío que tiene un id, tiene fijo el que dice sobre qué se hace', () => {
+  // Así la próxima acción nueva no nace con el agujero (15/10/2026, pedido de Estrategia). Una con varios ids (agregar
+  // un anuncio lleva el conjunto y también el video, el formulario…) tiene que tener AL MENOS uno fijo; cuál, lo dice la
+  // tabla de abajo para las que existen hoy.
+  const faltan = REGISTRO.filter((d) => esAccion(d) && d.confirmacion === 'pantalla' && plataOEnvio(d))
+    .filter((d) => d.parametros.some((p) => esId(p.nombre)) && !d.parametros.some((p) => p.fijoAlRevisar))
+    .map((d) => d.id);
+  assert.deepEqual(faltan, [], `estas acciones dejan cambiar al revisar sobre QUÉ se hace (el título es el de cuando se propuso): ${faltan.join(', ')}`);
+});
+
+test('y el fijo es el que dice SOBRE QUÉ se hace, en cada una de las de hoy', () => {
+  const BLANCO: Record<string, readonly string[]> = {
+    reembolsar_cobro: ['cobroId'], cancelar_suscripcion: ['cobroId'],
+    proponer_presupuesto_campana: ['campaignId'], proponer_presupuesto_conjunto: ['adsetId'],
+    proponer_agregar_anuncio: ['adsetId'], proponer_editar_textos_anuncio: ['adId'],
+    // Borrar en Meta no es plata, pero no se deshace: el nivel y el id dicen QUÉ se borra.
+    proponer_eliminar_entidad_meta: ['nivel', 'id'],
+    programar_broadcast: ['id'], enviar_broadcast: ['id'], enviar_prueba_broadcast: ['id'],
+    enviar_plantilla_a_meta: ['id'], enviar_plantilla_meta_paso: ['secuenciaId', 'orden'],
+  };
+  for (const [id, campos] of Object.entries(BLANCO)) {
+    const d = porId(id);
+    assert.ok(d && esAccion(d), `${id} ya no existe: sacarla de la tabla`);
+    for (const c of campos) assert.equal(d.parametros.find((p) => p.nombre === c)?.fijoAlRevisar, true, `${id}: «${c}» se puede cambiar al revisar`);
+  }
+  // Y lo que es CONTENIDO se sigue pudiendo corregir: el video de un anuncio nuevo, el monto de un presupuesto.
+  const agregar = porId('proponer_agregar_anuncio');
+  assert.ok(agregar && esAccion(agregar));
+  assert.equal(agregar.parametros.find((p) => p.nombre === 'video_id')?.fijoAlRevisar, undefined);
+  const presupuesto = porId('proponer_presupuesto_campana');
+  assert.ok(presupuesto && esAccion(presupuesto));
+  assert.equal(presupuesto.parametros.find((p) => p.nombre === 'montoMxn')?.fijoAlRevisar, undefined);
 });
 
 test('el motivo de un reembolso SÍ se puede corregir al revisar (no todo es fijo)', () => {

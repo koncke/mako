@@ -450,3 +450,7 @@ que `funnelIdDeCampana`, así que si cambia una, la otra tiene que mirarse— y
 `app/crm/CrmToolbar.tsx` y un `app/crm/arbol-seleccion.ts` nuevo. Si algo de lo que afirmo sobre la
 atribución de campañas no cierra, lo primero es `git log -1 -- lib/campana-atribucion.ts`: pudo
 entrar después de esta medición.
+
+**15/10/2026 (chat de Pagos, a pedido de Estrategia):** en `/mako/revisar` el id de las acciones de plata de Ads se podía
+cambiar y se ejecutaban sobre otra campaña bajo el título de la primera. Cerrado: `P_CAMPAIGN`, `P_ADSET`, `P_AD` y el `nivel` +
+`id` de `proponer_eliminar_entidad_meta` llevan `fijoAlRevisar` (docs/hallazgos-api-mako.md, «Lo que se edita al revisar…»).
