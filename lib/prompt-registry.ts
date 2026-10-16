@@ -924,7 +924,7 @@ export const REGISTRY: Group[] = [
         label: 'Extractor de campos de El Archivero', kind: 'system', dynamic: true,
         variables: [v('lista', 'los campos pedidos (clave: qué pide)')], scope: 'static-only', sensitive: true,
         default: ARCHIVERO_EXTRACT_TEMPLATE,
-        context: 'Lee UN documento del cliente (de a uno, para atribuir qué campo salió de qué archivo) y completa los campos del negocio, devolviendo JSON con un "razonamiento" de UNA frase sobre qué aportó ese documento. Regla clave: si un dato no aparece, lo omite (NO inventa). Conserva el formato JSON {"campos":{…},"razonamiento":"…"}, el slot {{lista}} y la regla de "no inventar".',
+        context: 'Lee UN documento del cliente (de a uno, para atribuir qué campo salió de qué archivo) y completa los campos del negocio, devolviendo JSON con un "razonamiento" de UNA frase sobre qué aportó ese documento. Regla clave: si un dato no aparece, lo omite (NO inventa). Conserva el formato JSON {"campos":{…},"razonamiento":"…"}, el slot {{lista}} y la regla de "no inventar". Lo usan la pantalla del Archivero y, desde el 15/10/2026, cada archivo que el dueño manda en el chat de Offer (una extracción por documento, que puede pagar: decisión de Martín).',
       },
       {
         key: 'productos.system', source: 'override',
@@ -1262,7 +1262,7 @@ export const REGISTRY: Group[] = [
   {
     group: 'Offer (MaKo conversa, diagnostica y arma la oferta)',
     icon: '🎯',
-    blurb: 'La tab Offer: MaKo le pregunta al dueño por su oferta de a una pregunta, la diagnostica con la rúbrica de 9 dimensiones y escribe la oferta nueva para el PDF.',
+    blurb: 'La tab Offer: MaKo le pregunta al dueño por su oferta de a una pregunta, la diagnostica con la rúbrica de 9 dimensiones y escribe la oferta nueva para el PDF. Estos prompts no pagan; los archivos que el dueño manda quedan también en El Archivero con SU extractor (grupo «Extracción de documentos»), que sí puede pagar.',
     entries: [
       {
         key: 'offer.turno.system', source: 'override',

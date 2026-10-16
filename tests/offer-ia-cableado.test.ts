@@ -157,7 +157,11 @@ test('cada prompt offer.*: registrado con la MISMA key, el MISMO default y los M
 
 // rotura (resolverWsAdmin en vez de adminDeWorkspaceActual): 1 fallo, 5 pases. rotura (sacar el `finally`
 // del borrado): 1 fallo, 5 pases. rotura (sin el regex del path): 1 fallo, 5 pases.
-test('la ruta: gate del admin del negocio, path de ESTE workspace, el binario se borra siempre, onboarding en try', () => {
+// Desde el 15/10/2026 (decisión de Martín, ref `offer-archivero`) el binario de un ARCHIVO leído y guardado pasa
+// a El Archivero en vez de borrarse: el `finally` borra todo lo demás. Ese contrato lo fija tests/offer-archivero.test.ts.
+// Re-probado ese día con el arnés de tests/offer-archivero.test.ts sobre ESTE archivo (base 13/0): sin el `finally`
+// de 'leer' → 1 fallo, 12 pases; el CAS que se rinde sin nombrar el archivo (forma nueva `{ res, sesionId }`) → 1 fallo, 12 pases.
+test('la ruta: gate del admin del negocio, path de ESTE workspace, el binario se borra en el finally si no pasó al Archivero, onboarding en try', () => {
   assert.match(RUTA, /export const dynamic = 'force-dynamic';/);
   assert.match(RUTA, /export const maxDuration = 300;/);
   assert.match(RUTA, /export const runtime = 'nodejs';/);
@@ -214,8 +218,8 @@ test('la ruta v2: árbol, alta atada al funnel, la web por la descarga SSRF-segu
   assert.match(link, /pagina = await extraerLanding\(link\.leida, \{ talCual: true \}\);/);
   // El error de una página sin texto no afirma una causa que no se midió, y no vosea.
   assert.doesNotMatch(link, /Abrí|se arma en el navegador|Framer|Lovable/);
-  // Un documento que se pierde porque el CAS se rindió se NOMBRA (su binario ya se borró).
-  assert.match(funcion(RUTA, 'guardarDocumento'), /if \(e instanceof ConflictoCAS\) return no\(409, `No pude guardar «\$\{doc\.nombre\}»/);
+  // Un documento que se pierde porque el CAS se rindió se NOMBRA (su binario se borra: no va al Archivero).
+  assert.match(funcion(RUTA, 'guardarDocumento'), /if \(e instanceof ConflictoCAS\) return \{ res: no\(409, `No pude guardar «\$\{doc\.nombre\}»/);
   // 'nueva': el funnel se valida estricto (leerFunnels null ≠ «no existe») antes de crear.
   const nueva = funcion(RUTA, 'nueva');
   assert.ok(nueva.indexOf('validarFunnel(funnelId)') > 0 && nueva.indexOf('validarFunnel(funnelId)') < nueva.indexOf('sesionNueva('));

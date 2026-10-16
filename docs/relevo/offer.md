@@ -10,13 +10,22 @@ en producción: el 170% (`db81f9624`, `cierreConfiable`), Offer en la API de MaK
 bitácora de `/admin/dev/products-offers` al día (`59e3b9a93`). Las 13 decisiones de «A definir» también
 (`8e053fdc`).
 
+**Decidido por Martín y hecho el mismo día: el Archivero desde el chat.** La decisión (Ticketera,
+15/10/2026 05:32, ref `offer-archivero`), textual: «¿El Archivero del chat guarda el archivo y paga una
+extracción por documento? → A · Sí». Commit `718e00b24` (cuenta claude3, en el worktree
+`C:/dev/wt-offer-archivero`; lo sube el coordinador). Cada ARCHIVO que el dueño manda en el chat queda
+también en El Archivero, con el binario conservado y UNA extracción de campos (feature «El Archivero»,
+motivo «Offer → El Archivero: …»), por detrás y sin frenar el chat; si falla, el chip lo dice. Ni audios
+ni la página de un link. El porqué, en `docs/hallazgos-offer.md` → «El Archivero desde el chat».
+
 Lo que sigue abierto de verdad:
-- **Espera a Martín:** el Archivero desde el chat (guardar el binario y pagar una lectura por documento).
 - **Sin hacer, sin dueño:** el PDF externo (sin diagnóstico ni «[completar]», para un prospecto), ver
   versiones anteriores, la tasa de cierre como métrica de Experiments, el `sinPago` al leer imágenes y
   audios, la transcripción cortada a 140 caracteres (`BurbujaHilo`, compartido), y el umbral de
-  `alertaFoco` medido contra negocios reales.
-- **Sin ver en el navegador:** ni la v2 ni la voz armada contra una IA de verdad; lo visual lo revisa Martín.
+  `alertaFoco` medido contra negocios reales. Del Archivero: el panorama no recoge lo de Offer (sería
+  otra llamada paga) y `archivero_files` no guarda de dónde vino un documento (pide migración).
+- **Sin ver en el navegador:** ni la v2 ni la voz armada contra una IA de verdad, ni el Archivero desde el
+  chat contra Storage de verdad; lo visual lo revisa Martín.
 
 
 ## Medido el 14/10/2026 (chat «Offer», cuenta claude1) — leer antes que lo de abajo
@@ -87,7 +96,7 @@ cuatro que se cerraron el 13/10».
 | El binario de un audio que se re-sube | ✅ `AudioGrabado.path` se recuerda y el reintento lo reusa. Más la acción `'descartar-subida'`, que cierra el hermano (el binario que queda suelto al descartar o al cambiar de conversación) |
 | `extraerLanding` que baje la URL tal cual | ✅ `urlTalCual` + `extraerLanding(url, { talCual: true })`. `linkParaLeer` ya no rechaza un `?page_id=`: sólo saca los parámetros de SEGUIMIENTO |
 | «Guardar si no hay» en `lib/fase-store.ts` | ✅ `guardarFaseSiNoHay`. La ruta ya no copia la clave del setting ni repite el mecanismo |
-| **Archivero desde el chat** | ❌ **ESPERA UNA DECISIÓN DE MARTÍN** (preguntada el 13/10). El diagnóstico viejo estaba corto: no alcanza con la función que falta, porque Offer **borra el binario apenas lo lee** y su IA saca piezas de la oferta, no campos del brief. Cerrarlo de verdad = conservar el binario y pagar una extracción por documento, en una tab que promete que nada de esto paga |
+| **Archivero desde el chat** | ✅ **DECIDIDO el 15/10/2026 05:32 (Ticketera, ref `offer-archivero`: «guarda el archivo y paga una extracción por documento → A · Sí») y hecho** en `718e00b24`: `registrarDocumentoSinPisar` (lib/archivero.ts), llamada por detrás desde 'leer'. El diagnóstico viejo («falta la función») estaba corto: Offer borraba el binario apenas lo leía y su IA saca piezas de la oferta, no campos del brief |
 | **Avatares desde el chat** | ❌ **NO SE HACE, y no es un pendiente.** Escribir la lista desde el chat sin que una persona confirme rompe «un canal propone, una persona confirma». Queda en la pieza `cliente` |
 
 Lo demás de «Lo que quedó SIN hacer» (la API de MaKo —hecha el 14/10—, el PDF externo, el umbral de `alertaFoco`, la
