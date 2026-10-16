@@ -23,7 +23,7 @@ export default async function SeguridadMovil({ searchParams }: { searchParams: P
   return (
     <PantallaM>
       <CabeceraM titulo="Seguridad" grande={false} />
-      <div className="m-cuenta-seguridad">
+      <div className="m-cuenta-ajustes">
         <SeguridadCuenta ver={typeof sp.ver === 'string' ? sp.ver : null} />
       </div>
     </PantallaM>

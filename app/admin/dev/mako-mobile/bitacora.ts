@@ -131,4 +131,17 @@ export const BITACORA: Hito[] = [
     commits: [{ sha: '97b2e56d', msg: 'MaKo Mobile: tirar hacia abajo refresca en TODAS las pantallas (venía apagado por defecto)', lineas: 380, archivos: 29 }],
     archivos: ['app/m/_ui/PantallaM.tsx', 'app/tickets/decisiones/Mazo.tsx', 'app/tickets/decisiones/reglas.ts', 'tests/movil-refrescar.test.ts'],
   },
+  {
+    fecha: '15 oct', hora: '21:54', chat: CH, sesion: 'local_38c56f56-c724-42ba-92ff-9679cfdeedf5', cuenta: 'claude3', actor: 'claude', tipo: 'implementacion',
+    titulo: 'More completo, tanda 1 de 3: el mapa de las 14 secciones, Calendario, Avisos y Tu cuenta (sin commit todavía: la hora es la de la integración)',
+    puntos: [
+      'Pedido de Martín del 14/10: «Implementá TODAS las tabs que construimos, todo», con la regla del v3: «en el celular todo se ve SIMILAR al escritorio, pero con menos texto y menos cosas».',
+      'More pasa de 7 a 14 secciones, en el orden de la sidebar. Cada ruta de escritorio de las nuevas abre su pantalla en el teléfono y conserva lo que su página lee de la URL: un push que vuelve a la computadora no pierde la pestaña.',
+      'Calendario, copiado de la app de Google Calendar: Día y Agenda (las vistas de escritorio que entran en un teléfono), crear un evento con el «+», marcar hecho y borrar con Deshacer. Lee con la misma función que escritorio, y lo que comparten se mudó a un módulo de los dos.',
+      'La campana de General se llama Avisos, como en el v3, y sus botones dicen lo mismo que en escritorio («Confirmar y ejecutar», «Descartar propuesta»); un test los cruza contra el código de escritorio.',
+      'Tu cuenta, copiada de la cuenta de Google: las secciones de la computadora en su orden, el modo oscuro y los avisos de este teléfono. Refrescar ahora trae lo nuevo y la fila de instalar no desaparece en Android.',
+      'El mapa no sale solo: un test falla mientras falten las seis pantallas de las tandas 2 y 3, porque con el desvío prendido una sección sin página es un 404 en todo teléfono. Nada se miró en un navegador ni en un teléfono.',
+    ],
+    archivos: ['lib/movil-rutas.ts', 'app/m/calendario/', 'app/calendario/comun.ts', 'app/m/inbox/inbox-ui.ts', 'app/m/cuenta/CuentaM.tsx', 'tests/movil-mas-secciones.test.ts', 'tests/m-calendario.test.ts', 'tests/m-avisos.test.ts', 'tests/m-cuenta.test.ts', 'docs/hallazgos-mobile.md'],
+  },
 ];

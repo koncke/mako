@@ -11,7 +11,7 @@
 // Lógica pura y aparte del componente para poder probarla (tests/titulo-tab).
 
 import { TODOS_LOS_ITEMS, ADMIN_NAV, USER_NAV, type NavItem } from '@/app/_components/nav';
-import { DESTINOS_MOVIL, SECCIONES_MAS } from './movil-rutas';
+import { DESTINOS_MOVIL, RUTA_INBOX, SECCIONES_MAS, TITULO_INBOX, tituloSeccion } from './movil-rutas';
 
 export const MARCA = 'MaKo';
 
@@ -41,11 +41,12 @@ const EXTRA: Record<string, string> = {
   // (desde la v3, /m/hoy es «General» como en escritorio). Sin estas entradas, `desdeLaRuta` titulaba
   // todo /m como «MaKo - M». `/m` atrapa el resto (una subpantalla sin nombre).
   ...Object.fromEntries(DESTINOS_MOVIL.map((d) => [d.href, d.label])),
-  // Y las secciones de More (v2): sin ellas /m/dashboard, /m/ads… quedaban «MaKo» a secas.
-  ...Object.fromEntries(SECCIONES_MAS.map((s) => [s.href, s.label])),
+  // Y las secciones de More (v2): sin ellas /m/dashboard, /m/ads… quedaban «MaKo» a secas. Con el
+  // nombre de la PANTALLA, el de la cabecera: /m/copywriting es «Ads Writer», como /ads-writer.
+  ...Object.fromEntries(SECCIONES_MAS.map((s) => [s.href, tituloSeccion(s)])),
   '/m/cuenta': 'Tu cuenta', // el mismo nombre que en la computadora (lib/ajustes-secciones.ts)
-  // La campana de General (v3: Inbox dejó la barra, pero la pantalla sigue llamándose así).
-  '/m/inbox': 'Inbox',
+  // La campana de General (v3: Inbox dejó la barra; desde el 15/10/2026 se titula Avisos, como la cabecera).
+  [RUTA_INBOX]: TITULO_INBOX,
   '/m': 'MaKo',
 };
 const EXTRA_KEYS = Object.keys(EXTRA).sort((a, b) => b.length - a.length);

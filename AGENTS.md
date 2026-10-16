@@ -8254,7 +8254,10 @@ técnicas están en [docs/diseno-mako-mobile.md](docs/diseno-mako-mobile.md), lo
 - **Una sección de More se agrega en UN lugar, `SECCIONES_MAS` (lib/movil-rutas.ts)**, con la key de nav.ts que la
   gatea; de ahí salen More, la barra del rol (si le falta un destino, sube la primera de More), la cabecera, el
   título de la pestaña (lib/titulo-tab.ts) y el desvío. Su `page.tsx` llama a `requireMovil({ navKey })` con esa
-  misma key, y su `loading.tsx`, si lo tiene, va en `LOADING_PERMITIDOS` (tests/layout-sin-suspense.test.ts).
+  misma key, y su `loading.tsx`, si lo tiene, va en `LOADING_PERMITIDOS` (tests/layout-sin-suspense.test.ts). Si su
+  página de escritorio lee la URL, las claves van en `QUERY_DE_SECCION`: un push vuelve a la computadora por
+  `rutaEscritorio`, y la clave que se cae al ir al teléfono se cae también allá. Una tab UNIFICADA de escritorio se
+  gatea con la key de la sección que muestra (`ads-writer`, no `copywriting`: esa no está en TODOS_LOS_ITEMS).
 - **Lo que una pantalla de /m reusa de escritorio no puede vivir en un módulo `'use client'`**: el server no lo puede
   llamar y el cliente se lleva la pantalla entera al bundle. Se muda a lib o a un módulo puro y escritorio lo
   re-exporta (`tomas-estado.ts`, `deSiempreDisparador`, `borradorAlAbrir`); nunca una copia en /m.

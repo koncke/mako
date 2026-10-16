@@ -7,6 +7,125 @@ Corridas del 11/10/2026: la v1 (relevo de 7 agentes + 11 de implementación + 1 
 el diseño v2 a la tarde, y a la noche la implementación v2 (12 agentes + la integración) con el desvío
 de teléfonos PRENDIDO. Lo de la v2 está en su propia sección, más abajo.
 
+## Las pantallas de More que faltaban (15/10/2026)
+
+Martín (14/10): «Implementá TODAS las tabs que construimos, todo», con la regla del v3: «en el celular todo se ve
+SIMILAR al escritorio, pero con menos texto y menos cosas». Tres tandas en `C:/dev/wt-mobile` (rama `movil-more-9`).
+**Tanda 1:** el mapa de More (de 7 a 14 secciones, en el orden de la sidebar), Calendario, Avisos (la campana, ex
+Inbox) y Tu cuenta. Tandas 2 y 3: Second Brain, Experiments, Offer, Copywriting, Curso y Comunidad.
+
+**El mapa (lib/movil-rutas.ts):**
+- **Una sección mapeada sin página es un 404 en todo teléfono, y LAS MISMAS RUTAS no lo ve**:
+  tests/movil-mismas-rutas.test.ts recorre las page.tsx que HAY en disco. Lo frena tests/movil-mas-secciones.test.ts
+  («TIENE su página»: cada fila exige `app/m/<carpeta>/page.tsx` con `requireMovil({ navKey })` de SU key). Al cerrar la
+  tanda 1 falla a propósito nombrando las seis que faltan: el mapa no sale sin ellas.
+- **Llevar una ruta al teléfono sin su query la rompe también en la COMPUTADORA**: un Web Push sale por
+  `rutaMovilOHome` y vuelve por `conWs` → `rutaEscritorio` (lib/push-payload.ts), así que /experimentos?tab=analisis
+  llegaría como Retro. Cada sección declara en `QUERY_DE_SECCION` lo que lee su página de escritorio.
+- **El diagnóstico obvio era el equivocado: un test que recorre la tabla que prueba no ve una fila borrada.** Borrar
+  'post' de QUERY_DE_SECCION daba el mismo 6/1 que la base. La tabla esperada va escrita a mano en el test.
+- **`'copywriting'` no sirve de navKey**: `itemsDe` aplana las tabs unificadas (TODOS_LOS_ITEMS tiene 'ads-writer') y la
+  'copywriting' de ADMIN_NAV es /admin/copywriting, así que `puedeVerKey` contesta false para todos. Una tab unificada se
+  gatea con la key de la sección que muestra (`video-generator`, `ads-writer`).
+- **Sumar una sección a More cambia la barra de otros roles sin tocar la barra**: los huecos se llenan con la primera de
+  More, y el admin pm pasó a tener Calendario abajo. Con cada sección nueva se mira `barraMovil` por capa.
+- **Un string '/analisis' en lib/movil-rutas.ts hace fallar tests/analisis-mudada.test.ts** («link vivo a una ruta que
+  sólo redirige»): una ruta vieja que sólo se reconoce va como regex.
+- **`assert.deepEqual` ACHICA el tipo** (es un `asserts`): después de `assert.deepEqual(QUERY_DE_SECCION, {…})`,
+  `QUERY_DE_SECCION[s.id]` da TS7053 para las secciones sin query. tsx no chequea tipos: el test pasaba y el tsc no. Se
+  lee con una función de módulo tipada con el tipo de la lib (`queryDe`).
+
+**Vive en:** lib/movil-rutas.ts (`SECCIONES_MAS`, `QUERY_DE_SECCION`, `barraMovil`, `tituloSeccion`) ·
+tests/movil-mas-secciones.test.ts · tests/movil-desvio.test.ts
+
+**Calendario** (copia de Google Calendar: Día · Agenda, con los rótulos de `VISTAS_CALENDARIO`):
+- **Lo flotante va por portal a `#m-pie`, nunca dentro de la página**: PantallaM le pone `transform` a `.m-pantalla`
+  mientras se tira para refrescar, y un `position: fixed` adentro se corre con el gesto. `#m-pie` está dentro de
+  `.m-shell` y resuelve `--m-abajo`; `#m-root` está FUERA y ahí `--m-abajo` no existe (la copia del arrastre de KanbanM
+  sí cuelga de `#m-root`: no lo necesita).
+- **Lo que cambia con el estado no va en el título grande**: `<CabeceraM titulo>` lo pisa en un efecto y el HTML del
+  server trae el de la ruta; el mes como título parpadearía «Calendario» → «Octubre». El mes va en su fila.
+- **La línea de ahora se calcula después de montar** (el server y el teléfono tienen otra hora): `setTimeout` 0 y un
+  intervalo de 60 s. Si ahora cae fuera de 8-20, la ventana se estira después de hidratar.
+- **En el Día, lo dibujado es más alto que el tiempo**: uno de 15 min con el mínimo de 44 px tapaba al de las 10:30,
+  porque `columnasDelDia` de escritorio agrupa con 30 min. Las columnas se cuentan con el fin DIBUJADO (`diaEnGrilla`).
+
+**Vive en:** app/m/calendario/ (`modelo.ts`, `CalendarioM.tsx`) · app/m/_ui/PantallaM.tsx · app/m/_ui/CabeceraM.tsx ·
+app/calendario/comun.ts (lo que comparte con escritorio; ver hallazgos-calendario.md)
+
+**Avisos (la campana de General):**
+- **Escritorio NO tiene campana ni feed de avisos**: el feed (lib/notificaciones.ts) sólo lo lee el teléfono, y
+  escritorio tiene su configuración en /perfil. Los rótulos «de escritorio» salen de quien LEE el dato: /mako/pendientes
+  (BandejaPendientes.tsx) y /mako/revisar/[id] (RevisarAccion.tsx). Se busca el lector, no el nombre.
+- **Un rótulo escrito dos veces se desvía sin error**: el teléfono decía «Ejecutar la acción» y escritorio «Confirmar y
+  ejecutar». Van en constantes (`BOTONES_ESCRITORIO`, `DATOS_ESCRITORIO`) que tests/m-avisos.test.ts cruza contra el
+  código de escritorio.
+- **El nombre de la pantalla estaba escrito en ocho lugares** (la cabecera, la pestaña, la tarjeta y la campana de
+  General, la fila del chat de MaKo, el toast de una tarjeta, el atajo del manifest y LEEME), más tres aserciones de
+  tests/movil-shell.test.ts. Pasó a «Avisos»
+  (el v3) con UNA constante, `TITULO_INBOX`; el manifest la escribe literal (no importa nada) y tests/movil-shell.test.ts
+  la fija. La carpeta y las claves siguen siendo `inbox`.
+
+**Vive en:** app/m/inbox/inbox-ui.ts · lib/movil-rutas.ts (`TITULO_INBOX`) · tests/m-avisos.test.ts
+
+**Tu cuenta** (copia de «Administrar tu cuenta» de Google):
+- **Tirar para refrescar no traía nada**: las preferencias de push se copiaban a un `useState` al montar, y el permiso y
+  la suscripción se leían en un `useEffect([])`. Las props del server se adoptan cuando cambian; lo del dispositivo se
+  relee con la prop en las deps y en `visibilitychange` (al volver de los Ajustes del teléfono), NUNCA con una acción
+  en curso: un «apagado» viejo pisaría el «activo» recién llegado.
+- **«Instalar la app» desaparecía en Android sin el aviso de Chrome** (`ofertaInstalar` es null sin
+  `beforeinstallprompt`). Una sección de Tu cuenta está siempre: sin el aviso, lleva a los pasos del menú del navegador.
+- **Lo que se esconde mirando a un cliente y la salida se deciden con la MISMA pregunta** (`salidaDeVista`):
+  `leerPerfil().vista.deOtro` y `ctx.impersonando` comparan contra workspaces distintos y podrían separarse (no medido),
+  y quedarían Seguridad y Notificaciones escondidas sin «Salir de…».
+- **SheetM cierra distinto por GESTO que por código.** Por código saca el `?sheet=` con `replaceState` (lo de «La tanda
+  1 del v3» sigue valiendo); por gesto (botón, velo, arrastre) hace un `history.back()` asíncrono, y un
+  `router.refresh()` pedido en el mismo tick del `onCerrar` puede quedar pisado. /m/cuenta lo difiere 400 ms (no medido).
+- **Un test que fija una línea de import exacta se rompe al sumar un nombre** (tests/ajustes-cuenta-negocio.test.ts:79):
+  `seccionesCuenta` y `TITULO_NEGOCIO` se resuelven en page.tsx y viajan como datos.
+- **El placeholder de Información personal era un cliente real** (el nombre de Mauricio y su negocio,
+  app/perfil/InformacionPersonal.tsx), y el teléfono lo muestra en su hoja. Ahora es inventado.
+
+**Vive en:** app/m/cuenta/ (`CuentaM.tsx`, `cuenta-ui.ts`, `page.tsx`) · app/m/_ui/SheetM.tsx (`soltarPorGesto`)
+
+**SheetM, de la revisión de la tanda 1** (la primitiva: vale para las 18 pantallas con hoja):
+- **Una hoja que se cierra sigue en pantalla, y recibía toques.** Síntoma: un doble toque en «Borrar evento» borraba dos
+  veces, y el segundo borrado, vacío (`borrarEventoAction` da null si la fila ya no está), decía «Evento borrado» SIN
+  Deshacer y reemplazaba al toast bueno: el evento quedaba borrado y sin vuelta atrás. «Guardar evento» podía crear dos
+  (crear no es idempotente). **El diagnóstico obvio, una guarda en `borrar` del Calendario, dejaba el hueco en las otras
+  17**: SheetM desmonta recién al terminar la salida (220 ms; con «Reducir movimiento», 200 ms de fundido SIN moverse, el
+  botón sigue bajo el dedo) y nada apagaba los toques. Además, un toque en el velo durante la salida dejaba `porGesto` en
+  true y el próximo cierre por código no sacaba el `?sheet=` (leído en el código, no medido). Regla: cerrándose, el panel y el velo van `inert`; la capa
+  NO (sigue tapando la página y se come el toque; si no, caería en la fila de abajo y abriría otra hoja).
+- **Una respuesta vacía no pisa un toast con Deshacer**: el toast nuevo reemplaza al anterior (ShellM), así que lo que
+  llega tarde sin haber hecho nada no dice nada. «Evento borrado» sale sólo con su Deshacer.
+- **Dos actions seguidas desde una hoja no van en cola** (leído en Next 16.2.6 por el verificador, no medido): cerrar por
+  código hace `replaceState`, Next lo despacha como ACTION_RESTORE y descarta la action en curso de la cabeza de la cola
+  (app-router-instance.js:142-151); la siguiente corre en paralelo, y la descartada igual resuelve. Pueden llegar al
+  server en cualquier orden.
+- **Un test que lee reglas CSS con `matchAll` no se ancla al `}` de la regla anterior**: matchAll ya lo consumió, la regla
+  siguiente no se lee y el test pasaba con la rotura puesta.
+
+**Vive en:** app/m/_ui/SheetM.tsx (`cerrando`) · app/m/calendario/CalendarioM.tsx (`borrar`) ·
+tests/m-sheet-cierre.test.ts · tests/m-calendario.test.ts
+
+**Del entorno (sin tsc, sin next dev, sin Chrome):** un bundle de esbuild (`packages: 'external'`, el tsconfig,
+`write: false`, css 'empty') caza en segundos un «No matching export» y la sintaxis de una mudanza entre módulos, no los
+tipos; los archivos del worktree están en CRLF y el grep de Git Bash esconde el `\r` (se mide con `git ls-files --eol`);
+`python3` abre el stub de la Microsoft Store y cuelga hasta el timeout (los scripts van en node).
+
+**Sin hacer (tanda 1):**
+- nada se miró en un navegador ni en un teléfono: 390 px, el «+» frente al toast, fecha y hora en iOS, la baldosa de 32 y
+  el punto de no leído de Avisos; tampoco que la capa de SheetM se coma el toque mientras sale (iOS < 15.5 ignora
+  `inert` y queda como antes);
+- el teléfono no marca el paso `cal_agenda` del onboarding (escritorio lo marca en app/calendario/page.tsx);
+- cambiar de día dentro del rango leído no cambia la URL: un link copiado abre la fecha con la que se entró;
+- un link a /perfil/notificaciones abre Tu cuenta, no su hoja (falta leer la URL o una subpantalla con su fila en
+  `rutaMovil` y `rutaEscritorio`);
+- la tarjeta de General no abre la decisión directo (`/m/inbox?abrir=<key>` existe; app/m/hoy/page.tsx);
+- el toast «Se revisa en Avisos» (`ERRORES_DE_TARJETA`, lib/mako-turno-app-reglas.ts) sale también en la ficha de
+  escritorio (MaKo Analyst), donde la campana no existe (antes decía «Inbox», igual de mal).
+
 ## Refrescar en TODAS las pantallas: el gesto era opt-in (15/10/2026)
 
 Martín: «En el centro y otras tabs no está la funcionalidad de refrescar, eso debe estar presente en
@@ -178,6 +297,7 @@ commit siguiente):
 - **More tiene sólo las secciones que ya existían** (Ads, Dashboard, Landing, Automations, Video, Clientes, MaKo).
   Las otras 9 pantallas del prototipo v3 (Calendario, Second Brain, Experiments, Offer, Copywriting, Curso, Comunidad,
   Avisos, Perfil nuevo) siguen sin código. Se agregan en `SECCIONES_MAS` (lib/movil-rutas.ts), cada una con su página.
+  (15/10/2026: en curso, ver «Las pantallas de More que faltaban», arriba.)
 - **Chats lee sólo WhatsApp** (app/m/chats/datos.ts). Los chats unificados siguen SIN COMMITEAR en `C:/dev/wt-chats`.
   Cuando lleguen a main, cambia la lectura de `listaChats` y se suman las bandejas del prototipo. Las conversaciones
   sin lead se cuentan pero no se abren: el hilo del teléfono es el del lead.
@@ -568,8 +688,6 @@ no tuvo RAM para un `next dev`): todo lo de acá se midió con typecheck, tests 
   `ETAPA_LABEL` repetida en ChatAgentApp.tsx y ChatAnalystVista.tsx.
 - `listNotificaciones` (lib/notificaciones.ts) necesita una variante estricta: hoy «No pudimos leer
   los avisos» no se alcanza nunca.
-- La pantalla de la cuenta se titula «Perfil» (como escritorio) y el prototipo dice «Cuenta»:
-  `TITULO_CUENTA` en app/m/_ui/cabecera.ts, si Martín lo prefiere.
 - Los íconos del composer del chat (enviar, cámara, foto, archivo, candado, «+») siguen en
   app/m/mako/iconos.tsx y no en el set; las salidas de la cuenta (`SalirDeLaVista`, `CerrarSesion`)
   se repintan como fila desde app/m/cuenta/cuenta.css en vez de tener una variante `como="fila"`.

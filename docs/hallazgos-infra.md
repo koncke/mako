@@ -6175,6 +6175,12 @@ repo): alcance contra `git merge-base origin/main HEAD` y config por proceso (`t
 ⚠️ Si al proceso lo matan en seco, ese archivo queda suelto en el worktree (no está en `.gitignore`). **Regla:** un
 alcance de «lo que cambió la rama» se mide contra el merge-base, nunca contra `origin/main`; y un archivo temporal que
 escribe una herramienta que corren varios a la vez lleva el pid en el nombre.
+⚠️ **Y contra `origin/main` también salen errores de tipos REALES que no son de la rama** (15/10/2026, `C:/dev/wt-mobile`,
+la integración de More en el teléfono). Con main 100 commits adelante, el acotado sumó 205 archivos en vez de 49 y dio
+~40 errores en app/video-editor/_opencut (TS2305 «no exported member 'FrameRate'» de `opencut-wasm`, TS7016 de
+`soundtouchjs`): el worktree tiene la versión VIEJA de esos archivos y su `node_modules` es un junction al del clon, que
+ya instaló los paquetes NUEVOS. Contra el merge-base (la rama sin rebasar: `HEAD`), 0. Un error en un archivo que la
+rama no tocó, con un paquete en el mensaje, se mira primero así.
 
 ## Con main adelantado, el diff de DOS puntos miente, y un merge rompe un test que no choca (15/10/2026)
 

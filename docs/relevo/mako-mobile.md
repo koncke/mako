@@ -3,6 +3,32 @@
 <sub>Escrito por el chat «MaKo Mobile» (cuenta 3) el 11/10/2026 a las 15:00, al cruzar el 85% de uso
 semanal. Material de primera mano: lo hizo este chat.</sub>
 
+## 15/10/2026 ~21:55 (cuenta 3) — MORE COMPLETO, TANDA 1 DE 3: el mapa, Calendario, Avisos y Tu cuenta (SIN COMMIT)
+
+Pedido de Martín (14/10): «Implementá TODAS las tabs que construimos, todo». Se trabaja en `C:/dev/wt-mobile`, rama
+`movil-more-9` (salió de origin/main c4ef8a68e); el orquestador commitea por ruta y otra sesión pushea.
+
+**Lo que quedó en el worktree, sin commitear:**
+- **El mapa:** `SECCIONES_MAS` pasa de 7 a 14 secciones, en el orden de la sidebar, con su vuelta en `rutaEscritorio`
+  y la query de cada página de escritorio (`QUERY_DE_SECCION`). Copywriting se titula «Ads Writer» y Offer es pantalla
+  de trabajo.
+- **Calendario** (app/m/calendario, copia de Google Calendar): Día · Agenda, crear con el «+», marcar hecho, borrar con
+  Deshacer. Lo que comparte con escritorio se mudó a app/calendario/comun.ts.
+- **Avisos** (la campana de General, app/m/inbox): se titula «Avisos» como en el v3 (`TITULO_INBOX`, en los ocho
+  lugares donde decía «Inbox»), con los rótulos de los botones de escritorio.
+- **Tu cuenta** (app/m/cuenta, copia de la cuenta de Google): las secciones de la computadora en su orden, el modo
+  oscuro, los avisos del teléfono. Refrescar ahora trae lo nuevo.
+- El placeholder de Información personal ya no es un cliente real (app/perfil/InformacionPersonal.tsx).
+
+**Verificado:** tsc acotado contra `HEAD` en 0 (50 archivos más lo que importan); los tests de la tanda y los
+guards, verdes; `tests/movil-mas-secciones.test.ts` falla A PROPÓSITO (6/1) nombrando las seis páginas que faltan.
+
+**Lo que falta, en orden:**
+1. **Tandas 2 y 3:** Second Brain, Experiments, Offer, Copywriting, Curso y Comunidad. ⚠️ **El mapa no se pushea sin
+   ellas**: con `MOVIL_ACTIVO` prendido, /second-brain, /offer, /experimentos… darían 404 en todo teléfono.
+2. Mirar las pantallas en un navegador a 390 px y en un teléfono (nada se vio: sin next dev ni Chrome).
+3. Lo que quedó sin hacer de la tanda 1, con su archivo, en hallazgos-mobile.md → «Las pantallas de More que faltaban».
+
 ## 🆕🆕🆕 14/10/2026 ~21:00 (cuenta 1) — TANDA 1 DEL v3 EN CÓDIGO (Martín: «que lo pushee así por ahora»)
 
 Martín aprobó el v3 («está mucho mejor, sigo teniendo feedback») y pidió pushear sin esperar al resto. Tres commits:

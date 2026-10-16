@@ -30,6 +30,7 @@ import { useWs } from '@/app/_ui/Link';
 import { Button } from '@/app/_ui/Button';
 import { Icon } from '@/app/_components/icons';
 import { conWs } from '@/lib/ws-tab';
+import { TITULO_INBOX } from '@/lib/movil-rutas';
 import { GRAMATICA } from '@/lib/mako-gramatica';
 import type { MensajeChat, RespuestaTurno, SesionChat, TarjetaPendiente } from '@/lib/mako-turno-app-reglas';
 import {
@@ -314,7 +315,7 @@ function Item({ x, onAbrir, onReintentar, onRecargar }: {
     return (
       <li className="m-mako-fila">
         <ListaM>
-          <FilaM leading={MARCA_MAKO} titulo={x.p.titulo} segunda="Se revisa en Inbox" href={x.p.href} />
+          <FilaM leading={MARCA_MAKO} titulo={x.p.titulo} segunda={`Se revisa en ${TITULO_INBOX}`} href={x.p.href} />
         </ListaM>
       </li>
     );

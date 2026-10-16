@@ -97,6 +97,9 @@ const LOADING_PERMITIDOS = [
   'app/m/mas/loading.tsx',
   'app/m/inbox/loading.tsx',
   'app/m/cs/loading.tsx',
+  // Las pantallas de More que faltaban (15/10/2026): Calendario lee Google, el CRM, el Plan y los cobros
+  // en un rango de 30 días; sin esqueleto, tocar la fila de More dejaba More congelado.
+  'app/m/calendario/loading.tsx',
 ];
 
 test('no hay loading.tsx fuera de la lista blanca (cada uno esconde su página sin JavaScript)', () => {
