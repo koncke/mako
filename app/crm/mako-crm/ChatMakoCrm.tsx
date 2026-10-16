@@ -3,10 +3,8 @@
 // =============================================================================
 // ChatMakoCrm — el chat con MaKo del panel al costado del CRM
 // =============================================================================
-// Es el MaKo Analyst de la ficha (app/crm/lead-view/MakoAnalystLead.tsx) al nivel del CRM, con las
-// MISMAS piezas y por las mismas razones (ver su cabecera): el hilo `ChatHilo` sin barra, la burbuja
-// `BurbujaHilo` con el texto de MaKo por <Markdown>, la barra `ComposerWhatsApp` montada acá con el
-// micrófono, la foto de MaKo y la hoja de Offer (`CSS_OFFER`). Las decisiones de pantalla (qué se
+// Desde el 16/10/2026 tiene la cara del chat del Second Brain: el hilo `HiloMako` (app/_chat/) con el muñeco del CRM,
+// y la caja con el micrófono que dicta (ver el comentario del dibujo, abajo). Las decisiones de pantalla (qué se
 // reintenta, cómo se lee la respuesta, qué dice la tarjeta después) salen de app/m/mako/chat-ui.ts:
 // una tarjeta no puede decir una cosa acá y otra en el celular.
 //
@@ -27,52 +25,28 @@
 // render en que se apretó el micrófono.
 // =============================================================================
 
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Button, ButtonLink, Status } from '@/app/_ui';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { useRouter } from '@/app/_ui/Link';
-import { Markdown } from '@/app/_components/Markdown';
 import { transcribirNota } from '@/app/_components/useDictar';
-import { ChatHilo, type HiloMsg } from '@/app/whatsapp/_shared/ChatHilo';
-import { BurbujaHilo } from '@/app/whatsapp/_shared/BurbujaHilo';
-import { Ticks } from '@/app/whatsapp/_shared/Ticks';
-import { ComposerWhatsApp } from '@/app/whatsapp/_shared/ComposerWhatsApp';
-import { AvatarMako } from '@/app/offer/AvatarMako';
-import { CSS_OFFER } from '@/app/offer/estilos';
-import { horaDe } from '@/app/offer/ayudas';
+import { Icon } from '@/app/_components/icons';
+import { HiloMako } from '@/app/_chat/HiloMako';
+import { Muneco } from '@/app/admin/operaciones/Muneco';
+import { Microfono } from '@/app/admin/operaciones/Microfono';
+import '@/app/admin/operaciones/centro.css';
+import '@/app/_chat/chat.css';
 import {
-  AVISO_LENTO_S, ERROR_INCIERTO, PILL_PROPUESTA, SALIDA_PROPUESTA, idLocal, itemsDeRespuesta,
-  itemsDeSesion, leerRespuesta, rotuloPrimario, trasTarjeta, type EstadoPropuesta, type ItemHilo,
+  idLocal, itemsDeRespuesta, itemsDeSesion, leerRespuesta, trasTarjeta, type EstadoPropuesta, type ItemHilo,
 } from '@/app/m/mako/chat-ui';
-import { GRAMATICA } from '@/lib/mako-gramatica';
 import type { MensajeChat, ResultadoTarjeta, RespuestaTurno, SesionChat, TarjetaPendiente } from '@/lib/mako-turno-app-reglas';
 
 const RUTA = '/api/crm/mako';
 /** El maxDuration de la ruta es 420 s (tanda 7: confirmar replicar_landing): el corte del navegador va 5 s después. */
 const TOPE_MS = 425_000;
-const ACENTO = 'var(--primary)';
-const BURBUJA_YO = 'var(--primary-bg)';
-const ID_ESCRIBIENDO = '__mkc-escribiendo';
 
 /** Las preguntas de arranque (sólo con el hilo vacío): lo que más se le pregunta a un tablero. */
 const ARRANQUES = ['¿Cómo está mi CRM?', '¿Qué reuniones tengo?', '¿Qué hago hoy?'] as const;
 
-const TEXTO_BURBUJA = { fontSize: 14, lineHeight: 1.45, color: 'var(--ink)', overflowWrap: 'anywhere' as const };
 
-/** La tarjeta de una acción: la del MaKo Analyst (`mal-`), con su prefijo. */
-const CSS_PROPIO = `
-.mkc-tarjeta { width: min(460px, 100%); display: flex; flex-direction: column; gap: 10px; padding: 12px 14px; border-radius: 14px 14px 14px 4px; background: var(--surface); border: 1px solid var(--border); box-shadow: 0 1px 2px rgba(18,21,27,.04); }
-.mkc-tarjeta__cabeza { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 13px; color: var(--dim); }
-.mkc-tarjeta__resumen { margin: 0; font-size: 14px; line-height: 1.45; color: var(--ink); overflow-wrap: anywhere; }
-.mkc-tarjeta__lineas { margin: 0; display: grid; grid-template-columns: minmax(80px, max-content) minmax(0, 1fr); gap: 4px 12px; font-size: 12.5px; line-height: 1.4; }
-.mkc-tarjeta__lineas dt { color: var(--dim); }
-.mkc-tarjeta__lineas dd { margin: 0; color: var(--ink); overflow-wrap: anywhere; }
-.mkc-tarjeta__consecuencia { margin: 0; font-size: 12.5px; color: var(--ink); }
-.mkc-tarjeta__nota { margin: 0; font-size: 12.5px; color: var(--dim); }
-.mkc-tarjeta__botones { display: flex; flex-wrap: wrap; gap: 8px; }
-.mkc-falla { margin: 0; max-width: 78%; font-size: 12.5px; color: var(--warn); text-align: right; }
-.mkc-falla button { margin-left: 6px; padding: 0; border: 0; background: none; color: var(--primary); font: inherit; font-weight: 600; cursor: pointer; text-decoration: underline; }
-.mkc-falla button:focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: 4px; }
-`;
 
 type Envio = { texto: string; voz?: { url: string; secs: number; blob: Blob } };
 type Trabajo = { desde: number };
@@ -80,14 +54,6 @@ type Abierta = { sesion: SesionChat | null; mensajes: MensajeChat[]; propuestas:
 type ItemMsg = Extract<ItemHilo, { k: 'msg' }>;
 type ItemPropuesta = Extract<ItemHilo, { k: 'propuesta' }>;
 
-function FilaMako({ animar = false, children }: { animar?: boolean; children: ReactNode }) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
-      <AvatarMako size={28} animar={animar} />
-      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>{children}</div>
-    </div>
-  );
-}
 
 export function ChatMakoCrm({ funnelId, pedido }: {
   /** el CRM del tablero (`?funnel=`); null = el del negocio */
@@ -278,187 +244,58 @@ export function ChatMakoCrm({ funnelId, pedido }: {
     }
   };
 
-  // ── El hilo en la forma de ChatHilo (memo: el autoscroll corre cuando cambia `mensajes`) ──
+  // ── El dibujo: el MISMO chat del Second Brain (16/10/2026) ──
+  // Martín: «aún no se aplicó el diseño de los chats tipo "Second Brain" al chat del CRM... En lugar de la estrella de
+  // MaKo el ícono debería ser el muñequito que se asignó para CRM». El hilo es app/_chat/HiloMako.tsx (el del Second
+  // Brain, con el muñeco del CRM y las tarjetas de app/_chat/TarjetaAccion.tsx) y la caja es la del Second Brain, con
+  // el micrófono que DICTA (app/admin/operaciones/Microfono.tsx). Lo de arriba —cargar, mandar, las tarjetas, el
+  // pedido de una sugerencia— no cambió. Hasta acá eran las piezas del chat de WhatsApp con la cara de Offer.
   const hayTrabajo = trabajo != null;
-  const hilo = useMemo<HiloMsg[]>(() => {
-    const out: HiloMsg[] = [];
-    items.forEach((x, i) => {
-      if (x.k !== 'msg') { out.push({ id: x.id, fromMe: false }); return; }
-      if (x.role === 'assistant') { out.push({ id: x.id, fromMe: false, texto: x.texto, fecha: x.at }); return; }
-      const leido = items.slice(i + 1).some((y) => y.k === 'msg' && y.role === 'assistant');
-      const status = leido && !x.estado ? 'read' : 'sent';
-      out.push(x.voz
-        ? { id: x.id, fromMe: true, tipo: 'audio', mediaUrl: x.voz.url, transcript: x.texto.trim() || null, fecha: x.at, status }
-        : { id: x.id, fromMe: true, texto: x.texto, fecha: x.at, status });
-    });
-    if (hayTrabajo) out.push({ id: ID_ESCRIBIENDO, fromMe: false });
-    return out;
-  }, [items, hayTrabajo]);
-
-  const porId = useMemo(() => new Map(items.map((x) => [x.id, x])), [items]);
-
-  const renderMensaje = (h: HiloMsg): ReactNode | null => {
-    if (h.id === ID_ESCRIBIENDO) {
-      return (
-        <FilaMako animar>
-          <BurbujaHilo contenido={{}} saliente={false} vacio={(
-            <span role="status" style={{ fontSize: 13, color: 'var(--dim)' }}>
-              <span style={{ color: 'var(--mako-ink)', fontWeight: 600 }}>{GRAMATICA.analizando.rotulo}</span>
-              {' · el CRM'}
-              <span className="of-puntos" aria-hidden><span>.</span><span>.</span><span>.</span></span>
-              {segs >= AVISO_LENTO_S && <span> · puede tardar un par de minutos</span>}
-            </span>
-          )} />
-        </FilaMako>
-      );
-    }
-    const x = porId.get(String(h.id));
-    if (!x) return null;
-    const hora = horaDe(h.fecha);
-
-    if (x.k === 'msg' && x.role === 'assistant') {
-      return (
-        <FilaMako>
-          <BurbujaHilo saliente={false} hora={hora} maxAncho="92%" contenido={{}}
-            vacio={<div style={TEXTO_BURBUJA}><Markdown text={x.texto} /></div>} />
-        </FilaMako>
-      );
-    }
-
-    if (x.k === 'msg') {
-      const falla = x.estado === 'error' || x.estado === 'incierto';
-      if (!falla) return null;
-      const burbuja = x.voz
-        ? <BurbujaHilo saliente fondo={BURBUJA_YO} hora={hora} pie={<Ticks status={h.status ?? null} />}
-            contenido={{ audio: { url: x.voz.url, transcript: x.texto.trim() || null, duracion_s: x.voz.secs } }} />
-        : <BurbujaHilo saliente fondo={BURBUJA_YO} hora={hora} pie={<Ticks status={h.status ?? null} />} contenido={{}}
-            vacio={<div style={{ ...TEXTO_BURBUJA, whiteSpace: 'pre-wrap' }}>{x.texto}</div>} />;
-      return (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
-          {burbuja}
-          {x.estado === 'error' && (
-            <p className="mkc-falla" role="alert">{x.error}<button type="button" onClick={() => reintentar(x.id)}>Reintentar el envío</button></p>
-          )}
-          {x.estado === 'incierto' && (
-            <p className="mkc-falla" role="alert">{x.error ?? ERROR_INCIERTO}<button type="button" onClick={recargar}>Recargar el chat</button></p>
-          )}
-        </div>
-      );
-    }
-
-    if (x.k === 'aviso') {
-      if (x.tono === 'plataforma') return <div className="of-reintento" role="status">{x.texto}</div>;
-      return (
-        <FilaMako>
-          <BurbujaHilo saliente={false} maxAncho="92%" contenido={{}} vacio={<div style={TEXTO_BURBUJA}><Markdown text={x.texto} /></div>} />
-        </FilaMako>
-      );
-    }
-
-    if (x.k === 'pantalla') {
-      return (
-        <FilaMako>
-          <div className="mkc-tarjeta">
-            <p className="mkc-tarjeta__resumen"><strong>{x.p.titulo}</strong></p>
-            <p className="mkc-tarjeta__nota">Se revisa y se confirma en su pantalla.</p>
-            <div className="mkc-tarjeta__botones">
-              <ButtonLink href={x.p.escritorio} variant="secondary" size="sm">Abrir para revisar</ButtonLink>
-            </div>
-          </div>
-        </FilaMako>
-      );
-    }
-
-    // Una acción que MaKo propuso: lo que se ejecuta, a la vista ANTES del botón.
-    const t = x.t;
-    const pill = PILL_PROPUESTA[x.estado];
-    const abierta = x.estado === 'pendiente' || x.estado === 'aplicando';
-    const enCurso = tarjeta?.id === t.pendienteId ? tarjeta.accion : null;
-    return (
-      <FilaMako>
-        <div className="mkc-tarjeta" aria-busy={x.estado === 'aplicando' || undefined}>
-          <div className="mkc-tarjeta__cabeza">
-            <Status tono={pill.tono === 'neutro' ? 'neutral' : pill.tono}>{pill.texto}</Status>
-            <span>{t.titulo}</span>
-          </div>
-          <p className="mkc-tarjeta__resumen">{t.resumen}</p>
-          {abierta && t.detalle.length > 0 && (
-            <dl className="mkc-tarjeta__lineas">
-              {t.detalle.map((l, i) => <div key={i} style={{ display: 'contents' }}><dt>{l.rotulo}</dt><dd>{l.valor}</dd></div>)}
-            </dl>
-          )}
-          {abierta ? (
-            <>
-              {x.nota && <p className="mkc-tarjeta__nota" role="alert">{x.nota}</p>}
-              <p className="mkc-tarjeta__consecuencia">{t.consecuencia ?? 'MaKo lo ejecuta en cuanto confirmes.'}</p>
-              <div className="mkc-tarjeta__botones">
-                <Button variant="primary" size="sm" loading={enCurso === 'confirmar' || x.estado === 'aplicando'}
-                  disabled={!!tarjeta && enCurso !== 'confirmar'} onClick={() => void correrTarjeta(x, 'confirmar')}>
-                  {rotuloPrimario(t)}
-                </Button>
-                <Button variant="tertiary" size="sm" loading={enCurso === 'cancelar'}
-                  disabled={!!tarjeta && enCurso !== 'cancelar'} onClick={() => void correrTarjeta(x, 'cancelar')}>
-                  {SALIDA_PROPUESTA}
-                </Button>
-              </div>
-            </>
-          ) : x.nota ? <p className="mkc-tarjeta__nota">{x.nota}</p> : null}
-        </div>
-      </FilaMako>
-    );
+  const [ahora, setAhora] = useState(() => Date.now());
+  useEffect(() => { const t = window.setInterval(() => setAhora(Date.now()), 60_000); return () => window.clearInterval(t); }, []);
+  const hiloRef = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => { const el = hiloRef.current; if (el) el.scrollTop = el.scrollHeight; }, [items.length, hayTrabajo]);
+  const [faltaMic, setFaltaMic] = useState<string | null>(null);
+  const tecla = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); enviarComposer(); }
   };
 
-  const vacio = listo && items.length === 0;
-  const encimaDelComposer = vacio && !hayTrabajo ? (
-    <div role="group" aria-label="Preguntas para empezar" style={{ display: 'flex', flexWrap: 'wrap', gap: 8, paddingBottom: 10 }}>
-      {ARRANQUES.map((s) => (
-        <button key={s} type="button" className="of-pill" onClick={() => enviar({ texto: s })}>{s}</button>
-      ))}
-    </div>
-  ) : undefined;
-
-  const vacioHilo = errorCarga ? (
-    <div role="alert" style={{ margin: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, textAlign: 'center', color: 'var(--dim)', fontSize: 13.5 }}>
-      <span>{errorCarga}</span>
-      <Button variant="secondary" size="sm" onClick={recargar}>Volver a cargar el chat</Button>
-    </div>
-  ) : (
-    <div style={{ margin: 'auto', maxWidth: 300, textAlign: 'center', color: 'var(--dim)', fontSize: 13.5, lineHeight: 1.5 }}>
-      Pregúntale a MaKo por tu CRM.
-    </div>
-  );
-
   return (
-    <div className="of-hilo" style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', position: 'relative', background: 'var(--surface)' }}>
-      <style>{CSS_OFFER}</style>
-      <style>{CSS_PROPIO}</style>
-      <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
-        <div className="of-hilo-lista" style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column' }}>
-          <ChatHilo
-            key={cargado ? `c${funnelId ?? 0}` : 'cargando'}
-            mensajes={cargado ? hilo : []}
-            accent={ACENTO}
-            accentBubble={BURBUJA_YO}
-            animarNuevos
-            cargando={!cargado}
-            vacio={vacioHilo}
-            renderMensaje={renderMensaje}
-            encimaDelComposer={encimaDelComposer}
-          />
-        </div>
+    <div className="mkc-chat" style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--surface)' }}>
+      <div className="co-hilo" ref={hiloRef} style={{ flex: 1, minHeight: 0 }}>
+        {!cargado ? null : errorCarga ? (
+          <div className="co-portada">
+            <p className="co-portada__dato">{errorCarga}</p>
+            <button type="button" className="co-chip" onClick={recargar}>Volver a cargar el chat</button>
+          </div>
+        ) : !items.length && !hayTrabajo ? (
+          <div className="co-portada">
+            <Muneco titulo="CRM" animo="despierto" size={76} />
+            <p className="co-portada__nombre">Pregúntale a MaKo por tu CRM.</p>
+            <div className="ch-arranques">
+              {ARRANQUES.map((a) => <button key={a} type="button" className="co-chip" onClick={() => enviar({ texto: a })}>{a}</button>)}
+            </div>
+          </div>
+        ) : (
+          <HiloMako items={items} quien={{ nombre: 'CRM' }} ahora={ahora} escribiendo={hayTrabajo ? { segs } : null}
+            tarjeta={tarjeta} onTarjeta={(x, a) => void correrTarjeta(x, a)} onReintentar={reintentar} onRecargar={recargar} />
+        )}
       </div>
-      {error && <div role="alert" className="of-error">{error}</div>}
-      <ComposerWhatsApp
-        key={funnelId ?? 0}
-        modo="enviar"
-        valor={texto}
-        onValor={setTexto}
-        onEnviar={enviarComposer}
-        placeholder="Pregúntale a MaKo"
-        ocupado={hayTrabajo || !listo}
-        onAudio={enviarAudio}
-        onErrorAudio={setError}
-      />
+      <div className="co-caja-wrap">
+        {error && <p className="co-nota co-nota--mal" role="alert">{error}</p>}
+        <div className="co-caja">
+          <textarea rows={1} value={texto} onChange={(e) => setTexto(e.target.value)} onKeyDown={tecla}
+            placeholder="Pregúntale a MaKo" aria-label="Pregúntale a MaKo" disabled={!listo} />
+          <div className="co-caja__barra">
+            <Microfono valor={texto} onValor={(v) => { setFaltaMic(null); setTexto(v); }} onError={setFaltaMic} apagado={!listo} />
+            <button type="button" className="co-enviar" onClick={enviarComposer} disabled={hayTrabajo || !texto.trim() || !listo}
+              aria-label="Mandar" title="Mandar (Enter)">
+              {hayTrabajo ? <span className="co-enviar__giro" aria-hidden /> : <Icon name="flecha" size={18} />}
+            </button>
+          </div>
+        </div>
+        <p className="co-caja__estado" aria-live="polite">{faltaMic ?? ''}</p>
+      </div>
     </div>
   );
 }
