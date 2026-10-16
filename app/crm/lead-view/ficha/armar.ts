@@ -255,6 +255,21 @@ export function dispositivoVisto(editando: boolean, elegido: DispositivoFicha): 
   return editando ? elegido : 'escritorio';
 }
 
+/**
+ * EL ALTO DEL PANEL DE LA DERECHA mientras se personaliza (./PanelFicha.tsx). Va pegado (`sticky`) debajo de la
+ * fila de tabs, a ARRIBA_DEL_PANEL del borde de lo que scrollea (./ficha-css.ts dice el mismo número), y su alto
+ * máximo es LO QUE SE VE de ese contenedor, no la ventana: medido el 16/10/2026 en el banco, en el pop-up (la
+ * cabecera y el pie del pop-up se comen ~265 px) el panel medía `100dvh - 120px` y terminaba 200 px por debajo
+ * del área visible, así que los últimos avisos no se alcanzaban mientras la ficha fuera más larga que el panel.
+ * Con un piso, para que en una ventana muy baja siga siendo un panel y no una tira.
+ */
+export const ARRIBA_DEL_PANEL = 58;
+export const AIRE_ABAJO_DEL_PANEL = 12;
+export const ALTO_MINIMO_DEL_PANEL = 240;
+export function altoDelPanel(altoVisible: number): number {
+  return Math.max(ALTO_MINIMO_DEL_PANEL, Math.floor(altoVisible - ARRIBA_DEL_PANEL - AIRE_ABAJO_DEL_PANEL));
+}
+
 /** Los anchos de la barra del bloque: los cuatro, con los que el bloque no acepta apagados. */
 export function anchosDeLaBarra(def: BloqueDef): Array<{ id: Ancho; nombre: string; puede: boolean }> {
   return ([3, 4, 6, 12] as const).map((id) => ({ id, nombre: { 3: '¼', 4: '⅓', 6: '½', 12: 'Completo' }[id], puede: def.anchos.includes(id) }));

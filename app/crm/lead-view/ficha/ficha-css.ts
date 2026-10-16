@@ -36,8 +36,10 @@ export const CSS_FICHA = `
 .fb--tema .fb-cuerpo > section:not(.fb-propio) { background: var(--dash-tarjeta-fondo) !important; border-color: var(--dash-tarjeta-borde) !important; border-radius: var(--dash-tarjeta-radio) !important; box-shadow: var(--dash-tarjeta-sombra) !important; }
 .fb--letra .fb-cuerpo, .fb--letra .fb-cuerpo *:not([style*="Mono"]) { font-family: var(--dash-letra) !important; }
 
-/* LA EDICIÓN: cada bloque con su marco, su rótulo y, el elegido, su barra (como una tarjeta del Dashboard). */
-.fb--editando .fb-grilla { gap: calc(var(--fb-gap) + 12px); padding-top: 14px; }
+/* LA EDICIÓN: cada bloque con su marco, su rótulo y, el elegido, su barra (como una tarjeta del Dashboard).
+   El marco sale 6 px por fuera del bloque, así que la grilla le deja 6 px a los costados: sin eso, en el pop-up
+   el borde izquierdo de los marcos asomaba al lado de la fila de tabs pegada al scrollear (banco, 16/10/2026). */
+.fb--editando .fb-grilla { gap: calc(var(--fb-gap) + 12px); padding: 14px 6px 6px; }
 .fb-bloque--editando { cursor: grab; }
 .fb-bloque--editando > .fb-cuerpo { user-select: none; }
 .fb-marco { position: absolute; inset: -6px; border: 1.5px dashed var(--border-strong); border-radius: 18px; pointer-events: none; z-index: 1; }
@@ -51,10 +53,15 @@ export const CSS_FICHA = `
 .fb-bloque--despues.fb-bloque--columna::after { bottom: -12px; left: 0; right: 0; height: 4px; }
 .fb-rotulo { position: absolute; top: -17px; left: 12px; z-index: 2; display: inline-flex; align-items: center; gap: 6px; max-width: calc(100% - 24px);
   padding: 2px 9px; border-radius: 999px; background: var(--surface); border: 1px solid var(--border); font-size: 12px; font-weight: 600; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.fb-bloque--sel > .fb-rotulo { color: var(--primary); border-color: var(--primary); }
 .fb-vacio { display: flex; align-items: center; justify-content: center; min-height: 64px; border-radius: 14px; background: var(--surface-2); color: var(--faint); font-size: 13px; }
-.fb-barra-bloque { position: absolute; top: -19px; right: 10px; z-index: 4; display: flex; align-items: center; gap: 2px; flex-wrap: wrap; justify-content: flex-end;
-  max-width: calc(100% - 20px); padding: 3px; border-radius: 10px; background: var(--surface); border: 1px solid var(--border); box-shadow: 0 6px 18px rgba(18, 21, 27, .14); cursor: default; }
+/* La barra del elegido sale DESDE EL RÓTULO (a la izquierda) y lo reemplaza: el nombre del bloque es lo primero
+   de la barra y las herramientas van a su lado. Anclada a la derecha tapaba el rótulo en todo bloque que no fuera
+   de ancho completo (banco, 16/10/2026). En un bloque angosto las herramientas bajan de renglón; el nombre queda. */
+.fb-barra-bloque { position: absolute; top: -19px; left: 10px; z-index: 4; display: flex; align-items: center; gap: 2px; flex-wrap: wrap; justify-content: flex-start;
+  max-width: calc(100% - 20px); padding: 3px; border-radius: 10px; background: var(--surface); border: 1px solid var(--primary); box-shadow: 0 6px 18px rgba(18, 21, 27, .14); cursor: default; box-sizing: border-box; }
+.fb-barra-nombre { display: inline-flex; align-items: center; gap: 6px; min-width: 0; max-width: 100%; height: 28px; padding: 0 6px 0 7px; font-size: 12px; font-weight: 600; color: var(--primary); white-space: nowrap; }
+.fb-barra-nombre > svg { flex: none; }
+.fb-barra-nombre-txt { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .fb-herr { display: inline-flex; align-items: center; justify-content: center; gap: 5px; height: 28px; min-width: 28px; padding: 0 8px; border: none; border-radius: 8px;
   background: transparent; color: var(--ink); font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer; white-space: nowrap; }
 .fb-herr:hover:not(:disabled), .fb-herr[aria-expanded="true"] { background: var(--velo-hover); }
@@ -87,7 +94,7 @@ export const CSS_FICHA = `
 .fb-pagina[data-dispositivo="movil"] .fb-bloque { grid-column: 1 / -1; }
 .fb-edicion { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 20px; align-items: start; }
 @media (max-width: 900px) { .fb-edicion { grid-template-columns: minmax(0, 1fr); } .fb-panel { position: static !important; max-height: none !important; } }
-.fb-panel { position: sticky; top: 58px; max-height: calc(100dvh - 120px); overflow-y: auto; box-sizing: border-box; border: 1px solid var(--border); border-radius: 14px;
+.fb-panel { position: sticky; top: 58px; max-height: var(--fb-panel-alto, calc(100dvh - 120px)); overflow-y: auto; box-sizing: border-box; border: 1px solid var(--border); border-radius: 14px;
   background: var(--surface); color: var(--ink); font-family: 'Geist', sans-serif; }
 .fb-panel-cab { padding: 12px 14px 10px; border-bottom: 1px solid var(--border); }
 .fb-panel-tit { font-size: 14.5px; font-weight: 650; }

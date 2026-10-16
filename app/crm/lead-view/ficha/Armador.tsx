@@ -94,7 +94,7 @@ export function Armador({ tab, lista, ctx, editando, sel, onSel, onCambio, onAgr
       editando && 'fb-bloque--editando', elegido && 'fb-bloque--sel', arrastrando === b.indice && 'fb-bloque--arrastrado',
       soltar?.indice === b.indice && `fb-bloque--${soltar.lado}`, soltar?.indice === b.indice && (enFila ? 'fb-bloque--fila' : 'fb-bloque--columna'),
     ].filter(Boolean).join(' ');
-    const incluidos = (b.reglas.incluye ?? []).map((id) => bloqueDef(id)?.titulo).filter(Boolean);
+    const incluidos = (b.reglas.incluye ?? []).map((id) => bloqueDef(id)?.titulo).filter((t): t is string => !!t);
 
     const alArrastrar = (e: DragEvent<HTMLDivElement>) => {
       if (!editando) return;
@@ -141,14 +141,17 @@ export function Armador({ tab, lista, ctx, editando, sel, onSel, onCambio, onAgr
         onDragEnd={editando ? terminar : undefined}
         onClick={editando ? (e) => { e.stopPropagation(); onSel(b.indice); } : undefined}>
         {editando && <div className="fb-marco" aria-hidden />}
-        {editando && (
+        {/* ⚠️ EL ELEGIDO LLEVA SU NOMBRE ADENTRO DE SU BARRA, en el lugar del rótulo: la barra tapaba el rótulo
+            en todo bloque que no fuera de ancho completo (medido en el banco el 16/10/2026: a ½ y ⅓ en el pop-up,
+            y en la tablet, no se veía qué bloque estaba elegido). */}
+        {editando && !elegido && (
           <span className="fb-rotulo" title={incluidos.length ? `Incluye: ${incluidos.join(', ')}` : undefined}>
             <IconoMenu nombre={icono} size={13} /> {titulo}
           </span>
         )}
         {elegido && (
-          <BarraBloque tab={tab} b={b} icono={icono} onCambio={onCambio} onQuitar={() => onSel(null)}
-            onMoverTeclado={conTeclado} />
+          <BarraBloque tab={tab} b={b} icono={icono} titulo={titulo} incluidos={incluidos} onCambio={onCambio}
+            onQuitar={() => onSel(null)} onMoverTeclado={conTeclado} />
         )}
         {/* ⚠️ `inert` EDITANDO: personalizar la ficha no es editar el lead. Sin esto, un clic para elegir el
             bloque abría el campo de adentro (la tarjeta entera abre su edición, `CajaCampo`). */}
@@ -185,11 +188,13 @@ function padreQueScrollea(el: HTMLElement): HTMLElement | null {
 
 type Menu = { tipo: 'diseno' | 'icono'; ancla: HTMLElement } | null;
 
-/** La barra del bloque elegido: arrastrar, ancho, diseño, ícono y quitar. */
-function BarraBloque({ tab, b, icono, onCambio, onQuitar, onMoverTeclado }: {
+/** La barra del bloque elegido: su nombre (en el lugar del rótulo), arrastrar, ancho, diseño, ícono y quitar. */
+function BarraBloque({ tab, b, icono, titulo, incluidos, onCambio, onQuitar, onMoverTeclado }: {
   tab: TabFicha;
   b: BloqueEnGrilla;
   icono: NombreIconoMenu;
+  titulo: string;
+  incluidos: string[];
   onCambio: (c: CambioFicha) => void;
   onQuitar: () => void;
   onMoverTeclado: (dir: -1 | 1) => void;
@@ -206,6 +211,10 @@ function BarraBloque({ tab, b, icono, onCambio, onQuitar, onMoverTeclado }: {
   const sep: ReactNode = <span className="fb-sep" aria-hidden />;
   return (
     <div className="fb-barra-bloque" role="toolbar" aria-label={`Bloque ${b.def.titulo}`} onClick={(e) => e.stopPropagation()}>
+      <span className="fb-barra-nombre" title={incluidos.length ? `${titulo}. Incluye: ${incluidos.join(', ')}` : titulo}>
+        <IconoMenu nombre={icono} size={13} /> <span className="fb-barra-nombre-txt">{titulo}</span>
+      </span>
+      {sep}
       <button type="button" className="fb-herr fb-herr--mover" title="Arrastra para mover" aria-label="Mover (flechas)"
         onKeyDown={(e) => {
           if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') { e.preventDefault(); onMoverTeclado(-1); }

@@ -13,6 +13,7 @@
 // Todo guarda solo (useFichaDelFunnel). El aviso corto de arriba dice a quién le cambia.
 // =============================================================================
 
+import { useLayoutEffect, useRef } from 'react';
 import { Switch } from '@/app/_ui/Toggle';
 import { Dropdown } from '@/app/components/Dropdown';
 import { PanelEstilo } from '@/app/dashboard/PanelEstilo';
@@ -21,6 +22,7 @@ import { DENSIDADES } from '@/lib/ficha/catalogo';
 import { PLANTILLAS_FICHA, plantillaFicha, type PlantillaId } from '@/lib/ficha/plantillas';
 import type { CambioFicha } from '@/lib/ficha/config';
 import type { FichaDelFunnel } from '@/lib/ficha/config-server';
+import { altoDelPanel } from './armar';
 
 const GRUPOS = ['Reuniones', 'Venta', 'Equipo y contacto'] as const;
 const DE_MAKO = '__mako';
@@ -31,8 +33,9 @@ export function PanelFicha({ ficha, onCambio }: { ficha: FichaDelFunnel; onCambi
   const deMako = plantillaFicha(ficha.eleccion.id);
   const tocada = ef.tocadas.length > 0 || ef.avisos.some((a) => a.por === 'a-mano') || ef.plantillaAMano;
   const porque = ef.plantillaAMano ? 'Elegida a mano.' : ficha.eleccion.porque;
+  const ref = useAltoVisible();
   return (
-    <aside className="fb-panel" aria-label="Personalizar la ficha" onClick={(e) => e.stopPropagation()}>
+    <aside ref={ref} className="fb-panel" aria-label="Personalizar la ficha" onClick={(e) => e.stopPropagation()}>
       <div className="fb-panel-cab">
         <div className="fb-panel-tit">Ficha de «{ficha.funnel.nombre}»</div>
         <p className="fb-panel-linea">Cambia para todo el equipo en este funnel.</p>
@@ -46,7 +49,8 @@ export function PanelFicha({ ficha, onCambio }: { ficha: FichaDelFunnel; onCambi
           <Dropdown
             value={ef.plantillaAMano ? ef.plantilla : DE_MAKO}
             ariaLabel="Usar otra plantilla"
-            width={190}
+            // Todo el ancho del panel: a 190 px «La de MaKo (Llamada con R1 y R2)» salía cortada (banco, 16/10/2026).
+            width="100%"
             options={[
               { value: DE_MAKO, label: `La de MaKo (${deMako.nombre})` },
               ...PLANTILLAS_FICHA.filter((x) => x.id !== ficha.eleccion.id || ef.plantillaAMano).map((x) => ({ value: x.id, label: x.nombre })),
@@ -100,4 +104,30 @@ export function PanelFicha({ ficha, onCambio }: { ficha: FichaDelFunnel; onCambi
       </section>
     </aside>
   );
+}
+
+/**
+ * El alto máximo del panel es lo que se VE del contenedor que scrollea (el cuerpo del pop-up, o la ventana en
+ * /crm/[id]), no la ventana entera: en el pop-up la cabecera y el pie se comen ~265 px y el panel terminaba debajo
+ * del área visible (`altoDelPanel`, ./armar.ts). Va en una variable que lee ./ficha-css.ts; sin medir, el respaldo
+ * de la hoja. Se vuelve a medir si cambia el tamaño del contenedor o de la ventana.
+ */
+function useAltoVisible() {
+  const ref = useRef<HTMLElement>(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    let sc: HTMLElement | null = null;
+    for (let p = el.parentElement; p && p !== document.body; p = p.parentElement) {
+      const o = getComputedStyle(p).overflowY;
+      if (o === 'auto' || o === 'scroll') { sc = p; break; }
+    }
+    const medir = () => el.style.setProperty('--fb-panel-alto', `${altoDelPanel(sc ? sc.clientHeight : window.innerHeight)}px`);
+    medir();
+    const ro = sc && typeof ResizeObserver !== 'undefined' ? new ResizeObserver(medir) : null;
+    if (sc) ro?.observe(sc);
+    window.addEventListener('resize', medir);
+    return () => { ro?.disconnect(); window.removeEventListener('resize', medir); };
+  }, []);
+  return ref;
 }

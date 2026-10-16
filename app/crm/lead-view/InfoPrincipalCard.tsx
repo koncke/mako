@@ -29,6 +29,7 @@ import { CajaCampo, InstagramEditable, MontoEditable, TelefonoEditable } from '.
 import { marcaDato } from '@/lib/datos-aviso';
 import { Dropdown } from '@/app/components/Dropdown';
 import { SEXOS, seVe, type CampoResumen, type ResumenElegido } from '@/lib/resumen-ficha';
+import { GRILLA_INFO_PRINCIPAL } from './info-principal-grilla';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -325,8 +326,14 @@ export function InfoPrincipalCard({ leadId, nombre, empresa, email, telefono, we
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 14 }}>
         <div style={sectLabel}>Información principal</div>
       </div>
-      {/* 2×2 fijo (nombre|empresa / teléfono|email) — nunca 3 arriba y 1 abajo. */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '16px 24px' }}>
+      {/* DOS COLUMNAS COMO MUCHO (nombre|empresa / teléfono|email) — nunca 3 arriba y 1 abajo — y UNA cuando la
+          tarjeta es angosta. ⚠️ Era un 2×2 fijo, y desde la ficha por bloques esta tarjeta también va de ½, en la
+          tablet y en la vista «Celular» de Personalizar: medido el 16/10/2026, a ½ en el pop-up cada celda quedaba
+          en ~200 px y el email se partía letra por letra. Lo decide el ANCHO DE LA TARJETA, sin @container (un
+          `container-type` en un ancestro ataría el modal fijo del WhatsApp no oficial, ver ficha/ficha-css.ts): cada
+          columna mide como mínimo 300 px o la mitad del ancho, así que entran dos o una, nunca tres. Lo fija
+          tests/ficha-navegador.test.ts. */}
+      <div style={{ display: 'grid', gridTemplateColumns: GRILLA_INFO_PRINCIPAL, gap: '16px 24px' }}>
         <Row label="Nombre" value={nombre} copyKey="nombre" copied={copied} onCopy={copy} onGuardar={guardar('nombre', nombre)} />
         <Row label="Empresa" value={empresa} copyKey="empresa" copied={copied} onCopy={copy} onGuardar={guardar('empresa', empresa)} marca={marcaDato('empresa')} />
         {/* ⚠️ EL TELÉFONO SE EDITA CON EL PAÍS PRIMERO (punto 5 del 12/10/2026): «siempre en todos
