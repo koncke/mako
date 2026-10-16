@@ -3164,6 +3164,11 @@ de arriba, incluido el caso que no cubría: con VARIAS páginas no se guardaba n
 página, así que reconectar dejaba el viejo. Una tercera puerta que escriba las filas a mano es
 la que se va a olvidar de esto. (07/10/2026)
 
+⚠️ **Y conectar Meta ARRANCA EL HISTÓRICO de leads y métricas** (16/10/2026; hasta ese día lo arrancaba sólo el
+wizard). Toda puerta que guarde una credencial de Meta llama una vez, al final, a `arrancarHistoricoEnSegundoPlano(ws)`
+(lib/onboarding-extract.ts: lee el estado ESTRICTO y no tumba la conexión). `tests/historico-meta-al-conectar.test.ts`
+enumera cada archivo que llama a `guardarCredencial`: uno nuevo falla hasta que se decida si conecta Meta.
+
 ⚠️ **Y `META_APP_SECRET` es el secreto de la app VIEJA**, con el que se verifica la firma de
 cada lead del webhook. El de la app MaKo es `MAKO_META_APP_SECRET` (`lib/meta-login.ts`).
 Pisar el primero con el valor del segundo no da error al guardar: rechaza todos los leads
