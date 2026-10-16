@@ -1033,9 +1033,13 @@ Hecho el 15/10 (pasos 2–4 del plan de subtítulos). Biblioteca › Subtítulos
     y se deshace SIN el imán (`updateTracks(…, { sinIman: true })`): su cuenta ya deja todo en su lugar.
     ⚠️ El mismo problema existe al deshacer otros comandos («Borrar a la derecha»): sin arreglar, porque
     algunos deshacen con parches y necesitan el imán.
-- **SIN HACER:** verlo en el navegador; el `borrar` del chat no borra lo vinculado como el botón
-  (`actions/use-editor-actions.ts`) y `cambiar_texto` sobre un subtítulo no usa `rehacerPalabras` ni vuelve a
-  partir los renglones (pierde los tiempos por palabra); copiar y pegar partes del video desde el texto; «Mostrar texto
+- **Dos reglas que vivían en la pantalla y el chat no cumplía** (las encontró la misma revisión): borrar un clip
+  de la principal se lleva lo vinculado (estaba adentro del botón Eliminar) y el texto nuevo de un subtítulo
+  conserva sus tiempos por palabra y vuelve a partir los renglones (estaba adentro del panel). Salieron a
+  `ripple/iman.ts → conLoVinculado` y `subtitles/editar.ts → paramsConTexto`, y las usan el botón, el panel y el
+  chat (test 42 del chat). `paramsConTexto` mira TODAS las palabras guardadas: el panel también perdía los
+  tiempos al corregir un subtítulo partido con «Dividir».
+- **SIN HACER:** verlo en el navegador; copiar y pegar partes del video desde el texto; «Mostrar texto
   eliminado»; marcar pausas y repeticiones (CapCut: «Pausa, repetición y duda»); CapCut fuerza el imán de la
   principal mientras se edita por transcripción (`pc_text_cut_mode_lock_cant_change`) y acá no.
 
