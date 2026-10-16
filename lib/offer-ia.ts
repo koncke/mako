@@ -32,7 +32,7 @@
 
 import 'server-only';
 import {
-  chatCheapCascade, chatCheapTools, provsGratisDePlataforma, docsIADisponible, errorDeCascada,
+  chatCheapCascade, chatCheapTools, provsGratisDePlataforma, errorDeCascada,
   MODELO_DOCS, type EsfuerzoBarato, type ProvName,
 } from './ai-cheap';
 import { overrideDeFeature } from './model-registry';
@@ -299,17 +299,20 @@ type Pedido<T> = {
 };
 
 async function pedir<T>(p: Pedido<T>): Promise<ResultadoIA<T>> {
-  // Antes de gastar: sin ninguna IA conectada, el mensaje correcto es «conecta una» (es el ÚNICO caso
-  // donde pedir una key es la respuesta: lib/ia-mensajes.ts).
-  if (!(await docsIADisponible().catch(() => false))) {
-    return { ok: false, error: await errorDeCascada([], p.tema) };
-  }
+  // ⚠️ ACÁ SE CORTABA ANTES DE LA RED: «sin ninguna IA conectada, el mensaje correcto es "conecta una"».
+  // Desde el 15/10/2026 un cliente nuevo no trae una API (Ticketera `clientes-usan-su-claude`) y Offer
+  // es de su primera semana: cortar acá le mostraba «conecta tu IA» con la red de la plataforma sin
+  // probar. Ahora el paso 1 corre siempre —sin keys propias no gasta nada y prueba primero su clave de
+  // Anthropic si la cargó (lib/veto-claude.ts)— y se sigue a la red. Si la red tampoco contesta, el
+  // mensaje de abajo sigue siendo «conecta una» (lib/ia-mensajes.ts), que ahí sí es la salida: con su
+  // propia key no depende de una red compartida.
+  //
   // El validar sale de lib/offer-reglas.ts (puro, con test): acepta lo que pasa `parse` y guarda de
   // respaldo lo que sólo pasa `parseFlojo`.
   const v = validadorConRespaldo(p.parse, p.parseFlojo);
   const validar = v.validar;
 
-  // 1) Las keys del CLIENTE.
+  // 1) Las keys del CLIENTE (si no tiene ninguna, la cascada vuelve vacía al toque).
   const { provs, modelos, rotulo } = await proveedoresOffer();
   const errores: string[] = [];
   try {

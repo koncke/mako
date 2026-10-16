@@ -4114,3 +4114,120 @@ Para la decisión A de Martín (el cliente usa su Claude/ChatGPT para lo convers
 
 **Vive en:** docs/mapa-ia-24h.md (con su lista de lo que quedó sin revisar a fondo).
 · *2026-10-16 Estrategia 3 cuentas*
+
+## La clave de Anthropic del negocio: la segunda puerta del veto (16/10/2026)
+
+**Vive en:** `lib/veto-claude.ts` (`evaluarClaveDelNegocio`, `FEATURES_DEL_PLAN`) · `lib/anthropic.ts`
+(`conClaveDelNegocio`) · `lib/ai-cheap.ts` (el primer intento de `chatCheapCascade`) ·
+`tests/veto-claude-clave-negocio.test.ts`
+
+**El diagnóstico obvio era el equivocado.** «Que el cliente cargue su crédito de Max como clave de Anthropic y MaKo lo
+usa» suena completo y no lo era: desde el veto del 13/08 la clave de Anthropic de un negocio la usaba UNA feature, el
+análisis de llamadas de cierre. Y la ficha de /integraciones decía «el cerebro de MaKo: análisis, chats, sugerencias y
+todos los Analysts», falso desde agosto para cualquiera. El veto era sobre la plata de MaKo; la del negocio no tenía
+puerta.
+
+**La trampa que hacía peligrosa la puerta nueva: `credWs` no contesta «¿cuál es la clave del negocio?».** Para el
+workspace del dueño cae al env de la plataforma, y `migrarEnvACredenciales` siembra la fila del dueño desde ese mismo
+env. Con `credWs`, el ws1 (un cliente) habría usado la clave de la plataforma como si fuera suya, por la puerta que no
+tiene lista blanca. Por eso la clave se lee con `credDelCliente` (sólo la fila), se compara contra las tres copias de
+la plataforma leídas estrictas, y el permiso lleva adentro la clave verificada: el `fetch` no resuelve otra.
+
+**Y una trampa de los tests que leen fuente, medida en la misma tanda:** un `sinComentarios` que borra las líneas que
+empiezan con `*` ANTES de recortar los bloques se lleva también los ` */` que cierran cada JSDoc, y el recorte de
+bloques queda abierto hasta el próximo cierre. Sobre `lib/ai-cheap.ts` entero se comía `chatCheapCascade` completa, y
+el test contestaba «no encuentro la función». Lo que sirve es líneas `//` primero y bloques después, nada más (el orden
+que ya pide AGENTS.md). El de `tests/onboarding-red-plataforma.test.ts` tenía el mismo paso y no mordía porque se
+aplica a una función ya recortada; se corrigió igual.
+
+### Lo que quedó SIN hacer
+
+- **Las funciones del Plan quedan afuera aunque la clave sea del negocio** (`FEATURES_DEL_PLAN`), por la regla de
+  Martín del 30/09 («JAMÁS algo pago para el plan»). Es una lista negativa a propósito y se dice: una feature del Plan
+  nueva que no se sume ahí usaría el crédito del negocio.
+- **Sólo la cascada de texto.** La visión (`leerDocumentoIA`), el audio y el loop con herramientas (`chatCheapTools`,
+  el doer) no prueban la clave del negocio.
+- **El gasto se registra con la marca «⚠ clave de Anthropic del negocio» AL PRINCIPIO del motivo** (`insertUsage`
+  corta a 200 y al final se perdía) y en el workspace del negocio (`wsDeProveedor`). De los lectores de
+  `anthropic_usage`, el único que lo sumaba como gasto de MaKo era `resumenDelPeriodo` (lib/costos-ia.ts, el global
+  del super admin): ahora lo saca del total y lo muestra aparte en /integraciones. El panel de cada negocio y el
+  Dashboard leen sólo su workspace, y ahí ese gasto SÍ es suyo. El aviso «saldo de IA bajo» no está implementado.
+- **Sin probar contra Anthropic de verdad**: no había una clave de negocio para hacerlo. El primer cliente que cargue
+  la suya es la prueba, y la fila de `anthropic_usage` con ese motivo es la forma de verlo.
+
+· *2026-10-16 chat «Onboarding» (claude3), por pedido del coordinador sobre la decisión de Martín*
+
+## La red de la plataforma para la primera semana de un cliente sin API (16/10/2026)
+
+**Vive en:** `lib/razones.ts` · `lib/ads-analyst.ts` · `lib/offer-ia.ts` · `lib/archivo-a-texto.ts` ·
+`lib/editor-landing/ia.ts` · `lib/flujo-ia-crear.ts` · `app/api/second-brain/buscar/route.ts` ·
+`app/api/onboarding/archivero/route.ts` · `tests/red-primera-semana.test.ts`
+
+Desde el 15/10 un cliente nuevo no trae una API, y lo primero que toca después del wizard le contestaba «conecta tu
+IA». Se extendió la red a Ads Writer, Offer, crear una landing, crear una automatización y la búsqueda del Second
+Brain, en ese orden, de a uno y con un test cada uno.
+
+**La capacidad, medida antes (sólo lectura, últimos 14 días):**
+
+| Qué | Número |
+|---|---|
+| Keys gratis de la plataforma (ws9) | 3 de Gemini y 2 de Groq |
+| La key de Gemini con más pedidos en un día | 29, contra un tope de 250 cada una |
+| Groq | de 1 a 4 pedidos por día |
+| Rechazos por cuota (429) de esas keys | 194 el 13/10, todos del propio ws9 (159 entre las 16 y las 18 UTC) |
+| Lo que usa un cliente nuevo en su primera semana | de 5 a 58 llamadas en total; los cuatro últimos, de 5 a 11 |
+
+Con 10 clientes nuevos en la misma semana son menos de ~100 pedidos por día contra ~750: **por día alcanza**. Lo que
+muerde es el tope POR MINUTO, y lo pisa el uso del propio ws9 de Martín, que comparte esas keys. Y la red es UN
+proveedor de verdad (Gemini; Groq no entra con prompts de más de ~7.000 tokens): el 14/10, cuando Google cambió
+`gemini-flash-latest`, estuvo caída para todos.
+
+**El diagnóstico obvio era el equivocado, y lo cometí yo:** «la red está escrita» no es «la red corre». El Archivero
+tenía tres cortes `if (!(await docsIADisponible()))` que devolvían «Carga tu API key de Gemini» ANTES de llamar a la
+IA, Offer uno en `pedir`, y la API de MaKo otro en `hayIAParaCrear`. Con el paso de la IA del wizard ya opcional
+(7f0ced90f, en main), un cliente sin keys se trababa en El Archivero, que es bloqueante; el test de ese commit daba
+verde porque sólo miraba que la red estuviera escrita. La regla quedó en AGENTS.md (la red de plataforma: «y nada la
+corta antes») y los tests ahora preguntan qué hay antes de la llamada.
+
+### Lo que quedó SIN hacer
+
+- **El análisis del lead (Generar / Regenerar), el sexto de la lista, NO se tocó: es una decisión de privacidad.**
+  Manda datos personales de los leads de un cliente (`lead_insights`, `pii: true`), y la red son las keys de la
+  agencia. El ws9 tiene un crédito de Gemini de US$10 cargado el 22/07 (`saldo.gemini`), pero la base no dice a cuál de
+  las tres keys corresponde. Si alguna está en el plan gratis, Google entrena con lo que recibe, con revisión
+  humana. Lo mismo vale, con datos menos sensibles (los del propio negocio), para lo que ya pasa por la red.
+- **Las otras ~50 llamadas sin red** siguen sin ella: el coordinador decide el orden sobre `docs/mapa-ia-24h.md`.
+- **Ningún camino se probó contra la red de verdad con un workspace sin keys**: sin `next dev` por la RAM.
+
+· *2026-10-16 chat «Onboarding» (claude3)*
+
+## El crédito de Claude Max de la plataforma: la tercera puerta del veto (16/10/2026)
+
+**Vive en:** `lib/veto-claude.ts` (`evaluarCreditoDeLaPlataforma`, `CLAVES_CREDITO_PLATAFORMA`) · `lib/anthropic.ts`
+(`conCreditoDeLaPlataforma`) · `lib/ai-cheap.ts` (la red de plataforma) · `lib/anthropic-usage.ts` (`recordUsage(…, ws)`)
+· `lib/costos-ia.ts` · `scripts/credito-claude-a-plataforma.mts` · `tests/veto-claude-credito-plataforma.test.ts`
+
+Martín vinculó el crédito de API de dos planes Max suyos (US$200 por mes cada uno; «Vinculalas a MaKo»). El código lo
+usa primero en la red de plataforma, antes de las keys gratis, por lo medido el mismo día: las gratis alcanzan por día
+pero chocan por minuto con el uso del ws9, el crédito vence cada mes sin acumularse, y la API de Anthropic no entrena
+con lo que recibe (el plan gratis de Gemini sí). Un cliente nuevo usa de 5 a 58 llamadas en su primera semana: unos
+pocos dólares contra 400 por mes.
+
+**Dos trampas que se cazaron escribiéndolo:**
+- **`wsDeProveedor` manda una fila de Anthropic al ws1 cuando el workspace no tiene clave propia**, que es justo el
+  caso del crédito: Mauricio (un cliente) habría visto un gasto de Claude que no es suyo. `recordUsage` acepta ahora el
+  workspace explícito, y el crédito anota en el del cliente que lo usó.
+- **El test que buscaba «la fila va al ws del cliente» daba verde con una de las dos filas sin el ws**: encontraba la
+  otra. Ahora exige que TODAS lo lleven.
+
+### Lo que quedó SIN hacer
+
+- **Las claves no están activas en producción.** Viven en el `.env.local` del clon; en Vercel no se pudieron cargar (el
+  usuario de la CLI es Developer). Hay dos caminos: Martín las carga en Vercel con el rol de dueño, o se corre
+  `scripts/credito-claude-a-plataforma.mts`, que las guarda cifradas en la fila del ws de la plataforma. El script
+  escribe en producción y espera el OK de Martín.
+- **Si una de esas organizaciones de Console tiene crédito comprado o auto-recarga, al acabarse el incluido sigue
+  cobrando** (lo dice la página de Anthropic). No se puede ver desde acá: lo revisa Martín en platform.claude.com.
+- Sólo la cascada de texto: ni visión, ni audio, ni el doer.
+
+· *2026-10-16 chat «Onboarding» (claude3)*

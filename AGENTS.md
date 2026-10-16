@@ -3692,6 +3692,33 @@ apagar, nunca encender. Si la base se cae, el resultado es «no pausado» — y 
 nada, porque lo que autoriza es la lista de código. Un store que puede fallar solo tiene
 permitido hacer las cosas MÁS restrictivas.
 
+**Y desde el 16/10/2026 hay una SEGUNDA puerta, y no se deriva de la primera: la clave de Anthropic DEL
+NEGOCIO.** Martín eligió que el crédito de API de Claude Max de un cliente entre por su clave propia (Ticketera
+`clientes-usan-su-claude`), y esa plata es del negocio, no de MaKo. La cascada de texto (`chatCheapCascade`) la prueba
+primero, por `conClaveDelNegocio` (lib/anthropic.ts), con un solo modelo barato y nunca en las funciones del Plan
+(`FEATURES_DEL_PLAN`). Lo que gobierna código nuevo:
+
+- **La clave del negocio se lee con `credDelCliente`, nunca con `credWs`**: `credWs` cae al env de la plataforma
+  cuando el workspace es el del dueño, y esa clave pasaría como del negocio.
+- **Se compara contra las TRES copias de la plataforma** (el env, la fila del dueño y la del workspace de la
+  plataforma), leídas estrictas, en `evaluarClaveDelNegocio` (lib/veto-claude.ts, puro). Si no se pudo leer, no se
+  llama.
+- **El `fetch` usa la clave que lleva el permiso** (`permiso.clave`), nunca vuelve a resolver otra.
+- Lo fija `tests/veto-claude-clave-negocio.test.ts`, probado rompiéndolo (7 de 7). El porqué, en la cabecera del veto.
+
+**Y una TERCERA puerta, también desde el 16/10/2026: el crédito de API de dos planes Max de Martín** («Vinculalas a
+MaKo»). Ya está pago con la suscripción y al acabarse corta en vez de cobrar, así que cubre la IA de texto de los
+clientes cuyas keys no contestaron: va primero en la red de plataforma de `chatCheapCascade`, antes de las keys
+gratis (`conCreditoDeLaPlataforma`, lib/anthropic.ts). Lo que gobierna código nuevo:
+
+- **Pasan SÓLO las dos claves con nombre** (`CLAVES_CREDITO_PLATAFORMA`), leídas por ese nombre del entorno o de la
+  fila del workspace de la plataforma, estrictas. `ANTHROPIC_API_KEY` no se lee ahí, y `evaluarCreditoDeLaPlataforma`
+  rechaza cualquier otra clave. Nunca en el Plan, con un solo modelo barato, y con fecha de revisión (`hasta`).
+- **Su gasto no es de MaKo ni del cliente**: la fila va al workspace del cliente que lo usó (`recordUsage(…, ws)`;
+  sin eso caía al ws1) con la marca `MOTIVO_CREDITO_PLATAFORMA` al principio, y `costos-ia` y el panel de cada
+  negocio la ponen en 0 y la muestran aparte.
+- Lo fija `tests/veto-claude-credito-plataforma.test.ts`, probado rompiéndolo (9 de 9).
+
 # Un default que cobra es un cobro silencioso
 
 El `def` de una feature en `lib/model-catalogo.ts` no es «lo que usa hoy el código»: es
@@ -3810,6 +3837,24 @@ voz con un mensaje que le pedía cargar otra key. Dos reglas al escribir un cami
   que el que falló, y con el motivo «⚠ red de plataforma»** (`provsGratisDePlataforma`; el molde
   es `transcribirAudio` en `lib/ai-cheap.ts`). Y los errores de la red viajan SEPARADOS de los
   del cliente: con ellos se fabricaría el texto que lee él.
+- ⚠️ **Y NADA LA CORTA ANTES: un `if (!(await docsIADisponible()))` (o `cheapDisponible`, o una
+  pregunta previa como `hayIAParaCrear`) delante de la llamada apaga la red sin que se note.** La
+  red queda escrita y no corre nunca para un cliente sin keys, que desde el 15/10/2026 es cualquier
+  cliente nuevo (el paso de la IA del wizard es opcional). Medido el 16/10: El Archivero tenía tres
+  cortes así y un cliente sin keys se trababa en el wizard; Offer y la API de MaKo, uno cada uno. Un
+  test que sólo mira que `redDePlataforma: true` esté escrito da VERDE con el corte puesto: el test
+  también pregunta qué hay ANTES (molde: `tests/onboarding-sin-api.test.ts`). «Conecta tu IA» se
+  dice DESPUÉS de que la red falló, con `errorDeCascada`.
+- ⛔ **LOS DATOS DE LOS CLIENTES DE UN CLIENTE NUNCA VAN A UN PROVEEDOR QUE ENTRENA CON LO QUE RECIBE**
+  (16/10/2026). Mandar algo a entrenar no se deshace, y la opción segura no cuesta nada. Las keys
+  gratis de la agencia son el plan gratis de Gemini (que entrena, con revisión humana) y de Groq. El
+  orden de la red es: primero el crédito de Claude de la plataforma (la API de Anthropic no entrena),
+  después una key de Gemini con facturación si se identifica cuál es, y las del plan gratis sólo al
+  final y NUNCA con datos personales. En `chatCheapCascade` lo decide la marca `pii` del catálogo
+  (`lib/model-catalogo.ts`) o `opts.pii`: con datos de clientes, si nada que no entrene contesta, se
+  corta y el cliente conecta su key. Una feature nueva que lea leads, conversaciones o llamadas se marca
+  `pii: true`. Y un camino con su PROPIA red (un bucle sobre `provsGratisDePlataforma`) aplica la
+  misma regla él mismo: el corte de la cascada no lo cubre.
 - **Un 429 del MINUTO también se cubre con otro modelo, y repetir un PEDIDO no repite
   herramientas.** El 07/10/2026 a Brigitte (una sola key) una pregunta de 6-8 pedidos de ~15k
   tokens llenó el cupo del minuto, y el 429 tiraba el turno con seis pasos hechos por una regla

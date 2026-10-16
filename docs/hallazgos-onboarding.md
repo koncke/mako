@@ -1896,9 +1896,15 @@ que nadie volvió a medir contra la lista de pasos.
   cliente la usa UNA feature, el análisis de llamadas de cierre, con permiso hasta el 13/11. La ficha decía «el
   cerebro de MaKo: análisis, chats, sugerencias y todos los Analysts», falso desde agosto para cualquiera. Ahora dice
   lo que hace. Si el crédito tiene que mover más, la cascada barata tendría que usar la key de Anthropic del
-  cliente, y eso es una decisión de qué modelo paga, no un arreglo.
+  cliente, y eso es una decisión de qué modelo paga, no un arreglo. **Se tomó el 16/10** (la decisión A ya lo
+  cubría, según el coordinador) y se hizo: `docs/hallazgos-ia.md` → «La clave de Anthropic del negocio».
 - **La regla que queda la fija el test, en las dos mitades juntas**: que el paso no frene, y que todo paso con IA
   de una capa que tiene el paso de la IA esté clasificado y tenga red. Un paso nuevo sin clasificar lo hace fallar.
+- ⚠️ **CORRECCIÓN DEL 16/10: «tiene la red» era falso para El Archivero.** Su ruta cortaba ANTES con tres
+  `if (!(await docsIADisponible()))` («Carga tu API key de Gemini»), así que un cliente sin keys que salteaba el
+  paso de la IA se trababa ahí. El test de arriba daba verde porque miraba que la red estuviera escrita, no que nada
+  la cortara antes. Arreglado en `daebfcc89` (y aparte, sobre main, en la rama `onboarding-archivero-fix`); el test
+  ahora lo fija. El detalle, en `docs/hallazgos-ia.md` → «La red de la plataforma para la primera semana».
 
 ### Lo que quedó SIN hacer
 

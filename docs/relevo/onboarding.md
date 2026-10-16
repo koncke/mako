@@ -182,12 +182,20 @@ Ticketera (`clientes-usan-su-claude`, opción A). Commit `7f0ced90f`.</sub>
   `tests/onboarding-sin-api.test.ts` (6 roturas, 6 cazadas).
 - **La guía del crédito de Claude Max** vive en la ficha de Anthropic (`lib/metodo-catalogo.ts`, el
   tutorial del servicio y el «?» del campo), y el paso del wizard abre ese modal ahí mismo.
+- **La clave de Anthropic del negocio ya mueve sus funciones de texto** (16/10, commit `a488757c`): el
+  coordinador contestó que la decisión A de Martín ya lo cubría. Es la segunda puerta del veto
+  (`lib/veto-claude.ts`), nunca con una clave de la plataforma ni en el Plan; el detalle, en
+  `docs/hallazgos-ia.md`.
+- **16/10: El Archivero cortaba a los clientes sin keys** antes de la red (tres `docsIADisponible()`), y
+  con el paso de la IA opcional ya en main, un cliente sin keys se trababa ahí. Arreglado (`daebfcc89`, y
+  sólo el arreglo en la rama `onboarding-archivero-fix`).
+- **16/10: la red se extendió a la primera semana** de un cliente sin API: Ads Writer, Offer, crear landing,
+  crear automatización y buscar en el Second Brain (`tests/red-primera-semana.test.ts`). La capacidad y el
+  porqué, en `docs/hallazgos-ia.md`.
 - **Lo que NO está hecho y no es mío decidir** (se lo pasé al coordinador):
-  - la key de Anthropic de un cliente sólo la usa el análisis de llamadas de cierre (permiso de Claude
-    hasta el 13/11, `lib/veto-claude.ts`). Que el crédito de Max mueva más cosas es una decisión de
-    qué modelo paga;
-  - después del arranque, 60 llamadas a IA del producto no tienen red: un cliente sin keys ve
-    «conecta tu IA» en casi todas las herramientas;
+  - el análisis del lead: manda datos personales de los leads por las keys de la agencia, y no se sabe
+    si están en el plan gratis de Google (que entrena). Es una decisión de privacidad de Martín;
+  - el resto de las llamadas sin red, en el orden que diga el coordinador sobre `docs/mapa-ia-24h.md`;
   - sin mirar en el navegador: no se levantó la app (RAM). Falta ver el paso en escritorio y celular
     cuando esté desplegado.
 

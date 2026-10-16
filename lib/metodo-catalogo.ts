@@ -289,10 +289,11 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
     categoria: 'Inteligencia',
     core: true,
     // ⚠️ DECÍA «El cerebro de MaKo: análisis, chats, sugerencias y todos los Analysts», y era
-    // falso desde el veto del 13/08/2026: la key de un cliente sólo la usa el análisis de
-    // llamadas de cierre, la única feature con permiso para Claude (lib/veto-claude.ts). Si
-    // ese permiso cambia o vence, esta frase cambia con él.
-    paraQue: 'Claude. Con tu key, MaKo analiza tus llamadas de cierre. Si tienes Claude Max, sirve su crédito de API mensual.',
+    // falso desde el veto del 13/08/2026. Lo que hace HOY la key de un negocio sale de
+    // lib/veto-claude.ts: la segunda puerta (16/10/2026) la usa primero en sus funciones de
+    // texto, salvo las del Plan, y la lista blanca, para el análisis de llamadas de cierre. Si
+    // el veto cambia, esta frase cambia con él.
+    paraQue: 'Claude. Con tu key, MaKo escribe y analiza con Claude antes que con la IA gratis, y lo paga tu cuenta. Sirve el crédito de API de Claude Max.',
     campos: [
       { env: 'ANTHROPIC_API_KEY', label: 'API key', secreto: true, placeholder: 'sk-ant-…', nota: 'Empieza con sk-ant-. Se guarda cifrada. Si la pierdes, bórrala en Claude Platform y crea otra.' },
     ],
@@ -998,7 +999,7 @@ const AYUDA_CAMPO: Record<string, { pasos: string[]; url?: string; urlLabel?: st
   },
   ANTHROPIC_API_KEY: {
     pasos: [
-        'Para qué sirve: con esta key MaKo analiza tus llamadas de cierre con Claude.',
+        'Para qué sirve: con esta key MaKo escribe y analiza con Claude antes que con la IA gratis.',
         '¿Tienes Claude Max hace 7 días o más? En claude.ai → Settings → Billing → "API credits", vincula tu organización.',
         'Con Pro o sin Max: en platform.claude.com → "Billing" carga saldo con "Add funds" (mínimo 5 dólares).',
         'En platform.claude.com → "API Keys" toca "Create Key" y copia la key (sk-ant-…, se ve UNA vez).',

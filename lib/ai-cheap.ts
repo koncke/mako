@@ -34,6 +34,7 @@ import { corregirMarca } from '@/lib/mako-gramatica';
 import { salidaDegenerada } from '@/lib/stt-degenerado';
 import { crearRotacion, leerErrorProveedor, tipoDeFallo } from '@/lib/ia-rotacion-modelo';
 import { aprenderSinMinimal, esfuerzoParaGemini, rechazaElEsfuerzo } from '@/lib/gemini-esfuerzo';
+import { CATALOGO_MODELOS } from '@/lib/model-catalogo';
 
 export type ProvName = 'groq' | 'openai' | 'gemini' | 'cerebras' | 'mistral' | 'openrouter';
 /** `clave` = de QUÉ credencial salió esta key. Con varias cuentas del mismo
@@ -481,6 +482,15 @@ const TECHO_ENTRADA: Partial<Record<ProvName, number>> = {
  *  que usa la cascada para saltear proveedores (Crear con IA, 09/10/2026: `salidaParaIA`). */
 export const tokensAprox = (texto: string): number => Math.ceil(texto.length / 3.5);
 
+/** Claude no tiene modo JSON: se queda con el objeto (o la lista) de la respuesta si parsea; si no, ''. */
+function soloElJson(t: string): string {
+  const ini = t.search(/[[{]/);
+  const fin = Math.max(t.lastIndexOf('}'), t.lastIndexOf(']'));
+  if (ini < 0 || fin <= ini) return '';
+  const s = t.slice(ini, fin + 1);
+  try { JSON.parse(s); return s; } catch { return ''; }
+}
+
 /** El techo de entrada de un proveedor (prompt + salida), el mismo con el que la cascada lo saltea. */
 export function techoDeEntrada(p: ProvName): number | undefined {
   return TECHO_ENTRADA[p];
@@ -519,7 +529,9 @@ export function techoDeEntrada(p: ProvName): number | undefined {
  * a las suyas: el 429 crónico de una key de la agencia ya fabricó un «te quedaste
  * sin cuota» con la del cliente contestando HTTP 200 (01/10/2026).
  */
-export async function chatCheapCascade(opts: { system: string; user: string; json?: boolean; maxTokens?: number; temperature?: number; feature?: string; motivo?: string; provs?: ProvName[]; timeoutMs?: number; modelos?: Partial<Record<ProvName, string>>; validar?: (t: string) => boolean; erroresOut?: string[]; esfuerzo?: EsfuerzoBarato; hastaMs?: number; sinRespaldoDeModelo?: boolean; redDePlataforma?: boolean; erroresPlataformaOut?: string[] }): Promise<string> {
+export async function chatCheapCascade(opts: { system: string; user: string; json?: boolean; maxTokens?: number; temperature?: number; feature?: string; motivo?: string; provs?: ProvName[]; timeoutMs?: number; modelos?: Partial<Record<ProvName, string>>; validar?: (t: string) => boolean; erroresOut?: string[]; esfuerzo?: EsfuerzoBarato; hastaMs?: number; sinRespaldoDeModelo?: boolean; redDePlataforma?: boolean; erroresPlataformaOut?: string[];
+  /** ¿El pedido lleva datos de los clientes del negocio? Por default lo dice la marca `pii` del catálogo. */
+  pii?: boolean }): Promise<string> {
   const quedan = (): number => (opts.hastaMs ?? Number.POSITIVE_INFINITY) - Date.now();
   // El timeout de UN intento: el de siempre, o lo que queda del plazo si es menos.
   const plazoDeIntento = (): number => Math.min(opts.timeoutMs ?? 30_000, quedan());
@@ -549,6 +561,26 @@ export async function chatCheapCascade(opts: { system: string; user: string; jso
   // plataforma para empezar por OTRO proveedor: si Google está saturado, su segunda
   // cuenta le pega al mismo Google.
   const probados = new Set<ProvName>();
+  // ── PRIMERO, LA CLAVE DE ANTHROPIC DEL NEGOCIO ─────────────────────────────────────
+  // Si el negocio cargó SU clave de Anthropic (el crédito de Claude Max, decisión de Martín
+  // del 15/10/2026), sus funciones de texto la usan antes que la cascada gratis. Quién puede
+  // y quién no lo decide el veto (lib/veto-claude.ts, «la segunda puerta»): nunca una clave
+  // de la plataforma, nunca una función del Plan. Si Claude no contesta, o lo que contesta no
+  // pasa `validar` o no es JSON cuando se pidió, se sigue con la cascada de siempre.
+  if (quedan() >= MIN_INTENTO_MS) {
+    const { conClaveDelNegocio } = await import('./anthropic');
+    const r = await conClaveDelNegocio({
+      system: opts.system, user: opts.user, json: opts.json, maxTokens: opts.maxTokens,
+      feature: opts.feature, motivo: opts.motivo, timeoutMs: plazoDeIntento(),
+    }).catch(() => null);
+    if (r && 'texto' in r) {
+      const t = opts.json ? soloElJson(r.texto) : r.texto;
+      if (t && (!opts.validar || opts.validar(t))) return t;
+      opts.erroresOut?.push('anthropic/ANTHROPIC_API_KEY: la respuesta no tenía la forma pedida');
+    } else if (r && 'error' in r) {
+      opts.erroresOut?.push(`anthropic/ANTHROPIC_API_KEY: ${r.error}`);
+    }
+  }
   for (const prov of orden as ProvName[]) {
     // DOS ejes de rotación, y este es el de adentro: todas las CUENTAS cargadas de
     // este proveedor antes de pasar al siguiente. El free tier se agota por cuenta,
@@ -659,6 +691,42 @@ export async function chatCheapCascade(opts: { system: string; user: string; jso
     const wsActual = await getWorkspaceActual().catch(() => null);
     // El super admin ya probó SUS keys arriba: repetirlas es gastar tiempo en lo que ya falló.
     if (wsSA != null && wsActual !== wsSA) {
+      // ── PRIMERO, EL CRÉDITO DE CLAUDE DE LA PLATAFORMA (16/10/2026) ──
+      // El crédito de API de dos planes Max de Martín («Vinculalas a MaKo»; lib/veto-claude.ts, la
+      // tercera puerta). Va ANTES de las keys gratis, y no después, por lo medido ese día:
+      //   · por día las keys gratis alcanzan, pero lo que muerde es el tope POR MINUTO, que comparten
+      //     con el uso del propio ws9 (los 194 rechazos del 13/10 fueron todos de ahí);
+      //   · el crédito VENCE cada mes sin acumularse: dejarlo de respaldo es dejarlo vencer;
+      //   · la API de Anthropic no entrena con lo que recibe, y el plan gratis de Gemini sí.
+      // Con un cliente nuevo usando de 5 a 58 llamadas en su primera semana, 10 por semana son unos
+      // pocos dólares contra 400 por mes. Si el crédito no contesta, siguen las keys gratis.
+      if (wsActual != null && quedan() >= MIN_INTENTO_MS) {
+        const { conCreditoDeLaPlataforma } = await import('./anthropic');
+        const c = await conCreditoDeLaPlataforma({
+          system: opts.system, user: opts.user, json: opts.json, maxTokens: opts.maxTokens,
+          feature: opts.feature, motivo: opts.motivo, timeoutMs: plazoDeIntento(), wsCliente: wsActual,
+        }).catch(() => null);
+        if (c && 'texto' in c) {
+          const t = opts.json ? soloElJson(c.texto) : c.texto;
+          if (t && (!opts.validar || opts.validar(t))) return t;
+          opts.erroresPlataformaOut?.push('crédito de Claude de la plataforma: la respuesta no tenía la forma pedida');
+        } else if (c && 'error' in c) {
+          // De la PLATAFORMA, nunca a la lista del cliente.
+          opts.erroresPlataformaOut?.push(c.error);
+          console.error(`[ai-cheap] crédito de Claude de la plataforma sin respuesta: ${c.error.slice(0, 300)}`);
+        }
+      }
+      // ⛔ LOS DATOS DE LOS CLIENTES DE UN CLIENTE NUNCA VAN A UN PROVEEDOR QUE ENTRENA CON LO QUE RECIBE
+      // (regla del 16/10/2026). Las keys gratis de la agencia son el plan gratis de Gemini y de Groq, y
+      // el de Gemini entrena (con revisión humana): mandar algo a entrenar no se deshace. Un pedido con
+      // datos personales (la marca `pii` del catálogo, o `opts.pii`) usa sólo lo que NO entrena —su
+      // propia key, arriba, o el crédito de Claude de la plataforma— y si nada de eso contesta, se
+      // termina acá: el cliente conecta la suya (el mensaje lo arma `errorDeCascada`).
+      const conPII = opts.pii ?? CATALOGO_MODELOS.some((f) => f.feature === opts.feature && f.pii === true);
+      if (conPII) {
+        opts.erroresPlataformaOut?.push('red gratis salteada: el pedido lleva datos de clientes y el plan gratis entrena con lo que recibe');
+        return '';
+      }
       // ⚠️ EL TECHO DE ENTRADA VALE TAMBIÉN PARA LA RED. Arriba se saltea a quien no le entra
       // el pedido; acá no se miraba, y como Groq nunca entra en `probados` cuando se lo
       // salteó por tamaño, `otroPrimero` lo ponía PRIMERO: dos 413 seguros (8.000 tokens por

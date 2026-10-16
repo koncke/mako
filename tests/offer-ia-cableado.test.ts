@@ -100,7 +100,9 @@ test('offer-ia va por la cascada GRATIS de las keys del cliente y la red de plat
   assert.match(IA, /motivo: `⚠ red de plataforma \(\$\{r\.provider\}\)/);
   assert.match(IA, /return \{ ok: false, error: await errorDeCascada\(errores, p\.tema\) \};/);
   assert.doesNotMatch(IA, /errorDeCascada\([^)]*erroresRed/);
-  assert.match(IA, /await docsIADisponible\(\)/);
+  // ⚠️ El corte «sin IA propia → "conecta una"» ANTES de la red se sacó el 16/10/2026: un cliente nuevo
+  // no trae una API y Offer es de su primera semana. Que no vuelva lo fija tests/red-primera-semana.test.ts.
+  assert.doesNotMatch(IA, /await docsIADisponible\(\)/);
   // La voz es neutra: ni brandSystem ni la persona de MaKo.
   assert.doesNotMatch(IA, /brandSystem|getActivePersona/);
 });
