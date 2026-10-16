@@ -1185,6 +1185,12 @@ código nuevo:
   puedo mandar un prompt por allí»): la caja de `Conversacion.tsx` y la del teléfono firman por `mandar.ts`. Un
   formulario aparte para mandar no vuelve. Y la caja no manda lo que la PC va a rechazar ni dice «sale ya» sobre lo que
   espera: lo decide `comoSale` (lib/centro-chats.ts), con test.
+- **En pantalla el cartero se llama RUNNER y la clave del dispositivo es «tu Token»** (15/10/2026; Martín: «No quiero
+  que se llame más "cartero", sino un nombre más formal, tecnico... profesional»). Copiado de los self-hosted runners de
+  GitHub Actions; el nombre y las instrucciones de su chat viven en `lib/runner.ts`. En el código, la base y la PC sigue
+  siendo el cartero (`cartero.mjs`, `operaciones_carteros`, `ver_carteros_operaciones`): las claves no se renombran. La
+  PC lo reconoce por el título del chat («Runner» o «Cartero», también como «Centro de Operaciones › Runner»:
+  `esElCartero`). Un texto nuevo del Centro no dice «cartero» ni «clave»: lo fija tests/centro-textos.test.ts.
 
 # Un guard sobre algo destructivo se escribe en POSITIVO
 
@@ -1481,6 +1487,31 @@ glosario, está en otro idioma.** Lo que se escribe es lo que la cosa ES para qu
 lee — «la junta del 3 de septiembre», «Código Inmobiliario»— y el identificador, si hace
 falta para trabajar, va en el detalle o en el comentario del código. Vale para títulos de
 tarjetas, toasts, avisos, mensajes de WhatsApp y cualquier texto que salga del repo.
+
+⚠️ **Y UN AVISO DICE QUÉ HACER Y PARA QUÉ, NUNCA EL ESTADO INTERNO.** Martín, 15/10/2026,
+sobre la caja del Centro de Operaciones: **«Jamás pongas mensajes no claros como "Este
+dispositivo todavía no firma.", es mucho mejor "Crea tu Token para comenzar a chatear"»**.
+La primera frase es verdad y no sirve: describe cómo está el sistema por dentro, y quien la
+lee tiene que deducir qué hacer. La segunda arranca con la acción, nombra la cosa como la ve
+él (su Token, no «la clave de firma») y dice para qué.
+
+| No | Sí |
+|---|---|
+| «Este dispositivo todavía no firma.» | «Crea tu Token para comenzar a chatear.» |
+| «La PC todavía no acepta la clave de este dispositivo.» | «Pégale tu Token al Runner para comenzar a chatear.» |
+| «Sale cuando el cartero de la cuenta 3 dé su vuelta.» | «Abre el chat Runner en la app de Claude para que salga.» |
+| «Ningún chat todavía: aparecen cuando el cartero da su vuelta.» | «Conecta un Runner para ver tus chats aquí.» |
+
+- **La prueba antes de escribir un aviso:** ¿arranca con un verbo que la persona puede hacer, y
+  dice para qué? Si arranca con el sujeto del sistema («Este dispositivo…», «La PC…», «El
+  cartero…»), está describiendo el estado.
+- **Vale también para el motivo de un fallo** que se dibuja (el de un mensaje que no salió):
+  «Venció con el chat cerrado: ábrelo y vuelve a mandarlo», no «Venció sin que su chat
+  estuviera abierto».
+- **Y lo que no tiene acción** (un estado que sólo se mira: «Activo», «trabajando…») va como
+  rótulo corto, no como frase.
+- En el Centro lo fija `tests/centro-textos.test.ts` (frases prohibidas y que la caja arranque
+  con la acción); en el resto, se revisa a mano con esta tabla.
 
 ⚠️ **Y CUANDO LA PANTALLA SÍ MUESTRA UN PORQUÉ, ES EL PORQUÉ DE LA DECISIÓN QUE
 ESTÁ AL LADO — no el del problema.** Una columna «por qué» pegada a una columna
