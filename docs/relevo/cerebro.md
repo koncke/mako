@@ -163,3 +163,17 @@ tandas 2-3; la tanda 5 del editor de video POSPUESTA por Martín). Todos esos ch
 - **Trampa (16/10 noche):** las guardas que recorren el repo (voseo en tests/puente-panel-copy.test.ts, la de
   `/onboarding`, …) leen `git ls-files`: un archivo NUEVO sin `git add` pasa en verde en local. `git add` antes de
   correrlas. Lo de esta noche (feedback del CRM, ~15 commits) está en docs/feedback-16-10-crm-onboarding-second-brain.md.
+
+## CIERRE DE LA NOCHE DEL 16/10 (~19:50 AR, cuenta 3 al 99% semanal: vuelve el 21/10)
+
+- **Hecho y subido** (el feedback del CRM de la tarde, ~20 commits, todos con su test probado rompiéndolo): «Asignar
+  campañas», renombrar un CRM, «A revisar» (basurero, «Ignorar todos», «Revisar» abre el «Ver», el engranaje con
+  «¿Ignorar siempre?»), la cabecera del lead, borrar la vista de pendientes, «Templates», «Estilo de la hoja», la
+  galería que no se abre sola, el «Ver» de la ficha como «A revisar», «Obligatorio» por bloque, «Editar» + «⋯» (AI
+  Analyst, Copiar el link, Exportar CSV), la ficha más rápida, «Asignar evento», el botón y el chat de MaKo del CRM a la
+  izquierda con el muñeco y la cara del Second Brain, y el Second Brain en modo claro.
+- **Lo que falta, con su archivo:** docs/feedback-16-10-crm-onboarding-second-brain.md y, para la nube,
+  docs/relevo/nube.md («Por dónde seguir»). Lo grande: las tabs de la ficha como hojas del Dashboard (punto 5), el
+  onboarding sin el análisis de Offer, «Skills» en el Second Brain, el PDF y la guía del «⋯», Google Calendar.
+- ⚠️ **Nadie lo miró en pantalla**: la PC no tuvo RAM para `next dev` en toda la noche. Lo primero de la próxima
+  sesión local es recorrerlo en el ws3 (receta en docs/hallazgos-crm.md).
