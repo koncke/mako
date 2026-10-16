@@ -7,12 +7,12 @@
 
 import 'server-only';
 import { getUsuarioActual } from './auth';
-import { getCapaActual } from './workspace';
+import { getCapaActual, getWorkspaceActual, wsSuperAdmin } from './workspace';
 import { tabEnCapa } from './capas';
 import { seccionesNegocio, type DisponiblesNegocio, type SeccionAjustes } from './ajustes-secciones';
 
 export async function disponiblesNegocio(): Promise<DisponiblesNegocio> {
-  const [sesion, capa] = await Promise.all([getUsuarioActual(), getCapaActual()]);
+  const [sesion, capa, ws, plataforma] = await Promise.all([getUsuarioActual(), getCapaActual(), getWorkspaceActual(), wsSuperAdmin()]);
   const superAdmin = sesion?.rol === 'admin';
   return {
     // Horario y Criterio de reuniones: la pantalla de antes los mostraba sólo si `/api/auth/me` decía
@@ -22,6 +22,8 @@ export async function disponiblesNegocio(): Promise<DisponiblesNegocio> {
     integraciones: tabEnCapa('integraciones', capa),
     // /metodo se cuida con `getSesionAdmin()`, que es esta misma pregunta.
     metodo: superAdmin,
+    // La plataforma no tiene un plan de MaKo: «Tu plan» es de cada negocio.
+    plan: ws != null && ws !== plataforma,
   };
 }
 
