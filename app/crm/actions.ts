@@ -3078,13 +3078,15 @@ export async function embudoEnDetalleAction(funnelId?: number): Promise<{ ok: tr
       ok: true,
       embudo: {
         id: funnelId ?? null,
-        // ⚠️ EL NOMBRE ES EL DEL PRODUCTO, que es lo que el tipo de acá arriba declara y
-        // lo que el desplegable ya mostraba. Devolver `cfg.nombre` pelado ponía «Funnel
-        // principal» en el título del pop-up mientras el selector decía «Negocio que
-        // Escala» — y como el título es un input, renombrar arrancaba desde el valor
-        // equivocado. Se pide sólo por ESTE id: el mapa entero es para el desplegable.
-        nombre: (cfg.id != null ? (await productosPorFunnel([cfg.id])).get(cfg.id) : null)?.trim()
-          || cfg.nombre || 'Tu funnel',
+        // ⚠️ EL NOMBRE ES EL QUE DIBUJA EL DESPLEGABLE (`nombreVisible`), con la misma regla. Hasta el 16/10/2026
+        // acá mandaba siempre el PRODUCTO —la regla de antes del 13/10, cuando el CRM no tenía nombre propio— y
+        // renombrar escribe `funnels.nombre`: el desplegable mostraba el nombre nuevo y el título del pop-up el
+        // viejo (Martín: «en el modal ya me aparece bien el nombre y luego en la edición del CRM me aparece el
+        // viejo nombre»). «Funnel principal» sigue cayendo al producto, como en el desplegable.
+        nombre: nombreVisible({
+          nombre: cfg.nombre ?? '',
+          producto: cfg.id != null ? (await productosPorFunnel([cfg.id])).get(cfg.id) ?? null : null,
+        }) || 'Tu funnel',
         esDefault: cfg.esDefault,
         etapas: propias,
         fijas,

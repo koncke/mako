@@ -1784,6 +1784,17 @@ export function CrmBoard({
   // la columna de entrada. Si en el medio se trajeron leads, al cerrar se refresca: si no,
   // el tablero sigue sin los que acaban de llegar.
   const [campanasAbierto, setCampanasAbierto] = useState(false);
+  // El nombre que se acaba de escribir en el pop-up de etapas, por embudo, hasta que llegue la lista nueva del
+  // server: el desplegable lo dibuja al instante (16/10/2026). Cuando `funnels` cambia, manda el server.
+  const [nombresLocales, setNombresLocales] = useState<Record<number, string>>({});
+  // ⚠️ POR CONTENIDO, NO POR IDENTIDAD: `funnels` cae a `[]` nuevo en cada render cuando no viene, y comparar el
+  // array haría un setState por render (un bucle).
+  const claveFunnels = funnels.map((f) => `${f.id}:${f.nombre}`).join('|');
+  const [funnelsVistos, setFunnelsVistos] = useState(claveFunnels);
+  if (funnelsVistos !== claveFunnels) { setFunnelsVistos(claveFunnels); setNombresLocales({}); }
+  const funnelsConNombre = Object.keys(nombresLocales).length
+    ? funnels.map((f) => (nombresLocales[f.id] ? { ...f, nombre: nombresLocales[f.id] } : f))
+    : funnels;
   const cambiaronCampanas = useRef(false);
   // El alta lleva A DÓNDE va: `etapa: null` = el botón del header (cae donde el alta lo
   // ponga), una clave = el placeholder de esa columna (pedido 7).
@@ -2854,7 +2865,7 @@ export function CrmBoard({
           diferencia es la caja, no el ancho. Va ANTES de los avisos. El esqueleto (app/crm/loading.tsx)
           dibuja la misma caja. */}
       <div className="crm-tb" style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'nowrap', minWidth: 0, marginBottom: 16, padding: '12px 14px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, boxShadow: '0 1px 2px rgba(18,21,27,.04)' }}>
-        {vista !== 'pendientes' && <SelectorFunnel funnels={funnels} activo={funnelActivo} onEditarEtapas={(id, nombre) => setEtapasDe({ id, nombre })} />}
+        {vista !== 'pendientes' && <SelectorFunnel funnels={funnelsConNombre} activo={funnelActivo} onEditarEtapas={(id, nombre) => setEtapasDe({ id, nombre })} />}
         <VistaSelector vista={vista} onVista={cambiarVista} pendientes={marcarPending} />
         {/* Buscar, filtrar y el conteo describen la LISTA de leads. En "Pendientes" no
             hay lista de leads sino un worklist con su propia lógica: dejarlos ahí era
@@ -3219,6 +3230,10 @@ export function CrmBoard({
       {etapasDe && (
         <EtapasModal funnelId={etapasDe.id} nombre={etapasDe.nombre} abrirEntradas={etapasDe.entradas}
           semilla={etapasDe.id === funnelActivo ? semillaEtapas : null}
+          onRenombrado={(nuevo) => {
+            const id = etapasDe.id ?? funnels.find((f) => f.esDefault)?.id;
+            if (id != null) setNombresLocales((m) => ({ ...m, [id]: nuevo }));
+          }}
           onCerrar={() => setEtapasDe(null)} />
       )}
 
