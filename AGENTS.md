@@ -2106,6 +2106,17 @@ el historial, no la columna.
 
 # Crear tareas dispara al Perro, y el Perro re-curva TODOS los proyectos
 
+⚠️ **Desde el 16/10/2026 cargar tareas de una reunión NO dispara al Perro ni a ninguna IA**: «Cargar»
+un borrador (`aplicarPropuestas`) y el alta desde el modal de una reunión (`crearDesdeReunion`) crean
+LIBRES (score 0, «Por iniciar») y deciden el proyecto sin modelo (`destinoSinIA`, lib/plan-bandeja.ts;
+lo que nada reclama va a la bandeja «Sin proyecto»). La IA de esa carga corre donde nadie espera: el
+cruce anti-duplicados en el cron y en la lectura en segundo plano (lib/reunion-cruce.ts), y la
+prioridad en «Re-priorizar todo». **Código nuevo que cargue tareas en un pedido no llama a un modelo
+ni espera uno**; y un resultado de IA hecho en segundo plano se SELLA sólo si corrió (`cruzado_at`):
+«no se pudo» no es «no había nada». Lo de abajo sigue valiendo para los caminos que todavía lo
+llaman (el doer de WhatsApp, `priorizar-nuevas`, crear un proyecto a mano) — docs/hallazgos-plan.md
+→ «Fathom sin fricción».
+
 `aplicarPropuesta` corre la priorización sobre el tablero entero, no sólo sobre lo que
 acabás de crear: al volver, los scores que habías fijado a mano ya no están. Medido el
 25/09/2026 — se ordenaron los 70 proyectos por las tres fases, se crearon nueve tareas, y

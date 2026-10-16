@@ -24,6 +24,7 @@ La regla que produce este documento está en [AGENTS.md](../AGENTS.md) → «La 
 - **Un campo nuevo de la extracción muere en TRES `map` escritos a mano, y ninguno da error**: entre «el modelo contestó» y «la tarea nació» hay cuatro saltos y dos altas distintas → [De la reunión a la tarea](#-un-campo-nuevo-de-la-extracción-muere-en-tres-map-escritos-a-mano-y-ninguno-da-error).
 - **El juez del criterio de compromisos de Mauricio tiene CERO call sites**: módulo entero, con prompt, saneo y 16 tests, que no corre sobre ninguna reunión → [De la reunión a la tarea](#-el-juez-del-criterio-de-mauricio-tiene-cero-call-sites).
 - **El texto del SEED de `PlanBoard.tsx` describe el pasado, no el presente**: un agente que lo grepea lee «el board vive en localStorage con el Repo en no-op» y lo reporta como estado actual, tres meses después de que dejó de ser cierto → [El board](#el-board-plan).
+- **Que una reunión «desapareciera» no quiere decir que la descartó el clasificador**: del 08 al 15/10 el ws1 perdió diez y el clasificador no descartó ninguna — falló la LECTURA y salió de la ventana de 26 h. Lo que el cron no lee (por tipo o por falla) queda en `plan_reuniones_descartadas` → [Fathom sin fricción](#fathom-sin-fricción-cargar-sin-ia-el-cruce-en-el-cron-y-lo-que-no-se-leyó-16102026).
 
 ---
 
@@ -2445,8 +2446,8 @@ en la FILA: `tests/plan-kanban-server.test.ts` (funciones reales contra un Postg
 
 **Quedó sin hacer:** ~~la pantalla, la sección «BANDAS» de AGENTS.md y la re-puntuación oculta del
 navegador~~ — hechas en la tanda 2 (ver [La pantalla del kanban por estado](#la-pantalla-del-kanban-por-estado-16102026));
-el doer legado (`tareas_plan`, lib/mako-doer-acciones.ts) y `aplicarPropuestas`
-siguen llamando al Perro al crear (lo de Fathom es otra tanda); y, después del deploy, las dos
+el doer legado (`tareas_plan`, lib/mako-doer-acciones.ts) sigue llamando al Perro al crear
+(~~y `aplicarPropuestas`~~: ya no, desde la tanda 3 — ver [Fathom sin fricción](#fathom-sin-fricción-cargar-sin-ia-el-cruce-en-el-cron-y-lo-que-no-se-leyó-16102026)); y, después del deploy, las dos
 sentencias de reconciliación que están en la cabecera de la 0294 (tareas del dueño completadas o
 reabiertas entre la migración y el deploy).
 
@@ -2492,7 +2493,8 @@ leyendo el código:
   tiene su opción, o esas tareas no se podrían aislar nunca.
 - **`rePriorizar` no era sólo un disparo al cambiar la firma**: había un segundo, al entrar, si «lo
   que cargó MaKo» traía una tarea sin razón. Se fueron los dos (y el `skipRePrio` que los
-  sorteaba). `crearDesdeReunion` todavía llama al Perro: es de la tanda de Fathom.
+  sorteaba). ~~`crearDesdeReunion` todavía llama al Perro~~: ya no, desde la tanda 3 ([Fathom sin
+  fricción](#fathom-sin-fricción-cargar-sin-ia-el-cruce-en-el-cron-y-lo-que-no-se-leyó-16102026)).
 
 **La regla:** la columna la escribe `board.mover` (estado + `orden`, nunca el guardado de la fila);
 el orden dentro de una columna es el manual (`enOrdenManual`) y el lugar al soltar sale de las
@@ -2513,6 +2515,91 @@ el navegador (sin `next dev` en esta máquina): escritorio y teléfono están pr
 `CampoMotivo`, `BloqueColumna`, `PrioChip`, `FilterMenu`) · app/plan/board/useBoard.ts (`mover`,
 `conAvance`) · app/plan/board/arrastre-tactil.ts · app/m/plan/tableros.ts · app/m/plan/ListaPlan.tsx
 · lib/plan-mover.ts · app/plan/board/prioridades.ts · *2026-10-16*
+
+## Fathom sin fricción: cargar sin IA, el cruce en el cron y lo que no se leyó (16/10/2026)
+
+La tanda 3 de «hacer el kanban un kanban». Martín, textual: «optimiza la velocidad de importación de
+tareas de Fathom… Que hoy en día tardan un montón porque "cruzan" con las otras tareas... Quiero que
+elimines eso y toda la fricción. Quiero hacerlo "libre", que se creen sin prioridad». Y Mauricio
+(12/10): que se lea solo, que no se cargue solo, y «que extraiga más rápido».
+
+**Lo medido antes:** «Cargar» un borrador de cuatro tareas (tres nuevas, una repetida) hacía, EN EL
+PEDIDO y con la pantalla esperando, 3 llamadas de IA en el tablero del cliente y 4 en el del dueño
+(3 y 5 intentos de red): el ruteo del Perro, el Perro por tandas de 10 (que escala con el lote y
+re-curvaba el tablero entero: el 15/10 un alta «re-curvó 22 de 175 tareas y re-priorizó 62 de 70
+proyectos») y las checklists. El modal, además, cruzaba en el navegador al abrirse (20-40 s con
+«Agregar» apagado), y «Extraer» una reunión a mano era sincrónico (1 a 5 minutos). **Ahora: 0
+llamadas al cargar**, medido con el mismo borrador (`tests/fathom-sin-friccion.test.ts`).
+
+**El diagnóstico obvio era el equivocado.** La decisión decía «9 de 10 reuniones del ws1 entre el 08 y
+el 15/10 desaparecieron sin rastro» y apuntaba al clasificador. Medido en producción: 11 reuniones (5
+de entrega, 6 de equipo), **CERO descartadas por tipo**, y 10 sin borrador porque la LECTURA falló (la
+IA del negocio no contesta desde el 08/10, ver la entrada del 15/10 más abajo) y salieron de la ventana
+de 26 h. Por eso la tabla nueva (mig 0296) guarda también `tipo = 'fallo'`, y la lista del modal se
+llama «Sin leer» y no «Descartadas»: «descartada» le diría al dueño que MaKo decidió no leerla, cuando
+no pudo. Las diez del ws1 se anotaron a mano el 16/10 (10 filas `fallo` en la 0296) para que aparezcan
+con «Reintentar».
+
+**Las reglas que quedan:**
+
+- **Cargar un borrador no llama a ningún modelo.** El anti-duplicado es `mismaTarea` (y el id del
+  cruce, si el borrador ya lo trae); el proyecto sale de `destinoSinIA` (lib/plan-bandeja.ts): lo que
+  nombra la tarea → un proyecto que existe → uno del catálogo → el del cliente de la reunión → la
+  bandeja «Sin proyecto». **Un nombre que inventó la extracción NO abre un proyecto**, ni siquiera sin
+  el Perro: queda escrito en el historial de la tarjeta para quien la reparta.
+- **La bandeja es un proyecto, pero nunca un DESTINO.** Los dos ruteos del Perro la sacan de la lista
+  (`esProyectoBandeja`): una tarea no «va» a «Sin proyecto», cae ahí cuando nada la reclama. La vacía
+  «Re-priorizar todo».
+- **El cruce corre donde nadie mira**: en el cron después de `crearPropuesta`, al final de la lectura
+  en segundo plano (archivo o reunión) y en un barrido de los pendientes sin sello. **Se sella aunque
+  no encuentre nada, y NO se sella si el modelo falló o no entró en el reloj**: «todavía no se cruzó»
+  y «se cruzó y no había nada» son distintos, y el segundo no se vuelve a pagar nunca. El modal no lo
+  espera: carga igual.
+- **Una reunión ahora la leen TRES caminos** (el cron, el webhook de Fathom y el botón del modal), así
+  que hay un candado por reunión (`mako.reunion.leyendo.<id>`, compare-and-set, vence a los 330 s). Y
+  **una fila «procesando» la llena el primero que trae tareas**: sin eso, si el cron ganaba la carrera
+  a la lectura del modal, `crearPropuesta` devolvía el id de la fila vacía y la lectura del cron se
+  tiraba — un borrador vacío para siempre.
+- **Ninguna reunión desaparece sin rastro.** Lo que el cron no lee queda en
+  `plan_reuniones_descartadas` con el motivo en palabras: el correo que decidió el tipo
+  (`motivoDelTipo`, recorre lo mismo que `clasificarReunion`) o el error de la lectura.
+
+**Trampas del entorno:**
+
+- **PostgREST con `resolution=ignore-duplicates` NO devuelve la fila ignorada** (es un ON CONFLICT DO
+  NOTHING). `cambiarSettingSi(…, null, …)` cuenta con eso para saber quién ganó un candado; un mock que
+  la devuelve le dice «ganaste» a los dos.
+- **Medir «cero IA» con un `fetch` de mentira sólo vale en el ws 1.** `credWs` cae al env sólo para
+  `OWNER_WS`: en otro workspace la cascada no encuentra clave y se rinde ANTES del `fetch`, y el código
+  viejo también da 0 (medido: con los ws 3 y 9, `ia: []` con cinco llamadas en el log). Y el primer
+  paso de la red de la plataforma es `GET openrouter.ai/api/v1/credits`: contarlo es contar el intento.
+- **Una ruta de Next se corre entera en un test** cambiando `next/server` (`after`) y `@/lib/auth` en
+  `Module._load` ANTES de cargarla (tests/_fathom-carga-hijo.ts): `after()` guarda la función en vez de
+  correrla, y se ve qué contestó la ruta antes de que la lectura empiece.
+- **`/api/v1` tiene `maxDuration = 60`**: una lectura de reunión (1-5 min) no entra en un `after()` de
+  la API de MaKo. Por eso «Leer igual» no es una operación de la API; ver la lista sí lo es
+  (`listar_reuniones_fathom` → `sin_leer`).
+- **El webhook de Fathom SÍ está registrado** (`webhook_routing` de los ws 1, 9 y 11), así que no se
+  tocó la frecuencia del cron: el webhook dispara la misma lectura del cron para esa grabación
+  (`soloRecording`). El ws 4 tiene la clave y el secreto pero no su fila de ruteo: su webhook se
+  ignora («sin workspace»).
+
+**Quedó sin hacer:** «Re-priorizar todo» (decisión 9, la tanda 4), que es lo que vacía la bandeja y
+le pone prioridad a lo que entró libre; hasta entonces, lo de una reunión queda «Sin priorizar» en
+«Sin proyecto» si nada lo reclamó. Siguen llamando al Perro al crear: el doer de WhatsApp
+(`tareas_plan`, lib/mako-doer-acciones.ts), las acciones `priorizar-nuevas` de app/api/todo/route.ts y
+app/api/plan-board/route.ts, y crear un proyecto a mano (BoardShell, `createLabel`). El cron gasta su
+reloj en el cruce de cada reunión antes de mirar la siguiente (hasta ~60 s por reunión). Nadie avisa
+cuando una reunión pasa a «Sin leer»: se ve sólo abriendo el modal de Fathom. Y no se miró en el
+navegador (sin `next dev` en esta máquina).
+
+**Vive en:** lib/plan-propuesta.ts (`aplicarPropuestas`, `crearPropuesta`) · lib/plan-bandeja.ts ·
+lib/todo-rutear.ts (`rutearSinIA`) · lib/plan-board.ts (`agregarTareasPlanOwner`, `opts.sinIA`) ·
+lib/reunion-cruce.ts + lib/cruce-borrador.ts · lib/reunion-auto.ts · lib/leer-reunion-en-segundo-plano.ts
+· lib/reunion-leyendo.ts · lib/reunion-descartadas.ts + supabase/migrations/0296 ·
+app/api/plan-fathom/route.ts · app/api/webhooks/fathom/route.ts · app/api/cron/fathom-plan/route.ts ·
+app/plan/board/TareasRecibidasModal.tsx · app/plan/board/ReunionExtractModal.tsx ·
+tests/fathom-sin-friccion.test.ts · *2026-10-16*
 
 ## Tablero único: el cliente va en el BORRADOR, y el tipo de responsable se calcula al aplicar
 
@@ -6612,7 +6699,12 @@ marcarla la quemaba para siempre. Lo que no tiene es un FINAL para el fallo que 
 la ventana, o falla N veces seguidas por la misma causa), lo que se perdió queda ESCRITO donde el dueño lo lea,
 con la reunión nombrada. Un reintento sin final es una pérdida silenciosa con un paso más.
 
-**Sin hacer:** el aviso de «esta reunión no se pudo leer» al salir de la ventana; no reintentar mientras las
+**Actualización (16/10/2026):** el final ya existe en parte. Lo que el cron no pudo leer queda ESCRITO
+(`plan_reuniones_descartadas`, mig 0296, `tipo = 'fallo'`) y se ve en el modal de Fathom, en «Sin leer»,
+con «Reintentar»; las diez del ws1 del 08 al 15/10 se anotaron a mano ese día. Ver [Fathom sin
+fricción](#fathom-sin-fricción-cargar-sin-ia-el-cruce-en-el-cron-y-lo-que-no-se-leyó-16102026).
+
+**Sin hacer:** el AVISO de «esta reunión no se pudo leer» (hoy se ve sólo abriendo el modal); no reintentar mientras las
 keys del negocio estén todas caídas (lo toma Automations con el freno de claves caídas,
 docs/diseno-ia-claves-caidas.md); y recuperar las reuniones del ws1 del 08 al 15/10, que ya salieron de la
 ventana (se pueden extraer a mano desde /plan cuando haya una key que conteste).
