@@ -25,7 +25,7 @@ import { esElemento, type Hoja, type VistaValores } from './graficos-catalogo';
 import { paraModelo, primeraCorrida, serializarHoja, type Origen } from './graficos-analisis';
 import { contextoDeClic, type ContextoEntidad } from './graficos-acciones';
 import {
-  CLAVE_PROMPT_CAJA, ELEMENTO_IA_SYSTEM_TEMPLATE, FEATURE_CONCLUSIONES, LARGOS, buscarCaja, cajaLlevaDatosDeClientes, cronDeCaja, entidadParaModelo,
+  CLAVE_PROMPT_CAJA, ELEMENTO_IA_SYSTEM_TEMPLATE, FEATURE_CONCLUSIONES, LARGOS, avisoSinIA, buscarCaja, cajaLlevaDatosDeClientes, cronDeCaja, entidadParaModelo,
   entradaDeAnuncio, entradaDeLlamada, graficosDeCaja, sanearSalidaCaja, sanearSalidaEntidad, userDeCaja, vistaDeFilaCaja,
   type EntradaEntidad, type FilaCaja, type LineaParaIA, type VistaCaja,
 } from './graficos-ia-elemento';
@@ -267,20 +267,21 @@ export async function analizarCaja(p: PedidoCaja): Promise<{ ok: boolean; error?
         sanear = (raw) => sanearSalidaCaja(raw, e, c);
       }
 
+      // La marca `pii` del catálogo es de la feature entera: la afina lo que lee ESTA caja.
+      const pii = cajaLlevaDatosDeClientes(p.contexto ? p.contexto.tipo : 'graficos');
       await marcarFase(TC, p.filaId, p.corridaId, 'escribiendo');
       const r = await pedirIAGratis({
         system: await getPromptText(CLAVE_PROMPT_CAJA, ELEMENTO_IA_SYSTEM_TEMPLATE),
         user, maxTokens: LARGOS[c.largo].maxTokens,
         feature: FEATURE_CONCLUSIONES, motivo: `Conclusiones de MaKo · ${titulo}${p.origen === 'cron' ? ' · programado' : ''}`,
         hastaMs: p.hastaMs,
-        // La marca `pii` del catálogo es de la feature entera: la afina lo que lee ESTA caja.
-        pii: cajaLlevaDatosDeClientes(p.contexto ? p.contexto.tipo : 'graficos'),
+        pii,
         validar: (t) => !!sanear(parseJsonObject(t)),
       });
       if (!r.crudo.trim()) {
         return await fallar(r.rechazos.length
           ? `Lo que escribió MaKo ${r.rechazos[r.rechazos.length - 1]}. Prueba de nuevo.`
-          : await errorDeCascada(r.errores, 'escribir las conclusiones'));
+          : avisoSinIA(pii, r.errores) ?? await errorDeCascada(r.errores, 'escribir las conclusiones'));
       }
       const salida = sanear(parseJsonObject(r.crudo));
       if (!salida) return await fallar('Lo que escribió MaKo no se apoyaba en los datos. Prueba de nuevo.');

@@ -10,18 +10,25 @@
 // Y caja por caja (lib/graficos-ia-elemento.ts, `cajaLlevaDatosDeClientes`): la marca de la feature entera dejaba
 // sin IA a las cajas que sólo leen números. Van sin la marca, en POSITIVO, las que leen gráficos y un anuncio.
 //
-// PROBADO ROMPIÉNDOLO, cada rotura restaurada de memoria (base 8/0):
-//   · el corte por datos de clientes que no corta (sin el `return null`)            -> 7 / 1
-//   · el corte sin mirar la marca del catálogo (`pii ?? false`)                      -> 7 / 1
-//   · sin el crédito de Claude primero                                               -> 7 / 1
-//   · «dashboard-conclusiones» sin la marca `pii` en el catálogo                      -> 7 / 1
-//   · la llamada en la lista de las cajas sin marca                                  -> 7 / 1
-//   · la marca en negativo (sólo la llamada: un lead quedaba sin ella)               -> 7 / 1
-//   · la caja de gráficos manda la entrada sin pasar por `paraModelo`                -> 7 / 1
-//   · un campo nuevo en el anuncio (sin revisar)                                     -> 7 / 1
-//   · la caja no le pasa su marca a `pedirIAGratis`                                  -> 7 / 1
-//   · la caja pasa siempre `pii: false`                                              -> 7 / 1
-//   · `pedirIAGratis` no se la pasa a la red                                         -> 7 / 1
+// Y sin crédito (Martín, 16/10: es sólo para el onboarding) ni key del negocio, la caja con datos de clientes pide
+// su Claude (`avisoSinIA`), y `pedirIAGratis` no pregunta antes si hay IA: la clave de Claude del negocio no cuenta.
+//
+// PROBADO ROMPIÉNDOLO, cada rotura restaurada de memoria (base 10/0):
+//   · el corte por datos de clientes que no corta (sin el `return null`)            -> 9 / 1
+//   · el corte sin mirar la marca del catálogo (`pii ?? false`)                      -> 9 / 1
+//   · sin el crédito de Claude primero                                               -> 9 / 1
+//   · «dashboard-conclusiones» sin la marca `pii` en el catálogo                      -> 9 / 1
+//   · la llamada en la lista de las cajas sin marca                                  -> 9 / 1
+//   · la marca en negativo (sólo la llamada: un lead quedaba sin ella)               -> 9 / 1
+//   · la caja de gráficos manda la entrada sin pasar por `paraModelo`                -> 9 / 1
+//   · un campo nuevo en el anuncio (sin revisar)                                     -> 9 / 1
+//   · la caja no le pasa su marca a `pedirIAGratis`                                  -> 9 / 1
+//   · la caja pasa siempre `pii: false`                                              -> 9 / 1
+//   · `pedirIAGratis` no se la pasa a la red                                         -> 9 / 1
+//   · con datos de clientes, el aviso de siempre («con Gemini alcanza»)              -> 9 / 1
+//   · el aviso de su Claude aunque una key suya falló                                -> 9 / 1
+//   · el aviso que manda a conectar Gemini                                           -> 9 / 1
+//   · vuelve el `docsIADisponible()` antes de la cascada                             -> 9 / 1
 //
 // Correr: npx tsx --test tests/graficos-ia-red.test.ts
 
@@ -30,7 +37,9 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { CATALOGO_MODELOS } from '../lib/model-catalogo';
-import { CAJAS_SIN_DATOS_DE_CLIENTES, cajaLlevaDatosDeClientes, entradaDeAnuncio } from '../lib/graficos-ia-elemento';
+import {
+  CAJAS_SIN_DATOS_DE_CLIENTES, SIN_IA_PARA_DATOS_DE_CLIENTES, avisoSinIA, cajaLlevaDatosDeClientes, entradaDeAnuncio,
+} from '../lib/graficos-ia-elemento';
 import type { ScriptView } from '../lib/ads-analyst';
 
 const RAIZ = join(__dirname, '..');
@@ -104,9 +113,32 @@ test('por qué un anuncio va sin la marca: sus campos son números de Meta y lo 
 
 test('la marca de cada caja llega hasta la red de plataforma', () => {
   const server = leer('lib', 'graficos-ia-elemento-server.ts');
+  assert.match(server, /const pii = cajaLlevaDatosDeClientes\(p\.contexto \? p\.contexto\.tipo : 'graficos'\);/, 'la caja dice si lleva datos de clientes');
   const pedido = tramo(server, 'const r = await pedirIAGratis({', '});');
-  assert.match(pedido, /pii: cajaLlevaDatosDeClientes\(p\.contexto \? p\.contexto\.tipo : 'graficos'\),/, 'la caja dice si lleva datos de clientes');
+  assert.match(pedido, /\n\s*pii,\n/, 'y se la pasa a pedirIAGratis');
   const analisis = leer('lib', 'graficos-analisis-server.ts');
   const red = tramo(analisis.slice(analisis.indexOf('export async function pedirIAGratis(')), 'await porLaRedDePlataforma({', '});');
   assert.match(red, /pii: p\.pii,/, 'pedirIAGratis le pasa la marca a la red');
+});
+
+// ── Sin crédito y sin ninguna key del negocio ─────────────────────────────────────────────────
+// Martín, 16/10/2026: el crédito de Claude de la plataforma es SÓLO para el onboarding. Una caja con datos de
+// clientes queda entonces con las keys del negocio y nada más: sin ninguna, sin IA y con un aviso que se pueda
+// hacer. El de siempre decía «conecta una IA gratis, con Gemini alcanza», que es una que entrena.
+
+test('una caja con datos de clientes y sin ninguna key del negocio pide su Claude, no una IA gratis', () => {
+  assert.equal(avisoSinIA(true, []), SIN_IA_PARA_DATOS_DE_CLIENTES);
+  assert.match(SIN_IA_PARA_DATOS_DE_CLIENTES, /Conecta tu Claude/);
+  assert.doesNotMatch(SIN_IA_PARA_DATOS_DE_CLIENTES, /Gemini/);
+  assert.equal(avisoSinIA(true, ['gemini/GEMINI_API_KEY: 429']), null, 'si una key suya falló, su error es el que sirve');
+  assert.equal(avisoSinIA(false, []), null, 'sin datos de clientes, el aviso de siempre');
+  const server = leer('lib', 'graficos-ia-elemento-server.ts');
+  assert.match(server, /: avisoSinIA\(pii, r\.errores\) \?\? await errorDeCascada\(r\.errores, 'escribir las conclusiones'\)\);/);
+});
+
+test('la IA del Dashboard no pregunta antes si el negocio tiene IA: su clave de Claude es el primer intento', () => {
+  const analisis = leer('lib', 'graficos-analisis-server.ts');
+  const pedir = tramo(analisis, 'export async function pedirIAGratis(', '\n}\n');
+  assert.doesNotMatch(pedir, /docsIADisponible\(/, '`docsIADisponible` no cuenta la clave de Claude del negocio');
+  assert.match(pedir, /let crudo = await chatCheapCascade\(opciones\);/);
 });
