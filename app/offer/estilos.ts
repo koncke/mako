@@ -36,6 +36,8 @@ export const CSS_OFFER = `
 .of-pill:disabled { opacity: .5; cursor: not-allowed; }
 .of-pill--mako { border-color: var(--mako-border); background: var(--mako-bg); color: var(--mako-ink); }
 .of-pill--mako:hover:not(:disabled) { border-color: var(--mako); background: var(--mako-bg); color: var(--mako-ink); }
+.of-pill--marcada, .of-pill--marcada:hover:not(:disabled) { border-color: var(--primary); background: var(--primary-bg); color: var(--primary-strong); box-shadow: inset 0 0 0 1px var(--primary); }
+.of-pill-ayuda { flex-basis: 100%; font-size: var(--fs-meta); color: var(--faint); }
 
 .of-doc {
   width: 100%; min-width: 220px; max-width: 340px; display: flex; align-items: center; gap: 12px;

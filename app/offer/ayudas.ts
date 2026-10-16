@@ -115,6 +115,22 @@ export function esOpcionArmar(op: string, opcionArmar: string): boolean {
 }
 
 /**
+ * Las opciones marcadas de una pregunta que se contesta con varias (`OfferMensaje.varias`), como una frase:
+ * «Un curso grabado, una mentoría y una membresía». De la segunda en adelante, sólo el ARTÍCULO del principio pasa
+ * a minúscula («Una mentoría» → «una mentoría»): «Instagram» o «Dueño Libre» pueden ser nombres propios y quedan.
+ */
+export function unirOpciones(xs: string[]): string {
+  const ts = xs.map((x) => x.trim()).filter(Boolean)
+    .map((x, i) => (i > 0 && /^(?:Un|Una|Unos|Unas|El|La|Los|Las|Mi|Mis|Otro|Otra|Otros|Otras)\s/.test(x) ? x[0].toLowerCase() + x.slice(1) : x));
+  return ts.length < 2 ? (ts[0] ?? '') : `${ts.slice(0, -1).join(', ')} y ${ts[ts.length - 1]}`;
+}
+
+/** La opción que dice que no hay ninguna («No, sólo ésta», «Ninguna»): en una de varias, se manda sola. */
+export function esOpcionNinguna(op: string): boolean {
+  return /^(?:no|ninguna?|nada|solo esta|solo este|todavia no|aun no)(?: |$)/.test(normal(op));
+}
+
+/**
  * El rótulo del botón de armar cuando ya hay una versión (12/10/2026): volver a armar es sacar el PDF
  * pulido, no «armar» de cero. ⚠️ ES EL DEFAULT DE LA PANTALLA mientras el motor no tenga su constante:
  * page.tsx le pasa a OfferApp `opcionActualizar` y, el día que lib/offer-reglas.ts la exporte, la pasa de

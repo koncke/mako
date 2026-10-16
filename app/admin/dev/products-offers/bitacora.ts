@@ -394,6 +394,20 @@ export const BITACORA: Hito[] = [
       'tests/offer-nivel-y-voz.test.ts — 15 roturas, todas caen',
     ],
   },
+  {
+    fecha: '16 oct', hora: '10:50', chat: 'Offer', sesion: 'local_34d54ef6-523c-46f8-b83f-9fd310dfd667', cuenta: 'claude3', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Las otras ofertas se marcan varias',
+    puntos: [
+      'Cuando MaKo pregunta qué otras ofertas vendes, puedes marcar varias y mandarlas juntas. «No, sólo ésta» sigue saliendo con un toque.',
+      'La oferta ya no promete «liberar 10 horas semanales» si no lo dijiste: un tiempo que el cliente gana queda para completar, como cualquier número que no diste.',
+      'Los datos para completar se marcan siempre, también cuando la IA los escribe con mayúscula, y no se guardan en tu oferta como si fueran reales.',
+    ],
+    archivos: [
+      'lib/offer-reglas.ts — el tiempo que es un resultado, la marca normalizada y las opciones que se suman',
+      'app/offer/ChatOffer.tsx — las chips que se marcan y «Enviar»',
+      'tests/offer-cifras-y-marcas.test.ts — 14 roturas, todas caen',
+    ],
+  },
 ];
 
 export const PARTES: Parte[] = [
