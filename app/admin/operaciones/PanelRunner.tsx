@@ -24,7 +24,7 @@ import { Icon } from '@/app/_components/icons';
 import { carteroVivo } from '@/lib/operaciones-reglas';
 import { nombreCuenta } from '@/lib/centro-chats';
 import { hace } from '@/lib/progreso-reglas';
-import { COMANDO_TERMINAL, INSTRUCCIONES_RUNNER } from '@/lib/runner';
+import { COMANDO_TERMINAL, CUENTAS_TERMINAL, INSTRUCCIONES_RUNNER } from '@/lib/runner';
 import type { EstadoCarteros } from '@/lib/operaciones';
 import type { ClaveDispositivo } from './clave-dispositivo';
 import { crearTokenCarteroAction } from './acciones';
@@ -107,12 +107,13 @@ function Lista({ estado, clave, ahora, onCrearClave, onCopiar, onNuevo }: Props 
               <span className={`co-punto co-punto--${vivo ? 'trabajando' : 'viejo'}`} aria-hidden />
               <span className="co-runner__nombre">
                 {nombreCuenta(k.cuenta)}
-                {!vivo && <span className="co-runner__hacer">{`Escribe «${comando}» en PowerShell para conectarlo`}</span>}
-                {vivo && sinRunner > 0 && (
-                  <span className="co-runner__hacer">{`Escribe «${comando}» en PowerShell para llegarle a su terminal`}</span>
-                )}
+                {!vivo && <span className="co-runner__hacer">Pega su comando en PowerShell para conectarlo</span>}
+                {vivo && sinRunner > 0 && <span className="co-runner__hacer">Pega su comando en PowerShell para llegarle a su terminal</span>}
               </span>
               {vivo && <span className="co-runner__etiqueta">{`${abiertos} ${abiertos === 1 ? 'chat abierto' : 'chats abiertos'}`}</span>}
+              {(!vivo || sinRunner > 0) && (
+                <button type="button" className="co-chip" onClick={() => onCopiar(comando, 'Copiado: pégalo en PowerShell')}><Icon name="copy" size={14} />Copiar comando</button>
+              )}
               <span className="co-runner__estado" title={k.vistoAt ? `Se conectó ${hace(Date.parse(k.vistoAt), ahora)}` : undefined}>
                 {vivo ? 'Activo' : k.vistoAt ? `Sin conexión · ${hace(Date.parse(k.vistoAt), ahora)}` : 'Sin conexión'}
               </span>
@@ -160,7 +161,14 @@ function Nuevo({ estado, clave, onCrearClave, onCopiar }: Props) {
     <div className="co-runner">
       <section className="co-runner__paso">
         <p className="co-runner__paso-titulo"><span>1</span>Ábrelo en la terminal</p>
-        <p>Abre PowerShell, escribe <code>{COMANDO_TERMINAL('claude2')}</code> (claude1 o claude3 para las otras cuentas, uno por cuenta) y pégale esto.</p>
+        <p>Abre PowerShell y pega el comando de la cuenta, uno por cuenta, cada uno en su ventana.</p>
+        {CUENTAS_TERMINAL.map((c) => (
+          <div key={c} className="co-runner__cuenta-cmd">
+            <span className="co-runner__nombre">{nombreCuenta(c)}</span>
+            <Codigo texto={COMANDO_TERMINAL(c)} aviso="Copiado: pégalo en PowerShell" onCopiar={onCopiar} />
+          </div>
+        ))}
+        <p>Cuando arranque, pégale esto.</p>
         <Codigo texto={INSTRUCCIONES_RUNNER} aviso="Copiado: pégalo en el chat Runner" onCopiar={onCopiar} alto={150} />
       </section>
 

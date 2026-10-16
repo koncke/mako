@@ -34,6 +34,7 @@ import {
   CUENTA_RE, POR_VUELTA, claveIdDe, estadoDeCierre, leerFirmable, sanearAcuses, sanearChats,
   sanearCierres, sanearClaves, sanearEntregables, todosLosChats, type ChatCartero, type Cierre, type EstadoPedido,
 } from './operaciones-reglas';
+import { sanearCuota, type Cuota } from './centro-uso';
 import { AVISOS_POR_VUELTA, destinoDeDecision, filaAviso, mismoInstante, necesitaAviso } from './decisiones-aviso';
 
 const T_PEDIDOS = 'operaciones_pedidos';
@@ -64,6 +65,8 @@ export type Cartero = {
   version: string | null;
   chats: ChatCartero[];
   claves: string[];
+  /** El Uso de esa cuenta (lib/centro-uso.ts): lo anota la barra de estado de su Runner. null = no midió. */
+  cuota: Cuota | null;
 };
 
 export type EstadoCarteros = {
@@ -84,7 +87,7 @@ export async function listarPedidos(limite = 100): Promise<Pedido[]> {
 export async function leerCarteros(): Promise<EstadoCarteros> {
   const db = getSupabaseServer();
   const [{ data: filas, error: e1 }, { data: tok, error: e2 }] = await Promise.all([
-    db.from(T_CARTEROS).select('cuenta, visto_at, version, chats, claves').order('cuenta'),
+    db.from(T_CARTEROS).select('cuenta, visto_at, version, chats, claves, cuota').order('cuenta'),
     db.from(T_TOKEN).select('token_pista, creado_at').eq('id', 1).maybeSingle(),
   ]);
   if (e1) throw new Error(`no pude leer los carteros: ${e1.message}`);
@@ -96,6 +99,7 @@ export async function leerCarteros(): Promise<EstadoCarteros> {
       version: (f.version as string | null) ?? null,
       chats: sanearChats(f.chats),
       claves: sanearClaves(f.claves),
+      cuota: sanearCuota(f.cuota),
     })),
     tokenPista: tok?.token_pista ?? null,
     tokenCreadoAt: tok?.creado_at ?? null,
@@ -250,10 +254,12 @@ export async function cicloCartero(token: string, entrada: unknown): Promise<Sal
   const chats = sanearChats(e.chats).map((c) => ({ ...c, cuenta }));
   const claves = sanearClaves(e.claves);
   const version = typeof e.version === 'string' ? e.version.slice(0, 40) : null;
+  // El Uso de la cuenta (cartero 1.4.0, la barra de estado de su Runner). Sin medición no se pisa la anterior.
+  const cuota = sanearCuota(e.uso);
   const ahoraIso = new Date().toISOString();
 
   const { error: eUp } = await db.from(T_CARTEROS)
-    .upsert({ cuenta, visto_at: ahoraIso, version, chats, claves, updated_at: ahoraIso }, { onConflict: 'cuenta' });
+    .upsert({ cuenta, visto_at: ahoraIso, version, chats, claves, updated_at: ahoraIso, ...(cuota ? { cuota } : {}) }, { onConflict: 'cuenta' });
   if (eUp) throw new Error(eUp.message);
 
   // Los acuses de la vuelta anterior: sólo sobre un pedido TOMADO, o sobre un aviso de la

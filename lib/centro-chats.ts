@@ -26,6 +26,7 @@ import { CARTERO_VIVO_MS, DESTINO_RE, carteroVivo, type ChatCartero, type Cierre
 import { instanteHito, type AreaP, type PasoP, type PedidoP } from './progreso-reglas';
 import { destinoDeDecision } from './decisiones-aviso';
 import { textoDeRespuesta, type Decision } from '../app/admin/runway/decisiones';
+import type { Cuota } from './centro-uso';
 
 export type EstadoChat = 'trabajando' | 'abierto' | 'cerrado' | 'sin_dato';
 
@@ -65,7 +66,7 @@ export type SesionDeChat = {
 };
 
 /** Lo mínimo de un cartero (lib/operaciones.ts → Cartero). `claves`: las que acepta la PC (para la caja de escribir). */
-export type CarteroP = { cuenta: string; vistoAt: string | null; chats: readonly ChatCartero[]; claves?: readonly string[] };
+export type CarteroP = { cuenta: string; vistoAt: string | null; chats: readonly ChatCartero[]; claves?: readonly string[]; cuota?: Cuota | null };
 /** Lo mínimo de un trabajo de la cola (lib/operaciones.ts → Pedido). Lo de abajo de `created_at` es lo que dibuja la
  *  conversación (el texto que se mandó, por dónde va y el cierre que dejó el chat); la lista no lo necesita. */
 export type TrabajoP = {

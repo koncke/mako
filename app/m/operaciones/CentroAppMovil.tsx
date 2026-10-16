@@ -24,6 +24,8 @@ import { fotoCentroAction, pushesCentroAction } from '@/app/admin/operaciones/ac
 import { copiar, useFirma } from '@/app/admin/operaciones/mandar';
 import { RunnerMovil } from './RunnerMovil';
 import { ChatsM } from './ChatsMovil';
+import { usoPrincipal } from '@/lib/centro-uso';
+import { hace } from '@/lib/progreso-reglas';
 import type { AccionResponder } from '@/app/admin/runway/decisiones';
 
 const REFRESCO_MS = 8000;
@@ -95,6 +97,7 @@ export function CentroAppMovil({ base, colaInicial, carterosIniciales, decisione
   const copiarClave = async () => { if (firma.clave) toast(await copiar(firma.clave.spki) ? 'Copiado: pégalo en el Runner' : 'No pude copiar'); };
   const crearClave = async () => { toast((await firma.crear()) ? 'Token creado' : 'No pude crear tu Token'); };
   const activos = carteros.filter((k) => carteroVivo(k, ahora)).length;
+  const principal = usoPrincipal(carteros.map((k) => ({ cuenta: k.cuenta, cuota: k.cuota ?? null })), ahora);
 
   return (
     <>
@@ -108,10 +111,12 @@ export function CentroAppMovil({ base, colaInicial, carterosIniciales, decisione
         esperas={esperas} firma={firma} onEnviado={(t) => { setLocales((l) => [t, ...l]); refrescar(); }}
         munecos={munecos} onMunecos={setMunecos}
       />
-      <ListaM etiqueta="Runners">
-        <FilaM icono="config" titulo="Runners" segunda={`${activos} de ${carteros.length} activos`} onClick={() => setRunners(true)} navegacion />
+      {/* El Uso de las cuentas y sus Runners, en una fila que dice siempre el número (Uso.tsx, la de la computadora). */}
+      <ListaM etiqueta="Uso">
+        <FilaM icono="config" titulo="Uso y Runners" segunda={[principal ? `Semana ${principal.pct}%${principal.viejo && principal.medido != null ? ` · ${hace(principal.medido, ahora)}` : ''}` : null, `${activos} de ${carteros.length} Runners activos`].filter(Boolean).join(' · ')}
+          onClick={() => setRunners(true)} navegacion />
       </ListaM>
-      <SheetM abierto={runners} onCerrar={() => setRunners(false)} titulo="Runners">
+      <SheetM abierto={runners} onCerrar={() => setRunners(false)} titulo="Uso y Runners">
         <RunnerMovil carteros={estado ? carteros : null} clave={firma.clave} ahora={ahora} onCrearClave={crearClave} onCopiarClave={copiarClave} />
       </SheetM>
     </>

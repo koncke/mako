@@ -49,7 +49,7 @@ import { useSearchParams } from 'next/navigation';
 import { Button, Field, Input, Modal, Toast, useToast } from '@/app/_ui';
 import { MenuContextual } from '@/app/_ui/MenuContextual';
 import { Icon } from '@/app/_components/icons';
-import { carteroVivo, type Alcance } from '@/lib/operaciones-reglas';
+import type { Alcance } from '@/lib/operaciones-reglas';
 import {
   SECCION_ANTES, SECCION_CHATS, chatDeClave, comoSale, completarChats, esperaDe, esperasPorChat, historialDelChat, nombreValido, partesDelNombre,
   porJefe, seccionesDeChats, textoDeEnvio, textoDeRenombre, vistaPrevia,
@@ -65,6 +65,7 @@ import { Tick } from './Hilo';
 import { Muneco, animoDe } from './Muneco';
 import { PanelRunner, TituloRunner, type VistaRunner } from './PanelRunner';
 import { TicketeraCentro } from './TicketeraCentro';
+import { BotonUso } from './Uso';
 import { preguntasDelChat, respuestasDelChat } from '@/lib/centro-preguntas';
 import type { AccionDeshacer, AccionResponder, Decision } from '@/app/admin/runway/decisiones';
 import type { VistaTicketera } from '@/app/tickets/decisiones/CambioVista';
@@ -274,7 +275,6 @@ export function CentroApp({
     show('Token creado', undefined, 'good');
   };
 
-  const vivos = carteros.filter((k) => carteroVivo(k, ahora)).length;
 
   // ── El «⋯» de cada chat: Renombrar y Cambiar su muñeco ─────────────────────────────────────────
   const abrirMenu = (clave: string, x: number, y: number) => setMenu({ x, y, clave });
@@ -403,12 +403,9 @@ export function CentroApp({
         </nav>
 
         <div className="co-barra__abajo">
-          <button type="button" className="co-acceso" onClick={() => setRunner('lista')} title={`${vivos} de ${carteros.length} Runners activos`}>
-            <Icon name="config" size={17} />Runners
-            <span className="co-carteros" aria-hidden>
-              {carteros.map((k) => <span key={k.cuenta} className={`co-punto co-punto--${carteroVivo(k, ahora) ? 'trabajando' : 'viejo'}`} />)}
-            </span>
-          </button>
+          {/* El Uso de las tres cuentas y sus Runners, en un desplegable siempre a la vista (Uso.tsx). */}
+          <BotonUso cuentas={carteros.map((k) => ({ cuenta: k.cuenta, vistoAt: k.vistoAt, cuota: k.cuota ?? null }))} ahora={ahora}
+            onRunners={() => setRunner('lista')} onNuevo={() => setRunner('nuevo')} onCopiar={copiarConAviso} />
         </div>
       </aside>
 

@@ -60,6 +60,8 @@
 //   cierre <id> --hecho "…" [--decidido "…"] [--comprobado "…"] [--sigue "…"] [--prueba "…"]
 //                                  lo corre el CHAT QUE RECIBIÓ el pedido, al terminarlo
 //   esperar [cuenta] [--max-seg N] (opción C, a probar) espera hasta que haya algo y sale con 2
+//   uso                            lo corre la BARRA DE ESTADO del Runner (runner-settings.json): anota la cuota de
+//                                  la cuenta de su terminal y escribe la línea de la barra
 // =============================================================================
 
 import fs from 'node:fs';
@@ -67,7 +69,7 @@ import os from 'node:os';
 import path from 'node:path';
 import crypto from 'node:crypto';
 
-export const VERSION = '1.4.0';
+export const VERSION = '1.5.0';
 const HOME = os.homedir();
 const DIR = process.env.CARTERO_DIR || path.join(HOME, '.claude', 'operaciones');
 const APP = process.env.CARTERO_APP_DIR || path.join(process.env.APPDATA || path.join(HOME, 'AppData', 'Roaming'), 'Claude', 'claude-code-sessions');
@@ -83,6 +85,12 @@ const LATIDO_VENCE_MS = 6 * 60 * 1000;
 /** Un cierre que MaKo no aceptó se vuelve a subir en cada vuelta, hasta este tope (su acuse puede llegar después). */
 const CIERRE_VENCE_MS = 24 * 3600 * 1000;
 const CIERRES = path.join(DIR, 'cierres');
+/** La cuota de cada cuenta, como la anota la barra de estado de su Runner (`uso`). */
+const USO = path.join(DIR, 'uso');
+/** Lo que se le pasa al Runner con `--settings`: su barra de estado anota la cuota (lib/runner.ts). */
+const AJUSTES_RUNNER = path.join(DIR, 'runner-settings.json');
+/** Lo que mide `get_usage` en la app de escritorio (lo escriben los chats; 4º campo, la cuenta). */
+const USO_APP = path.join(process.env.CARTERO_HOME || HOME, '.claude', 'uso-semanal.txt');
 const LOG = path.join(DIR, 'cartero.log');
 /** Un pedido en el buzón sin acuse por más que esto pasa a «no sé si llegó». */
 const BUZON_VENCE_MS = 30 * 60 * 1000;
@@ -403,7 +411,7 @@ async function ciclo(cuenta, cfg = config(), propio = dirPropio(cfg), runners = 
       cuenta, version: VERSION,
       // Ni la dirección del canal ni la carpeta salen de la PC.
       chats: [...chats.values()].map(({ pipe, dir, ...c }) => c),
-      entregables, claves: spkis.map(claveId), acuses, cierres,
+      entregables, claves: spkis.map(claveId), acuses, cierres, uso: cuotaDe(cuenta),
     }),
     signal: AbortSignal.timeout(30_000),
   });
@@ -470,6 +478,85 @@ async function ciclo(cuenta, cfg = config(), propio = dirPropio(cfg), runners = 
     vencidos: salida.vencidos ?? 0, acuses: salida.acuses ?? 0, cierres: salida.cierres ?? 0,
     avisos, avisosError: salida.avisosError ?? null,
   };
+}
+
+// ── el Uso de cada cuenta ────────────────────────────────────────────────────────────────────
+/**
+ * La cuota que trae la barra de estado de Claude Code por stdin (medido en el CLI 2.1.299, 16/10/2026):
+ * `rate_limits.five_hour` y `rate_limits.seven_day`, con `used_percentage` y `resets_at` en SEGUNDOS unix. La misma
+ * lectura que lib/centro-uso.ts → cuotaDeBarraDeEstado: el test diferencial compara las dos.
+ */
+export function cuotaDeBarraDeEstado(x, ahora) {
+  const rl = x && typeof x === 'object' ? x.rate_limits : null;
+  if (!rl || typeof rl !== 'object') return null;
+  const v = (w) => {
+    if (!w || typeof w.used_percentage !== 'number' || !Number.isFinite(w.used_percentage)) return null;
+    const s = typeof w.resets_at === 'number' && Number.isFinite(w.resets_at) ? new Date(w.resets_at * 1000).toISOString() : null;
+    return { pct: Math.min(100, Math.max(0, Math.round(w.used_percentage))), reinicia: s };
+  };
+  const cinco = v(rl.five_hour);
+  const semana = v(rl.seven_day);
+  return cinco || semana ? { cinco, semana, medido: new Date(ahora).toISOString() } : null;
+}
+
+/** La cuenta de la TERMINAL de una carpeta: la que tiene su fuente `cli` ahí (la app no tiene barra de estado). */
+const cuentaDeLaTerminal = (cfg, dir) => Object.keys(cfg.carteros ?? {})
+  .find((c) => CUENTA_RE.test(c) && fuentesDe(cfg.carteros[c]).some((f) => f.fuente === 'cli' && mismoDir(f.configDir, dir))) ?? null;
+
+const leerStdin = () => new Promise((ok) => {
+  let b = '';
+  if (process.stdin.isTTY) { ok(''); return; }
+  const fin = setTimeout(() => ok(b), 1500);
+  process.stdin.setEncoding('utf8');
+  process.stdin.on('data', (d) => { b += d; }).on('end', () => { clearTimeout(fin); ok(b); });
+});
+
+/** La barra de estado del Runner: anota la cuota de su cuenta y devuelve la línea que se ve («Runner · 5 h 12% · semana 47%»). */
+async function uso() {
+  let o = null;
+  try { o = JSON.parse(await leerStdin()); } catch { /* sin entrada, la línea igual */ }
+  const cfg = config();
+  const cuenta = cuentaDeLaTerminal(cfg, dirPropio(cfg));
+  const c = cuotaDeBarraDeEstado(o, Date.now());
+  if (cuenta && c) {
+    // ⚠️ `medido` es cuándo la cuota CAMBIÓ, no cuándo corrió la barra (revisión adversarial, 16/10/2026): la barra corre
+    // cada minuto aunque no llegue ninguna respuesta de la API, y re-sellar el mismo número como de ahora escondería un
+    // Runner que dejó de dar vueltas. Cuenta como observación nueva: otros números, o que la sesión haya hablado con la
+    // API (`cost.total_api_duration_ms` crece con cada respuesta; en una sesión nueva vuelve a 0).
+    const f = path.join(USO, `${cuenta}.json`);
+    const previo = leerJson(f, null);
+    const api = Number(o?.cost?.total_api_duration_ms);
+    const iguales = previo && JSON.stringify([previo.cinco, previo.semana]) === JSON.stringify([c.cinco, c.semana]);
+    const nueva = !iguales || !Number.isFinite(api) || api !== previo.api;
+    escribirJson(f, { ...c, medido: nueva ? c.medido : previo.medido, api: Number.isFinite(api) ? api : null });
+  }
+  const n = cuenta ? `Runner de la cuenta ${cuenta.replace('claude', '')}` : 'Runner';
+  return c ? `${n} · 5 h ${c.cinco?.pct ?? '—'}% · semana ${c.semana?.pct ?? '—'}%` : n;
+}
+
+/** La cuota que sube la vuelta de una cuenta: la de su barra de estado y, si es más nueva, la semanal que midió la app. */
+function cuotaDe(cuenta) {
+  let c = leerJson(path.join(USO, `${cuenta}.json`), null);
+  if (c) c = { cinco: c.cinco ?? null, semana: c.semana ?? null, medido: c.medido };
+  try {
+    const [pct, reinicia, medido, de] = sinCR(fs.readFileSync(USO_APP, 'utf8')).trim().split(/\s+/);
+    const p = Number(pct);
+    const m = Date.parse(medido);
+    if (de === cuenta && Number.isFinite(p) && Number.isFinite(m) && (!c || m > Date.parse(c.medido))) {
+      // ⚠️ El 4º campo lo escribe un chat con el marcador de cuenta, que puede estar atrasado (pasó el 15/10): si el reinicio
+      // de la semana no es el que vio la terminal de esta cuenta, esa medición es de OTRA cuenta y no se usa.
+      const rApp = Date.parse(reinicia);
+      const rTerm = Date.parse(c?.semana?.reinicia ?? '');
+      const otra = Number.isFinite(rApp) && Number.isFinite(rTerm) && rTerm > m && Math.abs(rApp - rTerm) > 5 * 60_000;
+      if (otra) log(`[${cuenta}] la semanal de la app no es de esta cuenta (se reinicia ${reinicia}, la terminal dice ${c.semana.reinicia})`);
+      else {
+        // La de 5 horas de la terminal se queda sólo si se midió casi a la vez: si no, es vieja y saldría como de ahora.
+        const cincoVale = c?.cinco && m - Date.parse(c.medido) <= 30 * 60_000;
+        c = { cinco: cincoVale ? c.cinco : null, semana: { pct: Math.round(p), reinicia: Number.isFinite(rApp) ? reinicia : null }, medido };
+      }
+    }
+  } catch { /* la app no midió: queda la de la terminal */ }
+  return c;
 }
 
 // ── quién entrega qué ────────────────────────────────────────────────────────────────────────
@@ -569,6 +656,8 @@ function instalar() {
   const origen = archivoDeEsteModulo();
   if (origen !== path.resolve(ESTE)) fs.copyFileSync(origen, ESTE);
   if (!fs.existsSync(CFG)) escribirJson(CFG, { url: 'https://hola-mako.com', token: '', cwds: CWDS_DEFAULT, carteros: {}, carpetas: {} });
+  // La barra de estado del Runner (se le pasa con `--settings`, lib/runner.ts): anota la cuota de su cuenta cada minuto.
+  escribirJson(AJUSTES_RUNNER, { statusLine: { type: 'command', command: `node "${ESTE.split(path.sep).join('/')}" uso`, refreshInterval: 60 } });
   return { dir: DIR, version: VERSION };
 }
 
@@ -662,9 +751,10 @@ if (esMain) {
       case 'pendientes': { const propio = dirPropio(); exigirRunner(propio); imprimir(pendientes(cuentaOpcional(), propio)); break; }
       case 'acuse': acuse(cuentaOpcional(), resto[0], resto[1], resto.slice(2).join(' ')); imprimir({ ok: true }); break;
       case 'cierre': cierre(resto[0], resto.slice(1)); imprimir({ ok: true }); break;
+      case 'uso': process.stdout.write(`${await uso()}\n`); break;
       case 'esperar': { const i = resto.indexOf('--max-seg'); await esperar(cuentaOpcional(), i >= 0 ? Number(resto[i + 1]) || 3000 : 3000); break; }
       default:
-        process.stderr.write('comandos: instalar | url | token | clave | cartero | carpeta | repo | estado | ciclo | pendientes | acuse | cierre | esperar\n');
+        process.stderr.write('comandos: instalar | url | token | clave | cartero | carpeta | repo | estado | ciclo | pendientes | acuse | cierre | esperar | uso\n');
         process.exit(1);
     }
   } catch (e) {

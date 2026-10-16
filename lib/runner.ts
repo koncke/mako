@@ -28,7 +28,13 @@ export const COMANDO_RUNNER = 'node ~/.claude/operaciones/cartero.mjs';
  * en la app (o en `claude1`, que comparte ~/.claude) no le llega a la terminal de la cuenta 2: cada cuenta abierta en
  * la terminal necesita el suyo. El reparto lo hace cartero.mjs (1.4.0); acá sólo cambia el «cómo se abre».
  */
-export const COMANDO_TERMINAL = (cuenta: string) => `${cuenta} -n ${NOMBRE_RUNNER}`;
+/** Lo que le suma al Runner su barra de estado, que es la que mide el Uso de la cuenta (cartero.mjs `uso`, lib/centro-uso.ts):
+ *  un archivo de ajustes que escribe `cartero.mjs instalar`, pasado con `--settings` (sólo esa sesión: la configuración de
+ *  Martín no se toca). `$HOME` lo expande PowerShell. */
+export const AJUSTES_RUNNER = '$HOME\\.claude\\operaciones\\runner-settings.json';
+export const COMANDO_TERMINAL = (cuenta: string) => `${cuenta} -n ${NOMBRE_RUNNER} --settings ${AJUSTES_RUNNER}`;
+/** Las cuentas de terminal del perfil de PowerShell de Martín (claude1, claude2 y claude3). */
+export const CUENTAS_TERMINAL = ['claude1', 'claude2', 'claude3'] as const;
 
 /** Lo que Martín le pega al Runner de cada cuenta (`claude2 -n Runner` en PowerShell), para que entregue. */
 export const INSTRUCCIONES_RUNNER = `Eres el Runner del Centro de Operaciones: entregas a los chats de esta PC lo que Martín escribe en /admin/operaciones. No hagas nada más.
