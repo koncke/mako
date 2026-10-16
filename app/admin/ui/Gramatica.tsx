@@ -220,9 +220,9 @@ const EJEMPLOS: Record<EstadoMako, React.ComponentProps<typeof Mako>> = {
     ],
     evidenciaRotulo: 'Lo que sí puedo ver hoy',
     evidencia: '52 tratamientos cerrados en 4 meses, y de esos 14 tienen monto. Con 14 la diferencia entre campañas queda dentro del margen de error.',
-    // El CRM ya tiene «Datos sin marcar» con su propio diseño y su filtro
-    // (`/crm?pendientes=1`). El modal no rehace ese listado: manda ahí.
-    ver: { capacidad: 'crm-lead', ancla: '?pendientes=1', label: 'Abrir los 38 en el CRM' },
+    // El CRM resuelve los datos sin marcar en «A revisar» (la vista `/crm?pendientes=1` se borró el 16/10/2026).
+    // El modal no rehace ese listado: manda al CRM.
+    ver: { capacidad: 'crm-lead', ancla: '', label: 'Abrir el CRM' },
     accion: { label: 'Cargar los montos en el CRM' },
   },
 };
