@@ -8511,6 +8511,11 @@ costó, en [docs/hallazgos-objectives.md](docs/hallazgos-objectives.md) → «Ge
   por `CtxFicha`. Una plantilla de tab que es la de ENTRADA de un tipo tiene, como mínimo, los bloques de la lista de
   ese tipo (los avisos siguen a la plantilla del funnel). Y su versión de teléfono, en `PIEZA_DE_BLOQUE`. Lo que no se
   ve: docs/hallazgos-crm.md → «El Resumen NATIVO de la ficha».
+  ⚠️ Al PARTIR un bloque (achicar su `incluye`), lo que salía de adentro entra como bloque en cada plantilla de entrada
+  que lo tenía: «los bloques de su tipo» mira ids, no contenido (tests/ficha-resumen-lo-de-antes.test.ts). Un «Deshacer»
+  de un campo manda lo que escribió y el server no deshace si hoy dice otra cosa (`deshacerCampoLeadAction`). Antes de
+  borrar una tarjeta, se mudan las decisiones de sus comentarios `⚠️`. Lo que no se ve: docs/hallazgos-crm.md → «La
+  verificación del Resumen nativo».
 
 # MaKo Mobile (/m): lo que gobierna una pantalla nueva del teléfono
 

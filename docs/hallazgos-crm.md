@@ -9470,3 +9470,70 @@ Mobile v3.
 lib/ficha/plantillas-tab.ts · lib/ficha/api.ts (`opciones`) · app/crm/lead-view/CampoEditable.tsx (`TriBotones`) ·
 app/m/crm/ficha-bloques.ts (`resumenDelTelefono`) · tests/ficha-resumen.test.ts.
 *16/10/2026, frente «Resumen» de la ficha v2 (claude3).*
+
+## La verificación del Resumen nativo: «los bloques de su tipo» no alcanzaba, y «Deshacer» pisaba a otro (16/10/2026)
+
+El frente de verificación de la tanda 1 de la ficha v2 (rama `crm-ficha-v2`). La máquina tuvo 4,8 GB libres toda la
+corrida, así que no se levantó `next dev`: se miró en el banco (las dos puertas reales con datos de mentira, a 1440,
+1024×768 y 820×1180 táctiles y 390×844), más un banco nuevo del teléfono con las filas del Resumen. Lo que se midió en
+producción fue sólo de lectura (`select`).
+
+- **Al desplegar, cinco tipos de funnel dejaban de ver la web, el Instagram y el ingreso estimado de sus leads.** El
+  contacto de antes era InfoPrincipalCard ENTERA, y adentro traía la web, Instagram y el ingreso (los de fábrica de
+  `crm.resumen.campos`; medido el 16/10: ningún negocio lo cambió, 0 filas). El Resumen nativo los partió en sus bloques
+  (`redes-y-web`, `ingreso-estimado`) y las plantillas de entrada de Evento, Formulario de Meta (sin redes), Landing, Te
+  escriben y Carrito no los pusieron. Medido: el ws 11 (tres funnels de evento) tiene 3 leads con ingreso y 1 con
+  Instagram que hoy se ven. ⚠️ **El diagnóstico obvio era el equivocado**: «cada plantilla tiene como mínimo los bloques
+  de la lista de su tipo» es cierto, pero mira IDS de bloque; lo que se perdió estaba ADENTRO de uno (`incluye` se achicó
+  de cinco a uno). **Regla:** al partir un bloque (achicar su `incluye`), lo que salió de adentro entra como bloque en
+  cada plantilla de entrada que tenía el bloque. Lo fija tests/ficha-resumen-lo-de-antes.test.ts (cada dato de fábrica
+  de `crm.resumen.campos` → su bloque, en los nueve tipos).
+- **«Una línea» de dónde vino se callaba la campaña y el conjunto** (decía el canal y el anuncio), y es la de entrada de
+  Evento, Landing y Te escriben. OrigenCard mostraba siempre Campaña › Conjunto › Anuncio («UN camino, no tres datos»).
+  Ahora la línea dice el camino entero (`lineaDeOrigen`, resumen/logica.ts).
+- **«Deshacer» de un campo escribía el valor de antes A CIEGAS.** El aviso vive 5 segundos; si en ese medio otra persona
+  (o el webhook de Calendly, el motor, Fathom) cambió el mismo campo, se lo pisaba sin decir nada. ⚠️ El diagnóstico
+  obvio («el historial guarda todo») no cubre esto: queda la línea, pero nadie se entera de que se pisó. Ahora el
+  Deshacer manda lo que él escribió y el server sólo deshace si el campo sigue diciendo eso (`deshacerCampoLeadAction`,
+  `deshacerContactoLeadAction`; la comparación con la normalización del guardado, app/crm/campo-inline.ts: la fecha por
+  el día, el monto como número, el link de Fathom el de SU reunión). **Regla:** un Deshacer que reemplaza un valor lleva
+  `esperado`, como el de la ficha del funnel y el del deal. Y **devuelve** el resultado, no tira: en producción Next
+  esconde el mensaje de un error de server action, y el aviso diría «No se pudo deshacer» sin decir por qué.
+- **La fila de propiedad decidía rótulo arriba o al lado por la VENTANA** (`@media 720px`): un bloque de ½ en la tablet
+  mide 347 px con la ventana a 820, y el email salía de a tres letras por renglón al lado de sus dos botones de 44 px. Es
+  la regla que ya estaba escrita (una tarjeta que puede caer en un bloque de cualquier ancho decide por SU ancho, sin
+  `container-type`) y el Resumen nuevo la volvió a romper. **Cómo, sin container queries:** el rótulo con
+  `flex: 0 1 calc((440px - 100%) * 999)` en una fila `flex-wrap`: en una fila de menos de 440 px la base es enorme (va
+  sola arriba), en una más ancha da negativo, se recorta a 0 y el rótulo queda en su `min-width` (30%).
+- **Un `<span style="display: contents">` rompe los selectores de hijo directo.** Las migas de dónde vino envolvían cada
+  paso así, y `.fr-migas > .fr-sep` / `> .fr-fuerte` no los alcanzaban: el separador no salía tenue ni el anuncio en
+  negrita. Para agrupar sin caja: `Fragment` con `key`.
+- **Los tres botones de la calificación se cortaban** («No califica…» en un bloque de ⅓ a 1440): repartían el ancho en
+  partes iguales (`1 1 0`). Por su texto (`1 1 auto`) entran.
+- **El motivo de salida entraba con sus chips en las ocho plantillas**, contra una decisión del 12/10 que estaba escrita
+  en la tarjeta que se borró (MotivoYPlazoCard): los chips «Precio / Timing / …» viven donde se DECIDE la salida (el
+  wizard de la etapa); en la ficha se CORRIGE uno ya escrito. Al borrar una tarjeta se borró también el porqué. Ahora
+  entra como texto y los chips siguen siendo un diseño que el admin elige. **Regla:** antes de borrar un componente,
+  leer sus comentarios `⚠️` y mudar las decisiones que todavía mandan al lugar nuevo.
+
+**Lo que se miró y estaba bien:** las dos acciones nuevas (`tiempoEnEtapaAction`, `duplicadosDelLeadAction`) cortan sin
+sesión antes de leer y leen con `getTenantDb` (un id ajeno no existe; `duplicadosDeLead` también es del workspace);
+`opciones` en la API pasa por el mismo `cambiar_ficha_funnel` (admin, del workspace); cada bloque que escribe lo hace por
+`guardarCampoLeadAction` o `saveLeadMetaAction` (historial con autor y valor); «N sin marcar» no cambió de camino (los
+avisos salen de la plantilla del FUNNEL, no de la de la tab); la IA de «¿Qué vas a crear hoy?» usa la cascada gratis y la
+red de plataforma, ve el pedido y el catálogo (ningún dato de un lead) y no escribe: devuelve bloques que la pantalla
+aplica por el camino del admin.
+
+**Lo que quedó SIN hacer:**
+- Mirarlo con datos reales en el ws 3 (4,8 GB libres: el banco mide el layout, no los datos).
+- El Deshacer del HISTORIAL (`revertAuditChangeAction`) y el guardado de InfoPrincipalCard (la ficha de Customer
+  Success) siguen escribiendo a ciegas: se arregló el de los primitivos de la ficha (`useGuardarCampo`) y el del contacto
+  del Resumen (`useGuardarMeta`).
+- La fila «Redes» del teléfono muestra toda red con dato; no sigue las Opciones del bloque (`resumenDelTelefono`).
+- A 820 táctil, un email largo todavía corta su última letra al lado de los dos botones de 44 px.
+
+**Vive en:** lib/ficha/plantillas-resumen.ts · app/crm/lead-view/ficha/resumen/logica.ts (`lineaDeOrigen`) · origen.tsx ·
+estilo.ts · app/crm/campo-inline.ts (`mismoValorDeCampo`, `mismoDatoDeContacto`) · app/crm/actions.ts
+(`deshacerCampoLeadAction`, `deshacerContactoLeadAction`) · app/crm/lead-view/CampoEditable.tsx (`useGuardarCampo`) ·
+resumen/piezas.tsx (`useGuardarMeta`) · tests/ficha-resumen-lo-de-antes.test.ts.
+*16/10/2026, frente «verificación» de la ficha v2 (claude3).*

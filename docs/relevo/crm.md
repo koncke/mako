@@ -6,6 +6,28 @@ el briefing anterior (`b5f7fb55`, 10/10 17:10) con todo verificado contra el ár
 **Rutas de esta área:** `app/crm/**`, `lib/leads.ts`, `lib/funnel*.ts`, `lib/crm*.ts`,
 `lib/lead-*.ts`, `lib/campana-*.ts`, `lib/etiquetas*.ts`, `lib/pipeline.ts`.
 
+## 0-Ω10. 16/10/2026 (frente «verificación» de la tanda 1 de la ficha v2, cuenta `claude3`): mirada y revisada
+
+Rama `crm-ficha-v2` en `C:/dev/wt-crm-ficha2`. Con 4,8 GB libres no se levantó `next dev`: se miró en el BANCO (las dos
+puertas reales con datos de mentira) a 1440, 1024×768 y 820×1180 táctiles y 390×844, el pop-up y /crm/[id]: la primera
+vez (la caja y la galería con «Sugerido»), elegir, la épica, renombrar una tab, «Personalizar» con Opciones, cada bloque
+del Resumen normal y épico, la tab Pagos del chat Pagos montada, y el teléfono (banco nuevo con las filas del Resumen).
+
+**Qué cambia para Martín y los clientes al desplegar (además del 0-Ω9):**
+- Ningún funnel pierde la web, el Instagram ni el ingreso estimado del Resumen: cinco plantillas de entrada (Evento,
+  Formulario de Meta, Landing, Te escriben y Carrito) los habían dejado afuera al partir el contacto en bloques.
+- «De dónde vino» en una línea dice también la campaña y el conjunto, no sólo el anuncio.
+- «Deshacer» de un campo de la ficha no pisa lo que otra persona cambió en esos 5 segundos: avisa «Alguien ya lo cambió».
+- En la tablet, el contacto pone el rótulo arriba cuando su tarjeta es angosta (el email ya no sale de a tres letras),
+  los tres botones de la calificación no se cortan, y el motivo de salida entra como texto (los chips siguen eligibles).
+
+**SIN HACER (con su archivo):**
+- Mirarlo con datos reales en el ws 3, con 5 GB libres (receta en docs/hallazgos-crm.md → «La ficha por bloques MIRADA
+  por primera vez»).
+- El Deshacer del historial (`revertAuditChangeAction`, app/crm/actions.ts) y el guardado de InfoPrincipalCard (Customer
+  Success) siguen a ciegas.
+- La fila «Redes» del teléfono no sigue las Opciones del bloque (app/m/crm/ficha-bloques.ts, `resumenDelTelefono`).
+
 ## 0-Ω9. 16/10/2026 (frente «Resumen» de la ficha v2, cuenta `claude3`): el Resumen NATIVO
 
 Rama `crm-ficha-v2` en `C:/dev/wt-crm-ficha2`, sobre main `2f913cddc` (el marco del 0-Ω8 ya está en main). Martín,
