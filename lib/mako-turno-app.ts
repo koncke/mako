@@ -209,6 +209,11 @@ export type EntradaTurnoApp = {
    * turno de siempre.
    */
   contexto?: string;
+  /**
+   * Guardar los archivos (mig 0303) y pasar los PDF del admin a El Archivero. Lo prenden SÓLO el Second Brain y el chat
+   * del teléfono (las rutas /api/mako/chat y /api/m/mako). Sin esto, el turno de siempre: los lee y no los guarda.
+   */
+  guardarAdjuntos?: boolean;
 };
 
 /** El cartel de la plataforma: se muestra y NO se guarda (AGENTS.md, «Un cartel de la
@@ -222,6 +227,8 @@ const AVISO_NO_LEI = (nombre: string) => `No pude leer «${nombre}».`;
  * ni archivos tira: eso lo frena antes quien llama.
  */
 export async function turnoApp(persona: PersonaChat, sessionId: number, entrada: EntradaTurnoApp): Promise<RespuestaTurno | null> {
+  // Desde acá corre el plazo de la ruta: lo que se hace DESPUÉS de responder (El Archivero) se mide contra esto.
+  const inicio = Date.now();
   return runWithWorkspace(persona.ws, async () => {
     const s = await sesionDe(persona, sessionId);
     if (!s) return null;
@@ -258,9 +265,17 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     // Los archivos se guardan (mig 0303): el binario ANTES, y su referencia en el mismo insert del mensaje
     // (lib/chat-mako-adjuntos.ts). Si el mensaje quedó sin ella, el binario no queda suelto.
     const guardados: MensajeChat[] = [];
-    const subidos = adjuntos.length ? await subirAdjuntos(ws, adjuntos) : [];
+    // ⚠️ SÓLO SI QUIEN LLAMA LO PIDE (`guardarAdjuntos`): el Second Brain y el chat del teléfono. El MaKo Analyst de un
+    //    lead usa este mismo turno, y su PDF es del LEAD: no va a El Archivero del negocio (revisión del 16/10/2026).
+    const subidos = adjuntos.length && entrada.guardarAdjuntos ? await subirAdjuntos(ws, adjuntos) : [];
     const bloques = subidos.map((x) => x.bloque);
-    const msg = await appendMessage(s.id, 'user', textoMemoria, bloques);
+    let msg: Awaited<ReturnType<typeof appendMessage>>;
+    try {
+      msg = await appendMessage(s.id, 'user', textoMemoria, bloques);
+    } catch (e) {
+      await borrarAdjuntos(bloques.map((b) => b.path)); // el mensaje no quedó: sus binarios tampoco
+      throw e;
+    }
     if (bloques.length && !msg.conBloques) await borrarAdjuntos(bloques.map((b) => b.path));
     const conArchivos = msg.conBloques && msg.id != null ? adjuntosVisibles(msg.id, bloques) : [];
     guardados.push({ role: 'user', content: textoMemoria, ...(conArchivos.length ? { adjuntos: conArchivos } : {}) });
@@ -270,7 +285,7 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
         const texto = textos[de];
         return bloque.tipo === 'document' && texto ? [{ i, contenido: adjuntos[de].bytes, nombre: bloque.nombre, mime: bloque.mime, texto }] : [];
       });
-      await archivarPdfsDelChat(ws, msg.id, Date.now(), pdfs);
+      await archivarPdfsDelChat(ws, msg.id, inicio, pdfs);
     }
     let titulo = s.titulo;
     if (!titulo) {

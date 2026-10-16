@@ -99,6 +99,9 @@ test('la burbuja con archivos no repite el «(envió…)» que el turno guarda p
   assert.equal(textoConArchivos(placeholderDeAdjunto('document', 'brief.pdf', '')), '');
   assert.equal(textoConArchivos('(envió 2 archivos: a.jpg, b.pdf) — mira esto'), 'mira esto');
   assert.equal(textoConArchivos('(envió una imagen)'), '');
+  // Un nombre con paréntesis no corta antes (revisión del 16/10/2026: quedaba « (v2).jpg) — mira» en la burbuja).
+  assert.equal(textoConArchivos(placeholderDeAdjunto('image', 'plano (v2).jpg', 'mira')), 'mira');
+  assert.equal(textoConArchivos(placeholderDeAdjunto('image', 'plano (v2).jpg', '')), '');
   // Lo que escribió la persona entre paréntesis, sin el placeholder, se queda.
   assert.equal(textoConArchivos('(ojo) mira esto'), '(ojo) mira esto');
 });

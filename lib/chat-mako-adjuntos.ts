@@ -27,8 +27,9 @@ import type { AdjuntoListo } from './mako-adjuntos';
 
 /** Lo que dura el link firmado de un adjunto: lo que tarda en abrirse, no más. */
 const FIRMA_S = 300;
-/** Hasta cuándo puede correr la extracción de El Archivero, desde que llegó el turno: el maxDuration de las rutas del
- *  chat (420 s) menos lo que hace falta para mover el binario, escribir la fila y anotar el chip. */
+/** Hasta cuándo puede correr la extracción de El Archivero, desde que EMPEZÓ el turno (`inicio`, la primera línea de
+ *  `turnoApp`; no después de leer los archivos, que con fotos por visión son minutos): el maxDuration de las rutas que
+ *  guardan adjuntos (420 s) menos lo que hace falta para mover el binario, escribir la fila y anotar el chip. */
 const PLAZO_ARCHIVERO_MS = 300_000;
 
 const bucket = () => getSupabaseServer().storage.from(BUCKET_ADJUNTOS);

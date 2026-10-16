@@ -98,7 +98,7 @@ export async function POST(req: NextRequest) {
       if (sessionId == null) return json({ ok: false, error: 'Falta el chat.' }, 400);
       const mensaje = String(form.get('mensaje') ?? '');
       if (!mensaje.trim() && !v.adjuntos.length) return json({ ok: false, error: 'Escribe algo.' }, 400);
-      const r = await turnoApp(persona, sessionId, { mensaje, adjuntos: v.adjuntos, contexto: CONTEXTO_SECOND_BRAIN });
+      const r = await turnoApp(persona, sessionId, { mensaje, adjuntos: v.adjuntos, contexto: CONTEXTO_SECOND_BRAIN, guardarAdjuntos: true });
       if (!r) return json({ ok: false, error: 'No encuentro ese chat.' }, 404);
       return json({ ...r });
     } catch (e) {

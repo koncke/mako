@@ -510,7 +510,11 @@ export function ChatSecondBrain({ veMapa, mapa, chatInicial }: {
               <textarea
                 ref={caja} rows={1} value={texto}
                 onChange={(e) => setTexto(e.target.value)} onKeyDown={tecla}
-                onPaste={(e) => { const fs = Array.from(e.clipboardData.files); if (fs.length) { e.preventDefault(); void sumarArchivos(fs); } }}
+                onPaste={(e) => {
+                  // Una celda de Excel o un párrafo de Word viajan como texto Y como imagen: si hay texto, se pega el texto.
+                  const fs = Array.from(e.clipboardData.files);
+                  if (fs.length && !Array.from(e.clipboardData.types).includes('text/plain')) { e.preventDefault(); void sumarArchivos(fs); }
+                }}
                 placeholder="Escríbele a MaKo" aria-label="Escríbele a MaKo"
                 disabled={!cargado || !!errorCarga}
               />

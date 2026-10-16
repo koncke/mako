@@ -75,7 +75,9 @@ export const archivosDeRespuesta = (r: RespuestaTurno): ArchivoHilo[] => r.mensa
  * Lo que se lee en la burbuja de un mensaje CON sus archivos a la vista: sin el «(envió una imagen: x)» que el turno
  * guarda para la memoria del modelo (`placeholderDeAdjunto`), que al lado de la miniatura sobra.
  */
-export const textoConArchivos = (texto: string): string => texto.replace(/^\(envió (?:una imagen|un PDF|\d+ archivos)[^)]*\)(?: — )?/, '');
+export const textoConArchivos = (texto: string): string =>
+  // El cierre se busca hasta « — » o el final: un nombre con paréntesis («plano (v2).jpg») no corta antes.
+  texto.replace(/^\(envió (?:una imagen|un PDF|\d+ archivos)(?:: .*?)?\)(?: — |$)/, '');
 
 /** El link de un archivo guardado (sin el `?ws=`: en un `<img src>` lo pone quien lo dibuja, con `conWs`). */
 export const rutaDeArchivo = (ref: string): string => `/api/mako/chat?adjunto=${encodeURIComponent(ref)}`;

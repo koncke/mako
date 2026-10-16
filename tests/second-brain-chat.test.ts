@@ -16,7 +16,9 @@
 // Los adjuntos (tanda 4, 16/10/2026), base 5 / 0, cada rotura → 4 / 1 («los adjuntos»): `urlDeAdjunto` sin mirar de quién
 // es la conversación; el turno sin soltar los binarios de un mensaje que quedó sin bloques; El Archivero para cualquier
 // rol; abrir devolviendo las filas crudas (con el path); `deleteSession` sin los binarios; el `<img>` sin `conWs`; el
-// `formData()` antes de mirar el largo.
+// `formData()` antes de mirar el largo. Y lo que encontró la revisión adversarial (16/10/2026), base 5 / 0 → 4 / 1 cada
+// una: subir sin mirar `guardarAdjuntos` (el PDF de un LEAD iba a El Archivero del negocio por el Analyst del CRM); el
+// plazo de El Archivero desde después de leer los archivos.
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -103,6 +105,13 @@ test('los adjuntos: se abren por su mensaje mirando de quién es, no quedan suel
   assert.match(cuerpoUrl, /sanearBloques\(persona\.ws, m\.bloques\)/, 'el path se sanea con el workspace de la persona');
   assert.match(turno, /mensajes: mensajes\.map\(\(m\) => aMensajeChat\(persona\.ws, m\)\)/, 'abrir no devuelve las filas crudas (con el path)');
   assert.match(turno, /if \(bloques\.length && !msg\.conBloques\) await borrarAdjuntos\(/, 'un mensaje que quedó sin sus bloques suelta los binarios');
+  // Revisión del 16/10/2026: el MaKo Analyst de un lead usa este mismo turno, y su PDF es del lead. Guardar (y El
+  // Archivero) es SÓLO de quien lo pide: el Second Brain y el teléfono.
+  assert.match(turno, /adjuntos\.length && entrada\.guardarAdjuntos \? await subirAdjuntos\(/, 'subir sólo si quien llama lo pide');
+  assert.equal((ruta.match(/guardarAdjuntos: true/g) ?? []).length, 1, 'el Second Brain lo pide (sólo en el envío con archivos)');
+  assert.match(sinComentarios(leer('app/api/m/mako/route.ts')), /guardarAdjuntos: true/, 'el teléfono lo pide');
+  assert.ok(!/guardarAdjuntos/.test(sinComentarios(leer('lib/mako-analyst-lead.ts'))), 'el Analyst del lead no');
+  assert.match(turno, /archivarPdfsDelChat\(ws, msg\.id, inicio, pdfs\)/, 'el plazo de El Archivero corre desde que empezó el turno');
   const archivar = turno.indexOf('archivarPdfsDelChat(ws');
   assert.ok(archivar > 0, 'el turno pasa los PDF a El Archivero');
   const antes = turno.slice(0, archivar);
