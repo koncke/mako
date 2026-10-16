@@ -332,7 +332,14 @@ function VistaDiagnostico({ d, calculo, conProbar = true }: { d: DiagnosticoOfer
           <span aria-hidden style={{ color: 'var(--good)', display: 'flex', marginTop: 1 }}><IconoMenu nombre="check" size={18} /></span>
           <div style={{ minWidth: 0 }}>
             <div style={{ ...ETIQUETA, color: 'var(--good)' }}>Lo más fuerte</div>
-            <div style={{ marginTop: 3, fontSize: 'var(--fs-md)', lineHeight: 1.5, color: 'var(--ink)' }}><T v={d.fuerte} /></div>
+            {/* Desde el 16/10 el diagnóstico deja de 1 a 3 (`fuertes`); las conclusiones de antes, una sola frase. */}
+            {(d.fuertes?.length ?? 0) > 1
+              ? (
+                <ul style={{ margin: '3px 0 0', paddingLeft: 18, fontSize: 'var(--fs-md)', lineHeight: 1.5, color: 'var(--ink)' }}>
+                  {d.fuertes!.map((f, i) => <li key={i}><T v={f} /></li>)}
+                </ul>
+              )
+              : <div style={{ marginTop: 3, fontSize: 'var(--fs-md)', lineHeight: 1.5, color: 'var(--ink)' }}><T v={d.fuerte} /></div>}
           </div>
         </div>
       )}

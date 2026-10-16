@@ -8643,6 +8643,11 @@ chat». Lo que costó, en `docs/hallazgos-onboarding.md` y `docs/hallazgos-offer
   deja el trabajo a medias, y una recarga ve lo mismo. Cada escritura de fondo lleva su `intento` (un trabajo
   viejo que termina tarde no pisa el nuevo) y lo que corre tiene un vencimiento. El molde: el armado de la
   oferta (`armar` / `armarPorDetras` en app/api/offer/route.ts, mig 0296).
+- **En Offer, una regla que depende del TICKET (precio mínimo, duración, cuotas, la pregunta de la escalera) se
+  condiciona al nivel** (`nivelDeOferta`, lib/offer-reglas.ts), que decide el código con el precio. El marco daba
+  por hecho el alto ticket, y convirtió una entrada de 800 MXN al mes en un programa de 1.000 USD. Lo que el
+  modelo tiene que saber del negocio va pegado a un bloque que ya está en el prompt (`bloqueNivel` en las piezas),
+  nunca en un slot nuevo: un prompt editado en /configuraciones no lo tendría.
 
 # Una reserva de agenda decide a DÓNDE va por un solo camino, y la agenda tiene tres fuentes de ruteo
 
