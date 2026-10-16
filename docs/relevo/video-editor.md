@@ -2,6 +2,15 @@
 
 *12/10/2026, chat «Video Editor», cuenta claude3 (semana al 88 %).*
 
+## 16/10 mañana (cuenta 3): las plantillas sugeridas, en los dos editores
+
+- **Hecho** (pedido del Cerebro, sobre el módulo compartido del Dashboard): la pestaña Plantillas del Video Editor y
+  el panel de plantillas del Image Editor ponen primero las que le sirven al negocio, con «Sugerido» chico y gris
+  y el porqué al pasar el mouse; `listar_plantillas_video`, `listar_plantillas_imagen` y el chat «Editar con IA» dan
+  la misma lista. Las tablas: `lib/editor-video/plantillas-etiquetas.ts` y `app/image-editor/mako/plantillas-etiquetas.ts`;
+  la guía, `docs/plantillas-sugeridas.md`; el test, `tests/plantillas-sugeridas-editores.test.ts` (27 roturas).
+- **Falta mirarlo en el navegador** (ws9 con un funnel declarado), junto con la tanda 5 de abajo.
+
 ## 16/10 madrugada (cuenta 3): plantillas de anuncio, fuentes y deshacer — lo que queda es MIRARLO
 
 - **Hecho y commiteado** (rama `video-editor`; el coordinador sube): el arreglo de la carga de fuentes que colgaba

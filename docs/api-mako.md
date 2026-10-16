@@ -12273,7 +12273,7 @@ curl -L \
 
 ### `GET /api/v1/video/plantillas` — Plantillas de anuncio del editor
 
-El catálogo de plantillas de anuncio vertical (9:16) del Video Editor (/video-editor): id, nombre, qué es, cuánto dura y sus huecos. Un hueco de clip se llena con un video o una foto (con los segundos que pide: un video más corto no entra; una foto sirve siempre; uno opcional puede quedar con su muestra); uno de texto, con hasta su máximo de caracteres (trae el texto de ejemplo). Usar una plantilla NO se puede por la API: el proyecto vive en el navegador de quien edita. Se usa en el editor, en la pestaña Plantillas o pidiéndoselo al chat «Editar con IA».
+El catálogo de plantillas de anuncio vertical (9:16) del Video Editor (/video-editor): id, nombre, qué es, cuánto dura y sus huecos, primero las sugeridas para este negocio (con su porqué en "sugerida"). Un hueco de clip se llena con un video o una foto (con los segundos que pide: un video más corto no entra; una foto sirve siempre; uno opcional puede quedar con su muestra); uno de texto, con hasta su máximo de caracteres (trae el texto de ejemplo). Usar una plantilla NO se puede por la API: el proyecto vive en el navegador de quien edita. Se usa en el editor, en la pestaña Plantillas o pidiéndoselo al chat «Editar con IA».
 
 - **Ruta por operación:** `GET /api/v1/video/listar_plantillas_video`
 - **Token detallado:** permiso `video=read` (Solo lectura en «Video Generator»)
@@ -12412,7 +12412,7 @@ curl -L \
 
 ### `GET /api/v1/imagen/plantillas` — Ver las plantillas del Image Editor
 
-Las plantillas del Image Editor: slug, título, categoría, tamaño y páginas. Un diseño nuevo puede empezar de una (crear_diseno_imagen con `plantilla`).
+Las plantillas del Image Editor: slug, título, categoría, tamaño y páginas, primero las sugeridas para este negocio (con su porqué en "sugerida"). Un diseño nuevo puede empezar de una (crear_diseno_imagen con `plantilla`).
 
 - **Ruta por operación:** `GET /api/v1/imagen/listar_plantillas_imagen`
 - **Token detallado:** permiso `imagen=read` (Solo lectura en «Image Editor (diseños)»)

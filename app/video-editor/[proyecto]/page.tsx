@@ -14,9 +14,13 @@
 // `?plantilla=<id>` es «Utilizar plantilla» con la línea de tiempo ocupada
 // (`/video-editor/nuevo?plantilla=testimonio`, ../plantilla/ArmarPlantilla.tsx). El
 // id se valida acá contra el catálogo: al cliente baja el id o `null` (no existe).
+//
+// Las señales del negocio (lib/plantillas-sugeridas-server.ts) se leen acá, en paralelo:
+// la pestaña Plantillas abre con las sugeridas primero y no salta (../sugeridas.tsx).
 
 import { getWorkspaceActual } from '@/lib/workspace';
 import { plantillaPorId } from '@/lib/editor-video/plantillas';
+import { senalesDelNegocio } from '@/lib/plantillas-sugeridas-server';
 import { VideoEditorCliente } from '../VideoEditorCliente';
 import { Pagina } from '@/app/_ui';
 import { TemaOscuroScript } from '@/app/_components/TemaOscuroScript';
@@ -33,7 +37,7 @@ export default async function VideoEditorProyectoPage({ params, searchParams }: 
   await requireEditorVideo();
   // El workspace de la pestaña, validado por el proxy: separa el almacenamiento
   // local del motor por cliente (ver espacio.ts).
-  const ws = await getWorkspaceActual();
+  const [ws, senales] = await Promise.all([getWorkspaceActual(), senalesDelNegocio().catch(() => null)]);
   const { proyecto } = await params;
   const { desde, plantilla } = await searchParams;
   const origen = typeof desde === 'string' && desde ? await resolverDesde(desde) : undefined;
@@ -43,7 +47,7 @@ export default async function VideoEditorProyectoPage({ params, searchParams }: 
   return (
     <Pagina ancho="completo" densidad="compacta" style={{ padding: 0, height: 'calc(100vh - var(--alto-secciones, 0px))', display: 'flex', flexDirection: 'column' }}>
       <TemaOscuroScript />
-      <VideoEditorCliente vista="editor" proyectoId={proyecto} ws={ws} desde={origen} plantilla={idPlantilla} />
+      <VideoEditorCliente vista="editor" proyectoId={proyecto} ws={ws} desde={origen} plantilla={idPlantilla} senales={senales} />
     </Pagina>
   );
 }
