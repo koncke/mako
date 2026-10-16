@@ -29,7 +29,7 @@ import { getLead, logLeadEvent, setPipelineStage } from './leads';
 import { getPipelineStagesDeLead } from './funnels';
 import { etapaDeGanado } from './pipeline';
 import { listProductos } from './productos';
-import { registrarCobroDeProveedor, desmarcarCobroDeProveedor } from './pagos';
+import { registrarCobroDeProveedor, desmarcarCobroDeProveedor, remarcarCobroDeProveedor } from './pagos';
 import { hoyEnWorkspace } from './timezone';
 import { capaDef, type CapaId } from './capas';
 import { darDeAltaCliente, esCapaVendible } from './alta-cliente';
@@ -37,7 +37,7 @@ import { COLS_COBRO, NOMBRE_PASARELA, cobroDeFila, esTokenCobro, type Cobro, typ
 import { valoresDelPago } from './variables-del-lead';
 import {
   avisoPagoPorLinkAnulado, decidirCobro, esRenovacion, idemAnular, idemBaja, idemCobro, idemReembolso, mesesTranscurridos,
-  montoUsdDeLaCuota, montoUsdDelCobro, pasaAPagado, textoPagoRegistrado, urlPorVencer, ESTADOS_QUE_PASAN_A_PAGADO,
+  esDevolucionFallida, montoUsdDeLaCuota, montoUsdDelCobro, pasaAPagado, textoDevolucionFallida, textoPagoRegistrado, urlPorVencer, ESTADOS_QUE_PASAN_A_PAGADO,
 } from './cobros-reglas';
 import { formatoMonto } from './pasarela-moneda';
 import { esCuotaDevuelta, esRenovacionFallida, PREFIJO_RENOVACION_FALLIDA } from './cobrado-lead';
@@ -46,8 +46,9 @@ import { emitirDelCatalogo } from './avisos';
 import { linkResumenLead } from './lead-resumen';
 import { enrolarPorPago, type SubtipoPago } from './pago-entrante';
 import {
-  cancelarSuscripcionStripe, crearCheckoutStripe, expirarCheckoutStripe, leerCheckoutStripe, modoDeClaveStripe, reembolsarStripe,
+  asegurarEventosStripe, cancelarSuscripcionStripe, crearCheckoutStripe, expirarCheckoutStripe, leerCheckoutStripe, modoDeClaveStripe, reembolsarStripe,
 } from './stripe-api';
+import { urlAvisoStripe } from './cobros-conexion';
 import { buscarPagosMp, cancelarSuscripcionMp, crearPreferenciaMp, crearSuscripcionMp, leerCuentaMp, reembolsarMp, vencerPreferenciaMp } from './mercadopago-api';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -725,7 +726,10 @@ export async function aplicarReembolso(c: Cobro, p: { proveedorPagoId: string | 
     const esElPrimero = !pagoId || pagoId === c.proveedor_pago_id;
     let cambio = false;
     if (esElPrimero && c.estado === 'pagado') {
-      cambio = !!(await actualizar(c.workspace_id, c.id, { estado: 'reembolsado', reembolsado_at: new Date().toISOString() }, { estado: ['pagado'] }));
+      // El motivo de una devolución anterior que FALLÓ se va: ésta salió.
+      cambio = !!(await actualizar(c.workspace_id, c.id, {
+        estado: 'reembolsado', reembolsado_at: new Date().toISOString(), ...(esDevolucionFallida(c.motivo) ? { motivo: null } : {}),
+      }, { estado: ['pagado'] }));
     }
     if (c.lead_id && pagoId) {
       const r = await desmarcarCobroDeProveedor({ leadId: c.lead_id, proveedor: c.proveedor, proveedorPagoId: pagoId });
@@ -734,6 +738,34 @@ export async function aplicarReembolso(c: Cobro, p: { proveedorPagoId: string | 
     if (cambio && c.lead_id) {
       await logLeadEvent(c.lead_id, 'Pago reembolsado', `${esElPrimero ? '' : 'Renovación de '}${c.concepto}: devuelto por ${NOMBRE_PASARELA[c.proveedor]}`, NOMBRE_PASARELA[c.proveedor]);
       await alCron(c, 'reembolsado');
+    }
+  });
+}
+
+/**
+ * ⚠️ UNA DEVOLUCIÓN QUE FALLÓ (Stripe, `refund.failed`; 15/10/2026). Stripe devuelve la plata al saldo del negocio y el
+ * cargo vuelve a estar cobrado: lo que `aplicarReembolso` deshizo se rehace. El cobro de un primer pago vuelve de
+ * `reembolsado` a `pagado` (compare-and-set) y la cuota se vuelve a marcar con la fecha del CARGO. Si el cargo sigue
+ * devuelto por otra devolución (`sigueDevuelto`), no se revierte nada. Siempre queda dicho en el historial.
+ */
+export async function aplicarReembolsoFallido(c: Cobro, p: { proveedorPagoId: string | null; sigueDevuelto: boolean; razon: string | null; fechaCargo: string | null }): Promise<void> {
+  await runWithWorkspace(c.workspace_id, async () => {
+    const texto = textoDevolucionFallida({ razon: p.razon, sigueDevuelto: p.sigueDevuelto });
+    const pagoId = p.proveedorPagoId ?? c.proveedor_pago_id;
+    const esElPrimero = !pagoId || pagoId === c.proveedor_pago_id;
+    if (!p.sigueDevuelto) {
+      if (esElPrimero && c.estado === 'reembolsado') {
+        await actualizar(c.workspace_id, c.id, { estado: 'pagado', reembolsado_at: null, motivo: texto }, { estado: ['reembolsado'] });
+      } else {
+        await actualizar(c.workspace_id, c.id, { motivo: texto });
+      }
+      if (c.lead_id && pagoId) {
+        const fecha = await hoyEnWorkspace(p.fechaCargo ? new Date(p.fechaCargo) : new Date());
+        await remarcarCobroDeProveedor({ leadId: c.lead_id, proveedor: c.proveedor, proveedorPagoId: pagoId, fechaPago: fecha });
+      }
+    }
+    if (c.lead_id) {
+      await logLeadEvent(c.lead_id, 'Devolución fallida', `${esElPrimero ? '' : 'Renovación de '}${c.concepto}: ${texto}`.slice(0, 300), NOMBRE_PASARELA[c.proveedor]);
     }
   });
 }
@@ -821,6 +853,18 @@ export async function anularLinksDeCuota(ws: number, pagoId: number, autor: stri
   return anulados;
 }
 
+/** Best effort: que el aviso de Stripe de este negocio escuche la lista de HOY (`asegurarEventosStripe`). */
+async function asegurarEventosDelAviso(ws: number, key: string): Promise<void> {
+  try {
+    const acct = await credDelCliente('STRIPE_ACCOUNT_ID', ws);
+    if (!acct) return;
+    const r = await asegurarEventosStripe(key, urlAvisoStripe(acct));
+    if (!r.ok) console.warn(`[cobros] no pude poner al día los eventos del aviso de Stripe (ws ${ws}): ${r.error}`);
+  } catch (e) {
+    console.warn(`[cobros] no pude poner al día los eventos del aviso de Stripe (ws ${ws}):`, e instanceof Error ? e.name : 'error');
+  }
+}
+
 /**
  * Devuelve el pago ENTERO. Mueve plata real: lo pide una persona desde una PANTALLA (la ficha, con
  * confirmación, o /mako/revisar por la API) y sólo un admin. La clave de idempotencia es
@@ -831,12 +875,20 @@ export async function reembolsarCobro(ws: number, id: number, autor: string, mot
   if (!c) return { ok: false, resumen: 'No encontré ese cobro.' };
   if (c.estado === 'reembolsado') return { ok: false, resumen: 'Ese cobro ya estaba reembolsado.' };
   if (c.estado !== 'pagado' || !c.proveedor_pago_id) return { ok: false, resumen: 'Sólo se reembolsa un cobro pagado.' };
+  // `pending` cuenta como hecha, como la cuenta Stripe (el cargo ya figura devuelto); si después falla, entra `refund.failed`.
+  let enCurso = false;
   if (c.proveedor === 'stripe') {
     const stripe = await credStripe(ws);
     if (!stripe) return { ok: false, resumen: 'Stripe no está conectado.' };
+    // Que el aviso escuche `refund.failed` ANTES de pedirla: si la devolución falla después, es por ahí que se sabe.
+    await asegurarEventosDelAviso(ws, stripe.key);
     const pid = c.proveedor_pago_id;
-    const r = await reembolsarStripe(stripe.key, { idem: idemReembolso(c.id), paymentIntent: pid.startsWith('pi_') ? pid : null, invoice: pid.startsWith('in_') ? pid : null });
+    const idem = idemReembolso(c.id, esDevolucionFallida(c.motivo) ? String(Date.parse(c.updated_at)) : null);
+    const r = await reembolsarStripe(stripe.key, { idem, paymentIntent: pid.startsWith('pi_') ? pid : null, invoice: pid.startsWith('in_') ? pid : null });
     if (!r.ok) return { ok: false, resumen: `Stripe no hizo el reembolso: ${r.error}` };
+    // Creada pero ya fallida: no se devolvió nada (antes se daba por hecha igual).
+    if (r.estado === 'failed' || r.estado === 'canceled') return { ok: false, resumen: 'Stripe no pudo hacer la devolución: la plata sigue cobrada.' };
+    enCurso = r.estado !== 'succeeded';
   } else {
     const mp = await credMp(ws);
     if (!mp) return { ok: false, resumen: 'Mercado Pago no está conectado.' };
@@ -845,7 +897,7 @@ export async function reembolsarCobro(ws: number, id: number, autor: string, mot
   }
   await aplicarReembolso(c, { proveedorPagoId: c.proveedor_pago_id, total: true });
   if (motivo && c.lead_id) await runWithWorkspace(ws, () => logLeadEvent(c.lead_id!, 'Pago reembolsado', `Motivo: ${motivo}`.slice(0, 300), autor));
-  return { ok: true, resumen: `Listo: ${c.concepto} (${formatoMonto(c.monto, c.moneda)}) devuelto por ${NOMBRE_PASARELA[c.proveedor]}.` };
+  return { ok: true, resumen: `Listo: ${c.concepto} (${formatoMonto(c.monto, c.moneda)}) devuelto por ${NOMBRE_PASARELA[c.proveedor]}${enCurso ? ' (Stripe todavía la está procesando)' : ''}.` };
 }
 
 /** Cancela la suscripción en la pasarela EN EL ACTO (deja de cobrar). Irreversible en Mercado Pago. */

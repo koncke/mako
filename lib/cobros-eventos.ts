@@ -37,7 +37,7 @@ const token = (v: unknown): string | null => (esTokenCobro(v) ? v : null);
 /** Cómo se busca el cobro (lo mismo que pide `cobroDelAviso` de lib/cobros.ts, sin el proveedor). */
 export type ClaveCobro = { token?: string | null; ref?: string | null; pagoId?: string | null; suscripcionId?: string | null };
 
-export type AccionCobro = 'aprobado' | 'fallido' | 'reembolso' | 'suscripcion_cancelada' | 'ignorar';
+export type AccionCobro = 'aprobado' | 'fallido' | 'reembolso' | 'reembolso_fallido' | 'suscripcion_cancelada' | 'ignorar';
 
 /** Lo que queda en la fila de `pasarela_eventos` al terminar. */
 export type ResultadoEvento = { estado: 'procesado' | 'ignorado'; motivo: string | null; cobroId: number | null };
@@ -87,7 +87,7 @@ export function eventoStripe(cuerpo: unknown): EventoStripe | null {
   return { id, tipo, livemode: typeof b.livemode === 'boolean' ? b.livemode : null, objeto: obj(obj(b.data).object) };
 }
 
-export type ObjetoStripe = 'checkout' | 'factura' | 'suscripcion' | 'cargo';
+export type ObjetoStripe = 'checkout' | 'factura' | 'suscripcion' | 'cargo' | 'reembolso';
 
 export type AvisoStripe =
   | { accion: 'ignorar'; motivo: string }
@@ -159,6 +159,13 @@ export function avisoStripe(ev: EventoStripe): AvisoStripe {
       // factura por el payment intent (lib/cobros-webhook.ts, facturaDePagoStripe).
       return { accion: 'reembolso', leer: { objeto: 'cargo', id }, buscar: { token: token(meta.mako_cobro), pagoId: idStripe(o.payment_intent, ['pi']) } };
     }
+    case 'refund.failed': {
+      // Una devolución que había salido y FALLÓ (15/10/2026): el cargo vuelve a estar cobrado. La metadata de la
+      // devolución es la de MaKo (`mako: '1'`), no la del cobro: el cobro se busca por el payment intent.
+      const id = idStripe(o.id, ['re', 'pyr']);
+      if (!id) return ignorar('el evento no trae la devolución');
+      return { accion: 'reembolso_fallido', leer: { objeto: 'reembolso', id }, buscar: { token: token(meta.mako_cobro), pagoId: idStripe(o.payment_intent, ['pi']) } };
+    }
     default:
       return ignorar(`evento ${ev.tipo}: MaKo no lo procesa`);
   }
@@ -221,6 +228,13 @@ export function confirmarFactura(
   if (!FACTURAS_DE_PAGO.has(f.motivo ?? '')) return { ok: false, motivo: `factura de ${f.motivo ?? 'motivo desconocido'}: no es un pago de la suscripción` };
   if (!(Number(f.montoPagado) > 0)) return { ok: false, motivo: 'factura en cero: no hay plata que registrar' };
   return { ok: true, proveedorPagoId: f.id, monto: f.montoPagado, moneda: f.moneda, suscripcionId: f.suscripcion };
+}
+
+/** La devolución RELEÍDA confirma que falló: `failed` (o `canceled`, que tampoco devolvió nada). Un aviso viejo de una que después salió, no. */
+export function confirmarDevolucionFallida(d: { estado: string | null; cargo: string | null }): Confirmacion<{ cargo: string }> {
+  if (d.estado !== 'failed' && d.estado !== 'canceled') return { ok: false, motivo: `la devolución releída no falló (${d.estado ?? 'sin estado'})` };
+  if (!d.cargo) return { ok: false, motivo: 'la devolución releída no dice de qué cargo es' };
+  return { ok: true, cargo: d.cargo };
 }
 
 /** El cargo RELEÍDO confirma el reembolso: `refunded` es el TOTAL; un monto devuelto menor es parcial. */

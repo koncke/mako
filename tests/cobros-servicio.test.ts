@@ -114,7 +114,10 @@ test('ganar el lead: setPipelineStage con la etapa de SU embudo, nunca `estado_l
 
 test('reembolsar y cancelar llevan la clave DETERMINÍSTICA del cobro, y una sola llamada por pasarela', () => {
   const r = bloque('export async function reembolsarCobro(');
-  assert.equal(veces(r, 'idemReembolso(c.id)'), 2, 'Stripe y Mercado Pago, los dos con la clave del cobro');
+  assert.equal(veces(r, 'idemReembolso(c.id)'), 1, 'Mercado Pago con la clave del cobro');
+  // Stripe también, salvo DESPUÉS de una devolución que falló (15/10/2026): la misma clave dentro de las 24 h devolvería
+  // la respuesta vieja sin crear otra devolución. El reintento lleva el `updated_at` que dejó la falla: también fijo.
+  assert.match(r, /const idem = idemReembolso\(c\.id, esDevolucionFallida\(c\.motivo\) \? String\(Date\.parse\(c\.updated_at\)\) : null\);\s*const r = await reembolsarStripe\(stripe\.key, \{ idem,/);
   assert.equal(veces(r, 'reembolsarStripe('), 1);
   assert.equal(veces(r, 'reembolsarMp('), 1);
   const k = bloque('export async function cancelarSuscripcionCobro(');

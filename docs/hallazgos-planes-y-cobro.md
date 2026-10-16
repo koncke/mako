@@ -584,6 +584,35 @@ pasarela: un aviso perdido no lo deja escondido.
 `reconciliarCobros`) · `lib/cobros-reglas.ts` (`avisoPagoPorLinkAnulado`) · `lib/mercadopago-api.ts`
 (`vencerPreferenciaMp`) · `tests/pago-link-anulado.test.ts` · `tests/mercadopago-api.test.ts`.
 
+### Una devolución de Stripe puede fallar DESPUÉS, y tres trampas para escucharlo (15/10/2026)
+
+**Síntoma:** MaKo daba una devolución de Stripe por hecha apenas la creaba (`pending` o `succeeded`): cobro
+«Reembolsado», cuota desmarcada. Días después Stripe puede pasarla a `failed` (tarjeta denunciada o dada de baja, una
+disputa abierta): devuelve la plata al saldo del negocio y el cargo vuelve a estar cobrado. En MaKo seguía devuelta para
+siempre.
+**El diagnóstico obvio era el equivocado:** el pendiente decía «`pending` se da por hecho». `pending` está bien darlo por
+hecho (Stripe ya muestra el cargo devuelto); lo que faltaba es enterarse de que FALLÓ. Se escucha `refund.failed` (existe
+desde 2024-10-28.acacia; `charge.refund.updated` es el nombre viejo), se relee la devolución (que de verdad haya fallado)
+y su CARGO, que es lo que dice si sigue devuelto por otra devolución: sólo si ya no, el cobro vuelve a `pagado`
+(compare-and-set) y la cuota se vuelve a marcar con la fecha del cargo (`remarcarCobroDeProveedor`, con la guarda del
+negocio). Siempre queda en el historial, con la razón en palabras si se conoce.
+**Trampa 1 — un nombre de evento que Stripe no conoce rompe CONECTAR.** `enabled_events` se valida al crear el aviso: un
+evento inexistente hace fallar `asegurarWebhookStripe`, o sea, ningún negocio podría conectar Stripe. Antes de sumar uno a
+`EVENTOS_STRIPE`, confirmar en el changelog de Stripe desde qué versión existe.
+**Trampa 2 — cambiar `EVENTOS_STRIPE` no les llega a los avisos ya registrados.** Stripe guarda la lista con la que se
+creó cada uno. `asegurarEventosStripe` la pone al día sin tocar el secreto (actualizar no cambia el `whsec_`), y hoy la
+llama `reembolsarCobro` ANTES de pedir la devolución. Una devolución hecha desde el panel de Stripe, en una cuenta
+conectada antes de este cambio, no avisa su falla hasta que el negocio reconecte o MaKo haga una devolución. Si algún día
+se suma un evento que importa sin una acción de MaKo (las disputas), hay que llamarla también desde el cron.
+**Trampa 3 — la clave de idempotencia fija contra un reintento.** La del reembolso es la del cobro (una confirmación
+repetida no devuelve dos veces); pero después de una devolución FALLIDA, la misma clave dentro de las 24 h le devolvería
+a MaKo la respuesta vieja SIN crear otra devolución. El reintento lleva el `updated_at` que dejó la falla.
+**Vive en:** `lib/stripe-api.ts` (`EVENTOS_STRIPE`, `asegurarEventosStripe`, `leerReembolsoStripe`) ·
+`lib/cobros-eventos.ts` (`refund.failed`, `confirmarDevolucionFallida`) · `lib/cobros-webhook.ts` (rama `reembolso`,
+`cobroDelPagoStripe`) · `lib/cobros.ts` (`aplicarReembolsoFallido`, `reembolsarCobro`) · `lib/pagos.ts`
+(`remarcarCobroDeProveedor`) · `lib/cobros-reglas.ts` (`textoDevolucionFallida`, `idemReembolso`) ·
+`tests/devolucion-fallida.test.ts`.
+
 ### Cuatro «decisiones de Martín» que no eran suyas (15/10/2026)
 
 La tabla de abajo tenía seis filas marcadas «decisión de Martín». Pasadas por la vara de AGENTS.md (lo que copia lo que
@@ -640,7 +669,7 @@ implementación en un worktree propio (`C:/dev/wt-pagos`) y una rama aparte para
 | **Pasarela (revisión):** el cambio de email tras el alta tiene ventana de 48 h, pero lo puede hacer quien PAGÓ aunque no sea el dueño de la cuenta: falta un código al email actual | `app/pagar/cambio-email.ts`, `app/api/pagar/email/route.ts` |
 | **Pasarela (revisión):** los topes de `/api/pagar/email` viven en memoria (por instancia); el «ya es de otro» ya gasta el intento (15/10) | `app/api/pagar/email/route.ts`, `lib/rate-limit.ts` |
 | **Pasarela (revisión):** un aviso de MP sin firma con el `user_id` de un negocio conectado provoca una relectura con SU token (las filas `sin-workspace` ya tienen techo: una por día, 15/10) | `app/api/webhooks/mercadopago/route.ts` |
-| **Pasarela (revisión):** un reembolso de Stripe se da por hecho con `pending`; no se escuchan `charge.refund.updated` ni `refund.failed` | `lib/cobros.ts` (`reembolsarCobro`), `lib/stripe-api.ts` |
+| **Pasarela:** una devolución hecha desde el PANEL de Stripe, en una cuenta conectada antes del 15/10, no avisa si falla hasta que el negocio reconecte o MaKo haga una devolución (`asegurarEventosStripe` sólo corre al reembolsar desde MaKo) | `lib/stripe-api.ts`, `lib/cobros.ts` (`reembolsarCobro`), el cron si hiciera falta |
 | **Pasarela (revisión):** el MRR al cancelar una suscripción redondea por meses (puede contar un mes de más o de menos) | `lib/cobros-reglas.ts` (`mesesTranscurridos`) |
 | **Pasarela (revisión):** la fecha de la cuota es la del procesamiento, no la del pago (un aviso tardío la corre de mes) | `lib/cobros.ts` (`aplicarPagoAprobado`) |
 | **Pasarela (decidido 15/10):** un lead de pago único que paga un link de SUSCRIPCIÓN sigue de pago único, y su mensualidad tiene que contar en el MRR desde el cobro activo | `lib/queries.ts` (`getMrrActivo`) |
