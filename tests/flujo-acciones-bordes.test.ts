@@ -49,7 +49,8 @@ test('la prueba de una secuencia manda sólo los MENSAJES: una acción no se pru
   // Desde el 14/10/2026 los mensajes son los de UN escenario (`escenarioDePrueba`, tests/probar-secuencia-escenario.test.ts):
   // el filtro va sobre ese camino.
   const escenario = bloque(src, 'export async function escenarioDePrueba(', '\n}\n');
-  assert.match(escenario, /mensajesDelEscenario\(pasos, elegido\.elecciones\)\s*\.filter\(\(p\) => !esPasoAccion\(p\) && !esNodoDeControl\(p\)\)/);
+  // (16/10/2026: con la reunión del lead de la prueba, `reunionMin`: tests/probar-orden-antes.test.ts.)
+  assert.match(escenario, /mensajesDelEscenario\(pasos, elegido\.elecciones, \{\}, \{ reunionMin \}\)\s*\.filter\(\(p\) => !esPasoAccion\(p\) && !esNodoDeControl\(p\)\)/);
   assert.match(prueba, /for \(const \[k, paso\] of mensajes\.entries\(\)\)/, 'el bucle vuelve a recorrer las acciones y manda un WhatsApp en blanco por cada una');
   assert.match(prueba, /mensajes\.every\(\(p\) => p\.canal === 'whatsapp'\)/);
 });

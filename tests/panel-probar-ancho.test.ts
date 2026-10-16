@@ -311,7 +311,8 @@ test('«Probar» 1: el lead de la prueba se elige por canal al arrancar, y la co
   const src = PANEL();
   const arrancar = src.slice(src.indexOf('const arrancarRefs = () => {'), src.indexOf('const reiniciar = (deVerdad = false) => {'));
   // Con el medio de la prueba (TikTok fase 0, 14/10/2026): tests/ai-step-redes.test.ts.
-  assert.match(arrancar, /simRef\.current = iniciar\(flujoVivo, \{ medio: medioIA \}\);\n\s+contactoRef\.current = contactoDe\(flujoVivo\);/, 'el contacto no se elige al arrancar con el flujo que se prueba');
+  // (16/10/2026: y con la reunión del lead de la prueba: tests/probar-orden-antes.test.ts.)
+  assert.match(arrancar, /simRef\.current = iniciar\(flujoVivo, \{ medio: medioIA, reunionMin: reunionDeLaPrueba\(\) \}\);\n\s+contactoRef\.current = contactoDe\(flujoVivo\);/, 'el contacto no se elige al arrancar con el flujo que se prueba');
   assert.match(src, /contactoParaProbar\(f, \(p\) => canalDelPaso\(p\) === canal, CANALES_PROBAR\[canal\]\.contacto, leadRef\.current, ctx\.current\.nombres\)/);
   const caso = src.slice(src.indexOf("case 'condicion': {"), src.indexOf("case 'fin':"));
   assert.match(caso, /hechosDeLeadNuevo\(\{\n\s+\.\.\.leadRef\.current, \.\.\.contactoRef\.current, yaContactado:/, 'la condición vuelve a decidir con teléfono y email siempre');

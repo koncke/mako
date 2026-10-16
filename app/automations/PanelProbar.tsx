@@ -92,6 +92,7 @@
 
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent, type ReactNode } from 'react';
 import { ChatHilo, type HiloMsg } from '../whatsapp/_shared/ChatHilo';
+import { ChipDelCaso } from './ChipDelCaso';
 import { Button } from '@/app/_ui';
 // «Conectar» y «Vincular nuevo» (décima tanda, GENERAL 6): el modal de cada medio, uno solo para toda la tab.
 import { ConectarMedio, useEstadoMedios } from './ConectarMedio';
@@ -111,7 +112,7 @@ import {
   flujoParaProbar, firmaFlujo, iniciar, siguiente, pausarPorRespuesta, entrarEnRespuesta,
   escenarioParaRedactar, textoDeEjemplo, correoDeEjemplo, debeSalirDeVerdad, burbujaDeArchivo,
   hechosDeLeadNuevo, leadNuevoDelCron, elegirComoLead, sanearDestinoPrueba, contactoParaProbar, CONTACTO_COMPLETO,
-  elegir, escenariosDePrueba, type EscenarioPrueba,
+  elegir, escenariosDePrueba, reunionMinDe, type EscenarioPrueba,
   type EstadoSim, type NombresSim, type OpcionRama, type MensajePrueba, type DestinosGuardados, type ContactoPrueba, type EmisorPrueba,
 } from '@/lib/simulador-grafo';
 import { partesDe, type ParteMensaje } from '@/lib/mensaje-partes';
@@ -506,11 +507,22 @@ function IconoTilde({ visible }: { visible: boolean }) {
 export const ANCHO_BARRA_ESCENARIOS = 232;
 /** Cuánto mide la fila de fotos arriba del chat, cuando no hay lugar al costado. */
 export const ALTO_FILA_ESCENARIOS = 78;
-/** Desde qué ancho del cuerpo la lista va al costado: con menos, el chat quedaba en ~300 px y la caja aplastada. */
-export const ANCHO_PARA_COLUMNA = 640;
+/**
+ * Desde qué ancho del cuerpo la lista va al costado: con menos, el chat quedaba en ~300 px y la caja aplastada.
+ * 16/10/2026, Martín: «Los casos no van arriba: van en la sidebar típica de WhatsApp». Con 640, el panel de su pantalla
+ * (~645 px de cuerpo, 1536 de ancho) caía justo debajo y los mostraba en fila. Con 520 el chat queda en ~290-410 px,
+ * como un chat de WhatsApp Web angosto; la fila queda para el teléfono y una ventana chica.
+ */
+export const ANCHO_PARA_COLUMNA = 520;
 
 /** Cómo se llama el contacto de un escenario: corto, para que se lea entero (el detalle lo dice el chat al empezar). */
 export const nombreDelCaso = (k: number) => `Caso ${k + 1}`;
+
+/**
+ * ¿Es parte de la CHARLA? Ni una pastilla del sistema ni el encabezado de un caso (`ChipDelCaso`, 16/10/2026): lo que
+ * lee el redactor, el último mensaje de un contacto y lo que contesta el lead se arman sólo con lo que se dijo.
+ */
+export const esDeLaCharla = (m: Pick<HiloMsg, 'tipo'>): boolean => m.tipo !== 'sistema' && m.tipo !== 'caso';
 
 /** Cuándo cae un escenario, en una frase: los hechos que lo deciden (lo de las condiciones, si no hay hechos). */
 export function textoEscenario(e: Pick<EscenarioPrueba, 'pasos'> & { cuando?: readonly string[] }): string {
@@ -972,6 +984,11 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
   const leadRef = useRef(leadDelCron);
   useEffect(() => { leadRef.current = leadDelCron; }, [leadDelCron]);
   /**
+   * LA REUNIÓN DEL LEAD DE LA PRUEBA, en minutos desde que entra (16/10/2026, `reunionMinDe`): los «antes de la reunión»
+   * se ordenan contra ella, como en el motor. La da el CRON (quien entra por una etapa de reunión la tiene mañana).
+   */
+  const reunionDeLaPrueba = (): number | undefined => reunionMinDe(hechosDeLeadNuevo(leadRef.current));
+  /**
    * Si el lead de la prueba tiene teléfono / email (sexta tanda, «Probar» 1): se ELIGE al arrancar
    * para que le llegue lo del canal que se prueba (`contactoParaProbar`). Lo usa cada condición.
    */
@@ -1043,15 +1060,22 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
    * CUÁNDO CAE ESTE CASO (15/10/2026, Martín: «que al principio de la conversación se aclare cuando cae ese caso, donde
    * salen los chips de "⏳ 1 h antes de la reunión"»): la primera píldora del hilo. Sólo con la lista de contactos.
    */
+  // ⚠️ DESDE EL 16/10/2026 ES SU PROPIO ENCABEZADO (`ChipDelCaso`, tipo 'caso'), no una pastilla del sistema: «con otro
+  // diseño, para que no se confunda con un mensaje». En un caso del AI Step dice además lo que contesta el lead.
   const pildoraDelCaso = () => {
     const caso = escRef.current;
     const k = caso ? escenarios.findIndex((e) => e.id === caso.id) : -1;
-    if (conBarra && caso && k >= 0 && caso.cuando.length) sistema(`${nombreDelCaso(k)}: ${caso.cuando.join(' · ')}`);
+    const contesta = caso?.respuesta?.titulo ?? null;
+    if (!conBarra || !caso || k < 0 || (!caso.cuando.length && !contesta) || ctx.current.canal === 'email') return;
+    poner({
+      id: nuevoId('caso'), fromMe: false, tipo: 'caso', texto: `${nombreDelCaso(k)}: ${caso.cuando.join(' · ')}`,
+      caso: { titulo: nombreDelCaso(k), hechos: caso.cuando, contesta }, fecha: new Date().toISOString(),
+    });
   };
 
   /** La charla, para el redactor: lo que dijo el lead y lo que contestó el negocio. */
   const historial = (): Turno[] => msgsRef.current
-    .filter((m) => m.tipo !== 'sistema')
+    .filter(esDeLaCharla)
     .map((m) => ({ de: m.fromMe ? 'lead' as const : 'negocio' as const, texto: m.texto || (m.tipo === 'audio' ? '(nota de voz)' : '(un archivo)') }));
 
   /**
@@ -1202,6 +1226,7 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
           // EL LEAD CONTESTA (15/10/2026): en un escenario de respuesta, después del primer mensaje escribe él, y el resto
           // de la salida se pausa como en el motor (`alResponder`).
           if (!evento.enRespuesta && escRef.current?.respuesta && !leadEscribio.current) {
+            void pedirMensajeDelLead();
             luego(ENTRE_MS + resto + LEAD_PIENSA_MS, () => { void escribirComoLead(); });
             return;
           }
@@ -1263,7 +1288,7 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
   /** Arranca la prueba desde la primera tarjeta, con el flujo que se ve ahora. */
   const arrancarRefs = () => {
     flujoRef.current = flujoVivo;
-    simRef.current = iniciar(flujoVivo, { medio: medioIA });
+    simRef.current = iniciar(flujoVivo, { medio: medioIA, reunionMin: reunionDeLaPrueba() });
     contactoRef.current = contactoDe(flujoVivo);
     msgsRef.current = [];
     correosRef.current = [];
@@ -1272,7 +1297,7 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
     turnoLead.current = 0;
     dijoRepetido.current = false;
     huboMensaje.current = false;
-    leadEscribio.current = false;
+    leadEscribio.current = false; mensajeDelLead.current = null;
     pildoraDelCaso();
     luego(150, avanzar);
   };
@@ -1352,7 +1377,7 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
   // Su renglón de la barra dice lo último que le llegó (o lo último que se le contestó).
   useEffect(() => {
     if (!conBarra || !escenarioSel) return;
-    const ultimo = [...mensajes].reverse().find((m) => m.tipo !== 'sistema');
+    const ultimo = [...mensajes].reverse().find(esDeLaCharla);
     if (!ultimo) return;
     const texto = `${ultimo.fromMe ? 'Tú: ' : ''}${ultimo.texto || (ultimo.tipo === 'audio' ? '🎙 Nota de voz' : '📎 Archivo')}`;
     setPrevias((p) => (p[escenarioSel.id] === texto ? p : { ...p, [escenarioSel.id]: texto }));
@@ -1415,12 +1440,27 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
     leadEscribio.current = true;
     const r0 = run.current;
     setTyping({ lado: 'right' });
-    const ultimo = [...msgsRef.current].reverse().find((m) => !m.fromMe && m.tipo !== 'sistema')?.texto ?? '';
-    const j = await postar({ action: 'mensaje-lead', titulo: r.titulo, cuando: r.cuando, ultimo });
+    const texto = await pedirMensajeDelLead();
     if (run.current !== r0) return;
     setTyping(null);
-    const texto = typeof j.mensaje === 'string' && j.mensaje.trim() ? j.mensaje.trim() : (r.cuando || r.titulo);
     await enviarTexto(texto);
+  };
+  /**
+   * LO QUE ESCRIBE EL LEAD, PEDIDO APENAS APARECE EL MENSAJE QUE CONTESTA (16/10/2026, Martín: «los "escribiendo…" no
+   * tardan tanto»). La IA tarda segundos; pedido recién después de las pausas, el «escribiendo…» las sumaba a esa espera.
+   * Una vez por prueba (la vacía `arrancarRefs`); si la IA no contesta, el lead dice lo de su caso.
+   */
+  const mensajeDelLead = useRef<Promise<string> | null>(null);
+  const pedirMensajeDelLead = (): Promise<string> => {
+    const r = escRef.current?.respuesta;
+    if (!r) return Promise.resolve('');
+    if (!mensajeDelLead.current) {
+      const ultimo = [...msgsRef.current].reverse().find((m) => !m.fromMe && esDeLaCharla(m))?.texto ?? '';
+      mensajeDelLead.current = postar({ action: 'mensaje-lead', titulo: r.titulo, cuando: r.cuando, ultimo })
+        .then((j) => (typeof j.mensaje === 'string' && j.mensaje.trim() ? j.mensaje.trim() : (r.cuando || r.titulo)))
+        .catch(() => r.cuando || r.titulo);
+    }
+    return mensajeDelLead.current;
   };
 
   /**
@@ -1552,6 +1592,7 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
             /* Vacío a propósito: arranca solo y en 150 ms ya está el «escribiendo…». Un «Sin
                mensajes» que aparece y se va se lee como un parpadeo. */
             vacio={<></>}
+            renderMensaje={(m) => (m.tipo === 'caso' && m.caso ? <ChipDelCaso caso={m.caso} /> : null)}
           />
         </div>
       );

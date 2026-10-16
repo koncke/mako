@@ -67,13 +67,22 @@ test('«Nueva oferta» va arriba, y «Analizar oferta» lleva a Offer con la ofe
   assert.match(UI, /new URLSearchParams\(\{ oferta: String\(elegida\.id\) \}\)/);
 });
 
-test('las DOS puertas de la ficha muestran la oferta antes del deal', () => {
-  for (const p of ['../app/crm/LeadSheet.tsx', '../app/crm/[id]/page.tsx']) {
-    const src = sinComentarios(leer(p));
-    const o = src.indexOf('<OfertaDelLead leadId={lead.id}');
-    const d = src.indexOf('<DealDetailsCard lead={lead}');
-    assert.ok(o > 0 && d > o, `${p}: la oferta no está arriba del deal`);
+test('las DOS puertas de la ficha muestran la oferta antes del deal', async () => {
+  // ⚠️ CAMBIADO A PROPÓSITO EL 14/10/2026 (la ficha por bloques): las dos puertas montan la MISMA ficha
+  // (`FichaPorBloques`); la oferta y el deal son los bloques `oferta` y `venta` de Pagos, y el ORDEN lo
+  // dice la plantilla. En la de respaldo (la de hoy) y en las de llamada, la oferta va primero. Re-verificado
+  // rompiéndolo: el respaldo con `venta` antes que `oferta` → 1 fallo.
+  const { PLANTILLA_RESPALDO, plantillaFicha } = await import('../lib/ficha/plantillas');
+  for (const p of ['../app/crm/LeadSheet.tsx', '../app/crm/[id]/LeadDetailBody.tsx']) {
+    assert.match(sinComentarios(leer(p)), /<FichaPorBloques\b/, `${p}: no monta la ficha compartida`);
   }
+  for (const pl of [PLANTILLA_RESPALDO, plantillaFicha('dos-reuniones'), plantillaFicha('una-llamada')]) {
+    const pagos = pl.tabs.pagos!;
+    assert.ok(pagos.indexOf('oferta') >= 0 && pagos.indexOf('oferta') < pagos.indexOf('venta'), `${pl.nombre}: la oferta no está arriba del deal`);
+  }
+  const reg = sinComentarios(leer('../app/crm/lead-view/ficha/registro-pagos.tsx'));
+  assert.match(reg, /<OfertaDelLead leadId=\{ctx\.lead\.id\}/);
+  assert.match(reg, /<DealDetailsCard lead=\{lead\}/);
 });
 
 test('el link a Offer abre ESA oferta: su conversación más reciente, o una nueva para analizarla', () => {

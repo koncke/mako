@@ -9151,3 +9151,176 @@ dice se ejecuta en `tests/pagos-bajas-b2.test.ts`.
 - Un lead ya ganado como pago único que paga un link de SUSCRIPCIÓN (una venta adicional) sigue como pago único:
   `ganarLead` no corre y el MRR no lo cuenta. Decidir si el cobro cambia el tipo de venta es una decisión de producto.
 **Vive en:** `lib/cobrado-lead.ts` · `lib/cobros.ts` · `lib/cobros-reglas.ts` · `lib/pagos.ts` · `lib/flujo-corridas.ts` · `lib/api-mako/areas/crm.run.ts` · `tests/pagos-bajas-b2.test.ts`.
+
+## La ficha por bloques MIRADA por primera vez, en un banco y no en `next dev` (16/10/2026)
+
+Nadie la había visto en una pantalla. La máquina tuvo entre 1,3 y 4,9 GB libres toda la corrida (un `next dev`
+de este repo pide ~4 y llega a 6), así que no se levantó el server. Se miró en un **banco**: las dos puertas
+REALES —`LeadSheet` (el pop-up) y `LeadDetailBody` dentro del `<main>` de `app/crm/[id]/page.tsx`— armadas con
+esbuild (290 módulos, ~5 s) y abiertas en Chrome sin ventana a 1440×900, 1024×768, 820×1180 y 390×844 (las dos
+últimas táctiles), con «Personalizar» de punta a punta: elegir, ancho, agregar, arrastrar, teclado, dispositivo,
+densidad, un aviso, «Volver a la plantilla» y «Deshacer». Las tres trampas del banco, que valen para el próximo:
+- **Un stub de server action que devuelve `{ ok: true }` deja la pantalla en blanco**: la primera tarjeta que hace
+  `res.map` tira y React desmonta todo. Sirve un «camaleón»: un `Proxy` sobre un array vacío que contesta `ok: true`,
+  `undefined` para `then`/`error`/`message` y otro camaleón para cualquier otra clave (`.map` da vacío, se dibuja
+  como nada). ⚠️ `then` TIENE que ser `undefined`: si no, `await` lo trata como una promesa y la pantalla se cuelga.
+- **La server action de la ficha no se stubea vacía**: con el motor puro (`aplicarCambio` + `fichaEfectiva`) sobre
+  una ficha en memoria, «Personalizar» guarda, deshace y relee igual que contra el server, sin tocar ninguna base.
+- **El banco mide el LAYOUT, no los datos**: no reemplaza mirarla con la sesión de admin del ws 3 (queda pendiente).
+
+**Lo que se vio mal, y por qué:**
+
+1. **«Información principal» con una letra por renglón** (a ½ en el pop-up, en la tablet y en la vista «Celular» de
+   «Personalizar»). Era un `repeat(2, minmax(0, 1fr))` fijo: hasta la ficha por bloques la tarjeta siempre iba de
+   ancho completo. ⚠️ **El diagnóstico obvio era el equivocado**: el frente del celular lo dejó como «hace falta una
+   clase en ese grid y su regla por @media y por `data-dispositivo`». Con @media no alcanza: lo que decide es el
+   ancho de la TARJETA, no el de la ventana — un bloque de ½ en el pop-up mide 459 px de contenido con la ventana
+   a 1440. **Regla:** una tarjeta que puede caer en un bloque de cualquier ancho decide sus columnas por su propio
+   ancho, con `auto-fit` y `minmax(min(100%, max(Npx, calc((100% - hueco) / 2))), 1fr)` (dos como mucho, una si no
+   entran), sin `@container` (prohibido en un ancestro de tarjetas que abren modales fijos, ficha/ficha-css.ts).
+2. **El panel de la derecha terminaba 200 px por debajo del pop-up**, y los últimos avisos no se alcanzaban mientras
+   la ficha fuera más larga que el panel. Medía `100dvh - 120px`, que supone que scrollea el documento; en el pop-up
+   scrollea el cuerpo de la ficha, y la cabecera y el pie se comen ~265 px. **Regla:** un `sticky` con alto máximo
+   adentro de algo que scrollea mide ESE contenedor (`clientHeight`), no la ventana. En /crm/[id] no se veía.
+3. **La barra del bloque elegido tapaba su rótulo** en todo bloque que no fuera de ancho completo: anclada a la
+   derecha mide 260-330 px, y editando en el pop-up la grilla mide 712 (½ = 347). No se veía QUÉ bloque estaba
+   elegido. Ahora la barra sale desde el rótulo y lleva el nombre primero.
+4. **El marco punteado asomaba al lado de la fila de tabs pegada**: sale 6 px por fuera del bloque y la grilla no le
+   dejaba ese aire. Y el desplegable de la plantilla (190 px) cortaba «La de MaKo (Llamad…».
+
+Lo fija `tests/ficha-navegador.test.ts` (base 5/0, nueve roturas de 4/1).
+
+**Lo que quedó SIN hacer:**
+- **Mirarla con datos reales**, con 5 GB libres y en este orden: `next dev -H localhost -p 34xx` desde el worktree
+  (sin `.env.local` propio: el entorno del clon, con `ZERNIO_API_KEY`, `ZERNIO_WEBHOOK_SECRET` y `ELEVENLABS_API_KEY`
+  vacías; el log dice «hidratadas» y nunca «migradas»); `/api/auth/dev-login?ws=3&next=/crm` y `/api/auth/me` con
+  `ws: 3`. Después, a 1440×900, 1024×768, 820×1180 y 390×844: el pop-up del lead 2615 («Prueba Flujo 32580», funnel
+  del negocio, id 8) y del 2664 (funnel 30), y /crm/2615 (si redirige a /onboarding es `guardOnboarding` del ws 3, no
+  la ficha). «Personalizar»: elegir, ½, agregar, arrastrar, los tres dispositivos, la plantilla, el estilo y un aviso;
+  al final «Volver a la plantilla» y `select data->'ficha' from funnels where workspace_id = 3` tiene que volver a
+  dar `null` en los dos (hoy lo es; si queda `{}`, se saca la clave). El teléfono: /crm/2615 con user-agent de iPhone
+  a 390. La consola, limpia.
+- **En una pantalla de 900 o menos (un iPad parado) el panel va DEBAJO de toda la ficha** (medido: y ≈ 2.100 px):
+  la plantilla, el estilo y los avisos quedan al final de un scroll largo.
+- **La barra de edición (Deshacer, Agregar bloque, dispositivo) se va con el scroll**; la del Dashboard queda fija.
+- **Darle ½ a un bloque que queda solo en su fila no cambia nada a la vista**: la fila se estira (regla del diseño,
+  `spansDeFilas`), y el botón ½ queda prendido sobre un bloque de ancho completo.
+- **El teléfono pone las respuestas de la AGENDA donde escritorio pone «Lo que contestó»** (Meta y la landing):
+  `PIEZA_DE_BLOQUE` (app/m/crm/ficha-bloques.ts) ata `lo-que-contesto` a la pieza «Lo que contestó al agendar»,
+  que lee `getResumenLead` (Calendly/Cal.com). En escritorio esas respuestas viven en `reunion-1`, y las de Meta y la
+  landing no tienen pieza en el teléfono.
+**Vive en:** `app/crm/lead-view/info-principal-grilla.ts` · `app/crm/lead-view/InfoPrincipalCard.tsx` · `app/crm/lead-view/ficha/PanelFicha.tsx` · `app/crm/lead-view/ficha/armar.ts` · `app/crm/lead-view/ficha/Armador.tsx` · `app/crm/lead-view/ficha/ficha-css.ts` · `tests/ficha-navegador.test.ts`.
+
+## La revisión de lo invisible de la ficha por bloques: «Deshacer» escribía donde no debía, y «A revisar» contaba distinto un lead sin casa (16/10/2026)
+
+Revisión de la rama `crm-armador` (la pantalla de la ficha por bloques, sus tres frentes) mirando sólo lo que no
+se ve con clics: permisos, workspace, datos que se pierden y la API de MaKo. Lo que estaba bien:
+- Los cortes de las server actions: `getLeadFullAction` corta sin sesión antes de leer, escribir la ficha es del
+  admin y el funnel se lee con `getTenantDb` (un id ajeno no existe).
+- La API cubre todo lo de «Personalizar» menos Deshacer, con los mismos cortes (`TAB_ADMIN`).
+- «N sin marcar» sale de la MISMA función en el pop-up, /crm/[id] y el teléfono.
+- No se sumó ninguna lectura por lead en un loop.
+
+Lo que sí rompía estaba en el **Deshacer** de `useFichaDelFunnel`, que escribe la ficha de TODOS los leads del
+funnel, y en el worklist:
+
+1. **Deshacer después de cambiar la casa del lead le pisaba la ficha al OTRO funnel.** El desplegable del funnel de
+   la cabecera relee la ficha (`onCasaCambiada`), pero `FichaPorBloques` NO se desmonta: la ficha que se ve pasa a
+   ser la del funnel nuevo, con la pila del viejo. «Deshacer» mandaba `restaurar` con el `antes` del 8 al 30, y si
+   el 8 no tenía nada guardado, el `antes` es `{}` y le BORRABA todo lo personalizado al 30. **Regla:** el estado de
+   cliente que es de UNA entidad (la pila del deshacer, una cola) va con la entidad como clave, aunque «la pantalla
+   es de un lead»: la ficha cambia de funnel sin desmontarse.
+2. **El compare-and-set del server NO protegía el Deshacer.** ⚠️ **El diagnóstico obvio era el equivocado**: «dos
+   admins no se pisan, `cambiarFichaDeFunnel` hace compare-and-set sobre `updated_at`». Eso vale para los PARCHES
+   (poner, mover, ancho…), que se aplican sobre lo de hoy. `restaurar` reemplaza la ficha ENTERA, así que aplicado
+   sobre lo de hoy le borraba el cambio a la otra persona, y su pantalla lo seguía mostrando porque lo de la sesión
+   le gana a la relectura. **Regla:** una operación que reemplaza entero lleva `esperado` (cómo dejó la ficha el
+   cambio que se deshace) y no corre si hoy es otra. Es el mismo `esperado` de `guardarObligacionAction` en el deal.
+3. **Un botón apagado no apaga su atajo.** «Deshacer» estaba `disabled` mientras guarda, pero Ctrl+Z llama a
+   `ff.deshacer()` directo. La pila se llena cuando CONTESTA el server, así que el Ctrl+Z de ese medio segundo
+   restauraba el `antes` del cambio ANTERIOR: deshacía dos, y el que se estaba guardando se perdía. **Regla:** el
+   corte va en la función, no en el botón.
+4. **«Si falla, se relee» no alcanza.** Sin red o con la sesión vencida falla también la relectura, y la pantalla se
+   quedaba mostrando el cambio que no se guardó. Ahora vuelve a lo último que dijo el server (`confirmada`).
+5. **Un lead con la casa huérfana contaba distinto en su ficha y en «A revisar».** La casa (`leads.funnel_id`) no
+   tiene FK, y mig 0181 dice que un id que apunta a un funnel que ya no existe «se comporta igual que un NULL». Los
+   lectores de UN funnel (`apagadosDeFunnel`, `fichaDelFunnelDelLead`) lo cumplen: caen al funnel del negocio. El
+   worklist lee todos los funnels de una vez (`avisosDelWorkspace`) y, para la clave que no estaba en el mapa, caía
+   al respaldo PELADO del negocio, sin la plantilla del funnel. Con «Te escriben», un lead en Ganado con todo por
+   cargar daba «6 sin marcar» en su ficha y 12 en «A revisar». ⚠️ **El diagnóstico obvio era incompleto**: «casi no
+   pasa, `eliminarFunnelDefinitivo` rescata a los leads ANTES de borrar». Pero el alta y la importación escriben el
+   `funnelId` del tablero abierto sin mirar si existe ni si es de este workspace. Medido en producción el 16/10:
+   0 huérfanos de 33 leads con casa propia, así que hoy no cambia ningún número. **Regla:** cuando un lector va de a
+   uno y otro en lote (un mapa), el BORDE (la clave que no está: borrado, ajeno, NULL) se resuelve con la MISMA
+   función. Es `apagadosDeLaCasa` (lib/ficha/config.ts), y la fija tests/ficha-casa-huerfana.test.ts.
+
+La cola y el deshacer salieron del hook a `app/crm/lead-view/ficha/guardado-ficha.ts`, que es puro. Se prueban
+EJECUTÁNDOLOS contra un server de mentira que aplica con el mismo `aplicarCambio` (`tests/ficha-guardado.test.ts`:
+rojo 1/4 con la cola sacada tal cual, base 6/0, doce roturas).
+
+⚠️ **Trampa de lint** (`eslint-plugin-react-hooks` 7, `react-hooks/refs`): `useState(() => crear({ verActual: () =>
+ref.current, … }))` da «Passing a ref to a function may read its value during render», aunque la ref se lea recién
+en un evento. Se crea la primera vez que se usa, adentro de un `useCallback`, con `g.current ??= crear(…)`.
+
+**Lo que quedó SIN hacer (no se pudo confirmar, o no es de esta rama):**
+- **`crm.resumen.campos` se quedó sin escritor.** Con `ResumenModal` y `resumen-actions` se fue lo único que lo
+  guardaba: `guardarResumen` (lib/resumen-ficha-config.ts) no lo llama nadie, tampoco la API. Lo que el negocio
+  eligió sigue mandando como respaldo (InfoPrincipalCard y `listaDeEntrada`), pero nadie lo puede cambiar. Las
+  redes, el ingreso, la dirección, el sexo y la cohorte van ADENTRO de `contacto` (su `incluye`), y «Agregar
+  bloque» no ofrece lo que no tiene componente. Un negocio que quiere ver LinkedIn o el sexo (apagados de fábrica)
+  hoy no tiene cómo. Se destraba con la tanda B2 (esos bloques con componente).
+- **Cuatro plantillas callan datos que la ficha de antes mostraba siempre** (medido con `listaDePlantilla` contra
+  los registros de hoy):
+  - «Te escriben» no pone `calificacion`, `lo-que-contesto` ni `proxima-reunion`.
+  - «Prospección», esos tres y `origen`.
+  - «Carrito», `calificacion` y `proxima-reunion`.
+  - «Evento», `calificacion`.
+
+  Un lead de esos funnels con respuestas de un formulario de Meta deja de verlas: el dato sigue en la base y el
+  admin puede agregar el bloque. Es la §4 del diseño, decidida. Lo que no está dicho es que hoy, sin la tanda B2,
+  esas fichas quedan con 4 o 5 tarjetas.
+- **`saveFunnelDe` (lib/funnels.ts) escribe `data` entero SIN compare-and-set.** Lee `data`, lo mergea y lo
+  escribe: si la ficha se guarda entre su lectura y su escritura (dos idas a la base), el merge la pisa con la de
+  su lectura y la ficha nueva se pierde (la pantalla la sigue mostrando). La ficha sí hace CAS, así que al revés
+  no pasa. Leído en el código, no reproducido.
+- **La API de MaKo cuenta «N sin marcar» con su propia copia de los insumos** (`faltantesDeUnLead`,
+  lib/api-mako/areas/crm.helpers.ts), no con `leerInsumosDatosLead`. Hoy dan lo mismo: `getFunnelDeLead` es el del
+  negocio y nunca trae etapas vacías. La próxima regla que se le sume a una copia y no a la otra los separa. Va a
+  `datosSinMarcarDeLead` cuando se toque ese helper.
+- **El alta y la importación escriben la casa sin validarla.** `altaDeLead` e `importarLeadsRevisadosAction`
+  (app/crm/actions.ts) pasan a `createLead` el `funnelId` que manda el navegador, sin mirar que exista ni que sea de
+  este workspace. Las lecturas están scopeadas, así que no se filtra nada de otro negocio, pero ese lead no aparece
+  en ningún tablero. Medido el 16/10: 0 casos. No es de esta rama.
+- **Clonar la configuración copia la ficha del dueño.** `lib/clonar-config.ts` reemplaza el `data` entero del
+  funnel principal del cliente nuevo con el del dueño (menos `entradas` y `evento`), y ahí viaja `data.ficha`: su
+  plantilla elegida a mano, sus avisos y su estilo. Hoy ningún funnel de producción tiene ficha guardada (16/10).
+  Decidir si la ficha es «forma» (se copia) o «hecho del dueño» (no).
+
+**Vive en:** `app/crm/lead-view/ficha/guardado-ficha.ts` · `app/crm/lead-view/ficha/useFichaDelFunnel.ts` ·
+`lib/ficha/config.ts` (`restaurar` con `esperado`; `apagadosDeLaCasa`) · `lib/ficha/config-server.ts`
+(`avisosDelWorkspace`) · `tests/ficha-guardado.test.ts` · `tests/ficha-casa-huerfana.test.ts`.
+
+## La ficha por bloques: tres trampas de construirla (16/10/2026)
+
+- **Angostar un contenedor no dispara los `@media`: miran la ventana.** La vista «Celular» de «Personalizar» no
+  apilaba aunque la hoja tenía su `@media (max-width: 720px)`. Y `container-type` (también `transform` y
+  `filter`) está prohibido en un ancestro de las tarjetas: ata a ese ancestro los modales y toasts con
+  `position: fixed`. La vista por dispositivo repite cada corte con `[data-dispositivo]` y decide por el
+  DISPOSITIVO, no por el ancho medido: en el pop-up la «Tablet» queda en ~692 px y por ancho se apilaría cuando una
+  tablet de 820 no apila.
+- **Un ancho calculado que cambia por pantalla va como variable CSS, nunca en `gridColumn` en línea.** El
+  `style={{ gridColumn: span N }}` le gana a cualquier `@media`; el `!important` sirve para un valor fijo (1 / -1),
+  no para la tablet, que reparte la fila con sus propios anchos. Van `--fb-span` y `--fb-span-t` y la hoja elige
+  (`spansPorDispositivo`, armar.ts). Lo fija tests/ficha-pantallas.test.ts.
+- **Los tests que leen el fuente fallan por el LUGAR, no por la lógica.** Mudar la lectura de la ficha a
+  `getLeadFullAction` y la cuenta de «N sin marcar» a lib/datos-del-lead.ts puso en rojo tres tests sin cambiar una
+  regla (ficha-armador, mako-ficha-lead y pago-comprobante, que sólo apareció en el barrido completo). Antes de
+  mudar una lectura: `grep` en tests/ de CADA símbolo que se mueve, y el barrido completo (10.598 tests, ~27 min con
+  `--test-concurrency=4`). El test se reescribe citando dónde vive ahora; nunca se afloja.
+- **Las roturas de la cabecera de un WIP se vuelven a medir.** La de tests/ficha-armador.test.ts decía «base
+  15/0» y doce roturas cazadas: la base era 11/0 y dos roturas daban verde, porque el caso ya lo excluía otro filtro
+  (un banner que no se dibujaba, un bloque ya puesto). Un «no se ofrece» se prueba con un caso que ningún otro
+  filtro excluya.
+
+**Vive en:** app/crm/lead-view/ficha/ficha-css.ts · armar.ts · Armador.tsx · tests/ficha-pantallas.test.ts ·
+*16/10/2026, chat «CRM» (claude3), corrida wf_e3cc574c-723.*

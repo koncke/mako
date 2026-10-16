@@ -1403,3 +1403,26 @@ texto (`borrar_borrador_plantilla`); lo vio el barrido. Un parámetro declarado 
 acciones: el ancla de un cambio así es la acción, no la línea.
 **Vive en:** `lib/api-mako/acciones.ts` (`aplicarPropuestaGenerica`) · `lib/api-mako/tipos.ts` (`Parametro.fijoAlRevisar`)
 · `lib/bandeja-filas.ts` (`plano`) · `app/mako/revisar/[id]/RevisarAccion.tsx` · `tests/revisar-fijo.test.ts`.
+
+## 183 caracteres en `cambiar_ficha_funnel` dejaron a «mover la reunión» fuera de WhatsApp (16/10/2026)
+
+Sumarle el parámetro del ícono a `cambiar_ficha_funnel` puso en rojo `tests/agenda-whatsapp.test.ts`: con «no,
+movela al viernes a las 10», `proponer_mover_reunion` dejó de viajar en el turno de WhatsApp.
+
+- **El diagnóstico obvio era el equivocado.** «Cambió la relevancia» no: el puntaje era el mismo (4 contra 4) y
+  el orden también.
+- **La causa es el presupuesto, no el orden.** El doer manda como mucho 12.000 caracteres de esquema
+  (`PRESUPUESTO_REGISTRO_CHARS`, lib/doer-herramientas.ts), y `toolsDelRegistro` saltea la que no entra.
+  `cambiar_ficha_funnel` pesa casi 4.000 y, por el «cambi» de su id, empata arriba en cualquier «cambiá…» o
+  «movela…». El turno estaba a 97 caracteres del tope; con +183, la de mover la reunión no entró. Sólo queda un
+  `console.warn`.
+- **El arreglo fue achicar la misma op:** las listas largas de ids (bloques, avisos, íconos) salen del `enum`, se
+  validan en la traducción (lib/ficha/api.ts) y un id malo vuelve con `disponibles`. `tests/ficha-api.test.ts`
+  le pone un tope de 3.796 caracteres.
+
+**La regla:** antes de commitear una op, medir `JSON.stringify(aToolDef(def)).length` y correr el test del turno
+de WhatsApp. Una op grande que empata arriba se come el lugar de las chicas.
+
+**Vive en:** lib/doer-herramientas.ts · lib/api-mako/registro.ts (`toolsDelRegistro`, `ordenarPorRelevancia`) ·
+lib/api-mako/areas/crm.def.ts (`cambiar_ficha_funnel`) · tests/ficha-api.test.ts ·
+*16/10/2026, chat «CRM» (claude3), corrida wf_e3cc574c-723 (`665f5bed1`).*

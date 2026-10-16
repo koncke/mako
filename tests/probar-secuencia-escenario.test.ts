@@ -56,7 +56,8 @@ test('la prueba en vivo y la API leen el MISMO escenario', () => {
   const sec = sinComentarios(leer('lib/setting-secuencias.ts'));
   const esc = bloque(sec, 'export async function escenarioDePrueba(', '\n}\n');
   assert.match(esc, /escenariosDeLaSecuencia\(sec, /);
-  assert.match(esc, /mensajesDelEscenario\(pasos, elegido\.elecciones\)/);
+  // (16/10/2026: con la reunión del lead de la prueba, que da `escenariosDeLaSecuencia`.)
+  assert.match(esc, /mensajesDelEscenario\(pasos, elegido\.elecciones, \{\}, \{ reunionMin \}\)/);
   const probar = bloque(sec, 'export async function probarSecuencia(', '\n}\n');
   assert.match(probar, /const e = await escenarioDePrueba\(secuenciaId, op\.escenario \?\? null\);/);
   assert.doesNotMatch(probar, /sec\.pasos\.filter\(/, 'volvió a mandar cada mensaje del array');

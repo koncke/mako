@@ -751,3 +751,22 @@ se ve en el código:
 **Sin medir:** un teléfono de verdad. Lo de arriba es la entrada táctil de Chrome; Safari en iOS no se probó.
 
 **Vive en:** `app/tickets/decisiones/mazo.css` (`.mazo-cuerpo`) · `app/tickets/decisiones/Mazo.tsx` · `tests/tickets-decisiones-mazo.test.ts`
+
+## La ficha del teléfono destila TODAS las tabs del escritorio, no sólo el Resumen (16/10/2026)
+
+Leído al pie de la letra, «el teléfono sigue el Resumen de la ficha del funnel» dejaba a todas las plantillas sin
+«Última llamada», que el teléfono tiene desde la v2: `lo-que-salio-de-la-llamada` vive en Reuniones en todas, y
+una plantilla sin lista para una tab usa la del respaldo.
+
+- **La regla:** el teléfono destila cada tab que ESE lead ve en escritorio, una debajo de la otra y en el orden de
+  `FichaPorBloques`. Una pieza de otra tab sale sólo si esa tab sale para el lead (Reuniones por
+  `tieneEtapaDeReunion` de SUS etapas, Tracking por `verTrackingDeLead`). Un bloque nuevo con versión de teléfono
+  se suma a `PIEZA_DE_BLOQUE` y a la tabla del test.
+- **Para mirar una pantalla de /m sin `next dev`:** esbuild con un stub del Link que exporte `useWs` y
+  `WsProvider` (el index de app/m/_ui arrastra `SalirDeLaVista`), y un plugin que a todo archivo que empieza con
+  'use server' le exporta una async vacía por cada `export async function`. Se compila con la máquina quieta, no
+  durante un barrido.
+
+**Vive en:** app/m/crm/ficha-bloques.ts (`piezasDelTelefono`, `tabsQueVe`, `PIEZA_DE_BLOQUE`) ·
+app/m/crm/[id]/page.tsx · tests/m-ficha-bloques.test.ts ·
+*16/10/2026, chat «CRM» (claude3), corrida wf_e3cc574c-723 (`cc6cf405b`).*

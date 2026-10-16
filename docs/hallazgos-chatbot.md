@@ -4833,3 +4833,36 @@ Martín: «en "Un Lead Agendó Llamada" solo puedo desconectar la flecha del CON
 
 **Vive en:** `app/_components/Lienzo.tsx` (las puntas, `soltarCirculo`) · `app/automations/FlujoLienzo.tsx`
 (`quitarFlecha`, `reconectar`, `desdeDe`) · test: `tests/lienzo-flechas-desconectar.test.ts`
+
+## «Probar» ponía los «antes de la reunión» antes que un «Esperar 5 min» (16/10/2026)
+
+- **La causa:** en el simulador, una espera «N antes de la reunión» NO movía el reloj de su camino, porque «la prueba no
+  tiene una reunión de la que descontar». Con varios caminos en paralelo, el de los recordatorios quedaba en el minuto
+  0 y salía entero antes que el «Esperar» de otro.
+- **Pero la prueba SÍ tiene una reunión:** quien entra por una etapa de reunión la tiene mañana a esta hora
+  (`hechosDeLeadNuevo`, desde el 14/10). Ahora el estado lleva ese minuto (`reunionMin`, `reunionMinDe`), y la espera
+  lleva el reloj a la reunión menos N, como el motor (`nutricion-grafo-motor.ts`: si eso ya pasó, sigue enseguida).
+  Sin reunión, no inventa un minuto.
+- **Son cuatro los que arrancan una simulación:** el panel, los escenarios, el recorrido y la API (`probar_secuencia`).
+  Los cuatro tienen que pasarle la reunión; si falta en uno, ése ordena distinto.
+
+**Vive en:** `lib/simulador-grafo.ts` (`correrHilo`, `iniciar`, `reunionMinDe`) · `app/automations/PanelProbar.tsx`
+(`reunionDeLaPrueba`) · `lib/setting-secuencias.ts` · test: `tests/probar-orden-antes.test.ts`
+
+## «Probar»: el encabezado del caso, la sidebar y el «escribiendo…» (16/10/2026)
+
+- ⚠️ **Un tipo de mensaje nuevo en el hilo tiene que quedar fuera de la charla.** El encabezado del caso pasó a ser su
+  propio tipo (`'caso'`, `ChipDelCaso`), y había tres lugares que filtraban sólo `'sistema'`: lo que lee el redactor
+  (la IA habría leído «Caso 1: …» como algo que dijo el negocio), el último mensaje de un contacto y lo que contesta el
+  lead. Ahora pasan por UN filtro (`esDeLaCharla`); el test fija que no quede ningún `m.tipo !== 'sistema'` suelto.
+- **La sidebar «salía arriba» por 5 píxeles:** el cuerpo del panel en la pantalla de Martín mide ~645 px y la columna
+  pedía 640 (con el borde caía debajo). Desde 520.
+- **El «escribiendo…» del lead sumaba dos esperas:** las pausas de la animación y DESPUÉS la IA. Ahora el mensaje se
+  pide apenas aparece lo que contesta, y el «escribiendo…» espera sólo lo que falte.
+
+**Pendiente de Martín (consultado a Cerebro):** si «su nombre» en la sidebar es un nombre de persona (y entonces el
+lead de cada caso se llama así en sus mensajes), y qué quiere decir «los chips de "antes de"... no en el medio».
+
+**Vive en:** `app/automations/ChipDelCaso.tsx` · `app/automations/PanelProbar.tsx` (`pildoraDelCaso`, `esDeLaCharla`,
+`pedirMensajeDelLead`, `ANCHO_PARA_COLUMNA`) · `app/automations/SimuladorSocial.tsx` · test:
+`tests/probar-chip-caso.test.ts`

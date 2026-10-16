@@ -157,7 +157,8 @@ test('«Probar» por Instagram contesta con el AI Step de Instagram, y por Whats
 test('«Probar» pasa el medio en las cuatro puntas: el arranque, los escenarios, «¿contesta?» y el clasificador', () => {
   const pp = sinComentarios(leer('app/automations/PanelProbar.tsx'));
   assert.match(pp, /const medioIA: MedioAIStep \| undefined = esCanalSocial\(canal\) \? canal : undefined;/);
-  assert.equal(pp.match(/iniciar\(flujoVivo, \{ medio: medioIA \}\)/g)?.length, 2, 'un arranque sin el medio prueba el AI Step de WhatsApp');
+  // (16/10/2026: el arranque de la prueba lleva además la reunión del lead: tests/probar-orden-antes.test.ts.)
+  assert.equal(pp.match(/iniciar\(flujoVivo, \{ medio: medioIA[ ,}]/g)?.length, 2, 'un arranque sin el medio prueba el AI Step de WhatsApp');
   assert.match(pp, /canalDelPaso\(p\) === canal, medio: medioIA \}\)/);
   assert.match(pp, /if \(!escuchaPor\(flujoRef\.current, medioIA\)\) \{/);
   assert.match(pp, /action: 'clasificar', pasos: flujoRef\.current, \.\.\.\(medioIA \? \{ medio: medioIA \} : \{\}\)/);

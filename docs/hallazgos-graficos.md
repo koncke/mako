@@ -967,7 +967,7 @@ X) · `lib/graficos-gordo.ts` (`BARRA.separacionGrupo`) · `lib/graficos-plantil
 ## La IA del Dashboard tiene su PROPIA red, y el corte por datos de clientes no la cubría (16/10/2026)
 
 **Vive en:** `lib/graficos-ia-red.ts` (`porLaRedDePlataforma`, `llevaDatosDeClientes`) · `lib/graficos-analisis-server.ts`
-(`pedirIAGratis`) · `lib/graficos-ia-elemento.ts` (`CAJAS_SIN_DATOS_DE_CLIENTES`) · `lib/graficos-ia-generar.ts` ·
+(`pedirIAGratis`) · `lib/graficos-ia-elemento.ts` (`CAJAS_SIN_DATOS_DE_CLIENTES`, `avisoSinIA`) · `lib/graficos-ia-generar.ts` ·
 `tests/graficos-ia-red.test.ts`
 
 La regla del 16/10 (los datos de los clientes de un cliente nunca van a un proveedor que entrena; AGENTS.md, la red de
@@ -988,8 +988,18 @@ cumpla, devuelve `null` y quien llama dice lo de siempre: que el negocio conecte
   `pii: true`: es el default cerrado y el que muestra el sello PII en /modelos-ia.
 - **El test fija también el PORQUÉ:** que la caja de gráficos mande `paraModelo(e)` y que los campos del anuncio sean
   los revisados. Un campo nuevo en `entradaDeAnuncio` (los comentarios, por ejemplo) lo hace fallar: se revisa antes.
+- ⚠️ **Sin crédito, el aviso de siempre mandaba a conectar una IA que entrena.** El mismo 16/10 Martín dejó el crédito
+  de Claude de la plataforma SÓLO para el onboarding, así que una caja con datos de clientes queda con las keys del
+  negocio y nada más. Sin ninguna, `errorDeCascada` decía «conecta una IA gratis, con Gemini alcanza». Ahora dice
+  «Conecta tu Claude en Integraciones» (`avisoSinIA`), sólo si no se probó ninguna key del negocio: la cascada sin
+  keys no deja errores. Si una key suya falló, su error es el que sirve.
+- ⚠️ **Y ese aviso era falso, por una pregunta antes de la cascada.** `pedirIAGratis` llamaba a `chatCheapCascade`
+  sólo si `docsIADisponible()`, que cuenta Gemini, Groq, OpenRouter, Mistral y OpenAI pero NO la clave de Claude del
+  negocio, que es el primer intento de la cascada (la segunda puerta del veto). Un negocio que conectara su Claude
+  seguía sin IA en el Dashboard. Es la trampa de AGENTS.md («y nada la corta antes»), y no se veía leyendo la red.
 
-**Lo que quedó SIN hacer:** nada se probó contra la red de verdad (sin `next dev` por la RAM).
+**Lo que quedó SIN hacer:** nada se probó contra la red de verdad (sin `next dev` por la RAM). Si Claude está pausado
+para todos (`claudePausado`), un negocio con su Claude conectado igual ve «Conecta tu Claude»: la pausa no deja error.
 *16/10/2026, claude3 (chat Dashboard).*
 
 ## Lo que quedó sin hacer

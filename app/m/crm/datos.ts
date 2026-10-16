@@ -9,7 +9,11 @@
 //               (mapToCrmLead + etapasDelTablero), el orden manual y la plata de cada columna.
 //               Hasta 40 tarjetas por columna; el conteo dice el total (v3, 14/10/2026).
 //   · Ficha   → fichaMovil (lib/crm-movil.ts) + el historial con autor de escritorio
-//               (getLeadAuditAction) para las notas y la actividad.
+//               (getLeadAuditAction) para las notas y la actividad. Y desde el 15/10/2026 la ficha
+//               del funnel del lead (qué piezas y en qué orden, ./ficha-bloques.ts) y «N sin marcar»,
+//               con las MISMAS lecturas que la ficha de escritorio (`getLeadFullAction`):
+//               `fichaDelFunnelDelLead` y lib/datos-del-lead.ts. Con una cuenta propia, el número del
+//               teléfono y el de la computadora se separaban.
 //
 // La lista de la v2 (Hoy · Por responder · Nuevos y el filtro por etapa) se borró con la v3: el
 // CRM del teléfono es el tablero, y lo que espera respuesta vive en la pestaña Chats.
@@ -34,6 +38,13 @@ import { etapasDeProducto } from '@/lib/lead-funnel';
 import { mapToCrmLead, etapasDelTablero } from '@/app/crm/crm-map';
 import { canalDeLead } from '@/app/crm/origen-lead';
 import { getLeadAuditAction } from '@/app/crm/actions';
+import { fichaDelFunnelDelLead } from '@/lib/ficha/config-server';
+import { fichaEfectiva, RESPALDO_VACIO } from '@/lib/ficha/config';
+import { datosSinMarcarDeLead, leerInsumosDatosLead } from '@/lib/datos-del-lead';
+import { verTrackingDeLead } from '@/lib/tracking-ficha-server';
+import { tieneEtapaDeReunion } from '@/lib/etapa-reunion';
+import type { Lead } from '@/lib/leads';
+import { piezasDelTelefono, tabsQueVe, type PiezaPuesta } from './ficha-bloques';
 import {
   cuandoEnLista, etapaEnTablero, lineaActividad, llegoPor, proximaLlamada, seMueveEnElTelefono, seSacaEnElTelefono,
   FUERA_DE_ACTIVIDAD, type LineaActividad,
@@ -56,7 +67,38 @@ export type FichaV2 = {
   /** Cuántas hay en total (puede ser más que las que viajan). */
   totalNotas: number;
   actividad: ActividadM[];
+  /** Lo que se dibuja debajo del encabezado, en el orden de la ficha del funnel (./ficha-bloques.ts). */
+  piezas: PiezaPuesta[];
+  /** «N sin marcar», el MISMO número que el escritorio. null = no se pudo contar (no se dibuja). */
+  sinMarcar: number | null;
 };
+
+/**
+ * La ficha del funnel del lead, destilada, y sus datos sin marcar. Las lecturas son las de escritorio: la
+ * ficha de SU funnel (sin ficha guardada, su plantilla; con la lectura caída, la de respaldo, como hace la
+ * pantalla de escritorio), las etapas DEL LEAD para saber si ve Reuniones, la regla de Tracking, y
+ * «N sin marcar» con sus insumos. Nunca tira: lo que falla no se dibuja.
+ */
+async function fichaDelFunnel(lead: Lead | null): Promise<{ piezas: PiezaPuesta[]; sinMarcar: number | null }> {
+  // El respaldo del negocio sólo cambia redes, ingreso, dirección, sexo y cohorte: ninguna tiene versión de
+  // teléfono, así que el vacío da las mismas piezas que la pantalla de escritorio con su `resumen`.
+  const respaldo = fichaEfectiva('respaldo', null, RESPALDO_VACIO);
+  if (!lead) return { piezas: piezasDelTelefono(respaldo.tabs, ['resumen']), sinMarcar: null };
+  const [ficha, insumos, verTracking] = await Promise.all([
+    fichaDelFunnelDelLead(lead.funnel_id ?? null),
+    leerInsumosDatosLead(lead),
+    verTrackingDeLead(lead.funnel_id),
+  ]);
+  const efectiva = ficha?.efectiva ?? respaldo;
+  const piezas = piezasDelTelefono(efectiva.tabs, tabsQueVe({ verTracking, verReuniones: tieneEtapaDeReunion(insumos.stages) }));
+  let sinMarcar: number | null = null;
+  try {
+    sinMarcar = (await datosSinMarcarDeLead(lead, insumos)).datos.avisar.length;
+  } catch (e) {
+    console.error(`[m/crm] datos sin marcar ${lead.id}: ${msg(e)}`);
+  }
+  return { piezas, sinMarcar };
+}
 
 /** Las notas que viajan (la ficha dibuja 3 y el resto abre en un sheet); las más viejas, en el historial de escritorio. */
 const TOPE_NOTAS = 20;
@@ -64,13 +106,15 @@ const TOPE_ACTIVIDAD = 4;
 
 /** La ficha en LECTURA. null = el lead no es de este workspace (o no existe). */
 export async function fichaV2(leadId: number): Promise<FichaV2 | null> {
-  const f = await fichaMovil(leadId);
+  // El lead entero va en paralelo con la ficha del teléfono: lo piden la ficha del funnel y «N sin marcar».
+  // getLead es del workspace, y sin `f` (el lead no es de esta cuenta) no se usa.
+  const [f, lead] = await Promise.all([fichaMovil(leadId), getLead(leadId).catch(() => null)]);
   if (!f) return null;
   const casa = f.casa ?? f.productos[0] ?? null;
-  const [lead, audit, stages] = await Promise.all([
-    getLead(leadId).catch(() => null),
+  const [audit, stages, delFunnel] = await Promise.all([
     getLeadAuditAction(leadId).catch((e) => { console.error(`[m/crm] historial ${leadId}: ${msg(e)}`); return []; }),
     casa ? etapasDeProducto(casa.funnelId).catch(() => []) : Promise.resolve([]),
+    fichaDelFunnel(lead),
   ]);
   const etiqueta = (v: string) => stages.find((s) => s.key === v)?.label ?? stages.find((s) => s.label === v)?.label;
   const ahora = Date.now();
@@ -90,6 +134,7 @@ export async function fichaV2(leadId: number): Promise<FichaV2 | null> {
     notas,
     totalNotas: notasTodas.length,
     actividad,
+    ...delFunnel,
   };
 }
 

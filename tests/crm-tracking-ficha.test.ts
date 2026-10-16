@@ -87,6 +87,12 @@ const MONTAJES: Array<[string, string]> = [
   ['../app/crm/LeadSheet.tsx', 'modal'],
   ['../app/crm/[id]/page.tsx', 'ruta /crm/[id]'],
 ];
+/**
+ * ⚠️ DESDE EL 14/10/2026 LA TARJETA SE MONTA UNA VEZ, en el registro de Tracking de la ficha por bloques
+ * (los dos montajes de arriba montan la MISMA `FichaPorBloques`). Lo que estos tests pedían de cada
+ * montaje se pide ahora del registro, y de los montajes que no la vuelvan a montar a mano.
+ */
+const REGISTRO_TRACKING = '../app/crm/lead-view/ficha/registro-tracking.tsx';
 
 // ── 1 · El recorrido vive ADENTRO de la tarjeta, y en los DOS montajes ────────
 test('el recorrido se monta dentro de ComportamientoCard, no suelto', () => {
@@ -94,17 +100,18 @@ test('el recorrido se monta dentro de ComportamientoCard, no suelto', () => {
   assert.ok(/<TrackingTimelineCard eventos=\{eventos\} pixelPuesto=\{pixelPuesto\} \/>/.test(card),
     'la tarjeta monta el recorrido ella misma');
 
-  for (const [ruta, cual] of MONTAJES) {
+  for (const [ruta, cual] of [...MONTAJES, [REGISTRO_TRACKING, 'la ficha por bloques'] as [string, string]]) {
     const f = leer(ruta);
     // ⚠️ NO PUEDEN QUEDAR LOS DOS. Si la tarjeta lo monta adentro y el montaje lo
     // sigue montando suelto, la misma ficha dibuja el recorrido dos veces.
     assert.ok(!f.includes('<TrackingTimelineCard'), `${cual}: el recorrido ya no se monta suelto`);
     assert.ok(!f.includes('TrackingTimelineCard'), `${cual}: y su import se fue con el call site`);
-    // Y los insumos del recorrido viajan por la tarjeta: sin esto el recorrido
-    // nace vacío y la pantalla dice «sin eventos» sobre un lead con 36.
-    assert.ok(/<ComportamientoCard[^>]*\seventos=\{/.test(f), `${cual}: le pasa los eventos`);
-    assert.ok(/<ComportamientoCard[^>]*\spixelPuesto=\{/.test(f), `${cual}: le pasa pixelPuesto`);
   }
+  // Y los insumos del recorrido viajan por la tarjeta: sin esto el recorrido
+  // nace vacío y la pantalla dice «sin eventos» sobre un lead con 36.
+  const reg = leer(REGISTRO_TRACKING);
+  assert.ok(/<ComportamientoCard[^>]*\seventos=\{/.test(reg), 'la ficha: le pasa los eventos');
+  assert.ok(/<ComportamientoCard[^>]*\spixelPuesto=\{/.test(reg), 'la ficha: le pasa pixelPuesto');
 });
 
 test('los DOS montajes le pasan exactamente las mismas props', () => {
@@ -112,31 +119,43 @@ test('los DOS montajes le pasan exactamente las mismas props', () => {
   // con la versión anterior: en septiembre la ruta tenía las pestañas viejas
   // mientras el modal estaba al día, y al cliente que llega por el link del
   // WhatsApp le toca justo la ruta.
-  const props = (ruta: string) => {
+  //
+  // ⚠️ CAMBIADO A PROPÓSITO EL 14/10/2026: desde la ficha por bloques las dos puertas montan la MISMA
+  // pieza (`FichaPorBloques`) y la tarjeta se monta UNA vez (el registro de Tracking): la igualdad ya no
+  // se compara, se construye. Lo que se fija es que ninguna puerta la vuelva a montar a mano, y que el
+  // único montaje le pase todo. Re-verificado rompiéndolo: la ruta con su <ComportamientoCard> → 1 fallo.
+  for (const [ruta, cual] of [['../app/crm/LeadSheet.tsx', 'modal'], ['../app/crm/[id]/LeadDetailBody.tsx', 'ruta /crm/[id]']] as const) {
     const f = leer(ruta);
-    const i = f.indexOf('<ComportamientoCard');
-    assert.ok(i >= 0, `${ruta}: no encuentro el montaje`);
-    const tag = f.slice(i, f.indexOf('/>', i));
-    return [...tag.matchAll(/\s([a-zA-Z]+)=\{/g)].map((m) => m[1]).sort();
-  };
-  const [a, b] = MONTAJES.map(([ruta]) => props(ruta));
-  assert.deepEqual(a, b, 'las dos puertas tienen que dibujar la misma ficha');
+    assert.match(f, /<FichaPorBloques\b/, `${cual}: no monta la ficha compartida`);
+    assert.ok(!f.includes('<ComportamientoCard'), `${cual}: monta la tarjeta a mano, fuera de la ficha`);
+  }
+  const f = leer(REGISTRO_TRACKING);
+  const i = f.indexOf('<ComportamientoCard');
+  assert.ok(i >= 0, 'no encuentro el montaje');
+  const tag = f.slice(i, f.indexOf('/>', i));
+  const props = [...tag.matchAll(/\s([a-zA-Z]+)=\{/g)].map((m) => m[1]).sort();
+  assert.deepEqual(props, ['dias', 'eventos', 'maxPct', 'pixelPuesto', 'plays', 'porVideo', 'replay', 'tieneVisitor', 'videos', 'visitas']);
 });
 
 // ── 1b · El orden que pidió Martín: Origen → Comportamiento → Actividad ──────
-test('la pestaña se lee de dónde vino → qué hizo → evento por evento', () => {
+test('la pestaña se lee de dónde vino → qué hizo → evento por evento', async () => {
   // Las anclas van en CÓDIGO, no en los rótulos: «Origen del lead» y «Actividad
   // registrada» viven en los componentes y acá se decide el ORDEN DE MONTAJE, que es
   // otra cosa. Y los comentarios están fuera (`leer`), porque los dos montajes
   // explican este mismo orden en prosa y el test encontraría su propia explicación.
-  for (const [ruta, cual] of MONTAJES) {
-    const f = leer(ruta);
-    const iOrigen = f.indexOf('<OrigenCard');
-    const iComp = f.indexOf('<ComportamientoCard');
-    assert.ok(iOrigen >= 0, `${cual}: falta Origen del lead`);
-    assert.ok(iComp >= 0, `${cual}: falta la tarjeta de comportamiento`);
-    assert.ok(iOrigen < iComp, `${cual}: «Origen del lead» va PRIMERO — lo decidió Martín`);
-  }
+  //
+  // ⚠️ CAMBIADO A PROPÓSITO EL 14/10/2026 (la ficha por bloques, decisión 4 del diseño, «Si, avanza con
+  // todo»): el ORIGEN PASA AL RESUMEN en la plantilla de respaldo, «así deja de esconderse detrás de la
+  // regla de la campaña de Meta» (docs/diseno-ficha-bloques.md §3, Tracking), y se puede poner también en
+  // Tracking (`tambienEn`). Si alguien lo pone en Tracking, va donde lo suelte. Lo que sigue fijo es que
+  // el origen esté en la ficha ANTES que el comportamiento: en el Resumen, que es la primera tab.
+  // Re-verificado rompiéndolo: el respaldo sin `origen` en el Resumen → 1 fallo.
+  const { PLANTILLA_RESPALDO } = await import('../lib/ficha/plantillas');
+  const { bloqueDef } = await import('../lib/ficha/catalogo');
+  assert.ok(PLANTILLA_RESPALDO.tabs.resumen!.includes('origen'), 'falta Origen del lead en el Resumen de la ficha de respaldo');
+  assert.ok(bloqueDef('origen')!.tambienEn.includes('tracking'), 'el origen también se puede poner en Tracking');
+  assert.ok(PLANTILLA_RESPALDO.tabs.tracking!.includes('visitas'), 'falta la tarjeta de comportamiento en Tracking');
+  assert.ok(leer('../app/crm/lead-view/ficha/registro-resumen.tsx').includes('<OrigenCard'), 'el origen no tiene su bloque');
 
   // Y adentro de la tarjeta, «Actividad registrada» va último de lo nuestro. El ancla
   // de la sección «Comportamiento» es su estilo: `card` se usa una sola vez acá, y la
@@ -278,8 +297,14 @@ test('«Solucionar» abre el wizard en la ficha, no una navegación', () => {
   // ⚠️ Desde el 13/10/2026 el aviso lleva AL DATO (`solucionarDato`: la tab y el señalador) y el
   // wizard queda de respaldo, cuando el campo no está en la ficha.
   assert.ok(/onSolucionar=\{solucionarDato\}/.test(sheet), 'el aviso lleva al dato');
-  assert.ok(/if \(!hay\) \{ solucionar\(\); return; \}/.test(sheet), 'y el wizard es el respaldo');
-  assert.ok(/onNoEsta=\{solucionar\}/.test(sheet), 'también cuando el campo no se dibujó');
+  // ⚠️ Desde el 14/10/2026 a qué tab ir lo decide la ficha por bloques (`tabDelDato`, con la ficha del
+  // funnel): el pop-up le pasa el pedido y el wizard como respaldo (`onNoEsta`), para cuando ningún
+  // bloque tiene el campo y para cuando el campo no se dibujó.
+  assert.ok(/pedido=\{pedido\}/.test(sheet), 'el pop-up le pide a la ficha que lleve al dato');
+  assert.ok(/onNoEsta=\{solucionar\}/.test(sheet), 'y el wizard es el respaldo');
+  const ficha = leer('../app/crm/lead-view/ficha/FichaPorBloques.tsx');
+  assert.ok(/if \(!t\) \{ onNoEsta\(\); return; \}/.test(ficha), 'sin un bloque que lo tenga, el wizard');
+  assert.ok(/onNoEsta=\{onNoEsta\}/.test(ficha), 'también cuando el campo no se dibujó');
   assert.ok(/const completandoDatos = moveTo === stageKey/.test(sheet), 'la condición de «completar» es una sola');
   assert.ok(/completarDatos=\{completandoDatos\}/.test(sheet), 'el diálogo tiene que saberlo');
   assert.ok(/faltantes=\{completandoDatos \? faltantes : undefined\}/.test(sheet), 'con la lista autoritativa del server');

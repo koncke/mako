@@ -41,7 +41,7 @@ import { datosDeGraficos, hastaDeFuente, type DatosGrafico, type PedidoDatos } f
 import { cortarEnHoy } from './graficos-agregar';
 import { tableroInicial } from './graficos-plantillas';
 import { getSettingEstricto } from './settings';
-import { chatCheapCascade, CASCADA_DOCS, MODELO_DOCS, docsIADisponible, errorDeCascada, type ProvName } from './ai-cheap';
+import { chatCheapCascade, CASCADA_DOCS, MODELO_DOCS, errorDeCascada, type ProvName } from './ai-cheap';
 import { overrideDeFeature } from './model-registry';
 import { porLaRedDePlataforma } from './graficos-ia-red';
 import { getPromptText } from './prompt-render';
@@ -298,7 +298,6 @@ export type RespuestaIA = { crudo: string; modelo: string | null; errores: strin
  * `pii`: si el pedido lleva datos de los clientes del negocio; sin él, lo dice la marca `pii` del catálogo.
  */
 export async function pedirIAGratis(p: { system: string; user: string; maxTokens: number; feature: string; motivo: string; hastaMs: number; validar: (t: string) => boolean; pii?: boolean }): Promise<RespuestaIA> {
-  const hayIaDelNegocio = await docsIADisponible().catch(() => false);
   const pin = await overrideDeFeature(p.feature).catch(() => null);
   const usaPin = pin != null && pin.provider !== 'anthropic';
   const errores: string[] = [];
@@ -327,7 +326,11 @@ export async function pedirIAGratis(p: { system: string; user: string; maxTokens
     hastaMs: p.hastaMs,
     respondioOut: respondio,
   };
-  let crudo = hayIaDelNegocio ? await chatCheapCascade(opciones) : '';
+  // ⚠️ SIN PREGUNTAR ANTES SI EL NEGOCIO TIENE IA (AGENTS.md: «y nada la corta antes»). `docsIADisponible` no
+  // cuenta la clave de Claude del negocio, que es el PRIMER intento de `chatCheapCascade` (la segunda puerta del
+  // veto): con esa pregunta delante, un negocio con sólo su Claude no lo usaba nunca. Sin ninguna key cargada, la
+  // cascada no le pega a ningún proveedor y no deja errores (lo lee `avisoSinIA`, lib/graficos-ia-elemento.ts).
+  let crudo = await chatCheapCascade(opciones);
   if (!crudo.trim()) {
     const red = await porLaRedDePlataforma({
       system: opciones.system, user: opciones.user, maxTokens: p.maxTokens,

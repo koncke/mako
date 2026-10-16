@@ -1915,3 +1915,51 @@ que nadie volvió a medir contra la lista de pasos.
   wizard corre también en el teléfono: `/onboarding` está fuera de la cubierta de MaKo Mobile).
 
 *15/10/2026 · chat «Onboarding» (claude3), medido contra el código y la base, sin subagentes.*
+
+## Si el onboarding deja de ser el wizard: qué tiene que quedar escrito al terminar (16/10/2026)
+
+**Vive en:** `lib/onboarding-state.ts` (`onboardingPendiente`, `patchEstadoOnboarding`) · `lib/onboarding-contrato.ts`
+(`onboardingCompleto`) · `app/api/onboarding/route.ts` (la acción `paso`) · `lib/capas.ts` (`onboarding` de cada capa)
+
+Martín decidió reemplazar el wizard por el chat de Offer («el onboarding será ese chat de offer»: nombre → oferta →
+funnel → primer CRM). Lo lleva el chat Offer. Esto es lo que el wizard deja escrito hoy y quién lo lee, para que el
+chat nuevo no deje a nadie trabado ni el primer día vacío. Medido contra el código el 16/10.
+
+**1. Qué hace que el negocio deje de ir al wizard.** `onboardingPendiente()` es verdadero mientras la capa tenga pasos
+(`pasosDeCapaActual()`) y el estado (`getEstadoOnboarding()`) no esté en `'done'`. El estado pasa a `'done'` SÓLO en la
+acción `paso` de `app/api/onboarding/route.ts`, cuando `onboardingCompleto` dice que cada paso de la capa está `done`
+o `postergado`. Las capas `completo` y `agencia` tienen `fase, gemini, archivero, productos, tabs, integraciones`; la
+`pm`, `negocio, fase, plan`. Dos salidas, y la primera es la sana:
+- Cerrar cada paso por el MISMO lugar (mejor: sacar esa lógica a `lib/onboarding-state.ts` y que el wizard y el chat
+  la llamen), con `done` donde se hizo y `postergado` donde no (sólo `integraciones` y `tabs` se pueden postergar).
+- O cambiar el `onboarding` de las capas a los pasos del chat. Eso toca `PASOS_ONBOARDING`, `PASOS_POSTERGABLES`,
+  `POSTERGABLE_TXT` y sus tests, y `tests/onboarding-sin-api.test.ts` va a pedir clasificar cada paso nuevo con IA.
+
+**2. Lo que cada paso escribe y quién lo lee el primer día.**
+
+| Paso | Qué escribe | Quién lo lee | Si falta |
+|---|---|---|---|
+| `fase` | `setDiagnosticoFase` (el Norte); Offer ya usa `guardarFaseSiNoHay`, la misma clave | `/general`, el Perro, el plan de arranque | sin Norte, el Perro prioriza sin la etapa |
+| `fase` (canal) | `onboarding.funnel_tipos` y `saveFunnelDefault(templateDeCanal)` si el embudo está intacto | el embudo por defecto del CRM | el CRM arranca con el embudo genérico |
+| `archivero` | los documentos, las respuestas del brief (`saveAnswers`) y el panorama | Productos, Ofertas, el plan de arranque, Ads Writer, Second Brain | los generadores escriben sin conocer el negocio |
+| `productos` | el catálogo | CRM, funnels, Offer | el CRM sin productos |
+| `tabs` | `setContactoReportes` + la verificación por WhatsApp | los reportes diario, horario y semanal, los avisos | los reportes no le llegan a nadie: postergarlo, no cerrarlo |
+| `integraciones` | las credenciales | todo lo que lee Meta, Fathom, etc. | postergarlo (el recordatorio de `/general` lo cruza con la conexión real) |
+| — (Meta conectado) | `iniciarExtraccion()` pone la extracción en `running`; el cron la sigue | el histórico de leads del CRM | el «primer CRM» sale sin el histórico de Meta, en silencio |
+| cierre | `POST /api/onboarding/plan-arranque` DESPUÉS del `'done'` | el borrador del plan (capas con `seedBoardVsl`) | sin plan personalizado; /plan siembra el piso |
+
+**3. A dónde manda a quien no terminó.** Cuatro lugares redirigen a `/onboarding` mientras está pendiente:
+`lib/tab-access.ts:48` (toda tab), `app/inicio/page.tsx:47`, `lib/movil-guard.ts:105` y `app/m/configurar/page.tsx`. Si el
+chat vive en otra ruta, o `/onboarding` dibuja el chat, o los cuatro apuntan a la nueva — con `rutaConWs`.
+
+**4. El crédito de Claude del onboarding.** Se habilita sumando la feature del chat a `CREDITO_HABILITADO_PARA`
+(`lib/veto-claude.ts`) con `soloDuranteElOnboarding`. ⚠️ Pero hoy no alcanzaría: `pedir` (`lib/offer-ia.ts`) llama a
+`chatCheapCascade` SIN `redDePlataforma`, y el crédito vive adentro de esa red; después corre su propio bucle sobre las
+keys gratis. Para que el crédito llegue, `pedir` tiene que pedir la red de la cascada, o llamar a
+`conCreditoDeLaPlataforma` antes de su bucle. **Las dos juntas, no**: la red de la cascada ya trae las keys gratis de
+la agencia, y con el bucle de `pedir` detrás se prueban dos veces por pedido (el doble de su cuota por minuto, que es
+lo que muerde). Offer eligió la segunda (16/10): su red tiene un plazo propio (`hastaRedMs`) y un respaldo «flojo»
+que la cascada no conoce. `'offer'` quedó en la lista ese día, con `soloDuranteElOnboarding`: sin esa llamada en
+`pedir`, la fila no hace nada.
+
+*16/10/2026 · chat «Onboarding» (claude3), medido contra el código, sin subagentes.*

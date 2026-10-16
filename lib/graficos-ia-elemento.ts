@@ -55,6 +55,19 @@ export const CAJAS_SIN_DATOS_DE_CLIENTES: readonly QueLeeLaCaja[] = ['graficos',
 
 /** ¿Lo que lee la caja lleva datos de los clientes del negocio? Todo lo que no está en la lista de arriba, sí. */
 export const cajaLlevaDatosDeClientes = (lee: QueLeeLaCaja): boolean => !CAJAS_SIN_DATOS_DE_CLIENTES.includes(lee);
+
+/** Lo que dice una caja con datos de clientes cuando el negocio no tiene ninguna key: la de Claude no entrena. */
+export const SIN_IA_PARA_DATOS_DE_CLIENTES =
+  'Esta caja lee datos de tus clientes, y MaKo no los manda a una IA gratis que entrena con ellos. Conecta tu Claude en Integraciones.';
+
+/**
+ * El aviso de una caja que no tuvo respuesta, o null para el de siempre (`errorDeCascada`). Con datos de clientes la
+ * red de plataforma no prueba las keys gratis, y si el negocio no tiene ninguna key (sin errores suyos: no se probó
+ * nada), el aviso de siempre diría «conecta una IA gratis, con Gemini alcanza», que es una que entrena. Si una key
+ * suya falló, su error es el que sirve.
+ */
+export const avisoSinIA = (pii: boolean, erroresDelNegocio: readonly string[]): string | null =>
+  pii && erroresDelNegocio.length === 0 ? SIN_IA_PARA_DATOS_DE_CLIENTES : null;
 /** La clave del system en /configuraciones (lib/prompt-registry.ts), molde `dashboard.analista.system`. */
 export const CLAVE_PROMPT_CAJA = 'dashboard.elemento_ia.system';
 
