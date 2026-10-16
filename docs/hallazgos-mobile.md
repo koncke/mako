@@ -12,8 +12,9 @@ de teléfonos PRENDIDO. Lo de la v2 está en su propia sección, más abajo.
 Martín (14/10): «Implementá TODAS las tabs que construimos, todo», con la regla del v3: «en el celular todo se ve
 SIMILAR al escritorio, pero con menos texto y menos cosas». Tres tandas en `C:/dev/wt-mobile` (rama `movil-more-9`).
 **Tanda 1:** el mapa de More (de 7 a 14 secciones, en el orden de la sidebar), Calendario, Avisos (la campana, ex
-Inbox) y Tu cuenta. **Tanda 2** (16/10, más abajo): Second Brain, Experiments y Offer. Tanda 3: Copywriting, Curso y
-Comunidad.
+Inbox) y Tu cuenta. **Tanda 2** (16/10, más abajo): Second Brain, Experiments y Offer. **Tanda 3** (16/10, más abajo):
+Ads Writer (la sección `copywriting`), Curso y Comunidad; con ella las 14 secciones tienen página
+(tests/movil-mas-secciones.test.ts 7 / 0).
 
 **El mapa (lib/movil-rutas.ts):**
 - **Una sección mapeada sin página es un 404 en todo teléfono, y LAS MISMAS RUTAS no lo ve**:
@@ -209,6 +210,22 @@ chat de MaKo):
   (f4ed5e069: el chip de escritorio dice «No quedó en El Archivero», el del teléfono todavía no) y arregló el «acá» de
   VistaAfuera.tsx que deja rojo el guard de voseo en esta base.
 
+**La revisión de la tanda 2 (16/10):**
+- **«Mismo gating que escritorio» era cierto porque escritorio tenía el mismo hueco.** Experiments y Second Brain del
+  teléfono llaman a las rutas de escritorio (/api/experimentos, /api/retro, /api/second-brain/buscar), y ninguna miraba
+  el rol: `requireMovil({ navKey })` y `requireRolWs([])` cierran la PANTALLA, y el proxy sólo pide sesión. Un closer
+  las usaba desde la consola. Se cerró en las rutas con `soloAdminDeTab(nav)` (lib/puerta-admin-tab.ts; detalle en
+  hallazgos-seguridad.md, que además lo había dado por refutado el 14/10). REGLA: antes de que una pantalla de /m llame
+  a una ruta /api de escritorio, se leen las primeras líneas de la ruta; si no mira el rol, el teléfono le suma una
+  puerta, y se cierra en la ruta con la nav de la página. Lo fija tests/puerta-admin-tab.test.ts.
+- **Copiar el DIBUJO del composer de MaKo trajo su GRABADOR.** ComposerOfferM se calcó de app/m/mako/Composer.tsx,
+  que usa `useVoiceRecorder` (entrega el blob al parar): «Enviar audio» mandaba la nota en el mismo toque, sin
+  escucharla, y quedaba guardada en la conversación y en el diagnóstico. La excepción del chat de MaKo (viaja la
+  transcripción, ver «Chat de MaKo» más abajo) no alcanza a Offer, donde viaja el AUDIO. Ahora graba con
+  `useGrabacionVoz`, como escritorio: ✓ termina, se escucha, y recién «Enviar audio» la manda. REGLA: una nota de voz que
+  queda como audio (guardada o enviada) usa la sesión `useGrabacionVoz`; `useVoiceRecorder` sólo cuando lo que viaja es
+  el texto. Lo fija tests/m-offer.test.ts (R16-R18).
+
 **Sin hacer (tanda 2):**
 - nada se miró en un navegador ni en un teléfono: 390 px, la isla oscura, el segmentado de cuatro, el «atrás» con
   `?retro=` y `?sheet=`, la franja de Offer con el teclado de iOS, el PDF y la nota de voz en una PWA de iOS, el
@@ -218,12 +235,136 @@ chat de MaKo):
   (app/m/mako/VistaAdjuntosM.tsx, `altoTeclado`, `duracion`, IconoChat) y la barra del composer (app/m/mako/Composer.tsx
   y app/m/offer/ComposerOfferM.tsx) las usan dos pantallas y van a app/m/_ui; app/m/offer/page.tsx importa
   '../mako/mako.css' sólo por esa capa; el chip del teléfono no muestra `notaDelAdjunto` (llega con el rebase);
-- Experiments: el «Deshacer» sobre una aceptada en escritorio (RetroReport.tsx:732); /api/experimentos y /api/retro no
-  miran el rol (hallazgos-plan.md, escrito el 16/09 y sigue abierto); columnas `auto` como default de `.m-seg`;
+- Experiments: el «Deshacer» sobre una aceptada en escritorio (RetroReport.tsx:732); columnas `auto` como default de `.m-seg`;
 - Second Brain: Archivero.tsx conserva su normalización del link (`urlDelLink` en main); `?vista=` no viaja del
   teléfono a la computadora; en el teléfono no están las preguntas del Archivero, borrar un documento ni la carga a mano;
-- la tanda 3 (Copywriting, Curso y Comunidad): tests/movil-mas-secciones.test.ts falla 6 / 1 nombrándolas, y el mapa
-  no se pushea sin ellas.
+- ~~la tanda 3 (Copywriting, Curso y Comunidad)~~: hecha el 16/10, abajo; tests/movil-mas-secciones.test.ts pasa 7 / 0.
+
+### Tanda 3 (16/10/2026): Ads Writer, Curso y Comunidad
+
+**Ads Writer** (la sección `copywriting`, en /ads-writer: Anuncios · Guiones · Analizar guion en `?tab=`; Anuncios copia
+una lista agrupada de Linear, Guiones la cita de Readwise, Analizar guion el campo de Grammarly):
+- **El pedido decía «pedir un copy dictando o escribiendo», y el diagnóstico obvio (un campo libre que manda la `nota`
+  que /api/onboarding/razones acepta) era el equivocado**: escritorio lo prohíbe a propósito («acá NUNCA hay un campo de
+  texto abierto (pedido explícito)», app/onboarding/MatrizView.tsx:20 y :479). Que la ruta acepte un campo no quiere
+  decir que la pantalla lo ofrezca. REGLA: antes de sumar en /m un campo que escritorio no tiene, se busca «pedido
+  explícito» en los comentarios de la tab. El dictado fue al único campo de escritorio, el guion a valorar; el test
+  falla si api.ts manda `nota`.
+- **La matriz caída se dibujaría como «Todavía no hay anuncios»**: `getRazones` lee con `getSetting`, que convierte un
+  error de Supabase en null y null en [] (lib/razones.ts:107). Una pantalla de /m que lee un JSON de app_settings usa el
+  lector ESTRICTO (`getRazonesEstricto`, lib/api-mako/areas/contenido.helpers.ts) y muestra ErrorM.
+- **«Copiar» decía «Copiado» sin copiar**: `navigator.clipboard.writeText` rechaza (permiso, contexto) y un catch que se
+  lo traga miente. `copiarTexto` (app/m/copywriting/api.ts) devuelve si copió, cae a `execCommand('copy')` y el toast
+  dice «No se pudo copiar». Se prueba con un `navigator` falso en node.
+- **«Escribir el próximo guion» elige recorriendo los AVATARES en su orden, no el array de celdas** (la celda de un avatar
+  borrado cuenta al final; `proximaCeldaDe`, app/ads-writer/reglas.ts). Un fixture ordenado dejaba pasar la regla rota:
+  el del test pone primero la celda del segundo avatar.
+- **«Se adopta lo del server salvo con algo en vuelo» tiene una segunda mitad: si lo que estaba en vuelo FALLA, lo que
+  llegó en el medio se adopta.** Con un guion escribiéndose (60-120 s), la copia del server (tirar para refrescar, o el
+  refresco solo de ShellM al volver la red o al volver al frente tras 60 s) se guardaba aparte; si la escritura salía
+  `ok: false`, la pantalla se quedaba con la foto de antes y esa copia no volvía hasta el próximo cambio de props. Si el
+  server ya había guardado el guion (se cortó en `estado()` o se perdió la respuesta), la celda seguía en «Que MaKo lo
+  escriba», `proximaCeldaDe` la elegía otra vez y el próximo toque pagaba IA por un segundo guion en el mismo anuncio.
+  **El arreglo obvio (al fallar, poner la última del server) era el equivocado**: sin un refresco en el medio, la de
+  pantalla es MÁS nueva que la del server (la devolvió la escritura anterior) y volver a la del server borraba de la
+  pantalla el guion recién escrito, con el mismo IA pagado de nuevo. REGLA: la copia del server se toma en un ref ANTES
+  del await y se relee DESPUÉS; si cambió (por identidad), se adopta; si no, se deja la de pantalla (`matrizSiFalla`,
+  app/m/copywriting/modelo.ts). El ref se escribe en el mismo bloque que guarda la copia, porque el render que arrancó
+  la escritura no ve lo que llega en sus 60-120 s. Sin DOM en los tests: la decisión es pura y el cableado se fija leyendo
+  el fuente (13/1 con cada una de las cinco roturas).
+- **El prototipo v3 dibuja «Guiones · Anuncios»; manda escritorio**: `VISTAS` sale de `VISTAS_ADS_WRITER` y el test
+  cruza los `{ k, label }` de AdsWriterApp.tsx.
+- Lo que el teléfono necesitaba vivía inline en cinco lugares `'use client'` (la cobertura y el próximo guion en
+  useMemos de AdsWriterApp.tsx, el orden de GuionesGlobal.tsx, el parser del gancho de SeccionCard.tsx, el día y el
+  extracto de AnalizarGuion.tsx). Se mudaron a app/ads-writer/reglas.ts, lib/guion-secciones.ts y
+  app/ads-writer/analizar.ts, y escritorio los importa o re-exporta (los 8 importadores de SeccionCard no cambian).
+
+**Vive en:** app/m/copywriting/ (`modelo.ts`, `api.ts`, `AnalizarM.tsx`) · app/ads-writer/reglas.ts ·
+lib/guion-secciones.ts · app/ads-writer/analizar.ts · tests/m-copywriting.test.ts
+
+**Curso** (el Classroom de Skool en su app: el curso arriba, cada módulo con su conteo, cada clase con su duración y lo
+cerrado marcado; la hoja de una clase copia un ítem de Ajustes de iPhone):
+- **El pedido decía «el avance de los alumnos», y copiar la tabla Avance a Curso volvía a meter lo que Martín sacó el
+  07/10** («Elimina la tab de Avance de clientes en este lugar, solo se va a editar el curso»; la tabla por cliente vive
+  en Clientes › Avance, app/customer-success/page.tsx). En el teléfono el avance va POR CLASE, en su hoja y con las
+  reglas del portal (`claseCompleta`, `PCT_VISTO`): «Terminada: 3 de 8», «Visto: 5 de 8». REGLA: antes de sumar una
+  vista que nombra el pedido, se mira si escritorio la tuvo y la sacó (app/customer-success/curso/page.tsx:52-60).
+- **Un rótulo «de escritorio» que no está escrito ENTERO en escritorio va a la tabla de lo propio del teléfono** (T, no
+  R): «Avance» es un nombre de comentario, y el rótulo real es «Ver el avance del curso» (app/_ui/iconos-vista.tsx:65).
+  Lo encontró el test que cruza cada rótulo entero contra su fuente (el de la tanda 2).
+- **tsx pasa y tsc fallaría con filas armadas con constantes `as const`**: `[{ k: T.terminada, v }]` infiere
+  `k: 'Terminada'`, y el `push({ k: R.visto })` que sigue es TS2322. Un array que se arma y se extiende se anota
+  (`{ k: string; v: string }[]`; `filasAvance`, app/m/curso/modelo.ts).
+- **Desde /m, `replaceState` escribe sobre la ruta de ESCRITORIO**: por LAS MISMAS RUTAS la barra dice
+  /customer-success/curso. Se parte de `new URL(window.location.href)` y se toca sólo la query (`elegirCurso`,
+  app/m/curso/CursoM.tsx); un «/m/curso?…» escrito a mano deja en la barra una URL /m que el desvío redirige.
+
+**Vive en:** app/m/curso/ (`modelo.ts`, `datos.ts`, `CursoM.tsx`) · `guardarBloqueoAction`
+(app/customer-success/curso/modulos-actions.ts, la misma de escritorio) · tests/m-curso.test.ts
+
+**Comunidad** (la app de Skool para iPhone: Comunidad · Miembros · Ranking, que son las `PESTANAS` de
+app/_comunidad/Comunidad.tsx; el post en una hoja alta con «Escribe un comentario» pegado al pie, como un chat):
+- **Un `<Ico n>` de la comunidad con un nombre que no existe dibuja un SVG VACÍO**, no el punto de `Icon`: nadie lo ve.
+  Los íconos que faltan en icons.tsx (pulgar, globo, chinche) vivían en app/_comunidad/piezas.tsx (`'use client'`, con
+  el menú y la pila de modales); se mudaron a app/_comunidad/iconos.tsx, sin directiva y con `NOMBRES_ICO`, piezas.tsx
+  los re-exporta, y el test cruza cada `<Ico n=…>` del teléfono contra la lista.
+- **Consumir un parámetro de una sola vez se lleva lo que el server deducía de él**: sin `?producto=`, el server saca el
+  producto del `?post=`; al consumir `post` (como el `?hipotesis=` de Experiments), refrescar abría el PRIMER producto.
+  REGLA: al consumirlo se escribe en la URL lo deducido (acá, `producto`).
+- **El contador que vuelve a montar una hoja limpia al ABRIRLA es POR HOJA**: con una sola llave `vez` para todas, abrir
+  el perfil desde Buscar volvía a montar Buscar, todavía abierta, y empujaba una entrada de más al historial
+  (app/m/comunidad/ComunidadM.tsx; el test da 11/1 con `key={vez.post}` en el perfil). Leído en SheetM, no medido.
+- **Un guard de voseo por lista sólo ve las formas que nombra**: «Cerrá sin publicar» pasaba el de la carpeta (12/0)
+  porque «cerrá» no estaba. Cada pantalla suma los imperativos de SUS rótulos (cerrá, votá, publicá, comentá…).
+- **Que el teléfono tenga el mismo permiso que escritorio no prueba que el permiso sea correcto**: la página de
+  escritorio pide sólo la capa (`requireCapa`), y `actorDelEquipo` deja pasar a cualquier rol del workspace, mientras la
+  sidebar la muestra sólo al admin. ABIERTO, lo decide Martín (hallazgos-seguridad.md, «La Comunidad del equipo»).
+
+**Vive en:** app/m/comunidad/ (`ComunidadM.tsx`, `modelo.ts`, `datos.ts`) · app/_comunidad/iconos.tsx ·
+tests/m-comunidad.test.ts
+
+**SheetM y el router en el mismo tick** (salió en dos de las tres; leído en Next 16.2.6, no medido): Next despacha un
+`pushState` o un `replaceState` como restore, y puede descartar lo que tiene en la cola. Ads Writer difiere 400 ms el
+`router.refresh()` después de abrir la hoja de la valoración (como /m/cuenta), y Comunidad, al cambiar de producto con
+la hoja «Producto» abierta, no la cierra: la deja desmontarse con la página nueva (la llave `productoId` en page.tsx).
+⚠️ Contradice lo de «La tanda 1 del v3» («cerrar la hoja por código y navegar en el mismo tick es seguro»): hasta
+medirlo, el refresh se difiere y la hoja se deja desmontar.
+
+**De la integración:**
+- **Un guard que ya falla en la base esconde la falla nueva**: `puente-panel-copy` daba 8/1 en la base (VistaAfuera.tsx:201,
+  ya arreglado en main) y siguió en 8/1 con un `const aca` de app/m/copywriting/HojasM.tsx, que el detector lee como
+  «acá». El conteo no cambia; la LISTA sí. Con un guard rojo de antes, se lee la lista, no el número. La variable pasó a
+  `escribeEsta`; lo vio la Comunidad leyendo la lista.
+- **El tsc acotado de la rama entera (143 archivos, con los importadores de lo mudado) lo mató el vigía con 3,3 GB
+  libres; por partes (23, 30, 18, 34, 22 y 21 archivos) dio 0.** La parte de Ads Writer vuelve a traer el
+  `toggleEtiqueta` de la tanda 2 si la lista no lleva app/web-generator/editor/extensiones/marcas.ts.
+
+**Sin hacer (tanda 3):**
+- nada se miró en un navegador ni en un teléfono: 390 px, los segmentados de tres (en Comunidad, con el título grande
+  encima), el pie fijo de Ads Writer frente al toast, el dictado en una PWA de iOS (sin SpeechRecognition cae a grabar y
+  transcribir con /api/plan-dictado), copiar en iOS, la hoja de una clase mientras guarda, el «atrás» con `?sheet=` y
+  `?producto=`, y el campo de comentar con el teclado de iOS (el `dvh` no se achica);
+- Ads Writer: Elegir con MaKo, editar, borrar, bajar el .md y cambiar el estado de un guion (app/onboarding/MatrizView.tsx,
+  app/ads-writer/GuionLector.tsx); búsqueda y filtros de la galería (GuionesGlobal.tsx); la línea de cobertura del
+  PageHeader; los bloques, patrones, plan y ángulo saturado de la valoración (ValoracionGuion.tsx); armar la matriz y
+  el asistente del onboarding;
+- Curso: el acceso de un MÓDULO, las condiciones de Privado (el teléfono guarda `privadoInicial`; el resto, en
+  app/customer-success/curso/MenuCurso.tsx), «Obligatoria» y «Comentarios», Invitar (InvitarAlumnos.tsx); después de
+  elegir otro curso, el «atrás» vuelve al anterior antes de salir (la entrada que empuja SheetM queda con el producto
+  viejo; no medido). `SegmentadoM` no tiene `deshabilitado` (app/m/_ui/ControlesM.tsx:34): el Curso frena el toque en el
+  handler, pero el control no se apaga mientras guarda;
+- Comunidad: elegir el orden del feed (app/_comunidad/Feed.tsx); publicar con video, encuesta, archivo o @menciones;
+  editar o borrar un comentario y «Seguir» un post (PostAbierto.tsx); la miniatura de YouTube (`tapaDeVideo` vive en
+  Feed.tsx, `'use client'`) y «Miembro desde» (una const de Miembros.tsx): hay que mudarlas a un módulo puro;
+- ninguna de las dos anota su onboarding (`sincronizarOnboardingCurso`, app/customer-success/curso/page.tsx:117;
+  `sincronizarOnboardingComunidad`, app/customer-success/comunidad/onboarding-sync.ts), como el Calendario de la tanda 1;
+- Ads Writer, el mismo hueco del otro lado (leído, no medido): un refresco que el server armó ANTES de guardar el guion
+  y que llega DESPUÉS de la respuesta de la escritura encuentra `escribiendo == null` y pisa la matriz con la copia vieja
+  (app/m/copywriting/CopywritingM.tsx, el bloque que adopta las props). La ventana son los 1-3 s del refresco alrededor
+  del guardado. Offer tiene la misma forma: con algo en vuelo `trasRefrescar` dice «nada» (app/m/offer/OfferM.tsx:228),
+  y si eso falla nadie relee lo que llegó; falta mirar si su rama de error ya vuelve a abrir la sesión;
+- copiar al portapapeles está escrito en tres pantallas: Ads Writer con la salida vieja, y app/m/landing/[id]/AccionesLandingM.tsx
+  y app/m/crm/[id]/FichaLead.tsx sin ella (la ficha no dice nada si no hay `navigator.clipboard`). Va a app/m/_ui.
 
 ## Refrescar en TODAS las pantallas: el gesto era opt-in (15/10/2026)
 
@@ -357,6 +498,8 @@ como tablero) y c2f6863a0 (el Plan con las cuatro vistas de escritorio).
 - **FilaM con `href` IGNORA `onClick`.** Una fila de un sheet que tiene que cerrar el sheet Y navegar (el selector de
   funnel del CRM) va con `onClick` + `router.push` (el de `@/app/_ui/Link`, que conserva el cliente). Cerrar la hoja
   por código y navegar en el mismo tick es seguro: SheetM saca su `?sheet=` con `replaceState`, no con `back()`.
+  ⚠️ (16/10) Puesto en duda: la revisión de la tanda 1 de More y la Comunidad leyeron que Next despacha ese
+  `replaceState` como restore y puede descartar lo que tiene en la cola. No medido; ver «Tanda 3», «SheetM y el router».
 - **El pull-to-refresh se robaba el gesto de las columnas.** PantallaM arranca si `window.scrollY === 0`, y con un
   tablero eso es casi siempre: tirar hacia abajo dentro de una columna scrolleada subía la lista Y refrescaba la página.
   Ahora un scroll anidado con `data-m-scroll` que no está arriba de todo se queda con el gesto (app/m/_ui/PantallaM.tsx).
@@ -882,7 +1025,7 @@ Tal como las devolvieron (síntoma → causa · dónde · regla). Son la materia
 ### Chat de MaKo
 - **Un super admin que mira a un cliente sube una foto al chat del teléfono y el turno corre en el workspace equivocado (el suyo).** → El parche de app/_components/WsFetch.tsx sólo le pega el ?ws= a fetch(); XMLHttpRequest no pasa por ahí. El XHR, que es el único camino con progreso de subida, salía sin el ws. · app/m/mako/ChatMako.tsx (postConProgreso(conWs(RUTA, ws), …)) y app/m/mako/subir.ts · REGLA: Todo XMLHttpRequest a /api arma la URL con conWs(ruta, useWs()). La regla «las llamadas a /api salen solas con el ?ws=» vale sólo para fetch. Lo fija tests/m-mako-chat.test.ts.
 - **Mantener el mic para grabar una nota también arrancaba el dictado, o lo cortaba al soltar.** → Después de pointerdown/pointerup el navegador igual dispara click. Si el toque se resuelve en onClick y el mantener en los pointer events, el click de después de mantener cuenta como un toque. · app/m/mako/Composer.tsx (gesto.current.suprimirClick) · REGLA: Cuando un mismo botón tiene tocar y mantener, el temporizador de mantener marca que hay que suprimir el próximo click. El toque se resuelve SÓLO en onClick, que es lo que también cubre el teclado (Enter/Espacio).
-- **Al soltar la nota de voz, el mensaje se manda solo, y en WhatsApp la regla de la casa dice «nada sale al soltar».** → No es una contradicción. La regla de WhatsApp protege un AUDIO que le llega a una persona. Acá lo que viaja es la transcripción, a MaKo, que sólo propone: toda acción se confirma en su tarjeta. · app/m/mako/Composer.tsx (comentario de cabecera) · REGLA: Si un día la nota de voz del chat sale como audio hacia afuera (a un lead o a un grupo), vuelve a valer «nada sale al soltar». Martín no lo confirmó: es una decisión de producto abierta.
+- **Al soltar la nota de voz, el mensaje se manda solo, y en WhatsApp la regla de la casa dice «nada sale al soltar».** → No es una contradicción. La regla de WhatsApp protege un AUDIO que le llega a una persona. Acá lo que viaja es la transcripción, a MaKo, que sólo propone: toda acción se confirma en su tarjeta. · app/m/mako/Composer.tsx (comentario de cabecera) · REGLA: Si un día la nota de voz del chat sale como audio hacia afuera (a un lead o a un grupo), vuelve a valer «nada sale al soltar». Martín no lo confirmó: es una decisión de producto abierta. Offer del teléfono lo pagó el 16/10 (ver «La revisión de la tanda 2», arriba).
 - **Un error de red o un corte por tiempo al mandar un turno invita a «Reintentar», y eso puede dejar dos acciones pendientes iguales y pagar el modelo dos veces.** → El route guarda el mensaje y corre el turno antes de contestar. Un 5xx, un status 0 o el corte a los 305 s pueden haber corrido el turno entero. · app/m/mako/chat-ui.ts (leerRespuesta / ERROR_INCIERTO) · REGLA: Sólo es reintentable un 4xx con su {ok:false,error}: el route lo devuelve antes de guardar nada. Todo lo demás se muestra como «No sé si llegó» con «Recargar el chat». Es el default de la casa: no reintentar lo que gasta.
 
 

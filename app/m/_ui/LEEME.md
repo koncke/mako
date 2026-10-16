@@ -87,6 +87,12 @@ nueva (`registrarApertura` cierra la anterior). Una capa propia a pantalla compl
 `data-m-sin-pull`, o tirar hacia abajo refresca la página de atrás. Lo que un toast llama más tarde (el
 Deshacer) lee el estado de un `useRef`, no del render que lo creó. (docs/hallazgos-mobile.md, «Tanda 2».)
 
+Abrir o cerrar una hoja toca el historial, y Next puede descartar lo que el router tiene en la cola en ese mismo tick
+(leído, no medido): el `router.refresh()` después de abrir una hoja va diferido (400 ms, como /m/cuenta y Ads Writer),
+y para navegar con una hoja abierta se la deja desmontarse con la página nueva (Comunidad), sin cerrarla por código. Una
+URL que se escribe desde el cliente parte de `new URL(window.location.href)`: la barra tiene la ruta de ESCRITORIO.
+Copiar al portapapeles devuelve si copió (`copiarTexto`, app/m/copywriting/api.ts). (docs/hallazgos-mobile.md, «Tanda 3».)
+
 ## 5. El CSS de la pantalla
 
 Un `.css` en SU carpeta (`app/m/ads/ads.css`), importado por SU `page.tsx`, con TODAS las clases

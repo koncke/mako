@@ -17,7 +17,7 @@ arregladas, y donde el rescate lo sabía, lo dice.
 ## Lo que más muerde acá
 
 - **(14/10/2026) Con la clave PÚBLICA de Supabase se ejecutaban dos funciones SECURITY DEFINER** de la cola de Flow: se leían y saboteaban los trabajos de todos los clientes. `revoke ... from public` no saca el EXECUTE DIRECTO que Supabase le da a anon. Cerrado con la 0280 → [Auditoría end-to-end del 14/10](#auditoría-end-to-end-del-14102026).
-- **(14/10/2026) La página esconde por rol; la API no**: el proxy sólo pide sesión, así que toda ruta sin su propio corte de rol se la deja usar a un closer o setter → [Auditoría end-to-end del 14/10](#auditoría-end-to-end-del-14102026).
+- **(14/10/2026) La página esconde por rol; la API no**: el proxy sólo pide sesión, así que toda ruta sin su propio corte de rol se la deja usar a un closer o setter → [Auditoría end-to-end del 14/10](#auditoría-end-to-end-del-14102026). El 16/10 cayeron tres rutas más, que la auditoría había dado por refutadas → [Experiments, Retro y Second Brain](#experiments-retro-y-la-búsqueda-del-second-brain-sin-corte-de-rol-mal-refutado-16102026).
 - La credencial del repo de la agencia se le servía a los clientes por la API, y `serviciosPara()` —la
   función escrita para evitarlo— no la llamaba nadie → [GitHub en el panel de un cliente](#la-credencial-de-la-plataforma-adentro-del-panel-de-un-cliente-github).
 - Los guards que suenan a «solo la agencia» no lo son: tres de cuatro los pasa cualquier admin-cliente, y el único que cierra de verdad es `getSesionAdmin()` → [Guards, roles y sesión](#guards-roles-y-sesión).
@@ -1772,7 +1772,7 @@ de severidad baja sin refutar.**
 | Baja | `/api/compartido/archivo` autoriza por alcance sin mirar el recurso: el link de Conocimientos baja la galería privada de branding | `app/api/compartido/archivo/route.ts:37` | exigir `recurso === 'branding'` |
 
 **Refutados**, y el porqué también es información: `/api/agencia/entrar` sin admin (lo corta otra guarda); «Revelar»
-una credencial de plataforma al ws1; las APIs de Experimentos/Retro sin rol; el «deshacer» de `deshacerQuitarAction`;
+una credencial de plataforma al ws1; las APIs de Experimentos/Retro sin rol (**mal refutado**: era real, cerrado el 16/10 → [abajo](#experiments-retro-y-la-búsqueda-del-second-brain-sin-corte-de-rol-mal-refutado-16102026)); el «deshacer» de `deshacerQuitarAction`;
 el texto de un lead entrando a la memoria del doer como turno de MaKo. **Bajas sin refutar**: el secreto del cron
 comparado con `!==` (y 10 copias del chequeo); el path del Archivero acepta `..`; «Completar como Mauricio» con guarda
 en negativo; el webhook de Fathom de un workspace sin secreto propio verifica con el del ws1; identidades fiscales y
@@ -1912,3 +1912,53 @@ la página de afuera».
 
 **Vive en:** `lib/editor-landing/html-libre.ts` · `lib/editor-landing/diagnostico.ts` · `next.config.ts` ·
 `lib/editor-landing/lector-script.ts` · `tests/editor-landing-origen.test.ts` · *tanda 7 del Web Generator, 15/10/2026*
+
+## Experiments, Retro y la búsqueda del Second Brain sin corte de rol: mal refutado (16/10/2026)
+
+**Síntoma.** Un closer o un setter logueado en su negocio, desde la consola de la misma pestaña (pasa el CSRF),
+mandaba `POST /api/retro {action:'plan', op:'aceptar'}` (crea un experimento y sus tareas en To-do), `{action:'generar'}`
+(hasta 9 llamadas a Opus) o `{action:'borrar'}`; cerraba o eliminaba experimentos y leía las retros enteras con un GET; y
+le pedía a `/api/second-brain/buscar` «cuánto cobro», que arma el prompt con el mapa completo (precios, avatares,
+objeciones) y quema la IA barata del workspace. Las pantallas de las dos tabs son sólo del admin.
+
+**Causa.** Las rutas no miraban ni sesión ni rol (buscar, sólo `getUsuarioActual()`); las libs tampoco (`getTenantDb`
+acota al workspace, no al rol); y el proxy exige rol sólo en /admin y /metodo, y el que mira es el GLOBAL
+(`admin`|`usuario`): el `rol_ws` closer o setter no lo ve nadie fuera de la ruta. El teléfono no lo abrió: le sumó otra
+pantalla a las mismas rutas.
+
+**El diagnóstico equivocado.** La auditoría del 14/10 lo dio por **refutado**, sin escribir por qué. Estaba abierto en
+hallazgos-plan.md desde el 16/09, y la revisión de la tanda 2 de MaKo Mobile lo reconfirmó leyendo las cinco rutas, las
+tres libs y el proxy. Un «refutado» sin su porqué no se puede volver a mirar: el siguiente que lo lee lo da por cerrado.
+
+**Arreglo.** `soloAdminDeTab(nav)` (lib/puerta-admin-tab.ts) es el corte de `requireRolWs([], { nav })` devolviendo la
+respuesta en vez de redirigir: 401 sin sesión, 403 si el rol no es `'admin'` (en positivo: un rol nuevo no entra por
+olvido), 404 si la capa no tiene la tab. Es la primera línea de todo handler de `/api/experimentos/**`, /api/retro y
+/api/second-brain/buscar (exportar ya cerraba con `requireRolWs`). Los que llaman a esas rutas ya eran todos admin
+(ExperimentosApp, ExperimentsTab, RetroTab, el OnboardingWizard, Grafo y las dos pantallas del teléfono).
+
+**Regla.** Una ruta /api que sólo usa una tab sólo-admin abre con `soloAdminDeTab('<la nav de su página>')`. Y quien
+refuta escribe el porqué, aunque sea una línea.
+
+**Vive en:** lib/puerta-admin-tab.ts · `app/api/experimentos/**` · app/api/retro/route.ts ·
+app/api/second-brain/buscar/route.ts · tests/puerta-admin-tab.test.ts (recorre las carpetas: una ruta nueva sin la
+puerta lo pone en rojo)
+
+## La Comunidad del equipo: la sidebar la muestra al admin; la página y las actions, a cualquier rol (16/10/2026, ABIERTO)
+
+**Qué se vio** (al llevarla al teléfono; leído, no medido). La sidebar muestra Comunidad sólo al admin, y el teléfono
+la cierra igual (`requireMovil({ navKey: 'cs-comunidad' })`). Pero la página de escritorio
+/customer-success/comunidad pide sólo la capa (`requireCapa('customer-success')`, app/customer-success/comunidad/page.tsx:35),
+y `actorDelEquipo` (app/customer-success/comunidad/actor.ts:24-43), la puerta de cada server action, pregunta sesión,
+capa, workspace y producto: nunca el rol. Un closer o un setter abre la página por URL, y desde la consola usa las
+actions como `equipo: true`: publica, fija (`puedeFijar`) y borra lo ajeno (`puedeBorrar`, lib/comunidad-reglas.ts:397).
+Configurar categorías y niveles sí pide `adminWs`.
+
+**Por qué no se cerró.** D8 (docs/diseno-curso-skool.md:116) dice «Miembros: el equipo del workspace (como admins)»:
+que todo el equipo modere puede ser a propósito. Lo que no cierra es que la sidebar y la página no pregunten lo mismo.
+El Curso, en cambio, edita sólo con admin (`puedeEditar`, app/customer-success/curso/puerta-curso.ts).
+
+**Lo que decide Martín.** ¿Un closer o un setter es miembro de la comunidad (y la sidebar se la muestra), o no entra (y
+la página y `actorDelEquipo` cierran por rol, como `soloAdminDeTab`)? Hasta entonces el teléfono queda como la sidebar.
+
+**Vive en:** app/customer-success/comunidad/page.tsx · app/customer-success/comunidad/actor.ts · lib/comunidad-reglas.ts ·
+app/_components/nav.ts (`cs-comunidad`) · app/m/comunidad/page.tsx

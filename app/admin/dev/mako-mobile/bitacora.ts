@@ -157,4 +157,17 @@ export const BITACORA: Hito[] = [
     ],
     archivos: ['app/m/second-brain/', 'app/m/experimentos/', 'app/m/offer/', 'lib/cerebro-areas.ts', 'lib/archivero-subida.ts', 'lib/experimentos-formato.ts', 'app/offer/ayudas.ts', 'app/offer/OfferApp.tsx', 'tests/m-second-brain.test.ts', 'tests/m-experimentos.test.ts', 'tests/m-offer.test.ts', 'docs/hallazgos-mobile.md'],
   },
+  {
+    fecha: '16 oct', hora: '04:40', chat: CH, cuenta: 'claude3', actor: 'claude', tipo: 'implementacion',
+    titulo: 'More completo, tanda 3 de 3: Ads Writer, Curso y Comunidad en el teléfono (sin commit todavía: la hora es la de la integración)',
+    puntos: [
+      'Con esta tanda las 14 secciones de More tienen su pantalla, y el mapa ya se puede subir: con el teléfono prendido para todos, una sección sin pantalla habría sido una página rota.',
+      'Ads Writer con sus tres vistas de escritorio en el mismo orden (Anuncios · Guiones · Analizar guion): «Escribir el próximo guion» fijo abajo, en la misma celda que elige la computadora; copiar un guion, leerlo como un teleprompter, y valorar uno escrito o dictado. No hay un campo libre para pedir el copy, porque escritorio lo prohíbe a pedido de Martín: el dictado fue al guion a valorar.',
+      'Curso, copiado del Classroom de Skool: el curso elegido, sus módulos y clases en el orden de escritorio, poner una clase en Público o Privado con Deshacer, y su avance entre los alumnos. El avance va por clase y no como tabla, porque Martín sacó esa vista del Curso el 07/10.',
+      'Comunidad, copiada de la app de Skool: leer el feed, dar like, comentar y responder, votar una encuesta, publicar un post de texto, buscar, y ver Miembros y el Ranking. Calendario, About y la moderación quedan en la computadora.',
+      'Lo que las tres reusan de escritorio salió de los componentes de la computadora a módulos de los dos (el próximo guion y la cobertura, el orden de la galería, el parser del gancho, los íconos de la comunidad), y escritorio ya los usa.',
+      'Para que decida Martín: la Comunidad la muestra la barra sólo al admin, pero su página y sus acciones dejan entrar a cualquier rol del equipo. El teléfono quedó como la barra. Nada se miró en un navegador ni en un teléfono.',
+    ],
+    archivos: ['app/m/copywriting/', 'app/m/curso/', 'app/m/comunidad/', 'app/ads-writer/reglas.ts', 'lib/guion-secciones.ts', 'app/ads-writer/analizar.ts', 'app/_comunidad/iconos.tsx', 'tests/m-copywriting.test.ts', 'tests/m-curso.test.ts', 'tests/m-comunidad.test.ts', 'tests/layout-sin-suspense.test.ts', 'docs/hallazgos-mobile.md', 'docs/hallazgos-seguridad.md'],
+  },
 ];

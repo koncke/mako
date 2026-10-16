@@ -104,6 +104,8 @@ const LOADING_PERMITIDOS = [
   'app/m/second-brain/loading.tsx',
   // Experiments: getExperimentosView mide en vivo cada experimento contra Meta, y listRetros trae cada reporte.
   'app/m/experimentos/loading.tsx',
+  // Curso: la cartera de la entrega, las clases de cada curso y el progreso paginado de cada cliente ganado.
+  'app/m/curso/loading.tsx',
 ];
 
 test('no hay loading.tsx fuera de la lista blanca (cada uno esconde su página sin JavaScript)', () => {
