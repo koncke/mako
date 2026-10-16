@@ -4706,3 +4706,21 @@ dueño: necesita otra tarjeta); y los otros 61, por familias.
 **Vive en:** `lib/disparadores.ts` (`EventoMako.plataforma`) · `lib/aviso-evento.ts` (`emitirPorEvento`, `sinFila`) ·
 `lib/avisos.ts` (`emitirDelCatalogo`) · `lib/flujos.ts` (`negocioWs`) · `lib/linea-vigilancia.ts` (`datosCaida`) ·
 `lib/plantillas-automatizaciones.ts` (`PLANTILLAS_PLATAFORMA`) · test: `tests/avisos-plataforma.test.ts`
+
+## «Probar» visto en producción (16/10/2026): el ws3 no sirve, y lo que sólo se veía con clics
+
+- ⚠️ **Para mirar una tab en el Cliente de Prueba (ws3), el onboarding pendiente la tapa** y lleva a /onboarding (trampa
+  ya escrita en la memoria de verificar en el navegador). Terminar su onboarding le cambiaría un estado que quizá está así a propósito. Se probó en el ws 9 (la plataforma, de
+  Martín) con una automatización creada para eso: #252 «Un Lead Agendó Llamada», pausada y sin CRON (no entra nadie).
+  **Sigue ahí**: borrarla por la pantalla espera el OK de Martín.
+- **Los casos en que el lead contesta salían sobre un camino SIN mensajes.** Sin CRON, el lead recién llegado no tiene
+  reunión y su camino («la reunión ya pasó») no manda nada. El lead escribe después del primer mensaje, así que nunca
+  escribía, y la prueba terminaba en «Fin». Ningún test lo veía: todos tenían un primer camino con mensajes. Ahora
+  salen del primer camino con mensajes, y si no llega ninguno el lead escribe al terminar (`terminarSalida`).
+- **La píldora de cuándo cae decía seis hechos**, «Tiene WhatsApp · Tiene email» en todos. Ahora dice sólo los que
+  distinguen un caso de los otros.
+- **Visto bien:** «Caso N» con fotos; la fila de fotos con el panel de ~645 px (en 1536 de ancho no entra la columna);
+  sin «Hay más caminos»; volver al Caso 1 lo muestra terminado y sin animar; en el ws 9, ninguna tarjeta de WhatsApp
+  dice «Sin conectar» y el AI Step lleva «No escucha respuestas» (un `span`, no ofrece conectar).
+
+**Vive en:** `lib/simulador-grafo.ts` (`escenariosDePrueba`: `primero`, `distinguen`) · `app/automations/PanelProbar.tsx` (`terminarSalida`)
