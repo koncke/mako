@@ -1798,6 +1798,39 @@ Rama `web-anim` (worktree `C:/dev/wt-web-anim`).
   de Framer no se comparó contra un sitio real; desde «Aplicar» del Diagnóstico la línea del scroll no se muestra (ese
   camino no abre el editor).
 
+### La verificación de la publicada (16/10/2026, sin la base)
+
+**Vive en:** el arnés `verif-anim/` del scratchpad de la sesión f3876a09 (`build.mts` con `node --import tsx` desde el
+worktree, `sh correr.sh`, `node resumen.cjs`; las salidas en `out/resumen.txt`) · `lib/editor-landing/pagina-publica.ts`
+(`TOPE_TEXTO`) · `tests/editor-landing-animaciones-render.test.ts`
+
+La publicada REAL (`htmlDePagina(…, { modo: 'publico' })` + `armarDocumento`) de «Clásico claro» con tres objetivos,
+servida con `ctx.route` y la red cortada, Chromium sin ventana, CPU ×4, a 390×844 y 1280×800:
+- **Parpadeo, 0 en 16 corridas** (los 8 estilos × 2 tamaños): el H1 y la primera sección en opacidad 1 desde el primer
+  cuadro; lo que entra en la primera pantalla queda quieto.
+- **Los 23 efectos con sus direcciones, 23/23 en cada tamaño**: los bloques corren el `gm-e-…` esperado con su cascada
+  (150/230/310 ms), la sección `gm-aparecer` (600 ms), y todo termina visible, sin transform, clip-path ni filter.
+- Interruptor apagado y «ninguna»: 0 escondidos, 0 animaciones. **Reducir movimiento:** sin `gm-anim`, nada partido.
+- **«Palabras» y «Máquina de escribir»:** 12 de 21 títulos partidos con el MISMO `textContent` y `aria-label`; ninguno de
+  la primera pantalla; con el tema de degradado («eclipse»), 0 de 20 partidos.
+- **El teléfono:** «Enfoque» corre `gm-e-desvanecer` sólo con opacidad. **Compatibilidad:** un HTML sin `data-anim` con la
+  hoja y el script nuevos, 23/23 en la entrada de siempre.
+- **LCP del H1 (ms, 3 corridas, alternadas y con una visita de calentamiento):** agenda-llamada con 364/472/448 y sin
+  552/344/372; lead-magnet 476/396/392 y 392/328/364; webinar 504/516/480 y 420/520/616. **Con y sin cuestan lo mismo.**
+- **Video de fondo** (mp4 de 2 s): no se baja antes del load, aparece con `playing`, el teléfono baja la versión 480 y su
+  póster, se pausa fuera de pantalla, con reducir movimiento hace 0 pedidos y no hay botón, y el botón se llama «Pausar
+  el video de fondo». La pestaña oculta sólo se pudo SIMULAR (en Chromium sin ventana nunca se marca oculta).
+- **Arreglado (WCAG 2.2.2):** un título de 140 letras con «Máquina de escribir» tardaba 5,7 s en terminar de escribirse
+  (150 + 139 × 35 + 700 ms). Ahora el script le junta los pedazos para que termine en 5 s (`TOPE_TEXTO`), y uno corto no
+  cambia. Lo fija un test, probado rompiéndolo (sin el tope y con 6 s: 17 / 1).
+- **Trampas del arnés:** Chrome devuelve `style.animation` como `"auto ease 0s 1 normal none running none"`, no `"none"`
+  (para saber si algo está quieto se lee `animationName`); `scrollIntoView` marca también a las vecinas, que ya
+  terminaron cuando se las mide (se anotan las animaciones en el momento en que entra `gm-visto`, con un
+  MutationObserver); la PRIMERA navegación de un Chromium recién lanzado tarda 1,3-1,8 s más (visita de calentamiento y
+  alternar con y sin, o «con animaciones» sale más lento por la razón equivocada); un test de efectos necesita relleno
+  arriba, porque el hero de las plantillas es corto y 3 secciones entran en la primera pantalla.
+- **Sin medir:** que un título con degradado partido se vea vacío mientras anima (sólo se comprobó que no se parte).
+
 ### Trampas del entorno de esta tanda
 
 - **Mandarle un mensaje a un agente que está DENTRO de un Workflow no le llega: levanta una COPIA desde su transcript.**

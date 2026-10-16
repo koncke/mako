@@ -382,5 +382,7 @@ coordinador «Estrategia 3 cuentas», de a uno (el atributo nuevo tenía que est
   los infinitivos del guard del voseo.
 - **El `window.opener` del Pixel**: cerrado en parte (el lector lo suelta al arrancar). El cierre completo NO se hace
   (decisión del coordinador: mucho costo para un hueco chico); el riesgo que queda y el plan, en los hallazgos.
-- **Sin medir en un navegador real**: con la regla de RAM no se levantó la app. La publicada se midió armada sin la base
-  en Chromium sin ventana (ver los hallazgos → «Tanda 8» → la verificación).
+- **Sin medir en un navegador real**: con la regla de RAM no se levantó la app. La publicada SÍ se midió, armada sin la
+  base, en Chromium sin ventana: 0 parpadeos, los 23 efectos bien, con y sin animaciones cuestan lo mismo, y el video de
+  fondo se comporta (hallazgos → «Tanda 8» → «La verificación de la publicada»). De ahí salió el tope de 5 s de los
+  títulos partidos (WCAG 2.2.2).

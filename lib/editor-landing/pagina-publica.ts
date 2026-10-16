@@ -82,7 +82,22 @@ import { CONFIG_DEFAULT, type ConfigLanding } from './api-tipos';
 import { CSS_CONTENIDO } from './css';
 import { PREFIJO_PUBLICO, rutaInternaL, rutaValida, slugValido } from './doc';
 import { origenImagenes } from './especificacion';
-import { CORTE_CELULAR, sanearEstilo } from './animaciones';
+import { CORTE_CELULAR, ESTILOS_PAGINA, efectoPorId, sanearEstilo, type DefEstilo } from './animaciones';
+
+/**
+ * WCAG 2.2.2 (la regla de los hallazgos: lo que se mueve solo más de 5 s lleva pausa): un título partido termina de
+ * entrar en 5 s como mucho. Con «Máquina de escribir» un título de 140 letras llegaba a 5,7 s (150 + 139 × 35 + 700
+ * ms; medido por la verificación de la tanda 8, 16/10/2026). Si un título se pasaría, el script le junta los pedazos:
+ * reparte su lugar (`--gm-u`) en el tiempo que queda. Por pieza: el escalón del estilo y lo que entra de cascada
+ * (5 s, menos la demora base de 150 ms de css.ts `textoPartido`, menos lo que dura la entrada de un pedazo).
+ */
+const TOPE_TEXTO_MS = 5000;
+const TOPE_TEXTO: Record<string, { paso: number; max: number }> = Object.fromEntries(
+  (ESTILOS_PAGINA as readonly DefEstilo[]).flatMap((e) => {
+    const def = e.texto ? efectoPorId(e.texto.efecto) : null;
+    return e.texto && def ? [[e.texto.por, { paso: e.texto.escalonMs, max: TOPE_TEXTO_MS - 150 - def.duracionMs }]] : [];
+  }),
+);
 import { baseLandingsPara, urlLandingEn, urlVistaEn } from './origen-landings';
 import { APP_BASE_URL, baseLandings } from '../app-url';
 import { FORMA_TOKEN, lineaCargador } from '../pixel-cargador';
@@ -525,6 +540,7 @@ export const SCRIPT_PAGINA = [
   "      return !!(cs && cs.backgroundImage && cs.backgroundImage !== 'none');",
   '    } catch (e) { return false; }',
   '  }',
+  '  var TOPE_TEXTO = ' + JSON.stringify(TOPE_TEXTO) + ';',
   '  function partirTitulos(sec, por) {',
   "    var ts = sec.querySelectorAll ? sec.querySelectorAll('h1, h2, h3') : [];",
   '    for (var a = 0; a < ts.length; a++) {',
@@ -536,6 +552,12 @@ export const SCRIPT_PAGINA = [
   "      if (!ts[a].getAttribute('aria-label')) ts[a].setAttribute('aria-label', rotulo.t.trim());",
   '      var cuenta = { n: 0 };',
   '      for (var q = 0; q < nodos.length; q++) partirTexto(nodos[q], por, cuenta);',
+  // WCAG 2.2.2: si la cascada de este título pasaría de 5 s (TOPE_TEXTO), sus pedazos se reparten más juntos.
+  '      var tope = TOPE_TEXTO[por];',
+  '      if (tope && cuenta.n > 1 && (cuenta.n - 1) * tope.paso > tope.max) {',
+  "        var f = tope.max / ((cuenta.n - 1) * tope.paso), us = ts[a].querySelectorAll('.gm-u');",
+  "        for (var z = 0; z < us.length; z++) us[z].setAttribute('style', '--gm-u:' + Math.round(z * f * 1000) / 1000);",
+  '      }',
   '    }',
   '  }',
   '  for (var pt = 0; pt < vigilar.length; pt++) {',

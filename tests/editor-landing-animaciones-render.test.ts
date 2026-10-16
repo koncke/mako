@@ -600,3 +600,26 @@ test('«Editar con IA» conserva la animación y el video de la sección que ree
 //   #13 el video de fondo sin el saneo del bucket (especificacion.ts) ................ 23 / 1 (el saneo)
 // Restaurado: 24 / 0. (La primera vuelta encontró dos tests que no mordían: el gancho de gm-anim guardaba la
 // ÚLTIMA vez que se ponía la clase, y la rotura de data-anim-dir no cambiaba nada; los dos quedaron corregidos.)
+
+// WCAG 2.2.2 (16/10/2026, la verificación de la tanda 8): un título partido termina de entrar en 5 s como mucho. Con
+// «Máquina de escribir» uno de 140 letras llegaba a 5,7 s (150 + 139 × 35 + 700 ms); el script le junta los pedazos.
+// Roturas (a mano y restaurado; base en verde: 18 / 0 en este archivo):
+//   · el script sin el tope (TOPE_TEXTO ignorado) ...................................... 17 / 1 (éste)
+//   · el tope con 6000 ms en vez de 5000 ................................................. 17 / 1 (éste)
+test('un título largo de a letra termina de entrar en 5 s como mucho; uno corto no cambia', () => {
+  const largo = el('h2', {}, 'x'.repeat(140));
+  const corto = el('h3', {}, 'Hola');
+  const raiz = el('main', {},
+    seccionDom({ 'data-anim': 'desvanecer' }, [0, 800], el('h1', {}, 'Arriba')),
+    seccionDom({ 'data-anim': 'desvanecer', 'data-anim-texto': 'letra' }, [1600, 2400], largo),
+    seccionDom({ 'data-anim': 'desvanecer', 'data-anim-texto': 'letra' }, [2600, 3400], corto),
+  );
+  correr(raiz).correr();
+  const lugar = (u: Nodo) => Number(/--gm-u:([\d.]+)/.exec(u.getAttribute('style') ?? '')?.[1]);
+  const us = unidades(largo);
+  assert.equal(us.length, 140, 'el título largo se partió');
+  const ultimo = lugar(us[us.length - 1]);
+  assert.ok(150 + ultimo * 35 + 700 <= 5000, `el último pedazo termina a los ${150 + ultimo * 35 + 700} ms`);
+  assert.ok(ultimo > lugar(us[0]), 'siguen entrando de a uno, en orden');
+  assert.deepEqual(unidades(corto).map((u) => u.getAttribute('style')), ['--gm-u:0', '--gm-u:1', '--gm-u:2', '--gm-u:3'], 'uno corto no cambia');
+});
