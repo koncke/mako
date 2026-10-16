@@ -3971,6 +3971,11 @@ voz con un mensaje que le pedía cargar otra key. Dos reglas al escribir un cami
   bien: si una feature mezcla pedidos con y sin datos de clientes, la marca del catálogo queda como
   default cerrado y quien llama la afina con `pii`, EN POSITIVO (lo que no está revisado la lleva;
   molde: `CAJAS_SIN_DATOS_DE_CLIENTES`, lib/graficos-ia-elemento.ts).
+  ⚠️ **Y una key de la plataforma COPIADA en la fila de un negocio no es del negocio** (16/10/2026: la Gemini del ws1
+  lo era, y todos sus pedidos con datos de clientes iban a la key gratis de la agencia sin pasar por el corte).
+  `provsDe` (lib/ai-cheap.ts) saca de las «propias» toda copia de una key de la plataforma, y las cascadas toman las
+  keys SÓLO por ahí: un bucle nuevo de IA no lee una key con `credWs` (que al ws1 le presta la del entorno) ni arma su
+  propia lista. Lo fija `tests/ia-keys-propias.test.ts`.
 - **La red va como OPCIÓN del que llama, nunca fija en una función compartida** (`EnVivo`,
   `lib/setting-simulador.ts`, 16/10/2026). Una lectura de la API que un agente externo puede llamar
   en bucle no la pide: gastaría la cuota gratis de la agencia, que es de la que viven las respuestas
