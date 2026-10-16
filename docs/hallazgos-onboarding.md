@@ -1962,4 +1962,25 @@ lo que muerde). Offer eligió la segunda (16/10): su red tiene un plazo propio (
 que la cascada no conoce. `'offer'` quedó en la lista ese día, con `soloDuranteElOnboarding`: sin esa llamada en
 `pedir`, la fila no hace nada.
 
+**5. Tres trampas del diseño del chat de arranque** (Offer propuso: reusar las claves de `PASOS_ONBOARDING`, sacar
+`gemini` y `archivero` de las capas, postergar siempre Meta y borrar el wizard). Medidas el 16/10 contra origin/main:
+- ⚠️ **El histórico de Meta lo arranca SÓLO el wizard.** El único que llama a `POST /api/onboarding/extraccion`
+  `{action:'start'}` (→ `iniciarExtraccion`) es `OnboardingWizard.tsx:274`. El cron
+  (`app/api/cron/onboarding-extraccion`) sólo SIGUE las que están `running`, y su comentario («solo se dispara al
+  verificar esa credencial») describía al wizard. Borrar el wizard con Meta siempre postergado deja a todo negocio
+  nuevo sin su histórico, sin un error. La salida: arrancarla en la puerta única de la conexión
+  (`guardarConexionMeta`, lib/meta-conexion.ts), con una guarda de «no arrancó todavía».
+- ⚠️ **`negocio` es el BRIEF, no el nombre.** Las tres pantallas del brief cierran `negocio` (acción `brief` →
+  `saveAnswers` en `mako.onboarding.answers`), y en la capa `pm` es lo que el Perro necesita para priorizar
+  (`briefGrupos`). Lo leen los generadores (`contenido.run.ts:420`, `video.helpers.ts:349`) y el perfil del negocio
+  (`negocio.helpers.ts:105`). Cerrar `negocio` con sólo los nombres los deja escribiendo sin conocer el negocio. Y al
+  escribirlo se lee ESTRICTO y se funde: `getAnswers()` devuelve `{}` si la base no contesta, y `saveAnswers` sobre eso
+  borra el brief (`negocio.helpers.ts:133`).
+- ⚠️ **La capa `pm` no tiene Offer, CRM ni productos** (`navKeys` = todo, mako, productivity-analyst, graphics,
+  calendario). Su paso `plan` es el que cierra con «Crear mi primer proyecto» y dispara el plan de arranque: es el
+  producto entero de esa capa, y no se le puede sacar por uniformar las capas.
+
+Lo que sí se sostiene solo: `ver_estado_onboarding` (API de MaKo) sale de `capa.onboarding`, y `registrarLogin` con
+«llenar el nombre sólo si está vacío» respeta también el que escribió quien invitó (`crearUsuario` lo guarda).
+
 *16/10/2026 · chat «Onboarding» (claude3), medido contra el código, sin subagentes.*
