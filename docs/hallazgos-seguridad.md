@@ -1912,3 +1912,37 @@ la página de afuera».
 
 **Vive en:** `lib/editor-landing/html-libre.ts` · `lib/editor-landing/diagnostico.ts` · `next.config.ts` ·
 `lib/editor-landing/lector-script.ts` · `tests/editor-landing-origen.test.ts` · *tanda 7 del Web Generator, 15/10/2026*
+
+## /api/chart-insights: un closer leía los chats del dueño por id y oía la plata del trimestre (16/10/2026)
+
+**Vive en:** `app/api/chart-insights/route.ts` · `lib/chart-chats-reglas.ts` (de quién es un chat) · `lib/chart-chats.ts`
+(`listSessionsDePersona`, `listAllSessions`) · `tests/chart-insights-privacidad.test.ts`. La encontró el diseño del Centro
+(docs/diseno-mako-ai-native.md, «una fuga activa hoy») leyendo el código; se cerró el mismo día.
+
+**Las dos fugas, medidas leyendo** (no hay un «ver como closer» para probarlas con un pedido: el super admin, aun
+entrando a un cliente, es admin, y una sesión de closer no se fabrica):
+- **La plata.** `buildSystemPrompt` se armaba en TRES lugares (abrir, abrir una sesión vacía, mandar) sin
+  `sinNumerosDelNegocio`, y la ruta no miraba el rol: `objetivosContextoTexto` (USD vendidos, cobrados e invertidos del
+  trimestre) le llegaba a MaKo para cualquiera, y /mako está abierta a closer y setter. El teléfono y el doer ya lo
+  cortaban (auditoría del 14/10); esta ruta quedó afuera.
+- **Los chats.** Las sesiones de escritorio eran del WORKSPACE: `?all=1` las listaba todas y `?sessionId=N` (ids
+  correlativos) abría, escribía o borraba cualquiera. Un closer leía lo que el dueño habló con MaKo, con los montos que
+  MaKo le había dicho a él.
+
+**La regla, la del doer** (/api/mako-doer, `quienPide`, que ya la tenía): los chats de un admin siguen siendo del
+workspace; los de un closer o setter son SUYOS, con su persona en la clave (`persona:u<id>:<clave>`), y a quien no le
+corresponde la sesión NO EXISTE (404, sin decir «es de otro»). La pantalla nunca ve el prefijo (`claveVisible`): sus
+etiquetas siguen iguales. Lo que no se ve:
+- ⚠️ **Un email puede tener `_`, que en un LIKE es un comodín**: `persona:a_b@x:%` también trae los chats de
+  `axb@x`, OTRA persona. `listSessionsDePersona` escapa los comodines y además filtra por el prefijo exacto.
+- **La persona va como PREFIJO, no como sufijo** (el doer usa `mako-doer:u<id>`): las claves de esta ruta ya traen `:`
+  adentro (`dashboard:<hoja>:<gráfico>`), y un sufijo no se distingue de un id.
+- **Lo de antes de un closer deja de abrirse para él**: sus chats viejos eran del workspace, sin dueño (era justamente lo
+  que se filtraba). El admin los sigue viendo. La lista del admin no mezcla los chats personales de los demás (sí los
+  abre por id).
+
+**Lo que quedó SIN hacer:** probarlo en producción con una sesión de closer de verdad (en el ws3, cuando alguien entre
+como closer). La otra mitad del diseño del Centro sigue: los chats `dashboard:` y `mako-general` del admin son del
+workspace (pasarlos a «por persona» pide migrar datos).
+*16/10/2026, claude3 (chat Dashboard).*
+
