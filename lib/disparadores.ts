@@ -192,7 +192,8 @@ export const EVENTOS_PAGO: readonly EventoCanal[] = [
 ];
 
 /** Cuál de los «Eventos de MaKo» (`EVENTOS_MAKO`). */
-export type SubtipoMako = 'reunion_pronto' | 'lead_contesta' | 'cuota_vencida' | 'lead_agendo' | 'pago_recibido' | 'analisis_listo' | 'contrasena_restablecer';
+export type SubtipoMako = 'reunion_pronto' | 'lead_contesta' | 'cuota_vencida' | 'lead_agendo' | 'pago_recibido' | 'analisis_listo' | 'contrasena_restablecer'
+  | 'whatsapp_caido' | 'whatsapp_volvio';
 
 /**
  * PARA QUÉ LE ESCRIBE A LA PERSONA un evento de una PERSONA (15/10/2026, docs/diseno-2fa-obligatorio.md §8): lo DECLARA
@@ -222,7 +223,14 @@ export type PropositoPersona = 'restablecer' | 'aviso' | 'codigo';
  * dejarían de salir. Ni `apagado`: eso las frenaría al guardar.
  */
 export type EventoMako = EventoCanal & {
-  subtipo: SubtipoMako; aviso: string; trae: ReadonlyArray<'lead' | 'mensaje' | 'cuota' | 'pago' | 'escrito' | 'analisis' | 'restablecer'>; retirado?: true;
+  subtipo: SubtipoMako; aviso: string; trae: ReadonlyArray<'lead' | 'mensaje' | 'cuota' | 'pago' | 'escrito' | 'analisis' | 'restablecer' | 'linea'>; retirado?: true;
+  /**
+   * UN MENSAJE DE MaKo A SUS CLIENTES (15/10/2026, el 2 de las doce: «un Mensaje de MaKo ES una automatización»): lo
+   * emite el negocio X (su línea se cayó), pero lo corren las automatizaciones de la PLATAFORMA, y su tarjeta «MaKo en
+   * WhatsApp» le llega al grupo de X. Sólo se ofrece en la plataforma. Mientras la plataforma no tenga NINGUNA fila con
+   * el evento, el aviso sale como antes (`emitirPorEvento` → `sinFila`): la mudanza no deja hueco.
+   */
+  plataforma?: true;
   /**
    * UN EVENTO DE UNA PERSONA (15/10/2026): habla de un USUARIO de MaKo (`datos.usuario_id`), no de un lead, y su
    * automatización le puede escribir a ESA persona por email («Email a la persona», `pasosDelEvento`). El valor es para
@@ -253,6 +261,10 @@ export const EVENTOS_MAKO: readonly EventoMako[] = [
   // `{{link_restablecer}}` es un dato SECRETO (`secreto`, lib/variables-aviso.ts). Todo por Automations: el mail lo
   // manda la automatización de SuperAdmin, por el remitente de MaKo.
   { subtipo: 'contrasena_restablecer', aviso: 'seguridad-contrasena-restablecer', label: 'Alguien pide restablecer su contraseña', trae: ['restablecer'], persona: 'restablecer', quien: 'Quien pide restablecer su contraseña' },
+  // LOS MENSAJES DE MaKo A SUS CLIENTES, mudados de a uno (15/10/2026, docs/diseno-avisos-plataforma.md). La línea por QR
+  // de un negocio se cae y vuelve: lo mide lib/lineas-vigilante.ts, que pasa los datos de la línea (`datosCaida`).
+  { subtipo: 'whatsapp_caido', aviso: 'wa-desconectado', label: 'Se cae el WhatsApp de un negocio', trae: ['linea'], plataforma: true },
+  { subtipo: 'whatsapp_volvio', aviso: 'wa-reconectado', label: 'Vuelve el WhatsApp de un negocio', trae: ['linea'], plataforma: true },
 ];
 
 /**
@@ -271,7 +283,8 @@ export function eventosOfrecidos(clase: ClaseDisparador | 'otro' | null, elegido
   if (clase !== 'mako') return eventosDe(clase);
   // Un evento de una PERSONA (`persona`) lo emite sólo la plataforma, en SU ws: en un negocio, una fila con él no
   // correría nunca. Se ofrece sólo en la plataforma (el que ya está elegido se sigue viendo).
-  return EVENTOS_MAKO.filter((e) => (EVENTOS_MAKO_OFRECIDOS.includes(e) && (!e.persona || o.plataforma === true)) || e.subtipo === elegido);
+  // Uno de la PLATAFORMA (a sus clientes) también: sólo lo corren las filas de la plataforma.
+  return EVENTOS_MAKO.filter((e) => (EVENTOS_MAKO_OFRECIDOS.includes(e) && ((!e.persona && !e.plataforma) || o.plataforma === true)) || e.subtipo === elegido);
 }
 
 /** Los eventos de una clase de canal (vacío para las demás). */

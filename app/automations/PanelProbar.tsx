@@ -1243,8 +1243,7 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
         return;
       }
       case 'fin':
-        sistema(evento.texto);
-        setTerminado(true);
+        terminarSalida(evento.texto);
         return;
     }
   }
@@ -1401,6 +1400,15 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
    * a otro caso, se ve: es un hallazgo de la prueba, no un error de ella.
    */
   const leadEscribio = useRef(false);
+  /**
+   * TERMINÓ LA SALIDA. En un escenario de respuesta cuyo camino no le mandó NADA (visto en producción el 15/10/2026: el
+   * caso terminaba en «Fin» sin probar el AI Step), el lead escribe igual y contesta el AI Step; si no, «Fin».
+   */
+  const terminarSalida = (texto: string) => {
+    if (escRef.current?.respuesta && !leadEscribio.current) { luego(LEAD_PIENSA_MS, () => { void escribirComoLead(); }); return; }
+    sistema(texto);
+    setTerminado(true);
+  };
   const escribirComoLead = async () => {
     const r = escRef.current?.respuesta;
     if (!r || leadEscribio.current) return;

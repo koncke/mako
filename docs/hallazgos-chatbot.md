@@ -4675,3 +4675,52 @@ chat quedaba en unos 300 px en una pantalla de 1536. Ahora:
 (`escenariosDePrueba`, `claveHecho`, `salidaConHechos`) · `app/automations/PanelProbar.tsx` (`BarraEscenarios`,
 `pildoraDelCaso`, `escribirComoLead`, `hilos`) · `lib/probar-lead.ts` · `lib/lienzo-grafo.ts` (`probarAnchoContactos`)
 · tests: `tests/lienzo-punta-flecha.test.ts`, `tests/probar-casos.test.ts`
+
+## Los Mensajes de MaKo a sus clientes pasan a ser automatizaciones de SuperAdmin: las trampas de mudarlos (15/10/2026)
+
+El 2 de las doce de Martín. El diseño, en docs/diseno-avisos-plataforma.md. Medido: el catálogo tiene 72 avisos, sólo 7
+con evento de MaKo, y **65 los mandaba el código por fuera de una automatización**. Mudados: la línea caída y la que
+volvió. La receta sirve para los demás.
+
+- ⚠️ **`textoConDatos` toma un dato VACÍO (`''`) como un valor.** El renglón «📱 {{linea_numero}}» quedaba con el «📱»
+  solo para una línea sin número ni etiqueta. Un dato que no se sabe tiene que FALTAR, no venir vacío: así el renglón
+  se va entero (`datosCaida`, lib/linea-vigilancia.ts). Vale para todo emisor que pase `datos`.
+- ⚠️ **El vigilante de líneas lee `wa`** para marcar «avisado», y sin esa marca el «volvió» no sale nunca. El camino por
+  evento devolvía `wa: false` siempre («ningún llamador de estos tres lee `wa`»). Para uno de la plataforma ahora dice si
+  corrió. **Antes de mudar un aviso: `grep` de quién lee su resultado.**
+- **Sin hueco y sin duplicado:** mientras la plataforma no tenga NINGUNA fila con el evento (ni pausada), el aviso sale
+  como antes (`sinFila`); con una, decide ella. Por eso la mudanza va en dos pasos: el deploy, y después el script que
+  crea la fila prendida (scripts/mudanza-avisos-plataforma.mts).
+- **El texto de siempre sale de los mismos datos** que cita la plantilla (`datosCaida` → `textoCaida`), así no pueden
+  decir cosas distintas. Como el código y la plantilla se mueven juntos, lo que fija que el CLIENTE reciba lo mismo es
+  la comparación letra por letra con el texto de antes, no la comparación entre los dos. (La rotura que cambiaba el
+  texto pasó verde hasta que se sumó.)
+- Un evento de la plataforma **no trae lead**: una CONDITION no se cumpliría nunca y se rechaza, como en los de una
+  persona.
+- En /mensajes desaparecen al volverse eventos, como los demás. Mientras no haya fila, el envío de siempre sigue leyendo
+  su interruptor del store, que ya no se ve. Es por el rato entre el deploy y el script.
+
+**SIN HACER:** correr el script después del deploy; `reunion-ocurrio-fathom`; `reporte-semanal` (sale por email al
+dueño: necesita otra tarjeta); y los otros 61, por familias.
+
+**Vive en:** `lib/disparadores.ts` (`EventoMako.plataforma`) · `lib/aviso-evento.ts` (`emitirPorEvento`, `sinFila`) ·
+`lib/avisos.ts` (`emitirDelCatalogo`) · `lib/flujos.ts` (`negocioWs`) · `lib/linea-vigilancia.ts` (`datosCaida`) ·
+`lib/plantillas-automatizaciones.ts` (`PLANTILLAS_PLATAFORMA`) · test: `tests/avisos-plataforma.test.ts`
+
+## «Probar» visto en producción (16/10/2026): el ws3 no sirve, y lo que sólo se veía con clics
+
+- ⚠️ **Para mirar una tab en el Cliente de Prueba (ws3), el onboarding pendiente la tapa** y lleva a /onboarding (trampa
+  ya escrita en la memoria de verificar en el navegador). Terminar su onboarding le cambiaría un estado que quizá está así a propósito. Se probó en el ws 9 (la plataforma, de
+  Martín) con una automatización creada para eso: #252 «Un Lead Agendó Llamada», pausada y sin CRON (no entra nadie).
+  **Sigue ahí**: borrarla por la pantalla espera el OK de Martín.
+- **Los casos en que el lead contesta salían sobre un camino SIN mensajes.** Sin CRON, el lead recién llegado no tiene
+  reunión y su camino («la reunión ya pasó») no manda nada. El lead escribe después del primer mensaje, así que nunca
+  escribía, y la prueba terminaba en «Fin». Ningún test lo veía: todos tenían un primer camino con mensajes. Ahora
+  salen del primer camino con mensajes, y si no llega ninguno el lead escribe al terminar (`terminarSalida`).
+- **La píldora de cuándo cae decía seis hechos**, «Tiene WhatsApp · Tiene email» en todos. Ahora dice sólo los que
+  distinguen un caso de los otros.
+- **Visto bien:** «Caso N» con fotos; la fila de fotos con el panel de ~645 px (en 1536 de ancho no entra la columna);
+  sin «Hay más caminos»; volver al Caso 1 lo muestra terminado y sin animar; en el ws 9, ninguna tarjeta de WhatsApp
+  dice «Sin conectar» y el AI Step lleva «No escucha respuestas» (un `span`, no ofrece conectar).
+
+**Vive en:** `lib/simulador-grafo.ts` (`escenariosDePrueba`: `primero`, `distinguen`) · `app/automations/PanelProbar.tsx` (`terminarSalida`)

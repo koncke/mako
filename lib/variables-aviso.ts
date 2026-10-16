@@ -107,7 +107,7 @@ export function tramosConVariables(linea: string): Array<{ txt: string; esVar: b
  */
 export type FuenteDato = 'nombre' | 'ficha' | 'zona' | 'producto' | 'etiquetas' | 'pagos' | 'curso'
   | 'perfil' | 'lead_magnet' | 'momento' | 'negocio' | 'links' | 'evento' | 'cuota' | 'cobro'
-  | 'proxima' | 'respuestas' | 'pago' | 'escrito' | 'analisis' | 'cuenta';
+  | 'proxima' | 'respuestas' | 'pago' | 'escrito' | 'analisis' | 'cuenta' | 'linea';
 
 /**
  * A quién le llega el mensaje: al lead (las automatizaciones), al equipo (MaKo en WhatsApp) o a un USUARIO de MaKo
@@ -136,8 +136,10 @@ export type VariableAviso = {
    * · `escrito` — necesita lo que el lead ESCRIBIÓ (sólo el evento `lead_contesta`): lo pasa el emisor.
    * · `analisis` — necesita el ANÁLISIS que terminó el AI Analyst del Dashboard (sólo el evento `analisis_listo`): lo
    *               pasa el emisor (`analizarHoja`, lib/graficos-analisis-server.ts) armado con `valoresDelAnalisis`.
+   * · `linea`   — necesita la LÍNEA de WhatsApp de un negocio que se cayó o volvió (los eventos de la plataforma
+   *               `whatsapp_caido` y `whatsapp_volvio`): lo pasa lib/lineas-vigilante.ts (`datosCaida`), por código.
    */
-  alcance: 'siempre' | 'lead' | 'cuota' | 'mensaje' | 'pago' | 'escrito' | 'analisis' | 'restablecer';
+  alcance: 'siempre' | 'lead' | 'cuota' | 'mensaje' | 'pago' | 'escrito' | 'analisis' | 'restablecer' | 'linea';
   /**
    * UN DATO SECRETO (15/10/2026, docs/diseno-2fa-obligatorio.md §3 y §8): el link de restablecer la contraseña (y
    * después el código del 2FA por correo). Sale SÓLO en el mail a la persona y NUNCA se guarda: `sinSecretos` lo saca
@@ -172,7 +174,7 @@ export type VariableAviso = {
 };
 
 export type GrupoVariable =
-  | 'lead' | 'crm' | 'reuniones' | 'pagos' | 'campana' | 'formulario' | 'curso' | 'cerebro' | 'dashboard' | 'momento' | 'links' | 'cuenta';
+  | 'lead' | 'crm' | 'reuniones' | 'pagos' | 'campana' | 'formulario' | 'curso' | 'cerebro' | 'dashboard' | 'momento' | 'links' | 'cuenta' | 'linea';
 
 /**
  * Las ramas del árbol, en orden, con su ícono (el `name` de `<Icon>`, app/_components/icons.tsx).
@@ -192,6 +194,7 @@ export const GRUPOS_VARIABLES: ReadonlyArray<{ key: GrupoVariable; titulo: strin
   { key: 'momento', titulo: 'Fecha y hora', icono: 'bell' },
   { key: 'links', titulo: 'Links de MaKo', icono: 'web' },
   { key: 'cuenta', titulo: 'Cuenta de MaKo', icono: 'perfil' },
+  { key: 'linea', titulo: 'WhatsApp del negocio', icono: 'whatsapp' },
 ];
 
 /**
@@ -330,6 +333,12 @@ export const VARIABLES_AVISO: VariableAviso[] = [
   // ── La cuenta de MaKo de una PERSONA (15/10/2026): lo trae el evento de Seguridad en `datos`, armado por código.
   //    El link es de UN uso y vence en 30 minutos: SECRETO, sólo en el mail a esa persona.
   { key: 'link_restablecer', label: 'Link para restablecer', ejemplo: 'https://hola-mako.com/restablecer?t=…', alcance: 'restablecer', grupo: 'cuenta', fuente: 'cuenta', soloPara: 'usuario', secreto: true },
+  // ── La LÍNEA de WhatsApp de un negocio que se cayó o volvió (15/10/2026, los Mensajes de MaKo a sus clientes mudados a
+  //    automatizaciones de la plataforma): lo arma lib/linea-vigilancia.ts (`datosCaida`) con lo que se midió.
+  { key: 'linea_numero', label: 'Qué línea', ejemplo: '+52 55 1234 5678', alcance: 'linea', grupo: 'linea', fuente: 'linea', soloPara: 'equipo' },
+  { key: 'linea_titulo', label: 'Qué le pasó', ejemplo: 'Se desconectó tu WhatsApp', alcance: 'linea', grupo: 'linea', fuente: 'linea', soloPara: 'equipo' },
+  { key: 'linea_motivo', label: 'Qué pasa y qué hacer', ejemplo: 'WhatsApp cerró la sesión del dispositivo vinculado el 3 de octubre: tu teléfono está bien, pero por ese número no entran ni salen mensajes. Vuelve a escanear el QR:', alcance: 'linea', grupo: 'linea', fuente: 'linea', soloPara: 'equipo' },
+  { key: 'linea_link', label: 'Link para reconectarla', ejemplo: 'https://hola-mako.com/whatsapp', alcance: 'linea', grupo: 'linea', fuente: 'linea', soloPara: 'equipo' },
 
   // ── Campaña: de dónde vino. Son nombres internos (de la campaña, del anuncio): para el equipo.
   { key: 'lead_origen', label: 'Por dónde entró', ejemplo: 'instant_form', alcance: 'lead', grupo: 'campana', fuente: 'ficha', soloPara: 'equipo' },
@@ -464,6 +473,8 @@ export const RUTA_DE_LINK: Readonly<Record<string, string>> = {
  */
 export type ContextoDatos = {
   conLead: boolean; conCuota?: boolean; conMensaje?: boolean; conPago?: boolean; conEscrito?: boolean; conAnalisis?: boolean; destino?: DestinoMensaje;
+  /** La línea de WhatsApp de un negocio (los eventos de la plataforma `whatsapp_caido` y `whatsapp_volvio`). */
+  conLinea?: boolean;
   /** El link de restablecer la contraseña (sólo el evento `contrasena_restablecer`, y sólo al mail a la persona). */
   conRestablecer?: boolean;
 };
@@ -492,6 +503,7 @@ function alcanzaPara(a: VariableAviso['alcance'], opts: ContextoDatos): boolean 
   if (a === 'escrito') return opts.conEscrito === true;
   if (a === 'analisis') return opts.conAnalisis === true;
   if (a === 'restablecer') return opts.conRestablecer === true;
+  if (a === 'linea') return opts.conLinea === true;
   return false;
 }
 

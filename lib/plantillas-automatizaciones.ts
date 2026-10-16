@@ -628,6 +628,36 @@ export const PLANTILLAS_PLATAFORMA: readonly PlantillaAutomatizacion[] = [
       ),
     ],
   },
+  // LOS MENSAJES DE MaKo A SUS CLIENTES, mudados a automatizaciones de la plataforma (15/10/2026, el 2 de las doce de
+  // Martín; docs/diseno-avisos-plataforma.md). El evento lo emite el NEGOCIO cuya línea se cayó (lib/lineas-vigilante.ts)
+  // y la tarjeta le llega al grupo de ESE negocio (`negocioWs`, lib/flujos.ts). Cada dato en su renglón: un renglón con
+  // un dato vacío se va entero (`textoConDatos`), y la línea sin número ni etiqueta no deja «()».
+  {
+    id: 'mako-whatsapp-caido',
+    nombre: 'Se Cayó el WhatsApp de un Negocio',
+    emoji: '🔴',
+    linea: 'Le avisa al grupo de un negocio que su WhatsApp se cayó, y qué hacer.',
+    origen: 'el vigilante de líneas (wa-desconectado): dos pruebas seguidas con la línea caída',
+    objetivo: 'clientes',
+    soloPlataforma: true,
+    cron: { fijo: TRIGGER_AVISO_MAKO, evento: 'whatsapp_caido' },
+    pasos: [
+      mako('wc_mk', '🔴 *{{linea_titulo}}*\n📱 {{linea_numero}}\n{{linea_motivo}} {{linea_link}}', null),
+    ],
+  },
+  {
+    id: 'mako-whatsapp-volvio',
+    nombre: 'Volvió el WhatsApp de un Negocio',
+    emoji: '🟢',
+    linea: 'Le avisa al grupo de un negocio que su WhatsApp volvió (sólo si se había avisado la caída).',
+    origen: 'el vigilante de líneas (wa-reconectado)',
+    objetivo: 'clientes',
+    soloPlataforma: true,
+    cron: { fijo: TRIGGER_AVISO_MAKO, evento: 'whatsapp_volvio' },
+    pasos: [
+      mako('wv_mk', '🟢 *Volvió tu WhatsApp*\n📱 {{linea_numero}}\nPor ese número ya entran y salen mensajes otra vez.', null),
+    ],
+  },
 ];
 
 export const PLANTILLAS_REEMPLAZADAS: Readonly<Record<string, string | null>> = {
