@@ -5,11 +5,13 @@
 // grok... "En curso" podría ser el ícono verde en los chats de grok... "Pushes" podría estar en un apartado
 // tipo historial de cada chat». Esto arma la lista (con su punto) y lo de cada chat; la pantalla es aparte.
 //
-// ⚠️ UN CHAT ES UNA SESIÓN, NUNCA UN TÍTULO. Medido el 15/10: de los 37 chats que anotaron en sus bitácoras
-// en 14 días, sólo 17 coinciden por título con los 53 que subió el cartero, y el cartero tiene 5 títulos
-// repetidos («CRM», «General», «Ads Manager»…). Juntar por nombre pega el trabajo de un chat a otro. Un hito
-// se junta con un chat sólo si trae `sesion`; si no la trae (todos los anteriores al 16/10), va a un chat
-// «por nombre» aparte (`porNombre`), que la pantalla muestra como tal y nunca se mezcla con uno del cartero.
+// ⚠️ UN HITO SE JUNTA CON SU SESIÓN, Y LAS SESIONES SE JUNTAN POR NOMBRE. Hasta el 15/10 a la noche la lista era una
+// fila por sesión (con 5 títulos repetidos en el cartero: «CRM», «General», «Ads Manager»…). Martín, ese día:
+// «todos los chats de todas las cuentas se llamen igual», y el Centro los une: el «CRM» de la cuenta 1 y el de la 3 son
+// UN chat con dos sesiones (`sesiones`), que escribe a la que está abierta (`sesion`). Lo que sigue valiendo es cómo se
+// llega al nombre: un hito con `sesion` va a esa sesión y toma el título que tiene HOY en la app (el cartero lo sube),
+// así un chat renombrado no se parte en dos; uno sin `sesion` (los anteriores al 16/10) usa el nombre que anotó.
+// Dos chats distintos con el mismo nombre se separan RENOMBRANDO uno («⋯ → Renombrar»), no adivinando.
 //
 // ⚠️ EL PUNTO TIENE EDAD. Ocupado / abierto / cerrado lo sube el cartero en cada vuelta; si el cartero no dio
 // vuelta en CARTERO_VIVO_MS, el estado es una foto (`viejo`) y se dibuja con su «visto hace…». Un chat que
@@ -27,8 +29,9 @@ import { destinoDeDecision } from './decisiones-aviso';
 export type EstadoChat = 'trabajando' | 'abierto' | 'cerrado' | 'sin_dato';
 
 export type ChatCentro = {
-  /** La sesión (`local_…`/`cli_…`) o, para lo anotado sin sesión, `nombre:<título normalizado>`. */
+  /** `nombre:<título normalizado>`: un chat es un NOMBRE, con una sesión por cuenta (ver `unirPorNombre`). */
   clave: string;
+  /** La sesión a la que se le escribe: la abierta y más reciente de sus `sesiones` (null = ninguna conocida). */
   sesion: string | null;
   /** true = se conoce sólo por el título de la bitácora: no se juntó con ninguna sesión. */
   porNombre: boolean;
@@ -47,7 +50,13 @@ export type ChatCentro = {
   pidioAca: string[];
   /** Los trabajos firmados que se le mandaron (ids de la cola). */
   trabajos: string[];
+  /** Las claves de las que se armó (sesiones y nombres): con ellas se buscan sus pasos y sus tarjetas. */
+  miembros: string[];
+  /** Una por cuenta en la que vive (puede haber dos en la misma), la que recibe primero. */
+  sesiones: SesionDeChat[];
 };
+
+export type SesionDeChat = { sesion: string; cuenta: string | null; estado: EstadoChat; vistoAt: number | null; viejo: boolean; actividad: number | null };
 
 /** Lo mínimo de un cartero (lib/operaciones.ts → Cartero). `claves`: las que acepta la PC (para la caja de escribir). */
 export type CarteroP = { cuenta: string; vistoAt: string | null; chats: readonly ChatCartero[]; claves?: readonly string[] };
@@ -70,9 +79,11 @@ export function claveDe(x: { chat: string; sesion?: string | null }): string {
   return x.sesion && DESTINO_RE.test(x.sesion) ? x.sesion : claveDeNombre(x.chat);
 }
 
-/** Los pasos de un pedido que hizo ESTE chat (un pedido repartido se ve en cada uno con lo suyo). */
-export function pasosDelChat(p: PedidoP, clave: string): PasoP[] {
-  return p.pasos.filter((s) => claveDe(s) === clave);
+/** Los pasos de un pedido que hizo ESTE chat (un pedido repartido se ve en cada uno con lo suyo). Recibe la clave o
+ *  las claves de las que se armó el chat (`miembros`). */
+export function pasosDelChat(p: PedidoP, claves: string | readonly string[]): PasoP[] {
+  const de = typeof claves === 'string' ? [claves] : claves;
+  return p.pasos.filter((s) => de.includes(claveDe(s)));
 }
 
 /**
@@ -94,6 +105,7 @@ export function chatsDelCentro({ carteros, areas, pedidos, trabajos, ahora, dias
 const nuevoChat = (clave: string, titulo: string, cuenta: string | null): ChatCentro => ({
   clave, sesion: clave.startsWith('nombre:') ? null : clave, porNombre: clave.startsWith('nombre:'), titulo, cuenta,
   estado: 'sin_dato', vistoAt: null, viejo: false, actividad: null, pedidos: [], pidioAca: [], trabajos: [],
+  miembros: [clave], sesiones: [],
 });
 const mover = (c: ChatCentro, t: number | null) => { if (t != null && (c.actividad == null || t > c.actividad)) c.actividad = t; };
 
@@ -179,7 +191,7 @@ export function completarChats(base: readonly ChatCentro[], { carteros, trabajos
   }
 
   const peso: Record<EstadoChat, number> = { trabajando: 0, abierto: 1, cerrado: 2, sin_dato: 2 };
-  return [...chats.values()]
+  return unirPorNombre([...chats.values()])
     .filter((c) => c.estado === 'trabajando' || c.estado === 'abierto' || c.trabajos.length > 0 || (c.actividad ?? 0) >= desde)
     .sort((x, y) => {
       // Lo vivo arriba sólo si el dato es fresco: con el cartero quieto, todos ordenan por actividad.
@@ -187,6 +199,94 @@ export function completarChats(base: readonly ChatCentro[], { carteros, trabajos
       const py = y.viejo ? 2 : peso[y.estado];
       return px - py || (y.actividad ?? 0) - (x.actividad ?? 0) || x.titulo.localeCompare(y.titulo);
     });
+}
+
+/** Qué tan lista está una sesión para recibir: trabajando o abierta con el dato fresco gana; después, la más reciente. */
+const PESO_ESTADO: Record<EstadoChat, number> = { trabajando: 0, abierto: 1, cerrado: 2, sin_dato: 3 };
+const pesoSesion = (s: Pick<SesionDeChat, 'estado' | 'viejo'>) => (s.viejo && s.estado !== 'cerrado' && s.estado !== 'sin_dato' ? 2 : PESO_ESTADO[s.estado]);
+
+/**
+ * Junta en UN chat todo lo que se llama igual (sin mayúsculas ni tildes): sus sesiones de las tres cuentas, lo que
+ * trabajó cada una y lo anotado sin sesión con ese nombre. Martín (15/10/2026): «todos los chats de todas las cuentas
+ * se llamen igual». Se le escribe a la sesión que mejor recibe (`pesoSesion`, y a igual peso la más reciente); su
+ * estado y su cuenta son los de esa sesión, y `sesiones` las lista todas (la cabecera las muestra como chips).
+ */
+export function unirPorNombre(chats: readonly ChatCentro[]): ChatCentro[] {
+  const grupos = new Map<string, ChatCentro[]>();
+  for (const c of chats) {
+    const k = normal(c.titulo) || c.clave;
+    if (!grupos.has(k)) grupos.set(k, []);
+    grupos.get(k)!.push(c);
+  }
+  const out: ChatCentro[] = [];
+  for (const [k, lista] of grupos) {
+    const sesiones: SesionDeChat[] = lista
+      .filter((c) => c.sesion)
+      .map((c) => ({ sesion: c.sesion!, cuenta: c.cuenta, estado: c.estado, vistoAt: c.vistoAt, viejo: c.viejo, actividad: c.actividad }))
+      .sort((a, b) => pesoSesion(a) - pesoSesion(b) || (b.actividad ?? 0) - (a.actividad ?? 0));
+    const mejor = sesiones[0];
+    const nombre = lista.find((c) => c.sesion === mejor?.sesion) ?? lista[0];
+    const unica = <T,>(xs: T[]) => [...new Set(xs)];
+    out.push({
+      clave: `nombre:${k}`,
+      sesion: mejor?.sesion ?? null,
+      porNombre: !mejor,
+      titulo: nombre.titulo,
+      cuenta: mejor?.cuenta ?? nombre.cuenta,
+      estado: mejor?.estado ?? 'sin_dato',
+      vistoAt: mejor?.vistoAt ?? null,
+      viejo: mejor?.viejo ?? false,
+      actividad: Math.max(...lista.map((c) => c.actividad ?? 0)) || null,
+      pedidos: unica(lista.flatMap((c) => c.pedidos)),
+      pidioAca: unica(lista.flatMap((c) => c.pidioAca)),
+      trabajos: unica(lista.flatMap((c) => c.trabajos)),
+      miembros: unica(lista.flatMap((c) => c.miembros)),
+      sesiones,
+    });
+  }
+  return out;
+}
+
+/** El chat de una clave: la suya, o la de una de sus sesiones (un link viejo con `?chat=<sesión>` sigue abriendo). */
+export const chatDeClave = (chats: readonly ChatCentro[], clave: string | null) =>
+  clave ? chats.find((c) => c.clave === clave || c.miembros.includes(clave)) ?? null : null;
+
+/** Cuántas tarjetas espera un chat: la suma de las de sus miembros (`esperasPorChat` cuenta por sesión). */
+export const esperaDe = (c: Pick<ChatCentro, 'miembros'>, esperas: Readonly<Record<string, number>>) =>
+  c.miembros.reduce((n, k) => n + (esperas[k] ?? 0), 0);
+
+// ── El chat jefe (Martín, 15/10/2026) ───────────────────────────────────────────────────────────────────────
+// «quiero que cada chat esté englobado en su chat "jefe" que siempre se debe llamar como la tab en la que estamos
+// trabajando, como CRM... dentro de CRM podría tener un chat de Lead Detail, Funnels, etc... ESO no lo quiero decidir
+// yo, lo decide el chat jefe». LA CONVENCIÓN ES EL NOMBRE: un sub-chat se llama «<Jefe> › <Sub>» («CRM › Lead
+// Detail»; también vale «>»). No hay registro aparte: el nombre lo ve Martín en la app de Claude, lo pone el jefe con
+// set_session_title (o Martín con «⋯ → Renombrar»), y funciona igual si el sub-chat lo crea él con un clic. Ver
+// AGENTS.md → el Centro de Operaciones.
+
+export const SEPARADOR_JEFE = ' › ';
+/** «CRM › Lead Detail» → { jefe: 'CRM', sub: 'Lead Detail' }; «CRM» → { jefe: 'CRM', sub: null }. */
+export function partesDelNombre(titulo: string): { jefe: string; sub: string | null } {
+  const [jefe, ...resto] = titulo.split(/\s*[›>]\s*/);
+  const sub = resto.join(SEPARADOR_JEFE).trim();
+  return { jefe: (jefe ?? '').trim() || titulo.trim(), sub: sub || null };
+}
+
+export type GrupoJefe = { clave: string; jefe: string; chat: ChatCentro | null; subs: ChatCentro[] };
+
+/**
+ * La lista agrupada por jefe, en el orden en que llega (lo que trabaja arriba): el grupo va donde aparece el primero
+ * de los suyos. Un sub-chat cuyo jefe no está en la lista igual se agrupa bajo su nombre (`chat: null`).
+ */
+export function porJefe(chats: readonly ChatCentro[]): GrupoJefe[] {
+  const grupos = new Map<string, GrupoJefe>();
+  for (const c of chats) {
+    const { jefe, sub } = partesDelNombre(c.titulo);
+    const k = normal(jefe);
+    if (!grupos.has(k)) grupos.set(k, { clave: `jefe:${k}`, jefe, chat: null, subs: [] });
+    const g = grupos.get(k)!;
+    if (sub) g.subs.push(c); else { g.chat = c; g.jefe = c.titulo; }
+  }
+  return [...grupos.values()];
 }
 
 /** Una línea de la conversación de un chat, como en Grok: lo que pidió Martín y lo que hizo el chat. */
@@ -205,7 +305,7 @@ export function historialDelChat(chat: ChatCentro, pedidos: ReadonlyMap<string, 
     const p = pedidos.get(id);
     if (!p) continue;
     const pidio = claveDe(p.pidioEn);
-    out.push({ tipo: 'pedido', instante: p.instante, pedido: p, pasos: pasosDelChat(p, chat.clave), desde: pidio === chat.clave ? null : p.pidioEn.chat });
+    out.push({ tipo: 'pedido', instante: p.instante, pedido: p, pasos: pasosDelChat(p, chat.miembros), desde: chat.miembros.includes(pidio) ? null : p.pidioEn.chat });
   }
   for (const id of chat.pidioAca) {
     const p = pedidos.get(id);
@@ -330,13 +430,13 @@ export function grupoDeChat(c: Pick<ChatCentro, 'estado' | 'viejo' | 'actividad'
 
 /**
  * Las secciones de la barra: UNA lista con todos los chats que reciben (en el orden de `completarChats`: lo que
- * trabaja arriba, después por actividad) y, al final, lo anotado sin sesión, que no recibe trabajos y repetiría el
- * título de su sesión al lado de ella. La usan la computadora y el teléfono, así las dos agrupan igual.
+ * trabaja arriba, después por actividad) y, al final, lo que no tiene ninguna sesión (lo anotado antes del 16/10 con un
+ * nombre que ningún chat vivo tiene), que no recibe trabajos. La usan la computadora y el teléfono.
  *
  * ⚠️ SIN SECCIONES POR CUENTA. Martín (15/10/2026): «No quiero que exista "cuenta 1, cuenta 2, 3" en la sidebar de
  * chats... eso debe estar dentro de cada chat, con un chip». La cuenta va en la cabecera de la conversación y en el
- * detalle de cada nodo del avance. Mientras dos chats se llamen igual en dos cuentas, la fila lleva el chip SÓLO en
- * esos (`titulosRepetidos`): sin él, dos «CRM» iguales no se distinguen.
+ * detalle de cada nodo del avance; y como los chats se unen por nombre (`unirPorNombre`), no hay dos «CRM» que
+ * distinguir. Adentro de la lista, cada sub-chat va con su jefe (`porJefe`).
  */
 export const SECCION_ANTES = 'antes';
 export const SECCION_CHATS = 'chats';
@@ -351,18 +451,24 @@ export function seccionesDeChats(chats: readonly ChatCentro[]): SeccionChats[] {
   return out;
 }
 
-/** Los títulos (normalizados) que llevan dos chats que reciben: sólo ésos muestran su cuenta en la fila. */
-export function titulosRepetidos(chats: readonly ChatCentro[]): Set<string> {
-  const vistos = new Set<string>();
-  const repetidos = new Set<string>();
-  for (const c of chats) {
-    if (c.porNombre || !c.sesion) continue;
-    const t = normal(c.titulo);
-    if (vistos.has(t)) repetidos.add(t); else vistos.add(t);
-  }
-  return repetidos;
+// ── Renombrar (Martín, 15/10/2026: «Y que yo tenga los 3 puntos en cada chat para poder configurar cosas, como
+// cambiarle el nombre») ─────────────────────────────────────────────────────────────────────────────────────
+// El nombre de un chat lo tiene la app de Claude, y lo cambia `set_session_title`. El Centro no lo puede cambiar
+// desde la nube: le MANDA a cada sesión del chat (las de las tres cuentas, porque se llaman igual) un trabajo firmado
+// que se lo pide. Va por el mismo camino que cualquier otro (mandar.ts → la firma del dispositivo → el Runner), así
+// que no hay una puerta nueva a la PC, y una sesión cerrada lo recibe cuando se abre.
+
+export const TOPE_NOMBRE = 80;
+/** Un nombre nuevo: un renglón, con texto y hasta TOPE_NOMBRE caracteres (se rechaza, no se recorta: AGENTS.md). */
+export function nombreValido(v: string): { ok: true; nombre: string } | { ok: false; error: string } {
+  const nombre = v.replace(/\s+/g, ' ').trim();
+  if (!nombre) return { ok: false, error: 'Escribe el nombre nuevo para renombrarlo.' };
+  if (nombre.length > TOPE_NOMBRE) return { ok: false, error: `Acórtalo a ${TOPE_NOMBRE} caracteres para renombrarlo.` };
+  return { ok: true, nombre };
 }
-export const tituloNormal = (titulo: string) => normal(titulo);
+/** Lo que se le manda a cada sesión del chat. */
+export const textoDeRenombre = (nombre: string) =>
+  `Renombra este chat a «${nombre}»: usa set_session_title sobre esta misma sesión. No hagas nada más.`;
 
 // ── El avance de UN chat (Martín, 15/10/2026) ─────────────────────────────────────────────────────────────────
 // «quiero que cada chat tenga arriba, en su topbar un botón para ver los avances, que despliegue la sidebar derecha,

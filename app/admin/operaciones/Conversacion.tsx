@@ -19,6 +19,7 @@ import { useEffect, useLayoutEffect, useRef, type KeyboardEvent } from 'react';
 import { Icon } from '@/app/_components/icons';
 import type { Alcance } from '@/lib/operaciones-reglas';
 import { avanceDelChat, conteoAvance, historialDelChat, nombreCuenta, textoDeEnvio, type ChatCentro, type Envio, type TrabajoP } from '@/lib/centro-chats';
+import type { Aspecto } from '@/lib/centro-munecos';
 import { hace, type PedidoP, type PushP } from '@/lib/progreso-reglas';
 import Link from '@/app/_ui/Link';
 import { Hilo } from './Hilo';
@@ -32,7 +33,7 @@ const ESTADO_CHAT: Record<ChatCentro['estado'], string> = { trabajando: 'Trabaja
 
 export function Conversacion({
   chat, pedidos, trabajos, pushes, ahora, espera, envio, texto, onTexto, alcance, onAlcance, enviando, onMandar, onCrearClave, onCopiarClave, onVolver,
-  avance, onAvance,
+  avance, onAvance, aspecto, onMenu, onMuneco,
 }: {
   chat: ChatCentro;
   /** Cuántas tarjetas de la Ticketera esperan una respuesta de Martín para este chat. */
@@ -45,6 +46,12 @@ export function Conversacion({
   /** La barra derecha del avance, abierta o no (la decide el padre: se recuerda entre chats). */
   avance: boolean;
   onAvance: (abierta: boolean) => void;
+  /** El muñeco que Martín le eligió (o null: el de siempre). */
+  aspecto: Aspecto | null;
+  /** El «⋯» de la cabecera: el menú del chat, abierto en ese punto. */
+  onMenu: (x: number, y: number) => void;
+  /** Tocar al muñeco abre el selector (Martín: «que si le doy click pueda elegir cambiar a otro»). */
+  onMuneco: () => void;
   envio: Envio;
   texto: string;
   onTexto: (t: string) => void;
@@ -79,6 +86,9 @@ export function Conversacion({
 
   const estado = textoDeEnvio(envio);
   const cuenta = nombreCuenta(chat.cuenta);
+  // La cuenta como chip: una por cuenta donde vive el chat (unido por nombre), la que recibe primero.
+  const cuentas = [...new Set(chat.sesiones.map((s) => s.cuenta).filter((c): c is string => !!c))];
+  if (!cuentas.length && chat.cuenta) cuentas.push(chat.cuenta);
   const meta = chat.viejo && chat.vistoAt != null ? `${ESTADO_CHAT[chat.estado]} ${hace(chat.vistoAt, ahora)}` : ESTADO_CHAT[chat.estado];
   const nodos = avanceDelChat(lineas);
   const { hechos, total } = conteoAvance(nodos);
@@ -89,11 +99,13 @@ export function Conversacion({
         <button type="button" className="co-acceso co-cab__volver" style={{ width: 'auto' }} onClick={onVolver} aria-label="Volver a los chats">
           <span style={{ display: 'inline-flex', transform: 'rotate(90deg)' }}><Icon name="chevron" size={18} /></span>
         </button>
-        <Muneco titulo={chat.titulo} animo={animoDe(chat)} size={34} espera={espera} />
+        <button type="button" className="co-cab__muneco" onClick={onMuneco} title="Cambiar su muñeco" aria-label={`Cambiar el muñeco de ${chat.titulo}`}>
+          <Muneco titulo={chat.titulo} aspecto={aspecto} animo={animoDe(chat)} size={34} espera={espera} />
+        </button>
         <div className="co-cab__texto">
           <h1 className="co-cab__titulo" title={chat.titulo}>{chat.titulo}</h1>
           <span className="co-cab__meta">
-            {cuenta && <span className="co-chip-cuenta">{cuenta}</span>}
+            {cuentas.map((c) => <span key={c} className="co-chip-cuenta">{nombreCuenta(c)}</span>)}
             {meta}
           </span>
         </div>
@@ -103,13 +115,17 @@ export function Conversacion({
           <span className="co-cab__avance-txt">Avance</span>
           {total > 0 && <span className="co-avance__conteo">{hechos}<span>/{total}</span></span>}
         </button>
+        <button type="button" className="co-cab__mas" aria-label={`Opciones de ${chat.titulo}`} title="Opciones"
+          onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); onMenu(r.left - 150, r.bottom + 4); }}>
+          <Icon name="mas" size={18} />
+        </button>
       </header>
 
       <div className="co-cuerpo">
       <div className="co-conv">
       <div className="co-hilo" ref={hilo}>
         <div className="co-hilo__col">
-          <Hilo lineas={lineas} pushes={pushes ?? []} ahora={ahora} vacio="Escríbele abajo para empezar." quien={{ titulo: chat.titulo, animo: animoDe(chat), dato: [cuenta, meta].filter(Boolean).join(' · ') }} />
+          <Hilo lineas={lineas} pushes={pushes ?? []} ahora={ahora} vacio="Escríbele abajo para empezar." quien={{ titulo: chat.titulo, aspecto, animo: animoDe(chat), dato: [cuenta, meta].filter(Boolean).join(' · ') }} />
         </div>
       </div>
 

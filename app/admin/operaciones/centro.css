@@ -254,7 +254,6 @@
   white-space: nowrap;
 }
 .co-cab__meta .co-chip-cuenta { margin-right: 2px; }
-.co-fila__l1 .co-chip-cuenta { margin-left: -2px; }
 
 /* El botón «Avance» de la cabecera: abre la barra derecha (como un botón de la barra de Linear). */
 .co-cab__avance {
@@ -608,4 +607,78 @@
   .co-acceso, .co-buscar { height: 44px; }
   .co-fila { min-height: 44px; }
   .co-enviar { width: 40px; height: 40px; }
+}
+
+/* ── El chat jefe y sus sub-chats (15/10/2026), copiado de los hilos de Discord en la barra de canales: el hilo va
+   debajo de su canal, corrido a la derecha, unido con una línea que baja y dobla hacia él. ───────────────── */
+.co-fila-wrap { position: relative; }
+.co-fila-wrap .co-fila { width: 100%; padding-right: 34px; }
+/* El «⋯» de la fila aparece al pasar por encima (o con el foco), como en las barras de ChatGPT y Claude. */
+.co-fila__mas {
+  position: absolute; top: 50%; right: 6px; transform: translateY(-50%);
+  display: inline-grid; place-items: center; width: 26px; height: 26px;
+  border: 0; border-radius: 8px; background: var(--surface); color: var(--dim); cursor: pointer;
+  opacity: 0; transition: opacity .12s ease;
+}
+.co-fila-wrap:hover .co-fila__mas, .co-fila__mas:focus-visible, .co-fila-wrap:has(.co-fila[aria-current='true']) .co-fila__mas { opacity: 1; }
+.co-fila__mas:hover { background: var(--velo-hover); color: var(--ink); }
+.co-fila__mas:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.co-fila-wrap:hover .co-fila__hace, .co-fila-wrap:has(.co-fila[aria-current='true']) .co-fila__hace { visibility: hidden; }
+@media (pointer: coarse) { .co-fila__mas { opacity: 1; } .co-fila__hace { visibility: hidden; } }
+
+.co-jefe__nombre { margin: 8px 0 2px; padding: 0 12px; font-size: var(--fs-meta); font-weight: 600; color: var(--faint); text-transform: uppercase; letter-spacing: .04em; }
+.co-jefe__subs { position: relative; margin-left: 26px; }
+.co-fila-wrap--sub::before {
+  content: ''; position: absolute; left: -10px; top: -6px; width: 10px; height: 26px;
+  border-left: 1.5px solid var(--border-strong); border-bottom: 1.5px solid var(--border-strong); border-bottom-left-radius: 8px;
+}
+.co-fila-wrap--sub:not(:last-child)::after {
+  content: ''; position: absolute; left: -10px; top: 18px; bottom: -2px; border-left: 1.5px solid var(--border-strong);
+}
+.co-fila-wrap--sub .co-fila { gap: 10px; min-height: 0; padding-block: 7px; }
+.co-fila-wrap--sub .co-fila__titulo { font-size: var(--fs-sm); }
+
+/* La cabecera: el muñeco se toca para cambiarlo, y el «⋯» abre el menú del chat. */
+.co-cab__muneco { flex: none; padding: 0; border: 0; border-radius: 50%; background: none; cursor: pointer; }
+.co-cab__muneco:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.co-cab__muneco:hover .mun { transform: scale(1.06); transition: transform .12s ease; }
+.co-cab__mas {
+  flex: none; display: inline-grid; place-items: center; width: 32px; height: 32px; margin-left: 6px;
+  border: 1px solid var(--border); border-radius: 999px; background: var(--surface); color: var(--dim); cursor: pointer;
+}
+.co-cab__mas:hover { background: var(--velo-hover); color: var(--ink); }
+.co-cab__mas:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+/* ── Elegir el muñeco (ElegirMuneco.tsx), copiado del armador de Notion Faces ───────────────────────── */
+.co-elegir { display: grid; grid-template-columns: 132px minmax(0, 1fr) 200px; gap: 16px; min-height: 360px; }
+.co-elegir__piezas { display: flex; flex-direction: column; gap: 2px; }
+.co-elegir__pieza {
+  height: 38px; padding: 0 12px; border: 0; border-radius: 10px; background: none; text-align: left;
+  font: inherit; font-size: var(--fs-md); color: var(--ink); cursor: pointer;
+}
+.co-elegir__pieza:hover { background: var(--velo-hover); }
+.co-elegir__pieza[aria-pressed='true'] { background: var(--surface-2); font-weight: 600; }
+.co-elegir__pieza:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.co-elegir__grilla { display: flex; flex-direction: column; min-height: 0; border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
+.co-elegir__grilla-cab { flex: none; display: flex; align-items: center; justify-content: space-between; padding: 8px 10px 8px 14px; border-bottom: 1px solid var(--border); font-weight: 600; }
+.co-elegir__dado { display: inline-grid; place-items: center; width: 30px; height: 30px; border: 0; border-radius: 8px; background: none; color: var(--primary-strong); cursor: pointer; }
+.co-elegir__dado:hover { background: var(--velo-hover); }
+.co-elegir__dado:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.co-elegir__mosaicos { flex: 1; min-height: 0; overflow-y: auto; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; padding: 10px; align-content: start; }
+.co-elegir__mosaico {
+  display: grid; place-items: center; aspect-ratio: 1; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); cursor: pointer;
+}
+.co-elegir__mosaico:hover { background: var(--velo-hover); }
+.co-elegir__mosaico[aria-checked='true'] { border-color: var(--primary); background: var(--primary-bg); }
+.co-elegir__mosaico:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.co-elegir__retrato { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; border-radius: 14px; background: var(--surface-2); padding: 16px; }
+.co-elegir__nombre { font-weight: 600; text-align: center; overflow-wrap: anywhere; }
+/* En una pantalla angosta (y en el teléfono): el retrato arriba, las piezas como chips, y la grilla abajo. */
+@media (max-width: 720px) {
+  .co-elegir { grid-template-columns: minmax(0, 1fr); min-height: 0; }
+  .co-elegir__retrato { order: -1; flex-direction: row; justify-content: flex-start; padding: 10px 14px; }
+  .co-elegir__retrato .mun { width: 72px !important; height: 72px !important; }
+  .co-elegir__piezas { flex-direction: row; flex-wrap: wrap; }
+  .co-elegir__pieza { height: 36px; border: 1px solid var(--border); border-radius: 999px; }
+  .co-elegir__mosaicos { grid-template-columns: repeat(4, 1fr); }
 }

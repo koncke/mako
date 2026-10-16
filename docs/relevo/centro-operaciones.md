@@ -16,8 +16,9 @@ Escrito por el chat «Centro de Operaciones» de la cuenta 3 (`local_428051c1…
   2. **Hecho (punta 2): el avance por chat (1) y la cuenta como chip (3).** El botón «Avance 3/5» de la cabecera abre la
      barra derecha (copiada de Offer) con un rombo por cosa pedida, como los milestones de Linear (`Avance.tsx`); se
      fueron las vistas Avance y Pushes y los grupos por cuenta.
-  3. **Después (punta 3): el chat jefe (2), un nombre para las tres cuentas con «⋯ Renombrar» (4) y los muñequitos
-     elegibles (7).**
+  3. **Hecho (punta 3): el chat jefe (2), un nombre para las tres cuentas con «⋯ Renombrar» (4) y los muñequitos
+     elegibles (7).** La convención quedó en AGENTS.md: el jefe se llama como la tab y un sub-chat «CRM › Lead Detail».
+     Renombrar le manda a cada sesión un trabajo firmado; el muñeco elegido se guarda por nombre.
 - **Lo que se escribe en la caja se firma en el dispositivo y queda en la cola** (`mandar.ts` → `encolarPedidoAction`).
   Para que LLEGUE al chat falta lo de abajo, que no es código.
 

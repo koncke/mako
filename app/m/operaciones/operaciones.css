@@ -73,3 +73,16 @@
 /* La barra «Avance 3/5» queda PEGADA arriba de la hoja: la conversación abre en lo último (abajo), y sin esto el
    avance quedaría fuera de la vista. Pega contra .m-sheet__cuerpo, que es lo que scrollea (AGENTS.md → sticky). */
 [data-m] .m-operaciones-hilo .co-avance-movil { position: sticky; top: 0; z-index: 2; margin: 0 -4px; padding: 0 4px 6px; background: var(--bg); }
+
+/* Un sub-chat («CRM › Lead Detail») va corrido a la derecha, debajo de su jefe. */
+[data-m] .m-operaciones-sub { display: inline-flex; margin-left: 18px; }
+/* El muñeco de la conversación se toca para cambiarlo; el «⋯», a la derecha, abre las opciones. */
+[data-m] .m-operaciones-muneco { padding: 0; border: 0; background: none; display: inline-flex; cursor: pointer; }
+[data-m] .m-operaciones-mas {
+  margin-left: auto; display: inline-grid; place-items: center; width: 40px; height: 40px;
+  border: 1px solid var(--border); border-radius: 999px; background: var(--surface); color: var(--dim); cursor: pointer;
+}
+[data-m] .m-operaciones-volver {
+  display: inline-flex; align-items: center; gap: 6px; margin: 0 0 12px; padding: 0; border: 0; background: none;
+  font: inherit; font-size: var(--fs-md); color: var(--primary); cursor: pointer;
+}

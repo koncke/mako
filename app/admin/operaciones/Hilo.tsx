@@ -19,6 +19,7 @@ import { Icon } from '@/app/_components/icons';
 import { ROTULO, type EstadoPedido } from '@/lib/operaciones-reglas';
 import type { LineaChat, TrabajoP } from '@/lib/centro-chats';
 import { Muneco, type Animo } from './Muneco';
+import type { Aspecto } from '@/lib/centro-munecos';
 import { ROTULO_TIPO, hace, pushDelCommit, type PushP } from '@/lib/progreso-reglas';
 
 /** «10:52», con el reloj de Argentina. */
@@ -45,7 +46,8 @@ export function Tick({ estado }: { estado: EstadoPedido }) {
 }
 
 /** Quién habla del otro lado: el empleado (su título decide su muñeco). */
-type Quien = { titulo: string };
+/** El empleado del chat: su nombre y, si Martín le eligió uno, su muñeco. */
+type Quien = { titulo: string; aspecto?: Aspecto | null };
 
 function Trabajo({ w, quien }: { w: TrabajoP; quien: Quien }) {
   const t = Date.parse(w.created_at);
@@ -63,7 +65,7 @@ function Trabajo({ w, quien }: { w: TrabajoP; quien: Quien }) {
       </div>
       {c && (
         <div className="co-el">
-          <Muneco titulo={quien.titulo} animo="despierto" size={26} />
+          <Muneco titulo={quien.titulo} aspecto={quien.aspecto} animo="despierto" size={26} />
           <div className="co-el__cuerpo">
             <p className="co-el__rotulo">{`${ROTULO[estado]}${w.cerrado_at ? ` · ${horaAR(Date.parse(w.cerrado_at))}` : ''}`}</p>
             <p className="co-el__texto">{c.hecho || c.decidido}</p>
@@ -101,7 +103,7 @@ function Linea({ l, pushes, ahora, quien }: { l: LineaChat; pushes: readonly Pus
         const subio = s.commits.map((k) => pushDelCommit(k.sha, pushes)).find(Boolean);
         return (
           <div key={j} className="co-el">
-            <Muneco titulo={quien.titulo} animo="despierto" size={26} />
+            <Muneco titulo={quien.titulo} aspecto={quien.aspecto} animo="despierto" size={26} />
             <div className="co-el__cuerpo">
               <p className="co-el__rotulo">{`${ROTULO_TIPO[s.tipo] ?? s.tipo}${s.instante != null ? ` · ${horaAR(s.instante)}` : ''}${subio ? ` · subió ${hace(subio.creado, ahora)}` : ''}`}</p>
               <p className="co-el__texto">{s.titulo}</p>
@@ -122,7 +124,7 @@ export function Hilo({ lineas, pushes, ahora, vacio, quien }: {
   if (!lineas.length) {
     return (
       <div className="co-portada">
-        <Muneco titulo={quien.titulo} animo={quien.animo} size={76} />
+        <Muneco titulo={quien.titulo} aspecto={quien.aspecto} animo={quien.animo} size={76} />
         <p className="co-portada__nombre">{quien.titulo}</p>
         <p className="co-portada__dato">{quien.dato ?? vacio}</p>
       </div>
