@@ -36,8 +36,8 @@ import { darDeAltaCliente, esCapaVendible } from './alta-cliente';
 import { COLS_COBRO, NOMBRE_PASARELA, cobroDeFila, esTokenCobro, type Cobro, type EstadoAlta, type EstadoCobro, type Pasarela, type TipoCobro } from './cobros-tipos';
 import { valoresDelPago } from './variables-del-lead';
 import {
-  decidirCobro, esRenovacion, idemBaja, idemCobro, idemReembolso, mesesTranscurridos, montoUsdDeLaCuota,
-  montoUsdDelCobro, pasaAPagado, textoPagoRegistrado, urlPorVencer, ESTADOS_QUE_PASAN_A_PAGADO,
+  avisoPagoPorLinkAnulado, decidirCobro, esRenovacion, idemAnular, idemBaja, idemCobro, idemReembolso, mesesTranscurridos,
+  montoUsdDeLaCuota, montoUsdDelCobro, pasaAPagado, textoPagoRegistrado, urlPorVencer, ESTADOS_QUE_PASAN_A_PAGADO,
 } from './cobros-reglas';
 import { formatoMonto } from './pasarela-moneda';
 import { esCuotaDevuelta, esRenovacionFallida, PREFIJO_RENOVACION_FALLIDA } from './cobrado-lead';
@@ -48,7 +48,7 @@ import { enrolarPorPago, type SubtipoPago } from './pago-entrante';
 import {
   cancelarSuscripcionStripe, crearCheckoutStripe, expirarCheckoutStripe, leerCheckoutStripe, modoDeClaveStripe, reembolsarStripe,
 } from './stripe-api';
-import { buscarPagosMp, cancelarSuscripcionMp, crearPreferenciaMp, crearSuscripcionMp, leerCuentaMp, reembolsarMp } from './mercadopago-api';
+import { buscarPagosMp, cancelarSuscripcionMp, crearPreferenciaMp, crearSuscripcionMp, leerCuentaMp, reembolsarMp, vencerPreferenciaMp } from './mercadopago-api';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Links y credenciales
@@ -403,12 +403,15 @@ export async function aplicarPagoAprobado(c: Cobro, p: {
   const ws = c.workspace_id;
   const autor = p.autor ?? NOMBRE_PASARELA[c.proveedor];
   return runWithWorkspace(ws, async () => {
-    // 1. La transición, con compare-and-set: de dos avisos simultáneos, uno solo la gana.
+    // 1. La transición, con compare-and-set: de dos avisos simultáneos, uno solo la gana. Un link ANULADO que igual se
+    //    pagó entra con el aviso en el `motivo` (ver 4b), no con el motivo borrado.
     let actual = c;
     let nuevo = false;
+    const porLinkAnulado = c.estado === 'anulado';
     if (pasaAPagado(c.estado)) {
       const ganada = await actualizar(ws, c.id, {
-        estado: 'pagado', pagado_at: new Date().toISOString(), proveedor_pago_id: p.proveedorPagoId, motivo: null,
+        estado: 'pagado', pagado_at: new Date().toISOString(), proveedor_pago_id: p.proveedorPagoId,
+        motivo: porLinkAnulado ? avisoPagoPorLinkAnulado(false) : null,
         ...(p.suscripcionId ? { proveedor_suscripcion_id: p.suscripcionId, suscripcion_estado: 'activa' } : {}),
       }, { estado: ESTADOS_QUE_PASAN_A_PAGADO });
       if (ganada) { actual = ganada; nuevo = true; }
@@ -479,6 +482,17 @@ export async function aplicarPagoAprobado(c: Cobro, p: {
       }), autor);
     }
 
+    // 4b. ⚠️ UN PAGO POR UN LINK ANULADO (15/10/2026): la plata entró y se registró arriba, pero se DICE, en el cobro y
+    //     en el historial. Si la cuota del link ya estaba cobrada por otro lado, el pago entró como otra cuota: la plata
+    //     entró dos veces. Antes entraba como una cuota cobrada más y nadie se enteraba. Sólo la corrida que ganó la
+    //     transición (`nuevo`): un reintento no repite el aviso.
+    if (porLinkAnulado && nuevo) {
+      const dosVeces = !!actual.pago_id && await cuotaCobradaPorOtroLado(actual.pago_id, p.proveedorPagoId);
+      const aviso = avisoPagoPorLinkAnulado(dosVeces);
+      if (dosVeces) actual = (await actualizar(ws, c.id, { motivo: aviso })) ?? actual;
+      if (actual.lead_id) await logLeadEvent(actual.lead_id, 'Pago por un link anulado', aviso, autor);
+    }
+
     // 5. La plataforma: el alta automática de MaKo (decisión de Martín, 11/10/2026).
     await altaSiCorresponde(actual);
 
@@ -496,6 +510,15 @@ export async function aplicarPagoAprobado(c: Cobro, p: {
 
     return { nuevo, renovacion };
   });
+}
+
+/** ¿La cuota de un link ya estaba cobrada por OTRO pago (a mano, u otro link)? Si no se puede leer, se dice el aviso genérico. */
+async function cuotaCobradaPorOtroLado(pagoId: number, proveedorPagoId: string): Promise<boolean> {
+  const db = await getTenantDb();
+  const { data, error } = await db.from('pagos').select('pagado, proveedor_pago_id').eq('id', pagoId).maybeSingle();
+  if (error || !data) return false;
+  const q = data as { pagado: boolean | null; proveedor_pago_id: string | null };
+  return !!q.pagado && q.proveedor_pago_id !== proveedorPagoId;
 }
 
 /**
@@ -747,13 +770,23 @@ export async function anularCobro(ws: number, id: number, autor: string): Promis
   if (c.estado !== 'pendiente' && c.estado !== 'fallido') return { ok: false, error: 'Sólo se anula un link que todavía no se pagó.' };
   const r = await actualizar(ws, id, { estado: 'anulado', motivo: `Anulado por ${autor}`.slice(0, 300) }, { estado: ['pendiente', 'fallido'] });
   if (!r) return { ok: false, error: 'El cobro cambió mientras tanto: recarga.' };
-  // Stripe deja expirar la sesión; Mercado Pago no tiene cómo cerrar una preferencia ya abierta, y por
-  // eso un pago que igual entre por un link anulado se registra (ESTADOS_QUE_PASAN_A_PAGADO).
+  // El link se CIERRA también del lado de la pasarela: Stripe expira la sesión; Mercado Pago vence la preferencia
+  // (`vencerPreferenciaMp`) o cancela la suscripción que nadie autorizó todavía. Hasta el 15/10/2026 MP quedaba
+  // abierto. Si el cierre falla (o MP lo ignora), un pago que igual entre se registra CON su aviso
+  // (`avisoPagoPorLinkAnulado`, en aplicarPagoAprobado).
   if (c.proveedor === 'stripe' && c.proveedor_ref) {
     const stripe = await credStripe(ws);
     if (stripe) {
       const e = await expirarCheckoutStripe(stripe.key, c.proveedor_ref);
       if (!e.ok) console.warn(`[cobros] no pude expirar la sesión ${c.proveedor_ref}: ${e.error}`);
+    }
+  } else if (c.proveedor === 'mercadopago' && c.proveedor_ref) {
+    const mp = await credMp(ws);
+    if (mp) {
+      const e = c.tipo === 'suscripcion'
+        ? await cancelarSuscripcionMp(mp.token, c.proveedor_ref, idemAnular(c.id))
+        : await vencerPreferenciaMp(mp.token, c.proveedor_ref, idemAnular(c.id));
+      if (!e.ok) console.warn(`[cobros] no pude cerrar el link ${c.proveedor_ref} en Mercado Pago: ${e.error}`);
     }
   }
   if (c.lead_id) await runWithWorkspace(ws, () => logLeadEvent(c.lead_id!, 'Link de pago', `Anulado: ${c.concepto}`, autor));
@@ -845,7 +878,7 @@ export async function cancelarSuscripcionCobro(ws: number, id: number, autor: st
 
 /**
  * Un aviso se puede perder (un deploy, un 5xx de nuestro lado que el proveedor dejó de reintentar), y
- * los pagos de PRUEBA de Mercado Pago no mandan aviso a la notification_url. El cron hace dos cosas:
+ * los pagos de PRUEBA de Mercado Pago no mandan aviso a la notification_url. El cron hace tres cosas:
  *   · relee al proveedor los cobros PENDIENTES con movimiento en los últimos días y aplica lo que la
  *     pasarela ya confirmó. La ventana cuenta desde `updated_at`, no desde que se creó: la preferencia de
  *     MP no vence y el link de Stripe crea otra sesión al abrirse (revisión del 11/10/2026);
@@ -854,12 +887,14 @@ export async function cancelarSuscripcionCobro(ws: number, id: number, autor: st
  *     que el proveedor ya recibió su 200 (el resto iba en `after()`), nadie lo reintentaba. Un pagado sin su
  *     cuota en el CRM, o con el alta sin terminar, vuelve a pasar por `aplicarPagoAprobado`, que es
  *     idempotente paso por paso.
- * Tope por corrida: 50 de cada tipo.
+ *   · Mira también los ANULADOS que llegaron a la pasarela: uno que igual se pagó y cuyo aviso se perdió entra con
+ *     su aviso (`avisoPagoPorLinkAnulado`), no queda escondido (15/10/2026).
+ * Tope por corrida: 50 de cada tipo (20 de los anulados).
  */
 export async function reconciliarCobros(ws: number, opts: { dias?: number } = {}): Promise<{ revisados: number; cambiados: number; errores: number }> {
   const desde = new Date(Date.now() - (opts.dias ?? 14) * 86_400_000).toISOString();
   const db = getSupabaseServer();
-  const [pend, pag] = await Promise.all([
+  const [pend, pag, anul] = await Promise.all([
     db.from('cobros').select(COLS_COBRO).eq('workspace_id', ws)
       .in('estado', ['pendiente', 'fallido']).gte('updated_at', desde)
       .order('updated_at', { ascending: false }).limit(50),
@@ -867,10 +902,17 @@ export async function reconciliarCobros(ws: number, opts: { dias?: number } = {}
       // Los pagados recientes (para ver si les falta la cuota) y las altas sin terminar, de cuando sea.
       .or(`pagado_at.gte.${desde},alta_estado.in.(error,pendiente),and(alta_capa.not.is.null,alta_estado.is.null)`)
       .order('pagado_at', { ascending: false }).limit(50),
+    // Los ANULADOS que llegaron a la pasarela (con `proveedor_ref`; uno que falló al crearse no tiene): si igual los
+    // pagaron y el aviso se perdió, la plata entró y nadie lo sabría (15/10/2026). Aparte y con su tope, para que no
+    // le quiten lugar a los pendientes.
+    db.from('cobros').select(COLS_COBRO).eq('workspace_id', ws)
+      .eq('estado', 'anulado').not('proveedor_ref', 'is', null).gte('updated_at', desde)
+      .order('updated_at', { ascending: false }).limit(20),
   ]);
   if (pend.error) throw new Error(`No pude leer los cobros pendientes a reconciliar: ${pend.error.message}`);
   if (pag.error) throw new Error(`No pude leer los cobros pagados a reparar: ${pag.error.message}`);
-  const pendientes = (pend.data ?? []).map((x) => cobroDeFila(x as Record<string, unknown>));
+  if (anul.error) throw new Error(`No pude leer los cobros anulados a reconciliar: ${anul.error.message}`);
+  const pendientes = [...(pend.data ?? []), ...(anul.data ?? [])].map((x) => cobroDeFila(x as Record<string, unknown>));
   const pagados = (pag.data ?? []).map((x) => cobroDeFila(x as Record<string, unknown>));
 
   // Qué pagados ya tienen su cuota en el CRM (una sola lectura).

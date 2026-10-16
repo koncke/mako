@@ -565,6 +565,25 @@ segundo pago de un link de la cuota 2 NO salda la cuota 3: es plata que entró d
 cobrada para que una persona la vea.
 **Vive en:** `lib/cobros.ts` (`anularLinksDeCuota`) · `lib/pagos.ts` (`marcarPago` → `anularLinksAlCobrar`) · `tests/pagos-medias-b2.test.ts`.
 
+### «Mercado Pago no cierra una preferencia» no era cierto, y «para que una persona la vea» no la mostraba (15/10/2026)
+
+**Síntoma:** un link de Mercado Pago anulado (porque la cuota se cobró por otro lado, o porque el cobro cambió) se
+podía pagar igual, y el pago entraba como una cuota cobrada más, sin una palabra en ningún lado.
+**El diagnóstico obvio era el equivocado:** el código decía «Mercado Pago no tiene cómo cerrar una preferencia ya
+abierta» y se tomó como un dato. La API de MP sí actualiza una preferencia (`PUT /checkout/preferences/{id}`), y el
+código YA usaba `expires` + `expiration_date_to` al crear una con vencimiento: cerrarla es mandar esos mismos campos
+con el fin en AHORA (`vencerPreferenciaMp`). Una suscripción de MP es otra cosa (un preapproval): sin autorizar, se
+cancela. ⚠️ Que MP respete el vencimiento con el checkout ya abierto NO está medido (necesita las claves de prueba).
+**Y la otra mitad:** la entrada del 14/10 decía que el pago doble «entra como cuota nueva cobrada para que una
+persona la vea». Una cuota más en una lista no es que alguien la vea. **Regla:** cuando el sistema acepta plata que
+no tendría que haber entrado, lo DICE donde se mira: en el cobro (`motivo`, que la ficha muestra) y en el historial
+del lead, con el caso concreto si se sabe (la cuota del link ya estaba cobrada por OTRO pago → «la plata entró dos
+veces»), y sólo una vez (la corrida que ganó la transición). El cron también relee los anulados que llegaron a la
+pasarela: un aviso perdido no lo deja escondido.
+**Vive en:** `lib/cobros.ts` (`anularCobro`, `aplicarPagoAprobado` paso 4b, `cuotaCobradaPorOtroLado`,
+`reconciliarCobros`) · `lib/cobros-reglas.ts` (`avisoPagoPorLinkAnulado`) · `lib/mercadopago-api.ts`
+(`vencerPreferenciaMp`) · `tests/pago-link-anulado.test.ts` · `tests/mercadopago-api.test.ts`.
+
 ### Cuatro «decisiones de Martín» que no eran suyas (15/10/2026)
 
 La tabla de abajo tenía seis filas marcadas «decisión de Martín». Pasadas por la vara de AGENTS.md (lo que copia lo que
@@ -610,7 +629,7 @@ implementación en un worktree propio (`C:/dev/wt-pagos`) y una rama aparte para
 | `funnel_id` en el motor de nutrición y en el CRM automático | mig 0170, `lib/nutricion*.ts`, `lib/crm-auto.ts` |
 | Contraseña o segundo proveedor de login | `app/api/auth/callback/google/route.ts` |
 | Atribución de referidos (`workspaces.origen = 'referido:<ws>'`), sólo con Paddle cobrando y 5+ referidos pagando | `embudo-y-high-ticket.md:401`, [referidos.md](referidos.md) § 6 |
-| **Pasarela:** probar con claves REALES — si una clave restringida (`rk_`) puede leer `GET /v1/account` y si la `notification_url` de MP llega firmada | `lib/cobros-conexion.ts`, `lib/metodo-catalogo.ts` (tutorial), `app/api/webhooks/mercadopago/route.ts` |
+| **Pasarela:** probar con claves REALES — si una clave restringida (`rk_`) puede leer `GET /v1/account` y si la `notification_url` de MP llega firmada; y si MP respeta el vencimiento de una preferencia que se anuló con el checkout ya abierto (`vencerPreferenciaMp`) | `lib/cobros-conexion.ts`, `lib/metodo-catalogo.ts` (tutorial), `app/api/webhooks/mercadopago/route.ts` |
 | **Pasarela:** un producto de suscripción con plazo (`suscripcion_meses`) se cobra como suscripción sin fin | `lib/cobros.ts`, `lib/stripe-api.ts` |
 | **Pasarela:** precios en moneda local en el catálogo (para que la API y las automatizaciones creen links de Mercado Pago) | `lib/productos.ts`, `lib/api-mako/areas/cobros.run.ts` |
 | **Pasarela (decidido 15/10):** un contracargo se muestra (historial y motivo) y desmarca la cuota cuando el proveedor dice que la plata salió (MP `charged_back`+`settled`, Stripe `charge.dispute.closed` perdida); Stripe todavía no escucha `charge.dispute.*` | `lib/cobros-eventos.ts` (`planDePagoMp`), `lib/cobros.ts`, `lib/stripe-api.ts` (`EVENTOS_STRIPE`) |
@@ -626,7 +645,6 @@ implementación en un worktree propio (`C:/dev/wt-pagos`) y una rama aparte para
 | **Pasarela (revisión):** la fecha de la cuota es la del procesamiento, no la del pago (un aviso tardío la corre de mes) | `lib/cobros.ts` (`aplicarPagoAprobado`) |
 | **Pasarela (decidido 15/10):** un lead de pago único que paga un link de SUSCRIPCIÓN sigue de pago único, y su mensualidad tiene que contar en el MRR desde el cobro activo | `lib/queries.ts` (`getMrrActivo`) |
 | **Pasarela (b2):** el Outstanding del Dashboard cuenta como deuda las cuotas devueltas por un reembolso | `lib/pagos.ts` (`getOutstandingTotal` y su detalle) |
-| **Pasarela (b2):** un link de Mercado Pago anulado se puede pagar igual (MP no cierra una preferencia abierta): el pago entra como cuota nueva cobrada y nadie avisa que la plata entró dos veces | `lib/cobros.ts` (`anularCobro`, `registrarCobroDeProveedor`) |
 
 *Corrida del 04/10/2026, 12 agentes. Las refutaciones dieron vuelta nueve afirmaciones; las
 tres que más cambiaron el plan están arriba (la cuenta del runway, el margen del 47 y el

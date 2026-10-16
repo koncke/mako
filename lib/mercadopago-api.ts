@@ -192,6 +192,23 @@ export async function reembolsarMp(accessToken: string, pagoId: string, idem: st
   return { ok: true, id, estado: str(r.body.status) };
 }
 
+/** Un instante como lo escribe la documentación de MP: ISO 8601 con milisegundos y el desfase («…T23:59:59.000+00:00»). */
+export const instanteMp = (ms: number): string => new Date(ms).toISOString().replace(/Z$/, '+00:00');
+
+/**
+ * CIERRA un link de Checkout Pro (al anular un cobro): PUT /checkout/preferences/{id} con `expires` y un
+ * `expiration_date_to` de AHORA, los mismos campos con los que una preferencia nace con vencimiento. Hasta el
+ * 15/10/2026 se daba por hecho que MP «no cierra una preferencia ya abierta», y un link anulado se podía pagar igual.
+ * ⚠️ No está medido con una cuenta real (las claves de prueba de Martín): si MP lo ignora, la red es el aviso de
+ * `aplicarPagoAprobado` (lib/cobros.ts) cuando entra un pago por un link anulado.
+ */
+export async function vencerPreferenciaMp(accessToken: string, id: string, idem: string): Promise<R<{ id: string }>> {
+  if (!/^[A-Za-z0-9_-]{1,100}$/.test(id)) return { ok: false, status: 400, error: 'id de preferencia inválido' };
+  const r = await llamar(accessToken, 'PUT', `/checkout/preferences/${id}`, { expires: true, expiration_date_to: instanteMp(Date.now()) }, idem);
+  if (!r.ok) return fallo(r);
+  return { ok: true, id };
+}
+
 /** PUT /preapproval/{id} { status: 'canceled' } (UNA ele). Irreversible. */
 export async function cancelarSuscripcionMp(accessToken: string, id: string, idem: string): Promise<R<{ estado: string | null }>> {
   if (!/^[A-Za-z0-9_-]{1,64}$/.test(id)) return { ok: false, status: 400, error: 'id de suscripción inválido' };
