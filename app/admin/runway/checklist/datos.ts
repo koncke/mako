@@ -67,6 +67,7 @@ export const HECHO: SeccionChecklist[] = [
     { id: 'crm-muneco', t: 'El botón y el panel de MaKo del CRM, con el muñeco del CRM en vez de la estrella.', ruta: '/crm' },
     { id: 'crm-engranaje', t: 'El engranaje de «A revisar» abre una ficha; el basurero pregunta «¿Ignorar siempre?».' },
     { id: 'crm-exportar', t: 'En la ficha, «⋯» → «Exportar (CSV)» descarga los datos del lead.' },
+    { id: 'crm-chat-sb', t: 'El chat de MaKo del CRM tiene la cara del Second Brain (muñeco, tarjetas y micrófono).', ruta: '/crm' },
   ] },
   { titulo: 'Automations', items: [
     { id: 'aut-flechas', t: 'Toda flecha se desconecta; el paso con IA escucha notas de voz.', ruta: '/automations' },
@@ -117,7 +118,7 @@ export const PENDIENTE: SeccionChecklist[] = [
     { id: 'p16-crm-calendar', t: 'CRM: «Asignar evento» también con Google Calendar.' },
     { id: 'p16-crm-velocidad', t: 'CRM: que la ficha del lead abra rápido.' },
     { id: 'p16-crm-hojas', t: 'CRM: tabs como las hojas del Dashboard, templates con miniaturas propias, sin la barra lateral.' },
-    { id: 'p16-crm-chat2', t: 'CRM: el chat de MaKo con la cara del Second Brain y el muñeco de la tab.' },
+    { id: 'p16-munecos-tabs', t: 'El muñeco de cada tab en los chats de MaKo de las demás tabs (Dashboard, …).' },
     { id: 'p16-crm-editar3', t: 'CRM: en el «⋯» de la ficha, el PDF y la guía; al editar, el chat para editar la vista.' },
     { id: 'p16-onb-pdf', t: 'Onboarding: sin el análisis de Offer; sólo ordenar en un PDF lo que vendes.' },
     { id: 'p16-sb-skills', t: 'Second Brain: «Skills» como skills.sh, se instalan solas y crean un chat para todos.' },
