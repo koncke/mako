@@ -406,7 +406,7 @@ La vista de super admin y la del cliente son **la misma pantalla**, y nunca se r
 
 ### Las decisiones de forma del board que ya están tomadas
 
-- **Prioridades arriba, kanban abajo.** Las 4 columnas de prioridad son fijas, no editables, y ocupan todo el ancho; los proyectos existen para agrupar tareas. «Dentro del gran proyecto 'Hacer MaKo DOER' entran muuchas tareas» (2026-07-12).
+- **Prioridades arriba, kanban abajo.** ~~Las 4 columnas de prioridad son fijas~~ — **desde el 16/10/2026 las columnas son el ESTADO** (Por iniciar · En proceso · Atorada · Completada, y «No cumplen tu criterio» al final sólo si tiene tareas) y la prioridad pasa a ser FILTRO y chip: «el espíritu más importante del Kanban es el flujo… No la clasificación» (Mauricio, 12/10). Siguen sin ser editables y ocupando todo el ancho; los proyectos existen para agrupar tareas. «Dentro del gran proyecto 'Hacer MaKo DOER' entran muuchas tareas» (2026-07-12). Ver [El estado pasa a ser la columna](#el-estado-pasa-a-ser-la-columna-16102026).
 - **El To-Do es su propia tab con kanban completo** (columnas y proyectos editables, checklists, adjuntos), tomando como base el tablero de `/martinkoncke` y la estética del CRM — que ya es un kanban que funciona, así evitamos inventar dos lenguajes visuales (2026-07-12).
 - **Toda preview usa las cards REALES.** El formato de las tarjetas de un modal tiene que ser idéntico al del kanban y al de proyectos: «la preview de esas tienen que ser IGUALES a como ya los tenemos, para no confundir» (2026-07-22).
 - **Toda acción irreversible o generada por IA pasa por un modal de confirmación que PREVISUALIZA lo que va a pasar** — «de lo contrario, se van a crear muchas tareas que pueden estar mal» (2026-07-17).
@@ -2396,6 +2396,65 @@ nadie: llegan con la extracción con criterio. Los de QUIÉN sí, desde el table
 
 **Vive en:** lib/todo-estados.ts · lib/todo.ts (`estadoOk`, `editarTarea`, `crearTarea`) ·
 supabase/migrations/0159 · app/api/todo/route.ts · *2026-09-17*
+
+## El estado pasa a ser la columna (16/10/2026)
+
+«Hacer el kanban un kanban» (Martín, sobre la reunión con Mauricio del 12/10): las columnas pasan de
+prioridad a ESTADO en las dos mitades, `en_seguimiento` se dibuja «Atorada» (con un motivo de una
+línea) y las tareas nacen LIBRES (score 0 = «Sin priorizar»). La mitad del dueño no tenía estado:
+mig 0294, con backfill desde el avance. Lo que costó, que no se ve leyendo el código:
+
+- **El retroceso estaba escrito desde la 0159 y no se veía.** `editPatch` (TodoBoard.tsx) manda el
+  objeto ENTERO de la tarjeta en cada guardado, avance incluido, y `editarTarea` recalculaba el estado
+  desde el avance cada vez que venía. Con columnas de prioridad el estado no se dibujaba; con columnas
+  de estado, arrastrar una tarjeta a «En proceso» al 0% y corregirle una tilde la devolvía a «Por
+  iniciar». **Un campo derivado que se recalcula en CADA guardado de un patch entero pisa cualquier
+  valor explícito**: se deriva sólo si la fuente CAMBIÓ, comparando contra la FILA, no contra el
+  navegador (`estadoAlGuardar`, lib/todo-estados.ts).
+- **`taskToRow` escribía `orden: t.num` en cada guardado del dueño.** Medido: 424 de 424 filas de
+  `plan_tareas` con `orden = num`. Nadie lo veía porque ninguna pantalla ordenaba por `orden`; con un
+  kanban de orden manual, deshace cada arrastre dentro de la columna.
+- **Lo que escribe una ACCIÓN no viaja en el upsert de la fila entera.** El guardado del dueño es la
+  memoria de la pestaña: con `estado` y `orden` adentro, una pestaña abierta hace una hora devolvería
+  de columna lo que se movió desde otra (o lo que movió MaKo por la API). `guardarPlanTarea` los saca
+  del payload y los relee —la misma cura que `guardarPlanProyecto` le aplica al score—, y los escribe
+  `moverPlanTarea` por columna. Es una excepción a «un campo son seis lugares»: `estado` NO va en
+  `editPatch` ni en el guardado, a propósito.
+- **`moverTarea` existía desde la 0051 con cero llamadores, y estaba mal en tres cosas** que nadie
+  podía ver: un estado inventado se convertía en «Por iniciar» (`estadoOk`) y contestaba 200, reordenar
+  dentro de «Completada» re-sellaba `hecho_at`, y sacar una tarjeta de ahí la dejaba abierta al 100%
+  (medio sistema pregunta `progress < 100`). Ahora `trasMover` es UNA regla para las dos mitades y el
+  navegador: Completada = 100%, reabrir = 0%, el motivo sólo vive en Atorada.
+- **`toBoard` convertía el score 0 en 62** (`t.score || scoreFromPrio[t.prioridad]`), así que «sin
+  priorizar» no se podía ni ver, y el siguiente `editPatch` mandaba `score: 62` de vuelta: una tarea
+  quedaba «Media» sin que nadie lo decidiera. Medido el 16/10: 0 filas con score 0 en las dos tablas,
+  así que sacar el `||` no le cambió la columna a nadie. **El 0 NO es «A futuro»**: `prioFromScore(0)`
+  sigue siendo la banda 'futuro' (la usan el reparto y las cuentas), y el chip y el filtro preguntan
+  por `prioFiltroDe`.
+- **El reparto de las 9:10 hubiera sacado de «Sin priorizar» cada tarea libre** (piso 1 + la curva le
+  da un puesto), y metía en el reparto lo que el criterio no dejó pasar: `recurvarPlanOwner` ahora
+  excluye y CUENTA las dos (`sinPriorizar` en el log).
+- **El orden inicial de cada columna se reescribió en la migración** (mayor score arriba; en
+  Completada la más reciente), porque el `orden` de hoy no lo eligió nadie: es reescribir un número
+  invisible para que el primer día del kanban se vea en el orden que ya se veía. Va guardado por la
+  columna nueva: volver a correr la 0294 no pisa lo que la gente ya arrastró.
+
+**La regla:** el estado se escribe por `mover` (capacidad del Repo, `moverTarea` / `moverPlanTarea`,
+y la op `mover_tarea_plan` de la API); el avance lo mueve sólo cuando cambia. Los tests que lo miden
+en la FILA: `tests/plan-kanban-server.test.ts` (funciones reales contra un PostgREST de mentira).
+
+**Quedó sin hacer:** la pantalla (tanda 2: columnas, arrastre con `repo.mover`, filtros, el teléfono
+en app/m/plan/tableros.ts) y la sección «BANDAS» de AGENTS.md, que describe el kanban viejo; la
+re-puntuación oculta del navegador (`rePriorizar`, BoardShell) sólo se saltea en el alta, la apaga
+la decisión 8; el doer legado (`tareas_plan`, lib/mako-doer-acciones.ts) y `aplicarPropuestas`
+siguen llamando al Perro al crear (lo de Fathom es otra tanda); y, después del deploy, las dos
+sentencias de reconciliación que están en la cabecera de la 0294 (tareas del dueño completadas o
+reabiertas entre la migración y el deploy).
+
+**Vive en:** lib/todo-estados.ts · lib/todo.ts (`moverTarea`, `editarTarea`, `crearTarea`,
+`scoreAlCrear`) · lib/plan-board.ts (`taskToRow`, `guardarPlanTarea`, `moverPlanTarea`,
+`recurvarPlanOwner`) · app/plan/TodoBoard.tsx (`editPatch`) · app/plan/board/desde-todo.ts ·
+supabase/migrations/0294 · *2026-10-16*
 
 ## Tablero único: el cliente va en el BORRADOR, y el tipo de responsable se calcula al aplicar
 

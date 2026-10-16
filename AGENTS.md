@@ -852,6 +852,15 @@ desde afuera (Customer Success, un analyst, un export) tiene que poder con los d
 de texto contiene al numérico, al revés hay que inventar una conversión que después miente.
 Cuál de los dos te toca lo decide `lib/tablero-actual.ts`, y ahí se decide una sola vez.
 
+⚠️ **Y la excepción, a propósito: lo que escribe una ACCIÓN no viaja en el guardado.** La columna
+del kanban (`estado`), su motivo y el lugar (`orden`) los escribe `repo.mover` por columna
+(`moverTarea` / `moverPlanTarea`); `editPatch` no los manda y `guardarPlanTarea` los saca del
+payload y relee la fila. Con ellos adentro del upsert de la fila entera, una pestaña vieja devuelve
+de columna lo que se movió desde otra. Y un campo DERIVADO de otro (el estado desde el avance) se
+recalcula sólo si la fuente CAMBIÓ contra la fila guardada (`estadoAlGuardar`): recalculado en cada
+guardado, deshacía los arrastres (16/10/2026, docs/hallazgos-plan.md → «El estado pasa a ser la
+columna»).
+
 # Una capacidad nueva de MaKo se DECLARA en el registro de la API, no se escribe en una ruta
 
 Todo lo que un agente puede leer o hacer en MaKo —MaKo por WhatsApp, el chat de la app,
