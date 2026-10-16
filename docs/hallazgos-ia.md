@@ -4250,6 +4250,13 @@ sin tocar su código, y su cascada sigue como antes: con datos de clientes, sin 
 del lead eso es «sin IA propia, no hay análisis», y el mensaje pasó de «El análisis falló: Claude vetado…» a decir que
 conecte su Claude. Probado rompiéndolo: cinco roturas, cinco cazadas.
 
+**Y la cuenta 2 como el Claude PROPIO de Leandro (ws10)**, por pedido de Martín («que cada usuario traiga sus cuentas
+de GPT o Claude... Vinculalo para el caso de Leandro también»): `scripts/claude-propio-de-un-negocio.mts` la guarda como
+la `ANTHROPIC_API_KEY` del negocio con el mismo `guardarCredencial` de /integraciones. Sólo acepta como origen una de
+las claves del crédito, se niega con el ws de la plataforma y el del dueño, no pisa una clave distinta y relee. La cuenta
+2 sigue de reserva en el crédito del onboarding, detrás de la 1. ⚠️ Los dos scripts leen el `.env.local` del
+directorio desde el que se corren: van desde el clon (que lo tiene) y con el código ya en main, no desde un worktree.
+
 · *2026-10-16 chat «Onboarding» (claude3)*
 
 
