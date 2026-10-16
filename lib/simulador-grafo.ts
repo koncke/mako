@@ -636,19 +636,19 @@ export function escenariosDePrueba(
   o: { hechos?: HechosLead; nombres?: NombresSim; cuenta?: (p: PasoGrafo) => boolean; medio?: MedioAIStep } = {},
 ): { escenarios: EscenarioPrueba[]; faltan: number } {
   const pasos = recorrido(pasosIn, o.medio);
-  const out: EscenarioPrueba[] = [];
+  type Hecho = { fila: FilaCondicion; si: boolean };
+  /** Cada escenario con los hechos que lo armaron: el «cuándo» se escribe al final, con los que lo DISTINGUEN. */
+  const crudos: Array<{ e: Omit<EscenarioPrueba, 'cuando'>; hechos: ReadonlyMap<string, Hecho> }> = [];
   /** Lo que se ve en el chat de cada escenario ya armado: dos con los mismos mensajes son uno. */
   const vistos = new Set<string>();
   let faltan = 0;
-  type Hecho = { fila: FilaCondicion; si: boolean };
   const cerrar = (elecciones: Record<string, string>, dichos: string[], mensajes: string[], hechos: ReadonlyMap<string, Hecho>) => {
     const clave = mensajes.join('>');
     if (vistos.has(clave)) return;
-    if (out.length >= TOPE_ESCENARIOS) { faltan += 1; return; }
+    if (crudos.length >= TOPE_ESCENARIOS) { faltan += 1; return; }
     vistos.add(clave);
     const id = Object.entries(elecciones).map(([n, p]) => `${n}=${p}`).join('|');
-    const cuando = [...new Set([...hechos.values()].map((h) => textoFila({ ...h.fila, no: !h.si }, o.nombres)))];
-    out.push({ id, elecciones, pasos: dichos, mensajes: mensajes.length, cuando });
+    crudos.push({ e: { id, elecciones, pasos: dichos, mensajes: mensajes.length }, hechos });
   };
   const visitar = (inicio: EstadoSim, hechos: ReadonlyMap<string, Hecho>, elecciones: Record<string, string>, dichos: string[], mensajes: string[]): void => {
     let st = inicio;
@@ -665,7 +665,7 @@ export function escenariosDePrueba(
           const base: FilaCondicion = { ...falta, no: false };
           const delLead = o.hechos ? cumpleFila(base, o.hechos) : false;
           for (const si of [delLead, !delLead]) {
-            if (out.length >= TOPE_ESCENARIOS) { faltan += 1; continue; }
+            if (crudos.length >= TOPE_ESCENARIOS) { faltan += 1; continue; }
             visitar(st, new Map([...hechos, [claveHecho(falta), { fila: base, si }]]), elec, dich, vistosAca);
           }
           return;
@@ -688,9 +688,19 @@ export function escenariosDePrueba(
   };
   visitar(iniciar(pasosIn, { medio: o.medio }), new Map(), {}, [], []);
 
-  // EL LEAD CONTESTA (15/10/2026): un escenario por caso del AI Step que escucha por este medio, sobre el primero. El
-  // panel le hace escribir al lead algo de ese caso, y lo demás es la prueba de siempre (clasifica y contesta).
-  const primero = out[0];
+  // CUÁNDO CAE CADA UNO, sólo con lo que lo DISTINGUE (visto en producción el 15/10/2026: «Tiene WhatsApp · Tiene email»
+  // en los seis casos alargaban la píldora sin decir nada). Un hecho que vale lo mismo en todos los escenarios no va.
+  const claves = new Set(crudos.flatMap((c) => [...c.hechos.keys()]));
+  const distinguen = new Set([...claves].filter((k) => new Set(crudos.map((c) => c.hechos.get(k)?.si)).size > 1));
+  const out: EscenarioPrueba[] = crudos.map((c) => ({
+    ...c.e,
+    cuando: [...new Set([...c.hechos].filter(([k]) => distinguen.has(k)).map(([, h]) => textoFila({ ...h.fila, no: !h.si }, o.nombres)))],
+  }));
+
+  // EL LEAD CONTESTA (15/10/2026): un escenario por caso del AI Step que escucha por este medio. El panel le hace escribir
+  // al lead algo de ese caso, y lo demás es la prueba de siempre (clasifica y contesta). ⚠️ Sobre el primer camino CON
+  // mensajes: visto en producción, con el primero sin ninguno el lead no tenía qué contestar y la prueba terminaba en «Fin».
+  const primero = out.find((e) => e.mensajes > 0) ?? out[0];
   if (primero && nodoPorId(pasos, raizRespuesta(pasos))) {
     const casos = escenariosDeRespuesta(pasosIn, { medio: o.medio }).map((c) => ({ casoId: c.casoId, titulo: c.titulo, cuando: c.cuando }));
     // Un AI Step sin casos con nombre contesta todo con su objetivo («Lo demás»): un escenario igual, para verlo contestar.
