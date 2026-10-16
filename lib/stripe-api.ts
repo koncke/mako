@@ -21,6 +21,7 @@ import 'server-only';
 import type { TipoCobro } from './cobros-tipos';
 import { aUnidadMinima, deUnidadMinima } from './pasarela-moneda';
 import { formStripe } from './stripe-form';
+import { finDelPlazo } from './cobros-reglas';
 
 export const STRIPE_API = 'https://api.stripe.com';
 export const STRIPE_VERSION = '2026-09-30.endive';
@@ -422,6 +423,23 @@ export async function reembolsarStripe(key: string, p: { idem: string; paymentIn
   const id = str(r.body.id);
   if (!id) return { ok: false, status: 502, error: 'Stripe no devolvió el reembolso.' };
   return { ok: true, id, estado: str(r.body.status) };
+}
+
+/**
+ * ⚠️ EL PLAZO de una suscripción ya creada (15/10/2026). Checkout no acepta un fin, así que se programa después del primer
+ * pago: `cancel_at` = el ancla de facturación + `meses` meses (`finDelPlazo`), que es el fin del período N. Stripe cancela
+ * ahí: se cobran N mensualidades y la N+1 no sale. Sin prorrateo (el período termina justo en ese instante). Hasta este
+ * día un producto «6 meses» se cobraba para siempre.
+ */
+export async function programarFinSuscripcionStripe(key: string, subId: string, meses: number): Promise<R<{ cancelAt: number }>> {
+  const s = await llamar(key, 'GET', `/v1/subscriptions/${encodeURIComponent(subId)}`);
+  if (!s.ok) return fallo(s);
+  const ancla = Number(s.body.billing_cycle_anchor ?? s.body.start_date);
+  if (!Number.isFinite(ancla) || ancla <= 0) return { ok: false, status: 502, error: 'Stripe no devolvió cuándo arrancó la suscripción.' };
+  const cancelAt = Math.floor(finDelPlazo(ancla * 1000, meses) / 1000);
+  const r = await llamar(key, 'POST', `/v1/subscriptions/${encodeURIComponent(subId)}`, { cancel_at: cancelAt, proration_behavior: 'none' }, `mako-plazo-${subId}-${meses}`);
+  if (!r.ok) return fallo(r);
+  return { ok: true, cancelAt };
 }
 
 /** DELETE /v1/subscriptions/{id}: cancela EN EL ACTO (status `canceled`). */

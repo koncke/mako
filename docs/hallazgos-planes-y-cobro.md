@@ -656,6 +656,25 @@ eran sólo retiro, retiro + reintegro, y nada. Hizo falta el caso de un reintegr
 `mantenerAvisosStripe`) · `lib/cobros-reglas.ts` (`textoContracargo`, `esLaVueltaDelDia`) ·
 `app/api/cron/cobros-reconciliar/route.ts` · `tests/contracargos.test.ts`.
 
+### Una suscripción con plazo se cobraba para siempre, y el plazo del lead no sirve para reabrir (15/10/2026)
+
+**Síntoma:** un producto del catálogo «6 meses» (`productos.suscripcion_meses`) se cobraba por la pasarela como
+suscripción sin fin: al séptimo mes la tarjeta del cliente se seguía cobrando.
+**Causa:** los dos checkouts nacían sin fin, y el lead se ganaba con `suscripcion_meses: null`.
+**Regla:** el plazo sale del producto (aunque esté inactivo) y cada pasarela lo lleva a su manera. **Stripe:** Checkout
+no acepta un fin, así que al PRIMER pago se programa `cancel_at` en el fin del período N (el ancla de facturación + N
+meses, día capado como factura Stripe), sin prorrateo: se cobran N mensualidades y la N+1 no sale. Nunca tumba el pago;
+si falla, el cobro dice «cancélala a mano». **Mercado Pago:** nace con `auto_recurring.end_date` un día ANTES de ese
+fin, porque MP cobra desde que la persona autoriza: si autoriza tarde se pierde una mensualidad, no se cobra una de más
+(en lo que es plata ajena, cobrar de menos es el error barato). Sin poder leer el plazo, la suscripción de MP no se
+crea. El lead que se GANA con ese pago lleva el plazo (su `fecha_cierre` es hoy), así el MRR deja de contarla.
+**La trampa:** el plazo del LEAD se cuenta desde su `fecha_cierre`. Un lead que ya era cliente y vuelve con un link de
+suscripción con plazo (`reabrirSuscripcionDelLead`) tiene una fecha de cierre de hace meses: ponerle el plazo lo daba
+por vencido antes de tiempo. Ahí queda sin plazo, y el fin lo marca la pasarela al cancelar.
+**Vive en:** `lib/cobros.ts` (`plazoDelCobro`, `crearCheckout`, `aplicarPagoAprobado` paso 2a, `programarPlazoStripe`,
+`ganarLead`) · `lib/stripe-api.ts` (`programarFinSuscripcionStripe`) · `lib/mercadopago-api.ts` (`crearSuscripcionMp`)
+· `lib/cobros-reglas.ts` (`finDelPlazo`) · `tests/suscripcion-plazo.test.ts`.
+
 ### Cuatro «decisiones de Martín» que no eran suyas (15/10/2026)
 
 La tabla de abajo tenía seis filas marcadas «decisión de Martín». Pasadas por la vara de AGENTS.md (lo que copia lo que
@@ -670,8 +689,10 @@ preguntarle. Quedan suyas dos: el RFC / Stripe en Argentina (fiscal y precio) y 
 - **Un lead de pago único que paga un link de SUSCRIPCIÓN sigue de pago único, y la mensualidad cuenta en el MRR desde
   el cobro.** Copia de Stripe: el MRR son las suscripciones activas, y una compra única no deja de existir porque
   después haya una suscripción. Pasarlo a «suscripción» sacaría el pago único de lo vendido: una
-  suscripción no tiene `monto_cierre_usd` (lib/venta-tipo.ts; cambiar el tipo en la ficha lo vacía). Falta el código: `getMrrActivo` (lib/queries.ts)
-  tiene que sumar los cobros de suscripción activos de los leads que NO son de suscripción.
+  suscripción no tiene `monto_cierre_usd` (lib/venta-tipo.ts; cambiar el tipo en la ficha lo vacía). **HECHO el 15/10:**
+  `getMrrActivo` (lib/queries.ts) suma las suscripciones PAGADAS y ACTIVAS de la pasarela de los leads que no son de
+  suscripción (`mrrDeLaPasarela`); las de un lead de suscripción no, porque ya las cuenta el lead. Una suscripción de la
+  pasarela SIN lead (fuera del CRM) no entra.
 - **Un flujo puede reembolsar: sin guarda de costo `dinero`.** Ya lo había decidido Martín el 08/10, textual: un flujo
   «que pueda hacer todo, sin limitaciones»; el dueño confirma la acción al CONFIGURAR el paso (cabecera de
   `lib/api-mako/flujo.ts`). No era una pregunta abierta.
@@ -700,8 +721,7 @@ implementación en un worktree propio (`C:/dev/wt-pagos`) y una rama aparte para
 | `funnel_id` en el motor de nutrición y en el CRM automático | mig 0170, `lib/nutricion*.ts`, `lib/crm-auto.ts` |
 | Contraseña o segundo proveedor de login | `app/api/auth/callback/google/route.ts` |
 | Atribución de referidos (`workspaces.origen = 'referido:<ws>'`), sólo con Paddle cobrando y 5+ referidos pagando | `embudo-y-high-ticket.md:401`, [referidos.md](referidos.md) § 6 |
-| **Pasarela:** probar con claves REALES — si una clave restringida (`rk_`) puede leer `GET /v1/account` y si la `notification_url` de MP llega firmada; y si MP respeta el vencimiento de una preferencia que se anuló con el checkout ya abierto (`vencerPreferenciaMp`) | `lib/cobros-conexion.ts`, `lib/metodo-catalogo.ts` (tutorial), `app/api/webhooks/mercadopago/route.ts` |
-| **Pasarela:** un producto de suscripción con plazo (`suscripcion_meses`) se cobra como suscripción sin fin | `lib/cobros.ts`, `lib/stripe-api.ts` |
+| **Pasarela:** probar con claves REALES — si una clave restringida (`rk_`) puede leer `GET /v1/account` y si la `notification_url` de MP llega firmada; y si MP respeta el vencimiento de una preferencia que se anuló con el checkout ya abierto (`vencerPreferenciaMp`); y en qué estado queda una suscripción de MP al llegar su `end_date` (si sigue `authorized`, `mrrDeLaPasarela` la contaría después del plazo) | `lib/cobros-conexion.ts`, `lib/metodo-catalogo.ts` (tutorial), `app/api/webhooks/mercadopago/route.ts` |
 | **Pasarela:** precios en moneda local en el catálogo (para que la API y las automatizaciones creen links de Mercado Pago) | `lib/productos.ts`, `lib/api-mako/areas/cobros.run.ts` |
 | **Pasarela:** un contracargo de Mercado Pago se cuenta pero NO mueve la cuota: falta medir con las claves de prueba qué dice `coverage_applied` (GET del contracargo, otro tópico de aviso) y qué significan de verdad `settled`/`reimbursed` | `lib/cobros-eventos.ts` (`planDePagoMp`), `lib/cobros-webhook.ts`, `lib/mercadopago-api.ts` |
 | **Pasarela:** `crear_link_pago` en la lista corta del «⚡ Acción» (necesita un control propio para el producto del catálogo) | `lib/editor-acciones.ts` |
@@ -713,7 +733,6 @@ implementación en un worktree propio (`C:/dev/wt-pagos`) y una rama aparte para
 | **Pasarela (revisión):** un aviso de MP sin firma con el `user_id` de un negocio conectado provoca una relectura con SU token (las filas `sin-workspace` ya tienen techo: una por día, 15/10) | `app/api/webhooks/mercadopago/route.ts` |
 | **Pasarela (revisión):** el MRR al cancelar una suscripción redondea por meses (puede contar un mes de más o de menos) | `lib/cobros-reglas.ts` (`mesesTranscurridos`) |
 | **Pasarela (revisión):** la fecha de la cuota es la del procesamiento, no la del pago (un aviso tardío la corre de mes) | `lib/cobros.ts` (`aplicarPagoAprobado`) |
-| **Pasarela (decidido 15/10):** un lead de pago único que paga un link de SUSCRIPCIÓN sigue de pago único, y su mensualidad tiene que contar en el MRR desde el cobro activo | `lib/queries.ts` (`getMrrActivo`) |
 
 *Corrida del 04/10/2026, 12 agentes. Las refutaciones dieron vuelta nueve afirmaciones; las
 tres que más cambiaron el plan están arriba (la cuenta del runway, el margen del 47 y el

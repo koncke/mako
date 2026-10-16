@@ -76,7 +76,7 @@ worktree están borradas; `pagos-rojo-cobranza` no tiene nada fuera de `main`.
 
 | Qué | Lo destraba | Dónde |
 |---|---|---|
-| Si una clave restringida (`rk_`) lee `GET /v1/account`; si la `notification_url` de MP llega firmada y con `data.id` en el query; si MP respeta el vencimiento de una preferencia anulada con el checkout ya abierto; qué dice `coverage_applied` de un contracargo de MP; un pago de punta a punta en modo prueba | las claves de PRUEBA de Martín (Stripe `sk_test_`/`rk_test_`, una cuenta de prueba de MP) | `lib/cobros-conexion.ts`, `lib/metodo-catalogo.ts`, `app/api/webhooks/mercadopago/route.ts` |
+| Si una clave restringida (`rk_`) lee `GET /v1/account`; si la `notification_url` de MP llega firmada y con `data.id` en el query; si MP respeta el vencimiento de una preferencia anulada con el checkout ya abierto; qué dice `coverage_applied` de un contracargo de MP; en qué estado queda una suscripción de MP al llegar su `end_date`; un pago de punta a punta en modo prueba | las claves de PRUEBA de Martín (Stripe `sk_test_`/`rk_test_`, una cuenta de prueba de MP) | `lib/cobros-conexion.ts`, `lib/metodo-catalogo.ts`, `app/api/webhooks/mercadopago/route.ts` |
 | Stripe no abre cuentas a negocios de Argentina; la primera venta a un mexicano arranca el reloj del RFC | Martín (precio y fiscal): pasa ANTES por Estrategia, que lo mira con este chat cuando b2 esté en `main` | `app/admin/dev/pricing/modelo.ts` |
 | Los BORRADORES legales de `/reembolsos` y `/terminos` §8 | que Martín los lea; igual que el RFC, pasa antes por Estrategia | `app/reembolsos/page.tsx`, `app/terminos/page.tsx` |
 
@@ -94,8 +94,8 @@ En este orden, de lo que más plata toca a lo que menos:
 2. ~~Un reembolso de Stripe se da por hecho con `pending`~~ → HECHO el 15/10 (rama `pagos-reembolso-stripe`): se escucha `refund.failed` y una devolución que falla se revierte (cobro y cuota); los avisos ya registrados se ponen al día antes de reembolsar.
 3. ~~El Outstanding del Dashboard cuenta como deuda las cuotas devueltas~~ → HECHO el 15/10 (rama `pagos-outstanding-devueltas`): el Outstanding, «A quién cobrarle» y el Revenue con «Todo» sacan las devueltas con `esCuotaDevuelta`.
 3b. ~~Contracargos~~ → HECHO el 15/10 (rama `pagos-contracargos`): Stripe escucha las disputas y mueve la cuota con lo que dice la disputa releída; Mercado Pago se cuenta sin mover la cuota (su documentación se contradice; medirlo es de la fila de claves de prueba). El cron pone al día los avisos de Stripe una vez por día.
-3c. El MRR cuenta la mensualidad de un link de suscripción pagado por un lead de pago único (decidido 15/10; `lib/queries.ts`, `getMrrActivo`).
-4. Un producto de suscripción con plazo se cobra sin fin (`cancel_at` en Stripe, `end_date` en MP) (`lib/cobros.ts`, `lib/stripe-api.ts`).
+3c. ~~El MRR cuenta la mensualidad de un link de suscripción pagado por un lead de pago único~~ → HECHO el 15/10 (rama `pagos-mrr-cobros`, `mrrDeLaPasarela`).
+4. ~~Un producto de suscripción con plazo se cobra sin fin~~ → HECHO el 15/10 (rama `pagos-suscripcion-plazo`): `cancel_at` en Stripe al primer pago, `end_date` en MP al crear, y el lead ganado con su plazo.
 5. La fecha de la cuota es la del procesamiento y no la del pago; el MRR al cancelar redondea por meses (`lib/cobros.ts`, `lib/cobros-reglas.ts`).
 6. En `/mako/revisar`, el `cobroId` de un reembolso se puede editar y el título muestra el original (`lib/api-mako/areas/cobros.*`).
 7. El cambio de email tras el alta: falta un código al email ACTUAL (`app/pagar/cambio-email.ts`, `app/api/pagar/email/route.ts`).

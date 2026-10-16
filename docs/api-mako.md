@@ -6813,7 +6813,7 @@ curl -L \
 
 ### `GET /api/v1/metricas/mrr` — MRR de suscripciones activas
 
-El ingreso recurrente mensual en USD de los leads ganados con venta de tipo suscripción que siguen activos hoy (indefinidos, o de plazo fijo cuyo fin todavía no llegó), y cuántas suscripciones son. Va APARTE del high-ticket: las suscripciones no entran en sold ni en cash. Úsala para «¿cuánto tengo en recurrente?». No requiere parámetros.
+El ingreso recurrente mensual en USD de los leads ganados con venta de tipo suscripción que siguen activos hoy (indefinidos, o de plazo fijo cuyo fin todavía no llegó), más las suscripciones activas que cobra la pasarela (Stripe o Mercado Pago) a un lead que no es de suscripción, y cuántas suscripciones son. Va APARTE del high-ticket: las suscripciones no entran en sold ni en cash. Úsala para «¿cuánto tengo en recurrente?». No requiere parámetros.
 
 - **Ruta por operación:** `GET /api/v1/metricas/ver_mrr_activo`
 - **Token detallado:** permiso `metricas=read` (Solo lectura en «Dashboard y análisis»)

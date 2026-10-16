@@ -36,7 +36,7 @@ import { darDeAltaCliente, esCapaVendible } from './alta-cliente';
 import { COLS_COBRO, NOMBRE_PASARELA, cobroDeFila, esTokenCobro, type Cobro, type EstadoAlta, type EstadoCobro, type Pasarela, type TipoCobro } from './cobros-tipos';
 import { valoresDelPago } from './variables-del-lead';
 import {
-  avisoPagoPorLinkAnulado, decidirCobro, esRenovacion, idemAnular, idemBaja, idemCobro, idemReembolso, mesesTranscurridos,
+  avisoPagoPorLinkAnulado, decidirCobro, esRenovacion, finDelPlazo, idemAnular, idemBaja, idemCobro, idemReembolso, mesesTranscurridos,
   esDevolucionFallida, montoUsdDeLaCuota, montoUsdDelCobro, pasaAPagado, textoDevolucionFallida, textoPagoRegistrado, urlPorVencer, ESTADOS_QUE_PASAN_A_PAGADO,
 } from './cobros-reglas';
 import { formatoMonto } from './pasarela-moneda';
@@ -46,10 +46,10 @@ import { emitirDelCatalogo } from './avisos';
 import { linkResumenLead } from './lead-resumen';
 import { enrolarPorPago, type SubtipoPago } from './pago-entrante';
 import {
-  asegurarEventosStripe, cancelarSuscripcionStripe, crearCheckoutStripe, expirarCheckoutStripe, leerCheckoutStripe, modoDeClaveStripe, reembolsarStripe,
+  asegurarEventosStripe, cancelarSuscripcionStripe, crearCheckoutStripe, expirarCheckoutStripe, leerCheckoutStripe, modoDeClaveStripe, programarFinSuscripcionStripe, reembolsarStripe,
 } from './stripe-api';
 import { urlAvisoStripe } from './cobros-conexion';
-import { buscarPagosMp, cancelarSuscripcionMp, crearPreferenciaMp, crearSuscripcionMp, leerCuentaMp, reembolsarMp, vencerPreferenciaMp } from './mercadopago-api';
+import { buscarPagosMp, cancelarSuscripcionMp, crearPreferenciaMp, crearSuscripcionMp, instanteMp, leerCuentaMp, reembolsarMp, vencerPreferenciaMp } from './mercadopago-api';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Links y credenciales
@@ -335,6 +335,19 @@ export async function crearCobro(ws: number, p: {
   });
 }
 
+/**
+ * El PLAZO de una suscripción (15/10/2026): los meses del producto del catálogo, si tiene (`suscripcion_meses`). Sin
+ * producto, o indefinido, null: se cobra hasta que alguien la cancele. Se lee del producto aunque esté inactivo.
+ */
+async function plazoDelCobro(c: Cobro): Promise<number | null> {
+  if (c.tipo !== 'suscripcion' || !c.producto_id) return null;
+  const db = await getTenantDb();
+  const { data, error } = await db.from('productos').select('suscripcion_meses').eq('id', c.producto_id).maybeSingle();
+  if (error) throw new Error(`No pude leer el plazo del producto ${c.producto_id}: ${error.message}`);
+  const n = Number((data as { suscripcion_meses: number | null } | null)?.suscripcion_meses);
+  return Number.isInteger(n) && n > 0 ? n : null;
+}
+
 async function crearCheckout(
   c: Cobro,
   cred: { stripe: CredStripe | null; mp: CredMp | null },
@@ -352,9 +365,14 @@ async function crearCheckout(
   if (!cred.mp) return { ok: false, error: 'Mercado Pago no está conectado.' };
   if (c.tipo === 'suscripcion') {
     if (!c.email) return { ok: false, error: 'Falta el email de quien paga.' };
+    // El PLAZO del producto (15/10/2026): la suscripción nace con fin. Un día ANTES del fin del período N, porque MP cobra
+    // desde que la persona la autoriza: si lo hace tarde, se pierde la última mensualidad en vez de cobrar una de más.
+    // Sin poder leer el plazo NO se crea: una suscripción sin fin es justo lo que esto evita.
+    const meses = await plazoDelCobro(c).catch(() => undefined);
+    if (meses === undefined) return { ok: false, error: 'No pude leer el plazo del producto.' };
     const r = await crearSuscripcionMp(cred.mp.token, {
       idem: idemCobro(c.id, vuelta), concepto: c.concepto, monto: c.monto, moneda: c.moneda, email: c.email,
-      token: c.token, volverUrl: linkDeRetorno(c.token),
+      token: c.token, volverUrl: linkDeRetorno(c.token), finAt: meses ? instanteMp(finDelPlazo(Date.now(), meses) - 86_400_000) : null,
     });
     return r.ok ? { ok: true, ref: r.id, url: r.url, venceAt: null } : { ok: false, error: r.error };
   }
@@ -466,6 +484,15 @@ export async function aplicarPagoAprobado(c: Cobro, p: {
       }
     }
 
+    // 2a. ⚠️ EL PLAZO de un producto con fin (15/10/2026). En Stripe se programa ACÁ (Checkout no acepta un fin); en Mercado
+    //     Pago nació con él. Y el lead que se GANA con este pago lo lleva (su `fecha_cierre` es hoy), así el MRR deja de
+    //     contarla cuando se cumple. Hasta este día un producto «6 meses» se cobraba para siempre. Best effort: la plata
+    //     ya entró; si falla, queda dicho (en el cobro, o en el log si no se pudo ni leer el plazo).
+    const plazo = actual.tipo === 'suscripcion' && nuevo && !renovacion
+      ? await plazoDelCobro(actual).catch((e) => { console.error(`[cobros] no pude leer el plazo del cobro ${c.id}:`, e instanceof Error ? e.message : String(e)); return null; })
+      : null;
+    if (plazo && actual.proveedor === 'stripe' && actual.proveedor_suscripcion_id) actual = await programarPlazoStripe(actual, plazo);
+
     // 2b. Una suscripción NUEVA de la pasarela sobre un lead que ya era suscripción: la cancelada o con plazo vuelve a
     //     activa y sin fin (`reabrirSuscripcionDelLead`). Va antes de ganar, que no la toca si el lead ya ganó.
     if (actual.lead_id && actual.tipo === 'suscripcion' && nuevo && !renovacion) await reabrirSuscripcionDelLead(actual, autor);
@@ -473,7 +500,7 @@ export async function aplicarPagoAprobado(c: Cobro, p: {
     // 3. Ganar el lead (sólo si no está ganado): por setPipelineStage y la etapa de SU embudo,
     //    nunca escribiendo estado_lead a mano (tests/crm-curso-al-ganar.test.ts). Esto es lo que
     //    evita que el CRM automático le escriba «no agendaste» a quien pagó (docs/proyeccion-04oct.md §4.6).
-    if (actual.lead_id) await ganarLead(actual, autor);
+    if (actual.lead_id) await ganarLead(actual, autor, plazo);
 
     // 4. El historial: una línea por cuota nueva, firmada por la pasarela.
     if (actual.lead_id && cuotaNueva) {
@@ -584,12 +611,29 @@ async function alCron(c: Cobro, subtipo: SubtipoPago): Promise<void> {
   }
 }
 
+/** Programa el fin del plazo en Stripe (`programarFinSuscripcionStripe`). Nunca tira: la plata ya entró. Si falla, lo dice el cobro. */
+async function programarPlazoStripe(c: Cobro, meses: number): Promise<Cobro> {
+  try {
+    const stripe = await credStripe(c.workspace_id);
+    const r = stripe && c.proveedor_suscripcion_id ? await programarFinSuscripcionStripe(stripe.key, c.proveedor_suscripcion_id, meses) : null;
+    if (r?.ok) return c;
+    const por = r && !r.ok ? r.error : 'Stripe no está conectado';
+    console.error(`[cobros] no pude programar el fin del plazo del cobro ${c.id}: ${por}`);
+    return (await actualizar(c.workspace_id, c.id, { motivo: `No pude programar en Stripe el fin de los ${meses} meses: cancélala a mano al cumplirse (${por}).` })) ?? c;
+  } catch (e) {
+    console.error(`[cobros] no pude programar el fin del plazo del cobro ${c.id}:`, e instanceof Error ? e.message : String(e));
+    return c;
+  }
+}
+
 /**
  * ⚠️ UNA SUSCRIPCIÓN NUEVA POR LA PASARELA REABRE LA DEL LEAD (revisión del 14/10/2026). Una manual cancelada en marzo,
  * y el cliente vuelve en octubre pagando un link de suscripción: `ganarLead` no corre (el lead ya estaba ganado), así
  * que `suscripcion_cancelada_at` y el plazo congelado (los meses transcurridos al cancelar, también los de una baja
  * de la pasarela) quedaban: la ficha decía «Cancelada» y el MRR no la contaba mientras Stripe cobraba todos los meses.
- * Una de la pasarela es sin fin (`suscripcion_meses` null) y su mensualidad es la del cobro. No tira: la plata ya
+ * Una de la pasarela es sin fin (`suscripcion_meses` null) y su mensualidad es la del cobro: aunque su producto tenga
+ * plazo, el plazo del LEAD se cuenta desde su `fecha_cierre` (la de hace meses) y la daría por vencida antes de tiempo. El
+ * fin lo marca la pasarela al cancelarla (`aplicarSuscripcionCancelada`). No tira: la plata ya
  * entró; si falla queda dicho en los logs (sin la migración 0292, el select de la columna falla y no se toca nada).
  */
 async function reabrirSuscripcionDelLead(c: Cobro, autor: string): Promise<void> {
@@ -611,7 +655,7 @@ async function reabrirSuscripcionDelLead(c: Cobro, autor: string): Promise<void>
   }
 }
 
-async function ganarLead(c: Cobro, autor: string): Promise<void> {
+async function ganarLead(c: Cobro, autor: string, plazo: number | null = null): Promise<void> {
   if (!c.lead_id) return;
   const lead = await getLead(c.lead_id);
   if (!lead || lead.estado_lead === 'ganado') return;
@@ -620,7 +664,7 @@ async function ganarLead(c: Cobro, autor: string): Promise<void> {
     // suscripción NO tiene monto_cierre_usd, su plata es suscripcion_monto_usd (lib/venta-tipo.ts).
     if (c.tipo === 'suscripcion' && c.monto_usd != null) {
       const db = await getTenantDb();
-      const { error } = await db.from('leads').update({ venta_tipo: 'suscripcion', suscripcion_monto_usd: c.monto_usd, suscripcion_meses: null }).eq('id', lead.id);
+      const { error } = await db.from('leads').update({ venta_tipo: 'suscripcion', suscripcion_monto_usd: c.monto_usd, suscripcion_meses: plazo }).eq('id', lead.id);
       if (error) console.error(`[cobros] no pude marcar la suscripción del lead ${lead.id}: ${error.message}`);
     }
     const etapa = etapaDeGanado(await getPipelineStagesDeLead(lead));
