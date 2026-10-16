@@ -33,8 +33,11 @@ modo claro** (`b401cd017`, «pon en white mode la tab de Second Brain»). Las ci
   arrancan junto con las nueve de arriba. **No se midió contra producción**: medir el pop-up antes y después; lo
   que siga lento probablemente está en `leerInsumosDatosLead`, `getTrackingEvents` o `replayDeLead`.
 - [x] **10, en parte.** «Personalizar» pasó a ser «Editar», en azul como el del Dashboard; ya editando, «Ver» con borde
-  (app/crm/lead-view/ficha/FichaPorBloques.tsx y ficha-css.ts). Falta el «⋯» con exportar, compartir, tutorial y «AI
-  Analyst», y sacar la tab «MaKo Analyst».
+  (app/crm/lead-view/ficha/FichaPorBloques.tsx y ficha-css.ts). Al lado, el «⋯» (`588c1ffec`) con **«AI Analyst»** —un
+  panel aparte a la IZQUIERDA, por portal, y la ficha (pop-up `data-ficha-overlay`, ruta `data-ficha-ruta`) se corre
+  para dejarle lugar— y «Copiar el link». La pestaña «MaKo Analyst» se fue; `?tab=insights` y «Ver análisis» abren el
+  panel. Falta en el «⋯»: exportar la hoja y el tutorial; y que al EDITAR se abra solo el chat, para editar la vista.
+  Nadie lo miró en pantalla: revisar el panel sobre el pop-up a 1440 y 1024.
 - [x] **6, en parte.** El «Ver» de datos sin marcar de la ficha tiene la fila de «A revisar»: el ícono del bloque
   (`ICONO_DATO` en app/crm/lead-view/DatosSinMarcarCard.tsx), el basurero rojo para ignorar, la flecha azul para
   completar, la cabecera con el número en su chip. Test: tests/datos-ficha-como-a-revisar.test.ts. Falta lo de

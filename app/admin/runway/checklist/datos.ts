@@ -59,6 +59,7 @@ export const HECHO: SeccionChecklist[] = [
     { id: 'crm-mako-izq', t: 'El botón y el panel de MaKo del CRM, a la izquierda.', ruta: '/crm' },
     { id: 'crm-editar-azul', t: 'En la ficha, «Personalizar» ahora es «Editar», en azul como en el Dashboard.' },
     { id: 'crm-ficha-rapida', t: 'La ficha del lead abre más rápido (cinco lecturas en paralelo); falta medirla.' },
+    { id: 'crm-ai-analyst', t: 'En la ficha, «⋯» con «AI Analyst» (panel a la izquierda) y «Copiar el link»; ya no hay tab MaKo Analyst.' },
   ] },
   { titulo: 'Automations', items: [
     { id: 'aut-flechas', t: 'Toda flecha se desconecta; el paso con IA escucha notas de voz.', ruta: '/automations' },
@@ -111,7 +112,7 @@ export const PENDIENTE: SeccionChecklist[] = [
     { id: 'p16-crm-hojas', t: 'CRM: tabs como las hojas del Dashboard, templates con miniaturas propias, sin la barra lateral.' },
     { id: 'p16-crm-obligatorio', t: 'CRM: «Obligatorio» en cada bloque decide los datos sin marcar; el «Ver» igual que «A revisar».' },
     { id: 'p16-crm-chat2', t: 'CRM: el chat de MaKo con la cara del Second Brain y el muñeco de la tab.' },
-    { id: 'p16-crm-editar', t: 'CRM: «Editar» + «⋯» con «AI Analyst» (reemplaza la tab), el chat abre a la izquierda.' },
+    { id: 'p16-crm-editar2', t: 'CRM: en el «⋯» de la ficha, exportar y el tutorial; al editar, el chat para editar la vista.' },
     { id: 'p16-onb-pdf', t: 'Onboarding: sin el análisis de Offer; sólo ordenar en un PDF lo que vendes.' },
     { id: 'p16-sb-skills', t: 'Second Brain: «Skills» como skills.sh, se instalan solas y crean un chat para todos.' },
   ] },
