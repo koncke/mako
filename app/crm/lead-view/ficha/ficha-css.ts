@@ -17,6 +17,12 @@
 // ⚠️ El ESTILO de la ficha (tema y densidad) pisa las tarjetas de siempre, que llevan su caja en `style`:
 //    por eso va con !important y sólo sobre la caja de cada bloque (`.fb-cuerpo > section`), no adentro.
 //    Lo que dibuja un bloque con color propio (el «Va bien») lleva `fb-propio` y no se pisa.
+// ⚠️ LA TAB ÉPICA (`fb-tab--epica`, 16/10/2026) es la escala de General y de MaKo Mobile v3: un titular gigante (el
+//    nombre de la tab: 32 px en un teléfono, hasta 56 en escritorio), más aire entre bloques y adentro de cada uno. Lo
+//    que va por fila lo decide ./armar.ts (`anchoEnDispositivo` con `epico`), no esta hoja.
+// ⚠️ LA GALERÍA (`fb-galeria`, `fb-gal-*`, ./GaleriaTab.tsx) es la de «Nueva hoja» del Dashboard (app/dashboard/
+//    NuevaHoja.tsx): la caja arriba, las tarjetas con su miniatura abajo, «Sugerido» de 11,5 px en gris. No va en un
+//    celular: a lo ancho de un teléfono se esconde y la tab queda con la sugerida.
 // =============================================================================
 
 export const CSS_FICHA = `
@@ -130,6 +136,8 @@ export const CSS_FICHA = `
   .fb-buscar { height: var(--touch); }
   .fb-boton-texto { min-height: var(--touch); }
   .fb-aviso { min-height: var(--touch); }
+  .fb-campo { height: var(--touch); }
+  .fb-gal-barra .mk-btn { min-height: var(--touch); }
   .fb input, .fb textarea, .fb select, .fb-flotante input { font-size: 16px !important; }
 }
 
@@ -146,6 +154,54 @@ export const CSS_FICHA = `
 .fb-vacio-menu { padding: 10px 14px; font-size: 13px; color: var(--faint); }
 .fb-iconos { display: grid; grid-template-columns: repeat(8, 1fr); gap: 2px; padding: 4px 8px 8px; }
 .fb-iconos .fb-herr { height: 32px; }
+
+/* LA TAB ÉPICA: un titular gigante y más aire. */
+.fb-tab { display: flex; flex-direction: column; gap: var(--fb-gap); min-width: 0; }
+.fb-tab--epica { --fb-gap: 30px; }
+.fb-dens-compacta .fb-tab--epica { --fb-gap: 22px; }
+.fb-dens-amplia .fb-tab--epica { --fb-gap: 38px; }
+.fb-titular { margin: 4px 0 0; font-size: clamp(32px, 2.4vw + 16px, 56px); font-weight: 700; letter-spacing: -0.025em; line-height: 1.05; color: var(--ink); overflow-wrap: anywhere; }
+.fb--letra .fb-titular { font-family: var(--dash-letra); }
+.fb-tab--epica .fb-cuerpo > section:not(.fb-propio) { padding: 30px 32px !important; border-radius: 20px; }
+.fb-dens-compacta .fb-tab--epica .fb-cuerpo > section:not(.fb-propio) { padding: 22px 24px !important; }
+@media (max-width: 720px) { .fb-titular { font-size: 32px; } .fb-tab--epica .fb-cuerpo > section:not(.fb-propio) { padding: 22px 20px !important; } }
+.fb-pagina[data-dispositivo="tableta"] .fb-titular { font-size: 44px; }
+.fb-pagina[data-dispositivo="movil"] .fb-titular { font-size: 32px; }
+
+/* LA GALERÍA de una tab: «¿Qué vas a crear hoy?» y las plantillas (la de «Nueva hoja»), y abajo la vista previa. */
+.fb-galeria { position: relative; display: flex; flex-direction: column; gap: 18px; padding: 22px 20px 20px; border-radius: 18px; background: var(--surface-2); }
+.fb-galeria-cerrar { position: absolute; top: 14px; right: 16px; z-index: 1; }
+.fb-galeria-caja { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+.fb-gal-grilla { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(168px, 100%), 1fr)); gap: 14px; }
+.fb-gal-carta { display: flex; flex-direction: column; min-width: 0; padding: 8px 8px 10px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); color: inherit; font: inherit; text-align: left; cursor: pointer;
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--ink) 6%, transparent), 0 6px 18px color-mix(in srgb, var(--ink) 7%, transparent); transition: box-shadow .15s, border-color .15s; }
+.fb-gal-carta:hover, .fb-gal-carta:focus-visible { border-color: var(--primary); outline: none; }
+.fb-gal-carta[aria-pressed="true"] { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary), 0 8px 22px color-mix(in srgb, var(--ink) 10%, transparent); }
+.fb-gal-mini { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 4px; align-content: start; aspect-ratio: 16 / 10; overflow: hidden; margin-bottom: 9px; padding: 8px; box-sizing: border-box; border-radius: 9px; background: var(--bg); box-shadow: 0 0 0 1px var(--border); }
+.fb-gal-mini--vacia { grid-template-columns: minmax(0, 1fr); place-items: center; box-shadow: none; border: 1.5px dashed var(--border-strong); color: var(--dim); font-size: 26px; line-height: 1; }
+.fb-gal-carta:hover .fb-gal-mini--vacia { border-color: var(--primary); color: var(--primary); }
+.fb-gal-pieza { grid-column: span var(--s, 12); min-width: 0; height: 18px; padding: 0 5px; box-sizing: border-box; border-radius: 4px; background: var(--surface); box-shadow: 0 0 0 1px var(--border);
+  font-size: 8.5px; line-height: 18px; color: var(--dim); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.fb-gal-mini--epica { gap: 6px; }
+.fb-gal-mini--epica .fb-gal-pieza { height: 26px; font-size: 10px; font-weight: 600; line-height: 26px; color: var(--ink); }
+.fb-gal-titular { grid-column: 1 / -1; width: 46%; height: 9px; border-radius: 3px; background: var(--ink); opacity: .7; }
+.fb-gal-pie { display: flex; align-items: baseline; gap: 8px; min-width: 0; padding: 0 3px; }
+.fb-gal-nombre { min-width: 0; font-size: 14px; font-weight: 600; line-height: 1.3; color: var(--ink); overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow-wrap: anywhere; }
+.fb-gal-sugerido { flex: none; margin-left: auto; font-size: 11.5px; font-weight: 500; line-height: 1.3; color: var(--dim); }
+/* La barra de la vista previa queda a mano mientras se baja por la tab que se mira (debajo de las tabs pegadas). */
+.fb-gal-barra { position: sticky; top: 58px; z-index: 4; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 8px 10px 8px 14px; border-radius: 12px; border: 1px solid var(--primary);
+  background: var(--surface); box-shadow: 0 6px 18px rgba(18, 21, 27, .10); font-family: 'Geist', sans-serif; }
+.fb-gal-barra-txt { flex: 1; min-width: 0; font-size: 13.5px; color: var(--dim); }
+.fb-gal-barra-txt strong { color: var(--ink); font-weight: 650; }
+.fb-gal-barra-aviso { color: var(--faint); }
+@media (max-width: 720px) { .fb-galeria, .fb-gal-barra { display: none; } }
+@media (prefers-reduced-motion: reduce) { .fb-gal-carta { transition: none; } }
+
+/* Un campo del panel (el nombre de la tab). */
+.fb-campo { display: block; width: 100%; box-sizing: border-box; height: 34px; padding: 0 10px; border-radius: 9px; border: 1px solid var(--border-strong); background: var(--surface); color: var(--ink); font: inherit; font-size: 13.5px; outline: none; }
+.fb-campo:focus { border-color: var(--primary); }
+.fb-panel-fila { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 30px; }
+.fb-panel-valor { font-size: 14px; font-weight: 650; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* El estilo de toda la ficha es el PanelEstilo del Dashboard (app/dashboard/PanelEstilo.tsx): sus reglas, copiadas de app/dashboard/editor-css.ts y edicion-css.ts. */
 .fb-panel .lk-estilo { padding: 0; display: flex; flex-direction: column; gap: 4px; }

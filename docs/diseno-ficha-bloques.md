@@ -376,3 +376,28 @@ Al entregar, lo primero es si hay que mirarlo hoy, en qué semana va y qué se l
 - **El orden de «Editar deal →».** No se saca antes de que cada bloque de Pagos escriba su campo, porque hoy guardar reemplaza los datos del deal enteros y guardar las cuotas gana el lead y reemplaza las impagas. Se saca al cierre de la misma tanda, con `?edit=1` y «Completar con IA».
 - **Para después.** Sugerencias de MaKo según los datos del funnel (fijar «Presupuesto» si la mayoría lo contestó): piden contar datos por funnel, que no existe. «Red destacada» elegida sola según la plataforma: no hay un dato de plataforma por funnel.
 - **Diseño.** Una grilla de alto fijo como la del Dashboard: los bloques sólo tienen ancho y el alto lo da el contenido. Tipografía y colores por bloque: van para toda la ficha, en el tema, porque bloque por bloque la ficha deja de leerse como una sola.
+
+## 6. Por tab (16/10/2026): galería, nombre y vista épica
+
+Martín, 16/10/2026: «Sobre todo que sea PERSONALIZABLE, como tenemos en dashboard o general cada tab... Que no sea
+complejo de utilizar, que hayan templates para "resumen", "tracking" y todas las tabs... Que se pueda cambiar el nombre
+de las tabs internas, agregar bloques, que se pueda ver "epico"... Si nunca configuró una tab, y entra por primera vez
+al detail de un lead, que le salten los templates y el ¿Qué vas a crear hoy?». Las siete decisiones del 14/10 siguen
+(la ficha y sus avisos son POR FUNNEL). Lo que se suma:
+
+- **Una plantilla por TAB**, además de la del funnel. Cada tab tiene su galería (lib/ficha/plantillas-tab.ts): «En
+  blanco» primera, las de cada tipo de funnel partidas por tab (dos tipos con la misma lista son una), una ÉPICA, y en
+  Pagos las del chat Pagos (lib/ficha/plantillas-pagos.ts). Elegir una reemplaza SÓLO esa tab. La del funnel sigue
+  decidiendo los avisos y cuál va de entrada en cada tab.
+- **La de entrada es la que ya se veía**: un funnel que nadie tocó no cambia. «Sugerido» sale primero (la regla de
+  la casa, docs/plantillas-sugeridas.md), con el TIPO del funnel como señal (`sugeridasDeTab`).
+- **La primera vez**: el admin que entra a una tab sin configurar ve, en su lugar, «¿Qué vas a crear hoy?» y la
+  galería. Tocar una plantilla la MIRA con los datos del lead; «Usar» la guarda (también la sugerida: es elegir);
+  «Ahora no» se recuerda en el navegador y deja la sugerida. Un no-admin nunca ve la galería. En el celular, tampoco.
+- **El nombre de cada tab** es del funnel (`ficha.nombres`), de hasta 24 caracteres y sin repetir otro. Se cambia con
+  doble clic en la pestaña personalizando, o en el panel. La clave de la tab (`?tab=`) no cambia.
+- **La vista épica es de la tab** (`ficha.epica`): la trae su plantilla y el admin la prende o la apaga. Titular
+  gigante (el nombre de la tab), dos bloques por fila como mucho en escritorio, uno en la tablet, más aire. Cada bloque
+  recibe `epico: true` y decide cómo se agranda.
+- **«Volver a la plantilla»** de una tab devuelve su lista, su nombre y su épica (su plantilla elegida queda); el de
+  toda la ficha, todo menos el estilo. Elegir otra plantilla para toda la ficha deja los nombres.

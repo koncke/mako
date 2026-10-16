@@ -24,6 +24,7 @@ anular_link_pago
 apagar_kpi
 archivar_etiqueta
 archivar_secuencia
+armar_tab_ficha
 asegurar_plantilla_reporte
 asignar_closer_setter
 asignar_oferta_lead

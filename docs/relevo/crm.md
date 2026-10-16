@@ -6,6 +6,37 @@ el briefing anterior (`b5f7fb55`, 10/10 17:10) con todo verificado contra el ár
 **Rutas de esta área:** `app/crm/**`, `lib/leads.ts`, `lib/funnel*.ts`, `lib/crm*.ts`,
 `lib/lead-*.ts`, `lib/campana-*.ts`, `lib/etiquetas*.ts`, `lib/pipeline.ts`.
 
+## 0-Ω8. 16/10/2026 (frente «marco» de la ficha v2, cuenta `claude3`): cada tab personalizable
+
+Rama `crm-ficha-v2` en `C:/dev/wt-crm-ficha2`, sobre main `81b966b86`. Martín, 16/10: «Sobre todo que sea
+PERSONALIZABLE, como tenemos en dashboard o general cada tab... templates para "resumen", "tracking" y todas las
+tabs... cambiar el nombre de las tabs internas... que se pueda ver "epico"... Si nunca configuró una tab... que le
+salten los templates y el ¿Qué vas a crear hoy?». Referencias: «Nueva hoja» del Dashboard (la caja y la galería), la
+documentación de HubSpot para mirar una plantilla con un registro de verdad, y Google Sheets para renombrar con doble clic.
+
+**Qué cambia para Martín y los clientes al desplegar:**
+- Cada tab (Resumen, Tracking, Reuniones, Pagos) tiene su galería: «En blanco», la sugerida para el tipo de funnel
+  con «Sugerido», una ÉPICA y las de hoy partidas por tab. Elegir una cambia SÓLO esa tab, para todo el funnel.
+- La primera vez que un admin entra a una tab que nadie configuró, en su lugar sale «¿Qué vas a crear hoy?» (la caja
+  de la casa: MaKo arma la tab con un pedido, con la red barata) y las plantillas. Tocar una la MIRA con los datos de
+  ese lead; «Usar» la guarda; «Ahora no» deja la sugerida. Un no-admin ve la sugerida, como hasta hoy.
+- Personalizando: doble clic en una pestaña la renombra (la clave `?tab=` no cambia), «Plantillas» abre la galería, y
+  el panel tiene «Esta tab» (nombre, plantilla, vista épica, volver) y «Toda la ficha».
+- La vista épica: un titular gigante (el nombre de la tab), dos bloques por fila como mucho en escritorio y uno en la
+  tablet, más aire. Cada bloque recibe `epico` (el contrato con Pagos).
+- La API de MaKo: `cambiar_ficha_funnel` suma `nombre` y `epica` y la plantilla de una tab (`plantilla` con `tab`);
+  `armar_tab_ficha` (nueva) arma una tab con un pedido, con confirmación y sólo el admin.
+- Un funnel que nadie tocó se ve EXACTAMENTE igual que antes (la de entrada de cada tab es la lista de hoy).
+
+**Tests:** los de la ficha, la API y los guards que leen el fuente (1.947 en el barrido de lo tocado) en verde; dos
+archivos nuevos (tests/ficha-tabs.test.ts, tests/ficha-galeria.test.ts) probados rompiéndolos. El tsc fue el ACOTADO.
+
+**SIN HACER (con su archivo):**
+- Mirarla en el ws 3 con datos reales y la caja contra la IA de verdad (en el banco la ruta iba simulada).
+- La épica por dentro de cada bloque: el frente del Resumen (registro-resumen.tsx) y Pagos (registro-pagos.tsx).
+- Las plantillas de Pagos: lib/ficha/plantillas-pagos.ts está vacío a propósito (lo escribe Pagos; gana su versión).
+- La tarjeta del lead en el kanban personalizable (tanda 2).
+
 ## 0-Ω7. 16/10/2026 (chat «CRM», cuenta `claude3`): la PANTALLA de la ficha por bloques, lista para subir
 
 Rama `crm-armador` en `C:/dev/wt-crm-armador` (el código, hasta `6b6c2ea8b`), sobre `crm-avisos-funnel` (ya en main).

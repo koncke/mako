@@ -30,6 +30,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { NOMBRE_TAB, type TabFicha } from '../lib/ficha/catalogo';
 
 const crudo = (p: string) => readFileSync(join(import.meta.dirname, p), 'utf8');
 
@@ -158,10 +159,17 @@ test('el aviso no arrastra props muertas', () => {
 
 // ── 2 · El orden de las pestañas ─────────────────────────────────────────────
 /** Los `label:` de una lista de tabs, en el orden en que se declaran. */
+/**
+ * Los rótulos de las tabs, en el orden en que se declaran. ⚠️ DESDE EL 16/10/2026 las cuatro de datos no llevan un
+ * `label: '…'` escrito: su nombre es el de la ficha del funnel (Martín: «Que se pueda cambiar el nombre de las tabs
+ * internas»), y se declaran con `deTab('<tab>')`. Su nombre DE SIEMPRE es `NOMBRE_TAB` del catálogo, que es lo que se lee
+ * aquí para ellas; las demás (MaKo Analyst, Historial) siguen con su `label` escrito. Re-verificado rompiéndolo
+ * (16/10/2026, base 9/0): Pagos declarada antes que Reuniones en FichaPorBloques → 8 / 1.
+ */
 function etiquetas(fuente: string, desde: string): string[] {
   const i = fuente.indexOf(desde);
   assert.ok(i >= 0, `no encontré «${desde}»`);
-  return [...fuente.slice(i).matchAll(/label: '([^']+)'/g)].map((m) => m[1]);
+  return [...fuente.slice(i).matchAll(/deTab\('(\w+)'\)|label: '([^']+)'/g)].map((m) => (m[1] ? NOMBRE_TAB[m[1] as TabFicha] : m[2]));
 }
 
 test('MaKo Analyst (ex «Análisis») va pegado a Historial, en las DOS fichas', () => {
@@ -228,7 +236,8 @@ test('las DOS fichas hablan el mismo idioma y muestran lo mismo', () => {
   // o si se está personalizando la ficha del funnel (la ficha es del funnel, no de este lead).
   const ficha = leer('../app/crm/lead-view/ficha/FichaPorBloques.tsx');
   assert.match(ficha, /\.\.\.\(verPagos \? \['pagos' as const\] : \[\]\)/, 'Pagos condicional para el lead');
-  assert.match(ficha, /\.\.\.\(tabsBloques\.includes\('pagos'\) \? \[\{ key: CLAVE_DE_TAB\.pagos, label: 'Pagos'/, 'Pagos condicional en la ficha');
+  // 16/10/2026: la tab se declara con `deTab` (su nombre es el de la ficha del funnel, ver `etiquetas`).
+  assert.match(ficha, /\.\.\.\(tabsBloques\.includes\('pagos'\) \? \[\{ \.\.\.deTab\('pagos'\), badge:/, 'Pagos condicional en la ficha');
 });
 
 test('las notas y el recorrido están en las DOS fichas, y en el mismo lugar', () => {

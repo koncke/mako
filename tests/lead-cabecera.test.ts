@@ -90,7 +90,8 @@ test('Reuniones: sólo si el funnel del lead tiene una etapa de reunión, con la
   // ⚠️ CAMBIADO A PROPÓSITO EL 14/10/2026: una regla, en la ficha compartida de las dos puertas.
   assert.match(FICHA, /const verReuniones = tieneEtapaDeReunion\(stages\);/, 'no usa tieneEtapaDeReunion');
   assert.match(FICHA, /\.\.\.\(verReuniones \? \['reuniones' as const\] : \[\]\)/, 'Reuniones no mira verReuniones');
-  assert.match(FICHA, /\.\.\.\(tabsBloques\.includes\('reuniones'\) \? \[\{ key: CLAVE_DE_TAB\.reuniones, label: 'Reuniones'/);
+  // 16/10/2026: la tab se declara con `deTab` (su nombre es el de la ficha del funnel, que el admin puede cambiar).
+  assert.match(FICHA, /\.\.\.\(tabsBloques\.includes\('reuniones'\) \? \[deTab\('reuniones'\)\] : \[\]\)/);
   for (const src of [SHEET, BODY]) assert.match(src, /<FichaPorBloques\b/);
 });
 

@@ -111,6 +111,8 @@ export const RUTAS_REST: readonly RutaRest[] = [
   // principal), como `/crm/sugerencias`. PATCH porque cambia UNA parte (un bloque, un aviso, el estilo).
   ['GET', '/crm/ficha', 'ver_ficha_funnel'],
   ['PATCH', '/crm/ficha', 'cambiar_ficha_funnel'],
+  // Una tab armada por MaKo con un pedido (16/10/2026): crea su lista de bloques; la tab va en el cuerpo.
+  ['POST', '/crm/ficha/tabs', 'armar_tab_ficha'],
   ['POST', '/crm/importaciones', 'proponer_leads'],
   ['GET', '/crm/leads', 'listar_leads'],
   ['POST', '/crm/leads', 'proponer_lead'],
