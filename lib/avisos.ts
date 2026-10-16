@@ -462,6 +462,7 @@ async function depsDelEvento(): Promise<DepsEvento> {
     emitirAviso,
     reclamar: reclamarEspaciado,
     correr: (flujoId, pasos, ws, ctx) => runWithWorkspace(ws, () => ejecutarPasos(flujoId, pasos, ws, ctx)),
+    wsPlataforma: wsSuperAdmin,
     log: (m) => console.error(m),
   };
 }
@@ -506,7 +507,11 @@ export async function emitirDelCatalogo(
   // ⚠️ UN EVENTO DE MAKO NO LEE EL STORE (11/10/2026, docs/diseno-mako-en-whatsapp-unificado.md): estos tres
   // salen SÓLO por las automatizaciones del negocio («Todos arrancan vacíos», decisión de Martín). El desvío
   // va ANTES de `getPlantilla`: leído el store, su interruptor y su texto volverían a decidir algo.
-  if (AVISOS_POR_EVENTO.has(id)) return emitirPorEvento(cat, ws, opts, await depsDelEvento());
+  if (AVISOS_POR_EVENTO.has(id)) {
+    const r = await emitirPorEvento(cat, ws, opts, await depsDelEvento());
+    // Un Mensaje de MaKo de la PLATAFORMA que todavía no tiene su automatización: sale como antes (`sinFila`).
+    if (!r.sinFila) return r;
+  }
   const { getPlantilla, referenciaResuelta, generarMensajeAviso } = await import('./plantillas');
   // UNA lectura de la plantilla, y trae las cuatro respuestas que hacen falta: si está
   // prendida, cómo la llamó ESTE negocio, qué asunto le puso al correo y —vía

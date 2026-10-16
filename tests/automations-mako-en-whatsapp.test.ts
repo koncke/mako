@@ -299,7 +299,8 @@ test('5. `listarPlantillas` deja afuera los tres eventos en las dos vistas, y la
   // El nuevo agendado es un evento desde la décima tanda: tampoco se lista en /mensajes.
   // Y el pago recibido desde el 11/10/2026 (la pasarela): también es un evento, no un interruptor de /mensajes.
   // Y desde el 15/10/2026 el pedido de restablecer la contraseña: un evento de una PERSONA, de la plataforma.
-  assert.deepEqual([...AVISOS_POR_EVENTO].sort(), ['cuota-vencida', 'dashboard-analisis-listo', 'pago-recibido', 'reunion-nuevo-agendado', 'reunion-recordatorio', 'seguridad-contrasena-restablecer', 'wa-mensaje-entrante']);
+  // (15/10/2026: y la línea caída y la que volvió, Mensajes de MaKo de la PLATAFORMA; dejan /mensajes como los demás.)
+  assert.deepEqual([...AVISOS_POR_EVENTO].sort(), ['cuota-vencida', 'dashboard-analisis-listo', 'pago-recibido', 'reunion-nuevo-agendado', 'reunion-recordatorio', 'seguridad-contrasena-restablecer', 'wa-desconectado', 'wa-mensaje-entrante', 'wa-reconectado']);
   assert.deepEqual(AVISOS_DEL_CLIENTE, [], '«Todos arrancan vacíos»: un mensaje de MaKo del cliente es una automatización');
   // El reporte de los lunes no se mudó: es del super admin y sale como siempre (sólo email).
   assert.ok(AVISOS_SOLO_SUPERADMIN.includes('reporte-semanal'));

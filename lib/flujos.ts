@@ -65,6 +65,11 @@ export type CtxFlujo = {
    */
   aviso?: { id: string; titulo: string };
   /**
+   * SÓLO EN UN EVENTO DE LA PLATAFORMA (15/10/2026, `EventoMako.plataforma`): el negocio que lo emitió. La corrida es de la
+   * plataforma (`ws`), pero su tarjeta «MaKo en WhatsApp» le llega al grupo de ESTE negocio, con sus datos y sus links.
+   */
+  negocioWs?: number;
+  /**
    * SÓLO EN LA CORRIDA DE UN EVENTO DE MAKO: qué tarjeta es cada paso (`TraduccionEvento.firma`). Una corrida guarda
    * una POSICIÓN; con esto, al despertar se sabe si esa posición sigue siendo la misma tarjeta (`pasosParaRetomar`).
    */
@@ -510,7 +515,9 @@ async function emitirTarjetaDelEvento(
   // hasta que el script de flujos las archive. Ya no se ofrece ni se publica (`problemasDeTokens`, lib/tokens-del-flujo.ts).
   // Los datos van con el renglón opcional (`conVariables` → `textoConDatos`): «📱 {{lead_telefono}}» sin teléfono no sale.
   const datos = { ...(ctx.datos ?? {}), ...(ctx.texto ? { [CLAVE_MENSAJE_MAKO]: ctx.texto } : {}) };
-  const resolver = (t: string) => conVariables(t, { ws, leadId: ctx.leadId ?? null, leadNombre: ctx.leadNombre ?? null }, datos).catch(() => t);
+  // Un evento de la PLATAFORMA le habla al negocio que lo emitió (`negocioWs`): su grupo, sus datos, sus links.
+  const wsDestino = ctx.negocioWs ?? ws;
+  const resolver = (t: string) => conVariables(t, { ws: wsDestino, leadId: ctx.leadId ?? null, leadNombre: ctx.leadNombre ?? null }, datos).catch(() => t);
   let partes: PartePreparada[] | null = null;
   let texto: string;
   if (tarjeta.partes?.length) {
@@ -530,7 +537,7 @@ async function emitirTarjetaDelEvento(
   const { emitirAviso } = await import('./avisos');
   const r = await emitirAviso({
     tipo: aviso.id, titulo: aviso.titulo, texto,
-    categoria: cat?.categoria, semaforo: cat?.semaforo, ws,
+    categoria: cat?.categoria, semaforo: cat?.semaforo, ws: wsDestino,
     ...(ctx.leadId ? { lead: { id: ctx.leadId, nombre: ctx.leadNombre ?? null } } : {}),
     estado: ESTADO_EVENTO,
     ...(partes ? { partes, rotulo: false as const } : {}),
