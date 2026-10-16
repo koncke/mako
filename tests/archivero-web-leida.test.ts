@@ -105,9 +105,13 @@ test('la ruta pregunta por el muro ANTES de pedir la API key', () => {
   assert.ok(fn.length < 4000, 'el recorte salió enorme: está mirando otra cosa');
 
   assert.ok(fn.includes('muroConocido(host)'), 'la ruta no pregunta por el muro');
+  // ⚠️ Desde el 16/10/2026 la ruta ya no corta por «no hay IA propia» (un cliente nuevo no trae una API
+  // y la red de la plataforma lee por él: tests/onboarding-sin-api.test.ts). Lo que se fija ahora es que
+  // el muro se pregunte antes de GASTAR IA: contra un Instagram, la llamada se gasta para nada.
+  assert.ok(fn.includes('extraerDeArchivo('), 'no encuentro la lectura con IA de la web');
   assert.ok(
-    fn.indexOf('muroConocido(host)') < fn.indexOf('docsIADisponible()'),
-    'pedirle la API key a quien pegó un Instagram lo manda a arreglar algo que no abre el muro',
+    fn.indexOf('muroConocido(host)') < fn.indexOf('extraerDeArchivo('),
+    'la IA se gasta en un Instagram antes de preguntar por el muro',
   );
 });
 

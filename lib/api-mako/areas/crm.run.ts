@@ -28,11 +28,21 @@ import {
 } from '@/lib/leads';
 import { getFunnelDefault } from '@/lib/funnels';
 import { salidasDeEtapa, stageMetaOpt, ENTRADAS, MAKO_SETTER, type EntradaId } from '@/lib/pipeline';
+// «Nuevo CRM» por su tipo (14/10/2026): el catálogo puro y el alta que comparte con el modal.
+import { TIPOS_CRM, TIPO_CRM_OTRO, ENTRADAS_OFRECIDAS, siembraDeCrm, tipoCrmPorId } from '@/lib/pipeline';
+import { CANALES, esCanal } from '@/lib/fase-diagnostico';
+import { FUNNEL_DEFAULT_NOMBRE } from '@/lib/funnel-fila';
+import { crearCrm } from '@/lib/nuevo-crm';
 import { etapaVigenteDe } from '@/lib/funnel-etapas';
 // El candado de «calificado»: el mismo que aplica updateLead y que dibuja la ficha.
 import { calificadoSeDescarta } from '@/lib/calificado-reunion';
 import { getJuntasProximas } from '@/lib/queries';
 import { getLeadPlan, getPagosByLead, savePlanPagos, saveLeadPlanManual, marcarPago, cobrarCuota, registrarPagoSuelto } from '@/lib/pagos';
+import { avisoDeConservadas } from '@/lib/pagos-campo';
+// Sólo para la lectura cobranza_lead (14/10/2026): lo cobrado con la misma cuenta que la ficha.
+import { cobradoDelLead, esCuotaDevuelta } from '@/lib/cobrado-lead';
+import { estadoDeCuenta, movimientosDelLead } from '@/lib/pagos-vistazo';
+import { listarCobros } from '@/lib/cobros';
 import { centavos, diferenciaPendiente, type RestoDeCobro } from '@/lib/pagos-diferencia';
 import { getResumenLead, linkResumenLead } from '@/lib/lead-resumen';
 import { getWorkspaceActual } from '@/lib/workspace';
@@ -64,6 +74,10 @@ import { eventTypeDeReunion, linkParaAgendar } from '@/lib/calendly-agenda';
 import { listReviewPendientes } from '@/lib/review-queue';
 import { listProductos, upsertProducto } from '@/lib/productos';
 import { productosDelLead, agregarAProducto, quitarDeProducto, moverEtapaEnProducto } from '@/lib/lead-funnel';
+// El evento de agenda vinculado a una etapa de reunión (16/10/2026): las mismas funciones que la pantalla.
+import {
+  listarEventosDeAgenda, prepararVinculo, vincularEvento, buscarVinculo, desvincularEvento, type AgendaDelNegocio,
+} from '@/lib/agenda-evento-etapa-server';
 import { puedeQuitar, aQuienPromover, etapaDeEntrada, type ProductoDelLead } from '@/lib/lead-funnel-reglas';
 import {
   listarEtiquetas, etiquetaPorId, etiquetasDeLead, conteoPorEtiqueta, crearEtiqueta, editarEtiqueta,
@@ -78,10 +92,13 @@ import { usuarioInstagram } from '@/app/crm/campo-inline';
 import { sugerenciasDeUnCrm, volverAMostrar } from '@/lib/sugerencias-crm-server';
 import { plantillaPorId } from '@/lib/plantillas-automatizaciones';
 import {
-  invalidar, hoyDelWorkspace, esFechaIso, etapasDelFunnelDefault, etapasDelFunnelDeLead, faltantesDeUnLead, leadsFiltrados, conteoPorEtapa,
-  nombresAsignables, marcarPendientesIgnorados, guardarEntradas, guardarDeal, existeIdentidadFiscal, proponerLote,
-  estadoConfirmacion, productosCrm, type ProductoCrm,
+  invalidar, hoyDelWorkspace, esFechaIso, etapasDelFunnelDefault, etapasDelFunnelDeLead, leadsFiltrados, conteoPorEtapa,
+  nombresAsignables, ignorarDatosDeUnLead, todoIgnorado, algoIgnorado, datosSinMarcarDeUnLead, guardarEntradas, guardarDeal,
+  existeIdentidadFiscal, proponerLote, estadoConfirmacion, productosCrm, type ProductoCrm,
 } from './crm.helpers';
+import { leerFichaDeFunnel, cambiarFichaDeFunnel, type FichaDelFunnel } from '@/lib/ficha/config-server';
+import { aplicarCambio, describirCambio, sanearCambio } from '@/lib/ficha/config';
+import { cambioDeInputApi, salidaFichaApi } from '@/lib/ficha/api';
 
 /** Los campos del Deal Details por sección: el parámetro plano es `<seccion>_<campo>`. */
 const CAMPOS_DEAL = {
@@ -306,6 +323,18 @@ async function seguro(que: string, fn: () => Promise<Ejecutado>): Promise<Ejecut
   }
 }
 
+// ── la ficha del lead por bloques (ver_ficha_funnel, cambiar_ficha_funnel) ────
+
+/** La ficha del CRM pedido (sin embudoId, el principal), o el error con los CRM que hay. */
+async function fichaDelCrm(embudoId: unknown): Promise<FichaDelFunnel | { error: string; disponibles?: unknown }> {
+  const pedido = n(embudoId) ?? null;
+  let f: FichaDelFunnel | null;
+  try { f = await leerFichaDeFunnel(pedido); } catch { return { error: 'No pude leer ese CRM. Intenta de nuevo.' }; }
+  if (f) return f;
+  const crms = await productosCrm().catch(() => null);
+  return { error: pedido == null ? 'Este negocio todavía no tiene un CRM.' : `El CRM #${pedido} no es de este negocio.`, disponibles: crms?.map((p) => ({ embudoId: p.embudoId, nombre: p.nombre })) };
+}
+
 // ── los runners ───────────────────────────────────────────────────────────────
 
 export const RUNNERS: Runners = {
@@ -388,11 +417,17 @@ export const RUNNERS: Runners = {
   },
   faltantes_del_lead: {
     leer: (input) => conLead(input, async (lead) => {
-      const [faltan, stages] = await Promise.all([faltantesDeUnLead(lead), etapasDelFunnelDeLead(lead)]);
+      const [{ faltan, avisan, apagados }, stages] = await Promise.all([datosSinMarcarDeUnLead(lead), etapasDelFunnelDeLead(lead)]);
+      // `avisan` es lo que cuenta «N sin marcar» de su ficha y su fila en «A revisar» (la ficha de SU funnel):
+      // si MaKo dijera otro número, contradiría la pantalla.
+      const siAvisa = new Set(avisan.map((f) => f.id));
+      const apagado = new Set<string>(apagados);
       return json({
         lead_id: lead.id, nombre: lead.nombre, etapa: etapaVigenteDe(lead, stages),
         al_dia: faltan.length === 0, faltan: faltan.map((f) => ({ id: f.id, label: f.label })),
-        ...(lead.pendientes_ignorados ? { ignorados_desde: lead.pendientes_ignorados, nota: 'Sus pendientes están ignorados: no cuentan en «Datos sin marcar», pero siguen faltando.' } : {}),
+        sin_marcar: avisan.length,
+        no_avisan: faltan.filter((f) => !siAvisa.has(f.id)).map((f) => ({ id: f.id, label: f.label, por: apagado.has(f.id) ? 'este CRM no avisa de ese dato' : 'ignorado' })),
+        ...(lead.pendientes_ignorados ? { ignorados_desde: lead.pendientes_ignorados } : {}),
       });
     }),
   },
@@ -433,18 +468,61 @@ export const RUNNERS: Runners = {
     }),
   },
   cobranza_lead: {
-    leer: (input) => conLead(input, async (lead) => {
+    leer: (input, ctx) => conLead(input, async (lead) => {
       const plan = await getLeadPlan(lead.id);
-      const cuotas = plan.pagos.map((p) => ({ pago_id: p.id, numero: p.numero, es_inicial: p.numero === 0, monto_usd: Number(p.monto_usd), vence: p.fecha_esperada, pagada: p.pagado, fecha_pago: p.fecha_pago, tiene_comprobante: !!p.comprobante_path }));
+      const cuotas = plan.pagos.map((p) => ({
+        pago_id: p.id, numero: p.numero, es_inicial: p.numero === 0, monto_usd: Number(p.monto_usd), vence: p.fecha_esperada, pagada: p.pagado, fecha_pago: p.fecha_pago, tiene_comprobante: !!p.comprobante_path,
+        // La moneda en que se cobró (mig 0255 y 0292): sólo donde no fue en dólares, para no llenar de ruido.
+        ...(p.moneda && p.moneda !== 'USD' && p.monto_original != null ? { cobrada_en: { moneda: p.moneda, monto: Number(p.monto_original) } } : {}),
+      }));
       const suma = (xs: typeof cuotas) => Math.round(xs.reduce((a, c) => a + c.monto_usd, 0) * 100) / 100;
       const sus = lead.venta_tipo === 'suscripcion';
+      // ⚠️ LO COBRADO SALE DE LA MISMA FUNCIÓN QUE LA FICHA (`cobradoDelLead`, lib/cobrado-lead.ts, 14/10/2026): sin
+      // ella MaKo decía «pagada por completo» de una mensualidad activa y no veía una renovación rechazada, que
+      // vive en el cobro de la pasarela. Si los cobros no se pueden leer, se cuenta sin ellos (sólo las cuotas).
+      const [cobros, { hoy }] = await Promise.all([listarCobros(ctx.ws, { leadId: lead.id, limite: 50 }).catch(() => []), hoyDelWorkspace(ctx.ws)]);
+      const cob = cobradoDelLead({
+        ventaTipo: lead.venta_tipo ?? null, montoCierreUsd: lead.monto_cierre_usd ?? null,
+        suscripcionMontoUsd: lead.suscripcion_monto_usd ?? null, suscripcionMeses: lead.suscripcion_meses ?? null,
+        fechaCierre: lead.fecha_cierre ?? null,
+        suscripcionCanceladaAt: (lead as unknown as { suscripcion_cancelada_at?: string | null }).suscripcion_cancelada_at ?? null,
+        pagos: plan.pagos, cobros, hoy,
+      });
       return json({
         lead_id: lead.id, nombre: lead.nombre, estado: lead.estado_lead,
         venta_tipo: lead.venta_tipo ?? 'unico',
         total_vendido_usd: plan.total_usd,
         ...(sus ? { suscripcion_mensual_usd: lead.suscripcion_monto_usd ?? null, suscripcion_meses: lead.suscripcion_meses ?? null, nota: 'Suscripción: total_vendido_usd queda null a propósito; el importe es el mensual.' } : {}),
         duracion_meses: plan.duracion_meses, fecha_cierre: plan.fecha_cierre, fecha_inicio_servicio: plan.fecha_inicio, tiene_contrato: plan.tiene_contrato,
-        cobrado_usd: suma(cuotas.filter((c) => c.pagada)), por_cobrar_usd: suma(cuotas.filter((c) => !c.pagada)),
+        cobrado_usd: suma(cuotas.filter((c) => c.pagada)),
+        // Sin las DEVUELTAS (un reembolso de la pasarela): no son deuda, y con ellas este número no coincidía con
+        // `cobrado.pendiente_usd` de la misma respuesta (revisión del 14/10/2026; MaKo podía citar cualquiera).
+        por_cobrar_usd: suma(cuotas.filter((c, i) => !c.pagada && !esCuotaDevuelta(plan.pagos[i]))),
+        cobrado: {
+          texto: cob.texto, estado: cob.semaforo.texto, tono: cob.semaforo.tono,
+          cobrado_usd: cob.cobradoUsd, total_usd: cob.totalUsd, pendiente_usd: cob.pendienteUsd, vencido_usd: cob.vencidoUsd, porcentaje: cob.pct,
+          proxima: cob.proxima ? { pago_id: cob.proxima.pagoId, vence: cob.proxima.fecha, monto_usd: cob.proxima.montoUsd } : null,
+          ...(cob.suscripcion ? { suscripcion: { estado: cob.suscripcion.estado, mensualidad: cob.suscripcion.mensualidadTexto, fin_del_plazo: cob.suscripcion.finPlazo, proxima_renovacion: cob.suscripcion.proximaRenovacion, renovacion_fallida: cob.suscripcion.renovacionFallida, cobra: cob.suscripcion.fuente, meses_sin_registrar: cob.suscripcion.sinRegistrar } } : {}),
+          ...(cob.monedas.length ? { en_otras_monedas: cob.monedas } : {}),
+          ...(cob.cuadra && !cob.cuadra.cuadra ? { no_cuadra: `El plan suma USD ${cob.cuadra.diferenciaUsd > 0 ? 'más' : 'menos'} que el cierre (diferencia ${cob.cuadra.diferenciaUsd}).` } : {}),
+          ...(cob.seDibuja ? {} : { nota: cob.tipo === 'sin_cobro' ? 'Becado: no tiene cobrado.' : 'Sin venta ni cuotas cargadas.' }),
+        },
+        // ⚠️ EL ESTADO DE CUENTA Y LOS MOVIMIENTOS SON LOS DE LA TAB PAGOS (16/10/2026, lib/pagos-vistazo.ts): qué debe,
+        // qué hacer ahora y lo que ya pasó con la plata. MaKo contesta con lo MISMO que ve la persona en la ficha.
+        estado_de_cuenta: (() => {
+          const e = estadoDeCuenta({ cobrado: cob, pagos: plan.pagos, ganado: lead.estado_lead === 'ganado', hoy });
+          return e ? {
+            titular: e.titular, detalle: e.detalle, tono: e.tono, falta_usd: e.faltaUsd,
+            que_hacer: e.accion ? { accion: e.accion.tipo, boton: e.accion.boton, ...(e.accion.tipo === 'cobrar-cuota' ? { pago_id: e.accion.pagoId } : {}) } : null,
+          } : null;
+        })(),
+        ...(() => {
+          const m = movimientosDelLead({ pagos: plan.pagos, cobros });
+          return {
+            movimientos: m.movimientos.slice(0, 20).map((x) => ({ fecha: x.fecha, tipo: x.tipo, que: x.titulo, monto: x.montoTexto, como: x.via, ...(x.detalle ? { detalle: x.detalle } : {}) })),
+            ...(m.avisos.length ? { avisos: m.avisos.map((a) => a.texto) } : {}),
+          };
+        })(),
         cuotas,
         ...(cuotas.length ? {} : { nota_cuotas: 'Sin cuotas cargadas: no hay plan de pagos, no significa que no deba nada.' }),
       });
@@ -769,6 +847,92 @@ export const RUNNERS: Runners = {
       // Sin cambio, «Listo» sería un éxito falso: ya estaba a la vista (otra persona o venció).
       if (!v.cambio) return { ok: false, resumen: 'Esa sugerencia ya estaba a la vista: no se cambió nada.' };
       return { ok: true, resumen: 'Listo: la sugerencia vuelve a la lista de ese CRM.' };
+    }),
+  },
+
+  // ── La ficha del lead por bloques (14/10/2026) ──────────────────────────────
+  ver_ficha_funnel: {
+    leer: async (input) => {
+      const f = await fichaDelCrm(input.embudoId);
+      if ('error' in f) return fallo(json(f));
+      return json(salidaFichaApi(f));
+    },
+  },
+  cambiar_ficha_funnel: {
+    preparar: async (input) => {
+      const f = await fichaDelCrm(input.embudoId);
+      if ('error' in f) return f;
+      const c = cambioDeInputApi(input);
+      if ('error' in c) return c;
+      // Todo lo que se puede saber sin escribir falla acá (AGENTS.md, «Confirmar RECLAMA antes de ejecutar»):
+      // el mismo `aplicarCambio` que corre al confirmar, sobre la ficha de hoy.
+      const r = aplicarCambio(f.guardada, c, f.eleccion.id, f.respaldo);
+      if (!r.ok) return { error: r.error };
+      if (!r.cambio) return { error: 'La ficha ya está así.', yaEstaba: true };
+      return { payload: { embudoId: f.funnel.id, cambio: c }, resumen: `${describirCambio(c)}, en la ficha de «${f.funnel.nombre}» (para todos sus leads).` };
+    },
+    ejecutar: (payload) => seguro('cambiar la ficha', async () => {
+      const c = sanearCambio(payload.cambio);
+      if ('error' in c) return { ok: false, resumen: c.error };
+      const r = await cambiarFichaDeFunnel(Number(payload.embudoId), c);
+      if (!r.ok) return { ok: false, resumen: r.error };
+      if (!r.cambio) return { ok: false, resumen: 'La ficha ya estaba así: no se cambió nada.' };
+      // Los avisos de la ficha cambian lo que cuenta «Datos sin marcar» (la caché de leads).
+      invalidar('leads');
+      return { ok: true, resumen: `Listo: ${describirCambio(c)}.` };
+    }),
+  },
+
+  // ── El evento de agenda vinculado a una etapa de reunión (16/10/2026) ───────────
+  // Las MISMAS funciones que la pantalla (lib/agenda-evento-etapa-server.ts): una implementación.
+  listar_eventos_agenda: {
+    leer: async () => {
+      let a: AgendaDelNegocio;
+      try { a = await listarEventosDeAgenda(); } catch { return fallo('No pude leer los eventos de la agenda. Intenta de nuevo.'); }
+      return json({
+        eventos: a.eventos.map((e) => ({
+          proveedor: e.proveedor, evento: e.identificador, nombre: e.nombre, duracion_min: e.duracionMin,
+          de_integraciones: e.credencial, en_la_cuenta: e.enLaCuenta,
+          vinculado_a: e.vinculo ? { embudoId: e.vinculo.funnelId, crm: e.vinculo.funnel, etapa: e.vinculo.etapa, etapa_nombre: e.vinculo.etapaNombre, reunion: e.vinculo.reunion } : null,
+        })),
+        etapas_vinculables: a.etapas.map((x) => ({ embudoId: x.funnelId, crm: x.funnel, etapa: x.etapa, etapa_nombre: x.etapaNombre, reunion: x.reunion })),
+        agendas: a.proveedores,
+        ...(a.sePuedeVincular ? {} : { nota: 'Falta un paso de la base (migración 0293): se ve la lista, pero todavía no se puede vincular.' }),
+      });
+    },
+  },
+  vincular_evento_etapa: {
+    preparar: async (input) => {
+      const p = await prepararVinculo({ proveedor: input.proveedor, evento: input.evento, funnelId: input.embudoId, etapa: input.etapa });
+      if (!p.ok) return { error: p.error };
+      if (p.yaEstaba) return { error: `«${p.evento.nombre}» ya está vinculado a «${p.etapaNombre}» de «${p.funnel}».`, yaEstaba: true };
+      return {
+        payload: { proveedor: p.evento.proveedor, evento: p.evento.identificador, embudoId: p.funnelId, etapa: p.etapa },
+        resumen: `Vincular «${p.evento.nombre}» (${p.evento.proveedor === 'calcom' ? 'Cal.com' : 'Calendly'}) a «${p.etapaNombre}» de «${p.funnel}»: quien lo reserve cae ahí, como su ${p.reunion}.`,
+      };
+    },
+    ejecutar: (payload, ctx) => seguro('vincular el evento', async () => {
+      const r = await vincularEvento({ proveedor: payload.proveedor, evento: payload.evento, funnelId: payload.embudoId, etapa: payload.etapa, autor: autorDe(ctx) });
+      if (!r.ok) return { ok: false, resumen: r.error };
+      if (r.yaEstaba) return { ok: false, resumen: 'Ese evento ya estaba vinculado ahí: no se cambió nada.' };
+      return { ok: true, resumen: `Listo: quien reserve «${r.evento.nombre}» cae en «${r.etapaNombre}» de «${r.funnel}».`, datos: { evento: r.evento.identificador, embudoId: r.funnelId, etapa: r.etapa } };
+    }),
+  },
+  desvincular_evento_etapa: {
+    preparar: async (input) => {
+      let v: Awaited<ReturnType<typeof buscarVinculo>>;
+      try { v = await buscarVinculo({ proveedor: input.proveedor, evento: input.evento }); } catch { return { error: 'No pude leer los vínculos. Intenta de nuevo.' }; }
+      if (!v) return { error: 'Ese evento no está vinculado a ninguna etapa.', yaEstaba: true };
+      return {
+        payload: { proveedor: v.proveedor, evento: v.identificador },
+        resumen: `Desvincular «${v.nombre ?? v.identificador}» de su etapa: sus reservas vuelven a la R1 o R2 de Integraciones y al CRM principal.`,
+      };
+    },
+    ejecutar: (payload) => seguro('desvincular el evento', async () => {
+      const r = await desvincularEvento({ proveedor: payload.proveedor, evento: payload.evento });
+      if (!r.ok) return { ok: false, resumen: r.error };
+      if (!r.cambio) return { ok: false, resumen: 'Ese evento ya no estaba vinculado: no se cambió nada.' };
+      return { ok: true, resumen: `Listo: «${r.vinculo.nombre ?? r.vinculo.identificador}» ya no está vinculado a ninguna etapa.` };
     }),
   },
 
@@ -1122,27 +1286,32 @@ export const RUNNERS: Runners = {
       return { ok: true, resumen: `Listo: pago de ${r.monto} USD registrado el ${fecha}.`, datos: { pagoId: r.pagoId } };
     }),
   },
+  // Ignoran IGUAL que la pantalla (14/10/2026): en `datos_ignorados`, por la misma escritura que la ficha
+  // y la ✕ de «A revisar» (ignorarDatosDeUnLead, crm.helpers.ts). Lo ignorado sale en «Ver más».
   ignorar_datos_sin_marcar: {
     preparar: async (input) => {
       const lead = await leadDe(input.leadId);
       if (!lead) return { error: noExiste(input.leadId) };
-      if (lead.pendientes_ignorados) return { error: `Los pendientes de ${lead.nombre} ya están ignorados desde ${lead.pendientes_ignorados}.` };
-      return { payload: { leadId: lead.id }, resumen: `Ignorar los datos sin marcar de ${lead.nombre} (siguen visibles en su ficha).` };
+      if (lead.pendientes_ignorados) return { error: `Los datos sin marcar de ${lead.nombre} ya están ignorados desde ${lead.pendientes_ignorados}.`, yaEstaba: true };
+      if (todoIgnorado(lead)) return { error: `Los datos sin marcar de ${lead.nombre} ya están ignorados.`, yaEstaba: true };
+      return { payload: { leadId: lead.id }, resumen: `Ignorar los datos sin marcar de ${lead.nombre}: dejan de contar y quedan en «Ver más», donde se pueden volver a mostrar. La asistencia a una reunión pasada sigue avisando.` };
     },
-    ejecutar: (payload, ctx) => seguro('ignorar los pendientes', async () => {
-      await marcarPendientesIgnorados(Number(payload.leadId), true, autorDe(ctx));
-      return { ok: true, resumen: `Listo: los pendientes del lead #${String(payload.leadId)} ya no cuentan en «Datos sin marcar».` };
+    ejecutar: (payload, ctx) => seguro('ignorar los datos sin marcar', async () => {
+      const r = await ignorarDatosDeUnLead(Number(payload.leadId), true, autorDe(ctx));
+      if (!r.ok) return { ok: false, resumen: r.error };
+      return { ok: true, resumen: `Listo: los datos del lead #${String(payload.leadId)} ya no cuentan en «Datos sin marcar».` };
     }),
   },
   reactivar_datos_sin_marcar: {
     preparar: async (input) => {
       const lead = await leadDe(input.leadId);
       if (!lead) return { error: noExiste(input.leadId) };
-      if (!lead.pendientes_ignorados) return { error: `Los pendientes de ${lead.nombre} no están ignorados.` };
-      return { payload: { leadId: lead.id }, resumen: `Volver a contar los datos sin marcar de ${lead.nombre}.` };
+      if (!algoIgnorado(lead)) return { error: `${lead.nombre} no tiene datos sin marcar ignorados.`, yaEstaba: true };
+      return { payload: { leadId: lead.id }, resumen: `Volver a contar todos los datos sin marcar de ${lead.nombre}.` };
     },
-    ejecutar: (payload, ctx) => seguro('reactivar los pendientes', async () => {
-      await marcarPendientesIgnorados(Number(payload.leadId), false, autorDe(ctx));
+    ejecutar: (payload, ctx) => seguro('volver a contar los datos sin marcar', async () => {
+      const r = await ignorarDatosDeUnLead(Number(payload.leadId), false, autorDe(ctx));
+      if (!r.ok) return { ok: false, resumen: r.error };
       return { ok: true, resumen: `Listo: el lead #${String(payload.leadId)} vuelve a contar en «Datos sin marcar».` };
     }),
   },
@@ -1191,6 +1360,60 @@ export const RUNNERS: Runners = {
     ejecutar: (payload) => seguro('declarar las entradas', async () => {
       const r = await guardarEntradas(payload.entradas as string[]);
       return r.ok ? { ok: true, resumen: 'Listo: quedó declarado cómo llega la gente al negocio.' } : { ok: false, resumen: r.error };
+    }),
+  },
+
+  // ── Crear un CRM por su TIPO (14/10/2026): el mismo camino que «Nuevo CRM» ─────────────────
+  // `siembraDeCrm` sanea igual que el modal y `crearCrm` (lib/nuevo-crm.ts) escribe igual. Lo que
+  // se puede saber sin escribir (tipo, canal, entradas, nombre reservado) falla en preparar().
+  tipos_de_crm: {
+    leer: async () => json({
+      tipos: TIPOS_CRM.map((t) => ({
+        tipo: t.id,
+        nombre: t.label,
+        que_es: t.linea,
+        se_vende: CANALES.find((c) => c.id === t.canal)?.label ?? t.canal,
+        llega_por: t.entradas.map((e) => ENTRADAS[e]?.label ?? e),
+        etapas: t.pipeline.map((st) => st.label),
+      })),
+      otro: {
+        tipo: TIPO_CRM_OTRO,
+        que_es: 'Lo armas tú: pasa canal y entradas.',
+        canales: CANALES.map((c) => ({ canal: c.id, nombre: c.label, que_es: c.desc })),
+        entradas: ENTRADAS_OFRECIDAS.map((e) => ({ entrada: e, nombre: ENTRADAS[e].label })),
+      },
+    }),
+  },
+  crear_crm: {
+    preparar: async (input) => {
+      const nombre = s(input.nombre);
+      if (!nombre) return { error: 'Falta el nombre del CRM.', faltan: ['nombre'] };
+      if (nombre.toLowerCase() === FUNNEL_DEFAULT_NOMBRE.toLowerCase()) return { error: `«${FUNNEL_DEFAULT_NOMBRE}» es el nombre del CRM que ya existe. Ponle otro.` };
+      if (input.tipo === TIPO_CRM_OTRO && !esCanal(input.canal)) return { error: 'Con el tipo otro, pasa el canal: cómo se cierra la venta.', faltan: ['canal'] };
+      if (input.tipo === TIPO_CRM_OTRO && !(Array.isArray(input.entradas) && input.entradas.length)) return { error: 'Con el tipo otro, pasa al menos una entrada: cómo llega la gente.', faltan: ['entradas'] };
+      const siembra = siembraDeCrm({ tipo: input.tipo, canal: input.canal, entradas: input.entradas });
+      if ('error' in siembra) return { error: siembra.error };
+      const t = siembra.tipo ? tipoCrmPorId(siembra.tipo) : null;
+      const comoEs = t ? `«${t.label}»` : `a mano (${CANALES.find((c) => c.id === siembra.canal)?.label ?? siembra.canal})`;
+      return {
+        payload: { nombre, tipo: siembra.tipo ?? TIPO_CRM_OTRO, canal: siembra.canal, entradas: siembra.entradas },
+        resumen: `Crear el CRM «${nombre}», ${comoEs}: ${siembra.pipeline.map((st) => st.label).join(' → ')}. La gente llega por: ${siembra.entradas.map((e) => ENTRADAS[e]?.label ?? e).join(' · ')}.`,
+      };
+    },
+    ejecutar: (payload) => seguro('crear el CRM', async () => {
+      // Se vuelve a sanear con lo guardado en la pendiente: entre el «sí» y la propuesta pudo
+      // cambiar el catálogo (un deploy), y un tipo que ya no existe no siembra otro por default.
+      const siembra = siembraDeCrm({ tipo: payload.tipo, canal: payload.canal, entradas: payload.entradas });
+      if ('error' in siembra) return { ok: false, resumen: siembra.error };
+      try {
+        const r = await crearCrm(String(payload.nombre), siembra);
+        invalidar('pipeline', 'leads');
+        const aviso = r.etapasDelTipo ? '' : ' Quedó con las etapas de su canal: ajústalas desde el lápiz del CRM.';
+        return { ok: true, resumen: `Listo: creado el CRM «${String(payload.nombre)}» (embudoId ${r.funnelId}).${aviso}`, datos: { embudoId: r.funnelId, productoId: r.productoId } };
+      } catch (e) {
+        // `crearProductoConFunnel` tira con un mensaje para la persona (nombre vacío o reservado).
+        return { ok: false, resumen: e instanceof Error ? e.message : String(e) };
+      }
     }),
   },
 
@@ -1624,13 +1847,18 @@ export const RUNNERS: Runners = {
       const before = await getLead(id);
       if (!before) return { ok: false, resumen: noExiste(id) };
       const cuotas = (payload.cuotas as Array<{ monto_usd: number; fecha_esperada: string | null }>) ?? [];
-      await saveLeadPlanManual(id, { total_usd: n(payload.total_usd) ?? null, duracion_meses: n(payload.duracion_meses) ?? null, fecha_cierre: s(payload.fecha_cierre) ?? null, fecha_inicio: s(payload.fecha_inicio) ?? null, cuotas });
-      await logLeadEvent(id, 'Plan de pagos', `Cuotas actualizadas desde ${canalTxt(ctx)} (${cuotas.length} sin pagar)`, autorDe(ctx));
+      const cambios = await saveLeadPlanManual(id, { total_usd: n(payload.total_usd) ?? null, duracion_meses: n(payload.duracion_meses) ?? null, fecha_cierre: s(payload.fecha_cierre) ?? null, fecha_inicio: s(payload.fecha_inicio) ?? null, cuotas });
+      // ⚠️ LO QUE NO SE TOCÓ SE DICE. Una cuota con un link sin pagar o un recordatorio corriendo se conserva como
+      // está, y contestar «Listo: N cuotas» sobre eso afirmaba un plan que no quedó escrito.
+      const sinTocar = avisoDeConservadas(cambios);
+      await logLeadEvent(id, 'Plan de pagos', `Cuotas actualizadas desde ${canalTxt(ctx)} (${cuotas.length} sin pagar)${sinTocar ? ` · no se tocó: ${sinTocar}` : ''}`, autorDe(ctx));
       // saveLeadPlanManual escribe estado_lead con un update directo que no audita:
       // el diff deja en el historial que el lead pasó a ganado y quién lo hizo.
       await logLeadChanges(id, before, await getLead(id).catch(() => null), autorDe(ctx));
       invalidar('pagos', 'leads');
-      return { ok: true, resumen: `Listo: ${cuotas.length} cuota(s) guardadas para ${before.nombre}; el lead quedó como ganado.` };
+      return { ok: true, resumen: sinTocar
+        ? `Guardé las cuotas de ${before.nombre} menos lo que no se puede cambiar (${sinTocar}); el lead quedó como ganado.`
+        : `Listo: ${cuotas.length} cuota(s) guardadas para ${before.nombre}; el lead quedó como ganado.` };
     }),
   },
   guardar_deal_details: {

@@ -112,6 +112,7 @@ import { problemasDeForma, datosDeReunionSinMirarla } from './flujo-forma';
 import { PLANTILLAS, pasosDePlantilla, type PlantillaAutomatizacion } from './plantillas-automatizaciones';
 // Duodécima tanda, ola 2 (§3.5): lo que suma el `listo` de editar y la pregunta de MaKo. Sólo tipos (puro).
 import type { PreguntaMako, ExtrasEdicionIA } from './automatizacion-chat';
+import { respuestaDelModelo } from './flujo-ia-consulta';
 
 // ── Constantes que comparten la ruta y los tests ─────────────────────────────────
 
@@ -355,6 +356,11 @@ export type ResultadoEdicion = Omit<ResultadoIA, 'disparador'> & {
   /** La pregunta de MaKo, p. ej. «¿Cambio qué la dispara?» (un DM con un CRON que no es de su canal). */
   pregunta?: PreguntaMako;
   disparador?: string | null;
+  /**
+   * El modelo CONTESTÓ en vez de cambiar (15/10/2026, lib/flujo-ia-consulta.ts): con esto no se aplica nada y los
+   * `pasos` son el borrador tal cual.
+   */
+  respuesta?: string;
 };
 
 // ── Normalizar nombres y textos ───────────────────────────────────────────────────
@@ -2096,6 +2102,16 @@ const rotuloDeOpcion = (d: DisparadorIA): string => {
 export function deIAEdicion(json: unknown, base: readonly PasoGrafo[], ctx: CtxIA, rnd: () => number = Math.random): ResultadoEdicion {
   const est: Estado = { ctx, avisos: [], nuevas: [], condiciones: new Set(), canalDefecto: 'whatsapp' };
   const o = json && typeof json === 'object' && !Array.isArray(json) ? json as Record<string, unknown> : {};
+  // LA RESPUESTA (15/10/2026, lib/flujo-ia-consulta.ts): si el modelo contestó una pregunta, no se aplica NADA de lo que
+  // haya traído junto, ni el cambio de canal que se lee del pedido. Era el bug: «No cambies nada, sólo explícamelo»
+  // terminaba en «Cambié 1» con el texto del video reescrito.
+  const respuesta = respuestaDelModelo(o);
+  if (respuesta) {
+    return {
+      pasos: base.map((p) => p as PasoIA), etiquetasNuevas: [], avisos: [], nombre: null,
+      agregadas: [], cambiadas: [], quitadas: [], resumen: respuesta, respuesta,
+    };
+  }
   let pasos = base.map((p, i) => ({ ...(p as PasoIA), id: idDe(p, i) })) as PasoIA[];
   const antes = new Map(pasos.map((p) => [p.id!, p]));
   const ed: Edicion = { est, rnd, cambiadas: new Set(), agregadas: new Set() };
@@ -2982,6 +2998,7 @@ LO QUE PUEDES HACER (sólo lo que pide el pedido):
 - "quitar": ["<id>"]. Lo que seguía pasa a su lugar; una "condicion" o un "si_responde" se llevan lo que cuelga de ellos.
 - "agregar": tramos nuevos. "despues_de": "cron", "si_responde" (un caso nuevo, con "caso": {"titulo", "cuando"}) o el id de una tarjeta. "salida": "paralelo" (arranca a la vez), "sig", "si_no", "otra_cosa" o el id de una rama o de un caso, sólo si está VACÍA. "inicio": la primera tarjeta nueva. "tarjetas": las nuevas, con ids nuevos ("t1"…), que no siguen en una del flujo actual.
 - "disparador": una clave de DISPARADORES, sólo si el pedido cambia qué la dispara.
+- "respuesta": si el pedido es una PREGUNTA o no pide ningún cambio, contéstala aquí (corto, en tú) y no devuelvas nada más.
 Para pasar un mensaje a otro canal, cámbiale el "canal": nunca lo copies.
 
 ${TARJETAS_Y_REGLAS}
@@ -3121,7 +3138,8 @@ export function falloDeRevision(errores: readonly string[], pasos: readonly Paso
 
 // ── El stream de la ruta (lo lee app/automations/stream-ia.ts) ──────────────────────
 
-export type FaseIA = 'contexto' | 'modelo' | 'revision';
+/** `respuesta`: MaKo contesta una pregunta (lib/flujo-ia-consulta.ts); en los puntos va donde `modelo`. */
+export type FaseIA = 'contexto' | 'modelo' | 'respuesta' | 'revision';
 
 export type ListoIA = {
   t: 'listo';
@@ -3154,6 +3172,7 @@ export type GuardadoIA = Pick<ListoIA, 'pasos' | 'nombre' | 'orden' | 'disparado
 export type EventoIA =
   | { t: 'fase'; fase: 'contexto'; leyendo: LeyendoIA; texto: string }
   | { t: 'fase'; fase: 'modelo' }
+  | { t: 'fase'; fase: 'respuesta' }
   | { t: 'fase'; fase: 'revision'; reparadas: number }
   | ListoIA
   /** `link`: la pantalla donde se arregla (una key rechazada → Integraciones), si hay algo que hacer. */

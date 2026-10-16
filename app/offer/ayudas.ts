@@ -10,7 +10,7 @@
 import { familiaDeArchivo } from '@/lib/formatos-archivo';
 import {
   MARCA_COMPLETAR, PIEZAS, PUNTOS_CONTROL,
-  type FuentePieza, type PuntoControl, type OfferMensaje, type OfferSesionResumen, type OfferSesionVista, type PiezaKey, type PiezasSabidas, type VariableValor,
+  type AdjuntoVista, type FuentePieza, type PuntoControl, type OfferMensaje, type OfferSesionResumen, type OfferSesionVista, type PiezaKey, type PiezasSabidas, type VariableValor,
 } from '@/lib/offer-marco';
 import type { NombreIconoMenu } from '@/app/_ui/iconos-menu';
 
@@ -448,6 +448,17 @@ export function iconoDeAdjunto(nombre: string, mime = '', via?: string): NombreI
     case 'imagen': return 'imagen';
     default: return 'archivo';
   }
+}
+
+/**
+ * Lo que el chip de un archivo enviado escribe debajo del nombre: el aviso de la lectura y, si no quedó en
+ * El Archivero (decisión de Martín del 15/10/2026: cada archivo del chat va también ahí), por qué. Que SÍ
+ * quedó no se escribe: es lo esperado, y un chip que habla siempre deja de avisar. Vacío = nada que decir.
+ */
+export function notaDelAdjunto(a: Pick<AdjuntoVista, 'aviso' | 'archivero'>): string {
+  const ar = a.archivero;
+  const delArchivero = !ar ? '' : ar.ok ? (ar.aviso ? `Ojo: ${ar.aviso}.` : '') : `No quedó en El Archivero: ${ar.motivo}.`;
+  return [a.aviso?.trim() ?? '', delArchivero].filter(Boolean).join(' ');
 }
 
 /**

@@ -59,13 +59,14 @@ function conIgnoradoLocal(d: EstadoDatos, id: StepId, ignorar: boolean): EstadoD
   return { avisar: [...d.avisar, { ...uno, estado: 'falta' }], ocultos: resto(d.ocultos) };
 }
 
-export function DatosSinMarcarCard({ leadId, datos, onSolucionar, onConfigurar, onCambio }: {
+// ⚠️ SIN ENGRANAJE (14/10/2026): «de qué datos te avisa MaKo» se elige en la ficha misma, en «Personalizar»
+// (lead-view/ficha/PanelFicha.tsx), y por FUNNEL. El modal del negocio que abría el engranaje se fue de acá:
+// Martín, «Todas las personalizables, no los hagas con un modal diferente».
+export function DatosSinMarcarCard({ leadId, datos, onSolucionar, onCambio }: {
   leadId: number;
   datos: EstadoDatos;
   /** Llevar al dato: la ficha cambia de tab y lo señala. */
   onSolucionar: (id: StepId) => void;
-  /** Abre «de qué datos te avisa MaKo». Sin esto no se dibuja el engranaje. */
-  onConfigurar?: () => void;
   /** Después de ignorar: la ficha relee (el número del tablero y «A revisar» cambian). */
   onCambio?: () => void;
 }) {
@@ -120,7 +121,6 @@ export function DatosSinMarcarCard({ leadId, datos, onSolucionar, onConfigurar, 
           onVerMas={() => setVerMas(true)}
           onSolucionar={(id) => { setAbierto(false); onSolucionar(id); }}
           onIgnorar={ignorar}
-          onConfigurar={onConfigurar ? () => { setAbierto(false); onConfigurar(); } : undefined}
           onCerrar={() => setAbierto(false)}
         />
       )}
@@ -129,14 +129,13 @@ export function DatosSinMarcarCard({ leadId, datos, onSolucionar, onConfigurar, 
   );
 }
 
-function Desplegable({ ancla, datos, verMas, onVerMas, onSolucionar, onIgnorar, onConfigurar, onCerrar }: {
+function Desplegable({ ancla, datos, verMas, onVerMas, onSolucionar, onIgnorar, onCerrar }: {
   ancla: HTMLElement | null;
   datos: EstadoDatos;
   verMas: boolean;
   onVerMas: () => void;
   onSolucionar: (id: StepId) => void;
   onIgnorar: (id: StepId, ignorar: boolean) => void;
-  onConfigurar?: () => void;
   onCerrar: () => void;
 }) {
   const [montado, setMontado] = useState(false);
@@ -225,12 +224,6 @@ function Desplegable({ ancla, datos, verMas, onVerMas, onSolucionar, onIgnorar, 
       }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingBottom: 6 }}>
         <span style={{ flex: 1, fontSize: 13.5, fontWeight: 700, color: 'var(--ink)' }}>Datos sin marcar</span>
-        {onConfigurar && (
-          <button type="button" style={{ ...iconoBtn, border: 'none', background: 'none' }} onClick={onConfigurar}
-            title="Elegir de qué datos te avisa MaKo" aria-label="Elegir de qué datos te avisa MaKo">
-            <IconoMenu nombre="configurar" size={16} />
-          </button>
-        )}
       </div>
       <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
         {datos.avisar.map(fila)}

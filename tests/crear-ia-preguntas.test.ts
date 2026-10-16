@@ -317,7 +317,9 @@ test('la ruta: editar con la respuesta del CRON NO llama al modelo; «Déjalo as
   assert.equal(respuestaDelCron(respuesta('cron', 'basura:x'), []).disparadores, undefined);
   // Editar pasa su propio motivo a la cascada y usa la revisión de editar.
   assert.match(RUTA, /generar\(\{ system, user, hastaMs: inicio \+ PLAZO_MODELO_MS, traducir, motivo: 'Editar una automatización con IA' \}\)/);
-  assert.match(RUTA, /return \{ r, errores: erroresEdicion\(base, r, ctx\) \};/);
+  // (15/10/2026: una RESPUESTA del modelo no cambió nada y no se revisa: «no cambió nada» la reintentaría,
+  // tests/flujo-ia-consulta.test.ts.)
+  assert.match(RUTA, /return \{ r, errores: r\.respuesta \? \[\] : erroresEdicion\(base, r, ctx\) \};/);
 });
 
 test('la ruta: con la fila, el turno se anota al EMPEZAR y la pregunta, el resumen o el error al terminar; sin fila no', () => {

@@ -21,11 +21,15 @@ import { useEffect, useRef } from "react";
 import { useEditor } from "@/app/video-editor/_opencut/editor/use-editor";
 import type { ParamValues } from "@/app/video-editor/_opencut/params";
 import type { TimelineElement } from "@/app/video-editor/_opencut/timeline";
+import { TEXTO } from "@/app/video-editor/_opencut/params/extra/texto";
 import { bordeInferiorDe, partirYUbicar } from "./build-subtitle-text-element";
 import { cargarFuentes, esSubtitulo, lienzoDe } from "./insert";
 
-/** Lo que cambia el ANCHO de un renglón (el color o el trazo no parten distinto). */
-const CLAVES_QUE_PARTEN = ["fontFamily", "fontSize", "fontWeight", "fontStyle", "letterSpacing"] as const;
+/**
+ * Lo que cambia el ANCHO de un renglón (el color o el trazo no parten distinto).
+ * «May./min.» también: «PALABRA» es más ancha que «palabra».
+ */
+const CLAVES_QUE_PARTEN = ["fontFamily", "fontSize", "fontWeight", "fontStyle", "letterSpacing", TEXTO.mayusculas] as const;
 
 const firmaDe = (params: ParamValues) => CLAVES_QUE_PARTEN.map((k) => String(params[k] ?? "")).join("|");
 

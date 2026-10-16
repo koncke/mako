@@ -2,6 +2,28 @@
 
 *12/10/2026, chat «Video Editor», cuenta claude3 (semana al 88 %).*
 
+## 15/10 noche (cuenta 3): pasos 2–4 de los subtítulos y el chat con todo lo que el editor sabe hacer
+
+**Más tarde, el mismo 15/10:** una revisión adversarial encontró 10 bugs y se arreglaron (`5760ab72e`,
+`27bf7b9fd`); y se probó EN PRODUCCIÓN la transcripción y las muletillas (anda; detalle en los hallazgos), donde
+apareció un bug grave ya arreglado en `997ec0728`: Supr en la transcripción borraba además el clip elegido.
+Sin separar: la pestaña se colgó al aplicar la plantilla «Palabra resaltada» (1,2 GB libres). Quedó un
+proyecto de prueba «1015» en el navegador de Martín, en SU negocio (no el de un cliente): se puede borrar.
+
+Orden aprobado por el coordinador «Estrategia 3 cuentas». Escrito y con tests, **NADA visto en Chrome**:
+- **Edición por transcripción**: Biblioteca › Subtítulos › «Transcripción» (y el botón de la barra): elegir
+  palabras y Supr las saca del video y del subtítulo. **«Eliminar las muletillas»** del video, ahí mismo.
+- **Karaoke**: «Animaciones de subtítulos» en el panel de un subtítulo (palabra o frase pronunciada, opacidad de
+  lo no dicho) y tres plantillas («Karaoke», «Palabra resaltada», «Atenuado»).
+- **El chat «Editar con IA»**: de 11 a 32 operaciones (transiciones, animaciones, filtros, color, velocidad,
+  recortar, estilo y posición del texto, audio, revertir, congelar, cortar por frase/tramo, muletillas,
+  karaoke). Lo que no sabe hacer lo dice.
+- Lo aprendido, en `docs/hallazgos-video-editor.md` (secciones del 15/10) y dos reglas nuevas al final de
+  AGENTS.md. **Lo primero que sigue**: mirarlo en Chrome (transcripción, karaoke y cada operación del chat), y
+  después el punto 3 del orden: las cinco plantillas de anuncio (relevamiento en
+  `docs/editor-video/relevamiento-plantillas.md`, con lo investigado en la web el 15/10 al final). Regla de RAM del coordinador: nada de workflows de varios agentes ni tsc completo
+  en la notebook (el completo y los tests corren en GitHub Actions, rama `integracion`).
+
 ## 15/10 (cuenta 1): PRIMERO TERMINAR LA COPIA DE CAPCUT (Martín: «tal vez que termine eso primero»)
 
 - El inventario, en `docs/editor-video/inventario-copia-capcut.md`. De 158 funciones de CapCut: 74 hechas, 26 a

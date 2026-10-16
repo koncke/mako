@@ -362,7 +362,8 @@ test('10. una plantilla de subtítulos escribe siempre trazo, sombra y brillo', 
   for (const p of PLANTILLAS_SUBTITULO) {
     const params = paramsDePlantilla(p, lienzo);
     assert.equal(params[TEXTO.trazoActivo], Boolean(p.trazo), `«${p.nombre}»: trazo`);
-    assert.equal(params[TEXTO.sombraActiva], false, `«${p.nombre}»: sombra`);
+    // Desde el 15/10 una plantilla puede traer sombra («Palabra resaltada»): apagada si no.
+    assert.equal(params[TEXTO.sombraActiva], Boolean(p.sombra), `«${p.nombre}»: sombra`);
     assert.equal(params[TEXTO.brilloActivo], false, `«${p.nombre}»: brillo`);
   }
   assert.ok(PLANTILLAS_SUBTITULO.some((p) => p.trazo), 'ninguna plantilla con contorno');

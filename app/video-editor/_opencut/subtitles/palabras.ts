@@ -94,6 +94,17 @@ export function leerCodificadas(valor: unknown): PalabrasGuardadas | null {
 }
 
 /**
+ * ¿El texto sigue diciendo lo que dicen las palabras? Las dichas (sin las muletillas,
+ * que no están en el texto) tienen que coincidir una a una con `tokens(contenido)`.
+ * Es LA regla de cuándo valen: la usan `palabrasDe` y el resaltado (text/resaltado.ts).
+ */
+export function coincidenConTexto(palabras: readonly PalabraSubtitulo[], contenido: string): boolean {
+	const habladas = palabras.filter((p) => !p.muletilla);
+	const dice = tokens(contenido);
+	return habladas.length === dice.length && habladas.every((p, i) => p.texto === dice[i]);
+}
+
+/**
  * Las palabras de un subtítulo, en segundos de la LÍNEA DE TIEMPO, sólo las que caen en
  * lo que se ve del elemento. Null si no tiene, o si el texto ya no dice lo que dicen
  * las palabras (alguien lo reescribió): tiempos de otro texto son peores que ninguno.
@@ -114,10 +125,7 @@ export function palabrasDe({
 	duracion: number;
 }): PalabrasGuardadas | null {
 	const g = leerCodificadas(param);
-	if (!g) return null;
-	const habladas = g.palabras.filter((p) => !p.muletilla).map((p) => p.texto);
-	const dice = tokens(contenido);
-	if (habladas.length !== dice.length || habladas.some((t, i) => t !== dice[i])) return null;
+	if (!g || !coincidenConTexto(g.palabras, contenido)) return null;
 	const origen = inicio - recorteInicio;
 	const fin = inicio + duracion;
 	const palabras = g.palabras

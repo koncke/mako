@@ -45,12 +45,30 @@ la persona: elegís una, ponés tus clips y tus textos, y queda armada.
 | Beneficios | Lista que aparece punto por punto sobre el clip | Animated List · Text Highlight |
 | Oferta con cuenta regresiva | Cuenta regresiva y llamado a la acción | Countdown Timer · End Card |
 
-**Lo que falta en el motor para algunas**: la máquina de escribir, el glitch y el comparador no existen como
-animación ni como efecto. O se construyen (con la idea de la plantilla de Remotion) o esas plantillas esperan.
-Ninguna se hace con material de LottieFiles.
+**Lo que falta en el motor para algunas**: ~~la máquina de escribir, el glitch y el comparador no existen~~ —
+corregido el 15/10: la máquina de escribir (`animaciones/catalogo.ts`, entrada `maquina-escribir`) y el glitch
+(transición y efecto) SÍ existen; sólo falta el comparador deslizante. Ninguna se hace con material de
+LottieFiles.
 
-## Lo que decide Martín
+## Lo que decidió Martín (vía «Estrategia 3 cuentas», 15/10)
 
-- ¿Arrancan estas cinco, o hay otras que vende más (por ejemplo, las de un formato del Video Generator)?
-- ¿Las plantillas vienen con música? Hoy no hay biblioteca de música con licencia (`lib/musica-catalogo.ts`):
-  sin eso, una plantilla sale sin música o con la que ponga la persona.
+- Arrancan estas cinco, con lo que el editor ya tiene; las que piden máquina de escribir, glitch o comparador
+  esperan.
+- Música: no hay biblioteca con licencia (`lib/musica-catalogo.ts`), así que las plantillas salen sin música o
+  con la que ponga la persona.
+- El plan de construcción: [plan-plantillas-anuncio.md](plan-plantillas-anuncio.md).
+
+## Investigado el 15/10 (cuenta 3), para armarlas
+
+- **La estructura de un anuncio vertical** ([influee, «raw UGC to ads»](https://influee.co/ie/blog/raw-ugc-to-ads);
+  [Tiger Pistol, vertical video best practices](https://tigerpistol.com/vertical-video-ad-best-practices/)): gancho
+  en 1–3 s (en Shorts se decide en 2 s), el problema en una línea, la solución mostrándola, un solo llamado a la
+  acción. Cambio de escena cada 2–3 s. Texto en pantalla de 5 palabras o menos. Nada de logo ni zoom lento en el
+  primer segundo.
+- **Zonas seguras de Meta en 9:16** (1440x2560, cambio de marzo de 2026; verificarlo contra la documentación de
+  Meta antes de fijarlo): lo importante fuera del 14 % de arriba, del 20–35 % de abajo y del 6 % de cada costado.
+- **El formato con huecos** ([Creatomate, template modifications](https://creatomate.com/docs/fundamentals/getting-started/template-modifications)):
+  la clave es `nombre-del-elemento.propiedad`; sin propiedad, la principal (el texto en un texto, la fuente en un
+  archivo); y `{{nombre}}` adentro de un texto se reemplaza solo.
+- **Cómo se ve el karaoke en las apps** (para las plantillas de subtítulos que acompañan): ver la sección del
+  karaoke en `docs/hallazgos-video-editor.md`; los colores se eligieron a ojo.

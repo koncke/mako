@@ -11,6 +11,15 @@ import { PATRON_HOSTS_DE_LA_APP, PATRON_HOSTS_DE_MAKO } from "./lib/editor-landi
 // la app en positivo (`PATRON_HOSTS_DE_LA_APP`: MaKo, los previews, localhost y una IP), puesto por
 // `enLaApp` a la lista entera: una redirección nueva lo hereda sin que nadie se acuerde.
 // tests/editor-landing-origen.test.ts evalúa esta configuración y lee el fuente.
+// El build de Vercel corre con NODE_OPTIONS=--max-old-space-size=4096, y esa variable vive en el
+// PROYECTO de Vercel (Production y Preview), NO en este repo (15/10/2026). Sin ella el build muere por
+// memoria (`out_of_memory` a los ~7 min) y el push sale verde sin llegar a producción. Si alguien la
+// borra, que la primera pantalla del log lo diga. Por qué ese número y no otro: AGENTS.md → «El build
+// de Vercel tiene un tope de memoria que NO está en el repo». tests/build-tope-memoria.test.ts.
+if (process.env.VERCEL && !/max[-_]old[-_]space[-_]size/.test(process.env.NODE_OPTIONS ?? '')) {
+  console.warn('\n⚠️  [MaKo] Build en Vercel SIN NODE_OPTIONS=--max-old-space-size=4096 en el proyecto: va a morir por memoria. Ver AGENTS.md.\n');
+}
+
 const EN_LA_APP = [{ type: 'host' as const, value: PATRON_HOSTS_DE_LA_APP }];
 const enLaApp = <T extends object>(r: T) => ({ ...r, has: EN_LA_APP });
 

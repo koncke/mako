@@ -54,7 +54,7 @@ import os from 'node:os';
 import path from 'node:path';
 import crypto from 'node:crypto';
 
-export const VERSION = '1.2.0';
+export const VERSION = '1.3.0';
 const HOME = os.homedir();
 const DIR = process.env.CARTERO_DIR || path.join(HOME, '.claude', 'operaciones');
 const APP = process.env.CARTERO_APP_DIR || path.join(process.env.APPDATA || path.join(HOME, 'AppData', 'Roaming'), 'Claude', 'claude-code-sessions');
@@ -130,8 +130,10 @@ export function quienFirmo(texto, firmaB64, spkis) {
 const vive = (pid) => { try { process.kill(pid, 0); return true; } catch (e) { return e.code === 'EPERM'; } };
 const enCwds = (cwd, cwds) => cwds.some((p) => String(cwd ?? '').toLowerCase().startsWith(expandir(p).toLowerCase()));
 /** El chat que entrega no se ofrece como destino: SendMessage no deja escribirse a sí mismo
- *  (medido el 15/10: «is this session itself»). Se reconoce por el título: «Cartero…». */
-const esElCartero = (titulo) => /^cartero\b/i.test(String(titulo ?? '').trim());
+ *  (medido el 15/10: «is this session itself»). Se reconoce por el título: «Runner…» (su nombre en pantalla
+ *  desde el 15/10/2026, lib/runner.ts) o «Cartero…» (el de antes), también como sub-chat de su jefe
+ *  («Centro de Operaciones › Runner»): se mira el último tramo. */
+export const esElCartero = (titulo) => /^(runner|cartero)\b/i.test(String(titulo ?? '').split(/[›>]/).pop().trim());
 
 /** Los chats de la APP de esta cuenta: su carpeta en claude-code-sessions (vivos o no). */
 function chatsDeLaApp(cuenta, cwds, carpetas) {
@@ -251,7 +253,7 @@ async function ciclo(cuenta) {
   for (const f of listar(BUZON)) {
     const b = leerJson(f, null);
     if (b && Date.now() - Date.parse(b.reclamado) > BUZON_VENCE_MS && !fs.existsSync(path.join(ACUSES, `${b.id}.json`))) {
-      escribirJson(path.join(ACUSES, `${b.id}.json`), { id: b.id, estado: 'incierto', motivo: 'El chat Cartero no confirmó el envío' });
+      escribirJson(path.join(ACUSES, `${b.id}.json`), { id: b.id, estado: 'incierto', motivo: 'El Runner no confirmó si le llegó: míralo en el chat' });
       fs.rmSync(f, { force: true });
     }
   }
@@ -285,13 +287,13 @@ async function ciclo(cuenta) {
     if (typeof id !== 'string' || !UUID_RE.test(id)) { log(`[${cuenta}] pedido con id inválido`); continue; }
     const rechazar = (motivo) => rechazarId(id, motivo);
     const quien = quienFirmo(firmado, firma, spkis);
-    if (!quien) { rechazar('La firma no es de ninguna clave aceptada en la PC'); continue; }
+    if (!quien) { rechazar('Pégale tu Token al Runner y vuelve a mandarlo'); continue; }
     const l = leerFirmable(firmado, ahora);
-    if (!l.ok) { rechazar(`Pedido inválido: ${l.motivo}`); continue; }
-    if (l.p.id !== id) { rechazar('El id no coincide con el firmado'); continue; }
+    if (!l.ok) { rechazar(`Vuelve a mandarlo (${l.motivo})`); continue; }
+    if (l.p.id !== id) { rechazar('Vuelve a mandarlo: el id no coincide con la firma'); continue; }
     if (ledger.has(id)) { rechazar('Ya se había entregado: no sale dos veces'); continue; }
     const chat = chats.get(l.p.destino);
-    if (!chat?.vivo || !chat.pipe) { rechazar('El chat se cerró antes de entregar'); continue; }
+    if (!chat?.vivo || !chat.pipe) { rechazar('El chat se cerró: ábrelo y vuelve a mandarlo'); continue; }
     escribirJson(path.join(BUZON, `${id}.json`), {
       id, reclamado: new Date().toISOString(), clave: quien,
       to: `uds:${chat.pipe}`, titulo: chat.titulo, mensaje: mensaje(l.p),
@@ -336,7 +338,7 @@ function acuse(cuenta, id, resultado, motivo) {
   const b = path.join(buzonDe(cuenta), `${id}.json`);
   if (!fs.existsSync(b)) throw new Error('ese pedido no está en el buzón');
   const ok = resultado === 'ok';
-  escribirJson(path.join(acusesDe(cuenta), `${id}.json`), { id, estado: ok ? 'entregado' : 'no_entregado', motivo: ok ? null : (motivo || 'SendMessage falló') });
+  escribirJson(path.join(acusesDe(cuenta), `${id}.json`), { id, estado: ok ? 'entregado' : 'no_entregado', motivo: ok ? null : (motivo || 'No le llegó: vuelve a mandarlo') });
   if (ok) { const l = new Set(leerJson(LEDGER, [])); l.add(id); escribirJson(LEDGER, [...l].slice(-5000)); }
   fs.rmSync(b, { force: true });
   log(`[${cuenta}] ACUSE ${id} ${ok ? 'ok' : `error: ${motivo}`}`);

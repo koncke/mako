@@ -20,13 +20,14 @@
 
 import { NextResponse, type NextRequest } from 'next/server';
 import { getSesionAdmin, getUsuarioActual } from '@/lib/auth';
-import { auditarCredencial, credDelCliente, credWs, eliminarCredencial, estadoCampo, guardarCredencial, IdentificadorOcupadoError, KeyDePlataformaError, RemitenteNoPropioError } from '@/lib/credenciales';
-import { CLAVE_PASARELA, descubrirPasarela } from '@/lib/cobros-conexion';
+import { auditarCredencial, credDelCliente, credWs, eliminarCredencial, esClaveDePasarela, estadoCampo, guardarCredencial, IdentificadorOcupadoError, KeyDePlataformaError, RemitenteNoPropioError } from '@/lib/credenciales';
+import { CLAVE_PASARELA, desconectarPasarela, descubrirPasarela } from '@/lib/cobros-conexion';
 import { esPasarela, NOMBRE_PASARELA } from '@/lib/cobros-tipos';
 import { getRolWsEfectivo, getWorkspaceActual, OWNER_WS, wsSuperAdmin } from '@/lib/workspace';
 import { verificarServicio } from '@/lib/metodo-verificar';
 import { descubrirMeta, pixelesDeCuenta } from '@/lib/meta-descubrir';
 import { conectarMetaDisponible, guardarConexionMeta } from '@/lib/meta-conexion';
+import { arrancarHistoricoEnSegundoPlano } from '@/lib/onboarding-extract';
 import { leerResultadoMeta } from '@/lib/meta-login';
 import { descubrirGithub } from '@/lib/github-descubrir';
 import { ayudaDeCampo, ENVS_METODO, servicioDeEnv, servicioMetodo } from '@/lib/metodo-catalogo';
@@ -311,6 +312,9 @@ export async function POST(req: NextRequest) {
         await auditarCredencial(ctx.ws, env, 'guardar', ctx.autor);
         guardadas++;
       }
+      // Guardar Meta, Fathom, YouTube o Panda a mano también los conecta: arranca SU parte del histórico (una vez,
+      // en segundo plano; lo que no tiene histórico no hace nada).
+      if (guardadas > 0) await arrancarHistoricoEnSegundoPlano(ctx.ws, servicio.key);
       const estado = await estadoServicio(servicio.key, ctx);
       return NextResponse.json({ ok: true, guardadas, servicio: estado });
     }
@@ -456,6 +460,8 @@ export async function POST(req: NextRequest) {
       } else {
         return NextResponse.json({ ok: false, error: 'tipo inválido' }, { status: 400 });
       }
+      // Elegir la cuenta o la página es lo que destraba las métricas y los leads del histórico.
+      if (!conflicto) await arrancarHistoricoEnSegundoPlano(ctx.ws, 'meta');
 
       const estado = await estadoServicio('meta', ctx);
       return NextResponse.json({
@@ -471,6 +477,13 @@ export async function POST(req: NextRequest) {
       // 400 y no 404 como en el resolvedor por servicio: acá el cliente pregunta por
       // una CLAVE, y «esa clave no existe para vos» no confirma nada de la plataforma.
       if (!envDelContexto(env, ctx)) return NextResponse.json({ ok: false, error: 'clave inválida' }, { status: 400 });
+      // La clave de una PASARELA desconecta del todo: los derivados, su ruteo y el aviso en la cuenta de Stripe
+      // (lib/cobros-conexion.ts). Borrarla sola dejaba la cuenta reclamada sin forma de soltarla.
+      const pasarela = (Object.keys(CLAVE_PASARELA) as Array<keyof typeof CLAVE_PASARELA>).find((k) => CLAVE_PASARELA[k] === env);
+      if (pasarela) {
+        const r = await desconectarPasarela(ctx.ws, pasarela, ctx.autor);
+        return NextResponse.json({ ok: true, aviso: r.aviso });
+      }
       await eliminarCredencial(ctx.ws, env);
       await auditarCredencial(ctx.ws, env, 'borrar', ctx.autor);
       return NextResponse.json({ ok: true });
@@ -492,7 +505,9 @@ export async function POST(req: NextRequest) {
         await auditarCredencial(ctx.ws, env, 'revelar', ctx.autor, { permitido: false, motivo: 'no es admin de este workspace' });
         return NextResponse.json({ ok: false, error: 'Solo el admin de este espacio puede ver una credencial.' }, { status: 403 });
       }
-      const valor = await credWs(env, ctx.ws);
+      // Una clave de pasarela, sólo la del negocio: `credWs` cae a process.env para el ws1, y el «ojito» mostraría
+      // una clave que no es suya como si lo fuera.
+      const valor = esClaveDePasarela(env) ? await credDelCliente(env, ctx.ws) : await credWs(env, ctx.ws);
       if (!valor) return NextResponse.json({ ok: false, error: 'sin credencial guardada' }, { status: 404 });
       await auditarCredencial(ctx.ws, env, 'revelar', ctx.autor);
       return NextResponse.json({ ok: true, valor }, { headers: { 'Cache-Control': 'no-store' } });

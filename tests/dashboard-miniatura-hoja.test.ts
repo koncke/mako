@@ -103,11 +103,12 @@ test('la miniatura dibuja con las piezas del editor, no pide datos y el primer d
   assert.match(src, /conVariables\(e\.texto, variables \?\? EJEMPLOS\)/);
 });
 
-test('la galería muestra el título de cada plantilla y nada más', () => {
+test('la galería muestra el título de cada plantilla y nada más (y, al lado, «Sugerido» si va sugerida)', () => {
   const nh = leer('app/dashboard/NuevaHoja.tsx');
   assert.doesNotMatch(nh, /nh-desc/, 'volvió la línea debajo del título');
   assert.match(nh, /<MiniaturaHoja hoja=\{muestras\.get\(p\.id\) \?\? null\} \/>\s*\{armando === p\.nombre/);
-  assert.match(nh, /<span className="nh-nombre">\{p\.nombre\}<\/span>\s*<\/button>/);
+  // 16/10/2026 (Martín: «un texto sutil de "Sugerido"»): en el mismo renglón del título, no una línea debajo.
+  assert.match(nh, /<span className="nh-pie">\s*<span className="nh-nombre">\{p\.nombre\}<\/span>\s*\{sugerida && <span className="nh-sugerido" title=\{sugerida\}>Sugerido<\/span>\}\s*<\/span>\s*<\/button>/);
 });
 
 test('el editor monta la hoja de estilos de las miniaturas una vez', () => {

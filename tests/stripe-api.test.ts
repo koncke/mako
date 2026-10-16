@@ -11,11 +11,13 @@
 //     cada factura — sin ella una renovación no se encuentra;
 //   · `unit_amount` en unidad mínima, y `expires_at` nunca más de 24 h (Stripe lo rechaza);
 //   · el error se lee de `body.error.message` (res.ok no es «salió bien», y el 4xx dice el porqué);
-//   · `asegurarWebhookStripe` borra el NUESTRO (la misma url, no otro) antes de crear, y sin el
+//   · `asegurarWebhookStripe` borra el NUESTRO (la misma url, o el que MaKo creó con el mismo camino
+//     y cuenta en otro dominio; nunca uno ajeno) antes de crear, y sin el
 //     `secret` en la respuesta falla: el whsec_ sólo vuelve al crear. Y crear el aviso es la
 //     EXCEPCIÓN al Idempotency-Key: una clave repetible devolvería, dentro de las 24 h, el aviso
 //     que se acaba de borrar;
-//   · `modoDeClaveStripe` distingue real / prueba y rechaza lo que no es una clave secreta.
+//   · `modoDeClaveStripe` distingue real / prueba y rechaza lo que no es una clave secreta;
+//   · `borrarWebhooksStripe` (al desconectar) se lleva lo mismo que se borra al reconectar.
 //
 // El módulo es `server-only` (ese paquete TIRA fuera de un Server Component): se neutraliza el
 // marcador con el parche de Module._load de tests/mover-etapa-validacion.test.ts y se importa
@@ -34,6 +36,10 @@
 //   · asegurarWebhookStripe sin exigir el `secret`                                   → 10 / 1
 //   · la creación del aviso con una clave repetible (`mako-aviso-${url}`)            → 10 / 1
 //   · modoDeClaveStripe aceptando `sk_org_`                                          → 10 / 1
+// Y el 15/10/2026, con el aviso de otro dominio (12 pases, 0 fallos en verde):
+//   · sin mirar `metadata.mako` (se lleva uno ajeno con el mismo camino)             → 10 / 2
+//   · sólo la url exacta (el del dominio viejo queda vivo)                           → 11 / 1
+//   · la firma sin la cuenta (se lleva un aviso de MaKo con otro `acct=`)            → 11 / 1
 // Correr: node --import tsx --test tests/stripe-api.test.ts
 
 import { test } from 'node:test';
@@ -273,6 +279,33 @@ test('asegurarWebhookStripe: sin el secret en la respuesta falla; un 404 al borr
   assert.equal(sinPermiso.ok, false);
   assert.match(!sinPermiso.ok ? sinPermiso.error : '', /rak_webhook_write/);
   assert.ok(!llamadas.some((l) => l.metodo === 'POST'), 'con el viejo sin borrar no se crea otro (quedarían dos avisos)');
+});
+
+test('asegurarWebhookStripe / borrarWebhooksStripe: se llevan el de MaKo en OTRO dominio (mismo camino y cuenta), nunca uno ajeno', async () => {
+  const { asegurarWebhookStripe, borrarWebhooksStripe } = await api();
+  const avisos = [
+    { id: 'we_dominio_viejo', url: 'https://mako-viejo.test/api/webhooks/stripe?acct=acct_A', metadata: { mako: '1' } },
+    { id: 'we_ajeno_mismo_camino', url: 'https://otro-sistema.test/api/webhooks/stripe?acct=acct_A', metadata: {} },
+    { id: 'we_mako_otra_cuenta', url: 'https://mako-viejo.test/api/webhooks/stripe?acct=acct_B', metadata: { mako: '1' } },
+    { id: 'we_mako_otro_camino', url: 'https://mako-viejo.test/api/webhooks/otra-cosa?acct=acct_A', metadata: { mako: '1' } },
+  ];
+  preparar((l) => {
+    if (l.metodo === 'GET') return json(200, { data: avisos });
+    if (l.metodo === 'DELETE') return json(200, { deleted: true });
+    return json(200, { id: 'we_nuevo', secret: 'whsec_n' });
+  });
+  const r = await asegurarWebhookStripe(KEY, URL_AVISO);
+  assert.equal(r.ok && r.recreado, true);
+  const borrados = () => llamadas.filter((l) => l.metodo === 'DELETE').map((l) => l.url.pathname.split('/').pop());
+  assert.deepEqual(borrados(), ['we_dominio_viejo'],
+    'tras una mudanza de dominio el aviso viejo apunta a una url muerta (Stripe le manda mails de fallo al negocio); y el sin metadata.mako no es nuestro');
+
+  const responder = contestar;
+  preparar(responder);
+  const d = await borrarWebhooksStripe(KEY, URL_AVISO);
+  assert.deepEqual(d, { ok: true, borrados: 1 });
+  assert.deepEqual(borrados(), ['we_dominio_viejo'], 'al desconectar se borra lo mismo que al reconectar');
+  assert.ok(!llamadas.some((l) => l.metodo === 'POST'), 'desconectar no crea nada');
 });
 
 // ── La clave ──────────────────────────────────────────────────────────────────

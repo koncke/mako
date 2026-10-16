@@ -1348,13 +1348,18 @@ export function landingSnippet(token: string): string {
   var SV = ${SNIPPET_VERSION};
 
   // Lectura de MaKo (v24): abierta por MaKo para leerla, la página no mide nada
-  // y carga el lector. Sin la ventana de MaKo detrás, el parámetro no hace nada.
+  // y, con la ventana de MaKo detrás, carga el lector. Sin la ventana NO mide
+  // igual (16/10): el lector suelta el opener al arrancar, así que si la página
+  // se recarga sola (un aviso de cookies, una prueba A/B) el documento nuevo ya
+  // no lo ve, y antes contaba esa lectura como una visita real.
   try {
     var leer = new URLSearchParams(location.search).get('${PARAM_LEER}');
-    if (leer && /^[A-Za-z0-9_-]{16,64}$/.test(leer) && window.opener) {
-      var lector = document.createElement('script');
-      lector.src = '${APP_BASE_URL}${RUTA_CARGADOR}?${PARAM_LECTOR_CARGADOR}=' + leer;
-      (document.head || document.documentElement).appendChild(lector);
+    if (leer && /^[A-Za-z0-9_-]{16,64}$/.test(leer)) {
+      if (window.opener) {
+        var lector = document.createElement('script');
+        lector.src = '${APP_BASE_URL}${RUTA_CARGADOR}?${PARAM_LECTOR_CARGADOR}=' + leer;
+        (document.head || document.documentElement).appendChild(lector);
+      }
       return;
     }
   } catch (e) {}

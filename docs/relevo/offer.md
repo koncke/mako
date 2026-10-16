@@ -2,6 +2,32 @@
 
 <sub>Escrito por el chat que la construyó (cuenta claude3), 12/10/2026 ~07:45 UTC. Primera mano.</sub>
 
+## Estado al 15/10/2026 (verificado contra `origin/main` c4ef8a68e) — leer esto primero
+
+**No hay nada de Offer a medio hacer ni sin subir.** Lo que la medición del 14/10 (abajo) encontró ya está
+en producción: el 170% (`db81f9624`, `cierreConfiable`), Offer en la API de MaKo
+(`listar_analisis_oferta`, `ver_analisis_oferta`), la voz del negocio en los prompts (slot `{{voz}}`) y la
+bitácora de `/admin/dev/products-offers` al día (`59e3b9a93`). Las 13 decisiones de «A definir» también
+(`8e053fdc`).
+
+**Decidido por Martín y hecho el mismo día: el Archivero desde el chat.** La decisión (Ticketera,
+15/10/2026 05:32, ref `offer-archivero`), textual: «¿El Archivero del chat guarda el archivo y paga una
+extracción por documento? → A · Sí». Commit `f4ed5e069` (cuenta claude3, en el worktree
+`C:/dev/wt-offer-archivero`; lo sube el coordinador). Cada ARCHIVO que el dueño manda en el chat queda
+también en El Archivero, con el binario conservado y UNA extracción de campos (feature «El Archivero»,
+motivo «Offer → El Archivero: …»), por detrás y sin frenar el chat; si falla, el chip lo dice. Ni audios
+ni la página de un link. El porqué, en `docs/hallazgos-offer.md` → «El Archivero desde el chat».
+
+Lo que sigue abierto de verdad:
+- **Sin hacer, sin dueño:** el PDF externo (sin diagnóstico ni «[completar]», para un prospecto), ver
+  versiones anteriores, la tasa de cierre como métrica de Experiments, el `sinPago` al leer imágenes y
+  audios, la transcripción cortada a 140 caracteres (`BurbujaHilo`, compartido), y el umbral de
+  `alertaFoco` medido contra negocios reales. Del Archivero: el panorama no recoge lo de Offer (sería
+  otra llamada paga) y `archivero_files` no guarda de dónde vino un documento (pide migración).
+- **Sin ver en el navegador:** ni la v2 ni la voz armada contra una IA de verdad, ni el Archivero desde el
+  chat contra Storage de verdad; lo visual lo revisa Martín.
+
+
 ## Medido el 14/10/2026 (chat «Offer», cuenta claude1) — leer antes que lo de abajo
 
 - **Uso real en prod** (`offer_sesiones`, solo lectura): 3 conversaciones en total. Sólo UNA llegó a
@@ -54,11 +80,9 @@ audios, y la transcripción cortada a 140 caracteres.
 
 Martín las contestó todas (textual en la bitácora de Products & Offers; resumen en la memoria
 `offer-decisiones-a-definir`) y quedaron aplicadas en el commit «Offer: las 13 decisiones de Martín…»
-(`c3b28bc2` en el clon; en el remoto con otro hash). La pestaña «A definir» queda vacía y las 13 pasan a
-«Decididas». **Si ese commit no figura en `origin/main`, es lo primero que hay que subir**: el pre-push
-choca con `html-to-image`/`pptxgenjs` (dependencias de Landing Generator que no están en el
-`node_modules` del clon); se subió desde un worktree con el enlace apuntando al `node_modules` de
-`wt-gamma`, que sí las tiene.
+(`8e053fdc` en `origin/main`). La pestaña «A definir» queda vacía y las 13 pasan a «Decididas». Para
+subirlo hubo que apuntar el `node_modules` del worktree a uno con las dependencias de Landing Generator
+y del Video Editor (detalle en `docs/hallazgos-infra.md`).
 
 ## Lo que quedó sin hacer
 
@@ -72,7 +96,7 @@ cuatro que se cerraron el 13/10».
 | El binario de un audio que se re-sube | ✅ `AudioGrabado.path` se recuerda y el reintento lo reusa. Más la acción `'descartar-subida'`, que cierra el hermano (el binario que queda suelto al descartar o al cambiar de conversación) |
 | `extraerLanding` que baje la URL tal cual | ✅ `urlTalCual` + `extraerLanding(url, { talCual: true })`. `linkParaLeer` ya no rechaza un `?page_id=`: sólo saca los parámetros de SEGUIMIENTO |
 | «Guardar si no hay» en `lib/fase-store.ts` | ✅ `guardarFaseSiNoHay`. La ruta ya no copia la clave del setting ni repite el mecanismo |
-| **Archivero desde el chat** | ❌ **ESPERA UNA DECISIÓN DE MARTÍN** (preguntada el 13/10). El diagnóstico viejo estaba corto: no alcanza con la función que falta, porque Offer **borra el binario apenas lo lee** y su IA saca piezas de la oferta, no campos del brief. Cerrarlo de verdad = conservar el binario y pagar una extracción por documento, en una tab que promete que nada de esto paga |
+| **Archivero desde el chat** | ✅ **DECIDIDO el 15/10/2026 05:32 (Ticketera, ref `offer-archivero`: «guarda el archivo y paga una extracción por documento → A · Sí») y hecho** en `f4ed5e069`: `registrarDocumentoSinPisar` (lib/archivero.ts), llamada por detrás desde 'leer'. El diagnóstico viejo («falta la función») estaba corto: Offer borraba el binario apenas lo leía y su IA saca piezas de la oferta, no campos del brief |
 | **Avatares desde el chat** | ❌ **NO SE HACE, y no es un pendiente.** Escribir la lista desde el chat sin que una persona confirme rompe «un canal propone, una persona confirma». Queda en la pieza `cliente` |
 
 Lo demás de «Lo que quedó SIN hacer» (la API de MaKo —hecha el 14/10—, el PDF externo, el umbral de `alertaFoco`, la
@@ -110,9 +134,8 @@ como campo propio (`ContextoOffer.voz`) y como slot `{{voz}}` en los prompts que
 pasa `voz` por `renderPrompt('nutri.gen.system', …)`. Registrar los prompts en `lib/prompt-registry.ts`
 para que queden editables desde /configuraciones.
 
-Falta además lo que pidió el cierre y no se hizo: declararlo en la API de MaKo si cuenta como capacidad
-nueva, los tests probados rompiéndolos, mirarlo en ws3, y la bitácora de `/admin/dev` con el pedido
-literal.
+De lo que pedía el cierre, el 14/10 se hizo la API de MaKo, los tests probados rompiéndolos y la bitácora
+con el pedido literal (`db81f9624`, `59e3b9a93`). Lo único que no: mirarlo en ws3 con una oferta armada.
 
 ## Las 13 decisiones: qué está verificado y qué no
 
@@ -131,8 +154,6 @@ código 1 sin mostrar errores» tampoco está roto: es el LOCK entre sesiones
 (`scripts/typecheck-lock.mjs`) esperando su turno con 13 sesiones sobre el mismo clon. Medido el 13/10:
 corrido con tiempo suficiente sale **exit 0**.
 
-El `main` local quedó **separado de `origin/main`**: otra sesión subió versiones rebasadas de varios
-commits, y además `a7f42966` + `1bc5c2af` (el Playbook, local) son los mismos cambios que
-`43b9c17c` + `994461ab` (remoto). Offer se subió desde un worktree limpio con cherry-pick. Quien
-reconcilie el clon: `git rebase origin/main` saltea los duplicados solo, pero el árbol de trabajo tiene
-cambios sin commitear de varias sesiones.
+**15/10:** el coordinador («Estrategia 3 cuentas») trajo el `main` del clon al día con `origin/main`; la
+separación del 12/10 quedó saldada. Desde ese día cada chat trabaja en su worktree (`C:/dev/wt-…`),
+commitea por ruta explícita y le pasa la punta al coordinador, que es quien pushea (merge, nunca rebase).

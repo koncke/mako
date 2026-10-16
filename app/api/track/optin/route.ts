@@ -357,6 +357,11 @@ export async function POST(req: NextRequest) {
         // persona hizo antes —la visita, el video, los clicks— con el lead que
         // acaba de nacer. Sin esto el tracking se mide y no se puede leer.
         visitor_id: txt(body.visitor_id),
+        // ⚠️ LA PÁGINA DONDE DEJÓ SUS DATOS (tanda B del CRM, 14/10/2026: el bloque
+        // `pagina-de-registro`). Se sabía —es la prueba de que el Pixel está en una página, y
+        // decide el producto— y no se guardaba en el lead. Normalizada (sin UTM ni click-ids):
+        // dice QUÉ página, no de dónde vino la visita. Cuándo, es el `created_at` del lead.
+        pagina_registro: paginaOptin,
         utm_source: atrib.utm_source,
         utm_medium: atrib.utm_medium,
         utm_campaign: atrib.utm_campaign,
@@ -483,6 +488,9 @@ export async function POST(req: NextRequest) {
         origen: 'landing',
         visitor_id: txt(body.visitor_id),
         pagina: txt(body.pagina) ?? txt(body.url) ?? req.headers.get('referer'),
+        // La misma página que guarda el alta directa, normalizada y SIN el tope de 300 de
+        // `pagina` (que corta una URL larga). La escribe quien confirma, como la atribución.
+        pagina_registro: paginaOptin,
         // Las escribe quien confirma (`atribucionDePropuesta`, app/crm/revisar/[id]/propuesta-lead.ts).
         respuestas: respuestasOptin,
       }],

@@ -107,13 +107,41 @@ export function disparosDeCobranza(p: {
   const out: DisparoCobranza[] = [];
   for (const c of p.vencidas) {
     if (c.dias > -1 || c.dias < -VENTANA_VENCIDA_DIAS) continue;
-    out.push({ avisoId: 'cuota-vencida', cuota: c, dedupKey: `cuota:${c.pago_id}`, datos: datosDe(c), datosEstables: datosEstablesDe(c) });
+    out.push({ avisoId: 'cuota-vencida', cuota: c, dedupKey: claveDedupCuota(c.pago_id), datos: datosDe(c), datosEstables: datosEstablesDe(c) });
   }
   for (const c of p.porVencer) {
     if (c.dias < 0 || c.dias > DIAS_ANTES) continue;
-    out.push({ avisoId: 'cuota-por-vencer', cuota: c, dedupKey: `cuota:${c.pago_id}`, datos: datosDe(c), datosEstables: datosEstablesDe(c) });
+    out.push({ avisoId: 'cuota-por-vencer', cuota: c, dedupKey: claveDedupCuota(c.pago_id), datos: datosDe(c), datosEstables: datosEstablesDe(c) });
   }
   return out;
+}
+
+/** Los dos avisos con los que una cuota entra a la cobranza (el `tipo` del dedup, lib/espaciado.ts). */
+export const AVISOS_DE_CUOTA = ['cuota-vencida', 'cuota-por-vencer'] as const satisfies ReadonlyArray<DisparoCobranza['avisoId']>;
+
+/**
+ * La clave del dedup de UNA cuota. La usan el cron (arriba) y quien la OLVIDA al reprogramar la cuota
+ * (`olvidarAvisosDeCuotas`, lib/pagos.ts): con dos copias del molde, el olvido borraría una clave que nadie lee.
+ *
+ * ⚠️ NO LLEVA LA FECHA, a propósito. Con `cuota:${id}:${vence}` una cuota reprogramada volvería a entrar sola,
+ * pero el día del deploy TODAS las cuotas que ya avisaron dentro de la ventana cambiarían de clave y volverían a
+ * avisar: un segundo recordatorio a clientes reales sobre plata que ya se les pidió. Se olvida al reprogramar.
+ */
+export const claveDedupCuota = (pagoId: number): string => `cuota:${pagoId}`;
+
+/**
+ * Las cuotas cuyo VENCIMIENTO cambió en una escritura: son las que tienen que poder volver a entrar a la cobranza.
+ *
+ * ⚠️ UNA CUOTA REPROGRAMADA SE QUEDABA SIN RECORDATORIO (revisión del 14/10/2026). Desde que ningún escritor borra e
+ * inserta, el id de una cuota sobrevive a cualquier edición, y el dedup (por id, 120 días) la daba por «ya entró»:
+ * la cuota 3 que avisó el 02/10 y se renegoció al 01/11 no volvía a avisar ni el 31/10 ni el 02/11. Antes, el borrar
+ * e insertar le daba un id nuevo y entraba de nuevo. Sólo cuenta la FECHA: un monto nuevo con el mismo vencimiento
+ * no es un hecho nuevo para el cliente.
+ */
+export function cuotasReprogramadas(
+  cambios: ReadonlyArray<{ id: number; fecha_esperada: string | null; antes: { fecha_esperada: string | null } }>,
+): number[] {
+  return cambios.filter((c) => (c.fecha_esperada ?? null) !== (c.antes.fecha_esperada ?? null)).map((c) => c.id);
 }
 
 /**

@@ -101,6 +101,42 @@ test('la ruta del email aplica las cuatro condiciones ANTES de escribir, y con c
     'el token se valida después de leer la base');
 });
 
+test('«ese email ya es de otro» se pregunta DESPUÉS del reclamo y gasta el intento (no es un oráculo de usuarios)', () => {
+  // Revisión del 11/10/2026: antes salía sin gastar ninguno de los 3 cambios, y un link servía para preguntar sin
+  // límite qué emails tienen cuenta en MaKo (los topes por IP y por token viven en memoria, por instancia).
+  const cuerpo = sinComentarios(leer(EMAIL));
+  const reclamo = cuerpo.indexOf(".eq('alta_email_cambios', antes).eq('estado', 'pagado')");
+  const pregunta = cuerpo.indexOf('buscarUsuarioPorEmail(nuevo.email)');
+  assert.ok(reclamo > 0 && pregunta > reclamo, 'se pregunta si el email es de otro ANTES de gastar el intento');
+  assert.match(cuerpo, /if \(otro && otro\.id !== usuario\.id\) return no\(409, EMAIL_NO_DISPONIBLE\);/, 'el «ya es de otro» devuelve el intento');
+  // Si la búsqueda FALLA (la base, no el email), el intento se devuelve: no es culpa de quien compró.
+  const bloque = cuerpo.indexOf('if (e2 || !cambiado) {');
+  const devuelve = cuerpo.indexOf('.update({ alta_email_cambios: antes })', pregunta);
+  assert.ok(devuelve > pregunta && devuelve < bloque, 'si la búsqueda falla, el intento no se devuelve');
+  // El que choca con el único de `usuarios.email` en el medio, igual que el «ya es de otro»: sale ANTES de devolverlo.
+  const choque = cuerpo.indexOf("if (e2?.code === '23505') return no(409, EMAIL_NO_DISPONIBLE);", bloque);
+  assert.ok(bloque > 0 && choque > bloque && choque < cuerpo.indexOf('.update({ alta_email_cambios: antes })', bloque),
+    'el email que se volvió de otro en el medio devuelve el intento');
+  // Y el texto no dice «ya tiene una cuenta»: eso es lo que se pregunta.
+  assert.doesNotMatch(cuerpo, /ya tiene una cuenta/);
+});
+
+test('cambiar el email de acceso AVISA al email anterior, después del cambio y sin frenar la respuesta', () => {
+  // 15/10/2026: quien tiene el link de la compra puede cambiar el acceso. Un código al email ACTUAL bloqueaba el caso
+  // legítimo más común (se tipeó mal al pagar); se copia a Google y GitHub: el nuevo se prueba al entrar con Google, y
+  // al anterior le llega un aviso con cómo revertirlo.
+  const cuerpo = sinComentarios(leer(EMAIL));
+  const cambio = cuerpo.indexOf(".is('ultimo_login', null)");
+  const aviso = cuerpo.indexOf('avisarCambioDeEmailDeAcceso({ anterior: usuario.email, nuevoEnmascarado: emailEnmascarado(nuevo.email)');
+  assert.ok(cambio > 0 && aviso > cambio, 'el aviso va DESPUÉS de que el cambio quedó hecho (y a la dirección de ANTES)');
+  assert.match(cuerpo, /try \{ after\(avisarAnterior\); \} catch \{ void avisarAnterior\(\); \}/, 'el aviso no frena la respuesta');
+  const inv = sinComentarios(leer('lib/invitaciones.ts'));
+  const f = inv.slice(inv.indexOf('export async function avisarCambioDeEmailDeAcceso('), inv.indexOf('export async function invitarAlCursoPorEmail('));
+  assert.match(f, /await enviarDePlataforma\(/, 'habla MaKo: la key y el remitente de la plataforma, no los del negocio');
+  assert.match(f, /\$\{p\.nuevoEnmascarado\}/, 'el nuevo va enmascarado: si el anterior estaba mal tipeado, es de un desconocido');
+  assert.match(f, /\$\{EMAIL_MAKO\}/, 'el aviso dice a dónde escribir para revertirlo');
+});
+
 test('ninguna ruta del comprador lee cookies', () => {
   for (const r of TODAS) {
     const src = sinComentarios(leer(r));
@@ -143,3 +179,11 @@ test('la página del comprador no recibe POST (lo único que escribe es /api/pag
 //   · `import { cookies } from 'next/headers'` en la página de retorno         → 1 / 6 (el 4º);
 //   · sacar el `if (!esTokenCobro(token)) return noExiste();` de /pagar        → 1 / 6 (el 5º).
 // Restaurado: 7 pases.
+// Y el 15/10/2026, con «ese email ya es de otro» gastando el intento (8 pases en verde; pases / fallos):
+//   · la pregunta ANTES del reclamo, como estaba                                → 7 / 1
+//   · el «ya es de otro» devolviendo el intento                                 → 7 / 1
+//   · el 23505 saliendo DESPUÉS de devolver el intento                          → 7 / 1
+//   · si la búsqueda falla (la base), sin devolver el intento                   → 7 / 1
+//   · el texto otra vez «Ese email ya tiene una cuenta de MaKo»                 → 7 / 1
+// Y con el aviso al email anterior (9 pases en verde), cada una → 8 / 1: sin mandarlo, mandándolo al email NUEVO,
+// y con el nuevo sin enmascarar en el texto.

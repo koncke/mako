@@ -80,6 +80,9 @@ export async function POST(req: NextRequest) {
       system: SYSTEM,
       user: `<datos>\n${lista}\n</datos>\n\nLo que busca: ${q}`,
       maxTokens: 900,
+      // Buscar en el Second Brain es de la primera semana de un cliente nuevo, que no trae una API
+      // (16/10/2026): sin la red, la búsqueda le contestaba con el error de «no hay IA».
+      redDePlataforma: true,
     });
 
     const j = parseJsonObject(cruda) as { ids?: unknown; explico?: unknown } | null;

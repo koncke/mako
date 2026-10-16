@@ -4,23 +4,9 @@ import {
 	type CommandResult,
 } from "@/app/video-editor/_opencut/commands/base-command";
 import type { SceneTracks, TimelineElement } from "@/app/video-editor/_opencut/timeline";
-import { generateUUID } from "@/app/video-editor/_opencut/utils/id";
-import { sinTransicion } from "@/app/video-editor/_opencut/transiciones/reglas";
-import { sinEntrada, sinSalida } from "@/app/video-editor/_opencut/animaciones/reglas";
-import { sinFundidoEntrada, sinFundidoSalida } from "@/app/video-editor/_opencut/audio/claves";
 import { EditorCore } from "@/app/video-editor/_opencut/core";
-import { isRetimableElement } from "@/app/video-editor/_opencut/timeline";
-import { splitAnimationsAtTime } from "@/app/video-editor/_opencut/animation";
-import {
-	getSourceSpanAtClipTime,
-	splitRetimeAtClipTime,
-} from "@/app/video-editor/_opencut/retime";
-import {
-	addMediaTime,
-	type MediaTime,
-	roundMediaTime,
-	subMediaTime,
-} from "@/app/video-editor/_opencut/wasm";
+import { dividirElemento } from "@/app/video-editor/_opencut/timeline/dividir-elemento";
+import type { MediaTime } from "@/app/video-editor/_opencut/wasm";
 
 export class SplitElementsCommand extends Command {
 	private savedState: SceneTracks | null = null;
@@ -70,147 +56,28 @@ export class SplitElementsCommand extends Command {
 				const shouldSplit = elementsToSplit.some(
 					(target) => target.elementId === element.id,
 				);
-
 				if (!shouldSplit) {
 					return [element];
 				}
-
-				const effectiveStart = element.startTime;
-				const effectiveEnd = element.startTime + element.duration;
-
-				if (
-					this.splitTime <= effectiveStart ||
-					this.splitTime >= effectiveEnd
-				) {
+				// La cuenta vive en timeline/dividir-elemento.ts (pura, la usa también
+				// la edición por transcripción).
+				const partes = dividirElemento({
+					element,
+					splitTime: this.splitTime,
+					retainSide: this.retainSide,
+				});
+				if (!partes) {
 					return [element];
 				}
-
-				const relativeTime = subMediaTime({
-					a: this.splitTime,
-					b: element.startTime,
-				});
-				const leftVisibleDuration = relativeTime;
-				const rightVisibleDuration = subMediaTime({
-					a: element.duration,
-					b: relativeTime,
-				});
-				const retimeRef = isRetimableElement(element)
-					? element.retime
-					: undefined;
-				// Snap the source-side split point exactly once and derive the right
-				// half from it. Independently rounding both spans (left and total)
-				// would let a 1-tick rounding error desynchronise them, breaking the
-				// invariant `leftSourceSpan + rightSourceSpan == totalSourceSpan`.
-				// See the same discipline in `compute-resize.ts` (snap-once comment).
-				// Con curva de velocidad, la fuente hasta el corte depende de dónde
-				// cae en la curva: hace falta la duración del clip (retime/resolve.ts).
-				const leftSourceSpan = roundMediaTime({
-					time: getSourceSpanAtClipTime({
-						clipTime: leftVisibleDuration,
-						retime: retimeRef,
-						clipDuration: element.duration,
-					}),
-				});
-				const totalSourceSpan = roundMediaTime({
-					time: getSourceSpanAtClipTime({
-						clipTime: element.duration,
-						retime: retimeRef,
-						clipDuration: element.duration,
-					}),
-				});
-				// Cada mitad se lleva su tramo de la curva (con velocidad constante, la misma).
-				const { left: leftRetime, right: rightRetime } = splitRetimeAtClipTime({
-					retime: retimeRef,
-					splitClipTime: relativeTime,
-					clipDuration: element.duration,
-				});
-				const rightSourceSpan = subMediaTime({
-					a: totalSourceSpan,
-					b: leftSourceSpan,
-				});
-				const { leftAnimations, rightAnimations } = splitAnimationsAtTime({
-					animations: element.animations,
-					splitTime: relativeTime,
-					shouldIncludeSplitBoundary: true,
-				});
-				let splitResult: TimelineElement[];
-
-				const leftTrimEnd = addMediaTime({
-					a: element.trimEnd,
-					b: rightSourceSpan,
-				});
-				const rightTrimStart = addMediaTime({
-					a: element.trimStart,
-					b: leftSourceSpan,
-				});
-
-				// Con las dos mitades, la transición (`transicion.*`) es del borde derecho
-				// ORIGINAL, que queda en la mitad derecha: la izquierda no la lleva, o
-				// aparecería en el corte nuevo (transiciones/reglas.ts). Con «Borrar a la
-				// derecha» la mitad que queda la conserva, como al recortar el final.
-				// Y la animación: la Entrada queda en la izquierda y la Salida en la
-				// derecha (animaciones/reglas.ts).
-				// Los fundidos de audio, igual (audio/claves.ts).
-				const leftParams = sinFundidoSalida(sinSalida(sinTransicion(element.params)));
-
-				// Las dos mitades conservan el nombre, como en CapCut (OpenCut le sumaba
-				// «(left)»/«(right)», que se leía en inglés sobre el clip de un efecto).
-				if (this.retainSide === "left") {
-					splitResult = [
-						{
-							...element,
-							duration: leftVisibleDuration,
-							trimEnd: leftTrimEnd,
-							animations: leftAnimations,
-							...(leftRetime !== undefined ? { retime: leftRetime } : {}),
-						},
-					];
-				} else if (this.retainSide === "right") {
-					const newId = generateUUID();
+				if (partes.derecha) {
 					this.rightSideElements.push({
 						trackId: track.id,
-						elementId: newId,
+						elementId: partes.derecha.id,
 					});
-					splitResult = [
-						{
-							...element,
-							id: newId,
-							startTime: this.splitTime,
-							duration: rightVisibleDuration,
-							trimStart: rightTrimStart,
-							animations: rightAnimations,
-							...(rightRetime !== undefined ? { retime: rightRetime } : {}),
-						},
-					];
-				} else {
-					const secondElementId = generateUUID();
-					this.rightSideElements.push({
-						trackId: track.id,
-						elementId: secondElementId,
-					});
-					splitResult = [
-						{
-							...element,
-							params: leftParams,
-							duration: leftVisibleDuration,
-							trimEnd: leftTrimEnd,
-							animations: leftAnimations,
-							...(leftRetime !== undefined ? { retime: leftRetime } : {}),
-						},
-						{
-							...element,
-							id: secondElementId,
-							params: sinFundidoEntrada(sinEntrada(element.params)),
-							startTime: this.splitTime,
-							duration: rightVisibleDuration,
-							trimStart: rightTrimStart,
-							animations: rightAnimations,
-							...(rightRetime !== undefined ? { retime: rightRetime } : {}),
-						},
-					];
 				}
-
-				return splitResult;
+				return [partes.izquierda, partes.derecha].filter(
+					(e): e is TimelineElement => e !== null,
+				);
 			});
 
 			return { ...track, elements } as TTrack;

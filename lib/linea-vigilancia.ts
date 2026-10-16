@@ -126,20 +126,46 @@ function fechaLegible(iso: string | null, tz: string): string | null {
  *   · Cualquier otro motivo, o no saberlo — un corte que puede volver solo. Re-escanear ahí
  *     tumba una sesión que estaba por volver, así que no se manda a hacerlo.
  */
-export function textoCaida(e: {
+export type HechosCaida = {
   motivo: { desvinculado: boolean; cuando: string | null } | null;
   /** Desde cuándo la medimos caída nosotros: respaldo de la fecha si Evolution no la dio. */
   desde: string | null;
   linea: string | null;
   link: string;
   tz: string;
-}): string {
-  const cual = e.linea ? ` (${e.linea})` : '';
+};
+
+/**
+ * LOS DATOS DEL AVISO, por nombre (15/10/2026: «un Mensaje de MaKo ES una automatización»). Los cita la automatización
+ * de la plataforma («{{linea_titulo}}», «{{linea_motivo}}»…, lib/variables-aviso.ts) y de ellos sale también
+ * `textoCaida`, así la plantilla y el código no pueden decir cosas distintas.
+ * ⚠️ SIN número ni etiqueta, `linea_numero` FALTA (no viene vacío): un dato vacío es un valor para `textoConDatos`, y el
+ * renglón «📱» quedaba solo; uno que falta se lleva su renglón entero.
+ */
+export function datosCaida(e: HechosCaida): Record<'linea_titulo' | 'linea_motivo' | 'linea_link', string> & { linea_numero?: string } {
   const fecha = fechaLegible(e.motivo?.cuando ?? e.desde, e.tz);
+  const base = { ...(e.linea ? { linea_numero: e.linea } : {}), linea_link: e.link };
   if (e.motivo?.desvinculado) {
-    return `🔴 *Se desconectó tu WhatsApp*${cual}. WhatsApp cerró la sesión del dispositivo vinculado${fecha ? ` el ${fecha}` : ''}: tu teléfono está bien, pero por ese número no entran ni salen mensajes. Vuelve a escanear el QR: ${e.link} — MaKo`;
+    return {
+      ...base, linea_titulo: 'Se desconectó tu WhatsApp',
+      linea_motivo: `WhatsApp cerró la sesión del dispositivo vinculado${fecha ? ` el ${fecha}` : ''}: tu teléfono está bien, pero por ese número no entran ni salen mensajes. Vuelve a escanear el QR:`,
+    };
   }
-  return `🔴 *Se cortó tu WhatsApp*${cual}. Por ese número no entran ni salen mensajes${fecha ? ` desde el ${fecha}` : ''}. Puede volver solo; si sigue así, reconéctalo: ${e.link} — MaKo`;
+  return {
+    ...base, linea_titulo: 'Se cortó tu WhatsApp',
+    linea_motivo: `Por ese número no entran ni salen mensajes${fecha ? ` desde el ${fecha}` : ''}. Puede volver solo; si sigue así, reconéctalo:`,
+  };
+}
+
+export function textoCaida(e: HechosCaida): string {
+  const d = datosCaida(e);
+  const cual = d.linea_numero ? ` (${d.linea_numero})` : '';
+  return `🔴 *${d.linea_titulo}*${cual}. ${d.linea_motivo} ${d.linea_link} — MaKo`;
+}
+
+/** Los datos del «volvió»: sólo la línea (un negocio con dos números tiene que saber cuál). Sin ella, nada. */
+export function datosVolvio(e: { linea: string | null }): { linea_numero?: string } {
+  return e.linea ? { linea_numero: e.linea } : {};
 }
 
 /**
@@ -147,6 +173,7 @@ export function textoCaida(e: {
  * que se avisó ya no pasa. Lleva la línea porque un negocio con dos números tiene que saber cuál.
  */
 export function textoVolvio(e: { linea: string | null }): string {
-  const cual = e.linea ? ` (${e.linea})` : '';
+  const d = datosVolvio(e);
+  const cual = d.linea_numero ? ` (${d.linea_numero})` : '';
   return `🟢 *Volvió tu WhatsApp*${cual}. Por ese número ya entran y salen mensajes otra vez. — MaKo`;
 }

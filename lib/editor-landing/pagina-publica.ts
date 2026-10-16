@@ -82,6 +82,22 @@ import { CONFIG_DEFAULT, type ConfigLanding } from './api-tipos';
 import { CSS_CONTENIDO } from './css';
 import { PREFIJO_PUBLICO, rutaInternaL, rutaValida, slugValido } from './doc';
 import { origenImagenes } from './especificacion';
+import { CORTE_CELULAR, ESTILOS_PAGINA, efectoPorId, sanearEstilo, type DefEstilo } from './animaciones';
+
+/**
+ * WCAG 2.2.2 (la regla de los hallazgos: lo que se mueve solo más de 5 s lleva pausa): un título partido termina de
+ * entrar en 5 s como mucho. Con «Máquina de escribir» un título de 140 letras llegaba a 5,7 s (150 + 139 × 35 + 700
+ * ms; medido por la verificación de la tanda 8, 16/10/2026). Si un título se pasaría, el script le junta los pedazos:
+ * reparte su lugar (`--gm-u`) en el tiempo que queda. Por pieza: el escalón del estilo y lo que entra de cascada
+ * (5 s, menos la demora base de 150 ms de css.ts `textoPartido`, menos lo que dura la entrada de un pedazo).
+ */
+const TOPE_TEXTO_MS = 5000;
+const TOPE_TEXTO: Record<string, { paso: number; max: number }> = Object.fromEntries(
+  (ESTILOS_PAGINA as readonly DefEstilo[]).flatMap((e) => {
+    const def = e.texto ? efectoPorId(e.texto.efecto) : null;
+    return e.texto && def ? [[e.texto.por, { paso: e.texto.escalonMs, max: TOPE_TEXTO_MS - 150 - def.duracionMs }]] : [];
+  }),
+);
 import { baseLandingsPara, urlLandingEn, urlVistaEn } from './origen-landings';
 import { APP_BASE_URL, baseLandings } from '../app-url';
 import { FORMA_TOKEN, lineaCargador } from '../pixel-cargador';
@@ -107,6 +123,9 @@ export type ModoDocumento = 'publico' | 'vista';
  *     mañana puede no calzar). Si viniera vacía, va la de hoy.
  *   · `foto.animaciones`: `config.pagina.animaciones` congelado. Si una foto vieja no lo
  *     trae, van prendidas, que es el default (CONFIG_DEFAULT).
+ *   · `foto.estiloAnimacion`: `config.pagina.estiloAnimacion` congelado, igual que `animaciones`. Una
+ *     foto de antes del catálogo no lo trae (o trae uno que ya no existe): el de siempre, ESTILO_DEFAULT.
+ *     (Las secciones ya traen su efecto RESUELTO en el HTML de la foto: `data-anim`.)
  */
 export type LecturaPublica = {
   workspaceId: number;
@@ -118,6 +137,7 @@ export type LecturaPublica = {
     sitio: ConfigLanding['sitio'];
     temaId?: string | null;
     animaciones?: boolean | null;
+    estiloAnimacion?: string | null;
   };
   pagina: { html: string; titulo?: string | null; descripcion?: string | null };
 };
@@ -151,7 +171,7 @@ export function configDeLectura(l: LecturaPublica): ConfigLanding {
     ...CONFIG_DEFAULT,
     tema: typeof l.foto.temaId === 'string' && l.foto.temaId ? l.foto.temaId : CONFIG_DEFAULT.tema,
     sitio: { ...CONFIG_DEFAULT.sitio, ...(l.foto.sitio ?? {}) },
-    pagina: { ...CONFIG_DEFAULT.pagina, animaciones: l.foto.animaciones !== false },
+    pagina: { ...CONFIG_DEFAULT.pagina, animaciones: l.foto.animaciones !== false, estiloAnimacion: sanearEstilo(l.foto.estiloAnimacion) },
   };
 }
 
@@ -301,10 +321,27 @@ function idiomaDe(v: unknown): string {
 //     acá y no en la hoja porque la hoja de cada publicada es una foto congelada y el script no:
 //     llega a todas sin republicar. Lo que está más abajo anima como siempre al entrar.
 // (c) Los desplegables son <details> nativos: andan sin JavaScript y no hay nada acá.
+// (e) LOS TÍTULOS QUE ENTRAN DE A PALABRA O DE A LETRA (15/10/2026, el catálogo de animaciones,
+//     lib/editor-landing/animaciones.ts): en una sección con `data-anim-texto` que NO quedó vista al
+//     cargar, cada h1-h3 se parte en `span.gm-u` (con `--gm-u` = su lugar) y la hoja los hace entrar
+//     escalonados (css.ts, bloque 16). El texto que se lee no cambia (`textContent` igual: los espacios
+//     quedan como texto), el título lleva su texto en `aria-label` y los pedazos van `aria-hidden` (un
+//     lector de pantalla no deletrea). Sólo con IntersectionObserver y sin «menos movimiento» (el
+//     `return` de arriba), y nunca lo que ya está en pantalla (el arreglo del parpadeo).
+// (f) EL VIDEO DE FONDO DEL HERO (`video.gm-acento-video`, especificacion.ts `acentoConVideo`; lo
+//     medido en docs/hallazgos-editor-landing.md → «Animaciones: el video de fondo del hero»): el HTML
+//     no trae `src` ni `autoplay` (le robaban ancho de banda al póster, que es el LCP). Después del
+//     load se le pone `src` (`data-src-movil` en el ancho del teléfono) y `play()`; se muestra recién con
+//     `playing` (iOS en ahorro de energía no reproduce solo); se pausa fuera de pantalla y con la pestaña
+//     oculta; con «menos movimiento» o «ahorro de datos» no se carga; y con el primer `playing` aparece
+//     la pausa (WCAG 2.2.2: lo que se mueve solo más de 5 s). No depende del interruptor «Animaciones».
 //
 // ⚠️ ES UN STRING QUE SE SIRVE: sin barras invertidas, sin backticks y sin `${` adentro
 // (AGENTS.md, «el fuente y lo que se sirve no son el mismo texto»), y sin regex. Su hash
 // va en la política de contenido: si se toca una coma, el hash cambia solo.
+// ⚠️ Y LO LEEN LAS PUBLICADAS VIEJAS con su hoja congelada: `gm-anim` (la raíz, «esto corre») y
+// `gm-visto` (la sección, «ya entró») no cambian de sentido. Lo nuevo sólo mira atributos que el
+// HTML viejo no tiene (`data-anim-texto`, `video.gm-acento-video`).
 export const SCRIPT_PAGINA = [
   '(function () {',
   '  var d = document, w = window;',
@@ -360,6 +397,62 @@ export const SCRIPT_PAGINA = [
   '      return;',
   '    }',
   '  });',
+  // (f) El video de fondo: antes del interruptor de las animaciones (no depende de él), y si algo falla en un
+  //     navegador raro, no se lleva puesto lo de abajo.
+  '  function fondosEnVideo() {',
+  "    var vs = d.querySelectorAll('video.gm-acento-video'), lista = [];",
+  "    for (var i = 0; i < vs.length; i++) if (vs[i] && typeof vs[i].play === 'function' && vs[i].getAttribute) lista.push(vs[i]);",
+  '    if (!lista.length) return;',
+  '    var red = w.navigator && w.navigator.connection;',
+  '    if (red && red.saveData) return;',
+  "    try { if (w.matchMedia && w.matchMedia('(prefers-reduced-motion: reduce)').matches) return; } catch (e) {}",
+  '    var angosto = false;',
+  "    try { angosto = !!(w.matchMedia && w.matchMedia('" + CORTE_CELULAR + "').matches); } catch (e) {}",
+  '    function seguir(v) {',
+  '      if (v.gmQuieto || v.gmFuera || d.hidden) { if (!v.paused) v.pause(); return; }',
+  "      if (!v.getAttribute('src')) {",
+  "        var src = (angosto && v.getAttribute('data-src-movil')) || v.getAttribute('data-src');",
+  '        if (!src) return;',
+  '        v.src = src;',
+  '      }',
+  '      var pr = v.play();',
+  '      if (pr && pr.catch) pr.catch(function () {});',
+  '    }',
+  '    function preparar(v) {',
+  '      v.muted = true;',
+  '      var boton = null;',
+  "      v.addEventListener('playing', function () {",
+  "        v.setAttribute('data-andando', '1');",
+  '        if (boton) return;',
+  "        var sec = v.closest ? v.closest('.gm-tarjeta') : null;",
+  '        if (!sec) return;',
+  "        boton = d.createElement('button');",
+  "        boton.type = 'button';",
+  "        boton.className = 'gm-video-pausa';",
+  "        boton.setAttribute('aria-label', 'Pausar el video de fondo');",
+  "        boton.addEventListener('click', function () {",
+  '          v.gmQuieto = !v.gmQuieto;',
+  "          boton.setAttribute('aria-label', v.gmQuieto ? 'Reproducir el video de fondo' : 'Pausar el video de fondo');",
+  "          if (v.gmQuieto) boton.setAttribute('data-pausado', '1'); else boton.removeAttribute('data-pausado');",
+  '          seguir(v);',
+  '        });',
+  '        sec.appendChild(boton);',
+  '      });',
+  '    }',
+  '    function arrancar() {',
+  '      var IOv = w.IntersectionObserver;',
+  '      var ojo = IOv ? new IOv(function (es) {',
+  '        for (var j = 0; j < es.length; j++) { es[j].target.gmFuera = !es[j].isIntersecting; seguir(es[j].target); }',
+  '      }) : null;',
+  '      for (var k = 0; k < lista.length; k++) {',
+  '        preparar(lista[k]);',
+  '        if (ojo) { lista[k].gmFuera = true; ojo.observe(lista[k]); } else seguir(lista[k]);',
+  '      }',
+  "      d.addEventListener('visibilitychange', function () { for (var m = 0; m < lista.length; m++) seguir(lista[m]); });",
+  '    }',
+  "    if (d.readyState === 'complete') arrancar(); else if (w.addEventListener) w.addEventListener('load', arrancar);",
+  '  }',
+  '  try { fondosEnVideo(); } catch (e) {}',
   "  if (!d.body || d.body.getAttribute('data-gm-animar') !== '1') return;",
   '  var IO = w.IntersectionObserver;',
   '  if (!IO) return;',
@@ -372,7 +465,10 @@ export const SCRIPT_PAGINA = [
   "      entradas[j].target.classList.add('gm-visto');",
   '      io.unobserve(entradas[j].target);',
   '    }',
-  "  }, { rootMargin: '0px 0px -6% 0px', threshold: 0.06 });",
+  // threshold 0, no 0.06 (revisión de la tanda 8, 16/10/2026): una sección más alta que ~16 pantallas (una «Página
+  // web» copiada con su HTML entero, un FAQ larguísimo en el teléfono) nunca llegaba a mostrar el 6 % de su alto, y
+  // con gm-anim quedaba en opacity 0 PARA SIEMPRE. Con 0 entra en cuanto cruza la línea del margen (-6 % de abajo).
+  "  }, { rootMargin: '0px 0px -6% 0px', threshold: 0 });",
   '  var alto = w.innerHeight || (d.documentElement && d.documentElement.clientHeight) || 0;',
   '  function tiene(el, c) { return !!(el && el.classList && el.classList.contains && el.classList.contains(c)); }',
   '  function sinAnimar(el) {',
@@ -402,6 +498,77 @@ export const SCRIPT_PAGINA = [
   '    if ((esTarjeta && primera) || enPantalla(els[k])) quieto(els[k]);',
   '    else vigilar.push(els[k]);',
   '    if (esTarjeta) primera = false;',
+  '  }',
+  // (e) Los títulos de las secciones que todavía no se vieron, partidos ANTES de `gm-anim` (sin un cuadro en el
+  //     medio). Los topes: un título largo de a letra tardaría segundos en terminar de escribirse.
+  '  function unidad(texto, n) {',
+  "    var u = d.createElement('span');",
+  "    u.className = 'gm-u';",
+  "    u.setAttribute('aria-hidden', 'true');",
+  "    u.setAttribute('style', '--gm-u:' + n);",
+  '    u.textContent = texto;',
+  '    return u;',
+  '  }',
+  '  function partirTexto(nodo, por, cuenta) {',
+  "    var s = nodo.nodeValue || '', frag = d.createDocumentFragment(), blanco = '', pedazo = '';",
+  '    for (var c = 0; c < s.length; c++) {',
+  '      var cod = s.charCodeAt(c), ch = s.charAt(c);',
+  '      if (cod <= 32) {',
+  "        if (pedazo) { frag.appendChild(unidad(pedazo, cuenta.n++)); pedazo = ''; }",
+  '        blanco += ch;',
+  '        continue;',
+  '      }',
+  "      if (blanco) { frag.appendChild(d.createTextNode(blanco)); blanco = ''; }",
+  '      if (cod >= 55296 && cod <= 56319 && c + 1 < s.length) { c++; ch += s.charAt(c); }',
+  "      if (por === 'letra') frag.appendChild(unidad(ch, cuenta.n++));",
+  '      else pedazo += ch;',
+  '    }',
+  '    if (pedazo) frag.appendChild(unidad(pedazo, cuenta.n++));',
+  '    if (blanco) frag.appendChild(d.createTextNode(blanco));',
+  '    if (nodo.parentNode) nodo.parentNode.replaceChild(frag, nodo);',
+  '  }',
+  '  function juntar(n, nodos, rotulo) {',
+  '    for (var h = n.firstChild; h; h = h.nextSibling) {',
+  '      if (h.nodeType === 3) { nodos.push(h); rotulo.t += h.nodeValue; }',
+  "      else if (h.nodeName === 'BR') rotulo.t += ' ';",
+  '      else if (h.nodeType === 1) juntar(h, nodos, rotulo);',
+  '    }',
+  '  }',
+  // Un título con DEGRADADO (6 temas: `background-clip: text` y el relleno transparente) no se parte: un pedazo
+  // que anima opacidad o transform se pinta en su propia capa, queda fuera del recorte del degradado y se ve
+  // VACÍO hasta que termina (aparecía de golpe al final). Ese título entra entero, con el efecto de los bloques.
+  '  function conDegradado(t) {',
+  '    try {',
+  '      var cs = w.getComputedStyle ? w.getComputedStyle(t) : null;',
+  "      return !!(cs && cs.backgroundImage && cs.backgroundImage !== 'none');",
+  '    } catch (e) { return false; }',
+  '  }',
+  '  var TOPE_TEXTO = ' + JSON.stringify(TOPE_TEXTO) + ';',
+  '  function partirTitulos(sec, por) {',
+  "    var ts = sec.querySelectorAll ? sec.querySelectorAll('h1, h2, h3') : [];",
+  '    for (var a = 0; a < ts.length; a++) {',
+  '      if (conDegradado(ts[a])) continue;',
+  // Un título con un enlace o un botón adentro no se parte (revisión de la tanda 8): los pedazos van aria-hidden, y
+  // el enlace se quedaba sin nombre accesible (WCAG 4.1.2); el aria-label del título no lo anuncian todos los lectores.
+  "      if (ts[a].querySelectorAll && (ts[a].querySelectorAll('a').length || ts[a].querySelectorAll('button').length)) continue;",
+  "      var nodos = [], rotulo = { t: '' };",
+  '      juntar(ts[a], nodos, rotulo);',
+  '      var largo = rotulo.t.length;',
+  "      if (!largo || largo > (por === 'letra' ? 140 : 400)) continue;",
+  "      if (!ts[a].getAttribute('aria-label')) ts[a].setAttribute('aria-label', rotulo.t.trim());",
+  '      var cuenta = { n: 0 };',
+  '      for (var q = 0; q < nodos.length; q++) partirTexto(nodos[q], por, cuenta);',
+  // WCAG 2.2.2: si la cascada de este título pasaría de 5 s (TOPE_TEXTO), sus pedazos se reparten más juntos.
+  '      var tope = TOPE_TEXTO[por];',
+  '      if (tope && cuenta.n > 1 && (cuenta.n - 1) * tope.paso > tope.max) {',
+  "        var f = tope.max / ((cuenta.n - 1) * tope.paso), us = ts[a].querySelectorAll('.gm-u');",
+  "        for (var z = 0; z < us.length; z++) us[z].setAttribute('style', '--gm-u:' + Math.round(z * f * 1000) / 1000);",
+  '      }',
+  '    }',
+  '  }',
+  '  for (var pt = 0; pt < vigilar.length; pt++) {',
+  "    var por = vigilar[pt].getAttribute ? vigilar[pt].getAttribute('data-anim-texto') : null;",
+  "    if (por === 'palabra' || por === 'letra') { try { partirTitulos(vigilar[pt], por); } catch (e) {} }",
   '  }',
   "  d.documentElement.classList.add('gm-anim');",
   '  for (var v = 0; v < vigilar.length; v++) io.observe(vigilar[v]);',

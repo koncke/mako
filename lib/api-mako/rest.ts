@@ -97,14 +97,25 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['GET', '/crm/automatizaciones/simulacion', 'evaluar_crm_automatico'],
   ['GET', '/crm/busqueda/duplicados', 'duplicados_lead'],
   ['GET', '/crm/busqueda/leads', 'buscar_leads'],
+  // Un CRM nuevo por su tipo (14/10/2026): crea el embudo y devuelve su embudoId.
+  ['POST', '/crm/embudos', 'crear_crm'],
   ['PUT', '/crm/entradas', 'declarar_entradas_funnel'],
   ['GET', '/crm/estadisticas/leads', 'contar_leads_por_etapa'],
+  // El evento de agenda vinculado a una etapa de reunión (16/10/2026). El evento va en el CUERPO (o en la query del
+  // DELETE), no en la ruta: en Calendly es una URI con barras. PUT porque FIJA a qué etapa va el evento.
+  ['GET', '/crm/eventos-agenda', 'listar_eventos_agenda'],
+  ['PUT', '/crm/eventos-agenda/vinculo', 'vincular_evento_etapa'],
+  ['DELETE', '/crm/eventos-agenda/vinculo', 'desvincular_evento_etapa'],
   ['GET', '/crm/etapas', 'ver_funnel'],
   ['GET', '/crm/etapas/{etapa}/transiciones', 'transiciones_desde_etapa'],
   ['GET', '/crm/etiquetas', 'listar_etiquetas'],
   ['POST', '/crm/etiquetas', 'crear_etiqueta'],
   ['PATCH', '/crm/etiquetas/{etiquetaId}', 'editar_etiqueta'],
   ['PUT', '/crm/etiquetas/{etiquetaId}/archivado', 'archivar_etiqueta'],
+  // La ficha del lead por bloques de UN CRM (14/10/2026): el CRM va por `?embudoId=` (opcional: sin él, el
+  // principal), como `/crm/sugerencias`. PATCH porque cambia UNA parte (un bloque, un aviso, el estilo).
+  ['GET', '/crm/ficha', 'ver_ficha_funnel'],
+  ['PATCH', '/crm/ficha', 'cambiar_ficha_funnel'],
   ['POST', '/crm/importaciones', 'proponer_leads'],
   ['GET', '/crm/leads', 'listar_leads'],
   ['POST', '/crm/leads', 'proponer_lead'],
@@ -150,6 +161,8 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['GET', '/crm/sugerencias', 'sugerencias_crm'],
   // Deshacer un «Ahora no»: borrar el silencio, como `/crm/leads/{leadId}/faltantes/silencio`.
   ['DELETE', '/crm/sugerencias/{sugerenciaId}/silencio', 'volver_a_mostrar_sugerencia'],
+  // Los tipos de «Nuevo CRM» (14/10/2026), los que acepta POST /crm/embudos.
+  ['GET', '/crm/tipos', 'tipos_de_crm'],
   // ── ads ───────────────────────────────────────────────────────────────────
   ['GET', '/ads/angulos', 'listar_angulos_guion'],
   ['POST', '/ads/angulos', 'proponer_agregar_angulo'],
@@ -408,6 +421,8 @@ export const RUTAS_REST: readonly RutaRest[] = [
   // La biblioteca de imágenes y videos del negocio (corrección de la tanda 7): URLs públicas del bucket de las landings.
   ['GET', '/landing/imagenes', 'listar_imagenes_landing'],
   ['DELETE', '/landing/documentos/{id}', 'borrar_landing_creada'],
+  // Las animaciones (15/10/2026, el panel «Animar»): PATCH porque cambia sólo lo que se pasa (el interruptor, el estilo o una sección).
+  ['PATCH', '/landing/documentos/{id}/animaciones', 'cambiar_animacion_landing'],
   ['PATCH', '/landing/documentos/{id}/botones', 'configurar_boton_landing'],
   ['POST', '/landing/documentos/{id}/comentarios-de-afuera', 'pasar_comentarios_a_copia_landing'],
   ['GET', '/landing/documentos/{id}/configuracion', 'ver_configuracion_landing'],
@@ -466,6 +481,9 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['POST', '/negocio/lead-magnets/generaciones', 'generar_lead_magnets'],
   ['PATCH', '/negocio/lead-magnets/{id}', 'editar_lead_magnet'],
   ['GET', '/negocio/onboarding', 'ver_estado_onboarding'],
+  // El plan de MaKo del negocio («Tu plan», 15/10/2026): lo que le cobra la plataforma.
+  ['GET', '/negocio/plan', 'ver_mi_plan'],
+  ['POST', '/negocio/plan/bajas', 'dar_de_baja_mi_plan'],
   ['GET', '/negocio/onboarding/tabs-pendientes', 'listar_tabs_por_configurar'],
   ['GET', '/negocio/perfil/campos', 'ver_perfil_negocio'],
   ['PATCH', '/negocio/perfil/campos/{key}', 'guardar_campo_perfil'],
@@ -507,6 +525,7 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['GET', '/video/guiones', 'listar_guiones_para_video'],
   ['GET', '/video/lugares', 'listar_lugares_grabacion'],
   ['GET', '/video/onboarding', 'estado_onboarding_video'],
+  ['GET', '/video/plantillas', 'listar_plantillas_video'],
   ['GET', '/video/voz', 'ver_voz_cliente'],
   // ── integraciones ─────────────────────────────────────────────────────────
   ['GET', '/integraciones/agente-claude', 'ver_estado_agente_claude'],
@@ -550,6 +569,17 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['PUT', '/cobros/cobros/{cobroId}/cancelacion-suscripcion', 'cancelar_suscripcion'],
   ['POST', '/cobros/links-pago', 'crear_link_pago'],
   ['PUT', '/cobros/links-pago/{cobroId}/anulacion', 'anular_link_pago'],
+  // Pagos campo por campo (14/10/2026): el deal, la venta y las cuotas son recursos del lead y de la cuota; el link
+  // de UNA cuota se crea sobre ella, y cortar su recordatorio lo borra (DELETE, como GitHub con una suscripción).
+  ['GET', '/cobros/moneda', 'ver_moneda_negocio'],
+  ['PUT', '/cobros/moneda', 'cambiar_moneda_negocio'],
+  ['PATCH', '/cobros/deals/{leadId}', 'editar_dato_deal'],
+  ['PATCH', '/cobros/deals/{leadId}/obligaciones', 'editar_obligacion_deal'],
+  ['PATCH', '/cobros/ventas/{leadId}', 'editar_venta_lead'],
+  ['PUT', '/cobros/ventas/{leadId}/suscripcion', 'estado_suscripcion_manual'],
+  ['PATCH', '/cobros/cuotas/{cuotaId}', 'editar_cuota'],
+  ['POST', '/cobros/cuotas/{cuotaId}/links-pago', 'crear_link_cuota'],
+  ['DELETE', '/cobros/cuotas/{cuotaId}/recordatorios', 'cortar_recordatorio_cuota'],
   // ── creaciones (13/10/2026: la galería y sus estrellas, como GitHub) ─────────
   // La estrella es un recurso de la creación: PUT la da y DELETE la saca (GitHub: PUT/DELETE /user/starred/{repo}).
   ['GET', '/creaciones/creaciones', 'listar_creaciones'],

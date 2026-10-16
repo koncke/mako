@@ -101,7 +101,9 @@ test('CABLEADO: mover desde el tablero se guarda aunque falten datos', () => {
   for (const firma of ['export async function setLeadStageAction', 'export async function completeStageMoveAction']) {
     const c = cuerpo(acciones, firma);
     assert.ok(!/ok:\s*false/.test(c), `${firma} volvió a devolver ok:false — eso frena el movimiento en la UI`);
-    assert.ok(/return \{ ok: true, pendientes \}/.test(c), `${firma} tiene que devolver lo que falta como pendientes`);
+    // `[ ,]` y no ` \}`: el wizard de Ganado devuelve además `sinTocar` (las cuotas que el plan no pudo cambiar), y
+    // un guard que fija el texto EXACTO se pone rojo con un campo legítimo de más.
+    assert.ok(/return \{ ok: true, pendientes[ ,]/.test(c), `${firma} tiene que devolver lo que falta como pendientes`);
     assert.ok(/registrarPendientes\(/.test(c), `${firma} tiene que dejar en el historial que se guardó incompleto`);
   }
 });

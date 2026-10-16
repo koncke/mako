@@ -67,6 +67,8 @@ import { FUENTES, hojaVacia, sanearHoja, type Hoja } from '@/lib/graficos-catalo
 import { PLANTILLAS_HOJA, instanciarPlantilla, type PlantillaHoja } from '@/lib/graficos-plantillas';
 import { filtrarPlantillasHoja } from '@/lib/graficos-plantillas-generales';
 import { PLANTILLAS_GENERAL } from '@/lib/general-plantillas';
+import { ETIQUETAS_DASHBOARD, ETIQUETAS_GENERAL } from '@/lib/graficos-plantillas-etiquetas';
+import { ordenarConSugeridas, type SenalesNegocio } from '@/lib/plantillas-sugeridas';
 import { TOPE_PEDIDO_IA } from '@/lib/graficos-ia';
 import { dashPegado, hojaConIdsNuevos, rotuloDashPegado } from '@/lib/graficos-copia';
 import { leerDashPegado } from './copia-dash-cliente';
@@ -135,6 +137,9 @@ const CSS = `
 .nh-giro{width:13px;height:13px;border-radius:50%;border:2px solid currentColor;border-right-color:transparent;animation:nh-giro .8s linear infinite}
 @keyframes nh-giro{to{transform:rotate(360deg)}}
 .nh-nombre{font-size:14.5px;font-weight:600;line-height:1.3;color:var(--ink);padding:0 4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nh-pie{display:flex;align-items:baseline;gap:8px;min-width:0;padding:0 4px}
+.nh-pie .nh-nombre{padding:0;min-width:0}
+.nh-sugerido{flex:none;margin-left:auto;font-size:11.5px;font-weight:500;line-height:1.3;color:var(--dim)}
 .nh-buscar{display:flex;align-items:center;gap:8px;padding:0 12px;height:40px;box-sizing:border-box;border-radius:11px;border:1px solid var(--border-strong);background:var(--surface);color:var(--dim)}
 .nh-buscar:focus-within{border-color:var(--primary)}
 .nh-buscar input{flex:1;min-width:0;border:none;outline:none;background:transparent;color:var(--ink);font:inherit;font-size:14px}
@@ -148,14 +153,19 @@ type PropsCrearHoja = {
   enBlanco?: string;
   /** En General (14/10/2026) la galería es la de General (lib/general-plantillas.ts), nunca la del Dashboard. */
   informe?: 'dashboard' | 'general';
+  /**
+   * Lo que se sabe del negocio para poner primero las plantillas que le sirven, con un «Sugerido» (Martín, 16/10/2026;
+   * lib/plantillas-sugeridas.ts). Lo lee la página en el server. null o ausente = el orden de siempre.
+   */
+  senales?: SenalesNegocio | null;
 };
 
 /** El modal «Nueva hoja»: la misma pieza que la pantalla en blanco, adentro del Modal de la casa. */
-export function NuevaHoja({ onCerrar, onCrear, enBlanco = 'Página nueva', informe = 'dashboard' }: PropsCrearHoja & { onCerrar: () => void }) {
+export function NuevaHoja({ onCerrar, onCrear, enBlanco = 'Página nueva', informe = 'dashboard', senales = null }: PropsCrearHoja & { onCerrar: () => void }) {
   const cerrar = useCerrarEstable(onCerrar);
   return (
     <Modal titulo="Nueva hoja" ancho={980} sinFiletes onCerrar={cerrar}>
-      <CrearHoja onCrear={onCrear} onListo={cerrar} enBlanco={enBlanco} informe={informe} />
+      <CrearHoja onCrear={onCrear} onListo={cerrar} enBlanco={enBlanco} informe={informe} senales={senales} />
     </Modal>
   );
 }
@@ -164,7 +174,7 @@ export function NuevaHoja({ onCerrar, onCrear, enBlanco = 'Página nueva', infor
  * «¿Qué vas a crear hoy?» y las plantillas: el cuerpo del modal y la pantalla en blanco (14/10/2026). `onListo`: lo
  * que pasa después de crear (el modal se cierra; en la pantalla en blanco no hace falta, el editor ya muestra la hoja).
  */
-export function CrearHoja({ onCrear, onListo, enBlanco = 'Página nueva', informe = 'dashboard' }: PropsCrearHoja & { onListo?: () => void }) {
+export function CrearHoja({ onCrear, onListo, enBlanco = 'Página nueva', informe = 'dashboard', senales = null }: PropsCrearHoja & { onListo?: () => void }) {
   // Las props de AHORA para los handlers asincrónicos (un `onCrear` de hace un minuto cerraría sobre
   // el informe de entonces).
   const props = useRef({ onCrear, enBlanco, onListo });
@@ -365,7 +375,13 @@ export function CrearHoja({ onCrear, onListo, enBlanco = 'Página nueva', inform
     }
   };
 
-  const plantillas = useMemo(() => filtrarPlantillasHoja(informe === 'general' ? PLANTILLAS_GENERAL : PLANTILLAS_HOJA, busca), [busca, informe]);
+  // LAS SUGERIDAS PRIMERO (lib/plantillas-sugeridas.ts): se ordena la galería ENTERA y después se filtra lo buscado,
+  // que conserva el orden. Ordenar lo filtrado le daría el «Sugerido» a otra cuando la búsqueda deja afuera a las tres.
+  const ordenadas = useMemo(() => ordenarConSugeridas(
+    informe === 'general' ? PLANTILLAS_GENERAL : PLANTILLAS_HOJA, informe === 'general' ? ETIQUETAS_GENERAL : ETIQUETAS_DASHBOARD, senales,
+  ), [informe, senales]);
+  const porque = useMemo(() => new Map(ordenadas.flatMap((x) => (x.porque ? [[x.plantilla.id, x.porque] as const] : []))), [ordenadas]);
+  const plantillas = useMemo(() => filtrarPlantillasHoja(ordenadas.map((x) => x.plantilla), busca), [busca, ordenadas]);
   /** La página de muestra de cada plantilla (sus ids fijos: la misma en el server y en el navegador). Sin datos. */
   const muestras = useMemo(() => new Map((informe === 'general' ? PLANTILLAS_GENERAL : PLANTILLAS_HOJA).map((p) => [p.id, hojaDeMuestra(p)] as const)), [informe]);
   const segundos = desde != null ? Math.max(0, Math.round((ahora - desde) / 1000)) : 0;
@@ -431,19 +447,27 @@ export function CrearHoja({ onCrear, onListo, enBlanco = 'Página nueva', inform
               <span className="nh-nombre" title={copiado.nombre}>Pegar «{copiado.nombre}»</span>
             </button>
           )}
-          {plantillas.map((p) => (
-            <button key={p.id} type="button" className="nh-plantilla" data-plantilla={p.id} disabled={pensando}
-              data-armando={armando === p.nombre ? 'si' : undefined} aria-label={`Usar la plantilla ${p.nombre}`}
-              onClick={() => { void armarPlantilla(p); }}>
-              <span className="nh-mini">
-                <MiniaturaHoja hoja={muestras.get(p.id) ?? null} />
-                {armando === p.nombre
-                  ? <span className="nh-usar" data-visible="si"><span className="nh-giro" aria-hidden /> Armando</span>
-                  : <span className="nh-usar">Usar plantilla</span>}
-              </span>
-              <span className="nh-nombre">{p.nombre}</span>
-            </button>
-          ))}
+          {plantillas.map((p) => {
+            // «Sugerido», chico y gris (Martín: «un texto sutil»); el porqué va en el title y en lo que lee un lector.
+            const sugerida = porque.get(p.id) ?? null;
+            return (
+              <button key={p.id} type="button" className="nh-plantilla" data-plantilla={p.id} data-sugerida={sugerida ? 'si' : undefined}
+                disabled={pensando} data-armando={armando === p.nombre ? 'si' : undefined}
+                aria-label={`Usar la plantilla ${p.nombre}${sugerida ? ` (sugerida: ${sugerida})` : ''}`}
+                onClick={() => { void armarPlantilla(p); }}>
+                <span className="nh-mini">
+                  <MiniaturaHoja hoja={muestras.get(p.id) ?? null} />
+                  {armando === p.nombre
+                    ? <span className="nh-usar" data-visible="si"><span className="nh-giro" aria-hidden /> Armando</span>
+                    : <span className="nh-usar">Usar plantilla</span>}
+                </span>
+                <span className="nh-pie">
+                  <span className="nh-nombre">{p.nombre}</span>
+                  {sugerida && <span className="nh-sugerido" title={sugerida}>Sugerido</span>}
+                </span>
+              </button>
+            );
+          })}
         </div>
         {!plantillas.length && <div style={S.sinResultados}>Ninguna plantilla con eso</div>}
       </div>

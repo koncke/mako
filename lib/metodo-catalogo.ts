@@ -288,18 +288,28 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
     nombre: 'MaKo IA (Anthropic)',
     categoria: 'Inteligencia',
     core: true,
-    paraQue: 'El cerebro de MaKo: análisis, chats, sugerencias y todos los Analysts.',
+    // ⚠️ DECÍA «El cerebro de MaKo: análisis, chats, sugerencias y todos los Analysts», y era
+    // falso desde el veto del 13/08/2026. Lo que hace HOY la key de un negocio sale de
+    // lib/veto-claude.ts: la segunda puerta (16/10/2026) la usa primero en sus funciones de
+    // texto, salvo las del Plan, y la lista blanca, para el análisis de llamadas de cierre. Si
+    // el veto cambia, esta frase cambia con él.
+    paraQue: 'Claude. Con tu key, MaKo escribe y analiza con Claude antes que con la IA gratis, y lo paga tu cuenta. Sirve el crédito de API de Claude Max.',
     campos: [
       { env: 'ANTHROPIC_API_KEY', label: 'API key', secreto: true, placeholder: 'sk-ant-…', nota: 'Empieza con sk-ant-. Se guarda cifrada. Si la pierdes, bórrala en Claude Platform y crea otra.' },
     ],
+    // El camino del crédito de Claude Max va PRIMERO (decisión de Martín, Ticketera
+    // `clientes-usan-su-claude`, 15/10/2026). Los pasos salen de la página oficial
+    // (platform.claude.com/docs/en/about-claude/api-credits-for-subscribers, leída el 15/10):
+    // Max 5x US$100 y Max 20x US$200 por mes, desde los 7 días de suscripto, una organización
+    // de Console por plan, y no se acumulan.
     tutorial: {
       url: 'https://platform.claude.com/settings/keys',
       urlLabel: 'Claude Platform → API Keys',
       pasos: [
-        'Entra a platform.claude.com. Es otra cuenta que claude.ai: Claude Pro no sirve aquí.',
-        'En "Billing" toca "Add funds" y carga saldo (mínimo 5 dólares): sin saldo la key no responde.',
-        'En "API Keys" toca "Create Key" y copia la key (sk-ant-…, se ve UNA vez).',
-        'Pégala en "API key" y guarda.',
+        '¿Tienes Claude Max hace 7 días o más? En claude.ai → Settings → Billing → "API credits", vincula tu organización.',
+        'Con Pro o sin Max: en platform.claude.com → "Billing" carga saldo con "Add funds" (mínimo 5 dólares).',
+        'En platform.claude.com → "API Keys" toca "Create Key" y copia la key (sk-ant-…, se ve UNA vez).',
+        'Pégala en "API key" y guarda. Max 5x trae 100 dólares por mes y Max 20x, 200; no se acumulan.',
       ],
     },
   },
@@ -989,11 +999,11 @@ const AYUDA_CAMPO: Record<string, { pasos: string[]; url?: string; urlLabel?: st
   },
   ANTHROPIC_API_KEY: {
     pasos: [
-        'Para qué sirve: con esta key MaKo piensa. Sin ella no hay análisis, ni chat, ni sugerencias.',
-        'Entra a platform.claude.com. Es otra cuenta que claude.ai: Claude Pro no sirve aquí.',
-        'En "Billing" toca "Add funds" y carga saldo (mínimo 5 dólares): sin saldo la key no responde.',
-        'En "API Keys" toca "Create Key" y copia la key (sk-ant-…, se ve UNA vez).',
-        'Pégala en este campo y guarda.',
+        'Para qué sirve: con esta key MaKo escribe y analiza con Claude antes que con la IA gratis.',
+        '¿Tienes Claude Max hace 7 días o más? En claude.ai → Settings → Billing → "API credits", vincula tu organización.',
+        'Con Pro o sin Max: en platform.claude.com → "Billing" carga saldo con "Add funds" (mínimo 5 dólares).',
+        'En platform.claude.com → "API Keys" toca "Create Key" y copia la key (sk-ant-…, se ve UNA vez).',
+        'Pégala en este campo y guarda. Max 5x trae 100 dólares por mes y Max 20x, 200; no se acumulan.',
       ],
     url: 'https://platform.claude.com/settings/keys',
     urlLabel: 'Claude Platform → API Keys',

@@ -37,12 +37,10 @@ import {
   setMeetingManual,
   setBoardStageOverride,
   saveLeadMeta,
-  faltantesDeLead,
   getLead,
   getVisitasLandingMap,
   getVslEngagement,
   getTrackingEvents,
-  getLeadRespuestas,
   logLeadChanges,
   logLeadEvent,
   getLeadAudit,
@@ -59,6 +57,8 @@ import {
 import { LeadDuplicadoError, estaEnProducto } from '@/lib/leads-duplicados';
 import { casaReal, destinoDelAlta, nombreVisible, type ProductoParaAlta } from '@/lib/lead-funnel-reglas';
 import { agregarAProducto } from '@/lib/lead-funnel';
+// El plazo de una suscripción cancelada no se revierte desde el historial (revisión del 14/10/2026).
+import { PLAZO_DE_CANCELADA, plazoSeRevierte } from '@/lib/suscripcion-manual';
 import { conLoteDeEtiquetas } from '@/lib/etiquetas';
 import { respuestasPropias } from '@/lib/meta-leads-campos';
 import { respuestasGuardadas } from '@/lib/optin-respuestas';
@@ -111,8 +111,11 @@ import { tzDeWorkspace, TZ_DEFAULT } from '@/lib/timezone';
 import type { Step } from '@/lib/stage-requirements';
 import { getSupabaseServer } from '@/lib/supabase';
 import { getTenantDb, getWorkspaceActual, getRolWsEfectivo, getCapaActual, rutaConWs } from '@/lib/workspace';
-import { estadoDatosDeLead } from '@/lib/datos-aviso-config';
 import type { EstadoDatos } from '@/lib/datos-aviso';
+// La ficha del funnel del lead y «N sin marcar»: las MISMAS lecturas que la ficha del teléfono (app/m/crm/datos.ts).
+import { fichaDelFunnelDelLead, type FichaDelFunnel } from '@/lib/ficha/config-server';
+import { datosSinMarcarDeLead, leerInsumosDatosLead } from '@/lib/datos-del-lead';
+import { rolDeFicha, vePrivado, type RolFicha } from '@/lib/ficha/registro';
 import { tabEnCapa } from '@/lib/capas';
 
 /**
@@ -154,7 +157,7 @@ async function autorActual(): Promise<string> {
 import { fmtDDMMYYYY } from '@/lib/date-utils';
 import { getCampaignNameMap, resolverNombreCampana, getAdNameMap, resolverNombreAd, adIdDeLead } from '@/lib/queries';
 import { savePlanPagos, saveLeadPlanManual, marcarPago, getPagosByLead, type PlanPagos, type Pago } from '@/lib/pagos';
-import { faltaComprobante } from '@/lib/pago-comprobante';
+import { avisoDeConservadas } from '@/lib/pagos-campo';
 import { senalesDeCobroAction } from './[id]/cobros-actions';
 import { verTrackingDeLead } from '@/lib/tracking-ficha-server';
 import { crearProductoConFunnel } from '@/lib/producto-con-funnel';
@@ -261,26 +264,49 @@ export type LeadFullData = {
    * (lib/tracking-ficha-server.ts); con la lectura caída, `true`.
    */
   verTracking: boolean;
+  /**
+   * La ficha por bloques del funnel del lead (docs/diseno-ficha-bloques.md): la plantilla y por qué, lo
+   * guardado y la ficha que se dibuja (lib/ficha/config-server.ts). null = no se pudo leer: la pantalla arma
+   * la de respaldo y no ofrece «Personalizar» (el primer cambio pisaría una ficha que no se vio).
+   */
+  ficha: FichaDelFunnel | null;
+  /** Quién mira, en lo que le importa a la ficha (lib/ficha/registro.ts). */
+  rol: RolFicha;
+  /** El admin y el closer de ESTE lead ven lo privado (decisión 5: el puntaje de la llamada). */
+  verPrivado: boolean;
+  /** «Personalizar» la ficha del funnel: sólo el admin. Lo que cierra es `cambiarFichaFunnelAction`. */
+  puedeEditarFicha: boolean;
 };
 
 /**
- * Carga TODO lo que la ficha (LeadSheet) necesita para mostrar un lead desde un
- * modal (CRM / WhatsApp / desgloses): el Lead completo, etapas, plan de pagos,
- * engagement del VSL, visitas a la landing y campaña resuelta.
+ * Carga TODO lo que la ficha necesita para mostrar un lead: el Lead completo, etapas, plan de pagos,
+ * engagement del VSL, visitas a la landing, campaña resuelta y la ficha por bloques de su funnel.
+ *
+ * ⚠️ ES LA ÚNICA LECTURA DE LA FICHA, para las DOS puertas: el pop-up del tablero (LeadSheet, desde
+ *    LeadEditModal) y la ruta /crm/[id] (page.tsx la llama desde el server). Hasta el 14/10/2026 la ruta
+ *    armaba todo a mano y ya contaba «N sin marcar» con otros insumos (sin `grabable`, con el plan como
+ *    `true | undefined`). Lo fija tests/ficha-armador.test.ts.
+ * ⚠️ SIN SESIÓN NO DEVUELVE NADA: sin cookie, `getWorkspaceActual()` cae al ws1, que es un cliente.
  */
 export async function getLeadFullAction(id: number): Promise<LeadFullData | null> {
+  const sesion = await getUsuarioActual().catch(() => null);
+  if (!sesion) return null;
   const lead = await getLead(id);
   if (!lead) return null;
+  // La ficha por bloques y quién mira: arrancan acá, en paralelo con todo lo de abajo, y no tiran.
+  const fichaP = fichaDelFunnelDelLead(lead.funnel_id ?? null);
+  const rolP = getRolWsEfectivo().catch(() => null);
   // La pestaña «Tracking» (punto 18): arranca acá para correr en paralelo con todo lo de abajo, y
   // no tira nunca (lib/tracking-ficha-server.ts).
   const verTrackingP = verTrackingDeLead(lead.funnel_id);
-  const [vslEng, pagos, campMap, adMap, stagesRaw, visitasMap, insights, tracking, videos, pixelPuesto] = await Promise.all([
+  // ⚠️ LOS INSUMOS DE «N SIN MARCAR» (el plan, las etapas DEL LEAD, las respuestas de la R2 y si el encuentro
+  // se graba) salen de `leerInsumosDatosLead` (lib/datos-del-lead.ts), la MISMA lectura que la ficha del
+  // teléfono: con insumos propios, el número volvía a dar distinto en cada pantalla.
+  const [insumos, vslEng, campMap, adMap, visitasMap, insights, tracking, videos, pixelPuesto] = await Promise.all([
+    leerInsumosDatosLead(lead),
     getVslEngagement(lead.visitor_id).catch(() => ({ plays: 0, max_pct: null, sin_datos: true, porVideo: [] }) as VslEngagement),
-    getPagosByLead(lead.id).catch(() => [] as Pago[]),
     getCampaignNameMap().catch(() => ({}) as Record<string, string>),
     getAdNameMap().catch(() => ({}) as Record<string, string>),
-    // DEL LEAD: la ficha pinta los requisitos de SU recorrido.
-    getPipelineStagesDeLead(lead).catch(() => DEFAULT_STAGES),
     getVisitasLandingMap([lead.visitor_id]).catch(() => new Map() as VisitasMap),
     getLeadInsights(id),
     getTrackingEvents(lead.visitor_id),
@@ -303,8 +329,8 @@ export async function getLeadFullAction(id: number): Promise<LeadFullData | null
   // calor del proyecto), y se fueron el 06/10/2026 con Clarity entero: la grabación
   // la hace MaKo y se dibuja adentro de la ficha. Nunca rompe la ficha:
   // `replayDeLead` no tira y distingue «no pude leer».
-  const [respuestas, insightGen, equipo, grabable, replay, funnels, cobro] = await Promise.all([getLeadRespuestas(lead), getUltimoInsightGenerado(id), getEquipoAction(), encuentroGrabable(), replayDeLead(lead.visitor_id, ultimaActividad), listarFunnels().catch(() => []), senalesDeCobroAction(id)]);
-  const stages = stagesRaw.length ? stagesRaw : DEFAULT_STAGES;
+  const [insightGen, equipo, replay, funnels, cobro] = await Promise.all([getUltimoInsightGenerado(id), getEquipoAction(), replayDeLead(lead.visitor_id, ultimaActividad), listarFunnels().catch(() => []), senalesDeCobroAction(id)]);
+  const { pagos, stages, respuestas } = insumos;
   const campana = resolverNombreCampana(lead.utm_campaign, campMap);
   // El anuncio puede venir por meta_ad_id (instant form) o por utm_content (Calendly):
   // si utm_content es un id numérico, lo resolvemos a nombre con el mapa de anuncios.
@@ -313,17 +339,16 @@ export async function getLeadFullAction(id: number): Promise<LeadFullData | null
   const adNombre = resolverNombreAd(adIdCand, lead.meta_ad_name ?? utmC, adMap);
   const visitas = visitasMap.get(lead.visitor_id ?? '') ?? { total_visitas: 0, dias_distintos: 0 };
   const faltantesInsight = faltantesParaInsights(lead, pagos.length > 0, stages);
-  // Un cobro confirmado por la pasarela no pide comprobante (lib/pago-comprobante.ts).
-  const comprobantesFaltantes = pagos.filter(faltaComprobante).length;
-  const extraReq = { comprobantesFaltantes, r2RespuestasOk: respuestas.R2.length > 0, pipeline: stages, grabable };
-  const faltantes = faltantesDeLead(lead, pagos.length > 0, extraReq);
-  const datos = await estadoDatosDeLead(lead, faltantes, pagos.length > 0, extraReq);
+  const { faltantes, datos } = await datosSinMarcarDeLead(lead, insumos);
   const closerDetectado = insights.find((i) => i.closer?.trim())?.closer ?? null;
   // El NOMBRE DEL PRODUCTO, no el del embudo: «Funnel principal» es el que puso la migración
   // y es el mismo en todos los workspaces (mismo criterio que el selector del tablero).
   const productos = funnels.map((f) => ({ id: f.id, nombre: nombreVisible(f), esDefault: f.esDefault }));
   const fotoEmail = lead.email?.trim() ? urlGravatar(lead.email, 160) : null;
-  return { lead, stages, pagos, vslEng, videos, replay, campana, adNombre, adId: adIdCand, visitas, insights, tracking, pixelPuesto, respuestas, respuestasForm: respuestasPropias(lead.meta_field_data), respuestasLanding: respuestasGuardadas(lead.optin_respuestas), resumen: await resumenDelNegocio(), cohorte: cohorteDeLead(lead), insightGen, faltantesInsight, faltantes, datos, equipo, closerDetectado, productos, fotoEmail, cobro, verTracking: await verTrackingP };
+  const [ficha, rolWs] = await Promise.all([fichaP, rolP]);
+  const rol = rolDeFicha(rolWs);
+  return { lead, stages, pagos, vslEng, videos, replay, campana, adNombre, adId: adIdCand, visitas, insights, tracking, pixelPuesto, respuestas, respuestasForm: respuestasPropias(lead.meta_field_data), respuestasLanding: respuestasGuardadas(lead.optin_respuestas), resumen: await resumenDelNegocio(), cohorte: cohorteDeLead(lead), insightGen, faltantesInsight, faltantes, datos, equipo, closerDetectado, productos, fotoEmail, cobro, verTracking: await verTrackingP,
+    ficha, rol, verPrivado: vePrivado(rol, lead.closer, sesion), puedeEditarFicha: rol === 'admin' };
 }
 
 /** Cuota explícita del plan (modelo simple: monto + fecha). */
@@ -491,7 +516,8 @@ export async function requisitosDeEtapaAction(id: number, to: string, d: StageMo
  * cómo salir. Ahora vuelve tipado y el modal lo pinta en español, con los campos.
  */
 export type StageMoveResultado =
-  | { ok: true; pendientes?: Step[] }
+  /** `sinTocar`: las cuotas que el plan no pudo cambiar (link sin pagar o recordatorio corriendo), dichas. */
+  | { ok: true; pendientes?: Step[]; sinTocar?: string }
   | { ok: false; faltan: Step[]; mensaje: string };
 
 /**
@@ -606,14 +632,19 @@ export async function completeStageMoveAction(id: number, to: string, d: StageMo
 
   // 3) Plan de pagos (genera las cuotas; el cash del dashboard lee de acá).
   //    Modelo simple: cuotas explícitas (monto + fecha). `plan` queda por compat.
+  let sinTocar: string | null = null;
   if (d.cuotas?.length) {
-    await saveLeadPlanManual(id, {
+    const cambios = await saveLeadPlanManual(id, {
       total_usd: d.monto ?? before?.monto_cierre_usd ?? null,
       duracion_meses: null,
       fecha_cierre: null,
       fecha_inicio: null,
       cuotas: d.cuotas.map((c) => ({ monto_usd: c.monto, fecha_esperada: c.fecha })),
     });
+    // Lo que el plan no pudo cambiar queda en el historial y vuelve a la pantalla: si no, el total pedido y el
+    // que quedó escrito difieren sin que nadie lo diga.
+    sinTocar = avisoDeConservadas(cambios);
+    if (sinTocar) await logLeadEvent(id, 'Plan de pagos', `No se tocó: ${sinTocar}`, autor);
   } else if (d.plan) {
     await savePlanPagos(id, d.plan);
   }
@@ -715,7 +746,7 @@ export async function completeStageMoveAction(id: number, to: string, d: StageMo
   revalidatePath('/crm');
   revalidatePath(`/crm/${id}`);
   revalidatePath('/general');
-  return { ok: true, pendientes };
+  return { ok: true, pendientes, ...(sinTocar ? { sinTocar } : {}) };
 }
 
 /**
@@ -2420,6 +2451,11 @@ function ingresoDelHistorial(v: string | null): number | null {
   return Number.isFinite(n) && n >= 0 ? n : null;
 }
 
+/** `suscripcion_cancelada_at` del lead (mig 0292; sin la migración no viene y cuenta como no cancelada). */
+function canceladaDe(lead: unknown): unknown {
+  return (lead as { suscripcion_cancelada_at?: unknown } | null)?.suscripcion_cancelada_at ?? null;
+}
+
 /** El valor del historial (texto de `auditVal`) de vuelta a la columna de la suscripción. */
 function columnaSuscripcion(campo: string, v: string | null): Record<string, number | null> {
   const n = v == null ? NaN : campo === CAMPO_SUS_MESES ? parseInt(v, 10) : parseFloat(v);
@@ -2578,6 +2614,7 @@ export async function revertAuditChangeAction(auditId: number, leadId: number): 
     }
     case CAMPO_SUS_MONTO:
     case CAMPO_SUS_MESES: {
+      if (row.campo === CAMPO_SUS_MESES && !plazoSeRevierte(canceladaDe(before))) throw new Error(PLAZO_DE_CANCELADA);
       const { error } = await (await getTenantDb()).from('leads').update(columnaSuscripcion(row.campo, v)).eq('id', leadId);
       if (error) throw new Error(error.message);
       break;
@@ -2617,6 +2654,11 @@ export async function revertMoveAction(leadId: number, createdAt: string): Promi
   }
 
   const bool = (s: string | null): boolean | null => (s === 'Sí' ? true : s === 'No' ? false : null);
+
+  // El plazo de una suscripción CANCELADA no se revierte (`plazoSeRevierte`): se corta ANTES de escribir nada del grupo.
+  if (grupo.some((r) => r.campo === CAMPO_SUS_MESES) && !plazoSeRevierte(canceladaDe(await getLead(leadId).catch(() => null)))) {
+    throw new Error(PLAZO_DE_CANCELADA);
+  }
 
   const upd: Parameters<typeof updateLead>[1] = {};
   const meta: LeadMetaInput = {};

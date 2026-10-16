@@ -65,6 +65,42 @@ test('las acciones de «A revisar» (datos sin marcar) exigen sesión adentro', 
   }
 });
 
+// La ficha por bloques (14/10/2026): leer y cambiar la ficha de un funnel. Sin sesión, `getWorkspaceActual()`
+// caería al ws1, un cliente. Probado rompiéndolo: sin `haySesion()` en cambiarFichaFunnelAction, 1 fallo.
+test('las acciones de la ficha por bloques exigen sesión adentro', () => {
+  const src = sinComentarios(leer('app/crm/ficha-actions.ts'));
+  const exportadas = [...src.matchAll(/export async function (\w+)/g)].map((m) => m[1]);
+  assert.deepEqual(exportadas, ['leerFichaFunnelAction', 'cambiarFichaFunnelAction']);
+  for (const fn of exportadas) {
+    const ini = src.indexOf(`export async function ${fn}`);
+    const fin = src.indexOf('\nexport ', ini + 10);
+    const cuerpo = src.slice(ini, fin < 0 ? undefined : fin);
+    assert.match(cuerpo, /if \(!\(await haySesion\(\)\)\) return/, `${fn} tiene que cortar sin sesión`);
+  }
+  // Cambiar es del admin: es la ficha y los avisos de todos los leads del funnel.
+  assert.match(src.slice(src.indexOf('export async function cambiarFichaFunnelAction')), /getRolWsEfectivo\(\)\) !== 'admin'\) return/);
+});
+
+// Desde el 14/10/2026 la tab Pagos escribe campo por campo (docs/diseno-ficha-bloques.md §3): plata de clientes.
+// Ninguna de deal-actions.ts lo miraba: sin cookie, `getWorkspaceActual()` cae al ws1 y un POST con el id de la
+// acción escribía cuotas y pagos en su CRM. EL BARRIDO, no la lista: toda `export async function` de los dos
+// archivos tiene que cortar, y una nueva que se olvide falla acá con su nombre.
+// Probado rompiéndolo (14/10/2026): sin el `haySesion()` de registrarPagoSueltoAction → 1 fallo (5 pases); sin el
+// de ajustarPlanAction → 1 fallo (5 pases).
+test('las acciones de la tab Pagos (deal y campo por campo) exigen sesión adentro, TODAS', () => {
+  for (const archivo of ['app/crm/[id]/deal-actions.ts', 'app/crm/[id]/pagos-campo-actions.ts']) {
+    const src = sinComentarios(leer(archivo));
+    const fns = [...src.matchAll(/^export async function (\w+)\(/gm)].map((m) => m[1]);
+    assert.ok(fns.length >= 7, `${archivo}: vi ${fns.length} acciones, el barrido no está mirando`);
+    for (const fn of fns) {
+      const ini = src.indexOf(`export async function ${fn}(`);
+      const fin = src.indexOf('\nexport ', ini + 10);
+      const cuerpo = src.slice(ini, fin < 0 ? undefined : fin);
+      assert.match(cuerpo, /haySesion\(\)/, `${archivo} · ${fn} tiene que cortar sin sesión`);
+    }
+  }
+});
+
 test('las acciones del layout (confirmaciones de MaKo) exigen sesión adentro', () => {
   const src = sinComentarios(leer('app/crm/mako-confirm-actions.ts'));
   for (const fn of ['listConfirmacionesAction', 'resolverConfirmacionAction']) {
@@ -74,4 +110,21 @@ test('las acciones del layout (confirmaciones de MaKo) exigen sesión adentro', 
     const cuerpo = src.slice(ini, fin < 0 ? undefined : fin);
     assert.match(cuerpo, /haySesion\(\)/, `${fn} tiene que cortar sin sesión: la monta el layout y su id viaja en todas las páginas`);
   }
+});
+
+// «Nuevo CRM» por su tipo (14/10/2026): crea un embudo con sus etapas, que es config del negocio.
+// Sin sesión, `getWorkspaceActual()` cae al ws1 (un cliente) y el CRM nacería ahí; sin el rol, un
+// closer arma un tablero para todo el equipo. Verificado rompiéndolo (el archivo da 6 / 0): sin
+// `haySesion()` en crearCrmAction, 5 / 1; sin el corte de admin, 5 / 1.
+test('el alta de «Nuevo CRM» exige sesión y admin adentro', () => {
+  const src = sinComentarios(leer('app/crm/nuevo-crm-actions.ts'));
+  const ini = src.indexOf('export async function crearCrmAction');
+  assert.ok(ini >= 0, 'no encontré crearCrmAction');
+  const cuerpo = src.slice(ini);
+  const sesion = cuerpo.search(/if \(!\(await haySesion\(\)\)\) return/);
+  const admin = cuerpo.search(/if \(\(await getRolWsEfectivo\(\)\) !== 'admin'\) return/);
+  const crea = cuerpo.indexOf('crearCrm(');
+  assert.ok(sesion >= 0, 'crearCrmAction tiene que cortar sin sesión');
+  assert.ok(admin >= 0, 'crearCrmAction tiene que cortar a quien no es admin');
+  assert.ok(crea > sesion && crea > admin, 'los dos cortes van ANTES de crear');
 });

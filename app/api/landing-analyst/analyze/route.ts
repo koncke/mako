@@ -38,7 +38,9 @@ export async function POST(req: NextRequest) {
     // La red de plataforma y el plazo, como el Diagnóstico del Web Generator (diagnostico-server.ts,
     // `comoAnalizar`): con todas las keys del negocio caídas (el ws1 el 15/10/2026) la tab no
     // contestaba nada. 250 s deja margen dentro del maxDuration de 300.
-    const res = await analizarLanding(url, body.texto, { redDePlataforma: true, hastaMs: Date.now() + 250_000 });
+    // `leer`: se baja lo que la persona pegó, no la llave de la fila (sin barra ni www), que algunos sitios
+    // contestan con 403 (lib/landing-analyst.ts, `opts.leer`).
+    const res = await analizarLanding(url, body.texto, { redDePlataforma: true, hastaMs: Date.now() + 250_000, leer: url });
     if (!res.ok) {
       // No es un 500: la página del cliente falló (404, JS-only, timeout), no
       // nuestro server. La UI lo muestra como un aviso, no como un error roto.

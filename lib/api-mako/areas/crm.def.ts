@@ -27,6 +27,15 @@
 // =============================================================================
 
 import type { OperacionDef, Parametro } from '../tipos';
+// Los tipos de «Nuevo CRM» y lo que se elige con «Otro»: módulos PUROS, así el enum de `crear_crm`
+// es el mismo catálogo que dibuja el modal (copiarlo a mano es crear uno que se desincroniza).
+import { TIPOS_CRM, TIPO_CRM_OTRO, ENTRADAS_OFRECIDAS } from '@/lib/pipeline';
+import { CANALES } from '@/lib/fase-diagnostico';
+// Puros (sin server-only): el catálogo de la ficha por bloques, sus plantillas, los datos que avisan y el
+// estilo del Dashboard. Copiar sus ids a mano sería un segundo catálogo.
+import { TABS_FICHA, DENSIDADES } from '@/lib/ficha/catalogo';
+import { IDS_PLANTILLA } from '@/lib/ficha/plantillas';
+import { PLANTILLAS_TEMA, TIPOGRAFIAS } from '@/lib/graficos-temas';
 
 const TAB = { tab: 'crm' } as const;
 const TAB_ADMIN = { tab: 'crm', rolMinimo: 'admin' } as const;
@@ -173,7 +182,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'faltantes_del_lead', area: 'crm', tipo: 'lectura',
     titulo: 'Datos que le faltan a un lead',
-    descripcion: 'Los datos que la etapa ACTUAL de un lead adeuda para que el tablero sea confiable (asistencia, calificado, Fathom, monto, plan de pagos, comprobantes, motivo, setter, empresa, Deal Details), respetando sus excepciones declaradas. Sirve para explicar por qué un lead aparece en «Datos sin marcar» y qué cargar. Lista vacía = el lead está al día.',
+    descripcion: 'Los datos que la etapa ACTUAL de un lead adeuda para que el tablero sea confiable (asistencia, calificado, Fathom, monto, plan de pagos, comprobantes, motivo, setter, empresa, Deal Details), respetando sus excepciones declaradas. Sirve para explicar por qué un lead aparece en «Datos sin marcar» y qué cargar. Lista vacía = el lead está al día. sin_marcar es el número que muestra su ficha y su fila en «A revisar»: lo que falta menos lo ignorado y lo que el CRM de ese lead no avisa (no_avisan dice cuál y por qué).',
     parametros: [leadId()],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: TAB,
   },
@@ -201,7 +210,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'cobranza_lead', area: 'crm', tipo: 'lectura',
     titulo: 'Plan de pagos de un lead',
-    descripcion: 'El estado de cobranza de UN lead: total vendido en USD, si es suscripción (con su monto mensual), duración, fecha de cierre e inicio de servicio, si tiene contrato, y cada cuota con su id, monto en USD, vencimiento, si está pagada, fecha de pago y si tiene comprobante. Responde «¿cuánto le falta pagar a X?». El id de cada cuota es el que pide marcar_pago_cobrado.',
+    descripcion: 'El estado de cobranza de UN lead: total vendido en USD, si es suscripción (con su monto mensual), duración, fecha de cierre e inicio de servicio, si tiene contrato, y cada cuota con su id, monto en USD, vencimiento, si está pagada, fecha de pago y si tiene comprobante. Responde «¿cuánto le falta pagar a X?». Trae también el estado de cuenta de la tab Pagos (qué debe, el detalle y qué hacer ahora: la acción que toca y, si es cobrar una cuota, su id), los últimos movimientos de plata (cobros, rechazos y devoluciones, del más nuevo al más viejo) y los avisos que piden algo (un contracargo, una devolución que falló). El id de cada cuota es el que pide marcar_pago_cobrado.',
     parametros: [leadId()],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: TAB,
   },
@@ -412,6 +421,88 @@ export const DEFS: readonly OperacionDef[] = [
     reversible: true, escribe: 'saca la sugerencia de lo callado de ese CRM (la configuración del negocio)',
   },
 
+  // ── La ficha del lead por bloques (14/10/2026, docs/diseno-ficha-bloques.md) ──────────────────────
+  // La ficha se arma POR CRM (decisión 1): plantilla por tipo de funnel, bloques por tab y avisos de
+  // «datos sin marcar». El motor es lib/ficha/ (config.ts lo puro, config-server.ts la lectura y el
+  // guardado con compare-and-set); los ids de bloques, diseños y plantillas salen de su catálogo.
+  {
+    id: 'ver_ficha_funnel', area: 'crm', tipo: 'lectura',
+    titulo: 'Ver la ficha de un CRM',
+    descripcion: 'Cómo se arma la ficha del lead en UN CRM del negocio, para todos sus leads: la plantilla (la que elige MaKo según las etapas de reunión y cómo entra la gente, o la que eligió alguien) y por qué, los bloques de cada tab en orden (Resumen, Reuniones, Pagos y Tracking) con su ancho, su diseño y su ícono si se lo cambiaron, de qué «datos sin marcar» avisa y por qué no avisa de los otros, y el estilo (tema, acento, tipografía y tamaño de las tarjetas). Trae también, por tab, los bloques que se pueden sumar con sus anchos y diseños, las plantillas y los íconos que se le pueden poner a un bloque. Es el paso previo a cambiar_ficha_funnel. Sin embudoId, el CRM principal.',
+    parametros: [{ nombre: 'embudoId', tipo: 'number', entero: true, minimo: 1, descripcion: 'el CRM, por el id de su embudo (de productos_del_lead). Sin él, el CRM principal del negocio.' }],
+    salida: 'json', canales: TODOS, costo: 'gratis', gating: TAB,
+  },
+  {
+    id: 'cambiar_ficha_funnel', area: 'crm', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Cambiar la ficha de un CRM',
+    descripcion: 'PROPONE UN cambio en la ficha del lead de UN CRM (queda pendiente hasta el «sí»), para todos sus leads: poner, quitar o mover un bloque, cambiarle el ancho, el diseño o el ícono, prender o apagar el aviso de un dato sin marcar, cambiar el estilo o el tamaño de las tarjetas, usar otra plantilla o volver a la plantilla. Los ids de bloques, diseños, íconos y avisos salen de ver_ficha_funnel. «Contacto» no se puede quitar y las asistencias siempre avisan. Quitar un bloque no apaga su aviso. Solo el administrador. Sin embudoId, el CRM principal.',
+    parametros: [
+      { nombre: 'embudoId', tipo: 'number', entero: true, minimo: 1, descripcion: 'el CRM, por el id de su embudo (de productos_del_lead). Sin él, el CRM principal del negocio.' },
+      {
+        nombre: 'cambio', tipo: 'string', obligatorio: true, enum: ['poner', 'quitar', 'mover', 'ancho', 'diseno', 'icono', 'aviso', 'estilo', 'densidad', 'plantilla', 'volver'],
+        descripcion: 'qué cambiar: poner, quitar o mover un bloque (con tab y bloque; mover y poner con lugar), ancho, diseno o icono de un bloque, aviso (con aviso y avisa), estilo (con tema, acento o tipografia), densidad (el tamaño de las tarjetas), plantilla (con plantilla) o volver (a la plantilla: con tab, sólo esa tab; sin tab, toda la ficha y sus avisos).',
+      },
+      { nombre: 'tab', tipo: 'string', enum: [...TABS_FICHA], descripcion: 'la tab del bloque. En volver, la tab que vuelve a la plantilla.' },
+      // Sin enum, a propósito: son 56 ids y el ToolDef viaja en cada turno. preparar() valida y devuelve los disponibles.
+      { nombre: 'bloque', tipo: 'string', max: 40, descripcion: 'el id del bloque (de ver_ficha_funnel), por ejemplo cuotas o redes-y-web.' },
+      { nombre: 'lugar', tipo: 'number', entero: true, minimo: 1, maximo: 40, descripcion: 'en poner y mover: el lugar en la tab, 1 es el primero. Sin él, poner lo suma al final.' },
+      { nombre: 'ancho', tipo: 'string', enum: ['1/4', '1/3', '1/2', 'completo'], descripcion: 'en poner y ancho: el ancho del bloque sobre la grilla de la ficha. Cada bloque acepta sólo algunos (ver_ficha_funnel).' },
+      { nombre: 'diseno', tipo: 'string', max: 40, descripcion: 'en poner y diseno: el id del diseño del bloque (de ver_ficha_funnel).' },
+      // Sin enum, a propósito (como bloque): son ~70 íconos. preparar() valida y devuelve los disponibles.
+      { nombre: 'icono', tipo: 'string', max: 30, descripcion: 'en icono: el id (de los iconos de ver_ficha_funnel), o de-siempre: el del bloque.' },
+      { nombre: 'n', tipo: 'number', entero: true, minimo: 1, maximo: 40, descripcion: 'si el bloque está más de una vez en la tab (respuesta-destacada), cuál: 1 es el primero.' },
+      // ⚠️ SIN ENUM DESDE EL 15/10/2026 (eran 21 ids): este ToolDef viaja en el turno del doer de WhatsApp, que tiene
+      // 12.000 caracteres para TODAS las del CRM, y por el «cambiar» de su id entra entre las primeras en cualquier
+      // «cambiá…». Sumarle el ícono dejó afuera a proponer_mover_reunion (tests/agenda-whatsapp.test.ts). Los ids
+      // están en los avisos de ver_ficha_funnel, y la traducción (lib/ficha/api.ts) valida y devuelve los que hay.
+      { nombre: 'aviso', tipo: 'string', max: 30, descripcion: 'en aviso: el id del dato sin marcar (de los avisos de ver_ficha_funnel).' },
+      { nombre: 'avisa', tipo: 'boolean', descripcion: 'en aviso: true para que avise, false para que no.' },
+      { nombre: 'tema', tipo: 'string', enum: PLANTILLAS_TEMA.map((p) => p.id), descripcion: 'en estilo: la plantilla de estilo, la misma del Dashboard.' },
+      { nombre: 'acento', tipo: 'string', max: 7, descripcion: 'en estilo: el color de acento en hex, #RRGGBB. Vacío para volver al de la plantilla de estilo.' },
+      { nombre: 'tipografia', tipo: 'string', enum: TIPOGRAFIAS.map((t) => t.id), descripcion: 'en estilo: la tipografía de toda la ficha.' },
+      { nombre: 'densidad', tipo: 'string', enum: DENSIDADES.map((x) => x.id), descripcion: 'en densidad: el tamaño de las tarjetas.' },
+      { nombre: 'plantilla', tipo: 'string', enum: [...IDS_PLANTILLA, 'auto'], descripcion: 'en plantilla: la plantilla de la ficha, o auto para la que elige MaKo. Arranca de cero los bloques y los avisos; el estilo queda.' },
+    ],
+    canales: TODOS, costo: 'gratis', gating: TAB_ADMIN,
+    reversible: true, escribe: 'guarda el cambio en la ficha del CRM (funnels.data.ficha, sólo lo que difiere de la plantilla); cambia lo que ven y lo que avisa la ficha de todos sus leads',
+  },
+
+  // ── El evento de agenda VINCULADO a una etapa de reunión (16/10/2026, lib/agenda-evento-etapa.ts) ──
+  // Quien reserva ese evento de Calendly o Cal.com cae en esa etapa de ese CRM (y no en el principal). Las
+  // mismas funciones que las server actions de la pantalla (app/crm/agenda-evento-actions.ts). Los
+  // identificadores van SIN enum: son URIs e ids de la cuenta del negocio.
+  {
+    id: 'listar_eventos_agenda', area: 'crm', tipo: 'lectura',
+    titulo: 'Eventos de agenda y su etapa',
+    descripcion: 'Los tipos de evento de Calendly y Cal.com del negocio: cuál es la R1 o la R2 de Integraciones y a qué etapa de reunión de qué CRM está vinculado cada uno (quien lo reserva cae en esa etapa). Trae las etapas que se pueden vincular. Paso previo a vincular_evento_etapa. Solo el administrador.',
+    parametros: [],
+    salida: 'json', canales: TODOS, costo: 'gratis', gating: TAB_ADMIN,
+  },
+  {
+    id: 'vincular_evento_etapa', area: 'crm', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Vincular un evento a una etapa',
+    descripcion: 'PROPONE vincular un evento de Calendly o Cal.com a una etapa de reunión de un CRM (queda pendiente hasta el «sí»): desde ahí, quien lo reserva cae en esa etapa de ese CRM; si ya está en otro, se lo agrega sin moverlo. Un evento va a una sola etapa. Evento, embudoId y etapa salen de listar_eventos_agenda. Solo el administrador.',
+    parametros: [
+      { nombre: 'proveedor', tipo: 'string', obligatorio: true, enum: ['calendly', 'calcom'], descripcion: 'la agenda: calendly o calcom.' },
+      { nombre: 'evento', tipo: 'string', obligatorio: true, max: 300, descripcion: 'el identificador del evento (de listar_eventos_agenda), o su nombre.' },
+      { nombre: 'embudoId', tipo: 'number', obligatorio: true, entero: true, minimo: 1, descripcion: 'el CRM, por el id de su embudo (de listar_eventos_agenda).' },
+      { nombre: 'etapa', tipo: 'string', obligatorio: true, max: 80, descripcion: 'key de la etapa de reunión (de listar_eventos_agenda).' },
+    ],
+    canales: TODOS, costo: 'gratis', gating: TAB_ADMIN,
+    reversible: true, escribe: 'guarda el vínculo del evento con la etapa (agenda_evento_etapa) y lo registra en el índice de webhooks (webhook_routing); sus reservas pasan a caer en esa etapa de ese CRM',
+  },
+  {
+    id: 'desvincular_evento_etapa', area: 'crm', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Desvincular un evento de su etapa',
+    descripcion: 'PROPONE sacar el vínculo de un evento de Calendly o Cal.com con su etapa (queda pendiente hasta el «sí»): sus reservas vuelven a la R1 o R2 de Integraciones y al CRM principal. Solo el administrador.',
+    parametros: [
+      { nombre: 'proveedor', tipo: 'string', obligatorio: true, enum: ['calendly', 'calcom'], descripcion: 'la agenda: calendly o calcom.' },
+      { nombre: 'evento', tipo: 'string', obligatorio: true, max: 300, descripcion: 'el identificador del evento (de listar_eventos_agenda), o su nombre.' },
+    ],
+    canales: TODOS, costo: 'gratis', gating: TAB_ADMIN,
+    reversible: true, escribe: 'borra el vínculo del evento (agenda_evento_etapa) y suelta su fila del índice de webhooks si ya nadie la usa',
+  },
+
   // ── Acciones heredadas ─────────────────────────────────────────────────────────
   {
     id: 'proponer_cambio_etapa', area: 'crm', tipo: 'accion', confirmacion: 'chat', tipoPendiente: 'lead_etapa',
@@ -602,18 +693,18 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'ignorar_datos_sin_marcar', area: 'crm', tipo: 'accion', confirmacion: 'chat',
     titulo: 'Ignorar datos sin marcar',
-    descripcion: 'PROPONE silenciar los pendientes de un lead en «Datos sin marcar» (queda pendiente hasta el «sí»): deja de contar en el worklist y en el contador, pero siguen visibles en su ficha. No silencia una reunión pasada sin decisión, que se sigue pidiendo. Se deshace con reactivar_datos_sin_marcar.',
+    descripcion: 'PROPONE ignorar los datos sin marcar de un lead (queda pendiente hasta el «sí»), igual que la ✕ de «A revisar»: dejan de contar en el worklist, en el contador y en su ficha, también los que le falten después, y quedan en «Ver más», donde una persona los puede volver a mostrar. No ignora la asistencia a una reunión pasada, que se sigue pidiendo. Se deshace con reactivar_datos_sin_marcar.',
     parametros: [leadId()],
     canales: TODOS, costo: 'gratis', gating: TAB,
-    reversible: true, escribe: 'marca pendientes_ignorados en el lead y deja historial',
+    reversible: true, escribe: 'guarda los datos ignorados del lead en datos_ignorados (lo mismo que la pantalla) y deja historial',
   },
   {
     id: 'reactivar_datos_sin_marcar', area: 'crm', tipo: 'accion', confirmacion: 'chat',
     titulo: 'Reactivar datos sin marcar',
-    descripcion: 'PROPONE deshacer ignorar_datos_sin_marcar sobre un lead (queda pendiente hasta el «sí»): el lead vuelve a contar en «Datos sin marcar» con todo lo que le falta.',
+    descripcion: 'PROPONE deshacer ignorar_datos_sin_marcar sobre un lead (queda pendiente hasta el «sí»): el lead vuelve a contar en «Datos sin marcar» con todo lo que le falta, también lo que se ignoró desde su ficha o desde «A revisar».',
     parametros: [leadId()],
     canales: TODOS, costo: 'gratis', gating: TAB,
-    reversible: true, escribe: 'limpia pendientes_ignorados del lead y deja historial',
+    reversible: true, escribe: 'vacía los datos ignorados del lead (y la marca vieja de lead ignorado) y deja historial',
   },
   {
     id: 'resolver_confirmacion_crm', area: 'crm', tipo: 'accion', confirmacion: 'chat',
@@ -643,6 +734,32 @@ export const DEFS: readonly OperacionDef[] = [
     ],
     canales: TODOS, costo: 'gratis', gating: TAB_ADMIN,
     reversible: true, escribe: 'reescribe las entradas declaradas en el funnel del negocio',
+  },
+
+  // ── Crear un CRM por su TIPO (14/10/2026, §2 de docs/diseno-ficha-bloques.md) ──────────────
+  // «Nuevo CRM» elige un tipo (DM funnel, LinkedIn, dos reuniones…) que trae canal, entrada y
+  // etapas (`TIPOS_CRM`, lib/pipeline.ts), o «otro» con el canal y las entradas a mano. Las dos
+  // ops van por el mismo camino que el modal: `siembraDeCrm` sanea y `crearCrm` (lib/nuevo-crm.ts)
+  // escribe. Por HTTP a propósito: un tipo y sus etapas no traen datos de nadie.
+  {
+    id: 'tipos_de_crm', area: 'crm', tipo: 'lectura',
+    titulo: 'Tipos de CRM para crear',
+    descripcion: 'Los tipos de CRM que se pueden crear con crear_crm, los mismos de «Nuevo CRM» en la pantalla: llamada de venta, dos reuniones (high-ticket), webinar, sesión presencial, conversaciones por chat, DM funnel (comentan una palabra clave), Instagram orgánico, anuncio con formulario de Meta, recurso gratis (lead magnet), LinkedIn, YouTube y carrito. Por cada uno, su id, qué es en una línea, cómo se vende, cómo llega la gente y las etapas con las que nace el tablero. Úsala antes de crear_crm cuando no está claro cuál corresponde. El tipo otro arma el CRM con el canal y las entradas que se pasen.',
+    parametros: [],
+    salida: 'json', canales: TODOS, costo: 'gratis', gating: TAB,
+  },
+  {
+    id: 'crear_crm', area: 'crm', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Crear un CRM nuevo',
+    descripcion: 'PROPONE crear un CRM nuevo del negocio, con su propio tablero de etapas, de un tipo de tipos_de_crm (queda pendiente hasta el «sí»). El tipo pone las etapas, cómo se vende y cómo llega la gente, igual que «Nuevo CRM» en la pantalla; con tipo otro se pasan el canal y las entradas. No toca los CRM que ya existen. Devuelve el embudoId del CRM nuevo, que es el que piden productos_del_lead y agregar_lead_a_producto. Solo el administrador.',
+    parametros: [
+      { nombre: 'nombre', tipo: 'string', obligatorio: true, max: 200, descripcion: 'cómo se llama el CRM, por ejemplo «Mentoría». No puede ser «Funnel principal», que es el del negocio.' },
+      { nombre: 'tipo', tipo: 'string', obligatorio: true, enum: [...TIPOS_CRM.map((t) => t.id), TIPO_CRM_OTRO], descripcion: 'el tipo de CRM (de tipos_de_crm), u otro para elegir a mano el canal y las entradas.' },
+      { nombre: 'canal', tipo: 'string', enum: CANALES.map((c) => c.id), descripcion: 'solo con tipo otro, y obligatorio ahí: cómo se cierra la venta (de él salen las etapas).' },
+      { nombre: 'entradas', tipo: 'string[]', max: 3, enum: ENTRADAS_OFRECIDAS, descripcion: 'solo con tipo otro, y al menos una ahí: cómo llega la gente (hasta 3).' },
+    ],
+    canales: TODOS, costo: 'gratis', gating: TAB_ADMIN,
+    reversible: false, escribe: 'crea un producto, su oferta y su embudo, con las etapas y la entrada del tipo',
   },
   // Un lead en VARIOS productos (mig 0207). «No se debe "Mover", se debe agregar al otro
   // producto» (Martín, 06/10/2026): los tres van por lib/lead-funnel.ts tal como lo usa la ficha,

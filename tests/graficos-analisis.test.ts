@@ -374,7 +374,10 @@ test('sin respuesta usable de las keys del negocio (o sin keys), va la RED DE PL
   const red = sinComentarios(leer('../lib/graficos-ia-red.ts'));
   assert.match(red, /provsGratisDePlataforma\(\)/);
   assert.match(red, /motivo: `⚠ red de plataforma \(\$\{r\.provider\}\)/, 'se registra como red de plataforma en el Saldo de IA');
-  assert.doesNotMatch(red, /chatClaude|anthropic|openai/i, 'la red es gratis por construcción');
+  // Desde el 16/10/2026 el crédito de Claude de la plataforma va PRIMERO (ya pagado, y la API de Anthropic no entrena):
+  // el único camino a Anthropic es su puerta (`conCreditoDeLaPlataforma`, lib/veto-claude.ts). Nada que cobre por pedido.
+  assert.match(red, /const \{ conCreditoDeLaPlataforma \} = await import\('\.\/anthropic'\);/);
+  assert.doesNotMatch(red.replace("import('./anthropic')", ''), /chatClaude|anthropic|openai/i, 'nada que cobre por pedido');
   assert.match(red, /console\.warn\(/, 'sus errores van al log');
   assert.doesNotMatch(red, /erroresOut/, 'y nunca a la lista con la que se arma el texto del cliente');
 });

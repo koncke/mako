@@ -56,6 +56,8 @@ import { getPipelineStagesDeLead, idDelFunnelDefault } from './funnels';
 import { AUTOR_SISTEMA, CAMPO_ETAPA, cambioDeEtapa, marcarEtapaVista } from './etapa-historial';
 import { stepsForStage, funnelReqInfo, pasosResueltos, type Step, type StageReqValues } from './stage-requirements';
 import type { VentaTipo } from './venta-tipo';
+import type { EntradaSocial } from './canal-social';
+import { faltaColumnaNuevaDelAlta, sinColumnasNuevas, traeColumnasNuevas } from './lead-alta-columnas';
 // La etapa de ORIGEN de un movimiento se deriva con la MISMA función que usa la
 // ficha (override chequeado contra el funnel vigente): con el override crudo, el
 // validador y la pantalla discrepan justo en los leads con etapas huérfanas.
@@ -126,6 +128,24 @@ export type Lead = {
   sexo?: 'mujer' | 'hombre' | 'otro' | null;
   /** Lo que contestó en el formulario de la landing ([{ pregunta, respuesta }], lib/optin-respuestas.ts). */
   optin_respuestas?: unknown;
+  /**
+   * La página donde dejó sus datos (mig 0290_lead_entrada, tanda B del CRM): la URL normalizada del
+   * opt-in (`normalizarUrl`, sin UTM ni click-ids). Cuándo, es `created_at`. Lo escribe SÓLO el alta;
+   * null = no entró por una landing, o entró antes de la migración.
+   */
+  pagina_registro?: string | null;
+  /**
+   * Cómo entró por Instagram o Messenger (mig 0290_lead_entrada): el evento que lo creó, guardado UNA
+   * vez. Se lee con `entradaSocialGuardada` (lib/canal-social.ts), nunca crudo.
+   */
+  entrada_social?: unknown;
+  /** El link para entrar a la R1 y a la R2 (mig 0204, `join_url` de Calendly). Lo escribe `guardarLinkDeReunion`. */
+  junta_1_url?: string | null;
+  junta_2_url?: string | null;
+  /** Se dio de baja de los emails (mig 0046): no recibe ningún email del negocio. */
+  email_opt_out?: boolean | null;
+  /** La oferta a la que entró (mig 0272). Se lee y se asigna por lib/oferta-lead.ts. */
+  oferta_id?: number | null;
   /** La cara que ELIGIÓ una persona (mig 0173/0174), desde la ficha del cliente. Gana sobre
    *  la foto automática (WhatsApp / Gravatar), que se calcula al leer y nunca se escribe acá. */
   avatar_url?: string | null;
@@ -317,6 +337,10 @@ export type LeadCreateInput = {
   instagram?: string | null;
   /** Lo que contestó en el formulario de la landing (mig 0274), ya saneado por `respuestasDelOptin`. */
   optin_respuestas?: Array<{ pregunta: string; respuesta: string }> | null;
+  /** La página donde dejó sus datos, ya normalizada (mig 0290_lead_entrada). */
+  pagina_registro?: string | null;
+  /** Cómo entró por Instagram o Messenger (`entradaSocialDe`, mig 0290_lead_entrada). */
+  entrada_social?: EntradaSocial | null;
 };
 
 export type LeadUpdateInput = {
@@ -870,9 +894,7 @@ export async function createLead(input: LeadCreateInput & { permitirDuplicado?: 
   }
   const supabase = (await getTenantDb());
   const solo = await vendedorUnicoDelWorkspace(); // #2: auto-asignar si hay 1 vendedor
-  const { data, error } = await supabase
-    .from('leads')
-    .insert({
+  const fila: Record<string, unknown> = {
       nombre: input.nombre.trim(),
       email: input.email?.trim() || null,
       telefono: input.telefono?.trim() || null,
@@ -904,10 +926,26 @@ export async function createLead(input: LeadCreateInput & { permitirDuplicado?: 
       ...(input.instagram?.trim() ? { instagram: input.instagram.trim() } : {}),
       // Igual que Instagram: SÓLO SI VINO, así un alta sin respuestas entra sin la mig 0274.
       ...(input.optin_respuestas?.length ? { optin_respuestas: input.optin_respuestas } : {}),
+      // ⚠️ EL ANUNCIO SE ESCRIBE (tanda B del CRM, 14/10/2026). Estaba en `LeadCreateInput` y no
+      // llegaba al insert —el mismo caso que el `visitor_id` de arriba—, así que el lead de un DM
+      // pagado nacía sin anuncio y la atribución por anuncio no lo contaba. Lo pasa el alta de Zernio
+      // (lib/zernio-entrante.ts); ningún otro alta lo manda. Sólo si vino: un alta sin anuncio no lo nombra.
+      ...(input.meta_ad_id?.trim() ? { meta_ad_id: input.meta_ad_id.trim() } : {}),
+      // Lo nuevo de la tanda B (mig 0290_lead_entrada): la página del opt-in y cómo entró por
+      // Instagram o Messenger. Sólo si vino, y con el reintento de abajo si la migración no llegó.
+      ...(input.pagina_registro?.trim() ? { pagina_registro: input.pagina_registro.trim() } : {}),
+      ...(input.entrada_social ? { entrada_social: input.entrada_social } : {}),
       ...(solo ? { setter: solo, closer: solo } : {}),
-    })
-    .select('*')
-    .single();
+  };
+  const insertar = (f: Record<string, unknown>) => supabase.from('leads').insert(f).select('*').single();
+  let { data, error } = await insertar(fila);
+  // ⚠️ SIN LA MIGRACIÓN, EL LEAD ENTRA IGUAL (lib/lead-alta-columnas.ts): un deploy que llega antes que
+  // la 0290_lead_entrada no puede mandar cada opt-in a propuesta ni perder el lead de un DM. Una sola
+  // vez, y sólo si lo que falta es una de ESAS columnas.
+  if (error && traeColumnasNuevas(fila) && faltaColumnaNuevaDelAlta(error)) {
+    console.warn(`[leads] falta la migración 0290_lead_entrada: el lead entra sin la página de registro ni la entrada social (${error.message})`);
+    ({ data, error } = await insertar(sinColumnasNuevas(fila)));
+  }
   if (error) throw new Error(`Error creando lead: ${error.message}`);
   return data as Lead;
 }
@@ -1895,6 +1933,15 @@ export async function upsertLeadFromCalendly(
     // empresa puesta a mano, etc.). El webhook en vivo usa false (default):
     // refresca fechas porque Calendly es la fuente fresca.
     soloCompletarVacios?: boolean;
+    /**
+     * Sólo al CREAR (16/10/2026): el evento reservado está vinculado a una etapa de reunión de un
+     * embudo (lib/agenda-evento-etapa.ts), y el lead nuevo nace en ESE embudo (`funnelId`, ya
+     * traducido con `casaParaEscribir`: NULL es el del negocio) y en ESA etapa. La etapa va como
+     * override sólo si la derivada de sus fechas no es ya esa (en un embudo con las etapas de
+     * siempre, «Agenda R1» sale sola de la fecha y no se escribe nada). Un lead que YA existe no
+     * cambia de casa por acá: lo ubica `ubicarReservaVinculada`, que lo AGREGA al otro embudo.
+     */
+    alCrear?: { funnelId: number | null; etapa: string } | null;
   },
 ): Promise<{ created: boolean; lead: Lead }> {
   if (!input.email || !input.email.includes('@')) {
@@ -2043,6 +2090,12 @@ export async function upsertLeadFromCalendly(
     closer:                   soloCal ?? null,
     // Backdatear created_at SOLO en backfill, para reflejar cuándo agendó
     ...(opts?.fechaCreacion ? { created_at: opts.fechaCreacion } : {}),
+    // El evento vinculado a una etapa (ver `alCrear` arriba): la casa y, si hace falta, la etapa.
+    ...(opts?.alCrear ? {
+      ...(opts.alCrear.funnelId != null ? { funnel_id: opts.alCrear.funnelId } : {}),
+      ...(deriveStageKey({ estado_lead: 'abierto', fecha_agenda: input.fecha_agenda, fecha_junta_1: input.fecha_junta_1, fecha_junta_2: null, asistio_j1: null, asistio_j2: null }) !== opts.alCrear.etapa
+        ? { pipeline_stage: opts.alCrear.etapa } : {}),
+    } : {}),
   };
 
   const { data, error } = await supabase

@@ -42,7 +42,11 @@ export type Medio = 'whatsapp' | 'email' | 'instagram' | 'messenger';
 /** En el orden en que se dicen («Conecta tu WhatsApp» antes que «Conecta tu email»). */
 export const MEDIOS: readonly Medio[] = ['whatsapp', 'email', 'instagram', 'messenger'];
 
-export type EstadoMedio = { conectado: boolean | null; motivo?: string; cuenta?: string | null };
+export type EstadoMedio = {
+  conectado: boolean | null; motivo?: string; cuenta?: string | null;
+  /** La línea MANDA pero no ESCUCHA 1 a 1: la de MaKo en la plataforma (15/10/2026, lib/linea-plataforma.ts). */
+  noEscucha?: boolean;
+};
 
 /**
  * Lo que midió el server. Un medio AUSENTE = no se midió (no se preguntó por él): no avisa ni frena.
@@ -67,6 +71,8 @@ export const MOTIVO_MEDIO: Record<Medio, string> = {
 /** El rótulo del chip de la tarjeta. */
 export const CHIP_SIN_CONECTAR = 'Sin conectar';
 export const CHIP_NO_SE = 'Sin comprobar';
+/** Una tarjeta que espera una respuesta, en una línea que no escucha 1 a 1 (la de MaKo en la plataforma). */
+export const CHIP_NO_ESCUCHA = 'No escucha respuestas';
 
 const conCanal = (p: PasoGrafo): string | null => {
   const c = (p as { canal?: unknown }).canal;
@@ -239,10 +245,13 @@ export function medioDelError(texto: string | null | undefined): Medio | null {
 }
 
 /** El chip de una tarjeta, o null si su medio está conectado (o no usa ninguno, o no se midió). */
-export function chipDeTarjeta(p: PasoGrafo, estado: EstadoMedios | null | undefined, lineaAutomatizacion: string | null | undefined): { texto: string; medio: Medio; frena: boolean } | null {
+export function chipDeTarjeta(p: PasoGrafo, estado: EstadoMedios | null | undefined, lineaAutomatizacion: string | null | undefined): { texto: string; medio: Medio; frena: boolean; informa?: true } | null {
   const m = medioDePaso(p);
   if (!m) return null;
   const e = estadoDe(estado, m, m === 'whatsapp' ? lineaDePaso(p, lineaAutomatizacion) : null);
+  // «Nada por detrás» (15/10/2026): una tarjeta que ESPERA una respuesta por una línea que no escucha 1 a 1 lo dice,
+  // en vez de quedarse esperando para siempre. No frena ni ofrece conectar: es así.
+  if (e?.noEscucha && claseDe(p) === 'respuesta') return { texto: CHIP_NO_ESCUCHA, medio: m, frena: false, informa: true };
   if (!e || e.conectado === true) return null;
   return { texto: e.conectado === false ? CHIP_SIN_CONECTAR : CHIP_NO_SE, medio: m, frena: e.conectado === false };
 }

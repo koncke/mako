@@ -19,6 +19,12 @@
 // editar.ts). Y «Buscar y reemplazar» (`find replace`): «Sustituir» en el elegido y
 // «Reemplazar todo». ⚠️ El campo de CapCut dice «Reemplazar como» (`pc_replace_with`),
 // un error de traducción de «Replace with»: acá va «Reemplazar con».
+//
+// «Animaciones de subtítulos» (el karaoke de CapCut, text/resaltado.ts): «Subtítulos
+// pronunciados» (Ninguno · Palabra · Frase, y su color) y «Subtítulos no pronunciados»
+// (su opacidad). Como una plantilla, va a TODOS los subtítulos de una vez y en un solo
+// paso de deshacer. Sin tiempos por palabra no hace nada: en vez de los controles, el
+// aviso de dónde se consiguen.
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -33,7 +39,7 @@ import { BuscadorBiblioteca, normalizarBusqueda } from "@/app/video-editor/_open
 import { TICKS_PER_SECOND } from "@/app/video-editor/_opencut/wasm";
 import type { TextElement } from "@/app/video-editor/_opencut/timeline";
 import { cn } from "@/app/video-editor/_opencut/utils/ui";
-import { bordeInferiorDe, partirYUbicar } from "../build-subtitle-text-element";
+import { bordeInferiorDe } from "../build-subtitle-text-element";
 import {
 	actualizarSubtitulos,
 	aplicarEstiloASubtitulos,
@@ -42,8 +48,26 @@ import {
 	subtitulosDe,
 	type SubtituloEnPista,
 } from "../insert";
-import { combinarSubtitulo, dividirSubtitulo, palabrasDelSubtitulo, reemplazarEnSubtitulos } from "../editar";
-import { codificarPalabras, PARAM_PALABRAS, rehacerPalabras } from "../palabras";
+import { combinarSubtitulo, dividirSubtitulo, paramsConTexto, reemplazarEnSubtitulos } from "../editar";
+import { ColorPicker } from "@/app/video-editor/_opencut/components/ui/color-picker";
+import {
+	BotonRestablecer,
+	DeslizadorValor,
+	FilaCe,
+	SeccionCe,
+	SegmentadoCe,
+} from "@/app/video-editor/_opencut/components/editor/panels/properties/components/kit";
+import { useElementPreview } from "@/app/video-editor/_opencut/timeline/hooks/use-element-preview";
+import type { ParamValues } from "@/app/video-editor/_opencut/params";
+import {
+	DEFAULTS_RESALTADO,
+	MODOS_RESALTAR,
+	PARAM_NO_DICHAS_OPACIDAD,
+	PARAM_RESALTAR,
+	PARAM_RESALTAR_COLOR,
+	type ModoResaltar,
+} from "@/app/video-editor/_opencut/params/extra/subtitulos";
+import { tieneTiemposPorPalabra } from "@/app/video-editor/_opencut/text/resaltado";
 
 // ⚠️ El panel derecho DESMONTA la pestaña cada vez que cambia el elemento elegido
 // (la cáscara le pone el id del elemento en la `key`). Y elegir una línea de esta
@@ -113,38 +137,11 @@ function Linea({
 			setBorrador(guardado);
 			return;
 		}
-		const lienzo = lienzoDe(editor);
-		const borde = bordeInferiorDe({ params: element.params, lienzo });
-		const ubicado = partirYUbicar({
-			params: { ...element.params, content: texto },
-			lienzo,
-			ubicacion: borde != null ? { bordeInferior: borde } : {},
-		});
-		// Corregir una palabra no cambia cuándo se dijo: si siguen siendo las mismas palabras,
-		// los tiempos se quedan; si cambió cuántas son, el subtítulo se queda sin ellos.
-		const guardadas = palabrasDelSubtitulo(element);
-		const rehechas = guardadas ? rehacerPalabras(guardadas, texto) : null;
-		const palabras = rehechas
-			? codificarPalabras({
-					palabras: rehechas.palabras,
-					origen: (element.startTime - element.trimStart) / TICKS_PER_SECOND,
-					precision: rehechas.precision,
-				})
-			: "";
-		// La X la decide el cliente si movió el subtítulo: sólo cambia el texto y la Y.
+		// Corregir una palabra no cambia cuándo se dijo: la regla vive en subtitles/editar.ts
+		// (`paramsConTexto`), que la usa también el chat.
 		actualizarSubtitulos({
 			editor,
-			cambios: [
-				{
-					trackId: track.id,
-					elementId: element.id,
-					params: {
-						content: ubicado.content,
-						"transform.positionY": ubicado["transform.positionY"],
-						...(element.params[PARAM_PALABRAS] ? { [PARAM_PALABRAS]: palabras } : {}),
-					},
-				},
-			],
+			cambios: [{ trackId: track.id, elementId: element.id, params: paramsConTexto(editor, element, texto) }],
 		});
 	};
 
@@ -272,7 +269,120 @@ function Linea({
 	);
 }
 
-export function PestanaSubtitulos({ element }: ContextoInspector) {
+const OPCIONES_PRONUNCIADOS: ReadonlyArray<{ id: ModoResaltar; etiqueta: string }> = [
+	{ id: "ninguno", etiqueta: "Ninguno" },
+	// «Palabra pronunciada» / «Frase pronunciada»: el título de arriba ya dice «pronunciados».
+	{ id: "palabra", etiqueta: "Palabra" },
+	{ id: "frase", etiqueta: "Frase" },
+];
+
+/** «Animaciones de subtítulos»: el resaltado de TODOS los subtítulos (ver el encabezado). */
+function AnimacionSubtitulos({
+	element,
+	trackId,
+	lista,
+}: {
+	element: TextElement;
+	trackId: string;
+	lista: SubtituloEnPista[];
+}) {
+	const editor = useEditor();
+	// Lo que se MUESTRA sale del elemento vivo: el número se mueve mientras se arrastra.
+	const { renderElement: vivo } = useElementPreview({ trackId, elementId: element.id, fallback: element });
+	const p = vivo.params;
+	const modo: ModoResaltar = MODOS_RESALTAR.includes(p[PARAM_RESALTAR] as ModoResaltar)
+		? (p[PARAM_RESALTAR] as ModoResaltar)
+		: DEFAULTS_RESALTADO.modo;
+	const color = typeof p[PARAM_RESALTAR_COLOR] === "string" ? String(p[PARAM_RESALTAR_COLOR]) : DEFAULTS_RESALTADO.color;
+	const opacidad =
+		typeof p[PARAM_NO_DICHAS_OPACIDAD] === "number" ? Number(p[PARAM_NO_DICHAS_OPACIDAD]) : DEFAULTS_RESALTADO.noDichasOpacidad;
+	const conTiempos = useMemo(() => lista.some(({ element: el }) => tieneTiemposPorPalabra(el.params)), [lista]);
+	const esteConTiempos = tieneTiemposPorPalabra(element.params);
+
+	// Las escrituras parten de los subtítulos CONFIRMADOS (`lista`), no de la vista previa:
+	// arrastrar recalcula desde el mismo punto. La vista previa va en UN `previewElements`
+	// y se confirma con un solo paso de deshacer (commitPreview).
+	const previsualizar = (cambios: ParamValues) =>
+		editor.timeline.previewElements({
+			updates: lista.map(({ track, element: el }) => ({
+				trackId: track.id,
+				elementId: el.id,
+				updates: { params: { ...el.params, ...cambios } },
+			})),
+		});
+	const confirmar = () => editor.timeline.commitPreview();
+	const aplicar = (cambios: ParamValues) =>
+		actualizarSubtitulos({
+			editor,
+			cambios: lista.map(({ track, element: el }) => ({ trackId: track.id, elementId: el.id, params: cambios })),
+		});
+
+	return (
+		<SeccionCe titulo="Animaciones de subtítulos" clave="ce:subtitulos:animacion">
+			{!conTiempos ? (
+				<p className="py-1 text-[12px] text-(--cc-text-3)">Sin tiempos por palabra: usa Subtítulos automáticos</p>
+			) : (
+				<>
+					<p className="pb-1.5 text-[12px] text-(--cc-text-2)">Subtítulos pronunciados</p>
+					<SegmentadoCe
+						opciones={OPCIONES_PRONUNCIADOS}
+						valor={modo}
+						onCambio={(v) => v !== modo && aplicar({ [PARAM_RESALTAR]: v })}
+					/>
+					{modo !== "ninguno" && (
+						<>
+							<FilaCe
+								rotulo="Color"
+								acciones={
+									<BotonRestablecer
+										desactivado={color.toLowerCase() === DEFAULTS_RESALTADO.color}
+										onClick={() => aplicar({ [PARAM_RESALTAR_COLOR]: DEFAULTS_RESALTADO.color })}
+									/>
+								}
+							>
+								<ColorPicker
+									className="w-full"
+									value={color.replace(/^#/, "").toUpperCase()}
+									onChange={(c) => previsualizar({ [PARAM_RESALTAR_COLOR]: `#${c}` })}
+									onChangeEnd={(c) => {
+										previsualizar({ [PARAM_RESALTAR_COLOR]: `#${c}` });
+										confirmar();
+									}}
+								/>
+							</FilaCe>
+							<p className="pt-1 text-[12px] text-(--cc-text-2)">Subtítulos no pronunciados</p>
+							<FilaCe
+								rotulo="Opacidad"
+								acciones={
+									<BotonRestablecer
+										desactivado={opacidad === DEFAULTS_RESALTADO.noDichasOpacidad}
+										onClick={() => aplicar({ [PARAM_NO_DICHAS_OPACIDAD]: DEFAULTS_RESALTADO.noDichasOpacidad })}
+									/>
+								}
+							>
+								<DeslizadorValor
+									valor={opacidad}
+									min={0}
+									max={100}
+									paso={1}
+									sufijo="%"
+									ariaLabel="Opacidad de lo no pronunciado"
+									onPrevisualizar={(v) => previsualizar({ [PARAM_NO_DICHAS_OPACIDAD]: v })}
+									onConfirmar={confirmar}
+								/>
+							</FilaCe>
+						</>
+					)}
+					{!esteConTiempos && (
+						<p className="pt-1.5 text-[11.5px] text-(--cc-text-3)">Este subtítulo no tiene tiempos por palabra</p>
+					)}
+				</>
+			)}
+		</SeccionCe>
+	);
+}
+
+export function PestanaSubtitulos({ element, track }: ContextoInspector) {
 	const editor = useEditor();
 	const tracks = useEditor((e) => e.scenes.getActiveSceneOrNull()?.tracks ?? null);
 	const lista = useMemo(() => subtitulosDe(tracks), [tracks]);
@@ -404,6 +514,9 @@ export function PestanaSubtitulos({ element }: ContextoInspector) {
 				{visibles.length === 0 && (
 					<p className="px-2 py-6 text-center text-[12px] text-(--cc-text-3)">No se encontraron resultados</p>
 				)}
+			</div>
+			<div className="shrink-0 border-t border-(--cc-line-2)">
+				<AnimacionSubtitulos element={element as TextElement} trackId={track.id} lista={lista} />
 			</div>
 			<div className="shrink-0 border-t border-(--cc-line-2) p-3">
 				<Button

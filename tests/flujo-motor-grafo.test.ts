@@ -342,7 +342,8 @@ test('(8) «Si responde» despacha a responderConGrafo, y «MaKo contesta» usa 
   assert.ok(despacho < asistir.indexOf("update({ estado: 'handoff'"), 'el despacho va ANTES del hand-off');
   const grafo = fn(NUTRI, 'async function responderConGrafo(');
   assert.match(grafo, /const escenarios = escenariosDeRespuesta\(pasos\);/);
-  assert.match(grafo, /await clasificarEscenario\(texto \?\? '', lista\)/, 'el clasificador de siempre, con los casos de la tarjeta');
+  // (16/10/2026: en vivo, con la red de plataforma, el plazo y la marca de PII: tests/ai-step-red-y-voz.test.ts.)
+  assert.match(grafo, /await clasificarEscenario\(texto \?\? '', lista, \{ redDePlataforma: true, hastaMs: c\.hastaMs, pii: true \}\)/, 'el clasificador de siempre, con los casos de la tarjeta');
   assert.match(grafo, /await redactarRespuesta\(c, \{/, '«MaKo contesta» redacta por otro camino');
   assert.ok(grafo.indexOf('await hayMensajeMasNuevo(c)') < grafo.indexOf('for (let vuelta'), 'la relectura va antes de recorrer la rama');
   assert.doesNotMatch(grafo, /estado: 'handoff'/, '«Si responde» no congela la inscripción');
@@ -395,7 +396,9 @@ test('(9) avisar_al_equipo: la acción que usa «Otra cosa», por el canal de lo
   // Por lead, y por RESPUESTA cuando sale de «Si responde» (revisión del 08/10/2026). UNDÉCIMA TANDA: la forma del
   // aviso la arma `armarAvisoDeTarjeta` (lib/mako-tarjeta.ts, del paquete de «MaKo en WhatsApp»): la de antes
   // conserva este dedup; una tarjeta con `partes` sale tal cual (el reclamo del motor ya impide el doble envío).
-  assert.match(b, /\.\.\.armarAvisoDeTarjeta\(payload, \{/);
+  // (16/10/2026: armado aparte, porque «MaKo por email» lee de él si salió por correo: `aviso.asuntoEmail`.)
+  assert.match(b, /const aviso = armarAvisoDeTarjeta\(payload, \{/);
+  assert.match(b, /await emitirAviso\(\{ ws: ctx\.ws, \.\.\.aviso \}\);/);
   const tarjeta = sinComentarios(leer('../lib/mako-tarjeta.ts'));
   assert.match(tarjeta, /dedupKey: respuesta \? `lead:\$\{lead\.id\}:resp:\$\{respuesta\}` : `lead:\$\{lead\.id\}`, dedupTtlMin: 60 \* 12,/, 'dos automatizaciones del mismo lead son dos avisos');
   assert.match(b, /linkApp\(`\/crm\/\$\{lead\.id\}`, ctx\.ws\)/);

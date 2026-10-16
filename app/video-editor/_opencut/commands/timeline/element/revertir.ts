@@ -16,7 +16,7 @@
 import { toast } from "sonner";
 import type { EditorCore } from "@/app/video-editor/_opencut/core";
 import type { ParamValues } from "@/app/video-editor/_opencut/params";
-import type { VideoElement } from "@/app/video-editor/_opencut/timeline";
+import type { ElementRef, VideoElement } from "@/app/video-editor/_opencut/timeline";
 import { processMediaAssets } from "@/app/video-editor/_opencut/media/processing";
 import {
 	RevertirCancelado,
@@ -27,7 +27,7 @@ import {
 	TICKS_PER_SECOND,
 	roundMediaTime,
 } from "@/app/video-editor/_opencut/wasm";
-import { videoElegido } from "./clip-elegido";
+import { videoElegido, videoEn } from "./clip-elegido";
 
 export const CLAVE_ORIGEN = "revertir.origen";
 
@@ -79,12 +79,13 @@ export function revirtiendo(): boolean {
 	return enCurso !== null;
 }
 
-export async function revertirClip(editor: EditorCore): Promise<void> {
+/** Revierte el video elegido, o el de `objetivo` (el chat «Editar con IA» nombra el suyo). */
+export async function revertirClip(editor: EditorCore, objetivo?: ElementRef): Promise<void> {
 	if (enCurso) {
 		toast("La reversión del video está en curso. Espera un momento.");
 		return;
 	}
-	const elegido = videoElegido(editor);
+	const elegido = objetivo ? videoEn(editor, objetivo) : videoElegido(editor);
 	if (!elegido) return;
 	const { track, element } = elegido;
 

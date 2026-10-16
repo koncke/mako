@@ -122,7 +122,8 @@ test('el <Toast> vive en la lista, fuera de la capa de Probar, y no en PanelProb
   assert.ok(capa > 0 && pasa > capa, 'el panel no avisa a la lista');
   // Entre el panel y el toast se CIERRA la capa (z 3): `</div>` y el `)}` de `probarVisible && …`. (El `{}` es el
   // comentario JSX que `sinComentarios` vacía.)
-  assert.match(lista.slice(pasa, toast), /^[^\n]*\n\s+\/>\n\s+<\/div>\n\s+\)\}\s*(\{\}\s*)?$/, 'el toast quedó adentro de la capa de Probar');
+  // (15/10/2026: el panel avisa además si tiene lista de contactos, `onContactos`, en el renglón de abajo.)
+  assert.match(lista.slice(pasa, toast), /^[^\n]*\n(\s+onContactos=\{setProbarContactos\}\n)?\s+\/>\n\s+<\/div>\n\s+\)\}\s*(\{\}\s*)?$/, 'el toast quedó adentro de la capa de Probar');
 });
 
 // ── 5. El aviso rojo de la línea ─────────────────────────────────────────────────────────────────────────────

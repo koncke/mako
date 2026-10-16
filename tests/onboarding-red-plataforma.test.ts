@@ -18,33 +18,28 @@
 //
 // Correr: npx tsx --test tests/onboarding-red-plataforma.test.ts
 //
-// ⛔ SIN PROBAR ROMPIÉNDOLO TODAVÍA — y por eso no vale como medición.
-//
-// La tanda se cortó a pedido de Martín (13/10/2026 ~20:00) para liberar RAM: los
-// ocho asserts quedaron escritos y NO se corrió ni la base ni una sola rotura. Lo
-// único medido de este archivo es el tamaño de los dos recortes (ver `bloque`),
-// que se midió justo porque el tope que tenía puesto lo dejaba rojo.
-//
-// Las siete roturas que hay que correr cuando se retome, cada una restaurando DE
-// MEMORIA (nunca `git checkout`, que en este clon borra trabajo ajeno):
-//   - sacar `redDePlataforma` del Archivero (los 4 de lib/onboarding.ts)
-//   - sacarlo de los documentos (visión, app/api/onboarding/archivero/route.ts)
-//   - sacarlo de la cara de marca (lib/persona.ts)
-//   - que los errores de la red caigan en `erroresOut` del cliente
-//   - borrar la guarda de «el super admin no se reintenta a sí mismo»
-//   - sacar el <ErrorIA> de ProductosView
-//   - que chatCheap deje de pasar wsKey (la red usaría la key del cliente)
-//
-// Hasta que eso corra, de este archivo se sabe que compila y nada más: un test
-// que no se probó rompiéndolo es una afirmación, no una medición.
+// PROBADO ROMPIÉNDOLO el 15/10/2026, cada rotura restaurada DE MEMORIA (nunca
+// `git checkout`, que en este clon borra trabajo ajeno). Base: 8 pasan, 0 fallan.
+//   - sacar `redDePlataforma` del panorama del Archivero (1 de los 4) → 7/1
+//   - sacarlo de la imagen del Archivero (visión, 1 de los 2 de la ruta) → 7/1
+//   - sacarlo de la cara de marca (lib/persona.ts) → 7/1
+//   - que los errores de la red caigan en `erroresOut` del cliente → 7/1
+//   - borrar la guarda «el super admin no se reintenta» en la cascada → 7/1
+//   - sacar el <ErrorIA> de ProductosView (vuelve el error crudo) → 7/1
+//   - que chatCheap deje de pasar wsKey → daba 8/0: NO la cazaba, porque la misma
+//     línea vive en chatCheapTools y el assert leía el archivo entero. Ahora mira
+//     el cuerpo de chatCheap, y la misma rotura da 7/1.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 const leer = (p: string) => readFileSync(p, 'utf8').replace(/\r\n/g, '\n');
+// Sin el paso que borraba las líneas que empiezan con `*`: se llevaba los ` */` que cierran un
+// JSDoc y dejaba el recorte de bloques abierto hasta el próximo cierre (medido el 16/10/2026 sobre
+// lib/ai-cheap.ts entero; acá no mordía porque se aplica a una función ya recortada).
 const sinComentarios = (src: string) =>
-  src.replace(/^[ \t]*\/\/.*$/gm, '').replace(/^[ \t]*\*.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+  src.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
 
 const AI = leer('lib/ai-cheap.ts');
 
@@ -76,7 +71,8 @@ test('los caminos del ARRANQUE piden la red de plataforma', () => {
   // Los cuatro del Archivero (brief, campos, panorama, huecos), el catálogo de
   // productos, los avatares y la cara de marca. Si un camino nuevo del arranque
   // no la pide, un cliente con una sola key se queda sin arranque.
-  for (const f of ['lib/onboarding.ts', 'lib/productos-ia.ts', 'lib/avatares.ts', 'lib/persona.ts']) {
+  // Y el plan de arranque (15/10/2026), desde que el paso de la IA del wizard es opcional.
+  for (const f of ['lib/onboarding.ts', 'lib/productos-ia.ts', 'lib/avatares.ts', 'lib/persona.ts', 'lib/todo-seed-ia.ts']) {
     assert.match(leer(f), /redDePlataforma: true/, `${f} no tiene red: un bache del proveedor del cliente lo deja sin arranque`);
   }
   // El Archivero lee los documentos por VISIÓN, que es el camino que falló de
@@ -101,8 +97,11 @@ test('la red usa la key de la PLATAFORMA, no la del cliente', () => {
   // Sin `wsKey`, `credWs` lee la fila del workspace en curso: la red reintentaría
   // con la MISMA key que acaba de fallar y no sería una red de nada.
   assert.match(casc, /wsKey: wsSA/, 'la red no pide la key del super admin');
-  // Y chatCheap tiene que poder recibirlo.
-  assert.match(AI, /const p = await proveedor\(opts\.provider, opts\.clave, opts\.wsKey\);/);
+  // Y chatCheap tiene que poder recibirlo. Se mira su CUERPO y no el archivo: la misma
+  // línea existe también en chatCheapTools, así que leyendo el archivo entero la rotura
+  // «chatCheap deja de pasar wsKey» daba 8 de 8 en verde (medido el 15/10/2026).
+  assert.match(sinComentarios(bloque(AI, 'chatCheap(')), /const p = await proveedor\(opts\.provider, opts\.clave, opts\.wsKey\);/,
+    'chatCheap no le pasa wsKey al proveedor: la red reintentaría con la key del cliente');
   assert.match(AI, /export async function chatCheap\(opts: \{[^}]*wsKey\?: number/);
 });
 

@@ -48,10 +48,10 @@
 // =============================================================================
 
 import {
-  type PasoGrafo, type NombresParaTexto, type HechosLead, type MedioAIStep,
+  type PasoGrafo, type NombresParaTexto, type HechosLead, type MedioAIStep, type FilaCondicion,
   claseDe, idDe, indicePorId, nodoPorId, normalizar, puertosDe, raicesSalida, raizRespuesta,
   textoEspera, textoRama, TOPE_HILOS, RESULTADO_SI_NO, paralelosDeResultado, elegirSalida, expandirPasoIA,
-  extrasDeCaso,
+  extrasDeCaso, gruposDeRama, cumpleFila, textoFila, escenariosDeRespuesta,
 } from './flujo-grafo';
 
 /**
@@ -89,7 +89,8 @@ export type OpcionRama = { puerto: string; texto: string; destino: string | null
 export type EventoSim<P extends PasoGrafo = PasoGrafo> =
   | { t: 'mensaje'; nodo: string; paso: P; enRespuesta: boolean }
   | { t: 'espera'; nodo: string; texto: string }
-  | { t: 'accion'; nodo: string; texto: string }
+  /** `paso`: la tarjeta, para que el panel dibuje lo que hace (16/10/2026: la «MaKo en WhatsApp» le escribe al grupo). */
+  | { t: 'accion'; nodo: string; texto: string; paso: P }
   | { t: 'salto'; nodo: string; texto: string }
   | { t: 'condicion'; nodo: string; opciones: OpcionRama[] }
   | { t: 'fin'; texto: string };
@@ -142,7 +143,26 @@ export type EstadoSim = {
    * (`asistirRespuesta` con `{ medio }`). Ausente = WhatsApp. Lo pone `iniciar`.
    */
   medio?: MedioAIStep;
+  /**
+   * EL MINUTO VIRTUAL DE LA PRÓXIMA REUNIÓN DEL LEAD (16/10/2026, Martín: «salen primero los "1 hora antes de la
+   * reunión" cuando tendrían que salir antes los "⏳ Esperar 5 min"... si tenemos varias condiciones de "antes de...",
+   * eso debe funcionar bien»). Con él, una espera «N antes de la reunión» lleva el reloj a la reunión menos N, como el
+   * motor (`nutricion-grafo-motor.ts`: si eso ya pasó, sigue enseguida). Sin él, no lo mueve: no hay de qué descontar.
+   * Lo pone `iniciar` desde los hechos del lead de la prueba (`reunionMinDe`).
+   */
+  reunionMin?: number;
 };
+
+/**
+ * El minuto (contado desde que el lead entra) de su próxima reunión, de los hechos de la prueba (`hechosDeLeadNuevo`:
+ * quien entra por una etapa de reunión tiene una mañana a esta hora). `undefined` = no tiene.
+ */
+export function reunionMinDe(hechos: HechosLead | null | undefined): number | undefined {
+  const r = hechos?.catalogo?.lead?.proximaReunionMs;
+  const ahora = hechos?.ahoraMs;
+  if (r == null || ahora == null || !Number.isFinite(r) || !Number.isFinite(ahora)) return undefined;
+  return Math.max(0, Math.round((r - ahora) / 60_000));
+}
 
 /** Los nombres que el texto de una píldora necesita y este módulo no tiene. */
 export type NombresSim = NombresParaTexto & {
@@ -368,12 +388,13 @@ export function correoDeEjemplo(
 
 // ── Recorrer ───────────────────────────────────────────────────────────────────
 
-export function iniciar(pasos: readonly PasoGrafo[], op: { medio?: MedioAIStep } = {}): EstadoSim {
+export function iniciar(pasos: readonly PasoGrafo[], op: { medio?: MedioAIStep; reunionMin?: number } = {}): EstadoSim {
   // Un hilo por raíz: la principal y cada flecha en paralelo del CRON, todas en el minuto 0.
   const hilos = raicesSalida(pasos).slice(0, TOPE_HILOS).map((cursor) => ({ cursor, reloj: 0 }));
   return {
     hilos, rama: 'salida', eligiendo: null, salidaPausada: false, terminado: false, saltos: 0, eventos: 0, ahora: 0, caso: null,
     ...(op.medio && op.medio !== 'whatsapp' ? { medio: op.medio } : {}),
+    ...(op.reunionMin != null ? { reunionMin: op.reunionMin } : {}),
   };
 }
 
@@ -460,15 +481,18 @@ function correrHilo<P extends PasoGrafo>(pasos: readonly P[], estado: EstadoSim,
       return { evento: { t: 'mensaje', nodo: id, paso: p, enRespuesta: st.rama === 'respuesta' }, estado: { ...base, hilos: avanzar(h.reloj) } };
     case 'accion':
       // No se ejecuta: probar no puede mover un lead ni crear una tarea de verdad.
-      return { evento: { t: 'accion', nodo: id, texto: `⚡ ${nombreAccion(p, nombres)}` }, estado: { ...base, hilos: avanzar(h.reloj) } };
+      return { evento: { t: 'accion', nodo: id, texto: `⚡ ${nombreAccion(p, nombres)}`, paso: p }, estado: { ...base, hilos: avanzar(h.reloj) } };
     case 'esperar': {
       if (!h.esperado) {
         // No espera: suma al reloj de SU hilo y lo dice cuando le vuelve a tocar (ver `HiloSim`).
-        // «N antes de la reunión» no mueve el reloj: la prueba no tiene una reunión de la que
-        // descontar, y un número inventado ordenaría los hilos con un dato que no existe.
-        const min = p.espera?.modo === 'tiempo' ? Math.max(0, Number(p.espera.minutos) || 0) : 0;
+        // «N antes de la reunión» lleva el reloj a la reunión menos N, como el motor; si eso ya pasó, enseguida
+        // (16/10/2026: sin esto quedaba en el minuto 0 y salía antes que el «Esperar 5 min» de otro camino). Sin
+        // reunión no lo mueve: un número inventado ordenaría los hilos con un dato que no existe.
+        const min = Math.max(0, Number(p.espera?.minutos) || 0);
+        const reloj = p.espera?.modo === 'tiempo' ? h.reloj + min
+          : st.reunionMin != null ? Math.max(h.reloj, st.reunionMin - min) : h.reloj;
         const hilos = st.hilos.slice();
-        hilos[k] = { cursor: h.cursor, reloj: h.reloj + min, esperado: true };
+        hilos[k] = { cursor: h.cursor, reloj, esperado: true };
         return { evento: null, estado: { ...st, hilos } };
       }
       return { evento: { t: 'espera', nodo: id, texto: `⏳ ${textoEspera(p.espera)}` }, estado: { ...base, hilos: avanzar(h.reloj) } };
@@ -573,19 +597,48 @@ export function elegir(estado: EstadoSim, puerto: string): EstadoSim {
 // por las condiciones de la salida: qué resultado sale en cada una. Se arman recorriendo el MISMO simulador que la
 // prueba (`siguiente` + `elegir`), así que salen sólo los caminos que la prueba puede recorrer de verdad.
 
+//
+// ⚠️ 15/10/2026, Martín: «Pusiste una cantidad impresionante de chats en "Un lead agendó llamada", revisa por qué tantos
+// casos». Medido en #213: 8 escenarios y uno afuera, casi todos IMPOSIBLES («No: Su reunión sigue en pie · … · Su
+// reunión sigue en pie»). Cada condición se abría por su cuenta, aunque dos preguntaran lo MISMO, así que salía el
+// producto de todas. Ahora un escenario es una combinación de HECHOS (cada fila sin su «No», `claveHecho`): el mismo
+// hecho vale lo mismo en todo el flujo, y dos combinaciones que en el chat se ven igual (los mismos mensajes) son un
+// solo escenario. #213 pasó de 8 + 1 a los que se distinguen. Y «En ninguno de esos casos el LEAD responde para
+// simular el AI Step»: con un AI Step, un escenario más por cada caso, en el que el lead contesta (`respuesta`).
+
 /** Un camino por las condiciones: el resultado (`puerto`) de cada una, y cómo se dice. */
 export type EscenarioPrueba = {
-  /** Estable: las elecciones en orden ("c1=si|c2=__si_no"). */
+  /** Estable: las elecciones en orden ("c1=si|c2=__si_no"); con el lead que contesta, más «#<caso>». */
   id: string;
   elecciones: Readonly<Record<string, string>>;
   /** Lo elegido en cada condición, en el orden en que se pasó. Un «Si no» dice de qué. */
   pasos: readonly string[];
   /** Cuántos mensajes le llegan por este camino (los que `cuenta` cuenta: los del canal que se prueba). */
   mensajes: number;
+  /** CUÁNDO CAE este caso, en palabras («Ya le escribiste», «No: Su reunión sigue en pie»): lo dice el chat al empezar. */
+  cuando: readonly string[];
+  /** El lead CONTESTA (para probar el AI Step): el caso al que apunta. Ausente = el lead no escribe. */
+  respuesta?: { casoId: string; titulo: string; cuando: string };
 };
 
-/** Hasta cuántos escenarios se arman (la barra se lee de un vistazo; lo que sobra se dice). */
+/** Hasta cuántos escenarios por la salida (la barra se lee de un vistazo). */
 export const TOPE_ESCENARIOS = 8;
+/** Y hasta cuántos en los que el lead contesta (uno por caso del AI Step). */
+export const TOPE_RESPUESTAS = 4;
+
+/** Una fila sin su «No» ni su unión: el HECHO que pregunta. Dos filas con la misma clave preguntan lo mismo. */
+function claveHecho(f: FilaCondicion): string {
+  return JSON.stringify([f.campo, f.valor ?? null, f.funnel_id ?? null, f.op ?? null, f.ref ?? null]);
+}
+
+/** Por dónde sale una condición con estos hechos: la primera rama que se cumple (como `elegirSalida`), o «si no». */
+function salidaConHechos(p: PasoGrafo, hechos: ReadonlyMap<string, boolean>): string {
+  for (const r of p.ramas ?? []) {
+    const grupos = gruposDeRama(r);
+    if (grupos.some((g) => g.every((f) => (hechos.get(claveHecho(f)) ?? false) !== !!f.no))) return r.id;
+  }
+  return RESULTADO_SI_NO;
+}
 
 /** Cómo se dice un resultado: el texto de su rama; el «Si no», contra la primera rama. */
 function textoDeEleccion(o: OpcionRama, opciones: readonly OpcionRama[]): string {
@@ -595,45 +648,98 @@ function textoDeEleccion(o: OpcionRama, opciones: readonly OpcionRama[]): string
 }
 
 /**
- * LOS ESCENARIOS de un flujo: cada camino distinto por sus condiciones, hasta `TOPE_ESCENARIOS`. Con `hechos` (el
- * lead recién llegado de la prueba), en cada condición se recorre PRIMERO lo que elegiría el motor (`elegirSalida`):
- * el primer escenario es el de siempre. Sin condiciones, uno solo (vacío). `faltan`: cuántos quedaron afuera del tope.
+ * LOS ESCENARIOS de un flujo: cada combinación de los HECHOS que preguntan sus condiciones, recorrida con el MISMO
+ * simulador, y una sola vez por lo que se VE (los mensajes que llegan), hasta `TOPE_ESCENARIOS`. Los hechos se abren
+ * recién cuando una condición los pregunta, y con `hechos` (el lead recién llegado de la prueba) primero va el valor
+ * que tiene ese lead: el primer escenario es el que elegiría el motor. Sin condiciones, uno solo (vacío). Con un AI Step
+ * que escucha por este medio, después, uno por caso (hasta `TOPE_RESPUESTAS`) en el que el lead CONTESTA, sobre el
+ * primero. `faltan`: cuántos quedaron afuera del tope.
  */
 export function escenariosDePrueba(
   pasosIn: readonly PasoGrafo[],
   o: { hechos?: HechosLead; nombres?: NombresSim; cuenta?: (p: PasoGrafo) => boolean; medio?: MedioAIStep } = {},
 ): { escenarios: EscenarioPrueba[]; faltan: number } {
   const pasos = recorrido(pasosIn, o.medio);
-  const out: EscenarioPrueba[] = [];
+  type Hecho = { fila: FilaCondicion; si: boolean };
+  /** Cada escenario con los hechos que lo armaron: el «cuándo» se escribe al final, con los que lo DISTINGUEN. */
+  const crudos: Array<{ e: Omit<EscenarioPrueba, 'cuando'>; hechos: ReadonlyMap<string, Hecho> }> = [];
+  /** Lo que se ve en el chat de cada escenario ya armado: dos con los mismos mensajes son uno. */
+  const vistos = new Set<string>();
   let faltan = 0;
-  const cerrar = (elecciones: Record<string, string>, dichos: string[], mensajes: number) => {
-    if (out.length >= TOPE_ESCENARIOS) { faltan += 1; return; }
+  const cerrar = (elecciones: Record<string, string>, dichos: string[], mensajes: string[], hechos: ReadonlyMap<string, Hecho>) => {
+    const clave = mensajes.join('>');
+    if (vistos.has(clave)) return;
+    if (crudos.length >= TOPE_ESCENARIOS) { faltan += 1; return; }
+    vistos.add(clave);
     const id = Object.entries(elecciones).map(([n, p]) => `${n}=${p}`).join('|');
-    if (!out.some((e) => e.id === id)) out.push({ id, elecciones, pasos: dichos, mensajes });
+    crudos.push({ e: { id, elecciones, pasos: dichos, mensajes: mensajes.length }, hechos });
   };
-  const visitar = (inicio: EstadoSim, elecciones: Record<string, string>, dichos: string[], mensajes: number): void => {
+  const visitar = (inicio: EstadoSim, hechos: ReadonlyMap<string, Hecho>, elecciones: Record<string, string>, dichos: string[], mensajes: string[]): void => {
     let st = inicio;
-    let n = mensajes;
+    let elec = elecciones;
+    let dich = dichos;
+    const vistosAca = [...mensajes];
     for (let vuelta = 0; vuelta <= TOPE_EVENTOS; vuelta++) {
       const e = st.eligiendo;
       if (e) {
         const p = nodoPorId(pasos, e.nodo);
-        const deFabrica = p && o.hechos ? elegirSalida(p, o.hechos).puerto : null;
-        const orden = [...e.opciones].sort((a, b) => Number(b.puerto === deFabrica) - Number(a.puerto === deFabrica));
-        for (const op of orden) {
-          if (out.length >= TOPE_ESCENARIOS) { faltan += 1; continue; }
-          visitar(elegir(st, op.puerto), { ...elecciones, [e.nodo]: op.puerto }, [...dichos, textoDeEleccion(op, e.opciones)], n);
+        // El primer hecho que esta condición pregunta y todavía no tiene valor: se abre en dos (primero el del lead).
+        const falta = (p?.ramas ?? []).flatMap((r) => r.filas ?? []).find((f) => !hechos.has(claveHecho(f)));
+        if (falta) {
+          const base: FilaCondicion = { ...falta, no: false };
+          const delLead = o.hechos ? cumpleFila(base, o.hechos) : false;
+          for (const si of [delLead, !delLead]) {
+            if (crudos.length >= TOPE_ESCENARIOS) { faltan += 1; continue; }
+            visitar(st, new Map([...hechos, [claveHecho(falta), { fila: base, si }]]), elec, dich, vistosAca);
+          }
+          return;
         }
-        return;
+        const valores = new Map([...hechos].map(([k, h]) => [k, h.si] as const));
+        const puerto = p ? salidaConHechos(p, valores) : RESULTADO_SI_NO;
+        const op = e.opciones.find((x) => x.puerto === puerto) ?? e.opciones.find((x) => x.puerto === RESULTADO_SI_NO) ?? null;
+        if (!op) break;
+        elec = { ...elec, [e.nodo]: op.puerto };
+        dich = [...dich, textoDeEleccion(op, e.opciones)];
+        st = elegir(st, op.puerto);
+        continue;
       }
       const r = siguiente(pasosIn, st, o.nombres);
       if (!r.evento || r.evento.t === 'fin') break;
-      if (r.evento.t === 'mensaje' && (!o.cuenta || o.cuenta(r.evento.paso))) n += 1;
+      if (r.evento.t === 'mensaje' && (!o.cuenta || o.cuenta(r.evento.paso))) vistosAca.push(r.evento.nodo);
       st = r.estado;
     }
-    cerrar(elecciones, dichos, n);
+    cerrar(elec, dich, vistosAca, hechos);
   };
-  visitar(iniciar(pasosIn, { medio: o.medio }), {}, [], 0);
+  visitar(iniciar(pasosIn, { medio: o.medio, reunionMin: reunionMinDe(o.hechos) }), new Map(), {}, [], []);
+
+  // CUÁNDO CAE CADA UNO, sólo con lo que lo DISTINGUE (visto en producción el 15/10/2026: «Tiene WhatsApp · Tiene email»
+  // en los seis casos alargaban la píldora sin decir nada). Un hecho que vale lo mismo en todos los escenarios no va.
+  const claves = new Set(crudos.flatMap((c) => [...c.hechos.keys()]));
+  const distinguen = new Set([...claves].filter((k) => new Set(crudos.map((c) => c.hechos.get(k)?.si)).size > 1));
+  const out: EscenarioPrueba[] = crudos.map((c) => ({
+    ...c.e,
+    cuando: [...new Set([...c.hechos].filter(([k]) => distinguen.has(k)).map(([, h]) => textoFila({ ...h.fila, no: !h.si }, o.nombres)))],
+  }));
+
+  // EL LEAD CONTESTA (15/10/2026): un escenario por caso del AI Step que escucha por este medio. El panel le hace escribir
+  // al lead algo de ese caso, y lo demás es la prueba de siempre (clasifica y contesta). ⚠️ Sobre el primer camino CON
+  // mensajes: visto en producción, con el primero sin ninguno el lead no tenía qué contestar y la prueba terminaba en «Fin».
+  const primero = out.find((e) => e.mensajes > 0) ?? out[0];
+  if (primero && nodoPorId(pasos, raizRespuesta(pasos))) {
+    const casos = escenariosDeRespuesta(pasosIn, { medio: o.medio }).map((c) => ({ casoId: c.casoId, titulo: c.titulo, cuando: c.cuando }));
+    // Un AI Step sin casos con nombre contesta todo con su objetivo («Lo demás»): un escenario igual, para verlo contestar.
+    if (!casos.length) {
+      const ai = pasosIn.find((p) => p.paso_ia && (p.medio ?? 'whatsapp') === (o.medio ?? 'whatsapp'));
+      casos.push({ casoId: '', titulo: 'Lo demás', cuando: String(ai?.objetivo ?? '') });
+    }
+    for (const c of casos.slice(0, TOPE_RESPUESTAS)) {
+      out.push({
+        ...primero, id: `${primero.id}#${c.casoId}`, mensajes: primero.mensajes + 1,
+        cuando: [...primero.cuando, `Contesta: ${c.titulo}`],
+        respuesta: { casoId: c.casoId, titulo: c.titulo, cuando: c.cuando },
+      });
+    }
+  }
   return { escenarios: out, faltan };
 }
 
@@ -745,7 +851,7 @@ export const CONTACTO_COMPLETO: ContactoPrueba = { tieneTelefono: true, tieneEma
  */
 export function mensajesDelRecorrido<P extends PasoGrafo>(pasos: readonly P[], lead: LeadNuevoPrueba = {}, nombres: NombresSim = {}): P[] {
   const ahoraMs = lead.ahoraMs ?? Date.now();
-  let st = iniciar(pasos);
+  let st = iniciar(pasos, { reunionMin: reunionMinDe(hechosDeLeadNuevo({ ...lead, ahoraMs })) });
   let contactado = false;
   const out: P[] = [];
   // Cada vuelta muestra un evento o decide una condición: el tope de eventos corta cualquier bucle.
@@ -768,8 +874,8 @@ export function mensajesDelRecorrido<P extends PasoGrafo>(pasos: readonly P[], l
  * nodo). Una condición que el escenario no nombra corta ahí: no se inventa un camino. Lo que no es un mensaje no se
  * devuelve.
  */
-export function mensajesDelEscenario<P extends PasoGrafo>(pasos: readonly P[], elecciones: Readonly<Record<string, string>>, nombres: NombresSim = {}): P[] {
-  let st = iniciar(pasos);
+export function mensajesDelEscenario<P extends PasoGrafo>(pasos: readonly P[], elecciones: Readonly<Record<string, string>>, nombres: NombresSim = {}, op: { reunionMin?: number } = {}): P[] {
+  let st = iniciar(pasos, { reunionMin: op.reunionMin });
   const out: P[] = [];
   for (let vuelta = 0; vuelta < TOPE_EVENTOS * 2 + 4; vuelta++) {
     if (st.eligiendo) {
@@ -796,13 +902,17 @@ export function mensajesDelEscenario<P extends PasoGrafo>(pasos: readonly P[], e
 export function escenariosDeLaSecuencia(
   s: Parameters<typeof leadNuevoDelCron>[0] & { pasos: readonly PasoGrafo[]; estrategia: unknown },
   idDeClave: (clave: string) => number | null,
-): { pasos: PasoGrafo[]; escenarios: EscenarioPrueba[]; faltan: number } {
+): { pasos: PasoGrafo[]; escenarios: EscenarioPrueba[]; faltan: number; reunionMin?: number } {
   const pasos = flujoParaProbar(s.pasos as PasoGrafo[], s.estrategia as EstrategiaLegada, { idDeClave }).pasos;
+  const hechos = hechosDeLeadNuevo(leadNuevoDelCron(s));
   const { escenarios, faltan } = escenariosDePrueba(pasos, {
-    hechos: hechosDeLeadNuevo(leadNuevoDelCron(s)),
+    hechos,
     cuenta: (p) => (p.canal ?? 'whatsapp') === 'whatsapp',
   });
-  return { pasos, escenarios, faltan };
+  // Sin los escenarios en que el lead CONTESTA (15/10/2026): por la API no hay quién escriba como el lead, y
+  // `probar_secuencia` mandaría lo mismo que el primero. Son de la pantalla.
+  // La reunión del lead de la prueba viaja: `mensajesDelEscenario` ordena con ella los «antes de la reunión».
+  return { pasos, escenarios: escenarios.filter((e) => !e.respuesta), faltan, reunionMin: reunionMinDe(hechos) };
 }
 
 /**

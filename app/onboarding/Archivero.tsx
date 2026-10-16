@@ -188,14 +188,14 @@ export function Archivero({ onEstado, onListo, registro }: {
 
   // ── Links (webs pegadas) ────────────────────────────────────────────────────
   const dominio = (u: string) => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch { return u; } };
-  const normalizarUrl = (u: string): string | null => {
+  const urlDelLink = (u: string): string | null => {
     let s = u.trim();
     if (!s) return null;
     if (!/^https?:\/\//i.test(s)) s = 'https://' + s;
     try { const url = new URL(s); if (!/^https?:$/.test(url.protocol) || !url.hostname.includes('.')) return null; return url.toString(); } catch { return null; }
   };
   const addLink = () => {
-    const u = normalizarUrl(linkUrl);
+    const u = urlDelLink(linkUrl);
     if (!u) { setErr('Ese link no parece válido. Revísalo (ej: tunegocio.com).'); return; }
     setErr(null);
     setLinks((prev) => (prev.includes(u) ? prev : [...prev, u]));
@@ -204,7 +204,7 @@ export function Archivero({ onEstado, onListo, registro }: {
   const quitarLink = (u: string) => setLinks((prev) => prev.filter((x) => x !== u));
   // Desde la vista de archivos: agrega el link y salta a la cola (para revisarlo + analizar).
   const agregarLinkYSubir = () => {
-    const u = normalizarUrl(linkUrl);
+    const u = urlDelLink(linkUrl);
     if (!u) { setErr('Ese link no parece válido. Revísalo (ej: tunegocio.com).'); return; }
     setErr(null); setLinks((prev) => (prev.includes(u) ? prev : [...prev, u])); setLinkUrl(''); setVista('inicio');
   };

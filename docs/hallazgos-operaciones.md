@@ -328,6 +328,236 @@ del cartero, antes de dibujar nada:
   los que se pidieron en uno y trabajó otro, los trabajos firmados por sesión de destino, y la
   conversación de cada chat). «Avance» es la vista por estado de lib/progreso-reglas.ts, sin cambios.
 
+## El rediseño de punta a punta: la caja para escribirle a un chat, y lo que faltaba para que llegue (16/10/2026)
+
+**Síntoma.** Martín abrió la pestaña Chats en producción (15/10, 19:01) y la rechazó entera: «Toda la vista de chat
+está horrible la verdad... Eliminando las tabs innecesarias, los textos innecesarios, títulos, subtitulos, avisos,
+etc... No solamente eso, NO es funcional, no puedo mandar un prompt por allí a mis otras cuentas.»
+
+**Causa.** Dos, y la segunda no era de estética. La pantalla mostraba conversaciones y no dejaba escribir: mandar
+vivía en un formulario aparte («Cartero y trabajos»), con un desplegable de chats. Y aunque se escribiera, **nada
+llegaba**: medido en la PC ese mismo día,
+
+| Lo que hace falta para que un trabajo llegue | Cómo estaba (15/10, 23:00) |
+|---|---|
+| Una clave de firma aceptada en la PC (`claves.txt`) | **no existía**: todo trabajo firmado salía «No se pudo» en la primera vuelta |
+| El cartero de cada cuenta | sólo el de la cuenta 1; se declararon la 2 y la 3 (`cartero claudeN app ~/.claude` + `carpeta`) |
+| Alguien que corra las vueltas | **nadie**: ningún chat «Cartero»; la última vuelta, a las 17:29 UTC |
+| La cuenta del chat, corriendo | la app estaba en la 3 (12 de 13 chats abiertos); la 1 (53 chats) y la 2 (27) no corrían en ningún lado |
+| Una cuenta de terminal logueada | sólo `~/.claude-cuenta3` (15/10 03:20); `~/.claude-martin` nunca, y `~/.claude` tiene credenciales de julio |
+
+La cola de producción tenía **0 trabajos**: nadie había podido mandar uno.
+
+**Lo que quedó.** La pantalla es una app de chat, copiada de las que resuelven lo mismo (varias sesiones de un
+agente, cada una con su estado). Las capturas se bajaron y se miraron el 15/10 (en el scratchpad de esa sesión):
+
+| De dónde | Qué se copió |
+|---|---|
+| Claude Code web (sesiones con punto de estado) y Claude web | la barra: accesos con ícono arriba, filas de una línea con el punto a la izquierda, lo de la cuenta abajo de todo |
+| Codex (escritorio y teléfono) | las sesiones agrupadas con «Mostrar más» y la edad a la derecha; acá el grupo es la CUENTA |
+| WhatsApp (iOS, iPad, web), Linear Inbox, Slack | la fila de dos renglones con lo último que pasó, la hora y el tick ADENTRO de la burbuja, las píldoras de día, la conversación a pantalla completa en el teléfono con la caja fija abajo |
+| Claude / ChatGPT / Perplexity | la caja redondeada con el texto arriba y una barrita abajo (la opción a la izquierda, enviar a la derecha) |
+| Grok | Avance y Pushes como accesos de la barra que abren su vista con el nombre como único título |
+
+- **La caja va abajo de cada conversación** (`Conversacion.tsx`): Enter manda, Shift+Enter baja de renglón. Firma por
+  `mandar.ts`, el mismo camino en la computadora y en el teléfono, y lo que espera lo dice en una línea («Sale cuando
+  abras este chat en la cuenta 1»). Una caja que mandaría algo que la PC va a rechazar NO manda: ofrece crear o copiar
+  la clave (`comoSale`, lib/centro-chats.ts).
+- **La barra agrupa por cuenta** (`seccionesDeChats`): con tres cuentas hay tres «CRM», y el título no los separa. Lo
+  anotado sin sesión (antes del 16/10) va en su propia sección, plegada, al final: no recibe trabajos y repetía el
+  título de su sesión al lado de ella.
+- **Los ticks son los de WhatsApp**: ✓ escrito, ✓✓ entregado, ✓✓ azul hecho, ✕ no salió (con el motivo debajo). El
+  cierre que deja el chat aparece como su respuesta.
+- **La poda**: se fueron el título, el subtítulo, la frase de dónde sale el estado, las pestañas, la hora de «Al día»
+  y el botón Actualizar (se refresca solo cada 8 s con la pestaña a la vista). «Áreas» se fue entera: lo que decía es
+  la lista de chats. La vista `pedidos` pasó a llamarse `avance` (un `?tab=pedidos` viejo abre los chats).
+- **Cargar**: la página ya no espera a Vercel (hasta 8 s de timeout; los pushes llegan después por `pushesCentroAction`)
+  y tiene su esqueleto (`loading.tsx`, en la lista blanca de tests/layout-sin-suspense.test.ts).
+
+**Lo que costó y no se deduce del código:**
+
+- ⚠️ **Un test de refresco que no saca al chat no prueba el refresco.** El de `completarChats` refrescaba con el cartero
+  VIENDO todavía al chat, así que borrar el reseteo del estado daba 9 en verde: el estado se pisaba igual. La rotura
+  que lo prueba es la de un chat que el cartero dejó de ver.
+- ⚠️ **El guard de «trabajo» lee cada cadena entre comillas**, también los ids: `vista === 'pedidos'` lo ponía rojo.
+  Por eso la vista se llama `avance`, que además es su nombre en pantalla.
+- **«Sin nada anotado» en 40 filas no distingue a ninguna** (AGENTS.md → una fila de una lista dice lo que la
+  distingue): una fila sin nada que contar es de un renglón.
+- **Dribbble y Behance bloquean `curl` y WebFetch** (202 con `x-amzn-waf-action: challenge` y cuerpo vacío; 403). Lo que
+  anduvo: las páginas archivadas en el Wayback Machine (CDX con `filter=statuscode:200`, sufijo `id_`), sacar de ahí los
+  `/shots/` y bajar la imagen de `cdn.dribbble.com/userupload/…` con `?resize=2000x1500`, que no está bloqueado.
+- **Mirar la pantalla sin servidor cuando no hay RAM**: con 1,5 GB libres no entra un `next dev`. Las capturas salieron
+  de los componentes REALES empaquetados con el esbuild que trae tsx, con las acciones del server, `next/navigation` y
+  la clave reemplazadas por datos ficticios, las hojas de la casa concatenadas (sin las directivas de Tailwind) y
+  Chrome `--headless=new --mute-audio --screenshot`. No reemplaza mirarla en producción: no pasa por el guard ni por la
+  base.
+
+**Vive en:** `app/admin/operaciones/{CentroApp,Conversacion,Hilo,PanelCartero}.tsx` · `mandar.ts` · `centro.css` ·
+`lib/centro-chats.ts` (`completarChats`, `comoSale`, `vistaPrevia`, `seccionesDeChats`) · `app/m/operaciones/` ·
+`tests/centro-chats.test.ts` · `tests/operaciones.test.ts`
+
+## Grok Bot: cada chat es un empleado con su muñeco, y el que espera algo lo muestra (16/10/2026)
+
+**El pedido.** Martín, la misma noche, al coordinador: «Quiero que copie a Grok, que tiene un mejor diseño, y sobre
+todo me gusta el concepto de los muñequitos de IA o "empleados"». La referencia resultó ser **Grok Bot** (xAI,
+lanzado el 11/08/2026): «AI teammates with names, jobs, and context that compounds over time», con habilidades,
+rutinas y aprobaciones (docs.x.ai/grok-bot/overview).
+
+**Cómo se miró, porque la doc oficial no trae una sola captura.** La nota de lanzamiento (x.ai/news/introducing-grok-bot)
+tiene su video en `media.x.ai`; bajado con un user-agent de navegador y `Referer: https://x.ai/` (sin eso contesta un
+HTML de 5 KB), 106 s, y mirado en hojas de contacto de 3×3 (`ffmpeg fps=1/4,tile=3x3`) y cuadros a resolución completa
+recortados. Ahí está la pantalla real: la lista de Bots, cada uno con un muñeco de forma simple y color propio (gota,
+hexágono, triángulo, cuadrado redondeado, con dos trazos blancos de ojos), su nombre, lo último que dijo y la hora; el
+«Para:» con la lista de Bots, y la conversación con el muñeco y el nombre del Bot sobre cada mensaje.
+
+⚠️ **El repo que circuló como referencia (`github.com/grok-bot-app/grok-bot`) NO es de xAI**: dice «Official product by
+xAI» en el encabezado y «unofficial community guide» en la licencia, tiene 0 estrellas, etiquetas de relleno para
+búsquedas e instaladores sin firmar en Releases. No se bajó ni se corrió nada de ahí (lo midió el coordinador).
+
+**Lo que quedó (`Muneco.tsx`):**
+- **Muñecos PROPIOS**: formas de la casa en la paleta categórica (`--grafo-*`, pasteles), ojos oscuros redondos con
+  brillo y una sonrisa (los de xAI son colores fuertes con dos trazos blancos y sin boca). SVG sin dependencias ni ids.
+- **El aspecto sale del título normalizado**, no de la sesión: el CRM es el mismo empleado en las tres cuentas. Las
+  áreas principales tienen su aspecto FIJO (`EQUIPO`): con el hash, dos de ellas salían iguales; lo demás va por hash.
+  `--grafo-funnel` quedó afuera: al lado de `--grafo-panorama` son dos verdes que no se distinguen a 38 px.
+- **Los ojos dicen el estado**: despierto (abierto), parpadeando (trabaja), cansado (foto vieja), dormido (cerrado).
+  Con movimiento reducido, quieto.
+- **El que espera algo lo muestra** (el «vuelve a pedir aprobación» de Grok Bot): las tarjetas de la Ticketera sin
+  contestar van a su empleado con `esperasPorChat`, por la sesión (`destino`) o por un título exacto y único —la MISMA
+  regla con la que el cartero avisa la respuesta, `destinoDeDecision`—; con dos chats del mismo nombre no adivina. El
+  muñeco lleva el globito y la conversación, arriba de la caja, «Una tarjeta espera tu respuesta · Contestar».
+
+**Lo que confirmaron las otras referencias** (una corrida de 3 agentes, 28 capturas bajadas y miradas: los Companions de
+Grok en iOS, Sintra, Marblism, Heynet, Wamino, Emotes, Notion AI, Duolingo y Copilot): el estado va en la CARA del
+muñeco y no en un cartel; «te espera» es una insignia naranja con número; lo quieto, el muñeco apagado; la conversación
+vacía muestra al personaje grande y, después, uno chico al lado de cada respuesta. Grok marca la presencia con un punto
+verde sobre el avatar y el humor con un globito de pensamiento.
+
+**Si algún día se cambian los muñecos por una biblioteca**: los estilos de DiceBear `critters`, `moods`, `gaze`,
+`notionists`, `lorelei`, `open-peeps` y `thumbs` son CC0 (uso comercial, se pueden modificar, no piden crédito); `micah`,
+`adventurer`, `personas`, `fun-emoji` y `big-smile` son CC BY 4.0 (piden crédito). Se fija el cuerpo por área y sólo
+varían ojos y boca: con semilla al azar salen caras tristes o con barbijo. Hoy no hace falta: los nuestros no tienen
+dependencia ni licencia que cuidar.
+
+**Vive en:** `app/admin/operaciones/Muneco.tsx` · `lib/centro-chats.ts` (`esperasPorChat`) · `acciones.ts`
+(`fotoCentroAction` trae las tarjetas) · `tests/centro-empleados.test.ts`
+
+## El cartero pasa a llamarse Runner, y cada texto dice qué hacer (15/10/2026)
+
+**El pedido.** Martín, mirando el Centro en producción: «Jamás pongas mensajes no claros como "Este dispositivo todavía
+no firma.", es mucho mejor "Crea tu Token para comenzar a chatear"», y «No quiero que se llame más "cartero", sino un
+nombre más formal, tecnico... profesional... mejora el diseño de ese modal».
+
+**Runner, copiado de GitHub Actions.** Un self-hosted runner es un proceso en TU máquina que consulta una cola en la
+nube, hace el trabajo ahí y reporta cómo salió: es lo que hace el cartero. No choca con «Puente» (Google Flow) ni con
+«Pasarela» (pagos). El modal copia GitHub → Settings → Actions → Runners, mirado en el Chrome de Martín ese día
+(hola-mako/dashboard-marketing no tiene runners, así que se miró la lista vacía y el alta «Add new self-hosted runner»):
+la caja con un renglón por runner (punto, nombre, etiquetas, estado) y el botón primario arriba a la derecha; el alta
+como pasos con un bloque de código para copiar. Acá los pasos son tres: crear el chat (sus instrucciones, que antes
+vivían sólo en este documento, ahora están en `lib/runner.ts` y se copian con un botón), su token, y tu Token.
+
+**Dos tokens, dos nombres.** «Tu Token» (palabra de Martín) es la clave de firma de ESTE dispositivo; el «token del
+Runner» (`mkop_…`) es el que conecta al Runner con MaKo. Antes eran «clave» y «token de los carteros» y en pantalla
+se leían como la misma cosa. El chat Runner acepta los dos pegados (`clave` y `token`).
+
+**Las claves no se renombraron**: `cartero.mjs`, `operaciones_carteros`, `/api/operaciones/cartero`,
+`ver_carteros_operaciones` siguen igual (la regla de «trabajo»/«pedido»). La PC reconoce al chat por su título:
+`esElCartero` acepta «Runner» y «Cartero», también como sub-chat («Centro de Operaciones › Runner», mirando el último
+tramo), así el renombre de Martín y la convención del chat jefe no lo vuelven un destino. Instalado como 1.3.0.
+
+**Lo que costó medir:**
+- **El guard de los textos no veía el texto JSX que sigue en el renglón de abajo.** La primera versión tomaba
+  `>texto<` en un mismo renglón; `<Icon … />Runners` sigue con su `<span>` abajo, y devolverle «Cartero» a ese botón a
+  propósito dio 0 fallos. Ahora toma el texto después del `>` de una ETIQUETA (no de un `=>`) hasta el próximo `<` o
+  `{`, y descarta lo que parece código.
+- **Una interpolación no es texto**: `${carteros.length}` adentro de un template daba un falso «cartero». Se borran las
+  `${…}` antes de mirar.
+- **El motivo de un trabajo que no salió lo escribe la PC, no MaKo** (`rechazar`, `acuse` en cartero.mjs, y «Venció…»
+  en lib/operaciones.ts). Reescribirlo como acción («El chat se cerró: ábrelo y vuelve a mandarlo») exige reinstalar el
+  script; las filas viejas conservan el texto de antes.
+
+**Vive en:** `lib/runner.ts` · `app/admin/operaciones/PanelRunner.tsx` · `lib/centro-chats.ts` (`textoDeEnvio`) ·
+`scripts/operaciones/cartero.mjs` (`esElCartero`, los motivos) · `app/m/operaciones/CentroMovil.tsx` (`RunnerMovil`) ·
+`tests/centro-textos.test.ts`
+
+## El avance pasa a cada chat, como los milestones de Linear, y la cuenta es un chip (15/10/2026)
+
+**El pedido.** «Elimina lo de "Avances y pushes", quiero que cada chat tenga arriba, en su topbar un botón para ver los
+avances, que despliegue la sidebar derecha, que sea algo similar a lo que tenemos en "offer"», con un roadmap «simple,
+épico y entendible», el estado como el color del punto («gris = no empezado») y «Pedido hace» y los pushes en el detalle.
+Y «No quiero que exista "cuenta 1, cuenta 2, 3" en la sidebar de chats... eso debe estar dentro de cada chat, con un chip».
+
+**Copiado de** la barra derecha de Offer (`app/offer/PiezasRail.tsx`: la tarjeta que estira con flex, el título con su
+conteo fijo y la lista que scrollea; en el teléfono, la barra «8/13» que se abre) y del panel «Project Milestones» de
+Linear, mirado en su documentación (linear.app/docs/project-milestones, un video del panel de detalles del proyecto): el
+rombo que cambia según el estado, el que está en curso en amarillo, el nombre y la fecha. Linear no se pudo abrir sin
+cuenta: la referencia es su doc, y se dice.
+
+**Qué es un nodo** (`avanceDelChat`, lib/centro-chats.ts): una línea del historial del chat. Un pedido de la bitácora que
+trabajó ese chat (con SUS pasos y SUS commits), uno que se le pidió ahí y trabajó otro (con los de todos y quién lo
+trabajó), o un trabajo firmado que se le mandó desde el Centro (su título es su primer renglón; el color sale de los
+ticks: entregado = en curso, sin salir = rojo). La cuenta de cada paso viaja ahora en `PasoP.cuenta`.
+
+**Lo que costó ver:**
+- **En el teléfono la conversación abre en lo último**, así que una barra arriba del hilo quedaba fuera de la vista. Va
+  `position: sticky` contra `.m-sheet__cuerpo`, que es lo que scrollea.
+- **«Subió hace X» sólo se sabe cuando el commit ENCABEZA un push** (`pushDelCommit`: por la hora acertaba 110 de 202).
+  Lo que la bitácora de la versión publicada nombra ya está en producción por construcción, así que el resto dice «En
+  producción», que es exacto. Y mientras Vercel no contestó, `pushes` es null, no `[]`: con la lista vacía el avance
+  diría «En producción» igual, pero nunca afirma un «subió» sin leerla.
+- **Sin los grupos por cuenta, dos «CRM» quedan iguales en la lista.** Hasta que la punta siguiente los una por nombre,
+  la fila lleva el chip de la cuenta SÓLO en los títulos repetidos (`titulosRepetidos`).
+- **«Pedido hace» se escribe «Lo pediste hace»**: el guard de las pantallas del Centro no deja la palabra «pedido» en lo
+  que se dibuja (tests/operaciones.test.ts), y «lo pediste» dice lo mismo.
+
+**Lo que quedó:** el avance mira 14 días (el «Ver todos» de la vista vieja se fue con ella); `novedades`
+(lib/progreso-reglas.ts) quedó sin quien lo llame, sólo con su test: era la lista de Pushes. La barra no tiene el
+porcentaje de Linear («23% of 63»): un nodo es una cosa pedida, no un milestone con issues adentro.
+
+**Vive en:** `app/admin/operaciones/Avance.tsx` · `lib/centro-chats.ts` (`avanceDelChat`, `seccionesDeChats`,
+`titulosRepetidos`) · `app/admin/operaciones/Conversacion.tsx` (el botón y la cabecera) · `app/m/operaciones/ChatsMovil.tsx` ·
+`tests/centro-avance.test.ts`
+
+## Un chat es su nombre, el jefe agrupa a sus sub-chats, y cada empleado tiene su muñeco elegido (15/10/2026)
+
+**El pedido.** «todos los chats de todas las cuentas se llamen igual. Y que yo tenga los 3 puntos en cada chat para poder
+configurar cosas, como cambiarle el nombre»; «quiero que cada chat esté englobado en su chat "jefe" que siempre se debe
+llamar como la tab en la que estamos trabajando, como CRM... ESO no lo quiero decidir yo, lo decide el chat jefe»; y
+«Crea más diseños variados de las figuras tipo trabajadores... Y que si le doy click pueda elegir cambiar a otro».
+
+**La regla de antes se dio vuelta, a propósito.** Hasta esa noche «un chat es una sesión, nunca un título» (con 5 títulos
+repetidos en el cartero, juntar por nombre pegaba el trabajo de uno a otro). Martín decidió lo contrario: el mismo
+trabajo se llama igual en las tres cuentas y el Centro lo une (`unirPorNombre`). Lo que se conservó es el camino al
+nombre: un hito con su sesión toma el título que esa sesión tiene HOY, así un chat renombrado no se parte. El riesgo
+viejo (dos chats distintos con el mismo nombre en una cuenta) ahora se resuelve renombrando uno, no adivinando.
+
+**Copiado de:** los hilos de Discord en la barra de canales para el jefe y sus sub-chats (el hilo debajo de su canal,
+corrido, con la línea que dobla); el «⋯» al pasar por la fila, de las barras de ChatGPT y Claude; y el selector de
+muñeco, del armador de Notion Faces (faces.notion.com, mirado ese día: las piezas a la izquierda, la grilla de tres con el
+elegido en azul y el dado, el retrato grande a la derecha).
+
+**Lo que costó ver:**
+- **En el teléfono no hay dos hojas** (SheetM: «Una hoja sobre otra REEMPLAZA»). Abrir «Opciones» en una hoja nueva
+  cerraba la de la conversación, y como la nueva dependía del chat abierto, se cerraba también: el «⋯» no hacía nada.
+  Opciones, Renombrar y el muñeco van ADENTRO de la hoja de la conversación, con su «‹» para volver.
+- **Renombrar no tiene una puerta nueva**: a cada sesión del chat le llega un trabajo firmado que le pide
+  `set_session_title` sobre sí misma (`textoDeRenombre`). La cerrada lo recibe al abrirse. El Runner podría renombrar
+  sesiones cerradas (tiene la herramienta), pero eso pide un tipo de trabajo nuevo en la cola firmada: no se hizo.
+- **El muñeco se guarda por nombre**, así que renombrar lo perdía: al renombrar, lo elegido se copia al nombre nuevo.
+  Y guardar uno es leer-cambiar-escribir el mapa entero: se lee ESTRICTO (con la lectura tolerante, una caída de la base
+  lo escribiría vacío).
+- **Los ojos no se eligen**: dicen el estado del chat. La «cara» que se elige es la boca y las mejillas.
+- **El test del equipo cazó la variedad nueva**: con la cara y el accesorio por hash del título entero, «Chatbot» y
+  «Automations» (la misma área renombrada) dejaban de ser el mismo empleado. El jefe lleva cara y accesorio fijos; un
+  sub-chat los saca de su nombre, para distinguirse.
+
+**Lo que quedó:** el jefe no puede CREAR un sub-chat visible (start_session no está habilitado en esas sesiones): lo crea
+Martín con un clic y lo nombra «Jefe › Sub», o el jefe renombra uno existente. Los grupos del jefe no se pliegan.
+
+**Vive en:** `lib/centro-chats.ts` (`unirPorNombre`, `porJefe`, `partesDelNombre`, `nombreValido`, `textoDeRenombre`) ·
+`lib/centro-munecos.ts` · `lib/centro-munecos-db.ts` · `app/admin/operaciones/ElegirMuneco.tsx` · `Muneco.tsx` ·
+`CentroApp.tsx` (el «⋯» y los modales) · `app/m/operaciones/ChatsMovil.tsx` · `tests/centro-munecos.test.ts`
+
 ## Lo que creí medido y no estaba al día
 
 - **`soloPlataforma` ya existía en el registro de la API** (lo sumó el 2FA obligatorio el 14/10, por
@@ -335,17 +565,31 @@ del cartero, antes de dibujar nada:
   corrigió. Las lecturas del Centro lo usan.
 - **`docs/api-mako.md` documenta lo que sale por HTTP**: un área sin `'http'`, como ésta, no aparece
   ahí, y el generador dice «al día» con razón.
+- **La hora de una bitácora es la de ARGENTINA, no la UTC** (`instanteHito`, lib/progreso-reglas.ts). Los hitos de la
+  cuenta 3 del 15/10 se anotaron con la hora UTC de los mensajes (23:18 sobre un commit de las 20:18 -0300): el avance
+  los ponía tres horas en el futuro. Se corrigieron; la hora sale de `git log --format=%ci`. Y la FECHA también: los
+  mensajes de los chats y varios documentos del Centro dicen «16/10» para lo que en Argentina fue la noche del 15/10
+  (la fecha UTC). `date` en la PC lo contesta en un comando.
 
 ## Lo que quedó sin hacer
 
-- **El chat «Cartero» con su cron** (el cartero de claude1 ya está instalado desde el 15/10): lo abre Martín,
-  y corre `ciclo`, manda lo de `pendientes` y anota `acuse`. Hasta entonces nada se entrega solo. Y una
-  clave de firma por dispositivo (`clave <SPKI>`) para que los trabajos firmados salgan.
+- ~~El chat «Cartero» con su cron~~: corre desde el 15/10 en la cuenta 3 («pasó hace 41 s») y la PC acepta un Token
+  (`cartero.mjs estado`, 15/10). Falta que Martín lo renombre a «Runner» (la línea, en docs/relevo/centro-operaciones.md).
 - **La Ticketera no muestra si el aviso llegó**: el dato está (`aviso_estado`), la pantalla no lo dibuja.
 - **Fase 2 del aviso**: firmar la respuesta al contestar, para que el aviso la lleve adentro.
-- **Implementar el rediseño** de `docs/prototipos/centro-operaciones.html` en la pestaña Trabajos
-  (`app/admin/operaciones/CentroOperaciones.tsx`): APROBADO el 15/10, sin hacer. La lógica de firma, las
-  acciones y el cartero no cambian; cambia la pantalla.
+- **El chat Runner en cada cuenta que esté corriendo** (15/10): sin él, lo que se escribe en la caja queda «escrito».
+  Sus instrucciones se copian desde el Centro (Runners → Nuevo Runner; viven en `lib/runner.ts`). Y el Token de cada
+  dispositivo, pegado en el Runner.
+- ~~Los textos de Avance y Pushes~~: las dos vistas se fueron en la punta 2 (el avance está en cada chat).
+- **Que un trabajo llegue a una cuenta que NO está abierta**: hoy espera a que la app pase a esa cuenta (o a que corra
+  en terminal con su Cartero). Para las tres en paralelo: `/login` de la 1 y la 2 en terminal (lo hace Martín), su
+  cartero como `cli` y un Cartero en cada una. ⚠️ El cartero acepta UNA fuente por cuenta (`app` o `cli`): una cuenta
+  con chats en la app y en terminal a la vez necesita las dos (scripts/operaciones/cartero.mjs → `carteroDe`). Y no
+  está medido si `SendMessage` cruza de un directorio de configuración a otro.
+- ~~Implementar el rediseño de `docs/prototipos/centro-operaciones.html`~~: lo reemplazó el de punta a punta del 16/10.
+- **Dos ideas de Sintra y Grok Bot que no se hicieron** (16/10): una caja de pedido GENERAL arriba del equipo («¿Qué
+  necesitás hoy?», con un «Para:» que elige al empleado, como el de Grok Bot) y chips con contadores («3 te esperan»).
+  Hoy se le escribe a un empleado desde su conversación, y el globito ya cuenta lo que espera.
 - **Progreso con lo que está en la PC**: los chats abiertos y lo escrito sin subir llegan con el cartero
   (sube sus chats en cada vuelta); hoy Pedidos y Áreas sólo ven lo desplegado.
   ⚠️ **Lo «sin subir» se cuenta con `git cherry`, no con «ahead N»:** el 15/10 el coordinador midió un clon
@@ -361,9 +605,8 @@ del cartero, antes de dibujar nada:
 - **La opción C** (un hook con `asyncRewake` en la carpeta del Cartero, que lo despierta sin gastar
   turnos): documentado que despierta a una sesión ociosa; no probado con `Stop`. Necesita el OK de
   Martín porque es configuración.
-- **El teléfono, para MANDAR**: desde el 15/10 `/m/operaciones` deja mirar (la cola, cada pedido, los
-  carteros) y tiene su puerta en More → «Super admin». Mandar desde ahí necesita la clave DEL teléfono
-  cargada en la PC, y no se planifica: es un extra. Si se hace, se verifica en su iPhone de verdad.
+- **El teléfono, para MANDAR**: desde el 16/10 la caja también está en `/m/operaciones` (por `mandar.ts`), con la clave
+  DEL teléfono, que la PC tiene que aceptar aparte. Falta verlo en su iPhone de verdad (el teclado sobre la hoja).
 - **Etapa 2 (la cuota)** y **etapa 3 (el señalador)**.
 - **Proponer un pedido desde un chat de MaKo** con `confirmacion: 'pantalla'` (se firma en la pantalla):
   no está en el registro.

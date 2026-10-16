@@ -73,6 +73,40 @@ export function chipDeEspera(params: Params, h: HorarioEnvio | null, tz: string,
   return `Espera a que abra (${textoDeApertura(abre, ahoraMs, tz)})`;
 }
 
+/**
+ * POR DÓNDE SALE LA TARJETA (16/10/2026, la mudanza del reporte semanal a SuperAdmin: docs/diseno-avisos-plataforma.md
+ * §6). 'email' le escribe al EQUIPO del negocio (sus destinatarios de Notificaciones, uno por uno, desde
+ * equipo@hola-mako.com: `enviarAvisoPorEmail`, lib/avisos.ts); sin elegir, el grupo de WhatsApp, como siempre. Un email
+ * de MaKo va al equipo, nunca a un lead. Por email va UN texto con su asunto (`problemaDeEmailMako`).
+ */
+export type CanalMako = 'grupo' | 'email';
+export const CANALES_MAKO: readonly CanalMako[] = ['grupo', 'email'];
+export const ROTULO_CANAL_MAKO: Readonly<Record<CanalMako, string>> = { grupo: 'WhatsApp del grupo', email: 'Email al equipo' };
+
+/** ¿La tarjeta sale por email? Sin elegir, no: el grupo. */
+export const esPorEmail = (params: Params): boolean => params?.canal === 'email';
+
+/** El asunto de una tarjeta por email, crudo (con sus datos «{{…}}» sin resolver). */
+export const asuntoDeMako = (params: Params): string => (typeof params?.asunto === 'string' ? params.asunto : '');
+
+/** El tope del asunto: lo que entra en el renglón de una bandeja. */
+export const TOPE_ASUNTO_MAKO = 160;
+
+/** El interruptor de una tarjeta por email: la automatización, como `ESTADO_TARJETA`, pero sólo el correo. */
+export const ESTADO_EMAIL_TARJETA = { activo: true, wa: false, email: true, frecuenciaMin: 0 } as const;
+
+/**
+ * LO QUE LE FALTA A UNA TARJETA POR EMAIL, o null. Lo leen Publicar (los dos runners) y el registro: un correo sin
+ * asunto, o con una nota de voz que no tiene cómo viajar, no se publica.
+ */
+export function problemaDeEmailMako(params: Params): string | null {
+  if (!esPorEmail(params)) return null;
+  if (!asuntoDeMako(params).trim()) return 'Por email falta el asunto.';
+  const lista = partesDeMako(params);
+  if (lista.length > 1 || lista.some((p) => p.tipo !== 'texto')) return 'Por email va un solo texto, sin audio, archivos ni varios mensajes.';
+  return null;
+}
+
 /** ¿La tarjeta sale TAL CUAL? Lo dice la PRESENCIA de la lista, no su largo. */
 export const esTarjetaTalCual = (params: Params): boolean => !!params && Array.isArray(params.partes);
 
@@ -127,7 +161,7 @@ export function pasoDeMako<T extends { accion?: { params?: Record<string, unknow
 }
 
 /** Lo que el editor manda al cambiar (un diff de la forma guardada). */
-export type CambioDeMako = Partial<{ tipo: string; cuerpo: string; audio_id: number | null; media_id: number | null; partes: unknown[]; fueraDeHorario: FueraDeHorario }>;
+export type CambioDeMako = Partial<{ tipo: string; cuerpo: string; audio_id: number | null; media_id: number | null; partes: unknown[]; fueraDeHorario: FueraDeHorario; canal: CanalMako; asunto: string }>;
 
 /**
  * El cambio del editor, de vuelta a los `params` de la tarjeta.
@@ -140,17 +174,19 @@ export type CambioDeMako = Partial<{ tipo: string; cuerpo: string; audio_id: num
  */
 export function paramsDeMako(params: Params, cambio: CambioDeMako): Record<string, unknown> {
   const actual = formaGuardada(partesDeMako(params));
-  const { fueraDeHorario, ...delMensaje } = cambio;
+  const { fueraDeHorario, canal, asunto, ...delMensaje } = cambio;
   const junto = { ...actual, ...delMensaje, canal: 'whatsapp', proveedor: 'no_oficial' } as PasoConPartes;
   if (junto.tipo === 'ia') junto.tipo = 'texto';
-  const out = paramsConPartes(params, partesDe(junto));
+  // Por dónde y el asunto (16/10/2026) pasan por `paramsConPartes`, que es quien decide qué se guarda.
+  const conEnvio = { ...(params ?? {}), ...(canal !== undefined ? { canal } : {}), ...(asunto !== undefined ? { asunto } : {}) };
+  const out = paramsConPartes(conEnvio, partesDe(junto));
   return fueraDeHorario && FUERAS_DE_HORARIO.includes(fueraDeHorario) ? { ...out, fueraDeHorario } : out;
 }
 
 /**
  * LOS `params` DE UNA TARJETA CON ESTA LISTA (la única que escribe la forma: `paramsDeMako` y `partirConEspera`,
  * lib/flujo-edicion.ts, pasan por acá). `partes` explícita aunque esté vacía, `mensaje` como espejo, y del resto
- * sólo `leadId`, `titulo` y `fueraDeHorario`.
+ * sólo `leadId`, `titulo`, `fueraDeHorario` y, por email, `canal` y `asunto`.
  */
 export function paramsConPartes(params: Params, lista: readonly ParteMensaje[]): Record<string, unknown> {
   const partes = sanearPartes(lista);
@@ -159,6 +195,9 @@ export function paramsConPartes(params: Params, lista: readonly ParteMensaje[]):
     ...(params && typeof params.titulo === 'string' && params.titulo.trim() ? { titulo: params.titulo } : {}),
     // Lo de fuera del horario viaja con la tarjeta: sin esto, editar el texto lo borraba.
     ...(params && FUERAS_DE_HORARIO.includes(params.fueraDeHorario as FueraDeHorario) ? { fueraDeHorario: params.fueraDeHorario } : {}),
+    // Por email, con su asunto (aunque esté a medio escribir: el freno de Publicar lo pide). Sin elegir, el grupo:
+    // no se escribe nada, y una tarjeta de antes queda como estaba.
+    ...(esPorEmail(params) ? { canal: 'email', asunto: asuntoDeMako(params).slice(0, TOPE_ASUNTO_MAKO) } : {}),
     mensaje: textoDePartes(partes),
     partes,
   };
@@ -356,9 +395,22 @@ export type AvisoDeTarjeta = {
   dedupKey?: string;
   dedupTtlMin?: number;
   rotulo?: false;
-  estado?: typeof ESTADO_TARJETA;
+  estado?: typeof ESTADO_TARJETA | typeof ESTADO_EMAIL_TARJETA;
   partes?: PartePreparada[];
+  /** Por email: el asunto ya resuelto, y sin push (la tarjeta dice email, no «suena el teléfono»). */
+  asuntoEmail?: string;
+  push?: false;
 };
+
+/**
+ * LO QUE CAMBIA DEL AVISO CUANDO LA TARJETA VA POR EMAIL (16/10/2026): el interruptor sólo de correo, el asunto (que es
+ * también el título: la banda del correo y el feed dicen lo mismo que la bandeja) y sin push. Lo comparten los dos
+ * runners: el de los leads (`armarAvisoDeTarjeta`) y el de los eventos (`emitirTarjetaDelEvento`, lib/flujos.ts).
+ */
+export function avisoPorEmail(asunto: string): { titulo: string; asuntoEmail: string; estado: typeof ESTADO_EMAIL_TARJETA; push: false } {
+  const a = asunto.trim().slice(0, TOPE_ASUNTO_MAKO);
+  return { titulo: a, asuntoEmail: a, estado: ESTADO_EMAIL_TARJETA, push: false };
+}
 
 /**
  * EL AVISO DE UNA TARJETA «MaKo en WhatsApp».
@@ -382,7 +434,8 @@ export function armarAvisoDeTarjeta(
     respuesta: string;
     lead: LeadDelAvisoMako | null;
     linkLead: string | null;
-    textos: { titulo: string; mensaje: string };
+    /** `asunto`: el de una tarjeta por email, ya resuelto con sus datos. */
+    textos: { titulo: string; mensaje: string; asunto?: string };
     partes: readonly PartePreparada[] | null;
   },
 ): AvisoDeTarjeta {
@@ -393,6 +446,11 @@ export function armarAvisoDeTarjeta(
     tipo: TIPO_AVISO_TARJETA, titulo, categoria: 'accion' as const, semaforo: 'amarillo' as const,
     ...(lead ? { lead: { id: lead.id, nombre: lead.nombre }, link: `/crm/${lead.id}` } : {}),
   };
+  // POR EMAIL (16/10/2026): el texto tal cual, al correo del equipo. Sin partes: por email va un texto
+  // (`problemaDeEmailMako` lo frena al publicar, y acá no viaja otra cosa aunque llegara).
+  if (esPorEmail(payload) && o.desdeUnFlujo && !respuesta && o.partes?.length) {
+    return { ...base, texto: textoDePreparadas(o.partes), rotulo: false, ...avisoPorEmail(o.textos.asunto || titulo) };
+  }
   if (esTarjetaTalCual(payload) && o.desdeUnFlujo && !respuesta && o.partes?.length) {
     return { ...base, texto: textoDePreparadas(o.partes), rotulo: false, estado: ESTADO_TARJETA, partes: [...o.partes] };
   }
@@ -419,7 +477,7 @@ export function armarAvisoDeTarjeta(
 }
 
 /** Lo que `emitirAviso` devuelve y esta tarjeta lee (lib/avisos.ts, `EmitirAvisoResult`). */
-export type ResultadoAviso = { ok: boolean; wa: boolean; deduped: boolean; apagado?: boolean; agrupado?: boolean; waError?: string };
+export type ResultadoAviso = { ok: boolean; wa: boolean; deduped: boolean; apagado?: boolean; agrupado?: boolean; waError?: string; email?: boolean };
 
 /**
  * LO QUE LA TARJETA LE CONTESTA AL MOTOR. Un `ok: false` queda como 'fallo' en `nutricion_envios`, con el motivo.
@@ -431,11 +489,13 @@ export type ResultadoAviso = { ok: boolean; wa: boolean; deduped: boolean; apaga
  * ⚠️ El resumen de un deduplicado EMPIEZA con `AVISO_REPETIDO`: el motor lo lee (`avisoSalio`) para mandar
  * el de respaldo.
  */
-export function resultadoDelAviso(r: ResultadoAviso, lead: { nombre: string } | null): { ok: boolean; resumen: string } {
+export function resultadoDelAviso(r: ResultadoAviso, lead: { nombre: string } | null, porEmail = false): { ok: boolean; resumen: string } {
   if (r.deduped) return { ok: true, resumen: `${AVISO_REPETIDO}${lead ? ` de ${lead.nombre}` : ''} hace poco.` };
   if (r.apagado) return { ok: true, resumen: 'El aviso está apagado en Configuraciones › Notificaciones: quedó sólo en la app.' };
   if (r.agrupado) return { ok: true, resumen: 'Quedó para el resumen de la mañana.' };
   if (!r.ok) return { ok: false, resumen: 'No pude avisarle al equipo.' };
+  // Por email (16/10/2026), «le escribí» sólo si salió alguno: sin destinatarios, o con Resend caído, es un fallo.
+  if (porEmail) return r.email ? { ok: true, resumen: 'Le escribí al equipo.' } : { ok: false, resumen: 'No salió el email: el negocio no tiene a quién escribirle en Notificaciones, o el correo falló.' };
   if (!r.wa && r.waError) return { ok: false, resumen: `No salió al grupo: ${r.waError}`.slice(0, 300) };
   return { ok: true, resumen: 'Le avisé al equipo.' };
 }

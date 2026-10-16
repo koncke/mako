@@ -7,6 +7,8 @@
 // =============================================================================
 
 import { OBJETIVOS_LANDING, type ObjetivoLanding } from '@/lib/landing-spec';
+// Puro (sin 'use client' ni server-only): el catálogo de animaciones, el CONTRATO del panel «Animar».
+import { IDS_EFECTO, SIN_ANIMACION } from '@/lib/editor-landing/animaciones';
 
 /** acomodar_seccion_landing. */
 export const ACCIONES_SECCION = ['mover', 'duplicar', 'ocultar', 'mostrar', 'borrar'] as const;
@@ -28,3 +30,8 @@ export const MODOS_TEXTO_API = ['generar', 'condensar', 'conservar'] as const;
 export const OBJETIVOS_GENERAR: readonly ObjetivoLanding[] = OBJETIVOS_LANDING.map((o) => o.value);
 export const TEXTOS_POR_SECCION_API = ['breve', 'medio', 'detallado', 'extenso'] as const;
 export const IMAGENES_API = ['stock', 'marcadores', 'ninguna'] as const;
+
+/** cambiar_animacion_landing: «heredar» = la sección vuelve a usar el estilo de la landing (null en `animacion`). */
+export const HEREDAR_ANIMACION = 'heredar';
+/** El `efecto` de cambiar_animacion_landing: los 17 del catálogo, «ninguna» (quieta) y «heredar». */
+export const EFECTOS_API: readonly string[] = [...IDS_EFECTO, SIN_ANIMACION, HEREDAR_ANIMACION];

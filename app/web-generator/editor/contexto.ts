@@ -17,7 +17,12 @@ import type { ConfigLanding } from '@/lib/editor-landing/api-tipos';
 import type { Tema } from '@/lib/editor-landing/temas';
 
 export type PanelIzq = 'agente' | 'paginas' | null;
-export type PanelDer = 'tema' | 'comentarios' | 'historial' | null;
+/** `animacion` = el panel «Animar» (paneles/PanelAnimacion.tsx). */
+export type PanelDer = 'tema' | 'comentarios' | 'historial' | 'animacion' | null;
+/** Las dos vistas del panel «Animar» (el «Elemento | Página» del Image Editor). */
+export type ModoAnimar = 'seccion' | 'pagina';
+/** Lo que pidió quien abrió «Animar» (la barra, el menú de una sección): `n` sube con cada pedido. */
+export type PedidoAnimar = { modo: ModoAnimar; n: number };
 export type Dialogo = 'compartir' | 'publicar' | 'exportar' | 'configuracion' | 'analitica' | 'atajos' | 'presentar' | null;
 
 export type EstadoGuardado = 'guardado' | 'guardando' | 'sin-guardar' | 'error' | 'conflicto';
@@ -67,6 +72,11 @@ export type CtxEditorLanding = {
   setPanelIzq: (p: PanelIzq) => void;
   panelDer: PanelDer;
   setPanelDer: (p: PanelDer) => void;
+  /**
+   * Abre el panel «Animar» en una vista. Con `tarjetaId` (el menú de una sección, «Animar sección»), esa sección
+   * pasa a ser la activa sin mover el scroll.
+   */
+  abrirAnimar: (modo: ModoAnimar, tarjetaId?: string) => void;
   dialogo: Dialogo;
   setDialogo: (d: Dialogo) => void;
 

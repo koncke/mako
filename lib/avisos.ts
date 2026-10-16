@@ -22,7 +22,7 @@ import { encolarAviso } from './avisos-cola';
 import { runWithWorkspace, getWorkspaceActual, wsSuperAdmin, OWNER_WS } from './workspace';
 import type { CategoriaAviso, SemaforoAviso, AvisoCatalogo } from './avisos-catalogo';
 import { CATALOGO_AVISOS, encabezadoAviso } from './avisos-catalogo';
-import { AVISOS_POR_EVENTO, emitirPorEvento, type DepsEvento, type FilaEvento } from './aviso-evento';
+import { AVISOS_POR_EVENTO, emitirPorEvento, type DepsEvento, type FilaEvento, type ResultadoEvento } from './aviso-evento';
 import { TRIGGER_AVISO_MAKO } from './disparadores';
 
 const SEV_POR_SEMAFORO: Record<SemaforoAviso, NotifSeveridad> = {
@@ -95,6 +95,11 @@ export type EmitirAvisoInput = {
   partes?: readonly PartePreparada[];
   /** `false`: sin el rótulo de barras del grupo (`encabezadoAviso`). La tarjeta tal cual sale como se ve. */
   rotulo?: false;
+  /**
+   * `false`: sin push al teléfono (16/10/2026). Lo pasa la tarjeta MaKo POR EMAIL (`avisoPorEmail`, lib/mako-tarjeta.ts):
+   * la tarjeta dice «email», y un push que nadie dibujó sería algo por detrás.
+   */
+  push?: false;
 };
 
 // `wa:false` con `waError` = el aviso NO llegó a WhatsApp (línea desconectada, grupo
@@ -258,7 +263,7 @@ export async function emitirAviso(a: EmitirAvisoInput): Promise<EmitirAvisoResul
     // a la mañana no interrumpe ahora). Antes de cualquiera de los tres, pushearía lo que el
     // negocio decidió no mandar. Arranca acá y se espera al final: en PARALELO con el correo
     // y el WhatsApp, que pueden tardar segundos. Best-effort: nunca tumba el aviso.
-    const pushP = enviarPushAviso(wsLector, a);
+    const pushP = a.push === false ? Promise.resolve(undefined) : enviarPushAviso(wsLector, a);
     // Y EL EMAIL, si el cliente lo prendió para este aviso. Va acá, en el choke point,
     // por lo mismo que el resto: los ~48 avisos del catálogo y los que se creen mañana
     // lo heredan sin que nadie se acuerde. Primero el correo y después WhatsApp no es
@@ -462,8 +467,23 @@ async function depsDelEvento(): Promise<DepsEvento> {
     emitirAviso,
     reclamar: reclamarEspaciado,
     correr: (flujoId, pasos, ws, ctx) => runWithWorkspace(ws, () => ejecutarPasos(flujoId, pasos, ws, ctx)),
+    wsPlataforma: wsSuperAdmin,
     log: (m) => console.error(m),
   };
+}
+
+/**
+ * UN EVENTO DE LA PLATAFORMA CUYO CAMINO DE SIEMPRE NO ES EL MOTOR DE AVISOS (16/10/2026): el reporte semanal, que sin
+ * su automatización sale por `despacharReporte` (lib/notify.ts), no por `emitirAviso`. Corre las filas de la plataforma
+ * con los datos del negocio y, si no hay ninguna, devuelve `sinFila` SIN mandar nada: el llamador sigue con lo suyo.
+ * Para los demás avisos de la plataforma, `emitirDelCatalogo`, que ya hace las dos cosas.
+ */
+export async function emitirEventoDePlataforma(
+  id: string, opts: { ws: number; datos?: Record<string, string>; lead?: { id: number; nombre?: string | null } },
+): Promise<ResultadoEvento> {
+  const cat = avisoDelCatalogo(id);
+  if (!cat || !AVISOS_POR_EVENTO.has(id)) return { ok: false, feedId: null, wa: false, deduped: false, filas: 0 };
+  return emitirPorEvento(cat, opts.ws, opts, await depsDelEvento());
 }
 
 /**
@@ -506,7 +526,11 @@ export async function emitirDelCatalogo(
   // ⚠️ UN EVENTO DE MAKO NO LEE EL STORE (11/10/2026, docs/diseno-mako-en-whatsapp-unificado.md): estos tres
   // salen SÓLO por las automatizaciones del negocio («Todos arrancan vacíos», decisión de Martín). El desvío
   // va ANTES de `getPlantilla`: leído el store, su interruptor y su texto volverían a decidir algo.
-  if (AVISOS_POR_EVENTO.has(id)) return emitirPorEvento(cat, ws, opts, await depsDelEvento());
+  if (AVISOS_POR_EVENTO.has(id)) {
+    const r = await emitirPorEvento(cat, ws, opts, await depsDelEvento());
+    // Un Mensaje de MaKo de la PLATAFORMA que todavía no tiene su automatización: sale como antes (`sinFila`).
+    if (!r.sinFila) return r;
+  }
   const { getPlantilla, referenciaResuelta, generarMensajeAviso } = await import('./plantillas');
   // UNA lectura de la plantilla, y trae las cuatro respuestas que hacen falta: si está
   // prendida, cómo la llamó ESTE negocio, qué asunto le puso al correo y —vía

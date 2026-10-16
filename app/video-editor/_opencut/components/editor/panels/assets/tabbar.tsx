@@ -18,6 +18,7 @@ import {
 	BlendIcon,
 	BowTieIcon,
 	ClosedCaptionIcon,
+	DashboardSquare01Icon,
 	MusicNote03Icon,
 	SlidersHorizontalIcon,
 	SmileIcon,
@@ -51,6 +52,8 @@ export const PESTANAS_BIBLIOTECA: Record<
 	subtitulos: { etiqueta: "Subtítulos", Icono: icono(ClosedCaptionIcon) },
 	filtros: { etiqueta: "Filtros", Icono: icono(BlendIcon) },
 	ajuste: { etiqueta: "Ajuste", Icono: icono(SlidersHorizontalIcon) },
+	// `template_pc`: las plantillas de anuncio propias (plantillas/registro.ts).
+	plantillas: { etiqueta: "Plantillas", Icono: icono(DashboardSquare01Icon) },
 	// `pc_avatar_image` (CapCut 9.6): la pestaña que genera con el Video Generator.
 	avatar: { etiqueta: "Avatar de IA", Icono: icono(UserSquareIcon) },
 };

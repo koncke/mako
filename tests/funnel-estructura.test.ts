@@ -235,9 +235,17 @@ test('⚠️ la pregunta de «cómo entra tu gente» sobrevivió a las DOS mudan
   assert.match(limpio(md), /<SeccionFunnel/, 'el tipo de funnel se fue del pop-up');
   // Desde el 12/10/2026 no se abre ni se cierra: está siempre a la vista, arriba de las etapas.
   assert.ok(limpio(md).indexOf('<SeccionFunnel') < limpio(md).indexOf('<NuevaEtapa'), 'el tipo de funnel dejó de ir arriba de las etapas');
-  const tb2 = readFileSync(join(RAIZ, 'app/crm/CrmToolbar.tsx'), 'utf8');
-  assert.match(tb2, /declararEntradasAction\(entradas, null, r\.funnelId\)/,
-    'el alta de producto dejó de preguntar cómo entra la gente');
+  // ⚠️ CAMBIADO A PROPÓSITO el 14/10/2026: el alta elige un TIPO de CRM que ya trae su entrada
+  // (`TIPOS_CRM`, lib/pipeline.ts) y, con «Otro, lo armo yo», la pregunta sigue. Antes eran dos
+  // llamadas (crear y después `declararEntradasAction`, con el error tragado); ahora viajan en UNA
+  // action y las escribe `crearCrm` (lib/nuevo-crm.ts), el mismo camino de la op `crear_crm`.
+  // Verificado rompiéndolo (el archivo da 28 / 0): sin `entradas` en el saveFunnelDe de lib/nuevo-crm.ts,
+  // 27 / 1 (este).
+  const tb2 = limpio(readFileSync(join(RAIZ, 'app/crm/CrmToolbar.tsx'), 'utf8'));
+  assert.match(tb2, /crearCrmAction\(nombre\.trim\(\), aMano \? \{ tipo, canal, entradas \} : \{ tipo \}\)/,
+    'el alta de producto dejó de mandar cómo entra la gente');
+  const nc = limpio(readFileSync(join(RAIZ, 'lib/nuevo-crm.ts'), 'utf8'));
+  assert.match(nc, /\{ entradas: siembra\.entradas \}/, 'el alta dejó de escribir cómo entra la gente');
   const ac = readFileSync(join(RAIZ, 'app/crm/actions.ts'), 'utf8');
   assert.match(ac, /entradas: cfg\.entradas/, 'la lectura del pop-up no trae las entradas declaradas');
   // Y el canal EFECTIVO, que es lo que decide si además se pregunta por el encuentro de
@@ -527,11 +535,18 @@ test('⚠️ un funnel nuevo nace VACÍO y con SUS etapas', () => {
   assert.match(pc, /pipeline: tpl\?\.pipeline/, 'la plantilla no se siembra en el funnel nuevo');
 
   // 3) Y el modal PREGUNTA, que es lo que no hacía.
-  assert.match(tb, /CANALES\.map/, 'el modal de nuevo producto no pregunta cómo se vende');
-  assert.match(tb, /crearProductoAction\(nombre\.trim\(\), canal\)/, 'el modal no manda el canal elegido');
+  // ⚠️ CAMBIADO A PROPÓSITO el 14/10/2026: pregunta el TIPO de CRM (`TIPOS_CRM`), que trae canal,
+  // entrada y etapas; el canal a mano quedó detrás de «Otro, lo armo yo» (paso 2). Verificado
+  // rompiéndolo: el tipo con `useState('llamada')` de default, 27 / 1 (este).
+  const tbl = limpio(tb);
+  assert.match(tbl, /TIPOS_CRM\.map/, 'el modal de nuevo CRM no pregunta el tipo');
+  assert.match(tbl, /CANALES\.map/, 'con «Otro» el modal no pregunta cómo se vende');
+  assert.match(tbl, /crearCrmAction\(nombre\.trim\(\), aMano \? \{ tipo, canal, entradas \} : \{ tipo \}\)/, 'el modal no manda el tipo elegido');
   // Sin default: preseleccionar haría que la mayoría cree su tablero con las etapas de otro
   // negocio sin darse cuenta, que es el mismo bug con un paso más.
-  assert.match(tb, /if \(paso === 1 && !canal\)/, 'el canal dejó de ser obligatorio');
+  assert.match(tbl, /const \[tipo, setTipo\] = useState<[^>]*>\(''\)/, 'el tipo nació con un default');
+  assert.match(tbl, /if \(paso === 1 && !tipo\)/, 'el tipo dejó de ser obligatorio');
+  assert.match(tbl, /if \(paso === 2 && !canal\)/, 'con «Otro», el canal dejó de ser obligatorio');
 
   // 4) Y el lead que se crea ahí CAE en ese funnel, o desaparece de la pantalla donde se
   //    acaba de cargar.
@@ -946,27 +961,34 @@ test('⚠️ la etapa de ENTRADA: lápiz, y ni se mueve ni la pisan — también
     'el deshacer de un borrado puede insertar por delante de la entrada');
 });
 
-test('⚠️ el alta de producto son TRES pasos, uno por pantalla, y la caja no cambia de alto', () => {
+test('⚠️ el alta de un CRM va una pregunta por pantalla, y la caja no cambia de alto', () => {
   // «Nuevo producto hazlo modular el formulario, en 3 pasos, no todo junto».
+  //
+  // ⚠️ CAMBIADO A PROPÓSITO el 14/10/2026: los pasos son el nombre y el TIPO de CRM, y con
+  // «Otro, lo armo yo» siguen el canal y las entradas (cuatro). Sigue siendo uno por pantalla.
   //
   // Probado rompiéndolo (el archivo entero da 25 / 0):
   //   · las tres preguntas vuelven a la misma pantalla -> 24 / 1
   //   · la caja vuelve al alto automático             -> 24 / 1
   //   · el placeholder vuelve a nombrar a un cliente  -> 24 / 1
+  //   · (14/10, el archivo da 28 / 0) el paso del tipo deja de validar (`!tipo` fuera) -> 26 / 2
+  //     (éste y «nace VACÍO», que también lo mira)
   const tb = limpio(readFileSync(join(RAIZ, 'app/crm/CrmToolbar.tsx'), 'utf8'));
 
   assert.match(tb, /const \[paso, setPaso\] = useState\(0\)/, 'el alta volvió a ser una sola pantalla');
-  for (const n of [0, 1, 2]) {
+  for (const n of [0, 1, 2, 3]) {
     assert.ok(tb.includes(`{paso === ${n} &&`), `falta el paso ${n + 1}`);
   }
-  // Cada paso valida LO SUYO: un error que sale al final manda a buscar cuál de las tres
+  // Cada paso valida LO SUYO: un error que sale al final manda a buscar cuál de las
   // preguntas fue.
   assert.match(tb, /if \(paso === 0 && !nombre\.trim\(\)\)/, 'el paso del nombre dejó de validar');
-  assert.match(tb, /if \(paso === 1 && !canal\)/, 'el paso del canal dejó de validar');
-  assert.match(tb, /if \(paso === 2 && !entradas\.length\)/, 'el paso de las entradas dejó de validar');
-  // ⚠️ Y EL ALTO ES FIJO: los tres pasos miden distinto, y una caja que se encoge entre
-  // dos pantallas de la misma tarea es lo que se pidió no hacer dos veces.
-  assert.match(tb, /alto="min\(80vh, 520px\)"/, 'la caja del alta volvió a medir según lo que tenga adentro');
+  assert.match(tb, /if \(paso === 1 && !tipo\)/, 'el paso del tipo dejó de validar');
+  assert.match(tb, /if \(paso === 2 && !canal\)/, 'el paso del canal dejó de validar');
+  assert.match(tb, /if \(paso === 3 && !entradas\.length\)/, 'el paso de las entradas dejó de validar');
+  // ⚠️ Y EL ALTO ES FIJO: los pasos miden distinto, y una caja que se encoge entre
+  // dos pantallas de la misma tarea es lo que se pidió no hacer dos veces. Se mide con el más
+  // largo, el de los trece tipos.
+  assert.match(tb, /alto="min\(85vh, 680px\)"/, 'la caja del alta volvió a medir según lo que tenga adentro');
   // Y el ejemplo del nombre no nombra a un cliente: «eso está muy mal. Jamás lo hagas».
   assert.ok(!/Sistema DOS/.test(tb), 'el placeholder volvió a nombrar el producto de un cliente');
 });

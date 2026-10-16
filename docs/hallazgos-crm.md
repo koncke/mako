@@ -2158,6 +2158,69 @@ darlo de alta a mano en Cal.com, igual que en Calendly (Chatwoot y Evolution sí
 registran solos). Y el widget del CRM para agendar DESDE MaKo, que hoy es solo de Calendly
 (`lib/calendly-agenda.ts`, `app/crm/calendly-widget.ts`).
 
+### El evento de agenda VINCULADO a una etapa: quién cae dónde (16/10/2026)
+
+**Pedido (Martín, 16/10):** que una etapa de reunión se vincule a un evento de Calendly o Cal.com
+«para que sepa que leads deben caer allí cuando se agendan y no caer en otra etapa u otro funnel».
+Hasta ese día, con varios funnels, todo agendado caía en el PRINCIPAL: `upsertLeadFromCalendly`
+crea el lead con `funnel_id` null y la R1/R2 sale de `CALENDLY/CALCOM_EVENT_TYPE_J1/J2`.
+
+**La referencia obvia NO hace esto, y eso cambia dónde se diseña.** La integración de Calendly con
+HubSpot (calendly.com/help/calendly-hubspot) crea o actualiza el CONTACTO y le suma la reunión como
+actividad («if the contact already exists… a meeting activity is added without changing the
+contact's existing details»); el negocio en un pipeline y una etapa lo crea un WORKFLOW de HubSpot
+filtrado por la reunión. Pipedrive no tiene integración propia con Calendly (las del Marketplace son
+de terceros; Outfunnel elige el TIPO DE REUNIÓN en la conexión y de ahí crea el deal) y su Scheduler
+sólo crea una actividad. Lo que se tomó: el vínculo es POR TIPO DE EVENTO → (embudo, etapa), uno por
+evento; el contacto que ya existe NO cambia de casa (se lo agrega); cancelar no mueve la tarjeta.
+
+**Lo que no se ve en el código:**
+
+- **El vínculo sin su fila en `webhook_routing` no sirve.** El webhook sabe de qué negocio es la
+  reserva por ese índice, ANTES de leer nada del negocio. Vincular reclama la fila (primer
+  reclamante gana: si el evento es de otro negocio, no se vincula) y desvincular la suelta SÓLO si
+  ni la R1/R2 de Integraciones ni otro vínculo la usan: el evento de la R1 suele ser el mismo que se
+  vincula, y soltarlo dejaba la R1 «sin_ruteo».
+- **Se vincula por el identificador canónico, nunca por el nombre.** El ruteo compara EXACTO
+  (`webhook-routing.ts` sólo baja a minúsculas los emails) y `clasificarJunta` es tolerante
+  (mayúsculas, slug): una R1 cargada como «llamada de descubrimiento» clasifica bien y no rutea si en
+  Calendly se llama «Llamada de descubrimiento». Por eso el vínculo guarda la URI del event type
+  (Calendly) o su id (Cal.com), que es lo que el webhook manda siempre.
+- **En Cal.com, el `title` del webhook es el de la RESERVA, no el del tipo de evento** («Strategy
+  Session between Organizer and Guest», el ejemplo de BOOKING_CREATED de su doc de webhooks; el
+  nombre del tipo viene en `eventTitle`). `normalizarReserva` leía `title`, así que una R1/R2 cargada
+  por su NOMBRE —lo que la ayuda de Integraciones ofrece— no clasificaba ni ruteaba: la reserva se
+  perdía «sin workspace». Ahora lee `eventTitle` (y `title` de respaldo). Medido en producción el
+  16/10: el único negocio con Cal.com (ws13) cargó slugs, así que no le pasó a nadie; no se midió
+  contra un webhook real, sólo contra la doc.
+- **Dos eventos se pueden llamar igual** (uno por closer): el ruteo compara el identificador, no el
+  nombre, y vincular por nombre con dos que calzan pide el identificador en vez de elegir uno.
+- **La fecha de reunión es UNA por lead** (dos pares de columnas). Un lead cuya casa es otro funnel y
+  reserva la R1 vinculada de éste queda agregado acá en esa etapa, pero su `fecha_junta_1` se escribe
+  igual (la necesitan el recordatorio y el No Show): en su casa, si tiene las etapas de siempre, la
+  derivada lo muestra en «Agenda R1». Es lo de antes para cualquier reserva; no se arregló.
+- **Reubicar con el lead RELEÍDO.** El de la R2 que trae el webhook es el de antes de escribir la
+  fecha: con él la derivada todavía es la R1, se movía a la R2 «a mano» y quedaba un override que
+  después frena la derivación (asistió a la R2 → Facturando). Con la fecha ya escrita, en un embudo
+  con las etapas de siempre la derivada YA es la vinculada y no se escribe nada.
+- **Al reescribir una marca de un test por `indexOf`, mirá si un -1 lo deja pasar.**
+  `tests/calcom-respuestas.test.ts` medía `iEnrolar > iR2` con la marca `if (tipo === 'j2')`; al
+  cambiar la rama a `if (!decision.puedeCrearLead)`, `indexOf` dio -1 y el test pasó SOLO. Ahora
+  exige que la marca exista.
+
+**Vive en:** `lib/agenda-evento-etapa.ts` (puro: `rutaDeEvento`, `decidirReserva`, `moverAlReservar`)
+· `lib/agenda-evento-etapa-server.ts` · los dos webhooks · `app/crm/agenda-evento-actions.ts` · la
+API (`listar_eventos_agenda`, `vincular_evento_etapa`, `desvincular_evento_etapa`) · mig 0293 ·
+`tests/agenda-evento-etapa.test.ts` (21, probado con 15 roturas).
+
+**Lo que quedó SIN hacer:** la pantalla (el desplegable en el pop-up de etapas,
+`app/crm/EtapasModal.tsx`); `scripts/backfill-calendly.ts` recupera reservas sin mirar los vínculos
+(caen en el principal); MaKo reservando la R1/R2 por WhatsApp (`eventTypeDeReunion`) sigue usando
+J1/J2 y no el evento del funnel del lead; borrar un embudo borra su vínculo (cascade) pero no suelta
+la fila de `webhook_routing`; agregar a un producto en una etapa no pone la etiqueta vinculada a esa
+etapa (tampoco lo hace al agregar en la de entrada); y listar los tipos de evento de Cal.com no se
+midió contra una cuenta real.
+
 ### ⚠️ «Falta activar la landing»: pedirle al cliente que declare lo que ya declaró
 
 *2026-08-25 — el dueño: «¿cómo que falta activar la landing? ¿qué sentido tiene?»*
@@ -8848,6 +8911,7 @@ elegidos. Lo que costó o no se ve:
 - **La migración 0289 va ANTES del deploy:** sin ella la pantalla dice «Falta aplicar la migración». Nació 0288 y se renumeró: el Centro de Operaciones tomó la 0288 a las 05:58 del 15/10 y la APLICÓ en prod, minutos después de que se recorrieran los worktrees. El número se elige al commitear, no al escribir.
 
 *15/10/2026, chat «Leads Scraper» (`claude1`).*
+
 ## Las migraciones de la tanda del CRM se llaman `XXXX`, y el número libre es 0290, no 0287 (15/10/2026)
 
 **Síntoma:** las cinco ramas `crm-bloques-b1..b5` (14/10) traen tres migraciones sin numerar:
@@ -8899,14 +8963,377 @@ corrió**: los números del 14/10 son sobre la base vieja `2c19b2d69` y main se 
 
 **Lo que NO entra, con el archivo:** el armador de la ficha (b1, `3eb46606a`) se lleva puestos
 `app/crm/lead-view/ResumenModal.tsx` y `app/crm/resumen-actions.ts` sin que el reemplazo esté
-cableado; mientras no entre, `app/crm/lead-view/AvisosDatosModal.tsx:32` y `:44` llaman sin
-`funnelId`, así que prender ahí un aviso que la plantilla del funnel apaga **no hace nada**. Y las
+cableado. **En producción (15/10, `24c0ad441`) la ficha se ve igual que antes:** de la «ficha por
+bloques» sólo corre el MOTOR (plantillas y avisos por funnel, y las ops de la API de MaKo). Y las
 plantillas T1/T2/T3/T6 de b5 (`87889880f`) no existen, así que el motor del CRM automático
 **no se puede apagar** (`KEY_CRM_AUTO`).
+
+**El panel de avisos de la ficha leía los del NEGOCIO — ARREGLADO el 15/10/2026.**
+`AvisosDatosModal` llamaba a sus dos actions sin `funnelId`, y el lead cuenta los de SU funnel. No
+sólo no se podía prender lo que la plantilla apaga: el panel lo MOSTRABA prendido (producción, ws9,
+funnel de Prospección: «¿Era lead calificado?» prendido en el panel, apagado por la plantilla, y
+«1 sin marcar» que no lo contaba). La precedencia que lo explica está en `estadoAvisos`
+(lib/ficha/config.ts): **a mano en el funnel > negocio > plantilla**. El negocio sólo puede APAGAR;
+prender lo que apaga la plantilla se hace en la ficha del funnel. Ahora la ficha (página y panel
+lateral) le pasa la casa del lead (`lead.funnel_id ?? null`, null = el producto del negocio) y
+«A revisar», que mezcla funnels, sigue con los del negocio. ⚠️ En las actions `undefined` es «el
+negocio» y `null` es «el funnel del negocio»: el modal llama SIN argumento en vez de pasar
+`undefined`, para no depender de cómo viaja un undefined a una server action.
+Test: `tests/ficha-avisos.test.ts` (probado rompiéndolo).
 
 **Dos reglas del merge:** `docs/api-mako.md` y `tests/api-mako-http.snapshot.txt` los tocan b1, b2,
 b3 y b5 — **no se resuelven a mano, se regeneran** (`scripts/generar-api-doc.mjs`) una sola vez al
 final. Y los merges van **sin rebase**: `crm-bloques` ya mergeó main así.
 
-**Vive en:** lib/pagos.ts · app/crm/[id]/deal-actions.ts · lib/api-mako/areas/crm.def.ts
-\n
+**Vive en:** lib/pagos.ts · app/crm/[id]/deal-actions.ts · lib/api-mako/areas/crm.def.ts ·
+app/crm/lead-view/AvisosDatosModal.tsx · lib/ficha/config.ts (`estadoAvisos`)
+
+---
+
+## Las cuotas que no se pueden tocar duplicaban la deuda, y un ajuste parcial borraba el plan (14/10/2026)
+
+Las dos fallas ALTAS de la revisión de la rama `crm-bloques-b2` (Pagos campo por campo), arregladas antes de
+integrar. Las dos de plata, las dos invisibles: ningún error, el total cambia y nadie lo dice.
+
+**1. Una cuota protegida (link sin pagar o recordatorio corriendo) contaba la deuda dos veces.** En el modo
+'lista' de `reconciliarCuotas` —la lista viene sin ids: el wizard de Ganado y la API `guardar_cuotas`— la
+segunda pasada casaba por orden SÓLO con las cuotas libres. La deseada que le tocaba a la protegida terminaba en
+`insertar`, y la protegida, que no se puede borrar, en `conservar`: la misma deuda dos veces, y al cliente le
+llegaban recordatorios de plata que no debía. Era una regresión: el borrar-e-insertar de antes no duplicaba.
+
+⚠️ **El arreglo obvio también duplica** (lo vio el chat de Pagos): casar primero las libres y después las
+protegidas. Con A protegida, B y C libres de 1000 y [1500, 1500], las libres se llevan las dos deseadas, A queda
+sin deseada, se conserva igual y el total da 4000. **Las protegidas se casan PRIMERO**: cada una se lleva una
+deseada (la de su mismo vencimiento si la hay, si no la que sigue), porque es la única que no puede desaparecer.
+`casar` ya decidía qué se le puede cambiar (sólo la fecha si lo único que tiene es un link; nada si tiene un
+recordatorio) y lo deja en `conservar` con el porqué. Resultado del caso: A en 1000, B en 1500, C borrada: 2500.
+
+⚠️ **Y la segunda vuelta también duplicaba** (otra vez lo cazó Pagos, con el primer arreglo puesto): la pasada de
+«iguales» corría ANTES que las protegidas. Al ACORTAR el plan —A el 01/11 con link, B el 01/12 y C el 01/01,
+pedidas sólo las dos últimas— B y C se llevaban las deseadas por ser idénticas y A quedaba conservada al lado:
+1500 en vez de 1000. Ahora las protegidas van antes que todo: (a) con una deseada igual, (b) con una de su mismo
+vencimiento, (c) con la que sigue, prefiriendo una que no sea idéntica a una libre (si no, a dos cuotas les cambia
+la identidad sin que cambie la deuda). Recién después las libres: iguales y por orden.
+
+La regla que queda: **en una reconciliación, lo que no se puede borrar tiene prioridad para casarse.** Si se
+deja para el final, sobra, y lo que sobra de una lista de deuda es deuda duplicada. Invariante del test: cada
+deseada termina en UNO de igual / actualizar / conservar / insertar, y nunca hay un insertar mientras quede una
+protegida sin casar.
+
+**Y lo que no se tocó se dice.** La API contestaba «Listo: N cuotas guardadas» ignorando el `PlanDeCuotas` que
+devuelve `saveLeadPlanManual`: 2500 contra 3000 pedidos pasaba callado. Ahora la API lo dice en su respuesta y el
+wizard de Ganado lo deja en el historial del lead (y lo devuelve en `sinTocar`; mostrarlo en pantalla es de los
+bloques de Pagos de la tanda B2: el diálogo no tiene toast).
+
+**2. `ajustarPlanAction` escribía un plan PARCIAL como plan entero.** Se entrega con `Partial<PlanUniforme>`
+—un bloque manda sólo el campo que cambió—, pero `validarPlan` llenaba con null lo que no vino y
+`ajustarPlanPagos` reconcilia por número: cambiar sólo el inicial borraba las cuotas 1 a N y corría los
+vencimientos al día 1 (`dia_de_pago ?? 1`). Ahora `ajustarSobre` escribe lo que vino ENCIMA del plan de la
+base: una clave ausente se conserva, un `null` explícito vacía. Y si después de mezclar hay cuotas sin día de
+pago (un lead cuyas cuotas se cargaron a mano no tiene plan en la base), lo pide con `faltan` en vez de
+inventar el día 1.
+
+⚠️ **Mezclar con la base no alcanzaba: el ajuste reimponía el plan ENTERO.** `ajustarPlanPagos` reconcilia en
+'slots' con todas las cuotas del plan, así que cambiar sólo el inicial devolvía al día del plan una cuota que
+alguien movió a mano y borraba una cuota que no es del plan (el resto de un pago parcial): con 1000 + 3×1000, la 2
+movida al 20/12 y una 4 de 200, daba 3500 en vez de 3700. Ahora un AJUSTE aplica la DIFERENCIA
+(`diferenciaDePlan`): sólo los números del plan anterior que cambian o desaparecen entran en juego
+(`soloNumeros`), y una cuota nueva del plan no pisa ni el número de una cuota que no es del plan, aunque esté
+cobrada. El wizard de Ganado y la API `guardar_plan_pagos` siguen reimponiendo: ahí se ESTABLECE el plan.
+**Y sin plan en la base no hay contra qué diferenciar:** si el lead tiene cuotas impagas cargadas a mano, el
+ajuste se rechaza («cámbialas en las cuotas») en vez de duplicarlas o borrarlas.
+
+En el mismo pase, el Deshacer del ajuste: devolvía el plan anterior por `validarPlan`, que con un plan todo en
+null falla y lo descartaba en silencio — las cuotas volvían y quedaba escrito el plan que se quería deshacer.
+`planComoEstaba` lo escribe tal cual, cada campo limpio por separado.
+
+**El test que fijaba el bug:** `tests/pagos-campo.test.ts` tenía un caso (`r3`) que exigía que la libre se
+llevara la deseada y la protegida quedara aparte — o sea, la duplicación. Lo había escrito la misma tanda con
+su porqué («reusar la protegida perdería la cuota pedida»). Un test verde sobre la propiedad equivocada es la
+forma más cara de estar seguro: la pregunta que lo desarma es **¿cuánto debe el cliente después?**, y el test
+nuevo la hace (`deudaDespues`).
+
+**Tres de las seis medias de la misma revisión, también arregladas** (las del CRM; las otras tres —el dedup de la
+cobranza con un id que ya no cambia, el link vivo de una cuota cobrada a mano y el plazo de una suscripción al
+cancelarla y reactivarla— las toma el chat de Pagos en su rama, que sale de ésta):
+- **«Sin cobro» con cuotas impagas:** se niega con «quítalas antes» en las dos puertas (el bloque y la API
+  `editar_venta_lead`). Quedaban vivas: la cobranza le recordaba la deuda a un becado y el Outstanding la contaba.
+- **Una cuota que la pantalla no vio no se borra.** El modo porId daba por quitada toda impaga que no venía en la
+  lista, y una que nació DESPUÉS de abrir la pantalla (el resto de un pago parcial, una de MaKo) desaparecía. Las
+  pantallas mandan los ids que tenían cargados (`vistos`); la que no está ahí se conserva con el motivo «apareció
+  después de abrir la pantalla». El Deshacer de un ajuste lleva los ids de DESPUÉS del ajuste, por lo mismo.
+- **Editar deal ya no dice «Cambios guardados» sobre lo que no tocó:** `saveCuotasAction` devuelve `sinTocar` y la
+  barra lo muestra en rojo, sin cerrar.
+
+Dos guards que fijaban el texto EXACTO de una llamada se pusieron rojos por un argumento nuevo legítimo
+(`tests/guardar-sin-bloquear` y `tests/pagos-escritura`): se aflojaron para fijar lo que importa —que pase por la
+reconciliación, que devuelva los pendientes— y no la forma de la línea.
+
+**Vive en:** `lib/pagos-campo.ts` (`reconciliarCuotas` modo 'lista' y `soloNumeros`, `ajustarSobre`, `diferenciaDePlan`, `planVacio`, `planComoEstaba`) · `lib/pagos.ts` (`ajustarPlanPagos` con `antes`) · `app/crm/[id]/pagos-campo-actions.ts` (`ajustarPlanAction`, `guardarCuotasAction`) · `lib/api-mako/areas/crm.run.ts` (`guardar_cuotas`) · `lib/api-mako/areas/cobros.run.ts` (`editar_venta_lead`) · `app/crm/actions.ts` (`completeStageMoveAction`) · `app/crm/[id]/deal-actions.ts` (`saveCuotasAction`) · `app/crm/[id]/DealDetailsCard.tsx` · `app/crm/[id]/EditarDeal.tsx` · `tests/pagos-campo.test.ts` · *2026-10-14 rama crm-bloques-b2*
+
+## Una cuota reprogramada se quedaba sin recordatorio, y una suscripción reactivada perdía su plazo (14/10/2026)
+
+Dos de las fallas MEDIAS de la revisión de `crm-bloques-b2`, arregladas por el chat de Pagos en
+`pagos-b2-medias` (la tercera, el link vivo de una cuota cobrada, está en
+[hallazgos-planes-y-cobro.md](hallazgos-planes-y-cobro.md) → «La pasarela»).
+
+**1. Una cuota renegociada no volvía a avisar.** La cuota 3 vencía el 01/10, avisó el 02/10 y su cadencia
+terminó; el 05/10 se le pasó el vencimiento al 01/11, y ni el 31/10 ni el 02/11 salió nada. **Causa:** el dedup de
+la cobranza es por cuota (`cuota:<id>`, 120 días), y desde que ningún escritor borra e inserta, el id sobrevive a
+cualquier edición: el cron la daba por «ya entró». Antes, el borrar-e-insertar le daba un id nuevo y entraba sola.
+
+⚠️ **El arreglo obvio era el equivocado:** meter el vencimiento en la clave (`cuota:<id>:<vence>`, lo que proponía
+la revisión). Funciona para la cuota reprogramada, pero el día del deploy TODAS las cuotas que ya avisaron dentro
+de la ventana cambian de clave y vuelven a avisar: un segundo recordatorio a clientes reales por plata que ya se
+les pidió. **Regla:** la clave no lleva la fecha (`claveDedupCuota`, una sola para el cron y para el olvido), y
+toda escritura que cambia el vencimiento de una cuota la OLVIDA (`olvidarAvisosDeCuotas`: el dedup pasa a «salió
+hace mucho», con compare-and-set contra lo leído, que es como reclama el cron). Sólo cuenta la fecha: un monto
+nuevo con el mismo vencimiento no es un hecho nuevo para el cliente. Las escrituras que mueven una fecha son
+`escribirReconciliacion` y `editarCuota`; una nueva que cambie `fecha_esperada` por fuera de esas dos tiene que
+llamar al olvido.
+
+**2. Cancelar una suscripción manual perdía el plazo.** Para que el MRR deje de contarla, cancelar pisa
+`suscripcion_meses` con los meses transcurridos, y el plazo de antes no quedaba en ningún lado. Reactivar escribía
+`mesesAlReactivar ?? null`, y la API pasa siempre null: una de 12 meses cancelada en el mes 3 y reactivada por MaKo
+quedaba mes a mes y el MRR la contaba para siempre. **Regla:** cancelar guarda el plazo en
+`suscripcion_meses_antes` (la misma migración XXXX de b2) y reactivar devuelve lo que vino o, si no vino, el
+guardado (`plazoAlReactivar`, lib/suscripcion-manual.ts). «No vino» no es «mes a mes».
+
+⚠️ **Y el historial la dejaba a medias:** «Plazo de la suscripción» es REVERTIBLE, y revertir el «12 → 3» que
+escribe cancelar volvía a 12 con `suscripcion_cancelada_at` puesta: la ficha decía «Cancelada» y el MRR la volvía a
+contar. Mientras esté cancelada, el plazo no se revierte por ninguna de las dos puertas (`plazoSeRevierte`, antes
+de escribir nada del grupo): se reactiva, y eso devuelve el plazo y borra la fecha juntos.
+
+**Un guard que medía el fin de línea:** `tests/cobranza.test.ts` exige que el recorte de `marcarPago` mida menos de
+3000 caracteres (para saber que mide sólo esa función). Medía con el fin de línea del checkout: el mismo código daba
+~60 más en CRLF, y con dos líneas nuevas pasaba el tope en un clon y no en otro. Ahora mide con LF.
+
+**Las seis BAJAS de esa revisión** quedaron cerradas en la misma rama: ver la entrada siguiente.
+**Vive en:** `lib/cobranza.ts` · `lib/pagos.ts` · `lib/suscripcion-manual.ts` · `app/crm/actions.ts` · `tests/pagos-medias-b2.test.ts`.
+
+## Las seis «bajas» de b2: tres eran medias, y una era más ancha de lo que decía la revisión (14/10/2026)
+
+Cerradas en `crm-bloques-b2` por el chat de Pagos, después de las altas y las medias (las dos entradas de arriba).
+La revisión las había puesto como «no frenan nada», y al mirarlas contra el código tres eran MEDIAS:
+
+- **Una suscripción de la pasarela contra la manual cancelada.** Un cliente cancelado a mano que vuelve pagando por
+  Stripe se pintaba «Cancelado», y si después le fallaba una renovación **no se veía roja**: es plata que se pierde sin
+  que nadie lo note. Ahora la de la pasarela activa le gana en `cobradoDelLead`.
+  ⚠️ **La revisión veía sólo la mitad:** pedía limpiar `suscripcion_cancelada_at` cuando entra una suscripción nueva.
+  Pero una baja de la PASARELA (`aplicarSuscripcionCancelada`) congela `suscripcion_meses` sin dejar esa fecha, y un
+  lead ya ganado no pasa por `ganarLead`: la suscripción nueva quedaba con el plazo congelado y el MRR no la contaba.
+  **Regla:** el primer pago de una suscripción de la pasarela sobre un lead que ya era suscripción la reabre entera
+  (`reabrirSuscripcionDelLead`, lib/cobros.ts): sin fecha de cancelación, sin plazo (la de la pasarela es sin fin) y
+  con la mensualidad del cobro.
+- **Cambiar la venta de una suscripción que cobra la pasarela.** Pasarla a pago único desde el bloque o la API dejaba
+  al MRR sin contarla mientras Stripe le seguía cobrando al cliente todos los meses, y la renovación entraba como una
+  cuota de pago único. **Regla:** la condición «la cobra la pasarela» es UNA (`laCobraLaPasarela`,
+  lib/cobros-reglas.ts) y la usan las tres puertas: cancelar a mano en la ficha, en la API, y `escribirVenta` para el
+  tipo, la mensualidad y el plazo. Estaba copiada a mano en dos lugares, y el tercero no la tenía.
+- **La moneda del negocio sin negocio.** El super admin sin `?ws` ni negocio propio le cambiaba la moneda al CRM del
+  ws1, que es un cliente: `setSetting` cae a `OWNER_WS` cuando no hay workspace. Es la misma familia que las acciones
+  sin sesión de Pagos. **Regla:** una config por negocio que se guarda con `setSetting` corta ANTES si
+  `getWorkspaceActual()` es null, en la función de `lib/`, no en cada acción (así la API queda cubierta igual).
+
+Las otras tres eran bajas de verdad: volver a cobrar a mano una cuota limpia la moneda, el monto original, el
+concepto y el método de la vez anterior (`cobrarCuota`; lo de la pasarela no se toca); «Cortarlo» dice que falló en
+vez de contestar «no había nada que cortar» (`cerrarCorridasDeCuota(…, { tirar: true })`; el corte de `marcarPago`
+sigue sin tirar); y `cobranza_lead` tiene un solo «por cobrar», sin las cuotas devueltas.
+
+**Un guard que fijaba la copia:** `tests/api-mako-pagos-campo.test.ts` buscaba la condición de la pasarela escrita
+letra por letra en la acción. Al juntarla en una función, el guard pasó a exigir la llamada, y lo que la condición
+dice se ejecuta en `tests/pagos-bajas-b2.test.ts`.
+
+**Lo que quedó SIN hacer (lo vi y no era de la revisión):**
+- El Outstanding del Dashboard (`getOutstandingTotal`, lib/pagos.ts) sigue contando como deuda las cuotas devueltas
+  por un reembolso. Para arreglarlo hay que tocar también el detalle por lead (`getOutstanding…`), que se compara con
+  esa suma.
+- Un lead ya ganado como pago único que paga un link de SUSCRIPCIÓN (una venta adicional) sigue como pago único:
+  `ganarLead` no corre y el MRR no lo cuenta. Decidir si el cobro cambia el tipo de venta es una decisión de producto.
+**Vive en:** `lib/cobrado-lead.ts` · `lib/cobros.ts` · `lib/cobros-reglas.ts` · `lib/pagos.ts` · `lib/flujo-corridas.ts` · `lib/api-mako/areas/crm.run.ts` · `tests/pagos-bajas-b2.test.ts`.
+
+## La ficha por bloques MIRADA por primera vez, en un banco y no en `next dev` (16/10/2026)
+
+Nadie la había visto en una pantalla. La máquina tuvo entre 1,3 y 4,9 GB libres toda la corrida (un `next dev`
+de este repo pide ~4 y llega a 6), así que no se levantó el server. Se miró en un **banco**: las dos puertas
+REALES —`LeadSheet` (el pop-up) y `LeadDetailBody` dentro del `<main>` de `app/crm/[id]/page.tsx`— armadas con
+esbuild (290 módulos, ~5 s) y abiertas en Chrome sin ventana a 1440×900, 1024×768, 820×1180 y 390×844 (las dos
+últimas táctiles), con «Personalizar» de punta a punta: elegir, ancho, agregar, arrastrar, teclado, dispositivo,
+densidad, un aviso, «Volver a la plantilla» y «Deshacer». Las tres trampas del banco, que valen para el próximo:
+- **Un stub de server action que devuelve `{ ok: true }` deja la pantalla en blanco**: la primera tarjeta que hace
+  `res.map` tira y React desmonta todo. Sirve un «camaleón»: un `Proxy` sobre un array vacío que contesta `ok: true`,
+  `undefined` para `then`/`error`/`message` y otro camaleón para cualquier otra clave (`.map` da vacío, se dibuja
+  como nada). ⚠️ `then` TIENE que ser `undefined`: si no, `await` lo trata como una promesa y la pantalla se cuelga.
+- **La server action de la ficha no se stubea vacía**: con el motor puro (`aplicarCambio` + `fichaEfectiva`) sobre
+  una ficha en memoria, «Personalizar» guarda, deshace y relee igual que contra el server, sin tocar ninguna base.
+- **El banco mide el LAYOUT, no los datos**: no reemplaza mirarla con la sesión de admin del ws 3 (queda pendiente).
+
+**Lo que se vio mal, y por qué:**
+
+1. **«Información principal» con una letra por renglón** (a ½ en el pop-up, en la tablet y en la vista «Celular» de
+   «Personalizar»). Era un `repeat(2, minmax(0, 1fr))` fijo: hasta la ficha por bloques la tarjeta siempre iba de
+   ancho completo. ⚠️ **El diagnóstico obvio era el equivocado**: el frente del celular lo dejó como «hace falta una
+   clase en ese grid y su regla por @media y por `data-dispositivo`». Con @media no alcanza: lo que decide es el
+   ancho de la TARJETA, no el de la ventana — un bloque de ½ en el pop-up mide 459 px de contenido con la ventana
+   a 1440. **Regla:** una tarjeta que puede caer en un bloque de cualquier ancho decide sus columnas por su propio
+   ancho, con `auto-fit` y `minmax(min(100%, max(Npx, calc((100% - hueco) / 2))), 1fr)` (dos como mucho, una si no
+   entran), sin `@container` (prohibido en un ancestro de tarjetas que abren modales fijos, ficha/ficha-css.ts).
+2. **El panel de la derecha terminaba 200 px por debajo del pop-up**, y los últimos avisos no se alcanzaban mientras
+   la ficha fuera más larga que el panel. Medía `100dvh - 120px`, que supone que scrollea el documento; en el pop-up
+   scrollea el cuerpo de la ficha, y la cabecera y el pie se comen ~265 px. **Regla:** un `sticky` con alto máximo
+   adentro de algo que scrollea mide ESE contenedor (`clientHeight`), no la ventana. En /crm/[id] no se veía.
+3. **La barra del bloque elegido tapaba su rótulo** en todo bloque que no fuera de ancho completo: anclada a la
+   derecha mide 260-330 px, y editando en el pop-up la grilla mide 712 (½ = 347). No se veía QUÉ bloque estaba
+   elegido. Ahora la barra sale desde el rótulo y lleva el nombre primero.
+4. **El marco punteado asomaba al lado de la fila de tabs pegada**: sale 6 px por fuera del bloque y la grilla no le
+   dejaba ese aire. Y el desplegable de la plantilla (190 px) cortaba «La de MaKo (Llamad…».
+
+Lo fija `tests/ficha-navegador.test.ts` (base 5/0, nueve roturas de 4/1).
+
+**Lo que quedó SIN hacer:**
+- **Mirarla con datos reales**, con 5 GB libres y en este orden: `next dev -H localhost -p 34xx` desde el worktree
+  (sin `.env.local` propio: el entorno del clon, con `ZERNIO_API_KEY`, `ZERNIO_WEBHOOK_SECRET` y `ELEVENLABS_API_KEY`
+  vacías; el log dice «hidratadas» y nunca «migradas»); `/api/auth/dev-login?ws=3&next=/crm` y `/api/auth/me` con
+  `ws: 3`. Después, a 1440×900, 1024×768, 820×1180 y 390×844: el pop-up del lead 2615 («Prueba Flujo 32580», funnel
+  del negocio, id 8) y del 2664 (funnel 30), y /crm/2615 (si redirige a /onboarding es `guardOnboarding` del ws 3, no
+  la ficha). «Personalizar»: elegir, ½, agregar, arrastrar, los tres dispositivos, la plantilla, el estilo y un aviso;
+  al final «Volver a la plantilla» y `select data->'ficha' from funnels where workspace_id = 3` tiene que volver a
+  dar `null` en los dos (hoy lo es; si queda `{}`, se saca la clave). El teléfono: /crm/2615 con user-agent de iPhone
+  a 390. La consola, limpia.
+- **En una pantalla de 900 o menos (un iPad parado) el panel va DEBAJO de toda la ficha** (medido: y ≈ 2.100 px):
+  la plantilla, el estilo y los avisos quedan al final de un scroll largo.
+- **La barra de edición (Deshacer, Agregar bloque, dispositivo) se va con el scroll**; la del Dashboard queda fija.
+- **Darle ½ a un bloque que queda solo en su fila no cambia nada a la vista**: la fila se estira (regla del diseño,
+  `spansDeFilas`), y el botón ½ queda prendido sobre un bloque de ancho completo.
+- **El teléfono pone las respuestas de la AGENDA donde escritorio pone «Lo que contestó»** (Meta y la landing):
+  `PIEZA_DE_BLOQUE` (app/m/crm/ficha-bloques.ts) ata `lo-que-contesto` a la pieza «Lo que contestó al agendar»,
+  que lee `getResumenLead` (Calendly/Cal.com). En escritorio esas respuestas viven en `reunion-1`, y las de Meta y la
+  landing no tienen pieza en el teléfono.
+**Vive en:** `app/crm/lead-view/info-principal-grilla.ts` · `app/crm/lead-view/InfoPrincipalCard.tsx` · `app/crm/lead-view/ficha/PanelFicha.tsx` · `app/crm/lead-view/ficha/armar.ts` · `app/crm/lead-view/ficha/Armador.tsx` · `app/crm/lead-view/ficha/ficha-css.ts` · `tests/ficha-navegador.test.ts`.
+
+## La revisión de lo invisible de la ficha por bloques: «Deshacer» escribía donde no debía, y «A revisar» contaba distinto un lead sin casa (16/10/2026)
+
+Revisión de la rama `crm-armador` (la pantalla de la ficha por bloques, sus tres frentes) mirando sólo lo que no
+se ve con clics: permisos, workspace, datos que se pierden y la API de MaKo. Lo que estaba bien:
+- Los cortes de las server actions: `getLeadFullAction` corta sin sesión antes de leer, escribir la ficha es del
+  admin y el funnel se lee con `getTenantDb` (un id ajeno no existe).
+- La API cubre todo lo de «Personalizar» menos Deshacer, con los mismos cortes (`TAB_ADMIN`).
+- «N sin marcar» sale de la MISMA función en el pop-up, /crm/[id] y el teléfono.
+- No se sumó ninguna lectura por lead en un loop.
+
+Lo que sí rompía estaba en el **Deshacer** de `useFichaDelFunnel`, que escribe la ficha de TODOS los leads del
+funnel, y en el worklist:
+
+1. **Deshacer después de cambiar la casa del lead le pisaba la ficha al OTRO funnel.** El desplegable del funnel de
+   la cabecera relee la ficha (`onCasaCambiada`), pero `FichaPorBloques` NO se desmonta: la ficha que se ve pasa a
+   ser la del funnel nuevo, con la pila del viejo. «Deshacer» mandaba `restaurar` con el `antes` del 8 al 30, y si
+   el 8 no tenía nada guardado, el `antes` es `{}` y le BORRABA todo lo personalizado al 30. **Regla:** el estado de
+   cliente que es de UNA entidad (la pila del deshacer, una cola) va con la entidad como clave, aunque «la pantalla
+   es de un lead»: la ficha cambia de funnel sin desmontarse.
+2. **El compare-and-set del server NO protegía el Deshacer.** ⚠️ **El diagnóstico obvio era el equivocado**: «dos
+   admins no se pisan, `cambiarFichaDeFunnel` hace compare-and-set sobre `updated_at`». Eso vale para los PARCHES
+   (poner, mover, ancho…), que se aplican sobre lo de hoy. `restaurar` reemplaza la ficha ENTERA, así que aplicado
+   sobre lo de hoy le borraba el cambio a la otra persona, y su pantalla lo seguía mostrando porque lo de la sesión
+   le gana a la relectura. **Regla:** una operación que reemplaza entero lleva `esperado` (cómo dejó la ficha el
+   cambio que se deshace) y no corre si hoy es otra. Es el mismo `esperado` de `guardarObligacionAction` en el deal.
+3. **Un botón apagado no apaga su atajo.** «Deshacer» estaba `disabled` mientras guarda, pero Ctrl+Z llama a
+   `ff.deshacer()` directo. La pila se llena cuando CONTESTA el server, así que el Ctrl+Z de ese medio segundo
+   restauraba el `antes` del cambio ANTERIOR: deshacía dos, y el que se estaba guardando se perdía. **Regla:** el
+   corte va en la función, no en el botón.
+4. **«Si falla, se relee» no alcanza.** Sin red o con la sesión vencida falla también la relectura, y la pantalla se
+   quedaba mostrando el cambio que no se guardó. Ahora vuelve a lo último que dijo el server (`confirmada`).
+5. **Un lead con la casa huérfana contaba distinto en su ficha y en «A revisar».** La casa (`leads.funnel_id`) no
+   tiene FK, y mig 0181 dice que un id que apunta a un funnel que ya no existe «se comporta igual que un NULL». Los
+   lectores de UN funnel (`apagadosDeFunnel`, `fichaDelFunnelDelLead`) lo cumplen: caen al funnel del negocio. El
+   worklist lee todos los funnels de una vez (`avisosDelWorkspace`) y, para la clave que no estaba en el mapa, caía
+   al respaldo PELADO del negocio, sin la plantilla del funnel. Con «Te escriben», un lead en Ganado con todo por
+   cargar daba «6 sin marcar» en su ficha y 12 en «A revisar». ⚠️ **El diagnóstico obvio era incompleto**: «casi no
+   pasa, `eliminarFunnelDefinitivo` rescata a los leads ANTES de borrar». Pero el alta y la importación escriben el
+   `funnelId` del tablero abierto sin mirar si existe ni si es de este workspace. Medido en producción el 16/10:
+   0 huérfanos de 33 leads con casa propia, así que hoy no cambia ningún número. **Regla:** cuando un lector va de a
+   uno y otro en lote (un mapa), el BORDE (la clave que no está: borrado, ajeno, NULL) se resuelve con la MISMA
+   función. Es `apagadosDeLaCasa` (lib/ficha/config.ts), y la fija tests/ficha-casa-huerfana.test.ts.
+
+La cola y el deshacer salieron del hook a `app/crm/lead-view/ficha/guardado-ficha.ts`, que es puro. Se prueban
+EJECUTÁNDOLOS contra un server de mentira que aplica con el mismo `aplicarCambio` (`tests/ficha-guardado.test.ts`:
+rojo 1/4 con la cola sacada tal cual, base 6/0, doce roturas).
+
+⚠️ **Trampa de lint** (`eslint-plugin-react-hooks` 7, `react-hooks/refs`): `useState(() => crear({ verActual: () =>
+ref.current, … }))` da «Passing a ref to a function may read its value during render», aunque la ref se lea recién
+en un evento. Se crea la primera vez que se usa, adentro de un `useCallback`, con `g.current ??= crear(…)`.
+
+**Lo que quedó SIN hacer (no se pudo confirmar, o no es de esta rama):**
+- **`crm.resumen.campos` se quedó sin escritor.** Con `ResumenModal` y `resumen-actions` se fue lo único que lo
+  guardaba: `guardarResumen` (lib/resumen-ficha-config.ts) no lo llama nadie, tampoco la API. Lo que el negocio
+  eligió sigue mandando como respaldo (InfoPrincipalCard y `listaDeEntrada`), pero nadie lo puede cambiar. Las
+  redes, el ingreso, la dirección, el sexo y la cohorte van ADENTRO de `contacto` (su `incluye`), y «Agregar
+  bloque» no ofrece lo que no tiene componente. Un negocio que quiere ver LinkedIn o el sexo (apagados de fábrica)
+  hoy no tiene cómo. Se destraba con la tanda B2 (esos bloques con componente).
+- **Cuatro plantillas callan datos que la ficha de antes mostraba siempre** (medido con `listaDePlantilla` contra
+  los registros de hoy):
+  - «Te escriben» no pone `calificacion`, `lo-que-contesto` ni `proxima-reunion`.
+  - «Prospección», esos tres y `origen`.
+  - «Carrito», `calificacion` y `proxima-reunion`.
+  - «Evento», `calificacion`.
+
+  Un lead de esos funnels con respuestas de un formulario de Meta deja de verlas: el dato sigue en la base y el
+  admin puede agregar el bloque. Es la §4 del diseño, decidida. Lo que no está dicho es que hoy, sin la tanda B2,
+  esas fichas quedan con 4 o 5 tarjetas.
+- **`saveFunnelDe` (lib/funnels.ts) escribe `data` entero SIN compare-and-set.** Lee `data`, lo mergea y lo
+  escribe: si la ficha se guarda entre su lectura y su escritura (dos idas a la base), el merge la pisa con la de
+  su lectura y la ficha nueva se pierde (la pantalla la sigue mostrando). La ficha sí hace CAS, así que al revés
+  no pasa. Leído en el código, no reproducido.
+- **La API de MaKo cuenta «N sin marcar» con su propia copia de los insumos** (`faltantesDeUnLead`,
+  lib/api-mako/areas/crm.helpers.ts), no con `leerInsumosDatosLead`. Hoy dan lo mismo: `getFunnelDeLead` es el del
+  negocio y nunca trae etapas vacías. La próxima regla que se le sume a una copia y no a la otra los separa. Va a
+  `datosSinMarcarDeLead` cuando se toque ese helper.
+- **El alta y la importación escriben la casa sin validarla.** `altaDeLead` e `importarLeadsRevisadosAction`
+  (app/crm/actions.ts) pasan a `createLead` el `funnelId` que manda el navegador, sin mirar que exista ni que sea de
+  este workspace. Las lecturas están scopeadas, así que no se filtra nada de otro negocio, pero ese lead no aparece
+  en ningún tablero. Medido el 16/10: 0 casos. No es de esta rama.
+- **Clonar la configuración copia la ficha del dueño.** `lib/clonar-config.ts` reemplaza el `data` entero del
+  funnel principal del cliente nuevo con el del dueño (menos `entradas` y `evento`), y ahí viaja `data.ficha`: su
+  plantilla elegida a mano, sus avisos y su estilo. Hoy ningún funnel de producción tiene ficha guardada (16/10).
+  Decidir si la ficha es «forma» (se copia) o «hecho del dueño» (no).
+
+**Vive en:** `app/crm/lead-view/ficha/guardado-ficha.ts` · `app/crm/lead-view/ficha/useFichaDelFunnel.ts` ·
+`lib/ficha/config.ts` (`restaurar` con `esperado`; `apagadosDeLaCasa`) · `lib/ficha/config-server.ts`
+(`avisosDelWorkspace`) · `tests/ficha-guardado.test.ts` · `tests/ficha-casa-huerfana.test.ts`.
+
+## La ficha por bloques: tres trampas de construirla (16/10/2026)
+
+- **Angostar un contenedor no dispara los `@media`: miran la ventana.** La vista «Celular» de «Personalizar» no
+  apilaba aunque la hoja tenía su `@media (max-width: 720px)`. Y `container-type` (también `transform` y
+  `filter`) está prohibido en un ancestro de las tarjetas: ata a ese ancestro los modales y toasts con
+  `position: fixed`. La vista por dispositivo repite cada corte con `[data-dispositivo]` y decide por el
+  DISPOSITIVO, no por el ancho medido: en el pop-up la «Tablet» queda en ~692 px y por ancho se apilaría cuando una
+  tablet de 820 no apila.
+- **Un ancho calculado que cambia por pantalla va como variable CSS, nunca en `gridColumn` en línea.** El
+  `style={{ gridColumn: span N }}` le gana a cualquier `@media`; el `!important` sirve para un valor fijo (1 / -1),
+  no para la tablet, que reparte la fila con sus propios anchos. Van `--fb-span` y `--fb-span-t` y la hoja elige
+  (`spansPorDispositivo`, armar.ts). Lo fija tests/ficha-pantallas.test.ts.
+- **Los tests que leen el fuente fallan por el LUGAR, no por la lógica.** Mudar la lectura de la ficha a
+  `getLeadFullAction` y la cuenta de «N sin marcar» a lib/datos-del-lead.ts puso en rojo tres tests sin cambiar una
+  regla (ficha-armador, mako-ficha-lead y pago-comprobante, que sólo apareció en el barrido completo). Antes de
+  mudar una lectura: `grep` en tests/ de CADA símbolo que se mueve, y el barrido completo (10.598 tests, ~27 min con
+  `--test-concurrency=4`). El test se reescribe citando dónde vive ahora; nunca se afloja.
+- **Las roturas de la cabecera de un WIP se vuelven a medir.** La de tests/ficha-armador.test.ts decía «base
+  15/0» y doce roturas cazadas: la base era 11/0 y dos roturas daban verde, porque el caso ya lo excluía otro filtro
+  (un banner que no se dibujaba, un bloque ya puesto). Un «no se ofrece» se prueba con un caso que ningún otro
+  filtro excluya.
+
+**Vive en:** app/crm/lead-view/ficha/ficha-css.ts · armar.ts · Armador.tsx · tests/ficha-pantallas.test.ts ·
+*16/10/2026, chat «CRM» (claude3), corrida wf_e3cc574c-723.*
+
+## Que un producto diga «pago único» no prueba nada: lo pone el código (16/10/2026)
+
+**Vive en:** `lib/producto-con-funnel.ts` (crear un funnel) · `lib/productos.ts` (`seedProductosDesdeOferta`).
+
+Para sugerir plantillas (docs/plantillas-sugeridas.md) se buscó cómo cobra cada negocio, y lo obvio era el `tipo` de sus
+productos. Era el diagnóstico equivocado: **dos lugares crean un producto con `tipo: 'unico'` sin preguntar** (al crear un
+funnel, «lo mínimo que la tabla exige», y al sembrar el producto de la oferta del onboarding). Con esa lectura, todo
+negocio «cobraría un pago único». Lo que sí es una decisión del dueño: un producto en `suscripcion`, y el `modelo` de
+una oferta (opcional, nace vacío y la siembra del brief no lo escribe). Un lector nuevo que quiera saber cómo cobra un
+negocio lee eso, no el `unico` de un producto.
+*16/10/2026, claude3 (chat Dashboard).*
+

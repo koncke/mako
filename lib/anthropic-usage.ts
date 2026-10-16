@@ -14,6 +14,7 @@ import { OWNER_WS, getWorkspaceActual } from './workspace';
 import { getSupabaseServer } from './supabase';
 import { leerTodo } from './supabase-paginado';
 import { saldoOpenRouter } from './openrouter-saldo';
+import { esDelCreditoDeLaPlataforma } from './veto-claude';
 
 // A QUÉ workspace pertenece el saldo/gasto de un proveedor. La regla real no es
 // "qué proveedor es" sino **de quién es la key que lo pagó**:
@@ -124,13 +125,17 @@ export function costFor(model: string, u: { input: number; output: number; cache
   return (u.input * p.in + u.output * p.out + u.cacheCreation * p.in * 1.25 + u.cacheRead * p.in * 0.1) / 1_000_000;
 }
 
-async function insertUsage(row: Record<string, unknown>): Promise<void> {
+async function insertUsage(row: Record<string, unknown>, wsForzado?: number): Promise<void> {
   try {
     // Claude va contra la key compartida de la agencia → OWNER_WS. El resto (BYOK)
     // se registra en el workspace del request, así el gasto de Gemini de Martín (ws9)
     // NO aparece en el de Mauricio (ws1). Cliente crudo (no getTenantDb): el ws lo
     // decide wsDeProveedor, no el scoping automático.
-    const ws = await wsDeProveedor(row.provider as string | undefined);
+    //
+    // `wsForzado`: el que llama sabe de quién es la fila mejor que `wsDeProveedor`. Es el caso del
+    // crédito de Claude de la plataforma (16/10/2026): sin clave propia, `wsDeProveedor` lo mandaba
+    // al ws1, que es un cliente, y Mauricio habría visto un gasto de Claude que no es suyo.
+    const ws = wsForzado ?? await wsDeProveedor(row.provider as string | undefined);
     await getSupabaseServer().from('anthropic_usage').insert({ workspace_id: ws, ...row });
   } catch (e) {
     console.warn(`[anthropic-usage] no se registró el uso: ${e instanceof Error ? e.message : String(e)}`);
@@ -142,7 +147,7 @@ async function insertUsage(row: Record<string, unknown>): Promise<void> {
  * descuenta del saldo) del resto. rawUsage tolera el shape de Anthropic
  * (input_tokens/output_tokens) o el de OpenAI-compat (prompt_tokens/completion_tokens).
  */
-export async function recordUsage(feature: string, model: string, rawUsage: unknown, motivo?: string, provider = 'anthropic', cuenta?: number): Promise<UsageInfo> {
+export async function recordUsage(feature: string, model: string, rawUsage: unknown, motivo?: string, provider = 'anthropic', cuenta?: number, wsForzado?: number): Promise<UsageInfo> {
   const u = (rawUsage && typeof rawUsage === 'object' ? rawUsage : {}) as Record<string, unknown>;
   const input = Number(u.input_tokens ?? u.prompt_tokens ?? 0) || 0;
   const outputVisible = Number(u.output_tokens ?? u.completion_tokens ?? 0) || 0;
@@ -170,7 +175,7 @@ export async function recordUsage(feature: string, model: string, rawUsage: unkn
     // puede medir sumada, y esa suma miente cuando el uso se apila en una cuenta.
     cuenta: cuenta && cuenta > 1 ? cuenta : 1,
     input_tokens: input, output_tokens: output, cache_creation_tokens: cacheCreation, cache_read_tokens: cacheRead || cacheadoCompat, cost_usd: costUsd,
-  });
+  }, wsForzado);
   return { inputTokens: input, outputTokens: output, cacheCreation, cacheRead, costUsd, model };
 }
 
@@ -353,6 +358,9 @@ export async function getUsageSummary(): Promise<UsageSummary> {
       return ((Number(r.input_tokens) || 0) * GEMINI_PRICE_PAGO.in + (Number(r.output_tokens) || 0) * GEMINI_PRICE_PAGO.out) / 1_000_000;
     }
     if (FREE_RATE_LIMIT.includes(p)) return 0;
+    // El crédito de Claude de la PLATAFORMA (lib/veto-claude.ts, puerta 3) no lo paga el negocio: la
+    // fila queda en su workspace para saber quién lo usó, y en su panel cuesta 0.
+    if (esDelCreditoDeLaPlataforma(r.motivo)) return 0;
     return Number(r.cost_usd) || 0;
   };
 

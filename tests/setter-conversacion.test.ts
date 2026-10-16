@@ -314,7 +314,8 @@ test('asistirRespuesta le pasa al setter la charla real, el lead y el caso (#360
   assert.match(b, /mensajesRecientesDelLead\(leadId/);
   assert.match(b, /conTurnoActual\(historialDeMensajes\(/);
   assert.match(b, /responderSimulador\(secuencia\.id, historial, \{\s*leadId, escenario: clas\.escenario/);
-  assert.match(b, /evaluarCalificacion\(secuencia\.id, historial, \{ leadId \}\)/);
+  // (16/10/2026: en vivo, con la red de plataforma, el plazo y la marca de PII: tests/ai-step-red-y-voz.test.ts.)
+  assert.match(b, /evaluarCalificacion\(secuencia\.id, historial, \{ leadId, redDePlataforma: true, hastaMs: c\.hastaMs, pii: true \}\)/);
   assert.doesNotMatch(b, /responderSimulador\([^)]*\[\s*\{\s*de:/, 'volvió el turno suelto');
 });
 

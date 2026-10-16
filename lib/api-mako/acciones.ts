@@ -129,7 +129,19 @@ export async function aplicarPropuestaGenerica(propuestaId: string, inputEditado
     if (!gatingOk(def, await vistaDe(ctx))) return { ok: false, resumen: 'Esta acción no está disponible para tu usuario en este workspace.' };
 
     const base = (prop.datos.payload ?? {}) as Record<string, unknown>;
-    const v = validarInput(def.parametros, inputEditado ? { ...base, ...inputEditado } : base, 'json');
+    // ⚠️ LO QUE DICE SOBRE QUÉ SE HACE NO SE EDITA AL REVISAR (`fijoAlRevisar`, 15/10/2026): el resumen que la persona
+    // confirma se armó con el valor guardado, y cambiarlo ejecutaba la acción sobre otro con el título del primero
+    // (devolverle la plata a otro cliente). Un valor distinto se rechaza; uno vacío vuelve al guardado.
+    let editado = inputEditado;
+    for (const p of editado ? def.parametros : []) {
+      if (!p.fijoAlRevisar || !editado || !(p.nombre in editado)) continue;
+      const nuevo = editado[p.nombre];
+      if (nuevo == null || nuevo === '') { editado = { ...editado, [p.nombre]: base[p.nombre] }; continue; }
+      if (String(nuevo) !== String(base[p.nombre])) {
+        return { ok: false, resumen: `«${p.rotulo ?? p.nombre}» no se puede cambiar al revisar: el resumen es de ése. Si es otro, pídeselo de nuevo a MaKo.` };
+      }
+    }
+    const v = validarInput(def.parametros, editado ? { ...base, ...editado } : base, 'json');
     if ('error' in v) return { ok: false, resumen: v.error };
     const prep = await run.preparar(v.input, ctx);
     if ('error' in prep) return { ok: false, resumen: prep.error };

@@ -48,6 +48,10 @@
   font-size: var(--fs-sm); color: var(--dim);
 }
 
+/* Una lista de la ficha que viene DESPUÉS de las notas (la ficha del funnel la puso ahí, ./ficha-bloques.ts):
+   sin título, con el aire de una sección. */
+.m-crm-grupo { padding-top: 22px; }
+
 /* Las tres acciones grandes: Llamar · WhatsApp · Agendar. */
 .m-crm-acc3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 20px; }
 .m-crm-acc {

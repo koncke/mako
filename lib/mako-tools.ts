@@ -21,7 +21,8 @@ import { estaPendiente } from './todo-estados';
 import {
   listLeads, getLead, getLeadRespuestas, estadoMadurezLead, labelMadurez, type Lead,
 } from './leads';
-import { getFunnelDefault } from './funnels';
+import { getFunnelDefault, getPipelineStagesDeLead, getPipelineStagesDefault } from './funnels';
+import { etapaParaModelo, datosDeLaFicha, landingParaModelo, type EtapaParaModelo, type OfertaParaModelo } from './mako-ficha-lead';
 import { searchKnowledge, formatKnowledge } from './mako-knowledge';
 import { resumenExperimentos } from './experimentos';
 import { buscarReunionesAutomatico } from './auto-reuniones';
@@ -54,11 +55,18 @@ async function requireLead(input: Record<string, unknown>): Promise<Lead> {
   return lead;
 }
 
-/** Resumen compacto de un lead (para no gastar tokens de más en el tool_result). */
-function resumenLead(l: Lead) {
+/**
+ * Resumen compacto de un lead (para no gastar tokens de más en el tool_result).
+ *
+ * ⚠️ LA ETAPA ES LA QUE VE EL EQUIPO (tanda B del CRM, 14/10/2026): `etapaVigenteDe` contra las etapas
+ * del funnel, como la ficha (app/crm/[id]/page.tsx), y con su nombre. Era `pipeline_stage` crudo: null
+ * en todo lead sin override —la etapa casi siempre se DERIVA de las fechas— y una etapa que el funnel ya
+ * no tiene en los leads con un override huérfano.
+ */
+function resumenLead(l: Lead, etapas?: readonly EtapaParaModelo[] | null) {
   return {
     id: l.id, nombre: l.nombre, empresa: l.empresa, telefono: l.telefono, email: l.email,
-    estado: l.estado_lead, etapa: l.pipeline_stage ?? null,
+    estado: l.estado_lead, ...etapaParaModelo(l, etapas),
     madurez: labelMadurez(estadoMadurezLead(l)).label,
     fecha_agenda: l.fecha_agenda, fecha_junta_1: l.fecha_junta_1, fecha_junta_2: l.fecha_junta_2,
     asistio_j1: l.asistio_j1, asistio_j2: l.asistio_j2, calificado: l.calificado,
@@ -66,6 +74,19 @@ function resumenLead(l: Lead) {
     origen: l.meta_campaign_name ?? l.utm_campaign ?? l.origen_lead ?? null,
     closer: l.closer ?? null, setter: l.setter ?? null,
   };
+}
+
+/** La oferta asignada al lead (mig 0272), o null si no tiene. Si no se pudo leer, el id con `nombre: null`. */
+async function ofertaDeLaFicha(ofertaId: number | null | undefined): Promise<OfertaParaModelo | null> {
+  if (ofertaId == null) return null;
+  const id = Number(ofertaId);
+  try {
+    const { listarOfertas } = await import('./ofertas');
+    const o = (await listarOfertas()).find((x) => x.id === id);
+    return o ? { id, nombre: o.nombre, ticket_usd: o.precio_usd, modelo: o.modelo ?? null } : { id, nombre: null };
+  } catch {
+    return { id, nombre: null };
+  }
 }
 
 // ── esquema de las herramientas (lo que ve Claude) ────────────────────────────
@@ -82,7 +103,7 @@ export const MAKO_TOOLS: ToolDef[] = [
   },
   {
     name: 'ficha_lead',
-    description: 'Ficha 360 de un lead: datos, estado comercial, fechas de reuniones, sus respuestas de calificación (R1/R2) y lo que contestó en el formulario de Meta (formulario_meta: pregunta y respuesta de las preguntas propias del formulario; null = no vino de un formulario de Meta o entró antes del 04/10/2026, y NO significa que no contestó).',
+    description: 'Ficha 360 de un lead: datos, estado comercial, la etapa en la que lo ve el equipo (etapa y etapa_nombre), fechas de reuniones, sus respuestas de calificación (R1/R2) y lo que contestó en el formulario de Meta (formulario_meta: pregunta y respuesta de las preguntas propias del formulario; null = no vino de un formulario de Meta o entró antes del 04/10/2026, y NO significa que no contestó). También lo que contestó en el formulario de la landing (formulario_landing; null = no hay nada guardado, NO que no contestó) y, sólo si están cargados: web, instagram, youtube, linkedin, direccion, ingreso_estimado_usd (una estimación, no una venta), venta_tipo con la suscripción, la oferta asignada, pagina_registro (la página donde dejó sus datos), entrada_social (cómo entró por Instagram o Messenger) y email_dado_de_baja. Un campo que no viene es un dato sin cargar.',
     input_schema: {
       type: 'object',
       properties: { leadId: { type: 'number', description: 'id del lead (de buscar_leads).' } },
@@ -188,21 +209,35 @@ export const runMakoTool: ToolRunner = async (name, input) => {
     case 'buscar_leads': {
       const q = str(input, 'texto').trim().toLowerCase();
       if (!q) return 'Pasa un texto para buscar.';
-      const leads = await listLeads();
+      // DEFAULT: las etapas del funnel DEL NEGOCIO, leídas UNA vez para la lista entera (es la lista
+      // de catálogo, como `etapasDelFunnelDefault` en lib/api-mako/areas/crm.helpers.ts): hoy es la
+      // misma que `getPipelineStagesDeLead`, que lee la ficha. Si la lectura falla, las de por defecto
+      // (`etapaParaModelo`), como la ficha: la etapa nunca sale null.
+      const [leads, etapas] = await Promise.all([listLeads(), getPipelineStagesDefault().catch(() => null)]);
       const hits = leads
         .filter((l) => `${l.nombre ?? ''} ${l.email ?? ''} ${l.empresa ?? ''} ${l.telefono ?? ''} ${l.telefono_normalizado ?? ''}`.toLowerCase().includes(q))
         .slice(0, 20)
-        .map(resumenLead);
+        .map((l) => resumenLead(l, etapas));
       return JSON.stringify({ encontrados: hits.length, leads: hits });
     }
 
     case 'ficha_lead': {
       const lead = await requireLead(input);
-      const respuestas = await getLeadRespuestas(lead).catch(() => ({ R1: [], R2: [] }));
+      // DEL LEAD: las etapas con que la ficha dibuja la suya (`getPipelineStagesDeLead`, como
+      // app/crm/[id]/page.tsx), así MaKo y el equipo dicen la misma etapa.
+      const [respuestas, etapas, oferta] = await Promise.all([
+        getLeadRespuestas(lead).catch(() => ({ R1: [], R2: [] })),
+        getPipelineStagesDeLead(lead).catch(() => null),
+        ofertaDeLaFicha(lead.oferta_id),
+      ]);
       // Lo del formulario de Meta va APARTE de `respuestas`: getLeadRespuestas lo usan los
       // datos faltantes y el chatbot, y mezclarlo ahí les cambia lo que leen. El porqué, en
-      // formularioParaModelo (lib/meta-leads-campos.ts).
-      return JSON.stringify({ lead: resumenLead(lead), respuestas, ...formularioParaModelo(lead.meta_field_data) });
+      // formularioParaModelo (lib/meta-leads-campos.ts). Lo de la landing, igual y al lado.
+      // `datosDeLaFicha` (lib/mako-ficha-lead.ts): lo que la ficha muestra y esto no traía.
+      return JSON.stringify({
+        lead: { ...resumenLead(lead, etapas), ...datosDeLaFicha(lead, oferta) },
+        respuestas, ...formularioParaModelo(lead.meta_field_data), ...landingParaModelo(lead.optin_respuestas),
+      });
     }
 
     case 'historial_whatsapp': {

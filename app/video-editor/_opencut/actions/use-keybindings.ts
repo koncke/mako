@@ -44,6 +44,12 @@ export function useKeybindingsListener() {
 			if (!boundAction) return;
 
 			if (isTextInput) return;
+			// Un panel que se adueña de una tecla lo declara con `data-teclas-propias` («delete
+			// backspace»): con el foco adentro, esa tecla es del panel. La «Transcripción» lo
+			// necesita: su Supr borra las palabras elegidas, y sin esto el Supr global borraba
+			// además el CLIP elegido de la línea de tiempo (medido en producción el 15/10).
+			const propias = activeElement instanceof Element ? activeElement.closest("[data-teclas-propias]") : null;
+			if (propias && (propias.getAttribute("data-teclas-propias") ?? "").split(/\s+/).includes(normalizedKey)) return;
 			if (boundAction === "paste-copied") {
 				if (!editor.clipboard.hasEntry()) return;
 				ev.preventDefault();

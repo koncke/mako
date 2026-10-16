@@ -16,6 +16,9 @@ const ESTRATEGIA = 'Estrategia 3 cuentas';
 /** Las sesiones de esos dos chats en la app (`sesion`, lib/centro-chats.ts): el Centro junta por sesión. */
 const SESION_CH = 'local_5cc6190d-8390-4df1-b215-849f5590ee30';
 const SESION_ESTRATEGIA = 'local_94ec0e46-f987-4530-a3cc-c5c1a0bc0601';
+/** Desde el 15/10 a la noche, en la cuenta 3: el chat del Centro y el coordinador de esa cuenta. */
+const SESION_CH_3 = 'local_428051c1-0369-4df2-ae6b-bcb42f63b64b';
+const SESION_ESTRATEGIA_3 = 'local_0f38f4d5-0e64-411e-b6c8-6d6ead20baed';
 
 /** Las fases del área y en qué anda cada una. */
 export const PARTES: Parte[] = [
@@ -289,5 +292,110 @@ export const BITACORA: Hito[] = [
       'De Vercel queda una sola frase: si lo último se publicó o falló.',
     ],
     archivos: ['lib/progreso-reglas.ts — novedades y estadoDeProduccion', 'app/admin/operaciones/Progreso.tsx — la línea de tiempo'],
+  },
+  {
+    fecha: '15 oct', hora: '19:01', chat: ESTRATEGIA, sesion: SESION_ESTRATEGIA_3, cuenta: 'claude3', actor: 'martin', tipo: 'prompt',
+    titulo: 'La vista de chats, de punta a punta, y que se pueda escribirles',
+    pedido: 'Toda la vista de chat está horrible la verdad... Quiero que la rediseñe completamente, de punta a punta siguiendo los ejemplos e inspiraciones. Eliminando las tabs innecesarias, los textos innecesarios, títulos, subtitulos, avisos, etc... No solamente eso, NO es funcional, no puedo mandar un prompt por allí a mis otras cuentas.',
+    puntos: ['Y del mismo día, al coordinador: «Lo que más me interesa que tenga la prioridad es el centro de operaciones. Que se vea muy bien en diseño, para eso que se inspire en otras apps y que sea funcional.»'],
+  },
+  {
+    fecha: '15 oct', hora: '20:18', chat: CH, sesion: SESION_CH_3, cuenta: 'claude3', actor: 'claude', tipo: 'implementacion',
+    titulo: 'El Centro es una app de chat, y cada conversación tiene su caja para escribirle',
+    puntos: [
+      'La caja va abajo de cada conversación: Enter manda, y lo que espera lo dice en una línea («Sale cuando abras este chat en la cuenta 1»).',
+      'Los trabajos se ven adentro de su chat con los ticks de WhatsApp, y el cierre del chat aparece como su respuesta.',
+      'La barra agrupa por cuenta, la que corre primero; lo anotado antes del 16/10 va aparte, plegado.',
+      'Se fueron el título, el subtítulo, las frases, las pestañas y Áreas; Avance y Pushes son accesos de la barra.',
+      'Carga sin esperar a Vercel, y con su esqueleto. En el teléfono, lo mismo, con la caja fija abajo.',
+    ],
+    commits: [{ sha: '3f0c55f14', msg: 'feat(operaciones): el Centro como app de chat, con la caja para escribirle a cada chat', lineas: 3117, archivos: 24 }],
+    archivos: [
+      'app/admin/operaciones/CentroApp.tsx — la barra y la pantalla',
+      'app/admin/operaciones/Conversacion.tsx — la conversación y la caja',
+      'app/admin/operaciones/Hilo.tsx — las burbujas y los ticks (computadora y teléfono)',
+      'app/admin/operaciones/mandar.ts — firmar y mandar, el mismo camino en los dos',
+      'lib/centro-chats.ts — comoSale, completarChats, vistaPrevia, seccionesDeChats',
+      'app/m/operaciones/ChatsMovil.tsx — la lista y la conversación en el teléfono',
+    ],
+  },
+  {
+    fecha: '15 oct', hora: '20:28', chat: ESTRATEGIA, sesion: SESION_ESTRATEGIA_3, cuenta: 'claude3', actor: 'martin', tipo: 'prompt',
+    titulo: 'Copiar Grok: los muñequitos de IA, los «empleados»',
+    pedido: 'Quiero que copie a Grok, que tiene un mejor diseño, y sobre todo me gusta el concepto de los muñequitos de IA o "empleados"',
+    puntos: ['Era Grok Bot (xAI, 11/08/2026): cada Bot es un compañero con nombre, trabajo y contexto, que vuelve a pedir aprobación.'],
+  },
+  {
+    fecha: '15 oct', hora: '20:43', chat: CH, sesion: SESION_CH_3, cuenta: 'claude3', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Cada chat es un empleado con su muñequito, y el que espera tu respuesta lo muestra',
+    puntos: [
+      'Un muñequito propio por área (forma y color fijos), con los ojos según cómo está: despierto, trabajando, cansado o dormido.',
+      'El que tiene una tarjeta sin contestar en la Ticketera lleva un globito, y su conversación ofrece contestarla.',
+      'Copiado de la lista de Bots de Grok Bot, mirada en su video de lanzamiento; los muñecos no son los de xAI.',
+    ],
+    commits: [{ sha: '2755def4e', msg: 'feat(operaciones): cada chat es un empleado de IA con su muñequito, como en Grok Bot', lineas: 459, archivos: 13 }],
+    archivos: ['app/admin/operaciones/Muneco.tsx — el muñequito y su ánimo', 'lib/centro-chats.ts — esperasPorChat'],
+  },
+  {
+    fecha: '15 oct', hora: '22:15', chat: ESTRATEGIA, sesion: SESION_ESTRATEGIA_3, cuenta: 'claude3', actor: 'martin', tipo: 'prompt',
+    titulo: 'Siete cambios al Centro, mirándolo en producción',
+    pedido: 'Elimina lo de "Avances y pushes", quiero que cada chat tenga arriba, en su topbar un botón para ver los avances, que despliegue la sidebar derecha, que sea algo similar a lo que tenemos en "offer". // quiero que cada chat esté englobado en su chat "jefe" que siempre se debe llamar como la tab en la que estamos trabajando, como CRM... dentro de CRM podría tener un chat de Lead Detail, Funnels, etc... ESO no lo quiero decidir yo, lo decide el chat jefe. // No quiero que exista "cuenta 1, cuenta 2, 3" en la sidebar de chats... eso debe estar dentro de cada chat, con un chip o algo de en que cuenta se trabajó... Y en el progreso, en el detalle. // todos los chats de todas las cuentas se llamen igual. Y que yo tenga los 3 puntos en cada chat para poder configurar cosas, como cambiarle el nombre. // No quiero que se llame más "cartero", sino un nombre más formal, tecnico... que sea profesional. // Jamás pongas mensajes no claros como "Este dispositivo todavía no firma.", es mucho mejor "Crea tu Token para comenzar a chatear". // Crea más diseños variados de las figuras tipo trabajadores... Con diferentes caras, etc... Y que si le doy click pueda elegir cambiar a otro.',
+    puntos: [
+      'Lo relayó el coordinador con el orden: los textos y el nombre primero, después el avance por chat y la cuenta como chip, y al final el chat jefe, el nombre único con «⋯» y los muñequitos.',
+      'Del modal del cartero: «mejora el diseño de ese modal», copiado de una app real.',
+    ],
+  },
+  {
+    fecha: '15 oct', hora: '22:49', chat: CH, sesion: SESION_CH_3, cuenta: 'claude3', actor: 'claude', tipo: 'implementacion',
+    titulo: 'El cartero se llama Runner, y cada texto del Centro dice qué hacer',
+    puntos: [
+      'La caja de cada chat dice qué hacer y para qué: «Crea tu Token para comenzar a chatear», con su frase textual.',
+      'El cartero pasa a llamarse Runner, y la clave del dispositivo, «tu Token».',
+      'El modal copia la página de Runners de GitHub: la lista con su estado y «Nuevo Runner» con tres pasos para copiar.',
+      'En el teléfono, lo mismo; y MaKo por WhatsApp también habla de Runners.',
+    ],
+    commits: [{ sha: '593bb8952', msg: 'feat(operaciones): el cartero se llama Runner, y cada texto del Centro dice qué hacer', lineas: 673, archivos: 20 }],
+    archivos: [
+      'lib/runner.ts — el nombre y las instrucciones del chat Runner',
+      'app/admin/operaciones/PanelRunner.tsx — el modal, copiado de GitHub',
+      'lib/centro-chats.ts — textoDeEnvio: lo que dice la caja',
+      'scripts/operaciones/cartero.mjs — reconoce al Runner (1.3.0)',
+      'tests/centro-textos.test.ts — los textos y el nombre',
+    ],
+  },
+  {
+    fecha: '15 oct', hora: '23:17', chat: CH, sesion: SESION_CH_3, cuenta: 'claude3', actor: 'claude', tipo: 'implementacion',
+    titulo: 'El avance de cada chat en su barra derecha, y la cuenta como chip',
+    puntos: [
+      'Cada conversación tiene el botón «Avance 3/5»: abre la barra derecha con un rombo por cosa que le pediste a ese chat, del color de cómo va.',
+      'Al abrir un nodo: el prompt textual, cuándo lo pediste, en qué cuenta se trabajó y lo que subió a producción.',
+      'Se fueron las vistas Avance y Pushes y los grupos por cuenta: la lista es una sola, y la cuenta es un chip.',
+      'Copiado de la barra derecha de Offer y de los milestones de Linear. En el teléfono, la barra «Avance 3/5» pegada arriba.',
+    ],
+    commits: [{ sha: '106e3519b', msg: 'feat(operaciones): el avance de cada chat en su barra derecha, y la cuenta como chip', lineas: 1829, archivos: 20 }],
+    archivos: [
+      'app/admin/operaciones/Avance.tsx — la barra del avance y la del teléfono',
+      'lib/centro-chats.ts — avanceDelChat, seccionesDeChats sin cuentas, titulosRepetidos',
+      'app/admin/operaciones/Conversacion.tsx — el botón y la cuenta en la cabecera',
+      'tests/centro-avance.test.ts — los colores, los pasos y las cuentas de ese chat',
+    ],
+  },
+  {
+    fecha: '16 oct', hora: '00:01', chat: CH, sesion: SESION_CH_3, cuenta: 'claude3', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Un chat por nombre en las tres cuentas, el chat jefe, «⋯ Renombrar» y muñecos para elegir',
+    puntos: [
+      'El mismo chat en las tres cuentas es uno solo, y se le escribe a la sesión abierta; las cuentas van como chips.',
+      'Los sub-chats («CRM › Lead Detail») van adentro de su jefe, corridos y con su línea, como los hilos de Discord.',
+      'Cada chat tiene su «⋯» con Renombrar (le pide a cada sesión que se cambie el nombre, firmado) y Cambiar su muñeco.',
+      'Siete cuerpos, nueve colores, seis caras y siete accesorios; el selector copia a Notion Faces y lo elegido se guarda por nombre.',
+    ],
+    commits: [{ sha: '168de956d', msg: 'feat(operaciones): un chat por nombre en las tres cuentas, el chat jefe, «⋯ Renombrar» y muñecos para elegir', lineas: 1229, archivos: 18 }],
+    archivos: [
+      'lib/centro-chats.ts — unirPorNombre, porJefe, partesDelNombre, nombreValido, textoDeRenombre',
+      'lib/centro-munecos.ts — las piezas, lo elegido y su saneo',
+      'lib/centro-munecos-db.ts — dónde se guarda lo elegido',
+      'app/admin/operaciones/ElegirMuneco.tsx — el selector',
+      'app/admin/operaciones/CentroApp.tsx — el «⋯», Renombrar y la lista por jefe',
+    ],
   },
 ];

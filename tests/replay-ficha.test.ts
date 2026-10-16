@@ -405,9 +405,13 @@ test('la grabación mira la FOTO antes de bajar el reproductor', () => {
 test('los DOS parents le pasan las grabaciones a ComportamientoCard', () => {
   // El prop es opcional para no romper a los dos montajes a la vez, así que sin
   // esto una de las dos pantallas queda sin la sección y el typecheck en verde.
-  for (const p of ['app/crm/LeadSheet.tsx', 'app/crm/[id]/page.tsx']) {
-    assert.match(invocacion(leer(p), 'ComportamientoCard'), /replay=\{replay\}/, p);
+  // ⚠️ CAMBIADO A PROPÓSITO EL 14/10/2026 (la ficha por bloques): los dos parents montan la MISMA ficha
+  // (`FichaPorBloques`), y la tarjeta se monta UNA vez, en el registro de Tracking, con lo que trajo
+  // `getLeadFullAction` (las dos puertas leen con ella).
+  for (const p of ['app/crm/LeadSheet.tsx', 'app/crm/[id]/LeadDetailBody.tsx']) {
+    assert.match(leer(p), /<FichaPorBloques\b/, `${p}: no monta la ficha compartida`);
   }
+  assert.match(invocacion(leer('app/crm/lead-view/ficha/registro-tracking.tsx'), 'ComportamientoCard'), /replay=\{data\.replay\}/);
 });
 
 test('la tarjeta monta la grabación DESPUÉS del recorrido', () => {

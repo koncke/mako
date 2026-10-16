@@ -31,14 +31,16 @@ import { syncScriptAnalyses } from './ads-analyst';
 import { syncClosingCalls, RESERVA_LLAMADA_MS } from './closing';
 import { fetchYouTubeAnalyticsDaily } from './youtube-analytics';
 import { fetchPandaRangeStats } from './panda';
-import { getTenantDb } from './workspace';
+import { after } from 'next/server';
+import { getTenantDb, getWorkspaceActual, runWithWorkspace, OWNER_WS } from './workspace';
 import { leerTodo, leerPorPaginas } from './supabase-paginado';
 import { enTandas } from './ids-con-filas';
 import { credWs, integracionConectada } from './credenciales';
-import { getSetting } from './settings';
+import { configWs } from './cron-workspaces';
 import { ayerEnTijuana, diasAntes } from './date-utils';
 import {
-  getEstadoOnboarding, setEstadoOnboarding, patchEstadoOnboarding, JOB_KEYS,
+  getEstadoOnboarding, getEstadoOnboardingEstricto, setEstadoOnboarding, patchEstadoOnboarding, pasosDeCapaActual,
+  historicoPorArrancar, reevaluarExtraccion, sirveAlHistorico, JOB_KEYS,
   type JobKey, type JobState, type OnboardingState,
 } from './onboarding-state';
 
@@ -87,8 +89,13 @@ async function jobAplica(key: JobKey): Promise<{ aplica: boolean; motivo?: strin
         ? { aplica: true }
         : { aplica: false, motivo: 'Fathom no conectado' };
     case 'vsl_metrics': {
-      const yt = (await integracionConectada('youtube')) && !!(await getSetting('youtube_vsl_video_id'));
-      const panda = (await integracionConectada('panda')) && !!(await getSetting('panda_vsl_video_ids'));
+      // Los videos se leen con `configWs`, el MISMO lector de los crons de YouTube y Panda: el setting y,
+      // si no está, la credencial (YOUTUBE_VSL_VIDEO_ID, PANDA_VSL_VIDEO_IDS), que es donde los guarda
+      // /integraciones. Hasta el 16/10/2026 acá se leía sólo el setting, cuyo único escritor (la acción
+      // 'config' de /api/onboarding) no lo llama nadie: el VSL quedaba salteado para todo cliente, la misma
+      // forma de la tarea #171 de arriba.
+      const yt = (await integracionConectada('youtube')) && !!(await configWs('youtube_vsl_video_id'));
+      const panda = (await integracionConectada('panda')) && !!(await configWs('panda_vsl_video_ids'));
       return yt || panda ? { aplica: true } : { aplica: false, motivo: 'Sin YouTube/Panda con videos configurados' };
     }
   }
@@ -99,38 +106,72 @@ async function jobAplica(key: JobKey): Promise<{ aplica: boolean; motivo?: strin
  * integración quedan 'skipped'; si el cliente conecta algo después, volver a
  * llamar esto revive el job (skipped → pending). Nunca degrada done/running.
  */
-export async function iniciarExtraccion(): Promise<OnboardingState> {
-  const s = await getEstadoOnboarding();
-
-  if (s.extraction.status === 'idle') {
-    s.extraction.status = 'running';
-    s.extraction.startedAt = ahora();
-  } else if (s.extraction.status === 'done' || s.extraction.status === 'error') {
-    // re-evaluación (conectó algo nuevo o reintenta): volver a correr
-    s.extraction.status = 'running';
-    s.extraction.finishedAt = null;
-  }
-
+export async function iniciarExtraccion(estado?: OnboardingState): Promise<OnboardingState> {
+  const s = estado ?? await getEstadoOnboarding();
+  // Lo que aplica se pregunta ANTES (es asíncrono), sólo para lo que todavía no está hecho ni corriendo,
+  // y la decisión es pura (lib/onboarding-contrato.ts → `reevaluarExtraccion`, con test).
+  const aplica = {} as Record<JobKey, { aplica: boolean; motivo?: string }>;
   for (const key of JOB_KEYS) {
-    const job = s.extraction.jobs[key];
-    if (job.status === 'done' || job.status === 'running') continue;
-    const { aplica, motivo } = await jobAplica(key);
-    if (aplica) {
-      if (job.status !== 'pending') { job.status = 'pending'; job.error = null; }
-    } else {
-      job.status = 'skipped';
-      job.detail = motivo ?? null;
-    }
-    job.updatedAt = ahora();
+    const st = s.extraction.jobs[key].status;
+    aplica[key] = st === 'done' || st === 'running' ? { aplica: true } : await jobAplica(key);
   }
-
-  // ¿Quedó algo por hacer?
-  if (!JOB_KEYS.some((k) => s.extraction.jobs[k].status === 'pending' || s.extraction.jobs[k].status === 'running')) {
-    s.extraction.status = 'done';
-    s.extraction.finishedAt = ahora();
-  }
+  reevaluarExtraccion(s, aplica, ahora());
   await setEstadoOnboarding(s);
   return s;
+}
+
+/**
+ * Conectar una integración con histórico (Meta, Fathom, YouTube, Panda: `JOBS_DEL_HISTORICO`) arranca SU
+ * parte, por la puerta que sea (pegar el token o la key, «Conectar con Meta», elegir la cuenta o la página,
+ * guardar los campos a mano). Hasta el 16/10/2026 lo arrancaba SÓLO el wizard (`OnboardingWizard.tsx`, al
+ * verificar Meta en su pantalla): quien postergaba una integración y la conectaba después desde
+ * /integraciones se quedaba sin su histórico, sin un error, y con el chat de Offer como onboarding (las
+ * integraciones se postergan siempre) habría sido todo negocio nuevo.
+ *
+ * Una vez: si ya está pendiente, corriendo o hecho, no se toca (`historicoPorArrancar`). Sólo marca; los
+ * trabajos los corre el cron de cada 15 minutos (app/api/cron/onboarding-extraccion). El de Fathom analiza
+ * las llamadas con el mismo `syncClosingCalls` que el cron de cierre, que ya las analiza todas y no repite
+ * las hechas: revivirlo adelanta ese gasto, no lo suma.
+ *
+ * ⚠️ El estado se lee ESTRICTO: con la base caída, la lectura tolerante devuelve el estado inicial, y
+ * guardarlo le pondría `pending` a un onboarding terminado (el cliente vuelve al arranque). Si no se pudo
+ * leer, tira y no se escribe nada.
+ *
+ * Positivo, como la ruta del wizard: sólo un negocio cuya capa tiene onboarding (la plataforma no), y
+ * nunca el ws1, cuya ingesta es la de los crons de siempre.
+ */
+export async function arrancarHistoricoAlConectar(servicio: string): Promise<'arrancado' | 'ya estaba' | 'no corresponde'> {
+  if (!sirveAlHistorico(servicio)) return 'no corresponde';
+  const ws = await getWorkspaceActual();
+  if (ws == null || ws === OWNER_WS) return 'no corresponde';
+  if ((await pasosDeCapaActual()).length === 0) return 'no corresponde';
+  const s = await getEstadoOnboardingEstricto();
+  if (!historicoPorArrancar(s.extraction, servicio)) return 'ya estaba';
+  await iniciarExtraccion(s);
+  return 'arrancado';
+}
+
+/**
+ * Lo llaman las puertas que guardan una integración, una vez al final. En segundo plano (`after`: la
+ * conexión contesta sin esperarlo) y NUNCA tumba la conexión: si falla, queda en el log y la próxima vez
+ * que se guarde algo de esa integración se vuelve a intentar. Sin request (un script), corre en línea.
+ * Molde: lib/crm-curso-al-ganar.ts. Lo que no tiene histórico (`sirveAlHistorico`) no hace nada.
+ */
+export async function arrancarHistoricoEnSegundoPlano(ws: number, servicio: string): Promise<void> {
+  if (!sirveAlHistorico(servicio)) return;
+  const trabajo = async () => {
+    try {
+      const r = await arrancarHistoricoAlConectar(servicio);
+      if (r === 'arrancado') console.log(`[historico] ws ${ws}: ${servicio} conectado, arrancó su histórico`);
+    } catch (e) {
+      console.error(`[historico] ws ${ws}: no pude arrancar el histórico de ${servicio}:`, e instanceof Error ? e.message : e);
+    }
+  };
+  try {
+    after(() => runWithWorkspace(ws, trabajo));
+    return;
+  } catch { /* sin request: en línea */ }
+  await runWithWorkspace(ws, trabajo);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -444,9 +485,9 @@ async function jobVsl(marcar: Marcar): Promise<boolean> {
   // YouTube: los 3 videos configurados, con Analytics por rango.
   if (await integracionConectada('youtube')) {
     const videos: Array<{ id: string | null; type: 'vsl' | 'thanks' | 'thanks_prep' }> = [
-      { id: await getSetting('youtube_vsl_video_id'), type: 'vsl' },
-      { id: await getSetting('youtube_thanks_video_id'), type: 'thanks' },
-      { id: await getSetting('youtube_thanks_prep_video_id'), type: 'thanks_prep' },
+      { id: await configWs('youtube_vsl_video_id'), type: 'vsl' },
+      { id: await configWs('youtube_thanks_video_id'), type: 'thanks' },
+      { id: await configWs('youtube_thanks_prep_video_id'), type: 'thanks_prep' },
     ];
     for (const v of videos) {
       if (!v.id) continue;
@@ -473,7 +514,7 @@ async function jobVsl(marcar: Marcar): Promise<boolean> {
 
   // Panda: cada external id, serie por rango.
   if (await integracionConectada('panda')) {
-    const raw = await getSetting('panda_vsl_video_ids');
+    const raw = await configWs('panda_vsl_video_ids');
     const ids = (raw ?? '').split(',').map((s) => s.trim()).filter(Boolean);
     for (const extId of ids) {
       const serie = await fetchPandaRangeStats(extId, desde, ayer);

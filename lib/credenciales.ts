@@ -398,7 +398,17 @@ export async function eliminarCredencial(ws: number, clave: string): Promise<voi
     hidratadas.delete(clave);
   }
   // Al quitar la credencial de routing de un ws, se van sus mapeos del servicio.
-  if (ROUTING_CREDS[clave]) await borrarRoutingDeWs(ROUTING_CREDS[clave], ws);
+  if (ROUTING_CREDS[clave]) {
+    await borrarRoutingDeWs(ROUTING_CREDS[clave], ws);
+    // ⚠️ Y EN LA AGENDA SE VUELVE A RECLAMAR LO QUE SE SIGUE USANDO (16/10/2026). Calendly y Cal.com tienen DOS
+    // credenciales en el mismo servicio (la R1 y la R2) y, desde la mig 0293, los eventos vinculados a una etapa:
+    // `borrarRoutingDeWs` se lleva todas, así que quitar la R2 dejaba la R1 y los vinculados «sin_ruteo», y sus
+    // reservas se perdían con un 200. Import dinámico: ese módulo importa éste. Nunca tira.
+    if (ROUTING_CREDS[clave] === 'calendly' || ROUTING_CREDS[clave] === 'calcom') {
+      const { reclamarRuteoDeAgenda } = await import('./agenda-evento-etapa-server');
+      await reclamarRuteoDeAgenda(ROUTING_CREDS[clave], ws);
+    }
+  }
 }
 
 /** Metadatos (máscara, nunca el valor) de las credenciales cargadas en un workspace. */
@@ -582,6 +592,18 @@ const INFRA_ENV = new Set([
 ]);
 
 /**
+ * Las seis claves de las pasarelas de pago (Stripe y Mercado Pago). NUNCA viven en `process.env`: se leen con
+ * `credDelCliente(clave, ws)` y nada más (AGENTS.md, «Un cobro pasa por lib/cobros.ts…»). Copiadas al entorno por
+ * la hidratación del ws1, cualquier lectura con `credWs` o `credWsEstricta` de OTRO camino caía en la clave de
+ * cobro de Mauricio (revisión del 11/10/2026).
+ */
+const CLAVES_DE_PASARELA: ReadonlySet<string> = new Set([
+  'STRIPE_SECRET_KEY', 'STRIPE_ACCOUNT_ID', 'STRIPE_WEBHOOK_SECRET',
+  'MERCADOPAGO_ACCESS_TOKEN', 'MERCADOPAGO_USER_ID', 'MERCADOPAGO_WEBHOOK_SECRET',
+]);
+export const esClaveDePasarela = (clave: string): boolean => CLAVES_DE_PASARELA.has(clave);
+
+/**
  * Refleja al process.env global el valor que manda (el de la base). Solo dueño.
  * Las ~70 libs que leen process.env directo tienen que ver lo mismo que credWs,
  * así que esto PISA el respaldo del entorno (antes el entorno ganaba y las
@@ -590,6 +612,7 @@ const INFRA_ENV = new Set([
  */
 function aplicarAEnv(clave: string, valor: string): boolean {
   if (INFRA_ENV.has(clave)) return false;
+  if (CLAVES_DE_PASARELA.has(clave)) return false;
   hidratadas.add(clave);
   if (process.env[clave] === valor) return false;
   process.env[clave] = valor;

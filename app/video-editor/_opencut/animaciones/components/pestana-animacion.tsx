@@ -7,17 +7,13 @@
 // pasar el mouse por la tarjeta, y debajo «Duración» con su deslizador cuando
 // hay una elegida. Elegir una la muestra en el reproductor (./reproducir.ts).
 //
-// Las reglas que CapCut aplica al elegir, y que acá se escriben en UN paso de
-// deshacer junto con la elección:
-//   · Combinado excluye Entrada y Salida (y al revés).
-//   · Entrada + Salida no pasan el largo del clip: la que se toca manda y la
-//     otra se acorta.
-//   · Elegir otro preset vuelve la duración a la del preset (0,5 s casi todas;
-//     el Combinado, el clip entero).
+// Las reglas que CapCut aplica al elegir (Combinado excluye Entrada y Salida,
+// Entrada + Salida no pasan el clip, otro preset vuelve a su duración) se
+// escriben en UN paso de deshacer junto con la elección. Viven en ../elegir.ts:
+// el chat «Editar con IA» las usa también, y así se porta igual que este panel.
 
 import type { ContextoInspector } from "@/app/video-editor/ce/ranuras";
 import { useEditor } from "@/app/video-editor/_opencut/editor/use-editor";
-import type { ParamValue } from "@/app/video-editor/_opencut/params";
 import {
 	getElementParam,
 	type ElementParamDefinition,
@@ -37,9 +33,14 @@ import {
 	type CategoriaAnimacion,
 } from "../catalogo";
 import { reproducirAnimacion } from "../reproducir";
+import {
+	DURACION_MINIMA_ANIMACION as DURACION_MINIMA,
+	cambiosAlElegir,
+	cambiosDeDuracion,
+	duracionMaximaAnimacion,
+} from "../elegir";
 import { TarjetaAnimacion } from "./miniatura-animacion";
 
-const DURACION_MINIMA = 0.1;
 const redondear = (s: number) => Math.round(s * 10) / 10;
 
 function useGrupoAnimacion(element: TimelineElement, trackId: string) {
@@ -56,9 +57,8 @@ function PanelCategoria({ ctx, categoria }: { ctx: ContextoInspector; categoria:
 	const grupo = useGrupoAnimacion(element, track.id);
 	const esTexto = element.type === "text";
 	const D = Math.max(DURACION_MINIMA, element.duration / TICKS_PER_SECOND);
-	const declarada = (c: CategoriaAnimacion) => grupo.valores[ANIM[c].id] !== undefined;
+	const clip = { valores: grupo.valores, tipo: element.type, D };
 	const idDe = (c: CategoriaAnimacion) => String(grupo.valores[ANIM[c].id] ?? ID_NINGUNO);
-	const activa = (c: CategoriaAnimacion) => declarada(c) && presetAnimacion(c, idDe(c)) !== null;
 	const duracionDe = (c: CategoriaAnimacion) => {
 		const v = grupo.valores[ANIM[c].duracion];
 		return typeof v === "number" ? v : (presetAnimacion(c, idDe(c))?.duracion ?? 0.5);
@@ -68,33 +68,10 @@ function PanelCategoria({ ctx, categoria }: { ctx: ContextoInspector; categoria:
 	const presetActual = presetAnimacion(categoria, actual);
 	const presets = presetsPara(categoria, esTexto);
 
-	/** Lo que hay que escribir para que Entrada + Salida entren en el clip. */
-	const ajustarLaOtra = (cambios: Record<string, ParamValue>, duracion: number) => {
-		const otra: CategoriaAnimacion | null =
-			categoria === "entrada" ? "salida" : categoria === "salida" ? "entrada" : null;
-		if (otra && activa(otra) && duracion + duracionDe(otra) > D) {
-			cambios[ANIM[otra].duracion] = redondear(Math.max(DURACION_MINIMA, D - duracion));
-		}
-	};
-
 	const elegir = (id: string) => {
-		const cambios: Record<string, ParamValue> = { [ANIM[categoria].id]: id };
-		const preset = presetAnimacion(categoria, id);
-		if (preset) {
-			const duracion = redondear(
-				Math.max(DURACION_MINIMA, Math.min(D, categoria === "combo" ? D : preset.duracion)),
-			);
-			cambios[ANIM[categoria].duracion] = duracion;
-			if (categoria === "combo") {
-				if (declarada("entrada")) cambios[ANIM.entrada.id] = ID_NINGUNO;
-				if (declarada("salida")) cambios[ANIM.salida.id] = ID_NINGUNO;
-			} else if ((categoria === "entrada" || categoria === "salida") && activa("combo")) {
-				cambios[ANIM.combo.id] = ID_NINGUNO;
-			}
-			ajustarLaOtra(cambios, duracion);
-		}
+		const cambios = cambiosAlElegir(clip, categoria, id);
 		grupo.aplicar(cambios);
-		if (preset) {
+		if (presetAnimacion(categoria, id)) {
 			reproducirAnimacion(editor, element, categoria, Number(cambios[ANIM[categoria].duracion]));
 		}
 	};
@@ -103,13 +80,10 @@ function PanelCategoria({ ctx, categoria }: { ctx: ContextoInspector; categoria:
 	// `animation_speed`): más segundos, más lento. Una vuelta puede durar más que
 	// el clip (se ve sólo el principio), así que no se acota a D.
 	const rotuloDuracion = categoria === "bucle" ? "Velocidad" : "Duración";
-	const maximo = categoria === "bucle" ? 5 : D;
+	const maximo = duracionMaximaAnimacion(clip, categoria);
 
 	const previsualizarDuracion = (v: number) => {
-		const duracion = redondear(Math.max(DURACION_MINIMA, Math.min(maximo, v)));
-		const cambios: Record<string, ParamValue> = { [ANIM[categoria].duracion]: duracion };
-		ajustarLaOtra(cambios, duracion);
-		grupo.previsualizar(cambios);
+		grupo.previsualizar(cambiosDeDuracion(clip, categoria, v));
 	};
 
 	return (

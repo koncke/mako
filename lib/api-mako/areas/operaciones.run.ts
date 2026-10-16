@@ -48,8 +48,8 @@ export const RUNNERS: Runners = {
           chatsAbiertos: k.chats.filter((c) => c.vivo).map((c) => c.titulo),
           clavesAceptadas: k.claves.length,
         })),
-        token: tokenPista ? 'configurado' : 'sin token: se crea en /admin/operaciones',
-        nota: carteros.length ? 'Un pedido a una cuenta cuyo cartero no está vivo espera.' : 'Ningún cartero pasó todavía.',
+        token: tokenPista ? 'configurado' : 'sin token: se crea en /admin/operaciones → Runners → Nuevo Runner',
+        nota: carteros.length ? 'Un trabajo a una cuenta cuyo Runner no está activo espera: se arregla abriendo el chat Runner en la app de Claude.' : 'Ningún Runner se conectó todavía: se conecta desde /admin/operaciones → Runners → Nuevo Runner.',
       });
     },
   },

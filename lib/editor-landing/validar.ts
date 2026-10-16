@@ -38,6 +38,7 @@ import {
 } from './doc';
 import { CONFIG_DEFAULT, FORMATOS, PROPORCIONES, type BotonNav, type ConfigLanding, type EnlaceNav } from './api-tipos';
 import { OBJETIVOS_LANDING, type ObjetivoLanding } from '../landing-spec';
+import { sanearEstilo } from './animaciones';
 import {
   NORMALIZAR_MARCAS, NORMALIZAR_NODOS, attrsFormulario, attrsTarjeta, hrefPermitido, idValido, obj,
   srcImagen, textoLimpio,
@@ -484,9 +485,17 @@ function sanearFormulario(crudo: Record<string, unknown>, ctx: Ctx, donde: strin
 function sanearTarjeta(h: Record<string, unknown>, ctx: Ctx, donde: string): JsonNodo {
   ctx.nodos++;
   const crudo = obj(h.attrs);
-  const a = attrsConMotivo(NODO.tarjeta, crudo, ctx, donde, ['id', 'imagenSrc']) as ReturnType<typeof attrsTarjeta>;
+  const a = attrsConMotivo(NODO.tarjeta, crudo, ctx, donde, ['id', 'imagenSrc', 'videoFondo']) as ReturnType<typeof attrsTarjeta>;
   if (crudo.imagenSrc != null && crudo.imagenSrc !== '' && !a.imagenSrc) {
     descartar(ctx, `imagen de acento fuera del almacenamiento de la landing «${recorte(crudo.imagenSrc)}» en ${donde}: se quita`);
+  }
+  // El video de fondo (animaciones.ts): la misma regla que la imagen, y sin video o sin póster no hay video.
+  if (crudo.videoFondo != null) {
+    const v = obj(crudo.videoFondo);
+    if (!a.videoFondo) descartar(ctx, `video de fondo sin video o sin póster del almacenamiento de la landing «${recorte(v.src ?? crudo.videoFondo)}» en ${donde}: se quita`);
+    else if ((v.srcMovil != null && !a.videoFondo.srcMovil) || (v.posterMovil != null && !a.videoFondo.posterMovil)) {
+      descartar(ctx, `variante del teléfono del video de fondo fuera del almacenamiento de la landing en ${donde}: se quita`);
+    }
   }
   let id = a.id;
   if (!id) {
@@ -727,8 +736,16 @@ export function sanearConfig(raw: unknown): { config: ConfigLanding; descartes: 
       metaPixelId,
       marcaMako: bool(s.marcaMako, D.sitio.marcaMako),
     },
-    pagina: { animaciones: bool(pag.animaciones, D.pagina.animaciones), fondoImagen: imagen(pag.fondoImagen, 'la imagen de fondo') },
+    pagina: {
+      animaciones: bool(pag.animaciones, D.pagina.animaciones),
+      // La «Animación de página» (animaciones.ts): lo guardado antes del catálogo no la trae → la de siempre.
+      estiloAnimacion: sanearEstilo(pag.estiloAnimacion),
+      fondoImagen: imagen(pag.fondoImagen, 'la imagen de fondo'),
+    },
   };
+  if (pag.estiloAnimacion !== undefined && pag.estiloAnimacion !== null && config.pagina.estiloAnimacion !== pag.estiloAnimacion) {
+    d.push(`estilo de animación «${recorte(pag.estiloAnimacion, 30)}» inválido: queda «${config.pagina.estiloAnimacion}»`);
+  }
 
   const or = obj(r.origen);
   if (r.origen !== undefined && r.origen !== null) {

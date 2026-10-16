@@ -41,7 +41,7 @@ import {
   HEADER_DOMINIO, PATRON_HOSTS_DE_LA_APP, PATRON_HOSTS_DE_MAKO, decidirHost, tipoDeHost, urlLandingVigente,
 } from '../lib/editor-landing/dominios-reglas';
 import { normalizarUrl as normalizarUrlPagina } from '../lib/landing-paginas';
-import { normalizarUrl as normalizarUrlAnalisis } from '../lib/landing-url';
+import { claveDeLanding } from '../lib/landing-url';
 import { APP_BASE_URL, baseLandings, basesLandings, urlPublicaLanding, urlVistaLanding } from '../lib/app-url';
 import { CABECERAS_HTML_LIBRE, CABECERAS_PAGINA_AFUERA } from '../lib/editor-landing/html-libre';
 import { armarDocumento, responderPublico, type LecturaPublica } from '../lib/editor-landing/pagina-publica';
@@ -254,7 +254,7 @@ test('urlLandingVigente: la página de antes de la mudanza es la de hoy (para co
   assert.ok(declarada && pixelHoy);
   assert.notEqual(declarada, pixelHoy, 'el control: sin traducir no coinciden');
   assert.equal(urlLandingVigente(declarada), urlLandingVigente(pixelHoy));
-  assert.equal(urlLandingVigente(normalizarUrlAnalisis('https://www.hola-mako.com/l/mi-oferta/')), urlLandingVigente(normalizarUrlAnalisis('https://hola-mako.site/mi-oferta?utm_source=fb')));
+  assert.equal(urlLandingVigente(claveDeLanding('https://www.hola-mako.com/l/mi-oferta/')), urlLandingVigente(claveDeLanding('https://hola-mako.site/mi-oferta?utm_source=fb')));
 });
 
 test('lib/app-url.ts: la base VIGENTE sale de VERCEL_ENV, y en el navegador tira (ahí no se sabe el entorno)', () => {

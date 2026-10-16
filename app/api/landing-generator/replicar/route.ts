@@ -12,7 +12,8 @@
 // pestaña abierta con la pantalla anterior): 'bloques' = Landing, 'fiel' = Página web.
 //
 // Contesta `RespuestaReplicar` (lib/editor-landing/replicar-reglas.ts): `{ ok, id, titulo, secciones,
-// formato, aviso? }`, con el id de la landing NUEVA para abrirla en el editor; o la falla, que si la
+// formato, aviso?, animaciones?, avisoScroll? }` (las dos últimas, tanda 8: las animaciones copiadas como Landing
+// y si la original seguía al scroll), con el id de la landing NUEVA para abrirla en el editor; o la falla, que si la
 // página no se lee desde el server trae `pegable`, `enNavegador` y `motivo` (HTTP 422), y si el error
 // propone otro formato, `probar` (una app de Vite en «Página web» → «Landing», 422). El trabajo vive
 // en lib/editor-landing/replicar.ts; acá sólo la puerta.

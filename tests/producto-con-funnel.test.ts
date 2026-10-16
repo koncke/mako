@@ -70,5 +70,11 @@ test('el alta entra por el CRM y NO manda a otra pantalla', () => {
     .replace(/^\s*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
   assert.ok(!/second-brain/.test(tb), 'el selector ya no manda al cerebro a crear el producto');
   assert.ok(/<NuevoProductoModal/.test(tb), 'se resuelve en un modal del propio CRM');
-  assert.ok(/crearProductoAction/.test(tb), 'contra la acción que arma la cadena');
+  // ⚠️ CAMBIADO A PROPÓSITO el 14/10/2026: el modal crea por `crearCrmAction` (el TIPO de CRM, o
+  // «Otro» con canal y entradas), que pasa por `crearCrm` (lib/nuevo-crm.ts) y de ahí por ESTA
+  // cadena. Verificado rompiéndolo: `crearCrm` creando sin `crearProductoConFunnel`, 4 / 1 (este).
+  assert.ok(/crearCrmAction\(/.test(tb), 'contra la acción del alta');
+  const nc = readFileSync(join(import.meta.dirname, '../lib/nuevo-crm.ts'), 'utf8')
+    .replace(/^\s*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+  assert.ok(/crearProductoConFunnel\(nombre, siembra\.canal\)/.test(nc), 'el alta de un tipo dejó de pasar por la cadena producto → oferta → funnel');
 });

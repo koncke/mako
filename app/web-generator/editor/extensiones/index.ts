@@ -25,7 +25,7 @@
 //     para que MenuBarra.tsx lo pueda leer.
 // =============================================================================
 
-import type { Extensions, NodeViewRenderer, NodeViewRendererProps } from '@tiptap/core';
+import { Extension, type Extensions, type NodeViewRenderer, type NodeViewRendererProps } from '@tiptap/core';
 import { ReactNodeViewRenderer } from '@tiptap/react';
 import type { Node as NodoPM } from '@tiptap/pm/model';
 import { NODO } from '@/lib/editor-landing/doc';
@@ -43,15 +43,21 @@ import { extensionesBase, PLACEHOLDER_GENERAL, PLACEHOLDER_TITULO, type VistasNo
 import { aplicarAttrs, attrsDeRaiz } from './comun';
 import ExtensionBarra from './barra';
 import type { OpcionesLanding } from './plugins';
+import { pluginAnimacionSecciones } from '../animacion-reglas';
 
 export { PLACEHOLDER_GENERAL, PLACEHOLDER_TITULO };
 export { opcionesLanding, registrarAbrirEnlace, type OpcionesLanding } from './plugins';
+export { ponerAnimacionDePagina } from '../animacion-reglas';
 
 /**
  * Los `data-*` y el `id` de la sección, de la forma de especificacion.ts (sin el `style`, que
  * depende del TEMA y lo pone TarjetaVista). En el editor, una sección con diseño de imagen y
  * SIN imagen conserva su diseño (la forma pública lo baja a 'sin'): así se ve el hueco
  * «Agregar imagen» en su lugar, como en Gamma.
+ * ⚠️ Los de la ANIMACIÓN (`data-anim`, `data-anim-dir`, `data-anim-texto`) NO van acá: dependen del
+ *    estilo de la página (la config, no el nodo) y del lugar de la sección entre las visibles, y
+ *    ProseMirror sólo llama al `update` de las secciones que cambiaron. Los pone `AnimacionSecciones`
+ *    (abajo) como decoraciones de nodo, que se recalculan con el documento y con la config.
  */
 function attrsDeSeccion(n: NodoPM): Record<string, string | undefined> {
   const a = attrsDeRaiz(specTarjeta(n.attrs, { modo: 'editor' }));
@@ -106,6 +112,16 @@ const vistaVideo = ReactNodeViewRenderer(VideoVista, {
   },
 });
 
+/**
+ * Los data-* de animación de cada sección (animacion-reglas.ts, `pluginAnimacionSecciones`): con ellos,
+ * `gm-reproducir` (el ▶ y el efecto recién elegido del panel «Animar») tiene qué reproducir en el
+ * lienzo. La config le llega del armazón con `ponerAnimacionDePagina` (EditorLanding.tsx).
+ */
+const AnimacionSecciones = Extension.create({
+  name: 'animacionSecciones',
+  addProseMirrorPlugins() { return [pluginAnimacionSecciones()]; },
+});
+
 export type OpcionesExtensiones = Partial<OpcionesLanding> & Pick<OpcionesLanding, 'subirArchivo' | 'elegirImagen'> & {
   /** Reemplaza el texto de la línea vacía («Escribe algo o escribe «/» para ver los comandos»). */
   placeholder?: string;
@@ -125,7 +141,7 @@ export function extensionesLanding(op: OpcionesExtensiones): Extensions {
     [NODO.insertado]: ReactNodeViewRenderer(InsertadoVista),
     [NODO.htmlLibre]: ReactNodeViewRenderer(HtmlLibreVista),
   };
-  return [...extensionesBase({ ...op, vistas }), ExtensionBarra];
+  return [...extensionesBase({ ...op, vistas }), ExtensionBarra, AnimacionSecciones];
 }
 
 export default extensionesLanding;

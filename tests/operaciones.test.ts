@@ -73,7 +73,7 @@ function acciones(src: string): Array<{ nombre: string; cuerpo: string }> {
   return out;
 }
 
-const ACCIONES = ['fotoCentroAction', 'encolarPedidoAction', 'cancelarPedidoAction', 'crearTokenCarteroAction'];
+const ACCIONES = ['fotoCentroAction', 'pushesCentroAction', 'encolarPedidoAction', 'cancelarPedidoAction', 'crearTokenCarteroAction', 'guardarMunecoAction'];
 
 test('cada acción pregunta por Martín con su segundo factor ANTES de hacer cualquier otra cosa', () => {
   const as = acciones(sinComentarios(leer('app/admin/operaciones/acciones.ts')));
@@ -100,23 +100,35 @@ test('la página también pasa por puedeOperar antes de leer la cola', () => {
 test('en las pantallas del Centro no hay «pedidos»: son trabajos (la palabra es de Martín)', () => {
   const textos = (src: string) => [...src.matchAll(/'([^'\n]*)'|"([^"\n]*)"|>([^<>{}\n]+)</g)]
     .map((m) => m[1] ?? m[2] ?? m[3] ?? '');
-  for (const f of ['app/admin/operaciones/CentroOperaciones.tsx', 'app/admin/operaciones/acciones.ts', 'app/admin/operaciones/page.tsx',
-    'app/m/operaciones/CentroMovil.tsx', 'app/m/operaciones/page.tsx']) {
+  // Desde el 16/10 el Centro es una app de chat: lo que despacha se ve en la conversación (Hilo.tsx), en la caja
+  // (Conversacion.tsx), en la barra (CentroApp.tsx) y en el panel del cartero, en la computadora y en el teléfono.
+  for (const f of ['app/admin/operaciones/CentroApp.tsx', 'app/admin/operaciones/Conversacion.tsx', 'app/admin/operaciones/Hilo.tsx',
+    'app/admin/operaciones/PanelRunner.tsx', 'app/admin/operaciones/acciones.ts', 'app/admin/operaciones/page.tsx',
+    'app/admin/operaciones/Avance.tsx', 'app/m/operaciones/RunnerMovil.tsx', 'app/m/operaciones/ChatsMovil.tsx', 'app/m/operaciones/CentroAppMovil.tsx',
+    'app/m/operaciones/page.tsx']) {
     const malos = textos(sinComentarios(leer(f))).filter((t) => /\bpedidos?\b/i.test(t));
     assert.deepEqual(malos, [], `${f}: en la pantalla se dice «trabajo»`);
   }
 });
 
-test('el Centro en el teléfono: el mismo guard antes de leer, sólo para mirar, y su puerta en More', async () => {
+test('el Centro en el teléfono: el mismo guard antes de leer, manda por el mismo camino, y su puerta en More', async () => {
   const pagina = sinComentarios(leer('app/m/operaciones/page.tsx'));
   const guarda = pagina.indexOf('puedeOperar(admin, plataforma)');
   assert.ok(guarda > 0 && pagina.indexOf('listarPedidos()') > guarda, 'la guarda va antes de leer la cola');
   assert.ok(pagina.indexOf('getSesionAdmin()') < guarda && pagina.includes('requireMovil('), 'pide la sesión de admin y el guard de /m');
-  // Sólo para mirar: ni la pantalla ni su vista llegan a una acción que escriba.
-  const vista = sinComentarios(leer('app/m/operaciones/CentroMovil.tsx'));
-  for (const src of [pagina, vista]) {
-    assert.doesNotMatch(src, /encolarPedido|cancelarPedido|crearTokenCartero|admin\/operaciones\/acciones/, 'el teléfono no escribe en la cola');
+  // Desde el 16/10 el teléfono también manda (Martín: «NO es funcional, no puedo mandar un prompt»), pero por el
+  // MISMO camino que la computadora: mandar.ts firma en el dispositivo y llama a la acción guardada. Ninguna
+  // pantalla del teléfono escribe en la cola por su cuenta, ni acuña el token.
+  const vista = sinComentarios(leer('app/m/operaciones/RunnerMovil.tsx'));
+  const chats = sinComentarios(leer('app/m/operaciones/ChatsMovil.tsx'));
+  const pestanas = sinComentarios(leer('app/m/operaciones/CentroAppMovil.tsx'));
+  for (const src of [pagina, vista, chats, pestanas]) {
+    assert.doesNotMatch(src, /encolarPedido|cancelarPedido|crearTokenCartero/, 'el teléfono manda sólo por mandar.ts');
   }
+  assert.match(pestanas, /from '@\/app\/admin\/operaciones\/mandar'/, 'la firma es la de la computadora (useFirma)');
+  const mandar = sinComentarios(leer('app/admin/operaciones/mandar.ts'));
+  assert.match(mandar, /await encolarPedidoAction\(\{ firmado, firma, clavePublica: clave\.spki \}\)/, 'mandar.ts encola por la acción guardada, con el texto firmado tal cual');
+  assert.doesNotMatch(mandar, /^'use client'/, 'sin use client: el teléfono no se lleva la pantalla de escritorio');
   // La puerta: en la sección «Super admin» de More, que se apaga mirando a un cliente.
   const mas = sinComentarios(leer('app/m/mas/page.tsx'));
   const seccion = mas.slice(mas.indexOf("ctx.sesion.rol === 'admin'"), mas.indexOf('</SeccionM>', mas.indexOf('titulo="Super admin"')));
@@ -263,8 +275,9 @@ test('contra un servidor que MIENTE, el cartero no entrega lo no firmado ni lo y
     const acuses = readdirSync(join(dir, 'claude2', 'acuses')).map((f) => JSON.parse(leerF(join(dir, 'claude2', 'acuses', f), 'utf8')));
     const motivo = (n: string) => acuses.find((a) => a.id.endsWith(n))?.motivo ?? '';
     assert.match(motivo('002'), /no sale dos veces/);
-    assert.match(motivo('003'), /firma no es de ninguna clave/);
-    assert.match(motivo('004'), /firma no es de ninguna clave/);
+    // Desde el 15/10/2026 el motivo dice qué hacer (tests/centro-textos.test.ts): la firma no es de un Token aceptado.
+    assert.match(motivo('003'), /Pégale tu Token al Runner/);
+    assert.match(motivo('004'), /Pégale tu Token al Runner/);
     // Y lo que subió: su cuenta y la sesión de terminal viva, sin la dirección del canal.
     const subido = recibido[0] as { cuenta: string; chats: Array<Record<string, unknown>> };
     assert.equal(subido.cuenta, 'claude2');
@@ -295,7 +308,7 @@ test('el clasificador trae el área con sus palabras, y nunca con «pedido» sue
   const { AREA_KEYWORDS } = await import('../lib/mako-intencion');
   const re = AREA_KEYWORDS.operaciones;
   // En la pantalla se llaman «trabajos» desde el 15/10/2026 («pedido» es lo que pide Martín): las dos palabras.
-  for (const si of ['¿cómo van mis pedidos del centro?', '¿pasó el cartero?', 'mostrame el Centro de Operaciones', 'qué hay en la cola de pedidos', 'los pedidos a los chats de Claude',
+  for (const si of ['¿cómo van mis pedidos del centro?', '¿pasó el cartero?', '¿está activo el runner?', 'mostrame el Centro de Operaciones', 'qué hay en la cola de pedidos', 'los pedidos a los chats de Claude',
     'qué hay en la cola de trabajos', 'los trabajos a los chats', '¿cómo van los trabajos del centro?']) {
     assert.match(si, re, si);
   }

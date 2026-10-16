@@ -123,7 +123,7 @@ con su archivo.</sub>
 |---|---|---|
 | **#171** el histórico de leads de Meta no llegaba nunca | cerrada, con guard probado rompiéndolo (5 roturas, 5 cazadas) y la suite entera en verde | `4da4b720` |
 | **#201** Instagram figuraba «leída» vacía | cerrada, con guard probado rompiéndolo (7 de 7) | `3ea8f2bf` |
-| **#734** la cuota de Gemini frenaba el arranque | **código cerrado y typecheck en cero**; su test compila y NO se corrió | `26b8eabe` |
+| **#734** la cuota de Gemini frenaba el arranque | código cerrado; **test probado rompiéndolo el 15/10** (7 de 7, ver abajo) | `26b8eabe` · `fa6a2ac3` |
 | **#801** el Ads Manager sin onboarding | sin empezar | — |
 | **#737** el video tutorial | no es código: lo graba Martín | — |
 
@@ -147,16 +147,18 @@ parecerse a las otras. El defecto era más grande que Instagram: una página de 
 caracteres pasaba el `!texto.trim()` y se guardaba como documento leído, y ese texto le daba
 de comer al panorama, que es el perfil del negocio.
 
-### #734 — lo que falta, que es la verificación
+### #734 — verificada el 15/10
 
 El código está: la red de plataforma llega a `chatCheapCascade` y al camino de VISIÓN
 (`leerDocumentoIA`), encendida en los 11 puntos del arranque, con los errores de nuestras keys
 en lista aparte y `chatCheap` aceptando `wsKey`. `npx tsc --noEmit` devolvió cero errores.
 
-**Lo que queda, y es lo primero al retomar:** correr
-`tests/onboarding-red-plataforma.test.ts` —la base y las SIETE roturas que su encabezado
-enumera— restaurando de memoria, nunca con `git checkout`. Hasta que eso corra, de ese archivo
-se sabe que compila y nada más.
+**El 15/10 (chat «Onboarding», claude3) se corrieron la base y las siete roturas**, restaurando
+de memoria: base 8/0, y seis de las siete caían 7/1 de entrada. La séptima —«`chatCheap` deja de
+pasar `wsKey`», o sea la red reintentando con la key del cliente— daba **8/0**: el assert leía
+`lib/ai-cheap.ts` entero y la misma línea vive en `chatCheapTools`. Ahora mira el cuerpo de
+`chatCheap` y cae 7/1. Commit `fa6a2ac3`, en la rama `onboarding-734-verificacion` (la sube el
+coordinador). Los números quedaron en el encabezado del test.
 
 ### Lo que sigue sin hacer, con su archivo
 
@@ -165,9 +167,37 @@ se sabe que compila y nada más.
 - **El checklist «Qué hacer ahora» no se guarda**: `app/onboarding/FaseUI.tsx:121` sigue siendo
   un `useState` local. Es el defecto real que encontró el prototipo y NO se tocó.
 - **Una decisión de Martín**: la pregunta de canal avanza con su default marcado
-  (`OnboardingWizard.tsx:629`) y ese valor siembra la plantilla de funnel del canal. ¿Se exige
+  (`OnboardingWizard.tsx:632`) y ese valor siembra la plantilla de funnel del canal. ¿Se exige
   elegir, o queda el default?
 - **`lib/entregable.ts`** quedó sin red de plataforma a propósito: no es del arranque.
+
+## Ventana del 15/10 a la noche: el arranque sin API
+
+<sub>Chat «Onboarding», cuenta claude3, por pedido del coordinador sobre la decisión de Martín en la
+Ticketera (`clientes-usan-su-claude`, opción A). Commit `7f0ced90f`.</sub>
+
+- **El paso de la IA del wizard es OPCIONAL** («Tu propia IA (opcional)»). Ya no frena: lo que viene
+  después en las dos capas que lo tienen (El Archivero, Productos y el plan de arranque) corre con la
+  red de la plataforma. El plan de arranque (`lib/todo-seed-ia.ts`) no la tenía y se le sumó. Lo fija
+  `tests/onboarding-sin-api.test.ts` (6 roturas, 6 cazadas).
+- **La guía del crédito de Claude Max** vive en la ficha de Anthropic (`lib/metodo-catalogo.ts`, el
+  tutorial del servicio y el «?» del campo), y el paso del wizard abre ese modal ahí mismo.
+- **La clave de Anthropic del negocio ya mueve sus funciones de texto** (16/10, commit `a488757c`): el
+  coordinador contestó que la decisión A de Martín ya lo cubría. Es la segunda puerta del veto
+  (`lib/veto-claude.ts`), nunca con una clave de la plataforma ni en el Plan; el detalle, en
+  `docs/hallazgos-ia.md`.
+- **16/10: El Archivero cortaba a los clientes sin keys** antes de la red (tres `docsIADisponible()`), y
+  con el paso de la IA opcional ya en main, un cliente sin keys se trababa ahí. Arreglado (`daebfcc89`, y
+  sólo el arreglo en la rama `onboarding-archivero-fix`).
+- **16/10: la red se extendió a la primera semana** de un cliente sin API: Ads Writer, Offer, crear landing,
+  crear automatización y buscar en el Second Brain (`tests/red-primera-semana.test.ts`). La capacidad y el
+  porqué, en `docs/hallazgos-ia.md`.
+- **Lo que NO está hecho y no es mío decidir** (se lo pasé al coordinador):
+  - el análisis del lead: manda datos personales de los leads por las keys de la agencia, y no se sabe
+    si están en el plan gratis de Google (que entrena). Es una decisión de privacidad de Martín;
+  - el resto de las llamadas sin red, en el orden que diga el coordinador sobre `docs/mapa-ia-24h.md`;
+  - sin mirar en el navegador: no se levantó la app (RAM). Falta ver el paso en escritorio y celular
+    cuando esté desplegado.
 
 ## Dónde leer más
 

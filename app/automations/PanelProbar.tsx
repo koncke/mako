@@ -92,6 +92,7 @@
 
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent, type ReactNode } from 'react';
 import { ChatHilo, type HiloMsg } from '../whatsapp/_shared/ChatHilo';
+import { ChipDelCaso } from './ChipDelCaso';
 import { Button } from '@/app/_ui';
 // «Conectar» y «Vincular nuevo» (décima tanda, GENERAL 6): el modal de cada medio, uno solo para toda la tab.
 import { ConectarMedio, useEstadoMedios } from './ConectarMedio';
@@ -106,13 +107,14 @@ import { useCatalogosCondicion, catalogosDe } from './EditorCondicion';
 import { nombresCatalogoDe } from '@/lib/condiciones-catalogo';
 import type { AudioSetting, PasoSecuenciaDto, ProductoOpcion, SecuenciaDto } from './ChatAgentApp';
 import type { EdicionLocal } from './SecuenciaPerfil';
-import { claseDe, raizRespuesta, textoCasoRespuesta, rotuloSiNoDeRespuesta, nodoPorId, escuchaPor, expandirPasoIA, type MedioAIStep } from '@/lib/flujo-grafo';
+import { claseDe, raizRespuesta, textoCasoRespuesta, rotuloSiNoDeRespuesta, nodoPorId, escuchaPor, expandirPasoIA, type MedioAIStep, type PasoGrafo } from '@/lib/flujo-grafo';
 import {
   flujoParaProbar, firmaFlujo, iniciar, siguiente, pausarPorRespuesta, entrarEnRespuesta,
   escenarioParaRedactar, textoDeEjemplo, correoDeEjemplo, debeSalirDeVerdad, burbujaDeArchivo,
   hechosDeLeadNuevo, leadNuevoDelCron, elegirComoLead, sanearDestinoPrueba, contactoParaProbar, CONTACTO_COMPLETO,
-  elegir, escenariosDePrueba, type EscenarioPrueba,
+  elegir, escenariosDePrueba, reunionMinDe, type EscenarioPrueba,
   type EstadoSim, type NombresSim, type OpcionRama, type MensajePrueba, type DestinosGuardados, type ContactoPrueba, type EmisorPrueba,
+  type EventoSim,
 } from '@/lib/simulador-grafo';
 import { partesDe, type ParteMensaje } from '@/lib/mensaje-partes';
 import { ICONOS_MAS, frenoDelFlujo } from '@/lib/flujo-conversacion';
@@ -127,6 +129,13 @@ import { DIAL_DEFAULT, splitTelefono, unirTelefono } from '@/lib/paises';
 // Instagram y Messenger (sexta tanda, parte «canales»): el mismo recorrido, con su cara.
 import { esCanalSocial, logoSocialSvg, NOMBRE_CANAL, type CanalSocial } from '@/lib/canal-social';
 import { SimuladorSocial } from './SimuladorSocial';
+// El grupo de WhatsApp de MaKo, primer contacto de «Probar» (16/10/2026).
+import { MakoStar } from '@/app/_components/MakoBrand';
+import {
+  ID_GRUPO, avisaAlGrupo, vaAlGrupo, nombreDelGrupo, loQueLlegaAlGrupo, PILDORA_AL_GRUPO, NOTA_DEL_GRUPO, SIN_GRUPO_TODAVIA,
+  GRUPO_SIN_MENSAJES, type LecturaGrupo, type BurbujaGrupo,
+} from '@/lib/probar-grupo';
+import { TEXTO_SOLO_AUDIO } from '@/lib/mako-tarjeta';
 
 /**
  * El tamaño que pide «Probar»: ancho y bajo (decisión 11 de la segunda tanda). La cuenta vive en
@@ -226,6 +235,8 @@ const API = '/api/chat-agent/simulador';
 const ESCRIBIENDO_MS = 600;
 const ENTRE_MS = 350;
 const PILDORA_MS = 300;
+/** Lo que tarda el lead de un escenario de respuesta en ponerse a escribir, después del mensaje que leyó. */
+const LEAD_PIENSA_MS = 900;
 /** La píldora de un rearranque frenado (séptima tanda). El porqué lo dice el pie, al lado de Publicar. */
 const TEXTO_FRENADO = 'Falta completar';
 /** Entre una parte y la siguiente de un mismo mensaje (el motor deja un respiro parecido). */
@@ -492,54 +503,171 @@ function IconoTilde({ visible }: { visible: boolean }) {
 // Martín: «ese chat de "probar" debería al lado tener la sidebar de diferentes contactos de WhatsApp o de IG o lo que
 // sea, con el mismo diseño de esas apps, y justamente que ahí caigan los diferentes escenarios para la prueba».
 
-/** Cuánto mide la barra de contactos: el chat se queda con el resto del panel (560). */
-export const ANCHO_BARRA_ESCENARIOS = 172;
+// ⚠️ 15/10/2026, Martín: «Los nombres de los contactos deberían ser mucho más cortos para que se llegue a ver, tal vez
+// "Caso 1" y tal vez que al principio de la conversación se aclare cuando cae ese caso», «Elimina lo de "Hay más
+// caminos"», «Ten presets de fotos de perfil en lugar de "1,2,3..."» y «En general la tab se me muy compacta, si se
+// agregó una sidebar de contactos tenés que procurar que se vea bien en diseño». La anatomía es la de la lista de
+// chats de WhatsApp Web: foto redonda, nombre arriba, el último mensaje abajo en gris, la fila elegida sombreada. Con
+// poco ancho (el teléfono, una tableta, una ventana chica) pasa a una FILA de fotos arriba del chat, como las
+// historias de WhatsApp o de Instagram: el chat no se achica nunca por la lista.
 
-/** Cómo se dice un escenario: lo que sale en cada condición, en orden. */
-export function textoEscenario(e: Pick<EscenarioPrueba, 'pasos'>): string {
-  return e.pasos.join(' · ') || 'El de siempre';
+/** Cuánto mide la lista de contactos al costado: el chat se queda con el resto. */
+export const ANCHO_BARRA_ESCENARIOS = 232;
+/** Cuánto mide la fila de fotos arriba del chat, cuando no hay lugar al costado. */
+export const ALTO_FILA_ESCENARIOS = 78;
+/**
+ * Desde qué ancho del cuerpo la lista va al costado: con menos, el chat quedaba en ~300 px y la caja aplastada.
+ * 16/10/2026, Martín: «Los casos no van arriba: van en la sidebar típica de WhatsApp». Con 640, el panel de su pantalla
+ * (~645 px de cuerpo, 1536 de ancho) caía justo debajo y los mostraba en fila. Con 520 el chat queda en ~290-410 px,
+ * como un chat de WhatsApp Web angosto; la fila queda para el teléfono y una ventana chica.
+ */
+export const ANCHO_PARA_COLUMNA = 520;
+
+/** Cómo se llama el contacto de un escenario: corto, para que se lea entero (el detalle lo dice el chat al empezar). */
+export const nombreDelCaso = (k: number) => `Caso ${k + 1}`;
+
+/**
+ * ¿Es parte de la CHARLA? Ni una pastilla del sistema ni el encabezado de un caso (`ChipDelCaso`, 16/10/2026): lo que
+ * lee el redactor, el último mensaje de un contacto y lo que contesta el lead se arman sólo con lo que se dijo.
+ */
+export const esDeLaCharla = (m: Pick<HiloMsg, 'tipo'>): boolean => m.tipo !== 'sistema' && m.tipo !== 'caso';
+
+/** Cuándo cae un escenario, en una frase: los hechos que lo deciden (lo de las condiciones, si no hay hechos). */
+export function textoEscenario(e: Pick<EscenarioPrueba, 'pasos'> & { cuando?: readonly string[] }): string {
+  return e.cuando?.join(' · ') || e.pasos.join(' · ') || 'El de siempre';
 }
 
 /**
- * LA BARRA DE CONTACTOS, como la lista de chats de WhatsApp (o de Instagram y Messenger): un contacto por escenario,
- * con lo que lo distingue arriba y su último mensaje abajo. Elegir uno lo prueba desde el principio. Exportada para el test.
+ * LAS FOTOS DE LOS CONTACTOS (15/10/2026): retratos de randomuser.me, un banco de fotos de prueba con URLs fijas. Si
+ * una no carga, queda la inicial del caso. La misma foto para el mismo caso siempre: el orden de la barra.
  */
-export function BarraEscenarios({ escenarios, elegido, previas, faltan, canal, onElegir }: {
+const FOTOS_CONTACTO = ['women/44', 'men/32', 'women/68', 'men/75', 'women/12', 'men/46', 'women/90', 'men/11', 'women/33', 'men/52', 'women/26', 'men/86'];
+export const fotoDelCaso = (k: number) => `https://randomuser.me/api/portraits/${FOTOS_CONTACTO[k % FOTOS_CONTACTO.length]}.jpg`;
+
+function FotoContacto({ k, tam, social, sel }: { k: number; tam: number; social: boolean; sel: boolean }) {
+  const [rota, setRota] = useState(false);
+  // En Instagram y Messenger, el aro de color de sus historias; en WhatsApp, el aro sólo en el elegido.
+  const aro = social ? 'linear-gradient(45deg,#f9ce34,#ee2a7b,#6228d7)' : sel ? 'var(--wa)' : 'transparent';
+  return (
+    <span aria-hidden style={{ width: tam, height: tam, borderRadius: '50%', flex: 'none', padding: 2, background: aro, boxSizing: 'border-box', display: 'flex' }}>
+      {rota ? (
+        <span style={{ flex: 1, borderRadius: '50%', background: 'var(--surface-2)', border: '2px solid var(--surface)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, color: 'var(--dim)' }}>{k + 1}</span>
+      ) : (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={fotoDelCaso(k)} alt="" loading="lazy" referrerPolicy="no-referrer" onError={() => setRota(true)}
+          style={{ flex: 1, minWidth: 0, borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--surface)', background: 'var(--surface-2)' }} />
+      )}
+    </span>
+  );
+}
+
+/** La foto del grupo de MaKo: la de su grupo de verdad (la estrella dorada sobre el fondo oscuro, lib/mako-grupo.ts). */
+function FotoGrupo({ tam }: { tam: number }) {
+  return (
+    <span aria-hidden style={{ width: tam, height: tam, borderRadius: '50%', flex: 'none', background: 'linear-gradient(135deg,#2A251C,#171511)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <MakoStar size={Math.round(tam * 0.5)} animate={false} />
+    </span>
+  );
+}
+
+/** El primer renglón del chat del grupo, fijo: que nadie crea que le llegó al equipo. */
+const NOTA_GRUPO: HiloMsg = { id: 'nota-grupo', fromMe: false, tipo: 'sistema', texto: NOTA_DEL_GRUPO };
+
+/** Los no leídos del grupo: el globo verde de WhatsApp. */
+function NoLeidos({ n }: { n: number }) {
+  if (n <= 0) return null;
+  return (
+    <span data-no-leidos style={{ flex: 'none', minWidth: 19, height: 19, padding: '0 5px', boxSizing: 'border-box', borderRadius: 10, background: 'var(--wa)', color: '#fff', fontSize: 11.5, fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>{n}</span>
+  );
+}
+
+/**
+ * EL CONTACTO DEL GRUPO DE MaKo (16/10/2026, lib/probar-grupo.ts): el primero de la lista, fijado, con el nombre REAL
+ * del grupo. Lo que le escribe MaKo en cada caso cae en SU chat, y mientras no se lo mira suma no leídos.
+ */
+export type ContactoGrupo = { nombre: string; ultimo: string; noLeidos: number; sel: boolean; onElegir: () => void };
+
+/**
+ * LA LISTA DE CONTACTOS, como la de chats de WhatsApp Web (o de Instagram y Messenger): un contacto por escenario, con
+ * su nombre corto arriba y su último mensaje abajo. Elegir uno lo prueba (o muestra cómo terminó, si ya se probó).
+ * `fila`: con poco ancho, una fila de fotos arriba del chat. Exportada para el test.
+ */
+export function BarraEscenarios({ escenarios, elegido, previas, canal, onElegir, fila = false, grupo = null }: {
   escenarios: readonly EscenarioPrueba[];
   elegido: string | null;
   /** El último mensaje de cada contacto, de la última vez que se probó. */
   previas: Readonly<Record<string, string>>;
-  faltan: number;
+  /** (Ya no se dibuja: «Elimina lo de "Hay más caminos"».) */
+  faltan?: number;
   canal: CanalProbar;
   onElegir: (id: string) => void;
+  fila?: boolean;
+  /** El grupo de MaKo, primero (sólo si la automatización le escribe). */
+  grupo?: ContactoGrupo | null;
 }) {
   const social = canal === 'instagram' || canal === 'messenger';
+  if (fila) {
+    return (
+      <nav aria-label="Escenarios" data-barra-escenarios="fila"
+        style={{ position: 'absolute', left: 0, right: 0, top: 0, height: ALTO_FILA_ESCENARIOS, boxSizing: 'border-box', display: 'flex', gap: 4, overflowX: 'auto', overflowY: 'hidden', borderBottom: '1px solid var(--border)', padding: '4px 2px 6px' }}>
+        {grupo && (
+          <button type="button" data-contacto-grupo aria-current={grupo.sel ? 'true' : undefined} title={grupo.nombre} onClick={grupo.onElegir}
+            style={{ flex: 'none', width: 62, position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, padding: '2px 0', border: 'none', background: 'transparent', color: grupo.sel ? 'var(--ink)' : 'var(--dim)', cursor: 'pointer', font: 'inherit' }}>
+            <FotoGrupo tam={46} />
+            <span style={{ position: 'absolute', top: 0, right: 4 }}><NoLeidos n={grupo.noLeidos} /></span>
+            <span style={{ fontSize: 11.5, fontWeight: grupo.sel ? 700 : 500, maxWidth: '100%', ...recorte }}>{grupo.nombre}</span>
+          </button>
+        )}
+        {escenarios.map((e, k) => {
+          const sel = e.id === elegido;
+          return (
+            <button key={e.id} type="button" aria-current={sel ? 'true' : undefined} title={textoEscenario(e)} onClick={() => onElegir(e.id)}
+              style={{ flex: 'none', width: 62, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, padding: '2px 0', border: 'none', background: 'transparent', color: sel ? 'var(--ink)' : 'var(--dim)', cursor: 'pointer', font: 'inherit' }}>
+              <FotoContacto k={k} tam={46} social={social} sel={sel} />
+              <span style={{ fontSize: 11.5, fontWeight: sel ? 700 : 500, maxWidth: '100%', ...recorte }}>{nombreDelCaso(k)}</span>
+            </button>
+          );
+        })}
+      </nav>
+    );
+  }
   return (
-    <nav aria-label="Escenarios" data-barra-escenarios
-      style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: ANCHO_BARRA_ESCENARIOS, boxSizing: 'border-box', overflowY: 'auto', borderRight: '1px solid var(--border)', paddingRight: 4 }}>
+    <nav aria-label="Escenarios" data-barra-escenarios="columna"
+      style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: ANCHO_BARRA_ESCENARIOS, boxSizing: 'border-box', overflowY: 'auto', borderRight: '1px solid var(--border)' }}>
       <style>{'.pp-escenario:hover{background:var(--surface-2)}'}</style>
+      {grupo && (
+        <button type="button" data-contacto-grupo className="pp-escenario" aria-current={grupo.sel ? 'true' : undefined} title={grupo.nombre} onClick={grupo.onElegir}
+          style={{
+            width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '0 12px', height: 64, border: 'none',
+            background: grupo.sel ? 'var(--surface-2)' : 'transparent', color: 'var(--ink)', textAlign: 'left', cursor: 'pointer', font: 'inherit',
+          }}>
+          <FotoGrupo tam={46} />
+          <span style={{ flex: 1, minWidth: 0, alignSelf: 'stretch', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 2, borderBottom: '1px solid var(--border)' }}>
+            <span style={{ display: 'block', fontSize: 14.5, fontWeight: 600, ...recorte }}>{grupo.nombre}</span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ flex: 1, fontSize: 12.5, color: 'var(--dim)', ...recorte }}>{grupo.ultimo}</span>
+              <NoLeidos n={grupo.noLeidos} />
+            </span>
+          </span>
+        </button>
+      )}
       {escenarios.map((e, k) => {
         const sel = e.id === elegido;
-        const texto = textoEscenario(e);
         return (
-          <button key={e.id} type="button" className="pp-escenario" aria-current={sel ? 'true' : undefined} title={texto} onClick={() => onElegir(e.id)}
+          <button key={e.id} type="button" className="pp-escenario" aria-current={sel ? 'true' : undefined} title={textoEscenario(e)} onClick={() => onElegir(e.id)}
             style={{
-              width: '100%', display: 'flex', alignItems: 'center', gap: 9, padding: '8px 7px', border: 'none', borderRadius: 10,
+              width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '0 12px', height: 64, border: 'none',
               background: sel ? 'var(--surface-2)' : 'transparent', color: 'var(--ink)', textAlign: 'left', cursor: 'pointer', font: 'inherit',
             }}>
-            <span aria-hidden style={{
-              width: 34, height: 34, borderRadius: '50%', flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 13, fontWeight: 700,
-              ...(social ? { background: 'linear-gradient(45deg,#f9ce34,#ee2a7b,#6228d7)', color: '#fff' } : { background: 'var(--surface-3, var(--surface-2))', color: 'var(--dim)', border: '1px solid var(--border)' }),
-            }}>{k + 1}</span>
-            <span style={{ flex: 1, minWidth: 0 }}>
-              <span style={{ display: 'block', fontSize: 13, fontWeight: 600, ...recorte }}>{texto}</span>
-              <span style={{ display: 'block', fontSize: 11.5, color: 'var(--dim)', ...recorte }}>{previas[e.id] || 'Sin probar'}</span>
+            <FotoContacto k={k} tam={46} social={social} sel={false} />
+            {/* El renglón de WhatsApp Web: nombre y último mensaje, con la raya abajo (que no llega a la foto). */}
+            <span style={{ flex: 1, minWidth: 0, alignSelf: 'stretch', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 2, borderBottom: '1px solid var(--border)' }}>
+              <span style={{ display: 'block', fontSize: 14.5, fontWeight: 600, ...recorte }}>{nombreDelCaso(k)}</span>
+              <span style={{ display: 'block', fontSize: 12.5, color: 'var(--dim)', ...recorte }}>{previas[e.id] || (e.respuesta ? `Contesta: ${e.respuesta.titulo}` : 'Sin probar')}</span>
             </span>
           </button>
         );
       })}
-      {faltan > 0 && <div style={{ padding: '6px 8px', fontSize: 11.5, color: 'var(--faint)' }}>Hay más caminos</div>}
     </nav>
   );
 }
@@ -693,7 +821,7 @@ async function blobABase64(b: Blob): Promise<string> {
   return btoa(bin);
 }
 
-export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, rolAdmin, etiquetaEtapa, canal, onCerrar, style, productos, onEnviado }: {
+export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, rolAdmin, etiquetaEtapa, canal, onCerrar, style, productos, onEnviado, onContactos }: {
   /** La automatización GUARDADA: su id, su línea y, si el lienzo todavía no mandó nada, sus pasos. */
   secuencia: SecuenciaDto;
   /** Lo que el lienzo tiene SIN publicar (`onCambioLocal`). Es lo que se prueba. */
@@ -719,6 +847,11 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
    * haya cerrado (duodécima tanda, §2.8). Instagram y Messenger no mandan nada de verdad: nunca avisan.
    */
   onEnviado?: (texto: string) => void;
+  /**
+   * ¿Hay lista de contactos (más de un escenario)? Quien monta le da más ancho a «Probar» (15/10/2026: «la tab se me
+   * muy compacta, si se agregó una sidebar de contactos tenés que procurar que se vea bien»).
+   */
+  onContactos?: (hay: boolean) => void;
 }) {
   const propia = edicion && edicion.secuenciaId === secuencia.id ? edicion : null;
   const pasosVivos = propia?.pasos ?? secuencia.pasos;
@@ -911,6 +1044,11 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
   const leadRef = useRef(leadDelCron);
   useEffect(() => { leadRef.current = leadDelCron; }, [leadDelCron]);
   /**
+   * LA REUNIÓN DEL LEAD DE LA PRUEBA, en minutos desde que entra (16/10/2026, `reunionMinDe`): los «antes de la reunión»
+   * se ordenan contra ella, como en el motor. La da el CRON (quien entra por una etapa de reunión la tiene mañana).
+   */
+  const reunionDeLaPrueba = (): number | undefined => reunionMinDe(hechosDeLeadNuevo(leadRef.current));
+  /**
    * Si el lead de la prueba tiene teléfono / email (sexta tanda, «Probar» 1): se ELIGE al arrancar
    * para que le llegue lo del canal que se prueba (`contactoParaProbar`). Lo usa cada condición.
    */
@@ -921,20 +1059,43 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
   // ── LOS ESCENARIOS (14/10/2026): un contacto por camino distinto por las condiciones (`escenariosDePrueba`, el MISMO
   // simulador). El primero es el de siempre: lo que elegiría el motor con el lead recién llegado. Sólo los que le
   // mandan algo a ESTE canal (el camino del email no es un chat de WhatsApp); si ninguno, todos.
-  const { escenarios, faltanEscenarios } = useMemo(() => {
+  const { escenarios } = useMemo(() => {
     const contacto = contactoParaProbar(flujoVivo, (p) => canalDelPaso(p) === canal, CANALES_PROBAR[canal].contacto, leadDelCron, nombres);
     const r = escenariosDePrueba(flujoVivo, { hechos: hechosDeLeadNuevo({ ...leadDelCron, ...contacto }), nombres, cuenta: (p) => canalDelPaso(p) === canal, medio: medioIA });
     const conAlgo = r.escenarios.filter((e) => e.mensajes > 0);
-    return { escenarios: conAlgo.length ? conAlgo : r.escenarios, faltanEscenarios: r.faltan };
+    return { escenarios: conAlgo.length ? conAlgo : r.escenarios };
   }, [flujoVivo, canal, leadDelCron, nombres]);
   const [escenarioId, setEscenarioId] = useState<string | null>(null);
   const escenarioSel: EscenarioPrueba | null = escenarios.find((e) => e.id === escenarioId) ?? escenarios[0] ?? null;
   /** El escenario que corre: lo leen los timers (`avanzar`). Se copia después de cada render y al elegir. */
   const escRef = useRef<EscenarioPrueba | null>(escenarioSel);
   useEffect(() => { escRef.current = escenarioSel; });
-  const conBarra = canal !== 'email' && escenarios.length > 1;
+  // EL GRUPO DE MaKo (16/10/2026, lib/probar-grupo.ts): con una tarjeta «MaKo en WhatsApp», el grupo es el primer contacto,
+  // y la lista sale aunque haya un solo caso.
+  const conGrupo = canal === 'whatsapp' && avisaAlGrupo(flujoVivo);
+  const conBarra = canal !== 'email' && (escenarios.length > 1 || conGrupo);
+  // Quien monta le da más ancho a «Probar» con la lista (`muelles`, `probarConContactos`).
+  useEffect(() => { onContactos?.(conBarra); }, [conBarra, onContactos]);
+  /** El ancho del cuerpo: decide si la lista va al costado o en una fila arriba (`ANCHO_PARA_COLUMNA`). */
+  const [cuerpo, setCuerpo] = useState<HTMLDivElement | null>(null);
+  const [anchoCuerpo, setAnchoCuerpo] = useState(0);
+  useEffect(() => {
+    if (!cuerpo || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(([e]) => setAnchoCuerpo(Math.round(e.contentRect.width)));
+    ro.observe(cuerpo);
+    return () => ro.disconnect();
+  }, [cuerpo]);
+  const enFila = anchoCuerpo > 0 && anchoCuerpo < ANCHO_PARA_COLUMNA;
   /** El último mensaje de cada contacto, para su renglón de la barra. */
   const [previas, setPrevias] = useState<Record<string, string>>({});
+  /** Lo que MaKo le escribió al grupo en esta prueba, de todos los casos (`alGrupo`), y si se lo está mirando. */
+  const [grupoMsgs, setGrupoMsgs] = useState<HiloMsg[]>([]);
+  const grupoRef = useRef<HiloMsg[]>([]);
+  const [noLeidosGrupo, setNoLeidosGrupo] = useState(0);
+  const [viendoGrupo, setViendoGrupo] = useState(false);
+  const viendoGrupoRef = useRef(false);
+  /** El grupo de ESTE negocio, leído una vez (`GET ?grupo=1`): su nombre real, o que no tiene. */
+  const [lecturaGrupo, setLecturaGrupo] = useState<LecturaGrupo>(null);
   const emisorReal = emisorAEnviar(canal, emisor);
   // El recordatorio de la reunión se prueba con SUS datos (lib/recordatorio-automatizacion.ts), y una fila de
   // «MaKo en WhatsApp», con los de su evento (`ejemplosDelEvento`, 11/10/2026).
@@ -945,6 +1106,17 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
   useEffect(() => {
     ctx.current = { nombres, negocio, audios, adjuntos, destino, canal, secuenciaId: secuencia.id, emisor: emisorReal, datosExtra };
   });
+
+  useEffect(() => {
+    if (!conGrupo || lecturaGrupo) return;
+    let vivo = true;
+    // La fila de un evento de SuperAdmin le escribe al grupo de cada negocio (`evento=1`): ahí no hay UN nombre.
+    void fetch(`${API}?grupo=1${triggerProbado === TRIGGER_AVISO_MAKO ? '&evento=1' : ''}`, { cache: 'no-store', signal: AbortSignal.timeout(20_000) })
+      .then((r) => r.json())
+      .then((j) => { if (vivo) setLecturaGrupo(j?.ok ? { hay: j.hay !== false, nombre: typeof j.nombre === 'string' ? j.nombre : null, deCadaNegocio: j.deCadaNegocio === true } : 'error'); })
+      .catch(() => { if (vivo) setLecturaGrupo('error'); });
+    return () => { vivo = false; };
+  }, [conGrupo, lecturaGrupo, triggerProbado]);
 
   const firma = () => ctx.current.negocio || 'Tu negocio';
   const nuevoId = (pre: string) => `${pre}-${++seq.current}`;
@@ -966,9 +1138,64 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
   };
   const cortar = () => { run.current += 1; timers.current.forEach(clearTimeout); timers.current = []; };
 
+  /** Una burbuja del grupo como la ve el equipo: de «MaKo», con la Voz de MaKo o el archivo de la tarjeta. */
+  const burbujaDelGrupo = (b: BurbujaGrupo, ahora: string): HiloMsg => {
+    const c = ctx.current;
+    const base = { id: nuevoId('gr'), fromMe: false, autor: 'MaKo', fecha: ahora };
+    if (b.tipo === 'texto') return { ...base, texto: b.texto.trim() || 'Sin escribir' };
+    if (b.tipo === 'audio') {
+      const a = c.audios.find((x) => x.id === b.audioId);
+      return a?.url ? { ...base, tipo: 'audio', mediaUrl: a.url, texto: null } : { ...base, texto: TEXTO_SOLO_AUDIO };
+    }
+    return { ...base, ...burbujaDeArchivo(c.adjuntos.find((x) => x.id === b.mediaId) ?? null, b.caption) };
+  };
+  /**
+   * LA TARJETA «MaKo en WhatsApp» EN LA PRUEBA (16/10/2026, lib/probar-grupo.ts): lo que le llega al grupo cae en SU chat,
+   * debajo del caso que lo mandó, y en el del lead queda la pastilla. Al grupo de verdad no le llega nada.
+   */
+  const alGrupo = (paso: PasoGrafo) => {
+    const c = ctx.current;
+    const ahora = new Date().toISOString();
+    const k = escenarios.findIndex((e) => e.id === escRef.current?.id);
+    const burbujas = loQueLlegaAlGrupo(paso, (t) => textoDeEjemplo(t, c.negocio, c.datosExtra));
+    const lista: BurbujaGrupo[] = burbujas.length ? burbujas : [{ tipo: 'texto', texto: '' }];
+    grupoRef.current = [
+      ...grupoRef.current,
+      { id: nuevoId('gc'), fromMe: false, tipo: 'sistema', texto: k >= 0 ? nombreDelCaso(k) : 'Prueba', fecha: ahora },
+      ...lista.map((b) => burbujaDelGrupo(b, ahora)),
+    ];
+    setGrupoMsgs(grupoRef.current);
+    if (!viendoGrupoRef.current) setNoLeidosGrupo((n) => n + lista.length);
+    sistema(PILDORA_AL_GRUPO);
+  };
+  /** La pastilla de una espera, un salto o una ⚡ Acción. La «MaKo en WhatsApp», en WhatsApp, además le escribe al grupo. */
+  const pildora = (e: Extract<EventoSim, { t: 'espera' | 'accion' | 'salto' }>) => {
+    if (e.t === 'accion' && ctx.current.canal === 'whatsapp' && vaAlGrupo(e.paso)) alGrupo(e.paso);
+    else sistema(e.texto);
+  };
+  /** Mirar el chat del grupo, o volver al del caso. Mirarlo lo deja leído. */
+  const verGrupo = (si: boolean) => { viendoGrupoRef.current = si; setViendoGrupo(si); if (si) setNoLeidosGrupo(0); };
+
+  /**
+   * CUÁNDO CAE ESTE CASO (15/10/2026, Martín: «que al principio de la conversación se aclare cuando cae ese caso, donde
+   * salen los chips de "⏳ 1 h antes de la reunión"»): la primera píldora del hilo. Sólo con la lista de contactos.
+   */
+  // ⚠️ DESDE EL 16/10/2026 ES SU PROPIO ENCABEZADO (`ChipDelCaso`, tipo 'caso'), no una pastilla del sistema: «con otro
+  // diseño, para que no se confunda con un mensaje». En un caso del AI Step dice además lo que contesta el lead.
+  const pildoraDelCaso = () => {
+    const caso = escRef.current;
+    const k = caso ? escenarios.findIndex((e) => e.id === caso.id) : -1;
+    const contesta = caso?.respuesta?.titulo ?? null;
+    if (!conBarra || !caso || k < 0 || (!caso.cuando.length && !contesta) || ctx.current.canal === 'email') return;
+    poner({
+      id: nuevoId('caso'), fromMe: false, tipo: 'caso', texto: `${nombreDelCaso(k)}: ${caso.cuando.join(' · ')}`,
+      caso: { titulo: nombreDelCaso(k), hechos: caso.cuando, contesta }, fecha: new Date().toISOString(),
+    });
+  };
+
   /** La charla, para el redactor: lo que dijo el lead y lo que contestó el negocio. */
   const historial = (): Turno[] => msgsRef.current
-    .filter((m) => m.tipo !== 'sistema')
+    .filter(esDeLaCharla)
     .map((m) => ({ de: m.fromMe ? 'lead' as const : 'negocio' as const, texto: m.texto || (m.tipo === 'audio' ? '(nota de voz)' : '(un archivo)') }));
 
   /**
@@ -1113,13 +1340,24 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
           });
           return;
         }
-        luego(ESCRIBIENDO_MS, () => { setTyping(null); const resto = mostrarPaso(paso, evento.nodo, undefined, evento.enRespuesta); luego(ENTRE_MS + resto, avanzar); });
+        luego(ESCRIBIENDO_MS, () => {
+          setTyping(null);
+          const resto = mostrarPaso(paso, evento.nodo, undefined, evento.enRespuesta);
+          // EL LEAD CONTESTA (15/10/2026): en un escenario de respuesta, después del primer mensaje escribe él, y el resto
+          // de la salida se pausa como en el motor (`alResponder`).
+          if (!evento.enRespuesta && escRef.current?.respuesta && !leadEscribio.current) {
+            void pedirMensajeDelLead();
+            luego(ENTRE_MS + resto + LEAD_PIENSA_MS, () => { void escribirComoLead(); });
+            return;
+          }
+          luego(ENTRE_MS + resto, avanzar);
+        });
         return;
       }
       case 'espera':
       case 'accion':
       case 'salto':
-        sistema(evento.texto);
+        pildora(evento);
         luego(PILDORA_MS, avanzar);
         return;
       // ⚠️ CUARTA TANDA, PUNTOS 3 Y 17: «elimina los botones de "Tiene WhatsApp" y "Si no", eso no
@@ -1150,8 +1388,7 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
         return;
       }
       case 'fin':
-        sistema(evento.texto);
-        setTerminado(true);
+        terminarSalida(evento.texto);
         return;
     }
   }
@@ -1171,7 +1408,7 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
   /** Arranca la prueba desde la primera tarjeta, con el flujo que se ve ahora. */
   const arrancarRefs = () => {
     flujoRef.current = flujoVivo;
-    simRef.current = iniciar(flujoVivo, { medio: medioIA });
+    simRef.current = iniciar(flujoVivo, { medio: medioIA, reunionMin: reunionDeLaPrueba() });
     contactoRef.current = contactoDe(flujoVivo);
     msgsRef.current = [];
     correosRef.current = [];
@@ -1180,6 +1417,8 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
     turnoLead.current = 0;
     dijoRepetido.current = false;
     huboMensaje.current = false;
+    leadEscribio.current = false; mensajeDelLead.current = null;
+    pildoraDelCaso();
     luego(150, avanzar);
   };
 
@@ -1230,17 +1469,36 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
   const [errNuevo, setErrNuevo] = useState<string | null>(null);
   const cerrarMenu = () => { setMenu(false); setNuevo(false); setErrNuevo(null); };
 
+  /**
+   * LO QUE QUEDÓ DE CADA CONTACTO (15/10/2026, Martín: «Cuando ingreso a un contacto debería saltar la animación de la
+   * prueba, pero luego si me voy a otro contacto y vuelvo ya no debería»): el hilo TERMINADO de cada escenario, con la
+   * firma del flujo que lo produjo. Volver a uno lo muestra como quedó, sin animar (el hilo se remonta con esos mensajes:
+   * `ChatHilo` sólo anima lo que llega después). Si el flujo cambió, o la prueba es de verdad, se vuelve a correr.
+   */
+  const hilos = useRef(new Map<string, { firma: string; mensajes: HiloMsg[] }>());
+  useEffect(() => {
+    if (terminado && !real && escenarioSel) hilos.current.set(escenarioSel.id, { firma: firmaProbada, mensajes });
+  }, [terminado, real, escenarioSel, firmaProbada, mensajes]);
+
   /** Elegir un contacto de la barra (o el escenario del menú): su camino, desde el principio y sin envío. */
   const elegirEscenario = (id: string) => {
+    verGrupo(false);
     if (id === escenarioSel?.id) return;
     setEscenarioId(id);
     escRef.current = escenarios.find((e) => e.id === id) ?? null;
+    const guardado = hilos.current.get(id);
+    if (guardado && guardado.firma === firmaViva && !realRef.current) {
+      cortar();
+      msgsRef.current = guardado.mensajes;
+      setMensajes(guardado.mensajes); setTyping(null); setOpciones(null); setTerminado(true);
+      return;
+    }
     reiniciar();
   };
   // Su renglón de la barra dice lo último que le llegó (o lo último que se le contestó).
   useEffect(() => {
     if (!conBarra || !escenarioSel) return;
-    const ultimo = [...mensajes].reverse().find((m) => m.tipo !== 'sistema');
+    const ultimo = [...mensajes].reverse().find(esDeLaCharla);
     if (!ultimo) return;
     const texto = `${ultimo.fromMe ? 'Tú: ' : ''}${ultimo.texto || (ultimo.tipo === 'audio' ? '🎙 Nota de voz' : '📎 Archivo')}`;
     setPrevias((p) => (p[escenarioSel.id] === texto ? p : { ...p, [escenarioSel.id]: texto }));
@@ -1279,6 +1537,51 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
     setEntra(null);
     correosRef.current = correosRef.current.map((c) => (c.id === id ? { ...c, leido: true } : c));
     setCorreos(correosRef.current);
+  };
+
+  /**
+   * EL LEAD CONTESTA (15/10/2026, Martín: «En ninguno de esos casos el LEAD responde para simular el AI Step»): en un
+   * escenario de respuesta escribe UNA vez por prueba algo de SU caso (lo arma el server, `mensaje-lead`), y lo demás es
+   * la prueba de siempre: lo clasifica el MISMO clasificador del motor y contesta el AI Step. Si el clasificador lo manda
+   * a otro caso, se ve: es un hallazgo de la prueba, no un error de ella.
+   */
+  const leadEscribio = useRef(false);
+  /**
+   * TERMINÓ LA SALIDA. En un escenario de respuesta cuyo camino no le mandó NADA (visto en producción el 15/10/2026: el
+   * caso terminaba en «Fin» sin probar el AI Step), el lead escribe igual y contesta el AI Step; si no, «Fin».
+   */
+  const terminarSalida = (texto: string) => {
+    if (escRef.current?.respuesta && !leadEscribio.current) { luego(LEAD_PIENSA_MS, () => { void escribirComoLead(); }); return; }
+    sistema(texto);
+    setTerminado(true);
+  };
+  const escribirComoLead = async () => {
+    const r = escRef.current?.respuesta;
+    if (!r || leadEscribio.current) return;
+    leadEscribio.current = true;
+    const r0 = run.current;
+    setTyping({ lado: 'right' });
+    const texto = await pedirMensajeDelLead();
+    if (run.current !== r0) return;
+    setTyping(null);
+    await enviarTexto(texto);
+  };
+  /**
+   * LO QUE ESCRIBE EL LEAD, PEDIDO APENAS APARECE EL MENSAJE QUE CONTESTA (16/10/2026, Martín: «los "escribiendo…" no
+   * tardan tanto»). La IA tarda segundos; pedido recién después de las pausas, el «escribiendo…» las sumaba a esa espera.
+   * Una vez por prueba (la vacía `arrancarRefs`); si la IA no contesta, el lead dice lo de su caso.
+   */
+  const mensajeDelLead = useRef<Promise<string> | null>(null);
+  const pedirMensajeDelLead = (): Promise<string> => {
+    const r = escRef.current?.respuesta;
+    if (!r) return Promise.resolve('');
+    if (!mensajeDelLead.current) {
+      const ultimo = [...msgsRef.current].reverse().find((m) => !m.fromMe && esDeLaCharla(m))?.texto ?? '';
+      mensajeDelLead.current = postar({ action: 'mensaje-lead', titulo: r.titulo, cuando: r.cuando, ultimo })
+        .then((j) => (typeof j.mensaje === 'string' && j.mensaje.trim() ? j.mensaje.trim() : (r.cuando || r.titulo)))
+        .catch(() => r.cuando || r.titulo);
+    }
+    return mensajeDelLead.current;
   };
 
   /**
@@ -1366,6 +1669,14 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
     if (recien.length === 1) setEmisor(recien[0]);
   };
 
+  /** El grupo en la lista: su nombre real y lo último que MaKo le escribió en la prueba. */
+  const ultimoAlGrupo = [...grupoMsgs].reverse().find(esDeLaCharla);
+  const contactoGrupo: ContactoGrupo | null = conGrupo ? {
+    nombre: nombreDelGrupo(lecturaGrupo), noLeidos: noLeidosGrupo, sel: viendoGrupo, onElegir: () => verGrupo(true),
+    ultimo: ultimoAlGrupo ? `MaKo: ${ultimoAlGrupo.texto || (ultimoAlGrupo.tipo === 'audio' ? '🎙 Nota de voz' : '📎 Archivo')}`
+      : lecturaGrupo && lecturaGrupo !== 'error' && !lecturaGrupo.hay ? SIN_GRUPO_TODAVIA : GRUPO_SIN_MENSAJES,
+  } : null;
+
   // LLENA EL RECTÁNGULO DEL PADRE (`width/height: 100%`): el lugar y el tamaño los decide quien lo
   // monta (`muelles`). Un padre que lo ancla arriba Y abajo sin dar alto lo dimensiona con el
   // ancla: ahí un `height: 100%` lo estiraría más allá del borde de abajo.
@@ -1393,14 +1704,19 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
     case 'instagram':
     case 'messenger':
       // El DM como lo ve el lead (parte «canales»): el MISMO recorrido, con la cara de Instagram o Messenger.
-      simulador = <SimuladorSocial canal={canal} mensajes={mensajes} typing={typing} onEnviarTexto={enviarTexto} negocio={negocio} />;
+      simulador = <SimuladorSocial key={escenarioSel?.id ?? 'uno'} canal={canal} mensajes={mensajes} typing={typing} onEnviarTexto={enviarTexto} negocio={negocio} />;
       break;
     case 'whatsapp':
     default:
       // EL TELÉFONO: el hilo con su animación y la caja para contestar como el lead.
       simulador = (
         <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column' }}>
-          <ChatHilo
+          {viendoGrupo && conGrupo ? (
+            // EL CHAT DEL GRUPO (16/10/2026): lo que MaKo le escribió en cada caso, debajo de la nota de que es una prueba.
+            // Sin caja para escribir: la prueba no le escribe al grupo.
+            <ChatHilo key={ID_GRUPO} accent="var(--wa)" accentBubble="var(--wa-bubble)" mensajes={[NOTA_GRUPO, ...grupoMsgs]} animarNuevos />
+          ) : <ChatHilo
+            key={escenarioSel?.id ?? 'uno'}
             accent="var(--wa)" accentBubble="var(--wa-bubble)"
             mensajes={mensajes} typing={typing} animarNuevos
             draftKey={`probar-${secuencia.id}`}
@@ -1409,7 +1725,8 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
             /* Vacío a propósito: arranca solo y en 150 ms ya está el «escribiendo…». Un «Sin
                mensajes» que aparece y se va se lee como un parpadeo. */
             vacio={<></>}
-          />
+            renderMensaje={(m) => (m.tipo === 'caso' && m.caso ? <ChipDelCaso caso={m.caso} /> : null)}
+          />}
         </div>
       );
   }
@@ -1474,7 +1791,7 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
             )}
             puedeProbarNuevo={esEmail ? !!nuevoEmail.trim() : !!numero.trim()}
             escenario={{
-              opciones: escenarios.map((e, k) => ({ id: e.id, rotulo: `${k + 1} · ${textoEscenario(e)}`, detalle: textoEscenario(e) })),
+              opciones: escenarios.map((e, k) => ({ id: e.id, rotulo: `${nombreDelCaso(k)} · ${textoEscenario(e)}`, detalle: textoEscenario(e) })),
               elegido: escenarioSel?.id ?? null, onElegir: elegirEscenario,
             }}
             emisor={{
@@ -1496,13 +1813,15 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
       {/* El cuerpo va en una caja ABSOLUTA: `ChatHilo` se mide con `height: 100%`, y contra un
           alto que sale de `flex: 1` eso es CERO en Safari (AGENTS.md). Con `inset: 0` el alto
           es definido en los dos motores. */}
-      <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
+      <div ref={setCuerpo} style={{ flex: 1, minHeight: 0, position: 'relative' }}>
         {/* LA BARRA DE CONTACTOS (14/10/2026), sólo con más de un escenario. Las dos cajas, ABSOLUTAS: el alto del chat
-            tiene que seguir siendo definido (lo de arriba). */}
+            tiene que seguir siendo definido (lo de arriba). Al costado si hay lugar; si no, una fila arriba (15/10/2026). */}
         {conBarra && (
-          <BarraEscenarios escenarios={escenarios} elegido={escenarioSel?.id ?? null} previas={previas} faltan={faltanEscenarios} canal={canal} onElegir={elegirEscenario} />
+          <BarraEscenarios escenarios={escenarios} elegido={viendoGrupo ? null : escenarioSel?.id ?? null} previas={previas} canal={canal} onElegir={elegirEscenario} fila={enFila} grupo={contactoGrupo} />
         )}
-        {conBarra ? <div style={{ position: 'absolute', top: 0, bottom: 0, right: 0, left: ANCHO_BARRA_ESCENARIOS + 8 }}>{simulador}</div> : simulador}
+        {conBarra
+          ? <div style={{ position: 'absolute', bottom: 0, right: 0, ...(enFila ? { left: 0, top: ALTO_FILA_ESCENARIOS + 6 } : { left: ANCHO_BARRA_ESCENARIOS, top: 0 }) }}>{simulador}</div>
+          : simulador}
       </div>
 
       {/* En la bandeja no hay hilo: la última píldora que falló va en un renglón debajo (sin «Fin»). */}

@@ -871,6 +871,13 @@ camino es transparente». En esta corrida pegó así:
   llega como `p{…}`.
 - **El árbol de OpenCut sale con CRLF** (`core.autocrlf`) y una regex con `\n` no matchea. Se edita
   normalizando a LF y se devuelve el fin de línea original.
+- **Python en Windows convierte el archivo ENTERO a CRLF** si se escribe con `open(p, 'w')` (pasó el 15/10 con
+  `editor-page.tsx`, `congelar.ts` y un test), y `git diff --stat` no lo muestra por `autocrlf=true`. Se escribe con
+  `newline='\n'`, en binario o con Edit. Y para editar varios archivos respetando su fin de línea, el patrón que
+  anduvo todo el 15/10: un script de node que normaliza a LF, aplica reemplazos EXACTOS (que aparezcan una sola
+  vez) y devuelve el CRLF si lo tenía; los reemplazos escritos en un `.mjs` con Write (sin heredoc).
+- **`assert.match` sobre un archivo fuente vuelca el archivo entero** cuando falla (31.000 caracteres): para los
+  tests que leen el fuente, `assert.ok(texto.includes(…), 'qué')`.
 - **Falsa alarma, medida el 11/10:** «`\p{Extended_Pictographic}` en una regex literal es candidato a
   error con `target: ES2017`». No: con TypeScript 5.9.3 compila a ES2017 (falla recién a ES5), y el repo
   ya tiene literales así (`app/conocimientos/PortadaModulo.tsx:344`). El `new RegExp(…)` de
@@ -934,13 +941,283 @@ con prompt, como el Landing Generator, y que todos sus botones pasen a la API de
 - **Lo que tiene test y lo que no.** La vista, la revisión y el catálogo son puros y tienen 21 tests
   probados rompiéndolos. Que los comandos hagan en pantalla lo que dice cada fila NO tiene test: hay que
   mirarlo en el navegador, y no se miró.
+**La segunda tanda, 15/10: de 11 a 32 operaciones** (transición, animación, filtro, efecto, capa de efecto,
+ajustar el color, velocidad, recortar, estilo de texto, transformar, reflejar, separar audio, fundidos, reducir
+ruido, normalizar, revertir, congelar, cortar por frase o por tramo, eliminar las muletillas y resaltar las
+palabras). Regla de Martín: «Debería aceptar cualquier pedido del usuario. Por eso es importante documentar las
+cosas de la API»: la descripción de cada operación (`para`, en `chat-catalogo.ts`) es lo que lee el modelo, y lo
+que no sabe hacer va en `NO_SE_PUEDE_CHAT` para que lo DIGA en vez de simularlo.
+- ⚠️ **El diagnóstico obvio («armar todos los comandos al pedir, como antes») era el equivocado.**
+  `applyElementUpdate` mezcla `params` pero REEMPLAZA `effects` entero: un filtro y un ajuste de color sobre el
+  mismo clip en un pedido se pisaban. Un recorte mide bordes que el comando anterior ya movió, y lo nuevo no
+  tiene id hasta insertarse. Regla: lo que depende del estado del elemento se arma AL EJECUTAR (`Diferido` en
+  `chat/comandos.ts`). Sale de leer el código; no se vio en pantalla.
+- **Una regla escondida en un componente no la puede cumplir otra entrada.** La de elegir animación vivía en la
+  pestaña y salió a `animaciones/elegir.ts` (la usan el panel y el chat; la fija el test 37). El re-partido de
+  los subtítulos sigue en un hook (`useRepartirSubtitulo`): por eso el chat descarta, con motivo, cambiar la
+  fuente, el tamaño o el espaciado de un subtítulo.
+- **Revertir y congelar tomaban el clip de la SELECCIÓN**; ahora aceptan un objetivo (`videoEn`). Crean medios y
+  tardan: van después del lote, cada uno con su paso de deshacer, igual que normalizar y subtitular.
+- **Un `cortar_tramo` sólo vale si nada más mueve la principal en el mismo pedido** (sus tiempos son los de la
+  vista).
+- ⚠️ **«Los cortes por frase y por muletillas se resuelven por texto al ejecutar y no tienen ese problema» era el
+  diagnóstico equivocado** (lo encontró la revisión adversarial del 15/10). Salen de los tiempos por palabra de los
+  SUBTÍTULOS, y un recorte o una velocidad de un clip de la principal no mueven los subtítulos: en el mismo
+  pedido, el corte sacaba habla real y la muletilla quedaba. Ahora van en un pedido aparte, con su motivo.
+- **Varios recortes o cortes sobre la principal en un pedido se aplicaban corridos**: el destino iba en segundos
+  de la vista y el imán ya había corrido el clip («recorta 2 s al inicio de cada clip» recortaba 2, 4 y 8 s).
+  Ahora la revisión guarda dónde empezaba el elemento en su simulación (`base`) y el comando aplica relativo a
+  dónde está al ejecutarse (`corrimiento` en `chat/comandos.ts`).
+- **Normalizar o revertir un clip que un corte del mismo pedido parte** corrían después del lote y encontraban
+  por id sólo el primer pedazo: van aparte. Y `Diferido` al REHACER vuelve a armar el comando (lo nuevo del
+  lote vuelve en otra pista, con otro id, y el comando viejo apuntaba a la de antes).
+- **La Y es hacia abajo en el motor y hacia arriba en el panel**: la IA habla como el panel y se invierte al
+  escribir.
+- **Lo que cambia con el código va en un slot del prompt, no en su texto editable**: un override del prompt de
+  sistema guardado en /configuraciones antes del 15/10 seguiría diciendo que transiciones y filtros no se
+  pueden. Medido el 15/10 en la base: ningún negocio tiene overrides guardados (`app_settings` sin ninguna fila
+  `mako.prompt-overrides`), así que no había nada que restablecer.
+- **Los nombres válidos los manda el editor** (`chat/disponibles.ts`: transiciones, animaciones, filtros,
+  efectos, curvas y fuentes, 3,9 k) y la revisión valida contra eso; el estilo de los subtítulos va UNA vez
+  (`estilo_subtitulos`): 300 subtítulos con estilo ocupan 36,6 k del tope de 60 k.
 - **SIN HACER:**
-  - Verlo andar en el navegador (abrir, pedir, aceptar, restaurar, Ctrl+Z).
-  - Las operaciones que faltan: transiciones, animaciones, filtros y efectos, velocidad, recortar un
-    video o un audio, estilo y posición del texto, subtítulos automáticos.
+  - Verlo andar en el navegador (abrir, pedir, aceptar, restaurar, Ctrl+Z) con cada operación
+    (`chat/comandos.ts`, `chat/aplicar.ts` no tienen test: necesitan el editor y el WASM).
+  - Fuente, tamaño o espaciado de un subtítulo por chat (el re-partido vive en un hook); los parámetros propios
+    de cada efecto (entran con sus valores por defecto); HSL y LUT de Ajustar; curvas de velocidad con puntos
+    propios; Borrar silencios por chat (el comando existe y es asíncrono); duplicar, pegar atributos, máscaras,
+    croma, quitar fondo, recortar el encuadre, fondo del lienzo, plantillas de texto y fotogramas clave.
+  - La simulación de la revisión no sigue el imán ni la vinculación (la fila de un recorte izquierdo en la
+    principal lo avisa).
   - Una versión de respaldo como la del Landing («Antes de un cambio de IA»): el editor no tiene historial
     de versiones, y la vuelta es «Restaurar» o Ctrl+Z.
   - La API de MaKo, que espera la decisión de dónde vive el proyecto.
+
+## Edición por transcripción y «Eliminar las muletillas»: borrar texto corta el video
+
+**Vive en:** `_opencut/transcripcion/{cortar,modelo,registro}.ts` · `transcripcion/components/transcripcion-view.tsx` ·
+`commands/timeline/element/cortar-tramos.ts` · `timeline/dividir-elemento.ts` · test `tests/video-editor-transcripcion.test.ts`
+
+Hecho el 15/10 (pasos 2–4 del plan de subtítulos). Biblioteca › Subtítulos › «Transcripción» y el botón
+«Edición basada en la transcripción» de la barra: se eligen palabras, Supr, y esa parte sale del video.
+- ⚠️ **El diagnóstico obvio («reusar Borrar silencios») era el equivocado.** `BorrarSilenciosCommand` corta
+  clip por clip en varias pasadas (dividir, borrar, recolocar) y cada una pasa por el imán y la vinculación
+  (`ripple/iman.ts`). Lo que está encima de la mitad NUEVA de un clip dividido lo reclama la mitad vieja,
+  que conserva el id y no se movió: no se corre. Y no sabe nada de subtítulos. Acá la línea de tiempo nueva
+  se arma ENTERA y pura, y se aplica en UN `updateTracks`: todo lo que se mueve lleva su lugar explícito
+  («tocado»), así el imán no lo vuelve a correr. La cuenta es una sola: `aLinea(t)` = t menos lo quitado
+  antes de t.
+- **La transcripción SON los subtítulos con tiempos por palabra**, no un segundo texto: no hay dos cosas que
+  se desincronicen, y «Transcribir» es «Subtítulos automáticos». Un subtítulo sin tiempos (importado,
+  escrito a mano, reescrito) se ve apagado y no se elige.
+- **Cada corte se lleva la palabra y la MITAD de las pausas vecinas.** En los bordes exactos de la palabra
+  quedan las dos pausas enteras (un hueco largo); de palabra vecina a palabra vecina, ninguna (se pegan). Y
+  los tiempos de Whisper bailan ±0,1 s: el medio de la pausa es lo más lejos de comerse una sílaba.
+- **Qué se corta y qué no, como CapCut:** la pista principal y el audio extraído de un video
+  (`audio.extraidoDe`) se cortan; los subtítulos pierden sus palabras y se corren; lo VINCULADO se corre y,
+  si atraviesa un tramo, se ACORTA (correrlo sin acortarlo lo deja pisando al vecino de su pista); lo no
+  vinculado —la música— queda quieto. Si la voz está en una pista de audio y no en la principal, no hay
+  video que cortar: se avisa en vez de cortar otra cosa.
+- **Se va el final de un clip → la mitad que queda conserva la transición, la Salida y el fundido** (como
+  «Borrar a la derecha»): siguen yendo hacia el mismo vecino. Partirlo «en dos» se los sacaba.
+- ⚠️ **Trampa del entorno: `@/app/video-editor/_opencut/wasm` NO es puro.** `wasm/media-time.ts` importa
+  `wasm/opencut.ts`, que baja e instancia el WASM con top-level await. Cualquier módulo que importe un VALOR
+  de ahí (`roundMediaTime`, `TICKS_PER_SECOND`, `addMediaTime`) no carga en los tests de node. Por eso
+  `cortarTramos` recibe «Dividir» por parámetro (`dividir`) y los ticks por segundo (`tps`): los tipos sí se
+  pueden importar. Para ver la cadena: un `import` de valor que llegue a `wasm/opencut`.
+- **El chat** pide frases o tramos («corta donde digo…», «saca las muletillas») y el comando los resuelve
+  AL EJECUTAR (`CortarTramosCommand` acepta una función de las pistas): en un lote, lo de antes pudo
+  correr el video.
+- **Lo que arregló la revisión adversarial del 15/10** (un agente que sólo lee, con escenas simuladas):
+  - Un subtítulo partido con «Dividir» (o recortado) guarda el texto ENTERO y sus palabras valen sólo contra
+    ese texto: re-guardar sólo las visibles las anulaba (perdía karaoke y transcripción). Ahora pasan todas por
+    la misma cuenta, con su `trimStart`; y lo que se borra en una mitad se va del texto de las dos.
+  - El audio extraído de un video de SUPERPOSICIÓN se cortaba y su video no: ahora sólo se corta el de un
+    video de la principal. Y cada pedazo del audio extraído queda emparejado con el pedazo de video de arriba
+    (todos apuntaban al primero: «Recuperar audio» los borraba a todos o a ninguno).
+  - Deshacer un corte dejaba corrido un elemento vinculado que empezaba justo donde empezaba el tramo: la
+    regla del imán «lo que el cambio no tocó se corre con su clip» lo toma por no tocado. El corte se aplica
+    y se deshace SIN el imán (`updateTracks(…, { sinIman: true })`): su cuenta ya deja todo en su lugar.
+    ⚠️ El mismo problema existe al deshacer otros comandos («Borrar a la derecha»): sin arreglar, porque
+    algunos deshacen con parches y necesitan el imán.
+- **Dos reglas que vivían en la pantalla y el chat no cumplía** (las encontró la misma revisión): borrar un clip
+  de la principal se lleva lo vinculado (estaba adentro del botón Eliminar) y el texto nuevo de un subtítulo
+  conserva sus tiempos por palabra y vuelve a partir los renglones (estaba adentro del panel). Salieron a
+  `ripple/iman.ts → conLoVinculado` y `subtitles/editar.ts → paramsConTexto`, y las usan el botón, el panel y el
+  chat (test 42 del chat). `paramsConTexto` mira TODAS las palabras guardadas: el panel también perdía los
+  tiempos al corregir un subtítulo partido con «Dividir».
+- **Visto en PRODUCCIÓN el 15/10** (hola-mako.com, Chrome de Martín, su negocio, un clip de 11 s con voz de
+  Windows): Whisper bajó el modelo (~2 min la primera vez) y subtituló; la «Transcripción» mostró un párrafo por
+  subtítulo, la palabra bajo el cabezal marcada y las 2 muletillas («Eh,», «Bueno,») aunque «Identificar las
+  muletillas» estaba APAGADO; «Eliminar las muletillas» llevó el video de 10:29 a 8:20; Deshacer y Rehacer
+  volvieron exacto; elegir «de prueba.» y el botón «Eliminar» quitó 0,9 s y dejó «Este es un video».
+- ⚠️ **Supr en la transcripción borraba además el CLIP elegido de la línea de tiempo** (medido ahí mismo: el
+  video pasó de 8:20 a 5:13 y se fue la frase entera). El atajo global (`actions/use-keybindings.ts`) escucha
+  en CAPTURA sobre el documento y sólo se aparta si el foco está en un campo de texto: un `div` con `tabIndex`
+  no lo es. Arreglado con `data-teclas-propias="delete backspace"`: el panel declara sus teclas y el atajo
+  global las respeta. Regla: un panel que usa una tecla que también es atajo global la declara así.
+- **El karaoke se vio andar en producción** (15/10, ~22:00): «Palabra resaltada» sobre los subtítulos de
+  Whisper dibuja «COMPRA HOY Y AHORRA MUCHO» en Anton con la palabra que se dice («AHORRA») en verde.
+- ⚠️ **La pestaña se colgó dos veces «al aplicar la plantilla de karaoke», y el diagnóstico obvio («el dibujo
+  del karaoke») era el equivocado.** Medido con la API Long Animation Frames de Chrome: un cuadro de **2,37 s
+  de estilo y layout, 0 ms de script**. Pasa al abrir **Subtítulos › Plantillas**, que al montarse carga de
+  golpe las familias de TODAS las plantillas (`PlantillasSubtitulosView`, `loadFonts` → `loadFullFont`: un
+  `<link>` de Google Fonts por familia, ~79 caras declaradas). Es pasajero (con las fuentes ya cargadas, la misma
+  grilla da 0 ms de layout) y viene de ANTES (las 6 familias eran las mismas antes del karaoke). En un proyecto
+  con video y el modelo de Whisper en memoria, ese pico dejó la pestaña sin responder minutos. Con la biblioteca
+  en otra sección, el mismo proyecto abre y responde. Lo más probable es que el congelamiento del 13/10
+  («Agregar texto predeterminado», en Texto) sea el mismo patrón: `biblioteca-estilos.tsx` también carga todas
+  sus fuentes al montarse.
+- **Para medir en el Chrome de Martín**: si su ventana queda tapada, Chrome frena los timers y los cuadros
+  (`visibilityState` sigue en «visible»), y contar cuadros o vueltas de `setTimeout` da una página «trabada» que
+  no lo está. La API Long Animation Frames (`PerformanceObserver` de `long-animation-frame`) separa script de
+  estilo/layout y no se confunde con eso.
+- **Arreglado el 15/10 (falta medir el «después» en producción):** ninguna biblioteca carga sus fuentes
+  enteras al abrirse. Cada miniatura pide a Google SÓLO las letras que dibuja (`&text=`), con un nombre de familia
+  propio («Anton · muestra 400», una `FontFace`, sin hojas de estilo) y recién al entrar en pantalla
+  (`fonts/muestras.ts`, `useFuenteMuestra`), como el menú de fuentes de Google; la fuente entera llega al elegir
+  (subtítulos) o al pasar el mouse por la tarjeta (texto, antes de arrastrarla). El «antes» medido: abrir
+  Subtítulos › Plantillas agregaba 5 hojas y 38 caras, con ~2,6 s de bloqueo. Test `tests/video-editor-fuentes.test.ts`.
+- ⚠️ **La lista del selector de fuentes salía VACÍA en producción, y no era el freno de la ventana**: cada renglón
+  es una máscara con la imagen del atlas, y apuntaba a `/fonts/font-chunk-N.avif`, que no existe (las imágenes
+  viven en `public/ve/fonts/` desde el port; el atlas JSON sí se pedía bien). Sin la máscara, el renglón no se ve.
+  Ahora usa `FONT_CHUNK_PATH_PREFIX` de `fonts/google-fonts.ts`. Regla: una ruta de `public/ve/` vive en UNA
+  constante.
+- **SIN HACER:** verlo en el navegador lo que falta (el chat); copiar y pegar partes del video desde
+  el texto; la puntuación final de una palabra borrada se va con ella («…de prueba.» → «…video», sin punto);
+  «Mostrar texto eliminado»; marcar pausas y repeticiones (CapCut: «Pausa, repetición y duda»); CapCut fuerza el imán de la
+  principal mientras se edita por transcripción (`pc_text_cut_mode_lock_cant_change`) y acá no.
+
+## «Animaciones de subtítulos» (karaoke): la palabra que se dice cambia de color
+
+**Vive en:** `_opencut/text/resaltado.ts` (puro) · `text/{measure-element,dibujar}.ts` · `params/extra/subtitulos.ts`
+(`subtitulo.resaltar` / `.resaltarColor` / `.noDichasOpacidad`) · panel en `subtitles/components/pestana-subtitulos.tsx` ·
+plantillas «Karaoke», «Palabra resaltada» y «Atenuado» en `subtitles/estilos.ts` · test `tests/video-editor-subtitulos-resaltado.test.ts`
+
+Hecho el 15/10, sin mirar en el navegador. «Subtítulos pronunciados»: Palabra (sólo la que se dice) o Frase
+(todo lo ya dicho); «Subtítulos no pronunciados»: Opacidad. Se aplica a todos los subtítulos de una vez.
+- **Cuantizado como el revelado:** lo medido sólo lleva enteros (qué palabra, cuántas dichas), así la textura
+  del texto se redibuja al cambiar de palabra y no en cada cuadro. En una pausa sigue resaltada la última
+  dicha: apagarla en cada silencio parpadea.
+- ⚠️ **«Aplicar en todos los subtítulos» borraba los tiempos por palabra de todos los demás.** Síntoma: el
+  karaoke y el dividir por palabra andan sólo en el subtítulo elegido. El diagnóstico obvio («no se
+  guardaron los tiempos», «el karaoke anda mal») era el equivocado: `estiloDe` (`subtitles/insert.ts`)
+  copiaba TODOS los params menos `content` y `subtitulo`, también `subtitulo.palabras`, que en los demás no
+  coinciden con su texto y quedan anulados. Arreglado (`NO_ESTILO`). Regla: un parámetro que no es un control
+  se excluye a mano de todo lo que copia «todos los params» («Pegar atributos» se salva porque recorre sólo
+  los declarados).
+- **Los subtítulos en mayúsculas se salían por los costados:** `partirYUbicar` medía en minúscula y el dibujo
+  pinta con `aplicarMayusculas`; y cambiar «May./min.» no volvía a partir (`repartir.ts`). Ahora se mide como
+  se dibuja y `texto.mayusculas` parte.
+- **La opacidad de una palabra con trazo no se pone pasada por pasada** (el trazo de afuera se ve a través del
+  relleno): lo no dicho se dibuja entero en otro lienzo y se pega con su opacidad.
+- **Una palabra suelta dentro del renglón se ubica con `ancho(prefijo + palabra) − ancho(palabra)`**, no con
+  `ancho(prefijo)`: así no importa si el navegador cuenta el interletrado de la última letra.
+- **Toda plantilla escribe todo lo que alguna plantilla usa** (resaltado, mayúsculas, sombra), en «Ninguno» o
+  apagado si no lo usa: si no, «Clásico» después de «Karaoke» deja el amarillo andando.
+- **SIN HACER:** «Palabra/Frase no pronunciada» por separado (sólo está la Opacidad); agrandar o hacer rebotar la
+  palabra que se dice (tipo Hormozi, `text/dibujar.ts`); el karaoke en el ASS exportado con `\k`
+  (`subtitles/ass.ts`); avisar que con precisión «segmento» el karaoke es aproximado; el subrayado de lo no
+  dicho sale opaco; resaltar palabras CLAVE. Colores y opacidades de las plantillas, elegidos a ojo.
+
+## Lo que encontró el relevamiento de las plantillas de anuncio (15/10, antes de construirlas)
+
+El plan entero, con archivo:línea de cada cosa: `docs/editor-video/plan-plantillas-anuncio.md`. Lo que vale para
+todo el editor:
+- ⚠️ **Soltar un archivo de Multimedia ENCIMA de un clip visual no hace nada, y no avisa**: la línea de tiempo
+  encuentra el clip y el controlador vuelve sin hacer nada (el stub de OpenCut «Replace media source — not yet
+  implemented», `timeline/controllers/drag-drop-controller.ts`). Leído, no visto.
+- **La zona segura de Meta en 9:16** (guía oficial, verificada el 15/10): libre el 14 % de arriba, el 35 % de abajo
+  y el 6 % de cada lado. Los subtítulos verticales hoy quedan con el borde de abajo al 22 % (`subtitles/estilos.ts`):
+  adentro de la franja que tapa Meta. Subirlos cambia todos los proyectos: va aparte.
+- **Una forma o un sticker mide `min(ancho, alto)` del lienzo a escala 1** (un rectángulo de W×H en 1080x1920 lleva
+  `scaleX = W/1080`, `scaleY = H/1080`); **el relleno del fondo de un texto es `em × alto / 6`** sin importar el
+  tamaño de letra (con letra chica en 9:16 la tarjeta queda casi sin relleno); **`letterSpacing` va en px crudos**
+  (no escala con el lienzo).
+- **`params/registry.ts` y `timeline/element-utils.ts` tampoco cargan en node** (llegan al WASM por
+  `timeline/defaults → creation`): lo puro recibe los params por defecto, `tps`, `fps` y la medida por parámetro.
+- **La máquina de escribir y el glitch SÍ existen** (el relevamiento de plantillas decía que no; corregido).
+
+**Tanda 1 de las plantillas (15/10, catálogo y armado, puros; `lib/editor-video/plantillas.ts`,
+`_opencut/plantillas/{huecos,geometria,armar,escena}.ts`, test `tests/video-editor-plantillas.test.ts`, 46 roturas):**
+- ⚠️ **«En un lienzo el doble de grande, las escalas van ×2» era el diagnóstico equivocado.** El compositor encaja
+  la fuente RELATIVO al lienzo (`computeVisualTransform`): en 2160x3840 la escala y el tamaño de letra quedan
+  IGUALES; lo que va ×2 son las posiciones y el relleno del fondo (su param es em·alto/6). `letterSpacing` va en px
+  crudos. Regla: la escala es relativa al lienzo; posición, relleno y espaciado se escalan a mano.
+- **`partirYUbicar` ubica la caja CON la tarjeta**: la caja visual incluye el fondo (`getTextVisualRect`) pero el
+  ancho disponible se mide sólo con la letra. Alineado a la izquierda, el borde de la tarjeta va al margen y la
+  tarjeta puede salir hasta margen + ancho + 2·relleno. Con margen 0,11 en 1080: relleno ≤ 27 px a la izquierda,
+  ≤ 54 px centrado.
+- **Un default que inventa un dato**: `plantillaPorId` de `subtitles/estilos.ts` devuelve el predeterminado con un id
+  desconocido (nunca `null`): validar con `PLANTILLAS_SUBTITULO.some`. La de `lib/editor-video/plantillas.ts`, con el
+  mismo nombre, sí devuelve `null`.
+- **La máquina de escribir no va por letra**: revela una fracción de un tiempo total (`revelacionTexto`), así que un
+  texto más largo se escribe más rápido y el cursor que parpadea del Typewriter de Remotion no existe.
+- **Cargan en node** (verificado): `animaciones/{elegir,catalogo,calcular}`, `transiciones/{catalogo,claves,reglas}`,
+  `text/{estilos-predefinidos,typography}`, `subtitles/estilos`, `params/extra/{recorte,animaciones,texto}`,
+  `recorte/geometria`, `timeline/placement/track-factory`.
+- `0.45*60` da 27.000000000000004: las comprobaciones en un borde justo necesitan tolerancia.
+**Tanda 2 (15/10, «Reemplazar el clip»; `_opencut/reemplazo/`, test `tests/video-editor-reemplazo.test.ts`, 31
+roturas):** se prendió «Reemplazar el clip» del menú, el botón «Sustituir» en las muestras de una plantilla y soltar
+un medio sobre una muestra; las tres entradas pasan por `reemplazarClip`. El clip conserva id, inicio, duración,
+transición, animaciones, efectos, máscaras, fotogramas y velocidad; un video más corto que lo que el clip recorre de
+fuente (duración × velocidad media, también con curva) se rechaza, como CapCut; una muestra cubre el rectángulo donde
+se ve HOY (aunque la hayan movido).
+- ⚠️ **El diagnóstico obvio («al rearmar los params, excluir `audio.normalizar` y `revertir.*`») era el
+  equivocado**: esos dos no son params declarados y nunca pasaban. El riesgo real era el contrario: las marcas
+  `plantilla.*` tampoco son declaradas, y al rearmar los params desde los defaults del tipo un hueco dejaba de serlo.
+  Regla: quien rearma los params desde los defaults lleva a mano las marcas no declaradas (`reemplazo/puro.ts` →
+  `paramsConservados`; lo mismo `clip.silenciadoAntes`).
+- **Un filtro que vive en la pantalla no lo ve ningún test**: la grilla del diálogo filtraba en el componente; una
+  rotura no cayó hasta pasarlo a una función pura (`mediosParaReemplazo`).
+- **SIN HACER:** `rectoMostrado` no mira el giro ni los fotogramas de posición o escala (si un hueco los tiene, pisan
+  el transform nuevo); reemplazar un video al que se le extrajo el audio deja ese audio viejo con la misma marca
+  (suenan los dos); si el panel derecho y el decodificador aguantan que un clip pase de foto a video con el mismo
+  id; nada se vio en el navegador.
+
+- **SIN HACER de la tanda 1**: la zona segura se probó con anchos de letra ESTIMADOS (verla en el navegador); en el
+  peor caso (24 caracteres en Montserrat 60) un beneficio puede partirse en dos renglones y pisar al siguiente.
+
+**Tanda 3 (15/10, la pestaña «Plantillas» y «Utilizar plantilla»; `_opencut/plantillas/{uso,dibujo,muestras,instanciar,registro}.ts`,
+`plantillas/components/`, `app/video-editor/plantilla/ArmarPlantilla.tsx`, test `tests/video-editor-plantillas-uso.test.ts`, 28 roturas):**
+- ⚠️ **El historial de deshacer nunca se vacía al cambiar de proyecto**: `CommandManager.clear()` no lo llama nadie
+  (`core/managers/commands.ts`, `project-manager.ts`). Abriendo B en la misma pestaña, Ctrl+Z aplica sobre B las pistas
+  de A. **Arreglado el 15/10**: `ProjectManager` lo vacía al crear, abrir y cerrar un proyecto (CapCut tampoco
+  conserva el deshacer entre proyectos); `tests/video-editor-historial.test.ts` lo REPRODUCE con el CommandManager
+  de verdad (carga en node) y un editor de mentira. No visto en el navegador.
+- ⚠️ **«Para ir a un proyecto nuevo alcanza con `router.push`» era el diagnóstico equivocado**: la salida de
+  `editor-page.tsx` corre una microtarea DESPUÉS de desmontarse y actúa sobre el proyecto activo; si el componente
+  nuevo crea su proyecto en el mismo ciclo, la salida le haría la miniatura y lo guardaría a medio armar. Regla:
+  cerrar el proyecto antes de navegar (`prepareExit`, `save.flush`, `closeProject`), o esperar una vuelta del bucle.
+- **Una línea de un plan queda vieja**: el plan decía «cargar las fuentes al montar, como `biblioteca-estilos.tsx`»,
+  justo lo que colgaba la pestaña. Las líneas de un plan se releen contra los hallazgos posteriores.
+- **Probar una transformación con datos que ya la cumplen no prueba nada**: las muestras del catálogo vienen en
+  mayúscula, así que sacar las mayúsculas no rompía nada hasta sumar un dato en minúscula.
+- **Cargan en node:** `text/revelado`, `plantillas/{uso,dibujo}`. **No:** `media/processing`, `subtitles/insert`.
+- **CapCut 9.6 está instalado en la máquina** (`C:/Users/marti/AppData/Local/CapCut/Apps/9.6.0.4097/Resources/po/es-LA.po`):
+  `template_pc` «Plantillas», `pc_lyrics_loading_add_effect` «Aplicando plantillas…», `pc_template_editor_material_be_replaced`
+  «%1 clips por reemplazar».
+- **SIN HACER:** todo lo visual en el navegador; la miniatura no dibuja transiciones, brillo ni curva; las muestras
+  se guardan por proyecto en OPFS y nadie las recolecta.
+
+**Tanda 4 (15/10, el chat y la API; tests 43–50 del chat, 28 roturas):** el chat suma `usar_plantilla` (sólo con la
+línea de tiempo vacía; si viene con otras operaciones, va la plantilla y lo demás se descarta con su motivo) y
+`reemplazar_clip` (el comando del menú); la vista marca `hueco`/`muestra` y lista los `medios` (m1, m2…); un
+`cambiar_texto` en un hueco se vuelve a partir y ubicar con su ancla. La API de MaKo suma `listar_plantillas_video`
+(gratis, tab `video-editor`, las 7 con sus huecos); USAR una plantilla por la API sigue sin poder (el proyecto vive en
+el navegador).
+- ⚠️ **El fin de línea medido con Git Bash miente**: `grep -c $'\r'`, `sed -n` y `od -c` no mostraban CR en
+  `PanelChat.tsx` y node lo leía CRLF (un reemplazo con `\n` daba «0 veces»). Regla: se mide con node.
+- **Una operación que cambia el TIPO de un clip lo cambia también en la simulación de la revisión** (una muestra-foto
+  reemplazada por un video seguía «imagen» y un «silenciar» del mismo pedido se descartaba; `simularReemplazo`).
+- **Un comando que puede no hacer nada dentro de un lote se verifica después por su efecto** (`ReemplazarClipCommand`
+  devuelve `undefined` en silencio; `aplicar.ts` dice «no se pudo reemplazar X»).
+- **Exponer una operación por HTTP pide cuatro cosas**: la def, el runner, la ruta en `lib/api-mako/rest.ts` (sin
+  ella falla `api-mako-rest`) y regenerar `docs/api-mako.md` y el snapshot. Y `lib/api-mako/` NO entra en
+  `tsconfig.ve.json`: para revisarlo, sumarlo un momento al `include`.
+- **SIN HACER:** verlo en el navegador (`usar_plantilla` por chat, un reemplazo en un lote, el texto de un hueco
+  re-partido); partir una muestra y reemplazarla (la revisión no ve la mitad derecha; el chequeo de después lo dice);
+  si por WhatsApp «qué plantillas de video hay» llega a la herramienta nueva.
 
 ## Lottie en un editor de VIDEO: qué aporta si la pieza termina en mp4
 
@@ -1131,9 +1408,9 @@ la GPU de MediaPipe, 1080p30, el alfa en el compositor y el cuentagotas (`fondo/
 
 **Subtítulos y Texto a voz**
 - Bilingües, palabras clave y Emojis de IA apagados (`subtitles/components/assets-view.tsx`).
-- Con los tiempos por palabra ya guardados (15/10): falta resaltar palabras (tipo karaoke y palabras clave),
-  «Eliminar las muletillas» del VIDEO (los tiempos ya están guardados y marcados) y la edición basada en la
-  transcripción. Modelo fijo whisper-small, ≈250–300 MB la primera vez (`transcription/models.ts`).
+- Karaoke, «Eliminar las muletillas» del video y la edición por transcripción: hechos el 15/10 (arriba, con
+  lo que les falta). Sigue sin hacer resaltar palabras CLAVE. Modelo fijo whisper-small, ≈250–300 MB la
+  primera vez (`transcription/models.ts`).
 - Texto a voz no avisa que el plan gratis de ElevenLabs no tiene licencia comercial
   (`subtitles/components/texto-a-voz.tsx`).
 

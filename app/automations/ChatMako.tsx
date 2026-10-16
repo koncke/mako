@@ -465,7 +465,8 @@ export function TarjetaPregunta({ pregunta, onElegir, onOtraCosa, deshabilitado 
 function FasesIA({ estado, segundos, onCancelar }: {
   estado: Extract<EstadoIA, { t: 'trabajando' }>; segundos: number; onCancelar: () => void;
 }) {
-  const actual = estado.fase ? ORDEN_FASES.indexOf(estado.fase) : -1;
+  // «Pensando la respuesta» ocupa el punto de «Escribiendo el flujo»: es la misma vuelta del modelo.
+  const actual = estado.fase ? ORDEN_FASES.indexOf(estado.fase === 'respuesta' ? 'modelo' : estado.fase) : -1;
   return (
     <div style={S.fases} role="status" aria-live="polite" data-crear-ia-fases="">
       <span aria-hidden style={S.puntos}>

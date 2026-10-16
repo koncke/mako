@@ -37,6 +37,7 @@ import { HtmlCrudo, escaparTexto, htmlDeArbol, type AttrsArbol, type HijoArbol, 
 import { sanearConfig } from './validar';
 import { urlBloqueHtmlLibre } from './html-libre';
 import { productoDeHref, urlPasoPago } from './pago-landing';
+import { animacionDeSeccion } from './animaciones';
 
 export { ORIGEN_IMAGENES, origenImagenes, srcPermitido, hrefPermitido } from './especificacion';
 export type { ModoRender } from './especificacion';
@@ -75,6 +76,13 @@ export type OpRender = {
    * cobra), y el botón queda en `#`.
    */
   pagos?: boolean;
+  /**
+   * Sólo para `htmlDeTarjeta` (una sección suelta: la tile del panel de animaciones, Presentar, un PNG): con qué
+   * configuración de la landing y en qué lugar entre las visibles se resuelve su animación (`animacionDeSeccion`).
+   * Sin esto, la sección suelta sale sin `data-anim`. `htmlDePagina` no lo necesita: usa la config de la landing y
+   * cuenta las secciones visibles.
+   */
+  animacion?: { pagina: { animaciones: boolean; estiloAnimacion?: unknown }; indice?: number };
 };
 
 /** La dirección de MaKo del sello «Hecho con MaKo». */
@@ -416,6 +424,10 @@ function pieArbol(texto: string): NodoArbol {
 export function htmlDeTarjeta(tarjeta: JsonNodo, tema: Tema, op?: Partial<OpRender>): string {
   if (!esObj(tarjeta) || tarjeta.type !== NODO.tarjeta) return '';
   const ctx = ctxDe(op, tema, idConFormulario([tarjeta]));
+  if (op?.animacion && esObj(op.animacion.pagina)) {
+    const indice = typeof op.animacion.indice === 'number' && op.animacion.indice >= 0 ? Math.floor(op.animacion.indice) : 0;
+    ctx.spec.seccion = { indice, animacion: animacionDeSeccion(attrsTarjeta(tarjeta.attrs), op.animacion.pagina, indice) };
+  }
   const seccion = htmlDeNodo(tarjeta as unknown as Record<string, unknown>, ctx, 0);
   if (!seccion) return '';
   return raiz(htmlDeArbol(['div', { class: 'gm-fondo' }, ['div', { class: 'gm-pagina' }, 0]], seccion), tema, ctx);
@@ -430,7 +442,17 @@ export function htmlDePagina(pagina: Pagina, config: ConfigLanding, tema: Tema, 
   const tarjetas = tarjetasDePagina(pagina);
   const ctx = ctxDe(op, tema, idConFormulario(tarjetas));
   const cfg = sanearConfig(config).config;
-  const secciones = tarjetas.map((t) => htmlDeNodo(t, ctx, 0)).join('');
+  // Cada sección con su lugar entre las VISIBLES (el orden que ve quien entra: una oculta no cuenta, ni cuando la
+  // tira la dibuja) y su animación resuelta con el estilo de la landing (animaciones.ts). Con el interruptor
+  // apagado, `animacionDeSeccion` no devuelve nada y no sale `data-anim`.
+  let visibles = 0;
+  const secciones = tarjetas.map((t) => {
+    const a = attrsTarjeta(t.attrs);
+    const indice = visibles;
+    if (!a.oculta) visibles++;
+    ctx.spec.seccion = { indice, animacion: animacionDeSeccion(a, cfg.pagina, indice) };
+    try { return htmlDeNodo(t, ctx, 0); } finally { ctx.spec.seccion = undefined; }
+  }).join('');
   const nav = cfg.sitio.nav.mostrar ? navArbol(cfg, ctx) : null;
   const pieTexto = cfg.sitio.pie.texto.trim();
   const fondoImagen = srcImagen(cfg.pagina.fondoImagen);

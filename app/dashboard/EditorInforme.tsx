@@ -115,6 +115,7 @@ import { accionInicial, entidadDeGrafico, piezaInicial, type SelDetalle } from '
 import { CuerpoGrafico, esTarjetaNumero, ocultaSiCero, type EstadoDatos } from './Grafico';
 import { CuerpoElemento, IconoElemento, PropsElemento, type ContextoElemento } from './Elemento';
 import { CrearHoja, NuevaHoja } from './NuevaHoja';
+import type { SenalesNegocio } from '@/lib/plantillas-sugeridas';
 import { ChatMakoGrafico, LogoMako, PanelAnalista, PuntoNuevo, useAnalisisNuevo } from './PanelAnalista';
 import { BarraControles } from './BarraControles';
 import { MenuFiltro } from './MenuFiltro';
@@ -138,6 +139,7 @@ import { conBusqueda, contextoDeGrafico, csvDeHoja, enOrden, idBusquedaDe, loQue
 import { crearColaGuardado, leerRespuestaGuardado, type ColaGuardado } from './guardado';
 import { pedidoDeLectura, type Compartido } from './lectura-compartida';
 import { AccionesFilaProvider } from './entidades/acciones-fila';
+import { ELEMENTOS_ALTO_LIBRE_EN_PILA, graficoAltoLibreEnPila, solosEnPila } from './pila';
 import { PASOS_DASHBOARD, PASOS_DASHBOARD_EDICION, RECORRIDO_DASHBOARD, RECORRIDO_DASHBOARD_EDICION } from './recorridos-dashboard';
 import { hojaConIdsNuevos } from '@/lib/graficos-copia';
 import { tokenDeDashboard } from './copia-dash-cliente';
@@ -218,10 +220,7 @@ function conIdsNuevos(c: Componente): Componente {
   return esGrafico(c) && c.popup ? { ...base, popup: { ...c.popup, componentes: c.popup.componentes.map(conIdsNuevos) } } as Grafico : base;
 }
 const altoDe = (h: number) => h * FILA + (h - 1) * MARGEN;
-/** Los tipos que en la pila del celular miden lo que dibujan (HTML que se mide solo; nada que necesite un alto para dibujar). */
-const ALTO_LIBRE_EN_PILA: ReadonlySet<string> = new Set(['barra_proporcion', 'numero', 'numero_compacto']);
-/** Los elementos que en la pila miden lo que dibujan (un bloque de General también; una forma o un video, no: su caja ES su tamaño). */
-const ELEMENTOS_ALTO_LIBRE_EN_PILA: ReadonlySet<string> = new Set(['texto', 'enlace', 'seccion', 'accion']);
+// Qué mide lo que dibuja en la pila del celular: ./pila.ts (lo lee también el arnés de capturas).
 /** El `title` de un ícono suelto de la barra de inserción: la acción y su objeto («Insertar imagen»). */
 const etiquetaInsertar = (t: TipoElemento) => (t === 'insertado' ? 'Insertar una página o un código' : `Insertar ${(TIPOS_ELEMENTO.find((x) => x.id === t)?.nombre ?? t).toLowerCase()}`);
 function descargar(texto: string, nombre: string, tipo: string) {
@@ -294,6 +293,7 @@ function nuevoElementoEn(t: TipoElemento, componentes: Componente[], dueno: Graf
 export function EditorInforme({
   inicial, datosIniciales, lecturaFallo, hoy, hojaInicial, versionInicial = null,
   hojaAgregada = null, aviso = null, soloLectura = false, llamadaInicial = null, compartido = null, sinPaginas = false, informe = 'dashboard',
+  senales = null,
 }: {
   inicial: Tablero;
   datosIniciales: Record<string, DatosGrafico>;
@@ -323,6 +323,8 @@ export function EditorInforme({
    * (lib/general-piezas.ts).
    */
   informe?: 'dashboard' | 'general';
+  /** Lo que se sabe del negocio para que la galería ponga primero sus sugeridas (lib/plantillas-sugeridas.ts). */
+  senales?: SenalesNegocio | null;
 }) {
   // El informe del primer render: el que vino, más la hoja que pidió el link si no estaba.
   const [arranque] = useState<Tablero>(() => conHojaAgregada(inicial, hojaAgregada));
@@ -957,6 +959,8 @@ export function EditorInforme({
   // El que el recorrido señala: el primero EN PANTALLA (arriba a la izquierda), no el primero del arreglo,
   // que puede ser el último que se agregó y estar abajo de todo. El de MaKo, el primero QUE LO TIENE.
   const ordenados = enOrden(visibles);
+  // En la pila del celular, el número que queda SOLO en su fila (el último de un grupo impar) va a lo ancho (./pila.ts).
+  const solosPila = solosEnPila(ordenados, (c) => esGrafico(c) && esTarjetaNumero(c.tipo) && !(c.w >= 6 && c.h >= 5) && !marcoDePortada(c));
   const primerGrafico = ordenados.find(esGrafico)?.id ?? null;
   const primerConMako = ordenados.find((c): c is Grafico => esGrafico(c) && conMako(c) && !!datos[c.id]?.resultado)?.id ?? null;
   const alternarEdicion = () => { setEditando((v) => !v); setSelId(null); setConSel(null); setConectando(null); setEditPopup(null); setMenu(null); setDetalle(null); };
@@ -1089,7 +1093,7 @@ export function EditorInforme({
     // La posición en la grilla del PDF (editor-css.ts): el lugar de la tarjeta, en columnas y filas.
     // En la pila, una tarjeta mide el alto de la grilla; la barra de proporción, lo que dibuja (con ese piso): a 364 px su
     // leyenda de dos partes pide dos renglones y con 3 filas el segundo quedaba cortado.
-    const altoLibre = enPila && esGrafico(c) && ALTO_LIBRE_EN_PILA.has(c.tipo);
+    const altoLibre = enPila && esGrafico(c) && graficoAltoLibreEnPila(c);
     // Un número (los cuadros de resultados) mide en la pila lo que dibuja, con el piso de una tarjeta de 3 filas: un CPM de
     // 3 × 6 (alto para acompañar al embudo en el escritorio) eran 276 px de celular para un número.
     // La PORTADA (lib/graficos-identidad.ts): la tarjeta se pinta con su color; en la pila mide menos que en el escritorio.
@@ -1128,7 +1132,7 @@ export function EditorInforme({
     const tono = filete ? colorDeTono(tonoDe(c.fuente, c.metricas[0]), hoja.tema) : null;
     // Un número de media hoja o más es el TITULAR de la hoja (lib/graficos-plantillas.ts, TITULARES): en la pila del celular va a
     // lo ancho, no de a dos como los otros números.
-    const clases = ['lk-comp', kpi && 'lk-comp--kpi', kpi && c.w >= 6 && c.h >= 5 && 'lk-comp--titular', kpi && !portada && estilo.kpiEtiqueta === 'mono' && 'lk-comp--mono', filete && !portada && 'lk-comp--filete', portada?.clase, (elegido || marcada) && 'lk-comp--sel'].filter(Boolean).join(' ');
+    const clases = ['lk-comp', kpi && 'lk-comp--kpi', kpi && c.w >= 6 && c.h >= 5 && 'lk-comp--titular', enPila && solosPila.has(c.id) && 'lk-comp--solo', kpi && !portada && estilo.kpiEtiqueta === 'mono' && 'lk-comp--mono', filete && !portada && 'lk-comp--filete', portada?.clase, (elegido || marcada) && 'lk-comp--sel'].filter(Boolean).join(' ');
     // La barra de búsqueda de una tabla (interfaz I2): lo escrito va a la VISTA, en el control de su barra
     // (`idBusquedaDe`/`conBusqueda`, ./exportar.ts). Sin ese control (sobre el campo ya hay otro filtro), no hay barra.
     const conBarra = !!c.tabla?.buscar && !!idBusquedaDe(c);
@@ -1311,7 +1315,7 @@ export function EditorInforme({
               // pongas ahí el "¿Qué vas a crear hoy?"». La caja y, abajo, las plantillas como páginas: la portada del Landing
               // Generator. Es la MISMA pieza que el modal «Nueva hoja» (`CrearHoja`, ./NuevaHoja.tsx), sin foco al abrir.
               <div className="lk-en-blanco lk-en-blanco-crear" onClick={(e) => e.stopPropagation()}>
-                {guardable && <CrearHoja onCrear={crearHoja} enBlanco="Página 1" informe={informe} />}
+                {guardable && <CrearHoja onCrear={crearHoja} enBlanco="Página 1" informe={informe} senales={senales} />}
               </div>
             ) : !lienzo.componentes.length ? (
               <div className="lk-vacio">
@@ -1523,7 +1527,7 @@ export function EditorInforme({
       {/* ── Los modales ── */}
       {guardable && <BotonCompartir hojaId={hoja.id} titulo={hoja.nombre} abierto={compartir} onCerrar={cerrarCompartir} />}
       {modalDatos && <ModalDatos onElegir={anadirFuente} onCerrar={cerrarModalDatos} soloFuentes={esGeneral ? FUENTES_GENERAL : undefined} />}
-      {nuevaHoja && <NuevaHoja onCerrar={cerrarNuevaHoja} onCrear={crearHoja} enBlanco={enBlanco ? 'Página 1' : `Página ${tablero.hojas.length + 1}`} informe={informe} />}
+      {nuevaHoja && <NuevaHoja onCerrar={cerrarNuevaHoja} onCrear={crearHoja} enBlanco={enBlanco ? 'Página 1' : `Página ${tablero.hojas.length + 1}`} informe={informe} senales={senales} />}
       {gDetalle && esGrafico(gDetalle) && detalle && (
         <DetalleModal g={gDetalle} hoja={hoja} efectivo={efectivosHoja[gDetalle.id] ?? efectivoDe(gDetalle, hoja, vista, hoy)} sel={detalle.sel} tema={hoja.tema}
           onCerrar={cerrarDetalle} onCambio={refrescar} onFiltrar={filtrarPor} />

@@ -77,6 +77,8 @@ const EDICIONES = [
   'agregar_bloque_landing', 'acomodar_bloque_landing', 'poner_enlace_landing', 'configurar_formulario_landing',
   'configurar_boton_landing', 'quitar_cobro_landing', 'acomodar_pagina_landing', 'cambiar_tema_landing',
   'configurar_landing', 'configurar_sitio_landing', 'configurar_navegacion_landing',
+  // Las animaciones (15/10/2026; su test es tests/api-mako-landing-animacion.test.ts).
+  'cambiar_animacion_landing',
 ];
 
 const accion = (id: string): AccionDef => {

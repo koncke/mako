@@ -2318,6 +2318,116 @@ de la conversación se usa), y conviene mirarlo **antes** de que fuerce un upgra
 **⚠️ Pendiente: versionado de la app.** Que al pushear se refresquen solas las tabs y aparezca un
 modal fijo de «nueva versión disponible, actualizá», con numeración de versiones (2026-07-16).
 
+### ⚠️ El tope de heap del build es POR HEAP, no del build: 4096 no garantiza entrar en 8 GB (15/10/2026)
+
+**Síntoma:** pushes verdes que no llegaban a producción; el deploy terminaba en `out_of_memory` a los
+~7 min, y uno colgado 29 min trabó la cola. Se curó con `NODE_OPTIONS=--max-old-space-size=4096` en
+el proyecto de Vercel (Production y Preview); 7168 murió en 2 min.
+
+**Por qué 7168 fue peor, leído en el código de Next 16.2.6** (no medido en Vercel): el tope lo
+heredan el hilo principal y el worker de Turbopack, que corre como hilo con su propio heap
+(`turbopackBuildWithWorker`, `isolatedMemory: false`, `enableWorkerThreads: true`, en
+`node_modules/next/dist/build/turbopack-build/index.js`; se usa salvo `NEXT_TURBOPACK_USE_WORKER=0`).
+Los workers de páginas estáticas lo **sacan** (`isolatedMemory: true` en `build/index.js`, con el
+comentario «remove --max-old-space-size flag as it can cause memory issues»). Y la memoria nativa de
+Turbopack (Rust) no la limita ningún flag de V8. O sea: con 4096 el techo teórico son dos heaps de 4
+GB **más** lo nativo **más** los workers de páginas, en una máquina de 8. Anda porque no se llenan a
+la vez, no porque entre por construcción.
+
+**El margen no está medido.** Vercel no informa la memoria de un build, y Next sólo la reporta con el
+flag `--experimental-debug-memory-usage` de la línea de comandos (no hay variable que lo prenda), así
+que medirlo exige un deploy de preview con ese comando. Lo que sí hay: los builds de la hora siguiente
+salieron Ready en 1-2 min.
+
+**Lo que quedó:** la regla en AGENTS.md («El build de Vercel tiene un tope de memoria que NO está en el
+repo»), y `next.config.ts` avisa en el log si el build corre en Vercel sin el tope
+(`tests/build-tope-memoria.test.ts`, que carga la config en un node aparte con y sin la variable).
+Palanca gratis por probar si vuelve a morir: `NEXT_TURBOPACK_USE_WORKER=0`. Subir la máquina es de Martín.
+
+**Vive en:** el proyecto de Vercel (Environment Variables) · `next.config.ts` · *2026-10-15*
+
+### El typecheck se fue de la notebook: rama `integracion` + GitHub Actions + fast-forward (15/10/2026)
+
+**Síntoma:** el push del coordinador murió con 240 MB libres. El `tsc` completo pide 3-5 GB, la
+notebook de 16 GB la comparten 10-20 chats, y el pre-push era el único lugar donde corría.
+
+**Lo que se armó** (decidido por el coordinador en nombre de Martín, dentro del tier gratis):
+se pushea a `integracion`; `.github/workflows/integracion.yml` corre `next typegen` (los tipos de
+rutas que en la notebook deja `.next/`), `tsc`, las guardas y los tests, y si da verde hace
+`git push origin HEAD:refs/heads/main`, que sin `--force` sólo puede ser fast-forward. Las doce
+guardas del pre-push salieron del hook (que no se versiona) a `scripts/guardas-push.sh`, que
+corren los dos. El pre-push local (copia versionada en `scripts/claude-hooks/pre-push`) corre el
+`tsc` sólo si el push va a `main`: el camino de emergencia queda protegido igual que antes.
+`vercel.json` apaga los deploys de `integracion`.
+
+**Lo medido de GitHub, por la API con la credencial del clon:** el repo es privado y su dueño
+`hola-mako` es una cuenta de USUARIO, no una organización (Free: 2.000 min/mes de Actions); `main`
+no tiene protección (en privado Free no se puede: las reglas piden Pro), así que el
+`GITHUB_TOKEN` puede avanzarla. La credencial del clon pushea pero no es admin: los ajustes de
+Actions del repo no se pudieron leer.
+
+**Medido en los primeros runs (coordinador, 15/10 a la noche):** el run 38825749646 dio verde —
+tipos y **10.500 tests en ~10 min**—, avanzó `main` a `24c0ad441` por fast-forward, y **Vercel
+desplegó solo el push que hizo Actions** (Ready): lo que estaba sin medir quedó confirmado. El
+primero había caído por UN test que armaba su cwd con `.pathname.replace(/^\//, '')`: en Linux
+deja una ruta relativa y `git` da ENOENT (arreglado con `fileURLToPath` en
+`fuentes-sin-next-font`; la regla, en AGENTS.md). El segundo se canceló por un rojo REAL de
+Automations, y el sistema hizo lo que tenía que hacer: `main` no avanzó. Barrido después: no
+queda ningún test con la forma rota (`.pathname.replace(/^\/([A-Za-z]:)/, '$1')`, la variante
+que aparece en dieciséis tests, anda en los dos sistemas porque en Linux no toca nada); el único que daba
+un verde vacío en Linux era el del pre-push, que leía `.git/hooks/pre-push` y ahí se salteaba:
+ahora lee la copia versionada, y otro test exige que el instalado sea igual a ella. Con ~10 min
+por run, los 2.000 minutos alcanzan para ~200 pushes por mes.
+
+**Y la misma trampa del lado de los DATOS (16/10).** El run 38845971505 cayó por
+`tests/tsc-acotado.test.ts` —escrito por mí la noche después de la regla de las rutas—, que fijaba
+`REPO = 'C:\\repo\\dashboard-marketing'` y lo pasaba por `resolve`: en Linux es una ruta relativa y
+`resolve` le pegó el cwd del runner (2 rojos; lo arregló el coordinador con
+`resolve('/repo/dashboard-marketing')`). Quedó una guarda en el push,
+`scripts/rutas-windows-en-tests.mjs` (~1 s, sin tsx): frena un literal `C:\…` o `C:/…` en `tests/`
+fuera de los comentarios, salvo los archivos de su lista `PERMITIDOS` con el motivo. Medido sobre
+996 tests: 7 archivos tienen literales así y los 7 son datos, no rutas (nombres que manda el
+navegador, el cwd que guarda una sesión, los casos de la guarda). ⚠️ El primer patrón daba un
+falso positivo: `` `… \`m:\` …` `` (una comilla invertida escapada en un template de
+`instagram-buscar`) se leía como `m:\`; ahora después de `X:` tiene que venir `/`, `\\` o una barra
+seguida de un carácter de ruta, nunca de una comilla.
+
+**Y un rojo que se ve en segundos no puede costar un run.** El run 38830968542 cayó en «Tipos»
+por un hito `tipo: 'prompt'` sin `puntos` en `app/admin/dev/chatbot/bitacora.ts` (TS2741), la
+misma trampa que frenó tres pushes el 14/10. Las bitácoras se escriben a mano en cada tanda y son
+lo que más se rompe así, así que la primera guarda barata del push es ahora un `tsc` ACOTADO a
+ellas (`scripts/tsc-bitacoras.mjs` + `scripts/tsconfig.bitacoras.json`, que extiende el
+principal e incluye sólo las 55): **3,8 s y 291 MB de pico**, medido sobre el árbol bueno (0); un
+hito sin `puntos` da 1 con el TS2741 exacto. Si el `tsc` no termina (código 1 y cero salida: lo
+mató el vigía; o sin heap), el push sigue: no es un error de tipos y Actions corre el completo.
+
+**Y el acotado que usa cada chat para validar tenía su receta sólo en la memoria (16/10).** Cada
+uno armaba su tsconfig temporal a mano, y el Web Generator midió dos falsos rojos que salían de la
+receta y no del código. Medido después en un worktree con `app/web-generator/editor/insertar.ts`:
+
+| Versión de `insertar.ts` | Sin `typeRoots`/`types` | Con `typeRoots` + `types: ["node"]` |
+|---|---|---|
+| la de `main` (sin importar los comandos de TipTap) | 5 errores TS2339/TS2551 | 5 errores TS2339/TS2551 |
+| con `import type` de esos comandos (`563c873ad`) | 1: TS2580 `process` | **0** |
+
+Son dos causas distintas y cada una tapa a la otra: los `declare module` de las extensiones de
+TipTap no existen para un archivo compilado solo, y los tipos de Node entran en el completo por
+`next-env.d.ts`, que un tsconfig fuera del repo no ve. La segunda la resuelve el script nuevo
+(`scripts/tsc-acotado.mjs`, que además trae el `"include": []` y sale 99 si el `tsc` no terminó);
+la primera no se puede resolver sola, y el script lo dice al final cuando hay errores. La receta,
+en AGENTS.md → «Para validar lo tuyo sin el tsc completo».
+
+**El vigía, en la misma tanda:** se levanta solo (un disparador cada 5 min además del de inicio de
+sesión: el 13/10 estuvo 6 horas muerto con un solo disparador; probado matándolo, volvió en 21 s),
+prefiere matar un `tsc` que corre FUERA del lock antes que el del pre-push (el del lock se
+reconoce porque su padre es `typecheck-lock.mjs`), y como `Stop-ScheduledTask` ya no lo pausa, se
+pausa con el archivo `~/.claude/guardia/vigia-pausa` (vale 45 min). Y una trampa que se vio esa
+noche: la RAM llegó a 447 MB con la memoria repartida en 24 `node` medianos (4,9 GB, ninguno de
+más de 400 MB), y el vigía, que mata de a uno al más grande, no encontró nada que matar.
+
+**Vive en:** `.github/workflows/integracion.yml` · `scripts/guardas-push.sh` ·
+`scripts/claude-hooks/pre-push` · `~/.claude/guardia/vigia.ps1` · *2026-10-15*
+
 ---
 
 ## Zonas horarias
@@ -4148,6 +4258,27 @@ formas, da 1 fallo cada una.
 **Vive en:** `~/.claude/guardia/` · `~/.claude/settings.json` · `scripts/typecheck-lock.mjs` ·
 *2026-10-11*
 
+#### 15/10: «se cayó a las 19:09» fue un CAMBIO DE CUENTA, y el relevo veía caídas que no eran
+
+Lo que se reportó como caída fue el logout para pasar a la cuenta 3: el log dice
+`Navigated to /logout` → `Login-state transition (loggedOut: false → true` a las 19:09:09, y el
+proceso principal de la app (`electron_main:25024` en las líneas `process-memory`) es **el mismo
+antes y después**. Los chats sí se cortaron —11 de 13 procesos de chat arrancaron de nuevo a las
+19:2x—, así que despertarlos estuvo bien; lo que estaba mal era el diagnóstico.
+
+⚠️ **Y la segunda instancia ya no dice `Not main instance`** (app 2.4x). Un «Starting app» de un
+clic en un link `claude://` o de la vuelta de un login se leía como arranque: el de las 13:12, con la
+app viva, le mandó «retomá» a un chat que no se había cortado. Lo que no miente es el PID del proceso
+principal: un arranque de verdad lo cambia. Ese día hubo **una sola caída real** (13:19-13:20, PID
+15484 → 18532) y una actualización (17:13).
+
+El relevo ahora: descarta los arranques con el mismo `electron_main`, trata el logout como corte
+propio (`tipo: 'cuenta'`, y si la app además se reinicia dentro de los 2 min, también es «cuenta»), y
+—desde el 14/10, de otra sesión— no lista chats de otra cuenta, porque desde ésta no se pueden
+despertar. Probado contra los cuatro eventos del 15/10 con `diagnostico --hasta`.
+
+**Vive en:** `~/.claude/guardia/relevo.mjs` (copia en `scripts/claude-hooks/guardia/`) · *2026-10-15*
+
 ## La integración con Claude nunca funcionó desde afuera
 
 **Vive en:** `lib/rutas-publicas.ts` · `proxy.ts` · `tests/rutas-publicas.test.ts`
@@ -5185,6 +5316,20 @@ Y un `sinComentarios` que borra los bloques `/* … */` enteros corre los númer
 nombra otra línea (medido: `:99` sobre la 128). Se vacía el bloque conservando sus saltos
 (`m.replace(/[^\n]/g, '')`); `sin-clarity` todavía tiene el corrimiento.
 
+**Y se come código (16/10/2026).** El mismo `sinComentarios`, con `/\/\*[\s\S]*?\*\//g`, saca un «comentario»
+desde CUALQUIER `/*` del archivo:
+
+- **Dónde muerde.** `accept=".pdf,image/*"` abre uno en el medio de un atributo. El regex borra hasta el próximo `*/`,
+  que puede estar cien líneas más abajo.
+- **Cómo se vio.** El test de la tab Pagos (tests/pagos-tab-bloques.test.ts) decía «nadie marca dealFiscal» sobre un
+  archivo que sí lo marcaba.
+- **El peligro de verdad.** No es el `match` que falla: es el `doesNotMatch` que PASA. Un «no hay `router.refresh()`»
+  da verde sobre el código que el regex se comió.
+- **El tamaño.** Medido ese día: 584 tests usan ese regex, y 28 archivos de app/ y lib/ tienen un `/*` dentro de un
+  string.
+- **La regla.** Se sacan sólo los bloques que EMPIEZAN la línea (`/^[ \t]*\/\*[\s\S]*?\*\//gm`).
+- **⚠️ Pendiente.** Falta barrer los tests que leen esos 28 archivos.
+
 ## Verificar en un worktree: el dev server compartido, Turbopack y una corrida cortada por cuota (06/10/2026)
 
 **Vive en:** `next.config.ts` (`turbopack.root`) · `.next/dev/logs/next-development.log` ·
@@ -6145,6 +6290,15 @@ acotado dio `TS2339: Property 'toggleEtiqueta' does not exist on type 'ChainedCo
 errores. Un error del acotado en un archivo que la rama no tocó se mira así antes de reportarlo: `grep` del
 nombre que falta, y si aparece en un `declare module`, ese archivo va a la lista.
 
+**16/10/2026:** `insertar.ts` ya no depende de eso: importa SÓLO por tipos (`import type {} from …`) los tres módulos
+que declaran lo que encadena (StarterKit, `@tiptap/extension-list` y `extensiones/marcas.ts`). Medido: compilado solo
+daba 5 errores (las listas, la cita, las tareas y `toggleEtiqueta`; los demás acotados veían sólo el último porque su
+programa ya traía StarterKit), y con el arreglo, 0. **Regla para código nuevo:** un archivo que encadena comandos de una
+extensión los importa por tipos. Y otro falso rojo de la misma familia: sin `next-env.d.ts` tampoco entran los tipos de
+Node, y `process` falla («Cannot find name 'process'», `lib/editor-landing/especificacion.ts:235`). Si no se copia
+`next-env.d.ts`, alcanza con sumar al tsconfig temporal `"typeRoots": ["<repo>/node_modules/@types"]` (ruta ABSOLUTA:
+el json vive en el scratchpad y una relativa no encuentra nada, TS2688) y `"types": ["node"]`.
+
 **Vive en:** el tsconfig temporal de cada chat (scratchpad) · la memoria `pc-techo-ram-chrome`, que
 enseñaba la receta sin el `include` · *2026-10-14 Plan - Perro Guardián*
 
@@ -6247,6 +6401,7 @@ que ya estaban en `origin/main`. **Causa:** el orquestador sube rebaseando sobre
 hashes; el `main` local quedó con las versiones viejas, y el commit nuevo se hizo arriba de ellas. **Regla:** antes de
 apoyar una rama en el commit de otro chat, `git log --oneline origin/main..<ese commit>`. Si trae algo más que ese
 commit, NO se apoya: se rebasea ese commit solo sobre `origin/main`, o se deja que suba primero. · *15/10/2026, chat «Ciberseguridad»*
+
 ## Un Workflow con `isolation: 'worktree'` muere ENTERO si el cwd de la sesión quedó fuera del repo (15/10/2026)
 
 **Síntoma:** una corrida de 6 agentes devolvió un informe que empezaba diciendo que la medición
@@ -6297,4 +6452,61 @@ transferencia).
 contando `ahead` muestra como trabajo pendiente lo que ya está hecho.
 
 **Vive en:** (proceso: git en el clon compartido)
-\n
+
+
+## Una pasada en producción con el Chrome de Martín: la sesión puede ser la de un CLIENTE, y `?ws=3` no avisa (15/10/2026)
+
+El 15/10 la pasada «en ws3» de Automations se hizo en realidad sobre el **ws1 de Mauricio**: el Chrome de Martín tenía
+abierta la sesión de Mauricio Bustos (rol `usuario`, `ws: 1`), no la de super admin. Para alguien que no es admin de
+agencia, `proxy.ts` no pone el header del `?ws=` (`lib/ws-tab.ts`) y la página muestra SU negocio sin decir nada. La
+lista se veía normal y con nombres plausibles («Un Lead Entró», «Un Lead Agendó Llamada»), que también existen en otros
+negocios.
+
+- **Lo delató la base, no la pantalla:** ws3 tenía cero automatizaciones vivas, y las que se veían (#198, #213) eran del
+  ws1. Después, `/api/auth/me` dijo `email` de Mauricio, `modoAgencia: false`, `ws: 1`.
+- **Lo que quedó escrito en su negocio:** dos mensajes en el chat de MaKo de la #198. Nada publicado.
+- **La regla:** antes de tocar algo en producción desde el Chrome real, `fetch('/api/auth/me')` y mirar `email`,
+  `modoAgencia` y `ws`. Si no es super admin, no se hace la pasada: se le pide a Martín la sesión.
+
+**Vive en:** `proxy.ts` (el header del `?ws=` sólo para admin de agencia) · `lib/ws-tab.ts` · `app/api/auth/me/route.ts`
+
+## Correr «los tests del tema» deja afuera a los que FIJAN LA FORMA del archivo que tocaste (15/10/2026)
+
+Una punta se dio por lista con «918 tests verdes», y tenía uno en rojo: `tests/crear-ia-preguntas.test.ts` fija con
+un regex la línea exacta del `traducir` de editar (`return { r, errores: erroresEdicion(base, r, ctx) };`), y el
+cambio la había tocado. Ese test es de las PREGUNTAS de MaKo, no del chat, así que no entraba en ningún `grep` del
+tema. Lo encontró otro `grep`, por casualidad.
+
+**La regla:** antes de dar una punta por buena, se corren los tests que LEEN cada archivo tocado
+(`grep -l "<ruta del archivo>" tests/*.test.ts`), no sólo los que hablan del tema. Y antes de pasársela a quien
+pushea, la suite entera con `--test-concurrency=2`, que entra en la RAM con muchos chats abiertos.
+
+## Un script de roturas no se corta con `head`, y un worktree no tiene `.env.local` (16/10/2026)
+
+- ⚠️ **`node romper-*.mjs | head -3` puede matar el script en la mitad de una rotura.** Cuando `head` cierra el pipe,
+  el próximo `console.log` del script falla. Si eso pasa entre «escribí el archivo roto» y «lo restauré», el árbol
+  queda roto sin que nada lo diga. Esta vez no pasó: el log va después de restaurar, y `git diff` lo confirmó. Regla:
+  - la salida va a un archivo del scratchpad y se lee después;
+  - el script restaura en un `finally` (scratchpad `romper-reporte.mjs`);
+  - al terminar, `git status` para ver que no quedó nada tocado.
+- **Los worktrees (`C:/dev/wt-*`) no tienen `.env.local`.** Un script que lee producción necesita la ruta de afuera:
+  `node --env-file=C:/dev/mako-api/.env.local --conditions react-server --import tsx <script>`, o el `--env=` del
+  script (scripts/mudanza-avisos-plataforma.mts). `dotenv` tampoco se resuelve desde un script del scratchpad,
+  porque busca los paquetes desde la carpeta del script. Con `--env-file`, Node lo carga solo.
+
+## Commitear por ruta con un archivo BORRADO: `git add` falla y `git commit --` no (16/10/2026)
+
+`git add -- <rutas>` con una ruta que ya no existe en el disco corta con «pathspec did not match» y no agrega
+NADA, aunque el borrado ya esté en el índice. **La regla:** `git add --` sólo con las rutas que existen, y
+`git commit -F <msg> -- <todas>`, borradas incluidas, que `git commit` sí acepta.
+
+*16/10/2026, chat «CRM» (claude3), al commitear la ficha por bloques (se fueron ResumenModal y resumen-actions).*
+
+## La emulación táctil de CDP queda pegada en la pestaña (16/10/2026)
+
+Después de `Emulation.setTouchEmulationEnabled({ enabled: true })`, volver a `false` en la misma pestaña no devuelve
+el puntero fino: los casos de escritorio midieron `matchMedia('(pointer: coarse)') = true`. **La regla:** lo
+táctil y lo de mouse se miden en pestañas distintas, o lo de mouse primero. Un «coarse: true» en un caso de
+escritorio es la emulación pegada, no la hoja.
+
+*16/10/2026, chat «CRM» (claude3), midiendo la ficha por bloques a 1280 y a 390 táctil.*

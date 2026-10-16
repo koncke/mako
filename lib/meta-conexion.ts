@@ -95,5 +95,11 @@ export async function guardarConexionMeta(
       throw e;
     }
   }
+  // Con Meta conectado arranca el histórico de leads y métricas, una sola vez y en segundo plano
+  // (lib/onboarding-extract.ts). Hasta el 16/10/2026 lo arrancaba sólo el wizard.
+  if (guardadas.length) {
+    const { arrancarHistoricoEnSegundoPlano } = await import('./onboarding-extract');
+    await arrancarHistoricoEnSegundoPlano(ws, 'meta');
+  }
   return { d, guardadas, conflictos };
 }

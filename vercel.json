@@ -1,5 +1,13 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "github": {
+    "silent": true
+  },
+  "git": {
+    "deploymentEnabled": {
+      "integracion": false
+    }
+  },
   "crons": [
     {
       "path": "/api/cron/avisos-programados",

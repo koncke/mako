@@ -72,7 +72,7 @@ const fuente = (...p: string[]) => readFileSync(resolve(raiz, ...p), 'utf8').rep
 
 test('la pestaña «Avatar de IA» está en la biblioteca, con su sección registrada e importada', () => {
   assert.match(fuente('app', 'video-editor', 'ce', 'ranuras.ts'), /\| 'avatar';/);
-  assert.match(fuente('app', 'video-editor', '_opencut', 'components', 'editor', 'panels', 'assets', 'assets-panel-store.tsx'), /"ajuste",\s*"avatar",\s*\];/);
+  assert.match(fuente('app', 'video-editor', '_opencut', 'components', 'editor', 'panels', 'assets', 'assets-panel-store.tsx'), /"ajuste",\s*"plantillas",\s*"avatar",\s*\];/); // «Plantillas» (tanda 3 de las plantillas) va entre las dos
   assert.match(fuente('app', 'video-editor', '_opencut', 'components', 'editor', 'panels', 'assets', 'tabbar.tsx'), /avatar: \{ etiqueta: "Avatar de IA"/);
   assert.match(fuente('app', 'video-editor', 'ce', 'extensiones.ts'), /import '\.\.\/_opencut\/avatar\/registro';/);
   const registro = fuente('app', 'video-editor', '_opencut', 'avatar', 'registro.ts');

@@ -23,14 +23,28 @@
 
 import 'server-only';
 import type { Ctx, Ejecutado, Runners, SalidaLectura } from '../tipos';
-import { getLead } from '@/lib/leads';
+import { getLead, logLeadEvent } from '@/lib/leads';
 import { listProductos } from '@/lib/productos';
 import {
   anularCobro, cancelarSuscripcionCobro, crearCobro, getCobro, linkDelCobro, listarCobros, pasarelasConectadas, reembolsarCobro,
 } from '@/lib/cobros';
 import { ESTADOS_COBRO, NOMBRE_PASARELA, esPasarela, rotuloEstado, type Cobro, type EstadoCobro, type Pasarela } from '@/lib/cobros-tipos';
-import { decidirCobro } from '@/lib/cobros-reglas';
-import { formatoMonto } from '@/lib/pasarela-moneda';
+import { decidirCobro, laCobraLaPasarela, mesesTranscurridos } from '@/lib/cobros-reglas';
+import { formatoMonto, normalizarMoneda } from '@/lib/pasarela-moneda';
+import { revalidateTag } from 'next/cache';
+import { TAG } from '@/lib/cache';
+import { getTenantDb } from '@/lib/workspace';
+import { hoyEnWorkspace } from '@/lib/timezone';
+import { ventaTipoDe, type VentaTipo } from '@/lib/venta-tipo';
+import { esCuotaDevuelta } from '@/lib/cobrado-lead';
+import {
+  anotarEnHistorial, cambiarEstadoSuscripcionManual, cortarRecordatoriosDeCuota, editarCuota, escribirCampoDeal, escribirObligacion,
+  escribirVenta, getPagosByLead, guardarMonedaDelNegocio, monedaDelNegocio, proteccionesDeCuotas, type CambioCampoDeal,
+} from '@/lib/pagos';
+import {
+  aplicarObligacion, esCampoLeadDeal, esParteObligacion, esSeccionDeal, lineasDeCuotas, nombreCuota, obligacionesDe, patchDeVenta,
+  rotuloCampoDeal, valorDeCampoDeal, CAMPOS_LEAD_DEAL, COLUMNA_SECCION, type CambioObligacion, type CambioVenta, type FilaVenta,
+} from '@/lib/pagos-campo';
 
 // ── helpers del archivo ───────────────────────────────────────────────────────
 
@@ -42,6 +56,13 @@ const s = (v: unknown): string | null => (typeof v === 'string' && v.trim() ? v.
 const noExisteCobro = (id: unknown) => `No existe el cobro #${String(id)} en este negocio. Pide listar_cobros para ver los del lead.`;
 const quien = (c: Cobro): string => c.nombre?.trim() || (c.lead_id ? `el lead #${c.lead_id}` : 'quien paga');
 const plata = (c: Cobro): string => `${formatoMonto(c.monto, c.moneda)}${c.tipo === 'suscripcion' ? ' por mes' : ''}`;
+const noExisteLead = (id: unknown) => `No existe el lead #${String(id)} en este negocio. Búscalo con buscar_leads.`;
+const ROTULO_TIPO: Readonly<Record<VentaTipo, string>> = { unico: 'pago único', suscripcion: 'suscripción', sin_cobro: 'sin cobro (becado)' };
+/** La caché de lecturas vence sola; esto la adelanta. NO `updateTag`: ejecutar() corre desde el webhook de WhatsApp o
+ *  desde HTTP, fuera de una server action (el mismo arreglo que crm.helpers.ts, `invalidar`). */
+function invalidarPagos(): void {
+  for (const t of [TAG.pagos, TAG.leads]) { try { revalidateTag(t, { expire: 0 }); } catch { /* vence por TTL */ } }
+}
 
 /** ejecutar() NUNCA lanza: si algo falla, ok:false con el motivo (la pendiente se
  *  resuelve y un «sí» repetido no la vuelve a correr). */
@@ -262,6 +283,300 @@ export const RUNNERS: Runners = {
     ejecutar: (payload, ctx) => seguro('cancelar la suscripción', async () => {
       const r = await cancelarSuscripcionCobro(ctx.ws, Number(payload.cobroId), autorDe(ctx));
       return { ok: r.ok, resumen: r.resumen, datos: { cobroId: Number(payload.cobroId) } };
+    }),
+  },
+
+  // ── Pagos CAMPO POR CAMPO (14/10/2026): la misma escritura que los bloques de la tab Pagos (lib/pagos.ts) ────
+  // preparar() valida contra la base lo que se puede saber sin escribir (el lead de ESTE negocio, la cuota, el
+  // renglón, el tipo de venta) y deja en el payload lo que la pantalla vio, para el compare-and-set al confirmar.
+
+  ver_moneda_negocio: {
+    leer: async (): Promise<SalidaLectura> => {
+      const moneda = await monedaDelNegocio();
+      return json({ moneda, nota: 'Es la moneda inicial de un pago cargado a mano. Los totales del CRM (cobrado, por cobrar, cash) siguen en USD; Stripe y Mercado Pago cobran en la moneda de su cuenta.' });
+    },
+  },
+
+  cambiar_moneda_negocio: {
+    preparar: async (input) => {
+      const m = normalizarMoneda(s(input.moneda));
+      if (!m) return { error: 'Esa moneda no existe: va el código de 3 letras (USD, MXN, ARS…).', faltan: ['moneda'] };
+      const actual = await monedaDelNegocio();
+      if (actual === m) return { error: `La moneda del negocio ya es ${m}.`, yaEstaba: true };
+      return { payload: { moneda: m }, resumen: `Cambiar la moneda del negocio de ${actual} a ${m} (el valor inicial al cargar un pago a mano; lo cobrado no cambia).` };
+    },
+    ejecutar: (payload) => seguro('cambiar la moneda del negocio', async () => {
+      const m = await guardarMonedaDelNegocio(String(payload.moneda));
+      return { ok: true, resumen: `Listo: la moneda del negocio es ${m}.`, datos: { moneda: m } };
+    }),
+  },
+
+  editar_dato_deal: {
+    preparar: async (input) => {
+      const lead = await getLead(Number(input.leadId)).catch(() => null);
+      if (!lead) return { error: noExisteLead(input.leadId) };
+      const seccion = s(input.seccion);
+      const campo = s(input.campo) ?? '';
+      const valor = s(input.valor);
+      let rotulo: string;
+      let antes: unknown;
+      if (seccion === 'lead') {
+        if (!esCampoLeadDeal(campo)) return { error: `«${campo}» no es un dato suelto del deal: va fecha_inicio_servicio o facturado_por_id.` };
+        if (campo === 'fecha_inicio_servicio' && valor && !/^\d{4}-\d{2}-\d{2}$/.test(valor)) return { error: 'La fecha tiene que ser AAAA-MM-DD.' };
+        if (campo === 'facturado_por_id' && valor) {
+          const { data } = await (await getTenantDb()).from('identidades_fiscales').select('id').eq('id', Number(valor)).maybeSingle();
+          if (!data) return { error: `No existe la identidad fiscal #${valor} en este negocio.` };
+        }
+        rotulo = CAMPOS_LEAD_DEAL[campo];
+        antes = (lead as unknown as Record<string, unknown>)[campo];
+      } else if (esSeccionDeal(seccion)) {
+        const v = valorDeCampoDeal(seccion, campo, valor);
+        if (!v.ok) return { error: v.error };
+        rotulo = rotuloCampoDeal(seccion, campo);
+        antes = ((lead as unknown as Record<string, Record<string, unknown> | null>)[COLUMNA_SECCION[seccion]] ?? {})[campo];
+      } else {
+        return { error: 'La sección va: fiscal, servicio, promesa o lead.', faltan: ['seccion'] };
+      }
+      const de = antes == null || antes === '' ? '—' : `«${String(antes)}»`;
+      return {
+        payload: { leadId: lead.id, seccion, campo, valor: valor ?? null },
+        resumen: `Cambiar ${rotulo} de ${lead.nombre}: ${de} → ${valor ? `«${valor}»` : '— (vacío)'}.`,
+      };
+    },
+    ejecutar: (payload, ctx) => seguro('editar el dato del deal', async () => {
+      const r = await escribirCampoDeal(Number(payload.leadId), { seccion: payload.seccion, campo: payload.campo, valor: payload.valor ?? null } as unknown as CambioCampoDeal, autorDe(ctx));
+      if (!r.ok) return { ok: false, resumen: `No se pudo: ${r.error}` };
+      invalidarPagos();
+      return { ok: true, resumen: r.cambio ? 'Listo: dato del deal guardado.' : 'Ya estaba así: no cambió nada.', datos: { antes: r.antes, despues: r.despues } };
+    }),
+  },
+
+  editar_obligacion_deal: {
+    preparar: async (input) => {
+      const lead = await getLead(Number(input.leadId)).catch(() => null);
+      if (!lead) return { error: noExisteLead(input.leadId) };
+      const parte = esParteObligacion(input.parte) ? input.parte : null;
+      if (!parte) return { error: 'Falta de quién es: cliente o prestador.', faltan: ['parte'] };
+      const lista = obligacionesDe(lead.deal_obligaciones)[parte];
+      const texto = s(input.texto);
+      const renglon = n(input.renglon);
+      let cambio: CambioObligacion;
+      if (input.accion === 'agregar') {
+        if (!texto) return { error: 'Falta el texto del renglón.', faltan: ['texto'] };
+        cambio = { accion: 'agregar', parte, texto };
+      } else if (input.accion === 'editar' || input.accion === 'quitar') {
+        if (!renglon || renglon > lista.length) return { error: `Esa lista tiene ${lista.length} renglón(es): pide uno del 1 al ${lista.length}.`, disponibles: lista.map((t, i) => ({ renglon: i + 1, texto: t })) };
+        const esperado = lista[renglon - 1];
+        if (input.accion === 'editar') {
+          if (!texto) return { error: 'Falta el texto nuevo del renglón.', faltan: ['texto'] };
+          cambio = { accion: 'editar', parte, indice: renglon - 1, texto, esperado };
+        } else {
+          cambio = { accion: 'quitar', parte, indice: renglon - 1, esperado };
+        }
+      } else {
+        return { error: 'La acción va: agregar, editar o quitar.', faltan: ['accion'] };
+      }
+      const prueba = aplicarObligacion(lead.deal_obligaciones, cambio);
+      if (!prueba.ok) return { error: prueba.error };
+      const quien = parte === 'cliente' ? 'del cliente' : 'del prestador';
+      const que = cambio.accion === 'agregar' ? `agregar «${texto}»`
+        : cambio.accion === 'editar' ? `cambiar el renglón ${renglon} («${prueba.antes}») por «${texto}»`
+        : `quitar el renglón ${renglon} («${prueba.antes}»)`;
+      return { payload: { leadId: lead.id, cambio }, resumen: `Obligaciones ${quien} de ${lead.nombre}: ${que}.` };
+    },
+    ejecutar: (payload, ctx) => seguro('editar la obligación', async () => {
+      const r = await escribirObligacion(Number(payload.leadId), payload.cambio as CambioObligacion, autorDe(ctx));
+      if (!r.ok) return { ok: false, resumen: `No se pudo: ${r.error}` };
+      invalidarPagos();
+      return { ok: true, resumen: 'Listo: obligación guardada.', datos: { obligaciones: r.obligaciones } };
+    }),
+  },
+
+  editar_venta_lead: {
+    preparar: async (input) => {
+      const lead = await getLead(Number(input.leadId)).catch(() => null);
+      if (!lead) return { error: noExisteLead(input.leadId) };
+      const cambios: CambioVenta[] = [];
+      if (input.tipo !== undefined) {
+        const tipo = (['unico', 'suscripcion', 'sin_cobro'] as const).find((t) => t === input.tipo);
+        if (!tipo) return { error: 'El tipo va: unico, suscripcion o sin_cobro.' };
+        cambios.push({ campo: 'tipo', valor: tipo });
+      }
+      if (input.montoUsd !== undefined) cambios.push({ campo: 'monto', valor: n(input.montoUsd) });
+      if (input.plazoMeses !== undefined) cambios.push({ campo: 'plazo', valor: n(input.plazoMeses) });
+      if (input.fechaCierre !== undefined) {
+        const f = s(input.fechaCierre);
+        if (f && !/^\d{4}-\d{2}-\d{2}$/.test(f)) return { error: 'La fecha de cierre tiene que ser AAAA-MM-DD.' };
+        cambios.push({ campo: 'fecha', valor: f });
+      }
+      if (!cambios.length) return { error: 'Pasa al menos uno: tipo, montoUsd, plazoMeses o fechaCierre.', faltan: ['tipo', 'montoUsd', 'plazoMeses', 'fechaCierre'] };
+      // Se prueban EN ORDEN sobre una copia de la fila: el monto después de pasar a suscripción es la mensualidad.
+      const cuotasLead = await getPagosByLead(lead.id).catch(() => []);
+      const cobradas = cuotasLead.filter((q) => q.pagado).length;
+      const impagas = cuotasLead.filter((q) => !q.pagado && !esCuotaDevuelta(q)).length;
+      const fila: FilaVenta = { venta_tipo: lead.venta_tipo ?? 'unico', monto_cierre_usd: lead.monto_cierre_usd, suscripcion_monto_usd: lead.suscripcion_monto_usd ?? null, suscripcion_meses: lead.suscripcion_meses ?? null, fecha_cierre: lead.fecha_cierre };
+      const lineas: string[] = [];
+      for (const c of cambios) {
+        const p = patchDeVenta(fila, c, { hayCobradas: cobradas > 0, impagas });
+        if (!p.ok) {
+          if ('usarQuitarSinCobro' in p && p.usarQuitarSinCobro) { fila.venta_tipo = 'unico'; lineas.push('sacarlo de «Sin cobro» (pago único)'); continue; }
+          return { error: p.error };
+        }
+        Object.assign(fila, p.patch);
+        lineas.push(c.campo === 'tipo' ? `tipo: ${ROTULO_TIPO[c.valor]}` : c.campo === 'monto' ? `${fila.venta_tipo === 'suscripcion' ? 'mensualidad' : 'monto'}: ${c.valor == null ? '— (vacío)' : `USD ${c.valor}`}` : c.campo === 'plazo' ? `plazo: ${c.valor == null ? 'mes a mes' : `${c.valor} meses`}` : `fecha de cierre: ${c.valor ?? '— (vacía)'}`);
+      }
+      return {
+        payload: { leadId: lead.id, tipoVisto: ventaTipoDe(lead.venta_tipo), cambios },
+        resumen: `Venta de ${lead.nombre}: ${lineas.join('; ')}. No lo mueve de etapa.`,
+      };
+    },
+    ejecutar: (payload, ctx) => seguro('editar la venta', async () => {
+      const leadId = Number(payload.leadId);
+      let tipoVisto = ventaTipoDe(payload.tipoVisto as string | null);
+      const hechos: string[] = [];
+      for (const c of (payload.cambios as CambioVenta[]) ?? []) {
+        const r = await escribirVenta(leadId, c, { autor: autorDe(ctx), tipoVisto });
+        if (!r.ok) return { ok: false, resumen: `${hechos.length ? `Guardé ${hechos.join(', ')}, pero no ` : 'No se pudo '}${c.campo}: ${r.error}` };
+        tipoVisto = r.ventaTipo;
+        hechos.push(c.campo);
+      }
+      invalidarPagos();
+      return { ok: true, resumen: 'Listo: venta guardada.', datos: { ventaTipo: tipoVisto } };
+    }),
+  },
+
+  editar_cuota: {
+    preparar: async (input) => {
+      const lead = await getLead(Number(input.leadId)).catch(() => null);
+      if (!lead) return { error: noExisteLead(input.leadId) };
+      const pagos = await getPagosByLead(lead.id).catch(() => null);
+      if (!pagos) return { error: 'No pude leer las cuotas. Prueba de nuevo en un rato.' };
+      const q = pagos.find((p) => p.id === Number(input.cuotaId));
+      if (!q) return { error: `La cuota #${String(input.cuotaId)} no es de ${lead.nombre}. Pide cobranza_lead para ver sus cuotas.`, disponibles: pagos.map((p) => ({ cuotaId: p.id, numero: p.numero, monto_usd: p.monto_usd, pagada: p.pagado })) };
+      if (q.pagado) return { error: `${nombreCuota(q.numero)} ya está cobrada: para corregirla, desmárcala con marcar_pago_cobrado.` };
+      const monto = n(input.montoUsd);
+      const vence = s(input.vence);
+      if (monto == null && vence == null) return { error: 'Pasa el monto nuevo (montoUsd) o el vencimiento nuevo (vence).', faltan: ['montoUsd', 'vence'] };
+      if (vence && !/^\d{4}-\d{2}-\d{2}$/.test(vence)) return { error: 'El vencimiento tiene que ser AAAA-MM-DD.' };
+      // Fail-closed: «no pude ver si tiene un link» no es «no tiene».
+      const protMapa = await proteccionesDeCuotas(lead.id, [q.id]).catch(() => null);
+      if (!protMapa) return { error: 'No pude revisar si la cuota tiene un link o un recordatorio. Prueba de nuevo en un rato.' };
+      const prot = protMapa.get(q.id) ?? [];
+      if (prot.includes('recordatorio')) return { error: `${nombreCuota(q.numero)} tiene un recordatorio de cobro en curso: córtalo con cortar_recordatorio_cuota para editarla.` };
+      if (prot.includes('link') && monto != null && monto !== Number(q.monto_usd)) return { error: `${nombreCuota(q.numero)} tiene un link de pago sin pagar: anúlalo con anular_link_pago para cambiar el monto.` };
+      const partes = [monto != null ? `USD ${q.monto_usd} → USD ${monto}` : null, vence ? `vence ${q.fecha_esperada ?? '—'} → ${vence}` : null].filter(Boolean).join(' y ');
+      return {
+        payload: { leadId: lead.id, cuotaId: q.id, ...(monto != null ? { monto } : {}), ...(vence ? { fecha: vence } : {}) },
+        resumen: `${nombreCuota(q.numero)} de ${lead.nombre}: ${partes}.`,
+      };
+    },
+    ejecutar: (payload, ctx) => seguro('editar la cuota', async () => {
+      const leadId = Number(payload.leadId);
+      const cambio: { monto?: number; fecha?: string } = {};
+      if (typeof payload.monto === 'number') cambio.monto = payload.monto;
+      if (typeof payload.fecha === 'string') cambio.fecha = payload.fecha;
+      const r = await editarCuota(leadId, Number(payload.cuotaId), cambio);
+      await anotarEnHistorial(leadId, lineasDeCuotas({
+        actualizar: [{ id: Number(payload.cuotaId), numero: r.numero, monto_usd: r.despues.monto_usd, fecha_esperada: r.despues.fecha_esperada, antes: r.antes }],
+        insertar: [], borrar: [], conservar: [],
+      }), autorDe(ctx));
+      invalidarPagos();
+      return { ok: true, resumen: `Listo: ${nombreCuota(r.numero)} queda en USD ${r.despues.monto_usd}${r.despues.fecha_esperada ? `, vence ${r.despues.fecha_esperada}` : ''}.`, datos: { cuotaId: Number(payload.cuotaId), antes: r.antes, despues: r.despues } };
+    }),
+  },
+
+  crear_link_cuota: {
+    preparar: async (input, ctx) => {
+      const lead = await getLead(Number(input.leadId)).catch(() => null);
+      if (!lead) return { error: noExisteLead(input.leadId) };
+      const pagos = await getPagosByLead(lead.id).catch(() => null);
+      if (!pagos) return { error: 'No pude leer las cuotas. Prueba de nuevo en un rato.' };
+      const q = pagos.find((p) => p.id === Number(input.cuotaId));
+      if (!q) return { error: `La cuota #${String(input.cuotaId)} no es de ${lead.nombre}. Pide cobranza_lead para ver sus cuotas.` };
+      if (q.pagado) return { error: `${nombreCuota(q.numero)} ya está cobrada.`, yaEstaba: true };
+      const pasarela: Pasarela = esPasarela(input.pasarela) ? input.pasarela : 'stripe';
+      if (pasarela === 'mercadopago') return { error: 'Mercado Pago cobra en la moneda de tu cuenta y la cuota está en dólares: ese link se crea desde la ficha del lead, con el monto en tu moneda.', faltan: ['monto'] };
+      const conectadas = await pasarelasConectadas(ctx.ws).catch(() => null);
+      if (!conectadas) return { error: 'No pude leer las pasarelas conectadas. Prueba de nuevo en un rato.' };
+      if (!conectadas.includes(pasarela)) return { error: `${NOMBRE_PASARELA[pasarela]} no está conectado en Integraciones.`, faltan: ['pasarela'] };
+      const vivos = await listarCobros(ctx.ws, { leadId: lead.id, limite: 50 }).catch(() => []);
+      const ya = vivos.find((c) => c.pago_id === q.id && (c.estado === 'pendiente' || c.estado === 'fallido'));
+      if (ya) {
+        return { error: `${nombreCuota(q.numero)} de ${lead.nombre} ya tiene un link de pago sin pagar (cobro #${ya.id}): no creé otro.`, yaEstaba: true, paraLaPersona: `Link de pago: ${linkDelCobro(ya.token)}` };
+      }
+      return {
+        payload: { leadId: lead.id, cuotaId: q.id, pasarela },
+        resumen: `Crear un link de pago de ${NOMBRE_PASARELA[pasarela]} para ${lead.nombre} que cobra ${nombreCuota(q.numero).toLowerCase()} (USD ${q.monto_usd}).`,
+      };
+    },
+    ejecutar: (payload, ctx) => seguro('crear el link de la cuota', async () => {
+      const r = await crearCobro(ctx.ws, {
+        leadId: Number(payload.leadId),
+        pagoId: Number(payload.cuotaId),
+        pasarela: esPasarela(payload.pasarela) ? payload.pasarela : null,
+        creadoPor: autorDe(ctx),
+      });
+      if (!r.ok) return { ok: false, resumen: `No se pudo crear el link: ${r.error}` };
+      const c = r.cobro;
+      return {
+        ok: true,
+        resumen: `Listo: link de pago de ${NOMBRE_PASARELA[c.proveedor]} por ${plata(c)} (cobro #${c.id}${c.modo === 'prueba' ? ', de prueba' : ''}). El link queda en su ficha, en Pagos.`,
+        datos: { cobroId: c.id, cuotaId: Number(payload.cuotaId), url: r.link, pasarela: c.proveedor, monto: c.monto, moneda: c.moneda, estado: c.estado },
+        paraLaPersona: `Link de pago: ${r.link}`,
+      };
+    }),
+  },
+
+  cortar_recordatorio_cuota: {
+    preparar: async (input) => {
+      const lead = await getLead(Number(input.leadId)).catch(() => null);
+      if (!lead) return { error: noExisteLead(input.leadId) };
+      const q = (await getPagosByLead(lead.id).catch(() => [])).find((p) => p.id === Number(input.cuotaId));
+      if (!q) return { error: `La cuota #${String(input.cuotaId)} no es de ${lead.nombre}. Pide cobranza_lead para ver sus cuotas.` };
+      const prot = await proteccionesDeCuotas(lead.id, [q.id]).catch(() => null);
+      if (!prot) return { error: 'No pude revisar los recordatorios de la cuota. Prueba de nuevo en un rato.' };
+      if (!prot.get(q.id)?.includes('recordatorio')) return { error: `${nombreCuota(q.numero)} de ${lead.nombre} no tiene un recordatorio de cobro en curso.`, yaEstaba: true };
+      return { payload: { leadId: lead.id, cuotaId: q.id }, resumen: `Cortar el recordatorio de cobro de ${nombreCuota(q.numero).toLowerCase()} de ${lead.nombre}: MaKo deja de recordársela. No se deshace.` };
+    },
+    ejecutar: (payload, ctx) => seguro('cortar el recordatorio', async () => {
+      const leadId = Number(payload.leadId);
+      const n2 = await cortarRecordatoriosDeCuota(leadId, Number(payload.cuotaId));
+      if (n2 > 0) invalidarPagos();
+      if (n2 > 0) await logLeadEvent(leadId, 'Recordatorio de cobro', `Cortado desde ${ctx.canal}: cuota #${String(payload.cuotaId)}`, autorDe(ctx));
+      return { ok: true, resumen: n2 > 0 ? 'Listo: el recordatorio quedó cortado.' : 'No había un recordatorio corriendo: nada que cortar.', datos: { cortados: n2 } };
+    }),
+  },
+
+  estado_suscripcion_manual: {
+    preparar: async (input, ctx) => {
+      const lead = await getLead(Number(input.leadId)).catch(() => null);
+      if (!lead) return { error: noExisteLead(input.leadId) };
+      if (lead.venta_tipo !== 'suscripcion') return { error: `${lead.nombre} no es una suscripción.` };
+      const estado = (['cancelada', 'activa'] as const).find((e) => e === input.estado);
+      if (!estado) return { error: 'El estado va: cancelada o activa.', faltan: ['estado'] };
+      const cobros = await listarCobros(ctx.ws, { leadId: lead.id, limite: 50 }).catch(() => null);
+      if (!cobros) return { error: 'No pude leer los cobros del lead. Prueba de nuevo en un rato.' };
+      if (laCobraLaPasarela(cobros)) {
+        return { error: `La suscripción de ${lead.nombre} la cobra la pasarela: se cancela con cancelar_suscripcion (pide el cobroId con listar_cobros).` };
+      }
+      const cancelada = !!(lead as unknown as { suscripcion_cancelada_at?: string | null }).suscripcion_cancelada_at;
+      if ((estado === 'cancelada') === cancelada) return { error: `La suscripción de ${lead.nombre} ya está ${estado}.`, yaEstaba: true };
+      return {
+        payload: { leadId: lead.id, estado },
+        resumen: estado === 'cancelada'
+          ? `Cancelar la suscripción manual de ${lead.nombre}: se cuenta hasta hoy y deja de sumar al MRR.`
+          : `Reactivar la suscripción manual de ${lead.nombre}: vuelve a contar, mes a mes.`,
+      };
+    },
+    ejecutar: (payload, ctx) => seguro('cambiar el estado de la suscripción', async () => {
+      const leadId = Number(payload.leadId);
+      const lead = await getLead(leadId);
+      if (!lead) return { ok: false, resumen: noExisteLead(leadId) };
+      const hoy = await hoyEnWorkspace();
+      const estado = payload.estado === 'activa' ? 'activa' : 'cancelada';
+      const r = await cambiarEstadoSuscripcionManual(leadId, estado, { hoy, mesesAlCancelar: mesesTranscurridos(lead.fecha_cierre ?? null, hoy), mesesAlReactivar: null, autor: autorDe(ctx) });
+      invalidarPagos();
+      return { ok: true, resumen: r.cambio ? `Listo: la suscripción quedó ${estado}.` : `Ya estaba ${estado}.`, datos: { estado, mesesAntes: r.mesesAntes } };
     }),
   },
 };

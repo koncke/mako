@@ -287,6 +287,31 @@ export const BITACORA: Hito[] = [
       'lib/offer-ia.ts — el slot {{voz}} en el turno y en la oferta',
     ],
   },
+  {
+    fecha: '15 oct', hora: '05:32', chat: 'Ticketera', cuenta: 'claude3', actor: 'martin', tipo: 'prompt',
+    titulo: 'El Archivero desde el chat: guarda el archivo y paga una extracción',
+    pedido: '¿El Archivero del chat guarda el archivo y paga una extracción por documento? → A · Sí',
+    puntos: [
+      'Estaba preguntada desde el 13/10 (ref `offer-archivero`): Offer borraba el binario apenas lo leía, su IA saca piezas de la oferta y no campos del brief, y la tab prometía que nada pagaba. Con «A · Sí», cada archivo se conserva y paga UNA extracción de campos.',
+    ],
+  },
+  {
+    fecha: '15 oct', hora: '23:50', chat: 'Offer', sesion: 'local_34d54ef6-523c-46f8-b83f-9fd310dfd667', cuenta: 'claude3', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Cada archivo del chat queda también en El Archivero',
+    puntos: [
+      'Con el documento ya en la conversación, el binario pasa POR DETRÁS a El Archivero (`registrarDocumentoSinPisar`): queda en `<ws>/<id>` con la MISMA extracción que hace su pantalla, sobre el texto que Offer ya leyó. El chat no espera; si falla, el chip del archivo dice por qué.',
+      '⚠️ **Mirar si la fila existe no alcanza para pagar una sola vez**: la extracción tarda segundos y dos envíos del mismo archivo se pisaban. El id sale del CONTENIDO y el lugar se gana MOVIENDO el binario antes de extraer; mover es atómico y no pisa.',
+      'No recalcula el brief (`buildEstado(true)` se llevaba lo del wizard): suma sólo las claves de ese documento, y un test lo compara contra `computeEffective` de verdad. Sin panorama (sería otra llamada paga) y sin audios ni links (no son archivos del negocio).',
+      'El gasto va como «El Archivero» con el motivo «Offer → El Archivero: …», así la medición por documento del Pricing sigue valiendo. 13 tests, 30 roturas cazadas.',
+    ],
+    commits: [{ sha: '718e00b', msg: 'Offer: cada archivo del chat queda también en El Archivero, con una extracción por documento', lineas: 812, archivos: 12 }],
+    archivos: [
+      'lib/archivero.ts — `registrarDocumentoSinPisar` y `reclamarLugar`',
+      'lib/archivero-registro.ts — lo puro: el id de contenido, el «sin pisar», el binario huérfano',
+      'app/api/offer/route.ts — `leer` entrega el binario; `archivarDespues` y `anotarArchivero`',
+      'lib/offer-reglas.ts — `seArchivaDesdeOffer`, `conArchivero` y los saneos que lo conservan',
+    ],
+  },
 ];
 
 export const PARTES: Parte[] = [
