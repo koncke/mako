@@ -3,6 +3,34 @@
 <sub>Escrito por el chat «MaKo Mobile» (cuenta 3) el 11/10/2026 a las 15:00, al cruzar el 85% de uso
 semanal. Material de primera mano: lo hizo este chat.</sub>
 
+## 16/10/2026 (cuenta 3) — MORE COMPLETO, TANDA 2 DE 3: Second Brain, Experiments y Offer (SIN COMMIT)
+
+Misma rama (`movil-more-9`, en `C:/dev/wt-mobile`); el orquestador commitea por ruta y otra sesión pushea.
+
+**Lo que quedó en el worktree, sin commitear:**
+- **Second Brain** (app/m/second-brain, Obsidian y Notion en el teléfono): buscar (también con MaKo), el mapa en
+  chico, «Tu negocio» con sus carpetas, cada área y cada dato en una hoja, y subirle al Archivero archivos, fotos o una
+  web. Las reglas que comparte con escritorio salieron de Grafo.tsx y Archivero.tsx a lib/cerebro-areas.ts y
+  lib/archivero-subida.ts, y escritorio ya las importa.
+- **Experiments** (app/m/experimentos): Retro · Experiments · Conclusions · Análisis en `?tab=`, decidir el plan de una
+  Retro con Deshacer, cerrar, iniciar o descartar un experimento, el alta con MaKo y el Análisis con sus tres rangos.
+  El formato de los números se mudó a lib/experimentos-formato.ts.
+- **Offer** (app/m/offer, la app de ChatGPT): el chat entero (texto, links, documentos, nota de voz), armar y bajar el
+  PDF, guardar en el funnel y «Probarlo». Los grupos de piezas pasaron a app/offer/ayudas.ts.
+- **Escritorio, un bug arreglado**: Offer borraba de Storage la nota de voz que SÍ se mandó y dejaba de sonar
+  (app/offer/OfferApp.tsx, `enviarAudio`; hallazgos-offer.md).
+
+**Verificado:** tsc acotado de la rama en 0 (80 archivos); los tests de la tanda y de las pantallas de /m, los guards
+y los de escritorio tocados, verdes. `movil-mas-secciones` falla A PROPÓSITO (6/1) con las tres de la tanda 3, y el
+guard de voseo (`puente-panel-copy`) falla 8/1 por VistaAfuera.tsx:201, que ya está arreglado en main.
+
+**Lo que falta, en orden:**
+1. **Tanda 3:** Copywriting, Curso y Comunidad. ⚠️ El mapa sigue sin poder pushearse sin ellas (404 en todo teléfono).
+2. Al rebasar sobre main: el chip de un adjunto del teléfono no muestra `notaDelAdjunto` (f4ed5e069), y Archivero.tsx
+   conserva su `urlDelLink`.
+3. Mirar las tres pantallas a 390 px y en un teléfono (nada se vio); lo pendiente de cada una, con su archivo, en
+   hallazgos-mobile.md → «Las pantallas de More que faltaban» → «Tanda 2».
+
 ## 15/10/2026 ~21:55 (cuenta 3) — MORE COMPLETO, TANDA 1 DE 3: el mapa, Calendario, Avisos y Tu cuenta (SIN COMMIT)
 
 Pedido de Martín (14/10): «Implementá TODAS las tabs que construimos, todo». Se trabaja en `C:/dev/wt-mobile`, rama

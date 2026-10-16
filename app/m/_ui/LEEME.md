@@ -81,6 +81,12 @@ ejemplos, controles de menos de 44 px, inputs de menos de 16 px, `transform` en 
 cuando no hay barra). Un botón flotante (el «+» del Calendario) va por `createPortal` a `#m-pie`: dentro de
 la página se corre con el pull-to-refresh (PantallaM le pone `transform`), y en `#m-root` no hay `--m-abajo`.
 
+Una hoja sigue en pantalla los 220 ms de su salida: lo de adentro de un `<SheetM>` no depende de `abierto`, y
+su sub-estado se resetea al ABRIR la próxima, nunca al cerrar. Para pasar de una hoja a otra, sólo se abre la
+nueva (`registrarApertura` cierra la anterior). Una capa propia a pantalla completa (que no es SheetM) lleva
+`data-m-sin-pull`, o tirar hacia abajo refresca la página de atrás. Lo que un toast llama más tarde (el
+Deshacer) lee el estado de un `useRef`, no del render que lo creó. (docs/hallazgos-mobile.md, «Tanda 2».)
+
 ## 5. El CSS de la pantalla
 
 Un `.css` en SU carpeta (`app/m/ads/ads.css`), importado por SU `page.tsx`, con TODAS las clases

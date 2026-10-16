@@ -144,4 +144,17 @@ export const BITACORA: Hito[] = [
     ],
     archivos: ['lib/movil-rutas.ts', 'app/m/calendario/', 'app/calendario/comun.ts', 'app/m/inbox/inbox-ui.ts', 'app/m/cuenta/CuentaM.tsx', 'tests/movil-mas-secciones.test.ts', 'tests/m-calendario.test.ts', 'tests/m-avisos.test.ts', 'tests/m-cuenta.test.ts', 'docs/hallazgos-mobile.md'],
   },
+  {
+    fecha: '16 oct', hora: '02:10', chat: CH, cuenta: 'claude3', actor: 'claude', tipo: 'implementacion',
+    titulo: 'More completo, tanda 2 de 3: Second Brain, Experiments y Offer en el teléfono (sin commit todavía: la hora es la de la integración)',
+    puntos: [
+      'Second Brain, copiado de Obsidian y Notion en el teléfono: buscar (también con MaKo), el mapa en chico, «Tu negocio» con sus cinco carpetas, cada área y cada dato en una hoja, y subirle al Archivero archivos, fotos de la cámara o una web. Editar las áreas, el mapa interactivo y Exportar quedan en la computadora.',
+      'Experiments con sus cuatro vistas de escritorio en el mismo orden (Retro · Experiments · Conclusions · Análisis): decidir el plan de una Retro como el Triage de Linear, la tarjeta de cada experimento como la de un ticker de la app de Bolsa, el alta con MaKo y el Análisis con sus tres rangos. Generar una Retro nueva sigue en la computadora.',
+      'Offer, como la app de ChatGPT: el chat entero (texto, links, documentos y nota de voz), armar la oferta y bajar cada versión del PDF, guardarla en el funnel y «Probarlo», que lleva a Experiments.',
+      'Lo que las tres comparten con escritorio salió de los componentes de la computadora a módulos de los dos (el conteo y el color del mapa, la subida al Archivero, el formato de los números, los grupos de piezas), y escritorio ya los usa: no quedó ninguna copia escrita dos veces salvo la orquestación del chat de Offer, que está anotada.',
+      'Copiando Offer apareció un bug de la computadora: la nota de voz que sí se mandaba se borraba y dejaba de sonar. Arreglado en los dos lados, con su test.',
+      'Nada se miró en un navegador ni en un teléfono. Falta la tanda 3 (Copywriting, Curso y Comunidad): sin ellas el mapa no se puede subir.',
+    ],
+    archivos: ['app/m/second-brain/', 'app/m/experimentos/', 'app/m/offer/', 'lib/cerebro-areas.ts', 'lib/archivero-subida.ts', 'lib/experimentos-formato.ts', 'app/offer/ayudas.ts', 'app/offer/OfferApp.tsx', 'tests/m-second-brain.test.ts', 'tests/m-experimentos.test.ts', 'tests/m-offer.test.ts', 'docs/hallazgos-mobile.md'],
+  },
 ];

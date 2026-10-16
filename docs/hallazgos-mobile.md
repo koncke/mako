@@ -12,7 +12,8 @@ de teléfonos PRENDIDO. Lo de la v2 está en su propia sección, más abajo.
 Martín (14/10): «Implementá TODAS las tabs que construimos, todo», con la regla del v3: «en el celular todo se ve
 SIMILAR al escritorio, pero con menos texto y menos cosas». Tres tandas en `C:/dev/wt-mobile` (rama `movil-more-9`).
 **Tanda 1:** el mapa de More (de 7 a 14 secciones, en el orden de la sidebar), Calendario, Avisos (la campana, ex
-Inbox) y Tu cuenta. Tandas 2 y 3: Second Brain, Experiments, Offer, Copywriting, Curso y Comunidad.
+Inbox) y Tu cuenta. **Tanda 2** (16/10, más abajo): Second Brain, Experiments y Offer. Tanda 3: Copywriting, Curso y
+Comunidad.
 
 **El mapa (lib/movil-rutas.ts):**
 - **Una sección mapeada sin página es un 404 en todo teléfono, y LAS MISMAS RUTAS no lo ve**:
@@ -125,6 +126,104 @@ tipos; los archivos del worktree están en CRLF y el grep de Git Bash esconde el
 - la tarjeta de General no abre la decisión directo (`/m/inbox?abrir=<key>` existe; app/m/hoy/page.tsx);
 - el toast «Se revisa en Avisos» (`ERRORES_DE_TARJETA`, lib/mako-turno-app-reglas.ts) sale también en la ficha de
   escritorio (MaKo Analyst), donde la campana no existe (antes decía «Inbox», igual de mal).
+
+### Tanda 2 (16/10/2026): Second Brain, Experiments y Offer
+
+**Second Brain** (Obsidian y Notion en el teléfono: la búsqueda arriba, el mapa como foto chica en una isla oscura, las
+carpetas de «Tu negocio», el dato como hoja con sus propiedades):
+- **Las reglas que el teléfono necesitaba vivían adentro de dos componentes `'use client'`**: el conteo por área, el
+  color de cada punto y qué documento se puede ver (app/second-brain/Grafo.tsx), y los tres pasos de la subida
+  (app/onboarding/Archivero.tsx). Se mudaron a lib/cerebro-areas.ts y lib/archivero-subida.ts, y en la integración
+  escritorio pasó a importarlas: tests/m-second-brain.test.ts falla si cualquiera vuelve a tener su copia (10 / 1).
+- **«Ver el documento» no va con el Link de la casa**: es una ruta /api (Next la prefetchearía) y una pestaña nueva no
+  pasa por el parche de fetch: el super-admin mirando a un cliente recibía «Archivo no encontrado». Va como `<a>`
+  pelado con `conWs(rutaVistaDocumento(id), useWs())`.
+- **`data-tema="oscuro"` funciona en cualquier elemento, no sólo en `<html>`**: la isla del mapa sale con el atributo
+  en su caja, sin inventar colores. Pero los `--grafo-*` son pastel para fondo oscuro y sobre `--surface` se pierden:
+  el punto de cada fila va en una baldosa `--sidebar` (app/globals.css:315).
+- **Abrir una hoja desde otra es SÓLO abrir la nueva**: cerrar la primera por código deja una entrada de más en el
+  historial (su `replaceState` más el `pushState` de la nueva); `registrarApertura` ya cierra la anterior y le pasa SU
+  entrada (app/m/_ui/SheetM.tsx). Leído, no medido.
+- **Un nodo `falta:<área>` listado dentro de su área duplica el vacío**: se saca de la hoja del área («Todavía no sé
+  nada de esto.») y queda en la búsqueda, donde abre su área (lib/cerebro-grafo.ts:936-950, `datosDelArea`).
+- **Un test de ORDEN pasaba sin el sort**: el fixture ya llegaba ordenado por grado. Se arma con datos desordenados.
+
+**Vive en:** app/m/second-brain/ (`modelo.ts`, `SecondBrainM.tsx`, `ArchiveroM.tsx`) · lib/cerebro-areas.ts ·
+lib/archivero-subida.ts · tests/m-second-brain.test.ts
+
+**Experiments** (Retro · Experiments · Conclusions · Análisis, en `?tab=` como escritorio; la tarjeta es la de un
+ticker de la app de Bolsa de iOS, el plan copia el Triage de Linear y Conclusions el feed de Apple Notes):
+- **Un rótulo cruzado con `includes` pasaba con el rótulo equivocado**: «Guardados» está ADENTRO de «Guardados · sin
+  arrancar» (el diagnóstico obvio, «el test cruza contra el fuente», era el equivocado). Se cruza ENTERO, delimitado
+  por comillas o por `>…<`, aceptando el «+ », «← » o « →» que escritorio le pone. Medido: includes 11 / 0, entero 10 / 1.
+- **Sobre una recomendación ACEPTADA el teléfono no ofrece Deshacer**: en el server sólo borra la marca y el
+  experimento y sus tareas siguen corriendo (hallazgos-plan.md, «Tres formas de que algo aceptado deje de ser deuda»).
+  Escritorio todavía lo ofrece (app/experimentos/RetroReport.tsx:732).
+- **Lo que un toast llama después se lee de un `useRef`**: el «Deshacer» guardaba el callback de un render viejo, con
+  `ocupado` en null, y /api/retro hace leer-modificar-escribir del reporte entero: dos escrituras seguidas se pisan.
+  Leído, no medido (app/m/experimentos/VistaRetroM.tsx, `decidir`).
+- **La tab se deriva de `useSearchParams`, nunca de un `useState` copiado de la prop** (a escritorio le pasó el 11/10:
+  el «atrás» pintaba otra tab): `replaceState` para las tabs ya bajadas y `router.replace` en una transición sólo para
+  Análisis, que calcula el server.
+- **Un parámetro de «una sola vez» (`?hipotesis=` del «Probarlo» de Offer) se consume mirando `window.location`**, no
+  la prop: al volver «atrás» el router restaura el árbol RSC viejo con la prop puesta y reabría el alta.
+- **El sub-estado de una hoja se resetea al ABRIR la próxima, nunca al cerrar**: SheetM sigue dibujando los 220 ms de
+  la salida y el cuerpo cambiaba mientras se iba.
+- **`SegmentadoM` con cuatro opciones largas corta con «…»**: `.m-seg` reparte partes iguales (app/m/m.css:424).
+  Experiments lo pisa en su carpeta con `grid-auto-columns: auto`; al Plan le pasa lo mismo y el shell no se tocó.
+- **El formateador se mudó a lib/experimentos-formato.ts**: vivía en app/experimentos/ui.tsx (`'use client'`, con
+  recharts); ui.tsx y VistaAnalisis.tsx lo re-exportan.
+
+**Vive en:** app/m/experimentos/ (`ExperimentosM.tsx`, `VistaRetroM.tsx`, `modelo.ts`, `experimentos.css`) ·
+lib/experimentos-formato.ts · tests/m-experimentos.test.ts
+
+**Offer** (la app de ChatGPT para iOS: pantalla de trabajo, el camino «Funnel › Oferta» en una píldora, el hilo como el
+chat de MaKo):
+- **Un composer fijo adentro de PantallaM se corre al tirar para refrescar**: va por portal a `#m-pie` (nunca a
+  `#m-root`, sin `--m-abajo`) y el hilo deja su alto medido con ResizeObserver.
+- **Refrescar un chat no le cambia la conversación a nadie**: el server abre la MÁS RECIENTE. Si llegó la misma, se
+  adopta con `reemplaza`; si llegó otra, se relee la abierta con 'abrir'; con algo en vuelo, nada (`trasRefrescar`).
+- **Toda capa a pantalla completa que no es SheetM lleva `data-m-sin-pull`**: con la vista previa de adjuntos abierta,
+  tirar hacia abajo refrescaba la página de atrás (PantallaM sólo excluye `.m-sheet-capa` y `[data-m-sin-pull]`). Hoy
+  OfferM marca `#m-capas` mientras la vista está abierta. Leído, no medido.
+- **Lo de adentro de un SheetM nunca depende de `abierto`**: la hoja sigue en pantalla los 220 ms de la salida y se
+  quedaba en blanco.
+- **Copiar la orquestación de escritorio destapó un bug de escritorio**: la nota de voz que SÍ se mandó se borraba de
+  Storage. Arreglado en los dos lados; detalle en hallazgos-offer.md («Y ese "descartar-subida" borraba también…»).
+- **Los grupos de piezas se mudaron a app/offer/ayudas.ts** (vivían en PiezasRail.tsx, `'use client'`). La lista de
+  secciones de la oferta nueva sigue copiada (`seccionesDe` es JSX en Conclusion.tsx) y el test cruza las dos.
+- Del entorno: `\btocá\b` no encuentra «tocá » (sin la bandera u, la «á» no es letra para `\b`): `(?<!\p{L})…(?!\p{L})`
+  con /u. Y `--m-abajo` vive en app/m/m.css, adentro de una regla en la misma línea: un test de tokens que sólo mira
+  globals.css o el principio de la línea lo da por inexistente.
+
+**Vive en:** app/m/offer/ (`OfferM.tsx`, `modelo.ts`, `HojasOfferM.tsx`) · app/offer/ayudas.ts · tests/m-offer.test.ts
+
+**De la integración:**
+- **El tsc acotado de la rama entera (80 archivos) lo mató el vigía dos veces, con 1,6 y 2,8 GB libres; por partes
+  (12, 16 y 13 archivos) corrió en 0**, y con 3,8 GB libres la entera también. Una tanda chica da `toggleEtiqueta does
+  not exist on type 'ChainedCommands'` (app/web-generator/editor/insertar.ts:548): es la augmentation de TipTap de
+  app/web-generator/editor/extensiones/marcas.ts, que no entra al programa si nada la importa. Se suma ese archivo a
+  la lista; no es un error de la rama.
+- **origin/main ya tocó lo que esta rama toca**: renombró la `normalizarUrl` de Archivero.tsx a `urlDelLink`
+  (607ceb205; por eso esa parte no pasó a `normalizarUrlArchivero`), sumó `notaDelAdjunto` y `AdjuntoVista.archivero`
+  (f4ed5e069: el chip de escritorio dice «No quedó en El Archivero», el del teléfono todavía no) y arregló el «acá» de
+  VistaAfuera.tsx que deja rojo el guard de voseo en esta base.
+
+**Sin hacer (tanda 2):**
+- nada se miró en un navegador ni en un teléfono: 390 px, la isla oscura, el segmentado de cuatro, el «atrás» con
+  `?retro=` y `?sheet=`, la franja de Offer con el teclado de iOS, el PDF y la nota de voz en una PWA de iOS, el
+  selector de archivos con la cámara;
+- Offer: la orquestación de OfferApp está escrita dos veces (falta un hook común: app/offer/OfferApp.tsx:280-706 →
+  app/offer/useChatOffer.ts); `seccionesDe` (app/offer/Conclusion.tsx:402-541) sigue en JSX; la capa de adjuntos
+  (app/m/mako/VistaAdjuntosM.tsx, `altoTeclado`, `duracion`, IconoChat) y la barra del composer (app/m/mako/Composer.tsx
+  y app/m/offer/ComposerOfferM.tsx) las usan dos pantallas y van a app/m/_ui; app/m/offer/page.tsx importa
+  '../mako/mako.css' sólo por esa capa; el chip del teléfono no muestra `notaDelAdjunto` (llega con el rebase);
+- Experiments: el «Deshacer» sobre una aceptada en escritorio (RetroReport.tsx:732); /api/experimentos y /api/retro no
+  miran el rol (hallazgos-plan.md, escrito el 16/09 y sigue abierto); columnas `auto` como default de `.m-seg`;
+- Second Brain: Archivero.tsx conserva su normalización del link (`urlDelLink` en main); `?vista=` no viaja del
+  teléfono a la computadora; en el teléfono no están las preguntas del Archivero, borrar un documento ni la carga a mano;
+- la tanda 3 (Copywriting, Curso y Comunidad): tests/movil-mas-secciones.test.ts falla 6 / 1 nombrándolas, y el mapa
+  no se pushea sin ellas.
 
 ## Refrescar en TODAS las pantallas: el gesto era opt-in (15/10/2026)
 

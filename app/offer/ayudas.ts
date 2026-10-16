@@ -65,6 +65,37 @@ export function tituloDePieza(piezas: PiezasSabidas, k: PiezaKey): string | unde
   return `${FUENTE_TITULO[p.fuente]} · ${v.length > 140 ? v.slice(0, 139) + '…' : v}`;
 }
 
+/**
+ * Las piezas agrupadas por tema, para que 20 renglones se lean de un vistazo (Martín, 12/10/2026: «más
+ * legible, más fácil»). Es SÓLO cómo se dibujan: el orden y la lista salen de PIEZAS (lib/offer-marco.ts),
+ * y una pieza nueva que nadie agrupó cae en «Más» en vez de desaparecer (tests/offer-pulir-pdf.test.ts).
+ * Vive aquí y no en PiezasRail.tsx ('use client', que lo re-exporta) porque «Tu oferta» del teléfono
+ * (app/m/offer) agrupa con lo mismo (AGENTS.md, MaKo Mobile: lo que /m reusa no vive en un módulo de cliente).
+ */
+export const GRUPOS_PIEZAS: ReadonlyArray<{ titulo: string; keys: readonly PiezaKey[] }> = [
+  { titulo: 'Para quién', keys: ['cliente', 'problema', 'resultado', 'objecion'] },
+  { titulo: 'Cómo', keys: ['mecanismo', 'entregables', 'semana', 'formato'] },
+  { titulo: 'Prueba', keys: ['ventas', 'prueba'] },
+  { titulo: 'Precio', keys: ['precio', 'cobro', 'valor', 'costo'] },
+  { titulo: 'Cierre', keys: ['garantia', 'bonos', 'urgencia', 'frase'] },
+  { titulo: 'Tu negocio', keys: ['escalera', 'otras'] },
+];
+
+/** Los grupos con sus piezas, en el orden de GRUPOS_PIEZAS, más «Más» con lo que no esté agrupado. */
+export function piezasAgrupadas<P extends { key: string }>(
+  lista: readonly P[] = PIEZAS as unknown as readonly P[],
+  gruposDef: ReadonlyArray<{ titulo: string; keys: readonly string[] }> = GRUPOS_PIEZAS,
+): Array<{ titulo: string; piezas: P[] }> {
+  const usadas = new Set<string>();
+  const grupos = gruposDef.map((g) => {
+    const piezas = lista.filter((p) => g.keys.includes(p.key));
+    piezas.forEach((p) => usadas.add(p.key));
+    return { titulo: g.titulo, piezas };
+  }).filter((g) => g.piezas.length > 0);
+  const resto = lista.filter((p) => !usadas.has(p.key));
+  return resto.length ? [...grupos, { titulo: 'Más', piezas: resto }] : grupos;
+}
+
 // ── Las opciones de MaKo ─────────────────────────────────────────────────────
 
 const normal = (s: string): string =>

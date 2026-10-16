@@ -360,6 +360,23 @@ no se llamaba.
 **Vive en:** `app/offer/OfferApp.tsx` (`AudioGrabado.path`, `descartarSubida`) ·
 `app/api/offer/route.ts` (`case 'descartar-subida'`)
 
+### Y ese «descartar-subida» borraba también la nota que SÍ se mandó (16/10/2026)
+
+Síntoma (leído en el código al copiar la pantalla al teléfono, no medido): una nota de voz enviada
+desde escritorio deja de sonar. `enviarAudio` llamaba a `descartarSubida(a.path)` con todo lo que no
+volvía a la barra, también con `'salio'`; ese `path` es el que el mensaje guarda y el que firma GET
+/api/offer/audio. El servidor no lo frena: `'descartar-subida'` sólo mira que el path sea del workspace.
+**El diagnóstico obvio era el equivocado:** «se borra porque falló la transcripción»; la 422 la borra el
+servidor, y la nota BUENA la borraba la pantalla. Y un test lo fijaba: tests/offer-v2-pantalla.test.ts
+exigía el `descartarSubida(a.path);` suelto.
+
+**La regla:** un binario se suelta sólo cuando el envío se TIRA (413/415/422 o un audio que no se puede
+convertir): `if (res === 'tirar') descartarSubida(a.path);`. Lo que salió vive en el mensaje y se borra
+con la conversación. Probado rompiéndolo: el borrado suelto da 9 / 1.
+
+**Vive en:** `app/offer/OfferApp.tsx` (`enviarAudio`) · `app/m/offer/OfferM.tsx` (la misma regla) ·
+tests/offer-v2-pantalla.test.ts (§ 6) · tests/m-offer.test.ts («orquestación»)
+
 ### «Guardar si no hay» vivía en la ruta con la clave copiada, y un test cuidaba la copia
 
 La ruta tenía el insert-if-absent entero con `'negocio.fase.diagnostico'` escrito a mano, y un test

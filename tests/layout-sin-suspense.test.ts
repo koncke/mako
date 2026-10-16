@@ -100,6 +100,10 @@ const LOADING_PERMITIDOS = [
   // Las pantallas de More que faltaban (15/10/2026): Calendario lee Google, el CRM, el Plan y los cobros
   // en un rango de 30 días; sin esqueleto, tocar la fila de More dejaba More congelado.
   'app/m/calendario/loading.tsx',
+  // Second Brain: construirCerebro hace 21 lecturas en paralelo y corre d3-force en el server.
+  'app/m/second-brain/loading.tsx',
+  // Experiments: getExperimentosView mide en vivo cada experimento contra Meta, y listRetros trae cada reporte.
+  'app/m/experimentos/loading.tsx',
 ];
 
 test('no hay loading.tsx fuera de la lista blanca (cada uno esconde su página sin JavaScript)', () => {

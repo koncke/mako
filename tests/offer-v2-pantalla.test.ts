@@ -223,14 +223,17 @@ test('árbol: las secciones del desplegable (funnel → ofertas → conversacion
 // ── 6. El audio rechazado como definitivo ────────────────────────────────────
 // Roturas: `esRechazoDefinitivo` sin el 422 → 1 fallo;
 //          `enviarAudio` con `if (res !== 'salio') setAudioEnEspera(a)` → 1 fallo;
-//          (13/10) `mandar` subiendo el audio aunque ya tenga `path` → 1 fallo, 9 pases.
+//          (13/10) `mandar` subiendo el audio aunque ya tenga `path` → 1 fallo, 9 pases;
+//          (16/10) `descartarSubida(a.path);` suelto, también cuando la nota SALIÓ → 9 / 1.
 test('audio: 413, 415 y 422 son definitivos (no vuelven a la barra); un corte o un 5xx sí', () => {
   for (const s of [413, 415, 422]) assert.equal(esRechazoDefinitivo(s), true, String(s));
   for (const s of [undefined, 400, 404, 409, 500, 502, 504]) assert.equal(esRechazoDefinitivo(s), false, String(s));
   const enviar = sinComentarios(bloque(leer('app/offer/OfferApp.tsx'), 'const enviarAudio = async', 'const mandarAudio ='));
   assert.match(enviar, /if \(res === 'volver'\) \{ setAudioEnEspera\(a\); return; \}/, 'sólo un fallo que se arregla reintentando devuelve el audio');
-  // Y el que NO vuelve se lleva su binario: el 422 lo borra el servidor, los otros no.
-  assert.match(enviar, /descartarSubida\(a\.path\);/, 'un audio descartado deja su binario suelto en Storage');
+  // Y el que se TIRA se lleva su binario: el 422 lo borra el servidor, los otros no. El que SALIÓ no:
+  // su path es el que el mensaje reproduce (GET /api/offer/audio). Hasta el 16/10 se borraba también ese.
+  assert.match(enviar, /if \(res === 'tirar'\) descartarSubida\(a\.path\);/, 'un audio descartado deja su binario suelto en Storage');
+  assert.doesNotMatch(enviar.replace(/if \(res === 'tirar'\) descartarSubida\(a\.path\);/, ''), /descartarSubida\(a\.path\)/, 'una nota de voz que salió pierde su audio');
   const mandar = sinComentarios(bloque(leer('app/offer/OfferApp.tsx'), 'const mandar = async', 'const reintentarRespuesta'));
   assert.match(mandar, /esRechazoDefinitivo\(err\.status\)\)\) return 'tirar';/);
   // El REINTENTO no vuelve a subir el audio: el servidor conserva el binario a propósito cuando la IA
