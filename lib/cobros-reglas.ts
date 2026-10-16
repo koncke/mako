@@ -112,6 +112,14 @@ const RAZON_DISPUTA: Readonly<Record<string, string>> = {
  * ⚠️ UN CONTRACARGO SE CUENTA (15/10/2026): hasta este día quedaba sólo en una fila de `pasarela_eventos`. El texto va al
  * historial del lead y al motivo del cobro. La fase (lib/cobros-eventos.ts, FaseContracargo) dice qué pasó con la plata.
  */
+/**
+ * ¿Este `motivo` es uno de `textoContracargo`? La tab Pagos lo dibuja como AVISO y no en letra chica (16/10/2026). Se
+ * reconoce por cómo empieza cada fase: si una frase de abajo cambia, tests/pagos-vistazo.test.ts las recorre todas.
+ */
+export const esTextoDeContracargo = (motivo: string | null | undefined): boolean =>
+  typeof motivo === 'string' &&
+  /^(?:El cliente disputó este cargo|(?:Stripe|Mercado Pago) (?:descontó|devolvió) la plata de la disputa|(?:Stripe|Mercado Pago) descontó la plata por la disputa|La disputa se |La consulta del banco|Contracargo en Mercado Pago)/.test(motivo);
+
 export function textoContracargo(p: { pasarela: Pasarela; fase: 'abierto' | 'plata_salio' | 'plata_volvio' | 'cerrado' | 'mp'; estado?: string | null; razon?: string | null }): string {
   const nombre = NOMBRE_PASARELA[p.pasarela];
   const razon = p.razon && RAZON_DISPUTA[p.razon] ? ` (${RAZON_DISPUTA[p.razon]})` : '';

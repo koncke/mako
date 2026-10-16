@@ -195,7 +195,15 @@ test('el mapper del tablero da `ingresoEstimado` (ejecutado): null no es 0, y un
 });
 
 test('las DOS fichas pasan el ingreso estimado y el Instagram a «Información principal»', () => {
-  for (const f of ['app/crm/LeadSheet.tsx', 'app/crm/[id]/page.tsx']) {
+  // ⚠️ CAMBIADO A PROPÓSITO EL 14/10/2026 (la ficha por bloques): las dos puertas montan la MISMA ficha
+  // (`FichaPorBloques`), y la tarjeta se monta UNA vez, como el bloque `contacto`, en el registro del
+  // Resumen. Re-verificado rompiéndolo: sin `instagram=` en el registro → 1 fallo.
+  for (const f of ['app/crm/LeadSheet.tsx', 'app/crm/[id]/LeadDetailBody.tsx']) {
+    assert.match(fuente(f), /<FichaPorBloques\b/, `${f}: no monta la ficha compartida`);
+    assert.doesNotMatch(fuente(f), /<InfoPrincipalCard\b/, `${f}: vuelve a montar la tarjeta a mano`);
+  }
+  {
+    const f = 'app/crm/lead-view/ficha/registro-resumen.tsx';
     const s = fuente(f);
     const i = s.indexOf('<InfoPrincipalCard');
     const tag = s.slice(i, s.indexOf('/>', i));

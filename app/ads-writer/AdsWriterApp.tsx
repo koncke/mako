@@ -37,6 +37,10 @@ import { PageHeader, Button, ErrorState, Spinner, useConfirm } from '../_ui';
 import { useRouter } from '../_ui/Link';
 import type { EstadoGuion, GuionItem } from '../onboarding/guion-ui';
 import { hrefDeVista, VISTA_POR_DEFECTO, type VistaAdsWriter } from './tabs';
+// La cobertura y «el próximo guion» viven en un módulo puro (./reglas.ts): el teléfono
+// (app/m/copywriting) escribe en la MISMA celda que esta pantalla (tests/m-copywriting.test.ts falla
+// si vuelven a estar inline).
+import { coberturaDe, proximaCeldaDe } from './reglas';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -125,22 +129,11 @@ export function AdsWriterApp({ tabInicial = VISTA_POR_DEFECTO, analizar = null }
   }, []);
 
   // ── Cobertura: el KPI de la fábrica, sin necesidad de una card ─────────────
-  const cobertura = useMemo(() => {
-    const conGuion = celdas.filter((c) => c.guiones.length).length;
-    const listos = celdas.reduce((n, c) => n + c.guiones.filter((g) => g.estado === 'aprobado').length, 0);
-    const guiones = celdas.reduce((n, c) => n + c.guiones.length, 0);
-    return { conGuion, total: celdas.length, listos, guiones };
-  }, [celdas]);
+  const cobertura = useMemo(() => coberturaDe(celdas), [celdas]);
 
   /** La primera celda sin guion, en orden avatar → razón. Es a la que apunta la
    *  acción primaria: escribir lo que falta, no lo que ya está. */
-  const proximaCelda = useMemo(() => {
-    for (const av of avatares) {
-      const c = celdas.find((x) => x.avatarId === av.id && !x.guiones.length);
-      if (c) return c;
-    }
-    return celdas.find((c) => !c.guiones.length) ?? null;
-  }, [celdas, avatares]);
+  const proximaCelda = useMemo(() => proximaCeldaDe(celdas, avatares), [celdas, avatares]);
 
   const escribirProximo = async () => {
     // Sin matriz todavía no hay nada que escribir: lo primero es armarla. Antes

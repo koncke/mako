@@ -29,7 +29,7 @@
 
 - **General** (`general`): `leer_resumen_objetivos` · `ver_trimestre_actual` · `listar_objetivos` · `ver_objetivo_principal` · `ver_tablero_kpis` · `listar_kpis` · `sugerir_kpis` · `listar_fuentes_kpi` · `medir_fuente_kpi` · `ver_capacidad_instalada` · `medir_tramo_r1_r2` · `listar_pendientes_arranque` · `registrar_valor_kpi` · `cerrar_objetivo` · `apagar_kpi` · `guardar_capacidad` · `guardar_objetivo` · `guardar_kpi` · `sembrar_kpis_sugeridos` · `listar_hojas_general` · `crear_hoja_general` · `editar_hoja_general_con_ia` · `agregar_bloque_general` · `configurar_bloque_general`
 - **Plan** (`plan`): `ver_plan` · `listar_tareas_plan` · `ver_tarea_plan` · `ver_proyecto_plan` · `listar_proyectos_plan` · `ver_prioridades_plan` · `listar_tareas_vencidas` · `listar_tareas_paradas` · `listar_tareas_sin_datos` · `buscar_tareas_plan` · `listar_dependencias_plan` · `listar_borradores_plan` · `ver_borrador_plan` · `ver_estado_borrador` · `ver_borrador_de_reunion` · `listar_proyectos_vacios` · `ver_senales_negocio` · `descartar_borrador_plan` · `actualizar_avance_tarea` · `agregar_dependencia_plan` · `quitar_dependencia_plan` · `guardar_termino_glosario` · `proponer_tareas_plan` · `proponer_cierre_tareas` · `proponer_ampliar_tareas`
-- **CRM** (`crm`): `buscar_leads` · `ficha_lead` · `reuniones_recientes` · `ver_funnel` · `listar_horarios_reunion` · `listar_leads` · `contar_leads_por_etapa` · `transiciones_desde_etapa` · `requisitos_para_mover` · `faltantes_del_lead` · `reuniones_proximas` · `cobranza_lead` · `tracking_lead` · `journey_lead` · `duplicados_lead` · `propuestas_lead_pendientes` · `confirmaciones_crm_automatico` · `estado_crm_automatico` · `evaluar_crm_automatico` · `link_agenda_calendly` · `link_resumen_lead` · `r2_sin_lead` · `listar_productos` · `listar_etiquetas` · `etiquetas_lead` · `sugerencias_crm` · `volver_a_mostrar_sugerencia` · `ver_ficha_funnel` · `cambiar_ficha_funnel` · `proponer_cambio_etapa` · `proponer_agendar_reunion` · `proponer_lead` · `marcar_asistencia_reunion` · `marcar_calificado` · `agregar_nota_lead` · `asignar_closer_setter` · `mover_a_nutricion_manual` · `marcar_pago_cobrado` · `registrar_pago_suelto` · `ignorar_datos_sin_marcar` · `reactivar_datos_sin_marcar` · `resolver_confirmacion_crm` · `declarar_entradas_funnel` · `tipos_de_crm` · `crear_crm` · `crear_etiqueta` · `editar_etiqueta` · `archivar_etiqueta` · `poner_etiqueta_lead` · `sacar_etiqueta_lead` · `oferta_del_lead` · `asignar_oferta_lead` · `crear_oferta_lead` · `editar_contacto_lead` · `agregar_link_fathom` · `marcar_reunion_manual` · `guardar_plan_pagos` · `guardar_cuotas` · `guardar_deal_details` · `activar_crm_automatico` · `guardar_producto` · `proponer_leads`
+- **CRM** (`crm`): `buscar_leads` · `ficha_lead` · `reuniones_recientes` · `ver_funnel` · `listar_horarios_reunion` · `listar_leads` · `contar_leads_por_etapa` · `transiciones_desde_etapa` · `requisitos_para_mover` · `faltantes_del_lead` · `reuniones_proximas` · `cobranza_lead` · `tracking_lead` · `journey_lead` · `duplicados_lead` · `propuestas_lead_pendientes` · `confirmaciones_crm_automatico` · `estado_crm_automatico` · `evaluar_crm_automatico` · `link_agenda_calendly` · `link_resumen_lead` · `r2_sin_lead` · `listar_productos` · `listar_etiquetas` · `etiquetas_lead` · `sugerencias_crm` · `volver_a_mostrar_sugerencia` · `ver_ficha_funnel` · `cambiar_ficha_funnel` · `listar_eventos_agenda` · `vincular_evento_etapa` · `desvincular_evento_etapa` · `proponer_cambio_etapa` · `proponer_agendar_reunion` · `proponer_lead` · `marcar_asistencia_reunion` · `marcar_calificado` · `agregar_nota_lead` · `asignar_closer_setter` · `mover_a_nutricion_manual` · `marcar_pago_cobrado` · `registrar_pago_suelto` · `ignorar_datos_sin_marcar` · `reactivar_datos_sin_marcar` · `resolver_confirmacion_crm` · `declarar_entradas_funnel` · `tipos_de_crm` · `crear_crm` · `crear_etiqueta` · `editar_etiqueta` · `archivar_etiqueta` · `poner_etiqueta_lead` · `sacar_etiqueta_lead` · `oferta_del_lead` · `asignar_oferta_lead` · `crear_oferta_lead` · `editar_contacto_lead` · `agregar_link_fathom` · `marcar_reunion_manual` · `guardar_plan_pagos` · `guardar_cuotas` · `guardar_deal_details` · `activar_crm_automatico` · `guardar_producto` · `proponer_leads`
 - **Ads (Manager y Analyst)** (`ads`): `listar_campanas_meta` · `ver_estado_meta` · `ver_salud_cuenta_meta` · `listar_conjuntos_meta` · `listar_anuncios_meta` · `listar_anuncios_con_problemas_meta` · `listar_recomendaciones_meta` · `ver_rendimiento_anuncios` · `ver_cuenta_meta` · `listar_publicos_meta` · `buscar_intereses_meta` · `buscar_lugares_meta` · `listar_formularios_meta` · `listar_pixeles_meta` · `listar_eventos_pixel_meta` · `listar_conversiones_meta` · `listar_identidades_meta` · `verificar_ganadores_reusables` · `listar_motivos_venta_llamada` · `ver_publico_conjunto_meta` · `ver_textos_anuncio_meta` · `ver_datos_campana_meta` · `ver_datos_conjunto_meta` · `verificar_aprobacion_meta` · `listar_incidentes_meta` · `ver_base_formulario_meta` · `listar_publicaciones_mako_meta` · `listar_guiones_analizados` · `ver_ficha_guion` · `ver_estado_analisis_guiones` · `ver_cuadrante_retencion` · `ver_perfil_guiones` · `listar_angulos_guion` · `listar_avatares_guion` · `listar_guiones_valorados` · `ver_transcript_anuncio` · `proponer_estado_campana` · `proponer_renombrar_campana` · `proponer_estado_conjunto` · `proponer_estado_anuncio` · `proponer_renombrar_entidad_meta` · `proponer_presupuesto_campana` · `proponer_presupuesto_conjunto` · `proponer_eliminar_entidad_meta` · `proponer_agregar_anuncio` · `proponer_editar_textos_anuncio` · `proponer_crear_publico_meta` · `proponer_crear_formulario_meta` · `proponer_sincronizar_guiones` · `proponer_reanalizar_guion` · `proponer_corregir_angulo_guion` · `proponer_corregir_avatar_guion` · `proponer_borrar_guion_valorado` · `proponer_agregar_angulo` · `proponer_editar_angulo` · `proponer_borrar_angulo` · `proponer_agregar_avatar` · `proponer_editar_avatar` · `proponer_borrar_avatar`
 - **WhatsApp** (`whatsapp`): `listar_plantillas_aprobadas` · `listar_borradores_plantilla` · `estado_plantillas_meta` · `variables_plantilla` · `estado_envio_whatsapp` · `listar_etiquetas_whatsapp` · `etapa_inbox_de_lead` · `lead_insiste_con_lo_mismo` · `crear_contacto_chatwoot_lead` · `borrar_borrador_plantilla` · `reconciliar_plantillas` · `crear_borrador_whatsapp_empresa` · `guardar_borrador_plantilla` · `enviar_plantilla_a_meta` · `editar_plantilla_meta` · `borrar_plantilla_meta`
 - **Email** (`email`): `kpis_email` · `listar_secuencias_email` · `ficha_secuencia_email` · `listar_etapas_email` · `listar_triggers_email` · `listar_broadcasts` · `ficha_broadcast` · `listar_segmentos_email` · `contar_segmento_email` · `estado_email` · `remitente_email` · `envio_email_habilitado` · `crear_secuencia_email` · `editar_meta_secuencia_email` · `cancelar_programacion_broadcast` · `verificar_dominio_envio` · `editar_pasos_secuencia_email` · `crear_broadcast` · `editar_broadcast` · `programar_broadcast` · `enviar_broadcast` · `enviar_prueba_broadcast` · `eliminar_broadcast` · `activar_envio_real_email`
@@ -45,7 +45,7 @@
 - **Integraciones** (`integraciones`): `ver_integraciones` · `ver_integracion` · `probar_conexion_integracion` · `ver_estado_google_calendar` · `ver_cuotas_ia` · `ver_activacion_tab` · `ver_estado_agente_claude` · `link_configurar_integracion`
 - **Cuenta, equipo y notificaciones** (`equipo`): `ver_workspace` · `ver_zona_horaria_workspace` · `ver_preferencias_notificaciones` · `listar_avisos_disponibles` · `esta_aviso_activo` · `ver_estado_plantilla_reporte` · `fijar_zona_horaria_workspace` · `configurar_reporte` · `configurar_seccion_reporte` · `configurar_aviso_whatsapp` · `asegurar_plantilla_reporte`
 - **Curso (módulos y clases)** (`curso`): `listar_cursos` · `ver_curso` · `ver_clase_curso` · `crear_modulo_curso` · `renombrar_modulo_curso` · `ordenar_modulos_curso` · `crear_clase_curso` · `editar_clase_curso` · `mover_clase_curso` · `borrar_clase_curso` · `restaurar_clase_curso`
-- **Calendario** (`calendario`): `listar_eventos_calendario` · `crear_evento_calendario` · `link_agenda_llamada` · `ver_proximas_recurrentes`
+- **Calendario** (`calendario`): `listar_eventos_calendario` · `crear_evento_calendario` · `link_agenda_llamada` · `anticipacion_agenda` · `ver_proximas_recurrentes`
 - **Creaciones de la comunidad (estrellas)** (`creaciones`): `listar_creaciones` · `ver_creacion` · `mis_creaciones` · `dar_estrella` · `quitar_estrella` · `publicar_creacion` · `retirar_creacion` · `usar_creacion`
 - **Cobros (Stripe y Mercado Pago)** (`cobros`): `listar_cobros` · `ver_cobro` · `crear_link_pago` · `anular_link_pago` · `reembolsar_cobro` · `cancelar_suscripcion` · `ver_moneda_negocio` · `cambiar_moneda_negocio` · `editar_dato_deal` · `editar_obligacion_deal` · `editar_venta_lead` · `editar_cuota` · `crear_link_cuota` · `cortar_recordatorio_cuota` · `estado_suscripcion_manual`
 - **MaKo (pendientes, propuestas, chats)** (`mako`): `listar_pendientes` · `confirmar_accion` · `cancelar_accion` · `ver_pendiente` · `listar_propuestas_revisar` · `ver_propuesta_accion` · `resumen_bandejas_confirmacion` · `listar_capacidades_mako`
@@ -1380,7 +1380,7 @@ curl -L \
 
 ## CRM — `crm`
 
-Tab **CRM** (`/crm`). 29 lecturas · 33 acciones.
+Tab **CRM** (`/crm`). 30 lecturas · 35 acciones.
 
 ### `GET /api/v1/crm/busqueda/leads` — Buscar leads por texto
 
@@ -1646,7 +1646,7 @@ curl -L \
 
 ### `GET /api/v1/crm/leads/{leadId}/plan-de-pagos` — Plan de pagos de un lead
 
-El estado de cobranza de UN lead: total vendido en USD, si es suscripción (con su monto mensual), duración, fecha de cierre e inicio de servicio, si tiene contrato, y cada cuota con su id, monto en USD, vencimiento, si está pagada, fecha de pago y si tiene comprobante. Responde «¿cuánto le falta pagar a X?». El id de cada cuota es el que pide marcar_pago_cobrado.
+El estado de cobranza de UN lead: total vendido en USD, si es suscripción (con su monto mensual), duración, fecha de cierre e inicio de servicio, si tiene contrato, y cada cuota con su id, monto en USD, vencimiento, si está pagada, fecha de pago y si tiene comprobante. Responde «¿cuánto le falta pagar a X?». Trae también el estado de cuenta de la tab Pagos (qué debe, el detalle y qué hacer ahora: la acción que toca y, si es cobrar una cuota, su id), los últimos movimientos de plata (cobros, rechazos y devoluciones, del más nuevo al más viejo) y los avisos que piden algo (un contracargo, una devolución que falló). El id de cada cuota es el que pide marcar_pago_cobrado.
 
 - **Ruta por operación:** `GET /api/v1/crm/cobranza_lead`
 - **Token detallado:** permiso `crm=read` (Solo lectura en «CRM»)
@@ -2015,7 +2015,7 @@ curl -L \
 
 ### `GET /api/v1/crm/ficha` — Ver la ficha de un CRM
 
-Cómo se arma la ficha del lead en UN CRM del negocio, para todos sus leads: la plantilla (la que elige MaKo según las etapas de reunión y cómo entra la gente, o la que eligió alguien) y por qué, los bloques de cada tab en orden (Resumen, Reuniones, Pagos y Tracking) con su ancho y su diseño, de qué «datos sin marcar» avisa y por qué no avisa de los otros, y el estilo (tema, acento, tipografía y tamaño de las tarjetas). Trae también, por tab, los bloques que se pueden sumar con sus anchos y diseños, y las plantillas. Es el paso previo a cambiar_ficha_funnel. Sin embudoId, el CRM principal.
+Cómo se arma la ficha del lead en UN CRM del negocio, para todos sus leads: la plantilla (la que elige MaKo según las etapas de reunión y cómo entra la gente, o la que eligió alguien) y por qué, los bloques de cada tab en orden (Resumen, Reuniones, Pagos y Tracking) con su ancho, su diseño y su ícono si se lo cambiaron, de qué «datos sin marcar» avisa y por qué no avisa de los otros, y el estilo (tema, acento, tipografía y tamaño de las tarjetas). Trae también, por tab, los bloques que se pueden sumar con sus anchos y diseños, las plantillas y los íconos que se le pueden poner a un bloque. Es el paso previo a cambiar_ficha_funnel. Sin embudoId, el CRM principal.
 
 - **Ruta por operación:** `GET /api/v1/crm/ver_ficha_funnel`
 - **Token detallado:** permiso `crm=read` (Solo lectura en «CRM»)
@@ -2038,7 +2038,7 @@ curl -L \
 
 ### `PATCH /api/v1/crm/ficha` — Cambiar la ficha de un CRM
 
-PROPONE UN cambio en la ficha del lead de UN CRM (queda pendiente hasta el «sí»), para todos sus leads: poner, quitar o mover un bloque, cambiarle el ancho o el diseño, prender o apagar el aviso de un dato sin marcar, cambiar el estilo o el tamaño de las tarjetas, usar otra plantilla o volver a la plantilla. Los ids de bloques, diseños y avisos salen de ver_ficha_funnel. «Contacto» no se puede quitar y las asistencias siempre avisan. Quitar un bloque no apaga su aviso. Solo el administrador. Sin embudoId, el CRM principal.
+PROPONE UN cambio en la ficha del lead de UN CRM (queda pendiente hasta el «sí»), para todos sus leads: poner, quitar o mover un bloque, cambiarle el ancho, el diseño o el ícono, prender o apagar el aviso de un dato sin marcar, cambiar el estilo o el tamaño de las tarjetas, usar otra plantilla o volver a la plantilla. Los ids de bloques, diseños, íconos y avisos salen de ver_ficha_funnel. «Contacto» no se puede quitar y las asistencias siempre avisan. Quitar un bloque no apaga su aviso. Solo el administrador. Sin embudoId, el CRM principal.
 
 - **Ruta por operación:** `POST /api/v1/crm/cambiar_ficha_funnel`
 - **Token detallado:** permiso `crm=write` (Lectura y escritura en «CRM»)
@@ -2054,14 +2054,15 @@ PROPONE UN cambio en la ficha del lead de UN CRM (queda pendiente hasta el «sí
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
 | `embudoId` | number | no | el CRM, por el id de su embudo (de productos_del_lead). Sin él, el CRM principal del negocio. |
-| `cambio` | string (poner \\| quitar \\| mover \\| ancho \\| diseno \\| aviso \\| estilo \\| densidad \\| plantilla \\| volver) | sí | qué cambiar: poner, quitar o mover un bloque (con tab y bloque; mover y poner con lugar), ancho o diseno de un bloque, aviso (con aviso y avisa), estilo (con tema, acento o tipografia), densidad (el tamaño de las tarjetas), plantilla (con plantilla) o volver (a la plantilla: con tab, sólo esa tab; sin tab, toda la ficha y sus avisos). |
+| `cambio` | string (poner \\| quitar \\| mover \\| ancho \\| diseno \\| icono \\| aviso \\| estilo \\| densidad \\| plantilla \\| volver) | sí | qué cambiar: poner, quitar o mover un bloque (con tab y bloque; mover y poner con lugar), ancho, diseno o icono de un bloque, aviso (con aviso y avisa), estilo (con tema, acento o tipografia), densidad (el tamaño de las tarjetas), plantilla (con plantilla) o volver (a la plantilla: con tab, sólo esa tab; sin tab, toda la ficha y sus avisos). |
 | `tab` | string (resumen \\| reuniones \\| pagos \\| tracking) | no | la tab del bloque. En volver, la tab que vuelve a la plantilla. |
 | `bloque` | string | no | el id del bloque (de ver_ficha_funnel), por ejemplo cuotas o redes-y-web. |
 | `lugar` | number | no | en poner y mover: el lugar en la tab, 1 es el primero. Sin él, poner lo suma al final. |
 | `ancho` | string (1/4 \\| 1/3 \\| 1/2 \\| completo) | no | en poner y ancho: el ancho del bloque sobre la grilla de la ficha. Cada bloque acepta sólo algunos (ver_ficha_funnel). |
 | `diseno` | string | no | en poner y diseno: el id del diseño del bloque (de ver_ficha_funnel). |
+| `icono` | string | no | en icono: el id (de los iconos de ver_ficha_funnel), o de-siempre: el del bloque. |
 | `n` | number | no | si el bloque está más de una vez en la tab (respuesta-destacada), cuál: 1 es el primero. |
-| `aviso` | string (fechaJ1 \\| asistenciaR1 \\| calificado \\| fathomR1 \\| fechaJ2 \\| asistenciaR2 \\| fathomR2 \\| monto \\| plan \\| comprobante \\| dealServicio \\| dealPromesa \\| dealFiscal \\| dealFiscalDoc \\| dealObligaciones \\| motivo \\| closer \\| setter \\| telefono \\| empresa) | no | en aviso: el dato sin marcar (de ver_ficha_funnel). |
+| `aviso` | string | no | en aviso: el id del dato sin marcar (de los avisos de ver_ficha_funnel). |
 | `avisa` | boolean | no | en aviso: true para que avise, false para que no. |
 | `tema` | string (mako \\| minimal \\| suave \\| contraste \\| elevada \\| general \\| editorial) | no | en estilo: la plantilla de estilo, la misma del Dashboard. |
 | `acento` | string | no | en estilo: el color de acento en hex, #RRGGBB. Vacío para volver al de la plantilla de estilo. |
@@ -2078,6 +2079,92 @@ curl -L \
   -H "Content-Type: application/json" \
   "https://hola-mako.com/api/v1/crm/ficha" \
   -d '{"cambio":"poner"}'
+```
+
+### `GET /api/v1/crm/eventos-agenda` — Eventos de agenda y su etapa
+
+Los tipos de evento de Calendly y Cal.com del negocio: cuál es la R1 o la R2 de Integraciones y a qué etapa de reunión de qué CRM está vinculado cada uno (quien lo reserva cae en esa etapa). Trae las etapas que se pueden vincular. Paso previo a vincular_evento_etapa. Solo el administrador.
+
+- **Ruta por operación:** `GET /api/v1/crm/listar_eventos_agenda`
+- **Token detallado:** permiso `crm=read` (Solo lectura en «CRM»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** crm
+
+_Sin parámetros._
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/crm/eventos-agenda"
+```
+
+### `PUT /api/v1/crm/eventos-agenda/vinculo` — Vincular un evento a una etapa
+
+PROPONE vincular un evento de Calendly o Cal.com a una etapa de reunión de un CRM (queda pendiente hasta el «sí»): desde ahí, quien lo reserva cae en esa etapa de ese CRM; si ya está en otro, se lo agrega sin moverlo. Un evento va a una sola etapa. Evento, embudoId y etapa salen de listar_eventos_agenda. Solo el administrador.
+
+- **Ruta por operación:** `POST /api/v1/crm/vincular_evento_etapa`
+- **Token detallado:** permiso `crm=write` (Lectura y escritura en «CRM»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** guarda el vínculo del evento con la etapa (agenda_evento_etapa) y lo registra en el índice de webhooks (webhook_routing); sus reservas pasan a caer en esa etapa de ese CRM
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** crm
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `proveedor` | string (calendly \\| calcom) | sí | la agenda: calendly o calcom. |
+| `evento` | string | sí | el identificador del evento (de listar_eventos_agenda), o su nombre. |
+| `embudoId` | number | sí | el CRM, por el id de su embudo (de listar_eventos_agenda). |
+| `etapa` | string | sí | key de la etapa de reunión (de listar_eventos_agenda). |
+
+```bash
+curl -L \
+  -X PUT \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/crm/eventos-agenda/vinculo" \
+  -d '{"proveedor":"calendly","evento":"EVENTO","embudoId":1,"etapa":"ETAPA"}'
+```
+
+### `DELETE /api/v1/crm/eventos-agenda/vinculo` — Desvincular un evento de su etapa
+
+PROPONE sacar el vínculo de un evento de Calendly o Cal.com con su etapa (queda pendiente hasta el «sí»): sus reservas vuelven a la R1 o R2 de Integraciones y al CRM principal. Solo el administrador.
+
+- **Ruta por operación:** `POST /api/v1/crm/desvincular_evento_etapa`
+- **Token detallado:** permiso `crm=write` (Lectura y escritura en «CRM»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** borra el vínculo del evento (agenda_evento_etapa) y suelta su fila del índice de webhooks si ya nadie la usa
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** crm
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `proveedor` | string (calendly \\| calcom) | sí | la agenda: calendly o calcom. |
+| `evento` | string | sí | el identificador del evento (de listar_eventos_agenda), o su nombre. |
+
+```bash
+curl -L \
+  -X DELETE \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/crm/eventos-agenda/vinculo" \
+  -d '{"proveedor":"calendly","evento":"EVENTO"}'
 ```
 
 ### `PUT /api/v1/crm/leads/{leadId}/etapa` — Mover un lead de etapa
@@ -12335,7 +12422,7 @@ curl -L \
 
 ### `GET /api/v1/video/plantillas` — Plantillas de anuncio del editor
 
-El catálogo de plantillas de anuncio vertical (9:16) del Video Editor (/video-editor): id, nombre, qué es, cuánto dura y sus huecos. Un hueco de clip se llena con un video o una foto (con los segundos que pide: un video más corto no entra; una foto sirve siempre; uno opcional puede quedar con su muestra); uno de texto, con hasta su máximo de caracteres (trae el texto de ejemplo). Usar una plantilla NO se puede por la API: el proyecto vive en el navegador de quien edita. Se usa en el editor, en la pestaña Plantillas o pidiéndoselo al chat «Editar con IA».
+El catálogo de plantillas de anuncio vertical (9:16) del Video Editor (/video-editor): id, nombre, qué es, cuánto dura y sus huecos, primero las sugeridas para este negocio (con su porqué en "sugerida"). Un hueco de clip se llena con un video o una foto (con los segundos que pide: un video más corto no entra; una foto sirve siempre; uno opcional puede quedar con su muestra); uno de texto, con hasta su máximo de caracteres (trae el texto de ejemplo). Usar una plantilla NO se puede por la API: el proyecto vive en el navegador de quien edita. Se usa en el editor, en la pestaña Plantillas o pidiéndoselo al chat «Editar con IA».
 
 - **Ruta por operación:** `GET /api/v1/video/listar_plantillas_video`
 - **Token detallado:** permiso `video=read` (Solo lectura en «Video Generator»)
@@ -12474,7 +12561,7 @@ curl -L \
 
 ### `GET /api/v1/imagen/plantillas` — Ver las plantillas del Image Editor
 
-Las plantillas del Image Editor: slug, título, categoría, tamaño y páginas. Un diseño nuevo puede empezar de una (crear_diseno_imagen con `plantilla`).
+Las plantillas del Image Editor: slug, título, categoría, tamaño y páginas, primero las sugeridas para este negocio (con su porqué en "sugerida"). Un diseño nuevo puede empezar de una (crear_diseno_imagen con `plantilla`).
 
 - **Ruta por operación:** `GET /api/v1/imagen/listar_plantillas_imagen`
 - **Token detallado:** permiso `imagen=read` (Solo lectura en «Image Editor (diseños)»)
@@ -13447,7 +13534,7 @@ curl -L \
 
 ## Calendario — `calendario`
 
-Tab **Calendario** (`/calendario`). 3 lecturas · 1 acciones.
+Tab **Calendario** (`/calendario`). 4 lecturas · 1 acciones.
 
 ### `GET /api/v1/calendario/eventos` — Ver los eventos del Calendario
 
@@ -13532,6 +13619,28 @@ curl -L \
   -H "Authorization: Bearer <TU-TOKEN>" \
   -H "X-MaKo-Api-Version: 2026-10-08" \
   "https://hola-mako.com/api/v1/calendario/links-agenda"
+```
+
+### `GET /api/v1/calendario/anticipacion` — Con cuánta anticipación se puede agendar
+
+El hueco libre más cercano de los tipos de reunión activos de Calendly: con cuánto se puede agendar hoy una llamada (por ejemplo, 3 h). Calendly no publica su «anticipación mínima»: esto es lo MEDIDO en la agenda de esta semana y cambia con ella. Sirve para saber si un recordatorio «1 día antes de la reunión» puede no llegar a salir (quien agenda con menos de la mitad de ese tiempo no lo recibe). Sin Calendly conectado devuelve `minutos: null` con el motivo.
+
+- **Ruta por operación:** `GET /api/v1/calendario/anticipacion_agenda`
+- **Token detallado:** permiso `calendario=read` (Solo lectura en «Calendario»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** externo
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** calendario
+
+_Sin parámetros._
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/calendario/anticipacion"
 ```
 
 ### `GET /api/v1/calendario/recurrentes` — Próximas veces de las tareas que se repiten

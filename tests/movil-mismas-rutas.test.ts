@@ -11,6 +11,10 @@
 //   · `conWs` sin `rutaEscritorio` (los links de /m vuelven a mostrar /m)       → 13 / 1
 //   · el proxy con `seguir` en vez de `seguirOMovil` en la salida con sesión    → 11 / 3
 //   · `rutaEscritorio` sin la rama de /m/dashboard/<hoja>                        → 12 / 2
+// 15/10/2026, las siete de More (base 14 / 0): `rutaEscritorio` sin la fila de /m/curso → 13 / 1 («la URL de
+// escritorio…»). ⚠️ El barrido de page.tsx de abajo NO las ve mientras sus páginas no existan (recorre lo
+// que hay en disco): la ida y vuelta de cada fila de SECCIONES_MAS, con o sin página, y que cada una TENGA
+// su página, viven en tests/movil-mas-secciones.test.ts.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
@@ -79,6 +83,11 @@ test('la URL de escritorio de cada pantalla es la que ya usa la computadora', ()
     ['/m/video', '/video-generator'], [`/m/video/${UUID}`, `/video-generator?plan=${UUID}`],
     ['/m/landing', '/web-generator'], ['/m/landing/42', '/web-generator/42'],
     ['/m/dashboard/mi%20hoja', '/dashboard?hoja=mi+hoja'],
+    // Las siete de More del 15/10/2026: la ruta que la computadora ya usa (Copywriting abre Ads Writer).
+    ['/m/calendario', '/calendario'], ['/m/second-brain', '/second-brain'], ['/m/experimentos', '/experimentos'],
+    ['/m/offer', '/offer'], ['/m/copywriting', '/ads-writer'], ['/m/curso', '/customer-success/curso'],
+    ['/m/comunidad', '/customer-success/comunidad'],
+    ['/m/experimentos?tab=analisis', '/experimentos?tab=analisis'], ['/m/comunidad?post=12', '/customer-success/comunidad?post=12'],
     // Lo que sólo existe en el teléfono lleva una URL sin /m, y la computadora la manda a lo suyo.
     ['/m/mas', '/mas'], ['/m/configurar', '/configurar'], ['/m/cuenta/instalar', '/perfil/instalar'], ['/m/crm/12/chat', '/crm/12/chat'],
   ];

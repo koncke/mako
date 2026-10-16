@@ -7,12 +7,15 @@
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
+import { soloAdminDeTab } from '@/lib/puerta-admin-tab';
 import { idearExperimentos } from '@/lib/experimentos';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 120;
 
 export async function POST(req: NextRequest) {
+  const cerrada = await soloAdminDeTab('experimentos');
+  if (cerrada) return cerrada;
   let n = 3;
   try {
     const body = await req.json();

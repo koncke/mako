@@ -4833,3 +4833,139 @@ Martín: «en "Un Lead Agendó Llamada" solo puedo desconectar la flecha del CON
 
 **Vive en:** `app/_components/Lienzo.tsx` (las puntas, `soltarCirculo`) · `app/automations/FlujoLienzo.tsx`
 (`quitarFlecha`, `reconectar`, `desdeDe`) · test: `tests/lienzo-flechas-desconectar.test.ts`
+
+## «Probar» ponía los «antes de la reunión» antes que un «Esperar 5 min» (16/10/2026)
+
+- **La causa:** en el simulador, una espera «N antes de la reunión» NO movía el reloj de su camino, porque «la prueba no
+  tiene una reunión de la que descontar». Con varios caminos en paralelo, el de los recordatorios quedaba en el minuto
+  0 y salía entero antes que el «Esperar» de otro.
+- **Pero la prueba SÍ tiene una reunión:** quien entra por una etapa de reunión la tiene mañana a esta hora
+  (`hechosDeLeadNuevo`, desde el 14/10). Ahora el estado lleva ese minuto (`reunionMin`, `reunionMinDe`), y la espera
+  lleva el reloj a la reunión menos N, como el motor (`nutricion-grafo-motor.ts`: si eso ya pasó, sigue enseguida).
+  Sin reunión, no inventa un minuto.
+- **Son cuatro los que arrancan una simulación:** el panel, los escenarios, el recorrido y la API (`probar_secuencia`).
+  Los cuatro tienen que pasarle la reunión; si falta en uno, ése ordena distinto.
+
+**Vive en:** `lib/simulador-grafo.ts` (`correrHilo`, `iniciar`, `reunionMinDe`) · `app/automations/PanelProbar.tsx`
+(`reunionDeLaPrueba`) · `lib/setting-secuencias.ts` · test: `tests/probar-orden-antes.test.ts`
+
+## «Probar»: el encabezado del caso, la sidebar y el «escribiendo…» (16/10/2026)
+
+- ⚠️ **Un tipo de mensaje nuevo en el hilo tiene que quedar fuera de la charla.** El encabezado del caso pasó a ser su
+  propio tipo (`'caso'`, `ChipDelCaso`), y había tres lugares que filtraban sólo `'sistema'`: lo que lee el redactor
+  (la IA habría leído «Caso 1: …» como algo que dijo el negocio), el último mensaje de un contacto y lo que contesta el
+  lead. Ahora pasan por UN filtro (`esDeLaCharla`); el test fija que no quede ningún `m.tipo !== 'sistema'` suelto.
+- **La sidebar «salía arriba» por 5 píxeles:** el cuerpo del panel en la pantalla de Martín mide ~645 px y la columna
+  pedía 640 (con el borde caía debajo). Desde 520.
+- **El «escribiendo…» del lead sumaba dos esperas:** las pausas de la animación y DESPUÉS la IA. Ahora el mensaje se
+  pide apenas aparece lo que contesta, y el «escribiendo…» espera sólo lo que falte.
+
+**Pendiente de Martín (consultado a Cerebro):** si «su nombre» en la sidebar es un nombre de persona (y entonces el
+lead de cada caso se llama así en sus mensajes), y qué quiere decir «los chips de "antes de"... no en el medio».
+
+**Vive en:** `app/automations/ChipDelCaso.tsx` · `app/automations/PanelProbar.tsx` (`pildoraDelCaso`, `esDeLaCharla`,
+`pedirMensajeDelLead`, `ANCHO_PARA_COLUMNA`) · `app/automations/SimuladorSocial.tsx` · test:
+`tests/probar-chip-caso.test.ts`
+
+## «Probar»: el grupo de MaKo como primer contacto (16/10/2026)
+
+Martín: «En todas las automatizaciones de WhatsApp que haya un paso del grupo de WhatsApp de MaKo, debería salir como
+primer contacto, con el nombre real del grupo... Y al reproducir cada caso, MaKo debería enviar el mensaje
+correspondiente». Hasta ese día la tarjeta «MaKo en WhatsApp» pasaba como la pastilla «⚡ Avisar al equipo», y lo que le
+llega al grupo no se veía en ningún lado.
+
+- ⚠️ **La prueba NUNCA le escribe al grupo de verdad, tampoco con «Probar en WhatsApp».** El grupo es el del cliente,
+  con su equipo adentro (en el ws1, el de Mauricio): una prueba ahí es un aviso falso a gente real. Lo que MaKo le
+  mandaría queda en el chat del grupo DE LA PRUEBA, con la nota «Prueba: al grupo no le llega nada» arriba. El test
+  fija que `alGrupo` no llame a `mandarReal`, `postar` ni `fetch`, y que la ruta sólo LEA el grupo.
+- **En SuperAdmin no hay UN grupo.** La fila de un evento de la plataforma le escribe al grupo del negocio que lo emitió
+  (`negocioWs`, lib/flujos.ts): leer el grupo del ws de SuperAdmin habría mostrado un nombre que nunca recibe ese
+  mensaje. Con `evento=1` la ruta contesta «Grupo de cada negocio».
+- **«No pude leer el nombre» no es «no tiene grupo».** El nombre sale de WhatsApp (Evolution, `infoGrupoMaKo`), con 8 s
+  de plazo: si no contesta, el contacto dice «Grupo de MaKo», que no finge ser el real. Sin grupo guardado
+  (`hay: false`) el renglón dice «Sin grupo todavía».
+- **Lo que le llega, como lo arma el motor:** la tarjeta de hoy, por partes y con los datos de ejemplo; una de antes (sin
+  `partes`), con el texto envuelto de `armarAvisoDeTarjeta` («🟡 título», el lead, «— MaKo»). La que va por email
+  («MaKo por email») no le escribe al grupo: sigue siendo la pastilla.
+- **Una guarda vieja prohíbe `readOnly` en el panel** (era el «Editar» de cuando «Probar» era una vista de sólo
+  lectura): el chat del grupo va sin caja porque no recibe `onEnviarTexto`, y la nota es su primer renglón.
+
+**Vive en:** `lib/probar-grupo.ts` · `app/automations/PanelProbar.tsx` (`alGrupo`, `pildora`, `verGrupo`,
+`BarraEscenarios` con `grupo`) · `app/api/chat-agent/simulador/route.ts` (`GET ?grupo=1`) · `lib/simulador-grafo.ts`
+(el evento `accion` lleva su `paso`) · test: `tests/probar-grupo-mako.test.ts`
+
+## «1 día antes» con la reunión en 3 h: lo de esa espera ya no sale (16/10/2026)
+
+Martín: «si MaKo sabe por la API que el evento permite agendar con poca anticipación (por ejemplo 3 h), el delay "1 día
+antes" lo advierte. Y lo ideal: "si está configurado "1 día antes" y se agendó dentro de 3 horas, que simplemente no
+salga"». Hasta ese día el motor seguía de largo con una espera «antes de la reunión» que ya había pasado: quien agendaba
+a 3 h recibía el «mañana es tu reunión» al instante, y el «1 h antes» también.
+
+- **La regla es la MITAD, no «ya pasó»** (`llegaTarde`, lib/flujo-grafo.ts). El lead llega a la espera unos minutos
+  después de agendar (el cron, un «Esperar 5 min» de antes): con «ya pasó», agendar 24 h y 3 min antes salteaba el «1 día
+  antes». Si al llegar falta menos de la mitad («1 día antes» con menos de 12 h), lo que sigue —mensajes y acciones— no
+  sale, hasta la próxima espera; las condiciones del medio se deciden igual. Las flechas en paralelo de esa espera
+  tampoco arrancan.
+- **No es una regla escondida** (la de Martín del 14/10: «MaKo NADA por detrás»): el editor de la espera la dice entera
+  («Si agenda con menos de 12 h, no sale») y se cambia a «Si agenda más cerca, sale enseguida», que es lo de antes y se
+  guarda (`siAgendaCerca: 'sale'`). Lo de fábrica no se escribe. **Cambia lo que reciben los leads de los flujos que ya
+  existen**: Martín lo pidió como lo ideal para todos.
+- **El motor y «Probar» lo hacen igual**: `resolverControl` (lib/nutricion-grafo-motor.ts) y el simulador, que lo dice en
+  la pastilla («⏳ 1 día antes de la reunión · agendó más cerca: no sale»).
+- ⚠️ **La API de Calendly NO publica la «anticipación mínima» de un event type** (es un ajuste de la pantalla; no aparece
+  en su referencia). Lo que sí da son los huecos libres: `primerHuecoLibre` (lib/calendly-agenda.ts) toma el más cercano
+  de cada event type activo en la semana. Es una MEDICIÓN y así se dice («Calendly tiene huecos a 3 h»). La lee
+  `anticipacion_agenda` (API de MaKo, área calendario) y el lienzo (GET /api/flujos/anticipacion), que pone la ⚠ en la
+  píldora de la espera que no llegaría a salir.
+- **Una espera entre dos tarjetas NO es un nodo: es una pastilla de la flecha** (`AristaFlujo.esperas`). El aviso tenía
+  que viajar también ahí (`aviso`), o la ⚠ sólo salía en las esperas sueltas.
+
+**Vive en:** `lib/flujo-grafo.ts` (`llegaTarde`, `textoSiAgendaCerca`) · `lib/nutricion-grafo-motor.ts`
+(`resolverControl`, `sanearEspera`) · `lib/simulador-grafo.ts` · `lib/flujo-conversacion.ts` (`avisoAgendaCerca`) ·
+`lib/agenda-anticipacion.ts` · `app/automations/FlujoLienzo.tsx` (`EditorEspera`) · test: `tests/agenda-cerca.test.ts`
+
+## «Crear con IA» por Instagram: 140 s y un error de la revisión, el adjunto leído con visión, y «Probar» sin nada (16/10/2026)
+
+Tres bugs que Martín vio el mismo día (por Cerebro, A1-A3).
+
+- ⚠️ **El diagnóstico obvio («la IA tarda») era el equivocado. MEDIDO en `anthropic_usage` (ws10, 16/10 06:07-06:10
+  UTC):** Groq contestó en segundos. El flujo traía `"canal": "whatsapp"` en un pedido de Instagram, la revisión lo
+  rechazó y la cascada (que pasa al siguiente proveedor cuando `validar` dice que no) probó OpenRouter: 97 s, y el mismo
+  error. Después vino el reintento con los errores: 76 s más. La causa estaba en el código: `canalDeTarjeta` respetaba el
+  «whatsapp» que el modelo escribe por costumbre. Ahora, en un flujo social, un mensaje NUEVO al lead sale por ese canal
+  sin otra vuelta. Editando, un mensaje que ya estaba conserva el suyo si el cambio no lo nombra (`mantenerCanal`).
+- **La regla de la IA «por Instagram sólo texto y link» quedó atrás del editor:** el editor social sube archivos desde
+  la decimocuarta tanda y el motor los manda por partes (`enviarPasoSocial`). Ahora la IA pone un archivo por Instagram
+  o Messenger si ese canal lo acepta (`problemaDeAdjunto`: Instagram, foto, video o PDF), y si no, lo saca con su
+  porqué. (La primera respuesta a un COMENTARIO sigue siendo sólo texto: eso lo decide el motor.)
+- **El error que ve la persona no lleva lo que le habla al modelo** (`paraLaPersona`: sin «: usa "canal": …» ni las
+  claves del JSON).
+- **El adjunto se razona ANTES de leerlo** (lib/archivo-del-pedido.ts). Lo que el flujo DA («dando este lead magnet»,
+  «mándales el PDF») es CONTENIDO: va a la biblioteca de archivos sin leerlo, el pedido lo nombra con su id, y `deIA`
+  lo pone en el último mensaje al lead si el modelo no lo puso. Lo que dice CÓMO armarlo, o un archivo solo, es
+  INSTRUCCIONES y se lee como antes. Si subir o leer falla, el pedido sale igual y lo dice. ⚠️ **La decisión es del
+  código, no de una IA:** el caso que la pidió fue justamente la IA caída.
+- **«Probar» apagado mientras falte algo**, con el porqué al lado en 3-4 palabras (`motivoParaNoProbar`): «Completa el
+  disparador», «Agrega un mensaje» o «Completa una tarjeta». Esta última se puede tocar y lleva a la tarjeta, como
+  Publicar.
+
+**Sin hacer:** el plazo por intento sigue en 100 s: OpenRouter gratis contestó en 76 y 97 s, y cortarlo antes dejaría
+sin respuesta al negocio que sólo tiene ese proveedor vivo. La espera dice «hasta 5 min» porque es el tope de la ruta
+(tests/flujo-ia-arreglos.test.ts).
+
+**Vive en:** `lib/flujo-ia.ts` (`canalDeTarjeta`, `nodoDe`, `validarIA`, `conElArchivoDelPedido`, `paraLaPersona`) ·
+`lib/archivo-del-pedido.ts` · `app/automations/ChatMako.tsx` (`BarraPideselo`) · `app/automations/archivo-pedido-cliente.ts`
+· `lib/flujo-conversacion.ts` (`motivoParaNoProbar`) · `app/automations/SecuenciaPerfil.tsx` · tests:
+`tests/crear-ia-instagram-solo.test.ts`, `tests/crear-ia-adjunto.test.ts`, `tests/probar-apagado.test.ts`
+
+## El AI Step sin red por llevar datos del lead dice «Conecta tu Claude» (16/10/2026)
+
+- La cascada saltea la red gratis de la agencia cuando el pedido lleva datos de clientes, y lo anota en
+  `erroresPlataformaOut` con «red gratis salteada:». Pero el aviso al negocio se elegía sólo con los errores de SUS keys,
+  así que decía «no hay ninguna API key de IA cargada»: un remedio equivocado. Ahora, con ese salto, dice
+  `CONECTA_TU_CLAUDE` (lib/fallo-ia-texto.ts), la misma frase que ya usan el análisis del lead y las cajas del Dashboard.
+  Vale para la respuesta (`responderSimulador`) y para la nota de voz (`escucharDelLead`). Con la compuerta del crédito
+  de Claude que pone Onboarding, éste pasa a ser el camino de todo negocio sin su Claude.
+
+**Vive en:** `lib/fallo-ia-texto.ts` (`sinRedPorDatos`) · `lib/setting-simulador.ts` · `lib/nutricion.ts` · test:
+`tests/ai-step-conecta-claude.test.ts`

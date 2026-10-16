@@ -97,13 +97,17 @@ test('«reel» → las tarjetas salen por Instagram, como las arma el lienzo, y 
 });
 
 // rotura s3 «`validarIA` sin la regla del WhatsApp al lead» → 7 / 1 (éste).
-test('un WhatsApp al LEAD en un flujo de Instagram no pasa la revisión (el modelo lo corrige)', () => {
+// ⚠️ DESDE EL 16/10/2026 `deIA` LO ARREGLA SOLO (`canalDeTarjeta`, tests/crear-ia-instagram-solo.test.ts): Martín vio el
+// error de la revisión en la pantalla después de 140 s de reintentos. La regla de `validarIA` queda como red para un flujo
+// armado por otro camino; acá se le pasan los pasos ya armados con el WhatsApp puesto.
+test('un WhatsApp al LEAD en un flujo de Instagram no pasa la revisión (la red, si llega armado así)', () => {
   const ctx = ctxWs10(REEL);
   const r = deIA({ disparador: clave(ctx, 'instagram:comentario'), inicio: 't1', tarjetas: [
     { id: 't1', tipo: 'mensaje', canal: 'whatsapp', texto: 'Hola {{nombre}}, te escribo por WhatsApp.' },
   ] }, ctx, rnd());
-  assert.equal(mensajes(r.pasos)[0].canal, 'whatsapp', 'el canal que escribió el modelo se respeta: lo frena la revisión');
-  const err = revision(r.pasos, ctx, r.disparador);
+  assert.equal(mensajes(r.pasos)[0].canal, 'instagram', 'deIA lo pasa al canal del flujo');
+  const armadoAsi = r.pasos.map((p) => (claseDe(p) === 'mensaje' ? { ...p, canal: 'whatsapp' } : p)) as PasoGrafo[];
+  const err = revision(armadoAsi, ctx, r.disparador);
   assert.ok(err.some((e) => /va por WhatsApp y el flujo es por Instagram/.test(e)), err.join(' | '));
 });
 

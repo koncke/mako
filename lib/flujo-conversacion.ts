@@ -67,7 +67,8 @@ import {
   indicePorId, nodoPorId, nuevoId, insertarNodo, conectarPuerto, validarGrafo, textoRama, textoEspera, nodosEnBucle, textoCasoRespuesta,
   RESULTADO_SI_NO, paralelosDeResultado, puertoParalelo, contarParalelos, rotuloSiNoDeRespuesta,
   esPasoIA, erroresDelPasoIA, medioDe, raicesRespuesta, puedeSumarAIStep, juntarPasosIA,
-  type MedioAIStep,
+  llegaTarde, minutosDeCerca,
+  type MedioAIStep, type Espera,
 } from './flujo-grafo';
 // La libertad de un escenario del AI Step (undécima tanda): UNA lectura para la tarjeta, el editor y el motor.
 import { libertadDeCaso, type Libertad } from './ai-step-libertad';
@@ -753,6 +754,11 @@ export type OpcionesGrafo = {
   /** Los nombres de las etiquetas y las etapas, para las filas de una condición. */
   nombres?: NombresParaTexto;
   /**
+   * Con cuánta anticipación se puede agendar hoy, en minutos (el hueco libre más cercano de Calendly, GET
+   * /api/flujos/anticipacion). Sin él (cargando, sin Calendly, no se pudo leer) no se avisa nada (`avisoAgendaCerca`).
+   */
+  anticipacionMin?: number | null;
+  /**
    * El color (`#rrggbb`) de una etiqueta, para teñir su tarjeta (decisión 9: «la etiqueta con el
    * color de la etiqueta»). Sin él, la tarjeta de etiqueta va en `--surface-2`.
    */
@@ -790,6 +796,25 @@ export function subarbolRespuesta(pasos: readonly PasoGrafo[]): Set<string> {
  * tarjeta, y el porqué es este comentario.
  */
 export const AVISO_VENTANA_META = 'Tras 24 h no sale';
+
+/** Una anticipación en lo que se lee de una vez: «45 min», «3 h», «2 días». */
+function textoAnticipacion(min: number): string {
+  if (min < 60) return `${Math.max(1, Math.round(min))} min`;
+  if (min < 2 * 1440) return `${Math.round(min / 60)} h`;
+  return `${Math.round(min / 1440)} días`;
+}
+
+/**
+ * EL AVISO DE UNA ESPERA «ANTES DE LA REUNIÓN» QUE PUEDE NO SALIR (16/10/2026, Martín: «si MaKo sabe por la API que el
+ * evento permite agendar con poca anticipación (por ejemplo 3 h), el delay "1 día antes" lo advierte»). Con huecos en
+ * Calendly más cerca que la mitad de la espera (`llegaTarde`), quien agenda ahí no recibe lo de esta espera. Si la tarjeta
+ * dice «sale enseguida», no hay nada que avisar. Es el ⚠ de la píldora: la frase entera va en su `title`.
+ * `anticipacionMin`: el hueco libre más cercano (`anticipacion_agenda`, lib/agenda-anticipacion.ts); null = no se sabe.
+ */
+export function avisoAgendaCerca(e: Espera | undefined, anticipacionMin: number | null | undefined): string | null {
+  if (anticipacionMin == null || !llegaTarde(e, anticipacionMin) || !e) return null;
+  return `Calendly tiene huecos a ${textoAnticipacion(anticipacionMin)}: quien agende con menos de ${textoAnticipacion(minutosDeCerca(e))} no recibe esto`;
+}
 
 /**
  * CUÁNTOS MINUTOS SE ESPERA JUSTO ANTES DE UNA TARJETA: la espera (por tiempo) que la apunta, sumada a
@@ -947,6 +972,10 @@ export function grafoDeSecuencia(pasosIn: readonly PasoParaGrafo[], op: Opciones
     for (const d of fuentes) for (const e of tramo(d).esperas) enFlecha.add(e);
   }
   const textoDeEspera = (id: string) => textoEspera(nodoPorId(pasos, id)?.espera).replace(/^Esperar /, '');
+  /** La ⚠ de una espera «antes de la reunión» que puede no salir (`avisoAgendaCerca`), sea tarjeta o pastilla de flecha. */
+  const avisoDeEspera = (id: string) => avisoAgendaCerca(nodoPorId(pasos, id)?.espera, op.anticipacionMin);
+  /** El texto de la pastilla de flecha más lo de la ⚠, para medirla. */
+  const textoParaMedir = (id: string) => (avisoDeEspera(id) ? `${textoDeEspera(id)} ⚠` : textoDeEspera(id));
 
   // ── Dónde van los hand-offs pendientes: el AI Step de WhatsApp que escucha (undécima: uno por medio; los
   //    hand-offs salen del chat de WhatsApp), o el primero que escucha. Una sola: «2 sin caso» repetido en cada
@@ -1028,7 +1057,12 @@ export function grafoDeSecuencia(pasosIn: readonly PasoParaGrafo[], op: Opciones
       const et = etiquetaDeAccion(p);
       if (c === 'esperar') {
         const detalle = textoEspera(p.espera).replace(/^Esperar /, '');
-        t = { ...base, tipo: 'espera', familia: 'control', titulo: TITULO.esperar, icono: '⏳', detalle, puertos, ancho: anchoPildora(detalle), alto: ALTO_PILDORA };
+        const cerca = avisoDeEspera(id);
+        t = {
+          ...base, tipo: 'espera', familia: 'control', titulo: TITULO.esperar, icono: '⏳', detalle, puertos, alto: ALTO_PILDORA,
+          // La ⚠ ocupa lo de dos letras más: sin contarla, cortaba el final del texto.
+          ancho: anchoPildora(cerca ? `${detalle} ⚠` : detalle), ...(cerca ? { advertencia: cerca } : {}),
+        };
       } else if (esMako(p)) {
         // LA TARJETA MAKO (decisión 11): la ⚡ Acción `avisar_al_equipo` dibujada como lo que hace,
         // con el mensaje recortado. Le escribe al grupo del negocio, no al lead. Desde la undécima, sus
@@ -1193,7 +1227,7 @@ export function grafoDeSecuencia(pasosIn: readonly PasoParaGrafo[], op: Opciones
     for (const d of ds) {
       const t = tramo(d);
       if (!t.esperas.length || !t.hasta || !hs.includes(t.hasta)) continue;
-      const w = t.esperas.map((e) => anchoPildoraFlecha(textoDeEspera(e)));
+      const w = t.esperas.map((e) => anchoPildoraFlecha(textoParaMedir(e)));
       let tramoMax = Math.max(w[0] / 2, w[w.length - 1] / 2) + AIRE_PILDORA;
       for (let k = 1; k < w.length; k++) tramoMax = Math.max(tramoMax, (w[k - 1] + w[k]) / 2 + AIRE_PILDORA / 2);
       hueco = Math.max(hueco, Math.ceil(tramoMax * (w.length + 1)));
@@ -1248,7 +1282,9 @@ export function grafoDeSecuencia(pasosIn: readonly PasoParaGrafo[], op: Opciones
   // en el color primario) para que se lea que corren a la vez, no una después de la otra.
   // Una flecha que pasa por esperas (`tramo`) llega a lo de después y las lleva como pastillas.
   const aristas: AristaFlujo[] = [];
-  const conEsperas = (t: { esperas: string[] }) => (t.esperas.length ? { esperas: t.esperas.map((e) => ({ id: e, texto: textoDeEspera(e) })) } : {});
+  const conEsperas = (t: { esperas: string[] }) => (t.esperas.length ? {
+    esperas: t.esperas.map((e) => { const aviso = avisoDeEspera(e); return { id: e, texto: textoDeEspera(e), ...(aviso ? { aviso } : {}) }; }),
+  } : {});
   if (iIni < 0 && raiz) {
     const t = tramo(raiz);
     if (t.hasta && pos.has(t.hasta)) aristas.push({ desde: ID_ENTRADA, hasta: t.hasta, puerto: 'sig', tono: 'normal', ...conEsperas(t) });
@@ -1288,7 +1324,7 @@ export function grafoDeSecuencia(pasosIn: readonly PasoParaGrafo[], op: Opciones
     if (!r) continue;
     ocultas.push({
       id: e, tipo: 'espera', familia: 'control', titulo: TITULO.esperar, icono: '⏳', detalle: textoDeEspera(e),
-      enFlecha: true, puertos: [], x: r.x, y: r.y, ancho: r.ancho, alto: r.alto,
+      enFlecha: true, puertos: [], x: r.x, y: r.y, ancho: r.ancho, alto: r.alto, ...(avisoDeEspera(e) ? { advertencia: avisoDeEspera(e) ?? '' } : {}),
     });
   }
   const todos = [...normal, ...ocultas];
@@ -1940,6 +1976,22 @@ export function rotuloDisparo(secs: readonly SeccionDisparo[], valor: string, te
   const frase = fraseEtapas(nombres, todas, r[r.length - 2] === KANBAN_ENTREGA ? 'entrega' : 'venta');
   return producto ? `${producto} · ${frase}` : frase;
 }
+
+/**
+ * «PROBAR» APAGADO MIENTRAS FALTE ALGO (16/10/2026, Martín: «tengo una automatización con solo un CRON sin completar nada
+ * y me deja apretar el botón probar... No debería...»). El porqué en 3-4 palabras, que se ve al lado del botón; null = se
+ * puede probar. En orden: el disparador (sin él no hay a quién probarle nada), alguna tarjeta, y lo que frena Publicar.
+ */
+export function motivoParaNoProbar(o: { cronSinElegir: boolean; pasos: readonly PasoGrafo[]; frena: boolean }): string | null {
+  if (o.cronSinElegir) return 'Completa el disparador';
+  if (!o.pasos.some((p) => claseDe(p) !== 'inicio')) return 'Agrega un mensaje';
+  if (o.frena) return 'Completa una tarjeta';
+  return null;
+}
+
+/** ¿El CRON está sin elegir? Ninguno, o todos «Elige qué la dispara» (`manual` sin horario: `TEXTO_SIN_ELEGIR`). */
+export const cronSinElegir = (lista: ReadonlyArray<{ trigger_tipo: string; cron?: unknown }>): boolean =>
+  !lista.length || lista.every((d) => d.trigger_tipo === 'manual' && !d.cron);
 
 /**
  * LOS CANALES QUE «PROBAR» OFRECE (tercera tanda, decisión 14): los que el flujo USA, en el orden

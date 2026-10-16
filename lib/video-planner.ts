@@ -549,6 +549,8 @@ async function objetoDelPlan(salida: string): Promise<Record<string, unknown>> {
       feature: FEATURE_VIDEO_PLANNER,
       motivo: 'reparar el JSON del plan',
       erroresOut: errores,
+      // Detrás del plan, que tiene red: sin la suya, un cliente sin API perdía el plan entero por una coma.
+      redDePlataforma: true,
       validar: (t: string) => { try { parseJsonObject(t); return true; } catch { return false; } },
     }).catch((e) => { errores.push(String((e as Error)?.message ?? e)); return ''; });
     if (reparado) {
@@ -697,6 +699,9 @@ export async function generarPlan(ws: number, pedido: PedidoPlan): Promise<Gener
       maxTokens: conPrompt ? 12000 : (conVoz ? 5000 : 2500),
       feature: FEATURE_VIDEO_PLANNER,
       motivo: `Planificar anuncio en video (${puesta.nombre})`,
+      // Planificar el anuncio es de la primera semana de un cliente nuevo, que no trae una API (16/10/2026).
+      // Sin datos de clientes: el guion es del negocio, así que va la red gratis.
+      redDePlataforma: true,
     });
 
     const crudo = await objetoDelPlan(salida);

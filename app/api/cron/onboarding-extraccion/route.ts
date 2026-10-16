@@ -46,7 +46,7 @@
 import type { NextRequest } from 'next/server';
 import { checkCronAuth } from '@/lib/cron-auth';
 import { correrRonda } from '@/lib/cron-workspaces';
-import { getEstadoOnboarding } from '@/lib/onboarding-state';
+import { getEstadoOnboarding, JOBS_DEL_HISTORICO } from '@/lib/onboarding-state';
 import { tickExtraccion } from '@/lib/onboarding-extract';
 
 export const dynamic = 'force-dynamic';
@@ -62,16 +62,19 @@ export async function GET(request: NextRequest) {
   if (authFail) return authFail;
 
   const t0 = Date.now();
-  // Se recorren los workspaces con META conectado, que es exactamente el conjunto que
-  // puede tener una extracción viva: `iniciarExtraccion` solo se dispara al verificar
-  // esa credencial. Adentro se vuelve a preguntar por el estado real, así que un
-  // workspace con Meta y sin extracción pendiente no cuesta nada.
+  // Se recorren los workspaces con ALGUNA integración que tenga histórico (Meta, Fathom,
+  // YouTube o Panda: `JOBS_DEL_HISTORICO`), que es exactamente el conjunto que puede tener
+  // una extracción viva: la arranca conectar cualquiera de ellas, por cualquier puerta
+  // (`arrancarHistoricoEnSegundoPlano`, lib/onboarding-extract.ts; hasta el 16/10/2026,
+  // sólo el wizard, y esta ronda era sólo de Meta: un negocio con Fathom y sin Meta se
+  // quedaba con sus llamadas marcadas y sin nadie que las corriera). Adentro se vuelve a
+  // preguntar por el estado real, así que uno sin extracción pendiente no cuesta nada.
   //
   // `rotacion` con clave PROPIA (no la del servicio): si dos crons de Meta comparten
   // cursor, se lo pisan y la rotación deja de repartir. Con la rotación, un cliente con
   // mucho histórico no se queda con todas las rondas.
   const ronda = await correrRonda(
-    'meta',
+    Object.keys(JOBS_DEL_HISTORICO),
     async (ws, deadlineMs) => {
       const est = await getEstadoOnboarding();
       if (est.extraction.status !== 'running') return { ws, saltado: 'sin extracción pendiente' };
@@ -98,13 +101,13 @@ export async function GET(request: NextRequest) {
   // «revisé y estaba todo al día» son respuestas distintas, y sin esta línea las dos
   // se ven como un cron que corrió y no dijo nada.
   console.log(
-    `[cron:onboarding-extraccion] ${ronda.conectados.length} con Meta · ${trabajados} con extracción viva · ` +
+    `[cron:onboarding-extraccion] ${ronda.conectados.length} con integraciones con histórico · ${trabajados} con extracción viva · ` +
     `${ronda.sinTurno.length} sin turno · ${Date.now() - t0}ms`,
   );
 
   return Response.json({
     ok: true,
-    conMeta: ronda.conectados.length,
+    conIntegraciones: ronda.conectados.length,
     trabajados,
     sinTurno: ronda.sinTurno,
     resultados: ronda.resultados,

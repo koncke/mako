@@ -33,6 +33,7 @@ import { CATALOGO_ESCENARIOS, escenarioPorId, escenariosParaCamara } from '@/lib
 import type { Camara } from '@/lib/puestas-data';
 import { CREDITOS_POR_DURACION, creditosDeClip } from '@/lib/costo-clip';
 import { plantillasParaApi } from '@/lib/editor-video/plantillas';
+import { senalesDelNegocio } from '@/lib/plantillas-sugeridas-server';
 import { causaDeMotivo, causaFlow, textoFlow, type CausaFlow } from '@/lib/flow-fallo-texto';
 import { getEstadoTab, onboardingTabPendiente, tabOnboardingDef } from '@/lib/tab-onboarding-state';
 import {
@@ -482,9 +483,10 @@ export const RUNNERS: Runners = {
     },
   },
 
-  // El catálogo del Video Editor: constante y puro (lo arma lib/editor-video/plantillas.ts).
+  // El catálogo del Video Editor (lo arma lib/editor-video/plantillas.ts, puro), con las sugeridas para ESTE
+  // negocio primero, como en la pestaña Plantillas (lib/plantillas-sugeridas.ts).
   listar_plantillas_video: {
-    leer: async () => json(plantillasParaApi()),
+    leer: async () => json(plantillasParaApi(await senalesDelNegocio().catch(() => null))),
   },
 
   ver_contexto_video: {

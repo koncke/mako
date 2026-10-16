@@ -1,0 +1,130 @@
+/* ============================================================================
+   /m/second-brain — el buscador, el mapa chico, «Tu negocio» y la hoja de un área o un dato
+   ============================================================================
+   Referencia: docs/prototipos/mako-mobile-tableros.html (la pantalla «second-brain»: el campo
+   .buscar, la caja oscura .nodos y la lista «Tu negocio» con su conteo o «falta»).
+   Todo con prefijo .m-second-brain-* (el nombre ENTERO de la carpeta: Next deja la hoja cargada al
+   salir de la ruta). Sólo var(--token) de app/globals.css. Un h1/p con margen va con [data-m] delante.
+   El mapa chico es una isla oscura: `data-tema="oscuro"` en su caja redefine los tokens (AGENTS.md,
+   «Una pantalla oscura se hace redefiniendo TOKENS»), así --bg y --border-strong son los del lienzo.
+   ========================================================================== */
+
+/* ── El buscador (gris de iOS, 44 de alto, input a 16 px para que iOS no haga zoom) ── */
+.m-second-brain-buscar {
+  display: flex; align-items: center; gap: 8px;
+  min-height: 44px; padding: 0 0 0 12px; border-radius: 12px;
+  background: color-mix(in srgb, var(--ink) 7%, var(--bg)); color: var(--faint);
+}
+.m-second-brain-buscar__ico { flex: none; display: grid; place-items: center; }
+.m-second-brain-buscar input {
+  flex: 1; min-width: 0; min-height: 44px; border: 0; background: none; padding: 0;
+  font: inherit; font-size: 16px; color: var(--ink); outline: none;
+  -webkit-appearance: none; appearance: none;
+}
+.m-second-brain-buscar input::placeholder { color: var(--faint); }
+.m-second-brain-buscar input::-webkit-search-cancel-button { -webkit-appearance: none; appearance: none; }
+.m-second-brain-buscar:focus-within { box-shadow: var(--focus-ring); }
+/* El «3/72» de escritorio: cuántos matchean de cuántos hay. */
+.m-second-brain-buscar__n {
+  flex: none; font-size: var(--fs-meta); color: var(--faint); font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.m-second-brain-buscar__limpiar {
+  flex: none; width: 44px; height: 44px; display: grid; place-items: center;
+  border: 0; background: none; color: var(--faint); border-radius: 12px; padding: 0; cursor: pointer;
+}
+
+.m-second-brain-donde { margin-top: 12px; }
+.m-second-brain-resultados { margin-top: 14px; }
+.m-second-brain-mako { margin-top: 22px; }
+[data-m] .m-second-brain-estado { margin: 16px 4px 10px; font-size: var(--fs-sm); color: var(--dim); }
+
+/* ── El esqueleto (loading.tsx): la misma forma, sin datos ────────────────── */
+.m-second-brain-skel-buscar { height: 44px; border-radius: 12px; }
+.m-second-brain-skel-mapa { margin-top: 16px; aspect-ratio: 2 / 1; border-radius: var(--r-lg); }
+.m-second-brain-skel-lista { margin-top: 28px; }
+
+/* ── El mapa chico: la isla oscura con las posiciones del server ──────────── */
+.m-second-brain-mapa {
+  margin-top: 16px; aspect-ratio: 2 / 1; border-radius: var(--r-lg); overflow: hidden;
+  background: var(--bg); border: 1px solid var(--border);
+}
+.m-second-brain-mapa svg { display: block; width: 100%; height: 100%; }
+.m-second-brain-mapa__aristas line { stroke: var(--border-strong); stroke-width: .75; }
+
+/* ── El punto de un área o un dato, en su baldosa oscura (32, como IconoM) ── */
+.m-second-brain-punto {
+  flex: none; width: 32px; height: 32px; border-radius: 9px; display: grid; place-items: center;
+  background: var(--sidebar);
+}
+.m-second-brain-punto i {
+  display: block; width: 10px; height: 10px; border-radius: 50%;
+  background: currentColor; box-shadow: 0 0 8px currentColor;
+}
+
+/* El riel de un área: el conteo, o «falta» (nunca un 0). */
+.m-second-brain-n { font-size: var(--fs-md); color: var(--dim); font-variant-numeric: tabular-nums; }
+.m-second-brain-falta { font-size: var(--fs-sm); font-weight: 600; color: var(--warn); }
+
+/* ── La hoja de un dato ───────────────────────────────────────────────────── */
+/* Su área, arriba (las migas de Notion): lleva a la lista del área. */
+.m-second-brain-migas {
+  display: inline-flex; align-items: center; gap: 10px; min-height: 44px; margin: -4px 0 6px;
+  padding: 0 12px 0 0; border: 0; background: none; border-radius: var(--r-md);
+  font: inherit; font-size: var(--fs-sm); font-weight: 600; color: var(--dim); cursor: pointer;
+}
+.m-second-brain-migas .m-second-brain-punto { width: 28px; height: 28px; border-radius: 8px; }
+.m-second-brain-migas:active { opacity: .6; }
+.m-second-brain-migas:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+[data-m] .m-second-brain-detalle {
+  margin: 4px 4px 16px; font-size: var(--fs-md); color: var(--ink); line-height: 1.55; white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+[data-m] .m-second-brain-cuerpo {
+  margin: 16px 4px 0; font-size: var(--fs-md); color: var(--dim); line-height: 1.6; white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+.m-second-brain-leer {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%;
+  min-height: 44px; margin-top: 10px; padding: 0 4px; border: 0; background: none;
+  font: inherit; font-size: var(--fs-sm); font-weight: 600; color: var(--primary-strong); cursor: pointer;
+}
+.m-second-brain-leer :is(svg) { transform: rotate(90deg); }
+
+/* Un nombre → valor largo: el nombre arriba, chico; el valor entero abajo. */
+.m-second-brain-par { min-height: 52px; }
+.m-second-brain-par__k { font-size: var(--fs-sm); color: var(--dim); line-height: 1.35; }
+.m-second-brain-par__v {
+  font-size: var(--fs-md); color: var(--ink); line-height: 1.5; white-space: pre-line; overflow-wrap: anywhere;
+  -webkit-user-select: text; user-select: text;
+}
+
+/* «Ver las 9»: el resto de las conexiones. */
+.m-second-brain-mas {
+  min-height: 44px; margin-top: 4px; padding: 0 4px; border: 0; background: none;
+  font: inherit; font-size: var(--fs-sm); font-weight: 600; color: var(--primary-strong); cursor: pointer;
+}
+
+/* ── El Archivero ─────────────────────────────────────────────────────────── */
+.m-second-brain-quitar {
+  width: 44px; height: 44px; display: grid; place-items: center; margin-right: -8px;
+  border: 0; background: none; color: var(--faint); border-radius: 999px; padding: 0; cursor: pointer;
+}
+.m-second-brain-quitar:disabled { opacity: .45; }
+.m-second-brain-web {
+  display: flex; align-items: center; gap: 8px; margin-top: 14px;
+  min-height: 52px; padding: 0 12px; border-radius: var(--r-lg);
+  background: var(--surface); border: 1px solid var(--border); color: var(--faint);
+}
+.m-second-brain-web__ico { flex: none; display: grid; place-items: center; }
+.m-second-brain-web input {
+  flex: 1; min-width: 0; min-height: 50px; border: 0; background: none; padding: 0;
+  font: inherit; font-size: 16px; color: var(--ink); outline: none;
+}
+.m-second-brain-web input::placeholder { color: var(--faint); }
+.m-second-brain-web:focus-within { box-shadow: var(--focus-ring); }
+.m-second-brain-avisos {
+  margin: 14px 4px 0; padding: 0 0 0 18px; display: flex; flex-direction: column; gap: 6px;
+  font-size: var(--fs-sm); color: var(--dim); line-height: 1.45;
+}
+.m-second-brain-avisos li::marker { color: var(--warn); }

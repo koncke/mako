@@ -1662,7 +1662,7 @@ FEEDBACK PROBAR:
     archivos: ["docs/hallazgos-chatbot.md — «Las doce de Martín del 15/10»", "docs/hallazgos-comunicacion.md — SuperAdmin sin conectar", "docs/relevo/chatbot.md — las doce, literal"],
   },
   {
-    fecha: "16 oct", hora: "01:30", chat: "Chatbot", cuenta: "claude3",
+    fecha: "15 oct", hora: "22:03", chat: "Chatbot", cuenta: "claude3",
     sesion: "local_b1f59213-087e-4203-83e1-b3f59eadbaed",
     actor: "claude", tipo: "implementacion",
     titulo: "Los Mensajes de MaKo a sus clientes empiezan a ser automatizaciones de SuperAdmin",
@@ -1679,7 +1679,7 @@ FEEDBACK PROBAR:
     archivos: ["docs/diseno-avisos-plataforma.md", "docs/hallazgos-chatbot.md — los Mensajes de MaKo a sus clientes", "docs/hallazgos-comunicacion.md — SuperAdmin sin conectar"],
   },
   {
-    fecha: "16 oct", hora: "02:15", chat: "Chatbot", cuenta: "claude3",
+    fecha: "15 oct", hora: "23:09", chat: "Chatbot", cuenta: "claude3",
     sesion: "local_b1f59213-087e-4203-83e1-b3f59eadbaed",
     actor: "claude", tipo: "implementacion",
     titulo: "El aviso de Fathom también pasa a ser una automatización de SuperAdmin",
@@ -1696,7 +1696,7 @@ FEEDBACK PROBAR:
     archivos: ["docs/diseno-avisos-plataforma.md — §5", "docs/hallazgos-chatbot.md — los Mensajes de MaKo a sus clientes"],
   },
   {
-    fecha: "16 oct", hora: "04:00", chat: "Chatbot", cuenta: "claude3",
+    fecha: "16 oct", hora: "00:25", chat: "Chatbot", cuenta: "claude3",
     sesion: "local_b1f59213-087e-4203-83e1-b3f59eadbaed",
     actor: "claude", tipo: "implementacion",
     titulo: "El reporte semanal también es una automatización de SuperAdmin, y la tarjeta de MaKo puede ir por email",
@@ -1714,7 +1714,7 @@ FEEDBACK PROBAR:
     archivos: ["docs/diseno-avisos-plataforma.md — §6", "docs/hallazgos-chatbot.md — los Mensajes de MaKo a sus clientes", "docs/hallazgos-infra.md — un script de roturas no se corta con head"],
   },
   {
-    fecha: "16 oct", hora: "10:00", chat: "Chatbot", cuenta: "claude3",
+    fecha: "16 oct", hora: "03:10", chat: "Chatbot", cuenta: "claude3",
     sesion: "local_b1f59213-087e-4203-83e1-b3f59eadbaed",
     actor: "claude", tipo: "implementacion",
     titulo: "El AI Step le contesta a un negocio sin API y escucha las notas de voz; y toda flecha se desconecta",
@@ -1730,5 +1730,45 @@ FEEDBACK PROBAR:
       { sha: "73667ff88", msg: "Lienzo: toda flecha se puede desconectar, también las que llevan una espera encima", lineas: 108, archivos: 2 },
     ],
     archivos: ["docs/hallazgos-chatbot.md — el AI Step en vivo, y las flechas que no se desconectaban", "AGENTS.md — la red como opción del que llama"],
+  },
+  {
+    fecha: "16 oct", hora: "03:56", chat: "Chatbot", cuenta: "claude3",
+    sesion: "local_b1f59213-087e-4203-83e1-b3f59eadbaed",
+    actor: "claude", tipo: "implementacion",
+    titulo: "Probar sigue el orden real de la reunión, y cada caso arranca con su encabezado",
+    puntos: [
+      "«1 hora antes de la reunión» ya no sale antes de «Esperar 5 min»: Probar ordena los mensajes contra la reunión del lead, como cuando corre de verdad.",
+      "Cada caso arranca con un encabezado propio, que no se confunde con un mensaje: el caso arriba y cada hecho como una etiqueta.",
+      "En un AI Step, el encabezado dice qué contesta el lead («Contesta: Pregunta el precio»), y su «escribiendo…» ya no tarda tanto.",
+      "Los casos van en la columna de la izquierda, como los chats de WhatsApp, también en pantallas más chicas.",
+    ],
+    commits: [
+      { sha: "c5f3a915f", msg: "Probar: los «antes de la reunión» se ordenan contra la reunión del lead, como el motor", lineas: 175, archivos: 9 },
+      { sha: "0ecffa3c6", msg: "Probar: el encabezado del caso con su propio diseño, «Contesta» en el AI Step, la sidebar y un lead que no tarda", lineas: 193, archivos: 7 },
+    ],
+    archivos: ["docs/hallazgos-chatbot.md — «Probar» ponía los «antes de la reunión» antes que un «Esperar 5 min»", "docs/hallazgos-chatbot.md — «Probar»: el encabezado del caso, la sidebar y el «escribiendo…»"],
+  },
+  {
+    fecha: "16 oct", hora: "05:23", chat: "Chatbot", cuenta: "claude3",
+    sesion: "local_b1f59213-087e-4203-83e1-b3f59eadbaed",
+    actor: "claude", tipo: "implementacion",
+    titulo: "Crear con IA por Instagram sin vueltas, el lead magnet como archivo, y el «1 día antes» que ya no llega tarde",
+    puntos: [
+      "Pedirle a MaKo una automatización por Instagram ya no termina en un error después de dos minutos: los mensajes salen por Instagram desde el primer intento.",
+      "Un archivo adjunto al pedido, como un lead magnet, va dentro del mensaje que se lo entrega al lead, sin que MaKo tenga que leerlo.",
+      "«Probar» queda apagado mientras falte el disparador o una tarjeta, y al lado dice qué falta.",
+      "Si un lead agenda con poca anticipación, el recordatorio «1 día antes» ya no le llega tarde; si Calendly permite agendar así, la espera lo avisa.",
+      "En «Probar», el grupo de MaKo aparece primero, con su nombre real, y cada caso le deja su mensaje.",
+    ],
+    commits: [
+      { sha: "fa3ebeedf", msg: "Probar: el grupo de MaKo es el primer contacto, con su nombre real, y cada caso le deja su mensaje", lineas: 456, archivos: 10 },
+      { sha: "0c5b0fa8e", msg: "Automations: «1 día antes» con la reunión a pocas horas ya no sale, y Calendly lo avisa en la espera", lineas: 490, archivos: 17 },
+      { sha: "3e6eb0e25", msg: "Crear con IA por Instagram sin reintentos, el adjunto que se razona antes de leerlo, y «Probar» apagado sin disparador", lineas: 575, archivos: 12 },
+    ],
+    archivos: [
+      "docs/hallazgos-chatbot.md — «Probar»: el grupo de MaKo como primer contacto",
+      "docs/hallazgos-chatbot.md — «1 día antes» con la reunión en 3 h",
+      "docs/hallazgos-chatbot.md — «Crear con IA» por Instagram: 140 s y un error de la revisión",
+    ],
   },
 ];

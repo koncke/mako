@@ -529,11 +529,13 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
     // Sólo un fallo que se arregla reintentando devuelve el audio a la barra. Uno rechazado como
     // definitivo (sin voz, demasiado pesado, imposible de convertir) se descarta: el motivo ya está dicho.
     if (res === 'volver') { setAudioEnEspera(a); return; }
-    // Rechazo definitivo: la grabación no vuelve, así que su binario tampoco tiene que quedar. El 422
-    // «no le entendí nada» ya lo borra en el servidor; los otros (413, 415, imposible de convertir) no.
-    // Pedir el borrado dos veces no rompe: `remove` de un path que no está no es un error.
+    // Salió, o el rechazo es definitivo: la grabación no vuelve a la barra.
     soltarUrl(a.url);
-    descartarSubida(a.path);
+    // Sólo el rechazo definitivo ('tirar') suelta el binario. El 422 «no le entendí nada» ya lo borra el
+    // servidor; los otros (413, 415, imposible de convertir) no. Pedir el borrado dos veces no rompe.
+    // ⚠️ NUNCA con 'salio' (16/10/2026): ese path es el que guarda el mensaje y el que firma GET
+    // /api/offer/audio para reproducirlo; borrarlo dejaba muda la nota de voz que sí se mandó.
+    if (res === 'tirar') descartarSubida(a.path);
   };
 
   /**

@@ -130,3 +130,99 @@ export function pendientesDeOnboarding(
 ): PasoOnboarding[] {
   return pasos.filter((p) => s.steps[p]?.postergado && !s.steps[p]?.done && sigueFaltando(p));
 }
+
+/**
+ * El estado tal como está guardado, mergeado sobre el esqueleto (tolera estados viejos o incompletos).
+ * `null` = no hay fila: un cliente nuevo. Un JSON que no se entiende TIRA: quien lee tolerante lo
+ * convierte en el estado inicial, y quien va a ESCRIBIR no puede (pisaría el estado real con uno vacío).
+ */
+export function estadoDeLoGuardado(raw: string | null): OnboardingState {
+  if (!raw) return estadoInicial();
+  const parsed = JSON.parse(raw) as OnboardingState;
+  const base = estadoInicial(parsed.status ?? 'pending');
+  return {
+    ...base,
+    ...parsed,
+    steps: { ...base.steps, ...(parsed.steps ?? {}) },
+    extraction: {
+      ...base.extraction,
+      ...(parsed.extraction ?? {}),
+      jobs: { ...base.extraction.jobs, ...(parsed.extraction?.jobs ?? {}) },
+    },
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// El histórico al conectar una integración
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Qué trabajos del histórico destraba conectar cada integración (lib/onboarding-extract.ts → `jobAplica`).
+ * Lo que no está acá no tiene histórico: guardarlo no arranca nada.
+ */
+export const JOBS_DEL_HISTORICO: Readonly<Record<string, readonly JobKey[]>> = {
+  meta: ['meta_metrics', 'meta_leads', 'ad_transcripts', 'script_analyses'],
+  fathom: ['fathom_calls'],
+  youtube: ['vsl_metrics'],
+  panda: ['vsl_metrics'],
+};
+export const JOBS_DE_META = JOBS_DEL_HISTORICO.meta;
+/** ¿Guardar esta integración puede destrabar algo del histórico? */
+export const sirveAlHistorico = (servicio: string): boolean => (JOBS_DEL_HISTORICO[servicio]?.length ?? 0) > 0;
+
+/**
+ * ¿Conectar `servicio` tiene que (re)arrancar el histórico? Sí cuando nunca arrancó, y cuando alguno de
+ * SUS trabajos quedó salteado (se corrió sin la integración, o sin la página o el video elegido) o con
+ * error (una key que no servía). No cuando ya está pendiente, corriendo o hecho: reconectar no repite nada.
+ *
+ * Hasta el 16/10/2026 lo arrancaba SÓLO el wizard, al verificar Meta en su pantalla. Postergar una
+ * integración y conectarla después desde /integraciones (el caso que `pendientesDeOnboarding` ya contempla)
+ * dejaba al negocio sin su histórico para siempre, y con el chat de Offer como onboarding era todo negocio
+ * nuevo.
+ */
+export function historicoPorArrancar(extraction: ExtractionState, servicio: string): boolean {
+  const jobs = JOBS_DEL_HISTORICO[servicio] ?? [];
+  if (jobs.length === 0) return false;
+  if (extraction.status === 'idle') return true;
+  return jobs.some((k) => {
+    const st = extraction.jobs[k]?.status;
+    return st === 'skipped' || st === 'error';
+  });
+}
+
+/**
+ * La parte pura de `iniciarExtraccion`: con lo que ya se sabe de cada trabajo (`aplica`), lo pone a correr.
+ * Lo hecho y lo que corre NO se tocan (con su cursor): por eso arrancar dos veces no duplica nada. Lo que no
+ * aplica queda salteado con su motivo; si ya no queda nada por hacer, la extracción se da por terminada.
+ */
+export function reevaluarExtraccion(
+  s: OnboardingState,
+  aplica: Record<JobKey, { aplica: boolean; motivo?: string }>,
+  ahora: string,
+): OnboardingState {
+  if (s.extraction.status === 'idle') {
+    s.extraction.status = 'running';
+    s.extraction.startedAt = ahora;
+  } else if (s.extraction.status === 'done' || s.extraction.status === 'error') {
+    // re-evaluación (conectó algo nuevo o reintenta): volver a correr
+    s.extraction.status = 'running';
+    s.extraction.finishedAt = null;
+  }
+  for (const key of JOB_KEYS) {
+    const job = s.extraction.jobs[key];
+    if (job.status === 'done' || job.status === 'running') continue;
+    const a = aplica[key];
+    if (a.aplica) {
+      if (job.status !== 'pending') { job.status = 'pending'; job.error = null; }
+    } else {
+      job.status = 'skipped';
+      job.detail = a.motivo ?? null;
+    }
+    job.updatedAt = ahora;
+  }
+  if (!JOB_KEYS.some((k) => s.extraction.jobs[k].status === 'pending' || s.extraction.jobs[k].status === 'running')) {
+    s.extraction.status = 'done';
+    s.extraction.finishedAt = ahora;
+  }
+  return s;
+}

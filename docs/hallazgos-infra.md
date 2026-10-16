@@ -5316,6 +5316,20 @@ Y un `sinComentarios` que borra los bloques `/* … */` enteros corre los númer
 nombra otra línea (medido: `:99` sobre la 128). Se vacía el bloque conservando sus saltos
 (`m.replace(/[^\n]/g, '')`); `sin-clarity` todavía tiene el corrimiento.
 
+**Y se come código (16/10/2026).** El mismo `sinComentarios`, con `/\/\*[\s\S]*?\*\//g`, saca un «comentario»
+desde CUALQUIER `/*` del archivo:
+
+- **Dónde muerde.** `accept=".pdf,image/*"` abre uno en el medio de un atributo. El regex borra hasta el próximo `*/`,
+  que puede estar cien líneas más abajo.
+- **Cómo se vio.** El test de la tab Pagos (tests/pagos-tab-bloques.test.ts) decía «nadie marca dealFiscal» sobre un
+  archivo que sí lo marcaba.
+- **El peligro de verdad.** No es el `match` que falla: es el `doesNotMatch` que PASA. Un «no hay `router.refresh()`»
+  da verde sobre el código que el regex se comió.
+- **El tamaño.** Medido ese día: 584 tests usan ese regex, y 28 archivos de app/ y lib/ tienen un `/*` dentro de un
+  string.
+- **La regla.** Se sacan sólo los bloques que EMPIEZAN la línea (`/^[ \t]*\/\*[\s\S]*?\*\//gm`).
+- **⚠️ Pendiente.** Falta barrer los tests que leen esos 28 archivos.
+
 ## Verificar en un worktree: el dev server compartido, Turbopack y una corrida cortada por cuota (06/10/2026)
 
 **Vive en:** `next.config.ts` (`turbopack.root`) · `.next/dev/logs/next-development.log` ·
@@ -6315,6 +6329,12 @@ repo): alcance contra `git merge-base origin/main HEAD` y config por proceso (`t
 ⚠️ Si al proceso lo matan en seco, ese archivo queda suelto en el worktree (no está en `.gitignore`). **Regla:** un
 alcance de «lo que cambió la rama» se mide contra el merge-base, nunca contra `origin/main`; y un archivo temporal que
 escribe una herramienta que corren varios a la vez lleva el pid en el nombre.
+⚠️ **Y contra `origin/main` también salen errores de tipos REALES que no son de la rama** (15/10/2026, `C:/dev/wt-mobile`,
+la integración de More en el teléfono). Con main 100 commits adelante, el acotado sumó 205 archivos en vez de 49 y dio
+~40 errores en app/video-editor/_opencut (TS2305 «no exported member 'FrameRate'» de `opencut-wasm`, TS7016 de
+`soundtouchjs`): el worktree tiene la versión VIEJA de esos archivos y su `node_modules` es un junction al del clon, que
+ya instaló los paquetes NUEVOS. Contra el merge-base (la rama sin rebasar: `HEAD`), 0. Un error en un archivo que la
+rama no tocó, con un paquete en el mensaje, se mira primero así.
 
 ## Con main adelantado, el diff de DOS puntos miente, y un merge rompe un test que no choca (15/10/2026)
 
@@ -6473,3 +6493,20 @@ pushea, la suite entera con `--test-concurrency=2`, que entra en la RAM con much
   `node --env-file=C:/dev/mako-api/.env.local --conditions react-server --import tsx <script>`, o el `--env=` del
   script (scripts/mudanza-avisos-plataforma.mts). `dotenv` tampoco se resuelve desde un script del scratchpad,
   porque busca los paquetes desde la carpeta del script. Con `--env-file`, Node lo carga solo.
+
+## Commitear por ruta con un archivo BORRADO: `git add` falla y `git commit --` no (16/10/2026)
+
+`git add -- <rutas>` con una ruta que ya no existe en el disco corta con «pathspec did not match» y no agrega
+NADA, aunque el borrado ya esté en el índice. **La regla:** `git add --` sólo con las rutas que existen, y
+`git commit -F <msg> -- <todas>`, borradas incluidas, que `git commit` sí acepta.
+
+*16/10/2026, chat «CRM» (claude3), al commitear la ficha por bloques (se fueron ResumenModal y resumen-actions).*
+
+## La emulación táctil de CDP queda pegada en la pestaña (16/10/2026)
+
+Después de `Emulation.setTouchEmulationEnabled({ enabled: true })`, volver a `false` en la misma pestaña no devuelve
+el puntero fino: los casos de escritorio midieron `matchMedia('(pointer: coarse)') = true`. **La regla:** lo
+táctil y lo de mouse se miden en pestañas distintas, o lo de mouse primero. Un «coarse: true» en un caso de
+escritorio es la emulación pegada, no la hoja.
+
+*16/10/2026, chat «CRM» (claude3), midiendo la ficha por bloques a 1280 y a 390 táctil.*

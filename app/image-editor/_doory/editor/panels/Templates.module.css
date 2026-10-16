@@ -64,9 +64,23 @@
   color: var(--cv-color-on-brand);
   font: 600 10px / 1.5 var(--cv-font-sans);
 }
+/* The title row: the name and, for a template suggested for the business, a quiet «Sugerido» (MaKo). */
+.meta {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+  margin: 4px 2px 0;
+}
+.suggested {
+  flex: none;
+  color: var(--cv-color-text-subtle);
+  font: 500 11px / 16px var(--cv-font-sans);
+}
 .title {
   display: block;
-  margin: 4px 2px 0;
+  flex: 1 1 auto;
+  min-width: 0;
   overflow: hidden;
   color: var(--cv-color-text-muted);
   font: 400 var(--cv-text-sm) / 16px var(--cv-font-sans);

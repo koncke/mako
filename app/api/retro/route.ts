@@ -11,6 +11,7 @@
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
+import { soloAdminDeTab } from '@/lib/puerta-admin-tab';
 import { listRetros, borrarRetro, periodoDefault, periodoHistorico } from '@/lib/retro';
 import { generarRetroV3, aplicarPlan, seguimientoUltimaRetro, type PlanOp, type OpcionesRetroV3 } from '@/lib/retro-pipeline';
 import { evaluarGate, debatirGate } from '@/lib/retro-gate';
@@ -27,6 +28,8 @@ export const revalidate = 0;
 export const maxDuration = 800;
 
 export async function GET() {
+  const cerrada = await soloAdminDeTab('experimentos');
+  if (cerrada) return cerrada;
   try {
     return Response.json({ ok: true, retros: await listRetros() });
   } catch (err) {
@@ -42,6 +45,8 @@ type Body = {
 };
 
 export async function POST(req: NextRequest) {
+  const cerrada = await soloAdminDeTab('experimentos');
+  if (cerrada) return cerrada;
   let body: Body;
   try { body = await req.json(); } catch { return Response.json({ ok: false, error: 'JSON inválido' }, { status: 400 }); }
 

@@ -56,6 +56,11 @@ export type HiloMsg = {
   nombreArchivo?: string | null;
   /** Lo escribió MaKo para esta persona: la burbuja lleva la marca ✦. */
   ia?: boolean;
+  /**
+   * Sólo para `tipo: 'caso'` («Probar», 16/10/2026): el encabezado de un caso, que dibuja quien monta el hilo
+   * (`renderMensaje`). No es un mensaje de la charla: no se le pasa a la IA ni cuenta como el último.
+   */
+  caso?: { titulo: string; hechos: readonly string[]; contesta?: string | null };
 };
 
 function fmtHora(iso: string | null | undefined): string {

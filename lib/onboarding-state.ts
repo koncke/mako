@@ -7,10 +7,10 @@
 // ve el wizard. Un workspace sin fila = 'pending' (cliente nuevo).
 
 import 'server-only';
-import { getSetting, setSetting } from './settings';
+import { getSetting, getSettingEstricto, setSetting } from './settings';
 import { getCapaActual, getWorkspaceActual, getRolWsEfectivo, OWNER_WS } from './workspace';
 import { capaDef, type PasoOnboarding } from './capas';
-import { estadoInicial, type OnboardingState } from './onboarding-contrato';
+import { estadoDeLoGuardado, estadoInicial, type OnboardingState } from './onboarding-contrato';
 
 // La FORMA del estado y las reglas puras viven en `onboarding-contrato.ts`, sin
 // 'server-only', para que las pueda importar un test (lo que se decide ahí es si un
@@ -23,24 +23,20 @@ export const ONBOARDING_KEY = 'onboarding.state';
 /** Estado del workspace ACTUAL. Sin fila → pending (cliente nuevo). */
 export async function getEstadoOnboarding(): Promise<OnboardingState> {
   try {
-    const raw = await getSetting(ONBOARDING_KEY);
-    if (!raw) return estadoInicial();
-    const parsed = JSON.parse(raw) as OnboardingState;
-    // Tolerancia a estados viejos/incompletos: mergear sobre el esqueleto.
-    const base = estadoInicial(parsed.status ?? 'pending');
-    return {
-      ...base,
-      ...parsed,
-      steps: { ...base.steps, ...(parsed.steps ?? {}) },
-      extraction: {
-        ...base.extraction,
-        ...(parsed.extraction ?? {}),
-        jobs: { ...base.extraction.jobs, ...(parsed.extraction?.jobs ?? {}) },
-      },
-    };
+    return estadoDeLoGuardado(await getSetting(ONBOARDING_KEY));
   } catch {
     return estadoInicial();
   }
+}
+
+/**
+ * Como `getEstadoOnboarding`, pero si la base no contesta o lo guardado no se entiende, TIRA. La tolerante
+ * devuelve el estado INICIAL, que sirve para dibujar y es un desastre para escribir: un `setEstadoOnboarding`
+ * sobre él le pone `pending` a un onboarding terminado y manda al cliente de vuelta al arranque. Lo usa quien
+ * escribe fuera del arranque (el histórico al conectar Meta, lib/onboarding-extract.ts).
+ */
+export async function getEstadoOnboardingEstricto(): Promise<OnboardingState> {
+  return estadoDeLoGuardado(await getSettingEstricto(ONBOARDING_KEY));
 }
 
 export async function setEstadoOnboarding(state: OnboardingState): Promise<void> {

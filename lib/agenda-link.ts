@@ -21,7 +21,9 @@ import { credWs } from './credenciales';
 import { eventTypeDeReunion } from './calendly-agenda';
 import { linkDeReservaCalcom, perfilDeCalcom } from './calcom';
 
-export type ProveedorAgenda = 'calendly' | 'calcom';
+// El tipo vive en lib/agenda-evento-etapa.ts (puro): una cosa, un lugar. Se re-exporta para los que ya lo leen de acá.
+import type { ProveedorAgenda } from './agenda-evento-etapa';
+export type { ProveedorAgenda };
 
 export type LinkDeAgenda =
   | { ok: true; url: string; proveedor: ProveedorAgenda; reunion: string | null }

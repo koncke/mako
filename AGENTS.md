@@ -972,6 +972,10 @@ docs/hallazgos-api-mako.md → «El editor entero del Web Generator»):
   Antes de commitear se corre el test del turno de WhatsApp del área. Y la relevancia que pone el
   clasificador para un pedido amplio va CORTA (lo auxiliar): una larga reparte puntos parejos y
   deja afuera la herramienta que se pidió.
+- **Una op que ya es grande no suma enums de ids** (16/10/2026, `cambiar_ficha_funnel`: +183 caracteres
+  dejaron a `proponer_mover_reunion` fuera de WhatsApp sin cambiar ningún puntaje). La lista de bloques,
+  avisos o íconos se valida en la traducción y devuelve `disponibles`. Se mide
+  `JSON.stringify(aToolDef(def)).length` y, si la op importa, un test le pone tope.
 
 `/api/v1` es la única carpeta que entra a `PUBLICOS` como PREFIJO: toda ella es bearer por
 construcción, y `tests/api-mako-registro.test.ts` enumera en positivo los `route.ts` que puede
@@ -1901,6 +1905,12 @@ logueados: **un campo nuevo lo hereda sin que nadie se acuerde**.
   Revertir sólo la pantalla es mentir hasta el próximo F5. Acá el deshacer vuelve a llamar
   al mismo camino con el valor anterior — y restaura también el estado que ese cambio trajo
   de arrastre (el candado de `score_manual` lo puso el cambio, no la persona).
+- ⚠️ **Y si el deshacer REEMPLAZA entero (restaura una foto), lleva lo `esperado`.** Un compare-and-set del server
+  protege a los cambios que se aplican como parche sobre lo de hoy, no a «pon esto entero»: sin `esperado`, el
+  Deshacer de una persona borra lo que otra guardó después. La pila es POR ENTIDAD (una pantalla puede cambiar de
+  entidad sin desmontarse) y el corte de «mientras guarda, no» va en la función, porque el atajo de teclado no mira
+  el `disabled` del botón. El caso: la ficha del funnel (app/crm/lead-view/ficha/guardado-ficha.ts,
+  docs/hallazgos-crm.md, 16/10/2026).
 - **Al mudarlo, sacá los que quedaron a mano** o salen dos: `toggleDone` y `moveTo` tenían
   su propio `show` encima del que ahora dispara el choke point.
 - **Y filtrá por AUTOR.** Lo que hace la IA no se deshace con un toast —queda en el
@@ -2570,6 +2580,11 @@ crea los cobros, aplica lo que confirma la pasarela (webhook o cron) y devuelve 
   cliente que vende con su Stripe no crea inquilinos.
 - **La moneda la decide la pasarela, y en un formulario que cobra la pasarela se pregunta ANTES del monto.** El
   valor en USD de un cobro es el que alguien declaró; nunca una tasa inventada.
+- **Lo que un lead pagó y debe se cuenta con `cobradoDelLead` (lib/cobrado-lead.ts), y lo que se DICE de eso con
+  lib/pagos-vistazo.ts** («Debe $500», «Al día», qué hacer ahora, los movimientos). Lo usan la tab Pagos, el teléfono
+  y la API de MaKo (`cobranza_lead`). Una pantalla nueva que muestre plata de un lead no suma cuotas por su cuenta.
+  La tarjeta de antes lo hacía, y decía «Pagado por completo» de una mensualidad activa y dibujaba como deuda una
+  cuota DEVUELTA ([docs/hallazgos-pagos.md](docs/hallazgos-pagos.md)).
 
 # Un flag de visibilidad protege la PANTALLA; la API hay que cerrarla aparte
 
@@ -2597,6 +2612,10 @@ el catálogo justo para eso y **no la llamaba nadie**: código muerto.
    cliente con `?ws=N` — por ahí la tarjeta del token del repo se dibujaba adentro del
    panel de dos clientes. Va `wsActual === await wsSuperAdmin()`. Es la otra mitad de la
    regla de `OWNER_WS` que ya está más arriba, y ya falló tres veces.
+5. **Una ruta /api que sólo usa una tab sólo-admin abre con `soloAdminDeTab('<nav>')`** (lib/puerta-admin-tab.ts):
+   el mismo corte que `requireRolWs([], { nav })` de su página, que redirige y a un fetch no le sirve. La página (y la
+   del teléfono, `requireMovil`) cierra la pantalla; la ruta queda abierta si no lo dice ella. Se pagó en
+   Experiments, Retro y la búsqueda del Second Brain (16/10/2026; tests/puerta-admin-tab.test.ts).
 
 **Y el corolario que decide dónde escribir:** se guarda DONDE SE LEE. Ese modal guardaba
 con `ctx.ws` mientras `lib/github-commits.ts` leía de `wsSuperAdmin()`: cargarlo desde el
@@ -3163,6 +3182,13 @@ ahí pasan las dos puertas —pegar un token y el botón «Conectar con Meta»�
 de arriba, incluido el caso que no cubría: con VARIAS páginas no se guardaba ningún token de
 página, así que reconectar dejaba el viejo. Una tercera puerta que escriba las filas a mano es
 la que se va a olvidar de esto. (07/10/2026)
+
+⚠️ **Y conectar Meta ARRANCA EL HISTÓRICO de leads y métricas** (16/10/2026; hasta ese día lo arrancaba sólo el
+wizard). Igual Fathom, YouTube y Panda, cada una SU parte (`JOBS_DEL_HISTORICO`, lib/onboarding-contrato.ts). Toda puerta
+que guarde una integración llama una vez, al final, a `arrancarHistoricoEnSegundoPlano(ws, servicio)`
+(lib/onboarding-extract.ts: lee el estado ESTRICTO y no tumba la conexión; lo que no tiene histórico no hace nada).
+`tests/historico-al-conectar.test.ts` enumera cada archivo que llama a `guardarCredencial`: uno nuevo falla hasta que se
+decida. Una integración nueva con histórico se suma a `JOBS_DEL_HISTORICO`, y el cron la recorre sola.
 
 ⚠️ **Y `META_APP_SECRET` es el secreto de la app VIEJA**, con el que se verifica la firma de
 cada lead del webhook. El de la app MaKo es `MAKO_META_APP_SECRET` (`lib/meta-login.ts`).
@@ -3744,17 +3770,22 @@ primero, por `conClaveDelNegocio` (lib/anthropic.ts), con un solo modelo barato 
 - Lo fija `tests/veto-claude-clave-negocio.test.ts`, probado rompiéndolo (7 de 7). El porqué, en la cabecera del veto.
 
 **Y una TERCERA puerta, también desde el 16/10/2026: el crédito de API de dos planes Max de Martín** («Vinculalas a
-MaKo»). Ya está pago con la suscripción y al acabarse corta en vez de cobrar, así que cubre la IA de texto de los
-clientes cuyas keys no contestaron: va primero en la red de plataforma de `chatCheapCascade`, antes de las keys
-gratis (`conCreditoDeLaPlataforma`, lib/anthropic.ts). Lo que gobierna código nuevo:
+MaKo»). Ya está pago con la suscripción y al acabarse corta en vez de cobrar, y va primero en la red de plataforma de
+`chatCheapCascade`, antes de las keys gratis (`conCreditoDeLaPlataforma`, lib/anthropic.ts). Lo que gobierna código
+nuevo:
 
+- ⚠️ **SÓLO PARA LO QUE MARTÍN HABILITÓ, y hoy es el onboarding.** Textual (16/10/2026): «Yo debo decirte cuando
+  utilizar creditos, no tenemos infinitos... Por ahora solo en onboarding.» La lista es `CREDITO_HABILITADO_PARA`
+  (lib/veto-claude.ts): las funciones del wizard y el chat de Offer que lo reemplaza, y sólo mientras el onboarding
+  del negocio está en curso (`onboardingPendiente`). Para todo lo demás el crédito dice que no y la cascada sigue como si no existiera. Un
+  camino nuevo NO se suma a la lista por su cuenta: lo pide Martín.
 - **Pasan SÓLO las dos claves con nombre** (`CLAVES_CREDITO_PLATAFORMA`), leídas por ese nombre del entorno o de la
   fila del workspace de la plataforma, estrictas. `ANTHROPIC_API_KEY` no se lee ahí, y `evaluarCreditoDeLaPlataforma`
   rechaza cualquier otra clave. Nunca en el Plan, con un solo modelo barato, y con fecha de revisión (`hasta`).
 - **Su gasto no es de MaKo ni del cliente**: la fila va al workspace del cliente que lo usó (`recordUsage(…, ws)`;
   sin eso caía al ws1) con la marca `MOTIVO_CREDITO_PLATAFORMA` al principio, y `costos-ia` y el panel de cada
   negocio la ponen en 0 y la muestran aparte.
-- Lo fija `tests/veto-claude-credito-plataforma.test.ts`, probado rompiéndolo (9 de 9).
+- Lo fija `tests/veto-claude-credito-plataforma.test.ts`, probado rompiéndolo (9 de 9, y 4 de 4 la lista).
 
 # Un default que cobra es un cobro silencioso
 
@@ -3885,11 +3916,12 @@ voz con un mensaje que le pedía cargar otra key. Dos reglas al escribir un cami
 - ⛔ **LOS DATOS DE LOS CLIENTES DE UN CLIENTE NUNCA VAN A UN PROVEEDOR QUE ENTRENA CON LO QUE RECIBE**
   (16/10/2026). Mandar algo a entrenar no se deshace, y la opción segura no cuesta nada. Las keys
   gratis de la agencia son el plan gratis de Gemini (que entrena, con revisión humana) y de Groq. El
-  orden de la red es: primero el crédito de Claude de la plataforma (la API de Anthropic no entrena),
-  después una key de Gemini con facturación si se identifica cuál es, y las del plan gratis sólo al
-  final y NUNCA con datos personales. En `chatCheapCascade` lo decide la marca `pii` del catálogo
-  (`lib/model-catalogo.ts`) o `opts.pii`: con datos de clientes, si nada que no entrene contesta, se
-  corta y el cliente conecta su key. Una feature nueva que lea leads, conversaciones o llamadas se marca
+  orden de la red es: el crédito de Claude de la plataforma (la API de Anthropic no entrena) SÓLO en lo
+  que Martín habilitó —hoy el onboarding, ver la tercera puerta del veto—, después una key de Gemini con
+  facturación si se identifica cuál es, y las del plan gratis sólo al final y NUNCA con datos personales.
+  En `chatCheapCascade` lo decide la marca `pii` del catálogo (`lib/model-catalogo.ts`) o `opts.pii`: con
+  datos de clientes, si nada que no entrene contesta, se corta, y el mensaje dice que conecte su Claude
+  (no «Claude vetado» ni «falló»: molde, el `catch` de `lib/lead-insights.ts`). Una feature nueva que lea leads, conversaciones o llamadas se marca
   `pii: true`. Y un camino con su PROPIA red (un bucle sobre `provsGratisDePlataforma`) aplica la
   misma regla él mismo: el corte de la cascada no lo cubre. Una regla que corta de más tampoco está
   bien: si una feature mezcla pedidos con y sin datos de clientes, la marca del catálogo queda como
@@ -7552,6 +7584,11 @@ Martín: «eso está muy mal».
 - **La cura es UNA función que llamen los dos lectores**, y un guard que CUENTE cuántos
   lugares resuelven el dato. Dos implementaciones de la misma pregunta no divergen por
   descuido: divergen porque una se arregla y la otra no se entera.
+- **Y cuando uno lee de a uno y el otro en LOTE (un mapa), el BORDE va en esa misma función.** La clave que no
+  está en el mapa (un id borrado, uno de otro workspace, el NULL) es justo donde se separan, porque el lector de a
+  uno la resuelve con otra lectura y el del lote con un `?? respaldo`. Medido el 16/10/2026: un lead con la casa
+  borrada contaba con el funnel del negocio en su ficha y con el respaldo pelado del negocio en el worklist,
+  «6 sin marcar» contra 12 en «A revisar» (`apagadosDeLaCasa`, lib/ficha/config.ts).
 
 # Un horario que se repite se ancla en la OCURRENCIA ANTERIOR, nunca en `now()`
 
@@ -8418,12 +8455,16 @@ técnicas están en [docs/diseno-mako-mobile.md](docs/diseno-mako-mobile.md), lo
   Machine, Content Machine, Customer Success) en su orden, y no repite lo que ya está en la barra (CRM · Chats ·
   General · Plan · More, con General AL MEDIO y como la que abre). Antes de dibujar una pantalla nueva: relevar la de
   escritorio y buscar referencias de apps reales (son parte del pedido). El prototipo vigente:
-  docs/prototipos/mako-mobile-tableros.html.
+  docs/prototipos/mako-mobile-tableros.html. **Y lo que escritorio NO tiene, o sacó, el teléfono tampoco lo suma**,
+  aunque el pedido lo nombre o la ruta lo acepte: antes de un campo o una vista nueva se busca «pedido explícito» y lo
+  que se sacó en los comentarios de la tab (Ads Writer prohíbe el campo libre para pedir un guion; Curso no tiene Avance
+  desde el 07/10).
 - **LAS MISMAS RUTAS (13/10/2026, decisión de Martín): /m es la carpeta INTERNA, nunca una URL.** Un teléfono abre
   /crm, /general, /plan… y el proxy le sirve la página de /m en esa misma URL (`pedidoMovil`, lib/movil-desvio.ts);
   una URL /m vieja se redirige a la de escritorio. Adentro de /m todo sigue hablando en rutas /m: al NAVEGAR, `conWs`
   las traduce (`rutaEscritorio`), así que un `href="/m/…"` sale bien solo — pero un `redirect('/m…')` PELADO, sin
-  `rutaConWs`, no pasa por ahí. Al LEER la URL, el shell usa `useRutaInterna`. **Una página nueva de app/m necesita su
+  `rutaConWs`, no pasa por ahí. Al LEER la URL, el shell usa `useRutaInterna`; al ESCRIBIRLA desde el cliente
+  (`replaceState`), se parte de `new URL(window.location.href)` y se toca sólo la query. **Una página nueva de app/m necesita su
   fila en `rutaEscritorio`** (y, si sólo existe en el teléfono, en `SOLO_TELEFONO`, con su respaldo de escritorio):
   `tests/movil-mismas-rutas.test.ts` recorre cada page.tsx y falla nombrándola.
 - **«¿Es móvil?» se pregunta con `esRutaMovil` (`lib/movil-rutas.ts`), nunca con `startsWith('/m')`**: eso
@@ -8451,7 +8492,10 @@ técnicas están en [docs/diseno-mako-mobile.md](docs/diseno-mako-mobile.md), lo
 - **Una sección de More se agrega en UN lugar, `SECCIONES_MAS` (lib/movil-rutas.ts)**, con la key de nav.ts que la
   gatea; de ahí salen More, la barra del rol (si le falta un destino, sube la primera de More), la cabecera, el
   título de la pestaña (lib/titulo-tab.ts) y el desvío. Su `page.tsx` llama a `requireMovil({ navKey })` con esa
-  misma key, y su `loading.tsx`, si lo tiene, va en `LOADING_PERMITIDOS` (tests/layout-sin-suspense.test.ts).
+  misma key, y su `loading.tsx`, si lo tiene, va en `LOADING_PERMITIDOS` (tests/layout-sin-suspense.test.ts). Si su
+  página de escritorio lee la URL, las claves van en `QUERY_DE_SECCION`: un push vuelve a la computadora por
+  `rutaEscritorio`, y la clave que se cae al ir al teléfono se cae también allá. Una tab UNIFICADA de escritorio se
+  gatea con la key de la sección que muestra (`ads-writer`, no `copywriting`: esa no está en TODOS_LOS_ITEMS).
 - **Lo que una pantalla de /m reusa de escritorio no puede vivir en un módulo `'use client'`**: el server no lo puede
   llamar y el cliente se lleva la pantalla entera al bundle. Se muda a lib o a un módulo puro y escritorio lo
   re-exporta (`tomas-estado.ts`, `deSiempreDisparador`, `borradorAlAbrir`); nunca una copia en /m.
@@ -8501,3 +8545,19 @@ los tiempos por palabra del elegido y los dejaba sin los suyos (docs/hallazgos-v
 módulo que importe de ahí `TICKS_PER_SECOND`, `roundMediaTime` o `addMediaTime` (directo o por `timeline/index.ts`,
 `animation/`…) no carga en los tests de node. Lo que se quiera probar recibe los ticks por segundo y lo que llega
 al motor por PARÁMETRO, e importa sólo TIPOS (molde: `transcripcion/cortar.ts`, con `tps` y `dividir`).
+
+# Una reserva de agenda decide a DÓNDE va por un solo camino, y la agenda tiene tres fuentes de ruteo
+
+Desde el 16/10/2026 una etapa de reunión puede tener vinculado un evento de Calendly o Cal.com (mig 0293,
+`lib/agenda-evento-etapa.ts`): quien lo reserva cae en ESA etapa de ESE funnel, y no en el principal.
+
+- **Todo lo que crea o ubica un lead desde una reserva** (los dos webhooks hoy; un backfill, MaKo reservando
+  o un proveedor nuevo mañana) pasa por `rutaDeReserva` + `decidirReserva`, y al lead que ya existía lo ubica
+  `ubicarReservaVinculada` (lo AGREGA si su casa es otro funnel; no le cambia la casa). Sin eso, el evento
+  vinculado cae en el funnel principal y la R sale de J1/J2. La R2 nunca crea un lead.
+  `tests/agenda-evento-etapa.test.ts` lo fija en los dos webhooks.
+- **En `webhook_routing` la agenda tiene TRES fuentes** (la R1, la R2 y los eventos vinculados) bajo el mismo
+  servicio. `borrarRoutingDeWs` se lleva todas: quien lo use después vuelve a reclamar lo que sigue en uso
+  (`reclamarRuteoDeAgenda`), y para soltar UNA se pregunta antes si alguien más la usa.
+- **Un vínculo se guarda con el identificador que manda el webhook** (Calendly: la URI del event type; Cal.com:
+  su id), nunca con el nombre: el ruteo compara exacto y dos eventos se pueden llamar igual.

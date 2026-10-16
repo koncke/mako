@@ -67,13 +67,36 @@ test('«Nueva oferta» va arriba, y «Analizar oferta» lleva a Offer con la ofe
   assert.match(UI, /new URLSearchParams\(\{ oferta: String\(elegida\.id\) \}\)/);
 });
 
-test('las DOS puertas de la ficha muestran la oferta antes del deal', () => {
-  for (const p of ['../app/crm/LeadSheet.tsx', '../app/crm/[id]/page.tsx']) {
-    const src = sinComentarios(leer(p));
-    const o = src.indexOf('<OfertaDelLead leadId={lead.id}');
-    const d = src.indexOf('<DealDetailsCard lead={lead}');
-    assert.ok(o > 0 && d > o, `${p}: la oferta no está arriba del deal`);
+test('las DOS puertas de la ficha: un lead que todavía no compró ve la oferta PRIMERO', async () => {
+  // ⚠️ CAMBIADO A PROPÓSITO EL 14/10/2026 (la ficha por bloques): las dos puertas montan la MISMA ficha
+  // (`FichaPorBloques`); la oferta y el deal son bloques de Pagos, y el ORDEN lo dice la plantilla.
+  // ⚠️ Y OTRA VEZ EL 16/10/2026 (la tab Pagos en bloques, docs/hallazgos-pagos.md): arriba de todo va el ESTADO DE
+  // CUENTA («qué debe, qué pagó, qué hago ahora»), y la venta y las cuotas a su lado. Los tres se CALLAN en un lead
+  // sin compra, así que ése sigue viendo la oferta primero, que es lo que pidió Martín el 13/10 («Pagos punto 1»).
+  // Lo que se fija ahora es eso, EJECUTANDO las reglas: todo bloque que va antes de la oferta se calla sin deal.
+  // Re-verificado rompiéndolo: los links antes de la oferta en el respaldo → 1 fallo; la regla de `venta` sin
+  // `estaVacio` → 1 fallo.
+  const { PLANTILLA_RESPALDO, plantillaFicha } = await import('../lib/ficha/plantillas');
+  const { REGLAS_PAGOS } = await import('../app/crm/lead-view/ficha/reglas-pagos');
+  for (const p of ['../app/crm/LeadSheet.tsx', '../app/crm/[id]/LeadDetailBody.tsx']) {
+    assert.match(sinComentarios(leer(p)), /<FichaPorBloques\b/, `${p}: no monta la ficha compartida`);
   }
+  const abierto = {
+    lead: { id: 1, estado_lead: 'abierto', venta_tipo: null, monto_cierre_usd: null, suscripcion_monto_usd: null, suscripcion_meses: null, fecha_cierre: null, cobro_inicial_usd: null, total_cuotas: null },
+    data: { pagos: [], cobro: { pasarelaConectada: true, hayCobros: false } }, etapa: 'agenda', hoy: '2026-10-16',
+  } as never;
+  for (const pl of [PLANTILLA_RESPALDO, plantillaFicha('dos-reuniones'), plantillaFicha('una-llamada')]) {
+    const pagos = pl.tabs.pagos!;
+    const i = pagos.indexOf('oferta');
+    assert.ok(i >= 0, `${pl.nombre}: sin oferta`);
+    for (const id of pagos.slice(0, i)) {
+      const r = (REGLAS_PAGOS as Record<string, { estaVacio?: (c: never) => boolean }>)[id];
+      assert.ok(r?.estaVacio?.(abierto), `${pl.nombre}: «${id}» va antes de la oferta y se dibuja en un lead sin compra`);
+    }
+  }
+  const reg = sinComentarios(leer('../app/crm/lead-view/ficha/registro-pagos.tsx'));
+  assert.match(reg, /<OfertaDelLead leadId=\{ctx\.lead\.id\}/);
+  assert.doesNotMatch(reg, /DealDetailsCard|Editar deal/, 'la tab Pagos ya no es la tarjeta del deal entera');
 });
 
 test('el link a Offer abre ESA oferta: su conversación más reciente, o una nueva para analizarla', () => {

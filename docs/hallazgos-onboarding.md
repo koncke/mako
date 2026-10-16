@@ -1915,3 +1915,96 @@ que nadie volvió a medir contra la lista de pasos.
   wizard corre también en el teléfono: `/onboarding` está fuera de la cubierta de MaKo Mobile).
 
 *15/10/2026 · chat «Onboarding» (claude3), medido contra el código y la base, sin subagentes.*
+
+## Si el onboarding deja de ser el wizard: qué tiene que quedar escrito al terminar (16/10/2026)
+
+**Vive en:** `lib/onboarding-state.ts` (`onboardingPendiente`, `patchEstadoOnboarding`) · `lib/onboarding-contrato.ts`
+(`onboardingCompleto`) · `app/api/onboarding/route.ts` (la acción `paso`) · `lib/capas.ts` (`onboarding` de cada capa)
+
+Martín decidió reemplazar el wizard por el chat de Offer («el onboarding será ese chat de offer»: nombre → oferta →
+funnel → primer CRM). Lo lleva el chat Offer. Esto es lo que el wizard deja escrito hoy y quién lo lee, para que el
+chat nuevo no deje a nadie trabado ni el primer día vacío. Medido contra el código el 16/10.
+
+**1. Qué hace que el negocio deje de ir al wizard.** `onboardingPendiente()` es verdadero mientras la capa tenga pasos
+(`pasosDeCapaActual()`) y el estado (`getEstadoOnboarding()`) no esté en `'done'`. El estado pasa a `'done'` SÓLO en la
+acción `paso` de `app/api/onboarding/route.ts`, cuando `onboardingCompleto` dice que cada paso de la capa está `done`
+o `postergado`. Las capas `completo` y `agencia` tienen `fase, gemini, archivero, productos, tabs, integraciones`; la
+`pm`, `negocio, fase, plan`. Dos salidas, y la primera es la sana:
+- Cerrar cada paso por el MISMO lugar (mejor: sacar esa lógica a `lib/onboarding-state.ts` y que el wizard y el chat
+  la llamen), con `done` donde se hizo y `postergado` donde no (sólo `integraciones` y `tabs` se pueden postergar).
+- O cambiar el `onboarding` de las capas a los pasos del chat. Eso toca `PASOS_ONBOARDING`, `PASOS_POSTERGABLES`,
+  `POSTERGABLE_TXT` y sus tests, y `tests/onboarding-sin-api.test.ts` va a pedir clasificar cada paso nuevo con IA.
+
+**2. Lo que cada paso escribe y quién lo lee el primer día.**
+
+| Paso | Qué escribe | Quién lo lee | Si falta |
+|---|---|---|---|
+| `fase` | `setDiagnosticoFase` (el Norte); Offer ya usa `guardarFaseSiNoHay`, la misma clave | `/general`, el Perro, el plan de arranque | sin Norte, el Perro prioriza sin la etapa |
+| `fase` (canal) | `onboarding.funnel_tipos` y `saveFunnelDefault(templateDeCanal)` si el embudo está intacto | el embudo por defecto del CRM | el CRM arranca con el embudo genérico |
+| `archivero` | los documentos, las respuestas del brief (`saveAnswers`) y el panorama | Productos, Ofertas, el plan de arranque, Ads Writer, Second Brain | los generadores escriben sin conocer el negocio |
+| `productos` | el catálogo | CRM, funnels, Offer | el CRM sin productos |
+| `tabs` | `setContactoReportes` + la verificación por WhatsApp | los reportes diario, horario y semanal, los avisos | los reportes no le llegan a nadie: postergarlo, no cerrarlo |
+| `integraciones` | las credenciales | todo lo que lee Meta, Fathom, etc. | postergarlo (el recordatorio de `/general` lo cruza con la conexión real) |
+| — (Meta conectado) | `iniciarExtraccion()` pone la extracción en `running`; el cron la sigue | el histórico de leads del CRM | el «primer CRM» sale sin el histórico de Meta, en silencio |
+| cierre | `POST /api/onboarding/plan-arranque` DESPUÉS del `'done'` | el borrador del plan (capas con `seedBoardVsl`) | sin plan personalizado; /plan siembra el piso |
+
+**3. A dónde manda a quien no terminó.** Cuatro lugares redirigen a `/onboarding` mientras está pendiente:
+`lib/tab-access.ts:48` (toda tab), `app/inicio/page.tsx:47`, `lib/movil-guard.ts:105` y `app/m/configurar/page.tsx`. Si el
+chat vive en otra ruta, o `/onboarding` dibuja el chat, o los cuatro apuntan a la nueva — con `rutaConWs`.
+
+**4. El crédito de Claude del onboarding.** Se habilita sumando la feature del chat a `CREDITO_HABILITADO_PARA`
+(`lib/veto-claude.ts`) con `soloDuranteElOnboarding`. ⚠️ Pero hoy no alcanzaría: `pedir` (`lib/offer-ia.ts`) llama a
+`chatCheapCascade` SIN `redDePlataforma`, y el crédito vive adentro de esa red; después corre su propio bucle sobre las
+keys gratis. Para que el crédito llegue, `pedir` tiene que pedir la red de la cascada, o llamar a
+`conCreditoDeLaPlataforma` antes de su bucle. **Las dos juntas, no**: la red de la cascada ya trae las keys gratis de
+la agencia, y con el bucle de `pedir` detrás se prueban dos veces por pedido (el doble de su cuota por minuto, que es
+lo que muerde). Offer eligió la segunda (16/10): su red tiene un plazo propio (`hastaRedMs`) y un respaldo «flojo»
+que la cascada no conoce. `'offer'` quedó en la lista ese día, con `soloDuranteElOnboarding`: sin esa llamada en
+`pedir`, la fila no hace nada.
+
+**5. Tres trampas del diseño del chat de arranque** (Offer propuso: reusar las claves de `PASOS_ONBOARDING`, sacar
+`gemini` y `archivero` de las capas, postergar siempre Meta y borrar el wizard). Medidas el 16/10 contra origin/main:
+- ⚠️ **El histórico de Meta lo arranca SÓLO el wizard.** El único que llama a `POST /api/onboarding/extraccion`
+  `{action:'start'}` (→ `iniciarExtraccion`) es `OnboardingWizard.tsx:274`. El cron
+  (`app/api/cron/onboarding-extraccion`) sólo SIGUE las que están `running`, y su comentario («solo se dispara al
+  verificar esa credencial») describía al wizard. Borrar el wizard con Meta siempre postergado deja a todo negocio
+  nuevo sin su histórico, sin un error. **Arreglado el mismo día** (`ce583d578`): `arrancarHistoricoEnSegundoPlano`
+  (lib/onboarding-extract.ts) lo llaman TODAS las puertas que guardan Meta. `guardarConexionMeta` no era la única: elegir
+  la cuenta o la página cuando hay varias, guardar los campos a mano en /integraciones, `/api/metodo` y la acción
+  `guardar` del wizard escriben Meta por su cuenta, y elegir la página es justo lo que destraba los leads. Tres trampas
+  que salieron haciéndolo:
+  - **La lectura tolerante del estado devuelve el INICIAL con la base caída**, y guardarlo le pone `pending` a un
+    onboarding terminado: el cliente vuelve al arranque. Quien escribe fuera del wizard lee con
+    `getEstadoOnboardingEstricto`.
+  - **Un arranque por credencial, no por puerta, son cinco escrituras del estado ENTERO en paralelo** (cada `after` de
+    `guardarConexionMeta` leería y guardaría lo suyo). Por eso va una vez al final de cada puerta, no en
+    `guardarCredencial`.
+  - **«Simular» queda afuera, a propósito**: copia las credenciales del ws1 (Mauricio) al de prueba, y arrancar ahí el
+    histórico traería sus leads a otro workspace. `tests/historico-al-conectar.test.ts` enumera en positivo cada
+    archivo que llama a `guardarCredencial`: uno nuevo falla hasta que alguien decida.
+  - **Y lo mismo para Fathom, YouTube y Panda** (`f33a78559`): cada integración revive SU parte
+    (`JOBS_DEL_HISTORICO`) y las puertas genéricas pasan el servicio que guardaron. El de Fathom corre el mismo
+    `syncClosingCalls` que el cron de cierre, que ya analiza todas las llamadas sin repetir: adelanta el gasto de Claude,
+    no lo suma. Y salieron dos huecos que ya estaban:
+    - ⚠️ **El cron del histórico recorría sólo a quien tiene META** (`correrRonda('meta', …)`): un negocio con Fathom y
+      sin Meta quedaba con sus llamadas marcadas y nadie que las corriera, sin un error. `correrRonda` acepta una lista
+      (cualquiera de) y el cron pasa `Object.keys(JOBS_DEL_HISTORICO)`.
+    - ⚠️ **El VSL del histórico nunca corrió para un cliente**: `jobAplica` y `jobVsl` leían los videos sólo del
+      setting `youtube_vsl_video_id`, cuyo único escritor (la acción `config` de /api/onboarding) no lo llama nadie;
+      /integraciones los guarda como CREDENCIAL (`YOUTUBE_VSL_VIDEO_ID`). Es la forma de la tarea #171 (dos lectores de
+      la misma pregunta), y `configWs` (lib/cron-workspaces.ts) ya la había arreglado para los crons de YouTube y Panda
+      y no para éste. Un test vecino lo fijaba al revés («que para ELLOS es lo correcto»); se actualizó con su porqué.
+- ⚠️ **`negocio` es el BRIEF, no el nombre.** Las tres pantallas del brief cierran `negocio` (acción `brief` →
+  `saveAnswers` en `mako.onboarding.answers`), y en la capa `pm` es lo que el Perro necesita para priorizar
+  (`briefGrupos`). Lo leen los generadores (`contenido.run.ts:420`, `video.helpers.ts:349`) y el perfil del negocio
+  (`negocio.helpers.ts:105`). Cerrar `negocio` con sólo los nombres los deja escribiendo sin conocer el negocio. Y al
+  escribirlo se lee ESTRICTO y se funde: `getAnswers()` devuelve `{}` si la base no contesta, y `saveAnswers` sobre eso
+  borra el brief (`negocio.helpers.ts:133`).
+- ⚠️ **La capa `pm` no tiene Offer, CRM ni productos** (`navKeys` = todo, mako, productivity-analyst, graphics,
+  calendario). Su paso `plan` es el que cierra con «Crear mi primer proyecto» y dispara el plan de arranque: es el
+  producto entero de esa capa, y no se le puede sacar por uniformar las capas.
+
+Lo que sí se sostiene solo: `ver_estado_onboarding` (API de MaKo) sale de `capa.onboarding`, y `registrarLogin` con
+«llenar el nombre sólo si está vacío» respeta también el que escribió quien invitó (`crearUsuario` lo guarda).
+
+*16/10/2026 · chat «Onboarding» (claude3), medido contra el código, sin subagentes.*

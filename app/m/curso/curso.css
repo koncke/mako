@@ -1,0 +1,39 @@
+/* =============================================================================
+   /m/curso — el curso, sus módulos, sus clases y la hoja de una clase
+   =============================================================================
+   Referencia: docs/prototipos/mako-mobile-tableros.html (la pantalla «curso»: el selector del curso
+   arriba, cada módulo con su «N clases» a la derecha y las clases como filas con sus minutos).
+   Todo con prefijo .m-curso-* (el nombre ENTERO de la carpeta: Next deja la hoja cargada al salir de
+   la ruta). Lo demás (lista, fila, sección, segmentado, hoja) es del shell (app/m/m.css). Sólo
+   var(--token) de app/globals.css. Un <p> con margen va con [data-m] delante.
+   ========================================================================== */
+
+/* El conteo del módulo, a la derecha del título de la sección (el `.r` del prototipo). */
+.m-curso-n {
+  flex: none; font-size: var(--fs-meta); color: var(--dim);
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+
+/* El curso elegido en la hoja «Cursos»: el ✓ azul. */
+.m-curso-check { display: grid; place-items: center; color: var(--primary-strong); }
+
+/* La hoja de una clase: el segmentado del acceso arriba, «Se abre…» debajo. */
+.m-curso-acceso { display: flex; flex-direction: column; gap: 14px; padding-top: 4px; }
+
+/* Lo que no salió (guardar, leer el avance): el punto rojo y el texto en TINTA (el rojo como texto no
+   pasa AA a este tamaño). */
+[data-m] .m-curso-error {
+  display: flex; gap: 8px; align-items: baseline; margin: 0 4px;
+  font-size: var(--fs-sm); line-height: 1.4; color: var(--ink); text-align: left;
+}
+[data-m] .m-curso-error::before {
+  content: ''; flex: none; width: 8px; height: 8px; border-radius: 50%;
+  background: var(--bad); transform: translateY(-1px);
+}
+
+/* Un vacío chico adentro de la hoja (sin alumnos en el producto). */
+[data-m] .m-curso-nota { margin: 0 4px; font-size: var(--fs-sm); line-height: 1.4; color: var(--dim); }
+
+/* ── El esqueleto (loading.tsx): la misma forma, sin datos ────────────────── */
+.m-curso-skel-curso { height: 52px; border-radius: var(--r-lg); }
+.m-curso-skel-titulo { height: 20px; width: 46%; margin: 28px 4px 12px; border-radius: 6px; }

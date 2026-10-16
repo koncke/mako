@@ -12,12 +12,13 @@
 // admin y cambia el worklist, «A revisar» y los avisos de todo el equipo. La asistencia a una
 // reunión que ya pasó no se puede apagar (lib/datos-aviso.ts → NO_IGNORABLES).
 //
-// ⚠️ DESDE LA FICHA DE UN LEAD VA CON `funnelId` (su casa; null = el producto del negocio). Desde el
-// 14/10/2026 los avisos son POR FUNNEL (decisión 1 de docs/diseno-ficha-bloques.md) y el lead cuenta
-// los de SU funnel, que arranca con los de su plantilla. Sin `funnelId` el modal lee y guarda los del
-// NEGOCIO, el respaldo de todos los funnels: abierto así desde la ficha, en un funnel de Prospección
-// mostraba «¿Era lead calificado?» prendido mientras la plantilla lo tenía apagado, y no había cómo
-// prenderlo (medido en producción, ws9, 15/10/2026). «A revisar» mezcla funnels: ahí va sin él.
+// ⚠️ LA FICHA DEL LEAD YA NO LO ABRE (15/10/2026): sus avisos viven en «Personalizar», en el panel de la
+// ficha por bloques (lead-view/ficha/PanelFicha.tsx), y se guardan en la ficha del funnel del lead. Desde
+// el 14/10/2026 los avisos son POR FUNNEL (decisión 1 de docs/diseno-ficha-bloques.md) y el lead cuenta
+// los de SU funnel, que arranca con los de su plantilla. Este modal queda para «A revisar»
+// (app/_components/MakoConfirmGate.tsx), que mezcla funnels: sin `funnelId` lee y guarda los del
+// NEGOCIO, el respaldo de todos los funnels. Con `funnelId`, los de ese funnel (nadie lo abre así hoy).
+// Lo fija tests/ficha-avisos.test.ts.
 // =============================================================================
 
 import { useEffect, useState } from 'react';
