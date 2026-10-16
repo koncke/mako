@@ -5030,3 +5030,32 @@ lib/notificaciones.ts
 (`pasosDelEvento`, `condicionesDelEvento`, `esperaApertura`) · `lib/flujo-pasos.ts` (`decidir`) · `lib/flujos.ts`
 (`hechosDeLaCorrida`, `cadena`, `entregas`) · `lib/nutricion.ts` (el freno de `setSecuenciaPasos`) ·
 `app/automations/EditorCondicion.tsx` · test: `tests/dato-evento.test.ts`
+
+## Los pedidos sueltos en el chat de Automations: lo que la revisión frenó antes de subir (16/10/2026)
+
+El enganche del módulo de Web Generator (docs/diseno-mako-pedidos.md) en el chat de MaKo está hecho y con sus tests en
+la rama **`wip/automations-pedidos`** (1639ae566), **SIN SUBIR**: la revisión adversarial confirmó regresiones del chat
+de siempre. Lo que hay que arreglar antes, y por qué no se veía:
+
+- ⚠️ **El resolver no sabe que el lienzo está VACÍO.** Con una automatización recién creada (modo crear), «Crea una
+  automatización que…» es el pedido para ESTA, pero sale como «crear otra» (una burbuja) y no llega a MaKo. El chat tiene
+  que mandarle a la ruta que lo abierto está vacío, o no preguntar en modo crear.
+- ⚠️ **Nombrar otra automatización en un pedido de edición se lleva el mensaje entero** («que el mensaje diga lo mismo
+  que en Cobranza»): el resolver lo lee como un pedido sobre ESA (lib/mako-pedidos.ts), MaKo no recibe nada, y «borra el
+  mensaje de X» ofrece archivar la automatización X. Un nombre de objeto dentro de una edición no es un pedido aparte.
+- **Un mensaje con dos «borrar»** no se parte: la parte de la abierta se descarta sin aviso.
+- ⚠️ **Crear otra choca con «cambios sin publicar».** Después de que MaKo edita, la abierta queda con borrador; crear
+  desde la burbuja salta la pregunta de lo no publicado que hace «＋ Nueva» ANTES de crear: queda una vacía de más, o
+  «Descartar cambios» se lleva lo que MaKo acaba de hacer y el pedido se pierde. Va por la misma pregunta que «＋ Nueva»,
+  o se guarda el borrador antes de crear.
+- **«Crear ahora» no espera a MaKo** (sólo «Sí» espera): cambia de lienzo, desmonta el chat y corta la edición en vuelo.
+  Y la burbuja dice «Creada» sin saber si se creó (`onCrearOtra` no devuelve nada).
+- **«Deshacer» no deshace del todo:** archivar CANCELA las inscripciones vivas y desarchivar no las devuelve
+  (lib/secuencias-huecos.ts). La burbuja no puede prometer lo que el «⋯ › Eliminar» de la lista tampoco cumple.
+- **La deduplicación de burbujas se traga un mensaje repetido**: ni burbuja ni MaKo.
+- Lo que sí quedó firme y se reusa: `archivar` sin `ids` archiva TODAS, y `cuerpoEliminar` nunca arma un cuerpo sin un
+  id; el chat no hace POST propios (los dos viven en `pedidos-cliente.ts`) para respetar el guard del stream.
+
+**Vive en:** rama `wip/automations-pedidos` (app/automations/pedidos-chat.ts, pedidos-cliente.ts, ChatMako.tsx, la ruta
+app/api/mako/pedidos con `chatbot`) · lib/mako-pedidos.ts (el resolver, del Web Generator) · test:
+tests/automations-pedidos-chat.test.ts (en la rama)

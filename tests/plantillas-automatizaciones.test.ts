@@ -128,6 +128,12 @@ const LAS_13: ReadonlyArray<readonly [id: string, nombre: string, objetivo: Obje
 ];
 
 test('la galería son las 13, una por categoría, en orden de embudo, con su nombre y su objetivo', () => {
+  // (16/10/2026: y las de SuperAdmin, con el MISMO tope. «Meta Frenó la Cuenta Publicitaria de un Negocio» medía 47 y la
+  // fila nació cortada en producción, «…Publicitaria de un»: nadie medía las de la plataforma.)
+  for (const p of PLANTILLAS_PLATAFORMA) {
+    assert.ok(p.nombre.trim() && p.nombre.length <= TOPE_NOMBRE_SECUENCIA, `${p.id}: el nombre mide ${p.nombre.length}`);
+    assert.ok(p.linea.trim() && p.linea.length <= TOPE_LINEA, `${p.id}: la línea mide ${p.linea.length}`);
+  }
   assert.deepEqual(PLANTILLAS.map((p) => [p.id, p.nombre, p.objetivo]), LAS_13.map((x) => [...x]));
   assert.equal(new Set(PLANTILLAS.map((p) => p.nombre)).size, PLANTILLAS.length, 'nombres repetidos');
   for (const p of PLANTILLAS) {

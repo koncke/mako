@@ -218,6 +218,11 @@ aparece la burbuja (se deshace con su botón), así que no queda nada a medias q
 - **Image Editor y Dashboard**: sus objetos ya están (16/10); falta que sus chats llamen a la ruta. ⚠️ El Image Editor
   todavía NO TIENE chat (es la etapa 4 de docs/diseno-mako-ai-native.md): hay que construirle uno antes de engancharlo.
 
+- **Automations**: su función en `objetosDeTab` y el fetch de arriba en su chat. **16/10/2026: hecho en la rama
+  `wip/automations-pedidos`, SIN SUBIR**: la revisión encontró regresiones del chat de siempre, varias del resolver
+  (con el lienzo vacío, «crea una automatización» es de ESTA; un nombre de otra dentro de una edición no es un pedido
+  aparte). Detalle en docs/hallazgos-chatbot.md («Los pedidos sueltos en el chat de Automations»).
+
 - **El chat único del Second Brain** (Centro de Operaciones): el mismo fetch con `tab` = el área de lo que esté abierto.
 - **Correr la operación de OTRA tab** desde la burbuja: hoy `otra-tab` deja el link (y la operación como dato); ejecutarla
   pasa por el registro (`ejecutar.ts`), que propone y confirma como siempre.
