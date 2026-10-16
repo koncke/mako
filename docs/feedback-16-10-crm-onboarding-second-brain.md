@@ -4,7 +4,7 @@ Lo mandó al Cerebro el 16/10 a la tarde con cinco capturas (el editor de etapas
 datos sin marcar de la ficha, «A revisar», la ficha de un cliente en /customer-success y la de un lead en /crm). Pidió
 «Guarda todo este feedback para las próximas cuentas» e «implementa lo que puedas del CRM, sobre todo las cosas
 simples». La cuenta 3 estaba al 97% semanal: se hizo lo simple (commits `9f595cc6f`, `4e9411a71`, `f0c8f0da0`,
-`f777d1d4f`, `7c0d07b9d` y `c52533e94`) y el resto queda acá, **con su archivo**, para la cuenta que siga. Aparte, el mismo día: **Second Brain en
+`f777d1d4f`, `7c0d07b9d`, `c52533e94` y `8cd7447e6`) y el resto queda acá, **con su archivo**, para la cuenta que siga. Aparte, el mismo día: **Second Brain en
 modo claro** (`b401cd017`, «pon en white mode la tab de Second Brain»). Las citas son textuales.
 
 **Quién lo retoma:** el chat **CRM** (relevo: docs/relevo/crm.md, que apunta acá), el chat **Onboarding**
@@ -27,7 +27,10 @@ modo claro** (`b401cd017`, «pon en white mode la tab de Second Brain»). Las ci
 
 ## CRM
 
-### Hecho (commits `9f595cc6f`, `4e9411a71`, `f0c8f0da0`, `f777d1d4f`, `7c0d07b9d` y `c52533e94`)
+### Hecho (commits `9f595cc6f`, `4e9411a71`, `f0c8f0da0`, `f777d1d4f`, `7c0d07b9d`, `c52533e94` y `8cd7447e6`)
+- [x] **10, en parte.** «Personalizar» pasó a ser «Editar», en azul como el del Dashboard; ya editando, «Ver» con borde
+  (app/crm/lead-view/ficha/FichaPorBloques.tsx y ficha-css.ts). Falta el «⋯» con exportar, compartir, tutorial y «AI
+  Analyst», y sacar la tab «MaKo Analyst».
 - [x] **6, en parte.** El «Ver» de datos sin marcar de la ficha tiene la fila de «A revisar»: el ícono del bloque
   (`ICONO_DATO` en app/crm/lead-view/DatosSinMarcarCard.tsx), el basurero rojo para ignorar, la flecha azul para
   completar, la cabecera con el número en su chip. Test: tests/datos-ficha-como-a-revisar.test.ts. Falta lo de
@@ -37,8 +40,7 @@ modo claro** (`b401cd017`, «pon en white mode la tab de Second Brain»). Las ci
   `RAIL + 20` y el panel abre desde `RAIL`. Falta la cara del Second Brain en el chat y el muñeco de la tab.
 - [x] **7.** Se borró la vista `/crm?pendientes=1` entera (y el «marcar en lote» que vivía en ella): la URL vieja abre el
   tablero; los datos sin marcar se resuelven en «A revisar», que abre la ficha encima. Test:
-  tests/worklist-pendientes.test.ts. Queda un ejemplo con `?pendientes=1` en app/admin/ui/Gramatica.tsx (el catálogo
-  de la gramática, sólo admin): cambiarlo cuando se toque esa pantalla.
+  tests/worklist-pendientes.test.ts. El ejemplo de app/admin/ui/Gramatica.tsx ya no manda ahí (`c57c29ded`).
 - [x] **4, en parte.** «Templates» en la barra de edición (era «Plantillas»), y la galería sin «Ahora no» (la primera
   vez se elige un template) ni «Vista previa: …» (app/crm/lead-view/ficha/GaleriaTab.tsx).
 - [x] **1.** Renombrar un CRM: el desplegable cambia al instante (el pop-up le avisa el nombre al mandarlo) y el

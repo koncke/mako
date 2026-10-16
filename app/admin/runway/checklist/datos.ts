@@ -57,6 +57,7 @@ export const HECHO: SeccionChecklist[] = [
     { id: 'sb-claro', t: 'Second Brain en modo claro.', ruta: '/second-brain' },
     { id: 'crm-ver-datos-1610', t: 'El «Ver» de datos sin marcar de la ficha: ícono del bloque, basurero rojo y flecha azul.' },
     { id: 'crm-mako-izq', t: 'El botón y el panel de MaKo del CRM, a la izquierda.', ruta: '/crm' },
+    { id: 'crm-editar-azul', t: 'En la ficha, «Personalizar» ahora es «Editar», en azul como en el Dashboard.' },
   ] },
   { titulo: 'Automations', items: [
     { id: 'aut-flechas', t: 'Toda flecha se desconecta; el paso con IA escucha notas de voz.', ruta: '/automations' },
