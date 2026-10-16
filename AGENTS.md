@@ -1191,6 +1191,20 @@ código nuevo:
   siendo el cartero (`cartero.mjs`, `operaciones_carteros`, `ver_carteros_operaciones`): las claves no se renombran. La
   PC lo reconoce por el título del chat («Runner» o «Cartero», también como «Centro de Operaciones › Runner»:
   `esElCartero`). Un texto nuevo del Centro no dice «cartero» ni «clave»: lo fija tests/centro-textos.test.ts.
+- **UN CHAT ES SU NOMBRE, Y UN SUB-CHAT SE LLAMA «<Jefe> › <Sub>»** (15/10/2026; Martín: «todos los chats de todas las
+  cuentas se llamen igual» y «quiero que cada chat esté englobado en su chat "jefe" que siempre se debe llamar como la
+  tab... ESO no lo quiero decidir yo, lo decide el chat jefe»). Lo que gobierna a cualquier chat:
+  - **El jefe se llama como la tab** («CRM», «Offer», «Web Generator»), y el mismo trabajo se llama IGUAL en las tres
+    cuentas: el Centro une por nombre (sin mayúsculas ni tildes) y le escribe a la sesión abierta
+    (lib/centro-chats.ts → `unirPorNombre`).
+  - **Un sub-chat se nombra «CRM › Lead Detail»** (también vale «>»), y va adentro de su jefe (`porJefe`). No hay
+    registro aparte: el nombre es la convención. Lo decide el jefe —se renombra a sí mismo o renombra al sub-chat con
+    `set_session_title`— y funciona igual si el sub-chat lo crea Martín con un clic y lo nombra así.
+  - **Dos chats distintos no se llaman igual**: si pasa, se unen. Se separan renombrando uno («⋯ → Renombrar»), que le
+    manda a cada sesión un trabajo firmado que le pide `set_session_title` (`textoDeRenombre`): el mismo camino de la
+    firma, sin una puerta nueva a la PC.
+  - **El muñeco que Martín elige se guarda por nombre** (app_settings del workspace de la plataforma,
+    lib/centro-munecos-db.ts) y se lee estricto antes de escribir.
 
 # Un guard sobre algo destructivo se escribe en POSITIVO
 
@@ -5248,8 +5262,9 @@ de `app/admin/dev/_registro/tipos.ts`:
   (ver «Hay dos cuentas»), nunca de una deducción.
 - **`sesion`: el id de TU sesión** (`echo $CLAUDE_CODE_HOST_SESSION_ID` en la app, que da `local_…`; en
   una terminal, `cli_` + `$CLAUDE_CODE_SESSION_ID`). El Centro de Operaciones muestra los chats como una
-  lista y junta cada hito con su chat por la sesión, nunca por `chat`: hay títulos repetidos y chats
-  renombrados (el 15/10/2026, 17 de 37 coincidían por nombre). Desde el 16/10 tests/progreso.test.ts
+  lista y junta cada hito con su chat por la sesión, nunca por `chat`: la sesión le da el nombre que el chat
+  tiene HOY (un chat renombrado no se parte en dos; el 15/10/2026, 17 de 37 coincidían por nombre), y recién
+  ahí une las cuentas por ese nombre (ver «el Centro de Operaciones» más arriba). Desde el 16/10 tests/progreso.test.ts
   lo exige en los hitos de trabajo. En un `prompt` que llegó por otro chat va la sesión de ESE chat si la
   sabés (el `from-session` de su mensaje); si no, sin `sesion`: no se inventa.
 
