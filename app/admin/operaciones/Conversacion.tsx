@@ -15,7 +15,7 @@
 // de cada chat, con un chip»), y a la derecha el botón «Avance» abre la barra derecha con el roadmap de ESTE chat
 // (Avance.tsx), como la de Offer.
 
-import { useEffect, useLayoutEffect, useRef, type KeyboardEvent } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { Icon } from '@/app/_components/icons';
 import type { Alcance } from '@/lib/operaciones-reglas';
 import { avanceDelChat, conteoAvance, historialDelChat, nombreCuenta, textoDeEnvio, type ChatCentro, type Envio, type TrabajoP } from '@/lib/centro-chats';
@@ -24,6 +24,7 @@ import { hace, type PedidoP, type PushP } from '@/lib/progreso-reglas';
 import type { AccionResponder, Decision } from '@/app/admin/runway/decisiones';
 import { Hilo } from './Hilo';
 import { Pregunta } from './Pregunta';
+import { Microfono } from './Microfono';
 import { RielAvance } from './Avance';
 import { Muneco, animoDe } from './Muneco';
 
@@ -67,6 +68,9 @@ export function Conversacion({
   onVolver: () => void;
 }) {
   const lineas = historialDelChat(chat, pedidos, trabajos, respuestas);
+  // Lo que dijo el micrófono si no pudo (permiso, transcripción): va en la línea de estado de la caja.
+  const [faltaMic, setFaltaMic] = useState<string | null>(null);
+  useEffect(() => { setFaltaMic(null); }, [chat.clave]);
   const hilo = useRef<HTMLDivElement>(null);
   const caja = useRef<HTMLTextAreaElement>(null);
 
@@ -113,9 +117,9 @@ export function Conversacion({
           </span>
         </div>
         <button type="button" className="co-cab__avance" aria-pressed={avance} onClick={() => onAvance(!avance)}
-          title={avance ? 'Cerrar el avance' : 'Ver el avance de este chat'}>
+          title={avance ? 'Cerrar el Plan' : 'Ver el Plan de este chat'}>
           <Icon name="todo" size={16} />
-          <span className="co-cab__avance-txt">Avance</span>
+          <span className="co-cab__avance-txt">Plan</span>
           {total > 0 && <span className="co-avance__conteo">{hechos}<span>/{total}</span></span>}
         </button>
         <button type="button" className="co-cab__mas" aria-label={`Opciones de ${chat.titulo}`} title="Opciones"
@@ -156,6 +160,7 @@ export function Conversacion({
               >
                 {alcance === 'solo_esto' ? 'Sólo esto' : 'Y de ahora en más'}
               </button>
+              <Microfono valor={texto} onValor={(v) => { setFaltaMic(null); onTexto(v); }} onError={setFaltaMic} apagado={enviando} />
               <button type="button" className="co-enviar" onClick={onMandar} disabled={enviando || !texto.trim()} aria-label="Firmar y mandar" title="Firmar y mandar (Enter)">
                 {enviando ? <span className="co-enviar__giro" aria-hidden /> : <Icon name="flecha" size={18} />}
               </button>
@@ -170,10 +175,10 @@ export function Conversacion({
             {envio.por === 'clave_no_aceptada' && <button type="button" className="co-chip" onClick={onCopiarClave}><Icon name="copy" size={14} />Copiar Token</button>}
           </div>
         )}
-        <p className="co-caja__estado" aria-live="polite">{envio.puede ? estado ?? '' : ''}</p>
+        <p className="co-caja__estado" aria-live="polite">{envio.puede ? faltaMic ?? estado ?? '' : ''}</p>
       </div>
       </div>
-      {avance && <RielAvance nodos={nodos} pushes={pushes} ahora={ahora} onCerrar={() => onAvance(false)} />}
+      {avance && <RielAvance nodos={nodos} pushes={pushes} ahora={ahora} onCerrar={() => onAvance(false)} chat={chat} />}
       </div>
     </section>
   );

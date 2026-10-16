@@ -36,6 +36,7 @@ import { Muneco, animoDe } from '@/app/admin/operaciones/Muneco';
 import { BarraAvanceMovil } from '@/app/admin/operaciones/Avance';
 import { ElegirMuneco } from '@/app/admin/operaciones/ElegirMuneco';
 import { guardarMunecoAction } from '@/app/admin/operaciones/acciones';
+import { Microfono } from '@/app/admin/operaciones/Microfono';
 import { aspectoDe, elegidoPara, type Aspecto, type MunecosElegidos } from '@/lib/centro-munecos';
 
 const ESTADO: Record<ChatCentro['estado'], string> = { trabajando: 'Trabajando', abierto: 'Abierto', cerrado: 'Cerrado', sin_dato: '' };
@@ -165,6 +166,7 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
             aria-label={`Escribe a ${elegido.titulo}`}
             disabled={enviando}
           />
+          <Microfono valor={texto} onValor={(v) => setBorradores((b) => ({ ...b, [elegido.clave]: v }))} onError={(m) => toast(m)} apagado={enviando} />
           <button type="button" className="co-enviar" onClick={mandar} disabled={enviando || !texto.trim()} aria-label="Firmar y mandar">
             {enviando ? <span className="co-enviar__giro" aria-hidden /> : <Icon name="flecha" size={18} />}
           </button>
@@ -290,7 +292,7 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
                 <Icon name="mas" size={20} />
               </button>
             </div>
-            <BarraAvanceMovil nodos={avanceDelChat(lineas)} pushes={pushes} ahora={ahora} />
+            <BarraAvanceMovil nodos={avanceDelChat(lineas)} pushes={pushes} ahora={ahora} chat={elegido} />
             <Hilo lineas={lineas} pushes={pushes ?? []} ahora={ahora} vacio="Escríbele abajo para empezar." quien={{ titulo: elegido.titulo, aspecto: elegidoPara(munecos, elegido.titulo), animo: animoDe(elegido), dato: metaDe(elegido) }} />
             {/* Lo que espera de Martín, al final de la conversación y pegado a la caja: AskUserQuestion de Claude Code. */}
             {preguntas.length > 0 && <Pregunta key={elegido.clave} preguntas={preguntas} responder={responder} />}

@@ -22,7 +22,7 @@
 //
 // ⚠️ SIN `server-only`, a propósito: lo leen el servidor, las pantallas y los tests.
 
-import { CARTERO_VIVO_MS, DESTINO_RE, carteroVivo, type ChatCartero, type Cierre, type EstadoPedido } from './operaciones-reglas';
+import { CARTERO_VIVO_MS, DESTINO_RE, carteroVivo, rutaParaRevisar, type ChatCartero, type Cierre, type EstadoPedido } from './operaciones-reglas';
 import { instanteHito, type AreaP, type PasoP, type PedidoP } from './progreso-reglas';
 import { destinoDeDecision } from './decisiones-aviso';
 import { textoDeRespuesta, type Decision } from '../app/admin/runway/decisiones';
@@ -596,6 +596,9 @@ export type NodoAvance = {
   /** Lo que dejó escrito el chat al cerrar un trabajo, y el motivo si no salió. */
   cierre: string | null;
   motivo: string | null;
+  /** La página de MaKo para revisar lo que hizo (su cierre o su bitácora la dejan), y la sesión que lo hizo: a ella
+   *  vuelve la devolución del visor. null = no dejó nada para mirar. */
+  revisar: { pagina: string; sesion: string | null } | null;
 };
 
 const ESTADO_DE_PEDIDO: Record<PedidoP['estado'], EstadoNodo> = { pendiente: 'sin_empezar', en_curso: 'en_curso', hecho: 'hecho' };
@@ -640,6 +643,7 @@ function nodoDe(l: Exclude<LineaChat, { tipo: 'respuesta' }>): NodoAvance {
       estado: estadoDeTrabajo(w.estado), cuentas: unicas([w.destino_cuenta]), pasos: [], commits: [], trabajaron: [],
       cierre: w.cierre ? (w.cierre.hecho || w.cierre.decidido || null) : null,
       motivo: estadoDeTrabajo(w.estado) === 'no_salio' ? w.motivo ?? null : null,
+      revisar: paraRevisar(w.cierre?.revisar, w.destino),
     };
   }
   const p = l.pedido;
@@ -647,6 +651,7 @@ function nodoDe(l: Exclude<LineaChat, { tipo: 'respuesta' }>): NodoAvance {
     return {
       id: `d:${p.id}`, origen: 'derivado', titulo: p.titulo, prompt: p.texto, instante: l.instante, estado: ESTADO_DE_PEDIDO[p.estado],
       cuentas: unicas(p.pasos.map((s) => s.cuenta)), pasos: [], commits: sinRepetir(p.commits), trabajaron: l.trabajaron, cierre: null, motivo: null,
+      revisar: null,
     };
   }
   return {
@@ -654,7 +659,42 @@ function nodoDe(l: Exclude<LineaChat, { tipo: 'respuesta' }>): NodoAvance {
     cuentas: unicas(l.pasos.map((s) => s.cuenta)),
     pasos: l.pasos.map((s) => ({ tipo: s.tipo, titulo: s.titulo, instante: s.instante })),
     commits: sinRepetir(l.pasos.flatMap((s) => s.commits)), trabajaron: [], cierre: null, motivo: null,
+    // La última página que dejó uno de SUS pasos.
+    revisar: [...l.pasos].reverse().map((s) => paraRevisar(s.revisar, s.sesion)).find(Boolean) ?? null,
   };
+}
+
+const paraRevisar = (pagina: unknown, sesion: string | null): NodoAvance['revisar'] => {
+  const r = rutaParaRevisar(pagina);
+  return r ? { pagina: r, sesion: sesion && DESTINO_RE.test(sesion) ? sesion : null } : null;
+};
+
+// ── «Review» (Martín, 16/10/2026, punto 6): lo que el chat implementó y hay que ir a revisar ─────────────────
+// «que graficamente me diga que tengo que ir a revisar de las cosas que ha implementado, si puede dejarme el link...».
+// Un nodo va a Review cuando está TERMINADO y dejó una página. El visor es de «Centro de Operaciones › Review»; el
+// contrato (qué recibe y adónde vuelve la devolución) está en docs/relevo/centro-operaciones.md.
+
+/** Lo terminado que dejó algo para mirar, lo más nuevo arriba. */
+export const porRevisar = (nodos: readonly NodoAvance[]): NodoAvance[] =>
+  nodos.filter((n) => n.estado === 'hecho' && n.revisar).sort((a, b) => b.instante - a.instante);
+
+export const RUTA_REVISAR = '/admin/operaciones/revisar';
+/**
+ * ¿Ya existe el visor (`app/admin/operaciones/revisar/page.tsx`, lo hace «Centro de Operaciones › Review»)? Mientras
+ * no, «Revisar» abre la página misma en otra pestaña: un link al visor daría 404. Lo enciende ese chat en el MISMO commit
+ * que crea la página; tests/centro-revisar.test.ts falla si el archivo y el interruptor no dicen lo mismo.
+ */
+export const VISOR_REVISAR = false;
+/** Adónde lleva «Revisar»: al visor si existe; si no, a la página. */
+export const hrefRevisar = (n: Pick<NodoAvance, 'id' | 'revisar'>, chat: Pick<ChatCentro, 'clave' | 'sesion'>): string | null =>
+  !n.revisar ? null : VISOR_REVISAR ? enlaceRevisar(n, chat) : n.revisar.pagina;
+/** El link «Revisar»: `?pagina=<ruta interna>&chat=<clave del chat>&sesion=<la que lo hizo>&nodo=<id del nodo>`. */
+export function enlaceRevisar(n: Pick<NodoAvance, 'id' | 'revisar'>, chat: Pick<ChatCentro, 'clave' | 'sesion'>): string | null {
+  if (!n.revisar) return null;
+  const q = new URLSearchParams({ pagina: n.revisar.pagina, chat: chat.clave, nodo: n.id });
+  const sesion = n.revisar.sesion ?? chat.sesion;
+  if (sesion) q.set('sesion', sesion);
+  return `${RUTA_REVISAR}?${q}`;
 }
 
 /**

@@ -378,11 +378,64 @@
 .co-avance__vacio { margin: 18px 4px; font-size: var(--fs-sm); color: var(--faint); }
 /* Lo pendiente arriba y lo terminado abajo, cada uno con su rótulo (como los grupos de estado de Linear). */
 .co-avance__grupo + .co-avance__grupo { margin-top: 14px; }
+/* Las sub-tabs «Plan» y «Review» (punto 6), copiadas del control segmentado de Linear: dos botones pegados, el elegido
+   con fondo. */
+.co-subtabs { display: flex; gap: 2px; padding: 3px; margin: 0 0 12px; border-radius: 10px; background: var(--surface-2); }
+.co-subtabs button {
+  flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 30px; padding: 4px 10px;
+  border: 0; border-radius: 8px; background: none; font: inherit; font-size: var(--fs-sm); font-weight: 600; color: var(--dim); cursor: pointer;
+}
+.co-subtabs button[aria-selected='true'] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(18, 21, 27, .08); }
+.co-subtabs button:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.co-subtabs__n { min-width: 18px; padding: 0 5px; border-radius: 999px; background: var(--primary); color: #fff; font-size: 11px; line-height: 18px; }
+/* «Review»: lo terminado que dejó una página, con «Revisar». */
+.co-review { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.co-review__fila { display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 4px 4px 4px 5px; border-radius: 10px; }
+.co-review__fila:hover { background: var(--velo-hover); }
+.co-review__titulo {
+  flex: 1; min-width: 0; font-size: var(--fs-md); font-weight: 600; line-height: 1.3; color: var(--ink); overflow: hidden;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow-wrap: anywhere;
+}
+.co-review__ir { flex: none; text-decoration: none; }
 .co-avance__grupo-tit {
   margin: 0 0 4px; padding: 0 4px; display: flex; align-items: baseline; gap: 6px;
   font-size: var(--fs-meta); font-weight: 600; letter-spacing: .02em; text-transform: uppercase; color: var(--faint);
 }
 .co-avance__grupo-tit span { font-weight: 500; }
+
+/* El Plan del jefe, arriba del avance (copiado de Todoist: el círculo que se tilda, el título, la fecha, y «+ Sumar»). */
+.co-plan { margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
+.co-plan__ver { margin-left: auto; font-size: var(--fs-meta); font-weight: 500; letter-spacing: 0; text-transform: none; color: var(--primary); text-decoration: none; }
+.co-plan__ver:hover { text-decoration: underline; }
+.co-plan__nota { margin: 4px 4px 6px; font-size: var(--fs-sm); color: var(--faint); }
+.co-plan__lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.co-plan__fila { display: flex; align-items: center; gap: 10px; min-height: 34px; padding: 4px 6px 4px 4px; border-radius: 10px; }
+.co-plan__fila:hover { background: var(--velo-hover); }
+.co-plan__check {
+  flex: none; display: inline-grid; place-items: center; width: 18px; height: 18px; padding: 0; border-radius: 50%;
+  border: 1.6px solid var(--border-strong); background: var(--surface); color: transparent; cursor: pointer;
+}
+.co-plan__check:hover:not(:disabled) { border-color: var(--good); color: var(--good); }
+.co-plan__check:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.co-plan__check:disabled { cursor: progress; opacity: .6; }
+.co-plan__titulo { flex: 1; min-width: 0; font-size: var(--fs-md); line-height: 1.3; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.co-plan__fecha { flex: none; font-size: var(--fs-meta); color: var(--faint); }
+.co-plan__sumar { display: flex; align-items: center; gap: 10px; min-height: 34px; padding: 2px 6px 2px 4px; border-radius: 10px; }
+.co-plan__sumar:focus-within { background: var(--velo-hover); }
+.co-plan__mas { flex: none; display: inline-grid; place-items: center; width: 18px; height: 18px; font-size: 18px; line-height: 1; color: var(--primary); }
+.co-plan__sumar input {
+  flex: 1; min-width: 0; border: 0; background: none; font: inherit; font-size: var(--fs-md); color: var(--ink); padding: 4px 0;
+}
+.co-plan__sumar input:focus { outline: none; }
+.co-plan__sumar input::placeholder { color: var(--faint); }
+.co-plan__aviso { margin: 6px 4px 0; font-size: var(--fs-sm); color: var(--dim); }
+.co-nodo__plan {
+  align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 999px;
+  border: 1px solid var(--border-strong); background: var(--surface); font: inherit; font-size: var(--fs-sm); color: var(--ink); cursor: pointer;
+}
+.co-nodo__plan:hover:not(:disabled) { background: var(--velo-hover); }
+.co-nodo__plan:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.co-nodo__plan:disabled { cursor: progress; opacity: .6; }
 /* La lista: un rombo por nodo, unidos por una línea vertical (el roadmap). */
 .co-avance__lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
 .co-nodo { position: relative; }
@@ -487,6 +540,19 @@
   cursor: pointer;
 }
 .co-enviar:disabled { background: var(--border-strong); color: var(--surface); cursor: default; }
+/* El micrófono, al lado de mandar (Microfono.tsx): mientras escucha late en rojo, que es la única señal de que está abierto. */
+.co-mic {
+  margin-left: auto; flex: none; width: 34px; height: 34px; padding: 0; border: 1px solid var(--border-strong); border-radius: 50%;
+  display: grid; place-items: center; background: var(--surface); color: var(--dim); cursor: pointer;
+}
+.co-mic + .co-enviar { margin-left: 0; }
+.co-mic:hover:not(:disabled) { color: var(--ink); background: var(--velo-hover); }
+.co-mic:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.co-mic:disabled { cursor: wait; opacity: .6; }
+.co-mic[data-escuchando] { background: var(--bad); border-color: var(--bad); color: #fff; animation: co-escucha 1.2s ease-in-out infinite; }
+.co-mic__txt { font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums; }
+@keyframes co-escucha { 0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--bad) 45%, transparent); } 70% { box-shadow: 0 0 0 7px transparent; } }
+@media (prefers-reduced-motion: reduce) { .co-mic[data-escuchando] { animation: none; } }
 .co-enviar:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 .co-enviar__giro {
   width: 14px;
@@ -733,7 +799,7 @@
 @media (pointer: coarse) {
   .co-acceso, .co-buscar { height: 44px; }
   .co-fila { min-height: 44px; }
-  .co-enviar { width: 40px; height: 40px; }
+  .co-enviar, .co-mic { width: 40px; height: 40px; }
 }
 
 /* ── El chat jefe y sus sub-chats (15/10/2026), copiado de los hilos de Discord en la barra de canales: el hilo va

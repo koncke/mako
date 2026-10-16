@@ -45,7 +45,7 @@ const PANTALLAS = [
   'app/admin/operaciones/PanelRunner.tsx', 'app/admin/operaciones/acciones.ts', 'app/admin/operaciones/mandar.ts',
   'app/admin/operaciones/page.tsx', 'app/admin/operaciones/loading.tsx',
   'app/admin/operaciones/Avance.tsx',
-  'app/admin/operaciones/Pregunta.tsx', 'app/admin/operaciones/TicketeraCentro.tsx', 'app/m/operaciones/TicketeraMovil.tsx', 'app/admin/operaciones/Uso.tsx', 'app/admin/operaciones/NuevoChat.tsx',
+  'app/admin/operaciones/Pregunta.tsx', 'app/admin/operaciones/TicketeraCentro.tsx', 'app/m/operaciones/TicketeraMovil.tsx', 'app/admin/operaciones/Uso.tsx', 'app/admin/operaciones/NuevoChat.tsx', 'app/admin/operaciones/PlanJefe.tsx', 'app/admin/operaciones/Microfono.tsx',
   'app/m/operaciones/RunnerMovil.tsx', 'app/m/operaciones/ChatsMovil.tsx', 'app/m/operaciones/CentroAppMovil.tsx', 'app/m/operaciones/page.tsx',
 ];
 const PROHIBIDO: Array<[RegExp, string]> = [

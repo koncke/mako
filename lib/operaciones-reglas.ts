@@ -226,7 +226,20 @@ export function sanearAcuses(x: unknown): Acuse[] {
 }
 
 /** El cierre de cuatro renglones (§3 del diseño): lo deja el chat al terminar. */
-export type Cierre = { decidido: string; hecho: string; comprobado: string; sigue: string; prueba: string | null };
+/** `revisar`: la página de MaKo donde se mira lo que hizo (punto 6, la sub-tab «Review»). Sólo una ruta interna. */
+export type Cierre = { decidido: string; hecho: string; comprobado: string; sigue: string; prueba: string | null; revisar?: string | null };
+
+/**
+ * Una ruta para revisar: «/algo» de MaKo, en un renglón y hasta 300 caracteres; lo demás no se guarda (null). Es la
+ * MISMA regla que `esHrefInterno` de la Ticketera (app/admin/runway/decisiones.ts), escrita acá porque ese módulo
+ * importa éste: importarla al revés sería circular. tests/centro-revisar.test.ts fija que las dos digan lo mismo.
+ */
+export function rutaParaRevisar(v: unknown): string | null {
+  if (typeof v !== 'string') return null;
+  const r = v.trim();
+  if (!r || r.length > 300 || /[\s\u0000-\u001f]/.test(r)) return null;
+  return r.startsWith('/') && !r.startsWith('//') && !r.startsWith('/\\') ? r : null;
+}
 export type CierreEntrante = { id: string; cierre: Cierre };
 
 export function sanearCierres(x: unknown): CierreEntrante[] {
@@ -242,6 +255,8 @@ export function sanearCierres(x: unknown): CierreEntrante[] {
       comprobado: corto(k.comprobado, 600), sigue: corto(k.sigue, 600),
       prueba: corto(k.prueba, 300) || null,
     };
+    const revisar = rutaParaRevisar(k.revisar);
+    if (revisar) cierre.revisar = revisar;
     if (!cierre.hecho && !cierre.decidido) continue;
     out.push({ id: o.id, cierre });
   }

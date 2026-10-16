@@ -57,7 +57,7 @@
 //                                  cuenta, por todas las de su carpeta
 //   pendientes [cuenta]            lo del buzón que le toca mandar a ESTE Runner (su carpeta)
 //   acuse [cuenta] <id> ok | error <motivo>   lo anota el Runner después de cada SendMessage
-//   cierre <id> --hecho "…" [--decidido "…"] [--comprobado "…"] [--sigue "…"] [--prueba "…"]
+//   cierre <id> --hecho "…" [--decidido "…"] [--comprobado "…"] [--sigue "…"] [--prueba "…"] [--revisar "/ruta"]
 //                                  lo corre el CHAT QUE RECIBIÓ el pedido, al terminarlo
 //   esperar [cuenta] [--max-seg N] (opción C, a probar) espera hasta que haya algo y sale con 2
 //   uso                            lo corre la BARRA DE ESTADO del Runner (runner-settings.json): anota la cuota de
@@ -69,7 +69,7 @@ import os from 'node:os';
 import path from 'node:path';
 import crypto from 'node:crypto';
 
-export const VERSION = '1.5.0';
+export const VERSION = '1.6.0';
 const HOME = os.homedir();
 const DIR = process.env.CARTERO_DIR || path.join(HOME, '.claude', 'operaciones');
 const APP = process.env.CARTERO_APP_DIR || path.join(process.env.APPDATA || path.join(HOME, 'AppData', 'Roaming'), 'Claude', 'claude-code-sessions');
@@ -345,6 +345,7 @@ function mensaje(p) {
     `— Alcance: ${alcance}`,
     '— Al terminar, dejá el cierre en cuatro renglones (y la prueba, si la hay: un commit, un deploy, una medición):',
     `node "${ESTE}" cierre ${p.id} --decidido "…" --hecho "…" --comprobado "…" --sigue "…" --prueba "…"`,
+    '— Si dejaste algo para mirar en MaKo, sumá --revisar con su ruta (por ejemplo --revisar "/crm?lead=12"): Martín lo revisa desde el Centro.',
   ].join('\n');
 }
 
@@ -645,6 +646,13 @@ function cierre(id, args) {
   const v = (k) => { const i = args.indexOf(`--${k}`); return i >= 0 && args[i + 1] && !args[i + 1].startsWith('--') ? String(args[i + 1]).slice(0, 600) : ''; };
   const c = { decidido: v('decidido'), hecho: v('hecho'), comprobado: v('comprobado'), sigue: v('sigue'), prueba: v('prueba') || null };
   if (!c.hecho && !c.decidido) throw new Error('el cierre necesita al menos --hecho o --decidido');
+  // La página de MaKo donde Martín mira lo que hiciste (la sub-tab «Review» del Centro). Sólo una ruta interna: lo
+  // demás se rechaza acá, y el servidor lo vuelve a sanear (lib/operaciones-reglas.ts → rutaParaRevisar).
+  const revisar = v('revisar');
+  if (revisar) {
+    if (!/^\/(?![/\\])\S{0,299}$/.test(revisar)) throw new Error('--revisar es una ruta de MaKo que empieza con /, como /crm?lead=12');
+    c.revisar = revisar;
+  }
   escribirJson(path.join(CIERRES, `${id}.json`), { id, cierre: c });
   log(`CIERRE ${id}`);
 }

@@ -33,6 +33,8 @@ export type HitoP = {
   pedido?: string;
   puntos: string[];
   commits?: Array<{ sha: string; msg: string }>;
+  /** La página para revisar lo que se hizo (Hito.revisar). */
+  revisar?: string;
 };
 
 export type AreaP = { slug: string; titulo: string; bitacora: readonly HitoP[]; /** La pantalla donde se mira (areas.ts). */ verEnApp?: string | null };
@@ -108,6 +110,8 @@ export type PasoP = {
   /** La cuenta de Claude que lo anotó: el avance de un chat la muestra como chip (Martín: «con un chip... de en que
    *  cuenta se trabajó... Y en el progreso, en el detalle»). */
   cuenta: string | null;
+  /** La página para revisar lo que hizo este paso, si la dejó (va a la sub-tab «Review»). */
+  revisar?: string | null;
 };
 
 export type PedidoP = {
@@ -161,6 +165,7 @@ export function cadenas(a: AreaP, ahora: number): PedidoP[] {
       pasos.push({
         instante: instanteHito(p.fecha, p.hora, ahora), chat: p.chat, sesion: p.sesion ?? null, tipo: p.tipo, titulo: p.titulo,
         commits: (p.commits ?? []).map((c) => ({ sha: c.sha, msg: c.msg })), cuenta: p.cuenta || null,
+        ...(p.revisar ? { revisar: p.revisar } : {}),
       });
     }
     const commits = pasos.flatMap((p) => p.commits);
