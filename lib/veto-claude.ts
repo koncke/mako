@@ -279,7 +279,9 @@ export const CREDITO_DE_LA_PLATAFORMA = {
  * PARA QUÉ se usa el crédito: una lista, y lo que no está no lo usa. Martín, 16/10/2026, textual: «Yo debo
  * decirte cuando utilizar creditos, no tenemos infinitos... Por ahora solo en onboarding.» Hoy entran las
  * funciones del wizard del primer ingreso, y sólo MIENTRAS el onboarding del negocio está en curso
- * (`soloDuranteElOnboarding`): las mismas features corren después desde Second Brain, y ahí no.
+ * (`soloDuranteElOnboarding`): las mismas features corren después desde Second Brain, y ahí no. Y el chat
+ * de Offer, que desde el 16/10/2026 ES el onboarding (Martín: «el onboarding será ese chat de offer»): con
+ * el onboarding cerrado, la tab Offer sigue con las keys del negocio y la red gratis, como siempre.
  *
  * Habilitar algo más es sumar una línea acá, y lo decide Martín. Lo que no está recibe un «no» y la cascada
  * sigue como si el crédito no existiera: con datos de clientes, sin nada gratis que entrene (AGENTS.md). El
@@ -290,6 +292,7 @@ export const CREDITO_HABILITADO_PARA: ReadonlyArray<{ feature: string; soloDuran
   { feature: 'El Archivero', soloDuranteElOnboarding: true, para: 'leer los documentos que sube en el wizard' },
   { feature: 'onboarding-extract', soloDuranteElOnboarding: true, para: 'sacar el brief de sus documentos' },
   { feature: 'productos', soloDuranteElOnboarding: true, para: 'armar su catálogo en el paso Productos' },
+  { feature: 'offer', soloDuranteElOnboarding: true, para: 'el chat de Offer del primer ingreso: nombre, oferta, funnel y primer CRM' },
 ];
 
 /** La marca del gasto de este crédito en `anthropic_usage`, al PRINCIPIO del motivo (ver la del negocio). */

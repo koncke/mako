@@ -1956,6 +1956,10 @@ chat vive en otra ruta, o `/onboarding` dibuja el chat, o los cuatro apuntan a l
 (`lib/veto-claude.ts`) con `soloDuranteElOnboarding`. ⚠️ Pero hoy no alcanzaría: `pedir` (`lib/offer-ia.ts`) llama a
 `chatCheapCascade` SIN `redDePlataforma`, y el crédito vive adentro de esa red; después corre su propio bucle sobre las
 keys gratis. Para que el crédito llegue, `pedir` tiene que pedir la red de la cascada, o llamar a
-`conCreditoDeLaPlataforma` antes de su bucle.
+`conCreditoDeLaPlataforma` antes de su bucle. **Las dos juntas, no**: la red de la cascada ya trae las keys gratis de
+la agencia, y con el bucle de `pedir` detrás se prueban dos veces por pedido (el doble de su cuota por minuto, que es
+lo que muerde). Offer eligió la segunda (16/10): su red tiene un plazo propio (`hastaRedMs`) y un respaldo «flojo»
+que la cascada no conoce. `'offer'` quedó en la lista ese día, con `soloDuranteElOnboarding`: sin esa llamada en
+`pedir`, la fila no hace nada.
 
 *16/10/2026 · chat «Onboarding» (claude3), medido contra el código, sin subagentes.*
