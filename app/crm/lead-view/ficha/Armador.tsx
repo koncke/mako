@@ -18,11 +18,13 @@
 // =============================================================================
 
 import { useEffect, useRef, useState, type DragEvent, type ReactNode } from 'react';
-import { IconoMenu, NOMBRES_ICONO_MENU, type NombreIconoMenu } from '@/app/_ui/iconos-menu';
+import { IconoMenu, type NombreIconoMenu } from '@/app/_ui/iconos-menu';
 import { BotonBorrar } from '@/app/_ui/BotonBorrar';
 import { bloqueDef, type BloqueId, type TabFicha } from '@/lib/ficha/catalogo';
 import type { BloquePuesto, CambioFicha } from '@/lib/ficha/config';
 import { tituloDeBloque } from '@/lib/ficha/registro';
+// La MISMA lista que ofrece la API de MaKo (cambiar_ficha_funnel, cambio icono): una sola fuente.
+import { ICONOS_BLOQUE } from '@/lib/ficha/api';
 import { anchosDeLaBarra, bloquesDeLaGrilla, disenoADibujar, disenosOfrecidos, lugarAlSoltar, ocurrencia, type BloqueEnGrilla } from './armar';
 import { entradaDe } from './registro';
 import { Flotante } from './Flotante';
@@ -250,7 +252,7 @@ function BarraBloque({ tab, b, icono, onCambio, onQuitar, onMoverTeclado }: {
             <IconoMenu nombre={b.def.icono} size={16} /> El de siempre
           </button>
           <div className="fb-iconos" role="menu">
-            {NOMBRES_ICONO_MENU.filter((n) => n !== 'borrar').map((n) => (
+            {ICONOS_BLOQUE.map((n) => (
               <button key={n} type="button" role="menuitemradio" aria-checked={n === icono} className="fb-herr" title={n} aria-label={n}
                 onClick={() => { setMenu(null); if (n !== icono) onCambio({ op: 'icono', tab, bloque: id, n: b.n, icono: n === b.def.icono ? null : n }); }}>
                 <IconoMenu nombre={n} size={16} />

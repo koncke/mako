@@ -11,11 +11,21 @@ import type { FichaDelFunnel } from './config-server';
 import { sanearCambio, type CambioFicha } from './config';
 import { bloqueDef, bloquesDeLaTab, esTabFicha, vaEnTab, NOMBRE_TAB, TABS_FICHA, ANCHOS, DENSIDADES, type Ancho } from './catalogo';
 import { plantillaFicha, PLANTILLAS_FICHA } from './plantillas';
+import { NOMBRES_ICONO_MENU, type NombreIconoMenu } from '../../app/_ui/iconos-menu';
 
-/** Los valores de `cambio` de la operación: los mismos que declara su def (lib/api-mako/areas/crm.def.ts). */
-export const CAMBIOS_API = ['poner', 'quitar', 'mover', 'ancho', 'diseno', 'aviso', 'estilo', 'densidad', 'plantilla', 'volver'] as const;
+/**
+ * Los valores de `cambio` de la operación: los mismos que declara su def (lib/api-mako/areas/crm.def.ts).
+ * ⚠️ SON TODO LO QUE HACE «PERSONALIZAR» EN LA PANTALLA (app/crm/lead-view/ficha/), menos «Deshacer»: el ícono
+ *    de un bloque se sumó el 15/10/2026 porque la pantalla lo cambiaba y MaKo no (AGENTS.md, toda feature va a la
+ *    API). Deshacer no tiene op: la pantalla guarda el `antes` en memoria y el funnel no tiene historial.
+ */
+export const CAMBIOS_API = ['poner', 'quitar', 'mover', 'ancho', 'diseno', 'icono', 'aviso', 'estilo', 'densidad', 'plantilla', 'volver'] as const;
 /** El ancho como lo dice una persona. */
 export const ANCHOS_API = ['1/4', '1/3', '1/2', 'completo'] as const;
+/** «El de siempre» en la API: vuelve al ícono del catálogo. */
+export const ICONO_DE_SIEMPRE = 'de-siempre';
+/** Los íconos que se le pueden poner a un bloque: los del picker de la pantalla (el set, sin el tacho de borrar). */
+export const ICONOS_BLOQUE: readonly NombreIconoMenu[] = NOMBRES_ICONO_MENU.filter((x) => x !== 'borrar');
 
 const ANCHO_DE: Readonly<Record<string, Ancho>> = { '1/4': 3, '1/3': 4, '1/2': 6, completo: 12 };
 const NOMBRE_ANCHO: Readonly<Record<Ancho, string>> = { 3: '1/4', 4: '1/3', 6: '1/2', 12: 'completo' };
@@ -40,6 +50,13 @@ export function cambioDeInputApi(input: Record<string, unknown>): CambioFicha | 
     case 'mover': crudo = { op: 'mover', ...base, lugar: n(input.lugar) }; break;
     case 'ancho': crudo = { op: 'ancho', ...base, ancho: ANCHO_DE[s(input.ancho) ?? ''] }; break;
     case 'diseno': crudo = { op: 'diseno', ...base, diseno: s(input.diseno) }; break;
+    case 'icono': {
+      const ic = s(input.icono);
+      if (!ic) return { error: `Falta el ícono: uno de la lista «iconos» de ver_ficha_funnel, o «${ICONO_DE_SIEMPRE}».` };
+      if (ic !== ICONO_DE_SIEMPRE && !(ICONOS_BLOQUE as readonly string[]).includes(ic)) return { error: 'Ese ícono no es del set.', disponibles: ICONOS_BLOQUE };
+      crudo = { op: 'icono', ...base, icono: ic === ICONO_DE_SIEMPRE ? null : ic };
+      break;
+    }
     case 'aviso': crudo = { op: 'aviso', paso: s(input.aviso), avisa: b(input.avisa) }; break;
     case 'densidad': crudo = { op: 'densidad', densidad: s(input.densidad) }; break;
     case 'plantilla': crudo = { op: 'plantilla', plantilla: s(input.plantilla) === 'auto' ? null : s(input.plantilla) }; break;
@@ -105,5 +122,6 @@ export function salidaFichaApi(f: Pick<FichaDelFunnel, 'funnel' | 'eleccion' | '
     plantillas: PLANTILLAS_FICHA.map((p) => ({ id: p.id, nombre: p.nombre })),
     densidades: DENSIDADES.map((x) => x.id),
     anchos: ANCHOS.map((a) => NOMBRE_ANCHO[a.id]),
+    iconos: [...ICONOS_BLOQUE],
   };
 }

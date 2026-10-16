@@ -13,12 +13,21 @@
 //   · `para_sumar` ofreciendo un bloque que ya está puesto                          → 4 / 1
 //   · cambiar_ficha_funnel sin `rolMinimo: 'admin'`                                 → 4 / 1
 //   · preparar() sin el ensayo de `aplicarCambio` (la pendiente se consumiría al confirmar) → 4 / 1
+//
+// Y lo de «Personalizar» que la API no tenía, el ícono de un bloque (15/10/2026, base 6/0), restaurando de memoria:
+//   · `icono` fuera de CAMBIOS_API (la def lo sigue declarando)                       → 4 / 2
+//   · la pantalla manda un cambio que la API no tiene (`lista`, en PanelFicha)         → 5 / 1
+//   · «de-siempre» guardado como texto en vez de volver al ícono del catálogo          → 5 / 1
+//   · ICONOS_BLOQUE con el tacho de borrar                                             → 5 / 1
+//   · la pantalla con su propia lista de íconos (sin `mako`)                           → 5 / 1
+//   · ver_ficha_funnel sin la lista de íconos                                          → 5 / 1
+//   · la def sin el parámetro `icono`                                                  → 5 / 1
 // =============================================================================
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { cambioDeInputApi, salidaFichaApi, CAMBIOS_API, ANCHOS_API } from '../lib/ficha/api';
+import { cambioDeInputApi, salidaFichaApi, CAMBIOS_API, ANCHOS_API, ICONOS_BLOQUE, ICONO_DE_SIEMPRE } from '../lib/ficha/api';
 import { fichaEfectiva, RESPALDO_VACIO } from '../lib/ficha/config';
 import { TABS_FICHA } from '../lib/ficha/catalogo';
 import { IDS_PLANTILLA } from '../lib/ficha/plantillas';
@@ -83,6 +92,35 @@ test('preparar ensaya el cambio sobre la ficha de hoy; ejecutar escribe y vence 
   const ejecutar = cuerpo.slice(cuerpo.indexOf('ejecutar:'));
   assert.match(ejecutar, /await cambiarFichaDeFunnel\(Number\(payload\.embudoId\), c\)/);
   assert.match(ejecutar, /invalidar\('leads'\)/);
+});
+
+// AGENTS.md: toda feature nueva va a la API de MaKo. «Personalizar» (app/crm/lead-view/ficha/) cambiaba el ícono
+// de un bloque y la API no (15/10/2026). Esto fija que TODO cambio que manda la pantalla tenga su `cambio` en la
+// API, salvo «Deshacer» (`restaurar`: el `antes` vive en la memoria de la pantalla y el funnel no tiene historial).
+test('todo lo que hace «Personalizar» en la pantalla lo puede hacer MaKo, ícono incluido', () => {
+  const API_DE_OP: Record<string, string> = { tema: 'estilo' };
+  const ficha = ['Armador.tsx', 'FichaPorBloques.tsx', 'PanelFicha.tsx', 'AgregarBloque.tsx', 'useFichaDelFunnel.ts']
+    .map((f) => sinComentarios(leer(`app/crm/lead-view/ficha/${f}`))).join('\n');
+  const ops = new Set([...ficha.matchAll(/\bop: '([a-z]+)'/g)].map((m) => m[1]));
+  assert.ok(ops.size >= 10, `encontré ${ops.size} cambios en la pantalla: el test no está leyendo lo que debe`);
+  for (const op of ops) {
+    if (op === 'restaurar') continue;
+    assert.ok((CAMBIOS_API as readonly string[]).includes(API_DE_OP[op] ?? op), `la pantalla hace «${op}» y cambiar_ficha_funnel no`);
+  }
+
+  // El ícono: los mismos que ofrece la pantalla (una sola lista), y «de-siempre» vuelve al del catálogo.
+  assert.deepEqual(cambioDeInputApi({ cambio: 'icono', tab: 'resumen', bloque: 'notas', icono: 'nota' }), { op: 'icono', tab: 'resumen', bloque: 'notas', icono: 'nota' });
+  assert.deepEqual(cambioDeInputApi({ cambio: 'icono', tab: 'resumen', bloque: 'notas', icono: ICONO_DE_SIEMPRE }), { op: 'icono', tab: 'resumen', bloque: 'notas', icono: null });
+  const borrar = cambioDeInputApi({ cambio: 'icono', tab: 'resumen', bloque: 'notas', icono: 'borrar' });
+  assert.ok('error' in borrar && Array.isArray(borrar.disponibles), 'el tacho de borrar no es un ícono de bloque (la pantalla no lo ofrece)');
+  assert.ok('error' in cambioDeInputApi({ cambio: 'icono', tab: 'resumen', bloque: 'notas' }), 'un ícono sin ícono');
+  assert.ok(!ICONOS_BLOQUE.includes('borrar' as never) && ICONOS_BLOQUE.length > 20);
+  const armador = sinComentarios(leer('app/crm/lead-view/ficha/Armador.tsx'));
+  assert.match(armador, /\{ICONOS_BLOQUE\.map\(\(n\) =>/, 'la pantalla ofrece otros íconos que la API');
+  const v = salidaFichaApi({ funnel: { id: 1, nombre: 'X', esDefault: true }, eleccion: { id: 'respaldo', porque: 'x' }, efectiva: fichaEfectiva('respaldo', null, RESPALDO_VACIO) });
+  assert.deepEqual(v.iconos, [...ICONOS_BLOQUE], 'MaKo no ve qué íconos puede poner');
+  const p = porId('cambiar_ficha_funnel')!.parametros.find((x) => x.nombre === 'icono');
+  assert.ok(p && p.tipo === 'string', 'la def no tiene el parámetro icono');
 });
 
 test('un cambio de ficha por la pantalla también vence lo que cuenta «Datos sin marcar»', () => {
