@@ -152,13 +152,13 @@ export async function POST(request: NextRequest) {
         // La MISMA vara que el cron (`correrRonda`): activo y con Fathom conectado. Sin esto, un
         // workspace pausado o dado de baja recibía la lectura y el WhatsApp de «tareas al plan».
         if (!(await wsEnLaRonda('fathom', wsPlan))) {
-          console.log(`[webhook:fathom] plan ws=${wsPlan}: no está activo o no tiene Fathom conectado — no se lee`);
+          console.log(`[webhook:fathom] plan ws ${wsPlan}: no está activo o no tiene Fathom conectado — no se lee`);
           return;
         }
         const r = await procesarReunionesNuevas(wsPlan, { hasta, max: 1, ...(Number.isFinite(rid) && rid > 0 ? { soloRecording: rid } : {}) });
-        console.log(`[webhook:fathom] plan ws=${wsPlan} recording=${Number.isFinite(rid) ? rid : '—'}: miradas=${r.miradas} alPlan=${r.alPlan} borradores=${r.conTareas} tareas=${r.tareas}${r.enCurso ? ` · ya la leía otro` : ''}`);
+        console.log(`[webhook:fathom] plan ws ${wsPlan} recording=${Number.isFinite(rid) ? rid : '—'}: miradas=${r.miradas} alPlan=${r.alPlan} borradores=${r.conTareas} tareas=${r.tareas}${r.enCurso ? ` · ya la leía otro` : ''}`);
       } catch (e) {
-        console.error(`[webhook:fathom] plan ws=${wsPlan}: la lectura falló (${e instanceof Error ? e.message : String(e)}) — la levanta el cron`);
+        console.error(`[webhook:fathom] plan ws ${wsPlan}: la lectura falló (${e instanceof Error ? e.message : String(e)}) — la levanta el cron`);
       }
     }));
   }
