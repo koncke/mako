@@ -1911,11 +1911,25 @@ Lo que encontró, además:
   5-9 s y salía con las reglas. Ahora 3-5,5 s y con la IA.
 - **La edición con IA del editor es lenta**: 44,5 s el primer cambio, 12,6 s otro, y uno se cortó a los 65 s («Tardó
   demasiado. Vuelve a intentar.»). `landing-editor-ia` corre en Gemini `flash-latest`, que desde el 14/10 piensa en
-  `low` (no acepta `minimal`); en `anthropic_usage`, hasta 2.256 tokens de salida y un «reparar el JSON» detrás. No se
-  tocó: es del editor, no del chat. Groq entra (unos 3.900 tokens de entrada contra su techo de ~7.000) y midió 1,4 s
-  en los pedidos; probarlo ahí es lo siguiente.
+  `low` (no acepta `minimal`); en `anthropic_usage`, hasta 2.256 tokens de salida y un «reparar el JSON» detrás.
+  ⚠️ **Probado Groq ahí, y NO se cambió** (pedido de Cerebro, medido el mismo día con `editar()` real sobre el hero de
+  la landing 23 de ws9, «Acorta el subtítulo», 3 corridas por opción):
+
+  | Opción | Tiempo | Acierta |
+  |---|---|---|
+  | Gemini `flash-latest`, como está (`effort: 'high'` → piensa en `medium`) | 19-33 s | 3 de 3 |
+  | Gemini pensando en `low` (`effort: 'medium'`) | 16-21 s | 3 de 3 |
+  | Groq `gpt-oss-120b` primero | 7,5-11 s | 2 de 3: una cambió «Consigue» por «Alcanza» en el título y dejó el subtítulo; otra cambió el sentido («qué haríamos en tu lugar» → «qué harías») |
+
+  Groq es 2-3 veces más rápido pero falla en lo que la persona revisa, y su plan gratis da ~8.000 tokens por minuto:
+  una edición son ~5.000 (3.900 de entrada), así que la segunda en el mismo minuto caería en 429. Pensar menos en Gemini
+  gana poco. Los picos de 44-65 s eran «high demand» de Google con reintentos, no el modelo. Lo que mejoraría de verdad:
+  mandar menos (el contexto del negocio entra entero en cada edición) o un modelo rápido que acierte; medido así, hoy
+  ninguno de los gratis.
 - **«Mi otro producto» no se resuelve**: Crear con IA armó el esquema sobre la oferta principal del negocio. Lo que
   falta: que el pedido nuevo pregunte cuál, con los productos del Second Brain.
-- **«Crear ahora» se ve igual que las sugerencias** de abajo («Mejorar la escritura»…): un botón de una burbuja y un
-  atajo del panel no deberían parecerse.
+- **«Crear ahora» se veía igual que las sugerencias** de abajo («Mejorar la escritura»…): las dos eran pastillas
+  celestes (`secundario` y `gma-ag-pildora`). Arreglado: «Crear ahora» va azul con «+» (también tras «Después»), las
+  candidatas de «¿Cuál?» y los links «Abrir…»/«Ir a…» en contorno, y `secundario` dejó de ser una variante de las
+  burbujas (`VarianteBoton`): volver a usarla no compila.
 - **El aviso «Archivada» con «Deshacer» no se alcanzó a ver** (ya no estaba cuando se miró): sin verificar.
