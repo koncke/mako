@@ -20,6 +20,7 @@ import { getEstadoVerificacionContacto } from './mako-grupo';
 import { getContactoReportes } from './perfil';
 import { integracionConectada } from './credenciales';
 import { leerSesion, leerFila, guardarComoOferta } from './offer-sesiones';
+import { estadoDiagnostico } from './offer-reglas';
 import { crearFunnel, getFunnelDefault, idDelFunnelDefault, renombrarFunnel, saveFunnelDefault } from './funnels';
 import { FUNNEL_DEFAULT_NOMBRE } from './funnel-fila';
 import { DEFAULT_PIPELINE, apagadasAlCrear, mismoPipeline, siembraDeCrm, tipoCrmPorId, type TipoCrmId } from './pipeline';
@@ -104,6 +105,8 @@ export async function hechosDelArranque(e: EstadoArranque): Promise<HechosServer
     canalNegocio: diag?.canal && esCanal(diag.canal) ? diag.canal : null,
     puedeConcluir: !!sesion?.puedeConcluir,
     ofertaLista: !!sesion?.conclusion,
+    // Lo que ya contestó del diagnóstico en la conversación de la oferta: el arranque no lo repite.
+    faseOffer: sesion ? (({ respuestas, canal }) => ({ respuestas, canal }))(estadoDiagnostico(sesion.mensajes, { canal: null, yaGuardado: false })) : null,
     conCrm: modo === 'oferta',
     conTelefono: pasosCapa.includes('tabs'),
     terminado: onb.status === 'done',

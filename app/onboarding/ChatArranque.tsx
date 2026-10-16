@@ -143,7 +143,7 @@ export function ChatArranque({ inicial, arbolVacio, opcionArmar }: { inicial: Vi
   }, [vista.etapa, intentoCierre]);
 
   // ── Lo que se dibuja ─────────────────────────────────────────────────────
-  const lado = ladoDeLaPregunta(vista.etapa);
+  const lado = ladoDeLaPregunta(vista.etapa, vista.modo);
   // ⚠️ Memo: el hilo se vuelve a desplazar cada vez que cambia su lista de mensajes, y un arreglo nuevo en
   // cada tecla del composer lo haría con cada letra (el mismo cuidado que ChatOffer con los suyos).
   const { antes, despues } = useMemo(() => {

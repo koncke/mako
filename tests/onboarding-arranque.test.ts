@@ -161,6 +161,43 @@ test('el diagnóstico del modo plan: el canal va antes del volumen, y al complet
   assert.equal(leerRespuesta({ ...QUIEN, queHace: 'x' }, PLAN, { texto: 'mucho' }).ok, false);
 });
 
+test('armó la oferta antes de terminar el diagnóstico: lo que falta lo pregunta el arranque, sin repetir lo de Offer', () => {
+  // Medido en el recorrido del ws3 (16/10): «Armar mi oferta» antes de contestar «¿Dónde cierras la venta?»
+  // dejaba la etapa en 'oferta' para siempre, sin la pregunta en pantalla y sin forma de seguir.
+  const armada: HechosArranque = { ...H, puedeConcluir: true, ofertaLista: true, faseGuardada: false };
+  assert.equal(etapaDeArranque(QUIEN, { ...H, puedeConcluir: true }), 'oferta', 'sin armar, el diagnóstico sigue en la conversación de Offer');
+  assert.equal(etapaDeArranque(QUIEN, armada), 'fase');
+  assert.equal(etapaDeArranque(QUIEN, { ...armada, faseGuardada: true }), 'crm');
+
+  // En Offer contestó el canal y la primera pregunta: el arranque no las repite.
+  const q0 = PREGUNTAS[0].id;
+  const conOffer: HechosArranque = { ...armada, faseOffer: { respuestas: { [q0]: 2 }, canal: CANALES[1].id } };
+  const { despues } = mensajesDeArranque(QUIEN, conOffer);
+  const ultima = despues[despues.length - 1];
+  assert.equal(despues[0].id, 'arr-fase');
+  assert.ok(!despues.some((m) => m.id === 'arr-fase-canal' || m.id === 'arr-fase-0'), 'repitió lo que ya contestó en Offer');
+  assert.equal(ultima.id, 'arr-fase-1');
+  assert.ok(ultima.opciones?.length, 'la pregunta va con sus opciones');
+
+  // Contesta lo que falta: se guarda el diagnóstico con lo de Offer adentro y el canal de Offer.
+  let e: EstadoArranque = { ...QUIEN };
+  let r = leerRespuesta(e, conOffer, { opcion: 0 });
+  for (let paso = 0; r.ok && !r.fase && paso < PREGUNTAS.length; paso++) {
+    e = { ...e, ...r.patch };
+    r = leerRespuesta(e, conOffer, { opcion: 0 });
+  }
+  assert.ok(r.ok && r.fase, 'no completó el diagnóstico');
+  if (!r.ok) return;
+  assert.equal(r.fase![0], 2, 'perdió la respuesta que dio en Offer');
+  assert.deepEqual(r.fase!.slice(1), PREGUNTAS.slice(1).map(() => 0));
+  assert.equal(r.faseCanal, CANALES[1].id);
+  // En el estado queda sólo lo que contestó ACÁ.
+  assert.equal(r.patch.faseResp?.[0], -1);
+  // La ruta guarda con ese canal.
+  assert.match(sinComentarios(leer('app/api/onboarding/arranque/route.ts')), /setDiagnosticoFase\(lectura\.fase, lectura\.faseCanal \?\? /);
+  assert.match(sinComentarios(leer('lib/onboarding-arranque-server.ts')), /faseOffer: sesion \? .*estadoDiagnostico\(sesion\.mensajes/);
+});
+
 // ── El perfil del negocio que queda escrito ─────────────────────────────────
 test('el brief sale de la conversación y NUNCA pisa lo que el negocio ya tenía', () => {
   const v = (valor: string) => ({ valor, fuente: 'chat' as const, at: '2026-10-16' });
@@ -251,6 +288,10 @@ test('qué contesta el composer en cada etapa, y dónde va la respuesta optimist
   assert.equal(mandaElArranque('listo'), true, 'después de «¡Listo!» un turno de Offer quedaría arriba de la tarjeta final');
   assert.equal(ladoDeLaPregunta('objetivo'), 'antes');
   assert.equal(ladoDeLaPregunta('crm'), 'despues');
+  // El diagnóstico: antes en modo plan, después de la oferta en modo oferta (lo que faltó tras armarla).
+  assert.equal(ladoDeLaPregunta('fase', 'plan'), 'antes');
+  assert.equal(ladoDeLaPregunta('fase', 'oferta'), 'despues');
+  assert.match(sinComentarios(leer('app/onboarding/ChatArranque.tsx')), /ladoDeLaPregunta\(vista\.etapa, vista\.modo\)/);
   assert.equal(SESION_VACIA.id, 0);
   assert.deepEqual(aMensajeOffer({ id: 'arr-x', de: 'mako', texto: 'Hola', opciones: ['A'] }), { id: 'arr-x', de: 'mako', texto: 'Hola', at: '', opciones: ['A'] });
 });
@@ -339,6 +380,10 @@ test('la animación: los nombres reales del cerebro, salteable, sin movimiento s
   assert.match(sin, /onClick=\{\(\) => terminarRef\.current\(\)\}/, 'un clic no la saltea');
   assert.match(sin, /querySelector<HTMLElement>\('\[data-mako-foto\]'\)/);
   assert.match(sinComentarios(leer('app/onboarding/ChatArranque.tsx')), /data-mako-foto/, 'el chat no tiene dónde aterrizar a MaKo');
+  // La leyenda entra con una ANIMACIÓN (`both`), que le gana a un opacity estático: su salida tiene que ser
+  // otra animación, o queda opaca encima del chat durante todo el vuelo (recorrido en el ws3, 16/10).
+  assert.match(sin, /\.im-capa--sale \.im-leyenda \{ animation: im-baja [^}]*forwards; \}/, 'la leyenda no se va con el grafo');
+  assert.match(sin, /@keyframes im-baja \{ from \{[^}]*\} to \{[^}]*opacity: 0/);
   // El CSS vive en un template literal: una comilla invertida adentro lo corta y rompe el build entero.
   for (const [archivo, constante] of [['app/onboarding/IntroMako.tsx', 'const CSS_INTRO = '], ['app/onboarding/ChatArranque.tsx', 'const CSS_ARRANQUE = ']]) {
     const src = leer(archivo);

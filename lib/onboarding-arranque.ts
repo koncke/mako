@@ -41,9 +41,10 @@ export type EstadoArranque = {
   objetivo?: string;
   /** Sólo en modo 'plan': en 'oferta' sale de la conversación de la oferta. */
   queHace?: string;
-  /** Modo 'plan': la respuesta de cada pregunta del diagnóstico (índice de la opción ORIGINAL, -1 = sin contestar). */
+  /** La respuesta de cada pregunta del diagnóstico que hizo el ARRANQUE (índice de la opción ORIGINAL, -1 =
+   *  sin contestar): todas en modo 'plan'; en 'oferta', sólo las que la conversación de la oferta no llegó a hacer. */
   faseResp?: number[];
-  /** Modo 'plan': dónde cierra la venta (la pregunta de canal va antes de la de volumen). */
+  /** Dónde cierra la venta, si lo preguntó el arranque (la pregunta de canal va antes de la de volumen). */
   canal?: CanalId;
   /** El tipo de CRM que eligió (modo 'oferta'). */
   crmTipo?: TipoCrmId;
@@ -73,6 +74,9 @@ export type HechosArranque = {
   puedeConcluir: boolean;
   /** La oferta ya está armada (hay una conclusión). */
   ofertaLista: boolean;
+  /** Lo que ya contestó del diagnóstico en la conversación de la oferta (id de pregunta → opción ORIGINAL, y el
+   *  canal si lo contestó ahí), o null sin conversación. El arranque no lo vuelve a preguntar. */
+  faseOffer?: { respuestas: Record<string, number>; canal: CanalId | null } | null;
   /** La capa ve el CRM: el chat siembra su funnel principal. */
   conCrm: boolean;
   /** La capa tiene el paso del teléfono ('tabs'). */
@@ -175,6 +179,20 @@ export function faseCompleta(e: EstadoArranque): number[] | null {
   return PREGUNTAS.map((_, i) => (e.faseResp ?? [])[i]);
 }
 
+const contestada = (n: number | undefined): n is number => Number.isInteger(n) && (n as number) >= 0;
+
+/**
+ * El diagnóstico como lo ve el arranque en modo 'oferta': lo que contestó ACÁ manda y, si no, lo que ya
+ * contestó en la conversación de la oferta. Así las preguntas que Offer ya hizo no se repiten.
+ */
+export function conFaseDeOffer(e: EstadoArranque, h: Pick<HechosArranque, 'faseOffer'>): EstadoArranque {
+  const o = h.faseOffer;
+  if (!o) return e;
+  const faseResp = PREGUNTAS.map((q, i) => (contestada(e.faseResp?.[i]) ? e.faseResp![i] : (o.respuestas[q.id] ?? -1)));
+  const canal = e.canal ?? o.canal ?? undefined;
+  return { ...e, faseResp, ...(canal ? { canal } : {}) };
+}
+
 // ── La etapa ────────────────────────────────────────────────────────────────
 /**
  * En qué etapa está la conversación. Sale de lo guardado Y de lo medido: así, si la persona cerró la
@@ -190,7 +208,12 @@ export function etapaDeArranque(e: EstadoArranque, h: HechosArranque): EtapaArra
     if (!e.queHace) return 'que_hace';
     if (!h.faseGuardada) return 'fase';
   } else {
-    if (!(h.puedeConcluir && h.faseGuardada)) return 'oferta';
+    // El diagnóstico va adentro de la conversación de la oferta, pero Offer deja ARMAR antes de terminarlo
+    // (el botón «Armar mi oferta»). Con la oferta armada y el diagnóstico sin guardar, las preguntas que
+    // faltan las hace el arranque: antes se quedaba en 'oferta' para siempre, sin la pregunta en pantalla y
+    // sin forma de seguir (recorrido en el ws3, 16/10/2026).
+    if (!h.faseGuardada) return h.ofertaLista ? 'fase' : 'oferta';
+    if (!h.puedeConcluir && !h.ofertaLista) return 'oferta';
     if (h.conCrm && !e.crmTipo) return 'crm';
   }
   if (h.conTelefono && e.telefono !== 'verificado' && e.telefono !== 'postergado') {
@@ -231,26 +254,23 @@ export function mensajesDeArranque(e: EstadoArranque, h: HechosArranque): { ante
   if (h.modo === 'plan') {
     preguntar(antes, 'que-hace', '¿A qué se dedica tu negocio?', e.queHace);
     if (etapa === 'que_hace') return { antes, despues };
-    // Las ya contestadas, en orden, y la que toca.
-    const resp = e.faseResp ?? [];
-    for (let i = 0; i < PREGUNTAS.length; i++) {
-      if (PREGUNTAS[i].id === 'volumen') {
-        const c = textoPreguntaFase({ tipo: 'canal' }, e.canal);
-        const elegido = e.canal ? CANALES.find((x) => x.id === e.canal)?.label : undefined;
-        preguntar(antes, 'fase-canal', c.texto, elegido, c.opciones);
-        if (!e.canal) return { antes, despues };
-      }
-      const q = textoPreguntaFase({ tipo: 'pregunta', idx: i }, e.canal);
-      const r = Number.isInteger(resp[i]) && resp[i] >= 0 ? q.opciones[resp[i]] : undefined;
-      preguntar(antes, `fase-${i}`, q.texto, r, q.opciones);
-      if (r === undefined) return { antes, despues };
-    }
+    if (preguntarFase(antes, e, preguntar)) return { antes, despues };
     return { antes, despues: cierre(e, h, etapa, nombre) };
   }
 
   // 2b. Modo 'oferta': el pase a la conversación de la oferta (sus mensajes los dibuja Offer).
   antes.push({ id: 'arr-oferta', de: 'mako', texto: 'Perfecto. Ahora lo más importante: tu oferta.' });
   if (etapa === 'oferta') return { antes, despues };
+
+  // 2c. Lo que faltó del diagnóstico (armó la oferta antes de terminarlo, ver `etapaDeArranque`): sólo lo que
+  // la conversación de la oferta no llegó a preguntar. Queda dibujado después, como parte de la historia.
+  if (etapa === 'fase' || preguntoLaFase(e)) {
+    const o = h.faseOffer;
+    despues.push({ id: 'arr-fase', de: 'mako', texto: 'Antes de seguir, unas preguntas rápidas para saber en qué fase está tu negocio.' });
+    if (preguntarFase(despues, conFaseDeOffer(e, h), preguntar, { canalYaDicho: !!o?.canal, yaContestada: (id) => o?.respuestas[id] != null })) {
+      return { antes, despues };
+    }
+  }
 
   // 3. El CRM.
   if (h.conCrm) {
@@ -266,6 +286,35 @@ export function mensajesDeArranque(e: EstadoArranque, h: HechosArranque): { ante
 
   despues.push(...cierre(e, h, etapa, nombre));
   return { antes, despues };
+}
+
+type Preguntar = (lista: MensajeArranque[], id: string, texto: string, respuesta: string | undefined, opciones?: string[], tarjeta?: TarjetaArranque) => void;
+
+/** ¿El arranque ya hizo alguna pregunta del diagnóstico? (En modo 'oferta' sólo las escribe él.) */
+const preguntoLaFase = (e: EstadoArranque): boolean => !!e.canal || (e.faseResp ?? []).some(contestada);
+
+/**
+ * Las preguntas del diagnóstico, en orden: las contestadas con su respuesta y la que toca, con las preguntas
+ * ORIGINALES. Devuelve true si quedó una abierta. En modo 'oferta' saltea lo que el dueño ya contestó en la
+ * conversación de la oferta (`yaContestada`, `canalYaDicho`): esas no se dibujan ni se repiten.
+ */
+function preguntarFase(lista: MensajeArranque[], e: EstadoArranque, preguntar: Preguntar,
+  o: { canalYaDicho?: boolean; yaContestada?: (id: string) => boolean } = {}): boolean {
+  const resp = e.faseResp ?? [];
+  for (let i = 0; i < PREGUNTAS.length; i++) {
+    if (PREGUNTAS[i].id === 'volumen' && !o.canalYaDicho) {
+      const c = textoPreguntaFase({ tipo: 'canal' }, e.canal);
+      const elegido = e.canal ? CANALES.find((x) => x.id === e.canal)?.label : undefined;
+      preguntar(lista, 'fase-canal', c.texto, elegido, c.opciones);
+      if (!e.canal) return true;
+    }
+    if (o.yaContestada?.(PREGUNTAS[i].id)) continue;
+    const q = textoPreguntaFase({ tipo: 'pregunta', idx: i }, e.canal);
+    const r = contestada(resp[i]) ? q.opciones[resp[i]] : undefined;
+    preguntar(lista, `fase-${i}`, q.texto, r, q.opciones);
+    if (r === undefined) return true;
+  }
+  return false;
 }
 
 /** El teléfono, la espera de la oferta y el cierre (los dos modos). */
@@ -301,7 +350,8 @@ function cierre(e: EstadoArranque, h: HechosArranque, etapa: EtapaArranque, nomb
  */
 export type Respuesta = { texto?: string; opcion?: number; opcionTexto?: string };
 export type ResultadoRespuesta =
-  | { ok: true; patch: Partial<EstadoArranque>; fase?: number[] }
+  /** `fase` al completar el diagnóstico, con el canal que vale (`faseCanal`: el de acá o el de la oferta). */
+  | { ok: true; patch: Partial<EstadoArranque>; fase?: number[]; faseCanal?: CanalId }
   | { ok: false; error: string; cambio?: true };
 
 /**
@@ -325,19 +375,29 @@ export function leerRespuesta(e: EstadoArranque, h: HechosArranque, r: Respuesta
     return { ok: true, patch: { [campo]: texto } };
   }
   if (etapa === 'fase') {
-    const p = siguientePreguntaFase(e);
+    // En modo 'oferta' cuenta lo que ya contestó en la conversación de la oferta (`conFaseDeOffer`).
+    const ef = h.modo === 'oferta' ? conFaseDeOffer(e, h) : e;
+    const p = siguientePreguntaFase(ef);
     if (!p) return { ok: false, error: 'El diagnóstico ya está completo.' };
-    const { opciones } = textoPreguntaFase(p, e.canal);
+    const { opciones } = textoPreguntaFase(p, ef.canal);
     // Sólo con una opción: el diagnóstico se CALCULA (lib/fase-diagnostico.ts) y una respuesta libre no
     // tiene índice. Se acepta el texto si es exactamente una opción.
     const idx = Number.isInteger(r.opcion) ? (r.opcion as number) : opciones.findIndex((o) => o.toLowerCase() === texto.toLowerCase());
     if (!(idx >= 0 && idx < opciones.length)) return { ok: false, error: 'Elige una de las opciones.' };
-    if (p.tipo === 'canal') return { ok: true, patch: { canal: CANALES[idx].id } };
-    const faseResp = [...(e.faseResp ?? PREGUNTAS.map(() => -1))];
+    if (p.tipo === 'canal') {
+      const canal = CANALES[idx].id;
+      const siguiente: EstadoArranque = { ...ef, canal };
+      return { ok: true, patch: { canal }, ...(faseCompleta(siguiente) ? { fase: faseCompleta(siguiente)!, faseCanal: canal } : {}) };
+    }
+    const faseResp = [...(ef.faseResp ?? PREGUNTAS.map(() => -1))];
     while (faseResp.length < PREGUNTAS.length) faseResp.push(-1);
     faseResp[p.idx] = idx;
-    const siguiente: EstadoArranque = { ...e, faseResp };
-    return { ok: true, patch: { faseResp }, ...(faseCompleta(siguiente) ? { fase: faseCompleta(siguiente)! } : {}) };
+    const siguiente: EstadoArranque = { ...ef, faseResp };
+    // Lo que se guarda en el estado es sólo lo que contestó ACÁ: lo de Offer se sigue leyendo de Offer, y
+    // copiarlo haría que `preguntoLaFase` dibujara como del arranque preguntas que hizo la otra conversación.
+    const propias = h.modo === 'oferta' ? faseResp.map((v, i) => (contestada(e.faseResp?.[i]) || i === p.idx ? v : -1)) : faseResp;
+    const completa = faseCompleta(siguiente);
+    return { ok: true, patch: { faseResp: propias }, ...(completa ? { fase: completa, ...(siguiente.canal ? { faseCanal: siguiente.canal } : {}) } : {}) };
   }
   if (etapa === 'codigo') {
     if (opcion === CAMBIAR_NUMERO) return { ok: true, patch: { telefono: undefined, telefonoNumero: undefined } };

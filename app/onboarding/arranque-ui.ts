@@ -57,6 +57,8 @@ export function placeholderDe(etapa: EtapaArranque): string | undefined {
  * Dónde va la respuesta optimista (el globito del dueño mientras se guarda): con la pregunta de la etapa,
  * antes o después de la conversación de la oferta.
  */
-export function ladoDeLaPregunta(etapa: EtapaArranque): 'antes' | 'despues' {
-  return etapa === 'nombre' || etapa === 'negocio' || etapa === 'objetivo' || etapa === 'que_hace' || etapa === 'fase' ? 'antes' : 'despues';
+export function ladoDeLaPregunta(etapa: EtapaArranque, modo: 'oferta' | 'plan' = 'plan'): 'antes' | 'despues' {
+  // El diagnóstico va antes en modo 'plan' (no hay oferta) y después en 'oferta' (lo que faltó tras armarla).
+  if (etapa === 'fase') return modo === 'oferta' ? 'despues' : 'antes';
+  return etapa === 'nombre' || etapa === 'negocio' || etapa === 'objetivo' || etapa === 'que_hace' ? 'antes' : 'despues';
 }

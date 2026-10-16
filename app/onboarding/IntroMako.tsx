@@ -164,7 +164,9 @@ const CSS_INTRO = `
   font-size: clamp(20px, 3.2vw, 30px); font-weight: 600; letter-spacing: -0.02em; color: var(--on-sidebar);
   animation: im-sube .45s ease both;
 }
-.im-capa--sale .im-leyenda { opacity: 0; transition: opacity .25s ease; }
+/* La entrada (im-sube, con both) es una ANIMACIÓN y le gana a un opacity estático: la leyenda seguía
+   opaca encima del chat durante el vuelo (recorrido en el ws3, 16/10). La salida es otra animación. */
+.im-capa--sale .im-leyenda { animation: im-baja .25s ease forwards; }
 .im-linea { stroke-dasharray: 260; stroke-dashoffset: 260; animation: im-trazo .5s ease forwards; }
 .im-punto { transform-box: fill-box; transform-origin: center; animation: im-pop-punto .45s cubic-bezier(.34,1.56,.64,1) both; }
 .im-et { fill: var(--on-sidebar); font-size: 15px; font-weight: 600; opacity: 0; animation: im-aparece .4s ease forwards; }
@@ -174,6 +176,7 @@ const CSS_INTRO = `
 @keyframes im-trazo { to { stroke-dashoffset: 0; } }
 @keyframes im-aparece { to { opacity: 1; } }
 @keyframes im-sube { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes im-baja { from { opacity: 1; } to { opacity: 0; transform: translateY(6px); } }
 @media (max-width: 640px) { .im-et--chica { display: none; } }
 @media (prefers-reduced-motion: reduce) {
   .im-muneco, .im-leyenda, .im-linea, .im-punto, .im-et { animation: none !important; opacity: 1 !important; stroke-dashoffset: 0 !important; }

@@ -91,8 +91,9 @@ export async function POST(req: NextRequest) {
           const r = await sembrarCrmPrincipal(patch.crmTipo, e.negocio ?? '');
           aviso = r.aviso;
         }
-        // El diagnóstico del modo 'plan', al contestar la última pregunta.
-        if (lectura.fase) await setDiagnosticoFase(lectura.fase, patch.canal ?? e.canal);
+        // El diagnóstico, al contestar la última pregunta: todo en modo 'plan'; en 'oferta', lo que faltó
+        // después de armar la oferta (el canal puede venir de lo que contestó en la conversación de Offer).
+        if (lectura.fase) await setDiagnosticoFase(lectura.fase, lectura.faseCanal ?? patch.canal ?? e.canal);
         if (patch.nombre) await guardarNombre(patch.nombre);
         if (patch.negocio) await guardarNombreNegocio(patch.negocio);
         const nuevo = await guardarEstadoArranque(patch);
