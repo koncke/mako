@@ -26,7 +26,8 @@ documentación de HubSpot para mirar una plantilla con un registro de verdad, y 
   tablet, más aire. Cada bloque recibe `epico` (el contrato con Pagos).
 - La API de MaKo: `cambiar_ficha_funnel` suma `nombre` y `epica` y la plantilla de una tab (`plantilla` con `tab`);
   `armar_tab_ficha` (nueva) arma una tab con un pedido, con confirmación y sólo el admin.
-- Un funnel que nadie tocó se ve EXACTAMENTE igual que antes (la de entrada de cada tab es la lista de hoy).
+- Un funnel que nadie tocó se ve igual que antes en Resumen, Tracking y Reuniones (la de entrada es la lista de hoy);
+  en Pagos, con la plantilla de Pagos sugerida para su tipo (las del chat Pagos, que llegaron con el merge de main).
 
 **Tests:** los de la ficha, la API y los guards que leen el fuente (1.947 en el barrido de lo tocado) en verde; dos
 archivos nuevos (tests/ficha-tabs.test.ts, tests/ficha-galeria.test.ts) probados rompiéndolos. El tsc fue el ACOTADO.
@@ -34,7 +35,8 @@ archivos nuevos (tests/ficha-tabs.test.ts, tests/ficha-galeria.test.ts) probados
 **SIN HACER (con su archivo):**
 - Mirarla en el ws 3 con datos reales y la caja contra la IA de verdad (en el banco la ruta iba simulada).
 - La épica por dentro de cada bloque: el frente del Resumen (registro-resumen.tsx) y Pagos (registro-pagos.tsx).
-- Las plantillas de Pagos: lib/ficha/plantillas-pagos.ts está vacío a propósito (lo escribe Pagos; gana su versión).
+- Las plantillas de Pagos ya están (el merge de main trajo las cuatro del chat Pagos): la tab Pagos de un funnel sin
+  tocar es la sugerida para su tipo. Mirarla con datos reales (registro-pagos.tsx, lib/ficha/plantillas-pagos.ts).
 - La tarjeta del lead en el kanban personalizable (tanda 2).
 
 ## 0-Ω7. 16/10/2026 (chat «CRM», cuenta `claude3`): la PANTALLA de la ficha por bloques, lista para subir

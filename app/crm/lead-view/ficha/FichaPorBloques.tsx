@@ -350,7 +350,7 @@ export function FichaPorBloques({ data, parchear, altoChat, initialTab, onTab, f
   const boton = puede ? (
     <button type="button" className="fb-personalizar" aria-pressed={enEdicion}
       title={enEdicion ? 'Volver a la ficha' : 'Armar la ficha de este funnel'}
-      onClick={() => { setEditando((v) => !v); setSel(null); setAgregar(null); }}>
+      onClick={() => { setEditando((v) => !v); setSel(null); setAgregar(null); setGaleria(null); setVistas({}); }}>
       <IconoMenu nombre={enEdicion ? 'ver' : 'editar'} size={15} /> {enEdicion ? 'Ver' : 'Personalizar'}
     </button>
   ) : undefined;

@@ -9356,6 +9356,13 @@ app/crm/lead-view/ficha/ (GaleriaTab.tsx, galeria.ts).
   tests/ficha-tabs.test.ts («LA DE ENTRADA ES LA QUE YA SE VEÍA»).
 - **La plantilla de una tab no toca los avisos.** «Datos sin marcar» sigue saliendo de la plantilla del FUNNEL: elegir
   «En blanco» para Pagos no apaga el aviso del monto. Cambia lo que se ve, no lo que falta.
+- **`sugeridaPara` también decide la DE ENTRADA, y eso cambió la tab Pagos de todos al llegar las de Pagos.** Un no-admin
+  ve la sugerida, y «Usar la sugerida» guarda la misma: si la de entrada fuera otra, la tarjeta «Sugerido» diría una
+  cosa y la tab mostraría otra. Al mergear lib/ficha/plantillas-pagos.ts (cuatro plantillas que cubren los nueve
+  tipos), la tab Pagos de un funnel sin tocar pasó de la lista de Pagos de su plantilla de funnel a la plantilla de
+  Pagos de su tipo (Formulario de Meta: «Cobrar una venta», que trae cuotas). Las listas de Pagos de
+  lib/ficha/plantillas.ts quedan para los AVISOS (qué dato nace apagado) y de respaldo para un tipo que ninguna nombre.
+  Lo vio tests/ficha-config.test.ts, que usaba `cuotas` como «no está puesto» en Formulario de Meta.
 - **El guard «todo lo que hace Personalizar lo hace MaKo» sólo veía ops en minúsculas** (`/\bop: '([a-z]+)'/`, en
   tests/ficha-api.test.ts): un op `nombreTab` habría pasado sin que nadie lo viera, y la galería no estaba en su lista
   de archivos. **Regla:** un op de `CambioFicha` es UNA palabra en minúsculas (`nombre`, `epica`, `armar`; la plantilla
@@ -9378,8 +9385,6 @@ app/crm/lead-view/ficha/ (GaleriaTab.tsx, galeria.ts).
   ruta estaba simulada).
 - La vista épica por DENTRO de cada bloque: el marco pasa `epico` y da el aire y el titular; cada bloque decide cómo se
   agranda (el contenido del Resumen es del frente siguiente; Pagos, del chat Pagos).
-- La galería de Pagos con las plantillas de Pagos: lib/ficha/plantillas-pagos.ts quedó VACÍO (lo escribe Pagos; al
-  mergear gana su versión entera, un add/add que se resuelve con la de ellos).
 - Las sugeridas de la ficha usan el TIPO del funnel (`sugeridasDeTab`), no las señales del negocio del módulo compartido
   (lib/plantillas-sugeridas.ts): la ficha es de UN funnel y su tipo ya es lo analizado de ese funnel. Si se suma la
   oferta (el cobro), entra por `sugeridasDeTab` y por ningún otro lado.
