@@ -2703,6 +2703,123 @@ app/plan/board/repo-plan.ts (la capacidad; el candado del cliente) · lib/api-ma
 plan.run.ts · supabase/migrations/0297 · tests/plan-repriorizar.test.ts + tests/_plan-repriorizar-hijo.ts
 · *2026-10-16*
 
+## La revisión adversarial del kanban: lo que se pisaba mientras alguien esperaba (16/10/2026)
+
+Dos revisores (motor/datos y segundo plano/IA) revisaron la rama `plan-kanban` entera y reprodujeron
+los defectos con las funciones reales contra el PostgREST de mentira. Casi todos eran el MISMO error
+con distintas caras: **algo que corre en segundo plano decide con una foto vieja, o escribe su
+resultado en un momento distinto del que lo hace visible, y en ese hueco alguien más escribe.**
+
+**Lo que se vio y la causa real:**
+
+- **«Re-priorizar todo» pisaba lo que la persona hacía mientras el modelo pensaba** (30 a 90 s por
+  tanda): una prioridad fijada a mano quedaba con el número de la IA *y con el candado puesto*, se
+  borraba la entrada «Movió a En proceso» y se le cambiaba el proyecto a una que ya habían sacado de la
+  bandeja. Causa: `procesarTanda` decidía y escribía con lo leído ANTES de llamar al modelo. Ahora relee
+  cada tarea justo antes de escribirla (lib/plan-repriorizar.ts).
+- **Una reunión podía quedar «Leyendo…» para siempre.** El modal deja su fila «procesando» antes de
+  leer; si el cron o el webhook ganaban el candado y no encontraban compromisos, nadie cerraba esa fila
+  (`crearPropuesta` sólo la llena cuando trae tareas). Y si la lectura del modal se moría (Vercel la
+  corta: no corre ni el `catch` ni el `finally`), el cron la salteaba porque `existePropuestaRef` decía
+  «ya hay borrador», y la fila sólo volvía a mirar. Ahora la vacía legítima cierra esa fila
+  (`resolverProcesandoSinCompromisos`), el cron no cuenta las «procesando» (el candado de lectura es el
+  que decide si alguien la está leyendo) y tocar la fila llama a `extraer`, que relanza si nadie lee.
+- **El cruce no llegaba al modal y el autosave lo borraba → tarjeta duplicada.** Las tres lecturas (el
+  cron, la manual y la de archivos) marcaban el borrador «pendiente» y RECIÉN DESPUÉS lo cruzaban (hasta
+  ~60 s); el modal tomaba las filas sin la marca, su autosave las guardaba así (con el sello ya puesto,
+  así que el barrido no volvía) y «Cargar» creaba la duplicada. Ahora se cruza en memoria ANTES de
+  mostrar (`cruzarTareas`) y tareas y sello van en la MISMA escritura; y una copia vieja que llega sin
+  `enriquece` recupera la del servidor (`conCruceGuardado`, en el autosave y en «Agregar»).
+- **«Volver a analizar» un borrador sellado no cruzaba nunca la lectura nueva**: el sello viejo seguía
+  puesto. El sello ahora se escribe con las tareas que lo ganaron y se borra cuando se reemplazan.
+- **Los «Deshacer» dejaban la base distinta de la pantalla.** El del teléfono reabría al 0% una tarea
+  que estaba al 40% (y una «Atorada» volvía sin motivo); el del escritorio devolvía el avance con un
+  SEGUNDO guardado que el server leía como «cambió el avance» (una «Por iniciar» al 40% quedaba «En
+  proceso» en la base). Ahora el avance de antes viaja en el mismo mover (`trasMover(…, avance)`).
+- **Una pestaña vieja del dueño reabría lo completado en otro lado** al corregirle el título (el 40% de
+  la pestaña «cambió» contra el 100% de la fila). Faltaba la primera capa que el cliente ya tenía: el
+  último avance que la base le confirmó a ESA pestaña (`progresoGuardado`, lo lleva `useBoard`).
+- **Una pestaña que no vio arrancar el trabajo deshacía lo que escribió** (arrancado por WhatsApp, el
+  teléfono u otra pestaña): sólo miraba al abrir. Ahora mira cada 45 s y al volver a la pestaña; y al
+  abrir con uno corriendo ya no repinta TODOS los cambios (pisaba lo cambiado a mano después): cada
+  cambio lleva su hora y se pintan los de los últimos segundos antes de montar.
+- **Una tanda cortada por Vercel se repetía para siempre** con la pestaña abierta: `intentos` subía en el
+  `catch`, que una función muerta no corre. Ahora el intento se cuenta al TOMAR la tanda.
+- **Un 503 pasajero de Fathom cerraba la reunión como «sin compromisos».** `extraerTareasDeReunion`
+  tragaba el error y devolvía vacío sin `partesFallidas`; con el webhook (lee en el minuto en que
+  termina la reunión) es más probable. Ahora «Fathom no contestó» (`FathomSinRespuestaError`, después de
+  sus reintentos) cuenta como un tramo fallido; un 4xx sigue siendo vacío.
+- Y tres chicos: `ver_tarea_plan` decía la prioridad cruda («media» para una «Sin priorizar» del
+  cliente) y no la columna; el webhook leía también para un workspace pausado (ahora `wsEnLaRonda`, la
+  vara del cron); y una vuelta del cron que salía bien y vacía dejaba la reunión 14 días en «Sin leer».
+
+**⚠️ El diagnóstico obvio que era el equivocado:** un revisor midió la ventana en que la pestaña que
+arrancó el trabajo podía deshacerlo como «hasta 90 s», la duración de la llamada al Perro. En una
+TANDA no: el modelo contesta ANTES de la primera escritura, y las veinte escrituras más la publicación
+de los cambios son una ráfaga de segundos. Los 90 s eran reales sólo en el CIERRE del dueño, que escribía
+el reparto y RECIÉN DESPUÉS juzgaba los proyectos (una llamada larga) antes de publicarlo: ahora el
+reparto se publica antes del juicio.
+
+**Las reglas que quedan** (las que gobiernan código nuevo están en AGENTS.md):
+
+- **Lo que espera a un modelo decide contra la fila releída justo antes de escribir**, no contra la
+  foto de antes de la llamada.
+- **Un resultado de segundo plano se escribe en la MISMA escritura que hace visible la cosa** (cruzar
+  antes de mostrar), y **un sello va con los datos que lo ganaron**: puesto con ellos, borrado cuando se
+  reemplazan.
+- **Toda salida de un lector cierra la fila que otro dejó esperándolo**, y el reintento no puede contar
+  como «hecha» una fila huérfana: una función cortada no corre su `finally`.
+- **Los intentos se cuentan al TOMAR el trabajo**, no al fallar.
+- **Un Deshacer vuelve TODO lo que el cambio movió, en UNA escritura**: un segundo guardado el server lo
+  lee como un cambio nuevo.
+- **«No contestó» no es «vacío»**: un fallo pasajero se marca como fallo o el lector lo cierra como
+  leído.
+
+**Trampas del entorno que costaron en esta pasada:**
+
+- **Un test que pausa un workspace SIN credenciales no prueba la vara del estado**: `wsEnLaRonda` decía
+  «no» por falta de claves y la rotura «sin mirar el estado» pasaba en verde (0 de 28). Se arregló
+  pausando el MISMO workspace que tiene Fathom (el ws 1, que cae a las claves del env).
+- **`lib/plan-propuesta.ts` quedó guardado como BINARIO desde la tanda 3**: un `\r\r\n` en la línea 26
+  (un script que escribió CRLF sobre CRLF) y git lo marca `i/-text` (`git ls-files --eol`). Editarlo
+  con cualquier herramienta lo normaliza, y con `core.autocrlf=true` el `git add` lo pasaba entero a LF:
+  un diff de archivo completo contra main, que lo tiene en CRLF. Se commitea con
+  `git -c core.autocrlf=false add` para que quede CRLF como en main (y sin el `\r` suelto).
+- **Un script de Python que lee con saltos universales y escribe con `newline=''` pasa el archivo a LF
+  sin decir nada** (AGENTS.md → «El fin de línea es POR ARCHIVO»): el script de roturas de esta pasada
+  lo hacía, y se corrigió para leer sin traducir y pasar las anclas al salto del archivo.
+
+**Quedó sin hacer (con dónde vive):**
+
+- **Soltar una tarjeta entre dos con el MISMO `orden`** la deja donde diga el desempate (`num`), no donde
+  se soltó: `ordenEntre(a, a)` devuelve `a` (lib/todo-estados.ts). Los empates los crean las altas que
+  no ponen `orden` (default 0 de la columna): las instancias recurrentes (lib/plan-recurrentes-generar.ts).
+  Arreglarlo es renumerar la columna; es cosmético y no se hizo.
+- **Las ventanas que quedan**, chicas y conocidas: el instante entre releer una tarea y escribirla (el
+  mismo de `editarTarea`); la ráfaga de escrituras de una tanda más el sondeo de 4 s en la pestaña que lo
+  arrancó; y hasta 45 s (o hasta volver a la pestaña) en una pestaña que no lo arrancó. La cura de fondo
+  sería que el guardado de una tarjeta no mande la fila entera, que es otro trabajo.
+- **El modal de una reunión ya leída (la rama de caché, `asegurarBorrador`) no cruza**: si su borrador
+  no estaba sellado, el modal muestra las filas sin la marca y SU «Agregar» (`crearDesdeReunion`, que
+  crea desde las filas del modal) puede duplicar. Lo cruza el barrido del cron; el «Cargar» de la lista
+  ya recupera la marca (`conCruceGuardado`). Es la decisión 7 («el modal no cruza ni espera»).
+- **El cruce mira también lo que está en «No cumplen tu criterio»** (`abiertasConDetalle` usa
+  `progress < 100`, lib/reunion-cruce.ts): una reunión que repite un compromiso descartado amplía esa
+  tarjeta en vez de crear otra. Es el mismo criterio que la carga (`mismaTarea`) y se dejó así.
+
+**Vive en:** lib/plan-repriorizar.ts (`procesarTanda`, `avanzarRepriorizacion`, el cierre) ·
+lib/plan-repriorizar-nucleo.ts (`conHora`, `cambiosDesde`, `VIGILANCIA_MS`) · app/plan/board/Repriorizar.tsx
+· lib/reunion-cruce.ts (`cruzarTareas`) · lib/cruce-borrador.ts (`conCruceGuardado`) ·
+lib/plan-propuesta.ts (`existePropuestaRef`, `resolverProcesandoSinCompromisos`, el sello en
+`crearPropuesta` / `marcarProcesado` / `ponerProcesando`, la mezcla en `guardarRevision` y
+`aplicarPropuestas`) · lib/leer-reunion-en-segundo-plano.ts · lib/importar-en-segundo-plano.ts ·
+lib/reunion-auto.ts · lib/plan-fathom.ts + lib/fathom-api.ts (`FathomSinRespuestaError`) ·
+lib/cron-workspaces.ts (`wsEnLaRonda`) + app/api/webhooks/fathom/route.ts · lib/todo-estados.ts
+(`trasMover(…, avance)`) · lib/plan-mover.ts · app/plan/board/useBoard.ts (`deshacerMover`,
+`avanceGuardado`) · lib/plan-board.ts (`guardarPlanTarea`) · lib/api-mako/areas/plan.run.ts
+(`ver_tarea_plan`) · tests/plan-repriorizar.test.ts, tests/plan-kanban-server.test.ts,
+tests/fathom-sin-friccion.test.ts y sus hijos · *2026-10-16*
+
 ## Tablero único: el cliente va en el BORRADOR, y el tipo de responsable se calcula al aplicar
 
 Salió el 2026-09-17, con 08-T45 («las tareas de clientes y terceros van al Plan de Mauricio»).

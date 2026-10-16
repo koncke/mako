@@ -231,4 +231,26 @@ export const BITACORA: Hito[] = [
       'tests/plan-repriorizar.test.ts — 27 tests, 29 roturas',
     ],
   },
+  {
+    fecha: '16 oct', hora: '—', chat: '—', cuenta: 'claude3', actor: 'claude', tipo: 'implementacion',
+    titulo: 'La revisión adversarial de la rama: lo que se pisaba mientras alguien esperaba',
+    puntos: [
+      'Dos revisores reprodujeron los defectos con las funciones reales. Casi todos eran el mismo: algo en segundo plano decidía con una foto vieja, o escribía su resultado en otro momento que el que lo hacía visible, y en ese hueco alguien más escribía.',
+      '«Re-priorizar todo» relee cada tarea antes de escribirla (ya no pisa una prioridad fijada a mano mientras el modelo piensa), cuenta el intento al tomar la tanda (una cortada por Vercel se repetía para siempre) y la pantalla mira también los trabajos que no arrancó.',
+      'Fathom: las lecturas cruzan ANTES de mostrar el borrador (el autosave del modal borraba el cruce y «Cargar» duplicaba), una fila «Leyendo…» ya no queda así para siempre, y un 503 de Fathom no cierra la reunión como vacía.',
+      'Los Deshacer vuelven el avance en el mismo mover (el del teléfono reabría al 0%) y una pestaña vieja del dueño no reabre lo completado en otro lado.',
+      '⚠️ El diagnóstico obvio era el equivocado: la ventana de «hasta 90 s» no estaba en cada tanda (el modelo contesta antes de escribir) sino en el cierre del dueño, que publicaba el reparto recién después de juzgar los proyectos.',
+      'Quedó sin hacer: soltar entre dos tarjetas con el mismo lugar (es cosmético), y la carga desde el modal de una reunión ya leída que no se alcanzó a cruzar. Los detalles en docs/hallazgos-plan.md.',
+    ],
+    commits: [
+      { sha: '2e3765e9', msg: 'Plan kanban (revisión adversarial): lo que se pisaba mientras alguien esperaba', lineas: 1314, archivos: 36 },
+    ],
+    archivos: [
+      'lib/plan-repriorizar.ts — relee antes de escribir, el intento al tomar, el reparto antes de los proyectos',
+      'lib/reunion-cruce.ts y lib/cruce-borrador.ts — cruzar antes de mostrar, y la marca que no borra una copia vieja',
+      'lib/plan-propuesta.ts y lib/reunion-auto.ts — la fila «procesando» que nadie cerraba, el sello con sus tareas',
+      'lib/todo-estados.ts, lib/plan-mover.ts y app/plan/board/useBoard.ts — los Deshacer en una escritura',
+      'tests: plan-repriorizar (34), plan-kanban-server (12), fathom-sin-friccion (28) — 25 roturas nuevas, 25 cazadas',
+    ],
+  },
 ];

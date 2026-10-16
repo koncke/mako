@@ -866,6 +866,13 @@ función y en el choke point de los cambios—: el server pasa a «Completada» 
 100%, y si `useBoard` sólo cambia `progress`, la tarjeta queda tachada en su columna vieja hasta el
 F5 (`conAvance` → `avanceLocal`, 16/10/2026).
 
+⚠️ **Un «Deshacer» vuelve TODO lo que el cambio movió en UNA escritura** (estado, avance y motivo:
+`trasMover(…, avance)`). Devolver el avance con un segundo guardado el server lo lee como «cambió el
+avance» y recalcula la columna; y el del teléfono, que no lo mandaba, reabría al 0%. **Y «¿cambió el
+avance?» necesita el último valor que la base le confirmó a ESA pestaña** (`progresoGuardado`, en las
+dos mitades): contra la fila sola, una pestaña vieja reabre lo que se completó en otro lado
+(16/10/2026, revisión adversarial).
+
 # Una capacidad nueva de MaKo se DECLARA en el registro de la API, no se escribe en una ruta
 
 Todo lo que un agente puede leer o hacer en MaKo —MaKo por WhatsApp, el chat de la app,
@@ -2113,7 +2120,11 @@ lo que nada reclama va a la bandeja «Sin proyecto»). La IA de esa carga corre 
 cruce anti-duplicados en el cron y en la lectura en segundo plano (lib/reunion-cruce.ts), y la
 prioridad en «Re-priorizar todo». **Código nuevo que cargue tareas en un pedido no llama a un modelo
 ni espera uno**; y un resultado de IA hecho en segundo plano se SELLA sólo si corrió (`cruzado_at`):
-«no se pudo» no es «no había nada». Lo de abajo sigue valiendo para los caminos que todavía lo
+«no se pudo» no es «no había nada». ⚠️ **Y se escribe en la MISMA escritura que hace visible el
+borrador** (`cruzarTareas` antes de `crearPropuesta` / `marcarProcesado`), con el sello que va y viene
+con esas tareas: cruzado DESPUÉS, el modal tomaba las filas sin la marca y su autosave la borraba
+(16/10/2026, revisión adversarial). Una fila «procesando» que deja un lector la cierra CUALQUIER lector
+que termine esa reunión, y el reintento no la cuenta como hecha (una lectura cortada no corre su `finally`). Lo de abajo sigue valiendo para los caminos que todavía lo
 llaman (el doer de WhatsApp, `priorizar-nuevas`, crear un proyecto a mano) — docs/hallazgos-plan.md
 → «Fathom sin fricción».
 
@@ -2155,6 +2166,16 @@ cualquier proceso que recorra el tablero entero en segundo plano:
   historial es lo único que deja volver a mano.
 - **Sólo tareas del PLAN** (`esDelPlanCliente`): `experimento_tareas` también guarda lo que propuso una
   Retro y los pasos de un experimento, que tienen su propia rendición de cuentas.
+- **Lo que espera a un modelo decide contra la fila RELEÍDA justo antes de escribirla**, no contra la
+  foto de antes de la llamada (30 a 90 s en los que la persona sigue usando el tablero): con la foto, una
+  prioridad fijada a mano en ese minuto quedaba con el número de la IA y con el candado puesto, y se
+  borraba el historial de un arrastre (16/10/2026, revisión adversarial).
+- **El intento se cuenta al TOMAR la tanda, no en el `catch`**: una función que Vercel corta no corre su
+  `catch`, y una tanda que se muere siempre se repetía para siempre sin pasar a «error».
+- **Una pantalla que depende de que los cambios le VIAJEN mira también los trabajos que no arrancó** (al
+  volver a la pestaña y cada `VIGILANCIA_MS`), y al abrir no repinta cambios viejos encima de lo que una
+  persona cambió después (cada cambio lleva su hora, `cambiosDesde`). Docs/hallazgos-plan.md → «La
+  revisión adversarial del kanban».
 
 # Una regla que se aplica AL ESCRIBIR no arregla ni una fila ya escrita
 
