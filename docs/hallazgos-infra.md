@@ -5316,6 +5316,20 @@ Y un `sinComentarios` que borra los bloques `/* … */` enteros corre los númer
 nombra otra línea (medido: `:99` sobre la 128). Se vacía el bloque conservando sus saltos
 (`m.replace(/[^\n]/g, '')`); `sin-clarity` todavía tiene el corrimiento.
 
+**Y se come código (16/10/2026).** El mismo `sinComentarios`, con `/\/\*[\s\S]*?\*\//g`, saca un «comentario»
+desde CUALQUIER `/*` del archivo:
+
+- **Dónde muerde.** `accept=".pdf,image/*"` abre uno en el medio de un atributo. El regex borra hasta el próximo `*/`,
+  que puede estar cien líneas más abajo.
+- **Cómo se vio.** El test de la tab Pagos (tests/pagos-tab-bloques.test.ts) decía «nadie marca dealFiscal» sobre un
+  archivo que sí lo marcaba.
+- **El peligro de verdad.** No es el `match` que falla: es el `doesNotMatch` que PASA. Un «no hay `router.refresh()`»
+  da verde sobre el código que el regex se comió.
+- **El tamaño.** Medido ese día: 584 tests usan ese regex, y 28 archivos de app/ y lib/ tienen un `/*` dentro de un
+  string.
+- **La regla.** Se sacan sólo los bloques que EMPIEZAN la línea (`/^[ \t]*\/\*[\s\S]*?\*\//gm`).
+- **⚠️ Pendiente.** Falta barrer los tests que leen esos 28 archivos.
+
 ## Verificar en un worktree: el dev server compartido, Turbopack y una corrida cortada por cuota (06/10/2026)
 
 **Vive en:** `next.config.ts` (`turbopack.root`) · `.next/dev/logs/next-development.log` ·

@@ -2580,6 +2580,11 @@ crea los cobros, aplica lo que confirma la pasarela (webhook o cron) y devuelve 
   cliente que vende con su Stripe no crea inquilinos.
 - **La moneda la decide la pasarela, y en un formulario que cobra la pasarela se pregunta ANTES del monto.** El
   valor en USD de un cobro es el que alguien declaró; nunca una tasa inventada.
+- **Lo que un lead pagó y debe se cuenta con `cobradoDelLead` (lib/cobrado-lead.ts), y lo que se DICE de eso con
+  lib/pagos-vistazo.ts** («Debe $500», «Al día», qué hacer ahora, los movimientos). Lo usan la tab Pagos, el teléfono
+  y la API de MaKo (`cobranza_lead`). Una pantalla nueva que muestre plata de un lead no suma cuotas por su cuenta.
+  La tarjeta de antes lo hacía, y decía «Pagado por completo» de una mensualidad activa y dibujaba como deuda una
+  cuota DEVUELTA ([docs/hallazgos-pagos.md](docs/hallazgos-pagos.md)).
 
 # Un flag de visibilidad protege la PANTALLA; la API hay que cerrarla aparte
 

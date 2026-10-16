@@ -46,7 +46,7 @@ import { duracionReunionAction, linkDeAgendaAction, reagendarReunionAction } fro
 import { huecosR2Action, reservarR2Action } from '@/app/crm/agendar-r2-actions';
 import { notaLeadAction, moverEtapaAction, deshacerMoverAction } from '../acciones';
 import { chipsDeDia, rotuloAgendar, rotuloDia, type CualAgendar, type EtapaM, type LineaActividad } from '../reglas';
-import { gruposDeLaFicha, type PiezaFicha } from '../ficha-bloques';
+import { gruposDeLaFicha, type PiezaFicha, type SaldoTelefono } from '../ficha-bloques';
 
 export type ProductoFicha = { funnelId: number; nombre: string; esCasa: boolean; etapa: string | null; etapaLabel: string | null; movibles: EtapaM[] };
 export type ModoAgendaFicha = 'google' | 'calendly-r2' | 'link' | 'nada';
@@ -80,6 +80,8 @@ export type FichaLeadProps = {
    * versión de teléfono, sin lo que se calla vacío (../ficha-bloques.ts). Lo arma el server.
    */
   piezas: PiezaFicha[];
+  /** El estado de cuenta en una fila (la pieza `saldo`, de Pagos). */
+  saldo?: SaldoTelefono | null;
 };
 
 type Sheet = 'agendar' | 'nota' | 'notas' | 'mover' | 'llamada' | 'respuestas' | null;
@@ -135,6 +137,8 @@ export function FichaLead(p: FichaLeadProps) {
         </>
       );
       case 'llego-por': return p.llegoPor && <FilaDatoM k="Llegó por" v={p.llegoPor} />;
+      // El estado de cuenta: lo que debe en rojo, como en escritorio. El teléfono no cobra (destila).
+      case 'saldo': return p.saldo && <FilaDatoM k="Estado de cuenta" v={<span style={{ color: p.saldo.tono === 'rojo' ? 'var(--bad)' : p.saldo.tono === 'ambar' ? 'var(--warn)' : undefined }}>{p.saldo.texto}</span>} />;
       case 'contesto': return p.respuestas.length > 0 && (
         <FilaM icono="notepencil" navegacion titulo="Lo que contestó al agendar" riel={String(p.respuestas.length)} onClick={() => setSheet('respuestas')} />
       );

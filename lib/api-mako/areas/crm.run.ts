@@ -41,6 +41,7 @@ import { getLeadPlan, getPagosByLead, savePlanPagos, saveLeadPlanManual, marcarP
 import { avisoDeConservadas } from '@/lib/pagos-campo';
 // Sólo para la lectura cobranza_lead (14/10/2026): lo cobrado con la misma cuenta que la ficha.
 import { cobradoDelLead, esCuotaDevuelta } from '@/lib/cobrado-lead';
+import { estadoDeCuenta, movimientosDelLead } from '@/lib/pagos-vistazo';
 import { listarCobros } from '@/lib/cobros';
 import { centavos, diferenciaPendiente, type RestoDeCobro } from '@/lib/pagos-diferencia';
 import { getResumenLead, linkResumenLead } from '@/lib/lead-resumen';
@@ -506,6 +507,22 @@ export const RUNNERS: Runners = {
           ...(cob.cuadra && !cob.cuadra.cuadra ? { no_cuadra: `El plan suma USD ${cob.cuadra.diferenciaUsd > 0 ? 'más' : 'menos'} que el cierre (diferencia ${cob.cuadra.diferenciaUsd}).` } : {}),
           ...(cob.seDibuja ? {} : { nota: cob.tipo === 'sin_cobro' ? 'Becado: no tiene cobrado.' : 'Sin venta ni cuotas cargadas.' }),
         },
+        // ⚠️ EL ESTADO DE CUENTA Y LOS MOVIMIENTOS SON LOS DE LA TAB PAGOS (16/10/2026, lib/pagos-vistazo.ts): qué debe,
+        // qué hacer ahora y lo que ya pasó con la plata. MaKo contesta con lo MISMO que ve la persona en la ficha.
+        estado_de_cuenta: (() => {
+          const e = estadoDeCuenta({ cobrado: cob, pagos: plan.pagos, ganado: lead.estado_lead === 'ganado', hoy });
+          return e ? {
+            titular: e.titular, detalle: e.detalle, tono: e.tono, falta_usd: e.faltaUsd,
+            que_hacer: e.accion ? { accion: e.accion.tipo, boton: e.accion.boton, ...(e.accion.tipo === 'cobrar-cuota' ? { pago_id: e.accion.pagoId } : {}) } : null,
+          } : null;
+        })(),
+        ...(() => {
+          const m = movimientosDelLead({ pagos: plan.pagos, cobros });
+          return {
+            movimientos: m.movimientos.slice(0, 20).map((x) => ({ fecha: x.fecha, tipo: x.tipo, que: x.titulo, monto: x.montoTexto, como: x.via, ...(x.detalle ? { detalle: x.detalle } : {}) })),
+            ...(m.avisos.length ? { avisos: m.avisos.map((a) => a.texto) } : {}),
+          };
+        })(),
         cuotas,
         ...(cuotas.length ? {} : { nota_cuotas: 'Sin cuotas cargadas: no hay plan de pagos, no significa que no deba nada.' }),
       });
