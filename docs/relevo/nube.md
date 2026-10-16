@@ -42,8 +42,9 @@ local de la PC de Martín ni sus chats: lo esencial de eso está acá abajo.
    - **El chat del CRM con la cara del Second Brain** (punto 8): app/crm/mako-crm/ChatMakoCrm.tsx dibuja con las
      piezas de WhatsApp (ChatHilo, BurbujaHilo, ComposerWhatsApp); el Second Brain con app/_chat/HiloMako.tsx. El
      modelo de mensajes es el mismo (lib/mako-turno-app-reglas.ts).
-   - **El «⋯» de la ficha**: Exportar (PDF/CSV, como el ⋮ del Dashboard en app/dashboard/EditorInforme.tsx) y la guía de
-     edición; y que al EDITAR se abra solo el chat para editar la vista (punto 10).
+   - **El «⋯» de la ficha**: ya tiene «AI Analyst», «Copiar el link» y «Exportar (CSV)»; faltan el PDF (como el ⋮ del
+     Dashboard en app/dashboard/EditorInforme.tsx, que imprime) y la guía de edición; y que al EDITAR se abra solo el
+     chat para editar la vista (punto 10).
    - El engranaje de «A revisar» ya abre una ficha con «¿Ignorar siempre?» (con un lead de verdad, el primero de la
      lista); sin leads cae al modal de interruptores (AvisosDatosModal.tsx), que se borra con un lead de ejemplo.
    - «Asignar evento» con Google Calendar (el motor sólo conoce Calendly y Cal.com).

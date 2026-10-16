@@ -55,7 +55,9 @@ modo claro** (`b401cd017`, «pon en white mode la tab de Second Brain»). Las ci
   (app/crm/lead-view/ficha/FichaPorBloques.tsx y ficha-css.ts). Al lado, el «⋯» (`588c1ffec`) con **«AI Analyst»** —un
   panel aparte a la IZQUIERDA, por portal, y la ficha (pop-up `data-ficha-overlay`, ruta `data-ficha-ruta`) se corre
   para dejarle lugar— y «Copiar el link». La pestaña «MaKo Analyst» se fue; `?tab=insights` y «Ver análisis» abren el
-  panel. Falta en el «⋯»: exportar la hoja y el tutorial; y que al EDITAR se abra solo el chat, para editar la vista.
+  panel. Y (`0e45837fd`) «Exportar (CSV)»: los datos del lead en dos columnas (app/crm/lead-view/ficha/
+  exportar-lead.ts, con la celda de la casa, que se mudó a lib/csv-celda.ts). Falta en el «⋯»: el PDF (pide una hoja
+  de impresión de la ficha) y la guía de edición; y que al EDITAR se abra solo el chat, para editar la vista.
   Nadie lo miró en pantalla: revisar el panel sobre el pop-up a 1440 y 1024.
 - [x] **6, en parte.** El «Ver» de datos sin marcar de la ficha tiene la fila de «A revisar»: el ícono del bloque
   (`ICONO_DATO` en app/crm/lead-view/DatosSinMarcarCard.tsx), el basurero rojo para ignorar, la flecha azul para
