@@ -861,6 +861,11 @@ recalcula sólo si la fuente CAMBIÓ contra la fila guardada (`estadoAlGuardar`)
 guardado, deshacía los arrastres (16/10/2026, docs/hallazgos-plan.md → «El estado pasa a ser la
 columna»).
 
+⚠️ **Y lo que el server DERIVA, la pantalla lo deriva IGUAL en el estado optimista** —con la misma
+función y en el choke point de los cambios—: el server pasa a «Completada» la tarjeta que llega al
+100%, y si `useBoard` sólo cambia `progress`, la tarjeta queda tachada en su columna vieja hasta el
+F5 (`conAvance` → `avanceLocal`, 16/10/2026).
+
 # Una capacidad nueva de MaKo se DECLARA en el registro de la API, no se escribe en una ruta
 
 Todo lo que un agente puede leer o hacer en MaKo —MaKo por WhatsApp, el chat de la app,
@@ -2018,7 +2023,14 @@ proyecto por proyecto con las tres preguntas, con la fuente al lado.
 
 # Si la pantalla agrupa por BANDAS, un reorden que no cambia de banda es invisible
 
-El Kanban del plan agrupa por `prioFromScore` (`app/plan/board/types.ts`): **ALTA ≥ 75 ·
+⚠️ **Desde el 16/10/2026 el Kanban de TAREAS ya no agrupa por banda**: sus columnas son el ESTADO
+(Por iniciar · En proceso · Atorada · Completada, y «No cumplen tu criterio» sólo si hay), el orden
+dentro de cada una es el MANUAL (`orden`, `enOrdenManual` en app/plan/board/kanban.ts) y la prioridad
+es un filtro y un chip — soltar mueve de columna con `board.mover` y no pregunta ningún número. Lo de
+abajo sigue valiendo para lo que SÍ agrupa por banda: la grilla de PROYECTOS y la escalera de
+proyectos (docs/hallazgos-plan.md → «La pantalla del kanban por estado»).
+
+La grilla de proyectos del plan agrupa por `prioFromScore` (`app/plan/board/types.ts`): **ALTA ≥ 75 ·
 MEDIA ≥ 50 · BAJA ≥ 25 · A FUTURO < 25**. Con 40 proyectos arriba de 75, ordenarlos entre
 sí de 99 a 76 no mueve ni una columna — y para el que mira es indistinguible de no haber
 hecho nada. El dueño reportó el mismo problema dos veces sobre un orden que ya estaba bien

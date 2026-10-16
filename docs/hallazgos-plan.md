@@ -2443,10 +2443,9 @@ mig 0294, con backfill desde el avance. Lo que costó, que no se ve leyendo el c
 y la op `mover_tarea_plan` de la API); el avance lo mueve sólo cuando cambia. Los tests que lo miden
 en la FILA: `tests/plan-kanban-server.test.ts` (funciones reales contra un PostgREST de mentira).
 
-**Quedó sin hacer:** la pantalla (tanda 2: columnas, arrastre con `repo.mover`, filtros, el teléfono
-en app/m/plan/tableros.ts) y la sección «BANDAS» de AGENTS.md, que describe el kanban viejo; la
-re-puntuación oculta del navegador (`rePriorizar`, BoardShell) sólo se saltea en el alta, la apaga
-la decisión 8; el doer legado (`tareas_plan`, lib/mako-doer-acciones.ts) y `aplicarPropuestas`
+**Quedó sin hacer:** ~~la pantalla, la sección «BANDAS» de AGENTS.md y la re-puntuación oculta del
+navegador~~ — hechas en la tanda 2 (ver [La pantalla del kanban por estado](#la-pantalla-del-kanban-por-estado-16102026));
+el doer legado (`tareas_plan`, lib/mako-doer-acciones.ts) y `aplicarPropuestas`
 siguen llamando al Perro al crear (lo de Fathom es otra tanda); y, después del deploy, las dos
 sentencias de reconciliación que están en la cabecera de la 0294 (tareas del dueño completadas o
 reabiertas entre la migración y el deploy).
@@ -2455,6 +2454,65 @@ reabiertas entre la migración y el deploy).
 `scoreAlCrear`) · lib/plan-board.ts (`taskToRow`, `guardarPlanTarea`, `moverPlanTarea`,
 `recurvarPlanOwner`) · app/plan/TodoBoard.tsx (`editPatch`) · app/plan/board/desde-todo.ts ·
 supabase/migrations/0294 · *2026-10-16*
+
+## La pantalla del kanban por estado (16/10/2026)
+
+La tanda 2 de «hacer el kanban un kanban»: columnas = estado en los dos tableros y en el teléfono,
+soltar mueve sin pop-up de prioridad, orden manual por defecto, «＋» con estado, Prioridad y
+Responsable como filtros, y fuera la re-puntuación oculta del navegador. Lo que costó y no se ve
+leyendo el código:
+
+- **El server mueve la columna cuando cambia el avance; la pantalla no.** Con la tanda 1, completar
+  una tarjeta desde «En proceso» la pasaba a «Completada» en la base y la dejaba tachada en «En
+  proceso» hasta el F5: el estado optimista sólo cambiaba `progress`. **Un campo que el server
+  DERIVA de otro se deriva igual en el estado optimista**, con la misma función (`avanceLocal` →
+  `estadoTrasProgreso`, app/plan/board/kanban.ts) y en el choke point de los cambios (`conAvance`
+  en `patch`, `patchLog*`, `setChecklist` y `undoHist` de useBoard), no en cada botón.
+- **La clave de preferencia compartida habría escondido el orden manual.** «Ordenar» de Tareas y de
+  Proyectos era UNA preferencia (`orden.modo`, guardada en «Por prioridad» en cada navegador); con
+  ella el kanban abría ordenado por score y un arrastre dentro de la columna no se veía nunca. El
+  kanban tiene su clave (`orden.kanban`, default «Manual»). **Cambiar el default de una preferencia
+  no le cambia nada a quien ya la tiene guardada: la clave nueva es la que hace valer el default.**
+- **«Completada» crece sin techo** (248 de 424 en el tablero del dueño): se corta en 20 con «Ver
+  más», y el lugar al soltar se calcula contra la columna ENTERA (lo visible es un prefijo), o
+  soltar al fondo de lo visible caía detrás de las escondidas.
+- **En el teléfono, la marca de «se fue» suponía que lo completado sale de la lista.** Con columnas
+  por estado lo completado sigue viniendo (en otra columna): la marca no se soltaba nunca y la tarea
+  quedaba escondida en Prioridades aunque alguien la reabriera. La marca ahora no cuenta lo que el
+  kanban ya trae en «Completada» (ListaPlan.tsx). **Cuando una lista cambia de semántica —lo que
+  antes salía ahora se queda—, la lógica optimista de «salida» se revisa entera.**
+- **«No cumplen tu criterio» pasó a ser alcanzable a mano** (arrastre, el detalle, la API), y
+  Prioridades preguntaba `progress < 100`: ofrecía como «lo de AHORA» algo que el criterio no dejó
+  pasar. `prioridadesDelTablero` ahora mira `estado` (y la API se lo pasa). Ojo que hay más
+  `progress < 100` que nunca vieron un `no_cumple` (ver «quedó sin hacer»).
+- **El responsable sólo existe en la mitad del cliente.** `plan_tareas` no tiene
+  `responsable_tipo` ni nada que lo escriba: el filtro «Responsable» es una capacidad del tablero
+  (`repo.responsables`) y no se dibuja en el del dueño — ahí metería el 100% en «Sin asignar». Y la
+  base tiene un cuarto valor que la decisión no nombraba (`tercero`, alguien del equipo con email):
+  tiene su opción, o esas tareas no se podrían aislar nunca.
+- **`rePriorizar` no era sólo un disparo al cambiar la firma**: había un segundo, al entrar, si «lo
+  que cargó MaKo» traía una tarea sin razón. Se fueron los dos (y el `skipRePrio` que los
+  sorteaba). `crearDesdeReunion` todavía llama al Perro: es de la tanda de Fathom.
+
+**La regla:** la columna la escribe `board.mover` (estado + `orden`, nunca el guardado de la fila);
+el orden dentro de una columna es el manual (`enOrdenManual`) y el lugar al soltar sale de las
+vecinas (`ordenAlSoltar`); la prioridad se filtra con `prioFiltroDe` («Sin priorizar» no es «A
+futuro»). Los tests: `tests/plan-kanban-pantalla.test.ts` (reglas + cableado), el teléfono en
+`tests/m-plan-tableros.test.ts` y `tests/plan-kanban-server.test.ts` (`moverEnTablero`).
+
+**Quedó sin hacer:** la vista Tabla no muestra la columna (estado); `hoyDelTablero`
+(app/plan/board/hoy.ts, «Hoy»/«Semana» del teléfono y Today) y otras cuentas siguen preguntando
+`progress < 100` y contarían una tarea del DUEÑO movida a «No cumplen tu criterio» (lib/plan-hoy.ts
+sólo saca `no_cumple` en la mitad del cliente); una carrera menor: soltar en «Atorada» y escribir el
+motivo en seguida son dos `mover` y, si llegaran al revés, el historial (que se escribe entero) pierde
+una entrada; el comentario de app/customer-success/KanbanEntrega.tsx todavía dice que el arrastre con
+el dedo está «tipado contra las bandas de prioridad»; la bitácora de /admin/dev/plan; y no se miró en
+el navegador (sin `next dev` en esta máquina): escritorio y teléfono están probados por tests y tipos.
+
+**Vive en:** app/plan/board/kanban.ts · app/plan/board/BoardShell.tsx (`Kanban`, `ColumnaKanban`,
+`CampoMotivo`, `BloqueColumna`, `PrioChip`, `FilterMenu`) · app/plan/board/useBoard.ts (`mover`,
+`conAvance`) · app/plan/board/arrastre-tactil.ts · app/m/plan/tableros.ts · app/m/plan/ListaPlan.tsx
+· lib/plan-mover.ts · app/plan/board/prioridades.ts · *2026-10-16*
 
 ## Tablero único: el cliente va en el BORRADOR, y el tipo de responsable se calcula al aplicar
 
