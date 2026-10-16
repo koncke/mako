@@ -183,6 +183,12 @@ export type OfferMensaje = {
   at: string;
   /** Respuestas rápidas que MaKo ofrece (sólo en mensajes de MaKo). */
   opciones?: string[];
+  /**
+   * Las `opciones` se SUMAN (16/10/2026): el dueño marca varias y las manda juntas («Un curso grabado y una
+   * mentoría»). Es la pregunta de qué otras ofertas vende, y las que se le parecen. Nunca en una del diagnóstico
+   * (ésas tienen UNA respuesta). La pantalla que no lo lee (MaKo Mobile) sigue con un toque, una opción.
+   */
+  varias?: true;
   /** Los documentos que se mandaron con este mensaje. */
   adjuntos?: AdjuntoVista[];
   /**

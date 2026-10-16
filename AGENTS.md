@@ -8615,6 +8615,10 @@ chat». Lo que costó, en `docs/hallazgos-onboarding.md` y `docs/hallazgos-offer
   por hecho el alto ticket, y convirtió una entrada de 800 MXN al mes en un programa de 1.000 USD. Lo que el
   modelo tiene que saber del negocio va pegado a un bloque que ya está en el prompt (`bloqueNivel` en las piezas),
   nunca en un slot nuevo: un prompt editado en /configuraciones no lo tendría.
+- **En Offer, lo que trae el modelo se normaliza en UNA entrada** (`aObjeto`, lib/offer-reglas.ts), no en cada
+  lector: el modelo escribía «[Completar: …]» y todo lo que busca la marca es exacto, así que el hueco se guardaba
+  como dato. Y **un campo nuevo de `OfferMensaje` va también a `sanearMensajes`**, que es una lista blanca: sin eso
+  se ve al llegar y se pierde al reabrir la conversación.
 
 # Una reserva de agenda decide a DÓNDE va por un solo camino, y la agenda tiene tres fuentes de ruteo
 

@@ -93,7 +93,22 @@ function aObjeto(raw: unknown): Record<string, unknown> | null {
   if (typeof raw === 'string') {
     try { o = parseJsonObject(raw); } catch { return null; }
   }
-  return o && typeof o === 'object' && !Array.isArray(o) ? (o as Record<string, unknown>) : null;
+  return o && typeof o === 'object' && !Array.isArray(o) ? (conMarcaCompletar(o) as Record<string, unknown>) : null;
+}
+
+/**
+ * «[Completar: …]», «[COMPLETAR]» → la marca de la casa (16/10/2026). El modelo a veces la escribe con mayúscula y
+ * dos puntos, y todo lo que la busca (el resaltado del PDF y la pantalla, «N datos para completar», `sinMarca`) es
+ * EXACTO: esos datos quedaban sin marcar, como si fueran reales. Se normaliza todo lo que trae el modelo, a fondo.
+ */
+export function normalizarCompletar(t: string): string {
+  return t.replace(/\[\s*completar\s*(?::\s*)?([^\]]*)\]/gi, (_, resto: string) => (resto.trim() ? `${MARCA_COMPLETAR} ${resto.trim()}` : MARCA_COMPLETAR));
+}
+function conMarcaCompletar(v: unknown): unknown {
+  if (typeof v === 'string') return normalizarCompletar(v);
+  if (Array.isArray(v)) return v.map(conMarcaCompletar);
+  if (v && typeof v === 'object') return Object.fromEntries(Object.entries(v as Record<string, unknown>).map(([k, x]) => [k, conMarcaCompletar(x)]));
+  return v;
 }
 
 /**
@@ -255,9 +270,12 @@ export function sanearMensajes(raw: unknown): MensajeGuardado[] {
     const pregunta = de === 'mako' ? sanearPregunta(o.pregunta) : undefined;
     const respuesta = de === 'yo' ? sanearRespuesta(o.respuesta) : undefined;
     const pdf = de === 'mako' ? sanearPdf(o.pdf) : undefined;
+    // Sin esta línea la selección múltiple se veía al llegar el turno y se perdía al reabrir la conversación.
+    const varias = de === 'mako' && !pregunta && opciones.length > 1 && o.varias === true;
     out.push({
       id: o.id, de, texto: t, at: typeof o.at === 'string' ? o.at : '',
       ...(opciones.length ? { opciones } : {}),
+      ...(varias ? { varias: true as const } : {}),
       ...(adjuntos.length ? { adjuntos } : {}),
       ...(audio ? { audio } : {}),
       ...(pregunta ? { pregunta } : {}),
@@ -884,6 +902,8 @@ export type TurnoOffer = {
   piezas: Partial<Record<PiezaKey, string>>;
   /** Lo que dijo el modelo. NO decide nada: decide `faltanMinimas` sobre las piezas ya fusionadas. */
   listo: boolean;
+  /** Las opciones se suman (el dueño puede marcar varias). Ver `OfferMensaje.varias`. `parseTurno` lo pone siempre. */
+  varias?: boolean;
   /** v2: la pregunta del diagnóstico ADAPTADA, si el modelo la hizo en este turno. Las opciones las valida `opcionesDiagnostico`. */
   diagnostico: { texto: string; opciones: string[] } | null;
   /** v2: el índice de la opción original que el modelo leyó en las palabras del dueño, o null. */
@@ -977,6 +997,7 @@ export function parseTurno(raw: unknown): TurnoOffer | null {
     opciones: limpiarOpciones(o.opciones),
     piezas: limpiarPiezas(o.piezas),
     listo: o.listo === true,
+    varias: o.varias === true,
     diagnostico,
     diagnosticoRespuesta: indiceDiag(o.diagnostico_respuesta),
   };
@@ -1065,8 +1086,13 @@ export function mensajeDeMako(p: {
     // dijo «toca el botón»). El análisis y la oferta salen de «Armar mi oferta»: con las mínimas, eso es lo que se dice,
     // y una opción de «diagnóstico» en un mensaje que no es del diagnóstico de fase se saca siempre.
     const ofreceOtroPaso = p.puedeConcluir && RE_PASO_DIAGNOSTICO.test(turno.respuesta);
-    const opciones = opcionesConCierre(ofreceOtroPaso ? [] : turno.opciones.filter((o) => !RE_OPCION_DIAGNOSTICO.test(o)), p.puedeConcluir);
-    return { id: p.id, de: 'mako', texto: ofreceOtroPaso ? TEXTO_LISTA_PARA_ARMAR : turno.respuesta, at: p.at, ...(opciones.length ? { opciones } : {}) };
+    const propias = ofreceOtroPaso ? [] : turno.opciones.filter((o) => !RE_OPCION_DIAGNOSTICO.test(o));
+    const opciones = opcionesConCierre(propias, p.puedeConcluir);
+    const varias = propias.length > 1 && (turno.varias || preguntaPorOtrasOfertas(turno.respuesta));
+    return {
+      id: p.id, de: 'mako', texto: ofreceOtroPaso ? TEXTO_LISTA_PARA_ARMAR : turno.respuesta, at: p.at,
+      ...(opciones.length ? { opciones } : {}), ...(varias ? { varias: true as const } : {}),
+    };
   }
   const opciones = opcionesConCierre([], p.puedeConcluir);
   return {
@@ -1084,6 +1110,18 @@ export function mensajeDeMako(p: {
  * saca aunque el modelo la haya ofrecido: el botón llevaría a un «diagnosticar» que el servidor
  * rechaza, y un botón que contesta «faltan piezas» se lee como que la app está rota.
  */
+/**
+ * ¿La pregunta del turno es la de qué OTRAS ofertas vende? Ésa se contesta con varias a la vez («un curso y una
+ * mentoría») aunque el modelo se olvide de `"varias": true` o el prompt esté editado. Se mira sólo la PREGUNTA
+ * (desde el último «¿»): «tus otros productos los vemos después. ¿Cuánto cobras?» no es esa pregunta.
+ */
+const RE_PREGUNTA_OTRAS = /\botr[oa]s?\s+(?:ofertas?|productos?|servicios?|programas?|cursos?)\b|\badem[aá]s\b[^?]*\b(?:vend|ofrec)/i;
+export function preguntaPorOtrasOfertas(respuesta: string): boolean {
+  const fin = respuesta.lastIndexOf('?');
+  if (fin < 0) return false;
+  return RE_PREGUNTA_OTRAS.test(respuesta.slice(Math.max(0, respuesta.lastIndexOf('¿', fin)), fin + 1));
+}
+
 /** Un mensaje que ofrece el diagnóstico como un paso aparte (ver `mensajeDeMako`). */
 const RE_PASO_DIAGNOSTICO = /\bavan(?:ce|za|zar)?mos con (?:el|tu|un) diagn[oó]stico|\bver (?:el |tu )?diagn[oó]stico|\b(?:hacer|empezar|seguir con|pasar al?) (?:el |tu )?diagn[oó]stico/i;
 /** Una opción de «diagnóstico» en un mensaje que no es del diagnóstico de fase (las de ése llevan `pregunta`). */
@@ -1196,6 +1234,18 @@ export function cifrasDelNegocio(textos: Array<string | null | undefined>): Set<
 
 /** Lo que viene DESPUÉS de una cifra y la hace un plazo o una parte de la estructura, no un resultado. */
 const UNIDAD_PLAZO = /^\s*(?:d[ií]as?|semanas?|mes(?:es)?|años?|horas?|minutos?|pasos?|fases?|etapas?|pilares?|m[oó]dulos?|sesi[oó]n(?:es)?|bonos?|niveles?|partes?|pagos?|cuotas?)(?![a-záéíóúñ])/i;
+/**
+ * Un TIEMPO que es un RESULTADO, no un plazo (16/10/2026): la oferta de Leila decía «liberar 10 horas semanales», un
+ * número que ella nunca dio, y pasaba porque «horas» es una unidad de plazo. Un tiempo que se REPITE («10 horas
+ * semanales», «2 horas al día») o que se gana («liberar», «ahorrar», «recuperar» 10 horas) es lo que el cliente LOGRA:
+ * se revisa como toda cifra de resultados. «En 90 días» sigue siendo un plazo.
+ */
+const UNIDAD_TIEMPO = /^\s*(?:horas?|minutos?|d[ií]as?|semanas?|mes(?:es)?)(?![a-záéíóúñ])/i;
+const TIEMPO_QUE_SE_REPITE = /^\s*(?:horas?|minutos?|d[ií]as?)\s+(?:semanales|diari[ao]s|mensuales|al d[ií]a|al mes|a la semana|por (?:semana|d[ií]a|mes)|cada (?:semana|d[ií]a|mes))/i;
+const SE_GANA_TIEMPO = /\b(?:liber|ahorr|recuper|gan|sum|qued)[a-záéíóúñ]*\s+(?:hasta\s+|unas?\s+|m[aá]s de\s+|al menos\s+)?$/i;
+const esTiempoDeResultado = (antes: string, despues: string): boolean =>
+  TIEMPO_QUE_SE_REPITE.test(despues) || (UNIDAD_TIEMPO.test(despues) && SE_GANA_TIEMPO.test(antes));
+
 /** Lo que viene ANTES de una cifra y la hace un rótulo («Fase 1», «Paso 2», «Caso 3»), nunca un resultado. */
 const ROTULO_ANTES = /(?:fase|paso|etapa|nivel|bono|m[oó]dulo|sesi[oó]n|caso|semana|mes|d[ií]a|versi[oó]n)\s*$/i;
 /** Un año («de 2026»): no es una cifra del negocio. */
@@ -1220,7 +1270,8 @@ export function filtrarCifras(texto: string, permitidas: Set<string>, opts: { pl
     if (!k || permitidas.has(k)) return m;
     if (ES_ANIO.test(m.trim())) return m;
     if (ROTULO_ANTES.test(todo.slice(0, offset))) return m;
-    if (opts.plazos && UNIDAD_PLAZO.test(todo.slice(offset + m.length))) return m;
+    const despues = todo.slice(offset + m.length);
+    if (opts.plazos && UNIDAD_PLAZO.test(despues) && !esTiempoDeResultado(todo.slice(0, offset), despues)) return m;
     return MARCA_COMPLETAR;
   });
 }
