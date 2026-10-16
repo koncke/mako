@@ -192,8 +192,10 @@ export async function ejecutarPasos(
     // al despertar se decide con lo de ese momento. Hasta el 15/10/2026 este runner no miraba el horario: el aviso de
     // un evento salía a cualquier hora, una regla escondida. Duerme con el contexto ENTERO (como el reintento): es el
     // mismo aviso unas horas después, y su texto lo armó el evento. Sin poder leer el horario, vuelve a mirar en un rato.
+    // ⚠️ La oficina es la del NEGOCIO al que le llega (16/10/2026): en un evento de la plataforma, `ws` es la plataforma
+    // (la fila corre ahí) y su horario es el de Martín, no el del cliente que recibe la tarjeta.
     if (esperaApertura(pasos, i)) {
-      if (apertura === undefined) apertura = await aperturaDelNegocio(ws);
+      if (apertura === undefined) apertura = await aperturaDelNegocio(ctx.negocioWs ?? ws);
       const hasta = apertura === 'ilegible' ? new Date(Date.now() + REINTENTO_HORARIO_MS)
         : apertura != null && apertura > Date.now() ? new Date(apertura) : null;
       if (hasta) {
