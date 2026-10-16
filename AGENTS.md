@@ -1265,6 +1265,10 @@ código nuevo:
     («Chatbot», un sub-chat cerrado) va al jefe que se llama como el área de su bitácora (`completarChats`, el paso 3).
     No hay sección «Antes del 16/10»; un jefe sin chat abierto se lista sólo si tiene algo sin terminar. Anotar en la
     bitácora del área que se tocó es lo que hace que el trabajo aparezca en su jefe.
+  - **El chat con MaKo de un cliente es la pieza de `/second-brain`** (16/10/2026, etapa 2 de docs/diseno-mako-ai-native.md):
+    la cara del Centro (app/_chat/, centro.css), el turno del teléfono (lib/mako-turno-app.ts) por `/api/mako/chat`.
+    Una página que entra a más gente y muestra una parte sólo al admin la corta EN EL SERVIDOR con `esAdminDeTab`
+    (lib/puerta-admin-tab.ts), y no la calcula para los demás.
   - **Cada jefe ES un proyecto del Plan** (16/10/2026; los dos se llaman como la tab). El Centro lee y escribe el Plan
     SÓLO con las operaciones de la API de MaKo (`listar_tareas_plan`, `proponer_tareas_plan`, `proponer_cierre_tareas`)
     aplicadas en el acto con `ctxDelCentro` (lib/centro-plan.ts), por la ruta `/api/centro/plan` y NO por una server
