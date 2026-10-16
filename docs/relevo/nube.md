@@ -51,6 +51,9 @@ local de la PC de Martín ni sus chats: lo esencial de eso está acá abajo.
 - Antes de pushear: `node scripts/tsc-bitacoras.mjs`, `node scripts/rutas-windows-en-tests.mjs`, los tests del área
   (`node --import tsx --test tests/<x>.test.ts`) y SIEMPRE tests/puente-panel-copy.test.ts y tests/progreso.test.ts.
 - Un test nuevo se prueba ROMPIENDO el código, con los números en su comentario («base 3/0 → 2/1»).
+- ⚠️ Las guardas que recorren el repo (la de voseo, la de `/onboarding`, …) leen `git ls-files`: un archivo NUEVO sin
+  `git add` no lo ven y pasan en verde. Haz `git add` del archivo nuevo ANTES de correrlas (16/10: «acá» en un archivo
+  nuevo pasó en local y lo habría frenado GitHub).
 - Commit por ruta explícita (nunca `git add -A`). Al final del mensaje, pegadas y sin línea en blanco en el medio:
   `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>` y `Claude-Cuenta: <cuenta>` (claude1, claude2 o claude3,
   la que Martín usó para abrir la sesión; si no se sabe, `nube`).

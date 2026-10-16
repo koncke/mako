@@ -160,3 +160,6 @@ tandas 2-3; la tanda 5 del editor de video POSPUESTA por Martín). Todos esos ch
 - **Feedback del 16/10 a la tarde (CRM, Onboarding, Second Brain):** guardado textual en **docs/feedback-16-10-crm-onboarding-second-brain.md**, con un puntero
   arriba de los relevos de CRM, Onboarding y Centro. Hecho lo simple del CRM (`9f595cc6f`); el resto, con su archivo,
   en ese documento. Agregado también a la checklist de /admin/runway/checklist («Lo que queda»).
+- **Trampa (16/10 noche):** las guardas que recorren el repo (voseo en tests/puente-panel-copy.test.ts, la de
+  `/onboarding`, …) leen `git ls-files`: un archivo NUEVO sin `git add` pasa en verde en local. `git add` antes de
+  correrlas. Lo de esta noche (feedback del CRM, ~15 commits) está en docs/feedback-16-10-crm-onboarding-second-brain.md.
