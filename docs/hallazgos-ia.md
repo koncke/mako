@@ -4187,3 +4187,36 @@ corta antes») y los tests ahora preguntan qué hay antes de la llamada.
 - **Ningún camino se probó contra la red de verdad con un workspace sin keys**: sin `next dev` por la RAM.
 
 · *2026-10-16 chat «Onboarding» (claude3)*
+
+## El crédito de Claude Max de la plataforma: la tercera puerta del veto (16/10/2026)
+
+**Vive en:** `lib/veto-claude.ts` (`evaluarCreditoDeLaPlataforma`, `CLAVES_CREDITO_PLATAFORMA`) · `lib/anthropic.ts`
+(`conCreditoDeLaPlataforma`) · `lib/ai-cheap.ts` (la red de plataforma) · `lib/anthropic-usage.ts` (`recordUsage(…, ws)`)
+· `lib/costos-ia.ts` · `scripts/credito-claude-a-plataforma.mts` · `tests/veto-claude-credito-plataforma.test.ts`
+
+Martín vinculó el crédito de API de dos planes Max suyos (US$200 por mes cada uno; «Vinculalas a MaKo»). El código lo
+usa primero en la red de plataforma, antes de las keys gratis, por lo medido el mismo día: las gratis alcanzan por día
+pero chocan por minuto con el uso del ws9, el crédito vence cada mes sin acumularse, y la API de Anthropic no entrena
+con lo que recibe (el plan gratis de Gemini sí). Un cliente nuevo usa de 5 a 58 llamadas en su primera semana: unos
+pocos dólares contra 400 por mes.
+
+**Dos trampas que se cazaron escribiéndolo:**
+- **`wsDeProveedor` manda una fila de Anthropic al ws1 cuando el workspace no tiene clave propia**, que es justo el
+  caso del crédito: Mauricio (un cliente) habría visto un gasto de Claude que no es suyo. `recordUsage` acepta ahora el
+  workspace explícito, y el crédito anota en el del cliente que lo usó.
+- **El test que buscaba «la fila va al ws del cliente» daba verde con una de las dos filas sin el ws**: encontraba la
+  otra. Ahora exige que TODAS lo lleven.
+
+### Lo que quedó SIN hacer
+
+- **Las claves no están activas en producción.** Viven en el `.env.local` del clon; en Vercel no se pudieron cargar (el
+  usuario de la CLI es Developer). Hay dos caminos: Martín las carga en Vercel con el rol de dueño, o se corre
+  `scripts/credito-claude-a-plataforma.mts`, que las guarda cifradas en la fila del ws de la plataforma. El script
+  escribe en producción y espera el OK de Martín.
+- **Si una de esas organizaciones de Console tiene crédito comprado o auto-recarga, al acabarse el incluido sigue
+  cobrando** (lo dice la página de Anthropic). No se puede ver desde acá: lo revisa Martín en platform.claude.com.
+- Las cuentas están registradas con el gmail de Mauricio y el de Leandro; según `~/.claude/cuentas.tsv` (16/10) las
+  tres las paga y las usa Martín. Los términos del crédito dicen que lo usa el titular de la cuenta.
+- Sólo la cascada de texto: ni visión, ni audio, ni el doer.
+
+· *2026-10-16 chat «Onboarding» (claude3)*

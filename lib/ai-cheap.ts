@@ -688,6 +688,31 @@ export async function chatCheapCascade(opts: { system: string; user: string; jso
     const wsActual = await getWorkspaceActual().catch(() => null);
     // El super admin ya probó SUS keys arriba: repetirlas es gastar tiempo en lo que ya falló.
     if (wsSA != null && wsActual !== wsSA) {
+      // ── PRIMERO, EL CRÉDITO DE CLAUDE DE LA PLATAFORMA (16/10/2026) ──
+      // El crédito de API de dos planes Max de Martín («Vinculalas a MaKo»; lib/veto-claude.ts, la
+      // tercera puerta). Va ANTES de las keys gratis, y no después, por lo medido ese día:
+      //   · por día las keys gratis alcanzan, pero lo que muerde es el tope POR MINUTO, que comparten
+      //     con el uso del propio ws9 (los 194 rechazos del 13/10 fueron todos de ahí);
+      //   · el crédito VENCE cada mes sin acumularse: dejarlo de respaldo es dejarlo vencer;
+      //   · la API de Anthropic no entrena con lo que recibe, y el plan gratis de Gemini sí.
+      // Con un cliente nuevo usando de 5 a 58 llamadas en su primera semana, 10 por semana son unos
+      // pocos dólares contra 400 por mes. Si el crédito no contesta, siguen las keys gratis.
+      if (wsActual != null && quedan() >= MIN_INTENTO_MS) {
+        const { conCreditoDeLaPlataforma } = await import('./anthropic');
+        const c = await conCreditoDeLaPlataforma({
+          system: opts.system, user: opts.user, json: opts.json, maxTokens: opts.maxTokens,
+          feature: opts.feature, motivo: opts.motivo, timeoutMs: plazoDeIntento(), wsCliente: wsActual,
+        }).catch(() => null);
+        if (c && 'texto' in c) {
+          const t = opts.json ? soloElJson(c.texto) : c.texto;
+          if (t && (!opts.validar || opts.validar(t))) return t;
+          opts.erroresPlataformaOut?.push('crédito de Claude de la plataforma: la respuesta no tenía la forma pedida');
+        } else if (c && 'error' in c) {
+          // De la PLATAFORMA, nunca a la lista del cliente.
+          opts.erroresPlataformaOut?.push(c.error);
+          console.error(`[ai-cheap] crédito de Claude de la plataforma sin respuesta: ${c.error.slice(0, 300)}`);
+        }
+      }
       // ⚠️ EL TECHO DE ENTRADA VALE TAMBIÉN PARA LA RED. Arriba se saltea a quien no le entra
       // el pedido; acá no se miraba, y como Groq nunca entra en `probados` cuando se lo
       // salteó por tamaño, `otroPrimero` lo ponía PRIMERO: dos 413 seguros (8.000 tokens por

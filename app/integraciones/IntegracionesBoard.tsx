@@ -93,7 +93,7 @@ type Resumen = {
 //     filas sin avisar y subestima el gasto viejo (ver lib/costos-ia.ts).
 // No se unifican a propósito: responden preguntas distintas.
 const PERIODO_ACTUAL = 'actual';
-type ResumenPeriodo = { periodo: string; llamadas: number; tokens: number; costUsd: number; filas: number; porFeature: Array<{ clave: string; llamadas: number; tokens: number; costUsd: number }>; delNegocio?: { llamadas: number; costUsd: number } };
+type ResumenPeriodo = { periodo: string; llamadas: number; tokens: number; costUsd: number; filas: number; porFeature: Array<{ clave: string; llamadas: number; tokens: number; costUsd: number }>; delNegocio?: { llamadas: number; costUsd: number }; delCredito?: { llamadas: number; costUsd: number } };
 
 const rotuloMes = (yyyymm: string) => {
   const [y, m] = yyyymm.split('-');
@@ -738,6 +738,9 @@ function CostoMaKo({ usage, cuotas, onVerOps, onOpenService }: { usage: Resumen 
               y NO en el total: esa plata es suya. Se nombra para que el total no parezca incompleto. */}
           {per.delNegocio && per.delNegocio.llamadas > 0 && (
             <> {per.delNegocio.llamadas.toLocaleString('es-MX')} las pagó un negocio con su clave de Claude ({usd(per.delNegocio.costUsd)}): no son gasto de MaKo.</>
+          )}
+          {per.delCredito && per.delCredito.llamadas > 0 && (
+            <> {per.delCredito.llamadas.toLocaleString('es-MX')} salieron del crédito de los planes Max ({usd(per.delCredito.costUsd)}), que ya está pago.</>
           )}
           {' '}<strong style={{ color: 'var(--ink)' }}>Los tiles de saldo y cuota de aquí abajo son de hoy</strong>, no del período: el saldo es un estado, no un acumulado.
         </div>
