@@ -1,5 +1,26 @@
 # Relevo: Automations (ex /chatbot) y las secuencias
 
+> **16/10/2026 ~10:30 AR (`claude3`, uso semanal en 88%) — NADA POR DETRÁS, LOTE 1 EN PRODUCCIÓN, y los pedidos sueltos
+> a medio subir:**
+> - **En producción:** el lote 1(b) (run 41: «Se cortó» y «Se desconectó» con texto literal; sin camino viejo: un evento
+>   de la plataforma sin fila NO sale) y B2+B3 (run 44: la CONDITION sobre los datos del evento con «Si no»; la alerta de
+>   la cuenta publicitaria como automatización con texto por estado y techo de 3 por estado, contando lo que LLEGÓ).
+> - **ws9, 9 filas de evento, todas prendidas:** #251 (restablecer contraseña, estaba apagada), #253 (reescrita: «Se
+>   Cortó…»), #254-#256, #259 (se desconectó), #260 (oferta lista, la de Offer), #261 y #262 (la cuenta publicitaria; las
+>   renombré porque nacieron cortadas). Respaldos en el scratchpad de la sesión 36f4eb6c (respaldo-253.json,
+>   respaldo-store-ws1-meta.json).
+> - **El interruptor de «meta-cuenta-frenada» del ws1 se apagó A MANO** (decisión de Cerebro) y NO hay que prenderlo:
+>   con el evento, ese interruptor no lo lee nadie.
+> - **A medio subir (SIN COMMIT en `undecima`, C:/dev/wt-undecima):** los pedidos sueltos de Web Generator enganchados
+>   en el chat de MaKo (app/automations/pedidos-chat.ts, pedidos-cliente.ts, ChatMako.tsx, la ruta app/api/mako/pedidos con
+>   `chatbot`, el hilo de props hasta ChatAgentApp; test tests/automations-pedidos-chat.test.ts, 9/9 roturas cazadas,
+>   tsc 0). Faltaba: el resultado de su revisión adversarial y de la suite completa, la cosecha y el hito. Y el arreglo
+>   del nombre de las dos plantillas de la cuenta publicitaria (≤ 40) con su test.
+> - **Siguiente (orden de Cerebro):** (2) la campanita de escritorio y el «sin grupo de MaKo» visible en la tarjeta
+>   (incluye el ws4 «Cliente de Diseño», que sin grupo reintenta cada hora). El mapeo con las trampas está en
+>   docs/hallazgos-comunicacion.md («La campanita de escritorio y el «sin grupo de MaKo»»). Después: el lote 2 y 3 de
+>   docs/inventario-nada-por-detras.md, lo visual de «Probar», 4c (Calendly) y los puntos 5-6.
+
 > **16/10/2026 ~07:00 AR (`claude3`) — LOS DOS HUECOS DEL AI STEP (docs/mapa-ia-24h.md), por orden del coordinador
 > antes que los 61 avisos:**
 > (1) **la red de plataforma**: clasificar, redactar y calificar la piden en vivo (`EnVivo`, con plazo) y en el Probar.
