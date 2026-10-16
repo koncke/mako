@@ -1049,12 +1049,34 @@ Hecho el 15/10 (pasos 2–4 del plan de subtítulos). Biblioteca › Subtítulos
   en CAPTURA sobre el documento y sólo se aparta si el foco está en un campo de texto: un `div` con `tabIndex`
   no lo es. Arreglado con `data-teclas-propias="delete backspace"`: el panel declara sus teclas y el atajo
   global las respeta. Regla: un panel que usa una tecla que también es atajo global la declara así.
-- **Se colgó la pestaña al aplicar la plantilla «Palabra resaltada»**, con 1,2 GB libres en la máquina y el
-  modelo de Whisper cargado en la pestaña: no se pudo separar bug de falta de memoria (como el congelamiento
-  del 13/10 con «Agregar texto predeterminado»). Leyendo el dibujo del karaoke no hay un bucle que no termine.
-  Reproducirlo con RAM libre y la página recién cargada (sin Whisper en memoria). El dibujo no se puede probar
-  en node: arrastra el WASM.
-- **SIN HACER:** verlo en el navegador lo que falta (karaoke, el chat); copiar y pegar partes del video desde
+- **El karaoke se vio andar en producción** (15/10, ~22:00): «Palabra resaltada» sobre los subtítulos de
+  Whisper dibuja «COMPRA HOY Y AHORRA MUCHO» en Anton con la palabra que se dice («AHORRA») en verde.
+- ⚠️ **La pestaña se colgó dos veces «al aplicar la plantilla de karaoke», y el diagnóstico obvio («el dibujo
+  del karaoke») era el equivocado.** Medido con la API Long Animation Frames de Chrome: un cuadro de **2,37 s
+  de estilo y layout, 0 ms de script**. Pasa al abrir **Subtítulos › Plantillas**, que al montarse carga de
+  golpe las familias de TODAS las plantillas (`PlantillasSubtitulosView`, `loadFonts` → `loadFullFont`: un
+  `<link>` de Google Fonts por familia, ~79 caras declaradas). Es pasajero (con las fuentes ya cargadas, la misma
+  grilla da 0 ms de layout) y viene de ANTES (las 6 familias eran las mismas antes del karaoke). En un proyecto
+  con video y el modelo de Whisper en memoria, ese pico dejó la pestaña sin responder minutos. Con la biblioteca
+  en otra sección, el mismo proyecto abre y responde. Lo más probable es que el congelamiento del 13/10
+  («Agregar texto predeterminado», en Texto) sea el mismo patrón: `biblioteca-estilos.tsx` también carga todas
+  sus fuentes al montarse.
+- **Para medir en el Chrome de Martín**: si su ventana queda tapada, Chrome frena los timers y los cuadros
+  (`visibilityState` sigue en «visible»), y contar cuadros o vueltas de `setTimeout` da una página «trabada» que
+  no lo está. La API Long Animation Frames (`PerformanceObserver` de `long-animation-frame`) separa script de
+  estilo/layout y no se confunde con eso.
+- **Arreglado el 15/10 (falta medir el «después» en producción):** ninguna biblioteca carga sus fuentes
+  enteras al abrirse. Cada miniatura pide a Google SÓLO las letras que dibuja (`&text=`), con un nombre de familia
+  propio («Anton · muestra 400», una `FontFace`, sin hojas de estilo) y recién al entrar en pantalla
+  (`fonts/muestras.ts`, `useFuenteMuestra`), como el menú de fuentes de Google; la fuente entera llega al elegir
+  (subtítulos) o al pasar el mouse por la tarjeta (texto, antes de arrastrarla). El «antes» medido: abrir
+  Subtítulos › Plantillas agregaba 5 hojas y 38 caras, con ~2,6 s de bloqueo. Test `tests/video-editor-fuentes.test.ts`.
+- ⚠️ **La lista del selector de fuentes salía VACÍA en producción, y no era el freno de la ventana**: cada renglón
+  es una máscara con la imagen del atlas, y apuntaba a `/fonts/font-chunk-N.avif`, que no existe (las imágenes
+  viven en `public/ve/fonts/` desde el port; el atlas JSON sí se pedía bien). Sin la máscara, el renglón no se ve.
+  Ahora usa `FONT_CHUNK_PATH_PREFIX` de `fonts/google-fonts.ts`. Regla: una ruta de `public/ve/` vive en UNA
+  constante.
+- **SIN HACER:** verlo en el navegador lo que falta (el chat); copiar y pegar partes del video desde
   el texto; la puntuación final de una palabra borrada se va con ella («…de prueba.» → «…video», sin punto);
   «Mostrar texto eliminado»; marcar pausas y repeticiones (CapCut: «Pausa, repetición y duda»); CapCut fuerza el imán de la
   principal mientras se edita por transcripción (`pc_text_cut_mode_lock_cant_change`) y acá no.

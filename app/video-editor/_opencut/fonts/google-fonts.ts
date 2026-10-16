@@ -3,7 +3,8 @@ import { SYSTEM_FONTS } from "@/app/video-editor/_opencut/fonts/system-fonts";
 
 const GOOGLE_FONTS_CSS = "https://fonts.googleapis.com/css2";
 const FONT_ATLAS_PATH = "/ve/fonts/font-atlas.json";
-const FONT_CHUNK_PATH_PREFIX = "/ve/fonts/font-chunk-";
+/** Las imágenes del atlas (public/ve/fonts): el selector las usa de máscara de cada renglón. */
+export const FONT_CHUNK_PATH_PREFIX = "/ve/fonts/font-chunk-";
 
 const fullLoaded = new Set<string>();
 
