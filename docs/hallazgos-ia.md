@@ -4143,3 +4143,47 @@ aplica a una función ya recortada; se corrigió igual.
   la suya es la prueba, y la fila de `anthropic_usage` con ese motivo es la forma de verlo.
 
 · *2026-10-16 chat «Onboarding» (claude3), por pedido del coordinador sobre la decisión de Martín*
+
+## La red de la plataforma para la primera semana de un cliente sin API (16/10/2026)
+
+**Vive en:** `lib/razones.ts` · `lib/ads-analyst.ts` · `lib/offer-ia.ts` · `lib/archivo-a-texto.ts` ·
+`lib/editor-landing/ia.ts` · `lib/flujo-ia-crear.ts` · `app/api/second-brain/buscar/route.ts` ·
+`app/api/onboarding/archivero/route.ts` · `tests/red-primera-semana.test.ts`
+
+Desde el 15/10 un cliente nuevo no trae una API, y lo primero que toca después del wizard le contestaba «conecta tu
+IA». Se extendió la red a Ads Writer, Offer, crear una landing, crear una automatización y la búsqueda del Second
+Brain, en ese orden, de a uno y con un test cada uno.
+
+**La capacidad, medida antes (sólo lectura, últimos 14 días):**
+
+| Qué | Número |
+|---|---|
+| Keys gratis de la plataforma (ws9) | 3 de Gemini y 2 de Groq |
+| La key de Gemini con más pedidos en un día | 29, contra un tope de 250 cada una |
+| Groq | de 1 a 4 pedidos por día |
+| Rechazos por cuota (429) de esas keys | 194 el 13/10, todos del propio ws9 (159 entre las 16 y las 18 UTC) |
+| Lo que usa un cliente nuevo en su primera semana | de 5 a 58 llamadas en total; los cuatro últimos, de 5 a 11 |
+
+Con 10 clientes nuevos en la misma semana son menos de ~100 pedidos por día contra ~750: **por día alcanza**. Lo que
+muerde es el tope POR MINUTO, y lo pisa el uso del propio ws9 de Martín, que comparte esas keys. Y la red es UN
+proveedor de verdad (Gemini; Groq no entra con prompts de más de ~7.000 tokens): el 14/10, cuando Google cambió
+`gemini-flash-latest`, estuvo caída para todos.
+
+**El diagnóstico obvio era el equivocado, y lo cometí yo:** «la red está escrita» no es «la red corre». El Archivero
+tenía tres cortes `if (!(await docsIADisponible()))` que devolvían «Carga tu API key de Gemini» ANTES de llamar a la
+IA, Offer uno en `pedir`, y la API de MaKo otro en `hayIAParaCrear`. Con el paso de la IA del wizard ya opcional
+(7f0ced90f, en main), un cliente sin keys se trababa en El Archivero, que es bloqueante; el test de ese commit daba
+verde porque sólo miraba que la red estuviera escrita. La regla quedó en AGENTS.md (la red de plataforma: «y nada la
+corta antes») y los tests ahora preguntan qué hay antes de la llamada.
+
+### Lo que quedó SIN hacer
+
+- **El análisis del lead (Generar / Regenerar), el sexto de la lista, NO se tocó: es una decisión de privacidad.**
+  Manda datos personales de los leads de un cliente (`lead_insights`, `pii: true`), y la red son las keys de la
+  agencia. El ws9 tiene un crédito de Gemini de US$10 cargado el 22/07 (`saldo.gemini`), pero la base no dice a cuál de
+  las tres keys corresponde. Si alguna está en el plan gratis, Google entrena con lo que recibe, con revisión
+  humana. Lo mismo vale, con datos menos sensibles (los del propio negocio), para lo que ya pasa por la red.
+- **Las otras ~50 llamadas sin red** siguen sin ella: el coordinador decide el orden sobre `docs/mapa-ia-24h.md`.
+- **Ningún camino se probó contra la red de verdad con un workspace sin keys**: sin `next dev` por la RAM.
+
+· *2026-10-16 chat «Onboarding» (claude3)*

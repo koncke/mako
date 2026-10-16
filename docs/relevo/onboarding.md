@@ -186,9 +186,16 @@ Ticketera (`clientes-usan-su-claude`, opción A). Commit `7f0ced90f`.</sub>
   coordinador contestó que la decisión A de Martín ya lo cubría. Es la segunda puerta del veto
   (`lib/veto-claude.ts`), nunca con una clave de la plataforma ni en el Plan; el detalle, en
   `docs/hallazgos-ia.md`.
+- **16/10: El Archivero cortaba a los clientes sin keys** antes de la red (tres `docsIADisponible()`), y
+  con el paso de la IA opcional ya en main, un cliente sin keys se trababa ahí. Arreglado (`daebfcc89`, y
+  sólo el arreglo en la rama `onboarding-archivero-fix`).
+- **16/10: la red se extendió a la primera semana** de un cliente sin API: Ads Writer, Offer, crear landing,
+  crear automatización y buscar en el Second Brain (`tests/red-primera-semana.test.ts`). La capacidad y el
+  porqué, en `docs/hallazgos-ia.md`.
 - **Lo que NO está hecho y no es mío decidir** (se lo pasé al coordinador):
-  - después del arranque, 60 llamadas a IA del producto no tienen red: un cliente sin keys ve
-    «conecta tu IA» en casi todas las herramientas;
+  - el análisis del lead: manda datos personales de los leads por las keys de la agencia, y no se sabe
+    si están en el plan gratis de Google (que entrena). Es una decisión de privacidad de Martín;
+  - el resto de las llamadas sin red, en el orden que diga el coordinador sobre `docs/mapa-ia-24h.md`;
   - sin mirar en el navegador: no se levantó la app (RAM). Falta ver el paso en escritorio y celular
     cuando esté desplegado.
 
