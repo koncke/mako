@@ -80,7 +80,8 @@ test('lo que no va al teléfono dice que se usa en la computadora', () => {
 });
 
 test('/mako no se confunde con /m (pero tiene su versión móvil)', () => {
-  assert.deepEqual(decidirDesvio('/mako'), { tipo: 'movil', destino: '/m/mako' });
+  // El chat con MaKo del teléfono es el Second Brain desde el 16/10/2026.
+  assert.deepEqual(decidirDesvio('/mako'), { tipo: 'movil', destino: '/m/second-brain' });
 });
 
 test('el interruptor está PRENDIDO (Martín, 11/10 21:54: «a cualquiera que entre desde mobile»)', () => {

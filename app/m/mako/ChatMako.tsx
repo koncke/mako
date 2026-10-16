@@ -51,7 +51,12 @@ const TOPE_MS = 425_000;
 type Abierta = { sesion: SesionChat; mensajes: MensajeChat[]; propuestas: TarjetaPendiente[] };
 type Trabajo = { fase: 'subiendo' | 'revisando'; pct: number; desde: number; fuente: string };
 
-export function ChatMako({ sesionesIniciales, inicial }: { sesionesIniciales: SesionChat[]; inicial: Abierta | null }) {
+export function ChatMako({ sesionesIniciales, inicial, hrefMapa = null }: {
+  sesionesIniciales: SesionChat[];
+  inicial: Abierta | null;
+  /** El Mapa del Second Brain (sólo el admin, lo decide el servidor): va arriba de la hoja «Tus chats» (16/10/2026). */
+  hrefMapa?: string | null;
+}) {
   const ws = useWs();
   const { enLinea } = useConexion();
   const [sesiones, setSesiones] = useState<SesionChat[]>(sesionesIniciales);
@@ -246,6 +251,8 @@ export function ChatMako({ sesionesIniciales, inicial }: { sesionesIniciales: Se
 
       <SheetM abierto={hojaChats} onCerrar={() => setHojaChats(false)} titulo="Tus chats" id="chats" snap="medio"
         pie={<PieM><Button variant="primary" size="lg" full onClick={nuevoChat}>Nuevo chat</Button></PieM>}>
+        {/* El grafo del negocio, arriba de los chats: como «Mapa» en la barra del Second Brain de escritorio. */}
+        {hrefMapa && <ListaM><FilaM navegacion titulo="Mapa" icono="cerebro" href={hrefMapa} /></ListaM>}
         {sesiones.length === 0
           ? <VacioM frase="Todavía no hay chats." />
           : (

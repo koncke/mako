@@ -44,8 +44,8 @@ Tanda 2 de la etapa 2 (docs/diseno-mako-ai-native.md).
 **SIN HACER:**
 - Retirar `/api/mako-doer`: su única pantalla era `MakoDoerTab`, que se fue. `tests/mako-doer-plazo.test.ts` todavía
   lo nombra.
-- En el teléfono, la fila «Second Brain» (el chat, `/m/mako`) y la del Mapa (`/m/second-brain`, sólo admin) son dos
-  hasta la tanda 3.
+- ~~En el teléfono, la fila «Second Brain» (el chat) y la del Mapa son dos.~~ Hecho en la tanda 3: ver
+  [hallazgos-mobile.md](hallazgos-mobile.md), «El Second Brain del teléfono es el chat con MaKo».
 
 **Vive en:** `app/_components/nav.ts` (`MAKO_NAV`) · `app/_components/Sidebar.tsx` · `lib/chat-mako-indice.ts` ·
 `lib/api-mako/areas/mako.def.ts` · `app/mako/page.tsx`

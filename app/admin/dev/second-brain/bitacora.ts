@@ -316,4 +316,19 @@ export const BITACORA: Hito[] = [
       'lib/api-mako/areas/mako.def.ts, mako.run.ts — las dos lecturas',
     ],
   },
+  {
+    fecha: '16 oct', hora: '11:40', chat: 'Centro de Operaciones', sesion: 'local_428051c1-0369-4df2-ae6b-bcb42f63b64b', cuenta: 'claude3',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El Second Brain del teléfono es el chat con MaKo, con el Mapa aparte',
+    puntos: [
+      '/m/second-brain abre el chat con MaKo; el admin tiene «Mapa» arriba de la hoja «Tus chats», y el closer y el setter no.',
+      'El mapa de antes vive en /m/second-brain/mapa (en la computadora, /second-brain?panel=mapa).',
+      'En More hay una sola fila «Second Brain» por persona; /m/mako redirige.',
+    ],
+    archivos: [
+      'app/m/second-brain/page.tsx, mapa/page.tsx — el chat y el Mapa',
+      'lib/movil-rutas.ts — las filas y las rutas',
+      'app/m/mako/ChatMako.tsx — la fila «Mapa» en la hoja',
+    ],
+  },
 ];
