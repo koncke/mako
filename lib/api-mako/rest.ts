@@ -39,6 +39,7 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['POST', '/calendario/eventos', 'crear_evento_calendario'],
   ['GET', '/calendario/links-agenda', 'link_agenda_llamada'],
   ['GET', '/calendario/recurrentes', 'ver_proximas_recurrentes'],
+  ['GET', '/calendario/anticipacion', 'anticipacion_agenda'],
   // ── general ───────────────────────────────────────────────────────────────
   ['GET', '/general/arranque/pendientes', 'listar_pendientes_arranque'],
   ['GET', '/general/capacidad', 'ver_capacidad_instalada'],

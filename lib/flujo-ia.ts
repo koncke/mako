@@ -105,7 +105,8 @@ import {
   condicionPorId, problemaDeFila, OPERADORES, seccionesDeCondiciones, deValorOpcion, opcionesDe, normalizarTexto,
   type OperadorCondicion, type CatalogosCondicion, type AmbitoDisparo, type DefCondicion, type CatalogoValor,
 } from './condiciones-catalogo';
-import { TOPE_TEXTO_SOCIAL, VENTANA_META_MS, esCanalSocial, NOMBRE_CANAL, type CanalSocial } from './canal-social';
+import { TOPE_TEXTO_SOCIAL, VENTANA_META_MS, esCanalSocial, NOMBRE_CANAL, problemaDeAdjunto, type CanalSocial } from './canal-social';
+import { archivoDelPedido } from './archivo-del-pedido';
 import { datoDe, valePara, type DestinoMensaje } from './variables-aviso';
 import { paramsConPartes } from './mako-tarjeta';
 import { problemasDeForma, datosDeReunionSinMirarla } from './flujo-forma';
@@ -542,6 +543,11 @@ type Estado = {
   condiciones: ReadonlySet<string>;
   /** El canal de un mensaje que no lo dice: el social del flujo (`canalSocialDelFlujo`), o WhatsApp. */
   canalDefecto: CanalIA;
+  /**
+   * El canal social del flujo, o null. Con él, un mensaje NUEVO al lead que el modelo escribió «por WhatsApp» sale por ESE
+   * canal (`canalDeTarjeta`, 16/10/2026). En editar, un mensaje que ya estaba conserva el suyo (`mantenerCanal`).
+   */
+  social?: CanalSocial | null;
   /** EDITAR, en un cambio de canal: las tarjetas de un tramo que son COPIA de un mensaje que ya existe (`armar` las saca). */
   copias?: ReadonlySet<string>;
 };
@@ -918,11 +924,17 @@ function textoLimpio(v: unknown, est: Estado, tope: number, destino?: DestinoMen
  * `"instagram"` del modelo se guardaba como WhatsApp, sin un aviso (#243 de ws10). Ahora: el que escribió el modelo, en
  * "canal" o en "tipo" (los cuatro de `MENU_MAS`); si no dice, el del flujo (`est.canalDefecto`).
  */
+// ⚠️ UN «WHATSAPP» DEL MODELO EN UN FLUJO DE INSTAGRAM SE ARREGLA ACÁ, SIN OTRA VUELTA (16/10/2026). Martín pidió «Crea una
+// automatización por Instagram…» y vio «Escribiendo el flujo 140 s · hasta 5 min» y después «MaKo armó el flujo pero quedó
+// mal: Un mensaje al lead va por WhatsApp y el flujo es por Instagram: usa "canal": "instagram"». El modelo escribe
+// «whatsapp» por costumbre; la revisión lo rechazaba y se gastaba un reintento entero para que lo cambiara. Un mensaje al
+// lead en un flujo social va por ESE canal: lo decide el código. (El aviso al equipo es la tarjeta MaKo, una acción.)
 function canalDeTarjeta(c: Card, est: Estado): CanalIA {
   if (c.tipo === 'email') return 'email';
   for (const v of [c.raw.canal, c.raw.tipo]) {
     const k = normNombre(v);
     if (k === 'email') return 'email';
+    if (k === 'whatsapp' && est.social && c.raw.mantenerCanal !== true) return est.social;
     if (k === 'instagram' || k === 'messenger' || k === 'whatsapp') return k;
   }
   return est.canalDefecto;
@@ -958,10 +970,14 @@ function nodoDe(c: Card, est: Estado): NodoIA {
         if (a) { paso.tipo = 'audio'; paso.audio_id = a.id; }
         else avisos.push(canal === 'email' ? 'Un email no lleva nota de voz: la saqué' : social ? `Por ${NOMBRE_CANAL[social]} no va nota de voz: la saqué` : 'Ese audio no está en tu biblioteca: el mensaje va como texto');
       }
+      // Un ARCHIVO también por Instagram y Messenger (16/10/2026): el editor social los lleva desde la decimocuarta tanda y
+      // el motor los manda (`enviarPasoSocial`), con lo que cada canal acepta (`problemaDeAdjunto`: Instagram, foto, video
+      // o PDF). Hasta acá la IA los sacaba siempre, y un «lead magnet» por Instagram no se podía armar.
       if (!paso.tipo && archivoPedido != null && archivoPedido !== '') {
-        const f = canal === 'whatsapp' ? porIdOTitulo(ctx.archivos, archivoPedido) : null;
-        if (f) { paso.tipo = 'media'; paso.media_id = f.id; }
-        else avisos.push(canal === 'email' ? 'Un email no lleva archivo: lo saqué' : social ? `Por ${NOMBRE_CANAL[social]} no va archivo: lo saqué` : 'Ese archivo no está en tu biblioteca: el mensaje va como texto');
+        const f = canal !== 'email' ? porIdOTitulo(ctx.archivos, archivoPedido) : null;
+        const problema = f && social ? problemaDeAdjunto(social, f.mime) : null;
+        if (f && !problema) { paso.tipo = 'media'; paso.media_id = f.id; }
+        else avisos.push(canal === 'email' ? 'Un email no lleva archivo: lo saqué' : problema ? `${problema}: saqué el archivo` : 'Ese archivo no está en tu biblioteca: el mensaje va como texto');
       }
       if (!paso.tipo && raw.ia === true) {
         if (canal === 'whatsapp') paso.tipo = 'ia';
@@ -1558,6 +1574,7 @@ export function deIA(json: unknown, ctx: CtxIA, rnd: () => number = Math.random)
   }
   est.condiciones = idsDeCondiciones(ambitoDeValor(disparador), ctx.catalogoCondicion ?? {});
   est.canalDefecto = social ?? 'whatsapp';
+  est.social = social;
 
   const cards = tarjetasDe(Array.isArray(json) ? json : o.tarjetas, est.avisos);
   if (cards.length > TOPE_TARJETAS_IA * 3) est.avisos.push('Eran demasiadas tarjetas: armé las primeras');
@@ -1622,6 +1639,7 @@ export function deIA(json: unknown, ctx: CtxIA, rnd: () => number = Math.random)
   }
   // Lo que el modelo armó FUERA de las piezas de hoy (undécima tanda, lib/flujo-forma.ts): se dice, la persona lo ve.
   for (const pr of problemasDeForma(pasos)) est.avisos.push(pr.motivo);
+  pasos = conElArchivoDelPedido(pasos, est);
   return {
     pasos: renumerar(pasos),
     etiquetasNuevas: soloUsadas(est.nuevas, pasos, disparador),
@@ -1629,6 +1647,28 @@ export function deIA(json: unknown, ctx: CtxIA, rnd: () => number = Math.random)
     nombre: str(o.nombre).trim() || null,
     disparador,
   };
+}
+
+/**
+ * EL ARCHIVO QUE SE ADJUNTÓ COMO CONTENIDO (16/10/2026, lib/archivo-del-pedido.ts: «dando este lead magnet»). La caja lo
+ * subió a la biblioteca y el pedido lo nombra con su id. Si el modelo ya lo puso en un mensaje, listo; si no, va en el
+ * ÚLTIMO mensaje al lead que lo pueda llevar (el que entrega, en un flujo que da algo), y se dice. Sin depender de que el
+ * modelo lo haya leído: el lead magnet es lo que el flujo tiene que dar.
+ */
+const partesDePaso = (p: PasoIA): unknown[] => { const x = (p as { partes?: unknown }).partes; return Array.isArray(x) ? x : []; };
+
+function conElArchivoDelPedido(pasos: PasoIA[], est: Estado): PasoIA[] {
+  const id = archivoDelPedido(est.ctx.pedido);
+  const archivo = id != null ? est.ctx.archivos.find((a) => a.id === id) : undefined;
+  if (!archivo) return pasos;
+  const usa = (p: PasoIA) => Number(p.media_id) === archivo.id || partesDePaso(p).some((x) => (x as { media_id?: unknown } | null)?.media_id === archivo.id);
+  if (pasos.some(usa)) return pasos;
+  const puede = (p: PasoIA) => claseDe(p) === 'mensaje' && p.canal !== 'email' && !p.tipo
+    && !(esCanalSocial(p.canal) && problemaDeAdjunto(p.canal, archivo.mime));
+  const i = pasos.map((p, k) => (puede(p) ? k : -1)).filter((k) => k >= 0).pop();
+  if (i == null) { est.avisos.push(`No puse «${archivo.titulo}»: súmalo en un mensaje`); return pasos; }
+  est.avisos.push(`Puse «${archivo.titulo}» en el último mensaje`);
+  return pasos.map((p, k) => (k === i ? { ...p, tipo: 'media', media_id: archivo.id } : p));
 }
 
 /**
@@ -1862,7 +1902,7 @@ function parcheMensaje(p: PasoIA, x: Record<string, unknown>, est: Estado): Paso
   const tipoX = normNombre(x.tipo);
   const nombraCanal = toca('canal') || ['email', 'correo', 'mail', 'instagram', 'messenger', 'whatsapp'].includes(tipoX);
   const tipoCard: TipoTarjeta = nombraCanal ? (tipoDe(x.tipo) === 'email' && !toca('canal') ? 'email' : 'mensaje') : (antes === 'email' ? 'email' : 'mensaje');
-  const canal = canalDeTarjeta({ tmp: p.id!, tipo: tipoCard, raw: nombraCanal ? { canal: x.canal, tipo: x.tipo } : { canal: antes } }, est);
+  const canal = canalDeTarjeta({ tmp: p.id!, tipo: tipoCard, raw: nombraCanal ? { canal: x.canal, tipo: x.tipo } : { canal: antes, mantenerCanal: true } }, est);
   const cambiaCanal = canal !== antes;
   const tocaTexto = toca('texto', 'cuerpo', 'mensaje');
   const tocaLink = toca('link');
@@ -1870,6 +1910,8 @@ function parcheMensaje(p: PasoIA, x: Record<string, unknown>, est: Estado): Paso
   const cuerpoAntes = String(p.cuerpo ?? '');
   const raw: Record<string, unknown> = {
     canal,
+    // Lo que ya estaba conserva su canal si el parche no lo nombra (`canalDeTarjeta` no lo pasa al del flujo).
+    mantenerCanal: !nombraCanal,
     // Sin texto nuevo, una marca: `nodoDe` no tiene que re-limpiar (ni dar por vacío) lo que ya estaba.
     texto: tocaTexto ? (x.texto ?? x.cuerpo ?? x.mensaje) : tocaLink ? cuerpoAntes.replace(RX_URL, ' ').trim() : '§',
     asunto: toca('asunto') ? x.asunto : p.asunto,
@@ -2128,6 +2170,7 @@ export function deIAEdicion(json: unknown, base: readonly PasoGrafo[], ctx: CtxI
   const social = cambio ?? canalSocialDelFlujo(ctx, cron);
   est.condiciones = idsDeCondiciones(cron ? ambitoDeValor(cron) : 'cualquiera', ctx.catalogoCondicion ?? {});
   est.canalDefecto = social ?? 'whatsapp';
+  est.social = social;
 
   for (const id of refs(o.quitar)) pasos = quitarTarjeta(pasos, id, est);
   for (const x of Array.isArray(o.cambiar) ? o.cambiar : []) {
@@ -2463,7 +2506,11 @@ export function validarIA(pasos: readonly PasoGrafo[], ctx: CtxIA, soloIds?: Rea
         if (conCron && !o.editar && disparador && cronSocial !== p.canal) err.push(`un mensaje por ${n} necesita un disparador de ${n}: Meta no deja escribir primero`);
         if (enRespuesta.has(id)) err.push(`un mensaje por ${n} no va debajo de "si_responde"`);
         if (esperaAntesDe(pasos, id) > VENTANA_META_MS / 60_000) err.push(`un mensaje por ${n} va después de esperar más de 24 h: no sale`);
-        if (p.tipo === 'audio' || p.tipo === 'media' || p.tipo === 'ia') err.push(`un mensaje por ${n} lleva sólo texto y link`);
+        if (p.tipo === 'audio' || p.tipo === 'ia') err.push(`un mensaje por ${n} no lleva nota de voz ni IA`);
+        if (p.tipo === 'media') {
+          const problema = problemaDeAdjunto(p.canal, ctx.archivos.find((a) => a.id === Number(p.media_id))?.mime);
+          if (problema) err.push(`un mensaje por ${n} lleva un archivo que no acepta (${problema})`);
+        }
         if (String(p.cuerpo ?? '').length > TOPE_TEXTO_SOCIAL) err.push(`un mensaje por ${n} pasa los ${TOPE_TEXTO_SOCIAL} caracteres`);
       }
       if (p.tipo === 'audio' && !audios.has(Number(p.audio_id))) err.push('un mensaje usa un audio que no está en la biblioteca');
@@ -3121,6 +3168,15 @@ export function falloDeIA(errores: readonly string[], hayIA: boolean): FalloIA {
   return { error: `${texto}. Prueba en un rato.` };
 }
 
+/** Un error de la revisión sin lo que le habla al modelo: la instrucción de después de «: usa…» y las comillas de claves. */
+export function paraLaPersona(error: string): string {
+  return error
+    .replace(/:\s*usa\s+"[^"]*"\s*:\s*"[^"]*".*$/i, '')
+    .replace(/"([a-z_]+)"/g, (_, k: string) => k.replace(/_/g, ' '))
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 /**
  * QUÉ QUEDÓ MAL, DICHO (punto 10 del feedback del 13/10/2026: «ante un fallo en la generación por IA de un flujo,
  * devuelva una descripción técnica específica en lugar de un aviso genérico»). Hasta el 14/10 decía «MaKo armó el
@@ -3130,7 +3186,9 @@ export function falloDeIA(errores: readonly string[], hayIA: boolean): FalloIA {
  */
 export function falloDeRevision(errores: readonly string[], pasos: readonly PasoGrafo[]): string {
   const TOPE = 160;
-  const primero = errorLegible(String(errores[0] ?? '').trim(), pasos).replace(/\s+/g, ' ');
+  // ⚠️ SIN LO QUE ES PARA EL MODELO (16/10/2026): los errores de la revisión le hablan al reintento («: usa "canal":
+  // "instagram"», «"si_responde"»). A la persona se le dice qué quedó mal, no qué clave del JSON cambiar.
+  const primero = paraLaPersona(errorLegible(String(errores[0] ?? '').trim(), pasos));
   const corto = primero.length > TOPE ? `${primero.slice(0, TOPE - 1).trimEnd()}…` : primero;
   const mas = errores.length > 1 ? ` (y ${errores.length - 1} más)` : '';
   return `MaKo armó el flujo pero quedó mal: ${corto}${mas}. Prueba de nuevo o cambia una palabra del pedido.`;

@@ -20,6 +20,7 @@ agregar_seccion_landing
 analisis_negocio
 analizar_hoja_dashboard
 analizar_llamadas_lead
+anticipacion_agenda
 anular_link_pago
 apagar_kpi
 archivar_etiqueta
