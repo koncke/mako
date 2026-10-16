@@ -207,7 +207,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'ver_mrr_activo', area: 'metricas', tipo: 'lectura',
     titulo: 'MRR de suscripciones activas',
-    descripcion: 'El ingreso recurrente mensual en USD de los leads ganados con venta de tipo suscripción que siguen activos hoy (indefinidos, o de plazo fijo cuyo fin todavía no llegó), y cuántas suscripciones son. Va APARTE del high-ticket: las suscripciones no entran en sold ni en cash. Úsala para «¿cuánto tengo en recurrente?». No requiere parámetros.',
+    descripcion: 'El ingreso recurrente mensual en USD de los leads ganados con venta de tipo suscripción que siguen activos hoy (indefinidos, o de plazo fijo cuyo fin todavía no llegó), más las suscripciones activas que cobra la pasarela (Stripe o Mercado Pago) a un lead que no es de suscripción, y cuántas suscripciones son. Va APARTE del high-ticket: las suscripciones no entran en sold ni en cash. Úsala para «¿cuánto tengo en recurrente?». No requiere parámetros.',
     parametros: [],
     salida: 'json',
     canales: TODOS, costo: 'gratis',

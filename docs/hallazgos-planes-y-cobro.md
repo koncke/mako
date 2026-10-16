@@ -670,8 +670,10 @@ preguntarle. Quedan suyas dos: el RFC / Stripe en Argentina (fiscal y precio) y 
 - **Un lead de pago único que paga un link de SUSCRIPCIÓN sigue de pago único, y la mensualidad cuenta en el MRR desde
   el cobro.** Copia de Stripe: el MRR son las suscripciones activas, y una compra única no deja de existir porque
   después haya una suscripción. Pasarlo a «suscripción» sacaría el pago único de lo vendido: una
-  suscripción no tiene `monto_cierre_usd` (lib/venta-tipo.ts; cambiar el tipo en la ficha lo vacía). Falta el código: `getMrrActivo` (lib/queries.ts)
-  tiene que sumar los cobros de suscripción activos de los leads que NO son de suscripción.
+  suscripción no tiene `monto_cierre_usd` (lib/venta-tipo.ts; cambiar el tipo en la ficha lo vacía). **HECHO el 15/10:**
+  `getMrrActivo` (lib/queries.ts) suma las suscripciones PAGADAS y ACTIVAS de la pasarela de los leads que no son de
+  suscripción (`mrrDeLaPasarela`); las de un lead de suscripción no, porque ya las cuenta el lead. Una suscripción de la
+  pasarela SIN lead (fuera del CRM) no entra.
 - **Un flujo puede reembolsar: sin guarda de costo `dinero`.** Ya lo había decidido Martín el 08/10, textual: un flujo
   «que pueda hacer todo, sin limitaciones»; el dueño confirma la acción al CONFIGURAR el paso (cabecera de
   `lib/api-mako/flujo.ts`). No era una pregunta abierta.
@@ -713,7 +715,6 @@ implementación en un worktree propio (`C:/dev/wt-pagos`) y una rama aparte para
 | **Pasarela (revisión):** un aviso de MP sin firma con el `user_id` de un negocio conectado provoca una relectura con SU token (las filas `sin-workspace` ya tienen techo: una por día, 15/10) | `app/api/webhooks/mercadopago/route.ts` |
 | **Pasarela (revisión):** el MRR al cancelar una suscripción redondea por meses (puede contar un mes de más o de menos) | `lib/cobros-reglas.ts` (`mesesTranscurridos`) |
 | **Pasarela (revisión):** la fecha de la cuota es la del procesamiento, no la del pago (un aviso tardío la corre de mes) | `lib/cobros.ts` (`aplicarPagoAprobado`) |
-| **Pasarela (decidido 15/10):** un lead de pago único que paga un link de SUSCRIPCIÓN sigue de pago único, y su mensualidad tiene que contar en el MRR desde el cobro activo | `lib/queries.ts` (`getMrrActivo`) |
 
 *Corrida del 04/10/2026, 12 agentes. Las refutaciones dieron vuelta nueve afirmaciones; las
 tres que más cambiaron el plan están arriba (la cuenta del runway, el margen del 47 y el

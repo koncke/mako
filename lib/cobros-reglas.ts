@@ -135,6 +135,27 @@ export function textoContracargo(p: { pasarela: Pasarela; fase: 'abierto' | 'pla
 }
 
 /**
+ * La parte del MRR que cobra la PASARELA (decidido el 15/10/2026, copia de Stripe: el MRR son las suscripciones activas):
+ * las suscripciones activas de un lead que NO es «de suscripción» (uno que compró como pago único y después se
+ * suscribió). Las de un lead de suscripción no se suman: ya las cuenta el lead, con su plazo (`getMrrActivo`,
+ * lib/queries.ts), y serían dos veces. Una sin monto en USD no se inventa.
+ */
+export function mrrDeLaPasarela(
+  cobros: ReadonlyArray<{ lead_id: number | string | null; monto_usd: number | string | null }>,
+  leadsDeSuscripcion: ReadonlySet<number>,
+): { mrr: number; activas: number } {
+  let mrr = 0;
+  let activas = 0;
+  for (const c of cobros) {
+    const monto = Number(c.monto_usd);
+    if (c.lead_id == null || !(monto > 0) || leadsDeSuscripcion.has(Number(c.lead_id))) continue;
+    mrr += monto;
+    activas++;
+  }
+  return { mrr, activas };
+}
+
+/**
  * ¿Es la vuelta del cron de cobros que hace lo de UNA VEZ POR DÍA? El cron corre a los :17 y :47 de cada hora
  * (vercel.json): la de las 06:17 UTC es la única con hora 6 y minuto < 30.
  */
