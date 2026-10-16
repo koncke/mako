@@ -1695,4 +1695,40 @@ FEEDBACK PROBAR:
     ],
     archivos: ["docs/diseno-avisos-plataforma.md — §5", "docs/hallazgos-chatbot.md — los Mensajes de MaKo a sus clientes"],
   },
+  {
+    fecha: "16 oct", hora: "04:00", chat: "Chatbot", cuenta: "claude3",
+    sesion: "local_b1f59213-087e-4203-83e1-b3f59eadbaed",
+    actor: "claude", tipo: "implementacion",
+    titulo: "El reporte semanal también es una automatización de SuperAdmin, y la tarjeta de MaKo puede ir por email",
+    puntos: [
+      "En Automations de SuperAdmin aparece «Reporte Semanal de un Negocio»: los lunes le manda a cada negocio el reporte de su semana, como hoy.",
+      "La tarjeta de MaKo suma «Por dónde»: al grupo de WhatsApp, o por email al equipo del negocio, con su asunto. Sirve en cualquier automatización.",
+      "El reporte sale con el mismo asunto y el mismo texto de siempre. Hoy le llega a 8 negocios.",
+      "Un aviso de MaKo a un negocio ahora espera el horario de oficina de ESE negocio, no el de SuperAdmin.",
+      "Las cuatro automatizaciones se crean con un script después del deploy. Hasta entonces, todo sale como siempre.",
+    ],
+    commits: [
+      { sha: "a5b9e6d06", msg: "Avisos de la plataforma: la tarjeta espera el horario de oficina del NEGOCIO, no el de la plataforma", lineas: 7, archivos: 2 },
+      { sha: "12ac3cb85", msg: "SuperAdmin: el reporte semanal pasa a ser una automatización de la plataforma, con «MaKo por email»", lineas: 587, archivos: 26 },
+    ],
+    archivos: ["docs/diseno-avisos-plataforma.md — §6", "docs/hallazgos-chatbot.md — los Mensajes de MaKo a sus clientes", "docs/hallazgos-infra.md — un script de roturas no se corta con head"],
+  },
+  {
+    fecha: "16 oct", hora: "10:00", chat: "Chatbot", cuenta: "claude3",
+    sesion: "local_b1f59213-087e-4203-83e1-b3f59eadbaed",
+    actor: "claude", tipo: "implementacion",
+    titulo: "El AI Step le contesta a un negocio sin API y escucha las notas de voz; y toda flecha se desconecta",
+    puntos: [
+      "Las cuatro automatizaciones de SuperAdmin ya están prendidas: WhatsApp caído, volvió, la reunión grabada y el reporte semanal.",
+      "Un negocio sin API propia ya no deja al lead sin respuesta: el AI Step usa el crédito de Claude de MaKo, que no entrena con lo que lee.",
+      "Las notas de voz del lead se escuchan antes de decidir qué contestar, y en la bandeja se ve lo que dijo.",
+      "Toda flecha se puede desconectar, también las que llevan una espera encima, y al soltarla en el lienzo aparece «Desconectar».",
+    ],
+    commits: [
+      { sha: "959efd6df", msg: "Mudanza de los avisos de la plataforma: por tandas de deploy (--eventos), y las tres primeras filas en producción", lineas: 28, archivos: 3 },
+      { sha: "a378040a6", msg: "AI Step en vivo: la red de plataforma (sólo el crédito de Claude, por PII) y las notas de voz del lead", lineas: 604, archivos: 20 },
+      { sha: "73667ff88", msg: "Lienzo: toda flecha se puede desconectar, también las que llevan una espera encima", lineas: 108, archivos: 2 },
+    ],
+    archivos: ["docs/hallazgos-chatbot.md — el AI Step en vivo, y las flechas que no se desconectaban", "AGENTS.md — la red como opción del que llama"],
+  },
 ];

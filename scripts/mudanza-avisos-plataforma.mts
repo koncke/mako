@@ -8,13 +8,15 @@
 //   1. si la plataforma ya tiene una automatización viva con ese evento, nada (correrlo dos veces no duplica);
 //   2. la crea por la MISMA puerta que «Nueva automatización» (`crearDesdePlantilla`, con `plataforma: true`);
 //   3. la prende por la MISMA puerta que «Activar» (`setSecuenciaActiva`, que valida lo mismo que Publicar).
-// ⚠️ VA DESPUÉS DEL DEPLOY del código de cada evento (la línea: 729789dfa; Fathom: el commit que lo suma). Con el código
-// de antes, el evento no existe y la fila no correría. Antes de la
-// fila, el aviso sale como siempre (`sinFila`); desde la fila, sólo por ella. Ni hueco ni doble.
+// ⚠️ VA DESPUÉS DEL DEPLOY del código de cada evento (la línea: 729789dfa; Fathom: 16fa52568 y la firma efcc58d46; el
+// reporte semanal y «MaKo por email»: el commit que los suma). Con el código de antes, el evento no existe y la fila no
+// correría. Antes de la fila, el aviso sale como siempre (`sinFila`); desde la fila, sólo por ella. Ni hueco ni doble.
 //
 //   node --conditions react-server --import tsx scripts/mudanza-avisos-plataforma.mts             → SIMULACRO (default)
 //   node --conditions react-server --import tsx scripts/mudanza-avisos-plataforma.mts --aplicar   → escribe
-//   opciones: --env=<ruta del .env.local> (default ./.env.local)
+//   opciones: --env=<ruta del .env.local> (default ./.env.local; un worktree no tiene: --env=C:/dev/mako-api/.env.local)
+//             --eventos=<a,b,c> → sólo esos eventos (los de lo que YA está desplegado; sin esto, todos los de MUDADOS).
+//             Un evento que no está en MUDADOS frena el script antes de tocar nada.
 // =============================================================================
 
 import { config } from 'dotenv';
@@ -27,11 +29,18 @@ const aplicar = process.argv.includes('--aplicar');
 config({ path: arg('env') ?? '.env.local' });
 
 /** Los mudados, en orden. Uno nuevo se suma acá, con su plantilla y su evento. */
-const MUDADOS: ReadonlyArray<{ plantilla: string; evento: string }> = [
+const TODOS: ReadonlyArray<{ plantilla: string; evento: string }> = [
   { plantilla: 'mako-whatsapp-caido', evento: 'whatsapp_caido' },
   { plantilla: 'mako-whatsapp-volvio', evento: 'whatsapp_volvio' },
   { plantilla: 'mako-reunion-grabada', evento: 'reunion_grabada' },
+  { plantilla: 'mako-reporte-semanal', evento: 'reporte_semanal' },
 ];
+// POR TANDAS DE DEPLOY (16/10/2026): la fila de un evento cuyo código todavía no está en producción no correría, así
+// que se mudan sólo los desplegados. Sin `--eventos`, todos.
+const pedidos = arg('eventos')?.split(',').map((e) => e.trim()).filter(Boolean) ?? null;
+const ajenos = (pedidos ?? []).filter((e) => !TODOS.some((m) => m.evento === e));
+if (ajenos.length) throw new Error(`--eventos: ${ajenos.join(', ')} no está en la mudanza`);
+const MUDADOS = pedidos ? TODOS.filter((m) => pedidos.includes(m.evento)) : TODOS;
 
 const { runWithWorkspace, getTenantDb, wsSuperAdmin } = await import('../lib/workspace');
 const { plantillaPorId, pasosDePlantilla } = await import('../lib/plantillas-automatizaciones');

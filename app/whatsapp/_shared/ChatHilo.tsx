@@ -68,7 +68,12 @@ function fmtHora(iso: string | null | undefined): string {
 export function contenidoDeMensaje(m: HiloMsg): ContenidoBurbuja {
   const t = m.tipo;
   const texto = m.texto ?? undefined;
-  if (t === 'audio') return { audio: { url: m.mediaUrl ?? null, transcript: m.transcript ?? null }, texto, ia: m.ia };
+  if (t === 'audio') {
+    // LA NOTA DE VOZ DE UN LEAD QUE EL AI STEP ESCUCHÓ (16/10/2026): lo que dijo queda en su `texto` (un audio de WhatsApp
+    // no tiene pie), y se dibuja como lo que es, «Dice: …» debajo del reproductor, no como un mensaje escrito.
+    const dice = m.transcript ?? (!m.fromMe && texto ? texto : null);
+    return { audio: { url: m.mediaUrl ?? null, transcript: dice }, texto: dice && dice === texto ? undefined : texto, ia: m.ia };
+  }
   if (t === 'document') {
     return m.nombreArchivo
       ? { media: { url: m.mediaUrl ?? null, mime: m.mediaMime ?? '', nombre: m.nombreArchivo, tipo: 'document' }, texto, ia: m.ia }

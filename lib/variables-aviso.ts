@@ -107,7 +107,7 @@ export function tramosConVariables(linea: string): Array<{ txt: string; esVar: b
  */
 export type FuenteDato = 'nombre' | 'ficha' | 'zona' | 'producto' | 'etiquetas' | 'pagos' | 'curso'
   | 'perfil' | 'lead_magnet' | 'momento' | 'negocio' | 'links' | 'evento' | 'cuota' | 'cobro'
-  | 'proxima' | 'respuestas' | 'pago' | 'escrito' | 'analisis' | 'cuenta' | 'linea' | 'grabacion';
+  | 'proxima' | 'respuestas' | 'pago' | 'escrito' | 'analisis' | 'cuenta' | 'linea' | 'grabacion' | 'reporte';
 
 /**
  * A quién le llega el mensaje: al lead (las automatizaciones), al equipo (MaKo en WhatsApp) o a un USUARIO de MaKo
@@ -140,8 +140,10 @@ export type VariableAviso = {
    *               `whatsapp_caido` y `whatsapp_volvio`): lo pasa lib/lineas-vigilante.ts (`datosCaida`), por código.
    * · `grabacion` — necesita la REUNIÓN QUE TERMINÓ y quedó grabada (el evento de la plataforma `reunion_grabada`):
    *               lo pasa el webhook de Fathom (`datosPostLlamada`, lib/reunion-grabada.ts).
+   * · `reporte` — necesita el REPORTE SEMANAL ya armado de un negocio (el evento de la plataforma `reporte_semanal`): lo
+   *               pasa el cron de los lunes (`datosDelReporte`, lib/reporte-destino.ts).
    */
-  alcance: 'siempre' | 'lead' | 'cuota' | 'mensaje' | 'pago' | 'escrito' | 'analisis' | 'restablecer' | 'linea' | 'grabacion';
+  alcance: 'siempre' | 'lead' | 'cuota' | 'mensaje' | 'pago' | 'escrito' | 'analisis' | 'restablecer' | 'linea' | 'grabacion' | 'reporte';
   /**
    * UN DATO SECRETO (15/10/2026, docs/diseno-2fa-obligatorio.md §3 y §8): el link de restablecer la contraseña (y
    * después el código del 2FA por correo). Sale SÓLO en el mail a la persona y NUNCA se guarda: `sinSecretos` lo saca
@@ -345,6 +347,10 @@ export const VARIABLES_AVISO: VariableAviso[] = [
   //    webhook de Fathom. No es la «Próxima reunión»: ésa todavía no pasó.
   { key: 'grabacion_reunion', label: 'Qué reunión terminó', ejemplo: 'R1', alcance: 'grabacion', grupo: 'reuniones', rama: 'La que terminó', fuente: 'grabacion', soloPara: 'equipo' },
   { key: 'grabacion_duracion', label: 'Cuánto duró', ejemplo: '42 min', alcance: 'grabacion', grupo: 'reuniones', rama: 'La que terminó', fuente: 'grabacion', soloPara: 'equipo' },
+  // ── El reporte de los lunes YA ARMADO (16/10/2026, el evento de la plataforma `reporte_semanal`): lo pasa el cron.
+  //    Son los números del negocio (Meta, ventas, cobranza), por eso van en el Dashboard.
+  { key: 'reporte_titulo', label: 'Título del reporte', ejemplo: 'Reporte semanal · 05/10/2026–11/10/2026', alcance: 'reporte', grupo: 'dashboard', rama: 'El reporte semanal', fuente: 'reporte', soloPara: 'equipo' },
+  { key: 'reporte_texto', label: 'El reporte entero', ejemplo: '🗓️ *Reporte semanal* — 05/10/2026 a 11/10/2026…', alcance: 'reporte', grupo: 'dashboard', rama: 'El reporte semanal', fuente: 'reporte', soloPara: 'equipo' },
 
   // ── Campaña: de dónde vino. Son nombres internos (de la campaña, del anuncio): para el equipo.
   { key: 'lead_origen', label: 'Por dónde entró', ejemplo: 'instant_form', alcance: 'lead', grupo: 'campana', fuente: 'ficha', soloPara: 'equipo' },
@@ -483,6 +489,8 @@ export type ContextoDatos = {
   conLinea?: boolean;
   /** La reunión que terminó y quedó grabada (el evento de la plataforma `reunion_grabada`). */
   conGrabacion?: boolean;
+  /** El reporte semanal ya armado de un negocio (el evento de la plataforma `reporte_semanal`). */
+  conReporte?: boolean;
   /** El link de restablecer la contraseña (sólo el evento `contrasena_restablecer`, y sólo al mail a la persona). */
   conRestablecer?: boolean;
 };
@@ -513,6 +521,7 @@ function alcanzaPara(a: VariableAviso['alcance'], opts: ContextoDatos): boolean 
   if (a === 'restablecer') return opts.conRestablecer === true;
   if (a === 'linea') return opts.conLinea === true;
   if (a === 'grabacion') return opts.conGrabacion === true;
+  if (a === 'reporte') return opts.conReporte === true;
   return false;
 }
 

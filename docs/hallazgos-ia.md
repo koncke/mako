@@ -4115,6 +4115,7 @@ Para la decisión A de Martín (el cliente usa su Claude/ChatGPT para lo convers
 **Vive en:** docs/mapa-ia-24h.md (con su lista de lo que quedó sin revisar a fondo).
 · *2026-10-16 Estrategia 3 cuentas*
 
+
 ## La clave de Anthropic del negocio: la segunda puerta del veto (16/10/2026)
 
 **Vive en:** `lib/veto-claude.ts` (`evaluarClaveDelNegocio`, `FEATURES_DEL_PLAN`) · `lib/anthropic.ts`
@@ -4191,11 +4192,17 @@ corta antes») y los tests ahora preguntan qué hay antes de la llamada.
 
 ### Lo que quedó SIN hacer
 
-- **El análisis del lead (Generar / Regenerar), el sexto de la lista, NO se tocó: es una decisión de privacidad.**
-  Manda datos personales de los leads de un cliente (`lead_insights`, `pii: true`), y la red son las keys de la
-  agencia. El ws9 tiene un crédito de Gemini de US$10 cargado el 22/07 (`saldo.gemini`), pero la base no dice a cuál de
-  las tres keys corresponde. Si alguna está en el plan gratis, Google entrena con lo que recibe, con revisión
-  humana. Lo mismo vale, con datos menos sensibles (los del propio negocio), para lo que ya pasa por la red.
+- **El análisis del lead se resolvió con una regla** (el coordinador, el mismo día): los datos de los clientes de un
+  cliente nunca van a un proveedor que entrena con lo que recibe. Va con red, pero en `chatCheapCascade` un pedido con
+  la marca `pii` del catálogo usa sólo el crédito de Claude de la plataforma y se corta antes de las keys gratis
+  (`7068a0903`; la regla en AGENTS.md). El ws9 tiene un crédito de Gemini de US$10 cargado el 22/07
+  (`saldo.gemini`), pero la base no dice a cuál de las tres keys corresponde: «la key de Gemini con facturación» del
+  orden de la red queda sin usar hasta que alguien la identifique en Google Cloud.
+- **Los caminos con su PROPIA red (un bucle sobre `provsGratisDePlataforma`, no la cascada) no tienen ese corte**, y
+  algunos llevan datos de clientes: el doer de WhatsApp (`lib/mako-doer-in.ts`; `mako-doer-in` es `pii` en el
+  catálogo), los gráficos con IA (`lib/graficos-ia-red.ts`; `dashboard-conclusiones` es `pii`), la transcripción de
+  audio (`transcribirAudio`) y el guion de audio de Automations (`app/api/chat-agent/redactar`). Son de otras áreas: la
+  regla de AGENTS.md les pide aplicarla ellos mismos.
 - **Las otras ~50 llamadas sin red** siguen sin ella: el coordinador decide el orden sobre `docs/mapa-ia-24h.md`.
 - **Ningún camino se probó contra la red de verdad con un workspace sin keys**: sin `next dev` por la RAM.
 
@@ -4231,3 +4238,5 @@ pocos dólares contra 400 por mes.
 - Sólo la cascada de texto: ni visión, ni audio, ni el doer.
 
 · *2026-10-16 chat «Onboarding» (claude3)*
+
+

@@ -192,10 +192,11 @@ test('⚠️ la tarjeta MAKO: la Acción `avisar_al_equipo`, dibujada como su ta
   assert.match(flujo, /if \(esMako\(paso\)\) return <EditorMako key=\{`mako-\$\{id\}`\} \{\.\.\.pr\} paso=\{paso\} id=\{id\} chatMako=\{chatDe\(id\)\} \/>;/);
   const ed = bloque(flujo, 'function EditorMako(', '\n}\n', 4_000);
   assert.match(ed, /const dto = useMemo\(\(\) => pasoDeMako\(paso\), \[paso\]\);/);
-  assert.match(ed, /paso=\{dto\} autor="MaKo" vozMako /);
-  assert.match(ed, /audios=\{\[\]\} permiteAudio=\{false\} permiteAdjuntos adjuntos=\{adjuntos\} onAdjuntoNuevo=\{onAdjuntoNuevo\}/, 'sin los audios del negocio, con la biblioteca de archivos');
+  // (16/10/2026: al grupo, la voz, los archivos y los minutos de siempre; por email —«MaKo por email»— un solo texto.)
+  assert.match(ed, /paso=\{dto\} autor="MaKo" vozMako=\{!porEmail\} /);
+  assert.match(ed, /audios=\{\[\]\} permiteAudio=\{false\} permiteAdjuntos=\{!porEmail\} adjuntos=\{adjuntos\} onAdjuntoNuevo=\{onAdjuntoNuevo\}/, 'sin los audios del negocio, con la biblioteca de archivos');
   assert.match(ed, /datos=\{datos\} redactaCon=\{contexto\} permiteIA /, 'el ✦ no escribe con los datos de la tarjeta');
-  assert.match(ed, /onPartirConEspera=\{\(i, m\) => onPasos\(\(prev\) => \{ const r = partirConEspera\(prev, id, i, m\); return r\.ok \? r\.pasos : prev; \}, true\)\}/);
+  assert.match(ed, /onPartirConEspera=\{porEmail \? undefined : \(i, m\) => onPasos\(\(prev\) => \{ const r = partirConEspera\(prev, id, i, m\); return r\.ok \? r\.pasos : prev; \}, true\)\}/);
   // El cambio vuelve a los `params` de la tarjeta DE AHORA (adentro del updater), con el lead del evento.
   assert.match(ed, /const sig = paramsDeMako\(\{ \.\.\.params, leadId: params\.leadId \?\? LEAD_DEL_EVENTO \}, patch as unknown as CambioDeMako\);/, 'el aviso perdió el lead del evento o el título guardado');
   assert.match(ed, /return cambiarNodo\(prev, id, \{ accion: \{ operacion: accion\.operacion \?\? '', params: sig \} \}\);\n\s*\}, cambioApila\(patch, dto\)\);/);

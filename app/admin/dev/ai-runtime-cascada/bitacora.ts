@@ -295,4 +295,22 @@ export const BITACORA: Hito[] = [
       'tests/veto-claude-credito-plataforma.test.ts — la frontera, probada rompiéndola',
     ],
   },
+  {
+    fecha: '16 oct', hora: '00:55', chat: 'Onboarding', sesion: 'local_79844152-91d5-49c1-b833-c917ed1fc4a6', cuenta: 'claude3',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Los datos de los clientes de un cliente nunca van a las keys gratis',
+    puntos: [
+      'Regla del coordinador: nunca a un proveedor que entrena con lo que recibe. El plan gratis de Gemini entrena; el crédito de Claude de la plataforma no.',
+      'En la red de la cascada, un pedido con la marca `pii` del catálogo usa sólo el crédito de Claude y se corta antes de las keys gratis. El análisis del lead pasa a tener red por ahí.',
+      'Quedan sin el corte los caminos con su propia red: el doer de WhatsApp, los gráficos con IA, la transcripción de audio y el guion de audio de Automations.',
+    ],
+    commits: [
+      { sha: '7068a090', msg: 'IA: los datos de los clientes de un cliente nunca van a las keys gratis; el análisis del lead, con red', lineas: 50, archivos: 4 },
+    ],
+    archivos: [
+      'lib/ai-cheap.ts — el corte por datos de clientes en la red de la cascada',
+      'lib/lead-insights.ts — el análisis del lead con red',
+      'AGENTS.md — la regla, en la sección de la red de plataforma',
+    ],
+  },
 ];

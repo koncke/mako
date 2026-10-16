@@ -40,7 +40,7 @@ import { canalNoOficial, proveedorDelPaso, textoDelPaso, type CanalNoOficial } f
 import type { AutorTexto } from '@/lib/paso-ia';
 import { parseEstrategia, dentroDeAntiguedad, hitoYaHecho, type EscenarioSecuencia } from '@/lib/setting-estrategia';
 import type { TurnoSim } from '@/lib/setting-simulador';
-import { conversacionAbierta, atiendeAlResponder, charlaPasaAUnaPersona, type InscCharla } from '@/lib/setter-conversacion';
+import { conversacionAbierta, atiendeAlResponder, charlaPasaAUnaPersona, escritoParaElAviso, type InscCharla, type AudioDelLead } from '@/lib/setter-conversacion';
 import { ambitoDeSecuencia, filtroDeAmbito, type AmbitoFunnel } from '@/lib/nutricion-ambito';
 import {
   secuenciasDeEntrega, secuenciasDeEtiqueta, secuenciasQueSeCierran, etapasDe, normalizarEtapas, deLaEtapaYLasDemas,
@@ -5059,7 +5059,10 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
 // y de ahí a la charla, el redactor y el envío por Zernio (`enviarPasoSocial`); el modo asistido de antes y
 // el destrabe de `requiere: 'respondio'` son del WhatsApp y no corren. `cuenta`: la cuenta de Zernio a la
 // que escribió la persona (la respuesta sale por esa). Diseño en docs/diseno-ai-step-v2.md §6.
-export async function pausarPorRespuesta(leadId: number, opts?: { texto?: string; linea?: string | null; origen?: 'no_oficial' | 'oficial' | CanalSocial; cuenta?: string | null }): Promise<number> {
+// `opts.audio` (16/10/2026): la nota de voz del lead, tal como llegó al webhook. La escucha `asistirRespuesta`, y sólo
+// si hay un AI Step que va a contestar (`escucharNotaDeVoz`, lib/setter-conversacion.ts). `opts.recibidoAt`: la hora del
+// PROPIO mensaje (la de WhatsApp), para que la guarda de «entró uno más nuevo» no confunda éste con el siguiente.
+export async function pausarPorRespuesta(leadId: number, opts?: { texto?: string; linea?: string | null; origen?: 'no_oficial' | 'oficial' | CanalSocial; cuenta?: string | null; audio?: AudioDelLead | null; recibidoAt?: string | null }): Promise<number> {
   const social: CanalSocial | null = esCanalSocial(opts?.origen) ? opts!.origen as CanalSocial : null;
   const medio: MedioAIStep = social ?? 'whatsapp';
   const supabase = (await getTenantDb());
@@ -5174,10 +5177,10 @@ export async function pausarPorRespuesta(leadId: number, opts?: { texto?: string
     const atendibles = charla.inscs.filter((i) => ids.has(i.id) && atiendeAlResponder(i));
     let atendida = false;
     if (atendibles.length) {
-      atendida = await asistirRespuesta(leadId, atendibles.map((i) => i.secuencia_id), opts?.texto, opts?.linea ?? null, { medio, cuenta: opts?.cuenta ?? null });
+      atendida = await asistirRespuesta(leadId, atendibles.map((i) => i.secuencia_id), opts?.texto, opts?.linea ?? null, { medio, cuenta: opts?.cuenta ?? null, audio: opts?.audio ?? null, recibidoAt: opts?.recibidoAt ?? null });
     }
     // DEL SEGUNDO MENSAJE EN ADELANTE no hay inscripción activa: la charla se busca (#788).
-    if (!atendida) await seguirCharla(leadId, charla, opts?.texto, opts?.linea ?? null, social ?? (opts?.origen === 'no_oficial' ? 'no_oficial' : 'oficial'), opts?.cuenta ?? null);
+    if (!atendida) await seguirCharla(leadId, charla, opts?.texto, opts?.linea ?? null, social ?? (opts?.origen === 'no_oficial' ? 'no_oficial' : 'oficial'), opts?.cuenta ?? null, opts?.audio ?? null, opts?.recibidoAt ?? null);
   } catch (e) { console.error(`[nutricion] modo asistido lead ${leadId} falló:`, e); }
   return respondidas.length;
 }
@@ -5247,7 +5250,7 @@ async function charlaDelLead(leadId: number, medio: MedioAIStep = 'whatsapp'): P
 async function seguirCharla(
   leadId: number, charla: { inscs: InscCharla[]; nombre: string | null },
   texto: string | undefined, linea: string | null, origen: 'no_oficial' | 'oficial' | CanalSocial,
-  cuenta: string | null = null,
+  cuenta: string | null = null, audio: AudioDelLead | null = null, recibidoAt: string | null = null,
 ): Promise<void> {
   if (!charla.inscs.length) return;
   const social = esCanalSocial(origen) ? origen : null;
@@ -5257,7 +5260,7 @@ async function seguirCharla(
   const lim = await limitesDeEnvio();
   const v = conversacionAbierta(charla.inscs, Date.now(), lim === 'ilegible' ? undefined : lim.mako.diasCharla);
   if (v.abierta) {
-    await asistirRespuesta(leadId, [v.insc.secuencia_id], texto, linea, { medio: social ?? 'whatsapp', cuenta });
+    await asistirRespuesta(leadId, [v.insc.secuencia_id], texto, linea, { medio: social ?? 'whatsapp', cuenta, audio, recibidoAt });
     return;
   }
   if (!v.motivo) return;
@@ -5306,12 +5309,28 @@ type CtxRespuesta = {
    * `null` = WhatsApp, lo de siempre.
    */
   social: { canal: CanalSocial; cuenta: string | null } | null;
+  /**
+   * LA NOTA DE VOZ DEL LEAD (16/10/2026, `escucharNotaDeVoz`, lib/setter-conversacion.ts): `deVoz` = `texto` es lo que
+   * DIJO; `sinEscucha` = mandó una y no se pudo escuchar, con el porqué (lo dice el aviso al dueño).
+   */
+  voz: { deVoz: boolean; sinEscucha: string | null };
+  /** El plazo de esta respuesta (`PLAZO_AI_STEP_MS`): clasificar, redactar y calificar van con él (`EnVivo`). */
+  hastaMs?: number;
 };
+
+/** Lo que dijo o escribió el lead, como lo cita el aviso al dueño; y si no se pudo escuchar su nota de voz, eso. */
+function citaDelLead(c: Pick<CtxRespuesta, 'texto' | 'voz'>): string {
+  const dicho = c.texto?.trim() ? `\n\n${c.voz.deVoz ? '🎤 ' : ''}_"${c.texto.trim().slice(0, 180)}"_` : '';
+  return c.voz.sinEscucha ? `${dicho}\n\n⚠️ ${c.voz.sinEscucha[0].toUpperCase()}${c.voz.sinEscucha.slice(1)}.` : dicho;
+}
 
 async function contextoDeRespuesta(
   leadId: number, secuencia: SecuenciaConStats, texto: string | undefined, lineaEntrante: string | null,
   social: CtxRespuesta['social'] = null,
+  extra: { voz?: CtxRespuesta['voz']; recibidoAt?: string | null; hastaMs?: number } = {},
 ): Promise<CtxRespuesta> {
+  const voz = extra.voz ?? { deVoz: false, sinEscucha: null };
+  const { hastaMs } = extra;
   const supabase = await getTenantDb();
   const { data: leadRow } = await supabase.from('leads').select('id, nombre, telefono, calificado, empresa').eq('id', leadId).maybeSingle();
   const lead = leadRow as CtxRespuesta['lead'];
@@ -5320,10 +5339,10 @@ async function contextoDeRespuesta(
     // LA CHARLA DE ESE CANAL (`charlaSocialDelLead`): lo que escribió y lo que le salió. Sin borrador del
     // WhatsApp que descartar ni línea: la respuesta sale por la cuenta de Zernio a la que escribió.
     const filas = await charlaSocialDelLead(leadId, social.canal);
-    const historial = conTurnoActual(historialDeMensajes(filas ?? []), texto);
+    const historial = conTurnoActual(historialDeMensajes(filas ?? []), texto, { deVoz: voz.deVoz });
     return {
       leadId, secuencia, texto, lineaEntrante: null, supabase, lead, linea: null,
-      descartarViejo: async () => 0, historial, respondeA: ultimoEntranteMs(filas), social,
+      descartarViejo: async () => 0, historial, respondeA: ultimoEntranteMs(filas), social, voz, hastaMs,
     };
   }
   const linea = lineaEntrante ?? secuencia.instance_name;
@@ -5336,11 +5355,16 @@ async function contextoDeRespuesta(
   // lectura falla, se sigue con el mensaje de hoy, como antes.
   const { mensajesRecientesDelLead } = await import('@/lib/wa-historial');
   const filas = await mensajesRecientesDelLead(leadId, { limite: TURNOS_DE_CONTEXTO + 5, linea: lineaEntrante });
-  const historial = conTurnoActual(historialDeMensajes(filas ?? []), texto);
+  // Una nota de voz escuchada reemplaza su «(mandó un audio)» por lo que DIJO (`conTurnoActual`).
+  const historial = conTurnoActual(historialDeMensajes(filas ?? []), texto, { deVoz: voz.deVoz });
   // Cuándo entró el mensaje que se está contestando: si antes de guardar el borrador entró
   // otro más nuevo, esta redacción ya no contesta lo último (ver `redactarRespuesta`, paso 2).
-  const respondeA = ultimoEntranteMs(filas);
-  return { leadId, secuencia, texto, lineaEntrante, supabase, lead, linea, descartarViejo, historial, respondeA, social: null };
+  // ⚠️ LA HORA DEL PROPIO MENSAJE, si el webhook la trae (revisión del 16/10/2026). «El último que hay al leer» servía
+  // cuando leer era inmediato; escuchar una nota de voz tarda, y si en ese rato el lead escribió otro, su hora quedaba
+  // como la de ESTE: la guarda no lo veía, contestaban las dos corridas y una contestaba lo viejo.
+  const propio = extra.recibidoAt ? Date.parse(extra.recibidoAt) : NaN;
+  const respondeA = Number.isFinite(propio) ? propio : ultimoEntranteMs(filas);
+  return { leadId, secuencia, texto, lineaEntrante, supabase, lead, linea, descartarViejo, historial, respondeA, social: null, voz, hastaMs };
 }
 
 /** ¿Entró un mensaje del lead MÁS NUEVO que el que se está contestando? Lo atiende su propia corrida. */
@@ -5354,6 +5378,57 @@ async function hayMensajeMasNuevo(c: CtxRespuesta): Promise<boolean> {
   return masNuevo != null && masNuevo > c.respondeA;
 }
 
+/** Cuánto tiene el AI Step para escuchar, clasificar, redactar y calificar: el webhook corta a los 420 s. */
+const PLAZO_AI_STEP_MS = 240_000;
+/** Cuánto se espera, dentro de ese plazo, a que se escuche una nota de voz. */
+const PLAZO_ESCUCHAR_MS = 90_000;
+
+/**
+ * LA NOTA DE VOZ DEL LEAD, ESCUCHADA (16/10/2026, docs/mapa-ia-24h.md). Lo puro es `escucharNotaDeVoz`
+ * (lib/setter-conversacion.ts); acá va lo del server:
+ *   · `transcribirAudio` (con su red de plataforma) con un plazo: lo que no entra se corta con su motivo;
+ *   · si el webhook no trajo el audio, se le pide a la instancia (`fetchMediaBase64EnInstancia`);
+ *   · el porqué de un fallo con la regla de la casa (`causaDelFallo` + `fraseDelFallo`, con las keys DEL NEGOCIO);
+ *   · lo que DIJO queda GUARDADO en su mensaje (`wa_mensajes.texto`, compare-and-set sobre el vacío). Sin esto, en el
+ *     turno siguiente su nota volvía a ser «(mandó un audio)» y el setter le volvía a preguntar lo que ya había dicho
+ *     (revisión del 16/10/2026). Con el texto, la charla la ve como «🎤 lo que dijo» y la bandeja como «Dice: …».
+ */
+async function escucharDelLead(
+  textoEntrante: string | undefined, audio: AudioDelLead | null, hastaMs: number,
+): Promise<{ texto: string | undefined; voz: CtxRespuesta['voz'] }> {
+  if (!audio || textoEntrante?.trim()) return { texto: textoEntrante, voz: { deVoz: false, sinEscucha: null } };
+  const [{ transcribirAudio, SttSinEscucha }, { escucharNotaDeVoz }, { conPlazo }] = await Promise.all([
+    import('@/lib/ai-cheap'), import('@/lib/setter-conversacion'), import('@/lib/closing-entrega-contrato'),
+  ]);
+  const plazo = Math.max(5_000, Math.min(PLAZO_ESCUCHAR_MS, hastaMs - Date.now()));
+  const { instancia, chatJid, waMessageId } = audio;
+  const r = await escucharNotaDeVoz(textoEntrante, audio, {
+    transcribir: (b64, mime) => conPlazo(
+      transcribirAudio(b64, mime, { language: 'es', feature: 'AI Step · nota de voz', motivo: 'Escuchar la nota de voz del lead', pii: true }),
+      plazo, 'la IA que escucha',
+    ),
+    traer: instancia && chatJid && waMessageId
+      ? async () => {
+        const { fetchMediaBase64EnInstancia } = await import('@/lib/evolution');
+        return (await fetchMediaBase64EnInstancia(instancia, chatJid, waMessageId, false))?.base64 ?? null;
+      }
+      : undefined,
+    porQue: async (e) => {
+      if (!(e instanceof SttSinEscucha)) return e instanceof Error ? e.message.slice(0, 140) : 'falló';
+      const [{ causaDelFallo, fraseDelFallo }, { clavesCargadas }] = await Promise.all([import('@/lib/fallo-ia-texto'), import('@/lib/ia-keys-ws')]);
+      let keys = 0;
+      for (const prov of ['gemini', 'groq', 'openai']) keys += (await clavesCargadas(prov).catch(() => [])).length;
+      return fraseDelFallo(causaDelFallo(e.errores, keys));
+    },
+  });
+  if (r.deVoz && r.texto && waMessageId) {
+    const supabase = await getTenantDb();
+    const { error } = await supabase.from('wa_mensajes').update({ texto: r.texto.slice(0, 4000) }).eq('wa_message_id', waMessageId).is('texto', null);
+    if (error) console.error(`[nutricion] guardar lo que dijo la nota de voz ${waMessageId}: ${error.message}`);
+  }
+  return { texto: r.texto, voz: { deVoz: r.deVoz, sinEscucha: r.sinEscucha } };
+}
+
 /**
  * El lead contestó: MaKo le prepara (o le manda) la respuesta y le avisa al dueño.
  *
@@ -5364,9 +5439,12 @@ async function hayMensajeMasNuevo(c: CtxRespuesta): Promise<boolean> {
  * Devuelve false (sin hacer nada) si ninguna de las secuencias contesta.
  */
 async function asistirRespuesta(
-  leadId: number, secuenciaIds: number[], texto?: string, lineaEntrante: string | null = null,
-  op: { medio?: MedioAIStep; cuenta?: string | null } = {},
+  leadId: number, secuenciaIds: number[], textoEntrante?: string, lineaEntrante: string | null = null,
+  op: { medio?: MedioAIStep; cuenta?: string | null; audio?: AudioDelLead | null; recibidoAt?: string | null } = {},
 ): Promise<boolean> {
+  // EL PLAZO DE TODO LO QUE SIGUE (16/10/2026): corre adentro del webhook (`maxDuration` 420 s). Escuchar, clasificar,
+  // redactar y calificar —con la red de plataforma— van con este tope, y lo que no entra se corta con su motivo.
+  const hastaMs = Date.now() + PLAZO_AI_STEP_MS;
   const { parseEstrategia } = await import('@/lib/setting-estrategia');
   const secs = await getSecuenciasConStats();
   // AI STEP v2 (décima tanda, docs/diseno-ai-step-v2.md §1): ¿contesta por ESTE medio? Se decide sobre la
@@ -5377,7 +5455,10 @@ async function asistirRespuesta(
   // La secuencia que contesta: la que escucha por el medio o, si no, la asistida de antes (sólo WhatsApp).
   const secuencia = secs.find((s) => secuenciaIds.includes(s.id) && (escuchaPor(s.pasos, medio) || (!social && parseEstrategia(s.estrategia)?.modo === 'asistido')));
   if (!secuencia) return false;
-  const c = await contextoDeRespuesta(leadId, secuencia, texto, lineaEntrante, social ? { canal: social, cuenta: op.cuenta?.trim() || null } : null);
+  // LA NOTA DE VOZ, ESCUCHADA ANTES DE CLASIFICAR (16/10/2026, docs/mapa-ia-24h.md: le llegaba texto vacío y caía en
+  // «Otra cosa»). Recién acá, con una automatización que va a contestar: no se paga escuchar un audio que nadie usa.
+  const { texto, voz } = await escucharDelLead(textoEntrante, op.audio ?? null, hastaMs);
+  const c = await contextoDeRespuesta(leadId, secuencia, texto, lineaEntrante, social ? { canal: social, cuenta: op.cuenta?.trim() || null } : null, { voz, recibidoAt: op.recibidoAt ?? null, hastaMs });
   if (escuchaPor(secuencia.pasos, medio)) return responderConGrafo(c, medio);
   const { supabase, lead, descartarViejo } = c;
 
@@ -5387,7 +5468,7 @@ async function asistirRespuesta(
   //    borrador plausible es justo lo que alguien aprueba sin leer.
   const estrategia = parseEstrategia(secuencia.estrategia);
   const { clasificarEscenario, registrarHandoff } = await import('@/lib/chat-agent-handoff');
-  const clas = await clasificarEscenario(texto ?? '', estrategia?.escenarios ?? []);
+  const clas = await clasificarEscenario(texto ?? '', estrategia?.escenarios ?? [], { redDePlataforma: true, hastaMs: c.hastaMs, pii: true });
   if (!clas.encaja) {
     // La inscripción queda en 'handoff': ni activa (no puede seguir mandando
     // pasos encima de una conversación que no entiende) ni cerrada (ver el
@@ -5400,8 +5481,9 @@ async function asistirRespuesta(
     await descartarViejo();
     await registrarHandoff({
       leadId, secuenciaId: secuencia.id,
-      mensaje: texto?.trim() || '(el lead respondió sin texto)',
-      motivo: clas.motivo,
+      // Lo que DIJO en su nota de voz, marcado; si no se pudo escuchar, ése es el motivo (no «no escribió texto»).
+      mensaje: escritoParaElAviso(texto, c.voz) || '(el lead respondió sin texto)',
+      motivo: c.voz.sinEscucha ?? clas.motivo,
       leadNombre: lead?.nombre, secuenciaNombre: secuencia.nombre,
     });
     return true;
@@ -5435,8 +5517,9 @@ async function redactarRespuesta(c: CtxRespuesta, clas: { escenario: EscenarioSe
   let sinBorrador = '';
   try {
     const { responderSimulador } = await import('@/lib/setting-simulador');
+    // EN VIVO (16/10/2026, `EnVivo`): con la red de plataforma y el plazo de esta respuesta.
     const r = await responderSimulador(secuencia.id, historial, {
-      leadId, escenario: clas.escenario, tema: 'redactar la respuesta a tu lead',
+      leadId, escenario: clas.escenario, tema: 'redactar la respuesta a tu lead', redDePlataforma: true, hastaMs: c.hastaMs, pii: true,
     });
     if (r.ok) { sugerida = r.respuesta; cierre = r.cierre; }
     else sinBorrador = r.error;
@@ -5518,7 +5601,7 @@ async function redactarRespuesta(c: CtxRespuesta, clas: { escenario: EscenarioSe
   let alertaDescalifica = '';
   try {
     const { evaluarCalificacion } = await import('@/lib/setting-simulador');
-    const ev = lead?.calificado == null ? await evaluarCalificacion(secuencia.id, historial, { leadId }) : { califica: null, razon: '' };
+    const ev = lead?.calificado == null ? await evaluarCalificacion(secuencia.id, historial, { leadId, redDePlataforma: true, hastaMs: c.hastaMs, pii: true }) : { califica: null, razon: '' };
     const { data: marcado } = ev.califica === false
       ? await supabase.from('leads').update({ calificado: false, updated_at: ahoraISO() }).eq('id', leadId).is('calificado', null).select('id')
       : { data: [] };
@@ -5605,11 +5688,13 @@ async function redactarRespuesta(c: CtxRespuesta, clas: { escenario: EscenarioSe
   await emitirDelCatalogo('wa-mensaje-entrante', {
     ws: (await getWorkspaceActual()) ?? undefined,
     lead: { id: leadId, nombre: lead?.nombre ?? null },
-    // LO QUE ESCRIBIÓ, como dato que se cita (`{{lead_escribio}}`, undécima tanda).
-    datos: valoresDeLoEscrito(texto),
+    // LO QUE ESCRIBIÓ, como dato que se cita (`{{lead_escribio}}`, undécima tanda). O lo que DIJO, con 🎤, o por qué no
+    // se pudo escuchar (16/10/2026): el aviso del negocio («Un Lead Te Escribió») cita sólo esto.
+    datos: valoresDeLoEscrito(escritoParaElAviso(texto, c.voz)),
     // «a la automatización» desde el 10/10/2026 (restos de versiones anteriores): decía «a la secuencia
     // de mensajes», el nombre de antes de la tab.
-    texto: `💬 *${quien} respondió* a la automatización «${secuencia.nombre}».${texto?.trim() ? `\n\n_"${texto.trim().slice(0, 180)}"_` : ''}${borrador}${alertaDescalifica}\n\n— MaKo`,
+    // Lo que dijo o escribió (`citaDelLead`: 🎤 si fue una nota de voz, y si no se la pudo escuchar, eso).
+    texto: `💬 *${quien} respondió* a la automatización «${secuencia.nombre}».${citaDelLead(c)}${borrador}${alertaDescalifica}\n\n— MaKo`,
   });
   return true;
 }
@@ -5730,7 +5815,7 @@ async function responderConGrafo(c: CtxRespuesta, medio: MedioAIStep = 'whatsapp
     titulo: e.titulo, cuando: e.cuando, comoResponder: e.comoResponder, ...(e.contestaSolo ? { contestaSolo: true } : {}),
   }));
   const { clasificarEscenario } = await import('@/lib/chat-agent-handoff');
-  const clas = await clasificarEscenario(texto ?? '', lista);
+  const clas = await clasificarEscenario(texto ?? '', lista, { redDePlataforma: true, hastaMs: c.hastaMs, pii: true });
   const k = clas.encaja ? lista.indexOf(clas.escenario) : -1;
   const caso = k >= 0 ? escenarios[k] : null;
   const desde = caso ? caso.siguiente : (nodoPorId(pasos, raizRespuesta(pasos))?.si_no ?? null);
@@ -5865,9 +5950,9 @@ async function responderConGrafo(c: CtxRespuesta, medio: MedioAIStep = 'whatsapp
     await emitirDelCatalogo('wa-mensaje-entrante', {
       ws: (await getWorkspaceActual()) ?? undefined,
       lead: { id: leadId, nombre: lead?.nombre ?? null },
-      // LO QUE ESCRIBIÓ, como dato que se cita (`{{lead_escribio}}`, undécima tanda).
-      datos: valoresDeLoEscrito(texto),
-      texto: `💬 *${quien} respondió* a «${secuencia.nombre}».${texto?.trim() ? `\n\n_"${texto.trim().slice(0, 180)}"_` : ''}\n\n${caso ? `Caso «${caso.titulo}».` : 'No encajó en ningún caso.'}${hecho.length ? `\n${hecho.join('\n')}` : ' No hice nada más.'}\n\n— MaKo`,
+      // LO QUE ESCRIBIÓ, como dato que se cita (`{{lead_escribio}}`, undécima tanda), o lo que DIJO (16/10/2026).
+      datos: valoresDeLoEscrito(escritoParaElAviso(texto, c.voz)),
+      texto: `💬 *${quien} respondió* a «${secuencia.nombre}».${citaDelLead(c)}\n\n${caso ? `Caso «${caso.titulo}».` : 'No encajó en ningún caso.'}${hecho.length ? `\n${hecho.join('\n')}` : ' No hice nada más.'}\n\n— MaKo`,
     });
   }
   return true;
@@ -6028,7 +6113,7 @@ async function correrAccionDeRespuesta(c: CtxRespuesta, p: PasoSecuencia, i: num
   const { reclamarEspaciado } = await import('@/lib/espaciado');
   const clave = `${inscId ?? `lead${leadId}`}:${idDe(p, i)}:${respondeA ?? (texto ?? '').trim().slice(0, 300)}`;
   if (!(await reclamarEspaciado(ws, `respuesta-accion:${secuencia.id}`, 7 * 24 * 60, clave).catch(() => false))) return { resumen: null, avisoSalio: esAviso };
-  const respuesta = (texto ?? '').trim().slice(0, 1000);
+  const respuesta = escritoParaElAviso(texto, c.voz).slice(0, 1000);
   // Lo que llena el flujo sale de la MISMA lista que el editor esconde (LLENA_EL_FLUJO): el
   // editor no muestra «respuesta» del aviso porque acá se pisa con lo que escribió el lead.
   const delFlujo = Object.entries(LLENA_EL_FLUJO[operacion] ?? {}).filter(([, fuente]) => fuente === 'respuesta_del_lead');

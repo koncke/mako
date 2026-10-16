@@ -135,7 +135,8 @@ test('GO TO y MAKO: el destino grande; el mensaje llena el panel', () => {
   // «modo grupo» de UN texto (`EditorMensajeGrupo`, que quedó para /mensajes) sino EL MISMO `EditorMensajeWhatsApp`,
   // con la Voz de MaKo (`vozMako`), archivos, varios mensajes y ✦. Lo que se dibuja está en el test de abajo.
   const mako = bloque(FLUJO, 'function EditorMako(', '\n}\n', 4_000);
-  assert.match(mako, /<EditorMensajeWhatsApp\n\s*paso=\{dto\} autor="MaKo" vozMako /, 'el editor MAKO no es el de WhatsApp con la voz de MaKo');
+  // (16/10/2026: «MaKo por email» lo deja en un texto: sin la voz ni archivos. Al grupo, como siempre.)
+  assert.match(mako, /<EditorMensajeWhatsApp\n\s*key=\{porEmail \? 'email' : 'grupo'\}\n\s*paso=\{dto\} autor="MaKo" vozMako=\{!porEmail\} /, 'el editor MAKO no es el de WhatsApp con la voz de MaKo');
   assert.doesNotMatch(mako, /<EditorMensajeGrupo|<textarea|inpLienzo/, 'volvió el editor viejo de la tarjeta MAKO');
 });
 

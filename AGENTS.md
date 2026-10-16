@@ -314,6 +314,16 @@ no: un test que lee algo fuera de git (`.git/hooks`, `.next/`, el home) **lee la
 versionada**, o se saltea diciendo por qué. Uno que se saltea mudo da verde sin haber mirado
 nada (pasaba con el del pre-push hasta ese mismo día).
 
+⚠️ **Y vale para los DATOS de prueba: una ruta que pasa por `resolve`, `join` o un `cwd` no
+puede ser `C:\…` fijo.** En Linux es RELATIVA y `resolve` le pega delante el cwd del runner: el
+16/10/2026 un `REPO = 'C:\\repo\\dashboard-marketing'` dio verde en la notebook y 2 rojos en el
+run 38845971505 (mío, en `tests/tsc-acotado.test.ts`, la noche después de escribir la regla de
+arriba). Va `resolve('/repo/x')` —en Windows queda `C:\repo\x`, en Linux `/repo/x`, y lo esperado
+se deriva de ahí— o `join(tmpdir(), …)`. Lo frena en el push `scripts/rutas-windows-en-tests.mjs`
+(en las guardas baratas): un literal `C:\…` o `C:/…` en `tests/` fuera de los comentarios es un
+error, salvo que el archivo esté en su lista `PERMITIDOS` con el motivo — un nombre de archivo que
+manda el navegador o un texto que se redacta son datos, no rutas.
+
 ⚠️ **Si el árbol compartido tiene trabajo ajeno que no compila, se pushea desde un worktree
 limpio — nunca con `--no-verify`.** `git worktree add --detach <ruta> main`, un junction a
 `node_modules` (`New-Item -ItemType Junction`), `git push origin HEAD:integracion` desde ahí, y
@@ -371,6 +381,33 @@ trabó la cola, y tres pushes salieron verdes **sin llegar a producción**. Se c
   gratis para probar: `NEXT_TURBOPACK_USE_WORKER=0` corre Turbopack en el hilo principal y deja
   un solo heap con el tope de 4 GB en vez de dos (no medido: puede ser más lento). **Subir la máquina de build cuesta plata y lo
   decide Martín.**
+
+# Para validar lo tuyo sin el tsc completo: `node scripts/tsc-acotado.mjs`
+
+El `tsc` completo pide 3-5 GB y lo corre GitHub Actions (ver «El typecheck NO corre en el
+build»). Para chequear lo que tocaste, el ACOTADO: `node scripts/tsc-acotado.mjs <archivos>` o
+`--rama` (lo que cambió la rama contra el merge-base con `origin/main`; contra `origin/main` a
+secas entran los archivos que movió main, con la versión vieja de la rama). ~2,5 GB de heap y
+segundos. **No se arma el tsconfig a mano**: el script ya trae las trampas que daban rojos que no
+eran del código:
+
+- `"files"` con la lista **y** `"include": []`. Sin el include vacío, `extends` hereda el del
+  repo y se chequea todo (sin heap a 2 GB, medido el 14/10).
+- `"typeRoots"` ABSOLUTO a `node_modules/@types` + `"types": ["node"]`. En el completo los tipos
+  de Node entran por `next-env.d.ts` (generado: un worktree ni lo tiene): sin esto sale
+  «Cannot find name 'process'» (TS2580). Medido el 16/10 con
+  `app/web-generator/editor/insertar.ts`: 1 error sin esto, 0 con esto.
+
+Lo que el script NO puede resolver, y conviene saber antes de creerle a un rojo:
+
+- **Un tipo que agrega OTRO archivo con `declare module`** no existe para un archivo compilado
+  solo. Los comandos de cada extensión de TipTap sobre `ChainedCommands` son el caso: ese mismo
+  `insertar.ts` daba 5 rojos así. La cura es importar por tipos lo que se usa
+  (`import type {} from '@tiptap/extension-task-list'`) o sumar ese archivo a la lista.
+- **El acotado no sube a los que importan lo tuyo.** Si cambiaste un TIPO compartido, sumá a
+  sus consumidores.
+- **Salida 99 no es un verde**: el `tsc` no terminó (el vigía de RAM lo mató, o sin heap) y no se
+  miró nada. 0 es «sin errores en esos archivos», no en el repo: el completo lo corre Actions.
 
 # La guardia de RAM puede demorar o negar: no es un error, y no se esquiva
 
@@ -3858,6 +3895,12 @@ voz con un mensaje que le pedía cargar otra key. Dos reglas al escribir un cami
   bien: si una feature mezcla pedidos con y sin datos de clientes, la marca del catálogo queda como
   default cerrado y quien llama la afina con `pii`, EN POSITIVO (lo que no está revisado la lleva;
   molde: `CAJAS_SIN_DATOS_DE_CLIENTES`, lib/graficos-ia-elemento.ts).
+- **La red va como OPCIÓN del que llama, nunca fija en una función compartida** (`EnVivo`,
+  `lib/setting-simulador.ts`, 16/10/2026). Una lectura de la API que un agente externo puede llamar
+  en bucle no la pide: gastaría la cuota gratis de la agencia, que es de la que viven las respuestas
+  en vivo de todos. Y lo que corre adentro de un webhook la pide CON PLAZO (`hastaMs`): sin él, una
+  red lenta mata la función sin dejar ni el aviso.
+
 - **Un 429 del MINUTO también se cubre con otro modelo, y repetir un PEDIDO no repite
   herramientas.** El 07/10/2026 a Brigitte (una sola key) una pregunta de 6-8 pedidos de ~15k
   tokens llenó el cupo del minuto, y el 429 tiraba el turno con seis pasos hechos por una regla

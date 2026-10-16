@@ -703,6 +703,10 @@ export async function analizarLanding(
   const manual = (copyManual ?? '').trim();
   const palabrasDe = (t: string) => t.split(/\s+/).filter(Boolean).length;
   let pagina: LandingExtraida;
+  // La que pegó la persona, si es la MISMA página que la llave (si no, la llave): se baja ésa, y en las ramas que no
+  // bajan nada (lectura del navegador, texto pegado) es la `url_final` que se guarda, para que la barra del Web
+  // Generator la vuelva a abrir por su dirección real y no por la llave (el 403, revisión de la tanda 8).
+  const leer = (() => { try { return opts.leer && claveDeLanding(opts.leer) === url ? opts.leer : null; } catch { return null; } })();
 
   if (opts.lectura) {
     const texto = opts.lectura.texto.trim();
@@ -710,7 +714,7 @@ export async function analizarLanding(
       return { ok: false, error: 'Tu navegador encontró muy poco texto en esa página para diagnosticarla. Pega el contenido completo, de arriba a abajo.', url, pegable: true };
     }
     pagina = {
-      url, urlFinal: url, titulo: '', descripcion: '', bloques: [],
+      url, urlFinal: leer ?? url, titulo: '', descripcion: '', bloques: [],
       texto, palabras: palabrasDe(texto),
       htmlBytes: 0, fetchMs: 0,
       bloqueada: false,   // en la fila va null: `bloqueadaParaGuardar`
@@ -721,14 +725,12 @@ export async function analizarLanding(
       return { ok: false, error: 'Ese texto es muy corto para diagnosticar la página. Pega el contenido completo, de arriba a abajo.', url, pegable: true };
     }
     pagina = {
-      url, urlFinal: url, titulo: '', descripcion: '', bloques: [],
+      url, urlFinal: leer ?? url, titulo: '', descripcion: '', bloques: [],
       texto: manual, palabras: palabrasDe(manual),
       htmlBytes: 0, fetchMs: 0,
       bloqueada: true,   // la página sigue sin poder leerse sola: no se olvida
     };
   } else {
-    // La que pegó la persona, si es la MISMA página que la llave (si no, la llave).
-    const leer = (() => { try { return opts.leer && claveDeLanding(opts.leer) === url ? opts.leer : null; } catch { return null; } })();
     try {
       pagina = await extraerLanding(leer ?? url, leer ? { talCual: true } : {});
       // La fila guarda la llave, no la dirección con www o query que se bajó.

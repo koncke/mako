@@ -133,10 +133,11 @@ test('la ruta: objeciones del AI Step entero y «Responde MaKo» con el clasific
   assert.match(ruta, /user: pedidoDeObjeciones\(\{ \.\.\.ai, perfil,/);
   assert.match(ruta, /const esc = escenarioDeAIStep\(ai, ob, medio\);/);
   const mako = ruta.slice(ruta.indexOf("if (body.action === 'mako') {"), ruta.indexOf("if (body.action !== 'lead')"));
-  assert.match(mako, /const \{ casos, escenarios \} = casosDelClasificador\(pasos, medio\);\n\s+const clas = await clasificarEscenario\(historial\[historial\.length - 1\]\.texto, escenarios\);/);
+  // (16/10/2026: con la red de plataforma, como en vivo: tests/ai-step-red-y-voz.test.ts.)
+  assert.match(mako, /const \{ casos, escenarios \} = casosDelClasificador\(pasos, medio\);\n(\s*\/\/[^\n]*\n)*\s+const clas = await clasificarEscenario\(historial\[historial\.length - 1\]\.texto, escenarios, \{ redDePlataforma: true \}\);/);
   assert.match(mako, /const elegido = respuestaDelEnsayo\(pasos, medio, i >= 0 \? casos\[i\]\.casoId : null\);/);
   assert.match(mako, /if \(!elegido\.escenario\) return Response\.json\(\{ ok: true, respuesta: null, escenario: elegido\.titulo \}\);/);
-  assert.match(mako, /responderSimulador\(secuenciaId, historial, \{ tema: 'contestar en el ensayo', escenario: elegido\.escenario \}\)/);
+  assert.match(mako, /responderSimulador\(secuenciaId, historial, \{ tema: 'contestar en el ensayo', escenario: elegido\.escenario, redDePlataforma: true \}\)/);
   assert.doesNotMatch(ruta, /claude|anthropic|CASCADA_DOCS/i, 'el ensayo gasta una IA paga');
   const modal = sinComentarios(leer('app/automations/ModalEnsayoAIStep.tsx'));
   assert.match(modal, /pedir\(\{ action: 'mako', secuenciaId, pasos: pasosRef\.current, historial: historialDe\(hiloRef\.current\) \}\)/);
