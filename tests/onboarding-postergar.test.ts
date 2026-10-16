@@ -31,9 +31,11 @@ test('la lista de postergables está clavada: agrandarla es una decisión, no un
   assert.deepEqual([...PASOS_POSTERGABLES], ['integraciones', 'tabs']);
 });
 
-test('`gemini` NO es postergable: seis pasos posteriores lo consumen', () => {
-  // Postergarlo no deja seguir: deja llegar a la próxima pantalla y romper ahí, con
-  // "no hay IA", que es peor que frenar en el paso con el motivo escrito.
+test('`gemini` NO es postergable', () => {
+  // ⚠️ DESDE EL 15/10/2026 ES OPCIONAL, que es otra cosa: se pasa sin conectar y queda
+  // HECHO, porque lo de después corre con la red de la plataforma
+  // (tests/onboarding-sin-api.test.ts). Postergar es dejarlo pendiente con un recordatorio
+  // en /general, y un paso opcional no deja nada pendiente que recordar.
   assert.equal(esPostergable('gemini'), false);
   // Y los de contenido tampoco: el cliente los puede contestar ahora mismo.
   for (const p of ['archivero', 'avatares', 'entregable', 'angulos', 'fase', 'negocio']) {

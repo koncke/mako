@@ -225,6 +225,11 @@ export async function generarPlanArranque(opts: { timeoutMs?: number } = {}): Pr
       modelos: pin ? ({ [pin.provider]: pin.model } as Partial<Record<ProvName, string>>) : MODELO_DOCS,
       validar: (t) => { try { return parsePlanIA(t).tareas.length >= 8; } catch { return false; } },
       erroresOut: errores,
+      // Es el último paso del ARRANQUE, y desde el 15/10/2026 el arranque no pide una key
+      // propia (el paso de la IA del wizard es opcional): sin la red, un cliente sin keys
+      // terminaba el wizard sin su plan. Gratis y después de las keys del cliente
+      // (`provsGratisDePlataforma`), así que no contradice «el Plan nunca paga IA».
+      redDePlataforma: true,
     });
   } catch (e) {
     return { ok: false, error: 'ia-fallo', motivo: errores[0] ?? (e instanceof Error ? e.message : String(e)) };
