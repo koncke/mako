@@ -71,6 +71,32 @@ export function avisoPagoPorLinkAnulado(cuotaYaCobrada: boolean): string {
     : 'Se pagó por un link ANULADO: revisa que no lo hayas cobrado por otro lado.';
 }
 
+/** Por qué falló una devolución de Stripe (`failure_reason` de la Refund), en palabras. Lo que no se conoce no se inventa. */
+const RAZON_DEVOLUCION_FALLIDA: Readonly<Record<string, string>> = {
+  lost_or_stolen_card: 'la tarjeta está denunciada',
+  expired_or_canceled_card: 'la tarjeta venció o se dio de baja',
+  charge_for_pending_refund_disputed: 'el cliente abrió una disputa por ese cargo',
+  insufficient_funds: 'no había saldo en la cuenta de Stripe',
+  declined: 'el banco la rechazó',
+  merchant_request: 'se canceló desde la cuenta de Stripe',
+};
+
+/**
+ * ⚠️ UNA DEVOLUCIÓN DE STRIPE PUEDE FALLAR DESPUÉS (15/10/2026). Se crea `pending` o `succeeded` y días después pasa a
+ * `failed`: Stripe devuelve la plata al saldo del negocio y el cargo vuelve a estar cobrado. MaKo la daba por hecha
+ * para siempre. `sigueDevuelto`: el cargo sigue devuelto por OTRA devolución, y entonces no se revierte nada.
+ */
+/** ¿Este `motivo` es el de una devolución que falló (`textoDevolucionFallida`)? */
+export const esDevolucionFallida = (motivo: string | null | undefined): boolean =>
+  typeof motivo === 'string' && /^(?:La|Una) devolución falló en Stripe/.test(motivo);
+
+export function textoDevolucionFallida(p: { razon: string | null; sigueDevuelto: boolean }): string {
+  const por = p.razon && RAZON_DEVOLUCION_FALLIDA[p.razon] ? ` (${RAZON_DEVOLUCION_FALLIDA[p.razon]})` : '';
+  return p.sigueDevuelto
+    ? `Una devolución falló en Stripe${por}; el cargo sigue devuelto por otra.`
+    : `La devolución falló en Stripe${por}: la plata sigue cobrada.`;
+}
+
 /** ¿Este pago confirmado es una RENOVACIÓN (otra factura de la misma suscripción) y no el primero? */
 export function esRenovacion(c: { tipo: TipoCobro; proveedor_pago_id: string | null }, proveedorPagoId: string): boolean {
   return c.tipo === 'suscripcion' && !!c.proveedor_pago_id && c.proveedor_pago_id !== proveedorPagoId;
@@ -99,7 +125,13 @@ export function urlPorVencer(venceAtIso: string | null | undefined, ahoraMs: num
 
 /** Las claves de idempotencia, DETERMINÍSTICAS: la misma operación sobre el mismo cobro manda la misma. */
 export const idemCobro = (cobroId: number, vuelta = 0): string => (vuelta ? `mako-cobro-${cobroId}-${vuelta}` : `mako-cobro-${cobroId}`);
-export const idemReembolso = (cobroId: number): string => `mako-reembolso-${cobroId}`;
+/**
+ * ⚠️ La clave del reembolso es la del cobro, así una confirmación repetida no devuelve dos veces. Pero después de una
+ * devolución FALLIDA, la misma clave dentro de las 24 h le devolvería a MaKo la respuesta vieja SIN crear otra
+ * devolución: el reintento lleva el `updated_at` del cobro que dejó la falla (`reintento`).
+ */
+export const idemReembolso = (cobroId: number, reintento?: string | null): string =>
+  (reintento ? `mako-reembolso-${cobroId}-${reintento}` : `mako-reembolso-${cobroId}`);
 export const idemBaja = (cobroId: number): string => `mako-baja-${cobroId}`;
 export const idemAnular = (cobroId: number): string => `mako-anular-${cobroId}`;
 

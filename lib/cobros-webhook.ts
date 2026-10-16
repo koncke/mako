@@ -26,16 +26,16 @@ import { revalidateTag } from 'next/cache';
 import { credDelCliente, credWsEstricta } from './credenciales';
 import { TAG } from './cache';
 import {
-  aplicarPagoAprobado, aplicarPagoFallido, aplicarReembolso, aplicarSuscripcionCancelada, cobroDelAviso,
+  aplicarPagoAprobado, aplicarPagoFallido, aplicarReembolso, aplicarReembolsoFallido, aplicarSuscripcionCancelada, cobroDelAviso,
 } from './cobros';
 import type { Cobro } from './cobros-tipos';
 import {
-  avisoStripe, buscarDePagoMp, claveEventoMp, confirmarCargo, confirmarCheckout, confirmarFactura, esDelCobro,
+  avisoStripe, buscarDePagoMp, claveEventoMp, confirmarCargo, confirmarCheckout, confirmarDevolucionFallida, confirmarFactura, esDelCobro,
   mismoModo, nombreModo, planDePagoMp, suscripcionMpCancelada, tokenReleido,
   type ClaveCobro, type EventoStripe, type NotificacionMp, type PlanPagoMp, type ResultadoEvento,
 } from './cobros-eventos';
 import {
-  facturaDePagoStripe, leerCargoStripe, leerCheckoutStripe, leerFacturaStripe, leerSuscripcionStripe, modoDeClaveStripe,
+  facturaDePagoStripe, leerCargoStripe, leerCheckoutStripe, leerFacturaStripe, leerReembolsoStripe, leerSuscripcionStripe, modoDeClaveStripe,
 } from './stripe-api';
 import { leerCuotaSuscripcionMp, leerPagoMp, leerSuscripcionMp, type PagoMp } from './mercadopago-api';
 
@@ -155,16 +155,46 @@ export async function procesarEventoStripe(ws: number, ev: EventoStripe): Promis
     return procesado(c.id);
   }
 
-  // objeto === 'cargo': un reembolso. Se relee el cargo PRIMERO (es lo que dice si fue total), y el
-  // cobro se busca por el payment intent (pago único) o, si no aparece, por la factura que pagó ese
-  // payment intent (una cuota de suscripción: desde basil el cargo ya no trae `invoice`).
+  if (objeto === 'reembolso') {
+    // ⚠️ UNA DEVOLUCIÓN QUE FALLÓ (15/10/2026): se relee la devolución (que de verdad falló) y su CARGO, que es lo que
+    // dice si sigue devuelto por otra. Lo que `aplicarReembolso` deshizo, `aplicarReembolsoFallido` lo rehace.
+    const dev = await leerReembolsoStripe(key, id);
+    if (!dev.ok) throw errorDelProveedor('Stripe', 'la devolución', dev);
+    const fallo = confirmarDevolucionFallida(dev);
+    if (!fallo.ok) return ignorado(fallo.motivo);
+    const cargo = await leerCargoStripe(key, fallo.cargo);
+    if (!cargo.ok) throw errorDelProveedor('Stripe', 'el cargo', cargo);
+    const pi = cargo.paymentIntent ?? dev.paymentIntent ?? aviso.buscar.pagoId ?? null;
+    const { b, pagoId } = await cobroDelPagoStripe(key, ws, ev, aviso.buscar.token ?? null, pi);
+    if ('ignorar' in b) return b.ignorar;
+    await aplicarReembolsoFallido(b.cobro, { proveedorPagoId: pagoId, sigueDevuelto: cargo.reembolsado, razon: dev.motivo, fechaCargo: cargo.creado });
+    invalidarLecturas();
+    return procesado(b.cobro.id, cargo.reembolsado ? 'devolución fallida (el cargo sigue devuelto por otra)' : 'devolución fallida');
+  }
+
+  // objeto === 'cargo': un reembolso. Se relee el cargo PRIMERO (es lo que dice si fue total).
   const cargo = await leerCargoStripe(key, id);
   if (!cargo.ok) throw errorDelProveedor('Stripe', 'el cargo', cargo);
   const conf = confirmarCargo(cargo);
   if (!conf.ok) return ignorado(conf.motivo);
   const pi = conf.paymentIntent ?? aviso.buscar.pagoId ?? null;
-  let pagoReembolsado: string | null = pi;
-  let b = await cobroStripe(ws, ev, { token: aviso.buscar.token, pagoId: pi });
+  const { b, pagoId } = await cobroDelPagoStripe(key, ws, ev, aviso.buscar.token ?? null, pi);
+  if ('ignorar' in b) return b.ignorar;
+  await aplicarReembolso(b.cobro, { proveedorPagoId: pagoId, total: conf.total });
+  invalidarLecturas();
+  return procesado(b.cobro.id, conf.total ? null : 'reembolso parcial');
+}
+
+/**
+ * El cobro de un PAGO de Stripe (un reembolso o una devolución fallida): por el payment intent (pago único) o, si no
+ * aparece, por la factura que pagó ese payment intent (una cuota de suscripción: desde basil el cargo ya no trae
+ * `invoice`). Devuelve también el id con que se asentó ese pago en el CRM (el payment intent o la factura).
+ */
+async function cobroDelPagoStripe(
+  key: string, ws: number, ev: EventoStripe, token: string | null, pi: string | null,
+): Promise<{ b: { cobro: Cobro } | { ignorar: ResultadoEvento }; pagoId: string | null }> {
+  let pagoId: string | null = pi;
+  let b = await cobroStripe(ws, ev, { token, pagoId: pi });
   // Sólo si NO apareció (cobroId null): uno que apareció y se ignoró por el modo ya está decidido.
   if ('ignorar' in b && b.ignorar.cobroId == null && pi) {
     const fp = await facturaDePagoStripe(key, pi);
@@ -172,14 +202,11 @@ export async function procesarEventoStripe(ws: number, ev: EventoStripe): Promis
     if (fp.invoice) {
       const f = await leerFacturaStripe(key, fp.invoice);
       if (!f.ok) throw errorDelProveedor('Stripe', 'la factura', f);
-      pagoReembolsado = f.id;
+      pagoId = f.id;
       b = await cobroStripe(ws, ev, { token: tokenReleido({ metadata: f.metadata }), suscripcionId: f.suscripcion, pagoId: f.id });
     }
   }
-  if ('ignorar' in b) return b.ignorar;
-  await aplicarReembolso(b.cobro, { proveedorPagoId: pagoReembolsado, total: conf.total });
-  invalidarLecturas();
-  return procesado(b.cobro.id, conf.total ? null : 'reembolso parcial');
+  return { b, pagoId };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

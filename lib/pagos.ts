@@ -890,6 +890,33 @@ export async function registrarCobroDeProveedor(p: {
 }
 
 /**
+ * Lo contrario de `desmarcarCobroDeProveedor`, cuando la DEVOLUCIÓN FALLA (15/10/2026): Stripe devuelve la plata al
+ * saldo del negocio y el cargo vuelve a estar cobrado, así que la cuota también. Va por `marcarPago` (sincroniza lo
+ * cobrado y el primer pago) con la fecha del CARGO: desmarcar borró la del pago y el vencimiento, y el vencimiento se
+ * repone con esa misma fecha (una cuota pagada sin vencimiento quedaba fuera de las lecturas que lo filtran). Una cuota
+ * que no estaba desmarcada (una devolución parcial nunca desmarca) no se toca.
+ */
+export async function remarcarCobroDeProveedor(p: {
+  leadId: number;
+  proveedor: 'stripe' | 'mercadopago';
+  proveedorPagoId: string;
+  fechaPago: string;
+}): Promise<{ remarcado: boolean }> {
+  await asegurarLeadDelNegocio(p.leadId);
+  const db = await getTenantDb();
+  const { data, error } = await db.from('pagos').select('id, pagado, fecha_esperada')
+    .eq('lead_id', p.leadId).eq('proveedor', p.proveedor).eq('proveedor_pago_id', p.proveedorPagoId).maybeSingle();
+  if (error) throw new Error(`Error buscando el cobro ${p.proveedorPagoId}: ${error.message}`);
+  if (!data || data.pagado) return { remarcado: false };
+  if (!data.fecha_esperada) {
+    const { error: e1 } = await db.from('pagos').update({ fecha_esperada: p.fechaPago }).eq('id', data.id).is('fecha_esperada', null);
+    if (e1) throw new Error(`Error reponiendo el vencimiento del cobro ${p.proveedorPagoId}: ${e1.message}`);
+  }
+  await marcarPago(Number(data.id), true, p.fechaPago);
+  return { remarcado: true };
+}
+
+/**
  * El reembolso de un pago de la pasarela: la cuota queda DESMARCADA (no se borra: el historial
  * del lead la cuenta) y se recalcula lo cobrado.
  *

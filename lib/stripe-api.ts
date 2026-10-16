@@ -26,7 +26,9 @@ export const STRIPE_API = 'https://api.stripe.com';
 export const STRIPE_VERSION = '2026-09-30.endive';
 
 /** Los eventos que escucha el webhook de MaKo en la cuenta del negocio. NO `invoice.created`: si su
- *  respuesta falla, Stripe demora la finalización de las facturas hasta 72 h. */
+ *  respuesta falla, Stripe demora la finalización de las facturas hasta 72 h. `refund.failed` existe desde
+ *  2024-10-28.acacia (un nombre que Stripe no conoce hace fallar la CREACIÓN del aviso, o sea, conectar).
+ *  ⚠️ Cambiar esta lista NO le llega a los avisos ya registrados: ver `asegurarEventosStripe`. */
 export const EVENTOS_STRIPE = [
   'checkout.session.completed',
   'checkout.session.async_payment_succeeded',
@@ -36,6 +38,7 @@ export const EVENTOS_STRIPE = [
   'invoice.payment_failed',
   'customer.subscription.deleted',
   'charge.refunded',
+  'refund.failed',
 ] as const;
 
 export type R<T> = ({ ok: true } & T) | { ok: false; status: number; error: string };
@@ -137,15 +140,15 @@ function firmaDelAviso(u: string | null): string | null {
  * mudanza de dominio el aviso viejo quedaba en la cuenta del cliente apuntando a una URL muerta, y Stripe le
  * manda mails de fallo durante días (revisión del 11/10/2026).
  */
-async function avisosNuestros(key: string, url: string): Promise<R<{ ids: string[] }>> {
+async function avisosNuestros(key: string, url: string): Promise<R<{ ids: string[]; avisos: Array<{ id: string; eventos: string[] }> }>> {
   const lista = await llamar(key, 'GET', '/v1/webhook_endpoints', { limit: 100 });
   if (!lista.ok) return fallo(lista);
   const firma = firmaDelAviso(url);
-  const ids = (Array.isArray(lista.body.data) ? lista.body.data : []).map(obj)
+  const avisos = (Array.isArray(lista.body.data) ? lista.body.data : []).map(obj)
     .filter((e) => str(e.url) === url || (!!firma && obj(e.metadata).mako === '1' && firmaDelAviso(str(e.url)) === firma))
-    .map((e) => str(e.id))
-    .filter((id): id is string => !!id);
-  return { ok: true, ids };
+    .map((e) => ({ id: str(e.id), eventos: (Array.isArray(e.enabled_events) ? e.enabled_events : []).map((x) => String(x)) }))
+    .filter((a): a is { id: string; eventos: string[] } => !!a.id);
+  return { ok: true, ids: avisos.map((a) => a.id), avisos };
 }
 
 async function borrarAvisos(key: string, ids: readonly string[]): Promise<R<{ borrados: number }>> {
@@ -163,6 +166,26 @@ export async function borrarWebhooksStripe(key: string, url: string): Promise<R<
   const nuestros = await avisosNuestros(key, url);
   if (!nuestros.ok) return fallo(nuestros);
   return borrarAvisos(key, nuestros.ids);
+}
+
+/**
+ * ⚠️ LOS AVISOS YA REGISTRADOS NO SE ENTERAN CUANDO `EVENTOS_STRIPE` CAMBIA (15/10/2026): Stripe guarda la lista con la
+ * que se creó cada uno, y sólo `asegurarWebhookStripe` (al conectar) la escribe. Esto la pone al día sin tocar el
+ * secreto: actualizar un aviso (POST /v1/webhook_endpoints/{id}) no cambia su `whsec_`. Uno con `*` ya escucha todo.
+ * Sin Idempotency-Key a propósito: repetir la actualización es inofensivo, y una clave reusada con OTRA lista (un
+ * deploy que la cambia dentro de las 24 h) Stripe la rechaza.
+ */
+export async function asegurarEventosStripe(key: string, url: string): Promise<R<{ actualizados: number }>> {
+  const nuestros = await avisosNuestros(key, url);
+  if (!nuestros.ok) return fallo(nuestros);
+  let actualizados = 0;
+  for (const a of nuestros.avisos) {
+    if (a.eventos.includes('*') || EVENTOS_STRIPE.every((e) => a.eventos.includes(e))) continue;
+    const r = await llamar(key, 'POST', `/v1/webhook_endpoints/${encodeURIComponent(a.id)}`, { enabled_events: [...EVENTOS_STRIPE] });
+    if (!r.ok) return fallo(r);
+    actualizados++;
+  }
+  return { ok: true, actualizados };
 }
 
 /**
@@ -309,13 +332,22 @@ export async function leerSuscripcionStripe(key: string, id: string): Promise<R<
   return { ok: true, id: str(r.body.id) ?? id, estado: str(r.body.status), metadata: metadataDe(r.body.metadata) };
 }
 
-export async function leerCargoStripe(key: string, id: string): Promise<R<{ id: string; paymentIntent: string | null; reembolsado: boolean; montoReembolsado: number | null; monto: number | null; moneda: string | null }>> {
+export async function leerCargoStripe(key: string, id: string): Promise<R<{ id: string; paymentIntent: string | null; reembolsado: boolean; montoReembolsado: number | null; monto: number | null; moneda: string | null; creado: string | null }>> {
   const r = await llamar(key, 'GET', `/v1/charges/${encodeURIComponent(id)}`);
   if (!r.ok) return fallo(r);
   const b = r.body;
   const moneda = str(b.currency)?.toUpperCase() ?? null;
   const conv = (n: unknown) => (moneda && Number.isFinite(Number(n)) ? deUnidadMinima(Number(n), moneda) : null);
-  return { ok: true, id: str(b.id) ?? id, paymentIntent: idDe(b.payment_intent), reembolsado: b.refunded === true, montoReembolsado: conv(b.amount_refunded), monto: conv(b.amount), moneda };
+  const creado = Number.isFinite(Number(b.created)) && Number(b.created) > 0 ? new Date(Number(b.created) * 1000).toISOString() : null;
+  return { ok: true, id: str(b.id) ?? id, paymentIntent: idDe(b.payment_intent), reembolsado: b.refunded === true, montoReembolsado: conv(b.amount_refunded), monto: conv(b.amount), moneda, creado };
+}
+
+/** GET /v1/refunds/{id}: el estado de una devolución (`pending`, `succeeded`, `failed`, `canceled`…) y por qué falló. */
+export async function leerReembolsoStripe(key: string, id: string): Promise<R<{ id: string; estado: string | null; cargo: string | null; paymentIntent: string | null; motivo: string | null }>> {
+  const r = await llamar(key, 'GET', `/v1/refunds/${encodeURIComponent(id)}`);
+  if (!r.ok) return fallo(r);
+  const b = r.body;
+  return { ok: true, id: str(b.id) ?? id, estado: str(b.status), cargo: idDe(b.charge), paymentIntent: idDe(b.payment_intent), motivo: str(b.failure_reason) };
 }
 
 export async function leerPaymentIntentStripe(key: string, id: string): Promise<R<{ id: string; estado: string | null; metadata: Record<string, string> }>> {
