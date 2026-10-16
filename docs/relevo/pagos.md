@@ -5,17 +5,29 @@ integración con Mercado Pago y con Stripe, tipo pasarela de pagos... Lo voy a u
 vender MaKo, pero también los usuarios pueden alojarlo... revisa si hay que meterlo en diferentes lugares, como
 la API de MaKo, como automatios, como el CRM, etc...».
 
-**16/10/2026 — LA TAB PAGOS DEL LEAD, EN BLOQUES (rama `pagos-tab-bloques`, sobre `crm-armador`).** Pedido de
-Martín, que pasó Cerebro: «la tab de PAGOS que está un desastre también en funcionalidad, no se entiende... NO tengas
-miedo a ELIMINAR todo». Dónde está cada cosa:
+**16/10/2026 — LA TAB PAGOS DEL LEAD, EN BLOQUES: EN PRODUCCIÓN** (runs 34, 36 y 38; la mig 0295 aplicada y verificada
+en el catálogo). Pedido de Martín, que pasó Cerebro: «la tab de PAGOS que está un desastre también en funcionalidad,
+no se entiende... NO tengas miedo a ELIMINAR todo». La sesión cerró al 96% del uso semanal de la cuenta 3.
 
 - **El marco** (tabs, armador, plantillas, galería) es del chat CRM. **El contenido** es de Pagos:
   `app/crm/lead-view/ficha/{reglas-pagos.ts, registro-pagos.tsx, pagos/}`, las filas de Pagos del catálogo y de la §3
   del diseño, las listas de Pagos de `lib/ficha/plantillas.ts` y `lib/ficha/plantillas-pagos.ts` (la galería).
-- **El relevamiento** está en [hallazgos-pagos.md](../hallazgos-pagos.md): lo que no se entendía, lo de plata que no se
-  podía perder, las trampas y lo que quedó sin hacer.
-- **Falta verla en el navegador**, en escritorio y en el teléfono. Customer Success sigue con DealDetailsCard: es la
-  tanda T3, con el CRM.
+- **El relevamiento, las trampas y lo que quedó sin hacer** están en [hallazgos-pagos.md](../hallazgos-pagos.md).
+
+**Lo que sigue, en orden** (nada empezado):
+1. **Verla en el navegador**, en escritorio y en el teléfono, con tres casos: un ganado con cuotas, una suscripción
+   y un lead abierto. Cerebro se lo pidió a Martín. Hay que mirar que cada bloque se calle o se dibuje como dicen
+   `reglas-pagos.ts` y docs/hallazgos-pagos.md §2.
+2. **Sacar el cast de `epico`.** El CRM ya lo puso en `PropsBloque` (sale en el run 47). Se cambia `esEpico` en
+   `app/crm/lead-view/ficha/pagos/bloques-cobro.tsx` por `props.epico`. Es un cambio chico.
+3. **`PlantillaTab`.** Cuando el CRM cree `lib/ficha/plantillas-tab.ts`, el tipo local de
+   `lib/ficha/plantillas-pagos.ts` se cambia por su import.
+4. **Customer Success (tanda T3, con el CRM).** Su tab Pagos sigue montando DealDetailsCard
+   (`app/customer-success/FichaPestanas.tsx:84`). Al pasarla a bloques se borran juntos DealDetailsCard, EditarDeal,
+   `?edit=1`, «Completar con IA», `saveDealSectionsAction` y `saveCuotasAction`, con las aserciones que los fijan.
+5. **Lo que quedó abierto a propósito** (hallazgos-pagos.md §4): marcar a mano una cuota cuyo link se pagó y todavía
+   no se asentó la cuenta dos veces cuando entra el cron (`lib/pagos.ts`, `cobrarCuota`); y los bloques sin componente
+   (`confirmacion-de-pago`, `recordatorios-de-cobro`, `excepciones`, `cliente-en-cs`).
 
 ## Lo que hay que leer primero
 
