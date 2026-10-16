@@ -47,6 +47,8 @@ export type Mensaje =
 			aplicada?: AplicadaChat;
 			/** Una propuesta que llegó por la API de MaKo (./propuestas.ts): al aceptarla o descartarla se cierra en la base. */
 			propuestaApi?: { id: string; canal: string };
+			/** Una burbuja de un pedido que no es del proyecto abierto (./pedidos.ts): a dónde lleva. Siempre de adentro de la app. */
+			links?: Array<{ texto: string; href: string }>;
 	  };
 export type MensajeMako = Extract<Mensaje, { de: "mako" }>;
 type SinId<M> = M extends unknown ? Omit<M, "id" | "c" | "t"> : never;

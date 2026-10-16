@@ -243,6 +243,29 @@ const PARTES_DE_LO_ABIERTO: Partial<Readonly<Record<Area, RegExp>>> = {
 const esParteDeLoAbierto = (tab: Area, palabra: string | undefined): boolean =>
   !!palabra && !!PARTES_DE_LO_ABIERTO[tab]?.test(plano(nfc(palabra)).trim());
 
+/**
+ * Y al revés: las palabras que, DENTRO de una tab, nombran OTRO objeto de esa misma tab aunque `AREA_KEYWORDS` las
+ * ponga en otra área. El Video Editor llama «proyecto» a cada video (como CapCut: «Nuevo proyecto», y su inicio lista
+ * proyectos), y «proyecto» es palabra del área `plan`: sin esto, «créame otro proyecto» en el editor se iba al Plan y
+ * «el otro proyecto» no era «el otro» (visto al engancharlo, 16/10/2026). Fuera de su tab, sigue siendo del Plan.
+ */
+const OBJETOS_DE_LA_TAB: Partial<Readonly<Record<Area, { palabra: RegExp; enTexto: RegExp }>>> = {
+  video: { palabra: /^proyectos?$/, enTexto: /\bproyectos?\b/giu },
+};
+
+const esObjetoDeLaTab = (tab: Area, palabra: string | undefined): boolean =>
+  !!palabra && !!OBJETOS_DE_LA_TAB[tab]?.palabra.test(plano(nfc(palabra)).trim());
+
+/** ¿El texto nombra ese `area` SÓLO con las palabras de los objetos de esta tab? Entonces es de esta tab. */
+function soloConPalabrasDeLaTab(texto: string, area: Area, tab: Area): boolean {
+  const de = OBJETOS_DE_LA_TAB[tab];
+  if (!de || area === tab) return false;
+  const original = nfc(texto);
+  if (!new RegExp(de.enTexto.source, de.enTexto.flags).test(plano(original))) return false;
+  const sin = original.replace(new RegExp(de.enTexto.source, de.enTexto.flags), ' ');
+  return !areasEn(sin, plano(sin)).some((a) => a.area === area);
+}
+
 /** La última palabra de una frase («otra página» → «página»). */
 const ultimaPalabra = (frase: string): string | undefined => /([\p{L}\p{N}]+)\s*$/u.exec(frase)?.[1];
 
@@ -420,7 +443,7 @@ function referidos(l: Lectura, ref: string | null, otros: readonly ObjetoChat[],
   const laOtra = /\b(?:l[ao]s?|el|mis?)\s+otr[ao]s?\b(?:\s+([a-z0-9]+))?/.exec(fuente) ?? /\botr[ao]s?\s+([a-z0-9]{3,})/.exec(fuente);
   if (laOtra) {
     const sust = laOtra[1];
-    const esDeLaTab = !sust || NO_SUSTANTIVO.has(sust)
+    const esDeLaTab = !sust || NO_SUSTANTIVO.has(sust) || esObjetoDeLaTab(tab, sust)
       || (ANCLADAS[tab].test(fuente.slice(laOtra.index + laOtra[0].length - sust.length)) && !esParteDeLoAbierto(tab, sust));
     if (esDeLaTab) return { como: 'otro', lista: [...otros] };
   }
@@ -464,10 +487,14 @@ function hacemosDe(l: Lectura): string {
 function decidir(c: PedidoCrudo, ctx: ContextoPedidos): Decision {
   const tab = ctx.tab;
   const l = leer(c.texto);
-  const area = c.area ?? tab;
+  // El objeto del verbo es OTRO objeto de esta tab con una palabra de otra área («otro proyecto» en el Video Editor),
+  // o el pedido nombra esa otra área sólo con esa palabra: es de esta tab (`OBJETOS_DE_LA_TAB`).
+  const propio = !!l.objeto && esObjetoDeLaTab(tab, ultimaPalabra(l.objeto.frase));
+  const area = propio || (c.area != null && soloConPalabrasDeLaTab(c.texto, c.area, tab)) ? tab : c.area ?? tab;
   const actual = ctx.actual ?? null;
   // El objeto del verbo es una PARTE de lo abierto («crea otra página» en un diseño, «otro gráfico» en una hoja).
   const parte = !!l.objeto && esParteDeLoAbierto(tab, ultimaPalabra(l.objeto.frase));
+  const deEstaTab = l.objeto?.area === tab || propio;
 
   if (area !== tab) {
     // La palabra es de otra área, pero en esta tab nombra una parte de lo abierto: es un cambio de lo abierto,
@@ -491,14 +518,14 @@ function decidir(c: PedidoCrudo, ctx: ContextoPedidos): Decision {
 
   // Crear algo de ESTA tab («créame otra landing») es uno nuevo; «crea una sección» o «crea otra página» es un
   // cambio de lo abierto.
-  if (c.verbo === 'crear' && l.objeto?.area === tab && !parte) {
+  if (c.verbo === 'crear' && l.objeto && deEstaTab && !parte) {
     return { pedido: { sobre: 'nuevo', texto: c.texto, operacion: operacionPara('crear', tab, c.texto, ctx) }, ambiguo: false, frase: l.objeto.frase, hacemos: hacemosDe(l) };
   }
   const otros = (ctx.objetos ?? []).filter((o) => o.id !== actual?.id);
   const r = referidos(l, c.referencia, otros, tab);
   if (r) return { pedido: sobreOtro(c, r.lista, ctx), ambiguo: false, frase: null };
   // «Elimina esta landing»: borrar lo ABIERTO tampoco va por el camino de siempre (el editor no borra).
-  if (c.verbo === 'borrar' && l.objeto?.area === tab && actual && !parte) return { pedido: sobreOtro(c, [actual], ctx), ambiguo: false, frase: null };
+  if (c.verbo === 'borrar' && deEstaTab && actual && !parte) return { pedido: sobreOtro(c, [actual], ctx), ambiguo: false, frase: null };
   return { pedido: { sobre: 'actual', texto: c.texto }, ambiguo: false, frase: null };
 }
 

@@ -205,6 +205,13 @@ aparece la burbuja (se deshace con su botón), así que no queda nada a medias q
 - **Automations**: su función en `objetosDeTab` y el fetch de arriba en su chat.
 - **Image Editor y Video Editor**: sus objetos ya están (16/10); falta que sus chats llamen a la ruta (el del Video
   Editor, mandando `objetos`).
+- **Video Editor**: enganchado el 16/10 (`app/video-editor/_opencut/chat/pedidos.ts` + `PanelChat.tsx`, test
+  `tests/video-editor-pedidos-chat.test.ts`): manda sus proyectos como `objetos`; lo del proyecto abierto va a su IA y
+  lo demás son burbujas con link. Borrar un proyecto NO se hace desde el chat (no hay papelera: se va con su
+  material); la burbuja dice dónde. Y «proyecto», que es palabra del Plan, ahí es otro video (`OBJETOS_DE_LA_TAB`).
+- **Image Editor y Dashboard**: sus objetos ya están (16/10); falta que sus chats llamen a la ruta. ⚠️ El Image Editor
+  todavía NO TIENE chat (es la etapa 4 de docs/diseno-mako-ai-native.md): hay que construirle uno antes de engancharlo.
+
 - **El chat único del Second Brain** (Centro de Operaciones): el mismo fetch con `tab` = el área de lo que esté abierto.
 - **Correr la operación de OTRA tab** desde la burbuja: hoy `otra-tab` deja el link (y la operación como dato); ejecutarla
   pasa por el registro (`ejecutar.ts`), que propone y confirma como siempre.
