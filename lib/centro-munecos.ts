@@ -76,6 +76,9 @@ const EQUIPO: Array<[string, Forma, Color, CaraMuneco]> = [
   ['pagos', 'hexagono', '--grafo-avatares', 'risa'],
   ['seguridad', 'frijol', '--grafo-cliente', 'tranquila'],
   ['customer success', 'circulo', '--grafo-razones', 'sonrisa'],
+  // El jefe del chat con MaKo (/second-brain, 16/10/2026): sus sub-chats («Second Brain › Precios») heredan su cuerpo y
+  // su color, como los del Centro. La gota es la única forma que no tenía ningún jefe.
+  ['second brain', 'gota', '--grafo-documentos', 'sonrisa'],
 ];
 
 /** Un hash chico y estable (FNV-1a): el mismo título da siempre el mismo muñeco, en el server y en el navegador. */

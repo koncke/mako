@@ -1,0 +1,404 @@
+'use client';
+
+// =============================================================================
+// El Second Brain como chat: la pieza única, primera tanda (16/10/2026)
+// =============================================================================
+// Etapa 2 de docs/diseno-mako-ai-native.md. La cara es la del Centro de Operaciones (app/admin/operaciones/), que ya
+// cita sus fuentes: la barra con un muñeco por chat (Grok Bot), la barra y la caja de Claude web, y los sub-chats
+// debajo de su jefe como los hilos de un canal de Discord. Copiado de ahí, con las mismas clases de centro.css.
+//
+//   · A la izquierda: «Nuevo chat», el jefe «Second Brain» y sus sub-chats (lib/chat-mako-reglas.ts → arbolDelJefe).
+//     Son las conversaciones de la persona con MaKo: las MISMAS del teléfono (/m/mako), sin migrar nada.
+//   · En el centro: la conversación con MaKo (el turno del teléfono, lib/mako-turno-app.ts, por /api/mako/chat), con
+//     la tarjeta que se confirma y la caja con el micrófono de la casa. Sin streaming: «MaKo está escribiendo…».
+//   · «Mapa» (sólo el admin): el grafo del negocio en el panel, como la Ticketera en el Centro. Lo arma el SERVIDOR
+//     cuando la URL lo pide (`?panel=mapa`): a quien no le toca no le llega.
+//
+// ⚠️ LO QUE NO SE REINTENTA (el mismo criterio del teléfono y del CRM, app/m/mako/chat-ui.ts): un turno que pudo haber
+//    corrido (red caída, corte, 5xx) ya pudo dejar una acción pendiente: se dice «no sé si llegó» y se ofrece recargar.
+// ⚠️ UN CHAT NUEVO NO SE CREA AL APRETAR «Nuevo chat»: se crea con el primer mensaje (sin conversaciones vacías).
+// ⚠️ LA URL dice qué chat está abierto (`?chat=<id>`), reescrita con `replaceState(null, …)`: el `__NA` de Next en el
+//    estado hace que el router la pise (docs/hallazgos-operaciones.md).
+
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { useRouter } from '@/app/_ui/Link';
+import { Icon } from '@/app/_components/icons';
+import { Muneco } from '@/app/admin/operaciones/Muneco';
+import { MunecoNuevo } from '@/app/admin/operaciones/NuevoChat';
+import { Microfono } from '@/app/admin/operaciones/Microfono';
+import { HiloMako } from '@/app/_chat/HiloMako';
+import type { ItemPropuesta } from '@/app/_chat/TarjetaAccion';
+import {
+  idLocal, itemsDeRespuesta, itemsDeSesion, leerRespuesta, trasTarjeta, type EstadoPropuesta, type ItemHilo, type Leido,
+} from '@/app/m/mako/chat-ui';
+import {
+  ARRANQUES_SECOND_BRAIN, JEFE_SECOND_BRAIN, SIN_TITULO, SUBS_VISIBLES, arbolDelJefe, edadCorta, filtrarSubs, nombreDeSub, tituloDe,
+} from '@/lib/chat-mako-reglas';
+import type { MensajeChat, ResultadoTarjeta, RespuestaTurno, SesionChat, TarjetaPendiente } from '@/lib/mako-turno-app-reglas';
+import '@/app/admin/operaciones/centro.css';
+import '@/app/_chat/chat.css';
+
+const RUTA = '/api/mako/chat';
+/** El maxDuration de la ruta es 420 s: el corte del navegador va 5 s después (tests/mako-doer-plazo.test.ts). */
+const TOPE_MS = 425_000;
+/** Lo que tarda en abrir una lista o un hilo antes de decir que no se pudo. */
+const TOPE_LECTURA_MS = 30_000;
+
+type Abierta = { sesion: SesionChat; mensajes: MensajeChat[]; propuestas: TarjetaPendiente[] };
+type ItemMsg = Extract<ItemHilo, { k: 'msg' }>;
+/** Lo elegido en la barra: una conversación, o un chat que todavía no tiene (el jefe sin nada, o «Nuevo chat»). */
+type Elegido = { id: number } | { virtual: 'jefe' | 'nuevo' };
+
+async function pedir<T>(url: string, init: RequestInit = {}): Promise<Leido<T>> {
+  let status = 0; let cuerpo = '';
+  try {
+    const r = await fetch(url, { signal: AbortSignal.timeout(TOPE_LECTURA_MS), ...init });
+    status = r.status; cuerpo = await r.text();
+  } catch { /* red caída o corte por tiempo: status 0 */ }
+  return leerRespuesta<T>(status, cuerpo);
+}
+const postJson = <T,>(cuerpo: Record<string, unknown>) =>
+  pedir<T>(RUTA, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(cuerpo) });
+/** Un turno o una tarjeta: lo que puede tardar lo que dura la ruta (confirmar replicar_landing corre ~275 s). */
+const postLargo = <T,>(cuerpo: Record<string, unknown>) =>
+  pedir<T>(RUTA, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(cuerpo), signal: AbortSignal.timeout(TOPE_MS) });
+
+const anotarEnUrl = (id: number | null) => {
+  try {
+    const u = new URL(window.location.href);
+    if (id) u.searchParams.set('chat', String(id)); else u.searchParams.delete('chat');
+    window.history.replaceState(null, '', u);
+  } catch { /* es una comodidad */ }
+};
+
+export function ChatSecondBrain({ veMapa, mapa, chatInicial }: {
+  /** El admin con la tab en su capa: ve el acceso «Mapa». */
+  veMapa: boolean;
+  /** El Mapa ya armado por el servidor (la URL lo pidió); null = la conversación. */
+  mapa: ReactNode | null;
+  chatInicial: number | null;
+}) {
+  const router = useRouter();
+  const [sesiones, setSesiones] = useState<SesionChat[] | null>(null);
+  const [errorLista, setErrorLista] = useState<string | null>(null);
+  const [elegido, setElegido] = useState<Elegido | null>(null);
+  const [conChat, setConChat] = useState(chatInicial != null || mapa != null);
+  const [items, setItems] = useState<ItemHilo[]>([]);
+  const [cargado, setCargado] = useState(false);
+  const [errorCarga, setErrorCarga] = useState<string | null>(null);
+  const [texto, setTexto] = useState('');
+  const [faltaMic, setFaltaMic] = useState<string | null>(null);
+  const [trabajo, setTrabajo] = useState<{ desde: number } | null>(null);
+  const [segs, setSegs] = useState(0);
+  const [tarjeta, setTarjeta] = useState<{ id: number; accion: 'confirmar' | 'cancelar' } | null>(null);
+  const [busca, setBusca] = useState('');
+  const [todas, setTodas] = useState(false);
+  const [ahora, setAhora] = useState(() => Date.now());
+  const ocupadoRef = useRef(false);
+  const sesionRef = useRef<number | null>(null);
+  /** La conversación que se acaba de crear con el primer mensaje: su hilo YA está dibujado, no se recarga. */
+  const recienCreada = useRef<number | null>(null);
+  const envios = useRef(new Map<string, string>());
+  const hilo = useRef<HTMLDivElement>(null);
+  const caja = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => { const t = window.setInterval(() => setAhora(Date.now()), 60_000); return () => window.clearInterval(t); }, []);
+
+  // ── La lista: las conversaciones de esta persona ──
+  const cargarLista = useCallback(async (): Promise<SesionChat[] | null> => {
+    const l = await pedir<{ sesiones: SesionChat[] }>(`${RUTA}?sesiones=1`);
+    if (!l.ok) { setErrorLista(l.reintentable ? l.error : 'No pude cargar tus chats.'); return null; }
+    setErrorLista(null);
+    setSesiones(l.datos.sesiones ?? []);
+    return l.datos.sesiones ?? [];
+  }, []);
+
+  useEffect(() => {
+    let vivo = true;
+    void cargarLista().then((ss) => {
+      if (!vivo || !ss) return;
+      const pedida = chatInicial != null && ss.some((s) => s.id === chatInicial) ? chatInicial : null;
+      const { jefe } = arbolDelJefe(ss);
+      setElegido(pedida != null ? { id: pedida } : jefe ? { id: jefe.id } : { virtual: 'jefe' });
+    });
+    return () => { vivo = false; };
+  }, [cargarLista, chatInicial]);
+
+  // ── El hilo de lo elegido ──
+  const idElegido = elegido && 'id' in elegido ? elegido.id : null;
+  const cargarHilo = useCallback(async (id: number, vigente: () => boolean = () => true) => {
+    setCargado(false); setErrorCarga(null);
+    const l = await pedir<Abierta>(`${RUTA}?sessionId=${id}`);
+    if (!vigente()) return;
+    if (!l.ok) { setErrorCarga(l.reintentable ? l.error : 'No pude abrir el chat.'); setCargado(true); return; }
+    setItems(itemsDeSesion(l.datos.mensajes ?? [], l.datos.propuestas ?? []));
+    setCargado(true);
+  }, []);
+
+  useEffect(() => {
+    if (!elegido) return;
+    sesionRef.current = idElegido;
+    if (idElegido == null) { setItems([]); setErrorCarga(null); setCargado(true); return; }
+    if (recienCreada.current === idElegido) { recienCreada.current = null; return; }
+    let vivo = true;
+    void cargarHilo(idElegido, () => vivo);
+    return () => { vivo = false; };
+  }, [elegido, idElegido, cargarHilo]);
+
+  useEffect(() => { if (elegido) anotarEnUrl(idElegido); }, [elegido, idElegido]);
+
+  // Como un chat: abre mostrando lo último, y baja cuando llega algo nuevo.
+  useLayoutEffect(() => { const el = hilo.current; if (el) el.scrollTop = el.scrollHeight; }, [items.length, trabajo, idElegido]);
+  // La caja crece con lo que se escribe, hasta el tope del CSS.
+  useLayoutEffect(() => {
+    const el = caja.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${Math.min(el.scrollHeight, 220)}px`;
+  }, [texto]);
+
+  const desde = trabajo?.desde ?? null;
+  useEffect(() => {
+    if (desde == null) return;
+    const t = window.setInterval(() => setSegs(Math.floor((Date.now() - desde) / 1000)), 1000);
+    return () => { window.clearInterval(t); setSegs(0); };
+  }, [desde]);
+
+  const recargar = () => { if (!ocupadoRef.current && idElegido != null) void cargarHilo(idElegido); };
+
+  // ── Elegir en la barra ──
+  const elegir = (e: Elegido) => {
+    if (ocupadoRef.current) return;
+    setConChat(true);
+    setFaltaMic(null);
+    // Con el Mapa abierto, volver a una conversación es volver a la página sin `panel` (lo arma el servidor).
+    if (mapa) { router.push('id' in e ? `/second-brain?chat=${e.id}` : '/second-brain'); }
+    setElegido(e);
+    setTexto('');
+    window.setTimeout(() => caja.current?.focus({ preventScroll: true }), 0);
+  };
+
+  const marcar = (id: string, cambio: Partial<ItemMsg>) =>
+    setItems((xs) => xs.map((x) => (x.id === id && x.k === 'msg' ? { ...x, ...cambio } : x)));
+
+  // ── El turno ──
+  const mandar = async (idU: string, mensaje: string) => {
+    setTrabajo({ desde: Date.now() });
+    try {
+      let sid = sesionRef.current;
+      if (sid == null) {
+        // El primer mensaje crea la conversación (el jefe que todavía no tenía, o un chat nuevo).
+        const n = await postJson<{ sesion: SesionChat }>({ action: 'new' });
+        if (!n.ok) { marcar(idU, { estado: 'error', error: n.reintentable ? n.error : 'No pude crear el chat.' }); return; }
+        sid = n.datos.sesion.id;
+        sesionRef.current = sid;
+        recienCreada.current = sid;
+        setSesiones((ss) => [...(ss ?? []), n.datos.sesion]);
+        setElegido({ id: sid });
+      }
+      const l = await postLargo<RespuestaTurno>({ action: 'send', sessionId: sid, mensaje });
+      if (!l.ok) { marcar(idU, { estado: l.reintentable ? 'error' : 'incierto', error: l.error }); return; }
+      marcar(idU, { estado: undefined, error: undefined });
+      setItems((xs) => {
+        const vistas = new Set(xs.flatMap((x) => (x.k === 'propuesta' ? [x.t.pendienteId] : [])));
+        return [...xs, ...itemsDeRespuesta(l.datos, vistas)];
+      });
+      void cargarLista(); // el título y la hora de la fila
+    } finally {
+      ocupadoRef.current = false;
+      setTrabajo(null);
+    }
+  };
+
+  const enviar = (mensaje: string) => {
+    const t = mensaje.trim();
+    if (!t || ocupadoRef.current || !cargado || errorCarga) return;
+    ocupadoRef.current = true;
+    setFaltaMic(null);
+    const idU = idLocal('u');
+    envios.current.set(idU, t);
+    setItems((xs) => [...xs, { k: 'msg', id: idU, role: 'user', texto: t, at: new Date().toISOString(), estado: 'enviando' }]);
+    void mandar(idU, t);
+  };
+
+  const enviarCaja = () => { const t = texto.trim(); if (!t || ocupadoRef.current) return; enviar(t); setTexto(''); };
+  const tecla = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    // Enter manda; Shift+Enter baja de renglón. Mientras se compone un acento (IME), Enter es del teclado.
+    if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); enviarCaja(); }
+  };
+
+  /** Sólo lo que NO llegó (un 4xx): se saca y se manda de nuevo. */
+  const reintentar = (id: string) => {
+    const t = envios.current.get(id);
+    if (!t || ocupadoRef.current) return;
+    setItems((xs) => xs.filter((x) => x.id !== id));
+    envios.current.delete(id);
+    enviar(t);
+  };
+
+  // ── Las tarjetas ──
+  const alEstado = (pendienteId: number, estado: EstadoPropuesta, nota?: string, paraLaPersona?: string[]) => {
+    setItems((xs) => {
+      const sig = xs.map((x) => (x.k === 'propuesta' && x.t.pendienteId === pendienteId ? { ...x, estado, nota } : x));
+      const extra: ItemHilo[] = (paraLaPersona ?? []).filter((t) => t.trim()).map((t) => ({ k: 'aviso', id: idLocal('v'), texto: t, tono: 'mako' }));
+      return [...sig, ...extra];
+    });
+  };
+  const correrTarjeta = async (x: ItemPropuesta, accion: 'confirmar' | 'cancelar') => {
+    const sid = sesionRef.current;
+    if (tarjeta || sid == null) return;
+    const id = x.t.pendienteId;
+    setTarjeta({ id, accion });
+    if (accion === 'confirmar') alEstado(id, 'aplicando');
+    try {
+      const l = await postLargo<ResultadoTarjeta>({ action: accion, sessionId: sid, pendienteId: id });
+      if (!l.ok) { alEstado(id, 'pendiente', l.reintentable ? l.error : 'No llegó la respuesta. Recarga el chat para ver si se ejecutó.'); return; }
+      const d = trasTarjeta(l.datos, accion);
+      alEstado(id, d.estado ?? 'pendiente', d.frase ?? undefined, l.datos.paraLaPersona);
+    } finally {
+      setTarjeta(null);
+    }
+  };
+
+  // ── Lo que se dibuja ──
+  const arbol = arbolDelJefe(sesiones ?? []);
+  const subs = filtrarSubs(arbol.subs, busca);
+  const corte = todas || busca.trim() ? subs : subs.filter((s, i) => i < SUBS_VISIBLES || s.id === idElegido);
+  const esJefe = elegido != null && (('virtual' in elegido && elegido.virtual === 'jefe') || (arbol.jefe != null && idElegido === arbol.jefe.id));
+  const sub = idElegido != null && !esJefe ? (sesiones ?? []).find((s) => s.id === idElegido) ?? null : null;
+  const nombre = esJefe ? JEFE_SECOND_BRAIN : sub ? tituloDe(sub) : SIN_TITULO;
+  const nombreMuneco = esJefe ? JEFE_SECOND_BRAIN : nombreDeSub(sub ?? { titulo: null });
+  const animo = trabajo ? 'trabajando' : 'despierto';
+  const hrefMapa = `/second-brain?panel=mapa${idElegido ? `&chat=${idElegido}` : ''}`;
+
+  const fila = (clave: string, e: Elegido, titulo: string, muneco: string, actividad: string | null, esSub: boolean) => {
+    const actual = !mapa && elegido != null && JSON.stringify(elegido) === JSON.stringify(e);
+    const t = actividad ? Date.parse(actividad) : NaN;
+    return (
+      <div key={clave} className={`co-fila-wrap${esSub ? ' co-fila-wrap--sub' : ''}`}>
+        <button type="button" title={titulo} className="co-fila" aria-current={actual ? 'true' : undefined} onClick={() => elegir(e)}>
+          <Muneco titulo={muneco} animo={actual && trabajo ? 'trabajando' : 'despierto'} size={esSub ? 30 : 38} />
+          <span className="co-fila__cuerpo">
+            <span className="co-fila__l1">
+              <span className="co-fila__titulo">{titulo}</span>
+              <span className="co-fila__hace">{edadCorta(Number.isFinite(t) ? t : null, ahora)}</span>
+            </span>
+          </span>
+        </button>
+      </div>
+    );
+  };
+
+  return (
+    <div className="co" data-con-chat={conChat ? 'true' : 'false'}>
+      <aside className="co-barra" aria-label="Chats">
+        <div className="co-barra__arriba">
+          <label className="co-buscar">
+            <Icon name="search" size={16} />
+            <input type="search" value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar" aria-label="Buscar un chat" />
+          </label>
+          {/* El grafo del negocio, arriba de los chats: como la Ticketera en el Centro (el botón del grafo de Obsidian). */}
+          {veMapa && (
+            <button type="button" className="co-acceso" aria-pressed={mapa != null}
+              onClick={() => { setConChat(true); router.push(mapa ? (idElegido ? `/second-brain?chat=${idElegido}` : '/second-brain') : hrefMapa); }}>
+              <Icon name="cerebro" size={17} />Mapa
+            </button>
+          )}
+        </div>
+
+        <nav className="co-lista" aria-label="Chats">
+          {/* «Nuevo chat» arriba de todos, como el de ChatGPT y Claude. */}
+          <button type="button" className="co-fila co-fila--nuevo"
+            aria-current={!mapa && elegido != null && 'virtual' in elegido && elegido.virtual === 'nuevo' ? 'true' : undefined}
+            onClick={() => elegir({ virtual: 'nuevo' })}>
+            <MunecoNuevo />
+            <span className="co-fila__cuerpo"><span className="co-fila__l1"><span className="co-fila__titulo">Nuevo chat</span></span></span>
+          </button>
+          {errorLista && <p className="co-lista__vacio">{errorLista}</p>}
+          {sesiones != null && (
+            <div className="co-jefe">
+              {fila('jefe', arbol.jefe ? { id: arbol.jefe.id } : { virtual: 'jefe' }, JEFE_SECOND_BRAIN, JEFE_SECOND_BRAIN, arbol.jefe?.updatedAt ?? null, false)}
+              {corte.length > 0 && (
+                <div className="co-jefe__subs">
+                  {corte.map((s) => fila(`s${s.id}`, { id: s.id }, tituloDe(s), nombreDeSub(s), s.updatedAt, true))}
+                </div>
+              )}
+              {!todas && !busca.trim() && subs.length > corte.length && (
+                <button type="button" className="co-mas" onClick={() => setTodas(true)}>{`Mostrar ${subs.length - corte.length} más`}</button>
+              )}
+              {todas && !busca.trim() && subs.length > SUBS_VISIBLES && (
+                <button type="button" className="co-mas" onClick={() => setTodas(false)}>Mostrar menos</button>
+              )}
+              {busca.trim() && !subs.length && <p className="co-lista__vacio">Ningún chat con ese nombre.</p>}
+            </div>
+          )}
+        </nav>
+      </aside>
+
+      {mapa ? (
+        <section className="co-panel" aria-label="Mapa">
+          <header className="co-cab">
+            <button type="button" className="co-acceso co-cab__volver" style={{ width: 'auto' }} aria-label="Volver a los chats"
+              onClick={() => { setConChat(false); router.push(idElegido ? `/second-brain?chat=${idElegido}` : '/second-brain'); }}>
+              <span style={{ display: 'inline-flex', transform: 'rotate(90deg)' }}><Icon name="chevron" size={18} /></span>
+            </button>
+            <div className="co-cab__texto"><h1 className="co-cab__titulo">Mapa</h1></div>
+          </header>
+          <div className="ch-mapa__cuerpo">{mapa}</div>
+        </section>
+      ) : (
+        <section className="co-panel" aria-label={`Conversación con ${nombre}`}>
+          <header className="co-cab">
+            <button type="button" className="co-acceso co-cab__volver" style={{ width: 'auto' }} onClick={() => setConChat(false)} aria-label="Volver a los chats">
+              <span style={{ display: 'inline-flex', transform: 'rotate(90deg)' }}><Icon name="chevron" size={18} /></span>
+            </button>
+            <Muneco titulo={nombreMuneco} animo={animo} size={34} />
+            <div className="co-cab__texto">
+              <h1 className="co-cab__titulo" title={nombre}>{nombre}</h1>
+              <span className="co-cab__meta">{esJefe ? 'Tu chat con MaKo' : JEFE_SECOND_BRAIN}</span>
+            </div>
+          </header>
+
+          <div className="co-hilo" ref={hilo}>
+            {!cargado ? null : errorCarga ? (
+              <div className="co-portada">
+                <p className="co-portada__dato">{errorCarga}</p>
+                <button type="button" className="co-chip" onClick={recargar}>Reintentar</button>
+              </div>
+            ) : !items.length && !trabajo ? (
+              <div className="co-portada">
+                <Muneco titulo={nombreMuneco} animo="despierto" size={76} />
+                <p className="co-portada__nombre">¿En qué te ayudo?</p>
+                <div className="ch-arranques">
+                  {ARRANQUES_SECOND_BRAIN.map((a) => <button key={a} type="button" className="co-chip" onClick={() => enviar(a)}>{a}</button>)}
+                </div>
+              </div>
+            ) : (
+              <HiloMako items={items} quien={{ nombre: nombreMuneco }} ahora={ahora} escribiendo={trabajo ? { segs } : null}
+                tarjeta={tarjeta} onTarjeta={(x, a) => void correrTarjeta(x, a)} onReintentar={reintentar} onRecargar={recargar} />
+            )}
+          </div>
+
+          <div className="co-caja-wrap">
+            <div className="co-caja">
+              <textarea
+                ref={caja} rows={1} value={texto}
+                onChange={(e) => setTexto(e.target.value)} onKeyDown={tecla}
+                placeholder="Escríbele a MaKo" aria-label="Escríbele a MaKo"
+                disabled={!cargado || !!errorCarga}
+              />
+              <div className="co-caja__barra">
+                <Microfono valor={texto} onValor={(v) => { setFaltaMic(null); setTexto(v); }} onError={setFaltaMic} apagado={!cargado || !!errorCarga} />
+                <button type="button" className="co-enviar" onClick={enviarCaja} disabled={!!trabajo || !texto.trim() || !cargado || !!errorCarga}
+                  aria-label="Mandar" title="Mandar (Enter)">
+                  {trabajo ? <span className="co-enviar__giro" aria-hidden /> : <Icon name="flecha" size={18} />}
+                </button>
+              </div>
+            </div>
+            <p className="co-caja__estado" aria-live="polite">{faltaMic ?? ''}</p>
+          </div>
+        </section>
+      )}
+    </div>
+  );
+}

@@ -39,3 +39,16 @@ test('el comando de «Nuevo chat»: la función del perfil de esa cuenta, con el
   assert.equal(comandoNuevoChat('claude3', "  Martín's Plan  "), "claude3 -n 'Martín''s Plan'", 'la comilla se dobla: no corta el comando');
   assert.equal(comandoNuevoChat('claude1', '$HOME; rm x'), "claude1 -n '$HOME; rm x'", 'entre comillas simples nada se expande ni se ejecuta');
 });
+
+test('«Nuevo chat» con el nombre vacío no arma el comando (nombreValido devuelve un objeto: se mira su `.ok`)', async () => {
+  // El relevamiento de la etapa 2 (16/10/2026) lo encontró: `!nombreValido(…)` siempre daba false y `valido ?` siempre
+  // verdadero, porque un objeto nunca es falso. Con el nombre vacío se armaba «claude1 -n ''».
+  // ⚠️ Probado ROMPIÉNDOLO: volviendo a `nombreValido(nombre)` sin `.ok` → 1 fallo (éste).
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const { createElement } = await import('react');
+  const { NuevoChat } = await import('../app/admin/operaciones/NuevoChat');
+  const html = (nombre: string) => renderToStaticMarkup(createElement(NuevoChat, { borrador: { nombre, cuenta: 'claude1' }, onCambio: () => {}, onCopiar: () => {} }));
+  assert.ok(!html('   ').includes('claude1 -n'), 'sin nombre, no hay comando');
+  assert.ok(html('   ').includes('Escribe su nombre para armar el comando.'));
+  assert.ok(html('CRM').includes('claude1 -n &#x27;CRM&#x27;') || html('CRM').includes("claude1 -n 'CRM'"), 'con nombre, el comando');
+});
