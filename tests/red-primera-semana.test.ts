@@ -21,6 +21,7 @@
 //   Crear una landing (16/10/2026, base 3/0): el esquema, las secciones y el reparador de JSON → 2/1 cada una.
 //   Crear una automatización (16/10/2026, base 4/0): la pasada sin red, la copia del JSON roto sin red, y
 //     `hayIAParaCrear` mirando sólo las keys del negocio → 3/1 cada una.
+//   Second Brain (16/10/2026, base 5/0): la búsqueda sin red → 4/1.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -77,6 +78,13 @@ test('Offer: sin IA propia no corta antes de la red, y lee los documentos con re
   const lector = sinComentarios(leer('lib/archivo-a-texto.ts'));
   assert.equal((lector.match(/leerDocumentoIA\(\{[^\n]*redDePlataforma: opts\.redDePlataforma/g) || []).length, 2,
     'las dos lecturas por visión (PDF escaneado e imagen) tienen que pasar la red que pide el que llama');
+});
+
+test('Second Brain: buscar por significado', () => {
+  // La ruta exporta POST, no una función con nombre: se mira su única llamada.
+  const ls = llamadas(sinComentarios(leer('app/api/second-brain/buscar/route.ts')));
+  assert.equal(ls.length, 1, 'la búsqueda hace UNA llamada a la IA');
+  assert.match(ls[0], /redDePlataforma: true/, 'la búsqueda del Second Brain sin red: un cliente sin API ve el error de «no hay IA»');
 });
 
 test('Crear una automatización: la pasada, la reparación, y la pregunta previa de la API de MaKo', () => {
