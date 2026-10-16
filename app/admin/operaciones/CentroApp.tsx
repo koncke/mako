@@ -28,34 +28,40 @@
 // «Áreas» se fue entera: lo que decía (qué hizo último cada chat) es la lista misma. «Trabajos» ya no existe
 // aparte: cada trabajo está en su chat.
 //
+// ⚠️ SIN «AVANCE» NI «PUSHES» EN LA BARRA, Y SIN GRUPOS POR CUENTA (Martín, 15/10/2026, mirándolo en producción):
+// «Elimina lo de "Avances y pushes", quiero que cada chat tenga arriba, en su topbar un botón para ver los avances» y
+// «No quiero que exista "cuenta 1, cuenta 2, 3" en la sidebar de chats». El avance es la barra derecha de cada
+// conversación (Avance.tsx) y la cuenta, un chip en su cabecera. La lista es una sola, como la de Grok Bot.
+//
 // ⚠️ LA LISTA SE REHACE EN LA PANTALLA con la misma función que en el server (`completarChats`): las bitácoras
 // llegan una vez (`base`) y lo que cambia —el estado que sube el cartero y la cola— se vuelve a pedir.
 // ⚠️ Los pushes de Vercel llegan DESPUÉS de dibujar (`pushesCentroAction`): la página no los espera.
 
 import './centro.css';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useRouter } from '@/app/_ui/Link';
 import { Modal, Toast, useToast } from '@/app/_ui';
 import { Icon } from '@/app/_components/icons';
 import { carteroVivo, type Alcance } from '@/lib/operaciones-reglas';
 import {
-  SECCION_ANTES, comoSale, completarChats, esperasPorChat, historialDelChat, seccionesDeChats, vistaPrevia, type DecisionEspera, type ChatCentro, type TrabajoP, type VistaPrevia,
+  SECCION_ANTES, comoSale, completarChats, esperasPorChat, historialDelChat, nombreCuenta, seccionesDeChats, titulosRepetidos, tituloNormal, vistaPrevia,
+  type DecisionEspera, type ChatCentro, type TrabajoP, type VistaPrevia,
 } from '@/lib/centro-chats';
-import type { NovedadP, PedidoP } from '@/lib/progreso-reglas';
+import type { PedidoP } from '@/lib/progreso-reglas';
 import type { LecturaPushes } from '@/lib/progreso';
 import type { EstadoCarteros, Pedido } from '@/lib/operaciones';
 import { Conversacion } from './Conversacion';
 import { Tick } from './Hilo';
 import { Muneco, animoDe } from './Muneco';
 import { PanelRunner, TituloRunner, type VistaRunner } from './PanelRunner';
-import { Progreso } from './Progreso';
 import { fotoCentroAction, pushesCentroAction } from './acciones';
 import { copiar, useFirma } from './mandar';
 
-export type VistaCentro = 'chats' | 'avance' | 'pushes';
 const REFRESCO_MS = 8000;
-/** Cuántos chats se ven por cuenta antes de «Mostrar más» (como los proyectos de Codex). */
-const VISIBLES = 8;
+/** Cuántos chats se ven antes de «Mostrar más» (como los proyectos de Codex). */
+const VISIBLES = 14;
+/** La barra del avance se recuerda abierta o cerrada entre chats y visitas: es una preferencia (AGENTS.md). */
+const CLAVE_AVANCE = 'centro.avance';
+const leerAvance = () => { try { return window.localStorage.getItem(CLAVE_AVANCE) === '1'; } catch { return false; } };
 
 const normal = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
 /** La edad de una fila, corta como en Codex: «ahora», «12 min», «3 h», «2 d». */
@@ -100,27 +106,22 @@ function Previa({ c, p, espera }: { c: ChatCentro; p: VistaPrevia | null; espera
   );
 }
 
-export function CentroApp({ base, colaInicial, carterosIniciales, decisionesIniciales, pedidos, novedades, todos, ahora: ahoraServer, sub, vistaInicial, chatInicial }: {
+export function CentroApp({ base, colaInicial, carterosIniciales, decisionesIniciales, pedidos, ahora: ahoraServer, sub, chatInicial }: {
   base: ChatCentro[];
   colaInicial: Pedido[] | null;
   carterosIniciales: EstadoCarteros | null;
   /** Las tarjetas de la Ticketera (lo mínimo); null si no se pudieron leer. */
   decisionesIniciales: DecisionEspera[] | null;
   pedidos: PedidoP[];
-  novedades: NovedadP[];
-  todos: boolean;
   ahora: number;
   sub: string;
-  vistaInicial: VistaCentro;
   chatInicial: string | null;
 }) {
-  const router = useRouter();
   const [cola, setCola] = useState<Pedido[]>(colaInicial ?? []);
   const [estado, setEstado] = useState<EstadoCarteros | null>(carterosIniciales);
   const [decisiones, setDecisiones] = useState<DecisionEspera[]>(decisionesIniciales ?? []);
   const [ahora, setAhora] = useState(ahoraServer);
   const [pushes, setPushes] = useState<LecturaPushes | null>(null);
-  const [vista, setVista] = useState<VistaCentro>(vistaInicial);
   const [busca, setBusca] = useState('');
   const [plegadas, setPlegadas] = useState<Set<string>>(() => new Set([SECCION_ANTES]));
   const [enteras, setEnteras] = useState<Set<string>>(new Set());
@@ -128,6 +129,10 @@ export function CentroApp({ base, colaInicial, carterosIniciales, decisionesInic
   const [alcance, setAlcance] = useState<Alcance>('solo_esto');
   const [enviando, setEnviando] = useState(false);
   const [runner, setRunner] = useState<VistaRunner | null>(null);
+  const [avance, setAvance] = useState(false);
+  // Se lee después de montar: el server no sabe lo del navegador, y el primer dibujo tiene que coincidir.
+  useEffect(() => { setAvance(leerAvance()); }, []);
+  const cambiarAvance = (v: boolean) => { setAvance(v); try { window.localStorage.setItem(CLAVE_AVANCE, v ? '1' : '0'); } catch { /* es una comodidad */ } };
   const { toast, show, clear } = useToast();
   const firma = useFirma(sub);
 
@@ -143,7 +148,7 @@ export function CentroApp({ base, colaInicial, carterosIniciales, decisionesInic
     return (chats.find((c) => c.sesion) ?? chats[0])?.clave ?? null;
   });
   // En una ventana angosta se ve la lista o la conversación (como WhatsApp en el teléfono).
-  const [conChat, setConChat] = useState(chatInicial != null || vistaInicial !== 'chats');
+  const [conChat, setConChat] = useState(chatInicial != null);
   const actual = chats.find((c) => c.clave === elegido) ?? null;
 
   const refrescar = useCallback(async () => {
@@ -160,17 +165,13 @@ export function CentroApp({ base, colaInicial, carterosIniciales, decisionesInic
   // Vercel, después de dibujar.
   useEffect(() => { let vivo = true; pushesCentroAction().then((p) => { if (vivo) setPushes(p); }).catch(() => {}); return () => { vivo = false; }; }, []);
 
-  const irA = (v: VistaCentro, chat?: string | null) => {
-    setVista(v);
-    anotarEnUrl(v === 'chats' ? { tab: null, todos: null, chat: chat ?? null } : { tab: v, chat: null });
-  };
-  const elegir = (clave: string) => { setElegido(clave); setConChat(true); irA('chats', clave); };
+  const elegir = (clave: string) => { setElegido(clave); setConChat(true); anotarEnUrl({ tab: null, todos: null, chat: clave }); };
 
-  // ── La barra: por cuenta, la que está corriendo primero ────────────────────────────────────────
+  // ── La barra: una lista, lo que trabaja primero ────────────────────────────────────────────────
   const filtro = normal(busca.trim());
   const visibles = filtro ? chats.filter((c) => normal(c.titulo).includes(filtro)) : chats;
   const secciones = useMemo(() => seccionesDeChats(visibles), [visibles]);
-  const abiertosAvance = pedidos.filter((p) => p.estado !== 'hecho').length;
+  const repetidos = useMemo(() => titulosRepetidos(chats), [chats]);
   const previas = useMemo(() => new Map(chats.map((c) => [c.clave, vistaPrevia(historialDelChat(c, porId, trabajos))])), [chats, porId, trabajos]);
 
   const alternar = (set: Set<string>, k: string) => { const n = new Set(set); if (n.has(k)) n.delete(k); else n.add(k); return n; };
@@ -210,22 +211,16 @@ export function CentroApp({ base, colaInicial, carterosIniciales, decisionesInic
   const vivos = carteros.filter((k) => carteroVivo(k, ahora)).length;
 
   return (
-    <div className="co" data-con-chat={conChat && (vista !== 'chats' || actual) ? 'true' : 'false'}>
+    <div className="co" data-con-chat={conChat && actual ? 'true' : 'false'}>
       <aside className="co-barra" aria-label="Chats">
         <div className="co-barra__arriba">
           <label className="co-buscar">
             <Icon name="search" size={16} />
             <input type="search" value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar" aria-label="Buscar un chat" />
           </label>
-          <button type="button" className="co-acceso" aria-current={vista === 'avance' ? 'page' : undefined} onClick={() => { irA('avance'); setConChat(true); }}>
-            <Icon name="todo" size={17} />Avance{abiertosAvance > 0 && <span className="co-acceso__n">{abiertosAvance}</span>}
-          </button>
-          <button type="button" className="co-acceso" aria-current={vista === 'pushes' ? 'page' : undefined} onClick={() => { irA('pushes'); setConChat(true); }}>
-            <Icon name="rayo" size={17} />Pushes
-          </button>
         </div>
 
-        <nav className="co-lista" aria-label="Chats por cuenta">
+        <nav className="co-lista" aria-label="Chats">
           {chats.length > 0 && !visibles.length && <p className="co-lista__vacio">Ningún chat con ese nombre.</p>}
           {secciones.map(({ clave: k, titulo, chats: lista }) => {
             const plegada = plegadas.has(k) && !filtro;
@@ -234,21 +229,26 @@ export function CentroApp({ base, colaInicial, carterosIniciales, decisionesInic
             const corte = todas ? lista : lista.filter((c, i) => i < VISIBLES || c.clave === actual?.clave);
             return (
               <div key={k} className="co-cuenta">
-                <button type="button" className="co-cuenta__cab" aria-expanded={!plegada} onClick={() => setPlegadas((s) => alternar(s, k))}>
-                  {titulo}
-                  <span className={`co-chev${plegada ? ' co-chev--cerrado' : ''}`} aria-hidden><Icon name="chevron" size={14} /></span>
-                </button>
+                {/* La lista no lleva título; sólo lo anotado antes del 16/10 va aparte, plegado. */}
+                {titulo && (
+                  <button type="button" className="co-cuenta__cab" aria-expanded={!plegada} onClick={() => setPlegadas((s) => alternar(s, k))}>
+                    {titulo}
+                    <span className={`co-chev${plegada ? ' co-chev--cerrado' : ''}`} aria-hidden><Icon name="chevron" size={14} /></span>
+                  </button>
+                )}
                 {!plegada && corte.map((c) => (
                   <button
                     key={c.clave} type="button" title={c.titulo}
                     className={`co-fila${c.sesion ? '' : ' co-fila--sin-dir'}`}
-                    aria-current={vista === 'chats' && actual?.clave === c.clave ? 'true' : undefined}
+                    aria-current={actual?.clave === c.clave ? 'true' : undefined}
                     onClick={() => elegir(c.clave)}
                   >
                     <Muneco titulo={c.titulo} animo={animoDe(c)} size={38} espera={esperas[c.clave] ?? 0} />
                     <span className="co-fila__cuerpo">
                       <span className="co-fila__l1">
                         <span className="co-fila__titulo">{c.titulo}</span>
+                        {/* La cuenta, sólo si otro chat se llama igual: sin ella no se distinguen. */}
+                        {c.cuenta && repetidos.has(tituloNormal(c.titulo)) && <span className="co-chip-cuenta">{nombreCuenta(c.cuenta)}</span>}
                         <span className="co-fila__hace">{edad(c.actividad, ahora)}</span>
                       </span>
                       <Previa c={c} p={previas.get(c.clave) ?? null} espera={esperas[c.clave] ?? 0} />
@@ -276,10 +276,10 @@ export function CentroApp({ base, colaInicial, carterosIniciales, decisionesInic
         </div>
       </aside>
 
-      {vista === 'chats' ? (
-        actual && envio ? (
+      {actual && envio ? (
           <Conversacion
-            chat={actual} pedidos={porId} trabajos={trabajos} pushes={pushes?.ok ? pushes.pushes : []} ahora={ahora}
+            chat={actual} pedidos={porId} trabajos={trabajos} pushes={pushes?.ok ? pushes.pushes : null} ahora={ahora}
+            avance={avance} onAvance={cambiarAvance}
             espera={esperas[actual.clave] ?? 0}
             envio={envio} texto={texto} onTexto={setTexto} alcance={alcance} onAlcance={setAlcance} enviando={enviando}
             onMandar={mandar} onCrearClave={crearClave}
@@ -297,25 +297,6 @@ export function CentroApp({ base, colaInicial, carterosIniciales, decisionesInic
                 </div>
               )}
           </section>
-        )
-      ) : (
-        <section className="co-panel" aria-label={vista === 'avance' ? 'Avance' : 'Pushes'}>
-          <header className="co-cab">
-            <button type="button" className="co-acceso co-cab__volver" style={{ width: 'auto' }} onClick={() => setConChat(false)} aria-label="Volver a los chats">
-              <span style={{ display: 'inline-flex', transform: 'rotate(90deg)' }}><Icon name="chevron" size={18} /></span>
-            </button>
-            <h1 className="co-cab__titulo" style={{ fontSize: 'var(--fs-md)' }}>{vista === 'avance' ? 'Avance' : 'Pushes'}</h1>
-            {vista === 'avance' && (
-              <button type="button" className="co-chip" style={{ marginLeft: 'auto' }} aria-pressed={todos}
-                onClick={() => router.replace(todos ? '/admin/operaciones?tab=avance' : '/admin/operaciones?tab=avance&todos=1', { scroll: false })}>
-                {todos ? 'Últimos 14 días' : 'Ver todos'}
-              </button>
-            )}
-          </header>
-          <div className="co-vista">
-            <Progreso vista={vista} pedidos={pedidos} pushes={pushes} novedades={novedades} ahora={ahora} />
-          </div>
-        </section>
       )}
 
       {runner && (

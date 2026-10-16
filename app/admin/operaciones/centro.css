@@ -78,12 +78,6 @@
 .co-acceso:hover { background: var(--velo-hover); }
 .co-acceso:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 .co-acceso[aria-current='page'] { background: var(--surface); box-shadow: inset 0 0 0 1px var(--border); font-weight: 600; }
-.co-acceso__n {
-  margin-left: auto;
-  font-size: var(--fs-meta);
-  color: var(--faint);
-  font-variant-numeric: tabular-nums;
-}
 
 /* La lista scrollea ADENTRO de su columna: con 53 chats la barra no empuja la página. */
 .co-lista {
@@ -245,6 +239,50 @@
   color: var(--faint);
 }
 
+/* La cuenta, como chip (Martín, 15/10/2026: «eso debe estar dentro de cada chat, con un chip»). */
+.co-chip-cuenta {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  height: 18px;
+  padding: 0 7px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--dim);
+  white-space: nowrap;
+}
+.co-cab__meta .co-chip-cuenta { margin-right: 2px; }
+.co-fila__l1 .co-chip-cuenta { margin-left: -2px; }
+
+/* El botón «Avance» de la cabecera: abre la barra derecha (como un botón de la barra de Linear). */
+.co-cab__avance {
+  margin-left: auto;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 32px;
+  padding: 0 11px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  font: inherit;
+  font-size: var(--fs-sm);
+  color: var(--ink);
+  cursor: pointer;
+}
+.co-cab__avance:hover { background: var(--velo-hover); }
+.co-cab__avance:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.co-cab__avance[aria-pressed='true'] { border-color: var(--primary-weak); background: var(--primary-bg); color: var(--primary-strong); }
+.co-avance__conteo { font-variant-numeric: tabular-nums; font-weight: 700; color: var(--ink); }
+.co-avance__conteo span { color: var(--faint); font-weight: 600; }
+
+/* El cuerpo: la conversación y, si está abierta, la barra del avance a la derecha. */
+.co-cuerpo { position: relative; flex: 1; min-height: 0; display: flex; }
+.co-conv { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+
 .co-hilo {
   flex: 1;
   min-height: 0;
@@ -307,6 +345,72 @@
   text-align: center;
   font-size: var(--fs-md);
   color: var(--faint);
+}
+
+/* ── El avance de un chat (Avance.tsx): la barra derecha de Offer con los milestones de Linear ─────── */
+.co-riel { flex: none; width: 320px; display: flex; flex-direction: column; min-height: 0; padding: 14px 14px 14px 0; }
+/* Como la de Offer: la tarjeta ESTIRA con flex (un porcentaje contra un alto de flex da cero en Safari), y lo que
+   scrollea es la lista; el título con el conteo queda fijo arriba. */
+.co-riel__tarjeta {
+  flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 18px; padding: 16px 14px 10px 16px;
+}
+.co-riel__cab { flex: none; display: flex; align-items: baseline; gap: 8px; padding: 0 2px 10px 0; }
+.co-riel__titulo { font-size: var(--fs-card); font-weight: 700; color: var(--ink); }
+.co-riel__cab .co-avance__conteo { font-size: var(--fs-card); }
+.co-riel__cerrar {
+  margin-left: auto; align-self: center; display: inline-grid; place-items: center; width: 28px; height: 28px;
+  border: 0; border-radius: 8px; background: none; color: var(--faint); cursor: pointer;
+}
+.co-riel__cerrar:hover { background: var(--velo-hover); color: var(--ink); }
+.co-riel__cerrar:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.co-riel__cuerpo { flex: 1 1 auto; min-height: 0; overflow-y: auto; margin-inline: -6px; padding-inline: 6px; }
+
+.co-avance__vacio { margin: 18px 4px; font-size: var(--fs-sm); color: var(--faint); }
+/* La lista: un rombo por nodo, unidos por una línea vertical (el roadmap). */
+.co-avance__lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.co-nodo { position: relative; }
+.co-nodo:not(:last-child)::before {
+  content: ''; position: absolute; left: 12px; top: 26px; bottom: -6px; width: 1.5px; background: var(--border-strong);
+}
+.co-nodo__fila {
+  position: relative; width: 100%; display: flex; align-items: center; gap: 10px; min-height: 38px; padding: 6px 6px 6px 5px;
+  border: 0; border-radius: 10px; background: none; font: inherit; text-align: left; color: var(--ink); cursor: pointer;
+}
+.co-nodo__fila:hover { background: var(--velo-hover); }
+.co-nodo__fila:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.co-nodo__rombo { flex: none; display: inline-grid; place-items: center; width: 16px; height: 16px; background: var(--surface); }
+.co-nodo__titulo { flex: 1; min-width: 0; font-size: var(--fs-md); font-weight: 600; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.co-nodo[data-estado='sin_empezar'] .co-nodo__titulo { color: var(--dim); font-weight: 500; }
+.co-nodo__fila[aria-expanded='true'] .co-nodo__titulo { white-space: normal; }
+.co-nodo__dia { flex: none; font-size: var(--fs-meta); color: var(--faint); }
+.co-nodo__detalle { margin: 2px 0 10px 31px; display: flex; flex-direction: column; gap: 8px; font-size: var(--fs-sm); }
+.co-nodo__prompt {
+  margin: 0; padding: 8px 10px; border-radius: 10px; background: var(--surface-2); color: var(--ink);
+  line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 180px; overflow-y: auto;
+}
+.co-nodo__meta { margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; color: var(--faint); }
+.co-nodo__pasos { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.co-nodo__pasos li { line-height: 1.4; color: var(--ink); }
+.co-nodo__pasos li span { margin-right: 6px; color: var(--faint); }
+.co-nodo__cierre { margin: 0; color: var(--ink); line-height: 1.45; }
+.co-nodo__motivo { margin: 0; color: var(--bad); }
+.co-nodo__pushes { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 5px; }
+.co-nodo__pushes li { display: grid; grid-template-columns: auto 1fr; column-gap: 6px; align-items: start; color: var(--ink); }
+.co-nodo__pushes li > svg { margin-top: 2px; color: var(--good); }
+.co-nodo__push-txt { line-height: 1.4; overflow-wrap: anywhere; }
+.co-nodo__push-cuando { grid-column: 2; font-size: var(--fs-meta); color: var(--faint); }
+
+/* En el teléfono: la barra compacta «Avance 3/5» que se abre (la de «Tu oferta» de Offer). */
+.co-avance-movil { display: flex; flex-direction: column; gap: 8px; margin-bottom: 4px; }
+.co-avance-movil__btn {
+  display: flex; align-items: center; gap: 8px; width: 100%; min-height: 44px; padding: 0 14px;
+  border: 1px solid var(--border); border-radius: 14px; background: var(--surface);
+  font: inherit; font-size: var(--fs-md); font-weight: 600; color: var(--ink); cursor: pointer;
+}
+.co-avance-movil__chev { margin-left: auto; display: flex; color: var(--faint); transition: transform .16s ease; }
+.co-avance-movil__lista {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 8px 10px; max-height: 50dvh; overflow-y: auto;
 }
 
 /* ── La caja de escribir ──────────────────────────────────────────────────── */
@@ -390,11 +494,6 @@
 .co-caja--quieta { display: flex; align-items: center; gap: 12px; padding: 12px 12px 12px 16px; }
 .co-caja--quieta p { margin: 0; flex: 1; min-width: 0; font-size: var(--fs-sm); color: var(--dim); }
 
-/* ── Avance y Pushes: el nombre de la vista, y nada más arriba ─────────────── */
-.co-vista { flex: 1; min-height: 0; overflow-y: auto; padding: 22px 32px 40px; }
-.co-vista__cab { display: flex; align-items: baseline; gap: 12px; margin: 0 0 16px; }
-.co-vista__titulo { margin: 0; font-size: var(--fs-sect); font-weight: 600; }
-.co-vista__accion { font-size: var(--fs-sm); color: var(--faint); }
 
 /* ── Los Runners (el modal), copiado de GitHub → Settings → Actions → Runners ───────────── */
 .co-runner { display: flex; flex-direction: column; gap: 12px; font-size: var(--fs-md); color: var(--ink); }
@@ -490,6 +589,11 @@
   .co-barra { width: 268px; }
   .co-hilo, .co-caja-wrap { padding-inline: 16px; }
 }
+/* Sin lugar para dos columnas, la barra del avance se apoya ENCIMA de la conversación, a la derecha. */
+@media (max-width: 1000px) {
+  .co-riel { position: absolute; z-index: 4; top: 0; right: 0; bottom: 0; width: min(340px, 100%); padding: 10px; }
+  .co-riel__tarjeta { box-shadow: 0 12px 36px rgba(18, 21, 27, .16); }
+}
 /* Una sola columna, como WhatsApp en el teléfono: la lista, o la conversación con su flecha de volver. */
 @media (max-width: 720px) {
   .co-barra { width: 100%; border-right: 0; }
@@ -497,6 +601,7 @@
   .co[data-con-chat='false'] .co-panel { display: none; }
   .co-cab__volver { display: inline-flex; }
   .co-cab { padding: 0 12px; }
+  .co-cab__avance-txt { display: none; }
   .co-yo { max-width: 88%; }
 }
 @media (pointer: coarse) {

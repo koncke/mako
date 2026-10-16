@@ -104,7 +104,8 @@ test('en las pantallas del Centro no hay «pedidos»: son trabajos (la palabra e
   // (Conversacion.tsx), en la barra (CentroApp.tsx) y en el panel del cartero, en la computadora y en el teléfono.
   for (const f of ['app/admin/operaciones/CentroApp.tsx', 'app/admin/operaciones/Conversacion.tsx', 'app/admin/operaciones/Hilo.tsx',
     'app/admin/operaciones/PanelRunner.tsx', 'app/admin/operaciones/acciones.ts', 'app/admin/operaciones/page.tsx',
-    'app/m/operaciones/CentroMovil.tsx', 'app/m/operaciones/ChatsMovil.tsx', 'app/m/operaciones/page.tsx']) {
+    'app/admin/operaciones/Avance.tsx', 'app/m/operaciones/RunnerMovil.tsx', 'app/m/operaciones/ChatsMovil.tsx', 'app/m/operaciones/CentroAppMovil.tsx',
+    'app/m/operaciones/page.tsx']) {
     const malos = textos(sinComentarios(leer(f))).filter((t) => /\bpedidos?\b/i.test(t));
     assert.deepEqual(malos, [], `${f}: en la pantalla se dice «trabajo»`);
   }
@@ -118,9 +119,9 @@ test('el Centro en el teléfono: el mismo guard antes de leer, manda por el mism
   // Desde el 16/10 el teléfono también manda (Martín: «NO es funcional, no puedo mandar un prompt»), pero por el
   // MISMO camino que la computadora: mandar.ts firma en el dispositivo y llama a la acción guardada. Ninguna
   // pantalla del teléfono escribe en la cola por su cuenta, ni acuña el token.
-  const vista = sinComentarios(leer('app/m/operaciones/CentroMovil.tsx'));
+  const vista = sinComentarios(leer('app/m/operaciones/RunnerMovil.tsx'));
   const chats = sinComentarios(leer('app/m/operaciones/ChatsMovil.tsx'));
-  const pestanas = sinComentarios(leer('app/m/operaciones/ProgresoMovil.tsx'));
+  const pestanas = sinComentarios(leer('app/m/operaciones/CentroAppMovil.tsx'));
   for (const src of [pagina, vista, chats, pestanas]) {
     assert.doesNotMatch(src, /encolarPedido|cancelarPedido|crearTokenCartero/, 'el teléfono manda sólo por mandar.ts');
   }

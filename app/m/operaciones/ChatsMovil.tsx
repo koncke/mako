@@ -3,10 +3,11 @@
 // =============================================================================
 // Chats en el teléfono: la misma lista y la misma conversación que la computadora, destiladas (16/10/2026)
 // =============================================================================
-// Copiado de WhatsApp y de Codex en el iPhone (capturas del 15/10, docs/hallazgos-operaciones.md): la lista en
-// secciones —acá, una por CUENTA, que es lo que separa dos «CRM» con el mismo nombre—, cada fila con su punto,
+// Copiado de WhatsApp y de Codex en el iPhone (capturas del 15/10, docs/hallazgos-operaciones.md): UNA lista (sin
+// grupos por cuenta desde el 15/10: Martín, «No quiero que exista "cuenta 1, cuenta 2, 3"»), cada fila con su punto,
 // el título, la edad a la derecha y lo último que pasó debajo; al tocarla, la conversación a pantalla casi
-// completa con la caja de escribir FIJA abajo, como WhatsApp. El hilo es el de la computadora (Hilo.tsx).
+// completa con la caja de escribir FIJA abajo, como WhatsApp. El hilo es el de la computadora (Hilo.tsx), y arriba
+// va la barra «Avance 3/5» que se abre (Avance.tsx, la de «Tu oferta» de Offer en el teléfono). La cuenta, como chip.
 //
 // ⚠️ MANDAR DESDE EL TELÉFONO pasa por el MISMO camino que la computadora (app/admin/operaciones/mandar.ts →
 // encolarPedidoAction, con su `puedeOperar`): se firma con la clave de ESTE teléfono, y la PC tiene que
@@ -18,19 +19,21 @@ import { FilaM, ListaM, SeccionM, SheetM, VacioM, useToastM } from '@/app/m/_ui'
 import { Icon } from '@/app/_components/icons';
 import type { Alcance } from '@/lib/operaciones-reglas';
 import {
-  comoSale, historialDelChat, nombreCuenta, seccionesDeChats, textoDeEnvio, vistaPrevia, type CarteroP, type ChatCentro, type TrabajoP,
+  avanceDelChat, comoSale, historialDelChat, nombreCuenta, seccionesDeChats, textoDeEnvio, titulosRepetidos, tituloNormal, vistaPrevia,
+  type CarteroP, type ChatCentro, type TrabajoP,
 } from '@/lib/centro-chats';
 import type { PedidoP, PushP } from '@/lib/progreso-reglas';
 import Link from '@/app/_ui/Link';
 import { Hilo, Tick } from '@/app/admin/operaciones/Hilo';
 import { Muneco, animoDe } from '@/app/admin/operaciones/Muneco';
+import { BarraAvanceMovil } from '@/app/admin/operaciones/Avance';
 
 const ESTADO: Record<ChatCentro['estado'], string> = { trabajando: 'Trabajando', abierto: 'Abierto', cerrado: 'Cerrado', sin_dato: '' };
-const metaDe = (c: ChatCentro) => [nombreCuenta(c.cuenta), ESTADO[c.estado]].filter(Boolean).join(' · ');
+const metaDe = (c: ChatCentro) => ESTADO[c.estado];
 import { copiar, type useFirma } from '@/app/admin/operaciones/mandar';
 
-/** Cuántos chats se ven por cuenta antes de «Ver todos». */
-const VISIBLES = 6;
+/** Cuántos chats se ven antes de «Ver todos». */
+const VISIBLES = 10;
 
 const edad = (t: number | null, ahora: number): string => {
   if (t == null || !Number.isFinite(t)) return '';
@@ -46,7 +49,8 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
   carteros: CarteroP[];
   pedidos: PedidoP[];
   trabajos: TrabajoP[];
-  pushes: PushP[];
+  /** null mientras llegan los de Vercel: el avance no afirma «subió» sin leerlos. */
+  pushes: PushP[] | null;
   ahora: number;
   /** Cuántas tarjetas de la Ticketera espera cada chat (lib/centro-chats.ts → esperasPorChat). */
   esperas: Record<string, number>;
@@ -72,6 +76,7 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
   }, [abierto, lineas.length]);
 
   const secciones = useMemo(() => seccionesDeChats(chats), [chats]);
+  const repetidos = useMemo(() => titulosRepetidos(chats), [chats]);
 
   if (!chats.length) return <VacioM frase="Conecta un Runner desde la computadora para ver tus chats aquí." />;
 
@@ -133,8 +138,8 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
         const todas = enteras.has(k);
         const corte = todas ? lista : lista.slice(0, VISIBLES);
         return (
-          <SeccionM key={k} titulo={titulo}>
-            <ListaM etiqueta={titulo}>
+          <SeccionM key={k} titulo={titulo ?? 'Chats'}>
+            <ListaM etiqueta={titulo ?? 'Chats'}>
               {corte.map((c) => {
                 const p = vistaPrevia(historialDelChat(c, porId, trabajos));
                 const vivo = c.estado === 'trabajando' && !c.viejo;
@@ -142,7 +147,13 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
                   <FilaM
                     key={c.clave}
                     leading={<Muneco titulo={c.titulo} animo={animoDe(c)} size={40} espera={esperas[c.clave] ?? 0} />}
-                    titulo={<span className="m-operaciones-texto1">{c.titulo}</span>}
+                    titulo={(
+                      <span className="m-operaciones-texto1">
+                        {c.titulo}
+                        {/* La cuenta, sólo si otro chat se llama igual: sin ella no se distinguen. */}
+                        {c.cuenta && repetidos.has(tituloNormal(c.titulo)) && <span className="co-chip-cuenta" style={{ marginLeft: 6 }}>{nombreCuenta(c.cuenta)}</span>}
+                      </span>
+                    )}
                     segunda={vivo
                       ? <span className="m-operaciones-vivo">trabajando…</span>
                       : (esperas[c.clave] ?? 0) > 0 ? <span className="m-operaciones-espera">Espera tu respuesta</span>
@@ -164,15 +175,17 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
           <div className="m-operaciones-hilo" ref={hilo}>
             <p className="m-operaciones-hilo__meta">
               <Muneco titulo={elegido.titulo} animo={animoDe(elegido)} size={24} />
+              {elegido.cuenta && <span className="co-chip-cuenta">{nombreCuenta(elegido.cuenta)}</span>}
               {metaDe(elegido)}
             </p>
+            <BarraAvanceMovil nodos={avanceDelChat(lineas)} pushes={pushes} ahora={ahora} />
             {(esperas[elegido.clave] ?? 0) > 0 && (
               <Link href="/m/tickets/decisiones" className="co-espera" style={{ margin: 0 }}>
                 {(esperas[elegido.clave] ?? 0) === 1 ? 'Una tarjeta espera tu respuesta' : `${esperas[elegido.clave]} tarjetas esperan tu respuesta`}
                 <span className="co-espera__ir">Contestar</span>
               </Link>
             )}
-            <Hilo lineas={lineas} pushes={pushes} ahora={ahora} vacio="Escríbele abajo para empezar." quien={{ titulo: elegido.titulo, animo: animoDe(elegido), dato: metaDe(elegido) }} />
+            <Hilo lineas={lineas} pushes={pushes ?? []} ahora={ahora} vacio="Escríbele abajo para empezar." quien={{ titulo: elegido.titulo, animo: animoDe(elegido), dato: metaDe(elegido) }} />
           </div>
         )}
       </SheetM>

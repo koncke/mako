@@ -44,7 +44,8 @@ const PANTALLAS = [
   'app/admin/operaciones/CentroApp.tsx', 'app/admin/operaciones/Conversacion.tsx', 'app/admin/operaciones/Hilo.tsx',
   'app/admin/operaciones/PanelRunner.tsx', 'app/admin/operaciones/acciones.ts', 'app/admin/operaciones/mandar.ts',
   'app/admin/operaciones/page.tsx', 'app/admin/operaciones/loading.tsx',
-  'app/m/operaciones/CentroMovil.tsx', 'app/m/operaciones/ChatsMovil.tsx', 'app/m/operaciones/ProgresoMovil.tsx', 'app/m/operaciones/page.tsx',
+  'app/admin/operaciones/Avance.tsx',
+  'app/m/operaciones/RunnerMovil.tsx', 'app/m/operaciones/ChatsMovil.tsx', 'app/m/operaciones/CentroAppMovil.tsx', 'app/m/operaciones/page.tsx',
 ];
 const PROHIBIDO: Array<[RegExp, string]> = [
   [/\bcarteros?\b/i, 'el cartero se llama Runner en pantalla'],
