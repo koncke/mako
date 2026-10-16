@@ -8474,6 +8474,13 @@ costó, en [docs/hallazgos-objectives.md](docs/hallazgos-objectives.md) → «Ge
   plantilla (`tests/plantillas-sugeridas.test.ts` no deja pasar una plantilla sin la suya). Sin IA al abrir: las señales
   salen de lo DECLARADO (`senalesDelNegocio`). Una plantilla de UN canal no lleva un eje genérico: los ejes suman por
   separado y se la sugeriría a quien vende por otro. Cómo se enchufa otra galería: docs/plantillas-sugeridas.md.
+- **La ficha del lead es POR TAB** (16/10/2026, Martín: «Que se pueda cambiar el nombre de las tabs internas... que se
+  pueda ver "epico"»): el nombre de una tab sale de `efectiva.nombres` (el admin la renombra), nunca de un rótulo
+  escrito; su galería, de `galeriaDeTab` y sus sugeridas, de `sugeridasDeTab` (lib/ficha/plantillas-tab.ts: la señal es
+  el TIPO del funnel, porque la ficha es de UN funnel). Un cambio nuevo de la ficha es un op de UNA palabra en
+  minúsculas en `CambioFicha`, con su `cambio` en la API (tests/ficha-api.test.ts sólo ve esa forma). Un bloque
+  recibe `epico` y decide cómo se agranda. Lo que no se ve en el código: docs/hallazgos-crm.md → «La ficha
+  personalizable POR TAB».
 
 # MaKo Mobile (/m): lo que gobierna una pantalla nueva del teléfono
 

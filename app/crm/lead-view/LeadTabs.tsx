@@ -5,6 +5,12 @@
 // =============================================================================
 // Genérico: recibe la lista de tabs con su contenido (ReactNode, server
 // components incluidos). Lo usan la ruta /crm/[id] y el modal de preview.
+//
+// 16/10/2026 — RENOMBRAR UNA TAB CON DOBLE CLIC (Martín: «Que se pueda cambiar el nombre de las tabs internas»).
+// Como una pestaña de Google Sheets y una hoja del Dashboard (app/dashboard/Cabecera.tsx, `MenuHojas`): doble clic
+// sobre la pestaña la vuelve un campo; Enter o salir guarda, Escape no cambia nada. Sólo las que vienen con
+// `renombrable` y si quien monta pasa `onRenombrar` (la ficha lo hace personalizando, sólo el admin). La clave (`key`,
+// la que viaja en `?tab=`) no cambia: cambia lo que se lee.
 
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 
@@ -15,9 +21,11 @@ export type LeadTabDef = {
   label: string;
   content: ReactNode;
   badge?: number;
+  /** Se le puede cambiar el nombre con doble clic (con `onRenombrar`). */
+  renombrable?: boolean;
 };
 
-export function LeadTabs({ tabs, initial, onChange, actions, fija, irA }: {
+export function LeadTabs({ tabs, initial, onChange, actions, fija, irA, onRenombrar, maxNombre = 24 }: {
   tabs: LeadTabDef[];
   initial?: string;
   onChange?: (key: string) => void;
@@ -42,7 +50,12 @@ export function LeadTabs({ tabs, initial, onChange, actions, fija, irA }: {
    * correr el efecto aunque ya se esté ahí.
    */
   irA?: { key: string; n: number } | null;
+  /** El nombre nuevo de una tab `renombrable` (doble clic). Vacío = el de siempre: quien monta decide. */
+  onRenombrar?: (key: string, nombre: string) => void;
+  /** El largo máximo del nombre. */
+  maxNombre?: number;
 }) {
+  const [renombrando, setRenombrando] = useState<string | null>(null);
   const initKey = initial && tabs.some((t) => t.key === initial) ? initial : tabs[0]?.key ?? '';
   const [tab, setTab] = useState<string>(initKey);
   // Las tabs ya visitadas quedan MONTADAS (ocultas con display:none): cambiar de
@@ -67,6 +80,11 @@ export function LeadTabs({ tabs, initial, onChange, actions, fija, irA }: {
   });
 
   const activeKey = tabs.some((t) => t.key === tab) ? tab : tabs[0]?.key ?? '';
+  // El campo ocupa el lugar de la pestaña, con su letra y su alto (el de un toque: `--touch`).
+  const tabInput: CSSProperties = {
+    marginRight: 22, padding: '0 6px', minHeight: 'var(--touch)', boxSizing: 'border-box', border: 'none', borderBottom: '2px solid var(--primary)',
+    borderRadius: 0, background: 'var(--primary-bg)', color: 'var(--ink)', fontFamily: SANS, fontSize: 15, fontWeight: 600, outline: 'none',
+  };
 
   return (
     <div>
@@ -83,8 +101,22 @@ export function LeadTabs({ tabs, initial, onChange, actions, fija, irA }: {
         <div role="tablist" style={{ display: 'flex', flexWrap: 'wrap', minWidth: 0, flex: 1 }}>
         {tabs.map((t) => {
           const active = tab === t.key;
+          const renombra = !!(t.renombrable && onRenombrar);
+          if (renombra && renombrando === t.key) {
+            return (
+              <input key={t.key} autoFocus defaultValue={t.label} maxLength={maxNombre} aria-label={`Nombre de la tab ${t.label}`}
+                size={Math.max(6, Math.min(maxNombre, t.label.length + 2))} style={tabInput}
+                onFocus={(e) => e.currentTarget.select()}
+                onBlur={(e) => { const v = e.target.value.trim(); if (v !== t.label) onRenombrar!(t.key, v); setRenombrando(null); }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                  if (e.key === 'Escape') { e.stopPropagation(); e.nativeEvent.stopImmediatePropagation(); setRenombrando(null); }
+                }} />
+            );
+          }
           return (
-            <button key={t.key} role="tab" aria-selected={active} onClick={() => { setTab(t.key); setVisitadas((v) => (v.includes(t.key) ? v : [...v, t.key])); onChange?.(t.key); }} style={tabBtn(active)}>
+            <button key={t.key} role="tab" aria-selected={active} onClick={() => { setTab(t.key); setVisitadas((v) => (v.includes(t.key) ? v : [...v, t.key])); onChange?.(t.key); }} style={tabBtn(active)}
+              onDoubleClick={renombra ? () => setRenombrando(t.key) : undefined} title={renombra ? 'Doble clic para cambiarle el nombre' : undefined}>
               {t.label}
               {t.badge != null && t.badge > 0 && (
                 <span style={{ fontSize: 11.5, fontWeight: 700, minWidth: 20, height: 20, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 999, padding: '0 6px', background: active ? 'rgba(47,111,237,.12)' : 'var(--surface-2)', color: active ? 'var(--primary)' : 'var(--dim)', border: '1px solid ' + (active ? 'var(--primary)' : 'var(--border)') }}>{t.badge}</span>
