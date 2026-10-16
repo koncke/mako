@@ -9,7 +9,7 @@
 // Correr: node --import tsx --test tests/crm-asignar-evento.test.ts
 //
 // ⚠️ PROBADO ROMPIÉNDOLO (16/10/2026, base 2/0): la opción en TODAS las columnas (sin `c.kind === 'reunion'`) → 1 / 1;
-// «Traer acá» sin desvincular antes (el motor rechaza el segundo vínculo) → 1 / 1; marcar sin vincular → 1 / 1.
+// «Traer aquí» sin desvincular antes (el motor rechaza el segundo vínculo) → 1 / 1; marcar sin vincular → 1 / 1.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -25,7 +25,7 @@ test('el «⋯» de una etapa de REUNIÓN (sólo esas) ofrece «Asignar evento»
   assert.match(board, /<EventosDeEtapaModal funnelId=/);
 });
 
-test('marcar vincula, desmarcar desvincula, y «Traer acá» primero desvincula de la otra etapa', () => {
+test('marcar vincula, desmarcar desvincula, y «Traer aquí» primero desvincula de la otra etapa', () => {
   assert.match(modal, /listarEventosAgendaAction\(\)/);
   const cambiar = modal.slice(modal.indexOf('const cambiar = async'), modal.indexOf('const conectados'));
   assert.match(cambiar, /if \(accion !== 'vincular'\) \{\s*const d = await desvincularEventoEtapaAction/);

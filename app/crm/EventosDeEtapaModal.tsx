@@ -12,7 +12,7 @@
 // El MOTOR ya estaba (mig 0293, lib/agenda-evento-etapa*.ts, app/crm/agenda-evento-actions.ts): un evento va a UNA
 // sola etapa, y quien se agenda en él cae en esa etapa de ese funnel. Acá sólo hay pantalla:
 //   · Marcar un evento lo vincula a esta etapa; desmarcarlo lo desvincula.
-//   · Uno que ya está en OTRA etapa dice dónde, y «Traer acá» lo desvincula de allá y lo vincula acá.
+//   · Uno que ya está en OTRA etapa dice dónde, y «Traer aquí» lo desvincula de allá y lo vincula acá.
 //   · «Crear un evento» abre la página de Calendly o Cal.com en otra pestaña (sus APIs no crean tipos de evento
 //     desde acá); al volver, «Actualizar» lo trae a la lista.
 //   · Google Calendar NO está: el motor sólo conoce Calendly y Cal.com (lib/agenda-evento-etapa.ts, ProveedorAgenda).
@@ -87,15 +87,15 @@ export function EventosDeEtapaModal({ funnelId, etapa, etapaNombre, onCerrar }: 
 
   const conectados = agenda?.proveedores.filter((p) => p.conectado) ?? [];
   const fila = (e: EventoDeAgenda) => {
-    const aca = enEsta(e);
-    const enOtra = !!e.vinculo && !aca;
+    const enEstaEtapa = enEsta(e);
+    const enOtra = !!e.vinculo && !enEstaEtapa;
     const k = clave(e);
     return (
       <div key={k} role="row" style={{ display: 'grid', gridTemplateColumns: COLUMNAS, alignItems: 'center', gap: 10, padding: '10px 12px', borderTop: '1px solid var(--border)' }}>
         <span role="cell">
-          <input type="checkbox" style={CASILLA} checked={aca} disabled={enOtra || ocupado != null || agenda?.sePuedeVincular === false}
-            aria-label={aca ? `Quitar ${e.nombre} de ${etapaNombre}` : `Asignar ${e.nombre} a ${etapaNombre}`}
-            onChange={() => { void cambiar(e, aca ? 'desvincular' : 'vincular'); }} />
+          <input type="checkbox" style={CASILLA} checked={enEstaEtapa} disabled={enOtra || ocupado != null || agenda?.sePuedeVincular === false}
+            aria-label={enEstaEtapa ? `Quitar ${e.nombre} de ${etapaNombre}` : `Asignar ${e.nombre} a ${etapaNombre}`}
+            onChange={() => { void cambiar(e, enEstaEtapa ? 'desvincular' : 'vincular'); }} />
         </span>
         <span role="cell" style={{ minWidth: 0, fontSize: 13.5, fontWeight: 600, color: e.enLaCuenta ? 'var(--ink)' : 'var(--dim)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
           title={e.enLaCuenta ? e.nombre : `${e.nombre} · ya no está en tu cuenta`}>
@@ -103,15 +103,15 @@ export function EventosDeEtapaModal({ funnelId, etapa, etapaNombre, onCerrar }: 
         </span>
         <span role="cell" style={{ fontSize: 12.5, color: 'var(--dim)' }}>{NOMBRE_PROVEEDOR[e.proveedor]}</span>
         <span role="cell" style={{ fontSize: 12.5, color: 'var(--dim)' }}>{e.duracionMin != null ? `${e.duracionMin} min` : '—'}</span>
-        <span role="cell" style={{ minWidth: 0, fontSize: 12.5, color: aca ? 'var(--primary)' : 'var(--dim)', display: 'flex', alignItems: 'center', gap: 6 }}>
+        <span role="cell" style={{ minWidth: 0, fontSize: 12.5, color: enEstaEtapa ? 'var(--primary)' : 'var(--dim)', display: 'flex', alignItems: 'center', gap: 6 }}>
           {ocupado === k ? <Spinner size={13} />
-            : aca ? 'Esta etapa'
+            : enEstaEtapa ? 'Esta etapa'
               : enOtra ? (
                 <>
                   <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={`${e.vinculo!.funnel} › ${e.vinculo!.etapaNombre}`}>{e.vinculo!.etapaNombre}</span>
                   <button type="button" disabled={ocupado != null} onClick={() => { void cambiar(e, 'traer'); }}
                     style={{ flex: 'none', border: 'none', background: 'none', padding: 0, cursor: 'pointer', fontFamily: SANS, fontSize: 12.5, fontWeight: 600, color: 'var(--primary)' }}>
-                    Traer acá
+                    Traer aquí
                   </button>
                 </>
               ) : '—'}

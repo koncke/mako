@@ -29,7 +29,7 @@ modo claro** (`b401cd017`, «pon en white mode la tab de Second Brain»). Las ci
 
 ### Hecho (commits `9f595cc6f`, `4e9411a71`, `f0c8f0da0`, `f777d1d4f`, `7c0d07b9d`, `c52533e94` y `8cd7447e6`)
 - [x] **3.** «Asignar evento» en el «⋯» de cada etapa de REUNIÓN (`c7f7b5609`, app/crm/EventosDeEtapaModal.tsx), con
-  el logo de Meet y el diseño de la tabla de campañas: marcar vincula, desmarcar quita, «Traer acá» mueve uno que
+  el logo de Meet y el diseño de la tabla de campañas: marcar vincula, desmarcar quita, «Traer aquí» mueve uno que
   está en otra etapa, «Crear un evento en Calendly / Cal.com» abre su página y «Actualizar» lo trae. **Google
   Calendar no** (el motor sólo conoce Calendly y Cal.com), y crear el evento NO es «ahí mismo»: sus APIs no crean
   tipos de evento desde acá. Nadie lo miró con una cuenta de Calendly real.
