@@ -35,7 +35,6 @@ import { CANALES } from '@/lib/fase-diagnostico';
 // estilo del Dashboard. Copiar sus ids a mano sería un segundo catálogo.
 import { TABS_FICHA, DENSIDADES } from '@/lib/ficha/catalogo';
 import { IDS_PLANTILLA } from '@/lib/ficha/plantillas';
-import { DATOS_AVISABLES } from '@/lib/datos-aviso';
 import { PLANTILLAS_TEMA, TIPOGRAFIAS } from '@/lib/graficos-temas';
 
 const TAB = { tab: 'crm' } as const;
@@ -450,9 +449,13 @@ export const DEFS: readonly OperacionDef[] = [
       { nombre: 'ancho', tipo: 'string', enum: ['1/4', '1/3', '1/2', 'completo'], descripcion: 'en poner y ancho: el ancho del bloque sobre la grilla de la ficha. Cada bloque acepta sólo algunos (ver_ficha_funnel).' },
       { nombre: 'diseno', tipo: 'string', max: 40, descripcion: 'en poner y diseno: el id del diseño del bloque (de ver_ficha_funnel).' },
       // Sin enum, a propósito (como bloque): son ~70 íconos. preparar() valida y devuelve los disponibles.
-      { nombre: 'icono', tipo: 'string', max: 30, descripcion: 'en icono: el id del ícono (de la lista iconos de ver_ficha_funnel), o de-siempre para volver al del bloque.' },
+      { nombre: 'icono', tipo: 'string', max: 30, descripcion: 'en icono: el id (de los iconos de ver_ficha_funnel), o de-siempre: el del bloque.' },
       { nombre: 'n', tipo: 'number', entero: true, minimo: 1, maximo: 40, descripcion: 'si el bloque está más de una vez en la tab (respuesta-destacada), cuál: 1 es el primero.' },
-      { nombre: 'aviso', tipo: 'string', enum: DATOS_AVISABLES.map((d) => d.id), descripcion: 'en aviso: el dato sin marcar (de ver_ficha_funnel).' },
+      // ⚠️ SIN ENUM DESDE EL 15/10/2026 (eran 21 ids): este ToolDef viaja en el turno del doer de WhatsApp, que tiene
+      // 12.000 caracteres para TODAS las del CRM, y por el «cambiar» de su id entra entre las primeras en cualquier
+      // «cambiá…». Sumarle el ícono dejó afuera a proponer_mover_reunion (tests/agenda-whatsapp.test.ts). Los ids
+      // están en los avisos de ver_ficha_funnel, y la traducción (lib/ficha/api.ts) valida y devuelve los que hay.
+      { nombre: 'aviso', tipo: 'string', max: 30, descripcion: 'en aviso: el id del dato sin marcar (de los avisos de ver_ficha_funnel).' },
       { nombre: 'avisa', tipo: 'boolean', descripcion: 'en aviso: true para que avise, false para que no.' },
       { nombre: 'tema', tipo: 'string', enum: PLANTILLAS_TEMA.map((p) => p.id), descripcion: 'en estilo: la plantilla de estilo, la misma del Dashboard.' },
       { nombre: 'acento', tipo: 'string', max: 7, descripcion: 'en estilo: el color de acento en hex, #RRGGBB. Vacío para volver al de la plantilla de estilo.' },

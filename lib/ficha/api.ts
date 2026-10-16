@@ -11,6 +11,7 @@ import type { FichaDelFunnel } from './config-server';
 import { sanearCambio, type CambioFicha } from './config';
 import { bloqueDef, bloquesDeLaTab, esTabFicha, vaEnTab, NOMBRE_TAB, TABS_FICHA, ANCHOS, DENSIDADES, type Ancho } from './catalogo';
 import { plantillaFicha, PLANTILLAS_FICHA } from './plantillas';
+import { DATOS_AVISABLES } from '../datos-aviso';
 import { NOMBRES_ICONO_MENU, type NombreIconoMenu } from '../../app/_ui/iconos-menu';
 
 /**
@@ -57,7 +58,12 @@ export function cambioDeInputApi(input: Record<string, unknown>): CambioFicha | 
       crudo = { op: 'icono', ...base, icono: ic === ICONO_DE_SIEMPRE ? null : ic };
       break;
     }
-    case 'aviso': crudo = { op: 'aviso', paso: s(input.aviso), avisa: b(input.avisa) }; break;
+    case 'aviso': {
+      // Sin enum en la def (pesa en el turno de WhatsApp): el id se valida acá, con los que hay.
+      if (!DATOS_AVISABLES.some((x) => x.id === s(input.aviso))) return { error: 'Ese dato no existe.', disponibles: DATOS_AVISABLES.map((x) => x.id) };
+      crudo = { op: 'aviso', paso: s(input.aviso), avisa: b(input.avisa) };
+      break;
+    }
     case 'densidad': crudo = { op: 'densidad', densidad: s(input.densidad) }; break;
     case 'plantilla': crudo = { op: 'plantilla', plantilla: s(input.plantilla) === 'auto' ? null : s(input.plantilla) }; break;
     case 'volver': crudo = { op: 'volver', ...(tab ? { tab } : {}) }; break;

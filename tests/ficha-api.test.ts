@@ -14,14 +14,18 @@
 //   · cambiar_ficha_funnel sin `rolMinimo: 'admin'`                                 → 4 / 1
 //   · preparar() sin el ensayo de `aplicarCambio` (la pendiente se consumiría al confirmar) → 4 / 1
 //
-// Y lo de «Personalizar» que la API no tenía, el ícono de un bloque (15/10/2026, base 6/0), restaurando de memoria:
-//   · `icono` fuera de CAMBIOS_API (la def lo sigue declarando)                       → 4 / 2
-//   · la pantalla manda un cambio que la API no tiene (`lista`, en PanelFicha)         → 5 / 1
-//   · «de-siempre» guardado como texto en vez de volver al ícono del catálogo          → 5 / 1
-//   · ICONOS_BLOQUE con el tacho de borrar                                             → 5 / 1
-//   · la pantalla con su propia lista de íconos (sin `mako`)                           → 5 / 1
-//   · ver_ficha_funnel sin la lista de íconos                                          → 5 / 1
-//   · la def sin el parámetro `icono`                                                  → 5 / 1
+// Y lo de «Personalizar» que la API no tenía, el ícono de un bloque, con el tope de tamaño que eso trajo
+// (15/10/2026, base 7/0), restaurando de memoria:
+//   · `icono` fuera de CAMBIOS_API (la def lo sigue declarando)                       → 5 / 2
+//   · la pantalla manda un cambio que la API no tiene (`lista`, en PanelFicha)         → 6 / 1
+//   · «de-siempre» guardado como texto en vez de volver al ícono del catálogo          → 6 / 1
+//   · ICONOS_BLOQUE con el tacho de borrar                                             → 6 / 1
+//   · la pantalla con su propia lista de íconos (sin `mako`)                           → 6 / 1
+//   · ver_ficha_funnel sin la lista de íconos                                          → 6 / 1
+//   · la def sin el parámetro `icono`                                                  → 6 / 1
+//   · el enum de `aviso` de vuelta en la def (3.979 caracteres)                        → 6 / 1, y
+//     tests/agenda-whatsapp.test.ts 15 / 1 (se queda sin proponer_mover_reunion)
+//   · la traducción sin validar el id del aviso (vuelve sin `disponibles`)             → 6 / 1
 // =============================================================================
 
 import { test } from 'node:test';
@@ -31,7 +35,7 @@ import { cambioDeInputApi, salidaFichaApi, CAMBIOS_API, ANCHOS_API, ICONOS_BLOQU
 import { fichaEfectiva, RESPALDO_VACIO } from '../lib/ficha/config';
 import { TABS_FICHA } from '../lib/ficha/catalogo';
 import { IDS_PLANTILLA } from '../lib/ficha/plantillas';
-import { porId } from '../lib/api-mako/registro';
+import { aToolDef, porId } from '../lib/api-mako/registro';
 
 const leer = (r: string) => readFileSync(new URL(`../${r}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 const sinComentarios = (x: string) => x.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
@@ -121,6 +125,20 @@ test('todo lo que hace «Personalizar» en la pantalla lo puede hacer MaKo, íco
   assert.deepEqual(v.iconos, [...ICONOS_BLOQUE], 'MaKo no ve qué íconos puede poner');
   const p = porId('cambiar_ficha_funnel')!.parametros.find((x) => x.nombre === 'icono');
   assert.ok(p && p.tipo === 'string', 'la def no tiene el parámetro icono');
+});
+
+// ⚠️ cambiar_ficha_funnel NO CRECE. Viaja en el turno del doer de WhatsApp, que tiene 12.000 caracteres de esquema
+// para TODAS las herramientas del CRM (PRESUPUESTO_REGISTRO_CHARS, lib/doer-herramientas.ts), y por el «cambiar» de su
+// id entra entre las primeras en cualquier «cambiá…» o «movela…». El 15/10/2026 sumarle el ícono (+183) dejó afuera a
+// proponer_mover_reunion en «no, movela al viernes a las 10» (tests/agenda-whatsapp.test.ts quedaba con 97 de margen).
+// Se pagó sacándole el enum a `aviso` (los ids vienen en ver_ficha_funnel y la traducción los valida). El tope es el
+// tamaño que tenía ANTES del ícono: si una op nueva lo necesita, que se pague achicando otra cosa.
+test('cambiar_ficha_funnel no crece: viaja en el presupuesto del turno de WhatsApp', () => {
+  const largo = JSON.stringify(aToolDef(porId('cambiar_ficha_funnel')!)).length;
+  assert.ok(largo <= 3796, `cambiar_ficha_funnel pesa ${largo} caracteres (tope 3796): le quita lugar a las demás del CRM en WhatsApp`);
+  // Sin enum, el id de un aviso se valida en la traducción, y un id que no existe vuelve con los que hay.
+  const malo = cambioDeInputApi({ cambio: 'aviso', aviso: 'cualquiera', avisa: true });
+  assert.ok('error' in malo && Array.isArray(malo.disponibles) && (malo.disponibles as string[]).includes('empresa'), 'un aviso que no existe: los que sí');
 });
 
 test('un cambio de ficha por la pantalla también vence lo que cuenta «Datos sin marcar»', () => {

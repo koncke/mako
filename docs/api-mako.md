@@ -2029,9 +2029,9 @@ PROPONE UN cambio en la ficha del lead de UN CRM (queda pendiente hasta el «sí
 | `lugar` | number | no | en poner y mover: el lugar en la tab, 1 es el primero. Sin él, poner lo suma al final. |
 | `ancho` | string (1/4 \\| 1/3 \\| 1/2 \\| completo) | no | en poner y ancho: el ancho del bloque sobre la grilla de la ficha. Cada bloque acepta sólo algunos (ver_ficha_funnel). |
 | `diseno` | string | no | en poner y diseno: el id del diseño del bloque (de ver_ficha_funnel). |
-| `icono` | string | no | en icono: el id del ícono (de la lista iconos de ver_ficha_funnel), o de-siempre para volver al del bloque. |
+| `icono` | string | no | en icono: el id (de los iconos de ver_ficha_funnel), o de-siempre: el del bloque. |
 | `n` | number | no | si el bloque está más de una vez en la tab (respuesta-destacada), cuál: 1 es el primero. |
-| `aviso` | string (fechaJ1 \\| asistenciaR1 \\| calificado \\| fathomR1 \\| fechaJ2 \\| asistenciaR2 \\| fathomR2 \\| monto \\| plan \\| comprobante \\| dealServicio \\| dealPromesa \\| dealFiscal \\| dealFiscalDoc \\| dealObligaciones \\| motivo \\| closer \\| setter \\| telefono \\| empresa) | no | en aviso: el dato sin marcar (de ver_ficha_funnel). |
+| `aviso` | string | no | en aviso: el id del dato sin marcar (de los avisos de ver_ficha_funnel). |
 | `avisa` | boolean | no | en aviso: true para que avise, false para que no. |
 | `tema` | string (mako \\| minimal \\| suave \\| contraste \\| elevada \\| general \\| editorial) | no | en estilo: la plantilla de estilo, la misma del Dashboard. |
 | `acento` | string | no | en estilo: el color de acento en hex, #RRGGBB. Vacío para volver al de la plantilla de estilo. |
