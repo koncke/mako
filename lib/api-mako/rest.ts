@@ -21,6 +21,8 @@
 // SIN `server-only`: puro (lo usan el router, el generador de la referencia y los tests).
 // =============================================================================
 
+import { OPERACIONES_API } from '../editor-video/chat-api';
+
 export type MetodoRest = 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE';
 export type RutaRest = readonly [MetodoRest, string, string];
 
@@ -532,6 +534,8 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['GET', '/video/plantillas', 'listar_plantillas_video'],
   ['GET', '/video/proyectos', 'listar_proyectos_video'],
   ['GET', '/video/proyectos/{proyecto}', 'ver_proyecto_video'],
+  // Las operaciones del chat «Editar con IA»: cada una deja una PROPUESTA en el proyecto (lib/editor-video/chat-api.ts).
+  ...OPERACIONES_API.map((o): RutaRest => ['POST', `/video/proyectos/{proyecto}/propuestas/${o.op.replace(/_/g, '-')}`, o.id]),
   ['GET', '/video/voz', 'ver_voz_cliente'],
   // ── integraciones ─────────────────────────────────────────────────────────
   ['GET', '/integraciones/agente-claude', 'ver_estado_agente_claude'],

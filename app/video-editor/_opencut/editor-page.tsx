@@ -45,6 +45,7 @@ import { useEditor } from "@/app/video-editor/_opencut/editor/use-editor";
 import { PanelChat } from "@/app/video-editor/_opencut/chat/PanelChat";
 import { useChatAbierto } from "@/app/video-editor/_opencut/chat/estado";
 import { iniciarEspejo } from "@/app/video-editor/_opencut/chat/espejo";
+import { iniciarPropuestas } from "@/app/video-editor/_opencut/chat/propuestas";
 import { conEspacio } from "@/app/video-editor/espacio";
 import {
 	createPreviewOverlayControl,
@@ -89,6 +90,8 @@ export function EditorPage({ projectId }: { projectId: string }) {
 
 	// La copia de lectura del proyecto, para la API de MaKo: se sube un rato después de cada cambio (chat/espejo.ts).
 	useEffect(() => iniciarEspejo(editor), [editor]);
+	// Lo que la API propuso en este proyecto (por WhatsApp, por la API): aparece en el chat para aceptarlo (chat/propuestas.ts).
+	useEffect(() => iniciarPropuestas(editor), [editor]);
 
 	return (
 		<MobileGate>

@@ -16,10 +16,11 @@ Mientras tanto este chat hace la etapa 3 del diseño AI-native (docs/diseno-mako
 2. **El proyecto también en la base, para leerlo por la API** (hecho): el editor sube la VISTA de la línea de tiempo
    (la misma que lee el chat, con sus refs, ≤60 k) un rato después de cada cambio; `listar_proyectos_video` y
    `ver_proyecto_video`. Mig **0299** (`video_editor_proyectos`, ANTES o JUNTO con el deploy).
-3. **Las operaciones del chat como acciones de la API** (después): cada una PROPONE (`confirmacion: 'pantalla'`, con
-   `proponer()` propio) a una propuesta abierta del proyecto; el editor la muestra en el chat como una más y se
-   acepta con el mismo `aceptarPropuesta` (que ya revisa contra la línea de tiempo de ahora con las refs de antes).
-   El proyecto vive en el navegador: ningún canal escribe la línea de tiempo, sólo la persona en el editor.
+3. **Las operaciones del chat como acciones de la API** (hecho): 34 acciones (`agregar_texto_video`…
+   `usar_plantilla_video`, lib/editor-video/chat-api.ts) que PROPONEN en el proyecto (por nombre o por id); lo del
+   mismo canal se junta en una propuesta (mig **0300**, `video_editor_propuestas`), y el editor la muestra en su chat
+   para aceptarla con el mismo «Aceptar». Ningún canal escribe la línea de tiempo. Fuera de los flujos de Automations.
+   **Falta verlo de punta a punta** con las tres migraciones aplicadas: un pedido por WhatsApp y aceptarlo en el editor.
 
 ## 16/10 mañana (cuenta 3): las plantillas sugeridas, en los dos editores
 

@@ -228,6 +228,8 @@ const TENANT_TABLES = new Set<string>([
   'video_editor_chats',
   // La copia de lectura de cada proyecto del Video Editor, para la API de MaKo (mig 0299): N por workspace.
   'video_editor_proyectos',
+  // Lo que la API de MaKo propone en un proyecto del editor (mig 0300): N por workspace.
+  'video_editor_propuestas',
   // Canal Instagram vía Zernio (mig 0136). La tab se retiró el 06/10/2026 y ya no
   // las lee ni las escribe nadie, pero las TABLAS quedan en la base (sin migración
   // de drop), así que siguen acá: si alguien vuelve a leerlas por getTenantDb, que

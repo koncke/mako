@@ -1315,6 +1315,28 @@ cambio. Nada escribe la línea de tiempo desde el server: lo que proponga la API
 - **SIN HACER:** mirarlo en el navegador (un proyecto viejo sube al abrirse; borrar lo saca de la lista); lo que la copia
   no tiene: el cabezal y la selección (son de quien mira) y los proyectos que no se abrieron desde el 16/10.
 
+## Las operaciones del chat en la API: proponen, y se aceptan en el chat del editor (16/10, etapa 3, tanda 3)
+
+**Vive en:** `lib/editor-video/chat-api.ts` (las 34 acciones) · `lib/editor-video/propuestas.ts` y `propuestas-server.ts` ·
+`app/api/video-editor/propuestas/route.ts` · `app/video-editor/_opencut/chat/propuestas.ts` · mig 0300
+(`video_editor_propuestas`) · test `tests/video-editor-propuestas-api.test.ts` (35 roturas). Lo de la API, en
+docs/hallazgos-api-mako.md («El Video Editor en la API»).
+
+- **La propuesta es un mensaje más del chat «Editar con IA»**: con su «Original | Modificado», el MISMO «Aceptar»
+  (`aceptarPropuesta`, que ya revisaba contra la línea de tiempo de ahora con las refs de cuando se pidió) y
+  «Restaurar». Aceptada o descartada, se cierra en la base. El editor las busca al abrir, al volver a la pestaña y cada
+  minuto; si llega una nueva, abre el panel.
+- **El id del mensaje es el de la propuesta** (`api-<id>`): volver a buscar no la repite, y si otra acción se le sumó,
+  el mensaje se rearma mientras esté pendiente. Una que se resolvió en otra pestaña queda descartada con su aviso.
+- **Se revisa dos veces, a propósito:** al proponer, contra la COPIA (una ref que no existe vuelve con el motivo y el
+  modelo se corrige en el mismo turno); al aceptar, contra la línea de tiempo de ese momento.
+- **Lo del mismo canal se junta** (el grupo de WhatsApp, la sesión, el token) por dos horas y hasta 40 cambios: un
+  pedido son varias acciones y UNA propuesta, que se acepta en un paso de deshacer. La plantilla va sola y con la
+  línea de tiempo vacía, como en el chat.
+- **SIN HACER:** verlo de punta a punta (un pedido por WhatsApp con las migraciones 0298–0300 aplicadas, y aceptarlo
+  en el editor); que el link `?propuesta=` lleve a ESA propuesta (hoy abre el panel con todas); que una propuesta
+  vieja venza (hoy queda abierta hasta que alguien la resuelve); avisarle a la persona por WhatsApp cuando la acepta.
+
 ## Lo que quedó SIN hacer
 
 **Del 14/10 (barra lateral, Borrar silencios, Avatar de IA)**

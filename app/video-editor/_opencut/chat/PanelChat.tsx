@@ -31,6 +31,7 @@ import { resumenDeCambios, revisarOperaciones, vistaDeLinea, type CambioChat } f
 import { aceptarPropuesta, deshacerPropuesta } from "./aplicar";
 import { datosDeLinea, disponiblesChat } from "./contexto";
 import { cambiarHilo, cambiarMensaje, cargarHilo, conId, leerHilo, suscribir, type EstadoPropuesta, type Hilo, type MensajeMako } from "./hilo";
+import { resolverEnServidor } from "./propuestas";
 
 /** La ruta corta a 120 s; el pedido se corta un poco después. */
 const PLAZO_MS = 125_000;
@@ -345,6 +346,8 @@ export function PanelChat({ onCerrar }: { onCerrar: () => void }) {
 		}
 		// Lo que al aplicar no se pudo (un clip que ya no estaba, un corte sin video debajo) se dice.
 		cambiarMensaje(proyectoId, m.id, { estado: "aplicada", aplicada: r.aplicada, descartes: r.descartes.length ? r.descartes : m.descartes });
+		// Una propuesta de la API (por WhatsApp, por la API): se cierra también en la base (chat/propuestas.ts).
+		if (m.propuestaApi) resolverEnServidor(m.propuestaApi.id, "aplicada", r.descartes);
 		toast.success("Cambio aplicado");
 	};
 
@@ -417,7 +420,10 @@ export function PanelChat({ onCerrar }: { onCerrar: () => void }) {
 									puedeRestaurar={!!m.aplicada}
 									onAceptar={() => void aceptar(m)}
 									onAplicarIgual={() => void aceptar(m, true)}
-									onDescartar={() => cambiarMensaje(proyectoId, m.id, { estado: "descartada", aviso: undefined })}
+									onDescartar={() => {
+										cambiarMensaje(proyectoId, m.id, { estado: "descartada", aviso: undefined });
+										if (m.propuestaApi) resolverEnServidor(m.propuestaApi.id, "descartada");
+									}}
 									onRestaurar={() => restaurar(m)}
 								/>
 							) : m.descartes && m.descartes.length > 0 ? (

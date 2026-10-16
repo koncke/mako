@@ -123,6 +123,30 @@ export function proyectoEnLista(f: FilaEspejo, link: string) {
   };
 }
 
+/** Minúsculas y sin tildes, para que «Anuncio Octubre» encuentre «anuncio octubre». */
+const plano = (s: string): string => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().replace(/\s+/g, ' ').trim();
+
+/**
+ * El proyecto que nombra un pedido: por su id o por su NOMBRE (exacto primero; si no, el único que lo contiene).
+ * ⚠️ Por nombre a propósito: en un turno de WhatsApp entran pocas herramientas (12 k caracteres) y medido el 16/10, la
+ *    acción entra pero `listar_proyectos_video` no; sin esto el modelo no tiene de dónde sacar el id. Si el nombre no
+ *    alcanza, el motivo lista los proyectos, que es lo que la lista le habría dado.
+ */
+export function elegirProyecto(filas: readonly FilaEspejo[], valor: string): { ok: true; fila: FilaEspejo } | { ok: false; motivo: string } {
+  const v = valor.trim();
+  if (!v) return { ok: false, motivo: 'falta el proyecto (su nombre o su id, de listar_proyectos_video)' };
+  const porId = filas.find((f) => f.proyecto_id === v);
+  if (porId) return { ok: true, fila: porId };
+  const p = plano(v);
+  const lista = (fs: readonly FilaEspejo[]) => fs.slice(0, 10).map((f) => `«${f.nombre}» (id ${f.proyecto_id})`).join(', ');
+  for (const candidatos of [filas.filter((f) => plano(f.nombre) === p), filas.filter((f) => plano(f.nombre).includes(p))]) {
+    if (candidatos.length === 1) return { ok: true, fila: candidatos[0] };
+    if (candidatos.length > 1) return { ok: false, motivo: `hay ${candidatos.length} proyectos que se llaman así: ${lista(candidatos)}; va el id` };
+  }
+  if (!filas.length) return { ok: false, motivo: 'todavía no hay proyectos del editor: aparecen al abrirlos en el editor' };
+  return { ok: false, motivo: `no hay un proyecto «${v.slice(0, 60)}». Los proyectos: ${lista(filas)}` };
+}
+
 /** El aviso que acompaña a lo que lee la API: es una copia, y para cambiarlo hay que abrirlo donde vive. */
 export const NOTA_COPIA =
   'Es la copia que subió el editor mientras se editaba: el proyecto vive en el navegador de quien lo edita, y el link lo abre ahí (en otro navegador el editor no lo tiene).';

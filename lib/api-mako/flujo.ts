@@ -70,6 +70,13 @@ export function ctxDeFlujo(ws: number, origen: string, nombre: string): Ctx {
  */
 export const NO_EN_FLUJOS: ReadonlySet<string> = new Set(['crear_automatizacion_con_ia']);
 
+/**
+ * Y lo que se acepta EN EL EDITOR DE VIDEO (pantalla `/video-editor`: las operaciones de su chat, lib/editor-video/chat-api.ts,
+ * 16/10/2026). Un flujo corre en el server cuando entra un evento, sin nadie mirando el editor en el navegador donde vive
+ * el proyecto: la propuesta quedaría colgada y el paso, como falla la pantalla genérica, contestaría un error cada vez.
+ */
+export const enElEditorDeVideo = (d: AccionDef): boolean => d.pantalla === '/video-editor';
+
 /** Las operaciones de pantalla PROPIA del plan: todas dejan un borrador de `plan_propuestas`. */
 const DEL_PLAN = new Set(['proponer_tareas_plan', 'proponer_cierre_tareas', 'proponer_ampliar_tareas', 'proponer_tareas_proyecto_vacio']);
 
@@ -84,6 +91,7 @@ export async function ejecutarDesdeFlujo(
 ): Promise<ResultadoFlujo> {
   const def = porId(operacion);
   if (!def || !esAccion(def)) return { ok: false, resumen: `«${operacion}» no es una acción de MaKo.`, via: 'ninguna' };
+  if (enElEditorDeVideo(def)) return { ok: false, resumen: `«${def.titulo}» se acepta en el editor de video: no corre en una automatización.`, via: 'ninguna' };
   // ⚠️ UNA TARJETA TAG CON VARIAS ETIQUETAS CORRE UNA VEZ POR ETIQUETA (sexta tanda, TAG 2). La def del
   // registro acepta UNA (`etiquetaId`) y el validador tira en silencio lo que no declara (`etiquetaIds`):
   // sin esto, «Agregar Cualificado, Seguimiento y Llamar» agregaba sólo Cualificado, sin un error. Cada
@@ -229,7 +237,7 @@ export type AccionEditor = {
 export async function accionesParaFlujo(ws: number): Promise<AccionEditor[]> {
   const vista = await vistaDe(ctxDeFlujo(ws, 'catalogo', 'catálogo'));
   const orden = new Map(ACCIONES_DEL_FLUJO.map((a, i) => [a.id, i]));
-  return REGISTRO.filter((d) => esAccion(d) && visible(d, vista) && !NO_EN_FLUJOS.has(d.id)).map((d): AccionEditor => {
+  return REGISTRO.filter((d) => esAccion(d) && visible(d, vista) && !NO_EN_FLUJOS.has(d.id) && !enElEditorDeVideo(d)).map((d): AccionEditor => {
     const lista = accionDelFlujo(d.id);
     return {
       id: d.id, area: d.area, areaTitulo: AREA_INFO[d.area]?.titulo ?? d.area, titulo: lista?.titulo ?? d.titulo, descripcion: d.descripcion,
