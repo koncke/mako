@@ -1596,6 +1596,7 @@ editor, y un crítico que midió lo que faltaba). Las salidas y los scripts qued
   con Experimentos antes de prender efectos en todas.
 
 ### Etapas propuestas (cada una se entrega sola) y lo que falta decidir
+**Estado al 15/10/2026 (tanda 8):** hechas la 0, la 1, la 2, la 3 y la 7; la 5 NO se hace (decisión de Martín: el video sólo lo genera MaKo); la 8 espera al puente a Flow (el lugar del video ya está: `VIDEO_FONDO`); la 4, la 6 y la 9, sin empezar.
 0. El parpadeo y el LCP de hoy. 1. Modelo y render sin UI. 2. El editor la MUESTRA (al elegir el efecto y con un ▶
 Reproducir dentro del lienzo). 3. API de MaKo (`cambiar_animacion_landing`). 4. Efectos de scroll y componentes con
 movimiento (cinta, pasos, carrusel con snap, máquina de escribir, contador). 5. Video de fondo subido (arriba).
@@ -1710,10 +1711,92 @@ Rama `web-anim` (worktree `C:/dev/wt-web-anim`).
   conteste por el server con la firma de la lectura: una ruta pública nueva (en `lib/rutas-publicas.ts`, sólo POST con
   la firma), una tabla donde dejar la lectura (migración) que la pestaña sondea, y un Pixel nuevo (v25) que reconozca la
   lectura por la firma en vez de por el opener. Le llega sólo a quien usa la línea corta `/m.js`; quien pegó el código
-  entero sigue con el de hoy hasta repegarlo. Y el envío final del lector se corta en 64 KB.
+  entero sigue con el de hoy hasta repegarlo. Hoy lo que el lector manda tiene un tope de 58 KB para las piezas.
 - **De paso:** `mako_leer` no está en `PARAMS_DE_MEDICION` (`lib/landing-paginas.ts`): si alguna vez se mide una visita
   de lectura, queda una página basura por cada una. No se tocó porque cambia la forma de la llave; va junto con el
   plan de arriba.
+
+### El panel «Animar» (commit `7135a8235`)
+
+**Vive en:** `app/web-generator/editor/paneles/PanelAnimacion.tsx`, `TileAnimacion.tsx` · `app/web-generator/editor/animacion-reglas.ts` ·
+`app/web-generator/editor/extensiones/index.ts` (las decoraciones) · `tests/editor-landing-panel-animacion.test.ts`
+
+- **Fuente copiada** (la regla de AGENTS.md): el panel de animaciones del Image Editor (`AnimatePanel.tsx`,
+  `AnimateThumb.tsx`, `Animate.module.css`, `useReducedMotion.ts`, los textos `panel.*`) y la ayuda pública de Canva,
+  https://www.canva.com/help/animate-designs/ (WebFetch le da 403; se leyó con curl). **No se copió, a propósito:**
+  duración, velocidad y suavizado (los tiempos son del catálogo, para que la publicada sea la del panel), la pestaña
+  Texto de Canva (los títulos por palabra o letra son estilos de página) y «Create an Animation».
+- **⚠️ El lugar obvio para `data-anim` en el editor era el equivocado.** En los atributos DOM de la sección
+  (`attrsDeSeccion`) fallaba SIN error: ProseMirror sólo vuelve a dibujar las secciones cuyo nodo cambió, así que
+  cambiar el estilo de la página no tocaba ninguna, y agregar una sección arriba dejaba viejo el «alterna» de las de
+  abajo. **Regla:** lo que depende de la config o de la POSICIÓN va en decoraciones de nodo; el armazón le pasa la
+  config al plugin con `ponerAnimacionDePagina`, fuera del historial y sin disparar el autoguardado.
+- **Las tiles son una mini sección real** animada con la MISMA hoja que la publicada (`.gm-reproducir`), achicada a un
+  tercio porque el panel mide 360 px: si cambia el ancho del panel, hay que revisar la escala.
+- **Los efectos del hijo corren antes que los del padre (React)**: la reproducción después de elegir un estilo espera
+  un cuadro, o reproduce el estilo VIEJO.
+- **El ▶ «Reproducir la página»** reproduce cada sección una vez al entrar en pantalla, con el mismo umbral que la
+  publicada (todas juntas, las de abajo animarían sin que nadie las viera); a diferencia de la publicada, anima también
+  lo que ya está en pantalla. Con «reducir movimiento» nada se mueve solo; el ▶ sí.
+- «Animar sección» está en el menú ⋮ de la sección: el ▾ de la mini barra abre «Diseños», que no es el menú de la
+  sección.
+- ⚠️ **El guard del voseo deja pasar «Elegí… animá»**: no genera el imperativo de los verbos en -ir (se escribe igual
+  que el pretérito: el agujero permanente que ya está en `docs/hallazgos-copy.md`) y no conoce «animar». La primera
+  sospecha («no ve los archivos nuevos») era falsa: los ve con `git add -N`. Sin hacer: sumar «animar» a los
+  infinitivos del guard.
+
+### La API de MaKo (commit `7135a8235`)
+
+**Vive en:** `lib/api-mako/areas/landing-editor.def.ts` / `.run.ts` (`cambiar_animacion_landing`) ·
+`landing-contenido.helpers.ts` (`planAnimacion`) · `lib/mako-intencion.ts` (tipo `animar`) · `tests/api-mako-landing-animacion.test.ts`
+
+- `cambiar_animacion_landing`: el interruptor, el estilo, y el efecto y la dirección de una sección (por id o número);
+  confirmación por chat, admin, reversible, `PATCH /landing/documentos/{id}/animaciones`; escribe por la misma fábrica
+  que las demás ediciones (versión de antes y compare-and-set). La dirección al cambiar de efecto sale de
+  `cambiosAlElegir`, que vive en el CONTRATO para que el panel y la API usen la misma función. `ver_configuracion_landing`
+  cuenta el estilo y los efectos propios. El catálogo va en el `enum` (fijo; los temas tienen lectura aparte porque cada
+  negocio suma los suyos).
+- **⚠️ Sumar la operación sacó de WhatsApp a `publicar_landing`** («subí los cambios de mi landing»). La frase que
+  repiten las 16 ediciones (`VERSION`) decía «subirla» (raíz de publicar) e «internet» (de despublicar). **Regla:** un
+  SINÓNIMO del verbo de otra operación también cuenta como su raíz; la frase repetida no los lleva (hay test).
+- **⚠️ El diagnóstico obvio era el equivocado:** con el clasificador ya bien, 2 frases seguían sin la herramienta. No era
+  el clasificador sino el presupuesto de 12.000 caracteres: la def pesaba 2.490 y empataba con una docena declaradas
+  antes. **Regla:** un pedido chico lleva su propio tipo (`animar`), con una relevancia que nombra su herramienta, y la
+  def se acorta. «anima» + «les» = «animales»: por eso «anima» no acepta esos pronombres.
+- **Sin hacer:** «quita el botón de la web» sale como despublicar (`SACAR_DE_INTERNET` acepta cualquier cosa antes de
+  «de la web»; ya pasaba antes); «analiza las animaciones de mi landing» no llega a analizar (queda a 4 palabras y el
+  límite es 3). Los dos en `lib/mako-intencion.ts`.
+
+### Replicar las animaciones (commit `ec9226345`)
+
+**Vive en:** `lib/editor-landing/replicar-animaciones.ts` (puro) · `estilo-original.ts`, `lector-script.ts` (las señales) ·
+`replicar.ts`, `replicar-reglas.ts` · `app/web-generator/crear/aviso-replica.ts`, `Replicar.tsx`, `editor/EditorLanding.tsx` (el aviso) ·
+`lib/api-mako/areas/landing.{def,run}.ts` (`replicar_landing`) · `tests/editor-landing-replicar-animaciones.test.ts`
+
+- De AOS, animate.css y el primer cuadro de lo que dan `getAnimations()`, Framer appear o el estado en línea de Webflow,
+  a efectos del catálogo; el estilo de la landing es el que domina más partes; cada sección que no coincide lleva el
+  suyo. Sólo en «Landing». Nada se ejecuta de la página ajena (Framer y Webflow se leen como datos).
+- **⚠️ El diagnóstico obvio era el equivocado: «fade-left = viene de la izquierda» es al revés.** AOS lo arranca en
+  `+100px`: viene de la DERECHA. **Regla:** las direcciones de una librería ajena se leen de su CSS, no de su nombre.
+  zoom-out → Pisotón: es el único efecto del catálogo que entra desde más grande.
+- **⚠️ El aviso de Replicar no se veía NUNCA.** Si replicar sale bien, la pantalla navega directo al editor; desde la
+  tanda 6 «sin diseño», «sin el estilo» e «imágenes no copiadas» sólo los leía MaKo. **Regla:** lo que dice el
+  resultado de Replicar viaja al editor de la copia (sessionStorage atado al id de la copia, una vez, nunca por la
+  URL). Hecho sólo para «Los efectos que siguen al scroll no se copian.»; mostrar los otros avisos es decisión de
+  pantalla, sin tomar.
+- Un envoltorio con `data-aos` abre antes de que cierre su título: asignarlo al título anterior lo mandaba a la sección
+  de antes; va con el mismo mecanismo pendiente que las imágenes de fondo.
+- AOS genera una transición POR PROPIEDAD y el navegador da la matriz: se juntan las de un mismo elemento o todo sale
+  «Desvanecer» (por la especificación, sin medir).
+- Rebote y Elástico sólo se distinguen por la curva, Deriva es diagonal, y Deslizar arriba/abajo con fundido tiene la
+  forma de Caer/Subir: **por el primer cuadro no se reconocen** (escrito en el test).
+- Un backtick en un comentario dentro del `String.raw` del lector rompe la compilación con «Expected ";"»: en los
+  comentarios de ese bloque, «».
+- Lo que suma a la lectura: hasta 60 señales y 6.000 caracteres (normalmente < 1 KB), dentro del tope de 17 s; el envío
+  final no tiene un corte de 64 KB (eso es del plan del opener): el tope real es de 58 KB para las piezas.
+- **Sin hacer:** los tweens de GSAP y el texto por palabra/letra; el hero de Webflow (ya se animó antes de leer); el JSON
+  de Framer no se comparó contra un sitio real; desde «Aplicar» del Diagnóstico la línea del scroll no se muestra (ese
+  camino no abre el editor).
 
 ### Trampas del entorno de esta tanda
 
