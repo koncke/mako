@@ -1827,3 +1827,24 @@ sacarla. Ningún generador lee sus recomendaciones (`elegirAngulo` elige de la b
 `app/second-brain/AreasHub.tsx` · `app/second-brain/VistaCerebro.tsx`
 
 *15/10/2026 · chat «Offer» (cuenta claude1) · no se miró en el navegador.*
+
+## «Se queda en Cargando tu onboarding…» no era un bug: era la máquina sin RAM (15/10/2026)
+
+**Vive en:** `app/onboarding/OnboardingWizard.tsx:227` (el `fetch('/api/onboarding')`) y `:304` (el «Cargando…»)
+
+El chat de Video Editor reportó que `/video-editor?ws=3` redirigía a `/onboarding?ws=3` y se quedaba en «Cargando tu
+onboarding…». El sospechoso obvio era el retiro del hub de esa mañana, y **era el equivocado**: ese commit no tocó la rama
+del wizard. Medido en el Chrome de Martín, sin escribir nada, por los dos caminos (directo y por el redirect, con el 307
+llegando al navegador): documento a ~1,5 s, `/api/onboarding?ws=3` 200 en ~2,4 s, datos a la vista a ~4,2 s, cero
+errores de consola. A las 21:05, cuando falló, la máquina tenía ~1 GB libre y Whisper cargado en otra pestaña: era una
+hidratación lenta, no una carga trabada.
+
+- **Cómo se distinguen las dos cosas sin adivinar:** «Cargando…» es lo que el server pinta siempre (`data` arranca en
+  null), y si el GET falla el wizard pinta el error en rojo. Así que «se queda cargando» es (a) no hidrató o (b) el GET no
+  vuelve. Lo decide la pestaña Network: si sale el pedido a `/api/onboarding` y cuánto tarda.
+- **Lo que quedó SIN hacer:** el `fetch` de la carga no lleva `signal`. Con la conexión caída a mitad no resuelve nunca
+  y la pantalla queda en «Cargando…» para siempre, sin decir nada. Va con `AbortSignal.timeout` y un mensaje que diga
+  qué hacer (AGENTS.md, «Un tope que vive en la RUTA no protege al cliente»). Y `/api/auth/me` se pide dos veces en
+  paralelo al cargar.
+
+*15/10/2026 · chat «Onboarding» (claude3), con la medición del chat «MaKo Editor» en el Chrome de Martín.*
