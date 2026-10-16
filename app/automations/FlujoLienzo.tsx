@@ -79,7 +79,7 @@ import { aplicarVariables } from '@/lib/template-vars';
 import { datosOfrecidos, type ContextoDatos } from '@/lib/variables-aviso';
 import type { AdjuntoDto } from '@/lib/setting-adjuntos-reglas';
 import {
-  claseDe, idDe, indicePorId, borrarNodo, condicionARespuesta, raizRespuesta, esPasoIA, TOPE_CASOS,
+  claseDe, idDe, indicePorId, borrarNodo, condicionARespuesta, raizRespuesta, esPasoIA, TOPE_CASOS, OPCIONES_SI_AGENDA_CERCA, textoSiAgendaCerca,
   type Espera, type NombresParaTexto,
 } from '@/lib/flujo-grafo';
 import {
@@ -327,6 +327,21 @@ export function FlujoLienzo({
   }, [rolAdmin, hayArchivos, biblioteca]);
   const archivoNuevo = (a: AdjuntoDto) => setBiblioteca((b) => (b?.estado === 'ok' ? { estado: 'ok', lista: [a, ...b.lista.filter((x) => x.id !== a.id)] } : b));
 
+  // CON CUÁNTA ANTICIPACIÓN SE PUEDE AGENDAR HOY (16/10/2026, `avisoAgendaCerca`): la ⚠ de una espera «antes de la
+  // reunión» que no llega a salir. Se pide sólo si hay una de esas esperas y quien mira es admin (la ruta es de admin).
+  // `undefined` = sin pedir; `null` = no se sabe (sin Calendly, o no se pudo leer): no se avisa nada.
+  const hayAntes = pasos.some((p) => claseDe(p) === 'esperar' && p.espera?.modo === 'antes_reunion');
+  const [anticipacion, setAnticipacion] = useState<number | null | undefined>(undefined);
+  useEffect(() => {
+    if (!rolAdmin || !hayAntes || anticipacion !== undefined) return;
+    let vivo = true;
+    fetch('/api/flujos/anticipacion', { cache: 'no-store', signal: AbortSignal.timeout(30_000) })
+      .then((r) => r.json())
+      .then((j: { ok?: boolean; minutos?: number | null }) => { if (vivo) setAnticipacion(j?.ok && typeof j.minutos === 'number' ? j.minutos : null); })
+      .catch(() => { if (vivo) setAnticipacion(null); });
+    return () => { vivo = false; };
+  }, [rolAdmin, hayAntes, anticipacion]);
+
   // Los catálogos de las condiciones (cursos, clases, posts, campañas), para que la tarjeta diga el
   // nombre de lo elegido («Completó la clase «Bienvenida»» y no «una clase»). Se piden sólo si hay una
   // condición y quien mira es admin (la ruta es de admin): un setter ve el texto genérico.
@@ -341,7 +356,7 @@ export function FlujoLienzo({
     disparador, secuencias, tituloAccion: (op) => titulos?.get(op),
     nombres, colorEtiqueta: (id) => etiquetas.find((t) => t.id === id)?.color ?? null,
     audioDe: (id) => audios.find((a) => a.id === id) ?? null,
-    pendientesOtraCosa,
+    pendientesOtraCosa, anticipacionMin: anticipacion ?? null,
     // El alto de la tarjeta CRON es fijo y se suma por cajita (`altoCron`): tiene que saber cuántas son.
     disparadores, nuevoDisparador: conNuevoDisparador,
   };
@@ -1414,8 +1429,10 @@ function EditorEspera({ espera, busy, cambiar }: { espera: Espera | undefined; b
   const [preferida, setPreferida] = useState<Unidad | null>(null);
   const unidad = unidadMostrada(seg, preferida);
   const n = seg / SEGUNDOS_DE[unidad];
+  // «Si agenda más cerca» (16/10/2026) se conserva al cambiar el número o la unidad; pasar a «Esperar» lo suelta.
+  const cerca = e.modo === 'antes_reunion' && e.siAgendaCerca === 'sale' ? { siAgendaCerca: 'sale' as const } : {};
   const poner = (modo: Espera['modo'], cuanto: number, u: Unidad, apilar: boolean) =>
-    cambiar({ espera: { modo, minutos: minutosDeSegundos(Math.max(1, Math.round(cuanto)) * SEGUNDOS_DE[u]) } }, apilar);
+    cambiar({ espera: { modo, minutos: minutosDeSegundos(Math.max(1, Math.round(cuanto)) * SEGUNDOS_DE[u]), ...(modo === 'antes_reunion' ? cerca : {}) } }, apilar);
   // Un ícono por unidad (general 10: «pon íconos en todos los desplegable»): el cronómetro para lo corto,
   // el reloj para minutos y horas, el calendario para los días.
   const iconoUnidad: Record<Unidad, NombreIconoMenu> = { s: 'cronometro', min: 'reloj', h: 'reloj', dias: 'calendario' };
@@ -1449,6 +1466,13 @@ function EditorEspera({ espera, busy, cambiar }: { espera: Espera | undefined; b
         <Dropdown value={e.modo} width="100%" ariaLabel="Cuándo" search={false} disabled={busy} buttonStyle={botonGrande}
           options={[{ value: 'tiempo', label: 'Esperar', icono: 'reloj' }, { value: 'antes_reunion', label: 'antes de la reunión', icono: 'calendario' }]}
           onChange={(v) => poner(v as Espera['modo'], n, unidad, true)} />
+      </div>
+      {/* «SI AGENDA MÁS CERCA» (16/10/2026, Martín: «si está configurado "1 día antes" y se agendó dentro de 3 horas, que
+          simplemente no salga»): lo que pasa cuando el lead llega con menos de la mitad (`llegaTarde`). De fábrica, no sale. */}
+      <div style={{ flex: '1 1 100%', minWidth: 0 }}>
+        <Dropdown value={e.siAgendaCerca ?? 'no_sale'} width="100%" ariaLabel="Si agenda más cerca" search={false} disabled={busy}
+          options={OPCIONES_SI_AGENDA_CERCA.map((o) => ({ value: o, label: textoSiAgendaCerca({ ...e, siAgendaCerca: o }) ?? '', icono: o === 'sale' ? 'reloj' : 'calendario' }))}
+          onChange={(v) => cambiar({ espera: v === 'sale' ? { modo: 'antes_reunion', minutos: e.minutos, siAgendaCerca: 'sale' } : { modo: 'antes_reunion', minutos: e.minutos } }, true)} />
       </div>
     </div>
   );

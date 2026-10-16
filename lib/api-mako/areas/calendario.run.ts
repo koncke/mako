@@ -14,6 +14,7 @@ import type { Runners, Preparado, Ejecutado } from '../tipos';
 import { hoyEnWorkspace } from '@/lib/timezone';
 import { crearEventos, listarPropios, recurrentesDelRango, zonaDelCalendario } from '@/lib/calendario';
 import { linkDeAgenda } from '@/lib/agenda-link';
+import { anticipacionDeLaAgenda } from '@/lib/agenda-anticipacion';
 import { getWorkspace } from '@/lib/workspace';
 import { tableroDeCapa } from '@/lib/tablero-de-capa';
 import { crearEventoGoogle } from '@/lib/calendario-google';
@@ -127,6 +128,10 @@ export const RUNNERS: Runners = {
         ? { cual, proveedor: r.proveedor, reunion: r.reunion, url: r.url, motivo: null, instruccion: 'Pasa el link TAL CUAL: no lo reescribas.' }
         : { cual, url: null, motivo: r.motivo, se_puede_conectar: r.faltan });
     },
+  },
+
+  anticipacion_agenda: {
+    leer: async (_input, ctx) => JSON.stringify(await anticipacionDeLaAgenda(ctx.ws)),
   },
 
   ver_proximas_recurrentes: {

@@ -4893,3 +4893,33 @@ llega al grupo no se veía en ningún lado.
 **Vive en:** `lib/probar-grupo.ts` · `app/automations/PanelProbar.tsx` (`alGrupo`, `pildora`, `verGrupo`,
 `BarraEscenarios` con `grupo`) · `app/api/chat-agent/simulador/route.ts` (`GET ?grupo=1`) · `lib/simulador-grafo.ts`
 (el evento `accion` lleva su `paso`) · test: `tests/probar-grupo-mako.test.ts`
+
+## «1 día antes» con la reunión en 3 h: lo de esa espera ya no sale (16/10/2026)
+
+Martín: «si MaKo sabe por la API que el evento permite agendar con poca anticipación (por ejemplo 3 h), el delay "1 día
+antes" lo advierte. Y lo ideal: "si está configurado "1 día antes" y se agendó dentro de 3 horas, que simplemente no
+salga"». Hasta ese día el motor seguía de largo con una espera «antes de la reunión» que ya había pasado: quien agendaba
+a 3 h recibía el «mañana es tu reunión» al instante, y el «1 h antes» también.
+
+- **La regla es la MITAD, no «ya pasó»** (`llegaTarde`, lib/flujo-grafo.ts). El lead llega a la espera unos minutos
+  después de agendar (el cron, un «Esperar 5 min» de antes): con «ya pasó», agendar 24 h y 3 min antes salteaba el «1 día
+  antes». Si al llegar falta menos de la mitad («1 día antes» con menos de 12 h), lo que sigue —mensajes y acciones— no
+  sale, hasta la próxima espera; las condiciones del medio se deciden igual. Las flechas en paralelo de esa espera
+  tampoco arrancan.
+- **No es una regla escondida** (la de Martín del 14/10: «MaKo NADA por detrás»): el editor de la espera la dice entera
+  («Si agenda con menos de 12 h, no sale») y se cambia a «Si agenda más cerca, sale enseguida», que es lo de antes y se
+  guarda (`siAgendaCerca: 'sale'`). Lo de fábrica no se escribe. **Cambia lo que reciben los leads de los flujos que ya
+  existen**: Martín lo pidió como lo ideal para todos.
+- **El motor y «Probar» lo hacen igual**: `resolverControl` (lib/nutricion-grafo-motor.ts) y el simulador, que lo dice en
+  la pastilla («⏳ 1 día antes de la reunión · agendó más cerca: no sale»).
+- ⚠️ **La API de Calendly NO publica la «anticipación mínima» de un event type** (es un ajuste de la pantalla; no aparece
+  en su referencia). Lo que sí da son los huecos libres: `primerHuecoLibre` (lib/calendly-agenda.ts) toma el más cercano
+  de cada event type activo en la semana. Es una MEDICIÓN y así se dice («Calendly tiene huecos a 3 h»). La lee
+  `anticipacion_agenda` (API de MaKo, área calendario) y el lienzo (GET /api/flujos/anticipacion), que pone la ⚠ en la
+  píldora de la espera que no llegaría a salir.
+- **Una espera entre dos tarjetas NO es un nodo: es una pastilla de la flecha** (`AristaFlujo.esperas`). El aviso tenía
+  que viajar también ahí (`aviso`), o la ⚠ sólo salía en las esperas sueltas.
+
+**Vive en:** `lib/flujo-grafo.ts` (`llegaTarde`, `textoSiAgendaCerca`) · `lib/nutricion-grafo-motor.ts`
+(`resolverControl`, `sanearEspera`) · `lib/simulador-grafo.ts` · `lib/flujo-conversacion.ts` (`avisoAgendaCerca`) ·
+`lib/agenda-anticipacion.ts` · `app/automations/FlujoLienzo.tsx` (`EditorEspera`) · test: `tests/agenda-cerca.test.ts`
