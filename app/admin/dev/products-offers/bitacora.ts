@@ -341,6 +341,25 @@ export const BITACORA: Hito[] = [
       'lib/offer-ia.ts — el crédito de Claude antes de la red gratis',
     ],
   },
+  {
+    fecha: '16 oct', hora: '08:59', chat: 'Offer', sesion: 'local_34d54ef6-523c-46f8-b83f-9fd310dfd667', cuenta: 'claude3', actor: 'claude', tipo: 'implementacion',
+    titulo: 'La oferta se arma aunque cierres la pestaña, y MaKo avisa cuando está',
+    puntos: [
+      'Antes, si la persona cerraba la pestaña mientras MaKo armaba la oferta, a veces no se hacía nunca. Ahora la arma el servidor de punta a punta, y la pantalla sólo mira cómo va: al volver, está ahí.',
+      'Al terminar, MaKo le avisa al grupo del negocio por WhatsApp: «Tu oferta está lista», con el nombre y el link. Lo configura el SuperAdmin como una automatización más.',
+      'Falta prender esa automatización en la cuenta de la plataforma después de subirlo. Y un negocio que todavía no tiene grupo con MaKo no recibe el WhatsApp: ve la oferta en el chat cuando vuelve.',
+    ],
+    commits: [
+      { sha: '132225c', msg: 'Offer: la oferta se arma en el servidor, y al terminar MaKo avisa (evento de la plataforma oferta_lista)', lineas: 795, archivos: 28 },
+    ],
+    archivos: [
+      'app/api/offer/route.ts — `armar` y `armarPorDetras`: los dos pasos en el servidor',
+      'app/offer/OfferApp.tsx — pide el armado y relee lo guardado mientras corre',
+      'lib/oferta-lista-server.ts — el evento de la plataforma al terminar',
+      'supabase/migrations/0296_offer_armado.sql — el armado en curso, en la fila',
+      'tests/offer-armado-servidor.test.ts — 14 roturas, todas caen',
+    ],
+  },
 ];
 
 export const PARTES: Parte[] = [
