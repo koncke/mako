@@ -2,6 +2,23 @@
 
 *12/10/2026, chat «Video Editor», cuenta claude3 (semana al 88 %).*
 
+## 16/10 madrugada (cuenta 3): plantillas de anuncio, fuentes y deshacer — lo que queda es MIRARLO
+
+- **Hecho y commiteado** (rama `video-editor`; el coordinador sube): el arreglo de la carga de fuentes que colgaba
+  la pestaña (`7cf012ab4`) y el selector de fuentes con la lista vacía; las plantillas de anuncio en 4 tandas
+  (`4a4733313` catálogo y armado, `42003f0c3` «Reemplazar el clip», `75f559502` la pestaña «Plantillas»,
+  `10e746653` chat y API); el deshacer que pisaba un proyecto con otro (`5c9cb8b7f`). Plan y estado:
+  `docs/editor-video/plan-plantillas-anuncio.md`; lo aprendido, en los hallazgos.
+- **Lo primero que sigue, las dos cosas en el Chrome de Martín (ws9, NUNCA ws1) y con su ventana SIN minimizar**
+  (minimizada, la página ve 0×0 y no dibuja; no se restaura desde acá):
+  1. medir el «después» de las fuentes con Long Animation Frames, en el proyecto «1015 (1)»
+     (`711d3216-1bf8-48c1-8e4e-21616a7a0617`), abriendo Subtítulos › Plantillas. «Antes»: +5 hojas de Google
+     Fonts, +38 caras, ~2,6 s de bloqueo;
+  2. la tanda 5 de las plantillas: las siete en la pestaña, «Utilizar plantilla», «Sustituir» con video e imagen
+     (corto y justo), Ctrl+Z, deshacer entre proyectos, el chat (`usar_plantilla`, `reemplazar_clip`), exportar y
+     medir con ffprobe. Sin reproducir con sonido.
+- Proyectos de prueba en el navegador de Martín (su negocio): «1015» y «1015 (1)»; se pueden borrar.
+
 ## 15/10 noche (cuenta 3): pasos 2–4 de los subtítulos y el chat con todo lo que el editor sabe hacer
 
 **Más tarde, el mismo 15/10:** una revisión adversarial encontró 10 bugs y se arreglaron (`5760ab72e`,
