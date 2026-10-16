@@ -4699,12 +4699,23 @@ volvió. La receta sirve para los demás.
   persona.
 - En /mensajes desaparecen al volverse eventos, como los demás. Mientras no haya fila, el envío de siempre sigue leyendo
   su interruptor del store, que ya no se ve. Es por el rato entre el deploy y el script.
+- ⚠️ **Normalizar los dos lados de una comparación esconde lo que se pierde de UNO.** El test comparaba plantilla y texto
+  de siempre después de quitarles «— MaKo» a los dos, y la plantilla no la tenía: con la fila creada, el cliente la
+  habría recibido sin firma. Una tarjeta TAL CUAL manda el texto exacto (el envoltorio con «— MaKo» era de las tarjetas
+  de antes, ver «La tarjeta MaKo en WhatsApp» más arriba), así que la firma va escrita en la plantilla, como en las de
+  cobranza. **Al mudar uno: lo que la normalización saca, se compara aparte.**
+- **Un pedazo de renglón no puede ser opcional en una plantilla:** `textoConDatos` sólo saca el renglón ENTERO cuyo dato
+  falta. Fathom decía « (42 min)» dentro de la frase; en la plantilla la duración va en su renglón («⏱️ 42 min»). Es el
+  único cambio de forma de los tres, y es a propósito.
+- Un helper que necesita un test **no puede vivir en `lib/lead-resumen.ts`** (es `server-only`): los datos de Fathom
+  están en `lib/reunion-grabada.ts`, puro.
 
-**SIN HACER:** correr el script después del deploy; `reunion-ocurrio-fathom`; `reporte-semanal` (sale por email al
-dueño: necesita otra tarjeta); y los otros 61, por familias.
+**SIN HACER:** correr el script después del deploy de 16fa52568 y efcc58d46 (crea las TRES filas); `reporte-semanal`
+(sale por email al dueño: necesita otra tarjeta); y los otros 61, por familias.
 
 **Vive en:** `lib/disparadores.ts` (`EventoMako.plataforma`) · `lib/aviso-evento.ts` (`emitirPorEvento`, `sinFila`) ·
 `lib/avisos.ts` (`emitirDelCatalogo`) · `lib/flujos.ts` (`negocioWs`) · `lib/linea-vigilancia.ts` (`datosCaida`) ·
+`lib/reunion-grabada.ts` (`datosPostLlamada`) · `app/api/webhooks/fathom/route.ts` ·
 `lib/plantillas-automatizaciones.ts` (`PLANTILLAS_PLATAFORMA`) · test: `tests/avisos-plataforma.test.ts`
 
 ## «Probar» visto en producción (16/10/2026): el ws3 no sirve, y lo que sólo se veía con clics
@@ -4712,7 +4723,7 @@ dueño: necesita otra tarjeta); y los otros 61, por familias.
 - ⚠️ **Para mirar una tab en el Cliente de Prueba (ws3), el onboarding pendiente la tapa** y lleva a /onboarding (trampa
   ya escrita en la memoria de verificar en el navegador). Terminar su onboarding le cambiaría un estado que quizá está así a propósito. Se probó en el ws 9 (la plataforma, de
   Martín) con una automatización creada para eso: #252 «Un Lead Agendó Llamada», pausada y sin CRON (no entra nadie).
-  **Sigue ahí**: borrarla por la pantalla espera el OK de Martín.
+  **ARCHIVADA el 16/10, no borrada** (borrar espera el OK de Martín): se deshace con `archivada_at = null`.
 - **Los casos en que el lead contesta salían sobre un camino SIN mensajes.** Sin CRON, el lead recién llegado no tiene
   reunión y su camino («la reunión ya pasó») no manda nada. El lead escribe después del primer mensaje, así que nunca
   escribía, y la prueba terminaba en «Fin». Ningún test lo veía: todos tenían un primer camino con mensajes. Ahora

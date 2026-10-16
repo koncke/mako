@@ -41,7 +41,7 @@
 - Las automatizaciones de cada negocio («MaKo en WhatsApp» en su propio ws): siguen igual.
 - Lo que entra por la línea de MaKo: sigue en su canal (camino (a), lib/linea-plataforma.ts).
 
-## 5. Lo hecho (15/10/2026, 729789dfa)
+## 5. Lo hecho (15/10/2026, 729789dfa; 16/10, 16fa52568 y efcc58d46)
 
 - **La pieza, construida:** `EventoMako.plataforma` (lib/disparadores.ts). `emitirPorEvento` lee las filas de la
   plataforma y corre con `negocioWs`; la tarjeta «MaKo en WhatsApp» resuelve y manda en ese negocio
@@ -51,6 +51,14 @@
 - **Mudados:** `wa-desconectado` → `whatsapp_caido` y `wa-reconectado` → `whatsapp_volvio`, con las plantillas
   «Se Cayó el WhatsApp de un Negocio» y «Volvió el WhatsApp de un Negocio». El texto de siempre no cambia una letra
   (tests/avisos-plataforma.test.ts lo compara).
-- **Falta, después del deploy:** `scripts/mudanza-avisos-plataforma.mts --aplicar` crea y prende las dos filas en el ws 9.
-  Hasta entonces sale como siempre (`sinFila`).
-- **Siguiente:** `reunion-ocurrio-fathom`, y después `reporte-semanal`, que sale por email al dueño (otra tarjeta).
+- **El tercero (16/10/2026, 16fa52568):** `reunion-ocurrio-fathom` → `reunion_grabada`, plantilla «Terminó la Reunión
+  de un Negocio». El webhook de Fathom emite con el LEAD del negocio y los datos de la reunión (`datosPostLlamada`,
+  lib/reunion-grabada.ts: `grabacion_reunion`, `grabacion_duracion`); el link es `{{link_lead}}`, que ya apunta a
+  `/crm/<id>/resumen` del negocio, el mismo que el texto de siempre. **Un cambio de forma, a propósito:** la duración
+  pasa de « (42 min)» dentro de la frase a su propio renglón «⏱️ 42 min», porque una plantilla no puede sacar un pedazo
+  de renglón cuando el dato falta (sólo el renglón entero).
+- **La firma (efcc58d46):** las tres plantillas terminan en «— MaKo», como el texto de siempre. Una tarjeta TAL CUAL no
+  le suma envoltorio: sin escribirla, el cliente la habría perdido.
+- **Falta, después del deploy de 16fa52568 y efcc58d46:** `scripts/mudanza-avisos-plataforma.mts --aplicar` crea y
+  prende las TRES filas en el ws 9 (simulacro primero). Hasta entonces sale como siempre (`sinFila`).
+- **Siguiente:** `reporte-semanal`, que sale por email al dueño (otra tarjeta); después, el resto por familias.
