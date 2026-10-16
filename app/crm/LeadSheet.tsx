@@ -466,7 +466,7 @@ export function LeadSheet({ data, onClose, initialTab, solucionarAlAbrir }: {
           la ficha, que la cierra (los eventos de React suben por el árbol, no por el DOM). */}
       {configAvisos && (
         <div onClick={(e) => e.stopPropagation()}>
-          <AvisosDatosModal onCerrar={() => setConfigAvisos(false)} onGuardado={releer} />
+          <AvisosDatosModal funnelId={lead.funnel_id ?? null} onCerrar={() => setConfigAvisos(false)} onGuardado={releer} />
         </div>
       )}
       {moveTo && (
