@@ -22,7 +22,7 @@
 import { NextResponse } from 'next/server';
 import { getCapaActual, getRolWsEfectivo } from '@/lib/workspace';
 import { tabEnCapa } from '@/lib/capas';
-import { TOPE_PEDIDO_IA } from '@/lib/graficos-ia';
+import { ALCANCE_GENERAL, TOPE_PEDIDO_IA } from '@/lib/graficos-ia';
 import { generarHojaIA } from '@/lib/graficos-ia-generar';
 import { hojaConDatos } from '@/lib/graficos-con-datos-server';
 import { hoyEnTijuana } from '@/lib/date-utils';
@@ -43,14 +43,18 @@ export async function POST(req: Request) {
   const rol = await getRolWsEfectivo();
   if (rol == null) return err(401, 'no autenticado');
   if (rol !== 'admin') return err(403, 'Sólo el admin de la cuenta');
-  if (!tabEnCapa('graphics', await getCapaActual())) return err(404, 'No existe');
 
   let body: Record<string, unknown>;
   try { body = await req.json(); } catch { return err(400, 'JSON inválido'); }
+  // 16/10/2026: «Pídeselo» en General armaba una hoja con tipos del Dashboard (no sabía de qué informe era). Con
+  // `informe: 'general'`, la puerta es la de General y la hoja sale con lo que General ofrece y sus bloques.
+  const general = body?.informe === 'general';
+  if (general) { if (!tabEnCapa('general', await getCapaActual())) return err(404, 'No existe'); }
+  else if (!tabEnCapa('graphics', await getCapaActual())) return err(404, 'No existe');
   const pedido = typeof body?.pedido === 'string' ? body.pedido.trim().slice(0, TOPE_PEDIDO_IA) : '';
   if (!pedido) return err(400, 'Escribe qué quieres ver.');
 
-  const r = await generarHojaIA(pedido, inicio);
+  const r = await generarHojaIA(pedido, inicio, general ? { alcance: ALCANCE_GENERAL } : {});
   if ('error' in r) return NextResponse.json({ ok: false, error: r.error, ...(r.link ? { link: r.link } : {}) }, { status: 502 });
   if (r.correcciones.length) console.log('[graficos/ia] hoja aceptada con correcciones:', r.correcciones.join(' | '));
   // Sin los gráficos que quedarían vacíos en ESTE negocio (Martín, 12/10: «no crear un montón de gráficos vacíos»).

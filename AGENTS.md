@@ -8378,6 +8378,11 @@ costó, en [docs/hallazgos-objectives.md](docs/hallazgos-objectives.md) → «Ge
   el suyo por el id del elemento.
 - **Lo que existe en otra tab se monta, no se copia**: las tarjetas del Plan son las de BoardShell (`TarjetaPrioridad`,
   `ProyectoCardTile`, traídas con `next/dynamic`), y escribir pasa por la acción que ya existe (`marcarHechaAction`).
+- **Lo que arma o cambia la IA en una hoja lleva el ALCANCE de su informe, en las dos capas** (16/10/2026): el catálogo
+  que lee el modelo y `piezaDeIA`, que descarta lo de afuera (`ALCANCE_GENERAL`, lib/graficos-ia.ts). «Pídeselo», las
+  plantillas que MaKo completa (`hojaConDatos`) y «Editar con MaKo» lo pasan; un camino nuevo de IA sobre una hoja de
+  General también. Y la IA EDITA con operaciones (`aplicarEdicion`, lib/graficos-ia-edicion.ts), nunca reescribiendo la
+  hoja, y el cambio lo aplica el editor con `mutar`: docs/hallazgos-graficos.md → «Editar con MaKo».
 - **General ofrece poco del Dashboard** (`TIPOS_GENERAL`, `FUENTES_GENERAL`, `ELEMENTOS_FUERA_DE_GENERAL`), y sus
   plantillas no usan nada de afuera.
 - **Un tipo de elemento nuevo en `TIPOS_ELEMENTO` aparece solo en todas las listas que derivan de él**: la API del

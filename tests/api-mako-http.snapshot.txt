@@ -141,7 +141,9 @@ editar_cuota
 editar_dato_deal
 editar_etiqueta
 editar_grafico_dashboard
+editar_hoja_con_ia_dashboard
 editar_hoja_dashboard
+editar_hoja_general_con_ia
 editar_lead_magnet
 editar_meta_secuencia_email
 editar_obligacion_deal

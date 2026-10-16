@@ -207,6 +207,20 @@ export const DEFS: readonly OperacionDef[] = [
     gating: GATING,
   },
   {
+    // 16/10/2026: el «Editar con MaKo» de la hoja abierta, también por la API (la misma cascada: lib/graficos-ia-editar.ts).
+    id: 'editar_hoja_con_ia_dashboard', area: 'metricas', tipo: 'accion',
+    titulo: 'Editar una hoja del Dashboard con MaKo',
+    descripcion: 'Cambia una hoja del Dashboard con un pedido en palabras («agrega el CPL por semana y quita la torta de orígenes»): MaKo arma el cambio con IA gratis ANTES de proponerlo (agregar, quitar o cambiar gráficos y títulos de sección, o el nombre de la hoja) y el resumen dice qué cambia. Lo que el pedido no nombra queda como está. Si alguien toca la hoja antes de confirmar, no se aplica. No corre en una automatización.',
+    parametros: [
+      persona, hojaObligatoria,
+      { nombre: 'pedido', tipo: 'string', obligatorio: true, max: 1200, rotulo: 'Pedido', descripcion: 'Qué cambiar en la hoja, en palabras.' },
+    ],
+    confirmacion: 'chat', reversible: false,
+    escribe: 'cambia una hoja del informe guardado de esa persona (app_settings, graficos.tablero.<su id>)',
+    canales: TODOS, costo: 'ia', lenta: true,
+    gating: GATING,
+  },
+  {
     id: 'editar_hoja_dashboard', area: 'metricas', tipo: 'accion',
     titulo: 'Editar una hoja del Dashboard',
     descripcion: 'Cambia cómo se llama o se ve una hoja del Dashboard: nombre, emoji, subtítulo, estilo de la página o su lugar entre las pestañas. Sólo cambia lo que se pasa. Si ya está así, lo dice y no propone nada.',
