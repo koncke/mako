@@ -69,5 +69,5 @@ export function archivoDelPedido(pedido: string | null | undefined): number | nu
 export function pedidoSinLeer(escrito: string, nombre: string, que: 'leer' | 'subir' = 'leer'): string {
   const n = nombre.trim().slice(0, 80) || 'sin nombre';
   const base = escrito.trim() || 'Arma la automatización.';
-  return `${base}\n\n(Adjuntó «${n}», pero no se pudo ${que}: armala con lo escrito.)`;
+  return `${base}\n\n(Adjuntó «${n}», pero no se pudo ${que}: ármala con lo escrito.)`;
 }
