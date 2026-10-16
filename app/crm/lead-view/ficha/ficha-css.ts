@@ -36,6 +36,10 @@ export const CSS_FICHA = `
 .fb-nada { margin: 4px 0; font-size: 13.5px; color: var(--faint); }
 @media (max-width: 1024px) { .fb-bloque { grid-column: span var(--fb-span-t, 12); } }
 @media (max-width: 720px) { .fb-bloque { grid-column: 1 / -1; } }
+/* Un bloque que lee lo suyo al montarse y no tuvo nada que decir (los duplicados, el estado de cuenta) no deja hueco
+   mirando; personalizando, lo dice en su marco, como lo vacío (16/10/2026, el Resumen nativo). */
+.fb:not(.fb--editando) .fb-bloque:has(> .fb-cuerpo:empty) { display: none; }
+.fb--editando .fb-cuerpo:empty::before { content: 'Sin datos en este lead'; display: flex; align-items: center; justify-content: center; min-height: 64px; border-radius: 14px; background: var(--surface-2); color: var(--faint); font-size: 13px; }
 
 .fb-dens-compacta .fb-cuerpo > section:not(.fb-propio) { padding: 14px 16px !important; border-radius: 12px; }
 .fb-dens-amplia .fb-cuerpo > section:not(.fb-propio) { padding: 28px 30px !important; }

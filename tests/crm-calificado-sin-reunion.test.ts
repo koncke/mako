@@ -34,6 +34,14 @@
 //   · la tarjeta de Tracking copia el candado a mano (`asistio_j1 === false`) → 6 / 1
 //   · vuelve el formulario de «Editar» (el CUARTO control)                   → 6 / 1
 //
+// ⚠️ REESCRITO EL 16/10/2026 (el Resumen nativo): CalificacionCard se fue. El control es el bloque `calificacion` del
+// Resumen (app/crm/lead-view/ficha/resumen/calificacion.tsx), con tres diseños que escriben por el MISMO camino:
+// `TriEditable` y `TriBotones` (los tres botones a la vista), los dos de app/crm/lead-view/CampoEditable.tsx →
+// `guardarCampoLeadAction` → `updateLead`. Lo que se fija no cambia: una sola regla (`calificadoSeDescarta`), ningún
+// camino propio a la base, y el control UNA vez. Re-verificado rompiéndolo (16/10/2026, base 7/0): el registro sin la
+// calificación → 6 / 1; el bloque con su propia copia del candado → 5 / 2; los tres botones guardando por otro
+// camino → 6 / 1.
+//
 // ⚠️ DOS MUTACIONES HABRÍAN DADO «NO MUTÓ» con anclas de `\n`: `core.autocrlf` deja
 // este árbol MEZCLADO (lib/leads.ts y ReunionesCard.tsx son CRLF, page.tsx es LF).
 // El arnés convierte sus anclas al salto DEL archivo que va a mutar.
@@ -115,24 +123,32 @@ test('Resumen ofrece marcar calificado en los dos montajes, y Tracking ya no', a
     assert.ok(!f.includes('<CalificacionCard'), `${cual}: monta la calificación a mano, fuera de la ficha`);
   }
   const reg = leer('../app/crm/lead-view/ficha/registro-resumen.tsx');
-  assert.equal((reg.match(/<CalificacionCard lead=\{ctx\.lead\} \/>/g) ?? []).length, 1, 'el control de calificación va UNA vez');
+  assert.equal((reg.match(/calificacion: \{ Componente: Calificacion, /g) ?? []).length, 1, 'el control de calificación va UNA vez');
+  assert.ok(!reg.includes('CalificacionCard'), 'volvió la tarjeta de antes envuelta');
   const def = bloqueDef('calificacion')!;
   assert.equal(def.tab, 'resumen');
   assert.ok(!def.tambienEn.includes('tracking'), 'sigue en Tracking');
   const resumen = PLANTILLA_RESPALDO.tabs.resumen!;
   const i = resumen.indexOf('calificacion');
   assert.ok(resumen.indexOf('contacto') < i && i < resumen.indexOf('lo-que-contesto'), '«¿Era calificado?» no está en Resumen, entre el contacto y lo que contestó');
-  assert.ok(!leer('../app/crm/lead-view/ficha/registro-tracking.tsx').includes('CalificacionCard'), 'Tracking vuelve a dibujar la calificación');
+  assert.ok(!/Calificacion\b/.test(leer('../app/crm/lead-view/ficha/registro-tracking.tsx')), 'Tracking vuelve a dibujar la calificación');
 });
 
 test('el control de Tracking escribe por el camino que avisa a Meta', () => {
-  const card = leer('../app/crm/lead-view/CalificacionCard.tsx');
+  const card = leer('../app/crm/lead-view/ficha/resumen/calificacion.tsx');
   // El MISMO control que la tarjeta de Reuniones: `TriEditable` ya rutea por
   // `guardarCampoLeadAction` → `updateLead`, que es el único que manda el evento.
   assert.match(card, /campo="calificado"/, 'escribe la columna calificado');
   // Desde el 12/10/2026 importa además `CajaCampo` (la tarjeta entera abre el sí/no, punto 7):
   // lo que se fija es que el control venga de la ficha, no la forma exacta del import.
-  assert.match(card, /import \{[^}]*\bTriEditable\b[^}]*\} from '\.\/CampoEditable'/, 'reusa el control de la ficha');
+  assert.match(card, /import \{[^}]*\bTriEditable\b[^}]*\} from '\.\.\/\.\.\/CampoEditable'/, 'reusa el control de la ficha');
+  // Los tres botones a la vista (16/10/2026) son OTRO dibujo del mismo campo: también de la ficha, por el mismo guardado.
+  assert.match(card, /import \{[^}]*\bTriBotones\b[^}]*\} from '\.\.\/\.\.\/CampoEditable'/);
+  const campo = leer('../app/crm/lead-view/CampoEditable.tsx');
+  // (`leer` saca las líneas de comentario: el corte va hasta la función que sigue, no hasta su título.)
+  const tres = campo.slice(campo.indexOf('export function TriBotones'), campo.indexOf('export function TextoEditable'));
+  assert.ok(tres.length > 100 && tres.length < 3000, 'no encontré TriBotones entero');
+  assert.match(tres, /const \{ guardar, toast, clear \} = useGuardarCampo\(leadId, campo\);/, 'los tres botones guardan por otro lado');
   // Una escritura propia sería un segundo camino: la pantalla diría que sí y Meta no
   // se enteraría, que es exactamente lo que Martín preguntó el mismo día.
   assert.ok(!/from '\.\.\/actions'/.test(card), 'no llama a ninguna action por su cuenta');
@@ -163,7 +179,7 @@ test('ya NO hay un cuarto control de la misma pregunta', () => {
   assert.equal(existsSync(join(import.meta.dirname, '../app/crm/[id]/EditLeadForm.tsx')), false,
     'volvió el formulario: tiene que usar calificadoSeDescarta, no una copia del candado');
   // Y los dos controles que quedan en la ficha bloquean por la MISMA regla compartida.
-  for (const ruta of ['../app/crm/lead-view/ReunionesCard.tsx', '../app/crm/lead-view/CalificacionCard.tsx']) {
+  for (const ruta of ['../app/crm/lead-view/ReunionesCard.tsx', '../app/crm/lead-view/ficha/resumen/calificacion.tsx']) {
     assert.match(leer(ruta), /calificadoSeDescarta\(lead\)/, `${ruta}: usa la regla compartida`);
   }
 });

@@ -2038,7 +2038,7 @@ curl -L \
 
 ### `PATCH /api/v1/crm/ficha` — Cambiar la ficha de un CRM
 
-PROPONE UN cambio en la ficha del lead de UN CRM (pendiente hasta el «sí»), para todos sus leads: poner, quitar o mover un bloque, su ancho, diseño o ícono, el aviso de un dato sin marcar, el estilo, el tamaño de las tarjetas, la plantilla (de la ficha o de una tab), el nombre de una tab, su vista épica, o volver a la plantilla. Los ids salen de ver_ficha_funnel. «Contacto» no se quita y las asistencias siempre avisan. Solo el administrador. Sin embudoId, el CRM principal.
+PROPONE UN cambio en la ficha del lead de UN CRM (pendiente hasta el «sí»), para todos sus leads: poner, quitar o mover un bloque, su ancho, diseño o ícono, el aviso de un dato sin marcar, el estilo, la densidad, la plantilla (de la ficha o de una tab), el nombre de una tab, su vista épica, o volver a la plantilla. Los ids salen de ver_ficha_funnel. «Contacto» no se quita y las asistencias siempre avisan. Solo el administrador. Sin embudoId, el CRM principal.
 
 - **Ruta por operación:** `POST /api/v1/crm/cambiar_ficha_funnel`
 - **Token detallado:** permiso `crm=write` (Lectura y escritura en «CRM»)
@@ -2054,7 +2054,7 @@ PROPONE UN cambio en la ficha del lead de UN CRM (pendiente hasta el «sí»), p
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
 | `embudoId` | number | no | el CRM, por el id de su embudo (de productos_del_lead). Sin él, el CRM principal del negocio. |
-| `cambio` | string (poner \\| quitar \\| mover \\| ancho \\| diseno \\| icono \\| aviso \\| estilo \\| densidad \\| plantilla \\| volver \\| nombre \\| epica) | sí | qué cambiar: poner, quitar o mover un bloque (con tab y bloque; mover y poner con lugar), ancho, diseno o icono de un bloque, aviso (con aviso y avisa), estilo (tema, acento o tipografia), densidad, plantilla, nombre o epica de una tab (con tab), o volver a la plantilla (con tab, sólo esa). |
+| `cambio` | string (poner \\| quitar \\| mover \\| ancho \\| diseno \\| icono \\| opciones \\| aviso \\| estilo \\| densidad \\| plantilla \\| volver \\| nombre \\| epica) | sí | qué cambiar: poner, quitar o mover un bloque (con tab y bloque; mover y poner con lugar), su ancho, diseno, icono u opciones, aviso (con aviso y avisa), estilo (tema, acento o tipografia), densidad, plantilla, nombre o epica de una tab (con tab), o volver a la plantilla (con tab, sólo esa). |
 | `tab` | string (resumen \\| reuniones \\| pagos \\| tracking) | no | la tab. |
 | `bloque` | string | no | el id del bloque (de ver_ficha_funnel), por ejemplo cuotas o redes-y-web. |
 | `lugar` | number | no | en poner y mover: el lugar en la tab, 1 es el primero. Sin él, poner lo suma al final. |
@@ -2062,6 +2062,7 @@ PROPONE UN cambio en la ficha del lead de UN CRM (pendiente hasta el «sí»), p
 | `diseno` | string | no | en poner y diseno: el id del diseño del bloque (de ver_ficha_funnel). |
 | `icono` | string | no | en icono: el id (de los iconos de ver_ficha_funnel), o de-siempre: el del bloque. |
 | `n` | number | no | si el bloque está más de una vez en la tab (respuesta-destacada), cuál: 1 es el primero. |
+| `opcion` | string | no | en opciones: redes (web,instagram,youtube,linkedin), fuentes (meta,landing,agenda) o la pregunta destacada. |
 | `aviso` | string | no | en aviso: el id del dato sin marcar (de los avisos de ver_ficha_funnel). |
 | `avisa` | boolean | no | en aviso: true para que avise, false para que no. |
 | `tema` | string (mako \\| minimal \\| suave \\| contraste \\| elevada \\| general \\| editorial) | no | en estilo: la plantilla de estilo, la misma del Dashboard. |

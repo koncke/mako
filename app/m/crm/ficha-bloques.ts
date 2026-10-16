@@ -21,10 +21,21 @@
 // tests/m-ficha-bloques.test.ts.
 // =============================================================================
 
-import { bloqueDef, type BloqueId, type TabFicha } from '@/lib/ficha/catalogo';
+import { bloqueDef, REDES, type BloqueId, type TabFicha } from '@/lib/ficha/catalogo';
+import { SEXOS } from '@/lib/resumen-ficha';
+import { COMO_ENTRO, entradaSocialGuardada } from '@/lib/canal-social';
+import { usuarioInstagram } from '@/app/crm/campo-inline';
+import { diasEntre, ingresoNoAplica, paginaLegible, textoDias, tiempoEnEtapa, usd, ETAPAS_SIN_RELOJ } from '@/app/crm/lead-view/ficha/resumen/logica';
 
-/** Las piezas que el teléfono sabe dibujar. Cada una es la versión de teléfono de UN bloque de escritorio. */
-export type PiezaFicha = 'proxima' | 'contacto' | 'llego-por' | 'contesto' | 'llamada' | 'notas' | 'saldo';
+/**
+ * Las piezas que el teléfono sabe dibujar. Cada una es la versión de teléfono de UN bloque de escritorio.
+ * 16/10/2026 (el Resumen nativo): cada bloque nuevo del Resumen tiene la suya, en UNA fila que se lee (el teléfono no
+ * edita esos datos: «Pagos, historial y campos · En la computadora»).
+ */
+export type PiezaFicha = 'proxima' | 'contacto' | 'llego-por' | 'contesto' | 'llamada' | 'notas' | 'saldo' | PiezaResumen;
+
+/** Las filas del Resumen nativo (`resumenDelTelefono`). */
+export type PiezaResumen = 'siguiente' | 'equipo' | 'calificado' | 'ingreso' | 'en-etapa' | 'motivo' | 'plazo' | 'redes' | 'pagina' | 'entrada' | 'direccion' | 'sexo';
 
 /**
  * EL BLOQUE DE ESCRITORIO → SU VERSIÓN DE TELÉFONO. Un bloque que no está aquí no tiene versión de teléfono y
@@ -40,6 +51,19 @@ export const PIEZA_DE_BLOQUE: Readonly<Partial<Record<BloqueId, PiezaFicha>>> = 
   // El estado de cuenta (16/10/2026, la tab Pagos en bloques): lo que debe o «Al día», en una fila. El teléfono no
   // cobra: destila (`saldoDelTelefono`).
   cobrado: 'saldo',
+  // El Resumen nativo (16/10/2026): una fila por bloque (`resumenDelTelefono`).
+  'siguiente-accion': 'siguiente',
+  'setter-y-closer': 'equipo',
+  calificacion: 'calificado',
+  'ingreso-estimado': 'ingreso',
+  'tiempo-en-etapa': 'en-etapa',
+  'motivo-de-salida': 'motivo',
+  'plazo-nutricion': 'plazo',
+  'redes-y-web': 'redes',
+  'pagina-de-registro': 'pagina',
+  'publicacion-de-entrada': 'entrada',
+  direccion: 'direccion',
+  sexo: 'sexo',
 };
 
 /** El orden de las tabs de la ficha de escritorio (FichaPorBloques: Tracking, Reuniones y Pagos, en ese orden). */
@@ -81,7 +105,58 @@ export type ConQueDibujar = {
   llamada: boolean;
   /** El estado de cuenta en una línea (`saldoDelTelefono`); null = nada que contar. */
   saldo?: SaldoTelefono | null;
+  /** Las filas del Resumen nativo (`resumenDelTelefono`); una en null no se dibuja. */
+  resumen?: ResumenTelefono | null;
 };
+
+/**
+ * LAS FILAS DEL RESUMEN en el teléfono: el texto de cada una, o null cuando el bloque de escritorio se callaría (la
+ * MISMA regla: el motivo sólo si salió, el plazo sólo en la nutrición manual, el ingreso no en un ganado, la siguiente
+ * acción sólo si hay una). Lo que en escritorio se dibuja con «—» para llenarlo (el equipo, la calificación) acá dice
+ * «Sin setter» o «Sin marcar»: se lee, y se llena en la computadora.
+ */
+export type ResumenTelefono = Partial<Record<PiezaResumen, string | null>>;
+
+/** Lo que el teléfono sabe del lead para sus filas del Resumen (las columnas de `leads` que lee la ficha). */
+export type LeadParaResumen = {
+  estado_lead?: string | null; setter?: string | null; closer?: string | null; calificado?: boolean | null;
+  ingreso_estimado?: number | null; motivo_perdida?: string | null; nutricion_manual_deadline?: string | null;
+  web?: string | null; instagram?: string | null; youtube?: string | null; linkedin?: string | null;
+  pagina_registro?: string | null; entrada_social?: unknown; direccion?: string | null; sexo?: string | null;
+};
+
+/** Las filas del Resumen de un lead. Pura: la arma el server (./datos.ts) y la ejecuta el test. */
+export function resumenDelTelefono(l: LeadParaResumen, o: {
+  etapa: string | null; hoy: string; ahoraMs: number;
+  /** La siguiente acción del teléfono, ya armada (`siguienteAccion`, ./reglas.ts). */
+  siguiente?: { titulo: string; detalle: string | null } | null;
+  /** Desde cuándo está en su etapa y el plazo (la lectura de escritorio, `tiempoEnEtapaAction`). */
+  enEtapa?: { desde: string | null; plazo: number | null } | null;
+}): ResumenTelefono {
+  const salio = l.estado_lead === 'perdido' || l.estado_lead === 'descalificado';
+  const t = o.enEtapa && !(o.etapa && ETAPAS_SIN_RELOJ.includes(o.etapa)) ? tiempoEnEtapa(o.enEtapa.desde, o.enEtapa.plazo, o.ahoraMs) : null;
+  const d = l.nutricion_manual_deadline ? diasEntre(o.hoy, l.nutricion_manual_deadline) : null;
+  const ig = usuarioInstagram(l.instagram);
+  const redes = REDES.map((r) => (r === 'instagram' ? (ig ? `@${ig}` : null) : paginaLegible(l[r]))).filter((x): x is string => !!x);
+  const entrada = entradaSocialGuardada(l.entrada_social);
+  return {
+    siguiente: o.siguiente ? o.siguiente.titulo : null,
+    equipo: `${l.setter?.trim() || 'Sin setter'} · ${l.closer?.trim() || 'sin closer'}`,
+    calificado: l.calificado === true ? 'Calificado' : l.calificado === false ? 'No calificado' : 'Sin marcar',
+    ingreso: ingresoNoAplica(l.estado_lead) ? null : l.ingreso_estimado != null ? usd(l.ingreso_estimado) : 'Sin estimar',
+    'en-etapa': t ? (t.dias === 0 ? 'Hoy' : textoDias(t.dias)) + (t.plazo ? ` de ${t.plazo}` : '') : null,
+    motivo: salio ? (l.motivo_perdida?.trim() || 'Sin motivo') : null,
+    plazo: o.etapa === 'manual' ? (d == null ? 'Sin plazo' : d === 0 ? 'Vence hoy' : d > 0 ? `Faltan ${textoDias(d)}` : `Venció hace ${textoDias(-d)}`) : null,
+    redes: redes.length ? redes.join(' · ') : null,
+    pagina: paginaLegible(l.pagina_registro),
+    entrada: entrada ? `${COMO_ENTRO[entrada.como]}${entrada.texto ? `: «${entrada.texto}»` : ''}` : null,
+    direccion: l.direccion?.trim() || 'Sin dirección',
+    sexo: SEXOS.find((x) => x.id === l.sexo)?.label ?? 'Sin dato',
+  };
+}
+
+/** Las piezas del Resumen nativo: se callan cuando no aplican, aunque en escritorio su bloque sea de los de «—». */
+const DEL_RESUMEN: ReadonlySet<PiezaFicha> = new Set<PiezaFicha>(['siguiente', 'equipo', 'calificado', 'ingreso', 'en-etapa', 'motivo', 'plazo', 'redes', 'pagina', 'entrada', 'direccion', 'sexo']);
 
 /** El estado de cuenta, destilado a una fila: «Debe $500 · Cuota 2 venció el 02/10». */
 export type SaldoTelefono = { texto: string; tono: 'verde' | 'ambar' | 'rojo' | 'gris' };
@@ -101,12 +176,13 @@ export function piezaVacia(p: PiezaFicha, d: ConQueDibujar): boolean {
     case 'saldo': return !d.saldo;
     case 'contacto':
     case 'notas': return false;
+    default: return !d.resumen?.[p];
   }
 }
 
 /** Las piezas que se dibujan: las vacías de un bloque que se calla sin datos, no (la regla del catálogo). */
 export function piezasQueSeDibujan(piezas: readonly PiezaPuesta[], d: ConQueDibujar): PiezaPuesta[] {
-  return piezas.filter((p) => !(bloqueDef(p.bloque)?.sinDatos === 'se-calla' && piezaVacia(p.pieza, d)));
+  return piezas.filter((p) => !((bloqueDef(p.bloque)?.sinDatos === 'se-calla' || DEL_RESUMEN.has(p.pieza)) && piezaVacia(p.pieza, d)));
 }
 
 /**

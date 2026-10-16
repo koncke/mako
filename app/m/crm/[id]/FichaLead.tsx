@@ -46,7 +46,7 @@ import { duracionReunionAction, linkDeAgendaAction, reagendarReunionAction } fro
 import { huecosR2Action, reservarR2Action } from '@/app/crm/agendar-r2-actions';
 import { notaLeadAction, moverEtapaAction, deshacerMoverAction } from '../acciones';
 import { chipsDeDia, rotuloAgendar, rotuloDia, type CualAgendar, type EtapaM, type LineaActividad } from '../reglas';
-import { gruposDeLaFicha, type PiezaFicha, type SaldoTelefono } from '../ficha-bloques';
+import { gruposDeLaFicha, type PiezaFicha, type ResumenTelefono, type SaldoTelefono } from '../ficha-bloques';
 
 export type ProductoFicha = { funnelId: number; nombre: string; esCasa: boolean; etapa: string | null; etapaLabel: string | null; movibles: EtapaM[] };
 export type ModoAgendaFicha = 'google' | 'calendly-r2' | 'link' | 'nada';
@@ -82,6 +82,15 @@ export type FichaLeadProps = {
   piezas: PiezaFicha[];
   /** El estado de cuenta en una fila (la pieza `saldo`, de Pagos). */
   saldo?: SaldoTelefono | null;
+  /** Las filas del Resumen nativo (16/10/2026, `resumenDelTelefono`): una en null no se dibuja. */
+  resumen?: ResumenTelefono | null;
+};
+
+/** El rótulo de cada fila del Resumen nativo: el mismo nombre corto que su bloque de escritorio. */
+const ROTULO_RESUMEN: Readonly<Record<string, string>> = {
+  siguiente: 'Siguiente', equipo: 'Setter · Closer', calificado: 'Calificación', ingreso: 'Ingreso estimado',
+  'en-etapa': 'En la etapa', motivo: 'Motivo de salida', plazo: 'Nutrición manual', redes: 'Redes', pagina: 'Se registró en',
+  entrada: 'Entró', direccion: 'Dirección', sexo: 'Sexo',
 };
 
 type Sheet = 'agendar' | 'nota' | 'notas' | 'mover' | 'llamada' | 'respuestas' | null;
@@ -152,6 +161,13 @@ export function FichaLead(p: FichaLeadProps) {
         />
       );
       case 'notas': return null;
+      // El Resumen nativo: una fila que se lee. La siguiente acción y el plazo vencido, en el color de escritorio.
+      default: {
+        const v = p.resumen?.[pz];
+        if (!v) return null;
+        const tono = pz === 'siguiente' || (pz === 'plazo' && v.startsWith('Venció')) ? 'var(--warn)' : undefined;
+        return <FilaDatoM k={ROTULO_RESUMEN[pz] ?? pz} v={tono ? <span style={{ color: tono }}>{v}</span> : v} />;
+      }
     }
   };
 

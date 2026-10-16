@@ -21,6 +21,11 @@
 //   · `armar` sin dejar la tab configurada (MaKo arma lo mismo que la plantilla)                          → 10 / 1
 //   · la API sin `nombre` en la traducción                                                                → 10 / 1
 //   · armar_tab_ficha declarada antes de las heredadas del CRM                                            → 10 / 1
+// ⚠️ TRES ASERCIONES REESCRITAS EL 16/10/2026 (el Resumen nativo, lib/ficha/plantillas-resumen.ts): el Resumen trae sus
+//    plantillas ARMADAS, como Pagos, así que «la de entrada es la que ya se veía» deja de valer para el Resumen (lo que
+//    sí se fija ahí, que no se pierda ningún bloque de la lista de su tipo, está en tests/ficha-resumen.test.ts); la
+//    épica del Resumen suma la calificación y el ingreso; y la sugerida de dos reuniones es «Antes de la llamada»
+//    (`resumen-llamada`). Re-verificado rompiéndolo (base 11/0): la de entrada elegida por la épica → 8 / 3.
 // ⚠️ Lo que NO fija: el tope de `sugeridasDeTab` (MAX_SUGERIDAS). Hoy cada tab tiene UNA sugerida por tipo, así que
 //    sacarle el tope no cambia nada que se pueda medir; cuando Pagos sume varias para un tipo, sumar el caso aquí.
 // =============================================================================
@@ -37,6 +42,7 @@ import {
   bloquesDePlantillaTab, galeriaDeTab, plantillaTabDeEntrada, plantillaTabPorId, plantillasDeTab, sugeridasDeTab,
 } from '../lib/ficha/plantillas-tab';
 import { PLANTILLAS_TAB_PAGOS } from '../lib/ficha/plantillas-pagos';
+import { PLANTILLAS_TAB_RESUMEN } from '../lib/ficha/plantillas-resumen';
 import { MAX_SUGERIDAS } from '../lib/plantillas-sugeridas';
 import { bloqueDef, vaEnTab, NOMBRE_TAB, TABS_FICHA } from '../lib/ficha/catalogo';
 import { cambioDeInputApi, salidaFichaApi, CAMBIOS_API } from '../lib/ficha/api';
@@ -73,6 +79,7 @@ test('LA DE ENTRADA ES LA QUE YA SE VEÍA: un funnel que nadie tocó se dibuja i
     const f = fichaEfectiva(p.id, {}, R);
     for (const tab of TABS_FICHA) {
       if (tab === 'pagos' && PLANTILLAS_TAB_PAGOS.length) continue; // las de Pagos cambian Pagos a propósito
+      if (tab === 'resumen' && PLANTILLAS_TAB_RESUMEN.length) continue; // y las del Resumen, el Resumen (16/10/2026)
       assert.deepEqual(f.tabs[tab], listaDeEntrada(p, tab, R), `${p.id} · ${tab}: cambió lo que ve un funnel sin tocar`);
       assert.deepEqual(ids(plantillaTabDeEntrada(tab, p.id).bloques), [...listaDePlantilla(p, tab)]);
     }
@@ -109,7 +116,7 @@ test('elegir una plantilla para una tab reemplaza SÓLO esa tab, no toca los avi
   const conTracking = ok(aplicarCambio(tocada, { op: 'quitar', tab: 'tracking', bloque: 'visitas' }, 'dos-reuniones', R)).ficha;
   const epica = ok(aplicarCambio(conTracking, { op: 'plantilla', tab: 'resumen', plantilla: 'resumen-epica' }, 'dos-reuniones', R));
   const f = fichaEfectiva('dos-reuniones', epica.ficha, R);
-  assert.deepEqual(ids(f.tabs.resumen), ['siguiente-accion', 'contacto', 'proxima-reunion', 'tiempo-en-etapa', 'notas'], 'la tab tocada se reemplaza');
+  assert.deepEqual(ids(f.tabs.resumen), ['siguiente-accion', 'proxima-reunion', 'tiempo-en-etapa', 'contacto', 'calificacion', 'ingreso-estimado', 'notas'], 'la tab tocada se reemplaza');
   assert.equal(f.tabs.resumen.find((b) => b.id === 'contacto')!.diseno, 'botonera', 'con el diseño que trae la plantilla');
   assert.ok(!ids(f.tabs.tracking).includes('visitas'), 'la otra tab tocada sigue como estaba');
   assert.equal(f.epica.resumen, true, 'la épica trae la vista épica');
@@ -216,7 +223,7 @@ test('la API de MaKo: renombrar, elegir la plantilla de una tab, la épica, y ve
   assert.equal(t.resumen.epica, true);
   assert.equal(t.tracking.configurada, false);
   assert.equal(t.resumen.plantillas[0].id, 'resumen-en-blanco');
-  assert.deepEqual(t.resumen.plantillas[1], { ...t.resumen.plantillas[1], id: 'resumen-dos-reuniones', sugerida: 'Tiene 2 etapas de reunión.' }, 'la sugerida, con su porqué, después de «En blanco»');
+  assert.deepEqual(t.resumen.plantillas[1], { ...t.resumen.plantillas[1], id: 'resumen-llamada', sugerida: 'Tiene 2 etapas de reunión.' }, 'la sugerida, con su porqué, después de «En blanco»');
 });
 
 test('armar_tab_ficha: del admin, se confirma por chat, va al final del CRM (el presupuesto de WhatsApp) y tiene su URL', () => {

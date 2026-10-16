@@ -248,7 +248,11 @@ test('las notas y el recorrido están en las DOS fichas, y en el mismo lugar', (
   for (const ruta of ['../app/crm/LeadSheet.tsx', '../app/crm/[id]/LeadDetailBody.tsx']) {
     assert.match(leer(ruta), /<FichaPorBloques\b/, `${ruta}: no monta la ficha compartida`);
   }
-  assert.ok(/<NotasCard leadId=\{ctx\.lead\.id\} \/>/.test(leer('../app/crm/lead-view/ficha/registro-resumen.tsx')), 'faltan las notas');
+  // 16/10/2026 (el Resumen nativo): el bloque `notas` es su propio componente (resumen/duplicados.tsx), que monta las
+  // MISMAS notas de Customer Success con sus diseños (todas, las últimas 3, la última). Re-verificado rompiéndolo
+  // (base 9/0): el bloque montando otras notas → 8 / 1.
+  assert.match(leer('../app/crm/lead-view/ficha/registro-resumen.tsx'), /notas: \{ Componente: Notas, /, 'faltan las notas');
+  assert.match(leer('../app/crm/lead-view/ficha/resumen/duplicados.tsx'), /<NotasCard leadId=\{ctx\.lead\.id\}/, 'las notas no son las de siempre');
   const f = leer('../app/crm/lead-view/ficha/FichaPorBloques.tsx');
   // El recorrido va con el Historial, no en el Resumen: las dos contestan «qué pasó».
   const iAct = f.indexOf("label: 'Historial'");

@@ -131,7 +131,9 @@ test('⚠️ cada valor de `origen_lead` tiene su renglón: el default no AFIRMA
   // Y ya había pasado con Cal.com, con el comentario puesto al lado. Una lista de cases
   // que crece cuando alguien se queja es una lista que va a volver a fallar: lo que el
   // test fija es que TODO valor que el opt-in escribe tenga el suyo.
-  const card = readFileSync(join(import.meta.dirname, '../app/crm/lead-view/OrigenCard.tsx'), 'utf8');
+  // 16/10/2026: el rótulo largo del canal vive en `canalDeEntrada` (el bloque `origen` del Resumen nativo).
+  // Re-verificado rompiéndolo (base 10/0): sin `case 'landing'` → 9 / 1.
+  const card = readFileSync(join(import.meta.dirname, '../app/crm/lead-view/ficha/resumen/logica.ts'), 'utf8');
   const cases = new Set([...card.matchAll(/case '([a-z_]+)':/g)].map((m) => m[1]));
   const ruta = readFileSync(join(import.meta.dirname, '../app/api/track/optin/route.ts'), 'utf8');
   const escritos = new Set([...ruta.matchAll(/origen_lead: '([a-z_]+)'/g)].map((m) => m[1]));

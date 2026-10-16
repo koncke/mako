@@ -69,8 +69,8 @@ const MONO = "'Geist Mono', monospace";
 // `document.body`, pero React hace burbujear su clic por el árbol de COMPONENTES hasta acá: sin el
 // `contains`, elegir una opción del menú volvía a abrirlo.
 //
-// ⚠️ ES UN COMPONENTE, NO UN ESTILO EXPORTADO: las tarjetas que la montan (MotivoYPlazoCard,
-// ReunionesCard, CalificacionCard) no son 'use client', y un VALOR importado de un 'use client'
+// ⚠️ ES UN COMPONENTE, NO UN ESTILO EXPORTADO: las tarjetas que la montan (ReunionesCard, y hasta el 16/10/2026
+// MotivoYPlazoCard y CalificacionCard) no son 'use client', y un VALOR importado de un 'use client'
 // llega al server como una referencia de cliente, no como el objeto (AGENTS.md, la frontera).
 
 const INTERACTIVO = 'button, a, input, select, textarea, label, [contenteditable="true"], [role="group"], [role="listbox"], [role="option"], [data-no-abre]';
@@ -153,7 +153,7 @@ const disparador: CSSProperties = {
  * antes): revertir sólo la pantalla sería mentir hasta el próximo F5. Es el mismo
  * criterio que `InfoPrincipalCard` ya usa para el nombre y el teléfono.
  */
-function useGuardarCampo(leadId: number, campo: CampoInline) {
+export function useGuardarCampo(leadId: number, campo: CampoInline) {
   const refrescarFicha = useRefrescarFicha();
   const { toast, show, clear } = useToast();
   const [, startGuardar] = useTransition();
@@ -310,6 +310,46 @@ export function TriEditable({ leadId, campo, valor, si, no, titulo, bloqueado = 
           <ChipTri valor={valor} si={si} no={no} />
         </button>
       )}
+      <Toast state={toast} onClose={clear} />
+    </>
+  );
+}
+
+// ── Tri-estado a la vista (la calificación del Resumen, 16/10/2026) ──────────
+
+/**
+ * Los TRES botones siempre a la vista (sí / no / sin marcar), sin abrir nada: el diseño «Tres botones» del bloque
+ * `calificacion` (docs/diseno-ficha-bloques.md §3). Escribe por el MISMO camino que `TriEditable`
+ * (`guardarCampoLeadAction` → `updateLead`, el único que avisa a Meta) y con el mismo «Deshacer». Bloqueado, se ven
+ * los tres apagados con el elegido marcado: la pregunta no se responde, pero tampoco se esconde.
+ */
+export function TriBotones({ leadId, campo, valor, si, no, titulo, bloqueado = false, marca }: {
+  leadId: number;
+  campo: Extract<CampoInline, 'asistio_j1' | 'asistio_j2' | 'calificado'>;
+  valor: boolean | null;
+  si: string;
+  no: string;
+  titulo: string;
+  bloqueado?: boolean;
+  /** Lo que busca «Solucionar» (`marcaDato`). */
+  marca?: string;
+}) {
+  const { guardar, toast, clear } = useGuardarCampo(leadId, campo);
+  const opciones = [
+    { v: true, rotulo: si, clave: 'si' },
+    { v: false, rotulo: no, clave: 'no' },
+    { v: null, rotulo: 'Sin marcar', clave: 'nada' },
+  ] as const;
+  return (
+    <>
+      <span className="fr-seg fr-seg--llena" role="group" aria-label={titulo} data-recorrido={marca}>
+        {opciones.map((o) => (
+          <button key={o.clave} type="button" data-v={o.clave} aria-pressed={valor === o.v} disabled={bloqueado}
+            onClick={() => { if (o.v !== valor) guardar(o.v, valor); }}>
+            {o.rotulo}
+          </button>
+        ))}
+      </span>
       <Toast state={toast} onClose={clear} />
     </>
   );

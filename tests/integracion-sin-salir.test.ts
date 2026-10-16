@@ -115,7 +115,9 @@ test('el barrido: ningún link a /integraciones fuera de la lista', () => {
 test('lo que se convirtió el 14/10/2026 abre el modal y no navega', () => {
   const casos: Array<[string, RegExp]> = [
     ['app/calendario/CalendarioApp.tsx', /abrirIntegracion\('google'\)/],
-    ['app/crm/lead-view/CalificacionCard.tsx', /<BotonIntegracion servicio="meta" /],
+    // 16/10/2026: la tarjeta de la calificación pasó a ser el bloque nativo del Resumen; el botón es el mismo.
+    // Re-verificado rompiéndolo (base 5/0): el bloque sin `<BotonIntegracion servicio="meta"` → 4 / 1.
+    ['app/crm/lead-view/ficha/resumen/calificacion.tsx', /<BotonIntegracion servicio="meta" /],
     ['app/crm/CampanasModal.tsx', /<BotonIntegracion servicio="meta" /],
     ['app/crm/CrmBoard.tsx', /<BotonIntegracion servicio="google" /],
     ['app/crm/[id]/CobrarConLink.tsx', /<BotonIntegracion servicio="stripe" /],
