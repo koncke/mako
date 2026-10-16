@@ -10,7 +10,7 @@ import 'server-only';
 import { getSetting, setSetting } from './settings';
 import { getCapaActual, getWorkspaceActual, getRolWsEfectivo, OWNER_WS } from './workspace';
 import { capaDef, type PasoOnboarding } from './capas';
-import { estadoInicial, type OnboardingState } from './onboarding-contrato';
+import { aplicarCambiosDePaso, estadoInicial, type CambioDePaso, type OnboardingState } from './onboarding-contrato';
 
 // La FORMA del estado y las reglas puras viven en `onboarding-contrato.ts`, sin
 // 'server-only', para que las pueda importar un test (lo que se decide ahí es si un
@@ -78,6 +78,25 @@ export async function onboardingPendiente(): Promise<boolean> {
   if ((await pasosDeCapaActual()).length === 0) return false;
   const s = await getEstadoOnboarding();
   return s.status !== 'done';
+}
+
+/**
+ * Cierra (o posterga) pasos del onboarding del workspace actual y, si con eso están todos, lo da por
+ * TERMINADO. La única puerta que escribe el cierre: la llaman la acción 'paso' de /api/onboarding y el chat
+ * de arranque (/api/onboarding/arranque). La regla es `aplicarCambiosDePaso` (onboarding-contrato.ts, con
+ * test); acá sólo se lee la capa y se persiste. Tira `PasoNoPostergable` si se pide postergar lo que no se
+ * puede.
+ */
+export async function cerrarPasosOnboarding(
+  cambios: CambioDePaso[],
+  quien: string,
+  extra?: (s: OnboardingState) => void,
+): Promise<OnboardingState> {
+  const pasos = await pasosDeCapaActual();
+  return patchEstadoOnboarding((s) => {
+    extra?.(s);
+    aplicarCambiosDePaso(s, cambios, pasos, quien, new Date().toISOString());
+  });
 }
 
 /** Los pasos del wizard que le tocan al workspace actual, según su capa. */

@@ -62,6 +62,7 @@ import { AvatarMako } from './AvatarMako';
 import { ChipArchivo } from './ChipArchivo';
 import { esOpcionArmar, horaDe, nombrePdfVersion, notaDelAdjunto, pdfDeMensaje, ticksDe } from './ayudas';
 import { descargarPdf, mensajeDeError } from './offer-api';
+import { GenerandoEnChat, type PasoGeneracion } from './Generando';
 
 /** El acento de la tarjeta y la burbuja del dueño: tokens que existen en claro Y en oscuro. */
 const ACENTO = 'var(--primary)';
@@ -93,7 +94,7 @@ function Adjuntos({ lista }: { lista: AdjuntoVista[] }) {
  * ícono, el nombre y, al tocarlo, baja ESA versión. Baja por `fetch` (offer-api → descargarPdf) para que
  * un error del servidor se diga en el chat y no se descargue un JSON con nombre de PDF.
  */
-export function DocumentoPdf({ sesionId, version, onError }: { sesionId: number; version: number; onError: (m: string) => void }) {
+export function DocumentoPdf({ sesionId, version, onError, onVer }: { sesionId: number; version: number; onError: (m: string) => void; onVer?: (() => void) | null }) {
   const [bajando, setBajando] = useState(false);
   const bajar = async () => {
     if (bajando) return;
@@ -101,36 +102,50 @@ export function DocumentoPdf({ sesionId, version, onError }: { sesionId: number;
     try { await descargarPdf(sesionId, version); } catch (e) { onError(mensajeDeError(e)); } finally { setBajando(false); }
   };
   return (
-    <button type="button" className="of-doc" onClick={() => void bajar()} disabled={bajando} aria-busy={bajando || undefined}
-      title="Descargar el PDF" aria-label={`Descargar el PDF de tu oferta, versión ${version}`}>
-      <span className="of-doc__icono" aria-hidden>PDF</span>
-      <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
-        <span className="of-doc__nombre">{nombrePdfVersion(version)}</span>
-        <span className="of-doc__meta">PDF</span>
-      </span>
-      <span aria-hidden style={{ flex: 'none', display: 'inline-flex', color: 'var(--dim)' }}>
-        {bajando ? <Spinner size={16} /> : <IconoMenu nombre="descargar" size={18} />}
-      </span>
-    </button>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <button type="button" className="of-doc" onClick={() => void bajar()} disabled={bajando} aria-busy={bajando || undefined}
+        title="Descargar el PDF" aria-label={`Descargar el PDF de tu oferta, versión ${version}`}>
+        <span className="of-doc__icono" aria-hidden>PDF</span>
+        <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <span className="of-doc__nombre">{nombrePdfVersion(version)}</span>
+          <span className="of-doc__meta">PDF</span>
+        </span>
+        <span aria-hidden style={{ flex: 'none', display: 'inline-flex', color: 'var(--dim)' }}>
+          {bajando ? <Spinner size={16} /> : <IconoMenu nombre="descargar" size={18} />}
+        </span>
+      </button>
+      {/* «Ver» abre la oferta en una ventana ENCIMA del chat (16/10/2026, Martín en la llamada del 12/10:
+          «que jamás se salga el recuadro del chat… de última que haya como una preview de un pop-up»). */}
+      {onVer && (
+        <button type="button" className="of-doc-ver" onClick={onVer}>
+          <IconoMenu nombre="ver" size={15} /> Ver mi oferta
+        </button>
+      )}
+    </div>
   );
 }
 
 /** La fila de un mensaje de MaKo: su foto y, al lado, la burbuja. */
-function FilaMako({ animar = false, children }: { animar?: boolean; children: ReactNode }) {
+function FilaMako({ animar = false, avatar, children }: { animar?: boolean; avatar?: (animar: boolean) => ReactNode; children: ReactNode }) {
   return (
     <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
-      <AvatarMako size={30} animar={animar} />
+      {avatar ? avatar(animar) : <AvatarMako size={30} animar={animar} />}
       <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>{children}</div>
     </div>
   );
 }
+
+/** MaKo armando la oferta, como un mensaje más del hilo (ya no reemplaza al chat). */
+export type ArmandoEnChat = { paso: PasoGeneracion; corriendo: boolean; error: string | null; onReintentar: () => void };
+/** El renglón de «MaKo está armando tu oferta» viaja como un mensaje más del hilo. */
+const ID_ARMANDO = '__of-armando';
 
 export type AudioEnEspera = { url: string; secs: number };
 
 export function ChatOffer({
   sesion, pendiente, respondiendo, fuente, opcionArmar, opcionActualizar, opcionesHabilitadas, onOpcion, onReintentar,
   texto, onTexto, onEnviar, ocupado, vista, onArchivos, onAudio, audioEnEspera, onReenviarAudio, onDescartarAudio,
-  error, onError,
+  error, onError, armando = null, onVerOferta = null, avatar, extra, soloTexto = false, placeholder,
 }: {
   sesion: OfferSesionVista;
   /** El mensaje del dueño ya dibujado mientras MaKo contesta (optimista). */
@@ -165,6 +180,17 @@ export function ChatOffer({
   onDescartarAudio: () => void;
   error: string | null;
   onError: (m: string) => void;
+  /** MaKo armando la oferta: va como un mensaje más al final del hilo (el chat no se va). */
+  armando?: ArmandoEnChat | null;
+  /** «Ver mi oferta» debajo de cada PDF: abre la oferta en una ventana encima del chat. */
+  onVerOferta?: (() => void) | null;
+  /** La foto de MaKo al lado de cada mensaje suyo (el chat de arranque usa su muñeco). Sin esto, la estrella. */
+  avatar?: (animar: boolean) => ReactNode;
+  /** Lo que va adentro de la burbuja de un mensaje de MaKo, debajo del texto (las tarjetas del arranque). */
+  extra?: (m: OfferMensaje) => ReactNode | null;
+  /** Sin clip ni micrófono: el arranque pregunta cosas cortas (el nombre, un código) fuera de la oferta. */
+  soloTexto?: boolean;
+  placeholder?: string;
 }) {
   const ws = useWs();
   const montado = useSyncExternalStore(sinSuscripcion, () => true, () => false);
@@ -197,14 +223,24 @@ export function ChatOffer({
     const out = mensajes.map((m, i) => aHilo(m, m.de === 'yo' ? ticksDe(mensajes, i) : null));
     if (pendiente) out.push(aHilo(pendiente, 'sent'));
     if (respondiendo) out.push({ id: ID_ESCRIBIENDO, fromMe: false });
+    if (armando && (armando.corriendo || armando.error)) out.push({ id: ID_ARMANDO, fromMe: false });
     return out;
-  }, [mensajes, pendiente, respondiendo, montado, ws]);
+  }, [mensajes, pendiente, respondiendo, montado, ws, armando]);
 
   /** Los mensajes que la burbuja de ChatHilo no sabe dibujar; null = la de siempre. */
   const renderMensaje = (h: HiloMsg): ReactNode | null => {
+    if (h.id === ID_ARMANDO && armando) {
+      return (
+        <FilaMako animar={armando.corriendo} avatar={avatar}>
+          <BurbujaHilo contenido={{}} saliente={false} maxAncho="88%" vacio={(
+            <GenerandoEnChat paso={armando.paso} corriendo={armando.corriendo} error={armando.error} onReintentar={armando.onReintentar} />
+          )} />
+        </FilaMako>
+      );
+    }
     if (h.id === ID_ESCRIBIENDO) {
       return (
-        <FilaMako animar>
+        <FilaMako animar avatar={avatar}>
           <BurbujaHilo contenido={{}} saliente={false} vacio={(
             <span role="status" style={{ fontSize: 13, color: 'var(--dim)' }}>
               <span style={{ color: 'var(--mako-ink)', fontWeight: 600 }}>{GRAMATICA.analizando.rotulo}</span>
@@ -222,15 +258,17 @@ export function ChatOffer({
       // Después de cada armado, MaKo manda el PDF de esa versión (`pdf`) con la propuesta de pulirla: el
       // documento arriba y el texto debajo, como un archivo de WhatsApp con su pie.
       const pdf = pdfDeMensaje(m);
+      const tarjeta = extra?.(m) ?? null;
       return (
-        <FilaMako>
+        <FilaMako avatar={avatar}>
           <BurbujaHilo saliente={false} hora={hora} maxAncho="88%"
             contenido={m.audio?.url ? { audio: { url: conWs(m.audio.url, ws), transcript: m.texto.trim() || null, duracion_s: m.audio.secs } } : {}}
             vacio={(
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {pdf && <DocumentoPdf sesionId={sesion.id} version={pdf.version} onError={onError} />}
+                {pdf && <DocumentoPdf sesionId={sesion.id} version={pdf.version} onError={onError} onVer={onVerOferta} />}
                 {m.texto.trim() && <div style={TEXTO_BURBUJA}><Markdown text={m.texto} /></div>}
                 {!!m.adjuntos?.length && <Adjuntos lista={m.adjuntos} />}
+                {tarjeta}
               </div>
             )} />
         </FilaMako>
@@ -353,8 +391,9 @@ export function ChatOffer({
         onValor={onTexto}
         onEnviar={onEnviar}
         ocupado={ocupado}
-        menuClip={menuClip}
-        onAudio={onAudio}
+        placeholder={placeholder}
+        menuClip={soloTexto ? undefined : menuClip}
+        onAudio={soloTexto ? undefined : onAudio}
         onErrorAudio={onError}
         audioPendiente={audioEnEspera
           ? { url: audioEnEspera.url, secs: audioEnEspera.secs, onDescartar: onDescartarAudio, onUsar: onReenviarAudio, rotuloUsar: 'Enviar audio' }

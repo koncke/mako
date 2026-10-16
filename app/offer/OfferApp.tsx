@@ -29,8 +29,17 @@
 // Lo que estaba bien en la v1 se queda: el riel de piezas, la vista Generando, la Conclusión con su
 // PDF, los topes de cada llamada y el reintento.
 //
-// TRES VISTAS, un paso por pantalla: chat · generando (diagnóstico → oferta nueva) · conclusion.
-// Sin conversación abierta, una bienvenida de una línea que manda al selector.
+// ⚠️ EL CHAT NO DESAPARECE NUNCA (16/10/2026). Hasta ese día había tres vistas que se reemplazaban
+// (chat · generando · conclusión) y armar la oferta te sacaba del chat. Martín, en la llamada con Leila
+// del 12/10: «en lugar de que cambie el chat, que siga manteniendo el mismo chat pero que MaKo te envíe un
+// mensaje diciéndote ya estoy trabajando» y «yo de hecho quisiera que jamás se salga el recuadro del
+// chat… de última que haya como una preview de un pop-up». Ahora armar es un mensaje más del hilo
+// (`armando` de ChatOffer) y la oferta se ve en una ventana ENCIMA del chat (Modal), desde «Ver mi
+// oferta» del PDF o del riel. Sin conversación abierta, una bienvenida de una línea que manda al selector.
+//
+// MODO ARRANQUE (`arranque`): el mismo motor es el ONBOARDING de MaKo (app/onboarding/ChatArranque.tsx).
+// Sin selector ni bienvenida: la conversación nace sola en el funnel principal, y alrededor de ella van
+// los mensajes del arranque (quién es, el CRM, el teléfono), que contesta el arranque y no Offer.
 //
 // El motor vive en app/api/offer/route.ts y lib/offer-sesiones.ts; acá sólo se llama al contrato
 // (./offer-api.ts) y se dibuja lo que vuelve.
@@ -44,8 +53,8 @@
 // (ComposerWhatsApp guarda ese `onAudio`). Por eso `mandar` y `mandarAudio` deciden con REFS
 // (`sesionRef`, `enviando`, `leyendoRef`), nunca con el estado de su render.
 
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { Banner, Button, ButtonLink, Spinner } from '@/app/_ui';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Banner, Button, ButtonLink, Modal, Spinner } from '@/app/_ui';
 import { ACCEPT_IMPORTAR, MAX_ARCHIVO_BYTES, porQueNoPuedo, puedeLeerse } from '@/lib/formatos-archivo';
 import type { AdjuntoVista, ArbolOffer, OfferMensaje, OfferSesionVista } from '@/lib/offer-marco';
 import { VistaAdjuntos, useListaAdjuntos } from '@/app/whatsapp/_shared/VistaAdjuntos';
@@ -53,14 +62,14 @@ import { MAX_ADJUNTOS, type ItemAdjunto } from '@/app/whatsapp/_shared/adjuntos-
 import { AvatarMako } from './AvatarMako';
 import { ChatOffer } from './ChatOffer';
 import { Conclusion } from './Conclusion';
-import { Generando, type PasoGeneracion } from './Generando';
+import type { PasoGeneracion } from './Generando';
 import { BarraPiezasMovil, RielPiezas, type AccionesPiezas } from './PiezasRail';
 import { SelectorFunnel } from './SelectorFunnel';
 import { leerAdjuntos } from './adjuntos-envio';
 import { arbolSeguro, arbolVacio, conSesionEnArbol, leerValor } from './arbol';
 import {
   ACTUALIZAR_PDF, TOPE_MENSAJE, bienvenidaDe, esOpcionArmar, etiquetaArmar, linksDe, pasoTrasFalloDeOferta, quedoGuardado, reemplaza,
-  resumenDe, vistaDeEntrada, type AvisoGuardado, type VistaOffer,
+  resumenDe, type AvisoGuardado,
 } from './ayudas';
 import { CSS_OFFER } from './estilos';
 import { ErrorOfferApi, TOPE, esRechazoDefinitivo, llamarOffer, mensajeDeError, subirArchivo } from './offer-api';
@@ -132,7 +141,42 @@ async function aMp3(blob: Blob): Promise<Blob> {
   }
 }
 
-export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar, opcionActualizar = ACTUALIZAR_PDF, analizarAlAbrir = null }: {
+/**
+ * El onboarding de MaKo es este chat (app/onboarding/ChatArranque.tsx): lo que el arranque le pasa al motor.
+ * Las reglas del arranque viven en lib/onboarding-arranque.ts; acá sólo se enchufan.
+ */
+export type ArranqueOffer = {
+  /** Los mensajes del arranque antes y después de la conversación de la oferta (ids `arr-…`). */
+  antes: OfferMensaje[];
+  despues: OfferMensaje[];
+  /** La etapa NO es la de la oferta: el composer y las opciones del último mensaje van al arranque. */
+  manda: boolean;
+  /** Mandar un texto al arranque; true = salió (si no, vuelve al composer). */
+  onTexto: (t: string) => Promise<boolean>;
+  /** Una opción del último mensaje del arranque. */
+  onOpcion: (idx: number) => void;
+  /** El arranque está guardando una respuesta. */
+  ocupado: boolean;
+  /** Las tarjetas del arranque (el CRM, el teléfono, el cierre), adentro de su burbuja. */
+  extra: (m: OfferMensaje) => ReactNode | null;
+  /** La foto de MaKo (su muñeco). */
+  avatar: (animar: boolean) => ReactNode;
+  /** El funnel principal: si todavía no hay conversación y toca la oferta, se abre una ahí. */
+  abrirEnFunnel: number | null;
+  /** Ya están las piezas y el diagnóstico: arranca a armar la oferta (una vez, por detrás). */
+  armar: boolean;
+  /** Cada vez que la conversación cambia. */
+  onSesion: (s: OfferSesionVista) => void;
+  /** «Tu oferta» al costado: sólo desde que empieza la conversación de la oferta. */
+  conRiel: boolean;
+  placeholder?: string;
+  /** Una conversación vacía para dibujar los mensajes del arranque antes de que exista la de la oferta. */
+  vacia: OfferSesionVista;
+};
+
+export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar, opcionActualizar = ACTUALIZAR_PDF, analizarAlAbrir = null, arranque = null }: {
+  /** El modo onboarding (ver `ArranqueOffer`). null = la tab Offer. */
+  arranque?: ArranqueOffer | null;
   arbolInicial: ArbolOffer;
   /** Un link que nombra una oferta sin conversación todavía (`entradaDelLink`, ./arbol.ts): se abre una para analizarla. */
   analizarAlAbrir?: { funnelId: number; ofertaBaseId: number | null } | null;
@@ -150,7 +194,8 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
 }) {
   const [arbol, setArbol] = useState<ArbolOffer>(arbolInicial);
   const [sesion, setSesion] = useState<OfferSesionVista | null>(sesionInicial);
-  const [vista, setVista] = useState<VistaOffer>(vistaDeEntrada(sesionInicial));
+  /** La oferta abierta en su ventana, ENCIMA del chat (el chat no se va: ver la cabecera). */
+  const [verConclusion, setVerConclusion] = useState(false);
   const [texto, setTexto] = useState('');
   /** Los archivos de la vista previa: elegidos y SIN subir ni leer hasta que se aprieta Enviar. */
   const lista = useListaAdjuntos(TOPES_OFFER);
@@ -266,11 +311,13 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
   };
 
   // Otra pestaña pudo haber creado una conversación: al volver a ésta, el árbol se vuelve a pedir.
+  const conArbol = !arranque;
   useEffect(() => {
+    if (!conArbol) return;
     const alVolver = () => { if (document.visibilityState === 'visible') void refrescarArbol(); };
     document.addEventListener('visibilitychange', alVolver);
     return () => document.removeEventListener('visibilitychange', alVolver);
-  }, [refrescarArbol]);
+  }, [refrescarArbol, conArbol]);
 
   // ── Mandar un turno ────────────────────────────────────────────────────────
   /**
@@ -409,6 +456,15 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
    * porque se cortó la conexión es peor que el corte.
    */
   const enviarComposer = async () => {
+    // En el arranque, fuera de la etapa de la oferta, el texto es la respuesta a SU pregunta (el nombre, un
+    // código): lo contesta el arranque, no Offer. Si no salió, vuelve al composer.
+    if (arranque?.manda) {
+      const t = texto.trim();
+      if (!t || arranque.ocupado) return;
+      setTexto('');
+      if (!(await arranque.onTexto(t))) setTexto((ahora) => (ahora.trim() ? ahora : t));
+      return;
+    }
     if (lista.ref.current.length) { void enviarVista(); return; }
     if (!puedeMandar || !hayAlgo) return;
     if (texto.length > TOPE_MENSAJE) { setErrorChat('Tu mensaje es muy largo. Pártelo en dos.'); return; }
@@ -572,7 +628,7 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
     // La versión de antes de armar: si el 'generar' se cortó del lado del navegador pero el servidor
     // terminó, al releer aparece una MÁS NUEVA, y eso es la oferta, no un fallo.
     const versionAntes = sesionRef.current?.conclusion?.version ?? 0;
-    setVista('generando');
+    // Sin cambiar de vista: el armado es un mensaje más del hilo (`armando`) y el chat sigue ahí.
     setGen({ paso, corriendo: true, error: null });
     const corte = 'Tardó más de 5 minutos. Prueba de nuevo.';
     try {
@@ -585,8 +641,9 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
       const r = await llamarOffer<{ sesion: OfferSesionVista }>({ action: 'generar', sesionId: id }, TOPE.generar, corte);
       if (e !== epoca.current) return;
       aplicarSesion(r.sesion, e);
+      // El PDF llega como un mensaje de MaKo con «Ver mi oferta»: no se abre solo encima de lo que la
+      // persona esté haciendo (en el arranque, eligiendo su CRM mientras tanto).
       setGen({ paso: 'listo', corriendo: false, error: null });
-      setVista('conclusion');
     } catch (err) {
       if (e !== epoca.current) return;
       if (paso !== 'oferta') { setGen({ paso, corriendo: false, error: mensajeDeError(err) }); return; }
@@ -604,7 +661,6 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
       const siguiente = pasoTrasFalloDeOferta({ status: err instanceof ErrorOfferApi ? err.status : undefined, versionAntes, versionAhora });
       if (siguiente === 'listo') {
         setGen({ paso: 'listo', corriendo: false, error: null });
-        setVista('conclusion');
         return;
       }
       setGen({ paso: siguiente, corriendo: false, error: mensajeDeError(err) });
@@ -637,10 +693,7 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
   const abrirSesion = async (id: number) => {
     // La que ya está abierta no se vuelve a pedir: re-abrirla descartaría lo que esté en vuelo
     // (un turno, un archivo) sobre esa misma conversación.
-    if (sesionRef.current?.id === id) {
-      setVista(vistaDeEntrada(sesionRef.current));
-      return;
-    }
+    if (sesionRef.current?.id === id) return;
     setCambiando(true);
     setErrorSelector(null);
     try {
@@ -649,7 +702,7 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
       sesionId.current = r.sesion.id;
       ponerSesion(r.sesion);
       setArbol((a) => conSesionEnArbol(a, r.sesion, resumenDe(r.sesion)));
-      setVista(vistaDeEntrada(r.sesion));
+      setVerConclusion(false);
     } catch (err) {
       setErrorSelector(mensajeDeError(err));
     } finally {
@@ -671,15 +724,16 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
       // un archivo. Reiniciar ahí descartaba lo que estaba en vuelo sobre esa misma conversación — y un
       // texto con un link se perdía entero (revisión del 11/10). Es la guarda de `abrirSesion`.
       if (r.sesion.id === sesionRef.current?.id) {
-        setVista('chat');
+        setVerConclusion(false);
         return;
       }
       reiniciar();
       sesionId.current = r.sesion.id;
       ponerSesion(r.sesion);
       setArbol((a) => conSesionEnArbol(a, r.sesion, resumenDe(r.sesion)));
-      setVista('chat');
-      void refrescarArbol();
+      setVerConclusion(false);
+      // En el arranque no hay selector: el árbol no se dibuja y no hace falta pedirlo.
+      if (!arranque) void refrescarArbol();
     } catch (err) {
       setErrorSelector(mensajeDeError(err));
     } finally {
@@ -705,6 +759,31 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
     // eslint-disable-next-line react-hooks/exhaustive-deps -- corre al montar y nunca más
   }, []);
 
+  // ── El arranque (el onboarding): lo que el motor hace solo ──────────────────
+  // 1. La conversación de la oferta nace sola en el funnel principal cuando le toca (una vez: el server
+  //    además reusa la vacía, `sesionVaciaDe`).
+  const abriendoArranque = useRef(false);
+  const funnelArranque = arranque?.abrirEnFunnel ?? null;
+  useEffect(() => {
+    if (funnelArranque == null || sesionRef.current || abriendoArranque.current) return;
+    abriendoArranque.current = true;
+    void nuevaSesion(funnelArranque, null).finally(() => { abriendoArranque.current = false; });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `nuevaSesion` cambia en cada render; manda el funnel
+  }, [funnelArranque]);
+  // 2. Con las piezas y el diagnóstico, la oferta se arma POR DETRÁS mientras el arranque sigue (el CRM, el
+  //    teléfono). Una sola vez: si falla, el reintento es del botón de su mensaje, no un bucle.
+  const armoArranque = useRef(false);
+  const armarArranque = !!arranque?.armar;
+  useEffect(() => {
+    if (!armarArranque || armoArranque.current || !sesion || sesion.conclusion || generando.current) return;
+    armoArranque.current = true;
+    void armar();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `armar` cambia en cada render
+  }, [armarArranque, sesion]);
+  // 3. El arranque mira la conversación (las piezas, si ya está armada) para saber en qué etapa está.
+  const onSesionArranque = arranque?.onSesion;
+  useEffect(() => { if (sesion && onSesionArranque) onSesionArranque(sesion); }, [sesion, onSesionArranque]);
+
   const guardarOferta = async (): Promise<AvisoGuardado | null> => {
     const id = sesionRef.current?.id;
     if (id == null) return null;
@@ -721,8 +800,12 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
   // ── Lo que se dibuja ───────────────────────────────────────────────────────
   const conclusion = sesion?.conclusion ?? null;
   const puedeConcluir = !!sesion?.puedeConcluir;
-  const ocupado = respondiendo || leyendo || gen.corriendo || cambiando;
-  const verOferta = () => { if (conclusion) setVista('conclusion'); };
+  // En el arranque, fuera de la oferta, lo que ocupa es guardar SU respuesta: la oferta que se arma por
+  // detrás no frena contestar el CRM o el teléfono.
+  const ocupado = arranque?.manda
+    ? arranque.ocupado || leyendo || cambiando
+    : respondiendo || leyendo || gen.corriendo || cambiando;
+  const verOferta = () => { if (conclusion) setVerConclusion(true); };
   const acciones: AccionesPiezas = {
     puedeConcluir,
     hayConclusion: !!conclusion,
@@ -731,11 +814,10 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
     onArmar: () => void armar(),
     onVer: verOferta,
   };
-  const vistaReal: VistaOffer = vista === 'conclusion' && !conclusion ? 'chat' : vista;
   // «Reintentar» se CALCULA del estado (el último mensaje es del dueño y nadie está contestando), no
   // se dispara desde el error: así también aparece si el fallo pasó en otra pestaña o antes de recargar.
   const ultimo = sesion?.mensajes[sesion.mensajes.length - 1];
-  const sinContestar = !!sesion && !respondiendo && ultimo?.de === 'yo';
+  const sinContestar = !!sesion && !respondiendo && ultimo?.de === 'yo' && !arranque?.manda;
   const bienvenida = bienvenidaDe(arbolLeido, arbolVacio(arbol));
   // La vista previa, sobre el área del chat, mientras haya archivos juntados. Su error: el de la vista
   // (un archivo que no entró o no se pudo leer) o, si el turno no salió, el que dejó `mandar`.
@@ -758,18 +840,41 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
     />
   ) : null;
 
+  // En el arranque, la conversación que se dibuja lleva alrededor los mensajes del arranque. Antes de que
+  // exista la de la oferta, se dibujan sobre una vacía.
+  // Memo: un arreglo nuevo en cada tecla del composer haría que el hilo se vuelva a desplazar con cada letra.
+  const arrAntes = arranque?.antes ?? null;
+  const arrDespues = arranque?.despues ?? null;
+  const arrVacia = arranque?.vacia ?? null;
+  const visible = useMemo<OfferSesionVista | null>(() => (arrAntes && arrDespues && arrVacia
+    ? { ...(sesion ?? arrVacia), mensajes: [...arrAntes, ...(sesion?.mensajes ?? []), ...arrDespues] }
+    : sesion), [sesion, arrAntes, arrDespues, arrVacia]);
+  const ultimoVisible = visible?.mensajes[visible.mensajes.length - 1];
+  // La opción del último mensaje: si es del arranque, la contesta el arranque; si no, Offer.
+  const alElegirOpcion = (idx: number) => {
+    if (arranque && ultimoVisible?.id.startsWith('arr-')) { arranque.onOpcion(idx); return; }
+    elegirOpcion(idx);
+  };
+  const opcionesHabilitadas = arranque && ultimoVisible?.id.startsWith('arr-') ? !arranque.ocupado : puedeMandar;
+  const armandoEnChat = gen.corriendo || gen.error
+    ? { paso: gen.paso, corriendo: gen.corriendo, error: gen.error, onReintentar: () => void armar(gen.paso) }
+    : null;
+  const conRiel = !arranque || arranque.conRiel;
+
   return (
     <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
       <style>{CSS_OFFER}</style>
-      <header className="of-cabecera">
-        {/* El título se fue (pedido de Martín): en su lugar manda el selector. Queda para el lector de pantalla. */}
-        <h1 className="of-sr">Offer</h1>
-        <SelectorFunnel arbol={arbol} sesion={sesion} ocupado={cambiando || gen.corriendo} onElegir={elegir} />
-        {cambiando && <span role="status" aria-label="Abriendo" style={{ display: 'inline-flex', color: 'var(--dim)' }}><Spinner size={18} /></span>}
-      </header>
+      {!arranque && (
+        <header className="of-cabecera">
+          {/* El título se fue (pedido de Martín): en su lugar manda el selector. Queda para el lector de pantalla. */}
+          <h1 className="of-sr">Offer</h1>
+          <SelectorFunnel arbol={arbol} sesion={sesion} ocupado={cambiando || gen.corriendo} onElegir={elegir} />
+          {cambiando && <span role="status" aria-label="Abriendo" style={{ display: 'inline-flex', color: 'var(--dim)' }}><Spinner size={18} /></span>}
+        </header>
+      )}
 
       {/* Sin conversación, la bienvenida ya lo dice con su botón; con una abierta, el aviso de arriba. */}
-      {!arbolLeido && sesion && (
+      {!arranque && !arbolLeido && sesion && (
         <div style={{ flex: 'none', marginBottom: 12 }}>
           <Banner tono="warn" accion={{ label: 'Volver a cargar', onClick: () => void recargarArbol() }}>No cargaron tus funnels.</Banner>
         </div>
@@ -780,7 +885,7 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
         </div>
       )}
 
-      {!sesion && (
+      {!visible && (
         <div style={{ flex: 1, minHeight: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px 16px' }}>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, textAlign: 'center', maxWidth: 420 }}>
             <AvatarMako size={56} />
@@ -803,41 +908,19 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
         </div>
       )}
 
-      {sesion && vistaReal === 'generando' && (
-        <Generando
-          paso={gen.paso}
-          corriendo={gen.corriendo}
-          error={gen.error}
-          onReintentar={() => void armar(gen.paso)}
-          onVolver={() => { setGen(GEN_QUIETA); setVista('chat'); }}
-        />
-      )}
-
-      {sesion && vistaReal === 'conclusion' && conclusion && (
-        // La key remonta la vista con cada conclusión nueva: vuelve a abrir en «Diagnóstico» y con
-        // las secciones de entrada, no donde quedó la anterior.
-        <Conclusion
-          key={`${sesion.id}-${conclusion.version}`}
-          sesion={sesion}
-          conclusion={conclusion}
-          onSeguir={() => setVista('chat')}
-          onGuardar={guardarOferta}
-        />
-      )}
-
-      {sesion && vistaReal === 'chat' && (
+      {visible && (
         <div style={{ flex: 1, minHeight: 0, display: 'flex', gap: 20 }}>
           <div style={{ flex: 1, minWidth: 0, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-            <BarraPiezasMovil piezas={sesion.piezas} acciones={acciones} />
+            {conRiel && sesion && <BarraPiezasMovil piezas={sesion.piezas} acciones={acciones} />}
             <ChatOffer
-              sesion={sesion}
+              sesion={visible}
               pendiente={pendiente}
-              respondiendo={respondiendo}
+              respondiendo={respondiendo || !!arranque?.ocupado}
               fuente={fuente}
               opcionArmar={opcionArmar}
               opcionActualizar={opcionActualizar}
-              opcionesHabilitadas={puedeMandar}
-              onOpcion={elegirOpcion}
+              opcionesHabilitadas={opcionesHabilitadas}
+              onOpcion={alElegirOpcion}
               onReintentar={sinContestar ? () => void reintentarRespuesta() : null}
               texto={texto}
               onTexto={setTexto}
@@ -851,10 +934,31 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
               onDescartarAudio={descartarAudio}
               error={errorChat}
               onError={setErrorChat}
+              armando={armandoEnChat}
+              onVerOferta={conclusion ? verOferta : null}
+              avatar={arranque?.avatar}
+              extra={arranque?.extra}
+              soloTexto={!!arranque?.manda}
+              placeholder={arranque?.placeholder}
             />
           </div>
-          <RielPiezas piezas={sesion.piezas} acciones={acciones} />
+          {conRiel && sesion && <RielPiezas piezas={sesion.piezas} acciones={acciones} />}
         </div>
+      )}
+
+      {/* La oferta, en su ventana ENCIMA del chat: cerrarla vuelve a la conversación tal como estaba.
+          La key la remonta con cada versión nueva (vuelve a abrir en «Diagnóstico»). */}
+      {sesion && conclusion && verConclusion && (
+        <Modal titulo="Tu oferta" ancho={860} onCerrar={() => setVerConclusion(false)}>
+          <Conclusion
+            key={`${sesion.id}-${conclusion.version}`}
+            sesion={sesion}
+            conclusion={conclusion}
+            onSeguir={() => setVerConclusion(false)}
+            onGuardar={guardarOferta}
+            conProbar={!arranque}
+          />
+        </Modal>
       )}
     </div>
   );

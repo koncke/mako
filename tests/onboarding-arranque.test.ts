@@ -1,0 +1,298 @@
+// =============================================================================
+// El chat de arranque: el onboarding de MaKo es una conversación (16/10/2026)
+// =============================================================================
+// Pedido de Martín: «Quiero que elimines todo lo que hay hoy en onboarding tal como está y que lo
+// reemplaces por el chat de "Offer"… NO quiero que sea un onboarding eterno». Y de la llamada con Leila
+// (12/10): «yo de hecho quisiera que jamás se salga el recuadro del chat».
+//
+// Lo PURO (en qué etapa está, qué dice MaKo, qué se acepta como respuesta, qué CRM propone, el brief) se
+// prueba EJECUTÁNDOLO: lib/onboarding-arranque.ts y app/onboarding/arranque-ui.ts no llevan `server-only`
+// para esto. El cableado que sólo se ve leyendo el fuente (la ruta, el cierre por la puerta única, el chat
+// que no desaparece, la animación) se fija leyendo, sin comentarios y con LF.
+// (Lo de postergar en el chat vive en tests/onboarding-postergar.test.ts; lo de la IA, en
+// tests/onboarding-sin-api.test.ts. La regla de la bienvenida de antes —el grafo es ficción con la paleta y
+// los nombres reales, el CSS sin comillas invertidas, la salida del modo agencia— se mudó acá.)
+//
+// PROBADO ROMPIÉNDOLO (16/10/2026, arnés romper-arranque.mjs en el scratchpad, restaura de memoria). Base:
+// 18 pasan, 0 fallan. Cada rotura, «1 fallo, 17 pases»: la oferta cierra sin el diagnóstico · un email se
+// ofrece como negocio · el brief pisa lo que había · el canal no va antes del volumen · la elección del CRM
+// se guarda antes de sembrar · se siembra sin mirar si está intacto · el login vuelve a pisar el nombre · la
+// oferta deja de abrirse encima del chat · la animación corre con movimiento reducido · la acción 'paso' deja
+// la puerta única.
+
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync, existsSync } from 'node:fs';
+import { join } from 'node:path';
+import {
+  etapaDeArranque, mensajesDeArranque, leerRespuesta, tiposOfrecidos, tipoRecomendado, pareceNegocio,
+  primerNombre, precioDesdeTexto, briefDesdeArranque, fundirBrief, siguientePreguntaFase,
+  AHORA_NO, CAMBIAR_NUMERO, VER_OTROS_TIPOS, OBJETIVOS_SUGERIDOS,
+  type EstadoArranque, type HechosArranque,
+} from '../lib/onboarding-arranque';
+import { mandaElArranque, ladoDeLaPregunta, SESION_VACIA, aMensajeOffer } from '../app/onboarding/arranque-ui';
+import { PREGUNTAS, CANALES } from '../lib/fase-diagnostico';
+import { TIPOS_CRM } from '../lib/pipeline';
+import { AREAS } from '../lib/cerebro-modelo';
+
+const RAIZ = join(import.meta.dirname, '..');
+const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8').replace(/\r\n/g, '\n');
+const sinComentarios = (src: string) => src
+  .replace(/^[ \t]*\/\/.*$/gm, '')
+  .replace(/\{\/\*[\s\S]*?\*\/\}/g, '')
+  .replace(/\/\*[\s\S]*?\*\//g, '');
+const bloque = (src: string, desde: string, hasta: string) => {
+  const i = src.indexOf(desde);
+  assert.ok(i >= 0, `no encuentro «${desde}»`);
+  const j = src.indexOf(hasta, i + desde.length);
+  return src.slice(i, j < 0 ? undefined : j);
+};
+
+const H: HechosArranque = {
+  modo: 'oferta', nombreCuenta: 'Martín Koncke', nombreWorkspace: 'Negocio que Escala', faseGuardada: false,
+  canalNegocio: null, puedeConcluir: false, ofertaLista: false, conCrm: true, conTelefono: true, terminado: false,
+};
+const PLAN: HechosArranque = { ...H, modo: 'plan', conCrm: false, conTelefono: false };
+const QUIEN: EstadoArranque = { nombre: 'Martín', negocio: 'Negocio que Escala', objetivo: 'Vender más cada mes' };
+
+// ── La etapa ────────────────────────────────────────────────────────────────
+test('modo oferta: quién es → la oferta → el CRM → el teléfono → espera la oferta → cierra', () => {
+  assert.equal(etapaDeArranque({}, H), 'nombre');
+  assert.equal(etapaDeArranque({ nombre: 'M' }, H), 'negocio');
+  assert.equal(etapaDeArranque({ nombre: 'M', negocio: 'N' }, H), 'objetivo');
+  assert.equal(etapaDeArranque(QUIEN, H), 'oferta');
+  // Las piezas solas no alcanzan: falta el diagnóstico (lo pregunta el chat de Offer).
+  assert.equal(etapaDeArranque(QUIEN, { ...H, puedeConcluir: true }), 'oferta');
+  const conOferta = { ...H, puedeConcluir: true, faseGuardada: true };
+  assert.equal(etapaDeArranque(QUIEN, conOferta), 'crm');
+  assert.equal(etapaDeArranque({ ...QUIEN, crmTipo: 'llamada' }, conOferta), 'telefono');
+  assert.equal(etapaDeArranque({ ...QUIEN, crmTipo: 'llamada', telefono: 'codigo' }, conOferta), 'codigo');
+  assert.equal(etapaDeArranque({ ...QUIEN, crmTipo: 'llamada', telefono: 'postergado' }, conOferta), 'armando');
+  assert.equal(etapaDeArranque({ ...QUIEN, crmTipo: 'llamada', telefono: 'verificado' }, { ...conOferta, ofertaLista: true }), 'cierre');
+  assert.equal(etapaDeArranque({}, { ...H, terminado: true }), 'listo');
+});
+
+test('modo plan (Project Manager, sin Offer ni CRM): quién es → a qué se dedica → diagnóstico → cierra', () => {
+  assert.equal(etapaDeArranque(QUIEN, PLAN), 'que_hace');
+  assert.equal(etapaDeArranque({ ...QUIEN, queHace: 'Consultoría' }, PLAN), 'fase');
+  assert.equal(etapaDeArranque({ ...QUIEN, queHace: 'Consultoría' }, { ...PLAN, faseGuardada: true }), 'cierre');
+});
+
+// ── Lo que dice MaKo ────────────────────────────────────────────────────────
+test('cada etapa termina en SU pregunta, con sus opciones; lo contestado se ve como respuesta', () => {
+  const { antes: a0 } = mensajesDeArranque({}, H);
+  assert.equal(a0.length, 1);
+  assert.deepEqual(a0[0].opciones, ['Martín'], 'ofrece el primer nombre de la cuenta');
+  const { antes } = mensajesDeArranque({ nombre: 'Martín' }, H);
+  assert.deepEqual(antes.map((m) => m.de), ['mako', 'yo', 'mako']);
+  assert.equal(antes[1].texto, 'Martín');
+  assert.equal(antes[0].opciones, undefined, 'una pregunta ya contestada no vuelve a ofrecer opciones');
+  assert.match(antes[2].texto, /Un gusto, Martín/);
+  assert.deepEqual(antes[2].opciones, ['Negocio que Escala']);
+  const { antes: aObj } = mensajesDeArranque({ nombre: 'M', negocio: 'N' }, H);
+  assert.deepEqual(aObj[aObj.length - 1].opciones, [...OBJETIVOS_SUGERIDOS]);
+  // En la oferta, los mensajes del arranque terminan en el pase (lo demás lo dice Offer).
+  const { antes: aOf, despues } = mensajesDeArranque(QUIEN, H);
+  assert.equal(aOf[aOf.length - 1].id, 'arr-oferta');
+  assert.deepEqual(despues, []);
+});
+
+test('el nombre del workspace no se ofrece como «tu negocio» si es un email o el nombre de la persona', () => {
+  assert.equal(pareceNegocio('martin@x.com', 'Martín'), false);
+  assert.equal(pareceNegocio('Martín Koncke', 'Martin Koncke'), false, 'el mismo nombre, con o sin acento');
+  assert.equal(pareceNegocio('Negocio que Escala', 'Martín'), true);
+  assert.equal(primerNombre('  Martín  Koncke '), 'Martín');
+});
+
+test('el CRM: la tarjeta va con la pregunta, y propone el tipo de su canal primero', () => {
+  const h = { ...H, puedeConcluir: true, faseGuardada: true, canalNegocio: 'conversaciones' as const };
+  const { despues } = mensajesDeArranque(QUIEN, h);
+  const crm = despues.find((m) => m.id === 'arr-crm');
+  assert.ok(crm && crm.tarjeta === 'crm');
+  assert.equal(crm.opciones?.[0], 'Conversaciones por chat');
+  assert.ok(crm.opciones?.includes(VER_OTROS_TIPOS));
+  assert.equal(tipoRecomendado(null).id, 'llamada', 'sin canal manda la llamada de venta (el marco es de alto ticket)');
+  assert.equal(tiposOfrecidos('carrito', false).tipos[0].id, 'carrito');
+  assert.equal(tiposOfrecidos('llamadas', true).tipos.length, TIPOS_CRM.length);
+  assert.equal(tiposOfrecidos('llamadas', true).hayMas, false);
+});
+
+// ── Las respuestas ──────────────────────────────────────────────────────────
+test('las respuestas: texto libre, una opción, el código y «ahora no»', () => {
+  assert.deepEqual(leerRespuesta({}, H, { texto: '  Martín  ' }), { ok: true, patch: { nombre: 'Martín' } });
+  assert.deepEqual(leerRespuesta({}, H, { opcion: 0 }), { ok: true, patch: { nombre: 'Martín' } });
+  assert.equal(leerRespuesta({}, H, { texto: '   ' }).ok, false);
+  const h = { ...H, puedeConcluir: true, faseGuardada: true };
+  assert.deepEqual(leerRespuesta(QUIEN, h, { opcion: 0 }), { ok: true, patch: { crmTipo: 'llamada' } });
+  const verOtros = mensajesDeArranque(QUIEN, h).despues[0].opciones!.indexOf(VER_OTROS_TIPOS);
+  assert.deepEqual(leerRespuesta(QUIEN, h, { opcion: verOtros }), { ok: true, patch: { crmVerTodos: true } });
+  assert.equal(leerRespuesta(QUIEN, h, { texto: 'cualquier cosa' }).ok, false, 'el CRM se elige, no se escribe');
+  const tel = { ...QUIEN, crmTipo: 'llamada' as const };
+  assert.deepEqual(leerRespuesta(tel, h, { opcion: 0 }), { ok: true, patch: { telefono: 'postergado' } });
+  assert.equal(mensajesDeArranque(tel, h).despues.find((m) => m.id === 'arr-telefono')?.opciones?.[0], AHORA_NO);
+  const cod = { ...tel, telefono: 'codigo' as const, telefonoNumero: '+5215512345678' };
+  assert.deepEqual(leerRespuesta(cod, h, { opcion: 0 }), { ok: true, patch: { telefono: undefined, telefonoNumero: undefined } });
+  assert.equal(mensajesDeArranque(cod, h).despues.find((m) => m.id === 'arr-codigo')?.opciones?.[0], CAMBIAR_NUMERO);
+});
+
+test('el diagnóstico del modo plan: el canal va antes del volumen, y al completarlo devuelve las respuestas', () => {
+  let e: EstadoArranque = { ...QUIEN, queHace: 'Consultoría' };
+  const iVol = PREGUNTAS.findIndex((q) => q.id === 'volumen');
+  let completo: number[] | undefined;
+  for (let paso = 0; paso < PREGUNTAS.length + 1; paso++) {
+    const p = siguientePreguntaFase(e);
+    assert.ok(p, `se cortó en el paso ${paso}`);
+    if (p.tipo === 'canal') assert.equal((e.faseResp ?? []).filter((x) => x >= 0).length, iVol, 'el canal va justo antes del volumen');
+    const r = leerRespuesta(e, PLAN, { opcion: 1 });
+    assert.ok(r.ok, `paso ${paso}: ${!r.ok ? r.error : ''}`);
+    e = { ...e, ...r.patch };
+    if (r.fase) completo = r.fase;
+  }
+  assert.equal(e.canal, CANALES[1].id);
+  assert.deepEqual(completo, PREGUNTAS.map(() => 1));
+  assert.equal(siguientePreguntaFase(e), null);
+  // Una respuesta libre que no es una opción no se acepta: el diagnóstico se CALCULA.
+  assert.equal(leerRespuesta({ ...QUIEN, queHace: 'x' }, PLAN, { texto: 'mucho' }).ok, false);
+});
+
+// ── El perfil del negocio que queda escrito ─────────────────────────────────
+test('el brief sale de la conversación y NUNCA pisa lo que el negocio ya tenía', () => {
+  const v = (valor: string) => ({ valor, fuente: 'chat' as const, at: '2026-10-16' });
+  const brief = briefDesdeArranque({
+    estado: QUIEN,
+    piezas: { cliente: v('Dueños de pyme'), problema: v('Todo pasa por ellos'), resultado: v('Delegar en 90 días'), precio: v('USD 1.500'), entregables: v('Mentoría') },
+    propuesta: { nombre: 'Programa Dueño Libre', frase: 'Delegar en 90 días sin perder clientes' } as never,
+    cuello: 'Consigo pocos clientes potenciales',
+  });
+  assert.equal(brief.negocio_objetivo, 'Vender más cada mes');
+  assert.equal(brief.negocio_que_hace, 'Delegar en 90 días sin perder clientes');
+  assert.equal(brief.negocio_freno, 'Consigo pocos clientes potenciales');
+  assert.equal(brief.oferta_nombre, 'Programa Dueño Libre');
+  assert.equal(brief.oferta_ticket, '1500');
+  assert.equal(brief.avatar_quien, 'Dueños de pyme');
+  assert.equal(brief.oferta_garantia, undefined, 'lo que no se sabe no se escribe vacío');
+  const fundido = fundirBrief({ avatar_quien: 'Lo que escribió el dueño', negocio_objetivo: '' }, brief);
+  assert.equal(fundido.avatar_quien, 'Lo que escribió el dueño', 'pisó una respuesta del negocio');
+  assert.equal(fundido.negocio_objetivo, 'Vender más cada mes', 'una respuesta vacía sí se llena');
+});
+
+test('un precio escrito como texto se lee sin adivinar', () => {
+  assert.equal(precioDesdeTexto('USD 1.500'), 1500);
+  assert.equal(precioDesdeTexto('$5,000 por mes'), 5000);
+  assert.equal(precioDesdeTexto('997'), 997);
+  assert.equal(precioDesdeTexto('a convenir'), null);
+  assert.equal(precioDesdeTexto(undefined), null);
+});
+
+// ── La pantalla: el chat del arranque sobre el motor de Offer ───────────────
+test('qué contesta el composer en cada etapa, y dónde va la respuesta optimista', () => {
+  assert.equal(mandaElArranque('nombre'), true);
+  assert.equal(mandaElArranque('oferta'), false, 'en la oferta contesta Offer');
+  assert.equal(mandaElArranque('armando'), false);
+  assert.equal(mandaElArranque('listo'), true, 'después de «¡Listo!» un turno de Offer quedaría arriba de la tarjeta final');
+  assert.equal(ladoDeLaPregunta('objetivo'), 'antes');
+  assert.equal(ladoDeLaPregunta('crm'), 'despues');
+  assert.equal(SESION_VACIA.id, 0);
+  assert.deepEqual(aMensajeOffer({ id: 'arr-x', de: 'mako', texto: 'Hola', opciones: ['A'] }), { id: 'arr-x', de: 'mako', texto: 'Hola', at: '', opciones: ['A'] });
+});
+
+// ── El cableado ─────────────────────────────────────────────────────────────
+test('la página /onboarding dibuja el chat de arranque, y el wizard ya no existe', () => {
+  const page = sinComentarios(leer('app/onboarding/page.tsx'));
+  assert.match(page, /<ChatArranque inicial=\{vista\}/);
+  for (const viejo of ['OnboardingWizard.tsx', 'Bienvenida.tsx', 'Listo.tsx']) {
+    assert.ok(!existsSync(join(RAIZ, 'app/onboarding', viejo)), `volvió ${viejo}`);
+  }
+});
+
+test('el onboarding se cierra por UNA puerta: la del wizard y la del chat son la misma regla', () => {
+  const ruta = sinComentarios(leer('app/api/onboarding/route.ts'));
+  const paso = bloque(ruta, "case 'paso':", "case 'simular':");
+  assert.match(paso, /await cerrarPasosOnboarding\(/);
+  assert.doesNotMatch(paso, /onboardingCompleto\(|s\.status = 'done'/, 'la acción paso volvió a decidir el cierre por su cuenta');
+  const server = sinComentarios(leer('lib/onboarding-arranque-server.ts'));
+  const cerrar = bloque(server, 'export async function cerrarArranque', 'export function tipoValido');
+  assert.match(cerrar, /cierreDePasos\(h\.pasosCapa/);
+  assert.match(cerrar, /await cerrarPasosOnboarding\(cambios, quien\)/);
+  assert.match(sinComentarios(leer('lib/onboarding-state.ts')), /aplicarCambiosDePaso\(s, cambios, pasos/);
+});
+
+test('la ruta del arranque: la puerta primero, el CRM ANTES de guardar la elección, lo guardado leído estricto', () => {
+  const ruta = sinComentarios(leer('app/api/onboarding/arranque/route.ts'));
+  for (const fn of ['export async function GET()', 'export async function POST(']) {
+    const cuerpo = bloque(ruta, fn, '\n}\n');
+    assert.match(cuerpo.slice(0, 160), /await wsDelOnboarding\(\)/, `${fn} no pregunta primero quién es`);
+  }
+  const responder = bloque(ruta, "case 'responder':", "case 'sesion':");
+  assert.ok(responder.indexOf('sembrarCrmPrincipal(') < responder.indexOf('guardarEstadoArranque(patch)'), 'la elección del CRM se guarda aunque la siembra falle');
+  assert.match(ruta, /getSettingEstricto\('onboarding\.arranque'\)/);
+  const sesion = bloque(ruta, "case 'sesion':", "case 'telefono':");
+  assert.match(sesion, /s\.funnelId !== funnelDefault/, 'la conversación de la oferta tiene que ser la del funnel principal');
+});
+
+test('el CRM principal se siembra sólo si está intacto, y nunca con la lectura caída', () => {
+  const server = sinComentarios(leer('lib/onboarding-arranque-server.ts'));
+  const sembrar = bloque(server, 'export async function sembrarCrmPrincipal', 'export async function asegurarFunnelPrincipal');
+  const iError = sembrar.indexOf("actual.origen === 'error'");
+  const iIntacto = sembrar.indexOf('mismoPipeline(actual.pipeline, DEFAULT_PIPELINE)');
+  const iGuardar = sembrar.indexOf('await saveFunnelDefault(');
+  assert.ok(iError > 0 && iIntacto > iError && iGuardar > iIntacto, 'la siembra no mira la lectura y el «intacto» antes de escribir');
+  assert.doesNotMatch(sembrar, /crearCrm\(|crearFunnel\(/, 'el primer CRM es el principal: un CRM nuevo arrancaría vacío');
+  // El brief se funde leyendo ESTRICTO (con la base caída, saveAnswers sobre {} borraría el brief).
+  const cerrar = bloque(server, 'export async function cerrarArranque', 'export function tipoValido');
+  assert.match(cerrar, /await mapaParaEscribir\(ANSWERS_KEY\)/);
+  assert.match(cerrar, /fundirBrief\(previas,/);
+});
+
+test('el login de Google llena el nombre SÓLO si está vacío: el que eligió la persona no se pisa', () => {
+  const src = sinComentarios(leer('lib/usuarios.ts'));
+  const reg = bloque(src, 'export async function registrarLogin', 'export async function contarUsuarios');
+  assert.doesNotMatch(reg, /patch\.nombre\s*=/, 'el nombre volvió al update de todos los logins');
+  assert.match(reg, /\.update\(\{ nombre \}\)[\s\S]*\.or\('nombre\.is\.null,nombre\.eq\.'\)/);
+});
+
+test('el chat no desaparece nunca: armar es un mensaje del hilo y la oferta se ve en una ventana encima', () => {
+  const app = sinComentarios(leer('app/offer/OfferApp.tsx'));
+  assert.doesNotMatch(app, /setVista\(|<Generando\b/, 'volvió una vista que reemplaza al chat');
+  assert.match(app, /<Modal titulo="Tu oferta"[\s\S]*<Conclusion/, 'la oferta dejó de abrirse en una ventana encima del chat');
+  assert.match(app, /armando=\{armandoEnChat\}/);
+  const chat = sinComentarios(leer('app/offer/ChatOffer.tsx'));
+  assert.match(chat, /<GenerandoEnChat /);
+  // En el arranque, «Probarlo» (que sale a Experiments) no se ofrece: esa pantalla rebota al onboarding.
+  assert.match(app, /conProbar=\{!arranque\}/);
+});
+
+test('la animación: los nombres reales del cerebro, salteable, sin movimiento si se pide, y aterriza en la foto del chat', () => {
+  const intro = leer('app/onboarding/IntroMako.tsx');
+  const sin = sinComentarios(intro);
+  assert.match(sin, /import \{ AREAS \} from '@\/lib\/cerebro-modelo'/, 'el grafo dejó de usar los nombres reales de las áreas');
+  assert.ok(AREAS.length >= 10);
+  assert.doesNotMatch(sin, /fetch\(|getSetting|await /, 'la animación es ficción: no lee datos');
+  assert.match(sin, /prefers-reduced-motion: reduce\)'\)\.matches\) \{ onFinRef\.current\(\); return; \}/, 'con movimiento reducido no corre');
+  assert.match(sin, /addEventListener\('keydown', saltar\)/, 'una tecla no la saltea');
+  assert.match(sin, /onClick=\{\(\) => terminarRef\.current\(\)\}/, 'un clic no la saltea');
+  assert.match(sin, /querySelector<HTMLElement>\('\[data-mako-foto\]'\)/);
+  assert.match(sinComentarios(leer('app/onboarding/ChatArranque.tsx')), /data-mako-foto/, 'el chat no tiene dónde aterrizar a MaKo');
+  // El CSS vive en un template literal: una comilla invertida adentro lo corta y rompe el build entero.
+  for (const [archivo, constante] of [['app/onboarding/IntroMako.tsx', 'const CSS_INTRO = '], ['app/onboarding/ChatArranque.tsx', 'const CSS_ARRANQUE = ']]) {
+    const src = leer(archivo);
+    const i = src.indexOf(constante);
+    assert.ok(i > 0, `no encuentro ${constante}`);
+    assert.equal((src.slice(i).match(/`/g) ?? []).length, 2, `${archivo}: comillas invertidas DENTRO del CSS`);
+  }
+  // La salida del modo agencia (el aviso de arriba, z 300) no queda tapada por el onboarding.
+  const banner = leer('app/_components/ImpersonationBanner.tsx');
+  const zBanner = Number(/zIndex: (\d+)/.exec(banner)?.[1]);
+  for (const archivo of ['app/onboarding/IntroMako.tsx', 'app/onboarding/ChatArranque.tsx']) {
+    for (const m of leer(archivo).matchAll(/z-index: (\d+)/g)) {
+      assert.ok(Number(m[1]) < zBanner, `${archivo} tapa la salida del modo agencia (z ${m[1]} ≥ ${zBanner})`);
+    }
+  }
+});
+
+test('el taller de temas no se monta para un cliente (lo cuidaba el test de la bienvenida de antes)', () => {
+  const layout = leer('app/layout.tsx');
+  assert.ok(/\{esAdmin && <TemaCandidato \/>\}/.test(layout), 'el taller de temas volvió a montarse para cualquiera');
+  assert.ok(/getSesionAdmin/.test(layout), 'el guard del taller dejó de mirar la sesión');
+  assert.doesNotMatch(leer('app/onboarding/IntroMako.tsx'), /\[data-chip-tema\][^\n]*display:\s*none/, 'el onboarding esconde la salida del taller');
+});

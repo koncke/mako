@@ -170,6 +170,8 @@ export const CAPAS: Record<CapaId, CapaDef> = {
     userNavKeys: ['perfil', 'configuraciones'],
     // Negocio → diagnóstico de fase (el Norte) → plan. La fase alimenta al Perro
     // Guardián para que priorice con el criterio de la etapa real del negocio.
+    // Desde el 16/10/2026 es el modo 'plan' del chat de arranque (lib/onboarding-arranque.ts):
+    // sin oferta ni CRM, que esta capa no ve.
     onboarding: ['negocio', 'fase', 'plan'],
     // Solo el grupo base: 3 preguntas. Es lo que el Perro Guardián necesita para
     // priorizar con criterio de SU negocio.
@@ -185,15 +187,20 @@ export const CAPAS: Record<CapaId, CapaDef> = {
     queRecibe: 'Vas a tener todo el producto: anuncios, CRM, los analistas, los chats y el Plan.',
     navKeys: null,
     userNavKeys: null,
-    // Orden del onboarding:
-    //  1. fase          → el NORTE del negocio (default, sin IA); de ahí cuelga el resto.
-    //  2. gemini        → la key de IA que mueve TODO lo demás.
-    //  3. archivero     → tira los docs, MaKo arma el brief.
-    //  4. productos     → el catálogo. Va justo después del Archivero: para entonces MaKo
-    //                     ya leyó el brief y los documentos, así que lo ARMA en vez de
-    //                     preguntarlo.
-    //  5. tabs          → contacto de reportes + verificación de WhatsApp.
-    //  6. integraciones → Meta, AL FINAL (pedido de Mauricio).
+    // ⚠️ DESDE EL 16/10/2026 EL ONBOARDING ES UNA CONVERSACIÓN: el chat de arranque
+    // (app/onboarding/ChatArranque.tsx, reglas en lib/onboarding-arranque.ts). Pedido de Martín:
+    // «Quiero que elimines todo lo que hay hoy en onboarding tal como está y que lo reemplaces por
+    // el chat de "Offer"». Los pasos son los mismos del catálogo, y cada uno se cierra así:
+    //  · negocio       → quién es, cómo se llama el negocio, su objetivo a 90 días, y el BRIEF que
+    //                    deja escrito la conversación (lo leen los generadores y el Perro).
+    //  · productos     → la oferta armada en el chat, y el producto que sale de ella.
+    //  · fase          → el diagnóstico (lo pregunta el chat de Offer) y el CRM principal sembrado
+    //                    con el tipo que elige.
+    //  · tabs          → el teléfono verificado adentro del chat, o POSTERGADO.
+    //  · integraciones → Meta se conecta después, desde su tab: se POSTERGA y queda el recordatorio.
+    // `gemini` y `archivero` salieron: un cliente nuevo no trae una API (Ticketera
+    // `clientes-usan-su-claude`) y los documentos que manda en el chat ya van al Archivero.
+    // El wizard de antes, pantalla por pantalla, quedó en docs/onboarding-pasos-anteriores.md.
     //
     // ⚠️ ESTE ONBOARDING CARGA EL NEGOCIO, NO LA FÁBRICA DE CREATIVOS. Antes tenía cinco
     // pasos más —entregable, avatares, persona, personalidad, angulos— y esos cinco SON
@@ -218,7 +225,7 @@ export const CAPAS: Record<CapaId, CapaDef> = {
     //
     // Los pasos que salieron NO se borran de `PASOS_ONBOARDING`: lo que el cliente ya
     // contestó sigue guardado, y si vuelve a entrar no se le vuelve a preguntar.
-    onboarding: ['fase', 'gemini', 'archivero', 'productos', 'tabs', 'integraciones'],
+    onboarding: ['negocio', 'productos', 'fase', 'tabs', 'integraciones'],
     // TODOS los grupos: El Archivero no pregunta de a uno, extrae de los docs y
     // muestra el brief entero (oferta + avatar + personaje de marca) editable en
     // UNA pantalla ("esto entendí, corregí"). Ese perfil completo es lo que
@@ -253,7 +260,8 @@ export const CAPAS: Record<CapaId, CapaDef> = {
     queRecibe: 'Vas a tener todo el producto y, además, puedes tener a tus propios clientes dentro de MaKo.',
     navKeys: null,
     userNavKeys: null,
-    onboarding: ['fase', 'gemini', 'archivero', 'productos', 'tabs', 'integraciones'],
+    // El mismo chat de arranque que Completo (ver arriba).
+    onboarding: ['negocio', 'productos', 'fase', 'tabs', 'integraciones'],
     briefGrupos: null,
     integracionesRequeridas: ['meta'],
     categoriasIntegraciones: null,
