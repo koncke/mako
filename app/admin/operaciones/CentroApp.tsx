@@ -73,6 +73,7 @@ import type { AccionDeshacer, AccionResponder, Decision } from '@/app/admin/runw
 import type { VistaTicketera } from '@/app/tickets/decisiones/CambioVista';
 import { fotoCentroAction, guardarMunecoAction, pushesCentroAction } from './acciones';
 import { copiar, useFirma } from './mandar';
+import { edadCorta } from '@/lib/chat-mako-reglas';
 
 const REFRESCO_MS = 8000;
 /** Cuántos chats se ven antes de «Mostrar más» (como los proyectos de Codex). */
@@ -82,15 +83,8 @@ const CLAVE_AVANCE = 'centro.avance';
 const leerAvance = () => { try { return window.localStorage.getItem(CLAVE_AVANCE) === '1'; } catch { return false; } };
 
 const normal = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
-/** La edad de una fila, corta como en Codex: «ahora», «12 min», «3 h», «2 d». */
-const edad = (t: number | null, ahora: number): string => {
-  if (t == null || !Number.isFinite(t)) return '';
-  const s = Math.max(0, Math.round((ahora - t) / 1000));
-  if (s < 60) return 'ahora';
-  if (s < 3600) return `${Math.round(s / 60)} min`;
-  if (s < 86_400) return `${Math.round(s / 3600)} h`;
-  return `${Math.round(s / 86_400)} d`;
-};
+/** La edad de una fila, corta como en Codex: la misma de la pieza del chat con MaKo (lib/chat-mako-reglas.ts). */
+const edad = edadCorta;
 
 /** La URL dice qué se está mirando (se puede copiar y volver), sin ir al server en cada clic: se reescribe con
  *  la historia del navegador, conservando lo demás de la query (el `?ws=` incluido). */
@@ -485,7 +479,7 @@ export function CentroApp({
       )}
       {nuevo && (
         <Modal titulo="Nuevo chat" onCerrar={() => setNuevo(null)} ancho={520}
-          pie={<Button disabled={!nombreValido(nuevo.nombre.trim())} onClick={() => { copiarConAviso(comandoNuevoChat(nuevo.cuenta, nuevo.nombre), 'Copiado: pégalo en PowerShell'); setNuevo(null); }}>Copiar comando</Button>}>
+          pie={<Button disabled={!nombreValido(nuevo.nombre.trim()).ok} onClick={() => { copiarConAviso(comandoNuevoChat(nuevo.cuenta, nuevo.nombre), 'Copiado: pégalo en PowerShell'); setNuevo(null); }}>Copiar comando</Button>}>
           <NuevoChat borrador={nuevo} onCambio={setNuevo} onCopiar={copiarConAviso} />
         </Modal>
       )}

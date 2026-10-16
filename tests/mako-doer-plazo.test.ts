@@ -61,6 +61,7 @@ test('las rutas donde una confirmación por chat corre replicar_landing aguantan
     'app/m/inbox/page.tsx',
     'app/mako/pendientes/page.tsx',
     'app/api/crm/mako/route.ts',
+    'app/api/mako/chat/route.ts',
   ];
   for (const r of RUTAS) {
     const s = maxDurationDe(r);
@@ -72,6 +73,7 @@ test('el corte del navegador de esas pantallas va DESPUÉS del techo de su ruta 
   const PANTALLAS: Array<[string, string]> = [
     ['app/m/mako/ChatMako.tsx', 'app/api/m/mako/route.ts'],
     ['app/crm/mako-crm/ChatMakoCrm.tsx', 'app/api/crm/mako/route.ts'],
+    ['app/second-brain/ChatSecondBrain.tsx', 'app/api/mako/chat/route.ts'],
   ];
   for (const [pantalla, ruta] of PANTALLAS) {
     const src = sinComentarios(leer(pantalla));

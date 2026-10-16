@@ -153,7 +153,10 @@ test('el teléfono deja entrar donde deja entrar la página de escritorio (mismo
   };
   for (const [id, archivo] of Object.entries(conRol) as [IdSeccionMas, string][]) {
     const s = seccion(id);
-    assert.ok(leer(archivo).includes(`requireRolWs([], { nav: '${s.navKey}' })`), `${archivo} ya no se gatea con «${s.navKey}»`);
+    // El Second Brain de escritorio es el CHAT con MaKo desde el 16/10/2026 (entra más gente): lo que es del admin de la
+    // tab es el MAPA, que es lo que muestra la sección del teléfono, y se corta con la puerta de sus rutas.
+    const guarda = id === 'second-brain' ? `esAdminDeTab('${s.navKey}')` : `requireRolWs([], { nav: '${s.navKey}' })`;
+    assert.ok(leer(archivo).includes(guarda), `${archivo} ya no se gatea con «${s.navKey}»`);
     assert.equal(filaDeSidebar(s.navKey)?.item.rolesWs, undefined, `${s.navKey}: la sidebar se la da a otro rol y la página no`);
   }
   // Curso y Comunidad piden en escritorio la capa de Customer Success (`requireCapa`), y la sidebar, sólo el admin.
