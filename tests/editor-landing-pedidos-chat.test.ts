@@ -173,6 +173,29 @@ test('«Sí» con el cambio de lo abierto sin terminar ESPERA, y abre la creaci�
   assert.match(efecto, /void abrirCreacion\(m\.id, r\.efecto\.pedido\);/);
 });
 
+// Visto con clics el 16/10/2026: «Crear ahora» (celeste, `secundario`) se leía como una sugerencia más del panel
+// («Mejorar la escritura»…, `gma-ag-pildora`, también celeste). Roturas (sobre 17 tests): «Crear ahora» otra vez en
+// celeste tras «Después» → no compila (`secundario` ya no es variante: probado con el tsc acotado); sin el «+» → 16 / 1;
+// los links del panel en `secundario` → 16 / 1.
+test('los botones de una burbuja no se parecen a las sugerencias: «Crear ahora» azul con «+», lo demás en contorno', async () => {
+  const [b] = burbujasDe(interpretacionDe(await deRuta(E2, [ABIERTA]), E2), ABIERTA.id);
+  const despues = pulsar(b, 'despues', ABIERTA.id).burbuja;
+  const directa = burbujasDe(interpretacionDe(await deRuta('Créame otra landing', [ABIERTA]), 'Créame otra landing'), ABIERTA.id)[0];
+  for (const x of [despues, directa]) {
+    const [crear] = vistaDeBurbuja(x).botones;
+    assert.equal(crear.id, 'crear-ahora');
+    assert.equal(crear.v, 'primario');
+    assert.equal(crear.icono, 'mas');
+  }
+  const elegir = burbujasDe(interpretacionDe(await deRuta('Borra la otra landing', [ABIERTA, VENTAS, WEBINAR]), 'Borra la otra landing'), ABIERTA.id)[0];
+  assert.equal(elegir.tipo, 'elegir');
+  assert.deepEqual([...new Set(vistaDeBurbuja(elegir).botones.map((x) => x.v))], ['contorno']);
+  const panel = sinComentarios(leer('app/web-generator/editor/paneles/PanelAgente.tsx'));
+  const burbuja = cuerpoDe(panel, '<div className="gma-ag-acciones">', '</div>');
+  assert.doesNotMatch(burbuja, /data-v="secundario"/);
+  assert.match(burbuja, /b\.icono && <Ico n=\{b\.icono\}/);
+});
+
 test('«Después» deja la burbuja con «Crear ahora», y «Crear ahora» abre la creación UNA vez', async () => {
   const [b] = burbujasDe(interpretacionDe(await deRuta(E2, [ABIERTA]), E2), ABIERTA.id);
   const despues = pulsar(b, 'despues', ABIERTA.id);
