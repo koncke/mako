@@ -100,6 +100,36 @@ export const FEATURE_PEDIDOS = 'mako-pedidos';
 /** Más que esto en un mensaje no es una lista de pedidos: es un documento pegado. */
 export const MAX_PEDIDOS = 6;
 
+/** Una cuenta de un proveedor de IA, como dato: la usa `probarEnOrden` y la arma lib/mako-pedidos-ia.ts. */
+export type CuentaIA<P extends string = string> = { prov: P; clave: string };
+
+/**
+ * Prueba las cuentas EN ORDEN hasta que una contesta algo que pasa `validar`, con cada intento acotado a lo que
+ * queda del plazo (`pedir` recibe ese tope y tiene que respetarlo: `chatCheap` lo hace con `timeoutMs`). Sin nada
+ * antes del primer intento: el 16/10/2026 la primera versión iba por `chatCheapCascade`, cuyo preámbulo (cuotas del
+ * día y la clave de Anthropic del negocio, ~3 s) y su mínimo de 15 s por intento se comían el plazo entero, y no
+ * llegaba NUNCA a un proveedor. Puro: el reloj (`ahora`), las cuentas y el pedido se inyectan. Nunca tira.
+ */
+export async function probarEnOrden<P extends string>(
+  cuentas: readonly CuentaIA<P>[],
+  pedir: (c: CuentaIA<P>, timeoutMs: number) => Promise<string>,
+  validar: (t: string) => boolean,
+  op: { hasta: number; intentoMs: number; minIntentoMs: number; ahora?: () => number; alFallar?: (c: CuentaIA<P>, e: unknown) => void },
+): Promise<string | null> {
+  const ahora = op.ahora ?? Date.now;
+  for (const c of cuentas) {
+    const queda = op.hasta - ahora();
+    if (queda < op.minIntentoMs) return null;
+    try {
+      const t = await pedir(c, Math.min(op.intentoMs, queda));
+      if (t && validar(t)) return t;
+    } catch (e) {
+      op.alFallar?.(c, e);
+    }
+  }
+  return null;
+}
+
 /**
  * Las tabs cuyos objetos viven en el NAVEGADOR y no en la base: ahí la lista la manda el chat (`objetos` del cuerpo
  * de POST /api/mako/pedidos). El Video Editor guarda sus proyectos en IndexedDB (decisión 5 de su diseño,
