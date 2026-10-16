@@ -25,6 +25,7 @@ La regla que produce este documento está en [AGENTS.md](../AGENTS.md) → «La 
 - **El juez del criterio de compromisos de Mauricio tiene CERO call sites**: módulo entero, con prompt, saneo y 16 tests, que no corre sobre ninguna reunión → [De la reunión a la tarea](#-el-juez-del-criterio-de-mauricio-tiene-cero-call-sites).
 - **El texto del SEED de `PlanBoard.tsx` describe el pasado, no el presente**: un agente que lo grepea lee «el board vive en localStorage con el Repo en no-op» y lo reporta como estado actual, tres meses después de que dejó de ser cierto → [El board](#el-board-plan).
 - **Que una reunión «desapareciera» no quiere decir que la descartó el clasificador**: del 08 al 15/10 el ws1 perdió diez y el clasificador no descartó ninguna — falló la LECTURA y salió de la ventana de 26 h. Lo que el cron no lee (por tipo o por falla) queda en `plan_reuniones_descartadas` → [Fathom sin fricción](#fathom-sin-fricción-cargar-sin-ia-el-cruce-en-el-cron-y-lo-que-no-se-leyó-16102026).
+- **`experimento_tareas.score_manual` EXISTE desde la 0143**, aunque tres comentarios (y AGENTS.md) decían que no: el candado del cliente no necesitaba una columna sino un escritor. Y lo que un trabajo escribe en segundo plano tiene que llegar a la pestaña abierta, o el próximo guardado lo deshace → [«Re-priorizar todo»](#re-priorizar-todo-un-trabajo-por-tandas-el-candado-del-cliente-y-lo-que-pinta-la-pantalla-16102026).
 
 ---
 
@@ -2600,6 +2601,107 @@ lib/reunion-cruce.ts + lib/cruce-borrador.ts · lib/reunion-auto.ts · lib/leer-
 app/api/plan-fathom/route.ts · app/api/webhooks/fathom/route.ts · app/api/cron/fathom-plan/route.ts ·
 app/plan/board/TareasRecibidasModal.tsx · app/plan/board/ReunionExtractModal.tsx ·
 tests/fathom-sin-friccion.test.ts · *2026-10-16*
+
+## «Re-priorizar todo»: un trabajo por tandas, el candado del cliente y lo que pinta la pantalla (16/10/2026)
+
+La tanda 4 de «hacer el kanban un kanban» (decisión 9). Martín, textual: «Quiero hacerlo "libre", que
+se creen sin prioridad, y luego de última un botón en los 3 puntos de arriba del plan para
+"re-priorizar" todo, y eso puede correr en segundo plano y no impedir que el usuario siga utilizando
+todo».
+
+**Cómo corre.** La entrada vive en el menú de los tres puntos (las dos mitades: `repo.repriorizar`) y
+en la API de MaKo (`repriorizar_plan`, `ver_repriorizacion_plan`). Arrancar saca la FOTO de las tareas
+abiertas del Plan y deja una fila en `plan_repriorizaciones` (mig 0297); la procesan, de a 20, el
+SONDEO del tablero abierto (cada 4 s pregunta el avance y empuja la tanda siguiente en `after()`) y el
+cron `/api/cron/plan-repriorizar` (cada minuto, para cuando se cierra la pestaña o lo arrancó MaKo por
+WhatsApp). Cada tarea: el número del Perro de siempre (`puntuarNuevas`, la red gratis), el proyecto si
+está en «Sin proyecto», una entrada de historial de MaKo; en el dueño, al final, el reparto
+(`recurvarPlanOwner`) y el juicio de los proyectos. No toca fechas ni detalle.
+
+**Lo que estaba escrito era falso: `experimento_tareas.score_manual` EXISTE desde la 0143.** Tres
+lugares lo negaban —el comentario de `Repo.prioridadManual` (app/plan/board/types.ts), el de
+`repoPlan` y AGENTS.md («una columna que la tabla del cliente no tiene»)— y la 0297 se escribió
+creyéndoles; aplicarla en producción contestó «already exists, skipping». La 0143 la agregó a las
+TRES tablas; lo que faltaba era quién la usara: en el tablero del cliente nadie la escribía ni la
+leía. No hacía falta mientras el Perro del cliente sólo puntuaba lo que NACÍA; «Re-priorizar todo»
+re-puntúa lo que existe, así que desde hoy el slider del cliente la pone, `prioridadAlPerro` (nueva en
+ese tablero) la saca, `toBoard` la lee y `editPatch` NO la manda. **Y la razón escrita no sirve de
+marca**: el slider del cliente escribe «La fijaste a mano» en la base y la pantalla se queda con
+«Prioridad fijada a mano», que el próximo guardado sube — dos textos para el mismo candado.
+
+**Las reglas que quedan:**
+
+- **Un trabajo largo es una FILA, no un `await`.** La foto de ids, el cursor (`hechas`), el estado y el
+  último error viven en la base; tomar una tanda es un compare-and-set sobre `vuelta` con un candado
+  que vence (`tomada_hasta`, 240 s), y soltarla exige la vuelta que se tomó. Así el sondeo y el cron
+  —o dos pestañas— nunca procesan la misma tanda (medido en el test: el segundo drenaje pierde el CAS).
+- **«Uno a la vez» lo garantiza la BASE**: un índice único parcial (`workspace_id, tablero` donde
+  `estado = 'corriendo'`). Leer «no hay ninguno» y después insertar no alcanza con dos clics juntos;
+  el que choca (23505) recibe el que ya corre.
+- **Una tanda que falla se reintenta ENTERA, esperando** (20 s, después 60 s: la cuota de Gemini es por
+  minuto), y a la tercera el trabajo se CORTA: si la red gratis no contesta, la tanda siguiente
+  tampoco. Saltearla dejaría veinte tareas sin número y un trabajo «hecho». **El error queda en la fila
+  aunque el reintento salga**: «falló y se recuperó» no es «nunca falló».
+- **Lo que un trabajo escribe en segundo plano VIAJA A LA PESTAÑA ABIERTA**, o el próximo guardado lo
+  deshace: los dos tableros guardan la fila entera (el upsert del dueño con `score`, `score_base` e
+  `historial`; el `editPatch` del cliente con `score`, `score_razon` e `historial`). La fila guarda los
+  cambios (`cambios`, un `GuardPatch` por tarea) y el sondeo los pide desde donde se quedó y los pinta
+  con `aplicarPerroServer`, sin volver a guardarlos. Eso destapó que **`aplicarPerroServer` no
+  actualizaba `scoreBase`**: `priorizarNuevasOwner` escribe `score_base` y la pestaña se quedaba con la
+  vieja, así que el siguiente guardado le devolvía al reparto el juicio de antes (ahora `GuardPatch`
+  lleva `scoreBase`). Y ya no duplica entradas de historial con el mismo id.
+- **La entrada de historial de una corrida repetible lleva id DETERMINISTA** (`rp<trabajo>-<tarea>`):
+  una tanda cortada a mitad se repite entera y la segunda pasada reemplaza la entrada en vez de apilar
+  otra. Lleva el número de ANTES («62 → 48»): no hay deshacer, y el historial es lo único que deja
+  volver a mano.
+- **La vara contra la que se puntúa no lleva las «Sin priorizar»** (no tienen un juicio sino la
+  ausencia de uno: con 60 en 0, el modelo vería medio tablero en el fondo), **ni lo que se repite, ni la
+  Retro ni los experimentos**.
+- **SÓLO tareas del Plan.** `experimento_tareas` mezcla el plan con lo que propuso una Retro y los pasos
+  de un experimento (`esDelPlanCliente`: origen `retro`/`experimento` o `retro_id`/`experimento_id`):
+  ésos no entran ni como tarea ni como vara — tienen su propia rendición de cuentas.
+- **La bandeja sale por una lista CERRADA** (los proyectos que existen; en el cliente también las áreas
+  del catálogo y un «Cliente: X» que sale del CRM). Lo que el modelo propone abrir (`nuevos`) NO se
+  crea en un trabajo que corre sin nadie mirando: la tarea se queda en «Sin proyecto». Para eso
+  `rutearTareasCliente` devuelve ahora de dónde salió cada destino (`via`).
+- **Desde la API no se empuja trabajo con un reloj que no se conoce.** `repriorizar_plan` deja la fila
+  y contesta; una tanda necesita 75 s y `/api/v1` corta a 60 (y el «sí» de WhatsApp o de la bandeja
+  corre con otro techo). Lo levanta el cron dentro del minuto. Y arrancar no sale por HTTP: llama al
+  Perro, y un token en la máquina de un tercero no debería poder quemar cuota en bucle.
+
+**Medido en producción (16/10, sólo lectura):** abiertas del Plan, 185 en el ws1 (`experimento_tareas`)
+y 176 en el ws9 (`plan_tareas`); CERO fijadas a mano abiertas en los dos (una cerrada en el ws9),
+CERO en «Sin proyecto», CERO «Sin priorizar» (nada cargó libre todavía en producción), y 2 tareas de
+origen `retro` en `experimento_tareas` (una abierta, en el ws11).
+
+**Trampas del entorno:**
+
+- **`after()` comparte el `maxDuration` de la ruta** (120 s en `/api/todo` y `/api/plan-board`): el
+  drenaje no arranca una tanda con menos de 75 s por delante ni el cierre del dueño (70 proyectos en
+  una llamada) con menos de 100. Cortada a mitad, la tanda se repite entera.
+- **El `tsc-acotado` sólo ve lo que se le nombra**: `app/experimentos/_demo.ts` tenía un rojo de tipos
+  desde la tanda 1 (`motivo_atorada` obligatorio en `Tarea`) que nadie había chequeado; sale en el tsc
+  completo de CI.
+- **Un PostgREST de mentira que compara `lt.`/`gt.` como texto miente con ids** («1009» < «999»). El
+  nuevo `tests/_postgrest-de-mentira.ts` compara número con número, simula los índices únicos
+  parciales (409 / 23505) y es el que tienen que usar los hijos que vengan (hay otras tres copias).
+
+**Quedó sin hacer:** no se miró en el navegador (sin `next dev` en esta máquina): el menú, la línea
+chica y el toast están probados por tests y tipos. El TELÉFONO (`/m/plan`) no tiene la entrada: no monta
+`BoardShell`. **El kanban del cliente sigue mostrando las tareas de la Retro y de los experimentos**
+(`listTareas` no filtra; la SPEC lo pedía también para el kanban y ninguna tanda lo hizo). El tablero
+del cliente no re-juzga sus proyectos (no tiene un Perro de proyectos). Arrancar desde el tablero
+agenda dos `after()` (el del arranque y el del primer sondeo); el compare-and-set hace que sólo uno
+trabaje. Y siguen llamando al Perro al crear: el doer de WhatsApp, `priorizar-nuevas` y crear un
+proyecto a mano (ver «Fathom sin fricción»).
+
+**Vive en:** lib/plan-repriorizar-nucleo.ts (lo puro: la foto, la tanda, la vara, `trasFalla`) ·
+lib/plan-repriorizar.ts (los dos tableros, `avanzarRepriorizacion`, `accionDelTablero`, el cron) ·
+app/api/cron/plan-repriorizar/route.ts · app/plan/board/Repriorizar.tsx (el sondeo, la línea, el
+toast) · app/plan/board/BoardShell.tsx (la entrada del menú) · app/plan/TodoBoard.tsx y
+app/plan/board/repo-plan.ts (la capacidad; el candado del cliente) · lib/api-mako/areas/plan.def.ts y
+plan.run.ts · supabase/migrations/0297 · tests/plan-repriorizar.test.ts + tests/_plan-repriorizar-hijo.ts
+· *2026-10-16*
 
 ## Tablero único: el cliente va en el BORRADOR, y el tipo de responsable se calcula al aplicar
 

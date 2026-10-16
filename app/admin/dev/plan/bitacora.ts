@@ -200,4 +200,35 @@ export const BITACORA: Hito[] = [
       'tests/plan-lugar-al-soltar.test.ts — 6 tests nuevos, cinco roturas probadas',
     ],
   },
+  {
+    fecha: '16 oct', hora: '—', chat: '—', cuenta: 'claude3', actor: 'martin', tipo: 'prompt',
+    titulo: 'Hacer el kanban un kanban, Fathom sin fricción y «Re-priorizar todo»',
+    pedido: 'Implementa end-to-end los cambios del PLAN que pidió Mauricio... Hacer el kanban un kanban... Y optimiza la velocidad de importación de tareas de Fathom... Que hoy en día tardan un montón porque "cruzan" con las otras tareas... Quiero que elimines eso y toda la fricción. Quiero hacerlo "libre", que se creen sin prioridad, y luego de última un botón en los 3 puntos de arriba del plan para "re-priorizar" todo, y eso puede correr en segundo plano y no impedir que el usuario siga utilizando todo...',
+    puntos: [
+      'Lo de Mauricio sale de dos reuniones (12/10 y 8/9): «el espíritu más importante del Kanban es el flujo… No la clasificación», columnas por iniciar / en proceso / atorada / completada, la prioridad como filtro, y «cuando tú muevas una tarjeta, yo no debería preguntarte cuál es la nueva prioridad».',
+      'Se partió en cuatro tandas: el modelo (el estado es la columna), la pantalla del kanban, Fathom sin fricción y «Re-priorizar todo». Las decisiones están en docs/hallazgos-plan.md, una entrada por tanda.',
+    ],
+  },
+  {
+    fecha: '16 oct', hora: '09:00', chat: '—', sesion: 'local_0f38f4d5-0e64-411e-b6c8-6d6ead20baed', cuenta: 'claude3', actor: 'claude', tipo: 'implementacion',
+    titulo: '«Re-priorizar todo»: el botón de los tres puntos que ordena el plan en segundo plano',
+    puntos: [
+      'Una entrada en el menú de los tres puntos de los DOS tableros y una operación de la API de MaKo. Arranca un trabajo que recorre las tareas abiertas del Plan de a 20: el Perro de siempre (la red gratis) les pone el número y saca de «Sin proyecto» lo que estaba ahí. Mientras corre, una línea chica «Re-priorizando 40/185» y nada más: el tablero se sigue usando. Al terminar, un toast.',
+      'El trabajo es una FILA (`plan_repriorizaciones`, mig 0297): lo empujan el sondeo del tablero abierto y un cron cada minuto, así que sigue aunque se cierre la pestaña. Uno a la vez por tablero, garantizado por la base.',
+      'Respeta lo fijado a mano, no toca fechas ni el detalle, nunca toca lo de la Retro ni los experimentos, y una tanda que falla se reintenta entera con el error escrito en la fila; a la tercera se corta.',
+      '⚠️ **Lo que estaba escrito era falso**: el candado de «la fijaste a mano» (`score_manual`) existía en la tabla del cliente desde la 0143, aunque tres comentarios y AGENTS.md decían que no. Faltaba quién lo usara: desde hoy el slider del cliente lo pone y «Devolver a MaKo» lo saca.',
+      'Lo que el trabajo escribe viaja a la pestaña abierta: los dos tableros guardan la tarjeta entera, y sin eso el próximo guardado le devolvía el número viejo. De paso: la pantalla no se enteraba de la «base» del juicio que reescribe el Perro.',
+      'Sin verificar en el navegador (no hay `next dev` en esta máquina): probado con 27 tests contra la base de mentira, rompiendo el código 29 veces.',
+    ],
+    commits: [
+      { sha: 'd4631f43', msg: 'Plan kanban (tanda 4, «Re-priorizar todo»): el trabajo en segundo plano por tandas, el candado del cliente y la API de MaKo', lineas: 2618, archivos: 29 },
+    ],
+    archivos: [
+      'lib/plan-repriorizar-nucleo.ts — lo puro: la foto, la tanda, la vara, el reintento, lo que se dibuja',
+      'lib/plan-repriorizar.ts — los dos tableros, avanzar por tandas, el sondeo y el cron',
+      'app/plan/board/Repriorizar.tsx — el sondeo, la línea chica y el toast; BoardShell monta la entrada del menú',
+      'supabase/migrations/0297_plan_repriorizar.sql — la fila del trabajo (aplicada el 16/10)',
+      'tests/plan-repriorizar.test.ts — 27 tests, 29 roturas',
+    ],
+  },
 ];

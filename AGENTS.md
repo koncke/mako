@@ -2130,6 +2130,32 @@ el tablero volvió con el más alto en **70** y un proyecto de fase 2 primero.
   en «el Plan y el Perro Guardián», que es el que tiene la fecha. Después de crear, se
   comprueba DÓNDE cayó cada una.
 
+# Un trabajo LARGO del Plan es una FILA que se drena por tandas, y lo que escribe lo pinta la pantalla
+
+«Re-priorizar todo» (16/10/2026, docs/hallazgos-plan.md → su entrada) es el molde, y lo que exige a
+cualquier proceso que recorra el tablero entero en segundo plano:
+
+- **La fila es el estado, no el `await`.** La foto de lo que entra, el cursor, el estado y el último
+  error viven en la base (`plan_repriorizaciones`, mig 0297). Lo drenan DOS caminos —el sondeo de la
+  pantalla abierta, que empuja la tanda siguiente en `after()`, y un cron cada minuto para cuando nadie
+  mira— y tomar una tanda es un compare-and-set (`vuelta`) con un candado que vence (`tomada_hasta`).
+  «Uno a la vez» lo garantiza un índice único PARCIAL; el que choca (23505) recibe el que ya corre.
+- **Una tanda que falla se reintenta ENTERA, esperando, y a la tercera se corta**, con el error en la
+  fila aunque después salga. Nunca se saltea: una tanda salteada es un trabajo «hecho» con veinte
+  tareas sin tocar. Y nunca se arranca una tanda sin el reloj que necesita: `after()` comparte el
+  `maxDuration` de la ruta, y desde la API de MaKo (que corta a 60 s, y donde no se sabe quién
+  confirma) no se empuja nada — lo levanta el cron.
+- **Lo que el server escribe mientras la pestaña está abierta VIAJA a la pestaña** (un `GuardPatch` por
+  tarea, aplicado con `aplicarPerroServer` sin volver a guardar). Los dos tableros guardan la fila
+  ENTERA desde el navegador: un número que la pantalla no se enteró vuelve a la base en el próximo
+  guardado de cualquier campo. Incluye `scoreBase` (el reparto curva desde ahí) y la entrada de
+  historial.
+- **Una entrada de historial de algo que se puede repetir lleva id DETERMINISTA** (trabajo + tarea): la
+  segunda pasada la reemplaza en vez de apilar otra. Y lleva el número de ANTES: sin deshacer, el
+  historial es lo único que deja volver a mano.
+- **Sólo tareas del PLAN** (`esDelPlanCliente`): `experimento_tareas` también guarda lo que propuso una
+  Retro y los pasos de un experimento, que tienen su propia rendición de cuentas.
+
 # Una regla que se aplica AL ESCRIBIR no arregla ni una fila ya escrita
 
 Toda regla nueva sobre los datos —derivar un campo, sanear un formato, poner un default—
@@ -4718,7 +4744,9 @@ Medido el 23/09/2026: el slider de prioridad salió a producción con
 `fetch('/api/plan-board')` adentro. Esa ruta abre con `getSesionAdmin()`, así que **cada
 cliente tenía un control cuya única respuesta posible era «solo admin»** — y además
 `score_manual` (mig 0143) es una columna que la tabla del cliente no tiene, o sea que
-tampoco había dónde escribirlo. Con el mismo molde salieron ese día otros tres: la casilla
+tampoco había dónde escribirlo (⚠️ 16/10/2026: eso era FALSO —la 0143 la agregó también a
+`experimento_tareas`—, y tres comentarios lo repetían; nadie la usaba en el cliente hasta «Re-priorizar
+todo», docs/hallazgos-plan.md). Con el mismo molde salieron ese día otros tres: la casilla
 de prioridad del alta, el arrastre del Kanban y el botón de dictar.
 
 **La escritura entra por el `Repo`, y el que no la implementa NO DIBUJA EL CONTROL.** Es
@@ -7100,7 +7128,10 @@ lo remató con la versión de producto: *«para los 50 clientes que lo usen pued
 las tareas, y encima cuando quiera modificarlo no lo deje»*.
 
 - **Una corrida automática NO escribe `score_manual`.** Lo pone la persona al debatir una
-  prioridad, y nadie más. Si una corrida quiere conservar un orden, escribe el `score` y la
+  prioridad, y nadie más. ⚠️ Y desde el 16/10/2026 vale en las DOS mitades: el tablero del cliente lo
+  pone con su slider y lo saca con `prioridadAlPerro`, y todo proceso que re-puntúe tareas del cliente
+  («Re-priorizar todo») lo LEE — la razón escrita («La fijaste a mano») no sirve de marca: la pantalla
+  guarda otro texto. Si una corrida quiere conservar un orden, escribe el `score` y la
   `score_razon`, que es discutible, y se va.
 - **Toda prioridad que pone la IA tiene que poder cambiarse a mano en la pantalla**, sin
   debate previo y sin fricción. Si el modelo se equivoca —y se va a equivocar— la salida no
