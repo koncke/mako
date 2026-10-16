@@ -589,8 +589,8 @@ ni `hastaRedMs`). Lo habilita la lista del veto sólo mientras `onboardingPendie
   («¿qué le vendes después?», 00:34:26); que distinga low ticket de high ticket y servicio hecho por vos /
   con vos / para vos (00:38:54, 00:39:11: no prometer implementar algo que hace el cliente en un curso);
   que no vuelva a proponer el diagnóstico cuando ya tiene las respuestas (00:35:43); que la oferta salga
-  menos corporativa (00:41:03, 00:44:48); y que el PDF separe el diagnóstico de su oferta actual de la
-  propuesta nueva (00:45:30). La voz de marca (00:46:06) ya estaba hecha (`db81f96`).
+  menos corporativa (00:41:03, 00:44:48); y ~~que el PDF separe el diagnóstico de su oferta actual de la
+  propuesta nueva (00:45:30)~~ (**hecho el 16/10**, «El PDF en dos partes», abajo). La voz de marca (00:46:06) ya estaba hecha (`db81f96`).
 - **No se vio en el navegador**: la RAM de la máquina no dejaba levantar la app. Lo cubren los tests de
   fuente y lo puro ejecutado.
 
@@ -650,5 +650,36 @@ y mandaría el `ejemplo` del catálogo como si fuera real.
 `lib/offer-reglas.ts` (`sanearArmado`, `armadoEnCurso`, `armadoParaVista`) · `lib/offer-sesiones.ts` (la columna) ·
 `app/offer/OfferApp.tsx` (`armar`, la relectura) · `lib/oferta-lista.ts` y `lib/oferta-lista-server.ts` (el aviso) ·
 `supabase/migrations/0296_offer_armado.sql` · `tests/offer-armado-servidor.test.ts` (14 roturas)
+
+*16/10/2026, cuenta claude3.*
+
+## El PDF en dos partes: «Tu oferta hoy» y «La propuesta que te armo» (16/10/2026)
+
+**El pedido** (Martín, llamada con Leila del 12/10, 00:45:30): primero, de la oferta de HOY, «me gustó esto, esto y
+esto, y esto lo cambiaría y haría tal forma»; después, aparte, «esta es la propuesta que yo te armo para vos».
+
+**Lo que lo mezclaba** (no era sólo un título):
+- La portada ponía el NOMBRE DE LA OFERTA NUEVA arriba del PUNTAJE DE LA ACTUAL: se leían como una sola cosa.
+- Lo bueno era una sola frase (`fuerte`); todo lo demás del diagnóstico mira lo flojo.
+- El «cómo subirla» de cada dimensión (`NotaDimension.mejora`) se veía en la pantalla y nunca llegaba al PDF.
+
+**Ahora:** portada neutra («La oferta de X», qué trae el documento) · **Parte 1 · Tu oferta hoy**: puntaje, lo que
+falta, el diagnóstico del negocio, el de la oferta, **«Lo que me gustó»** (lista) y **«Lo que cambiaría, y cómo»** (los
+3 cambios con su hipótesis y, parte por parte, la `mejora` de cada nota de 5 o menos) · **Parte 2 · La propuesta que te
+armo**, en página NUEVA, con el nombre y la frase de la oferta nueva arriba.
+- «Lo que me gustó» sale de lo que YA deja el diagnóstico (`loQueMeGusto`, lib/offer-marco.ts): las fortalezas, las
+  notas de 7 o más con su porqué y los puntos del control final que ya cumple. Sin IA nueva.
+- El diagnóstico ahora pide **`fuertes`, de 1 a 3** (citando al dueño, nunca inventadas para llenar). `fuerte` se queda
+  como la primera: lo leen la pantalla y MaKo Mobile, y las conclusiones viejas sólo tienen ésa.
+- **El rótulo de la pantalla no cambió** («Lo más fuerte», ahora con la lista): MaKo Mobile exige que sus rótulos
+  existan tal cual en `Conclusion.tsx` (tests/m-offer.test.ts).
+
+**Una trampa de los tests:** el lector del PDF (`leerPdf`) junta las páginas, así que «la propuesta va en otra página»
+contando páginas pasaba igual sin el salto (el documento ya era largo). Se lee por página (`paginasPdf`) y se pide que la
+segunda parte sea lo PRIMERO de su página.
+
+**Vive en:** `lib/offer-pdf.ts` (`pdfDeOferta`, `parte`) · `lib/offer-marco.ts` (`loQueMeGusto`, `paraSubirCadaParte`,
+`DiagnosticoOferta.fuertes`) · `lib/offer-reglas.ts` (`parseDiagnostico`) · `lib/offer-ia.ts` (regla 6 del diagnóstico) ·
+`app/offer/Conclusion.tsx` · `tests/offer-pdf.test.ts` (11 roturas)
 
 *16/10/2026, cuenta claude3.*

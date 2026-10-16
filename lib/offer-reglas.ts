@@ -1133,10 +1133,14 @@ export function parseDiagnostico(raw: unknown): DiagnosticoOferta | null {
   while (cambios.length < N_CAMBIOS) {
     cambios.push({ titulo: `${MARCA_COMPLETAR} otro cambio con impacto`, porque: '', hipotesis: '' });
   }
+  // Lo que ya hace bien (16/10/2026): de 1 a 3, sin repetidas. `fuerte` sigue siendo la primera para lo que ya lo lee.
+  const fuertes = [...new Set((Array.isArray(o.fuertes) ? o.fuertes : []).map((x) => texto(x, 320)).filter(Boolean))].slice(0, 3);
+  const fuerte = texto(o.fuerte, 320) || fuertes[0] || '';
   return {
     dimensiones: DIMENSION_IDS.map((id) => porId.get(id) as NotaDimension),
     tesis,
-    fuerte: texto(o.fuerte, 320),
+    fuerte,
+    fuertes: fuertes.length ? fuertes : fuerte ? [fuerte] : [],
     cambios,
   };
 }

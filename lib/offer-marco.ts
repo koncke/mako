@@ -237,8 +237,13 @@ export type DiagnosticoOferta = {
   dimensiones: NotaDimension[];
   /** La lectura en una frase (el «titular» del diagnóstico). */
   tesis: string;
-  /** Lo mejor que ya tiene la oferta actual, en una frase. */
+  /** Lo mejor que ya tiene la oferta actual, en una frase (la primera de `fuertes`; la leen la pantalla y el teléfono). */
   fuerte: string;
+  /**
+   * Lo que la oferta actual YA hace bien, de 1 a 3, cada una citando al dueño (16/10/2026, feedback de la llamada con
+   * Leila: «de tu oferta me gustó esto, esto y esto»). Opcional: las conclusiones de antes sólo tienen `fuerte`.
+   */
+  fuertes?: string[];
   /** Los 3 cambios con más impacto, del más importante al menos. */
   cambios: CambioPropuesto[];
 };
@@ -285,6 +290,43 @@ export const PUNTOS_CONTROL: ReadonlyArray<{ punto: PuntoControl; label: string 
   { punto: 'garantia', label: 'Garantía fuerte' },
   { punto: 'precio', label: 'Precio por valor' },
 ];
+
+// ── «Tu oferta hoy» (16/10/2026) ────────────────────────────────────────────
+// Feedback de Martín en la llamada con Leila (12/10, 00:45:30): el PDF tiene que decir primero, de la oferta de HOY,
+// «me gustó esto, esto y esto, y esto lo cambiaría y lo haría de tal forma», y aparte «esta es la propuesta que yo te
+// armo». Lo que va en la primera parte lo arman estas dos funciones con lo que YA dejó el diagnóstico: no hay IA nueva.
+
+/** Una nota alta (7 o más) es algo que la oferta ya hace bien; una baja (5 o menos), lo que más conviene subir. */
+const NOTA_FUERTE = 7;
+const NOTA_FLOJA = 5;
+
+/**
+ * LO QUE ME GUSTÓ de la oferta de hoy: lo que el diagnóstico marcó como fuerte (`fuertes`, o `fuerte` en las
+ * conclusiones de antes), las dimensiones con nota alta (con su porqué, que cita al dueño) y los puntos del control
+ * final que ya cumple. Sin repetidas y con tope: es una lista para leer, no el diagnóstico entero.
+ */
+export function loQueMeGusto(c: Pick<ConclusionOferta, 'diagnostico' | 'calculo'>, tope = 6): string[] {
+  const d = c.diagnostico;
+  const etiqueta = (id: DimensionId) => DIMENSIONES.find((x) => x.id === id)?.label ?? id;
+  const out = [
+    ...(d.fuertes?.length ? d.fuertes : d.fuerte ? [d.fuerte] : []),
+    ...d.dimensiones.filter((n) => n.nota >= NOTA_FUERTE && n.porque?.trim()).map((n) => `${etiqueta(n.id)}: ${n.porque.trim()}`),
+    ...(c.calculo.controlFinal ?? []).filter((x) => x.ok && x.porque?.trim()).map((x) => x.porque.trim()),
+  ].map((s) => s.trim()).filter(Boolean);
+  return [...new Set(out)].slice(0, tope);
+}
+
+/**
+ * PARA SUBIR CADA PARTE: las dimensiones flojas (5 o menos), de la más baja a la más alta, con lo que las sube
+ * (`mejora`). Es el «cómo» de lo que cambiaría, parte por parte; antes sólo se veía en la pantalla.
+ */
+export function paraSubirCadaParte(c: Pick<ConclusionOferta, 'diagnostico'>, tope = 4): Array<{ label: string; nota: number; mejora: string }> {
+  return c.diagnostico.dimensiones
+    .filter((n) => n.nota <= NOTA_FLOJA && n.mejora?.trim())
+    .sort((a, b) => a.nota - b.nota)
+    .slice(0, tope)
+    .map((n) => ({ label: DIMENSIONES.find((x) => x.id === n.id)?.label ?? n.id, nota: n.nota, mejora: n.mejora.trim() }));
+}
 
 export type FaseRuta = { fase: string; objetivo: string; hito: string };
 export type Entregable = { nombre: string; beneficio: string };
