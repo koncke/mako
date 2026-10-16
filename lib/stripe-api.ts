@@ -442,6 +442,20 @@ export async function programarFinSuscripcionStripe(key: string, subId: string, 
   return { ok: true, cancelAt };
 }
 
+/**
+ * «DARME DE BAJA» en Stripe (15/10/2026): la suscripción se cancela AL FINAL del período pagado (`cancel_at_period_end`),
+ * como la cancela todo SaaS y lo recomienda Stripe (stripe.com/docs/subscriptions/canceling-pausing): quien pagó el mes lo
+ * usa, y no se le cobra el siguiente. Devuelve cuándo termina: `cancel_at` o, si no vino, el fin del período (desde basil,
+ * en el ítem). Al llegar ese día Stripe manda `customer.subscription.deleted` y `aplicarSuscripcionCancelada` la cierra.
+ */
+export async function programarBajaStripe(key: string, subId: string, idem: string): Promise<R<{ finAt: string | null }>> {
+  const r = await llamar(key, 'POST', `/v1/subscriptions/${encodeURIComponent(subId)}`, { cancel_at_period_end: true }, idem);
+  if (!r.ok) return fallo(r);
+  const item = obj(Array.isArray(obj(r.body.items).data) ? (obj(r.body.items).data as unknown[])[0] : null);
+  const fin = Number(r.body.cancel_at ?? item.current_period_end ?? r.body.current_period_end);
+  return { ok: true, finAt: Number.isFinite(fin) && fin > 0 ? new Date(fin * 1000).toISOString() : null };
+}
+
 /** DELETE /v1/subscriptions/{id}: cancela EN EL ACTO (status `canceled`). */
 export async function cancelarSuscripcionStripe(key: string, subId: string, idem: string): Promise<R<{ estado: string | null }>> {
   const r = await llamar(key, 'DELETE', `/v1/subscriptions/${encodeURIComponent(subId)}`, undefined, idem);

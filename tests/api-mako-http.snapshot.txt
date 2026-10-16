@@ -116,6 +116,7 @@ crear_modulo_curso
 crear_oferta_lead
 crear_presentacion_desde_plantilla
 crear_secuencia_email
+dar_de_baja_mi_plan
 dar_estrella
 declarar_entradas_funnel
 desarchivar_secuencia
@@ -474,6 +475,7 @@ ver_integracion
 ver_integraciones
 ver_landing_creada
 ver_metricas_video_panda
+ver_mi_plan
 ver_moneda_negocio
 ver_montaje_anuncio
 ver_mrr_activo

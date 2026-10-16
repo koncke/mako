@@ -24,7 +24,7 @@ import crypto from 'node:crypto';
 import { getSupabaseServer } from './supabase';
 import { getTenantDb, runWithWorkspace, wsSuperAdmin } from './workspace';
 import { credDelCliente } from './credenciales';
-import { APP_BASE_URL } from './app-url';
+import { APP_BASE_URL, EMAIL_MAKO } from './app-url';
 import { getLead, logLeadEvent, setPipelineStage } from './leads';
 import { getPipelineStagesDeLead } from './funnels';
 import { etapaDeGanado } from './pipeline';
@@ -36,7 +36,7 @@ import { darDeAltaCliente, esCapaVendible } from './alta-cliente';
 import { COLS_COBRO, NOMBRE_PASARELA, cobroDeFila, esTokenCobro, type Cobro, type EstadoAlta, type EstadoCobro, type Pasarela, type TipoCobro } from './cobros-tipos';
 import { valoresDelPago } from './variables-del-lead';
 import {
-  avisoPagoPorLinkAnulado, decidirCobro, esRenovacion, finDelPlazo, idemAnular, idemBaja, idemCobro, idemReembolso, mesesTranscurridos,
+  avisoPagoPorLinkAnulado, codigoDeBaja, decidirCobro, esBajaPedida, textoBajaPedida, esRenovacion, finDelPlazo, idemAnular, idemBaja, idemCobro, idemReembolso, mesesTranscurridos,
   esDevolucionFallida, montoUsdDeLaCuota, montoUsdDelCobro, pasaAPagado, textoDevolucionFallida, textoPagoRegistrado, urlPorVencer, ESTADOS_QUE_PASAN_A_PAGADO,
 } from './cobros-reglas';
 import { formatoMonto } from './pasarela-moneda';
@@ -46,7 +46,7 @@ import { emitirDelCatalogo } from './avisos';
 import { linkResumenLead } from './lead-resumen';
 import { enrolarPorPago, type SubtipoPago } from './pago-entrante';
 import {
-  asegurarEventosStripe, cancelarSuscripcionStripe, crearCheckoutStripe, expirarCheckoutStripe, leerCheckoutStripe, modoDeClaveStripe, programarFinSuscripcionStripe, reembolsarStripe,
+  asegurarEventosStripe, cancelarSuscripcionStripe, programarBajaStripe, crearCheckoutStripe, expirarCheckoutStripe, leerCheckoutStripe, modoDeClaveStripe, programarFinSuscripcionStripe, reembolsarStripe,
 } from './stripe-api';
 import { urlAvisoStripe } from './cobros-conexion';
 import { buscarPagosMp, cancelarSuscripcionMp, crearPreferenciaMp, crearSuscripcionMp, instanteMp, leerCuentaMp, reembolsarMp, vencerPreferenciaMp } from './mercadopago-api';
@@ -1023,6 +1023,62 @@ export async function cancelarSuscripcionCobro(ws: number, id: number, autor: st
   await aplicarSuscripcionCancelada(c);
   if (c.lead_id) await runWithWorkspace(ws, () => logLeadEvent(c.lead_id!, 'Suscripción cancelada', `Pedido por ${autor}`, autor));
   return { ok: true, resumen: `Listo: la suscripción ${c.concepto} no se cobra más.` };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// El plan de MaKo de un negocio (lo que le cobra la PLATAFORMA): «Configuración del negocio → Tu plan»
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * La suscripción con la que la PLATAFORMA le cobra MaKo a este negocio (15/10/2026, «cancelar uno mismo»): el cobro del
+ * workspace de MaKo cuya alta creó ESTE workspace (`alta_ws`), de suscripción y pagado; el más reciente. Se lee con el
+ * cliente de servicio porque el cobro es de OTRO inquilino (la plataforma), y por eso SÓLO por `alta_ws = ws`: un negocio
+ * ve su plan y nunca el de otro. null = a este negocio MaKo no se le cobra por la pasarela (se acordó a mano, o es la
+ * plataforma misma).
+ */
+export async function suscripcionDeMakoDe(ws: number): Promise<Cobro | null> {
+  const plataforma = await wsSuperAdmin();
+  if (ws === plataforma) return null;
+  const { data, error } = await getSupabaseServer().from('cobros').select(COLS_COBRO)
+    .eq('workspace_id', plataforma).eq('alta_ws', ws).eq('tipo', 'suscripcion').eq('estado', 'pagado')
+    .order('pagado_at', { ascending: false }).limit(1).maybeSingle();
+  if (error) throw new Error(`No pude leer el plan de MaKo del negocio ${ws}: ${error.message}`);
+  return data ? cobroDeFila(data as Record<string, unknown>) : null;
+}
+
+export type ResultadoBaja = { ok: true; resumen: string; codigo: string; finAt: string | null } | { ok: false; resumen: string };
+
+/**
+ * «DARME DE BAJA» (15/10/2026, lo decidió Estrategia: un botón propio, que cubre las dos pasarelas). Se copia a los SaaS
+ * y a las pasarelas (Stripe y Paddle programan la baja al FINAL del período pagado): en Stripe, `cancel_at_period_end` y
+ * se usa hasta esa fecha; Mercado Pago no tiene «al final del período» y se cancela en el acto (no hay más cobros). Las
+ * dos dejan el CÓDIGO de baja en el cobro, en el historial del lead del comprador en el CRM de MaKo, y quien llama lo
+ * manda por email. Pedirla dos veces devuelve la misma: el primer código, sin otra llamada a la pasarela.
+ */
+export async function darDeBajaMiPlan(ws: number, autor: string): Promise<ResultadoBaja> {
+  const c = await suscripcionDeMakoDe(ws);
+  if (!c) return { ok: false, resumen: `Tu plan no se cobra por la pasarela: escríbenos a ${EMAIL_MAKO} para darte de baja.` };
+  const codigo = codigoDeBaja(c.id);
+  if (c.suscripcion_estado === 'cancelada') return { ok: false, resumen: `Tu plan ya estaba dado de baja (código ${codigo}).` };
+  if (esBajaPedida(c.motivo)) return { ok: true, resumen: c.motivo ?? '', codigo, finAt: null };
+  const pedida = new Date().toISOString();
+  let finAt: string | null = null;
+  if (c.proveedor === 'stripe') {
+    const stripe = await credStripe(c.workspace_id);
+    if (!stripe || !c.proveedor_suscripcion_id) return { ok: false, resumen: `No pudimos darte de baja. Escríbenos a ${EMAIL_MAKO}.` };
+    // Su propia clave: la de `idemBaja` es la de cancelar EN EL ACTO (DELETE), y una clave repetida con otro pedido dentro
+    // de las 24 h Stripe la rechaza (si el super admin la cancela del todo el mismo día).
+    const r = await programarBajaStripe(stripe.key, c.proveedor_suscripcion_id, `${idemBaja(c.id)}-al-fin`);
+    if (!r.ok) return { ok: false, resumen: `Stripe no tomó la baja: ${motivoSinDatos(r.error)}` };
+    finAt = r.finAt;
+  } else {
+    const r = await cancelarSuscripcionCobro(c.workspace_id, c.id, autor);
+    if (!r.ok) return { ok: false, resumen: r.resumen };
+  }
+  const texto = textoBajaPedida({ codigo, pedida, finAt });
+  await actualizar(c.workspace_id, c.id, { motivo: texto });
+  if (c.lead_id) await runWithWorkspace(c.workspace_id, () => logLeadEvent(c.lead_id!, 'Baja del plan', `${texto} Pedida por ${autor}.`.slice(0, 300), autor));
+  return { ok: true, resumen: texto, codigo, finAt };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

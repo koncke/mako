@@ -704,6 +704,29 @@ un aviso —el nuevo enmascarado, por si el anterior era de un desconocido— co
 después del cambio, como MaKo (la key y el remitente de la plataforma), y no frena la respuesta.
 **Vive en:** `lib/invitaciones.ts` (`avisarCambioDeEmailDeAcceso`) · `app/api/pagar/email/route.ts` · `tests/pagar-publico.test.ts`.
 
+### «Darme de baja»: un botón propio, y lo que la baja todavía NO hace (15/10/2026)
+
+**Qué es:** «Configuración del negocio → Tu plan» (app/configuraciones/plan), con un botón «Darme de baja» propio de MaKo.
+Se hizo primero con el portal de cliente de Stripe, y **Estrategia lo corrigió el mismo día**: el portal no cubre
+Mercado Pago (que no tiene uno) y un botón propio cumple la Resolución 316/2018 de Argentina si aplica (el botón a la
+vista, sin trámites previos, y un código de baja). La 316 nació para telefonía, internet y TV paga y se extendió a
+seguros, streaming y planes de ahorro: que alcance a un SaaS para empresas no está claro, pero cumplir su mínimo es barato.
+**Cómo, copiado:** Stripe (stripe.com/docs/subscriptions/canceling-pausing) y Paddle
+(developer.paddle.com/build/subscriptions/cancel-subscriptions) programan la baja al FINAL del período pagado: quien pagó
+el mes lo usa. Vive junto al plan, en la configuración del negocio, y son dos pasos (el botón y una confirmación que dice
+qué pasa). Al terminar se ve el código de baja, que también llega por email. Mercado Pago no tiene «al final del período»:
+se cancela en el acto.
+**Dos trampas:** la columna `suscripcion_estado` tiene un CHECK (`activa`/`cancelada`), así que «baja pedida» (Stripe la
+sigue cobrando… hasta el fin del período) vive en el `motivo` con un prefijo, como la renovación fallida; y la clave de
+idempotencia de la baja NO puede ser la de cancelar en el acto (`idemBaja`): Stripe rechaza una clave repetida con otro
+pedido dentro de las 24 h, y el super admin puede cancelarla del todo el mismo día.
+**Lo que la baja NO hace:** dejar de cobrar no le saca el plan al workspace. No existe el estado de suscripción por
+workspace (la fila «Estado de suscripción por workspace» de la tabla de abajo): la capa queda. La baja corta la plata, no
+el acceso; eso sigue siendo a mano desde /admin.
+**Vive en:** `app/configuraciones/plan/*` · `lib/cobros.ts` (`suscripcionDeMakoDe`, `darDeBajaMiPlan`) ·
+`lib/stripe-api.ts` (`programarBajaStripe`) · `lib/cobros-reglas.ts` (`codigoDeBaja`, `textoBajaPedida`) ·
+`lib/invitaciones.ts` (`mandarCodigoDeBaja`) · la API (`ver_mi_plan`, `dar_de_baja_mi_plan`) · `tests/mi-plan.test.ts`.
+
 ### Cuatro «decisiones de Martín» que no eran suyas (15/10/2026)
 
 La tabla de abajo tenía seis filas marcadas «decisión de Martín». Pasadas por la vara de AGENTS.md (lo que copia lo que
@@ -756,6 +779,8 @@ implementación en un worktree propio (`C:/dev/wt-pagos`) y una rama aparte para
 | **Pasarela:** `crear_link_pago` en la lista corta del «⚡ Acción» (necesita un control propio para el producto del catálogo) | `lib/editor-acciones.ts` |
 | **Pasarela:** vender planes de MaKo a México arranca el reloj del RFC: en la Ticketera de Martín (`cobrar-mako-en-mexico`); con la A se integra la rama `pagos-mexico-guarda`, ya probada. Stripe en Argentina es «segunda ola» (modelo.ts:641) | `lib/cobros.ts` (`crearCobro`), `app/admin/dev/pricing/modelo.ts` |
 | **Pasarela:** la garantía del programa grupal (`garantia-grupal`, Ticketera de Martín); y cancelar uno mismo con el portal de cliente de Stripe (decidido por Estrategia el 15/10; hasta entonces, «por email») | `app/reembolsos/page.tsx`, `app/terminos/page.tsx` §8 |
+| **Pasarela:** un «Botón de baja» PÚBLICO en la home de MaKo, sin sesión. No se hizo (Estrategia, 15/10): la Resolución 316/2018 nació para telefonía, internet y TV paga y se extendió a seguros, streaming y planes de ahorro, y no está claro que alcance a un SaaS para empresas; el botón de «Tu plan» ya cubre su mínimo (a la vista, sin trámites previos, con código de baja). Si alcanzara, la pieza es un formulario público (`/baja`, linkeado desde la home y el pie de las páginas legales) que pide el email de la cuenta y manda un link firmado para confirmar la baja sin entrar, con topes por IP y por email | `app/configuraciones/plan`, `lib/cobros.ts` (`darDeBajaMiPlan`), `lib/rutas-publicas.ts` |
+| **Pasarela:** la baja del plan corta la PLATA, no el ACCESO: el workspace sigue con su capa después de darse de baja (no existe el estado de suscripción por workspace, fila de arriba). Hoy el acceso se saca a mano desde /admin | `lib/cobros.ts` (`aplicarSuscripcionCancelada`), `lib/workspace.ts` (la capa) |
 | **Pasarela (revisión):** los topes de `/api/pagar/email` viven en memoria (por instancia); el «ya es de otro» ya gasta el intento (15/10) | `app/api/pagar/email/route.ts`, `lib/rate-limit.ts` |
 | **Pasarela (revisión):** un aviso de MP sin firma con el `user_id` de un negocio conectado provoca una relectura con SU token (las filas `sin-workspace` ya tienen techo: una por día, 15/10) | `app/api/webhooks/mercadopago/route.ts` |
 
