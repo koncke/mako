@@ -715,6 +715,26 @@ se abra con su comando, esa cuenta sale «Se mide cuando su Runner está abierto
 **Vive en:** `lib/centro-uso.ts` · `app/admin/operaciones/Uso.tsx` · `scripts/operaciones/cartero.mjs` (`uso`,
 `cuotaDeBarraDeEstado`, `cuotaDe`) · `lib/runner.ts` (`COMANDO_TERMINAL`) · `tests/centro-uso.test.ts`
 
+## Sin accesorios, en qué trabaja cada chat, y un «Nuevo chat» que el Centro no puede abrir solo (16/10/2026)
+
+**El pedido.** «Elimina los accesorios de los personajes», «Cuando un chat dice "Trabajando..." debo saber en qué está
+trabajando» y «Falta la opción de "Nuevo chat" tipo placeholder arriba de todos los chats».
+
+- **Sacar una pieza del muñeco no puede romper lo guardado**: los elegidos viven en app_settings con su `accesorio`, y
+  `sanearAspecto` exigía las cuatro piezas. Ahora lee tres e ignora la cuarta: lo elegido se sigue viendo, sin ella.
+- **«En qué trabaja» es lo último EN CURSO** (un pedido empezado, o un trabajo que le llegó y no cerró), no lo último que
+  pasó: un trabajo escrito que todavía no le llegó no es en lo que está. En un flex, el texto largo no lleva «…»: la fila
+  lo dibuja como bloque.
+- **Medido: el Centro no puede abrir un chat de Claude Code.** Una página web no abre una terminal, start_session no está
+  habilitada en esas sesiones, y la pestaña de terminal de la app (que sí carga el perfil de PowerShell: `Get-Command
+  claude2` da la función) sólo la abre una sesión de la app, con Martín aprobando cada comando y sin dejar escribir nada
+  fuera de ASCII. Así que «Nuevo chat» arma el comando exacto (`claude2 -n 'CRM › Funnels'`, la comilla doblada para
+  PowerShell) y Martín lo pega. Lo que queda: que el Runner de esa terminal lo abra solo pide un tipo de trabajo firmado
+  nuevo («abrir un chat»), y eso toca el formato de lo firmado: no se hizo sin el OK de Martín.
+
+**Vive en:** `app/admin/operaciones/NuevoChat.tsx` · `lib/runner.ts` (`comandoNuevoChat`) · `lib/centro-chats.ts`
+(`enQueTrabaja`) · `lib/centro-munecos.ts` · `tests/centro-fila.test.ts`
+
 ## Lo que creí medido y no estaba al día
 
 - **`soloPlataforma` ya existía en el registro de la API** (lo sumó el 2FA obligatorio el 14/10, por

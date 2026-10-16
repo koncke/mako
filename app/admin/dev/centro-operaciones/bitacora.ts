@@ -451,4 +451,21 @@ export const BITACORA: Hito[] = [
       'tests/centro-uso.test.ts — diez, con el diferencial de la barra de estado',
     ],
   },
+  {
+    fecha: '16 oct', hora: '03:34', chat: CH, sesion: SESION_CH_3, cuenta: 'claude3', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Muñecos sin accesorios, en qué trabaja cada chat, y «Nuevo chat»',
+    puntos: [
+      'Martín: «Elimina los accesorios de los personajes», «debo saber en qué está trabajando» y «Falta la opción de "Nuevo chat"».',
+      'Los muñecos son cuerpo, color y cara; lo ya elegido se sigue viendo.',
+      'Debajo de un chat que trabaja dice en qué: lo último que tiene en curso.',
+      'Arriba de los chats, «Nuevo chat» con un muñeco gris: arma el comando para PowerShell (medido: el Centro no puede abrir un chat solo).',
+    ],
+    commits: [{ sha: '4a004a28a', msg: 'feat(operaciones): muñecos sin accesorios, en qué trabaja cada chat, y «Nuevo chat»', lineas: 369, archivos: 12 }],
+    archivos: [
+      'app/admin/operaciones/NuevoChat.tsx — el renglón de arriba y el comando',
+      'lib/centro-chats.ts — enQueTrabaja',
+      'lib/centro-munecos.ts — tres piezas, y lo guardado con accesorio se sigue leyendo',
+      'tests/centro-fila.test.ts — en qué trabaja y el comando',
+    ],
+  },
 ];
