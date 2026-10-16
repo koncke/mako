@@ -3,8 +3,9 @@
 Lo mandó al Cerebro el 16/10 a la tarde con cinco capturas (el editor de etapas con «Asignar campañas», el «Ver» de
 datos sin marcar de la ficha, «A revisar», la ficha de un cliente en /customer-success y la de un lead en /crm). Pidió
 «Guarda todo este feedback para las próximas cuentas» e «implementa lo que puedas del CRM, sobre todo las cosas
-simples». La cuenta 3 estaba al 97% semanal: se hizo lo simple (commits `9f595cc6f` y `4e9411a71`) y el resto queda
-acá, **con su archivo**, para la cuenta que siga. Las citas son textuales.
+simples». La cuenta 3 estaba al 97% semanal: se hizo lo simple (commits `9f595cc6f`, `4e9411a71`, `f0c8f0da0` y
+`f777d1d4f`) y el resto queda acá, **con su archivo**, para la cuenta que siga. Aparte, el mismo día: **Second Brain en
+modo claro** (`b401cd017`, «pon en white mode la tab de Second Brain»). Las citas son textuales.
 
 **Quién lo retoma:** el chat **CRM** (relevo: docs/relevo/crm.md, que apunta acá), el chat **Onboarding**
 (docs/relevo/onboarding.md) y el chat **Centro de Operaciones** para el Second Brain (docs/relevo/centro-operaciones.md).
@@ -26,7 +27,13 @@ acá, **con su archivo**, para la cuenta que siga. Las citas son textuales.
 
 ## CRM
 
-### Hecho (commits `9f595cc6f` y `4e9411a71`)
+### Hecho (commits `9f595cc6f`, `4e9411a71`, `f0c8f0da0` y `f777d1d4f`)
+- [x] **7.** Se borró la vista `/crm?pendientes=1` entera (y el «marcar en lote» que vivía en ella): la URL vieja abre el
+  tablero; los datos sin marcar se resuelven en «A revisar», que abre la ficha encima. Test:
+  tests/worklist-pendientes.test.ts. Queda un ejemplo con `?pendientes=1` en app/admin/ui/Gramatica.tsx (el catálogo
+  de la gramática, sólo admin): cambiarlo cuando se toque esa pantalla.
+- [x] **4, en parte.** «Templates» en la barra de edición (era «Plantillas»), y la galería sin «Ahora no» (la primera
+  vez se elige un template) ni «Vista previa: …» (app/crm/lead-view/ficha/GaleriaTab.tsx).
 - [x] **1.** Renombrar un CRM: el desplegable cambia al instante (el pop-up le avisa el nombre al mandarlo) y el
   editor ya no muestra el nombre viejo. La causa: desde el 13/10 el CRM tiene nombre propio y `embudoEnDetalleAction`
   (app/crm/actions.ts) seguía devolviendo el del PRODUCTO; ahora usa `nombreVisible`, como el desplegable. Guardar al
@@ -70,15 +77,14 @@ acá, **con su archivo**, para la cuenta que siga. Las citas son textuales.
    interruptores) «debería abrirme el detalle de un lead "ficticio" con el desplegable de "Datos sin marcar" abierto,
    y dentro de ese otro desplegable el botón de Basura rojo, y cuando le doy me pregunta ¿Ignorar siempre? y si le doy
    que sí, se desmarca de obligatorio ese bloque».
-7. **Borrar entera la vista `/crm?pendientes`.** «Elimina completamente lo de "/crm?pendientes"... Si quiero ir a
-   corregir un dato sin marcar se debe abrir la ficha del lead, nunca redirección a otra ruta.» La entrada de «A
-   revisar» ya no existe; quedan la vista (app/crm/CrmBoard.tsx, buscar `pendientes`), la puerta de la barra
-   (app/crm/CrmToolbar.tsx, «LA PUERTA NO SE VA CON EL CHIP»), el ejemplo de app/admin/ui/Gramatica.tsx y los tests que
-   la sostienen.
 8. **El botón de MaKo a la IZQUIERDA y el chat del CRM con la cara del Second Brain.** «El botón de MaKo siempre a la
    izquierda, no a la derecha... aún no se aplicó el diseño de los chats tipo "Second Brain" al chat del CRM... En
    lugar de la estrella de MaKo el ícono debería ser el muñequito que se asignó para CRM, para Dashboard, o para cada
    tab.» (El chat del CRM: app/crm/mako-crm/ChatMakoCrm.tsx; los muñecos por tab salen del Centro de Operaciones.)
+   ⚠️ El botón es `position: fixed; right: 20` en app/crm/mako-crm/PanelMakoCrm.tsx. Moverlo a la izquierda NO es
+   cambiar `right` por `left`: la barra lateral cambia de ancho (plegada o abierta) y no hay una variable CSS con su
+   ancho; hace falta medirla (o exponer `--ancho-barra` desde app/_components/Sidebar.tsx). El panel abierto también
+   pasa a la izquierda, y «A revisar» (esquina de abajo a la derecha) deja de tener que esquivarlo.
 9. **El resto del punto 9.** «Como ahora "Resumen" y todas las tabs serán como en dashboard o general, el
    desplegable... Quiero que esté alineado al título del nombre de la persona. No más a la izquierda.»
 10. **«Editar» en azul + «⋯» como el Dashboard, sin «Personalizar».** El «⋯»: exportar la hoja del lead, compartir, el
