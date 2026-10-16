@@ -16,7 +16,7 @@ export const CLAVE_CHECKLIST = 'runway.checklist.1610';
 
 export const HECHO: SeccionChecklist[] = [
   { titulo: 'Onboarding nuevo', items: [
-    { id: 'onb-chat', t: 'Es una conversación con MaKo: animación con el muñeco que vuela a la foto del chat (se salta con clic o tecla).', ruta: '/onboarding' },
+    { id: 'onb-chat', t: 'Es una conversación con MaKo: el muñeco vuela a la foto del chat (míralo en el ws3, con el onboarding sin terminar).' },
     { id: 'onb-pasos', t: 'Nombre → negocio → objetivo a 90 días → oferta → el CRM que propone → teléfono o «Ahora no».' },
     { id: 'onb-recarga', t: 'Recargar a mitad vuelve a la misma conversación; la oferta se arma aunque cierres la pestaña.' },
     { id: 'onb-aviso', t: 'Aviso «oferta lista» por WhatsApp (automatización #260).' },
