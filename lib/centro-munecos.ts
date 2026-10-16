@@ -2,11 +2,13 @@
 // Los muñequitos del Centro: de qué están hechos, cuál le toca a cada chat y cuál eligió Martín (15/10/2026)
 // =============================================================================
 // Martín: «Crea más diseños variados de las figuras tipo trabajadores... Con diferentes caras, etc... Y que si le
-// doy click pueda elegir cambiar a otro». Un muñeco son cuatro piezas —cuerpo, color, cara y accesorio— y el
-// selector (app/admin/operaciones/ElegirMuneco.tsx) cambia de a una, como el armador de Notion Faces.
+// doy click pueda elegir cambiar a otro». Un muñeco son tres piezas —cuerpo, color y cara— y el selector
+// (app/admin/operaciones/ElegirMuneco.tsx) cambia de a una, como el armador de Notion Faces.
+// ⚠️ SIN ACCESORIOS desde el 16/10/2026 (Martín, mirándolo en producción: «Elimina los accesorios de los personajes»).
+// Lo guardado antes con su accesorio se sigue leyendo: el accesorio se ignora (`sanearAspecto`).
 //
 // ⚠️ LOS OJOS NO SON UNA PIEZA: dicen el estado del chat (despierto, trabajando, cansado, dormido), así que la «cara»
-// que se elige es la boca y las mejillas, y lo demás es el accesorio. Si los ojos se eligieran, el muñeco dejaría de
+// que se elige es la boca y las mejillas. Si los ojos se eligieran, el muñeco dejaría de
 // contar cómo está su chat.
 // ⚠️ LO ELEGIDO SE GUARDA POR NOMBRE (normalizado), no por sesión: el Centro une las tres cuentas por nombre, así que el
 // muñeco que eligió para «CRM» es el mismo en las tres. Vive en app_settings del workspace de la plataforma
@@ -24,10 +26,7 @@ export const COLORES = [
 export type Color = (typeof COLORES)[number];
 export const CARAS = ['sonrisa', 'risa', 'dientes', 'tranquila', 'asombro', 'lengua'] as const;
 export type CaraMuneco = (typeof CARAS)[number];
-export const ACCESORIOS = ['ninguno', 'antena', 'brote', 'lentes', 'auriculares', 'mono', 'gorro'] as const;
-export type Accesorio = (typeof ACCESORIOS)[number];
-
-export type Aspecto = { forma: Forma; color: Color; cara: CaraMuneco; accesorio: Accesorio };
+export type Aspecto = { forma: Forma; color: Color; cara: CaraMuneco };
 export type MunecosElegidos = Record<string, Aspecto>;
 
 export const ROTULO_FORMA: Record<Forma, string> = {
@@ -35,9 +34,6 @@ export const ROTULO_FORMA: Record<Forma, string> = {
 };
 export const ROTULO_CARA: Record<CaraMuneco, string> = {
   sonrisa: 'Sonrisa', risa: 'Risa', dientes: 'Dientes', tranquila: 'Tranquila', asombro: 'Asombro', lengua: 'Lengua',
-};
-export const ROTULO_ACCESORIO: Record<Accesorio, string> = {
-  ninguno: 'Ninguno', antena: 'Antena', brote: 'Brote', lentes: 'Lentes', auriculares: 'Auriculares', mono: 'Moño', gorro: 'Gorro',
 };
 
 /** Dónde se guarda lo elegido: app_settings del workspace de la plataforma. */
@@ -52,32 +48,32 @@ export const claveDeMuneco = (titulo: string) => normal(titulo).slice(0, 120);
 /**
  * El equipo de siempre, con su cuerpo y su color FIJOS para que no se repitan entre ellos (con un hash, dos de las
  * áreas principales pueden salir iguales). Se busca por el comienzo del título normalizado —así un sub-chat
- * («CRM › Lead Detail») es de la familia de su jefe: mismo cuerpo y color—; el jefe lleva su cara y su accesorio
- * fijos (un área renombrada, como Chatbot → Automations, es el mismo empleado), y un sub-chat los saca de su nombre
- * entero, para que se distinga del jefe.
+ * («CRM › Lead Detail») es de la familia de su jefe: mismo cuerpo y color—; el jefe lleva su cara fija (un área
+ * renombrada, como Chatbot → Automations, es el mismo empleado), y un sub-chat la saca de su nombre entero, para que
+ * se distinga del jefe.
  */
-const EQUIPO: Array<[string, Forma, Color, CaraMuneco, Accesorio]> = [
-  ['estrategia', 'circulo', '--grafo-avatares', 'sonrisa', 'lentes'],
-  ['centro de operaciones', 'cuadrado', '--grafo-documentos', 'tranquila', 'auriculares'],
-  ['crm', 'hexagono', '--grafo-oferta', 'risa', 'ninguno'],
-  ['automations', 'cuadrado', '--grafo-panorama', 'dientes', 'antena'],
-  ['chatbot', 'cuadrado', '--grafo-panorama', 'dientes', 'antena'],
-  ['video editor', 'triangulo', '--grafo-razones', 'asombro', 'gorro'],
-  ['image editor', 'triangulo', '--grafo-entregables', 'lengua', 'brote'],
-  ['landing', 'frijol', '--grafo-productos', 'sonrisa', 'mono'],
-  ['web generator', 'frijol', '--grafo-productos', 'sonrisa', 'mono'],
-  ['graphics', 'hexagono', '--grafo-cliente', 'tranquila', 'lentes'],
-  ['dashboard', 'hexagono', '--grafo-cliente', 'tranquila', 'lentes'],
-  ['mako mobile', 'circulo', '--grafo-documentos', 'risa', 'auriculares'],
-  ['offer', 'circulo', '--grafo-voz', 'dientes', 'mono'],
-  ['mako pricing', 'frijol', '--grafo-voz', 'asombro', 'antena'],
-  ['onboarding', 'circulo', '--grafo-entregables', 'lengua', 'gorro'],
-  ['ads', 'triangulo', '--grafo-oferta', 'sonrisa', 'brote'],
-  ['plan', 'cuadrado', '--grafo-razones', 'tranquila', 'ninguno'],
-  ['integracion', 'hexagono', '--grafo-avatares', 'risa', 'gorro'],
-  ['pagos', 'hexagono', '--grafo-avatares', 'risa', 'gorro'],
-  ['seguridad', 'frijol', '--grafo-cliente', 'tranquila', 'auriculares'],
-  ['customer success', 'circulo', '--grafo-razones', 'sonrisa', 'brote'],
+const EQUIPO: Array<[string, Forma, Color, CaraMuneco]> = [
+  ['estrategia', 'circulo', '--grafo-avatares', 'sonrisa'],
+  ['centro de operaciones', 'cuadrado', '--grafo-documentos', 'tranquila'],
+  ['crm', 'hexagono', '--grafo-oferta', 'risa'],
+  ['automations', 'cuadrado', '--grafo-panorama', 'dientes'],
+  ['chatbot', 'cuadrado', '--grafo-panorama', 'dientes'],
+  ['video editor', 'triangulo', '--grafo-razones', 'asombro'],
+  ['image editor', 'triangulo', '--grafo-entregables', 'lengua'],
+  ['landing', 'frijol', '--grafo-productos', 'sonrisa'],
+  ['web generator', 'frijol', '--grafo-productos', 'sonrisa'],
+  ['graphics', 'hexagono', '--grafo-cliente', 'tranquila'],
+  ['dashboard', 'hexagono', '--grafo-cliente', 'tranquila'],
+  ['mako mobile', 'circulo', '--grafo-documentos', 'risa'],
+  ['offer', 'circulo', '--grafo-voz', 'dientes'],
+  ['mako pricing', 'frijol', '--grafo-voz', 'asombro'],
+  ['onboarding', 'circulo', '--grafo-entregables', 'lengua'],
+  ['ads', 'triangulo', '--grafo-oferta', 'sonrisa'],
+  ['plan', 'cuadrado', '--grafo-razones', 'tranquila'],
+  ['integracion', 'hexagono', '--grafo-avatares', 'risa'],
+  ['pagos', 'hexagono', '--grafo-avatares', 'risa'],
+  ['seguridad', 'frijol', '--grafo-cliente', 'tranquila'],
+  ['customer success', 'circulo', '--grafo-razones', 'sonrisa'],
 ];
 
 /** Un hash chico y estable (FNV-1a): el mismo título da siempre el mismo muñeco, en el server y en el navegador. */
@@ -93,11 +89,10 @@ export function aspectoDe(titulo: string, elegido?: Aspecto | null): Aspecto {
   const t = normal(titulo) || '?';
   const h = hash(t);
   const cara = CARAS[(h >>> 7) % CARAS.length];
-  const accesorio = ACCESORIOS[(h >>> 11) % ACCESORIOS.length];
   const fijo = EQUIPO.find(([pre]) => t.startsWith(pre));
   const esSub = /[›>]/.test(titulo);
-  if (fijo) return { forma: fijo[1], color: fijo[2], cara: esSub ? cara : fijo[3], accesorio: esSub ? accesorio : fijo[4] };
-  return { forma: FORMAS[h % FORMAS.length], color: COLORES[Math.floor(h / FORMAS.length) % COLORES.length], cara, accesorio };
+  if (fijo) return { forma: fijo[1], color: fijo[2], cara: esSub ? cara : fijo[3] };
+  return { forma: FORMAS[h % FORMAS.length], color: COLORES[Math.floor(h / FORMAS.length) % COLORES.length], cara };
 }
 
 /** Lo elegido para un nombre, si lo hay. */
@@ -106,12 +101,13 @@ export const elegidoPara = (munecos: Readonly<MunecosElegidos> | null | undefine
 
 const de = <T extends string>(lista: readonly T[], v: unknown): T | null => (typeof v === 'string' && (lista as readonly string[]).includes(v) ? (v as T) : null);
 
-/** Un aspecto que vino de afuera (el navegador o la base): con las cuatro piezas válidas, o null. */
+/** Un aspecto que vino de afuera (el navegador o la base): con las tres piezas válidas, o null. Uno guardado antes del
+ *  16/10/2026 trae además su `accesorio`: se ignora, y el muñeco se sigue viendo como lo eligió (sin él). */
 export function sanearAspecto(v: unknown): Aspecto | null {
   if (!v || typeof v !== 'object') return null;
   const o = v as Record<string, unknown>;
-  const forma = de(FORMAS, o.forma), color = de(COLORES, o.color), cara = de(CARAS, o.cara), accesorio = de(ACCESORIOS, o.accesorio);
-  return forma && color && cara && accesorio ? { forma, color, cara, accesorio } : null;
+  const forma = de(FORMAS, o.forma), color = de(COLORES, o.color), cara = de(CARAS, o.cara);
+  return forma && color && cara ? { forma, color, cara } : null;
 }
 
 /** El mapa guardado: sólo nombres con texto y aspectos válidos, hasta el tope. Lo que no sirve se tira, no rompe. */
@@ -129,5 +125,5 @@ export function sanearMunecos(v: unknown): MunecosElegidos {
 /** Uno al azar (el dado del selector). `azar` recibe un número en [0, 1): en el navegador es Math.random. */
 export function aspectoAlAzar(azar: () => number): Aspecto {
   const uno = <T,>(xs: readonly T[]) => xs[Math.floor(azar() * xs.length) % xs.length];
-  return { forma: uno(FORMAS), color: uno(COLORES), cara: uno(CARAS), accesorio: uno(ACCESORIOS) };
+  return { forma: uno(FORMAS), color: uno(COLORES), cara: uno(CARAS) };
 }

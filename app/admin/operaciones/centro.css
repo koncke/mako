@@ -129,6 +129,12 @@
 .co-fila:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 .co-fila[aria-current='true'] { background: var(--surface); box-shadow: inset 0 0 0 1px var(--border), 0 1px 2px rgba(18, 21, 27, .04); }
 .co-fila { align-items: center; gap: 12px; }
+/* «Nuevo chat»: el primer renglón, con el muñeco de un lugar vacío (gris y transparente). */
+.co-fila--nuevo { margin-bottom: 4px; color: var(--dim); }
+.co-muneco-nuevo { display: inline-flex; flex: none; opacity: .38; filter: grayscale(1); }
+.co-nuevo { display: flex; flex-direction: column; gap: 12px; }
+.co-nuevo__cuentas { display: flex; gap: 6px; flex-wrap: wrap; }
+.co-nuevo__cuentas .co-chip[aria-checked='true'] { background: var(--primary-bg); border-color: var(--primary); color: var(--primary-strong); }
 .co-fila > .mun { margin: -2px 0; }
 .co-fila__cuerpo { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
 .co-fila__l1 { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
@@ -158,7 +164,8 @@
   overflow: hidden;
 }
 .co-fila__l2-texto { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-.co-fila__l2--vivo { color: var(--good); }
+/* En qué trabaja (enQueTrabaja): un renglón, con sus puntos suspensivos (un flex no los pone). */
+.co-fila__l2--vivo { color: var(--good); display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .co-mas {
   display: block;
   width: 100%;

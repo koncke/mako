@@ -22,13 +22,15 @@ import { Button, Field, Input } from '@/app/_ui';
 import { Icon } from '@/app/_components/icons';
 import type { Alcance } from '@/lib/operaciones-reglas';
 import {
-  SECCION_CHATS, avanceDelChat, comoSale, esperaDe, historialDelChat, nombreCuenta, nombreValido, partesDelNombre, porJefe, seccionesDeChats,
+  SECCION_CHATS, avanceDelChat, comoSale, enQueTrabaja, esperaDe, historialDelChat, nombreCuenta, nombreValido, partesDelNombre, porJefe, seccionesDeChats,
   textoDeEnvio, textoDeRenombre, vistaPrevia, type CarteroP, type ChatCentro, type TrabajoP,
 } from '@/lib/centro-chats';
 import type { PedidoP, PushP } from '@/lib/progreso-reglas';
 import type { AccionResponder, Decision } from '@/app/admin/runway/decisiones';
 import { preguntasDelChat, respuestasDelChat } from '@/lib/centro-preguntas';
 import { Pregunta } from '@/app/admin/operaciones/Pregunta';
+import { MunecoNuevo, NuevoChat, type BorradorNuevoChat } from '@/app/admin/operaciones/NuevoChat';
+import { comandoNuevoChat } from '@/lib/runner';
 import { Hilo, Tick } from '@/app/admin/operaciones/Hilo';
 import { Muneco, animoDe } from '@/app/admin/operaciones/Muneco';
 import { BarraAvanceMovil } from '@/app/admin/operaciones/Avance';
@@ -78,6 +80,7 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
   const [alcance, setAlcance] = useState<Alcance>('solo_esto');
   const [enviando, setEnviando] = useState(false);
   const [opciones, setOpciones] = useState(false);
+  const [nuevo, setNuevo] = useState<BorradorNuevoChat | null>(null);
   const [renombre, setRenombre] = useState<{ texto: string; error: string | null; mandando: boolean } | null>(null);
   const [eligiendo, setEligiendo] = useState<{ aspecto: Aspecto; guardando: boolean } | null>(null);
   const toast = useToastM();
@@ -183,6 +186,19 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
 
   return (
     <>
+      {/* «Nuevo chat», arriba de todos (NuevoChat.tsx): el comando para abrirlo en la PC. */}
+      <ListaM etiqueta="Nuevo chat">
+        <FilaM leading={<MunecoNuevo size={40} />} titulo="Nuevo chat" onClick={() => setNuevo({ nombre: '', cuenta: 'claude1' })} navegacion />
+      </ListaM>
+      <SheetM abierto={!!nuevo && !elegido} onCerrar={() => setNuevo(null)} titulo="Nuevo chat"
+        pie={nuevo ? (
+          <PieM consecuencia="Pégalo en PowerShell, en la PC.">
+            <Button variant="primary" size="lg" full disabled={!nombreValido(nuevo.nombre.trim())}
+              onClick={async () => { toast((await copiar(comandoNuevoChat(nuevo.cuenta, nuevo.nombre))) ? 'Copiado' : 'No pude copiar'); setNuevo(null); }}>Copiar comando</Button>
+          </PieM>
+        ) : undefined}>
+        {nuevo && <NuevoChat borrador={nuevo} onCambio={setNuevo} onCopiar={async (t) => toast((await copiar(t)) ? 'Copiado' : 'No pude copiar')} />}
+      </SheetM>
       {secciones.map(({ clave: k, titulo, chats: lista }) => {
         const todas = enteras.has(k);
         const corte = todas ? lista : lista.slice(0, VISIBLES);
@@ -196,7 +212,8 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
                 ])
                 : corte.map((c) => ({ c, sub: false }))
               ).map(({ c, sub }) => {
-                const p = vistaPrevia(historialDelChat(c, porId, trabajos, respuestasDelChat(c, decisiones, carteros)));
+                const lineasC = historialDelChat(c, porId, trabajos, respuestasDelChat(c, decisiones, carteros));
+                const p = vistaPrevia(lineasC);
                 const vivo = c.estado === 'trabajando' && !c.viejo;
                 const espera = esperaDe(c, esperas);
                 return (
@@ -206,7 +223,7 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
                     leading={<span className={sub ? 'm-operaciones-sub' : undefined}><Muneco titulo={c.titulo} aspecto={elegidoPara(munecos, c.titulo)} animo={animoDe(c)} size={sub ? 32 : 40} espera={espera} /></span>}
                     titulo={<span className="m-operaciones-texto1">{sub ? `↳ ${partesDelNombre(c.titulo).sub}` : c.titulo}</span>}
                     segunda={vivo
-                      ? <span className="m-operaciones-vivo">trabajando…</span>
+                      ? <span className="m-operaciones-vivo">{enQueTrabaja(lineasC) ?? 'trabajando…'}</span>
                       : espera > 0 ? <span className="m-operaciones-espera">Espera tu respuesta</span>
                       : p ? <span className="m-operaciones-previa">{p.tick ? <Tick estado={p.tick} /> : p.propio ? 'Tú: ' : ''}{p.texto}</span>
                         : undefined}

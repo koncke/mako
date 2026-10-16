@@ -51,7 +51,7 @@ import { MenuContextual } from '@/app/_ui/MenuContextual';
 import { Icon } from '@/app/_components/icons';
 import type { Alcance } from '@/lib/operaciones-reglas';
 import {
-  SECCION_ANTES, SECCION_CHATS, chatDeClave, comoSale, completarChats, esperaDe, esperasPorChat, historialDelChat, nombreValido, partesDelNombre,
+  SECCION_ANTES, SECCION_CHATS, chatDeClave, comoSale, completarChats, enQueTrabaja, esperaDe, esperasPorChat, historialDelChat, nombreValido, partesDelNombre,
   porJefe, seccionesDeChats, textoDeEnvio, textoDeRenombre, vistaPrevia,
   type DecisionEspera, type ChatCentro, type TrabajoP, type VistaPrevia,
 } from '@/lib/centro-chats';
@@ -65,7 +65,9 @@ import { Tick } from './Hilo';
 import { Muneco, animoDe } from './Muneco';
 import { PanelRunner, TituloRunner, type VistaRunner } from './PanelRunner';
 import { TicketeraCentro } from './TicketeraCentro';
+import { comandoNuevoChat } from '@/lib/runner';
 import { BotonUso } from './Uso';
+import { MunecoNuevo, NuevoChat, type BorradorNuevoChat } from './NuevoChat';
 import { preguntasDelChat, respuestasDelChat } from '@/lib/centro-preguntas';
 import type { AccionDeshacer, AccionResponder, Decision } from '@/app/admin/runway/decisiones';
 import type { VistaTicketera } from '@/app/tickets/decisiones/CambioVista';
@@ -109,10 +111,11 @@ const trabajoDe = (p: Pedido): TrabajoP => ({
   texto: p.texto, estado: p.estado, motivo: p.motivo, entregado_at: p.entregado_at, cerrado_at: p.cerrado_at, cierre: p.cierre,
 });
 
-/** El segundo renglón de la fila: «trabajando…» mientras trabaja (el «escribiendo…» de WhatsApp), si no lo
- *  último que pasó, con el tick si es un trabajo propio. */
-function Previa({ c, p, espera }: { c: ChatCentro; p: VistaPrevia | null; espera: number }) {
-  if (c.estado === 'trabajando' && !c.viejo) return <span className="co-fila__l2 co-fila__l2--vivo">trabajando…</span>;
+/** El segundo renglón de la fila: mientras trabaja, EN QUÉ (Martín, 16/10/2026: «Cuando un chat dice "Trabajando..." debo
+ *  saber en qué está trabajando»: el título de lo que tiene en curso, `enQueTrabaja`; «trabajando…» si no se sabe), si no
+ *  lo último que pasó, con el tick si es un trabajo propio. */
+function Previa({ c, p, espera, enCurso }: { c: ChatCentro; p: VistaPrevia | null; espera: number; enCurso: string | null }) {
+  if (c.estado === 'trabajando' && !c.viejo) return <span className="co-fila__l2 co-fila__l2--vivo" title={enCurso ?? undefined}>{enCurso ?? 'trabajando…'}</span>;
   // Lo que espera una respuesta de Martín le gana a lo último que pasó: es lo que lo frena.
   if (espera > 0) return <span className="co-fila__l2 co-fila__l2--espera">Espera tu respuesta</span>;
   // Sin nada que contar, la fila es de un renglón: «Sin nada anotado» repetido en 40 filas no distingue a ninguna.
@@ -166,6 +169,7 @@ export function CentroApp({
   const [renombrando, setRenombrando] = useState<{ clave: string; texto: string; error: string | null; mandando: boolean } | null>(null);
   const [eligiendo, setEligiendo] = useState<{ clave: string; aspecto: Aspecto; guardando: boolean } | null>(null);
   const [avance, setAvance] = useState(false);
+  const [nuevo, setNuevo] = useState<BorradorNuevoChat | null>(null);
   // Se lee después de montar: el server no sabe lo del navegador, y el primer dibujo tiene que coincidir.
   useEffect(() => { setAvance(leerAvance()); }, []);
   const cambiarAvance = (v: boolean) => { setAvance(v); try { window.localStorage.setItem(CLAVE_AVANCE, v ? '1' : '0'); } catch { /* es una comodidad */ } };
@@ -236,10 +240,13 @@ export function CentroApp({
   const filtro = normal(busca.trim());
   const visibles = filtro ? chats.filter((c) => normal(c.titulo).includes(filtro)) : chats;
   const secciones = useMemo(() => seccionesDeChats(visibles), [visibles]);
-  const previas = useMemo(
-    () => new Map(chats.map((c) => [c.clave, vistaPrevia(historialDelChat(c, porId, trabajos, respuestasDelChat(c, decisiones, carteros)))])),
+  // La conversación de cada chat, una vez: de ella salen el segundo renglón y en qué está trabajando.
+  const lineasDe = useMemo(
+    () => new Map(chats.map((c) => [c.clave, historialDelChat(c, porId, trabajos, respuestasDelChat(c, decisiones, carteros))])),
     [chats, porId, trabajos, decisiones, carteros],
   );
+  const previas = useMemo(() => new Map([...lineasDe].map(([k, l]) => [k, vistaPrevia(l)])), [lineasDe]);
+  const enCursos = useMemo(() => new Map([...lineasDe].map(([k, l]) => [k, enQueTrabaja(l)])), [lineasDe]);
 
   const alternar = (set: Set<string>, k: string) => { const n = new Set(set); if (n.has(k)) n.delete(k); else n.add(k); return n; };
 
@@ -339,7 +346,7 @@ export function CentroApp({
               <span className="co-fila__titulo">{sub ? partesDelNombre(c.titulo).sub : c.titulo}</span>
               <span className="co-fila__hace">{edad(c.actividad, ahora)}</span>
             </span>
-            <Previa c={c} p={previas.get(c.clave) ?? null} espera={espera} />
+            <Previa c={c} p={previas.get(c.clave) ?? null} espera={espera} enCurso={enCursos.get(c.clave) ?? null} />
           </span>
         </button>
         <button type="button" className="co-fila__mas" aria-label={`Opciones de ${c.titulo}`} title="Opciones"
@@ -367,6 +374,11 @@ export function CentroApp({
         </div>
 
         <nav className="co-lista" aria-label="Chats">
+          {/* «Nuevo chat» arriba de todos, como el de ChatGPT y Claude, con un muñeco gris de lugar vacío (NuevoChat.tsx). */}
+          <button type="button" className="co-fila co-fila--nuevo" onClick={() => setNuevo({ nombre: '', cuenta: actual?.cuenta ?? 'claude1' })}>
+            <MunecoNuevo />
+            <span className="co-fila__cuerpo"><span className="co-fila__l1"><span className="co-fila__titulo">Nuevo chat</span></span></span>
+          </button>
           {chats.length > 0 && !visibles.length && <p className="co-lista__vacio">Ningún chat con ese nombre.</p>}
           {secciones.map(({ clave: k, titulo, chats: lista }) => {
             const plegada = plegadas.has(k) && !filtro;
@@ -467,6 +479,12 @@ export function CentroApp({
             </Field>
             <p className="co-nota">{new Set(deRenombre.sesiones.map((s) => s.cuenta)).size > 1 ? `Se renombra en sus ${new Set(deRenombre.sesiones.map((s) => s.cuenta)).size} cuentas.` : 'Se renombra en su chat.'}</p>
           </form>
+        </Modal>
+      )}
+      {nuevo && (
+        <Modal titulo="Nuevo chat" onCerrar={() => setNuevo(null)} ancho={520}
+          pie={<Button disabled={!nombreValido(nuevo.nombre.trim())} onClick={() => { copiarConAviso(comandoNuevoChat(nuevo.cuenta, nuevo.nombre), 'Copiado: pégalo en PowerShell'); setNuevo(null); }}>Copiar comando</Button>}>
+          <NuevoChat borrador={nuevo} onCambio={setNuevo} onCopiar={copiarConAviso} />
         </Modal>
       )}
       {eligiendo && deMuneco && (

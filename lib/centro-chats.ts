@@ -602,6 +602,18 @@ function nodoDe(l: Exclude<LineaChat, { tipo: 'respuesta' }>): NodoAvance {
   };
 }
 
+/**
+ * En qué está trabajando un chat, para el segundo renglón de su fila (Martín, 16/10/2026: «Cuando un chat dice
+ * "Trabajando..." debo saber en qué está trabajando»): el título corto de lo último que tiene EN CURSO (un pedido
+ * empezado y sin terminar, o un trabajo entregado y sin cierre). null = no se sabe (la fila dice «trabajando…»).
+ */
+export function enQueTrabaja(lineas: readonly LineaChat[], tope = 56): string | null {
+  const enCurso = avanceDelChat(lineas).filter((n) => n.estado === 'en_curso');
+  if (!enCurso.length) return null;
+  const ultimo = enCurso.reduce((a, b) => (b.instante >= a.instante ? b : a));
+  return tituloDeTexto(ultimo.titulo, tope);
+}
+
 /** El conteo del encabezado, como el «8/13» de Offer: los terminados sobre el total. */
 export const conteoAvance = (nodos: readonly NodoAvance[]) => ({ hechos: nodos.filter((n) => n.estado === 'hecho').length, total: nodos.length });
 

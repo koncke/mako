@@ -11,7 +11,8 @@
 //   · el cuerpo es una forma de la casa (círculo, cuadrado, hexágono, triángulo, frijol, gota o píldora) en un color de
 //     la paleta categórica (`--grafo-*`, pasteles), no los colores fuertes de Grok;
 //   · la cara es nuestra: dos ojos OSCUROS redondos con su brillo, y una boca de seis (sonrisa, risa, dientes,
-//     tranquila, asombro, lengua), a veces con mejillas; y un accesorio (antena, brote, lentes, auriculares, moño, gorro);
+//     tranquila, asombro, lengua), a veces con mejillas. Sin accesorios desde el 16/10/2026 («Elimina los
+//     accesorios de los personajes»);
 //   · y los ojos dicen el estado: abiertos si el chat está abierto, parpadeando si trabaja, entrecerrados si el dato es
 //     viejo, y dormidos (dos arcos) si el chat está cerrado. Por eso los ojos NO se eligen.
 //
@@ -21,7 +22,7 @@
 // teléfono, y dos muñecos en la misma pantalla no pueden pisarse un `id`.
 
 import type { CSSProperties } from 'react';
-import { aspectoDe, type Accesorio, type Aspecto, type CaraMuneco, type Forma } from '@/lib/centro-munecos';
+import { aspectoDe, type Aspecto, type CaraMuneco, type Forma } from '@/lib/centro-munecos';
 
 export { aspectoDe, COLORES, FORMAS } from '@/lib/centro-munecos';
 export type Animo = 'trabajando' | 'despierto' | 'cansado' | 'dormido';
@@ -34,14 +35,14 @@ export function animoDe(c: { estado: 'trabajando' | 'abierto' | 'cerrado' | 'sin
 }
 
 /** Dónde caen los ojos y dónde está la cabeza de cada cuerpo. */
-const GEO: Record<Forma, { ojos: number; dx: number; tope: number; brillo: [number, number] }> = {
-  circulo: { ojos: 19.5, dx: 5, tope: 5, brillo: [13.5, 12.5] },
-  cuadrado: { ojos: 19.5, dx: 5, tope: 5, brillo: [12.5, 11.5] },
-  hexagono: { ojos: 19.5, dx: 5, tope: 5, brillo: [13.5, 12.5] },
-  triangulo: { ojos: 25.5, dx: 4, tope: 7, brillo: [16, 19] },
-  frijol: { ojos: 19.5, dx: 5, tope: 6.5, brillo: [11.5, 13.5] },
-  gota: { ojos: 23, dx: 5, tope: 3.5, brillo: [14, 17] },
-  pildora: { ojos: 18.5, dx: 4.6, tope: 4, brillo: [13.5, 11] },
+const GEO: Record<Forma, { ojos: number; dx: number; brillo: [number, number] }> = {
+  circulo: { ojos: 19.5, dx: 5, brillo: [13.5, 12.5] },
+  cuadrado: { ojos: 19.5, dx: 5, brillo: [12.5, 11.5] },
+  hexagono: { ojos: 19.5, dx: 5, brillo: [13.5, 12.5] },
+  triangulo: { ojos: 25.5, dx: 4, brillo: [16, 19] },
+  frijol: { ojos: 19.5, dx: 5, brillo: [11.5, 13.5] },
+  gota: { ojos: 23, dx: 5, brillo: [14, 17] },
+  pildora: { ojos: 18.5, dx: 4.6, brillo: [13.5, 11] },
 };
 
 function Cuerpo({ forma, color }: { forma: Forma; color: string }) {
@@ -115,61 +116,12 @@ function Cara({ forma, cara, animo }: { forma: Forma; cara: CaraMuneco; animo: A
   );
 }
 
-/** El accesorio va arriba de la cabeza (o sobre los ojos, los lentes). */
-function Extra({ accesorio, forma }: { accesorio: Accesorio; forma: Forma }) {
-  const { ojos: y, dx, tope } = GEO[forma];
-  switch (accesorio) {
-    case 'antena': return (
-      <g>
-        <path d={`M20 ${tope + 1}V${tope - 4.5}`} stroke={TINTA} strokeWidth={1.5} strokeLinecap="round" />
-        <circle cx="20" cy={tope - 5.5} r="2" fill="var(--warn)" stroke={TINTA} strokeWidth={1} />
-      </g>
-    );
-    case 'brote': return (
-      <g>
-        <path d={`M20 ${tope + 1}V${tope - 3}`} stroke="var(--good)" strokeWidth={1.5} strokeLinecap="round" />
-        <path d={`M20 ${tope - 2.6}q-4.6-0.4-5.4-4q4.4 0 5.4 4Z`} fill="var(--good)" />
-        <path d={`M20 ${tope - 2.6}q4.6-0.4 5.4-4q-4.4 0-5.4 4Z`} fill="var(--good)" />
-      </g>
-    );
-    case 'lentes': return (
-      <g fill="none" stroke={TINTA} strokeWidth={1.3}>
-        <circle cx={20 - dx} cy={y} r="4.3" />
-        <circle cx={20 + dx} cy={y} r="4.3" />
-        <path d={`M${20 - dx + 4.3} ${y}h${2 * dx - 8.6}`} />
-      </g>
-    );
-    case 'auriculares': return (
-      <g>
-        <path d={`M6.5 ${y + 1}V${y - 3}a13.5 13.5 0 0 1 27 0v4`} fill="none" stroke={TINTA} strokeWidth={1.6} strokeLinecap="round" />
-        <rect x="3.6" y={y - 1} width="5" height="8" rx="2.4" fill={TINTA} />
-        <rect x="31.4" y={y - 1} width="5" height="8" rx="2.4" fill={TINTA} />
-      </g>
-    );
-    case 'mono': return (
-      <g transform={`translate(28 ${tope + 1.5}) rotate(18)`}>
-        <path d="M0 0l-5.2-3.2v6.4Z" fill="var(--bad)" />
-        <path d="M0 0l5.2-3.2v6.4Z" fill="var(--bad)" />
-        <circle r="1.5" fill="var(--bad)" stroke={TINTA} strokeWidth={0.6} />
-      </g>
-    );
-    case 'gorro': return (
-      <g>
-        <path d={`M11 ${tope + 3.5}q9-9.5 18 0Z`} fill="var(--primary)" />
-        <rect x="10" y={tope + 2.4} width="20" height="3.2" rx="1.6" fill="var(--primary-strong)" />
-        <circle cx="20" cy={tope - 2.6} r="2.1" fill="var(--primary-strong)" />
-      </g>
-    );
-    default: return null;
-  }
-}
-
 /** El muñeco de un empleado. `titulo` decide cómo es (o `aspecto`, si Martín eligió otro); el estado, los ojos;
  *  `espera`, el globito de las tarjetas de la Ticketera que esperan una respuesta de Martín. */
 export function Muneco({ titulo, animo, size = 40, espera = 0, style, aspecto }: {
   titulo: string; animo: Animo; size?: number; espera?: number; style?: CSSProperties; aspecto?: Aspecto | null;
 }) {
-  const { forma, color, cara, accesorio } = aspectoDe(titulo, aspecto);
+  const { forma, color, cara } = aspectoDe(titulo, aspecto);
   const [bx, by] = GEO[forma].brillo;
   return (
     <svg
@@ -181,7 +133,6 @@ export function Muneco({ titulo, animo, size = 40, espera = 0, style, aspecto }:
         {/* El brillo arriba a la izquierda: le da volumen sin un gradiente (que pediría un id). */}
         <ellipse cx={bx} cy={by} rx="4.2" ry="2.6" fill="#fff" opacity="0.38" transform={`rotate(-28 ${bx} ${by})`} />
         <Cara forma={forma} cara={cara} animo={animo} />
-        <Extra accesorio={accesorio} forma={forma} />
       </g>
       {espera > 0 && (
         <g className="mun-espera">

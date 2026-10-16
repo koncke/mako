@@ -33,6 +33,12 @@ export const COMANDO_RUNNER = 'node ~/.claude/operaciones/cartero.mjs';
  *  Martín no se toca). `$HOME` lo expande PowerShell. */
 export const AJUSTES_RUNNER = '$HOME\\.claude\\operaciones\\runner-settings.json';
 export const COMANDO_TERMINAL = (cuenta: string) => `${cuenta} -n ${NOMBRE_RUNNER} --settings ${AJUSTES_RUNNER}`;
+/**
+ * El comando que abre un chat NUEVO en la terminal de una cuenta, ya con su nombre (`-n`): lo arma «Nuevo chat» del Centro
+ * (app/admin/operaciones/NuevoChat.tsx) y Martín lo pega en PowerShell. El nombre va entre comillas simples, con la
+ * comilla doblada (así lo lee PowerShell: nada adentro se expande).
+ */
+export const comandoNuevoChat = (cuenta: string, nombre: string) => `${cuenta} -n '${nombre.trim().replace(/'/g, "''")}'`;
 /** Las cuentas de terminal del perfil de PowerShell de Martín (claude1, claude2 y claude3). */
 export const CUENTAS_TERMINAL = ['claude1', 'claude2', 'claude3'] as const;
 
