@@ -44,8 +44,8 @@ local de la PC de Martín ni sus chats: lo esencial de eso está acá abajo.
      modelo de mensajes es el mismo (lib/mako-turno-app-reglas.ts).
    - **El «⋯» de la ficha**: Exportar (PDF/CSV, como el ⋮ del Dashboard en app/dashboard/EditorInforme.tsx) y la guía de
      edición; y que al EDITAR se abra solo el chat para editar la vista (punto 10).
-   - **El engranaje de «A revisar»** (punto 6): abrir un lead de ejemplo con «Datos sin marcar» abierto y «¿Ignorar
-     siempre?» → desmarca «Obligatorio» (hoy abre app/crm/lead-view/AvisosDatosModal.tsx con interruptores).
+   - El engranaje de «A revisar» ya abre una ficha con «¿Ignorar siempre?» (con un lead de verdad, el primero de la
+     lista); sin leads cae al modal de interruptores (AvisosDatosModal.tsx), que se borra con un lead de ejemplo.
    - «Asignar evento» con Google Calendar (el motor sólo conoce Calendly y Cal.com).
    - MIRAR en pantalla todo lo de la noche del 16/10: nadie lo vio (la PC no tenía RAM para `next dev`).
 2. **Onboarding**: sacar el análisis de Offer; sólo ordenar en un PDF lo que vende (app/onboarding/ChatArranque.tsx,

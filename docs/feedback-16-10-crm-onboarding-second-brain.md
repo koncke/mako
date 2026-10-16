@@ -41,8 +41,12 @@ modo claro** (`b401cd017`, «pon en white mode la tab de Second Brain»). Las ci
 - [x] **4.6, «Obligatorio» (`7ce7578ee`).** En la barra de cada bloque (modo edición, app/crm/lead-view/ficha/
   Armador.tsx): prende o apaga, por funnel, el aviso de los datos que el bloque dibuja (`cubreDe`), menos la asistencia
   de una reunión pasada (avisa siempre). Es el mismo `op: 'aviso'` que los interruptores de la barra lateral: cuando
-  esa sección se borre, no se pierde nada. Falta el flujo del engranaje de «A revisar» (el lead ficticio y «¿Ignorar
-  siempre?», punto 6).
+  esa sección se borre, no se pierde nada.
+- [x] **6, el engranaje (`0c51fcf1c`).** El engranaje de «A revisar» abre la ficha del PRIMER lead de la lista (uno de
+  verdad, no ficticio: uno de ejemplo pediría datos inventados en la ficha) con «Datos sin marcar» abierto; ahí el
+  basurero pregunta «¿Ignorar siempre?» y el sí apaga el aviso de ese dato en el funnel (con Deshacer). Sin leads en la
+  lista abre el modal de interruptores de siempre (app/crm/lead-view/AvisosDatosModal.tsx), que se borra cuando haya
+  un lead de ejemplo de verdad.
 - [x] **4, la velocidad (en parte, `f808b91d0`).** En getLeadFullAction (app/crm/actions.ts) cinco lecturas que no
   dependían de nada (insight generado, equipo, CRMs, señales de cobro y el resumen del negocio, que esperaba a TODO)
   arrancan junto con las nueve de arriba. **No se midió contra producción**: medir el pop-up antes y después; lo

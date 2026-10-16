@@ -65,6 +65,7 @@ export const HECHO: SeccionChecklist[] = [
     { id: 'crm-asignar-evento', t: '«Asignar evento» en el «⋯» de las etapas de reunión (Calendly y Cal.com).', ruta: '/crm' },
     { id: 'crm-obligatorio', t: 'Ficha en edición: «Obligatorio» en cada bloque decide qué entra en «datos sin marcar».' },
     { id: 'crm-muneco', t: 'El botón y el panel de MaKo del CRM, con el muñeco del CRM en vez de la estrella.', ruta: '/crm' },
+    { id: 'crm-engranaje', t: 'El engranaje de «A revisar» abre una ficha; el basurero pregunta «¿Ignorar siempre?».' },
   ] },
   { titulo: 'Automations', items: [
     { id: 'aut-flechas', t: 'Toda flecha se desconecta; el paso con IA escucha notas de voz.', ruta: '/automations' },
@@ -115,7 +116,6 @@ export const PENDIENTE: SeccionChecklist[] = [
     { id: 'p16-crm-calendar', t: 'CRM: «Asignar evento» también con Google Calendar.' },
     { id: 'p16-crm-velocidad', t: 'CRM: que la ficha del lead abra rápido.' },
     { id: 'p16-crm-hojas', t: 'CRM: tabs como las hojas del Dashboard, templates con miniaturas propias, sin la barra lateral.' },
-    { id: 'p16-crm-ficticio', t: 'CRM: el engranaje de «A revisar» abre un lead de ejemplo con «¿Ignorar siempre?».' },
     { id: 'p16-crm-chat2', t: 'CRM: el chat de MaKo con la cara del Second Brain y el muñeco de la tab.' },
     { id: 'p16-crm-editar2', t: 'CRM: en el «⋯» de la ficha, exportar y el tutorial; al editar, el chat para editar la vista.' },
     { id: 'p16-onb-pdf', t: 'Onboarding: sin el análisis de Offer; sólo ordenar en un PDF lo que vendes.' },
