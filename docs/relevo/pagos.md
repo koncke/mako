@@ -77,8 +77,8 @@ worktree están borradas; `pagos-rojo-cobranza` no tiene nada fuera de `main`.
 | Qué | Lo destraba | Dónde |
 |---|---|---|
 | Si una clave restringida (`rk_`) lee `GET /v1/account`; si la `notification_url` de MP llega firmada y con `data.id` en el query; si MP respeta el vencimiento de una preferencia anulada con el checkout ya abierto; qué dice `coverage_applied` de un contracargo de MP; en qué estado queda una suscripción de MP al llegar su `end_date`; un pago de punta a punta en modo prueba | las claves de PRUEBA de Martín (Stripe `sk_test_`/`rk_test_`, una cuenta de prueba de MP) | `lib/cobros-conexion.ts`, `lib/metodo-catalogo.ts`, `app/api/webhooks/mercadopago/route.ts` |
-| Stripe no abre cuentas a negocios de Argentina; la primera venta a un mexicano arranca el reloj del RFC | Martín (precio y fiscal): pasa ANTES por Estrategia, que lo mira con este chat cuando b2 esté en `main` | `app/admin/dev/pricing/modelo.ts` |
-| Los BORRADORES legales de `/reembolsos` y `/terminos` §8 | que Martín los lea; igual que el RFC, pasa antes por Estrategia | `app/reembolsos/page.tsx`, `app/terminos/page.tsx` |
+| Vender planes de MaKo a México (la primera venta arranca el reloj del RFC) | Martín, en la Ticketera: `cobrar-mako-en-mexico` (A: bloquear México y Paddle para el 1/11, la recomendada). Con la A, se integra la rama `pagos-mexico-guarda` (a075e1ae5), ya escrita y probada: frena el plan de MaKo a un teléfono +52 o sin código de país | `lib/cobros.ts` (`crearCobro`), `lib/cobros-reglas.ts` (`motivoParaNoVenderMako`) |
+| La garantía del programa grupal (`/reembolsos`) | Martín, en la Ticketera: `garantia-grupal` (A: 100% después de la primera sesión, la recomendada). El plazo de respuesta (5 días hábiles) y cancelar sin escribir los decidió Estrategia el 15/10 | `app/reembolsos/page.tsx` |
 
 Las otras cuatro «decisiones de Martín» que estaban acá se DECIDIERON el 15/10 con la vara de AGENTS.md (copiar a Stripe y
 Mercado Pago, o contestar con lo escrito): el lead ganado que recibe un reembolso se queda donde está; un pago único que
@@ -99,4 +99,7 @@ En este orden, de lo que más plata toca a lo que menos:
 5. ~~La fecha de la cuota y el MRR al cancelar~~ → HECHO el 15/10 (rama `pagos-fecha-cuota`): la cuota con la fecha del pago, y la cancelada por la pasarela sale del MRR en el acto (la que terminó su plazo, no se marca cancelada).
 6. ~~En `/mako/revisar`, el `cobroId` de un reembolso se puede editar~~ → HECHO el 15/10 (rama `pagos-revisar-reembolso`, `fijoAlRevisar`). Cerrado también en Ads, Email, WhatsApp y el chatbot (rama `pagos-fijo-ads-email`), con un barrido que lo exige en toda acción de plata o envío.
 7. ~~El cambio de email tras el alta: falta un código al email ACTUAL~~ → HECHO el 15/10 de OTRA manera (rama `pagos-email-aviso`): un código bloqueaba al que tipeó mal su email; va un aviso al email anterior, como Google y GitHub.
+7b. **Lo siguiente sin bloqueo (decidido por Estrategia el 15/10, copiar a todo SaaS): cancelar uno mismo.** Para la pasarela, el
+   portal de cliente de Stripe (Customer Portal); Mercado Pago no tiene uno. Mientras no exista, `/reembolsos` y `/terminos` §8
+   dicen «por email», como hoy, y al hacerlo se cambian los dos textos. El fijoAlRevisar de Ads y Email, que iba antes, ya está.
 8. Más grandes, con su propio diseño: precios en moneda local en el catálogo (`lib/productos.ts`), `crear_link_pago` en el «⚡ Acción» (área de Automations, `lib/editor-acciones.ts`), y los topes de `/api/pagar/email` fuera de la memoria (`lib/rate-limit.ts`).
