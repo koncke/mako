@@ -5,7 +5,9 @@
 // cerrar, descartar), /api/experimentos/suggest (MaKo diseña desde una hipótesis) y /api/retro
 // (`action: 'plan'`: aceptar, posponer, descartar, deshacer). El teléfono llama a las MISMAS, con
 // los mismos cuerpos: mismo gating y mismos efectos (aceptar crea el experimento y sus tareas en
-// el server, no acá). El `?ws=` lo pone el parche de fetch de la casa (app/_components/WsFetch.tsx);
+// el server, no acá). El gating lo hace CADA RUTA, no la página: `soloAdminDeTab('experimentos')`
+// (lib/puerta-admin-tab.ts) le contesta 403 a un closer o un setter que las llame desde la consola.
+// El `?ws=` lo pone el parche de fetch de la casa (app/_components/WsFetch.tsx);
 // el workspace NUNCA viaja en el cuerpo.
 //
 // Nunca tira: una falla vuelve como `{ ok: false }` con el error del server (para el log) y la

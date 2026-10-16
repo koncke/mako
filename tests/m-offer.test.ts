@@ -25,6 +25,11 @@
 //   R14 el «[completar]» dibujado como texto común                                  (conclusión)
 //   R15 el chip del héroe sin contar lo que falta del control final                 (conclusión)
 // Restaurado → 13 / 0.
+// La nota de voz (16/10/2026, mismo arnés, base 14 / 0), cada una 13 / 1:
+//   R16 el composer de vuelta con `useVoiceRecorder` (entrega al parar)              (voz)
+//   R17 un efecto que manda sola la nota apenas pasa a escucharse                    (voz)
+//   R18 la fila de escuchar sin el reproductor                                       (voz)
+// Restaurado → 14 / 0.
 // =============================================================================
 
 import { test } from 'node:test';
@@ -247,6 +252,24 @@ test('orquestación: las reglas de OfferApp que costaron una revisión siguen en
   // Las mismas acciones de escritorio: nada nuevo que gaste IA.
   const acciones = [...src.matchAll(/action: '([a-z-]+)'/g)].map((m) => m[1]);
   for (const a of acciones) assert.ok(['arbol', 'abrir', 'nueva', 'leer-link', 'turno', 'leer', 'descartar-subida', 'diagnosticar', 'generar', 'guardar-oferta'].includes(a), a);
+});
+
+// Escritorio (ChatOffer → ComposerWhatsApp en modo 'enviar') graba con la sesión de la casa: ✓ TERMINA, se
+// escucha, y recién la flecha la manda (VoiceRecorder.tsx: «nada sale al soltar, en ningún lado»). El teléfono
+// usaba `useVoiceRecorder`, que entrega el blob al parar: «Enviar audio» mandaba la nota sin escucharla, y
+// quedaba guardada en la conversación y en el diagnóstico (revisión de la tanda 2, 16/10/2026).
+test('la nota de voz: nada sale al soltar — ✓ termina, se escucha, y recién «Enviar audio» la manda', () => {
+  const src = sinComentarios(leer(`${CARPETA}/ComposerOfferM.tsx`));
+  assert.doesNotMatch(src, /useVoiceRecorder/, 'el grabador que entrega al parar manda la nota sin escucharla');
+  assert.doesNotMatch(src, /\.stop\(/, 'parar el grabador a mano entrega el blob');
+  assert.doesNotMatch(src, /onAudio\(/, 'onAudio sólo lo llama la sesión, desde su enviar');
+  assert.match(src, /const voz = useGrabacionVoz\(onAudio, /);
+  const grabando = bloque(src, '{grabando ? (', ') : revision ? (');
+  assert.match(grabando, /onClick=\{\(\) => \{ haptico\('light'\); voz\.terminar\(\); \}\}/, 'el ✓ de la barra termina');
+  const escuchar = bloque(src, ') : revision ? (', ') : audioEnEspera ? (');
+  assert.match(escuchar, /<EscucharNota url=\{revision\.url\} secs=\{revision\.secs\} \/>/, 'antes de mandar se escucha');
+  assert.match(escuchar, /onClick=\{\(\) => \{ void voz\.enviar\(\); \}\}>\{ROTULOS\.enviarAudio\}/);
+  assert.equal([...src.matchAll(/voz\.enviar\(/g)].length, 1, 'la nota sale por UN solo botón: el de la fila de escuchar');
 });
 
 test('portal y página: la franja va a #m-pie, la página monta PantallaM con el guard de su key', () => {

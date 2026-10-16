@@ -9,9 +9,20 @@
 //   · el «+» abre «Adjuntar» con lo que ofrece el clip de escritorio: «Foto o video» y «Documento». Elegir
 //     sólo JUNTA (la vista previa de WhatsApp la abre OfferM); recién Enviar sube y lee. Sin el tope de 4 MB
 //     de MaKo: acá un archivo va directo a Storage (hasta 25 MB) y se lee con 'leer', como en escritorio;
-//   · el mic GRABA UNA NOTA DE VOZ (no dicta): tocar empieza, y la barra queda [tacho] cronómetro
-//     [Enviar audio]. La nota se sube como audio y el servidor la transcribe y la guarda (se vuelve a
-//     escuchar), igual que en escritorio. Una que no salió vuelve acá para reintentar o tirarla.
+//   · el mic GRABA UNA NOTA DE VOZ (no dicta), con los DOS pasos de escritorio (ComposerWhatsApp en modo
+//     'enviar', la sesión `useGrabacionVoz`): tocar empieza y la barra queda [tacho] cronómetro [✓]; el ✓
+//     TERMINA (no manda) y la barra pasa a [tacho] ▶ tiempo [Enviar audio]; recién ese botón la manda. La
+//     nota se sube como audio y el servidor la transcribe y la guarda (se vuelve a escuchar). Una que no
+//     salió vuelve acá para reintentar o tirarla. Menos piezas que escritorio: sin la onda, sin pausa y
+//     sin «seguir grabando» (un solo tramo, así que tampoco hay que unir audios).
+//
+// ⚠️ NADA SALE AL SOLTAR (Martín, 09/10, en VoiceRecorder.tsx: «que no se escape nunca un audio
+//    indeseado»). `useVoiceRecorder` entrega el blob al parar: con él, el botón de la barra mandaba la
+//    nota en el mismo toque, sin haberla podido escuchar, y quedaba guardada en la conversación y en el
+//    diagnóstico. Lo fija tests/m-offer.test.ts. La excepción del composer de MaKo (app/m/mako/Composer.tsx)
+//    no aplica: allá viaja la transcripción; acá, el audio.
+// ⚠️ La sesión guarda el `onAudio` del 🎤: lo escuchado no viaja a otra conversación porque OfferM monta
+//    esto con `key={sesion.id}` (cambiar de conversación lo descarta).
 //
 // ⚠️ ES `position: fixed` Y VA POR PORTAL A #m-pie (lo monta OfferM): adentro de la página se correría con
 //    el tirar-para-refrescar (PantallaM le pone `transform`) — LEEME §4.
@@ -23,7 +34,7 @@
 import { useEffect, useRef, useState, type ChangeEvent, type ReactNode } from 'react';
 import { Icon } from '@/app/_components/icons';
 import { Button } from '@/app/_ui/Button';
-import { useVoiceRecorder } from '@/app/whatsapp/_shared/VoiceRecorder';
+import { useGrabacionVoz } from '@/app/whatsapp/_shared/VoiceRecorder';
 import { ACCEPT_IMPORTAR, EXT_POR_FAMILIA } from '@/lib/formatos-archivo';
 import { haptico } from '@/lib/haptico';
 import { FilaM, ListaM, SheetM } from '@/app/m/_ui';
@@ -53,7 +64,7 @@ export function ComposerOfferM({
   onArchivos: (fs: File[]) => void;
   /** Con la vista previa llena, el «+» se apaga (la vista tiene el suyo). */
   puedeAdjuntar: boolean;
-  /** La nota de voz terminada (Enviar audio). */
+  /** La nota de voz ya escuchada (✓ y después Enviar audio): nunca al terminar de grabar. */
   onAudio: (blob: Blob, secs: number) => void;
   /** Una nota que NO salió (se cortó la subida): vuelve para reintentar o descartar. */
   audioEnEspera: AudioEnEspera | null;
@@ -70,8 +81,10 @@ export function ComposerOfferM({
   const inFoto = useRef<HTMLInputElement>(null);
   const inDoc = useRef<HTMLInputElement>(null);
 
-  const nota = useVoiceRecorder(onAudio, (m) => { onError(m); haptico('error'); });
-  const grabando = nota.recording;
+  const voz = useGrabacionVoz(onAudio, (m) => { onError(m); haptico('error'); });
+  const grabando = voz.fase === 'grabando';
+  /** Terminada y sin mandar: se escucha antes de que salga. */
+  const revision = voz.fase === 'revisando' ? voz.revision : null;
 
   // El teclado de iOS no achica el layout: se corre la franja lo que mide.
   useEffect(() => {
@@ -103,8 +116,8 @@ export function ComposerOfferM({
     el.style.height = 'auto';
     // 5 líneas de 16 px × 1.4 + el padding: después scrollea adentro.
     el.style.height = `${Math.min(el.scrollHeight, 132)}px`;
-    // También al volver de grabar: el campo se desmontó y renace con una línea.
-  }, [texto, grabando, audioEnEspera]);
+    // También al volver de grabar o de escuchar: el campo se desmontó y renace con una línea.
+  }, [texto, voz.fase, audioEnEspera]);
 
   const elegidos = (e: ChangeEvent<HTMLInputElement>) => {
     const fs = Array.from(e.target.files ?? []);
@@ -123,9 +136,9 @@ export function ComposerOfferM({
   const micApagado = ocupado || !enLinea;
 
   const empezarNota = () => {
-    if (micApagado || grabando) return;
+    if (micApagado || voz.fase !== 'quieta') return;
     haptico('medium');
-    void nota.start();
+    void voz.start();
   };
 
   return (
@@ -134,24 +147,37 @@ export function ComposerOfferM({
       {arriba}
       {!enLinea && <p className="m-offer-dock__aviso" role="status">Sin conexión: no se puede enviar.</p>}
 
-      {audioEnEspera && !grabando ? (
+      {grabando ? (
+        // Paso 1: el ✓ TERMINA, no manda. Con el micrófono pedido o el tramo cerrándose no hay nada que terminar.
         <div className="m-offer-dock__fila">
-          <button type="button" className="m-offer-circulo" aria-label="Descartar la nota de voz" onClick={onDescartarAudio}>
-            <Icon name="trash" size={22} />
-          </button>
-          <NotaEnEspera url={audioEnEspera.url} secs={audioEnEspera.secs} />
-          <Button variant="primary" size="md" disabled={micApagado} onClick={onReenviarAudio}>{ROTULOS.enviarAudio}</Button>
-        </div>
-      ) : grabando ? (
-        <div className="m-offer-dock__fila">
-          <button type="button" className="m-offer-circulo" aria-label="Descartar la nota de voz" onClick={() => nota.stop(true)}>
+          <button type="button" className="m-offer-circulo" aria-label="Descartar la nota de voz" disabled={voz.uniendo} onClick={voz.descartar}>
             <Icon name="trash" size={22} />
           </button>
           <div className="m-offer-grabando" aria-live="polite">
             <span className="m-offer-grabando__punto" aria-hidden />
-            <span className="m-offer-grabando__tiempo">{duracion(nota.secs)}</span>
+            <span className="m-offer-grabando__tiempo">{duracion(voz.secs)}</span>
           </div>
-          <Button variant="primary" size="md" onClick={() => nota.stop(false)}>{ROTULOS.enviarAudio}</Button>
+          <button type="button" className="m-offer-circulo m-offer-circulo--enviar" aria-label="Terminar la grabación"
+            disabled={voz.pidiendoMic || voz.uniendo} onClick={() => { haptico('light'); voz.terminar(); }}>
+            <Icon name="check" size={22} />
+          </button>
+        </div>
+      ) : revision ? (
+        // Paso 2: se escucha, y recién «Enviar audio» la manda.
+        <div className="m-offer-dock__fila">
+          <button type="button" className="m-offer-circulo" aria-label="Descartar la nota de voz" disabled={voz.uniendo} onClick={voz.descartar}>
+            <Icon name="trash" size={22} />
+          </button>
+          <EscucharNota url={revision.url} secs={revision.secs} />
+          <Button variant="primary" size="md" disabled={micApagado || voz.uniendo} onClick={() => { void voz.enviar(); }}>{ROTULOS.enviarAudio}</Button>
+        </div>
+      ) : audioEnEspera ? (
+        <div className="m-offer-dock__fila">
+          <button type="button" className="m-offer-circulo" aria-label="Descartar la nota de voz" onClick={onDescartarAudio}>
+            <Icon name="trash" size={22} />
+          </button>
+          <EscucharNota url={audioEnEspera.url} secs={audioEnEspera.secs} />
+          <Button variant="primary" size="md" disabled={micApagado} onClick={onReenviarAudio}>{ROTULOS.enviarAudio}</Button>
         </div>
       ) : (
         <div className="m-offer-dock__fila">
@@ -207,8 +233,8 @@ export function ComposerOfferM({
   );
 }
 
-/** La nota que no salió: se puede escuchar antes de reenviarla. */
-function NotaEnEspera({ url, secs }: { url: string; secs: number }) {
+/** La nota terminada (o la que no salió): se escucha antes de mandarla. */
+function EscucharNota({ url, secs }: { url: string; secs: number }) {
   const audio = useRef<HTMLAudioElement>(null);
   const [sonando, setSonando] = useState(false);
   return (
