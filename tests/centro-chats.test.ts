@@ -172,10 +172,11 @@ test('el segundo renglón de la fila es lo ÚLTIMO que pasó: un trabajo con su 
   assert.equal(vistaPrevia([]), null);
 });
 
-test('la barra: una sección por cuenta (la que corre primero) y lo anterior al 16/10 aparte, al final', async () => {
-  // Probado rompiéndolo: dejando lo «por nombre» adentro de su cuenta, falla el último assert (la sección
-  // de antes no existe y el «CRM» sin sesión queda al lado del de verdad).
-  const { seccionesDeChats, chatsDeBitacoras, completarChats } = await import('../lib/centro-chats');
+test('la barra: UNA lista sin cuentas (lo que corre primero), lo anterior al 16/10 aparte, y el chip sólo en los repetidos', async () => {
+  // Martín (15/10/2026): «No quiero que exista "cuenta 1, cuenta 2, 3" en la sidebar de chats».
+  // Probado rompiéndolo (15/10/2026): dejando lo «por nombre» en la lista → 1 fallo; marcando todos los títulos como
+  // repetidos → 1 fallo.
+  const { seccionesDeChats, chatsDeBitacoras, completarChats, titulosRepetidos, tituloNormal } = await import('../lib/centro-chats');
   const area: AreaP = { slug: 'x', titulo: 'X', bitacora: [hito('10:00', 'implementacion', 'CRM')] }; // sin sesión
   const carteros: CarteroP[] = [
     { cuenta: 'claude1', vistoAt: '2026-10-15T15:59:00Z', chats: [chat(1, 'CRM', false)] },
@@ -183,7 +184,10 @@ test('la barra: una sección por cuenta (la que corre primero) y lo anterior al 
   ];
   const cs = completarChats(chatsDeBitacoras({ areas: [area], pedidos: [], ahora: AHORA }), { carteros, trabajos: [], ahora: AHORA });
   const secs = seccionesDeChats(cs);
-  assert.deepEqual(secs.map((s) => s.titulo), ['Cuenta 3', 'Cuenta 1', 'Antes del 16/10'], 'la que tiene chats abiertos primero');
-  assert.deepEqual(secs.map((s) => s.chats.length), [1, 1, 1]);
-  assert.equal(secs[2].chats[0].porNombre, true);
+  assert.deepEqual(secs.map((s) => s.titulo), [null, 'Antes del 16/10'], 'una lista sin título, y lo de antes aparte');
+  assert.deepEqual(secs[0].chats.map((c) => c.cuenta), ['claude3', 'claude1'], 'el abierto primero');
+  assert.equal(secs[1].chats[0].porNombre, true);
+  const rep = titulosRepetidos(cs);
+  assert.deepEqual([...rep], [tituloNormal('CRM')], 'los dos «CRM» con sesión se marcan; el de antes no cuenta');
+  assert.equal(titulosRepetidos(secs[0].chats.slice(0, 1)).size, 0, 'uno solo no es repetido');
 });
