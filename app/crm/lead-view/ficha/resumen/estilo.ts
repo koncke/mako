@@ -30,12 +30,18 @@ export const CSS_RESUMEN = `
 .fr-nada { margin: 0; font-size: 13.5px; color: var(--faint); }
 .fr-sub { font-size: 13px; color: var(--dim); line-height: 1.45; }
 
-/* La fila de propiedad (Attio «Record details»): la fila entera abre su campo. */
+/* La fila de propiedad (Attio «Record details»): la fila entera abre su campo.
+   ⚠️ DECIDE POR SU PROPIO ANCHO, no por la ventana (verificación del 16/10/2026): un bloque de ½ en la tablet mide 347 px
+   con la ventana a 820, y con el rótulo al lado el email salía de a tres letras por renglón. Sin container-type
+   (prohibido acá, ver arriba): el rótulo pide (440px - 100%) * 999 de base, que en una fila de menos de 440 px es
+   enorme (va solo arriba, a lo ancho) y en una más ancha da negativo, se recorta a 0 y queda en su 30%. */
 .fr-props { display: flex; flex-direction: column; margin: 0 -8px; }
-.fr-prop { display: grid; grid-template-columns: minmax(78px, 30%) minmax(0, 1fr) auto; align-items: center; column-gap: 12px; min-height: 40px; padding: 3px 8px; border-radius: 10px; }
+.fr-prop { display: flex; flex-wrap: wrap; align-items: center; column-gap: 12px; row-gap: 2px; min-height: 40px; padding: 3px 8px; border-radius: 10px; }
+.fr-prop > .fr-v { flex: 1 1 0; }
+.fr-prop > .fr-acc { flex: none; }
 .fr-props > * + * > .fr-prop, .fr-props > .fr-prop + .fr-prop { box-shadow: 0 -1px 0 var(--border); }
 .campo-caja:hover > .fr-prop { background: var(--velo-hover); box-shadow: none; }
-.fr-k { font-size: 13px; color: var(--dim); line-height: 1.3; min-width: 0; overflow-wrap: anywhere; }
+.fr-k { font-size: 13px; color: var(--dim); line-height: 1.3; flex: 0 1 calc((440px - 100%) * 999); min-width: max(78px, 30%); overflow-wrap: anywhere; }
 .fr-v { font-size: 14.5px; font-weight: 600; color: var(--ink); min-width: 0; overflow: hidden; text-overflow: ellipsis; overflow-wrap: anywhere; }
 .fr-v--vacio { color: var(--faint); font-weight: 500; }
 .fr-acc { display: inline-flex; align-items: center; gap: 4px; }
@@ -63,9 +69,10 @@ button.fr-chip { font: inherit; font-size: 13.5px; font-weight: 600; cursor: poi
 .fr-seg > button[aria-pressed="true"][data-v="si"] { color: var(--good); }
 .fr-seg > button[aria-pressed="true"][data-v="no"] { color: var(--bad); }
 .fr-seg > button:disabled { cursor: default; opacity: .55; }
-/* Los tres (o pocos) que llenan el ancho y no bajan de renglón: en una tarjeta de ⅓ «Sin marcar» caía solo abajo. */
+/* Los tres (o pocos) que llenan el ancho y no bajan de renglón: en una tarjeta de ⅓ «Sin marcar» caía solo abajo.
+   Reparten el ancho POR SU TEXTO (1 1 auto): con partes iguales «No calificado» se cortaba en ⅓ a 1440. */
 .fr-seg--llena { display: flex; flex-wrap: nowrap; width: 100%; }
-.fr-seg--llena > button { flex: 1 1 0; min-width: 0; padding: 0 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fr-seg--llena > button { flex: 1 1 auto; min-width: 0; padding: 0 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* El nombre del setter y del closer, en grande en la épica (el desplegable trae su letra en línea). */
 .fr--epico .fr-persona button { font-size: clamp(18px, .8vw + 13px, 24px) !important; }
 
@@ -152,11 +159,11 @@ button.fr-chip { font: inherit; font-size: 13.5px; font-weight: 600; cursor: poi
    dos botones de 44 px. */
 @media (max-width: 720px) {
   .fr { padding: 16px; }
-  .fr-prop { grid-template-columns: minmax(0, 1fr) auto; row-gap: 2px; padding-top: 6px; padding-bottom: 6px; }
-  .fr-prop > .fr-k { grid-column: 1 / -1; font-size: 12px; }
+  .fr-prop { padding-top: 6px; padding-bottom: 6px; }
+  .fr-prop > .fr-k { flex-basis: 100%; font-size: 12px; }
 }
-.fb-pagina[data-dispositivo="movil"] .fr-prop { grid-template-columns: minmax(0, 1fr) auto; row-gap: 2px; padding-top: 6px; padding-bottom: 6px; }
-.fb-pagina[data-dispositivo="movil"] .fr-prop > .fr-k { grid-column: 1 / -1; font-size: 12px; }
+.fb-pagina[data-dispositivo="movil"] .fr-prop { padding-top: 6px; padding-bottom: 6px; }
+.fb-pagina[data-dispositivo="movil"] .fr-prop > .fr-k { flex-basis: 100%; font-size: 12px; }
 /* Pantalla táctil: 44 px de toque (AGENTS.md, por capacidad, no por ancho). */
 @media (pointer: coarse) {
   .fr-ico { width: var(--touch); height: var(--touch); }

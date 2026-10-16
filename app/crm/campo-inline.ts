@@ -342,6 +342,65 @@ export function ponerLinkFathom(
   return out;
 }
 
+// ── El «Deshacer» que no pisa a otro (verificación de la ficha v2, 16/10/2026) ────────────────────────────────
+//
+// El aviso «Guardado · Deshacer» vive 5 segundos, y hasta el 16/10/2026 su Deshacer escribía el valor de antes A
+// CIEGAS: si en ese medio otra persona (u otro camino: el webhook de Calendly, el motor, Fathom) cambió el mismo campo,
+// se lo pisaba sin decir nada. Ahora el Deshacer manda lo que ÉL escribió (`esperado`), y el server sólo deshace si hoy
+// el campo sigue diciendo eso: el mismo criterio que el `esperado` de «restaurar» en la ficha del funnel
+// (lib/ficha/config.ts) y de `guardarObligacionAction` en el deal. Lo fija tests/ficha-resumen-lo-de-antes.test.ts.
+
+/** Cómo lo compara el Deshacer: vacío y sin dato son lo mismo, y los textos se comparan recortados. */
+const textoComparable = (v: unknown): string => (v == null ? '' : String(v).trim());
+
+/**
+ * Lo que el campo dice HOY en la fila del lead, en la forma de `valorDeCampo`. Las fechas, el día (la columna puede
+ * volver con hora); un link de Fathom, el de SU reunión en `fathom_links` (`esR2`, el mismo de `ponerLinkFathom`).
+ */
+export function valorGuardadoDeCampo(
+  campo: CampoInline,
+  lead: Record<string, unknown>,
+  esR2: (label: string | null | undefined) => boolean,
+): ValorInline {
+  if (VIA_INLINE[campo] === 'fathom') {
+    const links = Array.isArray(lead.fathom_links) ? (lead.fathom_links as FathomLink[]) : [];
+    const mio = campo === 'fathom_r2';
+    return links.find((f) => f?.url?.trim() && esR2(f.label) === mio)?.url?.trim() ?? null;
+  }
+  const v = lead[campo];
+  if (v == null) return null;
+  if (typeof v === 'boolean' || typeof v === 'number') return v;
+  return String(v);
+}
+
+/** ¿El campo dice lo mismo? `hoy` sale de `valorGuardadoDeCampo`; `esperado`, de `valorDeCampo` (lo que se escribió). */
+export function mismoValorDeCampo(campo: CampoInline, hoy: ValorInline, esperado: ValorInline): boolean {
+  const gesto = GESTO_INLINE[campo];
+  if (gesto === 'tri') return (hoy ?? null) === (esperado ?? null);
+  if (gesto === 'monto') {
+    const a = hoy == null || hoy === '' ? null : Number(hoy);
+    const b = esperado == null || esperado === '' ? null : Number(esperado);
+    return a === b || (a != null && b != null && Math.abs(a - b) < 0.005);
+  }
+  if (gesto === 'fecha') return textoComparable(hoy).slice(0, 10) === textoComparable(esperado).slice(0, 10);
+  return textoComparable(hoy) === textoComparable(esperado);
+}
+
+/** Los datos de contacto que la ficha guarda por `saveLeadMetaAction` (el contacto, las redes, la dirección y el sexo). */
+export const CAMPOS_CONTACTO = ['empresa', 'email', 'telefono', 'web', 'youtube', 'linkedin', 'direccion', 'sexo'] as const;
+export type CampoContacto = (typeof CAMPOS_CONTACTO)[number];
+export const esCampoContacto = (c: unknown): c is CampoContacto => typeof c === 'string' && (CAMPOS_CONTACTO as readonly string[]).includes(c);
+
+/** ¿El dato de contacto dice lo mismo? Con la limpieza de `saveLeadMeta`: recortado, y a 300 los de texto largo. */
+export function mismoDatoDeContacto(campo: CampoContacto, hoy: unknown, esperado: unknown): boolean {
+  const largo = campo === 'youtube' || campo === 'linkedin' || campo === 'direccion';
+  const n = (v: unknown) => (largo ? textoComparable(v).slice(0, 300) : textoComparable(v));
+  return n(hoy) === n(esperado);
+}
+
+/** Lo que contesta el Deshacer cuando el campo ya no dice lo que él escribió. Corto: es un aviso. */
+export const YA_LO_CAMBIARON = 'Alguien ya lo cambió';
+
 /**
  * ¿Guardar por `updateLead` le va a BORRAR el monto de cierre a este lead?
  *

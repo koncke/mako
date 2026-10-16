@@ -27,6 +27,12 @@
 // (lib/ficha/plantillas-resumen.ts), con los highlights arriba. Las listas esperadas cambian por eso; lo que se fija
 // (el orden de la ficha del funnel, las tabs que el lead ve, una pieza una vez, lo vacío se calla) no. Lo nuevo:
 // «el Resumen nativo en el teléfono», al final, con sus roturas.
+//
+// ⚠️ CINCO LISTAS REESCRITAS EL 16/10/2026 (verificación de la tanda 1): Evento, Formulario de Meta, Landing, Te escriben
+// y Carrito traen ahora «Redes y web» e «Ingreso estimado» en su Resumen de entrada (el contacto de antes los mostraba
+// ADENTRO en todos los funnels: tests/ficha-resumen-lo-de-antes.test.ts), así que el teléfono suma sus filas 'redes' e
+// 'ingreso' donde escritorio las pone. Lo que se fija no cambia. Re-verificado rompiéndolo (base 8/0): 'ingreso-estimado'
+// fuera de PIEZA_DE_BLOQUE → 3 / 5.
 // =============================================================================
 
 import { test } from 'node:test';
@@ -66,15 +72,15 @@ const ESPERADO: Record<PlantillaId, { ve: readonly TabFicha[]; piezas: PiezaFich
   'dos-reuniones': { ve: conReunion, piezas: [...RESUMEN_LLAMADA, 'llamada'] },
   'una-llamada': { ve: conReunion, piezas: [...RESUMEN_LLAMADA, 'llamada'] },
   // Reuniones: reunion-1 y ciclo-de-venta, sin «lo que salió de la llamada».
-  'evento': { ve: conReunion, piezas: ['siguiente', 'proxima', 'en-etapa', 'saldo', 'contacto', 'equipo', 'contesto', 'llego-por', 'motivo', 'plazo', 'notas'] },
+  'evento': { ve: conReunion, piezas: ['siguiente', 'proxima', 'en-etapa', 'saldo', 'contacto', 'equipo', 'redes', 'ingreso', 'contesto', 'llego-por', 'motivo', 'plazo', 'notas'] },
   // La próxima reunión va abajo: «se calla salvo que reserve por Cal.com» (§4).
-  'formulario-meta': { ve: sinReunion, piezas: ['siguiente', 'calificado', 'en-etapa', 'ingreso', 'contesto', 'contacto', 'llego-por', 'equipo', 'proxima', 'motivo', 'plazo', 'notas'] },
-  'landing': { ve: sinReunion, piezas: ['siguiente', 'calificado', 'en-etapa', 'contacto', 'contesto', 'pagina', 'llego-por', 'proxima', 'motivo', 'plazo', 'notas'] },
+  'formulario-meta': { ve: sinReunion, piezas: ['siguiente', 'calificado', 'en-etapa', 'ingreso', 'contesto', 'contacto', 'redes', 'llego-por', 'equipo', 'proxima', 'motivo', 'plazo', 'notas'] },
+  'landing': { ve: sinReunion, piezas: ['siguiente', 'calificado', 'en-etapa', 'ingreso', 'contacto', 'redes', 'contesto', 'pagina', 'llego-por', 'proxima', 'motivo', 'plazo', 'notas'] },
   // La charla va arriba en escritorio; en el teléfono es el botón WhatsApp (fijo), no una pieza. Cómo entró, sí.
-  'te-escriben': { ve: sinReunion, piezas: ['siguiente', 'entrada', 'llego-por', 'contacto', 'equipo', 'en-etapa', 'motivo', 'plazo', 'notas'] },
+  'te-escriben': { ve: sinReunion, piezas: ['siguiente', 'entrada', 'llego-por', 'contacto', 'redes', 'equipo', 'en-etapa', 'ingreso', 'motivo', 'plazo', 'notas'] },
   'prospeccion': { ve: sinReunion, piezas: ['siguiente', 'contacto', 'redes', 'en-etapa', 'ingreso', 'equipo', 'motivo', 'plazo', 'notas'] },
   // Si compró: el estado de cuenta arriba, antes del contacto.
-  'carrito': { ve: sinReunion, piezas: ['siguiente', 'saldo', 'contacto', 'llego-por', 'contesto', 'motivo', 'plazo', 'notas'] },
+  'carrito': { ve: sinReunion, piezas: ['siguiente', 'saldo', 'contacto', 'llego-por', 'contesto', 'redes', 'ingreso', 'motivo', 'plazo', 'notas'] },
 };
 
 test('con cada plantilla, el teléfono ve los bloques que tienen versión de teléfono, en su orden', () => {

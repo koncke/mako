@@ -36,7 +36,7 @@ import { Toast, useToast } from '@/app/_ui/Toast';
 import { Dropdown } from '@/app/components/Dropdown';
 import { fmtDDMMYYYY } from '@/lib/date-utils';
 import { splitTelefono } from '@/lib/paises';
-import { guardarCampoLeadAction } from '../actions';
+import { deshacerCampoLeadAction, guardarCampoLeadAction } from '../actions';
 import { opcionesEquipo } from '../equipo-opciones';
 import { esMaKo, MAKO_STAR_URI } from '../mako-setter';
 import { ChipTri } from './chip-tri';
@@ -152,6 +152,10 @@ const disparador: CSSProperties = {
  * El deshacer escribe en el SERVER (vuelve a llamar a la action con el valor de
  * antes): revertir sólo la pantalla sería mentir hasta el próximo F5. Es el mismo
  * criterio que `InfoPrincipalCard` ya usa para el nombre y el teléfono.
+ *
+ * ⚠️ Y NO PISA A OTRO (16/10/2026): manda también lo que este guardado escribió, y el
+ * server no deshace si en esos 5 segundos alguien (u otro camino) cambió el campo
+ * (`deshacerCampoLeadAction`). Entonces lo dice y relee.
  */
 export function useGuardarCampo(leadId: number, campo: CampoInline) {
   const refrescarFicha = useRefrescarFicha();
@@ -164,8 +168,11 @@ export function useGuardarCampo(leadId: number, campo: CampoInline) {
         refrescarFicha();
         show('Guardado', () => {
           startGuardar(async () => {
-            try { await guardarCampoLeadAction(leadId, campo, antes); refrescarFicha(); }
-            catch { show('No se pudo deshacer', undefined, 'bad'); }
+            try {
+              const r = await deshacerCampoLeadAction(leadId, campo, antes, nuevo);
+              refrescarFicha();
+              if (!r.ok) show(r.error, undefined, 'bad');
+            } catch { show('No se pudo deshacer', undefined, 'bad'); }
           });
         });
       } catch (e) {

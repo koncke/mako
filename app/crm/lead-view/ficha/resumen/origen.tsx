@@ -14,11 +14,12 @@
 // niveles; documentación oficial), en una sola tarjeta. Nada de esto se edita: lo escribió la entrada.
 // =============================================================================
 
+import { Fragment } from 'react';
 import Link from '@/app/_ui/Link';
 import { fmtDDMMYYYY } from '@/lib/date-utils';
 import { COMO_ENTRO, NOMBRE_CANAL, entradaSocialGuardada } from '@/lib/canal-social';
 import type { PropsBloque } from '../tipos';
-import { hrefDePagina, origenDelLead, paginaLegible } from './logica';
+import { hrefDePagina, lineaDeOrigen, origenDelLead, paginaLegible } from './logica';
 import { Bloque, BotonIco, IcoAbrir } from './piezas';
 
 export function Origen({ ctx, titulo, diseno, epico }: PropsBloque) {
@@ -39,12 +40,12 @@ export function Origen({ ctx, titulo, diseno, epico }: PropsBloque) {
     );
   }
   if (diseno === 'linea' && !epico) {
+    // El canal, la fuente y el camino entero del anuncio (`lineaDeOrigen`): la campaña y el conjunto no se callan.
     return (
       <Bloque titulo={titulo} epico={false} derecha={ads}>
         <div className="fr-migas">
           <span className={`fr-fuerte fr-tono-${o.canal.tono}`}>{o.canal.texto}</span>
-          {o.fuente && <><span className="fr-sep">·</span><span>{o.fuente}</span></>}
-          {o.anuncio && <><span className="fr-sep">·</span><span>{o.anuncio}</span></>}
+          {lineaDeOrigen(o).map((x, i) => <Fragment key={`${i}:${x}`}><span className="fr-sep">·</span><span>{x}</span></Fragment>)}
         </div>
       </Bloque>
     );
@@ -59,10 +60,12 @@ export function Origen({ ctx, titulo, diseno, epico }: PropsBloque) {
         <div className="fr-migas">
           {o.fuente && <span>{o.fuente}</span>}
           {camino.map((x, i) => (
-            <span key={`${i}:${x}`} style={{ display: 'contents' }}>
+            // Un Fragment y no un <span style="display: contents">: `.fr-migas > .fr-sep` y `> .fr-fuerte` miran los
+            // hijos DIRECTOS, y con el envoltorio el separador no salía tenue ni el anuncio en negrita.
+            <Fragment key={`${i}:${x}`}>
               {(i > 0 || o.fuente) && <span className="fr-sep">›</span>}
               <span className={i === camino.length - 1 ? 'fr-fuerte' : undefined}>{x}</span>
-            </span>
+            </Fragment>
           ))}
         </div>
       )}

@@ -354,6 +354,16 @@ export function origenDelLead(l: LeadConOrigen, d: DatosOrigen): Origen | null {
   };
 }
 
+/**
+ * «UNA LÍNEA» DE DÓNDE VINO, después del canal: la fuente y el camino ENTERO del anuncio (Campaña › Conjunto ›
+ * Anuncio). ⚠️ Decía sólo el anuncio y se callaba la campaña y el conjunto, que OrigenCard mostraba siempre (UN camino,
+ * no tres datos sueltos): es la de entrada de Evento, Landing y Te escriben (verificación del 16/10/2026).
+ */
+export function lineaDeOrigen(o: Origen): string[] {
+  const camino = [o.campana, o.conjunto, o.anuncio].filter((x): x is string => !!x);
+  return [...(o.fuente ? [o.fuente] : []), ...(camino.length ? [camino.join(' › ')] : [])];
+}
+
 // ── La página donde se registró y la publicación por la que entró ──────────
 
 /** La página del opt-in, legible: el dominio y el camino, sin el protocolo ni la barra del final. */

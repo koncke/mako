@@ -12,6 +12,15 @@
 //    Resumen de entrada. Lo fija tests/ficha-resumen.test.ts («no se pierde ningún bloque de la lista de su tipo»).
 //    Los que todavía no tienen componente (la charla, los cambios de MaKo, el video) van igual: no se dibujan hasta que
 //    lo tengan, y el día que lo tengan aparecen solos.
+// ⚠️ Y LA DE ENTRADA DE CADA TIPO TRAE «REDES Y WEB» E «INGRESO ESTIMADO» (verificación del 16/10/2026): el contacto de
+//    antes (InfoPrincipalCard) los mostraba ADENTRO en todos los funnels (la web, Instagram y el ingreso son los de
+//    fábrica de `crm.resumen.campos`), y al partirlos en sus bloques cinco de éstas los dejaban afuera: un lead del ws 11
+//    con su ingreso cargado dejaba de verlo. Lo que el negocio apagó lo saca el respaldo (`listaDeIds`, ./config.ts).
+//    Lo fija tests/ficha-resumen-lo-de-antes.test.ts.
+// ⚠️ EL MOTIVO DE SALIDA ENTRA COMO TEXTO, no con los chips (verificación del 16/10/2026): el 12/10 se decidió que los
+//    chips «Precio / Timing / …» viven donde se DECIDE la salida (el wizard de la etapa) y que aquí se CORRIGE uno ya
+//    escrito («una fila de cinco botones para eso es la caja que este cambio vino a sacar»). «Chips y texto» sigue
+//    siendo un diseño que el admin elige.
 // ⚠️ EL ID SE GUARDA (`funnels.data.ficha.plantillasTab`): no se renombra. `resumen-epica` es el de la épica del marco
 //    (el mismo id: una ficha que ya la eligió sigue con ella).
 // ⚠️ `sugeridaPara` decide la DE ENTRADA de la tab para ese tipo (lib/ficha/plantillas-tab.ts): un funnel que nadie
@@ -43,7 +52,7 @@ export const PLANTILLAS_TAB_RESUMEN: PlantillaTab[] = [
       { id: 'charla-whatsapp', ancho: 12 },
       { id: 'origen', ancho: 6, diseno: 'migas' },
       { id: 'redes-y-web', ancho: 6, diseno: 'chips' },
-      { id: 'motivo-de-salida', ancho: 6, diseno: 'chips' },
+      { id: 'motivo-de-salida', ancho: 6, diseno: 'texto' },
       { id: 'plazo-nutricion', ancho: 4, diseno: 'cuenta' },
       { id: 'notas', ancho: 12, diseno: 'caja' },
     ],
@@ -60,12 +69,14 @@ export const PLANTILLAS_TAB_RESUMEN: PlantillaTab[] = [
       { id: 'cobrado', ancho: 3, diseno: 'chip' },
       { id: 'contacto', ancho: 6, diseno: 'botonera' },
       { id: 'setter-y-closer', ancho: 6, diseno: 'chips' },
+      { id: 'redes-y-web', ancho: 6, diseno: 'chips' },
+      { id: 'ingreso-estimado', ancho: 4, diseno: 'fila' },
       { id: 'charla-whatsapp', ancho: 12 },
       { id: 'lo-que-contesto', ancho: 6, diseno: 'lista' },
       { id: 'lo-que-le-mandamos', ancho: 6 },
       { id: 'automatizaciones-en-curso', ancho: 12 },
       { id: 'origen', ancho: 12, diseno: 'linea' },
-      { id: 'motivo-de-salida', ancho: 6, diseno: 'chips' },
+      { id: 'motivo-de-salida', ancho: 6, diseno: 'texto' },
       { id: 'plazo-nutricion', ancho: 4, diseno: 'cuenta' },
       { id: 'notas', ancho: 12, diseno: 'tres' },
     ],
@@ -82,12 +93,13 @@ export const PLANTILLAS_TAB_RESUMEN: PlantillaTab[] = [
       { id: 'ingreso-estimado', ancho: 4, diseno: 'numero' },
       { id: 'lo-que-contesto', ancho: 12, diseno: 'tabla' },
       { id: 'contacto', ancho: 6, diseno: 'grilla' },
+      { id: 'redes-y-web', ancho: 6, diseno: 'chips' },
       { id: 'origen', ancho: 6, diseno: 'migas' },
       { id: 'setter-y-closer', ancho: 6, diseno: 'cajas' },
-      { id: 'proxima-reunion', ancho: 6, diseno: 'renglon' },
+      { id: 'proxima-reunion', ancho: 12, diseno: 'renglon' },
       { id: 'charla-whatsapp', ancho: 12 },
       { id: 'automatizaciones-en-curso', ancho: 12 },
-      { id: 'motivo-de-salida', ancho: 6, diseno: 'chips' },
+      { id: 'motivo-de-salida', ancho: 6, diseno: 'texto' },
       { id: 'plazo-nutricion', ancho: 4, diseno: 'cuenta' },
       { id: 'notas', ancho: 12, diseno: 'caja' },
     ],
@@ -101,15 +113,17 @@ export const PLANTILLAS_TAB_RESUMEN: PlantillaTab[] = [
       { id: 'posibles-duplicados', ancho: 12, diseno: 'banner' },
       { id: 'calificacion', ancho: 4, diseno: 'botones' },
       { id: 'tiempo-en-etapa', ancho: 4, diseno: 'chip' },
+      { id: 'ingreso-estimado', ancho: 4, diseno: 'numero' },
       { id: 'contacto', ancho: 6, diseno: 'grilla' },
+      { id: 'redes-y-web', ancho: 6, diseno: 'chips' },
       { id: 'lo-que-contesto', ancho: 6, diseno: 'lista' },
       { id: 'pagina-de-registro', ancho: 6, diseno: 'fila' },
-      { id: 'origen', ancho: 6, diseno: 'linea' },
+      { id: 'origen', ancho: 12, diseno: 'linea' },
       { id: 'proxima-reunion', ancho: 12, diseno: 'renglon' },
       { id: 'charla-whatsapp', ancho: 12 },
       { id: 'automatizaciones-en-curso', ancho: 6 },
       { id: 'lo-que-le-mandamos', ancho: 6 },
-      { id: 'motivo-de-salida', ancho: 6, diseno: 'chips' },
+      { id: 'motivo-de-salida', ancho: 6, diseno: 'texto' },
       { id: 'plazo-nutricion', ancho: 4, diseno: 'cuenta' },
       { id: 'notas', ancho: 12, diseno: 'caja' },
     ],
@@ -128,10 +142,12 @@ export const PLANTILLAS_TAB_RESUMEN: PlantillaTab[] = [
       { id: 'publicacion-de-entrada', ancho: 6, diseno: 'linea' },
       { id: 'origen', ancho: 6, diseno: 'linea' },
       { id: 'contacto', ancho: 6, diseno: 'renglon' },
+      { id: 'redes-y-web', ancho: 6, diseno: 'chips' },
       { id: 'setter-y-closer', ancho: 6, diseno: 'chips' },
-      { id: 'tiempo-en-etapa', ancho: 4, diseno: 'chip' },
+      { id: 'tiempo-en-etapa', ancho: 3, diseno: 'chip' },
+      { id: 'ingreso-estimado', ancho: 3, diseno: 'numero' },
       { id: 'automatizaciones-en-curso', ancho: 12 },
-      { id: 'motivo-de-salida', ancho: 6, diseno: 'chips' },
+      { id: 'motivo-de-salida', ancho: 6, diseno: 'texto' },
       { id: 'plazo-nutricion', ancho: 4, diseno: 'cuenta' },
       { id: 'notas', ancho: 12, diseno: 'tres' },
     ],
@@ -151,7 +167,7 @@ export const PLANTILLAS_TAB_RESUMEN: PlantillaTab[] = [
       { id: 'lo-que-le-mandamos', ancho: 12 },
       { id: 'charla-whatsapp', ancho: 6 },
       { id: 'charla-dm', ancho: 6 },
-      { id: 'motivo-de-salida', ancho: 6, diseno: 'chips' },
+      { id: 'motivo-de-salida', ancho: 6, diseno: 'texto' },
       { id: 'plazo-nutricion', ancho: 4, diseno: 'cuenta' },
       { id: 'notas', ancho: 12, diseno: 'tres' },
     ],
@@ -167,8 +183,10 @@ export const PLANTILLAS_TAB_RESUMEN: PlantillaTab[] = [
       { id: 'contacto', ancho: 6, diseno: 'grilla' },
       { id: 'origen', ancho: 6, diseno: 'migas' },
       { id: 'lo-que-contesto', ancho: 6, diseno: 'lista' },
+      { id: 'redes-y-web', ancho: 6, diseno: 'chips' },
+      { id: 'ingreso-estimado', ancho: 4, diseno: 'fila' },
       { id: 'charla-whatsapp', ancho: 12 },
-      { id: 'motivo-de-salida', ancho: 6, diseno: 'chips' },
+      { id: 'motivo-de-salida', ancho: 6, diseno: 'texto' },
       { id: 'plazo-nutricion', ancho: 4, diseno: 'cuenta' },
       { id: 'notas', ancho: 12, diseno: 'caja' },
     ],
@@ -220,7 +238,7 @@ export const PLANTILLAS_TAB_RESUMEN: PlantillaTab[] = [
       { id: 'origen', ancho: 6, diseno: 'migas' },
       { id: 'pagina-de-registro', ancho: 6, diseno: 'fila' },
       { id: 'publicacion-de-entrada', ancho: 6, diseno: 'linea' },
-      { id: 'motivo-de-salida', ancho: 6, diseno: 'chips' },
+      { id: 'motivo-de-salida', ancho: 6, diseno: 'texto' },
       { id: 'plazo-nutricion', ancho: 4, diseno: 'cuenta' },
       { id: 'notas', ancho: 12, diseno: 'caja' },
     ],

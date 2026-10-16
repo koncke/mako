@@ -11,7 +11,8 @@
 // =============================================================================
 
 import { useState, useTransition, type ReactNode } from 'react';
-import { saveLeadMetaAction } from '@/app/crm/actions';
+import { deshacerContactoLeadAction, saveLeadMetaAction } from '@/app/crm/actions';
+import type { CampoContacto } from '@/app/crm/campo-inline';
 import { Toast, useToast } from '@/app/_ui/Toast';
 import { IconoMenu } from '@/app/_ui/iconos-menu';
 import { useRefrescarFicha } from '../../ficha-cambio';
@@ -102,12 +103,14 @@ export function IcoRed({ red, size = 15 }: { red: 'web' | 'instagram' | 'youtube
 }
 
 /** Los datos de contacto que se guardan por `saveLeadMetaAction` (los mismos de la tarjeta de siempre). */
-export type CampoMeta = 'empresa' | 'email' | 'telefono' | 'web' | 'youtube' | 'linkedin' | 'direccion' | 'sexo';
+export type CampoMeta = CampoContacto;
 
 /**
  * GUARDAR UN DATO DE CONTACTO EN EL LUGAR, con «Deshacer» que escribe en el SERVER (revertir sólo la pantalla sería
  * mentir hasta el próximo F5). Es el `guardar` de InfoPrincipalCard, el de siempre: `saveLeadMetaAction` deja la
  * línea en el historial (`logLeadChanges`) y el historial lo sabe revertir.
+ * ⚠️ El Deshacer NO PISA A OTRO (16/10/2026): manda lo que se escribió y el server no deshace si el dato ya dice otra
+ * cosa (`deshacerContactoLeadAction`, app/crm/actions.ts).
  */
 export function useGuardarMeta(leadId: number) {
   const refrescar = useRefrescarFicha();
@@ -122,8 +125,11 @@ export function useGuardarMeta(leadId: number) {
         refrescar();
         show('Guardado', () => {
           start(async () => {
-            try { await saveLeadMetaAction(leadId, { [campo]: antes }); refrescar(); }
-            catch { show('No se pudo deshacer', undefined, 'bad'); }
+            try {
+              const r = await deshacerContactoLeadAction(leadId, campo, antes, nuevo);
+              refrescar();
+              if (!r.ok) show(r.error, undefined, 'bad');
+            } catch { show('No se pudo deshacer', undefined, 'bad'); }
           });
         });
       } catch (e) {
