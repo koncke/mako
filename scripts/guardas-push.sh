@@ -24,6 +24,17 @@ if [ -f scripts/tsc-bitacoras.mjs ]; then
   fi
 fi
 
+# Un test que fija una ruta de Windows (C:\…) da verde en la notebook y rojo en Linux,
+# donde es RELATIVA (16/10/2026: tiró el run 38845971505). ~1 s, sin tsx.
+if [ -f scripts/rutas-windows-en-tests.mjs ]; then
+  echo "[pre-push] Chequeando que ningún test fije una ruta de Windows..."
+  if ! node scripts/rutas-windows-en-tests.mjs; then
+    echo "  X PUSH BLOQUEADO: un test fija una ruta de Windows (arriba, cuál y cómo arreglarlo)."
+    echo ""
+    exit 1
+  fi
+fi
+
 echo "[pre-push] Chequeando que las skills tengan el contrato al día…"
 if ! node scripts/sync-contrato-detalle.mjs --check; then
   echo ""
