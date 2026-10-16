@@ -85,6 +85,7 @@ import { apiPlan } from './repo-plan';
 import Link from '@/app/_ui/Link';
 import { diasQuieta, diasAlDeadline, ajusteTemporal } from './envejecer';
 import { ExportarModal } from './ExportarModal';
+import { useRepriorizar, LineaRepriorizar, RepriorizarIcon } from './Repriorizar';
 import { NotasLista } from './NotasLista';
 // Los cuatro títulos del `detalle` salen del contrato, no de una copia local: son
 // EXACTOS y el que los escribe, el que los valida y el que ahora los pliega tienen que
@@ -570,6 +571,13 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido
   const pendientesRef = useRef(false);
 
   const ask = (msg: string, onOk: () => void) => setConfirm({ msg, onOk });
+  // «RE-PRIORIZAR TODO» (16/10/2026, decisión 9): arranca el trabajo en segundo plano, mira su
+  // avance y pinta lo que ya escribió el server —sin volver a guardarlo— para que un guardado de
+  // esta pestaña no le devuelva a una tarjeta el número viejo. Sin `repo.repriorizar` no se dibuja.
+  const rpUI = useRepriorizar(board.repo?.repriorizar, {
+    aplicar: (tareas, proyectos) => board.aplicarPerroServer(tareas, proyectos),
+    avisar: (m) => board.showUndo(m),
+  });
   // El aviso de gasto de IA lo muestra el toast GLOBAL <IaUsageToast> (app/layout.tsx),
   // que sale ante CUALQUIER operación de IA. Antes el board tenía SU PROPIO cartel →
   // salían DOS avisos apilados por la misma operación (feedback jul-19). showUsage queda
@@ -1392,12 +1400,25 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido
           </button>
           </>), menu: { icono: <UploadIcon />, label: 'Importar archivos',
             desc: 'Notas, transcripciones, PDFs, capturas o audios', onClick: () => setImportar(true) } }] : []),
+          /* «RE-PRIORIZAR TODO» (16/10/2026). Corre en segundo plano: el menú se cierra y el tablero
+             sigue usable; el avance va en la línea chica de abajo del header. Si ya hay uno
+             corriendo, la fila muestra su avance en vez de arrancar otro (uno a la vez por tablero). */
+          ...(rpUI.disponible ? [{ key: 'repriorizar', nodo: (
+          <button type="button" onClick={() => { void rpUI.iniciar(); }} aria-label="Re-priorizar todo" title={rpUI.linea ?? 'Re-priorizar todo: MaKo le pone prioridad y proyecto a cada tarea, en segundo plano'}
+            style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 38, height: 38, borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', cursor: 'pointer', flex: 'none', color: rpUI.linea ? 'var(--primary)' : 'var(--dim)' }}>
+            <RepriorizarIcon />
+          </button>
+          ), menu: { icono: <RepriorizarIcon />, label: 'Re-priorizar todo',
+            desc: rpUI.linea ?? 'MaKo ordena todo en segundo plano', onClick: () => { void rpUI.iniciar(); } } }] : []),
           /* Bajarse el tablero. Sale del estado que ya está en memoria, así que anda
              igual en el tablero del dueño que en el del cliente, y baja al instante. */
           { key: 'exportar', nodo: <ExportarBoton onAbrir={() => setExportar(true)} />,
             menu: { icono: <DescargarIcon />, label: 'Exportar el tablero',
               desc: 'Baja las tareas y los proyectos a un archivo', onClick: () => setExportar(true) } },
         ]} />}
+        {/* La LÍNEA CHICA de «Re-priorizar todo»: su propio renglón del header (que envuelve), así
+            que no empuja ni tapa nada. Mientras corre, el avance; si se cortó, con «Reintentar». */}
+        <LineaRepriorizar trabajo={rpUI.trabajo} cortado={rpUI.cortado} onReintentar={() => { void rpUI.iniciar(); }} onCerrar={rpUI.cerrarCortado} />
 
       </header>
 

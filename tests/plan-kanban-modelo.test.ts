@@ -159,7 +159,7 @@ test('«Sin priorizar» es el 0, y NO es «A futuro» (aunque la banda del núme
 const tarea = (o: Partial<Tarea>): Tarea => ({
   id: 7, titulo: 't', detalle: null, estado: 'por_hacer', motivo_atorada: null, prioridad: 'media', progreso: 0, deadline: null,
   quarter: null, recurrente: false, recurrencia: null, categorias: [], checklist: [], historial: [], en_prioridad: false,
-  score: 0, score_razon: null, notas: '', deadline_razon: null, hacelo_en: null, impacto: null, esfuerzo: null,
+  score: 0, score_razon: null, score_manual: false, notas: '', deadline_razon: null, hacelo_en: null, impacto: null, esfuerzo: null,
   origen: 'manual', fuente: null, experimento_id: null, retro_id: null, orden: 3, hecho_at: null, created_at: '', updated_at: '',
   responsable: null, responsable_email: null, responsable_tipo: null, cliente_nombre: null, cliente_lead_id: null, tema: null,
   criterio_veredicto: null, criterio_regla: null, criterio_razon: null, cita: null, ...o,

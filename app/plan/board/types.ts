@@ -10,6 +10,7 @@
 // pantallas), así que traerlo desde este archivo —que también viaja al navegador— es gratis.
 import { llevaDeadline } from '@/lib/plan-recurrentes';
 import type { OpcionesPrioridadManual } from './lugar-al-soltar';
+import type { Repriorizacion } from '@/lib/plan-repriorizar-nucleo';
 // Las COLUMNAS del kanban (16/10/2026): el estado y sus reglas viven en un módulo de datos sin
 // `server-only`, el mismo que lee el server de las dos mitades. Acá sólo se declara el campo.
 import { estadoDeAvance, type EstadoTarea, type ResponsableTipo } from '@/lib/todo-estados';
@@ -390,10 +391,48 @@ export type BoardUser = { nombre: string; avatarUrl: string };
 // próximo saveTask (upsert de la fila entera) le pisa lo que el Perro acaba de escribir.
 export type GuardPatch = {
   id: string; score?: number; scoreRazon?: string; impacto?: number; esfuerzo?: number; deadline?: string; deadlineRazon?: string; haceloEn?: string;
+  /**
+   * EL JUICIO (mig 0141), cuando el server lo reescribió junto con el número (el Perro, «Re-priorizar
+   * todo»). ⚠️ Tiene que llegar a la pantalla: el guardado del dueño sube la fila ENTERA, y con la base
+   * vieja en memoria le devolvería el juicio de antes — el reparto, que curva DESDE la base, deshacería
+   * la re-priorización a la mañana siguiente. Ausente = no cambió (el reparto sólo mueve `score`).
+   */
+  scoreBase?: number;
   priority?: Prio; detalle?: string; checklist?: Check[]; historialEntry?: Hist;
   /** A qué proyecto la ruteó el Perro. Sólo viaja cuando la tarea nació SIN proyecto. */
   labels?: string[];
 };
+/**
+ * LO QUE EL SERVER YA ESCRIBIÓ, aplicado a la tarjeta en memoria —sin volver a guardarlo—. Es la
+ * regla de `aplicarPerroServer` (useBoard), sacada acá para que tenga test (tests/plan-repriorizar):
+ * la usan el Perro de siempre y «Re-priorizar todo» (16/10/2026).
+ *
+ * ⚠️ TODO lo que el server reescribió tiene que entrar, porque los dos tableros GUARDAN LA FILA ENTERA
+ * desde el navegador: lo que la pantalla no se entera vuelve a la base en el próximo guardado.
+ *  · `scoreBase`: el juicio (mig 0141). Sin él, la base vieja volvía y el reparto —que curva DESDE la
+ *    base— deshacía la re-priorización a la mañana siguiente. Ausente = no cambió (el reparto sólo
+ *    mueve `score`).
+ *  · El proyecto (`labels`), cuando el server la ruteó: la tarea nació sin uno o estaba en la bandeja.
+ *  · La entrada de historial, SIN duplicar por id: «Re-priorizar todo» repite una tanda cortada con la
+ *    MISMA entrada, y un tablero que abrió con la entrada ya en la base la recibe otra vez en el primer
+ *    sondeo. Dos copias en memoria serían dos copias en el próximo guardado.
+ */
+export function conPatchDelServer(x: BoardTask, p: GuardPatch): BoardTask {
+  return {
+    ...x,
+    score: p.score != null ? clampScore(p.score) : x.score,
+    scoreBase: p.scoreBase != null ? clampScore(p.scoreBase) : x.scoreBase,
+    priority: p.priority ?? (p.score != null ? prioFromScore(clampScore(p.score)) : x.priority),
+    scoreRazon: p.scoreRazon || x.scoreRazon,
+    impacto: p.impacto ?? x.impacto,
+    esfuerzo: p.esfuerzo ?? x.esfuerzo,
+    detalle: p.detalle || x.detalle,
+    labels: p.labels?.length ? p.labels : x.labels,
+    checklist: p.checklist?.length ? p.checklist : x.checklist,
+    historial: p.historialEntry ? [p.historialEntry, ...x.historial.filter((h) => h.id !== p.historialEntry!.id)].slice(0, HIST_CAP) : x.historial,
+  };
+}
+
 /** Ídem para un proyecto nuevo (emoji + descripción + score del Perro). */
 export type GuardProjPatch = { id: string; score: number; scoreRazon: string; impacto?: number; esfuerzo?: number; emoji: string; detalle: string };
 // `sinPuntuar` es el número de tareas que el Perro NO alcanzó a puntuar. Tiene que
@@ -466,7 +505,9 @@ export type Repo = {
    *
    * ⚠️ OPCIONAL, Y LA AUSENCIA TIENE QUE VERSE. Lo implementa SOLO el board del dueño:
    * escribe por `/api/plan-board`, que contesta 403 «solo admin» a cualquier cliente, y
-   * usa `score_manual` (mig 0143), una columna que `experimento_tareas` no tiene. Un
+   * usa `score_manual` (mig 0143). ⚠️ (16/10/2026) Lo de «SOLO el dueño» quedó viejo: el tablero
+   * del cliente también lo implementa (contra `/api/todo`, sin cascada), y desde el 16/10 clava
+   * `score_manual` — la 0143 agregó la columna a `experimento_tareas`, aunque acá decía que no. Un
    * board que no lo trae NO dibuja el control: un slider que existe y contesta 403 es
    * peor que no tenerlo — se lee como que la app está rota, y encima esconderlo no
    * protege nada porque el que decide es el server.
@@ -517,6 +558,19 @@ export type Repo = {
    * `prioridadManual` y `debatePrioridad`.
    */
   responsables?: boolean;
+  /**
+   * «RE-PRIORIZAR TODO» (16/10/2026, decisión 9): arrancar el trabajo en segundo plano y preguntar su
+   * avance. Lo implementan los DOS tableros reales, cada uno contra su ruta (`/api/todo` y
+   * `/api/plan-board`, la misma función del server: `accionDelTablero`). Opcional como todo lo de
+   * acá: el que no lo trae (la demo, un tablero armado a mano) NO dibuja la entrada del menú.
+   *
+   * `estado(desde)` devuelve el ÚLTIMO trabajo de este tablero con los cambios desde `desde` (los
+   * que la pantalla todavía no pintó), o `null` si nunca corrió ninguno. Y empuja la tanda siguiente.
+   */
+  repriorizar?: {
+    iniciar(): Promise<{ trabajo: Repriorizacion; yaCorria: boolean }>;
+    estado(desde: number): Promise<Repriorizacion | null>;
+  };
   addDep?(d: { entidad: 'tarea' | 'proyecto'; deId: string; aId: string; clase?: 'bloquea' | 'ordena'; razon?: string }): Promise<{ ok: boolean; error?: string; camino?: string[]; deps?: import('./dependencias').Dep[] }>;
   delDep?(entidad: 'tarea' | 'proyecto', deId: string, aId: string): Promise<{ ok: boolean; deps?: import('./dependencias').Dep[] }>;
 };

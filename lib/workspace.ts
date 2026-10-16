@@ -185,6 +185,10 @@ const TENANT_TABLES = new Set<string>([
   // Las reuniones de Fathom que el cron descartó por tipo (mig 0296, 16/10/2026). Sin esta línea
   // getTenantDb() es PASSTHROUGH y la lista «Descartadas» de un negocio mostraría las de todos.
   'plan_reuniones_descartadas',
+  // «Re-priorizar todo»: un trabajo por tablero, con su foto y su avance (mig 0297, 16/10/2026). Sin
+  // esta línea getTenantDb() es PASSTHROUGH: el tablero de un negocio vería —y empujaría— el trabajo
+  // de otro, y «uno a la vez» se contaría entre todos los negocios.
+  'plan_repriorizaciones',
   // Los cobros de la pasarela (Stripe / Mercado Pago, mig 0255). Sin esta línea getTenantDb() es
   // PASSTHROUGH y la tab Pagos de una ficha listaría los cobros de TODOS los negocios. Las rutas
   // públicas (/pagar/<token>) y los webhooks leen con service role y ws explícito, a propósito.

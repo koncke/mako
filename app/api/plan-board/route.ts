@@ -4,7 +4,7 @@
 // GET  → { tareas, proyectos, vacio }
 // POST { action: 'crear-tarea'|'guardar-tarea'|'borrar-tarea'
 //               |'crear-proyecto'|'guardar-proyecto'|'borrar-proyecto'
-//               |'migrar', ... }
+//               |'migrar'|'repriorizar'|'repriorizar-estado', ... }
 // Guardado a SUPER-ADMIN: es el board de la agencia (OWNER_WS lo fuerza la capa).
 // =============================================================================
 
@@ -21,6 +21,7 @@ import { esEstado } from '@/lib/todo-estados';
 import type { EntidadDep, ClaseDep } from '@/app/plan/board/dependencias';
 import { proponerTareasParaProyecto } from '@/lib/plan-proyecto-vacio';
 import { fijarPrioridadAMano, devolverPrioridadAlPerro } from '@/lib/plan-reprio';
+import { accionDelTablero } from '@/lib/plan-repriorizar';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -41,12 +42,21 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  if (!(await getSesionAdmin())) return NextResponse.json({ ok: false, error: 'solo admin' }, { status: 403 });
+  const inicio = Date.now();
+  const sesion = await getSesionAdmin();
+  if (!sesion) return NextResponse.json({ ok: false, error: 'solo admin' }, { status: 403 });
   let body: Record<string, unknown>;
   try { body = (await req.json()) as Record<string, unknown>; } catch { return NextResponse.json({ ok: false, error: 'JSON inválido' }, { status: 400 }); }
   const action = String(body.action ?? '');
 
   try {
+    // «RE-PRIORIZAR TODO» (16/10/2026): arrancar y el sondeo del avance. La misma función que la
+    // ruta del cliente; acá sólo se dice qué tablero es. El reloj del `after()` es el de esta ruta.
+    const rp = await accionDelTablero('dueno', action, body, {
+      inicio, relojMs: (maxDuration - 10) * 1000,
+      actor: async () => sesion.nombre || sesion.email || '',
+    });
+    if (rp) return NextResponse.json(rp, { status: rp.ok ? 200 : 400 });
     // Un proyecto VACÍO no es poco importante: le falta trabajo. MaKo intuye qué tareas
     // tendría y deja un BORRADOR — nunca escribe tareas directo, que es la regla de la
     // casa y acá pesa doble: lo propuesto sale de una intuición sobre un nombre.

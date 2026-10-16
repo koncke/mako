@@ -3,7 +3,8 @@
 // =============================================================================
 // GET  → { tareas, categorias }
 // POST { action: 'crear'|'crear-lote'|'mover'|'editar'|'borrar'
-//               |'categoria-crear'|'categoria-borrar', ... }
+//               |'categoria-crear'|'categoria-borrar'
+//               |'repriorizar'|'repriorizar-estado', ... }
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
@@ -13,6 +14,8 @@ import {
   type EstadoTarea, type Prioridad, type OrigenTarea, type ChecklistItem, type HistEntry, type CamposResponsable,
 } from '@/lib/todo';
 import { priorizarNuevasCliente } from '@/lib/todo-guardian';
+import { accionDelTablero } from '@/lib/plan-repriorizar';
+import { getUsuarioActual } from '@/lib/auth';
 import { esEstado } from '@/lib/todo-estados';
 // «Cómo se repite» (mig 0167): la RRULE. El saneo vive en el módulo compartido — esta ruta
 // es la PUERTA del tablero del cliente, y la columna no tiene `check`, así que lo que pase
@@ -40,6 +43,11 @@ type TareaBody = {
   titulo?: string; detalle?: string | null; prioridad?: Prioridad; estado?: EstadoTarea;
   progreso?: number; deadline?: string | null; quarter?: string | null; recurrente?: boolean; recurrencia?: unknown; categorias?: number[];
   checklist?: ChecklistItem[]; historial?: HistEntry[]; en_prioridad?: boolean; score?: number; score_razon?: string | null;
+  // EL CANDADO de «la fijaste a mano» (la columna es de la 0143; el cliente la usa desde el
+  // 16/10/2026). Sólo en `editar`, y sólo lo mandan
+  // `prioridadManual` / `prioridadAlPerro` del tablero: es la PUERTA, y sin esta línea el slider
+  // fijaría el número sin el candado — y «Re-priorizar todo» se lo pisaría.
+  score_manual?: boolean;
   // ⚠️ LA PUERTA de los cinco de #157. `lib/todo.ts` sabía escribirlos y el board
   // sabía mandarlos; si no están declarados ACÁ se caen en el camino y el síntoma es
   // el de siempre: 200 y no se guardó nada. Es el cuarto de los seis lugares que
@@ -68,12 +76,20 @@ const responsableDe = (t: TareaBody): CamposResponsable => ({
 });
 
 export async function POST(req: NextRequest) {
+  const inicio = Date.now();
   let body: Record<string, unknown>;
   try { body = await req.json(); } catch { return Response.json({ ok: false, error: 'JSON inválido' }, { status: 400 }); }
   const action = String(body.action ?? '');
   const id = Number(body.id);
 
   try {
+    // «RE-PRIORIZAR TODO» (16/10/2026): arrancar y el sondeo del avance. La misma función que la
+    // ruta del dueño; acá sólo se dice qué tablero es. El reloj del `after()` es el de esta ruta.
+    const rp = await accionDelTablero('cliente', action, body, {
+      inicio, relojMs: (maxDuration - 10) * 1000,
+      actor: async () => { const s = await getUsuarioActual(); return s?.nombre || s?.email || ''; },
+    });
+    if (rp) return Response.json(rp, { status: rp.ok ? 200 : 400 });
     // El Perro Guardián para el board del CLIENTE. Antes esta acción no existía y el
     // tablero del cliente no tenía forma de invocarlo: sus tareas entraban con el
     // score que había adivinado la extracción, sin razón, sin detalle y sin checklist
@@ -148,6 +164,7 @@ export async function POST(req: NextRequest) {
         recurrencia: patch.recurrencia,
         categorias: patch.categorias,
         checklist: patch.checklist, historial: patch.historial, en_prioridad: patch.en_prioridad, score: patch.score, score_razon: patch.score_razon,
+        score_manual: patch.score_manual,
         notas: patch.notas, deadline_razon: patch.deadline_razon, hacelo_en: patch.hacelo_en,
         impacto: patch.impacto, esfuerzo: patch.esfuerzo,
         fuente: patch.fuente,

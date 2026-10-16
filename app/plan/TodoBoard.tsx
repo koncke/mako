@@ -20,9 +20,15 @@ import type { Tarea, Categoria } from '@/lib/todo';
 import { CATALOGO_TODO } from '@/lib/todo-proyectos-catalogo';
 import type { ClienteRef } from '@/lib/plan-clientes';
 import { avanceSiCambio } from '@/lib/todo-estados';
+import type { Repriorizacion } from '@/lib/plan-repriorizar-nucleo';
 
 
 async function api(body: Record<string, unknown>): Promise<{ ok: boolean; tarea?: Tarea; categoria?: Categoria; patches?: GuardPatch[]; error?: string }> {
+  return fetch('/api/todo', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+    .then((r) => r.json()).catch((e) => ({ ok: false, error: String(e) }));
+}
+/** «Re-priorizar todo» (16/10/2026): las dos acciones de /api/todo, con su forma. */
+async function apiRP(body: Record<string, unknown>): Promise<{ ok: boolean; trabajo?: Repriorizacion | null; yaCorria?: boolean; error?: string }> {
   return fetch('/api/todo', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
     .then((r) => r.json()).catch((e) => ({ ok: false, error: String(e) }));
 }
@@ -190,18 +196,25 @@ export function TodoBoard({ tareas, categorias, demo, user, wsId, vistaInicial, 
      *
      * ⚠️ NO ES LA MISMA IMPLEMENTACIÓN QUE LA DEL DUEÑO, Y NO PUEDE SERLO. Allá
      * `/api/plan-board` corre la cascada del método (desempatar, auditar, mover a los
-     * vecinos) y clava `score_manual` (mig 0143). Acá no hay cascada ni candado:
-     * `experimento_tareas` no tiene esa columna y su Perro no re-puntúa lo que ya existe
-     * —sólo lo que NACE—, así que no hay nada de lo que haya que protegerse. Escribir el
-     * número alcanza; inventarle un candado que nada respeta sería peor.
+     * vecinos) y clava `score_manual` (mig 0143). Acá no hay cascada.
+     *
+     * ⚠️ Y DESDE EL 16/10/2026 SÍ HAY CANDADO (`experimento_tareas.score_manual`). La columna
+     * existe desde la mig 0143 —que la agregó a las TRES tablas—, pero acá nadie la escribía ni la
+     * leía, y este comentario decía que la tabla no la tenía. Hasta ese día el Perro del cliente
+     * sólo puntuaba lo que NACÍA y no había nada de qué protegerse; «Re-priorizar todo» re-puntúa
+     * lo que ya existe, y sin el candado se llevaba puesto el número que fijó la persona. La llave
+     * es `prioridadAlPerro`, más abajo.
      */
     prioridadManual: async (entidad, id, score, opts) => {
       const n = Math.max(1, Math.min(100, Math.round(score)));
       if (demo) return { score: n, movidos: [] };
       // `score_razon` viaja con el número: sin eso, la tarjeta queda mostrando la razón que
       // escribió MaKo al lado de un score que ya no es el suyo.
+      // `score_manual: true` (mig 0143): EL CANDADO, que «Re-priorizar todo» respeta. Hasta el
+      // 16/10/2026 acá no hacía falta —el Perro del cliente sólo puntuaba lo que nacía—, y la razón
+      // escrita no sirve de marca: la pantalla guarda otra («Prioridad fijada a mano»).
       const j = entidad === 'tarea'
-        ? await api({ action: 'editar', id: Number(id), patch: { score: n, prioridad: prioFromScore(n), score_razon: 'La fijaste a mano' } })
+        ? await api({ action: 'editar', id: Number(id), patch: { score: n, prioridad: prioFromScore(n), score_razon: 'La fijaste a mano', score_manual: true } })
         : await api({ action: 'categoria-editar', id: Number(id), patch: { prioridad: n, score_razon: 'La fijaste a mano' } });
       if (!j.ok) throw new Error(j.error || 'No se pudo cambiar la prioridad.');
       if (entidad !== 'tarea') return { score: n, movidos: [] };
@@ -226,6 +239,35 @@ export function TodoBoard({ tareas, categorias, demo, user, wsId, vistaInicial, 
       }
       return { score: n, movidos };
     },
+    /**
+     * DEVOLVERLE LA DECISIÓN A MAKO: la llave del candado de arriba (16/10/2026). Sin ella, una
+     * tarea fijada a mano en el tablero de un cliente quedaba fuera de «Re-priorizar todo» para
+     * siempre — un candado sin llave (AGENTS.md → «score_manual no lo pone una corrida»). Las
+     * categorías no tienen candado: ahí no hay nada que devolver.
+     */
+    prioridadAlPerro: async (entidad, id) => {
+      if (demo || entidad !== 'tarea') return;
+      const j = await api({ action: 'editar', id: Number(id), patch: { score_manual: false, score_razon: null } });
+      if (!j.ok) throw new Error(j.error || 'No se pudo.');
+    },
+    /**
+     * «RE-PRIORIZAR TODO» (16/10/2026, decisión 9): el trabajo en segundo plano de /api/todo. El
+     * menú del tablero sólo lo dibuja si esto existe; en la demo no hay base, así que no.
+     */
+    ...(demo ? {} : {
+      repriorizar: {
+        iniciar: async () => {
+          const j = await apiRP({ action: 'repriorizar' });
+          if (!j.ok || !j.trabajo) throw new Error(j.error || 'No se pudo arrancar.');
+          return { trabajo: j.trabajo, yaCorria: !!j.yaCorria };
+        },
+        estado: async (desde: number) => {
+          const j = await apiRP({ action: 'repriorizar-estado', desde });
+          if (!j.ok) throw new Error(j.error || 'No se pudo leer el avance.');
+          return j.trabajo ?? null;
+        },
+      },
+    }),
     deleteTask: async (id) => { if (demo) return; await api({ action: 'borrar', id: Number(id) }); },
     createLabel: async (l) => {
       if (demo) return l;

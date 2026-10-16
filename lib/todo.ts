@@ -67,6 +67,14 @@ export type Tarea = {
   score: number;                 // 1-100 del guardián (define la columna)
   score_razon: string | null;    // por qué el guardián le puso ese score
   /**
+   * La prioridad la fijó una PERSONA: «Re-priorizar todo» no le toca el número. La columna es de
+   * la mig 0143 (gemela de `plan_tareas.score_manual`), pero en este tablero nadie la escribía ni la
+   * leía hasta el 16/10/2026. Lo pone `prioridadManual` del
+   * tablero (el slider, el lote) y lo saca `prioridadAlPerro`; ⚠️ NO viaja en `editPatch`: el
+   * candado no puede abrirse solo porque una pestaña vieja guardó la tarjeta.
+   */
+  score_manual: boolean;
+  /**
    * Los TRES que el tablero del cliente dibujaba y no guardaba (#157, medido el
    * 30/09/2026). Las columnas existen desde las migs 0114 y 0115; lo que faltaba era
    * todo el resto del camino, y el síntoma es el de siempre: el campo se edita, la
@@ -196,6 +204,8 @@ export const rowTo = (r: Record<string, unknown>): Tarea => {
   t.recurrencia = recurrenciaDe({ recurrente: t.recurrente, recurrencia: r.recurrencia });
   t.score = Math.max(0, Math.min(100, Math.round(Number(r.score) || 0)));
   t.score_razon = typeof r.score_razon === 'string' && r.score_razon.trim() ? (r.score_razon as string) : null;
+  // `!!`: una fila cruda sin la columna (un mock, un `select` acotado) llega `undefined` — «nadie la fijó».
+  t.score_manual = !!r.score_manual;
   t.estado = estadoOk(r.estado);
   // Sólo existe en «Atorada»: un motivo pegado a otra columna (un script, una fila vieja) se lee
   // como null, que es lo que la tarjeta sabe dibujar.
@@ -617,7 +627,7 @@ async function repiteTarea(id: number): Promise<boolean> {
 
 export async function editarTarea(
   id: number,
-  patch: { titulo?: string; detalle?: string | null; prioridad?: Prioridad; progreso?: number; deadline?: string | null; quarter?: string | null; recurrente?: boolean; recurrencia?: unknown; categorias?: number[]; checklist?: ChecklistItem[]; historial?: HistEntry[]; en_prioridad?: boolean; score?: number; score_razon?: string | null; fuente?: { tipo: string; etiqueta?: string; url?: string } | null; notas?: string; deadline_razon?: string | null; hacelo_en?: string | null; impacto?: number | null; esfuerzo?: number | null } & CamposResponsable,
+  patch: { titulo?: string; detalle?: string | null; prioridad?: Prioridad; progreso?: number; deadline?: string | null; quarter?: string | null; recurrente?: boolean; recurrencia?: unknown; categorias?: number[]; checklist?: ChecklistItem[]; historial?: HistEntry[]; en_prioridad?: boolean; score?: number; score_razon?: string | null; score_manual?: boolean; fuente?: { tipo: string; etiqueta?: string; url?: string } | null; notas?: string; deadline_razon?: string | null; hacelo_en?: string | null; impacto?: number | null; esfuerzo?: number | null } & CamposResponsable,
 ): Promise<Tarea> {
   const upd: Record<string, unknown> = { updated_at: new Date().toISOString(), ...camposResponsableOk(patch) };
   if (patch.titulo != null) upd.titulo = patch.titulo.trim() || 'Tarea';
@@ -703,6 +713,10 @@ export async function editarTarea(
   if (patch.en_prioridad !== undefined) upd.en_prioridad = !!patch.en_prioridad;
   if (patch.score !== undefined) upd.score = Math.max(0, Math.min(100, Math.round(patch.score)));
   if (patch.score_razon !== undefined) upd.score_razon = patch.score_razon;
+  // EL CANDADO (mig 0143): sólo cuando viene explícito. Lo mandan `prioridadManual` (true) y
+  // `prioridadAlPerro` (false) del tablero, nunca `editPatch`: si viajara en cada guardado, una
+  // pestaña vieja abriría el candado que se puso en otra.
+  if (patch.score_manual !== undefined) upd.score_manual = !!patch.score_manual;
   // De dónde salió (reunión + minuto). Faltaba: una tarea de Fathom se guardaba sin
   // fuente y quedaba sin chip de origen ni link a la grabación.
   if (patch.fuente !== undefined) upd.fuente = patch.fuente;

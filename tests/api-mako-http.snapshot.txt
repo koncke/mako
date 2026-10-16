@@ -497,6 +497,7 @@ ver_publico_conjunto_meta
 ver_puente_flow
 ver_rechazos_pago_landing
 ver_rendimiento_anuncios
+ver_repriorizacion_plan
 ver_revenue_mensual
 ver_revenue_periodo
 ver_salud_cuenta_meta

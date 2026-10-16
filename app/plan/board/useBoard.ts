@@ -6,7 +6,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useUndoToast } from '../../_components/UndoToast';
 import { quarterDeFecha } from './cuando';
-import { type BoardTask, type Label, type BoardUser, type Repo, type Hist, type Actor, type Fuente, type Prio, type EstadoTarea, type Check, type GuardPatch, type GuardProjPatch, PLABEL, MAX_PRIORIDAD, HIST_CAP, uid, clampPct, clampScore, clampProj, prioFromScore, scoreFromPrio, estadoDe } from './types';
+import { type BoardTask, type Label, type BoardUser, type Repo, type Hist, type Actor, type Fuente, type Prio, type EstadoTarea, type Check, type GuardPatch, type GuardProjPatch, PLABEL, MAX_PRIORIDAD, HIST_CAP, uid, clampPct, clampScore, clampProj, prioFromScore, scoreFromPrio, estadoDe, conPatchDelServer } from './types';
 import { type Dep, type ClaseDep, type EntidadDep, puedeDepender } from './dependencias';
 import { baseCorrida } from './lugar-al-soltar';
 // «Se repite para siempre» (mig 0163). El predicado, la regla de la fecha y los porqués
@@ -342,21 +342,9 @@ export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user
   const aplicarPerroServer = (patches: GuardPatch[], proys: GuardProjPatch[] = []) => {
     if (patches.length) {
       setTasks((ts) => ts.map((x) => {
-        const p = patches.find((q) => q.id === x.id); if (!p) return x;
-        return {
-          ...x,
-          score: p.score != null ? clampScore(p.score) : x.score,
-          priority: p.priority ?? (p.score != null ? prioFromScore(clampScore(p.score)) : x.priority),
-          scoreRazon: p.scoreRazon || x.scoreRazon,
-          impacto: p.impacto ?? x.impacto,
-          esfuerzo: p.esfuerzo ?? x.esfuerzo,
-          detalle: p.detalle || x.detalle,
-          // El proyecto que el Perro ruteó. Sólo viene cuando la tarea nació SIN uno: una
-          // tarjeta que ya tenía proyecto no se le toca ni acá ni en el server.
-          labels: p.labels?.length ? p.labels : x.labels,
-          checklist: p.checklist?.length ? p.checklist : x.checklist,
-          historial: p.historialEntry ? [p.historialEntry, ...x.historial].slice(0, HIST_CAP) : x.historial,
-        };
+        const p = patches.find((q) => q.id === x.id);
+        // La regla campo por campo vive en `conPatchDelServer` (types.ts), pura y con test.
+        return p ? conPatchDelServer(x, p) : x;
       }));
     }
     if (proys.length) {

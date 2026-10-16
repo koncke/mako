@@ -36,6 +36,11 @@ export const toBoard = (t: Tarea): BoardTask => ({
   // tarjeta que ya exista.
   priority: prioFromScore(t.score), score: t.score,
   scoreRazon: t.score_razon ?? undefined,
+  // EL CANDADO de «la fijaste a mano» (columna de la mig 0143, que el cliente no leía hasta el
+  // 16/10/2026). Se LEE para que la tarjeta lo diga y
+  // ofrezca devolvérselo a MaKo; NO va en `editPatch`: lo escriben sólo `prioridadManual` y
+  // `prioridadAlPerro` (TodoBoard.tsx), o una pestaña vieja lo abriría al guardar.
+  scoreManual: t.score_manual,
   // LA COLUMNA DEL KANBAN y su motivo (migs 0159 y 0294), y el lugar dentro de ella. Van en el
   // mapper de ENTRADA o la tarjeta nace en «Por iniciar» en cada carga aunque la fila diga otra
   // cosa. NO van en `editPatch` (TodoBoard.tsx): los escribe la acción `mover`.

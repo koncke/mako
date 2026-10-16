@@ -89,6 +89,15 @@ export const DEFS: readonly OperacionDef[] = [
     salida: 'json', canales: TODOS, costo: 'gratis', gating: TAB,
   },
   {
+    // «Re-priorizar todo» (16/10/2026): el avance del trabajo en segundo plano. Gratis y por HTTP:
+    // son números del tablero, sin personas ni textos de reuniones.
+    id: 'ver_repriorizacion_plan', area: 'plan', tipo: 'lectura',
+    titulo: 'Avance de «Re-priorizar todo»',
+    descripcion: 'El último «Re-priorizar todo» de este tablero: si sigue corriendo, cuántas tareas lleva de cuántas, cuántas puntuó, cuántas sacó de «Sin proyecto», cuántas fijadas a mano respetó y el último error. No requiere parámetros.',
+    parametros: [],
+    salida: 'json', canales: TODOS, costo: 'gratis', gating: TAB,
+  },
+  {
     id: 'listar_tareas_vencidas', area: 'plan', tipo: 'lectura',
     titulo: 'Tareas vencidas o por vencer',
     descripcion: 'Tareas abiertas cuyo deadline ya pasó o cae dentro de los próximos N días, con los días que faltan (negativo = vencida hace esos días) y la razón del deadline. Responde «¿qué se me venció?» y «¿qué vence esta semana?». Los días se cuentan en días de calendario contra la fecha de hoy en la zona horaria del negocio (el campo `ventana.hoy`).',
@@ -275,6 +284,17 @@ export const DEFS: readonly OperacionDef[] = [
     ],
     escribe: 'el estado, el lugar en la columna y el historial de la tarea (plan_tareas o experimento_tareas)',
     canales: TODOS, costo: 'gratis', gating: TAB,
+  },
+  {
+    // «Re-priorizar todo» (16/10/2026, decisión 9): el mismo trabajo que el botón de los tres puntos
+    // del tablero. Llama al Perro (la red gratis: el Plan nunca paga IA), así que no sale por HTTP —
+    // un token en la máquina de un tercero no debería poder quemar cuota en bucle— y es de admin.
+    id: 'repriorizar_plan', area: 'plan', tipo: 'accion', confirmacion: 'chat', reversible: false,
+    titulo: 'Re-priorizar todo el plan',
+    descripcion: 'Arranca «Re-priorizar todo»: MaKo le pone prioridad a cada tarea abierta (también a las «Sin priorizar») y le busca proyecto a las de «Sin proyecto», en segundo plano y por tandas. Respeta lo fijado a mano y no toca fechas. Uno a la vez por tablero. El avance, con ver_repriorizacion_plan.',
+    parametros: [],
+    escribe: 'el score, su razón, la prioridad y el historial de las tareas abiertas del plan, y el proyecto de las que estaban en «Sin proyecto», por tandas en segundo plano (el avance en plan_repriorizaciones); en el tablero del super-admin, además, el reparto y el score de los proyectos',
+    canales: SIN_HTTP, costo: 'ia', gating: TAB_ADMIN,
   },
   {
     id: 'agregar_dependencia_plan', area: 'plan', tipo: 'accion', confirmacion: 'chat', reversible: true,

@@ -46,6 +46,8 @@ import { proponerProyecto } from '@/lib/checklist-coach';
 import { proyectosSinTareas, proponerTareasParaProyecto } from '@/lib/plan-proyecto-vacio';
 import { leerSenales, contextoDelNegocio } from '@/lib/plan-senales';
 import { listReunionesRecientes } from '@/lib/plan-fathom';
+// «Re-priorizar todo» (16/10/2026): el MISMO trabajo que el botón del tablero, no una copia.
+import { iniciarRepriorizacion, verRepriorizacion, cuantasEntrarian, type Repriorizacion } from '@/lib/plan-repriorizar';
 import { listarDescartadas } from '@/lib/reunion-descartadas';
 import { AREA_GLOSARIO } from '@/lib/glosario';
 import { createKnowledge, updateKnowledge } from '@/lib/mako-knowledge';
@@ -292,6 +294,29 @@ export const RUNNERS: Runners = {
         tareas_abiertas_sin_proyecto: tab.tareas.filter((t) => compite(t) && !t.proyectoId).length,
         nota: 'avance_pct = promedio del avance de sus tareas CON FIN (null = no tiene ninguna; con se_repiten > 0 eso NO es «abandonado»). `abiertas` y `hechas` tampoco cuentan las que se repiten. Los proyectos con `se_repite: true` están en la lista pero NO en objetivo_principal: no compiten. score_fijado_por_el_dueno null = este tablero no registra ese dato (no es «no lo fijó»).',
         ...aviso(tab),
+      });
+    },
+  },
+
+  /**
+   * El avance del último «Re-priorizar todo» (16/10/2026). Lo mismo que dibuja la línea chica del
+   * tablero, más los conteos. Sin los cambios por tarea: son para que la pantalla no pise lo escrito.
+   */
+  ver_repriorizacion_plan: {
+    leer: async (_input, ctx) => {
+      const tablero = (await usaPlanBoard(ctx.ws)) ? 'dueno' : 'cliente';
+      const t: Repriorizacion | null = await verRepriorizacion(tablero, Number.MAX_SAFE_INTEGER);
+      if (!t) return json({ tablero: tablero === 'dueno' ? 'plan' : 'todo', trabajo: null, nota: 'Nunca se corrió «Re-priorizar todo» en este tablero (se arranca con repriorizar_plan o desde los tres puntos del tablero).' });
+      return json({
+        tablero: tablero === 'dueno' ? 'plan' : 'todo',
+        trabajo: {
+          id: t.id, estado: t.estado, avance: `${Math.min(t.hechas, t.total)}/${t.total}`,
+          total: t.total, hechas: t.hechas, puntuadas: t.puntuadas, sacadas_de_sin_proyecto: t.ruteadas,
+          fijadas_respetadas: t.fijadas, sin_puntuar: t.sinPuntuar,
+          ultimo_error: t.error, modelo: t.modelo, pidio: t.actor, arranco: t.creada, termino: t.terminada,
+          ...(t.estado === 'corriendo' && t.fase === 'cierre' ? { fase: 'reparto final y proyectos' } : {}),
+        },
+        nota: 'estado: corriendo (sigue, en segundo plano) · hecho · error (una tanda falló tres veces y se cortó; lo hecho hasta ahí queda). ultimo_error puede tener texto aunque haya terminado bien: es el último fallo, aunque el reintento haya salido. sin_puntuar = el modelo no las alcanzó y conservan su número.',
       });
     },
   },
@@ -755,6 +780,43 @@ export const RUNNERS: Runners = {
       const e = entrada(etiquetaEstado(t.estado));
       const r = await moverTarea(t.id, estado, undefined, { motivo, historial: [e, ...t.historial].slice(0, 40) });
       return r.ok ? { ok: true, resumen: `«${t.titulo}»: ${e.text}` } : { ok: false, resumen: r.error };
+    },
+  },
+
+  /**
+   * «RE-PRIORIZAR TODO» (16/10/2026, decisión 9). `preparar` sólo cuenta (la misma foto que sacaría
+   * el arranque) y frena si ya hay uno corriendo; `ejecutar` deja el trabajo y contesta al instante.
+   * ⚠️ NO empuja la primera tanda en `after()`: desde acá no se sabe con cuánto reloj corre quien
+   * confirma (WhatsApp, la bandeja, un flujo), y una tanda necesita 75 s. Lo levanta el cron
+   * /api/cron/plan-repriorizar, que corre cada minuto.
+   */
+  repriorizar_plan: {
+    preparar: async (_input, ctx) => {
+      const tablero = (await usaPlanBoard(ctx.ws)) ? 'dueno' : 'cliente';
+      const ya = await verRepriorizacion(tablero, Number.MAX_SAFE_INTEGER);
+      if (ya?.estado === 'corriendo') {
+        return { error: `Ya está re-priorizando este plan: va ${Math.min(ya.hechas, ya.total)} de ${ya.total}. El avance, con ver_repriorizacion_plan.`, yaEstaba: true };
+      }
+      const n = await cuantasEntrarian(tablero);
+      if (!n.total) return { error: 'No hay tareas abiertas en el plan para re-priorizar.', yaEstaba: true };
+      return {
+        payload: { tablero },
+        resumen: `Re-priorizar las ${n.total} tareas abiertas del plan, en segundo plano${n.fijadas ? ` (respeta ${n.fijadas} fijada${n.fijadas === 1 ? '' : 's'} a mano)` : ''}. No toca fechas.`,
+      };
+    },
+    ejecutar: async (payload, ctx): Promise<Ejecutado> => {
+      const tablero = payload.tablero === 'dueno' ? 'dueno' : 'cliente';
+      try {
+        const quien = `MaKo (${ctx.canal === 'whatsapp' ? 'WhatsApp' : ctx.canal === 'app' ? 'el chat de la app' : ctx.canal})`;
+        const r = await iniciarRepriorizacion({ tablero, actor: ctx.actor ? `${ctx.actor} · ${quien}` : quien, origen: 'api' });
+        const t = r.trabajo;
+        const datos = { trabajoId: t.id, total: t.total };
+        if (r.yaCorria) return { ok: true, resumen: `Ya estaba re-priorizando: va ${Math.min(t.hechas, t.total)} de ${t.total}.`, datos };
+        if (t.estado !== 'corriendo') return { ok: true, resumen: 'No había tareas abiertas para re-priorizar.', datos };
+        return { ok: true, resumen: `Arranqué a re-priorizar ${t.total} tareas en segundo plano, por tandas. El avance se ve en el tablero y con ver_repriorizacion_plan.`, datos };
+      } catch (e) {
+        return { ok: false, resumen: `No pude arrancar: ${e instanceof Error ? e.message : String(e)}` };
+      }
     },
   },
 

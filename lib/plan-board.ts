@@ -1288,7 +1288,9 @@ export async function priorizarNuevasOwner(ids: string[], proyectoIds: string[] 
         // `score_base` es EL JUICIO del Perro (mig 0141). `score` se pisa después en el
         // reparto; la base no la toca nadie más.
         patch.score = g.score; patch.score_base = g.score; patch.score_razon = g.razon || null; patch.impacto = g.impacto ?? null; patch.esfuerzo = g.esfuerzo ?? null; patch.priority = prio;
-        Object.assign(out, { score: g.score, scoreRazon: g.razon || '', impacto: g.impacto, esfuerzo: g.esfuerzo, priority: prio });
+        // `scoreBase` viaja con el número (16/10/2026): la pantalla lo necesita para no devolver la
+        // base vieja en el próximo guardado (ver `GuardPatch.scoreBase`).
+        Object.assign(out, { score: g.score, scoreBase: g.score, scoreRazon: g.razon || '', impacto: g.impacto, esfuerzo: g.esfuerzo, priority: prio });
         // LA FECHA la pone el Perro, pero NUNCA pisa una que ya esté: si la tarea vino
         // con deadline (lo dijo la reunión, lo puso el dueño), esa manda. Una prioridad
         // sin fecha es una intención — por eso la propone él y no se espera a que

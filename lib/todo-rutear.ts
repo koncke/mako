@@ -57,6 +57,13 @@ export type DestinoTarea = {
   /** Del catálogo: el color y el emoji con el que hay que crearlo si no existe. */
   color?: string;
   emoji?: string;
+  /**
+   * DE DÓNDE SALIÓ el destino (16/10/2026, «Re-priorizar todo»). Quien llama decide con esto qué
+   * puede CREAR: un «Cliente: X» que sale del CRM y un área del catálogo sí; un proyecto que propuso
+   * el modelo (`nuevo`) o quien cargó la tarea (`sugerido`), no — en un trabajo que corre solo,
+   * sin nadie mirando, un nombre inventado abriría un proyecto (lib/plan-bandeja.ts).
+   */
+  via?: 'cliente' | 'proyecto' | 'perro' | 'nuevo' | 'sugerido';
 };
 
 export async function rutearTareasCliente(items: TareaARutear[]): Promise<DestinoTarea[]> {
@@ -69,8 +76,8 @@ export async function rutearTareasCliente(items: TareaARutear[]): Promise<Destin
   const pendientes: number[] = [];
   await Promise.all(items.map(async (it, i) => {
     const r = await proyectoParaTarea({ titulo: it.titulo, detalle: it.detalle, proyectoSugerido: it.proyectoSugerido }).catch(() => null);
-    if (r?.cliente && r.nombre) { out[i] = { nombre: r.nombre, razon: `es de ${r.cliente.nombre}, un cliente del CRM` }; return; }
-    if (r?.porProyecto) { out[i] = { nombre: r.porProyecto, razon: `el texto nombra el proyecto «${r.porProyecto}», que ya existe` }; return; }
+    if (r?.cliente && r.nombre) { out[i] = { nombre: r.nombre, razon: `es de ${r.cliente.nombre}, un cliente del CRM`, via: 'cliente' }; return; }
+    if (r?.porProyecto) { out[i] = { nombre: r.porProyecto, razon: `el texto nombra el proyecto «${r.porProyecto}», que ya existe`, via: 'proyecto' }; return; }
     pendientes.push(i);
   }));
   if (!pendientes.length) return out;
@@ -102,7 +109,7 @@ export async function rutearTareasCliente(items: TareaARutear[]): Promise<Destin
     const idx = pendientes[a.i];
     if (idx == null) continue;
     const cat = delCatalogoTodo(a.destino);
-    out[idx] = { nombre: a.destino, razon: a.razon || 'lo eligió MaKo entre los proyectos que ya hay', color: cat?.color, emoji: cat?.emoji };
+    out[idx] = { nombre: a.destino, razon: a.razon || 'lo eligió MaKo entre los proyectos que ya hay', color: cat?.color, emoji: cat?.emoji, via: 'perro' };
   }
 
   // Los proyectos que el Perro pidió abrir. El camino del cliente los TIRABA entero:
@@ -117,12 +124,12 @@ export async function rutearTareasCliente(items: TareaARutear[]): Promise<Destin
     for (const k of (n.tareas ?? [])) {
       const idx = pendientes[k];
       if (idx == null) continue;
-      out[idx] = { nombre: n.nombre, razon: n.porQue.slice(0, 200) || 'MaKo lo abrió: ninguno de los que tenías lo cubría' };
+      out[idx] = { nombre: n.nombre, razon: n.porQue.slice(0, 200) || 'MaKo lo abrió: ninguno de los que tenías lo cubría', via: 'nuevo' };
     }
   }
   // ── 4: red. Lo que propuso quien la cargó, si el ruteo no la alcanzó.
   for (const i of pendientes) {
-    if (!out[i].nombre && items[i].proyectoSugerido) out[i] = { nombre: items[i].proyectoSugerido, razon: 'lo propuso quien cargó la tarea (el ruteo no respondió)' };
+    if (!out[i].nombre && items[i].proyectoSugerido) out[i] = { nombre: items[i].proyectoSugerido, razon: 'lo propuso quien cargó la tarea (el ruteo no respondió)', via: 'sugerido' };
   }
   return out;
 }
