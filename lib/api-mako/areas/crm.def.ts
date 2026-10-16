@@ -210,7 +210,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'cobranza_lead', area: 'crm', tipo: 'lectura',
     titulo: 'Plan de pagos de un lead',
-    descripcion: 'El estado de cobranza de UN lead: total vendido en USD, si es suscripción (con su monto mensual), duración, fecha de cierre e inicio de servicio, si tiene contrato, y cada cuota con su id, monto en USD, vencimiento, si está pagada, fecha de pago y si tiene comprobante. Responde «¿cuánto le falta pagar a X?». El id de cada cuota es el que pide marcar_pago_cobrado.',
+    descripcion: 'El estado de cobranza de UN lead: total vendido en USD, si es suscripción (con su monto mensual), duración, fecha de cierre e inicio de servicio, si tiene contrato, y cada cuota con su id, monto en USD, vencimiento, si está pagada, fecha de pago y si tiene comprobante. Responde «¿cuánto le falta pagar a X?». Trae también el estado de cuenta de la tab Pagos (qué debe, el detalle y qué hacer ahora: la acción que toca y, si es cobrar una cuota, su id), los últimos movimientos de plata (cobros, rechazos y devoluciones, del más nuevo al más viejo) y los avisos que piden algo (un contracargo, una devolución que falló). El id de cada cuota es el que pide marcar_pago_cobrado.',
     parametros: [leadId()],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: TAB,
   },

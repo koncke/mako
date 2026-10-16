@@ -30,7 +30,7 @@ import { aplicarCambio, fichaEfectiva, RESPALDO_VACIO, type FichaGuardada } from
 import { PLANTILLAS_FICHA, type PlantillaId } from '../lib/ficha/plantillas';
 import type { TabFicha } from '../lib/ficha/catalogo';
 import {
-  gruposDeLaFicha, piezasDelTelefono, piezasQueSeDibujan, tabsQueVe, type PiezaFicha, type PiezaPuesta,
+  gruposDeLaFicha, piezasDelTelefono, piezasQueSeDibujan, saldoDelTelefono, tabsQueVe, type PiezaFicha, type PiezaPuesta,
 } from '../app/m/crm/ficha-bloques';
 
 const RAIZ = resolve(import.meta.dirname, '..');
@@ -50,11 +50,12 @@ const sinReunion = tabsQueVe({ verTracking: true, verReuniones: false });
 // de reunión (la misma regla elige la plantilla y saca la tab Reuniones); las demás no.
 const ESPERADO: Record<PlantillaId, { ve: readonly TabFicha[]; piezas: PiezaFicha[] }> = {
   // Resumen: proxima-reunion → contacto → … → lo-que-contesto → origen → … → notas. Reuniones: lo que salió.
+  // 16/10/2026: donde el Resumen trae `cobrado`, el estado de cuenta ('saldo') va en su lugar (la tab Pagos en bloques).
   'respaldo': { ve: conReunion, piezas: ['proxima', 'contacto', 'contesto', 'llego-por', 'notas', 'llamada'] },
-  'dos-reuniones': { ve: conReunion, piezas: ['proxima', 'contacto', 'contesto', 'llego-por', 'notas', 'llamada'] },
-  'una-llamada': { ve: conReunion, piezas: ['proxima', 'contacto', 'contesto', 'llego-por', 'notas', 'llamada'] },
+  'dos-reuniones': { ve: conReunion, piezas: ['proxima', 'contacto', 'contesto', 'saldo', 'llego-por', 'notas', 'llamada'] },
+  'una-llamada': { ve: conReunion, piezas: ['proxima', 'contacto', 'contesto', 'saldo', 'llego-por', 'notas', 'llamada'] },
   // Reuniones: reunion-1 y ciclo-de-venta, sin «lo que salió de la llamada».
-  'evento': { ve: conReunion, piezas: ['proxima', 'contacto', 'contesto', 'llego-por', 'notas'] },
+  'evento': { ve: conReunion, piezas: ['proxima', 'contacto', 'contesto', 'saldo', 'llego-por', 'notas'] },
   // La próxima reunión va al final: «se calla salvo que reserve por Cal.com» (§4).
   'formulario-meta': { ve: sinReunion, piezas: ['contacto', 'contesto', 'llego-por', 'proxima', 'notas'] },
   'landing': { ve: sinReunion, piezas: ['contacto', 'contesto', 'llego-por', 'proxima', 'notas'] },
@@ -62,7 +63,7 @@ const ESPERADO: Record<PlantillaId, { ve: readonly TabFicha[]; piezas: PiezaFich
   'te-escriben': { ve: sinReunion, piezas: ['contacto', 'llego-por', 'notas'] },
   'prospeccion': { ve: sinReunion, piezas: ['contacto', 'notas'] },
   // El origen antes que lo que contestó, como en la plantilla del carrito.
-  'carrito': { ve: sinReunion, piezas: ['contacto', 'llego-por', 'contesto', 'notas'] },
+  'carrito': { ve: sinReunion, piezas: ['contacto', 'saldo', 'llego-por', 'contesto', 'notas'] },
 };
 
 test('con cada plantilla, el teléfono ve los bloques que tienen versión de teléfono, en su orden', () => {
@@ -70,6 +71,30 @@ test('con cada plantilla, el teléfono ve los bloques que tienen versión de tel
   for (const [id, e] of Object.entries(ESPERADO) as Array<[PlantillaId, (typeof ESPERADO)[PlantillaId]]>) {
     assert.deepEqual(delFunnel(id, null, e.ve), e.piezas, `plantilla «${id}»`);
   }
+});
+
+test('con un deal, Pagos entra al teléfono con UNA pieza: el estado de cuenta, que sin nada que contar se calla', () => {
+  // 16/10/2026 (la tab Pagos en bloques): `cobrado` («Estado de cuenta») → 'saldo'. Va después de las tabs que van
+  // antes en escritorio, y sin deal la tab ni entra (`verPagos`).
+  // Probado rompiéndolo (16/10/2026; entero, 7 / 0): `cobrado` sin pieza → 4 / 3; Pagos nunca entra → 6 / 1; el saldo
+  // no se calla vacío → 6 / 1; la ficha no lo dibuja → 6 / 1; el server lo cuenta por su lado → 6 / 1.
+  const conPagos = tabsQueVe({ verTracking: true, verReuniones: true, verPagos: true });
+  assert.deepEqual(conPagos, ['resumen', 'tracking', 'reuniones', 'pagos']);
+  // El respaldo no lo trae en el Resumen: sale de Pagos, al final, y sólo si el lead ve Pagos.
+  assert.deepEqual(delFunnel('respaldo', null, conPagos), ['proxima', 'contacto', 'contesto', 'llego-por', 'notas', 'llamada', 'saldo']);
+  assert.ok(!delFunnel('respaldo', null, conReunion).includes('saldo'), 'sin deal, Pagos no está y el saldo tampoco');
+  // Una llamada lo trae también en el Resumen: va ahí, una sola vez.
+  assert.deepEqual(delFunnel('una-llamada', null, conPagos).filter((x) => x === 'saldo').length, 1);
+  const puestas = piezasDelTelefono(fichaEfectiva('respaldo', null, RESPALDO_VACIO).tabs, conPagos);
+  const base = { proxima: null, llegoPor: null, respuestas: 0, llamada: false };
+  assert.ok(!piezas(piezasQueSeDibujan(puestas, { ...base, saldo: null })).includes('saldo'), 'el estado de cuenta se calla sin nada que contar');
+  assert.ok(piezas(piezasQueSeDibujan(puestas, { ...base, saldo: { texto: 'Debe $500', tono: 'rojo' } })).includes('saldo'));
+  assert.deepEqual(saldoDelTelefono({ titular: 'Debe $500', detalle: 'Cuota 2 venció el 02/10 · hace 14 días', tono: 'rojo' }),
+    { texto: 'Debe $500 · Cuota 2 venció el 02/10 · hace 14 días', tono: 'rojo' });
+  assert.equal(saldoDelTelefono(null), null);
+  // La ficha la dibuja como una fila, y el server la cuenta con la MISMA función que el escritorio.
+  assert.match(sinComentarios(leer('app/m/crm/[id]/FichaLead.tsx')), /case 'saldo': return p\.saldo && <FilaDatoM k="Estado de cuenta"/);
+  assert.match(sinComentarios(leer('app/m/crm/datos.ts')), /saldoDelTelefono\(estadoDeCuenta\(\{ cobrado, pagos, ganado: lead\.estado_lead === 'ganado', hoy \}\)\)/);
 });
 
 test('las tabs de escritorio van una debajo de la otra, y sólo las que el lead ve', () => {
@@ -90,17 +115,17 @@ test('sigue lo que el admin armó en «Personalizar»: el orden, lo que sacó y 
   };
   // Las notas arriba de todo.
   const notasArriba = cambio({}, { op: 'mover', tab: 'resumen', bloque: 'notas', lugar: 1 });
-  assert.deepEqual(delFunnel('una-llamada', notasArriba, conReunion), ['notas', 'proxima', 'contacto', 'contesto', 'llego-por', 'llamada']);
+  assert.deepEqual(delFunnel('una-llamada', notasArriba, conReunion), ['notas', 'proxima', 'contacto', 'contesto', 'saldo', 'llego-por', 'llamada']);
   // Sin el origen en el Resumen, no hay «Llegó por».
   const sinOrigen = cambio({}, { op: 'quitar', tab: 'resumen', bloque: 'origen' });
-  assert.deepEqual(delFunnel('una-llamada', sinOrigen, conReunion), ['proxima', 'contacto', 'contesto', 'notas', 'llamada']);
+  assert.deepEqual(delFunnel('una-llamada', sinOrigen, conReunion), ['proxima', 'contacto', 'contesto', 'saldo', 'notas', 'llamada']);
   // El origen mudado a Tracking: sale sólo si el lead ve Tracking, y después de lo del Resumen.
   const enTracking = cambio(sinOrigen, { op: 'poner', tab: 'tracking', bloque: 'origen' });
-  assert.deepEqual(delFunnel('una-llamada', enTracking, tabsQueVe({ verTracking: true, verReuniones: true })), ['proxima', 'contacto', 'contesto', 'notas', 'llego-por', 'llamada']);
+  assert.deepEqual(delFunnel('una-llamada', enTracking, tabsQueVe({ verTracking: true, verReuniones: true })), ['proxima', 'contacto', 'contesto', 'saldo', 'notas', 'llego-por', 'llamada']);
   assert.ok(!delFunnel('una-llamada', enTracking, tabsQueVe({ verTracking: false, verReuniones: true })).includes('llego-por'));
   // «Lo que salió de la llamada» puesto también en el Resumen: va donde está ahí, una sola vez.
   const llamadaArriba = cambio({}, { op: 'poner', tab: 'resumen', bloque: 'lo-que-salio-de-la-llamada', lugar: 1 });
-  assert.deepEqual(delFunnel('una-llamada', llamadaArriba, conReunion), ['llamada', 'proxima', 'contacto', 'contesto', 'llego-por', 'notas']);
+  assert.deepEqual(delFunnel('una-llamada', llamadaArriba, conReunion), ['llamada', 'proxima', 'contacto', 'contesto', 'saldo', 'llego-por', 'notas']);
 });
 
 test('lo que se calla vacío en escritorio, se calla en el teléfono; el contacto y las notas, siempre', () => {

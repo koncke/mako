@@ -24,7 +24,7 @@
 import { bloqueDef, type BloqueId, type TabFicha } from '@/lib/ficha/catalogo';
 
 /** Las piezas que el teléfono sabe dibujar. Cada una es la versión de teléfono de UN bloque de escritorio. */
-export type PiezaFicha = 'proxima' | 'contacto' | 'llego-por' | 'contesto' | 'llamada' | 'notas';
+export type PiezaFicha = 'proxima' | 'contacto' | 'llego-por' | 'contesto' | 'llamada' | 'notas' | 'saldo';
 
 /**
  * EL BLOQUE DE ESCRITORIO → SU VERSIÓN DE TELÉFONO. Un bloque que no está aquí no tiene versión de teléfono y
@@ -37,6 +37,9 @@ export const PIEZA_DE_BLOQUE: Readonly<Partial<Record<BloqueId, PiezaFicha>>> = 
   origen: 'llego-por',
   notas: 'notas',
   'lo-que-salio-de-la-llamada': 'llamada',
+  // El estado de cuenta (16/10/2026, la tab Pagos en bloques): lo que debe o «Al día», en una fila. El teléfono no
+  // cobra: destila (`saldoDelTelefono`).
+  cobrado: 'saldo',
 };
 
 /** El orden de las tabs de la ficha de escritorio (FichaPorBloques: Tracking, Reuniones y Pagos, en ese orden). */
@@ -46,11 +49,12 @@ export const ORDEN_TABS_ESCRITORIO: readonly TabFicha[] = ['resumen', 'tracking'
 export type PiezaPuesta = { pieza: PiezaFicha; bloque: BloqueId };
 
 /**
- * Las tabs que ESTE lead ve en escritorio, en lo que le importa al teléfono. Pagos no tiene piezas: no se
- * lee lo que la decide (la pasarela y los cobros) para nada.
+ * Las tabs que ESTE lead ve en escritorio, en lo que le importa al teléfono. Pagos entra sólo con un DEAL
+ * (`tieneDeal`, lib/muestra-pagos.ts): su única pieza es el estado de cuenta, que sin deal se calla. La parte de la
+ * pasarela de la tab (cobrar con link) no tiene versión de teléfono, así que no se lee la pasarela para esto.
  */
-export function tabsQueVe(o: { verTracking: boolean; verReuniones: boolean }): TabFicha[] {
-  return ['resumen', ...(o.verTracking ? ['tracking' as const] : []), ...(o.verReuniones ? ['reuniones' as const] : [])];
+export function tabsQueVe(o: { verTracking: boolean; verReuniones: boolean; verPagos?: boolean }): TabFicha[] {
+  return ['resumen', ...(o.verTracking ? ['tracking' as const] : []), ...(o.verReuniones ? ['reuniones' as const] : []), ...(o.verPagos ? ['pagos' as const] : [])];
 }
 
 /**
@@ -75,7 +79,17 @@ export type ConQueDibujar = {
   llegoPor: string | null;
   respuestas: number;
   llamada: boolean;
+  /** El estado de cuenta en una línea (`saldoDelTelefono`); null = nada que contar. */
+  saldo?: SaldoTelefono | null;
 };
+
+/** El estado de cuenta, destilado a una fila: «Debe $500 · Cuota 2 venció el 02/10». */
+export type SaldoTelefono = { texto: string; tono: 'verde' | 'ambar' | 'rojo' | 'gris' };
+
+/** De `estadoDeCuenta` (lib/pagos-vistazo.ts) a la fila del teléfono. Sin estado, no hay fila. */
+export function saldoDelTelefono(e: { titular: string; detalle: string | null; tono: SaldoTelefono['tono'] } | null): SaldoTelefono | null {
+  return e ? { texto: e.detalle ? `${e.titular} · ${e.detalle}` : e.titular, tono: e.tono } : null;
+}
 
 /** ¿La pieza no tiene nada para este lead? `contacto` y `notas` siempre tienen (el teléfono, «Nota por voz»). */
 export function piezaVacia(p: PiezaFicha, d: ConQueDibujar): boolean {
@@ -84,6 +98,7 @@ export function piezaVacia(p: PiezaFicha, d: ConQueDibujar): boolean {
     case 'llego-por': return !d.llegoPor;
     case 'contesto': return d.respuestas === 0;
     case 'llamada': return !d.llamada;
+    case 'saldo': return !d.saldo;
     case 'contacto':
     case 'notas': return false;
   }
