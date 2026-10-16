@@ -34,7 +34,8 @@ import { useCallback, useEffect, useState, type CSSProperties } from 'react';
 import dynamic from 'next/dynamic';
 import { Badge, Button, ButtonLink, IconButton } from '@/app/_ui';
 import { IconoMenu } from '@/app/_ui/iconos-menu';
-import { MakoLogo } from '@/app/_components/MakoBrand';
+import { Muneco } from '@/app/admin/operaciones/Muneco';
+import '@/app/admin/operaciones/centro.css';
 import { RAIL } from '@/app/_components/Sidebar';
 import { leerRespuesta } from '@/app/m/mako/chat-ui';
 import type { SugerenciaDePantalla } from '@/lib/sugerencias-crm';
@@ -173,7 +174,10 @@ function PanelDeUnCrm({ funnelId }: { funnelId: number | null }) {
             width: LADO_BOTON, height: LADO_BOTON, padding: 0, cursor: 'pointer', boxSizing: 'border-box',
             display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
           }}>
-          <MakoLogo size={LADO_LOGO} animate={false} />
+          {/* El MUÑECO del CRM, no la estrella (16/10/2026, Martín: «En lugar de la estrella de MaKo el ícono debería
+              ser el muñequito que se asignó para CRM, para Dashboard, o para cada tab»). Sale del nombre de la tab,
+              como en el Centro y el Second Brain (lib/centro-munecos.ts → aspectoDe). */}
+          <Muneco titulo="CRM" animo="despierto" size={LADO_LOGO} />
           {n > 0 && (
             <span aria-hidden style={{ position: 'absolute', top: -7, right: -7, pointerEvents: 'none' }}>
               <Badge>{n}</Badge>
@@ -191,7 +195,7 @@ function PanelDeUnCrm({ funnelId }: { funnelId: number | null }) {
             background: 'var(--surface)', borderRight: '1px solid var(--border)', boxShadow: '12px 0 32px rgba(18,21,27,.12)',
           }}>
           <header style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', borderBottom: '1px solid var(--border)', borderTop: '3px solid var(--mako)' }}>
-            <MakoLogo size={28} animate={false} />
+            <Muneco titulo="CRM" animo="despierto" size={28} />
             <strong style={{ flex: 1, fontSize: 15, color: 'var(--ink)' }}>MaKo</strong>
             <IconButton title="Cerrar MaKo" onClick={cerrar}><IconoMenu nombre="cerrar" /></IconButton>
           </header>

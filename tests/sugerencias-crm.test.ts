@@ -464,6 +464,9 @@ test('el chat: permiso del CRM, el hilo sólo al abrir, y el rincón marcado', (
   assert.match(panel, /position: 'fixed', left: RAIL \+ 20, bottom: 12/);
   assert.match(panel, /<aside aria-label="MaKo"\n\s*style=\{\{\n\s*position: 'fixed', top: 'var\(--barra-agencia, 0px\)', left: RAIL, bottom: 0/);
   assert.doesNotMatch(panel, /data-esquina-ocupada/);
+  // Y con el MUÑECO del CRM, no la estrella (16/10/2026). Probado rompiéndolo: volver a <MakoLogo> → 1 fallo.
+  assert.match(panel, /<Muneco titulo="CRM" animo="despierto" size=\{LADO_LOGO\} \/>/);
+  assert.doesNotMatch(panel, /<MakoLogo/);
   // Nada de next/link: los links con el `?ws=` de la casa.
   assert.ok(!/from 'next\/link'/.test(panel + chat));
 });
