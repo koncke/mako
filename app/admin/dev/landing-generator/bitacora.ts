@@ -603,4 +603,21 @@ export const BITACORA: Hito[] = [
       'lib/mako-pedidos.ts — PARTES_DE_LO_ABIERTO por tab y objetosDelNavegador',
     ],
   },
+  {
+    fecha: '16 oct', hora: '10:25', chat: 'Landing Generator', sesion: 'local_0c7ad2f8-3540-4e69-8d37-574de8292f80', cuenta: 'claude3',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Los pedidos sueltos mirados con clics en producción: los cuatro casos bien, y la IA que no llegaba nunca',
+    puntos: [
+      'Pedido de Cerebro: mirar con clics, en ws9 y con la IA de verdad, los cuatro casos del chat de una landing. Los cuatro salieron bien, en tres landings de prueba que después fueron a la Papelera.',
+      'Lo que se encontró: la IA de los pedidos no contestaba nunca. La cascada barata gastaba su plazo antes del primer proveedor, y un mensaje mixto esperaba 5-9 s para nada. Ahora prueba las keys en orden, Groq primero (1,4 s contra 6-11 s de Gemini): 3-5,5 s, y separa bien lo que las reglas solas perdían.',
+      'Anotado sin tocar: la edición con IA del editor tarda de 12 a 65 s (Gemini piensa en low), «mi otro producto» no se resuelve al crear, «Crear ahora» se parece a las sugerencias, y el modelo gratis de OpenRouter de la cascada ya no existe.',
+    ],
+    commits: [
+      { sha: '5203f1495', msg: 'MaKo entiende los pedidos mezclados también cuando las reglas dudan: la IA no llegaba nunca a contestar', lineas: 231, archivos: 7 },
+    ],
+    archivos: [
+      'lib/mako-pedidos.ts — probarEnOrden: las cuentas en orden, cada intento acotado, con un test de reloj falso',
+      'lib/mako-pedidos-ia.ts — sin la cascada, Groq primero',
+    ],
+  },
 ];
