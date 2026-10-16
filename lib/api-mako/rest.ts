@@ -476,6 +476,9 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['POST', '/negocio/lead-magnets/generaciones', 'generar_lead_magnets'],
   ['PATCH', '/negocio/lead-magnets/{id}', 'editar_lead_magnet'],
   ['GET', '/negocio/onboarding', 'ver_estado_onboarding'],
+  // El plan de MaKo del negocio («Tu plan», 15/10/2026): lo que le cobra la plataforma.
+  ['GET', '/negocio/plan', 'ver_mi_plan'],
+  ['POST', '/negocio/plan/bajas', 'dar_de_baja_mi_plan'],
   ['GET', '/negocio/onboarding/tabs-pendientes', 'listar_tabs_por_configurar'],
   ['GET', '/negocio/perfil/campos', 'ver_perfil_negocio'],
   ['PATCH', '/negocio/perfil/campos/{key}', 'guardar_campo_perfil'],
@@ -517,6 +520,7 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['GET', '/video/guiones', 'listar_guiones_para_video'],
   ['GET', '/video/lugares', 'listar_lugares_grabacion'],
   ['GET', '/video/onboarding', 'estado_onboarding_video'],
+  ['GET', '/video/plantillas', 'listar_plantillas_video'],
   ['GET', '/video/voz', 'ver_voz_cliente'],
   // ── integraciones ─────────────────────────────────────────────────────────
   ['GET', '/integraciones/agente-claude', 'ver_estado_agente_claude'],

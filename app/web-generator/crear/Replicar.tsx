@@ -38,7 +38,9 @@ import {
 import {
   FORMATOS_REPLICAR, NOMBRE_FORMATO_REPLICAR, formatoReplicar, type FormatoReplicar, type PedidoReplicar, type RespuestaReplicar,
 } from '@/lib/editor-landing/replicar-reglas';
+import { AVISO_SCROLL } from '@/lib/editor-landing/replicar-animaciones';
 import { PLAZO_IA_MS, postJson } from '../cliente';
+import { dejarAvisoDeReplica } from './aviso-replica';
 import { Ico, irDuro, type OpcionDesplegable } from '../MiniaturaLanding';
 import { urlParaAnalizar } from '../panel-reglas';
 import { LeerOPegar } from '../lector/LeerOPegar';
@@ -113,7 +115,12 @@ export function useReplicar(): {
     });
     // Sale bien: el editor de la copia (se queda «replicando» mientras navega), o lo que siga con ella.
     if (r.ok && alListo) { await alListo({ id: r.id, titulo: r.titulo }); return; }
-    if (r.ok) { irDuro(`/web-generator/${r.id}`, ws); return; }
+    if (r.ok) {
+      // Tanda 8: lo que no se copió del scroll se lee al abrirse el editor de la copia (./aviso-replica.ts).
+      if (r.avisoScroll) dejarAvisoDeReplica(r.id, AVISO_SCROLL);
+      irDuro(`/web-generator/${r.id}`, ws);
+      return;
+    }
     const f = r as { error: string; enNavegador?: boolean; pegable?: boolean; probar?: unknown };
     const probar = formatoReplicar(f.probar);
     setEstado({

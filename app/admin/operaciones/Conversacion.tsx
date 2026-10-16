@@ -10,14 +10,19 @@
 // —burbujas, días y ticks de WhatsApp— es Hilo.tsx, la misma pieza que dibuja el teléfono.
 //
 // ⚠️ El borrador de cada chat lo guarda el padre: cambiar de chat no borra lo que se estaba escribiendo.
+//
+// LA CABECERA (15/10/2026): la cuenta va como CHIP acá y no como grupo de la lista (Martín: «eso debe estar dentro
+// de cada chat, con un chip»), y a la derecha el botón «Avance» abre la barra derecha con el roadmap de ESTE chat
+// (Avance.tsx), como la de Offer.
 
 import { useEffect, useLayoutEffect, useRef, type KeyboardEvent } from 'react';
 import { Icon } from '@/app/_components/icons';
 import type { Alcance } from '@/lib/operaciones-reglas';
-import { historialDelChat, nombreCuenta, textoDeEnvio, type ChatCentro, type Envio, type TrabajoP } from '@/lib/centro-chats';
+import { avanceDelChat, conteoAvance, historialDelChat, nombreCuenta, textoDeEnvio, type ChatCentro, type Envio, type TrabajoP } from '@/lib/centro-chats';
 import { hace, type PedidoP, type PushP } from '@/lib/progreso-reglas';
 import Link from '@/app/_ui/Link';
 import { Hilo } from './Hilo';
+import { RielAvance } from './Avance';
 import { Muneco, animoDe } from './Muneco';
 
 /** La Ticketera, donde se contesta lo que un empleado espera (app/_components/nav.ts → admin-ticketera). */
@@ -27,14 +32,19 @@ const ESTADO_CHAT: Record<ChatCentro['estado'], string> = { trabajando: 'Trabaja
 
 export function Conversacion({
   chat, pedidos, trabajos, pushes, ahora, espera, envio, texto, onTexto, alcance, onAlcance, enviando, onMandar, onCrearClave, onCopiarClave, onVolver,
+  avance, onAvance,
 }: {
   chat: ChatCentro;
   /** Cuántas tarjetas de la Ticketera esperan una respuesta de Martín para este chat. */
   espera: number;
   pedidos: ReadonlyMap<string, PedidoP>;
   trabajos: readonly TrabajoP[];
-  pushes: readonly PushP[];
+  /** Los pushes de Vercel; null mientras llegan (el avance no afirma «subió» sin leerlos). */
+  pushes: readonly PushP[] | null;
   ahora: number;
+  /** La barra derecha del avance, abierta o no (la decide el padre: se recuerda entre chats). */
+  avance: boolean;
+  onAvance: (abierta: boolean) => void;
   envio: Envio;
   texto: string;
   onTexto: (t: string) => void;
@@ -69,7 +79,9 @@ export function Conversacion({
 
   const estado = textoDeEnvio(envio);
   const cuenta = nombreCuenta(chat.cuenta);
-  const meta = [cuenta, chat.viejo && chat.vistoAt != null ? `${ESTADO_CHAT[chat.estado]} ${hace(chat.vistoAt, ahora)}` : ESTADO_CHAT[chat.estado]].filter(Boolean).join(' · ');
+  const meta = chat.viejo && chat.vistoAt != null ? `${ESTADO_CHAT[chat.estado]} ${hace(chat.vistoAt, ahora)}` : ESTADO_CHAT[chat.estado];
+  const nodos = avanceDelChat(lineas);
+  const { hechos, total } = conteoAvance(nodos);
 
   return (
     <section className="co-panel" aria-label={`Conversación con ${chat.titulo}`}>
@@ -80,13 +92,24 @@ export function Conversacion({
         <Muneco titulo={chat.titulo} animo={animoDe(chat)} size={34} espera={espera} />
         <div className="co-cab__texto">
           <h1 className="co-cab__titulo" title={chat.titulo}>{chat.titulo}</h1>
-          <span className="co-cab__meta">{meta}</span>
+          <span className="co-cab__meta">
+            {cuenta && <span className="co-chip-cuenta">{cuenta}</span>}
+            {meta}
+          </span>
         </div>
+        <button type="button" className="co-cab__avance" aria-pressed={avance} onClick={() => onAvance(!avance)}
+          title={avance ? 'Cerrar el avance' : 'Ver el avance de este chat'}>
+          <Icon name="todo" size={16} />
+          <span className="co-cab__avance-txt">Avance</span>
+          {total > 0 && <span className="co-avance__conteo">{hechos}<span>/{total}</span></span>}
+        </button>
       </header>
 
+      <div className="co-cuerpo">
+      <div className="co-conv">
       <div className="co-hilo" ref={hilo}>
         <div className="co-hilo__col">
-          <Hilo lineas={lineas} pushes={pushes} ahora={ahora} vacio="Escríbele abajo para empezar." quien={{ titulo: chat.titulo, animo: animoDe(chat), dato: meta }} />
+          <Hilo lineas={lineas} pushes={pushes ?? []} ahora={ahora} vacio="Escríbele abajo para empezar." quien={{ titulo: chat.titulo, animo: animoDe(chat), dato: [cuenta, meta].filter(Boolean).join(' · ') }} />
         </div>
       </div>
 
@@ -133,6 +156,9 @@ export function Conversacion({
           </div>
         )}
         <p className="co-caja__estado" aria-live="polite">{envio.puede ? estado ?? '' : ''}</p>
+      </div>
+      </div>
+      {avance && <RielAvance nodos={nodos} pushes={pushes} ahora={ahora} onCerrar={() => onAvance(false)} />}
       </div>
     </section>
   );

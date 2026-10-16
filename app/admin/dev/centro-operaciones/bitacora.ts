@@ -363,4 +363,21 @@ export const BITACORA: Hito[] = [
       'tests/centro-textos.test.ts — los textos y el nombre',
     ],
   },
+  {
+    fecha: '15 oct', hora: '23:17', chat: CH, sesion: SESION_CH_3, cuenta: 'claude3', actor: 'claude', tipo: 'implementacion',
+    titulo: 'El avance de cada chat en su barra derecha, y la cuenta como chip',
+    puntos: [
+      'Cada conversación tiene el botón «Avance 3/5»: abre la barra derecha con un rombo por cosa que le pediste a ese chat, del color de cómo va.',
+      'Al abrir un nodo: el prompt textual, cuándo lo pediste, en qué cuenta se trabajó y lo que subió a producción.',
+      'Se fueron las vistas Avance y Pushes y los grupos por cuenta: la lista es una sola, y la cuenta es un chip.',
+      'Copiado de la barra derecha de Offer y de los milestones de Linear. En el teléfono, la barra «Avance 3/5» pegada arriba.',
+    ],
+    commits: [{ sha: '106e3519b', msg: 'feat(operaciones): el avance de cada chat en su barra derecha, y la cuenta como chip', lineas: 1829, archivos: 20 }],
+    archivos: [
+      'app/admin/operaciones/Avance.tsx — la barra del avance y la del teléfono',
+      'lib/centro-chats.ts — avanceDelChat, seccionesDeChats sin cuentas, titulosRepetidos',
+      'app/admin/operaciones/Conversacion.tsx — el botón y la cuenta en la cabecera',
+      'tests/centro-avance.test.ts — los colores, los pasos y las cuentas de ese chat',
+    ],
+  },
 ];

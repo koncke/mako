@@ -13,9 +13,9 @@ Escrito por el chat «Centro de Operaciones» de la cuenta 3 (`local_428051c1…
      comenzar a chatear», frase suya); el cartero se llama **Runner** en pantalla (copiado de GitHub Actions) y su
      modal es la página de Runners de GitHub (lista + «Nuevo Runner» con tres pasos). Lo fija
      `tests/centro-textos.test.ts`; la regla quedó en AGENTS.md.
-  2. **Sigue (punta 2): el avance por chat (1) y la cuenta como chip (3).** Un botón en la cabecera de cada chat abre
-     una barra derecha como la de Offer (`app/offer/PiezasRail.tsx`) con un roadmap simple; se van los accesos Avance y
-     Pushes y las secciones por cuenta.
+  2. **Hecho (punta 2): el avance por chat (1) y la cuenta como chip (3).** El botón «Avance 3/5» de la cabecera abre la
+     barra derecha (copiada de Offer) con un rombo por cosa pedida, como los milestones de Linear (`Avance.tsx`); se
+     fueron las vistas Avance y Pushes y los grupos por cuenta.
   3. **Después (punta 3): el chat jefe (2), un nombre para las tres cuentas con «⋯ Renombrar» (4) y los muñequitos
      elegibles (7).**
 - **Lo que se escribe en la caja se firma en el dispositivo y queda en la cola** (`mandar.ts` → `encolarPedidoAction`).

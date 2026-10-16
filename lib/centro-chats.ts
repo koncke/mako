@@ -329,30 +329,134 @@ export function grupoDeChat(c: Pick<ChatCentro, 'estado' | 'viejo' | 'actividad'
 }
 
 /**
- * Las secciones de la barra, como los proyectos de Codex: una por CUENTA —con tres cuentas hay tres «CRM», y la
- * cuenta es lo que los separa—, la que tiene chats abiertos primero. Lo anotado sin sesión (antes del 16/10) va
- * en su propia sección al final: no recibe trabajos y repetiría el título de su sesión al lado de ella. La usan la
- * computadora y el teléfono, así las dos agrupan igual.
+ * Las secciones de la barra: UNA lista con todos los chats que reciben (en el orden de `completarChats`: lo que
+ * trabaja arriba, después por actividad) y, al final, lo anotado sin sesión, que no recibe trabajos y repetiría el
+ * título de su sesión al lado de ella. La usan la computadora y el teléfono, así las dos agrupan igual.
+ *
+ * ⚠️ SIN SECCIONES POR CUENTA. Martín (15/10/2026): «No quiero que exista "cuenta 1, cuenta 2, 3" en la sidebar de
+ * chats... eso debe estar dentro de cada chat, con un chip». La cuenta va en la cabecera de la conversación y en el
+ * detalle de cada nodo del avance. Mientras dos chats se llamen igual en dos cuentas, la fila lleva el chip SÓLO en
+ * esos (`titulosRepetidos`): sin él, dos «CRM» iguales no se distinguen.
  */
 export const SECCION_ANTES = 'antes';
-export type SeccionChats = { clave: string; titulo: string; chats: ChatCentro[] };
+export const SECCION_CHATS = 'chats';
+export type SeccionChats = { clave: string; titulo: string | null; chats: ChatCentro[] };
 
 export function seccionesDeChats(chats: readonly ChatCentro[]): SeccionChats[] {
-  const m = new Map<string, ChatCentro[]>();
-  const antes: ChatCentro[] = [];
-  for (const c of chats) {
-    if (c.porNombre || !c.sesion) { antes.push(c); continue; }
-    const k = c.cuenta ?? '';
-    if (!m.has(k)) m.set(k, []);
-    m.get(k)!.push(c);
-  }
-  const vivas = (l: ChatCentro[]) => l.some((c) => !c.viejo && (c.estado === 'trabajando' || c.estado === 'abierto'));
-  const out = [...m.entries()]
-    .sort(([ka, la], [kb, lb]) => Number(vivas(lb)) - Number(vivas(la)) || (ka ? 0 : 1) - (kb ? 0 : 1) || ka.localeCompare(kb, 'es', { numeric: true }))
-    .map(([k, l]) => ({ clave: k || 'sin-cuenta', titulo: nombreCuenta(k) ?? 'Sin cuenta', chats: l }));
+  const reciben = chats.filter((c) => !c.porNombre && c.sesion);
+  const antes = chats.filter((c) => c.porNombre || !c.sesion);
+  const out: SeccionChats[] = [];
+  if (reciben.length) out.push({ clave: SECCION_CHATS, titulo: null, chats: reciben });
   if (antes.length) out.push({ clave: SECCION_ANTES, titulo: 'Antes del 16/10', chats: antes });
   return out;
 }
+
+/** Los títulos (normalizados) que llevan dos chats que reciben: sólo ésos muestran su cuenta en la fila. */
+export function titulosRepetidos(chats: readonly ChatCentro[]): Set<string> {
+  const vistos = new Set<string>();
+  const repetidos = new Set<string>();
+  for (const c of chats) {
+    if (c.porNombre || !c.sesion) continue;
+    const t = normal(c.titulo);
+    if (vistos.has(t)) repetidos.add(t); else vistos.add(t);
+  }
+  return repetidos;
+}
+export const tituloNormal = (titulo: string) => normal(titulo);
+
+// ── El avance de UN chat (Martín, 15/10/2026) ─────────────────────────────────────────────────────────────────
+// «quiero que cada chat tenga arriba, en su topbar un botón para ver los avances, que despliegue la sidebar derecha,
+// que sea algo similar a lo que tenemos en "offer"». Un roadmap simple: un nodo por cosa que se le pidió a ESTE chat,
+// con un título corto, y su estado es el COLOR del rombo (gris = no empezado). Copiado del panel «Project Milestones»
+// de Linear: el rombo cambia según el estado y el que está en curso va en amarillo. Abierto, cada nodo trae el prompt
+// textual, cuándo se pidió, en qué cuenta se trabajó y lo que subió a producción.
+
+/** El estado de un nodo, que es el color de su rombo. */
+export type EstadoNodo = 'sin_empezar' | 'en_curso' | 'hecho' | 'no_salio';
+export const ROTULO_NODO: Record<EstadoNodo, string> = {
+  sin_empezar: 'Sin empezar', en_curso: 'En curso', hecho: 'Terminado', no_salio: 'No salió',
+};
+
+export type NodoAvance = {
+  id: string;
+  /** pedido = lo trabajó este chat · derivado = se lo pediste acá y lo trabajó otro · trabajo = se lo mandaste desde el Centro. */
+  origen: 'pedido' | 'derivado' | 'trabajo';
+  titulo: string;
+  /** El texto entero que se pidió o se mandó. */
+  prompt: string;
+  instante: number;
+  estado: EstadoNodo;
+  /** Las cuentas de Claude donde se trabajó (o a la que se mandó). */
+  cuentas: string[];
+  /** Lo que hizo este chat, en orden (el título de cada paso de la bitácora). */
+  pasos: Array<{ tipo: string; titulo: string; instante: number | null }>;
+  /** Los commits de ESTE chat (de todos, si lo trabajó otro). */
+  commits: Array<{ sha: string; msg: string }>;
+  /** Los chats que lo trabajaron, si no fue éste. */
+  trabajaron: string[];
+  /** Lo que dejó escrito el chat al cerrar un trabajo, y el motivo si no salió. */
+  cierre: string | null;
+  motivo: string | null;
+};
+
+const ESTADO_DE_PEDIDO: Record<PedidoP['estado'], EstadoNodo> = { pendiente: 'sin_empezar', en_curso: 'en_curso', hecho: 'hecho' };
+function estadoDeTrabajo(e: EstadoPedido | undefined): EstadoNodo {
+  if (e === 'hecho' || e === 'comprobado') return 'hecho';
+  if (e === 'entregado') return 'en_curso';
+  if (e === 'no_entregado' || e === 'incierto' || e === 'cancelado') return 'no_salio';
+  return 'sin_empezar';
+}
+const unicas = (xs: ReadonlyArray<string | null | undefined>) => [...new Set(xs.filter((x): x is string => !!x))];
+const sinRepetir = (cs: ReadonlyArray<{ sha: string; msg: string }>) => {
+  const vistos = new Set<string>();
+  return cs.filter((c) => (vistos.has(c.sha) ? false : (vistos.add(c.sha), true)));
+};
+
+/** El título de un trabajo firmado (no lo tiene): su primer renglón, cortado en una palabra entera. */
+export function tituloDeTexto(texto: string, tope = 72): string {
+  const linea = texto.trim().split('\n')[0].trim();
+  if (linea.length <= tope) return linea || 'Sin texto';
+  const corte = linea.slice(0, tope);
+  return `${corte.slice(0, corte.lastIndexOf(' ') > 30 ? corte.lastIndexOf(' ') : tope).trimEnd()}…`;
+}
+
+/** La línea de un commit en palabras: sin el prefijo convencional («feat(operaciones): »), con mayúscula. */
+export function mensajeDeCommit(msg: string): string {
+  const s = msg.replace(/^[a-z]+(\([^)]*\))?!?:\s*/i, '').trim();
+  return s ? s[0].toUpperCase() + s.slice(1) : msg;
+}
+
+/** El avance de un chat: un nodo por línea de su historial, el más viejo arriba (como un roadmap). */
+export function avanceDelChat(lineas: readonly LineaChat[]): NodoAvance[] {
+  return lineas.map((l): NodoAvance => {
+    if (l.tipo === 'trabajo') {
+      const w = l.trabajo;
+      const texto = (w.texto ?? '').trim();
+      return {
+        id: `t:${w.id}`, origen: 'trabajo', titulo: tituloDeTexto(texto), prompt: texto, instante: l.instante,
+        estado: estadoDeTrabajo(w.estado), cuentas: unicas([w.destino_cuenta]), pasos: [], commits: [], trabajaron: [],
+        cierre: w.cierre ? (w.cierre.hecho || w.cierre.decidido || null) : null,
+        motivo: estadoDeTrabajo(w.estado) === 'no_salio' ? w.motivo ?? null : null,
+      };
+    }
+    const p = l.pedido;
+    if (l.tipo === 'derivado') {
+      return {
+        id: `d:${p.id}`, origen: 'derivado', titulo: p.titulo, prompt: p.texto, instante: l.instante, estado: ESTADO_DE_PEDIDO[p.estado],
+        cuentas: unicas(p.pasos.map((s) => s.cuenta)), pasos: [], commits: sinRepetir(p.commits), trabajaron: l.trabajaron, cierre: null, motivo: null,
+      };
+    }
+    return {
+      id: `p:${p.id}`, origen: 'pedido', titulo: p.titulo, prompt: p.texto, instante: l.instante, estado: ESTADO_DE_PEDIDO[p.estado],
+      cuentas: unicas(l.pasos.map((s) => s.cuenta)),
+      pasos: l.pasos.map((s) => ({ tipo: s.tipo, titulo: s.titulo, instante: s.instante })),
+      commits: sinRepetir(l.pasos.flatMap((s) => s.commits)), trabajaron: [], cierre: null, motivo: null,
+    };
+  });
+}
+
+/** El conteo del encabezado, como el «8/13» de Offer: los terminados sobre el total. */
+export const conteoAvance = (nodos: readonly NodoAvance[]) => ({ hechos: nodos.filter((n) => n.estado === 'hecho').length, total: nodos.length });
 
 /**
  * Las tarjetas de la Ticketera que esperan una respuesta de Martín, por chat (la clave de la lista). Es lo que

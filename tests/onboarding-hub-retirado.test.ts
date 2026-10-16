@@ -106,7 +106,7 @@ test('ni el menú de la foto ni Configuraciones llevan a /onboarding', () => {
   assert.ok(!USER_NAV.some((i) => i.href === '/onboarding'), 'el ítem «Onboarding» volvió al menú de la foto');
   assert.ok(!TODOS_LOS_ITEMS.some((i) => i.href === '/onboarding'));
   // ConfigTabs.tsx se fue el 15/10/2026 con «Configuración del negocio»: su índice sale de lib/ajustes-secciones.ts.
-  assert.ok(!seccionesNegocio({ general: true, integraciones: true, metodo: true }).some((s) => s.href === '/onboarding'));
+  assert.ok(!seccionesNegocio({ general: true, integraciones: true, metodo: true, plan: true }).some((s) => s.href === '/onboarding'));
 });
 
 test('ningún archivo de producto vuelve a mandar a /onboarding, salvo los que van al wizard', () => {

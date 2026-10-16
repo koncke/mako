@@ -18,6 +18,12 @@
 //                                              (effects/capas.ts, origenEfecto)
 //   extraer audio                              ToggleSourceAudioSeparationCommand
 //   cortar tramo / frase / muletillas          CortarTramosCommand (el de «Transcripción»)
+//   reemplazar el clip                         ReemplazarClipCommand (reemplazo/comando.ts: el
+//                                              del menú, el botón «Sustituir» y el soltar)
+//   cambiar el texto de un hueco               paramsDeTextoDeHueco (plantillas/armar.ts): se
+//                                              vuelve a partir y ubicar con su ancla
+//   usar una plantilla                         usarPlantilla (plantillas/instanciar.ts), LARGA:
+//                                              la corre chat/aplicar.ts después del lote
 //
 // Todo va en UN BatchCommand (chat/aplicar.ts). Los comandos que dependen de cómo quedó
 // el elemento después de los anteriores del lote (los efectos se REEMPLAZAN como lista, los
@@ -63,11 +69,14 @@ import { PARAMS_BASICO, TIPO_AJUSTE } from "@/app/video-editor/_opencut/effects/
 import { PREFIJO_FILTRO } from "@/app/video-editor/_opencut/effects/definitions/filtros";
 import { buscarFrase, muletillasDe, palabrasEnOrden, tramosDePalabras, transcripcionDe } from "@/app/video-editor/_opencut/transcripcion/modelo";
 import { TICKS_PER_SECOND, mediaTime, mediaTimeFromSeconds } from "@/app/video-editor/_opencut/wasm";
+import { ReemplazarClipCommand } from "@/app/video-editor/_opencut/reemplazo/comando";
+import { paramsDeTextoDeHueco } from "@/app/video-editor/_opencut/plantillas/armar";
+import { partirYUbicar } from "@/app/video-editor/_opencut/subtitles/build-subtitle-text-element";
 import type { OperacionResuelta, RefElemento } from "./linea";
 
 /** Lo que se aplica después del lote, con su propio paso de deshacer (tarda). */
-export type OperacionLarga = Extract<OperacionResuelta, { op: "revertir" | "congelar" | "normalizar" | "generar_subtitulos" }>;
-const LARGAS = new Set<OperacionResuelta["op"]>(["revertir", "congelar", "normalizar", "generar_subtitulos"]);
+export type OperacionLarga = Extract<OperacionResuelta, { op: "revertir" | "congelar" | "normalizar" | "generar_subtitulos" | "usar_plantilla" }>;
+const LARGAS = new Set<OperacionResuelta["op"]>(["revertir", "congelar", "normalizar", "generar_subtitulos", "usar_plantilla"]);
 export const esLarga = (r: OperacionResuelta): r is OperacionLarga => LARGAS.has(r.op);
 
 /** Un comando que se arma al EJECUTAR, contra la línea de tiempo de ese momento del lote. */
@@ -165,17 +174,25 @@ export function armarLote(resueltas: readonly OperacionResuelta[], { idioma }: {
 			}
 			case "cambiar_texto":
 				// Un subtítulo, como el panel: vuelve a partir las líneas y conserva los tiempos por
-				// palabra si son las mismas palabras (subtitles/editar.ts → paramsConTexto).
+				// palabra si son las mismas palabras (subtitles/editar.ts → paramsConTexto). Un texto
+				// de HUECO de plantilla se vuelve a partir y ubicar con su ancla, como lo armó la
+				// plantilla (su fuente la carga aplicar.ts antes del lote).
 				comandos.push(
-					sobre(r.el, (o, actual) =>
-						actualizar(o, {
-							params:
-								actual.type === "text" && actual.params.subtitulo === true
-									? paramsConTexto(EditorCore.getInstance(), actual, r.texto)
-									: { content: r.texto },
-						} as Partial<TimelineElement>),
-					),
+					sobre(r.el, (o, actual) => {
+						if (actual.type === "text" && actual.params.subtitulo === true) {
+							return actualizar(o, { params: paramsConTexto(EditorCore.getInstance(), actual, r.texto) } as Partial<TimelineElement>);
+						}
+						const lienzo = EditorCore.getInstance().project.getActiveOrNull()?.settings.canvasSize;
+						const deHueco =
+							actual.type === "text" && lienzo ? paramsDeTextoDeHueco({ params: actual.params, texto: r.texto, lienzo, medir: partirYUbicar }) : null;
+						return actualizar(o, { params: deHueco ?? { content: r.texto } } as Partial<TimelineElement>);
+					}),
 				);
+				break;
+			case "reemplazar_clip":
+				// El mismo comando que «Reemplazar el clip» del menú (reemplazo/comando.ts): se arma
+				// contra la línea de tiempo del momento; si es una muestra, llena las de su hueco.
+				comandos.push(sobre(r.el, (o) => new ReemplazarClipCommand({ ref: o, mediaId: r.mediaId })));
 				break;
 			case "borrar":
 				// Como el botón Eliminar: con «Vinculación», lo de encima de un clip de la principal se va con él.

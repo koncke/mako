@@ -91,6 +91,7 @@ import SelectorImagen from './SelectorImagen';
 import PanelAgente, { EstilosContenido } from './paneles/PanelAgente';
 import PanelTema, { EVENTO_TEMAS_PROPIOS } from './paneles/PanelTema';
 import { URL_FUENTE_CHROME, marcarReciente } from '../cliente';
+import { tomarAvisoDeReplica } from '../crear/aviso-replica';
 import PanelComentarios from './paneles/PanelComentarios';
 import PanelHistorial from './paneles/PanelHistorial';
 import PanelAnimacion from './paneles/PanelAnimacion';
@@ -308,6 +309,18 @@ function Armazon({ doc, temasPropios, creadoPor, autor }: PropsEditorLanding & {
     setToast({ id: Date.now(), texto, onDeshacer });
     toastTimer.current = window.setTimeout(() => setToast(null), onDeshacer ? 6000 : 3500);
   }, []);
+
+  // La línea del resultado de Replicar (tanda 8: lo que no se copió del scroll), UNA vez al abrir esta copia. La deja
+  // ../crear/Replicar.tsx antes de navegar; se consume en el efecto y queda en el ref (el modo estricto corre el efecto
+  // dos veces y el desmonte de mentira borra el temporizador del aviso: se muestra en el turno siguiente).
+  const avisoReplica = useRef<string | null | undefined>(undefined);
+  useEffect(() => {
+    if (avisoReplica.current === undefined) avisoReplica.current = tomarAvisoDeReplica(docId);
+    const texto = avisoReplica.current;
+    if (!texto) return;
+    const t = window.setTimeout(() => { avisoReplica.current = null; avisar(texto); }, 0);
+    return () => window.clearTimeout(t);
+  }, [docId, avisar]);
 
   // ── El selector de imágenes (I2) como promesa ──
   const { elegirImagen, selector } = useSelectorImagen();
