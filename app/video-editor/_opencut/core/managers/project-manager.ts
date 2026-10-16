@@ -30,6 +30,7 @@ import { DEFAULTS } from "@/app/video-editor/_opencut/timeline/defaults";
 import { getElementFontFamilies } from "@/app/video-editor/_opencut/timeline/element-utils";
 import { getRaisedProjectFpsForImportedMedia } from "@/app/video-editor/_opencut/fps/utils";
 import type { MediaAsset } from "@/app/video-editor/_opencut/media/types";
+import { borrarCopiaDelProyecto } from "@/app/video-editor/_opencut/chat/espejo-borrar";
 
 export interface MigrationState {
 	isMigrating: boolean;
@@ -298,6 +299,9 @@ export class ProjectManager {
 			this.savedProjects = this.savedProjects.filter(
 				(project) => !idSet.has(project.id),
 			);
+			// MaKo: la copia de lectura que usa la API sale con el proyecto (chat/espejo-borrar.ts). Acá y no en
+			// cada pantalla: son cuatro las que borran.
+			for (const id of uniqueIds) borrarCopiaDelProyecto(id);
 
 			const shouldClearActive =
 				this.active && idSet.has(this.active.metadata.id);
