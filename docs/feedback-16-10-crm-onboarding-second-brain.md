@@ -3,8 +3,8 @@
 Lo mandó al Cerebro el 16/10 a la tarde con cinco capturas (el editor de etapas con «Asignar campañas», el «Ver» de
 datos sin marcar de la ficha, «A revisar», la ficha de un cliente en /customer-success y la de un lead en /crm). Pidió
 «Guarda todo este feedback para las próximas cuentas» e «implementa lo que puedas del CRM, sobre todo las cosas
-simples». La cuenta 3 estaba al 97% semanal: se hizo lo simple (commits `9f595cc6f`, `4e9411a71`, `f0c8f0da0` y
-`f777d1d4f`) y el resto queda acá, **con su archivo**, para la cuenta que siga. Aparte, el mismo día: **Second Brain en
+simples». La cuenta 3 estaba al 97% semanal: se hizo lo simple (commits `9f595cc6f`, `4e9411a71`, `f0c8f0da0`,
+`f777d1d4f`, `7c0d07b9d` y `c52533e94`) y el resto queda acá, **con su archivo**, para la cuenta que siga. Aparte, el mismo día: **Second Brain en
 modo claro** (`b401cd017`, «pon en white mode la tab de Second Brain»). Las citas son textuales.
 
 **Quién lo retoma:** el chat **CRM** (relevo: docs/relevo/crm.md, que apunta acá), el chat **Onboarding**
@@ -27,7 +27,14 @@ modo claro** (`b401cd017`, «pon en white mode la tab de Second Brain»). Las ci
 
 ## CRM
 
-### Hecho (commits `9f595cc6f`, `4e9411a71`, `f0c8f0da0` y `f777d1d4f`)
+### Hecho (commits `9f595cc6f`, `4e9411a71`, `f0c8f0da0`, `f777d1d4f`, `7c0d07b9d` y `c52533e94`)
+- [x] **6, en parte.** El «Ver» de datos sin marcar de la ficha tiene la fila de «A revisar»: el ícono del bloque
+  (`ICONO_DATO` en app/crm/lead-view/DatosSinMarcarCard.tsx), el basurero rojo para ignorar, la flecha azul para
+  completar, la cabecera con el número en su chip. Test: tests/datos-ficha-como-a-revisar.test.ts. Falta lo de
+  «Elegir qué datos te avisa MaKo» (el lead ficticio y «¿Ignorar siempre?» → desmarca «Obligatorio»).
+- [x] **8, en parte.** El botón y el panel de MaKo del CRM, a la IZQUIERDA (app/crm/mako-crm/PanelMakoCrm.tsx): el
+  layout le reserva siempre a la barra su ancho plegado (`RAIL`, app/_components/Sidebar.tsx), así que el botón va a
+  `RAIL + 20` y el panel abre desde `RAIL`. Falta la cara del Second Brain en el chat y el muñeco de la tab.
 - [x] **7.** Se borró la vista `/crm?pendientes=1` entera (y el «marcar en lote» que vivía en ella): la URL vieja abre el
   tablero; los datos sin marcar se resuelven en «A revisar», que abre la ficha encima. Test:
   tests/worklist-pendientes.test.ts. Queda un ejemplo con `?pendientes=1` en app/admin/ui/Gramatica.tsx (el catálogo
@@ -81,10 +88,7 @@ modo claro** (`b401cd017`, «pon en white mode la tab de Second Brain»). Las ci
    izquierda, no a la derecha... aún no se aplicó el diseño de los chats tipo "Second Brain" al chat del CRM... En
    lugar de la estrella de MaKo el ícono debería ser el muñequito que se asignó para CRM, para Dashboard, o para cada
    tab.» (El chat del CRM: app/crm/mako-crm/ChatMakoCrm.tsx; los muñecos por tab salen del Centro de Operaciones.)
-   ⚠️ El botón es `position: fixed; right: 20` en app/crm/mako-crm/PanelMakoCrm.tsx. Moverlo a la izquierda NO es
-   cambiar `right` por `left`: la barra lateral cambia de ancho (plegada o abierta) y no hay una variable CSS con su
-   ancho; hace falta medirla (o exponer `--ancho-barra` desde app/_components/Sidebar.tsx). El panel abierto también
-   pasa a la izquierda, y «A revisar» (esquina de abajo a la derecha) deja de tener que esquivarlo.
+   El botón ya está a la izquierda (ver «Hecho»).
 9. **El resto del punto 9.** «Como ahora "Resumen" y todas las tabs serán como en dashboard o general, el
    desplegable... Quiero que esté alineado al título del nombre de la persona. No más a la izquierda.»
 10. **«Editar» en azul + «⋯» como el Dashboard, sin «Personalizar».** El «⋯»: exportar la hoja del lead, compartir, el

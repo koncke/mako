@@ -55,6 +55,8 @@ export const HECHO: SeccionChecklist[] = [
     { id: 'crm-sin-pendientes', t: 'Ya no existe la vista de pendientes del CRM: todo se resuelve en «A revisar».' },
     { id: 'crm-templates-1610', t: 'Ficha en edición: «Templates» en la barra; la galería sin «Ahora no» ni «Vista previa».' },
     { id: 'sb-claro', t: 'Second Brain en modo claro.', ruta: '/second-brain' },
+    { id: 'crm-ver-datos-1610', t: 'El «Ver» de datos sin marcar de la ficha: ícono del bloque, basurero rojo y flecha azul.' },
+    { id: 'crm-mako-izq', t: 'El botón y el panel de MaKo del CRM, a la izquierda.', ruta: '/crm' },
   ] },
   { titulo: 'Automations', items: [
     { id: 'aut-flechas', t: 'Toda flecha se desconecta; el paso con IA escucha notas de voz.', ruta: '/automations' },
@@ -106,7 +108,7 @@ export const PENDIENTE: SeccionChecklist[] = [
     { id: 'p16-crm-velocidad', t: 'CRM: que la ficha del lead abra rápido.' },
     { id: 'p16-crm-hojas', t: 'CRM: tabs como las hojas del Dashboard, templates con miniaturas propias, sin la barra lateral.' },
     { id: 'p16-crm-obligatorio', t: 'CRM: «Obligatorio» en cada bloque decide los datos sin marcar; el «Ver» igual que «A revisar».' },
-    { id: 'p16-crm-chat', t: 'CRM: botón de MaKo a la izquierda, chat con la cara del Second Brain y el muñeco de la tab.' },
+    { id: 'p16-crm-chat2', t: 'CRM: el chat de MaKo con la cara del Second Brain y el muñeco de la tab.' },
     { id: 'p16-crm-editar', t: 'CRM: «Editar» + «⋯» con «AI Analyst» (reemplaza la tab), el chat abre a la izquierda.' },
     { id: 'p16-onb-pdf', t: 'Onboarding: sin el análisis de Offer; sólo ordenar en un PDF lo que vendes.' },
     { id: 'p16-sb-skills', t: 'Second Brain: «Skills» como skills.sh, se instalan solas y crean un chat para todos.' },
