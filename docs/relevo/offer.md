@@ -12,7 +12,7 @@ bitácora de `/admin/dev/products-offers` al día (`59e3b9a93`). Las 13 decision
 
 **Decidido por Martín y hecho el mismo día: el Archivero desde el chat.** La decisión (Ticketera,
 15/10/2026 05:32, ref `offer-archivero`), textual: «¿El Archivero del chat guarda el archivo y paga una
-extracción por documento? → A · Sí». Commit `718e00b24` (cuenta claude3, en el worktree
+extracción por documento? → A · Sí». Commit `f4ed5e069` (cuenta claude3, en el worktree
 `C:/dev/wt-offer-archivero`; lo sube el coordinador). Cada ARCHIVO que el dueño manda en el chat queda
 también en El Archivero, con el binario conservado y UNA extracción de campos (feature «El Archivero»,
 motivo «Offer → El Archivero: …»), por detrás y sin frenar el chat; si falla, el chip lo dice. Ni audios
@@ -96,7 +96,7 @@ cuatro que se cerraron el 13/10».
 | El binario de un audio que se re-sube | ✅ `AudioGrabado.path` se recuerda y el reintento lo reusa. Más la acción `'descartar-subida'`, que cierra el hermano (el binario que queda suelto al descartar o al cambiar de conversación) |
 | `extraerLanding` que baje la URL tal cual | ✅ `urlTalCual` + `extraerLanding(url, { talCual: true })`. `linkParaLeer` ya no rechaza un `?page_id=`: sólo saca los parámetros de SEGUIMIENTO |
 | «Guardar si no hay» en `lib/fase-store.ts` | ✅ `guardarFaseSiNoHay`. La ruta ya no copia la clave del setting ni repite el mecanismo |
-| **Archivero desde el chat** | ✅ **DECIDIDO el 15/10/2026 05:32 (Ticketera, ref `offer-archivero`: «guarda el archivo y paga una extracción por documento → A · Sí») y hecho** en `718e00b24`: `registrarDocumentoSinPisar` (lib/archivero.ts), llamada por detrás desde 'leer'. El diagnóstico viejo («falta la función») estaba corto: Offer borraba el binario apenas lo leía y su IA saca piezas de la oferta, no campos del brief |
+| **Archivero desde el chat** | ✅ **DECIDIDO el 15/10/2026 05:32 (Ticketera, ref `offer-archivero`: «guarda el archivo y paga una extracción por documento → A · Sí») y hecho** en `f4ed5e069`: `registrarDocumentoSinPisar` (lib/archivero.ts), llamada por detrás desde 'leer'. El diagnóstico viejo («falta la función») estaba corto: Offer borraba el binario apenas lo leía y su IA saca piezas de la oferta, no campos del brief |
 | **Avatares desde el chat** | ❌ **NO SE HACE, y no es un pendiente.** Escribir la lista desde el chat sin que una persona confirme rompe «un canal propone, una persona confirma». Queda en la pieza `cliente` |
 
 Lo demás de «Lo que quedó SIN hacer» (la API de MaKo —hecha el 14/10—, el PDF externo, el umbral de `alertaFoco`, la

@@ -279,7 +279,7 @@ Lo que no quedó del todo:
     ~~«Guardar si no hay» vive en la ruta~~ · ~~un link con `?page_id=` no se lee~~ — **CERRADOS el
     13/10/2026**, ver «Los cuatro que se cerraron el 13/10» más abajo.
   - ~~**El Archivero no se entera de lo que se sube en Offer**~~ — **CERRADO el 15/10/2026**
-    (`718e00b24`). Martín decidió que Offer conserva el binario y paga una extracción de campos por
+    (`f4ed5e069`). Martín decidió que Offer conserva el binario y paga una extracción de campos por
     documento; lo que enseñó, en «El Archivero desde el chat (15/10/2026)» al final.
   - **El avatar que se arma en el chat no se guarda en Avatares, y se queda así.** No es un pendiente:
     `setAvatares` reemplaza la lista entera, y escribir desde el chat sin que una persona confirme rompe
