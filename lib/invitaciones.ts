@@ -300,6 +300,30 @@ async function enviarDelNegocio(
  * adentro de un `runWithWorkspace` propio (el de la plataforma, o el del negocio), y anotarlo acá
  * adentro sería escribir con el inquilino que no es sin un error.
  */
+/**
+ * ⚠️ EL AVISO AL EMAIL ANTERIOR cuando cambia el email de acceso de una cuenta recién comprada (15/10/2026). El cambio lo
+ * hace quien tiene el link de la compra (/pagar/<token>/listo), y un link reenviado alcanza para quedarse con la cuenta.
+ * Pedir un código al email actual bloqueaba el caso legítimo más común (el email se tipeó MAL al pagar, y ahí no llega
+ * nada); así que se copia lo que hacen Google y GitHub: el nuevo se prueba solo (hay que entrar con Google con ESE
+ * email) y al anterior le llega este aviso, con cómo revertirlo. El nuevo va enmascarado: si el anterior estaba mal
+ * tipeado, es de un desconocido. Nunca tira.
+ */
+export async function avisarCambioDeEmailDeAcceso(p: { anterior: string; nuevoEnmascarado: string }): Promise<{ enviado: boolean; error?: string }> {
+  const destino = (p.anterior ?? '').trim().toLowerCase();
+  if (!destino) return { enviado: false, error: 'no hay email anterior' };
+  const cuerpo = [
+    'Hola,',
+    '',
+    `El email con el que se entra a tu cuenta de MaKo cambió a ${p.nuevoEnmascarado}. Lo cambió alguien desde la página de tu compra.`,
+    '',
+    'Si fuiste tú, no tienes que hacer nada.',
+    '',
+    `Si no fuiste tú, escríbenos a ${EMAIL_MAKO} cuanto antes y la devolvemos a esta dirección.`,
+  ].join('\n');
+  const r = await enviarDePlataforma({ to: destino, asunto: 'Cambió el email de tu acceso a MaKo', preheader: 'Si no fuiste tú, escríbenos.', cuerpo, tag: 'cambio-email-acceso' });
+  return r.enviado ? { enviado: true } : { enviado: false, error: r.error };
+}
+
 export async function invitarAlCursoPorEmail(p: {
   /** El workspace del ALUMNO: decide el remitente. */
   ws: number;
