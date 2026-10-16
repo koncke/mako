@@ -858,8 +858,8 @@ del kanban (`estado`), su motivo y el lugar (`orden`) los escribe `repo.mover` p
 payload y relee la fila. Con ellos adentro del upsert de la fila entera, una pestaña vieja devuelve
 de columna lo que se movió desde otra. Y un campo DERIVADO de otro (el estado desde el avance) se
 recalcula sólo si la fuente CAMBIÓ contra la fila guardada (`estadoAlGuardar`): recalculado en cada
-guardado, deshacía los arrastres (16/10/2026, docs/hallazgos-plan.md → «El estado pasa a ser la
-columna»).
+guardado, deshacía los arrastres (16/10/2026, docs/hallazgos-plan.md → «El kanban es de ESTADO desde
+el 16/10/2026»).
 
 ⚠️ **Y lo que el server DERIVA, la pantalla lo deriva IGUAL en el estado optimista** —con la misma
 función y en el choke point de los cambios—: el server pasa a «Completada» la tarjeta que llega al
@@ -2035,7 +2035,7 @@ proyecto por proyecto con las tres preguntas, con la fuente al lado.
 dentro de cada una es el MANUAL (`orden`, `enOrdenManual` en app/plan/board/kanban.ts) y la prioridad
 es un filtro y un chip — soltar mueve de columna con `board.mover` y no pregunta ningún número. Lo de
 abajo sigue valiendo para lo que SÍ agrupa por banda: la grilla de PROYECTOS y la escalera de
-proyectos (docs/hallazgos-plan.md → «La pantalla del kanban por estado»).
+proyectos (docs/hallazgos-plan.md → «El kanban es de ESTADO desde el 16/10/2026»).
 
 La grilla de proyectos del plan agrupa por `prioFromScore` (`app/plan/board/types.ts`): **ALTA ≥ 75 ·
 MEDIA ≥ 50 · BAJA ≥ 25 · A FUTURO < 25**. Con 40 proyectos arriba de 75, ordenarlos entre
