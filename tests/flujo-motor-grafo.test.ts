@@ -395,7 +395,9 @@ test('(9) avisar_al_equipo: la acción que usa «Otra cosa», por el canal de lo
   // Por lead, y por RESPUESTA cuando sale de «Si responde» (revisión del 08/10/2026). UNDÉCIMA TANDA: la forma del
   // aviso la arma `armarAvisoDeTarjeta` (lib/mako-tarjeta.ts, del paquete de «MaKo en WhatsApp»): la de antes
   // conserva este dedup; una tarjeta con `partes` sale tal cual (el reclamo del motor ya impide el doble envío).
-  assert.match(b, /\.\.\.armarAvisoDeTarjeta\(payload, \{/);
+  // (16/10/2026: armado aparte, porque «MaKo por email» lee de él si salió por correo: `aviso.asuntoEmail`.)
+  assert.match(b, /const aviso = armarAvisoDeTarjeta\(payload, \{/);
+  assert.match(b, /await emitirAviso\(\{ ws: ctx\.ws, \.\.\.aviso \}\);/);
   const tarjeta = sinComentarios(leer('../lib/mako-tarjeta.ts'));
   assert.match(tarjeta, /dedupKey: respuesta \? `lead:\$\{lead\.id\}:resp:\$\{respuesta\}` : `lead:\$\{lead\.id\}`, dedupTtlMin: 60 \* 12,/, 'dos automatizaciones del mismo lead son dos avisos');
   assert.match(b, /linkApp\(`\/crm\/\$\{lead\.id\}`, ctx\.ws\)/);

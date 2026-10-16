@@ -6262,7 +6262,7 @@ PROPONE mandar un aviso al grupo de WhatsApp del negocio (y al feed de la app) p
 - **Token clásico:** alcance mínimo proponer
 - **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
 - **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
-- **Escribe:** manda un aviso al grupo de WhatsApp del negocio y deja una notificación en la app (no toca al lead)
+- **Escribe:** manda un aviso al grupo de WhatsApp del negocio (o, con canal «email», un correo a su equipo) y deja una notificación en la app (no toca al lead)
 - **Reversible:** sí
 - **Costo:** gratis
 - **Requiere la tab:** setting
@@ -6280,6 +6280,8 @@ PROPONE mandar un aviso al grupo de WhatsApp del negocio (y al feed de la app) p
 | `partes.pausa_s` | number | no | opcional: segundos de espera antes de este mensaje (desde el segundo; hasta 10). |
 | `respuesta` | string | no | opcional: lo que escribió el lead, textual. Va en el aviso, y el aviso no se repite para esa misma respuesta (en vez de para el mismo lead). |
 | `fueraDeHorario` | string (espera \\| igual) | no | opcional, sólo en una automatización con horario de oficina: «espera» (lo de fábrica) la manda cuando abre; «igual», a cualquier hora. |
+| `canal` | string (grupo \\| email) | no | opcional: «email» le escribe un correo al equipo del negocio (sus destinatarios de Notificaciones) en vez de mandarlo al grupo de WhatsApp. Por email va un solo texto, sin audio ni archivos, y con asunto. Sin elegir, el grupo. |
+| `asunto` | string | no | el asunto del correo, obligatorio con canal «email». Admite los mismos datos {{…}} que el texto. |
 
 ```bash
 curl -L \
