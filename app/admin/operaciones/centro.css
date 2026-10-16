@@ -376,6 +376,13 @@
 .co-riel__cuerpo { flex: 1 1 auto; min-height: 0; overflow-y: auto; margin-inline: -6px; padding-inline: 6px; }
 
 .co-avance__vacio { margin: 18px 4px; font-size: var(--fs-sm); color: var(--faint); }
+/* Lo pendiente arriba y lo terminado abajo, cada uno con su rótulo (como los grupos de estado de Linear). */
+.co-avance__grupo + .co-avance__grupo { margin-top: 14px; }
+.co-avance__grupo-tit {
+  margin: 0 0 4px; padding: 0 4px; display: flex; align-items: baseline; gap: 6px;
+  font-size: var(--fs-meta); font-weight: 600; letter-spacing: .02em; text-transform: uppercase; color: var(--faint);
+}
+.co-avance__grupo-tit span { font-weight: 500; }
 /* La lista: un rombo por nodo, unidos por una línea vertical (el roadmap). */
 .co-avance__lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
 .co-nodo { position: relative; }

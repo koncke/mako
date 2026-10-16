@@ -1213,13 +1213,17 @@ código nuevo:
   - **El jefe se llama como la tab** («CRM», «Offer», «Web Generator»), y el mismo trabajo se llama IGUAL en las tres
     cuentas: el Centro une por nombre (sin mayúsculas ni tildes) y le escribe a la sesión abierta
     (lib/centro-chats.ts → `unirPorNombre`).
-  - **Un sub-chat se nombra «CRM › Lead Detail»** (también vale «>»), y va adentro de su jefe (`porJefe`).
+  - **Un sub-chat se nombra «CRM › Lead Detail»** (también vale «>»), y va adentro de su jefe (`porJefe`). No hay
+    registro aparte: el nombre es la convención. Lo decide el jefe —se renombra a sí mismo o renombra al sub-chat con
+    `set_session_title`— y funciona igual si el sub-chat lo crea Martín con un clic y lo nombra así.
   - **El jefe se llama como una tab de VERDAD** (16/10/2026): la lista sale de la barra y de las áreas
     (app/admin/operaciones/tabs.ts); lo que no coincide va a «Sin asignar». **El orquestador se llama «Cerebro»** y no es
     un jefe: va aparte, arriba («Estrategia 3 cuentas» es su nombre de antes). Un pedido sale SÓLO en el chat que lo
-    trabajó, nunca en el que lo pasó. No hay
-    registro aparte: el nombre es la convención. Lo decide el jefe —se renombra a sí mismo o renombra al sub-chat con
-    `set_session_title`— y funciona igual si el sub-chat lo crea Martín con un clic y lo nombra así.
+    trabajó, nunca en el que lo pasó; **el que nadie empezó, en el chat donde se pidió**.
+  - **El historial de una tab es de su jefe** (16/10/2026): lo anotado con un nombre que hoy no tiene ningún chat
+    («Chatbot», un sub-chat cerrado) va al jefe que se llama como el área de su bitácora (`completarChats`, el paso 3).
+    No hay sección «Antes del 16/10»; un jefe sin chat abierto se lista sólo si tiene algo sin terminar. Anotar en la
+    bitácora del área que se tocó es lo que hace que el trabajo aparezca en su jefe.
   - **Dos chats distintos no se llaman igual**: si pasa, se unen. Se separan renombrando uno («⋯ → Renombrar»), que le
     manda a cada sesión un trabajo firmado que le pide `set_session_title` (`textoDeRenombre`): el mismo camino de la
     firma, sin una puerta nueva a la PC.

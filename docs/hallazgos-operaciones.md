@@ -735,6 +735,33 @@ trabajando» y «Falta la opción de "Nuevo chat" tipo placeholder arriba de tod
 **Vive en:** `app/admin/operaciones/NuevoChat.tsx` · `lib/runner.ts` (`comandoNuevoChat`) · `lib/centro-chats.ts`
 (`enQueTrabaja`) · `lib/centro-munecos.ts` · `tests/centro-fila.test.ts`
 
+## El avance «casi nulo» no era la ventana de 14 días: el historial colgaba de nombres que ningún chat tiene (16/10/2026)
+
+**El pedido.** «Elimina lo de "Antes del 16/10"... Eso debería estar dentro de los mismos chats, como el historial y el
+progreso... Deberías traer mayor historial porque el "progreso" de la mayoría es casi nulo... Sobre todo me interesa ver
+las cosas que pedí y están pendientes».
+
+- **El diagnóstico obvio era el equivocado.** «Traer más historial» sonaba a abrir la ventana de 14 días. Medido: con
+  TODAS las fechas sólo suman 92 pedidos (295 → 387). Lo que vaciaba el avance era otra cosa: **75 de los 81 chats de las
+  bitácoras se conocen sólo por un nombre que ningún chat vivo tiene** («Chatbot» 62 hitos, «Graphics» 33, «Funnel y oferta
+  del CRM» 20...), y todo eso caía en «Antes del 16/10». Ahora va al jefe que se llama como el ÁREA de su bitácora: con
+  los carteros reales, CRM pasó a tener 61 pedidos terminados, Automations 47, Customer Success 26 (y 3 pendientes).
+- **Lo pendiente no estaba en ningún chat.** Un pedido sin pasos (nadie lo empezó) sólo iba a `pidioAca`, que desde la
+  punta 3 no se dibuja: los pendientes, justo lo que Martín quería ver, no salían en ningún lado. Ahora van al chat donde
+  se pidieron (es el que los tiene que hacer).
+- **Un jefe sin chat abierto se lista sólo con algo sin terminar** («Local Dev Environment», 6 pendientes): dice que ese
+  jefe hace falta. Lo terminado queda en su historial y aparece cuando alguien abre un chat con ese nombre.
+- **El peso:** los pedidos de todas las fechas son 575 KB (eran 448 KB con 14 días); lo terminado hace más de 14 días
+  viaja corto (`pedidosDelCentro`). Si crece, el paso siguiente es pedir el historial al abrir el chat.
+- **Los relevos no se parsean:** son prosa, y sólo 4 tienen «SIN HACER» (13 renglones). Lo pendiente de un relevo va al
+  PLAN como tarea del proyecto de su tab (punta 4b), que es de donde el Centro lee lo pendiente.
+- **Trampa de herramienta:** un reemplazo cuya ancla es el PRINCIPIO de un renglón deja el resto del renglón pegado
+  después del texto nuevo. Pasó en la cosecha de la punta 3 y partió una regla de `AGENTS.md` en dos; las anclas van
+  con el renglón entero.
+
+**Vive en:** `lib/centro-chats.ts` (`chatsDeBitacoras`, `completarChats` paso 3, `gruposDelAvance`) ·
+`lib/progreso-reglas.ts` (`pedidosDelCentro`) · `tests/centro-chats.test.ts` · `tests/centro-avance.test.ts`
+
 ## El Cerebro aparte, los jefes por tab, y un pedido sólo en el chat que lo trabajó (16/10/2026)
 
 **El pedido.** «No estás aplicando la modularización y organización de chats... dentro de ese chat dice "Lo trabajó Centro

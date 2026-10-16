@@ -211,20 +211,38 @@ test('el segundo renglón de la fila es lo ÚLTIMO que pasó: un trabajo con su 
   assert.equal(vistaPrevia([]), null);
 });
 
-test('la barra: UNA lista sin cuentas, y lo que no tiene ninguna sesión aparte, al final', async () => {
-  // Martín (15/10/2026): «No quiero que exista "cuenta 1, cuenta 2, 3" en la sidebar de chats».
-  // Probado rompiéndolo (15/10/2026): dejando lo «por nombre» en la lista → 1 fallo.
+test('la barra: UNA lista sin cuentas y sin «Antes del 16/10»: lo anotado con un nombre viejo va al jefe de su tab', async () => {
+  // Martín (15/10/2026): «No quiero que exista "cuenta 1, cuenta 2, 3" en la sidebar de chats». Y el 16/10: «Elimina lo de
+  // "Antes del 16/10"... Eso debería estar dentro de los mismos chats, como el historial y el progreso... Sobre todo me
+  // interesa ver las cosas que pedí y están pendientes».
+  // ⚠️ Probado ROMPIÉNDOLO (16/10/2026), contra la base en verde:
+  //   · sin el paso 3 de completarChats (el nombre viejo no va a su tab) → 1 fallo (éste: «Funnel y oferta del CRM» suelto);
+  //   · listando al jefe sin sesión aunque no tenga nada pendiente → 1 fallo (éste: aparece «API de MaKo»);
+  //   · lo pendiente sin pasos sólo en `pidioAca` (como antes) → 1 fallo (éste: «Pagos» no se lista).
   const { seccionesDeChats, chatsDeBitacoras, completarChats } = await import('../lib/centro-chats');
-  const area: AreaP = { slug: 'x', titulo: 'X', bitacora: [hito('10:00', 'implementacion', 'CRM'), hito('10:30', 'implementacion', 'Viejo sin sesión')] };
+  const { pedidosRecientes } = await import('../lib/progreso-reglas');
+  const areas: AreaP[] = [
+    { slug: 'crm', titulo: 'CRM', bitacora: [hito('10:00', 'implementacion', 'CRM'), hito('10:30', 'implementacion', 'Funnel y oferta del CRM')] },
+    // Una tab sin chat abierto, con algo pedido y sin empezar: se lista, con el nombre de la tab.
+    { slug: 'pagos', titulo: 'Pagos', bitacora: [hito('09:00', 'prompt', 'Cobros viejo', { pedido: 'Que la cuota avise' })] },
+    // Otra sin chat abierto y con todo terminado: queda en su historial, no en la lista.
+    { slug: 'api', titulo: 'API de MaKo', bitacora: [hito('09:00', 'prompt', 'API vieja'), hito('09:10', 'implementacion', 'API vieja')] },
+  ];
   const carteros: CarteroP[] = [
     { cuenta: 'claude1', vistoAt: '2026-10-15T15:59:00Z', chats: [chat(1, 'CRM', false)] },
     { cuenta: 'claude3', vistoAt: '2026-10-15T15:59:00Z', chats: [{ ...chat(3, 'Graphics', true, 'idle'), cuenta: 'claude3' }] },
   ];
-  const cs = completarChats(chatsDeBitacoras({ areas: [area], pedidos: [], ahora: AHORA }), { carteros, trabajos: [], ahora: AHORA });
+  const pedidos = pedidosRecientes(areas, AHORA, 3650);
+  const cs = completarChats(chatsDeBitacoras({ areas, pedidos, ahora: AHORA }), { carteros, trabajos: [], ahora: AHORA });
   const secs = seccionesDeChats(cs);
-  assert.deepEqual(secs.map((s) => s.titulo), [null, 'Antes del 16/10'], 'una lista sin título, y lo de antes aparte');
-  assert.deepEqual(secs[0].chats.map((c) => c.titulo), ['Graphics', 'CRM'], 'el abierto primero; el «CRM» sin sesión se sumó al de la cuenta 1');
-  assert.deepEqual(secs[1].chats.map((c) => c.titulo), ['Viejo sin sesión']);
+  assert.deepEqual(secs.map((s) => s.titulo), [null], 'una sola lista: ya no hay «Antes del 16/10»');
+  assert.deepEqual(secs[0].chats.map((c) => c.titulo), ['Graphics', 'CRM', 'Pagos'], 'el abierto primero; después por actividad');
+  const crm = cs.find((c) => c.titulo === 'CRM')!;
+  assert.ok(crm.miembros.includes(claveDeNombre('Funnel y oferta del CRM')), 'el nombre viejo es historia del jefe de su tab');
+  const pagos = cs.find((c) => c.titulo === 'Pagos')!;
+  assert.equal(pagos.sesion, null, 'no tiene sesión: la caja le dice que hay que abrirlo');
+  assert.equal(pagos.pedidos.length, 1, 'lo pedido y sin empezar va al chat donde se pidió, que es el que lo tiene que hacer');
+  assert.ok(!cs.some((c) => c.titulo === 'API de MaKo'), 'un jefe sin chat abierto y sin nada pendiente no se lista');
 });
 
 test('el chat jefe: «CRM › Lead Detail» va adentro de «CRM», y un sub-chat sin jefe en la lista igual se agrupa', async () => {

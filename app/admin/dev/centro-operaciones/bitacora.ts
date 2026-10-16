@@ -484,4 +484,20 @@ export const BITACORA: Hito[] = [
       'tests/centro-jefes.test.ts — el Cerebro, «Sin asignar» y la lista de tabs',
     ],
   },
+  {
+    fecha: '16 oct', hora: '05:10', chat: CH, sesion: SESION_CH_3, cuenta: 'claude3', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Sin «Antes del 16/10»: el historial de cada tab va a su jefe, y lo pendiente primero',
+    puntos: [
+      'Martín: «Elimina lo de "Antes del 16/10"... Eso debería estar dentro de los mismos chats... Sobre todo me interesa ver las cosas que pedí y están pendientes».',
+      'Lo anotado con un nombre que ningún chat tiene va al jefe de su tab (el área de su bitácora): 75 de 81 chats eran así.',
+      'Lo que nadie empezó va al chat donde se pidió; un jefe sin chat abierto se lista sólo si tiene algo sin terminar.',
+      'Todas las fechas, lo terminado viejo corto; el avance con «Pendiente» arriba y «Terminado» abajo.',
+    ],
+    archivos: [
+      'lib/centro-chats.ts — completarChats paso 3, gruposDelAvance',
+      'lib/progreso-reglas.ts — pedidosDelCentro',
+      'app/admin/operaciones/Avance.tsx — los dos grupos',
+      'tests/centro-chats.test.ts, tests/centro-avance.test.ts',
+    ],
+  },
 ];

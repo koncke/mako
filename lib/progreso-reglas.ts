@@ -218,15 +218,35 @@ export function pedidosRecientes(areas: readonly AreaP[], ahora: number, dias = 
 }
 
 /** Lo que viaja a la pantalla de cada pedido, recortado (son ~300 en 14 días): el texto entero va
- *  hasta 800 caracteres, y de cada paso, el título y hasta 6 commits. */
-export function recortarPedido(p: PedidoP): PedidoP {
-  const commit = (c: { sha: string; msg: string }) => ({ sha: c.sha, msg: c.msg.slice(0, 140) });
+ *  hasta 800 caracteres, y de cada paso, el título y hasta 6 commits. `corto`: lo terminado hace rato,
+ *  que se lee de pasada (`pedidosDelCentro`). */
+export function recortarPedido(p: PedidoP, corto = false): PedidoP {
+  const commit = (c: { sha: string; msg: string }) => ({ sha: c.sha, msg: c.msg.slice(0, corto ? 100 : 140) });
   return {
     ...p,
-    texto: p.texto.slice(0, 800),
-    pasos: p.pasos.slice(0, 12).map((s) => ({ ...s, titulo: s.titulo.slice(0, 200), commits: s.commits.slice(0, 6).map(commit) })),
-    commits: p.commits.slice(0, 20).map(commit),
+    texto: p.texto.slice(0, corto ? 300 : 800),
+    pasos: p.pasos.slice(0, corto ? 4 : 12).map((s) => ({ ...s, titulo: s.titulo.slice(0, corto ? 120 : 200), commits: s.commits.slice(0, corto ? 2 : 6).map(commit) })),
+    commits: p.commits.slice(0, corto ? 4 : 20).map(commit),
   };
+}
+
+/** Todo el historial: las bitácoras empiezan en 2026, así que diez años son «todas las fechas». */
+export const DIAS_HISTORIAL = 3650;
+/** Lo terminado en los últimos días va entero; lo de antes, corto. */
+export const DIAS_ENTERO = 14;
+
+/**
+ * Los pedidos que ve el Centro: TODAS las fechas (Martín, 16/10/2026: «Deberías traer mayor historial porque el
+ * "progreso" de la mayoría es casi nulo... Sobre todo me interesa ver las cosas que pedí y están pendientes»). Lo que
+ * no está terminado va entero siempre; lo terminado hace más de `DIAS_ENTERO`, corto.
+ * ⚠️ El peso, medido el 16/10/2026: 295 pedidos en 14 días eran 448 KB; los 387 de todas las fechas, 650 KB enteros.
+ * ⚠️ Y LA VENTANA NO ERA LO QUE FALTABA: con todas las fechas sólo suman 92 pedidos. El avance casi vacío venía de que
+ * 75 de los 81 chats de las bitácoras se conocen sólo por un nombre que ningún chat vivo tiene (lib/centro-chats.ts →
+ * `completarChats`, el paso 3, los manda al jefe de su tab).
+ */
+export function pedidosDelCentro(areas: readonly AreaP[], ahora: number): PedidoP[] {
+  const desde = ahora - DIAS_ENTERO * 86_400_000;
+  return pedidosRecientes(areas, ahora, DIAS_HISTORIAL).map((p) => recortarPedido(p, p.estado === 'hecho' && p.ultimo < desde));
 }
 
 /**

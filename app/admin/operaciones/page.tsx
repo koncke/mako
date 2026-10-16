@@ -5,7 +5,7 @@ import { Pagina, PermissionState } from '@/app/_ui';
 import { puedeOperar } from '@/lib/operaciones-reglas';
 import { leerCarteros, listarPedidos } from '@/lib/operaciones';
 import { areasDeProgreso } from '@/lib/progreso';
-import { pedidosRecientes, recortarPedido } from '@/lib/progreso-reglas';
+import { DIAS_HISTORIAL, pedidosDelCentro } from '@/lib/progreso-reglas';
 import { chatsDeBitacoras } from '@/lib/centro-chats';
 import { leerDecisiones } from '@/lib/admin-decisiones';
 import { leerMunecos } from '@/lib/centro-munecos-db';
@@ -48,11 +48,12 @@ export default async function OperacionesPage({ searchParams }: { searchParams: 
   ]);
   // Las tarjetas de la Ticketera, enteras: cada chat dibuja las suyas arriba de la caja, y el botón Ticketera, todas.
   const decisiones = tarjetas?.ok ? tarjetas.decisiones : null;
-  const pedidos = pedidosRecientes(areas, ahora, 14).map(recortarPedido);
+  // Todas las fechas (16/10/2026): lo terminado hace rato va corto (lib/progreso-reglas.ts → pedidosDelCentro).
+  const pedidos = pedidosDelCentro(areas, ahora);
   return (
     <Pagina ancho="completo" densidad="compacta" style={{ padding: 0, flex: 'none', height: '100dvh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
       <CentroApp
-        base={chatsDeBitacoras({ areas, pedidos, ahora })}
+        base={chatsDeBitacoras({ areas, pedidos, ahora, dias: DIAS_HISTORIAL })}
         colaInicial={cola}
         carterosIniciales={carteros}
         decisionesIniciales={decisiones}

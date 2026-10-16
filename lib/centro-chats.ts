@@ -58,6 +58,11 @@ export type ChatCentro = {
   sesiones: SesionDeChat[];
   /** Abierta, pero sin un Runner en su carpeta de config: nadie le puede entregar (cartero 1.4.0). */
   sinRunner?: boolean;
+  /** La tab de su bitácora (el título del área donde más anotó). Lo anotado con un nombre que ningún chat vivo tiene va
+   *  al jefe que se llama así (`completarChats`, el paso 3). */
+  area?: string;
+  /** Sus pedidos sin terminar (ids de PedidoP): un chat sin sesión sólo se lista si tiene alguno. */
+  abiertos?: string[];
 };
 
 export type SesionDeChat = {
@@ -132,23 +137,32 @@ export function chatsDeBitacoras({ areas, pedidos, ahora, dias = 14 }: {
     return c;
   };
   // 1. Cada hito a su chat (por sesión, o aparte por nombre). Así un chat que el cartero no ve —de otra cuenta, o
-  //    cerrado hace días— aparece igual con lo que hizo.
+  //    cerrado hace días— aparece igual con lo que hizo. Y de qué tab es: el área donde más anotó.
+  const porArea = new Map<string, Map<string, number>>();
   for (const a of areas) {
     for (const h of a.bitacora) {
       const t = instanteHito(h.fecha, h.hora, ahora);
       if (t == null || t < desde || !h.chat || h.chat === '—') continue;
-      mover(tomar(claveDe(h), h.chat, h.cuenta || null), t);
+      const c = tomar(claveDe(h), h.chat, h.cuenta || null);
+      mover(c, t);
+      const m = porArea.get(c.clave) ?? new Map<string, number>();
+      m.set(a.titulo, (m.get(a.titulo) ?? 0) + 1);
+      porArea.set(c.clave, m);
     }
   }
-  // 2. Los pedidos: en cada chat que hizo un paso, y en el que se pidió si lo trabajó otro.
+  for (const [clave, m] of porArea) chats.get(clave)!.area = [...m].sort((x, y) => y[1] - x[1])[0][0];
+  // 2. Los pedidos: en cada chat que hizo un paso. El que nadie empezó, en el chat donde se pidió, que es el que lo
+  //    tiene que hacer (Martín, 16/10/2026: «Sobre todo me interesa ver las cosas que pedí y están pendientes»).
   for (const p of [...pedidos].sort((x, y) => y.ultimo - x.ultimo)) {
-    const hicieron = new Set(p.pasos.map((s) => claveDe(s)));
-    for (const clave of hicieron) {
-      const c = chats.get(clave);
-      if (c && !c.pedidos.includes(p.id)) c.pedidos.push(p.id);
-    }
     const pidio = claveDe(p.pidioEn);
-    if (!hicieron.has(pidio)) chats.get(pidio)?.pidioAca.push(p.id);
+    const van = p.pasos.length ? new Set(p.pasos.map((s) => claveDe(s))) : new Set([pidio]);
+    for (const clave of van) {
+      const c = chats.get(clave);
+      if (!c || c.pedidos.includes(p.id)) continue;
+      c.pedidos.push(p.id);
+      if (p.estado !== 'hecho') (c.abiertos ??= []).push(p.id);
+    }
+    if (!van.has(pidio)) chats.get(pidio)?.pidioAca.push(p.id);
   }
   return [...chats.values()];
 }
@@ -166,6 +180,7 @@ export function completarChats(base: readonly ChatCentro[], { carteros, trabajos
   // Cada vuelta vuelve a decidir el estado y los trabajos: lo que traía la base de antes no cuenta.
   const chats = new Map<string, ChatCentro>(base.map((c) => [c.clave, {
     ...c, estado: 'sin_dato', vistoAt: null, viejo: false, trabajos: [], pedidos: [...c.pedidos], pidioAca: [...c.pidioAca],
+    ...(c.abiertos ? { abiertos: [...c.abiertos] } : {}),
   }]));
   const tomar = (clave: string, titulo: string, cuenta: string | null) => {
     let c = chats.get(clave);
@@ -198,9 +213,24 @@ export function completarChats(base: readonly ChatCentro[], { carteros, trabajos
     mover(c, fecha(w.created_at));
   }
 
+  // 3. Lo anotado sin sesión con un nombre que hoy no tiene ningún chat («Chatbot», «Funnel y oferta del CRM», un
+  //    sub-chat que ya se cerró) va al JEFE de su tab: el que se llama como el área de su bitácora. Martín (16/10/2026):
+  //    «Elimina lo de "Antes del 16/10"... Eso debería estar dentro de los mismos chats, como el historial y el
+  //    progreso». ⚠️ Medido ese día: 75 de los 81 chats de las bitácoras eran así, y por eso el avance de casi todos los
+  //    chats vivos estaba vacío. El Cerebro no se toca: sus nombres de antes ya son él (`esCerebro`).
+  const grupo = (t: string) => (esCerebro(t) ? 'cerebro' : normal(t));
+  const conSesion = new Set([...chats.values()].filter((c) => c.sesion).map((c) => grupo(c.titulo)));
+  for (const c of chats.values()) {
+    if (c.sesion || !c.area || esCerebro(c.titulo) || conSesion.has(grupo(c.titulo))) continue;
+    c.titulo = c.area;
+  }
+
   const peso: Record<EstadoChat, number> = { trabajando: 0, abierto: 1, cerrado: 2, sin_dato: 2 };
   return unirPorNombre([...chats.values()])
-    .filter((c) => c.estado === 'trabajando' || c.estado === 'abierto' || c.trabajos.length > 0 || (c.actividad ?? 0) >= desde)
+    // Uno sin sesión (el jefe de una tab que hoy no tiene chat abierto) se lista sólo con algo sin terminar: es lo que
+    // Martín quiere ver, y le dice que ese jefe hace falta. Lo terminado queda en su historial, para cuando se abra.
+    .filter((c) => c.estado === 'trabajando' || c.estado === 'abierto' || c.trabajos.length > 0
+      || (c.sesion ? (c.actividad ?? 0) >= desde : (c.abiertos?.length ?? 0) > 0))
     .sort((x, y) => {
       // Lo vivo arriba sólo si el dato es fresco: con el cartero quieto, todos ordenan por actividad.
       const px = x.viejo ? 2 : peso[x.estado];
@@ -263,6 +293,8 @@ export function unirPorNombre(chats: readonly ChatCentro[]): ChatCentro[] {
       ...(mejor?.sinRunner ? { sinRunner: true } : {}),
       actividad: Math.max(...lista.map((c) => c.actividad ?? 0)) || null,
       pedidos: unica(lista.flatMap((c) => c.pedidos)),
+      ...(lista.some((c) => c.abiertos?.length) ? { abiertos: unica(lista.flatMap((c) => c.abiertos ?? [])) } : {}),
+      ...(lista.find((c) => c.area)?.area ? { area: lista.find((c) => c.area)!.area } : {}),
       pidioAca: unica(lista.flatMap((c) => c.pidioAca)),
       trabajos: unica(lista.flatMap((c) => c.trabajos)),
       miembros: unica(lista.flatMap((c) => c.miembros)),
@@ -474,16 +506,17 @@ export function grupoDeChat(c: Pick<ChatCentro, 'estado' | 'viejo' | 'actividad'
 }
 
 /**
- * Las secciones de la barra: UNA lista con todos los chats que reciben (en el orden de `completarChats`: lo que
- * trabaja arriba, después por actividad) y, al final, lo que no tiene ninguna sesión (lo anotado antes del 16/10 con un
- * nombre que ningún chat vivo tiene), que no recibe trabajos. La usan la computadora y el teléfono.
+ * Las secciones de la barra: el Cerebro arriba, UNA lista con los jefes y sus sub-chats (en el orden de
+ * `completarChats`: lo que trabaja arriba, después por actividad), y «Sin asignar». La usan la computadora y el teléfono.
+ * ⚠️ Ya no hay «Antes del 16/10» (Martín, 16/10/2026: «Elimina lo de "Antes del 16/10"... Eso debería estar dentro de
+ * los mismos chats»): lo anotado sin sesión va adentro del jefe de su tab (`completarChats`, el paso 3), y un jefe que
+ * hoy no tiene chat abierto se lista sólo si tiene algo sin terminar.
  *
  * ⚠️ SIN SECCIONES POR CUENTA. Martín (15/10/2026): «No quiero que exista "cuenta 1, cuenta 2, 3" en la sidebar de
  * chats... eso debe estar dentro de cada chat, con un chip». La cuenta va en la cabecera de la conversación y en el
  * detalle de cada nodo del avance; y como los chats se unen por nombre (`unirPorNombre`), no hay dos «CRM» que
  * distinguir. Adentro de la lista, cada sub-chat va con su jefe (`porJefe`).
  */
-export const SECCION_ANTES = 'antes';
 export const SECCION_CHATS = 'chats';
 export type SeccionChats = { clave: string; titulo: string | null; chats: ChatCentro[] };
 
@@ -498,17 +531,14 @@ export const SECCION_SIN_ASIGNAR = 'sin-asignar';
  * todos van a la lista (como antes).
  */
 export function seccionesDeChats(chats: readonly ChatCentro[], tabs?: readonly string[]): SeccionChats[] {
-  const reciben = chats.filter((c) => !c.porNombre && c.sesion);
-  const antes = chats.filter((c) => c.porNombre || !c.sesion);
-  const cerebro = reciben.filter((c) => esCerebro(c.titulo));
-  const resto = reciben.filter((c) => !esCerebro(c.titulo));
+  const cerebro = chats.filter((c) => esCerebro(c.titulo));
+  const resto = chats.filter((c) => !esCerebro(c.titulo));
   const conocidas = tabs ? new Set(tabs.map(normal)) : null;
   const deTab = (c: ChatCentro) => !conocidas || conocidas.has(normal(partesDelNombre(c.titulo).jefe));
   const out: SeccionChats[] = [];
   if (cerebro.length) out.push({ clave: SECCION_CEREBRO, titulo: null, chats: cerebro });
   if (resto.some(deTab)) out.push({ clave: SECCION_CHATS, titulo: null, chats: resto.filter(deTab) });
   if (resto.some((c) => !deTab(c))) out.push({ clave: SECCION_SIN_ASIGNAR, titulo: 'Sin asignar', chats: resto.filter((c) => !deTab(c)) });
-  if (antes.length) out.push({ clave: SECCION_ANTES, titulo: 'Antes del 16/10', chats: antes });
   return out;
 }
 
@@ -641,6 +671,24 @@ export function enQueTrabaja(lineas: readonly LineaChat[], tope = 56): string | 
 
 /** El conteo del encabezado, como el «8/13» de Offer: los terminados sobre el total. */
 export const conteoAvance = (nodos: readonly NodoAvance[]) => ({ hechos: nodos.filter((n) => n.estado === 'hecho').length, total: nodos.length });
+
+/**
+ * La lista del avance, LO PENDIENTE PRIMERO (Martín, 16/10/2026: «Sobre todo me interesa ver las cosas que pedí y están
+ * pendientes»): arriba lo que falta (en curso, sin empezar y lo que no salió, que hay que volver a mandar), abajo lo
+ * terminado; cada grupo con lo más nuevo arriba, porque con todas las fechas el historial es largo.
+ * `avanceDelChat` sigue en el orden de la conversación: lo usan también el conteo y `enQueTrabaja`.
+ */
+export type GrupoAvance = { clave: 'pendiente' | 'hecho'; titulo: string; nodos: NodoAvance[] };
+const PESO_NODO: Record<EstadoNodo, number> = { en_curso: 0, sin_empezar: 1, no_salio: 2, hecho: 3 };
+export function gruposDelAvance(nodos: readonly NodoAvance[]): GrupoAvance[] {
+  const orden = (a: NodoAvance, b: NodoAvance) => PESO_NODO[a.estado] - PESO_NODO[b.estado] || b.instante - a.instante;
+  const falta = nodos.filter((n) => n.estado !== 'hecho').sort(orden);
+  const hechos = nodos.filter((n) => n.estado === 'hecho').sort(orden);
+  const out: GrupoAvance[] = [];
+  if (falta.length) out.push({ clave: 'pendiente', titulo: 'Pendiente', nodos: falta });
+  if (hechos.length) out.push({ clave: 'hecho', titulo: 'Terminado', nodos: hechos });
+  return out;
+}
 
 /**
  * Las tarjetas de la Ticketera que esperan una respuesta de Martín, por chat (la clave de la lista). Es lo que

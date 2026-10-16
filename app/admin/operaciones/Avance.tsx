@@ -19,7 +19,7 @@
 
 import { useId, useState } from 'react';
 import { Icon } from '@/app/_components/icons';
-import { ROTULO_NODO, conteoAvance, mensajeDeCommit, nombreCuenta, type EstadoNodo, type NodoAvance } from '@/lib/centro-chats';
+import { ROTULO_NODO, conteoAvance, gruposDelAvance, mensajeDeCommit, nombreCuenta, type EstadoNodo, type NodoAvance } from '@/lib/centro-chats';
 import { ROTULO_TIPO, diaDeNovedad, hace, pushDelCommit, type PushP } from '@/lib/progreso-reglas';
 
 /** El rombo de Linear: vacío sin empezar, a medias en curso, lleno terminado; rojo si no salió. */
@@ -83,27 +83,35 @@ function Detalle({ n, pushes, ahora }: { n: NodoAvance; pushes: readonly PushP[]
   );
 }
 
-/** La lista de nodos, el más viejo arriba, con una línea que los une (el roadmap). */
+/** La lista de nodos con una línea que los une (el roadmap): lo pendiente arriba y lo terminado abajo, cada grupo con
+ *  su rótulo y lo más nuevo primero (`gruposDelAvance`). */
 export function ListaAvance({ nodos, pushes, ahora }: { nodos: readonly NodoAvance[]; pushes: readonly PushP[] | null; ahora: number }) {
   const [abierto, setAbierto] = useState<string | null>(null);
   if (!nodos.length) return <p className="co-avance__vacio">Escríbele para empezar su avance.</p>;
   return (
-    <ol className="co-avance__lista">
-      {nodos.map((n) => {
-        const abre = abierto === n.id;
-        return (
-          <li key={n.id} className="co-nodo" data-estado={n.estado}>
-            <button type="button" className="co-nodo__fila" aria-expanded={abre} onClick={() => setAbierto(abre ? null : n.id)}
-              aria-label={`${n.titulo}: ${ROTULO_NODO[n.estado]}`}>
-              <span className="co-nodo__rombo" title={ROTULO_NODO[n.estado]}><Rombo estado={n.estado} /></span>
-              <span className="co-nodo__titulo">{n.titulo}</span>
-              <span className="co-nodo__dia">{diaDeNovedad(n.instante, ahora)}</span>
-            </button>
-            {abre && <Detalle n={n} pushes={pushes} ahora={ahora} />}
-          </li>
-        );
-      })}
-    </ol>
+    <>
+      {gruposDelAvance(nodos).map((g) => (
+        <section key={g.clave} className="co-avance__grupo" aria-label={g.titulo}>
+          <h3 className="co-avance__grupo-tit">{g.titulo}<span>{g.nodos.length}</span></h3>
+          <ol className="co-avance__lista">
+            {g.nodos.map((n) => {
+              const abre = abierto === n.id;
+              return (
+                <li key={n.id} className="co-nodo" data-estado={n.estado}>
+                  <button type="button" className="co-nodo__fila" aria-expanded={abre} onClick={() => setAbierto(abre ? null : n.id)}
+                    aria-label={`${n.titulo}: ${ROTULO_NODO[n.estado]}`}>
+                    <span className="co-nodo__rombo" title={ROTULO_NODO[n.estado]}><Rombo estado={n.estado} /></span>
+                    <span className="co-nodo__titulo">{n.titulo}</span>
+                    <span className="co-nodo__dia">{diaDeNovedad(n.instante, ahora)}</span>
+                  </button>
+                  {abre && <Detalle n={n} pushes={pushes} ahora={ahora} />}
+                </li>
+              );
+            })}
+          </ol>
+        </section>
+      ))}
+    </>
   );
 }
 

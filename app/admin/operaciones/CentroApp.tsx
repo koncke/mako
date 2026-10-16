@@ -51,7 +51,7 @@ import { MenuContextual } from '@/app/_ui/MenuContextual';
 import { Icon } from '@/app/_components/icons';
 import type { Alcance } from '@/lib/operaciones-reglas';
 import {
-  SECCION_ANTES, SECCION_CEREBRO, SECCION_CHATS, SECCION_SIN_ASIGNAR, chatDeClave, comoSale, completarChats, enQueTrabaja, esperaDe, esperasPorChat, historialDelChat, nombreValido, partesDelNombre,
+  SECCION_CEREBRO, SECCION_CHATS, SECCION_SIN_ASIGNAR, chatDeClave, comoSale, completarChats, enQueTrabaja, esperaDe, esperasPorChat, historialDelChat, nombreValido, partesDelNombre,
   porJefe, seccionesDeChats, textoDeEnvio, textoDeRenombre, vistaPrevia,
   type DecisionEspera, type ChatCentro, type TrabajoP, type VistaPrevia,
 } from '@/lib/centro-chats';
@@ -159,7 +159,7 @@ export function CentroApp({
   const [ahora, setAhora] = useState(ahoraServer);
   const [pushes, setPushes] = useState<LecturaPushes | null>(null);
   const [busca, setBusca] = useState('');
-  const [plegadas, setPlegadas] = useState<Set<string>>(() => new Set([SECCION_ANTES, SECCION_SIN_ASIGNAR]));
+  const [plegadas, setPlegadas] = useState<Set<string>>(() => new Set([SECCION_SIN_ASIGNAR]));
   const [enteras, setEnteras] = useState<Set<string>>(new Set());
   const [borradores, setBorradores] = useState<Record<string, string>>({});
   const [alcance, setAlcance] = useState<Alcance>('solo_esto');
