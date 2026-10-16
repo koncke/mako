@@ -20,6 +20,9 @@
 // ⚠️ «PERSONALIZAR» ES DEL ADMIN (`puedePersonalizar`), en la fila de las tabs y no un engranaje. Editando se
 //    ven también Pagos y Tracking aunque este lead no los tenga: la ficha es del funnel, no de este lead.
 //    Guarda sola, con «Deshacer» (./useFichaDelFunnel.ts), como el Dashboard.
+// ⚠️ PERSONALIZANDO SE ELIGE EL DISPOSITIVO (Escritorio · Tablet · Celular, ./SelectorDispositivo.tsx), como en
+//    el editor del Dashboard y el del Web Generator: angosta la ficha REAL (el mismo armador, en una página del
+//    ancho del dispositivo), no una simulación aparte. Al volver a «Ver», el escritorio.
 // ⚠️ «SOLUCIONAR» UN DATO lo resuelve acá (`pedido`): va a la tab donde se dibuja su campo EN ESTA FICHA
 //    (`tabDelDato`, ./armar.ts) y lo señala. Sin un bloque que lo tenga, el asistente (`onNoEsta`).
 // =============================================================================
@@ -47,7 +50,8 @@ import { Armador } from './Armador';
 import { AgregarBloque } from './AgregarBloque';
 import { PanelFicha } from './PanelFicha';
 import { cambiaAvisos, useFichaDelFunnel } from './useFichaDelFunnel';
-import { CLAVE_DE_TAB, estiloDeFicha, indiceDeOcurrencia, puedePersonalizar, tabDelDato } from './armar';
+import { SelectorDispositivo } from './SelectorDispositivo';
+import { CLAVE_DE_TAB, dispositivoVisto, estiloDeFicha, indiceDeOcurrencia, puedePersonalizar, tabDelDato, type DispositivoFicha } from './armar';
 import { entradaDe } from './registro';
 import { CSS_FICHA } from './ficha-css';
 import type { CtxFicha } from './tipos';
@@ -92,6 +96,9 @@ export function FichaPorBloques({ data, parchear, altoChat, initialTab, onTab, f
   const puede = puedePersonalizar(data);
   const [editando, setEditando] = useState(false);
   const enEdicion = editando && puede && !!ff.ficha;
+  // La vista por dispositivo, como el editor del Dashboard: sólo personalizando; al volver a «Ver», el escritorio.
+  const [dispositivoElegido, setDispositivo] = useState<DispositivoFicha>('escritorio');
+  const dispositivo = dispositivoVisto(enEdicion, dispositivoElegido);
   const [sel, setSel] = useState<{ tab: TabFicha; indice: number } | null>(null);
   const [agregar, setAgregar] = useState<{ tab: TabFicha; ancla: HTMLElement } | null>(null);
 
@@ -186,9 +193,18 @@ export function FichaPorBloques({ data, parchear, altoChat, initialTab, onTab, f
               onClick={(e) => { const ancla = e.currentTarget; setAgregar((a) => (a?.tab === tab ? null : { tab, ancla })); }}>
               <IconoMenu nombre="agregar" size={15} /> Agregar bloque <span aria-hidden>▾</span>
             </button>
-            {!delLead.includes(tab) && <span className="fb-panel-linea" style={{ margin: '0 0 0 auto', padding: '0 8px' }}>Este lead no ve esta tab.</span>}
+            <div className="fb-barra-fin">
+              {!delLead.includes(tab) && <span className="fb-panel-linea" style={{ margin: 0, padding: '0 8px' }}>Este lead no ve esta tab.</span>}
+              <SelectorDispositivo valor={dispositivo} onCambiar={setDispositivo} />
+            </div>
           </div>
-          {armador}
+          {/* ⚠️ LA FICHA REAL, ANGOSTADA, no una vista aparte (como `lk-pagina` del Dashboard): el MISMO armador
+              con sus bloques de verdad, en una página del ancho del dispositivo (./ficha-css.ts). */}
+          <div className="fb-lienzo" data-dispositivo={dispositivo === 'escritorio' ? undefined : dispositivo}>
+            <div className="fb-pagina" data-dispositivo={dispositivo === 'escritorio' ? undefined : dispositivo}>
+              {armador}
+            </div>
+          </div>
         </div>
         <PanelFicha ficha={ff.ficha} onCambio={cambiar} />
       </div>

@@ -9,19 +9,27 @@
 //
 // Correr: npx tsx --test tests/ficha-armador.test.ts
 //
-// ⚠️ VERIFICADO ROMPIÉNDOLO (14/10/2026, base 15/0), cada rotura restaurada antes de la siguiente:
-//   · `bloquesDeLaGrilla` sin saltear lo vacío mirando (`if (vacio && !o.editando) return;` fuera)  → 13 / 2
-//   · `spansDeFilas` sin estirar la fila (devuelve los anchos tal cual)                              → 13 / 2
-//   · `cubre: []` fuera del banner «Va bien» (`proxima-reunion`)                                       → 14 / 1
-//   · `tabDelDato` mirando todas las tabs y no sólo las que ve el lead                                → 14 / 1
-//   · `ofrecerEnAgregar` ofreciendo también lo que no tiene componente                               → 14 / 1
-//   · `puedePersonalizar` sin mirar el rol (sólo `puedeEditarFicha`)                                  → 14 / 1
-//   · la ruta /crm/[id] montando `<InfoPrincipalCard` a mano de nuevo                                 → 14 / 1
-//   · page.tsx calculando `faltantesDeLead` por su cuenta (sin `getLeadFullAction`)                  → 14 / 1
-//   · `REGLAS_RESUMEN.contacto` sin `incluye` (el respaldo deja la cohorte y las redes sin bloque)    → 14 / 1
-//   · `estaVacio` fuera de `origen` (un bloque que se calla sin regla para callarse)                   → 14 / 1
-//   · `registro-pagos.tsx` con una clave que sus reglas no tienen                                      → 14 / 1
-//   · `<ResumenModal` de vuelta en InfoPrincipalCard                                                    → 14 / 1
+// ⚠️ VERIFICADO ROMPIÉNDOLO (re-medido el 15/10/2026, base 11/0), cada rotura restaurada de memoria antes de la
+// siguiente. Los números del 14/10 («base 15/0») no eran de este archivo: el WIP no corrió sus tests completos,
+// y dos roturas que decía cazar NO las cazaba (marcadas con ✱; se arreglaron las aserciones, ver abajo):
+//   · `bloquesDeLaGrilla` sin saltear lo vacío mirando (`if (vacio && !o.editando) return;` fuera)  → 9 / 2
+//   · `spansDeFilas` sin estirar la fila (devuelve los anchos tal cual)                              → 9 / 2
+//   · ✱ `cubre: []` fuera del banner «Va bien» (`proxima-reunion`)                                     → 10 / 1
+//       (antes 11/0: el lead del test no tenía el banner dibujado; ahora tiene la R1 por delante)
+//   · `tabDelDato` mirando todas las tabs y no sólo las que ve el lead                                → 10 / 1
+//   · ✱ `ofrecerEnAgregar` ofreciendo también lo que no tiene componente                             → 10 / 1
+//       (antes 11/0: probaba con `redes-y-web`, que ya está puesto; ahora con `siguiente-accion`)
+//   · `puedePersonalizar` sin mirar el rol (sólo `puedeEditarFicha`)                                  → 10 / 1
+//   · la ruta /crm/[id] montando `<InfoPrincipalCard` a mano de nuevo                                 → 10 / 1
+//   · page.tsx calculando `faltantesDeLead` por su cuenta (sin `getLeadFullAction`)                  → 10 / 1
+//   · `REGLAS_RESUMEN.contacto` sin `incluye` (el respaldo deja la cohorte y las redes sin bloque)    → 10 / 1
+//   · `estaVacio` fuera de `origen` (un bloque que se calla sin regla para callarse)                   → 9 / 2
+//   · `registro-pagos.tsx` con una clave que sus reglas no tienen                                      → 10 / 1
+//   · `<ResumenModal` de vuelta en InfoPrincipalCard                                                    → 10 / 1
+// Y la vista por dispositivo (15/10/2026), cada una                                                    → 10 / 1:
+//   `dispositivoVisto` sin volver al escritorio; un nombre distinto del Dashboard ('Tablet'); la tablet a
+//   768 px; el celular sin apilar los bloques; el armador fuera de la página del dispositivo; la ficha sin
+//   `dispositivoVisto` (queda angostada al volver a «Ver»); un `transform` en la página del dispositivo.
 // =============================================================================
 
 import { test } from 'node:test';
@@ -35,8 +43,8 @@ import { bloqueDef, type BloqueId, type TabFicha } from '../lib/ficha/catalogo';
 import { fichaEfectiva, RESPALDO_VACIO, type BloquePuesto } from '../lib/ficha/config';
 import { PLANTILLA_RESPALDO, listaDePlantilla } from '../lib/ficha/plantillas';
 import {
-  COLS_FICHA, bloquesDeLaGrilla, disenoADibujar, disenosOfrecidos, estiloDeFicha, lugarAlSoltar, ofrecerEnAgregar,
-  puedePersonalizar, spansDeFilas, tabDelDato,
+  COLS_FICHA, DISPOSITIVOS_FICHA, bloquesDeLaGrilla, disenoADibujar, disenosOfrecidos, dispositivoVisto, estiloDeFicha, lugarAlSoltar,
+  ofrecerEnAgregar, puedePersonalizar, spansDeFilas, tabDelDato,
 } from '../app/crm/lead-view/ficha/armar';
 import { REGLAS, REGLAS_POR_ARCHIVO, reglasDe } from '../app/crm/lead-view/ficha/reglas';
 import type { CtxFicha } from '../app/crm/lead-view/ficha/tipos';
@@ -102,7 +110,12 @@ test('«Solucionar» va a la tab donde ESTA ficha dibuja el campo, entre las que
   const todas: TabFicha[] = ['resumen', 'tracking', 'reuniones', 'pagos'];
   assert.equal(tabDelDato('telefono', todas, o), 'resumen');
   assert.equal(tabDelDato('setter', todas, o), 'reuniones', 'el setter vive adentro de la reunión (ReunionesCard)');
-  assert.equal(tabDelDato('fechaJ1', todas, o), 'reuniones', 'el banner «Va bien» del Resumen no tiene el campo de la fecha');
+  // Con el banner «Va bien» DIBUJADO (la R1 por delante): igual va a Reuniones, porque el banner no tiene el
+  // campo de la fecha. Con un lead sin reunión el banner ni se dibuja y esto no probaba nada (15/10/2026).
+  const conR1 = ctxDe({ fecha_junta_1: '2026-10-20', asistio_j1: null });
+  const oR1 = { ...o, vacio: vacioCon(conR1) };
+  assert.ok(bloquesDeLaGrilla(respaldo.tabs.resumen, { reglasDe, vacio: vacioCon(conR1), editando: false, verPrivado: true }).some((b) => b.def.id === 'proxima-reunion'));
+  assert.equal(tabDelDato('fechaJ1', todas, oR1), 'reuniones', 'el banner «Va bien» del Resumen no tiene el campo de la fecha');
   assert.equal(tabDelDato('monto', todas, o), 'pagos');
   assert.equal(tabDelDato('setter', ['resumen', 'pagos'], o), null, 'sin la tab Reuniones, el asistente');
   assert.equal(tabDelDato('motivo', todas, o), null, 'un lead que no salió no dibuja el motivo: el asistente');
@@ -113,6 +126,9 @@ test('«Agregar bloque» ofrece sólo lo que tiene componente y no está puesto'
   const ofrece = (l: readonly BloquePuesto[], buscar?: string) => ofrecerEnAgregar('resumen', l, { registrado: (id) => !!reglasDe(id), verPrivado: true, buscar }).map((d) => d.id);
   assert.ok(!ofrece(lista).includes('notas'), 'lo puesto no se ofrece otra vez');
   assert.ok(!ofrece(lista).includes('redes-y-web'), 'lo que no tiene componente no se ofrece («pronto» no)');
+  // Uno que NO está puesto y no tiene componente: con `redes-y-web` sólo, esto pasaba porque ya estaba puesto.
+  assert.ok(!lista.some((p) => p.id === 'siguiente-accion') && !reglasDe('siguiente-accion'));
+  assert.ok(!ofrece(lista).includes('siguiente-accion'), 'lo que no tiene componente no se ofrece («pronto» no)');
   const sinNotas = lista.filter((p) => p.id !== 'notas');
   assert.ok(ofrece(sinNotas).includes('notas'));
   assert.deepEqual(ofrece(sinNotas, 'NOTA'), ['notas'], 'el buscador no distingue mayúsculas');
@@ -152,6 +168,44 @@ test('«Personalizar» es sólo del admin, y sólo con la ficha del funnel leíd
   assert.doesNotMatch(panel, /nombre="configurar"/, '«Personalizar» es un botón con texto, no un engranaje');
   const acc = sinComentarios(leer('app/crm/actions.ts'));
   assert.match(acc, /puedeEditarFicha: rol === 'admin'/, 'el server dice que sólo el admin personaliza');
+});
+
+// Martín (14/10/2026): «tal como lo tenemos en la edición de Landing Generator, tienes que poder visualizar
+// en la versión mobile». Es el selector del Dashboard, copiado, y angosta la ficha REAL.
+test('personalizando, la vista por dispositivo del Dashboard angosta la ficha real', () => {
+  // Los mismos tres que el editor del Dashboard, con sus nombres (DISPOSITIVOS, app/dashboard/EditorInforme.tsx).
+  const dash = sinComentarios(leer('app/dashboard/EditorInforme.tsx'));
+  const lista = dash.slice(dash.indexOf('const DISPOSITIVOS'), dash.indexOf('];', dash.indexOf('const DISPOSITIVOS')));
+  const delDash = [...lista.matchAll(/\{ id: '(\w+)', nombre: '([^']+)'/g)].map((m) => ({ id: m[1], nombre: m[2] }));
+  assert.equal(delDash.length, 3, 'no encontré DISPOSITIVOS en el editor del Dashboard');
+  assert.deepEqual(DISPOSITIVOS_FICHA.map((d) => ({ id: d.id, nombre: d.nombre })), delDash);
+  // Sólo personalizando: al volver a «Ver», el escritorio.
+  assert.equal(dispositivoVisto(true, 'movil'), 'movil');
+  assert.equal(dispositivoVisto(false, 'movil'), 'escritorio', 'mirando la ficha no se queda angostada');
+  assert.equal(dispositivoVisto(false, 'tableta'), 'escritorio');
+
+  // La página del dispositivo envuelve al MISMO armador (no una vista aparte), y el selector va en la barra
+  // de la edición con el dispositivo que se ve.
+  const ficha = sinComentarios(leer('app/crm/lead-view/ficha/FichaPorBloques.tsx'));
+  assert.match(ficha, /const dispositivo = dispositivoVisto\(enEdicion, dispositivoElegido\);/);
+  assert.match(ficha, /<div className="fb-pagina" data-dispositivo=\{dispositivo === 'escritorio' \? undefined : dispositivo\}>\s*\{armador\}\s*<\/div>/,
+    'el dispositivo tiene que angostar el armador de verdad');
+  assert.match(ficha, /<SelectorDispositivo valor=\{dispositivo\} onCambiar=\{setDispositivo\} \/>/);
+  assert.equal((ficha.match(/<SelectorDispositivo\b/g) ?? []).length, 1);
+  assert.ok(ficha.indexOf('<SelectorDispositivo') > ficha.indexOf('if (!enEdicion || !ff.ficha) return armador;'), 'el selector es de la edición');
+
+  // Los anchos del Dashboard (app/dashboard/editor-css.ts), y en el celular un bloque abajo del otro.
+  const ancho = (css: string, sel: string, disp: string) => css.match(new RegExp(`\\.${sel}\\[data-dispositivo="${disp}"\\] \\{[^}]*?width: (\\d+)px`))?.[1];
+  const dashCss = leer('app/dashboard/editor-css.ts');
+  const fichaCss = leer('app/crm/lead-view/ficha/ficha-css.ts');
+  for (const d of ['tableta', 'movil']) {
+    assert.ok(ancho(dashCss, 'lk-pagina', d), `no encontré el ancho de ${d} en el Dashboard`);
+    assert.equal(ancho(fichaCss, 'fb-pagina', d), ancho(dashCss, 'lk-pagina', d), `el ${d} de la ficha no mide lo mismo que el del Dashboard`);
+  }
+  assert.match(fichaCss, /\.fb-pagina\[data-dispositivo="movil"\] \.fb-bloque \{ grid-column: 1 \/ -1 !important; \}/, 'en el celular los bloques no van uno abajo del otro');
+  const reglasDisp = fichaCss.split('\n').filter((l) => /\.fb-(lienzo|pagina)\[data-dispositivo/.test(l)).join('\n');
+  assert.ok(reglasDisp.length > 0);
+  assert.doesNotMatch(reglasDisp, /[{;\s](transform|filter|container-type)\s*:/, 'la página del dispositivo es ancestro de las tarjetas: un `position: fixed` adentro (modales, toasts) quedaría atado a ella');
 });
 
 test('los registros: cada bloque en el archivo de su tab, una vez, con las mismas claves que sus reglas', () => {

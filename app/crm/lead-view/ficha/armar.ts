@@ -198,6 +198,25 @@ export function puedePersonalizar(d: Pick<LeadFullData, 'puedeEditarFicha' | 'ro
   return d.puedeEditarFicha === true && d.rol === 'admin' && !!d.ficha;
 }
 
+/**
+ * LA VISTA POR DISPOSITIVO mientras se personaliza (Martín, 14/10/2026: «tal como lo tenemos en la edición de
+ * Landing Generator, tienes que poder visualizar en la versión mobile»). Es `DISPOSITIVOS` del editor del
+ * Dashboard (app/dashboard/EditorInforme.tsx), copiado: los mismos tres y con los mismos nombres (lo fija el
+ * test). No es una simulación aparte: angosta la ficha real (./FichaPorBloques.tsx y la regla de
+ * ./ficha-css.ts). No se guarda: es cómo se mira mientras se arma.
+ */
+export type DispositivoFicha = 'escritorio' | 'tableta' | 'movil';
+export const DISPOSITIVOS_FICHA: ReadonlyArray<{ id: DispositivoFicha; nombre: string }> = [
+  { id: 'escritorio', nombre: 'Vista de escritorio' },
+  { id: 'tableta', nombre: 'Vista de tablet' },
+  { id: 'movil', nombre: 'Vista de celular' },
+];
+
+/** El dispositivo con que se mira: el elegido sólo personalizando; al volver a «Ver», el escritorio (como el Dashboard). */
+export function dispositivoVisto(editando: boolean, elegido: DispositivoFicha): DispositivoFicha {
+  return editando ? elegido : 'escritorio';
+}
+
 /** Los anchos de la barra del bloque: los cuatro, con los que el bloque no acepta apagados. */
 export function anchosDeLaBarra(def: BloqueDef): Array<{ id: Ancho; nombre: string; puede: boolean }> {
   return ([3, 4, 6, 12] as const).map((id) => ({ id, nombre: { 3: '¼', 4: '⅓', 6: '½', 12: 'Completo' }[id], puede: def.anchos.includes(id) }));

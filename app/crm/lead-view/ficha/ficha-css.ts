@@ -61,6 +61,19 @@ export const CSS_FICHA = `
 /* La barra de la edición (arriba de la grilla) y el panel de la derecha: el de propiedades del Dashboard. */
 .fb-barra { display: flex; align-items: center; gap: 2px; flex-wrap: wrap; padding: 4px 6px; border-radius: 12px; background: var(--surface-2); margin-bottom: 6px; }
 .fb-barra .fb-herr { height: 32px; font-size: 13px; }
+.fb-barra-fin { margin-left: auto; display: inline-flex; align-items: center; gap: 4px; }
+.fb-disp { display: inline-flex; align-items: center; gap: 2px; }
+.fb-herr--icono { padding: 0; width: 32px; color: var(--dim); }
+
+/* LA VISTA POR DISPOSITIVO (personalizando): la de app/dashboard/editor-css.ts (lk-lienzo y lk-pagina), con los
+   mismos anchos. Angosta la ficha REAL; sin «transform» ni «container-type» (ver arriba). En el celular los
+   bloques van uno abajo del otro: es la MISMA regla del @media de arriba, que en un celular de verdad dispara
+   el ancho de la ventana y acá no, porque se angosta la ficha y no la ventana. La tablet (820) no la dispara. */
+.fb-lienzo[data-dispositivo] { background: var(--surface-2); border-radius: 14px; padding: 1px 0; }
+.fb-pagina[data-dispositivo] { margin: 18px auto 32px; background: var(--bg); border: 1px solid var(--border-strong); box-sizing: border-box; }
+.fb-pagina[data-dispositivo="tableta"] { width: 820px; max-width: calc(100% - 32px); border-radius: 22px; padding: 18px 18px 36px; }
+.fb-pagina[data-dispositivo="movil"] { width: 390px; max-width: calc(100% - 32px); border-radius: 30px; padding: 16px 12px 36px; }
+.fb-pagina[data-dispositivo="movil"] .fb-bloque { grid-column: 1 / -1 !important; }
 .fb-edicion { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 20px; align-items: start; }
 @media (max-width: 900px) { .fb-edicion { grid-template-columns: minmax(0, 1fr); } .fb-panel { position: static !important; max-height: none !important; } }
 .fb-panel { position: sticky; top: 58px; max-height: calc(100dvh - 120px); overflow-y: auto; box-sizing: border-box; border: 1px solid var(--border); border-radius: 14px;
