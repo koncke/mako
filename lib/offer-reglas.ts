@@ -40,6 +40,7 @@
 import { parseJsonObject } from './json-del-modelo';
 import { urgenciaUsable, type UrgenciaTipo } from './oferta-modelo';
 import { CANALES, PREGUNTAS, VOLUMEN_POR_CANAL, diagnosticar, type CanalId, type Diagnostico } from './fase-diagnostico';
+import { RE_LO_HACE_EL_CLIENTE, RE_LO_HACE_EL_NEGOCIO, RE_PROMETE_HACERLO } from './offer-quien-hace';
 import {
   DIMENSION_IDS, DIMENSIONES_CRITICAS, MARCA_COMPLETAR, PIEZAS, PIEZA_KEYS, PREGUNTAS_GUIA,
   dimensionLabel, esDimensionId, esPiezaKey, faltanMinimas, piezaLabel,
@@ -430,7 +431,10 @@ export function semillaDePiezas(e: EntradaSemilla, at: string = new Date().toISO
 
 /** La primera pregunta de la guía cuya pieza todavía no tiene nada anotado. */
 export function siguientePregunta(piezas: PiezasSabidas): string | null {
-  return PREGUNTAS_GUIA.find((q) => !piezaAnotada(piezas, q.pieza))?.pregunta ?? null;
+  const q = PREGUNTAS_GUIA.find((x) => !piezaAnotada(piezas, x.pieza));
+  if (!q) return null;
+  // La de la escalera, según el nivel (en una entrada importa qué vende DESPUÉS).
+  return q.pieza === 'escalera' ? preguntaEscalera(nivelDeOferta(piezas)?.nivel) : q.pregunta;
 }
 
 /**
@@ -1056,8 +1060,13 @@ export function mensajeDeMako(p: {
     }
   }
   if (turno && hayRespuesta) {
-    const opciones = opcionesConCierre(turno.opciones, p.puedeConcluir);
-    return { id: p.id, de: 'mako', texto: turno.respuesta, at: p.at, ...(opciones.length ? { opciones } : {}) };
+    // Un «diagnóstico» aparte NO existe (16/10/2026, la conversación real de Leila: con todo listo, MaKo preguntó
+    // «¿Quieres que avancemos con el diagnóstico de tu negocio?» con «Sí, ver diagnóstico», y el turno siguiente sólo
+    // dijo «toca el botón»). El análisis y la oferta salen de «Armar mi oferta»: con las mínimas, eso es lo que se dice,
+    // y una opción de «diagnóstico» en un mensaje que no es del diagnóstico de fase se saca siempre.
+    const ofreceOtroPaso = p.puedeConcluir && RE_PASO_DIAGNOSTICO.test(turno.respuesta);
+    const opciones = opcionesConCierre(ofreceOtroPaso ? [] : turno.opciones.filter((o) => !RE_OPCION_DIAGNOSTICO.test(o)), p.puedeConcluir);
+    return { id: p.id, de: 'mako', texto: ofreceOtroPaso ? TEXTO_LISTA_PARA_ARMAR : turno.respuesta, at: p.at, ...(opciones.length ? { opciones } : {}) };
   }
   const opciones = opcionesConCierre([], p.puedeConcluir);
   return {
@@ -1075,6 +1084,12 @@ export function mensajeDeMako(p: {
  * saca aunque el modelo la haya ofrecido: el botón llevaría a un «diagnosticar» que el servidor
  * rechaza, y un botón que contesta «faltan piezas» se lee como que la app está rota.
  */
+/** Un mensaje que ofrece el diagnóstico como un paso aparte (ver `mensajeDeMako`). */
+const RE_PASO_DIAGNOSTICO = /\bavan(?:ce|za|zar)?mos con (?:el|tu|un) diagn[oó]stico|\bver (?:el |tu )?diagn[oó]stico|\b(?:hacer|empezar|seguir con|pasar al?) (?:el |tu )?diagn[oó]stico/i;
+/** Una opción de «diagnóstico» en un mensaje que no es del diagnóstico de fase (las de ése llevan `pregunta`). */
+const RE_OPCION_DIAGNOSTICO = /diagn[oó]stico/i;
+export const TEXTO_LISTA_PARA_ARMAR = 'Ya tengo lo necesario para armar tu oferta. Cuando quieras, toca «Armar mi oferta»; si quieres afinar algo antes, cuéntamelo.';
+
 export function opcionesConCierre(opciones: string[], puedeConcluir: boolean): string[] {
   const sin = opciones.filter((o) => normalizar(o) !== normalizar(OPCION_ARMAR));
   return puedeConcluir ? [...sin.slice(0, MAX_OPCIONES - 1), OPCION_ARMAR] : sin.slice(0, MAX_OPCIONES);
@@ -1252,6 +1267,73 @@ export function precioDe(valor: string | null | undefined): Monto | null {
 /** El costo de atender a un cliente: el PRIMER monto de la pieza (lo que viene después suele ser la capacidad). */
 export function costoDe(valor: string | null | undefined): Monto | null {
   return montosDe(valor)[0] ?? null;
+}
+
+// ── El NIVEL de la oferta (16/10/2026) ───────────────────────────────────────
+// Feedback de la llamada con Leila (12/10): cargó su oferta de ENTRADA (800 MXN al mes) y MaKo le preguntó «¿qué le
+// vendes antes?» y la reescribió como un programa de 1.000 USD, unas 25 veces el precio. No era un error del modelo: el
+// marco daba por hecho el alto ticket en todos lados (los prompts, «desde 1.000 USD», los avisos del código). Martín:
+// «la oferta tiene que saber distinguir qué es un low ticket y qué es un high ticket», y en una de entrada la pregunta
+// es «¿qué le vendes después?». El nivel lo decide el CÓDIGO con el precio que dio el dueño, nunca el modelo.
+
+export type NivelTicket = 'bajo' | 'medio' | 'alto';
+export type NivelOferta = { nivel: NivelTicket; precio: Monto; recurrente: boolean };
+
+/**
+ * Los cortes, POR MONEDA (docs/offer-marco.md §6.5: el low ticket es lo de menos de 300-500 USD y el alto ticket
+ * arranca en 1.000 USD). Por moneda y no convirtiendo: la conversión con el tipo de cambio fijo está prohibida en los
+ * lectores (tests/moneda-meta.test.ts), y para separar una entrada de un alto ticket alcanza el orden de magnitud. Lo
+ * que se cobra por MES se mide con sus propios cortes (una membresía de 50 USD al mes es una entrada).
+ */
+const CORTES_TICKET: Record<'USD' | 'MXN' | 'EUR', { bajo: number; alto: number; bajoMes: number; altoMes: number }> = {
+  USD: { bajo: 500, alto: 1_000, bajoMes: 150, altoMes: 300 },
+  EUR: { bajo: 500, alto: 1_000, bajoMes: 150, altoMes: 300 },
+  MXN: { bajo: 9_000, alto: 17_000, bajoMes: 2_500, altoMes: 5_000 },
+};
+const RE_POR_MES = /\b(?:al|por|cada)\s+mes\b|\bmensual(?:es|idad)?\b|\/\s*mes\b/i;
+
+/** El nivel de un precio, con los cortes de SU moneda (sin moneda, USD): así se comparan precios en monedas distintas. */
+function nivelDeMonto(precio: Monto, recurrente: boolean): NivelTicket {
+  const c = CORTES_TICKET[precio.moneda ?? 'USD'];
+  const [bajo, alto] = recurrente ? [c.bajoMes, c.altoMes] : [c.bajo, c.alto];
+  return precio.monto < bajo ? 'bajo' : precio.monto >= alto ? 'alto' : 'medio';
+}
+
+/** El nivel de la oferta según su precio, o null si el dueño todavía no lo dio (o no se entiende). Sin moneda, USD. */
+export function nivelDeOferta(piezas: PiezasSabidas): NivelOferta | null {
+  const v = piezas.precio?.valor;
+  if (!v || esSinDato(v)) return null;
+  const precio = precioDe(v);
+  if (!precio) return null;
+  const recurrente = RE_POR_MES.test(v);
+  return { nivel: nivelDeMonto(precio, recurrente), precio, recurrente };
+}
+
+/** La pregunta de la escalera según el nivel: en una ENTRADA importa qué vende después; en un alto ticket, qué antes. */
+export function preguntaEscalera(nivel: NivelTicket | null | undefined): string {
+  if (nivel === 'bajo') return '¿Qué le vendes DESPUÉS a quien compra esta oferta: el siguiente escalón, más caro, o una continuidad?';
+  if (nivel === 'alto') return '¿Qué le vendes antes de esta oferta (una entrada más barata) y qué después (una continuidad)?';
+  return PREGUNTAS_GUIA.find((q) => q.pieza === 'escalera')?.pregunta ?? '¿Qué le vendes antes de esta oferta y qué le vendes después?';
+}
+
+/**
+ * Lo que el modelo tiene que saber del nivel, para los tres prompts (turno, diagnóstico, propuesta). Viaja PEGADO al
+ * bloque de las piezas (`piezasParaPrompt`): ese slot está en todos los prompts, también en los que alguien guardó
+ * editados en /configuraciones (un slot nuevo no les llegaría). '' si no hay precio todavía.
+ */
+export function bloqueNivel(n: NivelOferta | null): string {
+  if (!n) return '';
+  const precio = `${fmtMonto(n.precio)}${n.recurrente ? ' al mes' : ''}`;
+  if (n.nivel === 'bajo') {
+    return `EL NIVEL DE ESTA OFERTA (lo calcula el sistema con el precio): TICKET BAJO (${precio}). Es una oferta de ENTRADA.
+- No la conviertas en una de alto ticket: mejórala EN SU NIVEL. El precio se mueve poco, y sólo si el diagnóstico lo justifica y lo dices.
+- Las reglas del marco que son de alto ticket NO aplican aquí: el precio «desde 1.000 USD», el programa de 90 a 180 días y las cuotas con 50% al inicio.
+- El alto ticket es el escalón que viene DESPUÉS: va en "siguiente". La pregunta de la escalera es: «${preguntaEscalera('bajo')}»`;
+  }
+  if (n.nivel === 'alto') {
+    return `EL NIVEL DE ESTA OFERTA (lo calcula el sistema con el precio): TICKET ALTO (${precio}). Valen las reglas de alto ticket del marco. La pregunta de la escalera es: «${preguntaEscalera('alto')}»`;
+  }
+  return `EL NIVEL DE ESTA OFERTA (lo calcula el sistema con el precio): TICKET MEDIO (${precio}), entre una entrada y un alto ticket. Puede subir hacia el alto ticket sólo si el diagnóstico lo justifica, y se dice.`;
 }
 
 /** El % cobrado al firmar que dijo el dueño, o null: «50%», «la mitad», «todo de contado». */
@@ -1734,6 +1816,61 @@ const NOMBRE_METODO_SIN_DATO = `${MARCA_COMPLETAR} otro nombre descriptivo ${PRO
  *
  * «sin dato: …» cuenta como que el dueño NO lo dio (`tieneDato`).
  */
+/** Cuántas veces el precio de una ENTRADA ya es convertirla en otra oferta (Leila: 800 MXN al mes → 1.000 USD, ~25×). */
+const SALTO_DE_ENTRADA = 3;
+
+/**
+ * Lo que de la oferta nueva lee el CLIENTE del negocio (la landing, el VSL, la llamada): todo menos los números, cómo
+ * validarla y el escalón siguiente, que son para el dueño.
+ */
+function textoParaElCliente(p: PropuestaOferta): string {
+  return [
+    p.nombre, p.frase, p.mensajes.corto, p.mensajes.largo, p.mensajes.entrada,
+    p.paraQuien.perfil, p.paraQuien.minimo, p.paraQuien.noEs,
+    p.problema.hoy, p.problema.despues, ...p.problema.obstaculos, p.problema.yaProbo,
+    ...p.mecanismo.pasos, p.mecanismo.distinto,
+    ...p.ruta.flatMap((f) => [f.fase, f.objetivo, f.hito]),
+    ...p.incluye.flatMap((e) => [e.nombre, e.beneficio]),
+    p.formato, p.garantia.nombre, p.garantia.condiciones, p.garantia.siNoCumple,
+    ...p.bonos.flatMap((b) => Object.values(b).filter((x): x is string => typeof x === 'string')),
+    p.inversion.comoDecirlo, p.urgencia, p.escenarios.mejor, p.escenarios.peor,
+  ].filter(Boolean).join('\n');
+}
+
+/**
+ * La jerga de consultor (16/10/2026, Leila: «demasiado corporativo, un poco marquetinero», sobre una oferta para
+ * dueños de negocio de 40 a 55 con «baja familiaridad técnica» que hablaba de SOPs, LTV:CAC y «descentralización»).
+ * Sólo se avisa la que el DUEÑO no usó: si él dice «KPIs», su cliente también.
+ */
+const JERGA: readonly string[] = [
+  'SOP', 'SOPs', 'KPI', 'KPIs', 'LTV', 'CAC', 'ROI', 'sistematización', 'sistematizar', 'microgestión', 'descentralización',
+  'escalabilidad', 'framework', 'stakeholders', 'apalancamiento', 'sinergia', 'sinergias', 'gerencial', 'benchmark', 'workflow', 'upsell',
+];
+export function jergaAjena(p: PropuestaOferta, fuentes: ReadonlyArray<string | null | undefined>): string[] {
+  const texto = normalizar(textoParaElCliente(p));
+  const delDueno = normalizar(fuentes.filter(Boolean).join('\n'));
+  const escapar = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const esta = (t: string, en: string) => new RegExp('(^|[^a-z0-9])' + escapar(normalizar(t)) + '([^a-z0-9]|$)').test(en);
+  const out = JERGA.filter((t) => esta(t, texto) && !esta(t, delDueno));
+  // «SOP» y «SOPs» son la misma palabra: queda una.
+  return out.filter((t) => !(t.endsWith('s') && out.includes(t.slice(0, -1))));
+}
+
+// Los detectores (nombran la forma rioplatense para reconocerla): lib/offer-quien-hace.ts, fuera de la guarda de voseo.
+/**
+ * QUIÉN HACE EL TRABAJO (16/10/2026, Martín en la llamada con Leila: «yo no le puedo prometer implementar una
+ * estructura cuando lo tiene que hacer él… Es un curso»; Leila: hay que distinguir «do-it-yourself, done-with-you y
+ * done-for-you»). Si lo que vende el dueño lo hace su cliente y la oferta promete hacerlo por él, el aviso; si no, null.
+ * Sin formato ni entregables no se sabe, y no se avisa.
+ */
+export function prometeHacerloPorElCliente(p: PropuestaOferta, piezas: PiezasSabidas): string | null {
+  const loQueVende = [piezas.formato?.valor, piezas.entregables?.valor].filter((x): x is string => !!x && !esSinDato(x)).join(' · ');
+  if (!loQueVende || !RE_LO_HACE_EL_CLIENTE.test(loQueVende) || RE_LO_HACE_EL_NEGOCIO.test(loQueVende)) return null;
+  const m = RE_PROMETE_HACERLO.exec(textoParaElCliente(p));
+  if (!m) return null;
+  return `La oferta promete hacerlo POR tu cliente («${m[0]}»), y lo que vendes lo hace él con tu guía (${recortar(colapsar(loQueVende), 90)}). Cámbialo antes de usarla.`;
+}
+
 export function aplicarReglasPropuesta(p: PropuestaOferta, piezas: PiezasSabidas, ctx: ContextoReglas = {}): PropuestaOferta {
   const deLasPiezas = PIEZA_KEYS.filter((k) => tieneDato(piezas, k)).map((k) => piezas[k]?.valor);
   const permitidas = cifrasDelNegocio([...deLasPiezas, ...(ctx.fuentes ?? [])]);
@@ -1777,15 +1914,35 @@ export function aplicarReglasPropuesta(p: PropuestaOferta, piezas: PiezasSabidas
     avisos.push('La garantía que escribió la IA era incondicional: en high ticket va atada a que el cliente cumpla el método. Completa sus condiciones.');
   }
 
-  // La duración del programa (90 a 180 días) y el precio de lista (desde 1.000 USD): se avisan.
-  const dias = duracionEnDias(out.formato);
-  if (dias != null && (dias < 90 || dias > 180)) {
-    avisos.push(`El programa dura ${dias} días según el formato: el marco pide de 90 a 180 días, con un resultado definido.`);
-  }
+  // La duración del programa (90 a 180 días) y el precio de lista (desde 1.000 USD) son reglas de ALTO TICKET: en una
+  // oferta de entrada no aplican (16/10/2026). Ahí lo que se avisa es lo contrario: que la IA la haya convertido en otra.
+  const nivel = nivelDeOferta(piezas);
   const precio = out.inversion.precio.includes(MARCA_COMPLETAR) ? null : precioDe(out.inversion.precio);
-  if (precio && precio.monto < 1_000 && precio.moneda !== 'EUR') {
-    avisos.push(`El precio de lista (${fmtMonto(precio)}) está por debajo de 1.000 USD, el piso del high ticket.`);
+  if (nivel?.nivel !== 'bajo') {
+    const dias = duracionEnDias(out.formato);
+    if (dias != null && (dias < 90 || dias > 180)) {
+      avisos.push(`El programa dura ${dias} días según el formato: el marco pide de 90 a 180 días, con un resultado definido.`);
+    }
+    if (precio && precio.monto < 1_000 && precio.moneda !== 'EUR') {
+      avisos.push(`El precio de lista (${fmtMonto(precio)}) está por debajo de 1.000 USD, el piso del high ticket.`);
+    }
+  } else if (precio) {
+    // En la misma moneda, cuántas veces; en otra (la de Leila: 800 MXN al mes → «1,000 USD»), si el propuesto ya es de
+    // alto ticket con los cortes de SU moneda. Sin convertir: ver `CORTES_TICKET`.
+    const veces = precio.moneda === nivel.precio.moneda ? precio.monto / nivel.precio.monto : null;
+    const saltoDeVeces = veces != null && veces >= SALTO_DE_ENTRADA;
+    if (saltoDeVeces || nivelDeMonto(precio, RE_POR_MES.test(out.inversion.precio)) === 'alto') {
+      const cuanto = saltoDeVeces ? `es ${Math.round(veces!)} veces el de tu oferta de entrada` : 'es de alto ticket, y tu oferta es de entrada';
+      avisos.push(`El precio que propuso la IA (${fmtMonto(precio)}) ${cuanto} (${fmtMonto(nivel.precio)}${nivel.recurrente ? ' al mes' : ''}): una entrada no se vuelve high ticket. Si quieres un alto ticket, es el escalón siguiente.`);
+    }
   }
+
+  // Quién hace el trabajo: un curso o un acompañamiento no prometen que el negocio lo implementa por el cliente.
+  const promete = prometeHacerloPorElCliente(out, piezas);
+  if (promete) avisos.push(promete);
+  // Las palabras: la jerga de consultor que el dueño no usó no va en lo que lee su cliente.
+  const jerga = jergaAjena(out, [...deLasPiezas, ...(ctx.fuentes ?? [])]);
+  if (jerga.length) avisos.push(`Usa palabras que tu cliente quizás no usa (${jerga.map((j) => `«${j}»`).join(', ')}): dilo como lo diría él.`);
 
   out.propuestoPorMako = propuestoPorMako(out, piezas, permitidas, p.propuestoPorMako ?? []);
   out.supuestos = PIEZAS
@@ -2119,7 +2276,9 @@ export function piezasParaPrompt(piezas: PiezasSabidas): { sabidas: string; falt
     .filter((p) => !piezaAnotada(piezas, p.key))
     .map((p) => `- ${p.key}${p.minimo ? ' [mínima]' : ''}: ${p.que}`)
     .join('\n');
-  return { sabidas: sabidas || '(ninguna todavía)', faltan: faltan || '(ninguna: ya están todas)' };
+  // El nivel va pegado a lo que se sabe: así llega a los tres prompts, también a los editados (`bloqueNivel`).
+  const nivel = bloqueNivel(nivelDeOferta(piezas));
+  return { sabidas: [sabidas || '(ninguna todavía)', nivel].filter(Boolean).join('\n\n'), faltan: faltan || '(ninguna: ya están todas)' };
 }
 
 /** Las preguntas de la guía, en orden, para el system del turno. */

@@ -54,7 +54,7 @@ export const PIEZAS: readonly Pieza[] = [
   { key: 'mecanismo', label: 'Método', minimo: false, que: 'El cómo propio: 3 a 6 pasos y por qué esta vez sí funciona.' },
   { key: 'entregables', label: 'Entregables', minimo: true, que: 'La ruta en fases con hitos y lo concreto que recibe en cada una.' },
   { key: 'semana', label: 'Primera semana', minimo: false, que: 'Qué logra el cliente en su primera semana: el primer resultado rápido.' },
-  { key: 'formato', label: 'Formato', minimo: false, que: 'Cómo se entrega: 1 a 1 o grupal, cuánto hace el cliente, soporte y duración.' },
+  { key: 'formato', label: 'Formato', minimo: false, que: 'Cómo se entrega y QUIÉN HACE EL TRABAJO: 1 a 1, grupal o grabado; el cliente solo (curso), con acompañamiento, o el negocio por él; soporte y duración.' },
   { key: 'ventas', label: 'Ventas', minimo: true, que: 'Cuántas personas ya pagaron esta oferta tal como está hoy.' },
   { key: 'prueba', label: 'Prueba', minimo: true, que: 'Cuántos clientes lograron el resultado y con qué números; casos del mismo cliente.' },
   { key: 'precio', label: 'Precio', minimo: true, que: 'Cuánto cuesta y cómo se paga.' },
@@ -65,7 +65,7 @@ export const PIEZAS: readonly Pieza[] = [
   { key: 'bonos', label: 'Bonos', minimo: false, que: 'Extras que atacan una objeción concreta (no son los entregables).' },
   { key: 'urgencia', label: 'Urgencia', minimo: false, que: 'Una razón REAL para decidir hoy: cohorte, cupos por capacidad, subida de precio.' },
   { key: 'frase', label: 'La frase', minimo: false, que: 'La oferta entera en una frase que un extraño entiende.' },
-  { key: 'escalera', label: 'Escalera', minimo: false, que: 'Qué le vende antes de esta oferta (una entrada más barata) y qué después (upsell, continuidad).' },
+  { key: 'escalera', label: 'Escalera', minimo: false, que: 'Dónde va esta oferta en su escalera: lo que vende antes (más barato) y lo que vende después (el escalón siguiente, más caro, o la continuidad).' },
   { key: 'otras', label: 'Otras ofertas', minimo: false, que: 'Cuántas ofertas vende además de ésta, aunque no estén cargadas en MaKo.' },
 ] as const;
 
@@ -519,7 +519,8 @@ Fuerte vs débil, lo esencial:
 - bonos: 1 a 3, cada uno ataca una objeción (tiempo, esfuerzo, miedo, probabilidad) y dice por qué se da; se dan en lugar de descuentos.
 - urgencia: SOLO real (cohorte con fecha, cupos según la capacidad, subida de precio anunciada). Nunca «últimos cupos» que no se terminan.
 - frase: «Ayudo a [cliente] a [resultado + número] en [plazo] con [método] sin [objeción]».
-- escalera: lo que vende antes (una entrada más barata) y después (upsell, continuidad); en la fase 1 sólo se anota.
+- escalera: dónde va esta oferta: lo que vende antes (más barato) y después (el escalón siguiente o la continuidad); en la fase 1 sólo se anota. Si la oferta es una ENTRADA (ticket bajo), lo que importa es qué vende después.
+- formato: quién hace el trabajo manda sobre lo que se puede prometer: un curso (lo hace el cliente) o un acompañamiento (lo hace con guía) nunca promete que el negocio lo implementa por él.
 
 RÚBRICA (cada dimensión 0-10; 0-3 débil · 4-6 a medias · 7-10 fuerte)
 ${DIMENSIONES.map((d) => `- ${d.id} ${d.label}: ${d.mide} 0-3: ${d.bajo} 4-6: ${d.medio} 7-10: ${d.alto} Señales de alerta: ${d.alerta} La destraba: «${d.destraba}»`).join('\n')}
@@ -561,9 +562,10 @@ export const PREGUNTAS_GUIA: ReadonlyArray<{ pieza: PiezaKey; pregunta: string }
   { pieza: 'cobro', pregunta: '¿Qué parte del precio te pagan el día que firman?' },
   { pieza: 'objecion', pregunta: '¿Qué probó antes que no le funcionó, o qué es lo que más pereza le da hacer?' },
   { pieza: 'mecanismo', pregunta: '¿Qué haces distinto de los demás? ¿Tu forma de trabajar tiene pasos o un nombre?' },
-  { pieza: 'formato', pregunta: '¿Es 1 a 1, grupal o grabado, y cuánto dura?' },
+  { pieza: 'formato', pregunta: '¿Es 1 a 1, grupal o grabado, cuánto dura, y quién hace el trabajo: tu cliente solo, con tu acompañamiento o lo haces tú por él?' },
   { pieza: 'garantia', pregunta: '¿Das alguna garantía?' },
   { pieza: 'bonos', pregunta: '¿Das algo extra además del programa?' },
   { pieza: 'urgencia', pregunta: '¿Tienes cupos o fechas de inicio reales?' },
-  { pieza: 'escalera', pregunta: '¿Qué le vendes antes de esta oferta y qué después (una entrada más barata, un upsell o una continuidad)?' },
+  // La de la escalera depende del NIVEL de la oferta (`preguntaEscalera`, lib/offer-reglas.ts): ésta es la neutra.
+  { pieza: 'escalera', pregunta: '¿Qué le vendes antes de esta oferta y qué le vendes después?' },
 ];
