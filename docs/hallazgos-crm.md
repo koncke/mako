@@ -9088,3 +9088,62 @@ dice se ejecuta en `tests/pagos-bajas-b2.test.ts`.
 - Un lead ya ganado como pago único que paga un link de SUSCRIPCIÓN (una venta adicional) sigue como pago único:
   `ganarLead` no corre y el MRR no lo cuenta. Decidir si el cobro cambia el tipo de venta es una decisión de producto.
 **Vive en:** `lib/cobrado-lead.ts` · `lib/cobros.ts` · `lib/cobros-reglas.ts` · `lib/pagos.ts` · `lib/flujo-corridas.ts` · `lib/api-mako/areas/crm.run.ts` · `tests/pagos-bajas-b2.test.ts`.
+
+## La ficha por bloques MIRADA por primera vez, en un banco y no en `next dev` (16/10/2026)
+
+Nadie la había visto en una pantalla. La máquina tuvo entre 1,3 y 4,9 GB libres toda la corrida (un `next dev`
+de este repo pide ~4 y llega a 6), así que no se levantó el server. Se miró en un **banco**: las dos puertas
+REALES —`LeadSheet` (el pop-up) y `LeadDetailBody` dentro del `<main>` de `app/crm/[id]/page.tsx`— armadas con
+esbuild (290 módulos, ~5 s) y abiertas en Chrome sin ventana a 1440×900, 1024×768, 820×1180 y 390×844 (las dos
+últimas táctiles), con «Personalizar» de punta a punta: elegir, ancho, agregar, arrastrar, teclado, dispositivo,
+densidad, un aviso, «Volver a la plantilla» y «Deshacer». Las tres trampas del banco, que valen para el próximo:
+- **Un stub de server action que devuelve `{ ok: true }` deja la pantalla en blanco**: la primera tarjeta que hace
+  `res.map` tira y React desmonta todo. Sirve un «camaleón»: un `Proxy` sobre un array vacío que contesta `ok: true`,
+  `undefined` para `then`/`error`/`message` y otro camaleón para cualquier otra clave (`.map` da vacío, se dibuja
+  como nada). ⚠️ `then` TIENE que ser `undefined`: si no, `await` lo trata como una promesa y la pantalla se cuelga.
+- **La server action de la ficha no se stubea vacía**: con el motor puro (`aplicarCambio` + `fichaEfectiva`) sobre
+  una ficha en memoria, «Personalizar» guarda, deshace y relee igual que contra el server, sin tocar ninguna base.
+- **El banco mide el LAYOUT, no los datos**: no reemplaza mirarla con la sesión de admin del ws 3 (queda pendiente).
+
+**Lo que se vio mal, y por qué:**
+
+1. **«Información principal» con una letra por renglón** (a ½ en el pop-up, en la tablet y en la vista «Celular» de
+   «Personalizar»). Era un `repeat(2, minmax(0, 1fr))` fijo: hasta la ficha por bloques la tarjeta siempre iba de
+   ancho completo. ⚠️ **El diagnóstico obvio era el equivocado**: el frente del celular lo dejó como «hace falta una
+   clase en ese grid y su regla por @media y por `data-dispositivo`». Con @media no alcanza: lo que decide es el
+   ancho de la TARJETA, no el de la ventana — un bloque de ½ en el pop-up mide 459 px de contenido con la ventana
+   a 1440. **Regla:** una tarjeta que puede caer en un bloque de cualquier ancho decide sus columnas por su propio
+   ancho, con `auto-fit` y `minmax(min(100%, max(Npx, calc((100% - hueco) / 2))), 1fr)` (dos como mucho, una si no
+   entran), sin `@container` (prohibido en un ancestro de tarjetas que abren modales fijos, ficha/ficha-css.ts).
+2. **El panel de la derecha terminaba 200 px por debajo del pop-up**, y los últimos avisos no se alcanzaban mientras
+   la ficha fuera más larga que el panel. Medía `100dvh - 120px`, que supone que scrollea el documento; en el pop-up
+   scrollea el cuerpo de la ficha, y la cabecera y el pie se comen ~265 px. **Regla:** un `sticky` con alto máximo
+   adentro de algo que scrollea mide ESE contenedor (`clientHeight`), no la ventana. En /crm/[id] no se veía.
+3. **La barra del bloque elegido tapaba su rótulo** en todo bloque que no fuera de ancho completo: anclada a la
+   derecha mide 260-330 px, y editando en el pop-up la grilla mide 712 (½ = 347). No se veía QUÉ bloque estaba
+   elegido. Ahora la barra sale desde el rótulo y lleva el nombre primero.
+4. **El marco punteado asomaba al lado de la fila de tabs pegada**: sale 6 px por fuera del bloque y la grilla no le
+   dejaba ese aire. Y el desplegable de la plantilla (190 px) cortaba «La de MaKo (Llamad…».
+
+Lo fija `tests/ficha-navegador.test.ts` (base 5/0, nueve roturas de 4/1).
+
+**Lo que quedó SIN hacer:**
+- **Mirarla con datos reales**, con 5 GB libres y en este orden: `next dev -H localhost -p 34xx` desde el worktree
+  (sin `.env.local` propio: el entorno del clon, con `ZERNIO_API_KEY`, `ZERNIO_WEBHOOK_SECRET` y `ELEVENLABS_API_KEY`
+  vacías; el log dice «hidratadas» y nunca «migradas»); `/api/auth/dev-login?ws=3&next=/crm` y `/api/auth/me` con
+  `ws: 3`. Después, a 1440×900, 1024×768, 820×1180 y 390×844: el pop-up del lead 2615 («Prueba Flujo 32580», funnel
+  del negocio, id 8) y del 2664 (funnel 30), y /crm/2615 (si redirige a /onboarding es `guardOnboarding` del ws 3, no
+  la ficha). «Personalizar»: elegir, ½, agregar, arrastrar, los tres dispositivos, la plantilla, el estilo y un aviso;
+  al final «Volver a la plantilla» y `select data->'ficha' from funnels where workspace_id = 3` tiene que volver a
+  dar `null` en los dos (hoy lo es; si queda `{}`, se saca la clave). El teléfono: /crm/2615 con user-agent de iPhone
+  a 390. La consola, limpia.
+- **En una pantalla de 900 o menos (un iPad parado) el panel va DEBAJO de toda la ficha** (medido: y ≈ 2.100 px):
+  la plantilla, el estilo y los avisos quedan al final de un scroll largo.
+- **La barra de edición (Deshacer, Agregar bloque, dispositivo) se va con el scroll**; la del Dashboard queda fija.
+- **Darle ½ a un bloque que queda solo en su fila no cambia nada a la vista**: la fila se estira (regla del diseño,
+  `spansDeFilas`), y el botón ½ queda prendido sobre un bloque de ancho completo.
+- **El teléfono pone las respuestas de la AGENDA donde escritorio pone «Lo que contestó»** (Meta y la landing):
+  `PIEZA_DE_BLOQUE` (app/m/crm/ficha-bloques.ts) ata `lo-que-contesto` a la pieza «Lo que contestó al agendar»,
+  que lee `getResumenLead` (Calendly/Cal.com). En escritorio esas respuestas viven en `reunion-1`, y las de Meta y la
+  landing no tienen pieza en el teléfono.
+**Vive en:** `app/crm/lead-view/info-principal-grilla.ts` · `app/crm/lead-view/InfoPrincipalCard.tsx` · `app/crm/lead-view/ficha/PanelFicha.tsx` · `app/crm/lead-view/ficha/armar.ts` · `app/crm/lead-view/ficha/Armador.tsx` · `app/crm/lead-view/ficha/ficha-css.ts` · `tests/ficha-navegador.test.ts`.
