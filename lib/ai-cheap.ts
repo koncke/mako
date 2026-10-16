@@ -45,6 +45,24 @@ type Prov = { base: string; key: string; chatModel: string; sttModel: string; no
 
 // Cada proveedor, sin la key: endpoint y modelos. Los `process.env` se leen al
 // llamar (los ids rotan seguido y se pisan por entorno), así que va como función.
+/**
+ * EL modelo gratis de OpenRouter, y es UNO: el chat de la cascada, `MODELO_DOCS` y `MODELO_VISION` lo leen de acá.
+ * Eran tres copias del mismo id, y cuando caducó quedaron muertas las tres.
+ *
+ * ⚠️ Medido el 16/10/2026 (lo vio el chat Web Generator): `minimax/minimax-m3:free` ya NO está en
+ * `GET /api/v1/models`, así que el respaldo de OpenRouter estaba muerto en toda la cascada (texto, documentos y
+ * visión). Candidatos, con un pedido REAL y una key de la plataforma:
+ *   · `nvidia/nemotron-3.5-super-vl:free` → texto con JSON 200 en 1,7-6,1 s, imagen 200 en 0,9-1,6 s, 1M de contexto.
+ *     Razona antes de contestar: con 200 tokens de tope volvió VACÍO; con 300 (el más chico que piden los callers)
+ *     y con 400, bien. Elegido.
+ *   · `dots-studio/dots-3-note-preview:free` → anda, pero tarda 4-10 s y es un preview.
+ *   · `google/gemma-4-31b-it:free` y `gemma-4-26b`: 429 «Provider returned error» casi siempre.
+ * Antes de cambiarlo: la lista real y un pedido de verdad, con texto e imagen y un tope de tokens chico.
+ */
+export const MODELO_OPENROUTER_GRATIS = 'nvidia/nemotron-3.5-super-vl:free';
+/** Cuándo se comprobó que `MODELO_OPENROUTER_GRATIS` existe y contesta (tests/openrouter-modelo.test.ts). */
+export const MODELO_OPENROUTER_MEDIDO = '2026-10-16';
+
 function cfgDe(nombre: ProvName): Omit<Prov, 'key' | 'clave'> {
   switch (nombre) {
     case 'groq':
@@ -88,7 +106,8 @@ function cfgDe(nombre: ProvName): Omit<Prov, 'key' | 'clave'> {
       // Antes de cambiar este id: pedí la lista real (`GET /api/v1/models`, filtrar por
       // `:free`) y PROBÁ el candidato con un payload de verdad. Que esté listado no significa
       // que sirva — esa es la lección que dejó cada uno de los dos anteriores.
-      return { nombre, base: 'https://openrouter.ai/api/v1', chatModel: process.env.OPENROUTER_MODEL || 'minimax/minimax-m3:free', sttModel: '' };
+      // El 16/10/2026 se fue también el minimax: el id vive ahora en `MODELO_OPENROUTER_GRATIS`.
+      return { nombre, base: 'https://openrouter.ai/api/v1', chatModel: process.env.OPENROUTER_MODEL || MODELO_OPENROUTER_GRATIS, sttModel: '' };
     default:
       return { nombre: 'openai', base: 'https://api.openai.com/v1', chatModel: process.env.CHEAP_MODEL || 'gpt-4o-mini', sttModel: process.env.STT_MODEL || 'whisper-1' };
   }
@@ -382,14 +401,15 @@ const MIN_INTENTO_MS = 15_000;
  *
  * Los de ahora se eligieron pidiéndole a cada API su lista real y PROBÁNDOLOS con un
  * payload de verdad: groq `openai/gpt-oss-120b` (1,2 s) y openrouter
- * `minimax/minimax-m3:free` (1,0 s, JSON pelado).
+ * `minimax/minimax-m3:free` (1,0 s, JSON pelado). Ese minimax dejó de existir el 16/10/2026:
+ * openrouter usa `MODELO_OPENROUTER_GRATIS`, medido ese día.
  */
 export const MODELO_DOCS: Partial<Record<ProvName, string>> = {
   groq: process.env.DOCS_MODEL_GROQ || 'openai/gpt-oss-120b',
   gemini: process.env.GEMINI_MODEL || 'gemini-flash-latest',
   openai: 'gpt-4o-mini',
   cerebras: 'gpt-oss-120b',
-  openrouter: 'minimax/minimax-m3:free',
+  openrouter: MODELO_OPENROUTER_GRATIS,
   mistral: 'mistral-small-latest',
 };
 /** ¿Hay alguna IA para leer documentos (Gemini/Groq/OpenAI/…) en este workspace? */
@@ -879,7 +899,7 @@ export const VISION_CASCADE: ProvName[] = ['gemini', 'openrouter', 'openai'];
  * Se eligen PROBÁNDOLOS con una imagen de verdad, no por lo que declara el catálogo.
  */
 const MODELO_VISION: Partial<Record<ProvName, string>> = {
-  openrouter: process.env.OPENROUTER_VISION_MODEL || 'minimax/minimax-m3:free',
+  openrouter: process.env.OPENROUTER_VISION_MODEL || MODELO_OPENROUTER_GRATIS,
   openai: process.env.OPENAI_VISION_MODEL || 'gpt-4o',
 };
 

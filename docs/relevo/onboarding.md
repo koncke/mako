@@ -20,6 +20,13 @@
   reabría onboardings terminados.
 - Las trampas y lo medido, en `docs/hallazgos-onboarding.md` → «Si el onboarding deja de ser el wizard».
   Tests: `historico-al-conectar`, `onboarding-escritura-estricta`, `veto-claude-credito-plataforma`.
+- **IA, el mismo día (pedido de Cerebro):** una key de la plataforma COPIADA en la fila de un negocio no cuenta como
+  suya (`provsDe`, lib/ai-cheap.ts; `b78bb977c`). La Gemini del ws1 lo era, y sus pedidos con datos de clientes iban a
+  la key gratis de la agencia. Detalle en `docs/hallazgos-ia.md`. **Escalado a Cerebro, sin tocar:** la red propia del
+  doer de WhatsApp no corta con datos de clientes (lib/mako-doer-in.ts).
+- **El modelo gratis de OpenRouter** (`minimax/minimax-m3:free` ya no existía; lo midió Web Generator) pasó a ser UNO,
+  `MODELO_OPENROUTER_GRATIS` = `nvidia/nemotron-3.5-super-vl:free`, medido con un pedido real (`de33ad192`). Antes de
+  cambiarlo: `VERIFICAR_OPENROUTER=1 npx tsx --test tests/openrouter-modelo.test.ts`.
 - **Queda abierto:** los comentarios de otras áreas que nombran al wizard como vivo (lib/capas.ts,
   lib/paises.ts, app/onboarding/FaseUI.tsx, OnboardingForm.tsx, app/automations/*) son historia y no
   rompen nada. Y la ruta /api/onboarding/extraccion queda sin llamadores en la app: sirve para pedir un

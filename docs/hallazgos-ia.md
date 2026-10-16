@@ -4391,3 +4391,30 @@ sólo con sus keys propias. El turno con herramientas no tiene red: para el ws1 
 - El ws1 sigue teniendo esas dos filas copiadas. Ya no se usan como suyas; borrarlas es una decisión aparte.
 
 · *2026-10-16 chat «Onboarding» (claude3)*
+
+## El modelo gratis de OpenRouter murió otra vez, y estaba copiado en tres lugares (16/10/2026)
+
+**Vive en:** lib/ai-cheap.ts (`MODELO_OPENROUTER_GRATIS`, `MODELO_OPENROUTER_MEDIDO`)
+
+El chat Web Generator midió que `minimax/minimax-m3:free` ya no estaba en `GET /api/v1/models`. Era el tercer id
+gratis de OpenRouter que caducaba (antes un Llama 3.3 y un nemotron nano), y estaba escrito a mano en TRES lugares:
+el chat de la cascada, `MODELO_DOCS` y `MODELO_VISION`. El respaldo de OpenRouter estaba muerto para texto,
+documentos y visión, y un id vencido se ve igual que uno sano hasta que se lo llama.
+
+**Medido ese día, con la lista real y un pedido de verdad** (texto con JSON e imagen, con una key de la plataforma):
+`nvidia/nemotron-3.5-super-vl:free` contestó 200, JSON en 1,7-6,1 s e imagen en 0,9-1,6 s. ⚠️ **Razona antes de
+contestar: con 200 tokens de tope volvió VACÍO** (un 200 sin contenido), con 300 y 400 bien. El tope más chico que
+piden los que lo usan es 300. Los Gemma dieron 429 casi siempre, y dots anda pero tarda 4-10 s y es un preview.
+
+**La regla:** el id es UNA constante y va fijado con su fecha. `tests/openrouter-modelo.test.ts` falla si se
+cambia sin anotar la medición o si vuelve una copia. Con `VERIFICAR_OPENROUTER=1` revisa contra la lista pública
+que cada id `:free` del repo exista; sin la variable se saltea diciéndolo, porque CI no depende de la red de un
+tercero. Crear con IA (`lib/flujo-ia.ts`) y Offer (`lib/offer-ia.ts`) fijaron su propio modelo el 09/10 para sus
+pedidos largos (`nemotron-3-super-120b-a12b:free`); sigue existiendo y se quedan.
+
+### Lo que quedó SIN hacer
+
+- Nada avisa solo cuando el próximo caduque: hay que correr el test con red a mano. Un cron que lo mire sería la red
+  que falta.
+
+· *2026-10-16 chat «Onboarding» (claude3)*
