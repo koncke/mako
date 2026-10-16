@@ -38,6 +38,7 @@ import {
 } from '../lib/variables-del-lead';
 import { datosDeLaPersona } from '../lib/aviso-evento';
 import { datosCaida, datosVolvio } from '../lib/linea-vigilancia';
+import { datosPostLlamada } from '../lib/reunion-grabada';
 import { detalleDelAviso } from '../lib/calcom';
 import { VARIABLES_LEAD, VARIABLES_NEGOCIO, esVariableConocida } from '../lib/template-vars';
 import { CLAVES_DE_CUOTA } from '../lib/cobranza';
@@ -108,6 +109,8 @@ function porFuente(): Record<FuenteDato, Set<string>> {
       ...Object.keys(datosCaida({ motivo: null, desde: null, linea: '+5215512345678', link: 'https://x/whatsapp', tz: 'America/Tijuana' })),
       ...Object.keys(datosVolvio({ linea: '+5215512345678' })),
     ]),
+    // Y la reunión que terminó, que pasa el webhook de Fathom (`datosPostLlamada`, lib/reunion-grabada.ts).
+    grabacion: set(datosPostLlamada({ reunion: 'R1', duracionMin: 42 })),
   };
 }
 
@@ -168,7 +171,7 @@ test('⚠️ TODO lo que el árbol ofrece tiene quien lo PONGA: cada clave sale 
   for (const g of GRUPOS_VARIABLES) assert.ok(g.icono, `${g.key} sin ícono`);
   // (15/10/2026: «Cuenta de MaKo» es SÓLO del mail a una persona: el equipo dibuja todos los demás, y ella el suyo.)
   // (15/10/2026: y «WhatsApp del negocio», con `conLinea`.)
-  assert.equal(datosOfrecidos({ destino: 'equipo', conLead: true, conCuota: true, conAnalisis: true, conLinea: true }).length, GRUPOS_VARIABLES.length - 1);
+  assert.equal(datosOfrecidos({ destino: 'equipo', conLead: true, conCuota: true, conAnalisis: true, conLinea: true, conGrabacion: true }).length, GRUPOS_VARIABLES.length - 1);
   assert.ok(datosOfrecidos(datosDeLaPersona('contrasena_restablecer')!).some((g) => g.key === 'cuenta'), 'el mail a la persona no tiene su grupo');
   assert.ok(VARIABLES_AVISO.filter((v) => !v.oculta).length >= 70, 'se pidieron MUCHOS más datos');
   // La previa tiene con qué dibujar cada uno.

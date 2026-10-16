@@ -1,5 +1,11 @@
 # Relevo: Automations (ex /chatbot) y las secuencias
 
+> **16/10/2026 ~02:15 AR (`claude3`) — EL 2, TRES MUDADOS:** se sumó la grabación de Fathom (`reunion_grabada`,
+> 16fa52568), y las tres plantillas firman «— MaKo» como el texto de siempre (efcc58d46).
+> **PASO PENDIENTE, DESPUÉS DEL DEPLOY DE LOS DOS:** el script de abajo crea y prende las TRES filas del ws 9 (simulacro
+> primero). **#252** («Un Lead Agendó Llamada», ws 9, la de probar «Probar» en producción): **ARCHIVADA, no borrada**
+> (respaldo en el scratchpad de esta sesión; se deshace con `archivada_at = null`). **Siguiente:** `reporte-semanal`.
+
 > **16/10/2026 ~01:30 AR (`claude3`) — EL 2, EMPEZADO:** la pieza que faltaba está construida (729789dfa), y los dos
 > primeros avisos están mudados: «WhatsApp caído» y «volvió». Diseño y estado en docs/diseno-avisos-plataforma.md.
 > **PASO PENDIENTE, DESPUÉS DEL DEPLOY:** `node --conditions react-server --import tsx scripts/mudanza-avisos-plataforma.mts

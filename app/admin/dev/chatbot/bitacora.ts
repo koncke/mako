@@ -1678,4 +1678,21 @@ FEEDBACK PROBAR:
     ],
     archivos: ["docs/diseno-avisos-plataforma.md", "docs/hallazgos-chatbot.md — los Mensajes de MaKo a sus clientes", "docs/hallazgos-comunicacion.md — SuperAdmin sin conectar"],
   },
+  {
+    fecha: "16 oct", hora: "02:15", chat: "Chatbot", cuenta: "claude3",
+    sesion: "local_b1f59213-087e-4203-83e1-b3f59eadbaed",
+    actor: "claude", tipo: "implementacion",
+    titulo: "El aviso de Fathom también pasa a ser una automatización de SuperAdmin",
+    puntos: [
+      "En Automations de SuperAdmin aparece «Terminó la Reunión de un Negocio»: cuando termina una reunión grabada con Fathom, MaKo le avisa al grupo del negocio con el link al resumen de la llamada.",
+      "La duración va en su propio renglón; si no se sabe, el renglón no aparece.",
+      "Los tres avisos mudados firman «— MaKo», como hoy. Sin eso, el cliente los habría recibido sin firma.",
+      "Las tres automatizaciones se crean y se prenden con un script después del deploy. Hasta entonces, los avisos salen como siempre.",
+    ],
+    commits: [
+      { sha: "16fa52568", msg: "SuperAdmin: la grabación de Fathom pasa a ser una automatización de la plataforma (el tercer Mensaje de MaKo)", lineas: 114, archivos: 12 },
+      { sha: "efcc58d46", msg: "SuperAdmin: las tres plantillas de la plataforma firman «— MaKo», como el aviso de siempre", lineas: 16, archivos: 2 },
+    ],
+    archivos: ["docs/diseno-avisos-plataforma.md — §5", "docs/hallazgos-chatbot.md — los Mensajes de MaKo a sus clientes"],
+  },
 ];

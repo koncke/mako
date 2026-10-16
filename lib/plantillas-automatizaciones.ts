@@ -631,7 +631,8 @@ export const PLANTILLAS_PLATAFORMA: readonly PlantillaAutomatizacion[] = [
   // LOS MENSAJES DE MaKo A SUS CLIENTES, mudados a automatizaciones de la plataforma (15/10/2026, el 2 de las doce de
   // Martín; docs/diseno-avisos-plataforma.md). El evento lo emite el NEGOCIO cuya línea se cayó (lib/lineas-vigilante.ts)
   // y la tarjeta le llega al grupo de ESE negocio (`negocioWs`, lib/flujos.ts). Cada dato en su renglón: un renglón con
-  // un dato vacío se va entero (`textoConDatos`), y la línea sin número ni etiqueta no deja «()».
+  // un dato vacío se va entero (`textoConDatos`), y la línea sin número ni etiqueta no deja «()». Con la firma «— MaKo»
+  // del texto de siempre: una tarjeta TAL CUAL no le suma envoltorio (16/10/2026, tests/avisos-plataforma.test.ts).
   {
     id: 'mako-whatsapp-caido',
     nombre: 'Se Cayó el WhatsApp de un Negocio',
@@ -642,7 +643,7 @@ export const PLANTILLAS_PLATAFORMA: readonly PlantillaAutomatizacion[] = [
     soloPlataforma: true,
     cron: { fijo: TRIGGER_AVISO_MAKO, evento: 'whatsapp_caido' },
     pasos: [
-      mako('wc_mk', '🔴 *{{linea_titulo}}*\n📱 {{linea_numero}}\n{{linea_motivo}} {{linea_link}}', null),
+      mako('wc_mk', '🔴 *{{linea_titulo}}*\n📱 {{linea_numero}}\n{{linea_motivo}} {{linea_link}} — MaKo', null),
     ],
   },
   {
@@ -655,7 +656,23 @@ export const PLANTILLAS_PLATAFORMA: readonly PlantillaAutomatizacion[] = [
     soloPlataforma: true,
     cron: { fijo: TRIGGER_AVISO_MAKO, evento: 'whatsapp_volvio' },
     pasos: [
-      mako('wv_mk', '🟢 *Volvió tu WhatsApp*\n📱 {{linea_numero}}\nPor ese número ya entran y salen mensajes otra vez.', null),
+      mako('wv_mk', '🟢 *Volvió tu WhatsApp*\n📱 {{linea_numero}}\nPor ese número ya entran y salen mensajes otra vez. — MaKo', null),
+    ],
+  },
+  {
+    // La grabación de Fathom (`reunion-ocurrio-fathom`, 10/10/2026: «El de Fathom también debería ser algo que se configura
+    // en SuperAdmin»). Sale DESPUÉS del Closing Analyst, con el link a la pantalla del resumen (`{{link_lead}}`). La
+    // duración en su renglón: sin ella, se va sola y no se lleva la frase.
+    id: 'mako-reunion-grabada',
+    nombre: 'Terminó la Reunión de un Negocio',
+    emoji: '✅',
+    linea: 'Le avisa al grupo de un negocio que terminó una reunión con un lead, con el link al resumen de la llamada.',
+    origen: 'el webhook de Fathom (reunion-ocurrio-fathom), después de que MaKo analiza la charla',
+    objetivo: 'clientes',
+    soloPlataforma: true,
+    cron: { fijo: TRIGGER_AVISO_MAKO, evento: 'reunion_grabada' },
+    pasos: [
+      mako('rg_mk', '✅ Terminó la *{{grabacion_reunion}} con {{nombre_completo}}*.\n⏱️ {{grabacion_duracion}}\n\n👉 Mira el resumen de la llamada:\n{{link_lead}}\n\n— MaKo', null),
     ],
   },
 ];

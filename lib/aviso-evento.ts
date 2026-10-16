@@ -72,6 +72,7 @@ export function datosDelEvento(sub: unknown): ContextoDatos {
     conLead: ev.trae.includes('lead'), conCuota: ev.trae.includes('cuota'), conMensaje: conMensaje(ev),
     conPago: ev.trae.includes('pago'), conEscrito: ev.trae.includes('escrito'), conAnalisis: ev.trae.includes('analisis'), destino: 'equipo',
     ...(ev.trae.includes('linea') ? { conLinea: true } : {}),
+    ...(ev.trae.includes('grabacion') ? { conGrabacion: true } : {}),
   };
 }
 
