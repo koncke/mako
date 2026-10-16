@@ -484,4 +484,38 @@ export const BITACORA: Hito[] = [
       "tests/onboarding-sin-api.test.ts — que no frene y que lo de después tenga red",
     ],
   },
+  {
+    fecha: "16 oct", hora: "—", chat: "Cerebro", sesion: "local_0f38f4d5-0e64-411e-b6c8-6d6ead20baed", cuenta: "claude3",
+    actor: "martin", tipo: "prompt",
+    titulo: "El onboarding pasa a ser el chat de Offer",
+    pedido: "Quiero que elimines todo lo que hay hoy en onboarding tal como está y que lo reemplaces por el chat de \"Offer\", el onboarding será ese chat de offer... Si puede estar el grafo. Pero toda la animación del principio no. En su lugar prefiero una animación de los mismo 3 pasos que incluya al muñequito de MaKo, alguno que esté en los chats del \"Centro\", piensa en el más \"normal\" que sea ese. Y que al terminar la animación se posicione en su lugar como \"foto de perfil\" y que aparezca el chat. Obvio que este onboarding no tiene que ser solo de \"offer\" (aunque será la gran parte), sino que también debe preguntar otras cosas, como el nombre, luego de analizar su offer, preguntar su funnel para que lo elija (y así crear su primer CRM), piensa en que cosas deberíamos preguntar... Guarda los pasos que hoy tenemos en el onboarding para que luego si faltó algo, yo te lo indique. Pero se criterioso y decide agregar o quitar si consideras... Ahora, ten en cuenta que NO quiero que sea un onboarding eterno, es más, mientras más agil y rápido mejor.",
+    puntos: [
+      "Llegó por el Cerebro, que se lo repartió al chat «Offer». Y con él, el feedback de la llamada con Leila del 12/10: el chat de Offer no puede desaparecer jamás.",
+      "Los pasos de hoy quedaron escritos, pantalla por pantalla, en docs/onboarding-pasos-anteriores.md.",
+    ],
+  },
+  {
+    fecha: "16 oct", hora: "05:07", chat: "Offer", sesion: "local_34d54ef6-523c-46f8-b83f-9fd310dfd667", cuenta: "claude3",
+    actor: "claude", tipo: "implementacion",
+    titulo: "El onboarding es una conversación con MaKo",
+    puntos: [
+      "/onboarding es el chat de Offer: nombre, negocio, objetivo a 90 días, la oferta (con el diagnóstico adentro), el CRM que le propone y elige, el teléfono o «Ahora no», y listo.",
+      "La animación del principio son los mismos tres tiempos del grafo, con el muñeco de Estrategia del Centro en el medio; al terminar vuela a su lugar como foto del chat.",
+      "El CRM que elige siembra el funnel principal (no uno nuevo): ahí cae todo lead sin asignación. Al cerrar queda escrito el perfil del negocio, el producto y la oferta, y el plan de arranque.",
+      "El teléfono y Meta se postergan si no se hicieron, nunca se marcan hechos. La capa Project Manager sigue con su perfil, el diagnóstico y el plan, sin oferta ni CRM.",
+      "Sin probar todavía en el navegador: la RAM de la máquina no dejaba levantar la app.",
+    ],
+    commits: [
+      { sha: "dd3b650", msg: "Onboarding: el arranque es el chat de Offer, con MaKo de foto de perfil; y el chat de Offer ya no desaparece", lineas: 4973, archivos: 34 },
+    ],
+    archivos: [
+      "app/onboarding/ChatArranque.tsx — el chat de arranque sobre el motor de Offer",
+      "app/onboarding/IntroMako.tsx — la animación que termina con MaKo de foto",
+      "lib/onboarding-arranque.ts — las reglas puras: etapa, mensajes, respuestas, CRM, brief",
+      "lib/onboarding-arranque-server.ts — los hechos, la siembra del CRM principal y el cierre",
+      "app/api/onboarding/arranque/route.ts — la ruta del chat",
+      "lib/onboarding-state.ts — cerrarPasosOnboarding, la puerta única del cierre",
+      "tests/onboarding-arranque.test.ts — probado con 18 roturas",
+    ],
+  },
 ];

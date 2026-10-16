@@ -1959,3 +1959,72 @@ keys gratis. Para que el crédito llegue, `pedir` tiene que pedir la red de la c
 `conCreditoDeLaPlataforma` antes de su bucle.
 
 *16/10/2026 · chat «Onboarding» (claude3), medido contra el código, sin subagentes.*
+
+## El onboarding es una conversación: el chat de arranque (16/10/2026)
+
+**El pedido** (Martín, por el Cerebro): «Quiero que elimines todo lo que hay hoy en onboarding tal como
+está y que lo reemplaces por el chat de "Offer"… NO quiero que sea un onboarding eterno». El wizard se
+borró (`OnboardingWizard.tsx`, `Bienvenida.tsx`, `Listo.tsx`, `/api/onboarding/listo`); lo que pedía cada
+pantalla quedó en [onboarding-pasos-anteriores.md](onboarding-pasos-anteriores.md) para que Martín diga
+«faltó X».
+
+**Qué pregunta, y por qué tan poco.** Modo `oferta` (Completo, Agencia): nombre → negocio → objetivo a 90
+días → la oferta (la conversación de Offer, con el diagnóstico de fase adentro) → el CRM → el teléfono o
+«Ahora no» → cierre. Modo `plan` (Project Manager, que no ve Offer ni el CRM): nombre → negocio →
+objetivo → a qué se dedica → el diagnóstico con sus opciones → cierre con el plan. NO se pregunta: la zona
+horaria (la toma sola `ZonaDelNegocio` del navegador del admin), Meta (se conecta después desde su tab y
+el histórico arranca al conectarlo), la IA propia (la red de la plataforma y el crédito de Claude del
+onboarding). Las reglas son puras: `lib/onboarding-arranque.ts`.
+
+**Lo que costó, y conviene saber antes de tocarlo:**
+- **«negocio» era el BRIEF, no los nombres** (lo marcó el chat de Onboarding antes de que se rompiera). En
+  el wizard, las pantallas del brief cerraban `negocio`, y ese brief lo leen los generadores (Ads Writer,
+  contenido, video) y el Perro. Si el chat cerraba `negocio` sólo con «Martín» y «Mi negocio», todos
+  escribían sin conocer el negocio. Ahora el cierre deja escrito el brief con lo que salió de la
+  conversación (`briefDesdeArranque`: la oferta, el cliente, el dolor, el precio, el cuello del
+  diagnóstico, el objetivo), FUNDIDO sin pisar lo que había y leído estricto (`mapaParaEscribir`): con la
+  base caída, `saveAnswers` sobre `{}` borraba el brief.
+- **El primer CRM es el PRINCIPAL, no uno nuevo.** «Nuevo CRM» (`crearCrm`) crea un funnel secundario, y
+  todo lead que entra sin asignación cae en el principal (`funnel_id` null): el «primer CRM» arrancaba
+  vacío. Se siembra el principal con el tipo que elige (`sembrarCrmPrincipal`: `siembraDeCrm` →
+  `saveFunnelDefault`), sólo si está INTACTO y nunca con la lectura caída — el mismo guard que tenía el
+  wizard. Y tiene que existir antes de abrir la conversación de la oferta, que nace atada a él
+  (`asegurarFunnelPrincipal`, vacío como el de fábrica para que siga intacto).
+- **El login de Google pisaba el nombre en CADA entrada** (`registrarLogin`): lo que alguien escribía en
+  «Tu cuenta» —y ahora lo que contesta en el chat— se perdía al volver a entrar, sin un error. Ahora el de
+  Google sólo llena el vacío.
+- **El cierre tiene UNA puerta** (`cerrarPasosOnboarding`, regla `aplicarCambiosDePaso` en el contrato, con
+  test): la acción `paso` del wizard y el chat cerraban con dos copias de la misma regla. El teléfono y Meta
+  se POSTERGAN si no se hicieron, nunca se marcan hechos (sin destino, los reportes no le llegan a nadie), y
+  lo postergado queda de recordatorio en /general.
+- **El muñeco** es el de Estrategia del Centro (círculo, verde, sonrisa), con el aspecto pasado por
+  VARIABLE `as const`: el tipo `Aspecto` exige `accesorio` en main y lo rechaza en la rama del Centro que
+  les sacó los accesorios; un objeto ya construido no pasa el chequeo de propiedades de más. Y con la tinta
+  fija: en el tema oscuro `--ink` es casi blanco y los ojos desaparecían sobre el verde.
+- **Un efecto que relee con un OBJETO en las dependencias es un bucle**: cada relectura trae un objeto nuevo
+  y lo vuelve a disparar. La relectura del chat depende de primitivos (`sesionLigada`, la firma del turno).
+- **La pantalla del arranque no navega sola** (Martín: «que jamás se salga el recuadro del chat»): lo que se
+  crea se ve en tarjetas (el CRM con sus etapas, los caminos del final) y cada link lo elige la persona,
+  con el `Link` de la casa (lleva el `?ws=`).
+
+**La interpretación que tomé** (para que Martín la corrija si no era): «una animación de los mismos 3
+pasos» = los tres tiempos de la bienvenida de antes (el centro → las cinco piezas → las áreas), solos y
+con MaKo como el centro del grafo; al terminar MaKo vuela a su lugar de foto del chat.
+
+**Lo que quedó SIN hacer:**
+- **No se vio en el navegador** (la RAM no dejaba levantar la app): falta recorrerlo en el ws3 (Cliente de
+  Prueba, pendiente a propósito) en escritorio y en el teléfono, con la animación y el vuelo.
+- **El aviso cuando la oferta termina de armarse si la persona se fue** (WhatsApp de MaKo y la app).
+- **La lista del crédito**: el chat llama `offer` (la conversación y el armado) y `El Archivero` (los
+  documentos); `productos` (el paso viejo) quedó sin uso y se puede sacar de `CREDITO_HABILITADO_PARA`.
+- **La API de MaKo no cambió, a propósito:** el onboarding es la primera conversación de una persona y no
+  tiene sentido que un agente la haga por ella; `ver_estado_onboarding` ya lo cuenta, y lo que el chat crea
+  (el CRM, la oferta, el brief) ya tiene sus operaciones.
+
+**Vive en:** `app/onboarding/ChatArranque.tsx` · `app/onboarding/IntroMako.tsx` · `app/onboarding/MunecoMako.tsx` ·
+`app/onboarding/arranque-ui.ts` · `lib/onboarding-arranque.ts` (lo puro) · `lib/onboarding-arranque-server.ts`
+(los hechos, la siembra, el cierre) · `app/api/onboarding/arranque/route.ts` · `lib/onboarding-state.ts`
+(`cerrarPasosOnboarding`) · `lib/onboarding-guard.ts` · `lib/usuarios.ts` (`registrarLogin`) ·
+`tests/onboarding-arranque.test.ts` (18 tests, 18 roturas cazadas con los de postergar y sin-api)
+
+*16/10/2026, cuenta claude3.*

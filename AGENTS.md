@@ -8511,3 +8511,23 @@ los tiempos por palabra del elegido y los dejaba sin los suyos (docs/hallazgos-v
 módulo que importe de ahí `TICKS_PER_SECOND`, `roundMediaTime` o `addMediaTime` (directo o por `timeline/index.ts`,
 `animation/`…) no carga en los tests de node. Lo que se quiera probar recibe los ticks por segundo y lo que llega
 al motor por PARÁMETRO, e importa sólo TIPOS (molde: `transcripcion/cortar.ts`, con `tps` y `dividir`).
+
+# El onboarding es una conversación: lo que gobierna una pregunta nueva
+
+Desde el 16/10/2026 /onboarding es el CHAT DE ARRANQUE (`app/onboarding/ChatArranque.tsx`, sobre el motor de
+Offer en modo `arranque`). Martín: «Quiero que elimines todo lo que hay hoy en onboarding tal como está y que lo
+reemplaces por el chat de "Offer"… mientras más ágil y rápido mejor», y «que jamás se salga el recuadro del
+chat». Lo que costó, en `docs/hallazgos-onboarding.md` y `docs/hallazgos-offer.md` (16/10).
+
+- **Una pregunta nueva se suma en `lib/onboarding-arranque.ts`** (su etapa en `etapaDeArranque`, su mensaje en
+  `mensajesDeArranque`, cómo se lee en `leerRespuesta`), con test que la EJECUTA. Ni la pantalla ni la ruta
+  deciden qué se pregunta. Y antes de sumarla: ¿algo deja de andar el primer día sin ella? Si no, se deduce o
+  se pide después en su tab.
+- **El onboarding se cierra por UNA puerta, `cerrarPasosOnboarding`** (lib/onboarding-state.ts, regla
+  `aplicarCambiosDePaso`). Un paso que depende de afuera (el teléfono, Meta) se POSTERGA si no se hizo; nunca
+  se marca hecho.
+- **Lo que el chat crea se ve ADENTRO del chat** (una tarjeta, un mensaje) y todo lo que lleva a otro lado es
+  un link que la persona elige, con el `Link` de la casa. Ningún paso navega solo. Vale igual para la tab Offer:
+  ninguna vista reemplaza al chat (lo que hay que mirar entero va en un `Modal` encima).
+- **El brief que deja el chat se FUNDE** (sólo llena lo vacío) **y se lee estricto antes de escribir**: lo
+  leen los generadores y el Perro, y con la base caída `saveAnswers` sobre `{}` lo borraba.
