@@ -871,6 +871,13 @@ camino es transparente». En esta corrida pegó así:
   llega como `p{…}`.
 - **El árbol de OpenCut sale con CRLF** (`core.autocrlf`) y una regex con `\n` no matchea. Se edita
   normalizando a LF y se devuelve el fin de línea original.
+- **Python en Windows convierte el archivo ENTERO a CRLF** si se escribe con `open(p, 'w')` (pasó el 15/10 con
+  `editor-page.tsx`, `congelar.ts` y un test), y `git diff --stat` no lo muestra por `autocrlf=true`. Se escribe con
+  `newline='\n'`, en binario o con Edit. Y para editar varios archivos respetando su fin de línea, el patrón que
+  anduvo todo el 15/10: un script de node que normaliza a LF, aplica reemplazos EXACTOS (que aparezcan una sola
+  vez) y devuelve el CRLF si lo tenía; los reemplazos escritos en un `.mjs` con Write (sin heredoc).
+- **`assert.match` sobre un archivo fuente vuelca el archivo entero** cuando falla (31.000 caracteres): para los
+  tests que leen el fuente, `assert.ok(texto.includes(…), 'qué')`.
 - **Falsa alarma, medida el 11/10:** «`\p{Extended_Pictographic}` en una regex literal es candidato a
   error con `target: ES2017`». No: con TypeScript 5.9.3 compila a ES2017 (falla recién a ES5), y el repo
   ya tiene literales así (`app/conocimientos/PortadaModulo.tsx:344`). El `new RegExp(…)` de
@@ -1150,6 +1157,24 @@ todo el editor:
   `text/{estilos-predefinidos,typography}`, `subtitles/estilos`, `params/extra/{recorte,animaciones,texto}`,
   `recorte/geometria`, `timeline/placement/track-factory`.
 - `0.45*60` da 27.000000000000004: las comprobaciones en un borde justo necesitan tolerancia.
+**Tanda 2 (15/10, «Reemplazar el clip»; `_opencut/reemplazo/`, test `tests/video-editor-reemplazo.test.ts`, 31
+roturas):** se prendió «Reemplazar el clip» del menú, el botón «Sustituir» en las muestras de una plantilla y soltar
+un medio sobre una muestra; las tres entradas pasan por `reemplazarClip`. El clip conserva id, inicio, duración,
+transición, animaciones, efectos, máscaras, fotogramas y velocidad; un video más corto que lo que el clip recorre de
+fuente (duración × velocidad media, también con curva) se rechaza, como CapCut; una muestra cubre el rectángulo donde
+se ve HOY (aunque la hayan movido).
+- ⚠️ **El diagnóstico obvio («al rearmar los params, excluir `audio.normalizar` y `revertir.*`») era el
+  equivocado**: esos dos no son params declarados y nunca pasaban. El riesgo real era el contrario: las marcas
+  `plantilla.*` tampoco son declaradas, y al rearmar los params desde los defaults del tipo un hueco dejaba de serlo.
+  Regla: quien rearma los params desde los defaults lleva a mano las marcas no declaradas (`reemplazo/puro.ts` →
+  `paramsConservados`; lo mismo `clip.silenciadoAntes`).
+- **Un filtro que vive en la pantalla no lo ve ningún test**: la grilla del diálogo filtraba en el componente; una
+  rotura no cayó hasta pasarlo a una función pura (`mediosParaReemplazo`).
+- **SIN HACER:** `rectoMostrado` no mira el giro ni los fotogramas de posición o escala (si un hueco los tiene, pisan
+  el transform nuevo); reemplazar un video al que se le extrajo el audio deja ese audio viejo con la misma marca
+  (suenan los dos); si el panel derecho y el decodificador aguantan que un clip pase de foto a video con el mismo
+  id; nada se vio en el navegador.
+
 - **SIN HACER de la tanda 1**: la zona segura se probó con anchos de letra ESTIMADOS (verla en el navegador); en el
   peor caso (24 caracteres en Montserrat 60) un beneficio puede partirse en dos renglones y pisar al siguiente;
   Congelar (`commands/timeline/element/congelar.ts`) tiene que excluir también `PREFIJO_PLANTILLA`, como excluye
