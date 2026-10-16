@@ -67,3 +67,10 @@ tira el typecheck (hay guarda); SendMessage NO cruza carpetas de config (ENOINBO
   de Claude → key de Gemini con facturación → gratis sólo sin PII. El Plan nunca paga IA.
 - Las TRES cuentas de Claude son de Martín (no volver a plantear lo contrario).
 - Cancelar el plan: botón «Darme de baja» propio; plazo de reembolso 5 días hábiles.
+
+## Al cortar (16/10 ~01:30 AR)
+
+- Crédito de Claude ACTIVO: el script guardó las dos claves cifradas en el ws9 (releídas iguales). Falta ver la primera fila real en anthropic_usage.
+- Run 26 (`4825aa05a`: secciones altas + Dashboard con crédito + este relevo) corriendo al cortar.
+- Para el run 27: dashboard-bloques `318f80b0d` (las Conclusiones caja por caja con o sin datos de clientes; reemplaza a b2189353c).
+- Martín tiene el resumen de todo lo subido en `que-revisar-16-10.md` (carpeta de la sesión, fuera del repo).
