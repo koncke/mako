@@ -304,3 +304,5 @@ test('16: tramosConClip separa lo que tiene clip debajo de lo que no', () => {
 // · se corta el audio extraído de cualquier video → 19/1 (18).
 // · sin emparejar el audio extraído con su pedazo de video → 19/1 (19).
 // · el deshacer del corte pasa por el imán → 19/1 (20). Restaurado: 20/0.
+// · Supr (test 21, visto en producción): el panel no declara sus teclas → 20/1 (21); el atajo global
+//   no mira las teclas del panel → 20/1 (21). Restaurado: 21/0.
