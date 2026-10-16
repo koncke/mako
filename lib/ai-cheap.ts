@@ -700,6 +700,11 @@ export async function chatCheapCascade(opts: { system: string; user: string; jso
       //   · la API de Anthropic no entrena con lo que recibe, y el plan gratis de Gemini sí.
       // Con un cliente nuevo usando de 5 a 58 llamadas en su primera semana, 10 por semana son unos
       // pocos dólares contra 400 por mes. Si el crédito no contesta, siguen las keys gratis.
+      //
+      // ⚠️ Y SÓLO PARA LO QUE MARTÍN HABILITÓ (16/10/2026: «Yo debo decirte cuando utilizar creditos, no
+      // tenemos infinitos... Por ahora solo en onboarding»): la lista es `CREDITO_HABILITADO_PARA`
+      // (lib/veto-claude.ts) y hoy son las funciones del wizard, mientras el onboarding está en curso.
+      // Para todo lo demás `conCreditoDeLaPlataforma` devuelve null y esto sigue como si no existiera.
       if (wsActual != null && quedan() >= MIN_INTENTO_MS) {
         const { conCreditoDeLaPlataforma } = await import('./anthropic');
         const c = await conCreditoDeLaPlataforma({
