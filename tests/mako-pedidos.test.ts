@@ -17,7 +17,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   FEATURE_PEDIDOS, MAX_OBJETOS, TABS_CON_OBJETOS_EN_EL_NAVEGADOR, dudaDeLasReglas, interpretarCon, leerRespuestaIA,
-  llevaDatosPersonales, objetosDelNavegador, partirPedidos, probarEnOrden, resolverPedidos, type ContextoPedidos, type ObjetoChat, type OperacionChat, type PedirEtiquetas,
+  llevaDatosPersonales, objetosDelNavegador, partirPedidos, probarEnOrden, productoDelPedido, resolverPedidos, type ContextoPedidos, type ObjetoChat, type OperacionChat, type PedirEtiquetas,
 } from '../lib/mako-pedidos';
 import { REGISTRO, ordenarPorRelevancia, porId, visible, type Vista } from '../lib/api-mako/registro';
 import { AREA_INFO, esAccion, esLectura, type OperacionDef } from '../lib/api-mako/tipos';
@@ -342,6 +342,32 @@ test('probarEnOrden: arranca YA, en orden, cada intento acotado a lo que queda, 
   assert.deepEqual(llamadas, ['groq-1@0/4000']);
   // Sin cuentas, null sin tirar.
   assert.equal(await probarEnOrden([], pedir, validar, { hasta: 7_000, intentoMs: 4_000, minIntentoMs: 1_500, ahora: () => 0 }), null);
+});
+
+// ── «Para mi otro producto» (16/10/2026, visto con clics: el esquema salía sobre la oferta principal) ─────────
+// Roturas (sobre 20 tests): R32 (elegir el primero en vez de preguntar: `candidatos: lista…` → `objeto: lista[0]`)
+// → 19 de 20; R33 (sin la excepción de «otro producto» con uno solo) → 19 de 20; R34 (la ruta lee los productos
+// en cada mensaje: sin `!pedidos.some(… 'nuevo')`) → 19 de 20.
+test('«para mi otro producto»: el que nombra, o la pregunta con los del catálogo; nunca el primero de la lista', () => {
+  const P1: ObjetoChat = { id: '1', nombre: 'Curso de inversión' };
+  const P2: ObjetoChat = { id: '2', nombre: 'Mentoría 1 a 1' };
+  const P3: ObjetoChat = { id: '3', nombre: 'Taller de ventas' };
+  const P4: ObjetoChat = { id: '4', nombre: 'Comunidad' };
+  const P5: ObjetoChat = { id: '5', nombre: 'Libro' };
+  const todos = [P1, P2, P3, P4, P5];
+  const E2_NUEVO = 'quiero que me crees otra landing para mi otro producto';
+  const r = productoDelPedido(E2_NUEVO, todos);
+  assert.deepEqual(r, { objeto: null, candidatos: [P1, P2, P3, P4], pregunta: '¿Para cuál producto?' }, 'pregunta, con los primeros 4 del catálogo');
+  assert.deepEqual(productoDelPedido('Créame otra landing para la Mentoría 1 a 1', todos), { objeto: P2, candidatos: [], pregunta: null }, 'el que nombra, aunque no diga «producto»');
+  assert.deepEqual(productoDelPedido('Créame otra landing para un producto', [P3]), { objeto: P3, candidatos: [], pregunta: null }, 'uno solo: ése');
+  assert.equal(productoDelPedido(E2_NUEVO, [P3]), null, '«otro producto» con uno solo no es ése: no se sabe cuál');
+  assert.equal(productoDelPedido('Créame otra landing', todos), null, 'sin hablar de un producto, como siempre');
+  assert.equal(productoDelPedido(E2_NUEVO, []), null, 'sin catálogo, como siempre');
+  // La ruta los lee sólo si hay un pedido NUEVO, sólo para el admin, los activos.
+  const ruta = leer('app/api/mako/pedidos/route.ts').replace(/^\s*\/\/.*$/gm, '');
+  assert.match(ruta, /if \(rol !== 'admin' \|\| !pedidos\.some\(\(p\) => p\.sobre === 'nuevo'\)\) return pedidos;/);
+  assert.match(ruta, /await listProductos\(true\)/);
+  assert.match(ruta, /pedidos: await conProductos\(r\.pedidos, rol\)/);
 });
 
 // ── Los vecinos: Image Editor, Dashboard y Video Editor (16/10/2026, pedido de Cerebro) ──────────────────────

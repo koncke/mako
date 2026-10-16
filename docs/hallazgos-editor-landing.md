@@ -1926,8 +1926,13 @@ Lo que encontró, además:
   gana poco. Los picos de 44-65 s eran «high demand» de Google con reintentos, no el modelo. Lo que mejoraría de verdad:
   mandar menos (el contexto del negocio entra entero en cada edición) o un modelo rápido que acierte; medido así, hoy
   ninguno de los gratis.
-- **«Mi otro producto» no se resuelve**: Crear con IA armó el esquema sobre la oferta principal del negocio. Lo que
-  falta: que el pedido nuevo pregunte cuál, con los productos del Second Brain.
+- **«Mi otro producto» no se resolvía**: Crear con IA armó el esquema sobre la oferta principal del negocio. Ahora
+  (`productoDelPedido` en lib/mako-pedidos.ts, la burbuja `producto` en pedidos-chat.ts): si nombra un producto
+  activo del catálogo, va escrito en el pedido («… Es para el producto «X».»); si dice «producto» sin nombrarlo y hay
+  varios, «¿Para cuál producto?» con los primeros 4 del catálogo, y elegido sigue la creación de siempre (con la
+  propuesta, si había). ⚠️ Con UN solo producto, «mi OTRO producto» no es ése: no pregunta y crea como antes. Es el
+  caso de ws9 hoy (un solo activo, «WhatsApp Ads Funnel»): Martín no va a ver la pregunta ahí. Lo que falta: cuando
+  el producto no está en el catálogo, preguntarlo en texto libre.
 - **«Crear ahora» se veía igual que las sugerencias** de abajo («Mejorar la escritura»…): las dos eran pastillas
   celestes (`secundario` y `gma-ag-pildora`). Arreglado: «Crear ahora» va azul con «+» (también tras «Después»), las
   candidatas de «¿Cuál?» y los links «Abrir…»/«Ir a…» en contorno, y `secundario` dejó de ser una variante de las
