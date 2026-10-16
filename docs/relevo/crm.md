@@ -6,6 +6,41 @@ el briefing anterior (`b5f7fb55`, 10/10 17:10) con todo verificado contra el ár
 **Rutas de esta área:** `app/crm/**`, `lib/leads.ts`, `lib/funnel*.ts`, `lib/crm*.ts`,
 `lib/lead-*.ts`, `lib/campana-*.ts`, `lib/etiquetas*.ts`, `lib/pipeline.ts`.
 
+## 0-Ω11. CIERRE del 16/10/2026 ~12:00 (chat «CRM», cuenta `claude3`, al 96% semanal): qué quedó y cómo se retoma
+
+Se cerró por el umbral del 95%. Ningún agente quedó corriendo; el worktree está limpio.
+
+**EN PRODUCCIÓN (lo subió Cerebro):**
+- La ficha por bloques (armador de b1) — run 30.
+- El marco de la ficha v2 (galería por tab con «Sugerido», «¿Qué vas a crear hoy?» la primera vez, renombrar con
+  doble clic, vista épica, `armar_tab_ficha`) — run 42, `8f8d9809c`.
+- La etapa de reunión ↔ evento de Calendly/Cal.com, el MOTOR (sin pantalla: se vincula por la API de MaKo), con la
+  mig 0293 aplicada — run 33.
+- La tab Pagos en bloques, del chat Pagos (runs 34 a 38, mig 0295).
+
+**LISTO PARA SUBIR, sin subir:** rama `crm-ficha-v2`, punta `38317b6bc`, en `C:/dev/wt-crm-ficha2`: el Resumen NATIVO
+(§0-Ω9) y su verificación (§0-Ω10), con main mergeado. Se le pasó a Cerebro, que es el único que sube. ⚠️ Al
+desplegar, el Resumen de TODOS los funnels que nadie tocó cambia de diseño (a propósito), también en el ws 1.
+
+**SIN HACER, en este orden, con cómo se retoma:**
+1. **T2 de la ficha v2: Reuniones y Tracking rehechos, y la tarjeta del lead en el kanban personalizable.** El
+   script de la corrida está en el scratchpad de la sesión e86e3994 (`wf-ficha-v2-t1b-t2.js`, run
+   `wf_11c85ef0-999`): relanzarlo con `resumeFromRunId` saca de caché el Resumen y la verificación T1 y sigue por
+   «reuniones-y-tracking» (se cortó a los segundos de arrancar; no dejó nada). Si el scratchpad ya no está, los
+   prompts se rearman con este relevo y docs/diseno-ficha-bloques.md. De a un agente (RAM).
+2. **T3: la tab Pagos de Customer Success, de a dos con el chat Pagos.** CS sigue montando DealDetailsCard; cuando
+   pase a bloques, se borran juntos DealDetailsCard, EditarDeal, `?edit=1` y «Completar con IA»
+   (docs/hallazgos-pagos.md §4).
+3. **La PANTALLA de la etapa ↔ evento de agenda** (elegir el evento en el pop-up de etapas, app/crm/EtapasModal.tsx)
+   y su revisión: run `wf_03f40761-f44`, worktree `C:/dev/wt-crm-agenda` (mergear main antes). El contrato de la
+   pantalla está en `app/crm/agenda-evento-actions.ts` y en la cabecera de lib/agenda-evento-etapa.ts.
+4. **Avisarle al chat Pagos** que `epico` ya está en PropsBloque: puede sacar el cast `(props as { epico?: boolean })`
+   de app/crm/lead-view/ficha/registro-pagos.tsx (su sesión no estaba al cerrar).
+5. **Mirar con datos reales** (nadie lo hizo: no hubo RAM para `next dev`): el ws 3 con sesión de super admin, el
+   pop-up y /crm/2615 y 2664 a 1440, 1024, 820 y 390, «Personalizar», la galería y la caja contra la IA de verdad, y
+   el teléfono con user-agent de iPhone.
+6. Lo que dejaron sin hacer los frentes, con su archivo: §0-Ω9 y §0-Ω10 (bloques del Resumen sin componente, el
+   Deshacer del historial y el de CS todavía a ciegas, el setter/closer repetidos en ReunionesCard hasta la T2).
 ## 0-Ω10. 16/10/2026 (frente «verificación» de la tanda 1 de la ficha v2, cuenta `claude3`): mirada y revisada
 
 Rama `crm-ficha-v2` en `C:/dev/wt-crm-ficha2`. Con 4,8 GB libres no se levantó `next dev`: se miró en el BANCO (las dos

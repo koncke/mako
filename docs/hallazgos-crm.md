@@ -9537,3 +9537,18 @@ estilo.ts · app/crm/campo-inline.ts (`mismoValorDeCampo`, `mismoDatoDeContacto`
 (`deshacerCampoLeadAction`, `deshacerContactoLeadAction`) · app/crm/lead-view/CampoEditable.tsx (`useGuardarCampo`) ·
 resumen/piezas.tsx (`useGuardarMeta`) · tests/ficha-resumen-lo-de-antes.test.ts.
 *16/10/2026, frente «verificación» de la ficha v2 (claude3).*
+
+## El typecheck acotado de una rama tiene que llevar sus TESTS cambiados (16/10/2026)
+
+El run 30 de Cerebro (la ficha por bloques) cayó en Tipos por `tests/crm-campo-inline.test.ts:342`: el test le pasaba
+`puesto` como segundo argumento a `REGLAS_RESUMEN['plazo-nutricion'].estaVacio`, y el `satisfies` de las reglas
+infiere la firma de la función escrita (`(ctx) => …`), así que sobra un argumento (TS2554).
+
+- **El diagnóstico obvio era el equivocado:** «el acotado dio limpio». Dio limpio porque ese test, que el WIP había
+  cambiado, no estaba en `files`: cada frente puso SUS archivos, no los de la rama.
+- **La regla:** el acotado lleva TODO lo que la rama cambia respecto de su base (`git diff --name-only
+  <base>...HEAD`, tests incluidos) más los que importan un tipo cambiado. Con poca RAM, en tandas de 8 a 24
+  archivos (§0-Ω9); salida 1 sin texto es «no se miró».
+
+**Vive en:** el proceso de validar una rama (memoria del tsc acotado; docs/hallazgos-infra.md) ·
+`satisfies ReglasDeTab` en app/crm/lead-view/ficha/reglas-*.ts · *16/10/2026, chat «CRM» (claude3); lo arregló Cerebro en integración.*
