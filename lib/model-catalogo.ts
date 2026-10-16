@@ -125,6 +125,12 @@ export const CATALOGO_MODELOS: FeatureModelo[] = [
   { feature: 'cs-autoasignar', label: 'De quién es este trabajo (Customer Success)', grupo: 'MaKo', def: GEMINI(), recomendado: GEMINI(), fallback: [], nota: 'Decide si una tarea que NOMBRA a un cliente es trabajo PARA él. Clasificación sí/no contra una rúbrica corta, sobre títulos internos → Gemini Flash. NO se degrada de modelo: un error aquí mete el trabajo de MaKo en la ficha de un cliente, y eso no rompe nada — se lee como un hecho.' },
   { feature: 'mako-guardian', label: 'Perro Guardián — cerebro de priorización (/plan)', grupo: 'MaKo', def: GEMINI(), recomendado: GEMINI(), fallback: [], nota: 'Puntúa, rutea a proyectos y detecta duplicados. Clasificación contra rúbrica, sin datos de clientes → Gemini Flash. NO se degrada de modelo: sus errores esconden tareas en vez de romper.' },
   { feature: 'checklist-coach', label: 'MaKo te ayuda (tareas y proyectos)', grupo: 'MaKo', def: GEMINI(), recomendado: GEMINI(), nota: 'Escribe la descripción y la checklist de cada tarea nueva. Es la llamada más voluminosa del Perro (una por lote, con todas las tareas adentro) → Gemini Flash.' },
+  // Los pedidos sueltos en los chats de MaKo (16/10/2026, lib/mako-pedidos-ia.ts): separa un mensaje en pedidos y
+  // los etiqueta, SÓLO cuando las reglas dudan. GRATIS y nunca Claude: el pin de /modelos-ia va primero si es
+  // gratis (uno pago se ignora), y la red de plataforma es la de las keys gratis, sin el crédito de Claude. Degradarse
+  // es aceptable: lo que contesta se VALIDA (lib/mako-pedidos.ts) y, si no sirve, quedan las reglas. `pii` se decide
+  // por MENSAJE (un email, un teléfono, una tab de leads), no acá.
+  { feature: 'mako-pedidos', label: 'Separar los pedidos de un mensaje (chats de MaKo)', grupo: 'MaKo', def: GEMINI(), recomendado: GEMINI(), pii: false, nota: 'Cuando un mensaje a un chat de MaKo mezcla cosas («esto, y también créame otra landing»), separa los pedidos y dice el verbo, la sección y la frase que nombra el objeto. El objeto, la acción y el link los decide el código. Sólo IA gratis, con un plazo de 9 s: si no llega, siguen las reglas.' },
 
   // ── Análisis pesado sobre datos reales → OPUS (los únicos que se quedan) ─────
   // Decisión del dueño (2026-08-13): baja de Opus a Sonnet. Sigue siendo PAGO a

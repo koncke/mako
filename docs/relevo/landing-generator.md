@@ -388,3 +388,23 @@ coordinador «Estrategia 3 cuentas», de a uno (el atributo nuevo tenía que est
   base, en Chromium sin ventana: 0 parpadeos, los 23 efectos bien, con y sin animaciones cuestan lo mismo, y el video de
   fondo se comporta (hallazgos → «Tanda 8» → «La verificación de la publicada»). De ahí salió el tope de 5 s de los
   títulos partidos (WCAG 2.2.2).
+
+## Los pedidos sueltos en el chat (16/10/2026, cuenta claude3, chat «Landing Generator»): commiteado, SIN pushear
+
+Pedido de Martín por Cerebro (textual en la bitácora y en `docs/diseno-mako-pedidos.md`): que todos los chats de MaKo
+separen un mensaje con varias cosas, sepan cuál es «la otra» sin que la nombre, propongan el orden y dejen el link de
+otra tab. Worktree `C:/dev/wt-web-pedidos`, rama `web-pedidos`, commits `f8c69a7bd` y `195df92d2`. Lo aprendido:
+`docs/hallazgos-ia.md` → «Los pedidos sueltos en los chats»; la regla para código nuevo, en AGENTS.md.
+
+**Lo que tiene que mirar Martín con clics** (sobre su negocio, sin `?ws=`), en el chat del agente de una landing:
+1. «Cambia el título del hero por algo más corto»: edita como siempre, sin burbujas.
+2. «Mejora el título. Y luego y también quiero que me crees otra landing para mi otro producto»: edita el título y
+   pregunta «¿Terminamos esto y después creamos otra landing?» con Sí / Después. Aceptar o descartar el cambio y
+   después «Sí» (o «Sí» antes: espera) abre Crear con IA con el pedido.
+3. «Borra la otra landing» (con dos landings más): pregunta cuál, con las dos últimas que tocó. Con una sola, pide
+   confirmar y la manda a la Papelera.
+4. «Agéndame una reunión con Juan el viernes»: deja el link al CRM.
+
+**Lo que sigue, con su archivo:** Automations (su función en `objetosDeTab` de `app/api/mako/pedidos/route.ts` y el
+fetch en su chat) y el chat del Second Brain, que los engancha el Centro; correr la operación de otra tab desde la
+burbuja (hoy el link). No se probó con la IA de verdad ni en el navegador (la regla de RAM).

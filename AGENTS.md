@@ -1050,6 +1050,20 @@ Y del doer de WhatsApp, que sale de la misma tanda: **una receta del protocolo v
 `lib/doer-recetas.ts`, atada a la herramienta que la usa**, y viaja sólo con ella
 (`recetasDelTurno`). Escrita suelta en el preámbulo se paga en cada pedido de cada turno.
 
+# Un chat de MaKo interpreta el mensaje con `/api/mako/pedidos` ANTES de su modelo
+
+Martín (16/10): la persona mezcla en un mensaje lo de la pantalla, otro objeto («la otra
+automatización») y cosas de otra tab. Un chat nuevo (o uno que se engancha) hace `POST
+/api/mako/pedidos` con su `tab` y lo abierto, manda al modelo de siempre sólo los pedidos
+`actual`, y dibuja el resto (link, pregunta, confirmación, propuesta). Si la ruta falla o tarda,
+el mensaje entero sigue como antes. El contrato y el enganche: `docs/diseno-mako-pedidos.md`.
+- **Las palabras de un área (`AREA_KEYWORDS`) no rutean solas a otra tab.** Son anchas a
+  propósito (para sumar herramientas): «cambia el precio», «quita el video» o «un formulario para
+  leads» nombran otra área y son cambios de lo abierto. Otra tab sólo si el verbo CREA un objeto
+  de esa área, o lo etiquetó la IA (validada).
+- **Los objetos de la tab los da la ruta (`objetosDeTab`), una función por área**, nunca el
+  navegador: con eso se resuelve «la otra» y, con dos candidatos, se pregunta con los dos.
+
 # Un permiso de UN inquilino sobre OTRO son DOS decisiones, y ninguna se deriva de la otra
 
 Cuando alguien tiene que poder ver los datos de otro workspace —la vista de agencia es
