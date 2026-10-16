@@ -89,7 +89,10 @@ Reglas del resolver (código, no IA):
   `AREA_KEYWORDS` dice de qué área es una palabra, pero si nombra otro objeto o una parte del abierto depende de dónde se
   dice. Web Generator: «página» (un sitio tiene páginas, «Añadir página»). Image Editor: «página» también (un diseño
   tiene páginas, como Canva), y ahí la palabra es de OTRA área (`landing`): sin esto «crea otra página» en un diseño se
-  iba al Web Generator. Dashboard: «gráfico», «métrica» (una hoja los tiene). Video Editor: «clip», «escena». Dentro de su
+  iba al Web Generator. Dashboard: «gráfico», «métrica» (una hoja los tiene). General: además «tarea», «proyecto»,
+  «prioridad», «deadline», «KPI», «objetivo», «meta», «semáforo», «agenda», «cobro»… — sus bloques son VISTAS de otras
+  tabs (lib/general-piezas.ts): sin esto «agrega un bloque de tareas» en General mandaba al Plan, y «tareas» es justo
+  lo que la IA etiqueta como otra área (está en el test con `origen: 'ia'`). Video Editor: «clip», «escena». Dentro de su
   tab no crean otro objeto, no borran lo abierto, no son «la otra» ni mandan a otra tab (aunque la IA etiquete la otra
   área); fuera de ella sí cuentan («créame otra página» en Automations es una landing del Web Generator).
 - **El objeto** («la otra», «la anterior», «la de Juan», un nombre entero o entre comillas): sin el actual; un nombre que
@@ -152,6 +155,7 @@ pantalla (sin eso, alguien leería por acá los nombres de lo que su pantalla le
 | `landing` (Web Generator) | las landings, sin las de la papelera, la última tocada arriba | `listar()` de lib/editor-landing/server.ts (la del Panel) | admin y `landing-writer` en la capa |
 | `imagen` (Image Editor) | los diseños, sin los borrados, el último editado arriba | `listarDisenos(ws)` de lib/image-editor/server.ts (la del inicio del editor) | `veEditorImagen()` (admin y la tab en la capa) |
 | `metricas` (Dashboard) | las HOJAS del informe de QUIEN MIRA (es por persona), en el orden de sus pestañas | `leerTablero()` + `hojasVisibles` | admin y `graphics` en la capa; quien nunca guardó un informe ve la pantalla sin páginas → [] |
+| `general` (General) | las hojas del informe de General de quien mira, en el orden de sus pestañas | `leerInformeGeneral()` + `hojasVisibles`, sólo si `estado === 'propio'` | admin y `general` en la capa (la del guardado de General en `/api/graficos`: quien no la pasa no edita ahí); sin informe propio → [] |
 | `video` (Video Editor) | sus proyectos | los manda el NAVEGADOR (`objetos` del cuerpo) | — (son suyos) |
 
 ⚠️ **El Video Editor no tiene de dónde listarse en el servidor**: sus proyectos viven en IndexedDB (decisión 5 de su
@@ -188,9 +192,17 @@ en el acto se iba del editor con el cambio a medias. Borrar OTRA landing confirm
 la manda a la Papelera (se restaura); la ABIERTA nunca se borra desde el chat: se dice dónde está «⋯ › Eliminar». Si la
 ruta falla o tarda más de `PLAZO_PEDIDOS_MS`, el mensaje entero va a «editar», como antes.
 
+«Editar con MaKo» del **Dashboard y General** también (16/10): `PanelEditarMako.tsx` + lo puro en
+`app/dashboard/pedidos-hoja.ts`, tests en `tests/dashboard-pedidos-chat.test.ts`. Lee la respuesta con las MISMAS
+`interpretacionDe` / `textoActual` del Web Generator; lo de la hoja abierta va a `/api/graficos/editar` como siempre y lo
+demás son burbujas: crear OTRA hoja (la arma `/api/graficos/ia` con el pedido y entra por `crearHoja` del editor),
+abrir otra hoja, archivar otra hoja (confirma; `eliminarHoja`, con su Deshacer), «¿Cuál?» con las dos candidatas, y el
+link de otra tab. A diferencia del Web Generator, «Sí» crea en el acto: el cambio de la hoja abierta ya se aplicó cuando
+aparece la burbuja (se deshace con su botón), así que no queda nada a medias que esperar.
+
 - **Automations**: su función en `objetosDeTab` y el fetch de arriba en su chat.
-- **Image Editor, Dashboard y Video Editor**: sus objetos ya están (16/10); falta que sus chats llamen a la ruta (el del
-  Video Editor, mandando `objetos`).
+- **Image Editor y Video Editor**: sus objetos ya están (16/10); falta que sus chats llamen a la ruta (el del Video
+  Editor, mandando `objetos`).
 - **El chat único del Second Brain** (Centro de Operaciones): el mismo fetch con `tab` = el área de lo que esté abierto.
 - **Correr la operación de OTRA tab** desde la burbuja: hoy `otra-tab` deja el link (y la operación como dato); ejecutarla
   pasa por el registro (`ejecutar.ts`), que propone y confirma como siempre.

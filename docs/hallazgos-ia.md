@@ -4289,7 +4289,11 @@ apoyó en lo que ya había. Cuatro de esas piezas no servían como parecían:
   «crea otra página» en un diseño se iba al Web Generator: «página» es palabra de `landing` (otra área), y un diseño
   tiene páginas como en Canva. Lo mismo «otro gráfico» en el Dashboard (no es otra hoja) y «el otro clip» en el Video
   Editor (no es otro proyecto). `PARTES_DE_LO_ABIERTO` va por la tab donde se dice, con palabras de cualquier área, y
-  gana aunque la IA etiquete la otra área.
+  gana aunque la IA etiquete la otra área. ⚠️ **General es el caso extremo (16/10, al enchufar su «Editar con MaKo»)**:
+  sus bloques son VISTAS de otras tabs (tareas y proyectos del Plan, cobros, KPIs, la agenda: lib/general-piezas.ts),
+  así que casi todas sus partes son palabras de OTRA área. «Agrega un bloque de tareas» mandaba al Plan, y «tareas» es
+  justo lo que la IA etiqueta como `plan`. La lista de General es larga a propósito; una tab que muestra piezas de
+  otras tiene que nombrarlas todas ahí (está en tests/dashboard-pedidos-chat.test.ts, también con `origen: 'ia'`).
 - **Los objetos del Video Editor no se pueden listar en el servidor**: sus proyectos viven en IndexedDB (decisión 5 de
   su diseño). Para esa tab, y sólo para ella (`TABS_CON_OBJETOS_EN_EL_NAVEGADOR`), la lista la manda su chat y la ruta
   la valida (`objetosDelNavegador`). Y las hojas del Dashboard son POR PERSONA: los objetos son las del informe de quien
@@ -4316,8 +4320,9 @@ Y `linkPantalla` (lib/api-mako/link.ts) no sirve para un link de ADENTRO de la a
   plata y su decisión. Cerrarla del todo pide una opción en `chatCheapCascade` (lib/ai-cheap.ts). Decide el coordinador.
 - **Automations**: su función en `objetosDeTab` (app/api/mako/pedidos/route.ts) y el fetch en su chat; hasta entonces,
   «la otra automatización» contesta «¿Cuál? Dime su nombre.». **El chat único del Second Brain**, lo mismo. Image
-  Editor, Dashboard y Video Editor ya tienen sus objetos (16/10), pero sus chats todavía no llaman a la ruta: el del
-  Video Editor tiene que mandar `objetos` (cómo, en docs/diseno-mako-pedidos.md).
+  Editor y Video Editor ya tienen sus objetos (16/10), pero sus chats todavía no llaman a la ruta: el del Video Editor
+  tiene que mandar `objetos` (cómo, en docs/diseno-mako-pedidos.md). El Dashboard y General ya llaman (16/10, chat
+  «Dashboard»: `app/dashboard/pedidos-hoja.ts`).
 - **Correr la operación de OTRA tab desde la burbuja**: hoy deja el link (y la operación como dato).
 - **No se probó con la IA de verdad ni en el navegador** (sin `next dev` por la RAM): las reglas y la IA con un doble.
 

@@ -31,7 +31,7 @@ import { esAccion, esLectura, type Area, type Ctx, type OperacionDef, type Rol }
 import { listar as listarLandings } from '@/lib/editor-landing/server';
 import { veEditorImagen } from '@/lib/image-editor/acceso';
 import { listarDisenos } from '@/lib/image-editor/server';
-import { leerTablero } from '@/lib/graficos-tablero';
+import { leerInformeGeneral, leerTablero } from '@/lib/graficos-tablero';
 import { hojasVisibles } from '@/lib/graficos-catalogo';
 import { interpretarMensaje } from '@/lib/mako-pedidos-ia';
 import { TABS_CON_OBJETOS_EN_EL_NAVEGADOR, objetosDelNavegador } from '@/lib/mako-pedidos';
@@ -84,6 +84,15 @@ async function objetosDeTab(tab: Area, rol: Rol, ws: number): Promise<ObjetoChat
       return [];
     }
     return r.docs.filter((d) => !d.papelera).map((d) => ({ id: String(d.id), nombre: d.titulo, tocadoAt: d.actualizado }));
+  }
+  if (tab === 'general') {
+    // Las HOJAS de General (16/10/2026, el chat «Editar con MaKo» de su hoja abierta): las del informe de General de
+    // QUIEN MIRA (por persona, `general.informe.<sub>`), con la puerta de su pantalla (app/general/page.tsx,
+    // `requireRolWs([])` = el admin) y la tab en la capa. Quien nunca armó su General ve la pantalla en blanco: [].
+    if (rol !== 'admin' || !tabEnCapa('general', await getCapaActual().catch(() => null))) return [];
+    const l = await leerInformeGeneral();
+    if (l.estado !== 'propio') return [];
+    return hojasVisibles(l.tablero).map((h) => ({ id: h.id, nombre: h.nombre }));
   }
   // ENGANCHE: 'chatbot' (Automations) devuelve [] hasta que su chat se enganche. Cuando lo haga, va acá su función
   // —las automatizaciones del negocio sin las archivadas, la última tocada arriba— con la puerta de su página.
