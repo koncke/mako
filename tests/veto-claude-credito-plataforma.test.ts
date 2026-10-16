@@ -31,6 +31,9 @@
 //   - el veto ignora «sólo durante el onboarding»                          → 10/1
 //   - el análisis del lead entra a la lista sin que Martín lo habilite      → 10/1
 //   - conCreditoDeLaPlataforma no le pasa al veto si el onboarding sigue    → 10/1
+// Y el chat de Offer, que ES el onboarding desde el 16/10/2026 (base 11/0):
+//   - sin la fila de 'offer' en la lista                                   → 10/1
+//   - 'offer' con soloDuranteElOnboarding: false                          → 10/1
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -78,8 +81,14 @@ test('LA FRONTERA: ninguna otra clave pasa por la puerta del crédito', () => {
 
 test('PARA QUÉ: sólo lo que Martín habilitó, y hoy es el onboarding en curso («Por ahora solo en onboarding»)', () => {
   // Lo habilitado, y nada más: las funciones del wizard del primer ingreso.
-  assert.deepEqual(CREDITO_HABILITADO_PARA.map((h) => h.feature).sort(), ['El Archivero', 'onboarding-extract', 'productos'].sort(),
+  assert.deepEqual(CREDITO_HABILITADO_PARA.map((h) => h.feature).sort(), ['El Archivero', 'onboarding-extract', 'productos', 'offer'].sort(),
     'la lista de lo que usa el crédito cambió: habilitar algo más lo decide Martín');
+  // El chat de Offer ES el onboarding desde el 16/10/2026 («el onboarding será ese chat de offer»): lo usa
+  // mientras el onboarding está en curso, y la tab Offer de después, no.
+  assert.equal(evaluarCreditoDeLaPlataforma({ feature: 'offer', clave: C1, creditos: [C1, C2], hoy: HOY, onboardingEnCurso: true }).ok, true,
+    'el chat de Offer del primer ingreso no llega al crédito');
+  assert.equal(evaluarCreditoDeLaPlataforma({ feature: 'offer', clave: C1, creditos: [C1, C2], hoy: HOY, onboardingEnCurso: false }).ok, false,
+    'la tab Offer usa el crédito con el onboarding ya cerrado');
   for (const h of CREDITO_HABILITADO_PARA) {
     assert.equal(h.soloDuranteElOnboarding, true, `${h.feature} usaría el crédito fuera del onboarding`);
     assert.ok(!FEATURES_DEL_PLAN.includes(h.feature), `${h.feature} es del Plan`);

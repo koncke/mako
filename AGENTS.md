@@ -3750,8 +3750,8 @@ nuevo:
 
 - ⚠️ **SÓLO PARA LO QUE MARTÍN HABILITÓ, y hoy es el onboarding.** Textual (16/10/2026): «Yo debo decirte cuando
   utilizar creditos, no tenemos infinitos... Por ahora solo en onboarding.» La lista es `CREDITO_HABILITADO_PARA`
-  (lib/veto-claude.ts): las funciones del wizard, y sólo mientras el onboarding del negocio está en curso
-  (`onboardingPendiente`). Para todo lo demás el crédito dice que no y la cascada sigue como si no existiera. Un
+  (lib/veto-claude.ts): las funciones del wizard y el chat de Offer que lo reemplaza, y sólo mientras el onboarding
+  del negocio está en curso (`onboardingPendiente`). Para todo lo demás el crédito dice que no y la cascada sigue como si no existiera. Un
   camino nuevo NO se suma a la lista por su cuenta: lo pide Martín.
 - **Pasan SÓLO las dos claves con nombre** (`CLAVES_CREDITO_PLATAFORMA`), leídas por ese nombre del entorno o de la
   fila del workspace de la plataforma, estrictas. `ANTHROPIC_API_KEY` no se lee ahí, y `evaluarCreditoDeLaPlataforma`
