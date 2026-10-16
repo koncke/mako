@@ -28,8 +28,6 @@ import { esAdminDeTab } from '@/lib/puerta-admin-tab';
 import { construirCerebro } from '@/lib/cerebro-grafo';
 import { tokenAgenteVisible } from '@/lib/agente-token';
 import { getWorkspaceActual } from '@/lib/workspace';
-import { TemaOscuro } from '@/app/_components/TemaOscuro';
-import { TemaOscuroScript } from '@/app/_components/TemaOscuroScript';
 import { APP_BASE_URL } from '@/lib/app-url';
 
 export const dynamic = 'force-dynamic';
@@ -67,9 +65,8 @@ export default async function SecondBrainPage({ searchParams }: { searchParams: 
 
   return (
     <Pagina ancho="completo" densidad="compacta" style={{ padding: 0, flex: 'none', height: '100dvh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-      {/* El Second Brain se pinta oscuro (el pedido del dueño: el lienzo y la página, del mismo color). */}
-      <TemaOscuroScript />
-      <TemaOscuro />
+      {/* En modo CLARO desde el 16/10/2026 («pon en white mode la tab de Second Brain», Martín): se fueron TemaOscuro y
+          TemaOscuroScript, que la pintaban oscura. */}
       <ChatSecondBrain veMapa={veMapa} mapa={mapa} chatInicial={enteroDe(chat)} />
     </Pagina>
   );
