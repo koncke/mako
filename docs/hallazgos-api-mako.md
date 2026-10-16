@@ -1379,3 +1379,22 @@ de un insertado y un video por enlace a la biblioteca.
   (`[a-zá-ú][A-Z]`) y sólo exceptúa «WhatsApp»: «Hecho con MaKo» no pasa como rótulo (quedó «Créditos al pie»).
 
 *15/10/2026, chat «Landing Generator» (`claude1`), tanda 7 (`514f84468`, `1412d13ee`).*
+
+## Lo que se edita al revisar cambia sobre qué se ejecuta, y el título no se entera (15/10/2026)
+
+**Síntoma:** en `/mako/revisar`, un reembolso propuesto para el cobro de Juan («Devolverle a Juan US$500…») se podía
+confirmar con otro `cobroId` en el formulario: `aplicarPropuestaGenerica` re-prepara con lo editado y devuelve la plata
+de OTRO cliente, mientras la pantalla seguía mostrando el título de Juan.
+**Causa:** la pantalla es editable a propósito (la persona corrige un dato antes de confirmar), y el título es el
+`resumen` que MaKo armó al PROPONER. Nada distinguía «corregir un dato» de «cambiar sobre qué se hace».
+**Regla:** el parámetro que dice SOBRE QUÉ se hace lleva `fijoAlRevisar: true` (lib/api-mako/tipos.ts). El servidor lo
+hace cumplir (un valor distinto se rechaza; uno vacío vuelve al guardado: el formulario llega del navegador, la
+pantalla sola no alcanza), `plano` lo lleva al cliente y `RevisarAccion` lo pinta de sólo lectura. Si es otro, se
+propone de nuevo. Copia del panel de Stripe: el cargo que se devuelve no se cambia en el diálogo de devolución.
+**Hecho en cobros** (`cobroId` de `reembolsar_cobro` y `cancelar_suscripcion`). **Sin hacer, con el mismo agujero y
+plata de por medio** (no son del chat de Pagos): `proponer_presupuesto_campana` (`campaignId`),
+`proponer_presupuesto_conjunto` y `proponer_agregar_anuncio` (`adsetId`), `proponer_editar_textos_anuncio` (`adId`) en
+lib/api-mako/areas/ads.def.ts, y `programar_broadcast` / `enviar_broadcast` (`id`, el `idBroadcast`) en
+lib/api-mako/areas/email.def.ts. Y, sin plata, cualquier otra acción de pantalla cuyo título nombre a alguien.
+**Vive en:** `lib/api-mako/acciones.ts` (`aplicarPropuestaGenerica`) · `lib/api-mako/tipos.ts` (`Parametro.fijoAlRevisar`)
+· `lib/bandeja-filas.ts` (`plano`) · `app/mako/revisar/[id]/RevisarAccion.tsx` · `tests/revisar-fijo.test.ts`.

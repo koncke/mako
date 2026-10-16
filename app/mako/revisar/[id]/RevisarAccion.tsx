@@ -286,7 +286,7 @@ export function RevisarAccion({ id, operacion, operacionId, payload, resumen, es
           <div style={{ ...caja, display: 'flex', flexDirection: 'column', gap: 16 }}>
             {params.length === 0 && <div style={{ ...v, color: 'var(--dim)' }}>Esta acción no lleva datos: se ejecuta tal como dice el resumen.</div>}
             {params.map((p) => (
-              <Campo key={p.nombre} p={p} valor={valores[p.nombre]} error={errores[p.nombre]} disabled={enCurso || !puedeDecidir}
+              <Campo key={p.nombre} p={p} valor={valores[p.nombre]} error={errores[p.nombre]} disabled={enCurso || !puedeDecidir || !!p.fijoAlRevisar}
                 onChange={(nv) => setValores((prev) => ({ ...prev, [p.nombre]: nv }))} />
             ))}
           </div>

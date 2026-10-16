@@ -744,7 +744,6 @@ implementación en un worktree propio (`C:/dev/wt-pagos`) y una rama aparte para
 | **Pasarela:** precios en moneda local en el catálogo (para que la API y las automatizaciones creen links de Mercado Pago) | `lib/productos.ts`, `lib/api-mako/areas/cobros.run.ts` |
 | **Pasarela:** un contracargo de Mercado Pago se cuenta pero NO mueve la cuota: falta medir con las claves de prueba qué dice `coverage_applied` (GET del contracargo, otro tópico de aviso) y qué significan de verdad `settled`/`reimbursed` | `lib/cobros-eventos.ts` (`planDePagoMp`), `lib/cobros-webhook.ts`, `lib/mercadopago-api.ts` |
 | **Pasarela:** `crear_link_pago` en la lista corta del «⚡ Acción» (necesita un control propio para el producto del catálogo) | `lib/editor-acciones.ts` |
-| **Pasarela:** en `/mako/revisar` el `cobroId` de un reembolso se puede editar y el título sigue mostrando el original | `lib/api-mako/acciones.ts` |
 | **Pasarela:** Stripe no abre cuentas a negocios radicados en Argentina, y la primera venta a un mexicano arranca el reloj del RFC (`stripe-reloj` en el modelo) | `app/admin/dev/pricing/modelo.ts:635,1272`, decisión de Martín |
 | **Pasarela:** revisar los BORRADORES legales | `app/reembolsos/page.tsx`, `app/terminos/page.tsx` §8 |
 | **Pasarela (revisión):** el cambio de email tras el alta tiene ventana de 48 h, pero lo puede hacer quien PAGÓ aunque no sea el dueño de la cuenta: falta un código al email actual | `app/pagar/cambio-email.ts`, `app/api/pagar/email/route.ts` |
