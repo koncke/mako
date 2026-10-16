@@ -52,6 +52,22 @@ test('se abre SOLA sólo para quien personaliza, en una tab sin configurar, sin 
   const cerrar = ficha.slice(ficha.indexOf('const cerrarGaleria'), ficha.indexOf('const usarGaleria'));
   assert.match(cerrar, /window\.localStorage\.setItem\(k, '1'\)/);
   assert.doesNotMatch(cerrar, /cambiar\(/, 'cerrar no es elegir: no escribe la ficha del funnel');
+  // ⚠️ DESDE EL 16/10/2026 LA FICHA YA NO LA ABRE SOLA (Martín: «en los workspace que ya tienen leads, simplemente
+  // ponles las plantillas sugeridas... que no aparezca el "¿Qué vas a crear hoy?"»): se abre sólo con «Templates».
+  // Probado rompiéndolo (16/10/2026): devolverle `abreSola(` a `galeriaAbierta` → este test falla.
+  assert.match(ficha, /const galeriaAbierta = \(tab: TabFicha\): boolean => !!ff\.ficha && puede && galeria === tab;/);
+});
+
+test('sin plantilla elegida abajo no va NADA, y tocar una plantilla la elige (16/10/2026)', () => {
+  // «Si el usuario aún no eligió plantilla no le salte toda la plantilla abajo con el botón de "usar sugerida"... Es
+  // confuso eso» (Martín). Probado rompiéndolo (16/10/2026): la barra «Usar» para cualquier vista → 1 fallo; la tab
+  // de abajo dibujada sin vista → 1 fallo; la carta mirando en vez de elegir → 1 fallo.
+  const ficha = sinComentarios(leer('app/crm/lead-view/ficha/FichaPorBloques.tsx'));
+  const gal = sinComentarios(leer('app/crm/lead-view/ficha/GaleriaTab.tsx'));
+  assert.match(ficha, /const sinVistaPrevia = conGaleria && !vista;/);
+  assert.match(ficha, /\{!sinVistaPrevia && <div className=\{epico \? 'fb-tab fb-tab--epica' : 'fb-tab'\}>/);
+  assert.match(gal, /onClick=\{\(\) => \{ setAviso\(null\); onElegir\(\{ tipo: 'plantilla', id: p\.id \}\); \}\}/);
+  assert.match(gal, /\{vista\?\.tipo === 'mako' && <div className="fb-gal-barra"/, 'la barra «Usar» es sólo para lo que armó MaKo');
 });
 
 test('MIRAR NO GUARDA NADA: la tab de abajo es la que QUEDARÍA, y «Usar» manda ese mismo cambio', () => {

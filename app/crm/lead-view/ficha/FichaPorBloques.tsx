@@ -220,10 +220,11 @@ export function FichaPorBloques({ data, parchear, altoChat, initialTab, onTab, f
   }, [pedido?.n]);
 
   // ── La galería de una tab ─────────────────────────────────────────────────────────────────
-  const galeriaAbierta = (tab: TabFicha): boolean => !!ff.ficha && puede && (galeria === tab || abreSola({
-    puede, montado, editando: enEdicion, configurada: efectiva.configuradas.includes(tab),
-    cerrada: funnelId != null && cerradas.has(claveCerrada(funnelId, tab)),
-  }));
+  // ⚠️ YA NO SE ABRE SOLA (16/10/2026, Martín: «en los casos de los workspace que ya tienen leads, simplemente ponles
+  // las plantillas sugeridas, es decir que no aparezca el "¿Qué vas a crear hoy?"»). Una tab sin configurar ya se
+  // dibuja con su sugerida (`efectiva`), sin escribir nada; la galería se abre sólo con «Templates». `abreSola`,
+  // `cerradas` y «Ahora no» quedaron sin uso: se borran con el rediseño de la ficha (docs/feedback-16-10-…, punto 5).
+  const galeriaAbierta = (tab: TabFicha): boolean => !!ff.ficha && puede && galeria === tab;
   const soltarGaleria = (tab: TabFicha) => {
     setGaleria((g) => (g === tab ? null : g));
     setVistas((v) => { const n = { ...v }; delete n[tab]; return n; });
@@ -243,6 +244,11 @@ export function FichaPorBloques({ data, parchear, altoChat, initialTab, onTab, f
     cambiar(cambioDeVista(v, tab));
     soltarGaleria(tab);
   };
+  /** Tocar una plantilla de la galería: queda elegida y la galería se cierra (sin vista previa, 16/10/2026). */
+  const elegirGaleria = (tab: TabFicha, v: VistaGaleria) => {
+    cambiar(cambioDeVista(v, tab));
+    soltarGaleria(tab);
+  };
 
   const ponerBloque = (tab: TabFicha, id: BloqueId) => {
     setAgregar(null);
@@ -258,19 +264,22 @@ export function FichaPorBloques({ data, parchear, altoChat, initialTab, onTab, f
     const epico = ef.epica[tab];
     const galeriaNodo = conGaleria && ff.ficha ? (
       <GaleriaTab tab={tab} ficha={ff.ficha} nombreTab={efectiva.nombres[tab]} vista={vista}
-        onVista={(v) => setVistas((x) => ({ ...x, [tab]: v }))} onUsar={() => usarGaleria(tab)} onCerrar={() => cerrarGaleria(tab)}
+        onVista={(v) => setVistas((x) => ({ ...x, [tab]: v }))} onElegir={(v) => elegirGaleria(tab, v)} onUsar={() => usarGaleria(tab)} onCerrar={() => cerrarGaleria(tab)}
         primeraVez={galeria !== tab} registrado={(id) => !!entradaDe(id)} />
     ) : null;
+    // ⚠️ CON LA GALERÍA ABIERTA Y NADA PARA MIRAR, ABAJO NO VA NADA (16/10/2026): antes se dibujaba la tab entera con
+    // la sugerida y un «Usar la sugerida», y Martín: «Es confuso eso». Abajo sólo se mira lo que armó MaKo.
+    const sinVistaPrevia = conGaleria && !vista;
     // ⚠️ LA ÉPICA ES DE LA TAB: el titular gigante es su nombre (el de General y MaKo Mobile v3), con más aire.
     const armador = (
       <>
         {!enEdicion && galeriaNodo}
-        <div className={epico ? 'fb-tab fb-tab--epica' : 'fb-tab'}>
+        {!sinVistaPrevia && <div className={epico ? 'fb-tab fb-tab--epica' : 'fb-tab'}>
           {epico && <h2 className="fb-titular">{efectiva.nombres[tab]}</h2>}
           <Armador tab={tab} lista={ef.tabs[tab]} ctx={ctx} editando={enEdicion && !conGaleria} epico={epico}
             sel={sel?.tab === tab ? sel.indice : null} onSel={(i) => setSel(i == null ? null : { tab, indice: i })}
             onCambio={cambiar} onAgregar={(ancla) => setAgregar({ tab, ancla })} dispositivo={dispositivo} />
-        </div>
+        </div>}
       </>
     );
     if (!enEdicion || !ff.ficha) return armador;
