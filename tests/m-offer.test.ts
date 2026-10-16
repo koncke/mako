@@ -30,6 +30,16 @@
 //   R17 un efecto que manda sola la nota apenas pasa a escucharse                    (voz)
 //   R18 la fila de escuchar sin el reproductor                                       (voz)
 // Restaurado → 14 / 0.
+// La selección múltiple, `varias` (16/10/2026, mismo arnés, base 16 / 0), cada una 15 / 1 salvo V1 (14 / 2):
+//   V1  «No, sólo ésta» marcable (sin `esOpcionNinguna`)                             (varias, hilo)
+//   V2  marcables también en una pregunta del diagnóstico                            (varias)
+//   V3  las marcadas en el orden de los toques                                      (varias)
+//   V4  cada toque manda una sola opción, como antes (el bug)                         (hilo)
+//   V5  sin la ayuda «Puedes marcar varias»                                          (hilo)
+//   V6  «Enviar (N)» manda sólo la primera, sin `unirOpciones`                       (hilo)
+//   V7  el rótulo de la ayuda distinto del de escritorio                             (rótulos)
+//   V8  lo marcado sin colgar del id del mensaje                                     (hilo)
+// Restaurado → 16 / 0.
 // =============================================================================
 
 import { test } from 'node:test';
@@ -39,10 +49,11 @@ import { join } from 'node:path';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import {
-  DONDE_VIVE, GRUPOS_PIEZAS, ROTULOS, estadoDePasos, filasDimensiones, heroeDe, opcionesRapidas, piezasEnGrupos, progresoDePiezas,
+  DONDE_VIVE, GRUPOS_PIEZAS, ROTULOS, alternarMarcada, estadoDePasos, filasDimensiones, heroeDe, opcionesRapidas, piezasEnGrupos, progresoDePiezas,
   renglonesDelSelector, seccionesDeOferta, seccionesDelSelector, sinContestar, trasRefrescar,
 } from '../app/m/offer/modelo';
 import { ConclusionM, GenerandoM } from '../app/m/offer/HojasOfferM';
+import { HiloOfferM } from '../app/m/offer/HiloOfferM';
 import { GRUPOS_PIEZAS as GRUPOS_ESCRITORIO } from '../app/offer/PiezasRail';
 import { seccionesDelArbol } from '../app/offer/arbol';
 import { PIEZAS, DIMENSIONES, type ArbolOffer, type ConclusionOferta, type OfferMensaje, type OfferSesionVista, type PropuestaOferta } from '../lib/offer-marco';
@@ -175,7 +186,7 @@ const msg = (p: Partial<OfferMensaje>): OfferMensaje => ({ id: Math.random().toS
 test('respuestas rápidas: del último de MaKo, con su índice ORIGINAL; la de armar sólo fuera del diagnóstico y si se puede', () => {
   const ultimo = msg({ opciones: ['Sí', ' ', 'Armar mi oferta'] });
   const s = { mensajes: [msg({ de: 'yo' }), ultimo], puedeConcluir: true };
-  assert.deepEqual(opcionesRapidas(s, false, 'Armar mi oferta', 'Actualizar el PDF'), [{ t: 'Sí', idx: 0, armar: false }, { t: 'Armar mi oferta', idx: 2, armar: true }]);
+  assert.deepEqual(opcionesRapidas(s, false, 'Armar mi oferta', 'Actualizar el PDF'), [{ t: 'Sí', idx: 0, armar: false, marcable: false }, { t: 'Armar mi oferta', idx: 2, armar: true, marcable: false }]);
   assert.equal(opcionesRapidas({ ...s, puedeConcluir: false }, false, 'Armar mi oferta', 'Actualizar el PDF')[1].armar, false);
   const pregunta = { mensajes: [msg({ opciones: ['Armar mi oferta'], pregunta: { tipo: 'diagnostico', id: 'p1' } })], puedeConcluir: true };
   assert.equal(opcionesRapidas(pregunta, false, 'Armar mi oferta', 'Actualizar el PDF')[0].armar, false);
@@ -184,6 +195,50 @@ test('respuestas rápidas: del último de MaKo, con su índice ORIGINAL; la de a
   assert.equal(sinContestar({ mensajes: [msg({}), msg({ de: 'yo' })] }, false), true);
   assert.equal(sinContestar({ mensajes: [msg({}), msg({ de: 'yo' })] }, true), false);
   assert.equal(sinContestar(null, false), false);
+});
+
+// Offer sumó `varias` el 16/10/2026 (la pregunta de las otras ofertas): en escritorio cada opción se marca y «Enviar (N)»
+// las manda juntas; el teléfono no lo leía y cada toque mandaba UNA sola, o sea que «tengo un curso y una mentoría» no se
+// podía contestar.
+test('varias: cada opción se marca, salvo la de armar y la de «ninguna»; nunca en el diagnóstico ni con algo en vuelo', () => {
+  const OPS = ['Un curso grabado', 'Una mentoría', 'No, sólo ésta', 'Armar mi oferta'];
+  const marcables = (m: Partial<OfferMensaje>, pendiente = false) =>
+    opcionesRapidas({ mensajes: [msg(m)], puedeConcluir: true }, pendiente, 'Armar mi oferta', 'Actualizar el PDF').map((o) => o.marcable);
+  assert.deepEqual(marcables({ varias: true, opciones: OPS }), [true, true, false, false]);
+  assert.deepEqual(marcables({ opciones: OPS }), [false, false, false, false], 'sin `varias`, cada opción sale con un toque');
+  assert.deepEqual(marcables({ varias: true, opciones: OPS, pregunta: { tipo: 'diagnostico', id: 'p1' } }), [false, false, false, false],
+    'en el diagnóstico la opción N es la respuesta N');
+  assert.deepEqual(marcables({ varias: true, opciones: OPS }, true), []);
+  // Lo marcado queda en el orden de las opciones (unirOpciones arma «A, b y c» con ese orden), no en el de los toques.
+  assert.deepEqual(alternarMarcada([], 1), [1]);
+  assert.deepEqual(alternarMarcada([1], 0), [0, 1]);
+  assert.deepEqual(alternarMarcada([0, 1], 1), [0]);
+});
+
+test('varias en el hilo: la ayuda, las marcables con aria-pressed, y OfferM las manda juntas como escritorio', () => {
+  const ops = (varias: boolean) => opcionesRapidas({ mensajes: [msg({ id: 'm1', opciones: ['Un curso grabado', 'Una mentoría', 'No, sólo ésta'], ...(varias ? { varias: true as const } : {}) })], puedeConcluir: false }, false, 'Armar mi oferta', 'x');
+  const hilo = (varias: boolean) => renderToStaticMarkup(createElement(HiloOfferM, {
+    sesionId: 1, mensajes: [msg({ id: 'm1' })], pendiente: null, respondiendo: false, fuente: '', opciones: ops(varias),
+    opcionesHabilitadas: true, onOpcion: () => {}, onVarias: () => {}, onReintentar: null, onError: () => {},
+  }));
+  const con = hilo(true);
+  assert.match(con, new RegExp(`class="m-offer-opciones__ayuda">${ROTULOS.marcarVarias}<`));
+  assert.equal([...con.matchAll(/aria-pressed="false"/g)].length, 2, 'las dos ofertas se marcan; «No, sólo ésta» sale sola');
+  assert.match(con, /<button[^>]*class="m-offer-opcion"[^>]*>No, sólo ésta</);
+  assert.doesNotMatch(con, /aria-pressed="false"[^>]*>No, sólo ésta</);
+  const sin = hilo(false);
+  assert.doesNotMatch(sin, /aria-pressed|m-offer-opciones__ayuda/);
+  const src = sinComentarios(leer(`${CARPETA}/OfferM.tsx`));
+  const elegir = bloque(src, 'const elegirVarias = ', 'const abrirSesion = ');
+  assert.match(elegir, /!ultimo\.varias \|\| !puedeMandar\) return;/);
+  assert.match(elegir, /unirOpciones\(idxs\.map\(\(i\) => \(ultimo\.opciones \?\? \[\]\)\[i\] \?\? ''\)\)/, 'una sola respuesta, «A, b y c»');
+  assert.match(elegir, /mandar\(\{ texto, docs: \[\], fuente: 'tu respuesta' \}\)/);
+  assert.match(src, /onVarias=\{elegirVarias\}/);
+  const hiloSrc = sinComentarios(leer(`${CARPETA}/HiloOfferM.tsx`));
+  assert.match(hiloSrc, /onClick=\{\(\) => \{ onVarias\(marcadasAhora\); setMarcadas\(\{ de: '', idxs: \[\] \}\); \}\}/);
+  assert.match(hiloSrc, /disabled=\{!opcionesHabilitadas\} onClick=\{\(\) => tocar\(o\)\}/, 'una opción marcable no se manda sola al tocarla');
+  assert.match(hiloSrc, /if \(!o\.marcable\) \{ onOpcion\(o\.idx\); return; \}/);
+  assert.match(hiloSrc, /marcadas\.de === ultimoId \? marcadas\.idxs : \[\]/, 'lo marcado es del mensaje: con el siguiente arranca vacío');
 });
 
 test('refrescar: nunca le cambia la conversación a nadie, y con algo en vuelo no toca nada', () => {

@@ -226,6 +226,14 @@ chat de MaKo):
   queda como audio (guardada o enviada) usa la sesión `useGrabacionVoz`; `useVoiceRecorder` sólo cuando lo que viaja es
   el texto. Lo fija tests/m-offer.test.ts (R16-R18).
 
+**`varias` de Offer, el mismo día a la tarde:**
+- **Un campo nuevo del MENSAJE que cambia cómo se contesta no llega solo al teléfono.** Offer sumó `varias` a
+  `OfferMensaje` (las otras ofertas se marcan varias y salen como una respuesta, «A, b y c»); ChatOffer.tsx lo leía y
+  HiloOfferM no, así que cada toque mandaba una sola opción. Nada fallaba: el tipo es opcional y el hilo dibujaba las
+  opciones bien. La causa es la orquestación escrita dos veces (abajo, «Sin hacer»). REGLA: hasta que exista el hook
+  común, un campo nuevo de `OfferMensaje` que lea ChatOffer.tsx u OfferApp.tsx se busca en app/m/offer en el mismo
+  trabajo. Ahora `marcable` sale de `opcionesRapidas` (modelo.ts) y lo fija tests/m-offer.test.ts (V1-V8).
+
 **Sin hacer (tanda 2):**
 - nada se miró en un navegador ni en un teléfono: 390 px, la isla oscura, el segmentado de cuatro, el «atrás» con
   `?retro=` y `?sheet=`, la franja de Offer con el teclado de iOS, el PDF y la nota de voz en una PWA de iOS, el
