@@ -48,6 +48,9 @@ import { MAX_HOJAS, abajoDeTodo, esElemento, esGrafico, nuevoId, sanearElemento,
 import { PIEZAS_GENERAL, esPiezaGeneral, opcionesDePieza, piezaGeneral, piezaPorFunnel, sanearOpciones, type OpcionesElegidas, type PiezaGeneral } from '@/lib/general-piezas';
 import { leerFunnelsDeGeneral, type FunnelDeGeneral } from '@/lib/general-alcance';
 import { PLANTILLAS_GENERAL, elegirPersona, type PersonaGeneral } from '@/lib/general-plantillas';
+import { ETIQUETAS_GENERAL } from '@/lib/graficos-plantillas-etiquetas';
+import { ordenarConSugeridas } from '@/lib/plantillas-sugeridas';
+import { senalesDelNegocio } from '@/lib/plantillas-sugeridas-server';
 
 // ── utilidades ───────────────────────────────────────────────────────────────
 
@@ -708,15 +711,19 @@ export const RUNNERS: Runners = {
   // quien llama no nombró: son datos del equipo, y un token vive en la máquina de un tercero (la regla de la API del Dashboard).
   listar_hojas_general: {
     leer: async (input, ctx) => {
-      const admins = await adminsDeLaCuenta(ctx.ws);
-      const funnels = await leerFunnelsDeGeneral();
+      const [admins, funnels, senales] = await Promise.all([
+        adminsDeLaCuenta(ctx.ws), leerFunnelsDeGeneral(),
+        // Las plantillas, con las sugeridas para ESTE negocio primero, como en la galería (lib/plantillas-sugeridas.ts).
+        senalesDelNegocio().catch(() => null),
+      ]);
       const base = {
         bloques: PIEZAS_GENERAL.map((b) => ({
           id: b.id, nombre: b.nombre, que_muestra: b.linea,
           ...(piezaPorFunnel(b.id) ? { se_ata_a_un_funnel: true } : {}),
           opciones: opcionesDePieza(b.id).map((o) => ({ id: o.id, nombre: o.nombre, valores: o.valores.map((v) => ({ id: v.id, nombre: v.nombre })), por_defecto: o.def })),
         })),
-        plantillas: PLANTILLAS_GENERAL.map((p) => ({ id: p.id, nombre: p.nombre, que_trae: p.linea })),
+        plantillas: ordenarConSugeridas(PLANTILLAS_GENERAL, ETIQUETAS_GENERAL, senales)
+          .map(({ plantilla: p, porque }) => ({ id: p.id, nombre: p.nombre, que_trae: p.linea, ...(porque ? { sugerida: porque } : {}) })),
         funnels: funnels ? funnels.map((f) => ({ id: f.id, nombre: f.nombre, principal: f.esDefault })) : 'no se pudieron leer',
       };
       const pedido = str(input, 'persona');

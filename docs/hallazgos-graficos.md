@@ -967,7 +967,8 @@ X) · `lib/graficos-gordo.ts` (`BARRA.separacionGrupo`) · `lib/graficos-plantil
 ## La IA del Dashboard tiene su PROPIA red, y el corte por datos de clientes no la cubría (16/10/2026)
 
 **Vive en:** `lib/graficos-ia-red.ts` (`porLaRedDePlataforma`, `llevaDatosDeClientes`) · `lib/graficos-analisis-server.ts`
-(`pedirIAGratis`) · `lib/graficos-ia-generar.ts` · `tests/graficos-ia-red.test.ts`
+(`pedirIAGratis`) · `lib/graficos-ia-elemento.ts` (`CAJAS_SIN_DATOS_DE_CLIENTES`, `avisoSinIA`) · `lib/graficos-ia-generar.ts` ·
+`tests/graficos-ia-red.test.ts`
 
 La regla del 16/10 (los datos de los clientes de un cliente nunca van a un proveedor que entrena; AGENTS.md, la red de
 plataforma) se puso en `chatCheapCascade`. El AI Analyst, las «Conclusiones de MaKo» y «Pídeselo a MaKo» no pasan por
@@ -978,15 +979,49 @@ cumpla, devuelve `null` y quien llama dice lo de siempre: que el negocio conecte
 - ⚠️ **Un test viejo fijaba lo contrario.** `tests/graficos-analisis.test.ts` exigía que la red no nombrara `anthropic`
   («gratis por construcción»): con la regla nueva, el crédito de Claude es lo que va PRIMERO. Ahora admite sólo esa
   importación (`conCreditoDeLaPlataforma`) y sigue prohibiendo todo lo demás que cobra por pedido.
-- ⚠️ **La marca `pii` es de la feature ENTERA.** «dashboard-conclusiones» la lleva porque una caja de un pop-up lee el
-  transcript de una llamada, así que también las cajas que sólo leen números agregados se quedan sin keys gratis.
-  Mientras el crédito de Claude no esté activo en producción (docs/hallazgos-ia.md, «la tercera puerta del veto»), un
-  negocio sin key propia ve «conecta tu IA» en TODAS sus Conclusiones. El AI Analyst y «Pídeselo a MaKo» no llevan la
-  marca y siguen con las gratis.
+- ⚠️ **La marca `pii` del catálogo es de la feature ENTERA, y corta de más.** «dashboard-conclusiones» la lleva porque
+  la caja del pop-up de una llamada lee el transcript; con eso solo, también las cajas que leen números agregados se
+  quedaban sin keys gratis (y, sin el crédito de Claude activo, sin IA en un negocio sin key propia). Ahora cada caja
+  dice lo suyo, EN POSITIVO como `DIMENSIONES_PUBLICAS`: van sin la marca las que leen GRÁFICOS (mandan lo mismo que el
+  AI Analyst, con las personas y los filtros sobre ellas como «Closer 1») y un ANUNCIO (números de Meta y lo que
+  escribió quien armó la campaña). Una llamada, un lead, y todo lo que se sume mañana, la llevan. El catálogo sigue con
+  `pii: true`: es el default cerrado y el que muestra el sello PII en /modelos-ia.
+- **El test fija también el PORQUÉ:** que la caja de gráficos mande `paraModelo(e)` y que los campos del anuncio sean
+  los revisados. Un campo nuevo en `entradaDeAnuncio` (los comentarios, por ejemplo) lo hace fallar: se revisa antes.
+- ⚠️ **Sin crédito, el aviso de siempre mandaba a conectar una IA que entrena.** El mismo 16/10 Martín dejó el crédito
+  de Claude de la plataforma SÓLO para el onboarding, así que una caja con datos de clientes queda con las keys del
+  negocio y nada más. Sin ninguna, `errorDeCascada` decía «conecta una IA gratis, con Gemini alcanza». Ahora dice
+  «Conecta tu Claude en Integraciones» (`avisoSinIA`), sólo si no se probó ninguna key del negocio: la cascada sin
+  keys no deja errores. Si una key suya falló, su error es el que sirve.
+- ⚠️ **Y ese aviso era falso, por una pregunta antes de la cascada.** `pedirIAGratis` llamaba a `chatCheapCascade`
+  sólo si `docsIADisponible()`, que cuenta Gemini, Groq, OpenRouter, Mistral y OpenAI pero NO la clave de Claude del
+  negocio, que es el primer intento de la cascada (la segunda puerta del veto). Un negocio que conectara su Claude
+  seguía sin IA en el Dashboard. Es la trampa de AGENTS.md («y nada la corta antes»), y no se veía leyendo la red.
 
-**Lo que quedó SIN hacer:** afinar el corte por caja (pasar `pii: false` desde `pedirIAGratis` cuando la caja no lee
-pop-ups ni llamadas: `lib/graficos-ia-elemento-server.ts`). Y nada se probó contra la red de verdad: sin `next dev`
-por la RAM.
+**Lo que quedó SIN hacer:** nada se probó contra la red de verdad (sin `next dev` por la RAM). Si Claude está pausado
+para todos (`claudePausado`), un negocio con su Claude conectado igual ve «Conecta tu Claude»: la pausa no deja error.
+*16/10/2026, claude3 (chat Dashboard).*
+
+## Las plantillas sugeridas: los ejes suman por separado, y el arnés dibujaba una copia de la galería (16/10/2026)
+
+**Vive en:** `lib/plantillas-sugeridas.ts` (la regla) · `lib/plantillas-sugeridas-server.ts` (las señales) ·
+`lib/graficos-plantillas-etiquetas.ts` (las dos tablas) · `app/dashboard/NuevaHoja.tsx` · `tests/plantillas-sugeridas.test.ts`.
+Cómo se enchufa otra galería: [plantillas-sugeridas.md](plantillas-sugeridas.md).
+
+- ⚠️ **Los ejes suman por separado, y una plantilla de UN canal con un eje genérico se le sugiere a quien vende por otro.**
+  Con `cuello: ['conversion']` en «Ventas por WhatsApp», a un negocio que vende por llamada le salía sugerida (el cuello
+  coincidía). Lo mismo Closing a quien vende por chat. Los tests de la regla daban verde: lo mostró el arnés, mirando la
+  galería. Las de un canal se etiquetan sólo con su canal y sus entradas, y un test lo fija.
+- ⚠️ **El modo `galeria` del arnés era una COPIA del marcado de la tarjeta**, no el componente: un cambio en
+  `CrearHoja` no se veía ahí. El modo `crear` (`node capturar.cjs "" mako crear`) monta `CrearHoja` de verdad, con
+  señales de ejemplo, en escritorio, celular, General y sin señales.
+- **Se ordena la galería ENTERA y después se filtra lo buscado.** Al revés, buscar algo que deja afuera a las tres
+  sugeridas le pasaría el «Sugerido» a la cuarta.
+- **Las señales llegan desde la página del server**, en paralelo con el informe, y no por un fetch de la galería: la
+  pantalla en blanco muestra la galería al cargar, y un orden que llega después haría saltar las tarjetas.
+
+**Lo que quedó SIN hacer:** mirarlo en producción con un negocio que tenga funnels declarados; el arnés usa señales de
+ejemplo. Y enchufar las otras galerías (Automations, Web Generator, Video Editor, Image Editor, CRM).
 *16/10/2026, claude3 (chat Dashboard).*
 
 ## Lo que quedó sin hacer

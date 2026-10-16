@@ -9261,3 +9261,16 @@ en un evento. Se crea la primera vez que se usa, adentro de un `useCallback`, co
 
 **Vive en:** app/crm/lead-view/ficha/ficha-css.ts · armar.ts · Armador.tsx · tests/ficha-pantallas.test.ts ·
 *16/10/2026, chat «CRM» (claude3), corrida wf_e3cc574c-723.*
+
+## Que un producto diga «pago único» no prueba nada: lo pone el código (16/10/2026)
+
+**Vive en:** `lib/producto-con-funnel.ts` (crear un funnel) · `lib/productos.ts` (`seedProductosDesdeOferta`).
+
+Para sugerir plantillas (docs/plantillas-sugeridas.md) se buscó cómo cobra cada negocio, y lo obvio era el `tipo` de sus
+productos. Era el diagnóstico equivocado: **dos lugares crean un producto con `tipo: 'unico'` sin preguntar** (al crear un
+funnel, «lo mínimo que la tabla exige», y al sembrar el producto de la oferta del onboarding). Con esa lectura, todo
+negocio «cobraría un pago único». Lo que sí es una decisión del dueño: un producto en `suscripcion`, y el `modelo` de
+una oferta (opcional, nace vacío y la siembra del brief no lo escribe). Un lector nuevo que quiera saber cómo cobra un
+negocio lee eso, no el `unico` de un producto.
+*16/10/2026, claude3 (chat Dashboard).*
+

@@ -682,7 +682,7 @@ export async function escenarioDePrueba(secuenciaId: number, escenario: number |
   const sec = secs.find((s) => s.id === secuenciaId);
   if (!sec) return { ok: false, error: 'Esa secuencia no existe en este workspace.' };
   if (!sec.pasos.length) return { ok: false, error: 'La secuencia no tiene pasos para probar.' };
-  const { pasos, escenarios } = escenariosDeLaSecuencia(sec, (clave) => secs.find((x) => x.clave === clave)?.id ?? null);
+  const { pasos, escenarios, reunionMin } = escenariosDeLaSecuencia(sec, (clave) => secs.find((x) => x.clave === clave)?.id ?? null);
   const numero = escenario ?? 1;
   const elegido = escenarios[numero - 1];
   if (!elegido) {
@@ -692,7 +692,7 @@ export async function escenarioDePrueba(secuenciaId: number, escenario: number |
   // una tarea) y la prueba manda los MENSAJES al admin, nada más. Sin este filtro salía un
   // WhatsApp «[PRUEBA n/N] » en blanco por cada acción, porque su cuerpo se guarda vacío.
   // Ni una tarjeta de CONTROL (condición, espera, «Si responde», «Ir a»): no manda nada.
-  const mensajes = mensajesDelEscenario(pasos, elegido.elecciones)
+  const mensajes = mensajesDelEscenario(pasos, elegido.elecciones, {}, { reunionMin })
     .filter((p) => !esPasoAccion(p) && !esNodoDeControl(p)) as unknown as SecuenciaConStats['pasos'];
   return { ok: true, sec, numero, total: escenarios.length, camino: elegido.pasos, mensajes };
 }

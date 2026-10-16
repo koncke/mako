@@ -108,7 +108,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'ver_catalogo_dashboard', area: 'metricas', tipo: 'lectura',
     titulo: 'Catálogo del Dashboard',
-    descripcion: 'Lo que se puede armar en el Dashboard: los conjuntos de datos con sus fechas, dimensiones y métricas, los tipos de gráfico con lo que pide cada uno, las plantillas de hoja, los estilos, los filtros, los elementos (con las acciones de un botón), los períodos y los campos para filtrar. Úsala ANTES de agregar un gráfico o consultar datos: los ids que piden las otras operaciones salen de aquí. Con `conjunto`, el detalle de ese conjunto con los nombres; con `seccion`, sólo esa parte. Por HTTP acepta ?formato=md|json.',
+    descripcion: 'Lo que se puede armar en el Dashboard: los conjuntos de datos con sus fechas, dimensiones y métricas, los tipos de gráfico con lo que pide cada uno, las plantillas de hoja (primero las sugeridas para este negocio, con su porqué), los estilos, los filtros, los elementos (con las acciones de un botón), los períodos y los campos para filtrar. Úsala ANTES de agregar un gráfico o consultar datos: los ids que piden las otras operaciones salen de aquí. Con `conjunto`, el detalle de ese conjunto con los nombres; con `seccion`, sólo esa parte. Por HTTP acepta ?formato=md|json.',
     parametros: [
       conjunto(false, ' Con esto, el detalle de ese conjunto.'),
       { nombre: 'seccion', tipo: 'string', rotulo: 'Sección', enum: ['conjuntos', 'tipos', 'plantillas', 'estilos', 'filtros', 'elementos', 'periodos', 'campos'], descripcion: 'Sólo esta parte del catálogo. Los campos (para filtrar) sólo salen pidiéndolos.' },
