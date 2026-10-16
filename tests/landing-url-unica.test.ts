@@ -33,6 +33,7 @@ import { join } from 'node:path';
 import { normalizarUrl } from '../lib/landing-paginas';
 import { claveDeLanding, direccionParaBajar, urlTalCual } from '../lib/landing-url';
 import { filasDelPanel } from '../app/web-generator/panel-reglas';
+import { PARAM_LEER } from '../lib/editor-landing/lector';
 
 const RAIZ = join(__dirname, '..');
 
@@ -199,4 +200,14 @@ test('4 · para bajar una analizada va su dirección real (url_final) si es la m
   assert.ok(sinLeer && sinLeer.tipo === 'analizada' && sinLeer.url === llave, 'sin url_final, se baja la llave como antes');
   assert.equal(fila.clave, sinLeer.clave, 'la clave del renglón sigue saliendo de la llave');
   assert.equal(fila.nombre, sinLeer.nombre, 'y el nombre también');
+});
+
+// ── 5. La lectura de MaKo no deja una página por lectura (revisión de la tanda 8, 16/10/2026) ─────────────────────────
+// Un Pixel pegado antes del 16/10 que pierde la ventana de MaKo (la página se recargó sola) mide la lectura como visita,
+// con `?mako_leer=<id>` distinto cada vez. `mako_leer` es un parámetro de medición: cae en la misma página.
+// Rotura (a mano y restaurado; base en verde: 6 / 0): sin «'mako_leer'» en PARAMS_DE_MEDICION → 5 / 1 (éste).
+test('5 · `?mako_leer=` no cambia la página (es de medición, como los utm)', () => {
+  assert.equal(PARAM_LEER, 'mako_leer', 'el nombre que lib/landing-paginas.ts escribe a mano');
+  assert.equal(normalizarUrl('https://su-landing.com/oferta?mako_leer=AbCdEfGhIjKlMnOpQr'), normalizarUrl('https://su-landing.com/oferta'));
+  assert.equal(normalizarUrl('https://su-landing.com/oferta?plan=pro&mako_leer=AbCdEfGhIjKlMnOpQr'), normalizarUrl('https://su-landing.com/oferta?plan=pro'));
 });

@@ -473,3 +473,17 @@ test('español neutro y corto en lo que se dibuja o lee MaKo', () => {
 //   22. la pantalla: otra landing consume la línea .......................... 16 / 1  «la pantalla»
 //   23. la API: sin aviso_scroll en los datos ............................... 16 / 1  «la API de MaKo»
 // Y el tsc acotado (los 13 archivos tocados) dio 0; con un estilo que no existe metido en replicar.ts, TS2322.
+
+// Revisión de la tanda 8 (16/10/2026): buscar efectos de scroll en el HTML era cuadrático con «<a » repetido sin cerrar
+// (240 KB → 43 s, medido) y trababa el server, que baja hasta 5 MB al replicar. Ahora es una pasada lineal por etiqueta.
+// Roturas (a mano y restaurado; base en verde: 18 / 0): las regex acotadas a 2.000 de antes ... 17 / 1 (éste, por tiempo);
+// saltar entero el tramo de un «<» suelto sin cerrar (se tragaba la etiqueta real de después) ... 17 / 1 (éste).
+test('buscar efectos de scroll en un HTML hostil de 1 MB tarda menos de 1,5 s, y sigue encontrando lo de verdad', () => {
+  const hostil = '<a '.repeat(350_000);
+  const t = Date.now();
+  assert.equal(scrollEnHtml(hostil), false);
+  assert.equal(scrollEnHtml(hostil + '>'), false);
+  const ms = Date.now() - t;
+  assert.ok(ms < 1500, `tardó ${ms} ms`);
+  assert.equal(scrollEnHtml(hostil + '<section data-parallax="scroll">'), true, 'lo que viene después de la basura se sigue viendo');
+});

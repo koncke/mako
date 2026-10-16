@@ -380,6 +380,8 @@ coordinador «Estrategia 3 cuentas», de a uno (el atributo nuevo tenía que est
   copiadas»), hoy sólo los lee MaKo; la línea del scroll desde «Aplicar» del Diagnóstico; «quita el botón de la web» que
   sale como despublicar y «analiza las animaciones…» que no llega a analizar (`lib/mako-intencion.ts`); sumar «animar» a
   los infinitivos del guard del voseo.
+- **Antes de prender el video de fondo:** que una imagen nueva en el hero borre el `videoFondo` y que «Probar nuevo
+  diseño» lo cuente como imagen (`lib/editor-landing/ia-bloques.ts:933`, `ia-reglas.ts:796`; hallazgos → «La revisión»).
 - **El `window.opener` del Pixel**: cerrado en parte (el lector lo suelta al arrancar). El cierre completo NO se hace
   (decisión del coordinador: mucho costo para un hueco chico); el riesgo que queda y el plan, en los hallazgos.
 - **Sin medir en un navegador real**: con la regla de RAM no se levantó la app. La publicada SÍ se midió, armada sin la
