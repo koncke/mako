@@ -27,7 +27,9 @@ export const STRIPE_VERSION = '2026-09-30.endive';
 
 /** Los eventos que escucha el webhook de MaKo en la cuenta del negocio. NO `invoice.created`: si su
  *  respuesta falla, Stripe demora la finalización de las facturas hasta 72 h. `refund.failed` existe desde
- *  2024-10-28.acacia (un nombre que Stripe no conoce hace fallar la CREACIÓN del aviso, o sea, conectar).
+ *  2024-10-28.acacia (un nombre que Stripe no conoce hace fallar la CREACIÓN del aviso, o sea, conectar). Los
+ *  cuatro de disputa (contracargos, 15/10/2026), verificados en docs.stripe.com/api/events/types: la plata SALE con
+ *  `funds_withdrawn` y VUELVE con `funds_reinstated`; `created` y `closed` sólo se cuentan.
  *  ⚠️ Cambiar esta lista NO le llega a los avisos ya registrados: ver `asegurarEventosStripe`. */
 export const EVENTOS_STRIPE = [
   'checkout.session.completed',
@@ -39,6 +41,10 @@ export const EVENTOS_STRIPE = [
   'customer.subscription.deleted',
   'charge.refunded',
   'refund.failed',
+  'charge.dispute.created',
+  'charge.dispute.funds_withdrawn',
+  'charge.dispute.funds_reinstated',
+  'charge.dispute.closed',
 ] as const;
 
 export type R<T> = ({ ok: true } & T) | { ok: false; status: number; error: string };
@@ -340,6 +346,24 @@ export async function leerCargoStripe(key: string, id: string): Promise<R<{ id: 
   const conv = (n: unknown) => (moneda && Number.isFinite(Number(n)) ? deUnidadMinima(Number(n), moneda) : null);
   const creado = Number.isFinite(Number(b.created)) && Number(b.created) > 0 ? new Date(Number(b.created) * 1000).toISOString() : null;
   return { ok: true, id: str(b.id) ?? id, paymentIntent: idDe(b.payment_intent), reembolsado: b.refunded === true, montoReembolsado: conv(b.amount_refunded), monto: conv(b.amount), moneda, creado };
+}
+
+/**
+ * GET /v1/disputes/{id}: una disputa (contracargo) — su estado, su motivo, cuánto y de qué cargo. Y si la plata SALIÓ y
+ * si VOLVIÓ, por sus `balance_transactions` (un retiro es negativo, un reintegro positivo): eso dice dónde está la plata
+ * aunque los avisos lleguen desordenados, y no el tipo del evento.
+ */
+export async function leerDisputaStripe(key: string, id: string): Promise<R<{ id: string; estado: string | null; cargo: string | null; paymentIntent: string | null; motivo: string | null; monto: number | null; moneda: string | null; retirada: boolean; reintegrada: boolean }>> {
+  const r = await llamar(key, 'GET', `/v1/disputes/${encodeURIComponent(id)}`);
+  if (!r.ok) return fallo(r);
+  const b = r.body;
+  const moneda = str(b.currency)?.toUpperCase() ?? null;
+  const monto = moneda && Number.isFinite(Number(b.amount)) ? deUnidadMinima(Number(b.amount), moneda) : null;
+  const movs = (Array.isArray(b.balance_transactions) ? b.balance_transactions : []).map((t) => Number(obj(t).amount)).filter((n) => Number.isFinite(n));
+  return {
+    ok: true, id: str(b.id) ?? id, estado: str(b.status), cargo: idDe(b.charge), paymentIntent: idDe(b.payment_intent), motivo: str(b.reason), monto, moneda,
+    retirada: movs.some((n) => n < 0), reintegrada: movs.some((n) => n > 0),
+  };
 }
 
 /** GET /v1/refunds/{id}: el estado de una devolución (`pending`, `succeeded`, `failed`, `canceled`…) y por qué falló. */

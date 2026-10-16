@@ -37,7 +37,24 @@ const token = (v: unknown): string | null => (esTokenCobro(v) ? v : null);
 /** Cómo se busca el cobro (lo mismo que pide `cobroDelAviso` de lib/cobros.ts, sin el proveedor). */
 export type ClaveCobro = { token?: string | null; ref?: string | null; pagoId?: string | null; suscripcionId?: string | null };
 
-export type AccionCobro = 'aprobado' | 'fallido' | 'reembolso' | 'reembolso_fallido' | 'suscripcion_cancelada' | 'ignorar';
+export type AccionCobro = 'aprobado' | 'fallido' | 'reembolso' | 'reembolso_fallido' | 'disputa' | 'suscripcion_cancelada' | 'ignorar';
+
+/**
+ * En qué va un CONTRACARGO (15/10/2026). En Stripe la plata se mueve con eventos propios: SALE con
+ * `charge.dispute.funds_withdrawn` y VUELVE con `charge.dispute.funds_reinstated`; abrirse y cerrarse sólo se cuentan.
+ * En Mercado Pago (`mp`) sólo se cuenta: su documentación se contradice sobre qué significan `settled` y `reimbursed`
+ * (una página dice que `settled` es en contra del vendedor; otra, que es la plata devuelta al comprador), y lo confiable
+ * (`coverage_applied` del contracargo) no está medido.
+ */
+export type FaseContracargo = 'abierto' | 'plata_salio' | 'plata_volvio' | 'cerrado' | 'mp';
+
+const FASE_DE_DISPUTA: Readonly<Record<string, FaseContracargo>> = {
+  'charge.dispute.created': 'abierto',
+  'charge.dispute.funds_withdrawn': 'plata_salio',
+  'charge.dispute.funds_reinstated': 'plata_volvio',
+  'charge.dispute.closed': 'cerrado',
+};
+export const faseDeDisputa = (tipo: string): FaseContracargo | null => FASE_DE_DISPUTA[tipo] ?? null;
 
 /** Lo que queda en la fila de `pasarela_eventos` al terminar. */
 export type ResultadoEvento = { estado: 'procesado' | 'ignorado'; motivo: string | null; cobroId: number | null };
@@ -87,7 +104,7 @@ export function eventoStripe(cuerpo: unknown): EventoStripe | null {
   return { id, tipo, livemode: typeof b.livemode === 'boolean' ? b.livemode : null, objeto: obj(obj(b.data).object) };
 }
 
-export type ObjetoStripe = 'checkout' | 'factura' | 'suscripcion' | 'cargo' | 'reembolso';
+export type ObjetoStripe = 'checkout' | 'factura' | 'suscripcion' | 'cargo' | 'reembolso' | 'disputa';
 
 export type AvisoStripe =
   | { accion: 'ignorar'; motivo: string }
@@ -158,6 +175,15 @@ export function avisoStripe(ev: EventoStripe): AvisoStripe {
       // Desde basil el cargo ya NO trae `invoice`: para una cuota de suscripción se llega a la
       // factura por el payment intent (lib/cobros-webhook.ts, facturaDePagoStripe).
       return { accion: 'reembolso', leer: { objeto: 'cargo', id }, buscar: { token: token(meta.mako_cobro), pagoId: idStripe(o.payment_intent, ['pi']) } };
+    }
+    case 'charge.dispute.created':
+    case 'charge.dispute.funds_withdrawn':
+    case 'charge.dispute.funds_reinstated':
+    case 'charge.dispute.closed': {
+      // Un CONTRACARGO (15/10/2026). La fase sale del TIPO del evento (`faseDeDisputa`); el estado, de la relectura.
+      const id = idStripe(o.id, ['dp', 'du']);
+      if (!id) return ignorar('el evento no trae la disputa');
+      return { accion: 'disputa', leer: { objeto: 'disputa', id }, buscar: { token: null, pagoId: idStripe(o.payment_intent, ['pi']) } };
     }
     case 'refund.failed': {
       // Una devolución que había salido y FALLÓ (15/10/2026): el cargo vuelve a estar cobrado. La metadata de la
@@ -332,6 +358,7 @@ export type PlanPagoMp =
   | { accion: 'aprobado'; estadoResultante: string; reembolsoParcial: boolean }
   | { accion: 'fallido'; estadoResultante: string; motivo: string }
   | { accion: 'reembolso'; estadoResultante: string; total: true }
+  | { accion: 'contracargo'; estadoResultante: string; detalle: string | null }
   | { accion: 'ignorar'; estadoResultante: string; motivo: string };
 
 /**
@@ -340,8 +367,9 @@ export type PlanPagoMp =
  * perdió— y la devolución parcial queda en el historial; su clave lleva el monto devuelto, así una
  * segunda devolución parcial no choca con la primera.
  *
- * Un CONTRACARGO no se aplica solo: si la plata salió o volvió depende del detalle (`settled`,
- * `reimbursed`) y no está medido. Queda en la fila con su motivo, para una persona.
+ * Un CONTRACARGO no mueve la cuota: si la plata salió o volvió, MP lo documenta de dos maneras opuestas
+ * (`settled`/`reimbursed`, ver FaseContracargo) y no está medido. Se CUENTA en el historial y en el cobro (15/10/2026;
+ * antes quedaba sólo en una fila de `pasarela_eventos` que nadie miraba).
  */
 export function planDePagoMp(p: { estado: string | null; detalle: string | null; reembolsado: number | null }): PlanPagoMp {
   const estado = p.estado ?? 'sin-estado';
@@ -356,7 +384,8 @@ export function planDePagoMp(p: { estado: string | null; detalle: string | null;
     case 'cancelled':
       return { accion: 'fallido', estadoResultante: estado, motivo: motivoRechazoMp(p.detalle) };
     case 'charged_back':
-      return { accion: 'ignorar', estadoResultante: `charged_back-${p.detalle ?? 'sin-detalle'}`, motivo: `contracargo (${p.detalle ?? 'sin detalle'}): revisarlo en Mercado Pago` };
+      // Se CUENTA (historial y motivo del cobro), una vez por cada `status_detail`, sin tocar la cuota (ver FaseContracargo).
+      return { accion: 'contracargo', estadoResultante: `charged_back-${p.detalle ?? 'sin-detalle'}`, detalle: p.detalle };
     case 'pending':
     case 'in_process':
     case 'authorized':
