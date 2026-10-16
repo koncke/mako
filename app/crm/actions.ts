@@ -115,6 +115,8 @@ import { getSupabaseServer } from '@/lib/supabase';
 import { getTenantDb, getWorkspaceActual, getRolWsEfectivo, getCapaActual, rutaConWs } from '@/lib/workspace';
 import { estadoDatosDeLead } from '@/lib/datos-aviso-config';
 import type { EstadoDatos } from '@/lib/datos-aviso';
+import { leerFichaDeFunnel, type FichaDelFunnel } from '@/lib/ficha/config-server';
+import { rolDeFicha, vePrivado, type RolFicha } from '@/lib/ficha/registro';
 import { tabEnCapa } from '@/lib/capas';
 
 /**
@@ -264,16 +266,53 @@ export type LeadFullData = {
    * (lib/tracking-ficha-server.ts); con la lectura caída, `true`.
    */
   verTracking: boolean;
+  /**
+   * La ficha por bloques del funnel del lead (docs/diseno-ficha-bloques.md): la plantilla y por qué, lo
+   * guardado y la ficha que se dibuja (lib/ficha/config-server.ts). null = no se pudo leer: la pantalla arma
+   * la de respaldo y no ofrece «Personalizar» (el primer cambio pisaría una ficha que no se vio).
+   */
+  ficha: FichaDelFunnel | null;
+  /** Quién mira, en lo que le importa a la ficha (lib/ficha/registro.ts). */
+  rol: RolFicha;
+  /** El admin y el closer de ESTE lead ven lo privado (decisión 5: el puntaje de la llamada). */
+  verPrivado: boolean;
+  /** «Personalizar» la ficha del funnel: sólo el admin. Lo que cierra es `cambiarFichaFunnelAction`. */
+  puedeEditarFicha: boolean;
 };
 
 /**
- * Carga TODO lo que la ficha (LeadSheet) necesita para mostrar un lead desde un
- * modal (CRM / WhatsApp / desgloses): el Lead completo, etapas, plan de pagos,
- * engagement del VSL, visitas a la landing y campaña resuelta.
+ * La ficha por bloques del funnel del lead. La casa NULL es el funnel del negocio, y un funnel que ya no
+ * existe (borrado) cae a ése. Nunca tira: «no pude leer» es null, y la pantalla lo sabe manejar.
+ */
+async function fichaDelFunnelDelLead(funnelId: number | null): Promise<FichaDelFunnel | null> {
+  try {
+    const f = await leerFichaDeFunnel(funnelId);
+    if (f || funnelId == null) return f;
+    return await leerFichaDeFunnel(null);
+  } catch (e) {
+    console.error('[ficha] no se pudo leer la ficha del funnel del lead:', e instanceof Error ? e.message : e);
+    return null;
+  }
+}
+
+/**
+ * Carga TODO lo que la ficha necesita para mostrar un lead: el Lead completo, etapas, plan de pagos,
+ * engagement del VSL, visitas a la landing, campaña resuelta y la ficha por bloques de su funnel.
+ *
+ * ⚠️ ES LA ÚNICA LECTURA DE LA FICHA, para las DOS puertas: el pop-up del tablero (LeadSheet, desde
+ *    LeadEditModal) y la ruta /crm/[id] (page.tsx la llama desde el server). Hasta el 14/10/2026 la ruta
+ *    armaba todo a mano y ya contaba «N sin marcar» con otros insumos (sin `grabable`, con el plan como
+ *    `true | undefined`). Lo fija tests/ficha-armador.test.ts.
+ * ⚠️ SIN SESIÓN NO DEVUELVE NADA: sin cookie, `getWorkspaceActual()` cae al ws1, que es un cliente.
  */
 export async function getLeadFullAction(id: number): Promise<LeadFullData | null> {
+  const sesion = await getUsuarioActual().catch(() => null);
+  if (!sesion) return null;
   const lead = await getLead(id);
   if (!lead) return null;
+  // La ficha por bloques y quién mira: arrancan acá, en paralelo con todo lo de abajo, y no tiran.
+  const fichaP = fichaDelFunnelDelLead(lead.funnel_id ?? null);
+  const rolP = getRolWsEfectivo().catch(() => null);
   // La pestaña «Tracking» (punto 18): arranca acá para correr en paralelo con todo lo de abajo, y
   // no tira nunca (lib/tracking-ficha-server.ts).
   const verTrackingP = verTrackingDeLead(lead.funnel_id);
@@ -326,7 +365,10 @@ export async function getLeadFullAction(id: number): Promise<LeadFullData | null
   // y es el mismo en todos los workspaces (mismo criterio que el selector del tablero).
   const productos = funnels.map((f) => ({ id: f.id, nombre: nombreVisible(f), esDefault: f.esDefault }));
   const fotoEmail = lead.email?.trim() ? urlGravatar(lead.email, 160) : null;
-  return { lead, stages, pagos, vslEng, videos, replay, campana, adNombre, adId: adIdCand, visitas, insights, tracking, pixelPuesto, respuestas, respuestasForm: respuestasPropias(lead.meta_field_data), respuestasLanding: respuestasGuardadas(lead.optin_respuestas), resumen: await resumenDelNegocio(), cohorte: cohorteDeLead(lead), insightGen, faltantesInsight, faltantes, datos, equipo, closerDetectado, productos, fotoEmail, cobro, verTracking: await verTrackingP };
+  const [ficha, rolWs] = await Promise.all([fichaP, rolP]);
+  const rol = rolDeFicha(rolWs);
+  return { lead, stages, pagos, vslEng, videos, replay, campana, adNombre, adId: adIdCand, visitas, insights, tracking, pixelPuesto, respuestas, respuestasForm: respuestasPropias(lead.meta_field_data), respuestasLanding: respuestasGuardadas(lead.optin_respuestas), resumen: await resumenDelNegocio(), cohorte: cohorteDeLead(lead), insightGen, faltantesInsight, faltantes, datos, equipo, closerDetectado, productos, fotoEmail, cobro, verTracking: await verTrackingP,
+    ficha, rol, verPrivado: vePrivado(rol, lead.closer, sesion), puedeEditarFicha: rol === 'admin' };
 }
 
 /** Cuota explícita del plan (modelo simple: monto + fecha). */

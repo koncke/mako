@@ -22,12 +22,18 @@
 //   · la API de MaKo escribiendo `pendientes_ignorados` otra vez                       → 6 / 1
 //   · `funnel_id` fuera de PENDIENTES_COLS                                             → 6 / 1
 //
-// Y el panel de avisos de la ficha (15/10/2026, base 8/0), restaurando de memoria:
-//   · LeadSheet abre el panel sin el funnel del lead                                  → 7 / 1
-//   · LeadDetailBody abre el panel sin el funnel del lead                             → 7 / 1
-//   · el panel lee siempre los del negocio                                            → 7 / 1
-//   · el panel guarda siempre en el negocio                                           → 7 / 1
-//   · «A revisar» abre el panel de un funnel                                          → 7 / 1
+// Y los avisos de la ficha, en «Personalizar» (reescrito el 15/10/2026 con la ficha por bloques; antes fijaba
+// el modal con `funnelId`). Base 8/0, cada rotura restaurada de memoria antes de la siguiente:
+//   · getLeadFullAction lee la ficha del negocio (`fichaDelFunnelDelLead(null)`)        → 7 / 1
+//   · el interruptor del panel no manda el `{ op: 'aviso' }`                            → 7 / 1
+//   · el panel muestra los apagados del negocio en vez de los de la ficha               → 7 / 1
+//   · useFichaDelFunnel guarda en el funnel del negocio (`cambiarFichaFunnelAction(null`) → 7 / 1
+//   · FichaPorBloques sin la ficha del funnel (`useFichaDelFunnel(null`)                → 7 / 1
+//   · el pop-up vuelve a montar <AvisosDatosModal>                                      → 7 / 1
+//   · «A revisar» abre el modal de un funnel                                            → 7 / 1
+//   · guardado un aviso, la cabecera no recuenta (`onGuardado` vacío)                   → 7 / 1
+//   · `cambiaAvisos` sin el `aviso`                                                     → 7 / 1
+//   · el modal sin funnel lee los de un funnel (`avisosDatosAction(null)`)              → 7 / 1
 // =============================================================================
 
 import { test } from 'node:test';
@@ -38,7 +44,7 @@ import {
 } from '../lib/datos-aviso';
 import { stepsForStage, pasosResueltos, type Step, type StageReqValues } from '../lib/stage-requirements';
 import { filasPorLead } from '../lib/a-revisar-filas';
-import { fichaEfectiva, RESPALDO_VACIO } from '../lib/ficha/config';
+import { aplicarCambio, fichaEfectiva, RESPALDO_VACIO } from '../lib/ficha/config';
 
 const leer = (r: string) => readFileSync(new URL(`../${r}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 const sinComentarios = (s: string) => s.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
@@ -145,23 +151,55 @@ test('la API de MaKo ignora IGUAL que la pantalla: en datos_ignorados, por la mi
   assert.match(tramo(run, 'reactivar_datos_sin_marcar: {', 'resolver_confirmacion_crm: {'), /ignorarDatosDeUnLead\(Number\(payload\.leadId\), false, autorDe\(ctx\)\)/);
 });
 
-test('el panel de avisos que se abre desde la ficha lee y guarda los de SU funnel; el de «A revisar», los del negocio', () => {
+// ⚠️ REESCRITO EL 15/10/2026 porque cambió DÓNDE viven los avisos de la ficha, no la regla. Hasta ese día la
+//    ficha abría el modal de avisos (AvisosDatosModal) con el funnel del lead, y este test fijaba ese
+//    `funnelId`. Con la ficha por bloques (Martín, 14/10: «Todas las personalizables, no los hagas con un modal
+//    diferente... y que ahí mismo se configure qué datos sin marcar notifica») los avisos de la ficha viven en
+//    «Personalizar» (lead-view/ficha/PanelFicha.tsx) y escriben la ficha del funnel del lead por
+//    `cambiarFichaFunnelAction`. La regla sigue: DESDE LA FICHA, los del funnel del lead; desde «A revisar»
+//    (app/_components/MakoConfirmGate.tsx), que mezcla funnels, los del negocio. Por eso el modal NO se borra.
+test('desde la ficha, los avisos son los del funnel del lead (en «Personalizar»); desde «A revisar», los del negocio', () => {
   // Por qué importa: un lead de un funnel de Prospección no avisa de «calificado» (su plantilla lo apaga)
   // aunque el negocio no lo apague. Con los del negocio, el panel lo mostraba prendido (ws9, 15/10/2026).
   assert.ok(fichaEfectiva('prospeccion', {}, RESPALDO_VACIO).apagados.includes('calificado'));
   assert.ok(!RESPALDO_VACIO.apagados.includes('calificado'));
-  const modal = sinComentarios(leer('app/crm/lead-view/AvisosDatosModal.tsx'));
-  assert.match(modal, /avisosDatosAction\(funnelId\)/, 'el panel no lee los avisos del funnel');
-  assert.match(modal, /guardarAvisosDatosAction\(nuevos, funnelId\)/, 'el panel no guarda en el funnel');
-  for (const r of ['app/crm/LeadSheet.tsx', 'app/crm/[id]/LeadDetailBody.tsx']) {
-    const usos = [...sinComentarios(leer(r)).matchAll(/<AvisosDatosModal\b[\s\S]*?\/>/g)].map((m) => m[0]);
-    assert.ok(usos.length > 0, `${r}: ya no abre el panel de avisos`);
-    for (const u of usos) assert.match(u, /funnelId=\{lead\.funnel_id \?\? null\}/, `${r}: abre el panel de avisos sin el funnel del lead`);
+  // Y un toque en el interruptor de la ficha lo prende EN ESE funnel (el mismo motor que el server).
+  const prendido = aplicarCambio({}, { op: 'aviso', paso: 'calificado', avisa: true }, 'prospeccion', RESPALDO_VACIO);
+  assert.ok(prendido.ok && prendido.cambio);
+  assert.ok(prendido.ok && !fichaEfectiva('prospeccion', prendido.ficha, RESPALDO_VACIO).apagados.includes('calificado'));
+
+  // 1. La ficha lee la de SU funnel: la casa del lead.
+  const acc = sinComentarios(leer('app/crm/actions.ts'));
+  assert.match(tramo(acc, 'export async function getLeadFullAction', '\nexport '), /fichaDelFunnelDelLead\(lead\.funnel_id \?\? null\)/);
+  // 2. Los interruptores del panel de «Personalizar» mandan un cambio de aviso…
+  const panel = sinComentarios(leer('app/crm/lead-view/ficha/PanelFicha.tsx'));
+  assert.match(panel, /onCambio\(\{ op: 'aviso', paso: d\.id, avisa: v \}\)/, 'el panel de la ficha no cambia los avisos');
+  assert.match(panel, /ef\.avisos\.find\(\(a\) => a\.id === d\.id\)/, 'el panel no muestra los avisos de la ficha del funnel');
+  // 3. …que la ficha guarda en ESE funnel (el de `data.ficha`), no en el negocio.
+  const ficha = sinComentarios(leer('app/crm/lead-view/ficha/FichaPorBloques.tsx'));
+  assert.match(ficha, /useFichaDelFunnel\(data\.ficha \?\? null,/);
+  assert.match(ficha, /<PanelFicha ficha=\{ff\.ficha\} onCambio=\{cambiar\} \/>/);
+  const hook = sinComentarios(leer('app/crm/lead-view/ficha/useFichaDelFunnel.ts'));
+  assert.match(hook, /const funnelId = f\.funnel\.id;/);
+  assert.match(hook, /await cambiarFichaFunnelAction\(funnelId, c\)/);
+  assert.doesNotMatch(hook, /guardarAvisosDatosAction/, 'la ficha guarda los avisos por otra escritura que la de su funnel');
+  // Y guardado un aviso, la cabecera recuenta «N sin marcar».
+  assert.match(tramo(hook, 'export const cambiaAvisos', ';\n'), /c\.op === 'aviso'/);
+  assert.match(ficha, /onGuardado: \(c\) => \{ if \(cambiaAvisos\(c\)\) refrescar\(\); \}/);
+  // 4. Las dos puertas ya no abren el modal (ni el engranaje que lo abría).
+  for (const r of ['app/crm/LeadSheet.tsx', 'app/crm/[id]/LeadDetailBody.tsx', 'app/crm/lead-view/DatosSinMarcarCard.tsx']) {
+    const src = sinComentarios(leer(r));
+    assert.doesNotMatch(src, /<AvisosDatosModal\b|onConfigurar/, `${r}: volvió el modal de avisos a la ficha (los avisos de la ficha van en «Personalizar»)`);
   }
-  // «A revisar» mezcla leads de varios funnels: ahí van los del negocio, el respaldo de todos.
+
+  // «A revisar» mezcla leads de varios funnels: ahí van los del negocio, el respaldo de todos. Es la puerta
+  // que queda al modal: por eso AvisosDatosModal NO se borra.
   const gate = [...sinComentarios(leer('app/_components/MakoConfirmGate.tsx')).matchAll(/<AvisosDatosModal\b[\s\S]*?\/>/g)].map((m) => m[0]);
   assert.ok(gate.length > 0, '«A revisar» ya no abre el panel de avisos');
   for (const u of gate) assert.doesNotMatch(u, /funnelId/, '«A revisar» abre el panel de un funnel');
+  const modal = sinComentarios(leer('app/crm/lead-view/AvisosDatosModal.tsx'));
+  assert.match(modal, /: avisosDatosAction\(\)\)/, 'el modal sin funnel ya no lee los del negocio');
+  assert.match(modal, /: guardarAvisosDatosAction\(nuevos\)\)/, 'el modal sin funnel ya no guarda en el negocio');
 });
 
 test('la escritura de lo ignorado es UNA, en lib, con historial', () => {

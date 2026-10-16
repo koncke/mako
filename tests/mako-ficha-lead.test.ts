@@ -113,10 +113,24 @@ test('el cableado: ficha_lead y buscar_leads usan la etapa efectiva y la ficha c
   assert.match(desc, /Un campo que no viene es un dato sin cargar/);
 });
 
+// ⚠️ REESCRITO EL 15/10/2026 porque cambió DÓNDE lee la ficha, no lo que se fija. Hasta el 14/10 la ruta
+//    /crm/[id] (page.tsx) armaba sus datos a mano y este test leía ahí. Desde la ficha por bloques las DOS
+//    puertas leen con `getLeadFullAction` (app/crm/actions.ts; lo fija tests/ficha-armador.test.ts), así
+//    que la etapa de la ficha sale de ahí. La regla es la misma: las etapas DEL LEAD y, sin ellas, las de
+//    por defecto, igual que `etapaParaModelo`.
+// Rotura: `getLeadFullAction` con `getPipelineStagesDefault()` en vez de las del lead → 5 / 1 (éste).
+// Rotura: sin caer a DEFAULT_STAGES cuando la lista viene vacía → 5 / 1 (éste).
 test('la etapa de la ficha y la de MaKo salen de la misma lectura', () => {
-  // La ficha: `getPipelineStagesDeLead(lead)` con DEFAULT_STAGES si vino vacía. Si esto cambia, MaKo
-  // vuelve a decir otra etapa que la pantalla: hay que cambiar las dos.
+  // La ficha: `getPipelineStagesDeLead(lead)` con DEFAULT_STAGES si falla o vino vacía. Si esto cambia,
+  // MaKo vuelve a decir otra etapa que la pantalla: hay que cambiar las dos.
+  const acc = sinComentarios(leer('../app/crm/actions.ts'));
+  const ini = acc.indexOf('export async function getLeadFullAction');
+  assert.ok(ini > 0, 'la lectura de la ficha ya no es getLeadFullAction');
+  const cuerpo = acc.slice(ini, acc.indexOf('\nexport ', ini + 10));
+  assert.match(cuerpo, /getPipelineStagesDeLead\(lead\)\.catch\(\(\) => DEFAULT_STAGES\)/);
+  assert.match(cuerpo, /const stages = stagesRaw\.length \? stagesRaw : DEFAULT_STAGES;/);
+  // Y la ruta no lee las etapas por su cuenta: es la misma lectura que el pop-up.
   const page = sinComentarios(leer('../app/crm/[id]/page.tsx'));
-  assert.match(page, /getPipelineStagesDeLead\(lead\)\.catch\(\(\) => \[\] as Stage\[\]\)/);
-  assert.match(page, /const stages = stagesRaw\.length \? stagesRaw : DEFAULT_STAGES;/);
+  assert.match(page, /await getLeadFullAction\(idNum\)/);
+  assert.doesNotMatch(page, /getPipelineStages/);
 });

@@ -41,14 +41,19 @@ test('qué decide: cobrada a mano sin archivo falta; con archivo o por pasarela,
   assert.equal(faltaComprobante({ pagado: true, comprobante_path: null, proveedor: null }), true, 'proveedor null = a mano');
 });
 
+// ⚠️ ERAN CUATRO Y DESDE EL 14/10/2026 SON TRES: la ruta /crm/[id] dejó de contar los faltantes por su
+// cuenta y lee con la action del pop-up (`getLeadFullAction`, app/crm/actions.ts), que ya está en la lista.
+// Cambiado a propósito: se fija además que la ruta no vuelva a contar sola.
 const LLAMADORES = [
   'lib/queries.ts',
   'app/crm/actions.ts',
-  'app/crm/[id]/page.tsx',
   'lib/api-mako/areas/crm.helpers.ts',
 ];
 
 test('los cuatro lugares que cuentan comprobantes faltantes usan faltaComprobante', () => {
+  const ruta = codigo('app/crm/[id]/page.tsx');
+  assert.match(ruta, /await getLeadFullAction\(idNum\)/, 'la ruta tiene que leer con la action del pop-up');
+  assert.doesNotMatch(ruta, /comprobante|faltantesDeLead/, 'la ruta vuelve a contar los faltantes por su cuenta');
   for (const f of LLAMADORES) {
     const src = codigo(f);
     assert.match(src, /import \{ faltaComprobante \} from '(@\/lib|\.)\/pago-comprobante';/, `${f}: no importa faltaComprobante`);

@@ -51,16 +51,28 @@ test('el opt-in las guarda por los DOS caminos: el alta directa y la propuesta',
   assert.match(sinComentarios(leer('../lib/leads.ts')), /\.\.\.\(input\.optin_respuestas\?\.length \? \{ optin_respuestas: input\.optin_respuestas \} : \{\}\),/);
 });
 
-test('las DOS puertas de la ficha respetan lo elegido, y Customer Success no se personaliza', () => {
-  for (const p of ['../app/crm/LeadSheet.tsx', '../app/crm/[id]/page.tsx']) {
-    const src = sinComentarios(leer(p));
-    assert.match(src, /\{seVe\(resumen, 'form_meta'\) && <RespuestasFormulario/, `${p}: el formulario de Meta`);
-    assert.match(src, /\{seVe\(resumen, 'form_landing'\) && <RespuestasFormulario respuestas=\{respuestasLanding/, `${p}: el de la landing`);
-    assert.match(src, /resumen=\{resumen/, `${p}: la tarjeta recibe lo elegido`);
+test('las DOS puertas de la ficha respetan lo elegido, y Customer Success no se personaliza', async () => {
+  // ⚠️ CAMBIADO A PROPÓSITO EL 14/10/2026 (la ficha por bloques): lo que eligió el negocio
+  // (`crm.resumen.campos`) es el RESPALDO de la ficha de cada funnel (decisión 1 del diseño). Ya no tiene
+  // modal ni engranaje: se arma en «Personalizar». Las dos puertas montan la MISMA ficha, y lo elegido
+  // llega a dos lugares que se EJECUTAN acá: las fuentes de «Lo que contestó» (Meta y la landing) y la
+  // tarjeta del contacto, que sigue leyéndolo campo por campo. Re-verificado rompiéndolo: el saneo de la
+  // ficha sin el respaldo de las fuentes → 1 fallo.
+  const { fichaEfectiva } = await import('../lib/ficha/config');
+  const { respuestasDelBloque } = await import('../app/crm/lead-view/ficha/reglas-resumen');
+  for (const p of ['../app/crm/LeadSheet.tsx', '../app/crm/[id]/LeadDetailBody.tsx']) {
+    assert.match(sinComentarios(leer(p)), /<FichaPorBloques\b/, `${p}: no monta la ficha compartida`);
   }
+  const contesto = (resumen: Record<string, boolean>) => fichaEfectiva('respaldo', null, { resumen, apagados: [] }).tabs.resumen.find((b) => b.id === 'lo-que-contesto')!;
+  const data = { respuestasForm: [{ pregunta: 'Zona', respuesta: 'Sur' }], respuestasLanding: [{ pregunta: 'Edad', respuesta: '30' }] };
+  const fuentes = (resumen: Record<string, boolean>) => respuestasDelBloque({ data } as never, contesto(resumen)).map((f) => f.fuente);
+  assert.deepEqual(fuentes({}), ['meta', 'landing'], 'lo de siempre: los dos formularios');
+  assert.deepEqual(fuentes({ form_meta: false }), ['landing'], 'el formulario de Meta');
+  assert.deepEqual(fuentes({ form_landing: false }), ['meta'], 'el de la landing');
+  assert.match(sinComentarios(leer('../app/crm/lead-view/ficha/registro-resumen.tsx')), /resumen=\{data\.resumen \?\? \{\}\}/, 'la tarjeta recibe lo elegido');
   const UI = sinComentarios(leer('../app/crm/lead-view/InfoPrincipalCard.tsx'));
   assert.match(UI, /const ve = \(id: CampoResumen\) => resumen === undefined \|\| seVe\(resumen, id\);/, 'sin `resumen` se ve lo de siempre');
-  assert.match(UI, /\{resumen !== undefined && \(\s*<button type="button" onClick=\{\(\) => setConfigurando\(true\)\}/, 'el engranaje sólo donde se personaliza');
+  assert.doesNotMatch(UI, /setConfigurando|nombre="configurar"/, 'volvió el engranaje: la ficha se arma en «Personalizar»');
   for (const id of ['web', 'instagram', 'direccion', 'sexo', 'ingreso', 'cohorte']) assert.match(UI, new RegExp(`ve\\('${id}'\\)`), `«${id}» sin su interruptor`);
 });
 
@@ -84,8 +96,12 @@ test('el sexo: tres valores, los mismos en la pantalla, el server y la base', ()
 });
 
 test('cambiar lo que muestra el Resumen es del admin', () => {
-  const ACC = sinComentarios(leer('../app/crm/resumen-actions.ts'));
-  const i = ACC.indexOf('export async function guardarResumenFichaAction');
+  // ⚠️ CAMBIADO A PROPÓSITO EL 14/10/2026: `guardarResumenFichaAction` (app/crm/resumen-actions.ts) se
+  // fue con su modal. Lo que muestra la ficha se cambia con `cambiarFichaFunnelAction`, por funnel, y es
+  // del admin igual.
+  const ACC = sinComentarios(leer('../app/crm/ficha-actions.ts'));
+  const i = ACC.indexOf('export async function cambiarFichaFunnelAction');
+  assert.ok(i > 0);
   assert.match(ACC.slice(i), /if \(\(await getRolWsEfectivo\(\)\) !== 'admin'\) return \{ ok: false/);
   assert.match(ACC.slice(i), /if \(!\(await haySesion\(\)\)\) return \{ ok: false/);
 });

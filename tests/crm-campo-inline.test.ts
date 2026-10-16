@@ -57,6 +57,7 @@ import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { GESTO_INLINE, VIA_INLINE, esCampoInline, montoEnRiesgo, ponerLinkFathom, valorDeCampo } from '../app/crm/campo-inline';
+import { REGLAS_RESUMEN } from '../app/crm/lead-view/ficha/reglas-resumen';
 
 // El archivo SIN comentarios: todo test que persiga la PRESENCIA de una línea de
 // código tiene que mirar el código, no la prosa que lo explica (si no, el propio
@@ -331,8 +332,18 @@ test('⚠️ el guardado campo por campo no puede dejar un estado que el formula
   assert.equal(VIA_INLINE.motivo_perdida, 'lead');
   // Y la fecha límite de la nutrición manual se dibuja SÓLO en esa etapa, en las dos
   // fichas: ofrecerla en otra etapa es ofrecer un dato que `setBoardStageOverride` nulea.
-  for (const ruta of ['../app/crm/LeadSheet.tsx', '../app/crm/[id]/page.tsx']) {
-    assert.match(leer(ruta), /stageKey === 'manual' && <PlazoNutricionCard/, `${ruta}: el plazo no está condicionado a la etapa`);
+  // ⚠️ CAMBIADO A PROPÓSITO EL 14/10/2026 (la ficha por bloques): las dos puertas montan la MISMA
+  // ficha y el plazo es el bloque `plazo-nutricion`, cuya regla pura dice cuándo se calla
+  // (app/crm/lead-view/ficha/reglas-resumen.ts). Se EJECUTA. Re-verificado rompiéndolo: la regla
+  // devolviendo siempre false → 1 fallo.
+  const regla = REGLAS_RESUMEN['plazo-nutricion'].estaVacio;
+  const conEtapa = (etapa: string) => ({ etapa, lead: {}, data: {} }) as unknown as Parameters<typeof regla>[0];
+  const puesto = { id: 'plazo-nutricion' as const, ancho: 4 as const, diseno: 'fecha' };
+  assert.equal(regla(conEtapa('manual'), puesto), false, 'en la nutrición manual el plazo se dibuja');
+  assert.equal(regla(conEtapa('agenda'), puesto), true, 'el plazo no está condicionado a la etapa');
+  for (const ruta of ['../app/crm/LeadSheet.tsx', '../app/crm/[id]/LeadDetailBody.tsx']) {
+    assert.match(leer(ruta), /<FichaPorBloques\b/, `${ruta}: no monta la ficha compartida`);
+    assert.doesNotMatch(leer(ruta), /<PlazoNutricionCard/, `${ruta}: monta el plazo a mano, sin la regla de la etapa`);
   }
 });
 

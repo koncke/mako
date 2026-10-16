@@ -248,10 +248,17 @@ test('CABLEADO: el CRM desglosa la retención por video', () => {
 
   // 3. La pantalla, en los DOS call-sites: la ruta y el modal. Cablear uno solo
   //    deja la mitad de la app mostrando el número fundido, y son la misma ficha.
-  for (const p of ['../app/crm/[id]/page.tsx', '../app/crm/LeadSheet.tsx']) {
+  //    ⚠️ CAMBIADO A PROPÓSITO EL 14/10/2026 (la ficha por bloques): las dos puertas montan la MISMA
+  //    ficha (`FichaPorBloques`) y la tarjeta se monta UNA vez, en el registro de Tracking. Así no se
+  //    puede cablear «uno solo»: se fija el único montaje y que las dos puertas lo usen.
+  for (const p of ['../app/crm/[id]/LeadDetailBody.tsx', '../app/crm/LeadSheet.tsx']) {
+    assert.ok(/<FichaPorBloques\b/.test(leer(p)), `${p}: no monta la ficha compartida`);
+  }
+  {
+    const p = '../app/crm/lead-view/ficha/registro-tracking.tsx';
     const s = leer(p);
     assert.ok(/porVideo=\{vslEng\.porVideo\}/.test(s), `${p}: no le pasa el desglose a la tarjeta`);
-    assert.ok(/videos=\{videosLanding\}/.test(s), `${p}: sin el catálogo, los videos se rotulan con el id`);
+    assert.ok(/videos=\{data\.videos\}/.test(s), `${p}: sin el catálogo, los videos se rotulan con el id`);
   }
 
   // 4. Y la tarjeta tiene que DEJAR DE pintar «Retención del VSL» en singular

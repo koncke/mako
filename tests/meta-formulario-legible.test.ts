@@ -104,11 +104,17 @@ test('⚠️ el webhook manda los DATOS, no el texto armado (si no, /automations
 });
 
 test('⚠️ la ruta y el pop-up dibujan la MISMA pieza', () => {
-  const ruta = sinComentarios(leer('app/crm/[id]/page.tsx'));
+  // ⚠️ CAMBIADO A PROPÓSITO EL 14/10/2026 (la ficha por bloques): las dos puertas montan la MISMA ficha
+  // (`FichaPorBloques`) y las respuestas son el bloque `lo-que-contesto`, que monta RespuestasFormulario
+  // una vez, con lo que el server trajo (`respuestasDelBloque`, app/crm/lead-view/ficha/reglas-resumen.ts).
+  const ruta = sinComentarios(leer('app/crm/[id]/LeadDetailBody.tsx'));
   const popup = sinComentarios(leer('app/crm/LeadSheet.tsx'));
-  assert.match(ruta, /<RespuestasFormulario respuestas=\{respuestasForm\}/);
-  assert.match(popup, /<RespuestasFormulario respuestas=\{respuestasForm/, 'el pop-up es por donde se abre una ficha casi siempre');
-  for (const [nombre, src] of [['ruta', ruta], ['pop-up', popup]] as const) {
+  const bloque = sinComentarios(leer('app/crm/lead-view/ficha/registro-resumen.tsx'));
+  const reglas = sinComentarios(leer('app/crm/lead-view/ficha/reglas-resumen.ts'));
+  for (const src of [ruta, popup]) assert.match(src, /<FichaPorBloques\b/, 'el pop-up es por donde se abre una ficha casi siempre');
+  assert.match(bloque, /<RespuestasFormulario key=\{f\.fuente\} respuestas=\{f\.respuestas\} de=\{f\.fuente\} \/>/);
+  assert.match(reglas, /ctx\.data\.respuestasForm/, 'el bloque lee las respuestas que resolvió el server');
+  for (const [nombre, src] of [['ruta', ruta], ['pop-up', popup], ['ficha', bloque]] as const) {
     assert.doesNotMatch(src, /Respondió en el formulario/, `la ${nombre} volvió a tener su propia copia de la sección`);
   }
   // Y el pop-up la recibe resuelta del server: no lee el field_data.
