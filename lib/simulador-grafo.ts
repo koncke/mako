@@ -89,7 +89,8 @@ export type OpcionRama = { puerto: string; texto: string; destino: string | null
 export type EventoSim<P extends PasoGrafo = PasoGrafo> =
   | { t: 'mensaje'; nodo: string; paso: P; enRespuesta: boolean }
   | { t: 'espera'; nodo: string; texto: string }
-  | { t: 'accion'; nodo: string; texto: string }
+  /** `paso`: la tarjeta, para que el panel dibuje lo que hace (16/10/2026: la «MaKo en WhatsApp» le escribe al grupo). */
+  | { t: 'accion'; nodo: string; texto: string; paso: P }
   | { t: 'salto'; nodo: string; texto: string }
   | { t: 'condicion'; nodo: string; opciones: OpcionRama[] }
   | { t: 'fin'; texto: string };
@@ -480,7 +481,7 @@ function correrHilo<P extends PasoGrafo>(pasos: readonly P[], estado: EstadoSim,
       return { evento: { t: 'mensaje', nodo: id, paso: p, enRespuesta: st.rama === 'respuesta' }, estado: { ...base, hilos: avanzar(h.reloj) } };
     case 'accion':
       // No se ejecuta: probar no puede mover un lead ni crear una tarea de verdad.
-      return { evento: { t: 'accion', nodo: id, texto: `⚡ ${nombreAccion(p, nombres)}` }, estado: { ...base, hilos: avanzar(h.reloj) } };
+      return { evento: { t: 'accion', nodo: id, texto: `⚡ ${nombreAccion(p, nombres)}`, paso: p }, estado: { ...base, hilos: avanzar(h.reloj) } };
     case 'esperar': {
       if (!h.esperado) {
         // No espera: suma al reloj de SU hilo y lo dice cuando le vuelve a tocar (ver `HiloSim`).
