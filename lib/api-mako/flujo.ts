@@ -142,9 +142,16 @@ export async function aplicarEnElActo(
         const cerrarIds = def.id === 'proponer_cierre_tareas'
           ? ((await runWithWorkspace(opts.ws, () => getBorradorPlan(id)))?.cerrar ?? []).map((c) => String(c.id))
           : undefined;
-        const a = await runWithWorkspace(opts.ws, () => aplicarPropuesta(id, undefined, undefined, undefined, cerrarIds));
+        // Si aplicar TIRA (la base, un corte), el id del borrador vuelve igual: quien llama lo descarta en vez de dejarlo
+        // colgado en /plan/revisar (el catch de abajo no lo conoce).
+        const a = await runWithWorkspace(opts.ws, () => aplicarPropuesta(id, undefined, undefined, undefined, cerrarIds))
+          .catch((e: unknown) => ({ tiro: e instanceof Error ? e.message : String(e) }));
+        if (a && 'tiro' in a) return { ok: false, resumen: `Falló «${def.titulo}»: ${a.tiro}`, via: 'propia', datos: { propuestaId: id, creadas: 0, cerradas: 0 } };
         if (!a) return { ok: false, resumen: 'El borrador del plan ya no existe.', via: 'propia' };
-        return { ok: a.ok, resumen: a.ok ? `Plan: ${a.ids?.length ?? 0} tareas aplicadas.` : (a.error ?? 'No se pudo aplicar el borrador del plan.'), via: 'propia' };
+        // `datos`: el borrador (quien llama lo puede descartar si no se aplicó, en vez de dejarlo colgado en
+        // /plan/revisar) y cuántas tareas NACIERON (0 = las que había ya estaban y se ampliaron). Lo lee el Centro.
+        const datos = { propuestaId: id, creadas: a.ids?.length ?? 0, cerradas: a.cerradas ?? 0 };
+        return { ok: a.ok, resumen: a.ok ? `Plan: ${a.ids?.length ?? 0} tareas aplicadas.` : (a.error ?? 'No se pudo aplicar el borrador del plan.'), via: 'propia', datos };
       }
       if (def.id === 'crear_borrador_whatsapp_empresa') {
         const e = await runWithWorkspace(opts.ws, () => enviarBorrador(Number(id), ctx.actor ?? 'MaKo · automatización'));

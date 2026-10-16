@@ -140,5 +140,7 @@ export function explicarAviso(d: FilaAviso & { avisoMotivo?: string | null }, ch
   if (!r.ok) return r.motivo;
   if (!hayCartero) return 'sin cartero corriendo: nadie la va a avisar';
   if (!r.chat.vivo) return `espera a que se abra el chat «${r.chat.titulo}»`;
+  // Abierto pero sin un Runner en su carpeta de config (cartero 1.4.0): ningún Runner le llega, y MaKo no lo reclama.
+  if (r.chat.runner === false) return `espera a que se abra el Runner de su carpeta${r.chat.cuenta ? ` (${r.chat.cuenta})` : ''}`;
   return `se avisa en la próxima vuelta del cartero${r.chat.cuenta ? ` de ${r.chat.cuenta}` : ''}`;
 }

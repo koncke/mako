@@ -1232,6 +1232,22 @@ código nuevo:
   siendo el cartero (`cartero.mjs`, `operaciones_carteros`, `ver_carteros_operaciones`): las claves no se renombran. La
   PC lo reconoce por el título del chat («Runner» o «Cartero», también como «Centro de Operaciones › Runner»:
   `esElCartero`). Un texto nuevo del Centro no dice «cartero» ni «clave»: lo fija tests/centro-textos.test.ts.
+- **UNA TARJETA DE LA TICKETERA SE CONTESTA EN EL CHAT QUE LA PREGUNTÓ, COMO LA PREGUNTA DE CLAUDE CODE** (16/10/2026),
+  o en la Ticketera, que vive ADENTRO del Centro (`?ticketera=tarjetas|lista`; las rutas de antes son puertas que
+  conservan la query). Las dos contestan con `responderDecision`. Código nuevo que dibuje tarjetas de un chat pregunta
+  de qué chat son a `lib/centro-preguntas.ts` (con `destino`, o por un nombre único), nunca por su cuenta: así el
+  globito, la pregunta y la conversación cuentan lo mismo. Una opción puede traer su `detalle` (la descripción).
+- **EL USO DE UNA CUENTA SALE DE LA BARRA DE ESTADO DE SU RUNNER** (16/10/2026; Martín: «El "Uso" debe ser visible
+  siempre»): `rate_limits` por stdin, con `resets_at` en SEGUNDOS (lib/centro-uso.ts, `cartero.mjs uso`), y la semanal de
+  la app desde `~/.claude/uso-semanal.txt`. Un porcentaje pasado su reinicio no se muestra como de ahora.
+- **UN RUNNER POR CARPETA DE CONFIG, NO POR CUENTA** (16/10/2026; Martín pasó las tres cuentas a la terminal, cada una
+  con su `CLAUDE_CONFIG_DIR`). `SendMessage` sólo llega a las sesiones registradas en la carpeta del que manda (medido:
+  «ENOINBOX: no-key»), y la app comparte `~/.claude` con `claude1`. Código nuevo que entregue algo a un chat: lo
+  reclama sólo si un Runner alcanza la carpeta de ese chat (`entregables`), lo deja en el buzón de la PC con esa carpeta,
+  y lo manda el Runner de esa carpeta (scripts/operaciones/cartero.mjs 1.4.0). Lo que la PC sube y después borra (un
+  cierre) se borra sólo si MaKo dice que ENTRÓ (`cierresIds`): con el buzón compartido, «se subió» no es «entró».
+  ⚠️ Nunca se copian las `.key` de `<carpeta>/sessions/` a otra carpeta para «hacerlo andar»: es la protección contra
+  un canal que nadie avaló.
 - **UN CHAT ES SU NOMBRE, Y UN SUB-CHAT SE LLAMA «<Jefe> › <Sub>»** (15/10/2026; Martín: «todos los chats de todas las
   cuentas se llamen igual» y «quiero que cada chat esté englobado en su chat "jefe" que siempre se debe llamar como la
   tab... ESO no lo quiero decidir yo, lo decide el chat jefe»). Lo que gobierna a cualquier chat:
@@ -1241,6 +1257,20 @@ código nuevo:
   - **Un sub-chat se nombra «CRM › Lead Detail»** (también vale «>»), y va adentro de su jefe (`porJefe`). No hay
     registro aparte: el nombre es la convención. Lo decide el jefe —se renombra a sí mismo o renombra al sub-chat con
     `set_session_title`— y funciona igual si el sub-chat lo crea Martín con un clic y lo nombra así.
+  - **El jefe se llama como una tab de VERDAD** (16/10/2026): la lista sale de la barra y de las áreas
+    (app/admin/operaciones/tabs.ts); lo que no coincide va a «Sin asignar». **El orquestador se llama «Cerebro»** y no es
+    un jefe: va aparte, arriba («Estrategia 3 cuentas» es su nombre de antes). Un pedido sale SÓLO en el chat que lo
+    trabajó, nunca en el que lo pasó; **el que nadie empezó, en el chat donde se pidió**.
+  - **El historial de una tab es de su jefe** (16/10/2026): lo anotado con un nombre que hoy no tiene ningún chat
+    («Chatbot», un sub-chat cerrado) va al jefe que se llama como el área de su bitácora (`completarChats`, el paso 3).
+    No hay sección «Antes del 16/10»; un jefe sin chat abierto se lista sólo si tiene algo sin terminar. Anotar en la
+    bitácora del área que se tocó es lo que hace que el trabajo aparezca en su jefe.
+  - **Cada jefe ES un proyecto del Plan** (16/10/2026; los dos se llaman como la tab). El Centro lee y escribe el Plan
+    SÓLO con las operaciones de la API de MaKo (`listar_tareas_plan`, `proponer_tareas_plan`, `proponer_cierre_tareas`)
+    aplicadas en el acto con `ctxDelCentro` (lib/centro-plan.ts), por la ruta `/api/centro/plan` y NO por una server
+    action (el Perro tarda hasta un minuto y las acciones van de a una): ninguna escritura directa a `plan_tareas`. Un
+    proyecto se busca por `nucleo()`: el tablero lo guarda como «Feature: CRM». **Un mensaje NO se vuelve tarea solo**:
+    «Sumar al Plan» es un clic de Martín, sin preguntas. El Cerebro no tiene proyecto.
   - **Dos chats distintos no se llaman igual**: si pasa, se unen. Se separan renombrando uno («⋯ → Renombrar»), que le
     manda a cada sesión un trabajo firmado que le pide `set_session_title` (`textoDeRenombre`): el mismo camino de la
     firma, sin una puerta nueva a la PC.
@@ -1554,7 +1584,7 @@ lee tiene que deducir qué hacer. La segunda arranca con la acción, nombra la c
 |---|---|
 | «Este dispositivo todavía no firma.» | «Crea tu Token para comenzar a chatear.» |
 | «La PC todavía no acepta la clave de este dispositivo.» | «Pégale tu Token al Runner para comenzar a chatear.» |
-| «Sale cuando el cartero de la cuenta 3 dé su vuelta.» | «Abre el chat Runner en la app de Claude para que salga.» |
+| «Sale cuando el cartero de la cuenta 3 dé su vuelta.» | «Abre el Runner en la terminal de la cuenta 3 para que salga.» |
 | «Ningún chat todavía: aparecen cuando el cartero da su vuelta.» | «Conecta un Runner para ver tus chats aquí.» |
 
 - **La prueba antes de escribir un aviso:** ¿arranca con un verbo que la persona puede hacer, y
