@@ -19,6 +19,11 @@
 // se guarda antes de sembrar · se siembra sin mirar si está intacto · el login vuelve a pisar el nombre · la
 // oferta deja de abrirse encima del chat · la animación corre con movimiento reducido · la acción 'paso' deja
 // la puerta única.
+// Segunda vuelta, tras la revisión (arnés romper-revision.mjs). Base: 22 pasan, 0 fallan. Cada rotura, «1
+// fallo, 21 pases»: una lectura caída abre otra conversación · la oferta no se guarda en el cierre · los
+// reportes van al que mira y no al negocio · una opción vieja contesta la pregunta de hoy · «[completar]»
+// entra al brief · el nombre provisorio (un email) ya no se reemplaza · el plan queda «armando» para siempre
+// · se ofrece un email como nombre · el producto lleva un precio inventado.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -26,7 +31,7 @@ import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   etapaDeArranque, mensajesDeArranque, leerRespuesta, tiposOfrecidos, tipoRecomendado, pareceNegocio,
-  primerNombre, precioDesdeTexto, briefDesdeArranque, fundirBrief, siguientePreguntaFase,
+  primerNombre, sinMarca, briefDesdeArranque, fundirBrief, siguientePreguntaFase,
   AHORA_NO, CAMBIAR_NUMERO, VER_OTROS_TIPOS, OBJETIVOS_SUGERIDOS,
   type EstadoArranque, type HechosArranque,
 } from '../lib/onboarding-arranque';
@@ -168,7 +173,8 @@ test('el brief sale de la conversación y NUNCA pisa lo que el negocio ya tenía
   assert.equal(brief.negocio_que_hace, 'Delegar en 90 días sin perder clientes');
   assert.equal(brief.negocio_freno, 'Consigo pocos clientes potenciales');
   assert.equal(brief.oferta_nombre, 'Programa Dueño Libre');
-  assert.equal(brief.oferta_ticket, '1500');
+  // El precio NO se pasa a número (lib/ofertas.ts: «EL PRECIO DEL BRIEF NO SE PARSEA A NÚMERO»): «$3k» daba 3.
+  assert.equal(brief.oferta_ticket, undefined, 'el precio dicho como texto se convirtió en un número de dólares');
   assert.equal(brief.avatar_quien, 'Dueños de pyme');
   assert.equal(brief.oferta_garantia, undefined, 'lo que no se sabe no se escribe vacío');
   const fundido = fundirBrief({ avatar_quien: 'Lo que escribió el dueño', negocio_objetivo: '' }, brief);
@@ -176,12 +182,64 @@ test('el brief sale de la conversación y NUNCA pisa lo que el negocio ya tenía
   assert.equal(fundido.negocio_objetivo, 'Vender más cada mes', 'una respuesta vacía sí se llena');
 });
 
-test('un precio escrito como texto se lee sin adivinar', () => {
-  assert.equal(precioDesdeTexto('USD 1.500'), 1500);
-  assert.equal(precioDesdeTexto('$5,000 por mes'), 5000);
-  assert.equal(precioDesdeTexto('997'), 997);
-  assert.equal(precioDesdeTexto('a convenir'), null);
-  assert.equal(precioDesdeTexto(undefined), null);
+test('lo que lleva «[completar]» no se escribe: los prompts lo leerían como un dato', () => {
+  assert.equal(sinMarca('Factura [completar] al mes'), '');
+  assert.equal(sinMarca('  Delegar en 90 días '), 'Delegar en 90 días');
+  const v = (valor: string) => ({ valor, fuente: 'chat' as const, at: '2026-10-16' });
+  const brief = briefDesdeArranque({
+    estado: { ...QUIEN, objetivo: 'Llegar a [completar] clientes' },
+    piezas: { resultado: v('Facturar [completar] en 90 días'), cliente: v('Dueños de pyme') },
+    propuesta: { nombre: 'Programa [completar]', frase: 'Factura [completar] al mes' } as never,
+  });
+  assert.deepEqual(Object.keys(brief).sort(), ['avatar_quien'], 'entró al brief un texto con la marca');
+});
+
+test('el producto que deja el cierre no lleva un precio inventado, y la oferta no se duplica', () => {
+  const server = sinComentarios(leer('lib/onboarding-arranque-server.ts'));
+  const cerrar = bloque(server, 'export async function cerrarArranque', 'export function tipoValido');
+  assert.match(cerrar, /monto_usd: null/, 'el monto del producto (el del link de cobro) volvió a salir de un texto');
+  assert.doesNotMatch(cerrar, /precioDesdeTexto|parseFloat|Number\(/);
+  // guardarComoOferta siembra la principal DESDE EL BRIEF: con el nombre ya escrito, dos ofertas iguales.
+  assert.ok(cerrar.indexOf('await guardarComoOferta(') > 0 && cerrar.indexOf('await guardarComoOferta(') < cerrar.indexOf('await saveAnswers('),
+    'el brief se escribe antes de guardar la oferta: cada cliente nuevo queda con dos ofertas iguales');
+});
+
+test('una opción de una pregunta vieja no contesta la de hoy', () => {
+  const h = { ...H, puedeConcluir: true, faseGuardada: true };
+  const tel = { ...QUIEN, crmTipo: 'llamada' as const };
+  // La pestaña vieja muestra el CRM («Llamada de venta» es la 0) y el server ya está en el teléfono.
+  const r = leerRespuesta(tel, h, { opcion: 0, opcionTexto: 'Llamada de venta' });
+  assert.equal(r.ok, false);
+  assert.ok(!r.ok && r.cambio, 'se anotó «Ahora no» por un clic en otra pregunta');
+  // Con el texto que coincide, se anota.
+  assert.deepEqual(leerRespuesta(tel, h, { opcion: 0, opcionTexto: AHORA_NO }), { ok: true, patch: { telefono: 'postergado' } });
+  // Y la ruta devuelve la conversación de hoy, sin anotar.
+  const ruta = sinComentarios(leer('app/api/onboarding/arranque/route.ts'));
+  assert.match(ruta, /lectura\.cambio\) return NextResponse\.json\(\{ ok: false, error: lectura\.error, vista: await vistaArranque\(\) \}, \{ status: 409 \}\)/);
+  assert.match(sinComentarios(leer('app/onboarding/ChatArranque.tsx')), /opcionTexto: texto/, 'la pantalla dejó de mandar el texto de la opción');
+});
+
+test('un email no se ofrece como nombre, y los reportes van al contacto del negocio, no al que mira', () => {
+  const { antes } = mensajesDeArranque({}, { ...H, nombreCuenta: 'cliente@negocio.com' });
+  assert.equal(antes[0].opciones, undefined, 'ofreció un email como «¿Cómo te llamo?»');
+  const ruta = sinComentarios(leer('app/api/onboarding/arranque/route.ts'));
+  const tel = bloque(ruta, "case 'telefono':", "case 'preparar':");
+  assert.doesNotMatch(tel, /getUsuarioActual/, 'el email de los reportes volvió a ser el de quien está logueado');
+  assert.match(tel, /email: previo\?\.email \|\| perfil\?\.email/);
+});
+
+test('un fallo pasajero no encierra: «no pude leer» no abre otra conversación, y todo se reintenta sin recargar', () => {
+  const chat = sinComentarios(leer('app/onboarding/ChatArranque.tsx'));
+  assert.match(chat, /abrirEnFunnel: vista\.modo === 'oferta' && vista\.etapa === 'oferta' && !vista\.tieneSesion && !vista\.sesionCaida/,
+    'una lectura caída vuelve a abrir una conversación nueva (rehacer la oferta)');
+  assert.match(chat, /if \(!aplicar\(r\)\) ligando\.current = null;/, 'si anotar la conversación falla, nunca se reintenta');
+  assert.match(chat, /setIntentoCierre\(/, 'el cierre que falla no tiene reintento');
+  assert.match(chat, /action: 'preparar'/, 'sin funnel principal, nada lo vuelve a intentar');
+  assert.match(chat, /: 'sin'\)/, 'sin link del plan, la tarjeta queda «armando» para siempre');
+  assert.match(chat, /<BotonIntegracion servicio="gemini"/, 'si la IA no contesta, no hay salida adentro del chat');
+  const server = sinComentarios(leer('lib/onboarding-arranque-server.ts'));
+  assert.match(server, /leerSesion\(e\.sesionId\)\.catch\(\(\) => \{ sesionCaida = true; return null; \}\)/);
+  assert.match(sinComentarios(leer('app/offer/OfferApp.tsx')), /label: 'Reintentar', onClick: \(\) => \{ setErrorSelector\(null\); void nuevaSesion\(funnelArranque, null\); \}/);
 });
 
 // ── La pantalla: el chat del arranque sobre el motor de Offer ───────────────
@@ -248,7 +306,8 @@ test('el login de Google llena el nombre SÓLO si está vacío: el que eligió l
   const src = sinComentarios(leer('lib/usuarios.ts'));
   const reg = bloque(src, 'export async function registrarLogin', 'export async function contarUsuarios');
   assert.doesNotMatch(reg, /patch\.nombre\s*=/, 'el nombre volvió al update de todos los logins');
-  assert.match(reg, /\.update\(\{ nombre \}\)[\s\S]*\.or\('nombre\.is\.null,nombre\.eq\.'\)/);
+  // Vacío, null, o PROVISORIO (un email: las altas sin nombre lo guardan así y el primer login lo cambiaba).
+  assert.match(reg, /\.update\(\{ nombre \}\)[\s\S]*\.or\('nombre\.is\.null,nombre\.eq\.,nombre\.ilike\.\*@\*'\)/);
 });
 
 test('el chat no desaparece nunca: armar es un mensaje del hilo y la oferta se ve en una ventana encima', () => {

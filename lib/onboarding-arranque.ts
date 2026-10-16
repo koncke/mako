@@ -217,8 +217,8 @@ export function mensajesDeArranque(e: EstadoArranque, h: HechosArranque): { ante
     if (respuesta !== undefined) lista.push({ id: `arr-${id}-r`, de: 'yo', texto: respuesta });
   };
 
-  // 1. Quién es.
-  const sugNombre = primerNombre(h.nombreCuenta);
+  // 1. Quién es. Un nombre que es un email (las altas sin nombre guardan el email) no se ofrece.
+  const sugNombre = h.nombreCuenta.includes('@') ? '' : primerNombre(h.nombreCuenta);
   preguntar(antes, 'nombre', '¡Hola! Soy MaKo. En unos minutos dejamos tu negocio listo para trabajar juntos. ¿Cómo te llamo?', e.nombre, sugNombre ? [sugNombre] : undefined);
   if (etapa === 'nombre') return { antes, despues };
   preguntar(antes, 'negocio', `Un gusto, ${nombre}. ¿Cómo se llama tu negocio?`, e.negocio,
@@ -293,10 +293,16 @@ function cierre(e: EstadoArranque, h: HechosArranque, etapa: EtapaArranque, nomb
 }
 
 // ── Las respuestas ──────────────────────────────────────────────────────────
-export type Respuesta = { texto?: string; opcion?: number };
+/**
+ * Una respuesta. Con una opción viaja TAMBIÉN su texto (`opcionTexto`): el índice solo se lee contra la
+ * pregunta ACTUAL del server, y una pestaña vieja que todavía muestra otra pregunta mandaría «la opción 0» de
+ * otra cosa (medido en la revisión del 16/10: un clic en «Llamada de venta» del CRM se leía como «Ahora no»
+ * del teléfono). Si el texto no coincide, la pregunta cambió y no se anota nada.
+ */
+export type Respuesta = { texto?: string; opcion?: number; opcionTexto?: string };
 export type ResultadoRespuesta =
   | { ok: true; patch: Partial<EstadoArranque>; fase?: number[] }
-  | { ok: false; error: string };
+  | { ok: false; error: string; cambio?: true };
 
 /**
  * Cómo se lee una respuesta en la etapa actual: el `patch` que se guarda y, al completar el diagnóstico del
@@ -308,6 +314,9 @@ export function leerRespuesta(e: EstadoArranque, h: HechosArranque, r: Respuesta
   const { antes, despues } = mensajesDeArranque(e, h);
   const ultimo = [...antes, ...despues].filter((m) => m.de === 'mako').pop();
   const opcion = Number.isInteger(r.opcion) && ultimo?.opciones ? ultimo.opciones[r.opcion as number] : undefined;
+  if (r.opcion !== undefined && r.opcionTexto !== undefined && opcion !== r.opcionTexto) {
+    return { ok: false, error: 'La pregunta cambió.', cambio: true };
+  }
   const texto = limpiarRespuesta(opcion ?? r.texto ?? '');
 
   if (etapa === 'nombre' || etapa === 'negocio' || etapa === 'objetivo' || etapa === 'que_hace') {
@@ -367,12 +376,14 @@ export function cierreDePasos(
 }
 
 // ── El perfil del negocio que queda escrito ─────────────────────────────────
-/** Un precio escrito como texto («USD 1.500», «$5,000 por mes») a número, o null si no se puede leer sin adivinar. */
-export function precioDesdeTexto(t: string | undefined): number | null {
-  const m = (t || '').replace(/\s/g, '').match(/(\d{1,3}(?:[.,]\d{3})+|\d+)(?:[.,](\d{1,2}))?/);
-  if (!m) return null;
-  const entero = Number(m[1].replace(/[.,]/g, ''));
-  return Number.isFinite(entero) && entero > 0 ? entero : null;
+/**
+ * Un texto que lleva la marca «[completar]» (la pone `filtrarCifras` donde una cifra que el dueño no dio
+ * no se puede afirmar) NO se escribe en el brief ni en el catálogo: los prompts lo leerían como un dato. Es
+ * la misma regla de `ofertaDesdePropuesta`. Vacío = no se escribe.
+ */
+export function sinMarca(v: string | null | undefined): string {
+  const t = (v ?? '').trim();
+  return /\[completar\]/i.test(t) ? '' : t;
 }
 
 /**
@@ -380,6 +391,11 @@ export function precioDesdeTexto(t: string | undefined): number | null {
  * generadores (Ads Writer, contenido, video) y el Perro Guardián: si el chat no lo escribe, escriben sin
  * conocer el negocio. Se FUNDE con lo que ya hay (`fundirBrief`): nunca pisa una respuesta que el negocio
  * ya tenía (la del Archivero o una edición en Second Brain).
+ *
+ * ⚠️ EL PRECIO NO VA: `oferta_ticket` es «Precio / ticket (USD)» y lo que dijo el dueño es texto libre
+ * («$3k», «3 pagos de 997», «800 MXN/mes»). Pasarlo a número inventa un precio en dólares (medido en la
+ * revisión del 16/10: «$3k» daba 3, «800 MXN/mes» daba 800 USD), y lib/ofertas.ts ya lo prohíbe: «EL PRECIO
+ * DEL BRIEF NO SE PARSEA A NÚMERO». El precio queda en la oferta, como texto.
  */
 export function briefDesdeArranque(input: {
   estado: EstadoArranque;
@@ -388,15 +404,13 @@ export function briefDesdeArranque(input: {
   /** El texto de la opción que eligió en «¿Cuál es tu MAYOR cuello de botella hoy?». */
   cuello?: string | null;
 }): Record<string, string> {
-  const v = (k: keyof PiezasSabidas) => input.piezas?.[k]?.valor?.trim() || '';
+  const v = (k: keyof PiezasSabidas) => sinMarca(input.piezas?.[k]?.valor);
   const prop = input.propuesta ?? null;
-  const precio = precioDesdeTexto(v('precio'));
   const out: Record<string, string> = {
-    negocio_que_hace: input.estado.queHace || prop?.frase || v('frase') || v('resultado'),
-    negocio_objetivo: input.estado.objetivo ?? '',
-    negocio_freno: input.cuello || v('problema'),
-    oferta_nombre: prop?.nombre || '',
-    oferta_ticket: precio != null ? String(precio) : '',
+    negocio_que_hace: sinMarca(input.estado.queHace) || sinMarca(prop?.frase) || v('frase') || v('resultado'),
+    negocio_objetivo: sinMarca(input.estado.objetivo),
+    negocio_freno: sinMarca(input.cuello) || v('problema'),
+    oferta_nombre: sinMarca(prop?.nombre),
     oferta_promesa: v('resultado'),
     oferta_incluye: v('entregables'),
     oferta_garantia: v('garantia'),

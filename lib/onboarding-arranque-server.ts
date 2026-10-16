@@ -28,7 +28,7 @@ import { ANSWERS_KEY, saveAnswers } from './onboarding';
 import { mapaParaEscribir } from './archivero';
 import type { OfferSesionVista } from './offer-marco';
 import {
-  briefDesdeArranque, cierreDePasos, etapaDeArranque, fundirBrief, mensajesDeArranque, precioDesdeTexto,
+  briefDesdeArranque, cierreDePasos, etapaDeArranque, fundirBrief, mensajesDeArranque, sinMarca,
   type EstadoArranque, type EtapaArranque, type HechosArranque, type MensajeArranque, type ModoArranque,
 } from './onboarding-arranque';
 
@@ -69,6 +69,11 @@ export type HechosServer = HechosArranque & {
   telefonoVerificado: boolean;
   metaConectado: boolean;
   sesion: OfferSesionVista | null;
+  /**
+   * Hay una conversación anotada y NO se pudo leer. «No pude leer» no es «no hay»: con esto en true la
+   * pantalla no abre una conversación nueva (rehacer la oferta y dejar la vieja huérfana), avisa y relee.
+   */
+  sesionCaida: boolean;
   estadoOnboarding: OnboardingState;
 };
 
@@ -78,11 +83,12 @@ export async function hechosDelArranque(e: EstadoArranque): Promise<HechosServer
   const capa = capaDef(await getCapaActual());
   const pasosCapa = [...capa.onboarding];
   const modo: ModoArranque = pasosCapa.includes('productos') ? 'oferta' : 'plan';
+  let sesionCaida = false;
   const [perfil, w, diag, sesion, onb, verif, contacto, meta] = await Promise.all([
     getPerfil().catch(() => null),
     ws != null ? getWorkspace(ws).catch(() => null) : Promise.resolve(null),
     getDiagnosticoFase().catch(() => null),
-    e.sesionId ? leerSesion(e.sesionId).catch(() => null) : Promise.resolve(null),
+    e.sesionId ? leerSesion(e.sesionId).catch(() => { sesionCaida = true; return null; }) : Promise.resolve(null),
     getEstadoOnboarding(),
     ws != null ? getEstadoVerificacionContacto(ws).catch(() => null) : Promise.resolve(null),
     getContactoReportes().catch(() => null),
@@ -105,6 +111,7 @@ export async function hechosDelArranque(e: EstadoArranque): Promise<HechosServer
     telefonoVerificado,
     metaConectado: !!meta,
     sesion,
+    sesionCaida,
     estadoOnboarding: onb,
   };
 }
@@ -115,8 +122,12 @@ export type VistaArranque = {
   etapa: EtapaArranque;
   antes: MensajeArranque[];
   despues: MensajeArranque[];
-  /** La conversación de la oferta (modo 'oferta'), o null si todavía no arrancó. */
+  /** La conversación de la oferta (modo 'oferta'), o null si todavía no arrancó (o no se pudo leer). */
   sesion: OfferSesionVista | null;
+  /** Ya hay una conversación anotada: NUNCA se abre otra (aunque ésta no se haya podido leer). */
+  tieneSesion: boolean;
+  /** Está anotada y no se pudo leer: la pantalla avisa y relee, no crea. */
+  sesionCaida: boolean;
   /** El funnel principal, donde nace la conversación de la oferta (y su primer CRM). */
   funnelDefaultId: number | null;
   introVista: boolean;
@@ -139,6 +150,8 @@ export async function vistaArranque(): Promise<VistaArranque> {
     antes,
     despues,
     sesion: h.sesion,
+    tieneSesion: e.sesionId != null,
+    sesionCaida: h.sesionCaida,
     funnelDefaultId: h.modo === 'oferta' ? await idDelFunnelDefault().catch(() => null) : null,
     introVista: !!e.introVista,
     nombre: e.nombre ?? '',
@@ -214,7 +227,39 @@ export async function cerrarArranque(): Promise<{ estado: OnboardingState; aviso
   const propuesta = fila?.conclusiones.length ? fila.conclusiones[fila.conclusiones.length - 1].propuesta : null;
   const piezas = h.sesion?.piezas;
 
-  // 2. El brief, fundido sobre lo que ya había (la lectura es estricta: caída, no se escribe).
+  // 2. El producto y la oferta (modo 'oferta'): el catálogo que usa el CRM al ganar un lead.
+  // ⚠️ VA ANTES DEL BRIEF, y el orden es el arreglo. `guardarComoOferta` siembra primero la oferta principal
+  // DESDE EL BRIEF (`seedOfertaDesdeBrief`, que corre una sola vez y quema su guard): con `oferta_nombre` ya
+  // escrito, creaba «X» desde el brief y después la de Offer chocaba con el nombre y quedaba «X · versión 1».
+  // Cada cliente nuevo terminaba con dos ofertas iguales (revisión del 16/10). Sin el nombre en el brief
+  // todavía, la siembra no crea nada y la oferta del negocio es la de la conversación.
+  if (h.modo === 'oferta' && propuesta && e.sesionId) {
+    try {
+      const productos = await listProductos();
+      if (!productos.length) {
+        // El precio NO se pasa a número: lo que dijo el dueño es texto libre («$3k», «800 MXN/mes») y el
+        // monto del producto es el del link de cobro (CobrarConLink). Queda escrito en la descripción y el
+        // monto lo pone él en Productos.
+        const precio = sinMarca(piezas?.precio?.valor);
+        await upsertProducto({
+          nombre: sinMarca(propuesta.nombre) || `Oferta de ${e.negocio ?? 'tu negocio'}`,
+          tipo: 'unico',
+          monto_usd: null,
+          suscripcion_meses: null,
+          promesa: sinMarca(piezas?.resultado?.valor) || null,
+          incluye: sinMarca(piezas?.entregables?.valor) || null,
+          garantia: sinMarca(piezas?.garantia?.valor) || null,
+          descripcion: precio ? `Precio: ${precio}` : null,
+        });
+      }
+      await guardarComoOferta(e.sesionId);
+    } catch (err) {
+      console.error('[arranque] producto/oferta:', err instanceof Error ? err.message : err);
+      avisos.push('Tu oferta quedó en la conversación, pero no pude guardarla en tu catálogo; la guardas desde Offer.');
+    }
+  }
+
+  // 3. El brief, fundido sobre lo que ya había (la lectura es estricta: caída, no se escribe).
   const diag = await getDiagnosticoFase().catch(() => null);
   const iCuello = PREGUNTAS.findIndex((q) => q.id === 'cuello');
   const rCuello = diag?.respuestas?.[iCuello];
@@ -226,28 +271,6 @@ export async function cerrarArranque(): Promise<{ estado: OnboardingState; aviso
   } catch (err) {
     console.error('[arranque] brief:', err instanceof Error ? err.message : err);
     avisos.push('No pude guardar el perfil de tu negocio; lo completas en Second Brain.');
-  }
-
-  // 3. El producto y la oferta (modo 'oferta'): el catálogo que usa el CRM al ganar un lead.
-  if (h.modo === 'oferta' && propuesta && e.sesionId) {
-    try {
-      const productos = await listProductos();
-      if (!productos.length) {
-        await upsertProducto({
-          nombre: propuesta.nombre?.trim() || `Oferta de ${e.negocio ?? 'tu negocio'}`,
-          tipo: 'unico',
-          monto_usd: precioDesdeTexto(piezas?.precio?.valor),
-          suscripcion_meses: null,
-          promesa: piezas?.resultado?.valor ?? null,
-          incluye: piezas?.entregables?.valor ?? null,
-          garantia: piezas?.garantia?.valor ?? null,
-        });
-      }
-      await guardarComoOferta(e.sesionId);
-    } catch (err) {
-      console.error('[arranque] producto/oferta:', err instanceof Error ? err.message : err);
-      avisos.push('Tu oferta quedó en la conversación, pero no pude guardarla en tu catálogo; la guardas desde Offer.');
-    }
   }
 
   // 4. Los pasos.

@@ -2007,6 +2007,33 @@ onboarding). Las reglas son puras: `lib/onboarding-arranque.ts`.
   crea se ve en tarjetas (el CRM con sus etapas, los caminos del final) y cada link lo elige la persona,
   con el `Link` de la casa (lleva el `?ws=`).
 
+**Lo que encontró la revisión (nueve bugs confirmados, todos con test probado rompiéndolo).** Los que
+vuelven a morder a quien toque esto:
+- **El orden del cierre es el arreglo.** `guardarComoOferta` siembra primero la oferta principal DESDE EL
+  BRIEF (`seedOfertaDesdeBrief`, una sola vez, quema su guard). Con el brief escrito antes, nacía «X» desde
+  el brief y la de Offer chocaba con el nombre y quedaba «X · versión 1»: cada cliente nuevo con DOS ofertas
+  iguales, sin un error. El producto y la oferta van antes; el brief, después.
+- **El precio que dice el dueño es texto, no un número.** Pasar «$3k» u «800 MXN/mes» a `monto_usd`
+  inventaba un monto que el link de cobro usaba tal cual. Va a la descripción («Precio: …») y el monto lo
+  pone él en Productos.
+- **Las piezas de Offer traen «[completar]» adentro.** Sin filtrar (`sinMarca`), el brief salía con la
+  marca y los generadores escribían «[completar]» en los anuncios.
+- **Una pestaña vieja contestaba la pregunta de HOY.** Las opciones viajan por índice: la opción 2 de «¿qué
+  CRM?» era la 2 de otra pregunta. La opción lleva su texto (`opcionTexto`) y si no coincide la ruta
+  devuelve 409 con la conversación vigente, sin anotar nada.
+- **«No pude leer» no es «no hay».** Si la lectura de la conversación de la oferta fallaba, la pantalla la
+  daba por inexistente y abría OTRA en el funnel principal. La vista distingue `tieneSesion` de
+  `sesionCaida`, y ligar, preparar el funnel, cerrar y armar el plan se reintentan sin recargar (el plan
+  tiene un estado `'sin'`: antes quedaba «armando» para siempre).
+- **El que mira no es el negocio.** El email de los reportes salía del usuario logueado: el super admin o
+  una agencia que hacían el arranque mirando al cliente se quedaban con sus reportes. Sale del contacto
+  guardado o del perfil del negocio.
+- **El nombre provisorio es un email.** Las altas de customer-success y de la agencia guardan el correo
+  como nombre cuando no hay uno; el login de Google sólo llenaba el VACÍO y ese ya no lo estaba. Llena también el que contiene `@` — y el chat no
+  ofrece un email como «¿te llamo así?».
+- **Un error de IA en el chat no puede encerrar.** Sin key propia y con la red caída, el chat quedaba sin
+  salida: el error trae «Conectar mi propia IA» (el modal de integraciones, sin salir de la tab).
+
 **La interpretación que tomé** (para que Martín la corrija si no era): «una animación de los mismos 3
 pasos» = los tres tiempos de la bienvenida de antes (el centro → las cinco piezas → las áreas), solos y
 con MaKo como el centro del grafo; al terminar MaKo vuela a su lugar de foto del chat.
@@ -2025,6 +2052,7 @@ con MaKo como el centro del grafo; al terminar MaKo vuela a su lugar de foto del
 `app/onboarding/arranque-ui.ts` · `lib/onboarding-arranque.ts` (lo puro) · `lib/onboarding-arranque-server.ts`
 (los hechos, la siembra, el cierre) · `app/api/onboarding/arranque/route.ts` · `lib/onboarding-state.ts`
 (`cerrarPasosOnboarding`) · `lib/onboarding-guard.ts` · `lib/usuarios.ts` (`registrarLogin`) ·
-`tests/onboarding-arranque.test.ts` (18 tests, 18 roturas cazadas con los de postergar y sin-api)
+`tests/onboarding-arranque.test.ts` (22 tests; 10 roturas en la primera vuelta y 9 tras la revisión,
+cazadas con los de postergar y sin-api)
 
 *16/10/2026, cuenta claude3.*

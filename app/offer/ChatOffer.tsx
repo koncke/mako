@@ -145,7 +145,7 @@ export type AudioEnEspera = { url: string; secs: number };
 export function ChatOffer({
   sesion, pendiente, respondiendo, fuente, opcionArmar, opcionActualizar, opcionesHabilitadas, onOpcion, onReintentar,
   texto, onTexto, onEnviar, ocupado, vista, onArchivos, onAudio, audioEnEspera, onReenviarAudio, onDescartarAudio,
-  error, onError, armando = null, onVerOferta = null, avatar, extra, soloTexto = false, placeholder,
+  error, onError, armando = null, onVerOferta = null, avatar, extra, soloTexto = false, placeholder, errorExtra,
 }: {
   sesion: OfferSesionVista;
   /** El mensaje del dueño ya dibujado mientras MaKo contesta (optimista). */
@@ -191,6 +191,8 @@ export function ChatOffer({
   /** Sin clip ni micrófono: el arranque pregunta cosas cortas (el nombre, un código) fuera de la oferta. */
   soloTexto?: boolean;
   placeholder?: string;
+  /** Lo que va debajo del error (en el arranque, conectar una IA propia si la de MaKo no contesta). */
+  errorExtra?: ReactNode;
 }) {
   const ws = useWs();
   const montado = useSyncExternalStore(sinSuscripcion, () => true, () => false);
@@ -381,7 +383,7 @@ export function ChatOffer({
           />
         </div>
       </div>
-      {error && <div role="alert" className="of-error">{error}</div>}
+      {error && <div role="alert" className="of-error">{error}{errorExtra ? <> {errorExtra}</> : null}</div>}
       {/* La barra va POR CONVERSACIÓN (`key`): una grabación a medias no viaja a otra (la sesión de voz
           guarda el `onAudio` del render en que se apretó el 🎤: ComposerWhatsApp, cabecera). */}
       <ComposerWhatsApp

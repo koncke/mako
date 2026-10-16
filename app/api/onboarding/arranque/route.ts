@@ -15,9 +15,8 @@
 
 import { NextResponse, type NextRequest } from 'next/server';
 import { wsDelOnboarding } from '@/lib/onboarding-guard';
-import { getUsuarioActual } from '@/lib/auth';
 import { getSettingEstricto } from '@/lib/settings';
-import { setContactoReportes } from '@/lib/perfil';
+import { getContactoReportes, getPerfil, setContactoReportes } from '@/lib/perfil';
 import { setDiagnosticoFase } from '@/lib/fase-store';
 import { enviarCodigoVerificacion, verificarCodigoContacto } from '@/lib/mako-grupo';
 import { leerSesion } from '@/lib/offer-sesiones';
@@ -70,6 +69,7 @@ export async function POST(req: NextRequest) {
         const etapa = etapaDeArranque(e, h);
         const texto = typeof body.texto === 'string' ? body.texto : undefined;
         const opcion = typeof body.opcion === 'number' ? body.opcion : undefined;
+        const opcionTexto = typeof body.opcionTexto === 'string' ? body.opcionTexto : undefined;
 
         // El código del WhatsApp: se verifica contra lo que MaKo mandó (lib/mako-grupo.ts).
         if (etapa === 'codigo' && texto && /^\D*\d{6}\D*$/.test(texto)) {
@@ -79,7 +79,9 @@ export async function POST(req: NextRequest) {
           return listo();
         }
 
-        const lectura = leerRespuesta(e, h, { texto, opcion });
+        const lectura = leerRespuesta(e, h, { texto, opcion, opcionTexto });
+        // La pregunta cambió (una pestaña vieja): no se anota nada y vuelve la conversación de HOY.
+        if (!lectura.ok && lectura.cambio) return NextResponse.json({ ok: false, error: lectura.error, vista: await vistaArranque() }, { status: 409 });
         if (!lectura.ok) return no(422, lectura.error);
         const patch = lectura.patch;
 
@@ -118,11 +120,25 @@ export async function POST(req: NextRequest) {
         const crudo = typeof body.telefono === 'string' ? body.telefono : '';
         const digitos = crudo.replace(/\D/g, '');
         if (digitos.length < 8) return no(422, 'Escribe tu número completo, con el código de país.');
-        const usuario = await getUsuarioActual().catch(() => null);
-        await setContactoReportes({ nombre: e.nombre || undefined, email: usuario?.email || undefined, telefono: digitos });
+        // El contacto de los reportes es el del NEGOCIO: lo que ya tenía guardado, o el email del admin
+        // del negocio (el perfil que se está mirando). Nunca el de quien está logueado: el super admin o
+        // una agencia que hacen el arranque mirando al cliente se quedaban con sus reportes.
+        const [previo, perfil] = await Promise.all([getContactoReportes().catch(() => null), getPerfil().catch(() => null)]);
+        await setContactoReportes({
+          nombre: previo?.nombre || e.nombre || undefined,
+          email: previo?.email || perfil?.email || undefined,
+          telefono: digitos,
+        });
         const r = await enviarCodigoVerificacion(g.ws, digitos, e.negocio || 'tu negocio');
         if (!r.ok) return no(422, r.error);
         await guardarEstadoArranque({ telefono: r.yaVerificado ? 'verificado' : 'codigo', telefonoNumero: `+${digitos}` });
+        return listo();
+      }
+
+      // Que exista el funnel principal antes de abrir la conversación de la oferta (la pantalla lo pide
+      // cuando le falta: si el intento de cuando contestó el objetivo falló, esto lo reintenta).
+      case 'preparar': {
+        await asegurarFunnelPrincipal();
         return listo();
       }
 

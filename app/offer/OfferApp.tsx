@@ -172,6 +172,8 @@ export type ArranqueOffer = {
   placeholder?: string;
   /** Una conversación vacía para dibujar los mensajes del arranque antes de que exista la de la oferta. */
   vacia: OfferSesionVista;
+  /** Lo que va debajo de un error del chat (la salida para conectar una IA propia, si la de MaKo no contesta). */
+  errorExtra?: ReactNode;
 };
 
 export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar, opcionActualizar = ACTUALIZAR_PDF, analizarAlAbrir = null, arranque = null }: {
@@ -881,7 +883,14 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
       )}
       {errorSelector && (
         <div style={{ flex: 'none', marginBottom: 12 }}>
-          <Banner tono="bad" onCerrar={() => setErrorSelector(null)}>{errorSelector}</Banner>
+          {/* En el arranque no hay selector para volver a pedirla: si abrir la conversación falló, el
+              reintento va acá (sin él, el composer quedaba muerto sin decir nada). */}
+          <Banner tono="bad" onCerrar={() => setErrorSelector(null)}
+            accion={arranque && funnelArranque != null && !sesion
+              ? { label: 'Reintentar', onClick: () => { setErrorSelector(null); void nuevaSesion(funnelArranque, null); } }
+              : undefined}>
+            {errorSelector}
+          </Banner>
         </div>
       )}
 
@@ -940,6 +949,7 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
               extra={arranque?.extra}
               soloTexto={!!arranque?.manda}
               placeholder={arranque?.placeholder}
+              errorExtra={arranque?.errorExtra}
             />
           </div>
           {conRiel && sesion && <RielPiezas piezas={sesion.piezas} acciones={acciones} />}

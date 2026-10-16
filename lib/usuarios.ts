@@ -195,8 +195,10 @@ export async function registrarLogin(
   if (error) console.error(`[usuarios] registrarLogin(${email}): ${error.message}`);
   const nombre = datos.nombre?.trim();
   if (nombre) {
-    // El filtro va EN el update (vacío o null), no en una lectura previa: así no hay ventana entre leer y escribir.
-    const r = await db.from('usuarios').update({ nombre }).eq('email', correo).neq('estado', 'suspendido').or('nombre.is.null,nombre.eq.');
+    // El filtro va EN el update, no en una lectura previa: así no hay ventana entre leer y escribir. Llena el
+    // vacío y también el PROVISORIO: las altas de customer-success y de la agencia guardan el email como
+    // nombre cuando no hay uno, y antes el primer login lo cambiaba por el real (revisión del 16/10).
+    const r = await db.from('usuarios').update({ nombre }).eq('email', correo).neq('estado', 'suspendido').or('nombre.is.null,nombre.eq.,nombre.ilike.*@*');
     if (r.error) console.error(`[usuarios] registrarLogin(${email}) nombre: ${r.error.message}`);
   }
 }
