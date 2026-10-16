@@ -135,3 +135,7 @@ docs/relevo/onboarding.md; borrar las dos filas copiadas del ws1 espera el «sí
 (pedidos sueltos en su chat: regresiones anotadas en hallazgos-chatbot; campanita y «sin grupo»), Web Generator
 (producto en texto libre), CRM (ficha v2: Resumen → Reuniones/Tracking → tarjeta → CS), Video Editor (Image Editor
 tandas 2-3; la tanda 5 del editor de video POSPUESTA por Martín). Todos esos chats están en 92-95% semanal.
+- **Centro cerró con la punta `01a3d49e5` (centro-chat: tanda 4 del Second Brain + servidor de las tandas 7-10), SIN sumar.**
+  Trae `supabase/migrations/0303_chart_chats_bloques.sql`, que CHOCA con la 0303 del Image Editor (`c7e0779aa`). Al
+  sumarla: renombrar la de Centro a **0305** (y sus menciones), aplicarla con `node scripts/apply-migration.mjs`
+  (sólo agrega; el código la tolera ausente). Lo que sigue del Second Brain está en docs/relevo/centro-operaciones.md.
