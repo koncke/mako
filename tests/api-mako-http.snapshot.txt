@@ -300,6 +300,7 @@ listar_productos
 listar_propuestas_revisar
 listar_proyectos_plan
 listar_proyectos_vacios
+listar_proyectos_video
 listar_publicaciones_mako_meta
 listar_publicos_meta
 listar_recomendaciones_meta
@@ -497,6 +498,7 @@ ver_prioridades_plan
 ver_propuesta_accion
 ver_proximas_recurrentes
 ver_proyecto_plan
+ver_proyecto_video
 ver_publico_conjunto_meta
 ver_puente_flow
 ver_rechazos_pago_landing

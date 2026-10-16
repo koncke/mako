@@ -991,7 +991,8 @@ que no sabe hacer va en `NO_SE_PUEDE_CHAT` para que lo DIGA en vez de simularlo.
     principal lo avisa).
   - Una versión de respaldo como la del Landing («Antes de un cambio de IA»): el editor no tiene historial
     de versiones, y la vuelta es «Restaurar» o Ctrl+Z.
-  - La API de MaKo, que espera la decisión de dónde vive el proyecto.
+  - La API de MaKo, que esperaba la decisión de dónde vive el proyecto: decidida el 16/10 (abajo, «La copia de
+    lectura del proyecto»).
 
 ## Edición por transcripción y «Eliminar las muletillas»: borrar texto corta el video
 
@@ -1288,6 +1289,31 @@ pedido. Sin la tabla, el editor sigue como antes: el hilo vive en la pestaña.
   (400 k) nunca se toca, y la rotura que lo sacaba sobrevivía. Hacen falta las listas de cambios llenas.
 - **SIN HACER:** mirarlo en el navegador (recargar con una propuesta pendiente y aceptarla; dos pestañas); el hilo en
   la API de MaKo y en el índice de chats, que es la etapa 2 del diseño (la lista de chats).
+
+## La copia de lectura del proyecto, para la API (16/10, etapa 3, tanda 2)
+
+**Vive en:** `lib/editor-video/espejo.ts` (puro) · `lib/editor-video/espejo-server.ts` · `app/api/video-editor/proyectos/route.ts` ·
+`app/video-editor/_opencut/chat/espejo.ts` y `espejo-borrar.ts` · mig 0299 (`video_editor_proyectos`) · las lecturas
+`listar_proyectos_video` y `ver_proyecto_video` · test `tests/video-editor-espejo.test.ts` (23 roturas).
+
+**La decisión que esperaba** («La API de MaKo y el chat al costado», arriba): el proyecto SIGUE viviendo en el
+navegador, y el server recibe una COPIA DE LECTURA, la misma vista que lee el chat (`vistaDeLinea`: pistas, refs
+cortas, medios y nombres disponibles, ≤60 k), no las pistas del motor. La sube el editor un rato después de cada
+cambio. Nada escribe la línea de tiempo desde el server: lo que proponga la API lo acepta una persona en el editor
+(tanda 3).
+- ⚠️ **Las refs se ACUMULAN y no se reusan nunca** (`unirRefs`, y la copia se pasa como `refsPrevias`): si no, un texto
+  nuevo heredaba la «t1» de uno borrado y una propuesta vieja a «t1» caía sobre otro texto. **Y el test tiene que mirar
+  la VISTA, no la unión:** la unión rechaza la «t1» repetida y tapaba que la vista, que es lo que lee el modelo, se la
+  daba al nuevo (la rotura de `usadas` en `linea.ts` sobrevivía).
+- ⚠️ **El link de un proyecto sólo lo abre el navegador donde vive.** En otro, `EditorProvider` no lo encuentra, crea un
+  proyecto NUEVO y reemplaza la URL. Las lecturas de la API lo dicen, y la tanda 3 tiene que decirlo en cada propuesta.
+- **Borrar un proyecto saca la copia desde `ProjectManager.deleteProjects`**: son cuatro las pantallas que borran (el
+  inicio, el menú del editor, y lo que limpian «Editar en el editor» y «Utilizar plantilla» cuando fallan). El módulo
+  que llama (`espejo-borrar.ts`) no importa nada, así el núcleo del motor no carga el chat.
+- **Cada guardado del motor avisa por `project.subscribe`**, y eso vuelve a armar la vista: no hay un pedido de más
+  porque no se sube lo que ya se subió (compara el cuerpo entero).
+- **SIN HACER:** mirarlo en el navegador (un proyecto viejo sube al abrirse; borrar lo saca de la lista); lo que la copia
+  no tiene: el cabezal y la selección (son de quien mira) y los proyectos que no se abrieron desde el 16/10.
 
 ## Lo que quedó SIN hacer
 
