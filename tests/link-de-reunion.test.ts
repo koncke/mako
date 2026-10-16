@@ -144,7 +144,10 @@ test('Cal.com: sólo https, y nada que no sea un objeto', () => {
 const CALCOM = sinComentarios(leer('app/api/webhooks/calcom/route.ts'));
 
 test('CABLEADO: Cal.com guarda el link de la R1 y de la R2, del payload y con su extractor', () => {
-  const r2 = entre(CALCOM, "if (tipo === 'j2') {", 'return Response.json({ ok: true, trigger: body.triggerEvent, tipo: \'j2\', action: \'set_j2\'');
+  // La rama de la R2 abre con `!decision.puedeCrearLead` desde el 16/10/2026 (antes `tipo === 'j2'`): la R la decide
+  // `decidirReserva`, que con un evento VINCULADO a una etapa la saca de la etapa y no de J1/J2
+  // (lib/agenda-evento-etapa.ts). Misma rama, misma exigencia: sólo cambió la marca donde empieza.
+  const r2 = entre(CALCOM, 'if (!decision.puedeCrearLead) {', 'return Response.json({ ok: true, trigger: body.triggerEvent, tipo: \'j2\', action: \'set_j2\'');
   // Entre las dos va `saveLeadRespuestas` (lo que completó en el formulario de la R2).
   assert.match(r2, /await setFechaJunta2\(lead\.id, fechaReunion, reserva\.inicio(, 'Cal\.com')?\);[\s\S]*?await guardarLinkDeReunion\(lead\.id, 'R2', linkDeReunionCalcom\(body\.payload\)\);/);
   const r1 = entre(CALCOM, 'const { lead, created } = await upsertLeadFromCalendly({', "await emitirDelCatalogo('reunion-nuevo-agendado'");

@@ -101,6 +101,11 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['POST', '/crm/embudos', 'crear_crm'],
   ['PUT', '/crm/entradas', 'declarar_entradas_funnel'],
   ['GET', '/crm/estadisticas/leads', 'contar_leads_por_etapa'],
+  // El evento de agenda vinculado a una etapa de reunión (16/10/2026). El evento va en el CUERPO (o en la query del
+  // DELETE), no en la ruta: en Calendly es una URI con barras. PUT porque FIJA a qué etapa va el evento.
+  ['GET', '/crm/eventos-agenda', 'listar_eventos_agenda'],
+  ['PUT', '/crm/eventos-agenda/vinculo', 'vincular_evento_etapa'],
+  ['DELETE', '/crm/eventos-agenda/vinculo', 'desvincular_evento_etapa'],
   ['GET', '/crm/etapas', 'ver_funnel'],
   ['GET', '/crm/etapas/{etapa}/transiciones', 'transiciones_desde_etapa'],
   ['GET', '/crm/etiquetas', 'listar_etiquetas'],

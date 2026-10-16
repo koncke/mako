@@ -47,7 +47,10 @@
  * vez de confiar en un orden: un orden a mano es una lista más que se queda vieja.
  */
 export const TABLAS_DE_INQUILINO = [
-  'ad_transcripts', 'adset_budget_daily', 'agente_consentimiento', 'agente_sesiones',
+  'ad_transcripts', 'adset_budget_daily',
+  // Los eventos de Calendly o Cal.com vinculados a una etapa de reunión (mig 0293, 16/10/2026).
+  'agenda_evento_etapa',
+  'agente_consentimiento', 'agente_sesiones',
   'anthropic_usage', 'api_llamadas', 'app_settings', 'archivero_files',
   'avisos_cola', 'branding_assets', 'calendario_eventos', 'chart_chats', 'chart_sessions',
   'chat_agent_handoffs', 'chat_estado', 'chat_eventos', 'chat_leidos', 'cliente_entrega', 'cliente_entrega_fuera', 'cliente_entrega_orden', 'closing_analyses', 'closing_jobs', 'cobros',

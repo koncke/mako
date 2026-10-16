@@ -398,7 +398,17 @@ export async function eliminarCredencial(ws: number, clave: string): Promise<voi
     hidratadas.delete(clave);
   }
   // Al quitar la credencial de routing de un ws, se van sus mapeos del servicio.
-  if (ROUTING_CREDS[clave]) await borrarRoutingDeWs(ROUTING_CREDS[clave], ws);
+  if (ROUTING_CREDS[clave]) {
+    await borrarRoutingDeWs(ROUTING_CREDS[clave], ws);
+    // ⚠️ Y EN LA AGENDA SE VUELVE A RECLAMAR LO QUE SE SIGUE USANDO (16/10/2026). Calendly y Cal.com tienen DOS
+    // credenciales en el mismo servicio (la R1 y la R2) y, desde la mig 0293, los eventos vinculados a una etapa:
+    // `borrarRoutingDeWs` se lleva todas, así que quitar la R2 dejaba la R1 y los vinculados «sin_ruteo», y sus
+    // reservas se perdían con un 200. Import dinámico: ese módulo importa éste. Nunca tira.
+    if (ROUTING_CREDS[clave] === 'calendly' || ROUTING_CREDS[clave] === 'calcom') {
+      const { reclamarRuteoDeAgenda } = await import('./agenda-evento-etapa-server');
+      await reclamarRuteoDeAgenda(ROUTING_CREDS[clave], ws);
+    }
+  }
 }
 
 /** Metadatos (máscara, nunca el valor) de las credenciales cargadas en un workspace. */
