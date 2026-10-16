@@ -484,10 +484,10 @@ test('el lote no cuenta dos veces al mismo lead: campaña y conjunto juntos trae
 
 test('el «⋯» de la columna de ENTRADA ofrece las campañas, y sólo esa columna', () => {
   const b = sinComentarios(leer('app/crm/CrmBoard.tsx'));
-  // Desde la sexta tanda (general 10) el renglón trae su `icono` del set: se admite, sin pedirlo.
+  // Desde el 16/10/2026 dice «Asignar campañas» con el logo de Meta (Martín), como la sección del pop-up de etapas.
   // Probado (09/10/2026, parte «barrido»): base 35/0 con el ícono; sacando la condición de la entrada
   // (el renglón en todas las columnas) → 34/1.
-  assert.match(b, /\.\.\.\(c\.kind === 'entrada' \? \[\{ value: 'campanas', label: 'Campañas de Meta'(?:, icono: '[a-z-]+'(?: as const)?)? \}\] : \[\]\)/);
+  assert.match(b, /\.\.\.\(c\.kind === 'entrada' \? \[\{ value: 'campanas', label: 'Asignar campañas', icono: <LogoMeta size=\{\d+\} \/> \}\] : \[\]\)/);
   assert.match(b, /if \(v === 'campanas'\) \{ setCampanasAbierto\(true\); return; \}/);
   assert.match(b, /funnelActivo == null \|\| funnels\.find\(\(f\) => f\.id === funnelActivo\)\?\.esDefault \? null : funnelActivo/,
     'el principal va como null');

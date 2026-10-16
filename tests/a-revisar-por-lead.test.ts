@@ -126,9 +126,11 @@ test('revisar: azul, con la flecha del set', () => {
   assert.doesNotMatch(gate, /nombre="editar"/, 'volvió el lápiz');
 });
 
-test('ignorar: una ✕ que ignora TODOS los ignorables del lead, con una sola acción', () => {
+test('ignorar: un basurero rojo que ignora TODOS los ignorables del lead, con una sola acción', () => {
   const filas = filasDelPanel();
-  assert.match(filas, /onClick=\{\(\) => ignorarLead\(p, true\)\}[\s\S]{0,200}<IconoMenu nombre="cerrar"/);
+  // Era una ✕ hasta el 16/10/2026 («El icono de "X" debería ser un basurero color rojo», Martín).
+  assert.match(filas, /style=\{ignorarBtn\} onClick=\{\(\) => ignorarLead\(p, true\)\}[\s\S]{0,200}<IconoMenu nombre="borrar"/);
+  assert.match(gate, /const ignorarBtn: CSSProperties = \{ \.\.\.iconoBtn, color: 'var\(--bad\)'/);
   assert.match(gate, /const ids = si \? ignorablesDe\(l\) : l\.pasos\.map\(\(p\) => p\.id\);/);
   assert.match(gate, /void ignorarDatosDelLeadAction\(l\.lead_id, ids, si\)/);
   assert.doesNotMatch(gate, /ignorarDatoAction/, 'la fila es del lead: no ignora dato por dato');

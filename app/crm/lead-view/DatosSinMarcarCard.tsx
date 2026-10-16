@@ -62,17 +62,21 @@ function conIgnoradoLocal(d: EstadoDatos, id: StepId, ignorar: boolean): EstadoD
 // ⚠️ SIN ENGRANAJE (14/10/2026): «de qué datos te avisa MaKo» se elige en la ficha misma, en «Personalizar»
 // (lead-view/ficha/PanelFicha.tsx), y por FUNNEL. El modal del negocio que abría el engranaje se fue de acá:
 // Martín, «Todas las personalizables, no los hagas con un modal diferente».
-export function DatosSinMarcarCard({ leadId, datos, onSolucionar, onCambio }: {
+export function DatosSinMarcarCard({ leadId, datos, onSolucionar, onCambio, abrirAlMontar = false }: {
   leadId: number;
   datos: EstadoDatos;
   /** Llevar al dato: la ficha cambia de tab y lo señala. */
   onSolucionar: (id: StepId) => void;
   /** Después de ignorar: la ficha relee (el número del tablero y «A revisar» cambian). */
   onCambio?: () => void;
+  /** Montar con el desplegable abierto: la ficha la abrió «Revisar» de «A revisar» (16/10/2026). */
+  abrirAlMontar?: boolean;
 }) {
   const [local, setLocal] = useState(datos);
   useEffect(() => { setLocal(datos); }, [datos]);
   const [abierto, setAbierto] = useState(false);
+  // En un efecto y no en el useState: el desplegable se cuelga de `anclaRef`, que recién existe después de pintar.
+  useEffect(() => { if (abrirAlMontar) setAbierto(true); }, [abrirAlMontar]);
   const [verMas, setVerMas] = useState(false);
   const anclaRef = useRef<HTMLDivElement>(null);
   const { toast, show, clear } = useToast();

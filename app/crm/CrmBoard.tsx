@@ -95,6 +95,7 @@ import { SenalesMetaChips } from './MoverEtapaConfirm';
 import { coincideBusqueda } from '@/lib/buscar-texto';
 import type { FunnelResumen } from '@/lib/funnel-fila';
 import { Dropdown, type DropdownOption } from '../components/Dropdown';
+import { LogoMeta } from '@/app/_components/ServicioVisual';
 import { openCalendlyEn } from './calendly-widget';
 import {
   AccionesHeader,
@@ -2655,7 +2656,9 @@ export function CrmBoard({
                   // para asignar una campaña» (Martín, 05/10/2026). Sólo en la ENTRADA: es la
                   // etapa por la que entra un lead de Meta, y es el mismo lugar donde vive la
                   // sección en el pop-up del embudo.
-                  ...(c.kind === 'entrada' ? [{ value: 'campanas', label: 'Campañas de Meta', icono: 'anuncio' as const }] : []),
+                  // «La primera opción debería decir "Asignar campañas" y con el logo de Meta» (Martín, 16/10/2026): el
+                  // mismo rótulo y logo que la sección del pop-up de etapas (EtapasModal → CabeceraSeccion).
+                  ...(c.kind === 'entrada' ? [{ value: 'campanas', label: 'Asignar campañas', icono: <LogoMeta size={17} /> }] : []),
                   // «Automatizar la invitación al curso cuando un lead cae a Ganado... Pero que sea
                   // opcional» (Martín, 07/10/2026). En Ganado, que es donde se ve a quién le llega, y
                   // sólo si el producto tiene clases (sin curso no hay a qué invitar).

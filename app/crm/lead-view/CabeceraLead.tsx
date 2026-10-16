@@ -54,7 +54,7 @@ const caraDe = (l: LeadConCara): CaraLead => ({
   portada: l.portada ?? null, portadaY: l.portada_y ?? null, icono: l.icono ?? null, avatarY: l.avatar_y ?? null,
 });
 
-export function CabeceraLead({ lead, fotoEmail, kicker, junto, acciones, onCerrar, marco = false, alto = 92, tam = 64 }: {
+export function CabeceraLead({ lead, fotoEmail, kicker, junto, acciones, onCerrar, marco = false, alto = 92, tam = 88 }: {
   lead: LeadConCara;
   /** La foto del email (Gravatar, `d=404`), armada en el server. */
   fotoEmail: string | null;
@@ -65,6 +65,8 @@ export function CabeceraLead({ lead, fotoEmail, kicker, junto, acciones, onCerra
    * hay arriba de las tabs... poniendo la opción de etiquetas al lado del título»). Antes iban en
    * un renglón propio arriba del nombre (punto 9 del 12/10), y ese renglón y la banda de la portada
    * eran lo que empujaba las pestañas hacia abajo. La banda bajó de 116 a 92 y la cara de 72 a 64.
+   * El 16/10/2026 la cara volvió a crecer, a 88 como la ficha de un cliente: «Está mejor en clientes que el nombre se
+   * pone cerca de la foto, y la foto es más grande» (Martín). La banda sigue en 92.
    */
   junto?: ReactNode;
   /** A la derecha: el desplegable del funnel y, debajo, «N sin marcar · Solucionar». */
@@ -171,7 +173,9 @@ export function CabeceraLead({ lead, fotoEmail, kicker, junto, acciones, onCerra
           {junto != null && <span className="cl-junto">{junto}</span>}
           </span>
         }
-        bajada={<span>{lead.empresa?.trim() || 'Sin empresa'} · Lead #{lead.id} · creado {fmtDDMMYYYY(lead.created_at)}</span>}
+        // «Elimina "Sin empresa ·" del subtítulo: que sólo quede el ID y la fecha de creación» (Martín, 16/10/2026). La
+        // empresa, si la hay, sigue: es un dato; lo que sobraba era el hueco dicho en voz alta.
+        bajada={<span>{lead.empresa?.trim() ? `${lead.empresa.trim()} · ` : ''}Lead #{lead.id} · creado {fmtDDMMYYYY(lead.created_at)}</span>}
         acciones={acciones ? <div className="cl-acc">{acciones}</div> : undefined}
       />
 
@@ -221,6 +225,10 @@ const CSS = `
 /* El nombre y, en su renglon, las etiquetas. Si no entran, las etiquetas bajan debajo del
    nombre (envuelven): nunca lo aplastan a cero. */
 .cl-tit{ display:flex; align-items:center; flex-wrap:wrap; gap:6px 12px; min-width:0; }
+/* El nombre ARRIBA de su fila, al lado de la mitad de abajo de la foto, como en la ficha de un cliente (16/10/2026).
+   Abajo de todo (lo que hace la fila, que alinea por la base) quedaba debajo de la foto cuando a la derecha van el
+   funnel y los datos sin marcar, y se leía separado de la cara. */
+.cl-cab .cd-txt{ align-self:flex-start; }
 .cl-junto{ display:inline-flex; align-items:center; flex:none; }
 /* A la derecha: el funnel arriba y el aviso de datos sin marcar debajo (punto 9: «que ese
    desplegable este arriba de donde hoy esta 1 sin marcar»). Pegado a la derecha aunque el nombre

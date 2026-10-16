@@ -33,6 +33,7 @@ export function LeadEditModal({
   seed,
   focus,
   solucionar,
+  verDatos,
   onClose,
 }: {
   leadId: number;
@@ -41,6 +42,8 @@ export function LeadEditModal({
   focus?: string;
   /** Abrir YA llevando a ese dato sin marcar (lo pide «A revisar»). */
   solucionar?: StepId;
+  /** Abrir con el «Ver» de los datos sin marcar ya desplegado (lo pide «A revisar» desde el 16/10/2026). */
+  verDatos?: boolean;
   onClose: () => void;
 }) {
   const router = useRouter();
@@ -105,5 +108,5 @@ export function LeadEditModal({
   // focus viejo de los desgloses → tab del preview.
   const initialTab = focus === 'plan-pagos' ? 'cobranza' : 'resumen';
 
-  return <LeadSheet data={data} onClose={close} initialTab={initialTab} solucionarAlAbrir={solucionar} />;
+  return <LeadSheet data={data} onClose={close} initialTab={initialTab} solucionarAlAbrir={solucionar} verDatosAlAbrir={verDatos} />;
 }
