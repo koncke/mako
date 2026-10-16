@@ -4114,6 +4114,8 @@ Para la decisión A de Martín (el cliente usa su Claude/ChatGPT para lo convers
 
 **Vive en:** docs/mapa-ia-24h.md (con su lista de lo que quedó sin revisar a fondo).
 · *2026-10-16 Estrategia 3 cuentas*
+
+
 ## La clave de Anthropic del negocio: la segunda puerta del veto (16/10/2026)
 
 **Vive en:** `lib/veto-claude.ts` (`evaluarClaveDelNegocio`, `FEATURES_DEL_PLAN`) · `lib/anthropic.ts`
@@ -4236,4 +4238,5 @@ pocos dólares contra 400 por mes.
 - Sólo la cascada de texto: ni visión, ni audio, ni el doer.
 
 · *2026-10-16 chat «Onboarding» (claude3)*
+
 

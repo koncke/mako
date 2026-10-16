@@ -289,8 +289,9 @@ export async function leerGraficosParaIA(p: { hoja: Hoja; graficos: Grafico[]; v
 export type RespuestaIA = { crudo: string; modelo: string | null; errores: string[]; rechazos: string[] };
 
 /**
- * La IA, sólo gratis: primero las keys del negocio (con el pin de /modelos-ia de ESA feature) y, si ninguna
- * devuelve algo usable (o no tiene ninguna), la RED DE PLATAFORMA (lib/graficos-ia-red.ts). Martín, 11/10/2026:
+ * La IA, sin cobrar por pedido: primero las keys del negocio (con el pin de /modelos-ia de ESA feature) y, si
+ * ninguna devuelve algo usable (o no tiene ninguna), la RED DE PLATAFORMA (lib/graficos-ia-red.ts: el crédito de Claude de la
+ * plataforma y, sólo si el pedido no lleva datos de clientes, las keys gratis de la agencia). Martín, 11/10/2026:
  * «siempre tiene que probar con otros provedoores» — la única key de Gemini del ws1 la bloqueó Google y el
  * panel decía que no pudo, con la agencia teniendo con qué contestar. El mensaje para la persona lo arma quien
  * llama (`errorDeCascada` con SU trabajo), con los errores de las keys del negocio y nunca los de la red.
