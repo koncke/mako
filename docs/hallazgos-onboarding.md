@@ -1857,7 +1857,7 @@ sacarla. Ningún generador lee sus recomendaciones (`elegirAngulo` elige de la b
 
 ## «Se queda en Cargando tu onboarding…» no era un bug: era la máquina sin RAM (15/10/2026)
 
-**Vive en:** `app/onboarding/OnboardingWizard.tsx:227` (el `fetch('/api/onboarding')`) y `:304` (el «Cargando…»)
+**Vive en:** `app/onboarding/OnboardingWizard.tsx:228` (el `fetch('/api/onboarding')`) y `:305` (el «Cargando…»)
 
 El chat de Video Editor reportó que `/video-editor?ws=3` redirigía a `/onboarding?ws=3` y se quedaba en «Cargando tu
 onboarding…». El sospechoso obvio era el retiro del hub de esa mañana, y **era el equivocado**: ese commit no tocó la rama
@@ -1875,3 +1875,37 @@ hidratación lenta, no una carga trabada.
   paralelo al cargar.
 
 *15/10/2026 · chat «Onboarding» (claude3), con la medición del chat «MaKo Editor» en el Chrome de Martín.*
+
+## El arranque sin API: el paso de la IA frenaba por un motivo que ya no existía (15/10/2026)
+
+**Vive en:** `app/onboarding/OnboardingWizard.tsx` (el `puedeAvanzar` y el paso `gemini`) · `lib/todo-seed-ia.ts` ·
+`lib/metodo-catalogo.ts` (la ficha de Anthropic) · `tests/onboarding-sin-api.test.ts`
+
+El paso `gemini` exigía una key con un porqué escrito: «sin una key que ande, Entregable, Avatares, Persona y Ángulos
+van a fallar más adelante». Medido el 15/10: **ninguno de esos cuatro está en el wizard de hoy.** Las dos capas que
+tienen el paso (`completo` y `agencia`, `lib/capas.ts`) siguen con El Archivero, Productos, el teléfono y las
+integraciones, y lo único con IA (El Archivero, Productos y el plan de arranque del cierre) tiene la red de la
+plataforma: 3 keys de Gemini y 2 de Groq del ws9. Su carga, del 9 al 15/10, fue de 1 a 100 pedidos por día por key de
+Gemini, y un arranque usa de 2 a 61 llamadas del Archivero (la mediana anda en 6). El freno era un comentario
+que nadie volvió a medir contra la lista de pasos.
+
+- **El plan de arranque no tenía red** (`generarPlanArranque`). Con el paso opcional, un cliente sin keys terminaba
+  el wizard sin su plan, en silencio, porque la pantalla de cierre se dibuja igual sin el borrador.
+- **El diagnóstico obvio del crédito de Max era el equivocado.** «Que cargue su crédito de API como key de Anthropic
+  y MaKo lo usa» suena completo, y no lo es: desde el veto del 13/08 (`lib/veto-claude.ts`) la key de Anthropic de un
+  cliente la usa UNA feature, el análisis de llamadas de cierre, con permiso hasta el 13/11. La ficha decía «el
+  cerebro de MaKo: análisis, chats, sugerencias y todos los Analysts», falso desde agosto para cualquiera. Ahora dice
+  lo que hace. Si el crédito tiene que mover más, la cascada barata tendría que usar la key de Anthropic del
+  cliente, y eso es una decisión de qué modelo paga, no un arreglo.
+- **La regla que queda la fija el test, en las dos mitades juntas**: que el paso no frene, y que todo paso con IA
+  de una capa que tiene el paso de la IA esté clasificado y tenga red. Un paso nuevo sin clasificar lo hace fallar.
+
+### Lo que quedó SIN hacer
+
+- **Después del arranque, 60 llamadas a IA del producto no tienen red** (13 la tienen; contadas el 15/10 en `app/` y
+  `lib/`). Un cliente sin keys entra a Ads Writer, Automations o el chat de MaKo y ve «conecta tu IA» (con su botón,
+  por `ErrorIA`). Extender la red a todo es una decisión de capacidad: 5 keys gratis de la agencia para todos.
+- **No se miró en el navegador**: no se levantó la app por RAM. Falta ver el paso en escritorio y en celular (el
+  wizard corre también en el teléfono: `/onboarding` está fuera de la cubierta de MaKo Mobile).
+
+*15/10/2026 · chat «Onboarding» (claude3), medido contra el código y la base, sin subagentes.*

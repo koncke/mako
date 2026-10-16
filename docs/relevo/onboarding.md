@@ -167,9 +167,29 @@ coordinador). Los números quedaron en el encabezado del test.
 - **El checklist «Qué hacer ahora» no se guarda**: `app/onboarding/FaseUI.tsx:121` sigue siendo
   un `useState` local. Es el defecto real que encontró el prototipo y NO se tocó.
 - **Una decisión de Martín**: la pregunta de canal avanza con su default marcado
-  (`OnboardingWizard.tsx:629`) y ese valor siembra la plantilla de funnel del canal. ¿Se exige
+  (`OnboardingWizard.tsx:632`) y ese valor siembra la plantilla de funnel del canal. ¿Se exige
   elegir, o queda el default?
 - **`lib/entregable.ts`** quedó sin red de plataforma a propósito: no es del arranque.
+
+## Ventana del 15/10 a la noche: el arranque sin API
+
+<sub>Chat «Onboarding», cuenta claude3, por pedido del coordinador sobre la decisión de Martín en la
+Ticketera (`clientes-usan-su-claude`, opción A). Commit `7f0ced90f`.</sub>
+
+- **El paso de la IA del wizard es OPCIONAL** («Tu propia IA (opcional)»). Ya no frena: lo que viene
+  después en las dos capas que lo tienen (El Archivero, Productos y el plan de arranque) corre con la
+  red de la plataforma. El plan de arranque (`lib/todo-seed-ia.ts`) no la tenía y se le sumó. Lo fija
+  `tests/onboarding-sin-api.test.ts` (6 roturas, 6 cazadas).
+- **La guía del crédito de Claude Max** vive en la ficha de Anthropic (`lib/metodo-catalogo.ts`, el
+  tutorial del servicio y el «?» del campo), y el paso del wizard abre ese modal ahí mismo.
+- **Lo que NO está hecho y no es mío decidir** (se lo pasé al coordinador):
+  - la key de Anthropic de un cliente sólo la usa el análisis de llamadas de cierre (permiso de Claude
+    hasta el 13/11, `lib/veto-claude.ts`). Que el crédito de Max mueva más cosas es una decisión de
+    qué modelo paga;
+  - después del arranque, 60 llamadas a IA del producto no tienen red: un cliente sin keys ve
+    «conecta tu IA» en casi todas las herramientas;
+  - sin mirar en el navegador: no se levantó la app (RAM). Falta ver el paso en escritorio y celular
+    cuando esté desplegado.
 
 ## Dónde leer más
 
