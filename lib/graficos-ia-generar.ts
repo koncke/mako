@@ -30,7 +30,7 @@ import { overrideDeFeature } from './model-registry';
 import { getPromptText } from './prompt-render';
 import { parseJsonObject } from './json-del-modelo';
 import { PROVS_CREAR_IA, PROVS_GRATIS_PIN, MODELOS_CREAR_IA, salidaParaIA, falloDeIA, type FalloIA } from './flujo-ia';
-import { FEATURE_HOJA_IA, HOJA_IA_SYSTEM_TEMPLATE, deIAHoja, userDeHoja, type ResultadoHojaIA } from './graficos-ia';
+import { FEATURE_HOJA_IA, HOJA_IA_SYSTEM_TEMPLATE, deIAHoja, userDeHoja, type AlcanceIA, type ResultadoHojaIA } from './graficos-ia';
 import { porLaRedDePlataforma } from './graficos-ia-red';
 import { FUENTES } from './graficos-catalogo';
 
@@ -43,10 +43,28 @@ const TIMEOUT_INTENTO_MS = 60_000;
 
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
+/**
+ * Quién contesta, en orden: el pin de /modelos-ia va PRIMERO y el resto atrás (con el pin solo, una key bloqueada dejaba
+ * la feature sin nadie a quien caer). Un pin pago (Claude, OpenAI) no se usa: esta feature no cobra. Lo usan «Pídeselo a
+ * MaKo» (acá) y la edición con IA (lib/graficos-ia-editar.ts): las dos son la feature `dashboard-hoja-ia`.
+ */
+export async function proveedoresHojaIA(): Promise<{ provs: ProvName[]; modelos: Partial<Record<ProvName, string>> }> {
+  const pin = await overrideDeFeature(FEATURE_HOJA_IA).catch(() => null);
+  const pinGratis = pin != null && PROVS_GRATIS_PIN.includes(pin.provider as ProvName) ? pin : null;
+  const provs: ProvName[] = pinGratis
+    ? [pinGratis.provider as ProvName, ...PROVS_CREAR_IA.filter((x) => x !== pinGratis.provider)]
+    : [...PROVS_CREAR_IA];
+  const modelos: Partial<Record<ProvName, string>> = {
+    ...MODELO_DOCS, ...MODELOS_CREAR_IA,
+    ...(pinGratis ? { [pinGratis.provider]: pinGratis.model } : {}),
+  };
+  return { provs, modelos };
+}
+
 /** UNA pasada por la cascada gratis, con `deIAHoja` adentro del `validar`. */
 async function pasada(p: {
   system: string; user: string; motivo: string; hastaMs: number;
-  provs: ProvName[]; modelos: Partial<Record<ProvName, string>>; errores: string[];
+  provs: ProvName[]; modelos: Partial<Record<ProvName, string>>; errores: string[]; alcance?: AlcanceIA;
 }): Promise<{ bueno: ResultadoHojaIA | null; crudos: string[]; ultimo: string[] | null }> {
   const out: { bueno: ResultadoHojaIA | null; crudos: string[]; ultimo: string[] | null } = { bueno: null, crudos: [], ultimo: null };
   // ⚠️ LA SALIDA SE DIMENSIONA PARA QUE GROQ ENTRE (`salidaParaIA`): con 6000 fijos la cascada lo
@@ -60,7 +78,7 @@ async function pasada(p: {
     validar: (t) => {
       let obj: Record<string, unknown>;
       try { obj = parseJsonObject(t); } catch { out.crudos.push(t); return false; }
-      const r = deIAHoja(obj);
+      const r = deIAHoja(obj, p.alcance);
       if (r.errores.length) { out.ultimo = r.errores; return false; }
       out.bueno = r;
       return true;
@@ -71,28 +89,21 @@ async function pasada(p: {
 
 /**
  * La hoja que pide `pedido`, o el motivo honesto por el que no salió. `inicio` es el arranque del pedido
- * (ms epoch); `plazoMs`, cuánto tiene la cascada desde ahí (por defecto, el de la ruta).
+ * (ms epoch); `plazoMs`, cuánto tiene la cascada desde ahí (por defecto, el de la ruta). `alcance`: lo que la hoja
+ * acepta (`ALCANCE_GENERAL` en General: sus tipos, sus conjuntos y sus bloques, lib/graficos-ia.ts).
  */
-export async function generarHojaIA(pedido: string, inicio: number, opts: { plazoMs?: number; soloFuentes?: readonly string[] } = {}): Promise<ResultadoHojaIA | FalloIA> {
+export async function generarHojaIA(pedido: string, inicio: number, opts: { plazoMs?: number; soloFuentes?: readonly string[]; alcance?: AlcanceIA } = {}): Promise<ResultadoHojaIA | FalloIA> {
   const system = await getPromptText('dashboard.hoja-ia.system', HOJA_IA_SYSTEM_TEMPLATE);
   // `soloFuentes` (13/10/2026): el catálogo con sólo esos conjuntos (los que tienen datos, lib/graficos-con-datos-server.ts).
-  const user = opts.soloFuentes ? userDeHoja(pedido, FUENTES.filter((f) => opts.soloFuentes!.includes(f.id))) : userDeHoja(pedido);
-  // El pin de /modelos-ia va PRIMERO y el resto atrás (con el pin solo, una key bloqueada dejaba la
-  // feature sin nadie a quien caer). Un pin pago (Claude, OpenAI) no se usa: esta feature no cobra.
-  const pin = await overrideDeFeature(FEATURE_HOJA_IA).catch(() => null);
-  const pinGratis = pin != null && PROVS_GRATIS_PIN.includes(pin.provider as ProvName) ? pin : null;
-  const provs: ProvName[] = pinGratis
-    ? [pinGratis.provider as ProvName, ...PROVS_CREAR_IA.filter((x) => x !== pinGratis.provider)]
-    : [...PROVS_CREAR_IA];
-  const modelos: Partial<Record<ProvName, string>> = {
-    ...MODELO_DOCS, ...MODELOS_CREAR_IA,
-    ...(pinGratis ? { [pinGratis.provider]: pinGratis.model } : {}),
-  };
+  const fuentes = opts.soloFuentes ? FUENTES.filter((f) => opts.soloFuentes!.includes(f.id)) : FUENTES;
+  const user = userDeHoja(pedido, fuentes, opts.alcance);
+  const alcance = opts.alcance;
+  const { provs, modelos } = await proveedoresHojaIA();
   const hastaMs = inicio + (opts.plazoMs ?? PLAZO_MODELO_MS);
   const quedan = () => hastaMs - Date.now();
   const errores: string[] = [];
 
-  const uno = await pasada({ system, user, motivo: 'Armar una hoja del Dashboard con IA', hastaMs, provs, modelos, errores });
+  const uno = await pasada({ system, user, motivo: 'Armar una hoja del Dashboard con IA', hastaMs, provs, modelos, errores, alcance });
   if (uno.bueno) return uno.bueno;
   let ultimo = uno.ultimo;
 
@@ -108,7 +119,7 @@ export async function generarHojaIA(pedido: string, inicio: number, opts: { plaz
     }).catch((e) => { errores.push(msg(e)); return ''; });
     if (copia) {
       try {
-        const r = deIAHoja(parseJsonObject(copia));
+        const r = deIAHoja(parseJsonObject(copia), alcance);
         if (!r.errores.length) return r;
         ultimo = r.errores;
       } catch { /* sigue al reintento o al error */ }
@@ -118,7 +129,7 @@ export async function generarHojaIA(pedido: string, inicio: number, opts: { plaz
   // 3. Lo leído tenía errores: un reintento diciéndole cuáles (con ids: los lee el modelo).
   if (ultimo && quedan() > MIN_PARA_OTRO_MS) {
     const corregir = `${user}\n\nTU RESPUESTA ANTERIOR TENÍA ESTOS PROBLEMAS. Corrígelos y devuelve el JSON COMPLETO:\n${ultimo.slice(0, 12).map((e) => `- ${e}`).join('\n')}`;
-    const dos = await pasada({ system, user: corregir, motivo: 'Corregir la hoja del Dashboard con IA', hastaMs, provs, modelos, errores });
+    const dos = await pasada({ system, user: corregir, motivo: 'Corregir la hoja del Dashboard con IA', hastaMs, provs, modelos, errores, alcance });
     if (dos.bueno) return dos.bueno;
     if (dos.ultimo) ultimo = dos.ultimo;
   }
@@ -134,7 +145,7 @@ export async function generarHojaIA(pedido: string, inicio: number, opts: { plaz
       feature: FEATURE_HOJA_IA, motivo: 'Armar una hoja del Dashboard con IA', hastaMs,
       validar: (t) => {
         try {
-          const r = deIAHoja(parseJsonObject(t));
+          const r = deIAHoja(parseJsonObject(t), alcance);
           if (r.errores.length) return false;
           deLaRed.r = r;
           return true;

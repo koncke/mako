@@ -48,6 +48,8 @@ import { guardarTableroSi, leerTableroVisible, listarTablerosGuardados, type Tab
 import { analizarHoja, arrancarAMano, cancelarCorrida, programar, vistaDe, NoProgramable } from '@/lib/graficos-analisis-server';
 import { queTableroLeer } from '@/lib/graficos-lectura';
 import { generarHojaIA } from '@/lib/graficos-ia-generar';
+import { editarHojaIA } from '@/lib/graficos-ia-editar';
+import { firmaDeHoja } from '@/lib/graficos-ia-edicion';
 import { senalesDelNegocio } from '@/lib/plantillas-sugeridas-server';
 import { hojaConDatos } from '@/lib/graficos-con-datos-server';
 import { TOPE_PEDIDO_IA } from '@/lib/graficos-ia';
@@ -623,6 +625,30 @@ export const RUNNERS: Runners = {
         aviso,
       };
     }, { noEnFlujo: 'Crear una hoja' }),
+    ejecutar: aplicar,
+  },
+
+  // «Editar con MaKo» por la API (16/10/2026): la MISMA cascada que el panel de la hoja (lib/graficos-ia-editar.ts). MaKo
+  // arma el cambio ANTES de proponerlo: lo que la persona confirma es la hoja que se va a guardar, y sólo si nadie la tocó
+  // en el medio (`firmaDeHoja`, el compare-and-set de la hoja).
+  editar_hoja_con_ia_dashboard: {
+    preparar: (input, ctx) => proponer(input, ctx, async (r) => {
+      const h = laHoja(r, input);
+      if (esFallo(h)) return h;
+      const pedido = str(input, 'pedido').trim();
+      if (!pedido) return { error: 'Falta el pedido: qué cambiar en la hoja, en palabras.' };
+      const e = await editarHojaIA({ hoja: h, pedido: pedido.slice(0, TOPE_PEDIDO_IA), inicio: Date.now(), ...(ctx.canal === 'http' ? { plazoMs: PLAZO_IA_HTTP_MS } : {}) });
+      if ('error' in e) return { error: e.error };
+      if (!e.cambios.length) return { error: e.respuesta || 'MaKo no encontró qué cambiar con ese pedido.' };
+      return {
+        cambio: { op: 'editar_con_ia', hojaId: h.id, antes: firmaDeHoja(h), hoja: e.hoja },
+        que: `Cambiar la hoja ${comillas(h.nombre)}: ${e.cambios.join('; ')}`,
+        hecho: `Quedó la hoja ${comillas(e.hoja.nombre)} con los cambios`,
+        deshacer: 'Para volver atrás: editar_hoja_con_ia_dashboard pidiendo lo contrario, o el Ctrl+Z del editor si la hoja está abierta.',
+        datos: { hojaId: h.id },
+        aviso: e.avisos.length ? `(${e.avisos.join(' · ')})` : undefined,
+      };
+    }, { noEnFlujo: 'Editar una hoja con MaKo' }),
     ejecutar: aplicar,
   },
 

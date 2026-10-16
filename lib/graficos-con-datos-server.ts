@@ -17,7 +17,7 @@ import { efectivoDe, esGrafico, tituloDe, type Hoja } from './graficos-catalogo'
 import { datosDeGraficos, type PedidoDatos } from './graficos-datos';
 import { sinDatos } from './graficos-agregar';
 import { generarHojaIA } from './graficos-ia-generar';
-import { TOPE_PEDIDO_IA } from './graficos-ia';
+import { TOPE_PEDIDO_IA, type AlcanceIA } from './graficos-ia';
 import { TOPE_AGREGADOS, agregarAlFinal, avisoConDatos, podarSinDatos, type Medida } from './graficos-con-datos';
 
 /** Lo que tiene la lectura de una hoja (la ruta de datos tiene 60 s; acá se mide dos veces y queda lugar para la IA). */
@@ -45,9 +45,10 @@ export type HojaConDatos = { hoja: Hoja; aviso: string | null; quitados: number;
 
 /**
  * La hoja sin los gráficos vacíos y, con `sumar`, con los que MaKo arma sobre los conjuntos que tienen datos. `hastaMs`:
- * hasta cuándo se puede trabajar (epoch ms). Nunca tira por la IA: si MaKo no contesta, sale podada.
+ * hasta cuándo se puede trabajar (epoch ms). Nunca tira por la IA: si MaKo no contesta, sale podada. `alcance`: lo que
+ * la hoja acepta (16/10/2026: a una plantilla de General, MaKo le sumaba gráficos del catálogo entero del Dashboard).
  */
-export async function hojaConDatos(h: Hoja, o: { hoy: string; hastaMs: number; sumar?: { nombre: string; linea: string } }): Promise<HojaConDatos> {
+export async function hojaConDatos(h: Hoja, o: { hoy: string; hastaMs: number; sumar?: { nombre: string; linea: string }; alcance?: AlcanceIA }): Promise<HojaConDatos> {
   const medidas = await medirGraficos(h, o.hoy, Math.min(PLAZO_MEDIR_MS, Math.max(5_000, o.hastaMs - Date.now())));
   const poda = podarSinDatos(h, medidas);
   let hoja = poda.hoja;
@@ -61,7 +62,7 @@ export async function hojaConDatos(h: Hoja, o: { hoy: string; hastaMs: number; s
       `Arma hasta ${TOPE_AGREGADOS} gráficos distintos que completen la hoja.`,
     ].filter(Boolean).join(' ').slice(0, TOPE_PEDIDO_IA);
     try {
-      const g = await generarHojaIA(pedido, Date.now(), { plazoMs: o.hastaMs - Date.now() - PLAZO_MEDIR_MS, soloFuentes: conDatos });
+      const g = await generarHojaIA(pedido, Date.now(), { plazoMs: o.hastaMs - Date.now() - PLAZO_MEDIR_MS, soloFuentes: conDatos, alcance: o.alcance });
       if ('error' in g) {
         console.info('[graficos/con-datos] MaKo no sumó gráficos:', g.error);
       } else {

@@ -117,6 +117,7 @@ import { CuerpoElemento, IconoElemento, PropsElemento, type ContextoElemento } f
 import { CrearHoja, NuevaHoja } from './NuevaHoja';
 import type { SenalesNegocio } from '@/lib/plantillas-sugeridas';
 import { ChatMakoGrafico, LogoMako, PanelAnalista, PuntoNuevo, useAnalisisNuevo } from './PanelAnalista';
+import { PanelEditarMako, type MensajeEdicion } from './PanelEditarMako';
 import { BarraControles } from './BarraControles';
 import { MenuFiltro } from './MenuFiltro';
 import { BuscarEnTabla } from './BuscarEnHoja';
@@ -342,6 +343,10 @@ export function EditorInforme({
   const [nuevaHoja, setNuevaHoja] = useState(false);
   const [enBlanco, setEnBlanco] = useState(sinPaginas && !soloLectura && !compartido);
   const [analista, setAnalista] = useState(false);
+  // «Editar con MaKo» (16/10/2026, ./PanelEditarMako.tsx): el panel, y el hilo de cada hoja (de la sesión: cerrar y abrir
+  // el panel no lo pierde, recargar sí).
+  const [makoEditar, setMakoEditar] = useState(false);
+  const [hilosMako, setHilosMako] = useState<Record<string, MensajeEdicion[]>>({});
   const [detalle, setDetalle] = useState<{ id: string; sel: SelDetalle } | null>(null);
   const [vista, setVista] = useState<VistaValores>({});
   const [version, setVersion] = useState(0);
@@ -855,7 +860,18 @@ export function EditorInforme({
   // ── Los modales: onCerrar con identidad FIJA (AGENTS.md: si no, el foco salta en cada tecla) ──────
   const cerrarNuevaHoja = useCallback(() => setNuevaHoja(false), []);
   const cerrarAnalista = useCallback(() => setAnalista(false), []);
-  const alternarAnalista = useCallback(() => { setMenu(null); setAnalista((v) => !v); }, []);
+  // Los dos paneles van en el mismo lugar (`.an`): abrir uno cierra el otro.
+  const alternarAnalista = useCallback(() => { setMenu(null); setMakoEditar(false); setAnalista((v) => !v); }, []);
+  const cerrarMakoEditar = useCallback(() => setMakoEditar(false), []);
+  const alternarMakoEditar = useCallback(() => { setMenu(null); setAnalista(false); setMakoEditar((v) => !v); }, []);
+  /** La hoja de ese id como está AHORA en el informe (el panel compara por referencia antes de aplicar o deshacer). */
+  const leerHoja = useCallback((id: string) => tableroRef.current.hojas.find((h) => h.id === id) ?? null, []);
+  /** Lo que cambió MaKo (o su Deshacer) entra por `mutar`: tiene deshacer, y lo guarda el autoguardado de siempre. */
+  const ponerHojaDeMako = useCallback((h: Hoja) => mutarHoja(() => h, h.id), [mutarHoja]);
+  const hojaDelHilo = hoja.id;
+  const alHiloMako = useCallback((fn: (h: MensajeEdicion[]) => MensajeEdicion[]) => {
+    setHilosMako((x) => ({ ...x, [hojaDelHilo]: fn(x[hojaDelHilo] ?? []) }));
+  }, [hojaDelHilo]);
   const cerrarModalDatos = useCallback(() => setModalDatos(false), []);
   const abrirCompartir = useCallback(() => { setMenu(null); setCompartir(true); }, []);
   const cerrarCompartir = useCallback(() => setCompartir(false), []);
@@ -1222,6 +1238,11 @@ export function EditorInforme({
               />
             </div>
             )}
+            {/* «Editar con MaKo» (16/10/2026): el logo solo sobre negro, chico (punto 3 de la tanda de la topbar: «solo el
+                logo con el fondo negro, nada más»). Sólo quien puede guardar, y con una hoja. */}
+            {guardable && !enBlanco && !compartido && (
+              <BotonMako lado={30} title="Editar con MaKo" encendido={makoEditar} onClick={alternarMakoEditar} />
+            )}
             {/* «Editar» en azul (punto 3 de v5). Compartir se fue al ⋮. */}
             {!soloMirar && !enBlanco && (
               <button type="button" className="lk-pill lk-pill--azul" data-recorrido={editando ? 'dash-ver' : 'dash-editar'} disabled={!guardable && !editando} onClick={alternarEdicion}>
@@ -1395,6 +1416,10 @@ export function EditorInforme({
         {/* El AI Analyst es un panel (un `aside` de alto completo), no un modal: va en esta fila, encima del
             lienzo en la compu (./edicion-css.ts). Con la vista: el análisis a mano mira lo que la persona eligió. */}
         {analista && <PanelAnalista hoja={hoja} loQueSeVe={loQueSeVe} vista={vista} onCerrar={cerrarAnalista} />}
+        {makoEditar && guardable && !enBlanco && !compartido && (
+          <PanelEditarMako hoja={hoja} informe={informe} hilo={hilosMako[hoja.id] ?? []} onHilo={alHiloMako} leerHoja={leerHoja}
+            onAplicar={ponerHojaDeMako} onDeshacer={ponerHojaDeMako} onCerrar={cerrarMakoEditar} />
+        )}
       </div>
 
       {/* ── Los menús de la fila de arriba y de la barra ── */}

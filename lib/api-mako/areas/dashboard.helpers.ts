@@ -52,6 +52,7 @@ import {
 import { PLANTILLAS_HOJA, tableroInicial } from '@/lib/graficos-plantillas';
 import { ETIQUETAS_DASHBOARD } from '@/lib/graficos-plantillas-etiquetas';
 import { ordenarConSugeridas, type SenalesNegocio } from '@/lib/plantillas-sugeridas';
+import { firmaDeHoja } from '@/lib/graficos-ia-edicion';
 import { PLANTILLAS_TEMA, sanearTema } from '@/lib/graficos-temas';
 import { fmtValor, type Resultado } from '@/lib/graficos-agregar';
 import { Alias, conNombres, dimensionPublica, etiquetaSegura, haceCuanto, type SalidaAnalisis, type VistaAnalisis } from '@/lib/graficos-analisis';
@@ -756,6 +757,8 @@ export type Cambio =
   | { op: 'quitar_filtro'; hojaId: string; controlId: string }
   | { op: 'agregar_conector'; hojaId: string; conector: Conector }
   | { op: 'quitar_conector'; hojaId: string; conectorId: string }
+  /** «Editar con MaKo» (16/10/2026): la hoja que armó la IA, si la de ahora sigue siendo la que leyó (`antes`, su firma). */
+  | { op: 'editar_con_ia'; hojaId: string; antes: string; hoja: Hoja }
   | { op: 'restablecer' };
 
 export type Aplicado = { ok: true; tablero: Tablero } | { ok: false; error: string; yaEstaba?: true };
@@ -810,6 +813,13 @@ export function aplicarCambio(t: Tablero, c: Cambio): Aplicado {
     return { ok: true, tablero: { ...t, hojas } };
   };
   switch (c.op) {
+    case 'editar_con_ia': {
+      if (firmaDeHoja(h) !== c.antes) return { ok: false, error: `La hoja ${comillas(h.nombre)} cambió desde que MaKo la leyó: pídelo de nuevo.` };
+      const nueva = sanearHoja({ ...c.hoja, id: h.id }, i);
+      if (!nueva) return { ok: false, error: 'La hoja que armó MaKo no se pudo leer.' };
+      if (igual(nueva, h)) return { ok: false, error: `La hoja ${comillas(h.nombre)} ya está así.`, yaEstaba: true };
+      return conHoja(nueva);
+    }
     case 'editar_hoja': {
       const nueva: Hoja = {
         ...h,
