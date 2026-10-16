@@ -194,7 +194,8 @@ test('«Personalizar» es sólo del admin, y sólo con la ficha del funnel leíd
   const panel = sinComentarios(leer('app/crm/lead-view/ficha/FichaPorBloques.tsx'));
   assert.match(panel, /const puede = puedePersonalizar\(data\);/);
   assert.match(panel, /const boton = puede \? \(/, 'el botón «Personalizar» se dibuja sólo con `puede`');
-  assert.match(panel, />\{enEdicion \? 'Ver' : 'Personalizar'\}|\{enEdicion \? 'Ver' : 'Personalizar'\}/);
+  // «Editar» desde el 16/10/2026 (era «Personalizar»): el mismo botón que el Dashboard.
+  assert.match(panel, /\{enEdicion \? 'Ver' : 'Editar'\}/);
   assert.doesNotMatch(panel, /nombre="configurar"/, '«Personalizar» es un botón con texto, no un engranaje');
   const acc = sinComentarios(leer('app/crm/actions.ts'));
   assert.match(acc, /puedeEditarFicha: rol === 'admin'/, 'el server dice que sólo el admin personaliza');

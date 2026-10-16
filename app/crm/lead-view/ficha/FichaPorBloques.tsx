@@ -359,7 +359,9 @@ export function FichaPorBloques({ data, parchear, altoChat, initialTab, onTab, f
     <button type="button" className="fb-personalizar" aria-pressed={enEdicion}
       title={enEdicion ? 'Volver a la ficha' : 'Armar la ficha de este funnel'}
       onClick={() => { setEditando((v) => !v); setSel(null); setAgregar(null); setGaleria(null); setVistas({}); }}>
-      <IconoMenu nombre={enEdicion ? 'ver' : 'editar'} size={15} /> {enEdicion ? 'Ver' : 'Personalizar'}
+      {/* «Editar» en azul, como el Dashboard («Obvio que el botón de "Personalizar" debe eliminarse... Que sea igual
+          que en dashboard o general... El botón en azul de "Editar"», Martín, 16/10/2026). */}
+      <IconoMenu nombre={enEdicion ? 'ver' : 'editar'} size={15} /> {enEdicion ? 'Ver' : 'Editar'}
     </button>
   ) : undefined;
 
