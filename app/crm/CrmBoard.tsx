@@ -73,6 +73,7 @@ import { ImportarLeadsModal } from './ImportarLeadsModal';
 import { EtapasModal } from './EtapasModal';
 import { TraerDeOtroProducto } from './TraerDeOtroProducto';
 import { CampanasModal } from './CampanasModal';
+import { EventosDeEtapaModal } from './EventosDeEtapaModal';
 import { FlechaDerechaIcon, FlechaIzquierdaIcon } from './iconos';
 import { ExportarLeadsModal } from './ExportarLeadsModal';
 import { LeadEditModal } from './LeadEditModal';
@@ -94,7 +95,7 @@ import { SenalesMetaChips } from './MoverEtapaConfirm';
 import { coincideBusqueda } from '@/lib/buscar-texto';
 import type { FunnelResumen } from '@/lib/funnel-fila';
 import { Dropdown, type DropdownOption } from '../components/Dropdown';
-import { LogoMeta } from '@/app/_components/ServicioVisual';
+import { LogoMeet, LogoMeta } from '@/app/_components/ServicioVisual';
 import { openCalendlyEn } from './calendly-widget';
 import {
   AccionesHeader,
@@ -1760,6 +1761,8 @@ export function CrmBoard({
   // la columna de entrada. Si en el medio se trajeron leads, al cerrar se refresca: si no,
   // el tablero sigue sin los que acaban de llegar.
   const [campanasAbierto, setCampanasAbierto] = useState(false);
+  // «Asignar evento» de una etapa de reunión (16/10/2026): qué evento de Calendly o Cal.com cae en ella.
+  const [eventoDe, setEventoDe] = useState<{ etapa: string; nombre: string } | null>(null);
   // El nombre que se acaba de escribir en el pop-up de etapas, por embudo, hasta que llegue la lista nueva del
   // server: el desplegable lo dibuja al instante (16/10/2026). Cuando `funnels` cambia, manda el server.
   const [nombresLocales, setNombresLocales] = useState<Record<number, string>>({});
@@ -2646,6 +2649,9 @@ export function CrmBoard({
                   // «La primera opción debería decir "Asignar campañas" y con el logo de Meta» (Martín, 16/10/2026): el
                   // mismo rótulo y logo que la sección del pop-up de etapas (EtapasModal → CabeceraSeccion).
                   ...(c.kind === 'entrada' ? [{ value: 'campanas', label: 'Asignar campañas', icono: <LogoMeta size={17} /> }] : []),
+                  // «Falta la misma opción para las etapas de reunión "Asignar evento" con el logo de Meet» (Martín,
+                  // 16/10/2026): el evento de agenda cuyas reservas caen en esta etapa (./EventosDeEtapaModal.tsx).
+                  ...(c.kind === 'reunion' ? [{ value: 'evento', label: 'Asignar evento', icono: <LogoMeet size={17} /> }] : []),
                   // «Automatizar la invitación al curso cuando un lead cae a Ganado... Pero que sea
                   // opcional» (Martín, 07/10/2026). En Ganado, que es donde se ve a quién le llega, y
                   // sólo si el producto tiene clases (sin curso no hay a qué invitar).
@@ -2683,6 +2689,7 @@ export function CrmBoard({
                 ]}
                 onChange={(v) => {
                   if (v === 'campanas') { setCampanasAbierto(true); return; }
+                  if (v === 'evento') { setEventoDe({ etapa: c.key, nombre: c.label }); return; }
                   if (v === 'curso') { void cambiarCurso(!cursoPrendido); return; }
                   if (v === 'renombrar') { setRenombrando(c.key); return; }
                   if (v === 'agregar') { void opEtapa({ op: 'agregar', despuesDe: c.key }); return; }
@@ -3172,6 +3179,10 @@ export function CrmBoard({
       )}
 
       {/* Importar / exportar: los MISMOS formularios de a una pregunta que el plan. */}
+      {eventoDe && (funnelActivo ?? funnels.find((f) => f.esDefault)?.id) != null && (
+        <EventosDeEtapaModal funnelId={(funnelActivo ?? funnels.find((f) => f.esDefault)?.id) as number}
+          etapa={eventoDe.etapa} etapaNombre={eventoDe.nombre} onCerrar={() => setEventoDe(null)} />
+      )}
       {campanasAbierto && (
         <CampanasModal
           // ⚠️ EL PRINCIPAL VA COMO `null`: `funnelActivo` puede traer su id numérico, y con
