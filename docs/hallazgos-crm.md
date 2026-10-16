@@ -9147,3 +9147,92 @@ Lo fija `tests/ficha-navegador.test.ts` (base 5/0, nueve roturas de 4/1).
   que lee `getResumenLead` (Calendly/Cal.com). En escritorio esas respuestas viven en `reunion-1`, y las de Meta y la
   landing no tienen pieza en el teléfono.
 **Vive en:** `app/crm/lead-view/info-principal-grilla.ts` · `app/crm/lead-view/InfoPrincipalCard.tsx` · `app/crm/lead-view/ficha/PanelFicha.tsx` · `app/crm/lead-view/ficha/armar.ts` · `app/crm/lead-view/ficha/Armador.tsx` · `app/crm/lead-view/ficha/ficha-css.ts` · `tests/ficha-navegador.test.ts`.
+
+## La revisión de lo invisible de la ficha por bloques: «Deshacer» escribía donde no debía, y «A revisar» contaba distinto un lead sin casa (16/10/2026)
+
+Revisión de la rama `crm-armador` (la pantalla de la ficha por bloques, sus tres frentes) mirando sólo lo que no
+se ve con clics: permisos, workspace, datos que se pierden y la API de MaKo. Lo que estaba bien:
+- Los cortes de las server actions: `getLeadFullAction` corta sin sesión antes de leer, escribir la ficha es del
+  admin y el funnel se lee con `getTenantDb` (un id ajeno no existe).
+- La API cubre todo lo de «Personalizar» menos Deshacer, con los mismos cortes (`TAB_ADMIN`).
+- «N sin marcar» sale de la MISMA función en el pop-up, /crm/[id] y el teléfono.
+- No se sumó ninguna lectura por lead en un loop.
+
+Lo que sí rompía estaba en el **Deshacer** de `useFichaDelFunnel`, que escribe la ficha de TODOS los leads del
+funnel, y en el worklist:
+
+1. **Deshacer después de cambiar la casa del lead le pisaba la ficha al OTRO funnel.** El desplegable del funnel de
+   la cabecera relee la ficha (`onCasaCambiada`), pero `FichaPorBloques` NO se desmonta: la ficha que se ve pasa a
+   ser la del funnel nuevo, con la pila del viejo. «Deshacer» mandaba `restaurar` con el `antes` del 8 al 30, y si
+   el 8 no tenía nada guardado, el `antes` es `{}` y le BORRABA todo lo personalizado al 30. **Regla:** el estado de
+   cliente que es de UNA entidad (la pila del deshacer, una cola) va con la entidad como clave, aunque «la pantalla
+   es de un lead»: la ficha cambia de funnel sin desmontarse.
+2. **El compare-and-set del server NO protegía el Deshacer.** ⚠️ **El diagnóstico obvio era el equivocado**: «dos
+   admins no se pisan, `cambiarFichaDeFunnel` hace compare-and-set sobre `updated_at`». Eso vale para los PARCHES
+   (poner, mover, ancho…), que se aplican sobre lo de hoy. `restaurar` reemplaza la ficha ENTERA, así que aplicado
+   sobre lo de hoy le borraba el cambio a la otra persona, y su pantalla lo seguía mostrando porque lo de la sesión
+   le gana a la relectura. **Regla:** una operación que reemplaza entero lleva `esperado` (cómo dejó la ficha el
+   cambio que se deshace) y no corre si hoy es otra. Es el mismo `esperado` de `guardarObligacionAction` en el deal.
+3. **Un botón apagado no apaga su atajo.** «Deshacer» estaba `disabled` mientras guarda, pero Ctrl+Z llama a
+   `ff.deshacer()` directo. La pila se llena cuando CONTESTA el server, así que el Ctrl+Z de ese medio segundo
+   restauraba el `antes` del cambio ANTERIOR: deshacía dos, y el que se estaba guardando se perdía. **Regla:** el
+   corte va en la función, no en el botón.
+4. **«Si falla, se relee» no alcanza.** Sin red o con la sesión vencida falla también la relectura, y la pantalla se
+   quedaba mostrando el cambio que no se guardó. Ahora vuelve a lo último que dijo el server (`confirmada`).
+5. **Un lead con la casa huérfana contaba distinto en su ficha y en «A revisar».** La casa (`leads.funnel_id`) no
+   tiene FK, y mig 0181 dice que un id que apunta a un funnel que ya no existe «se comporta igual que un NULL». Los
+   lectores de UN funnel (`apagadosDeFunnel`, `fichaDelFunnelDelLead`) lo cumplen: caen al funnel del negocio. El
+   worklist lee todos los funnels de una vez (`avisosDelWorkspace`) y, para la clave que no estaba en el mapa, caía
+   al respaldo PELADO del negocio, sin la plantilla del funnel. Con «Te escriben», un lead en Ganado con todo por
+   cargar daba «6 sin marcar» en su ficha y 12 en «A revisar». ⚠️ **El diagnóstico obvio era incompleto**: «casi no
+   pasa, `eliminarFunnelDefinitivo` rescata a los leads ANTES de borrar». Pero el alta y la importación escriben el
+   `funnelId` del tablero abierto sin mirar si existe ni si es de este workspace. Medido en producción el 16/10:
+   0 huérfanos de 33 leads con casa propia, así que hoy no cambia ningún número. **Regla:** cuando un lector va de a
+   uno y otro en lote (un mapa), el BORDE (la clave que no está: borrado, ajeno, NULL) se resuelve con la MISMA
+   función. Es `apagadosDeLaCasa` (lib/ficha/config.ts), y la fija tests/ficha-casa-huerfana.test.ts.
+
+La cola y el deshacer salieron del hook a `app/crm/lead-view/ficha/guardado-ficha.ts`, que es puro. Se prueban
+EJECUTÁNDOLOS contra un server de mentira que aplica con el mismo `aplicarCambio` (`tests/ficha-guardado.test.ts`:
+rojo 1/4 con la cola sacada tal cual, base 6/0, doce roturas).
+
+⚠️ **Trampa de lint** (`eslint-plugin-react-hooks` 7, `react-hooks/refs`): `useState(() => crear({ verActual: () =>
+ref.current, … }))` da «Passing a ref to a function may read its value during render», aunque la ref se lea recién
+en un evento. Se crea la primera vez que se usa, adentro de un `useCallback`, con `g.current ??= crear(…)`.
+
+**Lo que quedó SIN hacer (no se pudo confirmar, o no es de esta rama):**
+- **`crm.resumen.campos` se quedó sin escritor.** Con `ResumenModal` y `resumen-actions` se fue lo único que lo
+  guardaba: `guardarResumen` (lib/resumen-ficha-config.ts) no lo llama nadie, tampoco la API. Lo que el negocio
+  eligió sigue mandando como respaldo (InfoPrincipalCard y `listaDeEntrada`), pero nadie lo puede cambiar. Las
+  redes, el ingreso, la dirección, el sexo y la cohorte van ADENTRO de `contacto` (su `incluye`), y «Agregar
+  bloque» no ofrece lo que no tiene componente. Un negocio que quiere ver LinkedIn o el sexo (apagados de fábrica)
+  hoy no tiene cómo. Se destraba con la tanda B2 (esos bloques con componente).
+- **Cuatro plantillas callan datos que la ficha de antes mostraba siempre** (medido con `listaDePlantilla` contra
+  los registros de hoy):
+  - «Te escriben» no pone `calificacion`, `lo-que-contesto` ni `proxima-reunion`.
+  - «Prospección», esos tres y `origen`.
+  - «Carrito», `calificacion` y `proxima-reunion`.
+  - «Evento», `calificacion`.
+
+  Un lead de esos funnels con respuestas de un formulario de Meta deja de verlas: el dato sigue en la base y el
+  admin puede agregar el bloque. Es la §4 del diseño, decidida. Lo que no está dicho es que hoy, sin la tanda B2,
+  esas fichas quedan con 4 o 5 tarjetas.
+- **`saveFunnelDe` (lib/funnels.ts) escribe `data` entero SIN compare-and-set.** Lee `data`, lo mergea y lo
+  escribe: si la ficha se guarda entre su lectura y su escritura (dos idas a la base), el merge la pisa con la de
+  su lectura y la ficha nueva se pierde (la pantalla la sigue mostrando). La ficha sí hace CAS, así que al revés
+  no pasa. Leído en el código, no reproducido.
+- **La API de MaKo cuenta «N sin marcar» con su propia copia de los insumos** (`faltantesDeUnLead`,
+  lib/api-mako/areas/crm.helpers.ts), no con `leerInsumosDatosLead`. Hoy dan lo mismo: `getFunnelDeLead` es el del
+  negocio y nunca trae etapas vacías. La próxima regla que se le sume a una copia y no a la otra los separa. Va a
+  `datosSinMarcarDeLead` cuando se toque ese helper.
+- **El alta y la importación escriben la casa sin validarla.** `altaDeLead` e `importarLeadsRevisadosAction`
+  (app/crm/actions.ts) pasan a `createLead` el `funnelId` que manda el navegador, sin mirar que exista ni que sea de
+  este workspace. Las lecturas están scopeadas, así que no se filtra nada de otro negocio, pero ese lead no aparece
+  en ningún tablero. Medido el 16/10: 0 casos. No es de esta rama.
+- **Clonar la configuración copia la ficha del dueño.** `lib/clonar-config.ts` reemplaza el `data` entero del
+  funnel principal del cliente nuevo con el del dueño (menos `entradas` y `evento`), y ahí viaja `data.ficha`: su
+  plantilla elegida a mano, sus avisos y su estilo. Hoy ningún funnel de producción tiene ficha guardada (16/10).
+  Decidir si la ficha es «forma» (se copia) o «hecho del dueño» (no).
+
+**Vive en:** `app/crm/lead-view/ficha/guardado-ficha.ts` · `app/crm/lead-view/ficha/useFichaDelFunnel.ts` ·
+`lib/ficha/config.ts` (`restaurar` con `esperado`; `apagadosDeLaCasa`) · `lib/ficha/config-server.ts`
+(`avisosDelWorkspace`) · `tests/ficha-guardado.test.ts` · `tests/ficha-casa-huerfana.test.ts`.
