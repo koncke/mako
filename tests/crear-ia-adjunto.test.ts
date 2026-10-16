@@ -55,7 +55,7 @@ test('el pedido nombra el archivo de contenido con su id, y se lee de vuelta sin
   assert.equal(archivoDelPedido(p), 77);
   assert.match(p, /^Dando este lead magnet\n\n📎 Archivo para mandar: «mako-estrella \(2\)\.png» \(biblioteca #77\)/);
   assert.equal(archivoDelPedido('Dando este lead magnet'), null);
-  assert.match(pedidoSinLeer('Hola', 'x.png'), /\(Adjuntó «x\.png», pero no se pudo leer: armala con lo escrito\.\)$/);
+  assert.match(pedidoSinLeer('Hola', 'x.png'), /\(Adjuntó «x\.png», pero no se pudo leer: ármala con lo escrito\.\)$/);
   assert.match(pedidoSinLeer('', 'x.png', 'subir'), /^Arma la automatización\.\n\n\(Adjuntó «x\.png», pero no se pudo subir/);
 });
 
