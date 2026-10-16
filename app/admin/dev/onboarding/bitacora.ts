@@ -455,4 +455,33 @@ export const BITACORA: Hito[] = [
       "tests/onboarding-red-plataforma.test.ts — el assert de wsKey, acotado a chatCheap",
     ],
   },
+  {
+    fecha: "15 oct", hora: "—", chat: "Estrategia 3 cuentas", sesion: "local_0f38f4d5-0e64-411e-b6c8-6d6ead20baed", cuenta: "claude3",
+    actor: "martin", tipo: "prompt",
+    titulo: "Que los clientes conecten su Claude o su ChatGPT",
+    pedido: "quiero implementar esto en todos los workspace de los clientes, para que puedan conectar sus cuentas de lo que sea, Claude, GPT, etc... Entonces deprecamos todas las \"API gratuitas\"",
+    puntos: [
+      "Lo decidió en la Ticketera (clientes-usan-su-claude): opción A. MaKo dentro de su Claude o su ChatGPT, el crédito de API de Claude Max por la key propia, y lo que contesta en vivo con API.",
+      "Al chat «Onboarding» le tocó que un cliente nuevo no tenga que traer una API para arrancar; el conector va a otro chat.",
+    ],
+  },
+  {
+    fecha: "15 oct", hora: "23:57", chat: "Onboarding", sesion: "local_79844152-91d5-49c1-b833-c917ed1fc4a6", cuenta: "claude3",
+    actor: "claude", tipo: "implementacion",
+    titulo: "El arranque sin API: el paso de la IA es opcional",
+    puntos: [
+      "El paso «Tu propia IA (opcional)» ya no frena: El Archivero, Productos y el plan de arranque corren con la red de la plataforma. El plan de arranque no la tenía y se le sumó.",
+      "La ficha de Anthropic explica primero el crédito de Claude Max, con los pasos de la página oficial, y dice lo que hace de verdad: analizar las llamadas de cierre.",
+      "Queda para decidir: que el crédito de Max mueva más que el análisis de cierre, y la red para lo que viene después del arranque.",
+    ],
+    commits: [
+      { sha: "7f0ced9", msg: "Onboarding: un cliente nuevo arranca sin traer una API", lineas: 174, archivos: 7 },
+    ],
+    archivos: [
+      "app/onboarding/OnboardingWizard.tsx — el paso de la IA, opcional",
+      "lib/todo-seed-ia.ts — el plan de arranque con red",
+      "lib/metodo-catalogo.ts — la guía del crédito de Claude Max",
+      "tests/onboarding-sin-api.test.ts — que no frene y que lo de después tenga red",
+    ],
+  },
 ];
