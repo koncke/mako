@@ -332,7 +332,7 @@ function cierre(e: EstadoArranque, h: HechosArranque, etapa: EtapaArranque, nomb
     }
   }
   if (etapa === 'armando') {
-    out.push({ id: 'arr-armando', de: 'mako', texto: 'Estoy terminando de armar tu oferta. En cuanto esté, te la dejo acá.', tarjeta: 'armando' });
+    out.push({ id: 'arr-armando', de: 'mako', texto: 'Estoy terminando de armar tu oferta. En cuanto esté, te la dejo aquí.', tarjeta: 'armando' });
     return out;
   }
   if (etapa === 'listo') {

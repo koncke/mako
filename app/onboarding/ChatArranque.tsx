@@ -147,9 +147,9 @@ export function ChatArranque({ inicial, arbolVacio, opcionArmar }: { inicial: Vi
   // ⚠️ Memo: el hilo se vuelve a desplazar cada vez que cambia su lista de mensajes, y un arreglo nuevo en
   // cada tecla del composer lo haría con cada letra (el mismo cuidado que ChatOffer con los suyos).
   const { antes, despues } = useMemo(() => {
-    const conPendiente = (lista: MensajeArranque[], aca: boolean): OfferMensaje[] => [
+    const conPendiente = (lista: MensajeArranque[], conPend: boolean): OfferMensaje[] => [
       ...lista.map(aMensajeOffer),
-      ...(aca && pendiente ? [{ id: 'arr-pendiente', de: 'yo' as const, texto: pendiente, at: '' }] : []),
+      ...(conPend && pendiente ? [{ id: 'arr-pendiente', de: 'yo' as const, texto: pendiente, at: '' }] : []),
     ];
     return { antes: conPendiente(vista.antes, lado === 'antes'), despues: conPendiente(vista.despues, lado === 'despues') };
   }, [vista, pendiente, lado]);
