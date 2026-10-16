@@ -4239,4 +4239,50 @@ pocos dólares contra 400 por mes.
 
 · *2026-10-16 chat «Onboarding» (claude3)*
 
+## Los pedidos sueltos en los chats: las palabras de un área no rutean, y un plazo corto a la cascada no corre nada (16/10/2026)
 
+**Vive en:** `lib/mako-pedidos.ts` (`decidir`, `PARTES_DE_LO_ABIERTO`, `RE_VERBOS`, `CONECTOR`) · `lib/mako-pedidos-ia.ts`
+(`PLAZO_MS`, `MIN_INTENTO_CASCADA_MS`) · `app/api/mako/pedidos/route.ts` (`objetosDeTab`) · `lib/mako-intencion.ts`
+(`AREA_KEYWORDS`) · `lib/ai-cheap.ts` (`MIN_INTENTO_MS`) · `tests/mako-pedidos.test.ts` · el diseño en
+`docs/diseno-mako-pedidos.md`
+
+El módulo que separa un mensaje del chat en pedidos (lo abierto / otro objeto de la tab / uno nuevo / otra tab) se
+apoyó en lo que ya había. Cuatro de esas piezas no servían como parecían:
+
+- **`AREA_KEYWORDS` sirve para SUMAR herramientas, no para RUTEAR.** Es ancha a propósito (sobrar una herramienta es
+  barato), y en el chat del Web Generator «cambia el precio» nombra `negocio`, «quita el video» nombra `video` y «un
+  formulario para leads» nombra `crm`: los tres son cambios de la landing abierta. Si «nombra otra área» mandara a otra
+  tab, el chat dejaba un link en vez de editar. La regla: otra tab sólo si el verbo CREA un objeto de esa área (su
+  objeto directo: «agéndame una REUNIÓN»), si no hay nada abierto, o si lo etiquetó la IA (validada). Lo demás va a lo
+  abierto y cuenta como duda, así que entra la IA.
+- **«Página» es del área `landing`, pero dentro del Web Generator es una PARTE de lo abierto.** Un sitio tiene páginas
+  («Añadir página», `PanelPaginas.tsx`): «crea otra página con los testimonios» salía como una landing NUEVA, «borra la
+  otra página» elegía otra landing para la Papelera y «elimina esta página» decía «usa ⋯ › Eliminar» de la landing.
+  Lo cazó la revisión, no un test. Una palabra de un área que dentro de su tab nombra una parte va a
+  `PARTES_DE_LO_ABIERTO`; fuera de su tab sigue contando («créame otra página» en Automations va al Web Generator).
+- **Un `hastaMs` corto a `chatCheapCascade` no prueba NADA y devuelve '' como si no hubiera IA.** No arranca un intento
+  si al plazo le quedan menos de 15 s (`MIN_INTENTO_MS`). Para un plazo de segundos: `hastaMs = inicio + 15 s + la
+  ventana en que se puede ARRANCAR un intento`, cada intento acotado con `timeoutMs`, y el total cortado con una carrera.
+  El navegador espera más que la IA (12 s contra 7,5 s): la ruta antes lee la sesión, la vista y los objetos, y con
+  10 s contra 9 s el chat cortaba justo cuando la IA contestaba.
+- **Desde el 16/10, `redDePlataforma` es pedir Claude**: esa red prueba PRIMERO el crédito de Claude de la plataforma
+  (la tercera puerta, más arriba). Una feature que no puede usar Claude no la pide: va su propia red con
+  `provsGratisDePlataforma`, como Offer, y con `pii` no corre.
+
+Dos trampas de las reglas, chicas pero que cuestan una llamada a la IA en cada mensaje: «qué tengo» como verbo de ver
+hacía de «la otra automatización QUE TENGO» un segundo verbo (y las reglas dudaban); y «y + verbo» no separa pedidos:
+«crea otra landing y ponle el título X» es UNO sobre la landing nueva, partido mandaba el título a la abierta.
+
+Y `linkPantalla` (lib/api-mako/link.ts) no sirve para un link de ADENTRO de la app: importa `lib/workspace`
+(server-only) y arma el absoluto de los que salen. Adentro, `conWs` (lib/ws-tab.ts, isomórfico).
+
+### Lo que quedó SIN hacer
+
+- **La clave PROPIA de Anthropic del negocio todavía puede contestar** dentro de la cascada (la segunda puerta): es su
+  plata y su decisión. Cerrarla del todo pide una opción en `chatCheapCascade` (lib/ai-cheap.ts). Decide el coordinador.
+- **Automations**: su función en `objetosDeTab` (app/api/mako/pedidos/route.ts) y el fetch en su chat; hasta entonces,
+  «la otra automatización» contesta «¿Cuál? Dime su nombre.». **El chat único del Second Brain**, lo mismo.
+- **Correr la operación de OTRA tab desde la burbuja**: hoy deja el link (y la operación como dato).
+- **No se probó con la IA de verdad ni en el navegador** (sin `next dev` por la RAM): las reglas y la IA con un doble.
+
+· *2026-10-16 chat «Web Generator» (claude3)*
