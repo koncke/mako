@@ -255,7 +255,8 @@ export function FichaPorBloques({ data, parchear, altoChat, initialTab, onTab, f
           {epico && <h2 className="fb-titular">{efectiva.nombres[tab]}</h2>}
           <Armador tab={tab} lista={ef.tabs[tab]} ctx={ctx} editando={enEdicion && !conGaleria} epico={epico}
             sel={sel?.tab === tab ? sel.indice : null} onSel={(i) => setSel(i == null ? null : { tab, indice: i })}
-            onCambio={cambiar} onAgregar={(ancla) => setAgregar({ tab, ancla })} dispositivo={dispositivo} />
+            onCambio={cambiar} onAgregar={(ancla) => setAgregar({ tab, ancla })}
+            avisaDe={(p) => efectiva.avisos.find((a) => a.id === p)?.avisa ?? true} dispositivo={dispositivo} />
         </div>}
       </>
     );

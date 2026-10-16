@@ -28,7 +28,9 @@ import type { BloquePuesto, CambioFicha } from '@/lib/ficha/config';
 import { tituloDeBloque } from '@/lib/ficha/registro';
 // La MISMA lista que ofrece la API de MaKo (cambiar_ficha_funnel, cambio icono): una sola fuente.
 import { ICONOS_BLOQUE } from '@/lib/ficha/api';
-import { anchosDeLaBarra, bloquesDeLaGrilla, compartiendoFila, disenoADibujar, disenosOfrecidos, lugarAlSoltar, ocurrencia, type BloqueEnGrilla, type DispositivoFicha } from './armar';
+import { NO_IGNORABLES } from '@/lib/datos-aviso';
+import type { StepId } from '@/lib/stage-requirements';
+import { anchosDeLaBarra, bloquesDeLaGrilla, compartiendoFila, cubreDe, disenoADibujar, disenosOfrecidos, lugarAlSoltar, ocurrencia, type BloqueEnGrilla, type DispositivoFicha } from './armar';
 import { entradaDe } from './registro';
 import { Flotante } from './Flotante';
 import type { CtxFicha } from './tipos';
@@ -36,7 +38,9 @@ import { NOMBRE_FUENTE, preguntasDelLead } from './resumen/logica';
 
 type Soltar = { indice: number; lado: 'antes' | 'despues' };
 
-export function Armador({ tab, lista, ctx, editando, sel, onSel, onCambio, onAgregar, epico = false, dispositivo = 'escritorio' }: {
+export function Armador({ tab, lista, ctx, editando, sel, onSel, onCambio, onAgregar, epico = false, dispositivo = 'escritorio', avisaDe }: {
+  /** ¿Ese dato entra en «datos sin marcar» en este funnel? Lo usa «Obligatorio» de la barra del bloque. */
+  avisaDe?: (paso: StepId) => boolean;
   tab: TabFicha;
   /** La lista ENTERA de la tab (la ficha efectiva del funnel), con lo que no se dibuja. */
   lista: readonly BloquePuesto[];
@@ -157,7 +161,7 @@ export function Armador({ tab, lista, ctx, editando, sel, onSel, onCambio, onAgr
           </span>
         )}
         {elegido && (
-          <BarraBloque tab={tab} b={b} icono={icono} titulo={titulo} incluidos={incluidos} onCambio={onCambio}
+          <BarraBloque tab={tab} b={b} icono={icono} titulo={titulo} incluidos={incluidos} onCambio={onCambio} avisaDe={avisaDe}
             onQuitar={() => onSel(null)} onMoverTeclado={conTeclado}
             preguntas={b.def.opciones?.includes('pregunta') ? preguntasDelLead(ctx.data) : []} />
         )}
@@ -204,7 +208,8 @@ const NOMBRE_RED: Readonly<Record<Red, string>> = { web: 'Web', instagram: 'Inst
  * OPCIONES (16/10/2026): lo que el bloque declara configurar adentro (`def.opciones`): qué redes van en «Redes y web»,
  * qué fuentes en «Lo que contestó» y qué pregunta en «Respuesta destacada» (de las que contestó ESTE lead).
  */
-function BarraBloque({ tab, b, icono, titulo, incluidos, onCambio, onQuitar, onMoverTeclado, preguntas }: {
+function BarraBloque({ tab, b, icono, titulo, incluidos, onCambio, onQuitar, onMoverTeclado, preguntas, avisaDe }: {
+  avisaDe?: (paso: StepId) => boolean;
   tab: TabFicha;
   b: BloqueEnGrilla;
   icono: NombreIconoMenu;
@@ -228,6 +233,12 @@ function BarraBloque({ tab, b, icono, titulo, incluidos, onCambio, onQuitar, onM
   const diseno = disenoADibujar(b.puesto, b.def, b.reglas);
   const id: BloqueId = b.def.id;
   const quitable = b.def.quitable || b.def.tab !== tab;
+  // «OBLIGATORIO» (16/10/2026, Martín: «si hoy en día clickeo en cada bloque ahí debería haber una opción de
+  // "Obligatorio" y que eso sea lo que hace ese dato que ingrese a "datos sin marcar"»). Los datos que el bloque
+  // dibuja (`cubreDe`), menos la asistencia de una reunión pasada, que avisa siempre. Es el mismo aviso por funnel que
+  // los interruptores de la barra lateral (`op: 'aviso'`): prender o apagar acá los mueve a todos juntos.
+  const cubre = avisaDe ? cubreDe(b.def, b.reglas).filter((p) => !NO_IGNORABLES.has(p)) : [];
+  const obligatorio = cubre.length > 0 && cubre.every((p) => avisaDe!(p));
   const abrir = (tipo: 'diseno' | 'icono' | 'opciones') => (e: { currentTarget: HTMLElement }) => {
     const ancla = e.currentTarget;
     setMenu((m) => (m?.tipo === tipo ? null : { tipo, ancla }));
@@ -267,6 +278,16 @@ function BarraBloque({ tab, b, icono, titulo, incluidos, onCambio, onQuitar, onM
           {sep}
           <button type="button" className="fb-herr" aria-haspopup="menu" aria-expanded={menu?.tipo === 'opciones'} onClick={abrir('opciones')}>
             Opciones <span aria-hidden>▾</span>
+          </button>
+        </>
+      )}
+      {cubre.length > 0 && (
+        <>
+          {sep}
+          <button type="button" className="fb-herr" aria-pressed={obligatorio}
+            title={obligatorio ? 'Si falta, entra en «datos sin marcar». Toca para que no avise.' : 'Toca para que, si falta, entre en «datos sin marcar».'}
+            onClick={() => { for (const p of cubre) if (avisaDe!(p) === obligatorio) onCambio({ op: 'aviso', paso: p, avisa: !obligatorio }); }}>
+            {obligatorio ? '✓ ' : ''}Obligatorio
           </button>
         </>
       )}
