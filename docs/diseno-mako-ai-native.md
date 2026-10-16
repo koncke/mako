@@ -7,6 +7,12 @@
 - **Qué se decide (sección f):** cuánto entra antes del tope del 4/11. **Recomendación: la opción A**, chica y visible: «Editar con MaKo» en Dashboard y General (una frase y el gráfico aparece), con el arreglo del bug de «Pídeselo» en General. La pieza única, Second Brain en lugar de `/mako` y el Centro como su adaptador quedan para la etapa 2, que puede arrancar por el Centro porque no toca a ningún cliente.
 - **La pieza única sale del Centro** (sección a): barra jefe › sub, conversación, la pregunta tipo Claude Code y el riel. Lo que es sólo del super admin (la firma, el Runner, el Uso, la Ticketera) entra por slots.
 - **El grafo va como la Ticketera** (sección c, copiado de Obsidian): un acceso «Mapa» arriba de la lista. Se alimenta LEYENDO lo que ya existe, nunca copiando a markdown.
+- **El chat de MaKo por WhatsApp es un chat más del Second Brain** (sección c, pedido de Martín del 16/10): se LEE de
+  donde ya vive (`mako_doer_conv`), sólo lo ve el admin, y como trae datos de clientes sólo contesta con su Claude o
+  con un Gemini pago. Hoy MaKo contesta SÓLO en grupos: el 1 a 1 con su número no existe.
+- **«Entender el pedido» es una pieza de TODOS los chats** (sección a): interpretar «la otra automatización», ordenar dos
+  pedidos en uno, y dejar el link si es de otra tab. La construye Web Generator; acá se usa, no se duplica.
+- **Los chats no cuentan con el crédito de Claude de la plataforma**: desde el 16/10 es SÓLO para el onboarding.
 - **Las criaturas** (sección d): forma, color y cara por jefe, guardadas por workspace y por la clave del chat (renombrar no cambia el muñeco).
 - **⛔ Antes que todo, una fuga que no es de este diseño:** `/api/chart-insights` le pasa a closer y setter los montos del trimestre. Se arregla aparte.
 
@@ -25,6 +31,8 @@
   - En `app/admin/operaciones/`: `Pregunta.tsx`, `TicketeraCentro.tsx`, `NuevoChat.tsx`, `Uso.tsx` y `tabs.ts`.
   - `lib/centro-preguntas.ts` y `lib/centro-uso.ts`.
   - `app/m/operaciones/TicketeraMovil.tsx`.
+- **Las secciones del chat de WhatsApp (c) y de «entender el pedido» (a)** se sumaron el 16/10 a la mañana, medidas en
+  `origin/main` `3a8d16050`.
 - **Cómo se midió:** sólo lectura. Los conteos del registro salen de scripts `node --import tsx` sobre `lib/api-mako/registro.ts`, que quedaron fuera del repo, en el scratchpad de la sesión (`medir-*.ts`). Si algo no se midió, se dice.
 - **Ojo con la herramienta Grep:** devolvió «No files found» con tildes y con un glob de llaves sobre texto que existe (`app/mako/MakoTab.tsx:68`). Los conteos en cero se repitieron con `grep` desde Bash.
 
@@ -165,6 +173,39 @@ Son técnicas. No se le preguntan a Martín.
 6. **La CSS se parte en dos.**
    - `wt:app/admin/operaciones/centro.css` tiene 841 líneas: 33 reglas son de `.co-runner` y 21 de `.co-uso`.
    - Sus cortes miran la ventana (1100, 1000 y 720 px). Como panel adentro del Dashboard no saltaría ninguno, así que el `modo` o las container queries son obligatorios.
+
+### La pieza «entender el pedido» (la construye Web Generator; acá se usa)
+
+Martín (16/10), por el coordinador: que todo chat entienda pedidos sueltos. Tres casos:
+
+- «Quiero eliminar la otra automatización que tengo porque podría unificarla», sin nombrarla: interpretar cuál es y, de
+  última, preguntar.
+- «Feedback de lo actual… y también créame otra landing»: llamar esa función, o proponer «¿terminamos esto y luego
+  creamos la otra landing?».
+- Un pedido de otra tab: dejar el link.
+
+Su frase: «Esto se logra teniendo el Second Brain con todo, y la API de MaKo».
+
+- **Dueño: el chat Web Generator.** Lo escribe en `lib/`, sobre el registro de la API de MaKo, y lo enchufa primero a su
+  propio chat. Este diseño NO lo duplica: la pieza única lo llama desde `turnoApp`, antes de elegir herramientas.
+  Medido el 16/10 en `origin/main` y en sus ramas: todavía no existe. La rama `web-pedidos` no trae nada que main no
+  tenga.
+- **Lo que ya hay y es pariente, para no escribirlo dos veces:**
+  - `lib/mako-intencion.ts` contesta «qué te están pidiendo» sin costo (`clasificarIntencion`, `areasDelMensaje`,
+    `esPedidoDeLanding`, `esPedidoSobreLead`…). Nació de un caso real: MaKo contestó un pedido nuevo con material de
+    33 h antes.
+  - `linkPantalla` (`lib/api-mako/link.ts`) arma el link a otra pantalla con el workspace puesto.
+  - La pieza nueva va ARRIBA de estos dos, no al lado.
+- **El contrato mínimo:**
+  - **Entra:** el pedido, el chat (su jefe, su sub-chat y lo que se habló) y el Second Brain del negocio, que es de donde
+    sale «la otra automatización».
+  - **Sale una de tres:**
+    1. las acciones de la API a proponer, en orden, con la entidad resuelta por id;
+    2. UNA pregunta, sólo si de verdad no se puede deducir (la regla «decidir con criterio»);
+    3. un link a la pantalla de otra tab, si el pedido es de ahí.
+  - Nunca ejecuta: propone por el mismo camino que todo canal (`ejecutarOperacion` → pendiente o pantalla).
+- **Lo que no puede saltearse:** la confirmación. Una acción que resolvió «la otra» por inferencia lleva en la tarjeta
+  CUÁL eligió («Borrar "Bienvenida vieja"»), para que el «sí» sea sobre algo nombrado.
 
 ### Lo que queda sólo del super admin
 
@@ -320,6 +361,66 @@ Respeta la lección que ya se pagó: una segunda navegación que le competía al
   - `/mako/pendientes` y `/mako/revisar` **se quedan**: los nombran 56 archivos fuera de `app/mako` (`RUTA_BANDEJA`, `lib/api-mako/acciones.ts:57`).
   - En el teléfono, `/m/mako` pasa a ser el Second Brain del teléfono. Hoy `app/m` no tiene ninguno (grep 0).
 
+### El chat de MaKo por WhatsApp es un chat más
+
+Martín (16/10): «Incluso el chat de MaKo en WhatsApp debería guardarse como chat en los second brain, y de esa forma, es
+mucho más facil que guarde contexto de absolutamente todo y pueda acceder a las acciones de MaKo mediante la API muy
+facil».
+
+**Lo que hay hoy** (leído en `origin/main` el 16/10):
+- **MaKo contesta SÓLO en grupos.** El webhook manda al doer los mensajes `…@g.us` y, en las líneas de MaKo, ignora el 1
+  a 1: «línea de MaKo: solo mensajes de grupo» (`app/api/webhooks/evolution/route.ts`). El 1 a 1 que llega por ahí es el
+  espejo del inbox de cada cliente con SUS leads, no una charla con MaKo. **El «1 a 1 con MaKo» que pidió Martín no
+  existe todavía.**
+- **La conversación del grupo ya se guarda**: `mako_doer_conv` (mig 0086, por workspace) guarda un turno por fila, con
+  `grupo_jid`, `role` (`user` | `assistant`), el texto (o la transcripción de la nota de voz) y `wa_message_id`. **No
+  guarda quién de las personas del grupo habló**: todo lo humano es `user`.
+- **Al contestar, MaKo re-lee sólo 14 horas y 24 turnos** (`HORAS_CONTEXTO`, `lib/mako-doer-conv.ts`). El corte es a
+  propósito: con 48 h, un «sí, cargalo» se pegó a una charla de cuatro días antes y duplicó dos tareas del tablero.
+- **Las acciones ya son las de la API de MaKo**: el doer usa el mismo registro con el canal `whatsapp`, y la pendiente
+  queda con la clave del grupo (`mako_acciones_pendientes.grupo_jid`).
+
+**Cómo entra al Second Brain, sin copiar:**
+- **El índice de chats lo LEE de `mako_doer_conv`**, como a los demás orígenes: un chat por grupo, con la clave
+  `whatsapp:<grupo_jid>` y el jefe que le toca. El grupo del negocio cuelga del jefe «Second Brain», porque habla de
+  todo. No se copia una fila y no hace falta migrar.
+- **«Guardar contexto de absolutamente todo» NO es re-leer más historial.** Agrandar la ventana es exactamente lo que
+  duplicó tareas.
+  - Lo que el chat de WhatsApp necesita saber de antes lo trae el Second Brain como HECHOS: lo creado, lo decidido y lo
+    que hay en el negocio. No vuelve como turnos viejos.
+  - Y vale al revés: el chat de la app no re-inyecta la charla de WhatsApp; lee lo que de ahí quedó hecho.
+- **Las mismas acciones desde cualquier lado, pero cada «sí» en su canal.** Una pendiente propuesta en WhatsApp se
+  confirma en WhatsApp o en la bandeja de la app (`/mako/pendientes`), nunca con un «sí» en otro chat (`canal.ts`: «un
+  "sí" solo alcanza lo que se propuso en ESTE canal»). La pieza única puede mostrar la tarjeta en los dos
+  lados, pero se confirma sólo en su canal o en la bandeja.
+- **El 1 a 1, si se construye**, va en la misma tabla, con `…@s.whatsapp.net` como clave. Para eso:
+  - el webhook tiene que dejar de ignorarlo en la línea de MaKo, sin mezclarlo con el espejo del inbox de los clientes;
+  - la persona sale del teléfono (los teléfonos del workspace).
+  - Es trabajo nuevo, y su lugar es la etapa 2.
+
+**Quién lo ve:**
+- **El chat del grupo es del NEGOCIO** (`alcance: 'workspace'`). En `/second-brain` lo ve **sólo el admin**: trae montos,
+  nombres de leads y decisiones, y la fila no dice quién habló. Closer y setter no lo ven, con el corte en el servidor,
+  igual que «Mapa».
+- **El 1 a 1, cuando exista, es de esa PERSONA** (`alcance: 'persona'`), como los chats nuevos de la app (decisión 3).
+
+**La PII** (la regla del 16/10, `AGENTS.md` en `origin/main`: «los datos de los clientes de un cliente nunca van a un
+proveedor que entrena con lo que recibe»):
+- **El doer de WhatsApp ya está marcado `pii: true`** (`mako-doer-in`, `lib/model-catalogo.ts`). **Los de la app NO**
+  (`mako-doer`, el de `turnoApp`, y `mako-chat`).
+  - En cuanto un chat de la app LEA lo de WhatsApp, o cualquier cosa con leads, pasa a llevar la marca. Es la regla:
+    «una feature nueva que lea leads, conversaciones o llamadas se marca `pii: true`».
+  - Con la marca, contesta sólo un proveedor que no entrena: el Claude del negocio, conectado con su clave (la «segunda
+    puerta» de `lib/veto-claude.ts`), o una key de Gemini con facturación.
+  - Si no hay ninguno, el chat se corta y dice que conecte su Claude. No se degrada a una key gratis.
+- **El crédito de Claude de la PLATAFORMA no cuenta para los chats.** Desde el 16/10 lo usa sólo lo que lista
+  `CREDITO_HABILITADO_PARA`: cuatro funciones del onboarding, y sólo mientras el onboarding está en curso. La única
+  que es un chat es el de Offer del primer ingreso; pasado el onboarding, tampoco. «La regla
+  nueva: datos de clientes, sólo por el crédito de Claude» se lee así: por el Claude DEL NEGOCIO, o por lo que no
+  entrena. Nunca por el de MaKo.
+- **Lo que se guarda no cambia de lugar**: `mako_doer_conv` es una tabla del inquilino, con RLS. El índice lee dentro de
+  `runWithWorkspace` y nunca la junta con la de otro negocio.
+
 ### El Centro del super admin pasa a ser su Second Brain
 
 - **El super admin ya tiene su orquestador.** Desde `f83efea40`, el Centro tiene un chat «Cerebro» que no es jefe y va arriba (`wt:lib/centro-chats.ts:222-230` y `500-516`). Es lo que corresponde a «al entrar se abre el jefe Second Brain».
@@ -389,7 +490,10 @@ Respeta la lección que ya se pagó: una segunda navegación que le competía al
    - la columna de `bloques` y los adjuntos guardados;
    - el riel «Lo que hizo», leyendo `mako_acciones_pendientes`;
    - el Centro como adaptador, con «Cerebro» como su jefe Second Brain;
-   - la lista de chats, renombrar y el muñeco del cliente, declarados en la API de MaKo.
+   - la lista de chats, renombrar y el muñeco del cliente, declarados en la API de MaKo;
+   - el chat de WhatsApp del grupo, leído en el índice (sólo el admin), y la marca `pii` en los chats de la app que lo
+     lean;
+   - «entender el pedido» enchufado en `turnoApp`, cuando Web Generator lo tenga andando en su chat.
 3. **Los jefes que ya tienen sub-chats:**
    - CRM, con la cara nueva;
    - Automations, con su jefe;
