@@ -220,6 +220,14 @@ function mako(id: string, texto: string, siguiente: string | null): PasoDePlanti
   return { ...RELLENO, id, siguiente, accion: { operacion: OP_AVISAR, params: paramsConPartes({ leadId: LEAD_DEL_EVENTO }, [{ tipo: 'texto', cuerpo: texto }]) } };
 }
 
+/**
+ * LA MISMA TARJETA, «LO MANDA IGUAL» FUERA DEL HORARIO DE OFICINA (16/10/2026): una alerta que no puede esperar a la mañana.
+ * Esperando, las tres del techo se apilaban de noche y salían juntas a las 9 con los datos de la noche (revisión de B3).
+ */
+function makoUrgente(id: string, texto: string, siguiente: string | null): PasoDePlantilla {
+  return { ...RELLENO, id, siguiente, accion: { operacion: OP_AVISAR, params: paramsConPartes({ leadId: LEAD_DEL_EVENTO, fueraDeHorario: 'igual' }, [{ tipo: 'texto', cuerpo: texto }]) } };
+}
+
 /** LA MISMA TARJETA POR EMAIL («MaKo por email», 16/10/2026): un correo al equipo del negocio, con su asunto. */
 function makoEmail(id: string, asunto: string, texto: string, siguiente: string | null): PasoDePlantilla {
   return { ...RELLENO, id, siguiente, accion: { operacion: OP_AVISAR, params: paramsConPartes({ leadId: LEAD_DEL_EVENTO, canal: 'email', asunto }, [{ tipo: 'texto', cuerpo: texto }]) } };
@@ -611,6 +619,35 @@ export const PLANTILLAS: readonly PlantillaAutomatizacion[] = [
  * de los negocios, que es una por categoría del embudo. Las ve y las crea sólo el ws de la plataforma (`plantillasPara`,
  * `crearDesdePlantilla`). Hoy, la de restablecer la contraseña: su evento lo emite Seguridad en ese ws.
  */
+/**
+ * LO QUE DICE LA ALERTA DE CADA ESTADO DE LA CUENTA PUBLICITARIA (16/10/2026). Era `CAUSA` de lib/alerta-critica-texto.ts, el
+ * texto que el código armaba y mandaba sin automatización; ahora es el texto LITERAL de cada salida de la CONDITION de
+ * `mako-meta-cuenta-frenada`. Los estados son EXACTAMENTE los de `ACCOUNT_STATUS` (lib/meta-health.ts): los cruza
+ * tests/alerta-critica.test.ts. Uno que no está acá cae al «Si no», que dice el estado tal cual y NO inventa qué hacer.
+ * Pedido del dueño (12/8): la CAUSA, no el síntoma — «suspendida por falta de pago» dice qué hacer, «frenada» no.
+ */
+const CAUSA_DE_LA_CUENTA: ReadonlyArray<{ id: string; estado: string; titular: string; queHacer: string }> = [
+  { id: 'impago', estado: 'Saldo impago', titular: 'Tu cuenta publicitaria está *SUSPENDIDA POR FALTA DE PAGO*', queHacer: 'Paga el saldo que debes en el Business Manager de Meta.' },
+  { id: 'deshabilitada', estado: 'Deshabilitada', titular: 'Meta *DESHABILITÓ* tu cuenta publicitaria', queHacer: 'Entra al Business Manager y pide la revisión de la cuenta.' },
+  { id: 'riesgo', estado: 'En revisión de riesgo', titular: 'Meta puso tu cuenta *EN REVISIÓN DE RIESGO*', queHacer: 'No toques nada estos días: ni presupuestos ni anuncios nuevos.' },
+  { id: 'liquidacion', estado: 'Pendiente de liquidación', titular: 'Tu cuenta quedó *PENDIENTE DE LIQUIDACIÓN*', queHacer: 'Meta está esperando que se salde la cuenta. Revisa el método de pago.' },
+  { id: 'gracia', estado: 'En período de gracia', titular: 'Tu cuenta está *EN PERÍODO DE GRACIA*: se frena en cualquier momento', queHacer: 'Regulariza el pago AHORA, antes de que corte.' },
+  { id: 'cierre', estado: 'Pendiente de cierre', titular: 'Tu cuenta publicitaria está *POR CERRARSE*', queHacer: 'Entra ya al Business Manager: si se cierra, se pierde el historial.' },
+  { id: 'cerrada', estado: 'Cerrada', titular: 'Tu cuenta publicitaria está *CERRADA*', queHacer: 'Hay que apelar en el Business Manager o abrir una cuenta nueva.' },
+];
+
+/**
+ * El texto de la alerta: cada dato en su renglón, y un renglón sin su dato se va solo (el motivo de Meta, cuando no agrega
+ * nada). «Sin entregar» es un DATO que pone el cron sólo si Meta lo confirmó (`anuncios_entrega`), nunca una frase fija.
+ */
+const textoCuentaFrenada = (titular: string, queHacer: string | null): string => [
+  `🚨 ${titular}`, '📉 Anuncios: {{anuncios_entrega}}', '🕐 Hace {{anuncios_hace}} que está así.', '⚠️ Motivo de Meta: {{anuncios_motivo_meta}}',
+  ...(queHacer ? [`✅ ${queHacer}`] : []), '👉 {{link_integraciones}}', '', '— MaKo',
+].join('\n');
+
+/** El techo de fábrica de la alerta: cuántas veces avisa por incidente (editable en la CONDITION de la fila). */
+export const TOPE_AVISOS_CUENTA_FRENADA = 3;
+
 export const PLANTILLAS_PLATAFORMA: readonly PlantillaAutomatizacion[] = [
   {
     // «Restablecer la contraseña» (15/10/2026: la contraseña es obligatoria desde el 21/10, decisión de Martín).
@@ -639,16 +676,33 @@ export const PLANTILLAS_PLATAFORMA: readonly PlantillaAutomatizacion[] = [
   // un dato vacío se va entero (`textoConDatos`), y la línea sin número ni etiqueta no deja «()». Con la firma «— MaKo»
   // del texto de siempre: una tarjeta TAL CUAL no le suma envoltorio (16/10/2026, tests/avisos-plataforma.test.ts).
   {
+    // ⚠️ TEXTO LITERAL (16/10/2026, Martín: «el mensaje NO es igual... esa automatización esta al pedo»): hasta ese día la
+    // tarjeta citaba `{{linea_titulo}}` y `{{linea_motivo}}`, frases enteras escritas en el código. Ahora cada caso es su
+    // evento y su texto: el corte acá, y «WhatsApp cerró la sesión» en `mako-whatsapp-desvinculado`. La fecha va en su
+    // renglón: sin ella, se va sola y no se lleva la frase.
     id: 'mako-whatsapp-caido',
-    nombre: 'Se Cayó el WhatsApp de un Negocio',
+    nombre: 'Se Cortó el WhatsApp de un Negocio',
     emoji: '🔴',
-    linea: 'Le avisa al grupo de un negocio que su WhatsApp se cayó, y qué hacer.',
-    origen: 'el vigilante de líneas (wa-desconectado): dos pruebas seguidas con la línea caída',
+    linea: 'Le avisa al grupo de un negocio que su WhatsApp se cortó, y qué hacer.',
+    origen: 'el vigilante de líneas (wa-desconectado): dos pruebas seguidas con la línea caída, sin que WhatsApp haya cerrado la sesión',
     objetivo: 'clientes',
     soloPlataforma: true,
     cron: { fijo: TRIGGER_AVISO_MAKO, evento: 'whatsapp_caido' },
     pasos: [
-      mako('wc_mk', '🔴 *{{linea_titulo}}*\n📱 {{linea_numero}}\n{{linea_motivo}} {{linea_link}} — MaKo', null),
+      mako('wc_mk', '🔴 *Se cortó tu WhatsApp*\n📱 {{linea_numero}}\n🕐 Desde el {{linea_fecha}}\nPor ese número no entran ni salen mensajes. Puede volver solo; si sigue así, reconéctalo:\n{{linea_link}}\n\n— MaKo', null),
+    ],
+  },
+  {
+    id: 'mako-whatsapp-desvinculado',
+    nombre: 'Se Desconectó el WhatsApp de un Negocio',
+    emoji: '🔴',
+    linea: 'Le avisa al grupo de un negocio que WhatsApp cerró la sesión de su línea, y que vuelva a escanear el QR.',
+    origen: 'el vigilante de líneas (wa-desvinculado): WhatsApp cerró la sesión del dispositivo vinculado',
+    objetivo: 'clientes',
+    soloPlataforma: true,
+    cron: { fijo: TRIGGER_AVISO_MAKO, evento: 'whatsapp_desvinculado' },
+    pasos: [
+      mako('wd_mk', '🔴 *Se desconectó tu WhatsApp*\n📱 {{linea_numero}}\n🕐 Desde el {{linea_fecha}}\nWhatsApp cerró la sesión del dispositivo vinculado: tu teléfono está bien, pero por ese número no entran ni salen mensajes. Vuelve a escanear el QR:\n{{linea_link}}\n\n— MaKo', null),
     ],
   },
   {
@@ -662,6 +716,41 @@ export const PLANTILLAS_PLATAFORMA: readonly PlantillaAutomatizacion[] = [
     cron: { fijo: TRIGGER_AVISO_MAKO, evento: 'whatsapp_volvio' },
     pasos: [
       mako('wv_mk', '🟢 *Volvió tu WhatsApp*\n📱 {{linea_numero}}\nPor ese número ya entran y salen mensajes otra vez. — MaKo', null),
+    ],
+  },
+  {
+    // LA CUENTA PUBLICITARIA FRENADA (16/10/2026, docs/inventario-nada-por-detras.md, lote 1: el «ANUNCIOS · 19 H 40 MIN SIN
+    // ENTREGAR… (18ª vez)» del grupo de Mauricio). Lo que antes decidía el código, en tarjetas: el TECHO (la primera
+    // CONDITION, «Aviso número ≤ 3») y el texto de cada ESTADO (la segunda, una salida por estado y el «Si no» genérico).
+    // El cron la emite cada hora mientras el incidente siga abierto; pasado el techo, la fila no manda nada. El techo cuenta
+    // los avisos que LLEGARON de cada ESTADO (un empeoramiento vuelve a avisar), y las tarjetas «Lo mandan igual» de noche.
+    id: 'mako-meta-cuenta-frenada',
+    nombre: 'Meta Frenó la Cuenta Publicitaria de un Negocio',
+    emoji: '🚨',
+    linea: 'Le avisa al grupo de un negocio que Meta frenó su cuenta publicitaria, por qué y qué hacer, hasta 3 veces.',
+    origen: 'el cron de las alertas críticas (meta-cuenta-frenada): un incidente de Meta abierto, confirmado y que cuesta plata',
+    objetivo: 'clientes',
+    soloPlataforma: true,
+    cron: { fijo: TRIGGER_AVISO_MAKO, evento: 'meta_cuenta_frenada' },
+    pasos: [
+      condicion('mf_tope', [[[{ campo: 'dato:anuncios_vez', op: 'menor_igual', valor: TOPE_AVISOS_CUENTA_FRENADA }], 'mf_estado']], null),
+      condicion('mf_estado', CAUSA_DE_LA_CUENTA.map((c) => [[{ campo: 'dato:anuncios_estado', valor: c.estado }], `mf_${c.id}`] as const), 'mf_otro'),
+      ...CAUSA_DE_LA_CUENTA.map((c) => makoUrgente(`mf_${c.id}`, textoCuentaFrenada(c.titular, c.queHacer), null)),
+      makoUrgente('mf_otro', textoCuentaFrenada('*Tu cuenta publicitaria tiene un problema*\n📋 Estado en Meta: {{anuncios_estado}}', null), null),
+    ],
+  },
+  {
+    // Y su contracara (16/10/2026): el incidente que se venía avisando se resolvió.
+    id: 'mako-meta-cuenta-recuperada',
+    nombre: 'Volvió la Cuenta Publicitaria de un Negocio',
+    emoji: '✅',
+    linea: 'Le avisa al grupo de un negocio que su cuenta publicitaria volvió a entregar (sólo si se le había avisado).',
+    origen: 'el cron de las alertas críticas (meta-cuenta-recuperada)',
+    objetivo: 'clientes',
+    soloPlataforma: true,
+    cron: { fijo: TRIGGER_AVISO_MAKO, evento: 'meta_cuenta_recuperada' },
+    pasos: [
+      makoUrgente('mr_mk', '✅✅ *LISTO, YA ESTÁ ENTREGANDO* ✅✅\n\n🟢 Tu cuenta publicitaria volvió a la normalidad.\n🔕 Dejo de avisarte.\n\n— MaKo', null),
     ],
   },
   {

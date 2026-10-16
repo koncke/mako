@@ -44,8 +44,21 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
-  decidirLinea, textoCaida, textoVolvio, lineaLegible, CONFIRMAR_MIN, CADA_MIN_LINEA, DEDUP_LINEA_MIN,
+  decidirLinea, datosCaida, datosVolvio, avisoDeCaida, lineaLegible, CONFIRMAR_MIN, CADA_MIN_LINEA, DEDUP_LINEA_MIN,
 } from '../lib/linea-vigilancia';
+import { plantillaPorId, pasosDePlantilla } from '../lib/plantillas-automatizaciones';
+import { partesDeMako } from '../lib/mako-tarjeta';
+import { textoConDatos } from '../lib/variables-del-lead';
+
+/**
+ * ⚠️ DESDE EL 16/10/2026 (tarde) EL TEXTO ES EL DE LA FILA DE SUPERADMIN, no el del código (`textoCaida` y `textoVolvio` se
+ * borraron: eran el camino viejo). Lo que sale es la plantilla de la fila con los datos de la línea; se prueba eso.
+ */
+const deLaFila = (plantilla: string, datos: Record<string, string>): string => {
+  const p = pasosDePlantilla(plantillaPorId(plantilla)!)[0] as unknown as { accion?: { params?: Record<string, unknown> } };
+  const parte = partesDeMako(p.accion?.params)[0];
+  return textoConDatos(parte && 'cuerpo' in parte ? String(parte.cuerpo) : '', datos);
+};
 import { CATALOGO_AVISOS, AVISOS_DEL_CLIENTE, AVISOS_SOLO_SUPERADMIN } from '../lib/avisos-catalogo';
 
 const leer = (p: string): string => readFileSync(new URL(p, import.meta.url), 'utf8');
@@ -125,10 +138,10 @@ test('⚠️ si la caída SE AVISÓ, al volver sale el «volvió»; una desvincu
 });
 
 test('el «volvió» nombra la línea y no manda a hacer nada', () => {
-  const t = textoVolvio({ linea: '+5215512345678' });
-  assert.match(t, /Volvió tu WhatsApp\* \(\+5215512345678\)/);
+  const t = deLaFila('mako-whatsapp-volvio', datosVolvio({ linea: '+5215512345678' }));
+  assert.match(t, /Volvió tu WhatsApp\*\n📱 \+5215512345678/);
   assert.ok(!/https?:\/\/|escanear|reconect/i.test(t), `el «volvió» manda a hacer algo: «${t}»`);
-  assert.match(textoVolvio({ linea: null }), /^🟢 \*Volvió tu WhatsApp\*\./);
+  assert.match(deLaFila('mako-whatsapp-volvio', datosVolvio({ linea: null })), /^🟢 \*Volvió tu WhatsApp\*\nPor ese número/);
 });
 
 test('⚠️ el vigilante limpia las marcas y DESPUÉS manda el «volvió», con su propia clave de dedup', () => {
@@ -139,15 +152,15 @@ test('⚠️ el vigilante limpia las marcas y DESPUÉS manda el «volvió», con
   const iLimpia = rama.indexOf('setSetting(keyAvisado(linea), \'\')');
   const iEmite = rama.indexOf("emitirDelCatalogo('wa-reconectado'");
   assert.ok(iLimpia > 0 && iEmite > iLimpia, 'el «volvió» sale antes de limpiar las marcas (o no sale)');
-  // (15/10/2026: con sus DATOS, que cita la automatización de la plataforma.)
-  assert.match(rama, /texto: textoVolvio\(\{ linea: lineaLegible\(f\) \}\), datos: datosVolvio\(\{ linea: lineaLegible\(f\) \}\), dedupKey: `volvio:\$\{linea\}`/);
+  // (15/10/2026: con sus DATOS, que cita la automatización de la plataforma. Desde el 16/10, SÓLO los datos: sin texto.)
+  assert.match(rama, /ws, datos: datosVolvio\(\{ linea: lineaLegible\(f\) \}\), dedupKey: `volvio:\$\{linea\}`/);
 });
 
 // Era «el cliente los VE y los puede apagar» (09/10/2026, «las dos cosas»). Martín lo revirtió el 10/10/2026:
 // «hay ciertos mensajes que no deberían configurarse del lado del cliente, solo de SuperAdmin, como el de "Tu
 // WhatsApp se desconectó"». Siguen prendidos por defecto: lo que cambia es QUIÉN los configura.
 test('⚠️ los configura SÓLO el super admin: fuera de la lista del cliente, prendidos por defecto', () => {
-  for (const id of ['wa-desconectado', 'wa-reconectado']) {
+  for (const id of ['wa-desconectado', 'wa-desvinculado', 'wa-reconectado']) {
     assert.ok(!AVISOS_DEL_CLIENTE.includes(id), `«${id}» volvió a la lista del cliente`);
     assert.ok(AVISOS_SOLO_SUPERADMIN.includes(id), `«${id}» no es del super admin: el cliente lo podría tocar por la API`);
     const cat = CATALOGO_AVISOS.find((c) => c.id === id);
@@ -158,20 +171,25 @@ test('⚠️ los configura SÓLO el super admin: fuera de la lista del cliente, 
 
 test('⚠️ el texto manda a re-escanear SÓLO cuando WhatsApp cerró la sesión (401/403)', () => {
   const link = 'https://hola-mako.com/whatsapp?ws=11';
-  const cerrada = textoCaida({
+  // Desde el 16/10/2026 son dos avisos, cada uno con su fila (`avisoDeCaida`).
+  const hCerrada = {
     motivo: { desvinculado: true, cuando: '2026-10-03T18:00:00Z' }, desde: haceMin(30),
     linea: '+5215512345678', link, tz: 'America/Mexico_City',
-  });
+  };
+  assert.equal(avisoDeCaida(hCerrada), 'wa-desvinculado');
+  const cerrada = deLaFila('mako-whatsapp-desvinculado', datosCaida(hCerrada));
   assert.match(cerrada, /Vuelve a escanear el QR/);
   assert.match(cerrada, /el 3 de octubre/, 'la fecha de la caída es la que dio Evolution, no la nuestra');
   assert.match(cerrada, /tu teléfono está bien/, 'el dueño abre WhatsApp, lo ve andando y no entiende el aviso');
   assert.ok(cerrada.includes(link) && cerrada.includes('+5215512345678'));
   // Cualquier otro motivo, o no saberlo: puede volver solo, y re-escanear ahí la tumba.
   for (const motivo of [{ desvinculado: false, cuando: null }, null]) {
-    const corte = textoCaida({ motivo, desde: '2026-10-05T18:00:00Z', linea: null, link, tz: 'America/Mexico_City' });
+    const h = { motivo, desde: '2026-10-05T18:00:00Z', linea: null, link, tz: 'America/Mexico_City' };
+    assert.equal(avisoDeCaida(h), 'wa-desconectado');
+    const corte = deLaFila('mako-whatsapp-caido', datosCaida(h));
     assert.ok(!/escanear/i.test(corte), `un corte que puede volver solo manda a re-escanear: «${corte}»`);
     assert.match(corte, /Puede volver solo/);
-    assert.match(corte, /desde el 5 de octubre/, 'sin fecha de Evolution, el respaldo es el «desde» medido');
+    assert.match(corte, /Desde el 5 de octubre/, 'sin fecha de Evolution, el respaldo es el «desde» medido');
   }
 });
 
@@ -194,7 +212,8 @@ test('⚠️ el vigilante recorre las FILAS, deja afuera la voz y le avisa SÓLO
   assert.match(src, /sinInstancia: esInstanciaInexistente\(\{ status: d\.status, error: d\.detalle \}\)/,
     'el vigilante no le dice a la decisión que la instancia no existe: le avisa al que desvinculó su número');
   // «c: solo al cliente»: por su catálogo, en SU workspace, sin mail a la agencia.
-  assert.match(src, /emitirDelCatalogo\('wa-desconectado', \{\s*ws,/, 'el aviso dejó de salir por el catálogo del cliente');
+  // (16/10/2026, tarde: «se cortó» o «se desconectó», cada uno su aviso: `avisoDeCaida`.)
+  assert.match(src, /emitirDelCatalogo\(avisoDeCaida\(hechos\), \{\s*ws,/, 'el aviso dejó de salir por el catálogo del cliente');
   assert.ok(!/alDueno|sendEmail|avisarPorEmail|EMAILS_ALERTA_VOZ/.test(src),
     'el aviso de la línea de un cliente le llega a la agencia: la decisión fue «solo al cliente»');
   // La marca de «ya avisé» va sólo si le llegó: si no, la próxima corrida vuelve a probar.

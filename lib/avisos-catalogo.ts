@@ -236,7 +236,7 @@ const AREA_POR_AVISO: Record<string, AreaAviso> = {
   'prueba-grabada': 'landing',
   'landing-cambio': 'landing',
   'prueba-recibida': 'landing',
-  'wa-desconectado': 'sistema', 'wa-reconectado': 'sistema',
+  'wa-desconectado': 'sistema', 'wa-desvinculado': 'sistema', 'wa-reconectado': 'sistema',
   'nutricion-frenada': 'sistema',
   'datos-sin-marcar': 'sistema', 'cron-ingesta-fallo': 'sistema',
   'saldo-ia-bajo': 'sistema', 'accion-confirmada': 'sistema',
@@ -314,7 +314,8 @@ export const esAvisoDelCliente = (id: string): boolean => AVISOS_DEL_CLIENTE.inc
  * (tests/avisos-solo-superadmin.test.ts).
  */
 export const AVISOS_SOLO_SUPERADMIN: readonly string[] = [
-  'wa-desconectado',        // se cayó su WhatsApp
+  'wa-desconectado',        // se cortó su WhatsApp
+  'wa-desvinculado',        // WhatsApp cerró la sesión de su línea (16/10/2026)
   'wa-reconectado',         // y volvió
   'reunion-ocurrio-fathom', // terminó la reunión y quedó la grabación
   // El reporte de los lunes (11/10/2026): no sale por WhatsApp (`REPORTE_POR_WHATSAPP = false`, decisión del 10/10)
@@ -323,6 +324,10 @@ export const AVISOS_SOLO_SUPERADMIN: readonly string[] = [
   'reporte-semanal',
   // La oferta quedó lista (16/10/2026): la arma el servidor y avisa la automatización de la plataforma.
   'oferta-lista',
+  // La cuenta publicitaria frenada y su «ya está» (16/10/2026): eventos de la plataforma, con su texto y su techo en la
+  // automatización de SuperAdmin (docs/inventario-nada-por-detras.md, lote 1).
+  'meta-cuenta-frenada',
+  'meta-cuenta-recuperada',
 ];
 
 export const esAvisoSoloSuperAdmin = (id: string): boolean => AVISOS_SOLO_SUPERADMIN.includes(id);
@@ -429,29 +434,18 @@ Abre la extensión de MaKo y toca *Conectar*. Las tomas no se cobraron: cuando v
   {
     id: 'meta-cuenta-frenada', titulo: 'Cuenta Meta deshabilitada / entrega frenada', categoria: 'aviso', porDefecto: 'on',
     prioridad: 'alta', semaforo: 'rojo', requiereRespuesta: false, yaImplementado: 'si',
-    // ⚠️ ESTE AVISO INSISTE. No lo manda `emitirDelCatalogo` una vez: lo repite
-    // `lib/alerta-critica.ts` cada 10-20 minutos MIENTRAS la entrega siga
-    // frenada, con el texto subiendo de tono y el contador de tiempo perdido.
-    // El `ejemplo` de acá es la PRIMERA vez; las siguientes son más cortas.
-    // Editar este texto no cambia el de la insistencia (un mensaje de emergencia
-    // no se reescribe cada quince minutos) — se toca en alerta-critica.ts.
-    disparador: 'Cron alerta-critica: revisa cada 10 min y AVISA cada 1 hora mientras haya un incidente ABIERTO en service_incidents con entrega frenada o severidad roja (detectar rápido e insistir seguido son dos cosas distintas). Se repite hasta que se resuelva; al resolverse sale meta-cuenta-recuperada. Si dos workspaces comparten la misma cuenta publicitaria, avisa UNA vez.',
-    ejemplo: `━━ 📣 ANUNCIOS ━━
-🚨🚨🚨 *DETÉN TODO* 🚨🚨🚨
+    // ⚠️ DESDE EL 16/10/2026 ES UN EVENTO DE LA PLATAFORMA (`meta_cuenta_frenada`): lo emite `lib/alerta-critica.ts` cada
+    // hora MIENTRAS el incidente siga abierto, con sus HECHOS, y lo que se dice —un texto literal por estado— y hasta
+    // cuántas veces —«Aviso número ≤ 3»— lo decide la automatización de SuperAdmin (`mako-meta-cuenta-frenada`). Hasta ese
+    // día lo mandaba `emitirAviso` directo, sin techo (el «18ª vez» del grupo de Mauricio).
+    disparador: 'Cron alerta-critica: revisa cada 10 min y emite el evento cada 1 hora mientras haya un incidente ABIERTO en service_incidents con entrega frenada o severidad roja, confirmado por Meta. Qué dice y hasta cuántas veces lo decide la automatización de SuperAdmin; al resolverse sale meta-cuenta-recuperada. Si dos workspaces comparten la misma cuenta publicitaria, avisa UNA vez.',
+    ejemplo: `🚨 Tu cuenta publicitaria está *SUSPENDIDA POR FALTA DE PAGO*
+📉 Anuncios: sin entregar
+🕐 Hace 35 min que está así.
+✅ Paga el saldo que debes en el Business Manager de Meta.
+👉 https://hola-mako.com/integraciones
 
-⛔ Tu cuenta publicitaria está *SUSPENDIDA POR FALTA DE PAGO*.
-🛑 Hace *35 min* que no corre un solo anuncio.
-
-💸 *Cada minuto que pasa es plata tirada:*
-❌ No entra *ningún* lead nuevo.
-❌ El día perdido no se recupera.
-
-✅ *QUÉ HACER:* Paga el saldo que debes en el Business Manager de Meta.
-
-👉 *RESUÉLVELO YA:*
-https://hola-mako.com/integraciones
-
-🔁 Te voy a seguir avisando hasta que esté arreglado. — MaKo`,
+— MaKo`,
   },
   {
     id: 'meta-cuenta-riesgo', titulo: 'Cuenta Meta en revisión de riesgo (ámbar)', categoria: 'aviso',
@@ -462,12 +456,10 @@ https://hola-mako.com/integraciones
   {
     id: 'meta-cuenta-recuperada', titulo: 'Cuenta Meta recuperada (volvió a verde)', categoria: 'aviso',
     prioridad: 'baja', semaforo: 'verde', requiereRespuesta: false, yaImplementado: 'si',
-    // Es la contracara de la insistencia y por eso NO es opcional: si MaKo
-    // persiguió veinte veces y después se calla, el dueño no sabe si dejó de
-    // avisar porque se resolvió o porque el aviso se rompió.
-    disparador: 'Cron alerta-critica: el incidente que se venía persiguiendo pasó a resuelto.',
-    ejemplo: `━━ 📣 ANUNCIOS ━━
-✅✅ *LISTO, YA ESTÁ ENTREGANDO* ✅✅
+    // Es la contracara de la insistencia: si MaKo avisó y después se calla, el dueño no sabe si dejó de avisar porque se
+    // resolvió o porque el aviso se rompió. Desde el 16/10/2026, el evento de la plataforma `meta_cuenta_recuperada`.
+    disparador: 'Cron alerta-critica: el incidente que se venía avisando pasó a resuelto. Lo dice la automatización de SuperAdmin.',
+    ejemplo: `✅✅ *LISTO, YA ESTÁ ENTREGANDO* ✅✅
 
 🟢 Tu cuenta publicitaria volvió a la normalidad.
 🔕 Dejo de insistir.
@@ -907,24 +899,36 @@ https://hola-mako.com/plan — MaKo`,
      * lo que se midió: qué línea, si WhatsApp cerró la sesión o fue un corte, y desde cuándo.
      * El ejemplo es ficticio, a propósito.
      */
-    id: 'wa-desconectado', titulo: 'WhatsApp de empresa desconectado', categoria: 'aviso', porDefecto: 'on',
+    id: 'wa-desconectado', titulo: 'WhatsApp de empresa cortado', categoria: 'aviso', porDefecto: 'on',
     prioridad: 'alta', semaforo: 'rojo', requiereRespuesta: false, yaImplementado: 'si',
-    textoDelCodigo: true,   // `textoCaida` (lib/linea-vigilancia.ts): sale de lo que se midió
-    disparador: 'Cuando una línea de WhatsApp del negocio queda caída dos pruebas seguidas (se prueba cada 10 minutos). Avisa al negocio y repite cada 24 h mientras siga así. Una línea que nunca se vinculó, o que el negocio desvinculó, no avisa.',
-    ejemplo: `🔴 *Se desconectó tu WhatsApp* (+52 55 1234 5678). WhatsApp cerró la sesión del dispositivo vinculado el 3 de octubre: tu teléfono está bien, pero por ese número no entran ni salen mensajes. Vuelve a escanear el QR: https://hola-mako.com/whatsapp — MaKo`,
+    // ⚠️ DESDE EL 16/10/2026 EL TEXTO ES EL DE SU AUTOMATIZACIÓN (la #253 de SuperAdmin, evento `whatsapp_caido`), sin
+    // camino viejo: el código sólo pasa los datos de la línea (`datosCaida`). Cuando WhatsApp CERRÓ la sesión, el aviso es
+    // otro (`wa-desvinculado`).
+    disparador: 'Cuando una línea de WhatsApp del negocio queda caída dos pruebas seguidas (se prueba cada 10 minutos) y no es porque WhatsApp cerró la sesión. Avisa al negocio y repite cada 24 h mientras siga así. Una línea que nunca se vinculó, o que el negocio desvinculó, no avisa.',
+    ejemplo: `🔴 *Se cortó tu WhatsApp*\n📱 +52 55 1234 5678\n🕐 Desde el 3 de octubre\nPor ese número no entran ni salen mensajes. Puede volver solo; si sigue así, reconéctalo:\nhttps://hola-mako.com/whatsapp\n\n— MaKo`,
+  },
+  {
+    /**
+     * WhatsApp CERRÓ LA SESIÓN del dispositivo vinculado (16/10/2026): hasta ese día era el mismo aviso que el corte, con el
+     * título en una variable. Lo dispara lib/lineas-vigilante.ts cuando Evolution dice que la línea se desvinculó. El texto es
+     * el de su automatización de SuperAdmin (evento `whatsapp_desvinculado`). Ejemplo ficticio.
+     */
+    id: 'wa-desvinculado', titulo: 'WhatsApp de empresa desvinculado', categoria: 'aviso', porDefecto: 'on',
+    prioridad: 'alta', semaforo: 'rojo', requiereRespuesta: false, yaImplementado: 'si',
+    disparador: 'Cuando WhatsApp cierra la sesión del dispositivo vinculado de una línea del negocio (se prueba cada 10 minutos, dos pruebas seguidas). Avisa al negocio y repite cada 24 h mientras siga así.',
+    ejemplo: `🔴 *Se desconectó tu WhatsApp*\n📱 +52 55 1234 5678\n🕐 Desde el 3 de octubre\nWhatsApp cerró la sesión del dispositivo vinculado: tu teléfono está bien, pero por ese número no entran ni salen mensajes. Vuelve a escanear el QR:\nhttps://hola-mako.com/whatsapp\n\n— MaKo`,
   },
   {
     /**
      * La contracara del de arriba (09/10/2026, decisión de Martín al cerrar el Chatbot). Sale
      * sólo si la caída SE AVISÓ: un corte que volvió entre dos corridas del cron no tiene nada
-     * que desmentir. Lo dispara lib/lineas-vigilante.ts con el texto de `textoVolvio`
+     * que desmentir. Lo dispara lib/lineas-vigilante.ts con los datos de `datosVolvio`
      * (lib/linea-vigilancia.ts). Ejemplo ficticio.
      */
     id: 'wa-reconectado', titulo: 'WhatsApp de empresa reconectado', categoria: 'aviso', porDefecto: 'on',
     prioridad: 'baja', semaforo: 'verde', requiereRespuesta: false, yaImplementado: 'si',
-    textoDelCodigo: true,   // `textoVolvio` (lib/linea-vigilancia.ts)
-    disparador: 'Cuando vuelve una línea cuya caída ya se había avisado (se prueba cada 10 minutos). Sale una vez y deja de insistir.',
-    ejemplo: `🟢 *Volvió tu WhatsApp* (+52 55 1234 5678). Por ese número ya entran y salen mensajes otra vez. — MaKo`,
+    disparador: 'Cuando vuelve una línea cuya caída ya se había avisado (se prueba cada 10 minutos). Sale una vez y deja de insistir. El texto es el de su automatización de SuperAdmin (evento `whatsapp_volvio`).',
+    ejemplo: `🟢 *Volvió tu WhatsApp*\n📱 +52 55 1234 5678\nPor ese número ya entran y salen mensajes otra vez. — MaKo`,
   },
   {
     id: 'wa-sin-responder', titulo: 'Conversaciones sin responder hace X horas', categoria: 'accion',

@@ -49,8 +49,11 @@ import { datosDeLinea, disponiblesChat } from "./contexto";
 export type PropuestaChat = {
 	proyectoId: string;
 	escenaId: string;
-	/** La línea de tiempo al mandar (para avisar «Cambiaste la línea de tiempo mientras tanto»). */
-	tracksEnviados: SceneTracks;
+	/**
+	 * La línea de tiempo al mandar (para avisar «Cambiaste la línea de tiempo mientras tanto»). No viene en una
+	 * propuesta que se leyó guardada (chat/hilo.ts): esas pistas no se guardan, y la revisión al aceptar es la misma.
+	 */
+	tracksEnviados?: SceneTracks;
 	/** id → ref de la vista que se mandó: de los elementos y de los medios de Multimedia. */
 	refsPorId: Map<string, string>;
 	elegidos: Array<{ trackId: string; elementId: string }>;

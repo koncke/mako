@@ -64,8 +64,13 @@ test('La entrega frenada INSISTE, y la insistencia no se apoya en el dedup', () 
   // si alguien "arregla" esto agregando dedupTtlMin, la alerta se calla sola.
   assert.ok(!/dedupTtlMin/.test(src),
     'la alerta crítica volvió a usar dedupTtlMin: eso es exactamente lo que la silencia');
-  assert.ok(src.includes('emitirAviso('),
-    'dejó de emitir por el choke point');
+  // (16/10/2026: por el EVENTO de la plataforma, con los HECHOS del incidente; el texto y el techo son de la automatización
+  // de SuperAdmin, abajo. Hasta ese día, `emitirAviso` directo y sin techo: el «18ª vez» del grupo de Mauricio. Rotura:
+  // volver a `emitirAviso(` → 39 / 1, cae éste.)
+  // (Y por `emitirEventoDePlataforma`, que dice cuántas tarjetas LLEGARON: la marca la arma `marcaTrasEmitir`, abajo.)
+  assert.match(src, /emitirEventoDePlataforma\('meta-cuenta-frenada', \{\s*ws,\s*datos: datosCuentaFrenada\(/, 'dejó de emitir el evento');
+  assert.match(src, /const marca = marcaTrasEmitir\(estado, inc\.status_label, res, new Date\(\)\.toISOString\(\)\);\s*if \(marca\) \{\s*await setSetting\(key, JSON\.stringify\(marca\)\)/, 'la marca dejó de salir de `marcaTrasEmitir`');
+  assert.ok(!/emitirAviso\(/.test(src), 'volvió el envío directo, sin automatización');
 
   // Una hora, fija. El dueño la bajó de 10 min a 60 el 12/8 después de verla
   // andando: seis mensajes por hora del mismo tema entierran el resto de los
@@ -136,75 +141,90 @@ test('Y solo insiste lo que Meta CONFIRMÓ: no poder leer no es estar caída', (
     'el error de lectura volvió a registrarse como rojo confirmado');
 });
 
-test('El mensaje no afirma lo que Meta no confirmó', async () => {
-  const { textoAlerta, causaDe } = await import('../lib/alerta-critica-texto');
+// ── DESDE EL 16/10/2026 EL TEXTO ES EL DE LA AUTOMATIZACIÓN DE SUPERADMIN (docs/inventario-nada-por-detras.md, lote 1) ──
+// Las reglas que estos tests cuidaban sobre `textoAlerta` (que se borró: era el camino por detrás) siguen, ahora sobre la
+// fila: lo que sale es la tarjeta de su estado con los datos del incidente (`datosCuentaFrenada`), por el MISMO runner.
+// Probado rompiéndolo (16/10/2026, scratchpad romper-b2b3.mjs, base 40 de 40 junto con tests/dato-evento.test.ts y
+// tests/aviso-evento.test.ts): los números van en cada test.
 
-  // 1. La ranura del titular solo acepta un ESTADO. Con un incidente sin
-  //    confirmar salía, textual: «Tu cuenta publicitaria está *NO SE PUDO LEER
-  //    EL ESTADO DE META*» — la gramática de la frase le prestaba autoridad a un
-  //    mensaje de error.
-  const sinConfirmar = {
-    statusLabel: 'No se pudo leer el estado de Meta',
-    disableReason: null,
-    entregaFrenada: false,
-    confirmado: false,
-  };
-  const c = causaDe(sinConfirmar);
-  assert.ok(!/está \*NO SE PUDO/.test(c.titular),
-    'el titular volvió a meter el mensaje de error en la ranura del estado');
-  assert.match(c.titular, /no puede leer el estado/i, 'el titular tiene que decir que el problema es la LECTURA');
+/** Corre la plantilla con los datos de un incidente, paso por paso como el runner: el texto que sale, o null si no sale nada. */
+async function loQueSale(i: { statusLabel: string | null; disableReason: string | null; entregaFrenada: boolean; confirmado?: boolean }, minAbierto: number, veces: number): Promise<string | null> {
+  const { plantillaPorId, pasosDePlantilla } = await import('../lib/plantillas-automatizaciones');
+  const { pasosDelEvento } = await import('../lib/aviso-evento');
+  const { decidir } = await import('../lib/flujo-pasos');
+  const { hechosDelEvento } = await import('../lib/dato-evento');
+  const { datosCuentaFrenada } = await import('../lib/alerta-critica-texto');
+  const { textoConDatos } = await import('../lib/variables-del-lead');
+  const { normalizar } = await import('../lib/flujo-grafo');
+  const t = pasosDelEvento(normalizar(pasosDePlantilla(plantillaPorId('mako-meta-cuenta-frenada')!)), 'meta_cuenta_frenada');
+  assert.equal(t.problema, null, `la plantilla no corre: ${t.problema}`);
+  const datos = { ...datosCuentaFrenada(i, minAbierto, veces), link_integraciones: 'https://x/integraciones' };
+  const hechos = hechosDelEvento(datos, Date.now());
+  const ahora = new Date();
+  let paso = 0;
+  for (let vuelta = 0; vuelta < 60; vuelta++) {
+    const d = decidir(t.pasos, { paso, desde: ahora, respondioAt: null, ahora, hechos });
+    if (d.que === 'terminar') return null;
+    if (d.que === 'ejecutar') {
+      const p = d.paso as { tipo: string; texto?: string; partes?: Array<{ cuerpo?: string }> };
+      return textoConDatos(String(p.partes?.[0]?.cuerpo ?? p.texto ?? ''), datos);
+    }
+    if (d.que !== 'saltar') throw new Error('la fila esperó: no tiene DELAY');
+    paso = d.siguiente;
+  }
+  throw new Error('la fila dio más vueltas que pasos');
+}
 
-  // 2. Las afirmaciones sobre leads cuelgan de entrega_frenada, TODAS. La regla
-  //    estaba escrita en el módulo y aplicada a una sola de las cuatro.
-  const t = textoAlerta(sinConfirmar, 205, 3, 'https://x/integraciones');
-  assert.ok(!/SIN ENTREGAR/.test(t), 'el contador sigue afirmando que la cuenta no entrega');
-  assert.ok(!/sin recibir un solo lead/.test(t), 'sigue afirmando que no entran leads sin que Meta lo confirme');
-  assert.ok(!/leads perdido/.test(t), 'la escalada de las 6 h sigue afirmando leads perdidos');
-
-  const primero = textoAlerta(sinConfirmar, 20, 0, 'https://x/integraciones');
-  assert.ok(!/No entra \*ningún\* lead nuevo/.test(primero),
-    'el primer mensaje sigue afirmando que no entra ningún lead');
-
-  // 3. Y cuando Meta SÍ lo confirma, se sigue diciendo con todas las letras: el
-  //    arreglo no puede haber apagado la alerta que este módulo vino a hacer.
-  const frenada = { statusLabel: 'Saldo impago', disableReason: null, entregaFrenada: true, confirmado: true };
-  const tf = textoAlerta(frenada, 205, 3, 'https://x/integraciones');
-  assert.match(tf, /SIN ENTREGAR/, 'se perdió el contador de la cuenta realmente frenada');
-  assert.match(tf, /sin recibir un solo lead/, 'se perdió la consecuencia de la cuenta realmente frenada');
+// Roturas, 39 / 1 cada una, cae éste: la tarjeta de «Saldo impago» sin su «qué hacer»; «Anuncios: sin entregar» fijo en la
+// tarjeta; el motivo de Meta pasado aunque repita el estado; «sin entregar» sin que Meta lo confirme.
+test('la alerta dice la CAUSA de cada estado, y lo que Meta no confirmó no lo afirma', async () => {
+  // Pedido del dueño (12/8): «que diga "tu cuenta publicitaria está SUSPENDIDA por falta de pago", no simplemente que
+  // está frenada». No es estilo: con el síntoma no se sabe qué hacer, con la causa sí.
+  const impago = await loQueSale({ statusLabel: 'Saldo impago', disableReason: 'Saldo impago', entregaFrenada: true, confirmado: true }, 35, 0);
+  assert.match(impago!, /^🚨 Tu cuenta publicitaria está \*SUSPENDIDA POR FALTA DE PAGO\*\n/);
+  assert.match(impago!, /\n✅ Paga el saldo que debes en el Business Manager de Meta\.\n/, 'urge sin decir qué hacer, que es sólo ansiedad');
+  assert.match(impago!, /\n📉 Anuncios: sin entregar\n🕐 Hace 35 min que está así\.\n/);
+  assert.match(impago!, /\n👉 https:\/\/x\/integraciones\n\n— MaKo$/);
+  assert.ok(!/Motivo de Meta/.test(impago!), 'repite el mismo dato dos veces');
+  // «Sin entregar» es un HECHO que Meta confirma (`entrega_frenada`): sin él, no se afirma.
+  const gracia = await loQueSale({ statusLabel: 'En período de gracia', disableReason: 'Riesgo de pago', entregaFrenada: false, confirmado: true }, 400, 1);
+  assert.match(gracia!, /EN PERÍODO DE GRACIA/);
+  assert.match(gracia!, /📉 Anuncios: entregando/);
+  assert.ok(!/sin entregar/.test(gracia!), 'afirma que no entrega sin que Meta lo confirme');
+  assert.match(gracia!, /⚠️ Motivo de Meta: Riesgo de pago/);
+  assert.match(gracia!, /Hace 6 h 40 min que está así/);
+  // Un estado sin causa conocida: lo dice tal cual y NO inventa qué hacer.
+  const otro = await loQueSale({ statusLabel: 'Cerrada (cualquiera)', disableReason: null, entregaFrenada: true, confirmado: true }, 20, 0);
+  assert.match(otro!, /^🚨 \*Tu cuenta publicitaria tiene un problema\*\n📋 Estado en Meta: Cerrada \(cualquiera\)\n/);
+  assert.ok(!/✅/.test(otro!), 'inventó qué hacer para un estado que no conoce');
 });
 
-test('El mensaje dice la CAUSA, no el síntoma', async () => {
-  const { textoAlerta } = await import('../lib/alerta-critica-texto');
-  // Pedido del dueño: «que diga "tu cuenta publicitaria está SUSPENDIDA por
-  // falta de pago", no simplemente que está frenada». No es estilo: con el
-  // síntoma no se sabe qué hacer, con la causa sí.
-  const real = { statusLabel: 'Saldo impago', disableReason: 'Saldo impago', entregaFrenada: true };
-  const t = textoAlerta(real, 35, 0, 'https://x/integraciones');
-  assert.match(t, /SUSPENDIDA POR FALTA DE PAGO/, 'el titular volvió a describir el síntoma');
-  assert.match(t, /QUÉ HACER:[\s\S]*Business Manager/, 'el mensaje urge sin decir qué hacer, que es solo ansiedad');
-  // Y el motivo no se repite cuando es igual al estado.
-  assert.ok(!/Motivo de Meta: \*Saldo impago\*/.test(t), 'repite el mismo dato dos veces');
+// Rotura: el techo en ≤ 30 → 38 / 2, caen éste y el 6 de tests/dato-evento.test.ts.
+test('⚠️ EL TECHO: avisa hasta la 3ª vez y después la fila no manda nada (el «18ª vez» del grupo de Mauricio)', async () => {
+  const inc = { statusLabel: 'Saldo impago', disableReason: null, entregaFrenada: true, confirmado: true };
+  for (const veces of [0, 1, 2]) assert.ok(await loQueSale(inc, 60 * (veces + 1), veces), `el aviso ${veces + 1} no salió`);
+  for (const veces of [3, 17, 20]) assert.equal(await loQueSale(inc, 60 * (veces + 1), veces), null, `el aviso ${veces + 1} salió`);
 });
 
-test('El catálogo de causas no se puede quedar viejo', async () => {
-  // Las claves de CAUSA son valores de ACCOUNT_STATUS (lib/meta-health.ts). Si
-  // allá renombran un estado, acá el titular cae al genérico SIN dejar rastro —
-  // y un titular genérico que suena exacto es peor que uno que se ve genérico.
-  const { ESTADOS_CON_CAUSA } = await import('../lib/alerta-critica-texto');
+// Rotura: un estado de la fila que Meta no tiene («Clausurada») → 39 / 1, cae éste.
+test('los estados de la fila son los de Meta: ninguno inventado, y las opciones de la CONDITION son las mismas', async () => {
+  // Las salidas de la CONDITION son valores de ACCOUNT_STATUS (lib/meta-health.ts). Si allá renombran un estado, su
+  // salida no se elige nunca y cae al «Si no» SIN dejar rastro: un titular genérico que suena exacto es peor.
   const health = leer('../lib/meta-health.ts');
   const bloque = health.slice(health.indexOf('const ACCOUNT_STATUS'), health.indexOf('export function accountStatusLabel'));
   const estados = [...bloque.matchAll(/^\s*\d+:\s*'([^']+)'/gm)].map((m) => m[1]);
   assert.ok(estados.length > 5, `no se pudo leer ACCOUNT_STATUS (${estados.length})`);
-
-  const huerfanos = ESTADOS_CON_CAUSA.filter((e) => !estados.includes(e));
-  assert.deepEqual(huerfanos, [],
-    `estos estados ya no existen en ACCOUNT_STATUS y su titular nunca se va a usar: ${huerfanos.join(', ')}`);
-
-  // Los estados que NO son «Activa» y no tienen causa: se avisan sin decir qué
-  // hacer. No es un error —el default es honesto— pero tiene que verse.
-  const sinCausa = estados.filter((e) => !/^Activa/.test(e) && !ESTADOS_CON_CAUSA.includes(e));
-  assert.deepEqual(sinCausa, ['Cerrada (cualquiera)'],
-    `cambió la lista de estados sin explicación: ${sinCausa.join(', ')}. Sumalos a CAUSA o actualizá este test a sabiendas.`);
+  const { ESTADOS_CUENTA_META } = await import('../lib/variables-aviso');
+  assert.deepEqual([...ESTADOS_CUENTA_META].sort(), estados.filter((e) => !/^Activa/.test(e)).sort(),
+    'las opciones de «Estado de la cuenta es» no son los estados de Meta');
+  const { plantillaPorId, pasosDePlantilla } = await import('../lib/plantillas-automatizaciones');
+  const pasos = pasosDePlantilla(plantillaPorId('mako-meta-cuenta-frenada')!) as unknown as Array<{ id: string; ramas?: Array<{ filas: Array<{ valor?: unknown }> }> }>;
+  const deLaFila = pasos.find((p) => p.id === 'mf_estado')!.ramas!.map((r) => String(r.filas[0].valor));
+  const huerfanos = deLaFila.filter((e) => !estados.includes(e));
+  assert.deepEqual(huerfanos, [], `estos estados ya no existen en ACCOUNT_STATUS y su salida nunca se elige: ${huerfanos.join(', ')}`);
+  // Los que no son «Activa» y no tienen salida propia caen al «Si no» (sin qué hacer). No es un error, pero tiene que verse.
+  assert.deepEqual(estados.filter((e) => !/^Activa/.test(e) && !deLaFila.includes(e)), ['Cerrada (cualquiera)'],
+    'cambió la lista de estados sin explicación: sumalos a la fila o actualizá este test a sabiendas');
 });
 
 test('El cron mira seguido, no una vez por hora', () => {
@@ -221,4 +241,37 @@ test('El cron mira seguido, no una vez por hora', () => {
   const route = leer('../app/api/cron/alerta-critica/route.ts');
   assert.ok(route.includes('registrarEstadoMeta('),
     'el cron dejó de refrescar el estado de Meta: volvería a detectar recién una hora después');
+});
+
+// ── LA REVISIÓN DE B3 (16/10/2026): qué cuenta como un aviso, por estado, y el «ya está» ──────────────────────────────
+// Probado rompiéndolo (scratchpad romper-b3r.mjs, con tests/dato-evento.test.ts y tests/aviso-evento.test.ts: base 43 de 43).
+// Roturas, 42 / 1 cada una, cae éste: `marcaTrasEmitir` sumando sin mirar lo que llegó; `vecesDelEstado` sin mirar el estado.
+test('⚠️ el techo cuenta los avisos que LLEGARON, de cada estado; sin poder emitir no se escribe nada', async () => {
+  const { vecesDelEstado, marcaTrasEmitir } = await import('../lib/alerta-critica-texto');
+  const T = '2026-10-16T12:00:00.000Z';
+  // Sin poder emitir (no se leyeron las automatizaciones): nada, y el próximo tick reintenta.
+  assert.equal(marcaTrasEmitir(null, 'Saldo impago', { ok: false }, T), null);
+  // Emitido y llegó: suma. Emitido sin llegar (sin automatización, sin grupo, la línea caída): anota la hora y NO gasta el techo.
+  assert.deepEqual(marcaTrasEmitir(null, 'Saldo impago', { ok: true, llegaron: 1 }, T), { ultimaIso: T, veces: 1, estado: 'Saldo impago' });
+  assert.deepEqual(marcaTrasEmitir({ ultimaIso: 'x', veces: 2, estado: 'Saldo impago' }, 'Saldo impago', { ok: true, llegaron: 0 }, T), { ultimaIso: T, veces: 2, estado: 'Saldo impago' });
+  assert.deepEqual(marcaTrasEmitir({ ultimaIso: 'x', veces: 2, estado: 'Saldo impago' }, 'Saldo impago', { ok: true }, T), { ultimaIso: T, veces: 2, estado: 'Saldo impago' }, 'sin `llegaron`, cero');
+  // Un estado NUEVO vuelve a contar (el empeoramiento se avisa); una marca de antes, sin estado, es el mismo estado: el
+  // incidente que ya pasó el techo (Mauricio, 25 avisos el 16/10) no vuelve a salir.
+  assert.equal(vecesDelEstado({ ultimaIso: 'x', veces: 3, estado: 'En período de gracia' }, 'Pendiente de cierre'), 0);
+  assert.deepEqual(marcaTrasEmitir({ ultimaIso: 'x', veces: 3, estado: 'En período de gracia' }, 'Pendiente de cierre', { ok: true, llegaron: 1 }, T), { ultimaIso: T, veces: 1, estado: 'Pendiente de cierre' });
+  assert.equal(vecesDelEstado({ ultimaIso: 'x', veces: 25 }, 'Saldo impago'), 25);
+  assert.equal(vecesDelEstado(null, 'Saldo impago'), 0);
+  // Y el cron le pasa al evento el número del ESTADO de ahora.
+  const src = sinComentarios(leer('../lib/alerta-critica.ts'));
+  assert.match(src, /const veces = vecesDelEstado\(estado, inc\.status_label\);/);
+});
+
+// Rotura: sin poder emitir, borrar la marca igual → 42 / 1, cae éste.
+test('⚠️ el «ya está» sale ANTES de borrar la marca, y sólo si llegó alguna alerta', () => {
+  const src = sinComentarios(leer('../lib/alerta-critica.ts'));
+  const cierre = src.slice(src.indexOf('if (!marca) continue;'), src.indexOf('out.resueltos += 1;'));
+  const iEmite = cierre.indexOf("emitirEventoDePlataforma('meta-cuenta-recuperada'");
+  assert.ok(iEmite > 0 && iEmite < cierre.indexOf("setSetting(key, '')"), 'la marca se borra antes de decir «ya está»: sin poder emitir, se pierde');
+  assert.match(cierre, /if \(!r\.ok\) \{ out\.errores \+= 1; continue; \}/, 'sin poder emitir, la marca tiene que quedar');
+  assert.match(cierre, /if \(c\.service === 'meta' && llegaronAlertas\) \{/, '«ya está» de algo que nunca llegó');
 });

@@ -13,7 +13,7 @@ import type { FilaOffer } from './offer-sesiones';
 
 /**
  * El aviso de la oferta que quedó lista. NUNCA tira: la oferta ya está guardada y en el chat, y un aviso que no
- * salió no la deshace. Sin fila de la plataforma (`sinFila`, antes de correr la mudanza) no manda nada: no hay un
+ * salió no la deshace. Sin fila de la plataforma (`filas: 0`, antes de correr la mudanza) no manda nada: no hay un
  * camino viejo al que volver, y mandar algo por fuera sería MaKo por detrás.
  */
 export async function avisarOfertaLista(ws: number, fila: FilaOffer): Promise<void> {
@@ -22,7 +22,7 @@ export async function avisarOfertaLista(ws: number, fila: FilaOffer): Promise<vo
     if (!ultima) return;
     const datos = datosOfertaLista({ nombre: ultima.propuesta?.nombre, version: ultima.version, link: linkApp(RUTA_OFERTA_LISTA, ws) });
     const r = await emitirEventoDePlataforma('oferta-lista', { ws, datos });
-    if (r.sinFila) console.warn(`[offer:aviso] la oferta de #${fila.id} quedó lista, pero la plataforma todavía no tiene la automatización «oferta_lista»`);
+    if (r.filas === 0) console.warn(`[offer:aviso] la oferta de #${fila.id} quedó lista, pero la plataforma todavía no tiene la automatización «oferta_lista»`);
   } catch (e) {
     console.error(`[offer:aviso] no pude avisar la oferta lista de #${fila.id}:`, e instanceof Error ? e.message : e);
   }

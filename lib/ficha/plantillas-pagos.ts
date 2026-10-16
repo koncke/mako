@@ -14,31 +14,17 @@
 //   · «De un vistazo» (épica): un número gigante y su botón, la próxima cuota y el link a mano.
 // Un bloque sin datos se calla (./reglas-pagos.ts), así que un lead abierto ve la oferta y los links.
 //
-// ⚠️ EL TIPO es el de lib/ficha/plantillas-tab.ts (del CRM). Mientras ese archivo no exista, va declarado acá con
-//    su misma forma; al mergear, se cambia por el import (lo pidió el CRM el 16/10/2026).
+// ⚠️ EL TIPO es el de lib/ficha/plantillas-tab.ts (del CRM), importado: el contrato acordado el 16/10/2026. La galería
+//    importa ESTA lista de vuelta (un ciclo sólo de tipos, que no existe en el JavaScript).
 // ⚠️ tests/plantillas-pagos.test.ts fija que cada bloque tenga componente, su ancho sea uno de los del catálogo y su
 //    diseño uno de los que el bloque sabe dibujar.
 //
 // Puro, sin `server-only` ni `'use client'`: lo leen la galería, la API de MaKo y los tests.
 // =============================================================================
 
-import type { Ancho, BloqueId, TabFicha } from './catalogo';
-import type { PlantillaId } from './plantillas';
+import type { PlantillaTab } from './plantillas-tab';
 
-/** La forma de una plantilla de TAB (la del CRM, lib/ficha/plantillas-tab.ts). */
-export type PlantillaTab = {
-  id: string;
-  tab: TabFicha;
-  /** Corto: es el título de la tarjeta de la galería. */
-  nombre: string;
-  /** Una frase: para qué sirve. */
-  bajada: string;
-  bloques: { id: BloqueId; ancho?: Ancho; diseno?: string }[];
-  /** La vista épica (el criterio de General): lo principal gigante, lo secundario chico o afuera. */
-  epico?: boolean;
-  /** Los tipos de funnel para los que sale primero, con «Sugerido». */
-  sugeridaPara?: PlantillaId[];
-};
+export type { PlantillaTab };
 
 export const PLANTILLAS_TAB_PAGOS: PlantillaTab[] = [
   {

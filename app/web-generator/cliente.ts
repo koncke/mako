@@ -27,6 +27,9 @@
 import type { Falla, PedidoDocs, PedidoIA, PedidoImagenes, RespuestaIA } from '@/lib/editor-landing/api-tipos';
 // `import type` de un módulo server-only: se borra al compilar, no viaja al navegador.
 import type { RespuestaDocs } from '@/lib/editor-landing/server';
+// Sólo tipos: lib/mako-pedidos.ts trae `AREA_KEYWORDS`, que no es para el navegador.
+import type { Interpretacion } from '@/lib/mako-pedidos';
+import type { Area } from '@/lib/api-mako/tipos';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // La letra del chrome
@@ -119,6 +122,21 @@ export function pedirIA(cuerpo: PedidoIA, op: OpPedido = PLAZO_IA_MS): Promise<R
 /** POST /api/landing-generator/imagenes. `T` es la forma del `ok: true` de esa acción. */
 export function pedirImagenes<T = { ok: true; [k: string]: unknown }>(cuerpo: PedidoImagenes, op: OpPedido = PLAZO_IMAGENES_MS): Promise<T | FallaPedido> {
   return postJson<T>('/api/landing-generator/imagenes', cuerpo, op);
+}
+
+/**
+ * /api/mako/pedidos (docs/diseno-mako-pedidos.md) contesta con reglas en lo que tarda leer la vista, y con la IA
+ * hasta 7,5 s más (lib/mako-pedidos-ia.ts); el resto es para la sesión, la vista y las landings. Pasado esto el chat
+ * no espera: sigue como siempre, con el mensaje entero a «editar».
+ */
+export const PLAZO_PEDIDOS_MS = 12_000;
+
+/** POST /api/mako/pedidos: separa el mensaje del chat en pedidos (lo de la landing abierta y lo demás). */
+export function pedirPedidos(
+  cuerpo: { texto: string; tab: Area; actualId?: number | string | null; actualNombre?: string },
+  op: OpPedido = PLAZO_PEDIDOS_MS,
+): Promise<({ ok: true } & Interpretacion) | FallaPedido> {
+  return postJson<{ ok: true } & Interpretacion>('/api/mako/pedidos', cuerpo, op);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

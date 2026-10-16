@@ -104,10 +104,12 @@ export function tramosConVariables(linea: string): Array<{ txt: string; esVar: b
  *                   (`avisarPagoRecibido`, lib/cobros.ts), por código, como la cuota. Ojo: NO es `pagos` (sus
  *                   cuotas del CRM) ni `cobro` (su link pendiente).
  *   · `escrito`   — lo que el lead escribió y MaKo no contestó: lo trae el emisor en `datos` (la charla).
+ *   · `anuncios`  — la cuenta publicitaria que Meta frenó (16/10/2026): lo trae el cron de las alertas críticas en
+ *                   `datos` (`datosCuentaFrenada`, lib/alerta-critica-texto.ts).
  */
 export type FuenteDato = 'nombre' | 'ficha' | 'zona' | 'producto' | 'etiquetas' | 'pagos' | 'curso'
   | 'perfil' | 'lead_magnet' | 'momento' | 'negocio' | 'links' | 'evento' | 'cuota' | 'cobro'
-  | 'proxima' | 'respuestas' | 'pago' | 'escrito' | 'analisis' | 'cuenta' | 'linea' | 'grabacion' | 'reporte' | 'oferta';
+  | 'proxima' | 'respuestas' | 'pago' | 'escrito' | 'analisis' | 'cuenta' | 'linea' | 'grabacion' | 'reporte' | 'oferta' | 'anuncios';
 
 /**
  * A quién le llega el mensaje: al lead (las automatizaciones), al equipo (MaKo en WhatsApp) o a un USUARIO de MaKo
@@ -144,8 +146,10 @@ export type VariableAviso = {
    *               pasa el cron de los lunes (`datosDelReporte`, lib/reporte-destino.ts).
    * · `oferta`  — necesita la OFERTA QUE MaKo TERMINÓ DE ARMAR (el evento de la plataforma `oferta_lista`): lo pasa el
    *               armado en el servidor (`datosOfertaLista`, lib/oferta-lista.ts).
+   * · `anuncios` — necesita la CUENTA PUBLICITARIA que Meta frenó (el evento de la plataforma `meta_cuenta_frenada`): lo
+   *               pasa el cron de las alertas críticas (`datosCuentaFrenada`, lib/alerta-critica-texto.ts).
    */
-  alcance: 'siempre' | 'lead' | 'cuota' | 'mensaje' | 'pago' | 'escrito' | 'analisis' | 'restablecer' | 'linea' | 'grabacion' | 'reporte' | 'oferta';
+  alcance: 'siempre' | 'lead' | 'cuota' | 'mensaje' | 'pago' | 'escrito' | 'analisis' | 'restablecer' | 'linea' | 'grabacion' | 'reporte' | 'oferta' | 'anuncios';
   /**
    * UN DATO SECRETO (15/10/2026, docs/diseno-2fa-obligatorio.md §3 y §8): el link de restablecer la contraseña (y
    * después el código del 2FA por correo). Sale SÓLO en el mail a la persona y NUNCA se guarda: `sinSecretos` lo saca
@@ -177,10 +181,21 @@ export type VariableAviso = {
    * número es cómo se arma una contradicción entre canales.
    */
   formato?: 'texto' | 'plata' | 'fecha' | 'si_no';
+  /**
+   * SE PREGUNTA EN UNA CONDITION (16/10/2026, lib/dato-evento.ts): el dato de un EVENTO que elige el camino («Estado de la
+   * cuenta es «Saldo impago»», «Aviso número ≤ 3»). `rotulo`: [afirmativa, negada], lo que dibuja la tarjeta. `numero` se
+   * compara con ≥ o ≤; `opciones`, contra su lista —los valores que pone el emisor, tal cual—; `texto`, igual sin tildes
+   * ni mayúsculas. Sin esto, el dato se escribe en un mensaje pero no se pregunta.
+   */
+  condicion?: { rotulo: readonly [string, string] } & (
+    | { tipo: 'numero'; min: number; max: number; def: number }
+    | { tipo: 'opciones'; opciones: ReadonlyArray<{ value: string; label: string }> }
+    | { tipo: 'texto' });
 };
 
 export type GrupoVariable =
-  | 'lead' | 'crm' | 'reuniones' | 'pagos' | 'campana' | 'formulario' | 'curso' | 'cerebro' | 'dashboard' | 'momento' | 'links' | 'cuenta' | 'linea';
+  | 'lead' | 'crm' | 'reuniones' | 'pagos' | 'campana' | 'formulario' | 'curso' | 'cerebro' | 'dashboard' | 'momento' | 'links' | 'cuenta' | 'linea'
+  | 'anuncios';
 
 /**
  * Las ramas del árbol, en orden, con su ícono (el `name` de `<Icon>`, app/_components/icons.tsx).
@@ -201,6 +216,7 @@ export const GRUPOS_VARIABLES: ReadonlyArray<{ key: GrupoVariable; titulo: strin
   { key: 'links', titulo: 'Links de MaKo', icono: 'web' },
   { key: 'cuenta', titulo: 'Cuenta de MaKo', icono: 'perfil' },
   { key: 'linea', titulo: 'WhatsApp del negocio', icono: 'whatsapp' },
+  { key: 'anuncios', titulo: 'Cuenta publicitaria', icono: 'meta' },
 ];
 
 /**
@@ -228,6 +244,16 @@ export const GRUPOS_VARIABLES: ReadonlyArray<{ key: GrupoVariable; titulo: strin
  * lib/flujos.ts), no una lectura: es del evento, como el link a la ficha.
  */
 export const CLAVE_MENSAJE_MAKO = 'mensaje_mako';
+
+/**
+ * LOS ESTADOS DE UNA CUENTA PUBLICITARIA QUE NO ES «ACTIVA» (16/10/2026): los de `ACCOUNT_STATUS` (lib/meta-health.ts), que
+ * es lo que pone el incidente en `status_label`. Son las opciones de «Estado de la cuenta es …» en la CONDITION. Escritos
+ * acá porque este módulo no importa nada; los cruza con aquella tabla tests/alerta-critica.test.ts.
+ */
+export const ESTADOS_CUENTA_META: readonly string[] = [
+  'Saldo impago', 'Deshabilitada', 'En revisión de riesgo', 'Pendiente de liquidación', 'En período de gracia',
+  'Pendiente de cierre', 'Cerrada', 'Cerrada (cualquiera)',
+];
 
 export const VARIABLES_AVISO: VariableAviso[] = [
   // ── Lead. El nombre lo trae el evento (o la fila del motor); el resto, la fila de `leads`.
@@ -342,8 +368,11 @@ export const VARIABLES_AVISO: VariableAviso[] = [
   // ── La LÍNEA de WhatsApp de un negocio que se cayó o volvió (15/10/2026, los Mensajes de MaKo a sus clientes mudados a
   //    automatizaciones de la plataforma): lo arma lib/linea-vigilancia.ts (`datosCaida`) con lo que se midió.
   { key: 'linea_numero', label: 'Qué línea', ejemplo: '+52 55 1234 5678', alcance: 'linea', grupo: 'linea', fuente: 'linea', soloPara: 'equipo' },
-  { key: 'linea_titulo', label: 'Qué le pasó', ejemplo: 'Se desconectó tu WhatsApp', alcance: 'linea', grupo: 'linea', fuente: 'linea', soloPara: 'equipo' },
-  { key: 'linea_motivo', label: 'Qué pasa y qué hacer', ejemplo: 'WhatsApp cerró la sesión del dispositivo vinculado el 3 de octubre: tu teléfono está bien, pero por ese número no entran ni salen mensajes. Vuelve a escanear el QR:', alcance: 'linea', grupo: 'linea', fuente: 'linea', soloPara: 'equipo' },
+  { key: 'linea_fecha', label: 'Desde cuándo', ejemplo: '3 de octubre', alcance: 'linea', grupo: 'linea', fuente: 'linea', soloPara: 'equipo' },
+  // ⚠️ OCULTOS DESDE EL 16/10/2026: eran frases enteras escritas en el código (la fila no tenía el texto que salía). Se siguen
+  // resolviendo para la #253 de antes hasta que la mudanza la reescribe (scripts/mudanza-avisos-plataforma.mts), y se borran.
+  { key: 'linea_titulo', label: 'Qué le pasó', ejemplo: 'Se desconectó tu WhatsApp', alcance: 'linea', grupo: 'linea', fuente: 'linea', soloPara: 'equipo', oculta: true },
+  { key: 'linea_motivo', label: 'Qué pasa y qué hacer', ejemplo: 'WhatsApp cerró la sesión del dispositivo vinculado el 3 de octubre: tu teléfono está bien, pero por ese número no entran ni salen mensajes. Vuelve a escanear el QR:', alcance: 'linea', grupo: 'linea', fuente: 'linea', soloPara: 'equipo', oculta: true },
   { key: 'linea_link', label: 'Link para reconectarla', ejemplo: 'https://hola-mako.com/whatsapp', alcance: 'linea', grupo: 'linea', fuente: 'linea', soloPara: 'equipo' },
   // ── La reunión que TERMINÓ y quedó grabada (15/10/2026, el evento de la plataforma `reunion_grabada`): la pasa el
   //    webhook de Fathom. No es la «Próxima reunión»: ésa todavía no pasó.
@@ -358,6 +387,24 @@ export const VARIABLES_AVISO: VariableAviso[] = [
   { key: 'oferta_lista_nombre', label: 'Cómo se llama la oferta', ejemplo: 'Método Lumen: 8 Semanas sin Dolor de Espalda', alcance: 'oferta', grupo: 'cerebro', rama: 'La oferta que armó MaKo', fuente: 'oferta', soloPara: 'equipo' },
   { key: 'oferta_lista_version', label: 'Qué versión', ejemplo: '1', alcance: 'oferta', grupo: 'cerebro', rama: 'La oferta que armó MaKo', fuente: 'oferta', soloPara: 'equipo' },
   { key: 'oferta_lista_link', label: 'Link para verla', ejemplo: 'https://hola-mako.com/offer', alcance: 'oferta', grupo: 'cerebro', rama: 'La oferta que armó MaKo', fuente: 'oferta', soloPara: 'equipo' },
+  // ── La CUENTA PUBLICITARIA que Meta frenó (16/10/2026, el evento de la plataforma `meta_cuenta_frenada`): la pasa el cron de
+  //    las alertas críticas (`datosCuentaFrenada`), sólo HECHOS. El estado, la entrega y el número de aviso se PREGUNTAN en la
+  //    CONDITION (`condicion`): cada estado con su texto literal en la fila, y el techo de avisos también
+  //    (docs/inventario-nada-por-detras.md, lote 1).
+  {
+    key: 'anuncios_estado', label: 'Estado de la cuenta', ejemplo: 'Saldo impago', alcance: 'anuncios', grupo: 'anuncios', fuente: 'anuncios', soloPara: 'equipo',
+    condicion: { rotulo: ['Estado de la cuenta es', 'Estado de la cuenta no es'], tipo: 'opciones', opciones: ESTADOS_CUENTA_META.map((e) => ({ value: e, label: e })) },
+  },
+  {
+    key: 'anuncios_entrega', label: 'Los anuncios', ejemplo: 'sin entregar', alcance: 'anuncios', grupo: 'anuncios', fuente: 'anuncios', soloPara: 'equipo',
+    condicion: { rotulo: ['Los anuncios están', 'Los anuncios no están'], tipo: 'opciones', opciones: [{ value: 'sin entregar', label: 'Sin entregar' }, { value: 'entregando', label: 'Entregando' }] },
+  },
+  { key: 'anuncios_hace', label: 'Hace cuánto está así', ejemplo: '3 h 25 min', alcance: 'anuncios', grupo: 'anuncios', fuente: 'anuncios', soloPara: 'equipo' },
+  { key: 'anuncios_motivo_meta', label: 'Motivo de Meta', ejemplo: 'Riesgo de pago', alcance: 'anuncios', grupo: 'anuncios', fuente: 'anuncios', soloPara: 'equipo' },
+  {
+    key: 'anuncios_vez', label: 'Aviso número', ejemplo: '2', alcance: 'anuncios', grupo: 'anuncios', fuente: 'anuncios', soloPara: 'equipo',
+    condicion: { rotulo: ['Aviso número', 'Aviso número'], tipo: 'numero', min: 1, max: 1000, def: 3 },
+  },
 
   // ── Campaña: de dónde vino. Son nombres internos (de la campaña, del anuncio): para el equipo.
   { key: 'lead_origen', label: 'Por dónde entró', ejemplo: 'instant_form', alcance: 'lead', grupo: 'campana', fuente: 'ficha', soloPara: 'equipo' },
@@ -500,6 +547,8 @@ export type ContextoDatos = {
   conReporte?: boolean;
   /** La oferta que MaKo terminó de armar (el evento de la plataforma `oferta_lista`). */
   conOferta?: boolean;
+  /** La cuenta publicitaria que Meta frenó (el evento de la plataforma `meta_cuenta_frenada`). */
+  conAnuncios?: boolean;
   /** El link de restablecer la contraseña (sólo el evento `contrasena_restablecer`, y sólo al mail a la persona). */
   conRestablecer?: boolean;
 };
@@ -532,6 +581,7 @@ function alcanzaPara(a: VariableAviso['alcance'], opts: ContextoDatos): boolean 
   if (a === 'grabacion') return opts.conGrabacion === true;
   if (a === 'reporte') return opts.conReporte === true;
   if (a === 'oferta') return opts.conOferta === true;
+  if (a === 'anuncios') return opts.conAnuncios === true;
   return false;
 }
 

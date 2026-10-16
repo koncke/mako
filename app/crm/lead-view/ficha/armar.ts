@@ -13,6 +13,9 @@
 //    cada bloque. Así un bloque de ⅓ que quedó solo en su fila ocupa la fila entera, en vez de dejar ⅔ en
 //    blanco, y la ficha con la plantilla de respaldo se ve como la de antes (todo de ancho completo).
 // ⚠️ EL ALTO LO DA EL CONTENIDO (§5, descartes): nada de filas de alto fijo.
+// ⚠️ LA TAB ÉPICA RESPIRA MÁS (16/10/2026, Martín: «que se pueda ver "epico" como lo tenemos en general»): pocas
+//    cosas, bloques grandes. Con `epico`, en escritorio nada va de menos de ½ (dos por fila como mucho) y en la tablet
+//    uno por fila; el aire lo pone ./ficha-css.ts (`fb-tab--epica`). Es la escala de General y de MaKo Mobile v3.
 // =============================================================================
 
 import { bloqueDef, bloquesDeLaTab, type Ancho, type BloqueDef, type BloqueId, type TabFicha } from '@/lib/ficha/catalogo';
@@ -100,6 +103,8 @@ export function bloquesDeLaGrilla(lista: readonly BloquePuesto[], o: {
   vacio: (puesto: BloquePuesto, reglas: ReglasBloque) => boolean;
   editando: boolean;
   verPrivado: boolean;
+  /** La tab va épica: menos por fila (`anchoEnDispositivo`). */
+  epico?: boolean;
 }): BloqueEnGrilla[] {
   const quedan: Omit<BloqueEnGrilla, 'span' | 'spanTableta'>[] = [];
   lista.forEach((puesto, indice) => {
@@ -111,7 +116,7 @@ export function bloquesDeLaGrilla(lista: readonly BloquePuesto[], o: {
     if (vacio && !o.editando) return;
     quedan.push({ puesto, def, reglas, indice, n: ocurrencia(lista, indice), vacio });
   });
-  const spans = spansPorDispositivo(quedan.map((b) => b.puesto.ancho));
+  const spans = spansPorDispositivo(quedan.map((b) => b.puesto.ancho), o.epico);
   return quedan.map((b, i) => ({ ...b, span: spans.escritorio[i], spanTableta: spans.tableta[i] }));
 }
 
@@ -130,18 +135,20 @@ export function bloquesDeLaGrilla(lista: readonly BloquePuesto[], o: {
 export const CORTE_TABLETA = 1024;
 export const CORTE_MOVIL = 720;
 
-export function anchoEnDispositivo(ancho: number, d: DispositivoFicha): number {
+export function anchoEnDispositivo(ancho: number, d: DispositivoFicha, epico = false): number {
+  const medio = COLS_FICHA / 2;
   if (d === 'movil') return COLS_FICHA;
-  if (d === 'tableta') return ancho < COLS_FICHA / 2 ? COLS_FICHA / 2 : ancho;
-  return ancho;
+  // La épica: en la tablet, uno por fila; en escritorio, dos por fila como mucho.
+  if (d === 'tableta') return epico ? COLS_FICHA : ancho < medio ? medio : ancho;
+  return epico && ancho < medio ? medio : ancho;
 }
 
 /** Los anchos ya repartidos en filas, en cada pantalla: una fila de tablet se reparte con los anchos de tablet. */
-export function spansPorDispositivo(anchos: readonly number[]): Record<DispositivoFicha, number[]> {
+export function spansPorDispositivo(anchos: readonly number[], epico = false): Record<DispositivoFicha, number[]> {
   return {
-    escritorio: spansDeFilas(anchos.map((a) => anchoEnDispositivo(a, 'escritorio'))),
-    tableta: spansDeFilas(anchos.map((a) => anchoEnDispositivo(a, 'tableta'))),
-    movil: spansDeFilas(anchos.map((a) => anchoEnDispositivo(a, 'movil'))),
+    escritorio: spansDeFilas(anchos.map((a) => anchoEnDispositivo(a, 'escritorio', epico))),
+    tableta: spansDeFilas(anchos.map((a) => anchoEnDispositivo(a, 'tableta', epico))),
+    movil: spansDeFilas(anchos.map((a) => anchoEnDispositivo(a, 'movil', epico))),
   };
 }
 

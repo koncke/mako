@@ -31,20 +31,21 @@ import 'server-only';
 // N minutos MIENTRAS siga pasando». Lo que corta la insistencia es UNA sola
 // cosa: que el problema se resuelva.
 //
-// ── LO QUE SÍ SE RESPETA ────────────────────────────────────────────────────
+// ── QUIÉN DECIDE QUÉ SE DICE Y HASTA CUÁNDO (16/10/2026) ────────────────────
 //
-// El interruptor de Configuraciones › Notificaciones. Si el dueño apaga este
-// aviso, se calla — porque insistir contra alguien que dijo «no» no es
-// insistencia, es un canal roto que no se puede frenar. Lo maneja `emitirAviso`.
+// La automatización de SuperAdmin del evento `meta_cuenta_frenada`: su texto
+// literal por estado y su techo («Aviso número ≤ 3» de fábrica, editable). Hasta
+// ese día lo mandaba `emitirAviso` directo con el texto de este módulo, sin techo:
+// el «18ª vez» del grupo de Mauricio (docs/inventario-nada-por-detras.md, lote 1).
+// Acá queda lo que es del incidente: qué es crítico, cada cuánto se vuelve a
+// emitir, la cuenta compartida y el «ya está».
 // =============================================================================
 
 import { getTenantDb } from './workspace';
 import { getSetting, setSetting } from './settings';
 import { credWs } from './credenciales';
-import { emitirAviso, emitirDelCatalogo } from './avisos';
-import { encabezadoAviso } from './avisos-catalogo';
-import { linkApp } from './app-url';
-import { textoAlerta, textoRecuperada, causaDe } from './alerta-critica-texto';
+import { emitirEventoDePlataforma } from './avisos';
+import { datosCuentaFrenada, marcaTrasEmitir, vecesDelEstado, type Insistencia } from './alerta-critica-texto';
 
 /**
  * CADA CUÁNTO VUELVE A AVISAR mientras el problema siga abierto.
@@ -62,8 +63,8 @@ const CADENCIA_MIN = 60;
 const cadaCuanto = (_minAbierto: number): number => CADENCIA_MIN;
 
 /** Estado de la insistencia de UN incidente. Vive en settings, por workspace. */
+/** Estado de la insistencia de UN incidente (`Insistencia`, lib/alerta-critica-texto.ts). Vive en settings, por workspace. */
 const keyInsistencia = (incidenteId: number) => `mako.alerta.insistencia.${incidenteId}`;
-type Insistencia = { ultimaIso: string; veces: number };
 
 type IncidenteAbierto = {
   id: number;
@@ -150,14 +151,16 @@ export async function insistirAlertasCriticas(
       const key = keyInsistencia(c.id);
       const marca = await getSetting(key).catch(() => null);
       if (!marca) continue; // nunca se insistió por este: no hay nada que cerrar
-      await setSetting(key, '').catch(() => {});
-      if (c.service === 'meta') {
-        await emitirDelCatalogo('meta-cuenta-recuperada', {
-          ws,
-          texto: `${encabezadoAviso('meta-cuenta-recuperada')}
-${textoRecuperada()}`,
-        });
+      // El evento de la plataforma `meta_cuenta_recuperada` (16/10/2026): su automatización de SuperAdmin tiene el texto.
+      // Sólo si le LLEGÓ alguna alerta (`veces`): decir «ya está» de algo que nunca se avisó es otro mensaje sin contexto.
+      // ⚠️ Y SALE ANTES DE BORRAR LA MARCA (revisión del 16/10/2026): sin poder leer las automatizaciones, la marca queda y el
+      // próximo tick lo vuelve a intentar. Borrándola primero, el «ya está» se perdía para siempre.
+      const llegaronAlertas = ((JSON.parse(marca) as Partial<Insistencia>).veces ?? 0) > 0;
+      if (c.service === 'meta' && llegaronAlertas) {
+        const r = await emitirEventoDePlataforma('meta-cuenta-recuperada', { ws });
+        if (!r.ok) { out.errores += 1; continue; }
       }
+      await setSetting(key, '').catch(() => {});
       out.resueltos += 1;
     }
   } catch (e) {
@@ -203,48 +206,39 @@ ${textoRecuperada()}`,
 
       const desdeMs = Date.now() - Date.parse(inc.started_at);
       const minAbierto = Math.max(0, Math.round(desdeMs / 60_000));
-      const veces = estado?.veces ?? 0;
+      // Los que llegaron del ESTADO de ahora (un empeoramiento vuelve a avisar: `vecesDelEstado`).
+      const veces = vecesDelEstado(estado, inc.status_label);
 
       if (estado) {
         const desdeUltimo = (Date.now() - Date.parse(estado.ultimaIso)) / 60_000;
         if (desdeUltimo < cadaCuanto(minAbierto)) continue; // todavía no toca
       }
 
-      // ⚠️ SIN `dedupTtlMin`, a propósito: el dedup es lo que hay que saltear acá.
-      // Y sin `emitirDelCatalogo`, porque ese camino puede pasar el texto por la
-      // IA cuando el dueño editó la plantilla — un mensaje de emergencia no se
-      // reescribe cada quince minutos ni depende de que un proveedor conteste.
-      const res = await emitirAviso({
+      // EL EVENTO DE LA PLATAFORMA (16/10/2026): los HECHOS del incidente, y la automatización de SuperAdmin dice qué
+      // contar de cada estado y hasta cuántas veces (`anuncios_vez`, la CONDITION «Aviso número ≤ 3»). ⚠️ SIN `dedupTtlMin`,
+      // a propósito: el ritmo es el de acá (`cadaCuanto`), y el dedup lo callaría.
+      const res = await emitirEventoDePlataforma('meta-cuenta-frenada', {
         ws,
-        tipo: 'meta-cuenta-frenada',
-        // El título del feed in-app dice la CAUSA, no el síntoma: es la misma
-        // corrección que en el WhatsApp («suspendida por falta de pago» le dice
-        // al dueño qué hacer; «dejó de entregar», no).
-        titulo: causaDe({ statusLabel: inc.status_label, disableReason: inc.disable_reason, entregaFrenada: inc.entrega_frenada, confirmado: inc.confirmado })
-          .titular.replace(/\*/g, ''),
-        texto: `${encabezadoAviso('meta-cuenta-frenada')}\n${textoAlerta(
+        datos: datosCuentaFrenada(
           { statusLabel: inc.status_label, disableReason: inc.disable_reason, entregaFrenada: inc.entrega_frenada, confirmado: inc.confirmado },
-          minAbierto, veces, linkApp('/integraciones', ws),
-        )}`,
-        categoria: 'aviso',
-        semaforo: 'rojo',
-        link: '/integraciones',
+          minAbierto, veces,
+        ),
       });
-      // La marca se escribe DESPUÉS del envío: si falló, el próximo ciclo
-      // reintenta en vez de esperar la cadencia completa. Y también cuando el
-      // dueño lo tiene apagado (`res.apagado`), para no reintentar en loop algo
-      // que él silenció.
-      if (res.wa || res.apagado) {
-        await setSetting(key, JSON.stringify({ ultimaIso: new Date().toISOString(), veces: veces + 1 } satisfies Insistencia)).catch(() => {});
+      // La marca se escribe DESPUÉS de emitir, y sólo un aviso que LLEGÓ suma al techo (`marcaTrasEmitir`): si no se pudo
+      // emitir, el próximo ciclo reintenta; si se emitió y no llegó (sin automatización, sin grupo), vuelve en la próxima
+      // cadencia sin gastar avisos.
+      const marca = marcaTrasEmitir(estado, inc.status_label, res, new Date().toISOString());
+      if (marca) {
+        await setSetting(key, JSON.stringify(marca)).catch(() => {});
         // La cuenta queda tomada por ESTA corrida: el próximo workspace que
         // apunte a la misma no vuelve a avisar. Se marca también cuando el aviso
-        // está apagado — si el dueño lo silenció, que otro workspace lo grite
-        // por la misma cuenta es exactamente lo que él apagó.
+        // está apagado: que otro workspace lo grite por la misma cuenta es
+        // exactamente lo que se apagó.
         if (cuentaId) yaAvisadas?.add(cuentaId);
-        if (res.wa) out.avisados += 1;
+        if (marca.veces > veces) out.avisados += 1;
       } else {
         out.errores += 1;
-        console.error(`[alerta-critica] ws=${ws} incidente ${inc.id}: el WhatsApp no salió — ${res.waError ?? 'sin motivo'}`);
+        console.error(`[alerta-critica] ws=${ws} incidente ${inc.id}: no se pudo emitir el evento — no se leyeron las automatizaciones de la plataforma`);
       }
     } catch (e) {
       out.errores += 1;

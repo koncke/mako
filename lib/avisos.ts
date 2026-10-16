@@ -466,7 +466,12 @@ async function depsDelEvento(): Promise<DepsEvento> {
     },
     emitirAviso,
     reclamar: reclamarEspaciado,
-    correr: (flujoId, pasos, ws, ctx) => runWithWorkspace(ws, () => ejecutarPasos(flujoId, pasos, ws, ctx)),
+    correr: async (flujoId, pasos, ws, ctx) => {
+      // Lo que LLEGÓ en esta vuelta (16/10/2026): lo cuenta `ejecutarPasos` en `entregas`.
+      const entregas = { llegaron: 0 };
+      await runWithWorkspace(ws, () => ejecutarPasos(flujoId, pasos, ws, ctx, undefined, entregas));
+      return entregas;
+    },
     wsPlataforma: wsSuperAdmin,
     log: (m) => console.error(m),
   };
@@ -475,7 +480,7 @@ async function depsDelEvento(): Promise<DepsEvento> {
 /**
  * UN EVENTO DE LA PLATAFORMA CUYO CAMINO DE SIEMPRE NO ES EL MOTOR DE AVISOS (16/10/2026): el reporte semanal, que sin
  * su automatización sale por `despacharReporte` (lib/notify.ts), no por `emitirAviso`. Corre las filas de la plataforma
- * con los datos del negocio y, si no hay ninguna, devuelve `sinFila` SIN mandar nada: el llamador sigue con lo suyo.
+ * con los datos del negocio. Sin ninguna fila no sale nada (16/10/2026: sin camino viejo).
  * Para los demás avisos de la plataforma, `emitirDelCatalogo`, que ya hace las dos cosas.
  */
 export async function emitirEventoDePlataforma(
@@ -527,9 +532,8 @@ export async function emitirDelCatalogo(
   // salen SÓLO por las automatizaciones del negocio («Todos arrancan vacíos», decisión de Martín). El desvío
   // va ANTES de `getPlantilla`: leído el store, su interruptor y su texto volverían a decidir algo.
   if (AVISOS_POR_EVENTO.has(id)) {
-    const r = await emitirPorEvento(cat, ws, opts, await depsDelEvento());
-    // Un Mensaje de MaKo de la PLATAFORMA que todavía no tiene su automatización: sale como antes (`sinFila`).
-    if (!r.sinFila) return r;
+    // SÓLO POR SUS AUTOMATIZACIONES (16/10/2026): también los de la plataforma. El «sale como antes» sin fila se borró.
+    return emitirPorEvento(cat, ws, opts, await depsDelEvento());
   }
   const { getPlantilla, referenciaResuelta, generarMensajeAviso } = await import('./plantillas');
   // UNA lectura de la plantilla, y trae las cuatro respuestas que hacen falta: si está

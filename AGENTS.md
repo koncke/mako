@@ -1050,6 +1050,24 @@ Y del doer de WhatsApp, que sale de la misma tanda: **una receta del protocolo v
 `lib/doer-recetas.ts`, atada a la herramienta que la usa**, y viaja sólo con ella
 (`recetasDelTurno`). Escrita suelta en el preámbulo se paga en cada pedido de cada turno.
 
+# Un chat de MaKo interpreta el mensaje con `/api/mako/pedidos` ANTES de su modelo
+
+Martín (16/10): la persona mezcla en un mensaje lo de la pantalla, otro objeto («la otra
+automatización») y cosas de otra tab. Un chat nuevo (o uno que se engancha) hace `POST
+/api/mako/pedidos` con su `tab` y lo abierto, manda al modelo de siempre sólo los pedidos
+`actual`, y dibuja el resto (link, pregunta, confirmación, propuesta). Si la ruta falla o tarda,
+el mensaje entero sigue como antes. El contrato y el enganche: `docs/diseno-mako-pedidos.md`.
+- **Las palabras de un área (`AREA_KEYWORDS`) no rutean solas a otra tab.** Son anchas a
+  propósito (para sumar herramientas): «cambia el precio», «quita el video» o «un formulario para
+  leads» nombran otra área y son cambios de lo abierto. Otra tab sólo si el verbo CREA un objeto
+  de esa área, o lo etiquetó la IA (validada).
+- **Los objetos de la tab los da la ruta (`objetosDeTab`), una función por área y con la MISMA
+  puerta que su pantalla**, nunca el navegador: con eso se resuelve «la otra» y, con dos
+  candidatos, se pregunta con los dos. La única excepción son los objetos que SÓLO viven en el
+  navegador (los proyectos del Video Editor, en IndexedDB): `TABS_CON_OBJETOS_EN_EL_NAVEGADOR`.
+- **Si una palabra nombra una PARTE de lo abierto depende de la TAB, no del área**: «página» es
+  de `landing`, pero en el Image Editor es una página del diseño. Va en `PARTES_DE_LO_ABIERTO`.
+
 # Un permiso de UN inquilino sobre OTRO son DOS decisiones, y ninguna se deriva de la otra
 
 Cuando alguien tiene que poder ver los datos de otro workspace —la vista de agencia es
@@ -8478,6 +8496,13 @@ costó, en [docs/hallazgos-objectives.md](docs/hallazgos-objectives.md) → «Ge
   plantilla (`tests/plantillas-sugeridas.test.ts` no deja pasar una plantilla sin la suya). Sin IA al abrir: las señales
   salen de lo DECLARADO (`senalesDelNegocio`). Una plantilla de UN canal no lleva un eje genérico: los ejes suman por
   separado y se la sugeriría a quien vende por otro. Cómo se enchufa otra galería: docs/plantillas-sugeridas.md.
+- **La ficha del lead es POR TAB** (16/10/2026, Martín: «Que se pueda cambiar el nombre de las tabs internas... que se
+  pueda ver "epico"»): el nombre de una tab sale de `efectiva.nombres` (el admin la renombra), nunca de un rótulo
+  escrito; su galería, de `galeriaDeTab` y sus sugeridas, de `sugeridasDeTab` (lib/ficha/plantillas-tab.ts: la señal es
+  el TIPO del funnel, porque la ficha es de UN funnel). Un cambio nuevo de la ficha es un op de UNA palabra en
+  minúsculas en `CambioFicha`, con su `cambio` en la API (tests/ficha-api.test.ts sólo ve esa forma). Un bloque
+  recibe `epico` y decide cómo se agranda. Lo que no se ve en el código: docs/hallazgos-crm.md → «La ficha
+  personalizable POR TAB».
 
 # MaKo Mobile (/m): lo que gobierna una pantalla nueva del teléfono
 
@@ -8585,6 +8610,18 @@ módulo que importe de ahí `TICKS_PER_SECOND`, `roundMediaTime` o `addMediaTime
 `animation/`…) no carga en los tests de node. Lo que se quiera probar recibe los ticks por segundo y lo que llega
 al motor por PARÁMETRO, e importa sólo TIPOS (molde: `transcripcion/cortar.ts`, con `tps` y `dividir`).
 
+# Un hilo de chat que se GUARDA: lo que se guarda tiene que poder volver a usarse
+
+Desde el 16/10/2026 los chats que vivían en la memoria de la pestaña empiezan a guardarse (etapa 3 de
+docs/diseno-mako-ai-native.md; molde: `lib/editor-video/chat-hilo.ts`, el del Video Editor).
+- **Se guarda lo que sirve después de recargar, no el objeto de la pantalla.** Una propuesta pendiente guarda lo
+  necesario para aceptarla (y al leerla se vuelve a validar); el deshacer y las pistas de «antes» no viajan, así que
+  un botón que dependa de ellos («Restaurar») no se dibuja en lo que volvió de la base.
+- **Un estado intermedio guardado («aplicando») se resuelve al abrir y NUNCA vuelve a «pendiente»**: se cortó a la
+  mitad, y ofrecerlo otra vez aplica dos veces lo que ya entró.
+- **La persona sale de la sesión** (`personaDeSesion`), nunca del pedido; y dos pestañas se unen por id de mensaje
+  ante el 409 del compare-and-set, sin pisarse.
+
 # El onboarding es una conversación: lo que gobierna una pregunta nueva
 
 Desde el 16/10/2026 /onboarding es el CHAT DE ARRANQUE (`app/onboarding/ChatArranque.tsx`, sobre el motor de
@@ -8614,6 +8651,11 @@ chat». Lo que costó, en `docs/hallazgos-onboarding.md` y `docs/hallazgos-offer
   deja el trabajo a medias, y una recarga ve lo mismo. Cada escritura de fondo lleva su `intento` (un trabajo
   viejo que termina tarde no pisa el nuevo) y lo que corre tiene un vencimiento. El molde: el armado de la
   oferta (`armar` / `armarPorDetras` en app/api/offer/route.ts, mig 0296).
+- **En Offer, una regla que depende del TICKET (precio mínimo, duración, cuotas, la pregunta de la escalera) se
+  condiciona al nivel** (`nivelDeOferta`, lib/offer-reglas.ts), que decide el código con el precio. El marco daba
+  por hecho el alto ticket, y convirtió una entrada de 800 MXN al mes en un programa de 1.000 USD. Lo que el
+  modelo tiene que saber del negocio va pegado a un bloque que ya está en el prompt (`bloqueNivel` en las piezas),
+  nunca en un slot nuevo: un prompt editado en /configuraciones no lo tendría.
 
 # Una reserva de agenda decide a DÓNDE va por un solo camino, y la agenda tiene tres fuentes de ruteo
 

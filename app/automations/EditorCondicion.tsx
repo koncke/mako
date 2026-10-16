@@ -50,7 +50,7 @@ import {
   condicionPorId, seccionesDeCondiciones, arbolDeOpciones, esArbol, filaNueva, deValorOpcion, valorOpcion, problemaDeFila,
   nombreDeValor, nombresCatalogoDe, cuotaDeFila, SIMBOLO_OP, TOPE_CUOTA, TOPE_REUNIONES, SECCION_RESPUESTA,
   type AmbitoDisparo, type CatalogosCondicion, type DefCondicion, type ProductoCondicion,
-  type SeccionOpciones, type NivelArbol,
+  type SeccionOpciones, type NivelArbol, type DatosDeLaCondicion,
 } from '@/lib/condiciones-catalogo';
 // Duodécima tanda (12/10/2026): el catálogo se arma en UNA función que usan este editor y «Crear con IA»
 // (lib/condiciones-catalogos.ts). Se re-exporta para el lienzo y «Probar», que la importan de acá.
@@ -102,6 +102,11 @@ export type EditorCondicionProps = {
    * se ofrece (ya hay una en la automatización, o quien monta no lo enchufó).
    */
   onPasarARespuesta?: () => void;
+  /**
+   * LOS DATOS DEL EVENTO (16/10/2026, `condicionesDelEvento`, lib/aviso-evento.ts): en una fila de evento, su sección va
+   * primera; y en uno sin lead (`solo`), es la única. Ausente = una automatización de leads, como siempre.
+   */
+  datos?: DatosDeLaCondicion | null;
 };
 
 // ── Los catálogos de la base, leídos UNA vez por página ───────────────────────────
@@ -172,13 +177,13 @@ const COLGANDO: CSSProperties = { display: 'flex', alignItems: 'center', gap: 6,
 
 // ── El editor ─────────────────────────────────────────────────────────────────────
 
-export function EditorCondicion({ paso, cambiar, ambito, etapas, productos, busy, onQuitarRama, catalogos, onPasarARespuesta }: EditorCondicionProps) {
+export function EditorCondicion({ paso, cambiar, ambito, etapas, productos, busy, onQuitarRama, catalogos, onPasarARespuesta, datos }: EditorCondicionProps) {
   const leidos = useCatalogosCondicion();
   const remotos = catalogos !== undefined ? catalogos : leidos;
   const cat = catalogosDe({ etapas, productos, remotos });
   const ramas = paso.ramas ?? [];
   const setRama = (ri: number, r: RamaCondicion, apilar: boolean) => cambiar({ ramas: ramas.map((x, k) => (k === ri ? r : x)) }, apilar);
-  const deLaSalida = seccionesDeCondiciones(ambito, cat);
+  const deLaSalida = seccionesDeCondiciones(ambito, cat, datos);
   // Una condición VACÍA puede pasar a escuchar las respuestas: se ofrece su familia, al final.
   const vacia = ramas.every((r) => !(r.filas?.length));
   const secciones: SeccionOpciones[] = vacia && onPasarARespuesta
@@ -458,6 +463,16 @@ function Valor({ fila, cat, busy, onCambiar, incompleta }: {
     const valor = fila.valor == null ? '' : String(fila.valor);
     return (
       <SelectorDeLista niveles={arbolDeOpciones(v.catalogo, cat)} valor={valor} nombrePuesto={nombreDeValor(v.catalogo, valor, nombresCatalogoDe(cat))}
+        busy={busy} aria={def.rotulo[0]} falta={incompleta} onElegir={(x) => onCambiar({ ...fila, valor: x }, true)} />
+    );
+  }
+
+  // Una de su lista fija (16/10/2026: el dato de un evento, «Estado de la cuenta es …»): el mismo selector que una de lista.
+  if (v.t === 'opciones') {
+    const valor = fila.valor == null ? '' : String(fila.valor);
+    return (
+      <SelectorDeLista niveles={[{ title: def.rotulo[0], options: v.opciones.map((o) => ({ value: o.value, label: o.label })) }]} valor={valor}
+        nombrePuesto={v.opciones.find((o) => o.value === valor)?.label ?? valor}
         busy={busy} aria={def.rotulo[0]} falta={incompleta} onElegir={(x) => onCambiar({ ...fila, valor: x }, true)} />
     );
   }

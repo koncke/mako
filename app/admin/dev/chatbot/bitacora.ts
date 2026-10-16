@@ -1771,4 +1771,48 @@ FEEDBACK PROBAR:
       "docs/hallazgos-chatbot.md — «Crear con IA» por Instagram: 140 s y un error de la revisión",
     ],
   },
+  {
+    fecha: "16 oct", hora: "05:45", chat: "Chatbot", cuenta: "claude3",
+    sesion: "local_b1f59213-087e-4203-83e1-b3f59eadbaed",
+    actor: "claude", tipo: "investigacion",
+    titulo: "El AI Step sin red dice «Conecta tu Claude», y el inventario de todo lo que MaKo manda por detrás",
+    puntos: [
+      "Si un AI Step no puede contestar porque el mensaje trae datos de un lead y no hay un Claude conectado, el aviso dice «Conecta tu Claude» en vez de hablar de keys.",
+      "Quedó la lista completa de los mensajes que MaKo manda sin pasar por una automatización: qué dice cada uno, a quién, qué lo dispara y qué lo frena, con el orden para mudarlos.",
+      "Las dos capturas tienen su causa: el «18ª vez» de los anuncios era una alerta sin techo mandada por detrás, y el «Se desconectó tu WhatsApp» de Leila salía con frases escritas en el código.",
+    ],
+    commits: [
+      { sha: "214f01215", msg: "AI Step: sin red por llevar datos del lead, el aviso dice «Conecta tu Claude» y no habla de keys", lineas: 76, archivos: 6 },
+      { sha: "360196182", msg: "Crear con IA: «ármala», no «armala», en el pedido con un adjunto que no se pudo leer", lineas: 4, archivos: 2 },
+      { sha: "177a41f4e", msg: "Nada por detrás: el inventario de todo lo que MaKo manda sin pasar por una automatización", lineas: 264, archivos: 3 },
+    ],
+    archivos: [
+      "docs/inventario-nada-por-detras.md — el inventario entero",
+      "docs/hallazgos-comunicacion.md — Lo que MaKo manda por detrás: las trampas del inventario",
+      "docs/hallazgos-chatbot.md — El AI Step sin red por llevar datos del lead dice «Conecta tu Claude»",
+    ],
+  },
+  {
+    fecha: "16 oct", hora: "09:50", chat: "Chatbot", cuenta: "claude3",
+    sesion: "local_b1f59213-087e-4203-83e1-b3f59eadbaed",
+    actor: "claude", tipo: "implementacion",
+    titulo: "Nada por detrás, lote 1: el WhatsApp caído con su texto, la CONDITION sobre los datos del evento y la alerta de anuncios con techo",
+    puntos: [
+      "«Se cortó tu WhatsApp» y «Se desconectó tu WhatsApp» son dos automatizaciones de SuperAdmin, y cada una dice exactamente lo que sale.",
+      "Un aviso de la plataforma sin su automatización ya no sale por detrás: no manda nada.",
+      "Una CONDITION puede preguntar los datos que trae un evento, con «Si no» y varias salidas, también en las automatizaciones de SuperAdmin.",
+      "La alerta de la cuenta publicitaria suspendida es una automatización con un texto por estado y un techo de 3 avisos que se puede cambiar; vuelve a avisar si la cuenta empeora.",
+      "En producción, el aviso de la cuenta frenada quedó apagado para Mauricio mientras sale la automatización, y «Restablecer contraseña», «Se desconectó tu WhatsApp» y «Oferta lista» quedaron prendidas.",
+    ],
+    commits: [
+      { sha: "7b2bc409a", msg: "Nada por detrás, lote 1: el WhatsApp caído con texto literal y sin camino viejo", lineas: 474, archivos: 19 },
+      { sha: "63be8e666", msg: "Nada por detrás, lote 1: la CONDITION sobre los datos del evento y la alerta de anuncios con techo", lineas: 1602, archivos: 29 },
+      { sha: "a6b727a71", msg: "Automations: el test del horario sigue al runner que duerme en la cadena, y los hallazgos corregidos", lineas: 49, archivos: 4 },
+    ],
+    archivos: [
+      "docs/hallazgos-comunicacion.md — Las dos capturas, mudadas: texto literal, sin camino viejo y con techo",
+      "docs/hallazgos-chatbot.md — La CONDITION sobre los datos del evento, con «Si no»",
+      "docs/hallazgos-comunicacion.md — La campanita de escritorio y el «sin grupo de MaKo»: lo que hay que saber antes de tocarlos",
+    ],
+  },
 ];

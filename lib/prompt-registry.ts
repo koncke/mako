@@ -78,6 +78,7 @@ import { MENSAJE_LEAD_SYSTEM_TEMPLATE } from './probar-lead';
 import { ARMAR_AI_STEP_SYSTEM_TEMPLATE } from './ai-step-armar';
 import { OBJECIONES_SYSTEM_TEMPLATE } from './ai-step-ensayo';
 import { HOJA_IA_SYSTEM_TEMPLATE } from './graficos-ia';
+import { TAB_IA_SYSTEM_TEMPLATE } from './ficha/ia';
 import { EDITAR_HOJA_IA_SYSTEM_TEMPLATE } from './graficos-ia-edicion';
 import { ANALISTA_SYSTEM_TEMPLATE } from './graficos-analisis';
 import { ELEMENTO_IA_SYSTEM_TEMPLATE } from './graficos-ia-elemento';
@@ -503,6 +504,15 @@ export const REGISTRY: Group[] = [
         variables: [], scope: 'static-only', sensitive: false,
         default: HOJA_IA_SYSTEM_TEMPLATE,
         context: '«Pídeselo a MaKo» al crear una hoja del Dashboard. El modelo elige conjuntos, tipos y métricas POR SU ID del catálogo que le llega; el código descarta lo que no existe y acomoda la grilla (lib/graficos-ia.ts → deIAHoja). No le pidas ids ni posiciones: los pone el código.',
+      },
+      // La ficha del lead (16/10/2026): «¿Qué vas a crear hoy?» de una tab. SIN slots, como el de la hoja: el
+      // catálogo de la tab y el pedido viajan en el mensaje user.
+      {
+        key: 'crm.ficha-tab-ia.system', source: 'override',
+        label: 'Armar una tab de la ficha del lead con IA (system)', kind: 'system', dynamic: true,
+        variables: [], scope: 'static-only', sensitive: false,
+        default: TAB_IA_SYSTEM_TEMPLATE,
+        context: '«¿Qué vas a crear hoy?» en la galería de una tab de la ficha del lead (Resumen, Reuniones, Pagos o Tracking). El modelo elige bloques POR SU ID del catálogo de esa tab que le llega; el código descarta lo que no existe y corrige anchos y diseños (lib/ficha/ia.ts → deIATab). No le pidas títulos, colores ni íconos: los pone el código. Y no lo pases a voseo.',
       },
       // «Editar con MaKo» (16/10/2026): el panel de la hoja abierta, en el Dashboard y en General. Sin slots, por lo mismo.
       {
