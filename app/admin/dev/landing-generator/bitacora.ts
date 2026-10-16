@@ -636,4 +636,21 @@ export const BITACORA: Hito[] = [
       'docs/hallazgos-editor-landing.md — la tabla Gemini / Groq de la edición con IA',
     ],
   },
+  {
+    fecha: '16 oct', hora: '10:59', chat: 'Landing Generator', sesion: 'local_0c7ad2f8-3540-4e69-8d37-574de8292f80', cuenta: 'claude3',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: '«Créame otra landing para mi otro producto» pregunta para cuál producto',
+    puntos: [
+      'Pedido de Cerebro, por lo visto con clics: Crear con IA armaba el esquema sobre la oferta principal. Ahora, si el pedido nombra un producto del catálogo, va escrito; si dice «producto» sin nombrarlo y hay varios, MaKo pregunta cuál, con los primeros 4.',
+      'Con un solo producto, «mi otro producto» no es ése y crea como antes: es el caso de ws9 hoy (un solo producto activo). Falta preguntarlo en texto libre cuando no está en el catálogo.',
+    ],
+    commits: [
+      { sha: '7fa26e27d', msg: 'Web Generator: «créame otra landing para mi otro producto» pregunta para cuál producto', lineas: 189, archivos: 7 },
+    ],
+    archivos: [
+      'lib/mako-pedidos.ts — productoDelPedido',
+      'app/api/mako/pedidos/route.ts — conProductos: sólo con un pedido nuevo y para el admin',
+      'app/web-generator/editor/pedidos-chat.ts — la burbuja «¿Para cuál producto?»',
+    ],
+  },
 ];

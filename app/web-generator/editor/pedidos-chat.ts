@@ -60,6 +60,26 @@ function objetoValido(v: unknown): ObjetoChat | null {
   return { id, nombre: o.nombre, tocadoAt: typeof o.tocadoAt === 'string' ? o.tocadoAt : null };
 }
 
+type ProductoDelPedido = NonNullable<Extract<PedidoResuelto, { sobre: 'nuevo' }>['producto']>;
+
+/**
+ * El producto de un pedido nuevo (`productoDelPedido` en la ruta). Uno roto NO tira la respuesta: se crea sin el
+ * producto, como antes. La pregunta sólo vale con dos candidatos o más.
+ */
+function productoValido(v: unknown): ProductoDelPedido | undefined {
+  if (!v || typeof v !== 'object') return undefined;
+  const p = v as { objeto?: unknown; candidatos?: unknown; pregunta?: unknown };
+  const objeto = p.objeto == null ? null : objetoValido(p.objeto);
+  if (p.objeto != null && !objeto) return undefined;
+  const candidatos = (Array.isArray(p.candidatos) ? p.candidatos : []).map(objetoValido).filter((c): c is ObjetoChat => !!c);
+  if (!objeto && candidatos.length < 2) return undefined;
+  return { objeto, candidatos: objeto ? [] : candidatos.slice(0, 4), pregunta: objeto ? null : textoONull(p.pregunta) ?? TEXTOS.cualProducto };
+}
+
+/** El pedido que va a Crear con IA, con el producto dicho: así el esquema se arma sobre ése y no sobre la oferta principal. */
+export const conProducto = (pedido: string, producto: ObjetoChat): string =>
+  `${pedido.trim().replace(/[.…\s]+$/, '')}. Es para el producto «${producto.nombre.trim()}».`;
+
 /** Un pedido de la respuesta, con la forma del contrato; null si no la tiene. */
 function pedidoValido(v: unknown): PedidoResuelto | null {
   if (!v || typeof v !== 'object') return null;
@@ -68,7 +88,10 @@ function pedidoValido(v: unknown): PedidoResuelto | null {
   const texto = p.texto.trim();
   const operacion = textoONull(p.operacion);
   if (p.sobre === 'actual') return { sobre: 'actual', texto };
-  if (p.sobre === 'nuevo') return { sobre: 'nuevo', texto, operacion };
+  if (p.sobre === 'nuevo') {
+    const producto = productoValido(p.producto);
+    return { sobre: 'nuevo', texto, operacion, ...(producto ? { producto } : {}) };
+  }
   if (p.sobre === 'otra-tab') {
     if (!esTexto(p.area) || !esTexto(p.titulo) || !esInterno(p.link)) return null;
     return { sobre: 'otra-tab', texto, area: p.area as Extract<PedidoResuelto, { sobre: 'otra-tab' }>['area'], titulo: p.titulo.trim(), link: p.link, operacion, confirmar: p.confirmar === true };
@@ -124,6 +147,8 @@ export type EstadoPapelera = 'pregunta' | 'archivando' | 'hecha' | 'no' | 'error
 export type BurbujaPedido =
   /** Una landing NUEVA. `pregunta`: la propuesta «¿Terminamos esto y después…?»; null = directa. */
   | { tipo: 'crear'; pedido: string; pregunta: string | null; despues: boolean; estado: EstadoCrear; pulsado: BotonId | null }
+  /** Una landing nueva «para mi otro producto»: primero cuál producto; elegido, la burbuja de crear (otra, debajo). */
+  | { tipo: 'producto'; pedido: string; pregunta: string | null; candidatos: ObjetoChat[]; elegido: string | null }
   /** «Elimina la otra landing» con dos candidatas: primero cuál, después la confirmación (otra burbuja). */
   | { tipo: 'elegir'; candidatos: ObjetoChat[]; elegido: string | null }
   | { tipo: 'papelera'; objeto: ObjetoChat; estado: EstadoPapelera }
@@ -135,7 +160,7 @@ export type BurbujaPedido =
   | { tipo: 'abierta' }
   | { tipo: 'aviso'; texto: string };
 
-export type BotonId = 'si' | 'despues' | 'crear-ahora' | 'papelera' | 'no' | `elegir:${string}`;
+export type BotonId = 'si' | 'despues' | 'crear-ahora' | 'papelera' | 'no' | `elegir:${string}` | `producto:${string}`;
 
 export const TEXTOS = {
   propuesta: '¿Terminamos esto y después creamos otra landing?',
@@ -156,6 +181,7 @@ export const TEXTOS = {
   restaurada: 'Volvió de la Papelera.',
   laAbierta: 'Esta landing está abierta: usa ⋯ › Eliminar.',
   cual: '¿Cuál? Dime su nombre.',
+  cualProducto: '¿Para cuál producto?',
 } as const;
 
 export const SIN_TITULO = 'Sin título';
@@ -201,6 +227,9 @@ export function burbujasDe(i: Interpretacion, actualId: number | string): Burbuj
     if (p.sobre === 'actual') return [];
     if (p.sobre === 'nuevo') {
       const pregunta = hayActual ? (p === primero && i.propuesta?.texto) || TEXTOS.propuesta : null;
+      // «Para mi otro producto»: con el producto sabido, va escrito en el pedido; si no, primero cuál.
+      if (p.producto?.objeto) return [{ tipo: 'crear', pedido: conProducto(p.texto, p.producto.objeto), pregunta, despues: false, estado: 'lista', pulsado: null }];
+      if (p.producto && p.producto.candidatos.length >= 2) return [{ tipo: 'producto', pedido: p.texto, pregunta, candidatos: p.producto.candidatos, elegido: null }];
       return [{ tipo: 'crear', pedido: p.texto, pregunta, despues: false, estado: 'lista', pulsado: null }];
     }
     if (p.sobre === 'otra-tab') return [{ tipo: 'ir', titulo: p.titulo, link: p.link }];
@@ -249,6 +278,12 @@ export function vistaDeBurbuja(b: BurbujaPedido): VistaBurbuja {
       const nota = b.estado === 'esperando' ? TEXTOS.esperando : b.estado === 'abriendo' ? TEXTOS.abriendo : b.estado === 'abierta' ? TEXTOS.abierta : b.estado === 'error' ? TEXTOS.noAbrio : null;
       return { ...vacia, texto, botones: botonesCrear(b), nota, ocupado: b.estado === 'abriendo', error: b.estado === 'error' };
     }
+    case 'producto':
+      return {
+        ...vacia,
+        texto: TEXTOS.cualProducto,
+        botones: b.candidatos.map((o) => ({ id: `producto:${o.id}` as const, texto: nombreCorto(o, EN_BOTON), v: 'contorno' as const, apagado: b.elegido !== null, elegido: b.elegido === o.id })),
+      };
     case 'elegir':
       return {
         ...vacia,
@@ -322,6 +357,13 @@ export function pulsar(
     const o = b.candidatos.find((c) => `elegir:${c.id}` === boton);
     if (!o) return igual;
     return { burbuja: { ...b, elegido: o.id }, efecto: { tipo: 'agregar', burbuja: papeleraDe(o, actualId) } };
+  }
+  if (b.tipo === 'producto') {
+    const o = b.candidatos.find((c) => `producto:${c.id}` === boton);
+    if (!o) return igual;
+    // La burbuja de crear de siempre (con la propuesta, si había), con el producto en el pedido.
+    const crear: BurbujaPedido = { tipo: 'crear', pedido: conProducto(b.pedido, o), pregunta: b.pregunta, despues: false, estado: 'lista', pulsado: null };
+    return { burbuja: { ...b, elegido: o.id }, efecto: { tipo: 'agregar', burbuja: crear } };
   }
   return igual;
 }

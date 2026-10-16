@@ -34,8 +34,9 @@ import { listarDisenos } from '@/lib/image-editor/server';
 import { leerInformeGeneral, leerTablero } from '@/lib/graficos-tablero';
 import { hojasVisibles } from '@/lib/graficos-catalogo';
 import { interpretarMensaje } from '@/lib/mako-pedidos-ia';
-import { TABS_CON_OBJETOS_EN_EL_NAVEGADOR, objetosDelNavegador } from '@/lib/mako-pedidos';
-import type { ContextoPedidos, ObjetoChat, OperacionChat, OrdenarOperaciones } from '@/lib/mako-pedidos';
+import { TABS_CON_OBJETOS_EN_EL_NAVEGADOR, objetosDelNavegador, productoDelPedido } from '@/lib/mako-pedidos';
+import type { ContextoPedidos, ObjetoChat, OperacionChat, OrdenarOperaciones, PedidoResuelto } from '@/lib/mako-pedidos';
+import { listProductos } from '@/lib/productos';
 
 export const dynamic = 'force-dynamic';
 // La IA tiene 7,5 s de plazo (lib/mako-pedidos-ia.ts); el resto es leer la vista y los objetos.
@@ -99,6 +100,24 @@ async function objetosDeTab(tab: Area, rol: Rol, ws: number): Promise<ObjetoChat
   return [];
 }
 
+/**
+ * «Créame otra landing para mi otro producto»: a cada pedido NUEVO se le dice con qué producto del negocio
+ * (`productoDelPedido`, lib/mako-pedidos.ts). Los productos se leen SÓLO si hay un pedido nuevo (no en cada mensaje),
+ * los activos y en el orden del catálogo, y sólo para el admin (el catálogo es del CRM y de Second Brain). Si la
+ * lectura falla, el pedido sigue como siempre.
+ */
+async function conProductos(pedidos: PedidoResuelto[], rol: Rol): Promise<PedidoResuelto[]> {
+  if (rol !== 'admin' || !pedidos.some((p) => p.sobre === 'nuevo')) return pedidos;
+  const productos: ObjetoChat[] = await listProductos(true)
+    .then((ps) => ps.map((p) => ({ id: String(p.id), nombre: p.nombre })))
+    .catch((e) => { console.warn(`[api:mako/pedidos] no pude leer los productos: ${msg(e)}`); return []; });
+  return pedidos.map((p) => {
+    if (p.sobre !== 'nuevo') return p;
+    const producto = productoDelPedido(p.texto, productos);
+    return producto ? { ...p, producto } : p;
+  });
+}
+
 const aOperacion = (d: OperacionDef): OperacionChat => ({
   id: d.id, area: d.area, tipo: esLectura(d) ? 'lectura' : 'accion', titulo: d.titulo, descripcion: d.descripcion,
 });
@@ -142,7 +161,7 @@ export async function POST(req: Request) {
 
     const ctx: ContextoPedidos = { tab, actual, objetos, operaciones, ws, ordenar };
     const r = await interpretarMensaje(texto, ctx);
-    return Response.json({ ok: true, ...r });
+    return Response.json({ ok: true, ...r, pedidos: await conProductos(r.pedidos, rol) });
   } catch (e) {
     console.error(`[api:mako/pedidos] ${msg(e)}`);
     // Sin interpretación, el chat sigue por su camino de siempre con el mensaje entero.

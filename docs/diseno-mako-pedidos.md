@@ -58,7 +58,8 @@ type PedidoResuelto =
   | { sobre: 'actual'; texto: string }
   | { sobre: 'otro'; texto: string; verbo: Verbo; objeto: ObjetoChat | null; candidatos: ObjetoChat[];
       operacion: string | null; confirmar: boolean; pregunta: string | null }
-  | { sobre: 'nuevo'; texto: string; operacion: string | null }          // crear otro de esta MISMA tab
+  | { sobre: 'nuevo'; texto: string; operacion: string | null;           // crear otro de esta MISMA tab
+      producto?: { objeto: ObjetoChat | null; candidatos: ObjetoChat[]; pregunta: string | null } }  // la ruta
   | { sobre: 'otra-tab'; texto: string; area: Area; titulo: string; link: string; operacion: string | null; confirmar: boolean };
 type Interpretacion = {
   pedidos: PedidoResuelto[];
@@ -84,6 +85,11 @@ Reglas del resolver (código, no IA):
   `configurar_*`; ver → `ver_*` / `listar_*` (sólo lecturas; los demás, sólo acciones). Entre varias, la de más relevancia
   con el texto (`ordenarPorRelevancia` del registro, que llega INYECTADA en `ctx.ordenar`: el núcleo no importa valores del
   registro). Sólo de las que la persona VE. Sin ninguna, `operacion: null` (queda el link).
+- **El producto de un pedido nuevo** («para mi otro producto», `productoDelPedido`): la ruta lee los productos activos
+  del catálogo (`listProductos(true)`) sólo si hay un pedido `nuevo` y para el admin, y le agrega `producto` al
+  pedido: el que el texto nombra, o `candidatos` (los primeros 4) y la pregunta «¿Para cuál producto?» si dice
+  «producto» sin nombrarlo; con uno solo, ése, salvo «otro producto». El chat del Web Generator pregunta y escribe el
+  elegido en el pedido de Crear con IA. Un `producto` roto no tira la respuesta.
 - **Nuevo vs. cambio**: crear con objeto directo de ESTA tab («créame otra landing») es `nuevo`; «crea una sección» es un
   cambio de lo abierto. ⚠️ **Las PARTES de lo abierto son por TAB, no por área** (`PARTES_DE_LO_ABIERTO`):
   `AREA_KEYWORDS` dice de qué área es una palabra, pero si nombra otro objeto o una parte del abierto depende de dónde se

@@ -83,7 +83,7 @@ export type PedidoResuelto =
       operacion: string | null; confirmar: boolean; pregunta: string | null;
     }
   /** Crear otro de esta MISMA tab. */
-  | { sobre: 'nuevo'; texto: string; operacion: string | null }
+  | { sobre: 'nuevo'; texto: string; operacion: string | null; producto?: ProductoDelPedido }
   | { sobre: 'otra-tab'; texto: string; area: Area; titulo: string; link: string; operacion: string | null; confirmar: boolean };
 
 export const BOTONES_PROPUESTA = ['Sí', 'Después'] as const;
@@ -140,6 +140,44 @@ export async function probarEnOrden<P extends string>(
 export const TABS_CON_OBJETOS_EN_EL_NAVEGADOR: readonly Area[] = ['video'];
 /** Más objetos que esto no se miran: «la otra» entre cientos no se resuelve por nombre. */
 export const MAX_OBJETOS = 200;
+
+/**
+ * Para QUÉ producto del negocio es un pedido nuevo («créame otra landing para mi otro producto»). Visto con clics el
+ * 16/10/2026: sin esto, Crear con IA armaba el esquema sobre la oferta principal. `objeto`: el producto, si se sabe;
+ * si no, `candidatos` y una `pregunta`. Nunca se elige el primero de una lista.
+ */
+export type ProductoDelPedido = { objeto: ObjetoChat | null; candidatos: ObjetoChat[]; pregunta: string | null };
+/** Más opciones que esto en la pregunta no se leen de un vistazo. */
+export const MAX_PRODUCTOS_PREGUNTA = 4;
+export const PREGUNTA_PRODUCTO = '¿Para cuál producto?';
+
+/** ¿El texto habla de un producto («para mi otro producto», «de un producto»)? Sobre el texto plano. */
+export function mencionaProducto(texto: string): boolean {
+  return /\bproductos?\b/.test(plano(nfc(texto)));
+}
+
+/**
+ * El producto de un pedido, con los productos ACTIVOS del negocio en el orden de su catálogo:
+ *   · si el texto nombra uno (su nombre entero), ése;
+ *   · si dice «producto» sin nombrarlo: con uno solo, ése —salvo «otro producto», que entonces no es ése y no se
+ *     sabe cuál—; con varios, la pregunta con los primeros `MAX_PRODUCTOS_PREGUNTA`;
+ *   · si no dice nada de un producto, null (se crea como siempre).
+ */
+export function productoDelPedido(texto: string, productos: readonly ObjetoChat[]): ProductoDelPedido | null {
+  if (!productos.length) return null;
+  const t = ` ${comparable(texto)} `;
+  const nombrados = productos.filter((p) => {
+    const n = comparable(p.nombre);
+    return n.length >= 3 && t.includes(` ${n} `);
+  });
+  if (nombrados.length === 1) return { objeto: nombrados[0], candidatos: [], pregunta: null };
+  if (!nombrados.length && !mencionaProducto(texto)) return null;
+  const lista = nombrados.length > 1 ? nombrados : productos;
+  if (lista.length === 1) {
+    return /\botr[ao]s?\s+productos?\b/.test(plano(nfc(texto))) ? null : { objeto: lista[0], candidatos: [], pregunta: null };
+  }
+  return { objeto: null, candidatos: lista.slice(0, MAX_PRODUCTOS_PREGUNTA), pregunta: PREGUNTA_PRODUCTO };
+}
 
 /**
  * Los objetos que manda el navegador, validados: un array de `{ id, nombre, tocadoAt? }`; lo que no tiene esa forma
