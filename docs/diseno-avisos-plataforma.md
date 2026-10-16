@@ -62,3 +62,57 @@
 - **Falta, después del deploy de 16fa52568 y efcc58d46:** `scripts/mudanza-avisos-plataforma.mts --aplicar` crea y
   prende las TRES filas en el ws 9 (simulacro primero). Hasta entonces sale como siempre (`sinFila`).
 - **Siguiente:** `reporte-semanal`, que sale por email al dueño (otra tarjeta); después, el resto por familias.
+
+## 6. El reporte semanal (16/10/2026): la tarjeta MaKo también por EMAIL
+
+**Lo medido** (sólo lectura, la misma cuenta que el `?dry=1` del cron): el lunes a las 14:20 UTC sale por EMAIL a 8
+negocios (ws 1, 9, 10, 11, 13, 14, 18 y 19), a un destinatario cada uno. Los ws 3, 4, 15 y 17 se saltean porque no
+tienen a quién. Nunca sale por WhatsApp (`REPORTE_POR_WHATSAPP = false`). El feed no se escribe en ningún lado
+(`notificaciones` no existe en producción). Ningún negocio tiene «cada cuánto». Sólo el ws 1 tiene horario de oficina
+(de 9 a 21).
+
+**La pieza que falta: «MaKo por email».** La tarjeta MaKo suma dos campos: `canal` (`'email'`; sin elegir, el grupo
+de WhatsApp, como siempre) y `asunto`. Por email:
+- le escribe a los destinatarios del negocio, uno por uno, desde equipo@hola-mako.com. Es el camino de siempre de un
+  aviso con email (`enviarAvisoPorEmail`, lib/avisos.ts). Los destinatarios salen de `getDestinatariosDe`: la lista
+  de Notificaciones o, si está vacía, el email del contacto. Es lo mismo que lee el reporte (`destinosDelReporte`).
+- va sólo texto: un solo mensaje, sin audio ni archivos. Publicar lo frena con «Por email va un solo texto».
+- no manda push al teléfono: la tarjeta dice email, y el reporte de hoy tampoco suena.
+- el asunto admite datos, y la banda del correo dice lo mismo que el asunto.
+
+En el lienzo se llama «MaKo por email». Vale en cualquier automatización, no sólo en la plataforma: los dos runners
+(el de los leads, `avisar_al_equipo` en lib/api-mako/areas/chatbot.run.ts, y el de los eventos, lib/flujos.ts)
+terminan en `emitirAviso`. Un email de MaKo va siempre al EQUIPO, nunca a un lead (regla «Email del negocio NUNCA
+con MaKo»).
+
+**El emisor.** El cron sigue igual, por negocio y adentro de su ws:
+1. las preferencias del negocio deciden si le toca, como hoy (`decidirReporte`);
+2. arma el reporte (`buildReporteSemanal`);
+3. emite `reporte_semanal` con dos datos, `reporte_titulo` y `reporte_texto`.
+
+Si la plataforma no tiene fila (`sinFila`), sale por `despacharReporte`, como siempre.
+
+**La plantilla** de SuperAdmin es «Reporte Semanal de un Negocio»: MaKo por email, asunto `{{reporte_titulo}}`, texto
+`{{reporte_texto}}`.
+
+**Lo que cambia para el cliente cuando exista la fila,** dicho antes de hacerlo:
+1. **El pie del correo.** Hoy firma con el nombre del contacto del propio negocio (`fromName: perfil.nombre`), que es
+   un error: los correos de la plataforma firman «MaKo» (lib/email-html.ts). Por el camino del aviso va sin esa línea.
+   Asunto, cuerpo, remitente y banda quedan iguales.
+2. **El ws 1 lo recibe a las 9, no a las 7:20**, porque tiene horario de oficina y la tarjeta espera por defecto (la
+   regla de Martín del 15/10). Los demás no tienen horario.
+3. Nada más: el WhatsApp ya estaba apagado y el feed no existe.
+
+**Lo hecho (16/10/2026, 12ac3cb85).**
+- La tarjeta: `CanalMako`, `problemaDeEmailMako` y `avisoPorEmail` (lib/mako-tarjeta.ts). En el lienzo, «Por dónde» y el
+  asunto (`EditorMako`, app/automations/FlujoLienzo.tsx). Publicar lo frena en los dos runners (`faltaEscribir` y
+  `pasosDelEvento`).
+- El envío: `emitirAviso` acepta `push: false`. El registro (`avisar_al_equipo`) suma `canal` y `asunto`.
+- El evento `reporte_semanal` (`trae: ['reporte']`) y sus datos `reporte_titulo` / `reporte_texto` (`datosDelReporte`,
+  lib/reporte-destino.ts).
+- El cron: `emitirEventoDePlataforma` (lib/avisos.ts) y, sin fila, `despacharReporte`. Si no pudo leer si hay fila,
+  devuelve error y no manda por ninguna de las dos puertas.
+- La plantilla `mako-reporte-semanal` y su lugar en el script de la mudanza.
+- Test: tests/reporte-semanal-plataforma.test.ts (12 roturas).
+- **Antes, un arreglo de la pieza (a5b9e6d06):** la tarjeta de un evento de la plataforma esperaba el horario de oficina
+  de la PLATAFORMA (el ws 9 corre la fila). Ahora espera el del negocio que la recibe.

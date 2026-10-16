@@ -4710,13 +4710,30 @@ volvió. La receta sirve para los demás.
 - Un helper que necesita un test **no puede vivir en `lib/lead-resumen.ts`** (es `server-only`): los datos de Fathom
   están en `lib/reunion-grabada.ts`, puro.
 
-**SIN HACER:** correr el script después del deploy de 16fa52568 y efcc58d46 (crea las TRES filas); `reporte-semanal`
-(sale por email al dueño: necesita otra tarjeta); y los otros 61, por familias.
+- ⚠️ **En un evento de la plataforma, `ws` es donde CORRE la fila (el ws 9), no a quién le llega.** Grupo, datos y links
+  ya usaban `negocioWs`, pero el horario de oficina se leía de `ws`: la tarjeta esperaba la oficina de Martín. No se
+  notaba porque el ws 9 no tiene horario (medido el 16/10). Lo arregló a5b9e6d06. **Al sumar algo que el runner de
+  eventos lee por ws, preguntar: ¿es de quien corre la fila o de quien recibe la tarjeta?**
+- **El reporte semanal no sale por WhatsApp, sale por EMAIL al equipo.** Por eso hizo falta «MaKo por email» (un campo
+  de la misma tarjeta, no una tarjeta nueva): `canal: 'email'` + `asunto`. Termina en `enviarAvisoPorEmail`, el camino
+  de siempre de un aviso con email (los destinatarios del negocio, desde equipo@hola-mako.com) y SIN push, porque la
+  tarjeta dice email. El cron sigue decidiendo a qué negocio le toca (sus preferencias) y armando el reporte; la fila
+  sólo lo MANDA. Sin fila, `despacharReporte` como siempre (`emitirEventoDePlataforma` no cae al motor de avisos).
+- **Medido el 16/10, el semanal le llega a 8 negocios** (ws 1, 9, 10, 11, 13, 14, 18 y 19). Un error existente que la
+  mudanza saca: el pie del correo firma con el nombre del contacto del PROPIO negocio (`fromName: perfil.nombre` en
+  `despacharReporte`), cuando los correos de la plataforma firman «MaKo» (lib/email-html.ts). Con la fila, ese renglón
+  no está.
+
+**SIN HACER:** correr el script después del deploy (crea las CUATRO filas: la caída, la vuelta, Fathom y el reporte); y
+los otros 61, por familias.
 
 **Vive en:** `lib/disparadores.ts` (`EventoMako.plataforma`) · `lib/aviso-evento.ts` (`emitirPorEvento`, `sinFila`) ·
 `lib/avisos.ts` (`emitirDelCatalogo`) · `lib/flujos.ts` (`negocioWs`) · `lib/linea-vigilancia.ts` (`datosCaida`) ·
 `lib/reunion-grabada.ts` (`datosPostLlamada`) · `app/api/webhooks/fathom/route.ts` ·
-`lib/plantillas-automatizaciones.ts` (`PLANTILLAS_PLATAFORMA`) · test: `tests/avisos-plataforma.test.ts`
+`lib/mako-tarjeta.ts` («MaKo por email»: `CanalMako`, `problemaDeEmailMako`, `avisoPorEmail`) ·
+`app/api/cron/reporte-semanal/route.ts` · `lib/reporte-destino.ts` (`datosDelReporte`) ·
+`lib/plantillas-automatizaciones.ts` (`PLANTILLAS_PLATAFORMA`) · tests: `tests/avisos-plataforma.test.ts`,
+`tests/reporte-semanal-plataforma.test.ts`
 
 ## «Probar» visto en producción (16/10/2026): el ws3 no sirve, y lo que sólo se veía con clics
 

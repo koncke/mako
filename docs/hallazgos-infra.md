@@ -6422,3 +6422,16 @@ tema. Lo encontró otro `grep`, por casualidad.
 **La regla:** antes de dar una punta por buena, se corren los tests que LEEN cada archivo tocado
 (`grep -l "<ruta del archivo>" tests/*.test.ts`), no sólo los que hablan del tema. Y antes de pasársela a quien
 pushea, la suite entera con `--test-concurrency=2`, que entra en la RAM con muchos chats abiertos.
+
+## Un script de roturas no se corta con `head`, y un worktree no tiene `.env.local` (16/10/2026)
+
+- ⚠️ **`node romper-*.mjs | head -3` puede matar el script en la mitad de una rotura.** Cuando `head` cierra el pipe,
+  el próximo `console.log` del script falla. Si eso pasa entre «escribí el archivo roto» y «lo restauré», el árbol
+  queda roto sin que nada lo diga. Esta vez no pasó: el log va después de restaurar, y `git diff` lo confirmó. Regla:
+  - la salida va a un archivo del scratchpad y se lee después;
+  - el script restaura en un `finally` (scratchpad `romper-reporte.mjs`);
+  - al terminar, `git status` para ver que no quedó nada tocado.
+- **Los worktrees (`C:/dev/wt-*`) no tienen `.env.local`.** Un script que lee producción necesita la ruta de afuera:
+  `node --env-file=C:/dev/mako-api/.env.local --conditions react-server --import tsx <script>`, o el `--env=` del
+  script (scripts/mudanza-avisos-plataforma.mts). `dotenv` tampoco se resuelve desde un script del scratchpad,
+  porque busca los paquetes desde la carpeta del script. Con `--env-file`, Node lo carga solo.

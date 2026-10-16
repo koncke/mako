@@ -1,10 +1,16 @@
 # Relevo: Automations (ex /chatbot) y las secuencias
 
+> **16/10/2026 ~04:00 AR (`claude3`) — EL 2, CUATRO MUDADOS:** el reporte semanal también (`reporte_semanal`, 12ac3cb85). Para eso
+> la tarjeta MaKo suma «Por dónde»: el grupo, o **«MaKo por email»** al equipo del negocio (diseño §6). Y la tarjeta de un
+> evento de la plataforma ya espera el horario de oficina del NEGOCIO, no el del ws 9 (a5b9e6d06).
+> **PASO PENDIENTE, DESPUÉS DEL DEPLOY:** `node --conditions react-server --import tsx scripts/mudanza-avisos-plataforma.mts
+> --env=C:/dev/mako-api/.env.local` (simulacro) y después con `--aplicar`: crea y prende las CUATRO filas del ws 9.
+> Desde ahí, el ws 1 recibe el reporte a las 9 (su horario), no a las 7:20.
+
 > **16/10/2026 ~02:15 AR (`claude3`) — EL 2, TRES MUDADOS:** se sumó la grabación de Fathom (`reunion_grabada`,
 > 16fa52568), y las tres plantillas firman «— MaKo» como el texto de siempre (efcc58d46).
-> **PASO PENDIENTE, DESPUÉS DEL DEPLOY DE LOS DOS:** el script de abajo crea y prende las TRES filas del ws 9 (simulacro
-> primero). **#252** («Un Lead Agendó Llamada», ws 9, la de probar «Probar» en producción): **ARCHIVADA, no borrada**
-> (respaldo en el scratchpad de esta sesión; se deshace con `archivada_at = null`). **Siguiente:** `reporte-semanal`.
+> **#252** («Un Lead Agendó Llamada», ws 9, la de probar «Probar» en producción): **ARCHIVADA, no borrada**
+> (respaldo en el scratchpad de esta sesión; se deshace con `archivada_at = null`).
 
 > **16/10/2026 ~01:30 AR (`claude3`) — EL 2, EMPEZADO:** la pieza que faltaba está construida (729789dfa), y los dos
 > primeros avisos están mudados: «WhatsApp caído» y «volvió». Diseño y estado en docs/diseno-avisos-plataforma.md.
