@@ -77,7 +77,7 @@ export const subpestanasInspector = new Ranura<SubpestanaInspector>('sub-pestañ
 
 export type CategoriaBiblioteca =
   | 'multimedia' | 'audio' | 'texto' | 'stickers' | 'efectos'
-  | 'transiciones' | 'subtitulos' | 'filtros' | 'ajuste' | 'avatar';
+  | 'transiciones' | 'subtitulos' | 'filtros' | 'ajuste' | 'plantillas' | 'avatar';
 
 /** Una subcategoría de la columna izquierda de una pestaña de la biblioteca. */
 export type SeccionBiblioteca = {

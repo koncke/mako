@@ -17,7 +17,11 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { CategoriaBiblioteca } from "@/app/video-editor/ce/ranuras";
 
-/** El orden de la fila de pestañas de CapCut 9.3 (Plantillas y Avatar de IA quedan fuera de v1). */
+/**
+ * El orden de la fila de pestañas de CapCut 9.3 (relevamiento-capcut-armazon.md §2).
+ * Sumar una pestaña NO sube la versión del persist de abajo: subirla borra lo
+ * guardado (hallazgos → «React y los stores del motor»).
+ */
 export const CATEGORIAS_BIBLIOTECA: readonly CategoriaBiblioteca[] = [
 	"multimedia",
 	"audio",
@@ -28,6 +32,8 @@ export const CATEGORIAS_BIBLIOTECA: readonly CategoriaBiblioteca[] = [
 	"subtitulos",
 	"filtros",
 	"ajuste",
+	// «Plantillas» (la pestaña 10 de CapCut): las plantillas de anuncio propias (plantillas/).
+	"plantillas",
 	// «Avatar de IA» (pedido de Martín del 14/10): lo genera el Video Generator.
 	"avatar",
 ];

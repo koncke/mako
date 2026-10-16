@@ -33,8 +33,18 @@ const ProjectsPage = dynamic(() => import('./_opencut/inicio/projects-page').the
 // «Editar en el editor» de Video Generator (`?desde=`): baja el anuncio, arma el
 // proyecto y recién ahí reemplaza la URL por la del proyecto (desde/ImportarDesde.tsx).
 const ImportarDesde = dynamic(() => import('./desde/ImportarDesde').then((m) => m.ImportarDesde), { ssr: false });
+// «Utilizar plantilla» con la línea de tiempo ocupada (`?plantilla=`): proyecto nuevo,
+// la plantilla armada, y recién ahí la URL del proyecto (plantilla/ArmarPlantilla.tsx).
+const ArmarPlantilla = dynamic(() => import('./plantilla/ArmarPlantilla').then((m) => m.ArmarPlantilla), { ssr: false });
 
-export function VideoEditorCliente({ vista, proyectoId, ws, desde }: { vista: 'inicio' | 'editor'; proyectoId?: string; ws: number | null; desde?: DesdeEditor }) {
+export function VideoEditorCliente({ vista, proyectoId, ws, desde, plantilla }: {
+  vista: 'inicio' | 'editor';
+  proyectoId?: string;
+  ws: number | null;
+  desde?: DesdeEditor;
+  /** El id de `?plantilla=` ya validado; `null` si vino uno que no existe. */
+  plantilla?: string | null;
+}) {
   const editor = vista === 'editor' && !!proyectoId;
   // El espacio local se fija ANTES de que el motor abra una sola base: el render
   // de este componente corre antes que el import dinámico de abajo. Y si la
@@ -57,7 +67,11 @@ export function VideoEditorCliente({ vista, proyectoId, ws, desde }: { vista: 'i
       <TemaOscuro />
       <TooltipProvider>
         <Toaster />
-        {editor ? (desde ? <ImportarDesde desde={desde} /> : <EditorPage projectId={proyectoId} />) : <ProjectsPage />}
+        {editor ? (
+          desde ? <ImportarDesde desde={desde} />
+            : plantilla !== undefined ? <ArmarPlantilla id={plantilla} />
+              : <EditorPage projectId={proyectoId} />
+        ) : <ProjectsPage />}
       </TooltipProvider>
       <div id={ID_PORTAL_CE} />
     </div>
