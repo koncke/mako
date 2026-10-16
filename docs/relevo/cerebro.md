@@ -152,3 +152,8 @@ tandas 2-3; la tanda 5 del editor de video POSPUESTA por Martín). Todos esos ch
   Tracking → tarjeta → CS), Automations (pedidos en su chat con las regresiones anotadas, campanita, «sin grupo»),
   Onboarding (corte del doer de WhatsApp con PII; borrar las 2 filas copiadas del ws1 cuando Martín diga sí),
   Web Generator (producto en texto libre), Video Editor tanda 5 POSPUESTA por Martín.
+- **Checklist para Martín (16/10 ~14:50 AR, 97% semanal):** `/admin/runway/checklist` (app/admin/runway/checklist/), lo
+  hecho el 15 y 16/10 y lo que queda, con casillas que se guardan en app_settings (`runway.checklist.1610`). Cada ítem
+  tiene un id FIJO: el texto se corrige, el id no se toca (perdería la marca). Al cerrar algo de «Lo que queda», se
+  agrega su ítem a «Lo que se hizo» con un id nuevo. Ojo: ningún archivo de app/ puede llevar el string `'/onboarding'`
+  (tests/onboarding-hub-retirado.test.ts frenó el run 60 por un link «Abrir» de la checklist).
