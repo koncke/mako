@@ -145,7 +145,7 @@ export const BITACORA: Hito[] = [
     archivos: ['lib/movil-rutas.ts', 'app/m/calendario/', 'app/calendario/comun.ts', 'app/m/inbox/inbox-ui.ts', 'app/m/cuenta/CuentaM.tsx', 'tests/movil-mas-secciones.test.ts', 'tests/m-calendario.test.ts', 'tests/m-avisos.test.ts', 'tests/m-cuenta.test.ts', 'docs/hallazgos-mobile.md'],
   },
   {
-    fecha: '16 oct', hora: '02:10', chat: CH, cuenta: 'claude3', actor: 'claude', tipo: 'implementacion',
+    fecha: '16 oct', hora: '02:10', chat: CH, sesion: 'local_38c56f56-c724-42ba-92ff-9679cfdeedf5', cuenta: 'claude3', actor: 'claude', tipo: 'implementacion',
     titulo: 'More completo, tanda 2 de 3: Second Brain, Experiments y Offer en el teléfono (sin commit todavía: la hora es la de la integración)',
     puntos: [
       'Second Brain, copiado de Obsidian y Notion en el teléfono: buscar (también con MaKo), el mapa en chico, «Tu negocio» con sus cinco carpetas, cada área y cada dato en una hoja, y subirle al Archivero archivos, fotos de la cámara o una web. Editar las áreas, el mapa interactivo y Exportar quedan en la computadora.',
@@ -158,7 +158,7 @@ export const BITACORA: Hito[] = [
     archivos: ['app/m/second-brain/', 'app/m/experimentos/', 'app/m/offer/', 'lib/cerebro-areas.ts', 'lib/archivero-subida.ts', 'lib/experimentos-formato.ts', 'app/offer/ayudas.ts', 'app/offer/OfferApp.tsx', 'tests/m-second-brain.test.ts', 'tests/m-experimentos.test.ts', 'tests/m-offer.test.ts', 'docs/hallazgos-mobile.md'],
   },
   {
-    fecha: '16 oct', hora: '04:40', chat: CH, cuenta: 'claude3', actor: 'claude', tipo: 'implementacion',
+    fecha: '16 oct', hora: '04:40', chat: CH, sesion: 'local_38c56f56-c724-42ba-92ff-9679cfdeedf5', cuenta: 'claude3', actor: 'claude', tipo: 'implementacion',
     titulo: 'More completo, tanda 3 de 3: Ads Writer, Curso y Comunidad en el teléfono (sin commit todavía: la hora es la de la integración)',
     puntos: [
       'Con esta tanda las 14 secciones de More tienen su pantalla, y el mapa ya se puede subir: con el teléfono prendido para todos, una sección sin pantalla habría sido una página rota.',
