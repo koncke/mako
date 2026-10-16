@@ -127,7 +127,8 @@ export async function POST(req: NextRequest) {
       const escenarios: EscenarioSecuencia[] = casos.map((c) => ({
         titulo: c.titulo, cuando: c.cuando, comoResponder: c.comoResponder, ...(c.contestaSolo ? { contestaSolo: true } : {}),
       }));
-      const r = await clasificarEscenario(mensaje, escenarios);
+      // Con la red de plataforma, como en vivo (AGENTS.md: todo camino de IA que use un cliente necesita su red).
+      const r = await clasificarEscenario(mensaje, escenarios, { redDePlataforma: true });
       const i = r.encaja ? escenarios.indexOf(r.escenario) : -1;
       return json({
         ok: true,
@@ -157,7 +158,7 @@ export async function POST(req: NextRequest) {
       };
       // ⚠️ `responderSimulador` lee de lo GUARDADO el nombre, el objetivo, el gancho y las
       // preguntas de la secuencia; lo que se edita en el lienzo (el caso y su guía) viaja acá.
-      const r = await responderSimulador(id, historial, { escenario });
+      const r = await responderSimulador(id, historial, { escenario, redDePlataforma: true });
       if (!r.ok) return json({ ok: false, error: r.error }, 400);
       return json({ ok: true, respuesta: r.respuesta });
     }
@@ -206,7 +207,7 @@ export async function POST(req: NextRequest) {
     if ('error' in t) return json({ ok: false, error: t.error }, 400);
     if (t.texto) historial.push({ de: 'lead', texto: t.texto });
     if (!historial.length) return json({ ok: false, error: 'Escribe un mensaje como el lead primero.' }, 400);
-    const r = await responderSimulador(id, historial);
+    const r = await responderSimulador(id, historial, { redDePlataforma: true });
     if (!r.ok) return json({ ok: false, error: r.error }, 400);
     return json({ ok: true, respuesta: r.respuesta, desenlace: r.desenlace, ...(t.texto ? { transcript: t.texto } : {}) });
   } catch (e) {

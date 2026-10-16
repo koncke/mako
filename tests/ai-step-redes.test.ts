@@ -79,7 +79,8 @@ test('el contexto de una respuesta social lee la charla de ESE canal, sin línea
 test('asistirRespuesta: por las redes contesta SÓLO el AI Step de ese medio (el modo asistido es del WhatsApp)', () => {
   const a = bloque(NUTRI, 'async function asistirRespuesta(', '\n}\n');
   assert.match(a, /escuchaPor\(s\.pasos, medio\) \|\| \(!social && parseEstrategia\(s\.estrategia\)\?\.modo === 'asistido'\)/);
-  assert.match(a, /contextoDeRespuesta\(leadId, secuencia, texto, lineaEntrante, social \? \{ canal: social, cuenta: op\.cuenta\?\.trim\(\) \|\| null \} : null\)/);
+  // (16/10/2026: y la nota de voz escuchada, la hora del mensaje y el plazo: tests/ai-step-red-y-voz.test.ts.)
+  assert.match(a, /contextoDeRespuesta\(leadId, secuencia, texto, lineaEntrante, social \? \{ canal: social, cuenta: op\.cuenta\?\.trim\(\) \|\| null \} : null, \{ voz, recibidoAt: op\.recibidoAt \?\? null, hastaMs \}\)/);
   const charla = bloque(NUTRI, 'async function charlaDelLead(', '\n}\n');
   assert.match(charla, /\(medio === 'whatsapp' && parse\(sec\.estrategia\)\?\.modo === 'asistido'\) \|\| escuchaPor\(sec\.pasos, medio\)/);
 });

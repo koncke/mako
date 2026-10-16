@@ -1713,4 +1713,22 @@ FEEDBACK PROBAR:
     ],
     archivos: ["docs/diseno-avisos-plataforma.md — §6", "docs/hallazgos-chatbot.md — los Mensajes de MaKo a sus clientes", "docs/hallazgos-infra.md — un script de roturas no se corta con head"],
   },
+  {
+    fecha: "16 oct", hora: "10:00", chat: "Chatbot", cuenta: "claude3",
+    sesion: "local_b1f59213-087e-4203-83e1-b3f59eadbaed",
+    actor: "claude", tipo: "implementacion",
+    titulo: "El AI Step le contesta a un negocio sin API y escucha las notas de voz; y toda flecha se desconecta",
+    puntos: [
+      "Las cuatro automatizaciones de SuperAdmin ya están prendidas: WhatsApp caído, volvió, la reunión grabada y el reporte semanal.",
+      "Un negocio sin API propia ya no deja al lead sin respuesta: el AI Step usa el crédito de Claude de MaKo, que no entrena con lo que lee.",
+      "Las notas de voz del lead se escuchan antes de decidir qué contestar, y en la bandeja se ve lo que dijo.",
+      "Toda flecha se puede desconectar, también las que llevan una espera encima, y al soltarla en el lienzo aparece «Desconectar».",
+    ],
+    commits: [
+      { sha: "959efd6df", msg: "Mudanza de los avisos de la plataforma: por tandas de deploy (--eventos), y las tres primeras filas en producción", lineas: 28, archivos: 3 },
+      { sha: "a378040a6", msg: "AI Step en vivo: la red de plataforma (sólo el crédito de Claude, por PII) y las notas de voz del lead", lineas: 604, archivos: 20 },
+      { sha: "73667ff88", msg: "Lienzo: toda flecha se puede desconectar, también las que llevan una espera encima", lineas: 108, archivos: 2 },
+    ],
+    archivos: ["docs/hallazgos-chatbot.md — el AI Step en vivo, y las flechas que no se desconectaban", "AGENTS.md — la red como opción del que llama"],
+  },
 ];

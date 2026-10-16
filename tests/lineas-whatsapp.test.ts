@@ -178,7 +178,8 @@ test('todo borrador de una secuencia lleva su línea, y uno con línea nunca cae
   assert.ok(llamadas.length >= 2);
   for (const c of llamadas) assert.match(c, /linea:/, `un crearBorrador del motor sin línea sale por la de por default: ${c.slice(0, 80)}`);
   // El asistido contesta por la línea a la que escribió el lead.
-  assert.match(sinComentarios(leer('lib/evolution-mensajes.ts')), /pausarPorRespuesta\(leadId, \{ texto: texto \?\? undefined, linea: instance, origen: 'no_oficial' \}\)/);
+  // (16/10/2026: con la nota de voz y la hora del mensaje, para el AI Step: tests/ai-step-red-y-voz.test.ts.)
+  assert.match(sinComentarios(leer('lib/evolution-mensajes.ts')), /pausarPorRespuesta\(leadId, \{ texto: texto \?\? undefined, linea: instance, origen: 'no_oficial', audio, recibidoAt \}\)/);
   // El borrador del setter (uno por lead, #788) también sale por la línea: la que escribió el lead o la de la secuencia.
   assert.match(nutri, /guardarBorradorSetter\(\{[\s\S]{0,300}?linea,\s*\}\)/);
   assert.match(nutri, /const linea = lineaEntrante \?\? secuencia\.instance_name;/);

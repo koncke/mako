@@ -4752,3 +4752,84 @@ los otros 61, por familias.
   dice «Sin conectar» y el AI Step lleva «No escucha respuestas» (un `span`, no ofrece conectar).
 
 **Vive en:** `lib/simulador-grafo.ts` (`escenariosDePrueba`: `primero`, `distinguen`) · `app/automations/PanelProbar.tsx` (`terminarSalida`)
+
+## El AI Step en vivo: la red de plataforma y las notas de voz (16/10/2026)
+
+Dos huecos de docs/mapa-ia-24h.md, con la decisión A de Martín («lo que responde en vivo, con API»). Los dos dejaban a
+un lead REAL sin respuesta. Una revisión adversarial del mismo día encontró 11 defectos en la primera versión, y la
+mayoría eran del mismo tipo: **lo que se agrega a un camino en vivo cambia los tiempos y los datos de lo que ya estaba**.
+
+- **La red ya existía; lo que faltaba era pedirla.** `chatCheapCascade` tiene `redDePlataforma` desde agosto (otro
+  proveedor primero, el motivo «⚠ red de plataforma», los errores de la red aparte). El clasificador, el redactor y la
+  calificación no la pedían. Un negocio sin key propia veía cómo el clasificador devolvía '' y el lead caía en «Otra cosa».
+- ⚠️ **La red va como OPCIÓN del que llama (`EnVivo`), nunca fija en la función compartida.** La primera versión la
+  puso fija en `responderSimulador`, y eso la abría también a las lecturas de la API (`simular_respuesta_setter`,
+  `evaluar_calificacion_charla`), que un agente externo puede llamar en bucle. Esas llamadas gastaban la cuota gratis
+  de la agencia, que es de la que viven las respuestas en vivo de todos. **Regla:**
+  - la piden el motor (con plazo) y el Probar, porque AGENTS.md dice «todo camino de IA que use un cliente necesita su
+    red»;
+  - la API, no, y esa excepción es a propósito.
+
+  El diagnóstico obvio («el Probar no le contesta a nadie, que vaya sin red») era el equivocado: lo usa un cliente, y
+  sin red un negocio sin keys ve fallar su prueba como antes fallaba en vivo.
+- ⛔ **Y lo del lead es PII** (regla del 16/10/2026 en AGENTS.md: los datos de los clientes de un cliente nunca van a
+  un proveedor que entrena, y el plan gratis de Gemini entrena). El motor marca `pii: true` en clasificar, redactar y
+  calificar. Así la red va sólo por el crédito de Claude de la plataforma: el corte de PII de `chatCheapCascade` la
+  frena antes de las keys gratis. La nota de voz también lleva `pii` en `transcribirAudio`, que tiene su PROPIA red y
+  no pasa por ese corte: con la marca, la saltea. Para escuchar no hay crédito de Claude, así que un negocio sin keys
+  propias no escucha la nota, y el aviso dice por qué («no hay ninguna API key de IA cargada»). La primera versión de
+  este trabajo mandaba las dos cosas a la red gratis, y no se subió.
+- ⚠️ **Todo corre adentro del webhook** (`maxDuration` 420 s). El webhook espera al motor, y Evolution no reintenta
+  (la fila ya existe y vuelve). Sin plazo, una red lenta mataba la función sin borrador ni aviso. Ahora va
+  `PLAZO_AI_STEP_MS` (240 s) para todo, y escuchar tiene su propio tope (`conPlazo`, 90 s).
+- ⚠️ **La guarda de «entró un mensaje más nuevo» (#788) comparaba con «el último que hay al leer».** Eso andaba porque
+  leer era inmediato. Escuchar una nota de voz tarda, y si en ese rato el lead escribía otro mensaje, la hora de ése
+  quedaba como la de éste: contestaban las dos corridas, y una contestaba lo viejo. **Regla:** la guarda compara con la
+  hora del PROPIO mensaje (`recibidoAt`, la de WhatsApp), que manda el webhook.
+- **Lo que dijo se GUARDA en su mensaje** (`wa_mensajes.texto`, compare-and-set sobre el vacío). Sin eso, en el turno
+  siguiente la nota volvía a ser «(mandó un audio)» y el setter le preguntaba de nuevo lo que ya había dicho. Con eso:
+  - la charla la ve como «🎤 lo que dijo» (`historialDeMensajes`);
+  - la bandeja la dibuja «Dice: …» debajo del audio (`contenidoDeMensaje`), no como un mensaje escrito. Un audio de
+    WhatsApp no tiene pie, así que un audio del lead con texto sólo puede ser eso.
+- **El aviso del negocio sólo ve los DATOS.** «Un Lead Te Escribió» cita `{{lead_escribio}}`, y el texto armado por el
+  motor (`citaDelLead`) no le llega. Por eso el 🎤, y el porqué cuando no se pudo escuchar, van en el dato
+  (`escritoParaElAviso`). Lo mismo en el hand-off y en la acción de una rama.
+- **La marca de la voz es un emoji y no «(nota de voz)».** Unas palabras de más diluían el parecido del corte por
+  insistencia: «sigue caro» dicho por voz no contaba. Y un dicho que terminara en «)» quedaba como relleno (`RELLENO`).
+- **El porqué de un fallo se dice con la regla de la casa** (`causaDelFallo` + `fraseDelFallo`, con las keys DEL
+  NEGOCIO), no con el primer error crudo del proveedor en inglés.
+- **Si el webhook no trae el audio** (sin `webhookBase64`), se le pide a la instancia (`fetchMediaBase64EnInstancia`),
+  y se le saca el prefijo `data:` como al guardarlo.
+
+**SIN HACER:**
+- Las notas de voz por Instagram y Messenger (lib/zernio-entrante.ts no pasa el audio).
+- Si el lead manda un audio y enseguida un texto, la corrida del texto no sabe lo que dijo el audio si la escucha
+  todavía no terminó. Cuando termina, queda guardada para el turno siguiente.
+- De una imagen el AI Step sigue viendo sólo el pie de foto.
+
+**Vive en:** `lib/nutricion.ts` (`escucharDelLead`, `asistirRespuesta`, `contextoDeRespuesta`: `recibidoAt`,
+`PLAZO_AI_STEP_MS`) · `lib/setter-conversacion.ts` (`escucharNotaDeVoz`, `escritoParaElAviso`, `conTurnoActual`,
+`historialDeMensajes`) · `lib/setting-simulador.ts` (`EnVivo`) · `lib/chat-agent-handoff.ts` · `lib/fallo-ia-texto.ts`
+(`fraseDelFallo`) · `lib/evolution-mensajes.ts` · `app/whatsapp/_shared/ChatHilo.tsx` · test:
+`tests/ai-step-red-y-voz.test.ts`
+
+## «Muchas flechas no se pueden desconectar» (16/10/2026): eran las que llevan una espera encima
+
+Martín: «en "Un Lead Agendó Llamada" solo puedo desconectar la flecha del CONDITION "Su reunión sigue en pie"».
+
+- **El diagnóstico obvio («`desconectar` falla con esas flechas») era el equivocado.** Medido en producción sobre #252
+  (la copia de esa plantilla en el ws 9) y en los datos: las 17 flechas se desconectan, la papelera aparece en todas y
+  «Desconectar» del click derecho anda.
+- **Lo que no andaba era agarrar la PUNTA.** `Lienzo.tsx` no le daba punta a una flecha con esperas encima
+  (`a.esperas?.length`), y en esa automatización son casi todas las de la cadena de recordatorios. La de la condición
+  no lleva espera: era la única que se agarraba. El que recibe la punta (`reconectar`, FlujoLienzo) ya salía de la
+  ÚLTIMA espera, así que alcanzó con mostrarla: las pastillas se quedan.
+- **Soltar una punta en el vacío no tenía cómo «desconectar»:** sólo ofrecía una tarjeta nueva, y cerrar el menú la
+  dejaba como estaba. Ahora la primera opción es «Desconectar».
+- ⚠️ En el dato, una flecha con esperas no llega a la tarjeta que se ve: llega a su PRIMERA espera
+  (`a.esperas[0].id`). Quien la quite tiene que pasar ésa, y quien la mueva tiene que salir de la última.
+
+**Falta:** verlo con clics después del deploy (la punta de una flecha con pastilla, y «Desconectar» en el vacío).
+
+**Vive en:** `app/_components/Lienzo.tsx` (las puntas, `soltarCirculo`) · `app/automations/FlujoLienzo.tsx`
+(`quitarFlecha`, `reconectar`, `desdeDe`) · test: `tests/lienzo-flechas-desconectar.test.ts`

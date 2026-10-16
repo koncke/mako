@@ -53,7 +53,8 @@ test('una RESPUESTA social se anota y la atiende el AI Step de SU medio, nunca l
   const iTardias = p.indexOf('tardias = (upd ?? [])');
   assert.ok(iTardias > 0 && iTardias < p.indexOf('asistirRespuesta(leadId'), 'contesta antes de anotar lo terminado: doce horas después «no contestó»');
   assert.match(p, /charlaDelLead\(leadId, medio\)/);
-  assert.match(p, /asistirRespuesta\(leadId, atendibles\.map\(\(i\) => i\.secuencia_id\), opts\?\.texto, opts\?\.linea \?\? null, \{ medio, cuenta: opts\?\.cuenta \?\? null \}\)/);
+  // (16/10/2026: y la nota de voz y la hora del mensaje: tests/ai-step-red-y-voz.test.ts.)
+  assert.match(p, /asistirRespuesta\(leadId, atendibles\.map\(\(i\) => i\.secuencia_id\), opts\?\.texto, opts\?\.linea \?\? null, \{ medio, cuenta: opts\?\.cuenta \?\? null, audio: opts\?\.audio \?\? null, recibidoAt: opts\?\.recibidoAt \?\? null \}\)/);
   assert.match(p, /seguirCharla\(leadId, charla, opts\?\.texto, opts\?\.linea \?\? null, social \?\? /);
 });
 

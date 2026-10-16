@@ -69,7 +69,10 @@ export function historialDeMensajes(filas: FilaMensaje[]): TurnoSim[] {
   for (const f of filas) {
     if (f.tipo === 'evento' || f.tipo === 'otro') continue;
     const texto = (f.texto ?? '').trim();
-    turnos.push({ de: f.from_me ? 'negocio' : 'lead', texto: texto || sinTexto(f.tipo, f.from_me) });
+    // UNA NOTA DE VOZ DEL LEAD YA ESCUCHADA (16/10/2026): su `texto` es lo que DIJO (lo guarda el AI Step al escucharla),
+    // marcado como voz. Un audio sin texto sigue siendo «(mandó un audio)».
+    const dicho = texto && !f.from_me && f.tipo === 'audio' ? `${PREFIJO_NOTA_DE_VOZ}${texto}` : texto;
+    turnos.push({ de: f.from_me ? 'negocio' : 'lead', texto: dicho || sinTexto(f.tipo, f.from_me) });
   }
   return turnos.slice(-TURNOS_DE_CONTEXTO);
 }
@@ -84,11 +87,24 @@ const normal = (s: string) => s.trim().replace(/\s+/g, ' ').toLowerCase();
  * `wa_mensajes`, y el último turno «del lead» puede ser un mensaje viejo: contestarle a
  * ése es contestar otra cosa. Si no coincide, se agrega.
  */
-export function conTurnoActual(historial: TurnoSim[], texto: string | null | undefined): TurnoSim[] {
+export function conTurnoActual(historial: TurnoSim[], texto: string | null | undefined, opts: { deVoz?: boolean } = {}): TurnoSim[] {
   const actual = (texto ?? '').trim();
   const ultimo = historial[historial.length - 1];
   if (!actual) {
     return ultimo?.de === 'lead' ? historial : [...historial, { de: 'lead', texto: '(el lead respondió sin texto)' }];
+  }
+  // UNA NOTA DE VOZ ESCUCHADA (16/10/2026, `escucharNotaDeVoz`): el mensaje que se contesta está espejado; si su texto
+  // ya se guardó, es «🎤 lo que dijo» y se corta ahí; si no, es «(mandó un audio)» y su turno pasa a ser lo que DIJO.
+  // Mira sólo el ÚLTIMO turno del lead: si después entró otro mensaje, ésa es otra corrida (`hayMensajeMasNuevo`).
+  if (opts.deVoz) {
+    const dicho = `${PREFIJO_NOTA_DE_VOZ}${actual}`;
+    for (let i = historial.length - 1; i >= 0; i--) {
+      if (historial[i].de !== 'lead') continue;
+      if (normal(historial[i].texto) === normal(dicho)) return historial.slice(0, i + 1);
+      if (historial[i].texto === AUDIO_DEL_LEAD) return [...historial.slice(0, i), { de: 'lead', texto: dicho }];
+      break;
+    }
+    return [...historial, { de: 'lead', texto: dicho }];
   }
   // ⚠️ SE CORTA EN EL MENSAJE QUE SE CONTESTA, no sólo se mira el último. Si después de él
   // hay otros turnos (el lead mandó otro, o alguien ya le contestó a mano), agregarlo de nuevo
@@ -97,6 +113,68 @@ export function conTurnoActual(historial: TurnoSim[], texto: string | null | und
     if (historial[i].de === 'lead' && normal(historial[i].texto) === normal(actual)) return historial.slice(0, i + 1);
   }
   return [...historial, { de: 'lead', texto: actual }];
+}
+
+/** Cómo queda en la charla un audio del lead que nadie escuchó (`sinTexto`). */
+export const AUDIO_DEL_LEAD = sinTexto('audio', false);
+
+/**
+ * Cómo entra en la charla una nota de voz escuchada: lo que dijo, marcado con 🎤. Un emoji y no «(nota de voz)»: unas
+ * palabras de más diluían el parecido del corte por insistencia, y un dicho que terminara en «)» quedaba como relleno
+ * (`insistenciaRebatida`, lib/conversacion-repeticion.ts). Revisión del 16/10/2026.
+ */
+export const PREFIJO_NOTA_DE_VOZ = '🎤 ';
+
+/**
+ * Lo que trae el webhook de una nota de voz del lead. `base64` null = Evolution no la mandó en el webhook: se pide a la
+ * instancia (`waMessageId`, `chatJid`, `instancia`). `waMessageId` es también la fila donde se guarda lo que dijo.
+ */
+export type AudioDelLead = { base64: string | null; mime: string; waMessageId?: string | null; chatJid?: string | null; instancia?: string | null };
+
+/**
+ * ESCUCHAR LA NOTA DE VOZ DEL LEAD ANTES DE CLASIFICAR (16/10/2026, docs/mapa-ia-24h.md: «El AI Step no escucha las
+ * notas de voz del lead. Le llega texto vacío y lo más probable es que caiga en "Otra cosa"»). Con texto, o sin audio,
+ * nada cambia. Con audio y sin texto, lo que DIJO pasa a ser el texto (`deVoz`); si no se pudo escuchar, el texto
+ * sigue vacío y `sinEscucha` dice por qué, para que el aviso al dueño no lo esconda.
+ *
+ * `d.transcribir` es `transcribirAudio` (lib/ai-cheap.ts), que ya trae la red de plataforma. `d.traer` pide el audio a la
+ * instancia cuando el webhook no lo trajo. `d.porQue` es la causa en una frase con la regla de la casa
+ * (`causaDelFallo` + `fraseDelFallo`, lib/fallo-ia-texto.ts: con los errores de las keys DEL NEGOCIO, no los de la red).
+ */
+export async function escucharNotaDeVoz(
+  texto: string | undefined,
+  audio: AudioDelLead | null | undefined,
+  d: {
+    transcribir: (base64: string, mime: string) => Promise<string>;
+    traer?: () => Promise<string | null>;
+    porQue?: (e: unknown) => string | Promise<string>;
+  },
+): Promise<{ texto: string | undefined; deVoz: boolean; sinEscucha: string | null }> {
+  if (texto?.trim() || !audio) return { texto, deVoz: false, sinEscucha: null };
+  const traido = audio.base64 || (d.traer ? await d.traer().catch(() => null) : null);
+  // El mismo saneo que al guardarlo (`subirMedia`, lib/evolution-media.ts): sin el prefijo de un data URL.
+  const base64 = (traido ?? '').replace(/^data:[^;,]*;base64,/, '');
+  if (!base64) return { texto, deVoz: false, sinEscucha: 'no pude escuchar su nota de voz: no llegó el audio' };
+  try {
+    const dicho = (await d.transcribir(base64, audio.mime)).trim();
+    return dicho
+      ? { texto: dicho, deVoz: true, sinEscucha: null }
+      : { texto, deVoz: false, sinEscucha: 'escuché su nota de voz y no se entendía nada' };
+  } catch (e) {
+    const porQue = d.porQue ? await Promise.resolve(d.porQue(e)).catch(() => '') : '';
+    return { texto, deVoz: false, sinEscucha: `no pude escuchar su nota de voz${porQue ? `: ${porQue}` : ''}` };
+  }
+}
+
+/**
+ * LO QUE EL LEAD DIJO O ESCRIBIÓ, como lo cita un aviso al dueño (`{{lead_escribio}}`, el hand-off, la acción de una
+ * rama). Con 🎤 si fue una nota de voz; si no se la pudo escuchar, eso, entre paréntesis. Uno solo para todos los
+ * caminos del AI Step: el aviso del negocio («Un Lead Te Escribió») no sabe de notas de voz y cita esto tal cual.
+ */
+export function escritoParaElAviso(texto: string | null | undefined, voz: { deVoz: boolean; sinEscucha: string | null }): string {
+  const t = (texto ?? '').trim();
+  if (t) return voz.deVoz ? `${PREFIJO_NOTA_DE_VOZ}${t}` : t;
+  return voz.sinEscucha ? `${PREFIJO_NOTA_DE_VOZ}(${voz.sinEscucha})` : '';
 }
 
 /** Lo que el lead contestó en el formulario de la agenda, como lo devuelve `getLeadRespuestas`. */
