@@ -418,6 +418,8 @@ export async function aplicarPagoAprobado(c: Cobro, p: {
   moneda?: string | null;
   suscripcionId?: string | null;
   autor?: string;
+  /** Cuándo se PAGÓ, según la pasarela (15/10/2026): la cuota lleva esa fecha y no la de hoy. Sin ella, hoy. */
+  pagadoAt?: string | null;
 }): Promise<{ nuevo: boolean; renovacion: boolean }> {
   const ws = c.workspace_id;
   const autor = p.autor ?? NOMBRE_PASARELA[c.proveedor];
@@ -445,7 +447,10 @@ export async function aplicarPagoAprobado(c: Cobro, p: {
       actual = (await actualizar(ws, c.id, { proveedor_suscripcion_id: p.suscripcionId, suscripcion_estado: 'activa' })) ?? actual;
     }
     const renovacion = esRenovacion(actual, p.proveedorPagoId);
-    const fecha = await hoyEnWorkspace();
+    // ⚠️ LA FECHA DE LA CUOTA ES LA DEL PAGO, no la de hoy (15/10/2026): un aviso reintentado, o el cron que repara días
+    // después, asentaba la cuota el día que la procesó, y un pago del 31 caía en el mes siguiente del cash.
+    const cuando = p.pagadoAt ? Date.parse(p.pagadoAt) : NaN;
+    const fecha = await hoyEnWorkspace(Number.isFinite(cuando) ? new Date(cuando) : new Date());
     const prueba = actual.modo === 'prueba';
     // ⚠️ UNA RENOVACIÓN QUE ENTRA BORRA EL RECHAZO DE LA ANTERIOR (14/10/2026). El cobro de una suscripción ya
     // está «Pagado», así que el paso 1 no lo vuelve a tocar y el `motivo` del rechazo quedaba para siempre: la
@@ -850,19 +855,40 @@ export async function mantenerAvisosStripe(ws: number): Promise<void> {
  * hoy (`suscripcion_meses` = meses transcurridos): el MRR deja de contarla sin columna nueva, y su
  * historia de cobros queda intacta.
  */
+/** Cuántas mensualidades cobró un cobro (sus cuotas pagadas). Si no se puede leer, 0: se usan los meses transcurridos. */
+async function cuotasPagadasDelCobro(cobroId: number): Promise<number> {
+  const db = await getTenantDb();
+  const { count, error } = await db.from('pagos').select('id', { count: 'exact', head: true }).eq('cobro_id', cobroId).eq('pagado', true);
+  return error ? 0 : count ?? 0;
+}
+
 export async function aplicarSuscripcionCancelada(c: Cobro): Promise<void> {
   await runWithWorkspace(c.workspace_id, async () => {
     if (c.suscripcion_estado === 'cancelada') return;
     const r = await actualizar(c.workspace_id, c.id, { suscripcion_estado: 'cancelada' });
     if (!r || !c.lead_id) return;
     const lead = await getLead(c.lead_id);
+    let termino = false;
     if (lead && lead.venta_tipo === 'suscripcion') {
-      const meses = mesesTranscurridos(lead.fecha_cierre, await hoyEnWorkspace());
+      // ⚠️ CANCELADA CON FECHA, como la manual (15/10/2026): el MRR deja de contarla EN EL ACTO (`getMrrActivo` mira
+      // `suscripcion_cancelada_at`). Con sólo «plazo = meses transcurridos, mínimo 1», una cancelada en el primer mes se
+      // seguía contando hasta cumplirlo. Y los meses que DURÓ son las mensualidades que cobró ESTE cobro (cada factura
+      // es una cuota); sin cuotas, los transcurridos. El plazo de antes queda guardado, como al cancelar a mano.
+      const hoy = await hoyEnWorkspace();
+      const pagadas = await cuotasPagadasDelCobro(c.id);
+      // Una con plazo que ya cobró TODAS sus mensualidades no se canceló: TERMINÓ (la pasarela la cierra sola al cumplirse,
+      // `programarPlazoStripe`). Ahí no se toca nada: el plazo ya la saca del MRR, y la ficha dice «terminó», no «cancelada».
+      termino = lead.suscripcion_meses != null && lead.suscripcion_meses > 0 && pagadas >= lead.suscripcion_meses;
+      const meses = Math.max(1, pagadas || mesesTranscurridos(lead.fecha_cierre, hoy));
       const db = await getTenantDb();
-      const { error } = await db.from('leads').update({ suscripcion_meses: meses }).eq('id', lead.id);
+      const { error } = termino ? { error: null } : await db.from('leads').update({
+        suscripcion_meses: meses, suscripcion_cancelada_at: `${hoy}T12:00:00Z`, suscripcion_meses_antes: lead.suscripcion_meses ?? null,
+      }).eq('id', lead.id);
       if (error) console.error(`[cobros] no pude cerrar la suscripción del lead ${lead.id}: ${error.message}`);
     }
-    await logLeadEvent(c.lead_id, 'Suscripción cancelada', `${c.concepto}: se dejó de cobrar en ${NOMBRE_PASARELA[c.proveedor]}`, NOMBRE_PASARELA[c.proveedor]);
+    await logLeadEvent(c.lead_id, termino ? 'Suscripción terminada' : 'Suscripción cancelada',
+      termino ? `${c.concepto}: cumplió su plazo y ${NOMBRE_PASARELA[c.proveedor]} dejó de cobrarla` : `${c.concepto}: se dejó de cobrar en ${NOMBRE_PASARELA[c.proveedor]}`,
+      NOMBRE_PASARELA[c.proveedor]);
     await alCron(c, 'suscripcion_cancelada');
   });
 }
@@ -1059,7 +1085,7 @@ export async function reconciliarCobros(ws: number, opts: { dias?: number } = {}
     const faltaAlta = !!c.alta_capa && c.alta_estado !== 'hecha' && c.alta_estado !== 'ya_tenia_cuenta';
     if (!faltaCuota && !faltaAlta) continue;
     try {
-      if (c.proveedor_pago_id) await aplicarPagoAprobado(c, { proveedorPagoId: c.proveedor_pago_id });
+      if (c.proveedor_pago_id) await aplicarPagoAprobado(c, { proveedorPagoId: c.proveedor_pago_id, pagadoAt: c.pagado_at });
       else await runWithWorkspace(ws, () => altaSiCorresponde(c));
       cambiados++;
     } catch (e) {
@@ -1087,7 +1113,7 @@ export async function reconciliarCobros(ws: number, opts: { dias?: number } = {}
         const b = await buscarPagosMp(mp.token, c.token);
         const aprobado = b.ok ? b.pagos.find((x) => x.estado === 'approved' && x.cobradorId === mp.userId && x.referencia === c.token) : undefined;
         if (aprobado) {
-          const r = await aplicarPagoAprobado(c, { proveedorPagoId: aprobado.id, monto: aprobado.monto, moneda: aprobado.moneda, suscripcionId: aprobado.preapprovalId });
+          const r = await aplicarPagoAprobado(c, { proveedorPagoId: aprobado.id, monto: aprobado.monto, moneda: aprobado.moneda, suscripcionId: aprobado.preapprovalId, pagadoAt: aprobado.fecha });
           if (r.nuevo) cambiados++;
         }
       }

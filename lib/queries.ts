@@ -801,15 +801,17 @@ async function _getMrrActivo(hoy: string = new Date().toISOString().slice(0, 10)
   const supabase = (await getTenantDb());
   const { data, error } = await supabase
     .from('leads')
-    .select('suscripcion_monto_usd, suscripcion_meses, fecha_cierre')
+    .select('suscripcion_monto_usd, suscripcion_meses, fecha_cierre, suscripcion_cancelada_at')
     .eq('venta_tipo', 'suscripcion')
     .eq('estado_lead', 'ganado');
   if (error) throw new Error(`getMrrActivo falló: ${error.message}`);
   let mrr = 0;
   let activas = 0;
-  for (const r of (data ?? []) as Array<{ suscripcion_monto_usd: number | null; suscripcion_meses: number | null; fecha_cierre: string | null }>) {
+  for (const r of (data ?? []) as Array<{ suscripcion_monto_usd: number | null; suscripcion_meses: number | null; fecha_cierre: string | null; suscripcion_cancelada_at: string | null }>) {
     const monto = r.suscripcion_monto_usd ?? 0;
     if (monto <= 0) continue;
+    // Una CANCELADA (a mano o por la pasarela) no es MRR desde el día que se canceló, quede o no plazo por cumplir.
+    if (r.suscripcion_cancelada_at) continue;
     // Plazo fijo con fecha de cierre → activa mientras el fin del plazo sea >= hoy.
     // Indefinida (o sin fecha de cierre) → activa.
     const activa = r.suscripcion_meses && r.suscripcion_meses > 0 && r.fecha_cierre

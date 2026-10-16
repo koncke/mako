@@ -117,7 +117,7 @@ export async function procesarEventoStripe(ws: number, ev: EventoStripe): Promis
       return procesado(c.id);
     }
     if (!conf.proveedorPagoId) return ignorado('la sesión pagada no trae el pago', c.id);
-    const r = await aplicarPagoAprobado(c, { proveedorPagoId: conf.proveedorPagoId, suscripcionId: conf.suscripcionId });
+    const r = await aplicarPagoAprobado(c, { proveedorPagoId: conf.proveedorPagoId, suscripcionId: conf.suscripcionId, pagadoAt: ev.creado ?? null });
     invalidarLecturas();
     return procesado(c.id, r.nuevo ? null : 'ya estaba pagado');
   }
@@ -138,7 +138,7 @@ export async function procesarEventoStripe(ws: number, ev: EventoStripe): Promis
     }
     // La renovación (subscription_cycle) entra con el id de ESA factura: es otra cuota del CRM. La
     // primera (subscription_create) lleva el mismo id que usó checkout.session.completed.
-    const r = await aplicarPagoAprobado(c, { proveedorPagoId: conf.proveedorPagoId, monto: conf.monto, moneda: conf.moneda, suscripcionId: conf.suscripcionId });
+    const r = await aplicarPagoAprobado(c, { proveedorPagoId: conf.proveedorPagoId, monto: conf.monto, moneda: conf.moneda, suscripcionId: conf.suscripcionId, pagadoAt: ev.creado ?? null });
     invalidarLecturas();
     return procesado(c.id, r.renovacion ? 'renovación' : r.nuevo ? null : 'ya estaba pagado');
   }
@@ -328,7 +328,7 @@ export async function aplicarNotificacionMp(ws: number, l: LecturaMp): Promise<R
   const { pago, plan } = que;
   if (plan.accion === 'aprobado') {
     // La renovación (otra cuota de la suscripción) entra con el id de ESE pago: es otra cuota del CRM.
-    const r = await aplicarPagoAprobado(c, { proveedorPagoId: pago.id, monto: pago.monto, moneda: pago.moneda, suscripcionId: pago.preapprovalId });
+    const r = await aplicarPagoAprobado(c, { proveedorPagoId: pago.id, monto: pago.monto, moneda: pago.moneda, suscripcionId: pago.preapprovalId, pagadoAt: pago.fecha });
     if (plan.reembolsoParcial) await aplicarReembolso(c, { proveedorPagoId: pago.id, total: false });
     invalidarLecturas();
     return procesado(c.id, plan.reembolsoParcial ? 'reembolso parcial' : r.renovacion ? 'renovación' : r.nuevo ? null : 'ya estaba pagado');

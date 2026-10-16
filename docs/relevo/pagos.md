@@ -96,7 +96,7 @@ En este orden, de lo que más plata toca a lo que menos:
 3b. ~~Contracargos~~ → HECHO el 15/10 (rama `pagos-contracargos`): Stripe escucha las disputas y mueve la cuota con lo que dice la disputa releída; Mercado Pago se cuenta sin mover la cuota (su documentación se contradice; medirlo es de la fila de claves de prueba). El cron pone al día los avisos de Stripe una vez por día.
 3c. ~~El MRR cuenta la mensualidad de un link de suscripción pagado por un lead de pago único~~ → HECHO el 15/10 (rama `pagos-mrr-cobros`, `mrrDeLaPasarela`).
 4. ~~Un producto de suscripción con plazo se cobra sin fin~~ → HECHO el 15/10 (rama `pagos-suscripcion-plazo`): `cancel_at` en Stripe al primer pago, `end_date` en MP al crear, y el lead ganado con su plazo.
-5. La fecha de la cuota es la del procesamiento y no la del pago; el MRR al cancelar redondea por meses (`lib/cobros.ts`, `lib/cobros-reglas.ts`).
+5. ~~La fecha de la cuota y el MRR al cancelar~~ → HECHO el 15/10 (rama `pagos-fecha-cuota`): la cuota con la fecha del pago, y la cancelada por la pasarela sale del MRR en el acto (la que terminó su plazo, no se marca cancelada).
 6. En `/mako/revisar`, el `cobroId` de un reembolso se puede editar y el título muestra el original (`lib/api-mako/areas/cobros.*`).
 7. El cambio de email tras el alta: falta un código al email ACTUAL (`app/pagar/cambio-email.ts`, `app/api/pagar/email/route.ts`).
 8. Más grandes, con su propio diseño: precios en moneda local en el catálogo (`lib/productos.ts`), `crear_link_pago` en el «⚡ Acción» (área de Automations, `lib/editor-acciones.ts`), y los topes de `/api/pagar/email` fuera de la memoria (`lib/rate-limit.ts`).

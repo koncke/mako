@@ -675,6 +675,25 @@ por vencido antes de tiempo. Ahí queda sin plazo, y el fin lo marca la pasarela
 `ganarLead`) · `lib/stripe-api.ts` (`programarFinSuscripcionStripe`) · `lib/mercadopago-api.ts` (`crearSuscripcionMp`)
 · `lib/cobros-reglas.ts` (`finDelPlazo`) · `tests/suscripcion-plazo.test.ts`.
 
+### La fecha de la cuota es la del PAGO, y «cancelada» no es «terminó su plazo» (15/10/2026)
+
+**Síntoma 1:** la cuota de un pago de la pasarela se asentaba con la fecha en que MaKo procesó el aviso. Un aviso
+reintentado, o el cron que repara días después, la corría de día: un pago del 31 caía en el mes siguiente del cash.
+**Regla:** la fecha es la del pago según la pasarela: el `created` del EVENTO de Stripe (cuándo pasó, no cuándo
+llegó), `date_approved` en Mercado Pago, y el `pagado_at` del cobro al reparar. Sin ninguna, hoy. Lo que queda sin
+fecha del pago: la conciliación de Stripe (relee la sesión, que no la tiene) usa la de hoy.
+**Síntoma 2:** cancelar una suscripción de la pasarela la pasaba a «plazo = meses transcurridos, mínimo 1»; cancelada
+en el primer mes, el MRR la seguía contando hasta cumplir el mes. **Regla:** queda CANCELADA CON FECHA
+(`suscripcion_cancelada_at`, como la manual de b2) y el MRR no cuenta ninguna cancelada. Los meses que duró son las
+mensualidades que cobró ese cobro (cada factura es una cuota), no los transcurridos (que contaban una de menos si se
+cancelaba pasado el aniversario).
+**La trampa que apareció al hacerlo:** con plazo en Stripe (`cancel_at`), al cumplirse Stripe borra la suscripción y
+llega el MISMO aviso que una cancelación. Marcarla «cancelada» habría dicho eso en la ficha de una que simplemente
+terminó. Si ya cobró todas las mensualidades del plazo, terminó: no se toca, y el historial dice «terminada».
+**Vive en:** `lib/cobros.ts` (`aplicarPagoAprobado`, `aplicarSuscripcionCancelada`, `cuotasPagadasDelCobro`) ·
+`lib/cobros-eventos.ts` (`eventoStripe`: `creado`) · `lib/cobros-webhook.ts` · `lib/queries.ts` (`getMrrActivo`) ·
+`tests/cuota-fecha-y-cancelacion.test.ts`.
+
 ### Cuatro «decisiones de Martín» que no eran suyas (15/10/2026)
 
 La tabla de abajo tenía seis filas marcadas «decisión de Martín». Pasadas por la vara de AGENTS.md (lo que copia lo que
@@ -731,8 +750,6 @@ implementación en un worktree propio (`C:/dev/wt-pagos`) y una rama aparte para
 | **Pasarela (revisión):** el cambio de email tras el alta tiene ventana de 48 h, pero lo puede hacer quien PAGÓ aunque no sea el dueño de la cuenta: falta un código al email actual | `app/pagar/cambio-email.ts`, `app/api/pagar/email/route.ts` |
 | **Pasarela (revisión):** los topes de `/api/pagar/email` viven en memoria (por instancia); el «ya es de otro» ya gasta el intento (15/10) | `app/api/pagar/email/route.ts`, `lib/rate-limit.ts` |
 | **Pasarela (revisión):** un aviso de MP sin firma con el `user_id` de un negocio conectado provoca una relectura con SU token (las filas `sin-workspace` ya tienen techo: una por día, 15/10) | `app/api/webhooks/mercadopago/route.ts` |
-| **Pasarela (revisión):** el MRR al cancelar una suscripción redondea por meses (puede contar un mes de más o de menos) | `lib/cobros-reglas.ts` (`mesesTranscurridos`) |
-| **Pasarela (revisión):** la fecha de la cuota es la del procesamiento, no la del pago (un aviso tardío la corre de mes) | `lib/cobros.ts` (`aplicarPagoAprobado`) |
 
 *Corrida del 04/10/2026, 12 agentes. Las refutaciones dieron vuelta nueve afirmaciones; las
 tres que más cambiaron el plan están arriba (la cuenta del runway, el margen del 47 y el

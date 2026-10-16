@@ -91,7 +91,8 @@ export function acctDelWebhook(v: string | null | undefined): string | null {
   return s && s.length <= 64 && /^[A-Za-z0-9_]+$/.test(s) ? s : null;
 }
 
-export type EventoStripe = { id: string; tipo: string; livemode: boolean | null; objeto: Json };
+/** `creado`: cuándo PASÓ (el `created` del evento, no cuándo llegó): un aviso reintentado llega días después (15/10/2026). */
+export type EventoStripe = { id: string; tipo: string; livemode: boolean | null; objeto: Json; creado?: string | null };
 
 /** El sobre de un evento de Stripe (`{ id: 'evt_…', object: 'event', type, livemode, data: { object } }`). */
 export function eventoStripe(cuerpo: unknown): EventoStripe | null {
@@ -101,7 +102,8 @@ export function eventoStripe(cuerpo: unknown): EventoStripe | null {
   if (!id || id.length > 200 || !/^evt_[A-Za-z0-9_]+$/.test(id)) return null;
   if (!tipo || tipo.length > 120) return null;
   if (b.object != null && b.object !== 'event') return null;
-  return { id, tipo, livemode: typeof b.livemode === 'boolean' ? b.livemode : null, objeto: obj(obj(b.data).object) };
+  const creado = Number(b.created) > 0 && Number.isFinite(Number(b.created)) ? new Date(Number(b.created) * 1000).toISOString() : null;
+  return { id, tipo, livemode: typeof b.livemode === 'boolean' ? b.livemode : null, objeto: obj(obj(b.data).object), creado };
 }
 
 export type ObjetoStripe = 'checkout' | 'factura' | 'suscripcion' | 'cargo' | 'reembolso' | 'disputa';
