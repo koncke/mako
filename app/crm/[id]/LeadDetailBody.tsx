@@ -275,7 +275,7 @@ export function LeadDetailBody({ lead, stages, pagos, initialTab, initialEdit, i
         <Senalar objetivo={marcaDato(senal.id)} texto={`Falta: ${senal.label}`}
           onCerrar={() => setSenal(null)} onNoEsta={() => setMoveTo(currentStage)} />
       )}
-      {configAvisos && <AvisosDatosModal onCerrar={() => setConfigAvisos(false)} onGuardado={() => router.refresh()} />}
+      {configAvisos && <AvisosDatosModal funnelId={lead.funnel_id ?? null} onCerrar={() => setConfigAvisos(false)} onGuardado={() => router.refresh()} />}
 
       {moveTo && (
         <StageMoveDialog
