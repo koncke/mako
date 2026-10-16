@@ -12,6 +12,7 @@
 import type { NextRequest } from 'next/server';
 import { checkCronAuth } from '@/lib/cron-auth';
 import { procesarReunionesNuevas } from '@/lib/reunion-auto';
+import { cruzarPendientes } from '@/lib/reunion-cruce';
 import { correrRonda } from '@/lib/cron-workspaces';
 
 export const dynamic = 'force-dynamic';
@@ -44,13 +45,23 @@ export async function GET(request: NextRequest) {
     // reunión se reprocesa entera en las 13 corridas del día.
     const ronda = await correrRonda('fathom', async (ws, deadline) => {
       const res = await procesarReunionesNuevas(ws, { hasta: deadline });
+      // EL BARRIDO DEL CRUCE (16/10/2026): los borradores pendientes que quedaron sin cruzar contra el
+      // tablero —el cruce no entró en el reloj, falló, o los dejó un camino que no cruza— se cruzan
+      // acá, con lo que sobre del reloj. El modal ya no cruza nada (lib/reunion-cruce.ts).
+      const barrido = await cruzarPendientes({ hasta: deadline }).catch((e) => {
+        console.error(`[cron:fathom-plan] ws=${ws} barrido del cruce: ${e instanceof Error ? e.message : String(e)}`);
+        return { cruzados: 0, fallidos: 0, marcadas: 0 };
+      });
       console.log(
         `[cron:fathom-plan] ws=${ws} miradas=${res.miradas} alPlan=${res.alPlan} nuevas=${res.nuevas} ` +
         `borradores=${res.conTareas} tareas=${res.tareas} avisados=${res.avisados} sinAviso=${res.sinAviso} err=${res.errores}` +
         (res.sinTiempo ? ` · ${res.sinTiempo} sin tiempo (quedan para la próxima)` : '') +
+        (res.enCurso ? ` · ${res.enCurso} ya las leía otro` : '') +
+        (res.descartadasAnotadas != null ? ` · descartadas anotadas=${res.descartadasAnotadas}` : '') +
+        ` · cruzados=${(res.cruzados ?? 0) + barrido.cruzados}${barrido.fallidos ? ` (sin cruzar ${barrido.fallidos})` : ''}` +
         (res.avisoError ? ` · WhatsApp NO salió: ${res.avisoError}` : ''),
       );
-      return res;
+      return { ...res, barrido };
     }, { techoMs: TECHO_MS, minimoMs: MINIMO_UTIL_MS, rotacion: 'fathom-plan' });
 
     // TRES estados y no dos, igual que `closing-sync`: corrió · SIN TURNO (diferido a

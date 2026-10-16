@@ -11,7 +11,12 @@
 import 'server-only';
 import { getTenantDb, runWithWorkspace, getWorkspaceActual, OWNER_WS } from '@/lib/workspace';
 import type { BoardTask, Label, Prio, Actor, Check, Hist, Fuente, GuardPatch, GuardProjPatch, GuardResult } from '@/app/plan/board/types';
-import { scoreFromPrio, prioFromScore, curveTaskScores, sanearHist } from '@/app/plan/board/types';
+import { scoreFromPrio, prioFromScore, curveTaskScores, sanearHist, HIST_CAP } from '@/app/plan/board/types';
+// Las COLUMNAS del kanban (mig 0294): las mismas reglas que la mitad del cliente (lib/todo.ts).
+import {
+  esEstado, estadoDeAvance, estadoAlGuardar, trasMover, alCrear, motivoAtoradaOk, motivoParaNoMover, estaPendiente,
+  type EstadoTarea,
+} from '@/lib/todo-estados';
 import { sanearDep, puedeDepender, resolverDeps, estaBloqueada, type Dep, type EntidadDep, type ClaseDep } from '@/app/plan/board/dependencias';
 import { diasQuieta, diasAlDeadline, ajusteTemporal, empujeDeadline, castigoQuietud } from '@/app/plan/board/envejecer';
 import { quarterDeFecha } from '@/app/plan/board/cuando';
@@ -24,6 +29,7 @@ import { puntuarNuevas, describirProyectosNuevos, asignarTareasAProyectos, puntu
 import { desempatar } from '@/app/plan/board/metodologia';
 import { checklistsParaTareas } from '@/lib/checklist-coach';
 import { CATALOGO_PROYECTOS, delCatalogo, canonNombre, nucleo } from '@/lib/plan-proyectos-catalogo';
+import { destinoSinIA, esProyectoBandeja, esProyectoDeCliente, PROYECTO_SIN_PROYECTO, EMOJI_SIN_PROYECTO, COLOR_SIN_PROYECTO, QUE_SIN_PROYECTO } from '@/lib/plan-bandeja';
 import { faseNegocioTexto } from '@/lib/fase-store';
 import { objetivosContextoTexto } from '@/lib/objectives';
 // El detalle y las notas se guardan SANEADOS, con la MISMA regla que el tablero del cliente
@@ -110,9 +116,28 @@ export function rowToTask(r: Row): BoardTask {
     clienteLeadId: optInt(r.cliente_lead_id) ?? null,
     clienteNombre: r.cliente_nombre ? str(r.cliente_nombre) : null,
     recurrencia: recurrenciaDe({ recurrente: !!r.recurrente, recurrencia: r.recurrencia }),
+    // LA COLUMNA DEL KANBAN, su motivo y el lugar (mig 0294). Van en el mapper de LECTURA por la
+    // razón destructiva de siempre — y además porque el alta y `guardarPlanBulk` mandan la fila
+    // ENTERA: un estado que no se lee vuelve como `undefined`. Si la fila no trae estado (una
+    // lectura de antes de la migración), sale del avance: la misma regla que el backfill.
+    ...estadoDeFila(r),
   };
 }
+
+/** Estado, motivo y orden de una fila de `plan_tareas`, saneados (mig 0294). */
+function estadoDeFila(r: Row): Pick<BoardTask, 'estado' | 'motivoAtorada' | 'orden'> {
+  const estado: EstadoTarea = esEstado(r.estado) ? r.estado : estadoDeAvance(int(r.progress));
+  const orden = Number(r.orden);
+  return {
+    estado,
+    // Sólo existe en «Atorada»: pegado a otra columna (un script, una fila a mano) se lee null.
+    motivoAtorada: estado === 'en_seguimiento' ? motivoAtoradaOk(r.motivo_atorada) : null,
+    orden: Number.isFinite(orden) ? orden : int(r.num),
+  };
+}
+
 function taskToRow(t: BoardTask): Row {
+  const estado: EstadoTarea = esEstado(t.estado) ? t.estado : estadoDeAvance(int(t.progress));
   return {
     // ⚠️ El detalle y las notas pasan por la lista blanca ACÁ, en el mapper, por la misma razón
     // que el Quarter y la recurrencia: por acá pasan TODAS las escrituras de la fila entera.
@@ -149,7 +174,17 @@ function taskToRow(t: BoardTask): Row {
     // mismo. Y además CANONIZA la RRULE, así que la misma repetición se guarda con el mismo
     // string venga del desplegable, del diálogo personalizado, de un modelo o de un lote.
     recurrencia: recurrenciaDe(t),
-    orden: t.num, updated_at: new Date().toISOString(),
+    // LA COLUMNA, SU MOTIVO Y EL LUGAR (mig 0294). Acá se escriben para las ALTAS (el «＋» de
+    // una columna, restaurar un borrado, `guardarPlanBulk`); en el guardado de una tarjeta que
+    // ya existe `guardarPlanTarea` los saca del payload — los escribe `moverPlanTarea`.
+    //
+    // ⚠️ `orden` ERA `t.num` A SECAS hasta el 16/10/2026, en cada guardado: el lugar de una
+    // tarjeta en su columna se reescribía con su número cada vez que alguien le tocaba el título.
+    // Con un kanban de orden manual, eso deshace cada arrastre dentro de la columna.
+    estado,
+    motivo_atorada: estado === 'en_seguimiento' ? motivoAtoradaOk(t.motivoAtorada) : null,
+    orden: typeof t.orden === 'number' && Number.isFinite(t.orden) ? t.orden : t.num,
+    updated_at: new Date().toISOString(),
   };
 }
 export function rowToLabel(r: Row): Label {
@@ -350,20 +385,106 @@ const pidNum = (pid?: string | null): number => { const m = /^P(\d+)$/i.exec((pi
 const maxPid = (proyectos: Array<{ pid?: string }>): number => proyectos.reduce((m, p) => Math.max(m, pidNum(p.pid)), 0);
 
 // ── tareas ─────────────────────────────────────────────────────────────────
+/** El `orden` para entrar ARRIBA de una columna del dueño (mig 0294). Gemelo de `ordenTope` (lib/todo.ts). */
+async function ordenTopePlan(db: Awaited<ReturnType<typeof getTenantDb>>, estado: EstadoTarea): Promise<number> {
+  const { data } = await db.from('plan_tareas').select('orden').eq('estado', estado).order('orden', { ascending: true }).limit(1);
+  const min = data && data.length ? Number((data[0] as { orden: unknown }).orden) : 0;
+  return (Number.isFinite(min) ? min : 0) - 1;
+}
+
 export async function crearPlanTarea(draft: BoardTask): Promise<BoardTask> {
   return enPlan(async () => {
     const db = await getTenantDb();
-    const tarea: BoardTask = { ...draft, id: genId('t'), num: await proximoNum(db) };
+    // La columna en la que nace: la del «＋» que se tocó, la que tenía (restaurar un borrado), o
+    // la que le toca por el avance. El avance se acomoda al estado (`alCrear`).
+    const { estado, progreso } = alCrear(draft.estado, int(draft.progress));
+    const orden = typeof draft.orden === 'number' && Number.isFinite(draft.orden) ? draft.orden : await ordenTopePlan(db, estado);
+    const tarea: BoardTask = { ...draft, id: genId('t'), num: await proximoNum(db), estado, progress: progreso, orden,
+      motivoAtorada: estado === 'en_seguimiento' ? motivoAtoradaOk(draft.motivoAtorada) : null };
     const { error } = await db.from('plan_tareas').insert(taskToRow(tarea));
     if (error) throw new Error(`crearPlanTarea: ${error.message}`);
     return tarea;
   });
 }
-export async function guardarPlanTarea(t: BoardTask): Promise<void> {
+/**
+ * GUARDAR una tarjeta que ya existe: upsert de la fila ENTERA armada en el navegador… salvo la
+ * COLUMNA y el LUGAR (mig 0294, 16/10/2026).
+ *
+ * ⚠️ `estado`, `motivo_atorada` y `orden` NO SE TOMAN DEL PAYLOAD. Es la misma cura que
+ * `guardarPlanProyecto` le aplica al score: lo que escribe la pestaña es su memoria, y una
+ * pestaña abierta hace una hora devolvería de columna (y de lugar) cada tarjeta que alguien
+ * movió desde otra — o que MaKo movió por la API — apenas le corrigieran un título. Los escribe
+ * `moverPlanTarea`, por columna.
+ *
+ * Lo único que mueve la columna desde acá es el AVANCE, y sólo si CAMBIÓ respecto de la fila
+ * (`estadoAlGuardar`): llegar a 100% la completa, bajar de 100% la reabre. Por eso se lee la
+ * fila antes: «¿cambió?» se contesta contra la base, no contra el navegador.
+ *
+ * ⚠️ Y ESO SOLO NO ALCANZA CON UNA PESTAÑA VIEJA (16/10/2026, revisión adversarial): la tarea al
+ * 40% se completa desde el teléfono (base: 100%), y la pestaña que la tiene al 40% le corrige el
+ * título — el 40% «cambió» contra la fila y la tarea volvía a «En proceso». `progresoGuardado` es
+ * el último avance que la base le confirmó a ESA pestaña (`useBoard`): si el de la tarjeta es el
+ * mismo, la pestaña no tocó el avance y manda la fila (avance y columna). Es la primera capa que
+ * el cliente ya tenía (`avanceSiCambio` en `editPatch`). Sin el dato (otro llamador), lo de antes.
+ */
+export async function guardarPlanTarea(t: BoardTask, opts: { progresoGuardado?: number } = {}): Promise<void> {
   return enPlan(async () => {
     const db = await getTenantDb();
-    const { error } = await db.from('plan_tareas').upsert(taskToRow(t), { onConflict: 'workspace_id,id' });
+    const { data: prev, error: e0 } = await db.from('plan_tareas').select('estado, progress, motivo_atorada').eq('id', t.id).limit(1);
+    // «No pude leer» no es «no existe»: sin la fila no hay forma honesta de decidir la columna,
+    // y un upsert a ciegas la pisaría con la memoria de la pestaña. No se escribe.
+    if (e0) throw new Error(`guardarPlanTarea (leer): ${e0.message}`);
+    const fila = taskToRow(t);
+    const g = (prev ?? [])[0] as Row | undefined;
+    if (g) {
+      const antes: EstadoTarea = esEstado(g.estado) ? g.estado : estadoDeAvance(int(g.progress));
+      const base = opts.progresoGuardado;
+      const noLoToco = typeof base === 'number' && Number.isFinite(base) && int(t.progress) === Math.round(base);
+      if (noLoToco) fila.progress = int(g.progress);
+      fila.estado = estadoAlGuardar({ estado: antes, progreso: int(g.progress) }, int(fila.progress));
+      fila.motivo_atorada = fila.estado === 'en_seguimiento' ? motivoAtoradaOk(g.motivo_atorada) : null;
+      delete fila.orden;
+    }
+    const { error } = await db.from('plan_tareas').upsert(fila, { onConflict: 'workspace_id,id' });
     if (error) throw new Error(`guardarPlanTarea: ${error.message}`);
+  });
+}
+
+/**
+ * MOVER UNA TARJETA del tablero del dueño (16/10/2026): la capacidad `mover` de `repoPlan`, y
+ * la que usa la API de MaKo. Gemelo de `moverTarea` (lib/todo.ts) con la MISMA regla
+ * (`trasMover`): a «Completada» queda al 100%, sacarla de ahí la reabre en 0%, el motivo sólo
+ * vive en «Atorada». Sin `orden`, arriba de la columna destino.
+ *
+ * Escribe POR COLUMNA (update), no la fila entera: es lo que hace que un guardado viejo de otra
+ * pestaña no pueda deshacerlo (ver `guardarPlanTarea`). No toca score ni prioridad: «cuando tú
+ * muevas una tarjeta, yo no debería preguntarte cuál es la nueva prioridad» (Mauricio, 12/10).
+ */
+export async function moverPlanTarea(
+  id: string, estado: EstadoTarea, orden?: number,
+  /** `progreso`: el avance de ANTES, sólo para el Deshacer de un mover (`trasMover`). */
+  opts: { motivo?: string | null; historial?: Hist[]; progreso?: number } = {},
+): Promise<{ ok: true; tarea: BoardTask } | { ok: false; error: string; status: number }> {
+  if (!esEstado(estado)) return { ok: false, error: `estado inválido: ${String(estado)}`, status: 400 };
+  return enPlan(async () => {
+    const db = await getTenantDb();
+    const { data, error: e0 } = await db.from('plan_tareas').select('*').eq('id', id).limit(1);
+    if (e0) throw new Error(`moverPlanTarea (leer): ${e0.message}`);
+    const fila = (data ?? [])[0] as Row | undefined;
+    if (!fila) return { ok: false as const, error: 'La tarea ya no existe', status: 404 };
+    const t = rowToTask(fila);
+    const no = motivoParaNoMover({ recurrente: esRecurrente(t) }, estado);
+    if (no) return { ok: false as const, error: no, status: 409 };
+    const r = trasMover({ estado: t.estado ?? estadoDeAvance(t.progress), progreso: t.progress, motivo: t.motivoAtorada ?? null }, estado, opts.motivo, opts.progreso);
+    const patch: Row = {
+      estado: r.estado, progress: r.progreso, motivo_atorada: r.motivo,
+      orden: typeof orden === 'number' && Number.isFinite(orden) ? orden : await ordenTopePlan(db, r.estado),
+      updated_at: new Date().toISOString(),
+    };
+    if (opts.historial !== undefined) patch.historial = sanearHist(opts.historial).slice(0, HIST_CAP);
+    const { error } = await db.from('plan_tareas').update(patch).eq('id', id);
+    if (error) throw new Error(`moverPlanTarea: ${error.message}`);
+    return { ok: true as const, tarea: rowToTask({ ...fila, ...patch }) };
   });
 }
 export async function borrarPlanTarea(id: string): Promise<void> {
@@ -507,6 +628,12 @@ export async function cerrarPlanTareaOwner(id: string, evidencia: string, parcia
       // hace que el avance del proyecto y el de la tarjeta digan cosas distintas.
       patch.checklist = (t.checklist ?? []).map((c) => ({ ...c, done: true }));
     }
+    // LA COLUMNA SIGUE AL AVANCE (mig 0294): este update escribe `progress` por su cuenta, sin
+    // pasar por `guardarPlanTarea`, así que la regla va acá también — cerrar la completa, «a
+    // medias» la pasa a «En proceso» si estaba sin empezar (y no la saca de «Atorada»).
+    const antes = t.estado ?? estadoDeAvance(t.progress);
+    patch.estado = estadoAlGuardar({ estado: antes, progreso: t.progress }, int(patch.progress));
+    if (patch.estado !== 'en_seguimiento') patch.motivo_atorada = null;
     const { error } = await db.from('plan_tareas').update(patch).eq('id', id);
     if (error) throw new Error(`cerrarPlanTareaOwner: ${error.message}`);
     return true;
@@ -530,7 +657,16 @@ export type NuevaTareaPlan = { titulo: string; prioridad?: Prio; proyecto?: stri
  *  localStorage, que el server no podía tocar). Resuelve/crea el proyecto por nombre,
  *  pone score inicial por prioridad (después el Perro las re-puntúa), firma el historial
  *  con la fuente y devuelve los ids para armar los deep-links (?tarea=<id>). */
-export async function agregarTareasPlanOwner(items: NuevaTareaPlan[], fuente?: Fuente): Promise<{ ids: string[]; nums: number[]; proyectoIds: string[] }> {
+/**
+ * `opts.sinIA` (16/10/2026, «Fathom sin fricción»): la carga de un BORRADOR no llama a ningún
+ * modelo. Sin el ruteo del Perro, el proyecto sale de `destinoSinIA` (lib/plan-bandeja.ts): el que
+ * propuso la reunión si existe, si es del catálogo o si es el del cliente de esa reunión
+ * (`clienteDeLaReunion`); si no, la bandeja «Sin proyecto», que «Re-priorizar todo» reparte. Sin
+ * `sinIA` todo sigue igual (el doer de WhatsApp y los lotes).
+ */
+export type OpcionesAlta = { sinIA?: boolean; clienteDeLaReunion?: boolean };
+
+export async function agregarTareasPlanOwner(items: NuevaTareaPlan[], fuente?: Fuente, opts: OpcionesAlta = {}): Promise<{ ids: string[]; nums: number[]; proyectoIds: string[] }> {
   return enPlan(async () => {
     const db = await getTenantDb();
     const { actor, desde } = desdeDeFuente(fuente);
@@ -565,13 +701,15 @@ export async function agregarTareasPlanOwner(items: NuevaTareaPlan[], fuente?: F
     // aporta los que todavía no se crearon. Sin repetir el que ya está en el tablero.
     const yaEnTablero = new Set(proyectos.map((p) => nucleo(p.name)));
     const destinos = [
-      ...proyectos.map((p) => ({ nombre: p.name, que: delCatalogo(p.name)?.que || p.detalle || '', n: cuentaPorProy.get(p.id) ?? 0 })),
+      // La BANDEJA no es un destino (16/10/2026): una tarea cae ahí cuando nada la reclama.
+      ...proyectos.filter((p) => !esProyectoBandeja(p.name)).map((p) => ({ nombre: p.name, que: delCatalogo(p.name)?.que || p.detalle || '', n: cuentaPorProy.get(p.id) ?? 0 })),
       ...CATALOGO_PROYECTOS.filter((c) => !yaEnTablero.has(nucleo(c.nombre))).map((c) => ({ nombre: c.nombre, que: c.que })),
     ];
     const ruteo: Record<number, string> = {}; // índice de tarea → NOMBRE del proyecto destino
     const propuestosPorElPerro = new Map<string, { nombre: string; que: string; porQue: string }>();
     const noSeAbrio: (string | undefined)[] = validos.map(() => undefined); // índice → por qué NO nació su proyecto
-    if (destinos.length) {
+    // ⛔ SIN IA, este bloque no corre: es la llamada al modelo que la carga de un borrador ya no hace.
+    if (destinos.length && !opts.sinIA) {
       const r = await asignarTareasAProyectos(
         // El DETALLE va: sin él el ruteador ve una lista de títulos sueltos y manda
         // «Diseñar el módulo de Diagnóstico» a Onboarding porque suena parecido.
@@ -608,7 +746,46 @@ export async function agregarTareasPlanOwner(items: NuevaTareaPlan[], fuente?: F
     const sinProyecto: string[] = []; // índice → por qué se quedó sin proyecto (va al historial)
     let siguientePid = maxPid(proyectos) + 1; // P# estable para cada proyecto nuevo
     const motivoSin: (string | undefined)[] = validos.map(() => undefined);
+    // SIN IA (16/10/2026): el destino lo decide `destinoSinIA`, y la bandeja se busca —o se crea—
+    // UNA vez por carga. Un proyecto del catálogo o el del cliente de la reunión nacen igual que
+    // siempre (con su historial); un nombre inventado no abre nada.
+    let bandejaId: string | undefined = proyectos.find((p) => esProyectoBandeja(p.name))?.id;
+    const aBandeja = (): string => {
+      if (bandejaId) return bandejaId;
+      bandejaId = genId('p');
+      byName.set(nucleo(PROYECTO_SIN_PROYECTO), bandejaId);
+      nuevosProy.push({
+        id: bandejaId, pid: `P${siguientePid++}`, emoji: EMOJI_SIN_PROYECTO, name: PROYECTO_SIN_PROYECTO,
+        color: COLOR_SIN_PROYECTO, score: 1, detalle: QUE_SIN_PROYECTO, fuente: fu,
+        historial: [{ id: genId('h'), ts: ahora, actor, text: `Creó la bandeja «${PROYECTO_SIN_PROYECTO}» — ${desde}` }],
+      });
+      return bandejaId;
+    };
+    const destinoSin = (it: NuevaTareaPlan, i: number): string => {
+      const d = destinoSinIA({
+        propuesto: it.proyecto,
+        existe: (n) => !!resolverProy(n),
+        delCatalogo: (n) => delCatalogo(n)?.nombre,
+        esClienteDeLaReunion: (n) => !!opts.clienteDeLaReunion && esProyectoDeCliente(n),
+      });
+      if (d.via === 'bandeja') { motivoSin[i] = d.razon; return aBandeja(); }
+      const exist = resolverProy(d.nombre);
+      if (exist) return exist;
+      const k = nucleo(d.nombre);
+      const yaCreado = byName.get(k);
+      if (yaCreado) return yaCreado;
+      const cat = delCatalogo(d.nombre);
+      const nid = genId('p');
+      byName.set(k, nid);
+      nuevosProy.push({
+        id: nid, pid: `P${siguientePid++}`, emoji: cat?.emoji ?? '🗂', name: canonNombre(d.nombre).slice(0, 120),
+        color: '#2F6FED', score: 50, detalle: cat?.que ?? '', fuente: fu,
+        historial: [{ id: genId('h'), ts: ahora, actor, text: `${cat ? 'Creó el proyecto (está en el catálogo)' : 'Creó el proyecto del cliente de la reunión'} — ${desde}`.slice(0, 300) }],
+      });
+      return nid;
+    };
     const projDeTarea: (string | undefined)[] = validos.map((it, i) => {
+      if (opts.sinIA) return destinoSin(it, i);
       const nombre = (ruteo[i] || it.proyecto?.trim() || '').trim();
       if (!nombre) return undefined;
       const exist = resolverProy(nombre);
@@ -683,13 +860,21 @@ export async function agregarTareasPlanOwner(items: NuevaTareaPlan[], fuente?: F
     }
 
     // 3. tareas: #num autoritativo (server) + score inicial por prioridad.
+    // ⚠️ SIN PRIORIDAD NACE LIBRE (16/10/2026): score 0 = «Sin priorizar», y no 62. Antes caía
+    // en 'media' — un juicio que nadie hizo, pintado como si alguien lo hubiera hecho. Los
+    // llamadores de hoy que traen prioridad (el doer de WhatsApp) siguen igual.
+    // Y entran ARRIBA de «Por iniciar», en el orden en que vinieron (la 0 primera), como
+    // `crearTareasDesde` del lado del cliente.
     const start = await proximoNum(db);
+    const ordenBase = await ordenTopePlan(db, 'por_hacer');
     const tareas: BoardTask[] = validos.map((it, i) => {
-      const prio: Prio = it.prioridad ?? 'media';
+      const prio: Prio = it.prioridad ?? 'futuro';
+      const score = it.prioridad ? scoreFromPrio[it.prioridad] : 0;
       const projId = projDeTarea[i];
       return {
         id: genId('t'), num: start + i, emoji: '📌', title: it.titulo.trim().slice(0, 200),
-        detalle: it.detalle?.slice(0, TOPE_DETALLE) ?? '', priority: prio, score: scoreFromPrio[prio], progress: 0,
+        estado: 'por_hacer', orden: ordenBase - (validos.length - 1 - i),
+        detalle: it.detalle?.slice(0, TOPE_DETALLE) ?? '', priority: prio, score, progress: 0,
         deadline: it.deadline || '', labels: projId ? [projId] : [], checklist: [],
         // Las decisiones de ruteo que NO se ven en el resultado van en el historial DE LA
         // TARJETA, que es donde el dueño las va a leer. En un log de Vercel no las ve
@@ -846,14 +1031,16 @@ export async function ampliarTareasPlanOwner(items: AmpliarTareaPlan[], fuente?:
  * Acá esas tarjetas entran al reparto con su número tal cual (para que las otras se
  * ordenen ALREDEDOR de ellas) y salen sin que se les escriba nada.
  */
-export async function recurvarPlanOwner(): Promise<{ movidas: number; total: number; conDeadline: number; quietas: number; frenadas: number; fijadas: number; repetidas: number }> {
+export async function recurvarPlanOwner(): Promise<{ movidas: number; total: number; conDeadline: number; quietas: number; frenadas: number; fijadas: number; repetidas: number; sinPriorizar: number }> {
   return enPlan(async () => {
     const db = await getTenantDb();
     const ahora = Date.now();
     const [tRes, dRes] = await Promise.all([
       // ⚠️ `recurrente` VA EN ESTA LISTA porque este `select` enumera columnas a mano: lo
       // que no se nombra acá no llega, y el filtro de abajo daría `false` para todas.
-      db.from('plan_tareas').select('id, num, score, score_base, score_manual, progress, labels, deadline, historial, created_at, recurrente').order('num', { ascending: true }),
+      // Y `estado` (mig 0294), por lo mismo: lo que no se nombra no llega, y sin él lo que el
+      // criterio no dejó pasar entraría al reparto como trabajo pendiente.
+      db.from('plan_tareas').select('id, num, score, score_base, score_manual, progress, labels, deadline, historial, created_at, recurrente, estado').order('num', { ascending: true }),
       db.from('plan_dependencias').select('entidad, de_id, a_id, clase, razon, origen, confianza'),
     ]);
     const deps = (dRes.data ?? []).map(sanearDep).filter((x): x is Dep => x != null);
@@ -878,7 +1065,15 @@ export async function recurvarPlanOwner(): Promise<{ movidas: number; total: num
      * `esRecurrente`, no quién llama: dos universos distintos para el mismo grafo son dos
      * respuestas distintas a «¿este proyecto está terminado?».
      */
-    const abiertas = (tRes.data ?? []).map((r) => r as Row).filter((r) => int(r.progress) < 100).map((row) => {
+    // Un error de lectura NO es «el tablero está vacío»: sin esto, `tRes.data` null se leía como
+    // cero tareas y la corrida contestaba «0 movidas» sobre una consulta que ni corrió.
+    if (tRes.error) throw new Error(`recurvarPlanOwner: ${tRes.error.message}`);
+    // ⚠️ LO QUE NO ES PENDIENTE NO SE REPARTE (mig 0294): «No cumplen tu criterio» es lo que el
+    // criterio no dejó pasar, y repartirle un puesto es puntuarlo — `estaPendiente`
+    // (lib/todo-estados.ts) dice por qué eso es justo lo que el criterio existe para evitar.
+    const abiertas = (tRes.data ?? []).map((r) => r as Row)
+      .filter((r) => int(r.progress) < 100 && estaPendiente(esEstado(r.estado) ? r.estado : estadoDeAvance(int(r.progress))))
+      .map((row) => {
       const recurrente = !!row.recurrente;
       // La BASE es el juicio, no el número que se muestra: leer `score` acá sería leer la
       // salida de la corrida anterior y el ajuste se sumaría a sí mismo cada vez.
@@ -897,17 +1092,29 @@ export async function recurvarPlanOwner(): Promise<{ movidas: number; total: num
         mostrado: int(row.score), dl, quieta: q, razon: aj.razon, manual, recurrente,
       };
     });
-    const filas = sinRecurrentes(abiertas);
+    /**
+     * ⚠️ LAS «SIN PRIORIZAR» NO SE REPARTEN (16/10/2026, decisión 6). Una tarea que nació libre
+     * tiene score 0 y espera a «Re-priorizar todo»: el reparto le sumaba el delta del tiempo,
+     * le ponía piso 1 y la curva le daba un puesto — o sea la sacaba de «Sin priorizar» y la
+     * metía en «A futuro» con un número que no juzgó nadie, todas las mañanas a las 9:10. Igual
+     * que las recurrentes, quedan en `abiertas` para el grafo (un proyecto con trabajo sin
+     * priorizar NO está vacío) y se sacan del reparto. Lo fijado a mano nunca tiene 0
+     * (`prioridadManual` va de 1 a 100), así que esta regla no le toca un candado a nadie.
+     */
+    const libre = (t: { mostrado: number; manual: boolean }) => t.mostrado <= 0 && !t.manual;
+    const libresIds = new Set(abiertas.filter(libre).map((t) => t.id));
+    const filas = sinRecurrentes(abiertas).filter((t) => !libresIds.has(t.id));
     // Se CUENTAN, no sólo se saltean: una exclusión que funciona y una que nadie disparó se
     // ven exactamente iguales en el log si no hay un número al lado.
     const repetidas = soloRecurrentes(abiertas).length;
+    const sinPriorizar = libresIds.size;
     // ⚠️ EL UMBRAL DE `curveTaskScores` (n < 20) SE MIDE SOBRE LAS QUE COMPITEN, A PROPÓSITO.
     // Es el `n` honesto: si un tablero tiene 25 abiertas y 8 se repiten, las que se reparten
     // son 17 y forzarles una pirámide de cuatro bandas es destruir el único juicio que hay
     // (la autopsia del umbral está en `curveTaskScores`, app/plan/board/types.ts). Medirlo
     // sobre el total daría una pirámide repartida entre menos tarjetas de las que la
     // justifican — el reparto tiene que depender de cuánto hay que repartir.
-    if (filas.length < 20) return { movidas: 0, total: filas.length, conDeadline: 0, quietas: 0, frenadas: 0, fijadas: 0, repetidas };
+    if (filas.length < 20) return { movidas: 0, total: filas.length, conDeadline: 0, quietas: 0, frenadas: 0, fijadas: 0, repetidas, sinPriorizar };
 
     // El ORDEN lo fija el grafo de dependencias sobre los scores ya ajustados por tiempo, y
     // `curveTaskScores` solo reparte los números sobre ese orden. Importa que sea en este
@@ -921,7 +1128,7 @@ export async function recurvarPlanOwner(): Promise<{ movidas: number; total: num
     // 513 lugares se deshacían en la primera corrida (con esto, 0). Ver `respetarFijadas`.
     const curva = respetarFijadas(
       filas.map((t) => ({ id: t.id, num: t.num, mostrado: t.mostrado, manual: t.manual })),
-      curveTaskScores(est.orden.map((t) => ({ id: t.id, score: est.urgencia[t.id] ?? t.score }))),
+      curveTaskScores(est.orden.filter((t) => !libresIds.has(t.id)).map((t) => ({ id: t.id, score: est.urgencia[t.id] ?? t.score }))),
     );
     const cambian = filas.filter((t) => !t.manual && curva[t.id] != null && curva[t.id] !== t.mostrado);
     // De a tandas: 550 updates sueltos en paralelo saturan el pool de conexiones.
@@ -938,8 +1145,8 @@ export async function recurvarPlanOwner(): Promise<{ movidas: number; total: num
     const quietas = filas.filter((t) => castigoQuietud(t.quieta) > 0).length;
     const frenadas = filas.filter((t) => estaBloqueada(t.id, est)).length;
     const fijadas = filas.filter((t) => t.manual).length;
-    if (cambian.length || fijadas || repetidas) console.log(`[plan-board] recurvar: ${cambian.length}/${filas.length} movidas · ${conDeadline} por fecha · ${quietas} por quietud · ${frenadas} frenadas · ${fijadas} fijadas a mano (intactas) · ${repetidas} que se repiten (fuera del reparto)`);
-    return { movidas: cambian.length, total: filas.length, conDeadline, quietas, frenadas, fijadas, repetidas };
+    if (cambian.length || fijadas || repetidas || sinPriorizar) console.log(`[plan-board] recurvar: ${cambian.length}/${filas.length} movidas · ${conDeadline} por fecha · ${quietas} por quietud · ${frenadas} frenadas · ${fijadas} fijadas a mano (intactas) · ${repetidas} que se repiten (fuera del reparto) · ${sinPriorizar} sin priorizar (fuera del reparto)`);
+    return { movidas: cambian.length, total: filas.length, conDeadline, quietas, frenadas, fijadas, repetidas, sinPriorizar };
   });
 }
 
@@ -1092,7 +1299,9 @@ export async function priorizarNuevasOwner(ids: string[], proyectoIds: string[] 
         // `score_base` es EL JUICIO del Perro (mig 0141). `score` se pisa después en el
         // reparto; la base no la toca nadie más.
         patch.score = g.score; patch.score_base = g.score; patch.score_razon = g.razon || null; patch.impacto = g.impacto ?? null; patch.esfuerzo = g.esfuerzo ?? null; patch.priority = prio;
-        Object.assign(out, { score: g.score, scoreRazon: g.razon || '', impacto: g.impacto, esfuerzo: g.esfuerzo, priority: prio });
+        // `scoreBase` viaja con el número (16/10/2026): la pantalla lo necesita para no devolver la
+        // base vieja en el próximo guardado (ver `GuardPatch.scoreBase`).
+        Object.assign(out, { score: g.score, scoreBase: g.score, scoreRazon: g.razon || '', impacto: g.impacto, esfuerzo: g.esfuerzo, priority: prio });
         // LA FECHA la pone el Perro, pero NUNCA pisa una que ya esté: si la tarea vino
         // con deadline (lo dijo la reunión, lo puso el dueño), esa manda. Una prioridad
         // sin fecha es una intención — por eso la propone él y no se espera a que

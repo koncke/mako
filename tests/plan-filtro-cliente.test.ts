@@ -155,7 +155,9 @@ test('Prioridades: las cinco tarjetas y el objetivo son del cliente; las columna
   assert.match(bloque(PRIO, 'const esDelTop = ', ';\n'), /topVistaId/);
   assert.match(bloque(SHELL, "view === 'prioridades' && <Prioridades", '/>'), /objetivo=\{objetivoVista\}/);
   assert.match(bloque(SHELL, 'const objetivoVista = ', ';\n'), /prio\.objetivoVista/);
-  // `topProjectId` decide la COLUMNA de cada tarjeta: un filtro que la cambia reordena.
+  // `topProjectId` es el norte del TABLERO y no cambia con el filtro. (Actualizado a propósito el
+  // 16/10/2026: hasta ese día decía que decidía la COLUMNA de cada tarjeta del Kanban; desde «hacer
+  // el kanban un kanban» las columnas son el estado. La aserción no cambió.)
   assert.match(bloque(SHELL, 'const topProjectId = ', ';\n'), /objetivoPrincipal\?\.id/);
 });
 

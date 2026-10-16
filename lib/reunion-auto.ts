@@ -28,7 +28,7 @@ import 'server-only';
 // =============================================================================
 
 import { listReunionesRecientes, extraerTareasDeReunion, cacheKeyReunion, ROL_CONSULTOR, ROL_DESCONOCIDO, type ProyectoRef, type ReunionMeta, type Yo } from './plan-fathom';
-import { crearPropuesta, existePropuestaRef, type PropuestaTarea } from './plan-propuesta';
+import { crearPropuesta, existePropuestaRef, resolverProcesandoSinCompromisos, type PropuestaTarea } from './plan-propuesta';
 import { criterioDelWorkspace } from './plan-criterio';
 import { juzgarConCriterio, type SalidaJuez } from './plan-criterio-juez';
 import { normCita, type Veredicto } from './plan-criterio-reglas';
@@ -46,6 +46,9 @@ import { resolverClienteDeReunion, nombreDeProyectoPara } from './reunion-client
 import type { TipoReunion } from './reunion-clasificar';
 import { linkApp, APP_BASE_URL as APP_URL } from './app-url';
 import { tableroDeCapa } from './tablero-de-capa';
+import { cruzarTareas } from './reunion-cruce';
+import { registrarDescartadas, registrarNoLeida, marcarDescartadaLeida } from './reunion-descartadas';
+import { tomarLectura, soltarLectura } from './reunion-leyendo';
 
 /**
  * Marca que YA miramos esta grabación, sin importar si dejó tareas o no.
@@ -147,6 +150,12 @@ export type ResultadoReunionesAuto = {
    *  Quedan SIN candado: la próxima las agarra. Se cuentan porque «no entró» y «no
    *  había» son respuestas distintas. */
   sinTiempo?: number;
+  /** Las que otro ya estaba leyendo (el webhook, el botón del modal): se saltean sin pagar dos veces. */
+  enCurso?: number;
+  /** Los descartes por tipo que quedaron ANOTADOS (mig 0300). `null` = no se pudieron escribir. */
+  descartadasAnotadas?: number | null;
+  /** Borradores nuevos que salieron ya cruzados contra el tablero (sellados). */
+  cruzados?: number;
 };
 
 /**
@@ -223,7 +232,11 @@ async function resolverYo(r: ReunionMeta, ws: number): Promise<Yo> {
  * evita re-analizar). `max` = tope de reuniones por corrida (cada una es un análisis
  * caro sobre el transcript completo).
  */
-export async function procesarReunionesNuevas(ws: number, opts: { horas?: number; max?: number; hasta?: number } = {}): Promise<ResultadoReunionesAuto> {
+/**
+ * `soloRecording` (16/10/2026): el webhook de Fathom avisa que terminó UNA reunión; se procesa ésa
+ * y no se re-mira el resto de la ventana (eso lo sigue haciendo el cron).
+ */
+export async function procesarReunionesNuevas(ws: number, opts: { horas?: number; max?: number; hasta?: number; soloRecording?: number } = {}): Promise<ResultadoReunionesAuto> {
   const horas = opts.horas ?? 26;
   const max = opts.max ?? 3;
   // ⚠️ EL RELOJ, Y NO ES DEFENSIVO: SIN ÉL LA FUNCIÓN SE MUERE A MITAD Y NO ESCRIBE NADA.
@@ -255,7 +268,8 @@ export async function procesarReunionesNuevas(ws: number, opts: { horas?: number
   // existió: el cron levantaba reuniones de hace tres semanas y las anunciaba como
   // nuevas. `created_after` sí filtra de verdad.
   const desde = new Date(Date.now() - horas * 3600_000).toISOString();
-  const { reuniones } = await listReunionesRecientes({ limit: 20, createdAfter: desde });
+  const { reuniones: todas } = await listReunionesRecientes({ limit: 20, createdAfter: desde });
+  const reuniones = opts.soloRecording != null ? todas.filter((r) => r.recordingId === opts.soloRecording) : todas;
   out.miradas = reuniones.length;
 
   const aProcesar = reuniones.filter((r) => TIPOS_AL_PLAN.includes(r.tipo));
@@ -267,6 +281,12 @@ export async function procesarReunionesNuevas(ws: number, opts: { horas?: number
   if (descartadas.length) {
     console.log(`[reunion-auto] ws=${ws} descarté ${descartadas.length} reunión(es) por tipo: ` +
       descartadas.map((r) => `${r.recordingId} «${r.titulo}» → ${r.tipo}`).join(' · '));
+    // ⚠️ Y QUEDAN ESCRITAS (mig 0300, 16/10/2026). El log de arriba era el ÚNICO rastro, y en el log
+    // de Vercel no las busca nadie. Ahora el modal de Fathom las lista con su motivo y «Leer igual».
+    // Best-effort: no poder anotarlas no frena las que sí hay que leer. (Y ojo: medido en el ws1 del
+    // 08 al 15/10, el clasificador no descartó NINGUNA; las que desaparecieron fallaron al leerse —
+    // ver `registrarNoLeida` abajo.)
+    out.descartadasAnotadas = await registrarDescartadas(descartadas);
   }
   if (!aProcesar.length) return out;
 
@@ -293,6 +313,14 @@ export async function procesarReunionesNuevas(ws: number, opts: { horas?: number
     // mejor perderse una reunión que duplicarla o quemar tokens en loop.)
     if (await existePropuestaRef(ref, ws).catch(() => true)) continue;
     if (await getSetting(KEY_VISTA(r.recordingId)).catch(() => 'error')) continue;
+    // EL CANDADO (16/10/2026): desde que el webhook y el botón del modal también leen, la misma
+    // reunión puede estar leyéndose en otro lado AHORA. Se saltea sin pagar dos veces; si esa
+    // lectura se murió, el candado vence solo y la próxima corrida la agarra.
+    if (!(await tomarLectura(r.recordingId))) {
+      out.enCurso = (out.enCurso ?? 0) + 1;
+      console.log(`[reunion-auto] ws=${ws} recording=${r.recordingId}: ya la está leyendo otro (webhook o el modal) — la salteo`);
+      continue;
+    }
     out.nuevas += 1;
     procesadas += 1;
     try {
@@ -398,9 +426,23 @@ export async function procesarReunionesNuevas(ws: number, opts: { horas?: number
         if (parcial) {
           out.errores += 1;
           console.error(`[reunion-auto] ws=${ws} recording=${r.recordingId} «${r.titulo}»: la lectura FALLÓ (${partesFallidas} tramo(s) sin leer) — queda para reintentar`);
+          // Y QUEDA ESCRITO (16/10/2026): el `console.error` era todo el rastro, y así se perdieron
+          // diez reuniones del ws1 entre el 08 y el 15/10 (la ventana de 26 h se termina y nadie
+          // vuelve a mirarla). En el modal de Fathom, en «Sin leer», con «Leer igual».
+          await registrarNoLeida(r, `No pude leer ${partesFallidas} tramo(s): la IA no contestó. La reintento sola.`);
+          // (Una fila «Leyendo…» que el modal dejó esperando esta lectura se QUEDA así a propósito:
+          // la próxima corrida la vuelve a leer —`existePropuestaRef` no cuenta las «procesando»— y
+          // la llena. Marcarla «fallado» la sacaría del reintento: el cron saltea una ref que ya
+          // tiene borrador.)
         } else {
           // Vacío legítimo: leída entera y sin compromisos. Esa sí se cierra.
           await setSetting(KEY_VISTA(r.recordingId), new Date().toISOString()).catch(() => {});
+          // ⚠️ Y SE CIERRA EN TODOS LADOS (16/10/2026, revisión adversarial): la fila «Leyendo…» que
+          // el modal dejó esperando esta lectura (si no, «procesando» para siempre), y la de «Sin
+          // leer» de un intento anterior que falló (si no, 14 días con «Reintentar» sobre una
+          // reunión que ya se leyó bien).
+          await resolverProcesandoSinCompromisos(ref, ws).catch(() => false);
+          await marcarDescartadaLeida(r.recordingId);
           console.warn(`[reunion-auto] ws=${ws} recording=${r.recordingId} «${r.titulo}»: leída completa, sin compromisos`);
         }
         continue;
@@ -504,10 +546,25 @@ export async function procesarReunionesNuevas(ws: number, opts: { horas?: number
         .map((p) => p.nombre || p.email.split('@')[0])
         .slice(0, 3).join(', ');
 
+      // EL CRUCE CONTRA EL TABLERO, ACÁ Y NO EN EL MODAL (16/10/2026, «Fathom sin fricción»). Lo
+      // corría el modal al abrirse y no dejaba cargar mientras tanto («Cruzando con tu plan…», 20 a
+      // 40 s). Ahora el borrador llega a la pantalla ya cruzado y SELLADO (`cruzado_at`): el modal
+      // sólo dibuja lo que encontró. Con el MISMO reloj: si no entra, sale sin sellar y lo cruza el
+      // barrido de la próxima corrida (`cruzarPendientes`); el modal no lo espera nunca.
+      //
+      // ⚠️ ANTES DE CREAR EL BORRADOR, no después (revisión adversarial del mismo día): cruzado
+      // después, el borrador pasaba hasta un minuto «pendiente» sin cruzar, y un modal que lo abría
+      // en ese minuto —el caso normal con el webhook, que lee justo cuando termina la reunión—
+      // cargaba la duplicada o la borraba con su autosave.
+      const cruce = await cruzarTareas(propuestas, { hasta })
+        .catch((e) => ({ tareas: propuestas, cruzado: false, marcadas: 0, motivo: e instanceof Error ? e.message : String(e) }));
+      if (cruce.cruzado) out.cruzados = (out.cruzados ?? 0) + 1;
+      else console.warn(`[reunion-auto] ws=${ws} recording=${r.recordingId}: el borrador queda SIN cruzar (${cruce.motivo ?? 'sin motivo'}) — lo cruza el barrido`);
+
       // ⛔ Acá se armaban preguntas de contexto para responder antes de cargar. El alta
       // dejó de preguntar el 05/10/2026: el Perro decide fecha y prioridad solo.
       const propId = await crearPropuesta({
-        ws, ref, tareas: propuestas, origen: 'fathom',
+        ws, ref, tareas: cruce.tareas, cruzado: cruce.cruzado, origen: 'fathom',
         fuenteTitulo: r.titulo, fuenteUrl: r.url ?? undefined, fuenteFecha: r.fecha ?? undefined,
         // CON QUÉ CLIENTE fue (mig 0160). Antes se usaba para elegir el proyecto y se
         // tiraba: al confirmar ya no había reunión a la cual preguntarle, y las tareas
@@ -547,6 +604,9 @@ export async function procesarReunionesNuevas(ws: number, opts: { horas?: number
     } catch (e) {
       out.errores += 1;
       console.error(`[reunion-auto] ws=${ws} recording=${r.recordingId}: ${e instanceof Error ? e.message : String(e)}`);
+      await registrarNoLeida(r, `No pude leerla: ${(e instanceof Error ? e.message : String(e)).slice(0, 200)}. La reintento sola.`);
+    } finally {
+      await soltarLectura(r.recordingId);
     }
   }
 

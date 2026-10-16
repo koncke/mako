@@ -31,12 +31,14 @@
 //     donde empezó el toque — o sea, se soltaba la tarjeta, salía el pop-up, y detrás se
 //     abría el detalle. `huboArrastre()` lo traga durante medio segundo.
 //
-// Y una decisión de producto que no se toca: soltar NO fija el número. La columna dice la
-// BANDA y el número lo elige la persona en el pop-up (`MoverPrioridadModal`).
+// Las columnas son el ESTADO desde el 16/10/2026 («hacer el kanban un kanban»): soltar la mueve
+// de columna (`board.mover`) y NO pregunta la prioridad — «cuando tú muevas una tarjeta, yo no
+// debería preguntarte cuál es la nueva prioridad» → «Es correcto» (Mauricio, 12/10). Hasta ese
+// día la columna era la BANDA y soltar abría el pop-up del 1 al 100. Por eso el hook es genérico
+// en la clave de la columna (`data-columna`): no sabe de prioridades ni de estados.
 // =============================================================================
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { Prio } from './types';
 
 /** Cuánto hay que mantener el dedo quieto para que esto deje de ser un scroll. */
 const MS_ARMAR = 300;
@@ -46,7 +48,7 @@ const PX_CANCELA2 = 10 * 10;
 const BORDE = 90;
 const PASO = 14;
 
-type Gesto = {
+type Gesto<K extends string> = {
   id: string;
   /** el dedo que empezó: cualquier otro se ignora (ver el guard de `alMover`) */
   pointerId: number;
@@ -54,16 +56,16 @@ type Gesto = {
   y0: number;
   armado: boolean;
   timer: ReturnType<typeof setTimeout> | null;
-  cols: Array<{ prio: Prio; top: number; bottom: number; left: number; right: number }>;
+  cols: Array<{ col: K; top: number; bottom: number; left: number; right: number }>;
 };
 
-export type ArrastreTactil = {
+export type ArrastreTactil<K extends string = string> = {
   /** va en el `onPointerDown` de la tarjeta */
   alTocar: (e: React.PointerEvent, id: string) => void;
   /** el id que se está arrastrando ahora (para levantarla visualmente) */
   arrastrando: string | null;
   /** sobre qué columna está el dedo (para pintarla) */
-  sobre: Prio | null;
+  sobre: K | null;
   /** ¿el último gesto fue un arrastre? Sirve para tragarse el click fantasma. */
   huboArrastre: () => boolean;
 };
@@ -77,31 +79,31 @@ export type ArrastreTactil = {
  * guardaron en coordenadas de página, justamente porque la página se mueve durante el
  * gesto.
  */
-function columnaBajoElDedo(g: Gesto, e: PointerEvent): Prio | null {
+function columnaBajoElDedo<K extends string>(g: Gesto<K>, e: PointerEvent): K | null {
   const x = e.clientX + window.scrollX;
   const y = e.clientY + window.scrollY;
   const col = g.cols.find((c) => x >= c.left && x <= c.right && y >= c.top && y <= c.bottom);
-  return col ? col.prio : null;
+  return col ? col.col : null;
 }
 
 /**
  * @param onSoltar  se llama SÓLO si la tarjeta terminó sobre una columna DISTINTA.
- * @param prioDe    en qué columna está hoy esa tarjeta (para no abrir el pop-up al soltarla
- *                  donde ya estaba: con el dedo, un gesto de 15 px que no llegó a ningún
- *                  lado pasa todo el tiempo).
- * @param activo    si el tablero no puede escribir la prioridad, no hay arrastre.
+ * @param colDe     en qué columna está hoy esa tarjeta (para no mover nada al soltarla donde
+ *                  ya estaba: con el dedo, un gesto de 15 px que no llegó a ningún lado pasa
+ *                  todo el tiempo).
+ * @param activo    si el tablero no puede escribir la columna (`repo.mover`), no hay arrastre.
  */
-export function useArrastreTactil(
-  onSoltar: (id: string, destino: Prio) => void,
-  prioDe: (id: string) => Prio | null,
+export function useArrastreTactil<K extends string>(
+  onSoltar: (id: string, destino: K) => void,
+  colDe: (id: string) => K | null,
   activo = true,
-): ArrastreTactil {
-  const gesto = useRef<Gesto | null>(null);
+): ArrastreTactil<K> {
+  const gesto = useRef<Gesto<K> | null>(null);
   const finArrastre = useRef(0);
   const scrollRaf = useRef<number | null>(null);
   const scrollDir = useRef(0);
   const [arrastrando, setArrastrando] = useState<string | null>(null);
-  const [sobre, setSobre] = useState<Prio | null>(null);
+  const [sobre, setSobre] = useState<K | null>(null);
 
   const pararScroll = useCallback(() => {
     if (scrollRaf.current != null) cancelAnimationFrame(scrollRaf.current);
@@ -170,8 +172,8 @@ export function useArrastreTactil(
         const destino = columnaBajoElDedo(g, e);
         const id = g.id;
         limpiar();
-        // Soltarla donde ya estaba no es mover nada: no se abre ningún pop-up.
-        if (destino && destino !== prioDe(id)) onSoltar(id, destino);
+        // Soltarla donde ya estaba no es mover nada.
+        if (destino && destino !== colDe(id)) onSoltar(id, destino);
         return;
       }
       limpiar();
@@ -193,7 +195,7 @@ export function useArrastreTactil(
       document.removeEventListener('touchmove', alMoverTouch);
       pararScroll();
     };
-  }, [activo, limpiar, onSoltar, prioDe, pararScroll]);
+  }, [activo, limpiar, onSoltar, colDe, pararScroll]);
 
   const alTocar = useCallback((e: React.PointerEvent, id: string) => {
     // El mouse sigue por HTML5 drag-and-drop, que ya funciona y ya está probado.
@@ -215,10 +217,10 @@ export function useArrastreTactil(
         // justo cuando hacía su trabajo —traer a la pantalla una columna que no se veía—,
         // que es la única razón por la que existe. Sumarle el scroll de entonces los hace
         // válidos para siempre, sin volver a leer layout.
-        g.cols = [...document.querySelectorAll<HTMLElement>('[data-prio]')].map((el) => {
+        g.cols = [...document.querySelectorAll<HTMLElement>('[data-columna]')].map((el) => {
           const r = el.getBoundingClientRect();
           return {
-            prio: el.dataset.prio as Prio,
+            col: el.dataset.columna as K,
             top: r.top + window.scrollY, bottom: r.bottom + window.scrollY,
             left: r.left + window.scrollX, right: r.right + window.scrollX,
           };

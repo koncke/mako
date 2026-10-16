@@ -184,6 +184,24 @@ test('las que se repiten y las hechas no compiten; un proyecto que se repite no 
   assert.deepEqual(ids(r.prioridades), ['t2']);
 });
 
+// 16/10/2026, el kanban por ESTADO: una tarea se puede arrastrar a «No cumplen tu criterio» en las
+// dos mitades (y la API lo hace con `mover_tarea_plan`). Ahí NO es un pendiente (`estaPendiente`),
+// así que Prioridades no la ofrece ni la usa para sostener al norte. Las tareas del oráculo de
+// arriba no traen `estado`, así que la equivalencia no cambia.
+// PROBADO ROMPIÉNDOLO (16/10/2026): `abierta` sin `t.estado !== 'no_cumple'` → 9 pass / 1 fail
+// (éste); la base, 10 de 10.
+test('lo que está en «No cumplen tu criterio» no es una prioridad ni sostiene al norte', () => {
+  const labels = [L('a', { score: 90 }), L('b', { score: 50 })];
+  const tasks = [
+    T('t1', { labels: ['a'], score: 95, estado: 'no_cumple' }),   // la única de «a»: descartada
+    T('t2', { labels: ['b'], score: 60 }),
+    T('t3', { labels: ['b'], score: 40, estado: 'en_seguimiento' }), // Atorada SÍ es pendiente
+  ];
+  const r = prioridadesDelTablero({ tareas: tasks, proyectos: labels });
+  assert.deepEqual(ids(r.prioridades), ['t2', 't3']);
+  assert.equal(r.objetivoPrincipal?.id, 'b', '«a» no tiene trabajo: su única tarea no cumple el criterio');
+});
+
 test('el norte es el de mayor score con trabajo ARRANCABLE; empatado, el que tiene más abierto', () => {
   const labels = [L('a', { score: 90 }), L('b', { score: 80 }), L('c', { score: 80 })];
   const tasks = [
