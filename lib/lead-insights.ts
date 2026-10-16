@@ -431,6 +431,10 @@ export async function generarInsightLead(leadId: number): Promise<GenerarInsight
       thinking: true,
       effort: 'high',
       feature: 'lead_insights',
+      // Un cliente sin API también tiene su análisis del lead (16/10/2026). La ficha es de un lead, o
+      // sea datos de los clientes del cliente: la red usa SÓLO lo que no entrena (el crédito de Claude
+      // de la plataforma), nunca las keys gratis. Lo decide la cascada por la marca `pii` del catálogo.
+      redDePlataforma: true,
     });
     const contenido = normalizarContenido(parseJsonObject(texto));
 

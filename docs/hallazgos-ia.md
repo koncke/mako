@@ -4190,13 +4190,50 @@ corta antes») y los tests ahora preguntan qué hay antes de la llamada.
 
 ### Lo que quedó SIN hacer
 
-- **El análisis del lead (Generar / Regenerar), el sexto de la lista, NO se tocó: es una decisión de privacidad.**
-  Manda datos personales de los leads de un cliente (`lead_insights`, `pii: true`), y la red son las keys de la
-  agencia. El ws9 tiene un crédito de Gemini de US$10 cargado el 22/07 (`saldo.gemini`), pero la base no dice a cuál de
-  las tres keys corresponde. Si alguna está en el plan gratis, Google entrena con lo que recibe, con revisión
-  humana. Lo mismo vale, con datos menos sensibles (los del propio negocio), para lo que ya pasa por la red.
+- **El análisis del lead se resolvió con una regla** (el coordinador, el mismo día): los datos de los clientes de un
+  cliente nunca van a un proveedor que entrena con lo que recibe. Va con red, pero en `chatCheapCascade` un pedido con
+  la marca `pii` del catálogo usa sólo el crédito de Claude de la plataforma y se corta antes de las keys gratis
+  (`7068a0903`; la regla en AGENTS.md). El ws9 tiene un crédito de Gemini de US$10 cargado el 22/07
+  (`saldo.gemini`), pero la base no dice a cuál de las tres keys corresponde: «la key de Gemini con facturación» del
+  orden de la red queda sin usar hasta que alguien la identifique en Google Cloud.
+- **Los caminos con su PROPIA red (un bucle sobre `provsGratisDePlataforma`, no la cascada) no tienen ese corte**, y
+  algunos llevan datos de clientes: el doer de WhatsApp (`lib/mako-doer-in.ts`; `mako-doer-in` es `pii` en el
+  catálogo), los gráficos con IA (`lib/graficos-ia-red.ts`; `dashboard-conclusiones` es `pii`), la transcripción de
+  audio (`transcribirAudio`) y el guion de audio de Automations (`app/api/chat-agent/redactar`). Son de otras áreas: la
+  regla de AGENTS.md les pide aplicarla ellos mismos.
 - **Las otras ~50 llamadas sin red** siguen sin ella: el coordinador decide el orden sobre `docs/mapa-ia-24h.md`.
 - **Ningún camino se probó contra la red de verdad con un workspace sin keys**: sin `next dev` por la RAM.
+
+· *2026-10-16 chat «Onboarding» (claude3)*
+
+## El crédito de Claude Max de la plataforma: la tercera puerta del veto (16/10/2026)
+
+**Vive en:** `lib/veto-claude.ts` (`evaluarCreditoDeLaPlataforma`, `CLAVES_CREDITO_PLATAFORMA`) · `lib/anthropic.ts`
+(`conCreditoDeLaPlataforma`) · `lib/ai-cheap.ts` (la red de plataforma) · `lib/anthropic-usage.ts` (`recordUsage(…, ws)`)
+· `lib/costos-ia.ts` · `scripts/credito-claude-a-plataforma.mts` · `tests/veto-claude-credito-plataforma.test.ts`
+
+Martín vinculó el crédito de API de dos planes Max suyos (US$200 por mes cada uno; «Vinculalas a MaKo»). El código lo
+usa primero en la red de plataforma, antes de las keys gratis, por lo medido el mismo día: las gratis alcanzan por día
+pero chocan por minuto con el uso del ws9, el crédito vence cada mes sin acumularse, y la API de Anthropic no entrena
+con lo que recibe (el plan gratis de Gemini sí). Un cliente nuevo usa de 5 a 58 llamadas en su primera semana: unos
+pocos dólares contra 400 por mes.
+
+**Dos trampas que se cazaron escribiéndolo:**
+- **`wsDeProveedor` manda una fila de Anthropic al ws1 cuando el workspace no tiene clave propia**, que es justo el
+  caso del crédito: Mauricio (un cliente) habría visto un gasto de Claude que no es suyo. `recordUsage` acepta ahora el
+  workspace explícito, y el crédito anota en el del cliente que lo usó.
+- **El test que buscaba «la fila va al ws del cliente» daba verde con una de las dos filas sin el ws**: encontraba la
+  otra. Ahora exige que TODAS lo lleven.
+
+### Lo que quedó SIN hacer
+
+- **Las claves no están activas en producción.** Viven en el `.env.local` del clon; en Vercel no se pudieron cargar (el
+  usuario de la CLI es Developer). Hay dos caminos: Martín las carga en Vercel con el rol de dueño, o se corre
+  `scripts/credito-claude-a-plataforma.mts`, que las guarda cifradas en la fila del ws de la plataforma. El script
+  escribe en producción y espera el OK de Martín.
+- **Si una de esas organizaciones de Console tiene crédito comprado o auto-recarga, al acabarse el incluido sigue
+  cobrando** (lo dice la página de Anthropic). No se puede ver desde acá: lo revisa Martín en platform.claude.com.
+- Sólo la cascada de texto: ni visión, ni audio, ni el doer.
 
 · *2026-10-16 chat «Onboarding» (claude3)*
 

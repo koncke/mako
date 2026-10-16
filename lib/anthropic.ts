@@ -7,7 +7,10 @@
 import 'server-only';
 import { recordUsage, type UsageInfo } from './anthropic-usage';
 import { credWs, credDelCliente, credWsEstricta } from './credenciales';
-import { permisoDeGasto, evaluarClaveDelNegocio, MOTIVO_CLAVE_DEL_NEGOCIO, type PermisoClaude } from './veto-claude';
+import {
+  permisoDeGasto, evaluarClaveDelNegocio, MOTIVO_CLAVE_DEL_NEGOCIO,
+  evaluarCreditoDeLaPlataforma, CLAVES_CREDITO_PLATAFORMA, MOTIVO_CREDITO_PLATAFORMA, type PermisoClaude,
+} from './veto-claude';
 import type { ProvName } from './ai-cheap';
 
 // ⛔ ACÁ NO HAY NI `MODEL` NI `ENDPOINT`, y ese es el punto entero del veto.
@@ -111,6 +114,89 @@ export async function conClaveDelNegocio(p: {
   } catch (e) {
     return { error: e instanceof Error ? e.message : String(e) };
   }
+}
+
+/**
+ * Las cuentas del crédito que contestaron «Your credit balance is too low», y hasta cuándo no se
+ * les vuelve a pedir. En `globalThis` y no en una variable de módulo, por lo mismo que las otras
+ * memorias de este repo (las instancias de Vercel recargan módulos). Cada instancia lo descubre
+ * con UN pedido rechazado (~200 ms), y queda una fila en `anthropic_usage`: alcanza para no
+ * golpear una cuenta vacía en cada llamada sin agregar otra lectura a la base en cada una.
+ */
+const SIN_CREDITO_MS = 6 * 60 * 60 * 1000;
+const g = globalThis as unknown as { __creditoAgotado?: Map<number, number> };
+const creditoAgotado = (g.__creditoAgotado ??= new Map<number, number>());
+
+/**
+ * EL CRÉDITO DE API DE LOS PLANES MAX DE MARTÍN (lib/veto-claude.ts, «la tercera puerta»), para la
+ * cascada de texto de un cliente cuyas keys no contestaron (o que no tiene). Va ANTES de las keys
+ * gratis de la agencia en la red de plataforma (`chatCheapCascade`).
+ *
+ * Devuelve `null` si no corresponde (no hay claves del crédito cargadas, o el veto dice que no) y
+ * `{ error }` si se probó y nadie contestó. Sus errores son de la PLATAFORMA: el que llama los manda
+ * a `erroresPlataformaOut`, nunca a la lista con la que se le habla al cliente.
+ *
+ * ⚠️ Las claves se leen SÓLO por los nombres de `CLAVES_CREDITO_PLATAFORMA`: del entorno, o de la
+ * fila del workspace de la plataforma, estricta (si la base no contesta, no se usa el crédito).
+ * `ANTHROPIC_API_KEY` no se lee acá, y el fetch usa la clave que verificó el veto.
+ */
+export async function conCreditoDeLaPlataforma(p: {
+  system: string; user: string; json?: boolean; maxTokens?: number; feature?: string; motivo?: string; timeoutMs: number;
+  /** El workspace del CLIENTE que lo usa: la fila de uso va ahí, nunca al ws1. */
+  wsCliente: number;
+}): Promise<{ texto: string } | { error: string } | null> {
+  let creditos: Array<string | null>;
+  try {
+    const { wsSuperAdmin } = await import('@/lib/workspace');
+    const wsSA = await wsSuperAdmin();
+    creditos = [];
+    for (const nombre of CLAVES_CREDITO_PLATAFORMA) {
+      const env = process.env[nombre]?.trim();
+      creditos.push(env || (await credWsEstricta(nombre, wsSA)));
+    }
+  } catch { return null; }
+  if (!creditos.some(Boolean)) return null;
+  const pausa = await claudePausado();
+  const system = p.json ? `${p.system}\n\nResponde SOLO con el JSON pedido, sin texto antes ni después y sin bloques de código.` : p.system;
+  const errores: string[] = [];
+  for (const clave of creditos) {
+    if (!clave) continue;
+    const v = evaluarCreditoDeLaPlataforma({ feature: p.feature, clave, creditos, pausa });
+    if (!v.ok) return null;
+    const permiso = v.permiso;
+    if ((creditoAgotado.get(permiso.cuenta) ?? 0) > Date.now()) continue;
+    try {
+      const res = await fetch(permiso.endpoint, {
+        method: 'POST',
+        headers: { 'x-api-key': permiso.clave, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+        body: JSON.stringify({ model: permiso.model, max_tokens: p.maxTokens ?? 1024, system, messages: [{ role: 'user', content: p.user }] }),
+        cache: 'no-store',
+        signal: AbortSignal.timeout(Math.max(1_000, p.timeoutMs)),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok || body?.error) {
+        const m = String(body?.error?.message ?? `Anthropic ${res.status}`);
+        if (/credit balance is too low/i.test(m)) {
+          // Sin crédito hasta el próximo ciclo: se saltea un rato y queda la línea, con 0 tokens.
+          creditoAgotado.set(permiso.cuenta, Date.now() + SIN_CREDITO_MS);
+          await recordUsage(permiso.feature, permiso.model, {}, `${MOTIVO_CREDITO_PLATAFORMA} (cuenta ${permiso.cuenta}) · sin crédito hasta el próximo ciclo`, 'anthropic', permiso.cuenta, p.wsCliente).catch(() => {});
+        }
+        errores.push(`crédito cuenta ${permiso.cuenta}: ${m}`);
+        continue;
+      }
+      await recordUsage(permiso.feature, permiso.model, body.usage, [`${MOTIVO_CREDITO_PLATAFORMA} (cuenta ${permiso.cuenta})`, (p.motivo ?? '').trim()].filter(Boolean).join(' · '), 'anthropic', permiso.cuenta, p.wsCliente).catch(() => {});
+      const texto = (body.content ?? [])
+        .filter((c: { type?: string }) => c.type === 'text')
+        .map((c: { text?: string }) => c.text ?? '')
+        .join('\n')
+        .trim();
+      if (texto) return { texto };
+      errores.push(`crédito cuenta ${permiso.cuenta}: contestó vacío`);
+    } catch (e) {
+      errores.push(`crédito cuenta ${permiso.cuenta}: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
+  return errores.length ? { error: errores.join(' · ') } : null;
 }
 
 export async function chatClaude(

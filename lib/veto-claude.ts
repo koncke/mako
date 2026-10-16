@@ -43,6 +43,16 @@
 // la plataforma, las compara acá —puro, con test— y el permiso lleva adentro la clave
 // verificada: el `fetch` usa ÉSA, nunca vuelve a resolver otra. Lo prueba rompiéndolo
 // tests/veto-claude-clave-negocio.test.ts.
+//
+// ── LA TERCERA PUERTA: EL CRÉDITO DE API DE LOS PLANES MAX DE MARTÍN (16/10/2026) ──
+// Martín vinculó el crédito de API de dos planes Max suyos (US$200 por mes cada uno, que se
+// renuevan y no se acumulan) y pidió, textual: «Vinculalas a MaKo», para «habilitar los TOKENS
+// a usuarios nuevos, sobre todo para el onboarding, para que no tengan la fricción de traer su
+// API». No contradice el «que ya no se pueda gastar con Claude directamente, que se prohíba» del
+// 13/8: ese crédito viene incluido en la suscripción, sin tarjeta, y al acabarse corta en vez de
+// cobrar. Por eso pasa como excepción EXPLÍCITA y NOMBRADA: sólo las dos claves de
+// `CLAVES_CREDITO_PLATAFORMA`, comparadas acá contra la que llega, y ninguna otra clave de la
+// plataforma. Lo prueba rompiéndolo tests/veto-claude-credito-plataforma.test.ts.
 // =============================================================================
 
 import { CATALOGO_MODELOS } from '@/lib/model-catalogo';
@@ -241,6 +251,65 @@ export function evaluarClaveDelNegocio(p: {
   const model = (p.model ?? '').trim() || modelos[0];
   if (!modelos.includes(model)) return { ok: false, razon: `con la clave del negocio sólo ${modelos.join(', ')}, no «${model}».` };
   return { ok: true, permiso: fabricar({ model, feature, porque: CLAUDE_CON_CLAVE_DEL_NEGOCIO.porque, clave }) };
+}
+
+// ── PUERTA 3: el crédito de API de los planes Max de la plataforma ───────────────
+
+/**
+ * Los NOMBRES de las dos claves del crédito, en orden (la cuenta 1 y la cuenta 2). Se leen del
+ * entorno o de la fila del workspace de la plataforma con estos nombres, y de ningún otro lado:
+ * `ANTHROPIC_API_KEY` NO está, a propósito, aunque también sea de la plataforma.
+ */
+export const CLAVES_CREDITO_PLATAFORMA = ['ANTHROPIC_CREDITO_CUENTA1', 'ANTHROPIC_CREDITO_CUENTA2'] as const;
+
+export const CREDITO_DE_LA_PLATAFORMA = {
+  modelos: ['claude-haiku-4-5'],
+  // Vence como toda excepción al gasto de la plataforma: renovarla es una línea, y obliga a mirar
+  // cuánto se usó (la línea aparte del gasto de IA en /integraciones).
+  hasta: '2026-12-31',
+  porque: 'Crédito de API incluido en dos planes Max de Martín (US$200 por mes cada uno, sin tarjeta): '
+    + 'cubre la IA de texto de los clientes sin clave propia, sobre todo en el onboarding.',
+  pidio: 'Martín, 16/10/2026: «Vinculalas a MaKo».',
+} as const;
+
+/** La marca del gasto de este crédito en `anthropic_usage`, al PRINCIPIO del motivo (ver la del negocio). */
+export const MOTIVO_CREDITO_PLATAFORMA = '⚠ crédito de Claude de la plataforma';
+export const esDelCreditoDeLaPlataforma = (motivo: string | null | undefined): boolean =>
+  typeof motivo === 'string' && motivo.trimStart().startsWith(MOTIVO_CREDITO_PLATAFORMA);
+
+/** El permiso de la puerta 3: la clave verificada y de qué cuenta es (1 o 2). */
+export type PermisoCredito = PermisoClaude & { readonly clave: string; readonly cuenta: number };
+
+/**
+ * ¿Esta función de texto puede usar el crédito de la plataforma, con ESTA clave? Puro y síncrono.
+ *
+ * `creditos` son los VALORES de las dos claves de `CLAVES_CREDITO_PLATAFORMA`, en orden, como los
+ * leyó el llamador (null si una no está cargada). La clave pasa sólo si es una de esas dos: eso es
+ * lo que impide que cualquier otra clave de la plataforma entre por acá.
+ */
+export function evaluarCreditoDeLaPlataforma(p: {
+  feature?: string; model?: string; pausa?: boolean; hoy?: Date;
+  clave?: string | null; creditos: ReadonlyArray<string | null | undefined>;
+}): { ok: true; permiso: PermisoCredito } | { ok: false; razon: string } {
+  if (p.pausa) return { ok: false, razon: 'Claude está PAUSADO a mano (`mako.claude.pausa`): apaga también el crédito de la plataforma.' };
+  const feature = (p.feature ?? '').trim();
+  if (!feature) return { ok: false, razon: 'sin `feature` no se sabe qué se compra con el crédito.' };
+  if (FEATURES_DEL_PLAN.includes(feature)) return { ok: false, razon: `«${feature}» es del Plan, y el Plan nunca paga IA (Martín, 30/09/2026).` };
+  if (diaISO(p.hoy ?? new Date()) > CREDITO_DE_LA_PLATAFORMA.hasta) {
+    return { ok: false, razon: `el permiso del crédito de la plataforma venció el ${CREDITO_DE_LA_PLATAFORMA.hasta}. Renuévalo con una fecha nueva o déjalo vencido.` };
+  }
+  const clave = typeof p.clave === 'string' ? p.clave.trim() : '';
+  if (!clave) return { ok: false, razon: 'no llegó ninguna clave del crédito.' };
+  // LA FRONTERA: sólo una de las dos claves con nombre. Cualquier otra —la de la plataforma, la
+  // de un negocio, una vacía— no pasa.
+  const i = p.creditos.findIndex((x) => typeof x === 'string' && x.trim() !== '' && x.trim() === clave);
+  if (i < 0 || i >= CLAVES_CREDITO_PLATAFORMA.length) {
+    return { ok: false, razon: 'esa clave no es ninguna de las dos del crédito de la plataforma: sólo esas pasan por esta puerta.' };
+  }
+  const modelos: readonly string[] = CREDITO_DE_LA_PLATAFORMA.modelos;
+  const model = (p.model ?? '').trim() || modelos[0];
+  if (!modelos.includes(model)) return { ok: false, razon: `con el crédito de la plataforma sólo ${modelos.join(', ')}, no «${model}».` };
+  return { ok: true, permiso: fabricar({ model, feature, porque: CREDITO_DE_LA_PLATAFORMA.porque, clave, cuenta: i + 1 }) };
 }
 
 export class VetoClaude extends Error {
