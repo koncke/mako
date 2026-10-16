@@ -1878,3 +1878,19 @@ nuevo, nada escondido en la app, el saneo, la API, Replicar sin ejecutar nada aj
 - **Con la máquina sin RAM (240 MB libres, 12 chats) el tsc completo no se corre**: se valida con el ACOTADO
   (`"include": []` + `"files"` de lo que cambia y sus consumidores, heap de 2,5 GB), probado metiendo un error a
   propósito. Para este commit: 37 archivos, 40 s, y el error inyectado salió (TS2322).
+
+## Los pedidos sueltos en el chat del agente (16/10/2026)
+
+**Vive en:** `app/web-generator/editor/pedidos-chat.ts` (`pulsar`, `sinTerminar`, `alTerminar`) ·
+`app/web-generator/editor/paneles/PanelAgente.tsx` · `tests/editor-landing-pedidos-chat.test.ts`. El módulo compartido y
+sus trampas: `docs/diseno-mako-pedidos.md` y `docs/hallazgos-ia.md` → «Los pedidos sueltos en los chats».
+
+- **«Sí» a «¿Terminamos esto y después creamos otra landing?» quiere decir PRIMERO esto.** La primera versión abría
+  Crear con IA en el acto: el chat se iba del editor con el cambio de la landing abierta sin aceptar ni descartar (el
+  hilo sobrevive a navegar, pero «esto» quedaba a medias). Ahora, con un cambio del agente sin terminar (`pendiente`,
+  `aplicando`, `sin-version`), «Sí» deja la burbuja esperando y la creación se abre sola al aceptarlo o descartarlo;
+  «Después» sigue prendido por si cambia de idea.
+- **«Página» dentro del editor es una página del sitio abierto** («Añadir página»), no otra landing: el núcleo la trata
+  como una parte de lo abierto (`PARTES_DE_LO_ABIERTO` en `lib/mako-pedidos.ts`).
+- **La landing abierta nunca se borra desde el chat** («elimina esta landing»): se dice dónde está «⋯ › Eliminar». Otra
+  landing va a la Papelera con confirmación (la misma acción que «Archivar» del Panel) y se restaura con «Deshacer».

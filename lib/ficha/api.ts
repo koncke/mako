@@ -11,6 +11,7 @@ import type { FichaDelFunnel } from './config-server';
 import { sanearCambio, type CambioFicha } from './config';
 import { bloqueDef, bloquesDeLaTab, esTabFicha, vaEnTab, NOMBRE_TAB, TABS_FICHA, ANCHOS, DENSIDADES, type Ancho } from './catalogo';
 import { plantillaFicha, PLANTILLAS_FICHA } from './plantillas';
+import { galeriaDeTab, plantillaTabPorId, plantillasDeTab } from './plantillas-tab';
 import { DATOS_AVISABLES } from '../datos-aviso';
 import { NOMBRES_ICONO_MENU, type NombreIconoMenu } from '../../app/_ui/iconos-menu';
 
@@ -20,7 +21,12 @@ import { NOMBRES_ICONO_MENU, type NombreIconoMenu } from '../../app/_ui/iconos-m
  *    de un bloque se sumó el 15/10/2026 porque la pantalla lo cambiaba y MaKo no (AGENTS.md, toda feature va a la
  *    API). Deshacer no tiene op: la pantalla guarda el `antes` en memoria y el funnel no tiene historial.
  */
-export const CAMBIOS_API = ['poner', 'quitar', 'mover', 'ancho', 'diseno', 'icono', 'aviso', 'estilo', 'densidad', 'plantilla', 'volver'] as const;
+export const CAMBIOS_API = ['poner', 'quitar', 'mover', 'ancho', 'diseno', 'icono', 'aviso', 'estilo', 'densidad', 'plantilla', 'volver', 'nombre', 'epica'] as const;
+/**
+ * Lo que hace la pantalla y va por OTRA operación de la API, no por cambiar_ficha_funnel: armar una tab con un pedido
+ * («¿Qué vas a crear hoy?») pasa por la IA y es `armar_tab_ficha` (lib/api-mako/areas/crm.def.ts).
+ */
+export const CAMBIO_DE_OTRA_OP: Readonly<Record<string, string>> = { armar: 'armar_tab_ficha' };
 /** El ancho como lo dice una persona. */
 export const ANCHOS_API = ['1/4', '1/3', '1/2', 'completo'] as const;
 /** «El de siempre» en la API: vuelve al ícono del catálogo. */
@@ -65,7 +71,22 @@ export function cambioDeInputApi(input: Record<string, unknown>): CambioFicha | 
       break;
     }
     case 'densidad': crudo = { op: 'densidad', densidad: s(input.densidad) }; break;
-    case 'plantilla': crudo = { op: 'plantilla', plantilla: s(input.plantilla) === 'auto' ? null : s(input.plantilla) }; break;
+    case 'plantilla': {
+      // Con tab, la plantilla de ESA tab (16/10/2026). Sin enum en la def: los ids salen de ver_ficha_funnel y se
+      // validan acá, devolviendo los que hay.
+      const pl = s(input.plantilla);
+      if (tab) {
+        if (!esTabFicha(tab)) return { error: 'Falta la tab: resumen, reuniones, pagos o tracking.' };
+        if (pl && pl !== 'auto' && plantillaTabPorId(pl)?.tab !== tab) return { error: `Esa plantilla no es de ${NOMBRE_TAB[tab]}.`, disponibles: plantillasDeTab(tab).map((x) => x.id) };
+        crudo = { op: 'plantilla', tab, plantilla: !pl || pl === 'auto' ? null : pl };
+        break;
+      }
+      if (pl && pl !== 'auto' && !PLANTILLAS_FICHA.some((x) => x.id === pl)) return { error: 'Esa plantilla no existe.', disponibles: [...PLANTILLAS_FICHA.map((x) => x.id), 'auto'] };
+      crudo = { op: 'plantilla', plantilla: pl === 'auto' ? null : pl };
+      break;
+    }
+    case 'nombre': crudo = { op: 'nombre', tab, nombre: typeof input.nombre === 'string' ? input.nombre : null }; break;
+    case 'epica': crudo = { op: 'epica', tab, epica: b(input.epica) }; break;
     case 'volver': crudo = { op: 'volver', ...(tab ? { tab } : {}) }; break;
     case 'estilo': {
       const tema: Record<string, unknown> = {};
@@ -97,8 +118,13 @@ export function salidaFichaApi(f: Pick<FichaDelFunnel, 'funnel' | 'eleccion' | '
   const tabs = Object.fromEntries(TABS_FICHA.map((tab) => {
     const puestos = ef.tabs[tab];
     const ya = new Set(puestos.map((p) => p.id));
+    const pt = plantillaTabPorId(ef.plantillasTab[tab]);
     return [tab, {
-      nombre: NOMBRE_TAB[tab],
+      nombre: ef.nombres[tab],
+      ...(ef.nombres[tab] !== NOMBRE_TAB[tab] ? { nombre_de_siempre: NOMBRE_TAB[tab] } : {}),
+      epica: ef.epica[tab],
+      plantilla: { id: ef.plantillasTab[tab], nombre: pt?.nombre ?? ef.plantillasTab[tab], elegida_por: ef.plantillasTabAMano.includes(tab) ? 'una persona' : 'MaKo' },
+      configurada: ef.configuradas.includes(tab),
       sigue_a_la_plantilla: !ef.tocadas.includes(tab),
       bloques: puestos.map((p, i) => {
         const def = bloqueDef(p.id);
@@ -111,6 +137,10 @@ export function salidaFichaApi(f: Pick<FichaDelFunnel, 'funnel' | 'eleccion' | '
       }),
       para_sumar: bloquesDeLaTab(tab).filter((d) => d.varias || !ya.has(d.id)).map((d) => ({
         bloque: d.id, titulo: d.titulo, anchos: d.anchos.map((a) => NOMBRE_ANCHO[a]), disenos: d.disenos.map((x) => x.id),
+      })),
+      // La galería de la tab, en el orden de la pantalla: «En blanco», las sugeridas (con su porqué) y el resto.
+      plantillas: galeriaDeTab(tab, { plantilla: ef.plantilla, porque: ef.plantillaAMano ? undefined : f.eleccion.porque }).map(({ plantilla: x, porque }) => ({
+        id: x.id, nombre: x.nombre, de_que_se_trata: x.bajada, bloques: x.bloques.length, ...(x.epico ? { epica: true } : {}), ...(porque ? { sugerida: porque } : {}),
       })),
     }];
   }));

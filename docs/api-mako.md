@@ -29,7 +29,7 @@
 
 - **General** (`general`): `leer_resumen_objetivos` · `ver_trimestre_actual` · `listar_objetivos` · `ver_objetivo_principal` · `ver_tablero_kpis` · `listar_kpis` · `sugerir_kpis` · `listar_fuentes_kpi` · `medir_fuente_kpi` · `ver_capacidad_instalada` · `medir_tramo_r1_r2` · `listar_pendientes_arranque` · `registrar_valor_kpi` · `cerrar_objetivo` · `apagar_kpi` · `guardar_capacidad` · `guardar_objetivo` · `guardar_kpi` · `sembrar_kpis_sugeridos` · `listar_hojas_general` · `crear_hoja_general` · `editar_hoja_general_con_ia` · `agregar_bloque_general` · `configurar_bloque_general`
 - **Plan** (`plan`): `ver_plan` · `listar_tareas_plan` · `ver_tarea_plan` · `ver_proyecto_plan` · `listar_proyectos_plan` · `ver_prioridades_plan` · `listar_tareas_vencidas` · `listar_tareas_paradas` · `listar_tareas_sin_datos` · `buscar_tareas_plan` · `listar_dependencias_plan` · `listar_borradores_plan` · `ver_borrador_plan` · `ver_estado_borrador` · `ver_borrador_de_reunion` · `listar_proyectos_vacios` · `ver_senales_negocio` · `descartar_borrador_plan` · `actualizar_avance_tarea` · `agregar_dependencia_plan` · `quitar_dependencia_plan` · `guardar_termino_glosario` · `proponer_tareas_plan` · `proponer_cierre_tareas` · `proponer_ampliar_tareas`
-- **CRM** (`crm`): `buscar_leads` · `ficha_lead` · `reuniones_recientes` · `ver_funnel` · `listar_horarios_reunion` · `listar_leads` · `contar_leads_por_etapa` · `transiciones_desde_etapa` · `requisitos_para_mover` · `faltantes_del_lead` · `reuniones_proximas` · `cobranza_lead` · `tracking_lead` · `journey_lead` · `duplicados_lead` · `propuestas_lead_pendientes` · `confirmaciones_crm_automatico` · `estado_crm_automatico` · `evaluar_crm_automatico` · `link_agenda_calendly` · `link_resumen_lead` · `r2_sin_lead` · `listar_productos` · `listar_etiquetas` · `etiquetas_lead` · `sugerencias_crm` · `volver_a_mostrar_sugerencia` · `ver_ficha_funnel` · `cambiar_ficha_funnel` · `listar_eventos_agenda` · `vincular_evento_etapa` · `desvincular_evento_etapa` · `proponer_cambio_etapa` · `proponer_agendar_reunion` · `proponer_lead` · `marcar_asistencia_reunion` · `marcar_calificado` · `agregar_nota_lead` · `asignar_closer_setter` · `mover_a_nutricion_manual` · `marcar_pago_cobrado` · `registrar_pago_suelto` · `ignorar_datos_sin_marcar` · `reactivar_datos_sin_marcar` · `resolver_confirmacion_crm` · `declarar_entradas_funnel` · `tipos_de_crm` · `crear_crm` · `crear_etiqueta` · `editar_etiqueta` · `archivar_etiqueta` · `poner_etiqueta_lead` · `sacar_etiqueta_lead` · `oferta_del_lead` · `asignar_oferta_lead` · `crear_oferta_lead` · `editar_contacto_lead` · `agregar_link_fathom` · `marcar_reunion_manual` · `guardar_plan_pagos` · `guardar_cuotas` · `guardar_deal_details` · `activar_crm_automatico` · `guardar_producto` · `proponer_leads`
+- **CRM** (`crm`): `buscar_leads` · `ficha_lead` · `reuniones_recientes` · `ver_funnel` · `listar_horarios_reunion` · `listar_leads` · `contar_leads_por_etapa` · `transiciones_desde_etapa` · `requisitos_para_mover` · `faltantes_del_lead` · `reuniones_proximas` · `cobranza_lead` · `tracking_lead` · `journey_lead` · `duplicados_lead` · `propuestas_lead_pendientes` · `confirmaciones_crm_automatico` · `estado_crm_automatico` · `evaluar_crm_automatico` · `link_agenda_calendly` · `link_resumen_lead` · `r2_sin_lead` · `listar_productos` · `listar_etiquetas` · `etiquetas_lead` · `sugerencias_crm` · `volver_a_mostrar_sugerencia` · `ver_ficha_funnel` · `cambiar_ficha_funnel` · `listar_eventos_agenda` · `vincular_evento_etapa` · `desvincular_evento_etapa` · `proponer_cambio_etapa` · `proponer_agendar_reunion` · `proponer_lead` · `marcar_asistencia_reunion` · `marcar_calificado` · `agregar_nota_lead` · `asignar_closer_setter` · `mover_a_nutricion_manual` · `marcar_pago_cobrado` · `registrar_pago_suelto` · `ignorar_datos_sin_marcar` · `reactivar_datos_sin_marcar` · `resolver_confirmacion_crm` · `declarar_entradas_funnel` · `tipos_de_crm` · `crear_crm` · `crear_etiqueta` · `editar_etiqueta` · `archivar_etiqueta` · `poner_etiqueta_lead` · `sacar_etiqueta_lead` · `oferta_del_lead` · `asignar_oferta_lead` · `crear_oferta_lead` · `editar_contacto_lead` · `agregar_link_fathom` · `marcar_reunion_manual` · `guardar_plan_pagos` · `guardar_cuotas` · `guardar_deal_details` · `activar_crm_automatico` · `guardar_producto` · `proponer_leads` · `armar_tab_ficha`
 - **Ads (Manager y Analyst)** (`ads`): `listar_campanas_meta` · `ver_estado_meta` · `ver_salud_cuenta_meta` · `listar_conjuntos_meta` · `listar_anuncios_meta` · `listar_anuncios_con_problemas_meta` · `listar_recomendaciones_meta` · `ver_rendimiento_anuncios` · `ver_cuenta_meta` · `listar_publicos_meta` · `buscar_intereses_meta` · `buscar_lugares_meta` · `listar_formularios_meta` · `listar_pixeles_meta` · `listar_eventos_pixel_meta` · `listar_conversiones_meta` · `listar_identidades_meta` · `verificar_ganadores_reusables` · `listar_motivos_venta_llamada` · `ver_publico_conjunto_meta` · `ver_textos_anuncio_meta` · `ver_datos_campana_meta` · `ver_datos_conjunto_meta` · `verificar_aprobacion_meta` · `listar_incidentes_meta` · `ver_base_formulario_meta` · `listar_publicaciones_mako_meta` · `listar_guiones_analizados` · `ver_ficha_guion` · `ver_estado_analisis_guiones` · `ver_cuadrante_retencion` · `ver_perfil_guiones` · `listar_angulos_guion` · `listar_avatares_guion` · `listar_guiones_valorados` · `ver_transcript_anuncio` · `proponer_estado_campana` · `proponer_renombrar_campana` · `proponer_estado_conjunto` · `proponer_estado_anuncio` · `proponer_renombrar_entidad_meta` · `proponer_presupuesto_campana` · `proponer_presupuesto_conjunto` · `proponer_eliminar_entidad_meta` · `proponer_agregar_anuncio` · `proponer_editar_textos_anuncio` · `proponer_crear_publico_meta` · `proponer_crear_formulario_meta` · `proponer_sincronizar_guiones` · `proponer_reanalizar_guion` · `proponer_corregir_angulo_guion` · `proponer_corregir_avatar_guion` · `proponer_borrar_guion_valorado` · `proponer_agregar_angulo` · `proponer_editar_angulo` · `proponer_borrar_angulo` · `proponer_agregar_avatar` · `proponer_editar_avatar` · `proponer_borrar_avatar`
 - **WhatsApp** (`whatsapp`): `listar_plantillas_aprobadas` · `listar_borradores_plantilla` · `estado_plantillas_meta` · `variables_plantilla` · `estado_envio_whatsapp` · `listar_etiquetas_whatsapp` · `etapa_inbox_de_lead` · `lead_insiste_con_lo_mismo` · `crear_contacto_chatwoot_lead` · `borrar_borrador_plantilla` · `reconciliar_plantillas` · `crear_borrador_whatsapp_empresa` · `guardar_borrador_plantilla` · `enviar_plantilla_a_meta` · `editar_plantilla_meta` · `borrar_plantilla_meta`
 - **Email** (`email`): `kpis_email` · `listar_secuencias_email` · `ficha_secuencia_email` · `listar_etapas_email` · `listar_triggers_email` · `listar_broadcasts` · `ficha_broadcast` · `listar_segmentos_email` · `contar_segmento_email` · `estado_email` · `remitente_email` · `envio_email_habilitado` · `crear_secuencia_email` · `editar_meta_secuencia_email` · `cancelar_programacion_broadcast` · `verificar_dominio_envio` · `editar_pasos_secuencia_email` · `crear_broadcast` · `editar_broadcast` · `programar_broadcast` · `enviar_broadcast` · `enviar_prueba_broadcast` · `eliminar_broadcast` · `activar_envio_real_email`
@@ -1380,7 +1380,7 @@ curl -L \
 
 ## CRM — `crm`
 
-Tab **CRM** (`/crm`). 30 lecturas · 35 acciones.
+Tab **CRM** (`/crm`). 30 lecturas · 36 acciones.
 
 ### `GET /api/v1/crm/busqueda/leads` — Buscar leads por texto
 
@@ -2015,7 +2015,7 @@ curl -L \
 
 ### `GET /api/v1/crm/ficha` — Ver la ficha de un CRM
 
-Cómo se arma la ficha del lead en UN CRM del negocio, para todos sus leads: la plantilla (la que elige MaKo según las etapas de reunión y cómo entra la gente, o la que eligió alguien) y por qué, los bloques de cada tab en orden (Resumen, Reuniones, Pagos y Tracking) con su ancho, su diseño y su ícono si se lo cambiaron, de qué «datos sin marcar» avisa y por qué no avisa de los otros, y el estilo (tema, acento, tipografía y tamaño de las tarjetas). Trae también, por tab, los bloques que se pueden sumar con sus anchos y diseños, las plantillas y los íconos que se le pueden poner a un bloque. Es el paso previo a cambiar_ficha_funnel. Sin embudoId, el CRM principal.
+Cómo se arma la ficha del lead en UN CRM del negocio, para todos sus leads: la plantilla (la que elige MaKo según las etapas de reunión y cómo entra la gente, o la que eligió alguien) y por qué; por tab (Resumen, Reuniones, Pagos y Tracking) su nombre, su plantilla, si va épica y sus bloques en orden con su ancho, su diseño y su ícono; de qué «datos sin marcar» avisa y por qué no de los otros, y el estilo. Trae también, por tab, los bloques que se pueden sumar y su galería de plantillas (las sugeridas primero), y los íconos de un bloque. Es el paso previo a cambiar_ficha_funnel. Sin embudoId, el CRM principal.
 
 - **Ruta por operación:** `GET /api/v1/crm/ver_ficha_funnel`
 - **Token detallado:** permiso `crm=read` (Solo lectura en «CRM»)
@@ -2038,7 +2038,7 @@ curl -L \
 
 ### `PATCH /api/v1/crm/ficha` — Cambiar la ficha de un CRM
 
-PROPONE UN cambio en la ficha del lead de UN CRM (queda pendiente hasta el «sí»), para todos sus leads: poner, quitar o mover un bloque, cambiarle el ancho, el diseño o el ícono, prender o apagar el aviso de un dato sin marcar, cambiar el estilo o el tamaño de las tarjetas, usar otra plantilla o volver a la plantilla. Los ids de bloques, diseños, íconos y avisos salen de ver_ficha_funnel. «Contacto» no se puede quitar y las asistencias siempre avisan. Quitar un bloque no apaga su aviso. Solo el administrador. Sin embudoId, el CRM principal.
+PROPONE UN cambio en la ficha del lead de UN CRM (pendiente hasta el «sí»), para todos sus leads: poner, quitar o mover un bloque, su ancho, diseño o ícono, el aviso de un dato sin marcar, el estilo, el tamaño de las tarjetas, la plantilla (de la ficha o de una tab), el nombre de una tab, su vista épica, o volver a la plantilla. Los ids salen de ver_ficha_funnel. «Contacto» no se quita y las asistencias siempre avisan. Solo el administrador. Sin embudoId, el CRM principal.
 
 - **Ruta por operación:** `POST /api/v1/crm/cambiar_ficha_funnel`
 - **Token detallado:** permiso `crm=write` (Lectura y escritura en «CRM»)
@@ -2054,8 +2054,8 @@ PROPONE UN cambio en la ficha del lead de UN CRM (queda pendiente hasta el «sí
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
 | `embudoId` | number | no | el CRM, por el id de su embudo (de productos_del_lead). Sin él, el CRM principal del negocio. |
-| `cambio` | string (poner \\| quitar \\| mover \\| ancho \\| diseno \\| icono \\| aviso \\| estilo \\| densidad \\| plantilla \\| volver) | sí | qué cambiar: poner, quitar o mover un bloque (con tab y bloque; mover y poner con lugar), ancho, diseno o icono de un bloque, aviso (con aviso y avisa), estilo (con tema, acento o tipografia), densidad (el tamaño de las tarjetas), plantilla (con plantilla) o volver (a la plantilla: con tab, sólo esa tab; sin tab, toda la ficha y sus avisos). |
-| `tab` | string (resumen \\| reuniones \\| pagos \\| tracking) | no | la tab del bloque. En volver, la tab que vuelve a la plantilla. |
+| `cambio` | string (poner \\| quitar \\| mover \\| ancho \\| diseno \\| icono \\| aviso \\| estilo \\| densidad \\| plantilla \\| volver \\| nombre \\| epica) | sí | qué cambiar: poner, quitar o mover un bloque (con tab y bloque; mover y poner con lugar), ancho, diseno o icono de un bloque, aviso (con aviso y avisa), estilo (tema, acento o tipografia), densidad, plantilla, nombre o epica de una tab (con tab), o volver a la plantilla (con tab, sólo esa). |
+| `tab` | string (resumen \\| reuniones \\| pagos \\| tracking) | no | la tab. |
 | `bloque` | string | no | el id del bloque (de ver_ficha_funnel), por ejemplo cuotas o redes-y-web. |
 | `lugar` | number | no | en poner y mover: el lugar en la tab, 1 es el primero. Sin él, poner lo suma al final. |
 | `ancho` | string (1/4 \\| 1/3 \\| 1/2 \\| completo) | no | en poner y ancho: el ancho del bloque sobre la grilla de la ficha. Cada bloque acepta sólo algunos (ver_ficha_funnel). |
@@ -2068,7 +2068,9 @@ PROPONE UN cambio en la ficha del lead de UN CRM (queda pendiente hasta el «sí
 | `acento` | string | no | en estilo: el color de acento en hex, #RRGGBB. Vacío para volver al de la plantilla de estilo. |
 | `tipografia` | string (geist \\| inter \\| poppins \\| nunito \\| atkinson \\| hanken \\| dmsans \\| worksans \\| figtree \\| rubik \\| karla \\| publicsans \\| lora \\| merriweather \\| sourceserif \\| crimson \\| bitter \\| eb \\| maquina \\| jetbrains \\| spline \\| bricolage \\| instrument \\| fraunces) | no | en estilo: la tipografía de toda la ficha. |
 | `densidad` | string (compacta \\| normal \\| amplia) | no | en densidad: el tamaño de las tarjetas. |
-| `plantilla` | string (dos-reuniones \\| una-llamada \\| evento \\| formulario-meta \\| landing \\| te-escriben \\| prospeccion \\| carrito \\| respaldo \\| auto) | no | en plantilla: la plantilla de la ficha, o auto para la que elige MaKo. Arranca de cero los bloques y los avisos; el estilo queda. |
+| `plantilla` | string | no | en plantilla: el id (de ver_ficha_funnel) o auto. Sin tab, la de toda la ficha (arranca de cero bloques y avisos); con tab, la de esa tab. |
+| `nombre` | string | no | en nombre: cómo se llama la tab. Vacío, el de siempre. |
+| `epica` | boolean | no | en epica: true, la vista épica (pocas cosas, en grande). |
 
 ```bash
 curl -L \
@@ -3205,6 +3207,38 @@ curl -L \
   -H "Content-Type: application/json" \
   "https://hola-mako.com/api/v1/crm/importaciones" \
   -d '{"leads":[]}'
+```
+
+### `POST /api/v1/crm/ficha/tabs` — Armar una tab de la ficha
+
+PROPONE armar UNA tab de la ficha del lead de un CRM (Resumen, Reuniones, Pagos o Tracking) con lo que se pide en palabras («lo que tengo que hacer y su contacto, en grande»): MaKo elige los bloques ANTES de proponerla y el resumen dice cuáles. Cambia la tab para todos los leads de ese CRM. Solo el administrador. Sin embudoId, el CRM principal.
+
+- **Ruta por operación:** `POST /api/v1/crm/armar_tab_ficha`
+- **Token detallado:** permiso `crm=write` (Lectura y escritura en «CRM»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** guarda la tab armada en la ficha del CRM (funnels.data.ficha); cambia lo que ven todos sus leads
+- **Reversible:** sí
+- **Costo:** ia · puede tardar
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** crm
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `embudoId` | number | no | el CRM (de productos_del_lead). Sin él, el principal. |
+| `tab` | string (resumen \\| reuniones \\| pagos \\| tracking) | sí | la tab que se arma. |
+| `pedido` | string | sí | qué quiere ver en esa tab, en palabras. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/crm/ficha/tabs" \
+  -d '{"tab":"resumen","pedido":"PEDIDO"}'
 ```
 
 ## Ads (Manager y Analyst) — `ads`

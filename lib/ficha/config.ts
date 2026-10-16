@@ -9,7 +9,10 @@
 //   · los avisos prendidos o apagados a mano;
 //   · el estilo de toda la ficha: el TemaHoja del Dashboard (lib/graficos-temas.ts, no otro) más la
 //     densidad de las tarjetas, el «tamaño de las cards» que pidió Martín el 13/10;
-//   · la plantilla, si alguien eligió otra que la que elige MaKo.
+//   · la plantilla, si alguien eligió otra que la que elige MaKo;
+//   · POR TAB (16/10/2026, Martín: «Que se pueda cambiar el nombre de las tabs internas... que hayan templates para
+//     "resumen", "tracking" y todas las tabs... que se pueda ver "epico"»): la plantilla de la tab elegida a mano
+//     (./plantillas-tab.ts), el nombre que le puso el admin y la vista épica, si difiere de la de su plantilla.
 //
 // ⚠️ EL RESPALDO DEL NEGOCIO (`crm.resumen.campos` y `crm.datos_aviso.apagados`) manda en lo que nadie tocó
 //    en ESE funnel: con Instagram apagado, `redes-y-web` sale sin Instagram; con el formulario de Meta
@@ -17,6 +20,11 @@
 //    alguien tocó ya no lo lee: lo que quedó guardado es lo que esa persona vio.
 // ⚠️ SACAR UN BLOQUE A MANO NO APAGA SU AVISO (§4): los apagados salen de la PLANTILLA, nunca de la lista
 //    que quedó. Y las asistencias (NO_IGNORABLES) nunca se apagan, ni a mano.
+// ⚠️ LA PLANTILLA DE UNA TAB NO TOCA LOS AVISOS: siguen saliendo de la plantilla del FUNNEL (la que elige MaKo o la
+//    elegida a mano). Elegir «En blanco» para Pagos no apaga el aviso del monto: cambia lo que se ve, no lo que falta.
+// ⚠️ UNA TAB «CONFIGURADA» ES UNA QUE ALGUIEN TOCÓ en este funnel (su lista, su plantilla, su nombre o su épica, o la
+//    plantilla de todo el funnel). Las otras, la primera vez que un admin entra, abren la galería (`configuradas`).
+//    La plantilla de una tab elegida a mano QUEDA aunque sea la sugerida: «Usar la sugerida» es elegir.
 //
 // Puro, sin `server-only`: lo leen config-server.ts, la API de MaKo, la pantalla y los tests.
 // =============================================================================
@@ -34,6 +42,7 @@ import {
 import {
   apagadosDePlantilla, esPlantillaId, listaDePlantilla, plantillaFicha, type PlantillaFicha, type PlantillaId,
 } from './plantillas';
+import { bloquesDePlantillaTab, esPlantillaTabDe, plantillaTabDeEntrada, plantillaTabPorId, type PlantillaTab } from './plantillas-tab';
 
 // ── Lo que se guarda ──────────────────────────────────────────────────────────
 
@@ -70,6 +79,12 @@ export type FichaGuardada = {
   /** Los avisos cambiados a mano en este funnel: true prendido, false apagado. */
   avisos?: Partial<Record<StepId, boolean>>;
   estilo?: { tema?: TemaHoja; densidad?: Densidad };
+  /** Por tab, la plantilla de la tab elegida a mano (un id de ./plantillas-tab.ts). Sin ella, la de entrada. */
+  plantillasTab?: Partial<Record<TabFicha, string>>;
+  /** Por tab, el nombre que le puso el admin. La clave (`?tab=`) no cambia. */
+  nombres?: Partial<Record<TabFicha, string>>;
+  /** Por tab, la vista épica prendida o apagada a mano (sólo si difiere de la de su plantilla). */
+  epica?: Partial<Record<TabFicha, boolean>>;
 };
 
 /** Lo que el negocio ya eligió antes de que la ficha fuera por funnel. */
@@ -84,6 +99,21 @@ export const RESPALDO_VACIO: RespaldoNegocio = { resumen: {}, apagados: [] };
 /** Tope de bloques por tab: la plantilla más larga trae 18 y el catálogo de una tab ronda los 30. */
 export const TOPE_BLOQUES_TAB = 40;
 const TOPE_PREGUNTA = 200;
+/** El nombre de una tab: corto, entra en la fila de pestañas (Martín: el texto que se dibuja es corto). */
+export const TOPE_NOMBRE_TAB = 24;
+/**
+ * Las otras pestañas de la ficha, que no se personalizan (app/crm/lead-view/ficha/FichaPorBloques.tsx): una tab de
+ * datos no puede llamarse como ellas, o la fila tendría dos «Historial».
+ */
+export const NOMBRES_DE_OTRAS_TABS: readonly string[] = ['MaKo Analyst', 'Historial'];
+
+/** El nombre de una tab tal como llega: sin espacios de más ni caracteres de control, con tope. Vacío → null. */
+export function sanearNombreTab(raw: unknown): string | null {
+  if (typeof raw !== 'string') return null;
+  // eslint-disable-next-line no-control-regex
+  const t = raw.replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, TOPE_NOMBRE_TAB).trim();
+  return t || null;
+}
 
 // ── El saneo ──────────────────────────────────────────────────────────────────
 
@@ -183,6 +213,22 @@ export function sanearFicha(raw: unknown): FichaGuardada {
     if (esDensidad(e.densidad)) estilo.densidad = e.densidad;
     if (Object.keys(estilo).length) out.estilo = estilo;
   }
+  const porTab = <T>(x: unknown, sano: (v: unknown, tab: TabFicha) => T | null): Partial<Record<TabFicha, T>> | undefined => {
+    if (!x || typeof x !== 'object' || Array.isArray(x)) return undefined;
+    const r: Partial<Record<TabFicha, T>> = {};
+    for (const [k, v] of Object.entries(x as Record<string, unknown>)) {
+      if (!esTabFicha(k)) continue;
+      const ok = sano(v, k);
+      if (ok !== null) r[k] = ok;
+    }
+    return Object.keys(r).length ? r : undefined;
+  };
+  const plantillasTab = porTab(o.plantillasTab, (v, tab) => (esPlantillaTabDe(v, tab) ? v : null));
+  if (plantillasTab) out.plantillasTab = plantillasTab;
+  const nombres = porTab(o.nombres, (v) => sanearNombreTab(v));
+  if (nombres) out.nombres = nombres;
+  const epica = porTab(o.epica, (v) => (typeof v === 'boolean' ? v : null));
+  if (epica) out.epica = epica;
   return out;
 }
 
@@ -222,8 +268,32 @@ const eligioPrender = (r: ResumenElegido, id: 'youtube' | 'linkedin' | 'direccio
  *   · las redes y las fuentes de lo que contestó, como las eligió el negocio; sin ninguna red, sin bloque.
  */
 export function listaDeEntrada(p: PlantillaFicha, tab: TabFicha, respaldo: RespaldoNegocio): BloquePuesto[] {
+  return listaDeIds(listaDePlantilla(p, tab), tab, respaldo);
+}
+
+/**
+ * La lista de una tab que nadie tocó, con la PLANTILLA DE LA TAB (./plantillas-tab.ts): sus bloques con el respaldo
+ * del negocio (como `listaDeEntrada`), el ancho y el diseño que trae la plantilla si el bloque los acepta, y lo que
+ * no se puede quitar (el contacto del Resumen, también en «En blanco»).
+ */
+export function listaDeEntradaTab(pt: PlantillaTab, tab: TabFicha, respaldo: RespaldoNegocio): BloquePuesto[] {
+  const propios = bloquesDePlantillaTab(pt);
+  const de = new Map(propios.map((b) => [b.id, b] as const));
+  const l = listaDeIds(propios.map((b) => b.id), tab, respaldo).map((b) => {
+    const pide = de.get(b.id);
+    const def = bloqueDef(b.id)!;
+    const out = { ...b };
+    if (pide?.ancho && def.anchos.includes(pide.ancho)) out.ancho = pide.ancho;
+    if (pide?.diseno && def.disenos.some((d) => d.id === pide.diseno)) out.diseno = pide.diseno;
+    return out;
+  });
+  return conFijos(l, tab);
+}
+
+/** La lista de entrada de unos ids, con el respaldo del negocio (la regla de `listaDeEntrada`). */
+function listaDeIds(deLaPlantilla: readonly BloqueId[], tab: TabFicha, respaldo: RespaldoNegocio): BloquePuesto[] {
   const r = respaldo.resumen;
-  let ids: BloqueId[] = [...listaDePlantilla(p, tab)];
+  let ids: BloqueId[] = [...deLaPlantilla];
   const fuera = new Set<BloqueId>();
   if (!seVe(r, 'ingreso')) fuera.add('ingreso-estimado');
   if (!seVe(r, 'cohorte')) fuera.add('cohorte');
@@ -258,6 +328,19 @@ export type FichaEfectiva = {
   tabs: Record<TabFicha, BloquePuesto[]>;
   /** Las tabs que alguien tocó: ésas ya no siguen a la plantilla. */
   tocadas: TabFicha[];
+  /** Por tab, la plantilla de la tab que manda: la elegida a mano o la de entrada (./plantillas-tab.ts). */
+  plantillasTab: Record<TabFicha, string>;
+  /** Las tabs cuya plantilla eligió alguien. */
+  plantillasTabAMano: TabFicha[];
+  /** El nombre que se dibuja de cada tab: el que le puso el admin, o el de siempre. */
+  nombres: Record<TabFicha, string>;
+  /** La vista épica de cada tab: la de su plantilla, o la que eligió el admin. */
+  epica: Record<TabFicha, boolean>;
+  /**
+   * Las tabs que alguien CONFIGURÓ en este funnel: su lista, su plantilla, su nombre o su épica (o eligió la plantilla de
+   * todo el funnel). Las otras, la primera vez que entra un admin, abren la galería con «¿Qué vas a crear hoy?».
+   */
+  configuradas: TabFicha[];
   /** Los datos que NO avisan en este funnel (nunca una asistencia). En el orden de DATOS_AVISABLES. */
   apagados: StepId[];
   /** Cada dato con su estado y su porqué, para el panel de avisos y para MaKo. */
@@ -322,16 +405,27 @@ export function fichaEfectiva(elegida: PlantillaId, guardada: FichaGuardada | nu
   const p = plantillaFicha(id);
   const tabs = {} as Record<TabFicha, BloquePuesto[]>;
   const tocadas: TabFicha[] = [];
+  const plantillasTab = {} as Record<TabFicha, string>;
+  const plantillasTabAMano: TabFicha[] = [];
+  const nombres = {} as Record<TabFicha, string>;
+  const epica = {} as Record<TabFicha, boolean>;
+  const configuradas: TabFicha[] = [];
   for (const tab of TABS_FICHA) {
+    const pt = plantillaTabQueManda(tab, id, guardada);
+    plantillasTab[tab] = pt.id;
+    if (guardada?.plantillasTab?.[tab]) plantillasTabAMano.push(tab);
     const g = guardada?.tabs?.[tab];
     if (g) { tocadas.push(tab); tabs[tab] = g.map((b) => conOpciones(b, respaldo)); }
-    else tabs[tab] = listaDeEntrada(p, tab, respaldo);
+    else tabs[tab] = listaDeEntradaTab(pt, tab, respaldo);
+    nombres[tab] = guardada?.nombres?.[tab] ?? NOMBRE_TAB[tab];
+    epica[tab] = guardada?.epica?.[tab] ?? !!pt.epico;
+    if (guardada?.plantilla || g || guardada?.plantillasTab?.[tab] || guardada?.nombres?.[tab] || typeof guardada?.epica?.[tab] === 'boolean') configuradas.push(tab);
   }
   const avisos = estadoAvisos(p, guardada, respaldo);
   return {
     plantilla: id,
     plantillaAMano: !!guardada?.plantilla,
-    tabs, tocadas,
+    tabs, tocadas, plantillasTab, plantillasTabAMano, nombres, epica, configuradas,
     apagados: avisos.filter((a) => !a.avisa).map((a) => a.id),
     avisos,
     estilo: {
@@ -339,6 +433,13 @@ export function fichaEfectiva(elegida: PlantillaId, guardada: FichaGuardada | nu
       densidad: guardada?.estilo?.densidad ?? DENSIDAD_BASE,
     },
   };
+}
+
+/** La plantilla de una tab que manda: la elegida a mano (si sigue existiendo y es de esa tab) o la de entrada del tipo. */
+export function plantillaTabQueManda(tab: TabFicha, tipo: PlantillaId, guardada: FichaGuardada | null | undefined): PlantillaTab {
+  const elegida = guardada?.plantillasTab?.[tab];
+  const pt = elegida ? plantillaTabPorId(elegida) : undefined;
+  return pt && pt.tab === tab ? pt : plantillaTabDeEntrada(tab, tipo);
 }
 
 /** La tab donde se completa un dato en ESTA ficha (la del primer bloque que lo pide), o null si ninguno lo tiene. */
@@ -380,10 +481,30 @@ export type CambioFicha =
   | { op: 'avisos'; apagados: StepId[] }
   | { op: 'tema'; tema: Partial<TemaHoja> }
   | { op: 'densidad'; densidad: Densidad }
-  /** Volver a la plantilla: una tab, o todas las tabs y los avisos. El estilo queda. */
+  /**
+   * Volver a la plantilla: una tab (su lista, su nombre y su épica; la plantilla de la tab elegida queda), o toda la
+   * ficha (las tabs, sus plantillas, sus nombres, sus épicas y los avisos). El estilo queda.
+   */
   | { op: 'volver'; tab?: TabFicha }
-  /** Usar otra plantilla (null = la que elige MaKo). Arranca de cero las tabs y los avisos; el estilo queda. */
-  | { op: 'plantilla'; plantilla: PlantillaId | null }
+  /**
+   * Usar otra plantilla para TODA la ficha (null = la que elige MaKo). Arranca de cero las tabs, sus plantillas, sus
+   * épicas y los avisos; el estilo y los nombres de las tabs quedan.
+   */
+  | { op: 'plantilla'; plantilla: PlantillaId | null; tab?: undefined }
+  /**
+   * Usar una plantilla de TAB (./plantillas-tab.ts) en esa tab, y sólo en esa (null = la de entrada). Arranca de cero
+   * su lista y su épica; su nombre queda. Elegir la sugerida también se guarda: es elegir.
+   */
+  | { op: 'plantilla'; tab: TabFicha; plantilla: string | null }
+  /** El nombre de una tab (null o vacío = el de siempre). La clave de la tab (`?tab=`) no cambia. */
+  | { op: 'nombre'; tab: TabFicha; nombre: string | null }
+  /** La vista épica de una tab: pocas cosas, en grande y con más aire. */
+  | { op: 'epica'; tab: TabFicha; epica: boolean }
+  /**
+   * Lo que armó MaKo con un pedido («¿Qué vas a crear hoy?», lib/ficha/ia.ts): la lista entera de la tab y su épica,
+   * en UN cambio (un solo «Deshacer»). Deja fija la plantilla de la tab sobre la que se armó: la tab queda configurada.
+   */
+  | { op: 'armar'; tab: TabFicha; bloques: BloquePuesto[]; epica: boolean }
   /**
    * Deshacer: vuelve a una ficha guardada antes (la que devolvió el cambio anterior). `esperado` es cómo dejó
    * la ficha el cambio que se deshace: si hoy es otra, alguien la cambió después y NO se restaura (sería
@@ -393,7 +514,7 @@ export type CambioFicha =
 
 export type ResultadoCambio = { ok: true; ficha: FichaGuardada; cambio: boolean } | { ok: false; error: string };
 
-const OPS = ['poner', 'quitar', 'mover', 'ancho', 'diseno', 'icono', 'opciones', 'lista', 'aviso', 'avisos', 'tema', 'densidad', 'volver', 'plantilla', 'restaurar'] as const;
+const OPS = ['poner', 'quitar', 'mover', 'ancho', 'diseno', 'icono', 'opciones', 'lista', 'aviso', 'avisos', 'tema', 'densidad', 'volver', 'plantilla', 'nombre', 'epica', 'armar', 'restaurar'] as const;
 const entero = (x: unknown): number | undefined => (typeof x === 'number' && Number.isInteger(x) && x >= 1 && x <= 999 ? x : undefined);
 
 /**
@@ -407,7 +528,7 @@ export function sanearCambio(raw: unknown): CambioFicha | { error: string } {
   const op = o.op;
   if (typeof op !== 'string' || !(OPS as readonly string[]).includes(op)) return { error: 'Ese cambio no existe.' };
   const conBloque = ['poner', 'quitar', 'mover', 'ancho', 'diseno', 'icono', 'opciones'].includes(op);
-  const conTab = conBloque || op === 'lista';
+  const conTab = conBloque || op === 'lista' || op === 'nombre' || op === 'epica' || op === 'armar';
   if (conTab && !esTabFicha(o.tab)) return { error: 'Falta la tab: resumen, reuniones, pagos o tracking.' };
   const tab = o.tab as TabFicha;
   if (conBloque) {
@@ -468,8 +589,23 @@ export function sanearCambio(raw: unknown): CambioFicha | { error: string } {
       if (o.tab !== undefined && !esTabFicha(o.tab)) return { error: 'Esa tab no existe.' };
       return { op, ...(esTabFicha(o.tab) ? { tab: o.tab } : {}) };
     case 'plantilla':
+      if (o.tab !== undefined) {
+        if (!esTabFicha(o.tab)) return { error: 'Esa tab no existe.' };
+        const pt = o.plantilla ?? null;
+        if (pt !== null && !esPlantillaTabDe(pt, o.tab)) return { error: `Esa plantilla no es de ${NOMBRE_TAB[o.tab]}.` };
+        return { op, tab: o.tab, plantilla: pt as string | null };
+      }
       if (o.plantilla !== null && !esPlantillaId(o.plantilla)) return { error: 'Esa plantilla no existe.' };
       return { op, plantilla: (o.plantilla ?? null) as PlantillaId | null };
+    case 'nombre':
+      if (o.nombre !== null && o.nombre !== undefined && typeof o.nombre !== 'string') return { error: 'El nombre es un texto.' };
+      return { op, tab, nombre: sanearNombreTab(o.nombre) };
+    case 'epica':
+      if (typeof o.epica !== 'boolean') return { error: 'Falta si va épica o no.' };
+      return { op, tab, epica: o.epica };
+    case 'armar':
+      if (!Array.isArray(o.bloques)) return { error: 'Falta la lista de bloques.' };
+      return { op, tab, bloques: sanearLista(o.bloques, tab), epica: o.epica === true };
     case 'restaurar': return { op, ficha: sanearFicha(o.ficha), ...(o.esperado !== undefined ? { esperado: sanearFicha(o.esperado) } : {}) };
   }
   return { error: 'Ese cambio no existe.' };
@@ -494,11 +630,26 @@ export function normalizar(g: FichaGuardada, elegida: PlantillaId, respaldo: Res
   // La plantilla elegida a mano queda aunque hoy coincida con la de MaKo: si mañana el funnel suma una
   // reunión, MaKo elegiría otra, y lo que la persona eligió no puede cambiar solo.
   if (g.plantilla) out.plantilla = g.plantilla;
-  const p = plantillaFicha(out.plantilla ?? elegida);
-  const tabs: Partial<Record<TabFicha, BloquePuesto[]>> = {};
+  const tipo = out.plantilla ?? elegida;
+  const p = plantillaFicha(tipo);
+  // La plantilla de una tab elegida a mano queda aunque sea la de entrada (es lo que dice que alguien la eligió).
+  const plantillasTab: Partial<Record<TabFicha, string>> = {};
   for (const tab of TABS_FICHA) {
+    const pt = g.plantillasTab?.[tab];
+    if (pt && esPlantillaTabDe(pt, tab)) plantillasTab[tab] = pt;
+  }
+  if (Object.keys(plantillasTab).length) out.plantillasTab = plantillasTab;
+  const tabs: Partial<Record<TabFicha, BloquePuesto[]>> = {};
+  const epica: Partial<Record<TabFicha, boolean>> = {};
+  const nombres: Partial<Record<TabFicha, string>> = {};
+  for (const tab of TABS_FICHA) {
+    const pt = plantillaTabQueManda(tab, tipo, out);
     const l = g.tabs?.[tab];
-    if (l && !igual(l, listaDeEntrada(p, tab, respaldo))) tabs[tab] = l;
+    if (l && !igual(l, listaDeEntradaTab(pt, tab, respaldo))) tabs[tab] = l;
+    const e = g.epica?.[tab];
+    if (typeof e === 'boolean' && e !== !!pt.epico) epica[tab] = e;
+    const nom = sanearNombreTab(g.nombres?.[tab]);
+    if (nom && nom !== NOMBRE_TAB[tab]) nombres[tab] = nom;
   }
   if (Object.keys(tabs).length) out.tabs = tabs;
   const base = estadoAvisos(p, {}, respaldo);
@@ -512,6 +663,8 @@ export function normalizar(g: FichaGuardada, elegida: PlantillaId, respaldo: Res
   if (g.estilo?.tema && !igual(g.estilo.tema, TEMA_BASE)) estilo.tema = g.estilo.tema;
   if (g.estilo?.densidad && g.estilo.densidad !== DENSIDAD_BASE) estilo.densidad = g.estilo.densidad;
   if (Object.keys(estilo).length) out.estilo = estilo;
+  if (Object.keys(nombres).length) out.nombres = nombres;
+  if (Object.keys(epica).length) out.epica = epica;
   return out;
 }
 
@@ -581,12 +734,36 @@ export function aplicarCambio(actual: FichaGuardada, c: CambioFicha, elegida: Pl
     case 'tema': g.estilo = { ...(g.estilo ?? {}), tema: sanearTema({ ...ef.estilo.tema, ...c.tema }) }; break;
     case 'densidad': g.estilo = { ...(g.estilo ?? {}), densidad: c.densidad }; break;
     case 'volver':
-      if (c.tab) { if (g.tabs) delete g.tabs[c.tab]; }
-      else { delete g.tabs; delete g.avisos; }
+      if (c.tab) { if (g.tabs) delete g.tabs[c.tab]; if (g.nombres) delete g.nombres[c.tab]; if (g.epica) delete g.epica[c.tab]; }
+      else { delete g.tabs; delete g.avisos; delete g.plantillasTab; delete g.nombres; delete g.epica; }
       break;
     case 'plantilla':
+      if (c.tab) {
+        const tab = c.tab;
+        if (c.plantilla) g.plantillasTab = { ...(g.plantillasTab ?? {}), [tab]: c.plantilla };
+        else if (g.plantillasTab) delete g.plantillasTab[tab];
+        if (g.tabs) delete g.tabs[tab];
+        if (g.epica) delete g.epica[tab];
+        break;
+      }
       if (c.plantilla) g.plantilla = c.plantilla; else delete g.plantilla;
-      delete g.tabs; delete g.avisos;
+      delete g.tabs; delete g.avisos; delete g.plantillasTab; delete g.epica;
+      break;
+    case 'nombre': {
+      const nombre = c.nombre ?? null;
+      const mismo = (x: string) => !!nombre && x.toLocaleLowerCase('es') === nombre.toLocaleLowerCase('es');
+      const otra = TABS_FICHA.filter((t) => t !== c.tab).map((t) => ef.nombres[t]).concat(NOMBRES_DE_OTRAS_TABS).find(mismo);
+      if (otra) return { ok: false, error: `Ya hay una tab que se llama «${otra}».` };
+      if (nombre) g.nombres = { ...(g.nombres ?? {}), [c.tab]: nombre };
+      else if (g.nombres) delete g.nombres[c.tab];
+      break;
+    }
+    case 'epica': g.epica = { ...(g.epica ?? {}), [c.tab]: c.epica }; break;
+    case 'armar':
+      ponerTab(c.tab, sanearLista(c.bloques, c.tab));
+      g.epica = { ...(g.epica ?? {}), [c.tab]: c.epica };
+      // La tab queda configurada aunque MaKo haya armado lo mismo que traía su plantilla.
+      g.plantillasTab = { ...(g.plantillasTab ?? {}), [c.tab]: ef.plantillasTab[c.tab] };
       break;
     case 'restaurar': {
       const hoy = normalizar(actual, elegida, respaldo);
@@ -624,7 +801,12 @@ export function describirCambio(c: CambioFicha): string {
     case 'tema': return 'Cambiar el estilo de la ficha';
     case 'densidad': return `Tarjetas: ${DENSIDADES.find((x) => x.id === c.densidad)?.nombre ?? c.densidad}`;
     case 'volver': return c.tab ? `Volver ${t} a la plantilla` : 'Volver toda la ficha a la plantilla';
-    case 'plantilla': return c.plantilla ? `Usar la plantilla «${plantillaFicha(c.plantilla).nombre}»` : 'Usar la plantilla que elige MaKo';
+    case 'plantilla':
+      if (c.tab) return c.plantilla ? `Usar «${plantillaTabPorId(c.plantilla)?.nombre ?? c.plantilla}» en ${t}` : `${t} con la plantilla sugerida`;
+      return c.plantilla ? `Usar la plantilla «${plantillaFicha(c.plantilla).nombre}»` : 'Usar la plantilla que elige MaKo';
+    case 'nombre': return c.nombre ? `Llamar «${c.nombre}» a ${t}` : `${t} con su nombre de siempre`;
+    case 'epica': return `${t}: vista épica ${c.epica ? 'prendida' : 'apagada'}`;
+    case 'armar': return `Armar ${t} con ${c.bloques.length} ${c.bloques.length === 1 ? 'bloque' : 'bloques'}${c.epica ? ', épica' : ''}`;
     case 'restaurar': return 'Deshacer el último cambio de la ficha';
   }
 }

@@ -99,6 +99,9 @@ import {
 import { leerFichaDeFunnel, cambiarFichaDeFunnel, type FichaDelFunnel } from '@/lib/ficha/config-server';
 import { aplicarCambio, describirCambio, sanearCambio } from '@/lib/ficha/config';
 import { cambioDeInputApi, salidaFichaApi } from '@/lib/ficha/api';
+import { generarTabIA } from '@/lib/ficha/ia-generar';
+import { TOPE_PEDIDO_TAB } from '@/lib/ficha/ia';
+import { bloqueDef, esTabFicha } from '@/lib/ficha/catalogo';
 
 /** Los campos del Deal Details por sección: el parámetro plano es `<seccion>_<campo>`. */
 const CAMPOS_DEAL = {
@@ -883,6 +886,40 @@ export const RUNNERS: Runners = {
       if (!r.cambio) return { ok: false, resumen: 'La ficha ya estaba así: no se cambió nada.' };
       // Los avisos de la ficha cambian lo que cuenta «Datos sin marcar» (la caché de leads).
       invalidar('leads');
+      return { ok: true, resumen: `Listo: ${describirCambio(c)}.` };
+    }),
+  },
+
+  // «¿Qué vas a crear hoy?» de una tab (16/10/2026): MaKo la arma ANTES de proponerla, como la pantalla
+  // (app/api/crm/ficha/armar) y como crear_hoja_dashboard con pedido. Lo que se confirma es lo que se guarda.
+  armar_tab_ficha: {
+    preparar: async (input, ctx) => {
+      const f = await fichaDelCrm(input.embudoId);
+      if ('error' in f) return f;
+      const tab = s(input.tab);
+      if (!esTabFicha(tab)) return { error: 'Falta la tab: resumen, reuniones, pagos o tracking.' };
+      const pedido = (s(input.pedido) ?? '').slice(0, TOPE_PEDIDO_TAB);
+      if (!pedido) return { error: 'Falta el pedido: qué quiere ver en esa tab.' };
+      // Por HTTP, el plazo corto de la API (como crear_hoja_dashboard).
+      const g = await generarTabIA(pedido, tab, Date.now(), ctx.canal === 'http' ? { plazoMs: 40_000 } : {});
+      if ('error' in g) return { error: g.error };
+      const c = { op: 'armar' as const, tab, bloques: g.bloques, epica: g.epica };
+      const r = aplicarCambio(f.guardada, c, f.eleccion.id, f.respaldo);
+      if (!r.ok) return { error: r.error };
+      if (!r.cambio) return { error: 'La tab ya está así.', yaEstaba: true };
+      const titulos = g.bloques.map((b) => bloqueDef(b.id)?.titulo ?? b.id);
+      const aviso = g.avisos.length ? ` (${g.avisos.slice(0, 3).join(' · ')})` : '';
+      return {
+        payload: { embudoId: f.funnel.id, cambio: c },
+        resumen: `Armar ${f.efectiva.nombres[tab]} en la ficha de «${f.funnel.nombre}» (para todos sus leads)${g.epica ? ', épica' : ''}: ${titulos.join(', ')}${aviso}.`,
+      };
+    },
+    ejecutar: (payload) => seguro('armar la tab', async () => {
+      const c = sanearCambio(payload.cambio);
+      if ('error' in c) return { ok: false, resumen: c.error };
+      const r = await cambiarFichaDeFunnel(Number(payload.embudoId), c);
+      if (!r.ok) return { ok: false, resumen: r.error };
+      if (!r.cambio) return { ok: false, resumen: 'La tab ya estaba así: no se cambió nada.' };
       return { ok: true, resumen: `Listo: ${describirCambio(c)}.` };
     }),
   },
