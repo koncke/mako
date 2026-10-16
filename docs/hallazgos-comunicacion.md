@@ -9893,3 +9893,49 @@ archivo:
   reagendar la reunión.» como descripción que ve el lead.
 
 **Vive en:** docs/inventario-nada-por-detras.md (la lista y el orden de la mudanza)
+
+## Las dos capturas, mudadas: texto literal, sin camino viejo y con techo (16/10/2026)
+
+Lote 1 de docs/inventario-nada-por-detras.md: el «Se desconectó tu WhatsApp» de Leila y el «ANUNCIOS · 19 H 40 MIN SIN
+ENTREGAR… (18ª vez)» del grupo de Mauricio.
+
+- **La #253 no tenía el texto que salía.** Citaba `{{linea_titulo}}` y `{{linea_motivo}}`, y esas dos «variables» eran
+  frases enteras escritas en el código. Ahora «se cortó» y «se desconectó» son dos eventos, cada uno con su fila y su
+  texto entero. **Regla:** una variable es un DATO (un número, una fecha, un estado), nunca una frase; si el texto cambia
+  según el caso, son dos salidas de una CONDITION o dos eventos.
+- ⚠️ **Sin camino viejo, un evento de la plataforma SIN fila no manda nada.** Hasta el 16/10 salía «como antes» con el
+  texto del código (`sinFila`): era otro envío por detrás. **Antes de desplegar algo así hay que mirar que la fila de cada
+  evento exista y esté prendida en el ws9** (el 16/10 estaban #253 a #256; la de `oferta_lista` NO). Para un aviso que el
+  código de producción todavía manda por su lado, crear la fila ANTES del deploy no cambia nada y no deja hueco.
+- **El «18ª vez» no era un dedup roto:** era el diseño. `insistirAlertasCriticas` mandaba `emitirAviso` DIRECTO cada 60
+  min, sin techo. Ahora emite el evento `meta_cuenta_frenada` con los HECHOS del incidente y la fila de SuperAdmin tiene el
+  techo («Aviso número ≤ 3», editable) y un texto literal por estado de la cuenta.
+- ⚠️ **Qué cuenta como «avisado» (la revisión del 16/10 lo cazó antes de subir):** `emitirPorEvento` devuelve `wa: true`
+  apenas CORRE una fila, aunque la tarjeta se haya dormido esperando el horario de oficina o no haya salido. Contando eso,
+  el techo se gastaba de noche (tres corridas dormidas que salían juntas a las 9, con los datos de la noche), entre el
+  deploy y la mudanza, o con la línea caída. Ahora el emisor devuelve `llegaron` (al grupo o por email) y SÓLO eso suma;
+  la alerta «Lo manda igual» fuera del horario, como salió siempre; y el techo cuenta por ESTADO: un empeoramiento
+  («En período de gracia» → «Pendiente de cierre») vuelve a avisar.
+- ⚠️ **Un negocio sin grupo de MaKo se llenaba la campanita:** el ws4 («Cliente de Diseño», con la cuenta de Meta de
+  Mauricio) tuvo 64 filas de «meta-cuenta-frenada» el 16/10, una cada 10 minutos. Sin grupo, el aviso no salía ni estaba
+  apagado, la marca de insistencia no se escribía y el cron lo volvía a intentar en cada vuelta. Con el evento, sin llegar
+  vuelve en la próxima cadencia (una hora), no en cada vuelta.
+- ⚠️ **El interruptor del ws1 se apagó A MANO el 16/10** («meta-cuenta-frenada» en `mako.plantillas.store`, decisión de
+  Cerebro sobre el pedido de Martín) para cortar la insistencia mientras la automatización no estaba desplegada. **No
+  hay que volver a prenderlo:** con el evento, `emitirDelCatalogo` desvía el aviso a la automatización ANTES de leer el
+  store, y ese interruptor ya no lo lee nadie.
+- ⚠️ **Para verificar un interruptor de PRODUCCIÓN, se lee con el código de producción.** Leído con el de la rama, el
+  mismo aviso decía «prendido» después de apagarlo: en la rama ya es un evento, y `getPlantilla` deja afuera los eventos,
+  así que `estadoAviso` cae a su default «prendido». Con el código de main decía «apagado».
+- **La campanita SÍ tiene tabla en producción** (`notificaciones`, mig 0250: 273 filas el 16/10). Lo que falta es leerla
+  en escritorio: hoy sólo la lee el «Avisos» de MaKo Mobile.
+
+**Sin hacer:** cada cuánto insiste (`CADENCIA_MIN`, una hora) sigue en el código: falta la pieza «el ritmo, en la fila».
+`despacharReporte` (lib/notify.ts) quedó sin llamadas: borrarlo junto con sus tests. Lo que un negocio tenía guardado para
+«meta-cuenta-frenada» en su lista (apagado, o también por email) ya no se lee: lo decide la fila de SuperAdmin.
+
+**Vive en:** `lib/linea-vigilancia.ts` (`avisoDeCaida`, `datosCaida`) · `lib/alerta-critica.ts` ·
+`lib/alerta-critica-texto.ts` (`datosCuentaFrenada`, `marcaTrasEmitir`, `vecesDelEstado`) · `lib/aviso-evento.ts`
+(`llegaron`) · `lib/plantillas-automatizaciones.ts` (`mako-whatsapp-*`, `mako-meta-cuenta-*`, `makoUrgente`) ·
+`scripts/mudanza-avisos-plataforma.mts` · `scripts/reescribir-filas-plataforma.mts` · tests: `tests/linea-vigilancia.test.ts`,
+`tests/alerta-critica.test.ts`, `tests/avisos-plataforma.test.ts`

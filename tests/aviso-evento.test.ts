@@ -89,8 +89,9 @@ test('EVENTOS_MAKO: siete (15/10: restablecer la contraseña), cada subtipo se g
   // (15/10/2026: y los dos primeros Mensajes de MaKo a sus clientes, de la PLATAFORMA: la línea caída y la que volvió.)
   // (16/10/2026: y el reporte de los lunes, que sale por «MaKo por email».)
   // (16/10/2026, tarde: «WhatsApp cerró la sesión» es su propio evento, con su texto literal: docs/inventario-nada-por-detras.md.)
-  assert.deepEqual(EVENTOS_MAKO.map((e) => e.subtipo), ['reunion_pronto', 'lead_contesta', 'cuota_vencida', 'lead_agendo', 'pago_recibido', 'analisis_listo', 'contrasena_restablecer', 'whatsapp_caido', 'whatsapp_desvinculado', 'whatsapp_volvio', 'reunion_grabada', 'reporte_semanal']);
-  assert.deepEqual(EVENTOS_MAKO.map((e) => e.aviso), ['reunion-recordatorio', 'wa-mensaje-entrante', 'cuota-vencida', 'reunion-nuevo-agendado', 'pago-recibido', 'dashboard-analisis-listo', 'seguridad-contrasena-restablecer', 'wa-desconectado', 'wa-desvinculado', 'wa-reconectado', 'reunion-ocurrio-fathom', 'reporte-semanal']);
+  // (16/10/2026, noche: y la cuenta publicitaria frenada y su «ya está», lote 1 de docs/inventario-nada-por-detras.md.)
+  assert.deepEqual(EVENTOS_MAKO.map((e) => e.subtipo), ['reunion_pronto', 'lead_contesta', 'cuota_vencida', 'lead_agendo', 'pago_recibido', 'analisis_listo', 'contrasena_restablecer', 'whatsapp_caido', 'whatsapp_desvinculado', 'whatsapp_volvio', 'reunion_grabada', 'reporte_semanal', 'meta_cuenta_frenada', 'meta_cuenta_recuperada']);
+  assert.deepEqual(EVENTOS_MAKO.map((e) => e.aviso), ['reunion-recordatorio', 'wa-mensaje-entrante', 'cuota-vencida', 'reunion-nuevo-agendado', 'pago-recibido', 'dashboard-analisis-listo', 'seguridad-contrasena-restablecer', 'wa-desconectado', 'wa-desvinculado', 'wa-reconectado', 'reunion-ocurrio-fathom', 'reporte-semanal', 'meta-cuenta-frenada', 'meta-cuenta-recuperada']);
   for (const e of EVENTOS_MAKO) {
     // El subtipo pasa el saneo del CRON (el id crudo, con guion, no pasaría).
     assert.equal(sanearDisparador({ id: 'd1', trigger_tipo: TRIGGER_AVISO_MAKO, subtipo: e.subtipo })?.subtipo, e.subtipo, e.subtipo);
@@ -166,7 +167,7 @@ test('el CRON: clase «mako», su texto es el label, no es un botón de la prime
 // `{{mensaje_mako}}`) → 23 / 1 (los datos del «{ }»). Y R19 (`problemaDeCambio` deja nacer una fila NUEVA con un
 // evento retirado, al pegar o duplicar) → 23 / 1 (problemaDeCambio).
 test('los retirados (el nuevo agendado y la media hora antes) no se ofrecen, y siguen vivos para las filas que los usan', () => {
-  assert.deepEqual(EVENTOS_MAKO_OFRECIDOS.map((e) => e.subtipo), ['lead_contesta', 'cuota_vencida', 'pago_recibido', 'analisis_listo', 'contrasena_restablecer', 'whatsapp_caido', 'whatsapp_desvinculado', 'whatsapp_volvio', 'reunion_grabada', 'reporte_semanal']);
+  assert.deepEqual(EVENTOS_MAKO_OFRECIDOS.map((e) => e.subtipo), ['lead_contesta', 'cuota_vencida', 'pago_recibido', 'analisis_listo', 'contrasena_restablecer', 'whatsapp_caido', 'whatsapp_desvinculado', 'whatsapp_volvio', 'reunion_grabada', 'reporte_semanal', 'meta_cuenta_frenada', 'meta_cuenta_recuperada']);
   assert.deepEqual(EVENTOS_MAKO.filter((e) => e.retirado).map((e) => e.subtipo), ['reunion_pronto', 'lead_agendo']);
   // EL SELECTOR DEL CRON los ofrece así (enchufado en el cierre de la ola 3: dibujaba `eventosDe`, con los retirados):
   // sin los retirados, salvo el que la fila YA tiene (la viva de antes se ve elegida hasta el script). Probado
@@ -175,7 +176,7 @@ test('los retirados (el nuevo agendado y la media hora antes) no se ofrecen, y s
   assert.deepEqual(eventosOfrecidos('mako', 'lead_agendo').map((e) => e.subtipo), ['lead_contesta', 'cuota_vencida', 'lead_agendo', 'pago_recibido', 'analisis_listo']);
   // El de una PERSONA (15/10/2026) se ofrece sólo en la plataforma: en un negocio no le llegaría nunca.
   // Y los de la PLATAFORMA a sus clientes (15/10/2026), también sólo ahí (el negocio de arriba no los ve).
-  assert.deepEqual(eventosOfrecidos('mako', null, { plataforma: true }).map((e) => e.subtipo), ['lead_contesta', 'cuota_vencida', 'pago_recibido', 'analisis_listo', 'contrasena_restablecer', 'whatsapp_caido', 'whatsapp_desvinculado', 'whatsapp_volvio', 'reunion_grabada', 'reporte_semanal']);
+  assert.deepEqual(eventosOfrecidos('mako', null, { plataforma: true }).map((e) => e.subtipo), ['lead_contesta', 'cuota_vencida', 'pago_recibido', 'analisis_listo', 'contrasena_restablecer', 'whatsapp_caido', 'whatsapp_desvinculado', 'whatsapp_volvio', 'reunion_grabada', 'reporte_semanal', 'meta_cuenta_frenada', 'meta_cuenta_recuperada']);
   assert.deepEqual(eventosOfrecidos('pagos', null), eventosDe('pagos'), 'las otras clases, como siempre');
   assert.match(leer('app/automations/EditorDisparadores.tsx'), /\{eventosOfrecidos\(clase, d\.subtipo, \{ plataforma \}\)\.map\(\(ev\) => \{/);
   assert.doesNotMatch(leer('app/automations/EditorDisparadores.tsx'), /eventosDe\(clase\)/, 'el selector volvió a ofrecer los retirados');
@@ -297,8 +298,12 @@ test('cada tarjeta que el runner no sabe correr se rechaza CON su tarjeta (Publi
   caso([{ ...RELLENO, id: 'entrada', nodo: 'inicio', siguiente: 'm1', paralelos: ['m2'] } as PasoGrafo, mako('m1', 'A', null), mako('m2', 'B', null)], 'lead_contesta', MOTIVO_EVENTO.paralelo, null);
   caso([esperar('d1', 60, 'm1', 'antes_reunion'), mako('m1', 'Hola', null)], 'reunion_pronto', MOTIVO_EVENTO.delayReunion, 'd1');
   caso([esperar('d1', (DELAY_MAX_HORAS + 1) * 60, 'm1'), mako('m1', 'Hola', null)], 'lead_contesta', MOTIVO_EVENTO.delayTope, 'd1');
-  caso([condicion('c1', [rama('c1_si', 'm1')], 'm2'), mako('m1', 'A', null), mako('m2', 'B', null)], 'lead_contesta', MOTIVO_EVENTO.condicion, 'c1');
-  caso([condicion('c1', [rama('c1_a', 'm1'), rama('c1_b', 'm1')], null), mako('m1', 'A', null)], 'lead_contesta', MOTIVO_EVENTO.condicion, 'c1');
+  // (16/10/2026: la CONDITION de un evento admite «Si no» y varias salidas —tests/dato-evento.test.ts—; lo que no va es
+  // que dos salidas se JUNTEN en la misma tarjeta, ni una sin ninguna salida.)
+  assert.equal(frenoDelEvento([condicion('c1', [rama('c1_si', 'm1')], 'm2'), mako('m1', 'A', null), mako('m2', 'B', null)], 'lead_contesta'), null);
+  caso([condicion('c1', [rama('c1_a', 'm1'), rama('c1_b', 'm1')], null), mako('m1', 'A', null)], 'lead_contesta', MOTIVO_EVENTO.juntas, 'm1');
+  caso([condicion('c1', [rama('c1_si', 'm1')], 'm1'), mako('m1', 'A', null)], 'lead_contesta', MOTIVO_EVENTO.juntas, 'm1');
+  caso([condicion('c1', [], 'm1'), mako('m1', 'A', null)], 'lead_contesta', MOTIVO_EVENTO.condicion, 'c1');
   caso([mako('m1', '   ', null)], 'lead_contesta', MOTIVO_EVENTO.makoVacia, 'm1');
   caso([mako('m1', '{{mensaje_mako}}', null)], 'cuota_vencida', MOTIVO_EVENTO.sinMensaje, 'm1');
   caso([mako('m1', ENTRADA, 'd1'), esperar('d1', 60, 'm2'), mako('m2', 'Ya van {{cuota_dias}}', null)], 'cuota_vencida', MOTIVO_EVENTO.envejece, 'm2');
@@ -501,7 +506,8 @@ test('el runner: correrFlujoDe corta los tres, la tarjeta MaKo emite el aviso co
   assert.match(bloque(FLUJOS, 'export async function correrFlujoDe(', '\n}\n'), /^[^\n]*\n\s*if \(AVISOS_POR_EVENTO\.has\(avisoId\)\) return false;/);
   const paso = bloque(FLUJOS, 'async function ejecutarPaso(', '\nasync function emitirTarjetaDelEvento(');
   // Undécima tanda: con la lista de la tarjeta (`paso.partes`, la tarjeta TAL CUAL).
-  assert.match(paso, /if \(paso\.canal === 'aviso_dueno'\) \{\n\s*const propio = [^\n]*\n(\s*\/\/[^\n]*\n)*\s*if \(ctx\.aviso\) \{ await emitirTarjetaDelEvento\(flujoId, \{ texto: propio, partes: paso\.partes, email: paso\.email \}, ws, ctx, ctx\.aviso\); return; \}/,
+  // (16/10/2026, revisión de B3: devuelve si LLEGÓ, para el techo de la alerta de anuncios: tests/dato-evento.test.ts.)
+  assert.match(paso, /if \(paso\.canal === 'aviso_dueno'\) \{\n\s*const propio = [^\n]*\n(\s*\/\/[^\n]*\n)*\s*if \(ctx\.aviso\) return emitirTarjetaDelEvento\(flujoId, \{ texto: propio, partes: paso\.partes, email: paso\.email \}, ws, ctx, ctx\.aviso\);/,
     'la tarjeta de un evento tiene que desviarse ANTES de la línea suelta al grupo');
   const tarjeta = bloque(FLUJOS, 'async function emitirTarjetaDelEvento(', '\n}\n');
   assert.match(tarjeta, /\[CLAVE_MENSAJE_MAKO\]: ctx\.texto/);
@@ -511,8 +517,9 @@ test('el runner: correrFlujoDe corta los tres, la tarjeta MaKo emite el aviso co
   // ⚠️ POR PARTES (undécima, decisión 2 de la décima): primero la guarda de la Voz de MaKo (`problemaDePartesGrupo`: un
   // audio del negocio sería la voz del dueño en el grupo), después TODOS los binarios bajados con los textos resueltos
   // con los MISMOS datos (`prepararPartesGrupo(tarjeta.partes, resolver)`), y sale tal cual: sin rótulo, con las partes.
-  assert.match(tarjeta, /const ajena = await problemaDePartesGrupo\(tarjeta\.partes\);\n\s*if \(ajena\) \{[^\n]*return; \}/);
-  assert.match(tarjeta, /const p = await prepararPartesGrupo\(tarjeta\.partes, resolver\);\n\s*if \(!p\.ok\) \{[^\n]*return; \}/, 'una tarjeta a medias salía igual');
+  // (16/10/2026: cada salida temprana dice que NO llegó, `return false`, para el techo de la alerta de anuncios.)
+  assert.match(tarjeta, /const ajena = await problemaDePartesGrupo\(tarjeta\.partes\);\n\s*if \(ajena\) \{[^\n]*return false; \}/);
+  assert.match(tarjeta, /const p = await prepararPartesGrupo\(tarjeta\.partes, resolver\);\n\s*if \(!p\.ok\) \{[^\n]*return false; \}/, 'una tarjeta a medias salía igual');
   assert.ok(tarjeta.indexOf('problemaDePartesGrupo(') < tarjeta.indexOf('prepararPartesGrupo('), 'se bajaba un audio ajeno antes de mirar de quién es');
   // (15/10/2026: un evento de la PLATAFORMA resuelve y manda en el negocio que lo emitió, `negocioWs`.)
   assert.match(tarjeta, /const wsDestino = ctx\.negocioWs \?\? ws;\n\s*const resolver = \(t: string\) => conVariables\(t, \{ ws: wsDestino, leadId: ctx\.leadId \?\? null, leadNombre: ctx\.leadNombre \?\? null \}, datos\)/);
@@ -524,7 +531,11 @@ test('el runner: correrFlujoDe corta los tres, la tarjeta MaKo emite el aviso co
   assert.match(ej, /if \(pasos\[i\]\?\.tipo === 'condicion' && hechos === undefined\) \{\n\s*const leidos = await hechosDeLaCorrida\(pasos, ws, ctx\);/);
   assert.match(ej, /hechos: hechos \?\? null/);
   const hech = bloque(FLUJOS, 'async function hechosDeLaCorrida(', '\n}\n');
-  assert.match(hech, /hechosDeUnLead\(ws, ctx\.leadId, filas\)/);
+  // (16/10/2026: las filas de los DATOS DEL EVENTO no se le piden al lead, y una corrida que sólo pregunta datos no lee
+  // ningún lead: lib/dato-evento.ts, tests/dato-evento.test.ts.)
+  assert.match(hech, /if \(soloDatosDelEvento\(filas\)\) return hechosDelEvento\(ctx\.datos, Date\.now\(\)\);\n\s*if \(!ctx\.leadId\) return null;/);
+  assert.match(hech, /hechosDeUnLead\(ws, ctx\.leadId, filas\.filter\(\(f\) => datoDeCampo\(f\.campo\) == null\)\)/);
+  assert.match(hech, /return h \? \{ \.\.\.h, evento: \{ \.\.\.\(ctx\.datos \?\? \{\}\) \} \} : h;/);
   // ⚠️ «No pude leer» no es «no tiene» (revisión del 11/10/2026): el error vuelve 'ilegible' y la corrida se duerme EN
   // ESA CONDITION (con corrida, avanza a sí misma; sin, abre una con el contexto entero), en vez de terminar «hecha».
   assert.match(hech, /\} catch \(e\) \{\n[^\n]*\n\s*return 'ilegible';/);

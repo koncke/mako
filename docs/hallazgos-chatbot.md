@@ -4969,3 +4969,35 @@ sin respuesta al negocio que sólo tiene ese proveedor vivo. La espera dice «ha
 
 **Vive en:** `lib/fallo-ia-texto.ts` (`sinRedPorDatos`) · `lib/setting-simulador.ts` · `lib/nutricion.ts` · test:
 `tests/ai-step-conecta-claude.test.ts`
+
+## La CONDITION sobre los datos del evento, con «Si no» (16/10/2026)
+
+- **Un evento de la plataforma no admitía CONDITION** (miraba los hechos de un LEAD, y no trae ninguno), así que el
+  código elegía la frase. Ahora una CONDITION puede preguntar los DATOS DEL EVENTO: el campo es `dato:<clave>` y su def
+  sale de la variable (`VariableAviso.condicion`: rótulo, tipo y opciones); se evalúa con lo que pasó el emisor, nunca
+  leyendo un lead. Un evento sin lead (de la plataforma o de una persona) pregunta sólo sus datos, y ninguno un dato que
+  no trae. Fuera de una fila de evento no se guarda (Publicar lo frena): no habría evento que la conteste.
+- ⚠️ **El runner de los eventos es una LISTA, no un grafo.** Una CONDITION con «Si no» o varias salidas se escribe en
+  fila: cada salida es una pregunta con `siNo` (el índice de la siguiente), su camino y un `fin` para no caer en la de al
+  lado; después, el camino del «Si no». Por eso **dos salidas no se pueden juntar en la misma tarjeta** (saldría dos
+  veces en la lista): Publicar lo frena con su motivo.
+- ⚠️ **La de UNA salida sin «Si no» conserva la traducción y la huella de antes.** Una corrida dormida guarda la firma
+  de la fila (`pasosParaRetomar`); traducirla como las nuevas le cambiaba la firma y cortaba todas las que esperaban.
+- **«No sé» y «no pude mirar» no son lo mismo.** Con varias salidas, un dato que falta va al «Si no» (como en el lienzo);
+  SIN hechos (no hay lead que leer, o ya no está) termina, también con «Si no»: si no, salía «sigue sin pagar» de un lead
+  borrado (lo cazó la revisión).
+- ⚠️ **Fuera del horario, se decide primero y se duerme en la PRIMERA condición de la cadena** (`cadena`, lib/flujos.ts).
+  Mirar adelante las dos salidas hacía esperar también a la que «Lo manda igual»; decidir y dormir en la tarjeta dejaba una
+  decisión de las 23 h para un mensaje de las 9. La de una salida sin «Si no» sigue mirando adelante, como siempre.
+- **Trampa de los tests:** el barrido de tests/plantillas-viejas.test.ts encuentra emisores por el id LITERAL en
+  `emitirDelCatalogo('…')`; un id que elige una función (`avisoDeCaida`) es invisible y el test dice «nadie lo emite». Y
+  los guardias que barren el repo entero (el voseo) sólo saltan en la suite completa.
+- **Trampa del merge:** un campo que se renombra (`sinFila` → `filas`) no choca en git si el otro lado sólo lo LEE en un
+  archivo nuevo (lib/oferta-lista-server.ts): el merge sale limpio y el tsc no. Después de mergear, tsc sobre lo que llegó.
+
+**Sin hacer:** «Crear con IA» no sabe armar condiciones de datos; «Probar» sigue cada condición por el «Sí».
+
+**Vive en:** `lib/dato-evento.ts` · `lib/condiciones-catalogo.ts` (`defDeDato`, `SECCION_DATOS`) · `lib/aviso-evento.ts`
+(`pasosDelEvento`, `condicionesDelEvento`, `esperaApertura`) · `lib/flujo-pasos.ts` (`decidir`) · `lib/flujos.ts`
+(`hechosDeLaCorrida`, `cadena`, `entregas`) · `lib/nutricion.ts` (el freno de `setSecuenciaPasos`) ·
+`app/automations/EditorCondicion.tsx` · test: `tests/dato-evento.test.ts`

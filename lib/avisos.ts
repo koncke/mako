@@ -466,7 +466,12 @@ async function depsDelEvento(): Promise<DepsEvento> {
     },
     emitirAviso,
     reclamar: reclamarEspaciado,
-    correr: (flujoId, pasos, ws, ctx) => runWithWorkspace(ws, () => ejecutarPasos(flujoId, pasos, ws, ctx)),
+    correr: async (flujoId, pasos, ws, ctx) => {
+      // Lo que LLEGÓ en esta vuelta (16/10/2026): lo cuenta `ejecutarPasos` en `entregas`.
+      const entregas = { llegaron: 0 };
+      await runWithWorkspace(ws, () => ejecutarPasos(flujoId, pasos, ws, ctx, undefined, entregas));
+      return entregas;
+    },
     wsPlataforma: wsSuperAdmin,
     log: (m) => console.error(m),
   };

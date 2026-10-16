@@ -40,6 +40,7 @@ import { datosDeLaPersona } from '../lib/aviso-evento';
 import { datosCaida, datosVolvio } from '../lib/linea-vigilancia';
 import { datosPostLlamada } from '../lib/reunion-grabada';
 import { datosDelReporte } from '../lib/reporte-destino';
+import { datosCuentaFrenada } from '../lib/alerta-critica-texto';
 import { detalleDelAviso } from '../lib/calcom';
 import { VARIABLES_LEAD, VARIABLES_NEGOCIO, esVariableConocida } from '../lib/template-vars';
 import { CLAVES_DE_CUOTA } from '../lib/cobranza';
@@ -115,6 +116,8 @@ function porFuente(): Record<FuenteDato, Set<string>> {
     grabacion: set(datosPostLlamada({ reunion: 'R1', duracionMin: 42 })),
     // 16/10/2026: y el reporte de los lunes ya armado, que pasa el cron (`datosDelReporte`, lib/reporte-destino.ts).
     reporte: set(datosDelReporte({ titulo: 'Reporte semanal · 05/10/2026–11/10/2026', texto: '🗓️ *Reporte semanal*' })),
+    // 16/10/2026: y la cuenta publicitaria frenada, que pasa el cron de las alertas (`datosCuentaFrenada`), con el motivo.
+    anuncios: set(datosCuentaFrenada({ statusLabel: 'Deshabilitada', disableReason: 'Riesgo de pago', entregaFrenada: true }, 205, 2)),
   };
 }
 
@@ -174,8 +177,8 @@ test('⚠️ TODO lo que el árbol ofrece tiene quien lo PONGA: cada clave sale 
   // El árbol: cada grupo con ícono, y ninguno vacío en el destino más amplio.
   for (const g of GRUPOS_VARIABLES) assert.ok(g.icono, `${g.key} sin ícono`);
   // (15/10/2026: «Cuenta de MaKo» es SÓLO del mail a una persona: el equipo dibuja todos los demás, y ella el suyo.)
-  // (15/10/2026: y «WhatsApp del negocio», con `conLinea`.)
-  assert.equal(datosOfrecidos({ destino: 'equipo', conLead: true, conCuota: true, conAnalisis: true, conLinea: true, conGrabacion: true, conReporte: true }).length, GRUPOS_VARIABLES.length - 1);
+  // (15/10/2026: y «WhatsApp del negocio», con `conLinea`. 16/10/2026: y «Cuenta publicitaria», con `conAnuncios`.)
+  assert.equal(datosOfrecidos({ destino: 'equipo', conLead: true, conCuota: true, conAnalisis: true, conLinea: true, conGrabacion: true, conReporte: true, conAnuncios: true }).length, GRUPOS_VARIABLES.length - 1);
   assert.ok(datosOfrecidos(datosDeLaPersona('contrasena_restablecer')!).some((g) => g.key === 'cuenta'), 'el mail a la persona no tiene su grupo');
   assert.ok(VARIABLES_AVISO.filter((v) => !v.oculta).length >= 70, 'se pidieron MUCHOS más datos');
   // La previa tiene con qué dibujar cada uno.

@@ -28,10 +28,13 @@ import type { CtxFlujo } from './flujos';
 import type { EstadoAviso } from './perfil';
 import type { Paso } from './flujos-tipos';
 import { EVENTOS_MAKO, TRIGGER_AVISO_MAKO, disparadoresDe, type SubtipoMako, type EventoMako } from './disparadores';
-import { claseDe, idDe, indicePorId, raicesSalida, siguienteDe, type PasoGrafo } from './flujo-grafo';
+import { claseDe, idDe, indicePorId, raicesSalida, siguienteDe, type PasoGrafo, type RamaCondicion } from './flujo-grafo';
 import { OP_AVISAR } from './flujo-legado';
 import { DELAY_MAX_HORAS, QUE_ENVEJECEN } from './flujo-pasos';
-import { CLAVE_MENSAJE_MAKO, VARIABLES_AVISO, citaSecreto, tokensDe, type ContextoDatos } from './variables-aviso';
+import { CLAVE_MENSAJE_MAKO, VARIABLES_AVISO, citaSecreto, tokensDe, variablesPara, type ContextoDatos } from './variables-aviso';
+// Puro: la CONDITION sobre los datos del evento (16/10/2026).
+import { datoDeCampo, soloDatosDelEvento } from './dato-evento';
+import type { DatosDeLaCondicion } from './condiciones-catalogo';
 import { textoLoArmaElCodigo, type AvisoCatalogo } from './avisos-catalogo';
 // Puro: la tarjeta «MaKo en WhatsApp» por partes (undécima tanda). Qué partes tiene y si sale tal cual.
 import { esTarjetaTalCual, esperaQueAbra, partesDeMako, textoDePartes, esPorEmail, asuntoDeMako, problemaDeEmailMako } from './mako-tarjeta';
@@ -74,6 +77,7 @@ export function datosDelEvento(sub: unknown): ContextoDatos {
     ...(ev.trae.includes('linea') ? { conLinea: true } : {}),
     ...(ev.trae.includes('grabacion') ? { conGrabacion: true } : {}),
     ...(ev.trae.includes('reporte') ? { conReporte: true } : {}),
+    ...(ev.trae.includes('anuncios') ? { conAnuncios: true } : {}),
   };
 }
 
@@ -86,6 +90,17 @@ export function datosDeLaPersona(sub: unknown): ContextoDatos | null {
   const ev = porSubtipo(sub);
   if (!ev?.persona) return null;
   return { conLead: false, conRestablecer: ev.trae.includes('restablecer'), destino: 'usuario' };
+}
+
+/**
+ * LO QUE LA CONDITION DE UNA FILA DE EVENTO PUEDE PREGUNTAR (16/10/2026, lib/dato-evento.ts): los datos de su «{ }» que se
+ * preguntan (`VariableAviso.condicion`), y `solo` si el evento no trae un lead (de la plataforma o de una persona): ahí la
+ * CONDITION mira SÓLO esos. Lo usan el editor (el desplegable) y `pasosDelEvento` (lo que corre): una lista, un lugar.
+ */
+export function condicionesDelEvento(sub: unknown): DatosDeLaCondicion {
+  const ev = porSubtipo(sub);
+  if (!ev) return { claves: [], solo: false };
+  return { claves: variablesPara(datosDelEvento(sub)).filter((v) => v.condicion).map((v) => v.key), solo: !!(ev.persona || ev.plataforma) };
 }
 
 /** Las claves SECRETAS que trae un evento (`VariableAviso.secreto` de los alcances que trae). Vacío = ninguna. */
@@ -122,7 +137,10 @@ export const MOTIVO_EVENTO = {
   paralelo: 'Un evento de MaKo va en una sola fila, sin flechas en paralelo.',
   delayReunion: 'El DELAY de un evento de MaKo es por tiempo.',
   delayTope: 'El DELAY va de un minuto a 30 días.',
-  condicion: 'La CONDITION de un evento tiene una salida: «Sí» sigue y «Si no» termina.',
+  condicion: 'La CONDITION no tiene ninguna salida.',
+  // Las de los DATOS DEL EVENTO (16/10/2026, lib/dato-evento.ts): con «Si no» y varias salidas, cada una por su lado.
+  juntas: 'Cada salida de la CONDITION sigue por su lado: no se juntan.',
+  datoAjeno: 'La CONDITION pregunta un dato que este evento no trae.',
   makoVacia: 'La tarjeta «MaKo en WhatsApp» está vacía.',
   // «MaKo por email» (16/10/2026, `problemaDeEmailMako`, lib/mako-tarjeta.ts).
   makoEmail: 'La tarjeta «MaKo por email» lleva asunto y un solo texto, sin audio ni archivos.',
@@ -137,7 +155,7 @@ export const MOTIVO_EVENTO = {
   emailVacio: 'El email está vacío.',
   sinAsunto: 'Al email le falta el asunto.',
   emailIA: 'Este email sale tal cual: sin «MaKo lo adapta».',
-  condicionPersona: 'La CONDITION mira un lead, y este evento no trae uno.',
+  condicionPersona: 'Este evento no trae un lead: la CONDITION sólo pregunta sus datos.',
   secretoDelay: 'Este evento trae un dato secreto: no lleva DELAY.',
   secretoFuera: 'El dato secreto va sólo en el email a la persona.',
   sinSecreto: 'El email tiene que llevar el link.',
@@ -150,7 +168,10 @@ export const MOTIVO_EVENTO = {
  *   · «MaKo en WhatsApp» (`avisar_al_equipo`) → `{ tipo: 'mensaje', canal: 'aviso_dueno', texto }`, y con su lista
  *     (`params.partes`, la tarjeta TAL CUAL de la undécima) además `partes`;
  *   · DELAY por tiempo → `{ tipo: 'esperar', horas }`, hasta 30 días (`DELAY_MAX_HORAS`);
- *   · CONDITION de UNA rama, con «Si no» vacío → `{ tipo: 'condicion', rama }`: se cumple, sigue; no, termina;
+ *   · CONDITION de UNA rama, con «Si no» vacío → `{ tipo: 'condicion', rama }`: se cumple, sigue; no, termina. Con «Si
+ *     no» o con varias ramas (16/10/2026), en fila: cada rama es una pregunta con su `siNo` (la siguiente), su camino y un
+ *     `fin`; después, el camino del «Si no». Pregunta los hechos del lead o los DATOS DEL EVENTO (`condicionesDelEvento`);
+ *     un evento sin lead, sólo sus datos;
  *   · SÓLO en un evento de una PERSONA (15/10/2026, `persona`): un email → `{ tipo: 'email_persona', … }`, el
  *     «Email a la persona». Es obligatorio, cita los secretos del evento sólo en el cuerpo, y con un secreto no hay
  *     DELAY (`secretosDelEvento`).
@@ -166,6 +187,9 @@ export function pasosDelEvento(pasosIn: readonly PasoGrafo[], evento: unknown): 
   if (!ev) return mal(MOTIVO_EVENTO.sinEvento, null);
   // Lo SECRETO que trae el evento (el link de restablecer): sin DELAY, y sólo en el email a la persona.
   const secretos = secretosDelEvento(ev);
+  // Lo que su CONDITION puede preguntar (16/10/2026): los datos que trae; sin lead, sólo eso.
+  const pregunta = condicionesDelEvento(ev.subtipo);
+  const delEvento = new Set(pregunta.claves);
 
   // Lo que no va, esté donde esté (conectado o suelto): el motivo dice QUÉ es, no sólo que sobra.
   for (let i = 0; i < pasosIn.length; i++) {
@@ -179,9 +203,12 @@ export function pasosDelEvento(pasosIn: readonly PasoGrafo[], evento: unknown): 
     // guardar (`sinSecretos`), pero un DELAY en este evento sólo puede ser para mandarlo después, y después no está.
     if (clase === 'esperar' && secretos.length) return mal(MOTIVO_EVENTO.secretoDelay, id);
     // La CONDITION mira los hechos de un LEAD (`hechosDeLaCorrida`), y un evento de una persona no trae ninguno: no
-    // se cumpliría nunca, y lo que sigue no saldría.
-    // Ni uno de la PLATAFORMA (15/10/2026): habla de un NEGOCIO (su línea), no de un lead.
-    if (clase === 'condicion' && (ev.persona || ev.plataforma)) return mal(MOTIVO_EVENTO.condicionPersona, id);
+    // se cumpliría nunca, y lo que sigue no saldría. Ni uno de la PLATAFORMA (15/10/2026): habla de un NEGOCIO.
+    // Desde el 16/10 esos dos preguntan sus DATOS (lib/dato-evento.ts), y ninguno un dato que no trae.
+    if (clase === 'condicion') {
+      const malCond = problemaDeCondicion(p.ramas ?? [], delEvento, pregunta.solo);
+      if (malCond) return mal(malCond, id);
+    }
     if (clase === 'respuesta') return mal(MOTIVO_EVENTO.respuesta, id);
     if (clase === 'ir_a') return mal(MOTIVO_EVENTO.irA, id);
     if (clase === 'accion' && (p.accion as { operacion?: unknown } | null)?.operacion !== OP_AVISAR) return mal(MOTIVO_EVENTO.accion, id);
@@ -191,91 +218,123 @@ export function pasosDelEvento(pasosIn: readonly PasoGrafo[], evento: unknown): 
   if (raices.length > 1) return mal(MOTIVO_EVENTO.paralelo, null);
 
   const vistos = new Set<string>();
-  let huboDelay = false;
   let makos = 0;
   /** Los «Email a la persona» (el primero, para señalarlo) y los secretos que alguno cita. */
   const emails: string[] = [];
   const citados = new Set<string>();
-  let cur: string | null = raices[0] ?? null;
-  while (cur) {
-    if (vistos.has(cur)) return mal(MOTIVO_EVENTO.vuelta, cur);
-    const i = indicePorId(pasosIn, cur);
-    if (i < 0) return mal(MOTIVO_EVENTO.noExiste, null);
-    vistos.add(cur);
-    const p = pasosIn[i];
-    const clase = claseDe(p);
-    if (clase === 'accion') {
-      const params = (p.accion as { params?: Record<string, unknown> } | null)?.params;
-      // ⚠️ UNDÉCIMA TANDA (decisión 2 de la décima): la tarjeta puede guardar su lista (`params.partes`, la misma que
-      // un WhatsApp: textos, la Voz de MaKo, archivos). Con ella sale TAL CUAL y POR PARTES (`emitirTarjetaDelEvento`,
-      // lib/flujos.ts); `texto` es su espejo (el feed). Vacía —sin ninguna parte— sigue siendo `makoVacia`. Lo que se
-      // revisa abajo es TODO lo escrito (cada texto y cada pie), no el espejo, que se recorta.
-      const talCual = esTarjetaTalCual(params);
-      const lista = partesDeMako(params);
-      if (!lista.length) return mal(MOTIVO_EVENTO.makoVacia, cur);
-      const texto = talCual ? textoDePartes(lista) : String(params?.mensaje ?? '').trim();
-      const escrito = talCual ? lista.flatMap((x) => (x.tipo === 'audio' ? [] : [x.cuerpo ?? ''])).join('\n') : texto;
-      if (RE_MENSAJE_MAKO.test(escrito) && !conMensaje(ev)) return mal(MOTIVO_EVENTO.sinMensaje, cur);
-      if (huboDelay && RE_QUE_ENVEJECE.test(escrito)) return mal(MOTIVO_EVENTO.envejece, cur);
-      // ⚠️ «LO QUE ARMA MAKO» TAMBIÉN ES UNA FOTO (revisión del 11/10/2026). Es un mensaje entero redactado por el
-      // código en el momento del evento («⏰ En 30 min tienes la R1…»), y viaja dormido en la corrida (`ctx.texto`):
-      // después de un DELAY de una hora salía tal cual, con la reunión ya empezada. No es un dato que se pueda
-      // recalcular al despertar (lo arma el llamador, no la corrida), así que no va después de un DELAY en NINGÚN
-      // evento: la charla («No le preparé respuesta…») también puede haber dejado de ser cierta. Un recordatorio
-      // posterior se escribe con los datos estables («{{lead_nombre}}», «{{link_lead}}»).
-      if (huboDelay && RE_MENSAJE_MAKO.test(escrito)) return mal(MOTIVO_EVENTO.mensajeViejo, cur);
-      // Un secreto al GRUPO lo lee todo el equipo, y queda en el feed: sólo va en el mail a la persona.
-      if (citaSecreto(`${escrito}\n${String(params?.titulo ?? '')}`)) return mal(MOTIVO_EVENTO.secretoFuera, cur);
-      // La de ANTES (sin lista) sale EXACTAMENTE como hasta hoy: el paso no lleva `partes`. Fuera del horario espera a
-      // que abra, salvo que la tarjeta diga «Lo manda igual» (`esperaQueAbra`, 15/10/2026).
-      const igual = esperaQueAbra(params) ? {} : { saleIgual: true as const };
-      // POR EMAIL (16/10/2026): un texto con su asunto, al equipo del negocio. El asunto también es de lo escrito.
-      const malEmail = problemaDeEmailMako(params);
-      if (malEmail) return mal(MOTIVO_EVENTO.makoEmail, cur);
-      if (esPorEmail(params) && citaSecreto(asuntoDeMako(params))) return mal(MOTIVO_EVENTO.secretoFuera, cur);
-      const email = esPorEmail(params) ? { email: { asunto: asuntoDeMako(params) } } : {};
-      pasos.push(talCual ? { tipo: 'mensaje', canal: 'aviso_dueno', texto, partes: lista, ...igual, ...email } : { tipo: 'mensaje', canal: 'aviso_dueno', texto, ...igual });
-      huella.push(`${cur}:mensaje`);
-      makos += 1;
-      cur = siguienteDe(pasosIn, i);
-    } else if (clase === 'mensaje') {
-      // «EMAIL A LA PERSONA» (15/10/2026): llega acá sólo un email de un evento de una persona (lo demás se rechazó
-      // arriba). El asunto y la vista previa los muestra la bandeja sin abrir el mail: lo secreto, sólo en el cuerpo.
-      const m = p as PasoGrafo & { cuerpo_html?: unknown; preheader?: unknown };
-      const asunto = String(p.asunto ?? '').trim();
-      const cuerpo = String(p.cuerpo ?? '').trim();
-      const html = typeof m.cuerpo_html === 'string' ? m.cuerpo_html.trim() : '';
-      if (!cuerpo && !html) return mal(MOTIVO_EVENTO.emailVacio, cur);
-      // «MaKo lo adapta» le pasaría el mail entero a un modelo, con el link adentro: este email sale tal cual.
-      if (p.tipo === 'ia') return mal(MOTIVO_EVENTO.emailIA, cur);
-      if (!asunto) return mal(MOTIVO_EVENTO.sinAsunto, cur);
-      if (citaSecreto(`${asunto}\n${String(m.preheader ?? '')}`)) return mal(MOTIVO_EVENTO.secretoFuera, cur);
-      for (const t of [...tokensDe(cuerpo), ...tokensDe(html)]) if (secretos.includes(t.key)) citados.add(t.key);
-      pasos.push({ tipo: 'email_persona', asunto, texto: cuerpo, ...(html ? { html } : {}), proposito: ev.persona ?? 'aviso' });
-      huella.push(`${cur}:email`);
-      emails.push(cur);
-      cur = siguienteDe(pasosIn, i);
-    } else if (clase === 'esperar') {
-      if (p.espera?.modo !== 'tiempo') return mal(MOTIVO_EVENTO.delayReunion, cur);
-      const horas = Number(p.espera.minutos) / 60;
-      if (!Number.isFinite(horas) || horas <= 0 || horas > DELAY_MAX_HORAS) return mal(MOTIVO_EVENTO.delayTope, cur);
-      pasos.push({ tipo: 'esperar', horas });
-      huella.push(`${cur}:esperar`);
-      huboDelay = true;
-      cur = siguienteDe(pasosIn, i);
-    } else if (clase === 'condicion') {
-      const ramas = p.ramas ?? [];
-      if (ramas.length !== 1 || p.si_no) return mal(MOTIVO_EVENTO.condicion, cur);
-      if (ramas[0].paralelos?.length || p.paralelos_si_no?.length) return mal(MOTIVO_EVENTO.paralelo, cur);
-      pasos.push({ tipo: 'condicion', rama: ramas[0] });
-      huella.push(`${cur}:condicion`);
-      cur = ramas[0].siguiente ?? null;
-    } else {
-      // El inicio no se recorre (la raíz ya lo saltea) y lo demás se rechazó arriba: llegar acá es un
-      // grafo que no se entiende, y no se adivina.
-      return mal(MOTIVO_EVENTO.noExiste, cur);
+  /**
+   * UN CAMINO, desde `inicio` hasta que termina (16/10/2026: antes era uno solo, y ahora una CONDITION con «Si no» abre
+   * varios). `antes`: las tarjetas de ESTE camino, y la que vuelve a aparecer es una vuelta; una que ya recorrió OTRO
+   * camino es una junta, y no va: en la fila del runner saldría dos veces. `delayAntes`: si ya pasó un DELAY en este
+   * camino (lo que envejece se mide por camino). Devuelve el problema, o null.
+   */
+  const camino = (inicio: string | null, antes: ReadonlySet<string>, delayAntes: boolean): TraduccionEvento | null => {
+    const enEste = new Set(antes);
+    let huboDelay = delayAntes;
+    let cur: string | null = inicio;
+    while (cur) {
+      if (enEste.has(cur)) return mal(MOTIVO_EVENTO.vuelta, cur);
+      if (vistos.has(cur)) return mal(MOTIVO_EVENTO.juntas, cur);
+      const i = indicePorId(pasosIn, cur);
+      if (i < 0) return mal(MOTIVO_EVENTO.noExiste, null);
+      vistos.add(cur);
+      enEste.add(cur);
+      const p = pasosIn[i];
+      const clase = claseDe(p);
+      if (clase === 'accion') {
+        const params = (p.accion as { params?: Record<string, unknown> } | null)?.params;
+        // ⚠️ UNDÉCIMA TANDA (decisión 2 de la décima): la tarjeta puede guardar su lista (`params.partes`, la misma que
+        // un WhatsApp: textos, la Voz de MaKo, archivos). Con ella sale TAL CUAL y POR PARTES (`emitirTarjetaDelEvento`,
+        // lib/flujos.ts); `texto` es su espejo (el feed). Vacía —sin ninguna parte— sigue siendo `makoVacia`. Lo que se
+        // revisa abajo es TODO lo escrito (cada texto y cada pie), no el espejo, que se recorta.
+        const talCual = esTarjetaTalCual(params);
+        const lista = partesDeMako(params);
+        if (!lista.length) return mal(MOTIVO_EVENTO.makoVacia, cur);
+        const texto = talCual ? textoDePartes(lista) : String(params?.mensaje ?? '').trim();
+        const escrito = talCual ? lista.flatMap((x) => (x.tipo === 'audio' ? [] : [x.cuerpo ?? ''])).join('\n') : texto;
+        if (RE_MENSAJE_MAKO.test(escrito) && !conMensaje(ev)) return mal(MOTIVO_EVENTO.sinMensaje, cur);
+        if (huboDelay && RE_QUE_ENVEJECE.test(escrito)) return mal(MOTIVO_EVENTO.envejece, cur);
+        // ⚠️ «LO QUE ARMA MAKO» TAMBIÉN ES UNA FOTO (revisión del 11/10/2026). Es un mensaje entero redactado por el
+        // código en el momento del evento («⏰ En 30 min tienes la R1…»), y viaja dormido en la corrida (`ctx.texto`):
+        // después de un DELAY de una hora salía tal cual, con la reunión ya empezada. No es un dato que se pueda
+        // recalcular al despertar (lo arma el llamador, no la corrida), así que no va después de un DELAY en NINGÚN
+        // evento: la charla («No le preparé respuesta…») también puede haber dejado de ser cierta. Un recordatorio
+        // posterior se escribe con los datos estables («{{lead_nombre}}», «{{link_lead}}»).
+        if (huboDelay && RE_MENSAJE_MAKO.test(escrito)) return mal(MOTIVO_EVENTO.mensajeViejo, cur);
+        // Un secreto al GRUPO lo lee todo el equipo, y queda en el feed: sólo va en el mail a la persona.
+        if (citaSecreto(`${escrito}\n${String(params?.titulo ?? '')}`)) return mal(MOTIVO_EVENTO.secretoFuera, cur);
+        // La de ANTES (sin lista) sale EXACTAMENTE como hasta hoy: el paso no lleva `partes`. Fuera del horario espera a
+        // que abra, salvo que la tarjeta diga «Lo manda igual» (`esperaQueAbra`, 15/10/2026).
+        const igual = esperaQueAbra(params) ? {} : { saleIgual: true as const };
+        // POR EMAIL (16/10/2026): un texto con su asunto, al equipo del negocio. El asunto también es de lo escrito.
+        const malEmail = problemaDeEmailMako(params);
+        if (malEmail) return mal(MOTIVO_EVENTO.makoEmail, cur);
+        if (esPorEmail(params) && citaSecreto(asuntoDeMako(params))) return mal(MOTIVO_EVENTO.secretoFuera, cur);
+        const email = esPorEmail(params) ? { email: { asunto: asuntoDeMako(params) } } : {};
+        pasos.push(talCual ? { tipo: 'mensaje', canal: 'aviso_dueno', texto, partes: lista, ...igual, ...email } : { tipo: 'mensaje', canal: 'aviso_dueno', texto, ...igual });
+        huella.push(`${cur}:mensaje`);
+        makos += 1;
+        cur = siguienteDe(pasosIn, i);
+      } else if (clase === 'mensaje') {
+        // «EMAIL A LA PERSONA» (15/10/2026): llega acá sólo un email de un evento de una persona (lo demás se rechazó
+        // arriba). El asunto y la vista previa los muestra la bandeja sin abrir el mail: lo secreto, sólo en el cuerpo.
+        const m = p as PasoGrafo & { cuerpo_html?: unknown; preheader?: unknown };
+        const asunto = String(p.asunto ?? '').trim();
+        const cuerpo = String(p.cuerpo ?? '').trim();
+        const html = typeof m.cuerpo_html === 'string' ? m.cuerpo_html.trim() : '';
+        if (!cuerpo && !html) return mal(MOTIVO_EVENTO.emailVacio, cur);
+        // «MaKo lo adapta» le pasaría el mail entero a un modelo, con el link adentro: este email sale tal cual.
+        if (p.tipo === 'ia') return mal(MOTIVO_EVENTO.emailIA, cur);
+        if (!asunto) return mal(MOTIVO_EVENTO.sinAsunto, cur);
+        if (citaSecreto(`${asunto}\n${String(m.preheader ?? '')}`)) return mal(MOTIVO_EVENTO.secretoFuera, cur);
+        for (const t of [...tokensDe(cuerpo), ...tokensDe(html)]) if (secretos.includes(t.key)) citados.add(t.key);
+        pasos.push({ tipo: 'email_persona', asunto, texto: cuerpo, ...(html ? { html } : {}), proposito: ev.persona ?? 'aviso' });
+        huella.push(`${cur}:email`);
+        emails.push(cur);
+        cur = siguienteDe(pasosIn, i);
+      } else if (clase === 'esperar') {
+        if (p.espera?.modo !== 'tiempo') return mal(MOTIVO_EVENTO.delayReunion, cur);
+        const horas = Number(p.espera.minutos) / 60;
+        if (!Number.isFinite(horas) || horas <= 0 || horas > DELAY_MAX_HORAS) return mal(MOTIVO_EVENTO.delayTope, cur);
+        pasos.push({ tipo: 'esperar', horas });
+        huella.push(`${cur}:esperar`);
+        huboDelay = true;
+        cur = siguienteDe(pasosIn, i);
+      } else if (clase === 'condicion') {
+        const ramas = p.ramas ?? [];
+        if (!ramas.length) return mal(MOTIVO_EVENTO.condicion, cur);
+        if (ramas.some((r) => r.paralelos?.length) || p.paralelos_si_no?.length) return mal(MOTIVO_EVENTO.paralelo, cur);
+        // UNA salida sin «Si no»: la traducción y la huella de SIEMPRE, así una corrida dormida en ella no se corta.
+        if (ramas.length === 1 && !p.si_no) {
+          pasos.push({ tipo: 'condicion', rama: ramas[0] });
+          huella.push(`${cur}:condicion`);
+          cur = ramas[0].siguiente ?? null;
+          continue;
+        }
+        // ⚠️ CON «SI NO» O VARIAS SALIDAS (16/10/2026), EN FILA: el runner es una lista. Cada rama es una pregunta que, si no se
+        // cumple, salta a la siguiente (`siNo`), seguida de su camino y de un `fin` (para no caer en la de al lado); después
+        // de la última, el camino del «Si no» (vacío = termina). Gana la primera que se cumple, como en el lienzo.
+        for (const r of ramas) {
+          const preguntaRama: Extract<Paso, { tipo: 'condicion' }> = { tipo: 'condicion', rama: r };
+          pasos.push(preguntaRama);
+          huella.push(`${cur}:condicion:${r.id}`);
+          const m = camino(r.siguiente ?? null, enEste, huboDelay);
+          if (m) return m;
+          pasos.push({ tipo: 'fin' });
+          huella.push(`${cur}:fin`);
+          preguntaRama.siNo = pasos.length;
+        }
+        return camino(p.si_no ?? null, enEste, huboDelay);
+      } else {
+        // El inicio no se recorre (la raíz ya lo saltea) y lo demás se rechazó arriba: llegar acá es un
+        // grafo que no se entiende, y no se adivina.
+        return mal(MOTIVO_EVENTO.noExiste, cur);
+      }
     }
-  }
+    return null;
+  };
+  const roto = camino(raices[0] ?? null, new Set(), false);
+  if (roto) return roto;
   // Un evento de una PERSONA es para escribirle a ella: sin su email no tiene sentido (y el secreto que trae, para
   // eso es). Los demás, como siempre: la tarjeta «MaKo en WhatsApp».
   if (ev.persona) {
@@ -294,14 +353,19 @@ export function pasosDelEvento(pasosIn: readonly PasoGrafo[], evento: unknown): 
  * ⚠️ LA CONDITION ESPERA CON LA TARJETA, y se decide AL SALIR, no al encolarse: decidida a las 23 h y mandada a las 9, un
  * «su reunión sigue en pie» podría ser mentira. Con un DELAY en el medio no: el DELAY duerme solo, y al despertar vuelve
  * a preguntar acá. Pura, para que tenga test: la hora la mira lib/flujos.ts.
+ *
+ * ⚠️ UNA CON «SI NO», O SÓLO DE DATOS DEL EVENTO (16/10/2026), NO MIRA ADELANTE: qué tarjeta sigue depende de la salida, así
+ * que se DECIDE, y si la tarjeta elegida espera, el runner duerme en la PRIMERA condición de esa cadena (`cadena`,
+ * lib/flujos.ts): al abrir se vuelve a decidir todo. Mirar las dos salidas hacía esperar también a la que «Lo manda igual».
  */
 export function esperaApertura(pasos: readonly Paso[], i: number): boolean {
-  for (let j = i; j < pasos.length; j++) {
-    const p = pasos[j];
-    if (p.tipo === 'condicion') continue;
-    return p.tipo === 'mensaje' && p.canal === 'aviso_dueno' && !p.saleIgual;
+  const p = pasos[i];
+  if (!p) return false;
+  if (p.tipo === 'condicion') {
+    if (p.siNo != null || soloDatosDelEvento(p.rama.filas ?? [])) return false;
+    return esperaApertura(pasos, i + 1);
   }
-  return false;
+  return p.tipo === 'mensaje' && p.canal === 'aviso_dueno' && !p.saleIgual;
 }
 
 /** Lo que `retomarCorrida` (lib/flujos.ts) relee de la fila de una corrida dormida. */
@@ -325,6 +389,19 @@ export function pasosParaRetomar(
   if (t.problema) return { corta: 'rota' };
   if (typeof firmaGuardada !== 'string' || firmaGuardada !== t.firma) return { corta: 'cambio' };
   return { pasos: t.pasos };
+}
+
+/**
+ * ¿QUÉ PREGUNTA LA CONDITION? (16/10/2026). Un dato que el evento no trae, no: no se sabría nunca. Y un evento sin lead
+ * (`solo`: de la plataforma o de una persona) pregunta sólo sus datos: la condición de un lead no se cumpliría nunca.
+ */
+function problemaDeCondicion(ramas: readonly RamaCondicion[], delEvento: ReadonlySet<string>, solo: boolean): string | null {
+  for (const f of ramas.flatMap((r) => r.filas ?? [])) {
+    const k = datoDeCampo(f.campo);
+    if (k != null && !delEvento.has(k)) return MOTIVO_EVENTO.datoAjeno;
+    if (k == null && solo) return MOTIVO_EVENTO.condicionPersona;
+  }
+  return null;
 }
 
 /**
@@ -366,8 +443,11 @@ export type DepsEvento = {
   emitirAviso: (a: EmitirAvisoInput) => Promise<EmitirAvisoResult>;
   /** `reclamarEspaciado` (lib/espaciado.ts). */
   reclamar: (ws: number, tipo: string, minutos: number, clave?: string) => Promise<boolean>;
-  /** `ejecutarPasos` (lib/flujos.ts) adentro del workspace. */
-  correr: (flujoId: string, pasos: Paso[], ws: number, ctx: CtxFlujo) => Promise<void>;
+  /**
+   * `ejecutarPasos` (lib/flujos.ts) adentro del workspace. Devuelve cuántas tarjetas LLEGARON (al grupo o por email) en esta
+   * vuelta (16/10/2026): una que se durmió hasta que abra la oficina, o que no salió, no cuenta. Sin devolver nada, cero.
+   */
+  correr: (flujoId: string, pasos: Paso[], ws: number, ctx: CtxFlujo) => Promise<{ llegaron: number } | void>;
   /** El ws de la PLATAFORMA (`wsSuperAdmin`): de él son las filas de un evento `plataforma`. */
   wsPlataforma?: () => Promise<number>;
   log?: (m: string) => void;
@@ -377,7 +457,14 @@ export type DepsEvento = {
  * `filas`: cuántas automatizaciones corrieron. Cero = no salió nada (ninguna prendida, o ninguna con este evento): desde el
  * 16/10/2026 no hay camino viejo que lo mande igual (docs/inventario-nada-por-detras.md).
  */
-export type ResultadoEvento = EmitirAvisoResult & { filas: number };
+export type ResultadoEvento = EmitirAvisoResult & {
+  filas: number;
+  /**
+   * Cuántas tarjetas LLEGARON en esta vuelta (16/10/2026). `wa` sigue diciendo «corrió una fila» (lo lee el vigilante de
+   * líneas); para contar un aviso que de verdad salió —el techo de la alerta de anuncios—, esto. Ausente = cero.
+   */
+  llegaron?: number;
+};
 
 /** El id de corrida de una fila de evento (`flujo_corridas.aviso_id`): `retomarCorrida` relee la fila por él. */
 export const idCorridaDeFila = (filaId: number): string => `sec:${filaId}`;
@@ -454,6 +541,7 @@ export async function emitirPorEvento(
   }
 
   let n = 0;
+  let llegaron = 0;
   for (const { fila, pasos, firma } of corren) {
     const ctx: CtxFlujo = {
       ws: wsFilas,
@@ -467,13 +555,14 @@ export async function emitirPorEvento(
       firma,
     };
     try {
-      await deps.correr(idCorridaDeFila(fila.id), pasos, wsFilas, ctx);
+      const r = await deps.correr(idCorridaDeFila(fila.id), pasos, wsFilas, ctx);
       n += 1;
+      llegaron += r?.llegaron ?? 0;
     } catch (e) {
       log(`[aviso-evento] ${cat.id} (ws ${wsFilas}): la automatización #${fila.id} falló — ${e instanceof Error ? e.message : String(e)}`);
     }
   }
   // El envío lo afirma cada tarjeta (con su feed y su `wa`); ningún llamador de los del negocio lee `wa`. ⚠️ El de la línea
   // caída SÍ (lib/lineas-vigilante.ts): marca «avisado» sólo si llegó, y sin esa marca el «volvió» no sale nunca.
-  return { ok: true, feedId: null, wa: dePlataforma && n > 0, deduped: false, filas: n };
+  return { ok: true, feedId: null, wa: dePlataforma && n > 0, deduped: false, filas: n, llegaron };
 }

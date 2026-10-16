@@ -104,10 +104,12 @@ export function tramosConVariables(linea: string): Array<{ txt: string; esVar: b
  *                   (`avisarPagoRecibido`, lib/cobros.ts), por código, como la cuota. Ojo: NO es `pagos` (sus
  *                   cuotas del CRM) ni `cobro` (su link pendiente).
  *   · `escrito`   — lo que el lead escribió y MaKo no contestó: lo trae el emisor en `datos` (la charla).
+ *   · `anuncios`  — la cuenta publicitaria que Meta frenó (16/10/2026): lo trae el cron de las alertas críticas en
+ *                   `datos` (`datosCuentaFrenada`, lib/alerta-critica-texto.ts).
  */
 export type FuenteDato = 'nombre' | 'ficha' | 'zona' | 'producto' | 'etiquetas' | 'pagos' | 'curso'
   | 'perfil' | 'lead_magnet' | 'momento' | 'negocio' | 'links' | 'evento' | 'cuota' | 'cobro'
-  | 'proxima' | 'respuestas' | 'pago' | 'escrito' | 'analisis' | 'cuenta' | 'linea' | 'grabacion' | 'reporte';
+  | 'proxima' | 'respuestas' | 'pago' | 'escrito' | 'analisis' | 'cuenta' | 'linea' | 'grabacion' | 'reporte' | 'anuncios';
 
 /**
  * A quién le llega el mensaje: al lead (las automatizaciones), al equipo (MaKo en WhatsApp) o a un USUARIO de MaKo
@@ -142,8 +144,10 @@ export type VariableAviso = {
    *               lo pasa el webhook de Fathom (`datosPostLlamada`, lib/reunion-grabada.ts).
    * · `reporte` — necesita el REPORTE SEMANAL ya armado de un negocio (el evento de la plataforma `reporte_semanal`): lo
    *               pasa el cron de los lunes (`datosDelReporte`, lib/reporte-destino.ts).
+   * · `anuncios` — necesita la CUENTA PUBLICITARIA que Meta frenó (el evento de la plataforma `meta_cuenta_frenada`): lo
+   *               pasa el cron de las alertas críticas (`datosCuentaFrenada`, lib/alerta-critica-texto.ts).
    */
-  alcance: 'siempre' | 'lead' | 'cuota' | 'mensaje' | 'pago' | 'escrito' | 'analisis' | 'restablecer' | 'linea' | 'grabacion' | 'reporte';
+  alcance: 'siempre' | 'lead' | 'cuota' | 'mensaje' | 'pago' | 'escrito' | 'analisis' | 'restablecer' | 'linea' | 'grabacion' | 'reporte' | 'anuncios';
   /**
    * UN DATO SECRETO (15/10/2026, docs/diseno-2fa-obligatorio.md §3 y §8): el link de restablecer la contraseña (y
    * después el código del 2FA por correo). Sale SÓLO en el mail a la persona y NUNCA se guarda: `sinSecretos` lo saca
@@ -175,10 +179,21 @@ export type VariableAviso = {
    * número es cómo se arma una contradicción entre canales.
    */
   formato?: 'texto' | 'plata' | 'fecha' | 'si_no';
+  /**
+   * SE PREGUNTA EN UNA CONDITION (16/10/2026, lib/dato-evento.ts): el dato de un EVENTO que elige el camino («Estado de la
+   * cuenta es «Saldo impago»», «Aviso número ≤ 3»). `rotulo`: [afirmativa, negada], lo que dibuja la tarjeta. `numero` se
+   * compara con ≥ o ≤; `opciones`, contra su lista —los valores que pone el emisor, tal cual—; `texto`, igual sin tildes
+   * ni mayúsculas. Sin esto, el dato se escribe en un mensaje pero no se pregunta.
+   */
+  condicion?: { rotulo: readonly [string, string] } & (
+    | { tipo: 'numero'; min: number; max: number; def: number }
+    | { tipo: 'opciones'; opciones: ReadonlyArray<{ value: string; label: string }> }
+    | { tipo: 'texto' });
 };
 
 export type GrupoVariable =
-  | 'lead' | 'crm' | 'reuniones' | 'pagos' | 'campana' | 'formulario' | 'curso' | 'cerebro' | 'dashboard' | 'momento' | 'links' | 'cuenta' | 'linea';
+  | 'lead' | 'crm' | 'reuniones' | 'pagos' | 'campana' | 'formulario' | 'curso' | 'cerebro' | 'dashboard' | 'momento' | 'links' | 'cuenta' | 'linea'
+  | 'anuncios';
 
 /**
  * Las ramas del árbol, en orden, con su ícono (el `name` de `<Icon>`, app/_components/icons.tsx).
@@ -199,6 +214,7 @@ export const GRUPOS_VARIABLES: ReadonlyArray<{ key: GrupoVariable; titulo: strin
   { key: 'links', titulo: 'Links de MaKo', icono: 'web' },
   { key: 'cuenta', titulo: 'Cuenta de MaKo', icono: 'perfil' },
   { key: 'linea', titulo: 'WhatsApp del negocio', icono: 'whatsapp' },
+  { key: 'anuncios', titulo: 'Cuenta publicitaria', icono: 'meta' },
 ];
 
 /**
@@ -226,6 +242,16 @@ export const GRUPOS_VARIABLES: ReadonlyArray<{ key: GrupoVariable; titulo: strin
  * lib/flujos.ts), no una lectura: es del evento, como el link a la ficha.
  */
 export const CLAVE_MENSAJE_MAKO = 'mensaje_mako';
+
+/**
+ * LOS ESTADOS DE UNA CUENTA PUBLICITARIA QUE NO ES «ACTIVA» (16/10/2026): los de `ACCOUNT_STATUS` (lib/meta-health.ts), que
+ * es lo que pone el incidente en `status_label`. Son las opciones de «Estado de la cuenta es …» en la CONDITION. Escritos
+ * acá porque este módulo no importa nada; los cruza con aquella tabla tests/alerta-critica.test.ts.
+ */
+export const ESTADOS_CUENTA_META: readonly string[] = [
+  'Saldo impago', 'Deshabilitada', 'En revisión de riesgo', 'Pendiente de liquidación', 'En período de gracia',
+  'Pendiente de cierre', 'Cerrada', 'Cerrada (cualquiera)',
+];
 
 export const VARIABLES_AVISO: VariableAviso[] = [
   // ── Lead. El nombre lo trae el evento (o la fila del motor); el resto, la fila de `leads`.
@@ -354,6 +380,24 @@ export const VARIABLES_AVISO: VariableAviso[] = [
   //    Son los números del negocio (Meta, ventas, cobranza), por eso van en el Dashboard.
   { key: 'reporte_titulo', label: 'Título del reporte', ejemplo: 'Reporte semanal · 05/10/2026–11/10/2026', alcance: 'reporte', grupo: 'dashboard', rama: 'El reporte semanal', fuente: 'reporte', soloPara: 'equipo' },
   { key: 'reporte_texto', label: 'El reporte entero', ejemplo: '🗓️ *Reporte semanal* — 05/10/2026 a 11/10/2026…', alcance: 'reporte', grupo: 'dashboard', rama: 'El reporte semanal', fuente: 'reporte', soloPara: 'equipo' },
+  // ── La CUENTA PUBLICITARIA que Meta frenó (16/10/2026, el evento de la plataforma `meta_cuenta_frenada`): la pasa el cron de
+  //    las alertas críticas (`datosCuentaFrenada`), sólo HECHOS. El estado, la entrega y el número de aviso se PREGUNTAN en la
+  //    CONDITION (`condicion`): cada estado con su texto literal en la fila, y el techo de avisos también
+  //    (docs/inventario-nada-por-detras.md, lote 1).
+  {
+    key: 'anuncios_estado', label: 'Estado de la cuenta', ejemplo: 'Saldo impago', alcance: 'anuncios', grupo: 'anuncios', fuente: 'anuncios', soloPara: 'equipo',
+    condicion: { rotulo: ['Estado de la cuenta es', 'Estado de la cuenta no es'], tipo: 'opciones', opciones: ESTADOS_CUENTA_META.map((e) => ({ value: e, label: e })) },
+  },
+  {
+    key: 'anuncios_entrega', label: 'Los anuncios', ejemplo: 'sin entregar', alcance: 'anuncios', grupo: 'anuncios', fuente: 'anuncios', soloPara: 'equipo',
+    condicion: { rotulo: ['Los anuncios están', 'Los anuncios no están'], tipo: 'opciones', opciones: [{ value: 'sin entregar', label: 'Sin entregar' }, { value: 'entregando', label: 'Entregando' }] },
+  },
+  { key: 'anuncios_hace', label: 'Hace cuánto está así', ejemplo: '3 h 25 min', alcance: 'anuncios', grupo: 'anuncios', fuente: 'anuncios', soloPara: 'equipo' },
+  { key: 'anuncios_motivo_meta', label: 'Motivo de Meta', ejemplo: 'Riesgo de pago', alcance: 'anuncios', grupo: 'anuncios', fuente: 'anuncios', soloPara: 'equipo' },
+  {
+    key: 'anuncios_vez', label: 'Aviso número', ejemplo: '2', alcance: 'anuncios', grupo: 'anuncios', fuente: 'anuncios', soloPara: 'equipo',
+    condicion: { rotulo: ['Aviso número', 'Aviso número'], tipo: 'numero', min: 1, max: 1000, def: 3 },
+  },
 
   // ── Campaña: de dónde vino. Son nombres internos (de la campaña, del anuncio): para el equipo.
   { key: 'lead_origen', label: 'Por dónde entró', ejemplo: 'instant_form', alcance: 'lead', grupo: 'campana', fuente: 'ficha', soloPara: 'equipo' },
@@ -494,6 +538,8 @@ export type ContextoDatos = {
   conGrabacion?: boolean;
   /** El reporte semanal ya armado de un negocio (el evento de la plataforma `reporte_semanal`). */
   conReporte?: boolean;
+  /** La cuenta publicitaria que Meta frenó (el evento de la plataforma `meta_cuenta_frenada`). */
+  conAnuncios?: boolean;
   /** El link de restablecer la contraseña (sólo el evento `contrasena_restablecer`, y sólo al mail a la persona). */
   conRestablecer?: boolean;
 };
@@ -525,6 +571,7 @@ function alcanzaPara(a: VariableAviso['alcance'], opts: ContextoDatos): boolean 
   if (a === 'linea') return opts.conLinea === true;
   if (a === 'grabacion') return opts.conGrabacion === true;
   if (a === 'reporte') return opts.conReporte === true;
+  if (a === 'anuncios') return opts.conAnuncios === true;
   return false;
 }
 
