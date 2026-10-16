@@ -115,8 +115,9 @@ export function textoActual(i: Interpretacion): string | null {
 // Las burbujas
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Abrir la creación: preguntada (con algo de lo abierto en el mismo mensaje) o directa. */
-export type EstadoCrear = 'lista' | 'abriendo' | 'abierta' | 'error';
+/** Abrir la creación: preguntada (con algo de lo abierto en el mismo mensaje) o directa. `esperando`: «Sí» con el
+ *  cambio de lo abierto todavía sin aceptar ni descartar; se abre sola al terminarlo (`alTerminar`). */
+export type EstadoCrear = 'lista' | 'esperando' | 'abriendo' | 'abierta' | 'error';
 /** Mandar OTRA landing a la Papelera: siempre con confirmación. */
 export type EstadoPapelera = 'pregunta' | 'archivando' | 'hecha' | 'no' | 'error' | 'restaurada';
 
@@ -140,6 +141,7 @@ export const TEXTOS = {
   propuesta: '¿Terminamos esto y después creamos otra landing?',
   directa: 'Eso va en una landing nueva.',
   despues: 'Cuando quieras, la creamos.',
+  esperando: 'Al terminar esto, la abro.',
   si: 'Sí',
   despuesBoton: 'Después',
   crearAhora: 'Crear ahora',
@@ -226,8 +228,10 @@ const cual = (a: ObjetoChat, b: ObjetoChat) => `¿Cuál: «${nombreCorto(a, EN_T
 /** Los botones de «crear» según por dónde va: Sí / Después, o «Crear ahora» (directa, o después de «Después»). */
 function botonesCrear(b: Extract<BurbujaPedido, { tipo: 'crear' }>): BotonVista[] {
   const apagado = b.estado === 'abriendo' || b.estado === 'abierta';
-  const boton = (id: BotonId, texto: string, v: VarianteBoton): BotonVista => ({ id, texto, v, apagado, elegido: apagado && b.pulsado === id });
-  if (b.pregunta && !b.despues) return [boton('si', TEXTOS.si, 'primario'), boton('despues', TEXTOS.despuesBoton, 'contorno')];
+  const boton = (id: BotonId, texto: string, v: VarianteBoton, tambien = false): BotonVista =>
+    ({ id, texto, v, apagado: apagado || tambien, elegido: (apagado || tambien) && b.pulsado === id });
+  // Esperando, «Sí» ya está dicho; «Después» sigue prendido por si cambia de idea.
+  if (b.pregunta && !b.despues) return [boton('si', TEXTOS.si, 'primario', b.estado === 'esperando'), boton('despues', TEXTOS.despuesBoton, 'contorno')];
   return [boton('crear-ahora', TEXTOS.crearAhora, b.despues ? 'secundario' : 'primario')];
 }
 
@@ -236,7 +240,7 @@ export function vistaDeBurbuja(b: BurbujaPedido): VistaBurbuja {
   switch (b.tipo) {
     case 'crear': {
       const texto = b.despues ? TEXTOS.despues : b.pregunta ?? TEXTOS.directa;
-      const nota = b.estado === 'abriendo' ? TEXTOS.abriendo : b.estado === 'abierta' ? TEXTOS.abierta : b.estado === 'error' ? TEXTOS.noAbrio : null;
+      const nota = b.estado === 'esperando' ? TEXTOS.esperando : b.estado === 'abriendo' ? TEXTOS.abriendo : b.estado === 'abierta' ? TEXTOS.abierta : b.estado === 'error' ? TEXTOS.noAbrio : null;
       return { ...vacia, texto, botones: botonesCrear(b), nota, ocupado: b.estado === 'abriendo', error: b.estado === 'error' };
     }
     case 'elegir':
@@ -289,12 +293,16 @@ export type EfectoPedido =
  * Un clic en un botón de la burbuja. Sólo cuenta un botón que la vista dibuja PRENDIDO: uno apagado (ya usado,
  * o mientras corre lo que pidió) devuelve la misma burbuja y ningún efecto.
  */
-export function pulsar(b: BurbujaPedido, boton: string, actualId: number | string): { burbuja: BurbujaPedido; efecto: EfectoPedido | null } {
+export function pulsar(
+  b: BurbujaPedido, boton: string, actualId: number | string, op?: { sinTerminar?: boolean },
+): { burbuja: BurbujaPedido; efecto: EfectoPedido | null } {
   const igual = { burbuja: b, efecto: null };
   const prendido = vistaDeBurbuja(b).botones.some((x) => x.id === boton && !x.apagado);
   if (!prendido) return igual;
   if (b.tipo === 'crear') {
     if (boton === 'despues') return { burbuja: { ...b, despues: true, estado: 'lista', pulsado: null }, efecto: null };
+    // «¿Terminamos esto y después…?» → «Sí»: con el cambio de lo abierto sin terminar, primero eso.
+    if (boton === 'si' && op?.sinTerminar) return { burbuja: { ...b, estado: 'esperando', pulsado: 'si' }, efecto: null };
     return { burbuja: { ...b, estado: 'abriendo', pulsado: boton as BotonId }, efecto: { tipo: 'crear', pedido: b.pedido } };
   }
   if (b.tipo === 'papelera') {
@@ -325,6 +333,17 @@ export function trasRestaurar(b: BurbujaPedido, ok: boolean): BurbujaPedido {
 /** No se pudo dejar el pedido para la caja (sessionStorage bloqueado): el botón vuelve a estar prendido. */
 export function trasNoAbrir(b: BurbujaPedido): BurbujaPedido {
   return b.tipo === 'crear' && b.estado === 'abriendo' ? { ...b, estado: 'error', pulsado: null } : b;
+}
+
+/** Un cambio del agente que la persona todavía no aceptó ni descartó (`EstadoPropuesta` de paneles/PanelAgente.tsx). */
+export const sinTerminar = (estado: string | undefined): boolean =>
+  estado === 'pendiente' || estado === 'aplicando' || estado === 'sin-version';
+
+/** Lo de la landing abierta terminó (aceptado o descartado): una creación que esperaba se abre. */
+export function alTerminar(b: BurbujaPedido): { burbuja: BurbujaPedido; efecto: EfectoPedido | null } {
+  return b.tipo === 'crear' && b.estado === 'esperando'
+    ? { burbuja: { ...b, estado: 'abriendo' }, efecto: { tipo: 'crear', pedido: b.pedido } }
+    : { burbuja: b, efecto: null };
 }
 
 /**

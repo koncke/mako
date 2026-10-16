@@ -52,8 +52,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  CLAVE_CAJA, RUTA_CREAR, TEXTOS, alVolver, burbujasDe, cajaParaCrear, cuerpoPedidos, interpretacionDe, nombreCorto, papeleraDe,
-  pulsar, textoActual, trasNoAbrir, trasPapelera, trasRestaurar, vistaDeBurbuja, type BurbujaPedido,
+  CLAVE_CAJA, RUTA_CREAR, TEXTOS, alTerminar, alVolver, burbujasDe, cajaParaCrear, cuerpoPedidos, interpretacionDe, nombreCorto,
+  papeleraDe, pulsar, sinTerminar, textoActual, trasNoAbrir, trasPapelera, trasRestaurar, vistaDeBurbuja, type BurbujaPedido,
 } from '../app/web-generator/editor/pedidos-chat';
 import { interpretarCon, type ContextoPedidos, type Interpretacion, type ObjetoChat } from '../lib/mako-pedidos';
 import { AREA_INFO } from '../lib/api-mako/tipos';
@@ -143,6 +143,34 @@ test('E2: lo actual va a «editar» y la landing nueva se PROPONE con Sí / Desp
   assert.deepEqual(vistaDeBurbuja(si.burbuja).botones.filter((x) => x.elegido).map((x) => x.id), ['si']);
   assert.equal(pulsar(si.burbuja, 'si', ABIERTA.id).efecto, null);
   assert.equal(pulsar(si.burbuja, 'despues', ABIERTA.id).efecto, null);
+});
+
+// «¿Terminamos esto y después…?» → «Sí» quiere decir PRIMERO esto: con el cambio de la landing abierta sin aceptar
+// ni descartar, abrir la creación en el acto se iba del editor con «esto» a medias.
+// Roturas (sobre 16 tests, pasan / fallan): `pulsar` sin mirar `sinTerminar` → 15 / 1; `alTerminar` que no abre →
+// 15 / 1; el panel sin pasarle `sinTerminar` a `pulsar` → 15 / 1; el panel sin el efecto de `alTerminar` → 15 / 1.
+test('«Sí» con el cambio de lo abierto sin terminar ESPERA, y abre la creación al aceptarlo o descartarlo', async () => {
+  const [b] = burbujasDe(interpretacionDe(await deRuta(E2, [ABIERTA]), E2), ABIERTA.id);
+  const si = pulsar(b, 'si', ABIERTA.id, { sinTerminar: true });
+  assert.equal(si.efecto, null, 'no se va del editor con el cambio a medias');
+  assert.equal(vistaDeBurbuja(si.burbuja).nota, TEXTOS.esperando);
+  assert.deepEqual(prendidos(si.burbuja), ['despues'], '«Sí» ya está dicho; «Después» sigue por si cambia de idea');
+  assert.deepEqual(vistaDeBurbuja(si.burbuja).botones.filter((x) => x.elegido).map((x) => x.id), ['si']);
+  // Al terminar, se abre UNA vez.
+  const fin = alTerminar(si.burbuja);
+  assert.deepEqual(fin.efecto, { tipo: 'crear', pedido: (si.burbuja as { pedido: string }).pedido });
+  assert.equal(vistaDeBurbuja(fin.burbuja).nota, TEXTOS.abriendo);
+  assert.equal(alTerminar(fin.burbuja).efecto, null);
+  assert.equal(alTerminar(b).efecto, null, 'una burbuja que no esperaba no se abre sola');
+  // Lo que cuenta como sin terminar: lo que todavía tiene botones (o el giro) en el mensaje del agente.
+  assert.deepEqual(['pendiente', 'aplicando', 'sin-version', 'aplicada', 'descartada', 'restaurada', undefined].map(sinTerminar),
+    [true, true, true, false, false, false, false]);
+  // El panel: «Sí» mira los mensajes del agente, y el efecto abre la que esperaba cuando ya no queda nada sin terminar.
+  const panel = sinComentarios(leer('app/web-generator/editor/paneles/PanelAgente.tsx'));
+  assert.match(panel, /pulsar\(m\.burbuja, boton, docId, \{ sinTerminar: mensajes\.some\(\(x\) => x\.de === 'mako' && sinTerminar\(x\.estado\)\) \}\)/);
+  const efecto = cuerpoDe(panel, 'useEffect(() => {\n    if (hilo.mensajes.some((m) => m.de === \'mako\' && sinTerminar(m.estado))) return;', '}, [hilo.mensajes, docId]);');
+  assert.match(efecto, /const r = alTerminar\(m\.burbuja\);/);
+  assert.match(efecto, /void abrirCreacion\(m\.id, r\.efecto\.pedido\);/);
 });
 
 test('«Después» deja la burbuja con «Crear ahora», y «Crear ahora» abre la creación UNA vez', async () => {
@@ -365,7 +393,7 @@ test('el «Sí» de borrar es la Papelera del Panel (`accion: \'papelera\'`), nu
   assert.ok(guardar >= 0 && sesion > guardar && ir > sesion, 'el orden es guardar, dejar el pedido y navegar');
   assert.match(PANEL, /import Link, \{ useRouter \} from '@\/app\/_ui\/Link';/);
   // Los botones se leen del STORE (dos clics en un tick no repiten) y las burbujas se dibujan con su vista.
-  assert.match(PANEL, /const m = hilos\.get\(docId\)\?\.mensajes\.find\(\(x\) => x\.id === id\);/);
+  assert.match(PANEL, /const mensajes = hilos\.get\(docId\)\?\.mensajes \?\? \[\];\n  const m = mensajes\.find\(\(x\) => x\.id === id\);/);
   assert.match(PANEL, /const v = vistaDeBurbuja\(burbuja\);/);
 });
 

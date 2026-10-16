@@ -158,7 +158,10 @@ pedido es además la pregunta del chat antes de proponer.
 El chat del Web Generator ya está enganchado (`PanelAgente.tsx` + lo puro en `app/web-generator/editor/pedidos-chat.ts`,
 tests en `tests/editor-landing-pedidos-chat.test.ts`): lo actual sigue a «editar» como siempre y el resto son burbujas de
 MaKo. «Crear» (el Sí de la propuesta, o «Crear ahora» después de «Después») abre Crear con IA en Plan con el pedido
-escrito, por el camino de la caja del Panel (`tomarCaja`, sessionStorage, nunca la URL). Borrar OTRA landing confirma y
+escrito, por el camino de la caja del Panel (`tomarCaja`, sessionStorage, nunca la URL). ⚠️ «Sí» a «¿Terminamos esto y
+después…?» quiere decir PRIMERO esto: si el cambio de la landing abierta sigue sin aceptar ni descartar, la burbuja
+espera («Al terminar esto, la abro.») y la creación se abre sola al terminarlo (`sinTerminar`, `alTerminar`). Abrirla
+en el acto se iba del editor con el cambio a medias. Borrar OTRA landing confirma y
 la manda a la Papelera (se restaura); la ABIERTA nunca se borra desde el chat: se dice dónde está «⋯ › Eliminar». Si la
 ruta falla o tarda más de `PLAZO_PEDIDOS_MS`, el mensaje entero va a «editar», como antes.
 

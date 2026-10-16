@@ -54,8 +54,8 @@ import { esPresentacion, formatoDe, terminoTarjeta, type ConfigLanding } from '@
 import type { JsonNodo } from '@/lib/editor-landing/doc';
 import { PLAZO_PEDIDOS_MS, cortadoPorUsuario, pedirDocs, pedirIA, pedirPedidos } from '../../cliente';
 import {
-  CLAVE_CAJA, RUTA_CREAR, alVolver, burbujasDe, cajaParaCrear, cuerpoPedidos, interpretacionDe, pulsar, textoActual, trasNoAbrir,
-  trasPapelera, trasRestaurar, vistaDeBurbuja, type BurbujaPedido, type EfectoPedido,
+  CLAVE_CAJA, RUTA_CREAR, alTerminar, alVolver, burbujasDe, cajaParaCrear, cuerpoPedidos, interpretacionDe, pulsar, sinTerminar,
+  textoActual, trasNoAbrir, trasPapelera, trasRestaurar, vistaDeBurbuja, type BurbujaPedido, type EfectoPedido,
 } from '../pedidos-chat';
 import { urlFuentes, type Tema } from '@/lib/editor-landing/temas';
 import { htmlDeTarjeta } from '@/lib/editor-landing/render';
@@ -428,9 +428,11 @@ const comoMensajes = (bs: readonly BurbujaPedido[]): Mensaje[] => bs.map((burbuj
  * es sincrónico, así que un segundo clic (aunque llegue antes de dibujar) ya la ve apagada y no repite la acción.
  */
 function pulsarEnHilo(docId: number, id: number, boton: string): EfectoPedido | null {
-  const m = hilos.get(docId)?.mensajes.find((x) => x.id === id);
+  const mensajes = hilos.get(docId)?.mensajes ?? [];
+  const m = mensajes.find((x) => x.id === id);
   if (!m || m.de !== 'pedido') return null;
-  const r = pulsar(m.burbuja, boton, docId);
+  // «¿Terminamos esto y después…?» → «Sí» con un cambio sin aceptar ni descartar: la creación espera a que termine.
+  const r = pulsar(m.burbuja, boton, docId, { sinTerminar: mensajes.some((x) => x.de === 'mako' && sinTerminar(x.estado)) });
   if (r.burbuja !== m.burbuja) cambiarBurbuja(docId, id, () => r.burbuja);
   if (r.efecto?.tipo === 'agregar') {
     const nueva = r.efecto.burbuja;
@@ -670,6 +672,20 @@ export function PanelAgente({ onCerrar }: { onCerrar?: () => void } = {}) {
     }
     router.push(RUTA_CREAR);
   };
+
+  // El cambio de la landing abierta terminó (aceptado o descartado): la creación que esperaba su «Sí» se abre. Una
+  // sola: abrir navega.
+  useEffect(() => {
+    if (hilo.mensajes.some((m) => m.de === 'mako' && sinTerminar(m.estado))) return;
+    for (const m of hilo.mensajes) {
+      if (m.de !== 'pedido') continue;
+      const r = alTerminar(m.burbuja);
+      if (r.efecto?.tipo !== 'crear') continue;
+      cambiarBurbuja(docId, m.id, () => r.burbuja);
+      void abrirCreacion(m.id, r.efecto.pedido);
+      return;
+    }
+  }, [hilo.mensajes, docId]);
 
   /** «Deshacer» del aviso: la MISMA landing vuelve de la Papelera (como en el Panel). */
   const sacarDePapelera = async (id: number, landing: number) => {
