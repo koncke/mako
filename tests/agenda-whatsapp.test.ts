@@ -39,7 +39,7 @@ import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { clasificarIntencion, areasDelMensaje, CONTRATO } from '../lib/mako-intencion';
-import { herramientasDelTurno, DE_CALENDLY, PREGUNTA_REUNION_O_TAREA, preguntoReunionOTarea, SIN_FECHA_DE_TAREA } from '../lib/doer-herramientas';
+import { herramientasDelTurno, DE_CALENDLY, NO_MUEVEN_DE_DIA, PREGUNTA_REUNION_O_TAREA, preguntoReunionOTarea, SIN_FECHA_DE_TAREA } from '../lib/doer-herramientas';
 import { porId, visible, type Vista } from '../lib/api-mako/registro';
 
 const RAIZ = join(__dirname, '..');
@@ -273,6 +273,9 @@ test('«movela al viernes» sin decir qué: viajan la agenda Y el plan, y MaKo p
     trae(m, 'proponer_mover_reunion', r);   // reagendar
     trae(m, 'agenda_del_dia', r);           // leer el día
     trae(m, 'listar_tareas_plan', r);       // la tarea, con su deadline
+    // Mover de COLUMNA no es mover de día (16/10/2026): `mover_tarea_plan` puntuaba primera con «mover tarea plan» y
+    // dejaba afuera a listar_tareas_plan. Probado rompiéndolo: sin la exclusión, esta prueba cae 15/1.
+    for (const n of NO_MUEVEN_DE_DIA) assert.ok(!r.nombres.includes(n), `«${m}» trae ${n}, que cambia la columna, no el día`);
     // La acción de cambiarle la fecha a una tarea vive en otra rama (wip/api-acciones-0910), y
     // ahí es sólo HTTP. Si algún día sale por WhatsApp, tiene que entrar al presupuesto igual que
     // la de la reunión; mientras no salga, el modelo tiene que saber que no la tiene.

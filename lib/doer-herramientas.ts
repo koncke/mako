@@ -24,6 +24,15 @@ import type { Area } from './api-mako/tipos';
  *  empujaba a pedir un lead y un email que nadie nombró. */
 export const DE_CALENDLY: readonly string[] = ['listar_horarios_reunion', 'proponer_agendar_reunion', 'link_agenda_calendly'];
 
+/**
+ * Lo que NO sirve para mover algo a otro DÍA y por eso no viaja cuando el veredicto es mover (`v.mover`).
+ * `mover_tarea_plan` (el kanban del Plan, 16/10/2026) cambia la COLUMNA de una tarea, nunca su fecha, y su id —«mover
+ * tarea plan»— es justo la relevancia de un «movela al viernes» (`RELEVANCIA_MOVER`): entraba primera al presupuesto
+ * y dejaba afuera a `listar_tareas_plan`, la que el turno necesita para encontrar la tarea. El diagnóstico obvio
+ * («las 34 acciones del Video Editor») era el equivocado: en ese turno no viaja ninguna de video.
+ */
+export const NO_MUEVEN_DE_DIA: readonly string[] = ['mover_tarea_plan'];
+
 /** Lo que el doer le pasa al presupuesto del registro (los mismos números de siempre). */
 export const PRESUPUESTO_REGISTRO_CHARS = 12_000;
 
@@ -159,7 +168,7 @@ export function herramientasDelTurno<T extends { name: string }>(p: EntradaTurno
   const delRegistro = areas.length
     ? toolsDelRegistro({
         vista: p.vista, areas, incluirAcciones: v.intencion === 'actuar',
-        excluir: new Set([...p.deSiempre.map((t) => t.name), ...(p.sinCalendly ? DE_CALENDLY : [])]),
+        excluir: new Set([...p.deSiempre.map((t) => t.name), ...(p.sinCalendly ? DE_CALENDLY : []), ...(v.mover ? NO_MUEVEN_DE_DIA : [])]),
         maxChars: PRESUPUESTO_REGISTRO_CHARS, relevanteA,
       })
     : [];

@@ -1443,11 +1443,33 @@ de WhatsApp. Una op grande que empata arriba se come el lugar de las chicas.
 lib/api-mako/areas/crm.def.ts (`cambiar_ficha_funnel`) · tests/ficha-api.test.ts ·
 *16/10/2026, chat «CRM» (claude3), corrida wf_e3cc574c-723 (`665f5bed1`).*
 
+## `mover_tarea_plan` dejó a «movela al viernes» sin la tarea: mover de columna no es mover de día (16/10/2026)
+
+En integración, `tests/agenda-whatsapp.test.ts` cayó con «mové eso al viernes»: no viajaba `listar_tareas_plan`.
+
+- **El diagnóstico obvio era el equivocado.** «Las 34 acciones nuevas del Video Editor se comen el presupuesto»: en
+  ese turno no viaja NINGUNA de video (las áreas son `crm` y `plan`; se midió con el mismo armado del test). Antes
+  de culpar a la última área grande, se lista qué viaja de verdad y cuánto pesa cada una.
+- **La causa: una acción cuyo id ES la relevancia del veredicto.** «Movela al viernes» suma `RELEVANCIA_MOVER`
+  («… mover … tarea plan», lib/mako-intencion.ts), y `mover_tarea_plan` (el kanban del Plan, 49d30e58f) puntúa
+  «mover», «tarea» y «plan» en su id: entraba arriba de `listar_tareas_plan` y, con el turno a 104 caracteres del
+  tope, la dejaba afuera. Apagarla en WhatsApp lo ponía en verde (16/0): la prueba de la causa.
+- **El arreglo es de sentido, no de tamaño:** esa acción cambia la COLUMNA de una tarea, nunca su fecha, así que no
+  sirve cuando el veredicto es mover a un día (`v.mover`). `NO_MUEVEN_DE_DIA` (lib/doer-herramientas.ts) la saca de
+  esos turnos; en «pasala a en proceso» sigue viajando. El test pide que no viaje (dos roturas, 15/1 cada una).
+
+**La regla:** cuando un veredicto trae su relevancia, una acción de OTRA cosa cuyo id repite esas palabras le gana el
+lugar a la que el veredicto necesita. Se mira qué viaja y, si no sirve para ese veredicto, se excluye ahí.
+
+**Vive en:** lib/doer-herramientas.ts (`NO_MUEVEN_DE_DIA`) · lib/mako-intencion.ts (`RELEVANCIA_MOVER`) ·
+lib/api-mako/areas/plan.def.ts (`mover_tarea_plan`) · tests/agenda-whatsapp.test.ts ·
+*16/10/2026, chat «Video Editor» (claude3).*
+
 ## El Video Editor en la API: 34 acciones que PROPONEN, y lo que le pidieron al registro (16/10/2026)
 
 Etapa 3 de docs/diseno-mako-ai-native.md: las operaciones del chat «Editar con IA» pasan a la API. El proyecto vive
 en el navegador de quien lo edita, así que cada una es de pantalla PROPIA (`/video-editor`): deja su cambio en una
-propuesta del proyecto (mig 0300), lo del mismo canal se junta, y una persona lo acepta en el editor. Se generan del
+propuesta del proyecto (mig 0302), lo del mismo canal se junta, y una persona lo acepta en el editor. Se generan del
 catálogo del chat (lib/editor-video/chat-api.ts): la descripción es el mismo `para` que lee la IA del chat.
 - ⚠️ **El test del registro busca los runners ESCRITOS en el fuente** (`^  id: {` en el `.run.ts`): 34 runners
   generados con `Object.fromEntries` eran invisibles y el test decía «no tiene runner». Van explícitos
