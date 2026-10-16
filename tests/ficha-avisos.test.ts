@@ -180,8 +180,12 @@ test('desde la ficha, los avisos son los del funnel del lead (en «Personalizar�
   assert.match(ficha, /useFichaDelFunnel\(data\.ficha \?\? null,/);
   assert.match(ficha, /<PanelFicha ficha=\{ff\.ficha\} onCambio=\{cambiar\} \/>/);
   const hook = sinComentarios(leer('app/crm/lead-view/ficha/useFichaDelFunnel.ts'));
-  assert.match(hook, /const funnelId = f\.funnel\.id;/);
-  assert.match(hook, /await cambiarFichaFunnelAction\(funnelId, c\)/);
+  // Desde el 16/10/2026 la cola y el deshacer viven en guardado-ficha.ts (puro, lo ejecuta
+  // tests/ficha-guardado.test.ts): el funnel sale de la ficha que se ve ahí, y el hook lo pasa a la acción.
+  const guardado = sinComentarios(leer('app/crm/lead-view/ficha/guardado-ficha.ts'));
+  assert.match(guardado, /const funnelId = f\.funnel\.id;/);
+  assert.match(guardado, /await d\.guardar\(funnelId, c\)/);
+  assert.match(hook, /guardar: async \(funnelId, c\) => await cambiarFichaFunnelAction\(funnelId, c\)/);
   assert.doesNotMatch(hook, /guardarAvisosDatosAction/, 'la ficha guarda los avisos por otra escritura que la de su funnel');
   // Y guardado un aviso, la cabecera recuenta «N sin marcar».
   assert.match(tramo(hook, 'export const cambiaAvisos', ';\n'), /c\.op === 'aviso'/);

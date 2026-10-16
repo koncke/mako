@@ -121,7 +121,7 @@ export type ResultadoGuardarFicha =
 
 /**
  * Aplica UN cambio a la ficha de un funnel y lo guarda. `antes` es lo guardado justo antes (para
- * «Deshacer»: `{ op: 'restaurar', ficha: antes }`). `cambio: false` = ya estaba así y no se escribió nada.
+ * «Deshacer»: `{ op: 'restaurar', ficha: antes, esperado: ficha.guardada }`). `cambio: false` = ya estaba así y no se escribió nada.
  */
 export async function cambiarFichaDeFunnel(funnelId: number | null, c: CambioFicha): Promise<ResultadoGuardarFicha> {
   const [canal, respaldo] = await Promise.all([canalDelNegocio(), respaldoDelNegocio()]);

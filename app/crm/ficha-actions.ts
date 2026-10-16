@@ -15,7 +15,8 @@
 //    ficha y los avisos de TODOS los leads del funnel.
 // ⚠️ Un cambio es UN parche (CambioFicha, lib/ficha/config.ts) que se aplica sobre lo de hoy con
 //    compare-and-set (lib/ficha/config-server.ts): dos admins que cambian cosas distintas no se pisan. La
-//    respuesta trae `antes`, para «Deshacer» con `{ op: 'restaurar', ficha: antes }`.
+//    respuesta trae `antes`, para «Deshacer» con `{ op: 'restaurar', ficha: antes, esperado }` (`esperado` = cómo
+//    la dejó este cambio: si otra persona la tocó después, no se restaura; app/crm/lead-view/ficha/guardado-ficha.ts).
 // ⚠️ EN UN ARCHIVO 'use server' SÓLO SE EXPORTAN FUNCIONES ASYNC (AGENTS.md): los tipos viven en lib/ficha.
 // =============================================================================
 

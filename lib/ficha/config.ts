@@ -365,8 +365,12 @@ export type CambioFicha =
   | { op: 'volver'; tab?: TabFicha }
   /** Usar otra plantilla (null = la que elige MaKo). Arranca de cero las tabs y los avisos; el estilo queda. */
   | { op: 'plantilla'; plantilla: PlantillaId | null }
-  /** Deshacer: vuelve a una ficha guardada antes (la que devolvió el cambio anterior). */
-  | { op: 'restaurar'; ficha: FichaGuardada };
+  /**
+   * Deshacer: vuelve a una ficha guardada antes (la que devolvió el cambio anterior). `esperado` es cómo dejó
+   * la ficha el cambio que se deshace: si hoy es otra, alguien la cambió después y NO se restaura (sería
+   * borrarle su cambio a la otra persona, para todos los leads del funnel). Sin `esperado`, restaura igual.
+   */
+  | { op: 'restaurar'; ficha: FichaGuardada; esperado?: FichaGuardada };
 
 export type ResultadoCambio = { ok: true; ficha: FichaGuardada; cambio: boolean } | { ok: false; error: string };
 
@@ -447,7 +451,7 @@ export function sanearCambio(raw: unknown): CambioFicha | { error: string } {
     case 'plantilla':
       if (o.plantilla !== null && !esPlantillaId(o.plantilla)) return { error: 'Esa plantilla no existe.' };
       return { op, plantilla: (o.plantilla ?? null) as PlantillaId | null };
-    case 'restaurar': return { op, ficha: sanearFicha(o.ficha) };
+    case 'restaurar': return { op, ficha: sanearFicha(o.ficha), ...(o.esperado !== undefined ? { esperado: sanearFicha(o.esperado) } : {}) };
   }
   return { error: 'Ese cambio no existe.' };
 }
@@ -566,9 +570,14 @@ export function aplicarCambio(actual: FichaGuardada, c: CambioFicha, elegida: Pl
       delete g.tabs; delete g.avisos;
       break;
     case 'restaurar': {
-      const f = sanearFicha(c.ficha);
-      const n = normalizar(f, elegida, respaldo);
-      return { ok: true, ficha: n, cambio: !igual(n, normalizar(actual, elegida, respaldo)) };
+      const hoy = normalizar(actual, elegida, respaldo);
+      // Compare-and-set del Deshacer: el parche de los demás cambios no pisa a nadie, pero restaurar reemplaza
+      // la ficha entera. Si no está como la dejó el cambio que se deshace, otra persona la tocó después.
+      if (c.esperado && !igual(normalizar(sanearFicha(c.esperado), elegida, respaldo), hoy)) {
+        return { ok: false, error: 'Otra persona cambió la ficha.' };
+      }
+      const n = normalizar(sanearFicha(c.ficha), elegida, respaldo);
+      return { ok: true, ficha: n, cambio: !igual(n, hoy) };
     }
   }
   const n = normalizar(g, elegida, respaldo);
