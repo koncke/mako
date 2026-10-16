@@ -182,10 +182,11 @@ Ticketera (`clientes-usan-su-claude`, opción A). Commit `7f0ced90f`.</sub>
   `tests/onboarding-sin-api.test.ts` (6 roturas, 6 cazadas).
 - **La guía del crédito de Claude Max** vive en la ficha de Anthropic (`lib/metodo-catalogo.ts`, el
   tutorial del servicio y el «?» del campo), y el paso del wizard abre ese modal ahí mismo.
+- **La clave de Anthropic del negocio ya mueve sus funciones de texto** (16/10, commit `a488757c`): el
+  coordinador contestó que la decisión A de Martín ya lo cubría. Es la segunda puerta del veto
+  (`lib/veto-claude.ts`), nunca con una clave de la plataforma ni en el Plan; el detalle, en
+  `docs/hallazgos-ia.md`.
 - **Lo que NO está hecho y no es mío decidir** (se lo pasé al coordinador):
-  - la key de Anthropic de un cliente sólo la usa el análisis de llamadas de cierre (permiso de Claude
-    hasta el 13/11, `lib/veto-claude.ts`). Que el crédito de Max mueva más cosas es una decisión de
-    qué modelo paga;
   - después del arranque, 60 llamadas a IA del producto no tienen red: un cliente sin keys ve
     «conecta tu IA» en casi todas las herramientas;
   - sin mirar en el navegador: no se levantó la app (RAM). Falta ver el paso en escritorio y celular
