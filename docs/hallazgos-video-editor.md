@@ -1176,9 +1176,28 @@ se ve HOY (aunque la hayan movido).
   id; nada se vio en el navegador.
 
 - **SIN HACER de la tanda 1**: la zona segura se probó con anchos de letra ESTIMADOS (verla en el navegador); en el
-  peor caso (24 caracteres en Montserrat 60) un beneficio puede partirse en dos renglones y pisar al siguiente;
-  Congelar (`commands/timeline/element/congelar.ts`) tiene que excluir también `PREFIJO_PLANTILLA`, como excluye
-  `PREFIJO_TRANSICION`.
+  peor caso (24 caracteres en Montserrat 60) un beneficio puede partirse en dos renglones y pisar al siguiente.
+
+**Tanda 3 (15/10, la pestaña «Plantillas» y «Utilizar plantilla»; `_opencut/plantillas/{uso,dibujo,muestras,instanciar,registro}.ts`,
+`plantillas/components/`, `app/video-editor/plantilla/ArmarPlantilla.tsx`, test `tests/video-editor-plantillas-uso.test.ts`, 28 roturas):**
+- ⚠️ **El historial de deshacer nunca se vacía al cambiar de proyecto**: `CommandManager.clear()` no lo llama nadie
+  (`core/managers/commands.ts`, `project-manager.ts`). Abriendo B en la misma pestaña, Ctrl+Z aplica sobre B las pistas
+  de A. Leído, no visto. `ArmarPlantilla` lo vacía para su caso; **SIN HACER** el arreglo general (`loadProject`,
+  `createNewProject` y `closeProject` deberían limpiarlo).
+- ⚠️ **«Para ir a un proyecto nuevo alcanza con `router.push`» era el diagnóstico equivocado**: la salida de
+  `editor-page.tsx` corre una microtarea DESPUÉS de desmontarse y actúa sobre el proyecto activo; si el componente
+  nuevo crea su proyecto en el mismo ciclo, la salida le haría la miniatura y lo guardaría a medio armar. Regla:
+  cerrar el proyecto antes de navegar (`prepareExit`, `save.flush`, `closeProject`), o esperar una vuelta del bucle.
+- **Una línea de un plan queda vieja**: el plan decía «cargar las fuentes al montar, como `biblioteca-estilos.tsx`»,
+  justo lo que colgaba la pestaña. Las líneas de un plan se releen contra los hallazgos posteriores.
+- **Probar una transformación con datos que ya la cumplen no prueba nada**: las muestras del catálogo vienen en
+  mayúscula, así que sacar las mayúsculas no rompía nada hasta sumar un dato en minúscula.
+- **Cargan en node:** `text/revelado`, `plantillas/{uso,dibujo}`. **No:** `media/processing`, `subtitles/insert`.
+- **CapCut 9.6 está instalado en la máquina** (`C:/Users/marti/AppData/Local/CapCut/Apps/9.6.0.4097/Resources/po/es-LA.po`):
+  `template_pc` «Plantillas», `pc_lyrics_loading_add_effect` «Aplicando plantillas…», `pc_template_editor_material_be_replaced`
+  «%1 clips por reemplazar».
+- **SIN HACER:** todo lo visual en el navegador; la miniatura no dibuja transiciones, brillo ni curva; las muestras
+  se guardan por proyecto en OPFS y nadie las recolecta.
 
 ## Lottie en un editor de VIDEO: qué aporta si la pieza termina en mp4
 

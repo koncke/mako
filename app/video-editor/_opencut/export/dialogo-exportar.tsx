@@ -24,6 +24,7 @@ import {
 	CheckmarkCircle02Icon,
 	Film01Icon,
 	FolderOpenIcon,
+	InformationCircleIcon,
 	PencilEdit02Icon,
 } from "@hugeicons/core-free-icons";
 import { portalCe } from "@/app/video-editor/portal";
@@ -67,6 +68,7 @@ import {
 import { Exportacion, datosDelProyecto, portada } from "./exportar";
 import { carpetaElegida, elegirCarpeta, puedeElegirCarpeta } from "./destino";
 import { frameRateToFloat } from "@/app/video-editor/_opencut/fps/utils";
+import { quedanMuestras } from "@/app/video-editor/_opencut/plantillas/huecos";
 
 const CLAVE_RECUERDO = "ce-exportar-v1";
 
@@ -199,6 +201,8 @@ function CuerpoExportar({ onCerrar }: { onCerrar: () => void }) {
 	const editor = useEditor();
 	const exportacion = useRef<Exportacion | null>(null);
 	const [datos] = useState(() => datosDelProyecto(editor));
+	// Una plantilla con clips sin sustituir se exporta igual (no bloquea), pero se avisa.
+	const [conMuestras] = useState(() => quedanMuestras(editor.scenes.getActiveScene().tracks));
 	const [elegidas, setOpciones] = useState<OpcionesExportar>(() =>
 		opcionesIniciales({
 			nombre: datos.proyecto.metadata.name,
@@ -308,7 +312,7 @@ function CuerpoExportar({ onCerrar }: { onCerrar: () => void }) {
 				</DialogPrimitive.Title>
 
 				<div className="flex min-h-0 flex-1 gap-6 overflow-y-auto px-5 pt-2 pb-4">
-					<Portada imagen={imagen} fase={fase} />
+					<Portada imagen={imagen} fase={fase} conMuestras={conMuestras && fase.tipo === "formulario"} />
 					<div className="min-w-0 flex-1">
 						{fase.tipo === "formulario" ? (
 							<Formulario
@@ -369,9 +373,9 @@ function CuerpoExportar({ onCerrar }: { onCerrar: () => void }) {
 	);
 }
 
-function Portada({ imagen, fase }: { imagen: string | null; fase: Fase }) {
+function Portada({ imagen, fase, conMuestras }: { imagen: string | null; fase: Fase; conMuestras: boolean }) {
 	return (
-		<div className="w-[384px] shrink-0">
+		<div className="flex w-[384px] shrink-0 flex-col gap-2">
 			<div className="relative flex aspect-video w-full items-center justify-center overflow-hidden rounded-[4px] bg-black">
 				{imagen ? (
 					// eslint-disable-next-line @next/next/no-img-element -- dataURL local, sin optimizar
@@ -391,6 +395,13 @@ function Portada({ imagen, fase }: { imagen: string | null; fase: Fase }) {
 					</div>
 				)}
 			</div>
+			{/* Una plantilla con un hueco sin sustituir (plantillas/huecos.ts): avisa, no bloquea. */}
+			{conMuestras && (
+				<p className="flex items-center gap-1.5 text-[12px] text-(--cc-text-2)">
+					<HugeiconsIcon icon={InformationCircleIcon} className="size-3.5 shrink-0" />
+					Quedan clips de muestra
+				</p>
+			)}
 		</div>
 	);
 }

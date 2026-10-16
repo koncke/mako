@@ -117,9 +117,11 @@ test('2a: la ref del `?desde=` nombra el video; una url o un id con barras no es
   }
 });
 
-test('2b: la page lee SÓLO `desde` y la url la arma el server; el cliente no recibe otra cosa', () => {
+test('2b: la page lee SÓLO `desde` y `plantilla`, y la url la arma el server; el cliente no recibe otra cosa', () => {
   const page = sinLineas(leer('app/video-editor/[proyecto]/page.tsx'));
-  assert.match(page, /searchParams: Promise<\{ desde\?: string \| string\[\] \}>/, 'la page no lee otro parámetro');
+  assert.match(page, /searchParams: Promise<\{ desde\?: string \| string\[\]; plantilla\?: string \| string\[\] \}>/, 'la page no lee otro parámetro');
+  // `?plantilla=` (plantillas, tanda 3): al cliente baja un id del catálogo o null, nunca lo que vino.
+  assert.match(page, /plantillaPorId\(plantilla\)\?\.id \?\? null/);
   assert.match(page, /await resolverDesde\(desde\)/);
   const resolver = sinLineas(leer('app/video-editor/desde/resolver.ts'));
   assert.match(resolver, /^import 'server-only';/m);
