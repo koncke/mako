@@ -468,4 +468,20 @@ export const BITACORA: Hito[] = [
       'tests/centro-fila.test.ts — en qué trabaja y el comando',
     ],
   },
+  {
+    fecha: '16 oct', hora: '03:39', chat: CH, sesion: SESION_CH_3, cuenta: 'claude3', actor: 'claude', tipo: 'implementacion',
+    titulo: 'El Cerebro aparte, los jefes por tab, «Sin asignar», y cada pedido en su chat',
+    puntos: [
+      'Martín: «Quiero chats con los nombres de las tabs que sean "jefes"» y que el orquestador no es un jefe más.',
+      'El Cerebro (ex «Estrategia 3 cuentas») va aparte, arriba; sus nombres de antes en otras cuentas son el mismo chat.',
+      'Los jefes se llaman como una tab (la barra y las áreas); lo demás va a «Sin asignar», plegado.',
+      'Un pedido sale sólo en el chat que lo trabajó: el que lo pasó ya no muestra «Lo trabajó…».',
+    ],
+    commits: [{ sha: 'f83efea40', msg: 'feat(operaciones): el Cerebro aparte, los jefes por tab, «Sin asignar», y cada pedido en su chat', lineas: 167, archivos: 11 }],
+    archivos: [
+      'lib/centro-chats.ts — CEREBRO, esCerebro, seccionesDeChats con las tabs',
+      'app/admin/operaciones/tabs.ts — los nombres de las tabs, del lado del servidor',
+      'tests/centro-jefes.test.ts — el Cerebro, «Sin asignar» y la lista de tabs',
+    ],
+  },
 ];

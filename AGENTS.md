@@ -1213,7 +1213,11 @@ código nuevo:
   - **El jefe se llama como la tab** («CRM», «Offer», «Web Generator»), y el mismo trabajo se llama IGUAL en las tres
     cuentas: el Centro une por nombre (sin mayúsculas ni tildes) y le escribe a la sesión abierta
     (lib/centro-chats.ts → `unirPorNombre`).
-  - **Un sub-chat se nombra «CRM › Lead Detail»** (también vale «>»), y va adentro de su jefe (`porJefe`). No hay
+  - **Un sub-chat se nombra «CRM › Lead Detail»** (también vale «>»), y va adentro de su jefe (`porJefe`).
+  - **El jefe se llama como una tab de VERDAD** (16/10/2026): la lista sale de la barra y de las áreas
+    (app/admin/operaciones/tabs.ts); lo que no coincide va a «Sin asignar». **El orquestador se llama «Cerebro»** y no es
+    un jefe: va aparte, arriba («Estrategia 3 cuentas» es su nombre de antes). Un pedido sale SÓLO en el chat que lo
+    trabajó, nunca en el que lo pasó. No hay
     registro aparte: el nombre es la convención. Lo decide el jefe —se renombra a sí mismo o renombra al sub-chat con
     `set_session_title`— y funciona igual si el sub-chat lo crea Martín con un clic y lo nombra así.
   - **Dos chats distintos no se llaman igual**: si pasa, se unen. Se separan renombrando uno («⋯ → Renombrar»), que le

@@ -735,6 +735,25 @@ trabajando» y «Falta la opción de "Nuevo chat" tipo placeholder arriba de tod
 **Vive en:** `app/admin/operaciones/NuevoChat.tsx` · `lib/runner.ts` (`comandoNuevoChat`) · `lib/centro-chats.ts`
 (`enQueTrabaja`) · `lib/centro-munecos.ts` · `tests/centro-fila.test.ts`
 
+## El Cerebro aparte, los jefes por tab, y un pedido sólo en el chat que lo trabajó (16/10/2026)
+
+**El pedido.** «No estás aplicando la modularización y organización de chats... dentro de ese chat dice "Lo trabajó Centro
+de Operaciones"... Si lo trabajó otro, no debería salir allí... hay otro que se llama "dashboard-marketing-7d"... Quiero
+chats con los nombres de las tabs que sean "jefes"», y que el orquestador no es un jefe más.
+
+- **Un chat jefe se reconoce por el nombre de una tab, y la lista ya existía en dos registros**: las etiquetas de la barra
+  (`app/_components/nav.ts`) y los títulos de las áreas (`app/admin/dev/areas.ts`, que nombran también lo que no tiene
+  tab: «Closing Analyst»). Se arma en el servidor (`app/admin/operaciones/tabs.ts`) y viaja como una lista chica: el
+  registro de áreas es grande. Lo que no coincide va a «Sin asignar», plegado: renombrarlo lo pasa a su jefe.
+- **El Cerebro es UN chat con sus nombres de antes** («Estrategia 3 cuentas» en las otras cuentas, hasta que se renombren:
+  sólo Martín puede firmar ese renombre, desde su dispositivo). Mismo muñeco que tenía.
+- **«Lo trabajó…» en el chat que pasó el pedido era el diagnóstico obvio y era el equivocado**: no faltaba el chip de la
+  cuenta (lo que se había pedido antes), sobraba la línea. Un pedido sale sólo en el chat que lo trabajó; `pidioAca` se
+  sigue calculando (dice de dónde vino) pero no se dibuja.
+
+**Vive en:** `lib/centro-chats.ts` (`CEREBRO`, `esCerebro`, `seccionesDeChats`) · `app/admin/operaciones/tabs.ts` ·
+`tests/centro-jefes.test.ts`
+
 ## Lo que creí medido y no estaba al día
 
 - **`soloPlataforma` ya existía en el registro de la API** (lo sumó el 2FA obligatorio el 14/10, por
