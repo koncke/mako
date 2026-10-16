@@ -81,12 +81,12 @@ test('dónde quedó: ya estaba, el Perro la fusionó, o la puso en otro proyecto
   const ts = tareasDelListado(listado);
   assert.equal(yaAbierta(ts, ' filtro  POR etapa ')?.id, 't1', 'el mismo título sin mayúsculas ni espacios de más');
   assert.equal(yaAbierta(ts, 'Filtro por etapa del CRM'), null, 'otro título no es la misma');
-  assert.deepEqual(dondeQuedo(ts, 'Filtro por etapa', 'CRM › Funnels'), { aca: true, proyecto: 'Feature: CRM' });
-  assert.deepEqual(dondeQuedo(ts, 'Portada del informe', 'CRM'), { aca: false, proyecto: 'Feature: Dashboard' });
+  assert.deepEqual(dondeQuedo(ts, 'Filtro por etapa', 'CRM › Funnels'), { enEsteChat: true, proyecto: 'Feature: CRM' });
+  assert.deepEqual(dondeQuedo(ts, 'Portada del informe', 'CRM'), { enEsteChat: false, proyecto: 'Feature: Dashboard' });
   assert.equal(dondeQuedo(ts, 'No existe', 'CRM'), null, 'si no se encuentra, no se inventa');
-  assert.equal(avisoDeAlta(1, { aca: true, proyecto: 'Feature: CRM' }), 'Sumada al Plan');
-  assert.equal(avisoDeAlta(1, { aca: false, proyecto: 'Feature: Dashboard' }), 'Quedó en «Dashboard»');
-  assert.equal(avisoDeAlta(0, { aca: true, proyecto: 'Feature: CRM' }), 'Ya estaba: le sumé esto', '0 creadas = se fusionó con una que había');
+  assert.equal(avisoDeAlta(1, { enEsteChat: true, proyecto: 'Feature: CRM' }), 'Sumada al Plan');
+  assert.equal(avisoDeAlta(1, { enEsteChat: false, proyecto: 'Feature: Dashboard' }), 'Quedó en «Dashboard»');
+  assert.equal(avisoDeAlta(0, { enEsteChat: true, proyecto: 'Feature: CRM' }), 'Ya estaba: le sumé esto', '0 creadas = se fusionó con una que había');
   assert.equal(avisoDeAlta(1, null), 'Sumada al Plan');
   assert.equal(avisoDeYaEstaba({ titulo: 'Filtro por etapa', proyecto: 'Feature: CRM' }), 'Ya hay «Filtro por etapa» en «CRM»: no sumé nada', 'dice cuál y dónde: puede ser otra con el mismo renglón');
 });

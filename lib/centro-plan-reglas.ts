@@ -129,10 +129,10 @@ export const evidenciaDeCierre = (chat: string) => `Martín la marcó hecha desd
 export const yaAbierta = (tareas: readonly TareaPlanP[], titulo: string) => tareas.find((t) => normal(t.titulo) === normal(titulo)) ?? null;
 
 /** Dónde quedó una tarea: el Perro elige el proyecto final, y puede no ser el de este jefe. */
-export function dondeQuedo(tareas: readonly TareaPlanP[], titulo: string, chat: string): { aca: boolean; proyecto: string | null } | null {
+export function dondeQuedo(tareas: readonly TareaPlanP[], titulo: string, chat: string): { enEsteChat: boolean; proyecto: string | null } | null {
   const t = yaAbierta(tareas, titulo);
   if (!t) return null;
-  return { aca: mismoProyecto(t.proyecto, proyectoDelChat(chat)), proyecto: t.proyecto };
+  return { enEsteChat: mismoProyecto(t.proyecto, proyectoDelChat(chat)), proyecto: t.proyecto };
 }
 
 /** Lo que vuelve de sumar o marcar, en pocas palabras (la línea de estado de la sección). */
@@ -147,8 +147,8 @@ export const avisoDeYaEstaba = (t: Pick<TareaPlanP, 'titulo' | 'proyecto'>) =>
   `Ya hay «${tituloDeTexto(t.titulo, 60)}»${t.proyecto ? ` en «${sinPrefijo(t.proyecto)}»` : ''}: no sumé nada`;
 
 /** El aviso de un alta: dónde quedó, o que ya estaba (0 creadas = el Perro la fusionó con una que había). */
-export function avisoDeAlta(creadas: number, donde: { aca: boolean; proyecto: string | null } | null): string {
+export function avisoDeAlta(creadas: number, donde: { enEsteChat: boolean; proyecto: string | null } | null): string {
   if (creadas === 0) return 'Ya estaba: le sumé esto';
-  if (donde && !donde.aca && donde.proyecto) return `Quedó en «${sinPrefijo(donde.proyecto)}»`;
+  if (donde && !donde.enEsteChat && donde.proyecto) return `Quedó en «${sinPrefijo(donde.proyecto)}»`;
   return 'Sumada al Plan';
 }
