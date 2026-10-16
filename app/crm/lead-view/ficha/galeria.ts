@@ -28,14 +28,6 @@ export type VistaGaleria =
   | { tipo: 'plantilla'; id: string }
   | { tipo: 'mako'; bloques: BloquePuesto[]; epica: boolean };
 
-/** ¿La galería se abre SOLA en esta tab? */
-export function abreSola(o: { puede: boolean; configurada: boolean; cerrada: boolean; montado: boolean; editando: boolean }): boolean {
-  return o.puede && o.montado && !o.editando && !o.configurada && !o.cerrada;
-}
-
-/** Dónde se recuerda «Ahora no» en el navegador: por funnel y por tab. */
-export const claveCerrada = (funnelId: number, tab: TabFicha): string => `mako.ficha.galeria-cerrada.${funnelId}.${tab}`;
-
 /** El cambio que guarda lo que se mira («Usar»). */
 export function cambioDeVista(v: VistaGaleria, tab: TabFicha): CambioFicha {
   return v.tipo === 'plantilla' ? { op: 'plantilla', tab, plantilla: v.id } : { op: 'armar', tab, bloques: v.bloques, epica: v.epica };

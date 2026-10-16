@@ -24,7 +24,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { abreSola, cambioDeVista, claveCerrada, esLaDeHoy, fichaConVista, miniaturaDe, rotuloUsar, EJEMPLOS_TAB } from '../app/crm/lead-view/ficha/galeria';
+import { cambioDeVista, esLaDeHoy, fichaConVista, miniaturaDe, rotuloUsar, EJEMPLOS_TAB } from '../app/crm/lead-view/ficha/galeria';
 import { anchoEnDispositivo, bloquesDeLaGrilla, spansPorDispositivo, COLS_FICHA } from '../app/crm/lead-view/ficha/armar';
 import { aplicarCambio, fichaEfectiva, RESPALDO_VACIO } from '../lib/ficha/config';
 import { plantillaTabPorId } from '../lib/ficha/plantillas-tab';
@@ -38,24 +38,14 @@ const sinComentarios = (x: string) => x.replace(/^[ \t]*\/\/.*$/gm, '').replace(
 const R = RESPALDO_VACIO;
 const base = (g = {}) => ({ eleccion: { id: 'dos-reuniones' as const }, guardada: g, respaldo: R, efectiva: fichaEfectiva('dos-reuniones', g, R) });
 
-test('se abre SOLA sólo para quien personaliza, en una tab sin configurar, sin «Ahora no», montada y fuera de «Personalizar»', () => {
-  const si = { puede: true, configurada: false, cerrada: false, montado: true, editando: false };
-  assert.equal(abreSola(si), true);
-  assert.equal(abreSola({ ...si, puede: false }), false, 'un no-admin ve la sugerida, nunca la galería');
-  assert.equal(abreSola({ ...si, configurada: true }), false);
-  assert.equal(abreSola({ ...si, cerrada: true }), false, '«Ahora no» no vuelve a abrirla en este navegador');
-  assert.equal(abreSola({ ...si, montado: false }), false, 'el server no sabe lo cerrado: se abre después de montar');
-  assert.equal(abreSola({ ...si, editando: true }), false, 'personalizando se abre con «Plantillas»');
-  assert.equal(claveCerrada(30, 'pagos'), 'mako.ficha.galeria-cerrada.30.pagos');
-  // «Ahora no» vive en el navegador, no en la ficha: la pantalla nunca manda un cambio al cerrar.
-  const ficha = sinComentarios(leer('app/crm/lead-view/ficha/FichaPorBloques.tsx'));
-  const cerrar = ficha.slice(ficha.indexOf('const cerrarGaleria'), ficha.indexOf('const usarGaleria'));
-  assert.match(cerrar, /window\.localStorage\.setItem\(k, '1'\)/);
-  assert.doesNotMatch(cerrar, /cambiar\(/, 'cerrar no es elegir: no escribe la ficha del funnel');
-  // ⚠️ DESDE EL 16/10/2026 LA FICHA YA NO LA ABRE SOLA (Martín: «en los workspace que ya tienen leads, simplemente
-  // ponles las plantillas sugeridas... que no aparezca el "¿Qué vas a crear hoy?"»): se abre sólo con «Templates».
+test('la galería YA NO SE ABRE SOLA: cada tab usa su sugerida y se abre con «Templates» (16/10/2026)', () => {
+  // Martín: «en los casos de los workspace que ya tienen leads, simplemente ponles las plantillas sugeridas, es decir
+  // que no aparezca el "¿Qué vas a crear hoy?"». Se fueron `abreSola` y el «Ahora no» que se recordaba en el navegador.
   // Probado rompiéndolo (16/10/2026): devolverle `abreSola(` a `galeriaAbierta` → este test falla.
+  const ficha = sinComentarios(leer('app/crm/lead-view/ficha/FichaPorBloques.tsx'));
   assert.match(ficha, /const galeriaAbierta = \(tab: TabFicha\): boolean => !!ff\.ficha && puede && galeria === tab;/);
+  assert.doesNotMatch(ficha, /abreSola\(|galeria-cerrada|localStorage/, 'volvió la apertura sola o su «Ahora no»');
+  assert.match(ficha, /onCerrar=\{\(\) => soltarGaleria\(tab\)\}/, 'cerrar no es elegir: no escribe la ficha del funnel');
 });
 
 test('sin plantilla elegida abajo no va NADA, y tocar una plantilla la elige (16/10/2026)', () => {

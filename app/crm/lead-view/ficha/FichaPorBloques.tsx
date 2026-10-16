@@ -70,19 +70,12 @@ import { SelectorDispositivo } from './SelectorDispositivo';
 import { CLAVE_DE_TAB, dispositivoVisto, estiloDeFicha, indiceDeOcurrencia, puedePersonalizar, tabDelDato, type DispositivoFicha } from './armar';
 import { entradaDe } from './registro';
 import { CSS_FICHA } from './ficha-css';
-import { abreSola, cambioDeVista, claveCerrada, fichaConVista, type VistaGaleria } from './galeria';
+import { cambioDeVista, fichaConVista, type VistaGaleria } from './galeria';
 import type { CtxFicha } from './tipos';
 
-// La galería sólo la ve el admin, y casi siempre una vez por tab: su código (la caja de la casa, el micrófono) no
-// viaja con la ficha de todos. Se abre después de montar (`montado`), así que no hace falta en el server.
+// La galería sólo la ve el admin (desde «Templates»): su código (la caja de la casa, el micrófono) no viaja con la
+// ficha de todos, y no hace falta en el server.
 const GaleriaTab = dynamic(() => import('./GaleriaTab').then((m) => m.GaleriaTab), { ssr: false });
-
-/** Lee «Ahora no» del navegador. Puede no haber almacenamiento (una ventana privada, un iframe): entonces, nada. */
-function leerCerradas(funnelId: number): Set<string> {
-  const out = new Set<string>();
-  try { for (const tab of TABS_FICHA) { const k = claveCerrada(funnelId, tab); if (window.localStorage.getItem(k) === '1') out.add(k); } } catch { /* sin almacenamiento */ }
-  return out;
-}
 
 const MONO = "'Geist Mono', monospace";
 const card: CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: '22px 24px' };
@@ -133,13 +126,6 @@ export function FichaPorBloques({ data, parchear, altoChat, initialTab, onTab, f
   // cerraron con «Ahora no» en este navegador y si ya se montó (se abre sola recién ahí: el server no sabe lo cerrado).
   const [galeria, setGaleria] = useState<TabFicha | null>(null);
   const [vistas, setVistas] = useState<Partial<Record<TabFicha, VistaGaleria>>>({});
-  const [montado, setMontado] = useState(false);
-  const [cerradas, setCerradas] = useState<Set<string>>(() => new Set());
-  const funnelId = ff.ficha?.funnel.id ?? null;
-  useEffect(() => {
-    setMontado(true);
-    if (funnelId != null) setCerradas(leerCerradas(funnelId));
-  }, [funnelId]);
 
   // Las tabs que salen, con sus reglas de siempre (las de las dos puertas).
   const verReuniones = tieneEtapaDeReunion(stages);
@@ -222,21 +208,12 @@ export function FichaPorBloques({ data, parchear, altoChat, initialTab, onTab, f
   // ── La galería de una tab ─────────────────────────────────────────────────────────────────
   // ⚠️ YA NO SE ABRE SOLA (16/10/2026, Martín: «en los casos de los workspace que ya tienen leads, simplemente ponles
   // las plantillas sugeridas, es decir que no aparezca el "¿Qué vas a crear hoy?"»). Una tab sin configurar ya se
-  // dibuja con su sugerida (`efectiva`), sin escribir nada; la galería se abre sólo con «Templates». `abreSola`,
-  // `cerradas` y «Ahora no» quedaron sin uso: se borran con el rediseño de la ficha (docs/feedback-16-10-…, punto 5).
+  // dibuja con su sugerida (`efectiva`), sin escribir nada; la galería se abre sólo con «Templates». Con eso se fueron
+  // `abreSola` y el «Ahora no» que se recordaba en el navegador.
   const galeriaAbierta = (tab: TabFicha): boolean => !!ff.ficha && puede && galeria === tab;
   const soltarGaleria = (tab: TabFicha) => {
     setGaleria((g) => (g === tab ? null : g));
     setVistas((v) => { const n = { ...v }; delete n[tab]; return n; });
-  };
-  /** «Ahora no» (la primera vez): se recuerda en este navegador, por funnel y tab. La tab se queda con la sugerida. */
-  const cerrarGaleria = (tab: TabFicha) => {
-    if (galeria !== tab && funnelId != null) {
-      const k = claveCerrada(funnelId, tab);
-      try { window.localStorage.setItem(k, '1'); } catch { /* sin almacenamiento: vuelve a abrirse la próxima vez */ }
-      setCerradas((s) => new Set(s).add(k));
-    }
-    soltarGaleria(tab);
   };
   /** «Usar»: lo que se mira (o, sin mirar nada, la de hoy, que queda elegida). */
   const usarGaleria = (tab: TabFicha) => {
@@ -264,8 +241,8 @@ export function FichaPorBloques({ data, parchear, altoChat, initialTab, onTab, f
     const epico = ef.epica[tab];
     const galeriaNodo = conGaleria && ff.ficha ? (
       <GaleriaTab tab={tab} ficha={ff.ficha} nombreTab={efectiva.nombres[tab]} vista={vista}
-        onVista={(v) => setVistas((x) => ({ ...x, [tab]: v }))} onElegir={(v) => elegirGaleria(tab, v)} onUsar={() => usarGaleria(tab)} onCerrar={() => cerrarGaleria(tab)}
-        primeraVez={galeria !== tab} registrado={(id) => !!entradaDe(id)} />
+        onVista={(v) => setVistas((x) => ({ ...x, [tab]: v }))} onElegir={(v) => elegirGaleria(tab, v)} onUsar={() => usarGaleria(tab)} onCerrar={() => soltarGaleria(tab)}
+        registrado={(id) => !!entradaDe(id)} />
     ) : null;
     // ⚠️ CON LA GALERÍA ABIERTA Y NADA PARA MIRAR, ABAJO NO VA NADA (16/10/2026): antes se dibujaba la tab entera con
     // la sugerida y un «Usar la sugerida», y Martín: «Es confuso eso». Abajo sólo se mira lo que armó MaKo.

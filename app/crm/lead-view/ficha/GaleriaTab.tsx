@@ -36,7 +36,7 @@ import { EJEMPLOS_TAB, esLaDeHoy, miniaturaDe, rotuloUsar, type VistaGaleria } f
 /** El tope de la ruta (`maxDuration = 100`) + margen: el `fetch` no puede esperar para siempre. */
 const TOPE_CLIENTE_MS = 105_000;
 
-export function GaleriaTab({ tab, ficha, nombreTab, vista, onVista, onElegir, onUsar, onCerrar, primeraVez, registrado }: {
+export function GaleriaTab({ tab, ficha, nombreTab, vista, onVista, onElegir, onUsar, onCerrar, registrado }: {
   tab: TabFicha;
   ficha: FichaDelFunnel;
   /** El nombre que se dibuja de la tab (el del admin, o el de siempre). */
@@ -48,9 +48,8 @@ export function GaleriaTab({ tab, ficha, nombreTab, vista, onVista, onElegir, on
   onElegir: (v: VistaGaleria) => void;
   /** Elegir lo que se mira: guarda el cambio y cierra. */
   onUsar: () => void;
-  /** «Ahora no» (la primera vez) o «Cerrar» (abierta desde «Personalizar»): se queda la de hoy. */
+  /** «Cerrar»: se queda la de hoy. */
   onCerrar: () => void;
-  primeraVez: boolean;
   /** ¿El bloque tiene componente? (lo que se dibuja: la miniatura no muestra lo que no se vería). */
   registrado: (id: BloqueId) => boolean;
 }) {
@@ -120,13 +119,11 @@ export function GaleriaTab({ tab, ficha, nombreTab, vista, onVista, onElegir, on
   return (
     <>
       <section className="fb-galeria" aria-label={`Plantillas de ${nombreTab}`}>
-        {/* Sin «Ahora no» la primera vez (16/10/2026: «elimina la opción de "Vista previa: Antes de la llamada" y la de
-            "Ahora no"», Martín): se elige una. Abierta desde «Templates», «Cerrar» se queda con la de hoy. */}
-        {!primeraVez && (
-          <button type="button" className="fb-boton-texto fb-galeria-cerrar" onClick={onCerrar} title="Se queda la de hoy">
-            Cerrar
-          </button>
-        )}
+        {/* Sin «Ahora no» desde el 16/10/2026 (Martín): la galería se abre sólo con «Templates» y «Cerrar» se queda con
+            la de hoy. */}
+        <button type="button" className="fb-boton-texto fb-galeria-cerrar" onClick={onCerrar} title="Se queda la de hoy">
+          Cerrar
+        </button>
         {/* 1 · ¿Qué vas a crear hoy? — LA caja de la casa (la de «Nueva hoja», Automations y el Web Generator). */}
         <div className="gp cp-casa fb-galeria-caja" data-pedido-mako="">
           <style>{CSS_TOKENS_CASA + CSS_CAJA_PEDIDO}</style>
