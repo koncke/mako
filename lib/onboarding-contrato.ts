@@ -153,24 +153,38 @@ export function estadoDeLoGuardado(raw: string | null): OnboardingState {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// El histórico al conectar Meta
+// El histórico al conectar una integración
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Los trabajos del histórico que necesitan Meta (lib/onboarding-extract.ts → `jobAplica`). */
-export const JOBS_DE_META: JobKey[] = ['meta_metrics', 'meta_leads', 'ad_transcripts', 'script_analyses'];
+/**
+ * Qué trabajos del histórico destraba conectar cada integración (lib/onboarding-extract.ts → `jobAplica`).
+ * Lo que no está acá no tiene histórico: guardarlo no arranca nada.
+ */
+export const JOBS_DEL_HISTORICO: Readonly<Record<string, readonly JobKey[]>> = {
+  meta: ['meta_metrics', 'meta_leads', 'ad_transcripts', 'script_analyses'],
+  fathom: ['fathom_calls'],
+  youtube: ['vsl_metrics'],
+  panda: ['vsl_metrics'],
+};
+export const JOBS_DE_META = JOBS_DEL_HISTORICO.meta;
+/** ¿Guardar esta integración puede destrabar algo del histórico? */
+export const sirveAlHistorico = (servicio: string): boolean => (JOBS_DEL_HISTORICO[servicio]?.length ?? 0) > 0;
 
 /**
- * ¿Conectar Meta tiene que (re)arrancar el histórico? Sí cuando nunca arrancó, y cuando algún trabajo de
- * Meta quedó salteado (se corrió sin Meta, o sin la página elegida) o con error (un token que no servía).
- * No cuando ya está pendiente, corriendo o hecho: reconectar no repite nada.
+ * ¿Conectar `servicio` tiene que (re)arrancar el histórico? Sí cuando nunca arrancó, y cuando alguno de
+ * SUS trabajos quedó salteado (se corrió sin la integración, o sin la página o el video elegido) o con
+ * error (una key que no servía). No cuando ya está pendiente, corriendo o hecho: reconectar no repite nada.
  *
- * Hasta el 16/10/2026 lo arrancaba SÓLO el wizard, al verificar Meta en su pantalla. Postergar Meta y
- * conectarlo después desde /integraciones (el caso que `pendientesDeOnboarding` ya contempla) dejaba al
- * negocio sin su histórico para siempre, y con el chat de Offer como onboarding era todo negocio nuevo.
+ * Hasta el 16/10/2026 lo arrancaba SÓLO el wizard, al verificar Meta en su pantalla. Postergar una
+ * integración y conectarla después desde /integraciones (el caso que `pendientesDeOnboarding` ya contempla)
+ * dejaba al negocio sin su histórico para siempre, y con el chat de Offer como onboarding era todo negocio
+ * nuevo.
  */
-export function historicoMetaPorArrancar(extraction: ExtractionState): boolean {
+export function historicoPorArrancar(extraction: ExtractionState, servicio: string): boolean {
+  const jobs = JOBS_DEL_HISTORICO[servicio] ?? [];
+  if (jobs.length === 0) return false;
   if (extraction.status === 'idle') return true;
-  return JOBS_DE_META.some((k) => {
+  return jobs.some((k) => {
     const st = extraction.jobs[k]?.status;
     return st === 'skipped' || st === 'error';
   });

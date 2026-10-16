@@ -67,7 +67,8 @@ async function guardarCursor(cron: string, ws: number): Promise<void> {
 }
 
 /**
- * Corre `fn` por cada workspace ACTIVO con la integración `servicio` conectada,
+ * Corre `fn` por cada workspace ACTIVO con la integración `servicio` conectada (o, con una lista, con
+ * CUALQUIERA de ellas: el histórico del onboarding sirve a quien tenga Meta, Fathom, YouTube o Panda),
  * repartiendo UNA fecha límite entre todos y arrancando donde terminó la ronda
  * anterior. Secuencial (respeta rate limits y el timeout del cron). Un workspace
  * que falla no corta al resto.
@@ -75,11 +76,13 @@ async function guardarCursor(cron: string, ws: number): Promise<void> {
  * Devuelve `sinTurno`: a quién NO le tocó. Sin ese dato, la inanición es invisible.
  */
 export async function correrRonda(
-  servicio: string,
+  servicio: string | readonly string[],
   fn: (ws: number, deadlineMs: number) => Promise<unknown>,
   opts: OpcionesRonda = {},
 ): Promise<Ronda> {
   const t0 = Date.now();
+  const servicios: readonly string[] = typeof servicio === 'string' ? [servicio] : servicio;
+  const rotulo = servicios.join('+');
   // UN SOLO número para toda la ronda. El primero corre hasta que no le entre otra
   // llamada entera, el segundo hereda lo que sobró, y el que no llega a empezar cae
   // en sinTurno. Nada de cuotas relativas por workspace: eso ERA el bug.
@@ -98,7 +101,11 @@ export async function correrRonda(
 
   const conectados: number[] = [];
   for (const w of workspaces) {
-    try { if (await integracionConectada(servicio, w.id)) conectados.push(w.id); }
+    try {
+      for (const sv of servicios) {
+        if (await integracionConectada(sv, w.id)) { conectados.push(w.id); break; }
+      }
+    }
     catch { /* si no se puede evaluar, se omite ese workspace */ }
   }
 
@@ -113,7 +120,7 @@ export async function correrRonda(
       const resultado = await runWithWorkspace(ws, () => fn(ws, deadline));
       resultados.push({ ws, ok: true, resultado });
     } catch (e) {
-      console.error(`[cron:${servicio}] workspace ${ws} falló:`, e);
+      console.error(`[cron:${rotulo}] workspace ${ws} falló:`, e);
       resultados.push({ ws, ok: false, error: e instanceof Error ? e.message : String(e) });
     }
     // El turno se marca haya salido bien o mal: el turno se CONSUMIÓ. Si un workspace
@@ -121,7 +128,7 @@ export async function correrRonda(
     // correría nunca — el bug de hoy, con otra cara.
     if (opts.rotacion) {
       await guardarCursor(opts.rotacion, ws).catch((e) =>
-        console.error(`[cron:${servicio}] NO pude guardar el cursor (mañana se sirve al mismo):`, e));
+        console.error(`[cron:${rotulo}] NO pude guardar el cursor (mañana se sirve al mismo):`, e));
     }
   }
 

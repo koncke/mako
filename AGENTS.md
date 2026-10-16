@@ -3180,9 +3180,11 @@ página, así que reconectar dejaba el viejo. Una tercera puerta que escriba las
 la que se va a olvidar de esto. (07/10/2026)
 
 ⚠️ **Y conectar Meta ARRANCA EL HISTÓRICO de leads y métricas** (16/10/2026; hasta ese día lo arrancaba sólo el
-wizard). Toda puerta que guarde una credencial de Meta llama una vez, al final, a `arrancarHistoricoEnSegundoPlano(ws)`
-(lib/onboarding-extract.ts: lee el estado ESTRICTO y no tumba la conexión). `tests/historico-meta-al-conectar.test.ts`
-enumera cada archivo que llama a `guardarCredencial`: uno nuevo falla hasta que se decida si conecta Meta.
+wizard). Igual Fathom, YouTube y Panda, cada una SU parte (`JOBS_DEL_HISTORICO`, lib/onboarding-contrato.ts). Toda puerta
+que guarde una integración llama una vez, al final, a `arrancarHistoricoEnSegundoPlano(ws, servicio)`
+(lib/onboarding-extract.ts: lee el estado ESTRICTO y no tumba la conexión; lo que no tiene histórico no hace nada).
+`tests/historico-al-conectar.test.ts` enumera cada archivo que llama a `guardarCredencial`: uno nuevo falla hasta que se
+decida. Una integración nueva con histórico se suma a `JOBS_DEL_HISTORICO`, y el cron la recorre sola.
 
 ⚠️ **Y `META_APP_SECRET` es el secreto de la app VIEJA**, con el que se verifica la firma de
 cada lead del webhook. El de la app MaKo es `MAKO_META_APP_SECRET` (`lib/meta-login.ts`).
