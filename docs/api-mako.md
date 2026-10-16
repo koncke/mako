@@ -36,9 +36,9 @@
 - **Chatbot y secuencias** (`chatbot`): `listar_secuencias_nutricion` · `ficha_secuencia_mensajes` · `escenarios_secuencia` · `metricas_chatbot` · `huecos_secuencias` · `estado_canal_whatsapp_chatbot` · `contexto_etapa` · `etapas_para_secuencia` · `listar_objetivos_secuencia` · `audios_requeridos` · `escenarios_ensayo` · `estado_onboarding_chatbot` · `plantillas_meta_de_secuencia` · `inscripciones_lead` · `listar_secuencias_archivadas` · `proponer_toggle_nutricion` · `cambiar_espera_paso` · `desarchivar_secuencia` · `guardar_publico_audios` · `agregar_objetivo_custom` · `avisar_al_equipo` · `reabrir_onboarding_chatbot` · `guardar_estrategia_secuencia` · `editar_pasos_secuencia_mensajes` · `agregar_escenario_secuencia` · `archivar_secuencia` · `guardar_link_video` · `crear_lead_magnet`
 - **Dashboard y análisis** (`metricas`): `metricas_negocio` · `analisis_negocio` · `resumir_marketing_periodo` · `diagnosticar_funnel` · `ver_serie_funnel_semanal` · `ver_tendencias` · `detectar_fatiga_adsets` · `comparar_agendas_meta_crm` · `ver_serie_vsl` · `ver_revenue_periodo` · `ver_revenue_mensual` · `ver_mrr_activo` · `ver_cac_acumulado` · `ver_cac_mensual` · `listar_cohortes_semanales` · `listar_cohortes_mensuales` · `ver_embudo_comercial_maduro` · `ver_ciclo_venta` · `ver_tramos_ciclo_venta` · `ver_distribucion_pipeline` · `ver_catalogo_dashboard` · `consultar_datos_dashboard` · `leer_hoja_dashboard` · `leer_analisis_dashboard` · `crear_hoja_dashboard` · `editar_hoja_dashboard` · `duplicar_hoja_dashboard` · `borrar_hoja_dashboard` · `agregar_grafico_dashboard` · `editar_grafico_dashboard` · `quitar_componente_dashboard` · `agregar_filtro_dashboard` · `quitar_filtro_dashboard` · `insertar_elemento_dashboard` · `restablecer_informe_dashboard` · `analizar_hoja_dashboard` · `programar_analisis_dashboard` · `cancelar_analisis_dashboard` · `conectar_componentes_dashboard` · `quitar_conector_dashboard` · `leer_conclusiones_dashboard` · `generar_conclusiones_dashboard`
 - **Experiments y Retro** (`experimentos`): `estado_experimentos` · `listar_experimentos` · `ficha_experimento` · `vista_experimentos` · `medicion_experimento` · `listar_conclusiones_experimentos` · `catalogo_metricas_experimento` · `snapshot_funnel_experimentos` · `listar_retros` · `plan_retro` · `seguimiento_ultima_retro` · `estado_gate_retro` · `destacados_periodo_retro` · `cobertura_datos_retro` · `iniciar_experimento` · `cerrar_experimento` · `descartar_experimento` · `aceptar_item_plan_retro` · `posponer_item_plan_retro` · `descartar_item_plan_retro` · `deshacer_item_plan_retro` · `crear_experimento` · `borrar_retro`
-- **Landing (Analyst, Generator y tracking)** (`landing`): `listar_landings` · `listar_landings_detectadas` · `ver_estado_pixel` · `verificar_pagina_pixel` · `ver_codigo_pixel` · `ver_novedades_pixel` · `detectar_piezas_landing` · `ver_cambios_landing` · `contar_eventos_prueba` · `ver_grabaciones_prueba` · `listar_videos_landing` · `listar_videos_detectados` · `listar_videos_panda` · `ver_metricas_video_panda` · `listar_analisis_landing` · `ver_diagnostico_landing` · `ver_comportamiento_landing` · `listar_borradores_landing` · `ver_borrador_landing` · `listar_landings_creadas` · `ver_landing_creada` · `ver_analitica_landing` · `ver_rechazos_pago_landing` · `listar_versiones_landing` · `listar_comentarios_landing` · `listar_disenos_landing` · `nombrar_video` · `olvidar_nombre_video` · `ocultar_video` · `crear_landing_desde_diseno` · `renombrar_landing` · `duplicar_landing` · `pausar_landing` · `mandar_landing_a_papelera` · `crear_presentacion_desde_plantilla` · `cambiar_estado_comentario_landing` · `restaurar_version_landing` · `despublicar_landing` · `guardar_landing` · `borrar_landing` · `borrar_analisis_landing` · `borrar_borrador_landing` · `cobrar_producto_landing` · `publicar_landing` · `ver_secciones_landing` · `ver_configuracion_landing` · `listar_temas_landing` · `ver_version_landing` · `revisar_direccion_landing` · `ver_dominio_landing` · `ver_cobro_landing` · `buscar_fotos_landing` · `listar_imagenes_landing` · `crear_landing_en_blanco` · `agregar_seccion_landing` · `cambiar_texto_landing` · `acomodar_seccion_landing` · `configurar_seccion_landing` · `agregar_bloque_landing` · `acomodar_bloque_landing` · `poner_enlace_landing` · `configurar_formulario_landing` · `configurar_boton_landing` · `quitar_cobro_landing` · `acomodar_pagina_landing` · `cambiar_tema_landing` · `configurar_landing` · `configurar_sitio_landing` · `configurar_navegacion_landing` · `guardar_tema_landing` · `borrar_tema_landing` · `compartir_borrador_landing` · `guardar_version_landing` · `borrar_landing_creada` · `importar_borrador_landing` · `pasar_comentarios_a_copia_landing`
+- **Landing (Analyst, Generator y tracking)** (`landing`): `listar_landings` · `listar_landings_detectadas` · `ver_estado_pixel` · `verificar_pagina_pixel` · `ver_codigo_pixel` · `ver_novedades_pixel` · `detectar_piezas_landing` · `ver_cambios_landing` · `contar_eventos_prueba` · `ver_grabaciones_prueba` · `listar_videos_landing` · `listar_videos_detectados` · `listar_videos_panda` · `ver_metricas_video_panda` · `listar_analisis_landing` · `ver_diagnostico_landing` · `ver_comportamiento_landing` · `listar_borradores_landing` · `ver_borrador_landing` · `listar_landings_creadas` · `ver_landing_creada` · `ver_analitica_landing` · `ver_rechazos_pago_landing` · `listar_versiones_landing` · `listar_comentarios_landing` · `listar_disenos_landing` · `nombrar_video` · `olvidar_nombre_video` · `ocultar_video` · `crear_landing_desde_diseno` · `renombrar_landing` · `duplicar_landing` · `pausar_landing` · `mandar_landing_a_papelera` · `crear_presentacion_desde_plantilla` · `cambiar_estado_comentario_landing` · `restaurar_version_landing` · `despublicar_landing` · `guardar_landing` · `borrar_landing` · `borrar_analisis_landing` · `borrar_borrador_landing` · `cobrar_producto_landing` · `publicar_landing` · `ver_secciones_landing` · `ver_configuracion_landing` · `listar_temas_landing` · `ver_version_landing` · `revisar_direccion_landing` · `ver_dominio_landing` · `ver_cobro_landing` · `buscar_fotos_landing` · `listar_imagenes_landing` · `crear_landing_en_blanco` · `agregar_seccion_landing` · `cambiar_texto_landing` · `acomodar_seccion_landing` · `configurar_seccion_landing` · `agregar_bloque_landing` · `acomodar_bloque_landing` · `poner_enlace_landing` · `configurar_formulario_landing` · `configurar_boton_landing` · `quitar_cobro_landing` · `acomodar_pagina_landing` · `cambiar_tema_landing` · `configurar_landing` · `cambiar_animacion_landing` · `configurar_sitio_landing` · `configurar_navegacion_landing` · `guardar_tema_landing` · `borrar_tema_landing` · `compartir_borrador_landing` · `guardar_version_landing` · `borrar_landing_creada` · `importar_borrador_landing` · `pasar_comentarios_a_copia_landing`
 - **Closing Analyst** (`closing`): `panorama_closing` · `metricas_closers` · `factores_cierre` · `tendencia_score` · `embudo_closing` · `estado_analisis_lead` · `lead_tiene_llamada` · `analizar_llamadas_lead` · `adjuntar_grabaciones_fathom`
-- **El negocio (onboarding, Second Brain, conocimiento)** (`negocio`): `contexto_negocio` · `ver_perfil_negocio` · `ver_archivero` · `ver_diagnostico_fase` · `listar_preguntas_diagnostico_fase` · `ver_estado_onboarding` · `listar_tabs_por_configurar` · `listar_avatares_negocio` · `listar_lead_magnets` · `ver_personalidad_voz` · `buscar_en_segundo_cerebro` · `leer_segundo_cerebro_como_archivos` · `ver_glosario_negocio` · `buscar_conocimiento` · `buscar_tutorial` · `responder_pregunta_personalidad` · `guardar_campo_perfil` · `borrar_documento_archivero` · `guardar_diagnostico_fase` · `generar_avatares` · `afinar_avatares` · `editar_avatar_negocio` · `borrar_avatar_negocio` · `generar_lead_magnets` · `editar_lead_magnet` · `sugerir_productos` · `borrar_producto` · `guardar_muletillas_marca` · `reiniciar_personalidad`
+- **El negocio (onboarding, Second Brain, conocimiento)** (`negocio`): `contexto_negocio` · `ver_perfil_negocio` · `ver_archivero` · `ver_diagnostico_fase` · `listar_preguntas_diagnostico_fase` · `ver_estado_onboarding` · `ver_mi_plan` · `dar_de_baja_mi_plan` · `listar_tabs_por_configurar` · `listar_avatares_negocio` · `listar_lead_magnets` · `ver_personalidad_voz` · `buscar_en_segundo_cerebro` · `leer_segundo_cerebro_como_archivos` · `ver_glosario_negocio` · `buscar_conocimiento` · `buscar_tutorial` · `responder_pregunta_personalidad` · `guardar_campo_perfil` · `borrar_documento_archivero` · `guardar_diagnostico_fase` · `generar_avatares` · `afinar_avatares` · `editar_avatar_negocio` · `borrar_avatar_negocio` · `generar_lead_magnets` · `editar_lead_magnet` · `sugerir_productos` · `borrar_producto` · `guardar_muletillas_marca` · `reiniciar_personalidad`
 - **Content Machine** (`contenido`): `listar_anuncios_planteados` · `ver_anuncio_planteado` · `listar_guiones_anuncio` · `leer_guion_anuncio` · `cobertura_guiones_anuncio` · `catalogo_angulos_guion` · `catalogo_estructuras_guion` · `listar_formatos_creativo` · `opciones_siguiente_paso_guion` · `estado_contexto_contenido` · `estado_onboarding_contenido` · `limites_formato_instagram` · `mover_estado_guion_anuncio` · `elegir_formato_creativo_anuncio` · `recomendar_formatos_creativo` · `escribir_guion_anuncio` · `editar_texto_guion_anuncio` · `borrar_guion_anuncio`
 - **Video Generator** (`video`): `ver_puente_flow` · `listar_trabajos_flow` · `listar_anuncios_video` · `ver_anuncio_video` · `ver_montaje_anuncio` · `contar_escenarios_reusables` · `listar_guiones_para_video` · `listar_formatos_video` · `listar_lugares_grabacion` · `listar_plantillas_video` · `ver_contexto_video` · `ver_voz_cliente` · `estado_onboarding_video`
 - **Image Editor (diseños)** (`imagen`): `listar_disenos_imagen` · `ver_diseno_imagen` · `listar_plantillas_imagen` · `crear_diseno_imagen` · `cambiar_textos_diseno_imagen` · `duplicar_diseno_imagen` · `borrar_diseno_imagen`
@@ -552,7 +552,7 @@ curl -L \
 
 ### `GET /api/v1/general/hojas` — Ver las hojas de General
 
-Las hojas de la pantalla General de una persona (cada una con sus bloques, gráficos y textos), más las plantillas, los bloques de General y los funnels del negocio (para atar un bloque a uno) que existen para armar o completar una. Úsala antes de crear_hoja_general o agregar_bloque_general.
+Las hojas de la pantalla General de una persona (cada una con sus bloques, gráficos y textos), más las plantillas (primero las sugeridas para este negocio, con su porqué), los bloques de General y los funnels del negocio (para atar un bloque a uno) que existen para armar o completar una. Úsala antes de crear_hoja_general o agregar_bloque_general.
 
 - **Ruta por operación:** `GET /api/v1/general/listar_hojas_general`
 - **Token detallado:** permiso `general=read` (Solo lectura en «General»)
@@ -1984,7 +1984,7 @@ curl -L \
 
 ### `GET /api/v1/crm/ficha` — Ver la ficha de un CRM
 
-Cómo se arma la ficha del lead en UN CRM del negocio, para todos sus leads: la plantilla (la que elige MaKo según las etapas de reunión y cómo entra la gente, o la que eligió alguien) y por qué, los bloques de cada tab en orden (Resumen, Reuniones, Pagos y Tracking) con su ancho y su diseño, de qué «datos sin marcar» avisa y por qué no avisa de los otros, y el estilo (tema, acento, tipografía y tamaño de las tarjetas). Trae también, por tab, los bloques que se pueden sumar con sus anchos y diseños, y las plantillas. Es el paso previo a cambiar_ficha_funnel. Sin embudoId, el CRM principal.
+Cómo se arma la ficha del lead en UN CRM del negocio, para todos sus leads: la plantilla (la que elige MaKo según las etapas de reunión y cómo entra la gente, o la que eligió alguien) y por qué, los bloques de cada tab en orden (Resumen, Reuniones, Pagos y Tracking) con su ancho, su diseño y su ícono si se lo cambiaron, de qué «datos sin marcar» avisa y por qué no avisa de los otros, y el estilo (tema, acento, tipografía y tamaño de las tarjetas). Trae también, por tab, los bloques que se pueden sumar con sus anchos y diseños, las plantillas y los íconos que se le pueden poner a un bloque. Es el paso previo a cambiar_ficha_funnel. Sin embudoId, el CRM principal.
 
 - **Ruta por operación:** `GET /api/v1/crm/ver_ficha_funnel`
 - **Token detallado:** permiso `crm=read` (Solo lectura en «CRM»)
@@ -2007,7 +2007,7 @@ curl -L \
 
 ### `PATCH /api/v1/crm/ficha` — Cambiar la ficha de un CRM
 
-PROPONE UN cambio en la ficha del lead de UN CRM (queda pendiente hasta el «sí»), para todos sus leads: poner, quitar o mover un bloque, cambiarle el ancho o el diseño, prender o apagar el aviso de un dato sin marcar, cambiar el estilo o el tamaño de las tarjetas, usar otra plantilla o volver a la plantilla. Los ids de bloques, diseños y avisos salen de ver_ficha_funnel. «Contacto» no se puede quitar y las asistencias siempre avisan. Quitar un bloque no apaga su aviso. Solo el administrador. Sin embudoId, el CRM principal.
+PROPONE UN cambio en la ficha del lead de UN CRM (queda pendiente hasta el «sí»), para todos sus leads: poner, quitar o mover un bloque, cambiarle el ancho, el diseño o el ícono, prender o apagar el aviso de un dato sin marcar, cambiar el estilo o el tamaño de las tarjetas, usar otra plantilla o volver a la plantilla. Los ids de bloques, diseños, íconos y avisos salen de ver_ficha_funnel. «Contacto» no se puede quitar y las asistencias siempre avisan. Quitar un bloque no apaga su aviso. Solo el administrador. Sin embudoId, el CRM principal.
 
 - **Ruta por operación:** `POST /api/v1/crm/cambiar_ficha_funnel`
 - **Token detallado:** permiso `crm=write` (Lectura y escritura en «CRM»)
@@ -2023,14 +2023,15 @@ PROPONE UN cambio en la ficha del lead de UN CRM (queda pendiente hasta el «sí
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
 | `embudoId` | number | no | el CRM, por el id de su embudo (de productos_del_lead). Sin él, el CRM principal del negocio. |
-| `cambio` | string (poner \\| quitar \\| mover \\| ancho \\| diseno \\| aviso \\| estilo \\| densidad \\| plantilla \\| volver) | sí | qué cambiar: poner, quitar o mover un bloque (con tab y bloque; mover y poner con lugar), ancho o diseno de un bloque, aviso (con aviso y avisa), estilo (con tema, acento o tipografia), densidad (el tamaño de las tarjetas), plantilla (con plantilla) o volver (a la plantilla: con tab, sólo esa tab; sin tab, toda la ficha y sus avisos). |
+| `cambio` | string (poner \\| quitar \\| mover \\| ancho \\| diseno \\| icono \\| aviso \\| estilo \\| densidad \\| plantilla \\| volver) | sí | qué cambiar: poner, quitar o mover un bloque (con tab y bloque; mover y poner con lugar), ancho, diseno o icono de un bloque, aviso (con aviso y avisa), estilo (con tema, acento o tipografia), densidad (el tamaño de las tarjetas), plantilla (con plantilla) o volver (a la plantilla: con tab, sólo esa tab; sin tab, toda la ficha y sus avisos). |
 | `tab` | string (resumen \\| reuniones \\| pagos \\| tracking) | no | la tab del bloque. En volver, la tab que vuelve a la plantilla. |
 | `bloque` | string | no | el id del bloque (de ver_ficha_funnel), por ejemplo cuotas o redes-y-web. |
 | `lugar` | number | no | en poner y mover: el lugar en la tab, 1 es el primero. Sin él, poner lo suma al final. |
 | `ancho` | string (1/4 \\| 1/3 \\| 1/2 \\| completo) | no | en poner y ancho: el ancho del bloque sobre la grilla de la ficha. Cada bloque acepta sólo algunos (ver_ficha_funnel). |
 | `diseno` | string | no | en poner y diseno: el id del diseño del bloque (de ver_ficha_funnel). |
+| `icono` | string | no | en icono: el id (de los iconos de ver_ficha_funnel), o de-siempre: el del bloque. |
 | `n` | number | no | si el bloque está más de una vez en la tab (respuesta-destacada), cuál: 1 es el primero. |
-| `aviso` | string (fechaJ1 \\| asistenciaR1 \\| calificado \\| fathomR1 \\| fechaJ2 \\| asistenciaR2 \\| fathomR2 \\| monto \\| plan \\| comprobante \\| dealServicio \\| dealPromesa \\| dealFiscal \\| dealFiscalDoc \\| dealObligaciones \\| motivo \\| closer \\| setter \\| telefono \\| empresa) | no | en aviso: el dato sin marcar (de ver_ficha_funnel). |
+| `aviso` | string | no | en aviso: el id del dato sin marcar (de los avisos de ver_ficha_funnel). |
 | `avisa` | boolean | no | en aviso: true para que avise, false para que no. |
 | `tema` | string (mako \\| minimal \\| suave \\| contraste \\| elevada \\| general \\| editorial) | no | en estilo: la plantilla de estilo, la misma del Dashboard. |
 | `acento` | string | no | en estilo: el color de acento en hex, #RRGGBB. Vacío para volver al de la plantilla de estilo. |
@@ -5814,7 +5815,7 @@ curl -L \
 
 ### `GET /api/v1/chatbot/secuencias/{secuenciaId}/escenarios` — Escenarios de prueba de una secuencia
 
-Los caminos distintos de UNA automatización por sus condiciones, los mismos que «Probar» muestra como contactos de su barra: qué sale en cada condición, en orden, y cuántos mensajes de WhatsApp le llegan por ese camino. El primero es el de un lead recién llegado por su CRON. Hasta 8; `faltan` dice cuántas ramas quedaron afuera. Úsala para saber qué conviene probar antes de prenderla; el `numero` de cada uno es el que recibe probar_secuencia. Pide antes el secuenciaId con listar_secuencias_nutricion.
+Los caminos distintos de UNA automatización por sus condiciones, los mismos que «Probar» muestra como contactos de su barra: cuándo cae cada uno (`cuando`: los hechos del lead que lo deciden, como «Su reunión sigue en pie»), qué sale en cada condición, en orden, y cuántos mensajes de WhatsApp le llegan por ese camino. Un mismo hecho vale lo mismo en todo el flujo, y dos caminos que mandan lo mismo son uno. El primero es el de un lead recién llegado por su CRON. Hasta 8; `faltan` dice cuántos quedaron afuera. Úsala para saber qué conviene probar antes de prenderla; el `numero` de cada uno es el que recibe probar_secuencia. Pide antes el secuenciaId con listar_secuencias_nutricion.
 
 - **Ruta por operación:** `GET /api/v1/chatbot/escenarios_secuencia`
 - **Token detallado:** permiso `chatbot=read` (Solo lectura en «Chatbot y secuencias»)
@@ -6262,7 +6263,7 @@ PROPONE mandar un aviso al grupo de WhatsApp del negocio (y al feed de la app) p
 - **Token clásico:** alcance mínimo proponer
 - **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
 - **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
-- **Escribe:** manda un aviso al grupo de WhatsApp del negocio y deja una notificación en la app (no toca al lead)
+- **Escribe:** manda un aviso al grupo de WhatsApp del negocio (o, con canal «email», un correo a su equipo) y deja una notificación en la app (no toca al lead)
 - **Reversible:** sí
 - **Costo:** gratis
 - **Requiere la tab:** setting
@@ -6280,6 +6281,8 @@ PROPONE mandar un aviso al grupo de WhatsApp del negocio (y al feed de la app) p
 | `partes.pausa_s` | number | no | opcional: segundos de espera antes de este mensaje (desde el segundo; hasta 10). |
 | `respuesta` | string | no | opcional: lo que escribió el lead, textual. Va en el aviso, y el aviso no se repite para esa misma respuesta (en vez de para el mismo lead). |
 | `fueraDeHorario` | string (espera \\| igual) | no | opcional, sólo en una automatización con horario de oficina: «espera» (lo de fábrica) la manda cuando abre; «igual», a cualquier hora. |
+| `canal` | string (grupo \\| email) | no | opcional: «email» le escribe un correo al equipo del negocio (sus destinatarios de Notificaciones) en vez de mandarlo al grupo de WhatsApp. Por email va un solo texto, sin audio ni archivos, y con asunto. Sin elegir, el grupo. |
+| `asunto` | string | no | el asunto del correo, obligatorio con canal «email». Admite los mismos datos {{…}} que el texto. |
 
 ```bash
 curl -L \
@@ -6813,7 +6816,7 @@ curl -L \
 
 ### `GET /api/v1/metricas/mrr` — MRR de suscripciones activas
 
-El ingreso recurrente mensual en USD de los leads ganados con venta de tipo suscripción que siguen activos hoy (indefinidos, o de plazo fijo cuyo fin todavía no llegó), y cuántas suscripciones son. Va APARTE del high-ticket: las suscripciones no entran en sold ni en cash. Úsala para «¿cuánto tengo en recurrente?». No requiere parámetros.
+El ingreso recurrente mensual en USD de los leads ganados con venta de tipo suscripción que siguen activos hoy (indefinidos, o de plazo fijo cuyo fin todavía no llegó), más las suscripciones activas que cobra la pasarela (Stripe o Mercado Pago) a un lead que no es de suscripción, y cuántas suscripciones son. Va APARTE del high-ticket: las suscripciones no entran en sold ni en cash. Úsala para «¿cuánto tengo en recurrente?». No requiere parámetros.
 
 - **Ruta por operación:** `GET /api/v1/metricas/ver_mrr_activo`
 - **Token detallado:** permiso `metricas=read` (Solo lectura en «Dashboard y análisis»)
@@ -7022,7 +7025,7 @@ curl -L \
 
 ### `GET /api/v1/metricas/dashboard/catalogo` — Catálogo del Dashboard
 
-Lo que se puede armar en el Dashboard: los conjuntos de datos con sus fechas, dimensiones y métricas, los tipos de gráfico con lo que pide cada uno, las plantillas de hoja, los estilos, los filtros, los elementos (con las acciones de un botón), los períodos y los campos para filtrar. Úsala ANTES de agregar un gráfico o consultar datos: los ids que piden las otras operaciones salen de aquí. Con `conjunto`, el detalle de ese conjunto con los nombres; con `seccion`, sólo esa parte. Por HTTP acepta ?formato=md|json.
+Lo que se puede armar en el Dashboard: los conjuntos de datos con sus fechas, dimensiones y métricas, los tipos de gráfico con lo que pide cada uno, las plantillas de hoja (primero las sugeridas para este negocio, con su porqué), los estilos, los filtros, los elementos (con las acciones de un botón), los períodos y los campos para filtrar. Úsala ANTES de agregar un gráfico o consultar datos: los ids que piden las otras operaciones salen de aquí. Con `conjunto`, el detalle de ese conjunto con los nombres; con `seccion`, sólo esa parte. Por HTTP acepta ?formato=md|json.
 
 - **Ruta por operación:** `GET /api/v1/metricas/ver_catalogo_dashboard`
 - **Token detallado:** permiso `metricas=read` (Solo lectura en «Dashboard y análisis»)
@@ -8377,7 +8380,7 @@ curl -L \
 
 ## Landing (Analyst, Generator y tracking) — `landing`
 
-Tab **Web Generator** (`/web-generator`). 35 lecturas · 41 acciones.
+Tab **Web Generator** (`/web-generator`). 35 lecturas · 42 acciones.
 
 ### `GET /api/v1/landing/landings` — Landings declaradas del negocio
 
@@ -9564,7 +9567,7 @@ curl -L \
 
 ### `GET /api/v1/landing/documentos/{id}/configuracion` — Configuración de una landing creada
 
-La configuración de una landing del editor del Web Generator, lo que ver_landing_creada no trae: el tema, el formato (landing o presentación) y su relación de aspecto, las animaciones, la imagen de fondo, los ajustes del sitio (nombre, título y descripción para buscadores, indexación, Píxel de Meta, «Hecho con MaKo», ícono, imagen para compartir), la navegación (barra, logo, enlaces, botones y pie) y con qué se pidió crearla (la instrucción de origen). Úsala antes de cambiar algo de eso. Necesita el id (de listar_landings_creadas).
+La configuración de una landing del editor del Web Generator, lo que ver_landing_creada no trae: el tema, el formato (landing o presentación) y su relación de aspecto, las animaciones (también las de cada sección), la imagen de fondo, los ajustes del sitio (nombre, título y descripción para buscadores, indexación, Píxel de Meta, «Hecho con MaKo», ícono, imagen para compartir), la navegación (barra, logo, enlaces, botones y pie) y con qué se pidió crearla (la instrucción de origen). Úsala antes de cambiar algo de eso. Necesita el id (de listar_landings_creadas).
 
 - **Ruta por operación:** `GET /api/v1/landing/ver_configuracion_landing`
 - **Token detallado:** permiso `landing=read` (Solo lectura en «Landing (Analyst, Generator y tracking)»)
@@ -9789,7 +9792,7 @@ curl -L \
 
 ### `POST /api/v1/landing/documentos/{id}/secciones` — Agregar una sección a una landing
 
-Agrega una sección nueva a una landing del editor del Web Generator, con su título y su texto (una línea = un párrafo; varias = viñetas), después de otra sección o al final de una página. Sin IA: va el texto que se pasa. Para una sección diseñada con IA está editar_landing_con_ia. Antes guarda una versión «Antes de un cambio de MaKo» (se vuelve atrás con restaurar_version_landing); lo que está en internet no cambia hasta volver a subirla. Devuelve el id de la sección nueva.
+Agrega una sección nueva a una landing del editor del Web Generator, con su título y su texto (una línea = un párrafo; varias = viñetas), después de otra sección o al final de una página. Sin IA: va el texto que se pasa. Para una sección diseñada con IA está editar_landing_con_ia. Antes guarda una versión «Antes de un cambio de MaKo» (se vuelve atrás con restaurar_version_landing); no toca la versión al aire. Devuelve el id de la sección nueva.
 
 - **Ruta por operación:** `POST /api/v1/landing/agregar_seccion_landing`
 - **Token detallado:** permiso `landing=write` (Lectura y escritura en «Landing (Analyst, Generator y tracking)»)
@@ -9823,7 +9826,7 @@ curl -L \
 
 ### `PATCH /api/v1/landing/documentos/{id}/textos` — Cambiar un texto de una landing
 
-Cambia una frase EXACTA por otra en los textos de una landing del editor del Web Generator (títulos, párrafos, viñetas, botones): el titular, un precio, una fecha. Si aparece más de una vez pide la sección o todas:true. Una frase con formatos distintos en el medio (una parte en negrita) se cambia por partes o con editar_landing_con_ia. Antes guarda una versión «Antes de un cambio de MaKo» (se vuelve atrás con restaurar_version_landing); lo que está en internet no cambia hasta volver a subirla.
+Cambia una frase EXACTA por otra en los textos de una landing del editor del Web Generator (títulos, párrafos, viñetas, botones): el titular, un precio, una fecha. Si aparece más de una vez pide la sección o todas:true. Una frase con formatos distintos en el medio (una parte en negrita) se cambia por partes o con editar_landing_con_ia. Antes guarda una versión «Antes de un cambio de MaKo» (se vuelve atrás con restaurar_version_landing); no toca la versión al aire.
 
 - **Ruta por operación:** `POST /api/v1/landing/cambiar_texto_landing`
 - **Token detallado:** permiso `landing=write` (Lectura y escritura en «Landing (Analyst, Generator y tracking)»)
@@ -9857,7 +9860,7 @@ curl -L \
 
 ### `POST /api/v1/landing/documentos/{id}/secciones/{seccion}/acomodos` — Mover, ocultar o borrar una sección
 
-Acomoda una sección de una landing del editor del Web Generator: mover (a otra posición de su página), duplicar (la copia va debajo), ocultar (no se presenta ni se publica), mostrar o borrar. Antes guarda una versión «Antes de un cambio de MaKo» (se vuelve atrás con restaurar_version_landing); lo que está en internet no cambia hasta volver a subirla.
+Acomoda una sección de una landing del editor del Web Generator: mover (a otra posición de su página), duplicar (la copia va debajo), ocultar (no se presenta ni se publica), mostrar o borrar. Antes guarda una versión «Antes de un cambio de MaKo» (se vuelve atrás con restaurar_version_landing); no toca la versión al aire.
 
 - **Ruta por operación:** `POST /api/v1/landing/acomodar_seccion_landing`
 - **Token detallado:** permiso `landing=write` (Lectura y escritura en «Landing (Analyst, Generator y tracking)»)
@@ -9890,7 +9893,7 @@ curl -L \
 
 ### `PATCH /api/v1/landing/documentos/{id}/secciones/{seccion}` — Cambiar el estilo de una sección
 
-El estilo de una sección de una landing del editor del Web Generator (el panel «Estilo»): la imagen de acento y dónde va, el ancho, la alineación, el alto, el fondo (del tema, un color, un degradado o el de acento), las notas del orador de una presentación, o «Restablecer estilo». Sólo cambia lo que se pasa. Antes guarda una versión «Antes de un cambio de MaKo» (se vuelve atrás con restaurar_version_landing); lo que está en internet no cambia hasta volver a subirla.
+El estilo de una sección de una landing del editor del Web Generator (el panel «Estilo»): la imagen de acento y dónde va, el ancho, la alineación, el alto, el fondo (del tema, un color, un degradado o el de acento), las notas del orador de una presentación, o «Restablecer estilo». Sólo cambia lo que se pasa. Antes guarda una versión «Antes de un cambio de MaKo» (se vuelve atrás con restaurar_version_landing); no toca la versión al aire.
 
 - **Ruta por operación:** `POST /api/v1/landing/configurar_seccion_landing`
 - **Token detallado:** permiso `landing=write` (Lectura y escritura en «Landing (Analyst, Generator y tracking)»)
@@ -9929,7 +9932,7 @@ curl -L \
 
 ### `POST /api/v1/landing/documentos/{id}/secciones/{seccion}/bloques` — Agregar un bloque a una sección
 
-Agrega un bloque a una sección de una landing del editor del Web Generator, como el menú «/» del editor: titulo, subtitulo, texto, vinetas, numerada o cita (con «texto»), boton (con «texto» y «destino»), pago (el botón «Pagar ahora»: el producto se elige con cobrar_producto_landing), formulario (nombre, correo y teléfono: entra al CRM), agenda o video (con «enlace», o vacío para completar con poner_enlace_landing), imagen (con «imagen») o separador. Para diseños optimizados, gráficos o tablas está editar_landing_con_ia. Antes guarda una versión «Antes de un cambio de MaKo» (se vuelve atrás con restaurar_version_landing); lo que está en internet no cambia hasta volver a subirla.
+Agrega un bloque a una sección de una landing del editor del Web Generator, como el menú «/» del editor: titulo, subtitulo, texto, vinetas, numerada o cita (con «texto»), boton (con «texto» y «destino»), pago (el botón «Pagar ahora»: el producto se elige con cobrar_producto_landing), formulario (nombre, correo y teléfono: entra al CRM), agenda o video (con «enlace», o vacío para completar con poner_enlace_landing), imagen (con «imagen») o separador. Para diseños optimizados, gráficos o tablas está editar_landing_con_ia. Antes guarda una versión «Antes de un cambio de MaKo» (se vuelve atrás con restaurar_version_landing); no toca la versión al aire.
 
 - **Ruta por operación:** `POST /api/v1/landing/agregar_bloque_landing`
 - **Token detallado:** permiso `landing=write` (Lectura y escritura en «Landing (Analyst, Generator y tracking)»)
@@ -9966,7 +9969,7 @@ curl -L \
 
 ### `POST /api/v1/landing/documentos/{id}/secciones/{seccion}/bloques/{bloque}/acomodos` — Mover o borrar un bloque
 
-Acomoda un bloque dentro de su sección en una landing del editor del Web Generator: mover (a otra posición), duplicar (la copia va debajo) o borrar. El bloque se nombra por su posición en la sección (de ver_secciones_landing). Antes guarda una versión «Antes de un cambio de MaKo» (se vuelve atrás con restaurar_version_landing); lo que está en internet no cambia hasta volver a subirla.
+Acomoda un bloque dentro de su sección en una landing del editor del Web Generator: mover (a otra posición), duplicar (la copia va debajo) o borrar. El bloque se nombra por su posición en la sección (de ver_secciones_landing). Antes guarda una versión «Antes de un cambio de MaKo» (se vuelve atrás con restaurar_version_landing); no toca la versión al aire.
 
 - **Ruta por operación:** `POST /api/v1/landing/acomodar_bloque_landing`
 - **Token detallado:** permiso `landing=write` (Lectura y escritura en «Landing (Analyst, Generator y tracking)»)
@@ -10000,7 +10003,7 @@ curl -L \
 
 ### `PUT /api/v1/landing/documentos/{id}/enlaces` — Poner el enlace del VSL o la agenda
 
-Pone el enlace del video (el VSL: YouTube, Vimeo, Panda, Loom, Wistia) o de la agenda (Calendly, Cal.com) en su lugar en una landing del editor del Web Generator: completa el hueco vacío que traen los diseños, o reemplaza el que había. Si hay dos lugares posibles pide la sección. Úsala después de crear_landing_desde_diseno, que deja el VSL y la agenda vacíos. Antes guarda una versión «Antes de un cambio de MaKo» (se vuelve atrás con restaurar_version_landing); lo que está en internet no cambia hasta volver a subirla.
+Pone el enlace del video (el VSL: YouTube, Vimeo, Panda, Loom, Wistia) o de la agenda (Calendly, Cal.com) en su lugar en una landing del editor del Web Generator: completa el hueco vacío que traen los diseños, o reemplaza el que había. Si hay dos lugares posibles pide la sección. Úsala después de crear_landing_desde_diseno, que deja el VSL y la agenda vacíos. Antes guarda una versión «Antes de un cambio de MaKo» (se vuelve atrás con restaurar_version_landing); no toca la versión al aire.
 
 - **Ruta por operación:** `POST /api/v1/landing/poner_enlace_landing`
 - **Token detallado:** permiso `landing=write` (Lectura y escritura en «Landing (Analyst, Generator y tracking)»)
@@ -10032,7 +10035,7 @@ curl -L \
 
 ### `PATCH /api/v1/landing/documentos/{id}/formulario` — Cambiar el formulario de una landing
 
-El formulario de una landing del editor del Web Generator (lo que se envía entra al CRM): los campos (la lista entera, en orden), el texto del botón, el mensaje de éxito y a dónde lleva después de enviar. Sin «seccion», el único formulario de la landing. Antes guarda una versión «Antes de un cambio de MaKo» (se vuelve atrás con restaurar_version_landing); lo que está en internet no cambia hasta volver a subirla.
+El formulario de una landing del editor del Web Generator (lo que se envía entra al CRM): los campos (la lista entera, en orden), el texto del botón, el mensaje de éxito y a dónde lleva después de enviar. Sin «seccion», el único formulario de la landing. Antes guarda una versión «Antes de un cambio de MaKo» (se vuelve atrás con restaurar_version_landing); no toca la versión al aire.
 
 - **Ruta por operación:** `POST /api/v1/landing/configurar_formulario_landing`
 - **Token detallado:** permiso `landing=write` (Lectura y escritura en «Landing (Analyst, Generator y tracking)»)
@@ -10069,7 +10072,7 @@ curl -L \
 
 ### `PATCH /api/v1/landing/documentos/{id}/botones` — Cambiar un botón de una landing
 
-Cambia UN botón de una landing del editor del Web Generator, nombrado por su texto de hoy: lo que dice, a dónde lleva, su estilo y si abre en otra pestaña. Para que cobre un producto está cobrar_producto_landing. Antes guarda una versión «Antes de un cambio de MaKo» (se vuelve atrás con restaurar_version_landing); lo que está en internet no cambia hasta volver a subirla.
+Cambia UN botón de una landing del editor del Web Generator, nombrado por su texto de hoy: lo que dice, a dónde lleva, su estilo y si abre en otra pestaña. Para que cobre un producto está cobrar_producto_landing. Antes guarda una versión «Antes de un cambio de MaKo» (se vuelve atrás con restaurar_version_landing); no toca la versión al aire.
 
 - **Ruta por operación:** `POST /api/v1/landing/configurar_boton_landing`
 - **Token detallado:** permiso `landing=write` (Lectura y escritura en «Landing (Analyst, Generator y tracking)»)
@@ -10104,7 +10107,7 @@ curl -L \
 
 ### `DELETE /api/v1/landing/documentos/{id}/pago` — Que un botón deje de cobrar
 
-Hace que un botón de una landing del editor del Web Generator deje de cobrar su producto («Quitar cobro» del editor): queda sin destino. La landing publicada sigue cobrando hasta que se vuelva a publicar. Se vuelve a cobrar con cobrar_producto_landing. Si cobran dos, pide cuál por su texto. Antes guarda una versión «Antes de un cambio de MaKo» (se vuelve atrás con restaurar_version_landing); lo que está en internet no cambia hasta volver a subirla.
+Hace que un botón de una landing del editor del Web Generator deje de cobrar su producto («Quitar cobro» del editor): queda sin destino. La landing publicada sigue cobrando hasta que se vuelva a publicar. Se vuelve a cobrar con cobrar_producto_landing. Si cobran dos, pide cuál por su texto. Antes guarda una versión «Antes de un cambio de MaKo» (se vuelve atrás con restaurar_version_landing); no toca la versión al aire.
 
 - **Ruta por operación:** `POST /api/v1/landing/quitar_cobro_landing`
 - **Token detallado:** permiso `landing=write` (Lectura y escritura en «Landing (Analyst, Generator y tracking)»)
@@ -10133,7 +10136,7 @@ curl -L \
 
 ### `POST /api/v1/landing/documentos/{id}/paginas` — Agregar o acomodar páginas del sitio
 
-Las páginas de una landing del editor del Web Generator (el panel «Páginas»: un sitio puede tener varias): agregar una en blanco, renombrar (y cambiar su ruta), mover, duplicar, borrar o hacerla la de inicio. Antes guarda una versión «Antes de un cambio de MaKo» (se vuelve atrás con restaurar_version_landing); lo que está en internet no cambia hasta volver a subirla.
+Las páginas de una landing del editor del Web Generator (el panel «Páginas»: un sitio puede tener varias): agregar una en blanco, renombrar (y cambiar su ruta), mover, duplicar, borrar o hacerla la de inicio. Antes guarda una versión «Antes de un cambio de MaKo» (se vuelve atrás con restaurar_version_landing); no toca la versión al aire.
 
 - **Ruta por operación:** `POST /api/v1/landing/acomodar_pagina_landing`
 - **Token detallado:** permiso `landing=write` (Lectura y escritura en «Landing (Analyst, Generator y tracking)»)
@@ -10168,7 +10171,7 @@ curl -L \
 
 ### `PUT /api/v1/landing/documentos/{id}/tema` — Cambiar el tema de una landing
 
-Le pone otro tema (colores y fuentes) a una landing del editor del Web Generator: uno del catálogo o uno propio del negocio (de listar_temas_landing). Antes guarda una versión «Antes de un cambio de MaKo» (se vuelve atrás con restaurar_version_landing); lo que está en internet no cambia hasta volver a subirla.
+Le pone otro tema (colores y fuentes) a una landing del editor del Web Generator: uno del catálogo o uno propio del negocio (de listar_temas_landing). Antes guarda una versión «Antes de un cambio de MaKo» (se vuelve atrás con restaurar_version_landing); no toca la versión al aire.
 
 - **Ruta por operación:** `POST /api/v1/landing/cambiar_tema_landing`
 - **Token detallado:** permiso `landing=write` (Lectura y escritura en «Landing (Analyst, Generator y tracking)»)
@@ -10199,7 +10202,7 @@ curl -L \
 
 ### `PATCH /api/v1/landing/documentos/{id}/configuracion` — Configurar una landing creada
 
-«Configuración de la página» de una landing del editor del Web Generator: el formato (landing o presentación), la relación de aspecto de una presentación, las animaciones, la imagen de fondo, y el ancho y la alineación de TODAS sus secciones. Sólo cambia lo que se pasa. Antes guarda una versión «Antes de un cambio de MaKo» (se vuelve atrás con restaurar_version_landing); lo que está en internet no cambia hasta volver a subirla.
+«Configuración de la página» de una landing del editor del Web Generator: el formato (landing o presentación), la relación de aspecto de una presentación, las animaciones, la imagen de fondo, y el ancho y la alineación de TODAS sus secciones. Sólo cambia lo que se pasa. Antes guarda una versión «Antes de un cambio de MaKo» (se vuelve atrás con restaurar_version_landing); no toca la versión al aire.
 
 - **Ruta por operación:** `POST /api/v1/landing/configurar_landing`
 - **Token detallado:** permiso `landing=write` (Lectura y escritura en «Landing (Analyst, Generator y tracking)»)
@@ -10231,9 +10234,43 @@ curl -L \
   "https://hola-mako.com/api/v1/landing/documentos/ID/configuracion"
 ```
 
+### `PATCH /api/v1/landing/documentos/{id}/animaciones` — Animaciones y efectos de una landing
+
+Las animaciones de una landing del editor del Web Generator (el panel «Animar»): el interruptor y el estilo de TODA la landing, o el efecto de entrada de UNA sección (nunca de un bloque; sin efecto propio, usa el estilo). Sólo cambia lo que se pasa; lo de ahora, en ver_configuracion_landing. Antes guarda una versión «Antes de un cambio de MaKo» (se vuelve atrás con restaurar_version_landing); no toca la versión al aire.
+
+- **Ruta por operación:** `POST /api/v1/landing/cambiar_animacion_landing`
+- **Token detallado:** permiso `landing=write` (Lectura y escritura en «Landing (Analyst, Generator y tracking)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** la configuración y el contenido de la landing (landing_docs) y una versión «Antes de un cambio de MaKo» en su historial
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** landing-writer
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `id` | number | sí | El id de la landing o presentación (de listar_landings_creadas). |
+| `activas` | boolean | no | true las prende en toda la landing; false las apaga. |
+| `estilo` | string (desvanecer \\| subir \\| aparecer \\| deslizar \\| palabras \\| maquina \\| barrido \\| enfoque) | no | El de toda la landing: desvanecer, subir (el de siempre), aparecer, deslizar, palabras, maquina (Máquina de escribir), barrido, enfoque. |
+| `seccion` | string | no | Su id o su número en la página (1 = la primera), de ver_secciones_landing. |
+| `efecto` | string (desvanecer \\| subir \\| caer \\| aparecer \\| crecer \\| enfoque \\| deslizar \\| rebote \\| deriva \\| barrido \\| telon \\| iris \\| desplegar \\| voltear \\| balanceo \\| elastico \\| pisoton \\| ninguna \\| heredar) | no | El de la sección. Básicas: desvanecer, subir, caer, aparecer, crecer, enfoque; Movimiento: deslizar, rebote, deriva; Revelar: barrido, telon, iris, desplegar; Intensas: voltear, balanceo, elastico, pisoton. ninguna = quieta; heredar = usa el estilo. |
+| `direccion` | string (izquierda \\| derecha \\| arriba \\| abajo) | no | Desde dónde entra (sólo deslizar y barrido). Sin ella, se conserva la de antes si el efecto nuevo la tiene. |
+| `pagina` | string | no | Con «seccion» por número: el id de la página. Por defecto, la de inicio. |
+
+```bash
+curl -L \
+  -X PATCH \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/landing/documentos/ID/animaciones"
+```
+
 ### `PATCH /api/v1/landing/documentos/{id}/sitio` — Ajustes del sitio de una landing
 
-Los ajustes del sitio de una landing del editor del Web Generator (el diálogo Publicar): el nombre del sitio, el título (hasta 60) y la descripción (hasta 160) para buscadores, si los buscadores la pueden mostrar, el Píxel de Meta, «Hecho con MaKo», el ícono y la imagen para compartir. Sólo cambia lo que se pasa. La publicada lo toma al volver a publicarla. Deja un link para que la persona revise y confirme. Antes guarda una versión «Antes de un cambio de MaKo» (se vuelve atrás con restaurar_version_landing); lo que está en internet no cambia hasta volver a subirla.
+Los ajustes del sitio de una landing del editor del Web Generator (el diálogo Publicar): el nombre del sitio, el título (hasta 60) y la descripción (hasta 160) para buscadores, si los buscadores la pueden mostrar, el Píxel de Meta, «Hecho con MaKo», el ícono y la imagen para compartir. Sólo cambia lo que se pasa. La publicada lo toma al volver a publicarla. Deja un link para que la persona revise y confirme. Antes guarda una versión «Antes de un cambio de MaKo» (se vuelve atrás con restaurar_version_landing); no toca la versión al aire.
 
 - **Ruta por operación:** `POST /api/v1/landing/configurar_sitio_landing`
 - **Token detallado:** permiso `landing=write` (Lectura y escritura en «Landing (Analyst, Generator y tracking)»)
@@ -10269,7 +10306,7 @@ curl -L \
 
 ### `PATCH /api/v1/landing/documentos/{id}/navegacion` — Barra y pie de una landing
 
-La navegación del sitio de una landing del editor del Web Generator: si se ve la barra de arriba, su logo, sus enlaces (hasta 5) y sus botones (hasta 2), y si se ve el pie y su texto. Las listas se reemplazan enteras ([] las vacía). Antes guarda una versión «Antes de un cambio de MaKo» (se vuelve atrás con restaurar_version_landing); lo que está en internet no cambia hasta volver a subirla.
+La navegación del sitio de una landing del editor del Web Generator: si se ve la barra de arriba, su logo, sus enlaces (hasta 5) y sus botones (hasta 2), y si se ve el pie y su texto. Las listas se reemplazan enteras ([] las vacía). Antes guarda una versión «Antes de un cambio de MaKo» (se vuelve atrás con restaurar_version_landing); no toca la versión al aire.
 
 - **Ruta por operación:** `POST /api/v1/landing/configurar_navegacion_landing`
 - **Token detallado:** permiso `landing=write` (Lectura y escritura en «Landing (Analyst, Generator y tracking)»)
@@ -10756,7 +10793,7 @@ curl -L \
 
 ## El negocio (onboarding, Second Brain, conocimiento) — `negocio`
 
-Tab **Second Brain** (`/second-brain`). 15 lecturas · 14 acciones.
+Tab **Second Brain** (`/second-brain`). 16 lecturas · 15 acciones.
 
 ### `GET /api/v1/negocio/contexto` — Contexto del negocio
 
@@ -10883,6 +10920,52 @@ curl -L \
   -H "Authorization: Bearer <TU-TOKEN>" \
   -H "X-MaKo-Api-Version: 2026-10-08" \
   "https://hola-mako.com/api/v1/negocio/onboarding"
+```
+
+### `GET /api/v1/negocio/plan` — Plan de MaKo del negocio
+
+El plan de MaKo de este negocio y cómo se lo cobra MaKo: por Stripe o por Mercado Pago (con el monto por mes y si está activo, con la baja pedida o dado de baja), o acordado a mano. Para darlo de baja: dar_de_baja_mi_plan (se confirma en una pantalla), o el botón «Darme de baja» de Configuración del negocio → Tu plan (la respuesta trae el link).
+
+- **Ruta por operación:** `GET /api/v1/negocio/ver_mi_plan`
+- **Token detallado:** permiso `negocio=read` (Solo lectura en «El negocio (onboarding, Second Brain, conocimiento)»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+
+_Sin parámetros._
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/negocio/plan"
+```
+
+### `POST /api/v1/negocio/plan/bajas` — Dar de baja el plan de MaKo
+
+PROPONE dar de baja el plan de MaKo de este negocio (lo que le cobra MaKo por Stripe o Mercado Pago), y devuelve el código de baja. En Stripe deja de cobrarse al final del mes pagado y se sigue usando hasta entonces; en Mercado Pago deja de cobrarse en el acto. Se confirma en una pantalla, nunca por el chat. Si el plan se acordó a mano, se rechaza: hay que escribirle a MaKo. Revisa antes ver_mi_plan.
+
+- **Ruta por operación:** `POST /api/v1/negocio/dar_de_baja_mi_plan`
+- **Token detallado:** permiso `negocio=write` (Lectura y escritura en «El negocio (onboarding, Second Brain, conocimiento)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/mako/revisar) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** programa la baja en Stripe (o cancela la suscripción en Mercado Pago), deja el código en el cobro de MaKo y el historial del lead en el CRM de MaKo
+- **Reversible:** no
+- **Costo:** externo
+- **Solo el administrador del workspace.**
+
+_Sin parámetros._
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/negocio/plan/bajas"
 ```
 
 ### `GET /api/v1/negocio/onboarding/tabs-pendientes` — Tabs que faltan configurar
@@ -13714,7 +13797,7 @@ curl -L \
 
 ### `PUT /api/v1/cobros/links-pago/{cobroId}/anulacion` — Anular un link de pago
 
-PROPONE anular un link de pago que todavía no se pagó: deja de poder pagarse desde MaKo (en Stripe además vence el checkout). Pide antes el cobroId (listar_cobros). Un cobro pagado no se anula: se reembolsa con reembolsar_cobro.
+PROPONE anular un link de pago que todavía no se pagó: deja de poder pagarse desde MaKo, y se cierra también en Stripe o Mercado Pago. Pide antes el cobroId (listar_cobros). Un cobro pagado no se anula: se reembolsa con reembolsar_cobro.
 
 - **Ruta por operación:** `POST /api/v1/cobros/anular_link_pago`
 - **Token detallado:** permiso `cobros=write` (Lectura y escritura en «Cobros (Stripe y Mercado Pago)»)

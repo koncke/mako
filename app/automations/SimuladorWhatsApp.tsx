@@ -678,10 +678,12 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
   // `editorAbierto: true`: lo que se reparte es el muelle que el editor ocupa CUANDO se abre (el
   // lienzo lo usa al tocar una tarjeta). «Probar» no depende de eso (ver `muelles`).
   const probarVisible = probando != null && !!sel && !creandoSel && caja.w > 0;
+  // Con la lista de contactos (más de un escenario), «Probar» pide más ancho (`probarConContactos`, lib/lienzo-grafo.ts).
+  const [probarContactos, setProbarContactos] = useState(false);
   // El chat de MaKo usa el MISMO muelle que «Probar» (decimocuarta tanda, punto 3): con cualquiera de los dos abierto, la
   // derecha queda reservada.
   const makoVisible = makoAbierto && !!sel && !creandoSel && caja.w > 0;
-  const m = calcularMuelles(caja, { listaAbierta: true, probarAbierto: probarVisible || makoVisible, editorAbierto: true });
+  const m = calcularMuelles(caja, { listaAbierta: true, probarAbierto: probarVisible || makoVisible, editorAbierto: true, probarConContactos: probarVisible && probarContactos });
 
   /**
    * UNA FILA DE LA LISTA, la MISMA para todas (11/10/2026: «debe ser IDENTICO»): el `ItemLista`, el «⋯» de siempre
@@ -856,6 +858,7 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
             rolAdmin={rolAdmin} etiquetaEtapa={etiquetaEtapa} onCerrar={() => setProbando(null)}
             style={{ width: '100%', height: '100%' }}
             onEnviado={(t) => mostrarAviso(t, undefined, 'good')}
+            onContactos={setProbarContactos}
           />
         </div>
       )}

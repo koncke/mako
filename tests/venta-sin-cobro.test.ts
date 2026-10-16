@@ -345,7 +345,14 @@ test('«Quitar "Sin cobro"» se ve en las TRES superficies, no sólo donde el re
   assert.match(quitar, /onCambio\?\.\(\{ venta_tipo: r\.ventaTipo \}\)/, 'avisa al contenedor');
 
   // Los montajes con el lead en estado de cliente le pasan `onCambio` y lo aplican.
-  assert.match(fuente('app/crm/LeadSheet.tsx'), /<DealDetailsCard lead=\{lead\} pagos=\{pagos\} onCambio=\{\(patch\) => \{\s*setFresca\(\{ \.\.\.vigente, lead: \{ \.\.\.vigente\.lead, \.\.\.patch \} \}\)/);
+  // ⚠️ CAMBIADO A PROPÓSITO EL 14/10/2026 (la ficha por bloques): la tarjeta de la ficha del CRM se monta
+  // UNA vez, como el bloque `venta` (app/crm/lead-view/ficha/registro-pagos.tsx), y le pasa el cambio a
+  // `ctx.parchear`. El pop-up (LeadSheet) es el que lo aplica sobre su estado de cliente y relee; en la
+  // ruta /crm/[id] `parchear` es un refresh (su lead viene del server). Re-verificado rompiéndolo: el
+  // registro sin `onCambio` → 1 fallo; LeadSheet sin `parchear` → 1 fallo.
+  assert.match(fuente('app/crm/lead-view/ficha/registro-pagos.tsx'), /<DealDetailsCard lead=\{lead\} pagos=\{data\.pagos\} onCambio=\{\(patch\) => ctx\.parchear\(patch\)\} \/>/);
+  assert.match(fuente('app/crm/LeadSheet.tsx'), /parchear=\{\(patch\) => \{ setFresca\(\{ \.\.\.vigente, lead: \{ \.\.\.vigente\.lead, \.\.\.patch \} \}\); releer\(\); \}\}/);
+  assert.match(fuente('app/crm/lead-view/ficha/FichaPorBloques.tsx'), /parchear: parchear \?\? \(\(\) => refrescar\(\)\)/);
   assert.match(fuente('app/customer-success/FichaPestanas.tsx'), /<DealDetailsCard lead=\{datos\.lead\} pagos=\{datos\.pagos\} onCambio=\{onCambio\} \/>/);
   assert.match(fuente('app/customer-success/FichaCliente.tsx'), /<PagosCliente datos=\{crm \?\? 'cargando'\}\s*onCambio=\{\(patch\) => setCrm\(/);
   // Y la ruta /crm/[id] NO lo necesita: su lead viene del server (el refresh lo trae). Si
@@ -353,9 +360,8 @@ test('«Quitar "Sin cobro"» se ve en las TRES superficies, no sólo donde el re
   const montajes = execFileSync('git', ['ls-files', 'app'], { cwd: RAIZ, encoding: 'utf8' })
     .split('\n').map((s) => s.trim()).filter((f) => /\.tsx$/.test(f) && /<DealDetailsCard\b/.test(fuente(f))).sort();
   assert.deepEqual(montajes, [
-    'app/crm/LeadSheet.tsx',               // estado de cliente → onCambio
     'app/crm/[id]/EditarDeal.tsx',         // ruta /crm/[id]: props del server
-    'app/crm/[id]/page.tsx',               // ruta /crm/[id]: server component
+    'app/crm/lead-view/ficha/registro-pagos.tsx', // las DOS puertas del CRM → onCambio a `ctx.parchear`
     'app/customer-success/FichaPestanas.tsx', // estado de cliente → onCambio
   ]);
 });

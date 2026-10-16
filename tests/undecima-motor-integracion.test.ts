@@ -108,7 +108,9 @@ test('1. la tarjeta «MaKo en WhatsApp» (flujo, evento y ⚡ Acción): `conVari
 test('1. «Un lead contesta»: los emisores del motor pasan lo que ESCRIBIÓ como dato (`{{lead_escribio}}`)', () => {
   const emisiones = [...NUT.matchAll(/emitirDelCatalogo\('wa-mensaje-entrante', \{([\s\S]*?)\n\s*\}\);/g)].map((m) => m[1]);
   assert.equal(emisiones.length, 3, 'la charla cerrada, la redacción y el aviso de «Si responde»');
-  for (const e of emisiones) assert.match(e, /\n\s*datos: valoresDeLoEscrito\(texto\),/, 'un aviso de la charla sin lo que escribió el lead');
+  // (16/10/2026: los dos del AI Step citan lo que DIJO en una nota de voz, con 🎤: `escritoParaElAviso`. La charla
+  // cerrada no escucha —no hay quien conteste— y sigue con lo escrito.)
+  for (const e of emisiones) assert.match(e, /\n\s*datos: valoresDeLoEscrito\((texto|escritoParaElAviso\(texto, c\.voz\))\),/, 'un aviso de la charla sin lo que escribió el lead');
   // Y el del hand-off (lib/chat-agent-handoff.ts), que lo hizo la ola 1.
   assert.match(sinComentarios(leer('lib/chat-agent-handoff.ts')), /datos: valoresDeLoEscrito\(input\.mensaje\),/);
 });

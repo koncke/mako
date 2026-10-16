@@ -41,6 +41,7 @@ import { SLIDES, type Slide } from '@/lib/servicio-slides';
 import { FASES, faseDef, diagnosticar, VOLUMEN_POR_CANAL, CANALES, type CanalId, type Diagnostico, type Pregunta } from '@/lib/fase-diagnostico';
 import { FaseQuiz, FaseResultado, FaseIcono } from './FaseUI';
 import ServicioConfigForm from '../integraciones/ServicioConfigForm';
+import { BotonIntegracion } from '../_components/ConectarIntegracion';
 import { RetroReport } from '../experimentos/RetroReport';
 import type { RetroReporte, RetroPlanItem, RetroStreamEvent } from '@/lib/retro-reporte';
 import { DIAL_DEFAULT, splitTelefono } from '@/lib/paises';
@@ -417,7 +418,9 @@ export function OnboardingWizard() {
     } else if (paso === 'angulos') {
       pantallas.push({ key: 'angulos', paso, pregunta: 'Tu matriz de anuncios', slides: SLIDES_MAKO });
     } else if (paso === 'gemini') {
-      pantallas.push({ key: 'gemini', paso, pregunta: 'Conecta la IA de MaKo', slides: SLIDES_MAKO });
+      // OPCIONAL desde el 15/10/2026: el arranque corre con la red de la plataforma (ver
+      // el `puedeAvanzar` de abajo). La key se sigue llamando `gemini` porque es la del paso.
+      pantallas.push({ key: 'gemini', paso, pregunta: 'Tu propia IA (opcional)', slides: SLIDES_MAKO });
     } else if (paso === 'fase') {
       // Una pantalla por pregunta + la del diagnóstico. Antes de la de VOLUMEN va una
       // pregunta propia de canal ("¿con cuál identificás tu funnel?"): define la métrica
@@ -633,11 +636,14 @@ export function OnboardingWizard() {
   // que llena el paso de verdad — no lo saltea.
   const puedeAvanzar = servicioReq ? Boolean(conectadas[p.exige!])
     : esFaseQuiz ? faseResp[p.faseQ!] >= 0
-    // Gemini NO tiene excepción de admin (a diferencia de los demás): sin una key que
-    // ande de verdad, Entregable/Avatares/Persona/Ángulos van a fallar con "no hay IA"
-    // más adelante — mejor frenar acá, con el mensaje claro, que dejar pasar y que
-    // truene 3 pantallas después.
-    : p.key === 'gemini' ? geminiConectada
+    // ⚠️ EL PASO DE LA IA (`gemini`) YA NO FRENA, y no es un olvido. Frenaba porque «sin
+    // una key, lo de después falla con "no hay IA"». Dejó de ser cierto: lo que viene
+    // después en las dos capas que tienen este paso —El Archivero, Productos y el plan de
+    // arranque— corre con la red de la plataforma (`redDePlataforma: true`, tarea #734 y
+    // 15/10/2026), y si esa red también falla, cada pantalla ofrece conectar una key ahí
+    // mismo (`ErrorIA`). Decisión de Martín (Ticketera `clientes-usan-su-claude`, 15/10):
+    // un cliente nuevo no tiene que traer una API para arrancar. Lo fija
+    // tests/onboarding-sin-api.test.ts.
     : p.key === 'archivero' ? archiveroListo // ≥1 doc analizado
     // Entregable/Avatares/Persona/Ángulos: TAMPOCO admiten excepción de admin. Martín
     // (probando impersonado) pudo apretar Siguiente sin haber definido el entregable —
@@ -883,12 +889,22 @@ export function OnboardingWizard() {
                 </div>
               </div>
             ) : (
-              // ¿Por qué la necesito? — contextualiza (es gratis). Desaparece al conectar.
-              <div style={{ marginTop: 14, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '13px 15px' }}>
-                <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)', marginBottom: 7 }}>¿Por qué debes colocar tu API de Gemini?</div>
-                <div style={{ fontSize: 13, color: 'var(--dim)', lineHeight: 1.6 }}>Es la IA de Google —<b style={{ color: 'var(--ink)' }}>gratis</b>— que mueve todo tu onboarding: lee los documentos que subes, arma tu perfil, propone tus avatares y escribe tus anuncios. La sacas en <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary)', fontWeight: 600 }}>aistudio.google.com/apikey</a> en un minuto; sin ella, MaKo no puede analizar nada de tu negocio.</div>
+              // Qué se gana conectándola, y que NO hace falta. Desaparece al conectar. El molde
+              // es el de las apps que traen su IA y aceptan la tuya: «no API key needed», y la
+              // propia como opción (Workshop, su conector de Anthropic). Antes decía «sin ella,
+              // MaKo no puede analizar nada de tu negocio», que dejó de ser cierto el 15/10/2026.
+              <div style={{ marginTop: 14, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '13px 15px', fontSize: 13, color: 'var(--dim)', lineHeight: 1.6 }}>
+                MaKo arranca sin esto. Con tu key de Gemini (<b style={{ color: 'var(--ink)' }}>gratis</b>), usa la tuya primero y no comparte cupo con nadie.
               </div>
             )}
+            {/* El crédito de API de Claude Max entra como key de Anthropic, en su modal de
+                /integraciones abierto acá mismo (nunca se sale de la tab). Lo que gana sale de
+                lib/veto-claude.ts: MaKo la usa primero en las funciones de texto del negocio,
+                salvo las del Plan (la segunda puerta, 16/10/2026). Si el veto cambia, cambia esta frase. */}
+            <div style={{ marginTop: 10, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '6px 12px', fontSize: 13, color: 'var(--dim)', lineHeight: 1.5 }}>
+              <span style={{ flex: '1 1 220px' }}>¿Tienes Claude Max? Con su crédito de API, MaKo escribe y analiza con Claude.</span>
+              <BotonIntegracion servicio="anthropic" style={{ color: 'var(--primary)', fontWeight: 600, flex: 'none' }}>Conectar Claude</BotonIntegracion>
+            </div>
           </div>
         )}
 

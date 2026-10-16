@@ -37,7 +37,7 @@
 import { NODO, tarjetasDe, tituloDeTarjeta, type JsonNodo, type LandingContenido, type Pagina } from './doc';
 import { CSP_PAGINA_AFUERA, pedidoDeIframe } from './html-libre';
 import { baseDeDocumento, sinRastreadores, urlParaReplicar } from './replicar-reglas';
-import { normalizarUrl } from '../landing-url';
+import { claveDeLanding } from '../landing-url';
 // Tipos de un módulo server-only: se borran al compilar, no arrastran nada al navegador.
 import type { LandingHallazgo, Severidad } from '../landing-analyst';
 import type { Lectura, MotivoEnNavegador } from './lectura-tipos';
@@ -147,7 +147,7 @@ export function objetivoDe(p: { docId?: unknown; url?: unknown }): { docId: numb
   if (!u) return null;
   // La MISMA normalización que la llave de landing_analyses (sin query, sin www, sin barra final):
   // así un comentario guardado y el análisis de esa página se encuentran.
-  try { return { url: normalizarUrl(u) }; } catch { return null; }
+  try { return { url: claveDeLanding(u) }; } catch { return null; }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

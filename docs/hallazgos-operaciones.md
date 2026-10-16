@@ -442,6 +442,122 @@ dependencia ni licencia que cuidar.
 **Vive en:** `app/admin/operaciones/Muneco.tsx` · `lib/centro-chats.ts` (`esperasPorChat`) · `acciones.ts`
 (`fotoCentroAction` trae las tarjetas) · `tests/centro-empleados.test.ts`
 
+## El cartero pasa a llamarse Runner, y cada texto dice qué hacer (15/10/2026)
+
+**El pedido.** Martín, mirando el Centro en producción: «Jamás pongas mensajes no claros como "Este dispositivo todavía
+no firma.", es mucho mejor "Crea tu Token para comenzar a chatear"», y «No quiero que se llame más "cartero", sino un
+nombre más formal, tecnico... profesional... mejora el diseño de ese modal».
+
+**Runner, copiado de GitHub Actions.** Un self-hosted runner es un proceso en TU máquina que consulta una cola en la
+nube, hace el trabajo ahí y reporta cómo salió: es lo que hace el cartero. No choca con «Puente» (Google Flow) ni con
+«Pasarela» (pagos). El modal copia GitHub → Settings → Actions → Runners, mirado en el Chrome de Martín ese día
+(hola-mako/dashboard-marketing no tiene runners, así que se miró la lista vacía y el alta «Add new self-hosted runner»):
+la caja con un renglón por runner (punto, nombre, etiquetas, estado) y el botón primario arriba a la derecha; el alta
+como pasos con un bloque de código para copiar. Acá los pasos son tres: crear el chat (sus instrucciones, que antes
+vivían sólo en este documento, ahora están en `lib/runner.ts` y se copian con un botón), su token, y tu Token.
+
+**Dos tokens, dos nombres.** «Tu Token» (palabra de Martín) es la clave de firma de ESTE dispositivo; el «token del
+Runner» (`mkop_…`) es el que conecta al Runner con MaKo. Antes eran «clave» y «token de los carteros» y en pantalla
+se leían como la misma cosa. El chat Runner acepta los dos pegados (`clave` y `token`).
+
+**Las claves no se renombraron**: `cartero.mjs`, `operaciones_carteros`, `/api/operaciones/cartero`,
+`ver_carteros_operaciones` siguen igual (la regla de «trabajo»/«pedido»). La PC reconoce al chat por su título:
+`esElCartero` acepta «Runner» y «Cartero», también como sub-chat («Centro de Operaciones › Runner», mirando el último
+tramo), así el renombre de Martín y la convención del chat jefe no lo vuelven un destino. Instalado como 1.3.0.
+
+**Lo que costó medir:**
+- **El guard de los textos no veía el texto JSX que sigue en el renglón de abajo.** La primera versión tomaba
+  `>texto<` en un mismo renglón; `<Icon … />Runners` sigue con su `<span>` abajo, y devolverle «Cartero» a ese botón a
+  propósito dio 0 fallos. Ahora toma el texto después del `>` de una ETIQUETA (no de un `=>`) hasta el próximo `<` o
+  `{`, y descarta lo que parece código.
+- **Una interpolación no es texto**: `${carteros.length}` adentro de un template daba un falso «cartero». Se borran las
+  `${…}` antes de mirar.
+- **El motivo de un trabajo que no salió lo escribe la PC, no MaKo** (`rechazar`, `acuse` en cartero.mjs, y «Venció…»
+  en lib/operaciones.ts). Reescribirlo como acción («El chat se cerró: ábrelo y vuelve a mandarlo») exige reinstalar el
+  script; las filas viejas conservan el texto de antes.
+
+**Vive en:** `lib/runner.ts` · `app/admin/operaciones/PanelRunner.tsx` · `lib/centro-chats.ts` (`textoDeEnvio`) ·
+`scripts/operaciones/cartero.mjs` (`esElCartero`, los motivos) · `app/m/operaciones/CentroMovil.tsx` (`RunnerMovil`) ·
+`tests/centro-textos.test.ts`
+
+## El avance pasa a cada chat, como los milestones de Linear, y la cuenta es un chip (15/10/2026)
+
+**El pedido.** «Elimina lo de "Avances y pushes", quiero que cada chat tenga arriba, en su topbar un botón para ver los
+avances, que despliegue la sidebar derecha, que sea algo similar a lo que tenemos en "offer"», con un roadmap «simple,
+épico y entendible», el estado como el color del punto («gris = no empezado») y «Pedido hace» y los pushes en el detalle.
+Y «No quiero que exista "cuenta 1, cuenta 2, 3" en la sidebar de chats... eso debe estar dentro de cada chat, con un chip».
+
+**Copiado de** la barra derecha de Offer (`app/offer/PiezasRail.tsx`: la tarjeta que estira con flex, el título con su
+conteo fijo y la lista que scrollea; en el teléfono, la barra «8/13» que se abre) y del panel «Project Milestones» de
+Linear, mirado en su documentación (linear.app/docs/project-milestones, un video del panel de detalles del proyecto): el
+rombo que cambia según el estado, el que está en curso en amarillo, el nombre y la fecha. Linear no se pudo abrir sin
+cuenta: la referencia es su doc, y se dice.
+
+**Qué es un nodo** (`avanceDelChat`, lib/centro-chats.ts): una línea del historial del chat. Un pedido de la bitácora que
+trabajó ese chat (con SUS pasos y SUS commits), uno que se le pidió ahí y trabajó otro (con los de todos y quién lo
+trabajó), o un trabajo firmado que se le mandó desde el Centro (su título es su primer renglón; el color sale de los
+ticks: entregado = en curso, sin salir = rojo). La cuenta de cada paso viaja ahora en `PasoP.cuenta`.
+
+**Lo que costó ver:**
+- **En el teléfono la conversación abre en lo último**, así que una barra arriba del hilo quedaba fuera de la vista. Va
+  `position: sticky` contra `.m-sheet__cuerpo`, que es lo que scrollea.
+- **«Subió hace X» sólo se sabe cuando el commit ENCABEZA un push** (`pushDelCommit`: por la hora acertaba 110 de 202).
+  Lo que la bitácora de la versión publicada nombra ya está en producción por construcción, así que el resto dice «En
+  producción», que es exacto. Y mientras Vercel no contestó, `pushes` es null, no `[]`: con la lista vacía el avance
+  diría «En producción» igual, pero nunca afirma un «subió» sin leerla.
+- **Sin los grupos por cuenta, dos «CRM» quedan iguales en la lista.** Hasta que la punta siguiente los una por nombre,
+  la fila lleva el chip de la cuenta SÓLO en los títulos repetidos (`titulosRepetidos`).
+- **«Pedido hace» se escribe «Lo pediste hace»**: el guard de las pantallas del Centro no deja la palabra «pedido» en lo
+  que se dibuja (tests/operaciones.test.ts), y «lo pediste» dice lo mismo.
+
+**Lo que quedó:** el avance mira 14 días (el «Ver todos» de la vista vieja se fue con ella); `novedades`
+(lib/progreso-reglas.ts) quedó sin quien lo llame, sólo con su test: era la lista de Pushes. La barra no tiene el
+porcentaje de Linear («23% of 63»): un nodo es una cosa pedida, no un milestone con issues adentro.
+
+**Vive en:** `app/admin/operaciones/Avance.tsx` · `lib/centro-chats.ts` (`avanceDelChat`, `seccionesDeChats`,
+`titulosRepetidos`) · `app/admin/operaciones/Conversacion.tsx` (el botón y la cabecera) · `app/m/operaciones/ChatsMovil.tsx` ·
+`tests/centro-avance.test.ts`
+
+## Un chat es su nombre, el jefe agrupa a sus sub-chats, y cada empleado tiene su muñeco elegido (15/10/2026)
+
+**El pedido.** «todos los chats de todas las cuentas se llamen igual. Y que yo tenga los 3 puntos en cada chat para poder
+configurar cosas, como cambiarle el nombre»; «quiero que cada chat esté englobado en su chat "jefe" que siempre se debe
+llamar como la tab en la que estamos trabajando, como CRM... ESO no lo quiero decidir yo, lo decide el chat jefe»; y
+«Crea más diseños variados de las figuras tipo trabajadores... Y que si le doy click pueda elegir cambiar a otro».
+
+**La regla de antes se dio vuelta, a propósito.** Hasta esa noche «un chat es una sesión, nunca un título» (con 5 títulos
+repetidos en el cartero, juntar por nombre pegaba el trabajo de uno a otro). Martín decidió lo contrario: el mismo
+trabajo se llama igual en las tres cuentas y el Centro lo une (`unirPorNombre`). Lo que se conservó es el camino al
+nombre: un hito con su sesión toma el título que esa sesión tiene HOY, así un chat renombrado no se parte. El riesgo
+viejo (dos chats distintos con el mismo nombre en una cuenta) ahora se resuelve renombrando uno, no adivinando.
+
+**Copiado de:** los hilos de Discord en la barra de canales para el jefe y sus sub-chats (el hilo debajo de su canal,
+corrido, con la línea que dobla); el «⋯» al pasar por la fila, de las barras de ChatGPT y Claude; y el selector de
+muñeco, del armador de Notion Faces (faces.notion.com, mirado ese día: las piezas a la izquierda, la grilla de tres con el
+elegido en azul y el dado, el retrato grande a la derecha).
+
+**Lo que costó ver:**
+- **En el teléfono no hay dos hojas** (SheetM: «Una hoja sobre otra REEMPLAZA»). Abrir «Opciones» en una hoja nueva
+  cerraba la de la conversación, y como la nueva dependía del chat abierto, se cerraba también: el «⋯» no hacía nada.
+  Opciones, Renombrar y el muñeco van ADENTRO de la hoja de la conversación, con su «‹» para volver.
+- **Renombrar no tiene una puerta nueva**: a cada sesión del chat le llega un trabajo firmado que le pide
+  `set_session_title` sobre sí misma (`textoDeRenombre`). La cerrada lo recibe al abrirse. El Runner podría renombrar
+  sesiones cerradas (tiene la herramienta), pero eso pide un tipo de trabajo nuevo en la cola firmada: no se hizo.
+- **El muñeco se guarda por nombre**, así que renombrar lo perdía: al renombrar, lo elegido se copia al nombre nuevo.
+  Y guardar uno es leer-cambiar-escribir el mapa entero: se lee ESTRICTO (con la lectura tolerante, una caída de la base
+  lo escribiría vacío).
+- **Los ojos no se eligen**: dicen el estado del chat. La «cara» que se elige es la boca y las mejillas.
+- **El test del equipo cazó la variedad nueva**: con la cara y el accesorio por hash del título entero, «Chatbot» y
+  «Automations» (la misma área renombrada) dejaban de ser el mismo empleado. El jefe lleva cara y accesorio fijos; un
+  sub-chat los saca de su nombre, para distinguirse.
+
+**Lo que quedó:** el jefe no puede CREAR un sub-chat visible (start_session no está habilitado en esas sesiones): lo crea
+Martín con un clic y lo nombra «Jefe › Sub», o el jefe renombra uno existente. Los grupos del jefe no se pliegan.
+
+**Vive en:** `lib/centro-chats.ts` (`unirPorNombre`, `porJefe`, `partesDelNombre`, `nombreValido`, `textoDeRenombre`) ·
+`lib/centro-munecos.ts` · `lib/centro-munecos-db.ts` · `app/admin/operaciones/ElegirMuneco.tsx` · `Muneco.tsx` ·
+`CentroApp.tsx` (el «⋯» y los modales) · `app/m/operaciones/ChatsMovil.tsx` · `tests/centro-munecos.test.ts`
+
 ## Lo que creí medido y no estaba al día
 
 - **`soloPlataforma` ya existía en el registro de la API** (lo sumó el 2FA obligatorio el 14/10, por
@@ -449,16 +565,22 @@ dependencia ni licencia que cuidar.
   corrigió. Las lecturas del Centro lo usan.
 - **`docs/api-mako.md` documenta lo que sale por HTTP**: un área sin `'http'`, como ésta, no aparece
   ahí, y el generador dice «al día» con razón.
+- **La hora de una bitácora es la de ARGENTINA, no la UTC** (`instanteHito`, lib/progreso-reglas.ts). Los hitos de la
+  cuenta 3 del 15/10 se anotaron con la hora UTC de los mensajes (23:18 sobre un commit de las 20:18 -0300): el avance
+  los ponía tres horas en el futuro. Se corrigieron; la hora sale de `git log --format=%ci`. Y la FECHA también: los
+  mensajes de los chats y varios documentos del Centro dicen «16/10» para lo que en Argentina fue la noche del 15/10
+  (la fecha UTC). `date` en la PC lo contesta en un comando.
 
 ## Lo que quedó sin hacer
 
-- **El chat «Cartero» con su cron** (el cartero de claude1 ya está instalado desde el 15/10): lo abre Martín,
-  y corre `ciclo`, manda lo de `pendientes` y anota `acuse`. Hasta entonces nada se entrega solo. Y una
-  clave de firma por dispositivo (`clave <SPKI>`) para que los trabajos firmados salgan.
+- ~~El chat «Cartero» con su cron~~: corre desde el 15/10 en la cuenta 3 («pasó hace 41 s») y la PC acepta un Token
+  (`cartero.mjs estado`, 15/10). Falta que Martín lo renombre a «Runner» (la línea, en docs/relevo/centro-operaciones.md).
 - **La Ticketera no muestra si el aviso llegó**: el dato está (`aviso_estado`), la pantalla no lo dibuja.
 - **Fase 2 del aviso**: firmar la respuesta al contestar, para que el aviso la lleve adentro.
-- **El chat «Cartero» en cada cuenta que esté corriendo** (16/10): sin él, lo que se escribe en la caja queda «escrito».
-  El prompt para pegarle está en `docs/relevo/centro-operaciones.md`. Y la clave de cada dispositivo, cargada a mano.
+- **El chat Runner en cada cuenta que esté corriendo** (15/10): sin él, lo que se escribe en la caja queda «escrito».
+  Sus instrucciones se copian desde el Centro (Runners → Nuevo Runner; viven en `lib/runner.ts`). Y el Token de cada
+  dispositivo, pegado en el Runner.
+- ~~Los textos de Avance y Pushes~~: las dos vistas se fueron en la punta 2 (el avance está en cada chat).
 - **Que un trabajo llegue a una cuenta que NO está abierta**: hoy espera a que la app pase a esa cuenta (o a que corra
   en terminal con su Cartero). Para las tres en paralelo: `/login` de la 1 y la 2 en terminal (lo hace Martín), su
   cartero como `cli` y un Cartero en cada una. ⚠️ El cartero acepta UNA fuente por cuenta (`app` o `cli`): una cuenta

@@ -59,9 +59,11 @@ const G_ANALYST: Gating = { tab: 'script', rolMinimo: 'admin' };
 /** Lo que mueve plata o crea en la cuenta de Meta. */
 const G_META_ADMIN: Gating = { tab: 'ads-manager', integracion: 'meta', rolMinimo: 'admin' };
 
-const P_CAMPAIGN: Parametro = { nombre: 'campaignId', tipo: 'string', obligatorio: true, max: 30, descripcion: 'id numérico de la campaña en Meta (de listar_campanas_meta o ver_estado_meta).' };
-const P_ADSET: Parametro = { nombre: 'adsetId', tipo: 'string', obligatorio: true, max: 30, descripcion: 'id numérico del conjunto de anuncios en Meta (de listar_conjuntos_meta).' };
-const P_AD: Parametro = { nombre: 'adId', tipo: 'string', obligatorio: true, max: 30, descripcion: 'id numérico del anuncio en Meta (de listar_anuncios_meta o ver_rendimiento_anuncios).' };
+// `fijoAlRevisar` (15/10/2026): en /mako/revisar el título es el resumen de la campaña, el conjunto o el anuncio de CUANDO SE
+// PROPUSO; cambiar el id ahí movía la plata (o borraba) en otro bajo el título del primero (docs/hallazgos-api-mako.md).
+const P_CAMPAIGN: Parametro = { nombre: 'campaignId', tipo: 'string', obligatorio: true, max: 30, fijoAlRevisar: true, descripcion: 'id numérico de la campaña en Meta (de listar_campanas_meta o ver_estado_meta).' };
+const P_ADSET: Parametro = { nombre: 'adsetId', tipo: 'string', obligatorio: true, max: 30, fijoAlRevisar: true, descripcion: 'id numérico del conjunto de anuncios en Meta (de listar_conjuntos_meta).' };
+const P_AD: Parametro = { nombre: 'adId', tipo: 'string', obligatorio: true, max: 30, fijoAlRevisar: true, descripcion: 'id numérico del anuncio en Meta (de listar_anuncios_meta o ver_rendimiento_anuncios).' };
 const P_ESTADO: Parametro = { nombre: 'estado', tipo: 'string', obligatorio: true, enum: ['ACTIVE', 'PAUSED'], descripcion: 'ACTIVE para activar, PAUSED para pausar.' };
 const P_AD_ID_GUION: Parametro = { nombre: 'ad_id', tipo: 'string', obligatorio: true, max: 30, descripcion: 'id numérico del anuncio en Meta (de listar_guiones_analizados).' };
 
@@ -453,8 +455,8 @@ export const DEFS: readonly OperacionDef[] = [
     descripcion: 'PROPONE eliminar en Meta una campaña, un conjunto o un anuncio que esté PAUSADO (si no lo está, se rechaza). Borrar una campaña borra sus conjuntos y anuncios, y se pierden el historial y el aprendizaje de Meta de esa entidad; las métricas guardadas en MaKo quedan. No se puede deshacer: se confirma en una pantalla.',
     escribe: 'DELETE /{id} en Meta (en cascada); nada en la base',
     parametros: [
-      { nombre: 'nivel', tipo: 'string', obligatorio: true, enum: ['campaign', 'adset', 'ad'], descripcion: 'campaign = campaña, adset = conjunto, ad = anuncio.' },
-      { nombre: 'id', tipo: 'string', obligatorio: true, max: 30, descripcion: 'id numérico de la entidad; tiene que estar pausada.' },
+      { nombre: 'nivel', tipo: 'string', obligatorio: true, enum: ['campaign', 'adset', 'ad'], fijoAlRevisar: true, descripcion: 'campaign = campaña, adset = conjunto, ad = anuncio.' },
+      { nombre: 'id', tipo: 'string', obligatorio: true, max: 30, fijoAlRevisar: true, descripcion: 'id numérico de la entidad; tiene que estar pausada.' },
     ],
     canales: TODOS, costo: 'externo', gating: G_META_ADMIN,
   },

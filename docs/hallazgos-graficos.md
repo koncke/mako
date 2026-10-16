@@ -945,10 +945,84 @@ arnés, las 13 plantillas en el escritorio y en la pila del celular, y cada tipo
 - **El tema de una plantilla manda sobre el del arnés**: `capturar.cjs "" <tema> plantillas` saca las 13 cada una en su
   propio tema. Los temas se miran en el modo por tipo (`capturar.cjs "" <tema>`, y `lamina-grilla.cjs` junta los casos).
 
+**Lo que se vio en PRODUCCIÓN después del deploy** (`24c0ad441`, la sesión de super admin de Martín en su Chrome, ws9):
+
+- La pila funciona como en el arnés: «SCL P90», que quedaba sola, va a lo ancho, y ninguna pieza deja más de 44 px de aire
+  abajo (antes, media pantalla).
+- ⚠️ **Un defecto que el arnés no mostraba:** el rótulo de un número de media fila se cortaba en un renglón («RATIO DE …»,
+  «TASA DE ASIST…»), y así no se sabe qué número es. En la pila va en dos renglones.
+- ⚠️ **Cómo se mira el celular en producción, y lo que NO sirve:** la ventana de la extensión no se deja angostar (sigue en
+  1536 px); un iframe del mismo sitio lo bloquea la política de encuadre (bien); y la sesión firmada a mano con
+  `token-dev.mts` producción la manda a `/login`. Lo que anda es la **«Vista de celular» del editor** (Editar → el ícono
+  del teléfono), que dibuja la misma pila a 364 px. En un teléfono de verdad, MaKo Mobile lleva `/dashboard` a
+  `/m/dashboard`, que es OTRA pantalla.
+- **El informe es por persona**: el super admin mirando el ws1 ve SU informe en ese workspace (la galería, si no tiene), no
+  el de Mauricio. Para probar sin escribir en un cliente, las hojas se arman en el ws9 y se borran al final.
+
 **Vive en:** `app/dashboard/pila.ts` · `app/dashboard/EditorInforme.tsx` (`tarjeta`) · `app/dashboard/graficos/estilos-html.ts`
 (`.gr-barras`) · `app/dashboard/graficos/Tabla.tsx` (`portada`) · `app/dashboard/Grafico.tsx` (`separacion`, el margen del eje
 X) · `lib/graficos-gordo.ts` (`BARRA.separacionGrupo`) · `lib/graficos-plantillas-analysts.ts` (Productividad).
 *15/10/2026, claude3 (chat Dashboard).*
+
+## La IA del Dashboard tiene su PROPIA red, y el corte por datos de clientes no la cubría (16/10/2026)
+
+**Vive en:** `lib/graficos-ia-red.ts` (`porLaRedDePlataforma`, `llevaDatosDeClientes`) · `lib/graficos-analisis-server.ts`
+(`pedirIAGratis`) · `lib/graficos-ia-elemento.ts` (`CAJAS_SIN_DATOS_DE_CLIENTES`, `avisoSinIA`) · `lib/graficos-ia-generar.ts` ·
+`tests/graficos-ia-red.test.ts`
+
+La regla del 16/10 (los datos de los clientes de un cliente nunca van a un proveedor que entrena; AGENTS.md, la red de
+plataforma) se puso en `chatCheapCascade`. El AI Analyst, las «Conclusiones de MaKo» y «Pídeselo a MaKo» no pasan por
+ahí: su red es un bucle propio sobre `provsGratisDePlataforma`. Ahora sigue el mismo orden: el crédito de Claude de la
+plataforma, después el corte si la feature lleva `pii` en el catálogo, y recién ahí las keys gratis. Sin nada que
+cumpla, devuelve `null` y quien llama dice lo de siempre: que el negocio conecte su IA.
+
+- ⚠️ **Un test viejo fijaba lo contrario.** `tests/graficos-analisis.test.ts` exigía que la red no nombrara `anthropic`
+  («gratis por construcción»): con la regla nueva, el crédito de Claude es lo que va PRIMERO. Ahora admite sólo esa
+  importación (`conCreditoDeLaPlataforma`) y sigue prohibiendo todo lo demás que cobra por pedido.
+- ⚠️ **La marca `pii` del catálogo es de la feature ENTERA, y corta de más.** «dashboard-conclusiones» la lleva porque
+  la caja del pop-up de una llamada lee el transcript; con eso solo, también las cajas que leen números agregados se
+  quedaban sin keys gratis (y, sin el crédito de Claude activo, sin IA en un negocio sin key propia). Ahora cada caja
+  dice lo suyo, EN POSITIVO como `DIMENSIONES_PUBLICAS`: van sin la marca las que leen GRÁFICOS (mandan lo mismo que el
+  AI Analyst, con las personas y los filtros sobre ellas como «Closer 1») y un ANUNCIO (números de Meta y lo que
+  escribió quien armó la campaña). Una llamada, un lead, y todo lo que se sume mañana, la llevan. El catálogo sigue con
+  `pii: true`: es el default cerrado y el que muestra el sello PII en /modelos-ia.
+- **El test fija también el PORQUÉ:** que la caja de gráficos mande `paraModelo(e)` y que los campos del anuncio sean
+  los revisados. Un campo nuevo en `entradaDeAnuncio` (los comentarios, por ejemplo) lo hace fallar: se revisa antes.
+- ⚠️ **Sin crédito, el aviso de siempre mandaba a conectar una IA que entrena.** El mismo 16/10 Martín dejó el crédito
+  de Claude de la plataforma SÓLO para el onboarding, así que una caja con datos de clientes queda con las keys del
+  negocio y nada más. Sin ninguna, `errorDeCascada` decía «conecta una IA gratis, con Gemini alcanza». Ahora dice
+  «Conecta tu Claude en Integraciones» (`avisoSinIA`), sólo si no se probó ninguna key del negocio: la cascada sin
+  keys no deja errores. Si una key suya falló, su error es el que sirve.
+- ⚠️ **Y ese aviso era falso, por una pregunta antes de la cascada.** `pedirIAGratis` llamaba a `chatCheapCascade`
+  sólo si `docsIADisponible()`, que cuenta Gemini, Groq, OpenRouter, Mistral y OpenAI pero NO la clave de Claude del
+  negocio, que es el primer intento de la cascada (la segunda puerta del veto). Un negocio que conectara su Claude
+  seguía sin IA en el Dashboard. Es la trampa de AGENTS.md («y nada la corta antes»), y no se veía leyendo la red.
+
+**Lo que quedó SIN hacer:** nada se probó contra la red de verdad (sin `next dev` por la RAM). Si Claude está pausado
+para todos (`claudePausado`), un negocio con su Claude conectado igual ve «Conecta tu Claude»: la pausa no deja error.
+*16/10/2026, claude3 (chat Dashboard).*
+
+## Las plantillas sugeridas: los ejes suman por separado, y el arnés dibujaba una copia de la galería (16/10/2026)
+
+**Vive en:** `lib/plantillas-sugeridas.ts` (la regla) · `lib/plantillas-sugeridas-server.ts` (las señales) ·
+`lib/graficos-plantillas-etiquetas.ts` (las dos tablas) · `app/dashboard/NuevaHoja.tsx` · `tests/plantillas-sugeridas.test.ts`.
+Cómo se enchufa otra galería: [plantillas-sugeridas.md](plantillas-sugeridas.md).
+
+- ⚠️ **Los ejes suman por separado, y una plantilla de UN canal con un eje genérico se le sugiere a quien vende por otro.**
+  Con `cuello: ['conversion']` en «Ventas por WhatsApp», a un negocio que vende por llamada le salía sugerida (el cuello
+  coincidía). Lo mismo Closing a quien vende por chat. Los tests de la regla daban verde: lo mostró el arnés, mirando la
+  galería. Las de un canal se etiquetan sólo con su canal y sus entradas, y un test lo fija.
+- ⚠️ **El modo `galeria` del arnés era una COPIA del marcado de la tarjeta**, no el componente: un cambio en
+  `CrearHoja` no se veía ahí. El modo `crear` (`node capturar.cjs "" mako crear`) monta `CrearHoja` de verdad, con
+  señales de ejemplo, en escritorio, celular, General y sin señales.
+- **Se ordena la galería ENTERA y después se filtra lo buscado.** Al revés, buscar algo que deja afuera a las tres
+  sugeridas le pasaría el «Sugerido» a la cuarta.
+- **Las señales llegan desde la página del server**, en paralelo con el informe, y no por un fetch de la galería: la
+  pantalla en blanco muestra la galería al cargar, y un orden que llega después haría saltar las tarjetas.
+
+**Lo que quedó SIN hacer:** mirarlo en producción con un negocio que tenga funnels declarados; el arnés usa señales de
+ejemplo. Y enchufar las otras galerías (Automations, Web Generator, Video Editor, Image Editor, CRM).
+*16/10/2026, claude3 (chat Dashboard).*
 
 ## Lo que quedó sin hacer
 

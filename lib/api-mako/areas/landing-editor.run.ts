@@ -45,7 +45,7 @@ import {
   registrosParaApi, registrosEnTexto, cobroParaApi, comentariosEquipoParaApi,
   planAgregarSeccion, planCambiarTexto, planAcomodarSeccion, planConfigurarSeccion, planAgregarBloque,
   planAcomodarBloque, planPonerEnlace, planConfigurarFormulario, planConfigurarBoton, planQuitarCobro,
-  planAcomodarPagina, planTema, planConfigurarLanding, planConfigurarSitio, planNavegacion, planTemaPropio, restaurarDeTema,
+  planAcomodarPagina, planTema, planConfigurarLanding, planAnimacion, planConfigurarSitio, planNavegacion, planTemaPropio, restaurarDeTema,
   pedidoGenerar, resumenGenerar, pedidoEnBlanco,
   type FallaPlan, type PlanContenido, type PlanConfig,
 } from './landing-contenido.helpers';
@@ -210,7 +210,7 @@ export const RUNNERS_EDITOR: Runners = {
       const id = num(input, 'id') ?? 0;
       const r = await docsEditor.abrir(id);
       if (!r.ok) { siFallaNuestra(r); return errorLectura(r.status === 404 ? noExisteCreada(id) : `No pude leer la landing ${id} (${r.error}).`); }
-      return json(configuracionParaApi(id, r.doc.config, await temasPropios()));
+      return json(configuracionParaApi(id, r.doc.config, await temasPropios(), r.doc.contenido));
     },
   },
 
@@ -449,6 +449,8 @@ export const RUNNERS_EDITOR: Runners = {
     que: 'cambiar la configuración', imagenes: ['fondoImagen'],
     planear: (i, d, x) => planConfigurarLanding(d, i, { imagenPendiente: x.pendientes.includes('fondoImagen') }),
   }) },
+  // Las animaciones: el interruptor y el estilo (config) y el efecto de una sección (contenido), por la MISMA fábrica.
+  cambiar_animacion_landing: { ...edicion({ que: 'cambiar las animaciones', planear: (i, d) => planAnimacion(d, i) }) },
   configurar_sitio_landing: { ...edicion({
     que: 'cambiar los ajustes del sitio', imagenes: ['favicon', 'imagenCompartir'],
     planear: (i, d, x) => planConfigurarSitio(d.config, i, { pendientes: x.pendientes.filter((k): k is 'favicon' | 'imagenCompartir' => k === 'favicon' || k === 'imagenCompartir') }),

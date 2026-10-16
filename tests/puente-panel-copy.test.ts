@@ -461,10 +461,6 @@ export const FUERA_DE_ALCANCE: { ruta: string; porque: string }[] = [
     ruta: 'lib/puestas-data.ts',
     porque: 'marcasDeVoseo(): es el detector que marca el voseo en un guion generado',
   },
-  {
-    ruta: 'lib/flujo-ia-consulta.ts',
-    porque: 'detector de si el pedido al chat del lienzo es una PREGUNTA («decime», «contame», «podés»…): reconoce cómo escribe el dueño, que es rioplatense; no es copy que se dibuja',
-  },
   // ── La voz de MaKo cuando le habla al DUEÑO, que es rioplatense a propósito ──
   // AGENTS.md: «La voz de MaKo es rioplatense, y el texto DEL CLIENTE no». Estos
   // tres son del lado del dueño, así que el voseo no es un error: es la regla.
@@ -491,6 +487,10 @@ export const FUERA_DE_ALCANCE: { ruta: string; porque: string }[] = [
   {
     ruta: 'lib/mako-router.ts',
     porque: 'ídem: rutea el mensaje ENTRANTE («¿quién sos?», «dale»)',
+  },
+  {
+    ruta: 'lib/flujo-ia-consulta.ts',
+    porque: 'decide si lo que la persona ESCRIBE en el chat del lienzo es una pregunta («decime», «contame», «¿podés…?»): sin las formas no reconoce lo que escriben',
   },
   {
     ruta: 'lib/reaccion-emoji.ts',

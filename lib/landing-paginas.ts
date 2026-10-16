@@ -68,6 +68,10 @@ const PARAMS_DE_MEDICION = [
   // carga y el flag que esconde su badge. Los tres cambian en cada recarga del
   // editor, así que sin esto una tarde de edición deja veinte renglones.
   '__lovable_sha', '__lovable_load_id', 'forceHideBadge',
+  // El de la lectura de MaKo (PARAM_LEER de lib/editor-landing/lector.ts): cambia en cada lectura, y un Pixel pegado
+  // ANTES del 16/10 que pierda la ventana de MaKo (la página se recargó sola) la mediría como una página nueva por
+  // lectura. Así cae en la misma página (revisión de la tanda 8). Una página real nunca lo trae.
+  'mako_leer',
 ];
 
 function hostCanonico(hostname: string): string {
@@ -115,6 +119,12 @@ export function esPreviewDeEditor(crudo: string): boolean {
     || /^id-preview[-.].+\.lovable\.app$/.test(h);
 }
 
+/**
+ * LA `normalizarUrl` del repo (hay UNA desde el 15/10/2026): «¿qué PÁGINA es ésta?». Es la llave de
+ * `landing.paginas`, `landing.config`, `landing.snapshot` y del cruce con `landing_visits`. La del Landing
+ * Analyst se llamaba igual y contesta otra pregunta: es `claveDeLanding` (lib/landing-url.ts, la cabecera
+ * dice por qué no se deriva de ésta). La forma no cambia sin migrar lo guardado: tests/landing-url-unica.test.ts.
+ */
 export function normalizarUrl(crudo: string): string | null {
   const s = (crudo ?? '').trim();
   if (!s) return null;

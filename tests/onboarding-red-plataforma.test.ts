@@ -35,8 +35,11 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 const leer = (p: string) => readFileSync(p, 'utf8').replace(/\r\n/g, '\n');
+// Sin el paso que borraba las líneas que empiezan con `*`: se llevaba los ` */` que cierran un
+// JSDoc y dejaba el recorte de bloques abierto hasta el próximo cierre (medido el 16/10/2026 sobre
+// lib/ai-cheap.ts entero; acá no mordía porque se aplica a una función ya recortada).
 const sinComentarios = (src: string) =>
-  src.replace(/^[ \t]*\/\/.*$/gm, '').replace(/^[ \t]*\*.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+  src.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
 
 const AI = leer('lib/ai-cheap.ts');
 
@@ -68,7 +71,8 @@ test('los caminos del ARRANQUE piden la red de plataforma', () => {
   // Los cuatro del Archivero (brief, campos, panorama, huecos), el catálogo de
   // productos, los avatares y la cara de marca. Si un camino nuevo del arranque
   // no la pide, un cliente con una sola key se queda sin arranque.
-  for (const f of ['lib/onboarding.ts', 'lib/productos-ia.ts', 'lib/avatares.ts', 'lib/persona.ts']) {
+  // Y el plan de arranque (15/10/2026), desde que el paso de la IA del wizard es opcional.
+  for (const f of ['lib/onboarding.ts', 'lib/productos-ia.ts', 'lib/avatares.ts', 'lib/persona.ts', 'lib/todo-seed-ia.ts']) {
     assert.match(leer(f), /redDePlataforma: true/, `${f} no tiene red: un bache del proveedor del cliente lo deja sin arranque`);
   }
   // El Archivero lee los documentos por VISIÓN, que es el camino que falló de

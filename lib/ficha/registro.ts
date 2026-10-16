@@ -1,73 +1,47 @@
 // =============================================================================
-// ficha/registro — el CONTRATO de un bloque: lo que el armador le pasa y lo que cada bloque declara
+// ficha/registro — lo que comparten el server y la pantalla sobre quién mira y cómo se titula un bloque
 // =============================================================================
-// La ficha del lead tiene UN armador para las dos puertas (el pop-up del tablero y /crm/[id]), que hoy
-// repiten el armado a mano (docs/diseno-ficha-bloques.md §3, «Para implementar»). Cada frente que hace
-// bloques (la tanda B2) los enchufa con ESTA forma, sin tocar el armador:
+// La ficha del lead tiene UN armador para las dos puertas (el pop-up del tablero y /crm/[id]), que hasta
+// el 14/10/2026 repetían el armado a mano (docs/diseno-ficha-bloques.md §3, «Para implementar»). El
+// armador vive en app/crm/lead-view/ficha/ y el contrato de un bloque (sus props, sus reglas y su
+// registro) en app/crm/lead-view/ficha/tipos.ts.
 //
-//   · del lado del server, un CARGADOR por bloque: lee lo que el bloque necesita del lead y devuelve
-//     `null` si no hay nada (el bloque se calla, si su `sinDatos` es 'se-calla');
-//   · del lado del navegador, un COMPONENTE que recibe `PropsBloque`.
+// ⚠️ CAMBIÓ EN LA SEGUNDA ETAPA (14/10/2026): la primera dejó acá un «cargador» por bloque del lado del
+//    server, que el armador llamaba antes de dibujar. Se reemplazó: lo que un bloque necesita y no viene
+//    en `LeadFullData` lo pide el bloque con SU server action al montarse (sólo si está puesto), así
+//    ningún frente de la tanda B2 toca `getLeadFullAction` ni el armador. Y «¿se dibuja?» lo dice cada
+//    registro (`estaVacio`), no un `datos != null` genérico.
 //
-// El armador (la segunda etapa de este frente) es el único que recorre `bloquesDeTab` (lib/ficha/config.ts),
-// llama a los cargadores de los bloques puestos y dibuja la grilla de 12 columnas con `puesto.ancho`.
-//
-// Sólo tipos y dos funciones puras, sin `server-only` ni `'use client'`: lo importan los dos lados.
+// Puro, sin `server-only` ni `'use client'`: lo importan los dos lados y los tests.
 // =============================================================================
 
-import type { ComponentType } from 'react';
-import type { BloqueDef, BloqueId, TabBloque } from './catalogo';
-import type { BloquePuesto, EstiloFicha } from './config';
 import { reunionesDe } from '../funnel-etapas';
 
 /** Quién mira, en lo que le importa a un bloque (decisión 5: el coaching lo ven el admin y el closer del lead). */
 export type RolFicha = 'admin' | 'closer' | 'setter' | 'otro';
 
-/** Lo que el armador sabe de la ficha que está armando. Igual para todos los bloques de esa ficha. */
-export type CtxBloque = {
-  leadId: number;
-  /** La casa del lead (`leads.funnel_id`; null = el producto del negocio). */
-  funnelId: number | null;
-  tab: TabBloque;
-  rol: RolFicha;
-  /** ¿Quien mira puede escribir en este lead? Un bloque editable sin permiso se dibuja de sólo lectura. */
-  puedeEditar: boolean;
-  /** La zona del negocio (lib/timezone.ts): las fechas y horas se dibujan en esta. */
-  tz: string;
-  estilo: EstiloFicha;
-};
+/** El rol del workspace (`getRolWsEfectivo`) llevado a lo que le importa a la ficha. */
+export function rolDeFicha(rol: string | null | undefined): RolFicha {
+  return rol === 'admin' || rol === 'closer' || rol === 'setter' ? rol : 'otro';
+}
 
-/** Lo que recibe el componente de un bloque. `datos` es lo que devolvió su cargador (null = sin datos). */
-export type PropsBloque<D = unknown> = {
-  puesto: BloquePuesto;
-  def: BloqueDef;
-  /** El título que se dibuja (`tituloDeBloque`): el de la etapa en las reuniones. */
-  titulo: string;
-  datos: D | null;
-  ctx: CtxBloque;
-};
-
-/** El componente de un bloque, para el registro del navegador. */
-export type RegistroBloque<D = unknown> = {
-  id: BloqueId;
-  Componente: ComponentType<PropsBloque<D>>;
-  /** ¿Hay algo que dibujar? Sin esto, «hay datos» es `datos != null`. Sólo lo mira un bloque que se calla. */
-  hayDatos?: (datos: D | null) => boolean;
-};
+const norma = (s: string | null | undefined): string =>
+  (s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').trim().toLowerCase();
 
 /**
- * El cargador de un bloque, para el registro del server. `C` es lo que el armador ya leyó de la ficha (el
- * lead, su funnel, los pagos…): un cargador NO vuelve a leer lo que ya viene ahí.
+ * ¿Quien mira es el closer de ESTE lead? `leads.closer` es texto libre: el nombre que se eligió del
+ * equipo (`PersonaEditable`) o uno escrito a mano. Vale el nombre o el email de la sesión, sin
+ * mayúsculas ni tildes. Un closer vacío no es de nadie.
  */
-export type CargadorBloque<C, D = unknown> = {
-  id: BloqueId;
-  cargar: (contexto: C, puesto: BloquePuesto) => Promise<D | null>;
-};
+export function esElCloserDelLead(closer: string | null | undefined, yo: { nombre?: string | null; email?: string | null } | null | undefined): boolean {
+  const c = norma(closer);
+  if (!c || !yo) return false;
+  return c === norma(yo.nombre) || c === norma(yo.email);
+}
 
-/** ¿Se dibuja? Un bloque que se calla sin datos no; uno con «—» siempre. */
-export function seDibuja<D>(def: Pick<BloqueDef, 'sinDatos'>, datos: D | null, hayDatos?: (d: D | null) => boolean): boolean {
-  if (def.sinDatos === 'raya') return true;
-  return hayDatos ? hayDatos(datos) : datos != null;
+/** ¿Ve lo privado (el coaching de la llamada)? El admin siempre; el closer, sólo en SUS leads. */
+export function vePrivado(rol: RolFicha, closerDelLead: string | null | undefined, yo: { nombre?: string | null; email?: string | null } | null | undefined): boolean {
+  return rol === 'admin' || (rol === 'closer' && esElCloserDelLead(closerDelLead, yo));
 }
 
 /**
@@ -75,7 +49,7 @@ export function seDibuja<D>(def: Pick<BloqueDef, 'sinDatos'>, datos: D | null, h
  * "Reunión 1"» (§3): `reunion-1` es la primera etapa de reunión del funnel (la que guarda su fecha en el
  * primer lugar, `slotPorIndice`) y `reunion-2` la segunda. Sin esa etapa, el título del catálogo.
  */
-export function tituloDeBloque(def: Pick<BloqueDef, 'id' | 'titulo'>, etapas: ReadonlyArray<{ key: string; label?: string; kind?: string }> | null | undefined): string {
+export function tituloDeBloque(def: { id: string; titulo: string }, etapas: ReadonlyArray<{ key: string; label?: string; kind?: string }> | null | undefined): string {
   const i = def.id === 'reunion-1' ? 0 : def.id === 'reunion-2' ? 1 : -1;
   if (i < 0 || !etapas?.length) return def.titulo;
   const key = reunionesDe(etapas)[i];

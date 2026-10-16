@@ -1379,3 +1379,50 @@ de un insertado y un video por enlace a la biblioteca.
   (`[a-zá-ú][A-Z]`) y sólo exceptúa «WhatsApp»: «Hecho con MaKo» no pasa como rótulo (quedó «Créditos al pie»).
 
 *15/10/2026, chat «Landing Generator» (`claude1`), tanda 7 (`514f84468`, `1412d13ee`).*
+
+## Lo que se edita al revisar cambia sobre qué se ejecuta, y el título no se entera (15/10/2026)
+
+**Síntoma:** en `/mako/revisar`, un reembolso propuesto para el cobro de Juan («Devolverle a Juan US$500…») se podía
+confirmar con otro `cobroId` en el formulario: `aplicarPropuestaGenerica` re-prepara con lo editado y devuelve la plata
+de OTRO cliente, mientras la pantalla seguía mostrando el título de Juan.
+**Causa:** la pantalla es editable a propósito (la persona corrige un dato antes de confirmar), y el título es el
+`resumen` que MaKo armó al PROPONER. Nada distinguía «corregir un dato» de «cambiar sobre qué se hace».
+**Regla:** el parámetro que dice SOBRE QUÉ se hace lleva `fijoAlRevisar: true` (lib/api-mako/tipos.ts). El servidor lo
+hace cumplir (un valor distinto se rechaza; uno vacío vuelve al guardado: el formulario llega del navegador, la
+pantalla sola no alcanza), `plano` lo lleva al cliente y `RevisarAccion` lo pinta de sólo lectura. Si es otro, se
+propone de nuevo. Copia del panel de Stripe: el cargo que se devuelve no se cambia en el diálogo de devolución.
+**Hecho el mismo día, en todas las de plata o envío** (lo pidió Estrategia: ni Ads Manager ni Email tenían chat): el
+`cobroId` de cobros; `P_CAMPAIGN`, `P_ADSET` y `P_AD` de Ads (y el `nivel` + `id` de `proponer_eliminar_entidad_meta`,
+que no es plata pero no se deshace); el `idBroadcast` de Email; el borrador de `enviar_plantilla_a_meta` y el paso de
+`enviar_plantilla_meta_paso` (en esa acción sola: `pOrden` en otra puede ser un valor que se corrige). **Y un BARRIDO**
+(tests/revisar-fijo.test.ts): toda acción de pantalla con `costo: 'dinero'` o que manda algo (`enviar_*`, `programar_*`) y
+tiene un id, tiene que traer uno fijo: la próxima no nace con el agujero. Queda afuera, sin plata ni envío, cualquier
+otra acción de pantalla cuyo título nombre a alguien.
+**Al hacerlo:** el reemplazo del `id` de `enviar_plantilla_a_meta` cayó primero en OTRA acción con la misma línea de
+texto (`borrar_borrador_plantilla`); lo vio el barrido. Un parámetro declarado inline se repite tal cual en varias
+acciones: el ancla de un cambio así es la acción, no la línea.
+**Vive en:** `lib/api-mako/acciones.ts` (`aplicarPropuestaGenerica`) · `lib/api-mako/tipos.ts` (`Parametro.fijoAlRevisar`)
+· `lib/bandeja-filas.ts` (`plano`) · `app/mako/revisar/[id]/RevisarAccion.tsx` · `tests/revisar-fijo.test.ts`.
+
+## 183 caracteres en `cambiar_ficha_funnel` dejaron a «mover la reunión» fuera de WhatsApp (16/10/2026)
+
+Sumarle el parámetro del ícono a `cambiar_ficha_funnel` puso en rojo `tests/agenda-whatsapp.test.ts`: con «no,
+movela al viernes a las 10», `proponer_mover_reunion` dejó de viajar en el turno de WhatsApp.
+
+- **El diagnóstico obvio era el equivocado.** «Cambió la relevancia» no: el puntaje era el mismo (4 contra 4) y
+  el orden también.
+- **La causa es el presupuesto, no el orden.** El doer manda como mucho 12.000 caracteres de esquema
+  (`PRESUPUESTO_REGISTRO_CHARS`, lib/doer-herramientas.ts), y `toolsDelRegistro` saltea la que no entra.
+  `cambiar_ficha_funnel` pesa casi 4.000 y, por el «cambi» de su id, empata arriba en cualquier «cambiá…» o
+  «movela…». El turno estaba a 97 caracteres del tope; con +183, la de mover la reunión no entró. Sólo queda un
+  `console.warn`.
+- **El arreglo fue achicar la misma op:** las listas largas de ids (bloques, avisos, íconos) salen del `enum`, se
+  validan en la traducción (lib/ficha/api.ts) y un id malo vuelve con `disponibles`. `tests/ficha-api.test.ts`
+  le pone un tope de 3.796 caracteres.
+
+**La regla:** antes de commitear una op, medir `JSON.stringify(aToolDef(def)).length` y correr el test del turno
+de WhatsApp. Una op grande que empata arriba se come el lugar de las chicas.
+
+**Vive en:** lib/doer-herramientas.ts · lib/api-mako/registro.ts (`toolsDelRegistro`, `ordenarPorRelevancia`) ·
+lib/api-mako/areas/crm.def.ts (`cambiar_ficha_funnel`) · tests/ficha-api.test.ts ·
+*16/10/2026, chat «CRM» (claude3), corrida wf_e3cc574c-723 (`665f5bed1`).*

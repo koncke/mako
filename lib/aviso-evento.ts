@@ -34,7 +34,7 @@ import { DELAY_MAX_HORAS, QUE_ENVEJECEN } from './flujo-pasos';
 import { CLAVE_MENSAJE_MAKO, VARIABLES_AVISO, citaSecreto, tokensDe, type ContextoDatos } from './variables-aviso';
 import { textoLoArmaElCodigo, type AvisoCatalogo } from './avisos-catalogo';
 // Puro: la tarjeta «MaKo en WhatsApp» por partes (undécima tanda). Qué partes tiene y si sale tal cual.
-import { esTarjetaTalCual, esperaQueAbra, partesDeMako, textoDePartes } from './mako-tarjeta';
+import { esTarjetaTalCual, esperaQueAbra, partesDeMako, textoDePartes, esPorEmail, asuntoDeMako, problemaDeEmailMako } from './mako-tarjeta';
 
 // ── Qué aviso es qué evento ─────────────────────────────────────────────────────────────────────
 
@@ -71,6 +71,9 @@ export function datosDelEvento(sub: unknown): ContextoDatos {
   return {
     conLead: ev.trae.includes('lead'), conCuota: ev.trae.includes('cuota'), conMensaje: conMensaje(ev),
     conPago: ev.trae.includes('pago'), conEscrito: ev.trae.includes('escrito'), conAnalisis: ev.trae.includes('analisis'), destino: 'equipo',
+    ...(ev.trae.includes('linea') ? { conLinea: true } : {}),
+    ...(ev.trae.includes('grabacion') ? { conGrabacion: true } : {}),
+    ...(ev.trae.includes('reporte') ? { conReporte: true } : {}),
   };
 }
 
@@ -121,6 +124,8 @@ export const MOTIVO_EVENTO = {
   delayTope: 'El DELAY va de un minuto a 30 días.',
   condicion: 'La CONDITION de un evento tiene una salida: «Sí» sigue y «Si no» termina.',
   makoVacia: 'La tarjeta «MaKo en WhatsApp» está vacía.',
+  // «MaKo por email» (16/10/2026, `problemaDeEmailMako`, lib/mako-tarjeta.ts).
+  makoEmail: 'La tarjeta «MaKo por email» lleva asunto y un solo texto, sin audio ni archivos.',
   sinMensaje: 'Este evento no trae «Lo que arma MaKo».',
   envejece: 'Después de un DELAY no va «Hace cuánto venció»: diría el de ese día.',
   mensajeViejo: 'Después de un DELAY no va «Lo que arma MaKo»: es el de ese momento.',
@@ -175,7 +180,8 @@ export function pasosDelEvento(pasosIn: readonly PasoGrafo[], evento: unknown): 
     if (clase === 'esperar' && secretos.length) return mal(MOTIVO_EVENTO.secretoDelay, id);
     // La CONDITION mira los hechos de un LEAD (`hechosDeLaCorrida`), y un evento de una persona no trae ninguno: no
     // se cumpliría nunca, y lo que sigue no saldría.
-    if (clase === 'condicion' && ev.persona) return mal(MOTIVO_EVENTO.condicionPersona, id);
+    // Ni uno de la PLATAFORMA (15/10/2026): habla de un NEGOCIO (su línea), no de un lead.
+    if (clase === 'condicion' && (ev.persona || ev.plataforma)) return mal(MOTIVO_EVENTO.condicionPersona, id);
     if (clase === 'respuesta') return mal(MOTIVO_EVENTO.respuesta, id);
     if (clase === 'ir_a') return mal(MOTIVO_EVENTO.irA, id);
     if (clase === 'accion' && (p.accion as { operacion?: unknown } | null)?.operacion !== OP_AVISAR) return mal(MOTIVO_EVENTO.accion, id);
@@ -223,7 +229,12 @@ export function pasosDelEvento(pasosIn: readonly PasoGrafo[], evento: unknown): 
       // La de ANTES (sin lista) sale EXACTAMENTE como hasta hoy: el paso no lleva `partes`. Fuera del horario espera a
       // que abra, salvo que la tarjeta diga «Lo manda igual» (`esperaQueAbra`, 15/10/2026).
       const igual = esperaQueAbra(params) ? {} : { saleIgual: true as const };
-      pasos.push(talCual ? { tipo: 'mensaje', canal: 'aviso_dueno', texto, partes: lista, ...igual } : { tipo: 'mensaje', canal: 'aviso_dueno', texto, ...igual });
+      // POR EMAIL (16/10/2026): un texto con su asunto, al equipo del negocio. El asunto también es de lo escrito.
+      const malEmail = problemaDeEmailMako(params);
+      if (malEmail) return mal(MOTIVO_EVENTO.makoEmail, cur);
+      if (esPorEmail(params) && citaSecreto(asuntoDeMako(params))) return mal(MOTIVO_EVENTO.secretoFuera, cur);
+      const email = esPorEmail(params) ? { email: { asunto: asuntoDeMako(params) } } : {};
+      pasos.push(talCual ? { tipo: 'mensaje', canal: 'aviso_dueno', texto, partes: lista, ...igual, ...email } : { tipo: 'mensaje', canal: 'aviso_dueno', texto, ...igual });
       huella.push(`${cur}:mensaje`);
       makos += 1;
       cur = siguienteDe(pasosIn, i);
@@ -357,10 +368,16 @@ export type DepsEvento = {
   reclamar: (ws: number, tipo: string, minutos: number, clave?: string) => Promise<boolean>;
   /** `ejecutarPasos` (lib/flujos.ts) adentro del workspace. */
   correr: (flujoId: string, pasos: Paso[], ws: number, ctx: CtxFlujo) => Promise<void>;
+  /** El ws de la PLATAFORMA (`wsSuperAdmin`): de él son las filas de un evento `plataforma`. */
+  wsPlataforma?: () => Promise<number>;
   log?: (m: string) => void;
 };
 
-export type ResultadoEvento = EmitirAvisoResult & { filas: number };
+/**
+ * `sinFila`: un evento de la PLATAFORMA cuya plataforma todavía no tiene NINGUNA fila (ni pausada): quien llama manda el
+ * aviso como antes (la mudanza no deja hueco). Con una fila, aunque esté pausada, decide la automatización.
+ */
+export type ResultadoEvento = EmitirAvisoResult & { filas: number; sinFila?: true };
 
 /** El id de corrida de una fila de evento (`flujo_corridas.aviso_id`): `retomarCorrida` relee la fila por él. */
 export const idCorridaDeFila = (filaId: number): string => `sec:${filaId}`;
@@ -392,14 +409,24 @@ export async function emitirPorEvento(
   const log = deps.log ?? ((m: string) => console.warn(m));
   const evento = eventoDeAviso(cat.id);
   if (!evento) return { ok: false, feedId: null, wa: false, deduped: false, filas: 0 };
+  // UN MENSAJE DE MaKo A SUS CLIENTES (15/10/2026, `EventoMako.plataforma`): lo emite el negocio `ws`, pero lo corren las
+  // filas de la PLATAFORMA, y su tarjeta le llega al grupo de `ws` (`negocioWs`, lib/flujos.ts). El resto, en `ws`.
+  const dePlataforma = porSubtipo(evento)?.plataforma === true;
+  const wsFilas = dePlataforma ? await (deps.wsPlataforma?.() ?? Promise.reject(new Error('sin plataforma'))).catch(() => null) : ws;
+  if (wsFilas == null) {
+    log(`[aviso-evento] ${cat.id} (ws ${ws}): no sé cuál es la plataforma`);
+    return { ok: false, feedId: null, wa: false, deduped: false, filas: 0 };
+  }
 
   let filas: FilaEvento[];
   try {
-    filas = await deps.leerFilas(ws);
+    filas = await deps.leerFilas(wsFilas);
   } catch (e) {
-    log(`[aviso-evento] ${cat.id} (ws ${ws}): no pude leer sus automatizaciones — ${e instanceof Error ? e.message : String(e)}`);
+    log(`[aviso-evento] ${cat.id} (ws ${wsFilas}): no pude leer sus automatizaciones — ${e instanceof Error ? e.message : String(e)}`);
     return { ok: false, feedId: null, wa: false, deduped: false, filas: 0 };
   }
+  // ⚠️ LA MUDANZA NO DEJA HUECO: mientras la plataforma no tenga NINGUNA fila con este evento, el aviso sale como antes.
+  if (dePlataforma && !filas.some((f) => eventoDeFila(f) === evento)) return { ok: true, feedId: null, wa: false, deduped: false, filas: 0, sinFila: true };
 
   // ⚠️ SE TRADUCE ANTES DE RECLAMAR. Una fila prendida que no se puede correr (Publicar no la deja llegar así,
   // pero la base sí) no puede consumir la ventana del dedup: en la cobranza son 120 días sin ese aviso.
@@ -426,7 +453,8 @@ export async function emitirPorEvento(
   let n = 0;
   for (const { fila, pasos, firma } of corren) {
     const ctx: CtxFlujo = {
-      ws,
+      ws: wsFilas,
+      ...(dePlataforma ? { negocioWs: ws } : {}),
       ...(opts.lead ? { leadId: opts.lead.id, ...(opts.lead.nombre ? { leadNombre: opts.lead.nombre } : {}) } : {}),
       ...(opts.cuotaId != null ? { cuotaId: opts.cuotaId } : {}),
       ...(opts.datos ? { datos: opts.datos } : {}),
@@ -436,12 +464,13 @@ export async function emitirPorEvento(
       firma,
     };
     try {
-      await deps.correr(idCorridaDeFila(fila.id), pasos, ws, ctx);
+      await deps.correr(idCorridaDeFila(fila.id), pasos, wsFilas, ctx);
       n += 1;
     } catch (e) {
-      log(`[aviso-evento] ${cat.id} (ws ${ws}): la automatización #${fila.id} falló — ${e instanceof Error ? e.message : String(e)}`);
+      log(`[aviso-evento] ${cat.id} (ws ${wsFilas}): la automatización #${fila.id} falló — ${e instanceof Error ? e.message : String(e)}`);
     }
   }
-  // El envío lo afirma cada tarjeta (con su feed y su `wa`); ningún llamador de estos tres lee `wa`.
-  return { ok: true, feedId: null, wa: false, deduped: false, filas: n };
+  // El envío lo afirma cada tarjeta (con su feed y su `wa`); ningún llamador de los del negocio lee `wa`. ⚠️ El de la línea
+  // caída SÍ (lib/lineas-vigilante.ts): marca «avisado» sólo si llegó, y sin esa marca el «volvió» no sale nunca.
+  return { ok: true, feedId: null, wa: dePlataforma && n > 0, deduped: false, filas: n };
 }

@@ -52,6 +52,9 @@ export type DisponiblesNegocio = {
   integraciones: boolean;
   /** Las credenciales de la plataforma: sólo la agencia (`getSesionAdmin`). */
   metodo: boolean;
+  /** «Tu plan»: el plan de MaKo de un NEGOCIO. La plataforma misma no tiene uno (en producción decía «SuperAdmin —
+   *  Acordado con MaKo — para darte de baja, escríbenos», 15/10/2026). */
+  plan: boolean;
 };
 
 const SECCIONES_NEGOCIO: (SeccionAjustes & { si?: keyof DisponiblesNegocio })[] = [
@@ -60,6 +63,8 @@ const SECCIONES_NEGOCIO: (SeccionAjustes & { si?: keyof DisponiblesNegocio })[] 
   { key: 'integraciones', label: 'Integraciones', href: '/integraciones', icono: 'link', descripcion: 'WhatsApp, Meta, tu web y todo lo que se conecta.', si: 'integraciones' },
   { key: 'notificaciones', label: 'Notificaciones', href: '/configuraciones/notificaciones', icono: 'avisar', descripcion: 'A quién le avisa MaKo del negocio.' },
   { key: 'fiscal', label: 'Identidades fiscales', href: '/configuraciones/fiscal', icono: 'dinero', descripcion: 'Los datos con los que facturas.' },
+  // El botón «Darme de baja», como todo SaaS (15/10/2026): /reembolsos y /terminos remiten acá.
+  { key: 'plan', label: 'Tu plan', href: '/configuraciones/plan', icono: 'repetir', descripcion: 'Tu plan de MaKo y cómo darte de baja.', si: 'plan' },
   { key: 'metodo', label: 'Método', href: '/metodo', icono: 'llave', descripcion: 'Las credenciales de la plataforma.', si: 'metodo' },
 ];
 

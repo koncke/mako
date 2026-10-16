@@ -8,62 +8,6 @@
   white-space: nowrap;
 }
 
-.m-operaciones-hoja {
-  display: grid;
-  gap: 14px;
-}
-
-.m-operaciones-estado {
-  display: grid;
-  gap: 6px;
-  justify-items: start;
-}
-
-[data-m] .m-operaciones-motivo {
-  margin: 0;
-  font-size: var(--fs-sm);
-  color: var(--dim);
-}
-
-[data-m] .m-operaciones-texto {
-  margin: 0;
-  font-size: 16px;
-  line-height: 1.5;
-  color: var(--ink);
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
-
-.m-operaciones-cierre {
-  display: grid;
-  gap: 10px;
-  margin: 0;
-}
-
-.m-operaciones-cierre div {
-  display: grid;
-  gap: 2px;
-}
-
-.m-operaciones-cierre dt {
-  font-size: var(--fs-meta);
-  color: var(--faint);
-}
-
-[data-m] .m-operaciones-cierre dd {
-  margin: 0;
-  font-size: var(--fs-md);
-  color: var(--ink);
-  overflow-wrap: anywhere;
-}
-
-/* Progreso en el teléfono (ProgresoMovil.tsx). */
-/* Cuatro pestañas y el número de pendientes no entran en cuartos iguales a 390 px («Pedi…»): cada una
-   toma lo que ocupa su texto. En una pantalla más angosta vuelve la elipsis del segmentado. */
-.m-operaciones-seg .m-seg {
-  grid-auto-columns: auto;
-}
-
 [data-m] .m-operaciones-hace {
   font-size: var(--fs-meta);
   color: var(--faint);
@@ -71,99 +15,7 @@
   font-variant-numeric: tabular-nums;
 }
 
-[data-m] .m-operaciones-nota {
-  margin: 8px 4px 0;
-  font-size: var(--fs-meta);
-  color: var(--faint);
-}
-
-.m-operaciones-pasos {
-  display: grid;
-  gap: 12px;
-  margin: 0;
-  padding: 0 0 0 14px;
-  border-left: 2px solid var(--border);
-  list-style: none;
-}
-
-.m-operaciones-pasos li {
-  display: grid;
-  gap: 3px;
-  font-size: var(--fs-md);
-  color: var(--ink);
-  overflow-wrap: anywhere;
-}
-
-.m-operaciones-paso-quien {
-  font-size: var(--fs-meta);
-  color: var(--faint);
-}
-
-.m-operaciones-commit {
-  font-family: 'Geist Mono', ui-monospace, Consolas, monospace;
-  font-size: var(--fs-meta);
-  color: var(--dim);
-  overflow-wrap: anywhere;
-}
-
-[data-m] .m-operaciones-cuerpo {
-  font-size: var(--fs-sm);
-  color: var(--dim);
-}
-
-/* La conversación de un chat en la hoja (ChatsMovil.tsx): lo que pidió Martín en burbujas a la derecha y lo que
-   hizo el chat como texto a la izquierda, como una app de chat. */
-.m-operaciones-conv {
-  display: grid;
-  gap: 16px;
-}
-
-.m-operaciones-par {
-  display: grid;
-  gap: 8px;
-}
-
-.m-operaciones-yo {
-  justify-self: end;
-  max-width: 85%;
-}
-
-[data-m] .m-operaciones-burbuja {
-  margin: 0;
-  padding: 10px 14px;
-  border-radius: 18px 18px 4px 18px;
-  background: color-mix(in srgb, var(--ink) 7%, var(--bg));
-  font-size: 16px;
-  line-height: 1.45;
-  color: var(--ink);
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
-
-[data-m] .m-operaciones-pie {
-  margin: 4px 4px 0;
-  font-size: var(--fs-meta);
-  color: var(--faint);
-  text-align: right;
-}
-
-.m-operaciones-el {
-  display: grid;
-  gap: 2px;
-  max-width: 92%;
-  font-size: var(--fs-md);
-  color: var(--ink);
-  overflow-wrap: anywhere;
-}
-
-[data-m] .m-operaciones-sistema {
-  justify-self: center;
-  margin: 0;
-  font-size: var(--fs-meta);
-  color: var(--faint);
-}
-
-/* ── Chats (16/10/2026): la fila con su punto y lo último que pasó; la conversación con la caja fija abajo,
+/* ── Chats: la fila con su punto y lo último que pasó; la conversación con la caja fija abajo,
    como WhatsApp en el iPhone. El hilo usa las clases de app/admin/operaciones/centro.css (Hilo.tsx). ── */
 [data-m] .m-operaciones-vivo { color: var(--good); }
 [data-m] .m-operaciones-previa {
@@ -217,3 +69,20 @@
 [data-m] .m-operaciones-caja__estado { min-width: 0; font-size: var(--fs-meta); color: var(--faint); }
 [data-m] .m-operaciones-caja--quieta { flex-direction: row; align-items: center; justify-content: space-between; gap: 10px; }
 [data-m] .m-operaciones-espera { color: var(--warn); }
+
+/* La barra «Avance 3/5» queda PEGADA arriba de la hoja: la conversación abre en lo último (abajo), y sin esto el
+   avance quedaría fuera de la vista. Pega contra .m-sheet__cuerpo, que es lo que scrollea (AGENTS.md → sticky). */
+[data-m] .m-operaciones-hilo .co-avance-movil { position: sticky; top: 0; z-index: 2; margin: 0 -4px; padding: 0 4px 6px; background: var(--bg); }
+
+/* Un sub-chat («CRM › Lead Detail») va corrido a la derecha, debajo de su jefe. */
+[data-m] .m-operaciones-sub { display: inline-flex; margin-left: 18px; }
+/* El muñeco de la conversación se toca para cambiarlo; el «⋯», a la derecha, abre las opciones. */
+[data-m] .m-operaciones-muneco { padding: 0; border: 0; background: none; display: inline-flex; cursor: pointer; }
+[data-m] .m-operaciones-mas {
+  margin-left: auto; display: inline-grid; place-items: center; width: 40px; height: 40px;
+  border: 1px solid var(--border); border-radius: 999px; background: var(--surface); color: var(--dim); cursor: pointer;
+}
+[data-m] .m-operaciones-volver {
+  display: inline-flex; align-items: center; gap: 6px; margin: 0 0 12px; padding: 0; border: 0; background: none;
+  font: inherit; font-size: var(--fs-md); color: var(--primary); cursor: pointer;
+}

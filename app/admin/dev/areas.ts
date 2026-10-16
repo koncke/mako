@@ -1204,7 +1204,7 @@ export const AREAS: AreaDev[] = [
     slug: 'centro-operaciones', titulo: 'Centro de Operaciones', familia: 'Platform', grupo: 'Dev',
     estado: 'parcial', verEnApp: '/admin/operaciones',
     alcance: 'Los pedidos firmados de Martín para los chats de Claude Code de su PC: la pantalla de /admin/operaciones, la cola en la base, la puerta del cartero y el cartero de cada cuenta (scripts/operaciones/). La cuota de las tres cuentas y el señalador son etapas siguientes.',
-    vive: ['app/admin/operaciones/', 'app/api/operaciones/', 'lib/operaciones.ts', 'lib/operaciones-reglas.ts', 'lib/api-mako/areas/operaciones.def.ts', 'lib/api-mako/areas/operaciones.run.ts', 'scripts/operaciones/', 'supabase/migrations/0285_centro_operaciones.sql', 'tests/operaciones.test.ts', 'docs/diseno-centro-de-operaciones.md'],
+    vive: ['app/admin/operaciones/', 'app/m/operaciones/', 'app/api/operaciones/', 'lib/operaciones.ts', 'lib/operaciones-reglas.ts', 'lib/centro-chats.ts', 'lib/runner.ts', 'lib/progreso-reglas.ts', 'lib/progreso.ts', 'lib/api-mako/areas/operaciones.def.ts', 'lib/api-mako/areas/operaciones.run.ts', 'scripts/operaciones/', 'supabase/migrations/0285_centro_operaciones.sql', 'tests/operaciones.test.ts', 'docs/diseno-centro-de-operaciones.md'],
     hallazgos: 'hallazgos-operaciones',
     nota: 'Una fila de la cola es un prompt en la PC de Martín: la verdad es el texto FIRMADO en su dispositivo, y la confianza (las claves, lo ya entregado) vive en la PC, no en MaKo.',
   },

@@ -37,7 +37,7 @@ import { getActivePersona, MAKO_NUCLEO } from './mako-prompts';
 import { getFunnelDefault } from './funnels';
 import { perfilNegocioTexto } from './onboarding';
 import { searchKnowledge, formatKnowledge } from './mako-knowledge';
-import { normalizarUrl } from './landing-fetch';
+import { claveDeLanding } from './landing-fetch';
 import type { LandingAnalysisRow } from './landing-analyst';
 import {
   OBJETIVOS_LANDING, BLOQUE_TIPOS, TIPO_LABEL, objetivoLabel, specAMarkdown,
@@ -190,7 +190,7 @@ export async function buildLandingBrief(pedido: string): Promise<string> {
 export async function diagnosticoDe(url: string | null | undefined): Promise<string> {
   if (!url) return '';
   let norm: string;
-  try { norm = normalizarUrl(url); } catch { return ''; }
+  try { norm = claveDeLanding(url); } catch { return ''; }
   try {
     const supabase = (await getTenantDb());
     const { data } = await supabase
@@ -381,7 +381,7 @@ export async function guardarDraft(input: GenerarInput, spec: LandingSpec): Prom
     .insert({
       pedido: input.pedido,
       objetivo: spec.objetivo,
-      basado_en_url: input.basadoEnUrl ? normalizarUrl(input.basadoEnUrl) : null,
+      basado_en_url: input.basadoEnUrl ? claveDeLanding(input.basadoEnUrl) : null,
       spec,
       titulo: spec.nombre,
       model: 'landing-writer',

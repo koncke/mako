@@ -174,22 +174,25 @@ test('MaKo Analyst (ex «Análisis») va pegado a Historial, en las DOS fichas',
   // condicionales (`...(cond ? [{ label }] : [])`) pero su `label:` sigue escrito en este orden,
   // que es lo que esto lee. Verificado rompiéndolo (12/10/2026): con «Análisis» de vuelta en el
   // modal, 1 fallo / 8 pases.
+  //
+  // ⚠️ CAMBIADO A PROPÓSITO EL 14/10/2026 (la ficha por bloques): las dos puertas ya no declaran sus tabs.
+  // Las dos montan la MISMA `FichaPorBloques` (app/crm/lead-view/ficha/), que es la que las declara UNA
+  // vez. Se lee el orden ahí, y que las dos puertas la monten. Re-verificado rompiéndolo: MaKo Analyst
+  // antes de Pagos en FichaPorBloques → 1 fallo; la ruta con su `tabs={[` de vuelta → 1 fallo.
   const esperado = ['Resumen', 'Tracking', 'Reuniones', 'Pagos', 'MaKo Analyst', 'Historial'];
 
-  const modal = etiquetas(leer('../app/crm/LeadSheet.tsx'), 'tabs={[').slice(0, 6);
-  assert.deepEqual(modal, esperado, 'el modal (LeadSheet)');
-
-  const pagina = etiquetas(leer('../app/crm/[id]/page.tsx'), 'tabs={[').slice(0, 6);
-  assert.deepEqual(pagina, esperado, 'la ruta /crm/[id]');
-
-  // Verificado rompiéndolo: devolviendo Análisis antes de Pagos en el modal,
-  // 1 fallo; en la página, otro.
+  const ficha = leer('../app/crm/lead-view/ficha/FichaPorBloques.tsx');
+  assert.deepEqual(etiquetas(ficha, 'const tabs: LeadTabDef[] = [').slice(0, 6), esperado, 'la ficha (las dos puertas)');
+  for (const ruta of ['../app/crm/LeadSheet.tsx', '../app/crm/[id]/LeadDetailBody.tsx', '../app/crm/[id]/page.tsx']) {
+    assert.ok(!leer(ruta).includes('tabs={['), `${ruta}: vuelve a declarar sus tabs a mano`);
+  }
+  for (const ruta of ['../app/crm/LeadSheet.tsx', '../app/crm/[id]/LeadDetailBody.tsx']) {
+    assert.match(leer(ruta), /<FichaPorBloques\b/, `${ruta}: no monta la ficha compartida`);
+  }
 
   // La `key` NO cambió con el rótulo: viaja en los links (`?tab=insights`), y renombrarla dejaría
   // esos links abriendo la primera pestaña sin decir nada.
-  for (const ruta of ['../app/crm/LeadSheet.tsx', '../app/crm/[id]/page.tsx']) {
-    assert.match(leer(ruta), /key: 'insights', label: 'MaKo Analyst'/, `${ruta}: la key de la pestaña cambió`);
-  }
+  assert.match(ficha, /key: 'insights', label: 'MaKo Analyst'/, 'la key de la pestaña cambió');
 });
 
 test('las DOS fichas hablan el mismo idioma y muestran lo mismo', () => {
@@ -203,9 +206,11 @@ test('las DOS fichas hablan el mismo idioma y muestran lo mismo', () => {
   // Ninguna de las dos es una pantalla muerta: al modal se llega desde el tablero, y a la
   // ruta desde el WhatsApp que avisa de un lead nuevo de la landing y desde el Closing
   // Analyst.
+  // Desde el 14/10/2026 las tabs se declaran UNA vez, en la ficha compartida (FichaPorBloques).
   const SUPERFICIES = [
     '../app/crm/LeadSheet.tsx',
     '../app/crm/[id]/page.tsx',
+    '../app/crm/lead-view/ficha/FichaPorBloques.tsx',
   ];
   for (const ruta of SUPERFICIES) {
     const f = leer(ruta);
@@ -219,22 +224,28 @@ test('las DOS fichas hablan el mismo idioma y muestran lo mismo', () => {
   // Y Pagos es condicional en las dos que la dibujan como tab de datos, y desde el 11/10/2026 con
   // LA MISMA regla (lib/muestra-pagos.ts; antes la ruta pedía «venta o plan» y el modal «cuotas»).
   // Lo que decide la regla lo fija tests/muestra-pagos.test.ts.
-  assert.ok(/\.\.\.\(verPagos \? \[\{ key: 'cobranza'/.test(leer('../app/crm/[id]/page.tsx')), 'Pagos condicional en la ruta');
-  assert.ok(/\.\.\.\(verPagos \? \[\{ key: 'cobranza'/.test(leer('../app/crm/LeadSheet.tsx')), 'Pagos condicional en el modal');
+  // Desde el 14/10/2026, en la ficha compartida: Pagos sale si la ve el lead (`delLead`, con `verPagos`)
+  // o si se está personalizando la ficha del funnel (la ficha es del funnel, no de este lead).
+  const ficha = leer('../app/crm/lead-view/ficha/FichaPorBloques.tsx');
+  assert.match(ficha, /\.\.\.\(verPagos \? \['pagos' as const\] : \[\]\)/, 'Pagos condicional para el lead');
+  assert.match(ficha, /\.\.\.\(tabsBloques\.includes\('pagos'\) \? \[\{ key: CLAVE_DE_TAB\.pagos, label: 'Pagos'/, 'Pagos condicional en la ficha');
 });
 
 test('las notas y el recorrido están en las DOS fichas, y en el mismo lugar', () => {
   // Las notas se sacaron de la ruta junto con su pestaña y volvieron SOLO al modal:
   // quien entra por el link del WhatsApp de la landing se quedaba sin notas.
-  for (const ruta of ['../app/crm/LeadSheet.tsx', '../app/crm/[id]/page.tsx']) {
-    const f = leer(ruta);
-    assert.ok(/<NotasCard leadId=\{lead\.id\} \/>/.test(f), `${ruta}: faltan las notas`);
-    // El recorrido va con el Historial, no en el Resumen: las dos contestan «qué pasó».
-    const iAct = f.indexOf("label: 'Historial'");
-    const iRec = f.indexOf('Recorrido del lead');
-    assert.ok(iAct >= 0 && iRec >= 0, `${ruta}: falta alguna de las dos anclas`);
-    assert.ok(iRec > iAct, `${ruta}: el recorrido va DENTRO de la tab Historial`);
+  // ⚠️ CAMBIADO A PROPÓSITO EL 14/10/2026: las dos puertas montan la MISMA ficha (FichaPorBloques); las
+  // notas son el bloque `notas` del Resumen (su registro) y el recorrido va en el Historial de la ficha.
+  for (const ruta of ['../app/crm/LeadSheet.tsx', '../app/crm/[id]/LeadDetailBody.tsx']) {
+    assert.match(leer(ruta), /<FichaPorBloques\b/, `${ruta}: no monta la ficha compartida`);
   }
+  assert.ok(/<NotasCard leadId=\{ctx\.lead\.id\} \/>/.test(leer('../app/crm/lead-view/ficha/registro-resumen.tsx')), 'faltan las notas');
+  const f = leer('../app/crm/lead-view/ficha/FichaPorBloques.tsx');
+  // El recorrido va con el Historial, no en el Resumen: las dos contestan «qué pasó».
+  const iAct = f.indexOf("label: 'Historial'");
+  const iRec = f.indexOf('Recorrido del lead');
+  assert.ok(iAct >= 0 && iRec >= 0, 'falta alguna de las dos anclas');
+  assert.ok(iRec > iAct, 'el recorrido va DENTRO de la tab Historial');
 });
 
 // ── 3 · El selector de producto ──────────────────────────────────────────────

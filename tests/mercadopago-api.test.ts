@@ -24,6 +24,8 @@
 //   · cancelar con `'cancelled'` (dos eles)                                     → 7 / 1
 //   · el modo sin mirar `tags` (sólo el prefijo TEST-)                          → 7 / 1
 //   · leerPagoMp sin validar el id antes de ir a la red                         → 7 / 1
+// Y el 15/10/2026, con vencerPreferenciaMp (anular un link; 9 pases en verde), cada una → 8 / 1: sin
+// `expires`, el instante con `Z` en vez del desfase, sin X-Idempotency-Key, y sin validar el id.
 // Correr: node --import tsx --test tests/mercadopago-api.test.ts
 
 import { test } from 'node:test';
@@ -136,6 +138,28 @@ test('reembolso TOTAL (sin amount) y cancelación con `canceled` (una ele), los 
   assert.equal(que(llamadas[1]), 'PUT /preapproval/2c9380848f');
   assert.deepEqual(llamadas[1].cuerpo, { status: 'canceled' });
   assert.equal(llamadas[1].headers.get('X-Idempotency-Key'), 'mako-baja-7');
+});
+
+test('anular un link: la preferencia se VENCE (PUT con expires y expiration_date_to de ahora), con X-Idempotency-Key', async () => {
+  // Hasta el 15/10/2026 un link anulado de MP quedaba abierto y se podía pagar igual (lib/cobros.ts, anularCobro).
+  const { vencerPreferenciaMp, instanteMp } = await api();
+  preparar(() => json(200, { id: '123456789-abc-def' }));
+  const antes = Date.now();
+  const r = await vencerPreferenciaMp(TOKEN_MP, '123456789-abc-def', 'mako-anular-7');
+  assert.deepEqual(r, { ok: true, id: '123456789-abc-def' });
+  assert.equal(que(llamadas[0]), 'PUT /checkout/preferences/123456789-abc-def');
+  assert.equal(llamadas[0].headers.get('X-Idempotency-Key'), 'mako-anular-7');
+  const cuerpo = llamadas[0].cuerpo as Obj;
+  assert.equal(cuerpo.expires, true, 'sin `expires: true` la fecha de fin no cuenta');
+  const fin = String(cuerpo.expiration_date_to ?? '');
+  assert.match(fin, /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}\+00:00$/, 'el formato de la documentación de MP: milisegundos y el desfase');
+  assert.ok(Math.abs(Date.parse(fin) - antes) < 5_000, `el fin no es AHORA: ${fin}`);
+  assert.equal(instanteMp(Date.UTC(2026, 9, 15, 23, 59, 59)), '2026-10-15T23:59:59.000+00:00');
+  // Y un id que no tiene forma de id no sale a la red.
+  preparar(() => json(200, {}));
+  const malo = await vencerPreferenciaMp(TOKEN_MP, '../users/me', 'mako-anular-1');
+  assert.equal(!malo.ok && malo.status, 400);
+  assert.deepEqual(llamadas.map(que), []);
 });
 
 // ── Lecturas ──────────────────────────────────────────────────────────────────

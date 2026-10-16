@@ -49,7 +49,10 @@ import {
   type EditorMensajeWhatsAppProps,
 } from './EditorMensajeWhatsApp';
 // La tarjeta «MaKo en WhatsApp» POR PARTES (undécima tanda): su editor es el de WhatsApp sobre ESTE DTO.
-import { pasoDeMako, paramsDeMako, chipDeEspera, esperaQueAbra, FUERAS_DE_HORARIO, ROTULO_FUERA_DE_HORARIO, type CambioDeMako, type FueraDeHorario } from '@/lib/mako-tarjeta';
+import {
+  pasoDeMako, paramsDeMako, chipDeEspera, esperaQueAbra, FUERAS_DE_HORARIO, ROTULO_FUERA_DE_HORARIO, CANALES_MAKO, ROTULO_CANAL_MAKO,
+  TOPE_ASUNTO_MAKO, esPorEmail, asuntoDeMako, type CambioDeMako, type CanalMako, type FueraDeHorario,
+} from '@/lib/mako-tarjeta';
 import { useHorarioOficina } from './horario-oficina';
 // El contexto de los datos de una tarjeta: el MISMO con que Publicar los valida.
 import { contextoDeTarjeta } from '@/lib/tokens-del-flujo';
@@ -681,7 +684,7 @@ export function FlujoLienzo({
           {espera && <ChipEspera nodo={n} texto={espera} />}
           {chip && (
             <ChipMedio nodo={n} texto={chip.texto} frena={chip.frena} motivo={MOTIVO_MEDIO[chip.medio]}
-              onConectar={rolAdmin && paso ? () => setConectarMedio({ medio: chip.medio, linea: chip.medio === 'whatsapp' ? lineaDePaso(paso, linea?.actual ?? null) : null }) : undefined} />
+              onConectar={!chip.informa && rolAdmin && paso ? () => setConectarMedio({ medio: chip.medio, linea: chip.medio === 'whatsapp' ? lineaDePaso(paso, linea?.actual ?? null) : null }) : undefined} />
           )}
           </>
         );
@@ -1283,15 +1286,20 @@ function EditorMako({ paso, id, busy, onPasos, eventoMako, triggerTipo, adjuntos
   // oficina. Y por defecto si esta configurado horario de oficina que esté eso»). Sólo con horario: sin él no hay nada
   // que esperar. Elegir es una decisión: apila.
   const oficina = useHorarioOficina();
-  const fuera: FueraDeHorario = esperaQueAbra(paso.accion?.params as Record<string, unknown> | undefined) ? 'espera' : 'igual';
-  const cambiarFuera = (v: FueraDeHorario) => onPasos((prev) => {
+  const paramsAhora = paso.accion?.params as Record<string, unknown> | undefined;
+  const fuera: FueraDeHorario = esperaQueAbra(paramsAhora) ? 'espera' : 'igual';
+  // Lo que no es el mensaje (fuera del horario, por dónde, el asunto), sobre la tarjeta de AHORA. `apila`: elegir apila,
+  // tipear el asunto no (como el texto).
+  const cambiarEnvio = (cambio: CambioDeMako, apila: boolean) => onPasos((prev) => {
     const i = indicePorId(prev, id);
     const accion = i >= 0 ? prev[i].accion : null;
     if (!accion) return prev;
     const params = accion.params ?? {};
-    const sig = paramsDeMako({ ...params, leadId: params.leadId ?? LEAD_DEL_EVENTO }, { fueraDeHorario: v });
+    const sig = paramsDeMako({ ...params, leadId: params.leadId ?? LEAD_DEL_EVENTO }, cambio);
     return cambiarNodo(prev, id, { accion: { operacion: accion.operacion ?? '', params: sig } });
-  }, true);
+  }, apila);
+  const cambiarFuera = (v: FueraDeHorario) => cambiarEnvio({ fueraDeHorario: v }, true);
+  const porEmail = esPorEmail(paramsAhora);
   const campoFuera = oficina?.horario ? (
     <div data-fuera-de-horario style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
       <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--dim)', whiteSpace: 'nowrap' }}>Fuera del horario</span>
@@ -1304,16 +1312,52 @@ function EditorMako({ paso, id, busy, onPasos, eventoMako, triggerTipo, adjuntos
       />
     </div>
   ) : null;
+  // UN EVENTO DE LA PLATAFORMA (15/10/2026, `EventoMako.plataforma`): la tarjeta le llega al grupo del NEGOCIO que lo emitió
+  // (`negocioWs`, lib/flujos.ts), no al tuyo. Nada por detrás: lo dice.
+  const aNegocio = EVENTOS_MAKO.find((e) => e.subtipo === eventoMako)?.plataforma === true;
   return (
     <>
+    {aNegocio && <div data-mako-a-negocio style={{ fontSize: 12, color: 'var(--dim)', marginBottom: 8 }}>{porEmail ? 'Le llega por email al equipo del negocio del evento.' : 'Le llega al grupo del negocio del evento.'}</div>}
+    <EnvioDeMako params={paramsAhora} busy={busy} onCambio={cambiarEnvio} />
     {campoFuera}
+    {/* Por email, un solo texto: sin la Voz de MaKo, sin archivos (y con eso, sin varios mensajes ni minutos). */}
     <EditorMensajeWhatsApp
-      paso={dto} autor="MaKo" vozMako placeholder="Mensaje para tu equipo"
-      audios={[]} permiteAudio={false} permiteAdjuntos adjuntos={adjuntos} onAdjuntoNuevo={onAdjuntoNuevo}
+      key={porEmail ? 'email' : 'grupo'}
+      paso={dto} autor="MaKo" vozMako={!porEmail} placeholder={porEmail ? 'Texto del correo' : aNegocio ? 'Mensaje para el negocio' : 'Mensaje para tu equipo'}
+      audios={[]} permiteAudio={false} permiteAdjuntos={!porEmail} adjuntos={adjuntos} onAdjuntoNuevo={onAdjuntoNuevo}
       datos={datos} redactaCon={contexto} permiteIA paraGuion={paraGuion} disparador={disparador} negocio={negocio}
-      onPartirConEspera={(i, m) => onPasos((prev) => { const r = partirConEspera(prev, id, i, m); return r.ok ? r.pasos : prev; }, true)}
+      onPartirConEspera={porEmail ? undefined : (i, m) => onPasos((prev) => { const r = partirConEspera(prev, id, i, m); return r.ok ? r.pasos : prev; }, true)}
       onChange={cambiarMako} onError={onError} deshabilitado={busy} chatMako={chatMako}
     />
+    </>
+  );
+}
+
+/**
+ * POR DÓNDE SALE LA TARJETA MAKO, y su asunto (16/10/2026, la mudanza del reporte semanal: docs/diseno-avisos-plataforma.md
+ * §6): el grupo de WhatsApp, o un correo al EQUIPO del negocio (sus destinatarios de Notificaciones, desde
+ * equipo@hola-mako.com). Por email va un texto con su asunto: sin voz ni archivos ni varios mensajes
+ * (`problemaDeEmailMako` lo frena al publicar). Elegir apila; tipear el asunto no (como el texto).
+ */
+function EnvioDeMako({ params, busy, onCambio }: { params: Record<string, unknown> | undefined; busy: boolean; onCambio: (c: CambioDeMako, apila: boolean) => void }) {
+  const porEmail = esPorEmail(params);
+  return (
+    <>
+      <div data-canal-mako style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+        <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--dim)', whiteSpace: 'nowrap' }}>Por dónde</span>
+        <Dropdown
+          value={porEmail ? 'email' : 'grupo'}
+          options={CANALES_MAKO.map((v) => ({ value: v, label: ROTULO_CANAL_MAKO[v], icono: v === 'email' ? 'email' : 'whatsapp' }))}
+          onChange={(v) => onCambio({ canal: v as CanalMako }, true)}
+          ariaLabel="Por dónde sale este aviso"
+          disabled={busy}
+        />
+      </div>
+      {porEmail && (
+        <input data-asunto-mako value={asuntoDeMako(params)} placeholder="Asunto" aria-label="Asunto del correo" maxLength={TOPE_ASUNTO_MAKO}
+          disabled={busy} onChange={(e) => onCambio({ asunto: e.target.value }, false)}
+          style={{ width: '100%', boxSizing: 'border-box', marginBottom: 10, padding: '9px 12px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--card)', color: 'var(--ink)', fontWeight: 600, fontSize: 14 }} />
+      )}
     </>
   );
 }

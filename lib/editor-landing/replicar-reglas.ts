@@ -32,6 +32,7 @@ import { NODO, TOPES, nuevoId, tarjeta, type JsonNodo, type LandingContenido } f
 import { pideContrasena } from './html-libre';
 import type { ConfigLanding, ParamsGeneracion } from './api-tipos';
 import type { Lectura, SeLeeEnNavegador } from './lectura-tipos';
+import type { IdEstilo } from './animaciones';
 
 /**
  * Los dos modos de la tanda 2. Desde la tanda 6 los elige `formato` (abajo); se siguen aceptando en el
@@ -125,9 +126,16 @@ export type PedidoReplicar = { url: string; formato: FormatoReplicar; lectura?: 
  * Lo que contesta: el id de la landing nueva (la pantalla la abre en el editor). En la falla, `probar` es el
  * formato que sí puede andar cuando el error lo propone («Prueba el formato «Landing».»): la pantalla lo
  * ofrece como botón en vez de dejar a la persona con el error pelado (verificación de la tanda 6).
+ * Tanda 8 (las animaciones, replicar-animaciones.ts): `animaciones` = lo que se copió como «Landing» (el estilo de
+ * la landing, si salió uno, y cuántas secciones llevan su propio efecto); `avisoScroll` = la original tenía efectos
+ * atados al scroll que la copia no trae (Landing y Página web): la línea va en `aviso` y la pantalla la muestra al
+ * abrirse el editor de la copia.
  */
 export type RespuestaReplicar =
-  | { ok: true; id: number; titulo: string; secciones: number; formato: FormatoReplicar; aviso?: string }
+  | {
+    ok: true; id: number; titulo: string; secciones: number; formato: FormatoReplicar; aviso?: string;
+    animaciones?: { estilo: IdEstilo | null; propias: number }; avisoScroll?: true;
+  }
   | ({ ok: false; error: string; probar?: FormatoReplicar } & Partial<SeLeeEnNavegador>);
 
 /** Partes de la página como máximo (las de más se juntan). Una landing larga ronda las 12-15. */

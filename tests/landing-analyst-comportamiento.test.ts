@@ -19,7 +19,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { normalizarUrl, visitasDeLaLanding } from '../lib/landing-url';
+import { claveDeLanding, visitasDeLaLanding } from '../lib/landing-url';
 
 const RAIZ = join(__dirname, '..');
 const sinComentarios = (src: string) => src.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
@@ -36,15 +36,15 @@ test('las visitas de una landing del editor: la dirección de antes y la de hoy 
     v('d', null),
   ];
   for (const analizada of ['https://hola-mako.com/l/mi-oferta', 'https://hola-mako.site/mi-oferta']) {
-    const r = visitasDeLaLanding(visitas, normalizarUrl(analizada));
+    const r = visitasDeLaLanding(visitas, claveDeLanding(analizada));
     assert.deepEqual(r.mias.map((x) => x.visitor_id), ['a', 'b', 'a'], analizada);
     assert.equal(r.compartidos, false, `${analizada}: las dos bases de la misma landing no son «otra landing»`);
   }
   // El control: quien SÍ vio otra landing se dice.
-  const conOtra = visitasDeLaLanding([...visitas, v('b', 'https://hola-mako.site/otra')], normalizarUrl('https://hola-mako.site/mi-oferta'));
+  const conOtra = visitasDeLaLanding([...visitas, v('b', 'https://hola-mako.site/otra')], claveDeLanding('https://hola-mako.site/mi-oferta'));
   assert.equal(conOtra.compartidos, true);
   // Lo que no es de MaKo no se traduce: el `/l/` de un cliente es otra página.
-  assert.deepEqual(visitasDeLaLanding([v('e', 'https://tunegocio.com/l/mi-oferta')], normalizarUrl('https://hola-mako.site/mi-oferta')).mias, []);
+  assert.deepEqual(visitasDeLaLanding([v('e', 'https://tunegocio.com/l/mi-oferta')], claveDeLanding('https://hola-mako.site/mi-oferta')).mias, []);
 });
 
 test('getComportamiento decide sus visitas con visitasDeLaLanding (no con una igualdad propia)', () => {

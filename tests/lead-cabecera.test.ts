@@ -42,6 +42,12 @@ const SHEET = codigo('app/crm/LeadSheet.tsx');
 const BODY = codigo('app/crm/[id]/LeadDetailBody.tsx');
 const PAGE = codigo('app/crm/[id]/page.tsx');
 const CAB = codigo('app/crm/lead-view/CabeceraLead.tsx');
+/**
+ * ⚠️ DESDE EL 14/10/2026 LAS TABS SON UNA SOLA PIEZA PARA LAS DOS PUERTAS (la ficha por bloques): el pop-up
+ * y la ruta montan `FichaPorBloques` con la MISMA lectura (`getLeadFullAction`). Las reglas de qué tab sale
+ * (Tracking, Reuniones) y MaKo Analyst se piden ahí, una vez; de cada puerta, que la monte.
+ */
+const FICHA = codigo('app/crm/lead-view/ficha/FichaPorBloques.tsx');
 
 // ── 18 · Tracking: la regla, ejecutada ─────────────────────────────────────────
 
@@ -65,24 +71,27 @@ test('Tracking: lo decide el SERVER en las dos puertas, y con la lectura caída 
   assert.match(srv, /import 'server-only';/);
   assert.match(srv, /leerCampanasAsignadasEstricto\(\)/, 'la tolerante convierte un error en «ninguna campaña»');
   assert.match(srv, /\} catch \{\s*return true;\s*\}/, '«no pude leer» no es «no hay campaña»');
-  // El pop-up lo recibe de getLeadFullAction; la ruta lo lee ella.
+  // Las DOS puertas lo reciben de getLeadFullAction (desde el 14/10/2026 la ruta también lee con ella).
+  // ⚠️ CAMBIADO A PROPÓSITO EL 14/10/2026: la regla se aplica una vez, en la ficha compartida.
   const acc = codigo('app/crm/actions.ts');
   assert.match(acc, /const verTrackingP = verTrackingDeLead\(lead\.funnel_id\);/);
-  assert.match(acc, /verTracking: await verTrackingP \};/);
-  assert.match(PAGE, /verTrackingDeLead\(lead\.funnel_id\)\]\);/);
-  assert.match(SHEET, /const verTracking = vigente\.verTracking \?\? true;/);
-  for (const [nombre, src] of [['modal', SHEET], ['ruta', PAGE]] as const) {
-    assert.match(src, /\.\.\.\(verTracking \? \[\{\s*key: 'comportamiento', label: 'Tracking'/, `${nombre}: Tracking no mira verTracking`);
+  assert.match(acc, /verTracking: await verTrackingP[,}\s]/);
+  assert.match(PAGE, /await getLeadFullAction\(idNum\)/, 'la ruta lee con la action del pop-up');
+  assert.match(FICHA, /const verTracking = data\.verTracking \?\? true;/);
+  assert.match(FICHA, /\.\.\.\(verTracking \? \['tracking' as const\] : \[\]\)/, 'Tracking no mira verTracking');
+  for (const [nombre, src] of [['modal', SHEET], ['ruta', BODY]] as const) {
+    assert.match(src, /<FichaPorBloques\b/, `${nombre}: no monta la ficha compartida`);
   }
 });
 
 // ── 13 · Reuniones ─────────────────────────────────────────────────────────────
 
 test('Reuniones: sólo si el funnel del lead tiene una etapa de reunión, con la MISMA regla en las dos puertas', () => {
-  for (const [nombre, src] of [['modal', SHEET], ['ruta', PAGE]] as const) {
-    assert.match(src, /const verReuniones = tieneEtapaDeReunion\(stages\);/, `${nombre}: no usa tieneEtapaDeReunion`);
-    assert.match(src, /\.\.\.\(verReuniones \? \[\{ key: 'reuniones', label: 'Reuniones'/, `${nombre}: Reuniones no mira verReuniones`);
-  }
+  // ⚠️ CAMBIADO A PROPÓSITO EL 14/10/2026: una regla, en la ficha compartida de las dos puertas.
+  assert.match(FICHA, /const verReuniones = tieneEtapaDeReunion\(stages\);/, 'no usa tieneEtapaDeReunion');
+  assert.match(FICHA, /\.\.\.\(verReuniones \? \['reuniones' as const\] : \[\]\)/, 'Reuniones no mira verReuniones');
+  assert.match(FICHA, /\.\.\.\(tabsBloques\.includes\('reuniones'\) \? \[\{ key: CLAVE_DE_TAB\.reuniones, label: 'Reuniones'/);
+  for (const src of [SHEET, BODY]) assert.match(src, /<FichaPorBloques\b/);
 });
 
 // ── 19 · MaKo Analyst ──────────────────────────────────────────────────────────
@@ -93,9 +102,12 @@ test('MaKo Analyst: el chat atado al lead en las dos puertas, y el análisis de 
   assert.match(pieza, /<MakoAnalystLead leadId=\{lead\.id\} nombre=\{lead\.nombre\} \/>/, 'el chat se monta con el lead');
   assert.match(pieza, /const hayAnalisis = !!inicial \|\| llamadas\.length > 0;/);
   assert.match(pieza, /\{hayAnalisis && \(\s*<details/, 'lo de antes va plegado (details) y sólo si hay algo');
-  assert.match(SHEET, /<AnalystDelLead[\s\S]*?alto=\{ALTO_CHAT_EN_EL_POPUP\}/);
-  assert.match(PAGE, /<AnalystDelLead[\s\S]*?alto=\{ALTO_CHAT_EN_LA_RUTA\}/);
-  for (const src of [SHEET, PAGE]) assert.doesNotMatch(src, /<GeneratedInsightCard/, 'el análisis viejo no se monta suelto');
+  // ⚠️ CAMBIADO A PROPÓSITO EL 14/10/2026: el chat se monta una vez, en la ficha compartida; cada puerta
+  // le dice cuánto alto le queda visible.
+  assert.match(FICHA, /<AnalystDelLead[\s\S]*?alto=\{altoChat\}/);
+  assert.match(SHEET, /<FichaPorBloques[\s\S]*?altoChat=\{ALTO_CHAT_EN_EL_POPUP\}/);
+  assert.match(BODY, /<FichaPorBloques[\s\S]*?altoChat=\{ALTO_CHAT_EN_LA_RUTA\}/);
+  for (const src of [SHEET, PAGE, BODY, FICHA]) assert.doesNotMatch(src, /<GeneratedInsightCard/, 'el análisis viejo no se monta suelto');
 });
 
 // ── 11 · Portada, cara y nombre ────────────────────────────────────────────────
@@ -213,12 +225,19 @@ test('el pop-up es más ancho, y la ruta usa el mismo ancho', () => {
 test('la fila de pestañas queda pegada arriba en las dos puertas, contra el ancestro que scrollea', () => {
   const tabs = codigo('app/crm/lead-view/LeadTabs.tsx');
   assert.match(tabs, /\.\.\.\(fija \? \{ position: 'sticky' as const, top: 0, zIndex: 5, background: fija\.fondo/);
-  assert.match(SHEET, /fija=\{\{ fondo: 'var\(--surface\)' \}\}/);
-  assert.match(BODY, /fija=\{\{ fondo: 'var\(--bg\)' \}\}/);
+  // ⚠️ Desde el 14/10/2026 la fila la dibuja la ficha compartida (FichaPorBloques), con el fondo que le
+  // pasa cada puerta.
+  assert.match(FICHA, /fija=\{\{ fondo: fondoTabs \}\}/);
+  assert.match(SHEET, /fondoTabs="var\(--surface\)"/);
+  assert.match(BODY, /fondoTabs="var\(--bg\)"/);
   // En el pop-up el que scrollea es el cuerpo, que TIENE ALTO (flex: 1 en un panel topeado), y la
   // cabecera queda afuera de él: fija.
   const iCab = SHEET.indexOf('<CabeceraLead');
   const iCuerpo = SHEET.indexOf("flex: 1, minHeight: 0, overflowY: 'auto'");
-  const iTabs = SHEET.indexOf('<LeadTabs');
+  const iTabs = SHEET.indexOf('<FichaPorBloques');
   assert.ok(iCab >= 0 && iCuerpo > iCab && iTabs > iCuerpo, 'la cabecera va ANTES del cuerpo que scrollea, y las pestañas adentro');
+  // ⚠️ Y entre las pestañas y el cuerpo que scrollea no puede haber nada con `overflow`, `transform` ni
+  // `container-type`: el sticky se pegaría a eso (y lo fijo de las tarjetas también).
+  const css = codigo('app/crm/lead-view/ficha/ficha-css.ts');
+  assert.doesNotMatch(css, /container-type|[\s;{]transform:|\.fb \{[^}]*overflow/,'la ficha le puso a un ancestro algo que rompe el sticky o lo fijo');
 });

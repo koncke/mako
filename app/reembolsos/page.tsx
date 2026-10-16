@@ -4,11 +4,12 @@
 // ⚠️ BORRADOR (11/10/2026) PARA QUE MARTÍN LO REVISE. Se escribió junto con la pasarela de pagos
 // (Stripe y Mercado Pago): las dos piden esta página para aprobar la cuenta ANTES del primer cobro,
 // y /terminos (sección 8) remite acá. Está escrita de MÍNIMA a propósito: no promete nada que el
-// producto no haga hoy. Lo que hay que decidir y no está decidido:
-//   · el plazo de respuesta (puse 5 días hábiles);
-//   · la garantía del programa grupal, que hoy se acuerda en la llamada (el modelo de pricing hablaba
-//     de «100% después de la sesión 1», app/admin/dev/pricing/modelo.ts: no está decidido);
-//   · si se ofrece cancelar sin escribir (hoy no hay un portal: se cancela pidiéndolo).
+// producto no haga hoy. Lo que estaba sin decidir (15/10/2026):
+//   · el plazo de respuesta: DECIDIDO, 5 días hábiles, lo común en SaaS (lo decidió Estrategia);
+//   · la garantía del programa grupal, que hoy se acuerda en la llamada: en la Ticketera de Martín
+//     (`garantia-grupal`; la recomendada, 100% después de la primera sesión);
+//   · darse de baja sin escribir: DECIDIDO (Estrategia, 15/10) y HECHO el mismo día: el botón «Darme de baja» de
+//     «Configuración del negocio → Tu plan» (app/configuraciones/plan), propio de MaKo para cubrir Stripe y Mercado Pago.
 //
 // Mismo molde que /terminos y /privacidad: el revisor de la pasarela la abre SIN cuenta y a veces
 // sin JavaScript (va en PUBLICOS de lib/rutas-publicas.ts, y tests/layout-sin-suspense.test.ts la lee
@@ -25,7 +26,7 @@ export const metadata = {
   description: 'Cómo cancelar un plan de MaKo, cuándo devolvemos un pago y cómo pedirlo.',
 };
 
-const ACTUALIZADO = '11 de octubre de 2026';
+const ACTUALIZADO = '15 de octubre de 2026';
 
 // El mismo responsable que en /terminos y /privacidad, de la misma constante (lib/titular-mako.ts).
 const RESPONSABLE = `${RAZON_SOCIAL_MAKO} (MaKo)`;
@@ -49,8 +50,9 @@ export default function Page() {
           pago, hasta que los canceles.
         </li>
         <li>
-          <strong>Puedes cancelar cuando quieras.</strong> Al cancelar, no se te cobra el mes
-          siguiente.
+          <strong>Puedes darte de baja cuando quieras</strong>, tú mismo con el botón «Darme de baja» de{' '}
+          <strong>Configuración del negocio → Tu plan</strong>. Al darte de baja, no se te cobra el mes siguiente, y te
+          llega un código de baja por email.
         </li>
         <li>
           <strong>El mes ya pagado no se reembolsa</strong>, ni entero ni en parte, salvo en los casos
@@ -86,9 +88,11 @@ export default function Page() {
         lo factura cada proveedor directamente. No pasa por nosotros y no lo podemos devolver.
       </Ojo>
 
-      <H id="como">4. Cómo pedir una cancelación o un reembolso</H>
+      <H id="como">4. Cómo cancelar, y cómo pedir un reembolso</H>
       <p>
-        Escríbenos a {mail}, mejor desde el email con el que pagaste, con:
+        Para <strong>darte de baja</strong> no hace falta escribir: el botón «Darme de baja» de{' '}
+        <strong>Configuración del negocio → Tu plan</strong>. Si prefieres que lo hagamos nosotros, o para pedir{' '}
+        <strong>un reembolso</strong>, escríbenos a {mail}, mejor desde el email con el que pagaste, con:
       </p>
       <ul>
         <li>tu nombre y el email de tu cuenta de MaKo;</li>
@@ -109,8 +113,8 @@ export default function Page() {
           Mercado Pago.
         </li>
         <li>
-          Una cancelación cuenta desde el día en que nos escribes: si después de esa fecha se te
-          cobra, es un error de cobro y te lo devolvemos.
+          Una cancelación cuenta desde el día en que la haces (o en que nos escribes): si después de
+          esa fecha se te cobra, es un error de cobro y te lo devolvemos.
         </li>
       </ul>
 

@@ -278,16 +278,9 @@ Lo que no quedó del todo:
   - ~~La oferta guardada no se liga a los productos~~ · ~~el audio se re-sube al reintentar~~ ·
     ~~«Guardar si no hay» vive en la ruta~~ · ~~un link con `?page_id=` no se lee~~ — **CERRADOS el
     13/10/2026**, ver «Los cuatro que se cerraron el 13/10» más abajo.
-  - ⚠️ **El Archivero no se entera de lo que se sube en Offer, y NO es sólo la función que falta.**
-    El diagnóstico original («falta una `registrarDocumentoSinPisar` en `lib/archivero.ts`») se quedó
-    corto: aunque exista, Offer **no tiene con qué llamarla**. Un archivo del Archivero es una fila con
-    `storage_path` + `campos` (los del brief, extraídos por IA), y Offer hace lo contrario a propósito —
-    borra el binario apenas lo lee (`finally` de `leer`: «el binario no se guarda, lo que queda es el
-    texto») y su IA saca PIEZAS DE LA OFERTA, no campos del brief. Registrarlo igual dejaría una fila
-    que apunta a un archivo borrado y suma cero al brief. Para cerrarlo de verdad hay que decidir si
-    Offer **conserva el binario y paga una extracción de campos por documento** — y la tab promete que
-    «la conversación, el diagnóstico y la oferta nunca pagan». **Es una decisión de Martín, preguntada
-    el 13/10.**
+  - ~~**El Archivero no se entera de lo que se sube en Offer**~~ — **CERRADO el 15/10/2026**
+    (`f4ed5e069`). Martín decidió que Offer conserva el binario y paga una extracción de campos por
+    documento; lo que enseñó, en «El Archivero desde el chat (15/10/2026)» al final.
   - **El avatar que se arma en el chat no se guarda en Avatares, y se queda así.** No es un pendiente:
     `setAvatares` reemplaza la lista entera, y escribir desde el chat sin que una persona confirme rompe
     «un canal propone, una persona confirma». Queda en la pieza `cliente`, que es donde corresponde.
@@ -296,7 +289,8 @@ Lo que no quedó del todo:
 - **Leer una imagen, un PDF escaneado o un audio puede cobrar en la OpenAI del cliente**:
   `archivoATexto` usa las cascadas compartidas de visión y transcripción, que terminan en
   OpenAI (lo mismo que hoy le pasa al Archivero y al importador del Plan). La conversación, el
-  diagnóstico y la oferta nunca pagan. Cerrarlo es un `sinPago` en `leerDocumentoIA` y
+  diagnóstico y la oferta nunca pagan; guardar cada archivo en El Archivero SÍ paga desde el 15/10
+  (decisión de Martín, ver al final). Cerrar lo de leer es un `sinPago` en `leerDocumentoIA` y
   `transcribirAudio` (`lib/ai-cheap.ts`), que es un archivo compartido.
 - ~~**Un binario puede quedar en Storage** si la persona cambia de conversación justo mientras un
   archivo se sube~~ — **CERRADO el 13/10/2026** con la acción `'descartar-subida'` (ver «El audio se
@@ -327,7 +321,7 @@ guardar no es que se hicieron: es por qué el diagnóstico de cada uno estaba a 
 
 `linkParaLeer` RECHAZABA el link si traía un parámetro propio, con un mensaje que mandaba a copiar el
 texto a mano. El motivo real era que `extraerLanding` sólo sabía bajar la URL **normalizada de Landing
-Analyst** —`normalizarUrl` tira el querystring ENTERO y el `www.`, a propósito, porque esa es la
+Analyst** —`normalizarUrl` (desde el 15/10/2026, `claveDeLanding`) tira el querystring ENTERO y el `www.`, a propósito, porque esa es la
 IDENTIDAD de una landing y sin eso un cliente tenía 24 «landings» que eran 2 páginas—. Con esa URL, un
 `?page_id=245` de un WordPress sin permalinks bajaba la HOME: otra oferta, y la IA anotando piezas de
 ahí sin que nada avisara. Rechazar era correcto mientras no hubiera alternativa.
@@ -467,3 +461,69 @@ está en el turno y en la oferta, no en el diagnóstico, que no escribe copy.
   advertencia del piso arriba; está anotado en `docs/hallazgos-crm.md`.
 
 *14/10/2026, cuenta claude1.*
+
+## El Archivero desde el chat (15/10/2026)
+
+**La decisión** (Ticketera, 15/10/2026 05:32, ref `offer-archivero`), textual: «¿El Archivero del chat
+guarda el archivo y paga una extracción por documento? → A · Sí».
+
+**Lo que hace ahora Offer con un documento:** 'leer' lo lee para la conversación como siempre
+(`archivoATexto`, feature `offer`) y, con el documento YA guardado en la conversación, le pasa el binario
+POR DETRÁS (`after`) a `registrarDocumentoSinPisar` (`lib/archivero.ts`). Ésa lo mueve de
+`<ws>/offer/<uuid>` a `<ws>/<id>` (el lugar y el formato de los que sube la pantalla del Archivero),
+corre la MISMA extracción (`extraerDeArchivo`) sobre el texto que Offer ya leyó, escribe la fila y suma al
+brief sólo las claves de ese documento. Lo que pasó queda en el campo `archivero` del documento y de los
+adjuntos que lo llevan, y si falló, el chip del archivo dice por qué («No quedó en El Archivero: …»).
+
+Lo que no se ve en el código:
+
+- **El «ya está» no puede mirar la fila antes de pagar: la extracción tarda segundos.** Dos envíos del
+  mismo archivo (lo adjuntó dos veces, o la misma lectura llegó dos veces) se pisaban en esa ventana y
+  pagaban dos. El candado es MOVER el binario a su lugar ANTES de extraer: `storage.move` es atómico y no
+  pisa, así que uno solo gana. Y el id sale del CONTENIDO (sha256 del workspace + los bytes, con forma de
+  UUID), por eso dos envíos del mismo archivo apuntan al mismo lugar. Lo que subió antes la pantalla del
+  Archivero tiene id al azar: ahí el «ya está» es por nombre y tamaño en bytes, una heurística.
+- **El que pierde la carrera no siempre se entera por «el destino ya existe».** Si los dos traían el MISMO
+  origen (un 'leer' repetido con el mismo path), el segundo choca con «el origen no existe». Lo que se mira
+  es si el destino existe, no el texto del error (`reclamarLugar`). Un destino sin fila más viejo que un
+  registro (10 min, `TOPE_HUERFANO_MS`) es basura de uno que se cortó y se reemplaza.
+- **`buildEstado(true)` no es «guardar el estado del Archivero»: reescribe las answers enteras** con lo de
+  los archivos y lo manual, y se lleva lo que el wizard guardó por la otra puerta (negocio_objetivo,
+  negocio_freno, marca_*). La cabecera de `lib/api-mako/areas/negocio.helpers.ts` ya lo advertía. Un
+  documento NUEVO se suma sin recalcular (`answersConDocumento`), y un test lo compara contra
+  `computeEffective` de verdad (por eso se mudó, sin cambios, a `lib/archivero-registro.ts`).
+- **Un campo nuevo en un documento de Offer se BORRA en la próxima escritura** si no se agrega a
+  `sanearDocumentos` y a `sanearAdjuntos`: los dos rearman cada objeto con los campos que conocen, y toda
+  escritura de la conversación pasa por ahí.
+- **Los adjuntos de un mensaje son COPIAS del documento** (las arma el turno con `adjuntoDe`). El registro
+  termina segundos después del turno, así que el resultado se escribe en el documento Y en los adjuntos que
+  lo llevan (`conArchivero`); en uno solo, el chip no se enteraba.
+- **El tag del gasto es «El Archivero», no `offer`**, con el motivo «Offer → El Archivero: extraer campos
+  de «…»». Es la misma extracción que la pantalla del Archivero, y así la medición por documento del
+  Pricing (`archivero`, n=94) sigue valiendo; la feature `offer` mantiene su promesa (la conversación, el
+  diagnóstico y la oferta no pagan), y la nota del catálogo dice qué sí paga.
+- **Va sólo lo que es un ARCHIVO.** Un audio o video subido como documento (`via: 'audio'`) no: la pantalla
+  del Archivero no los acepta y se guardaría la grabación entera. La página de un link tampoco: no hay
+  archivo que guardar, y lo aprobado fue guardar el archivo. Las notas de voz del dueño, menos.
+- **La API de MaKo no necesitó nada:** `ver_archivero`, `obtener_link_documento_archivero` y
+  `borrar_documento_archivero` leen `archivero_files` del workspace, así que lo que llega desde Offer
+  aparece solo.
+
+**Lo que quedó sin hacer:**
+- **El panorama no se regenera** con los documentos de Offer: sería una segunda llamada paga por
+  documento, y lo aprobado es una. Y no los recoge después: el panorama se arma con los textos de
+  cada subida de la pantalla del Archivero más el anterior, así que lo de Offer nunca entra.
+- **`archivero_files` no guarda de dónde vino un documento** (no hay columna): en el Archivero, uno de
+  Offer se ve igual que uno subido ahí. Para distinguirlo hace falta una migración.
+- **Dos registros que terminan juntos pueden perder un merge del brief**: los dos leen las answers, suman
+  lo suyo y escriben (la fila de los dos queda; el campo de uno puede faltar en las answers hasta el
+  próximo recálculo del Archivero). Es la misma ventana que ya tenía el Archivero con varias subidas.
+- **Que SÍ quedó no se muestra** (a propósito: un chip que habla siempre deja de avisar).
+- **No se vio en el navegador ni contra Storage de verdad**: los tests fijan lo puro y el cableado.
+
+**Vive en:** `lib/archivero.ts` (`registrarDocumentoSinPisar`, `reclamarLugar`) · `lib/archivero-registro.ts`
+(lo puro) · `app/api/offer/route.ts` (`leer`, `archivarDespues`, `anotarArchivero`) · `lib/offer-reglas.ts`
+(`seArchivaDesdeOffer`, `conArchivero`, los saneos) · `app/offer/ayudas.ts` (`notaDelAdjunto`) ·
+`tests/offer-archivero.test.ts` (13 tests, 30 roturas cazadas)
+
+*15/10/2026, cuenta claude3.*

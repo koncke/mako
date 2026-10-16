@@ -42,12 +42,6 @@ export function montoUsdDeLaCuota(p: { montoCuota?: number | null; monedaCuota?:
 }
 
 /**
- * Desde qué estados un pago confirmado deja el cobro en `pagado`. `anulado` entra: si alguien pagó
- * un link que se anuló (Mercado Pago no deja expirar una preferencia ya abierta), la plata ENTRÓ, y
- * esconderla sería peor. `reembolsado` no: un «aprobado» que llega después de un reembolso es una
- * reentrega vieja.
- */
-/**
  * ¿La suscripción del lead la cobra la pasarela? Un cobro de suscripción PAGADO y no cancelado. Es la condición con
  * que se niega cancelar a mano una suscripción (la ficha y la API) y cambiarle el tipo, la mensualidad o el plazo
  * desde el CRM (`escribirVenta`, lib/pagos.ts): el CRM diría una cosa mientras la tarjeta se sigue cobrando otra.
@@ -56,8 +50,146 @@ export function laCobraLaPasarela(cobros: ReadonlyArray<{ tipo: string; estado: 
   return cobros.some((c) => c.tipo === 'suscripcion' && c.estado === 'pagado' && c.suscripcion_estado !== 'cancelada');
 }
 
+/**
+ * Desde qué estados un pago confirmado deja el cobro en `pagado`. `anulado` entra: si alguien pagó
+ * un link que se anuló (el cierre del lado de la pasarela puede fallar, o el pago ya estaba en curso), la
+ * plata ENTRÓ, y esconderla sería peor: entra CON el aviso de `avisoPagoPorLinkAnulado`. `reembolsado` no:
+ * un «aprobado» que llega después de un reembolso es una reentrega vieja.
+ */
 export const ESTADOS_QUE_PASAN_A_PAGADO: readonly EstadoCobro[] = ['pendiente', 'fallido', 'anulado'];
 export const pasaAPagado = (e: EstadoCobro): boolean => ESTADOS_QUE_PASAN_A_PAGADO.includes(e);
+
+/**
+ * ⚠️ UN PAGO POR UN LINK ANULADO (15/10/2026). Se anula un link porque la cuota se cobró por otro lado, o porque el
+ * cobro cambió; si igual entra un pago por ahí, se registra (la plata entró) y esto queda en el cobro y en el
+ * historial del lead. Si la cuota del link ya estaba cobrada, la plata entró DOS veces y se dice así: hasta este día
+ * entraba como una cuota cobrada más y nadie se enteraba.
+ */
+export function avisoPagoPorLinkAnulado(cuotaYaCobrada: boolean): string {
+  return cuotaYaCobrada
+    ? 'Se pagó por un link ANULADO y su cuota ya estaba cobrada: la plata entró dos veces. Devuelve uno de los dos pagos.'
+    : 'Se pagó por un link ANULADO: revisa que no lo hayas cobrado por otro lado.';
+}
+
+/** Por qué falló una devolución de Stripe (`failure_reason` de la Refund), en palabras. Lo que no se conoce no se inventa. */
+const RAZON_DEVOLUCION_FALLIDA: Readonly<Record<string, string>> = {
+  lost_or_stolen_card: 'la tarjeta está denunciada',
+  expired_or_canceled_card: 'la tarjeta venció o se dio de baja',
+  charge_for_pending_refund_disputed: 'el cliente abrió una disputa por ese cargo',
+  insufficient_funds: 'no había saldo en la cuenta de Stripe',
+  declined: 'el banco la rechazó',
+  merchant_request: 'se canceló desde la cuenta de Stripe',
+};
+
+/**
+ * ⚠️ UNA DEVOLUCIÓN DE STRIPE PUEDE FALLAR DESPUÉS (15/10/2026). Se crea `pending` o `succeeded` y días después pasa a
+ * `failed`: Stripe devuelve la plata al saldo del negocio y el cargo vuelve a estar cobrado. MaKo la daba por hecha
+ * para siempre. `sigueDevuelto`: el cargo sigue devuelto por OTRA devolución, y entonces no se revierte nada.
+ */
+/** ¿Este `motivo` es el de una devolución que falló (`textoDevolucionFallida`)? */
+export const esDevolucionFallida = (motivo: string | null | undefined): boolean =>
+  typeof motivo === 'string' && /^(?:La|Una) devolución falló en Stripe/.test(motivo);
+
+export function textoDevolucionFallida(p: { razon: string | null; sigueDevuelto: boolean }): string {
+  const por = p.razon && RAZON_DEVOLUCION_FALLIDA[p.razon] ? ` (${RAZON_DEVOLUCION_FALLIDA[p.razon]})` : '';
+  return p.sigueDevuelto
+    ? `Una devolución falló en Stripe${por}; el cargo sigue devuelto por otra.`
+    : `La devolución falló en Stripe${por}: la plata sigue cobrada.`;
+}
+
+/** Lo que dice el cliente en una disputa de Stripe (`reason`), en palabras. Lo que no se conoce no se inventa. */
+const RAZON_DISPUTA: Readonly<Record<string, string>> = {
+  fraudulent: 'dice que no reconoce la compra',
+  unrecognized: 'no reconoce el cargo',
+  product_not_received: 'dice que no recibió lo que compró',
+  product_unacceptable: 'dice que lo que recibió no era lo prometido',
+  duplicate: 'dice que se le cobró dos veces',
+  subscription_canceled: 'dice que había cancelado la suscripción',
+  credit_not_processed: 'dice que no le hicieron una devolución prometida',
+};
+
+/**
+ * ⚠️ UN CONTRACARGO SE CUENTA (15/10/2026): hasta este día quedaba sólo en una fila de `pasarela_eventos`. El texto va al
+ * historial del lead y al motivo del cobro. La fase (lib/cobros-eventos.ts, FaseContracargo) dice qué pasó con la plata.
+ */
+export function textoContracargo(p: { pasarela: Pasarela; fase: 'abierto' | 'plata_salio' | 'plata_volvio' | 'cerrado' | 'mp'; estado?: string | null; razon?: string | null }): string {
+  const nombre = NOMBRE_PASARELA[p.pasarela];
+  const razon = p.razon && RAZON_DISPUTA[p.razon] ? ` (${RAZON_DISPUTA[p.razon]})` : '';
+  switch (p.fase) {
+    case 'abierto':
+      return `El cliente disputó este cargo con su banco${razon}: ${nombre} abrió una disputa.`;
+    case 'plata_salio':
+      return `${nombre} descontó la plata por la disputa${razon}: el pago queda como no cobrado mientras se resuelve.`;
+    case 'plata_volvio':
+      return `${nombre} devolvió la plata de la disputa: el pago vuelve a estar cobrado.`;
+    case 'cerrado':
+      if (p.estado === 'won') return 'La disputa se ganó: la plata queda cobrada.';
+      if (p.estado === 'lost') return 'La disputa se perdió: la plata no vuelve.';
+      if (p.estado === 'warning_closed') return 'La consulta del banco se cerró sin disputa.';
+      return `La disputa se cerró${p.estado ? ` (${p.estado})` : ''}.`;
+    case 'mp':
+      return p.estado === 'in_process'
+        ? 'Contracargo en Mercado Pago: el cliente desconoció el pago con su banco y está en revisión. Revísalo en tu cuenta de Mercado Pago.'
+        : `Contracargo en Mercado Pago${p.estado ? ` (${p.estado})` : ''}: revisa en tu cuenta de Mercado Pago cómo quedó la plata.`;
+  }
+}
+
+/**
+ * La parte del MRR que cobra la PASARELA (decidido el 15/10/2026, copia de Stripe: el MRR son las suscripciones activas):
+ * las suscripciones activas de un lead que NO es «de suscripción» (uno que compró como pago único y después se
+ * suscribió). Las de un lead de suscripción no se suman: ya las cuenta el lead, con su plazo (`getMrrActivo`,
+ * lib/queries.ts), y serían dos veces. Una sin monto en USD no se inventa.
+ */
+export function mrrDeLaPasarela(
+  cobros: ReadonlyArray<{ lead_id: number | string | null; monto_usd: number | string | null }>,
+  leadsDeSuscripcion: ReadonlySet<number>,
+): { mrr: number; activas: number } {
+  let mrr = 0;
+  let activas = 0;
+  for (const c of cobros) {
+    const monto = Number(c.monto_usd);
+    if (c.lead_id == null || !(monto > 0) || leadsDeSuscripcion.has(Number(c.lead_id))) continue;
+    mrr += monto;
+    activas++;
+  }
+  return { mrr, activas };
+}
+
+/**
+ * El fin del PLAZO de una suscripción (15/10/2026): `meses` meses después del arranque, a la misma hora, con el día capado
+ * al último del mes (como factura Stripe una suscripción que arrancó un 31). Es el fin del período N: se cobran N
+ * mensualidades y la N+1 no sale.
+ */
+export function finDelPlazo(inicioMs: number, meses: number): number {
+  const d = new Date(inicioMs);
+  const y = d.getUTCFullYear();
+  const m = d.getUTCMonth() + meses;
+  const ultimo = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
+  return Date.UTC(y, m, Math.min(d.getUTCDate(), ultimo), d.getUTCHours(), d.getUTCMinutes(), d.getUTCSeconds());
+}
+
+/**
+ * ¿Es la vuelta del cron de cobros que hace lo de UNA VEZ POR DÍA? El cron corre a los :17 y :47 de cada hora
+ * (vercel.json): la de las 06:17 UTC es la única con hora 6 y minuto < 30.
+ */
+export const esLaVueltaDelDia = (ms: number): boolean => {
+  const d = new Date(ms);
+  return d.getUTCHours() === 6 && d.getUTCMinutes() < 30;
+};
+
+/**
+ * «DARME DE BAJA» del plan de MaKo (15/10/2026). Hasta que Stripe la cierra al final del período, la suscripción sigue
+ * `activa` (la columna tiene un CHECK con `activa`/`cancelada`), así que el pedido queda en el `motivo` del cobro con
+ * este prefijo —el mismo recurso que la renovación fallida—. El CÓDIGO de baja es el comprobante que se le da a quien la
+ * pide (la Resolución 316/2018 de Argentina pide uno, si aplica): uno por cobro, sin datos personales.
+ */
+export const PREFIJO_BAJA_PEDIDA = 'Baja pedida';
+export const esBajaPedida = (motivo: string | null | undefined): boolean => typeof motivo === 'string' && motivo.startsWith(PREFIJO_BAJA_PEDIDA);
+export const codigoDeBaja = (cobroId: number): string => `BAJA-${cobroId}`;
+export function textoBajaPedida(p: { codigo: string; pedida: string; finAt: string | null }): string {
+  const fin = p.finAt ? ` Deja de cobrarse el ${p.finAt.slice(0, 10)}.` : '';
+  return `${PREFIJO_BAJA_PEDIDA} el ${p.pedida.slice(0, 10)} (código ${p.codigo}).${fin}`;
+}
 
 /** ¿Este pago confirmado es una RENOVACIÓN (otra factura de la misma suscripción) y no el primero? */
 export function esRenovacion(c: { tipo: TipoCobro; proveedor_pago_id: string | null }, proveedorPagoId: string): boolean {
@@ -87,8 +219,15 @@ export function urlPorVencer(venceAtIso: string | null | undefined, ahoraMs: num
 
 /** Las claves de idempotencia, DETERMINÍSTICAS: la misma operación sobre el mismo cobro manda la misma. */
 export const idemCobro = (cobroId: number, vuelta = 0): string => (vuelta ? `mako-cobro-${cobroId}-${vuelta}` : `mako-cobro-${cobroId}`);
-export const idemReembolso = (cobroId: number): string => `mako-reembolso-${cobroId}`;
+/**
+ * ⚠️ La clave del reembolso es la del cobro, así una confirmación repetida no devuelve dos veces. Pero después de una
+ * devolución FALLIDA, la misma clave dentro de las 24 h le devolvería a MaKo la respuesta vieja SIN crear otra
+ * devolución: el reintento lleva el `updated_at` del cobro que dejó la falla (`reintento`).
+ */
+export const idemReembolso = (cobroId: number, reintento?: string | null): string =>
+  (reintento ? `mako-reembolso-${cobroId}-${reintento}` : `mako-reembolso-${cobroId}`);
 export const idemBaja = (cobroId: number): string => `mako-baja-${cobroId}`;
+export const idemAnular = (cobroId: number): string => `mako-anular-${cobroId}`;
 
 export type ParametrosCobro = {
   pasarela?: Pasarela | null;

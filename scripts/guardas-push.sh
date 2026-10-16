@@ -10,6 +10,31 @@
 # el build». Uso: sh scripts/guardas-push.sh <remoto>   (el remoto, para hooks-en-orden)
 # =============================================================================
 
+# Primero las bitácoras de /admin/dev: es lo que más se rompe (un hito sin `puntos`,
+# TS2741) y un tsc ACOTADO a ellas tarda ~4 s y ~300 MB. El 15/10/2026 ese error tiró
+# un run entero de Actions. Un árbol viejo sin el script sigue: lo chequea Actions.
+if [ -f scripts/tsc-bitacoras.mjs ]; then
+  echo "[pre-push] Chequeando los tipos de las bitácoras de /admin/dev..."
+  if ! node scripts/tsc-bitacoras.mjs; then
+    echo ""
+    echo "  X PUSH BLOQUEADO: una bitácora de /admin/dev no compila (el error está arriba)."
+    echo "  Casi siempre es un hito sin \`puntos\` o con un campo mal escrito."
+    echo ""
+    exit 1
+  fi
+fi
+
+# Un test que fija una ruta de Windows (C:\…) da verde en la notebook y rojo en Linux,
+# donde es RELATIVA (16/10/2026: tiró el run 38845971505). ~1 s, sin tsx.
+if [ -f scripts/rutas-windows-en-tests.mjs ]; then
+  echo "[pre-push] Chequeando que ningún test fije una ruta de Windows..."
+  if ! node scripts/rutas-windows-en-tests.mjs; then
+    echo "  X PUSH BLOQUEADO: un test fija una ruta de Windows (arriba, cuál y cómo arreglarlo)."
+    echo ""
+    exit 1
+  fi
+fi
+
 echo "[pre-push] Chequeando que las skills tengan el contrato al día…"
 if ! node scripts/sync-contrato-detalle.mjs --check; then
   echo ""

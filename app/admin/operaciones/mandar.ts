@@ -41,10 +41,10 @@ export function useFirma(sub: string) {
   }, [sub]);
 
   const mandar = useCallback(async (d: DestinoTrabajo, texto: string, alcance: Alcance): Promise<ResultadoMandar> => {
-    if (!clave) return { ok: false, error: 'Este dispositivo todavía no firma' };
-    if (!texto.trim()) return { ok: false, error: 'Falta el texto' };
+    if (!clave) return { ok: false, error: 'Crea tu Token para comenzar a chatear' };
+    if (!texto.trim()) return { ok: false, error: 'Escribe algo para mandarlo' };
     // Un tope en un texto que escribe una persona RECHAZA, no recorta (AGENTS.md).
-    if (texto.length > MAX_TEXTO) return { ok: false, error: `Pasa de ${MAX_TEXTO} caracteres` };
+    if (texto.length > MAX_TEXTO) return { ok: false, error: `Acórtalo a ${MAX_TEXTO} caracteres para mandarlo` };
     try {
       const payload = nuevoPayload({ id: crypto.randomUUID(), texto, destino: d.sesion, cuenta: d.cuenta, titulo: d.titulo, alcance }, Date.now());
       const firmado = armarFirmable(payload);
@@ -52,7 +52,7 @@ export function useFirma(sub: string) {
       const r = await encolarPedidoAction({ firmado, firma, clavePublica: clave.spki });
       return r.ok ? { ok: true, id: r.id, creado: payload.creado } : { ok: false, error: r.error };
     } catch (e) {
-      return { ok: false, error: e instanceof Error && e.message ? e.message : 'No pude firmar' };
+      return { ok: false, error: e instanceof Error && e.message ? e.message : 'No pude firmarlo: vuelve a mandarlo' };
     }
   }, [clave]);
 

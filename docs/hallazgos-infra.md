@@ -2366,10 +2366,56 @@ no tiene protección (en privado Free no se puede: las reglas piden Pro), así q
 `GITHUB_TOKEN` puede avanzarla. La credencial del clon pushea pero no es admin: los ajustes de
 Actions del repo no se pudieron leer.
 
-**Lo que NO está medido** y hay que mirar en el primer run: cuántos minutos gasta, si toda la
-suite da verde en Linux (puede haber tests que dependan de archivos que sólo están en la
-notebook), y si Vercel despliega el fast-forward que hace Actions (los pushes del `GITHUB_TOKEN`
-no disparan otros workflows; los webhooks de apps, como el de Vercel, sí deberían).
+**Medido en los primeros runs (coordinador, 15/10 a la noche):** el run 38825749646 dio verde —
+tipos y **10.500 tests en ~10 min**—, avanzó `main` a `24c0ad441` por fast-forward, y **Vercel
+desplegó solo el push que hizo Actions** (Ready): lo que estaba sin medir quedó confirmado. El
+primero había caído por UN test que armaba su cwd con `.pathname.replace(/^\//, '')`: en Linux
+deja una ruta relativa y `git` da ENOENT (arreglado con `fileURLToPath` en
+`fuentes-sin-next-font`; la regla, en AGENTS.md). El segundo se canceló por un rojo REAL de
+Automations, y el sistema hizo lo que tenía que hacer: `main` no avanzó. Barrido después: no
+queda ningún test con la forma rota (`.pathname.replace(/^\/([A-Za-z]:)/, '$1')`, la variante
+que aparece en dieciséis tests, anda en los dos sistemas porque en Linux no toca nada); el único que daba
+un verde vacío en Linux era el del pre-push, que leía `.git/hooks/pre-push` y ahí se salteaba:
+ahora lee la copia versionada, y otro test exige que el instalado sea igual a ella. Con ~10 min
+por run, los 2.000 minutos alcanzan para ~200 pushes por mes.
+
+**Y la misma trampa del lado de los DATOS (16/10).** El run 38845971505 cayó por
+`tests/tsc-acotado.test.ts` —escrito por mí la noche después de la regla de las rutas—, que fijaba
+`REPO = 'C:\\repo\\dashboard-marketing'` y lo pasaba por `resolve`: en Linux es una ruta relativa y
+`resolve` le pegó el cwd del runner (2 rojos; lo arregló el coordinador con
+`resolve('/repo/dashboard-marketing')`). Quedó una guarda en el push,
+`scripts/rutas-windows-en-tests.mjs` (~1 s, sin tsx): frena un literal `C:\…` o `C:/…` en `tests/`
+fuera de los comentarios, salvo los archivos de su lista `PERMITIDOS` con el motivo. Medido sobre
+996 tests: 7 archivos tienen literales así y los 7 son datos, no rutas (nombres que manda el
+navegador, el cwd que guarda una sesión, los casos de la guarda). ⚠️ El primer patrón daba un
+falso positivo: `` `… \`m:\` …` `` (una comilla invertida escapada en un template de
+`instagram-buscar`) se leía como `m:\`; ahora después de `X:` tiene que venir `/`, `\\` o una barra
+seguida de un carácter de ruta, nunca de una comilla.
+
+**Y un rojo que se ve en segundos no puede costar un run.** El run 38830968542 cayó en «Tipos»
+por un hito `tipo: 'prompt'` sin `puntos` en `app/admin/dev/chatbot/bitacora.ts` (TS2741), la
+misma trampa que frenó tres pushes el 14/10. Las bitácoras se escriben a mano en cada tanda y son
+lo que más se rompe así, así que la primera guarda barata del push es ahora un `tsc` ACOTADO a
+ellas (`scripts/tsc-bitacoras.mjs` + `scripts/tsconfig.bitacoras.json`, que extiende el
+principal e incluye sólo las 55): **3,8 s y 291 MB de pico**, medido sobre el árbol bueno (0); un
+hito sin `puntos` da 1 con el TS2741 exacto. Si el `tsc` no termina (código 1 y cero salida: lo
+mató el vigía; o sin heap), el push sigue: no es un error de tipos y Actions corre el completo.
+
+**Y el acotado que usa cada chat para validar tenía su receta sólo en la memoria (16/10).** Cada
+uno armaba su tsconfig temporal a mano, y el Web Generator midió dos falsos rojos que salían de la
+receta y no del código. Medido después en un worktree con `app/web-generator/editor/insertar.ts`:
+
+| Versión de `insertar.ts` | Sin `typeRoots`/`types` | Con `typeRoots` + `types: ["node"]` |
+|---|---|---|
+| la de `main` (sin importar los comandos de TipTap) | 5 errores TS2339/TS2551 | 5 errores TS2339/TS2551 |
+| con `import type` de esos comandos (`563c873ad`) | 1: TS2580 `process` | **0** |
+
+Son dos causas distintas y cada una tapa a la otra: los `declare module` de las extensiones de
+TipTap no existen para un archivo compilado solo, y los tipos de Node entran en el completo por
+`next-env.d.ts`, que un tsconfig fuera del repo no ve. La segunda la resuelve el script nuevo
+(`scripts/tsc-acotado.mjs`, que además trae el `"include": []` y sale 99 si el `tsc` no terminó);
+la primera no se puede resolver sola, y el script lo dice al final cuando hay errores. La receta,
+en AGENTS.md → «Para validar lo tuyo sin el tsc completo».
 
 **El vigía, en la misma tanda:** se levanta solo (un disparador cada 5 min además del de inicio de
 sesión: el 13/10 estuvo 6 horas muerto con un solo disparador; probado matándolo, volvió en 21 s),
@@ -6230,6 +6276,15 @@ acotado dio `TS2339: Property 'toggleEtiqueta' does not exist on type 'ChainedCo
 errores. Un error del acotado en un archivo que la rama no tocó se mira así antes de reportarlo: `grep` del
 nombre que falta, y si aparece en un `declare module`, ese archivo va a la lista.
 
+**16/10/2026:** `insertar.ts` ya no depende de eso: importa SÓLO por tipos (`import type {} from …`) los tres módulos
+que declaran lo que encadena (StarterKit, `@tiptap/extension-list` y `extensiones/marcas.ts`). Medido: compilado solo
+daba 5 errores (las listas, la cita, las tareas y `toggleEtiqueta`; los demás acotados veían sólo el último porque su
+programa ya traía StarterKit), y con el arreglo, 0. **Regla para código nuevo:** un archivo que encadena comandos de una
+extensión los importa por tipos. Y otro falso rojo de la misma familia: sin `next-env.d.ts` tampoco entran los tipos de
+Node, y `process` falla («Cannot find name 'process'», `lib/editor-landing/especificacion.ts:235`). Si no se copia
+`next-env.d.ts`, alcanza con sumar al tsconfig temporal `"typeRoots": ["<repo>/node_modules/@types"]` (ruta ABSOLUTA:
+el json vive en el scratchpad y una relativa no encuentra nada, TS2688) y `"types": ["node"]`.
+
 **Vive en:** el tsconfig temporal de cada chat (scratchpad) · la memoria `pc-techo-ram-chrome`, que
 enseñaba la receta sin el `include` · *2026-10-14 Plan - Perro Guardián*
 
@@ -6394,3 +6449,44 @@ negocios.
   `modoAgencia` y `ws`. Si no es super admin, no se hace la pasada: se le pide a Martín la sesión.
 
 **Vive en:** `proxy.ts` (el header del `?ws=` sólo para admin de agencia) · `lib/ws-tab.ts` · `app/api/auth/me/route.ts`
+
+## Correr «los tests del tema» deja afuera a los que FIJAN LA FORMA del archivo que tocaste (15/10/2026)
+
+Una punta se dio por lista con «918 tests verdes», y tenía uno en rojo: `tests/crear-ia-preguntas.test.ts` fija con
+un regex la línea exacta del `traducir` de editar (`return { r, errores: erroresEdicion(base, r, ctx) };`), y el
+cambio la había tocado. Ese test es de las PREGUNTAS de MaKo, no del chat, así que no entraba en ningún `grep` del
+tema. Lo encontró otro `grep`, por casualidad.
+
+**La regla:** antes de dar una punta por buena, se corren los tests que LEEN cada archivo tocado
+(`grep -l "<ruta del archivo>" tests/*.test.ts`), no sólo los que hablan del tema. Y antes de pasársela a quien
+pushea, la suite entera con `--test-concurrency=2`, que entra en la RAM con muchos chats abiertos.
+
+## Un script de roturas no se corta con `head`, y un worktree no tiene `.env.local` (16/10/2026)
+
+- ⚠️ **`node romper-*.mjs | head -3` puede matar el script en la mitad de una rotura.** Cuando `head` cierra el pipe,
+  el próximo `console.log` del script falla. Si eso pasa entre «escribí el archivo roto» y «lo restauré», el árbol
+  queda roto sin que nada lo diga. Esta vez no pasó: el log va después de restaurar, y `git diff` lo confirmó. Regla:
+  - la salida va a un archivo del scratchpad y se lee después;
+  - el script restaura en un `finally` (scratchpad `romper-reporte.mjs`);
+  - al terminar, `git status` para ver que no quedó nada tocado.
+- **Los worktrees (`C:/dev/wt-*`) no tienen `.env.local`.** Un script que lee producción necesita la ruta de afuera:
+  `node --env-file=C:/dev/mako-api/.env.local --conditions react-server --import tsx <script>`, o el `--env=` del
+  script (scripts/mudanza-avisos-plataforma.mts). `dotenv` tampoco se resuelve desde un script del scratchpad,
+  porque busca los paquetes desde la carpeta del script. Con `--env-file`, Node lo carga solo.
+
+## Commitear por ruta con un archivo BORRADO: `git add` falla y `git commit --` no (16/10/2026)
+
+`git add -- <rutas>` con una ruta que ya no existe en el disco corta con «pathspec did not match» y no agrega
+NADA, aunque el borrado ya esté en el índice. **La regla:** `git add --` sólo con las rutas que existen, y
+`git commit -F <msg> -- <todas>`, borradas incluidas, que `git commit` sí acepta.
+
+*16/10/2026, chat «CRM» (claude3), al commitear la ficha por bloques (se fueron ResumenModal y resumen-actions).*
+
+## La emulación táctil de CDP queda pegada en la pestaña (16/10/2026)
+
+Después de `Emulation.setTouchEmulationEnabled({ enabled: true })`, volver a `false` en la misma pestaña no devuelve
+el puntero fino: los casos de escritorio midieron `matchMedia('(pointer: coarse)') = true`. **La regla:** lo
+táctil y lo de mouse se miden en pestañas distintas, o lo de mouse primero. Un «coarse: true» en un caso de
+escritorio es la emulación pegada, no la hoja.
+
+*16/10/2026, chat «CRM» (claude3), midiendo la ficha por bloques a 1280 y a 390 táctil.*

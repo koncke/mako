@@ -487,7 +487,8 @@ export const DEFS: readonly OperacionDef[] = [
     titulo: 'Mandar plantilla a aprobación',
     descripcion: 'Manda un borrador de plantilla (estado borrador o rechazado) a revisión de Meta; queda en pending hasta que Meta decida (horas o días; se ve con estado_plantillas_meta). Consume un ciclo de revisión: pasa antes por validar_plantilla. Solo el administrador, en pantalla.',
     escribe: 'crea la plantilla en Meta y deja el borrador en pending con su id de Meta',
-    parametros: [{ nombre: 'id', tipo: 'number', entero: true, minimo: 1, obligatorio: true, descripcion: 'id del borrador (de listar_borradores_plantilla).' }],
+    // `fijoAlRevisar` (15/10/2026): cambiar el borrador al revisar mandaba OTRA plantilla con el título de ésta.
+    parametros: [{ nombre: 'id', tipo: 'number', entero: true, minimo: 1, obligatorio: true, fijoAlRevisar: true, descripcion: 'id del borrador (de listar_borradores_plantilla).' }],
     canales: TODOS, costo: 'externo',
     gating: { tab: 'whatsapp', integracion: 'chatwoot', rolMinimo: 'admin' },
   },

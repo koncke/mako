@@ -300,6 +300,50 @@ async function enviarDelNegocio(
  * adentro de un `runWithWorkspace` propio (el de la plataforma, o el del negocio), y anotarlo acá
  * adentro sería escribir con el inquilino que no es sin un error.
  */
+/**
+ * ⚠️ EL AVISO AL EMAIL ANTERIOR cuando cambia el email de acceso de una cuenta recién comprada (15/10/2026). El cambio lo
+ * hace quien tiene el link de la compra (/pagar/<token>/listo), y un link reenviado alcanza para quedarse con la cuenta.
+ * Pedir un código al email actual bloqueaba el caso legítimo más común (el email se tipeó MAL al pagar, y ahí no llega
+ * nada); así que se copia lo que hacen Google y GitHub: el nuevo se prueba solo (hay que entrar con Google con ESE
+ * email) y al anterior le llega este aviso, con cómo revertirlo. El nuevo va enmascarado: si el anterior estaba mal
+ * tipeado, es de un desconocido. Nunca tira.
+ */
+export async function avisarCambioDeEmailDeAcceso(p: { anterior: string; nuevoEnmascarado: string }): Promise<{ enviado: boolean; error?: string }> {
+  const destino = (p.anterior ?? '').trim().toLowerCase();
+  if (!destino) return { enviado: false, error: 'no hay email anterior' };
+  const cuerpo = [
+    'Hola,',
+    '',
+    `El email con el que se entra a tu cuenta de MaKo cambió a ${p.nuevoEnmascarado}. Lo cambió alguien desde la página de tu compra.`,
+    '',
+    'Si fuiste tú, no tienes que hacer nada.',
+    '',
+    `Si no fuiste tú, escríbenos a ${EMAIL_MAKO} cuanto antes y la devolvemos a esta dirección.`,
+  ].join('\n');
+  const r = await enviarDePlataforma({ to: destino, asunto: 'Cambió el email de tu acceso a MaKo', preheader: 'Si no fuiste tú, escríbenos.', cuerpo, tag: 'cambio-email-acceso' });
+  return r.enviado ? { enviado: true } : { enviado: false, error: r.error };
+}
+
+/**
+ * El CÓDIGO DE BAJA por email (15/10/2026, «Darme de baja»): el comprobante de que el negocio pidió la baja de su plan de
+ * MaKo, a la dirección de quien la pidió (la Resolución 316/2018 de Argentina pide mandarlo, si aplica). Habla MaKo. Nunca tira.
+ */
+export async function mandarCodigoDeBaja(p: { to: string; codigo: string; plan: string; finAt: string | null }): Promise<{ enviado: boolean; error?: string }> {
+  const destino = (p.to ?? '').trim().toLowerCase();
+  if (!destino) return { enviado: false, error: 'no hay a quién mandarlo' };
+  const cuerpo = [
+    'Hola,',
+    '',
+    `Recibimos la baja de tu plan ${p.plan} de MaKo. Tu código de baja es: ${p.codigo}`,
+    '',
+    p.finAt ? `Lo puedes seguir usando hasta el ${p.finAt.slice(0, 10)}, y desde ahí no se te cobra más.` : 'Desde ahora no se te cobra más.',
+    '',
+    `Si no fuiste tú, o quieres volver, escríbenos a ${EMAIL_MAKO}.`,
+  ].join('\n');
+  const r = await enviarDePlataforma({ to: destino, asunto: `Tu baja de MaKo: ${p.codigo}`, preheader: 'El comprobante de tu baja.', cuerpo, tag: 'baja-plan' });
+  return r.enviado ? { enviado: true } : { enviado: false, error: r.error };
+}
+
 export async function invitarAlCursoPorEmail(p: {
   /** El workspace del ALUMNO: decide el remitente. */
   ws: number;

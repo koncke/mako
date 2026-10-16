@@ -49,18 +49,20 @@ test('el DEAL es otra pregunta: la pasarela sola abre la tab, no el deal vacío'
 });
 
 test('las DOS puertas de la ficha usan la misma regla, con las mismas señales', () => {
+  // ⚠️ CAMBIADO A PROPÓSITO EL 14/10/2026 (la ficha por bloques): las dos puertas montan la MISMA ficha
+  // (`FichaPorBloques`) con la MISMA lectura (`getLeadFullAction`, también la ruta). La regla se aplica
+  // una vez, ahí, y las señales de la pasarela llegan por la action a las dos.
   const ruta = codigo('app/crm/[id]/page.tsx');
-  const modal = codigo('app/crm/LeadSheet.tsx');
-  for (const [nombre, src] of [['ruta /crm/[id]', ruta], ['modal LeadSheet', modal]] as const) {
-    assert.match(src, /const verPagos = muestraPagos\(/, `${nombre}: la tab no sale de muestraPagos`);
-    assert.match(src, /\.\.\.\(verPagos \? \[\{ key: 'cobranza'/, `${nombre}: la tab Pagos no mira verPagos`);
-    assert.match(src, /planEnLead: planEnLead\(lead\)/, `${nombre}: el plan no sale de planEnLead`);
+  const ficha = codigo('app/crm/lead-view/ficha/FichaPorBloques.tsx');
+  for (const puerta of ['app/crm/LeadSheet.tsx', 'app/crm/[id]/LeadDetailBody.tsx']) {
+    assert.match(codigo(puerta), /<FichaPorBloques\b/, `${puerta}: no monta la ficha compartida`);
   }
-  // Las señales de la pasarela: la ruta las lee directo, el modal las recibe de getLeadFullAction.
-  assert.match(ruta, /senalesDeCobroAction\(lead\.id\)/);
+  assert.match(ficha, /const verPagos = muestraPagos\(/, 'la tab no sale de muestraPagos');
+  assert.match(ficha, /\.\.\.\(verPagos \? \['pagos' as const\] : \[\]\)/, 'la tab Pagos no mira verPagos');
+  assert.match(ficha, /planEnLead: planEnLead\(lead\)/, 'el plan no sale de planEnLead');
   assert.match(codigo('app/crm/actions.ts'), /senalesDeCobroAction\(id\)\]\);/);
-  assert.match(modal, /muestraPagos\(\{ \.\.\.etapaPagos, \.\.\.vigente\.cobro \}\)/);
-  assert.match(ruta, /muestraPagos\(\{ estado: lead\.estado_lead, etapa: stageKey, cuotas: pagos\.length, planEnLead: planEnLead\(lead\), \.\.\.cobro \}\)/);
+  assert.match(ficha, /muestraPagos\(\{ estado: lead\.estado_lead, etapa, cuotas: pagos\.length, planEnLead: planEnLead\(lead\), \.\.\.data\.cobro \}\)/);
+  assert.match(ruta, /await getLeadFullAction\(idNum\)/, 'la ruta lee las señales con la action del pop-up');
 });
 
 test('la tarjeta: sin deal dibuja SÓLO los links; con deal, los links van debajo de Pagos', () => {

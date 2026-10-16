@@ -416,6 +416,8 @@ export const RUTAS_REST: readonly RutaRest[] = [
   // La biblioteca de imágenes y videos del negocio (corrección de la tanda 7): URLs públicas del bucket de las landings.
   ['GET', '/landing/imagenes', 'listar_imagenes_landing'],
   ['DELETE', '/landing/documentos/{id}', 'borrar_landing_creada'],
+  // Las animaciones (15/10/2026, el panel «Animar»): PATCH porque cambia sólo lo que se pasa (el interruptor, el estilo o una sección).
+  ['PATCH', '/landing/documentos/{id}/animaciones', 'cambiar_animacion_landing'],
   ['PATCH', '/landing/documentos/{id}/botones', 'configurar_boton_landing'],
   ['POST', '/landing/documentos/{id}/comentarios-de-afuera', 'pasar_comentarios_a_copia_landing'],
   ['GET', '/landing/documentos/{id}/configuracion', 'ver_configuracion_landing'],
@@ -474,6 +476,9 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['POST', '/negocio/lead-magnets/generaciones', 'generar_lead_magnets'],
   ['PATCH', '/negocio/lead-magnets/{id}', 'editar_lead_magnet'],
   ['GET', '/negocio/onboarding', 'ver_estado_onboarding'],
+  // El plan de MaKo del negocio («Tu plan», 15/10/2026): lo que le cobra la plataforma.
+  ['GET', '/negocio/plan', 'ver_mi_plan'],
+  ['POST', '/negocio/plan/bajas', 'dar_de_baja_mi_plan'],
   ['GET', '/negocio/onboarding/tabs-pendientes', 'listar_tabs_por_configurar'],
   ['GET', '/negocio/perfil/campos', 'ver_perfil_negocio'],
   ['PATCH', '/negocio/perfil/campos/{key}', 'guardar_campo_perfil'],

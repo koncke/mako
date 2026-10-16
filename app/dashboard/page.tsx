@@ -46,6 +46,7 @@ import { hojaDeRol, hojaDestino, informeDeRol, llamadaDeUrl } from '@/lib/grafic
 import { datosDeGraficos } from '@/lib/graficos-datos';
 import type { Hoja, Tablero } from '@/lib/graficos-catalogo';
 import { ocultosPorPlegado, plegadasDeEntrada } from '@/lib/graficos-secciones';
+import { senalesDelNegocio } from '@/lib/plantillas-sugeridas-server';
 import { EditorInforme } from './EditorInforme';
 import { pedidosDeHoja } from './exportar';
 
@@ -65,6 +66,9 @@ export default async function Page({ searchParams }: { searchParams: Promise<Bus
     if (!tabEnCapa(unica.capa, capa)) redirect(await rutaConWs(homeDeCapa(capa)));
   }
 
+  // Lo que se sabe del negocio para que la galería ponga primero sus sugeridas (lib/plantillas-sugeridas.ts). Arranca
+  // YA y se espera al final: corre en paralelo con el informe y los datos. El closer y el setter no ven la galería.
+  const senales = unica ? Promise.resolve(null) : senalesDelNegocio().catch(() => null);
   const hoy = hoyEnTijuana();
   const p = await searchParams;
   const pedida = Array.isArray(p.hoja) ? p.hoja[0] : p.hoja;
@@ -109,7 +113,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Bus
   const graficos = sinPaginas ? [] : pedidos0.graficos;
   // El período va TAL CUAL: el corte en hoy (y la fecha que mira hacia adelante) lo decide `datosDeGraficos`
   // (contrato v5, «el corte en hoy en UN lugar»). La firma sale del período que pidió el gráfico.
-  const datos = await datosDeGraficos(graficos.map(({ pedido }) => pedido));
+  const [datos, senalesNegocio] = await Promise.all([datosDeGraficos(graficos.map(({ pedido }) => pedido)), senales]);
 
   return (
     // ⚠️ `flex: 'none'` + el alto + `overflow: hidden`, LOS TRES. Pagina trae `flex: 1` (base 0%), que en
@@ -131,6 +135,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Bus
         soloLectura={!!unica}
         llamadaInicial={llamada}
         sinPaginas={sinPaginas}
+        senales={senalesNegocio}
       />
     </Pagina>
   );

@@ -521,4 +521,39 @@ export const BITACORA: Hito[] = [
       'tests/web-generator-ventana-en-el-clic.test.ts — 16 tests, 27 roturas',
     ],
   },
+  {
+    fecha: '15 oct', hora: '19:30', chat: 'Landing Generator', cuenta: 'claude3',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Animaciones: lo que Martín decidió del video de fondo, y el resto por criterio del coordinador',
+    pedido: 'B · Sólo generado por MaKo, cuando el puente pueda\nEso lo elige el usuario',
+    puntos: [
+      'Las dos respuestas textuales de Martín en la Ticketera (15/10): el video de fondo lo genera sólo MaKo cuando el puente a Flow pueda, y el modelo de Flow lo elige el usuario. El pedido de origen («las dos cosas») es el hito del 14/10 a las 23:10.',
+      'El resto llegó por el coordinador «Estrategia 3 cuentas» al retomar el chat: copiar el panel de animaciones del Image Editor y la ayuda de Canva sin esperar el login de Canva; un estilo para la landing y un efecto por sección, nunca por bloque; cada efecto se reproduce al pasar el mouse; contenido propio.',
+    ],
+  },
+  {
+    fecha: '15 oct', hora: '23:29', chat: 'Landing Generator', cuenta: 'claude3',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Tanda 8: las animaciones en tres tandas desplegadas (modelo y render, panel y API, replicar)',
+    puntos: [
+      'Tres tandas desplegadas de a una porque un atributo nuevo de TipTap tiene que estar en producción antes que la pantalla que lo escribe: el modelo y el render; el panel «Animar» con la API de MaKo; replicar las animaciones de una web ajena.',
+      '17 efectos y 8 estilos con los nombres del Image Editor; «Subir» es la entrada de siempre, así que una landing que nunca eligió nada se ve igual. El video de fondo tiene su lugar y no se ofrece hasta que el puente a Flow devuelva el video.',
+      'De paso: una sola normalizarUrl (la otra es claveDeLanding) y el 403 «sin la barra / con la barra», que no eran las dos funciones sino la llave de la fila usada como dirección; y el lector suelta window.opener también en el camino del Pixel.',
+      'Con la regla de RAM del coordinador (12 chats, 240 MB libres en un momento): tsc ACOTADO a lo que cambia, tests por lotes, sin build ni suite completa; la suite y el tsc completos corren en el CI del coordinador.',
+    ],
+    commits: [
+      { sha: '607ceb205', msg: 'Web Generator: el modelo y el render de las animaciones (estilo de página, efecto por sección, video de fondo previsto) y una sola normalizarUrl', lineas: 1817, archivos: 36 },
+      { sha: '08a1d25ba', msg: 'docs: hallazgos de la tanda 8 del Web Generator (el 403, el opener del Pixel, el contrato de animaciones)', lineas: 118, archivos: 4 },
+      { sha: '7135a8235', msg: 'Web Generator: el panel Animar (copia del de animaciones del Image Editor y la ayuda de Canva) y la API de MaKo', lineas: 2214, archivos: 20 },
+      { sha: 'ec9226345', msg: 'Web Generator: replicar las animaciones de una web ajena, con el aviso de lo que sigue al scroll', lineas: 1604, archivos: 12 },
+    ],
+    archivos: [
+      'lib/editor-landing/animaciones.ts — el contrato: efectos, estilos, la sección que hereda, keyframes, el video de fondo',
+      'lib/editor-landing/css.ts (bloque 16), especificacion.ts, pagina-publica.ts — el render y el script de la publicada',
+      'app/web-generator/editor/paneles/PanelAnimacion.tsx + TileAnimacion.tsx — el panel «Animar»',
+      'lib/api-mako/areas/landing-editor.* — cambiar_animacion_landing',
+      'lib/editor-landing/replicar-animaciones.ts — de AOS, animate.css y getAnimations() al catálogo',
+      'lib/landing-url.ts — claveDeLanding y direccionParaBajar (el 403)',
+    ],
+  },
 ];

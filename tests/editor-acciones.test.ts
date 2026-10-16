@@ -222,7 +222,8 @@ test('lo que llena el flujo existe en el registro, y el reparto no lo dibuja', (
   assert.deepEqual(r.obligatorios.map((p) => p.nombre), ['mensaje']);
   // (15/10/2026: `fueraDeHorario` es de la tarjeta «MaKo en WhatsApp», que lo dibuja en su editor propio; este reparto es
   // el del formulario genérico, que esta operación no usa en el lienzo.)
-  assert.deepEqual(r.opcionales.map((p) => p.nombre), ['titulo', 'partes', 'fueraDeHorario'], '«respuesta» la pone el motor');
+  // (16/10/2026: y «Por dónde» y el asunto de «MaKo por email», que también dibuja ese editor propio.)
+  assert.deepEqual(r.opcionales.map((p) => p.nombre), ['titulo', 'partes', 'fueraDeHorario', 'canal', 'asunto'], '«respuesta» la pone el motor');
   assert.equal(r.plegar, true);
 });
 

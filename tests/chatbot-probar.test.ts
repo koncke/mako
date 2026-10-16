@@ -109,7 +109,8 @@ test('«Probar» NO reemplaza al lienzo: el editor queda montado y el panel se a
   // reparte los insets y monta el panel en SU rectángulo; el panel lo llena (100 %).
   // Decimocuarta (punto 3): el chat de MaKo usa el MISMO muelle (lo reserva igual que «Probar»).
   assert.match(lista, /const makoVisible = makoAbierto && !!sel && !creandoSel && caja\.w > 0;/);
-  assert.match(lista, /const m = calcularMuelles\(caja, \{ listaAbierta: true, probarAbierto: probarVisible \|\| makoVisible, editorAbierto: true \}\);/);
+  // (15/10/2026: con la lista de contactos, «Probar» pide más ancho, `probarConContactos`; lo sigue decidiendo `muelles`.)
+  assert.match(lista, /const m = calcularMuelles\(caja, \{ listaAbierta: true, probarAbierto: probarVisible \|\| makoVisible, editorAbierto: true, probarConContactos: probarVisible && probarContactos \}\);/);
   assert.match(lista, /makoAlAbrir=\{makoPara === sel\.id\} onChatMako=\{setMakoAbierto\}/);
   assert.match(lista, /insetDer=\{m\.insets\.der \|\| undefined\}\n\s+muelles=\{m\}/);
   assert.match(lista, /\{probarVisible && sel && m\.probar && \(\n\s+<div data-muelle="probar" style=\{\{ position: 'absolute', left: m\.probar\.left, top: m\.probar\.top, width: m\.probar\.width, height: m\.probar\.height, zIndex: 3, display: 'flex' \}\}>\n\s+<PanelProbar\n/);
@@ -155,8 +156,9 @@ test('escribir como el lead deja ESPERANDO la salida (no la corta) y clasifica c
   // El server: el MISMO clasificador y el MISMO redactor del motor, con lo local (y el medio de la prueba).
   const ruta = RUTA();
   assert.match(ruta, /const casos = escenariosDeRespuesta\(pasos, \{ medio \}\);/);
-  assert.match(ruta, /const r = await clasificarEscenario\(mensaje, escenarios\);/);
-  assert.match(ruta, /const r = await responderSimulador\(id, historial, \{ escenario \}\);/);
+  // (16/10/2026: con la red de plataforma, como en vivo: tests/ai-step-red-y-voz.test.ts.)
+  assert.match(ruta, /const r = await clasificarEscenario\(mensaje, escenarios, \{ redDePlataforma: true \}\);/);
+  assert.match(ruta, /const r = await responderSimulador\(id, historial, \{ escenario, redDePlataforma: true \}\);/);
 });
 
 // (Quinta tanda, punto 1: los destinos de QUIEN PRUEBA sí se guardan, en SU fila de `usuarios`; lo
