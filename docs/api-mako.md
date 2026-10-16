@@ -13693,7 +13693,7 @@ curl -L \
 
 ### `PUT /api/v1/cobros/links-pago/{cobroId}/anulacion` — Anular un link de pago
 
-PROPONE anular un link de pago que todavía no se pagó: deja de poder pagarse desde MaKo (en Stripe además vence el checkout). Pide antes el cobroId (listar_cobros). Un cobro pagado no se anula: se reembolsa con reembolsar_cobro.
+PROPONE anular un link de pago que todavía no se pagó: deja de poder pagarse desde MaKo, y se cierra también en Stripe o Mercado Pago. Pide antes el cobroId (listar_cobros). Un cobro pagado no se anula: se reembolsa con reembolsar_cobro.
 
 - **Ruta por operación:** `POST /api/v1/cobros/anular_link_pago`
 - **Token detallado:** permiso `cobros=write` (Lectura y escritura en «Cobros (Stripe y Mercado Pago)»)

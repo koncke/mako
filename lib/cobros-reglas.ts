@@ -42,12 +42,6 @@ export function montoUsdDeLaCuota(p: { montoCuota?: number | null; monedaCuota?:
 }
 
 /**
- * Desde qué estados un pago confirmado deja el cobro en `pagado`. `anulado` entra: si alguien pagó
- * un link que se anuló (Mercado Pago no deja expirar una preferencia ya abierta), la plata ENTRÓ, y
- * esconderla sería peor. `reembolsado` no: un «aprobado» que llega después de un reembolso es una
- * reentrega vieja.
- */
-/**
  * ¿La suscripción del lead la cobra la pasarela? Un cobro de suscripción PAGADO y no cancelado. Es la condición con
  * que se niega cancelar a mano una suscripción (la ficha y la API) y cambiarle el tipo, la mensualidad o el plazo
  * desde el CRM (`escribirVenta`, lib/pagos.ts): el CRM diría una cosa mientras la tarjeta se sigue cobrando otra.
@@ -56,8 +50,26 @@ export function laCobraLaPasarela(cobros: ReadonlyArray<{ tipo: string; estado: 
   return cobros.some((c) => c.tipo === 'suscripcion' && c.estado === 'pagado' && c.suscripcion_estado !== 'cancelada');
 }
 
+/**
+ * Desde qué estados un pago confirmado deja el cobro en `pagado`. `anulado` entra: si alguien pagó
+ * un link que se anuló (el cierre del lado de la pasarela puede fallar, o el pago ya estaba en curso), la
+ * plata ENTRÓ, y esconderla sería peor: entra CON el aviso de `avisoPagoPorLinkAnulado`. `reembolsado` no:
+ * un «aprobado» que llega después de un reembolso es una reentrega vieja.
+ */
 export const ESTADOS_QUE_PASAN_A_PAGADO: readonly EstadoCobro[] = ['pendiente', 'fallido', 'anulado'];
 export const pasaAPagado = (e: EstadoCobro): boolean => ESTADOS_QUE_PASAN_A_PAGADO.includes(e);
+
+/**
+ * ⚠️ UN PAGO POR UN LINK ANULADO (15/10/2026). Se anula un link porque la cuota se cobró por otro lado, o porque el
+ * cobro cambió; si igual entra un pago por ahí, se registra (la plata entró) y esto queda en el cobro y en el
+ * historial del lead. Si la cuota del link ya estaba cobrada, la plata entró DOS veces y se dice así: hasta este día
+ * entraba como una cuota cobrada más y nadie se enteraba.
+ */
+export function avisoPagoPorLinkAnulado(cuotaYaCobrada: boolean): string {
+  return cuotaYaCobrada
+    ? 'Se pagó por un link ANULADO y su cuota ya estaba cobrada: la plata entró dos veces. Devuelve uno de los dos pagos.'
+    : 'Se pagó por un link ANULADO: revisa que no lo hayas cobrado por otro lado.';
+}
 
 /** ¿Este pago confirmado es una RENOVACIÓN (otra factura de la misma suscripción) y no el primero? */
 export function esRenovacion(c: { tipo: TipoCobro; proveedor_pago_id: string | null }, proveedorPagoId: string): boolean {
@@ -89,6 +101,7 @@ export function urlPorVencer(venceAtIso: string | null | undefined, ahoraMs: num
 export const idemCobro = (cobroId: number, vuelta = 0): string => (vuelta ? `mako-cobro-${cobroId}-${vuelta}` : `mako-cobro-${cobroId}`);
 export const idemReembolso = (cobroId: number): string => `mako-reembolso-${cobroId}`;
 export const idemBaja = (cobroId: number): string => `mako-baja-${cobroId}`;
+export const idemAnular = (cobroId: number): string => `mako-anular-${cobroId}`;
 
 export type ParametrosCobro = {
   pasarela?: Pasarela | null;

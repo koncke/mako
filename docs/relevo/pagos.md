@@ -76,7 +76,7 @@ worktree están borradas; `pagos-rojo-cobranza` no tiene nada fuera de `main`.
 
 | Qué | Lo destraba | Dónde |
 |---|---|---|
-| Si una clave restringida (`rk_`) lee `GET /v1/account`; si la `notification_url` de MP llega firmada y con `data.id` en el query; un pago de punta a punta en modo prueba | las claves de PRUEBA de Martín (Stripe `sk_test_`/`rk_test_`, una cuenta de prueba de MP) | `lib/cobros-conexion.ts`, `lib/metodo-catalogo.ts`, `app/api/webhooks/mercadopago/route.ts` |
+| Si una clave restringida (`rk_`) lee `GET /v1/account`; si la `notification_url` de MP llega firmada y con `data.id` en el query; si MP respeta el vencimiento de una preferencia anulada con el checkout ya abierto; un pago de punta a punta en modo prueba | las claves de PRUEBA de Martín (Stripe `sk_test_`/`rk_test_`, una cuenta de prueba de MP) | `lib/cobros-conexion.ts`, `lib/metodo-catalogo.ts`, `app/api/webhooks/mercadopago/route.ts` |
 | Stripe no abre cuentas a negocios de Argentina; la primera venta a un mexicano arranca el reloj del RFC | Martín (precio y fiscal): pasa ANTES por Estrategia, que lo mira con este chat cuando b2 esté en `main` | `app/admin/dev/pricing/modelo.ts` |
 | Los BORRADORES legales de `/reembolsos` y `/terminos` §8 | que Martín los lea; igual que el RFC, pasa antes por Estrategia | `app/reembolsos/page.tsx`, `app/terminos/page.tsx` |
 
@@ -90,7 +90,7 @@ pregunta a la Ticketera: `node --import tsx scripts/decisiones.ts listar`, y la 
 ### Lo que sigue SIN bloqueo (código; casi todo vive en archivos de b2, así que va DESPUÉS de que b2 esté en `main`)
 
 En este orden, de lo que más plata toca a lo que menos:
-1. Un link de MP anulado se puede pagar igual y nadie avisa que la plata entró dos veces → aviso a la ficha (`lib/cobros.ts`).
+1. ~~Un link de MP anulado se puede pagar igual y nadie avisa~~ → HECHO el 15/10 (rama `pagos-mp-anulado`): al anular, MaKo vence la preferencia de MP (o cancela la suscripción sin autorizar); si igual entra un pago, lo dice el cobro y el historial («la plata entró dos veces» si la cuota ya estaba cobrada), y el cron relee los anulados.
 2. Un reembolso de Stripe se da por hecho con `pending`: escuchar `charge.refund.updated` y `refund.failed` (`lib/cobros.ts`, `lib/stripe-api.ts`).
 3. El Outstanding del Dashboard cuenta como deuda las cuotas devueltas (`lib/pagos.ts`, `getOutstandingTotal`).
 3b. Contracargos (decidido 15/10): al historial y al motivo del cobro, y desmarcar la cuota cuando la plata salió; sumar `charge.dispute.created` y `charge.dispute.closed` a `EVENTOS_STRIPE` (`lib/cobros-eventos.ts`, `lib/cobros.ts`, `lib/stripe-api.ts`).
