@@ -288,17 +288,24 @@ export function comoSale(
 /** «Cuenta 3», o null si no se sabe. */
 export const nombreCuenta = (c: string | null | undefined): string | null => (c ? `Cuenta ${c.replace(/^claude/, '')}` : null);
 
-/** Lo que dice la caja debajo, en una línea. null = nada que decir (sale ya). */
+/**
+ * Lo que dice la caja debajo, en una línea. null = nada que decir (sale ya).
+ *
+ * ⚠️ DICE QUÉ HACER Y PARA QUÉ, NUNCA EL ESTADO INTERNO. Martín (15/10/2026): «Jamás pongas mensajes no claros
+ * como "Este dispositivo todavía no firma.", es mucho mejor "Crea tu Token para comenzar a chatear"». Esa frase
+ * es suya y va textual. La clave de firma del dispositivo, en pantalla, es «tu Token»; el cartero es el Runner
+ * (lib/runner.ts). Lo fija tests/centro-textos.test.ts.
+ */
 export function textoDeEnvio(e: Envio): string | null {
   if (!e.puede) {
-    if (e.por === 'sin_direccion') return 'Este chat no tiene dirección: es lo anotado antes del 16/10.';
-    if (e.por === 'sin_clave') return 'Este dispositivo todavía no firma.';
-    if (e.por === 'clave_no_aceptada') return 'La PC todavía no acepta la clave de este dispositivo.';
+    if (e.por === 'sin_direccion') return 'Abre este chat en la app de Claude para poder escribirle.';
+    if (e.por === 'sin_clave') return 'Crea tu Token para comenzar a chatear.';
+    if (e.por === 'clave_no_aceptada') return 'Pégale tu Token al Runner para comenzar a chatear.';
     return null;
   }
   const n = e.cuenta ? e.cuenta.replace(/^claude/, '') : '?';
-  if (e.espera === 'cartero') return `Sale cuando el cartero de la cuenta ${n} dé su vuelta.`;
-  if (e.espera === 'chat_cerrado') return `Sale cuando abras este chat en la cuenta ${n}.`;
+  if (e.espera === 'cartero') return 'Abre el chat Runner en la app de Claude para que salga.';
+  if (e.espera === 'chat_cerrado') return `Abre este chat en la cuenta ${n} para que lo reciba.`;
   return null;
 }
 

@@ -25,7 +25,7 @@ import Link from '@/app/_ui/Link';
 import { Hilo, Tick } from '@/app/admin/operaciones/Hilo';
 import { Muneco, animoDe } from '@/app/admin/operaciones/Muneco';
 
-const ESTADO: Record<ChatCentro['estado'], string> = { trabajando: 'Trabajando', abierto: 'Abierto', cerrado: 'Cerrado', sin_dato: 'Sin dato' };
+const ESTADO: Record<ChatCentro['estado'], string> = { trabajando: 'Trabajando', abierto: 'Abierto', cerrado: 'Cerrado', sin_dato: '' };
 const metaDe = (c: ChatCentro) => [nombreCuenta(c.cuenta), ESTADO[c.estado]].filter(Boolean).join(' · ');
 import { copiar, type useFirma } from '@/app/admin/operaciones/mandar';
 
@@ -73,7 +73,7 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
 
   const secciones = useMemo(() => seccionesDeChats(chats), [chats]);
 
-  if (!chats.length) return <VacioM frase="Ningún chat todavía: aparecen cuando el cartero da su vuelta." />;
+  if (!chats.length) return <VacioM frase="Conecta un Runner desde la computadora para ver tus chats aquí." />;
 
   const envio = elegido ? comoSale(elegido, carteros, firma.clave === undefined ? undefined : firma.clave?.id ?? null, ahora) : null;
   const texto = elegido ? borradores[elegido.clave] ?? '' : '';
@@ -90,9 +90,9 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
   }
   const copiarClave = async () => {
     if (!firma.clave) return;
-    toast(await copiar(firma.clave.spki) ? 'Clave copiada: pégala en el chat Cartero' : 'No pude copiar');
+    toast(await copiar(firma.clave.spki) ? 'Copiado: pégalo en el Runner' : 'No pude copiar');
   };
-  const crearClave = async () => { toast((await firma.crear()) ? 'Clave creada: cópiala y pégala en el chat Cartero' : 'No pude crear la clave'); };
+  const crearClave = async () => { toast((await firma.crear()) ? 'Token creado' : 'No pude crear tu Token'); };
 
   const estado = envio ? textoDeEnvio(envio) : null;
   const pie = elegido && envio ? (
@@ -121,8 +121,8 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
     ) : envio.por === 'leyendo_clave' ? null : (
       <div className="m-operaciones-caja m-operaciones-caja--quieta">
         <span className="m-operaciones-caja__estado">{estado}</span>
-        {envio.por === 'sin_clave' && <button type="button" className="co-chip" onClick={crearClave}>Crear clave</button>}
-        {envio.por === 'clave_no_aceptada' && <button type="button" className="co-chip" onClick={copiarClave}><Icon name="copy" size={14} />Copiar clave</button>}
+        {envio.por === 'sin_clave' && <button type="button" className="co-chip" onClick={crearClave}>Crear Token</button>}
+        {envio.por === 'clave_no_aceptada' && <button type="button" className="co-chip" onClick={copiarClave}><Icon name="copy" size={14} />Copiar Token</button>}
       </div>
     )
   ) : undefined;
@@ -172,7 +172,7 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
                 <span className="co-espera__ir">Contestar</span>
               </Link>
             )}
-            <Hilo lineas={lineas} pushes={pushes} ahora={ahora} vacio="Todavía no hay nada con este chat." quien={{ titulo: elegido.titulo, animo: animoDe(elegido), dato: metaDe(elegido) }} />
+            <Hilo lineas={lineas} pushes={pushes} ahora={ahora} vacio="Escríbele abajo para empezar." quien={{ titulo: elegido.titulo, animo: animoDe(elegido), dato: metaDe(elegido) }} />
           </div>
         )}
       </SheetM>

@@ -23,8 +23,8 @@ import { leerPushes, type LecturaPushes } from '@/lib/progreso';
 import { leerDecisiones } from '@/lib/admin-decisiones';
 import type { DecisionEspera } from '@/lib/centro-chats';
 
-const NO_PUEDE = 'Sólo Martín, con su segundo factor, opera el Centro.';
-const msg = (e: unknown) => (e instanceof Error && e.message ? e.message : 'Algo falló.');
+const NO_PUEDE = 'Entra con tu segundo factor para usar el Centro.';
+const msg = (e: unknown) => (e instanceof Error && e.message ? e.message : 'Algo falló: vuelve a intentarlo.');
 
 /** `decisiones`: las tarjetas de la Ticketera, en lo mínimo que hace falta para saber qué empleado espera una
  *  respuesta (null si no se pudieron leer: el resto se ve igual). */
@@ -61,7 +61,7 @@ export async function encolarPedidoAction(entrada: {
   const admin = await getSesionAdmin();
   if (!puedeOperar(admin, await wsSuperAdmin())) return { ok: false, error: NO_PUEDE };
   if (typeof entrada?.firmado !== 'string' || typeof entrada.firma !== 'string' || typeof entrada.clavePublica !== 'string') {
-    return { ok: false, error: 'Falta la firma del trabajo.' };
+    return { ok: false, error: 'Vuelve a mandarlo: le faltó la firma.' };
   }
   try {
     return await encolarPedido({ ...entrada, autor: admin.email || admin.nombre || admin.sub });

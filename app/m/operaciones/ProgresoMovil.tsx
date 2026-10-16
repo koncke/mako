@@ -25,7 +25,7 @@ import { carteroVivo } from '@/lib/operaciones-reglas';
 import { completarChats, esperasPorChat, type ChatCentro, type DecisionEspera, type TrabajoP } from '@/lib/centro-chats';
 import { fotoCentroAction, pushesCentroAction } from '@/app/admin/operaciones/acciones';
 import { copiar, useFirma } from '@/app/admin/operaciones/mandar';
-import { CarteroMovil } from './CentroMovil';
+import { RunnerMovil } from './CentroMovil';
 import { ChatsM } from './ChatsMovil';
 
 const TONO_PEDIDO: Record<EstadoPedidoP, TonoPildora> = { pendiente: 'warn', en_curso: 'info', hecho: 'good' };
@@ -214,8 +214,8 @@ export function CentroMovilPestanas({ inicial, base, colaInicial, carterosInicia
       window.history.replaceState(window.history.state, '', `${u.pathname}${u.search}`);
     } catch { /* la URL es una comodidad */ }
   };
-  const copiarClave = async () => { if (firma.clave) toast(await copiar(firma.clave.spki) ? 'Clave copiada: pégala en el chat Cartero' : 'No pude copiar'); };
-  const crearClave = async () => { toast((await firma.crear()) ? 'Clave creada: cópiala y pégala en el chat Cartero' : 'No pude crear la clave'); };
+  const copiarClave = async () => { if (firma.clave) toast(await copiar(firma.clave.spki) ? 'Copiado: pégalo en el Runner' : 'No pude copiar'); };
+  const crearClave = async () => { toast((await firma.crear()) ? 'Token creado' : 'No pude crear tu Token'); };
   const andando = carteros.filter((k) => carteroVivo(k, ahora)).length;
 
   return (
@@ -234,15 +234,15 @@ export function CentroMovilPestanas({ inicial, base, colaInicial, carterosInicia
             chats={chats} carteros={carteros} pedidos={pedidos} trabajos={trabajos} pushes={pushes?.ok ? pushes.pushes : []} ahora={ahora}
             esperas={esperas} firma={firma} onEnviado={(t) => { setLocales((l) => [t, ...l]); refrescar(); }}
           />
-          <ListaM etiqueta="Cartero">
-            <FilaM icono="config" titulo="Cartero" segunda={`${andando} de ${carteros.length} dando vueltas`} onClick={() => setCartero(true)} navegacion />
+          <ListaM etiqueta="Runners">
+            <FilaM icono="config" titulo="Runners" segunda={`${andando} de ${carteros.length} activos`} onClick={() => setCartero(true)} navegacion />
           </ListaM>
         </>
       )}
       {tab === 'avance' && <PedidosM pedidos={pedidos} pushes={pushes} ahora={ahora} />}
       {tab === 'pushes' && <NovedadesM lista={novedades} lectura={pushes} ahora={ahora} />}
-      <SheetM abierto={cartero} onCerrar={() => setCartero(false)} titulo="Cartero">
-        <CarteroMovil carteros={estado ? carteros : null} clave={firma.clave} ahora={ahora} onCrearClave={crearClave} onCopiarClave={copiarClave} />
+      <SheetM abierto={cartero} onCerrar={() => setCartero(false)} titulo="Runners">
+        <RunnerMovil carteros={estado ? carteros : null} clave={firma.clave} ahora={ahora} onCrearClave={crearClave} onCopiarClave={copiarClave} />
       </SheetM>
     </>
   );
