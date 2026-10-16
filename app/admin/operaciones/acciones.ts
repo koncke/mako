@@ -22,6 +22,8 @@ import {
 import { leerPushes, type LecturaPushes } from '@/lib/progreso';
 import { leerDecisiones } from '@/lib/admin-decisiones';
 import type { DecisionEspera } from '@/lib/centro-chats';
+import { sanearAspecto, type MunecosElegidos } from '@/lib/centro-munecos';
+import { guardarMuneco } from '@/lib/centro-munecos-db';
 
 const NO_PUEDE = 'Entra con tu segundo factor para usar el Centro.';
 const msg = (e: unknown) => (e instanceof Error && e.message ? e.message : 'Algo falló: vuelve a intentarlo.');
@@ -87,6 +89,21 @@ export async function crearTokenCarteroAction(): Promise<{ ok: true; token: stri
   if (!puedeOperar(admin, await wsSuperAdmin())) return { ok: false, error: NO_PUEDE };
   try {
     return { ok: true, ...(await crearTokenCartero()) };
+  } catch (e) {
+    return { ok: false, error: msg(e) };
+  }
+}
+
+/** El muñeco que Martín eligió para un chat (por su nombre, en las tres cuentas). Con `aspecto` null vuelve al de
+ *  siempre. Lo que llega del navegador se sanea: un aspecto con una pieza que no existe no se guarda. */
+export async function guardarMunecoAction(titulo: string, aspecto: unknown): Promise<{ ok: true; munecos: MunecosElegidos } | { ok: false; error: string }> {
+  const admin = await getSesionAdmin();
+  if (!puedeOperar(admin, await wsSuperAdmin())) return { ok: false, error: NO_PUEDE };
+  if (typeof titulo !== 'string' || !titulo.trim()) return { ok: false, error: 'Elige un chat para cambiarle el muñeco.' };
+  const limpio = aspecto == null ? null : sanearAspecto(aspecto);
+  if (aspecto != null && !limpio) return { ok: false, error: 'Elige otro muñeco: ése no existe.' };
+  try {
+    return { ok: true, munecos: await guardarMuneco(titulo, limpio) };
   } catch (e) {
     return { ok: false, error: msg(e) };
   }

@@ -8,6 +8,7 @@ import { areasDeProgreso } from '@/lib/progreso';
 import { pedidosRecientes, recortarPedido } from '@/lib/progreso-reglas';
 import { chatsDeBitacoras } from '@/lib/centro-chats';
 import { leerDecisiones } from '@/lib/admin-decisiones';
+import { leerMunecos } from '@/lib/centro-munecos-db';
 import { CentroApp } from './CentroApp';
 
 // =============================================================================
@@ -33,10 +34,11 @@ export default async function OperacionesPage({ searchParams }: { searchParams: 
   const { chat } = await searchParams;
   const ahora = Date.now();
   const areas = areasDeProgreso();
-  const [cola, carteros, tarjetas] = await Promise.all([
+  const [cola, carteros, tarjetas, munecos] = await Promise.all([
     listarPedidos().catch(() => null),
     leerCarteros().catch(() => null),
     leerDecisiones().catch(() => null),
+    leerMunecos(),
   ]);
   // Lo que espera una respuesta de Martín en la Ticketera: el «pide aprobación» de Grok Bot, por empleado.
   const decisiones = tarjetas?.ok ? tarjetas.decisiones.map((d) => ({ chat: d.chat, destino: d.destino ?? null, respuesta: d.respuesta })) : null;
@@ -48,6 +50,7 @@ export default async function OperacionesPage({ searchParams }: { searchParams: 
         colaInicial={cola}
         carterosIniciales={carteros}
         decisionesIniciales={decisiones}
+        munecosIniciales={munecos}
         pedidos={pedidos}
         ahora={ahora}
         sub={admin.sub}

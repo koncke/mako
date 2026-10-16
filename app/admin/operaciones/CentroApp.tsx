@@ -33,27 +33,37 @@
 // «No quiero que exista "cuenta 1, cuenta 2, 3" en la sidebar de chats». El avance es la barra derecha de cada
 // conversación (Avance.tsx) y la cuenta, un chip en su cabecera. La lista es una sola, como la de Grok Bot.
 //
+// ⚠️ UN CHAT ES SU NOMBRE, Y LOS SUB-CHATS VAN CON SU JEFE (Martín, 15/10/2026: «todos los chats de todas las cuentas se
+// llamen igual» y «quiero que cada chat esté englobado en su chat "jefe"»). La lista une por nombre las sesiones de las
+// tres cuentas (lib/centro-chats.ts → unirPorNombre) y pone «CRM › Lead Detail» adentro de «CRM» (porJefe), copiado de
+// los hilos de Discord en la barra de canales: el hilo va debajo de su canal, corrido a la derecha y unido con una
+// línea. Cada fila tiene su «⋯» (y el clic derecho) con Renombrar y Cambiar su muñeco, como las de ChatGPT y Claude.
+//
 // ⚠️ LA LISTA SE REHACE EN LA PANTALLA con la misma función que en el server (`completarChats`): las bitácoras
 // llegan una vez (`base`) y lo que cambia —el estado que sube el cartero y la cola— se vuelve a pedir.
 // ⚠️ Los pushes de Vercel llegan DESPUÉS de dibujar (`pushesCentroAction`): la página no los espera.
 
 import './centro.css';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Modal, Toast, useToast } from '@/app/_ui';
+import { Button, Field, Input, Modal, Toast, useToast } from '@/app/_ui';
+import { MenuContextual } from '@/app/_ui/MenuContextual';
 import { Icon } from '@/app/_components/icons';
 import { carteroVivo, type Alcance } from '@/lib/operaciones-reglas';
 import {
-  SECCION_ANTES, comoSale, completarChats, esperasPorChat, historialDelChat, nombreCuenta, seccionesDeChats, titulosRepetidos, tituloNormal, vistaPrevia,
+  SECCION_ANTES, SECCION_CHATS, chatDeClave, comoSale, completarChats, esperaDe, esperasPorChat, historialDelChat, nombreValido, partesDelNombre,
+  porJefe, seccionesDeChats, textoDeEnvio, textoDeRenombre, vistaPrevia,
   type DecisionEspera, type ChatCentro, type TrabajoP, type VistaPrevia,
 } from '@/lib/centro-chats';
 import type { PedidoP } from '@/lib/progreso-reglas';
 import type { LecturaPushes } from '@/lib/progreso';
 import type { EstadoCarteros, Pedido } from '@/lib/operaciones';
+import { aspectoDe, elegidoPara, type Aspecto, type MunecosElegidos } from '@/lib/centro-munecos';
+import { ElegirMuneco } from './ElegirMuneco';
 import { Conversacion } from './Conversacion';
 import { Tick } from './Hilo';
 import { Muneco, animoDe } from './Muneco';
 import { PanelRunner, TituloRunner, type VistaRunner } from './PanelRunner';
-import { fotoCentroAction, pushesCentroAction } from './acciones';
+import { fotoCentroAction, guardarMunecoAction, pushesCentroAction } from './acciones';
 import { copiar, useFirma } from './mandar';
 
 const REFRESCO_MS = 8000;
@@ -106,12 +116,14 @@ function Previa({ c, p, espera }: { c: ChatCentro; p: VistaPrevia | null; espera
   );
 }
 
-export function CentroApp({ base, colaInicial, carterosIniciales, decisionesIniciales, pedidos, ahora: ahoraServer, sub, chatInicial }: {
+export function CentroApp({ base, colaInicial, carterosIniciales, decisionesIniciales, munecosIniciales, pedidos, ahora: ahoraServer, sub, chatInicial }: {
   base: ChatCentro[];
   colaInicial: Pedido[] | null;
   carterosIniciales: EstadoCarteros | null;
   /** Las tarjetas de la Ticketera (lo mínimo); null si no se pudieron leer. */
   decisionesIniciales: DecisionEspera[] | null;
+  /** Los muñecos que Martín eligió, por nombre (lib/centro-munecos-db.ts). */
+  munecosIniciales: MunecosElegidos;
   pedidos: PedidoP[];
   ahora: number;
   sub: string;
@@ -129,6 +141,11 @@ export function CentroApp({ base, colaInicial, carterosIniciales, decisionesInic
   const [alcance, setAlcance] = useState<Alcance>('solo_esto');
   const [enviando, setEnviando] = useState(false);
   const [runner, setRunner] = useState<VistaRunner | null>(null);
+  const [munecos, setMunecos] = useState<MunecosElegidos>(munecosIniciales);
+  // El «⋯» de una fila (o el clic derecho): dónde abre y de qué chat es.
+  const [menu, setMenu] = useState<{ x: number; y: number; clave: string } | null>(null);
+  const [renombrando, setRenombrando] = useState<{ clave: string; texto: string; error: string | null; mandando: boolean } | null>(null);
+  const [eligiendo, setEligiendo] = useState<{ clave: string; aspecto: Aspecto; guardando: boolean } | null>(null);
   const [avance, setAvance] = useState(false);
   // Se lee después de montar: el server no sabe lo del navegador, y el primer dibujo tiene que coincidir.
   useEffect(() => { setAvance(leerAvance()); }, []);
@@ -144,7 +161,8 @@ export function CentroApp({ base, colaInicial, carterosIniciales, decisionesInic
 
   // El chat de entrada: el que pide la URL; si no, el primero que puede recibir (con sesión) de la lista.
   const [elegido, setElegido] = useState<string | null>(() => {
-    if (chatInicial && chats.some((c) => c.clave === chatInicial)) return chatInicial;
+    const pedido = chatDeClave(chats, chatInicial);
+    if (pedido) return pedido.clave;
     return (chats.find((c) => c.sesion) ?? chats[0])?.clave ?? null;
   });
   // En una ventana angosta se ve la lista o la conversación (como WhatsApp en el teléfono).
@@ -171,7 +189,6 @@ export function CentroApp({ base, colaInicial, carterosIniciales, decisionesInic
   const filtro = normal(busca.trim());
   const visibles = filtro ? chats.filter((c) => normal(c.titulo).includes(filtro)) : chats;
   const secciones = useMemo(() => seccionesDeChats(visibles), [visibles]);
-  const repetidos = useMemo(() => titulosRepetidos(chats), [chats]);
   const previas = useMemo(() => new Map(chats.map((c) => [c.clave, vistaPrevia(historialDelChat(c, porId, trabajos))])), [chats, porId, trabajos]);
 
   const alternar = (set: Set<string>, k: string) => { const n = new Set(set); if (n.has(k)) n.delete(k); else n.add(k); return n; };
@@ -210,6 +227,80 @@ export function CentroApp({ base, colaInicial, carterosIniciales, decisionesInic
 
   const vivos = carteros.filter((k) => carteroVivo(k, ahora)).length;
 
+  // ── El «⋯» de cada chat: Renombrar y Cambiar su muñeco ─────────────────────────────────────────
+  const abrirMenu = (clave: string, x: number, y: number) => setMenu({ x, y, clave });
+  const delMenu = menu ? chats.find((c) => c.clave === menu.clave) ?? null : null;
+  const deRenombre = renombrando ? chats.find((c) => c.clave === renombrando.clave) ?? null : null;
+  const deMuneco = eligiendo ? chats.find((c) => c.clave === eligiendo.clave) ?? null : null;
+  const elegirEnMenu = (id: string) => {
+    const c = delMenu;
+    setMenu(null);
+    if (!c) return;
+    if (id === 'renombrar') setRenombrando({ clave: c.clave, texto: c.titulo, error: null, mandando: false });
+    if (id === 'muneco') setEligiendo({ clave: c.clave, aspecto: aspectoDe(c.titulo, elegidoPara(munecos, c.titulo)), guardando: false });
+  };
+  // El nombre lo cambia cada sesión del chat (en las tres cuentas): se le manda a cada una un trabajo firmado que se lo
+  // pide (lib/centro-chats.ts → textoDeRenombre). La que está cerrada lo recibe cuando se abre.
+  async function renombrar() {
+    if (!renombrando || !deRenombre) return;
+    const v = nombreValido(renombrando.texto);
+    if (!v.ok) { setRenombrando({ ...renombrando, error: v.error }); return; }
+    if (v.nombre === deRenombre.titulo) { setRenombrando(null); return; }
+    const sale = comoSale(deRenombre, carteros, firma.clave === undefined ? undefined : firma.clave?.id ?? null, ahora);
+    if (!sale.puede) { setRenombrando({ ...renombrando, error: textoDeEnvio(sale) }); return; }
+    setRenombrando({ ...renombrando, mandando: true, error: null });
+    let mal: string | null = null;
+    for (const s of deRenombre.sesiones) {
+      const r = await firma.mandar({ sesion: s.sesion, cuenta: s.cuenta, titulo: deRenombre.titulo }, textoDeRenombre(v.nombre), 'solo_esto');
+      if (!r.ok) mal = r.error;
+    }
+    if (mal) { setRenombrando({ ...renombrando, mandando: false, error: mal }); return; }
+    // El muñeco elegido se guarda por nombre: viaja con el nombre nuevo, o el chat renombrado lo perdería.
+    const suyo = elegidoPara(munecos, deRenombre.titulo);
+    if (suyo) { const g = await guardarMunecoAction(v.nombre, suyo); if (g.ok) setMunecos(g.munecos); }
+    setRenombrando(null);
+    show('Renombre enviado', undefined, 'good');
+    refrescar();
+  }
+  async function guardarElegido(aspecto: Aspecto | null) {
+    if (!eligiendo || !deMuneco) return;
+    setEligiendo({ ...eligiendo, guardando: true });
+    const r = await guardarMunecoAction(deMuneco.titulo, aspecto);
+    if (!r.ok) { setEligiendo({ ...eligiendo, guardando: false }); show(r.error, undefined, 'bad'); return; }
+    setMunecos(r.munecos);
+    setEligiendo(null);
+    show('Muñeco guardado', undefined, 'good');
+  }
+
+  /** Una fila de la lista: un chat, o un sub-chat (corrido a la derecha, sólo con lo que va después de «›»). */
+  const fila = (c: ChatCentro, sub: boolean) => {
+    const espera = esperaDe(c, esperas);
+    return (
+      <div key={c.clave} className={`co-fila-wrap${sub ? ' co-fila-wrap--sub' : ''}`}>
+        <button
+          type="button" title={c.titulo}
+          className={`co-fila${c.sesion ? '' : ' co-fila--sin-dir'}`}
+          aria-current={actual?.clave === c.clave ? 'true' : undefined}
+          onClick={() => elegir(c.clave)}
+          onContextMenu={(e) => { e.preventDefault(); abrirMenu(c.clave, e.clientX, e.clientY); }}
+        >
+          <Muneco titulo={c.titulo} aspecto={elegidoPara(munecos, c.titulo)} animo={animoDe(c)} size={sub ? 30 : 38} espera={espera} />
+          <span className="co-fila__cuerpo">
+            <span className="co-fila__l1">
+              <span className="co-fila__titulo">{sub ? partesDelNombre(c.titulo).sub : c.titulo}</span>
+              <span className="co-fila__hace">{edad(c.actividad, ahora)}</span>
+            </span>
+            <Previa c={c} p={previas.get(c.clave) ?? null} espera={espera} />
+          </span>
+        </button>
+        <button type="button" className="co-fila__mas" aria-label={`Opciones de ${c.titulo}`} title="Opciones"
+          onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); abrirMenu(c.clave, r.left, r.bottom + 4); }}>
+          <Icon name="mas" size={16} />
+        </button>
+      </div>
+    );
+  };
+
   return (
     <div className="co" data-con-chat={conChat && actual ? 'true' : 'false'}>
       <aside className="co-barra" aria-label="Chats">
@@ -236,25 +327,15 @@ export function CentroApp({ base, colaInicial, carterosIniciales, decisionesInic
                     <span className={`co-chev${plegada ? ' co-chev--cerrado' : ''}`} aria-hidden><Icon name="chevron" size={14} /></span>
                   </button>
                 )}
-                {!plegada && corte.map((c) => (
-                  <button
-                    key={c.clave} type="button" title={c.titulo}
-                    className={`co-fila${c.sesion ? '' : ' co-fila--sin-dir'}`}
-                    aria-current={actual?.clave === c.clave ? 'true' : undefined}
-                    onClick={() => elegir(c.clave)}
-                  >
-                    <Muneco titulo={c.titulo} animo={animoDe(c)} size={38} espera={esperas[c.clave] ?? 0} />
-                    <span className="co-fila__cuerpo">
-                      <span className="co-fila__l1">
-                        <span className="co-fila__titulo">{c.titulo}</span>
-                        {/* La cuenta, sólo si otro chat se llama igual: sin ella no se distinguen. */}
-                        {c.cuenta && repetidos.has(tituloNormal(c.titulo)) && <span className="co-chip-cuenta">{nombreCuenta(c.cuenta)}</span>}
-                        <span className="co-fila__hace">{edad(c.actividad, ahora)}</span>
-                      </span>
-                      <Previa c={c} p={previas.get(c.clave) ?? null} espera={esperas[c.clave] ?? 0} />
-                    </span>
-                  </button>
-                ))}
+                {!plegada && (k === SECCION_CHATS
+                  // Los sub-chats con su jefe; un grupo cuyo jefe no está en la lista lleva su nombre arriba.
+                  ? porJefe(corte).map((g) => (
+                    <div key={g.clave} className="co-jefe">
+                      {g.chat ? fila(g.chat, false) : <p className="co-jefe__nombre">{g.jefe}</p>}
+                      {g.subs.length > 0 && <div className="co-jefe__subs">{g.subs.map((s) => fila(s, true))}</div>}
+                    </div>
+                  ))
+                  : corte.map((c) => fila(c, false)))}
                 {!plegada && !todas && lista.length > corte.length && (
                   <button type="button" className="co-mas" onClick={() => setEnteras((s) => alternar(s, k))}>{`Mostrar ${lista.length - corte.length} más`}</button>
                 )}
@@ -280,7 +361,10 @@ export function CentroApp({ base, colaInicial, carterosIniciales, decisionesInic
           <Conversacion
             chat={actual} pedidos={porId} trabajos={trabajos} pushes={pushes?.ok ? pushes.pushes : null} ahora={ahora}
             avance={avance} onAvance={cambiarAvance}
-            espera={esperas[actual.clave] ?? 0}
+            aspecto={elegidoPara(munecos, actual.titulo)}
+            onMenu={(x, y) => abrirMenu(actual.clave, x, y)}
+            onMuneco={() => setEligiendo({ clave: actual.clave, aspecto: aspectoDe(actual.titulo, elegidoPara(munecos, actual.titulo)), guardando: false })}
+            espera={esperaDe(actual, esperas)}
             envio={envio} texto={texto} onTexto={setTexto} alcance={alcance} onAlcance={setAlcance} enviando={enviando}
             onMandar={mandar} onCrearClave={crearClave}
             onCopiarClave={() => firma.clave && copiarConAviso(firma.clave.spki, 'Copiado: pégalo en el Runner')}
@@ -303,6 +387,34 @@ export function CentroApp({ base, colaInicial, carterosIniciales, decisionesInic
         // Alto fijo: pasar de la lista al alta no cambia el tamaño de la caja (AGENTS.md → «Una caja cuyo alto es un TOPE»).
         <Modal titulo={<TituloRunner vista={runner} onVista={setRunner} />} onCerrar={() => setRunner(null)} ancho={640} alto="min(600px, 90dvh)">
           <PanelRunner vista={runner} onVista={setRunner} estado={estado} clave={firma.clave} ahora={ahora} onCrearClave={crearClave} onCopiar={copiarConAviso} />
+        </Modal>
+      )}
+      {menu && delMenu && (
+        <MenuContextual punto={{ x: menu.x, y: menu.y }} titulo={delMenu.titulo} onCerrar={() => setMenu(null)} onElegir={elegirEnMenu}
+          items={[
+            ...(delMenu.sesiones.length ? [{ id: 'renombrar', label: 'Renombrar', icono: 'renombrar' as const }] : []),
+            { id: 'muneco', label: 'Cambiar su muñeco', icono: 'emoji' as const },
+          ]} />
+      )}
+      {renombrando && deRenombre && (
+        <Modal titulo="Renombrar" onCerrar={() => setRenombrando(null)} ancho={480}
+          pie={<Button loading={renombrando.mandando} onClick={renombrar}>Renombrar</Button>}>
+          <form onSubmit={(e) => { e.preventDefault(); renombrar(); }} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <Field label="Nombre" hint="Para ponerlo dentro de su jefe: CRM › Lead Detail" error={renombrando.error ?? undefined}>
+              <Input data-autofocus value={renombrando.texto} maxLength={120} disabled={renombrando.mandando}
+                onChange={(e) => setRenombrando({ ...renombrando, texto: e.target.value, error: null })} />
+            </Field>
+            <p className="co-nota">{new Set(deRenombre.sesiones.map((s) => s.cuenta)).size > 1 ? `Se renombra en sus ${new Set(deRenombre.sesiones.map((s) => s.cuenta)).size} cuentas.` : 'Se renombra en la app de Claude.'}</p>
+          </form>
+        </Modal>
+      )}
+      {eligiendo && deMuneco && (
+        <Modal titulo="Su muñeco" onCerrar={() => setEligiendo(null)} ancho={760} alto="min(560px, 90dvh)"
+          pie={<>
+            {elegidoPara(munecos, deMuneco.titulo) && <Button variant="tertiary" disabled={eligiendo.guardando} onClick={() => guardarElegido(null)}>Volver al de siempre</Button>}
+            <Button loading={eligiendo.guardando} onClick={() => guardarElegido(eligiendo.aspecto)}>Guardar muñeco</Button>
+          </>}>
+          <ElegirMuneco titulo={deMuneco.titulo} animo={animoDe(deMuneco)} aspecto={eligiendo.aspecto} onCambio={(a) => setEligiendo({ ...eligiendo, aspecto: a })} />
         </Modal>
       )}
       <Toast state={toast} onClose={clear} />

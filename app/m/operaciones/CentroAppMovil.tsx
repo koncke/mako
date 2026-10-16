@@ -19,6 +19,7 @@ import type { LecturaPushes } from '@/lib/progreso';
 import type { EstadoCarteros, Pedido } from '@/lib/operaciones';
 import { carteroVivo } from '@/lib/operaciones-reglas';
 import { completarChats, esperasPorChat, type ChatCentro, type DecisionEspera, type TrabajoP } from '@/lib/centro-chats';
+import type { MunecosElegidos } from '@/lib/centro-munecos';
 import { fotoCentroAction, pushesCentroAction } from '@/app/admin/operaciones/acciones';
 import { copiar, useFirma } from '@/app/admin/operaciones/mandar';
 import { RunnerMovil } from './RunnerMovil';
@@ -32,12 +33,14 @@ const trabajoDe = (p: Pedido): TrabajoP => ({
   texto: p.texto, estado: p.estado, motivo: p.motivo, entregado_at: p.entregado_at, cerrado_at: p.cerrado_at, cierre: p.cierre,
 });
 
-export function CentroAppMovil({ base, colaInicial, carterosIniciales, decisionesIniciales, pedidos, ahora: ahoraServer, sub }: {
+export function CentroAppMovil({ base, colaInicial, carterosIniciales, decisionesIniciales, munecosIniciales, pedidos, ahora: ahoraServer, sub }: {
   /** La mitad de la lista que sale de las bitácoras (lib/centro-chats.ts → chatsDeBitacoras). */
   base: ChatCentro[];
   colaInicial: Pedido[] | null;
   carterosIniciales: EstadoCarteros | null;
   decisionesIniciales: DecisionEspera[] | null;
+  /** Los muñecos que Martín eligió, por nombre (lib/centro-munecos-db.ts). */
+  munecosIniciales: MunecosElegidos;
   pedidos: PedidoP[];
   ahora: number;
   sub: string;
@@ -49,6 +52,7 @@ export function CentroAppMovil({ base, colaInicial, carterosIniciales, decisione
   const [ahora, setAhora] = useState(ahoraServer);
   const [pushes, setPushes] = useState<LecturaPushes | null>(null);
   const [runners, setRunners] = useState(false);
+  const [munecos, setMunecos] = useState<MunecosElegidos>(munecosIniciales);
   const toast = useToastM();
   const firma = useFirma(sub);
 
@@ -81,6 +85,7 @@ export function CentroAppMovil({ base, colaInicial, carterosIniciales, decisione
       <ChatsM
         chats={chats} carteros={carteros} pedidos={pedidos} trabajos={trabajos} pushes={pushes?.ok ? pushes.pushes : null} ahora={ahora}
         esperas={esperas} firma={firma} onEnviado={(t) => { setLocales((l) => [t, ...l]); refrescar(); }}
+        munecos={munecos} onMunecos={setMunecos}
       />
       <ListaM etiqueta="Runners">
         <FilaM icono="config" titulo="Runners" segunda={`${activos} de ${carteros.length} activos`} onClick={() => setRunners(true)} navegacion />
