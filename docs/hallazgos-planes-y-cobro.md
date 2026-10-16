@@ -613,6 +613,22 @@ a MaKo la respuesta vieja SIN crear otra devolución. El reintento lleva el `upd
 (`remarcarCobroDeProveedor`) · `lib/cobros-reglas.ts` (`textoDevolucionFallida`, `idemReembolso`) ·
 `tests/devolucion-fallida.test.ts`.
 
+### «Lo devuelto no es deuda» vivía en un filtro que no todas las lecturas tienen (15/10/2026)
+
+**Síntoma:** después de un reembolso, el Outstanding (sin ventana), «A quién cobrarle» y el Revenue del Dashboard con
+«Todo» seguían sumando la cuota devuelta como plata por cobrar.
+**Causa:** `desmarcarCobroDeProveedor` deja la cuota devuelta impaga y SIN vencimiento, confiando en que las lecturas de
+deuda filtran por `fecha_esperada`. Muchas lo hacen (el Outstanding con ventana, la cobranza, el calendario), y por eso
+parecía resuelto. Pero las que suman TODA cuota impaga no filtran: `getOutstandingDetalle` sin ventana,
+`getOutstandingTotal`, y el Revenue con «Todo», que suma a propósito las cuotas sin fecha porque una cuota del plan sin
+fecha SÍ es deuda.
+**Regla:** «sin vencimiento» no alcanza para decir «devuelta» (la cuota del plan sin fecha tampoco tiene). Toda lectura
+de cuotas impagas que NO filtre por vencimiento saca las devueltas con `esCuotaDevuelta` (lib/cobrado-lead.ts: impaga +
+sin vencimiento + con pasarela), y pide las columnas que la regla mira (`proveedor`, `cobro_id`): sin ellas en el select,
+la regla da «no devuelta» para todas y no saca nada, sin error.
+**Vive en:** `lib/pagos.ts` (`getOutstandingDetalle`, `getOutstandingTotal`) · `lib/graficos-datos-extra.ts`
+(`filasRevenue`) · `tests/outstanding-sin-devueltas.test.ts`.
+
 ### Cuatro «decisiones de Martín» que no eran suyas (15/10/2026)
 
 La tabla de abajo tenía seis filas marcadas «decisión de Martín». Pasadas por la vara de AGENTS.md (lo que copia lo que
@@ -673,7 +689,6 @@ implementación en un worktree propio (`C:/dev/wt-pagos`) y una rama aparte para
 | **Pasarela (revisión):** el MRR al cancelar una suscripción redondea por meses (puede contar un mes de más o de menos) | `lib/cobros-reglas.ts` (`mesesTranscurridos`) |
 | **Pasarela (revisión):** la fecha de la cuota es la del procesamiento, no la del pago (un aviso tardío la corre de mes) | `lib/cobros.ts` (`aplicarPagoAprobado`) |
 | **Pasarela (decidido 15/10):** un lead de pago único que paga un link de SUSCRIPCIÓN sigue de pago único, y su mensualidad tiene que contar en el MRR desde el cobro activo | `lib/queries.ts` (`getMrrActivo`) |
-| **Pasarela (b2):** el Outstanding del Dashboard cuenta como deuda las cuotas devueltas por un reembolso | `lib/pagos.ts` (`getOutstandingTotal` y su detalle) |
 
 *Corrida del 04/10/2026, 12 agentes. Las refutaciones dieron vuelta nueve afirmaciones; las
 tres que más cambiaron el plan están arriba (la cuenta del runway, el margen del 47 y el

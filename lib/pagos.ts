@@ -1027,15 +1027,18 @@ async function _getRevenueBreakdowns(start: string, end: string): Promise<Revenu
   return { sold, cash, outstanding };
 }
 
-/** Outstanding global: Σ monto_usd de pagos NO pagados (lo que falta cobrar). */
+/**
+ * Outstanding global: Σ monto_usd de pagos NO pagados (lo que falta cobrar). Sin las cuotas DEVUELTAS por un
+ * reembolso (`esCuotaDevuelta`): quedan impagas en la tabla para el historial y no son deuda (15/10/2026).
+ */
 export async function getOutstandingTotal(): Promise<number> {
   const supabase = (await getTenantDb());
   const { data, error } = await supabase
     .from('pagos')
-    .select('monto_usd')
+    .select('monto_usd, pagado, fecha_esperada, proveedor, cobro_id')
     .eq('pagado', false);
   if (error) throw new Error(`Error sumando outstanding: ${error.message}`);
-  return (data ?? []).reduce((s, p) => s + Number(p.monto_usd ?? 0), 0);
+  return (data ?? []).filter((p) => !esCuotaDevuelta(p)).reduce((s, p) => s + Number(p.monto_usd ?? 0), 0);
 }
 
 export type OutstandingLead = {
@@ -1070,7 +1073,7 @@ async function _getOutstandingDetalle(
   const supabase = (await getTenantDb());
   const { data, error } = await supabase
     .from('pagos')
-    .select('id, lead_id, numero, monto_usd, fecha_esperada, pagado, leads(nombre, monto_cierre_usd, fecha_cierre)');
+    .select('id, lead_id, numero, monto_usd, fecha_esperada, pagado, proveedor, cobro_id, leads(nombre, monto_cierre_usd, fecha_cierre)');
   if (error) throw new Error(`Error leyendo detalle de outstanding: ${error.message}`);
 
   type Row = {
@@ -1080,6 +1083,8 @@ async function _getOutstandingDetalle(
     monto_usd: number;
     fecha_esperada: string | null;
     pagado: boolean;
+    proveedor: string | null;
+    cobro_id: number | null;
     leads: { nombre: string; monto_cierre_usd: number | null; fecha_cierre: string | null } | { nombre: string; monto_cierre_usd: number | null; fecha_cierre: string | null }[] | null;
   };
 
@@ -1097,7 +1102,9 @@ async function _getOutstandingDetalle(
   const cuotaLabel = (n: number) => (n === 0 ? 'cobro inicial' : `cuota ${n}`);
 
   for (const [leadId, rows] of porLead) {
-    let noPagados = rows.filter((r) => !r.pagado);
+    // ⚠️ Sin las DEVUELTAS por un reembolso (15/10/2026): sin ventana, una cuota devuelta (impaga y sin vencimiento)
+    // sumaba como deuda en el Outstanding y en «A quién cobrarle». Con ventana ya quedaba afuera (no tiene vencimiento).
+    let noPagados = rows.filter((r) => !r.pagado && !esCuotaDevuelta(r));
     // Filtro de fecha de Comercial: "lo que se está por cobrar en el intervalo"
     // = cuotas SIN pagar cuyo VENCIMIENTO (fecha_esperada) cae dentro de la
     // ventana. Sin ventana, es el outstanding total a hoy.
