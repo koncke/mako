@@ -59,7 +59,9 @@ modo claro** (`b401cd017`, «pon en white mode la tab de Second Brain»). Las ci
   «Elegir qué datos te avisa MaKo» (el lead ficticio y «¿Ignorar siempre?» → desmarca «Obligatorio»).
 - [x] **8, en parte.** El botón y el panel de MaKo del CRM, a la IZQUIERDA (app/crm/mako-crm/PanelMakoCrm.tsx): el
   layout le reserva siempre a la barra su ancho plegado (`RAIL`, app/_components/Sidebar.tsx), así que el botón va a
-  `RAIL + 20` y el panel abre desde `RAIL`. Falta la cara del Second Brain en el chat y el muñeco de la tab.
+  `RAIL + 20` y el panel abre desde `RAIL`. Y (`2eb7b00e3`) con el MUÑECO del CRM en vez de la estrella (el de
+  app/admin/operaciones/Muneco.tsx, que sale del nombre de la tab). Falta la cara del Second Brain en el chat
+  (app/crm/mako-crm/ChatMakoCrm.tsx) y el muñeco en los chats de las demás tabs (Dashboard, …).
 - [x] **7.** Se borró la vista `/crm?pendientes=1` entera (y el «marcar en lote» que vivía en ella): la URL vieja abre el
   tablero; los datos sin marcar se resuelven en «A revisar», que abre la ficha encima. Test:
   tests/worklist-pendientes.test.ts. El ejemplo de app/admin/ui/Gramatica.tsx ya no manda ahí (`c57c29ded`).

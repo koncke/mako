@@ -64,6 +64,7 @@ export const HECHO: SeccionChecklist[] = [
     { id: 'crm-galeria-sola', t: 'La galería ya no se abre sola: cada tab usa su sugerida; tocar un template lo elige.' },
     { id: 'crm-asignar-evento', t: '«Asignar evento» en el «⋯» de las etapas de reunión (Calendly y Cal.com).', ruta: '/crm' },
     { id: 'crm-obligatorio', t: 'Ficha en edición: «Obligatorio» en cada bloque decide qué entra en «datos sin marcar».' },
+    { id: 'crm-muneco', t: 'El botón y el panel de MaKo del CRM, con el muñeco del CRM en vez de la estrella.', ruta: '/crm' },
   ] },
   { titulo: 'Automations', items: [
     { id: 'aut-flechas', t: 'Toda flecha se desconecta; el paso con IA escucha notas de voz.', ruta: '/automations' },
