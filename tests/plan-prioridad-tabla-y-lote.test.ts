@@ -75,9 +75,13 @@ test('una selección entera que ya está en la banda no mueve nada', () => {
   assert.equal(enOrdenParaLaBanda(filas, 'alta', score).length, 0);
 });
 
-test('el número de cada banda es el MISMO que usa el pop-up al soltar en una columna', () => {
-  // Dos escalas para la misma pregunta es cómo se separan: el lote y el arrastre salen de
-  // `scoreFromPrio`, y el representativo tiene que caer DENTRO de su propia banda.
+// ⚠️ TÍTULO ACTUALIZADO A PROPÓSITO EL 16/10/2026: decía «…que usa el pop-up al soltar en una
+// columna», y desde «hacer el kanban un kanban» las columnas del Kanban de tareas son el ESTADO y
+// soltar no abre ningún pop-up. La escala sigue siendo una sola para el lote y para la grilla de
+// proyectos (que sigue por banda): la aserción no cambió.
+test('el número de cada banda es el MISMO para el lote y para la grilla de proyectos', () => {
+  // Dos escalas para la misma pregunta es cómo se separan: el lote y el arrastre de proyectos
+  // salen de `scoreFromPrio`, y el representativo tiene que caer DENTRO de su propia banda.
   for (const p of ['alta', 'media', 'baja', 'futuro'] as const) {
     assert.equal(prioFromScore(scoreFromPrio[p]), p, `el representativo de ${p} cae en otra banda`);
   }

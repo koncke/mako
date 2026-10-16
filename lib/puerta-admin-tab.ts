@@ -35,3 +35,12 @@ export async function soloAdminDeTab(nav: string): Promise<Response | null> {
   if (!tabEnCapa(nav, await getCapaActual())) return cerrada(404, 'No existe');
   return null;
 }
+
+/**
+ * La misma puerta como sí/no, para una PÁGINA que entra a más gente y muestra una parte sólo al admin: el Mapa del
+ * Second Brain (16/10/2026), que el chat no necesita y un closer o un setter no ven. El corte va en el SERVIDOR (lo
+ * que no se ve no se calcula ni viaja), con la regla de `soloAdminDeTab` y no con una copia.
+ */
+export async function esAdminDeTab(nav: string): Promise<boolean> {
+  return (await soloAdminDeTab(nav)) == null;
+}

@@ -130,7 +130,7 @@ export const CATALOGO_MODELOS: FeatureModelo[] = [
   // gratis (uno pago se ignora), y la red de plataforma es la de las keys gratis, sin el crédito de Claude. Degradarse
   // es aceptable: lo que contesta se VALIDA (lib/mako-pedidos.ts) y, si no sirve, quedan las reglas. `pii` se decide
   // por MENSAJE (un email, un teléfono, una tab de leads), no acá.
-  { feature: 'mako-pedidos', label: 'Separar los pedidos de un mensaje (chats de MaKo)', grupo: 'MaKo', def: GEMINI(), recomendado: GEMINI(), pii: false, nota: 'Cuando un mensaje a un chat de MaKo mezcla cosas («esto, y también créame otra landing»), separa los pedidos y dice el verbo, la sección y la frase que nombra el objeto. El objeto, la acción y el link los decide el código. Sólo IA gratis, con un plazo de 9 s: si no llega, siguen las reglas.' },
+  { feature: 'mako-pedidos', label: 'Separar los pedidos de un mensaje (chats de MaKo)', grupo: 'MaKo', def: GROQ('openai/gpt-oss-120b'), recomendado: GROQ('openai/gpt-oss-120b'), pii: false, nota: 'Cuando un mensaje a un chat de MaKo mezcla cosas («esto, y también créame otra landing»), separa los pedidos y dice el verbo, la sección y la frase que nombra el objeto. El objeto, la acción y el link los decide el código. Sólo IA gratis, Groq primero (1,4 s medido; Gemini 6-11 s), con un plazo de 7 s: si no llega, siguen las reglas.' },
 
   // ── Análisis pesado sobre datos reales → OPUS (los únicos que se quedan) ─────
   // Decisión del dueño (2026-08-13): baja de Opus a Sonnet. Sigue siendo PAGO a

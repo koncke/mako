@@ -389,22 +389,32 @@ coordinador «Estrategia 3 cuentas», de a uno (el atributo nuevo tenía que est
   fondo se comporta (hallazgos → «Tanda 8» → «La verificación de la publicada»). De ahí salió el tope de 5 s de los
   títulos partidos (WCAG 2.2.2).
 
-## Los pedidos sueltos en el chat (16/10/2026, cuenta claude3, chat «Landing Generator»): commiteado, SIN pushear
+## Los pedidos sueltos en el chat (16/10/2026, cuenta claude3, chat «Landing Generator»): EN PRODUCCIÓN
 
 Pedido de Martín por Cerebro (textual en la bitácora y en `docs/diseno-mako-pedidos.md`): que todos los chats de MaKo
 separen un mensaje con varias cosas, sepan cuál es «la otra» sin que la nombre, propongan el orden y dejen el link de
-otra tab. Worktree `C:/dev/wt-web-pedidos`, rama `web-pedidos`, commits `f8c69a7bd` y `195df92d2`. Lo aprendido:
-`docs/hallazgos-ia.md` → «Los pedidos sueltos en los chats»; la regla para código nuevo, en AGENTS.md.
+otra tab. Worktree `C:/dev/wt-web-pedidos`, rama `web-pedidos`. Los pushes los hace Cerebro:
 
-**Lo que tiene que mirar Martín con clics** (sobre su negocio, sin `?ws=`), en el chat del agente de una landing:
-1. «Cambia el título del hero por algo más corto»: edita como siempre, sin burbujas.
-2. «Mejora el título. Y luego y también quiero que me crees otra landing para mi otro producto»: edita el título y
-   pregunta «¿Terminamos esto y después creamos otra landing?» con Sí / Después. Aceptar o descartar el cambio y
-   después «Sí» (o «Sí» antes: espera) abre Crear con IA con el pedido.
-3. «Borra la otra landing» (con dos landings más): pregunta cuál, con las dos últimas que tocó. Con una sola, pide
-   confirmar y la manda a la Papelera.
-4. «Agéndame una reunión con Juan el viernes»: deja el link al CRM.
+| Commits | Qué | main |
+|---|---|---|
+| `f8c69a7bd` `195df92d2` `22fc0aad8` | el módulo, la ruta y el chat del Web Generator; el «Sí» que espera | run 42 (`2f913cddc`) Ready |
+| `44a389c64` `019ffdb00` | los objetos de Image Editor, Dashboard (hojas) y Video Editor (los manda el navegador) | run 43 |
+| `5203f1495` `f0e93221b` | la IA de los pedidos no corría nunca: sin la cascada, Groq primero | run 45 |
 
-**Lo que sigue, con su archivo:** Automations (su función en `objetosDeTab` de `app/api/mako/pedidos/route.ts` y el
-fetch en su chat) y el chat del Second Brain, que los engancha el Centro; correr la operación de otra tab desde la
-burbuja (hoy el link). No se probó con la IA de verdad ni en el navegador (la regla de RAM).
+Lo aprendido: `docs/hallazgos-ia.md` → «Los pedidos sueltos en los chats» (y por qué la cascada no sirve para un plazo
+de segundos); `docs/hallazgos-editor-landing.md` → «Los pedidos sueltos en el chat del agente» y «Mirado con clics en
+producción»; la regla para código nuevo, en AGENTS.md.
+
+**Mirado con clics en producción el 16/10** (ws9, la IA de verdad): los cuatro casos bien (lo actual, el mixto con
+Sí / Después, «borra la otra landing» con las dos más recientes y la Papelera, y el link al CRM).
+
+**Lo que sigue, decidido por Cerebro el 16/10, con su archivo:**
+1. La edición con IA del editor (`landing-editor-ia`, `lib/editor-landing/ia.ts` + `lib/model-catalogo.ts`): tarda de
+   12 a 65 s en Gemini. Probar Groq primero, medir antes y después; si la salida no entra en su techo, Gemini queda de
+   respaldo.
+2. «Mi otro producto» al crear: que pregunte cuál, con los productos del negocio (`lib/mako-pedidos.ts` arma el pedido
+   `nuevo`; `app/web-generator/editor/pedidos-chat.ts` dibuja la burbuja).
+3. «Crear ahora» con su propio estilo (hoy se parece a las sugerencias): `app/web-generator/editor/paneles/PanelAgente.tsx`.
+- No tocar: el modelo muerto de OpenRouter en `MODELO_DOCS` (lib/ai-cheap.ts) lo arregla Onboarding.
+- De otros chats: Automations engancha su chat y su función de `objetosDeTab`; el Centro, el chat del Second Brain;
+  los chats de Image Editor, Dashboard y Video Editor llaman a la ruta (el de Video Editor manda `objetos`).

@@ -191,7 +191,7 @@ test('11: la base suma con compare-and-set dentro de la ventana, revisa contra l
   assert.match(ruta, /await veEditorVideo\(\)/);
   assert.match(ruta, /if \(body\.estado !== 'aplicada' && body\.estado !== 'descartada'\)/);
   assert.match(ruta, /persona: p\.persona/, 'quien la cerró sale de la sesión');
-  const sql = readFileSync(join(RAIZ, 'supabase', 'migrations', '0300_video_editor_propuestas.sql'), 'utf8').replace(/^\s*--.*$/gm, '');
+  const sql = readFileSync(join(RAIZ, 'supabase', 'migrations', '0302_video_editor_propuestas.sql'), 'utf8').replace(/^\s*--.*$/gm, '');
   assert.match(sql, /alter table video_editor_propuestas enable row level security;/);
   assert.match(sql, /revoke all on video_editor_propuestas from anon, authenticated;/);
   assert.match(leer('lib', 'workspace.ts'), /'video_editor_propuestas',/);

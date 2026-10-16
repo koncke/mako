@@ -73,6 +73,34 @@ export function clasificarReunion(
   return 'otra';
 }
 
+/**
+ * POR QUÉ quedó en ese tipo, en una línea que se dibuja (16/10/2026, «Fathom sin fricción»).
+ *
+ * El cron descarta las de ventas y las «otra», y hasta ese día el único rastro era un
+ * `console.log` en Vercel: para el dueño una reunión descartada era igual a una que nunca existió.
+ * Ahora queda escrita (mig 0300) y se muestra en el modal de Fathom con «Leer igual», y el motivo
+ * tiene que decir QUÉ vio el clasificador —el correo que lo decidió—, para que la persona pueda
+ * desmentirlo sin abrir la grabación. Recorre lo MISMO que `clasificarReunion`, en el mismo orden:
+ * si divergieran, el motivo explicaría otro veredicto.
+ */
+export function motivoDelTipo(
+  m: FathomMeeting,
+  leadsByEmail: Map<string, { estado_lead: string | null }>,
+  equipoEmails: Set<string>,
+): string {
+  for (const e of emailsInvitadosExternos(m)) {
+    const lead = leadsByEmail.get(e);
+    if (lead) return lead.estado_lead === 'ganado'
+      ? `${e} es cliente tuyo: es una reunión de entrega.`
+      : `${e} está en tu CRM como prospecto: es una llamada de ventas.`;
+  }
+  const todos = emailsDeLaReunion(m);
+  for (const e of todos) if (equipoEmails.has(e)) return `${e} es de tu equipo.`;
+  if (!todos.length) return 'No tiene invitados con correo: no sé de quién es.';
+  const lista = todos.slice(0, 3).join(', ') + (todos.length > 3 ? ` y ${todos.length - 3} más` : '');
+  return `No reconocí a nadie: ${lista} no ${todos.length === 1 ? 'es' : 'son'} de tu equipo ni de tu CRM.`.slice(0, 300);
+}
+
 /** Etiqueta y color de cada tipo, para la UI del selector. */
 export const TIPO_REUNION_UI: Record<TipoReunion, { label: string; tono: 'good' | 'blue' | 'warn' | 'gris' }> = {
   entrega: { label: 'Entrega', tono: 'good' },

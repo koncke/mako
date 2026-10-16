@@ -760,6 +760,13 @@ de adjuntar archivos o imagenes al chat».
 · `lib/centro-chats.ts` (`porRevisar`, `enlaceRevisar`) · `app/admin/operaciones/Microfono.tsx` ·
 `tests/centro-revisar.test.ts`
 
+## «Copiar comando» con el nombre vacío: un objeto nunca es falso (16/10/2026)
+
+`nombreValido` devuelve `{ ok, … }`, y en tres lugares se lo usaba como booleano: `!nombreValido(…)` en
+`CentroApp.tsx` y `ChatsMovil.tsx` daba siempre `false`, y `valido ?` en `NuevoChat.tsx` siempre verdadero. Con el
+nombre vacío se armaba `claude1 -n ''`. **El typecheck no lo ve**: un objeto en una condición es TypeScript válido.
+Lo encontró el relevamiento de la etapa 2, no un test. Se mira `.ok`, y `tests/centro-fila.test.ts` lo fija.
+
 ## El Plan adentro de cada jefe: las operaciones de la API, aplicadas en el acto, por una RUTA (16/10/2026)
 
 **El pedido.** «Los chats y el Centro deberían poder conectarse con el PLAN... Crear tareas nuevas, marcar como

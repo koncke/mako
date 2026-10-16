@@ -385,7 +385,7 @@ export const BITACORA: Hito[] = [
     ],
     commits: [
       { sha: '09613eebb', msg: 'Diagnóstico de una landing: red de plataforma cuando las keys del cliente no contestan, y el texto con la causa real', lineas: 263, archivos: 6 },
-      { sha: 'fd3bb3687', msg: 'Landing Analyst: la red de plataforma también en la tab, y un JSON roto hace probar con otro proveedor', lineas: 70, archivos: 4 },
+      { sha: 'fd3bb3687', msg: 'Landing Analyst: la red de plataforma también en la tab, y un JSON roto hace probar con otro proveedor', lineas: 65, archivos: 4 },
     ],
     archivos: [
       'lib/anthropic.ts — chatClaude le pasa a la cascada la red, validar y los errores',
@@ -601,6 +601,39 @@ export const BITACORA: Hito[] = [
     archivos: [
       'app/api/mako/pedidos/route.ts — objetosDeTab: imagen y metricas; los objetos del navegador para video',
       'lib/mako-pedidos.ts — PARTES_DE_LO_ABIERTO por tab y objetosDelNavegador',
+    ],
+  },
+  {
+    fecha: '16 oct', hora: '10:25', chat: 'Landing Generator', sesion: 'local_0c7ad2f8-3540-4e69-8d37-574de8292f80', cuenta: 'claude3',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Los pedidos sueltos mirados con clics en producción: los cuatro casos bien, y la IA que no llegaba nunca',
+    puntos: [
+      'Pedido de Cerebro: mirar con clics, en ws9 y con la IA de verdad, los cuatro casos del chat de una landing. Los cuatro salieron bien, en tres landings de prueba que después fueron a la Papelera.',
+      'Lo que se encontró: la IA de los pedidos no contestaba nunca. La cascada barata gastaba su plazo antes del primer proveedor, y un mensaje mixto esperaba 5-9 s para nada. Ahora prueba las keys en orden, Groq primero (1,4 s contra 6-11 s de Gemini): 3-5,5 s, y separa bien lo que las reglas solas perdían.',
+      'Anotado sin tocar: la edición con IA del editor tarda de 12 a 65 s (Gemini piensa en low), «mi otro producto» no se resuelve al crear, «Crear ahora» se parece a las sugerencias, y el modelo gratis de OpenRouter de la cascada ya no existe.',
+    ],
+    commits: [
+      { sha: '5203f1495', msg: 'MaKo entiende los pedidos mezclados también cuando las reglas dudan: la IA no llegaba nunca a contestar', lineas: 231, archivos: 7 },
+    ],
+    archivos: [
+      'lib/mako-pedidos.ts — probarEnOrden: las cuentas en orden, cada intento acotado, con un test de reloj falso',
+      'lib/mako-pedidos-ia.ts — sin la cascada, Groq primero',
+    ],
+  },
+  {
+    fecha: '16 oct', hora: '10:47', chat: 'Landing Generator', sesion: 'local_0c7ad2f8-3540-4e69-8d37-574de8292f80', cuenta: 'claude3',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: '«Crear ahora» con su propio estilo, y por qué la edición con IA sigue en Gemini',
+    puntos: [
+      'Pedido de Cerebro: «Crear ahora» se confundía con las sugerencias del chat. Ahora va azul y con un «+»; las opciones de «¿Cuál?» y los links, en contorno.',
+      'Probado Groq para la edición con IA, como en los pedidos: 7,5-11 s contra 19-33 s de Gemini, pero en 1 de 3 pruebas tocó el título en vez del subtítulo y en otra cambió el sentido. Sigue Gemini; la medición quedó en los hallazgos.',
+    ],
+    commits: [
+      { sha: '53c299c95', msg: 'Web Generator: «Crear ahora» ya no se confunde con las sugerencias del chat', lineas: 65, archivos: 4 },
+    ],
+    archivos: [
+      'app/web-generator/editor/pedidos-chat.ts — VarianteBoton sin secundario, «Crear ahora» con icono',
+      'docs/hallazgos-editor-landing.md — la tabla Gemini / Groq de la edición con IA',
     ],
   },
 ];

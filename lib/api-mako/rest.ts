@@ -84,6 +84,8 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['GET', '/plan/proyectos', 'listar_proyectos_plan'],
   ['GET', '/plan/proyectos/vacios', 'listar_proyectos_vacios'],
   ['GET', '/plan/proyectos/{proyectoId}', 'ver_proyecto_plan'],
+  // El avance de «Re-priorizar todo» (16/10/2026). Arrancarlo no sale por HTTP (llama al Perro).
+  ['GET', '/plan/repriorizacion', 'ver_repriorizacion_plan'],
   ['GET', '/plan/resumen', 'ver_plan'],
   ['GET', '/plan/reuniones/{recordingId}/borrador', 'ver_borrador_de_reunion'],
   ['GET', '/plan/senales', 'ver_senales_negocio'],
@@ -93,6 +95,8 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['GET', '/plan/tareas/sin-fecha', 'listar_tareas_sin_datos'],
   ['GET', '/plan/tareas/vencidas', 'listar_tareas_vencidas'],
   ['PUT', '/plan/tareas/{id}/avance', 'actualizar_avance_tarea'],
+  // La columna del kanban (16/10/2026): un PUT idempotente, como el avance.
+  ['PUT', '/plan/tareas/{id}/estado', 'mover_tarea_plan'],
   // ── crm ───────────────────────────────────────────────────────────────────
   ['GET', '/crm/automatizaciones/confirmaciones', 'confirmaciones_crm_automatico'],
   ['PUT', '/crm/automatizaciones/confirmaciones/{id}/resolucion', 'resolver_confirmacion_crm'],

@@ -218,8 +218,13 @@ export function burbujasDe(i: Interpretacion, actualId: number | string): Burbuj
 // Lo que se dibuja
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type VarianteBoton = 'primario' | 'secundario' | 'contorno';
-export type BotonVista = { id: BotonId; texto: string; v: VarianteBoton; apagado: boolean; elegido: boolean };
+/**
+ * Sin `secundario` a propósito: es el celeste de las sugerencias del panel («Mejorar la escritura»…), y un botón de una
+ * burbuja con ese color se leía como un atajo más (visto con clics el 16/10/2026 con «Crear ahora»).
+ */
+export type VarianteBoton = 'primario' | 'contorno';
+/** `icono`: del catálogo de la landing (`Ico`); lo dibuja el panel delante del texto. */
+export type BotonVista = { id: BotonId; texto: string; v: VarianteBoton; apagado: boolean; elegido: boolean; icono?: string };
 export type LinkVista = { texto: string; href: string };
 export type VistaBurbuja = { texto: string; botones: BotonVista[]; links: LinkVista[]; nota: string | null; ocupado: boolean; error: boolean };
 
@@ -232,7 +237,8 @@ function botonesCrear(b: Extract<BurbujaPedido, { tipo: 'crear' }>): BotonVista[
     ({ id, texto, v, apagado: apagado || tambien, elegido: (apagado || tambien) && b.pulsado === id });
   // Esperando, «Sí» ya está dicho; «Después» sigue prendido por si cambia de idea.
   if (b.pregunta && !b.despues) return [boton('si', TEXTOS.si, 'primario', b.estado === 'esperando'), boton('despues', TEXTOS.despuesBoton, 'contorno')];
-  return [boton('crear-ahora', TEXTOS.crearAhora, b.despues ? 'secundario' : 'primario')];
+  // La acción de su burbuja: azul y con el «+», también después de «Después».
+  return [{ ...boton('crear-ahora', TEXTOS.crearAhora, 'primario'), icono: 'mas' }];
 }
 
 export function vistaDeBurbuja(b: BurbujaPedido): VistaBurbuja {
@@ -247,7 +253,7 @@ export function vistaDeBurbuja(b: BurbujaPedido): VistaBurbuja {
       return {
         ...vacia,
         texto: cual(b.candidatos[0], b.candidatos[1]),
-        botones: b.candidatos.map((o) => ({ id: `elegir:${o.id}` as const, texto: nombreCorto(o, EN_BOTON), v: 'secundario' as const, apagado: b.elegido !== null, elegido: b.elegido === o.id })),
+        botones: b.candidatos.map((o) => ({ id: `elegir:${o.id}` as const, texto: nombreCorto(o, EN_BOTON), v: 'contorno' as const, apagado: b.elegido !== null, elegido: b.elegido === o.id })),
       };
     case 'papelera': {
       const e = b.estado;

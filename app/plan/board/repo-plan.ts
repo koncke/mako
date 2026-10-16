@@ -16,6 +16,7 @@
 // history y el undo siguen en `useBoard`.
 
 import { type BoardTask, type Label, type Repo, type GuardPatch, type GuardProjPatch, type GuardResult } from './types';
+import type { Repriorizacion } from '@/lib/plan-repriorizar-nucleo';
 import { sanearDep, type Dep } from './dependencias';
 import { CATALOGO_PROYECTOS } from '@/lib/plan-proyectos-catalogo';
 
@@ -33,6 +34,12 @@ export async function apiPlan(body: Record<string, unknown>): Promise<{ ok: bool
  * `j.ok`: sin ese chequeo un 403/500/504 resolvía como ÉXITO y el board creía que
  * el Perro había corrido, no activaba el fallback y nadie se enteraba de nada.
  */
+/** «Re-priorizar todo» (16/10/2026): las dos acciones de /api/plan-board, con su forma. */
+async function apiRP(body: Record<string, unknown>): Promise<{ ok: boolean; trabajo?: Repriorizacion | null; yaCorria?: boolean; error?: string }> {
+  return fetch('/api/plan-board', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+    .then((r) => r.json()).catch((e) => ({ ok: false, error: String(e) }));
+}
+
 export function repoPlan(): Repo {
   return {
     labelMode: 'multi', labelSingular: 'Proyecto', labelPlural: 'Proyectos', fathomExtract: true, debatePrioridad: true, catalogo: CATALOGO_PROYECTOS,
@@ -54,8 +61,17 @@ export function repoPlan(): Repo {
     // ⚠️ SON DOS CAMPOS Y NO TRES DESDE LA 0167: la RRULE reemplazó a `frecuencia` +
     // `frecuencia_dia`, que eran dos columnas para un solo estado. Así que si alguna vez
     // hay que hacer enumerar a esa ruta, son `recurrente` y `recurrencia`, juntos.
-    saveTask: async (d) => { await apiPlan({ action: 'guardar-tarea', tarea: d }); },
+    // `progresoGuardado` (16/10/2026): lo que dice si ESTA pestaña tocó el avance — ver `guardarPlanTarea`.
+    saveTask: async (d, o) => { await apiPlan({ action: 'guardar-tarea', tarea: d, progresoGuardado: o?.progresoGuardado }); },
     deleteTask: async (id) => { await apiPlan({ action: 'borrar-tarea', id }); },
+    // MOVER EN EL KANBAN (16/10/2026). Una acción propia y no `saveTask`: el estado y el lugar
+    // NO viajan en el guardado de la fila entera (`guardarPlanTarea` los saca del payload, para
+    // que una pestaña vieja no devuelva de columna lo que se movió desde otra).
+    mover: async (id, estado, orden, opts) => {
+      const j = await apiPlan({ action: 'mover-tarea', id, estado, orden, motivo: opts?.motivo, historial: opts?.historial, progreso: opts?.progreso });
+      if (!j.ok || !j.tarea) throw new Error(j.error || 'No se pudo mover.');
+      return j.tarea;
+    },
     // ⚠️ Y LO MISMO A NIVEL PROYECTO (mig 0164): `Label.recurrente` tampoco necesita una
     // acción propia. Acá viaja el `Label` ENTERO, la ruta lo castea entero y `labelToRow` lo
     // escribe — y `guardarPlanProyecto` sólo saca del payload lo que decide el SERVER
@@ -66,7 +82,9 @@ export function repoPlan(): Repo {
     deleteLabel: async (id) => { await apiPlan({ action: 'borrar-proyecto', id }); },
     // La prioridad A MANO (el slider del detalle y el pop-up del arrastre). Vive acá y NO
     // en el repo del cliente a propósito: `/api/plan-board` es «solo admin» y `score_manual`
-    // (mig 0143) es una columna de `plan_tareas` que `experimento_tareas` no tiene.
+    // (mig 0143) es una columna de `plan_tareas`. ⚠️ (16/10/2026) La 0143 la agregó TAMBIÉN a
+    // `experimento_tareas`, aunque esto decía que no: el cliente la usa desde ese día como el
+    // candado de su slider (TodoBoard.tsx), sin cascada.
     // `lugar` y `deshacer` viajan tal cual: las vecinas a correr las decide el SERVER con el
     // tablero recién leído (`hacerLugar` adentro de `fijarPrioridadAMano`), no esta pestaña.
     prioridadManual: async (entidad, id, score, opts) => {
@@ -98,6 +116,21 @@ export function repoPlan(): Repo {
     delDep: async (entidad, deId, aId) => {
       const j = await apiPlan({ action: 'dep-del', entidad, deId, aId });
       return { ok: !!j.ok, deps: (j.deps ?? []).map(sanearDep).filter((x): x is Dep => x != null) };
+    },
+    // «RE-PRIORIZAR TODO» (16/10/2026, decisión 9): el trabajo en segundo plano. La misma función
+    // del server que el tablero del cliente (`accionDelTablero`); en el dueño, al final, corre el
+    // reparto y re-juzga los proyectos.
+    repriorizar: {
+      iniciar: async () => {
+        const j = await apiRP({ action: 'repriorizar' });
+        if (!j.ok || !j.trabajo) throw new Error(j.error || 'No se pudo arrancar.');
+        return { trabajo: j.trabajo, yaCorria: !!j.yaCorria };
+      },
+      estado: async (desde) => {
+        const j = await apiRP({ action: 'repriorizar-estado', desde });
+        if (!j.ok) throw new Error(j.error || 'No se pudo leer el avance.');
+        return j.trabajo ?? null;
+      },
     },
     ampliarTareas: async (items, fuente) => {
       const j = await apiPlan({ action: 'ampliar-tareas', items, fuente });

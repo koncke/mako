@@ -129,6 +129,8 @@ import {
 } from '@/lib/canal-social';
 import { enviarPasoSocial, conversacionesDeLeads, siguenEnInstagram, charlaSocialDelLead } from '@/lib/canal-zernio';
 import { partesDe } from '@/lib/mensaje-partes';
+// Puro: la CONDITION sobre los datos de un evento (16/10/2026), que sólo va en una fila de evento.
+import { datoDeCampo } from '@/lib/dato-evento';
 // El TURNO del motor por negocio (sexta tanda): lo toman las dos rutas del cron y, desde la
 // revisión de esa tanda, también la vía rápida de un lead (`viaRapidaConTurno`).
 import { conTurnoDelMotor } from '@/lib/motor-turno';
@@ -988,6 +990,12 @@ export async function setSecuenciaPasos(id: number, pasos: PasoSecuencia[], o?: 
   // Un EVENTO DE MAKO: sólo lo que su emisor sabe correr (`frenoDeFilaEvento`).
   const delEvento = await frenoDeFilaEvento(supabase, id, previo, grafo);
   if (delEvento) throw new PasosInvalidosError(`No se guardó: ${delEvento.error}`);
+  // ⚠️ UNA CONDITION SOBRE LOS DATOS DE UN EVENTO VA SÓLO EN UNA FILA DE EVENTO (revisión del 16/10/2026, lib/dato-evento.ts):
+  // en otra automatización no hay evento que la conteste y no se cumpliría nunca, sin que nada lo dijera. El editor no la
+  // ofrece ahí; esto frena a los demás escritores (la API, «Crear con IA»).
+  if ((previo as { trigger_tipo?: string } | null)?.trigger_tipo !== TRIGGER_AVISO_MAKO && filasDelFlujo(grafo).some((f) => datoDeCampo(f.campo) != null)) {
+    throw new PasosInvalidosError('No se guardó: una CONDITION pregunta un dato de un evento, y esta automatización no es de un evento.');
+  }
   // LOS DATOS DE CADA TARJETA (undécima tanda, punto 4: «{{Mensaje de MaKo}}, ese dato NO existe»), con el CRON de la
   // fila: la misma pregunta que el lienzo (`frenoDelFlujo`). Es Publicar y Activar; el motor sigue resolviendo lo guardado.
   const triggerDeLaFila = String((previo as { trigger_tipo?: unknown } | null)?.trigger_tipo ?? '');

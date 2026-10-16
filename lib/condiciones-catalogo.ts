@@ -81,6 +81,9 @@ import type { FilaCondicion, HechosLead } from './flujo-grafo';
 import { slotPorIndice } from './funnel-etapas';
 // Puro: la regla de «¿le sale el DM?» es la del envío (lib/canal-zernio.ts), no una copia.
 import { decidirSalida, type CanalSocial, type ConversacionSocial } from './canal-social';
+// Puros los dos: la condición de un DATO DEL EVENTO se arma de su variable (16/10/2026).
+import { campoDeDato, cumpleDato, datoDeCampo } from './dato-evento';
+import { datoDe } from './variables-aviso';
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────────
 
@@ -93,10 +96,12 @@ export type SeccionCondicion =
   | 'Información del lead' | 'Origen y tracking' | 'Etapa y pipeline' | 'Agenda y llamadas' | 'Pagos'
   | 'Mensajes' | 'Instagram y Messenger' | 'Etiquetas'
   | 'Curso y avance' | 'Comunidad' | 'Tareas del curso' | 'Pagos del cliente' | 'Etapa de entrega'
-  | 'Respuesta';
+  | 'Respuesta' | 'Datos del evento';
 
 /** La sección de la condición que escucha las respuestas (sexta tanda). No está en `SECCIONES`: no es de la salida. */
 export const SECCION_RESPUESTA: SeccionCondicion = 'Respuesta';
+/** La sección de los DATOS DEL EVENTO (16/10/2026, lib/dato-evento.ts): sólo en una fila de evento, y primera. */
+export const SECCION_DATOS: SeccionCondicion = 'Datos del evento';
 
 /** El orden de las secciones en el desplegable, por ámbito. */
 export const SECCIONES: Record<AmbitoDisparo, readonly SeccionCondicion[]> = {
@@ -142,6 +147,8 @@ export type TipoValor =
   | { t: 'lista'; catalogo: CatalogoValor }
   /** Un texto libre (se busca sin mayúsculas ni tildes). */
   | { t: 'texto' }
+  /** Una de una lista FIJA que trae la condición (16/10/2026: el dato de un evento, `VariableAviso.condicion`). */
+  | { t: 'opciones'; opciones: ReadonlyArray<{ value: string; label: string }> }
   /** Las nueve de antes: su valor lo dibuja el editor como siempre (etiqueta, etapa, horas). */
   | { t: 'legado' };
 
@@ -743,7 +750,28 @@ export const IDS_CONDICION: readonly string[] = CONDICIONES.map((c) => c.id);
 const POR_ID: ReadonlyMap<string, DefCondicion> = new Map(CONDICIONES.map((c) => [c.id, c]));
 
 export function condicionPorId(id: unknown): DefCondicion | null {
-  return typeof id === 'string' ? POR_ID.get(id) ?? null : null;
+  if (typeof id !== 'string') return null;
+  return POR_ID.get(id) ?? defDeDato(id);
+}
+
+/**
+ * LA CONDICIÓN DE UN DATO DEL EVENTO (16/10/2026, lib/dato-evento.ts): se arma de su variable (`VariableAviso.condicion`),
+ * así el dato vive UNA vez —su nombre, su tipo, sus opciones— y el catálogo no copia nada. Un dato que no se pregunta (sin
+ * `condicion`) no es una condición: la fila se descarta al guardar, como un id desconocido. Se evalúa contra los datos que
+ * trajo el evento (`HechosLead.evento`), nunca leyendo un lead.
+ */
+function defDeDato(campo: string): DefCondicion | null {
+  const k = datoDeCampo(campo);
+  const v = k ? datoDe(k) : undefined;
+  const c = v?.condicion;
+  if (!c) return null;
+  const valor: TipoValor = c.tipo === 'numero' ? { t: 'numero', unidad: '', def: c.def, min: c.min, max: c.max }
+    : c.tipo === 'opciones' ? { t: 'opciones', opciones: c.opciones } : { t: 'texto' };
+  const tipo = c.tipo === 'numero' ? 'numero' : 'texto';
+  return {
+    id: campo, seccion: SECCION_DATOS, ambito: 'ambos', rotulo: c.rotulo, negable: c.tipo !== 'numero', valor, fuentes: [],
+    evaluar: (f, h) => cumpleDato(f, h.evento, tipo),
+  };
 }
 
 /** Las listas FIJAS (las que no salen de la base del negocio). */
@@ -1007,6 +1035,7 @@ export function esArbol(niveles: readonly NivelArbol[]): boolean {
 /** ¿Hay con qué completar esta condición? Una de lista sin elementos no se ofrece. */
 export function tieneCatalogo(c: DefCondicion, cat: CatalogosCondicion): boolean {
   if (c.valor.t === 'lista') return hayOpciones(opcionesDe(c.valor.catalogo, cat));
+  if (c.valor.t === 'opciones') return c.valor.opciones.length > 0;
   if (c.valor.t === 'numero' && c.valor.ref) return hayOpciones(opcionesDe(c.valor.ref, cat));
   if (c.id === 'etiqueta') return true;   // el selector de etiqueta deja crear una nueva
   if (c.id === 'etapa') return hayOpciones(opcionesDe('etapa', cat));
@@ -1025,17 +1054,28 @@ export function deValorOpcion(v: string): { id: string; no: boolean } | null {
  * CRON, cada una en positivo y —si se puede— negada, en el orden de `SECCIONES`. Las que no tienen
  * con qué completarse (no hay cursos, no hay posts) no se ofrecen.
  */
-export function seccionesDeCondiciones(ambito: AmbitoDisparo, cat: CatalogosCondicion): SeccionOpciones[] {
-  return SECCIONES[ambito].map((titulo) => ({
+export function seccionesDeCondiciones(ambito: AmbitoDisparo, cat: CatalogosCondicion, datos?: DatosDeLaCondicion | null): SeccionOpciones[] {
+  const opciones = (c: DefCondicion): OpcionCatalogo[] => [
+    { value: valorOpcion(c.id, false), label: c.rotulo[0] },
+    ...(c.negable && c.rotulo[1] && c.rotulo[1] !== c.rotulo[0] ? [{ value: valorOpcion(c.id, true), label: c.rotulo[1] }] : []),
+  ];
+  // Los DATOS DEL EVENTO, primero (16/10/2026). Un evento sin lead (`solo`) pregunta sólo esos: lo demás mira un lead.
+  const delEvento = (datos?.claves ?? []).map((k) => condicionPorId(campoDeDato(k))).filter((c): c is DefCondicion => !!c);
+  const primera: SeccionOpciones[] = delEvento.length ? [{ title: SECCION_DATOS, options: delEvento.flatMap(opciones) }] : [];
+  if (datos?.solo) return primera;
+  return [...primera, ...SECCIONES[ambito].map((titulo) => ({
     title: titulo,
     options: CONDICIONES
       .filter((c) => seOfrece(c, ambito) && seccionEn(c, ambito) === titulo && tieneCatalogo(c, cat))
-      .flatMap((c) => [
-        { value: valorOpcion(c.id, false), label: c.rotulo[0] },
-        ...(c.negable && c.rotulo[1] && c.rotulo[1] !== c.rotulo[0] ? [{ value: valorOpcion(c.id, true), label: c.rotulo[1] }] : []),
-      ]),
-  })).filter((s) => s.options.length > 0);
+      .flatMap(opciones),
+  })).filter((s) => s.options.length > 0)];
 }
+
+/**
+ * LOS DATOS DEL EVENTO QUE OFRECE UNA FILA DE EVENTO (16/10/2026, `condicionesDelEvento`, lib/aviso-evento.ts): sus claves,
+ * y `solo` si el evento no trae un lead (de la plataforma o de una persona): ahí la CONDITION pregunta sólo esos.
+ */
+export type DatosDeLaCondicion = { claves: readonly string[]; solo: boolean };
 
 /**
  * La fila NUEVA al elegir una condición: su valor por defecto (el número, el operador) y nada que
@@ -1068,6 +1108,7 @@ export function problemaDeFila(f: FilaCondicion): string | null {
   if (c.reuniones && (f.reuniones?.length ?? 0) > TOPE_REUNIONES) return `«${c.rotulo[0]}» tiene más de ${TOPE_REUNIONES} reuniones`;
   if (v.t === 'lista' && (f.valor == null || f.valor === '')) return `falta elegir «${c.rotulo[0]}»`;
   if (v.t === 'texto' && !String(f.valor ?? '').trim()) return `falta el texto de «${c.rotulo[0]}»`;
+  if (v.t === 'opciones' && !v.opciones.some((o) => o.value === String(f.valor ?? ''))) return `falta elegir «${c.rotulo[0]}»`;
   if (v.t === 'numero') {
     const n = Number(f.valor);
     if (f.valor == null || f.valor === '' || !Number.isFinite(n) || n < v.min || n > v.max) return `falta el número de «${c.rotulo[0]}»`;
@@ -1216,5 +1257,9 @@ function textoBase(f: FilaCondicion, n?: NombresCatalogo): string {
     return v.catalogo === 'origen' || v.catalogo === 'estado_lead' || v.catalogo === 'estado_cliente' ? `${r}: ${nom}` : `${r} «${nom}»`;
   }
   if (v.t === 'texto') return `${r} «${String(f.valor ?? '').trim() || '…'}»`;
+  if (v.t === 'opciones') {
+    const o = v.opciones.find((x) => x.value === String(f.valor ?? ''));
+    return `${r} «${o?.label ?? (String(f.valor ?? '').trim() || '…')}»`;
+  }
   return r;
 }

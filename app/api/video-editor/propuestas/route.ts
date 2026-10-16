@@ -5,7 +5,7 @@
 // PATCH json { id, estado: 'aplicada'|'descartada', descartes? } → { ok } | { ok:false, yaResuelta }
 //
 // Etapa 3 del diseño AI-native: las acciones del editor en la API (lib/editor-video/chat-api.ts) dejan sus operaciones
-// en una propuesta del proyecto (mig 0300); el editor las muestra en su chat «Editar con IA» y una persona las acepta o
+// en una propuesta del proyecto (mig 0302); el editor las muestra en su chat «Editar con IA» y una persona las acepta o
 // las descarta (app/video-editor/_opencut/chat/propuestas.ts). Nada se aplica sin ese clic: la línea de tiempo la
 // escribe el editor, en el navegador de quien lo edita. Reglas: lib/editor-video/propuestas.ts.
 //

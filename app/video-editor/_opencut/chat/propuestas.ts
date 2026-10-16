@@ -2,7 +2,7 @@
 // chat/propuestas — lo que la API de MaKo propuso en el proyecto abierto, como un cambio más del chat
 // =============================================================================
 // Etapa 3 del diseño AI-native: las operaciones del chat «Editar con IA» pasan a la API (lib/editor-video/chat-api.ts)
-// y cada una deja su cambio en una PROPUESTA del proyecto (mig 0300, por /api/video-editor/propuestas). El editor la
+// y cada una deja su cambio en una PROPUESTA del proyecto (mig 0302, por /api/video-editor/propuestas). El editor la
 // trae y la pone en el hilo como una respuesta de MaKo con su revisión «Original | Modificado»; se acepta con el
 // MISMO «Aceptar» (./aplicar.ts → aceptarPropuesta, que la revisa contra la línea de tiempo de ahora con las refs de
 // la propuesta) y, aceptada o descartada, se cierra en la base.

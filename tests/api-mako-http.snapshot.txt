@@ -353,6 +353,7 @@ mover_a_nutricion_manual
 mover_clase_curso
 mover_elemento_video
 mover_estado_guion_anuncio
+mover_tarea_plan
 nombrar_video
 normalizar_audio_video
 ocultar_elemento_video
@@ -538,6 +539,7 @@ ver_publico_conjunto_meta
 ver_puente_flow
 ver_rechazos_pago_landing
 ver_rendimiento_anuncios
+ver_repriorizacion_plan
 ver_revenue_mensual
 ver_revenue_periodo
 ver_salud_cuenta_meta

@@ -10,6 +10,13 @@
 // PROBADO ROMPIÉNDOLO (17/9): volviendo `estadoTrasProgreso` a la derivación ciega de
 // antes y sacando `en_seguimiento` del CHECK de la 0159 → 3 de 7 en rojo (los dos del
 // avance y el de TS vs base). Restaurado → 7 de 7.
+//
+// ⚠️ 16/10/2026, «hacer el kanban un kanban»: las ETIQUETAS cambiaron (`en_seguimiento` se dibuja
+// «Atorada», `por_hacer` «Por iniciar», `hecho` «Completada», `no_cumple` «No cumplen tu
+// criterio» y va AL FINAL) y las claves no. Nada de este archivo fijaba etiquetas ni orden, así
+// que no cambió ninguna aserción; lo nuevo —las columnas, `estadoAlGuardar`, `trasMover`, el
+// CHECK de `plan_tareas` (mig 0294)— está en tests/plan-kanban-modelo.test.ts. Y
+// `estadoTrasProgreso` sigue intacta: lo que cambió es CUÁNDO se aplica (sólo si el avance cambia).
 // =============================================================================
 
 import { test } from 'node:test';

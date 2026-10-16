@@ -42,7 +42,7 @@ export type MensajeGuardado =
   | {
       id: string; c: number; t: number; de: 'mako'; texto: string; error?: boolean;
       cambios?: CambioChat[]; descartes?: string[]; estado?: EstadoPropuesta; aviso?: string; propuesta?: PropuestaGuardada;
-      /** Llegó por la API de MaKo (video_editor_propuestas, mig 0300): se cierra en la base al resolverla. */
+      /** Llegó por la API de MaKo (video_editor_propuestas, mig 0302): se cierra en la base al resolverla. */
       propuestaApi?: { id: string; canal: string };
       /** Una burbuja de un pedido que no es del proyecto abierto (chat/pedidos.ts): sus links, de adentro de la app. */
       links?: Array<{ texto: string; href: string }>;

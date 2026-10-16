@@ -14,18 +14,26 @@
 // y acá se ven las tres en la misma pantalla (agrupadas por reunión, con su fecha).
 // Antes se mostraba solo la primera y los números no cerraban con el mensaje.
 //
-// Confirmás lo que va (y sacás lo que no) y recién ahí se crean, con el Perro
-// puntuándolas server-side —una sola pasada sobre todo el lote— igual que cualquier
-// otra tarea. "Ahora no" cierra sin descartar: siguen esperándote.
+// Confirmás lo que va (y sacás lo que no) y recién ahí se crean. "Ahora no" cierra sin
+// descartar: siguen esperándote.
+//
+// ⛔ SIN IA Y SIN ESPERA (16/10/2026, «Fathom sin fricción»). Martín: «Que hoy en día tardan un
+// montón porque "cruzan" con las otras tareas... Quiero que elimines eso y toda la fricción». Este
+// modal corría el cruce con IA contra el tablero al abrirse («Cruzando con tu plan…», 20-40 s, con
+// «Agregar» apagado) y el server, al cargar, ruteaba y puntuaba con el Perro. Las dos cosas se
+// fueron: el borrador llega YA cruzado desde el server (lib/reunion-cruce.ts, en el cron y en la
+// lectura en segundo plano) y «Agregar» carga en segundos, sin IA (`aplicarPropuestas`). Si el
+// cruce todavía no llegó, se carga igual: el server tiene su propio anti-duplicado. Las tareas
+// entran SIN PRIORIDAD; la pone «Re-priorizar todo».
 //
 // ⛔ SIN PASO DE PREGUNTAS (05/10/2026). «Agregar N al plan» carga derecho. Antes, al
 // apretarlo, MaKo armaba preguntas sobre lo elegido («¿Para cuándo tiene que estar
 // resuelto…?») y las mostraba de a una en un WizardShell antes de crear nada. Martín:
 // «habíamos dicho de sacar absolutamente toda la fricción al agregar tareas y me salta
 // esto luego de intentar agregar tareas del fathom». Lo que esas preguntas contestaban
-// ya lo decide el Perro solo: la fecha (mig 0114) y la prioridad, que después se
-// cambian a mano en el detalle. Se sacó también de /plan/revisar y de los que las
-// generaban (ver docs/hallazgos-plan.md, «Cargar tareas no pregunta nada»).
+// (la fecha y la prioridad) se cambia a mano en el detalle — y desde el 16/10/2026 la
+// prioridad la pone «Re-priorizar todo», no el alta. Se sacó también de /plan/revisar y
+// de los que las generaban (ver docs/hallazgos-plan.md, «Cargar tareas no pregunta nada»).
 
 import { useEffect, useRef, useState } from 'react';
 import { GuardianIcon } from './GuardianIcon';
@@ -171,13 +179,9 @@ export function TareasRecibidasModal({ props: todos, labels, existentes, onListo
   const alWizard = (p: PropuestaPendiente) => (p.cerrar?.length ?? 0) > 0;
   const props = todos.filter((p) => !alWizard(p));
   const conCierres = todos.filter(alWizard);
-  /** El Perro está cruzando contra el tablero. Mientras dure, la pantalla NO deja
-   *  cargar: si no, se confirma un lote que dos segundos después iba a quedar marcado
-   *  como repetido, y quedan duplicados en el board. */
-  const [cruzando, setCruzando] = useState(false);
-  /** El cruce terminó en ESTA sesión: el autosave lo sella en la base (`cruzado_at`)
-   *  para que no se vuelva a correr la próxima vez que se abra la reunión. */
-  const [cruzado, setCruzado] = useState(false);
+  // ⛔ Acá vivían `cruzando` (el cruce con IA en curso: tapaba el modal y apagaba «Agregar») y
+  // `cruzado` (el sello que escribía el autosave). Se fueron el 16/10/2026: el cruce y su sello
+  // los hace el server, antes de que nadie abra esto (ver la cabecera).
   // Init perezoso (el padre monta con una key que depende de los ids: si cambian, es
   // un componente nuevo y no hace falta re-sincronizar por efecto).
   const [filas, setFilas] = useState<FilaConProp[]>(() => {
@@ -308,9 +312,8 @@ export function TareasRecibidasModal({ props: todos, labels, existentes, onListo
     /* eslint-disable-next-line react-hooks/exhaustive-deps */
   }, []);
 
-  // Mientras se aplica NO se puede cerrar ni salir: son N tareas creadas + el Perro
-  // puntuándolas por tandas, y cortarlo a la mitad deja el board a medio armar. El
-  // navegador avisa si intentás refrescar o cerrar la pestaña.
+  // Mientras se aplica NO se puede cerrar ni salir: son N tareas creándose, y cortarlo a la
+  // mitad deja el board a medio armar. El navegador avisa si intentás refrescar o cerrar.
   // …salvo cuando la que navega es la PROPIA app al terminar: `onListo()` recarga, y
   // como el reload corre en el mismo bloque sincrónico que el setGuardando(''), React
   // todavía no desmontó este listener → el navegador mostraba el cartel de "recargar /
@@ -331,11 +334,9 @@ export function TareasRecibidasModal({ props: todos, labels, existentes, onListo
 
   const aplicar = async () => {
     setGuardando('aplicar'); setErr('');
-    // Un lote por borrador: cada reunión conserva su contexto para el Perro, pero el
-    // Perro corre UNA sola vez sobre todo (lo arma el server).
+    // Un lote por borrador: el server los aplica juntos, sin IA (16/10/2026).
     const lotes = props.map((p) => ({
       id: p.id,
-      contexto: contextoDe(p),
       // ⚠️ LAS AMPLIACIONES VIAJAN TAMBIÉN. Este filtro pedía `f.incluir`, y una
       // ampliación tiene `incluir: false` por definición (no se crea, se le suma el
       // contexto a la tarjeta que ya está). O sea que la pantalla decía «se le suma a
@@ -407,107 +408,21 @@ export function TareasRecibidasModal({ props: todos, labels, existentes, onListo
         if ((p.estado ?? 'pendiente') !== 'pendiente') continue;
         const suyas = filas.filter((f) => f.propId === p.id);
         if (!suyas.length) continue;
-        void api({ action: 'guardar', id: p.id, cruzado, tareas: suyas.map(aPayload) });
+        // Sin `cruzado`: el sello lo escribe el server cuando el cruce corre (lib/reunion-cruce.ts).
+        void api({ action: 'guardar', id: p.id, tareas: suyas.map(aPayload) });
       }
     }, 900);
     return () => clearTimeout(id);
-    // `cruzado` también dispara el guardado: cuando el cruce termina SIN encontrar nada,
-    // `filas` no cambia y sin esta dependencia el sello nunca se escribiría — o sea que
-    // el análisis se volvería a pagar en cada apertura, que es justo lo que se vino a
-    // cerrar.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filas, cruzado]);
+  }, [filas]);
 
-  // EL PERRO CRUZA. El léxico solo agarra lo que se parece en palabras, y eso alcanza
-  // para poco: medido contra un caso real (la misma llamada grabada por dos notetakers),
-  // de 17 compromisos repetidos el criterio léxico avisaba 5. "Montar la automatización
-  // del flujo post-agenda" y "Configurar la automatización del envío de audios
-  // post-agendamiento" son el mismo trabajo y comparten el 15% de las palabras: eso lo
-  // ve el Perro, no un Jaccard. Corre UNA vez al abrir, sobre lo que no marcó el léxico.
-  // Best-effort: si falla, quedan las marcas del léxico y no se bloquea nada.
-  const cruzadoRef = useRef(false);
-  useEffect(() => {
-    if (cruzadoRef.current) return;
-    // YA SE CRUZÓ: no se vuelve a preguntar. `cruzadoAt` (mig 0123) se sella la primera
-    // vez y lo que encontró viaja dentro de cada tarea. Antes esto corría en CADA
-    // apertura del modal: se pagaba la misma llamada de IA una y otra vez, y —peor—
-    // mientras corría las tareas se veían como nuevas y se podían cargar, así que
-    // entrar y confirmar rápido creaba el duplicado que el cruce iba a marcar dos
-    // segundos después.
-    if (todos.every((p) => !!p.cruzadoAt)) { cruzadoRef.current = true; return; }
-    const aCruzar = filas.filter((f) => !f.esDeOtro && !f.enriquece);
-    if (!aCruzar.length) { cruzadoRef.current = true; return; }
-    cruzadoRef.current = true;
-    setCruzando(true);
-    (async () => {
-      // Contra el tablero Y contra las tareas de los OTROS borradores. Lo segundo es
-      // el caso que más duele: la misma llamada grabada por dos personas llega como dos
-      // borradores y, si no se cruzan entre sí, se confirma dos veces el mismo trabajo.
-      // Los del borrador no tienen id de tarjeta, así que viajan con uno sintético.
-      const delBoard = (existentes ?? []).filter((t) => !t.hecha).map((t) => ({ id: t.id, titulo: t.titulo, detalle: '' }));
-      const otros = filas.filter((f) => !f.esDeOtro && !aCruzar.includes(f))
-        .map((f, k) => ({ id: `borrador:${k}`, titulo: f.titulo, detalle: f.detalle }));
-      const universo = [...delBoard, ...otros];
-      if (!universo.length) { setCruzando(false); return; }
-      const j = await fetch('/api/plan-fathom', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'cruzar', uso: 'Cruzar tareas de reunión con el plan',
-          candidatas: aCruzar.map((f) => ({ titulo: f.titulo, detalle: f.detalle })),
-          existentes: universo,
-        }),
-      }).then((r) => r.json()).catch(() => ({ ok: false }));
-      setCruzando(false);
-      // Se selle o no con resultados, el borrador queda marcado: «ya se cruzó» y «no
-      // encontró nada» son la misma cosa para la próxima apertura. Si la llamada FALLÓ
-      // (`ok:false`) no se sella, para que se pueda reintentar entrando de nuevo.
-      if (j?.ok) setCruzado(true);
-      if (!j?.ok || !Array.isArray(j.cruces) || !j.cruces.length) return;
-      const porTitulo = new Map<string, { id: string; razon: string; confianza: 'alta' | 'media' }>();
-      for (const c of j.cruces as Array<{ i: number; idExistente?: string; razon?: string; confianza?: string }>) {
-        const cand = aCruzar[c.i];
-        const ya = universo.find((t) => t.id === c.idExistente);
-        if (!cand || !ya) continue;
-        const enBorrador = ya.id.startsWith('borrador:');
-        porTitulo.set(cand.titulo, {
-          id: enBorrador ? '' : ya.id,
-          razon: `${enBorrador ? 'la misma reunión ya la trae como' : 'ya está en tu plan como'} «${ya.titulo}»${c.razon ? ` — ${c.razon}` : ''}`,
-          confianza: c.confianza === 'alta' ? 'alta' : 'media',
-        });
-      }
-      if (!porTitulo.size) return;
-      // SOLO UN CRUCE DE CONFIANZA ALTA DESTILDA LA TAREA SOLA.
-      //
-      // Un falso positivo acá no es un detalle: la tarea llega destildada, el dueño no la
-      // ve entre veinte, y un pedido real de una reunión se pierde en silencio. Pasó y es
-      // grave — «Contratar el plan de $100 para no agotar los créditos» (pagar una
-      // suscripción de IA) se marcó como duplicada de «Reglas de presupuesto según la
-      // plata real» (programar el motor que mueve el presupuesto de los anuncios), porque
-      // las dos «hablan de presupuesto». Con la confianza en media la tarea se sigue
-      // avisando —el cartel verde explica de qué la marcó— pero entra TILDADA: el dueño
-      // decide, y el default no esconde trabajo.
-      // SE GUARDA ACÁ MISMO, no por el autosave.
-      //
-      // El autosave es un debounce de 900 ms que muere con el componente: si cerrás el
-      // modal antes, el `clearTimeout` del cleanup se lo lleva. Para las ediciones a
-      // mano da igual (volvés y reescribís), pero esto costó ~40 segundos de IA y es
-      // exactamente lo que no se puede perder — verificado en prod: `cruzado_at` estaba
-      // NULL en TODAS las filas y ningún `enriquece` había llegado a la base, así que el
-      // análisis se rehacía cada vez que se abría la reunión.
-      const conCruce = filas.map((f) => {
-        const hit = !f.esDeOtro && !f.enriquece ? porTitulo.get(f.titulo) : undefined;
-        return hit ? { ...f, enriquece: hit, incluir: hit.confianza === 'alta' ? false : f.incluir } : f;
-      });
-      setFilas(conCruce);
-      for (const p of props) {
-        if ((p.estado ?? 'pendiente') !== 'pendiente') continue;
-        const suyas = conCruce.filter((f) => f.propId === p.id);
-        if (!suyas.length) continue;
-        void api({ action: 'guardar', id: p.id, cruzado: true, tareas: suyas.map(aPayload) });
-      }
-    })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // ⛔ ACÁ CORRÍA EL CRUCE CON IA («EL PERRO CRUZA»), en el navegador, al abrir el modal: una
+  // llamada a /api/plan-fathom `cruzar` con el tablero y los otros borradores, y el modal tapado
+  // hasta que volviera. Lo que aportaba —el parecido que el léxico no ve: «Montar la automatización
+  // del flujo post-agenda» y «Configurar la automatización del envío de audios post-agendamiento»
+  // comparten el 15% de las palabras— sigue estando, del lado del server y ANTES de que se abra esto
+  // (lib/reunion-cruce.ts): el borrador trae `enriquece` en cada tarea que ya está, y la fila lo
+  // dibuja. Acá quedan el léxico de arriba (`yaEnPlan`) y lo que el server ya escribió.
 
   // Lo que MaKo detectó como ya existente: se dice ARRIBA, no después de crear. Si el
   // usuario re-tilda alguna, deja de contarse (su decisión manda) y se crea igual.
@@ -523,14 +438,13 @@ export function TareasRecibidasModal({ props: todos, labels, existentes, onListo
     // Cerrar clickeando AFUERA, como cualquier modal de la app. Cerrar no descarta
     // nada: el borrador sigue esperando y se vuelve desde el botón de Fathom. Lo único
     // que no se puede interrumpir es el aplicado (ahí sí queda el board a medio armar).
-    <div onClick={() => { if (!guardando && !cruzando) onClose(); }}
+    <div onClick={() => { if (!guardando) onClose(); }}
       style={{ position: 'fixed', inset: 0, zIndex: capa.z, background: 'rgba(18,21,27,.5)', backdropFilter: 'blur(2px)', display: oculto || !capa.visible ? 'none' : 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, fontFamily: SANS }}>
       <div onClick={(e) => e.stopPropagation()}
         style={{ position: 'relative', width: '100%', maxWidth: 620, maxHeight: '86vh', display: 'flex', flexDirection: 'column', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, boxShadow: '0 30px 70px rgba(18,21,27,.35)', overflow: 'hidden' }}>
 
-        {/* Cargando: tapa TODO el modal. Crear N tareas + puntuarlas por tandas puede
-            tardar más de un minuto, y hasta ahora no se veía nada pasar. */}
-        {(aplicando || cruzando) && (
+        {/* Cargando: tapa TODO el modal mientras se crean. Sin IA, son segundos. */}
+        {aplicando && (
           <div role="status" aria-live="polite" style={{ position: 'absolute', inset: 0, zIndex: 5, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, padding: 24, textAlign: 'center' }}>
             {/* El velo va en SU capa: un `opacity` sobre el contenedor apagaría también
                 el spinner y el texto. Y sale de --surface, no de un blanco fijo — en
@@ -538,19 +452,9 @@ export function TareasRecibidasModal({ props: todos, labels, existentes, onListo
             <div aria-hidden style={{ position: 'absolute', inset: 0, background: 'var(--surface)', opacity: 0.94, backdropFilter: 'blur(3px)' }} />
             <span style={{ position: 'relative', width: 34, height: 34, borderRadius: '50%', border: '3px solid var(--border-strong)', borderTopColor: 'var(--primary)', boxSizing: 'border-box', display: 'inline-block', animation: 'makoSpinTR .7s linear infinite' }} />
             <style>{'@keyframes makoSpinTR{to{transform:rotate(360deg)}}'}</style>
-            {cruzando ? (
-              // Una línea. Lo que el usuario necesita saber es QUÉ está pasando, no cómo
-              // funciona por dentro ni una promesa sobre la próxima vez.
-              <div style={{ position: 'relative', fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>Cruzando con tu plan…</div>
-            ) : (
-              <>
-                <div style={{ position: 'relative', fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>Cargando {nIncluidas} {nIncluidas === 1 ? 'tarea' : 'tareas'} al plan…</div>
-                <div style={{ position: 'relative', fontSize: 13, color: 'var(--dim)', lineHeight: 1.5, maxWidth: 380 }}>
-                  El Perro las está puntuando contra tu plan y escribiéndoles el detalle. Con muchas tareas puede tardar un par de minutos.
-                  <br /><b>No cierres ni refresques</b> hasta que termine.
-                </div>
-              </>
-            )}
+            {/* Una línea: QUÉ está pasando. Ya no hay Perro que espere (16/10/2026): entran sin
+                prioridad y en segundos. */}
+            <div style={{ position: 'relative', fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>Cargando {nIncluidas} {nIncluidas === 1 ? 'tarea' : 'tareas'}…</div>
           </div>
         )}
 
@@ -560,8 +464,7 @@ export function TareasRecibidasModal({ props: todos, labels, existentes, onListo
             <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, letterSpacing: '.14em', color: 'var(--accent)' }}>✦ MAKO · TAREAS PARA CONFIRMAR</div>
             <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink)', marginTop: 2 }}>{titulo}</div>
           </div>
-          {/* Mientras carga no hay salida: cerrar a mitad deja tareas creadas y el
-              Perro sin correr. */}
+          {/* Mientras carga no hay salida: cerrar a mitad deja la carga a medias. */}
           <button onClick={onClose} aria-label="Cerrar" disabled={!!guardando}
             style={{ width: 32, height: 32, borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', cursor: guardando ? 'not-allowed' : 'pointer', fontSize: 14, opacity: guardando ? 0.4 : 1 }}>✕</button>
         </div>
@@ -608,7 +511,7 @@ export function TareasRecibidasModal({ props: todos, labels, existentes, onListo
             labels={labels}
             onFila={(i, patch) => setFilas((fs) => fs.map((f, k) => (k === i ? { ...f, ...patch } : f)))}
             reunion={{ titulo: props[0]?.fuenteTitulo ?? '', fecha: props[0]?.fuenteFecha ?? props[0]?.createdAt, url: props[0]?.fuenteUrl ?? null, recordingId: recordingDeRef(props[0]?.ref) }}
-            cabecera="Destilda lo que no vaya. El perro les pone la prioridad final."
+            cabecera="Destilda lo que no vaya. Entran sin prioridad."
             yaCargadas={yaCargadas}
             onAbrirTarea={onAbrirTarea}
             renderTaskCard={renderTaskCard}
@@ -656,7 +559,9 @@ export function TareasRecibidasModal({ props: todos, labels, existentes, onListo
           ) : <span style={{ fontSize: 12.5, color: 'var(--faint)' }}>Lo que queda es de otras personas: mándaselo desde la lista.</span>}
           {hayMias && !cerrado && !personaActiva && (
             // Carga DERECHO: no hay paso de preguntas en el medio (ver la cabecera).
-            <button type="button" onClick={() => void aplicar()} disabled={nIncluidas + nAmpliar === 0 || !!guardando || cruzando}
+            // «Agregar» NUNCA espera al cruce (16/10/2026): si el server todavía no lo selló, se carga
+            // igual y el anti-duplicado del server (`mismaTarea`) hace su parte.
+            <button type="button" onClick={() => void aplicar()} disabled={nIncluidas + nAmpliar === 0 || !!guardando}
               style={{ padding: '12px 24px', borderRadius: 11, border: 'none', background: nIncluidas + nAmpliar ? 'var(--primary)' : 'var(--border)', color: nIncluidas + nAmpliar ? '#fff' : 'var(--faint)', fontSize: 14, fontWeight: 700, cursor: nIncluidas + nAmpliar && !guardando ? 'pointer' : 'default', fontFamily: SANS }}>
               {/* El botón dice las DOS cosas que va a hacer. Con solo `nIncluidas` mentía
                   por omisión: «Agregar 15» sobre una reunión que además ampliaba 5. */}
@@ -673,10 +578,5 @@ export function TareasRecibidasModal({ props: todos, labels, existentes, onListo
   );
 }
 
-/** Contexto para el Perro: de dónde salieron estas tareas (mejora su puntuación). */
-function contextoDe(prop: PropuestaPendiente): string {
-  const de = prop.enviadoPor?.trim();
-  return de
-    ? `Se las mandó ${de} desde la reunión${prop.fuenteTitulo ? ` «${prop.fuenteTitulo}»` : ''}: son compromisos que asumió esta persona ahí.`
-    : `Salieron de la reunión${prop.fuenteTitulo ? ` «${prop.fuenteTitulo}»` : ''} (Fathom): son compromisos que se asumieron ahí.`;
-}
+// ⛔ Acá vivía `contextoDe`: la nota «de dónde salieron» que el Perro leía al puntuar el lote. Se
+// fue el 16/10/2026 con el Perro de la carga (`aplicarPropuestas` ya no puntúa).

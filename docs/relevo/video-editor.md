@@ -24,7 +24,7 @@ Mientras tanto este chat hace la etapa 3 del diseño AI-native (docs/diseno-mako
    `ver_proyecto_video`. Mig **0299** (`video_editor_proyectos`, ANTES o JUNTO con el deploy).
 3. **Las operaciones del chat como acciones de la API** (hecho): 34 acciones (`agregar_texto_video`…
    `usar_plantilla_video`, lib/editor-video/chat-api.ts) que PROPONEN en el proyecto (por nombre o por id); lo del
-   mismo canal se junta en una propuesta (mig **0300**, `video_editor_propuestas`), y el editor la muestra en su chat
+   mismo canal se junta en una propuesta (mig **0302**, `video_editor_propuestas`), y el editor la muestra en su chat
    para aceptarla con el mismo «Aceptar». Ningún canal escribe la línea de tiempo. Fuera de los flujos de Automations.
    **Falta verlo de punta a punta** con las tres migraciones aplicadas: un pedido por WhatsApp y aceptarlo en el editor.
 4. **«Entender el pedido» en el chat** (hecho, pedido del Cerebro): lo del proyecto abierto a la IA, lo demás burbujas

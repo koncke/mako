@@ -1418,7 +1418,8 @@ export function EditorInforme({
         {analista && <PanelAnalista hoja={hoja} loQueSeVe={loQueSeVe} vista={vista} onCerrar={cerrarAnalista} />}
         {makoEditar && guardable && !enBlanco && !compartido && (
           <PanelEditarMako hoja={hoja} informe={informe} hilo={hilosMako[hoja.id] ?? []} onHilo={alHiloMako} leerHoja={leerHoja}
-            onAplicar={ponerHojaDeMako} onDeshacer={ponerHojaDeMako} onCerrar={cerrarMakoEditar} />
+            onAplicar={ponerHojaDeMako} onDeshacer={ponerHojaDeMako} onCrearHoja={crearHoja} onAbrirHoja={irAHoja} onArchivarHoja={eliminarHoja}
+            onCerrar={cerrarMakoEditar} />
         )}
       </div>
 

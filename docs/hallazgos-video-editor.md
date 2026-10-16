@@ -864,7 +864,7 @@ camino es transparente». En esta corrida pegó así:
   corrido desde Bash recibió `/ ── Diseño` en vez de `// ── Diseño` como ancla: el corte cayó un carácter
   después y el archivo dio TS1161. Las anclas con `//` o barras van adentro de un archivo, o por Edit; y
   después de un reemplazo programático, typecheck.
-- **Write convirtió el escape de U+0300 en el carácter combinante LITERAL** (en una regex para sacar
+- **Write convirtió el escape de U+0302 en el carácter combinante LITERAL** (en una regex para sacar
   tildes): sigue andando, pero no se lee y el acento se dibuja sobre el corchete. Pasó en
   `biblioteca-ui.tsx`, `emojis.ts`, `shapes.ts` y `flags.ts`, corregidos con un Python que arma la barra
   con `chr(92)`. Después de escribir un escape, `grep -n 'u0300'` u `od -c`. Y en un heredoc, `\p{…}`
@@ -1318,7 +1318,7 @@ cambio. Nada escribe la línea de tiempo desde el server: lo que proponga la API
 ## Las operaciones del chat en la API: proponen, y se aceptan en el chat del editor (16/10, etapa 3, tanda 3)
 
 **Vive en:** `lib/editor-video/chat-api.ts` (las 34 acciones) · `lib/editor-video/propuestas.ts` y `propuestas-server.ts` ·
-`app/api/video-editor/propuestas/route.ts` · `app/video-editor/_opencut/chat/propuestas.ts` · mig 0300
+`app/api/video-editor/propuestas/route.ts` · `app/video-editor/_opencut/chat/propuestas.ts` · mig 0302
 (`video_editor_propuestas`) · test `tests/video-editor-propuestas-api.test.ts` (35 roturas). Lo de la API, en
 docs/hallazgos-api-mako.md («El Video Editor en la API»).
 
@@ -1333,7 +1333,7 @@ docs/hallazgos-api-mako.md («El Video Editor en la API»).
 - **Lo del mismo canal se junta** (el grupo de WhatsApp, la sesión, el token) por dos horas y hasta 40 cambios: un
   pedido son varias acciones y UNA propuesta, que se acepta en un paso de deshacer. La plantilla va sola y con la
   línea de tiempo vacía, como en el chat.
-- **SIN HACER:** verlo de punta a punta (un pedido por WhatsApp con las migraciones 0298–0300 aplicadas, y aceptarlo
+- **SIN HACER:** verlo de punta a punta (un pedido por WhatsApp con las migraciones 0298–0302 aplicadas, y aceptarlo
   en el editor); que el link `?propuesta=` lleve a ESA propuesta (hoy abre el panel con todas); que una propuesta
   vieja venza (hoy queda abierta hasta que alguien la resuelve); avisarle a la persona por WhatsApp cuando la acepta.
 

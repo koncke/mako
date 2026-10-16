@@ -1,0 +1,35 @@
+/* =============================================================================
+   La pieza única de chat con MaKo: lo que NO es del Centro (16/10/2026)
+   =============================================================================
+   La cara es la del Centro de Operaciones (app/admin/operaciones/centro.css: la barra, la fila, el hilo, la caja).
+   Acá va lo que suma el chat con MaKo: la tarjeta de una acción (la del chat del CRM), el texto de MaKo en markdown,
+   las preguntas de arranque y el panel del Mapa. Prefijo `ch-`. */
+
+/* El texto de MaKo: markdown, no `pre-wrap` (el del Centro es texto plano de un cierre). */
+.ch-md { font-size: var(--fs-md); line-height: 1.55; color: var(--ink); overflow-wrap: anywhere; }
+.ch-md > :first-child { margin-top: 0; }
+.ch-md > :last-child { margin-bottom: 0; }
+
+/* Un link dentro de una nota («Reintentar», «Recargar el chat»). */
+.ch-enlace { padding: 0; border: 0; background: none; color: var(--primary); font: inherit; font-weight: 600; cursor: pointer; text-decoration: underline; }
+.ch-enlace:focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: 4px; }
+
+/* La tarjeta de una acción: la misma del chat del CRM (mkc-) y del MaKo Analyst de la ficha (mal-). */
+.ch-tarjeta {
+  width: min(480px, 100%); display: flex; flex-direction: column; gap: 10px; padding: 12px 14px;
+  border-radius: 14px 14px 14px 4px; background: var(--surface); border: 1px solid var(--border);
+}
+.ch-tarjeta__cabeza { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: var(--fs-sm); color: var(--dim); }
+.ch-tarjeta__resumen { margin: 0; font-size: var(--fs-md); line-height: 1.45; color: var(--ink); overflow-wrap: anywhere; }
+.ch-tarjeta__lineas { margin: 0; display: grid; grid-template-columns: minmax(80px, max-content) minmax(0, 1fr); gap: 4px 12px; font-size: var(--fs-sm); line-height: 1.4; }
+.ch-tarjeta__lineas dt { color: var(--dim); }
+.ch-tarjeta__lineas dd { margin: 0; color: var(--ink); overflow-wrap: anywhere; }
+.ch-tarjeta__consecuencia { margin: 0; font-size: var(--fs-sm); color: var(--ink); }
+.ch-tarjeta__nota { margin: 0; font-size: var(--fs-sm); color: var(--dim); }
+.ch-tarjeta__botones { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* Las preguntas de arranque, debajo de la portada (como las sugerencias de la portada de Claude). */
+.ch-arranques { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 8px; }
+
+/* El Mapa en el panel: el grafo de siempre (VistaCerebro), con su propio scroll. */
+.ch-mapa__cuerpo { flex: 1; min-height: 0; overflow-y: auto; padding: 8px 20px 28px; }

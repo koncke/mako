@@ -1,5 +1,5 @@
 -- =============================================================================
--- 0300 — Lo que la API de MaKo PROPONE en un proyecto del Video Editor (se acepta en el editor)
+-- 0302 — Lo que la API de MaKo PROPONE en un proyecto del Video Editor (se acepta en el editor)
 -- =============================================================================
 -- ⚠️ ORDEN DE DESPLIEGUE: ANTES o JUNTO con el deploy que trae las acciones del editor en la API
 -- (`agregar_texto_video`, `cortar_frase_video`… lib/editor-video/chat-api.ts) y /api/video-editor/propuestas.

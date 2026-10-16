@@ -852,6 +852,27 @@ desde afuera (Customer Success, un analyst, un export) tiene que poder con los d
 de texto contiene al numérico, al revés hay que inventar una conversión que después miente.
 Cuál de los dos te toca lo decide `lib/tablero-actual.ts`, y ahí se decide una sola vez.
 
+⚠️ **Y la excepción, a propósito: lo que escribe una ACCIÓN no viaja en el guardado.** La columna
+del kanban (`estado`), su motivo y el lugar (`orden`) los escribe `repo.mover` por columna
+(`moverTarea` / `moverPlanTarea`); `editPatch` no los manda y `guardarPlanTarea` los saca del
+payload y relee la fila. Con ellos adentro del upsert de la fila entera, una pestaña vieja devuelve
+de columna lo que se movió desde otra. Y un campo DERIVADO de otro (el estado desde el avance) se
+recalcula sólo si la fuente CAMBIÓ contra la fila guardada (`estadoAlGuardar`): recalculado en cada
+guardado, deshacía los arrastres (16/10/2026, docs/hallazgos-plan.md → «El kanban es de ESTADO desde
+el 16/10/2026»).
+
+⚠️ **Y lo que el server DERIVA, la pantalla lo deriva IGUAL en el estado optimista** —con la misma
+función y en el choke point de los cambios—: el server pasa a «Completada» la tarjeta que llega al
+100%, y si `useBoard` sólo cambia `progress`, la tarjeta queda tachada en su columna vieja hasta el
+F5 (`conAvance` → `avanceLocal`, 16/10/2026).
+
+⚠️ **Un «Deshacer» vuelve TODO lo que el cambio movió en UNA escritura** (estado, avance y motivo:
+`trasMover(…, avance)`). Devolver el avance con un segundo guardado el server lo lee como «cambió el
+avance» y recalcula la columna; y el del teléfono, que no lo mandaba, reabría al 0%. **Y «¿cambió el
+avance?» necesita el último valor que la base le confirmó a ESA pestaña** (`progresoGuardado`, en las
+dos mitades): contra la fila sola, una pestaña vieja reabre lo que se completó en otro lado
+(16/10/2026, revisión adversarial).
+
 # Una capacidad nueva de MaKo se DECLARA en el registro de la API, no se escribe en una ruta
 
 Todo lo que un agente puede leer o hacer en MaKo —MaKo por WhatsApp, el chat de la app,
@@ -1283,6 +1304,10 @@ código nuevo:
     («Chatbot», un sub-chat cerrado) va al jefe que se llama como el área de su bitácora (`completarChats`, el paso 3).
     No hay sección «Antes del 16/10»; un jefe sin chat abierto se lista sólo si tiene algo sin terminar. Anotar en la
     bitácora del área que se tocó es lo que hace que el trabajo aparezca en su jefe.
+  - **El chat con MaKo de un cliente es la pieza de `/second-brain`** (16/10/2026, etapa 2 de docs/diseno-mako-ai-native.md):
+    la cara del Centro (app/_chat/, centro.css), el turno del teléfono (lib/mako-turno-app.ts) por `/api/mako/chat`.
+    Una página que entra a más gente y muestra una parte sólo al admin la corta EN EL SERVIDOR con `esAdminDeTab`
+    (lib/puerta-admin-tab.ts), y no la calcula para los demás.
   - **Cada jefe ES un proyecto del Plan** (16/10/2026; los dos se llaman como la tab). El Centro lee y escribe el Plan
     SÓLO con las operaciones de la API de MaKo (`listar_tareas_plan`, `proponer_tareas_plan`, `proponer_cierre_tareas`)
     aplicadas en el acto con `ctxDelCentro` (lib/centro-plan.ts), por la ruta `/api/centro/plan` y NO por una server
@@ -2057,7 +2082,14 @@ proyecto por proyecto con las tres preguntas, con la fuente al lado.
 
 # Si la pantalla agrupa por BANDAS, un reorden que no cambia de banda es invisible
 
-El Kanban del plan agrupa por `prioFromScore` (`app/plan/board/types.ts`): **ALTA ≥ 75 ·
+⚠️ **Desde el 16/10/2026 el Kanban de TAREAS ya no agrupa por banda**: sus columnas son el ESTADO
+(Por iniciar · En proceso · Atorada · Completada, y «No cumplen tu criterio» sólo si hay), el orden
+dentro de cada una es el MANUAL (`orden`, `enOrdenManual` en app/plan/board/kanban.ts) y la prioridad
+es un filtro y un chip — soltar mueve de columna con `board.mover` y no pregunta ningún número. Lo de
+abajo sigue valiendo para lo que SÍ agrupa por banda: la grilla de PROYECTOS y la escalera de
+proyectos (docs/hallazgos-plan.md → «El kanban es de ESTADO desde el 16/10/2026»).
+
+La grilla de proyectos del plan agrupa por `prioFromScore` (`app/plan/board/types.ts`): **ALTA ≥ 75 ·
 MEDIA ≥ 50 · BAJA ≥ 25 · A FUTURO < 25**. Con 40 proyectos arriba de 75, ordenarlos entre
 sí de 99 a 76 no mueve ni una columna — y para el que mira es indistinguible de no haber
 hecho nada. El dueño reportó el mismo problema dos veces sobre un orden que ya estaba bien
@@ -2133,6 +2165,21 @@ el historial, no la columna.
 
 # Crear tareas dispara al Perro, y el Perro re-curva TODOS los proyectos
 
+⚠️ **Desde el 16/10/2026 cargar tareas de una reunión NO dispara al Perro ni a ninguna IA**: «Cargar»
+un borrador (`aplicarPropuestas`) y el alta desde el modal de una reunión (`crearDesdeReunion`) crean
+LIBRES (score 0, «Por iniciar») y deciden el proyecto sin modelo (`destinoSinIA`, lib/plan-bandeja.ts;
+lo que nada reclama va a la bandeja «Sin proyecto»). La IA de esa carga corre donde nadie espera: el
+cruce anti-duplicados en el cron y en la lectura en segundo plano (lib/reunion-cruce.ts), y la
+prioridad en «Re-priorizar todo». **Código nuevo que cargue tareas en un pedido no llama a un modelo
+ni espera uno**; y un resultado de IA hecho en segundo plano se SELLA sólo si corrió (`cruzado_at`):
+«no se pudo» no es «no había nada». ⚠️ **Y se escribe en la MISMA escritura que hace visible el
+borrador** (`cruzarTareas` antes de `crearPropuesta` / `marcarProcesado`), con el sello que va y viene
+con esas tareas: cruzado DESPUÉS, el modal tomaba las filas sin la marca y su autosave la borraba
+(16/10/2026, revisión adversarial). Una fila «procesando» que deja un lector la cierra CUALQUIER lector
+que termine esa reunión, y el reintento no la cuenta como hecha (una lectura cortada no corre su `finally`). Lo de abajo sigue valiendo para los caminos que todavía lo
+llaman (el doer de WhatsApp, `priorizar-nuevas`, crear un proyecto a mano) — docs/hallazgos-plan.md
+→ «Fathom sin fricción».
+
 `aplicarPropuesta` corre la priorización sobre el tablero entero, no sólo sobre lo que
 acabás de crear: al volver, los scores que habías fijado a mano ya no están. Medido el
 25/09/2026 — se ordenaron los 70 proyectos por las tres fases, se crearon nueve tareas, y
@@ -2145,6 +2192,42 @@ el tablero volvió con el más alto en **70** y un proyecto de fase 2 primero.
   Lector de reuniones» —correcto por tema— cuando el compromiso con el cliente las agrupa
   en «el Plan y el Perro Guardián», que es el que tiene la fecha. Después de crear, se
   comprueba DÓNDE cayó cada una.
+
+# Un trabajo LARGO del Plan es una FILA que se drena por tandas, y lo que escribe lo pinta la pantalla
+
+«Re-priorizar todo» (16/10/2026, docs/hallazgos-plan.md → su entrada) es el molde, y lo que exige a
+cualquier proceso que recorra el tablero entero en segundo plano:
+
+- **La fila es el estado, no el `await`.** La foto de lo que entra, el cursor, el estado y el último
+  error viven en la base (`plan_repriorizaciones`, mig 0301). Lo drenan DOS caminos —el sondeo de la
+  pantalla abierta, que empuja la tanda siguiente en `after()`, y un cron cada minuto para cuando nadie
+  mira— y tomar una tanda es un compare-and-set (`vuelta`) con un candado que vence (`tomada_hasta`).
+  «Uno a la vez» lo garantiza un índice único PARCIAL; el que choca (23505) recibe el que ya corre.
+- **Una tanda que falla se reintenta ENTERA, esperando, y a la tercera se corta**, con el error en la
+  fila aunque después salga. Nunca se saltea: una tanda salteada es un trabajo «hecho» con veinte
+  tareas sin tocar. Y nunca se arranca una tanda sin el reloj que necesita: `after()` comparte el
+  `maxDuration` de la ruta, y desde la API de MaKo (que corta a 60 s, y donde no se sabe quién
+  confirma) no se empuja nada — lo levanta el cron.
+- **Lo que el server escribe mientras la pestaña está abierta VIAJA a la pestaña** (un `GuardPatch` por
+  tarea, aplicado con `aplicarPerroServer` sin volver a guardar). Los dos tableros guardan la fila
+  ENTERA desde el navegador: un número que la pantalla no se enteró vuelve a la base en el próximo
+  guardado de cualquier campo. Incluye `scoreBase` (el reparto curva desde ahí) y la entrada de
+  historial.
+- **Una entrada de historial de algo que se puede repetir lleva id DETERMINISTA** (trabajo + tarea): la
+  segunda pasada la reemplaza en vez de apilar otra. Y lleva el número de ANTES: sin deshacer, el
+  historial es lo único que deja volver a mano.
+- **Sólo tareas del PLAN** (`esDelPlanCliente`): `experimento_tareas` también guarda lo que propuso una
+  Retro y los pasos de un experimento, que tienen su propia rendición de cuentas.
+- **Lo que espera a un modelo decide contra la fila RELEÍDA justo antes de escribirla**, no contra la
+  foto de antes de la llamada (30 a 90 s en los que la persona sigue usando el tablero): con la foto, una
+  prioridad fijada a mano en ese minuto quedaba con el número de la IA y con el candado puesto, y se
+  borraba el historial de un arrastre (16/10/2026, revisión adversarial).
+- **El intento se cuenta al TOMAR la tanda, no en el `catch`**: una función que Vercel corta no corre su
+  `catch`, y una tanda que se muere siempre se repetía para siempre sin pasar a «error».
+- **Una pantalla que depende de que los cambios le VIAJEN mira también los trabajos que no arrancó** (al
+  volver a la pestaña y cada `VIGILANCIA_MS`), y al abrir no repinta cambios viejos encima de lo que una
+  persona cambió después (cada cambio lleva su hora, `cambiosDesde`). Docs/hallazgos-plan.md → «La
+  revisión adversarial del kanban».
 
 # Una regla que se aplica AL ESCRIBIR no arregla ni una fila ya escrita
 
@@ -3975,6 +4058,11 @@ voz con un mensaje que le pedía cargar otra key. Dos reglas al escribir un cami
   bien: si una feature mezcla pedidos con y sin datos de clientes, la marca del catálogo queda como
   default cerrado y quien llama la afina con `pii`, EN POSITIVO (lo que no está revisado la lleva;
   molde: `CAJAS_SIN_DATOS_DE_CLIENTES`, lib/graficos-ia-elemento.ts).
+  ⚠️ **Y una key de la plataforma COPIADA en la fila de un negocio no es del negocio** (16/10/2026: la Gemini del ws1
+  lo era, y todos sus pedidos con datos de clientes iban a la key gratis de la agencia sin pasar por el corte).
+  `provsDe` (lib/ai-cheap.ts) saca de las «propias» toda copia de una key de la plataforma, y las cascadas toman las
+  keys SÓLO por ahí: un bucle nuevo de IA no lee una key con `credWs` (que al ws1 le presta la del entorno) ni arma su
+  propia lista. Lo fija `tests/ia-keys-propias.test.ts`.
 - **La red va como OPCIÓN del que llama, nunca fija en una función compartida** (`EnVivo`,
   `lib/setting-simulador.ts`, 16/10/2026). Una lectura de la API que un agente externo puede llamar
   en bucle no la pide: gastaría la cuota gratis de la agencia, que es de la que viven las respuestas
@@ -4750,7 +4838,9 @@ Medido el 23/09/2026: el slider de prioridad salió a producción con
 `fetch('/api/plan-board')` adentro. Esa ruta abre con `getSesionAdmin()`, así que **cada
 cliente tenía un control cuya única respuesta posible era «solo admin»** — y además
 `score_manual` (mig 0143) es una columna que la tabla del cliente no tiene, o sea que
-tampoco había dónde escribirlo. Con el mismo molde salieron ese día otros tres: la casilla
+tampoco había dónde escribirlo (⚠️ 16/10/2026: eso era FALSO —la 0143 la agregó también a
+`experimento_tareas`—, y tres comentarios lo repetían; nadie la usaba en el cliente hasta «Re-priorizar
+todo», docs/hallazgos-plan.md). Con el mismo molde salieron ese día otros tres: la casilla
 de prioridad del alta, el arrastre del Kanban y el botón de dictar.
 
 **La escritura entra por el `Repo`, y el que no la implementa NO DIBUJA EL CONTROL.** Es
@@ -7137,7 +7227,10 @@ lo remató con la versión de producto: *«para los 50 clientes que lo usen pued
 las tareas, y encima cuando quiera modificarlo no lo deje»*.
 
 - **Una corrida automática NO escribe `score_manual`.** Lo pone la persona al debatir una
-  prioridad, y nadie más. Si una corrida quiere conservar un orden, escribe el `score` y la
+  prioridad, y nadie más. ⚠️ Y desde el 16/10/2026 vale en las DOS mitades: el tablero del cliente lo
+  pone con su slider y lo saca con `prioridadAlPerro`, y todo proceso que re-puntúe tareas del cliente
+  («Re-priorizar todo») lo LEE — la razón escrita («La fijaste a mano») no sirve de marca: la pantalla
+  guarda otro texto. Si una corrida quiere conservar un orden, escribe el `score` y la
   `score_razon`, que es discutible, y se va.
 - **Toda prioridad que pone la IA tiene que poder cambiarse a mano en la pantalla**, sin
   debate previo y sin fricción. Si el modelo se equivoca —y se va a equivocar— la salida no

@@ -1,5 +1,5 @@
 // =============================================================================
-// editor-video/propuestas — lo que la API PROPONE en un proyecto del Video Editor (`video_editor_propuestas`, 0300)
+// editor-video/propuestas — lo que la API PROPONE en un proyecto del Video Editor (`video_editor_propuestas`, 0302)
 // =============================================================================
 // Etapa 3 del diseño AI-native: las operaciones del chat pasan a la API (./chat-api.ts), pero el proyecto vive en el
 // navegador. Cada acción deja su operación en una PROPUESTA del proyecto; el editor la muestra en su chat y una persona

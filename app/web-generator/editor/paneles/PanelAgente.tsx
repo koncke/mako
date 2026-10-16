@@ -555,11 +555,11 @@ function BurbujaDePedido({ burbuja, onBoton }: { burbuja: BurbujaPedido; onBoton
         <div className="gma-ag-acciones">
           {v.botones.map((b) => (
             <button key={b.id} type="button" className="gma-pb-boton" data-v={b.v} data-t="s" disabled={b.apagado} data-elegido={b.elegido ? '' : undefined} onClick={() => onBoton(b.id)}>
-              {b.elegido && <Ico n="check" t={13} />}{b.texto}
+              {b.elegido ? <Ico n="check" t={13} /> : b.icono && <Ico n={b.icono} t={14} />}{b.texto}
             </button>
           ))}
           {v.links.map((l) => (
-            <Link key={l.href} href={l.href} className="gma-pb-boton gma-ag-link" data-v="secundario" data-t="s">{l.texto}</Link>
+            <Link key={l.href} href={l.href} className="gma-pb-boton gma-ag-link" data-v="contorno" data-t="s">{l.texto}</Link>
           ))}
           {v.nota && (
             <span className="gma-ag-nota" data-error={v.error ? '' : undefined} role={v.error ? 'alert' : undefined}>

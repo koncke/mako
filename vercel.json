@@ -134,6 +134,10 @@
       "schedule": "10 9 * * *"
     },
     {
+      "path": "/api/cron/plan-repriorizar",
+      "schedule": "* * * * *"
+    },
+    {
       "path": "/api/cron/prueba-grabacion",
       "schedule": "*/15 * * * *"
     },

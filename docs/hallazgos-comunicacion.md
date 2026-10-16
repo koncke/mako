@@ -9908,3 +9908,86 @@ archivo:
   reagendar la reunión.» como descripción que ve el lead.
 
 **Vive en:** docs/inventario-nada-por-detras.md (la lista y el orden de la mudanza)
+
+## Las dos capturas, mudadas: texto literal, sin camino viejo y con techo (16/10/2026)
+
+Lote 1 de docs/inventario-nada-por-detras.md: el «Se desconectó tu WhatsApp» de Leila y el «ANUNCIOS · 19 H 40 MIN SIN
+ENTREGAR… (18ª vez)» del grupo de Mauricio.
+
+- **La #253 no tenía el texto que salía.** Citaba `{{linea_titulo}}` y `{{linea_motivo}}`, y esas dos «variables» eran
+  frases enteras escritas en el código. Ahora «se cortó» y «se desconectó» son dos eventos, cada uno con su fila y su
+  texto entero. **Regla:** una variable es un DATO (un número, una fecha, un estado), nunca una frase; si el texto cambia
+  según el caso, son dos salidas de una CONDITION o dos eventos.
+- ⚠️ **Sin camino viejo, un evento de la plataforma SIN fila no manda nada.** Hasta el 16/10 salía «como antes» con el
+  texto del código (`sinFila`): era otro envío por detrás. **Antes de desplegar algo así hay que mirar que la fila de cada
+  evento exista y esté prendida en el ws9** (el 16/10 estaban #253 a #256; la de `oferta_lista` NO). Para un aviso que el
+  código de producción todavía manda por su lado, crear la fila ANTES del deploy no cambia nada y no deja hueco.
+- **El «18ª vez» no era un dedup roto:** era el diseño. `insistirAlertasCriticas` mandaba `emitirAviso` DIRECTO cada 60
+  min, sin techo. Ahora emite el evento `meta_cuenta_frenada` con los HECHOS del incidente y la fila de SuperAdmin tiene el
+  techo («Aviso número ≤ 3», editable) y un texto literal por estado de la cuenta.
+- ⚠️ **Qué cuenta como «avisado» (la revisión del 16/10 lo cazó antes de subir):** `emitirPorEvento` devuelve `wa: true`
+  apenas CORRE una fila, aunque la tarjeta se haya dormido esperando el horario de oficina o no haya salido. Contando eso,
+  el techo se gastaba de noche (tres corridas dormidas que salían juntas a las 9, con los datos de la noche), entre el
+  deploy y la mudanza, o con la línea caída. Ahora el emisor devuelve `llegaron` (al grupo o por email) y SÓLO eso suma;
+  la alerta «Lo manda igual» fuera del horario, como salió siempre; y el techo cuenta por ESTADO: un empeoramiento
+  («En período de gracia» → «Pendiente de cierre») vuelve a avisar.
+- ⚠️ **Un negocio sin grupo de MaKo se llenaba la campanita:** el ws4 («Cliente de Diseño», con la cuenta de Meta de
+  Mauricio) tuvo 64 filas de «meta-cuenta-frenada» el 16/10, una cada 10 minutos. Sin grupo, el aviso no salía ni estaba
+  apagado, la marca de insistencia no se escribía y el cron lo volvía a intentar en cada vuelta. Con el evento, sin llegar
+  vuelve en la próxima cadencia (una hora), no en cada vuelta.
+- ⚠️ **El interruptor del ws1 se apagó A MANO el 16/10** («meta-cuenta-frenada» en `mako.plantillas.store`, decisión de
+  Cerebro sobre el pedido de Martín) para cortar la insistencia mientras la automatización no estaba desplegada. **No
+  hay que volver a prenderlo:** con el evento, `emitirDelCatalogo` desvía el aviso a la automatización ANTES de leer el
+  store, y ese interruptor ya no lo lee nadie.
+- ⚠️ **Para verificar un interruptor de PRODUCCIÓN, se lee con el código de producción.** Leído con el de la rama, el
+  mismo aviso decía «prendido» después de apagarlo: en la rama ya es un evento, y `getPlantilla` deja afuera los eventos,
+  así que `estadoAviso` cae a su default «prendido». Con el código de main decía «apagado».
+- **La campanita SÍ tiene tabla en producción** (`notificaciones`, mig 0250: 273 filas el 16/10). Lo que falta es leerla
+  en escritorio: hoy sólo la lee el «Avisos» de MaKo Mobile.
+
+**Sin hacer:** cada cuánto insiste (`CADENCIA_MIN`, una hora) sigue en el código: falta la pieza «el ritmo, en la fila».
+`despacharReporte` (lib/notify.ts) lo siguen usando los reportes diario y horario (sólo del dueño); el semanal ya no. Lo que un negocio tenía guardado para
+«meta-cuenta-frenada» en su lista (apagado, o también por email) ya no se lee: lo decide la fila de SuperAdmin.
+
+**Vive en:** `lib/linea-vigilancia.ts` (`avisoDeCaida`, `datosCaida`) · `lib/alerta-critica.ts` ·
+`lib/alerta-critica-texto.ts` (`datosCuentaFrenada`, `marcaTrasEmitir`, `vecesDelEstado`) · `lib/aviso-evento.ts`
+(`llegaron`) · `lib/plantillas-automatizaciones.ts` (`mako-whatsapp-*`, `mako-meta-cuenta-*`, `makoUrgente`) ·
+`scripts/mudanza-avisos-plataforma.mts` · `scripts/reescribir-filas-plataforma.mts` · tests: `tests/linea-vigilancia.test.ts`,
+`tests/alerta-critica.test.ts`, `tests/avisos-plataforma.test.ts`
+
+## La campanita de escritorio y el «sin grupo de MaKo»: lo que hay que saber antes de tocarlos (16/10/2026)
+
+Mapeo de sólo lectura (tres lectores y un crítico) antes de construir la campanita de escritorio y el respaldo visible
+cuando un negocio no tiene grupo de MaKo. Nada de esto se arregló todavía: son las trampas para quien lo haga.
+
+- ⚠️ **«No pude leer» se dibuja como «vacío».** `listNotificaciones` atrapa cualquier error y devuelve `[]`
+  (lib/notificaciones.ts), así que el «Avisos» del teléfono dice «Sin avisos todavía.» con la base caída. `contarNoVistas`
+  sí devuelve `null`. Una campanita nueva necesita una lectura ESTRICTA.
+- **El contador y el punto no cuentan lo mismo.** Sin marca de agua, `contarNoVistas` cuenta la última semana y el «nuevo»
+  del teléfono marca TODO (app/m/inbox/page.tsx). Y la campana del teléfono cuenta decisiones pendientes, no el feed:
+  con otra campana en escritorio, el mismo ícono contaría otra cosa según el dispositivo.
+- ⚠️ **La fila del feed se escribe ANTES del interruptor y del envío, y no dice si llegó.** El payload es
+  `{texto, categoria, semaforo}`; `feedId` vive adentro del `try` de `emitirAviso` y el `catch` lo devuelve `null`. Para
+  decir «No llegó por WhatsApp» hay que anotar la salida en la misma fila (el update de supabase-js REEMPLAZA el jsonb,
+  no lo mezcla) o guardarla en el insert.
+- **Ruido que vería hoy una campanita sin agrupar:** una fila APAGADO por cada evento de MaKo sin fila (ignora el dedup,
+  lib/aviso-evento.ts), las alertas que insisten, los avisos agrupados que salen dos veces (su fila y la del resumen) y
+  casi todo apuntando al default `/configuraciones?tab=notif` (`emitirDelCatalogo` no pasa link). Se agrupa y se filtra
+  en la LECTURA, sin borrar nada: la fila es el registro.
+- ⚠️ **«Sin grupo» también puede ser «no pude leer».** `getGrupoJidMaKo` lee con `getSetting`, que convierte un error en
+  `null` (lib/settings.ts): un respaldo por email que se dispare con «no tiene grupo» mandaría un correo por cada aviso de
+  cada negocio ante un bache de la base. Va con `getSettingEstricto` y un marcador tipado (`sinGrupo`), nunca comparando
+  el texto del error. Un grupo guardado pero borrado da un error de Evolution, no «sin grupo».
+- **El respaldo es una opción VISIBLE de la tarjeta** («Sin grupo de MaKo: por email / queda en la app»), con el molde de
+  «Lo manda igual» (`fueraDeHorario`, lib/mako-tarjeta.ts), con default «queda en la app» (lo de hoy: si no, el día del
+  deploy todos los negocios sin grupo empiezan a recibir correos), sin duplicar el email que el aviso ya mandó, y diciendo
+  si no hay nadie en Notificaciones por email.
+- **El shell de escritorio:** no hay cabecera global; el pie del Sidebar es el lugar de lo global (ahí va «Avisos»), los
+  desplegables van por portal y en blanco, el plegado mira el `:hover` de cada panel (uno nuevo tiene que sumarse) y el
+  nav ya scrollea, contra la regla de AGENTS.md: otra fila en el pie se mide en 1024×768 antes de subirla. La marca de
+  agua (`setNotifVistoHasta`) reescribe el `perfil` entero sin comparar: abrir la campanita seguido sube el riesgo de
+  pisar un guardado.
+
+**Vive en:** `lib/notificaciones.ts` · `lib/avisos.ts` (`emitirAviso`) · `lib/mako-grupo.ts` (`getGrupoJidMaKo`,
+`enviarAlGrupoMaKo`) · `lib/mako-tarjeta.ts` · `app/api/notificaciones/route.ts` · `app/m/inbox/` ·
+`app/_components/Sidebar.tsx` · `lib/perfil.ts` (`setNotifVistoHasta`)

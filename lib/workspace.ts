@@ -186,6 +186,13 @@ const TENANT_TABLES = new Set<string>([
   'chat_estado', 'chat_leidos', 'chat_eventos',
   'identidades_fiscales', 'lead_insights', 'lead_respuestas', 'mako_acciones_pendientes', 'mako_confirmaciones', 'mako_doer_buffer', 'mako_doer_conv', 'mako_doer_lock', 'mako_knowledge', 'meta_campaign_drafts', 'meta_health_history', 'nutricion_envios', 'nutricion_inscripciones', 'nutricion_secuencias', 'pagos',
   'pipeline_stages', 'plan_dependencias', 'plan_propuestas', 'plan_reprios', 'propuestas', 'plan_proyectos', 'plan_tareas', 'productos', 'retros',
+  // Las reuniones de Fathom que el cron descartó por tipo (mig 0300, 16/10/2026). Sin esta línea
+  // getTenantDb() es PASSTHROUGH y la lista «Descartadas» de un negocio mostraría las de todos.
+  'plan_reuniones_descartadas',
+  // «Re-priorizar todo»: un trabajo por tablero, con su foto y su avance (mig 0301, 16/10/2026). Sin
+  // esta línea getTenantDb() es PASSTHROUGH: el tablero de un negocio vería —y empujaría— el trabajo
+  // de otro, y «uno a la vez» se contaría entre todos los negocios.
+  'plan_repriorizaciones',
   // Los cobros de la pasarela (Stripe / Mercado Pago, mig 0255). Sin esta línea getTenantDb() es
   // PASSTHROUGH y la tab Pagos de una ficha listaría los cobros de TODOS los negocios. Las rutas
   // públicas (/pagar/<token>) y los webhooks leen con service role y ws explícito, a propósito.

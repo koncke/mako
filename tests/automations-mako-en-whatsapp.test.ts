@@ -302,7 +302,7 @@ test('5. `listarPlantillas` deja afuera los tres eventos en las dos vistas, y la
   // (15/10/2026: y la línea caída y la que volvió, Mensajes de MaKo de la PLATAFORMA; dejan /mensajes como los demás.)
   // (16/10/2026: y el reporte de los lunes, que pasó a ser una automatización de la plataforma, «MaKo por email».)
   // (16/10/2026, tarde: «WhatsApp cerró la sesión» es su propio aviso, `wa-desvinculado`: docs/inventario-nada-por-detras.md.)
-  assert.deepEqual([...AVISOS_POR_EVENTO].sort(), ['cuota-vencida', 'dashboard-analisis-listo', 'oferta-lista', 'pago-recibido', 'reporte-semanal', 'reunion-nuevo-agendado', 'reunion-ocurrio-fathom', 'reunion-recordatorio', 'seguridad-contrasena-restablecer', 'wa-desconectado', 'wa-desvinculado', 'wa-mensaje-entrante', 'wa-reconectado']);
+  assert.deepEqual([...AVISOS_POR_EVENTO].sort(), ['cuota-vencida', 'dashboard-analisis-listo', 'oferta-lista', 'pago-recibido', 'reporte-semanal', 'reunion-nuevo-agendado', 'reunion-ocurrio-fathom', 'reunion-recordatorio', 'seguridad-contrasena-restablecer', 'wa-desconectado', 'wa-desvinculado', 'wa-mensaje-entrante', 'wa-reconectado', 'meta-cuenta-frenada', 'meta-cuenta-recuperada'].sort());
   assert.deepEqual(AVISOS_DEL_CLIENTE, [], '«Todos arrancan vacíos»: un mensaje de MaKo del cliente es una automatización');
   // El reporte de los lunes es del super admin: desde el 16/10/2026, su automatización de la plataforma (sólo email).
   assert.ok(AVISOS_SOLO_SUPERADMIN.includes('reporte-semanal'));

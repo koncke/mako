@@ -85,6 +85,15 @@ async function apiKey(): Promise<string> {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+/**
+ * Fathom NO CONTESTÓ (429, 5xx o la red, después de los reintentos): un fallo PASAJERO, que no es
+ * «la grabación no tiene contenido». Es lo que deja que quien lee distinga los dos (16/10/2026,
+ * `extraerTareasDeReunion`): tratado como vacío, una reunión leída por el webhook en el minuto en
+ * que Fathom tosía quedaba cerrada para siempre como «sin compromisos». Un 4xx sigue siendo un
+ * `Error` común: ése no se arregla reintentando.
+ */
+export class FathomSinRespuestaError extends Error {}
+
 // Reintenta en 429 / 5xx / red, con backoff. El bug del v1 fue tragar estos
 // fallos en silencio (transcript vacío → análisis basura con score 0).
 async function fathomGet<T>(path: string, params: Record<string, string | number | boolean | undefined> = {}, tries = 4): Promise<T> {
@@ -114,7 +123,7 @@ async function fathomGet<T>(path: string, params: Record<string, string | number
     }
     return (await res.json()) as T;
   }
-  throw new Error(`Fathom sin respuesta en ${path} tras ${tries} intentos: ${lastErr}`);
+  throw new FathomSinRespuestaError(`Fathom sin respuesta en ${path} tras ${tries} intentos: ${lastErr}`);
 }
 
 // ── Listado (metadata) ──────────────────────────────────────────────────────
