@@ -314,6 +314,16 @@ no: un test que lee algo fuera de git (`.git/hooks`, `.next/`, el home) **lee la
 versionada**, o se saltea diciendo por qué. Uno que se saltea mudo da verde sin haber mirado
 nada (pasaba con el del pre-push hasta ese mismo día).
 
+⚠️ **Y vale para los DATOS de prueba: una ruta que pasa por `resolve`, `join` o un `cwd` no
+puede ser `C:\…` fijo.** En Linux es RELATIVA y `resolve` le pega delante el cwd del runner: el
+16/10/2026 un `REPO = 'C:\\repo\\dashboard-marketing'` dio verde en la notebook y 2 rojos en el
+run 38845971505 (mío, en `tests/tsc-acotado.test.ts`, la noche después de escribir la regla de
+arriba). Va `resolve('/repo/x')` —en Windows queda `C:\repo\x`, en Linux `/repo/x`, y lo esperado
+se deriva de ahí— o `join(tmpdir(), …)`. Lo frena en el push `scripts/rutas-windows-en-tests.mjs`
+(en las guardas baratas): un literal `C:\…` o `C:/…` en `tests/` fuera de los comentarios es un
+error, salvo que el archivo esté en su lista `PERMITIDOS` con el motivo — un nombre de archivo que
+manda el navegador o un texto que se redacta son datos, no rutas.
+
 ⚠️ **Si el árbol compartido tiene trabajo ajeno que no compila, se pushea desde un worktree
 limpio — nunca con `--no-verify`.** `git worktree add --detach <ruta> main`, un junction a
 `node_modules` (`New-Item -ItemType Junction`), `git push origin HEAD:integracion` desde ahí, y

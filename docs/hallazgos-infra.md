@@ -2379,6 +2379,19 @@ un verde vacío en Linux era el del pre-push, que leía `.git/hooks/pre-push` y 
 ahora lee la copia versionada, y otro test exige que el instalado sea igual a ella. Con ~10 min
 por run, los 2.000 minutos alcanzan para ~200 pushes por mes.
 
+**Y la misma trampa del lado de los DATOS (16/10).** El run 38845971505 cayó por
+`tests/tsc-acotado.test.ts` —escrito por mí la noche después de la regla de las rutas—, que fijaba
+`REPO = 'C:\\repo\\dashboard-marketing'` y lo pasaba por `resolve`: en Linux es una ruta relativa y
+`resolve` le pegó el cwd del runner (2 rojos; lo arregló el coordinador con
+`resolve('/repo/dashboard-marketing')`). Quedó una guarda en el push,
+`scripts/rutas-windows-en-tests.mjs` (~1 s, sin tsx): frena un literal `C:\…` o `C:/…` en `tests/`
+fuera de los comentarios, salvo los archivos de su lista `PERMITIDOS` con el motivo. Medido sobre
+996 tests: 7 archivos tienen literales así y los 7 son datos, no rutas (nombres que manda el
+navegador, el cwd que guarda una sesión, los casos de la guarda). ⚠️ El primer patrón daba un
+falso positivo: `` `… \`m:\` …` `` (una comilla invertida escapada en un template de
+`instagram-buscar`) se leía como `m:\`; ahora después de `X:` tiene que venir `/`, `\\` o una barra
+seguida de un carácter de ruta, nunca de una comilla.
+
 **Y un rojo que se ve en segundos no puede costar un run.** El run 38830968542 cayó en «Tipos»
 por un hito `tipo: 'prompt'` sin `puntos` en `app/admin/dev/chatbot/bitacora.ts` (TS2741), la
 misma trampa que frenó tres pushes el 14/10. Las bitácoras se escriben a mano en cada tanda y son
