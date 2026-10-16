@@ -1020,8 +1020,13 @@ Cómo se enchufa otra galería: [plantillas-sugeridas.md](plantillas-sugeridas.m
 - **Las señales llegan desde la página del server**, en paralelo con el informe, y no por un fetch de la galería: la
   pantalla en blanco muestra la galería al cargar, y un orden que llega después haría saltar las tarjetas.
 
-**Lo que quedó SIN hacer:** mirarlo en producción con un negocio que tenga funnels declarados; el arnés usa señales de
-ejemplo. Y enchufar las otras galerías (Automations, Web Generator, Video Editor, Image Editor, CRM).
+**Visto en producción** (16/10/2026, después del run 32, la sesión de Martín en el ws9, sin crear nada): las señales del
+ws9 son vender por chat, con entradas por chat saliente y entrante (`GET /api/plantillas/senales`). El Dashboard en blanco
+ofrece Chat Analyst, Comercial y Automatizaciones con «Sugerido», y General, «Ventas por WhatsApp» (la única de General
+para quien vende por chat): lo mismo que da la regla.
+
+**Lo que quedó SIN hacer:** mirarlo en un negocio que venda por llamada o cobre una suscripción (el ws9 sólo prueba el
+chat). Y enchufar las otras galerías (Automations, Web Generator, Video Editor, Image Editor, CRM): las reparte Cerebro.
 *16/10/2026, claude3 (chat Dashboard).*
 
 ## «Editar con MaKo»: operaciones sobre la hoja abierta, y lo de General que la IA no sabía (16/10/2026)
