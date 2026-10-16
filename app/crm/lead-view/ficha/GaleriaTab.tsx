@@ -118,10 +118,13 @@ export function GaleriaTab({ tab, ficha, nombreTab, vista, onVista, onUsar, onCe
   return (
     <>
       <section className="fb-galeria" aria-label={`Plantillas de ${nombreTab}`}>
-        <button type="button" className="fb-boton-texto fb-galeria-cerrar" onClick={onCerrar}
-          title={primeraVez ? 'Se queda la sugerida' : 'Se queda la de hoy'}>
-          {primeraVez ? 'Ahora no' : 'Cerrar'}
-        </button>
+        {/* Sin «Ahora no» la primera vez (16/10/2026: «elimina la opción de "Vista previa: Antes de la llamada" y la de
+            "Ahora no"», Martín): se elige una. Abierta desde «Templates», «Cerrar» se queda con la de hoy. */}
+        {!primeraVez && (
+          <button type="button" className="fb-boton-texto fb-galeria-cerrar" onClick={onCerrar} title="Se queda la de hoy">
+            Cerrar
+          </button>
+        )}
         {/* 1 · ¿Qué vas a crear hoy? — LA caja de la casa (la de «Nueva hoja», Automations y el Web Generator). */}
         <div className="gp cp-casa fb-galeria-caja" data-pedido-mako="">
           <style>{CSS_TOKENS_CASA + CSS_CAJA_PEDIDO}</style>
@@ -175,10 +178,10 @@ export function GaleriaTab({ tab, ficha, nombreTab, vista, onVista, onUsar, onCe
       </section>
 
       {/* 3 · Lo que se mira, con los datos de este lead (la tab de abajo) y el botón que lo elige. */}
-      <div className="fb-gal-barra" role="region" aria-label="Vista previa">
+      <div className="fb-gal-barra" role="region" aria-label={`Elegir ${mirando}`}>
+        {/* Sin «Vista previa: …» (16/10/2026, mismo pedido): la tab de abajo ya ES la vista previa. */}
         <span className="fb-gal-barra-txt">
-          Vista previa: <strong>{mirando}</strong>
-          {aviso && <span className="fb-gal-barra-aviso"> · {aviso}</span>}
+          {aviso && <span className="fb-gal-barra-aviso">{aviso}</span>}
         </span>
         <Button size="sm" onClick={onUsar} disabled={yaEsta || pensando}>{yaEsta ? 'En uso' : rotuloUsar(mira, sugerida)}</Button>
       </div>

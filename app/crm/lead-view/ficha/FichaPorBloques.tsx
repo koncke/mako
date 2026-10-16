@@ -278,7 +278,9 @@ export function FichaPorBloques({ data, parchear, altoChat, initialTab, onTab, f
               <IconoMenu nombre="agregar" size={15} /> Agregar bloque <span aria-hidden>▾</span>
             </button>
             <button type="button" className="fb-herr" aria-pressed={conGaleria} onClick={() => { setSel(null); setAgregar(null); if (conGaleria) soltarGaleria(tab); else setGaleria(tab); }}>
-              <IconoMenu nombre="archivo" size={15} /> Plantillas
+              {/* «Templates» desde el 16/10/2026 («"Plantilla" ya está en la topbar de edición, y debería llamarse
+                  "Templates"», Martín). */}
+              <IconoMenu nombre="archivo" size={15} /> Templates
             </button>
             <div className="fb-barra-fin">
               {!delLead.includes(tab) && <span className="fb-panel-linea" style={{ margin: 0, padding: '0 8px' }}>Este lead no ve esta tab.</span>}
