@@ -6145,6 +6145,15 @@ acotado dio `TS2339: Property 'toggleEtiqueta' does not exist on type 'ChainedCo
 errores. Un error del acotado en un archivo que la rama no tocó se mira así antes de reportarlo: `grep` del
 nombre que falta, y si aparece en un `declare module`, ese archivo va a la lista.
 
+**16/10/2026:** `insertar.ts` ya no depende de eso: importa SÓLO por tipos (`import type {} from …`) los tres módulos
+que declaran lo que encadena (StarterKit, `@tiptap/extension-list` y `extensiones/marcas.ts`). Medido: compilado solo
+daba 5 errores (las listas, la cita, las tareas y `toggleEtiqueta`; los demás acotados veían sólo el último porque su
+programa ya traía StarterKit), y con el arreglo, 0. **Regla para código nuevo:** un archivo que encadena comandos de una
+extensión los importa por tipos. Y otro falso rojo de la misma familia: sin `next-env.d.ts` tampoco entran los tipos de
+Node, y `process` falla («Cannot find name 'process'», `lib/editor-landing/especificacion.ts:235`). Si no se copia
+`next-env.d.ts`, alcanza con sumar al tsconfig temporal `"typeRoots": ["<repo>/node_modules/@types"]` (ruta ABSOLUTA:
+el json vive en el scratchpad y una relativa no encuentra nada, TS2688) y `"types": ["node"]`.
+
 **Vive en:** el tsconfig temporal de cada chat (scratchpad) · la memoria `pc-techo-ram-chrome`, que
 enseñaba la receta sin el `include` · *2026-10-14 Plan - Perro Guardián*
 
