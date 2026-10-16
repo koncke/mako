@@ -1232,6 +1232,22 @@ código nuevo:
   siendo el cartero (`cartero.mjs`, `operaciones_carteros`, `ver_carteros_operaciones`): las claves no se renombran. La
   PC lo reconoce por el título del chat («Runner» o «Cartero», también como «Centro de Operaciones › Runner»:
   `esElCartero`). Un texto nuevo del Centro no dice «cartero» ni «clave»: lo fija tests/centro-textos.test.ts.
+- **UNA TARJETA DE LA TICKETERA SE CONTESTA EN EL CHAT QUE LA PREGUNTÓ, COMO LA PREGUNTA DE CLAUDE CODE** (16/10/2026),
+  o en la Ticketera, que vive ADENTRO del Centro (`?ticketera=tarjetas|lista`; las rutas de antes son puertas que
+  conservan la query). Las dos contestan con `responderDecision`. Código nuevo que dibuje tarjetas de un chat pregunta
+  de qué chat son a `lib/centro-preguntas.ts` (con `destino`, o por un nombre único), nunca por su cuenta: así el
+  globito, la pregunta y la conversación cuentan lo mismo. Una opción puede traer su `detalle` (la descripción).
+- **EL USO DE UNA CUENTA SALE DE LA BARRA DE ESTADO DE SU RUNNER** (16/10/2026; Martín: «El "Uso" debe ser visible
+  siempre»): `rate_limits` por stdin, con `resets_at` en SEGUNDOS (lib/centro-uso.ts, `cartero.mjs uso`), y la semanal de
+  la app desde `~/.claude/uso-semanal.txt`. Un porcentaje pasado su reinicio no se muestra como de ahora.
+- **UN RUNNER POR CARPETA DE CONFIG, NO POR CUENTA** (16/10/2026; Martín pasó las tres cuentas a la terminal, cada una
+  con su `CLAUDE_CONFIG_DIR`). `SendMessage` sólo llega a las sesiones registradas en la carpeta del que manda (medido:
+  «ENOINBOX: no-key»), y la app comparte `~/.claude` con `claude1`. Código nuevo que entregue algo a un chat: lo
+  reclama sólo si un Runner alcanza la carpeta de ese chat (`entregables`), lo deja en el buzón de la PC con esa carpeta,
+  y lo manda el Runner de esa carpeta (scripts/operaciones/cartero.mjs 1.4.0). Lo que la PC sube y después borra (un
+  cierre) se borra sólo si MaKo dice que ENTRÓ (`cierresIds`): con el buzón compartido, «se subió» no es «entró».
+  ⚠️ Nunca se copian las `.key` de `<carpeta>/sessions/` a otra carpeta para «hacerlo andar»: es la protección contra
+  un canal que nadie avaló.
 - **UN CHAT ES SU NOMBRE, Y UN SUB-CHAT SE LLAMA «<Jefe> › <Sub>»** (15/10/2026; Martín: «todos los chats de todas las
   cuentas se llamen igual» y «quiero que cada chat esté englobado en su chat "jefe" que siempre se debe llamar como la
   tab... ESO no lo quiero decidir yo, lo decide el chat jefe»). Lo que gobierna a cualquier chat:
@@ -1241,6 +1257,20 @@ código nuevo:
   - **Un sub-chat se nombra «CRM › Lead Detail»** (también vale «>»), y va adentro de su jefe (`porJefe`). No hay
     registro aparte: el nombre es la convención. Lo decide el jefe —se renombra a sí mismo o renombra al sub-chat con
     `set_session_title`— y funciona igual si el sub-chat lo crea Martín con un clic y lo nombra así.
+  - **El jefe se llama como una tab de VERDAD** (16/10/2026): la lista sale de la barra y de las áreas
+    (app/admin/operaciones/tabs.ts); lo que no coincide va a «Sin asignar». **El orquestador se llama «Cerebro»** y no es
+    un jefe: va aparte, arriba («Estrategia 3 cuentas» es su nombre de antes). Un pedido sale SÓLO en el chat que lo
+    trabajó, nunca en el que lo pasó; **el que nadie empezó, en el chat donde se pidió**.
+  - **El historial de una tab es de su jefe** (16/10/2026): lo anotado con un nombre que hoy no tiene ningún chat
+    («Chatbot», un sub-chat cerrado) va al jefe que se llama como el área de su bitácora (`completarChats`, el paso 3).
+    No hay sección «Antes del 16/10»; un jefe sin chat abierto se lista sólo si tiene algo sin terminar. Anotar en la
+    bitácora del área que se tocó es lo que hace que el trabajo aparezca en su jefe.
+  - **Cada jefe ES un proyecto del Plan** (16/10/2026; los dos se llaman como la tab). El Centro lee y escribe el Plan
+    SÓLO con las operaciones de la API de MaKo (`listar_tareas_plan`, `proponer_tareas_plan`, `proponer_cierre_tareas`)
+    aplicadas en el acto con `ctxDelCentro` (lib/centro-plan.ts), por la ruta `/api/centro/plan` y NO por una server
+    action (el Perro tarda hasta un minuto y las acciones van de a una): ninguna escritura directa a `plan_tareas`. Un
+    proyecto se busca por `nucleo()`: el tablero lo guarda como «Feature: CRM». **Un mensaje NO se vuelve tarea solo**:
+    «Sumar al Plan» es un clic de Martín, sin preguntas. El Cerebro no tiene proyecto.
   - **Dos chats distintos no se llaman igual**: si pasa, se unen. Se separan renombrando uno («⋯ → Renombrar»), que le
     manda a cada sesión un trabajo firmado que le pide `set_session_title` (`textoDeRenombre`): el mismo camino de la
     firma, sin una puerta nueva a la PC.
@@ -1554,7 +1584,7 @@ lee tiene que deducir qué hacer. La segunda arranca con la acción, nombra la c
 |---|---|
 | «Este dispositivo todavía no firma.» | «Crea tu Token para comenzar a chatear.» |
 | «La PC todavía no acepta la clave de este dispositivo.» | «Pégale tu Token al Runner para comenzar a chatear.» |
-| «Sale cuando el cartero de la cuenta 3 dé su vuelta.» | «Abre el chat Runner en la app de Claude para que salga.» |
+| «Sale cuando el cartero de la cuenta 3 dé su vuelta.» | «Abre el Runner en la terminal de la cuenta 3 para que salga.» |
 | «Ningún chat todavía: aparecen cuando el cartero da su vuelta.» | «Conecta un Runner para ver tus chats aquí.» |
 
 - **La prueba antes de escribir un aviso:** ¿arranca con un verbo que la persona puede hacer, y
@@ -2612,6 +2642,10 @@ el catálogo justo para eso y **no la llamaba nadie**: código muerto.
    cliente con `?ws=N` — por ahí la tarjeta del token del repo se dibujaba adentro del
    panel de dos clientes. Va `wsActual === await wsSuperAdmin()`. Es la otra mitad de la
    regla de `OWNER_WS` que ya está más arriba, y ya falló tres veces.
+5. **Una ruta /api que sólo usa una tab sólo-admin abre con `soloAdminDeTab('<nav>')`** (lib/puerta-admin-tab.ts):
+   el mismo corte que `requireRolWs([], { nav })` de su página, que redirige y a un fetch no le sirve. La página (y la
+   del teléfono, `requireMovil`) cierra la pantalla; la ruta queda abierta si no lo dice ella. Se pagó en
+   Experiments, Retro y la búsqueda del Second Brain (16/10/2026; tests/puerta-admin-tab.test.ts).
 
 **Y el corolario que decide dónde escribir:** se guarda DONDE SE LEE. Ese modal guardaba
 con `ctx.ws` mientras `lib/github-commits.ts` leía de `wsSuperAdmin()`: cargarlo desde el
@@ -3772,7 +3806,7 @@ nuevo:
 
 - ⚠️ **SÓLO PARA LO QUE MARTÍN HABILITÓ, y hoy es el onboarding.** Textual (16/10/2026): «Yo debo decirte cuando
   utilizar creditos, no tenemos infinitos... Por ahora solo en onboarding.» La lista es `CREDITO_HABILITADO_PARA`
-  (lib/veto-claude.ts): las funciones del wizard y el chat de Offer que lo reemplaza, y sólo mientras el onboarding
+  (lib/veto-claude.ts): el chat de Offer, que es el onboarding, y lo que usa de El Archivero, y sólo mientras el onboarding
   del negocio está en curso (`onboardingPendiente`). Para todo lo demás el crédito dice que no y la cascada sigue como si no existiera. Un
   camino nuevo NO se suma a la lista por su cuenta: lo pide Martín.
 - **Pasan SÓLO las dos claves con nombre** (`CLAVES_CREDITO_PLATAFORMA`), leídas por ese nombre del entorno o de la
@@ -5659,6 +5693,11 @@ El diagnóstico obvio («alguien borró la etapa en el editor») era el equivoca
 - **El olor:** una función de lectura con un `catch`/`if (error)` que devuelve un default, y
   un call site que con ese resultado hace un `insert`, un `update` o un envío. Es la misma
   familia que «No pude leer» es un tercer estado, del lado del que decide.
+- **Y es peor si lo que se escribe es el objeto ENTERO.** El estado del onboarding se guarda completo: una
+  escritura sobre `getEstadoOnboarding` (tolerante: con la base caída da el estado INICIAL) le ponía `pending`
+  a un onboarding terminado y mandaba al cliente de vuelta al arranque. Todo lo que lo escribe lee con
+  `getEstadoOnboardingEstricto`, y `patchEstadoOnboarding` ya lo hace (16/10/2026;
+  `tests/onboarding-escritura-estricta.test.ts`).
 
 # Dos escritores con dos ritmos son dos claves
 
@@ -8458,12 +8497,16 @@ técnicas están en [docs/diseno-mako-mobile.md](docs/diseno-mako-mobile.md), lo
   Machine, Content Machine, Customer Success) en su orden, y no repite lo que ya está en la barra (CRM · Chats ·
   General · Plan · More, con General AL MEDIO y como la que abre). Antes de dibujar una pantalla nueva: relevar la de
   escritorio y buscar referencias de apps reales (son parte del pedido). El prototipo vigente:
-  docs/prototipos/mako-mobile-tableros.html.
+  docs/prototipos/mako-mobile-tableros.html. **Y lo que escritorio NO tiene, o sacó, el teléfono tampoco lo suma**,
+  aunque el pedido lo nombre o la ruta lo acepte: antes de un campo o una vista nueva se busca «pedido explícito» y lo
+  que se sacó en los comentarios de la tab (Ads Writer prohíbe el campo libre para pedir un guion; Curso no tiene Avance
+  desde el 07/10).
 - **LAS MISMAS RUTAS (13/10/2026, decisión de Martín): /m es la carpeta INTERNA, nunca una URL.** Un teléfono abre
   /crm, /general, /plan… y el proxy le sirve la página de /m en esa misma URL (`pedidoMovil`, lib/movil-desvio.ts);
   una URL /m vieja se redirige a la de escritorio. Adentro de /m todo sigue hablando en rutas /m: al NAVEGAR, `conWs`
   las traduce (`rutaEscritorio`), así que un `href="/m/…"` sale bien solo — pero un `redirect('/m…')` PELADO, sin
-  `rutaConWs`, no pasa por ahí. Al LEER la URL, el shell usa `useRutaInterna`. **Una página nueva de app/m necesita su
+  `rutaConWs`, no pasa por ahí. Al LEER la URL, el shell usa `useRutaInterna`; al ESCRIBIRLA desde el cliente
+  (`replaceState`), se parte de `new URL(window.location.href)` y se toca sólo la query. **Una página nueva de app/m necesita su
   fila en `rutaEscritorio`** (y, si sólo existe en el teléfono, en `SOLO_TELEFONO`, con su respaldo de escritorio):
   `tests/movil-mismas-rutas.test.ts` recorre cada page.tsx y falla nombrándola.
 - **«¿Es móvil?» se pregunta con `esRutaMovil` (`lib/movil-rutas.ts`), nunca con `startsWith('/m')`**: eso
@@ -8491,7 +8534,10 @@ técnicas están en [docs/diseno-mako-mobile.md](docs/diseno-mako-mobile.md), lo
 - **Una sección de More se agrega en UN lugar, `SECCIONES_MAS` (lib/movil-rutas.ts)**, con la key de nav.ts que la
   gatea; de ahí salen More, la barra del rol (si le falta un destino, sube la primera de More), la cabecera, el
   título de la pestaña (lib/titulo-tab.ts) y el desvío. Su `page.tsx` llama a `requireMovil({ navKey })` con esa
-  misma key, y su `loading.tsx`, si lo tiene, va en `LOADING_PERMITIDOS` (tests/layout-sin-suspense.test.ts).
+  misma key, y su `loading.tsx`, si lo tiene, va en `LOADING_PERMITIDOS` (tests/layout-sin-suspense.test.ts). Si su
+  página de escritorio lee la URL, las claves van en `QUERY_DE_SECCION`: un push vuelve a la computadora por
+  `rutaEscritorio`, y la clave que se cae al ir al teléfono se cae también allá. Una tab UNIFICADA de escritorio se
+  gatea con la key de la sección que muestra (`ads-writer`, no `copywriting`: esa no está en TODOS_LOS_ITEMS).
 - **Lo que una pantalla de /m reusa de escritorio no puede vivir en un módulo `'use client'`**: el server no lo puede
   llamar y el cliente se lleva la pantalla entera al bundle. Se muda a lib o a un módulo puro y escritorio lo
   re-exporta (`tomas-estado.ts`, `deSiempreDisparador`, `borradorAlAbrir`); nunca una copia en /m.
@@ -8541,6 +8587,36 @@ los tiempos por palabra del elegido y los dejaba sin los suyos (docs/hallazgos-v
 módulo que importe de ahí `TICKS_PER_SECOND`, `roundMediaTime` o `addMediaTime` (directo o por `timeline/index.ts`,
 `animation/`…) no carga en los tests de node. Lo que se quiera probar recibe los ticks por segundo y lo que llega
 al motor por PARÁMETRO, e importa sólo TIPOS (molde: `transcripcion/cortar.ts`, con `tps` y `dividir`).
+
+# El onboarding es una conversación: lo que gobierna una pregunta nueva
+
+Desde el 16/10/2026 /onboarding es el CHAT DE ARRANQUE (`app/onboarding/ChatArranque.tsx`, sobre el motor de
+Offer en modo `arranque`). Martín: «Quiero que elimines todo lo que hay hoy en onboarding tal como está y que lo
+reemplaces por el chat de "Offer"… mientras más ágil y rápido mejor», y «que jamás se salga el recuadro del
+chat». Lo que costó, en `docs/hallazgos-onboarding.md` y `docs/hallazgos-offer.md` (16/10).
+
+- **Una pregunta nueva se suma en `lib/onboarding-arranque.ts`** (su etapa en `etapaDeArranque`, su mensaje en
+  `mensajesDeArranque`, cómo se lee en `leerRespuesta`), con test que la EJECUTA. Ni la pantalla ni la ruta
+  deciden qué se pregunta. Y antes de sumarla: ¿algo deja de andar el primer día sin ella? Si no, se deduce o
+  se pide después en su tab.
+- **El onboarding se cierra por UNA puerta, `cerrarPasosOnboarding`** (lib/onboarding-state.ts, regla
+  `aplicarCambiosDePaso`), que lee el estado ESTRICTO: con la base caída, escribir sobre la lectura tolerante
+  pisa un onboarding terminado. Un paso que depende de afuera (el teléfono, Meta) se POSTERGA si no se hizo;
+  nunca se marca hecho.
+- **Lo que el chat crea se ve ADENTRO del chat** (una tarjeta, un mensaje) y todo lo que lleva a otro lado es
+  un link que la persona elige, con el `Link` de la casa. Ningún paso navega solo. Vale igual para la tab Offer:
+  ninguna vista reemplaza al chat (lo que hay que mirar entero va en un `Modal` encima).
+- **El brief que deja el chat se FUNDE** (sólo llena lo vacío) **y se lee estricto antes de escribir**: lo
+  leen los generadores y el Perro, y con la base caída `saveAnswers` sobre `{}` lo borraba.
+- **Una regla que vive en el turno de la IA no es una regla del flujo.** Offer vuelve obligatorio el
+  diagnóstico desde el prompt del turno, y el botón «Armar mi oferta» no pasa por el turno: armaba sin él y
+  el arranque se trababa. Lo que el arranque NECESITA para avanzar lo mira en lo guardado
+  (`etapaDeArranque`) y, si falta, lo pregunta él; nunca supone que otra pantalla ya lo pidió.
+- **Lo que tarda minutos de IA no se espera en el navegador.** Se anota en la fila, corre en un `after()` del
+  servidor (con el `maxDuration` que le alcance) y la pantalla relee lo guardado: así una pestaña cerrada no
+  deja el trabajo a medias, y una recarga ve lo mismo. Cada escritura de fondo lleva su `intento` (un trabajo
+  viejo que termina tarde no pisa el nuevo) y lo que corre tiene un vencimiento. El molde: el armado de la
+  oferta (`armar` / `armarPorDetras` en app/api/offer/route.ts, mig 0296).
 
 # Una reserva de agenda decide a DÓNDE va por un solo camino, y la agenda tiene tres fuentes de ruteo
 

@@ -22,20 +22,14 @@ import {
   type ItemCalendario,
 } from '@/lib/calendario-modelo';
 import { HORA_PX } from './gc-css';
-import { colorDe, sePuedeMover } from './comun';
+import { colorDe, rangoGoogle, sePuedeMover, tituloDe } from './comun';
+
+// `rangoGoogle` y `tituloDe` viven en ./comun (puro) desde el 15/10/2026: también los usa el teléfono.
+export { rangoGoogle, tituloDe };
 
 const PASO = 15;
 const snap = (min: number) => Math.max(0, Math.min(24 * 60, Math.round(min / PASO) * PASO));
 const hhmm = (min: number) => `${String(Math.floor(min / 60) % 24).padStart(2, '0')}:${String(min % 60).padStart(2, '0')}`;
-
-/** «10 – 11 a.m.», «10:30 a.m. – 12 p.m.»: el rango como lo escribe Google. */
-export function rangoGoogle(ini: string, fin: string | null): string {
-  if (!fin) return horaGoogle(ini);
-  const sufIni = Number(ini.slice(0, 2)) < 12 ? 'a.m.' : 'p.m.';
-  const sufFin = Number(fin.slice(0, 2)) < 12 ? 'a.m.' : 'p.m.';
-  if (sufIni === sufFin) return `${horaGoogle(ini).replace(/ [ap]\.m\.$/, '')} – ${horaGoogle(fin)}`;
-  return `${horaGoogle(ini)} – ${horaGoogle(fin)}`;
-}
 
 /** «GMT-07»: la zona de la columna de las horas, como la rotula Google. */
 export function rotuloZona(tz: string, cuando: Date = new Date()): string {
@@ -298,12 +292,5 @@ function Fantasma({ gesto, tz }: { gesto: Gesto; tz: string }) {
       <b>{tituloDe(gesto.item, tz)}</b><i>{rangoGoogle(hhmm(ini), hhmm(fin))}</i>
     </div>
   );
-}
-
-/** El título como se dibuja: lo del CRM con su R1/R2, el resto tal cual. */
-export function tituloDe(it: ItemCalendario, tz: string): string {
-  void tz;
-  if (it.fuente === 'crm' && it.detalle) return `${it.titulo} · ${it.detalle.split(' · ')[0]}`;
-  return it.titulo;
 }
 

@@ -16,7 +16,7 @@ import { herramientasDelTurno, type EntradaTurno, type Turno } from './doer-herr
 import { porId, visible, REGISTRO, type Vista } from './api-mako/registro';
 import { canalKeyDe } from './api-mako/canal';
 import { esAccion } from './api-mako/tipos';
-import { rutaMovil } from './movil-rutas';
+import { rutaMovil, TITULO_INBOX } from './movil-rutas';
 import { consecuenciaDeshacer, lineasDelPayload, type LineaDetalle } from './inbox-movil-reglas';
 import type { Pendiente } from './mako-pendientes';
 import type { FilaPendiente } from '../app/mako/pendientes/BandejaPendientes';
@@ -167,7 +167,7 @@ export function tarjetaDePendiente(
 // ── Los links que escribe el código ───────────────────────────────────────────
 
 /** Una propuesta de PANTALLA que dejó una acción en este turno (un borrador del plan, la
- *  ficha de un lead, el formulario genérico). En el teléfono se revisa en Inbox. */
+ *  ficha de un lead, el formulario genérico). En el teléfono se revisa en Avisos (/m/inbox). */
 export type LinkCapturado = { clase: 'borrador' | 'lead' | 'accion'; url: string; operacion: string; nombre?: string; tareas?: number };
 
 const jsonDe = (out: unknown): Record<string, unknown> | null => {
@@ -341,7 +341,7 @@ export const ERRORES_DE_TARJETA: ReadonlyArray<readonly [RegExp, string]> = [
   [/^No hay ninguna acción pendiente vigente|^No encuentro la acción #\d+ vigente/, 'Ya no está vigente'],
   [/^Esa acción ya (?:estaba resuelta|se estaba ejecutando o ya venció)/, 'Ya se resolvió'],
   [/^Esta acción no está disponible para tu usuario/, 'Solo la confirma un admin'],
-  [/^Esta acción se confirma en su pantalla de revisión/, 'Se revisa en Inbox'],
+  [/^Esta acción se confirma en su pantalla de revisión/, `Se revisa en ${TITULO_INBOX}`],
   [/^La acción «[^»]*» ya no existe en MaKo/, 'Esa acción ya no existe'],
 ];
 

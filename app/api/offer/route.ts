@@ -85,10 +85,11 @@ import {
   MAX_DOCS_SESION, TOPE_TEXTO_DOC, adjuntoDe, avisosAntesDelDiagnostico, calcularDiagnostico, canalParaElNegocio, conArchivero, conRespuestaInferida,
   diagnosticoFaltante, diagnosticoParaPrompt, docsDeLaConversacion, estadoDiagnostico, faltanTexto, faseDeSetting,
   faseVigenteDe, linkParaLeer, mensajeDeMako, mensajePdf, mergePiezas, motivoArchivoOffer, planDiagnostico, primerMensaje, primerMensajeFunnel, provisionalDe, recortar,
-  repartirTranscripcion, respuestaDiagnostico, respuestaSinIA, seArchivaDesdeOffer,
+  repartirTranscripcion, respuestaDiagnostico, respuestaSinIA, seArchivaDesdeOffer, armadoEnCurso, pasoInicialDelArmado,
   type AudioGuardado, type DocumentoGuardado, type MensajeGuardado,
 } from '@/lib/offer-reglas';
 import { contextoOffer, type ContextoOffer } from '@/lib/offer-contexto';
+import { avisarOfertaLista } from '@/lib/oferta-lista-server';
 import { FEATURE_OFFER, diagnosticoOffer, propuestaOffer, turnoOffer } from '@/lib/offer-ia';
 import {
   ConflictoCAS, ErrorOffer, TITULO_DEFAULT, actualizarSesion, arbolOffer, audiosDe, borrarSesion, crearSesion, guardarComoOferta,
@@ -96,8 +97,12 @@ import {
 } from '@/lib/offer-sesiones';
 
 export const dynamic = 'force-dynamic';
-/** Una propuesta larga en la cascada gratis puede tardar 2-3 minutos; los plazos de lib/offer-ia.ts quedan por debajo. */
-export const maxDuration = 300;
+/**
+ * Una propuesta larga en la cascada gratis puede tardar 2-3 minutos; los plazos de lib/offer-ia.ts quedan por debajo.
+ * 800 (como /api/retro) por el ARMADO EN EL SERVIDOR: diagnóstico (≤285 s) + oferta (≤288 s) corren seguidos en el
+ * `after()` de 'armar', en una sola invocación. Las demás acciones tienen sus propios plazos, más cortos.
+ */
+export const maxDuration = 800;
 export const runtime = 'nodejs';
 
 const BUCKET = 'archivero';
@@ -256,35 +261,16 @@ export async function POST(req: NextRequest) {
         case 'turno':
           return await turno(ws, body, inicio);
 
+        // Los dos pasos sueltos: los sigue usando MaKo Mobile (app/m/offer). Escritorio y el onboarding usan 'armar'.
         case 'diagnosticar': {
           const id = entero(body.sesionId);
           if (!id) return no(400, 'Falta la conversación a diagnosticar.');
-          const fila = await leerFila(id);
-          if (!fila) return no(404, 'No encontré esa conversación.');
-          if (faltanMinimas(fila.piezas).length) return no(409, `Antes de armar la oferta falta: ${faltanTexto(fila.piezas)}. Sigue la conversación con MaKo.`);
-          const ctx = await contextoOffer({ conEmbudo: true, funnelId: fila.funnelId, ofertaBaseId: fila.ofertaBaseId, mensajes: fila.mensajes });
-          await asegurarFaseGuardada(fila, ctx);
-          // Los avisos del CÓDIGO van ANTES de la IA: la que pone la nota de Foco tiene que ver el de foco
-          // (tarjeta «foco», 12/10/2026), y los de margen, embudo y precio pesan en D6 y D7. La banda de
-          // facturación sale del diagnóstico de fase que VALE ahora (releído después de asegurarlo).
-          const faseAhora = faseVigenteDe(ctx);
-          const banda = faseAhora && Number.isInteger(faseAhora.respuestas?.[0]) ? faseAhora.respuestas[0] : ctx.foco.bandaFacturacion;
-          const avisos = avisosAntesDelDiagnostico({ foco: { ...ctx.foco, bandaFacturacion: banda }, piezas: fila.piezas, tasas: ctx.tasasEmbudo });
-          const ia = await diagnosticoOffer({
-            mensajes: fila.mensajes, piezas: fila.piezas, docs: docsDeLaConversacion(fila.documentos, fila.mensajes), contexto: ctx.texto, embudo: ctx.embudo, inicio,
-            alertas: [...(avisos.foco ? [avisos.foco] : []), ...avisos.otras],
-          });
-          if (!ia.ok) return no(502, ia.error);
-          // Con las PIEZAS: sin ellas no hay control final, y «lista para vender» volvería a mirar sólo las notas.
-          const calculo = calcularDiagnostico(ia.valor.dimensiones, { foco: avisos.foco, otras: avisos.otras, piezas: fila.piezas });
-          const at = new Date().toISOString();
-          await actualizarSesion(id, (f) => {
-            // Si el dueño escribió mientras MaKo diagnosticaba, este diagnóstico ya no describe la conversación.
-            if (f.mensajes.length !== fila.mensajes.length) throw new ErrorOffer('La conversación cambió mientras MaKo la leía. Vuelve a tocar «Armar mi oferta».', 409);
-            return { borrador: { diagnostico: ia.valor, calculo, modelo: ia.modelo, at } };
-          });
-          return ok();
+          const r = await diagnosticarSesion(id, inicio);
+          return r.ok ? ok() : no(r.status, r.error);
         }
+
+        case 'armar':
+          return await armar(ws, body);
 
         case 'generar':
           return await generar(body, inicio);
@@ -731,15 +717,132 @@ async function responder(p: { sesionId: number; fila: FilaOffer; ctx: ContextoOf
   return ok({ sesion: await vistaSesion(final) });
 }
 
+// ── diagnosticar ─────────────────────────────────────────────────────────────
+
+/**
+ * El paso del DIAGNÓSTICO: lee la conversación, corre la IA y deja el resultado en `borrador` (lo consume el
+ * paso de la oferta). Lo usan la acción 'diagnosticar' y el armado en el servidor. Los fallos que el dueño
+ * puede leer vuelven como `{ ok: false }`; un 409 del CAS tira `ErrorOffer`.
+ */
+async function diagnosticarSesion(id: number, inicio: number): Promise<{ ok: true } | { ok: false; status: number; error: string }> {
+  const fila = await leerFila(id);
+  if (!fila) return { ok: false, status: 404, error: 'No encontré esa conversación.' };
+  if (faltanMinimas(fila.piezas).length) return { ok: false, status: 409, error: `Antes de armar la oferta falta: ${faltanTexto(fila.piezas)}. Sigue la conversación con MaKo.` };
+  const ctx = await contextoOffer({ conEmbudo: true, funnelId: fila.funnelId, ofertaBaseId: fila.ofertaBaseId, mensajes: fila.mensajes });
+  await asegurarFaseGuardada(fila, ctx);
+  // Los avisos del CÓDIGO van ANTES de la IA: la que pone la nota de Foco tiene que ver el de foco
+  // (tarjeta «foco», 12/10/2026), y los de margen, embudo y precio pesan en D6 y D7. La banda de
+  // facturación sale del diagnóstico de fase que VALE ahora (releído después de asegurarlo).
+  const faseAhora = faseVigenteDe(ctx);
+  const banda = faseAhora && Number.isInteger(faseAhora.respuestas?.[0]) ? faseAhora.respuestas[0] : ctx.foco.bandaFacturacion;
+  const avisos = avisosAntesDelDiagnostico({ foco: { ...ctx.foco, bandaFacturacion: banda }, piezas: fila.piezas, tasas: ctx.tasasEmbudo });
+  const ia = await diagnosticoOffer({
+    mensajes: fila.mensajes, piezas: fila.piezas, docs: docsDeLaConversacion(fila.documentos, fila.mensajes), contexto: ctx.texto, embudo: ctx.embudo, inicio,
+    alertas: [...(avisos.foco ? [avisos.foco] : []), ...avisos.otras],
+  });
+  if (!ia.ok) return { ok: false, status: 502, error: ia.error };
+  // Con las PIEZAS: sin ellas no hay control final, y «lista para vender» volvería a mirar sólo las notas.
+  const calculo = calcularDiagnostico(ia.valor.dimensiones, { foco: avisos.foco, otras: avisos.otras, piezas: fila.piezas });
+  const at = new Date().toISOString();
+  await actualizarSesion(id, (f) => {
+    // Si el dueño escribió mientras MaKo diagnosticaba, este diagnóstico ya no describe la conversación.
+    if (f.mensajes.length !== fila.mensajes.length) throw new ErrorOffer('La conversación cambió mientras MaKo la leía. Vuelve a tocar «Armar mi oferta».', 409);
+    return { borrador: { diagnostico: ia.valor, calculo, modelo: ia.modelo, at } };
+  });
+  return { ok: true };
+}
+
+// ── armar (en el servidor) ───────────────────────────────────────────────────
+
+/**
+ * «Armar mi oferta», en el SERVIDOR (16/10/2026). Antes el navegador esperaba los dos pasos y, si la persona
+ * cerraba la pestaña en el primero, la oferta no se hacía nunca. Ahora esto anota el armado en la fila
+ * (`armado`, mig 0296), contesta al toque con la conversación y corre los dos pasos en un `after()`: la pantalla
+ * sólo relee hasta que aparece la conclusión. Al terminar, el evento de la plataforma «oferta_lista» (el aviso
+ * por WhatsApp lo arma la automatización del SuperAdmin, no este código).
+ *
+ * Idempotente: si ya hay uno corriendo, devuelve la conversación sin arrancar otro (un doble clic, la
+ * pestaña del onboarding que se vuelve a montar, dos pestañas). Si el diagnóstico ya estaba hecho y falló
+ * la oferta, arranca desde la oferta (`pasoInicialDelArmado`).
+ */
+async function armar(ws: number, body: Record<string, unknown>): Promise<Response> {
+  const id = entero(body.sesionId);
+  if (!id) return no(400, 'Falta la conversación.');
+  const fila = await leerFila(id);
+  if (!fila) return no(404, 'No encontré esa conversación.');
+  if (faltanMinimas(fila.piezas).length) return no(409, `Antes de armar la oferta falta: ${faltanTexto(fila.piezas)}. Sigue la conversación con MaKo.`);
+  const origen = body.origen === 'arranque' ? 'arranque' : 'tab';
+  const intento = randomUUID();
+  let arranco = false;
+  const final = await actualizarSesion(id, (f) => {
+    if (armadoEnCurso(f.armado, Date.now())) return null;
+    arranco = true;
+    return { armado: { desde: new Date().toISOString(), paso: pasoInicialDelArmado(!!f.borrador), origen, intento } };
+  });
+  if (arranco) {
+    const trabajo = () => runWithWorkspace(ws, () => armarPorDetras(ws, id, intento));
+    try { after(trabajo); } catch { void trabajo(); }
+  }
+  return ok({ sesion: await vistaSesion(final) });
+}
+
+/**
+ * Los dos pasos, uno detrás del otro, con su propio plazo cada uno (`inicio` de cada paso: los de lib/offer-ia.ts
+ * cuentan desde ahí). Cada cambio del armado va por CAS y SÓLO si sigue siendo este intento: uno viejo que
+ * termina tarde no pisa el de uno nuevo. Nunca tira: un fallo queda escrito en `armado.error` para el dueño.
+ */
+async function armarPorDetras(ws: number, id: number, intento: string): Promise<void> {
+  const esteIntento = (f: FilaOffer) => f.armado?.intento === intento;
+  const anotar = async (cambio: (a: NonNullable<FilaOffer['armado']>) => FilaOffer['armado']) => {
+    await actualizarSesion(id, (f) => (f.armado && esteIntento(f) ? { armado: cambio(f.armado) } : null)).catch((e) => {
+      console.error(`[offer:armar] no pude anotar el armado de #${id}: ${msg(e)}`);
+    });
+  };
+  const fallar = (error: string) => anotar((a) => ({ ...a, error }));
+  try {
+    const arranque = await leerFila(id);
+    if (!arranque?.armado || arranque.armado.intento !== intento) return;
+    if (arranque.armado.paso === 'diagnostico') {
+      const d = await diagnosticarSesion(id, Date.now());
+      if (!d.ok) { await fallar(d.error); return; }
+      await anotar((a) => ({ ...a, paso: 'oferta' }));
+    }
+    const g = await generarSesion(id, Date.now());
+    if (!g.ok) { await fallar(g.error); return; }
+    // Listo: el armado se borra en su propio CAS (la conclusión ya quedó en el de `generarSesion`).
+    let origen: 'arranque' | 'tab' = 'tab';
+    await actualizarSesion(id, (f) => {
+      if (!esteIntento(f)) return null;
+      origen = f.armado?.origen ?? 'tab';
+      return { armado: null };
+    }).catch((e) => console.error(`[offer:armar] no pude cerrar el armado de #${id}: ${msg(e)}`));
+    await avisarOfertaLista(ws, g.final);
+  } catch (e) {
+    // Un 409 del CAS (la persona escribió mientras armaba) trae su mensaje; cualquier otra cosa, uno genérico.
+    await fallar(e instanceof ErrorOffer ? e.message : 'Algo falló de nuestro lado mientras armaba tu oferta. Vuelve a tocar «Armar mi oferta».');
+    if (!(e instanceof ErrorOffer)) console.error(`[offer:armar] #${id}:`, e);
+  }
+}
+
 // ── generar ──────────────────────────────────────────────────────────────────
 
 async function generar(body: Record<string, unknown>, inicio: number): Promise<Response> {
   const id = entero(body.sesionId);
   if (!id) return no(400, 'Falta la conversación.');
+  const r = await generarSesion(id, inicio);
+  return r.ok ? ok({ sesion: await vistaSesion(r.final) }) : no(r.status, r.error);
+}
+
+/**
+ * El paso de la OFERTA: arma la propuesta sobre el diagnóstico guardado (`borrador`) y la agrega como versión,
+ * con su PDF en el chat, en un CAS. Lo usan la acción 'generar' y el armado en el servidor. Los fallos que el
+ * dueño puede leer vuelven como `{ ok: false }`; un 409 del CAS tira `ErrorOffer`.
+ */
+async function generarSesion(id: number, inicio: number): Promise<{ ok: true; final: FilaOffer } | { ok: false; status: number; error: string }> {
   const fila = await leerFila(id);
-  if (!fila) return no(404, 'No encontré esa conversación.');
+  if (!fila) return { ok: false, status: 404, error: 'No encontré esa conversación.' };
   const borrador = fila.borrador;
-  if (!borrador) return no(409, 'Falta el diagnóstico de esta conversación. Vuelve a tocar «Armar mi oferta».');
+  if (!borrador) return { ok: false, status: 409, error: 'Falta el diagnóstico de esta conversación. Vuelve a tocar «Armar mi oferta».' };
   const ctx = await contextoOffer({ funnelId: fila.funnelId, ofertaBaseId: fila.ofertaBaseId, mensajes: fila.mensajes });
   await asegurarFaseGuardada(fila, ctx);
   // El diagnóstico de fase que va al PDF, con la MISMA regla que el contexto de los prompts (`faseVigenteDe`:
@@ -761,7 +864,7 @@ async function generar(body: Record<string, unknown>, inicio: number): Promise<R
     mensajes: fila.mensajes, piezas: fila.piezas, docs: docsDeLaConversacion(fila.documentos, fila.mensajes), contexto: ctx.texto,
     diagnostico: borrador.diagnostico, calculo: borrador.calculo, inicio, reglas: { fuentes, negocio }, voz: ctx.voz,
   });
-  if (!ia.ok) return no(502, ia.error);
+  if (!ia.ok) return { ok: false, status: 502, error: ia.error };
   const nombre = ia.valor.nombre.trim();
   // Con el cliente ideal o la promesa en 3 o menos, precio y bonos salen PROVISIONALES (tarjeta «rehacer»: C).
   const provisional = provisionalDe(borrador.diagnostico);
@@ -796,5 +899,5 @@ async function generar(body: Record<string, unknown>, inicio: number): Promise<R
     };
   });
   await marcar('of_conclusion');
-  return ok({ sesion: await vistaSesion(final) });
+  return { ok: true, final };
 }

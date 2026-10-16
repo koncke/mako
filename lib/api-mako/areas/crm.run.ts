@@ -483,7 +483,8 @@ export const RUNNERS: Runners = {
       // ⚠️ LO COBRADO SALE DE LA MISMA FUNCIÓN QUE LA FICHA (`cobradoDelLead`, lib/cobrado-lead.ts, 14/10/2026): sin
       // ella MaKo decía «pagada por completo» de una mensualidad activa y no veía una renovación rechazada, que
       // vive en el cobro de la pasarela. Si los cobros no se pueden leer, se cuenta sin ellos (sólo las cuotas).
-      const [cobros, { hoy }] = await Promise.all([listarCobros(ctx.ws, { leadId: lead.id, limite: 50 }).catch(() => []), hoyDelWorkspace(ctx.ws)]);
+      let cobrosSinLeer = false;
+      const [cobros, { hoy }] = await Promise.all([listarCobros(ctx.ws, { leadId: lead.id, limite: 50 }).catch(() => { cobrosSinLeer = true; return []; }), hoyDelWorkspace(ctx.ws)]);
       const cob = cobradoDelLead({
         ventaTipo: lead.venta_tipo ?? null, montoCierreUsd: lead.monto_cierre_usd ?? null,
         suscripcionMontoUsd: lead.suscripcion_monto_usd ?? null, suscripcionMeses: lead.suscripcion_meses ?? null,
@@ -514,9 +515,12 @@ export const RUNNERS: Runners = {
         // qué hacer ahora y lo que ya pasó con la plata. MaKo contesta con lo MISMO que ve la persona en la ficha.
         estado_de_cuenta: (() => {
           const e = estadoDeCuenta({ cobrado: cob, pagos: plan.pagos, ganado: lead.estado_lead === 'ganado', hoy });
+          // Sin los cobros no se sabe si la suscripción la cobra la pasarela: registrar el mes a mano podría duplicarlo.
+          const accion = e?.accion && !(cobrosSinLeer && e.accion.tipo === 'registrar-mes') ? e.accion : null;
           return e ? {
             titular: e.titular, detalle: e.detalle, tono: e.tono, falta_usd: e.faltaUsd,
-            que_hacer: e.accion ? { accion: e.accion.tipo, boton: e.accion.boton, ...(e.accion.tipo === 'cobrar-cuota' ? { pago_id: e.accion.pagoId } : {}) } : null,
+            que_hacer: accion ? { accion: accion.tipo, boton: accion.boton, ...(accion.tipo === 'cobrar-cuota' ? { pago_id: accion.pagoId } : {}) } : null,
+            ...(cobrosSinLeer ? { aviso: 'No pude leer los cobros de la pasarela: lo de la suscripción puede estar incompleto.' } : {}),
           } : null;
         })(),
         ...(() => {
@@ -1296,10 +1300,11 @@ export const RUNNERS: Runners = {
         invalidar('pagos', 'leads');
         return { ok: true, resumen: `Listo: cuota cobrada el ${fechaPago} por ${r.monto} USD${r.pendiente != null ? `; quedan ${r.pendiente} USD pendientes en una cuota nueva` : ''}.` };
       }
-      await marcarPago(Number(payload.pagoId), pagado, fechaPago);
-      await logLeadEvent(Number(payload.leadId), pagado ? 'Pago registrado' : 'Pago desmarcado', pagado ? `Cuota marcada como pagada${fechaPago ? ` (${fechaPago})` : ''}` : 'Cuota desmarcada', autorDe(ctx));
+      const { quitada } = await marcarPago(Number(payload.pagoId), pagado, fechaPago);
+      await logLeadEvent(Number(payload.leadId), pagado ? 'Pago registrado' : quitada ? 'Pago quitado' : 'Pago desmarcado', pagado ? `Cuota marcada como pagada${fechaPago ? ` (${fechaPago})` : ''}` : quitada ? 'Se quitó un pago registrado a mano' : 'Cuota desmarcada', autorDe(ctx));
       invalidar('pagos', 'leads');
-      return { ok: true, resumen: pagado ? `Listo: cuota marcada como cobrada el ${fechaPago}.` : 'Listo: la cuota volvió a figurar sin cobrar.' };
+      // Un pago que nació cobrado (suelto o mensualidad a mano) no vuelve como deuda: se quita (mig 0295).
+      return { ok: true, resumen: pagado ? `Listo: cuota marcada como cobrada el ${fechaPago}.` : quitada ? 'Listo: se quitó el pago (era uno registrado a mano, no una cuota del plan).' : 'Listo: la cuota volvió a figurar sin cobrar.' };
     }),
   },
   registrar_pago_suelto: {

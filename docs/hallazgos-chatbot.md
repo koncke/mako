@@ -4893,3 +4893,106 @@ llega al grupo no se veía en ningún lado.
 **Vive en:** `lib/probar-grupo.ts` · `app/automations/PanelProbar.tsx` (`alGrupo`, `pildora`, `verGrupo`,
 `BarraEscenarios` con `grupo`) · `app/api/chat-agent/simulador/route.ts` (`GET ?grupo=1`) · `lib/simulador-grafo.ts`
 (el evento `accion` lleva su `paso`) · test: `tests/probar-grupo-mako.test.ts`
+
+## «1 día antes» con la reunión en 3 h: lo de esa espera ya no sale (16/10/2026)
+
+Martín: «si MaKo sabe por la API que el evento permite agendar con poca anticipación (por ejemplo 3 h), el delay "1 día
+antes" lo advierte. Y lo ideal: "si está configurado "1 día antes" y se agendó dentro de 3 horas, que simplemente no
+salga"». Hasta ese día el motor seguía de largo con una espera «antes de la reunión» que ya había pasado: quien agendaba
+a 3 h recibía el «mañana es tu reunión» al instante, y el «1 h antes» también.
+
+- **La regla es la MITAD, no «ya pasó»** (`llegaTarde`, lib/flujo-grafo.ts). El lead llega a la espera unos minutos
+  después de agendar (el cron, un «Esperar 5 min» de antes): con «ya pasó», agendar 24 h y 3 min antes salteaba el «1 día
+  antes». Si al llegar falta menos de la mitad («1 día antes» con menos de 12 h), lo que sigue —mensajes y acciones— no
+  sale, hasta la próxima espera; las condiciones del medio se deciden igual. Las flechas en paralelo de esa espera
+  tampoco arrancan.
+- **No es una regla escondida** (la de Martín del 14/10: «MaKo NADA por detrás»): el editor de la espera la dice entera
+  («Si agenda con menos de 12 h, no sale») y se cambia a «Si agenda más cerca, sale enseguida», que es lo de antes y se
+  guarda (`siAgendaCerca: 'sale'`). Lo de fábrica no se escribe. **Cambia lo que reciben los leads de los flujos que ya
+  existen**: Martín lo pidió como lo ideal para todos.
+- **El motor y «Probar» lo hacen igual**: `resolverControl` (lib/nutricion-grafo-motor.ts) y el simulador, que lo dice en
+  la pastilla («⏳ 1 día antes de la reunión · agendó más cerca: no sale»).
+- ⚠️ **La API de Calendly NO publica la «anticipación mínima» de un event type** (es un ajuste de la pantalla; no aparece
+  en su referencia). Lo que sí da son los huecos libres: `primerHuecoLibre` (lib/calendly-agenda.ts) toma el más cercano
+  de cada event type activo en la semana. Es una MEDICIÓN y así se dice («Calendly tiene huecos a 3 h»). La lee
+  `anticipacion_agenda` (API de MaKo, área calendario) y el lienzo (GET /api/flujos/anticipacion), que pone la ⚠ en la
+  píldora de la espera que no llegaría a salir.
+- **Una espera entre dos tarjetas NO es un nodo: es una pastilla de la flecha** (`AristaFlujo.esperas`). El aviso tenía
+  que viajar también ahí (`aviso`), o la ⚠ sólo salía en las esperas sueltas.
+
+**Vive en:** `lib/flujo-grafo.ts` (`llegaTarde`, `textoSiAgendaCerca`) · `lib/nutricion-grafo-motor.ts`
+(`resolverControl`, `sanearEspera`) · `lib/simulador-grafo.ts` · `lib/flujo-conversacion.ts` (`avisoAgendaCerca`) ·
+`lib/agenda-anticipacion.ts` · `app/automations/FlujoLienzo.tsx` (`EditorEspera`) · test: `tests/agenda-cerca.test.ts`
+
+## «Crear con IA» por Instagram: 140 s y un error de la revisión, el adjunto leído con visión, y «Probar» sin nada (16/10/2026)
+
+Tres bugs que Martín vio el mismo día (por Cerebro, A1-A3).
+
+- ⚠️ **El diagnóstico obvio («la IA tarda») era el equivocado. MEDIDO en `anthropic_usage` (ws10, 16/10 06:07-06:10
+  UTC):** Groq contestó en segundos. El flujo traía `"canal": "whatsapp"` en un pedido de Instagram, la revisión lo
+  rechazó y la cascada (que pasa al siguiente proveedor cuando `validar` dice que no) probó OpenRouter: 97 s, y el mismo
+  error. Después vino el reintento con los errores: 76 s más. La causa estaba en el código: `canalDeTarjeta` respetaba el
+  «whatsapp» que el modelo escribe por costumbre. Ahora, en un flujo social, un mensaje NUEVO al lead sale por ese canal
+  sin otra vuelta. Editando, un mensaje que ya estaba conserva el suyo si el cambio no lo nombra (`mantenerCanal`).
+- **La regla de la IA «por Instagram sólo texto y link» quedó atrás del editor:** el editor social sube archivos desde
+  la decimocuarta tanda y el motor los manda por partes (`enviarPasoSocial`). Ahora la IA pone un archivo por Instagram
+  o Messenger si ese canal lo acepta (`problemaDeAdjunto`: Instagram, foto, video o PDF), y si no, lo saca con su
+  porqué. (La primera respuesta a un COMENTARIO sigue siendo sólo texto: eso lo decide el motor.)
+- **El error que ve la persona no lleva lo que le habla al modelo** (`paraLaPersona`: sin «: usa "canal": …» ni las
+  claves del JSON).
+- **El adjunto se razona ANTES de leerlo** (lib/archivo-del-pedido.ts). Lo que el flujo DA («dando este lead magnet»,
+  «mándales el PDF») es CONTENIDO: va a la biblioteca de archivos sin leerlo, el pedido lo nombra con su id, y `deIA`
+  lo pone en el último mensaje al lead si el modelo no lo puso. Lo que dice CÓMO armarlo, o un archivo solo, es
+  INSTRUCCIONES y se lee como antes. Si subir o leer falla, el pedido sale igual y lo dice. ⚠️ **La decisión es del
+  código, no de una IA:** el caso que la pidió fue justamente la IA caída.
+- **«Probar» apagado mientras falte algo**, con el porqué al lado en 3-4 palabras (`motivoParaNoProbar`): «Completa el
+  disparador», «Agrega un mensaje» o «Completa una tarjeta». Esta última se puede tocar y lleva a la tarjeta, como
+  Publicar.
+
+**Sin hacer:** el plazo por intento sigue en 100 s: OpenRouter gratis contestó en 76 y 97 s, y cortarlo antes dejaría
+sin respuesta al negocio que sólo tiene ese proveedor vivo. La espera dice «hasta 5 min» porque es el tope de la ruta
+(tests/flujo-ia-arreglos.test.ts).
+
+**Vive en:** `lib/flujo-ia.ts` (`canalDeTarjeta`, `nodoDe`, `validarIA`, `conElArchivoDelPedido`, `paraLaPersona`) ·
+`lib/archivo-del-pedido.ts` · `app/automations/ChatMako.tsx` (`BarraPideselo`) · `app/automations/archivo-pedido-cliente.ts`
+· `lib/flujo-conversacion.ts` (`motivoParaNoProbar`) · `app/automations/SecuenciaPerfil.tsx` · tests:
+`tests/crear-ia-instagram-solo.test.ts`, `tests/crear-ia-adjunto.test.ts`, `tests/probar-apagado.test.ts`
+
+## El AI Step sin red por llevar datos del lead dice «Conecta tu Claude» (16/10/2026)
+
+- La cascada saltea la red gratis de la agencia cuando el pedido lleva datos de clientes, y lo anota en
+  `erroresPlataformaOut` con «red gratis salteada:». Pero el aviso al negocio se elegía sólo con los errores de SUS keys,
+  así que decía «no hay ninguna API key de IA cargada»: un remedio equivocado. Ahora, con ese salto, dice
+  `CONECTA_TU_CLAUDE` (lib/fallo-ia-texto.ts), la misma frase que ya usan el análisis del lead y las cajas del Dashboard.
+  Vale para la respuesta (`responderSimulador`) y para la nota de voz (`escucharDelLead`). Con la compuerta del crédito
+  de Claude que pone Onboarding, éste pasa a ser el camino de todo negocio sin su Claude.
+
+**Vive en:** `lib/fallo-ia-texto.ts` (`sinRedPorDatos`) · `lib/setting-simulador.ts` · `lib/nutricion.ts` · test:
+`tests/ai-step-conecta-claude.test.ts`
+
+## Lo que el evento de la oferta lista destapó del motor: tres huecos de los eventos de la plataforma (16/10/2026)
+
+Al sumar `oferta_lista` (docs/diseno-avisos-plataforma.md §7) se mapeó qué puede y qué no puede hacer hoy un evento de
+la plataforma. Ninguno de los tres se arregló en esa tanda: son del motor, y quedan acá para quien lo toque.
+
+- **Un evento de la plataforma no admite CONDITION.** Publicar la rechaza (`MOTIVO_EVENTO.condicionPersona`,
+  lib/aviso-evento.ts, con test en tests/avisos-plataforma.test.ts). Y aunque se levantara, los hechos que leen las
+  condiciones son SÓLO de un lead (`hechosDeLaCorrida` → `hechosDeUnLead`, lib/flujos.ts) y saldrían del ws 9, no de
+  `negocioWs`. Por eso «avisar sólo si no vio su oferta» no se puede armar: necesitaría hechos DEL NEGOCIO, una fuente
+  nueva en lib/condiciones-catalogo.ts y la hora del evento en `datos` (sobrevive al DELAY: `ctxParaDormir` sólo saca
+  `cuota_dias`).
+- **Sin grupo de MaKo, la tarjeta de WhatsApp se pierde sin decirlo.** `enviarAlGrupoMaKo` contesta «el workspace no
+  tiene grupo de MaKo todavía» (lib/mako-grupo.ts), `emitirAviso` sólo lo loguea y `emitirPorEvento` igual devuelve
+  `wa: true` cuando corrió una fila. No hay respaldo por email: «email sólo si no hay grupo» no se puede escribir como
+  una condición visible. El grupo nace con `setNumeroDuenoYSync`; un cliente que posterga el teléfono en el onboarding
+  no tiene grupo.
+- **No hay aviso «en la app» de escritorio.** No existe una tarjeta in-app: `emitirAviso` siempre llama
+  `crearNotificacion`, pero la tabla `notificaciones` **no existe en producción** (docs/estado-del-arte.md), así que esas
+  filas no van a ningún lado. Lo único que llega es el push de MaKo Mobile (salvo las tarjetas por email, `push: false`),
+  y no hay campanita en escritorio.
+
+**Vive en:** lib/aviso-evento.ts (`MOTIVO_EVENTO`, `emitirPorEvento`) · lib/flujos.ts (`hechosDeLaCorrida`,
+`emitirTarjetaDelEvento`) · lib/mako-grupo.ts (`enviarAlGrupoMaKo`) · lib/avisos.ts (`emitirAviso`) ·
+lib/notificaciones.ts
+
+*16/10/2026, chat «Offer» (claude3), al sumar el evento `oferta_lista`.*

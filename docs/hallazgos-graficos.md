@@ -7,6 +7,16 @@ viejas). El informe inicial es la réplica de las tabs viejas de Marketing y Com
 Analysts (Ads, Landing, Closing, Productividad) son plantillas de «Nueva hoja». Lo que se hizo está en
 el commit; acá va lo que hay que saber **antes** de tocarlo.
 
+## «Pídeselo a MaKo» en General arma una hoja con tipos del Dashboard (16/10/2026, leído, no probado en el navegador)
+
+- «Pídeselo a MaKo» manda sólo `{pedido}` (`app/dashboard/NuevaHoja.tsx`), `lib/graficos-ia-generar.ts` no conoce General
+  y ni `sanearHoja` (`lib/graficos-catalogo.ts`) ni `guardarTableroSi` miran `TIPOS_GENERAL`, que sólo usa el editor. O
+  sea: General guarda una hoja con tipos del Dashboard, contra «General ofrece poco del Dashboard».
+- **Ejecutar una operación del Dashboard por la API escribe en el servidor y deja afuera la pila de deshacer**: con el editor
+  abierto hay dos escritores y el autoguardado da 409 o pisa. Por eso `app/api/graficos/ia/route.ts` NO escribe. **Regla
+  para un chat que edita la hoja abierta:** la acción confirmada devuelve el informe cambiado y el editor lo aplica con
+  `mutar` (un solo escritor, el Ctrl+Z vivo). Por WhatsApp y HTTP sigue escribiendo. Ver `docs/diseno-mako-ai-native.md`, (b).
+
 ## Cómo está armado, en una tabla
 
 | Pieza | Vive en | Qué decide |
@@ -1020,8 +1030,13 @@ Cómo se enchufa otra galería: [plantillas-sugeridas.md](plantillas-sugeridas.m
 - **Las señales llegan desde la página del server**, en paralelo con el informe, y no por un fetch de la galería: la
   pantalla en blanco muestra la galería al cargar, y un orden que llega después haría saltar las tarjetas.
 
-**Lo que quedó SIN hacer:** mirarlo en producción con un negocio que tenga funnels declarados; el arnés usa señales de
-ejemplo. Y enchufar las otras galerías (Automations, Web Generator, Video Editor, Image Editor, CRM).
+**Visto en producción** (16/10/2026, después del run 32, la sesión de Martín en el ws9, sin crear nada): las señales del
+ws9 son vender por chat, con entradas por chat saliente y entrante (`GET /api/plantillas/senales`). El Dashboard en blanco
+ofrece Chat Analyst, Comercial y Automatizaciones con «Sugerido», y General, «Ventas por WhatsApp» (la única de General
+para quien vende por chat): lo mismo que da la regla.
+
+**Lo que quedó SIN hacer:** mirarlo en un negocio que venda por llamada o cobre una suscripción (el ws9 sólo prueba el
+chat). Y enchufar las otras galerías (Automations, Web Generator, Video Editor, Image Editor, CRM): las reparte Cerebro.
 *16/10/2026, claude3 (chat Dashboard).*
 
 ## «Editar con MaKo»: operaciones sobre la hoja abierta, y lo de General que la IA no sabía (16/10/2026)
@@ -1057,9 +1072,17 @@ títulos y bloques, con su Deshacer. Lo que no se ve en el código:
 - **El CSS del panel lateral (`.an`) vivía adentro del render del AI Analyst**: un segundo panel en el mismo lugar no lo
   tenía. Se exporta (`CSS_PANEL_LATERAL`), y abrir un panel cierra el otro.
 
+**Probado con la IA de verdad** (16/10/2026, después del run 36, la sesión de Martín en el ws9, sin escribir nada: la hoja
+la dio `/api/graficos/plantilla` y se la mandó a `/api/graficos/editar`, que no guardan):
+- Dashboard, «Agrega los leads por semana y quita el CAC real»: agregó «Leads por semana» (una serie de `negocio.leads`
+  por semana, abajo de todo) en 11 s, y contestó que no quitaba nada porque la hoja no tenía el CAC real. Era cierto: en
+  el ws9 la plantilla Marketing sale sin él (`hojaConDatos` saca los gráficos que quedarían vacíos).
+- General, «Agrega mis tareas prioritarias y un gráfico de sankey de los leads»: agregó el bloque «Tareas prioritarias»
+  en 6 s y dijo que el sankey no está entre lo que ofrece. El alcance de General funcionó en la capa del modelo, antes
+  que en la del código.
+
 **Lo que quedó SIN hacer:**
-- **Probarlo con la IA de verdad.** Sin `next dev` por la RAM: el panel se vio en el arnés (`node capturar.cjs "" mako
-  editar`) y la regla tiene sus tests, pero nadie le pidió un cambio a un modelo todavía.
+- **Mirar el panel en la pantalla de producción** (lo de arriba probó la ruta y el modelo; el panel, sólo el arnés).
 - **El hilo no se guarda**: es de la sesión, por hoja. Guardarlo es la etapa 2 del diseño (la pieza única de chat).
 - **Groq queda afuera casi siempre**: catálogo, hoja y pedido pasan los ~12.000 caracteres, y la cascada lo saltea sola.
   Contestan Gemini y OpenRouter.

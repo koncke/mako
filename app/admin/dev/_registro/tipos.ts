@@ -75,6 +75,9 @@ export type Hito = {
   commits?: Commit[];
   /** Qué archivo hace qué, para no tener que buscarlo. */
   archivos?: string[];
+  /** La página de MaKo donde Martín mira lo que se hizo (una ruta interna, «/crm?lead=12»): el Centro la pone en la
+   *  sub-tab «Review» con el link «Revisar» (16/10/2026). */
+  revisar?: string;
 };
 
 export type Parte = { titulo: string; detalle: string; estado: 'hecha' | 'sigue' | 'cola' };

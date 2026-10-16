@@ -104,10 +104,12 @@ test('reintentar la oferta: 409 rehace el diagnóstico; una conclusión nueva al
   assert.equal(pasoTrasFalloDeOferta({ status: 409, versionAntes: 0, versionAhora: 1 }), 'listo', 'si ya terminó, se muestra aunque haya sido 409');
   assert.equal(pasoTrasFalloDeOferta({ status: 502, versionAntes: 1, versionAhora: 1 }), 'oferta');
   assert.equal(pasoTrasFalloDeOferta({ status: undefined, versionAntes: 0, versionAhora: null }), 'oferta');
-  // Y `armar` la consulta en su catch (con la versión de ANTES de armar).
+  // `pasoTrasFalloDeOferta` la sigue usando MaKo Mobile (app/m/offer/OfferM.tsx, tests/m-offer.test.ts), que arma con
+  // los dos pasos sueltos. ESCRITORIO arma en el SERVIDOR desde el 16/10/2026: el reintento es el mismo pedido
+  // ('armar'), y el servidor arranca desde el paso que falló (`pasoInicialDelArmado`, tests/offer-armado-servidor.test.ts).
   const armar = sinComentarios(bloque(leer('app/offer/OfferApp.tsx'), 'const armar = async', 'const elegirOpcion'));
-  assert.match(armar, /const versionAntes = sesionRef\.current\?\.conclusion\?\.version \?\? 0/);
-  assert.match(armar, /pasoTrasFalloDeOferta\(\{ status: err instanceof ErrorOfferApi \? err\.status : undefined, versionAntes, versionAhora \}\)/);
+  assert.match(armar, /llamarOffer<\{ sesion: OfferSesionVista \}>\(\{ action: 'armar', sesionId: id, origen: arranque \? 'arranque' : 'tab' \}, TOPE\.corto\)/);
+  assert.doesNotMatch(armar, /action: 'diagnosticar'|action: 'generar'/, 'escritorio volvió a esperar los dos pasos en el navegador');
 });
 
 // ── 3. «No pude leer» no es «no hay» ─────────────────────────────────────────
@@ -223,14 +225,17 @@ test('árbol: las secciones del desplegable (funnel → ofertas → conversacion
 // ── 6. El audio rechazado como definitivo ────────────────────────────────────
 // Roturas: `esRechazoDefinitivo` sin el 422 → 1 fallo;
 //          `enviarAudio` con `if (res !== 'salio') setAudioEnEspera(a)` → 1 fallo;
-//          (13/10) `mandar` subiendo el audio aunque ya tenga `path` → 1 fallo, 9 pases.
+//          (13/10) `mandar` subiendo el audio aunque ya tenga `path` → 1 fallo, 9 pases;
+//          (16/10) `descartarSubida(a.path);` suelto, también cuando la nota SALIÓ → 9 / 1.
 test('audio: 413, 415 y 422 son definitivos (no vuelven a la barra); un corte o un 5xx sí', () => {
   for (const s of [413, 415, 422]) assert.equal(esRechazoDefinitivo(s), true, String(s));
   for (const s of [undefined, 400, 404, 409, 500, 502, 504]) assert.equal(esRechazoDefinitivo(s), false, String(s));
   const enviar = sinComentarios(bloque(leer('app/offer/OfferApp.tsx'), 'const enviarAudio = async', 'const mandarAudio ='));
   assert.match(enviar, /if \(res === 'volver'\) \{ setAudioEnEspera\(a\); return; \}/, 'sólo un fallo que se arregla reintentando devuelve el audio');
-  // Y el que NO vuelve se lleva su binario: el 422 lo borra el servidor, los otros no.
-  assert.match(enviar, /descartarSubida\(a\.path\);/, 'un audio descartado deja su binario suelto en Storage');
+  // Y el que se TIRA se lleva su binario: el 422 lo borra el servidor, los otros no. El que SALIÓ no:
+  // su path es el que el mensaje reproduce (GET /api/offer/audio). Hasta el 16/10 se borraba también ese.
+  assert.match(enviar, /if \(res === 'tirar'\) descartarSubida\(a\.path\);/, 'un audio descartado deja su binario suelto en Storage');
+  assert.doesNotMatch(enviar.replace(/if \(res === 'tirar'\) descartarSubida\(a\.path\);/, ''), /descartarSubida\(a\.path\)/, 'una nota de voz que salió pierde su audio');
   const mandar = sinComentarios(bloque(leer('app/offer/OfferApp.tsx'), 'const mandar = async', 'const reintentarRespuesta'));
   assert.match(mandar, /esRechazoDefinitivo\(err\.status\)\)\) return 'tirar';/);
   // El REINTENTO no vuelve a subir el audio: el servidor conserva el binario a propósito cuando la IA

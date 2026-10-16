@@ -15,7 +15,7 @@
 // esto para que nadie tenga que saber que son dos archivos.
 // =============================================================================
 
-import { PASOS_ONBOARDING, type PasoOnboarding } from './capas';
+import { PASOS_ONBOARDING, esPostergable, type PasoOnboarding } from './capas';
 
 export type OnboardingStatus = 'pending' | 'in_progress' | 'skipped' | 'done';
 export type JobStatus = 'pending' | 'running' | 'done' | 'error' | 'skipped';
@@ -129,6 +129,49 @@ export function pendientesDeOnboarding(
   sigueFaltando: (p: PasoOnboarding) => boolean,
 ): PasoOnboarding[] {
   return pasos.filter((p) => s.steps[p]?.postergado && !s.steps[p]?.done && sigueFaltando(p));
+}
+
+/** Lo que se hace con UN paso al cerrarlo: hecho, o postergado (sólo los de `PASOS_POSTERGABLES`). */
+export type CambioDePaso = { paso: PasoOnboarding; done?: boolean; postergar?: boolean };
+
+/** Un paso que no se puede postergar: no depende de nada de afuera. */
+export class PasoNoPostergable extends Error {
+  constructor(public readonly paso: string) {
+    super(`El paso «${paso}» no se puede dejar pendiente: no depende de nada de afuera.`);
+  }
+}
+
+/**
+ * Aplica los cambios a un estado y decide si el onboarding quedó CERRADO. Es la regla que comparten el
+ * wizard (acción 'paso' de /api/onboarding) y el chat de arranque (/api/onboarding/arranque): con dos
+ * copias, una cerraba el onboarding con una regla y la otra con otra, y el cliente quedaba encerrado o
+ * entraba con un paso sin hacer. Pura y sin `server-only` para que un test la ejecute.
+ *
+ * Postergar se valida ACÁ, en positivo, contra el catálogo: esconder el botón no protege nada. Y el
+ * cierre pregunta «¿están TODOS cerrados?» (`onboardingCompleto`), nunca «¿cerraste el último?».
+ */
+export function aplicarCambiosDePaso(
+  s: OnboardingState,
+  cambios: CambioDePaso[],
+  pasos: PasoOnboarding[],
+  quien: string,
+  ahora: string,
+): OnboardingState {
+  for (const c of cambios) if (c.postergar && !esPostergable(c.paso)) throw new PasoNoPostergable(c.paso);
+  if (s.status === 'pending') { s.status = 'in_progress'; s.startedAt = s.startedAt ?? ahora; }
+  for (const c of cambios) {
+    s.step = c.paso;
+    // `postergado` y `done` conviven: postergar no cierra el paso, lo saca del camino. Cuando el
+    // cliente lo resuelva de verdad, se marca `done` encima.
+    if (c.postergar) s.steps[c.paso].postergado = true;
+    if (c.done) s.steps[c.paso].done = true;
+  }
+  if (s.status !== 'done' && onboardingCompleto(s, pasos)) {
+    s.status = 'done';
+    s.completedAt = ahora;
+    s.completedBy = quien;
+  }
+  return s;
 }
 
 /**

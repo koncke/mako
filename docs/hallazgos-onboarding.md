@@ -1994,6 +1994,17 @@ que la cascada no conoce. `'offer'` quedó en la lista ese día, con `soloDurant
       /integraciones los guarda como CREDENCIAL (`YOUTUBE_VSL_VIDEO_ID`). Es la forma de la tarea #171 (dos lectores de
       la misma pregunta), y `configWs` (lib/cron-workspaces.ts) ya la había arreglado para los crons de YouTube y Panda
       y no para éste. Un test vecino lo fijaba al revés («que para ELLOS es lo correcto»); se actualizó con su porqué.
+  - ⚠️ **Y TODA escritura del estado lee estricto, no sólo el arranque y el cierre** (16/10, después de que el chat
+    Offer pasara `cerrarPasosOnboarding` a la estricta y señalara «el resto de los `patchEstadoOnboarding` sigue
+    leyendo tolerante»: eso quedó cerrado). `patchEstadoOnboarding` y `iniciarExtraccion` leen con
+    `getEstadoOnboardingEstricto`. No era teórico: con el arranque al conectar, el cron corre los ticks del histórico
+    —que escriben por `patchEstadoOnboarding` en cada paso— sobre negocios que YA terminaron el onboarding, y un
+    5xx de la base en uno de esos patches los mandaba de vuelta al arranque. Ahora el tick tira, el cron lo anota y
+    sigue con el siguiente. Lo fija `tests/onboarding-escritura-estricta.test.ts`: cada función que escribe el
+    estado, y cada archivo que llama a `setEstadoOnboarding`, en positivo.
+  - Y el crédito de Claude quedó en lo que el chat de arranque usa de verdad: `'offer'`, `'El Archivero'` y
+    `'onboarding-extract'` (la extracción del brief de los documentos que le mandan). `'productos'` salió con el
+    wizard: nada lo llama mientras el onboarding está en curso.
 - ⚠️ **`negocio` es el BRIEF, no el nombre.** Las tres pantallas del brief cierran `negocio` (acción `brief` →
   `saveAnswers` en `mako.onboarding.answers`), y en la capa `pm` es lo que el Perro necesita para priorizar
   (`briefGrupos`). Lo leen los generadores (`contenido.run.ts:420`, `video.helpers.ts:349`) y el perfil del negocio
@@ -2008,3 +2019,131 @@ Lo que sí se sostiene solo: `ver_estado_onboarding` (API de MaKo) sale de `capa
 «llenar el nombre sólo si está vacío» respeta también el que escribió quien invitó (`crearUsuario` lo guarda).
 
 *16/10/2026 · chat «Onboarding» (claude3), medido contra el código, sin subagentes.*
+
+## El onboarding es una conversación: el chat de arranque (16/10/2026)
+
+**El pedido** (Martín, por el Cerebro): «Quiero que elimines todo lo que hay hoy en onboarding tal como
+está y que lo reemplaces por el chat de "Offer"… NO quiero que sea un onboarding eterno». El wizard se
+borró (`OnboardingWizard.tsx`, `Bienvenida.tsx`, `Listo.tsx`, `/api/onboarding/listo`); lo que pedía cada
+pantalla quedó en [onboarding-pasos-anteriores.md](onboarding-pasos-anteriores.md) para que Martín diga
+«faltó X».
+
+**Qué pregunta, y por qué tan poco.** Modo `oferta` (Completo, Agencia): nombre → negocio → objetivo a 90
+días → la oferta (la conversación de Offer, con el diagnóstico de fase adentro) → el CRM → el teléfono o
+«Ahora no» → cierre. Modo `plan` (Project Manager, que no ve Offer ni el CRM): nombre → negocio →
+objetivo → a qué se dedica → el diagnóstico con sus opciones → cierre con el plan. NO se pregunta: la zona
+horaria (la toma sola `ZonaDelNegocio` del navegador del admin), Meta (se conecta después desde su tab y
+el histórico arranca al conectarlo), la IA propia (la red de la plataforma y el crédito de Claude del
+onboarding). Las reglas son puras: `lib/onboarding-arranque.ts`.
+
+**Lo que costó, y conviene saber antes de tocarlo:**
+- **«negocio» era el BRIEF, no los nombres** (lo marcó el chat de Onboarding antes de que se rompiera). En
+  el wizard, las pantallas del brief cerraban `negocio`, y ese brief lo leen los generadores (Ads Writer,
+  contenido, video) y el Perro. Si el chat cerraba `negocio` sólo con «Martín» y «Mi negocio», todos
+  escribían sin conocer el negocio. Ahora el cierre deja escrito el brief con lo que salió de la
+  conversación (`briefDesdeArranque`: la oferta, el cliente, el dolor, el precio, el cuello del
+  diagnóstico, el objetivo), FUNDIDO sin pisar lo que había y leído estricto (`mapaParaEscribir`): con la
+  base caída, `saveAnswers` sobre `{}` borraba el brief.
+- **El primer CRM es el PRINCIPAL, no uno nuevo.** «Nuevo CRM» (`crearCrm`) crea un funnel secundario, y
+  todo lead que entra sin asignación cae en el principal (`funnel_id` null): el «primer CRM» arrancaba
+  vacío. Se siembra el principal con el tipo que elige (`sembrarCrmPrincipal`: `siembraDeCrm` →
+  `saveFunnelDefault`), sólo si está INTACTO y nunca con la lectura caída — el mismo guard que tenía el
+  wizard. Y tiene que existir antes de abrir la conversación de la oferta, que nace atada a él
+  (`asegurarFunnelPrincipal`, vacío como el de fábrica para que siga intacto).
+- **El login de Google pisaba el nombre en CADA entrada** (`registrarLogin`): lo que alguien escribía en
+  «Tu cuenta» —y ahora lo que contesta en el chat— se perdía al volver a entrar, sin un error. Ahora el de
+  Google sólo llena el vacío.
+- **El cierre tiene UNA puerta** (`cerrarPasosOnboarding`, regla `aplicarCambiosDePaso` en el contrato, con
+  test): la acción `paso` del wizard y el chat cerraban con dos copias de la misma regla. El teléfono y Meta
+  se POSTERGAN si no se hicieron, nunca se marcan hechos (sin destino, los reportes no le llegan a nadie), y
+  lo postergado queda de recordatorio en /general.
+- **El muñeco** es el de Estrategia del Centro (círculo, verde, sonrisa), con el aspecto pasado por
+  VARIABLE `as const`: el tipo `Aspecto` exige `accesorio` en main y lo rechaza en la rama del Centro que
+  les sacó los accesorios; un objeto ya construido no pasa el chequeo de propiedades de más. Y con la tinta
+  fija: en el tema oscuro `--ink` es casi blanco y los ojos desaparecían sobre el verde.
+- **Un efecto que relee con un OBJETO en las dependencias es un bucle**: cada relectura trae un objeto nuevo
+  y lo vuelve a disparar. La relectura del chat depende de primitivos (`sesionLigada`, la firma del turno).
+- **La pantalla del arranque no navega sola** (Martín: «que jamás se salga el recuadro del chat»): lo que se
+  crea se ve en tarjetas (el CRM con sus etapas, los caminos del final) y cada link lo elige la persona,
+  con el `Link` de la casa (lleva el `?ws=`).
+
+**Lo que encontró la revisión (nueve bugs confirmados, todos con test probado rompiéndolo).** Los que
+vuelven a morder a quien toque esto:
+- **El orden del cierre es el arreglo.** `guardarComoOferta` siembra primero la oferta principal DESDE EL
+  BRIEF (`seedOfertaDesdeBrief`, una sola vez, quema su guard). Con el brief escrito antes, nacía «X» desde
+  el brief y la de Offer chocaba con el nombre y quedaba «X · versión 1»: cada cliente nuevo con DOS ofertas
+  iguales, sin un error. El producto y la oferta van antes; el brief, después.
+- **El precio que dice el dueño es texto, no un número.** Pasar «$3k» u «800 MXN/mes» a `monto_usd`
+  inventaba un monto que el link de cobro usaba tal cual. Va a la descripción («Precio: …») y el monto lo
+  pone él en Productos.
+- **Las piezas de Offer traen «[completar]» adentro.** Sin filtrar (`sinMarca`), el brief salía con la
+  marca y los generadores escribían «[completar]» en los anuncios.
+- **Una pestaña vieja contestaba la pregunta de HOY.** Las opciones viajan por índice: la opción 2 de «¿qué
+  CRM?» era la 2 de otra pregunta. La opción lleva su texto (`opcionTexto`) y si no coincide la ruta
+  devuelve 409 con la conversación vigente, sin anotar nada.
+- **«No pude leer» no es «no hay».** Si la lectura de la conversación de la oferta fallaba, la pantalla la
+  daba por inexistente y abría OTRA en el funnel principal. La vista distingue `tieneSesion` de
+  `sesionCaida`, y ligar, preparar el funnel, cerrar y armar el plan se reintentan sin recargar (el plan
+  tiene un estado `'sin'`: antes quedaba «armando» para siempre).
+- **El que mira no es el negocio.** El email de los reportes salía del usuario logueado: el super admin o
+  una agencia que hacían el arranque mirando al cliente se quedaban con sus reportes. Sale del contacto
+  guardado o del perfil del negocio.
+- **El nombre provisorio es un email.** Las altas de customer-success y de la agencia guardan el correo
+  como nombre cuando no hay uno; el login de Google sólo llenaba el VACÍO y ese ya no lo estaba. Llena también el que contiene `@` — y el chat no
+  ofrece un email como «¿te llamo así?».
+- **La puerta del cierre leía TOLERANTE** (`patchEstadoOnboarding`): con la base caída da el estado inicial,
+  y cerrar un paso encima guardaba un onboarding a medio hacer sobre uno terminado. Lo destapó el merge con
+  `getEstadoOnboardingEstricto` del chat de Onboarding; `cerrarPasosOnboarding` lee estricto. Después el chat
+  de Onboarding pasó también `patchEstadoOnboarding` e `iniciarExtraccion` a la estricta (ver más arriba),
+  así que no queda ninguna escritura del estado sobre la lectura tolerante.
+- **Un error de IA en el chat no puede encerrar.** Sin key propia y con la red caída, el chat quedaba sin
+  salida: el error trae «Conectar mi propia IA» (el modal de integraciones, sin salir de la tab).
+
+**Lo que encontró el recorrido en el ws3** (16/10, 1440×900 y 390×844, con una foto de todo el ws3 antes y
+la vuelta exacta después — `scripts/ws-prueba-foto.mjs`). Ni los tests ni la revisión lo habían visto:
+- **El diagnóstico que Offer deja para después TRABABA el arranque.** El diagnóstico de fase va adentro de
+  la conversación de la oferta, y Offer lo vuelve obligatorio cuando ya están las piezas mínimas — pero eso
+  lo decide el turno de la IA, y el botón **«Armar mi oferta» no pasa por el turno**: arma igual. En la tab
+  Offer da lo mismo; en el arranque la etapa pedía «puede concluir Y diagnóstico guardado» para pasar al
+  CRM, y se quedaba en 'oferta' para siempre, con la pregunta ya fuera de pantalla («¿La pulimos?» en su
+  lugar) y sin un error. Ahora, con la oferta armada y el diagnóstico sin guardar, la etapa es 'fase' y
+  las preguntas que faltan las hace el arranque (las mismas del modo plan, `preguntarFase`), sin repetir
+  lo que ya contestó en Offer (`conFaseDeOffer`, leído de los mensajes de la conversación con
+  `estadoDiagnostico`). Ojo: si no contestó ninguna en Offer son siete preguntas seguidas.
+- **Una animación le gana a un `opacity` estático.** La leyenda entra con `animation: … both`, y la regla de
+  salida (`opacity: 0` con transición) no la tocaba: el texto quedaba opaco encima del chat durante el vuelo.
+  El grafo, que no tiene animación propia, sí se iba. La salida de algo que entró animado es otra animación.
+- **Con UN producto ya cargado, la oferta del onboarding se liga a ése** (regla de Offer,
+  `ligarProductoQueCorresponde`: «el que se llama igual, o el único que hay»), y el selector de la tab Offer
+  nombra al funnel por ese producto. En un cliente nuevo no pasa: el cierre crea primero el producto de la
+  oferta (por eso el orden importa). Se vio porque el ws3 tenía un producto de otra prueba.
+- **Recargar a mitad de la oferta vuelve a la MISMA conversación** (una sola fila en `offer_sesiones`), la
+  oferta queda UNA sola vez (sin «· versión 1») y el ws3 terminó con el funnel principal sembrado, el brief,
+  el diagnóstico, el onboarding cerrado con el teléfono y Meta postergados, y el histórico quieto.
+- **En el teléfono, recargar después de terminar muestra «Esta pantalla se usa en la computadora»**: es la
+  guardia de MaKo Mobile, que sólo deja pasar `/onboarding` mientras está pendiente. Quien termina en el
+  teléfono ve el final sin recargar.
+
+**La interpretación que tomé** (para que Martín la corrija si no era): «una animación de los mismos 3
+pasos» = los tres tiempos de la bienvenida de antes (el centro → las cinco piezas → las áreas), solos y
+con MaKo como el centro del grafo; al terminar MaKo vuela a su lugar de foto del chat.
+
+**Lo que quedó SIN hacer:**
+- **Lo que no se vio en el navegador:** la capa Project Manager (no hay un workspace de prueba con esa capa;
+  se recorrió con las reglas puras), el teléfono con su código de WhatsApp (se eligió «Ahora no» para no
+  mandarle un mensaje a nadie), subir un documento al Archivero desde el chat, y los links del final
+  abiertos (se miraron sus `href`). Y en modo dev salió un aviso de hidratación por atributos en
+  `/onboarding` que no se rastreó (sospecha: `TemaOscuroScript`, que ya usaba el wizard).
+- **El aviso cuando la oferta termina de armarse si la persona se fue** (WhatsApp de MaKo y la app).
+- **La API de MaKo no cambió, a propósito:** el onboarding es la primera conversación de una persona y no
+  tiene sentido que un agente la haga por ella; `ver_estado_onboarding` ya lo cuenta, y lo que el chat crea
+  (el CRM, la oferta, el brief) ya tiene sus operaciones.
+
+**Vive en:** `app/onboarding/ChatArranque.tsx` · `app/onboarding/IntroMako.tsx` · `app/onboarding/MunecoMako.tsx` ·
+`app/onboarding/arranque-ui.ts` · `lib/onboarding-arranque.ts` (lo puro) · `lib/onboarding-arranque-server.ts`
+(los hechos, la siembra, el cierre) · `app/api/onboarding/arranque/route.ts` · `lib/onboarding-state.ts`
+(`cerrarPasosOnboarding`) · `lib/onboarding-guard.ts` · `lib/usuarios.ts` (`registrarLogin`) ·
+`tests/onboarding-arranque.test.ts` (23 tests; 10 roturas en la primera vuelta, 9 tras la revisión y 7
+tras el recorrido, cazadas con los de postergar y sin-api) · `scripts/ws-prueba-foto.mjs` (la foto del ws3)
+
+*16/10/2026, cuenta claude3.*

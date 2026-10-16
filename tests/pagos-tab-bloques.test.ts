@@ -28,6 +28,14 @@
 //     la suscripción a los cobros sin memorizar;
 //   · el link de una cuota: como suscripción; sin su paso; preguntando el monto en dólares; sin la cuota.
 //   · la API de MaKo sin el estado de cuenta de la tab, o sin los movimientos (crm.run.ts, `cobranza_lead`).
+// Y la REVISIÓN del 16/10/2026 (un revisor de lo invisible, cada hallazgo refutado contra el código): con 17 tests,
+// 17 / 0; rota, cada una da 16 / 1 salvo la marcada:
+//   · Formulario de Meta sin las cuotas; quitar sin las vistas (borraba las demás); agregar casando las demás; quitar
+//     sin preguntar; el plan mandando los cuatro campos; el Deshacer de la venta sin el tipo; registrar el mes sin
+//     los cobros leídos (en la suscripción y en el estado de cuenta); un becado registrando un pago; la cuota que
+//     vuelve sin su número; el Deshacer del plan sin los números; Deshacer con descuento o de más (15 / 2); el
+//     Deshacer de desmarcar sin cómo se cobró; la API registrando el mes sin los cobros; un segundo link para una
+//     cuota ya pagada por link (lib/cobros.ts).
 // Correr: node --import tsx --test tests/pagos-tab-bloques.test.ts
 // =============================================================================
 
@@ -139,7 +147,7 @@ test('cada función de plata del relevamiento sigue en un bloque, con la MISMA a
   assert.match(PIEZAS, /marcarPagoManualAction\(cuota\.id, leadId, \{ monto: p\.monto, fecha, hora: hora \|\| null, resto,/);
   assert.match(PIEZAS, /const falta = p\.ok && p\.monto != null && p\.monto < valorUsd \?/, 'la diferencia se mide contra la cuota, en dólares');
   assert.match(PIEZAS, /\{falta > 0 && \(\s*<div role="radiogroup" aria-label="Qué pasa con la diferencia"/);
-  assert.match(PIEZAS, /onHecho\(r\.pendiente != null \? [^\n]*, r\.pendiente == null\)/, 'con diferencia pendiente no hay Deshacer');
+  assert.match(PIEZAS, /onHecho\(r\.pendiente != null \? [^\n]*, r\.pendiente == null && p\.monto === valorUsd\)/, 'con cualquier diferencia no hay Deshacer');
   // Un pago que no es una cuota, y la mensualidad de una suscripción manual: el mismo camino (marcarPago).
   assert.match(PIEZAS, /await registrarPagoSueltoAction\(leadId, \{ monto: p\.monto as number, fecha,/);
   assert.match(COBRAR, /registrarMes: \(\) => setAbierto\(\{ que: 'registrar', modo: 'mensualidad'/);
@@ -148,10 +156,11 @@ test('cada función de plata del relevamiento sigue en un bloque, con la MISMA a
   assert.match(COBRO, /\{r\.accion === 'marcar' && <Button[^\n]*onClick=\{\(\) => cobrar\.marcar\(q\)\}>Marcar pagada<\/Button>\}/);
   assert.match(COBRO, /\{r\.accion === 'deshacer' && <Button[^\n]*onClick=\{\(\) => cobrar\.desmarcar\(q\)\}>Deshacer<\/Button>\}/);
   assert.match(COBRO, /\{q\.pagado && q\.comprobante_path && <Button[^\n]*cobrar\.verComprobante\(q\)/);
-  // Editar una cuota POR ID, armar el plan sin ganar el lead, y agregar una sin borrar ni reinsertar las otras.
+  // Editar una cuota POR ID, armar el plan sin ganar el lead, y quitar o agregar UNA sin tocar las otras.
   assert.match(COBRO, /editarCuotaAction\(lead\.id, q\.id, cambio\)/);
-  assert.match(COBRO, /await ajustarPlanAction\(l\.id, nuevo\)/);
-  assert.match(COBRAR, /guardarCuotasAction\(ctx\.lead\.id,\s*\[\.\.\.impagas\.map\(\(q\) => \(\{ id: q\.id,[^\n]*\{ id: null, monto: m, fecha \}\],\s*null, impagas\.map\(\(q\) => q\.id\)\)/);
+  assert.match(COBRO, /await ajustarPlanAction\(l\.id, cambiado\)/);
+  assert.match(COBRAR, /await agregarCuotaAction\(ctx\.lead\.id, \{ monto: m, fecha \}\)/);
+  assert.match(COBRO, /await quitarCuotaAction\(lead\.id, q\.id\)/);
   // Cobrar con link, la lista de cobros con lo del admin, y el link de UNA cuota.
   assert.match(COBRO, /<CobrarConLink lead=\{/);
   assert.match(COBRO, /<CobrosDelLead cobros=\{lista\} error=\{errLeer\} esAdmin=\{!!opciones\?\.ok && opciones\.esAdmin\}/);
@@ -194,6 +203,86 @@ test('una cuota con un link vivo o un recordatorio corriendo lo dice, no ofrece 
   assert.ok(fn.indexOf('if (!(await haySesion())) return {};') > 0 && fn.indexOf('await asegurarLeadDelNegocio(leadId);') > fn.indexOf('haySesion'), 'sin sesión o con un lead ajeno, nada');
 });
 
+test('ninguna tab Pagos se queda sin las cuotas (antes venían adentro de `venta`)', async () => {
+  // Revisión del 16/10/2026: Formulario de Meta, Te escriben y Carrito tenían `venta` y no `cuotas`. Con la tarjeta de
+  // antes, `venta` incluía las cuotas; con los bloques, esas tres perdían marcar, deshacer, el comprobante y el plan.
+  const { PLANTILLAS_FICHA, PLANTILLA_CS } = await import('../lib/ficha/plantillas');
+  for (const p of PLANTILLAS_FICHA) {
+    const pagos = p.tabs.pagos ?? [];
+    if (pagos.includes('venta') || pagos.includes('cobrado')) assert.ok(pagos.includes('cuotas'), `${p.nombre}: la tab Pagos sin las cuotas`);
+  }
+  assert.ok(PLANTILLA_CS['cs-pagos'].includes('cuotas'));
+  for (const p of PLANTILLAS_TAB_PAGOS.filter((x) => !x.epico)) assert.ok(p.bloques.some((b) => b.id === 'cuotas'), `${p.nombre}: sin las cuotas`);
+});
+
+test('quitar o agregar UNA cuota no reescribe las otras, y quitar pide confirmación (no hay Deshacer fiel)', async () => {
+  // Revisión del 16/10/2026: mandaban la lista ENTERA de impagas que tenía la pantalla, y una cuota que otra pestaña
+  // había cambiado volvía a su valor viejo. Y el Deshacer de quitar la reinsertaba con otro id y otro número.
+  const acc = fuente(`${DIR}/cuotas-actions.ts`);
+  const quitar = acc.slice(acc.indexOf('export async function quitarCuotaAction'), acc.indexOf('export async function agregarCuotaAction'));
+  assert.match(quitar, /guardarCuotasPorId\(leadId, \[\], \{ vistos: new Set\(\[pagoId\]\) \}\)/, 'quitar: la única vista es la que se quita');
+  const agregar = acc.slice(acc.indexOf('export async function agregarCuotaAction'));
+  assert.match(agregar, /guardarCuotasPorId\(leadId, \[\{ id: null, monto_usd: monto, fecha_esperada: cuota\.fecha \}\], \{ vistos: new Set\(\) \}\)/, 'agregar: ninguna vista');
+  for (const f of [quitar, agregar]) {
+    assert.ok(f.indexOf('haySesion()') > 0 && f.indexOf('haySesion()') < f.indexOf('await asegurarLeadDelNegocio(leadId)') && f.indexOf('await asegurarLeadDelNegocio(leadId)') < f.indexOf('guardarCuotasPorId('));
+  }
+  assert.match(COBRO, /<Confirm title=\{`¿Quitar \$\{renglonDeCuota\(aQuitar, ctx\.hoy\)\.nombre\.toLowerCase\(\)\}\?`\}[\s\S]{0,400}onConfirm=\{\(\) => quitar\(aQuitar\)\}/);
+  assert.doesNotMatch(COBRO.slice(COBRO.indexOf('const quitar = (q: Pago)'), COBRO.indexOf('const becado')), /show\([^\n]*,\s*\(\) =>/, 'quitar no ofrece un Deshacer');
+  assert.match(COBRO, /\{r\.accion === 'marcar' && <Button[^\n]*onClick=\{\(\) => setAQuitar\(q\)\}>Quitar<\/Button>\}/, 'el botón pregunta antes de quitar');
+  // Y lo que las dos acciones dejan intacto, EJECUTADO: con sólo la que se quita vista, las otras no se escriben.
+  const { reconciliarCuotas } = await import('../lib/pagos-campo');
+  const ex = [
+    { id: 1, numero: 1, monto_usd: 500, fecha_esperada: '2026-11-01', pagado: false, devuelta: false, protegida: [] },
+    { id: 2, numero: 2, monto_usd: 500, fecha_esperada: '2026-12-01', pagado: false, devuelta: false, protegida: [] },
+  ];
+  const q = reconciliarCuotas(ex, [], 'porId', { vistos: new Set([2]) });
+  assert.deepEqual([q.borrar.map((b) => b.id), q.actualizar.length], [[2], 0]);
+  const a = reconciliarCuotas(ex, [{ id: null, monto_usd: 300, fecha_esperada: '2027-01-01' }], 'porId', { vistos: new Set() });
+  assert.deepEqual([a.insertar.map((i) => i.monto_usd), a.borrar.length, a.actualizar.length], [[300], 0, 0]);
+});
+
+test('el plan manda SÓLO lo que se cambió, y su Deshacer devuelve cada cuota con su número', async () => {
+  assert.match(COBRO, /const \[antes\] = useState<PlanUniforme>\(\(\) => \(\{/, 'el plan de antes, congelado al abrir');
+  assert.match(COBRO, /const cambiado = Object\.fromEntries\(\(Object\.keys\(nuevo\) as Array<keyof PlanUniforme>\)\.filter\(\(k\) => \(nuevo\[k\] \?\? null\) !== \(antes\[k\] \?\? null\)\)/);
+  assert.match(fuente('app/crm/[id]/pagos-campo-actions.ts'), /deshacer: \{ cuotas: antes\.map\(\(q\) => \(\{ id: q\.id, numero: q\.numero, monto:/);
+  const { reconciliarCuotas } = await import('../lib/pagos-campo');
+  // El inicial (número 0) que un ajuste borró vuelve como inicial, no como «Cuota 3».
+  const ex = [{ id: 7, numero: 1, monto_usd: 500, fecha_esperada: '2026-11-01', pagado: false, devuelta: false, protegida: [] }];
+  const r = reconciliarCuotas(ex, [{ id: 99, numero: 0, monto_usd: 1000, fecha_esperada: '2026-10-16' }, { id: 7, numero: 1, monto_usd: 500, fecha_esperada: '2026-11-01' }], 'porId', { vistos: new Set([7]) });
+  assert.deepEqual(r.insertar.map((i) => i.numero), [0]);
+  // Ocupado, va después de la última, como siempre.
+  const r2 = reconciliarCuotas(ex, [{ id: null, numero: 1, monto_usd: 200, fecha_esperada: null }, { id: 7, monto_usd: 500, fecha_esperada: '2026-11-01' }], 'porId', { vistos: new Set([7]) });
+  assert.deepEqual(r2.insertar.map((i) => i.numero), [2]);
+});
+
+test('Deshacer un pago sólo si se cobró EXACTO; el de desmarcar conserva cómo se cobró; el de la venta con su tipo', () => {
+  assert.match(PIEZAS, /r\.pendiente == null && p\.monto === valorUsd\);/, 'con descuento o de más, desmarcar no devuelve el monto');
+  assert.match(COBRAR, /moneda: q\.moneda \?\? null, montoOriginal: q\.monto_original \?\? null, concepto: q\.concepto \?\? null, metodo: q\.metodo \?\? null,/);
+  assert.match(COBRO, /const r = await guardarVentaAction\(leadId, d, \{ tipoVisto: visto \}\);\s*if \(!r\.ok\) return;\s*visto = r\.ventaTipo;/);
+  assert.equal((COBRO.match(/void deshacerVenta\(lead\.id, atras, r\.ventaTipo\)/g) ?? []).length, 2, 'la venta y la suscripción deshacen con el tipo');
+});
+
+test('sin los cobros leídos no se ofrece registrar el mes (podría cobrarlo la pasarela), ni en la tab ni en la API', () => {
+  assert.match(COBRO, /return \{ cobrado, cobros, leidos: cobros !== null && !sinLeer, sinLeer \};/);
+  assert.match(COBRO, /const e = leido && !leidos && leido\.accion\?\.tipo === 'registrar-mes' \? \{ \.\.\.leido, accion: null \} : leido;/);
+  assert.match(COBRO, /\{leidos && s\.fuente === 'manual' && s\.estado === 'activa' && <Button[^\n]*cobrar\.registrarMes/);
+  assert.match(fuente('lib/api-mako/areas/crm.run.ts'), /const accion = e\?\.accion && !\(cobrosSinLeer && e\.accion\.tipo === 'registrar-mes'\) \? e\.accion : null;/);
+});
+
+test('un becado no ofrece cobrar: ni registrar un pago, ni el plan, ni mandar un link', () => {
+  assert.match(COBRO, /const becado = lead\.venta_tipo === 'sin_cobro';/);
+  assert.match(COBRO, /\{!becado && <Button[^\n]*cobrar\.registrarPago\}>Registrar un pago<\/Button>\}/);
+  assert.match(COBRO, /\{r\.accion === 'marcar' && cobrar\.hayPasarela && !becado && <Button/);
+  assert.match(COBRO, /\{!editando && diseno !== 'proxima' && !becado && \(/);
+});
+
+test('el link de una cuota que YA se pagó por un link no se vuelve a crear (el pago puede no haberse asentado)', () => {
+  const c = fuente('lib/cobros.ts');
+  const f = c.slice(c.indexOf('async function cuotaParaLink('), c.indexOf('export async function crearCobro('));
+  assert.match(f, /\.eq\('pago_id', pagoId\)\.eq\('estado', 'pagado'\)\.limit\(1\);/);
+  assert.match(f, /if \(\(pagados \?\? \[\]\)\.length\) return \{ ok: false, error:/);
+});
+
 test('el campo en el lugar guarda UNA vez: Enter y el blur que le sigue no son dos guardados', () => {
   // Revisión del 16/10/2026: la segunda llamada iba contra el valor VIEJO del prop; en una obligación volvía con
   // «otra pestaña lo cambió» sobre lo que sí se guardó.
@@ -208,7 +297,7 @@ test('la API de MaKo cuenta el estado de cuenta y los movimientos con las MISMAS
   const run = fuente('lib/api-mako/areas/crm.run.ts');
   const cob = run.slice(run.indexOf('cobranza_lead: {'), run.indexOf('cuotas,', run.indexOf('cobranza_lead: {')));
   assert.match(cob, /estadoDeCuenta\(\{ cobrado: cob, pagos: plan\.pagos, ganado: lead\.estado_lead === 'ganado', hoy \}\)/);
-  assert.match(cob, /que_hacer: e\.accion \? \{ accion: e\.accion\.tipo, boton: e\.accion\.boton,/);
+  assert.match(cob, /que_hacer: accion \? \{ accion: accion\.tipo, boton: accion\.boton,/);
   assert.match(cob, /movimientosDelLead\(\{ pagos: plan\.pagos, cobros \}\)/);
 });
 

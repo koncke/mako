@@ -18,6 +18,7 @@
 import { Icon } from '@/app/_components/icons';
 import { ROTULO, type EstadoPedido } from '@/lib/operaciones-reglas';
 import type { LineaChat, TrabajoP } from '@/lib/centro-chats';
+import { textoDeRespuesta } from '@/app/admin/runway/decisiones';
 import { Muneco, type Animo } from './Muneco';
 import type { Aspecto } from '@/lib/centro-munecos';
 import { ROTULO_TIPO, hace, pushDelCommit, type PushP } from '@/lib/progreso-reglas';
@@ -85,6 +86,18 @@ function Trabajo({ w, quien }: { w: TrabajoP; quien: Quien }) {
 
 function Linea({ l, pushes, ahora, quien }: { l: LineaChat; pushes: readonly PushP[]; ahora: number; quien: Quien }) {
   if (l.tipo === 'trabajo') return <Trabajo w={l.trabajo} quien={quien} />;
+  if (l.tipo === 'respuesta') {
+    // Lo que contestó a una pregunta del chat: su burbuja, con la pregunta arriba en chico (como la cita de WhatsApp).
+    return (
+      <div className="co-yo">
+        <p className="co-burbuja">
+          <span className="co-burbuja__cita">{l.decision.pregunta}</span>
+          {textoDeRespuesta(l.decision)}
+          <span className="co-burbuja__pie">{horaAR(l.instante)}</span>
+        </p>
+      </div>
+    );
+  }
   if (l.tipo === 'derivado') {
     return (
       <div className="co-yo">

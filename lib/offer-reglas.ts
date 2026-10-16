@@ -46,7 +46,7 @@ import {
   type AdjuntoVista, type ArbolOffer, type ArchiveroDoc, type BonoPropuesto, type CalculoDiagnostico, type CambioPropuesto, type DiagnosticoOferta,
   type DimensionId, type EcuacionFila, type Entregable, type FaseRuta, type FuentePieza, type ModoSesion,
   type NotaDimension, type OfferMensaje, type OfferSesionResumen, type PiezaKey, type PiezaSabida, type PiezasSabidas,
-  type PropuestaOferta, type PuntoControlFinal, type VariableValor,
+  type PropuestaOferta, type PuntoControlFinal, type VariableValor, type PasoArmado, type ArmadoVista,
 } from './offer-marco';
 
 // ── Topes ────────────────────────────────────────────────────────────────────
@@ -1602,6 +1602,65 @@ export function respuestaSinIA(mensajes: Array<Pick<MensajeGuardado, 'de' | 'pdf
     opciones: [OPCION_PULIR],
   };
 }
+
+// ── El armado en el servidor (16/10/2026) ────────────────────────────────────
+// «Armar mi oferta» eran dos pedidos que esperaba el NAVEGADOR (diagnóstico y oferta): si la persona cerraba
+// la pestaña en el primero, la oferta no se hacía nunca, y al volver había que empezar de cero. Ahora el
+// servidor corre los dos pasos solo (`after()` en app/api/offer/route.ts) y la pantalla sólo mira cómo va.
+// Lo que queda guardado en la fila (`offer_sesiones.armado`, mig 0296) es esto:
+
+export type ArmadoOffer = {
+  /** Cuándo arrancó (ISO). Con esto se sabe si se cortó: ver `ARMADO_VENCE_MS`. */
+  desde: string;
+  paso: PasoArmado;
+  /** De dónde se pidió: el onboarding o la tab. Viaja al aviso de «oferta lista» (el link cambia). */
+  origen: 'arranque' | 'tab';
+  /** Quién de este armado: un paso de un armado VIEJO no puede pisar el de uno nuevo. */
+  intento: string;
+  /** Si falló: lo que se le muestra al dueño. El reintento arranca desde `paso`. */
+  error?: string;
+};
+
+/**
+ * Lo más que puede durar un armado entero: el `maxDuration` de la ruta (800 s) y un margen. Pasado eso sin
+ * terminar, la función se cortó (un deploy, un corte de la plataforma) y el armado se da por fallido: si no,
+ * la pantalla quedaría «armando» para siempre y nadie podría volver a pedirlo.
+ */
+export const ARMADO_VENCE_MS = 15 * 60_000;
+export const ARMADO_CORTADO = 'Se cortó mientras armaba tu oferta. Vuelve a tocar «Armar mi oferta».';
+
+export function sanearArmado(raw: unknown): ArmadoOffer | null {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const o = raw as Record<string, unknown>;
+  if (typeof o.desde !== 'string' || Number.isNaN(Date.parse(o.desde))) return null;
+  if (o.paso !== 'diagnostico' && o.paso !== 'oferta') return null;
+  if (typeof o.intento !== 'string' || !o.intento) return null;
+  return {
+    desde: o.desde, paso: o.paso, intento: o.intento,
+    origen: o.origen === 'arranque' ? 'arranque' : 'tab',
+    ...(typeof o.error === 'string' && o.error.trim() ? { error: o.error.trim().slice(0, 400) } : {}),
+  };
+}
+
+/** ¿Hay un armado corriendo AHORA? (Ni fallido ni vencido.) Mientras lo hay, no se arranca otro. */
+export function armadoEnCurso(a: ArmadoOffer | null, ahora: number): boolean {
+  return !!a && !a.error && ahora - Date.parse(a.desde) < ARMADO_VENCE_MS;
+}
+
+/**
+ * Lo que ve la pantalla del armado: en curso (con su paso) o fallido (con el error y desde qué paso se
+ * reintenta). Uno vencido es un fallido con `ARMADO_CORTADO`. null = no hay ninguno. (El tipo vive en
+ * lib/offer-marco.ts, que es el que importa la pantalla.)
+ */
+export function armadoParaVista(a: ArmadoOffer | null, ahora: number): ArmadoVista | null {
+  if (!a) return null;
+  if (a.error) return { paso: a.paso, corriendo: false, error: a.error };
+  if (!armadoEnCurso(a, ahora)) return { paso: a.paso, corriendo: false, error: ARMADO_CORTADO };
+  return { paso: a.paso, corriendo: true, error: null };
+}
+
+/** Desde qué paso arranca un armado nuevo: si el diagnóstico ya está hecho (`borrador`), desde la oferta. */
+export const pasoInicialDelArmado = (hayBorrador: boolean): PasoArmado => (hayBorrador ? 'oferta' : 'diagnostico');
 
 // ── La propuesta ─────────────────────────────────────────────────────────────
 

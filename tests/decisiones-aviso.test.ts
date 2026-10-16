@@ -160,7 +160,8 @@ test('contra un servidor que MIENTE, el aviso sólo lleva el ref validado y sale
     writeFileSync(join(dir, 'entregados.json'), JSON.stringify([id(4)]));
     const salida = await new Promise<string>((ok, mal) => execFile(process.execPath,
       [join(RAIZ, 'scripts/operaciones/cartero.mjs'), 'ciclo', '--cuenta', 'claude2'],
-      { env: { ...process.env, CARTERO_DIR: dir, CARTERO_APP_DIR: join(dir, 'app') } },
+      // El Runner corre en la carpeta de la sesión (cartero 1.4.0): sin decirlo, sería la de quien corre el test.
+      { env: { ...process.env, CARTERO_DIR: dir, CARTERO_APP_DIR: join(dir, 'app'), CARTERO_CONFIG_DIR: cfgDir } },
       (e, so, se) => (e ? mal(new Error(se || e.message)) : ok(so))));
     const o = JSON.parse(salida) as { avisos: number; entregar: Array<{ id: string; to: string; mensaje: string }> };
     assert.deepEqual(o.entregar.map((e) => e.id), [id(1)], 'sale SÓLO el aviso bueno');
@@ -193,4 +194,12 @@ test('los avisos van aparte de los pedidos: si fallan, los pedidos firmados sale
   const fn = src.slice(src.indexOf('async function avisosParaElCartero'), src.indexOf('export async function cicloCartero'));
   assert.match(fn, /\.eq\('respondida_at'/);
   assert.match(fn, /\.eq\('aviso_id'[\s\S]*\.is\('aviso_id', null\)/);
+});
+
+test('explicarAviso: un chat abierto sin Runner en su carpeta no se avisa «en la próxima vuelta»', () => {
+  // Cartero 1.4.0 (16/10/2026): MaKo no reclama el aviso de un chat que ningún Runner alcanza, así que decir «se avisa
+  // en la próxima vuelta» sería falso. Probado rompiéndolo: sin la línea de `runner`, el assert da «próxima vuelta».
+  const sinRunner = [{ ...chat(L1, 'Centro de Operaciones', 'claude2', true), runner: false }];
+  assert.match(explicarAviso(base, sinRunner, true, AHORA), /espera a que se abra el Runner de su carpeta \(claude2\)/);
+  assert.match(explicarAviso(base, [{ ...sinRunner[0], runner: true }], true, AHORA), /próxima vuelta/);
 });

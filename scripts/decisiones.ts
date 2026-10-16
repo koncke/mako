@@ -13,7 +13,7 @@
 //
 // El formato de cada decisión (lo valida `sanearPublicada`, app/admin/runway/decisiones.ts):
 //   { "ref": "image-ws-cliente", "chat": "Image Editor", "destino": "local_<uuid>", "pregunta": "¿…?",
-//     "opciones": [{ "clave": "A", "texto": "Sí" }, { "clave": "B", "texto": "No" }],
+//     "opciones": [{ "clave": "A", "texto": "Sí", "detalle": "lo que pasa si elige ésta, en una frase" }, { "clave": "B", "texto": "No" }],
 //     "recomendada": "A", "destraba": "…", "contexto": "…",
 //     "urgencia": "bloquea" | "cuesta" | "criterio" | "aviso", "href": "/plan/revisar/…", "orden": 10 }
 //

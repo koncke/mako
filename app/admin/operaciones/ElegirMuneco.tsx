@@ -7,7 +7,7 @@
 // click pueda elegir cambiar a otro». Copiado del armador de Notion Faces (faces.notion.com, mirado ese día): a la
 // izquierda las piezas (ahí: tono, ojos, cejas, lentes, nariz, boca, pelo, accesorios), al medio la grilla de opciones
 // de la pieza elegida en mosaicos de tres —el elegido con borde y fondo azul— con el dado para sortear arriba, y a la
-// derecha el retrato grande. Acá las piezas son cuatro (cuerpo, color, cara y accesorio): los ojos no se eligen porque
+// derecha el retrato grande. Acá las piezas son tres (cuerpo, color y cara; sin accesorios desde el 16/10): los ojos no se eligen porque
 // dicen el estado del chat (lib/centro-munecos.ts). En el teléfono, el retrato arriba y las piezas como chips.
 //
 // Es la pieza de ADENTRO: el modal de la computadora (CentroApp.tsx) y la hoja del teléfono (ChatsMovil.tsx) le ponen
@@ -16,20 +16,19 @@
 import { useState } from 'react';
 import { Icon } from '@/app/_components/icons';
 import {
-  ACCESORIOS, CARAS, COLORES, FORMAS, ROTULO_ACCESORIO, ROTULO_CARA, ROTULO_FORMA, aspectoAlAzar, type Aspecto,
+  CARAS, COLORES, FORMAS, ROTULO_CARA, ROTULO_FORMA, aspectoAlAzar, type Aspecto,
 } from '@/lib/centro-munecos';
 import { Muneco, type Animo } from './Muneco';
 
-type Pieza = 'forma' | 'color' | 'cara' | 'accesorio';
+type Pieza = 'forma' | 'color' | 'cara';
 const PIEZAS: Array<{ id: Pieza; label: string }> = [
-  { id: 'forma', label: 'Cuerpo' }, { id: 'color', label: 'Color' }, { id: 'cara', label: 'Cara' }, { id: 'accesorio', label: 'Accesorio' },
+  { id: 'forma', label: 'Cuerpo' }, { id: 'color', label: 'Color' }, { id: 'cara', label: 'Cara' },
 ];
-const OPCIONES: Record<Pieza, readonly string[]> = { forma: FORMAS, color: COLORES, cara: CARAS, accesorio: ACCESORIOS };
+const OPCIONES: Record<Pieza, readonly string[]> = { forma: FORMAS, color: COLORES, cara: CARAS };
 const rotulo = (p: Pieza, v: string, i: number) =>
   p === 'forma' ? ROTULO_FORMA[v as keyof typeof ROTULO_FORMA]
     : p === 'cara' ? ROTULO_CARA[v as keyof typeof ROTULO_CARA]
-      : p === 'accesorio' ? ROTULO_ACCESORIO[v as keyof typeof ROTULO_ACCESORIO]
-        : `Color ${i + 1}`;
+      : `Color ${i + 1}`;
 
 export function ElegirMuneco({ titulo, animo, aspecto, onCambio }: {
   titulo: string; animo: Animo; aspecto: Aspecto; onCambio: (a: Aspecto) => void;

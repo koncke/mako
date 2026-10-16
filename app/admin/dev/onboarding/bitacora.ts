@@ -488,9 +488,10 @@ export const BITACORA: Hito[] = [
     fecha: "16 oct", hora: "—", chat: "Cerebro", sesion: "local_0f38f4d5-0e64-411e-b6c8-6d6ead20baed", cuenta: "claude3",
     actor: "martin", tipo: "prompt",
     titulo: "El onboarding pasa a ser el chat de Offer",
-    pedido: "el onboarding será ese chat de offer",
+    pedido: "Quiero que elimines todo lo que hay hoy en onboarding tal como está y que lo reemplaces por el chat de \"Offer\", el onboarding será ese chat de offer... Si puede estar el grafo. Pero toda la animación del principio no. En su lugar prefiero una animación de los mismo 3 pasos que incluya al muñequito de MaKo, alguno que esté en los chats del \"Centro\", piensa en el más \"normal\" que sea ese. Y que al terminar la animación se posicione en su lugar como \"foto de perfil\" y que aparezca el chat. Obvio que este onboarding no tiene que ser solo de \"offer\" (aunque será la gran parte), sino que también debe preguntar otras cosas, como el nombre, luego de analizar su offer, preguntar su funnel para que lo elija (y así crear su primer CRM), piensa en que cosas deberíamos preguntar... Guarda los pasos que hoy tenemos en el onboarding para que luego si faltó algo, yo te lo indique. Pero se criterioso y decide agregar o quitar si consideras... Ahora, ten en cuenta que NO quiero que sea un onboarding eterno, es más, mientras más agil y rápido mejor.",
     puntos: [
-      "Lo lleva el chat Offer: nombre, oferta, funnel y primer CRM, lo más ágil posible.",
+      "Llegó por el Cerebro, que se lo repartió al chat «Offer». Y con él, el feedback de la llamada con Leila del 12/10: el chat de Offer no puede desaparecer jamás.",
+      "Los pasos de hoy quedaron escritos, pantalla por pantalla, en docs/onboarding-pasos-anteriores.md.",
       "Al chat «Onboarding» le tocó qué tiene que quedar escrito al terminar, el crédito de Claude para el chat, y que el histórico de Meta no dependa del wizard.",
     ],
   },
@@ -532,6 +533,89 @@ export const BITACORA: Hito[] = [
       "lib/cron-workspaces.ts — la ronda con una lista de integraciones",
       "app/api/cron/onboarding-extraccion/route.ts — recorre a cualquiera de las cuatro",
       "tests/historico-al-conectar.test.ts — catorce roturas, todas caen",
+    ],
+  },
+  {
+    fecha: "16 oct", hora: "05:07", chat: "Offer", sesion: "local_34d54ef6-523c-46f8-b83f-9fd310dfd667", cuenta: "claude3",
+    actor: "claude", tipo: "implementacion",
+    titulo: "El onboarding es una conversación con MaKo",
+    puntos: [
+      "/onboarding es el chat de Offer: nombre, negocio, objetivo a 90 días, la oferta (con el diagnóstico adentro), el CRM que le propone y elige, el teléfono o «Ahora no», y listo.",
+      "La animación del principio son los mismos tres tiempos del grafo, con el muñeco de Estrategia del Centro en el medio; al terminar vuela a su lugar como foto del chat.",
+      "El CRM que elige siembra el funnel principal (no uno nuevo): ahí cae todo lead sin asignación. Al cerrar queda escrito el perfil del negocio, el producto y la oferta, y el plan de arranque.",
+      "El teléfono y Meta se postergan si no se hicieron, nunca se marcan hechos. La capa Project Manager sigue con su perfil, el diagnóstico y el plan, sin oferta ni CRM.",
+      "Sin probar todavía en el navegador: la RAM de la máquina no dejaba levantar la app.",
+    ],
+    commits: [
+      { sha: "dd3b650", msg: "Onboarding: el arranque es el chat de Offer, con MaKo de foto de perfil; y el chat de Offer ya no desaparece", lineas: 4973, archivos: 34 },
+    ],
+    archivos: [
+      "app/onboarding/ChatArranque.tsx — el chat de arranque sobre el motor de Offer",
+      "app/onboarding/IntroMako.tsx — la animación que termina con MaKo de foto",
+      "lib/onboarding-arranque.ts — las reglas puras: etapa, mensajes, respuestas, CRM, brief",
+      "lib/onboarding-arranque-server.ts — los hechos, la siembra del CRM principal y el cierre",
+      "app/api/onboarding/arranque/route.ts — la ruta del chat",
+      "lib/onboarding-state.ts — cerrarPasosOnboarding, la puerta única del cierre",
+      "tests/onboarding-arranque.test.ts — probado con 18 roturas",
+    ],
+  },
+  {
+    fecha: "16 oct", hora: "05:49", chat: "Offer", sesion: "local_34d54ef6-523c-46f8-b83f-9fd310dfd667", cuenta: "claude3",
+    actor: "claude", tipo: "correccion",
+    titulo: "Nueve bugs del chat de arranque, antes de subirlo",
+    puntos: [
+      "Un revisor encontró nueve; el que más mordía: cada cliente nuevo terminaba con DOS ofertas iguales («X» y «X · versión 1»), porque el brief se escribía antes que la oferta.",
+      "El precio que dice el dueño queda como texto (no se inventa un monto), «[completar]» no entra al brief, y una pestaña vieja ya no contesta la pregunta de hoy.",
+      "Un «no pude leer» ya no abre otra conversación de oferta, los reportes van al negocio y no a quien mira, y un error de IA trae «Conectar mi propia IA».",
+      "La puerta del cierre lee el estado estricto: con la base caída guardaba un onboarding a medio hacer sobre uno terminado.",
+    ],
+    commits: [
+      { sha: "e028c53", msg: "Onboarding: los nueve bugs de la revisión del chat de arranque", lineas: 340, archivos: 9 },
+    ],
+    archivos: [
+      "lib/onboarding-arranque-server.ts — el orden del cierre: la oferta antes que el brief",
+      "lib/onboarding-arranque.ts — la opción con su texto, sinMarca, el nombre que no es un email",
+      "app/onboarding/ChatArranque.tsx — tieneSesion y sesionCaida, los reintentos",
+      "lib/onboarding-state.ts — la puerta del cierre, estricta",
+      "tests/onboarding-arranque.test.ts — nueve roturas más, todas caen",
+    ],
+  },
+  {
+    fecha: "16 oct", hora: "06:00", chat: "Onboarding", sesion: "local_79844152-91d5-49c1-b833-c917ed1fc4a6", cuenta: "claude3",
+    actor: "claude", tipo: "correccion",
+    titulo: "Un tropiezo de la base ya no reabre un onboarding terminado",
+    puntos: [
+      "Si la base no contestaba justo cuando el histórico se iba actualizando, un negocio que ya había terminado el onboarding podía volver al arranque. Ahora ese paso falla y se reintenta, sin tocar nada.",
+      "El crédito de Claude quedó en lo que usa el chat de arranque: la conversación y los documentos. El paso Productos del wizard ya no existe.",
+    ],
+    commits: [
+      { sha: "e8caef3", msg: "Onboarding: toda escritura del estado lee estricto, y 'productos' sale del crédito", lineas: 161, archivos: 7 },
+    ],
+    archivos: [
+      "lib/onboarding-state.ts — patchEstadoOnboarding lee estricto",
+      "lib/onboarding-extract.ts — iniciarExtraccion lee estricto",
+      "lib/veto-claude.ts — 'productos' fuera del crédito",
+      "tests/onboarding-escritura-estricta.test.ts — cuatro roturas, todas caen",
+    ],
+  },
+  {
+    fecha: "16 oct", hora: "08:21", chat: "Offer", sesion: "local_34d54ef6-523c-46f8-b83f-9fd310dfd667", cuenta: "claude3",
+    actor: "claude", tipo: "correccion",
+    titulo: "El onboarding nuevo, recorrido en el Cliente de Prueba",
+    puntos: [
+      "Se recorrió entero en escritorio y en el teléfono: la animación y el vuelo de MaKo a la foto, la conversación, la oferta en una ventana encima, el CRM, el final y la tab Offer.",
+      "Apareció un bloqueo: si la persona tocaba «Armar mi oferta» antes de contestar las preguntas de su fase, el chat se quedaba quieto sin pregunta y sin forma de seguir. Ahora las que faltan las pregunta MaKo, sin repetir las que ya contestó.",
+      "El texto de la animación se quedaba encima del chat mientras MaKo volaba a la foto: ahora se va con el grafo.",
+      "Recargar a mitad de la oferta vuelve a la misma conversación, y queda una sola oferta. El Cliente de Prueba quedó como estaba.",
+    ],
+    commits: [
+      { sha: "b23a5a3", msg: "Onboarding: lo que encontró el recorrido en el ws3 — el diagnóstico que faltaba trababa el arranque", lineas: 174, archivos: 7 },
+    ],
+    archivos: [
+      "lib/onboarding-arranque.ts — la etapa 'fase' cuando la oferta ya está armada, sin repetir lo de Offer",
+      "app/onboarding/IntroMako.tsx — la leyenda sale con su propia animación",
+      "scripts/ws-prueba-foto.mjs — la foto del ws3 antes de recorrerlo, y la vuelta exacta",
+      "tests/onboarding-arranque.test.ts — siete roturas más, todas caen",
     ],
   },
 ];

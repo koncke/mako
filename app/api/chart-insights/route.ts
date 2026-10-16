@@ -5,19 +5,45 @@
 // POST { action: open|new|send|rename|pin|archive|delete, ... }
 // El primer mensaje SIEMPRE es del assistant. MaKo nunca termina con una pregunta.
 // El título lo pone la IA (auto) y se puede editar/pinear/archivar/eliminar.
+//
+// ⛔ DE QUIÉN ES CADA CHAT (auditoría del 16/10/2026, docs/hallazgos-seguridad.md): la ruta abría cualquier sesión del
+//    workspace por id (correlativos), listaba todas con `?all=1`, y armaba el system con los montos del trimestre para
+//    cualquiera. Un closer o setter en /mako leía lo que el dueño habló con MaKo y recibía la plata del trimestre. Ahora,
+//    la regla del doer (/api/mako-doer, `quienPide`): los chats de un admin son del workspace; los de los demás, SUYOS
+//    (lib/chart-chats-reglas.ts), y a quien no le corresponde, 404. Y el system va sin los números del negocio para quien
+//    no es admin (`sinNumerosDelNegocio`), en los TRES lugares donde se arma, como el teléfono (lib/mako-turno-app.ts).
 
 import type { NextRequest } from 'next/server';
 import { chatClaude, type ClaudeMsg } from '@/lib/anthropic';
 import { chatCheapCascade } from '@/lib/ai-cheap';
 import {
-  createSession, getSession, listSessions, listAllSessions, getSessionMessages, appendMessage,
-  renameSession, setPinned, setArchived, deleteSession, esChatDelTelefono, esSesionDelTelefono, type ChartMsg,
+  createSession, getSession, listSessions, listAllSessions, listSessionsDePersona, getSessionMessages, appendMessage,
+  renameSession, setPinned, setArchived, deleteSession, esChatDelTelefono, esSesionDelTelefono, type ChartMsg, type ChartSession,
 } from '@/lib/chart-chats';
+import {
+  claveGuardada, claveLogica, claveVisible, personaDeSesion, prefijoDePersona, puedeUsarSesion, type QuienChatea,
+} from '@/lib/chart-chats-reglas';
 import { buildSystemPrompt } from '@/lib/mako-context';
 import { getPromptText } from '@/lib/prompt-render';
+import { getRolWsEfectivo } from '@/lib/workspace';
+import { getUsuarioActual } from '@/lib/auth';
 import { CHART_PROMPT_ANALISIS_DEFAULT, CHART_PROMPT_SALUDO_DEFAULT, CHART_TITULO_DEFAULT } from '@/lib/prompt-defaults';
 
 export const dynamic = 'force-dynamic';
+
+const NO_EXISTE = () => Response.json({ error: 'sesión inexistente' }, { status: 404 });
+const SIN_SESION = () => Response.json({ error: 'Tu sesión venció.' }, { status: 401 });
+
+/** Quién pide: admin o no, y su persona (lib/chart-chats-reglas.ts). null = sin sesión. */
+async function quienPide(): Promise<QuienChatea | null> {
+  const [rolWs, sesion] = await Promise.all([getRolWsEfectivo(), getUsuarioActual()]);
+  if (!rolWs || !sesion) return null;
+  const persona = personaDeSesion(sesion);
+  return persona ? { admin: rolWs === 'admin', persona } : null;
+}
+
+/** Una sesión como la ve la pantalla: con la clave de siempre, sin el prefijo de quien pide. */
+const paraPantalla = (q: QuienChatea) => (s: ChartSession): ChartSession => ({ ...s, chart_key: claveVisible(s.chart_key, q) });
 
 // Primer mensaje del usuario: análisis (si hay gráfico) o saludo (chat general).
 // Ambos son editables desde Configuraciones (default en lib/prompt-defaults).
@@ -55,10 +81,11 @@ async function seedTitulo(contexto: string, resp: string): Promise<string> {
   return `${saludo}\n${resp}`;
 }
 
-async function crearYAnalizar(chartKey: string, titulo: string, contexto: string) {
-  const s = await createSession(chartKey, null, contexto);
+/** `clave` es la GUARDADA (la de la persona, si no es admin); el system mira la de siempre (`claveLogica`). */
+async function crearYAnalizar(clave: string, titulo: string, contexto: string, q: QuienChatea) {
+  const s = await createSession(clave, null, contexto);
   const query = `${titulo}\n${contexto}`.slice(0, 2000);
-  const resp = await chatClaude(await buildSystemPrompt({ chartKey, titulo, contexto, query }), await buildMsgs(contexto, []), { feature: 'mako-chat' });
+  const resp = await chatClaude(await buildSystemPrompt({ chartKey: claveLogica(clave), titulo, contexto, query, sinNumerosDelNegocio: !q.admin }), await buildMsgs(contexto, []), { feature: 'mako-chat' });
   await appendMessage(s.id, 'assistant', resp);
   const t = await generarTitulo(await seedTitulo(contexto, resp));
   if (t) await renameSession(s.id, t);
@@ -69,18 +96,28 @@ export async function GET(req: NextRequest) {
   const sp = req.nextUrl.searchParams;
   const arch = !!sp.get('archived');
   try {
-    if (sp.get('all')) return Response.json({ sessions: await listAllSessions(arch) });
+    const q = await quienPide();
+    if (!q) return SIN_SESION();
+    const ver = paraPantalla(q);
+    // La lista: el admin, las del workspace; los demás, las SUYAS.
+    if (sp.get('all')) {
+      return Response.json({ sessions: (q.admin ? await listAllSessions(arch) : await listSessionsDePersona(prefijoDePersona(q.persona), arch)).map(ver) });
+    }
     const sessionId = sp.get('sessionId');
-    // ⚠️ Un chat del TELÉFONO es de UNA persona: por esta ruta (por workspace) no se abre
-    // ni se lista (lib/chart-chats.ts, `esSesionDelTelefono`).
+    // ⚠️ Un chat del TELÉFONO es de UNA persona: por esta ruta no se abre ni se lista (lib/chart-chats.ts,
+    // `esSesionDelTelefono`). Y uno de escritorio, sólo si es de quien pide o si es admin.
     if (sessionId) {
-      if (await esSesionDelTelefono(Number(sessionId))) return Response.json({ error: 'sesión inexistente' }, { status: 404 });
+      if (await esSesionDelTelefono(Number(sessionId))) return NO_EXISTE();
+      const s = await getSession(Number(sessionId));
+      if (!s || !puedeUsarSesion(s.chart_key, q)) return NO_EXISTE();
       return Response.json({ messages: await getSessionMessages(Number(sessionId)) });
     }
     const chartKey = sp.get('chartKey');
     if (chartKey) {
-      if (esChatDelTelefono(chartKey)) return Response.json({ error: 'sesión inexistente' }, { status: 404 });
-      return Response.json({ sessions: await listSessions(chartKey, arch) });
+      if (esChatDelTelefono(chartKey)) return NO_EXISTE();
+      const guardada = claveGuardada(chartKey, q);
+      if (!guardada) return NO_EXISTE();
+      return Response.json({ sessions: (await listSessions(guardada, arch)).map(ver) });
     }
     return Response.json({ error: 'parámetros faltantes' }, { status: 400 });
   } catch (err) {
@@ -96,52 +133,62 @@ export async function POST(req: NextRequest) {
   try {
     // Ni abrir/crear con la clave de un chat del teléfono, ni send/rename/pin/archive/delete
     // sobre uno de sus ids: son de UNA persona (lib/chart-chats.ts, `esSesionDelTelefono`).
-    if (chartKey && esChatDelTelefono(chartKey)) return Response.json({ error: 'sesión inexistente' }, { status: 404 });
-    if (body.sessionId != null && (await esSesionDelTelefono(Number(body.sessionId)))) {
-      return Response.json({ error: 'sesión inexistente' }, { status: 404 });
+    if (chartKey && esChatDelTelefono(chartKey)) return NO_EXISTE();
+    if (body.sessionId != null && (await esSesionDelTelefono(Number(body.sessionId)))) return NO_EXISTE();
+    // Y de escritorio, sólo lo de quien pide (o todo, si es admin): por clave y por id, ANTES de cualquier acción.
+    const q = await quienPide();
+    if (!q) return SIN_SESION();
+    const ver = paraPantalla(q);
+    const clave = chartKey ? claveGuardada(chartKey, q) : null;
+    if (chartKey && !clave) return NO_EXISTE();
+    if (body.sessionId != null) {
+      const s = await getSession(Number(body.sessionId));
+      if (!s || !puedeUsarSesion(s.chart_key, q)) return NO_EXISTE();
     }
+
     if (action === 'open') {
-      if (!chartKey) return Response.json({ error: 'chartKey requerido' }, { status: 400 });
-      const sesiones = await listSessions(chartKey);
+      if (!clave) return Response.json({ error: 'chartKey requerido' }, { status: 400 });
+      const sesiones = await listSessions(clave);
       if (sesiones.length > 0) {
         const s = sesiones[0];
         const mensajes = await getSessionMessages(s.id);
         if (mensajes.length > 0) {
-          return Response.json({ session: s, messages: mensajes, sessions: sesiones });
+          return Response.json({ session: ver(s), messages: mensajes, sessions: sesiones.map(ver) });
         }
         // Sesión vacía (quedó a medias por un error previo): MaKo arranca igual,
         // así abrir un gráfico SIEMPRE devuelve su análisis sin tener que crear chat.
         const ctx = s.contexto ?? contexto;
         const query = `${s.titulo ?? titulo}\n${ctx}`.slice(0, 2000);
-        const resp = await chatClaude(await buildSystemPrompt({ chartKey, titulo: s.titulo ?? titulo, contexto: ctx, query }), await buildMsgs(ctx, []), { feature: 'mako-chat' });
+        const resp = await chatClaude(await buildSystemPrompt({ chartKey: claveLogica(clave), titulo: s.titulo ?? titulo, contexto: ctx, query, sinNumerosDelNegocio: !q.admin }), await buildMsgs(ctx, []), { feature: 'mako-chat' });
         await appendMessage(s.id, 'assistant', resp);
         if (!s.titulo) {
           const t = await generarTitulo(await seedTitulo(ctx, resp));
           if (t) await renameSession(s.id, t);
         }
-        return Response.json({ session: await getSession(s.id), messages: await getSessionMessages(s.id), sessions: await listSessions(chartKey) });
+        const actual = await getSession(s.id);
+        return Response.json({ session: actual ? ver(actual) : null, messages: await getSessionMessages(s.id), sessions: (await listSessions(clave)).map(ver) });
       }
-      const id = await crearYAnalizar(chartKey, titulo, contexto);
+      const id = await crearYAnalizar(clave, titulo, contexto, q);
       const s = await getSession(id);
-      return Response.json({ session: s, messages: await getSessionMessages(id), sessions: await listSessions(chartKey) });
+      return Response.json({ session: s ? ver(s) : null, messages: await getSessionMessages(id), sessions: (await listSessions(clave)).map(ver) });
     }
 
     if (action === 'new') {
-      if (!chartKey) return Response.json({ error: 'chartKey requerido' }, { status: 400 });
-      const id = await crearYAnalizar(chartKey, titulo, contexto);
+      if (!clave) return Response.json({ error: 'chartKey requerido' }, { status: 400 });
+      const id = await crearYAnalizar(clave, titulo, contexto, q);
       const s = await getSession(id);
-      return Response.json({ session: s, messages: await getSessionMessages(id), sessions: await listSessions(chartKey) });
+      return Response.json({ session: s ? ver(s) : null, messages: await getSessionMessages(id), sessions: (await listSessions(clave)).map(ver) });
     }
 
     if (action === 'send') {
       const { sessionId, mensaje } = body;
       if (!sessionId || !mensaje) return Response.json({ error: 'sessionId y mensaje requeridos' }, { status: 400 });
       const s = await getSession(sessionId);
-      if (!s) return Response.json({ error: 'sesión inexistente' }, { status: 404 });
+      if (!s) return NO_EXISTE();
       const ctx = s.contexto ?? '';
       const history = await getSessionMessages(sessionId);
       await appendMessage(sessionId, 'user', mensaje);
-      const resp = await chatClaude(await buildSystemPrompt({ chartKey: s.chart_key, titulo: s.titulo ?? 'Chat', contexto: ctx, query: mensaje }), await buildMsgs(ctx, history, mensaje), { feature: 'mako-chat' });
+      const resp = await chatClaude(await buildSystemPrompt({ chartKey: claveLogica(s.chart_key), titulo: s.titulo ?? 'Chat', contexto: ctx, query: mensaje, sinNumerosDelNegocio: !q.admin }), await buildMsgs(ctx, history, mensaje), { feature: 'mako-chat' });
       await appendMessage(sessionId, 'assistant', resp);
       // Si todavía no tiene título propio, que la IA le ponga uno a partir de la charla.
       if (!s.titulo) {

@@ -329,7 +329,7 @@ export const AREAS: AreaDev[] = [
     slug: 'onboarding', titulo: 'Onboarding Wizard', familia: 'Operate', grupo: 'Onboarding',
     estado: 'listo', verEnApp: '/onboarding',
     alcance: 'El shell bloqueante. Es el proyecto con MÁS tareas abiertas del tablero.',
-    vive: ['app/onboarding/page.tsx', 'app/onboarding/OnboardingWizard.tsx', 'app/onboarding/tabs-catalogo.ts', 'lib/secciones-negocio.ts', 'app/_components/WizardShell.tsx', 'app/_components/wizard-progreso.ts', 'lib/onboarding-state.ts', 'lib/onboarding.ts', 'lib/onboarding-extract.ts'],
+    vive: ['app/onboarding/page.tsx', 'app/onboarding/ChatArranque.tsx', 'app/onboarding/IntroMako.tsx', 'app/onboarding/arranque-ui.ts', 'app/onboarding/tabs-catalogo.ts', 'app/api/onboarding/arranque/route.ts', 'lib/onboarding-arranque.ts', 'lib/onboarding-arranque-server.ts', 'lib/secciones-negocio.ts', 'app/_components/WizardShell.tsx', 'app/_components/wizard-progreso.ts', 'lib/onboarding-state.ts', 'lib/onboarding.ts', 'lib/onboarding-extract.ts'],
     proyectos: ['Feature: Onboarding'],
   },
   {
@@ -722,7 +722,7 @@ export const AREAS: AreaDev[] = [
     vive: ['lib/razones.ts', 'lib/avatares.ts', 'app/onboarding/MatrizView.tsx', 'app/api/onboarding/razones/route.ts', 'lib/angulos-formatos.ts', 'lib/entregable.ts', 'lib/persona.ts', 'app/second-brain/AreasHub.tsx'],
     proyectos: ['Feature: Fábrica de creativos'],
     hallazgos: 'hallazgos-ia',
-    nota: 'El código NO vive en una tab propia: vive bajo app/onboarding/ y se monta dos veces (OnboardingWizard para el cliente nuevo, OnboardingTabs para el Archivero), y MatrizView además se reusa desde app/ads-writer/AdsWriterApp.tsx — tocarla impacta tres pantallas. Ojo con el shape RazonCelda: está duplicado en 4 archivos y ya divergió. Las decisiones de producto de la fábrica están en hallazgos-ads, no en hallazgos-ia.',
+    nota: 'El código NO vive en una tab propia: vive bajo app/onboarding/ y se monta en Second Brain (el wizard del cliente nuevo que también lo montaba se borró el 16/10/2026: el onboarding es el chat de arranque), y MatrizView además se reusa desde app/ads-writer/AdsWriterApp.tsx — tocarla impacta tres pantallas. Ojo con el shape RazonCelda: está duplicado en 4 archivos y ya divergió. Las decisiones de producto de la fábrica están en hallazgos-ads, no en hallazgos-ia.',
   },
   {
     slug: 'image-generator', titulo: 'Image Generator', familia: 'Content Machine', grupo: 'Ads',
@@ -1034,7 +1034,7 @@ export const AREAS: AreaDev[] = [
     // guarda los números. Se amplió al escribir la bitácora — la regla de AGENTS.md
     // «Una ruta que apunta a la nada»: el vive[] cubre dónde cae el trabajo de
     // verdad, no solo los componentes de la pantalla.
-    vive: ['app/admin/estrategia/datos.ts', 'app/admin/estrategia/Estrategia.tsx', 'app/admin/estrategia/page.tsx', 'app/vsl/estrategia/page.tsx', 'app/admin/dev/pricing/modelo.ts', 'app/admin/dev/pricing/Pricing.tsx', 'app/admin/dev/pricing/Piezas.tsx', 'tests/pricing-modelo.test.ts', 'docs/costos-ia-y-planes.md', 'docs/embudo-y-high-ticket.md', 'app/vsl/landing-html.ts', 'app/admin/runway/', 'app/m/decisiones/', 'lib/admin-decisiones.ts', 'scripts/decisiones.ts', 'tests/runway-decisiones.test.ts', 'app/tickets/decisiones/', 'app/m/tickets/', 'tests/tickets-decisiones-mazo.test.ts'],
+    vive: ['app/admin/estrategia/datos.ts', 'app/admin/estrategia/Estrategia.tsx', 'app/admin/estrategia/page.tsx', 'app/vsl/estrategia/page.tsx', 'app/admin/dev/pricing/modelo.ts', 'app/admin/dev/pricing/Pricing.tsx', 'app/admin/dev/pricing/Piezas.tsx', 'tests/pricing-modelo.test.ts', 'docs/costos-ia-y-planes.md', 'docs/embudo-y-high-ticket.md', 'app/vsl/landing-html.ts', 'app/admin/runway/', 'lib/admin-decisiones.ts', 'scripts/decisiones.ts', 'tests/runway-decisiones.test.ts', 'app/tickets/decisiones/', 'app/admin/operaciones/TicketeraCentro.tsx', 'app/m/operaciones/TicketeraMovil.tsx', 'tests/tickets-decisiones-mazo.test.ts'],
     proyectos: ['Vender MaKo: Oferta y precios'],
     hallazgos: 'hallazgos-landing',
     nota: 'Está partido en dos mitades que no se hablan, y es lo primero que hay que entender: (1) la oferta y la estrategia viven en /admin/estrategia (antes /vsl/estrategia, que redirige; desde el 10/10/2026 importa sus números de modelo.ts y del runway) —MIX, unit economics, la escalera para que «cualquier lead compre algo»—; (2) los planes de software con cupo de MaKo Tokens viven en app/admin/dev/pricing/modelo.ts, que ya tiene su propio registro en /admin/dev con slug `pricing` (app/admin/dev/areas.ts) — no duplicarlo. Regla del archivo modelo.ts: cada número declara si es `medido` (de anthropic_usage en prod), `publicado` (precio de lista con fecha) o `supuesto`; un número sin origen no se agrega. La única superficie pública de precio es el bloque «Precio de fundador» de app/vsl/landing-html.ts, que no da cifra.',
@@ -1204,7 +1204,7 @@ export const AREAS: AreaDev[] = [
     slug: 'centro-operaciones', titulo: 'Centro de Operaciones', familia: 'Platform', grupo: 'Dev',
     estado: 'parcial', verEnApp: '/admin/operaciones',
     alcance: 'Los pedidos firmados de Martín para los chats de Claude Code de su PC: la pantalla de /admin/operaciones, la cola en la base, la puerta del cartero y el cartero de cada cuenta (scripts/operaciones/). La cuota de las tres cuentas y el señalador son etapas siguientes.',
-    vive: ['app/admin/operaciones/', 'app/m/operaciones/', 'app/api/operaciones/', 'lib/operaciones.ts', 'lib/operaciones-reglas.ts', 'lib/centro-chats.ts', 'lib/runner.ts', 'lib/progreso-reglas.ts', 'lib/progreso.ts', 'lib/api-mako/areas/operaciones.def.ts', 'lib/api-mako/areas/operaciones.run.ts', 'scripts/operaciones/', 'supabase/migrations/0285_centro_operaciones.sql', 'tests/operaciones.test.ts', 'docs/diseno-centro-de-operaciones.md'],
+    vive: ['app/admin/operaciones/', 'app/m/operaciones/', 'app/api/operaciones/', 'lib/operaciones.ts', 'lib/operaciones-reglas.ts', 'lib/centro-chats.ts', 'lib/runner.ts', 'lib/progreso-reglas.ts', 'lib/progreso.ts', 'lib/api-mako/areas/operaciones.def.ts', 'lib/api-mako/areas/operaciones.run.ts', 'scripts/operaciones/', 'supabase/migrations/0285_centro_operaciones.sql', 'tests/operaciones.test.ts', 'docs/diseno-centro-de-operaciones.md', 'lib/centro-preguntas.ts', 'tests/centro-preguntas.test.ts', 'tests/cartero-carpetas.test.ts'],
     hallazgos: 'hallazgos-operaciones',
     nota: 'Una fila de la cola es un prompt en la PC de Martín: la verdad es el texto FIRMADO en su dispositivo, y la confianza (las claves, lo ya entregado) vive en la PC, no en MaKo.',
   },

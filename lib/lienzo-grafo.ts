@@ -189,7 +189,7 @@ export type AristaFlujo = {
    * llega a la PRIMERA espera (`esperas[0].id`) y la última sigue en `hasta`: quien borra o inserta
    * sobre esta flecha tiene que mirar esto, no `hasta`.
    */
-  esperas?: Array<{ id: string; texto: string }>;
+  esperas?: Array<{ id: string; texto: string; aviso?: string }>;
 };
 
 export type GrafoFlujo = {

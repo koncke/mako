@@ -2,7 +2,25 @@
 
 <sub>Escrito por el chat que la construyó (cuenta claude3), 12/10/2026 ~07:45 UTC. Primera mano.</sub>
 
-## Estado al 15/10/2026 (verificado contra `origin/main` c4ef8a68e) — leer esto primero
+## Estado al 16/10/2026 — leer esto primero
+
+**Offer es el onboarding de MaKo.** Pedido de Martín (16/10, por el Cerebro): «Quiero que elimines todo lo
+que hay hoy en onboarding tal como está y que lo reemplaces por el chat de "Offer"». Hecho en el worktree
+`C:/dev/wt-onboarding-offer` (cuenta claude3; lo sube el Cerebro, por tandas):
+- `0ef5f7ca3` — docs/onboarding-pasos-anteriores.md: el wizard de antes, pantalla por pantalla.
+- `dbbabfe95` — el crédito de Claude de la plataforma en `pedir`, sólo mientras el onboarding esté pendiente
+  (la fila `offer` de `CREDITO_HABILITADO_PARA` la sumó el chat Onboarding en `cf5f23e6b`).
+- `dd3b650` — el chat de arranque (app/onboarding/ChatArranque.tsx) y **el chat de Offer ya no desaparece**
+  (armar es un mensaje del hilo; la oferta, en una ventana encima). El wizard se borró.
+- La cosecha (hallazgos de offer y onboarding, AGENTS.md, bitácoras) va en el commit siguiente.
+
+**Sin ver en el navegador** (la RAM no dejaba levantar la app): recorrerlo en el ws3 en escritorio y en el
+teléfono, con la animación y el vuelo de MaKo a la foto del chat. **Sin hacer:** el aviso cuando la oferta
+termina si la persona se fue (WhatsApp de MaKo y la app, lo pidió Martín en la llamada con Leila) y el resto
+del feedback de esa llamada (ofertas de menor a mayor, low/high ticket, menos corporativa, el PDF que separe
+diagnóstico y propuesta): está en `docs/hallazgos-offer.md` → «El chat no desaparece, y Offer es el onboarding».
+
+## Estado al 15/10/2026 (verificado contra `origin/main` c4ef8a68e)
 
 **No hay nada de Offer a medio hacer ni sin subir.** Lo que la medición del 14/10 (abajo) encontró ya está
 en producción: el 170% (`db81f9624`, `cierreConfiable`), Offer en la API de MaKo

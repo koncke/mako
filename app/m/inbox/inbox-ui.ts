@@ -1,9 +1,13 @@
 // =============================================================================
-// /m/inbox — las decisiones de la PANTALLA, puras (sin React, sin server)
+// /m/inbox («Avisos», la campana de General) — las decisiones de la PANTALLA, puras
 // =============================================================================
-// Lo que la fila y el sheet de una decisión necesitan saber y que se prueba sin navegador:
-//   · qué dicen sus botones (acción + objeto, nunca «Sí / No / Confirmar» a secas);
-//   · la UNA línea gris de la fila y la consecuencia pegada al botón;
+// Sin React y sin server. Lo que la fila y el sheet de una decisión necesitan saber y que
+// se prueba sin navegador:
+//   · qué dicen sus botones y sus filas de datos: LOS MISMOS RÓTULOS QUE ESCRITORIO
+//     (/mako/pendientes y /mako/revisar/<id>), nunca «Sí / No / Confirmar» a secas.
+//     tests/m-avisos.test.ts los cruza contra el fuente de escritorio;
+//   · la UNA línea gris de la fila (v3: sólo cuando dice algo que el título no dice) y la
+//     consecuencia pegada al botón;
 //   · qué parámetros de una acción simple se pueden corregir en el teléfono;
 //   · con qué forma se le manda el payload a `confirmarAccionMovil` (TODOS los
 //     parámetros declarados, null si quedaron vacíos: es lo que espera la acción de
@@ -29,13 +33,37 @@ export type RotulosDecision = {
   salida: string | null;
 };
 
+/**
+ * Los botones de escritorio, tal cual (15/10/2026, «mismos rótulos que escritorio»):
+ *   · una pendiente → «Confirmar y ejecutar» / «No ejecutar» (app/mako/pendientes/BandejaPendientes.tsx);
+ *   · una propuesta → «Confirmar acción» / «Descartar propuesta» (app/mako/revisar/[id]/RevisarAccion.tsx).
+ * Antes el teléfono decía «Ejecutar la acción» y «Aplicar la propuesta»: la misma cosa con
+ * dos nombres según el aparato.
+ */
+export const BOTONES_ESCRITORIO = {
+  pendiente: { primario: 'Confirmar y ejecutar', salida: 'No ejecutar' },
+  accion: { primario: 'Confirmar acción', salida: 'Descartar propuesta' },
+} as const satisfies Partial<Record<TipoDecision, RotulosDecision>>;
+
 export function rotulosDe(item: Pick<ItemDecision, 'tipo' | 'accionMovil'>): RotulosDecision {
   if (item.accionMovil === 'computadora') return { primario: null, salida: null };
-  if (item.tipo === 'pendiente') return { primario: 'Ejecutar la acción', salida: 'No ejecutar la acción' };
-  if (item.tipo === 'accion') return { primario: 'Aplicar la propuesta', salida: 'Descartar la propuesta' };
+  if (item.tipo === 'pendiente') return { ...BOTONES_ESCRITORIO.pendiente };
+  if (item.tipo === 'accion') return { ...BOTONES_ESCRITORIO.accion };
   // Las confirmaciones del CRM traen sus propios botones (`opciones`), ya con objeto.
   return { primario: null, salida: null };
 }
+
+/**
+ * Las filas clave → valor del sheet, con los rótulos de los datos de /mako/pendientes
+ * (`datos` de BandejaPendientes.tsx: Operación · De dónde vino · Propuesta · Vence). «Lead»
+ * es el de la tarjeta del CRM automático.
+ */
+export const DATOS_ESCRITORIO = {
+  operacion: 'Operación',
+  origen: 'De dónde vino',
+  propuesta: 'Propuesta',
+  vence: 'Vence',
+} as const;
 
 /**
  * El toast del éxito: 3-4 palabras, qué pasó. En un cambio del CRM, `decision` es la
@@ -49,7 +77,8 @@ export function toastDeExito(tipo: TipoDecision, salida: boolean, decision?: str
   }
   if (salida) return tipo === 'accion' ? 'Propuesta descartada' : 'No se ejecutó';
   if (tipo === 'pendiente') return 'Acción ejecutada';
-  if (tipo === 'accion') return 'Propuesta aplicada';
+  // El espejo de su botón («Confirmar acción»), como «No ejecutar» → «No se ejecutó».
+  if (tipo === 'accion') return 'Acción confirmada';
   return 'Listo';
 }
 
@@ -96,25 +125,24 @@ export function rielDeVence(min: number | null): string | null {
 // ── La fila: una línea gris que distingue a esta decisión de las otras ───────
 
 /**
- * La segunda línea de la fila (v2: «si dice lo mismo en todas, se va»). Por eso el
- * origen no va acá (casi siempre es el mismo): va al sheet.
- *   · pendiente → la operación y cuánto le queda («Mover de etapa · vence en 42 min»);
- *   · acción    → la operación, si el título no la dice ya;
- *   · cambio del CRM → el primer cambio («Etapa: Asistió → Ganado»), o el lead;
- *   · contactos / borradores → lo que traen («3 contactos para revisar», «4 tareas»).
+ * La segunda línea de la fila. v3 (15/10/2026, «menos texto»): el prototipo dibuja estas
+ * filas con el título SOLO, y el título ya es la frase concreta («Mover a Ana López a
+ * Agendado», «¿Fue a la reunión Ana?»). Queda una línea sólo donde dice algo que el título
+ * no dice:
+ *   · pendiente → cuánto le queda («Vence en 42 min» / «Vencida»): es lo que escritorio
+ *     pone en el riel de esa fila (`cuando={`vence ${f.vence}`}`), y vence a las 2 h;
+ *   · contactos / borradores → lo que traen («3 contactos para revisar», «4 tareas · 2
+ *     para cerrar»): su título es el nombre de la reunión o del lote, no su contenido.
+ * La operación de una pendiente o propuesta y el primer cambio de un cambio del CRM se
+ * fueron de la fila: están en el sheet, que se abre siempre antes de decidir.
  */
-export function segundaDe(item: Pick<ItemDecision, 'tipo' | 'titulo' | 'resumen' | 'detalle'>, min: number | null): string | null {
-  const op = item.resumen && item.resumen !== item.titulo ? item.resumen : null;
+export function segundaDe(item: Pick<ItemDecision, 'tipo' | 'resumen'>, min: number | null): string | null {
   if (item.tipo === 'pendiente') {
-    const vence = min == null ? null : min < 0 ? 'Vencida' : `vence en ${rielDeVence(min)}`;
-    return [op, vence].filter(Boolean).join(' · ') || null;
+    if (min == null) return null;
+    return min < 0 ? 'Vencida' : `Vence en ${rielDeVence(min)}`;
   }
-  if (item.tipo === 'accion') return op;
-  if (item.tipo === 'confirmacion') {
-    const l = item.detalle[0];
-    return l ? `${l.rotulo}: ${l.valor}` : op;
-  }
-  return item.resumen || null;
+  if (item.tipo === 'lead' || item.tipo === 'borrador') return item.resumen || null;
+  return null;
 }
 
 // ── El sheet: la consecuencia pegada al botón ────────────────────────────────
@@ -139,7 +167,7 @@ export function consecuenciaDe(item: ParaConsecuencia, vencida: boolean): string
   return 'Se ejecuta en cuanto confirmes.';
 }
 
-/** «vino por WhatsApp» → «WhatsApp»; «vino del chat de la app» → «Chat de la app». Para la fila «Origen». */
+/** «vino por WhatsApp» → «WhatsApp»; «vino del chat de la app» → «Chat de la app». Para la fila «De dónde vino». */
 export function origenCorto(origen: string): string {
   const s = origen.trim().replace(/^vino\s+(por|del|de)\s+/i, '').replace(/^(la|el|una|un)\s+/i, '');
   if (!s) return origen;
@@ -191,7 +219,7 @@ export function cuandoCorto(iso: string | null | undefined, ahora: number): stri
   return sinPunto(FECHA.format(d));
 }
 
-/** Para la fila «Cuándo» del sheet: «Hoy, 9:40», «Ayer, 18:02», «Lun, 10:15», «12 oct, 9:00». */
+/** Para la fila «Propuesta» del sheet (cuándo se propuso): «Hoy, 9:40», «Ayer, 18:02», «Lun, 10:15», «12 oct, 9:00». */
 export function cuandoLargo(iso: string | null | undefined, ahora: number): string | null {
   const d = new Date(iso ?? '');
   if (Number.isNaN(d.getTime())) return null;

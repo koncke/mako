@@ -34,7 +34,7 @@ import {
   ComputadoraM, ErrorM, FilaM, ListaM, PantallaM, SeccionM, TarjetaDecision, VacioM,
 } from '@/app/m/_ui';
 import { CabeceraM } from '@/app/m/_ui/CabeceraM';
-import { puedeVerKey, RUTA_INBOX } from '@/lib/movil-rutas';
+import { puedeVerKey, RUTA_INBOX, TITULO_INBOX } from '@/lib/movil-rutas';
 import { leerInformeGeneral } from '@/lib/graficos-tablero';
 import { informeGeneralInicial } from '@/lib/general-plantillas';
 import { contarParaDecidir } from '@/lib/inbox-movil';
@@ -79,7 +79,7 @@ export default async function HoyPage() {
         <TarjetaDecision
           titulo={bloqueo.titulo}
           consecuencia={bloqueo.consecuencia}
-          accion={{ rotulo: 'Revisar en el Inbox', href: '/m/inbox' }}
+          accion={{ rotulo: `Revisar en ${TITULO_INBOX}`, href: RUTA_INBOX }}
         />
       )}
 
@@ -200,7 +200,7 @@ async function GeneralPagina({ ctx }: { ctx: ContextoMovil }) {
       <CabeceraM
         titulo={titulo}
         accion={(
-          <Link href={RUTA_INBOX} className="m-cabecera__accion m-hoy-gen-campana" aria-label={n ? `Inbox: ${n} para decidir` : 'Inbox'}>
+          <Link href={RUTA_INBOX} className="m-cabecera__accion m-hoy-gen-campana" aria-label={n ? `${TITULO_INBOX}: ${n} para decidir` : TITULO_INBOX}>
             <Icon name="bell" size={24} />
             {n ? <span className="m-hoy-gen-campana__n" aria-hidden>{n > 99 ? '99+' : n}</span> : null}
           </Link>

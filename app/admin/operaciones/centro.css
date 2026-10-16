@@ -129,6 +129,15 @@
 .co-fila:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 .co-fila[aria-current='true'] { background: var(--surface); box-shadow: inset 0 0 0 1px var(--border), 0 1px 2px rgba(18, 21, 27, .04); }
 .co-fila { align-items: center; gap: 12px; }
+/* El Cerebro (el orquestador) va aparte, arriba de los jefes: no es uno más. */
+.co-cuenta--cerebro { padding-bottom: 6px; margin-bottom: 6px; border-bottom: 1px solid var(--border); }
+
+/* «Nuevo chat»: el primer renglón, con el muñeco de un lugar vacío (gris y transparente). */
+.co-fila--nuevo { margin-bottom: 4px; color: var(--dim); }
+.co-muneco-nuevo { display: inline-flex; flex: none; opacity: .38; filter: grayscale(1); }
+.co-nuevo { display: flex; flex-direction: column; gap: 12px; }
+.co-nuevo__cuentas { display: flex; gap: 6px; flex-wrap: wrap; }
+.co-nuevo__cuentas .co-chip[aria-checked='true'] { background: var(--primary-bg); border-color: var(--primary); color: var(--primary-strong); }
 .co-fila > .mun { margin: -2px 0; }
 .co-fila__cuerpo { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
 .co-fila__l1 { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
@@ -158,7 +167,8 @@
   overflow: hidden;
 }
 .co-fila__l2-texto { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-.co-fila__l2--vivo { color: var(--good); }
+/* En qué trabaja (enQueTrabaja): un renglón, con sus puntos suspensivos (un flex no los pone). */
+.co-fila__l2--vivo { color: var(--good); display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .co-mas {
   display: block;
   width: 100%;
@@ -366,6 +376,66 @@
 .co-riel__cuerpo { flex: 1 1 auto; min-height: 0; overflow-y: auto; margin-inline: -6px; padding-inline: 6px; }
 
 .co-avance__vacio { margin: 18px 4px; font-size: var(--fs-sm); color: var(--faint); }
+/* Lo pendiente arriba y lo terminado abajo, cada uno con su rótulo (como los grupos de estado de Linear). */
+.co-avance__grupo + .co-avance__grupo { margin-top: 14px; }
+/* Las sub-tabs «Plan» y «Review» (punto 6), copiadas del control segmentado de Linear: dos botones pegados, el elegido
+   con fondo. */
+.co-subtabs { display: flex; gap: 2px; padding: 3px; margin: 0 0 12px; border-radius: 10px; background: var(--surface-2); }
+.co-subtabs button {
+  flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 30px; padding: 4px 10px;
+  border: 0; border-radius: 8px; background: none; font: inherit; font-size: var(--fs-sm); font-weight: 600; color: var(--dim); cursor: pointer;
+}
+.co-subtabs button[aria-selected='true'] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(18, 21, 27, .08); }
+.co-subtabs button:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.co-subtabs__n { min-width: 18px; padding: 0 5px; border-radius: 999px; background: var(--primary); color: #fff; font-size: 11px; line-height: 18px; }
+/* «Review»: lo terminado que dejó una página, con «Revisar». */
+.co-review { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.co-review__fila { display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 4px 4px 4px 5px; border-radius: 10px; }
+.co-review__fila:hover { background: var(--velo-hover); }
+.co-review__titulo {
+  flex: 1; min-width: 0; font-size: var(--fs-md); font-weight: 600; line-height: 1.3; color: var(--ink); overflow: hidden;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow-wrap: anywhere;
+}
+.co-review__ir { flex: none; text-decoration: none; }
+.co-avance__grupo-tit {
+  margin: 0 0 4px; padding: 0 4px; display: flex; align-items: baseline; gap: 6px;
+  font-size: var(--fs-meta); font-weight: 600; letter-spacing: .02em; text-transform: uppercase; color: var(--faint);
+}
+.co-avance__grupo-tit span { font-weight: 500; }
+
+/* El Plan del jefe, arriba del avance (copiado de Todoist: el círculo que se tilda, el título, la fecha, y «+ Sumar»). */
+.co-plan { margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
+.co-plan__ver { margin-left: auto; font-size: var(--fs-meta); font-weight: 500; letter-spacing: 0; text-transform: none; color: var(--primary); text-decoration: none; }
+.co-plan__ver:hover { text-decoration: underline; }
+.co-plan__nota { margin: 4px 4px 6px; font-size: var(--fs-sm); color: var(--faint); }
+.co-plan__lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.co-plan__fila { display: flex; align-items: center; gap: 10px; min-height: 34px; padding: 4px 6px 4px 4px; border-radius: 10px; }
+.co-plan__fila:hover { background: var(--velo-hover); }
+.co-plan__check {
+  flex: none; display: inline-grid; place-items: center; width: 18px; height: 18px; padding: 0; border-radius: 50%;
+  border: 1.6px solid var(--border-strong); background: var(--surface); color: transparent; cursor: pointer;
+}
+.co-plan__check:hover:not(:disabled) { border-color: var(--good); color: var(--good); }
+.co-plan__check:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.co-plan__check:disabled { cursor: progress; opacity: .6; }
+.co-plan__titulo { flex: 1; min-width: 0; font-size: var(--fs-md); line-height: 1.3; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.co-plan__fecha { flex: none; font-size: var(--fs-meta); color: var(--faint); }
+.co-plan__sumar { display: flex; align-items: center; gap: 10px; min-height: 34px; padding: 2px 6px 2px 4px; border-radius: 10px; }
+.co-plan__sumar:focus-within { background: var(--velo-hover); }
+.co-plan__mas { flex: none; display: inline-grid; place-items: center; width: 18px; height: 18px; font-size: 18px; line-height: 1; color: var(--primary); }
+.co-plan__sumar input {
+  flex: 1; min-width: 0; border: 0; background: none; font: inherit; font-size: var(--fs-md); color: var(--ink); padding: 4px 0;
+}
+.co-plan__sumar input:focus { outline: none; }
+.co-plan__sumar input::placeholder { color: var(--faint); }
+.co-plan__aviso { margin: 6px 4px 0; font-size: var(--fs-sm); color: var(--dim); }
+.co-nodo__plan {
+  align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 999px;
+  border: 1px solid var(--border-strong); background: var(--surface); font: inherit; font-size: var(--fs-sm); color: var(--ink); cursor: pointer;
+}
+.co-nodo__plan:hover:not(:disabled) { background: var(--velo-hover); }
+.co-nodo__plan:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.co-nodo__plan:disabled { cursor: progress; opacity: .6; }
 /* La lista: un rombo por nodo, unidos por una línea vertical (el roadmap). */
 .co-avance__lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
 .co-nodo { position: relative; }
@@ -470,6 +540,19 @@
   cursor: pointer;
 }
 .co-enviar:disabled { background: var(--border-strong); color: var(--surface); cursor: default; }
+/* El micrófono, al lado de mandar (Microfono.tsx): mientras escucha late en rojo, que es la única señal de que está abierto. */
+.co-mic {
+  margin-left: auto; flex: none; width: 34px; height: 34px; padding: 0; border: 1px solid var(--border-strong); border-radius: 50%;
+  display: grid; place-items: center; background: var(--surface); color: var(--dim); cursor: pointer;
+}
+.co-mic + .co-enviar { margin-left: 0; }
+.co-mic:hover:not(:disabled) { color: var(--ink); background: var(--velo-hover); }
+.co-mic:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.co-mic:disabled { cursor: wait; opacity: .6; }
+.co-mic[data-escuchando] { background: var(--bad); border-color: var(--bad); color: #fff; animation: co-escucha 1.2s ease-in-out infinite; }
+.co-mic__txt { font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums; }
+@keyframes co-escucha { 0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--bad) 45%, transparent); } 70% { box-shadow: 0 0 0 7px transparent; } }
+@media (prefers-reduced-motion: reduce) { .co-mic[data-escuchando] { animation: none; } }
 .co-enviar:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 .co-enviar__giro {
   width: 14px;
@@ -568,6 +651,116 @@
 .co-espera:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 .co-espera__ir { margin-left: auto; font-weight: 600; }
 
+/* La Ticketera arriba de los chats (CentroApp.tsx) y su panel (TicketeraCentro.tsx). */
+.co-acceso--ticketera { margin-top: 6px; }
+.co-acceso--ticketera[aria-pressed='true'] { background: var(--velo-hover); color: var(--ink); }
+.co-acceso__n {
+  margin-left: auto;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--primary);
+  color: #fff;
+  font-size: var(--fs-meta);
+  font-weight: 700;
+  line-height: 20px;
+  text-align: center;
+}
+.co-ticketera__cuerpo { flex: 1; min-height: 0; overflow-y: auto; padding: 16px 20px 28px; }
+
+/* Una respuesta a una pregunta del chat: la pregunta citada arriba, en chico (como la cita de WhatsApp). */
+.co-burbuja__cita {
+  display: block;
+  margin-bottom: 4px;
+  padding-left: 8px;
+  border-left: 2px solid var(--primary-weak);
+  font-size: var(--fs-meta);
+  color: var(--dim);
+  line-height: 1.35;
+}
+
+/* La pregunta del chat arriba de su caja, copiada de AskUserQuestion de Claude Code (Pregunta.tsx): la pestaña del
+   tema, la pregunta, las opciones numeradas con su descripción abajo, el renglón libre y la ayuda del teclado. */
+.co-preg {
+  max-width: 760px;
+  margin: 0 auto 10px;
+  padding: 12px 12px 8px;
+  border-radius: var(--r-xl);
+  background: var(--surface);
+  box-shadow: 0 0 0 1px var(--border-strong), 0 2px 10px rgba(18, 21, 27, .05);
+}
+.co-preg__cab { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.co-preg__temas { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; }
+.co-preg__tema {
+  height: 22px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 6px;
+  background: var(--velo-hover);
+  color: var(--dim);
+  font: inherit;
+  font-size: var(--fs-meta);
+  font-weight: 600;
+  cursor: pointer;
+}
+.co-preg__tema[aria-selected='true'] { background: var(--primary-bg); color: var(--primary-strong); }
+.co-preg__tema:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.co-preg__paso { margin-left: auto; flex: none; font-size: var(--fs-meta); color: var(--faint); }
+.co-preg__texto { margin: 0 4px 4px; font-weight: 600; line-height: 1.4; }
+.co-preg__contexto { margin: 0 4px 8px; font-size: var(--fs-sm); color: var(--dim); line-height: 1.4; }
+.co-preg__ops { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.co-preg__op {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+  padding: 8px;
+  border: 0;
+  border-radius: var(--r-md);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.co-preg__op[aria-current='true'] { background: var(--velo-hover); }
+.co-preg__op:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.co-preg__op:disabled { cursor: progress; opacity: .7; }
+.co-preg__num {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  border: 1px solid var(--border-strong);
+  font-size: var(--fs-meta);
+  font-weight: 600;
+  color: var(--dim);
+}
+.co-preg__op[aria-current='true'] .co-preg__num { border-color: var(--primary); color: var(--primary); }
+.co-preg__op-txt { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.co-preg__titulo { line-height: 22px; }
+.co-preg__rec { color: var(--primary); font-weight: 600; }
+.co-preg__detalle { font-size: var(--fs-sm); color: var(--dim); line-height: 1.35; }
+.co-preg__op--otra { align-items: center; cursor: text; }
+.co-preg__campo {
+  flex: 1;
+  min-width: 0;
+  height: 26px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  outline: none;
+}
+.co-preg__campo::placeholder { color: var(--faint); }
+.co-preg__pie { margin: 6px 4px 0; font-size: var(--fs-meta); color: var(--faint); }
+.co-preg__error { color: var(--bad); }
+/* La ayuda es del teclado: en una pantalla táctil sobra (Claude Code en el teléfono tampoco la muestra). */
+@media (hover: none) and (pointer: coarse) { .co-preg__ayuda { display: none; } .co-preg__pie:not(:has(.co-preg__error)) { display: none; } }
+
 /* La conversación vacía: el empleado grande, como la portada de un Bot. */
 .co-portada { margin: 14vh auto 0; display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center; }
 .co-portada__nombre { margin: 0; font-size: var(--fs-sect); font-weight: 600; }
@@ -606,7 +799,7 @@
 @media (pointer: coarse) {
   .co-acceso, .co-buscar { height: 44px; }
   .co-fila { min-height: 44px; }
-  .co-enviar { width: 40px; height: 40px; }
+  .co-enviar, .co-mic { width: 40px; height: 40px; }
 }
 
 /* ── El chat jefe y sus sub-chats (15/10/2026), copiado de los hilos de Discord en la barra de canales: el hilo va
@@ -682,3 +875,40 @@
   .co-elegir__pieza { height: 36px; border: 1px solid var(--border); border-radius: 999px; }
   .co-elegir__mosaicos { grid-template-columns: repeat(4, 1fr); }
 }
+
+/* El Uso de las tres cuentas y sus Runners (Uso.tsx): el botón de abajo y su desplegable, copiado de claude.ai →
+   Configuración → Uso (el nombre de la ventana, la barra, el «% usado» y cuándo se reinicia). */
+.co-uso { position: relative; }
+.co-uso__principal { margin-left: 2px; font-weight: 700; }
+.co-uso__principal--viejo { color: var(--faint); }
+.co-uso__de { font-size: var(--fs-meta); color: var(--faint); }
+.co-uso__panel {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(100% + 6px);
+  z-index: 30;
+  max-height: min(70dvh, 560px);
+  overflow-y: auto;
+  padding: 12px;
+  border-radius: var(--r-xl);
+  background: var(--surface);
+  box-shadow: 0 0 0 1px var(--border-strong), 0 12px 32px rgba(18, 21, 27, .16);
+}
+.co-uso__cab { margin: 0 2px 8px; font-weight: 600; }
+.co-uso__lista { display: flex; flex-direction: column; gap: 10px; }
+.co-uso__cuenta { padding: 10px; border-radius: var(--r-md); background: var(--velo-hover); display: flex; flex-direction: column; gap: 8px; }
+.co-uso__fila { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.co-uso__titulo { font-weight: 600; font-size: var(--fs-sm); }
+.co-uso__runner { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-meta); color: var(--dim); }
+.co-uso__hacer { margin: 0; font-size: var(--fs-meta); color: var(--warn); line-height: 1.35; }
+.co-uso__ventana { display: flex; flex-direction: column; gap: 4px; }
+.co-uso__nombre { font-size: var(--fs-sm); }
+.co-uso__pct { font-size: var(--fs-sm); color: var(--dim); }
+.co-uso__barra { height: 6px; border-radius: 999px; background: var(--border); overflow: hidden; }
+.co-uso__lleno { display: block; height: 100%; border-radius: inherit; background: var(--primary); }
+.co-uso__lleno--ojo { background: var(--warn); }
+.co-uso__lleno--mal { background: var(--bad); }
+.co-uso__reinicio { margin: 0; font-size: var(--fs-meta); color: var(--faint); }
+.co-uso__pie { display: flex; gap: 8px; margin-top: 10px; }
+.co-runner__cuenta-cmd { display: flex; flex-direction: column; gap: 4px; margin-bottom: 8px; }

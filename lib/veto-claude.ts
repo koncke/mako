@@ -277,21 +277,21 @@ export const CREDITO_DE_LA_PLATAFORMA = {
 
 /**
  * PARA QUÉ se usa el crédito: una lista, y lo que no está no lo usa. Martín, 16/10/2026, textual: «Yo debo
- * decirte cuando utilizar creditos, no tenemos infinitos... Por ahora solo en onboarding.» Hoy entran las
- * funciones del wizard del primer ingreso, y sólo MIENTRAS el onboarding del negocio está en curso
- * (`soloDuranteElOnboarding`): las mismas features corren después desde Second Brain, y ahí no. Y el chat
- * de Offer, que desde el 16/10/2026 ES el onboarding (Martín: «el onboarding será ese chat de offer»): con
- * el onboarding cerrado, la tab Offer sigue con las keys del negocio y la red gratis, como siempre.
+ * decirte cuando utilizar creditos, no tenemos infinitos... Por ahora solo en onboarding.» Hoy entra el chat
+ * de Offer, que desde el 16/10/2026 ES el onboarding (Martín: «el onboarding será ese chat de offer»), y lo que
+ * ese chat usa de El Archivero para leer los documentos que le mandan, y sólo MIENTRAS el onboarding del
+ * negocio está en curso (`soloDuranteElOnboarding`): con el onboarding cerrado, la tab Offer y Second Brain
+ * siguen con las keys del negocio y la red gratis, como siempre. 'productos' (el paso del wizard) salió el
+ * mismo día, con el wizard: sin él, nada lo llama mientras el onboarding está en curso.
  *
  * Habilitar algo más es sumar una línea acá, y lo decide Martín. Lo que no está recibe un «no» y la cascada
  * sigue como si el crédito no existiera: con datos de clientes, sin nada gratis que entrene (AGENTS.md). El
- * Plan, además, queda afuera siempre (`FEATURES_DEL_PLAN`): el plan de arranque del cierre del wizard
+ * Plan, además, queda afuera siempre (`FEATURES_DEL_PLAN`): el plan de arranque del cierre del onboarding
  * (`plan-seed-ia`) no está, a propósito.
  */
 export const CREDITO_HABILITADO_PARA: ReadonlyArray<{ feature: string; soloDuranteElOnboarding: boolean; para: string }> = [
-  { feature: 'El Archivero', soloDuranteElOnboarding: true, para: 'leer los documentos que sube en el wizard' },
+  { feature: 'El Archivero', soloDuranteElOnboarding: true, para: 'leer los documentos que le manda al chat de arranque' },
   { feature: 'onboarding-extract', soloDuranteElOnboarding: true, para: 'sacar el brief de sus documentos' },
-  { feature: 'productos', soloDuranteElOnboarding: true, para: 'armar su catálogo en el paso Productos' },
   { feature: 'offer', soloDuranteElOnboarding: true, para: 'el chat de Offer del primer ingreso: nombre, oferta, funnel y primer CRM' },
 ];
 

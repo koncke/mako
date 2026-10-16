@@ -169,7 +169,8 @@ type ResultadoCuotas = { ok: true; actualizadas: number; nuevas: number; quitada
  */
 export async function guardarCuotasAction(
   leadId: number,
-  cuotas: Array<{ id?: number | null; monto: number; fecha: string | null }>,
+  /** `numero`: el de una cuota que VUELVE (el Deshacer de `ajustarPlanAction`); sin él, después de la última. */
+  cuotas: Array<{ id?: number | null; numero?: number | null; monto: number; fecha: string | null }>,
   plan?: PlanUniforme | null,
   /** Los ids de las impagas que la pantalla tenía cargadas: una que no vio no se borra (ver `reconciliarCuotas`). */
   idsVistos?: number[] | null,
@@ -183,7 +184,11 @@ export async function guardarCuotasAction(
     }
     const quien = await autor();
     const vistos = Array.isArray(idsVistos) ? new Set(idsVistos.filter((x) => idValido(x))) : undefined;
-    const cambios = await guardarCuotasPorId(leadId, cuotas.map((c) => { const id = c?.id; return { id: idValido(id) ? id : null, monto_usd: Number(c?.monto), fecha_esperada: c?.fecha ?? null }; }), { vistos });
+    const cambios = await guardarCuotasPorId(leadId, cuotas.map((c) => {
+      const id = c?.id;
+      const numero = typeof c?.numero === 'number' && Number.isInteger(c.numero) && c.numero >= 0 && c.numero <= 60 ? c.numero : null;
+      return { id: idValido(id) ? id : null, numero, monto_usd: Number(c?.monto), fecha_esperada: c?.fecha ?? null };
+    }), { vistos });
     if (plan) {
       // ⚠️ TAL CUAL ESTABA, nulls incluidos (`planComoEstaba`), no por `validarPlan`: un plan anterior todo en null
       // (las cuotas se habían cargado a mano) fallaba la validación y se descartaba en silencio, así que el
@@ -210,7 +215,7 @@ export async function guardarCuotasAction(
  * quedaron después del ajuste, para que una cuota que nazca en el medio no se borre al deshacer).
  */
 export async function ajustarPlanAction(leadId: number, plan: Partial<PlanUniforme>): Promise<(ResultadoCuotas & {
-  deshacer: { cuotas: Array<{ id: number; monto: number; fecha: string | null }>; plan: PlanUniforme; vistos: number[] };
+  deshacer: { cuotas: Array<{ id: number; numero: number; monto: number; fecha: string | null }>; plan: PlanUniforme; vistos: number[] };
 }) | Fallo> {
   try {
     if (!(await haySesion())) return { ok: false, error: SIN_SESION };
@@ -248,7 +253,7 @@ export async function ajustarPlanAction(leadId: number, plan: Partial<PlanUnifor
     revalidar(leadId, true);
     return {
       ok: true, actualizadas: cambios.actualizar.length, nuevas: cambios.insertar.length, quitadas: cambios.borrar.length, sinTocar,
-      deshacer: { cuotas: antes.map((q) => ({ id: q.id, monto: Number(q.monto_usd), fecha: q.fecha_esperada })), plan: planAntes, vistos: despues.filter((q) => !q.pagado).map((q) => q.id) },
+      deshacer: { cuotas: antes.map((q) => ({ id: q.id, numero: q.numero, monto: Number(q.monto_usd), fecha: q.fecha_esperada })), plan: planAntes, vistos: despues.filter((q) => !q.pagado).map((q) => q.id) },
     };
   } catch (e) {
     return { ok: false, error: mensaje(e) };

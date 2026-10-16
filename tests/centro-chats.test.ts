@@ -73,7 +73,7 @@ test('el punto tiene edad: con el cartero quieto el estado es una foto y no orde
   assert.equal(q[0].vistoAt, Date.parse('2026-10-15T13:00:00Z'));
 });
 
-test('un pedido repartido está en cada chat con lo suyo, y el chat donde se pidió lo sabe', () => {
+test('un pedido repartido está en cada chat con lo suyo, y NO en el que lo pasó', () => {
   const EST = S(9);
   const area: AreaP = { slug: 'x', titulo: 'X', bitacora: [
     hito('09:00', 'prompt', 'Estrategia', { sesion: EST, pedido: 'Hacelo en los dos' }),
@@ -87,12 +87,12 @@ test('un pedido repartido está en cada chat con lo suyo, y el chat donde se pid
   assert.deepEqual(pasosDelChat(pedidos[0], S(1)).map((s) => s.chat), ['Landing'], 'cada uno ve sólo sus pasos');
   assert.deepEqual(est.pidioAca, [pedidos[0].id], 'Estrategia lo pidió y lo trabajaron otros');
   assert.equal(est.estado, 'sin_dato', 'ningún cartero vio estas sesiones: sin estado, que no es «cerrado»');
-  // La conversación de cada uno: en Landing, el pedido con SU paso y de dónde vino; en Estrategia, a quién fue.
+  // La conversación de cada uno: en Landing, el pedido con SU paso y de dónde vino. En el que lo pasó, nada (Martín,
+  // 16/10/2026: «Si lo trabajó otro, no debería salir allí»). Probado rompiéndolo: dibujando `pidioAca` → 1 fallo.
   const porId = new Map(pedidos.map((p) => [p.id, p]));
   const [l] = historialDelChat(landing, porId, []);
   assert.ok(l.tipo === 'pedido' && l.desde === 'Estrategia' && l.pasos.length === 1);
-  const [e] = historialDelChat(est, porId, []);
-  assert.ok(e.tipo === 'derivado' && e.trabajaron.join() === 'Landing,Video');
+  assert.deepEqual(historialDelChat(est, porId, []), [], 'sale sólo en los chats que lo trabajaron');
 });
 
 test('un trabajo firmado va a su sesión aunque el cartero no la vea, y lo quieto de hace semanas no entra', () => {
@@ -137,7 +137,7 @@ test('la caja: sin sesión no hay a quién; sin clave, se crea; con la clave que
   const otroLaVio = [{ cuenta: 'claude1', vistoAt: fresco, claves: [] }, { cuenta: 'claude3', vistoAt: fresco, claves: ['k1'] }];
   assert.equal(comoSale(chat, otroLaVio, 'k1', AHORA).puede, true, 'otro cartero la vio');
   // Sin ningún cartero que haya informado, no se sabe: sale, y espera al cartero.
-  assert.deepEqual(comoSale(chat, [], 'k1', AHORA), { puede: true, espera: 'cartero', cuenta: 'claude1' });
+  assert.deepEqual(comoSale(chat, [], 'k1', AHORA), { puede: true, espera: 'cartero', cuenta: 'claude1', donde: 'app' });
 });
 
 test('la caja dice qué espera: el cartero quieto, el chat cerrado (con su cuenta), o nada si sale ya', async () => {
@@ -147,13 +147,36 @@ test('la caja dice qué espera: el cartero quieto, el chat cerrado (con su cuent
   const k = (vistoAt: string) => [{ cuenta: 'claude3', vistoAt, claves: ['k1'] }];
   const abierto = { sesion: S(1), cuenta: 'claude3', estado: 'abierto' as const };
   const quieto = comoSale(abierto, k('2026-10-15T13:00:00Z'), 'k1', AHORA);
-  assert.deepEqual(quieto, { puede: true, espera: 'cartero', cuenta: 'claude3' });
+  assert.deepEqual(quieto, { puede: true, espera: 'cartero', cuenta: 'claude3', donde: 'app' });
   assert.equal(textoDeEnvio(quieto), 'Abre el chat Runner en la app de Claude para que salga.');
   const cerrado = comoSale({ ...abierto, estado: 'cerrado' }, k('2026-10-15T15:59:00Z'), 'k1', AHORA);
   assert.equal(textoDeEnvio(cerrado), 'Abre este chat en la cuenta 3 para que lo reciba.', 'dice la cuenta: puede ser otra que la abierta');
   const ya = comoSale(abierto, k('2026-10-15T15:59:00Z'), 'k1', AHORA);
-  assert.deepEqual(ya, { puede: true, espera: null, cuenta: 'claude3' });
+  assert.deepEqual(ya, { puede: true, espera: null, cuenta: 'claude3', donde: 'app' });
   assert.equal(textoDeEnvio(ya), null);
+});
+
+test('una sesión de terminal abierta sin un Runner en SU carpeta espera a ese Runner, aunque la cuenta tenga otro', async () => {
+  // SendMessage no cruza carpetas de config (medido el 16/10/2026: «ENOINBOX: no-key»): el cartero de la cuenta 2
+  // puede estar dando vueltas desde la app (~/.claude) y no llegarle a la terminal de Leandro (~/.claude-martin).
+  // Probado rompiéndolo: sin mirar `runner` en comoSale, el primer assert da «sale ya» (null) sobre una sesión a la
+  // que nadie le puede escribir; mirando `runner` aunque la sesión esté cerrada, el tercero dice «Abre el Runner»
+  // donde lo que falta es abrir el chat.
+  const { comoSale, textoDeEnvio } = await import('../lib/centro-chats');
+  const sesion = 'cli_11111111-2222-4333-8444-555555555555';
+  const fresco = '2026-10-15T15:59:00Z';
+  const k = (runner: boolean | undefined, vivo = true) => [{
+    cuenta: 'claude2', vistoAt: fresco, claves: ['k1'],
+    chats: [{ local: sesion, titulo: 'CRM', cuenta: 'claude2', vivo, estado: 'idle' as const, actividad: null, ...(runner === undefined ? {} : { runner }) }],
+  }];
+  const chat = { sesion, cuenta: 'claude2', estado: 'abierto' as const };
+  const sinRunner = comoSale(chat, k(false), 'k1', AHORA);
+  assert.deepEqual(sinRunner, { puede: true, espera: 'cartero', cuenta: 'claude2', donde: 'terminal' });
+  assert.equal(textoDeEnvio(sinRunner), 'Abre el Runner en la terminal de la cuenta 2 para que salga.');
+  assert.equal(textoDeEnvio(comoSale({ ...chat, estado: 'cerrado' }, k(false, false), 'k1', AHORA)), 'Abre este chat en la cuenta 2 para que lo reciba.');
+  assert.equal(comoSale(chat, k(true), 'k1', AHORA).puede && textoDeEnvio(comoSale(chat, k(true), 'k1', AHORA)), null, 'con su Runner, sale ya');
+  // Lo que subió un cartero de antes de la 1.4.0 no dice si hay Runner: se deja como antes (sale).
+  assert.equal(textoDeEnvio(comoSale(chat, k(undefined), 'k1', AHORA)), null);
 });
 
 test('la lista se rehace en la pantalla con la MISMA función: base de las bitácoras + lo que sube el cartero', async () => {
@@ -188,20 +211,38 @@ test('el segundo renglón de la fila es lo ÚLTIMO que pasó: un trabajo con su 
   assert.equal(vistaPrevia([]), null);
 });
 
-test('la barra: UNA lista sin cuentas, y lo que no tiene ninguna sesión aparte, al final', async () => {
-  // Martín (15/10/2026): «No quiero que exista "cuenta 1, cuenta 2, 3" en la sidebar de chats».
-  // Probado rompiéndolo (15/10/2026): dejando lo «por nombre» en la lista → 1 fallo.
+test('la barra: UNA lista sin cuentas y sin «Antes del 16/10»: lo anotado con un nombre viejo va al jefe de su tab', async () => {
+  // Martín (15/10/2026): «No quiero que exista "cuenta 1, cuenta 2, 3" en la sidebar de chats». Y el 16/10: «Elimina lo de
+  // "Antes del 16/10"... Eso debería estar dentro de los mismos chats, como el historial y el progreso... Sobre todo me
+  // interesa ver las cosas que pedí y están pendientes».
+  // ⚠️ Probado ROMPIÉNDOLO (16/10/2026), contra la base en verde:
+  //   · sin el paso 3 de completarChats (el nombre viejo no va a su tab) → 1 fallo (éste: «Funnel y oferta del CRM» suelto);
+  //   · listando al jefe sin sesión aunque no tenga nada pendiente → 1 fallo (éste: aparece «API de MaKo»);
+  //   · lo pendiente sin pasos sólo en `pidioAca` (como antes) → 1 fallo (éste: «Pagos» no se lista).
   const { seccionesDeChats, chatsDeBitacoras, completarChats } = await import('../lib/centro-chats');
-  const area: AreaP = { slug: 'x', titulo: 'X', bitacora: [hito('10:00', 'implementacion', 'CRM'), hito('10:30', 'implementacion', 'Viejo sin sesión')] };
+  const { pedidosRecientes } = await import('../lib/progreso-reglas');
+  const areas: AreaP[] = [
+    { slug: 'crm', titulo: 'CRM', bitacora: [hito('10:00', 'implementacion', 'CRM'), hito('10:30', 'implementacion', 'Funnel y oferta del CRM')] },
+    // Una tab sin chat abierto, con algo pedido y sin empezar: se lista, con el nombre de la tab.
+    { slug: 'pagos', titulo: 'Pagos', bitacora: [hito('09:00', 'prompt', 'Cobros viejo', { pedido: 'Que la cuota avise' })] },
+    // Otra sin chat abierto y con todo terminado: queda en su historial, no en la lista.
+    { slug: 'api', titulo: 'API de MaKo', bitacora: [hito('09:00', 'prompt', 'API vieja'), hito('09:10', 'implementacion', 'API vieja')] },
+  ];
   const carteros: CarteroP[] = [
     { cuenta: 'claude1', vistoAt: '2026-10-15T15:59:00Z', chats: [chat(1, 'CRM', false)] },
     { cuenta: 'claude3', vistoAt: '2026-10-15T15:59:00Z', chats: [{ ...chat(3, 'Graphics', true, 'idle'), cuenta: 'claude3' }] },
   ];
-  const cs = completarChats(chatsDeBitacoras({ areas: [area], pedidos: [], ahora: AHORA }), { carteros, trabajos: [], ahora: AHORA });
+  const pedidos = pedidosRecientes(areas, AHORA, 3650);
+  const cs = completarChats(chatsDeBitacoras({ areas, pedidos, ahora: AHORA }), { carteros, trabajos: [], ahora: AHORA });
   const secs = seccionesDeChats(cs);
-  assert.deepEqual(secs.map((s) => s.titulo), [null, 'Antes del 16/10'], 'una lista sin título, y lo de antes aparte');
-  assert.deepEqual(secs[0].chats.map((c) => c.titulo), ['Graphics', 'CRM'], 'el abierto primero; el «CRM» sin sesión se sumó al de la cuenta 1');
-  assert.deepEqual(secs[1].chats.map((c) => c.titulo), ['Viejo sin sesión']);
+  assert.deepEqual(secs.map((s) => s.titulo), [null], 'una sola lista: ya no hay «Antes del 16/10»');
+  assert.deepEqual(secs[0].chats.map((c) => c.titulo), ['Graphics', 'CRM', 'Pagos'], 'el abierto primero; después por actividad');
+  const crm = cs.find((c) => c.titulo === 'CRM')!;
+  assert.ok(crm.miembros.includes(claveDeNombre('Funnel y oferta del CRM')), 'el nombre viejo es historia del jefe de su tab');
+  const pagos = cs.find((c) => c.titulo === 'Pagos')!;
+  assert.equal(pagos.sesion, null, 'no tiene sesión: la caja le dice que hay que abrirlo');
+  assert.equal(pagos.pedidos.length, 1, 'lo pedido y sin empezar va al chat donde se pidió, que es el que lo tiene que hacer');
+  assert.ok(!cs.some((c) => c.titulo === 'API de MaKo'), 'un jefe sin chat abierto y sin nada pendiente no se lista');
 });
 
 test('el chat jefe: «CRM › Lead Detail» va adentro de «CRM», y un sub-chat sin jefe en la lista igual se agrupa', async () => {
@@ -219,4 +260,22 @@ test('el chat jefe: «CRM › Lead Detail» va adentro de «CRM», y un sub-chat
     ['Offer', 'Offer', []],
     ['Graphics', null, ['Graphics › Portadas']],
   ], 'el grupo va donde aparece el primero de los suyos');
+});
+
+test('el mismo chat abierto en dos cuentas: se le escribe a la sesión que un Runner alcanza', async () => {
+  // SendMessage no cruza carpetas de config (16/10/2026). Si «CRM» está trabajando en la terminal de una cuenta sin
+  // Runner y abierto en otra que sí lo tiene, el trabajo va a la segunda: a la primera no le llega nadie.
+  // Probado rompiéndolo: sin `sinRunner` en `pesoSesion`, gana la que trabaja (falla el primer assert).
+  const { completarChats } = await import('../lib/centro-chats');
+  const carteros: CarteroP[] = [
+    { cuenta: 'claude2', vistoAt: '2026-10-15T15:59:00Z', chats: [{ ...chat(1, 'CRM', true, 'busy'), cuenta: 'claude2', runner: false }] },
+    { cuenta: 'claude3', vistoAt: '2026-10-15T15:59:00Z', chats: [{ ...chat(2, 'CRM', true, 'idle'), cuenta: 'claude3', runner: true }] },
+  ];
+  const [crm] = completarChats([], { carteros, ...sinPedidos });
+  assert.equal(crm.sesion, S(2), 'la que tiene Runner');
+  assert.equal(crm.sinRunner, undefined);
+  // Si la única abierta no tiene Runner, igual es la elegida (le gana a una cerrada), y lo dice.
+  const soloSin = completarChats([], { carteros: [carteros[0], { ...carteros[1], chats: [{ ...carteros[1].chats[0], vivo: false, estado: null }] }], ...sinPedidos });
+  assert.equal(soloSin[0].sesion, S(1));
+  assert.equal(soloSin[0].sinRunner, true);
 });

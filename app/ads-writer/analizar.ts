@@ -63,6 +63,22 @@ export function haceCuanto(iso: string | null, ahora: number = Date.now()): stri
   return h < 24 ? `hace ${h}h` : `hace ${Math.round(h / 24)}d`;
 }
 
+/**
+ * El día de una fecha ISO como dd/mm (o dd/mm/aaaa), sacado del TEXTO: con un `Date` el server y el
+ * navegador lo pasarían cada uno a su huso, y el día dibujado podría cambiar al hidratar. (Vivía en
+ * AnalizarGuion.tsx; se mudó acá el 16/10/2026 porque el historial del teléfono la usa también.)
+ */
+export function diaMes(iso: string, conAnio = false): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
+  return m ? `${m[3]}/${m[2]}${conAnio ? `/${m[1]}` : ''}` : '';
+}
+
+/** Lo que distingue a una fila del historial: el guion en una línea. */
+export function extracto(guion: string): string {
+  const plano = guion.replace(/\s+/g, ' ').trim();
+  return plano.length > 80 ? `${plano.slice(0, 80)}…` : plano;
+}
+
 /** La línea de cobertura de la barra: «N guiones analizados · M sin analizar · K con error». */
 export function lineaConteo(c: ConteoGuiones): string {
   return `${c.analizadas} guion${c.analizadas === 1 ? '' : 'es'} analizado${c.analizadas === 1 ? '' : 's'}`

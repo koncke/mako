@@ -172,7 +172,9 @@ test('⚠️ marcar el pago CORTA lo que está en vuelo, y lo hace `marcarPago`'
   const iniMarcar = pagos.indexOf('export async function marcarPago');
   // Con LF: el largo es del código, no de cómo lo bajó git (con CRLF, el mismo marcarPago medía 60 más).
   const fn = pagos.slice(iniMarcar, pagos.indexOf('\nexport ', iniMarcar + 10)).replace(/\r\n/g, '\n');
-  assert.ok(fn.length > 200 && fn.length < 3000, `el recorte de marcarPago mide ${fn.length}: mira otra cosa`);
+  // (16/10/2026: 3.000 → 3.500. `marcarPago` devuelve si quitó un pago que nació cobrado, mig 0295, y midió 3.004;
+  // el tope sigue siendo para notar que el recorte se llevó otra función, no un límite de la función.)
+  assert.ok(fn.length > 200 && fn.length < 3500, `el recorte de marcarPago mide ${fn.length}: mira otra cosa`);
   assert.match(fn, /cerrarCorridasDeCuota\(ws, pagoId\)/, 'marcar el pago dejó de cortar los recordatorios');
   assert.match(fn, /if \(pagado\)/, 'desmarcar un pago también cortaría, o peor, reabriría la secuencia');
   // Y el corte filtra por la cuota, no por el lead: un cliente con dos cuotas en vuelo

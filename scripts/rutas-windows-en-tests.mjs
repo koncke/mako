@@ -29,6 +29,8 @@ export const PERMITIDOS = new Map([
   ['tests/vista-adjuntos.test.ts', 'la extensión de un nombre de archivo: se parsea, no se abre'],
   ['tests/decisiones-aviso.test.ts', 'el cwd de una sesión de Claude Code, como lo guarda la ficha: se compara como texto'],
   ['tests/operaciones.test.ts', 'el cwd de una sesión de Claude Code, como lo guarda la ficha: se compara como texto'],
+  ['tests/cartero-carpetas.test.ts', 'el cwd de una sesión de Claude Code y las carpetas del Runner: enCwds los compara como texto, no se abren'],
+  ['tests/centro-uso.test.ts', 'el cwd de una sesión de Claude Code y las carpetas del Runner: enCwds los compara como texto, no se abren'],
   ['tests/rutas-windows-en-tests.test.ts', 'los casos de esta misma guarda: son el texto que tiene que cazar'],
 ]);
 

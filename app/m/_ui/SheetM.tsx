@@ -35,6 +35,14 @@
 //
 // `ocupado`: mientras se envía, la hoja no se cierra por el velo, el arrastre, el
 // botón ni el «atrás» — una aprobación a medio mandar no se abandona por un roce.
+//
+// ⚠️ CERRÁNDOSE NO SE TOCA: la hoja sigue en pantalla los 220 ms de la salida (con
+// movimiento reducido, 200 ms de fundido SIN moverse: el botón sigue bajo el dedo),
+// así que el panel y el velo van `inert` apenas `abierto` pasa a false. La capa no:
+// sigue tapando la página y se come el toque. Sin esto, el segundo toque de un doble
+// toque repetía la acción (Calendario: «Borrar evento» dos veces, y el segundo, vacío,
+// pisaba el toast con Deshacer; «Guardar evento» creaba dos) o caía en el velo, que
+// dejaba `porGesto` en true y el próximo cierre por código no sacaba el `?sheet=`.
 // =============================================================================
 
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type PointerEvent, type ReactNode } from 'react';
@@ -408,13 +416,16 @@ export function SheetM({
   }, [montada, capa]);
 
   if (!montada || !capa) return null;
+  // Cerrándose: ni el panel ni el velo reciben toques (ver el ⚠️ de arriba); la capa sí, y no hace nada.
+  const cerrando = !abierto;
 
   return createPortal(
     <div className="m-sheet-capa">
-      <div ref={velo} className="m-sheet__velo" onClick={() => { if (!ocupadoRef.current) pedirCierre(); }} aria-hidden />
+      <div ref={velo} className="m-sheet__velo" inert={cerrando} onClick={() => { if (!ocupadoRef.current) pedirCierre(); }} aria-hidden />
       <div
         ref={panel}
         className="m-sheet"
+        inert={cerrando}
         data-tope={tope}
         role="dialog"
         aria-modal="true"

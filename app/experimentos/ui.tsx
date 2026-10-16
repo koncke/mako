@@ -11,6 +11,7 @@
 import { useEffect, useId, useState, type CSSProperties, type ReactNode } from 'react';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip } from 'recharts';
 import type { Punto } from '@/lib/experimentos';
+import { METRICA_FMT, fmtVal, fmtFechaCorta, fmtFechaLarga, fmtDelta, dirLabel } from '@/lib/experimentos-formato';
 
 export const MONO = "'Geist Mono', monospace";
 export const SANS = "'Geist', sans-serif";
@@ -18,35 +19,10 @@ export const SANS = "'Geist', sans-serif";
 // Chispa de 4 puntas de MaKo (mismo path que MakoBrand), centrada en (0,0).
 const SPARK = 'M0 -11 C1 -4 4 -1 11 0 C4 1 1 4 0 11 C-1 4 -4 1 -11 0 C-4 -1 -1 -4 0 -11 Z';
 
-// ── Formato de métricas (en sync con METRICAS de lib/experimentos.ts) ──
-export const METRICA_FMT: Record<string, 'usd' | 'pct' | 'num'> = {
-  cpl: 'usd', cp_form: 'usd', cpc: 'usd', cpm: 'usd', cpa: 'usd', cac: 'usd', spend_usd: 'usd',
-  ctr: 'pct', tasa_landing: 'pct', tasa_form: 'pct', tasa_agenda: 'pct',
-  impressions: 'num', landing_page_views: 'num', leads_count: 'num', agendamientos: 'num',
-  vsl_views: 'num', cierres: 'num',
-};
-
-export function fmtVal(v: number | null | undefined, metrica: string): string {
-  if (v == null || !Number.isFinite(v)) return '—';
-  const f = METRICA_FMT[metrica] ?? 'num';
-  if (f === 'usd') return `$${v.toLocaleString('en-US', { maximumFractionDigits: 2 })}`;
-  if (f === 'pct') return `${v.toFixed(1)}%`;
-  return Math.round(v).toLocaleString('es-MX');
-}
-
-export function fmtFechaCorta(iso: string | null | undefined): string {
-  if (!iso) return '—';
-  const [, m, d] = iso.slice(0, 10).split('-');
-  return `${d}/${m}`;
-}
-export function fmtFechaLarga(iso: string | null | undefined): string {
-  if (!iso) return '—';
-  const [y, m, d] = iso.slice(0, 10).split('-');
-  const meses = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
-  return `${+d} ${meses[+m - 1] ?? ''} ${y}`;
-}
-export const fmtDelta = (d: number | null | undefined): string =>
-  d == null ? '—' : `${d > 0 ? '+' : ''}${d.toFixed(1)}%`;
+// ── Formato de métricas: vive en lib/experimentos-formato.ts (módulo PURO, 15/10/2026) ──
+// Lo lee también el server del teléfono (app/m/experimentos), que no puede importar valores de un
+// módulo 'use client'. Acá se re-exporta para que las tabs sigan importándolo de './ui'.
+export { METRICA_FMT, fmtVal, fmtFechaCorta, fmtFechaLarga, fmtDelta, dirLabel };
 
 // ── Estilos compartidos ──
 export const card: CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: 20 };
@@ -188,4 +164,3 @@ export function Empty({ titulo, sub, children }: { titulo: string; sub?: string;
   );
 }
 
-export const dirLabel = (d: 'subir' | 'bajar') => (d === 'subir' ? 'subir ↑' : 'bajar ↓');

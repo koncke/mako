@@ -1,0 +1,176 @@
+/* =============================================================================
+   /m/experimentos — Experiments en el teléfono (Retro · Experiments · Conclusions · Análisis)
+   =============================================================================
+   Todas las clases llevan el nombre ENTERO de la carpeta (`m-experimentos-*`): Next deja la hoja cargada
+   al salir de la ruta. Sólo tokens de app/globals.css. El color de estado va en la MARCA (el punto, la
+   barra, la línea), nunca en el texto (app/m/_ui/Piezas.tsx: --good/--bad como texto no pasan AA).
+   ============================================================================= */
+
+.m-experimentos { display: block; }
+
+/* ── Las cuatro tabs ──
+   El segmentado reparte el ancho en partes iguales; con cuatro nombres de escritorio, «Experiments» y
+   «Conclusions» se cortaban con «…» a 390 px mientras «Retro» sobraba. Acá cada opción mide lo que su
+   nombre (columnas `auto`: crecen parejo hasta su largo y lo que sobra se reparte). Sólo dentro de esta
+   caja: el segmentado de la casa no cambia. */
+.m-experimentos-vistas { margin: 0 0 14px; }
+.m-experimentos-vistas .m-seg { grid-auto-columns: auto; }
+.m-experimentos-vistas .m-seg__op { padding: 0 6px; }
+
+/* ── Experiments: la tarjeta del prototipo v3 (`.exp`) ── */
+.m-experimentos-exps { display: block; }
+.m-experimentos-exp {
+  display: flex; flex-direction: column; gap: 8px; width: 100%; margin: 0 0 10px; padding: 14px 16px;
+  border-radius: var(--r-lg); background: var(--surface); border: 1px solid var(--border);
+  font: inherit; color: var(--ink); text-align: left; cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.m-experimentos-exp:active { background-image: linear-gradient(var(--velo-hover), var(--velo-hover)); }
+.m-experimentos-exp:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--primary); }
+.m-experimentos-exp__cab { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.m-experimentos-exp__cab b {
+  min-width: 0; font-size: var(--fs-card); font-weight: 600; line-height: 1.3;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.m-experimentos-exp__metrica { font-size: var(--fs-meta); color: var(--dim); line-height: 1.3; }
+.m-experimentos-exp__dia { align-self: flex-end; font-size: var(--fs-meta); color: var(--dim); font-variant-numeric: tabular-nums; }
+
+/* baseline → actual (variación): el número grande es el de HOY. */
+.m-experimentos-cifra { display: flex; flex-direction: column; gap: 2px; margin: 14px 0 6px; }
+.m-experimentos-cifra__k { font-size: var(--fs-meta); color: var(--dim); }
+.m-experimentos-cifra__v { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 8px; font-variant-numeric: tabular-nums; }
+.m-experimentos-cifra__v span { font-size: var(--fs-sm); color: var(--dim); }
+.m-experimentos-cifra__v strong { font-size: 24px; font-weight: 800; letter-spacing: -0.03em; line-height: 1.1; color: var(--ink); }
+.m-experimentos-cifra__v em { font-style: normal; font-size: var(--fs-sm); font-weight: 700; color: var(--ink); }
+
+/* El avance de la ventana: azul mientras corre, verde cuando ya se puede cerrar. */
+.m-experimentos-avance { display: block; height: 6px; border-radius: 999px; background: var(--border); overflow: hidden; }
+.m-experimentos-avance i { display: block; height: 100%; border-radius: 999px; background: var(--primary); transition: width .4s var(--ease-out); }
+.m-experimentos-avance[data-listo] i { background: var(--good); }
+
+/* ── La línea (sparkline): el trazo lleva el color ── */
+.m-experimentos-linea { display: block; width: 100%; margin: 8px 0 14px; overflow: visible; }
+.m-experimentos-linea path {
+  fill: none; stroke: var(--primary); stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+.m-experimentos-linea[data-tono="good"] path { stroke: var(--good); }
+.m-experimentos-linea[data-tono="bad"] path { stroke: var(--bad); }
+.m-experimentos-linea[data-tono="warn"] path { stroke: var(--warn-fill); }
+
+/* ── Lo de adentro de una hoja ── */
+.m-experimentos-hoja { display: flex; flex-direction: column; align-items: stretch; }
+.m-experimentos-hoja > .m-pildora { align-self: flex-start; }
+.m-experimentos-hoja .m-lista { margin-top: 14px; }
+[data-m] .m-experimentos-hoja__titulo {
+  display: block; margin: 2px 2px 10px; font-size: var(--fs-card); font-weight: 600; line-height: 1.35; color: var(--ink);
+}
+[data-m] .m-experimentos-hoja__titulo--mako { display: flex; align-items: flex-start; gap: 8px; }
+.m-experimentos-hoja__titulo--mako > svg { flex: none; margin-top: 3px; }
+[data-m] .m-experimentos-hoja__texto { margin: 10px 2px 0; font-size: var(--fs-md); line-height: 1.5; color: var(--dim); white-space: pre-line; }
+[data-m] .m-experimentos-hoja__frase { margin: 12px 2px 0; font-size: 18px; font-weight: 500; line-height: 1.45; color: var(--ink); }
+[data-m] .m-experimentos-hoja__sub { margin: 20px 2px 0; font-size: var(--fs-md); font-weight: 600; line-height: 1.3; color: var(--ink); }
+.m-experimentos-hoja__sub + .m-lista { margin-top: 10px; }
+.m-experimentos-area { display: block; box-sizing: border-box; min-height: 128px; }
+
+/* ── Conclusions: la frase es lo que se lee ── */
+.m-experimentos-conclusiones { display: block; }
+.m-experimentos-conclusion {
+  display: flex; flex-direction: column; gap: 8px; width: 100%; margin: 0 0 10px; padding: 14px 16px;
+  border-radius: var(--r-lg); background: var(--surface); border: 1px solid var(--border);
+  font: inherit; color: var(--ink); text-align: left; cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.m-experimentos-conclusion:active { background-image: linear-gradient(var(--velo-hover), var(--velo-hover)); }
+.m-experimentos-conclusion:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--primary); }
+.m-experimentos-conclusion__cab { display: flex; }
+.m-experimentos-conclusion__frase {
+  font-size: var(--fs-card); font-weight: 500; line-height: 1.45;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+}
+.m-experimentos-conclusion__pie { font-size: var(--fs-meta); color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* ── Retro ── */
+.m-experimentos-retros, .m-experimentos-retro { display: block; }
+.m-experimentos-volver {
+  display: inline-flex; align-items: center; gap: 2px; min-height: 44px; margin: -4px 0 4px -8px; padding: 0 8px;
+  border: 0; border-radius: 999px; background: none; font: inherit; font-size: var(--fs-md); font-weight: 500;
+  color: var(--primary-strong); cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.m-experimentos-volver:active { background: var(--velo-hover); }
+.m-experimentos-volver svg { transform: rotate(90deg); }
+[data-m] .m-experimentos-retro__titulo {
+  margin: 0 2px 6px; font-size: var(--fs-sect); font-weight: 700; letter-spacing: -0.015em; line-height: 1.25; color: var(--ink);
+}
+.m-experimentos-retro__vistas { margin: 16px 0 6px; }
+[data-m] .m-experimentos-meta { margin: 6px 2px 0; font-size: var(--fs-meta); line-height: 1.4; color: var(--dim); }
+[data-m] .m-experimentos-resumen { margin: 18px 2px 0; font-size: var(--fs-md); line-height: 1.55; color: var(--ink); white-space: pre-line; }
+
+/* La tesis: la frase del período, con lo que la Retro marca resaltado (un fondo, no texto rojo). */
+.m-experimentos-tesis {
+  margin: 14px 0 0; padding: 16px; border-radius: var(--r-lg); background: var(--surface); border: 1px solid var(--border);
+}
+[data-m] .m-experimentos-tesis__rotulo {
+  display: flex; align-items: center; gap: 6px; margin: 0 0 8px; font-size: var(--fs-meta); color: var(--dim);
+}
+[data-m] .m-experimentos-tesis__texto { margin: 0; font-size: 20px; font-weight: 600; letter-spacing: -0.015em; line-height: 1.35; color: var(--ink); }
+.m-experimentos-tesis__marca { padding: 0 2px; border-radius: 4px; background: var(--bad-bg); color: inherit; }
+
+/* La fuga: el problema principal, en plata. */
+.m-experimentos-fuga {
+  display: flex; flex-direction: column; gap: 4px; margin: 10px 0 0; padding: 16px;
+  border-radius: var(--r-lg); background: var(--surface); border: 1px solid var(--border); border-left: 4px solid var(--bad);
+}
+.m-experimentos-fuga__valor { font-size: var(--fs-kpi); font-weight: 700; letter-spacing: -0.02em; line-height: 1.1; color: var(--ink); font-variant-numeric: tabular-nums; }
+.m-experimentos-fuga__valor small { margin-left: 6px; font-size: var(--fs-meta); font-weight: 500; letter-spacing: 0; color: var(--dim); }
+.m-experimentos-fuga__titulo { font-size: var(--fs-meta); font-weight: 600; color: var(--dim); }
+[data-m] .m-experimentos-fuga__texto { margin: 4px 0 0; font-size: var(--fs-md); font-weight: 500; line-height: 1.45; color: var(--ink); }
+
+/* El punto de estado de una fila (un hallazgo, lo que quedó del retro pasado). */
+.m-experimentos-punto { display: block; width: 10px; height: 10px; border-radius: 50%; background: var(--faint); }
+.m-experimentos-punto[data-tono="good"] { background: var(--good); }
+.m-experimentos-punto[data-tono="warn"] { background: var(--warn-fill); }
+.m-experimentos-punto[data-tono="bad"] { background: var(--bad); }
+.m-experimentos-punto[data-tono="info"] { background: var(--primary); }
+
+/* La evidencia de un hallazgo: el número, las barras o la línea. */
+.m-experimentos-ev {
+  display: flex; flex-direction: column; gap: 6px; padding: 16px; border-radius: var(--r-lg);
+  background: var(--surface); border: 1px solid var(--border);
+}
+.m-experimentos-ev .m-experimentos-linea { margin: 4px 0; }
+.m-experimentos-ev__num { font-size: 40px; font-weight: 700; letter-spacing: -0.02em; line-height: 1; color: var(--ink); font-variant-numeric: tabular-nums; }
+.m-experimentos-ev__label { font-size: var(--fs-sm); line-height: 1.4; color: var(--dim); }
+.m-experimentos-ev--barras { gap: 12px; }
+.m-experimentos-barra { display: flex; flex-direction: column; gap: 5px; }
+.m-experimentos-barra__fila { display: flex; justify-content: space-between; gap: 10px; font-size: var(--fs-sm); color: var(--dim); }
+.m-experimentos-barra[data-fuerte] .m-experimentos-barra__fila { color: var(--ink); font-weight: 600; }
+.m-experimentos-barra__fila b { flex: none; font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; }
+.m-experimentos-barra__pista { display: block; height: 8px; border-radius: 999px; background: var(--surface-2); overflow: hidden; }
+.m-experimentos-barra__pista i { display: block; height: 100%; border-radius: 999px; background: var(--border-strong); }
+.m-experimentos-barra__pista[data-tono="primary"] i { background: var(--primary); }
+.m-experimentos-barra__pista[data-tono="good"] i { background: var(--good); }
+.m-experimentos-barra__pista[data-tono="bad"] i { background: var(--bad); }
+.m-experimentos-barra__pista[data-tono="warn"] i { background: var(--warn-fill); }
+
+/* ── Análisis ── */
+.m-experimentos-analisis { display: block; }
+.m-experimentos-analisis .m-lista + .m-lista { margin-top: 12px; }
+[data-m] .m-experimentos-periodo { margin: 0 2px 10px; font-size: var(--fs-sm); font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; }
+.m-experimentos-aviso {
+  display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px 12px 16px;
+  font-size: var(--fs-sm); line-height: 1.45; color: var(--ink);
+}
+.m-experimentos-aviso i { flex: none; width: 8px; height: 8px; margin-top: 7px; border-radius: 50%; background: var(--primary); }
+.m-experimentos-aviso[data-tono="warn"] i { background: var(--warn-fill); }
+[data-m] .m-experimentos-sub { margin: 16px 4px 8px; font-size: var(--fs-md); font-weight: 600; line-height: 1.3; color: var(--ink); }
+[data-m] .m-experimentos-sub:first-of-type { margin-top: 0; }
+[data-m] .m-experimentos-nota { margin: 0 4px; font-size: var(--fs-sm); color: var(--dim); }
+.m-experimentos-contradiccion { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; margin: 12px 2px 0; }
+[data-m] .m-experimentos-contradiccion p { margin: 0; font-size: var(--fs-sm); line-height: 1.45; color: var(--ink); }
+
+/* ── Mientras se lee (loading.tsx): la FORMA de la pantalla ── */
+.m-experimentos-skel-seg { display: block; height: 44px; margin: 0 0 14px; border-radius: var(--r-md); }
+.m-experimentos-skel-tarjeta { display: block; height: 148px; margin: 0 0 10px; border-radius: var(--r-lg); }
+
+@media (prefers-reduced-motion: reduce) {
+  .m-experimentos-avance i { transition: none; }
+}

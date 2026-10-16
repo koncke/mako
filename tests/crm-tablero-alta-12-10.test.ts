@@ -239,7 +239,7 @@ test('cada lugar que carga un teléfono monta TelefonoConPais, y ninguno vuelve 
     'app/crm/new/NewLeadForm.tsx', 'app/crm/StageMoveDialog.tsx', 'app/agencia/GrupoDetalleModal.tsx',
     'app/configuraciones/TelefonosPanel.tsx', 'app/customer-success/curso/InvitarAlumnos.tsx',
     'app/customer-success/NuevoCliente.tsx', 'app/perfil/InformacionPersonal.tsx', 'app/automations/OnboardingChatAgent.tsx',
-    'app/plan/board/ReunionTareas.tsx', 'app/onboarding/OnboardingWizard.tsx', 'app/perfil/DestinatariosLista.tsx',
+    'app/plan/board/ReunionTareas.tsx', 'app/onboarding/ChatArranque.tsx', 'app/perfil/DestinatariosLista.tsx',
     'app/automations/PanelProbar.tsx',
   ];
   for (const f of conBanderas) {

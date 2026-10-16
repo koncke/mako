@@ -461,7 +461,9 @@ export function reconciliarCuotas(
   let max = existentes.reduce((m, q) => Math.max(m, q.numero), -1);
   for (const d of sinCasar) {
     let numero: number;
-    if (modo === 'slots' && d.numero != null && d.numero >= 0 && !usados.has(d.numero)) numero = d.numero;
+    // En 'porId', una cuota que VUELVE (el Deshacer de un ajuste del plan) recupera su número si está libre: sin eso
+    // el cobro inicial volvía como «Cuota N» y su lugar en el plan quedaba vacío (revisión del 16/10/2026).
+    if ((modo === 'slots' || modo === 'porId') && d.numero != null && d.numero >= 0 && !usados.has(d.numero)) numero = d.numero;
     else numero = Math.max(max + 1, 1);
     usados.add(numero);
     max = Math.max(max, numero);

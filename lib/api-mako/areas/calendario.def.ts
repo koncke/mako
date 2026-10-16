@@ -80,6 +80,15 @@ export const DEFS: readonly OperacionDef[] = [
     salida: 'json', canales: TODOS, costo: 'externo', gating: GATING,
   },
   {
+    // 16/10/2026 (Martín: «si MaKo sabe por la API que el evento permite agendar con poca anticipación (por ejemplo 3 h), el
+    // delay "1 día antes" lo advierte»). Lo lee también el lienzo de Automations (GET /api/flujos/anticipacion).
+    id: 'anticipacion_agenda', area: 'calendario', tipo: 'lectura',
+    titulo: 'Con cuánta anticipación se puede agendar',
+    descripcion: 'El hueco libre más cercano de los tipos de reunión activos de Calendly: con cuánto se puede agendar hoy una llamada (por ejemplo, 3 h). Calendly no publica su «anticipación mínima»: esto es lo MEDIDO en la agenda de esta semana y cambia con ella. Sirve para saber si un recordatorio «1 día antes de la reunión» puede no llegar a salir (quien agenda con menos de la mitad de ese tiempo no lo recibe). Sin Calendly conectado devuelve `minutos: null` con el motivo.',
+    parametros: [],
+    salida: 'json', canales: TODOS, costo: 'externo', gating: GATING,
+  },
+  {
     // 14/10/2026 (Martín: «ver las tareas recurrentes allí»): la capa «Se repite» de la pantalla, por la API.
     id: 'ver_proximas_recurrentes', area: 'calendario', tipo: 'lectura',
     titulo: 'Próximas veces de las tareas que se repiten',

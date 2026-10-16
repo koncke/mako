@@ -288,9 +288,9 @@ Si se anotó, cuándo es el evento (con su lugar y hora), si le llegan los recor
 
 - **Resumen:** `siguiente-accion` → `posibles-duplicados` → `contacto` → `lo-que-contesto` → `calificacion` → `origen` → `charla-whatsapp` → `automatizaciones-en-curso` → `tiempo-en-etapa` → `setter-y-closer` → `ingreso-estimado` → `proxima-reunion` → `notas` → `motivo-de-salida` → `plazo-nutricion`
 - **Reuniones:** no sale (no hay etapa de reunión).
-- **Pagos:** `cobrado` → `oferta` → `links-de-pago` → `venta` → `movimientos`
+- **Pagos:** `cobrado` → `oferta` → `links-de-pago` → `venta` → `cuotas` → `movimientos`
 - **Tracking:** `anuncio-de-origen` → `visitas` → `actividad-en-pagina`
-- **Avisos que nacen apagados:** empresa, plan, servicio, promesa, obligaciones y datos fiscales.
+- **Avisos que nacen apagados:** empresa, plan, comprobante de pago, servicio, promesa, obligaciones y datos fiscales.
 
 Pesa lo que contestó y de qué anuncio vino. «¿Era calificado?» va arriba porque es lo único que aprende Meta, y «Sin moverse» porque decide la velocidad de contacto. La próxima reunión se calla salvo que reserve por Cal.com. Sin landing casi nunca hay visitas, así que en Tracking el anuncio es casi todo. Las cuotas quedan fuera porque cargar una reserva gana el lead. Una inmobiliaria suma `respuesta-destacada` (Zona, Presupuesto) con un toque: no es otra entrada, así que no tiene plantilla propia.
 
@@ -308,9 +308,9 @@ Lo que completó, en qué página y si le llegó la nutrición le dicen al equip
 
 - **Resumen:** `siguiente-accion` → `posibles-duplicados` → `charla-dm` → `charla-whatsapp` → `pase-a-humano` → `mensaje-listo` → `contacto` → `publicacion-de-entrada` → `origen` → `setter-y-closer` → `tiempo-en-etapa` → `automatizaciones-en-curso` → `notas` → `motivo-de-salida` → `plazo-nutricion`
 - **Reuniones:** no sale.
-- **Pagos:** `cobrado` → `oferta` → `links-de-pago` → `confirmacion-de-pago` → `venta` → `suscripcion` → `movimientos`
+- **Pagos:** `cobrado` → `oferta` → `links-de-pago` → `confirmacion-de-pago` → `venta` → `cuotas` → `suscripcion` → `movimientos`
 - **Tracking:** sin lista propia.
-- **Avisos que nacen apagados:** calificado, empresa, plan, contrato y datos fiscales. El teléfono sigue avisando, porque pedirlo es parte de la charla.
+- **Avisos que nacen apagados:** calificado, empresa, plan, comprobante de pago, contrato y datos fiscales. El teléfono sigue avisando, porque pedirlo es parte de la charla.
 
 La venta es la charla: sin ver la ventana de 24 h ni el pase a humano, el equipo contesta tarde. La publicación dice qué contenido trajo al lead. Se cobra con un link en medio de la charla, después del «sí, te pago».
 
@@ -328,7 +328,7 @@ Los toques y el tiempo sin moverse dicen a quién insistir. Las redes son la ide
 
 - **Resumen:** `siguiente-accion` → `posibles-duplicados` → `contacto` → `cobrado` → `origen` → `lo-que-contesto` → `charla-whatsapp` → `notas` → `motivo-de-salida` → `plazo-nutricion`
 - **Reuniones:** no sale.
-- **Pagos:** `cobrado` → `links-de-pago` → `movimientos` → `venta` → `suscripcion` → `oferta` → `cliente-en-cs`
+- **Pagos:** `cobrado` → `links-de-pago` → `cuotas` → `movimientos` → `venta` → `suscripcion` → `oferta` → `cliente-en-cs`
 - **Tracking:** `video-visto` → `actividad-en-pagina` → `grabacion-de-visita` → `visitas` → `anuncio-de-origen`
 - **Avisos que nacen apagados:** setter, calificado, empresa, plan, servicio, promesa, obligaciones, datos y documento fiscal. El comprobante sólo se pide en un pago a mano.
 

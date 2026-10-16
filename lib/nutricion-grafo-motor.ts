@@ -23,7 +23,7 @@ import {
   CAMPOS_CONDICION, TOPE_CASOS, TOPE_NODOS, TOPE_RESPONDER, TOPE_INSTRUCCIONES, TOPE_OTRA_AVISO,
   TOPE_OBJETIVO, TOPE_EJEMPLOS, TOPE_EJEMPLO, TOPE_ESCENARIOS_AI_STEP, MEDIOS_AI_STEP,
   claseDe, idDe, indicePorId, siguienteDe, puertosDe, raizSalida, raizRespuesta, elegirSalida, esPasoIA,
-  normalizar, nuevoId, paralelosDeResultado, aristasDeVuelta, padresSinVuelta,
+  normalizar, nuevoId, paralelosDeResultado, aristasDeVuelta, padresSinVuelta, llegaTarde,
   type PasoGrafo, type HechosLead, type FilaCondicion, type RamaCondicion, type CasoRespuesta, type Espera, type DestinoIrA,
   type EjemploCaso, type MedioAIStep,
 } from './flujo-grafo';
@@ -176,9 +176,14 @@ function paralelosDelNodo(pasos: readonly PasoGrafo[], idx: number): string[] {
  * lo que sigue (no se queda parada en la espera: la vuelta siguiente ya es el mensaje); un
  * «Ir a» a un nodo salta, y a otra automatización termina ésta.
  *
- * Una espera cuyo momento YA pasó (una «1 h antes de la reunión» con la reunión en 30 min)
- * no frena: se sigue de largo, igual que `proximoEnvioDePaso` hacía con el ancla.
+ * Una espera cuyo momento YA pasó (una «1 h antes de la reunión» con la reunión en 45 min)
+ * no frena: se sigue de largo, igual que `proximoEnvioDePaso` hacía con el ancla. ⚠️ SALVO QUE SE
+ * LLEGUE TARDE (16/10/2026, `llegaTarde`: falta menos de la mitad, «1 día antes» con la reunión en
+ * 3 h): ahí lo de esa espera no sale, hasta la próxima espera, salvo que la tarjeta diga «sale».
  */
+/** Por qué un camino terminó sin mandar lo de su espera «antes de la reunión»: el lead agendó más cerca. */
+export const MOTIVO_AGENDO_CERCA = 'agendó más cerca: lo de su espera «antes de la reunión» no salió';
+
 export function resolverControl(pasos: readonly PasoGrafo[], desde: number, ctx: ContextoControl): Resolucion {
   const via: string[] = [];
   const repartos: Reparto[] = [];
@@ -187,10 +192,22 @@ export function resolverControl(pasos: readonly PasoGrafo[], desde: number, ctx:
   };
   let idx = desde;
   let saltos = 0;
+  /**
+   * «SI AGENDA MÁS CERCA» (16/10/2026, `llegaTarde`, lib/flujo-grafo.ts): se llegó tarde a una espera «antes de la
+   * reunión» y lo que sigue —mensajes y acciones— no sale, hasta la próxima espera. Las condiciones se deciden igual.
+   */
+  let salteando = false;
   for (let vuelta = 0; vuelta <= TOPE_NODOS * 2 + TOPE_SALTOS; vuelta++) {
     const p = pasos[idx];
-    if (!p) return { tipo: 'fin', motivo: 'no hay más tarjetas', via, repartos };
+    if (!p) return { tipo: 'fin', motivo: salteando ? MOTIVO_AGENDO_CERCA : 'no hay más tarjetas', via, repartos };
     const c = claseDe(p);
+    if ((c === 'mensaje' || c === 'accion') && salteando) {
+      via.push(idDe(p, idx));
+      const j = siguienteIndice(pasos, idx);
+      if (j < 0) return { tipo: 'fin', motivo: MOTIVO_AGENDO_CERCA, via, repartos };
+      idx = j;
+      continue;
+    }
     if (c === 'mensaje' || c === 'accion') return { tipo: 'nodo', idx, via, repartos };
     via.push(idDe(p, idx));
     if (c === 'respuesta') return { tipo: 'fin', motivo: '«Si responde» no corre en la salida', via, repartos };
@@ -218,6 +235,7 @@ export function resolverControl(pasos: readonly PasoGrafo[], desde: number, ctx:
       continue;
     }
     if (c === 'esperar') {
+      salteando = false;
       const j = siguienteIndice(pasos, idx);
       const tieneParalelos = paralelosDelNodo(pasos, idx).length > 0;
       // Esperar para no hacer nada después es lo mismo que terminar ahora (salvo que la espera
@@ -234,6 +252,13 @@ export function resolverControl(pasos: readonly PasoGrafo[], desde: number, ctx:
             : { tipo: 'sin_reunion', via, repartos };
         }
         objetivo = ancla - minutos * 60_000;
+        // Llegó TARDE: lo de esta espera (y sus flechas en paralelo) no sale; se sigue hasta la próxima espera.
+        if (llegaTarde(p.espera, (ancla - ctx.ahoraMs) / 60_000)) {
+          if (j < 0) return { tipo: 'fin', motivo: MOTIVO_AGENDO_CERCA, via, repartos };
+          salteando = true;
+          idx = j;
+          continue;
+        }
       } else {
         objetivo = ctx.ahoraMs + minutos * 60_000;
       }
@@ -1192,7 +1217,10 @@ function sanearEspera(x: unknown): Espera | undefined {
   const minutos = minutosDeSegundos(segundosDeMinutos(o.minutos));
   // Al menos un segundo o nada: sin espera, `validarGrafo` contesta «la espera no dice cuánto».
   if (!(minutos > 0)) return undefined;
-  return { modo: o.modo === 'antes_reunion' ? 'antes_reunion' : 'tiempo', minutos: Math.min(minutos, TOPE_ESPERA_MIN) };
+  const m = Math.min(minutos, TOPE_ESPERA_MIN);
+  if (o.modo !== 'antes_reunion') return { modo: 'tiempo', minutos: m };
+  // «Si agenda más cerca» (16/10/2026, `llegaTarde`): se guarda sólo lo que NO es lo de fábrica.
+  return o.siAgendaCerca === 'sale' ? { modo: 'antes_reunion', minutos: m, siAgendaCerca: 'sale' } : { modo: 'antes_reunion', minutos: m };
 }
 
 function sanearDestino(x: unknown): DestinoIrA | null {

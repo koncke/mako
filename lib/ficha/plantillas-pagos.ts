@@ -47,6 +47,7 @@ export const PLANTILLAS_TAB_PAGOS: PlantillaTab[] = [
     bloques: [
       { id: 'cobrado', ancho: 6, diseno: 'numero' },
       { id: 'suscripcion', ancho: 6, diseno: 'numero' },
+      { id: 'cuotas', ancho: 12, diseno: 'tabla' },
       { id: 'movimientos', ancho: 12, diseno: 'lista' },
       { id: 'links-de-pago', ancho: 12, diseno: 'pendiente' },
       { id: 'venta', ancho: 6, diseno: 'renglon' },
