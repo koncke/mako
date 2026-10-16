@@ -641,7 +641,10 @@ y mandaría el `ejemplo` del catálogo como si fuera real.
 - **Sin grupo de MaKo no llega el WhatsApp.** En el onboarding pasa seguido: el teléfono se pide DESPUÉS de la oferta.
   Lo ve en el chat cuando vuelve. «En la app» de escritorio no existe todavía: la tabla `notificaciones` no está en
   producción y no hay campanita (docs/hallazgos-chatbot.md, «Lo que el evento de la oferta lista destapó del motor»).
-- **No se vio en el navegador ni se armó una oferta contra la IA por este camino.**
+- **Verificado en el ws3 el 16/10** (build parcial + `next start`, la IA de verdad): `armar` contestó en 1,4 s; la página
+  se cerró a los 3 s, en pleno diagnóstico; el servidor pasó a «oferta» a los 33 s y terminó a los 113 s (versión 1,
+  el PDF en el chat, el armado borrado). El aviso dio `sinFila` y lo dijo en el log, como debe hasta la mudanza. Al
+  volver, la oferta estaba en el chat y el onboarding siguió con lo que faltaba del diagnóstico. El ws3 quedó como estaba.
 
 **Vive en:** `app/api/offer/route.ts` (`armar`, `armarPorDetras`, `diagnosticarSesion`, `generarSesion`) ·
 `lib/offer-reglas.ts` (`sanearArmado`, `armadoEnCurso`, `armadoParaVista`) · `lib/offer-sesiones.ts` (la columna) ·
