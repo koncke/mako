@@ -118,17 +118,19 @@ que no existen caen a las reglas de ese pedido; un área que el pedido no nombra
 `referencia` que no está en el pedido cae a la de las reglas; cualquier id u «objeto» que mande se ignora.
 
 Plazo: 7 s en total (7,5 s con la carrera), intentos de 4 s; el chat del Web Generator espera 12 s a la ruta
-(`PLAZO_PEDIDOS_MS`), que antes lee la sesión, la vista y las landings. ⚠️ No se puede escribir como `hastaMs: ahora + 7 s`: `chatCheapCascade` no arranca
-un intento con menos de 15 s de plazo (`MIN_INTENTO_MS`) y devolvería '' sin probar nada. Si no llega, quedan las reglas
-(`origen: 'reglas'`). Feature propia `mako-pedidos` en `lib/model-catalogo.ts`, default GRATIS (Gemini), lista
-`gemini → groq → openrouter → mistral` con el pin de /modelos-ia primero si es gratis.
+(`PLAZO_PEDIDOS_MS`), que antes lee la sesión, la vista y las landings. ⚠️ **No va por `chatCheapCascade`** (cambiado el
+16/10 tras mirarlo en producción): su preámbulo (las cuotas del día y la clave de Anthropic del negocio, ~3 s) y su
+mínimo de 15 s por intento se comían el plazo y la IA no corría NUNCA. Va un bucle propio, `probarEnOrden` (núcleo puro,
+con un test de reloj falso): las keys del negocio en orden, cada intento acotado a lo que queda. Si no llega, quedan las
+reglas (`origen: 'reglas'`). Feature propia `mako-pedidos` en `lib/model-catalogo.ts`, default GRATIS (Groq
+`gpt-oss-120b`), lista `groq → gemini → openrouter → mistral` con el pin de /modelos-ia primero si es gratis. Medido en
+ws9: Groq 1,4 s, Gemini 6,6-10,9 s; de punta a punta, 3-5,5 s.
 
 ⛔ **Sin crédito de Claude** — y por eso NO `redDePlataforma` de `chatCheapCascade` (cambiado al construir): desde el
 16/10 esa red prueba PRIMERO el crédito de Claude de la plataforma (`conCreditoDeLaPlataforma`), así que pedirla era
-pedir Claude. La red va aparte, sólo con las keys gratis de la agencia (`provsGratisDePlataforma`), como Offer. Lo único
-Anthropic que puede contestar es la clave PROPIA del negocio si la cargó (la segunda puerta, dentro de la cascada, para
-toda feature fuera del Plan): es plata del negocio y decisión de Martín (`clientes-usan-su-claude`). Si también eso se
-quiere cerrar, hace falta una opción en `chatCheapCascade` (lib/ai-cheap.ts), que no es de este trabajo.
+pedir Claude. La red va aparte, sólo con las keys gratis de la agencia (`provsGratisDePlataforma`), como Offer. La clave
+PROPIA de Anthropic del negocio está permitida (decisión A de Martín, la paga el negocio), pero desde que no se usa la
+cascada no se prueba acá: para etiquetar en segundos sólo sumaba 1,3 s.
 
 `pii` (`llevaDatosPersonales`): un email, un teléfono, o una tab de leads (`crm`, `chats`, `whatsapp`, `closing`,
 `cobros`). Con `pii` la red gratis no corre (el plan gratis de Gemini entrena) y quedan las reglas.

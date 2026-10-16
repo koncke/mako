@@ -4294,10 +4294,23 @@ apoyó en lo que ya había. Cuatro de esas piezas no servían como parecían:
   su diseño). Para esa tab, y sólo para ella (`TABS_CON_OBJETOS_EN_EL_NAVEGADOR`), la lista la manda su chat y la ruta
   la valida (`objetosDelNavegador`). Y las hojas del Dashboard son POR PERSONA: los objetos son las del informe de quien
   mira, y quien nunca guardó uno ve la pantalla sin páginas, así que su lista es [] y no las del inicial.
-- **Un `hastaMs` corto a `chatCheapCascade` no prueba NADA y devuelve '' como si no hubiera IA.** No arranca un intento
-  si al plazo le quedan menos de 15 s (`MIN_INTENTO_MS`). Para un plazo de segundos: `hastaMs = inicio + 15 s + la
-  ventana en que se puede ARRANCAR un intento`, cada intento acotado con `timeoutMs`, y el total cortado con una carrera.
-  El navegador espera más que la IA (12 s contra 7,5 s): la ruta antes lee la sesión, la vista y los objetos, y con
+- **⚠️ `chatCheapCascade` NO SIRVE para un plazo de segundos, y el arreglo que dejé primero acá estaba MAL.** No
+  arranca un intento si al plazo le quedan menos de 15 s (`MIN_INTENTO_MS`), así que con `hastaMs = ahora + 7 s` no
+  prueba nada. El «arreglo» fue `hastaMs = inicio + 15 s + una ventana de 3 s para arrancar`, y en producción la IA
+  **no corrió NUNCA**: antes del primer proveedor la cascada lee las cuotas del día de la base y prueba la clave de
+  Anthropic del negocio (1,3 s en ws9, que no tiene), y ese preámbulo (~3 s) se comía la ventana entera: «sin tiempo:
+  el plazo del pedido vence en 15 s», 0 filas de `mako-pedidos` en `anthropic_usage`, y el chat esperaba 5-9 s por
+  nada. Los tests no lo veían porque la IA era un doble. Lo cazó mirarlo con clics y la tabla de uso. Ahora: un bucle
+  propio (`probarEnOrden`, con un test de reloj falso), las keys del negocio en NUESTRO orden. Para cualquier plazo de
+  segundos, lo mismo: la cascada no.
+- **Y el orden importa más que la rotación: Groq primero.** Medido en ws9 con el prompt real: Groq
+  (`openai/gpt-oss-120b`) 1,4 s; Gemini `flash-latest` 10,9 s y `flash-lite-latest` 6,6 s (desde el 14/10 no acepta
+  pensar `minimal`, corre en `low`), y a veces «high demand». Con Gemini primero y 3 cuentas, su intento se comía el
+  plazo. Con el arreglo: 3-5,5 s de punta a punta, y etiqueta bien lo que las reglas solas pierden («quita el video
+  del hero y agéndame una reunión con Juan» → lo abierto + CRM).
+- **`MODELO_DOCS.openrouter` (`minimax/minimax-m3:free`) ya no existe** («This model is unavailable for free», medido
+  el 16/10): el respaldo de OpenRouter de toda la cascada barata está muerto. Vive en `lib/ai-cheap.ts`; no se tocó.
+- El navegador espera más que la IA (12 s contra 7,5 s): la ruta antes lee la sesión, la vista y los objetos, y con
   10 s contra 9 s el chat cortaba justo cuando la IA contestaba.
 - **Desde el 16/10, `redDePlataforma` es pedir Claude**: esa red prueba PRIMERO el crédito de Claude de la plataforma
   (la tercera puerta, más arriba). Una feature que no puede usar Claude no la pide: va su propia red con

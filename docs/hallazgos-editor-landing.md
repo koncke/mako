@@ -1894,3 +1894,28 @@ sus trampas: `docs/diseno-mako-pedidos.md` y `docs/hallazgos-ia.md` → «Los pe
   como una parte de lo abierto (`PARTES_DE_LO_ABIERTO` en `lib/mako-pedidos.ts`).
 - **La landing abierta nunca se borra desde el chat** («elimina esta landing»): se dice dónde está «⋯ › Eliminar». Otra
   landing va a la Papelera con confirmación (la misma acción que «Archivar» del Panel) y se restaura con «Deshacer».
+
+### Mirado con clics en producción (16/10/2026, ws9, la sesión de Martín, con la IA de verdad)
+
+En el chat del agente de tres landings de prueba (23 a 25, todas a la Papelera al terminar; ws9 quedó como estaba):
+- «Cambia el título del hero por algo más corto»: editó como siempre, sin burbujas. Interpretar costó 2,3 s.
+- «Mejora el título. Y luego y también quiero que me crees otra landing para mi otro producto»: la burbuja «¿Terminamos
+  esto y después creamos otra landing?» salió bien. «Después» → «Cuando quieras, la creamos.» con «Crear ahora». «Sí» con
+  el cambio sin aceptar → «Al terminar esto, la abro.», y al descartarlo se abrió Crear con IA con el pedido arriba.
+- «Borra la otra landing» con dos más: «¿Cuál: «…Webinar…» o «…Taller…»?», la más reciente primero; elegida, «¿Mando «…» a
+  la Papelera?», y «Sí» la archivó de verdad.
+- «Agéndame una reunión con Juan el viernes»: «Eso se hace en CRM.» con «Ir a CRM» → `/crm?ws=9`, en 1,3 s.
+
+Lo que encontró, además:
+- **La IA de los pedidos no corría nunca** (arreglado; el detalle en docs/hallazgos-ia.md): el mensaje mixto esperaba
+  5-9 s y salía con las reglas. Ahora 3-5,5 s y con la IA.
+- **La edición con IA del editor es lenta**: 44,5 s el primer cambio, 12,6 s otro, y uno se cortó a los 65 s («Tardó
+  demasiado. Vuelve a intentar.»). `landing-editor-ia` corre en Gemini `flash-latest`, que desde el 14/10 piensa en
+  `low` (no acepta `minimal`); en `anthropic_usage`, hasta 2.256 tokens de salida y un «reparar el JSON» detrás. No se
+  tocó: es del editor, no del chat. Groq entra (unos 3.900 tokens de entrada contra su techo de ~7.000) y midió 1,4 s
+  en los pedidos; probarlo ahí es lo siguiente.
+- **«Mi otro producto» no se resuelve**: Crear con IA armó el esquema sobre la oferta principal del negocio. Lo que
+  falta: que el pedido nuevo pregunte cuál, con los productos del Second Brain.
+- **«Crear ahora» se ve igual que las sugerencias** de abajo («Mejorar la escritura»…): un botón de una burbuja y un
+  atajo del panel no deberían parecerse.
+- **El aviso «Archivada» con «Deshacer» no se alcanzó a ver** (ya no estaba cuando se miró): sin verificar.
