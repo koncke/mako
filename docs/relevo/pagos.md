@@ -103,4 +103,4 @@ En este orden, de lo que más plata toca a lo que menos:
    Tu plan», propio de MaKo (Stripe al final del período, Mercado Pago en el acto, con código de baja por email); /reembolsos y
    /terminos remiten ahí. Cancelar corta la plata, NO el acceso (no
    existe el estado de suscripción por workspace): eso sigue a mano.
-8. Más grandes, con su propio diseño: precios en moneda local en el catálogo (`lib/productos.ts`), `crear_link_pago` en el «⚡ Acción» (área de Automations, `lib/editor-acciones.ts`), y los topes de `/api/pagar/email` fuera de la memoria (`lib/rate-limit.ts`).
+8. Más grandes, con su propio diseño: precios en moneda local en el catálogo (`lib/productos.ts`), `crear_link_pago` en el «⚡ Acción» (área de Automations, `lib/editor-acciones.ts`), y los topes de `/api/pagar/email` fuera de la memoria (`lib/rate-limit.ts`). Estrategia (15/10): las dos primeras NO, son producto que nadie pidió (la poda); la de los topes se revisó y se decidió que NO hace falta, con el porqué en docs/hallazgos-planes-y-cobro.md («Lo que contesta ANTES de gastar el intento…»).
