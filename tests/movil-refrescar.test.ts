@@ -27,7 +27,8 @@ const sinComentarios = (s: string) => s.replace(/^[ \t]*\/\/.*$/gm, '').replace(
 /** Las páginas que NO dibujan PantallaM, y por qué. */
 const EXCEPCIONES: Record<string, string> = {
   'app/m/page.tsx': 'sólo redirige al inicio: no dibuja nada',
-  'app/m/mako/page.tsx': 'el chat de MaKo: tirar hacia abajo es ver mensajes viejos, no refrescar',
+  'app/m/mako/page.tsx': 'sólo redirige al Second Brain (16/10/2026): no dibuja nada',
+  'app/m/second-brain/page.tsx': 'el chat de MaKo: tirar hacia abajo es ver mensajes viejos, no refrescar (el Mapa sí va en PantallaM)',
 };
 /** Las que montan PantallaM con `refrescable={false}`, y por qué. Hoy ninguna. */
 const APAGADO: Record<string, string> = {};

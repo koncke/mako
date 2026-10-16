@@ -301,4 +301,34 @@ export const BITACORA: Hito[] = [
       'lib/chat-mako-reglas.ts — el jefe y sus sub-chats',
     ],
   },
+  {
+    fecha: '16 oct', hora: '10:30', chat: 'Centro de Operaciones', sesion: 'local_428051c1-0369-4df2-ae6b-bcb42f63b64b', cuenta: 'claude3',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: '«Pregúntale a MaKo» es el Second Brain: la barra, las redirecciones y «Antes»',
+    puntos: [
+      'La entrada de la barra se llama «Second Brain» y lleva a /second-brain; la clave sigue siendo mako (de ella cuelgan el teléfono, la bandeja e Inbox).',
+      '/mako y /mako-doer redirigen; sus chats quedan en «Antes», de sólo lectura, con la regla de quién ve qué que tenía /mako.',
+      'La API de MaKo suma listar_chats_mako y hilo_chat_mako: MaKo puede leer otro chat de la misma persona.',
+    ],
+    archivos: [
+      'app/_components/nav.ts, Sidebar.tsx — la entrada',
+      'lib/chat-mako-indice.ts — «Antes» y los chats de la persona',
+      'lib/api-mako/areas/mako.def.ts, mako.run.ts — las dos lecturas',
+    ],
+  },
+  {
+    fecha: '16 oct', hora: '11:40', chat: 'Centro de Operaciones', sesion: 'local_428051c1-0369-4df2-ae6b-bcb42f63b64b', cuenta: 'claude3',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El Second Brain del teléfono es el chat con MaKo, con el Mapa aparte',
+    puntos: [
+      '/m/second-brain abre el chat con MaKo; el admin tiene «Mapa» arriba de la hoja «Tus chats», y el closer y el setter no.',
+      'El mapa de antes vive en /m/second-brain/mapa (en la computadora, /second-brain?panel=mapa).',
+      'En More hay una sola fila «Second Brain» por persona; /m/mako redirige.',
+    ],
+    archivos: [
+      'app/m/second-brain/page.tsx, mapa/page.tsx — el chat y el Mapa',
+      'lib/movil-rutas.ts — las filas y las rutas',
+      'app/m/mako/ChatMako.tsx — la fila «Mapa» en la hoja',
+    ],
+  },
 ];

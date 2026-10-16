@@ -15555,7 +15555,7 @@ curl -L \
 
 ## MaKo (pendientes, propuestas, chats) — `mako`
 
-Tab **Pregúntale a MaKo** (`/mako`). 6 lecturas · 0 acciones · 2 controles.
+Tab **Second Brain** (`/second-brain`). 6 lecturas · 0 acciones · 2 controles.
 
 ### `GET /api/v1/mako/pendientes` — Acciones pendientes de confirmar
 

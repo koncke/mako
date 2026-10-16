@@ -843,9 +843,9 @@ export const AREAS: AreaDev[] = [
   // ────────────────────────────────────────────────────────────── MaKo
   {
     slug: 'preguntale-a-mako', titulo: 'Preguntale a MaKo', familia: 'MaKo',
-    estado: 'listo', agente: true, verEnApp: '/mako',
+    estado: 'listo', agente: true, verEnApp: '/second-brain',
     alcance: 'El agente conversacional dentro de la app: chat general + la lista de TODAS las conversaciones (una por gráfico). Es capacidad global, no una tab más. NO es el chat por WhatsApp (eso es MaKo Doer).',
-    vive: ['app/mako/page.tsx', 'app/mako/MakoTab.tsx', 'app/api/mako/knowledge/route.ts', 'app/api/mako/prompts/route.ts', 'lib/mako-context.ts'],
+    vive: ['app/second-brain/page.tsx', 'app/second-brain/ChatSecondBrain.tsx', 'app/api/mako/chat/route.ts', 'app/mako/page.tsx', 'app/api/mako/knowledge/route.ts', 'app/api/mako/prompts/route.ts', 'lib/mako-context.ts'],
     proyectos: ['Feature: Preguntale a MaKo'],
   },
   {

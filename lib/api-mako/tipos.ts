@@ -81,7 +81,8 @@ export const AREA_INFO: Record<Area, { titulo: string; tab: string; ruta: string
   calendario: { titulo: 'Calendario', tab: 'Calendario', ruta: '/calendario' },
   // El Centro de Operaciones (15/10/2026): sólo la plataforma, sólo lecturas (operaciones.def.ts).
   operaciones: { titulo: 'Centro de Operaciones (pedidos a los chats de Claude)', tab: 'Centro de Operaciones', ruta: '/admin/operaciones' },
-  mako: { titulo: 'MaKo (pendientes, propuestas, chats)', tab: 'Pregúntale a MaKo', ruta: '/mako' },
+  // Desde el 16/10/2026 el chat con MaKo es el Second Brain (etapa 2 de docs/diseno-mako-ai-native.md).
+  mako: { titulo: 'MaKo (pendientes, propuestas, chats)', tab: 'Second Brain', ruta: '/second-brain' },
 };
 
 /** Por dónde puede entrar un pedido. Lo declara CADA operación, en positivo. */

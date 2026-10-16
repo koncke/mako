@@ -23,6 +23,33 @@ hay), `lib/cerebro-layout.ts` (dónde va cada uno), `lib/cerebro-modelo.ts` (la 
 
 ---
 
+## «Pregúntale a MaKo» es el Second Brain: la clave se queda, y lo de antes se lee (16/10/2026)
+
+Tanda 2 de la etapa 2 (docs/diseno-mako-ai-native.md).
+
+- **La entrada de la barra cambió de nombre, no de clave.** Se llama «Second Brain», lleva a `/second-brain` y su clave
+  sigue siendo `mako`. De esa clave cuelgan el chat del teléfono, la bandeja (`/mako/pendientes`), Inbox y la puerta
+  del chat (`puedeVerKey('mako')`): cambiarla los apagaba a todos, sin un error.
+- **Una entrada por persona.** Al admin que ya ve «Second Brain» en Analyze, el Sidebar no le dibuja la de abajo.
+- **El título de la pestaña ahora lleva la marca** («MaKo - Second Brain»): «Pregúntale a MaKo» ya la traía en el
+  nombre y por eso no la sumaba. No es un bug.
+- **«Antes»: los chats de /mako, de sólo lectura**, con SU regla de quién ve qué: el admin, los del workspace; los demás,
+  los suyos (lib/chat-mako-indice.ts, la regla de chart-insights). Son de un chat sin herramientas: no se continúan, se
+  sigue en uno nuevo. `/mako` y `/mako-doer` redirigen con `rutaConWs`.
+- **La API lee los chats de la persona sin que la persona sea un parámetro.** `listar_chats_mako` y `hilo_chat_mako`
+  (canal `app`) toman la conversación del turno de su clave de canal (`app:<id>`), y de ahí la base `mako-movil:<persona>`
+  de su `chart_key`. Un `id` de otra persona no existe. Así no hizo falta sumar la persona al `Ctx` de todas las
+  operaciones.
+
+**SIN HACER:**
+- Retirar `/api/mako-doer`: su única pantalla era `MakoDoerTab`, que se fue. `tests/mako-doer-plazo.test.ts` todavía
+  lo nombra.
+- ~~En el teléfono, la fila «Second Brain» (el chat) y la del Mapa son dos.~~ Hecho en la tanda 3: ver
+  [hallazgos-mobile.md](hallazgos-mobile.md), «El Second Brain del teléfono es el chat con MaKo».
+
+**Vive en:** `app/_components/nav.ts` (`MAKO_NAV`) · `app/_components/Sidebar.tsx` · `lib/chat-mako-indice.ts` ·
+`lib/api-mako/areas/mako.def.ts` · `app/mako/page.tsx`
+
 ## El Second Brain es un chat: dos puertas, y el Mapa sólo cuando se pide (16/10/2026)
 
 **El pedido.** Martín, por el coordinador: «Termina con todo, faltan mis pedidos del Second Brain»; la etapa 2 de

@@ -7,6 +7,34 @@ Corridas del 11/10/2026: la v1 (relevo de 7 agentes + 11 de implementación + 1 
 el diseño v2 a la tarde, y a la noche la implementación v2 (12 agentes + la integración) con el desvío
 de teléfonos PRENDIDO. Lo de la v2 está en su propia sección, más abajo.
 
+## El Second Brain del teléfono es el chat con MaKo; el Mapa, su propia página (16/10/2026)
+
+Tanda 3 de la etapa 2 (docs/diseno-mako-ai-native.md): como en escritorio, «Second Brain» es el chat con MaKo y el
+grafo es su «Mapa».
+
+- **Una ruta, dos filas, y nadie ve las dos.** La fila de Analyze (key `second-brain`, el admin) y la de abajo (key
+  `mako`, closer y setter) llevan las dos a `/m/second-brain`, y `gruposMas` saca la de abajo cuando se ve la de
+  Analyze. Sin eso el admin tenía dos «Second Brain» en More. El test de «ninguna ruta repetida» nombra esa
+  excepción y nada más.
+- **El Mapa no podía ser un estado del chat**, por dos razones. `/m/second-brain` es una pantalla de TRABAJO (sin
+  barra de abajo), y el mapa no. Además, una página es una cosa para el refrescar (tests/movil-refrescar). Por eso es
+  `/m/second-brain/mapa`, con la key `second-brain`. En escritorio sigue siendo `/second-brain?panel=mapa`, y
+  `rutaMovil`/`rutaEscritorio` traducen en los dos sentidos.
+- **La trampa: un `?area=` de otra pantalla cae en el CHAT.** Los links de `rutaSeccion` no saben del panel, y
+  `rutaMovil('/second-brain?area=voz')` da `/m/second-brain?area=voz`. La página lo manda al Mapa sólo si es del
+  admin; a un closer le queda el chat, sin el área.
+- **El chat entra con la key `mako`, no con `second-brain`.** Con la de la tab, closer y setter se quedaban sin su
+  chat del teléfono. Lo prueba el test de esa pantalla, roto así: 73 / 3.
+- `/m/mako` redirige a `/m/second-brain`, y `/mako` y `/mako-doer` llevan ahí desde un teléfono.
+
+**SIN HACER:**
+- El hilo del teléfono no dibuja las listas de Markdown: los «- » salen como texto. El de escritorio sí las dibuja
+  (`app/_chat/HiloMako.tsx`). El teléfono sigue con su pieza (`app/m/mako/ChatMako.tsx`) y todavía no usa la única.
+
+**Vive en:** `lib/movil-rutas.ts` (`SECCIONES_MAS`, `gruposMas`, `rutaMovil`, `rutaEscritorio`) ·
+`app/m/second-brain/page.tsx` · `app/m/second-brain/mapa/page.tsx` · `app/m/_ui/cabecera.ts` (`esTrabajo`) ·
+tests/movil-mas-secciones.test.ts (las siete roturas)
+
 ## Las pantallas de More que faltaban (15/10/2026)
 
 Martín (14/10): «Implementá TODAS las tabs que construimos, todo», con la regla del v3: «en el celular todo se ve

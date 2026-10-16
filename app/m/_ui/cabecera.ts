@@ -67,7 +67,8 @@ const CHAT_LEAD = /^\/m\/crm\/([^/]+)\/chat$/;
 export function esTrabajo(pathname: string | null | undefined): boolean {
   const p = limpia(pathname);
   // El mazo de la Ticketera vive en /m/operaciones?ticketera= desde el 16/10/2026: su <CabeceraM trabajo> saca la barra.
-  return dentro(p, '/m/mako') || /^\/m\/(video|landing)\/[^/]+/.test(p) || CHAT_LEAD.test(p) || p === RUTA_CONFIGURAR
+  // El Second Brain del teléfono es el chat con MaKo desde el 16/10/2026 (/m/mako redirige ahí).
+  return dentro(p, '/m/mako') || dentro(p, '/m/second-brain') || /^\/m\/(video|landing)\/[^/]+/.test(p) || CHAT_LEAD.test(p) || p === RUTA_CONFIGURAR
     // Offer (15/10/2026): en escritorio la tab ES un chat con MaKo por funnel, y en el prototipo v3 su
     // pantalla es la del chat de MaKo (el funnel arriba, el hilo y el composer en la franja del pulgar),
     // sin título grande. Como el chat de MaKo: de trabajo desde el HTML del server.

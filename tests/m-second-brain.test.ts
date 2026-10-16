@@ -233,7 +233,10 @@ test('subir al Archivero: URL firmada → el binario a storage → procesar, con
 
 test('la pantalla: guard de su key, sin ?ws=, clases con el nombre entero, tokens e íconos que existen, sin voseo', () => {
   const pagina = leer(`${CARPETA}/page.tsx`);
-  assert.ok(pagina.includes("requireMovil({ navKey: 'second-brain' })"));
+  // Desde el 16/10/2026 la página es el chat con MaKo (la clave de MaKo) y el Mapa es del admin de la tab, con la puerta
+  // de sus rutas (app/m/second-brain/page.tsx).
+  assert.ok(pagina.includes("requireMovil({ navKey: 'mako' })"));
+  assert.ok(pagina.includes("esAdminDeTab('second-brain')"));
   assert.doesNotMatch(pagina, /\bws\??:|\.ws\b|get\('ws'\)/, 'el workspace sale del request, nunca de ?ws=');
 
   const css = leer(`${CARPETA}/second-brain.css`).replace(/\/\*[\s\S]*?\*\//g, '');

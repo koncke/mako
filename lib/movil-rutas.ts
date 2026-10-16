@@ -151,7 +151,9 @@ export const SECCIONES_MAS: readonly DefSeccionMas[] = [
   { id: 'cs', label: 'Clientes', href: '/m/cs', icon: 'users', navKey: 'customer-success', familia: 'customer' },
   { id: 'curso', label: 'Curso', href: '/m/curso', icon: 'video', navKey: 'cs-curso', familia: 'customer' },
   { id: 'comunidad', label: 'Comunidad', href: '/m/comunidad', icon: 'comunidad', navKey: 'cs-comunidad', familia: 'customer' },
-  { id: 'mako', label: 'Pregúntale a MaKo', href: '/m/mako', icon: 'mako', navKey: 'mako', familia: null },
+  // «Second Brain» desde el 16/10/2026, como la barra de escritorio (app/_components/nav.ts → MAKO_NAV).
+  // Lleva al MISMO lugar que la fila de Analyze: el chat con MaKo (tanda 3, 16/10/2026). La ve quien no ve aquélla.
+  { id: 'mako', label: 'Second Brain', href: '/m/second-brain', icon: 'cerebro', navKey: 'mako', familia: null },
 ];
 
 /** El nombre de la PANTALLA de una sección (la cabecera, su «volver» y la pestaña): `titulo` o, si no, el de la fila. */
@@ -258,7 +260,10 @@ export type GrupoMas = { familia: FamiliaMas | null; titulo: string | null; secc
  */
 export function gruposMas(rol: RolMovil, capa: string | null | undefined): GrupoMas[] {
   const enBarra = new Set<string>(barraMovil(rol, capa).map((b) => b.id));
-  const lista = seccionesMasVisibles(rol, capa).filter((s) => !enBarra.has(s.id));
+  const visibles = seccionesMasVisibles(rol, capa).filter((s) => !enBarra.has(s.id));
+  // «Second Brain» una sola vez (16/10/2026): la fila de MaKo lleva al mismo lugar que la de Analyze, y sólo la ve quien
+  // no ve aquélla — como la entrada de abajo de la barra de escritorio (app/_components/Sidebar.tsx).
+  const lista = visibles.some((s) => s.id === 'second-brain') ? visibles.filter((s) => s.id !== 'mako') : visibles;
   const grupos: GrupoMas[] = [];
   for (const f of FAMILIAS_MAS) {
     const xs = lista.filter((s) => s.familia === f.id);
@@ -352,7 +357,7 @@ export function rutaMovil(href: string | null | undefined): string | null {
   }
   if (p === '/general' || p === '/focus' || p === '/inicio') return HOME_MOVIL;
   if (p === '/mako/pendientes' || p.startsWith('/mako/revisar') || p.startsWith('/crm/revisar') || p.startsWith('/plan/revisar')) return '/m/inbox';
-  if (p === '/mako' || p === '/mako-doer') return '/m/mako';
+  if (p === '/mako' || p === '/mako-doer') return '/m/second-brain';
   // La Ticketera del super admin vive ADENTRO del Centro desde el 16/10/2026 (`?ticketera=`): sus rutas de antes
   // (y /admin/runway, la más vieja) van directo a la Ticketera del Centro en el teléfono, con la vista que eran.
   if (p === '/tickets/decisiones' || p === '/admin/runway') return '/m/operaciones?ticketera=tarjetas';
@@ -400,7 +405,12 @@ export function rutaMovil(href: string | null | undefined): string | null {
   // Las siete del 15/10/2026, cada una con lo que su pantalla de escritorio lee de la query. Ninguna
   // tiene subpantallas en el teléfono (todavía): una subruta de escritorio cae en la sección.
   if (dentro(p, '/calendario')) return aSeccion('calendario', q);
-  if (dentro(p, '/second-brain')) return aSeccion('second-brain', q);
+  // El Mapa de escritorio (`?panel=mapa`) es su propia ruta en el teléfono (16/10/2026): /m/second-brain es el chat.
+  if (dentro(p, '/second-brain')) {
+    if (q.get('panel') !== 'mapa') return aSeccion('second-brain', q);
+    const conQuery = aSeccion('second-brain', q);
+    return `/m/second-brain/mapa${conQuery.slice('/m/second-brain'.length)}`;
+  }
   // Experiments, y /analisis, que en escritorio redirige a su cuarta pestaña con la query entera y `tab`
   // al final (app/analisis/page.tsx). /analisis/trimestre NO: es el informe congelado que se mandó por
   // WhatsApp (lib/informe-congelado.ts), no tiene pantalla en el teléfono, y mandarlo a Experiments era
@@ -499,7 +509,7 @@ export function rutaEscritorio(href: string): string {
   else if (p === '/m/inbox') destino = '/mako/pendientes';
   else if (p === '/m/plan') destino = '/plan';
   else if (p === RUTA_MAS) destino = '/mas';
-  else if (p === '/m/mako') destino = '/mako';
+  else if (p === '/m/mako') destino = '/second-brain';
   else if (p === '/m/decisiones') { destino = '/admin/operaciones'; q.set('ticketera', 'lista'); }
   else if (p === '/m/tickets/decisiones') { destino = '/admin/operaciones'; q.set('ticketera', 'tarjetas'); }
   else if (p === '/m/operaciones') destino = '/admin/operaciones';
@@ -516,6 +526,7 @@ export function rutaEscritorio(href: string): string {
   else if (p === '/m/ads') destino = '/ads-manager';
   // Las siete del 15/10/2026 (la query viaja tal cual: es la que `QUERY_DE_SECCION` trajo).
   else if (p === '/m/calendario') destino = '/calendario';
+  else if (p === '/m/second-brain/mapa') { destino = '/second-brain'; q.set('panel', 'mapa'); }
   else if (p === '/m/second-brain') destino = '/second-brain';
   else if (p === '/m/experimentos') destino = '/experimentos';
   else if (p === '/m/offer') destino = '/offer';
