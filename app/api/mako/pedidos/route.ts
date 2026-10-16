@@ -31,11 +31,12 @@ import { esAccion, esLectura, type Area, type Ctx, type OperacionDef, type Rol }
 import { listar as listarLandings } from '@/lib/editor-landing/server';
 import { veEditorImagen } from '@/lib/image-editor/acceso';
 import { listarDisenos } from '@/lib/image-editor/server';
-import { leerTablero } from '@/lib/graficos-tablero';
+import { leerInformeGeneral, leerTablero } from '@/lib/graficos-tablero';
 import { hojasVisibles } from '@/lib/graficos-catalogo';
 import { interpretarMensaje } from '@/lib/mako-pedidos-ia';
-import { TABS_CON_OBJETOS_EN_EL_NAVEGADOR, objetosDelNavegador } from '@/lib/mako-pedidos';
-import type { ContextoPedidos, ObjetoChat, OperacionChat, OrdenarOperaciones } from '@/lib/mako-pedidos';
+import { TABS_CON_OBJETOS_EN_EL_NAVEGADOR, objetosDelNavegador, productoDelPedido } from '@/lib/mako-pedidos';
+import type { ContextoPedidos, ObjetoChat, OperacionChat, OrdenarOperaciones, PedidoResuelto } from '@/lib/mako-pedidos';
+import { listProductos } from '@/lib/productos';
 
 export const dynamic = 'force-dynamic';
 // La IA tiene 7,5 s de plazo (lib/mako-pedidos-ia.ts); el resto es leer la vista y los objetos.
@@ -85,9 +86,36 @@ async function objetosDeTab(tab: Area, rol: Rol, ws: number): Promise<ObjetoChat
     }
     return r.docs.filter((d) => !d.papelera).map((d) => ({ id: String(d.id), nombre: d.titulo, tocadoAt: d.actualizado }));
   }
+  if (tab === 'general') {
+    // Las HOJAS de General (16/10/2026, el chat «Editar con MaKo» de su hoja abierta): las del informe de General de
+    // QUIEN MIRA (por persona, `general.informe.<sub>`), con la puerta de su pantalla (app/general/page.tsx,
+    // `requireRolWs([])` = el admin) y la tab en la capa. Quien nunca armó su General ve la pantalla en blanco: [].
+    if (rol !== 'admin' || !tabEnCapa('general', await getCapaActual().catch(() => null))) return [];
+    const l = await leerInformeGeneral();
+    if (l.estado !== 'propio') return [];
+    return hojasVisibles(l.tablero).map((h) => ({ id: h.id, nombre: h.nombre }));
+  }
   // ENGANCHE: 'chatbot' (Automations) devuelve [] hasta que su chat se enganche. Cuando lo haga, va acá su función
   // —las automatizaciones del negocio sin las archivadas, la última tocada arriba— con la puerta de su página.
   return [];
+}
+
+/**
+ * «Créame otra landing para mi otro producto»: a cada pedido NUEVO se le dice con qué producto del negocio
+ * (`productoDelPedido`, lib/mako-pedidos.ts). Los productos se leen SÓLO si hay un pedido nuevo (no en cada mensaje),
+ * los activos y en el orden del catálogo, y sólo para el admin (el catálogo es del CRM y de Second Brain). Si la
+ * lectura falla, el pedido sigue como siempre.
+ */
+async function conProductos(pedidos: PedidoResuelto[], rol: Rol): Promise<PedidoResuelto[]> {
+  if (rol !== 'admin' || !pedidos.some((p) => p.sobre === 'nuevo')) return pedidos;
+  const productos: ObjetoChat[] = await listProductos(true)
+    .then((ps) => ps.map((p) => ({ id: String(p.id), nombre: p.nombre })))
+    .catch((e) => { console.warn(`[api:mako/pedidos] no pude leer los productos: ${msg(e)}`); return []; });
+  return pedidos.map((p) => {
+    if (p.sobre !== 'nuevo') return p;
+    const producto = productoDelPedido(p.texto, productos);
+    return producto ? { ...p, producto } : p;
+  });
 }
 
 const aOperacion = (d: OperacionDef): OperacionChat => ({
@@ -133,7 +161,7 @@ export async function POST(req: Request) {
 
     const ctx: ContextoPedidos = { tab, actual, objetos, operaciones, ws, ordenar };
     const r = await interpretarMensaje(texto, ctx);
-    return Response.json({ ok: true, ...r });
+    return Response.json({ ok: true, ...r, pedidos: await conProductos(r.pedidos, rol) });
   } catch (e) {
     console.error(`[api:mako/pedidos] ${msg(e)}`);
     // Sin interpretación, el chat sigue por su camino de siempre con el mensaje entero.

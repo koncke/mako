@@ -22,7 +22,7 @@ import {
 } from '@/lib/offer-marco';
 import { TITULO_SUELTAS, titulosUnicos } from '@/app/offer/arbol';
 import {
-  GRUPOS_PIEZAS, VARIABLE_LABEL, contarSabidas, controlFinalDe, esOpcionArmar, estadoDePieza, fechaCorta, linksDe, piezasAgrupadas, reemplaza,
+  GRUPOS_PIEZAS, VARIABLE_LABEL, contarSabidas, controlFinalDe, esOpcionArmar, esOpcionNinguna, estadoDePieza, fechaCorta, linksDe, piezasAgrupadas, reemplaza,
   textoDeEstado, tiene, tonoDeNota, type EstadoPieza, type TonoNota,
 } from '@/app/offer/ayudas';
 
@@ -61,6 +61,7 @@ export const ROTULOS = {
   paraSubirla: 'Para subirla: ', // Conclusion.tsx (lo que sube la nota de una dimensión)
   probarlo: 'Probarlo', // Conclusion.tsx (un cambio, a Experiments)
   noContesto: 'MaKo no contestó tu último mensaje.', // ChatOffer.tsx
+  marcarVarias: 'Puedes marcar varias', // ChatOffer.tsx (una pregunta con `varias`)
   fotoVideo: 'Foto o video', // ChatOffer.tsx (el menú del clip)
   documento: 'Documento', // ChatOffer.tsx
   enviarAudio: 'Enviar audio', // ChatOffer.tsx (la nota que no salió)
@@ -101,6 +102,7 @@ export const DONDE_VIVE: Record<keyof typeof ROTULOS, readonly string[]> = {
   paraSubirla: ['app/offer/Conclusion.tsx'],
   probarlo: ['app/offer/Conclusion.tsx'],
   noContesto: ['app/offer/ChatOffer.tsx'],
+  marcarVarias: ['app/offer/ChatOffer.tsx'],
   fotoVideo: ['app/offer/ChatOffer.tsx'],
   documento: ['app/offer/ChatOffer.tsx'],
   enviarAudio: ['app/offer/ChatOffer.tsx'],
@@ -205,21 +207,36 @@ export const ESTADO_PIEZA: Record<EstadoPieza, string> = { vacia: 'falta', negoc
 
 // ── El chat ──────────────────────────────────────────────────────────────────
 
-export type OpcionRapida = { t: string; idx: number; armar: boolean };
+/** `marcable` = con un toque se marca y se desmarca (una pregunta de varias), en vez de mandarse sola. */
+export type OpcionRapida = { t: string; idx: number; armar: boolean; marcable: boolean };
 
 /**
  * Las respuestas rápidas: cuelgan SÓLO del último mensaje y sólo si es de MaKo (las de una pregunta ya
  * contestada no contestan nada). Se guarda el índice ORIGINAL: en una pregunta del diagnóstico la opción N es
  * la respuesta N. `armar` = la que arma la oferta (va en dorado): nunca en una pregunta del diagnóstico, y
  * sólo si ya se puede concluir. Lo mismo que ChatOffer.tsx.
+ *
+ * Con `varias` en el mensaje (16/10/2026: «¿qué otras ofertas tienes?»), cada opción se marca y «Enviar (N)» las
+ * manda juntas; la de armar y la que dice que no hay ninguna («No, sólo ésta») siguen saliendo con un toque. Nunca
+ * en una pregunta del diagnóstico: ahí la opción N es la respuesta N, y dos juntas no son ninguna. Lo mismo que
+ * `varias`/`marcable` de ChatOffer.tsx.
  */
 export function opcionesRapidas(s: Pick<OfferSesionVista, 'mensajes' | 'puedeConcluir'>, hayPendiente: boolean, opcionArmar: string, opcionActualizar: string): OpcionRapida[] {
   const ultimo = s.mensajes[s.mensajes.length - 1];
   if (hayPendiente || ultimo?.de !== 'mako') return [];
+  const varias = ultimo.varias === true && !ultimo.pregunta;
   return (ultimo.opciones ?? [])
     .map((t, idx) => ({ t: (t ?? '').trim(), idx }))
     .filter((o) => o.t)
-    .map((o) => ({ ...o, armar: !ultimo.pregunta && (esOpcionArmar(o.t, opcionArmar) || esOpcionArmar(o.t, opcionActualizar)) && !!s.puedeConcluir }));
+    .map((o) => {
+      const armar = !ultimo.pregunta && (esOpcionArmar(o.t, opcionArmar) || esOpcionArmar(o.t, opcionActualizar)) && !!s.puedeConcluir;
+      return { ...o, armar, marcable: varias && !armar && !esOpcionNinguna(o.t) };
+    });
+}
+
+/** Marcar o desmarcar una opción: las marcadas quedan en el orden en que están, no en el que se tocaron (escritorio). */
+export function alternarMarcada(marcadas: readonly number[], idx: number): number[] {
+  return marcadas.includes(idx) ? marcadas.filter((i) => i !== idx) : [...marcadas, idx].sort((a, b) => a - b);
 }
 
 /**

@@ -173,6 +173,62 @@ test('«Sí» con el cambio de lo abierto sin terminar ESPERA, y abre la creaci�
   assert.match(efecto, /void abrirCreacion\(m\.id, r\.efecto\.pedido\);/);
 });
 
+// Visto con clics el 16/10/2026: «Crear ahora» (celeste, `secundario`) se leía como una sugerencia más del panel
+// («Mejorar la escritura»…, `gma-ag-pildora`, también celeste). Roturas (sobre 17 tests): «Crear ahora» otra vez en
+// celeste tras «Después» → no compila (`secundario` ya no es variante: probado con el tsc acotado); sin el «+» → 16 / 1;
+// los links del panel en `secundario` → 16 / 1.
+test('los botones de una burbuja no se parecen a las sugerencias: «Crear ahora» azul con «+», lo demás en contorno', async () => {
+  const [b] = burbujasDe(interpretacionDe(await deRuta(E2, [ABIERTA]), E2), ABIERTA.id);
+  const despues = pulsar(b, 'despues', ABIERTA.id).burbuja;
+  const directa = burbujasDe(interpretacionDe(await deRuta('Créame otra landing', [ABIERTA]), 'Créame otra landing'), ABIERTA.id)[0];
+  for (const x of [despues, directa]) {
+    const [crear] = vistaDeBurbuja(x).botones;
+    assert.equal(crear.id, 'crear-ahora');
+    assert.equal(crear.v, 'primario');
+    assert.equal(crear.icono, 'mas');
+  }
+  const elegir = burbujasDe(interpretacionDe(await deRuta('Borra la otra landing', [ABIERTA, VENTAS, WEBINAR]), 'Borra la otra landing'), ABIERTA.id)[0];
+  assert.equal(elegir.tipo, 'elegir');
+  assert.deepEqual([...new Set(vistaDeBurbuja(elegir).botones.map((x) => x.v))], ['contorno']);
+  const panel = sinComentarios(leer('app/web-generator/editor/paneles/PanelAgente.tsx'));
+  const burbuja = cuerpoDe(panel, '<div className="gma-ag-acciones">', '</div>');
+  assert.doesNotMatch(burbuja, /data-v="secundario"/);
+  assert.match(burbuja, /b\.icono && <Ico n=\{b\.icono\}/);
+});
+
+// «Para mi otro producto»: primero cuál producto, después la creación de siempre con el producto en el pedido.
+// Roturas (sobre 18 tests): crear sin el producto en el pedido → 17 / 1; perder la propuesta al elegir → 17 / 1;
+// un producto roto tira la respuesta entera (el mensaje no edita) → 17 / 1.
+test('«para mi otro producto»: la burbuja pregunta cuál, y elegido, crea con el producto escrito', async () => {
+  const P1 = { id: '1', nombre: 'Curso de inversión' };
+  const P2 = { id: '2', nombre: 'Mentoría 1 a 1' };
+  const base = await deRuta(E2, [ABIERTA]);
+  const conPregunta = { ...base, pedidos: base.pedidos.map((p) => (p.sobre === 'nuevo' ? { ...p, producto: { objeto: null, candidatos: [P1, P2], pregunta: '¿Para cuál producto?' } } : p)) };
+  const [b] = burbujasDe(interpretacionDe(conPregunta, E2), ABIERTA.id);
+  assert.equal(b.tipo, 'producto');
+  const v = vistaDeBurbuja(b);
+  assert.equal(v.texto, '¿Para cuál producto?');
+  assert.deepEqual(v.botones.map((x) => [x.texto, x.v]), [['Curso de inversión', 'contorno'], ['Mentoría 1 a 1', 'contorno']]);
+  const r = pulsar(b, 'producto:2', ABIERTA.id);
+  assert.equal(r.efecto?.tipo, 'agregar');
+  const crear = r.efecto?.tipo === 'agregar' ? r.efecto.burbuja : null;
+  assert.ok(crear && crear.tipo === 'crear');
+  if (!crear || crear.tipo !== 'crear') return;
+  assert.match(crear.pedido, /^quiero que me crees otra landing para mi otro producto\. Es para el producto «Mentoría 1 a 1»\.$/);
+  assert.match(crear.pregunta ?? '', /^¿Terminamos esto y después .*otra landing/, 'la propuesta sigue: lo de la landing abierta va primero');
+  assert.equal(pulsar(r.burbuja, 'producto:1', ABIERTA.id).efecto, null, 'elegido uno, los otros quedan apagados');
+  // Con el producto sabido, crea directo con él.
+  const sabido = { ...base, pedidos: base.pedidos.map((p) => (p.sobre === 'nuevo' ? { ...p, producto: { objeto: P1, candidatos: [], pregunta: null } } : p)) };
+  const [d] = burbujasDe(interpretacionDe(sabido, E2), ABIERTA.id);
+  assert.ok(d.tipo === 'crear' && /Es para el producto «Curso de inversión»\.$/.test(d.pedido));
+  // Un producto roto no tira la respuesta: se crea sin él y lo de la landing abierta sigue a «editar».
+  const roto = { ...base, pedidos: base.pedidos.map((p) => (p.sobre === 'nuevo' ? { ...p, producto: { objeto: 7 } } : p)) };
+  const i = interpretacionDe(roto, E2);
+  assert.match(textoActual(i) ?? '', /^Feedback sobre lo actual/);
+  const [c] = burbujasDe(i, ABIERTA.id);
+  assert.ok(c.tipo === 'crear' && !/Es para el producto/.test(c.pedido));
+});
+
 test('«Después» deja la burbuja con «Crear ahora», y «Crear ahora» abre la creación UNA vez', async () => {
   const [b] = burbujasDe(interpretacionDe(await deRuta(E2, [ABIERTA]), E2), ABIERTA.id);
   const despues = pulsar(b, 'despues', ABIERTA.id);

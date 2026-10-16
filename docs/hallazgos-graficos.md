@@ -1071,6 +1071,16 @@ títulos y bloques, con su Deshacer. Lo que no se ve en el código:
   el registro dieron verde; lo cazó el tsc acotado del registro. Al registrar un prompt, ese archivo va en el tsc.
 - **El CSS del panel lateral (`.an`) vivía adentro del render del AI Analyst**: un segundo panel en el mismo lugar no lo
   tenía. Se exporta (`CSS_PANEL_LATERAL`), y abrir un panel cierra el otro.
+- **Los pedidos sueltos (16/10, después):** el panel le pregunta a `/api/mako/pedidos` ANTES de editar
+  (`app/dashboard/pedidos-hoja.ts`, el contrato en docs/diseno-mako-pedidos.md). Lo que no se ve:
+  - **«Sí» a «¿Terminamos esto y después…?» crea en el acto**, al revés que en el Web Generator: cuando aparece la
+    burbuja, el cambio de la hoja abierta ya está aplicado (con su Deshacer), así que no hay nada a medias que esperar.
+  - **La lista de hojas de General va por la puerta del GUARDADO, no por la de la página.** `/general` deja entrar a todo
+    rol con la tab (`requireRolWs([], { nav: 'general' })`), pero guardar pide admin (`app/api/graficos/route.ts`). Si un
+    día un no-admin edita su General, `objetosDeTab` de `general` se abre junto con ese guardado.
+  - ⚠️ **El `tema` del arnés es el de la HOJA, no el claro/oscuro de la app.** Una captura con `nord-oscuro` salió
+    idéntica a la clara, y eso se lee como «el oscuro está mirado». El panel sigue al oscuro de la app por sus tokens
+    (`--surface`, `--ink`, `--border-strong`, `--primary`), y eso se comprueba leyendo el CSS, no con ese parámetro.
 
 **Probado con la IA de verdad** (16/10/2026, después del run 36, la sesión de Martín en el ws9, sin escribir nada: la hoja
 la dio `/api/graficos/plantilla` y se la mandó a `/api/graficos/editar`, que no guardan):
@@ -1088,6 +1098,9 @@ la dio `/api/graficos/plantilla` y se la mandó a `/api/graficos/editar`, que no
   Contestan Gemini y OpenRouter.
 - **No edita lo de adentro de un pop-up** ni las opciones de un bloque de General (eso sigue en su panel). Y el teléfono
   (`/m/dashboard`) no tiene el panel.
+- **Los pedidos sueltos no se probaron contra la ruta de verdad**: las reglas reales con hojas de prueba en el test, y
+  las burbujas en el arnés (modo `editar`, caso `editar-pedidos`). La ruta sale en el run 43, y después hay que probarla
+  en el ws9.
 *16/10/2026, claude3 (chat Dashboard).*
 
 ## Lo que quedó sin hacer

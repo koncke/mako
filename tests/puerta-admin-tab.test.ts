@@ -99,6 +99,8 @@ test('la tab que pide cada ruta es la misma que pide su página (escritorio y te
   for (const { nav, pagina, puerta } of AREAS) {
     assert.ok(fuente(pagina).includes(puerta), `${pagina} ya no pide la tab '${nav}': la ruta y la página dejaron de cerrar lo mismo`);
     const movil = pagina.replace(/^app\//, 'app/m/');
-    assert.ok(fuente(movil).includes(`requireMovil({ navKey: '${nav}' })`), `${movil} ya no pide la tab '${nav}'`);
+    // El Second Brain del teléfono también es el chat con MaKo (16/10/2026): lo del admin de la tab es su Mapa.
+    const guardaMovil = nav === 'second-brain' ? puerta : `requireMovil({ navKey: '${nav}' })`;
+    assert.ok(fuente(movil).includes(guardaMovil), `${movil} ya no pide la tab '${nav}'`);
   }
 });

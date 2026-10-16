@@ -367,8 +367,44 @@ que el test caza). **La galería entera se ordena una vez en el servicio** (`ser
 - La mitad de las 10 de Doory no dice nada de cómo vende un negocio (frase, inversores, concierto, boda, currículum,
   YouTube): van `{}` (`mako/plantillas-etiquetas.ts`), y a quien vende por llamada no se le sugiere ninguna.
 
-## Lo que quedó SIN hacer (con el archivo donde vive)
+## El chat «MaKo IA» (16/10): lo que no se ve en el código
 
+Pedido de Martín por el Cerebro: «implementes este chat en todas las tabs… quiero que la app sea AI NATIVE». Es el chat
+del Video Editor en el editor de imágenes (`lib/image-editor/chat/`, `app/image-editor/mako/chat/`, ruta
+`/api/image-editor/ia`, hilo en `image_editor_chats`, mig 0303; test `tests/image-editor-chat.test.ts`, 40 roturas
+cazadas). Lo que costó:
+
+- **Las refs salen del HASH DEL ID, no de la posición** (el Video Editor numera `v1`, `t2`). Con la posición, agregar
+  o borrar un elemento corre las refs de los demás y una propuesta de hace un rato apunta a otro. Con el hash no se
+  corren; un choque alarga la que viene después en orden de id, así que sí PUEDE cambiar si entra un id que ordena
+  antes y choca: por eso la propuesta guarda sus pares ref → id y no los recalcula.
+- **Fabric guarda el origen donde quiere**: el texto de la fábrica de Doory está al CENTRO, una forma también, lo que
+  arma el chat arriba a la izquierda. La IA ve y pide la esquina de arriba a la izquierda con la escala aplicada
+  (`cajaDe`/`ponerCaja`); girar corre el origen para que el centro quede quieto.
+- **Una fuente que el editor no tiene no da error: cae a la del sistema EN SILENCIO.** La IA nombra fuentes que no
+  están en el catálogo; se revisan contra `FUENTES` y las que el diseño ya usa, y se descartan con su motivo. Y se
+  CARGAN antes de aplicar (`editor.fonts.load`): el motor mide el texto con la que esté cargada y la caja queda corta.
+- **«Restaurar» no es volver a poner el documento de antes**: eso es OTRO paso de deshacer (y con co-edición, un
+  cambio local más). Es `editor.undo()`, y sólo si `state.docVersion` es la de justo después de aplicar: cualquier
+  commit la sube (una edición, un undo, un documento remoto), así que igual = el paso de arriba es el nuestro.
+- **El caso de las mayúsculas es del motor** (`text/case.ts`): `caseSource` vale sólo si aplicarle el caso da el
+  `text` (`toggleCase`), y «ninguno» SACA `textCase` (no deja `'none'`). Se copió en `aplicar.ts` porque el server
+  no puede importar `_doory` (test 4 de `image-editor-integracion`): si el motor cambia, se copia de nuevo. Lo mismo
+  los valores de lo nuevo (`POR_DEFECTO`, de `objects/factories.ts`).
+- **Toda ruta de `/api/image-editor` arranca con `const p = await puerta(); if (p instanceof Response) return p;`
+  LITERAL** (test 5 de `image-editor-nube`): envolver la puerta en un helper que además lee la persona lo rompe.
+- **El botón redondo del riel no alcanza**: debajo de 1024 px el riel no se dibuja y las pestañas van en la tira de
+  abajo, que sólo lista `rail: true`. El chat no es pestaña, así que se suma al final de la tira (`CompactTools`).
+
+
+- **El chat «MaKo IA», sin mirar en el navegador** (ws9): abrirlo del riel y de la tira, pedir, aceptar con una fuente
+  nueva, «Restaurar», y que el hilo vuelva al recargar (`app/image-editor/mako/chat/PanelMakoIA.tsx`). La migración
+  0303 la aplica el Cerebro; sin ella el chat anda y no guarda.
+- **El chat en la API de MaKo** (tanda 2: sus operaciones que PROPONEN, con su tabla de propuestas) y **«entender el
+  pedido»** (tanda 3: `/api/mako/pedidos` con `tab: 'imagen'` antes de la IA, como `app/video-editor/_opencut/chat/pedidos.ts`):
+  sin hacer, quedaron para después del 90 % semanal de claude3. Los objetos del área `imagen` ya están en el server.
+- **Lo que el chat todavía no hace** (`NO_SE_PUEDE_CHAT_IMAGEN` de `lib/image-editor/chat/catalogo.ts`): fotos e íconos,
+  imágenes con IA, quitar fondo, recortar, degradados, animar, agrupar, redimensionar, plantillas.
 - **«Sugerido» en el panel de plantillas, sin mirar en el navegador** (ws9, con un funnel declarado): el orden, el
   texto al lado del nombre y el `title` con el porqué (`_doory/editor/panels/TemplatesPanel.tsx`).
 

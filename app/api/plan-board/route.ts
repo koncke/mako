@@ -4,7 +4,7 @@
 // GET  → { tareas, proyectos, vacio }
 // POST { action: 'crear-tarea'|'guardar-tarea'|'borrar-tarea'
 //               |'crear-proyecto'|'guardar-proyecto'|'borrar-proyecto'
-//               |'migrar', ... }
+//               |'migrar'|'repriorizar'|'repriorizar-estado', ... }
 // Guardado a SUPER-ADMIN: es el board de la agencia (OWNER_WS lo fuerza la capa).
 // =============================================================================
 
@@ -13,13 +13,15 @@ import { getSesionAdmin } from '@/lib/auth';
 import {
   listPlanBoard, planVacio, crearPlanTarea, guardarPlanTarea, borrarPlanTarea,
   crearPlanProyecto, guardarPlanProyecto, borrarPlanProyecto, guardarPlanBulk,
-  priorizarNuevasOwner, ampliarTareasPlanOwner,
+  priorizarNuevasOwner, ampliarTareasPlanOwner, moverPlanTarea,
   agregarDependencia, borrarDependencia, listDependencias,
 } from '@/lib/plan-board';
-import type { BoardTask, Label, Fuente } from '@/app/plan/board/types';
+import type { BoardTask, Label, Fuente, Hist } from '@/app/plan/board/types';
+import { esEstado } from '@/lib/todo-estados';
 import type { EntidadDep, ClaseDep } from '@/app/plan/board/dependencias';
 import { proponerTareasParaProyecto } from '@/lib/plan-proyecto-vacio';
 import { fijarPrioridadAMano, devolverPrioridadAlPerro } from '@/lib/plan-reprio';
+import { accionDelTablero } from '@/lib/plan-repriorizar';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -40,12 +42,21 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  if (!(await getSesionAdmin())) return NextResponse.json({ ok: false, error: 'solo admin' }, { status: 403 });
+  const inicio = Date.now();
+  const sesion = await getSesionAdmin();
+  if (!sesion) return NextResponse.json({ ok: false, error: 'solo admin' }, { status: 403 });
   let body: Record<string, unknown>;
   try { body = (await req.json()) as Record<string, unknown>; } catch { return NextResponse.json({ ok: false, error: 'JSON inválido' }, { status: 400 }); }
   const action = String(body.action ?? '');
 
   try {
+    // «RE-PRIORIZAR TODO» (16/10/2026): arrancar y el sondeo del avance. La misma función que la
+    // ruta del cliente; acá sólo se dice qué tablero es. El reloj del `after()` es el de esta ruta.
+    const rp = await accionDelTablero('dueno', action, body, {
+      inicio, relojMs: (maxDuration - 10) * 1000,
+      actor: async () => sesion.nombre || sesion.email || '',
+    });
+    if (rp) return NextResponse.json(rp, { status: rp.ok ? 200 : 400 });
     // Un proyecto VACÍO no es poco importante: le falta trabajo. MaKo intuye qué tareas
     // tendría y deja un BORRADOR — nunca escribe tareas directo, que es la regla de la
     // casa y acá pesa doble: lo propuesto sale de una intuición sobre un nombre.
@@ -90,8 +101,27 @@ export async function POST(req: NextRequest) {
     if (action === 'guardar-tarea') {
       const t = body.tarea as BoardTask | undefined;
       if (!t?.id) return NextResponse.json({ ok: false, error: 'falta la tarea' }, { status: 400 });
-      await guardarPlanTarea(t);
+      // El último avance que la base le confirmó a la pestaña (16/10/2026): ver `guardarPlanTarea`.
+      const progresoGuardado = typeof body.progresoGuardado === 'number' && Number.isFinite(body.progresoGuardado) ? body.progresoGuardado : undefined;
+      await guardarPlanTarea(t, { progresoGuardado });
       return NextResponse.json({ ok: true });
+    }
+    // MOVER EN EL KANBAN (16/10/2026): la capacidad `mover` de `repoPlan`. Escribe por columna
+    // (estado, lugar y lo que se acomoda solo), nunca la fila entera: ver `moverPlanTarea`.
+    // Un estado que no existe es un 400, no «Por iniciar».
+    if (action === 'mover-tarea') {
+      const id = String(body.id ?? '');
+      if (!id) return NextResponse.json({ ok: false, error: 'id requerido' }, { status: 400 });
+      const estado: unknown = body.estado;
+      if (!esEstado(estado)) return NextResponse.json({ ok: false, error: 'estado inválido' }, { status: 400 });
+      const orden = body.orden != null && Number.isFinite(Number(body.orden)) ? Number(body.orden) : undefined;
+      // `undefined` = «no me dijeron» (conserva el motivo si ya estaba atorada); `null` lo borra.
+      const motivo = body.motivo === null ? null : typeof body.motivo === 'string' ? body.motivo : undefined;
+      const historial = Array.isArray(body.historial) ? (body.historial as Hist[]) : undefined;
+      // El avance de ANTES: sólo lo manda el «Deshacer» de un mover (`trasMover`, 16/10/2026).
+      const progreso = typeof body.progreso === 'number' && Number.isFinite(body.progreso) ? body.progreso : undefined;
+      const r = await moverPlanTarea(id, estado, orden, { motivo, historial, progreso });
+      return r.ok ? NextResponse.json({ ok: true, tarea: r.tarea }) : NextResponse.json({ ok: false, error: r.error }, { status: r.status });
     }
     if (action === 'borrar-tarea') {
       const id = String(body.id ?? '');

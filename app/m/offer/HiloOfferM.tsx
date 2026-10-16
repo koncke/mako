@@ -11,7 +11,9 @@
 //     adentro de su burbuja, que baja esa versión (la v1 sigue bajando la v1 aunque exista la v3);
 //   · los archivos que viajaron con un mensaje, adentro de su burbuja; una nota de voz, con su reproductor y
 //     la transcripción debajo (lo que MaKo leyó);
-//   · las respuestas rápidas cuelgan del último mensaje de MaKo; la que arma la oferta va en dorado.
+//   · las respuestas rápidas cuelgan del último mensaje de MaKo; la que arma la oferta va en dorado;
+//   · en una pregunta de varias (`varias`), cada opción se marca y «Enviar (N)» las manda juntas. Lo marcado cuelga
+//     del id del mensaje: con el mensaje siguiente arranca vacío solo, sin un efecto que lo limpie.
 //
 // ⚠️ El `<audio src>` de una nota lleva el `?ws=` de la pestaña (`conWs`): no es un fetch, el parche de
 //    WsFetch no lo toca, y sin él el super admin que mira a un cliente recibe 403 (lib/offer-marco.ts).
@@ -31,10 +33,10 @@ import { nombrePdfVersion } from '@/app/offer/ayudas';
 import { descargarPdf, mensajeDeError } from '@/app/offer/offer-api';
 import { IconoChat } from '@/app/m/mako/iconos';
 import { duracion } from '@/app/m/mako/chat-ui';
-import { ROTULOS, versionDelPdf, type OpcionRapida } from './modelo';
+import { ROTULOS, alternarMarcada, versionDelPdf, type OpcionRapida } from './modelo';
 
 export function HiloOfferM({
-  sesionId, mensajes, pendiente, respondiendo, fuente, opciones, opcionesHabilitadas, onOpcion, onReintentar, onError,
+  sesionId, mensajes, pendiente, respondiendo, fuente, opciones, opcionesHabilitadas, onOpcion, onVarias, onReintentar, onError,
 }: {
   sesionId: number;
   mensajes: readonly OfferMensaje[];
@@ -47,11 +49,21 @@ export function HiloOfferM({
   /** Falso mientras MaKo contesta o se lee un archivo: un toque ahí mandaría a medias. */
   opcionesHabilitadas: boolean;
   onOpcion: (idx: number) => void;
+  /** Las marcadas de una pregunta de varias, en el orden en que están: salen como UNA respuesta. */
+  onVarias: (idxs: number[]) => void;
   /** «Reintentar» la respuesta al último mensaje; null = no hay nada sin contestar. */
   onReintentar: (() => void) | null;
   onError: (m: string) => void;
 }) {
   const ws = useWs();
+  const [marcadas, setMarcadas] = useState<{ de: string; idxs: number[] }>({ de: '', idxs: [] });
+  const ultimoId = mensajes[mensajes.length - 1]?.id ?? '';
+  const varias = opciones.some((o) => o.marcable);
+  const marcadasAhora = varias && marcadas.de === ultimoId ? marcadas.idxs : [];
+  const tocar = (o: OpcionRapida) => {
+    if (!o.marcable) { onOpcion(o.idx); return; }
+    setMarcadas({ de: ultimoId, idxs: alternarMarcada(marcadasAhora, o.idx) });
+  };
   return (
     <ol className="m-offer-hilo" aria-label="Conversación con MaKo">
       {mensajes.map((m) => <Mensaje key={m.id} m={m} sesionId={sesionId} ws={ws} onError={onError} />)}
@@ -70,14 +82,26 @@ export function HiloOfferM({
         </li>
       )}
       {opciones.length > 0 && (
-        <li className="m-offer-opciones" role="group" aria-label="Respuestas rápidas">
-          {opciones.map((o) => (
-            <button key={`${o.idx}-${o.t}`} type="button" className={`m-offer-opcion${o.armar ? ' m-offer-opcion--mako' : ''}`}
-              disabled={!opcionesHabilitadas} onClick={() => onOpcion(o.idx)}>
-              {o.armar && <Icon name="mako" size={16} />}
-              {o.t}
+        <li className="m-offer-opciones" role="group" aria-label={varias ? 'Respuestas rápidas: puedes marcar varias' : 'Respuestas rápidas'}>
+          {varias && <span className="m-offer-opciones__ayuda">{ROTULOS.marcarVarias}</span>}
+          {opciones.map((o) => {
+            const marcada = o.marcable && marcadasAhora.includes(o.idx);
+            return (
+              <button key={`${o.idx}-${o.t}`} type="button"
+                className={`m-offer-opcion${o.armar ? ' m-offer-opcion--mako' : ''}${marcada ? ' m-offer-opcion--marcada' : ''}`}
+                disabled={!opcionesHabilitadas} onClick={() => tocar(o)} {...(o.marcable ? { 'aria-pressed': marcada } : {})}>
+                {o.armar && <Icon name="mako" size={16} />}
+                {marcada && <Icon name="check" size={16} />}
+                {o.t}
+              </button>
+            );
+          })}
+          {marcadasAhora.length > 0 && (
+            <button type="button" className="m-offer-enviar" disabled={!opcionesHabilitadas}
+              onClick={() => { onVarias(marcadasAhora); setMarcadas({ de: '', idxs: [] }); }}>
+              Enviar ({marcadasAhora.length})
             </button>
-          ))}
+          )}
         </li>
       )}
     </ol>

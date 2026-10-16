@@ -27,9 +27,15 @@
 // clips y mide el costo.
 //
 // ⚠️ Saldo y costo de créditos de Flow: sin 'http' (saldos de un tercero).
+//
+// ⚠️ LA EXCEPCIÓN A «SOLO LECTURAS», del 16/10/2026: las operaciones del chat «Editar con IA» del Video Editor
+// (lib/editor-video/chat-api.ts, una por operación del chat). Son ACCIONES que sólo PROPONEN: no gastan nada y no
+// escriben la línea de tiempo (vive en el navegador): dejan el cambio en una propuesta del proyecto, que una persona
+// acepta en el editor (`confirmacion: 'pantalla'`, pantalla /video-editor; lib/editor-video/propuestas.ts).
 // =============================================================================
 
 import type { OperacionDef, Parametro } from '../tipos';
+import { OPERACIONES_API, PARAM_PROYECTO, descripcionApi } from '../../editor-video/chat-api';
 
 const TODOS: ['whatsapp', 'app', 'http'] = ['whatsapp', 'app', 'http'];
 const SIN_HTTP: ['whatsapp', 'app'] = ['whatsapp', 'app'];
@@ -148,7 +154,7 @@ export const DEFS: readonly OperacionDef[] = [
     id: 'ver_proyecto_video', area: 'video', tipo: 'lectura',
     titulo: 'Línea de tiempo de un proyecto',
     descripcion: 'La línea de tiempo de un proyecto del Video Editor, tal como la lee su chat «Editar con IA»: la duración total, el lienzo, las pistas (la principal marcada) con cada elemento —su ref corta (v1 video, i2 foto, t3 texto, a4 audio, s5 sticker…), inicio y fin en segundos, el texto o el nombre, el volumen y lo que tiene puesto (transición, animación, filtro, estilo)—, los medios de Multimedia (m1, m2…) y los nombres disponibles (transiciones, animaciones, filtros, efectos, curvas de velocidad, fuentes). Es la copia que subió el editor (dice cuándo): cambiarla no se puede desde aquí, porque el proyecto vive en el navegador de quien lo edita; se cambia en el editor o pidiéndoselo a su chat. Si el proyecto es muy grande, avisa en vez de mandarla.',
-    parametros: [{ nombre: 'proyecto', rotulo: 'Proyecto', tipo: 'string', obligatorio: true, max: 100, descripcion: 'El id del proyecto (de listar_proyectos_video).' }],
+    parametros: [PARAM_PROYECTO],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: GATING_EDITOR,
   },
   {
@@ -191,4 +197,13 @@ export const DEFS: readonly OperacionDef[] = [
     ],
     salida: 'json', canales: SIN_HTTP, costo: 'gratis', gating: GATING,
   },
+  // Las operaciones del chat «Editar con IA»: PROPONEN en un proyecto y se aceptan en el editor (ver la cabecera).
+  ...OPERACIONES_API.map((o): OperacionDef => ({
+    id: o.id, area: 'video', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/video-editor', reversible: true,
+    titulo: o.titulo,
+    descripcion: descripcionApi(o),
+    escribe: 'deja el cambio en una propuesta del proyecto; la línea de tiempo la cambia el editor cuando una persona la acepta',
+    parametros: [PARAM_PROYECTO, ...o.parametros],
+    canales: TODOS, costo: 'gratis', gating: GATING_EDITOR,
+  })),
 ];

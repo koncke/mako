@@ -18,6 +18,8 @@ import { rutaDePropuesta, PANTALLA_DE_PROPUESTA } from '@/lib/propuestas-tipos';
 import { listPropuestasPendientes } from '@/lib/plan-propuesta';
 import { CAPACIDADES } from '@/lib/mako-capacidades';
 import { TODOS_LOS_ITEMS } from '@/app/_components/nav';
+import { chatsDelSecondBrain, hiloDelSecondBrain } from '@/lib/chat-mako-indice';
+import { arbolDelJefe, JEFE_SECOND_BRAIN, sesionDelCanal, tituloDe } from '@/lib/chat-mako-reglas';
 import { linkApp } from '@/lib/app-url';
 import { linkPantalla } from '../link';
 
@@ -275,6 +277,35 @@ export const RUNNERS: Runners = {
       return json({
         capacidades: visibles.map((c) => ({ id: c.id, tab: c.tab, url: linkPantalla(c.ruta), que: c.que, como: c.como })),
         ...(visibles.length < pedidas.length ? { fuera_de_este_negocio: pedidas.length - visibles.length } : {}),
+      });
+    },
+  },
+  // Los chats con MaKo del Second Brain: la persona sale de la conversación del turno, nunca de un parámetro.
+  listar_chats_mako: {
+    leer: async (_input, ctx) => {
+      const sid = sesionDelCanal(ctx.canalKey);
+      const chats = sid == null ? null : await chatsDelSecondBrain(sid);
+      if (!chats) return fallo('Esto sólo se puede desde un chat con MaKo en la app.');
+      const { jefe } = arbolDelJefe(chats.map((c) => ({ id: c.id, titulo: c.titulo, pinned: c.pinned, updatedAt: c.updated_at })));
+      return json({
+        chats: chats.map((c) => ({
+          id: c.id, titulo: c.id === jefe?.id ? JEFE_SECOND_BRAIN : tituloDe(c), ultimo_movimiento: c.updated_at,
+          ...(c.id === sid ? { es_este_chat: true } : {}),
+        })),
+      });
+    },
+  },
+  hilo_chat_mako: {
+    leer: async (input, ctx) => {
+      const sid = sesionDelCanal(ctx.canalKey);
+      if (sid == null) return fallo('Esto sólo se puede desde un chat con MaKo en la app.');
+      const id = num(input, 'id');
+      const h = id == null ? null : await hiloDelSecondBrain(sid, id);
+      if (!h) return fallo(`No encuentro el chat ${id ?? ''} entre los tuyos. Pide la lista con listar_chats_mako.`);
+      // Los últimos 30 mensajes, cada uno acotado: el turno re-manda la conversación en cada paso.
+      return json({
+        titulo: tituloDe(h.sesion),
+        mensajes: h.mensajes.slice(-30).map((m) => ({ de: m.role === 'user' ? 'persona' : 'mako', texto: m.content.slice(0, 1500), fecha: m.created_at ?? null })),
       });
     },
   },

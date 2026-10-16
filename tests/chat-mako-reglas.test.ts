@@ -7,14 +7,14 @@
 //   · los sub-chats van con la que se movió último arriba, y la búsqueda no distingue mayúsculas ni tildes;
 //   · el nombre de un sub-chat lleva al jefe adelante (de ahí sale su muñeco, de la familia del jefe).
 //
-// ⚠️ Probado ROMPIÉNDOLO (16/10/2026), contra la base en verde de 4 pases:
+// ⚠️ Probado ROMPIÉNDOLO (16/10/2026), contra la base en verde de 4 pases (5 con el de la base de la persona):
 //   · el jefe por la más reciente (`updatedAt`) en vez de la más vieja → 1 fallo («el jefe es la más vieja»);
 //   · los sub-chats sin ordenar → 1 fallo («el jefe es la más vieja»);
 //   · la búsqueda con mayúsculas y tildes → 1 fallo («la búsqueda»).
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { JEFE_SECOND_BRAIN, SIN_TITULO, arbolDelJefe, edadCorta, filtrarSubs, nombreDeSub, tituloDe } from '../lib/chat-mako-reglas';
+import { JEFE_SECOND_BRAIN, SIN_TITULO, arbolDelJefe, baseDeLaPersona, edadCorta, filtrarSubs, nombreDeSub, sesionDelCanal, tituloDe } from '../lib/chat-mako-reglas';
 import type { SesionChat } from '../lib/mako-turno-app-reglas';
 
 const s = (id: number, titulo: string | null, updatedAt: string): SesionChat => ({ id, titulo, pinned: false, updatedAt });
@@ -52,4 +52,18 @@ test('la edad corta de una fila', () => {
   assert.equal(edadCorta(ahora - 3 * 3_600_000, ahora), '3 h');
   assert.equal(edadCorta(ahora - 2 * 86_400_000, ahora), '2 d');
   assert.equal(edadCorta(null, ahora), '');
+});
+
+test('de quién es un chat: la base de su clave, y la conversación del turno por su canal', () => {
+  // La API de MaKo lee los chats de la persona DESDE el turno: la persona sale del dato, nunca de un parámetro.
+  // ⚠️ Probado ROMPIÉNDOLO (16/10/2026): con la base sin cortar en el primer «:» → 1 fallo (éste).
+  assert.equal(baseDeLaPersona('mako-movil:u5'), 'mako-movil:u5');
+  assert.equal(baseDeLaPersona('mako-movil:u5:crm:12'), 'mako-movil:u5', 'un sub-chat del CRM es de la misma persona');
+  assert.equal(baseDeLaPersona('mako-movil:ana@negocio.com'), 'mako-movil:ana@negocio.com');
+  assert.equal(baseDeLaPersona('persona:u5:mako-general'), null, 'un chat de /mako no es del Second Brain');
+  assert.equal(baseDeLaPersona('mako-general'), null);
+  assert.equal(sesionDelCanal('app:123'), 123);
+  assert.equal(sesionDelCanal('app:flujo:centro'), null, 'una automatización no es una conversación');
+  assert.equal(sesionDelCanal('120363@g.us'), null, 'WhatsApp tampoco');
+  assert.equal(sesionDelCanal('api:9'), null);
 });

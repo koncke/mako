@@ -58,7 +58,8 @@ type PedidoResuelto =
   | { sobre: 'actual'; texto: string }
   | { sobre: 'otro'; texto: string; verbo: Verbo; objeto: ObjetoChat | null; candidatos: ObjetoChat[];
       operacion: string | null; confirmar: boolean; pregunta: string | null }
-  | { sobre: 'nuevo'; texto: string; operacion: string | null }          // crear otro de esta MISMA tab
+  | { sobre: 'nuevo'; texto: string; operacion: string | null;           // crear otro de esta MISMA tab
+      producto?: { objeto: ObjetoChat | null; candidatos: ObjetoChat[]; pregunta: string | null } }  // la ruta
   | { sobre: 'otra-tab'; texto: string; area: Area; titulo: string; link: string; operacion: string | null; confirmar: boolean };
 type Interpretacion = {
   pedidos: PedidoResuelto[];
@@ -84,12 +85,20 @@ Reglas del resolver (código, no IA):
   `configurar_*`; ver → `ver_*` / `listar_*` (sólo lecturas; los demás, sólo acciones). Entre varias, la de más relevancia
   con el texto (`ordenarPorRelevancia` del registro, que llega INYECTADA en `ctx.ordenar`: el núcleo no importa valores del
   registro). Sólo de las que la persona VE. Sin ninguna, `operacion: null` (queda el link).
+- **El producto de un pedido nuevo** («para mi otro producto», `productoDelPedido`): la ruta lee los productos activos
+  del catálogo (`listProductos(true)`) sólo si hay un pedido `nuevo` y para el admin, y le agrega `producto` al
+  pedido: el que el texto nombra, o `candidatos` (los primeros 4) y la pregunta «¿Para cuál producto?» si dice
+  «producto» sin nombrarlo; con uno solo, ése, salvo «otro producto». El chat del Web Generator pregunta y escribe el
+  elegido en el pedido de Crear con IA. Un `producto` roto no tira la respuesta.
 - **Nuevo vs. cambio**: crear con objeto directo de ESTA tab («créame otra landing») es `nuevo`; «crea una sección» es un
   cambio de lo abierto. ⚠️ **Las PARTES de lo abierto son por TAB, no por área** (`PARTES_DE_LO_ABIERTO`):
   `AREA_KEYWORDS` dice de qué área es una palabra, pero si nombra otro objeto o una parte del abierto depende de dónde se
   dice. Web Generator: «página» (un sitio tiene páginas, «Añadir página»). Image Editor: «página» también (un diseño
   tiene páginas, como Canva), y ahí la palabra es de OTRA área (`landing`): sin esto «crea otra página» en un diseño se
-  iba al Web Generator. Dashboard: «gráfico», «métrica» (una hoja los tiene). Video Editor: «clip», «escena». Dentro de su
+  iba al Web Generator. Dashboard: «gráfico», «métrica» (una hoja los tiene). General: además «tarea», «proyecto»,
+  «prioridad», «deadline», «KPI», «objetivo», «meta», «semáforo», «agenda», «cobro»… — sus bloques son VISTAS de otras
+  tabs (lib/general-piezas.ts): sin esto «agrega un bloque de tareas» en General mandaba al Plan, y «tareas» es justo
+  lo que la IA etiqueta como otra área (está en el test con `origen: 'ia'`). Video Editor: «clip», «escena». Dentro de su
   tab no crean otro objeto, no borran lo abierto, no son «la otra» ni mandan a otra tab (aunque la IA etiquete la otra
   área); fuera de ella sí cuentan («créame otra página» en Automations es una landing del Web Generator).
 - **El objeto** («la otra», «la anterior», «la de Juan», un nombre entero o entre comillas): sin el actual; un nombre que
@@ -118,17 +127,19 @@ que no existen caen a las reglas de ese pedido; un área que el pedido no nombra
 `referencia` que no está en el pedido cae a la de las reglas; cualquier id u «objeto» que mande se ignora.
 
 Plazo: 7 s en total (7,5 s con la carrera), intentos de 4 s; el chat del Web Generator espera 12 s a la ruta
-(`PLAZO_PEDIDOS_MS`), que antes lee la sesión, la vista y las landings. ⚠️ No se puede escribir como `hastaMs: ahora + 7 s`: `chatCheapCascade` no arranca
-un intento con menos de 15 s de plazo (`MIN_INTENTO_MS`) y devolvería '' sin probar nada. Si no llega, quedan las reglas
-(`origen: 'reglas'`). Feature propia `mako-pedidos` en `lib/model-catalogo.ts`, default GRATIS (Gemini), lista
-`gemini → groq → openrouter → mistral` con el pin de /modelos-ia primero si es gratis.
+(`PLAZO_PEDIDOS_MS`), que antes lee la sesión, la vista y las landings. ⚠️ **No va por `chatCheapCascade`** (cambiado el
+16/10 tras mirarlo en producción): su preámbulo (las cuotas del día y la clave de Anthropic del negocio, ~3 s) y su
+mínimo de 15 s por intento se comían el plazo y la IA no corría NUNCA. Va un bucle propio, `probarEnOrden` (núcleo puro,
+con un test de reloj falso): las keys del negocio en orden, cada intento acotado a lo que queda. Si no llega, quedan las
+reglas (`origen: 'reglas'`). Feature propia `mako-pedidos` en `lib/model-catalogo.ts`, default GRATIS (Groq
+`gpt-oss-120b`), lista `groq → gemini → openrouter → mistral` con el pin de /modelos-ia primero si es gratis. Medido en
+ws9: Groq 1,4 s, Gemini 6,6-10,9 s; de punta a punta, 3-5,5 s.
 
 ⛔ **Sin crédito de Claude** — y por eso NO `redDePlataforma` de `chatCheapCascade` (cambiado al construir): desde el
 16/10 esa red prueba PRIMERO el crédito de Claude de la plataforma (`conCreditoDeLaPlataforma`), así que pedirla era
-pedir Claude. La red va aparte, sólo con las keys gratis de la agencia (`provsGratisDePlataforma`), como Offer. Lo único
-Anthropic que puede contestar es la clave PROPIA del negocio si la cargó (la segunda puerta, dentro de la cascada, para
-toda feature fuera del Plan): es plata del negocio y decisión de Martín (`clientes-usan-su-claude`). Si también eso se
-quiere cerrar, hace falta una opción en `chatCheapCascade` (lib/ai-cheap.ts), que no es de este trabajo.
+pedir Claude. La red va aparte, sólo con las keys gratis de la agencia (`provsGratisDePlataforma`), como Offer. La clave
+PROPIA de Anthropic del negocio está permitida (decisión A de Martín, la paga el negocio), pero desde que no se usa la
+cascada no se prueba acá: para etiquetar en segundos sólo sumaba 1,3 s.
 
 `pii` (`llevaDatosPersonales`): un email, un teléfono, o una tab de leads (`crm`, `chats`, `whatsapp`, `closing`,
 `cobros`). Con `pii` la red gratis no corre (el plan gratis de Gemini entrena) y quedan las reglas.
@@ -152,6 +163,7 @@ pantalla (sin eso, alguien leería por acá los nombres de lo que su pantalla le
 | `landing` (Web Generator) | las landings, sin las de la papelera, la última tocada arriba | `listar()` de lib/editor-landing/server.ts (la del Panel) | admin y `landing-writer` en la capa |
 | `imagen` (Image Editor) | los diseños, sin los borrados, el último editado arriba | `listarDisenos(ws)` de lib/image-editor/server.ts (la del inicio del editor) | `veEditorImagen()` (admin y la tab en la capa) |
 | `metricas` (Dashboard) | las HOJAS del informe de QUIEN MIRA (es por persona), en el orden de sus pestañas | `leerTablero()` + `hojasVisibles` | admin y `graphics` en la capa; quien nunca guardó un informe ve la pantalla sin páginas → [] |
+| `general` (General) | las hojas del informe de General de quien mira, en el orden de sus pestañas | `leerInformeGeneral()` + `hojasVisibles`, sólo si `estado === 'propio'` | admin y `general` en la capa (la del guardado de General en `/api/graficos`: quien no la pasa no edita ahí); sin informe propio → [] |
 | `video` (Video Editor) | sus proyectos | los manda el NAVEGADOR (`objetos` del cuerpo) | — (son suyos) |
 
 ⚠️ **El Video Editor no tiene de dónde listarse en el servidor**: sus proyectos viven en IndexedDB (decisión 5 de su
@@ -188,9 +200,34 @@ en el acto se iba del editor con el cambio a medias. Borrar OTRA landing confirm
 la manda a la Papelera (se restaura); la ABIERTA nunca se borra desde el chat: se dice dónde está «⋯ › Eliminar». Si la
 ruta falla o tarda más de `PLAZO_PEDIDOS_MS`, el mensaje entero va a «editar», como antes.
 
+«Editar con MaKo» del **Dashboard y General** también (16/10): `PanelEditarMako.tsx` + lo puro en
+`app/dashboard/pedidos-hoja.ts`, tests en `tests/dashboard-pedidos-chat.test.ts`. Lee la respuesta con las MISMAS
+`interpretacionDe` / `textoActual` del Web Generator; lo de la hoja abierta va a `/api/graficos/editar` como siempre y lo
+demás son burbujas: crear OTRA hoja (la arma `/api/graficos/ia` con el pedido y entra por `crearHoja` del editor),
+abrir otra hoja, archivar otra hoja (confirma; `eliminarHoja`, con su Deshacer), «¿Cuál?» con las dos candidatas, y el
+link de otra tab. A diferencia del Web Generator, «Sí» crea en el acto: el cambio de la hoja abierta ya se aplicó cuando
+aparece la burbuja (se deshace con su botón), así que no queda nada a medias que esperar.
+
 - **Automations**: su función en `objetosDeTab` y el fetch de arriba en su chat.
-- **Image Editor, Dashboard y Video Editor**: sus objetos ya están (16/10); falta que sus chats llamen a la ruta (el del
-  Video Editor, mandando `objetos`).
+- **Image Editor y Video Editor**: sus objetos ya están (16/10); falta que sus chats llamen a la ruta (el del Video
+  Editor, mandando `objetos`).
+
+- **Video Editor**: enganchado el 16/10 (`app/video-editor/_opencut/chat/pedidos.ts` + `PanelChat.tsx`, test
+  `tests/video-editor-pedidos-chat.test.ts`): manda sus proyectos como `objetos`; lo del proyecto abierto va a su IA y
+  lo demás son burbujas con link. Borrar un proyecto NO se hace desde el chat (no hay papelera: se va con su
+  material); la burbuja dice dónde. Y «proyecto», que es palabra del Plan, ahí es otro video (`OBJETOS_DE_LA_TAB`).
+- **Image Editor y Dashboard**: sus objetos ya están (16/10); falta que sus chats llamen a la ruta. ⚠️ El Image Editor
+  todavía NO TIENE chat (es la etapa 4 de docs/diseno-mako-ai-native.md): hay que construirle uno antes de engancharlo.
+
+- **Automations**: su función en `objetosDeTab` y el fetch de arriba en su chat. **16/10/2026: hecho en la rama
+  `wip/automations-pedidos`, SIN SUBIR**: la revisión encontró regresiones del chat de siempre, varias del resolver
+  (con el lienzo vacío, «crea una automatización» es de ESTA; un nombre de otra dentro de una edición no es un pedido
+  aparte). Detalle en docs/hallazgos-chatbot.md («Los pedidos sueltos en el chat de Automations»).
+
+- **Image Editor**: sus objetos ya están (16/10); su chat («MaKo IA», 16/10: `app/image-editor/mako/chat/acciones.ts`,
+  `pedirEdicion`) todavía no llama a la ruta: se engancha como el del Video Editor, antes de su IA, con `tab: 'imagen'`
+  y los diseños del server (no hace falta mandar `objetos`).
+
 - **El chat único del Second Brain** (Centro de Operaciones): el mismo fetch con `tab` = el área de lo que esté abierto.
 - **Correr la operación de OTRA tab** desde la burbuja: hoy `otra-tab` deja el link (y la operación como dato); ejecutarla
   pasa por el registro (`ejecutar.ts`), que propone y confirma como siempre.

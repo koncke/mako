@@ -9,7 +9,7 @@
 //   · la ruta del chat pide la persona ADENTRO de cada handler, aguanta lo que dura un turno, no lee el `?ws=` crudo y
 //     no llama a Claude por su cuenta (el crédito de Claude de la plataforma es sólo del onboarding).
 //
-// ⚠️ Probado ROMPIÉNDOLO (16/10/2026), contra la base en verde de 3 pases:
+// ⚠️ Probado ROMPIÉNDOLO (16/10/2026), contra la base en verde de 3 pases (4 con el del índice):
 //   · construyendo el cerebro fuera del `if (veMapa…)` → 1 fallo («la página»);
 //   · `veMapa` con un `rol === 'admin'` a mano → 1 fallo («la página»);
 //   · el POST de la ruta leyendo el cuerpo antes de la persona → 1 fallo («la ruta»).
@@ -59,3 +59,25 @@ test('la pantalla corta después del techo de la ruta, y manda por la ruta del c
   assert.match(src, /const TOPE_MS = 425_000;/);
   assert.ok(!src.includes('/api/m/mako'), 'una sola ruta para la pieza de escritorio');
 });
+
+test('el índice: un chat de otro no existe, «Antes» usa la regla de /mako, y la API toma la persona del turno', () => {
+  // ⚠️ Probado ROMPIÉNDOLO (16/10/2026): sin el cruce de la base en hiloDelSecondBrain → 1 fallo (éste); el runner
+  // leyendo el chat de un parámetro en vez del canal → 1 fallo (éste).
+  const crudo = leer('lib/chat-mako-indice.ts');
+  const src = sinComentarios(crudo);
+  const hilo = src.slice(src.indexOf('export async function hiloDelSecondBrain('));
+  assert.ok(hilo.includes('if (!s || s.chart_key !== t.base) return null;'), 'el chat pedido es de la MISMA persona');
+  const antes = crudo.slice(crudo.indexOf('export async function hiloDeAntes('), crudo.indexOf('// ── Para la API'));
+  assert.ok(antes.includes('esChatDelTelefono(s.chart_key)') && antes.includes('puedeUsarSesion(s.chart_key, q)'), '«Antes»: la regla de /mako');
+  const run = sinComentarios(leer('lib/api-mako/areas/mako.run.ts'));
+  for (const op of ['listar_chats_mako', 'hilo_chat_mako']) {
+    const ini = run.indexOf(`  ${op}: {`);
+    assert.ok(ini > 0, op);
+    const c = run.slice(ini, run.indexOf('\n  },', ini));
+    assert.ok(c.includes('const sid = sesionDelCanal(ctx.canalKey);'), `${op}: la conversación sale del canal`);
+  }
+  const ruta = sinComentarios(leer('app/api/mako/chat/route.ts'));
+  const i = ruta.indexOf("if (sp.get('antes') || sp.has('antesId')) {");
+  assert.ok(i > 0 && ruta.indexOf('await quienChateaDelRequest()', i) > i, '«Antes» pide quién chatea antes de leer');
+});
+

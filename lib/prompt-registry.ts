@@ -64,6 +64,7 @@ import {
   NOTAS_SYSTEM_TEMPLATE as LANDING_EDITOR_NOTAS_SYSTEM, NOTAS_USER_TEMPLATE as LANDING_EDITOR_NOTAS_USER,
 } from './editor-landing/ia-reglas';
 import { CHAT_VIDEO_SYSTEM_TEMPLATE, CHAT_VIDEO_USER_TEMPLATE } from './editor-video/chat-prompts';
+import { CHAT_IMAGEN_SYSTEM_TEMPLATE, CHAT_IMAGEN_USER_TEMPLATE } from './image-editor/chat/prompts';
 import { TEMPLATE_VALIDATOR_SYSTEM_TEMPLATE, TEMPLATE_VALIDATOR_USER_TEMPLATE } from './template-validator';
 import { SETTING_GANCHO_TEMPLATE, SETTING_PREGUNTAS_TEMPLATE, SETTING_CRITERIO_TEMPLATE } from './setting-secuencias';
 import { SETTING_SIMULADOR_SYSTEM_TEMPLATE } from './setting-simulador';
@@ -777,6 +778,29 @@ export const REGISTRY: Group[] = [
         variables: [v('instruccion', 'lo que pidió la persona'), v('alcance', 'todo el video o los elementos elegidos'), v('linea', 'la línea de tiempo: pistas y elementos con su referencia, tiempos y textos')], scope: 'full', sensitive: false,
         default: CHAT_VIDEO_USER_TEMPLATE,
         context: 'Le pasa a MaKo la instrucción y la línea de tiempo actual. Conserva los slots: {{instruccion}} y {{linea}} llegan delimitados como dato no confiable.',
+      },
+    ],
+  },
+  {
+    // El chat «MaKo IA» del Image Editor (lib/image-editor/chat/ia.ts; los defaults viven en
+    // lib/image-editor/chat/prompts.ts). Las keys y los slots los fija tests/image-editor-chat.test.ts.
+    group: 'Editor de imágenes (Image Editor)',
+    icon: '🖼️',
+    blurb: 'MaKo en el chat del Image Editor: lee el diseño y propone cambios (textos, estilo, posición, tamaño, color, capas, fondo y páginas) que la persona acepta o descarta.',
+    entries: [
+      {
+        key: 'image_editor.chat.system', source: 'override',
+        label: 'MaKo IA (system)', kind: 'system', dynamic: true,
+        variables: [v('catalogo', 'las operaciones que el editor sabe aplicar (sale del código)'), v('formato', 'forma del JSON de la respuesta')], scope: 'static-only', sensitive: true,
+        default: CHAT_IMAGEN_SYSTEM_TEMPLATE,
+        context: 'Convierte el pedido de la persona en operaciones del catálogo. {{catalogo}} sale del código (lib/image-editor/chat/catalogo.ts): si se borra, la IA no sabe qué puede hacer y nada se aplica. NO borres «PROHIBIDO INVENTAR» ni la regla de no inventar referencias. Lo que no está en el catálogo se descarta en código igual.',
+      },
+      {
+        key: 'image_editor.chat.user', source: 'override',
+        label: 'Instrucción + diseño (user)', kind: 'user', dynamic: true,
+        variables: [v('instruccion', 'lo que pidió la persona'), v('alcance', 'todo el diseño o los elementos elegidos'), v('diseno', 'el diseño: páginas y elementos con su referencia, medidas, textos y colores')], scope: 'full', sensitive: false,
+        default: CHAT_IMAGEN_USER_TEMPLATE,
+        context: 'Le pasa a MaKo la instrucción y el diseño actual. Conserva los slots: {{instruccion}} y {{diseno}} llegan delimitados como dato no confiable.',
       },
     ],
   },

@@ -35,7 +35,7 @@ import { leerAdjuntos } from '@/app/offer/adjuntos-envio';
 import { arbolSeguro, arbolVacio, caminoDeSesion, conSesionEnArbol } from '@/app/offer/arbol';
 import {
   TOPE_MENSAJE, bienvenidaDe, esOpcionArmar, etiquetaArmar, linksDe, pasoTrasFalloDeOferta, quedoGuardado, reemplaza, resumenDe,
-  vistaDeEntrada, type AvisoGuardado,
+  unirOpciones, vistaDeEntrada, type AvisoGuardado,
 } from '@/app/offer/ayudas';
 import { ErrorOfferApi, TOPE, esRechazoDefinitivo, llamarOffer, mensajeDeError, subirArchivo } from '@/app/offer/offer-api';
 import { ErrorM, VacioM, useConexion } from '@/app/m/_ui';
@@ -539,6 +539,15 @@ export function OfferM({ arbolInicial, arbolFallo, sesionInicial, opcionArmar, o
     });
   };
 
+  /** Las marcadas de una pregunta que se contesta con varias: salen como UNA respuesta, «A, b y c» (OfferApp.tsx). */
+  const elegirVarias = (idxs: number[]) => {
+    const s = sesionRef.current;
+    const ultimo = s?.mensajes[s.mensajes.length - 1];
+    if (!s || ultimo?.de !== 'mako' || !ultimo.varias || !puedeMandar) return;
+    const texto = unirOpciones(idxs.map((i) => (ultimo.opciones ?? [])[i] ?? ''));
+    if (texto) void mandar({ texto, docs: [], fuente: 'tu respuesta' });
+  };
+
   // ── El selector: abrir una conversación o empezar una ──────────────────────
   const abrirSesion = async (id: number) => {
     setHoja(null);
@@ -665,6 +674,7 @@ export function OfferM({ arbolInicial, arbolFallo, sesionInicial, opcionArmar, o
           opciones={opciones}
           opcionesHabilitadas={puedeMandar}
           onOpcion={elegirOpcion}
+          onVarias={elegirVarias}
           onReintentar={sinContestar(sesion, respondiendo) ? () => void reintentarRespuesta() : null}
           onError={setErrorChat}
         />

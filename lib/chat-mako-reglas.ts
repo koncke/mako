@@ -67,5 +67,25 @@ export const SUBS_VISIBLES = 12;
  */
 export const CONTEXTO_SECOND_BRAIN = `EN ESTE CHAT (el Second Brain de MaKo, en la COMPUTADORA), y esto manda sobre la voz del teléfono: la persona está en su escritorio, con la pantalla entera. Responde completo pero sin relleno: puedes usar listas cortas y negritas cuando ordenan, nunca tablas largas ni JSON. Es el chat central del negocio: si lo que pide se hace en otra pantalla de MaKo, dilo y nombra la pantalla.`;
 
+/**
+ * De quién es un chat del Second Brain: la base `mako-movil:<persona>` de su clave. Un sub-chat de otra tab lleva un
+ * sufijo (`mako-movil:u5:crm:12`), y su persona es la misma. null = no es un chat del Second Brain.
+ */
+export function baseDeLaPersona(chartKey: string | null | undefined): string | null {
+  const m = /^mako-movil:[^:]+/.exec(String(chartKey ?? ''));
+  return m ? m[0] : null;
+}
+
+/** La conversación de un turno de la app: su clave de canal es `app:<id>` (lib/mako-turno-app-reglas.ts). */
+export function sesionDelCanal(canalKey: string | null | undefined): number | null {
+  const m = /^app:(\d+)$/.exec(String(canalKey ?? ''));
+  const n = m ? Number(m[1]) : NaN;
+  return Number.isInteger(n) && n > 0 ? n : null;
+}
+
+/** El título de un chat de antes (de /mako): el suyo, o de qué era. */
+export const SECCION_ANTES = 'Antes';
+export const AVISO_ANTES = 'Este chat es de antes. Sigue en uno nuevo.';
+
 /** Las preguntas de arranque, con el hilo vacío: lo que más se le pide al chat central. */
 export const ARRANQUES_SECOND_BRAIN = ['¿Qué hago hoy?', '¿Cómo viene el mes?', '¿Qué sabes de mi negocio?'] as const;

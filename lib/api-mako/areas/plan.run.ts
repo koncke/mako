@@ -29,8 +29,10 @@ import 'server-only';
 import type { Ctx, Ejecutado, Runners, SalidaLectura } from '../tipos';
 import { runMakoTool } from '@/lib/mako-tools';
 import { crearRunnerAcciones } from '@/lib/mako-doer-acciones';
-import { listPlanBoard, guardarPlanTarea, agregarDependencia, borrarDependencia, listDependencias } from '@/lib/plan-board';
-import { listTareas, editarTarea } from '@/lib/todo';
+import { listPlanBoard, guardarPlanTarea, moverPlanTarea, agregarDependencia, borrarDependencia, listDependencias } from '@/lib/plan-board';
+import { listTareas, editarTarea, moverTarea } from '@/lib/todo';
+// Las columnas del kanban (16/10/2026): claves, etiquetas y qué es un pendiente, de UN lugar.
+import { esEstado, estaPendiente, etiquetaEstado, motivoAtoradaOk } from '@/lib/todo-estados';
 import {
   getPropuesta, getPropuestaPorRef, listPropuestasPendientes, estadoDePropuesta, resumenPropuestasPorRefs,
   descartarPropuesta, crearPropuesta,
@@ -44,6 +46,9 @@ import { proponerProyecto } from '@/lib/checklist-coach';
 import { proyectosSinTareas, proponerTareasParaProyecto } from '@/lib/plan-proyecto-vacio';
 import { leerSenales, contextoDelNegocio } from '@/lib/plan-senales';
 import { listReunionesRecientes } from '@/lib/plan-fathom';
+// «Re-priorizar todo» (16/10/2026): el MISMO trabajo que el botón del tablero, no una copia.
+import { iniciarRepriorizacion, verRepriorizacion, cuantasEntrarian, type Repriorizacion } from '@/lib/plan-repriorizar';
+import { listarDescartadas } from '@/lib/reunion-descartadas';
 import { AREA_GLOSARIO } from '@/lib/glosario';
 import { createKnowledge, updateKnowledge } from '@/lib/mako-knowledge';
 import { hoyEnWorkspace } from '@/lib/timezone';
@@ -53,7 +58,7 @@ import { esRecurrente, sinRecurrentes, soloRecurrentes } from '@/lib/plan-recurr
 import {
   leerTablero, usaPlanBoard, buscarTarea, buscarProyecto, tareaCompacta, nombresDeProyectos,
   linkTarea, linkProyecto, linkBorrador, soloFueraDeHttp, fuenteParaCanal, terminosDelGlosario,
-  diasParada, DIAS_PARADA_NOTORIA,
+  diasParada, DIAS_PARADA_NOTORIA, prioridadParaAgente,
   type Tablero, type TareaPlan,
 } from './plan.helpers';
 
@@ -83,7 +88,10 @@ const recortar = (s: string | null | undefined, n: number): string => {
  * pregunta «¿esto ya existe en el plan?» usa `abierta`, porque una recurrente EXISTE y
  * proponerla de nuevo es el error que la marca en el payload viene a evitar.
  */
-const abierta = (t: TareaPlan): boolean => t.avance < 100;
+// ⚠️ Y «abierta» es además un PENDIENTE (16/10/2026): lo que está en «No cumplen tu criterio» no
+// es trabajo, y listarlo como abierto es justo lo que `estaPendiente` (lib/todo-estados.ts)
+// existe para evitar. Hasta hoy acá bastaba el avance porque el estado no viajaba al JSON.
+const abierta = (t: TareaPlan): boolean => t.avance < 100 && estaPendiente(t.estado);
 const compite = (t: TareaPlan): boolean => abierta(t) && !esRecurrente(t);
 const genHistId = (): string => 'h' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 const aviso = (tab: Tablero): Record<string, string> =>
@@ -109,10 +117,11 @@ const estadoDeps = (tab: Tablero): EstadoDeps | null => {
  * dependencias: `progress`, no `avance`), con la tarea original colgada en `t` para
  * devolverla tal cual. Es el mismo mapeo que `estadoDeps`, arriba.
  */
-type TareaPrioApi = { id: string; num: number; score: number; progress: number; labels: string[]; recurrente: boolean; t: TareaPlan };
+type TareaPrioApi = { id: string; num: number; score: number; progress: number; labels: string[]; recurrente: boolean; estado: TareaPlan['estado']; t: TareaPlan };
 type ProyectoPrioApi = { id: string; score: number; recurrente: boolean };
 const tareasPrio = (tab: Tablero): TareaPrioApi[] =>
-  tab.tareas.map((t) => ({ id: t.id, num: t.num ?? 0, score: t.score, progress: t.avance, labels: t.labels, recurrente: t.recurrente, t }));
+  // `estado` va para que Prioridades no ofrezca lo que está en «No cumplen tu criterio» (16/10/2026).
+  tab.tareas.map((t) => ({ id: t.id, num: t.num ?? 0, score: t.score, progress: t.avance, labels: t.labels, recurrente: t.recurrente, estado: t.estado, t }));
 const proyectosPrio = (tab: Tablero): ProyectoPrioApi[] =>
   tab.proyectos.map((p) => ({ id: p.id, score: p.score, recurrente: p.recurrente }));
 
@@ -200,7 +209,13 @@ export const RUNNERS: Runners = {
         board: tab.board,
         id: t.id, ...(t.num != null ? { num: t.num } : {}), titulo: t.titulo, link: linkTarea(t.id),
         proyecto: t.proyectoId ? { id: t.proyectoId, nombre: nombres.get(t.proyectoId) ?? null } : null,
-        score: t.score, score_razon: t.scoreRazon, prioridad: t.prioridad, avance_pct: t.avance,
+        // La prioridad y la COLUMNA como en la lista (`tareaCompacta`), y no crudas (16/10/2026):
+        // una «Sin priorizar» del cliente salía «media» y una del dueño «futuro», y el detalle era
+        // la única vista donde MaKo no sabía en qué columna estaba la tarea ni por qué se atoró.
+        score: t.score, score_razon: t.scoreRazon, prioridad: prioridadParaAgente(t),
+        estado: t.estado, columna: etiquetaEstado(t.estado),
+        ...(t.estado === 'en_seguimiento' ? { atorada_por: t.motivoAtorada } : {}),
+        avance_pct: t.avance,
         deadline: t.deadline, deadline_razon: t.deadlineRazon, quarter: t.quarter, en_prioridad: t.enPrioridad,
         // ⚠️ ACÁ NO ALCANZA CON `tareaCompacta` (mig 0165): esta lectura arma su propio JSON
         // campo por campo, así que la marca y el ritmo se escriben otra vez o el detalle de
@@ -285,6 +300,29 @@ export const RUNNERS: Runners = {
         tareas_abiertas_sin_proyecto: tab.tareas.filter((t) => compite(t) && !t.proyectoId).length,
         nota: 'avance_pct = promedio del avance de sus tareas CON FIN (null = no tiene ninguna; con se_repiten > 0 eso NO es «abandonado»). `abiertas` y `hechas` tampoco cuentan las que se repiten. Los proyectos con `se_repite: true` están en la lista pero NO en objetivo_principal: no compiten. score_fijado_por_el_dueno null = este tablero no registra ese dato (no es «no lo fijó»).',
         ...aviso(tab),
+      });
+    },
+  },
+
+  /**
+   * El avance del último «Re-priorizar todo» (16/10/2026). Lo mismo que dibuja la línea chica del
+   * tablero, más los conteos. Sin los cambios por tarea: son para que la pantalla no pise lo escrito.
+   */
+  ver_repriorizacion_plan: {
+    leer: async (_input, ctx) => {
+      const tablero = (await usaPlanBoard(ctx.ws)) ? 'dueno' : 'cliente';
+      const t: Repriorizacion | null = await verRepriorizacion(tablero, Number.MAX_SAFE_INTEGER);
+      if (!t) return json({ tablero: tablero === 'dueno' ? 'plan' : 'todo', trabajo: null, nota: 'Nunca se corrió «Re-priorizar todo» en este tablero (se arranca con repriorizar_plan o desde los tres puntos del tablero).' });
+      return json({
+        tablero: tablero === 'dueno' ? 'plan' : 'todo',
+        trabajo: {
+          id: t.id, estado: t.estado, avance: `${Math.min(t.hechas, t.total)}/${t.total}`,
+          total: t.total, hechas: t.hechas, puntuadas: t.puntuadas, sacadas_de_sin_proyecto: t.ruteadas,
+          fijadas_respetadas: t.fijadas, sin_puntuar: t.sinPuntuar,
+          ultimo_error: t.error, modelo: t.modelo, pidio: t.actor, arranco: t.creada, termino: t.terminada,
+          ...(t.estado === 'corriendo' && t.fase === 'cierre' ? { fase: 'reparto final y proyectos' } : {}),
+        },
+        nota: 'estado: corriendo (sigue, en segundo plano) · hecho · error (una tanda falló tres veces y se cortó; lo hecho hasta ahí queda). ultimo_error puede tener texto aunque haya terminado bien: es el último fallo, aunque el reintento haya salido. sin_puntuar = el modelo no las alcanzó y conservan su número.',
       });
     },
   },
@@ -548,18 +586,27 @@ export const RUNNERS: Runners = {
         recordedAfter: str(input, 'recordedAfter') || undefined,
       });
       const refs = pagina.reuniones.map((r) => `fathom:${r.recordingId}`);
-      const borr = await resumenPropuestasPorRefs(refs);
+      // LAS QUE EL CRON NO LEYÓ (mig 0300, 16/10/2026): descartadas por tipo o con la lectura fallida.
+      // Sólo en la primera página. `null` = no se pudieron leer (no es «ninguna»).
+      const sinLeer = str(input, 'cursor') ? undefined : await listarDescartadas();
+      const borr = await resumenPropuestasPorRefs([...refs, ...(sinLeer ?? []).map((d) => `fathom:${d.recordingId}`)]);
       return json({
         reuniones: pagina.reuniones.map((r) => {
           const b = borr[`fathom:${r.recordingId}`];
           return {
             recordingId: r.recordingId, titulo: r.titulo, fecha: r.fecha, dur_min: r.durMin, url: r.url, tipo: r.tipo,
+            motivo_del_tipo: r.motivo ?? null,
             participantes: r.participantes.length,
             borrador: b ? { id: b.id, estado: b.estado, ya_cargadas: b.creadas, pendientes_propias: b.pendientesMias, pendientes_de_otras_personas: b.pendientesOtros } : null,
           };
         }),
         siguiente_cursor: pagina.nextCursor,
-        nota: 'tipo ventas = sus compromisos son del lead, no van al plan. borrador null = la reunión no se leyó todavía.',
+        ...(sinLeer === undefined ? {} : {
+          sin_leer: sinLeer === null ? null : sinLeer
+            .filter((d) => !borr[`fathom:${d.recordingId}`])
+            .map((d) => ({ recordingId: d.recordingId, titulo: d.titulo, fecha: d.fecha, por_que: d.tipo === 'fallo' ? 'la lectura falló' : `tipo ${d.tipo}`, motivo: d.motivo })),
+        }),
+        nota: 'tipo ventas = sus compromisos son del lead, no van al plan. borrador null = la reunión no se leyó todavía. sin_leer = las que el cron no leyó en los últimos 14 días (null: no se pudo saber); se leen desde el modal de Fathom del plan.',
       });
     },
   },
@@ -687,6 +734,95 @@ export const RUNNERS: Runners = {
       const texto = `MaKo cambió el avance de ${t.progreso}% a ${avance}%`;
       await editarTarea(t.id, { progreso: avance, historial: [{ id: genHistId(), ts: Date.now(), actor: 'ia' as const, text: texto }, ...t.historial].slice(0, 40) });
       return { ok: true, resumen: `«${t.titulo}»: ${texto}` };
+    },
+  },
+
+  /**
+   * MOVER DE COLUMNA (16/10/2026). Escribe por las MISMAS funciones que el arrastre del tablero
+   * (`moverPlanTarea` / `moverTarea`): la regla de qué pasa con el avance y el motivo
+   * (`trasMover`) es una sola. Sin `orden`: va arriba de la columna destino, como una tarjeta
+   * recién soltada ahí.
+   */
+  mover_tarea_plan: {
+    preparar: async (input, ctx) => {
+      const tab = await leerTablero(ctx.ws);
+      const t = buscarTarea(tab, str(input, 'id'), null);
+      if (!t) return { error: `No encuentro la tarea «${str(input, 'id')}» en el plan de este negocio.` };
+      const estado = str(input, 'estado');
+      // El validador ya filtra por el enum; esto es la segunda puerta para quien llame sin él.
+      if (!esEstado(estado) || estado === 'hecho') return { error: 'Columna inválida: usa por_hacer, en_curso, en_seguimiento o no_cumple. Para completarla, proponer_cierre_tareas.' };
+      const motivo = estado === 'en_seguimiento' ? motivoAtoradaOk(input.motivo) : null;
+      const destino = etiquetaEstado(estado);
+      // «Ya está así» es un éxito sin nada que hacer para un flujo o un token (yaEstaba), y un
+      // rechazo con la razón para una persona.
+      if (t.estado === estado && (estado !== 'en_seguimiento' || !motivo || motivo === t.motivoAtorada)) {
+        return { error: `La tarea «${recortar(t.titulo, 120)}» ya está en ${destino}.`, yaEstaba: true };
+      }
+      const desde = etiquetaEstado(t.estado);
+      return {
+        payload: { id: t.id, estado, motivo },
+        resumen: `Mover «${recortar(t.titulo, 120)}» de ${desde} a ${destino}${motivo ? ` (${motivo})` : ''}`,
+      };
+    },
+    ejecutar: async (payload, ctx): Promise<Ejecutado> => {
+      const id = String(payload.id ?? '');
+      const estado = String(payload.estado ?? '');
+      if (!esEstado(estado) || estado === 'hecho') return { ok: false, resumen: 'Columna inválida.' };
+      // `undefined` y no null cuando no vino: un reordenamiento dentro de Atorada no borra el motivo.
+      const motivo = typeof payload.motivo === 'string' && payload.motivo ? payload.motivo : undefined;
+      const entrada = (antes: string) => ({
+        id: genHistId(), ts: Date.now(), actor: 'ia' as const,
+        text: `MaKo la movió de ${antes} a ${etiquetaEstado(estado)}${motivo ? ` — ${motivo}` : ''}`.slice(0, 220),
+      });
+      if (await usaPlanBoard(ctx.ws)) {
+        const t = (await listPlanBoard()).tareas.find((x) => x.id === id);
+        if (!t) return { ok: false, resumen: 'La tarea ya no existe.' };
+        const e = entrada(etiquetaEstado(t.estado ?? 'por_hacer'));
+        const r = await moverPlanTarea(id, estado, undefined, { motivo, historial: [e, ...(t.historial ?? [])].slice(0, 40) });
+        return r.ok ? { ok: true, resumen: `«${t.title}»: ${e.text}` } : { ok: false, resumen: r.error };
+      }
+      const t = (await listTareas()).find((x) => x.id === Number(id));
+      if (!t) return { ok: false, resumen: 'La tarea ya no existe.' };
+      const e = entrada(etiquetaEstado(t.estado));
+      const r = await moverTarea(t.id, estado, undefined, { motivo, historial: [e, ...t.historial].slice(0, 40) });
+      return r.ok ? { ok: true, resumen: `«${t.titulo}»: ${e.text}` } : { ok: false, resumen: r.error };
+    },
+  },
+
+  /**
+   * «RE-PRIORIZAR TODO» (16/10/2026, decisión 9). `preparar` sólo cuenta (la misma foto que sacaría
+   * el arranque) y frena si ya hay uno corriendo; `ejecutar` deja el trabajo y contesta al instante.
+   * ⚠️ NO empuja la primera tanda en `after()`: desde acá no se sabe con cuánto reloj corre quien
+   * confirma (WhatsApp, la bandeja, un flujo), y una tanda necesita 75 s. Lo levanta el cron
+   * /api/cron/plan-repriorizar, que corre cada minuto.
+   */
+  repriorizar_plan: {
+    preparar: async (_input, ctx) => {
+      const tablero = (await usaPlanBoard(ctx.ws)) ? 'dueno' : 'cliente';
+      const ya = await verRepriorizacion(tablero, Number.MAX_SAFE_INTEGER);
+      if (ya?.estado === 'corriendo') {
+        return { error: `Ya está re-priorizando este plan: va ${Math.min(ya.hechas, ya.total)} de ${ya.total}. El avance, con ver_repriorizacion_plan.`, yaEstaba: true };
+      }
+      const n = await cuantasEntrarian(tablero);
+      if (!n.total) return { error: 'No hay tareas abiertas en el plan para re-priorizar.', yaEstaba: true };
+      return {
+        payload: { tablero },
+        resumen: `Re-priorizar las ${n.total} tareas abiertas del plan, en segundo plano${n.fijadas ? ` (respeta ${n.fijadas} fijada${n.fijadas === 1 ? '' : 's'} a mano)` : ''}. No toca fechas.`,
+      };
+    },
+    ejecutar: async (payload, ctx): Promise<Ejecutado> => {
+      const tablero = payload.tablero === 'dueno' ? 'dueno' : 'cliente';
+      try {
+        const quien = `MaKo (${ctx.canal === 'whatsapp' ? 'WhatsApp' : ctx.canal === 'app' ? 'el chat de la app' : ctx.canal})`;
+        const r = await iniciarRepriorizacion({ tablero, actor: ctx.actor ? `${ctx.actor} · ${quien}` : quien, origen: 'api' });
+        const t = r.trabajo;
+        const datos = { trabajoId: t.id, total: t.total };
+        if (r.yaCorria) return { ok: true, resumen: `Ya estaba re-priorizando: va ${Math.min(t.hechas, t.total)} de ${t.total}.`, datos };
+        if (t.estado !== 'corriendo') return { ok: true, resumen: 'No había tareas abiertas para re-priorizar.', datos };
+        return { ok: true, resumen: `Arranqué a re-priorizar ${t.total} tareas en segundo plano, por tandas. El avance se ve en el tablero y con ver_repriorizacion_plan.`, datos };
+      } catch (e) {
+        return { ok: false, resumen: `No pude arrancar: ${e instanceof Error ? e.message : String(e)}` };
+      }
     },
   },
 

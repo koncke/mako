@@ -3,7 +3,8 @@
 // =============================================================================
 // GET  → { tareas, categorias }
 // POST { action: 'crear'|'crear-lote'|'mover'|'editar'|'borrar'
-//               |'categoria-crear'|'categoria-borrar', ... }
+//               |'categoria-crear'|'categoria-borrar'
+//               |'repriorizar'|'repriorizar-estado', ... }
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
@@ -13,6 +14,9 @@ import {
   type EstadoTarea, type Prioridad, type OrigenTarea, type ChecklistItem, type HistEntry, type CamposResponsable,
 } from '@/lib/todo';
 import { priorizarNuevasCliente } from '@/lib/todo-guardian';
+import { accionDelTablero } from '@/lib/plan-repriorizar';
+import { getUsuarioActual } from '@/lib/auth';
+import { esEstado } from '@/lib/todo-estados';
 // «Cómo se repite» (mig 0167): la RRULE. El saneo vive en el módulo compartido — esta ruta
 // es la PUERTA del tablero del cliente, y la columna no tiene `check`, así que lo que pase
 // de acá llega a la base tal cual. No se sanea EN esta puerta a propósito: la invariante
@@ -39,6 +43,11 @@ type TareaBody = {
   titulo?: string; detalle?: string | null; prioridad?: Prioridad; estado?: EstadoTarea;
   progreso?: number; deadline?: string | null; quarter?: string | null; recurrente?: boolean; recurrencia?: unknown; categorias?: number[];
   checklist?: ChecklistItem[]; historial?: HistEntry[]; en_prioridad?: boolean; score?: number; score_razon?: string | null;
+  // EL CANDADO de «la fijaste a mano» (la columna es de la 0143; el cliente la usa desde el
+  // 16/10/2026). Sólo en `editar`, y sólo lo mandan
+  // `prioridadManual` / `prioridadAlPerro` del tablero: es la PUERTA, y sin esta línea el slider
+  // fijaría el número sin el candado — y «Re-priorizar todo» se lo pisaría.
+  score_manual?: boolean;
   // ⚠️ LA PUERTA de los cinco de #157. `lib/todo.ts` sabía escribirlos y el board
   // sabía mandarlos; si no están declarados ACÁ se caen en el camino y el síntoma es
   // el de siempre: 200 y no se guardó nada. Es el cuarto de los seis lugares que
@@ -51,6 +60,10 @@ type TareaBody = {
   // por eso las tareas del cliente que venían de una reunión perdían el chip de origen
   // y el link al minuto de la grabación, mientras que en el board del dueño sí salían.
   fuente?: { tipo: string; etiqueta?: string; url?: string } | null;
+  // LA COLUMNA EN EL ALTA (16/10/2026): el «＋» de una columna crea la tarea con ese estado, y
+  // restaurar un borrado la devuelve con su estado, su motivo y su lugar. Sólo en `crear`: en
+  // `editar` el estado NO viaja (lo escribe `mover`, ver `BoardTask.estado`).
+  motivo_atorada?: string | null; orden?: number;
 } & CamposResponsable;
 
 /** Los campos de QUIÉN, tal cual vinieron (lib/todo los sanea). Una persona puede
@@ -63,12 +76,20 @@ const responsableDe = (t: TareaBody): CamposResponsable => ({
 });
 
 export async function POST(req: NextRequest) {
+  const inicio = Date.now();
   let body: Record<string, unknown>;
   try { body = await req.json(); } catch { return Response.json({ ok: false, error: 'JSON inválido' }, { status: 400 }); }
   const action = String(body.action ?? '');
   const id = Number(body.id);
 
   try {
+    // «RE-PRIORIZAR TODO» (16/10/2026): arrancar y el sondeo del avance. La misma función que la
+    // ruta del dueño; acá sólo se dice qué tablero es. El reloj del `after()` es el de esta ruta.
+    const rp = await accionDelTablero('cliente', action, body, {
+      inicio, relojMs: (maxDuration - 10) * 1000,
+      actor: async () => { const s = await getUsuarioActual(); return s?.nombre || s?.email || ''; },
+    });
+    if (rp) return Response.json(rp, { status: rp.ok ? 200 : 400 });
     // El Perro Guardián para el board del CLIENTE. Antes esta acción no existía y el
     // tablero del cliente no tenía forma de invocarlo: sus tareas entraban con el
     // score que había adivinado la extracción, sin razón, sin detalle y sin checklist
@@ -85,6 +106,10 @@ export async function POST(req: NextRequest) {
       if (!t || !t.titulo) return Response.json({ ok: false, error: 'falta el título' }, { status: 400 });
       return Response.json({ ok: true, tarea: await crearTarea({
         titulo: t.titulo, detalle: t.detalle ?? null, prioridad: t.prioridad, estado: t.estado,
+        // El SCORE viaja en el alta (16/10/2026): 0 = «Sin priorizar», la tarea nace libre y no
+        // la puntúa nadie hasta «Re-priorizar todo». Sin esta línea `crearTarea` lo sacaría de
+        // `prioridad`, que el tablero siempre manda, y la libre nacería «Media».
+        score: t.score, motivo_atorada: t.motivo_atorada, orden: t.orden,
         progreso: t.progreso, deadline: t.deadline, categorias: t.categorias,
         // ⚠️ `recurrente` VA EN EL ALTA, y faltaba: `NuevaTarea` lo soporta desde la 0163 y
         // esta rama no lo nombraba, así que una tarea del cliente NACÍA compitiendo aunque
@@ -110,12 +135,23 @@ export async function POST(req: NextRequest) {
       const n = await crearTareasDesde(items, { origen: meta.origen ?? 'mako', retro_id: meta.retro_id ?? null, experimento_id: meta.experimento_id ?? null });
       return Response.json({ ok: true, creadas: n });
     }
+    // MOVER en el kanban (16/10/2026): la capacidad `mover` del Repo del cliente. Existía desde
+    // la 0051 y no la llamaba ninguna pantalla.
+    // ⚠️ UN ESTADO QUE NO EXISTE ES UN 400, NO «Por iniciar». `moverTarea` hacía `estadoOk(…)`,
+    // que convierte cualquier cosa en `por_hacer`: un typo en un llamador movía la tarjeta a la
+    // primera columna y contestaba 200.
     if (action === 'mover') {
       if (!Number.isFinite(id)) return Response.json({ ok: false, error: 'id requerido' }, { status: 400 });
-      const estado = String(body.estado) as EstadoTarea;
-      const orden = body.orden != null ? Number(body.orden) : undefined;
-      const historial = (body.historial as HistEntry[] | undefined);
-      return Response.json({ ok: true, tarea: await moverTarea(id, estado, orden, historial) });
+      const estado: unknown = body.estado;
+      if (!esEstado(estado)) return Response.json({ ok: false, error: 'estado inválido' }, { status: 400 });
+      const orden = body.orden != null && Number.isFinite(Number(body.orden)) ? Number(body.orden) : undefined;
+      const historial = Array.isArray(body.historial) ? (body.historial as HistEntry[]) : undefined;
+      // `undefined` = «no me dijeron» (conserva el motivo si ya estaba atorada); `null` lo borra.
+      const motivo = body.motivo === null ? null : typeof body.motivo === 'string' ? body.motivo : undefined;
+      // El avance de ANTES: sólo lo manda el «Deshacer» de un mover (`trasMover`, 16/10/2026).
+      const progreso = typeof body.progreso === 'number' && Number.isFinite(body.progreso) ? body.progreso : undefined;
+      const r = await moverTarea(id, estado, orden, { motivo, historial, progreso });
+      return r.ok ? Response.json({ ok: true, tarea: r.tarea }) : Response.json({ ok: false, error: r.error }, { status: r.status });
     }
     if (action === 'editar') {
       if (!Number.isFinite(id)) return Response.json({ ok: false, error: 'id requerido' }, { status: 400 });
@@ -130,6 +166,7 @@ export async function POST(req: NextRequest) {
         recurrencia: patch.recurrencia,
         categorias: patch.categorias,
         checklist: patch.checklist, historial: patch.historial, en_prioridad: patch.en_prioridad, score: patch.score, score_razon: patch.score_razon,
+        score_manual: patch.score_manual,
         notas: patch.notas, deadline_razon: patch.deadline_razon, hacelo_en: patch.hacelo_en,
         impacto: patch.impacto, esfuerzo: patch.esfuerzo,
         fuente: patch.fuente,

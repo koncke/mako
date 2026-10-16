@@ -1,84 +1,43 @@
-# Relevo — chat «Dashboard» (la tab Dashboard)
+# Relevo — chat «Dashboard» (la tab Dashboard y el editor de General)
 
-<sub>Escrito el 15/10/2026 ~06:40 (hora de Argentina) por la cuenta 1 (claude1), desde el chat que hizo el trabajo. Se pisa en cada
-relevo. El anterior (chat «Graphics», cuenta 2) está en el historial: `git log -p -- docs/relevo/dashboard.md`.</sub>
+<sub>Escrito el 16/10/2026 ~10:30 (hora de Argentina) por la cuenta 3 (claude3), desde el chat que hizo el trabajo, al pasar
+el 85% del uso semanal. Se pisa en cada relevo. Los anteriores están en el historial: `git log -p -- docs/relevo/dashboard.md`.</sub>
 
-## Dónde está
+## Cómo se trabaja acá
 
-**El rediseño por tipo con capturas** (pedido de Martín del 14/10, 14:34: «Que rediseñe bloque por bloque y que tenga en cuenta
-mobile… con datos ficticios… Tanto bloques como las plantillas»). Se hizo de a dos chats, repartido por ARCHIVO:
+- Rama `dashboard-bloques`, worktree `C:/dev/wt-dashboard`. Se MEZCLA (nunca rebase) y se commitea por ruta explícita.
+- **La punta va a «Cerebro»** (`local_0f38f4d5…`), que la sube a main en runs numerados. Este chat no pushea.
+- Sin `next dev` ni tsc completo (la RAM): `node scripts/tsc-acotado.mjs <archivos>`; salida 99 = lo mató el vigía, no es verde.
+- Arnés de capturas FUERA del repo, `C:/Users/marti/arnes-dashboard/`: `node build.mjs C:/dev/wt-dashboard` y
+  `node capturar.cjs "<regex>" mako <modo>`. Modos: `plantillas`, `galeria`, `crear` (la «¿Qué vas a crear hoy?» de verdad) y
+  `editar` (el panel «Editar con MaKo» de verdad, con `editar-pedidos` para las burbujas). ⚠️ El 2º argumento es el tema de
+  la HOJA, no el oscuro de la app.
 
-- **Este chat:** lo que dibuja `app/dashboard/Grafico.tsx` (números, ejes, torta, anillo, sankey, embudos, la tabla dinámica), los
-  datos de ejemplo (`lib/graficos-muestra.ts`), `intervaloPorAncho` (`lib/graficos-gordo.ts`) y la pila del celular
-  (`EditorInforme.tsx`). Commits `fb44d58d`, `1de9d05b`, `cdaebefa` y el de la cosecha.
-- **El chat «General»:** los tipos con archivo propio en `app/dashboard/graficos/` (tablas, tarjetas, dispersión, paneles, tramos,
-  barras gordas), el mapa (`MapaGeo.tsx`) y la revisión de las 13 plantillas enteras. Commits `aa08f395`, `6fcdc128`, `5e47a427`,
-  `105fc5f4`, `93012bf0`.
+## Dónde está (16/10)
 
-Se integró en la rama `dashboard-bloques` (worktree `C:/dev/wt-dashboard`) y se pushea a main desde ahí.
+**En producción** (runs 32 y 36), mirado en el ws9 sólo leyendo:
+- La IA del Dashboard con su propia red y el corte por datos de clientes caja por caja (`pii` en cada caja; sin crédito ni
+  key del negocio, una caja con datos de clientes no corre y avisa «Conecta tu Claude…»).
+- Las plantillas sugeridas por el negocio (módulo compartido, guía en `docs/plantillas-sugeridas.md`).
+- «Editar con MaKo» en Dashboard y General (operaciones sobre la hoja abierta, el editor aplica con `mutar`).
+- La seguridad de `/api/chart-insights` (sin números para no-admins; cada chat es de quien lo habló).
 
-Lo aprendido, en `docs/hallazgos-graficos.md`: «Rediseño por tipo con capturas, mitad General» y «El rediseño por tipo, mitad
-Dashboard». El arnés de capturas vive FUERA del repo, en `C:/Users/marti/arnes-dashboard/` (`node build.mjs <raíz>` y
-`node capturar.cjs <regex> [tema] [plantillas]`).
+**Punta entregada, sin subir: `53f969095`** — los pedidos sueltos en «Editar con MaKo» (crear otra hoja, abrir o archivar
+otra, «¿Cuál?», el link a otra tab). Trae adentro la rama del Web Generator (`web-pedidos` @019ffdb00), que sale en el
+run 43: tiene que subir DESPUÉS o junto con ese run. Toca dos archivos de esa rama: `objetosDeTab` de `general` en
+app/api/mako/pedidos/route.ts y `PARTES_DE_LO_ABIERTO.general` en lib/mako-pedidos.ts.
 
-## Después: el épico (14/10 noche) y las PORTADAS (15/10, hechas)
-
-- **En main:** el titular por hoja + ESCALA_EPICA (`68566ade`) y el texto que crece con su tarjeta (`d5384e97`).
-- **Las portadas, hechas el 15/10** (el orquestador retiró la decisión de la Ticketera: Martín quería verlo hecho, no una
-  tabla). Las 26 plantillas abren con UNA pieza a lo ancho, con su color y la forma de lo que contestan. **Copiado de las
-  portadas de informe de Canva** (capturas en `C:/Users/marti/arnes-dashboard/referencias/`). El titular 6 × 6 se fue.
-  Dónde vive y lo que costó: `docs/hallazgos-graficos.md` → «Las portadas». La regla para una plantilla nueva, en AGENTS.md
-  (sección de General como editor del Dashboard).
-- **La tabla de colores** (`lib/graficos-identidad.ts`) es la acordada con General, con Ads en coral (el magenta es de
-  Instagram) y General en Noche. Las dos galerías las hace ESTE chat (General no las toca: lo avisó el orquestador).
-- **Lo que se midió y cambió la propuesta:** no hay leads «de Instagram» (el 1.062 era `instant_form`); la plantilla
-  Instagram abre con la audiencia de Meta por plataforma. Sin DM de Instagram conectados.
-- **Capturas:** arnés del Dashboard `node build.mjs` + `node capturar.cjs "" mako galeria` (la galería real, escritorio y
-  celular) y `... plantillas` (cada hoja en escritorio y en la pila); arnés de General `C:/Users/marti/arnes-dashboard-general/`
-  (`node build-general.mjs C:/dev/wt-dashboard`, con `CHICO=1` o `PILA=1`).
-
-## HECHO (15/10 ~07:25): las hojas viejas archivadas y las de Mauricio rehechas
-
-`scripts/rehacer-hojas-dashboard.ts` (el plan escrito hoja por hoja, con su porqué). Respaldos en
-`C:/Users/marti/respaldos-mako/dashboard-hojas-2026-10-15.json` y `…-repaso.json`; para devolver:
-`NODE_OPTIONS="--conditions=react-server" npx tsx scripts/rehacer-hojas-dashboard.ts --env <.env.local> --restaurar <respaldo>`
-(no pisa lo que la persona haya editado después). ⚠️ La Cobranza de Leila (ws11) NO se tocó: no coincide con ninguna versión
-de su plantilla. Los informes de General (ws1, ws10) ya estaban vacíos. Mirado en producción con la sesión de Mauricio.
-
-## (Lo que era la cola, para la historia) borrar las hojas viejas y rehacer las de Mauricio, DESPUÉS de las portadas
-
-Martín: «eliminen las tabs viejas de los workspaces. Sólo en el caso de Mauricio, que vuelva a poner las tabs que estaban
-pero con su nuevo rediseño». Orden: aprobar portadas → implementarlas → recién ahí borrar y rehacer. Censo (sólo leyendo,
-15/10): 5 informes, 11 hojas; ws1 6 (Marketing, Comercial, Ads, Landing, Closing, Productividad), ws10 Ads, ws11 Cobranza +
-Marketing, ws13 Marketing, ws15 Marketing; todas de plantilla. Script de censo:
-`scratchpad/censo-hojas.mjs` (rehacerlo en el repo si hace falta). UN script con General para el borrado, con respaldo y
-comando para devolverlo, verificado con lo que lee el producto. Al armar el respaldo se compara cada hoja PIEZA POR PIEZA
-con su plantilla: si aparece UNA editada, se frena y se avisa al orquestador (es trabajo de alguien). Las portadas ya están
-hechas (15/10): lo que sigue es este borrado y rehacer las de Mauricio con `instanciarPlantilla` sobre las plantillas nuevas.
-
-## HECHO (15/10 noche, cuenta 3): la segunda pasada bloque por bloque
-
-Con el arnés, las 13 plantillas en escritorio y pila, y Contraste por tipo. Lo que salió (detalle en
-`docs/hallazgos-graficos.md` → «Bloque por bloque, segunda pasada»):
-
-- En la pila del celular, las tablas, tarjetas, tramos, dinámicas, barras horizontales y la caja de IA miden lo que dibujan
-  (antes, media pantalla en blanco abajo). La regla vive en `app/dashboard/pila.ts` y el arnés la importa.
-- El último número de un grupo impar va a lo ancho en la pila.
-- Las barras horizontales llenan su tarjeta (bandas de Looker) y engordan a 32 px (24 en el celular).
-- Columnas agrupadas con menos aire entre grupos; los totales de la portada de Cobranza ya no se cortan; la última fecha del
-  eje X ya no se corta.
-- **Las dos decisiones:** el titular lo resolvió la portada; «menos piezas» copiado de Looker Studio (una fila de números
-  debajo de la portada, ninguno repite la portada): Productividad pasó de 19 a 16 piezas. Closing queda (R1 y R2 son puntaje).
-
-**Ticketera, tabs-mauricio-general** (Martín, 15/10 05:33): «A · Nada: respetar que la dejó en blanco». El script de las
-hojas (`scripts/rehacer-hojas-dashboard.ts`) no toca General y el informe de General de Mauricio sigue vacío: no hay nada
-que sacar.
+Lo aprendido de todo esto: `docs/hallazgos-graficos.md` (secciones del 16/10), `docs/hallazgos-ia.md` («Los pedidos
+sueltos…»), `docs/hallazgos-seguridad.md` (chart-insights) y el contrato en `docs/diseno-mako-pedidos.md`.
 
 ## Lo que falta
-- **Verlo en producción después del push** (la pila del celular con una sesión real) y **ws3**: el editor con «Celular» sobre una plantilla (Comercial, Marketing) y la galería de «¿Qué vas a
-  crear hoy?». Nada se miró todavía con datos reales.
-- **Cinco temas sin mirar por tipo** (Minimal, Suave, Elevada, General, Editorial; Contraste se miró el 15/10). Ojo: en modo
-  `plantillas` cada hoja sale en SU tema; los temas se miran con `node capturar.cjs "" <tema>`.
-- **Sin mirar en el arnés**: «Conclusiones de MaKo», la Ficha y el mapa de calor de página (piden datos del server).
-- **Que Martín decida** si se borran `PulsoPaginas.tsx` + su ruta y su lib, y `ScriptsBrowser`/`GuionesFull` (~900 líneas sin usar).
+
+- **Después del run 43:** probar los pedidos sueltos contra la ruta de verdad en el ws9 (sólo leyendo: «créame otra hoja»
+  muestra la burbuja; no apretar Sí ni Archivar en un informe ajeno).
+- **Mirar el panel «Editar con MaKo» en la pantalla de producción** (se probó la ruta y el modelo; el panel, sólo en el arnés).
+- **El hilo del panel no se guarda** (es de la sesión, por hoja): es la etapa 2 de `docs/diseno-mako-ai-native.md`.
+- **`claudePausado` debería decir «Conecta tu Claude»**: anotado como abierto por Cerebro, no pedido todavía.
+- **Lo de antes que sigue abierto:** la pila del celular con una sesión real; cinco temas sin mirar por tipo (Minimal, Suave,
+  Elevada, General, Editorial); «Conclusiones de MaKo», la Ficha y el mapa de calor de página sin mirar en el arnés; que
+  Martín decida si se borran `PulsoPaginas.tsx` y `ScriptsBrowser`/`GuionesFull`.
 - El resto, en `docs/hallazgos-graficos.md` → «Lo que quedó sin hacer».

@@ -864,7 +864,7 @@ camino es transparente». En esta corrida pegó así:
   corrido desde Bash recibió `/ ── Diseño` en vez de `// ── Diseño` como ancla: el corte cayó un carácter
   después y el archivo dio TS1161. Las anclas con `//` o barras van adentro de un archivo, o por Edit; y
   después de un reemplazo programático, typecheck.
-- **Write convirtió el escape de U+0300 en el carácter combinante LITERAL** (en una regex para sacar
+- **Write convirtió el escape de U+0302 en el carácter combinante LITERAL** (en una regex para sacar
   tildes): sigue andando, pero no se lee y el acento se dibuja sobre el corchete. Pasó en
   `biblioteca-ui.tsx`, `emojis.ts`, `shapes.ts` y `flags.ts`, corregidos con un Python que arma la barra
   con `chr(92)`. Después de escribir un escape, `grep -n 'u0300'` u `od -c`. Y en un heredoc, `\p{…}`
@@ -1314,6 +1314,47 @@ cambio. Nada escribe la línea de tiempo desde el server: lo que proponga la API
   porque no se sube lo que ya se subió (compara el cuerpo entero).
 - **SIN HACER:** mirarlo en el navegador (un proyecto viejo sube al abrirse; borrar lo saca de la lista); lo que la copia
   no tiene: el cabezal y la selección (son de quien mira) y los proyectos que no se abrieron desde el 16/10.
+
+## Las operaciones del chat en la API: proponen, y se aceptan en el chat del editor (16/10, etapa 3, tanda 3)
+
+**Vive en:** `lib/editor-video/chat-api.ts` (las 34 acciones) · `lib/editor-video/propuestas.ts` y `propuestas-server.ts` ·
+`app/api/video-editor/propuestas/route.ts` · `app/video-editor/_opencut/chat/propuestas.ts` · mig 0302
+(`video_editor_propuestas`) · test `tests/video-editor-propuestas-api.test.ts` (35 roturas). Lo de la API, en
+docs/hallazgos-api-mako.md («El Video Editor en la API»).
+
+- **La propuesta es un mensaje más del chat «Editar con IA»**: con su «Original | Modificado», el MISMO «Aceptar»
+  (`aceptarPropuesta`, que ya revisaba contra la línea de tiempo de ahora con las refs de cuando se pidió) y
+  «Restaurar». Aceptada o descartada, se cierra en la base. El editor las busca al abrir, al volver a la pestaña y cada
+  minuto; si llega una nueva, abre el panel.
+- **El id del mensaje es el de la propuesta** (`api-<id>`): volver a buscar no la repite, y si otra acción se le sumó,
+  el mensaje se rearma mientras esté pendiente. Una que se resolvió en otra pestaña queda descartada con su aviso.
+- **Se revisa dos veces, a propósito:** al proponer, contra la COPIA (una ref que no existe vuelve con el motivo y el
+  modelo se corrige en el mismo turno); al aceptar, contra la línea de tiempo de ese momento.
+- **Lo del mismo canal se junta** (el grupo de WhatsApp, la sesión, el token) por dos horas y hasta 40 cambios: un
+  pedido son varias acciones y UNA propuesta, que se acepta en un paso de deshacer. La plantilla va sola y con la
+  línea de tiempo vacía, como en el chat.
+- **SIN HACER:** verlo de punta a punta (un pedido por WhatsApp con las migraciones 0298–0302 aplicadas, y aceptarlo
+  en el editor); que el link `?propuesta=` lleve a ESA propuesta (hoy abre el panel con todas); que una propuesta
+  vieja venza (hoy queda abierta hasta que alguien la resuelve); avisarle a la persona por WhatsApp cuando la acepta.
+
+## «Entender el pedido» en el chat (16/10): lo que no es del proyecto abierto, una burbuja con su link
+
+**Vive en:** `app/video-editor/_opencut/chat/pedidos.ts` (puro) · `PanelChat.tsx` (`pedirEdicion`, `pedirPedidos`) ·
+la ruta compartida `app/api/mako/pedidos/route.ts` · el núcleo `lib/mako-pedidos.ts` · test
+`tests/video-editor-pedidos-chat.test.ts` (15 roturas). El contrato: docs/diseno-mako-pedidos.md.
+
+- **El chat pregunta ANTES de su IA**, con sus proyectos del navegador (`storageService.loadAllProjectsMetadata()`
+  como `objetos`: el servidor no los tiene). Lo del proyecto abierto va a la IA con su texto; sin nada del abierto, no
+  se gasta la IA. Si la ruta falla o tarda, el mensaje entero va a la IA, como antes. Las sugerencias no pasan por la
+  ruta: son nuestras y de edición.
+- ⚠️ **Borrar un proyecto NO se hace desde el chat**: en el editor un proyecto borrado no va a una papelera, se va con
+  su material. La burbuja dice dónde se borra (el inicio) y deja el link; el abierto, igual.
+- ⚠️ **«Proyecto» es palabra del Plan para el núcleo**, y en el editor es un video: «créame otro proyecto» decía «Eso se
+  hace en Plan». Se arregló en el núcleo (`OBJETOS_DE_LA_TAB`, docs/hallazgos-ia.md), no acá.
+- **La validación de la respuesta es la del Web Generator** (`interpretacionDe`, reexportada): una regla, un lugar.
+  Los links de una burbuja se frenan dos veces si no son de adentro de la app (la validación y la burbuja), y el hilo
+  guardado tampoco los acepta.
+- **SIN HACER:** verlo en el navegador (un pedido doble, «el otro proyecto» con dos candidatos, un link a otra tab).
 
 ## Lo que quedó SIN hacer
 

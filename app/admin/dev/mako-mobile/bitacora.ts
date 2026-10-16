@@ -170,4 +170,14 @@ export const BITACORA: Hito[] = [
     ],
     archivos: ['app/m/copywriting/', 'app/m/curso/', 'app/m/comunidad/', 'app/ads-writer/reglas.ts', 'lib/guion-secciones.ts', 'app/ads-writer/analizar.ts', 'app/_comunidad/iconos.tsx', 'tests/m-copywriting.test.ts', 'tests/m-curso.test.ts', 'tests/m-comunidad.test.ts', 'tests/layout-sin-suspense.test.ts', 'docs/hallazgos-mobile.md', 'docs/hallazgos-seguridad.md'],
   },
+  {
+    fecha: '16 oct', hora: '11:04', chat: CH, sesion: 'local_38c56f56-c724-42ba-92ff-9679cfdeedf5', cuenta: 'claude3', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Offer en el teléfono: las otras ofertas se marcan varias, como en la computadora',
+    puntos: [
+      'Offer ahora pregunta qué otras ofertas tiene el negocio y deja marcar varias. En el teléfono cada toque mandaba una sola, así que «tengo un curso y una mentoría» no se podía contestar.',
+      'Ahora es igual que la computadora: cada oferta se marca y se desmarca, «Puedes marcar varias» arriba, y «Enviar (N)» las manda juntas como una respuesta. «No, sólo ésta» y «Armar mi oferta» siguen saliendo con un toque.',
+      'Lo fija un test, probado rompiéndolo de ocho formas. Nada se miró en un teléfono.',
+    ],
+    archivos: ['app/m/offer/modelo.ts', 'app/m/offer/HiloOfferM.tsx', 'app/m/offer/OfferM.tsx', 'app/m/offer/offer.css', 'tests/m-offer.test.ts', 'docs/hallazgos-mobile.md'],
+  },
 ];

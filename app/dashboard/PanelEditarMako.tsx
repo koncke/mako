@@ -27,14 +27,21 @@ import { TOPE_PEDIDO_IA } from '@/lib/graficos-ia';
 import { TURNOS_IA, type TurnoEdicion } from '@/lib/graficos-ia-edicion';
 import { GRAMATICA } from '@/lib/mako-gramatica';
 import { BotonDictar } from '@/app/plan/board/CrearTareaModal';
+import { PLAZO_PEDIDOS_MS, pedirPedidos } from '@/app/web-generator/cliente';
 import { CSS_PANEL_LATERAL, LogoMako } from './PanelAnalista';
 import { TextoConLink } from './NuevaHoja';
+import {
+  TAB_DEL_INFORME, burbujasDeHoja, interpretacionDe, pulsarHoja, textoActual, trasCrear, vistaDeBurbujaHoja,
+  type BotonHoja, type BurbujaHoja,
+} from './pedidos-hoja';
 
 /** Un mensaje del hilo. El de MaKo trae lo que cambió y, si cambió algo, la hoja de antes para deshacerlo. */
 export type MensajeEdicion =
   | { k: 'yo'; texto: string }
   | { k: 'el'; texto: string; cambios: string[]; avisos: string[]; hojaId?: string; antes?: Hoja; aplicada?: Hoja; deshecho?: boolean }
-  | { k: 'error'; texto: string; link?: string };
+  | { k: 'error'; texto: string; link?: string }
+  /** Un pedido que no es de esta hoja (otra hoja, otra tab, crear otra): ./pedidos-hoja.ts. */
+  | { k: 'pedido'; id: string; burbuja: BurbujaHoja };
 
 /** El tope de la ruta (`maxDuration = 120`) + margen. */
 const TOPE_CLIENTE_MS = 125_000;
@@ -56,7 +63,7 @@ function historialDe(hilo: readonly MensajeEdicion[]): TurnoEdicion[] {
   }).slice(-TURNOS_IA);
 }
 
-export function PanelEditarMako({ hoja, informe, hilo, onHilo, leerHoja, onAplicar, onDeshacer, onCerrar }: {
+export function PanelEditarMako({ hoja, informe, hilo, onHilo, leerHoja, onAplicar, onDeshacer, onCrearHoja, onAbrirHoja, onArchivarHoja, onCerrar }: {
   /** La hoja abierta. */
   hoja: Hoja;
   informe: 'dashboard' | 'general';
@@ -69,6 +76,12 @@ export function PanelEditarMako({ hoja, informe, hilo, onHilo, leerHoja, onAplic
   onAplicar: (h: Hoja) => void;
   /** Vuelve la hoja a como estaba antes de un cambio de MaKo. */
   onDeshacer: (antes: Hoja) => void;
+  /** Una hoja nueva que armó MaKo con un pedido de «crear otra» (la agrega y la abre: `crearHoja` del editor). */
+  onCrearHoja: (h: Hoja) => void;
+  /** Abre otra hoja del informe (`irAHoja`). */
+  onAbrirHoja: (id: string) => void;
+  /** Archiva otra hoja del informe (`eliminarHoja`: queda en Archivados, con su Deshacer). Ya confirmado. */
+  onArchivarHoja: (id: string) => void;
   onCerrar: () => void;
 }) {
   const [texto, setTexto] = useState('');
@@ -77,6 +90,8 @@ export function PanelEditarMako({ hoja, informe, hilo, onHilo, leerHoja, onAplic
   const [ahora, setAhora] = useState(() => Date.now());
   const [errorDictado, setErrorDictado] = useState<string | null>(null);
   const ctrl = useRef<AbortController | null>(null);
+  /** El id de la próxima burbuja (para reemplazarla en el hilo cuando cambia). */
+  const idPedido = useRef(0);
   const campo = useRef<HTMLTextAreaElement>(null);
   const fin = useRef<HTMLDivElement>(null);
   const pensando = desde != null;
@@ -99,11 +114,11 @@ export function PanelEditarMako({ hoja, informe, hilo, onHilo, leerHoja, onAplic
   useEffect(() => { campo.current?.focus(); }, []);
 
   const enviar = async (escrito?: string) => {
-    const pedido = (escrito ?? texto).trim().slice(0, TOPE_PEDIDO_IA);
-    if (!pedido || pensando) return;
+    const mensaje = (escrito ?? texto).trim().slice(0, TOPE_PEDIDO_IA);
+    if (!mensaje || pensando) return;
     const enviada = hoja;
     const historial = historialDe(hilo);
-    onHilo((h) => [...h, { k: 'yo', texto: pedido }]);
+    onHilo((h) => [...h, { k: 'yo', texto: mensaje }]);
     setTexto('');
     setErrorDictado(null);
     const c = new AbortController();
@@ -113,23 +128,42 @@ export function PanelEditarMako({ hoja, informe, hilo, onHilo, leerHoja, onAplic
     setAhora(Date.now());
     const decir = (m: MensajeEdicion) => onHilo((h) => [...h, m]);
     try {
-      const res = await fetch('/api/graficos/editar', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ hoja: enviada, pedido, historial, informe }), signal: c.signal,
-      });
-      const j = await res.json().catch(() => null) as { ok?: boolean; respuesta?: unknown; cambios?: unknown; avisos?: unknown; hoja?: unknown; error?: string; link?: string } | null;
+      // 1 · ENTENDER EL PEDIDO (docs/diseno-mako-pedidos.md, «El punto de enganche»): lo de esta hoja sigue a la
+      //     edición de siempre; lo demás —otra hoja, otra tab, crear otra— son burbujas (./pedidos-hoja.ts). Si la ruta
+      //     falla o tarda más de `PLAZO_PEDIDOS_MS`, el mensaje entero es de esta hoja: lo de antes, sin regresión.
+      const r = await pedirPedidos({ texto: mensaje, tab: TAB_DEL_INFORME[informe], actualId: enviada.id, actualNombre: enviada.nombre }, { ms: PLAZO_PEDIDOS_MS, signal: c.signal });
       if (ctrl.current !== c) return;
-      if (!res.ok || !j?.ok) { decir({ k: 'error', texto: j?.error || `Error ${res.status}`, link: j?.link }); return; }
-      const respuesta = typeof j.respuesta === 'string' ? j.respuesta : '';
-      const cambios = lista(j.cambios);
-      const avisos = lista(j.avisos);
-      if (j.hoja == null || !cambios.length) { decir({ k: 'el', texto: respuesta, cambios: [], avisos }); return; }
-      // Lo que llega por la red se vuelve a sanear: la hoja vale por lo que dice el catálogo de acá.
-      const nueva = sanearHoja(j.hoja, 0);
-      if (!nueva || nueva.id !== enviada.id) { decir({ k: 'error', texto: 'Llegó otra hoja. Prueba de nuevo.' }); return; }
-      if (leerHoja(enviada.id) !== enviada) { decir({ k: 'error', texto: 'La hoja cambió mientras MaKo pensaba. Pídelo de nuevo.' }); return; }
-      onAplicar(nueva);
-      decir({ k: 'el', texto: respuesta, cambios, avisos, hojaId: enviada.id, antes: enviada, aplicada: nueva });
+      const interpretacion = interpretacionDe(r, mensaje);
+      const deEstaHoja = textoActual(interpretacion);
+      const burbujas = burbujasDeHoja(interpretacion, enviada.id);
+      // 2 · Lo de esta hoja, a la edición.
+      if (deEstaHoja) {
+        const res = await fetch('/api/graficos/editar', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ hoja: enviada, pedido: deEstaHoja, historial, informe }), signal: c.signal,
+        });
+        const j = await res.json().catch(() => null) as { ok?: boolean; respuesta?: unknown; cambios?: unknown; avisos?: unknown; hoja?: unknown; error?: string; link?: string } | null;
+        if (ctrl.current !== c) return;
+        if (!res.ok || !j?.ok) {
+          decir({ k: 'error', texto: j?.error || `Error ${res.status}`, link: j?.link });
+        } else {
+          const respuesta = typeof j.respuesta === 'string' ? j.respuesta : '';
+          const cambios = lista(j.cambios);
+          const avisos = lista(j.avisos);
+          // Lo que llega por la red se vuelve a sanear: la hoja vale por lo que dice el catálogo de acá.
+          const nueva = j.hoja != null && cambios.length ? sanearHoja(j.hoja, 0) : null;
+          if (j.hoja == null || !cambios.length) decir({ k: 'el', texto: respuesta, cambios: [], avisos });
+          else if (!nueva || nueva.id !== enviada.id) decir({ k: 'error', texto: 'Llegó otra hoja. Prueba de nuevo.' });
+          else if (leerHoja(enviada.id) !== enviada) decir({ k: 'error', texto: 'La hoja cambió mientras MaKo pensaba. Pídelo de nuevo.' });
+          else {
+            onAplicar(nueva);
+            decir({ k: 'el', texto: respuesta, cambios, avisos, hojaId: enviada.id, antes: enviada, aplicada: nueva });
+          }
+        }
+      }
+      // 3 · Lo demás, como burbujas de MaKo (después de lo de esta hoja: «¿Terminamos esto y después…?» ya está terminado).
+      // El id con la hora: cerrar y abrir el panel lo vuelve a montar, y el hilo (del editor) queda con las de antes.
+      for (const b of burbujas) decir({ k: 'pedido', id: `${Date.now().toString(36)}-${++idPedido.current}`, burbuja: b });
     } catch {
       if (ctrl.current !== c) return;
       decir({ k: 'error', texto: c.signal.aborted ? 'Tardó demasiado. Prueba de nuevo.' : 'Sin conexión. Prueba de nuevo.' });
@@ -137,6 +171,33 @@ export function PanelEditarMako({ hoja, informe, hilo, onHilo, leerHoja, onAplic
       clearTimeout(tope);
       if (ctrl.current === c) { ctrl.current = null; setDesde(null); }
     }
+  };
+
+  /** Una burbuja cambia (con un clic o con lo que el clic pidió): se reemplaza por id en el hilo de la hoja donde nació. */
+  const cambiarBurbuja = (id: string, burbuja: BurbujaHoja) =>
+    onHilo((h) => h.map((x) => (x.k === 'pedido' && x.id === id ? { ...x, burbuja } : x)));
+
+  /**
+   * Un clic en una burbuja: el estado nuevo y el efecto. Crear arma la hoja con MaKo (/api/graficos/ia, la misma de «¿Qué
+   * vas a crear hoy?») y la entrega al editor, que la agrega y la abre; abrir y archivar son del editor.
+   */
+  const alPulsar = async (m: Extract<MensajeEdicion, { k: 'pedido' }>, boton: BotonHoja) => {
+    const { burbuja, efecto } = pulsarHoja(m.burbuja, boton);
+    cambiarBurbuja(m.id, burbuja);
+    if (!efecto) return;
+    if (efecto.tipo === 'abrir') { onAbrirHoja(efecto.id); return; }
+    if (efecto.tipo === 'archivar') { onArchivarHoja(efecto.id); return; }
+    let creada: Hoja | null = null;
+    try {
+      const res = await fetch('/api/graficos/ia', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pedido: efecto.pedido.slice(0, TOPE_PEDIDO_IA), informe }), signal: AbortSignal.timeout(TOPE_CLIENTE_MS),
+      });
+      const j = await res.json().catch(() => null) as { ok?: boolean; hoja?: unknown } | null;
+      creada = res.ok && j?.ok ? sanearHoja(j.hoja, 0) : null;
+    } catch { creada = null; }
+    cambiarBurbuja(m.id, trasCrear(burbuja, !!creada));
+    if (creada) onCrearHoja(creada);
   };
 
   const cancelar = () => { ctrl.current?.abort(); ctrl.current = null; setDesde(null); };
@@ -176,6 +237,27 @@ export function PanelEditarMako({ hoja, informe, hilo, onHilo, leerHoja, onAplic
         {hilo.map((m, i) => {
           if (m.k === 'yo') return <p key={i} className="em-yo">{m.texto}</p>;
           if (m.k === 'error') return <p key={i} className="em-err" role="alert"><TextoConLink texto={m.texto} link={m.link} /></p>;
+          if (m.k === 'pedido') {
+            // Un pedido que no es de esta hoja: su texto, su link (otra tab) y sus botones (./pedidos-hoja.ts).
+            const v = vistaDeBurbujaHoja(m.burbuja);
+            return (
+              <div key={i} className="em-el" data-pedido={m.burbuja.tipo}>
+                <span className="em-logo"><LogoMako lado={22} /></span>
+                <div className="em-el-cuerpo">
+                  <p className={v.error ? 'em-err' : 'em-texto'}>{v.texto}</p>
+                  {v.link && <a className="em-link" href={v.link.href}>{v.link.texto} →</a>}
+                  {v.botones.length > 0 && (
+                    <div className="em-botones">
+                      {v.botones.map((b) => (
+                        <button key={b.id} type="button" className={b.primario ? 'em-boton em-boton--primario' : 'em-boton'} disabled={v.ocupado}
+                          onClick={() => { void alPulsar(m, b.id); }}>{b.texto}</button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          }
           const puede = !!m.aplicada && !m.deshecho && !!m.hojaId && leerHoja(m.hojaId) === m.aplicada;
           return (
             <div key={i} className="em-el">
@@ -250,6 +332,15 @@ const CSS = `
   color: var(--primary); cursor: pointer; }
 .em-deshacer:hover { text-decoration: underline; }
 .em-err { margin: 0; font-size: 13px; line-height: 1.45; color: var(--bad); }
+.em-link { align-self: flex-start; font-size: 13px; font-weight: 600; color: var(--primary); text-decoration: none; }
+.em-link:hover { text-decoration: underline; }
+.em-botones { display: flex; flex-wrap: wrap; gap: 6px; }
+.em-boton { height: 30px; padding: 0 12px; border-radius: 15px; border: 1px solid var(--border-strong); background: var(--surface);
+  color: var(--ink); font: inherit; font-size: 13px; cursor: pointer; }
+.em-boton:hover:not(:disabled) { background: var(--surface-2); }
+.em-boton--primario { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
+.em-boton--primario:hover:not(:disabled) { background: var(--primary); filter: brightness(1.06); }
+.em-boton:disabled { opacity: .6; cursor: default; }
 .em-pensando { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 13px; }
 .em-rotulo { font-weight: 600; color: var(--mako-ink); }
 .em-dim { color: var(--dim); }

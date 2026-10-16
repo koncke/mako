@@ -725,14 +725,55 @@ pregunta de la escalera era fija, «¿qué le vendes ANTES (una entrada más bar
 cargan una ENTRADA no la convierte: la mejora como entrada y anota el alto ticket como el escalón siguiente.
 
 **Lo que quedó SIN hacer:**
-- **«Liberar 10 horas semanales»** (un número que Leila nunca dio) pasó el filtro de cifras de la frase: `filtrarCifras`
-  con `plazos` deja pasar toda cifra con unidad de tiempo como si fuera un plazo, y «horas semanales» es un resultado.
-- **Las otras ofertas se eligen de a una:** en el mensaje 4 Leila tenía tres y sólo pudo marcar una chip.
-- **No se armó una oferta contra la IA con estos cambios** (los prompts cambiaron: lo que diga el modelo se ve en la
-  próxima oferta real).
+- ~~**«Liberar 10 horas semanales»** pasó el filtro de cifras~~ y ~~**las otras ofertas se eligen de a una**~~ —
+  **CERRADOS el 16/10/2026**, ver «El tiempo que es un resultado, la marca con mayúscula y las opciones que se suman».
+- ~~**No se armó una oferta contra la IA con estos cambios**~~ — armada el 16/10 en el ws 3 (conversación 7, una
+  entrada tipo Leila): el precio quedó en 800 MXN al mes, el formato dice que el cliente aplica con guía y el aviso de
+  jerga cazó un «ROI».
 
 **Vive en:** `lib/offer-reglas.ts` (`nivelDeOferta`, `preguntaEscalera`, `bloqueNivel`, `jergaAjena`,
 `prometeHacerloPorElCliente`, `mensajeDeMako`) · `lib/offer-quien-hace.ts` · `lib/offer-ia.ts` (los tres prompts) ·
 `lib/offer-marco.ts` (las piezas y la guía) · `tests/offer-nivel-y-voz.test.ts` (15 roturas)
+
+*16/10/2026, cuenta claude3.*
+
+## El tiempo que es un resultado, la marca con mayúscula y las opciones que se suman (16/10/2026)
+
+Tres cosas de la oferta de verificación tipo Leila (ws 3, conversación 7) y de su conversación real.
+
+**«Liberar 10 horas semanales» no lo inventaba el filtro: lo dejaba pasar a propósito.** `filtrarCifras` con
+`plazos` no marca una cifra seguida de una unidad de tiempo, porque «en 90 días» o «12 semanas» son plazos que el
+marco pide. Pero «horas» también era unidad de plazo, y «10 horas semanales» es lo que el cliente LOGRA. Ahora
+(`esTiempoDeResultado`) un tiempo que se REPITE («horas semanales», «al día», «por semana») o que se GANA («liberar»,
+«ahorrar», «recuperar», «ganar») se marca como cualquier cifra que el dueño no dio; «4 sesiones de 2 horas» y «en 12
+semanas» siguen pasando. El caso de Leila pasa por los dos caminos a la vez: con él solo, sacar cualquiera de los dos
+no rompía nada (hizo falta un caso de cada camino solo).
+
+**«[Completar: …]» con mayúscula quedaba como dato real.** El modelo escribe la marca a su manera, y TODO lo que la
+busca es exacto (`includes('[completar]')`): el resaltado del PDF y de la pantalla, la lista de «datos para
+completar», el precio que no se calcula y `limpio` de «Guardar como oferta», que la escribía en `ofertas` como si la
+hubiera dicho el negocio. El arreglo obvio, pedirle al modelo la minúscula, era el equivocado: los prompts se editan
+en /configuraciones y el modelo varía. Se normaliza en la ÚNICA entrada de lo que trae el modelo, `aObjeto`, a fondo
+sobre todo string (`normalizarCompletar`): la usan el turno, el diagnóstico y la propuesta.
+
+**Las otras ofertas se marcan varias.** El turno trae `"varias": true` cuando las opciones se suman (qué otras ofertas
+vende, por qué canales consigue clientes), y el mensaje lo guarda (`OfferMensaje.varias`). Con eso las chips se marcan
+y desmarcan, y «Enviar (N)» las manda como UNA respuesta, «Un taller, una mentoría y un curso» (`unirOpciones`).
+«Armar mi oferta» y la que dice que no hay ninguna («No, sólo ésta», `esOpcionNinguna`) siguen saliendo con un toque.
+La pregunta de las otras ofertas lo es aunque el modelo se olvide del campo (`preguntaPorOtrasOfertas`, que mira sólo
+la PREGUNTA, desde el último «¿»). Nunca en una pregunta del diagnóstico de fase: ésas tienen una respuesta.
+
+**La trampa:** `sanearMensajes` es una LISTA BLANCA. Un campo nuevo de `OfferMensaje` que no se agrega ahí se ve al
+llegar el turno y desaparece al reabrir la conversación, sin un error.
+
+**Lo que quedó SIN hacer:**
+- **MaKo Mobile no lee `varias`** (`app/m/offer/HiloOfferM.tsx`): ahí cada toque sigue mandando una opción. No es de
+  esta tab; el flag ya viaja en el mensaje.
+- **No se armó una oferta contra la IA con el campo nuevo:** si el modelo lo pone en otras preguntas se ve en la
+  próxima conversación real.
+
+**Vive en:** `lib/offer-reglas.ts` (`esTiempoDeResultado`, `normalizarCompletar`, `aObjeto`, `parseTurno`,
+`mensajeDeMako`, `preguntaPorOtrasOfertas`, `sanearMensajes`) · `lib/offer-ia.ts` (`FORMA_TURNO`, reglas 6 y 14) ·
+`app/offer/ChatOffer.tsx` · `app/offer/ayudas.ts` · `tests/offer-cifras-y-marcas.test.ts` (14 roturas)
 
 *16/10/2026, cuenta claude3.*

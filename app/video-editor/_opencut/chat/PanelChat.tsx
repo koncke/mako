@@ -31,9 +31,40 @@ import { resumenDeCambios, revisarOperaciones, vistaDeLinea, type CambioChat } f
 import { aceptarPropuesta, deshacerPropuesta } from "./aplicar";
 import { datosDeLinea, disponiblesChat } from "./contexto";
 import { cambiarHilo, cambiarMensaje, cargarHilo, conId, leerHilo, suscribir, type EstadoPropuesta, type Hilo, type MensajeMako } from "./hilo";
+import { resolverEnServidor } from "./propuestas";
+import { storageService } from "@/app/video-editor/_opencut/services/storage/service";
+import Link from "@/app/_ui/Link";
+import { PLAZO_PEDIDOS_MS, burbujasDe, cuerpoPedidos, interpretacionDe, objetosDeProyectos, textoActual } from "./pedidos";
 
 /** La ruta corta a 120 s; el pedido se corta un poco después. */
 const PLAZO_MS = 125_000;
+
+/**
+ * POST /api/mako/pedidos: qué se pide (lo del proyecto abierto y lo demás, chat/pedidos.ts). Con los proyectos del
+ * NAVEGADOR (`objetos`: viven en IndexedDB y el servidor no los tiene). Nunca lanza: una falla o el plazo vencido
+ * devuelven null, y el mensaje entero sigue a la IA del chat, como antes.
+ */
+async function pedirPedidos(texto: string, proyecto: { id: string; nombre: string }, senal: AbortSignal): Promise<unknown> {
+	const plazo = new AbortController();
+	const t = setTimeout(() => plazo.abort(), PLAZO_PEDIDOS_MS);
+	const alCortar = () => plazo.abort();
+	senal.addEventListener("abort", alCortar);
+	try {
+		const objetos = objetosDeProyectos(await storageService.loadAllProjectsMetadata().catch(() => []));
+		const res = await fetch("/api/mako/pedidos", {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify(cuerpoPedidos(texto, proyecto, objetos)),
+			signal: plazo.signal,
+		});
+		return await res.json().catch(() => null);
+	} catch {
+		return null;
+	} finally {
+		clearTimeout(t);
+		senal.removeEventListener("abort", alCortar);
+	}
+}
 
 const cortes = new Map<string, AbortController>();
 const HILO_SERVER: Hilo = { mensajes: [], corriendo: false };
@@ -69,8 +100,15 @@ async function pedirIA(cuerpo: object, senal: AbortSignal): Promise<Respuesta | 
 	}
 }
 
-/** Manda una instrucción. Corre afuera del componente: su respuesta cae en el store. */
-async function pedirEdicion(editor: EditorCore, instruccion: string, alcance: "video" | "seleccion"): Promise<void> {
+/**
+ * Manda una instrucción. Corre afuera del componente: su respuesta cae en el store.
+ *
+ * Primero QUÉ se pide (`pedirPedidos`, mientras el hilo dice «Pensando»): lo del proyecto abierto va a la IA del chat
+ * con su texto; lo demás («y créame otro proyecto», «la otra», algo de otra tab) vuelve como burbujas de MaKo debajo
+ * de la respuesta, con su link (chat/pedidos.ts). Sin nada del proyecto abierto, no se llama a la IA. `interpretar:
+ * false` = un pedido NUESTRO (una sugerencia), que es de edición por definición y no gasta la vuelta.
+ */
+async function pedirEdicion(editor: EditorCore, instruccion: string, alcance: "video" | "seleccion", op: { interpretar?: boolean } = {}): Promise<void> {
 	const proyecto = editor.project.getActiveOrNull();
 	const escena = editor.scenes.getActiveSceneOrNull();
 	const texto = instruccion.trim();
@@ -84,7 +122,32 @@ async function pedirEdicion(editor: EditorCore, instruccion: string, alcance: "v
 		corriendo: true,
 		mensajes: [...h.mensajes, conId({ de: "yo", texto, alcance: alcanceReal === "seleccion" ? rotuloSeleccion(elegidos.length) : null })],
 	}));
-	const terminar = (m: Omit<MensajeMako, "id" | "c" | "t">) => cambiarHilo(proyectoId, (h) => ({ corriendo: false, mensajes: [...h.mensajes, conId(m)] }));
+	const corte = new AbortController();
+	cortes.set(proyectoId, corte);
+	// Las burbujas de lo que NO es del proyecto abierto van debajo de la respuesta («se contesta lo actual y se propone lo otro»).
+	let burbujas: Array<Omit<MensajeMako, "id" | "c" | "t">> = [];
+	const terminar = (m: Omit<MensajeMako, "id" | "c" | "t"> | null) => {
+		cortes.delete(proyectoId);
+		const nuevos = [...(m ? [m] : []), ...burbujas].map(conId);
+		cambiarHilo(proyectoId, (h) => ({ corriendo: false, mensajes: [...h.mensajes, ...nuevos] }));
+	};
+
+	let paraEditar: string | null = texto;
+	if (op.interpretar !== false) {
+		const ri = await pedirPedidos(texto, { id: proyectoId, nombre: proyecto.metadata.name }, corte.signal);
+		if (corte.signal.aborted) {
+			terminar({ de: "mako", texto: "Detenido." });
+			return;
+		}
+		// Falló o tardó: `interpretacionDe` devuelve lo de siempre (el mensaje entero a la IA del chat).
+		const interp = interpretacionDe(ri, texto);
+		paraEditar = textoActual(interp);
+		burbujas = burbujasDe(interp, proyectoId).map((b) => ({ de: "mako" as const, texto: b.texto, ...(b.links.length ? { links: b.links } : {}) }));
+	}
+	if (!paraEditar) {
+		terminar(null);
+		return;
+	}
 
 	// Lo que el motor tiene con nombre (la primera vez espera la lista de fuentes) y, recién
 	// después, la línea de tiempo de ese momento: la misma que se le manda a la IA.
@@ -113,10 +176,7 @@ async function pedirEdicion(editor: EditorCore, instruccion: string, alcance: "v
 		return;
 	}
 
-	const corte = new AbortController();
-	cortes.set(proyectoId, corte);
-	const r = await pedirIA({ instruccion: texto, linea: vista.json, alcance: alcanceReal }, corte.signal);
-	cortes.delete(proyectoId);
+	const r = await pedirIA({ instruccion: paraEditar, linea: vista.json, alcance: alcanceReal }, corte.signal);
 	if (!r.ok) {
 		terminar({ de: "mako", texto: r.error, error: !("cortado" in r) });
 		return;
@@ -315,15 +375,16 @@ export function PanelChat({ onCerrar }: { onCerrar: () => void }) {
 		if (el) el.scrollTop = el.scrollHeight;
 	}, [hilo.mensajes.length, hilo.corriendo]);
 
-	const enviar = (instruccion: string, alc: "video" | "seleccion" = alcanceReal) => {
+	const enviar = (instruccion: string, alc: "video" | "seleccion" = alcanceReal, op: { interpretar?: boolean } = {}) => {
 		if (hilo.corriendo || !instruccion.trim() || !proyectoId) return;
-		void pedirEdicion(editorRef.current, instruccion, alc);
+		void pedirEdicion(editorRef.current, instruccion, alc, op);
 		setTexto("");
 	};
 
 	const sugerir = (s: Sugerencia) => {
 		if (s.instruccion) {
-			enviar(s.instruccion, s.necesitaSeleccion ? "seleccion" : alcanceReal);
+			// Una sugerencia es NUESTRA y de edición por definición: no pasa por «qué se pide».
+			enviar(s.instruccion, s.necesitaSeleccion ? "seleccion" : alcanceReal, { interpretar: false });
 			return;
 		}
 		if (s.rellenar) setTexto(s.rellenar);
@@ -345,6 +406,8 @@ export function PanelChat({ onCerrar }: { onCerrar: () => void }) {
 		}
 		// Lo que al aplicar no se pudo (un clip que ya no estaba, un corte sin video debajo) se dice.
 		cambiarMensaje(proyectoId, m.id, { estado: "aplicada", aplicada: r.aplicada, descartes: r.descartes.length ? r.descartes : m.descartes });
+		// Una propuesta de la API (por WhatsApp, por la API): se cierra también en la base (chat/propuestas.ts).
+		if (m.propuestaApi) resolverEnServidor(m.propuestaApi.id, "aplicada", r.descartes);
 		toast.success("Cambio aplicado");
 	};
 
@@ -407,6 +470,16 @@ export function PanelChat({ onCerrar }: { onCerrar: () => void }) {
 							>
 								{m.texto}
 							</div>
+							{/* Un pedido que no es de este proyecto (chat/pedidos.ts): a dónde lleva. El Link pega el ?ws=. */}
+							{m.links && m.links.length > 0 && (
+								<div className="flex flex-wrap gap-1.5 self-start">
+									{m.links.map((l) => (
+										<Link key={l.href} href={l.href} className="rounded-full bg-(--cc-raised) px-3 py-1.5 text-[12px] text-(--cc-accent) hover:brightness-125">
+											{l.texto}
+										</Link>
+									))}
+								</div>
+							)}
 							{m.propuesta && m.cambios && m.estado ? (
 								<RevisionPropuesta
 									cambios={m.cambios}
@@ -417,7 +490,10 @@ export function PanelChat({ onCerrar }: { onCerrar: () => void }) {
 									puedeRestaurar={!!m.aplicada}
 									onAceptar={() => void aceptar(m)}
 									onAplicarIgual={() => void aceptar(m, true)}
-									onDescartar={() => cambiarMensaje(proyectoId, m.id, { estado: "descartada", aviso: undefined })}
+									onDescartar={() => {
+										cambiarMensaje(proyectoId, m.id, { estado: "descartada", aviso: undefined });
+										if (m.propuestaApi) resolverEnServidor(m.propuestaApi.id, "descartada");
+									}}
 									onRestaurar={() => restaurar(m)}
 								/>
 							) : m.descartes && m.descartes.length > 0 ? (

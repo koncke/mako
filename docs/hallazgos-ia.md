@@ -4198,6 +4198,8 @@ corta antes») y los tests ahora preguntan qué hay antes de la llamada.
   (`7068a0903`; la regla en AGENTS.md). El ws9 tiene un crédito de Gemini de US$10 cargado el 22/07
   (`saldo.gemini`), pero la base no dice a cuál de las tres keys corresponde: «la key de Gemini con facturación» del
   orden de la red queda sin usar hasta que alguien la identifique en Google Cloud.
+- **Y el corte tampoco miraba las keys «del negocio» que son copias de la plataforma**: la del ws1 lo era. Cerrado el
+  mismo día en `provsDe` (ver «La key de la plataforma copiada en la fila de un cliente», más abajo).
 - **Los caminos con su PROPIA red (un bucle sobre `provsGratisDePlataforma`, no la cascada) no tienen ese corte**, y
   algunos llevan datos de clientes: el doer de WhatsApp (`lib/mako-doer-in.ts`; `mako-doer-in` es `pii` en el
   catálogo), los gráficos con IA (`lib/graficos-ia-red.ts`; `dashboard-conclusiones` es `pii`), la transcripción de
@@ -4289,15 +4291,42 @@ apoyó en lo que ya había. Cuatro de esas piezas no servían como parecían:
   «crea otra página» en un diseño se iba al Web Generator: «página» es palabra de `landing` (otra área), y un diseño
   tiene páginas como en Canva. Lo mismo «otro gráfico» en el Dashboard (no es otra hoja) y «el otro clip» en el Video
   Editor (no es otro proyecto). `PARTES_DE_LO_ABIERTO` va por la tab donde se dice, con palabras de cualquier área, y
+  gana aunque la IA etiquete la otra área. ⚠️ **General es el caso extremo (16/10, al enchufar su «Editar con MaKo»)**:
+  sus bloques son VISTAS de otras tabs (tareas y proyectos del Plan, cobros, KPIs, la agenda: lib/general-piezas.ts),
+  así que casi todas sus partes son palabras de OTRA área. «Agrega un bloque de tareas» mandaba al Plan, y «tareas» es
+  justo lo que la IA etiqueta como `plan`. La lista de General es larga a propósito; una tab que muestra piezas de
+  otras tiene que nombrarlas todas ahí (está en tests/dashboard-pedidos-chat.test.ts, también con `origen: 'ia'`).
   gana aunque la IA etiquete la otra área.
+
+- **Y al revés: una palabra de OTRA área que, dentro de una tab, nombra OTRO objeto de esa tab.** El Video Editor
+  llama «proyecto» a cada video (como CapCut, y su inicio lista proyectos), y «proyecto» es palabra de `plan`: al
+  enganchar su chat (16/10), «créame otro proyecto» contestaba «Eso se hace en Plan» y «borra el otro proyecto» no
+  era «el otro». `OBJETOS_DE_LA_TAB` es la otra cara de `PARTES_DE_LO_ABIERTO`: el objeto directo con esa palabra, o
+  un pedido que nombra esa área SÓLO con esa palabra, son de esta tab; fuera de su tab sigue siendo del Plan
+  (tests/video-editor-pedidos-chat.test.ts, prueba 6b).
+
+
 - **Los objetos del Video Editor no se pueden listar en el servidor**: sus proyectos viven en IndexedDB (decisión 5 de
   su diseño). Para esa tab, y sólo para ella (`TABS_CON_OBJETOS_EN_EL_NAVEGADOR`), la lista la manda su chat y la ruta
   la valida (`objetosDelNavegador`). Y las hojas del Dashboard son POR PERSONA: los objetos son las del informe de quien
   mira, y quien nunca guardó uno ve la pantalla sin páginas, así que su lista es [] y no las del inicial.
-- **Un `hastaMs` corto a `chatCheapCascade` no prueba NADA y devuelve '' como si no hubiera IA.** No arranca un intento
-  si al plazo le quedan menos de 15 s (`MIN_INTENTO_MS`). Para un plazo de segundos: `hastaMs = inicio + 15 s + la
-  ventana en que se puede ARRANCAR un intento`, cada intento acotado con `timeoutMs`, y el total cortado con una carrera.
-  El navegador espera más que la IA (12 s contra 7,5 s): la ruta antes lee la sesión, la vista y los objetos, y con
+- **⚠️ `chatCheapCascade` NO SIRVE para un plazo de segundos, y el arreglo que dejé primero acá estaba MAL.** No
+  arranca un intento si al plazo le quedan menos de 15 s (`MIN_INTENTO_MS`), así que con `hastaMs = ahora + 7 s` no
+  prueba nada. El «arreglo» fue `hastaMs = inicio + 15 s + una ventana de 3 s para arrancar`, y en producción la IA
+  **no corrió NUNCA**: antes del primer proveedor la cascada lee las cuotas del día de la base y prueba la clave de
+  Anthropic del negocio (1,3 s en ws9, que no tiene), y ese preámbulo (~3 s) se comía la ventana entera: «sin tiempo:
+  el plazo del pedido vence en 15 s», 0 filas de `mako-pedidos` en `anthropic_usage`, y el chat esperaba 5-9 s por
+  nada. Los tests no lo veían porque la IA era un doble. Lo cazó mirarlo con clics y la tabla de uso. Ahora: un bucle
+  propio (`probarEnOrden`, con un test de reloj falso), las keys del negocio en NUESTRO orden. Para cualquier plazo de
+  segundos, lo mismo: la cascada no.
+- **Y el orden importa más que la rotación: Groq primero.** Medido en ws9 con el prompt real: Groq
+  (`openai/gpt-oss-120b`) 1,4 s; Gemini `flash-latest` 10,9 s y `flash-lite-latest` 6,6 s (desde el 14/10 no acepta
+  pensar `minimal`, corre en `low`), y a veces «high demand». Con Gemini primero y 3 cuentas, su intento se comía el
+  plazo. Con el arreglo: 3-5,5 s de punta a punta, y etiqueta bien lo que las reglas solas pierden («quita el video
+  del hero y agéndame una reunión con Juan» → lo abierto + CRM).
+- **`MODELO_DOCS.openrouter` (`minimax/minimax-m3:free`) ya no existe** («This model is unavailable for free», medido
+  el 16/10): el respaldo de OpenRouter de toda la cascada barata está muerto. Vive en `lib/ai-cheap.ts`; no se tocó.
+- El navegador espera más que la IA (12 s contra 7,5 s): la ruta antes lee la sesión, la vista y los objetos, y con
   10 s contra 9 s el chat cortaba justo cuando la IA contestaba.
 - **Desde el 16/10, `redDePlataforma` es pedir Claude**: esa red prueba PRIMERO el crédito de Claude de la plataforma
   (la tercera puerta, más arriba). Una feature que no puede usar Claude no la pide: va su propia red con
@@ -4316,9 +4345,78 @@ Y `linkPantalla` (lib/api-mako/link.ts) no sirve para un link de ADENTRO de la a
   plata y su decisión. Cerrarla del todo pide una opción en `chatCheapCascade` (lib/ai-cheap.ts). Decide el coordinador.
 - **Automations**: su función en `objetosDeTab` (app/api/mako/pedidos/route.ts) y el fetch en su chat; hasta entonces,
   «la otra automatización» contesta «¿Cuál? Dime su nombre.». **El chat único del Second Brain**, lo mismo. Image
-  Editor, Dashboard y Video Editor ya tienen sus objetos (16/10), pero sus chats todavía no llaman a la ruta: el del
-  Video Editor tiene que mandar `objetos` (cómo, en docs/diseno-mako-pedidos.md).
+  Editor y Video Editor ya tienen sus objetos (16/10), pero sus chats todavía no llaman a la ruta: el del Video Editor
+  tiene que mandar `objetos` (cómo, en docs/diseno-mako-pedidos.md). El Dashboard y General ya llaman (16/10, chat
+  «Dashboard»: `app/dashboard/pedidos-hoja.ts`).
 - **Correr la operación de OTRA tab desde la burbuja**: hoy deja el link (y la operación como dato).
 - **No se probó con la IA de verdad ni en el navegador** (sin `next dev` por la RAM): las reglas y la IA con un doble.
 
 · *2026-10-16 chat «Web Generator» (claude3)*
+
+## La key de la plataforma copiada en la fila de un cliente: los datos del ws1 iban a un Gemini gratis (16/10/2026)
+
+**Vive en:** lib/ai-cheap.ts (`provsDe`, `provDe`, `soloLasPropias`, `huellasDeLaPlataforma`) · lib/ia-keys.ts
+(`sinCopiasDeLaPlataforma`)
+
+El Centro de Operaciones vio, sin medir, que el turno con herramientas (`chatCheapToolsCascade`) le daba al ws1
+(Mauricio, un cliente) la key de IA de la PLATAFORMA, y que esa cascada no tiene el corte por datos de clientes.
+
+**Lo medido** (sólo lectura, comparando huellas sha256, sin imprimir ninguna key): la `GEMINI_API_KEY` de la FILA del
+ws1 es la MISMA que una de la plataforma, y su `OPENAI_API_KEY` también; Groq, Mistral y OpenRouter sí son suyas.
+
+**El diagnóstico obvio era el equivocado.** Se sospechaba de `credWs`, que al ws1 le presta la key del ENTORNO cuando
+no tiene la fila. Pero la fila existe: es una COPIA. Por eso el arreglo no podía ser sólo «leer con `credDelCliente`»
+(que se hizo igual: `provDe` ya no usa `credWs`). Y el agujero no era de la cascada con herramientas: era de TODAS.
+Cada cascada prueba primero las keys «del negocio» (`provsDe`), y el corte por datos de clientes miraba sólo la red
+de la plataforma. Así, el análisis del lead, las notas de voz, el doer y el turno con herramientas del ws1 mandaban
+datos de SUS clientes a la key gratis de la agencia, que entrena con lo que recibe.
+
+**La regla** (la misma que ya valía para la clave de Anthropic del negocio y para la de Resend): una key de la
+plataforma copiada en la fila de un cliente sigue siendo de la plataforma. `provsDe` saca de las «propias» toda key
+cuya huella coincide con una de la plataforma (las de su workspace y las del entorno). Fuera de ahí, la de la
+plataforma sólo entra por la red, que es la que corta con datos de clientes. Es un punto único: texto, herramientas,
+documentos, audio y el doer pasan por ahí. El workspace de la plataforma usa las suyas tal cual. Si las huellas no se
+pueden leer, no se arriesga ninguna (fail-closed). La caché es de proceso y guarda huellas, nunca keys. Lo fija
+`tests/ia-keys-propias.test.ts`, probado rompiéndolo (ocho roturas, todas caen).
+
+**Lo que cambia para el ws1:** sin datos de clientes, lo que antes corría con esa copia ahora corre con sus keys
+propias, y si fallan, con la red (la misma key de la plataforma, registrada como red). Con datos de clientes corre
+sólo con sus keys propias. El turno con herramientas no tiene red: para el ws1 queda Groq, Mistral y OpenRouter.
+
+### Lo que quedó SIN hacer
+
+- ⚠️ **La red PROPIA del doer de WhatsApp no corta con datos de clientes** (`lib/mako-doer-in.ts`, el bucle sobre
+  `provsGratisDePlataforma`; `mako-doer-in` es `pii` en el catálogo). Es el agujero más grande de esta familia: con
+  las keys de un negocio caídas, la conversación con sus leads va a las keys gratis de la agencia. Arreglarlo cambia
+  lo que contesta MaKo por WhatsApp a quien no tiene keys propias (con datos de clientes se cortaría), así que se
+  escaló al coordinador en vez de tocarlo.
+- El ws1 sigue teniendo esas dos filas copiadas. Ya no se usan como suyas; borrarlas es una decisión aparte.
+
+· *2026-10-16 chat «Onboarding» (claude3)*
+
+## El modelo gratis de OpenRouter murió otra vez, y estaba copiado en tres lugares (16/10/2026)
+
+**Vive en:** lib/ai-cheap.ts (`MODELO_OPENROUTER_GRATIS`, `MODELO_OPENROUTER_MEDIDO`)
+
+El chat Web Generator midió que `minimax/minimax-m3:free` ya no estaba en `GET /api/v1/models`. Era el tercer id
+gratis de OpenRouter que caducaba (antes un Llama 3.3 y un nemotron nano), y estaba escrito a mano en TRES lugares:
+el chat de la cascada, `MODELO_DOCS` y `MODELO_VISION`. El respaldo de OpenRouter estaba muerto para texto,
+documentos y visión, y un id vencido se ve igual que uno sano hasta que se lo llama.
+
+**Medido ese día, con la lista real y un pedido de verdad** (texto con JSON e imagen, con una key de la plataforma):
+`nvidia/nemotron-3.5-super-vl:free` contestó 200, JSON en 1,7-6,1 s e imagen en 0,9-1,6 s. ⚠️ **Razona antes de
+contestar: con 200 tokens de tope volvió VACÍO** (un 200 sin contenido), con 300 y 400 bien. El tope más chico que
+piden los que lo usan es 300. Los Gemma dieron 429 casi siempre, y dots anda pero tarda 4-10 s y es un preview.
+
+**La regla:** el id es UNA constante y va fijado con su fecha. `tests/openrouter-modelo.test.ts` falla si se
+cambia sin anotar la medición o si vuelve una copia. Con `VERIFICAR_OPENROUTER=1` revisa contra la lista pública
+que cada id `:free` del repo exista; sin la variable se saltea diciéndolo, porque CI no depende de la red de un
+tercero. Crear con IA (`lib/flujo-ia.ts`) y Offer (`lib/offer-ia.ts`) fijaron su propio modelo el 09/10 para sus
+pedidos largos (`nemotron-3-super-120b-a12b:free`); sigue existiendo y se quedan.
+
+### Lo que quedó SIN hacer
+
+- Nada avisa solo cuando el próximo caduque: hay que correr el test con red a mano. Un cron que lo mire sería la red
+  que falta.
+
+· *2026-10-16 chat «Onboarding» (claude3)*

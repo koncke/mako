@@ -14,9 +14,10 @@ import { conWs } from '@/lib/ws-tab';
 // («¿para cuándo?», «¿es una tarea o varias?»), después armaba repreguntas con lo
 // contestado y al final proponía tareas extra salidas de las respuestas. Martín:
 // «habíamos dicho de sacar absolutamente toda la fricción al agregar tareas». La fecha
-// y la prioridad las pone el Perro solo y se cambian a mano en el detalle; lo que MaKo
-// no pudo deducir va en el detalle de la tarea, no en un paso que la frena. Un borrador
-// viejo que traiga preguntas guardadas se confirma igual: se ignoran.
+// y la prioridad se cambian a mano en el detalle (y desde el 16/10/2026 la prioridad la
+// pone «Re-priorizar todo»: confirmar ya no llama al Perro); lo que MaKo no pudo deducir va
+// en el detalle de la tarea, no en un paso que la frena. Un borrador viejo que traiga
+// preguntas guardadas se confirma igual: se ignoran.
 //
 // Lo que SÍ queda de a uno son los cierres: un «ya está hecho» dicho por IA acertó 8 de
 // 17 la primera vez que se midió, y confirmarlo en una lista es la pantalla que no
@@ -29,8 +30,8 @@ import type { Propuesta } from '@/lib/plan-propuesta';
 const SANS = "'Geist', sans-serif";
 const MONO = "'Geist Mono', monospace";
 
-/** El aplicado es LARGO de verdad: crea las tareas y después el Perro las puntúa por
- *  tandas. Un spinner, no el cuerpo del último paso con el título cambiado. */
+/** El aplicado crea las tareas (sin IA desde el 16/10/2026: segundos). Un spinner, no el
+ *  cuerpo del último paso con el título cambiado. */
 function Cargando({ texto, sub }: { texto: string; sub?: string }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, padding: '18px 0' }}>
@@ -194,7 +195,7 @@ export function RevisarPropuesta({ prop }: { prop: Propuesta }) {
       : `Listo — creo ${nT} tarea${nT === 1 ? '' : 's'}${enProy}`;
   const sub = cur.kind === 'cerrar' ? 'La tengo en tu tablero abierta, pero encontré esto. Tú decides.'
     : soloCierres ? 'Las que dijiste que no, quedan abiertas tal cual estaban.'
-      : 'El Perro Guardián las prioriza y les pone fecha. Lo cambias a mano en el plan.';
+      : 'Entran sin prioridad. «Re-priorizar todo» se las pone.';
 
   return (
     <WizardShell
@@ -218,7 +219,7 @@ export function RevisarPropuesta({ prop }: { prop: Propuesta }) {
     >
       {busy ? (
         <Cargando
-          texto={soloCierres ? 'Actualizando tu tablero…' : 'Creando las tareas y puntuándolas contra tu plan…'}
+          texto={soloCierres ? 'Actualizando tu tablero…' : 'Creando las tareas…'}
           sub={soloCierres ? 'Marco las que confirmaste y dejo el resto como estaba.' : 'Puede tardar unos segundos.'} />
       ) : cur.kind === 'cerrar' ? (
         <><CierrePaso item={cierres[cur.i]} valor={cierreResp[cur.i]} onElegir={(v) => setCierreResp((r) => ({ ...r, [cur.i]: v }))} />

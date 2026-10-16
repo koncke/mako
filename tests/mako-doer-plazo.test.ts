@@ -57,7 +57,7 @@ test('las rutas donde una confirmación por chat corre replicar_landing aguantan
   const RUTAS = [
     'app/api/webhooks/evolution/route.ts',
     'app/api/m/mako/route.ts',
-    'app/m/mako/page.tsx',
+    'app/m/second-brain/page.tsx',
     'app/m/inbox/page.tsx',
     'app/mako/pendientes/page.tsx',
     'app/api/crm/mako/route.ts',

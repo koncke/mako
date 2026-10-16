@@ -6,10 +6,12 @@
 // v3 (14/10/2026): las MISMAS cuatro vistas que el Plan de escritorio («el Plan no cambia»,
 // Martín; prototipo docs/prototipos/mako-mobile-tableros.html). Una a la vez, con el segmentado:
 //   · Prioridades → la lista de siempre (casilla, swipe para completar, sheet de la tarea);
-//   · Tareas      → el Kanban por prioridad (KanbanM): tocar abre el MISMO sheet, que completa;
+//   · Tareas      → el Kanban por ESTADO (KanbanM; desde el 16/10/2026, el mismo de escritorio):
+//                   tocar abre el MISMO sheet, que completa; mantener y arrastrar (o «Mover a…»)
+//                   la cambia de columna (`moverTareaAction`), como en el CRM;
 //   · Proyectos   → el Kanban de proyectos con su avance; tocar abre el proyecto (sólo mirar);
 //   · Recurrentes → lo que se repite, con cada cuánto.
-// La prioridad no se cambia desde acá (es la audiencia con el Perro): los tableros no mueven.
+// La prioridad no se cambia desde acá (es la audiencia con el Perro). La COLUMNA de una tarea sí.
 // Los modelos los arma el server (./tableros.ts). La v2 tenía Hoy · Semana · Prioridades; lo de
 // hoy vive ahora en General.
 //
@@ -42,17 +44,20 @@ import { flushSync } from 'react-dom';
 import {
   CasillaM, ComputadoraM, FilaDatoM, FilaM, KanbanM, ListaM, PieM, PildoraM, SegmentadoM, SheetM, VacioM, useConexion, useToastM,
 } from '@/app/m/_ui';
-import type { ProyectoPlanM, RecurrenteM } from './tableros';
+import type { ProyectoPlanM, RecurrenteM, TareaKanbanM, ColumnaTareasM } from './tableros';
+import type { ResultadoMover } from '@/app/m/_ui/KanbanM';
 import { Button } from '@/app/_ui/Button';
 import { haptico } from '@/lib/haptico';
-import { marcarHechaAction } from '@/app/m/plan/acciones';
+import { marcarHechaAction, moverTareaAction } from '@/app/m/plan/acciones';
 import type { ItemPlan, ResultadoMarcar } from '@/app/plan/board/hoy';
 import { ROTULO_BANDA, TONO_BANDA, colorProyecto, conEnTransito, contar, plazoCorto, textoVence } from './formato';
+import { etiquetaEstado } from '@/lib/todo-estados';
 
 export type VistaPlan = 'prioridades' | 'tareas' | 'proyectos' | 'recurrentes';
 /** Las vistas que son tareas (se completan): la lista de Prioridades y el Kanban de Tareas. */
 type VistaTareas = 'prioridades' | 'tareas';
-export type ListasPlan = Record<VistaTareas, ItemPlan[]>;
+/** Prioridades es la lista de siempre; Tareas, las tarjetas del kanban con su columna. */
+export type ListasPlan = { prioridades: ItemPlan[]; tareas: TareaKanbanM[] };
 
 const VISTAS: { id: VistaPlan; label: string }[] = [
   { id: 'prioridades', label: 'Prioridades' },
@@ -60,7 +65,7 @@ const VISTAS: { id: VistaPlan; label: string }[] = [
   { id: 'proyectos', label: 'Proyectos' },
   { id: 'recurrentes', label: 'Recurrentes' },
 ];
-/** Los cuatro escalones de prioridad, en el orden de las columnas de escritorio. */
+/** Los cuatro escalones de prioridad: las columnas de PROYECTOS (las de Tareas son el estado). */
 const BANDAS = ['alta', 'media', 'baja', 'futuro'] as const;
 const esDeTareas = (v: VistaPlan): v is VistaTareas => v === 'prioridades' || v === 'tareas';
 
@@ -72,8 +77,10 @@ type Marca = { estado: Estado; item: ItemPlan; antes: string | null; vista: Vist
 const SOSTENER_MS = 600;
 const SALIDA_MS = 200;
 
-export function ListaPlan({ listas, proyectos, recurrentes, fecha, abiertas }: {
+export function ListaPlan({ listas, columnasTareas, proyectos, recurrentes, fecha, abiertas }: {
   listas: ListasPlan;
+  /** Las columnas del kanban de Tareas, con cuántas hay de verdad (`tareasDelTablero`). */
+  columnasTareas: ColumnaTareasM[];
   proyectos: ProyectoPlanM[];
   recurrentes: RecurrenteM[];
   /** `YYYY-MM-DD` del negocio: contra esto se cuenta el plazo. */
@@ -102,7 +109,12 @@ export function ListaPlan({ listas, proyectos, recurrentes, fecha, abiertas }: {
   // Lo que el server manda ahora. Una marca «oculta» de una tarea que ya no viene se suelta.
   useEffect(() => {
     const ids = new Set<string>();
-    for (const l of Object.values(listas)) for (const it of l) ids.add(it.id);
+    for (const it of listas.prioridades) ids.add(it.id);
+    // ⚠️ LO QUE EL KANBAN YA TRAE EN «COMPLETADA» NO CUENTA COMO «TODAVÍA LA MANDA» (16/10/2026):
+    // con columnas por estado, la tarea completada sigue viniendo —en otra columna—, y si contara
+    // la marca de «se fue» no se soltaría nunca y la tarea quedaría escondida en Prioridades aunque
+    // alguien la reabra en la computadora.
+    for (const it of listas.tareas) if (it.estado !== 'hecho') ids.add(it.id);
     idsDelServer.current = ids;
     setMarcas((prev) => {
       let cambio = false;
@@ -115,7 +127,8 @@ export function ListaPlan({ listas, proyectos, recurrentes, fecha, abiertas }: {
   const visibles = useMemo(() => {
     const transito = [...marcas.values()].filter((m) => m.vista === vista && m.estado !== 'oculta');
     const vistos = new Set<string>();
-    return conEnTransito(esDeTareas(vista) ? listas[vista] : [], transito).filter((it) => {
+    const lista: ItemPlan[] = esDeTareas(vista) ? listas[vista] : [];
+    return conEnTransito(lista, transito).filter((it) => {
       if (vistos.has(it.id)) return false;
       vistos.add(it.id);
       return marcas.get(it.id)?.estado !== 'oculta';
@@ -179,6 +192,26 @@ export function ListaPlan({ listas, proyectos, recurrentes, fecha, abiertas }: {
   };
 
   const abrir = (it: ItemPlan) => { setDetalle(it); setAbierto(true); };
+  /**
+   * MOVER DE COLUMNA (16/10/2026). Optimista en `KanbanM`; acá, la escritura y su Deshacer
+   * (vuelve a la columna de antes y saca la entrada del historial).
+   */
+  const mover = async (id: string, destino: string): Promise<ResultadoMover> => {
+    let r;
+    try { r = await moverTareaAction(id, destino); } catch { return { ok: false, error: 'Sin conexión' }; }
+    if (!r.ok) return { ok: false, error: r.error };
+    if (r.yaEstaba) return { ok: true };
+    // El Deshacer vuelve a la columna CON el avance y el motivo que tenía: sin ellos, deshacer un
+    // «Mover a Completada» de una tarea al 40% la dejaba al 0%.
+    const { antes, antesAvance, antesMotivo, entryId } = r;
+    return {
+      ok: true,
+      deshacer: async () => {
+        try { const d = await moverTareaAction(id, antes, { entryId, progreso: antesAvance, motivo: antesMotivo }); return d.ok; } catch { return false; }
+      },
+    };
+  };
+  const columnaDe = new Map(columnasTareas.map((c) => [c.key as string, c.titulo]));
   const vacio = abiertas === 0 ? 'No hay tareas abiertas.' : 'Ninguna prioridad por ahora.';
   const detalleMarcado = detalle ? marcas.has(detalle.id) : false;
 
@@ -191,14 +224,18 @@ export function ListaPlan({ listas, proyectos, recurrentes, fecha, abiertas }: {
       <div className="m-plan-cuerpo">
         {vista === 'tareas' ? (
           <KanbanM
-            etiqueta="Tareas por prioridad"
-            columnas={BANDAS.map((b) => ({ key: b, titulo: ROTULO_BANDA[b] }))}
-            tarjetas={visibles.filter((it) => !marcas.has(it.id)).map((it) => {
+            etiqueta="Tareas por estado"
+            columnas={columnasTareas.map((c) => ({ key: c.key, titulo: c.titulo, cuantos: c.cuantos }))}
+            // ⚠️ LA COMPLETADA DESDE EL SHEET VA A «COMPLETADA» YA, sin esperar al refresco: con
+            // columnas por estado la tarea no se va del tablero (hasta el 16/10 sí, sólo había
+            // abiertas), así que la marca de «en tránsito» la pone en su columna nueva en vez de
+            // esconderla. Deshacer suelta la marca y vuelve a la que dice el server.
+            tarjetas={listas.tareas.map((it) => {
               const plazo = plazoCorto(it.deadline, fecha);
               const color = it.proyecto ? colorProyecto(it.proyecto) : null;
               return {
                 id: it.id,
-                col: it.banda,
+                col: marcas.has(it.id) ? 'hecho' : it.estado,
                 etiqueta: it.titulo,
                 contenido: (
                   <>
@@ -206,13 +243,21 @@ export function ListaPlan({ listas, proyectos, recurrentes, fecha, abiertas }: {
                       <span className="m-kb-tj__chip" style={color ? ({ '--c': color } as CSSProperties) : undefined}>{it.proyecto.nombre}</span>
                     )}
                     <span className="m-kb-tj__n" data-dos>{it.titulo}</span>
+                    {it.motivo && <span className="m-kb-tj__c">{it.motivo}</span>}
                     {plazo && <span className="m-kb-tj__pie"><span data-mal={it.vencida || undefined}>{plazo}</span></span>}
                   </>
                 ),
               };
             })}
             unidades="tareas"
-            onTocar={(id) => { const it = visibles.find((x) => x.id === id); if (it) abrir(it); }}
+            onTocar={(id) => { const it = listas.tareas.find((x) => x.id === id); if (it) abrir(it); }}
+            moverA={(id) => {
+              const it = listas.tareas.find((x) => x.id === id);
+              return it && enLinea && !marcas.has(id) ? columnasTareas.map((c) => c.key).filter((k) => k !== it.estado) : [];
+            }}
+            onMover={mover}
+            tituloMover="Mover a…"
+            fraseMovida={(col) => `Pasó a ${columnaDe.get(col) ?? col}`}
           />
         ) : vista === 'proyectos' ? (
           <KanbanM
@@ -270,7 +315,7 @@ export function ListaPlan({ listas, proyectos, recurrentes, fecha, abiertas }: {
         onCerrar={() => setAbierto(false)}
         titulo={detalle?.titulo ?? ''}
         id="tarea"
-        pie={detalle && !(abierto && detalleMarcado) ? (
+        pie={detalle && !(abierto && detalleMarcado) && estadoDeItem(detalle) !== 'hecho' ? (
           <PieM>
             <Button
               variant="primary"
@@ -360,13 +405,22 @@ function FilaTarea({ item, fecha, estado, enLinea, onCompletar, onAbrir }: {
   );
 }
 
+/** La columna de un ítem del kanban (las filas de Prioridades no la traen). */
+const estadoDeItem = (it: ItemPlan): TareaKanbanM['estado'] | null => ('estado' in it ? (it as TareaKanbanM).estado : null);
+
 function DetalleTarea({ item, fecha }: { item: ItemPlan; fecha: string }) {
   const vence = textoVence(item.deadline, fecha);
+  const k = 'estado' in item ? (item as TareaKanbanM) : null;
   return (
     <>
       <ListaM>
         {item.proyecto && <FilaDatoM k="Proyecto" v={<Proyecto p={item.proyecto} />} />}
-        <FilaDatoM k="Prioridad" v={<PildoraM tono={TONO_BANDA[item.banda]}>{ROTULO_BANDA[item.banda]}</PildoraM>} />
+        {/* «Sin priorizar» (score 0) no es «A futuro»: nadie la juzgó todavía (16/10/2026). */}
+        <FilaDatoM k="Prioridad" v={k?.prioridad === 'sin_priorizar'
+          ? <PildoraM tono="neutro">Sin priorizar</PildoraM>
+          : <PildoraM tono={TONO_BANDA[item.banda]}>{ROTULO_BANDA[item.banda]}</PildoraM>} />
+        {k && <FilaDatoM k="Columna" v={etiquetaEstado(k.estado)} />}
+        {k?.motivo && <FilaDatoM k="Atorada por" v={k.motivo} />}
         {vence && <FilaDatoM k="Plazo" v={vence.charAt(0).toUpperCase() + vence.slice(1)} />}
         {item.esInstancia && <FilaDatoM k="Se repite" v="Sí" />}
       </ListaM>

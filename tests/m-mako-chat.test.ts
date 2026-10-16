@@ -125,7 +125,8 @@ test('micrófono bloqueado: se reconoce el texto de los dos caminos (dictado y g
 });
 
 test('cableado: maxDuration 420, ?ws= a mano en el XHR, fetch con corte, nunca «escribiendo…»', () => {
-  const page = sinComentarios(leer('app/m/mako/page.tsx'));
+  // El chat del teléfono vive en /m/second-brain desde el 16/10/2026 (/m/mako redirige ahí).
+  const page = sinComentarios(leer('app/m/second-brain/page.tsx'));
   // 420 y 425_000 desde la tanda 7 del Web Generator (confirmar replicar_landing por chat): tests/mako-doer-plazo.test.ts.
   assert.match(page, /export const maxDuration = 420;/);
   assert.match(page, /requireMovil\(\{ navKey: 'mako' \}\)/);

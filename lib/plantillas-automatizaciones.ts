@@ -725,7 +725,7 @@ export const PLANTILLAS_PLATAFORMA: readonly PlantillaAutomatizacion[] = [
     // El cron la emite cada hora mientras el incidente siga abierto; pasado el techo, la fila no manda nada. El techo cuenta
     // los avisos que LLEGARON de cada ESTADO (un empeoramiento vuelve a avisar), y las tarjetas «Lo mandan igual» de noche.
     id: 'mako-meta-cuenta-frenada',
-    nombre: 'Meta Frenó la Cuenta Publicitaria de un Negocio',
+    nombre: 'Meta Frenó la Cuenta Publicitaria',
     emoji: '🚨',
     linea: 'Le avisa al grupo de un negocio que Meta frenó su cuenta publicitaria, por qué y qué hacer, hasta 3 veces.',
     origen: 'el cron de las alertas críticas (meta-cuenta-frenada): un incidente de Meta abierto, confirmado y que cuesta plata',
@@ -742,7 +742,7 @@ export const PLANTILLAS_PLATAFORMA: readonly PlantillaAutomatizacion[] = [
   {
     // Y su contracara (16/10/2026): el incidente que se venía avisando se resolvió.
     id: 'mako-meta-cuenta-recuperada',
-    nombre: 'Volvió la Cuenta Publicitaria de un Negocio',
+    nombre: 'Volvió la Cuenta Publicitaria',
     emoji: '✅',
     linea: 'Le avisa al grupo de un negocio que su cuenta publicitaria volvió a entregar (sólo si se le había avisado).',
     origen: 'el cron de las alertas críticas (meta-cuenta-recuperada)',

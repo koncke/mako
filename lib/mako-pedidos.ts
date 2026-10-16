@@ -83,7 +83,7 @@ export type PedidoResuelto =
       operacion: string | null; confirmar: boolean; pregunta: string | null;
     }
   /** Crear otro de esta MISMA tab. */
-  | { sobre: 'nuevo'; texto: string; operacion: string | null }
+  | { sobre: 'nuevo'; texto: string; operacion: string | null; producto?: ProductoDelPedido }
   | { sobre: 'otra-tab'; texto: string; area: Area; titulo: string; link: string; operacion: string | null; confirmar: boolean };
 
 export const BOTONES_PROPUESTA = ['Sí', 'Después'] as const;
@@ -100,6 +100,36 @@ export const FEATURE_PEDIDOS = 'mako-pedidos';
 /** Más que esto en un mensaje no es una lista de pedidos: es un documento pegado. */
 export const MAX_PEDIDOS = 6;
 
+/** Una cuenta de un proveedor de IA, como dato: la usa `probarEnOrden` y la arma lib/mako-pedidos-ia.ts. */
+export type CuentaIA<P extends string = string> = { prov: P; clave: string };
+
+/**
+ * Prueba las cuentas EN ORDEN hasta que una contesta algo que pasa `validar`, con cada intento acotado a lo que
+ * queda del plazo (`pedir` recibe ese tope y tiene que respetarlo: `chatCheap` lo hace con `timeoutMs`). Sin nada
+ * antes del primer intento: el 16/10/2026 la primera versión iba por `chatCheapCascade`, cuyo preámbulo (cuotas del
+ * día y la clave de Anthropic del negocio, ~3 s) y su mínimo de 15 s por intento se comían el plazo entero, y no
+ * llegaba NUNCA a un proveedor. Puro: el reloj (`ahora`), las cuentas y el pedido se inyectan. Nunca tira.
+ */
+export async function probarEnOrden<P extends string>(
+  cuentas: readonly CuentaIA<P>[],
+  pedir: (c: CuentaIA<P>, timeoutMs: number) => Promise<string>,
+  validar: (t: string) => boolean,
+  op: { hasta: number; intentoMs: number; minIntentoMs: number; ahora?: () => number; alFallar?: (c: CuentaIA<P>, e: unknown) => void },
+): Promise<string | null> {
+  const ahora = op.ahora ?? Date.now;
+  for (const c of cuentas) {
+    const queda = op.hasta - ahora();
+    if (queda < op.minIntentoMs) return null;
+    try {
+      const t = await pedir(c, Math.min(op.intentoMs, queda));
+      if (t && validar(t)) return t;
+    } catch (e) {
+      op.alFallar?.(c, e);
+    }
+  }
+  return null;
+}
+
 /**
  * Las tabs cuyos objetos viven en el NAVEGADOR y no en la base: ahí la lista la manda el chat (`objetos` del cuerpo
  * de POST /api/mako/pedidos). El Video Editor guarda sus proyectos en IndexedDB (decisión 5 de su diseño,
@@ -110,6 +140,44 @@ export const MAX_PEDIDOS = 6;
 export const TABS_CON_OBJETOS_EN_EL_NAVEGADOR: readonly Area[] = ['video'];
 /** Más objetos que esto no se miran: «la otra» entre cientos no se resuelve por nombre. */
 export const MAX_OBJETOS = 200;
+
+/**
+ * Para QUÉ producto del negocio es un pedido nuevo («créame otra landing para mi otro producto»). Visto con clics el
+ * 16/10/2026: sin esto, Crear con IA armaba el esquema sobre la oferta principal. `objeto`: el producto, si se sabe;
+ * si no, `candidatos` y una `pregunta`. Nunca se elige el primero de una lista.
+ */
+export type ProductoDelPedido = { objeto: ObjetoChat | null; candidatos: ObjetoChat[]; pregunta: string | null };
+/** Más opciones que esto en la pregunta no se leen de un vistazo. */
+export const MAX_PRODUCTOS_PREGUNTA = 4;
+export const PREGUNTA_PRODUCTO = '¿Para cuál producto?';
+
+/** ¿El texto habla de un producto («para mi otro producto», «de un producto»)? Sobre el texto plano. */
+export function mencionaProducto(texto: string): boolean {
+  return /\bproductos?\b/.test(plano(nfc(texto)));
+}
+
+/**
+ * El producto de un pedido, con los productos ACTIVOS del negocio en el orden de su catálogo:
+ *   · si el texto nombra uno (su nombre entero), ése;
+ *   · si dice «producto» sin nombrarlo: con uno solo, ése —salvo «otro producto», que entonces no es ése y no se
+ *     sabe cuál—; con varios, la pregunta con los primeros `MAX_PRODUCTOS_PREGUNTA`;
+ *   · si no dice nada de un producto, null (se crea como siempre).
+ */
+export function productoDelPedido(texto: string, productos: readonly ObjetoChat[]): ProductoDelPedido | null {
+  if (!productos.length) return null;
+  const t = ` ${comparable(texto)} `;
+  const nombrados = productos.filter((p) => {
+    const n = comparable(p.nombre);
+    return n.length >= 3 && t.includes(` ${n} `);
+  });
+  if (nombrados.length === 1) return { objeto: nombrados[0], candidatos: [], pregunta: null };
+  if (!nombrados.length && !mencionaProducto(texto)) return null;
+  const lista = nombrados.length > 1 ? nombrados : productos;
+  if (lista.length === 1) {
+    return /\botr[ao]s?\s+productos?\b/.test(plano(nfc(texto))) ? null : { objeto: lista[0], candidatos: [], pregunta: null };
+  }
+  return { objeto: null, candidatos: lista.slice(0, MAX_PRODUCTOS_PREGUNTA), pregunta: PREGUNTA_PRODUCTO };
+}
 
 /**
  * Los objetos que manda el navegador, validados: un array de `{ id, nombre, tocadoAt? }`; lo que no tiene esa forma
@@ -195,7 +263,11 @@ const ANCLADAS: Readonly<Record<Area, RegExp>> = Object.fromEntries(
  *   · el Image Editor: un diseño tiene páginas, como en Canva. «Página» es palabra del área `landing`: sin esto,
  *     «crea otra página» en un diseño se iba al Web Generator;
  *   · el Dashboard: una hoja tiene gráficos y métricas («crea otro gráfico» no es otra hoja);
- *   · el Video Editor: un proyecto tiene clips y escenas («borra el otro clip» no es otro proyecto).
+ *   · el Video Editor: un proyecto tiene clips y escenas («borra el otro clip» no es otro proyecto);
+ *   · General (16/10/2026): una hoja tiene BLOQUES que son vistas de otras tabs (las tareas y los proyectos del Plan,
+ *     los KPIs y los objetivos, «Mi día» del Calendario, los cobros) y gráficos. «Agrega mis tareas prioritarias» es un
+ *     bloque más de la hoja abierta, no ir al Plan: `tareas` es palabra del área `plan` y, con la IA etiquetándola así,
+ *     se iba (lib/general-piezas.ts, `PIEZAS_GENERAL`).
  * Fuera de su tab sí cuentan («créame otra página» en Automations va al Web Generator).
  */
 const PARTES_DE_LO_ABIERTO: Partial<Readonly<Record<Area, RegExp>>> = {
@@ -203,10 +275,34 @@ const PARTES_DE_LO_ABIERTO: Partial<Readonly<Record<Area, RegExp>>> = {
   imagen: /^paginas?$/,
   metricas: /^(?:graficos?|metricas?)$/,
   video: /^(?:clips?|escenas?)$/,
+  general: /^(?:bloques?|graficos?|metricas?|numeros?|tareas?|proyectos?|prioridades?|deadlines?|kpis?|objetivos?|okrs?|metas?|semaforos?|dia|agenda|cobros?)$/,
 };
 
 const esParteDeLoAbierto = (tab: Area, palabra: string | undefined): boolean =>
   !!palabra && !!PARTES_DE_LO_ABIERTO[tab]?.test(plano(nfc(palabra)).trim());
+
+/**
+ * Y al revés: las palabras que, DENTRO de una tab, nombran OTRO objeto de esa misma tab aunque `AREA_KEYWORDS` las
+ * ponga en otra área. El Video Editor llama «proyecto» a cada video (como CapCut: «Nuevo proyecto», y su inicio lista
+ * proyectos), y «proyecto» es palabra del área `plan`: sin esto, «créame otro proyecto» en el editor se iba al Plan y
+ * «el otro proyecto» no era «el otro» (visto al engancharlo, 16/10/2026). Fuera de su tab, sigue siendo del Plan.
+ */
+const OBJETOS_DE_LA_TAB: Partial<Readonly<Record<Area, { palabra: RegExp; enTexto: RegExp }>>> = {
+  video: { palabra: /^proyectos?$/, enTexto: /\bproyectos?\b/giu },
+};
+
+const esObjetoDeLaTab = (tab: Area, palabra: string | undefined): boolean =>
+  !!palabra && !!OBJETOS_DE_LA_TAB[tab]?.palabra.test(plano(nfc(palabra)).trim());
+
+/** ¿El texto nombra ese `area` SÓLO con las palabras de los objetos de esta tab? Entonces es de esta tab. */
+function soloConPalabrasDeLaTab(texto: string, area: Area, tab: Area): boolean {
+  const de = OBJETOS_DE_LA_TAB[tab];
+  if (!de || area === tab) return false;
+  const original = nfc(texto);
+  if (!new RegExp(de.enTexto.source, de.enTexto.flags).test(plano(original))) return false;
+  const sin = original.replace(new RegExp(de.enTexto.source, de.enTexto.flags), ' ');
+  return !areasEn(sin, plano(sin)).some((a) => a.area === area);
+}
 
 /** La última palabra de una frase («otra página» → «página»). */
 const ultimaPalabra = (frase: string): string | undefined => /([\p{L}\p{N}]+)\s*$/u.exec(frase)?.[1];
@@ -385,7 +481,7 @@ function referidos(l: Lectura, ref: string | null, otros: readonly ObjetoChat[],
   const laOtra = /\b(?:l[ao]s?|el|mis?)\s+otr[ao]s?\b(?:\s+([a-z0-9]+))?/.exec(fuente) ?? /\botr[ao]s?\s+([a-z0-9]{3,})/.exec(fuente);
   if (laOtra) {
     const sust = laOtra[1];
-    const esDeLaTab = !sust || NO_SUSTANTIVO.has(sust)
+    const esDeLaTab = !sust || NO_SUSTANTIVO.has(sust) || esObjetoDeLaTab(tab, sust)
       || (ANCLADAS[tab].test(fuente.slice(laOtra.index + laOtra[0].length - sust.length)) && !esParteDeLoAbierto(tab, sust));
     if (esDeLaTab) return { como: 'otro', lista: [...otros] };
   }
@@ -429,10 +525,14 @@ function hacemosDe(l: Lectura): string {
 function decidir(c: PedidoCrudo, ctx: ContextoPedidos): Decision {
   const tab = ctx.tab;
   const l = leer(c.texto);
-  const area = c.area ?? tab;
+  // El objeto del verbo es OTRO objeto de esta tab con una palabra de otra área («otro proyecto» en el Video Editor),
+  // o el pedido nombra esa otra área sólo con esa palabra: es de esta tab (`OBJETOS_DE_LA_TAB`).
+  const propio = !!l.objeto && esObjetoDeLaTab(tab, ultimaPalabra(l.objeto.frase));
+  const area = propio || (c.area != null && soloConPalabrasDeLaTab(c.texto, c.area, tab)) ? tab : c.area ?? tab;
   const actual = ctx.actual ?? null;
   // El objeto del verbo es una PARTE de lo abierto («crea otra página» en un diseño, «otro gráfico» en una hoja).
   const parte = !!l.objeto && esParteDeLoAbierto(tab, ultimaPalabra(l.objeto.frase));
+  const deEstaTab = l.objeto?.area === tab || propio;
 
   if (area !== tab) {
     // La palabra es de otra área, pero en esta tab nombra una parte de lo abierto: es un cambio de lo abierto,
@@ -456,14 +556,14 @@ function decidir(c: PedidoCrudo, ctx: ContextoPedidos): Decision {
 
   // Crear algo de ESTA tab («créame otra landing») es uno nuevo; «crea una sección» o «crea otra página» es un
   // cambio de lo abierto.
-  if (c.verbo === 'crear' && l.objeto?.area === tab && !parte) {
+  if (c.verbo === 'crear' && l.objeto && deEstaTab && !parte) {
     return { pedido: { sobre: 'nuevo', texto: c.texto, operacion: operacionPara('crear', tab, c.texto, ctx) }, ambiguo: false, frase: l.objeto.frase, hacemos: hacemosDe(l) };
   }
   const otros = (ctx.objetos ?? []).filter((o) => o.id !== actual?.id);
   const r = referidos(l, c.referencia, otros, tab);
   if (r) return { pedido: sobreOtro(c, r.lista, ctx), ambiguo: false, frase: null };
   // «Elimina esta landing»: borrar lo ABIERTO tampoco va por el camino de siempre (el editor no borra).
-  if (c.verbo === 'borrar' && l.objeto?.area === tab && actual && !parte) return { pedido: sobreOtro(c, [actual], ctx), ambiguo: false, frase: null };
+  if (c.verbo === 'borrar' && deEstaTab && actual && !parte) return { pedido: sobreOtro(c, [actual], ctx), ambiguo: false, frase: null };
   return { pedido: { sobre: 'actual', texto: c.texto }, ambiguo: false, frase: null };
 }
 

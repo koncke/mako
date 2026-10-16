@@ -9,6 +9,7 @@ adjuntar_grabaciones_fathom
 afinar_avatares
 agregar_bloque_general
 agregar_bloque_landing
+agregar_capa_efecto_video
 agregar_dependencia_plan
 agregar_escenario_secuencia
 agregar_filtro_dashboard
@@ -17,6 +18,8 @@ agregar_link_fathom
 agregar_nota_lead
 agregar_objetivo_custom
 agregar_seccion_landing
+agregar_texto_video
+ajustar_color_video
 analisis_negocio
 analizar_hoja_dashboard
 analizar_llamadas_lead
@@ -38,6 +41,7 @@ borrar_borrador_plantilla
 borrar_clase_curso
 borrar_diseno_imagen
 borrar_documento_archivero
+borrar_elementos_video
 borrar_guion_anuncio
 borrar_hoja_dashboard
 borrar_landing
@@ -55,13 +59,18 @@ buscar_lugares_meta
 buscar_tareas_plan
 buscar_tutorial
 cambiar_animacion_landing
+cambiar_duracion_video
 cambiar_espera_paso
 cambiar_estado_comentario_landing
+cambiar_estilo_texto_video
 cambiar_ficha_funnel
 cambiar_moneda_negocio
 cambiar_tema_landing
 cambiar_texto_landing
+cambiar_texto_video
 cambiar_textos_diseno_imagen
+cambiar_velocidad_video
+cambiar_volumen_video
 cancelar_accion
 cancelar_analisis_dashboard
 cancelar_programacion_broadcast
@@ -90,6 +99,7 @@ configurar_seccion_reporte
 configurar_sitio_landing
 confirmaciones_crm_automatico
 confirmar_accion
+congelar_cuadro_video
 consultar_datos_dashboard
 contar_escenarios_reusables
 contar_eventos_prueba
@@ -97,7 +107,9 @@ contar_leads_por_etapa
 contar_segmento_email
 contexto_etapa
 contexto_negocio
+cortar_frase_video
 cortar_recordatorio_cuota
+cortar_tramo_video
 crear_borrador_whatsapp_empresa
 crear_broadcast
 crear_clase_curso
@@ -132,6 +144,7 @@ desvincular_evento_etapa
 detectar_fatiga_adsets
 detectar_piezas_landing
 diagnosticar_funnel
+dividir_clip_video
 duplicados_lead
 duplicar_diseno_imagen
 duplicar_hoja_dashboard
@@ -157,6 +170,7 @@ editar_texto_guion_anuncio
 editar_venta_lead
 elegir_formato_creativo_anuncio
 eliminar_broadcast
+eliminar_muletillas_video
 embudo_closing
 enviar_broadcast
 enviar_plantilla_a_meta
@@ -194,6 +208,7 @@ fijar_zona_horaria_workspace
 generar_avatares
 generar_conclusiones_dashboard
 generar_lead_magnets
+generar_subtitulos_video
 guardar_borrador_plantilla
 guardar_campo_perfil
 guardar_capacidad
@@ -336,8 +351,12 @@ metricas_negocio
 mis_creaciones
 mover_a_nutricion_manual
 mover_clase_curso
+mover_elemento_video
 mover_estado_guion_anuncio
+mover_tarea_plan
 nombrar_video
+normalizar_audio_video
+ocultar_elemento_video
 ocultar_video
 oferta_del_lead
 olvidar_nombre_video
@@ -348,8 +367,13 @@ pasar_comentarios_a_copia_landing
 pausar_landing
 plan_retro
 plantillas_meta_de_secuencia
+poner_animacion_video
+poner_efecto_video
 poner_enlace_landing
 poner_etiqueta_lead
+poner_filtro_video
+poner_fundido_video
+poner_transicion_video
 posponer_item_plan_retro
 probar_conexion_integracion
 programar_analisis_dashboard
@@ -399,7 +423,12 @@ reabrir_onboarding_chatbot
 reactivar_datos_sin_marcar
 recomendar_formatos_creativo
 reconciliar_plantillas
+recortar_clip_video
+reducir_ruido_video
 reembolsar_cobro
+reemplazar_clip_video
+reemplazar_en_subtitulos_video
+reflejar_clip_video
 registrar_pago_suelto
 registrar_valor_kpi
 reiniciar_personalidad
@@ -407,6 +436,7 @@ remitente_email
 renombrar_landing
 renombrar_modulo_curso
 requisitos_para_mover
+resaltar_palabras_video
 resolver_confirmacion_crm
 responder_pregunta_personalidad
 restablecer_informe_dashboard
@@ -417,10 +447,13 @@ resumir_marketing_periodo
 retirar_creacion
 reuniones_proximas
 reuniones_recientes
+revertir_clip_video
 revisar_direccion_landing
 sacar_etiqueta_lead
 seguimiento_ultima_retro
 sembrar_kpis_sugeridos
+separar_audio_video
+silenciar_clip_video
 snapshot_funnel_experimentos
 sugerencias_crm
 sugerir_kpis
@@ -428,8 +461,10 @@ sugerir_productos
 tendencia_score
 tipos_de_crm
 tracking_lead
+transformar_elemento_video
 transiciones_desde_etapa
 usar_creacion
+usar_plantilla_video
 variables_plantilla
 ver_activacion_tab
 ver_analitica_landing
@@ -504,6 +539,7 @@ ver_publico_conjunto_meta
 ver_puente_flow
 ver_rechazos_pago_landing
 ver_rendimiento_anuncios
+ver_repriorizacion_plan
 ver_revenue_mensual
 ver_revenue_periodo
 ver_salud_cuenta_meta
