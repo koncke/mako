@@ -19,6 +19,8 @@
 //   Offer (16/10/2026, base 2/0): vuelve el corte «sin IA propia» antes de la red, la ruta lee documentos
 //     sin red, y una de las dos lecturas por visión no pasa la red → 1/1 cada una.
 //   Crear una landing (16/10/2026, base 3/0): el esquema, las secciones y el reparador de JSON → 2/1 cada una.
+//   Crear una automatización (16/10/2026, base 4/0): la pasada sin red, la copia del JSON roto sin red, y
+//     `hayIAParaCrear` mirando sólo las keys del negocio → 3/1 cada una.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -32,7 +34,8 @@ const sinComentarios = (src: string) => src.replace(/^[ \t]*\/\/.*$/gm, '').repl
 /** El cuerpo de una función de nivel cero, hasta la próxima declaración de nivel cero. */
 function cuerpo(archivo: string, nombre: string): string {
   const src = sinComentarios(leer(archivo));
-  const ini = src.search(new RegExp(`\\nexport async function ${nombre}\\(`));
+  // `[(<]`: una función genérica (`generar<R …>(`) también cuenta.
+  const ini = src.search(new RegExp(`\\nexport async function ${nombre}[(<]`));
   assert.ok(ini >= 0, `${archivo}: no existe ${nombre}`);
   const resto = src.slice(ini + 1);
   const fin = resto.search(/\n(export |async function |function |const |type )/);
@@ -74,6 +77,23 @@ test('Offer: sin IA propia no corta antes de la red, y lee los documentos con re
   const lector = sinComentarios(leer('lib/archivo-a-texto.ts'));
   assert.equal((lector.match(/leerDocumentoIA\(\{[^\n]*redDePlataforma: opts\.redDePlataforma/g) || []).length, 2,
     'las dos lecturas por visión (PDF escaneado e imagen) tienen que pasar la red que pide el que llama');
+});
+
+test('Crear una automatización: la pasada, la reparación, y la pregunta previa de la API de MaKo', () => {
+  const src = sinComentarios(leer('lib/flujo-ia-crear.ts'));
+  // `pasada` y la copia del JSON roto (en `generar`): las dos llamadas a la cascada.
+  const pasada = src.slice(src.indexOf('async function pasada<'), src.indexOf('\n}\n', src.indexOf('async function pasada<')));
+  const ls = llamadas(pasada);
+  assert.equal(ls.length, 1, 'pasada hace UNA llamada a la cascada');
+  assert.match(ls[0], /redDePlataforma: true/);
+  conRed('lib/flujo-ia-crear.ts', 'generar');
+  // La pregunta que hace la API de MaKo ANTES de proponer tiene que contar la red: si sólo mira las keys del
+  // negocio, MaKo le contesta «conecta tu IA» por WhatsApp a un cliente que la pantalla atiende sin problema.
+  const ini = src.indexOf('export async function hayIAParaCrear(');
+  assert.ok(ini > 0, 'no encuentro hayIAParaCrear');
+  assert.match(src.slice(ini, src.indexOf('\n}\n', ini)), /provsGratisDePlataforma\(\)/, 'hayIAParaCrear no cuenta la red de la plataforma');
+  // Y la ruta de la pantalla no corta antes.
+  assert.doesNotMatch(sinComentarios(leer('app/api/chat-agent/secuencias/ia/route.ts')), /if \(!\(await (hayIAParaCrear|docsIADisponible|cheapDisponible)\(\)/);
 });
 
 test('Crear una landing: el esquema, las secciones y la reparación del JSON', () => {
