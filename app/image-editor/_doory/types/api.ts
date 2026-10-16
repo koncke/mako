@@ -206,6 +206,8 @@ export interface TemplateSummary {
   is_featured: boolean
   use_count: number
   created_at: string
+  /** MaKo: why the template is suggested for this business (lib/plantillas-sugeridas.ts); absent = not suggested. */
+  suggested_reason?: string
 }
 export interface TemplateDetail extends TemplateSummary {
   description: string

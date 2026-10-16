@@ -51,7 +51,7 @@ import {
   type PasoGrafo, type NombresParaTexto, type HechosLead, type MedioAIStep, type FilaCondicion,
   claseDe, idDe, indicePorId, nodoPorId, normalizar, puertosDe, raicesSalida, raizRespuesta,
   textoEspera, textoRama, TOPE_HILOS, RESULTADO_SI_NO, paralelosDeResultado, elegirSalida, expandirPasoIA,
-  extrasDeCaso, gruposDeRama, cumpleFila, textoFila, escenariosDeRespuesta,
+  extrasDeCaso, gruposDeRama, cumpleFila, textoFila, escenariosDeRespuesta, llegaTarde,
 } from './flujo-grafo';
 
 /**
@@ -89,7 +89,8 @@ export type OpcionRama = { puerto: string; texto: string; destino: string | null
 export type EventoSim<P extends PasoGrafo = PasoGrafo> =
   | { t: 'mensaje'; nodo: string; paso: P; enRespuesta: boolean }
   | { t: 'espera'; nodo: string; texto: string }
-  | { t: 'accion'; nodo: string; texto: string }
+  /** `paso`: la tarjeta, para que el panel dibuje lo que hace (16/10/2026: la «MaKo en WhatsApp» le escribe al grupo). */
+  | { t: 'accion'; nodo: string; texto: string; paso: P }
   | { t: 'salto'; nodo: string; texto: string }
   | { t: 'condicion'; nodo: string; opciones: OpcionRama[] }
   | { t: 'fin'; texto: string };
@@ -105,7 +106,11 @@ export type CasoElegido = { id: string | null; titulo: string; cuando: string };
  * empezar a esperar, el email del día 0 aparecería DEBAJO de «Esperar 1 día» y se leería como
  * que llega al día siguiente.
  */
-export type HiloSim = { cursor: string; reloj: number; esperado?: true };
+/**
+ * `tarde`: llegó tarde a una espera «antes de la reunión» (`llegaTarde`, 16/10/2026) y `saltea`: lo que sigue a esa espera
+ * no sale hasta la próxima, como en el motor (`resolverControl`).
+ */
+export type HiloSim = { cursor: string; reloj: number; esperado?: true; tarde?: true; saltea?: true };
 
 export type EstadoSim = {
   /**
@@ -142,7 +147,26 @@ export type EstadoSim = {
    * (`asistirRespuesta` con `{ medio }`). Ausente = WhatsApp. Lo pone `iniciar`.
    */
   medio?: MedioAIStep;
+  /**
+   * EL MINUTO VIRTUAL DE LA PRÓXIMA REUNIÓN DEL LEAD (16/10/2026, Martín: «salen primero los "1 hora antes de la
+   * reunión" cuando tendrían que salir antes los "⏳ Esperar 5 min"... si tenemos varias condiciones de "antes de...",
+   * eso debe funcionar bien»). Con él, una espera «N antes de la reunión» lleva el reloj a la reunión menos N, como el
+   * motor (`nutricion-grafo-motor.ts`: si eso ya pasó, sigue enseguida). Sin él, no lo mueve: no hay de qué descontar.
+   * Lo pone `iniciar` desde los hechos del lead de la prueba (`reunionMinDe`).
+   */
+  reunionMin?: number;
 };
+
+/**
+ * El minuto (contado desde que el lead entra) de su próxima reunión, de los hechos de la prueba (`hechosDeLeadNuevo`:
+ * quien entra por una etapa de reunión tiene una mañana a esta hora). `undefined` = no tiene.
+ */
+export function reunionMinDe(hechos: HechosLead | null | undefined): number | undefined {
+  const r = hechos?.catalogo?.lead?.proximaReunionMs;
+  const ahora = hechos?.ahoraMs;
+  if (r == null || ahora == null || !Number.isFinite(r) || !Number.isFinite(ahora)) return undefined;
+  return Math.max(0, Math.round((r - ahora) / 60_000));
+}
 
 /** Los nombres que el texto de una píldora necesita y este módulo no tiene. */
 export type NombresSim = NombresParaTexto & {
@@ -368,12 +392,13 @@ export function correoDeEjemplo(
 
 // ── Recorrer ───────────────────────────────────────────────────────────────────
 
-export function iniciar(pasos: readonly PasoGrafo[], op: { medio?: MedioAIStep } = {}): EstadoSim {
+export function iniciar(pasos: readonly PasoGrafo[], op: { medio?: MedioAIStep; reunionMin?: number } = {}): EstadoSim {
   // Un hilo por raíz: la principal y cada flecha en paralelo del CRON, todas en el minuto 0.
   const hilos = raicesSalida(pasos).slice(0, TOPE_HILOS).map((cursor) => ({ cursor, reloj: 0 }));
   return {
     hilos, rama: 'salida', eligiendo: null, salidaPausada: false, terminado: false, saltos: 0, eventos: 0, ahora: 0, caso: null,
     ...(op.medio && op.medio !== 'whatsapp' ? { medio: op.medio } : {}),
+    ...(op.reunionMin != null ? { reunionMin: op.reunionMin } : {}),
   };
 }
 
@@ -417,9 +442,9 @@ function salidasDe(pasos: readonly PasoGrafo[], i: number): { sig: string | null
  * que se prueba es lo LOCAL, sin publicar, y puede ser un flujo que no se podría guardar. Lo que
  * no entra no se abre; el tope de eventos corta el resto.
  */
-function seguir(hilos: readonly HiloSim[], k: number, sig: string | null, paralelos: readonly string[], reloj: number): HiloSim[] {
+function seguir(hilos: readonly HiloSim[], k: number, sig: string | null, paralelos: readonly string[], reloj: number, saltea = false): HiloSim[] {
   const out = hilos.slice();
-  if (sig) out[k] = { cursor: sig, reloj };
+  if (sig) out[k] = saltea ? { cursor: sig, reloj, saltea: true } : { cursor: sig, reloj };
   else out.splice(k, 1);
   for (const d of paralelos) if (out.length < TOPE_HILOS) out.push({ cursor: d, reloj });
   return out;
@@ -434,6 +459,9 @@ function cerrarHilo<P extends PasoGrafo>(estado: EstadoSim, k: number, texto: st
   if (!hilos.length) return fin(estado, texto);
   return { evento: null, estado: { ...estado, hilos } };
 }
+
+/** Lo que dice la pastilla de una espera «antes de la reunión» a la que se llegó tarde (`llegaTarde`). */
+export const NO_SALE_AGENDO_CERCA = 'agendó más cerca: no sale';
 
 /**
  * Corre UNA tarjeta del hilo `k`. `evento: null` = avanzó sin nada que mostrar (contó una espera,
@@ -455,21 +483,35 @@ function correrHilo<P extends PasoGrafo>(pasos: readonly P[], estado: EstadoSim,
     const s = salidasDe(pasos, i);
     return seguir(st.hilos, k, s.sig, st.rama === 'respuesta' ? [] : s.paralelos, reloj);
   };
+  // «SI AGENDA MÁS CERCA» (16/10/2026): lo que sigue a una espera a la que se llegó tarde no sale, hasta la próxima.
+  if (h.saltea && (claseDe(p) === 'mensaje' || claseDe(p) === 'accion')) {
+    const hilos = seguir(st.hilos, k, salidasDe(pasos, i).sig, [], h.reloj, true);
+    return hilos.length ? { evento: null, estado: { ...st, hilos } } : fin(st, 'Fin');
+  }
   switch (claseDe(p)) {
     case 'mensaje':
       return { evento: { t: 'mensaje', nodo: id, paso: p, enRespuesta: st.rama === 'respuesta' }, estado: { ...base, hilos: avanzar(h.reloj) } };
     case 'accion':
       // No se ejecuta: probar no puede mover un lead ni crear una tarea de verdad.
-      return { evento: { t: 'accion', nodo: id, texto: `⚡ ${nombreAccion(p, nombres)}` }, estado: { ...base, hilos: avanzar(h.reloj) } };
+      return { evento: { t: 'accion', nodo: id, texto: `⚡ ${nombreAccion(p, nombres)}`, paso: p }, estado: { ...base, hilos: avanzar(h.reloj) } };
     case 'esperar': {
       if (!h.esperado) {
         // No espera: suma al reloj de SU hilo y lo dice cuando le vuelve a tocar (ver `HiloSim`).
-        // «N antes de la reunión» no mueve el reloj: la prueba no tiene una reunión de la que
-        // descontar, y un número inventado ordenaría los hilos con un dato que no existe.
-        const min = p.espera?.modo === 'tiempo' ? Math.max(0, Number(p.espera.minutos) || 0) : 0;
+        // «N antes de la reunión» lleva el reloj a la reunión menos N, como el motor; si eso ya pasó, enseguida
+        // (16/10/2026: sin esto quedaba en el minuto 0 y salía antes que el «Esperar 5 min» de otro camino). Sin
+        // reunión no lo mueve: un número inventado ordenaría los hilos con un dato que no existe.
+        const min = Math.max(0, Number(p.espera?.minutos) || 0);
+        const reloj = p.espera?.modo === 'tiempo' ? h.reloj + min
+          : st.reunionMin != null ? Math.max(h.reloj, st.reunionMin - min) : h.reloj;
+        const tarde = st.reunionMin != null && llegaTarde(p.espera, st.reunionMin - h.reloj);
         const hilos = st.hilos.slice();
-        hilos[k] = { cursor: h.cursor, reloj: h.reloj + min, esperado: true };
+        hilos[k] = tarde ? { cursor: h.cursor, reloj, esperado: true, tarde: true } : { cursor: h.cursor, reloj, esperado: true };
         return { evento: null, estado: { ...st, hilos } };
+      }
+      // Llegó tarde: se dice, y lo de esta espera (y sus flechas en paralelo) no sale.
+      if (h.tarde) {
+        const hilos = seguir(st.hilos, k, salidasDe(pasos, i).sig, [], h.reloj, true);
+        return { evento: { t: 'espera', nodo: id, texto: `⏳ ${textoEspera(p.espera)} · ${NO_SALE_AGENDO_CERCA}` }, estado: { ...base, hilos } };
       }
       return { evento: { t: 'espera', nodo: id, texto: `⏳ ${textoEspera(p.espera)}` }, estado: { ...base, hilos: avanzar(h.reloj) } };
     }
@@ -563,7 +605,8 @@ export function elegir(estado: EstadoSim, puerto: string): EstadoSim {
   const h = estado.hilos[e.hilo];
   if (!h) return { ...estado, eligiendo: null };
   const paralelos = estado.rama === 'respuesta' ? [] : (o.paralelos ?? []);
-  return { ...estado, eligiendo: null, hilos: seguir(estado.hilos, e.hilo, o.destino, paralelos, h.reloj) };
+  // Una condición en lo que se saltea («Si agenda más cerca») se decide igual, y lo de después sigue salteado.
+  return { ...estado, eligiendo: null, hilos: seguir(estado.hilos, e.hilo, o.destino, paralelos, h.reloj, h.saltea === true) };
 }
 
 // ── LOS ESCENARIOS DE «PROBAR» (14/10/2026) ─────────────────────────────────────────────────────────
@@ -636,19 +679,19 @@ export function escenariosDePrueba(
   o: { hechos?: HechosLead; nombres?: NombresSim; cuenta?: (p: PasoGrafo) => boolean; medio?: MedioAIStep } = {},
 ): { escenarios: EscenarioPrueba[]; faltan: number } {
   const pasos = recorrido(pasosIn, o.medio);
-  const out: EscenarioPrueba[] = [];
+  type Hecho = { fila: FilaCondicion; si: boolean };
+  /** Cada escenario con los hechos que lo armaron: el «cuándo» se escribe al final, con los que lo DISTINGUEN. */
+  const crudos: Array<{ e: Omit<EscenarioPrueba, 'cuando'>; hechos: ReadonlyMap<string, Hecho> }> = [];
   /** Lo que se ve en el chat de cada escenario ya armado: dos con los mismos mensajes son uno. */
   const vistos = new Set<string>();
   let faltan = 0;
-  type Hecho = { fila: FilaCondicion; si: boolean };
   const cerrar = (elecciones: Record<string, string>, dichos: string[], mensajes: string[], hechos: ReadonlyMap<string, Hecho>) => {
     const clave = mensajes.join('>');
     if (vistos.has(clave)) return;
-    if (out.length >= TOPE_ESCENARIOS) { faltan += 1; return; }
+    if (crudos.length >= TOPE_ESCENARIOS) { faltan += 1; return; }
     vistos.add(clave);
     const id = Object.entries(elecciones).map(([n, p]) => `${n}=${p}`).join('|');
-    const cuando = [...new Set([...hechos.values()].map((h) => textoFila({ ...h.fila, no: !h.si }, o.nombres)))];
-    out.push({ id, elecciones, pasos: dichos, mensajes: mensajes.length, cuando });
+    crudos.push({ e: { id, elecciones, pasos: dichos, mensajes: mensajes.length }, hechos });
   };
   const visitar = (inicio: EstadoSim, hechos: ReadonlyMap<string, Hecho>, elecciones: Record<string, string>, dichos: string[], mensajes: string[]): void => {
     let st = inicio;
@@ -665,7 +708,7 @@ export function escenariosDePrueba(
           const base: FilaCondicion = { ...falta, no: false };
           const delLead = o.hechos ? cumpleFila(base, o.hechos) : false;
           for (const si of [delLead, !delLead]) {
-            if (out.length >= TOPE_ESCENARIOS) { faltan += 1; continue; }
+            if (crudos.length >= TOPE_ESCENARIOS) { faltan += 1; continue; }
             visitar(st, new Map([...hechos, [claveHecho(falta), { fila: base, si }]]), elec, dich, vistosAca);
           }
           return;
@@ -686,11 +729,21 @@ export function escenariosDePrueba(
     }
     cerrar(elec, dich, vistosAca, hechos);
   };
-  visitar(iniciar(pasosIn, { medio: o.medio }), new Map(), {}, [], []);
+  visitar(iniciar(pasosIn, { medio: o.medio, reunionMin: reunionMinDe(o.hechos) }), new Map(), {}, [], []);
 
-  // EL LEAD CONTESTA (15/10/2026): un escenario por caso del AI Step que escucha por este medio, sobre el primero. El
-  // panel le hace escribir al lead algo de ese caso, y lo demás es la prueba de siempre (clasifica y contesta).
-  const primero = out[0];
+  // CUÁNDO CAE CADA UNO, sólo con lo que lo DISTINGUE (visto en producción el 15/10/2026: «Tiene WhatsApp · Tiene email»
+  // en los seis casos alargaban la píldora sin decir nada). Un hecho que vale lo mismo en todos los escenarios no va.
+  const claves = new Set(crudos.flatMap((c) => [...c.hechos.keys()]));
+  const distinguen = new Set([...claves].filter((k) => new Set(crudos.map((c) => c.hechos.get(k)?.si)).size > 1));
+  const out: EscenarioPrueba[] = crudos.map((c) => ({
+    ...c.e,
+    cuando: [...new Set([...c.hechos].filter(([k]) => distinguen.has(k)).map(([, h]) => textoFila({ ...h.fila, no: !h.si }, o.nombres)))],
+  }));
+
+  // EL LEAD CONTESTA (15/10/2026): un escenario por caso del AI Step que escucha por este medio. El panel le hace escribir
+  // al lead algo de ese caso, y lo demás es la prueba de siempre (clasifica y contesta). ⚠️ Sobre el primer camino CON
+  // mensajes: visto en producción, con el primero sin ninguno el lead no tenía qué contestar y la prueba terminaba en «Fin».
+  const primero = out.find((e) => e.mensajes > 0) ?? out[0];
   if (primero && nodoPorId(pasos, raizRespuesta(pasos))) {
     const casos = escenariosDeRespuesta(pasosIn, { medio: o.medio }).map((c) => ({ casoId: c.casoId, titulo: c.titulo, cuando: c.cuando }));
     // Un AI Step sin casos con nombre contesta todo con su objetivo («Lo demás»): un escenario igual, para verlo contestar.
@@ -817,7 +870,7 @@ export const CONTACTO_COMPLETO: ContactoPrueba = { tieneTelefono: true, tieneEma
  */
 export function mensajesDelRecorrido<P extends PasoGrafo>(pasos: readonly P[], lead: LeadNuevoPrueba = {}, nombres: NombresSim = {}): P[] {
   const ahoraMs = lead.ahoraMs ?? Date.now();
-  let st = iniciar(pasos);
+  let st = iniciar(pasos, { reunionMin: reunionMinDe(hechosDeLeadNuevo({ ...lead, ahoraMs })) });
   let contactado = false;
   const out: P[] = [];
   // Cada vuelta muestra un evento o decide una condición: el tope de eventos corta cualquier bucle.
@@ -840,8 +893,8 @@ export function mensajesDelRecorrido<P extends PasoGrafo>(pasos: readonly P[], l
  * nodo). Una condición que el escenario no nombra corta ahí: no se inventa un camino. Lo que no es un mensaje no se
  * devuelve.
  */
-export function mensajesDelEscenario<P extends PasoGrafo>(pasos: readonly P[], elecciones: Readonly<Record<string, string>>, nombres: NombresSim = {}): P[] {
-  let st = iniciar(pasos);
+export function mensajesDelEscenario<P extends PasoGrafo>(pasos: readonly P[], elecciones: Readonly<Record<string, string>>, nombres: NombresSim = {}, op: { reunionMin?: number } = {}): P[] {
+  let st = iniciar(pasos, { reunionMin: op.reunionMin });
   const out: P[] = [];
   for (let vuelta = 0; vuelta < TOPE_EVENTOS * 2 + 4; vuelta++) {
     if (st.eligiendo) {
@@ -868,15 +921,17 @@ export function mensajesDelEscenario<P extends PasoGrafo>(pasos: readonly P[], e
 export function escenariosDeLaSecuencia(
   s: Parameters<typeof leadNuevoDelCron>[0] & { pasos: readonly PasoGrafo[]; estrategia: unknown },
   idDeClave: (clave: string) => number | null,
-): { pasos: PasoGrafo[]; escenarios: EscenarioPrueba[]; faltan: number } {
+): { pasos: PasoGrafo[]; escenarios: EscenarioPrueba[]; faltan: number; reunionMin?: number } {
   const pasos = flujoParaProbar(s.pasos as PasoGrafo[], s.estrategia as EstrategiaLegada, { idDeClave }).pasos;
+  const hechos = hechosDeLeadNuevo(leadNuevoDelCron(s));
   const { escenarios, faltan } = escenariosDePrueba(pasos, {
-    hechos: hechosDeLeadNuevo(leadNuevoDelCron(s)),
+    hechos,
     cuenta: (p) => (p.canal ?? 'whatsapp') === 'whatsapp',
   });
   // Sin los escenarios en que el lead CONTESTA (15/10/2026): por la API no hay quién escriba como el lead, y
   // `probar_secuencia` mandaría lo mismo que el primero. Son de la pantalla.
-  return { pasos, escenarios: escenarios.filter((e) => !e.respuesta), faltan };
+  // La reunión del lead de la prueba viaja: `mensajesDelEscenario` ordena con ella los «antes de la reunión».
+  return { pasos, escenarios: escenarios.filter((e) => !e.respuesta), faltan, reunionMin: reunionMinDe(hechos) };
 }
 
 /**

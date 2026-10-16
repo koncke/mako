@@ -231,4 +231,86 @@ export const BITACORA: Hito[] = [
       'tests/ia-rotacion-modelo.test.ts — ocho roturas probadas',
     ],
   },
+  {
+    fecha: '16 oct', hora: '00:16', chat: 'Onboarding', sesion: 'local_79844152-91d5-49c1-b833-c917ed1fc4a6', cuenta: 'claude3',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'La clave de Anthropic del negocio, primera en su cascada de texto',
+    puntos: [
+      'Decisión de Martín (Ticketera clientes-usan-su-claude, 15/10): el crédito de API de Claude Max del cliente entra por su clave propia. El veto del 13/08 es sobre la plata de MaKo, así que tiene una segunda puerta para la del negocio.',
+      '⚠️ **La frontera:** `credWs` cae al env de la plataforma para el dueño, y la fila del dueño la siembra ese env. La clave se lee con `credDelCliente`, se compara contra las tres copias de la plataforma y el fetch usa la que verificó el veto. Siete roturas de esa frontera, siete cazadas.',
+      'Un solo modelo barato, nunca en las funciones del Plan («JAMÁS algo pago para el plan»), y sólo en la cascada de texto: ni visión, ni audio, ni el doer.',
+    ],
+    commits: [
+      { sha: 'a488757c', msg: 'IA: la clave de Anthropic del negocio, primera en su cascada de texto', lineas: 390, archivos: 10 },
+    ],
+    archivos: [
+      'lib/veto-claude.ts — `evaluarClaveDelNegocio`, la segunda puerta (pura)',
+      'lib/anthropic.ts — `conClaveDelNegocio`, el pedido con la clave verificada',
+      'lib/ai-cheap.ts — el primer intento de `chatCheapCascade`',
+      'tests/veto-claude-clave-negocio.test.ts — la frontera, probada rompiéndola',
+    ],
+  },
+  {
+    fecha: '16 oct', hora: '00:39', chat: 'Onboarding', sesion: 'local_79844152-91d5-49c1-b833-c917ed1fc4a6', cuenta: 'claude3',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'La red de la plataforma para la primera semana de un cliente sin API',
+    puntos: [
+      'Medido antes: la key de Gemini de la plataforma más usada hizo 29 pedidos en un día contra 250, y los 194 rechazos del 13/10 fueron por minuto y del propio ws9. Con 10 clientes nuevos por semana, por día alcanza.',
+      'Ads Writer, Offer, crear landing, crear automatización y buscar en el Second Brain, de a uno y con un test cada uno.',
+      '⚠️ **La red escrita no es la red corriendo:** El Archivero, Offer y la API de MaKo cortaban ANTES a quien no tenía keys propias. El de El Archivero trababa el wizard. Regla en AGENTS.md.',
+      'El análisis del lead quedó afuera: datos personales de los leads por las keys de la agencia, que pueden estar en el plan gratis de Google. Lo decide Martín.',
+    ],
+    commits: [
+      { sha: 'cb2bf9cf', msg: 'IA: Ads Writer corre con la red de la plataforma para un cliente sin API', lineas: 70, archivos: 3 },
+      { sha: 'bdf04eb6', msg: 'IA: Offer corre con la red de la plataforma para un cliente sin API', lineas: 60, archivos: 5 },
+      { sha: 'fe0b43f9', msg: 'IA: crear una landing corre con la red de la plataforma para un cliente sin API', lineas: 20, archivos: 2 },
+      { sha: 'daebfcc8', msg: 'Onboarding: El Archivero ya no corta a quien no tiene IA propia antes de la red', lineas: 77, archivos: 4 },
+      { sha: '5b4c7999', msg: 'IA: crear una automatización con IA por MaKo cuenta la red de la plataforma', lineas: 34, archivos: 2 },
+      { sha: 'b9b7fc10', msg: 'IA: buscar en el Second Brain corre con la red de la plataforma', lineas: 11, archivos: 2 },
+    ],
+    archivos: [
+      'tests/red-primera-semana.test.ts — un test por herramienta, probado rompiéndolo',
+      'app/api/onboarding/archivero/route.ts — sin los tres cortes antes de la red',
+      'lib/offer-ia.ts — `pedir` ya no corta a quien no tiene IA propia',
+      'lib/flujo-ia-crear.ts — `hayIAParaCrear` cuenta la red',
+    ],
+  },
+  {
+    fecha: '16 oct', hora: '00:51', chat: 'Onboarding', sesion: 'local_79844152-91d5-49c1-b833-c917ed1fc4a6', cuenta: 'claude3',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El crédito de Claude Max de la plataforma, primero en la red',
+    puntos: [
+      'Martín: «Vinculalas a MaKo», el crédito de API de dos planes Max suyos, para que los usuarios nuevos no traigan su API.',
+      'Tercera puerta del veto: pasan SÓLO las dos claves con nombre, nunca en el Plan. Va antes de las keys gratis: el crédito vence sin acumularse, las gratis chocan por minuto con el ws9, y Anthropic no entrena con la API.',
+      '⚠️ Sin clave propia, `wsDeProveedor` anotaba la fila de Anthropic en el ws1 (un cliente): ahora va al workspace que la usó.',
+      'Falta activarlo: las claves no están en producción. O Martín las carga en Vercel, o se corre el script que las guarda cifradas en el ws de la plataforma, con su OK.',
+    ],
+    commits: [
+      { sha: 'dd8dba3d', msg: 'IA: el crédito de Claude Max de la plataforma, primero en la red para los clientes sin API', lineas: 481, archivos: 10 },
+    ],
+    archivos: [
+      'lib/veto-claude.ts — `evaluarCreditoDeLaPlataforma`, la tercera puerta (pura)',
+      'lib/anthropic.ts — `conCreditoDeLaPlataforma`',
+      'scripts/credito-claude-a-plataforma.mts — guarda las claves cifradas, sin imprimirlas',
+      'tests/veto-claude-credito-plataforma.test.ts — la frontera, probada rompiéndola',
+    ],
+  },
+  {
+    fecha: '16 oct', hora: '00:55', chat: 'Onboarding', sesion: 'local_79844152-91d5-49c1-b833-c917ed1fc4a6', cuenta: 'claude3',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Los datos de los clientes de un cliente nunca van a las keys gratis',
+    puntos: [
+      'Regla del coordinador: nunca a un proveedor que entrena con lo que recibe. El plan gratis de Gemini entrena; el crédito de Claude de la plataforma no.',
+      'En la red de la cascada, un pedido con la marca `pii` del catálogo usa sólo el crédito de Claude y se corta antes de las keys gratis. El análisis del lead pasa a tener red por ahí.',
+      'Quedan sin el corte los caminos con su propia red: el doer de WhatsApp, los gráficos con IA, la transcripción de audio y el guion de audio de Automations.',
+    ],
+    commits: [
+      { sha: '7068a090', msg: 'IA: los datos de los clientes de un cliente nunca van a las keys gratis; el análisis del lead, con red', lineas: 50, archivos: 4 },
+    ],
+    archivos: [
+      'lib/ai-cheap.ts — el corte por datos de clientes en la red de la cascada',
+      'lib/lead-insights.ts — el análisis del lead con red',
+      'AGENTS.md — la regla, en la sección de la red de plataforma',
+    ],
+  },
 ];

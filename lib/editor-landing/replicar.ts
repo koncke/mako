@@ -40,6 +40,13 @@
 //   · las imágenes de la original se copian a NUESTRO bucket (`subirImagenes`) y van a las secciones que
 //     las tenían, con los fondos de sección distintos (`aplicarEstilo`). La que no se copia deja el
 //     marcador de hoy. La Página web (copia fiel) no cambia: ya lleva el HTML y los estilos de la original.
+//
+// Tanda 8 (Martín, 14/10/2026: «poder replicarlas al copiar una web»; el aviso, decidido el 15/10): las ANIMACIONES.
+//   · Landing: las señales de la original viajan en el estilo (`estilo.animaciones`, replicar-animaciones.ts) y la
+//     landing nace con su estilo de animación y el efecto propio de las secciones que no lo siguen;
+//   · Página web: el HTML ya trae lo suyo; lo atado al scroll no corre en la copia y se avisa (`scrollDeLaPagina`);
+//   · Presentación: nada (las diapositivas no se recorren con el scroll).
+// Si la original seguía al scroll, el resultado lo dice en UNA línea (`AVISO_SCROLL`, en `aviso` y `avisoScroll`).
 // =============================================================================
 
 import 'server-only';
@@ -49,16 +56,17 @@ import { crear, guardarTema, temasPropiosDe } from './server';
 import { esquema as pedirEsquema, secciones as pedirSecciones } from './ia';
 import { tandasDe, tarjetaDesdeEsquema } from './ia-reglas';
 import { nuevoId, type JsonNodo, type LandingContenido } from './doc';
-import { terminoTarjeta, type ConfigLanding, type Esquema, type TemaPropio } from './api-tipos';
+import { CONFIG_DEFAULT, terminoTarjeta, type ConfigLanding, type Esquema, type TemaPropio } from './api-tipos';
 import { motivoDeError, seLeeEnNavegador } from './lectura-reglas';
 import {
-  configDeReplica, contenidoDeCopiaFiel, copiaFiel, formatoReplicar, urlParaReplicar,
+  baseDeDocumento, configDeReplica, contenidoDeCopiaFiel, copiaFiel, formatoReplicar, urlParaReplicar,
   type ConfigReplica, type FormatoReplicar, type RespuestaReplicar,
 } from './replicar-reglas';
-import { estiloDeLectura, temaDeEstilo, type EstiloOriginal } from './estilo-original';
-import { TOPES_IMAGENES_REPLICA, aplicarEstilo, asignarSecciones, imagenesParaSubir, imagenesQueFaltan } from './estilo-aplicar';
-import { estiloDeLaPagina, subirImagenes } from './estilo-server';
+import { estiloDeLectura, hojasDeHtml, temaDeEstilo, type EstiloOriginal } from './estilo-original';
+import { TOPES_IMAGENES_REPLICA, aplicarEstilo, asignarSecciones, imagenesParaSubir, imagenesQueFaltan, partesDeCadaSeccion } from './estilo-aplicar';
+import { bajarHoja, estiloDeLaPagina, subirImagenes } from './estilo-server';
 import { colorDeRelleno, temaPorId } from './temas';
+import { AVISO_SCROLL, animacionesDeReplica, conAnimaciones, scrollEnCss, scrollEnHtml } from './replicar-animaciones';
 
 export type ResultadoReplicar = RespuestaReplicar & { status?: number };
 
@@ -123,12 +131,18 @@ async function replicarFiel(url: string, receta: ConfigReplica): Promise<Resulta
   // `probar`: el formato que sí puede (una app de Vite o Lovable, un login, una página que no entra); la
   // pantalla lo ofrece como botón.
   if (!copia.ok) return falla(copia.error, 422, copia.probar);
+  // Tanda 8: el HTML original ya trae sus animaciones, pero lo atado al scroll NO corre en la copia (medido: el
+  // iframe de alto ajustado no scrollea). Se mira en su HTML y sus hojas MIENTRAS se crea, y el resultado lo dice.
+  const scrollP = scrollDeLaPagina(html, url);
   const creada = await crearLanding(copia.titulo, contenidoDeCopiaFiel(copia.documentos, copia.partida), receta.config);
   if ('ok' in creada) return creada;
-  console.log(`[editor-landing/replicar] copia fiel de ${url} → #${creada.id} (${copia.documentos.length} sección(es))`);
+  const scroll = await scrollP;
+  console.log(`[editor-landing/replicar] copia fiel de ${url} → #${creada.id} (${copia.documentos.length} sección(es)${scroll ? ', con efectos de scroll' : ''})`);
+  const avisos = [copia.partida ? '' : 'Quedó en una sola sección.', scroll ? AVISO_SCROLL : ''].filter(Boolean);
   return {
     ok: true, id: creada.id, titulo: creada.titulo, secciones: copia.documentos.length, formato: receta.formato,
-    ...(copia.partida ? {} : { aviso: 'Quedó en una sola sección.' }),
+    ...(avisos.length ? { aviso: avisos.join(' ') } : {}),
+    ...(scroll ? { avisoScroll: true as const } : {}),
   };
 }
 
@@ -198,26 +212,38 @@ async function replicarComoBloques(url: string, receta: ConfigReplica, entrada: 
     if (faltan.length) for (const [k, v] of await subirImagenes(faltan, ws, t0 + PLAZO_IMAGENES_MS)) subidas.set(k, v);
   }
   const tema = await temaParaLaCopia(estilo, url);
-  const config: Partial<ConfigLanding> = tema.ok ? { ...receta.config, tema: `ws:${tema.tema.id}` } : receta.config;
+  // Las animaciones de la original (tanda 8), SÓLO como «Landing»: el estilo de la landing y el efecto propio de las
+  // secciones que no siguen ese estilo (por el título, como las imágenes: `asig`). La Presentación no: sus
+  // diapositivas pasan con Presentar, no con el scroll. Sin señales, `estilo` null y nada propio (queda el default).
+  const anim = receta.formato === 'landing' && estilo ? animacionesDeReplica(estilo.animaciones, partesDeCadaSeccion(asig, estilo.secciones.length)) : null;
+  const config: Partial<ConfigLanding> = {
+    ...(tema.ok ? { ...receta.config, tema: `ws:${tema.tema.id}` } : receta.config),
+    ...(anim?.estilo ? { pagina: { ...CONFIG_DEFAULT.pagina, estiloAnimacion: anim.estilo } } : {}),
+  };
   // El fondo de la tarjeta del tema que quedó (el guardado: si la persona ya lo había tocado, el suyo).
   const fondoTema = tema.ok ? colorDeRelleno(temaPorId(`ws:${tema.tema.id}`, [tema.tema]).tarjeta.fondo) : null;
   const puesto = estilo ? aplicarEstilo(tarjetas, asig, estilo, subidas, { fondoTema }) : { tarjetas, imagenes: 0, fondos: 0 };
+  const animadas = anim ? conAnimaciones(puesto.tarjetas, anim.porSeccion) : { tarjetas: puesto.tarjetas, propias: 0 };
 
-  const contenido: LandingContenido = { v: 1, paginas: [{ id: nuevoId('p'), titulo: 'Inicio', ruta: '', doc: { type: 'doc', content: puesto.tarjetas } }] };
+  const contenido: LandingContenido = { v: 1, paginas: [{ id: nuevoId('p'), titulo: 'Inicio', ruta: '', doc: { type: 'doc', content: animadas.tarjetas } }] };
   const creada = await crearLanding(esq.titulo, contenido, config);
   if ('ok' in creada) return creada;
   const noCopiadas = Math.max(0, intentadas.size - subidas.size);
-  console.log(`[editor-landing/replicar] ${receta.formato} ${url}${entrada.texto ? ' (texto pegado)' : entrada.lectura ? ' (leída en el navegador)' : ''} → #${creada.id} (${tarjetas.length} secciones, ${sinIA} sin IA, estilo ${estilo ? (leido ? 'del navegador' : 'del HTML') : 'no'}, tema ${tema.ok ? tema.tema.id : tema.error}, ${puesto.imagenes} imágenes y ${puesto.fondos} fondos de la original, ${noCopiadas} sin copiar, ${Math.round((Date.now() - t0) / 1000)} s)`);
+  const resumenAnim = anim ? `${anim.estilo ?? 'sin estilo'} + ${animadas.propias} propias${anim.avisoScroll ? ', con scroll' : ''}` : 'no';
+  console.log(`[editor-landing/replicar] ${receta.formato} ${url}${entrada.texto ? ' (texto pegado)' : entrada.lectura ? ' (leída en el navegador)' : ''} → #${creada.id} (${tarjetas.length} secciones, ${sinIA} sin IA, estilo ${estilo ? (leido ? 'del navegador' : 'del HTML') : 'no'}, tema ${tema.ok ? tema.tema.id : tema.error}, ${puesto.imagenes} imágenes y ${puesto.fondos} fondos de la original, ${noCopiadas} sin copiar, animaciones ${resumenAnim}, ${Math.round((Date.now() - t0) / 1000)} s)`);
   const una = terminoTarjeta(receta.config);
   const varias = terminoTarjeta(receta.config, { plural: true });
   const avisos = [
     sinIA ? (sinIA === 1 ? `Una ${una} quedó sin diseño.` : `${sinIA} ${varias} quedaron sin diseño.`) : '',
     !estilo ? 'Sin el estilo de la original.' : !tema.ok && tema.tope ? 'Llegaste al tope de temas.' : '',
     noCopiadas ? (noCopiadas === 1 ? 'Una imagen no se copió.' : `${noCopiadas} imágenes no se copiaron.`) : '',
+    anim?.avisoScroll ? AVISO_SCROLL : '',
   ].filter(Boolean);
   return {
     ok: true, id: creada.id, titulo: creada.titulo, secciones: tarjetas.length, formato: receta.formato,
     ...(avisos.length ? { aviso: avisos.join(' ') } : {}),
+    ...(anim && (anim.estilo || animadas.propias) ? { animaciones: { estilo: anim.estilo, propias: animadas.propias } } : {}),
+    ...(anim?.avisoScroll ? { avisoScroll: true as const } : {}),
   };
 }
 
@@ -239,5 +265,30 @@ async function temaParaLaCopia(estilo: EstiloOriginal | null, url: string): Prom
     return { ok: false, error: r.error, tope: r.status === 409 && /tope/i.test(r.error) };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+/** Lo que se espera a las hojas de la copia fiel para el aviso del scroll (corre mientras se crea la landing). */
+const PLAZO_HOJAS_SCROLL_MS = 5_000;
+
+/**
+ * ¿La página tiene efectos atados al scroll? Para la copia fiel, que ya bajó su HTML: se mira ahí y, si no alcanza, en
+ * sus hojas (las mismas que miraría el estilo: `hojasDeHtml`, con la baranda de `bajarHoja` y un plazo corto, porque el
+ * `animation-timeline` suele vivir en la hoja y no en el HTML). Nunca tira: sin hojas, lo que diga el HTML.
+ */
+async function scrollDeLaPagina(html: string, url: string): Promise<boolean> {
+  try {
+    if (scrollEnHtml(html)) return true;
+    const hojas = hojasDeHtml(html, baseDeDocumento(html, url));
+    if (!hojas.length) return false;
+    let plazo: ReturnType<typeof setTimeout> | undefined;
+    const css = await Promise.race([
+      Promise.all(hojas.map((h) => bajarHoja(h).catch(() => ''))),
+      new Promise<string[]>((ok) => { plazo = setTimeout(() => ok([]), PLAZO_HOJAS_SCROLL_MS); }),
+    ]);
+    clearTimeout(plazo);
+    return scrollEnCss(css.join('\n'));
+  } catch {
+    return false;
   }
 }

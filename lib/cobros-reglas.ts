@@ -112,6 +112,14 @@ const RAZON_DISPUTA: Readonly<Record<string, string>> = {
  * ⚠️ UN CONTRACARGO SE CUENTA (15/10/2026): hasta este día quedaba sólo en una fila de `pasarela_eventos`. El texto va al
  * historial del lead y al motivo del cobro. La fase (lib/cobros-eventos.ts, FaseContracargo) dice qué pasó con la plata.
  */
+/**
+ * ¿Este `motivo` es uno de `textoContracargo`? La tab Pagos lo dibuja como AVISO y no en letra chica (16/10/2026). Se
+ * reconoce por cómo empieza cada fase: si una frase de abajo cambia, tests/pagos-vistazo.test.ts las recorre todas.
+ */
+export const esTextoDeContracargo = (motivo: string | null | undefined): boolean =>
+  typeof motivo === 'string' &&
+  /^(?:El cliente disputó este cargo|(?:Stripe|Mercado Pago) (?:descontó|devolvió) la plata de la disputa|(?:Stripe|Mercado Pago) descontó la plata por la disputa|La disputa se |La consulta del banco|Contracargo en Mercado Pago)/.test(motivo);
+
 export function textoContracargo(p: { pasarela: Pasarela; fase: 'abierto' | 'plata_salio' | 'plata_volvio' | 'cerrado' | 'mp'; estado?: string | null; razon?: string | null }): string {
   const nombre = NOMBRE_PASARELA[p.pasarela];
   const razon = p.razon && RAZON_DISPUTA[p.razon] ? ` (${RAZON_DISPUTA[p.razon]})` : '';
@@ -176,6 +184,20 @@ export const esLaVueltaDelDia = (ms: number): boolean => {
   const d = new Date(ms);
   return d.getUTCHours() === 6 && d.getUTCMinutes() < 30;
 };
+
+/**
+ * «DARME DE BAJA» del plan de MaKo (15/10/2026). Hasta que Stripe la cierra al final del período, la suscripción sigue
+ * `activa` (la columna tiene un CHECK con `activa`/`cancelada`), así que el pedido queda en el `motivo` del cobro con
+ * este prefijo —el mismo recurso que la renovación fallida—. El CÓDIGO de baja es el comprobante que se le da a quien la
+ * pide (la Resolución 316/2018 de Argentina pide uno, si aplica): uno por cobro, sin datos personales.
+ */
+export const PREFIJO_BAJA_PEDIDA = 'Baja pedida';
+export const esBajaPedida = (motivo: string | null | undefined): boolean => typeof motivo === 'string' && motivo.startsWith(PREFIJO_BAJA_PEDIDA);
+export const codigoDeBaja = (cobroId: number): string => `BAJA-${cobroId}`;
+export function textoBajaPedida(p: { codigo: string; pedida: string; finAt: string | null }): string {
+  const fin = p.finAt ? ` Deja de cobrarse el ${p.finAt.slice(0, 10)}.` : '';
+  return `${PREFIJO_BAJA_PEDIDA} el ${p.pedida.slice(0, 10)} (código ${p.codigo}).${fin}`;
+}
 
 /** ¿Este pago confirmado es una RENOVACIÓN (otra factura de la misma suscripción) y no el primero? */
 export function esRenovacion(c: { tipo: TipoCobro; proveedor_pago_id: string | null }, proveedorPagoId: string): boolean {

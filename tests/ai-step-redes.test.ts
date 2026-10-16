@@ -79,7 +79,8 @@ test('el contexto de una respuesta social lee la charla de ESE canal, sin línea
 test('asistirRespuesta: por las redes contesta SÓLO el AI Step de ese medio (el modo asistido es del WhatsApp)', () => {
   const a = bloque(NUTRI, 'async function asistirRespuesta(', '\n}\n');
   assert.match(a, /escuchaPor\(s\.pasos, medio\) \|\| \(!social && parseEstrategia\(s\.estrategia\)\?\.modo === 'asistido'\)/);
-  assert.match(a, /contextoDeRespuesta\(leadId, secuencia, texto, lineaEntrante, social \? \{ canal: social, cuenta: op\.cuenta\?\.trim\(\) \|\| null \} : null\)/);
+  // (16/10/2026: y la nota de voz escuchada, la hora del mensaje y el plazo: tests/ai-step-red-y-voz.test.ts.)
+  assert.match(a, /contextoDeRespuesta\(leadId, secuencia, texto, lineaEntrante, social \? \{ canal: social, cuenta: op\.cuenta\?\.trim\(\) \|\| null \} : null, \{ voz, recibidoAt: op\.recibidoAt \?\? null, hastaMs \}\)/);
   const charla = bloque(NUTRI, 'async function charlaDelLead(', '\n}\n');
   assert.match(charla, /\(medio === 'whatsapp' && parse\(sec\.estrategia\)\?\.modo === 'asistido'\) \|\| escuchaPor\(sec\.pasos, medio\)/);
 });
@@ -156,7 +157,8 @@ test('«Probar» por Instagram contesta con el AI Step de Instagram, y por Whats
 test('«Probar» pasa el medio en las cuatro puntas: el arranque, los escenarios, «¿contesta?» y el clasificador', () => {
   const pp = sinComentarios(leer('app/automations/PanelProbar.tsx'));
   assert.match(pp, /const medioIA: MedioAIStep \| undefined = esCanalSocial\(canal\) \? canal : undefined;/);
-  assert.equal(pp.match(/iniciar\(flujoVivo, \{ medio: medioIA \}\)/g)?.length, 2, 'un arranque sin el medio prueba el AI Step de WhatsApp');
+  // (16/10/2026: el arranque de la prueba lleva además la reunión del lead: tests/probar-orden-antes.test.ts.)
+  assert.equal(pp.match(/iniciar\(flujoVivo, \{ medio: medioIA[ ,}]/g)?.length, 2, 'un arranque sin el medio prueba el AI Step de WhatsApp');
   assert.match(pp, /canalDelPaso\(p\) === canal, medio: medioIA \}\)/);
   assert.match(pp, /if \(!escuchaPor\(flujoRef\.current, medioIA\)\) \{/);
   assert.match(pp, /action: 'clasificar', pasos: flujoRef\.current, \.\.\.\(medioIA \? \{ medio: medioIA \} : \{\}\)/);

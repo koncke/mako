@@ -431,6 +431,11 @@ export async function generarInsightLead(leadId: number): Promise<GenerarInsight
       thinking: true,
       effort: 'high',
       feature: 'lead_insights',
+      // La ficha es de un lead, o sea datos de los clientes del cliente: la red usa SÓLO lo que no
+      // entrena, nunca las keys gratis (la marca `pii` del catálogo). Y el crédito de Claude de la
+      // plataforma NO está habilitado para esto (Martín, 16/10/2026: «Por ahora solo en onboarding»), así
+      // que sin una key propia no hay análisis: el `catch` de abajo le dice qué conectar.
+      redDePlataforma: true,
     });
     const contenido = normalizarContenido(parseJsonObject(texto));
 
@@ -455,6 +460,20 @@ export async function generarInsightLead(leadId: number): Promise<GenerarInsight
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error(`[lead-insights] generar falló: ${msg}`);
+    // Sin IA propia el error que sube es el del veto («Claude vetado…»), que no dice qué hacer. Lleva datos
+    // de los clientes del negocio y no va a ninguna IA gratis que entrene (AGENTS.md, 16/10/2026): lo que
+    // lo destraba es SU key, y eso es lo que se le dice.
+    if (!(await tieneIAPropia())) {
+      return { ok: false, motivo: 'Conecta tu Claude en Integraciones para generar el análisis: lleva datos de tus clientes, y MaKo no los manda a una IA gratis que entrena con ellos.' };
+    }
     return { ok: false, motivo: `El análisis falló: ${msg}` };
   }
+}
+
+/** ¿El negocio tiene una IA SUYA con la que se puede analizar un lead? Sus keys de la cascada, o su clave de Claude. */
+async function tieneIAPropia(): Promise<boolean> {
+  try {
+    const [{ docsIADisponible }, { credDelCliente }] = await Promise.all([import('./ai-cheap'), import('./credenciales')]);
+    return (await docsIADisponible()) || !!(await credDelCliente('ANTHROPIC_API_KEY'));
+  } catch { return true; }
 }

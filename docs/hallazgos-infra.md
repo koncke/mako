@@ -2379,6 +2379,19 @@ un verde vacío en Linux era el del pre-push, que leía `.git/hooks/pre-push` y 
 ahora lee la copia versionada, y otro test exige que el instalado sea igual a ella. Con ~10 min
 por run, los 2.000 minutos alcanzan para ~200 pushes por mes.
 
+**Y la misma trampa del lado de los DATOS (16/10).** El run 38845971505 cayó por
+`tests/tsc-acotado.test.ts` —escrito por mí la noche después de la regla de las rutas—, que fijaba
+`REPO = 'C:\\repo\\dashboard-marketing'` y lo pasaba por `resolve`: en Linux es una ruta relativa y
+`resolve` le pegó el cwd del runner (2 rojos; lo arregló el coordinador con
+`resolve('/repo/dashboard-marketing')`). Quedó una guarda en el push,
+`scripts/rutas-windows-en-tests.mjs` (~1 s, sin tsx): frena un literal `C:\…` o `C:/…` en `tests/`
+fuera de los comentarios, salvo los archivos de su lista `PERMITIDOS` con el motivo. Medido sobre
+996 tests: 7 archivos tienen literales así y los 7 son datos, no rutas (nombres que manda el
+navegador, el cwd que guarda una sesión, los casos de la guarda). ⚠️ El primer patrón daba un
+falso positivo: `` `… \`m:\` …` `` (una comilla invertida escapada en un template de
+`instagram-buscar`) se leía como `m:\`; ahora después de `X:` tiene que venir `/`, `\\` o una barra
+seguida de un carácter de ruta, nunca de una comilla.
+
 **Y un rojo que se ve en segundos no puede costar un run.** El run 38830968542 cayó en «Tipos»
 por un hito `tipo: 'prompt'` sin `puntos` en `app/admin/dev/chatbot/bitacora.ts` (TS2741), la
 misma trampa que frenó tres pushes el 14/10. Las bitácoras se escriben a mano en cada tanda y son
@@ -2387,6 +2400,22 @@ ellas (`scripts/tsc-bitacoras.mjs` + `scripts/tsconfig.bitacoras.json`, que exti
 principal e incluye sólo las 55): **3,8 s y 291 MB de pico**, medido sobre el árbol bueno (0); un
 hito sin `puntos` da 1 con el TS2741 exacto. Si el `tsc` no termina (código 1 y cero salida: lo
 mató el vigía; o sin heap), el push sigue: no es un error de tipos y Actions corre el completo.
+
+**Y el acotado que usa cada chat para validar tenía su receta sólo en la memoria (16/10).** Cada
+uno armaba su tsconfig temporal a mano, y el Web Generator midió dos falsos rojos que salían de la
+receta y no del código. Medido después en un worktree con `app/web-generator/editor/insertar.ts`:
+
+| Versión de `insertar.ts` | Sin `typeRoots`/`types` | Con `typeRoots` + `types: ["node"]` |
+|---|---|---|
+| la de `main` (sin importar los comandos de TipTap) | 5 errores TS2339/TS2551 | 5 errores TS2339/TS2551 |
+| con `import type` de esos comandos (`563c873ad`) | 1: TS2580 `process` | **0** |
+
+Son dos causas distintas y cada una tapa a la otra: los `declare module` de las extensiones de
+TipTap no existen para un archivo compilado solo, y los tipos de Node entran en el completo por
+`next-env.d.ts`, que un tsconfig fuera del repo no ve. La segunda la resuelve el script nuevo
+(`scripts/tsc-acotado.mjs`, que además trae el `"include": []` y sale 99 si el `tsc` no terminó);
+la primera no se puede resolver sola, y el script lo dice al final cuando hay errores. La receta,
+en AGENTS.md → «Para validar lo tuyo sin el tsc completo».
 
 **El vigía, en la misma tanda:** se levanta solo (un disparador cada 5 min además del de inicio de
 sesión: el 13/10 estuvo 6 horas muerto con un solo disparador; probado matándolo, volvió en 21 s),
@@ -5287,6 +5316,20 @@ Y un `sinComentarios` que borra los bloques `/* … */` enteros corre los númer
 nombra otra línea (medido: `:99` sobre la 128). Se vacía el bloque conservando sus saltos
 (`m.replace(/[^\n]/g, '')`); `sin-clarity` todavía tiene el corrimiento.
 
+**Y se come código (16/10/2026).** El mismo `sinComentarios`, con `/\/\*[\s\S]*?\*\//g`, saca un «comentario»
+desde CUALQUIER `/*` del archivo:
+
+- **Dónde muerde.** `accept=".pdf,image/*"` abre uno en el medio de un atributo. El regex borra hasta el próximo `*/`,
+  que puede estar cien líneas más abajo.
+- **Cómo se vio.** El test de la tab Pagos (tests/pagos-tab-bloques.test.ts) decía «nadie marca dealFiscal» sobre un
+  archivo que sí lo marcaba.
+- **El peligro de verdad.** No es el `match` que falla: es el `doesNotMatch` que PASA. Un «no hay `router.refresh()`»
+  da verde sobre el código que el regex se comió.
+- **El tamaño.** Medido ese día: 584 tests usan ese regex, y 28 archivos de app/ y lib/ tienen un `/*` dentro de un
+  string.
+- **La regla.** Se sacan sólo los bloques que EMPIEZAN la línea (`/^[ \t]*\/\*[\s\S]*?\*\//gm`).
+- **⚠️ Pendiente.** Falta barrer los tests que leen esos 28 archivos.
+
 ## Verificar en un worktree: el dev server compartido, Turbopack y una corrida cortada por cuota (06/10/2026)
 
 **Vive en:** `next.config.ts` (`turbopack.root`) · `.next/dev/logs/next-development.log` ·
@@ -6247,6 +6290,15 @@ acotado dio `TS2339: Property 'toggleEtiqueta' does not exist on type 'ChainedCo
 errores. Un error del acotado en un archivo que la rama no tocó se mira así antes de reportarlo: `grep` del
 nombre que falta, y si aparece en un `declare module`, ese archivo va a la lista.
 
+**16/10/2026:** `insertar.ts` ya no depende de eso: importa SÓLO por tipos (`import type {} from …`) los tres módulos
+que declaran lo que encadena (StarterKit, `@tiptap/extension-list` y `extensiones/marcas.ts`). Medido: compilado solo
+daba 5 errores (las listas, la cita, las tareas y `toggleEtiqueta`; los demás acotados veían sólo el último porque su
+programa ya traía StarterKit), y con el arreglo, 0. **Regla para código nuevo:** un archivo que encadena comandos de una
+extensión los importa por tipos. Y otro falso rojo de la misma familia: sin `next-env.d.ts` tampoco entran los tipos de
+Node, y `process` falla («Cannot find name 'process'», `lib/editor-landing/especificacion.ts:235`). Si no se copia
+`next-env.d.ts`, alcanza con sumar al tsconfig temporal `"typeRoots": ["<repo>/node_modules/@types"]` (ruta ABSOLUTA:
+el json vive en el scratchpad y una relativa no encuentra nada, TS2688) y `"types": ["node"]`.
+
 **Vive en:** el tsconfig temporal de cada chat (scratchpad) · la memoria `pc-techo-ram-chrome`, que
 enseñaba la receta sin el `include` · *2026-10-14 Plan - Perro Guardián*
 
@@ -6277,6 +6329,12 @@ repo): alcance contra `git merge-base origin/main HEAD` y config por proceso (`t
 ⚠️ Si al proceso lo matan en seco, ese archivo queda suelto en el worktree (no está en `.gitignore`). **Regla:** un
 alcance de «lo que cambió la rama» se mide contra el merge-base, nunca contra `origin/main`; y un archivo temporal que
 escribe una herramienta que corren varios a la vez lleva el pid en el nombre.
+⚠️ **Y contra `origin/main` también salen errores de tipos REALES que no son de la rama** (15/10/2026, `C:/dev/wt-mobile`,
+la integración de More en el teléfono). Con main 100 commits adelante, el acotado sumó 205 archivos en vez de 49 y dio
+~40 errores en app/video-editor/_opencut (TS2305 «no exported member 'FrameRate'» de `opencut-wasm`, TS7016 de
+`soundtouchjs`): el worktree tiene la versión VIEJA de esos archivos y su `node_modules` es un junction al del clon, que
+ya instaló los paquetes NUEVOS. Contra el merge-base (la rama sin rebasar: `HEAD`), 0. Un error en un archivo que la
+rama no tocó, con un paquete en el mensaje, se mira primero así.
 
 ## Con main adelantado, el diff de DOS puntos miente, y un merge rompe un test que no choca (15/10/2026)
 
@@ -6422,3 +6480,70 @@ tema. Lo encontró otro `grep`, por casualidad.
 **La regla:** antes de dar una punta por buena, se corren los tests que LEEN cada archivo tocado
 (`grep -l "<ruta del archivo>" tests/*.test.ts`), no sólo los que hablan del tema. Y antes de pasársela a quien
 pushea, la suite entera con `--test-concurrency=2`, que entra en la RAM con muchos chats abiertos.
+
+## Un script de roturas no se corta con `head`, y un worktree no tiene `.env.local` (16/10/2026)
+
+- ⚠️ **`node romper-*.mjs | head -3` puede matar el script en la mitad de una rotura.** Cuando `head` cierra el pipe,
+  el próximo `console.log` del script falla. Si eso pasa entre «escribí el archivo roto» y «lo restauré», el árbol
+  queda roto sin que nada lo diga. Esta vez no pasó: el log va después de restaurar, y `git diff` lo confirmó. Regla:
+  - la salida va a un archivo del scratchpad y se lee después;
+  - el script restaura en un `finally` (scratchpad `romper-reporte.mjs`);
+  - al terminar, `git status` para ver que no quedó nada tocado.
+- **Los worktrees (`C:/dev/wt-*`) no tienen `.env.local`.** Un script que lee producción necesita la ruta de afuera:
+  `node --env-file=C:/dev/mako-api/.env.local --conditions react-server --import tsx <script>`, o el `--env=` del
+  script (scripts/mudanza-avisos-plataforma.mts). `dotenv` tampoco se resuelve desde un script del scratchpad,
+  porque busca los paquetes desde la carpeta del script. Con `--env-file`, Node lo carga solo.
+
+## Commitear por ruta con un archivo BORRADO: `git add` falla y `git commit --` no (16/10/2026)
+
+`git add -- <rutas>` con una ruta que ya no existe en el disco corta con «pathspec did not match» y no agrega
+NADA, aunque el borrado ya esté en el índice. **La regla:** `git add --` sólo con las rutas que existen, y
+`git commit -F <msg> -- <todas>`, borradas incluidas, que `git commit` sí acepta.
+
+*16/10/2026, chat «CRM» (claude3), al commitear la ficha por bloques (se fueron ResumenModal y resumen-actions).*
+
+## La emulación táctil de CDP queda pegada en la pestaña (16/10/2026)
+
+Después de `Emulation.setTouchEmulationEnabled({ enabled: true })`, volver a `false` en la misma pestaña no devuelve
+el puntero fino: los casos de escritorio midieron `matchMedia('(pointer: coarse)') = true`. **La regla:** lo
+táctil y lo de mouse se miden en pestañas distintas, o lo de mouse primero. Un «coarse: true» en un caso de
+escritorio es la emulación pegada, no la hoja.
+
+*16/10/2026, chat «CRM» (claude3), midiendo la ficha por bloques a 1280 y a 390 táctil.*
+
+## Recorrer una pantalla en local con nueve chats abiertos: `next dev` no entra, un build PARCIAL sí (16/10/2026)
+
+**El síntoma:** `next dev` de `/onboarding` (el chat de Offer más el grafo) llegó a 5,1–6,1 GB en un minuto y el
+vigía lo mató cinco veces (`fuga-next-dev` por pasar 5 GB, o `zona-roja` cuando la máquina quedó con 133 MB).
+**Lo obvio que NO alcanzó:** `experimental.turbopackMemoryLimit` (1,5 y 2,5 GB), `NODE_OPTIONS=--max-old-space-size=1792`,
+ni cortar en Playwright las consultas de la barra común (`/api/whatsapp/**`, `voz-alerta`, `datos-sin-marcar-count`)
+para que no compilaran sus rutas. Cada ruta nueva que compila suma, y la pantalla dispara varias.
+
+**Lo que anduvo:**
+1. `next build --debug-build-paths "app/onboarding/page.tsx,app/offer/page.tsx,app/api/onboarding/**,app/api/offer/**,app/api/auth/**,app/api/integraciones/**"`:
+   compila SÓLO eso (65–69 s, sin que el vigía lo toque; el repo ya trae `ignoreBuildErrors`). Después
+   `next start -H 127.0.0.1` levanta en 277 ms y casi no gasta. Lo que quedó fuera del build da 404 (p. ej.
+   «Abrirla igual» de la guardia de MaKo Mobile): no es un bug de la pantalla.
+2. **En `next start` el dev-login es 404 a propósito** (`esEntornoDesplegado` mira `NODE_ENV`). La misma sesión se
+   firma con `crearToken` de `lib/auth-session.ts` (no lleva `server-only`) en un script con `tsx`, se escribe a un
+   archivo del scratchpad sin imprimirla, y se pone como cookie `mako_session` en el contexto de Playwright.
+3. **El worktree en `C:/dev` con el junction a `wt-video-editor`:** con `turbopack.root` subido a `C:/dev` arranca,
+   pero esa raíz abarca TODOS los worktrees de `C:/dev`, y fue con esa raíz la primera muerte en 5,1 GB. Una copia
+   real de `node_modules` (`robocopy /E /MT:16`, 176 s, 576 carpetas) deja la raíz en `__dirname` sin tocar
+   `next.config.ts`. Antes de copiar: sacar los enlaces de `.next/dev/node_modules` y el junction con
+   `[System.IO.Directory]::Delete`.
+4. `waitUntil: 'networkidle'` no llega nunca en las pantallas de la app (algo consulta en bucle): se espera `load`
+   y un elemento.
+
+**La foto del workspace de prueba (`scripts/ws-prueba-foto.mjs`)**, dos trampas de `postgres` que dieron CERO
+errores visibles:
+- Con `max: 1`, una consulta con `sql` DENTRO de `sql.begin` espera una conexión que la transacción no suelta: se
+  cuelga para siempre (salió por el `timeout` con 124). Lo que haga falta leer, se lee antes de abrir la transacción.
+- Un parámetro `jsonb` pasado como `JSON.stringify(...)` se vuelve a codificar: llega una CADENA y no un arreglo
+  («cannot call jsonb_populate_recordset on a non-array»). Va como `$1::text::jsonb`.
+- Las dos veces la transacción entera se deshizo y el ws3 quedó intacto: restaurar todo en UNA transacción es
+  lo que hizo inofensivos los dos bugs.
+- Durante un recorrido cambian cosas que no son del recorrido: la marca de un cron (`mako.fathom_auto.last`, se
+  deja con `--conservar`) y el gasto de IA (`anthropic_usage`, es gasto real: `--excluir`).
+
+*16/10/2026, chat «Offer» (claude3), recorriendo el onboarding nuevo en el ws3.*

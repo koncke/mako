@@ -4,6 +4,7 @@
 
 import 'server-only';
 import { getTenantDb } from './workspace';
+import { PREFIJO_CHAT_PERSONA } from './chart-chats-reglas';
 
 export type ChartMsg = { role: 'user' | 'assistant'; content: string; created_at?: string };
 export type ChartSession = {
@@ -34,8 +35,9 @@ export function esChatDelTelefono(chartKey: string | null | undefined): boolean 
 
 /**
  * Para las rutas de ESCRITORIO (/api/chart-insights, /api/mako-doer), que leen y escriben
- * sesiones POR ID sin mirar de quién son (el escritorio es por workspace a propósito).
- * true = ese id es un chat del TELÉFONO: la ruta contesta 404.
+ * sesiones POR ID. true = ese id es un chat del TELÉFONO: la ruta contesta 404. (Además, desde
+ * el 16/10/2026 las dos miran de QUIÉN es un chat de escritorio: el de un admin es del
+ * workspace y el de un closer o setter, suyo; lib/chart-chats-reglas.ts y `quienPide` del doer.)
  *
  * ⚠️ Los chats del teléfono son POR PERSONA (lib/mako-turno-app.ts, `sesionDe`), y esa
  * promesa se caía por la puerta de al lado: medido el 11/10/2026 leyendo las dos rutas,
@@ -93,11 +95,28 @@ export async function listSessions(chartKey: string, incluirArchivadas = false):
  *  (y a la inversa). */
 export async function listAllSessions(incluirArchivadas = false, limit = 300): Promise<ChartSession[]> {
   const supabase = (await getTenantDb());
-  let q = supabase.from('chart_sessions').select(SESSION_COLS).not('chart_key', 'like', 'wa-advisor:%').not('chart_key', 'like', `${PREFIJO_CHAT_MOVIL}%`).neq('chart_key', 'mako-doer').not('chart_key', 'like', 'mako-doer:%');
+  // ⚠️ Y los de escritorio de UNA persona (`persona:<persona>:…`, lib/chart-chats-reglas.ts, 16/10/2026): son de quien
+  //    los habló, no del workspace. Cada persona los lista con `listSessionsDePersona`.
+  let q = supabase.from('chart_sessions').select(SESSION_COLS).not('chart_key', 'like', 'wa-advisor:%').not('chart_key', 'like', `${PREFIJO_CHAT_MOVIL}%`).neq('chart_key', 'mako-doer').not('chart_key', 'like', 'mako-doer:%').not('chart_key', 'like', `${PREFIJO_CHAT_PERSONA}%`);
   if (!incluirArchivadas) q = q.eq('archived', false);
   const { data, error } = await q.order('pinned', { ascending: false }).order('updated_at', { ascending: false }).limit(limit);
   if (error) throw new Error(`listAllSessions falló: ${error.message}`);
   return (data ?? []) as ChartSession[];
+}
+
+/**
+ * Los chats de escritorio de UNA persona (`prefijo` = `prefijoDePersona(...)`, lib/chart-chats-reglas.ts): lo que lista
+ * un closer o un setter en /mako. ⚠️ En un LIKE, `_` y `%` son comodines, y una persona puede ser un email con `_`
+ * («a_b@x» también calzaría con «axb@x», que es OTRA persona): se escapan, y además se filtra por el prefijo exacto.
+ */
+export async function listSessionsDePersona(prefijo: string, incluirArchivadas = false, limit = 300): Promise<ChartSession[]> {
+  const supabase = (await getTenantDb());
+  const patron = `${prefijo.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
+  let q = supabase.from('chart_sessions').select(SESSION_COLS).like('chart_key', patron);
+  if (!incluirArchivadas) q = q.eq('archived', false);
+  const { data, error } = await q.order('pinned', { ascending: false }).order('updated_at', { ascending: false }).limit(limit);
+  if (error) throw new Error(`listSessionsDePersona falló: ${error.message}`);
+  return ((data ?? []) as ChartSession[]).filter((s) => s.chart_key.startsWith(prefijo));
 }
 
 export async function renameSession(id: number, titulo: string): Promise<void> {

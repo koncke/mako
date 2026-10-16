@@ -68,7 +68,10 @@ test('no hay permiso de Claude para offer: el veto la deja afuera', () => {
 // rotura (sumar 'openai' a PROVS_OFFER): 1 fallo, 5 pases. rotura (importar chatClaude): 1 fallo, 5 pases.
 // rotura (pasar `[...errores, ...erroresRed]` a errorDeCascada): 1 fallo, 5 pases.
 test('offer-ia va por la cascada GRATIS de las keys del cliente y la red de plataforma, nunca por algo pago', () => {
+  // De lib/anthropic.ts entra UNA sola cosa, el crédito de la plataforma (su propio test, abajo); nunca
+  // chatClaude ni un import estático que traiga el resto.
   assert.doesNotMatch(IA, /chatClaude|from '\.\/anthropic'|from '@\/lib\/anthropic'/);
+  assert.deepEqual([...IA.matchAll(/import\('\.\/anthropic'\)/g)].length, 1, 'un solo import dinámico de ./anthropic');
   const lista = IA.match(/export const PROVS_OFFER: readonly ProvName\[\] = \[([^\]]*)\];/);
   assert.ok(lista, 'no encuentro PROVS_OFFER');
   assert.deepEqual(lista[1].split(',').map((s) => s.trim().replace(/'/g, '')), ['gemini', 'groq', 'openrouter']);
@@ -100,9 +103,38 @@ test('offer-ia va por la cascada GRATIS de las keys del cliente y la red de plat
   assert.match(IA, /motivo: `⚠ red de plataforma \(\$\{r\.provider\}\)/);
   assert.match(IA, /return \{ ok: false, error: await errorDeCascada\(errores, p\.tema\) \};/);
   assert.doesNotMatch(IA, /errorDeCascada\([^)]*erroresRed/);
-  assert.match(IA, /await docsIADisponible\(\)/);
+  // ⚠️ El corte «sin IA propia → "conecta una"» ANTES de la red se sacó el 16/10/2026: un cliente nuevo
+  // no trae una API y Offer es de su primera semana. Que no vuelva lo fija tests/red-primera-semana.test.ts.
+  assert.doesNotMatch(IA, /await docsIADisponible\(\)/);
   // La voz es neutra: ni brandSystem ni la persona de MaKo.
   assert.doesNotMatch(IA, /brandSystem|getActivePersona/);
+});
+
+// El crédito de Claude de la plataforma (16/10/2026): Offer pasa a ser EL onboarding y Martín habilitó el
+// crédito «SÓLO en onboarding». QUIÉN puede usarlo lo decide lib/veto-claude.ts (CREDITO_HABILITADO_PARA, del
+// chat Onboarding); acá se fija DÓNDE se llama: después de las keys del cliente, antes del bucle de la red, con
+// la feature de Offer, nunca para el super admin, con sus errores fuera del texto del cliente, y sin pedirle
+// además la red a la cascada (que volvería a probar las mismas keys gratis de la agencia).
+// PROBADO ROMPIÉNDOLO (16/10/2026, arnés romper-credito.mjs en el scratchpad, restaura de memoria): la base en
+// verde (14 de 14); 6 roturas (el super admin también, otra feature, el error a la lista del cliente, la cascada
+// con la red, la red gratis antes que el crédito, el crédito sin validar), las 6 cazadas con «1 fallo, 13 pases».
+test('el crédito de Claude de la plataforma: después de las keys del cliente y antes de la red gratis, sin duplicar la red', () => {
+  const i = IA.indexOf('async function pedir<T>(');
+  assert.ok(i > 0, 'no está pedir');
+  const pedir = IA.slice(i, IA.indexOf('\n}\n', i));
+  const iDel = pedir.indexOf('const delCliente = v.resultado();');
+  const iCred = pedir.indexOf("await import('./anthropic')");
+  const iRed = pedir.indexOf('provsGratisDePlataforma()');
+  assert.ok(iDel > 0 && iCred > iDel && iRed > iCred, 'el orden es: keys del cliente → crédito → red gratis');
+  const cred = pedir.slice(iCred, iRed);
+  for (const k of ['feature: FEATURE_OFFER', 'json: true', 'wsCliente: wsActual', 'validar(c.texto)', 'return { ok: true, valor']) {
+    assert.ok(cred.includes(k), `el crédito no lleva ${k}`);
+  }
+  assert.match(pedir, /wsActual !== superWs/, 'el super admin ya probó sus keys: el crédito no es para él');
+  assert.match(cred, /erroresRed\.push\(`crédito de Claude/);
+  assert.doesNotMatch(cred, /\berrores\.push/, 'los errores del crédito son nuestros: no eligen el texto del cliente');
+  const cascada = pedir.slice(pedir.indexOf('await chatCheapCascade({'), pedir.indexOf('});', pedir.indexOf('await chatCheapCascade({')));
+  assert.doesNotMatch(cascada, /redDePlataforma/, 'la cascada no pide la red: la corre pedir con su propio plazo');
 });
 
 /** El texto de un template exportado de offer-ia (entre la primera comilla invertida y la que cierra con «;»). */

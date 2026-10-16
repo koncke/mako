@@ -44,12 +44,22 @@ import { objetivoPorId, registroKpiExistente, sanearObjetivo, sanearKpi, type Ob
 import { getSupabaseServer } from '@/lib/supabase';
 import { leerTableroVisible, guardarTableroSi } from '@/lib/graficos-tablero';
 import { instanciarPlantilla } from '@/lib/graficos-plantillas';
-import { MAX_HOJAS, abajoDeTodo, esElemento, esGrafico, nuevoId, sanearElemento, tituloDe } from '@/lib/graficos-catalogo';
+import { MAX_HOJAS, abajoDeTodo, esElemento, esGrafico, nuevoId, sanearElemento, sanearHoja, tituloDe } from '@/lib/graficos-catalogo';
+import { ALCANCE_GENERAL, TOPE_PEDIDO_IA } from '@/lib/graficos-ia';
+import { generarHojaIA } from '@/lib/graficos-ia-generar';
+import { editarHojaIA } from '@/lib/graficos-ia-editar';
+import { firmaDeHoja } from '@/lib/graficos-ia-edicion';
 import { PIEZAS_GENERAL, esPiezaGeneral, opcionesDePieza, piezaGeneral, piezaPorFunnel, sanearOpciones, type OpcionesElegidas, type PiezaGeneral } from '@/lib/general-piezas';
 import { leerFunnelsDeGeneral, type FunnelDeGeneral } from '@/lib/general-alcance';
 import { PLANTILLAS_GENERAL, elegirPersona, type PersonaGeneral } from '@/lib/general-plantillas';
+import { ETIQUETAS_GENERAL } from '@/lib/graficos-plantillas-etiquetas';
+import { ordenarConSugeridas } from '@/lib/plantillas-sugeridas';
+import { senalesDelNegocio } from '@/lib/plantillas-sugeridas-server';
 
 // ── utilidades ───────────────────────────────────────────────────────────────
+
+/** Lo que tiene la IA por HTTP (/api/v1 corta a los 60 s): el mismo de la API del Dashboard. */
+const PLAZO_IA_HTTP_MS = 40_000;
 
 const str = (input: Record<string, unknown>, k: string): string | null => {
   const v = input[k];
@@ -708,15 +718,19 @@ export const RUNNERS: Runners = {
   // quien llama no nombró: son datos del equipo, y un token vive en la máquina de un tercero (la regla de la API del Dashboard).
   listar_hojas_general: {
     leer: async (input, ctx) => {
-      const admins = await adminsDeLaCuenta(ctx.ws);
-      const funnels = await leerFunnelsDeGeneral();
+      const [admins, funnels, senales] = await Promise.all([
+        adminsDeLaCuenta(ctx.ws), leerFunnelsDeGeneral(),
+        // Las plantillas, con las sugeridas para ESTE negocio primero, como en la galería (lib/plantillas-sugeridas.ts).
+        senalesDelNegocio().catch(() => null),
+      ]);
       const base = {
         bloques: PIEZAS_GENERAL.map((b) => ({
           id: b.id, nombre: b.nombre, que_muestra: b.linea,
           ...(piezaPorFunnel(b.id) ? { se_ata_a_un_funnel: true } : {}),
           opciones: opcionesDePieza(b.id).map((o) => ({ id: o.id, nombre: o.nombre, valores: o.valores.map((v) => ({ id: v.id, nombre: v.nombre })), por_defecto: o.def })),
         })),
-        plantillas: PLANTILLAS_GENERAL.map((p) => ({ id: p.id, nombre: p.nombre, que_trae: p.linea })),
+        plantillas: ordenarConSugeridas(PLANTILLAS_GENERAL, ETIQUETAS_GENERAL, senales)
+          .map(({ plantilla: p, porque }) => ({ id: p.id, nombre: p.nombre, que_trae: p.linea, ...(porque ? { sugerida: porque } : {}) })),
         funnels: funnels ? funnels.map((f) => ({ id: f.id, nombre: f.nombre, principal: f.esDefault })) : 'no se pudieron leer',
       };
       const pedido = str(input, 'persona');
@@ -743,28 +757,87 @@ export const RUNNERS: Runners = {
       const e = elegirPersona(admins, str(input, 'persona'));
       if (!e.ok) return { error: e.error };
       const id = str(input, 'plantilla') ?? '';
-      const p = PLANTILLAS_GENERAL.find((x) => x.id === id);
-      if (!p) return { error: `La plantilla «${id}» no existe. Son: ${PLANTILLAS_GENERAL.map((x) => x.id).join(', ')}.` };
+      const pedido = str(input, 'pedido') ?? '';
+      if (id && pedido) return { error: 'Usa una plantilla o un pedido, no los dos.' };
+      if (!id && !pedido) return { error: `Falta la plantilla o el pedido. Las plantillas son: ${PLANTILLAS_GENERAL.map((x) => x.id).join(', ')}.` };
       const l = await informeDe(e.persona.sub);
       if (l.tablero.hojas.length >= MAX_HOJAS) return { error: `Esa persona ya tiene ${MAX_HOJAS} hojas en General, el tope: que borre una antes.` };
+      // 16/10/2026: con un pedido, MaKo la arma ANTES de proponerla, con lo que General ofrece y sus bloques (la misma
+      // cascada que «¿Qué vas a crear hoy?» en General). Lo que se confirma es la hoja que se va a guardar.
+      if (pedido) {
+        const g = await generarHojaIA(pedido.slice(0, TOPE_PEDIDO_IA), Date.now(), { alcance: ALCANCE_GENERAL, ...(ctx.canal === 'http' ? { plazoMs: PLAZO_IA_HTTP_MS } : {}) });
+        if ('error' in g) return { error: g.error };
+        const nombre = (str(input, 'nombre') ?? g.hoja.nombre).slice(0, 60);
+        const piezas = g.hoja.componentes.length;
+        return { payload: { sub: e.persona.sub, hoja: g.hoja, nombre }, resumen: `Crear la hoja «${nombre}» en General, que armó MaKo con tu pedido (${piezas} ${piezas === 1 ? 'pieza' : 'piezas'}).` };
+      }
+      const p = PLANTILLAS_GENERAL.find((x) => x.id === id);
+      if (!p) return { error: `La plantilla «${id}» no existe. Son: ${PLANTILLAS_GENERAL.map((x) => x.id).join(', ')}.` };
       const nombre = (str(input, 'nombre') ?? p.nombre).slice(0, 60);
       return { payload: { sub: e.persona.sub, plantilla: p.id, nombre }, resumen: `Crear la hoja «${nombre}» en General (plantilla ${p.nombre}).` };
     },
     ejecutar: async (payload): Promise<Ejecutado> => {
       try {
         const sub = String(payload.sub);
-        const p = PLANTILLAS_GENERAL.find((x) => x.id === payload.plantilla);
-        if (!p) return { ok: false, resumen: 'Esa plantilla ya no existe: no se creó.' };
+        // La hoja que armó MaKo con el pedido viaja ARMADA en la propuesta (se vuelve a sanear); si no, la plantilla.
+        const p = payload.hoja ? null : PLANTILLAS_GENERAL.find((x) => x.id === payload.plantilla);
+        if (!payload.hoja && !p) return { ok: false, resumen: 'Esa plantilla ya no existe: no se creó.' };
         // Se relee al ejecutar: entre la propuesta y el «sí» la persona pudo cambiar su General en la pantalla.
         const actual = await informeDe(sub);
         if (actual.tablero.hojas.length >= MAX_HOJAS) return { ok: false, resumen: `Ya tiene ${MAX_HOJAS} hojas en General: no se creó.` };
-        const hoja = { ...instanciarPlantilla(p), nombre: String(payload.nombre ?? p.nombre).slice(0, 60) };
+        const base = p ? instanciarPlantilla(p) : sanearHoja(payload.hoja, actual.tablero.hojas.length);
+        if (!base) return { ok: false, resumen: 'La hoja que armó MaKo no se pudo leer: no se creó.' };
+        const hoja = { ...base, nombre: String(payload.nombre ?? base.nombre).slice(0, 60) };
         const g = await guardarTableroSi(sub, { ...actual.tablero, hojas: [...actual.tablero.hojas, hoja] }, actual.version, 'general');
         if (!g.ok) return { ok: false, resumen: 'General cambió en el medio (alguien la editó): vuelve a pedirlo.' };
         try { revalidatePath('/general'); } catch { /* fuera de un request: vence sola */ }
         return { ok: true, resumen: `Hoja «${hoja.nombre}» creada en General.`, datos: { hojaId: hoja.id } };
       } catch (e) {
         return { ok: false, resumen: `No se pudo crear la hoja (${e instanceof Error ? e.message : 'error'}).` };
+      }
+    },
+  },
+
+  // «Editar con MaKo» por la API (16/10/2026): la MISMA cascada que el panel de la hoja de General
+  // (lib/graficos-ia-editar.ts), con lo que General ofrece. MaKo arma el cambio ANTES de proponerlo, y al confirmar se
+  // aplica sólo si nadie tocó la hoja en el medio (`firmaDeHoja`).
+  editar_hoja_general_con_ia: {
+    preparar: async (input, ctx): Promise<Preparado> => {
+      const admins = await adminsDeLaCuenta(ctx.ws);
+      const e = elegirPersona(admins, str(input, 'persona'));
+      if (!e.ok) return { error: e.error };
+      const l = await informeDe(e.persona.sub);
+      if (!l.tablero.hojas.length) return { error: 'Esa persona todavía no armó su General: crea una hoja primero con crear_hoja_general.' };
+      const hojaId = str(input, 'hoja');
+      const hoja = hojaId ? l.tablero.hojas.find((h) => h.id === hojaId) : l.tablero.hojas[0];
+      if (!hoja) return { error: `No hay una hoja «${hojaId}» en su General. Pide los ids con listar_hojas_general.` };
+      const pedido = str(input, 'pedido');
+      if (!pedido) return { error: 'Falta el pedido: qué cambiar en la hoja, en palabras.' };
+      const r = await editarHojaIA({ hoja, pedido: pedido.slice(0, TOPE_PEDIDO_IA), alcance: ALCANCE_GENERAL, inicio: Date.now(), ...(ctx.canal === 'http' ? { plazoMs: PLAZO_IA_HTTP_MS } : {}) });
+      if ('error' in r) return { error: r.error };
+      if (!r.cambios.length) return { error: r.respuesta || 'MaKo no encontró qué cambiar con ese pedido.' };
+      return {
+        payload: { sub: e.persona.sub, hojaId: hoja.id, antes: firmaDeHoja(hoja), hoja: r.hoja },
+        resumen: `Cambiar la hoja «${hoja.nombre}» de General: ${r.cambios.join('; ')}.${r.avisos.length ? ` (${r.avisos.join(' · ')})` : ''}`,
+      };
+    },
+    ejecutar: async (payload): Promise<Ejecutado> => {
+      try {
+        const sub = String(payload.sub);
+        const actual = await informeDe(sub);
+        const i = actual.tablero.hojas.findIndex((h) => h.id === payload.hojaId);
+        if (i < 0) return { ok: false, resumen: 'Esa hoja ya no está en su General: no se cambió.' };
+        if (firmaDeHoja(actual.tablero.hojas[i]) !== payload.antes) return { ok: false, resumen: 'La hoja cambió desde que MaKo la leyó: vuelve a pedirlo.' };
+        const nueva = sanearHoja({ ...(payload.hoja && typeof payload.hoja === 'object' ? payload.hoja : {}), id: payload.hojaId }, i);
+        if (!nueva) return { ok: false, resumen: 'La hoja que armó MaKo no se pudo leer: no se cambió.' };
+        const hojas = [...actual.tablero.hojas];
+        hojas[i] = nueva;
+        const g = await guardarTableroSi(sub, { ...actual.tablero, hojas }, actual.version, 'general');
+        if (!g.ok) return { ok: false, resumen: 'General cambió en el medio (alguien la editó): vuelve a pedirlo.' };
+        try { revalidatePath('/general'); } catch { /* fuera de un request: vence sola */ }
+        return { ok: true, resumen: `Hoja «${nueva.nombre}» de General cambiada.`, datos: { hojaId: nueva.id } };
+      } catch (e) {
+        return { ok: false, resumen: `No se pudo cambiar la hoja (${e instanceof Error ? e.message : 'error'}).` };
       }
     },
   },

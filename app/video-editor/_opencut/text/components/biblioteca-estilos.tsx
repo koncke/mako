@@ -15,11 +15,13 @@
 //   Plantilla de texto  el texto entero: lo que dice, la fuente, el tamaño, el
 //                       efecto y la animación.
 //
-// Las fuentes se cargan al abrir la sección: las miniaturas las necesitan, y
-// soltar una tarjeta antes de que llegue la fuente dibujaría la primera textura
-// con la de respaldo (el compositor no la vuelve a pedir si nada cambió).
+// Las miniaturas piden SÓLO las letras de su muestra al entrar en pantalla
+// (fonts/muestras.ts, en MiniaturaEstilo): cargar las familias enteras al abrir la
+// sección colgaba la pestaña (hallazgos, 15/10/2026). La fuente ENTERA se pide al
+// pasar el mouse por la tarjeta y al agregarla: soltar una tarjeta antes de que llegue
+// dibujaría la primera textura con la de respaldo (el compositor no la vuelve a pedir
+// si nada cambió).
 
-import { useEffect } from "react";
 import { DraggableItem } from "@/app/video-editor/_opencut/components/editor/panels/assets/draggable-item";
 import {
 	ContenidoBiblioteca,
@@ -35,7 +37,6 @@ import { TEXTO_PREDETERMINADO } from "./assets-view";
 import { MiniaturaEstilo } from "./miniatura-estilo";
 import {
 	EFECTOS_TEXTO,
-	FUENTES_PLANTILLAS,
 	PLANTILLAS_TEXTO,
 	paramsParaLienzo,
 	type ParamsTexto,
@@ -97,7 +98,12 @@ function TarjetaTexto({
 	const duracion = mediaTimeFromSeconds({ seconds: SEGUNDOS_TEXTO_NUEVO });
 	// Se calcula al soltar/agregar: el lienzo puede cambiar con la sección abierta.
 	const conLienzo = () => paramsParaLienzo(params, lienzoDe(editor));
+	// La fuente entera, con el mouse encima: antes de arrastrar (ver la cabecera).
+	const precargar = () => {
+		if (typeof params.fontFamily === "string") void loadFonts({ families: [params.fontFamily] }).catch(() => {});
+	};
 	return (
+		<div className="contents" onPointerEnter={precargar}>
 		<DraggableItem
 			name={nombre}
 			preview={<MiniaturaEstilo params={params} texto={muestra ?? contenido} tamanoPx={tamanoMuestra} />}
@@ -131,18 +137,12 @@ function TarjetaTexto({
 			}
 			containerClassName="w-full"
 		/>
+		</div>
 	);
 }
 
 export function EfectosDeTextoView() {
 	const guardados = useEstilosGuardados();
-
-	useEffect(() => {
-		const familias = guardados
-			.map((g) => g.params.fontFamily)
-			.filter((f): f is string => typeof f === "string" && f.length > 0);
-		if (familias.length > 0) void loadFonts({ families: [...new Set(familias)] }).catch(() => {});
-	}, [guardados]);
 
 	return (
 		<ContenidoBiblioteca>
@@ -185,10 +185,6 @@ export function EfectosDeTextoView() {
 }
 
 export function PlantillasDeTextoView() {
-	useEffect(() => {
-		void loadFonts({ families: FUENTES_PLANTILLAS }).catch(() => {});
-	}, []);
-
 	return (
 		<ContenidoBiblioteca>
 			<GrillaBiblioteca>

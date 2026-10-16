@@ -1,0 +1,132 @@
+/* =============================================================================
+   /m/copywriting — Ads Writer en el teléfono (Anuncios · Guiones · Analizar guion)
+   =============================================================================
+   Todas las clases llevan el nombre ENTERO de la carpeta (`m-copywriting-*`): Next deja la hoja cargada
+   al salir de la ruta. Sólo tokens de app/globals.css. El color de estado va en la MARCA (la píldora, la
+   espina), nunca en el texto. El dorado sólo donde interviene MaKo (los botones `mako` ya lo traen).
+   ============================================================================= */
+
+.m-copywriting { display: block; }
+
+/* ── Las tres vistas ──
+   El segmentado reparte el ancho en partes iguales y «Analizar guion» se cortaba con «…» a 390 px
+   mientras «Guiones» sobraba: cada opción mide lo que su nombre (como /m/experimentos). Sólo acá. */
+.m-copywriting-vistas { margin: 0 0 4px; }
+.m-copywriting-vistas .m-seg { grid-auto-columns: auto; }
+.m-copywriting-vistas .m-seg__op { padding: 0 6px; }
+
+/* El «3 de 5» de cada avatar (el carril de la matriz de escritorio). */
+.m-copywriting-cuenta { flex: none; font-size: var(--fs-sm); color: var(--dim); font-variant-numeric: tabular-nums; }
+
+/* ── Guiones: la tarjeta (GuionCard.tsx de escritorio; la cita de Readwise) ── */
+.m-copywriting-galeria { display: flex; flex-direction: column; gap: 12px; padding-top: 18px; }
+.m-copywriting-guion {
+  display: flex; flex-direction: column; overflow: hidden;
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg);
+}
+.m-copywriting-guion__abrir {
+  display: flex; flex-direction: column; gap: 8px; width: 100%; padding: 16px 16px 12px; margin: 0;
+  border: 0; background: none; font: inherit; color: var(--ink); text-align: left; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.m-copywriting-guion__abrir:active { background-image: linear-gradient(var(--velo-hover), var(--velo-hover)); }
+.m-copywriting-guion__abrir:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--primary); }
+.m-copywriting-guion__rotulo {
+  font-size: var(--fs-meta); font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--faint);
+}
+/* El gancho tratado como cita: la barra a la izquierda, cuatro líneas como mucho. */
+.m-copywriting-guion__cita {
+  padding-left: 12px; border-left: 2px solid var(--border-strong);
+  font-size: var(--fs-card); font-weight: 600; line-height: 1.45; letter-spacing: -0.01em; color: var(--ink);
+  display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden;
+}
+.m-copywriting-guion__meta {
+  font-size: var(--fs-sm); color: var(--dim); line-height: 1.3;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.m-copywriting-guion__pie {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  min-height: 52px; padding: 4px 8px 4px 16px; border-top: 1px solid var(--border);
+}
+
+/* La espina: un segmento por bloque, de ancho = cuánto texto tiene; el gancho en tinta. */
+.m-copywriting-espina { display: flex; gap: 2px; height: 4px; margin: 2px 0; }
+.m-copywriting-espina i { flex: 1 0 0; min-width: 4px; border-radius: 2px; background: var(--border-strong); }
+.m-copywriting-espina i[data-gancho] { background: var(--ink); }
+
+/* «Copiar»: un botón de texto con su ícono, 44 de toque. */
+.m-copywriting-copiar {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 44px; min-width: 44px; padding: 0 12px;
+  border: 0; border-radius: var(--r-md); background: none; cursor: pointer;
+  font: inherit; font-size: var(--fs-md); font-weight: 600; color: var(--primary);
+  -webkit-tap-highlight-color: transparent;
+}
+.m-copywriting-copiar:active { background: var(--primary-bg); }
+.m-copywriting-copiar:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--primary); }
+
+/* ── El lector (GuionLector.tsx; un teleprompter): bloques abiertos y grandes ── */
+.m-copywriting-lector { display: flex; flex-direction: column; gap: 18px; padding: 4px 0 8px; }
+.m-copywriting-lector__cab { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 10px; }
+.m-copywriting-lector__meta { min-width: 0; font-size: var(--fs-sm); color: var(--dim); }
+[data-m] .m-copywriting-lector__pie { font-size: var(--fs-sm); color: var(--faint); }
+.m-copywriting-bloque { display: flex; flex-direction: column; gap: 6px; }
+[data-m] .m-copywriting-bloque__t {
+  font-size: var(--fs-meta); font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--faint);
+}
+/* Se lee en voz alta: letra grande, línea larga y el texto seleccionable (copiar a mano un trozo). */
+[data-m] .m-copywriting-bloque__x {
+  font-size: 17px; line-height: 1.6; color: var(--ink); white-space: pre-wrap;
+  -webkit-user-select: text; user-select: text;
+}
+
+/* ── Analizar guion: el campo con su micrófono (el composer del chat de MaKo, quieto) ── */
+.m-copywriting-campo {
+  display: flex; flex-direction: column;
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg);
+  transition: border-color var(--dur-press) ease;
+}
+.m-copywriting-campo:focus-within { border-color: var(--primary); }
+.m-copywriting-campo[data-escucha] { border-color: var(--bad); }
+.m-copywriting-campo__texto {
+  display: block; width: 100%; min-height: 150px; padding: 14px 16px 6px; margin: 0;
+  border: 0; outline: none; resize: none; background: none;
+  font: inherit; font-size: 16px; line-height: 1.5; color: var(--ink);
+}
+.m-copywriting-campo__texto::placeholder { color: var(--faint); }
+.m-copywriting-campo__barra { display: flex; justify-content: flex-end; padding: 4px 8px 8px; }
+.m-copywriting-mic {
+  flex: none; display: inline-grid; place-items: center; width: 44px; height: 44px; padding: 0;
+  border: 1px solid var(--border); border-radius: 999px; background: var(--surface-2); color: var(--ink);
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation; -webkit-user-select: none; user-select: none;
+}
+.m-copywriting-mic:disabled { opacity: .45; cursor: default; }
+.m-copywriting-mic:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--primary); }
+/* Escuchando: rojo, como la grabación del chat de MaKo (app/m/mako/mako.css). */
+.m-copywriting-mic[data-estado="escucha"] {
+  background: var(--bad); border-color: var(--bad); color: var(--on-primary);
+  animation: m-copywriting-escucha 1.2s ease-in-out infinite;
+}
+.m-copywriting-mic__segs { font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; }
+@keyframes m-copywriting-escucha { 0%, 100% { box-shadow: 0 0 0 0 var(--bad-bg); } 70% { box-shadow: 0 0 0 8px transparent; } }
+.m-copywriting-valorar { margin-top: 12px; }
+
+/* ── La valoración (la tarjeta de Grammarly): el veredicto arriba, lo que se hace con él abajo ── */
+.m-copywriting-valoracion { display: flex; flex-direction: column; gap: 18px; padding: 4px 0 8px; }
+.m-copywriting-valoracion__cab { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 10px; }
+.m-copywriting-valoracion__aviso { font-size: var(--fs-sm); color: var(--dim); }
+[data-m] .m-copywriting-valoracion__razon { font-size: var(--fs-md); line-height: 1.5; color: var(--dim); }
+.m-copywriting-valoracion .m-seccion { padding-top: 0; }
+.m-copywriting-probar {
+  display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none;
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); overflow: hidden;
+}
+.m-copywriting-probar li { display: flex; flex-direction: column; gap: 4px; padding: 12px 16px; }
+.m-copywriting-probar li + li { border-top: 1px solid var(--border); }
+.m-copywriting-probar b { font-size: var(--fs-md); font-weight: 600; color: var(--ink); line-height: 1.35; }
+.m-copywriting-probar span { font-size: var(--fs-md); color: var(--dim); line-height: 1.5; }
+
+@media (prefers-reduced-motion: reduce) {
+  .m-copywriting-mic[data-estado="escucha"] { animation: none; }
+  .m-copywriting-campo { transition: none; }
+}

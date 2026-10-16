@@ -5,10 +5,12 @@
 // otra cosa que al pedir, una propuesta válida se descartaría (o al revés).
 //   · lo disponible del motor, con la lista de Google Fonts del selector de fuentes
 //     (async la primera vez; después queda en caché, fonts/google-fonts.ts);
-//   · el lienzo, los medios sin sonido y la transcripción, de la línea de tiempo dada.
+//   · el lienzo, los medios sin sonido y la transcripción, de la línea de tiempo dada;
+//   · Multimedia entera: la vista elige qué se lista (chat/linea.ts, sin los ocultos).
 // =============================================================================
 
 import type { EditorCore } from "@/app/video-editor/_opencut/core";
+import type { MediaAsset } from "@/app/video-editor/_opencut/media/types";
 import type { SceneTracks, TextElement } from "@/app/video-editor/_opencut/timeline/types";
 import { loadFontAtlas } from "@/app/video-editor/_opencut/fonts/google-fonts";
 import { transcripcionDe } from "@/app/video-editor/_opencut/transcripcion/modelo";
@@ -40,13 +42,16 @@ export function datosDeLinea(editor: EditorCore, tracks: SceneTracks): {
 	mediosSinAudio: Set<string>;
 	transcripcion: TranscripcionChat;
 	conPalabras: boolean;
+	medios: MediaAsset[];
 } {
 	const canvas = editor.project.getActiveOrNull()?.settings.canvasSize;
 	const parrafos = transcripcionDe({ tracks, tps: TICKS_PER_SECOND });
+	const medios = editor.media.getAssets();
 	return {
 		lienzo: canvas ? { ancho: canvas.width, alto: canvas.height } : null,
-		mediosSinAudio: new Set(editor.media.getAssets().filter((a) => a.hasAudio === false).map((a) => a.id)),
+		mediosSinAudio: new Set(medios.filter((a) => a.hasAudio === false).map((a) => a.id)),
 		transcripcion: { parrafos, idioma: usePreferenciasSubtitulos.getState().idioma },
 		conPalabras: parrafos.some((p) => p.palabras.length > 0),
+		medios,
 	};
 }

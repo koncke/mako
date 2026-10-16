@@ -23,7 +23,7 @@ import { after, NextResponse, type NextRequest } from 'next/server';
 import { getSupabaseServer } from '@/lib/supabase';
 import { getWorkspace, runWithWorkspace } from '@/lib/workspace';
 import { buscarUsuarioPorEmail } from '@/lib/usuarios';
-import { invitarPorEmail } from '@/lib/invitaciones';
+import { avisarCambioDeEmailDeAcceso, invitarPorEmail } from '@/lib/invitaciones';
 import { logLeadEvent } from '@/lib/leads';
 import { getCobroPorToken } from '@/lib/cobros';
 import { emailEnmascarado } from '@/lib/cobros-reglas';
@@ -138,6 +138,13 @@ export async function POST(req: NextRequest) {
     .update({ alta_motivo: invitacion.enviado ? null : `El mail de acceso no salió: ${invitacion.error ?? 'sin detalle'}`.slice(0, 300) })
     .eq('id', cobro.id);
   if (e4) console.error(`[pagar-email] no pude anotar el envío en el cobro ${cobro.id}: ${e4.message}`);
+
+  // 3b. ⚠️ EL AVISO AL EMAIL ANTERIOR (15/10/2026), después de contestar: quien tenga el link de la compra puede cambiar
+  //     el acceso, y el dueño de la dirección anterior se entera y puede pedir que se revierta (lib/invitaciones.ts).
+  const avisarAnterior = () => avisarCambioDeEmailDeAcceso({ anterior: usuario.email, nuevoEnmascarado: emailEnmascarado(nuevo.email) ?? 'otra dirección' })
+    .then((r) => { if (!r.enviado) console.error(`[pagar-email] no salió el aviso al email anterior del cobro ${cobro.id}: ${r.error ?? 'sin detalle'}`); })
+    .catch((e: unknown) => console.error(`[pagar-email] el aviso al email anterior del cobro ${cobro.id} falló:`, e instanceof Error ? e.message : e));
+  try { after(avisarAnterior); } catch { void avisarAnterior(); }
 
   // 4. El rastro en el CRM de quien vendió (el lead del comprador), después de contestar.
   if (cobro.lead_id) {

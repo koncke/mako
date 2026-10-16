@@ -81,6 +81,9 @@ export class ProjectManager {
 	}
 
 	async createNewProject({ name }: { name: string }): Promise<string> {
+		// El deshacer es de UN proyecto (como CapCut): los comandos guardan las pistas del de antes, y
+		// un Ctrl+Z en otro las pisaría con las de éste (hallazgos, 15/10/2026).
+		this.editor.command.clear();
 		const mainScene = buildDefaultScene({ name: "Main scene", isMain: true });
 		const newProject: TProject = {
 			metadata: {
@@ -134,6 +137,9 @@ export class ProjectManager {
 
 		this.editor.save.pause();
 		await this.ensureStorageMigrations();
+		// El deshacer es de UN proyecto (como CapCut): los comandos guardan las pistas del de antes, y
+		// un Ctrl+Z en otro las pisaría con las de éste (hallazgos, 15/10/2026).
+		this.editor.command.clear();
 		this.editor.media.clearAllAssets();
 		this.editor.scenes.clearScenes();
 
@@ -309,6 +315,9 @@ export class ProjectManager {
 	}
 
 	closeProject(): void {
+		// El deshacer es de UN proyecto (como CapCut): los comandos guardan las pistas del de antes, y
+		// un Ctrl+Z en otro las pisaría con las de éste (hallazgos, 15/10/2026).
+		this.editor.command.clear();
 		this.active = null;
 		this.notify();
 

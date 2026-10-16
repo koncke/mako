@@ -5,6 +5,18 @@ integración con Mercado Pago y con Stripe, tipo pasarela de pagos... Lo voy a u
 vender MaKo, pero también los usuarios pueden alojarlo... revisa si hay que meterlo en diferentes lugares, como
 la API de MaKo, como automatios, como el CRM, etc...».
 
+**16/10/2026 — LA TAB PAGOS DEL LEAD, EN BLOQUES (rama `pagos-tab-bloques`, sobre `crm-armador`).** Pedido de
+Martín, que pasó Cerebro: «la tab de PAGOS que está un desastre también en funcionalidad, no se entiende... NO tengas
+miedo a ELIMINAR todo». Dónde está cada cosa:
+
+- **El marco** (tabs, armador, plantillas, galería) es del chat CRM. **El contenido** es de Pagos:
+  `app/crm/lead-view/ficha/{reglas-pagos.ts, registro-pagos.tsx, pagos/}`, las filas de Pagos del catálogo y de la §3
+  del diseño, las listas de Pagos de `lib/ficha/plantillas.ts` y `lib/ficha/plantillas-pagos.ts` (la galería).
+- **El relevamiento** está en [hallazgos-pagos.md](../hallazgos-pagos.md): lo que no se entendía, lo de plata que no se
+  podía perder, las trampas y lo que quedó sin hacer.
+- **Falta verla en el navegador**, en escritorio y en el teléfono. Customer Success sigue con DealDetailsCard: es la
+  tanda T3, con el CRM.
+
 ## Lo que hay que leer primero
 
 1. [docs/diseno-pasarela-pagos.md](../diseno-pasarela-pagos.md) — el contrato (y su §4.10: lo que cambió al construirlo).
@@ -77,8 +89,8 @@ worktree están borradas; `pagos-rojo-cobranza` no tiene nada fuera de `main`.
 | Qué | Lo destraba | Dónde |
 |---|---|---|
 | Si una clave restringida (`rk_`) lee `GET /v1/account`; si la `notification_url` de MP llega firmada y con `data.id` en el query; si MP respeta el vencimiento de una preferencia anulada con el checkout ya abierto; qué dice `coverage_applied` de un contracargo de MP; en qué estado queda una suscripción de MP al llegar su `end_date`; un pago de punta a punta en modo prueba | las claves de PRUEBA de Martín (Stripe `sk_test_`/`rk_test_`, una cuenta de prueba de MP) | `lib/cobros-conexion.ts`, `lib/metodo-catalogo.ts`, `app/api/webhooks/mercadopago/route.ts` |
-| Stripe no abre cuentas a negocios de Argentina; la primera venta a un mexicano arranca el reloj del RFC | Martín (precio y fiscal): pasa ANTES por Estrategia, que lo mira con este chat cuando b2 esté en `main` | `app/admin/dev/pricing/modelo.ts` |
-| Los BORRADORES legales de `/reembolsos` y `/terminos` §8 | que Martín los lea; igual que el RFC, pasa antes por Estrategia | `app/reembolsos/page.tsx`, `app/terminos/page.tsx` |
+| Vender planes de MaKo a México (la primera venta arranca el reloj del RFC) | Martín, en la Ticketera: `cobrar-mako-en-mexico` (A: bloquear México y Paddle para el 1/11, la recomendada). Con la A, se integra la rama `pagos-mexico-guarda` (a075e1ae5), ya escrita y probada: frena el plan de MaKo a un teléfono +52 o sin código de país | `lib/cobros.ts` (`crearCobro`), `lib/cobros-reglas.ts` (`motivoParaNoVenderMako`) |
+| La garantía del programa grupal (`/reembolsos`) | Martín, en la Ticketera: `garantia-grupal` (A: 100% después de la primera sesión, la recomendada). El plazo de respuesta (5 días hábiles) y cancelar sin escribir los decidió Estrategia el 15/10 | `app/reembolsos/page.tsx` |
 
 Las otras cuatro «decisiones de Martín» que estaban acá se DECIDIERON el 15/10 con la vara de AGENTS.md (copiar a Stripe y
 Mercado Pago, o contestar con lo escrito): el lead ganado que recibe un reembolso se queda donde está; un pago único que
@@ -96,7 +108,11 @@ En este orden, de lo que más plata toca a lo que menos:
 3b. ~~Contracargos~~ → HECHO el 15/10 (rama `pagos-contracargos`): Stripe escucha las disputas y mueve la cuota con lo que dice la disputa releída; Mercado Pago se cuenta sin mover la cuota (su documentación se contradice; medirlo es de la fila de claves de prueba). El cron pone al día los avisos de Stripe una vez por día.
 3c. ~~El MRR cuenta la mensualidad de un link de suscripción pagado por un lead de pago único~~ → HECHO el 15/10 (rama `pagos-mrr-cobros`, `mrrDeLaPasarela`).
 4. ~~Un producto de suscripción con plazo se cobra sin fin~~ → HECHO el 15/10 (rama `pagos-suscripcion-plazo`): `cancel_at` en Stripe al primer pago, `end_date` en MP al crear, y el lead ganado con su plazo.
-5. La fecha de la cuota es la del procesamiento y no la del pago; el MRR al cancelar redondea por meses (`lib/cobros.ts`, `lib/cobros-reglas.ts`).
-6. En `/mako/revisar`, el `cobroId` de un reembolso se puede editar y el título muestra el original (`lib/api-mako/areas/cobros.*`).
-7. El cambio de email tras el alta: falta un código al email ACTUAL (`app/pagar/cambio-email.ts`, `app/api/pagar/email/route.ts`).
-8. Más grandes, con su propio diseño: precios en moneda local en el catálogo (`lib/productos.ts`), `crear_link_pago` en el «⚡ Acción» (área de Automations, `lib/editor-acciones.ts`), y los topes de `/api/pagar/email` fuera de la memoria (`lib/rate-limit.ts`).
+5. ~~La fecha de la cuota y el MRR al cancelar~~ → HECHO el 15/10 (rama `pagos-fecha-cuota`): la cuota con la fecha del pago, y la cancelada por la pasarela sale del MRR en el acto (la que terminó su plazo, no se marca cancelada).
+6. ~~En `/mako/revisar`, el `cobroId` de un reembolso se puede editar~~ → HECHO el 15/10 (rama `pagos-revisar-reembolso`, `fijoAlRevisar`). Cerrado también en Ads, Email, WhatsApp y el chatbot (rama `pagos-fijo-ads-email`), con un barrido que lo exige en toda acción de plata o envío.
+7. ~~El cambio de email tras el alta: falta un código al email ACTUAL~~ → HECHO el 15/10 de OTRA manera (rama `pagos-email-aviso`): un código bloqueaba al que tipeó mal su email; va un aviso al email anterior, como Google y GitHub.
+7b. ~~Cancelar uno mismo~~ → HECHO el 15/10 (rama `pagos-portal-plan`): el botón «Darme de baja» de «Configuración del negocio →
+   Tu plan», propio de MaKo (Stripe al final del período, Mercado Pago en el acto, con código de baja por email); /reembolsos y
+   /terminos remiten ahí. Cancelar corta la plata, NO el acceso (no
+   existe el estado de suscripción por workspace): eso sigue a mano.
+8. Más grandes, con su propio diseño: precios en moneda local en el catálogo (`lib/productos.ts`), `crear_link_pago` en el «⚡ Acción» (área de Automations, `lib/editor-acciones.ts`), y los topes de `/api/pagar/email` fuera de la memoria (`lib/rate-limit.ts`). Estrategia (15/10): las dos primeras NO, son producto que nadie pidió (la poda); la de los topes se revisó y se decidió que NO hace falta, con el porqué en docs/hallazgos-planes-y-cobro.md («Lo que contesta ANTES de gastar el intento…»).

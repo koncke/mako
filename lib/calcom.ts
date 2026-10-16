@@ -135,7 +135,10 @@ export type CalcomAsistente = {
 export type CalcomReservaPayload = {
   uid?: string;
   bookingId?: number | string;
+  /** El título de la RESERVA («Llamada de auditoría between Ana and Juan»), NO el del tipo de evento. */
   title?: string;
+  /** El nombre del TIPO de evento («Llamada de auditoría»). Es el que pega el dueño si escribe el nombre. */
+  eventTitle?: string;
   startTime?: string;
   endTime?: string;
   attendees?: CalcomAsistente[];
@@ -360,7 +363,11 @@ export function normalizarReserva(p: CalcomReservaPayload | undefined): ReservaN
     eventType: {
       id: txt(p.eventTypeId),
       slug: txt(p.eventTypeSlug) ?? txt(p.type),
-      nombre: txt(p.title),
+      // ⚠️ `eventTitle` y no `title` (16/10/2026): `title` es el de la RESERVA, con los nombres de las dos personas
+      // («Strategy Session between Organizer and Guest», el ejemplo de la doc de webhooks de Cal.com), así que un
+      // tipo de evento cargado por su NOMBRE —lo que la ayuda de Integraciones ofrece— no calzaba nunca: ni la R1/R2
+      // ni el ruteo, y la reserva se perdía «sin workspace». `title` queda de respaldo para un payload sin el campo.
+      nombre: txt(p.eventTitle) ?? txt(p.title),
     },
     cancelacion: txt(p.cancellationReason),
     respuestas: respuestasDe(p, [nombre, email, telefono]),
@@ -515,4 +522,58 @@ export async function perfilDeCalcom(apiKey: string): Promise<unknown> {
   } catch {
     return null;
   }
+}
+
+// ── Los TIPOS DE EVENTO de la cuenta (16/10/2026: vincular un evento a una etapa del CRM) ──────────
+
+/** Un tipo de evento de Cal.com. `id` es el que llega en el webhook (`eventTypeId`): el que se vincula. */
+export type EventTypeCalcom = { id: string; slug: string | null; nombre: string; duracionMin: number | null };
+
+/**
+ * `GET /v2/event-types` VERSIONA APARTE: con `cal-api-version: 2024-06-14` contesta
+ * `{ data: [ { id, title, slug, lengthInMinutes } ] }`; sin esa versión cae a la vieja, agrupada:
+ * `{ data: { eventTypeGroups: [ { eventTypes: [ { id, title, slug, length } ] } ] } }`. Se leen las
+ * dos (la de `CALCOM_API.version`, 2024-08-13, es la de las reservas, no la de esto).
+ *
+ * ⚠️ NO MEDIDO contra una cuenta real (16/10/2026): la forma sale de la referencia pública de la v2.
+ * Por eso lo que no trae un id no entra: sin el id no hay con qué rutear la reserva.
+ */
+export const VERSION_EVENT_TYPES_CALCOM = '2024-06-14';
+
+export function eventTypesDeRespuestaCalcom(body: unknown): EventTypeCalcom[] {
+  const raiz = body && typeof body === 'object' ? (body as { data?: unknown }).data ?? body : null;
+  let crudos: unknown[] = [];
+  if (Array.isArray(raiz)) crudos = raiz;
+  else if (raiz && typeof raiz === 'object') {
+    const grupos = (raiz as { eventTypeGroups?: unknown }).eventTypeGroups;
+    if (Array.isArray(grupos)) {
+      crudos = grupos.flatMap((g) => (g && typeof g === 'object' && Array.isArray((g as { eventTypes?: unknown }).eventTypes)
+        ? (g as { eventTypes: unknown[] }).eventTypes : []));
+    }
+  }
+  const out: EventTypeCalcom[] = [];
+  for (const c of crudos) {
+    if (!c || typeof c !== 'object') continue;
+    const e = c as { id?: unknown; slug?: unknown; title?: unknown; lengthInMinutes?: unknown; length?: unknown };
+    const id = txt(e.id);
+    if (!id || out.some((x) => x.id === id)) continue;
+    const largo = typeof e.lengthInMinutes === 'number' ? e.lengthInMinutes : typeof e.length === 'number' ? e.length : null;
+    out.push({ id, slug: txt(e.slug), nombre: txt(e.title) ?? txt(e.slug) ?? id, duracionMin: largo != null && Number.isFinite(largo) ? largo : null });
+  }
+  return out;
+}
+
+/** Los tipos de evento de la cuenta de esa API key. Tira con el código de Cal.com si no contesta bien. */
+export async function listarEventTypesCalcom(apiKey: string): Promise<EventTypeCalcom[]> {
+  const r = await fetch(`${CALCOM_API.base}/event-types`, {
+    headers: { ...calcomHeaders(apiKey), 'cal-api-version': VERSION_EVENT_TYPES_CALCOM },
+    cache: 'no-store',
+    signal: AbortSignal.timeout(8000),
+  });
+  const body = await r.json().catch(() => null);
+  if (r.status === 401 || r.status === 403) throw new Error('Cal.com no aceptó la API key: cópiala de nuevo en Integraciones.');
+  if (!r.ok) throw new Error(`Cal.com respondió ${r.status}.`);
+  // Un 200 con el error adentro (AGENTS.md: «res.ok no es salió bien»).
+  if (body && typeof body === 'object' && (body as { status?: unknown }).status === 'error') throw new Error('Cal.com devolvió un error al listar los eventos.');
+  return eventTypesDeRespuestaCalcom(body);
 }

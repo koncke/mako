@@ -24,6 +24,14 @@
 // =============================================================================
 
 import type { Editor } from '@tiptap/core';
+// Los comandos que este archivo encadena (las listas, la cita, las tareas y toggleEtiqueta) los declaran OTROS módulos
+// con `declare module '@tiptap/core'`: StarterKit, @tiptap/extension-list y extensiones/marcas.ts. Se importan SÓLO
+// por sus tipos (se borran al compilar: no cambian nada en el navegador) para que un tsc acotado que compila este
+// archivo suelto no dé un falso rojo (en el completo los traía esquema.ts). Pedido del coordinador, 16/10/2026: «un
+// falso positivo de todos los días es el que tapa el día que sea real». Medido: solo, este archivo daba 5 errores.
+import type {} from '@tiptap/starter-kit';
+import type {} from '@tiptap/extension-list';
+import type {} from './extensiones/marcas';
 import type { Node as NodoPM, NodeType } from '@tiptap/pm/model';
 import { NodeSelection, Selection, TextSelection, type EditorState, type Transaction } from '@tiptap/pm/state';
 import { undoDepth } from '@tiptap/pm/history';

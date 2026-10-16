@@ -21,7 +21,7 @@
 // =============================================================================
 
 import {
-  DESTINOS_MOVIL, HOME_MOVIL, RUTA_INBOX, RUTA_MAS, SECCIONES_MAS, esRutaMovil, seccionDeRuta,
+  DESTINOS_MOVIL, HOME_MOVIL, RUTA_INBOX, RUTA_MAS, SECCIONES_MAS, TITULO_INBOX, esRutaMovil, seccionDeRuta, tituloSeccion,
 } from '@/lib/movil-rutas';
 import { TITULO_CUENTA as TITULO_TU_CUENTA } from '@/lib/ajustes-secciones';
 
@@ -57,8 +57,8 @@ const segmentos = (p: string) => p.split('/').filter(Boolean).length;
 const CHAT_LEAD = /^\/m\/crm\/([^/]+)\/chat$/;
 
 /**
- * ¿Es una pantalla de trabajo por defecto? El chat de MaKo (y sus subpantallas), el chat de
- * WhatsApp de un lead (`/m/crm/<id>/chat`), y el editor de UN video o de UNA landing
+ * ¿Es una pantalla de trabajo por defecto? El chat de MaKo (y sus subpantallas), el chat de Offer,
+ * el chat de WhatsApp de un lead (`/m/crm/<id>/chat`), y el editor de UN video o de UNA landing
  * (`/m/video/<id>`, `/m/landing/<id>`). Las listas de Video y Landing no: son secciones normales.
  *
  * ⚠️ El chat del lead va ACÁ y no sólo en su <CabeceraM trabajo>: el HTML del server sale con
@@ -67,7 +67,11 @@ const CHAT_LEAD = /^\/m\/crm\/([^/]+)\/chat$/;
 export function esTrabajo(pathname: string | null | undefined): boolean {
   const p = limpia(pathname);
   // El mazo de la Ticketera vive en /m/operaciones?ticketera= desde el 16/10/2026: su <CabeceraM trabajo> saca la barra.
-  return dentro(p, '/m/mako') || /^\/m\/(video|landing)\/[^/]+/.test(p) || CHAT_LEAD.test(p) || p === RUTA_CONFIGURAR;
+  return dentro(p, '/m/mako') || /^\/m\/(video|landing)\/[^/]+/.test(p) || CHAT_LEAD.test(p) || p === RUTA_CONFIGURAR
+    // Offer (15/10/2026): en escritorio la tab ES un chat con MaKo por funnel, y en el prototipo v3 su
+    // pantalla es la del chat de MaKo (el funnel arriba, el hilo y el composer en la franja del pulgar),
+    // sin título grande. Como el chat de MaKo: de trabajo desde el HTML del server.
+    || dentro(p, '/m/offer');
 }
 
 /** El lugar de la barra cuya raíz es esta ruta (o null). */
@@ -80,7 +84,8 @@ function duenoDe(p: string, barra: readonly LugarBarra[]): LugarBarra | null {
   const deBarra = barra.find((b) => dentro(p, b.href));
   if (deBarra) return deBarra;
   const s = seccionDeRuta(p);
-  if (s) return { href: s.href, label: s.label };
+  // El «volver» de una subpantalla dice el nombre de la PANTALLA de la que vino (Copywriting › Ads Writer).
+  if (s) return { href: s.href, label: tituloSeccion(s) };
   if (dentro(p, RUTA_CUENTA)) return { href: RUTA_CUENTA, label: TITULO_CUENTA };
   return null;
 }
@@ -103,11 +108,11 @@ export function cabeceraPorRuta(
 
   // La raíz de una sección de More: vuelve a More.
   const seccion = SECCIONES_MAS.find((s) => s.href === p);
-  if (seccion) return { titulo: seccion.label, padre: MAS, trabajo, conBarra: !trabajo };
+  if (seccion) return { titulo: tituloSeccion(seccion), padre: MAS, trabajo, conBarra: !trabajo };
 
   if (p === RUTA_CUENTA) return { titulo: TITULO_CUENTA, padre: MAS, trabajo: false, conBarra: true };
-  // La campana de General (v3: Inbox dejó la barra): se titula Inbox y vuelve a General.
-  if (p === RUTA_INBOX) return { titulo: 'Inbox', padre: { href: HOY.href, label: HOY.label }, trabajo: false, conBarra: true };
+  // La campana de General (v3: Inbox dejó la barra): se titula Avisos (TITULO_INBOX) y vuelve a General.
+  if (p === RUTA_INBOX) return { titulo: TITULO_INBOX, padre: { href: HOY.href, label: HOY.label }, trabajo: false, conBarra: true };
 
   // El chat de un lead vuelve a SU ficha, no a la lista del CRM (la página lo pisa igual con
   // el nombre del lead; acá queda bien desde el HTML del server).

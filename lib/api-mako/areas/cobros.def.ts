@@ -50,7 +50,7 @@ const leadId = (desc: string, obligatorio = true): Parametro =>
   ({ nombre: 'leadId', rotulo: 'Lead', tipo: 'number', descripcion: desc, entero: true, minimo: 1, ...(obligatorio ? { obligatorio: true } : {}) });
 
 const cobroId = (desc = 'id del cobro en MaKo (de listar_cobros o ver_cobro). No es el id de Stripe ni el de Mercado Pago, ni el pagoId de una cuota del CRM.'): Parametro =>
-  ({ nombre: 'cobroId', rotulo: 'Cobro', tipo: 'number', obligatorio: true, entero: true, minimo: 1, descripcion: desc });
+  ({ nombre: 'cobroId', rotulo: 'Cobro', tipo: 'number', obligatorio: true, entero: true, minimo: 1, fijoAlRevisar: true, descripcion: desc });
 
 /** El id de UNA cuota del CRM (fila de `pagos`): el pago_id de cobranza_lead. Acá se llama cuotaId a propósito. */
 const cuotaId = (): Parametro =>

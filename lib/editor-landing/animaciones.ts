@@ -180,6 +180,17 @@ export function sanearDireccion(v: unknown, efecto: AnimacionSeccion): Direccion
 
 export const sanearEstilo = (v: unknown): IdEstilo => (esEstilo(v) ? v : ESTILO_DEFAULT);
 
+/**
+ * Lo que se escribe en una sección al ELEGIR un efecto (el panel «Animar» y la API de MaKo, una sola regla): el efecto
+ * saneado y, si el efecto nuevo ofrece dirección, la que la sección ya tenía (de Deslizar a Barrido sigue «desde
+ * abajo»); si no la ofrece, o es «ninguna» o «hereda», la dirección se cae.
+ */
+export function cambiosAlElegir(elegido: unknown, actual: { animacionDireccion?: unknown }): { animacion: AnimacionSeccion; animacionDireccion: Direccion | null } {
+  const animacion = sanearAnimacionSeccion(elegido);
+  const conDireccion = animacion !== null && animacion !== SIN_ANIMACION;
+  return { animacion, animacionDireccion: conDireccion ? sanearDireccion(actual.animacionDireccion, animacion) : null };
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Lo que anima una sección (lo resuelve el RENDER, no el navegador)
 // ─────────────────────────────────────────────────────────────────────────────

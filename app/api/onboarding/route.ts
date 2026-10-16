@@ -11,8 +11,9 @@
 
 import { NextResponse, type NextRequest } from 'next/server';
 import { getSesionAdmin, getUsuarioActual } from '@/lib/auth';
-import { getCapaActual, getWorkspaceActual, getWorkspace, getRolWsEfectivo, OWNER_WS } from '@/lib/workspace';
-import { capaDef, esPasoOnboarding, esPostergable, type PasoOnboarding } from '@/lib/capas';
+import { getCapaActual, getWorkspace, OWNER_WS } from '@/lib/workspace';
+import { wsDelOnboarding } from '@/lib/onboarding-guard';
+import { capaDef, esPasoOnboarding, type PasoOnboarding } from '@/lib/capas';
 import { enviarCodigoVerificacion, verificarCodigoContacto, getEstadoVerificacionContacto } from '@/lib/mako-grupo';
 import { SERVICIOS_METODO, servicioMetodo, ENVS_METODO } from '@/lib/metodo-catalogo';
 import { credWs, estadoCampo, guardarCredencial, IdentificadorOcupadoError, RemitenteNoPropioError, integracionConectada } from '@/lib/credenciales';
@@ -26,7 +27,7 @@ import { getContactoReportes, setContactoReportes } from '@/lib/perfil';
 import { getAnswers, getSchema, saveAnswers } from '@/lib/onboarding';
 import { PREGUNTAS, CANALES, type CanalId } from '@/lib/fase-diagnostico';
 import { getDiagnosticoFase, setDiagnosticoFase } from '@/lib/fase-store';
-import { getEstadoOnboarding, onboardingCompleto, pasosDeCapaActual, patchEstadoOnboarding, type OnboardingState } from '@/lib/onboarding-state';
+import { cerrarPasosOnboarding, getEstadoOnboarding, patchEstadoOnboarding, PasoNoPostergable, type OnboardingState } from '@/lib/onboarding-state';
 
 export const dynamic = 'force-dynamic';
 
@@ -53,20 +54,12 @@ const SETTINGS_WIZARD = new Set([
   'objetivo_cierres', 'objetivo_cash_usd',
 ]);
 
+// La puerta vive en lib/onboarding-guard.ts: la comparte el chat de arranque (/api/onboarding/arranque).
+// El DUEÑO (super-admin sin impersonar) opera sobre OWNER_WS — igual que el resto del onboarding.
 async function guard(): Promise<{ ws: number } | { error: NextResponse }> {
-  const [wsActual, rol] = await Promise.all([getWorkspaceActual(), getRolWsEfectivo()]);
-  if (rol !== 'admin') {
-    return { error: NextResponse.json({ ok: false, error: 'Solo el admin puede hacer el onboarding.' }, { status: 403 }) };
-  }
-  // El DUEÑO (super-admin sin impersonar) opera sobre OWNER_WS — igual que el resto del
-  // onboarding (resolverWsAdmin en archivero/avatares/…). Antes se rechazaba con 400 y el
-  // wizard no cargaba para él; ahora también puede hacer su propio onboarding (Mauricio
-  // usa MaKo para SU negocio). Los settings del route auto-scopean a OWNER_WS igual.
-  const ws = wsActual ?? ((await getSesionAdmin()) ? OWNER_WS : null);
-  if (ws == null) {
-    return { error: NextResponse.json({ ok: false, error: 'Solo el admin del cliente puede hacer el onboarding.' }, { status: 403 }) };
-  }
-  return { ws };
+  const g = await wsDelOnboarding();
+  if ('error' in g) return { error: NextResponse.json({ ok: false, error: g.error }, { status: g.status }) };
+  return { ws: g.ws };
 }
 
 async function serviciosParaWizard(requeridos: string[]) {
@@ -212,6 +205,12 @@ export async function POST(req: NextRequest) {
             throw e;
           }
           guardados++;
+        }
+        // Guardar una integración con histórico (Meta, Fathom, YouTube, Panda) arranca SU parte, una vez y en
+        // segundo plano (lib/onboarding-extract.ts).
+        if (guardados > 0) {
+          const { arrancarHistoricoEnSegundoPlano } = await import('@/lib/onboarding-extract');
+          await arrancarHistoricoEnSegundoPlano(ws, servicio.key);
         }
         return NextResponse.json({ ok: true, guardados, conectada: await integracionConectada(servicio.key) });
       }
@@ -361,7 +360,6 @@ export async function POST(req: NextRequest) {
       // Avance del wizard: marcar un paso, dejarlo pendiente, o completar.
       case 'paso': {
         const quien = (await getUsuarioActual())?.email || 'admin-cliente';
-        const pasos = await pasosDeCapaActual();
         // El `step` llega de JSON: se valida contra el catálogo EN POSITIVO antes
         // de tocar el estado. Sin esto, un paso desconocido escribía sobre
         // `undefined` y devolvía 500 — y el wizard, que no mira `ok`, avanzaba
@@ -370,42 +368,25 @@ export async function POST(req: NextRequest) {
           return NextResponse.json({ ok: false, error: `Paso desconocido: ${String(body.step)}` }, { status: 400 });
         }
         const paso = body.step;
-        // ⚠️ QUIÉN decide qué se puede postergar es el SERVER, contra el catálogo.
-        // Esconder el botón en la pantalla no protege nada —la regla de la casa— y
-        // acá el daño de que no se cumpla es exactamente el que este mecanismo vino
-        // a evitar: un cliente que se saltea el archivero entra a una app vacía y
-        // cree que el producto no funciona.
-        if (body.postergar && !esPostergable(paso)) {
-          return NextResponse.json(
-            { ok: false, error: `El paso "${String(paso)}" no se puede dejar pendiente: no depende de nada de afuera.` },
-            { status: 400 },
-          );
-        }
-        const estado: OnboardingState = await patchEstadoOnboarding((s) => {
-          if (s.status === 'pending') { s.status = 'in_progress'; s.startedAt = s.startedAt ?? new Date().toISOString(); }
-          if (paso) {
-            s.step = paso;
-            // `postergado` y `done` conviven: postergar no cierra el paso, lo saca del
-            // camino. Cuando el cliente lo resuelva de verdad, se marca `done` encima.
-            if (body.postergar) s.steps[paso].postergado = true;
-            if (body.done) {
-              s.steps[paso].done = true;
-              if (paso === 'retro') {
+        // ⚠️ QUIÉN decide qué se puede postergar es el SERVER, contra el catálogo, y el cierre lo
+        // decide UNA regla (`aplicarCambiosDePaso`, la misma que usa el chat de arranque): con dos
+        // copias, una cerraba el onboarding con una regla y la otra con otra. Un paso que no se puede
+        // postergar vuelve como 400 (`PasoNoPostergable`).
+        try {
+          const estado: OnboardingState = await cerrarPasosOnboarding(
+            paso ? [{ paso, done: body.done === true, postergar: body.postergar === true }] : [],
+            quien,
+            (s) => {
+              if (paso === 'retro' && body.done) {
                 s.steps.retro.retroId = typeof body.retroId === 'number' ? body.retroId : s.steps.retro.retroId ?? null;
               }
-            }
-          }
-          // Se pregunta «¿están TODOS cerrados?», no «¿cerraste el último?». Con una
-          // salida en el medio las dos dejan de coincidir: quien postergue el último
-          // paso de su capa se quedaba `in_progress` para siempre. El detalle, en
-          // `onboardingCompleto`.
-          if (s.status !== 'done' && onboardingCompleto(s, pasos)) {
-            s.status = 'done';
-            s.completedAt = new Date().toISOString();
-            s.completedBy = quien;
-          }
-        });
-        return NextResponse.json({ ok: true, estado });
+            },
+          );
+          return NextResponse.json({ ok: true, estado });
+        } catch (e) {
+          if (e instanceof PasoNoPostergable) return NextResponse.json({ ok: false, error: e.message }, { status: 400 });
+          throw e;
+        }
       }
 
       // Simular: copiar las credenciales de Mauricio (ws1) al workspace de

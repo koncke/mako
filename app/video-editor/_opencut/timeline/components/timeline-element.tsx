@@ -77,7 +77,7 @@ import { buildGraphicPreviewUrl } from "@/app/video-editor/_opencut/graphics";
 import Image from "next/image";
 import { KeyframeIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { Gauge, Sparkles, WandSparkles } from "lucide-react";
+import { Gauge, Replace, Sparkles, WandSparkles } from "lucide-react";
 import { PRESETS_CURVA } from "@/app/video-editor/_opencut/retime/curva";
 import { efectosListables } from "@/app/video-editor/_opencut/effects/components/panel-color";
 import { useMemo, type ComponentProps, type ReactNode } from "react";
@@ -102,6 +102,8 @@ import { abrirTransicion } from "@/app/video-editor/_opencut/transiciones/accion
 import { idTransicion, transicionVigente } from "@/app/video-editor/_opencut/transiciones/reglas";
 import { transicionPorId } from "@/app/video-editor/_opencut/transiciones/catalogo";
 import { FranjasAnimacion } from "@/app/video-editor/_opencut/animaciones/components/franjas-animacion";
+import { leerMarcas } from "@/app/video-editor/_opencut/plantillas/huecos";
+import { abrirReemplazo } from "@/app/video-editor/_opencut/reemplazo/estado";
 
 const KEYFRAME_INDICATOR_MIN_WIDTH_PX = 40;
 /** Entre dos clips pegados queda 1 px de cada lado, como el filo oscuro de CapCut. */
@@ -363,6 +365,9 @@ export function TimelineElement({
 
 	// ⧓: el clip de la izquierda de un corte tiene una transición que rige.
 	const marcadorTransicion = tieneTransicion(track, element);
+	// «Sustituir»: el clip es la imagen de muestra de un hueco de plantilla (plantillas/huecos.ts).
+	const esMuestra =
+		(element.type === "video" || element.type === "image") && leerMarcas(element.params)?.muestra === true;
 
 	/** Tiempo de la línea bajo el mouse, ajustado al cuadro (para dividir). */
 	const tiempoBajoMouse = (event: React.MouseEvent): MediaTime | null => {
@@ -497,6 +502,17 @@ export function TimelineElement({
 								alto={baseTrackHeight}
 							/>
 						)}
+						{esMuestra && !bloqueada && !divide && (
+							<BotonSustituir
+								ancho={elementWidth}
+								alto={baseTrackHeight}
+								onClick={() => {
+									const ref = { trackId: track.id, elementId: element.id };
+									editor.selection.setSelectedElements({ elements: [ref] });
+									abrirReemplazo(ref);
+								}}
+							/>
+						)}
 					</div>
 				</ContextMenuTrigger>
 				<ContextMenuContent className="w-60">
@@ -537,8 +553,19 @@ export function TimelineElement({
 					{hasMediaId(element) && element.type !== "audio" && (
 						<>
 							<ContextMenuSeparator />
-							{/* Reemplazar conservando duración y efectos: todavía no. */}
-							<ContextMenuItem disabled>Reemplazar el clip</ContextMenuItem>
+							{/* Conserva duración, efectos y velocidad (reemplazo/puro.ts). El diálogo se
+							    abre después de cerrar el menú: abierto desde el onSelect de radix puede
+							    dejar `pointer-events: none` pegado en <body> (hallazgos, «React y los stores»). */}
+							<ContextMenuItem
+								disabled={muchos}
+								onClick={(event: React.MouseEvent) => {
+									event.stopPropagation();
+									const ref = { trackId: track.id, elementId: element.id };
+									setTimeout(() => abrirReemplazo(ref), 0);
+								}}
+							>
+								Reemplazar el clip
+							</ContextMenuItem>
 						</>
 					)}
 				</ContextMenuContent>
@@ -568,6 +595,48 @@ function MarcadorTransicion({
 			}}
 		>
 			⧓
+		</button>
+	);
+}
+
+/** Debajo de este ancho el botón va sin el texto (sólo el ícono); debajo de ÍCONO, no va. */
+const ANCHO_SUSTITUIR = 76;
+const ANCHO_ICONO_SUSTITUIR = 24;
+
+/**
+ * «Sustituir» (`pc_template_editor_replace`) sobre un clip de muestra de plantilla:
+ * abre el diálogo «Reemplazar el clip». Con el molde del ⧓ (MarcadorTransicion): un
+ * botón aparte del clip, que no lo arrastra ni lo elige con el mousedown.
+ */
+function BotonSustituir({
+	ancho,
+	alto,
+	onClick,
+}: {
+	ancho: number;
+	alto: number;
+	onClick: () => void;
+}) {
+	if (ancho < ANCHO_ICONO_SUSTITUIR) return null;
+	const conTexto = ancho >= ANCHO_SUSTITUIR;
+	return (
+		<button
+			type="button"
+			aria-label="Sustituir"
+			title="Sustituir"
+			className={cn(
+				"pointer-events-auto absolute left-1/2 z-20 flex h-[18px] -translate-x-1/2 cursor-pointer items-center justify-center gap-1 rounded-[4px] bg-white text-[11px] leading-none font-medium text-(--cc-clip-video) shadow-sm",
+				conTexto ? "px-1.5" : "w-[18px]",
+			)}
+			style={{ top: Math.max(CLIP_NAME_STRIP_HEIGHT_PX + 2, alto / 2 - 9 + CLIP_NAME_STRIP_HEIGHT_PX / 2) }}
+			onMouseDown={(e) => e.stopPropagation()}
+			onClick={(e) => {
+				e.stopPropagation();
+				onClick();
+			}}
+		>
+			<Replace className="size-3 shrink-0" aria-hidden />
+			{conTexto && "Sustituir"}
 		</button>
 	);
 }

@@ -15,10 +15,13 @@ import { useCallback, useEffect, useRef, useState, type CSSProperties, type Muta
 import { ResumenView } from './ResumenView';
 import ErrorIA from '../_components/ErrorIA';
 import { IconoBorrar } from '../_ui/BotonBorrar';
+// La subida (los tres pasos), lo que acepta y el rótulo de «Analizar» viven en un módulo puro: el Second
+// Brain del teléfono (app/m/second-brain/ArchiveroM.tsx) sube por el MISMO camino (AGENTS.md, MaKo Mobile).
+import { ACEPTA_ARCHIVERO, leerWebEnArchivero, rotuloAnalizar, subirAlArchivero } from '@/lib/archivero-subida';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
-const ACCEPT = '.txt,.md,.markdown,.docx,.pdf,image/*';
+const ACCEPT = ACEPTA_ARCHIVERO;
 
 type Fuente = { tipo: 'archivo' | 'manual'; id?: string; nombre?: string };
 type FileRow = { id: string; nombre: string; mime: string | null; tamano: number | null; razonamiento: string | null; aporto: number; created_at: string };
@@ -215,29 +218,21 @@ export function Archivero({ onEstado, onListo, registro }: {
       // de Vercel, que daba 413 aun con un solo PDF grande). Por cada archivo: pedimos una
       // URL firmada, subimos el binario derecho a storage, y el server solo lo procesa
       // (baja + extrae). La cascada avatares→razones corre en el último (finalizar).
+      // Los tres pasos (URL firmada, el binario a storage, procesar) son `subirAlArchivero`
+      // (lib/archivero-subida.ts): lanza con el mismo mensaje si no se pudo preparar, subir o leer la respuesta.
       let ultimo: (Estado & { ok?: boolean }) | null = null;
       const warns: string[] = [];
       for (let i = 0; i < cola.length; i++) {
         const c = cola[i];
         const finalizar = links.length === 0 && i === cola.length - 1;
-        // 1) URL firmada.
-        const su = await (await fetch('/api/onboarding/archivero/upload-url', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nombre: c.file.name, mime: c.file.type }) })).json();
-        if (!su.ok) throw new Error(su.error || 'No se pudo preparar la subida.');
-        // 2) Subir el binario directo a storage.
-        const up = await fetch(su.signedUrl, { method: 'PUT', headers: { 'content-type': c.file.type || 'application/octet-stream', 'x-upsert': 'true' }, body: c.file });
-        if (!up.ok) throw new Error(`No se pudo subir "${c.file.name}" (${up.status}).`);
-        // 3) Procesar (solo metadata; el server baja y extrae).
-        const res = await fetch('/api/onboarding/archivero', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'procesar', fileId: su.fileId, path: su.path, nombre: c.file.name, mime: c.file.type, tamano: c.file.size, finalizar }) });
-        const j = await res.json().catch(() => null) as (Estado & { ok?: boolean; warnings?: string[]; error?: string; brief?: unknown }) | null;
-        if (!j) throw new Error(`No se pudo procesar "${c.file.name}" (error ${res.status}).`);
+        const j = await subirAlArchivero(c.file, finalizar) as Estado & { ok?: boolean; warnings?: string[]; error?: string; brief?: unknown };
         if (Array.isArray(j.warnings)) warns.push(...j.warnings);
         if (j.ok !== false && j.brief) ultimo = j; // si ESTE archivo no se pudo leer, ya está en warnings; seguimos
       }
       // Webs pegadas: el server baja la página, saca el texto y extrae (mismo flujo).
       for (let i = 0; i < links.length; i++) {
         const finalizar = i === links.length - 1;
-        const res = await fetch('/api/onboarding/archivero', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'procesar-link', url: links[i], finalizar }) });
-        const j = await res.json().catch(() => null) as (Estado & { ok?: boolean; warnings?: string[]; error?: string; brief?: unknown }) | null;
+        const j = await leerWebEnArchivero(links[i], finalizar) as (Estado & { ok?: boolean; warnings?: string[]; error?: string; brief?: unknown }) | null;
         if (!j) { warns.push(`No pude leer la web "${dominio(links[i])}".`); continue; }
         if (Array.isArray(j.warnings)) warns.push(...j.warnings);
         if (j.ok !== false && j.brief) ultimo = j;
@@ -512,7 +507,7 @@ export function Archivero({ onEstado, onListo, registro }: {
   // ── INICIO (dropzone o compacto + link + cola con PREVIEW + Analizar) ────────
   const algoEnCola = cola.length > 0 || links.length > 0;
   const nCola = cola.length + links.length;
-  const labelAnalizar = cola.length && links.length ? `${nCola} cosas` : links.length ? `${links.length} ${links.length === 1 ? 'web' : 'webs'}` : `${cola.length} documento${cola.length === 1 ? '' : 's'}`;
+  const labelAnalizar = rotuloAnalizar(cola.length, links.length);
   return (
     <div style={{ maxWidth: 640, margin: '0 auto' }}>
       {keyframes}

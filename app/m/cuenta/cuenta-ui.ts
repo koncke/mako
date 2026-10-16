@@ -14,8 +14,13 @@
 // sin instalar, así que «Instalar la app» no bloquea los avisos.
 //
 // v2: todo eso es UNA fila con interruptor («Avisos en este teléfono», como en el prototipo) y,
-// según el estado, una segunda línea corta, la fila «Instalar la app», «Qué te avisa» (un sheet con
-// los tipos) y «Probar aviso». Cómo se destraba un permiso negado va debajo de la lista.
+// según el estado, una segunda línea corta, la fila «Instalar la app», «Qué te avisa» y «Probar
+// aviso». Cómo se destraba un permiso negado va debajo de la lista.
+//
+// v3 (15/10/2026, «Tu cuenta» como Google): las secciones de la computadora son FILAS de la pantalla
+// (lib/ajustes-secciones.ts). «Notificaciones» abre una hoja con lo de arriba y dice a la derecha cómo
+// está ESTE teléfono (`rielNotificaciones`); «Instalar la app» es su propia fila y SIEMPRE lleva a algo
+// (`filaInstalar`): en Android sin el aviso de Chrome, los pasos del menú del navegador.
 // =============================================================================
 
 import type { EstadoAvisos } from '@/lib/push-cliente';
@@ -84,4 +89,61 @@ export function toastDePrueba(r: { ok: boolean; enviados: number; sinSuscripcion
   if (r.ok && r.enviados > 0) return 'Aviso enviado';
   if (r.sinSuscripciones > 0) return 'Ningún teléfono activo';
   return 'No se pudo enviar';
+}
+
+// ── «Tu cuenta» v3: las secciones como filas ─────────────────────────────────
+
+/**
+ * Lo que dice a la derecha la fila «Notificaciones»: cómo está ESTE teléfono, en una o dos palabras
+ * (como «Desactivadas» en los Ajustes del iPhone). Prendido, qué llega (`resumenAvisos`: «Todos»,
+ * «12 de 20», «Ninguno»); sin preferencias guardables, «Activados». Mientras se revisa el teléfono,
+ * nada: una palabra que cambia de opinión al segundo es peor que el hueco.
+ */
+export function rielNotificaciones(vista: VistaAvisos, resumen: string | null): string | null {
+  switch (vista) {
+    case 'cargando': return null;
+    case 'activo': return resumen ?? 'Activados';
+    case 'bloqueado': return 'Bloqueados';
+    case 'no-soportado': return 'No disponibles';
+    // 'activar' (apagados) e 'instalar-ios' (adentro de la hoja dice «Primero instala MaKo»).
+    default: return 'Apagados';
+  }
+}
+
+export type FilaInstalar = 'revisando' | 'instalada' | 'pasos-ios' | 'boton' | 'pasos';
+
+/**
+ * Qué hace la fila «Instalar la app». Es una sección de «Tu cuenta» y está SIEMPRE (en la computadora
+ * también), así que nunca es una fila muerta:
+ *   · revisando → todavía no se leyó el teléfono (se dibuja quieta, sin flecha);
+ *   · instalada → «Instalada» a la derecha, no abre nada;
+ *   · pasos-ios → los pasos de Safari (iOS no tiene aviso de instalación);
+ *   · boton → el aviso de Chrome que se guardó (`beforeinstallprompt`);
+ *   · pasos → Android sin ese aviso (ya se descartó, u otro navegador): los pasos del menú.
+ */
+export function filaInstalar(p: { ios: boolean; instalada: boolean; puedePedir: boolean } | null): FilaInstalar {
+  if (!p) return 'revisando';
+  if (p.instalada) return 'instalada';
+  return ofertaInstalar(p) ?? 'pasos';
+}
+
+export type PasoInstalar = { icono: string; frase: string };
+
+// ⚠️ Los íconos son de app/_components/icons.tsx (uno inventado dibuja un punto; el test lo mira). El set
+// no tiene el «Compartir» de iOS ni los tres puntos de Chrome: va el del navegador.
+const PASOS_IOS: readonly PasoInstalar[] = [
+  { icono: 'web', frase: 'Toca Compartir en la barra de Safari.' },
+  { icono: 'grid', frase: 'Elige «Agregar a inicio».' },
+  { icono: 'mako', frase: 'Abre MaKo desde el ícono nuevo.' },
+];
+// «Instalar» a secas: Chrome dice «Instalar app» o «Instalar aplicación» según la versión.
+const PASOS_ANDROID: readonly PasoInstalar[] = [
+  { icono: 'web', frase: 'Toca el menú del navegador.' },
+  { icono: 'descargar', frase: 'Elige «Instalar» en ese menú.' },
+  { icono: 'mako', frase: 'Abre MaKo desde el ícono nuevo.' },
+];
+
+/** Los pasos para dejar MaKo en la pantalla de inicio, los del sistema de ESTE teléfono. */
+export function pasosInstalar(ios: boolean): readonly PasoInstalar[] {
+  return ios ? PASOS_IOS : PASOS_ANDROID;
 }

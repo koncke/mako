@@ -26,23 +26,21 @@
 import { useState, useTransition, type ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
 import { useRouter } from '@/app/_ui/Link';
-import { deleteLeadAction } from '../actions';
+import { deleteLeadAction, type LeadFullData } from '../actions';
 import { ConfirmDialog } from '@/app/components/ConfirmDialog';
-import { deriveStageKey, stageMetaOpt, type Stage } from '@/lib/pipeline';
+import { deriveStageKey, stageMetaOpt } from '@/lib/pipeline';
 import type { FathomLink } from '@/lib/leads';
 import { suscripcionDeFila } from '@/lib/venta-tipo';
-import type { Step, StepId } from '@/lib/stage-requirements';
-import type { Pago } from '@/lib/pagos';
-import type { MiembroEquipo } from '../actions';
+import type { StepId } from '@/lib/stage-requirements';
 import { EditarDeal } from './EditarDeal';
-import { LeadTabs, type LeadTabDef } from '../lead-view/LeadTabs';
-import { FunnelYEtapa, useProductosDeLaFicha, type ProductoOpcion } from '../lead-view/ProductoDelLead';
+import { FunnelYEtapa, useProductosDeLaFicha } from '../lead-view/ProductoDelLead';
 import { DatosSinMarcarCard } from '../lead-view/DatosSinMarcarCard';
-import { AvisosDatosModal } from '../lead-view/AvisosDatosModal';
-import { Senalar } from '@/app/_ui/Senalar';
-import { TAB_DE_DATO, marcaDato, type EstadoDatos } from '@/lib/datos-aviso';
-import { CabeceraLead, type LeadConCara } from '../lead-view/CabeceraLead';
+import { CabeceraLead } from '../lead-view/CabeceraLead';
 import { EtiquetasDelLead, versionDeEtiquetas } from '../lead-view/EtiquetasDelLead';
+// ⚠️ LAS TABS Y SUS BLOQUES SON LA MISMA PIEZA QUE LA DEL POP-UP DEL TABLERO (14/10/2026): esta ruta y
+// app/crm/LeadSheet.tsx montan `FichaPorBloques` con los MISMOS datos (`getLeadFullAction`).
+import { FichaPorBloques } from '../lead-view/ficha/FichaPorBloques';
+import { ALTO_CHAT_EN_LA_RUTA } from '../lead-view/ficha-medidas';
 import { StageMoveDialog, type MoveLeadInfo } from '../StageMoveDialog';
 import { MoverEtapaConfirm } from '../MoverEtapaConfirm';
 import { pideWizardAlElegir } from '../mover-etapa';
@@ -73,41 +71,19 @@ export function BackButton() {
   );
 }
 
-export function LeadDetailBody({ lead, stages, pagos, initialTab, initialEdit, initialSolucionar, tabs, nombre, stageLabel, faltantes = [], datos, equipo = [], productos = [], fotoEmail = null }: {
-  /** Con las columnas de la cara (portada, encuadres): la cabecera las dibuja y las cambia. */
-  lead: LeadConCara;
-  stages: Stage[];
-  pagos: Pago[];
-  /** La foto del email (Gravatar, `d=404`), armada en el server. Ver lead-view/CaraDelLead.tsx. */
-  fotoEmail?: string | null;
+export function LeadDetailBody({ data, initialTab, initialEdit, initialSolucionar }: {
+  /**
+   * TODO lo que lee la ficha, de `getLeadFullAction`: la MISMA lectura que el pop-up del tablero. Hasta el
+   * 14/10/2026 esta ruta armaba sus tabs y sus datos a mano en page.tsx, y «N sin marcar» salía distinto.
+   */
+  data: LeadFullData;
   initialTab?: string;
   initialEdit?: boolean;
   /** ?solucionar=1: abrir directo el asistente (o la edición si solo faltan datos estáticos). */
   initialSolucionar?: boolean;
-  /** Tabs de LECTURA (contenido server-rendered). */
-  tabs: LeadTabDef[];
-  // El nombre (para la confirmación de borrar) y el de la etapa (para «Mover de… a…»). La
-  // empresa, el alta y el color salen del `lead`, adentro de la cabecera.
-  nombre: string;
-  stageLabel: string;
-  /** Datos sin marcar de la etapa actual (badge + Solucionar). */
-  faltantes?: Step[];
-  /** Lo mismo, partido en lo que avisa y lo escondido (el desplegable, lib/datos-aviso.ts). */
-  datos?: EstadoDatos;
-  /** Equipo del workspace (para los desplegables de setter/closer del wizard). */
-  equipo?: MiembroEquipo[];
-  /**
-   * Los productos del workspace, para el desplegable de «en cuáles está este lead».
-   *
-   * Pedido de Martín: «Dentro del detail de un lead debería salir el mismo desplegable
-   * de productos». Con uno solo no se dibuja: un desplegable de una opción promete una
-   * decisión que no existe.
-   *
-   * Es la FOTO con la que el botón se dibuja al toque: en cuáles está y con qué etapa lo
-   * trae la ficha misma (`productosDeLaFichaAction`), que es lo único que lo sabe.
-   */
-  productos?: ProductoOpcion[];
 }) {
+  const { lead, stages, pagos, faltantes, datos, equipo, productos, fotoEmail } = data;
+  const nombre = lead.nombre;
   const router = useRouter();
   const pathname = usePathname();
   const currentStage = lead.pipeline_stage && stages.some((s) => s.key === lead.pipeline_stage) ? lead.pipeline_stage : deriveStageKey(lead);
@@ -117,7 +93,6 @@ export function LeadDetailBody({ lead, stages, pagos, initialTab, initialEdit, i
   // marca los datos del worklist (`completeStageMoveAction`), así que no hay una
   // segunda escritura que reemplazar: lo que se saca es la bifurcación.
   const [editandoDeal, setEditandoDeal] = useState(!!initialEdit);
-  const [tab, setTab] = useState(initialTab && tabs.some((t) => t.key === initialTab) ? initialTab : tabs[0]?.key ?? 'resumen');
   const [moveTo, setMoveTo] = useState<string | null>(initialSolucionar && faltantes.length > 0 ? currentStage : null);
   const [moverDirecto, setMoverDirecto] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -132,19 +107,12 @@ export function LeadDetailBody({ lead, stages, pagos, initialTab, initialEdit, i
   // En qué productos está y cuál se mira. Acá no hace falta releer nada si cambia la casa: el
   // `router.refresh()` que hace la ficha después de cada cambio le trae el lead de nuevo.
   const fichaProd = useProductosDeLaFicha({ leadId: lead.id, casa: lead.funnel_id, foto: productos });
+  const stageLabel = stageMetaOpt(stages, currentStage)?.label ?? lead.estado_lead;
 
-  // «Solucionar» un dato lleva al dato y lo señala (13/10/2026), igual que el pop-up del tablero
-  // (app/crm/LeadSheet.tsx): la tab donde vive su campo, y el asistente sólo de respaldo.
-  const [irATab, setIrATab] = useState<{ key: string; n: number } | null>(null);
-  const [senal, setSenal] = useState<{ id: StepId; label: string } | null>(null);
-  const [configAvisos, setConfigAvisos] = useState(false);
-  const solucionarDato = (id: StepId) => {
-    const destino = TAB_DE_DATO[id];
-    if (!tabs.some((t) => t.key === destino)) { setMoveTo(currentStage); return; }
-    const d = [...(datos?.avisar ?? []), ...(datos?.ocultos ?? [])].find((x) => x.id === id);
-    setIrATab({ key: destino, n: Date.now() });
-    setSenal({ id, label: d?.label ?? 'este dato' });
-  };
+  // «Solucionar» un dato lleva al dato y lo señala (13/10/2026), igual que el pop-up del tablero: lo
+  // resuelve la ficha (`pedido`, lead-view/ficha/FichaPorBloques.tsx), con el asistente sólo de respaldo.
+  const [pedido, setPedido] = useState<{ id: StepId; n: number } | null>(null);
+  const solucionarDato = (id: StepId) => setPedido({ id, n: Date.now() });
 
   const moveInfo: MoveLeadInfo = {
     id: lead.id,
@@ -224,8 +192,7 @@ export function LeadDetailBody({ lead, stages, pagos, initialTab, initialEdit, i
           <>
             <FunnelYEtapa ficha={fichaProd} etapasCasa={stages} etapaCasa={currentStage} onElegirCasa={pickStage} ariaLabel="Cambiar etapa o funnel" />
             {datos && (
-              <DatosSinMarcarCard leadId={lead.id} datos={datos} onSolucionar={solucionarDato}
-                onConfigurar={() => setConfigAvisos(true)} onCambio={() => router.refresh()} />
+              <DatosSinMarcarCard leadId={lead.id} datos={datos} onSolucionar={solucionarDato} onCambio={() => router.refresh()} />
             )}
           </>
         }
@@ -246,8 +213,10 @@ export function LeadDetailBody({ lead, stages, pagos, initialTab, initialEdit, i
         />
       ) : (
         <>
-          {/* La fila de pestañas queda pegada arriba al scrollear la página (punto 16). */}
-          <LeadTabs initial={tab} onChange={setTab} tabs={tabs} irA={irATab} fija={{ fondo: 'var(--bg)' }} />
+          {/* La fila de pestañas queda pegada arriba al scrollear la página (punto 16). Las tabs son las
+              del pop-up (`FichaPorBloques`): en esta ruta el lead viene del server y el refresh lo trae. */}
+          <FichaPorBloques data={data} initialTab={initialTab} fondoTabs="var(--bg)" altoChat={ALTO_CHAT_EN_LA_RUTA}
+            pedido={pedido} onNoEsta={() => setMoveTo(currentStage)} />
           {/* ⚠️ BORRAR LEAD NO SE FUE CON EL BOTÓN DE EDITAR. Vivía al pie del formulario,
               que era el único lugar de ESTA ruta donde se podía borrar (el modal tiene el
               suyo). Es irreversible, así que queda al fondo y con su confirmación
@@ -271,11 +240,6 @@ export function LeadDetailBody({ lead, stages, pagos, initialTab, initialEdit, i
         />
       )}
 
-      {senal && (
-        <Senalar objetivo={marcaDato(senal.id)} texto={`Falta: ${senal.label}`}
-          onCerrar={() => setSenal(null)} onNoEsta={() => setMoveTo(currentStage)} />
-      )}
-      {configAvisos && <AvisosDatosModal funnelId={lead.funnel_id ?? null} onCerrar={() => setConfigAvisos(false)} onGuardado={() => router.refresh()} />}
 
       {moveTo && (
         <StageMoveDialog

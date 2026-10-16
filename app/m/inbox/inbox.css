@@ -1,19 +1,21 @@
-/* /m/inbox — lo propio de la pantalla (v2, docs/prototipos/mako-mobile-v2.html: data-ir="inbox").
-   Todo con alcance [data-m] y prefijo .m-inbox-: Next deja la hoja cargada al salir de la ruta.
-   Las primitivas (lista, fila, segmentado, sheet, pie) viven en app/m/m.css. Sólo var(--token). */
+/* /m/inbox («Avisos») — lo propio de la pantalla (v3, docs/prototipos/mako-mobile-tableros.html:
+   PANTALLAS.avisos). Todo con alcance [data-m] y prefijo .m-inbox-: Next deja la hoja cargada al
+   salir de la ruta. Las primitivas (lista, fila, baldosa .m-icono, segmentado, sheet, pie) viven en
+   app/m/m.css. Sólo var(--token). */
 
-/* El segmentado va pegado al título; 16 px hasta la lista (el prototipo). */
+/* El segmentado va pegado al título; 14 px hasta la lista (el `.gap` del prototipo). */
 [data-m] .m-inbox-seg { padding-top: 4px; }
-[data-m] .m-inbox-cuerpo { padding-top: 16px; }
+[data-m] .m-inbox-cuerpo { padding-top: 14px; }
 [data-m] .m-inbox-cuerpo--solo { padding-top: 4px; }
 
-/* La marca de la fila: la estrella de MaKo sobre dorado SÓLO si la propuso MaKo;
-   si no, el ícono en gris. 40 px, como un avatar: el filete arranca después. */
-[data-m] .m-inbox-marca {
-  flex: none; width: 40px; height: 40px; display: grid; place-items: center;
-  border-radius: 12px; background: var(--mako-bg);
+/* Un aviso sin leer: el punto azul en el margen izquierdo de la fila (los 16 px antes de la
+   baldosa), como un no leído de GitHub Mobile o Linear. El color va en el punto; el título
+   sube a 600 (FilaM sin `navegacion`). */
+[data-m] .m-inbox-lead { position: relative; display: grid; place-items: center; }
+[data-m] .m-inbox-nuevo {
+  position: absolute; left: -12px; top: 50%; width: 8px; height: 8px; margin-top: -4px;
+  border-radius: 50%; background: var(--primary);
 }
-[data-m] .m-inbox-marca--neutra { background: var(--surface-2); color: var(--dim); }
 
 /* La fila «N para revisar · En la computadora»: el chevron apunta abajo cuando está abierta. */
 [data-m] .m-inbox-compu .m-fila__ir svg { transition: transform 200ms var(--ease-out); }

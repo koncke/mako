@@ -689,6 +689,26 @@ TODAS las del servicio. **Regla:** quien reemplaza un identificador de ruteo sue
 `soltarIdentificador(servicio, id, ws)`. Afecta también a `META_PAGE_ID` (no se tocó).
 **Vive en:** `lib/webhook-routing.ts` · `lib/cobros-conexion.ts`.
 
+### Quitar la R2 de Calendly se llevaba el ruteo de la R1 (16/10/2026)
+
+**Síntoma (latente, encontrado leyendo, no reportado):** un negocio borra en Integraciones el «Tipo de
+evento de R2» y desde ese momento sus reservas de la R1 contestan 200 «sin_ruteo» y no entran al CRM.
+El diagnóstico obvio —«la R1 está mal cargada» o «Calendly no manda»— es el equivocado: la R1 está bien.
+**Causa:** `eliminarCredencial` llama a `borrarRoutingDeWs(servicio, ws)`, que borra TODAS las filas de
+`calendly` (o `calcom`) de ese workspace, y la agenda tiene DOS credenciales en el mismo servicio (y
+desde la mig 0293, los eventos vinculados a una etapa). La de la R1 se iba con la de la R2.
+**Arreglo:** después de borrar, `reclamarRuteoDeAgenda` (lib/agenda-evento-etapa-server.ts) vuelve a
+reclamar lo que se sigue usando (la otra credencial y los vinculados); si no puede leer qué se usa, no
+reclama nada y lo dice en el log. **Regla:** un servicio de `ROUTING_CREDS` con más de una fuente de
+identificadores no puede usar el borrado por servicio sin volver a reclamar; y para soltar UNO se usa
+`soltarIdentificador` después de preguntar si alguien más lo usa.
+**Y el ruteo compara EXACTO** (sólo los emails bajan a minúsculas), mientras `clasificarJunta` es
+tolerante: la R1 cargada con otra mayúscula clasifica y no rutea. Medido en producción el 16/10/2026:
+las únicas filas de agenda son las 2 de Calendly del ws1 (nombres con mayúscula, como en Calendly) y las
+2 de Cal.com del ws13 (slugs): hoy no muerde a nadie.
+**Vive en:** `lib/credenciales.ts` (`eliminarCredencial`) · `lib/webhook-routing.ts` ·
+`lib/agenda-evento-etapa-server.ts` · `tests/agenda-evento-etapa.test.ts`.
+
 ### Reclamar el id de la cuenta ANTES de guardar la clave
 
 Así, si la cuenta ya es de otro workspace, contesta 409 y no guarda nada — y de paso impide que un

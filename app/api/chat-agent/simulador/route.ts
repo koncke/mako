@@ -1,6 +1,10 @@
 // =============================================================================
 // API: el «Probar» de /automations — el panel que recorre el flujo que se está editando
 // =============================================================================
+// GET  ?grupo=1[&evento=1] → { hay, nombre, deCadaNegocio? }: el grupo de WhatsApp de MaKo de ESTE negocio, con su
+//      nombre REAL (16/10/2026, lib/probar-grupo.ts: el primer contacto de «Probar»). Sólo se LEE: «Probar» nunca le
+//      escribe. `evento=1` en SuperAdmin: la fila de un evento le escribe al grupo de CADA negocio, no hay un nombre.
+//      Admin y setter. `nombre: null` = no se pudo leer (no es «no tiene»: eso es `hay: false`).
 // GET  ?destino=1 → { telefono, email, telefonos, emails }: lo de la PERSONA que mira (su fila de
 //      `usuarios`): su teléfono y su email, y los que guardó para probar (`destinosGuardados`). Sólo admin.
 //      ⚠️ Antes era el contacto de reportes del WORKSPACE: con el super admin mirando a un cliente,
@@ -29,7 +33,9 @@
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
-import { getRolWsEfectivo, getWorkspaceActual } from '@/lib/workspace';
+import { getRolWsEfectivo, getWorkspaceActual, wsSuperAdmin } from '@/lib/workspace';
+import { getGrupoJidMaKo } from '@/lib/mako-grupo';
+import { infoGrupoMaKo } from '@/lib/mako-chat';
 import { responderSimulador, type TurnoSim } from '@/lib/setting-simulador';
 import { transcribirAudio } from '@/lib/ai-cheap';
 import { clasificarEscenario } from '@/lib/chat-agent-handoff';
@@ -79,10 +85,32 @@ async function transcribir(body: Record<string, unknown>): Promise<{ texto: stri
   return t ? { texto: t } : { error: 'No entendí el audio — prueba de nuevo o escríbelo.' };
 }
 
+/** Cuánto se espera a WhatsApp por el nombre del grupo: sin él, el contacto dice «Grupo de MaKo» y la prueba sigue. */
+const PLAZO_GRUPO_MS = 8000;
+
+/** El grupo de MaKo del negocio, para el primer contacto de «Probar» (`nombreDelGrupo`, lib/probar-grupo.ts). */
+async function grupoDelNegocio(ws: number, deUnEvento: boolean): Promise<Record<string, unknown>> {
+  try {
+    if (deUnEvento && ws === (await wsSuperAdmin().catch(() => -1))) return { ok: true, hay: true, nombre: null, deCadaNegocio: true };
+    const jid = await getGrupoJidMaKo(ws);
+    if (!jid) return { ok: true, hay: false, nombre: null };
+    const info = await Promise.race([
+      infoGrupoMaKo(jid).catch(() => null),
+      new Promise<null>((r) => { setTimeout(() => r(null), PLAZO_GRUPO_MS); }),
+    ]);
+    return { ok: true, hay: true, nombre: info?.subject?.trim() || null };
+  } catch (e) {
+    console.error(`[api:chat-agent/simulador GET grupo] ${msg(e)}`);
+    return { ok: false, error: 'No pude leer el grupo.' };
+  }
+}
+
 export async function GET(req: NextRequest) {
   const a = await acceso();
   if (!a) return json(SIN_ACCESO, 403);
-  if (req.nextUrl.searchParams.get('destino') !== '1') return json({ ok: false, error: 'pedido inválido' }, 400);
+  const q = req.nextUrl.searchParams;
+  if (q.get('grupo') === '1') return json(await grupoDelNegocio(a.ws, q.get('evento') === '1'));
+  if (q.get('destino') !== '1') return json({ ok: false, error: 'pedido inválido' }, 400);
   // «Mandar a mi WhatsApp» le escribe a un número real: el destino sólo lo ve el admin.
   if (a.rol !== 'admin') return json({ ok: false, error: 'Solo el admin prueba de verdad.' }, 403);
   try {
@@ -127,7 +155,8 @@ export async function POST(req: NextRequest) {
       const escenarios: EscenarioSecuencia[] = casos.map((c) => ({
         titulo: c.titulo, cuando: c.cuando, comoResponder: c.comoResponder, ...(c.contestaSolo ? { contestaSolo: true } : {}),
       }));
-      const r = await clasificarEscenario(mensaje, escenarios);
+      // Con la red de plataforma, como en vivo (AGENTS.md: todo camino de IA que use un cliente necesita su red).
+      const r = await clasificarEscenario(mensaje, escenarios, { redDePlataforma: true });
       const i = r.encaja ? escenarios.indexOf(r.escenario) : -1;
       return json({
         ok: true,
@@ -157,7 +186,7 @@ export async function POST(req: NextRequest) {
       };
       // ⚠️ `responderSimulador` lee de lo GUARDADO el nombre, el objetivo, el gancho y las
       // preguntas de la secuencia; lo que se edita en el lienzo (el caso y su guía) viaja acá.
-      const r = await responderSimulador(id, historial, { escenario });
+      const r = await responderSimulador(id, historial, { escenario, redDePlataforma: true });
       if (!r.ok) return json({ ok: false, error: r.error }, 400);
       return json({ ok: true, respuesta: r.respuesta });
     }
@@ -206,7 +235,7 @@ export async function POST(req: NextRequest) {
     if ('error' in t) return json({ ok: false, error: t.error }, 400);
     if (t.texto) historial.push({ de: 'lead', texto: t.texto });
     if (!historial.length) return json({ ok: false, error: 'Escribe un mensaje como el lead primero.' }, 400);
-    const r = await responderSimulador(id, historial);
+    const r = await responderSimulador(id, historial, { redDePlataforma: true });
     if (!r.ok) return json({ ok: false, error: r.error }, 400);
     return json({ ok: true, respuesta: r.respuesta, desenlace: r.desenlace, ...(t.texto ? { transcript: t.texto } : {}) });
   } catch (e) {

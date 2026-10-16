@@ -1562,3 +1562,30 @@ abría, y el que llegaba desde otra pantalla quedaba igual de perdido que antes.
 
 **Vive en:** `app/second-brain/VistaCerebro.tsx` · `app/second-brain/AreasHub.tsx` ·
 *2026-09-26*
+
+## Las reglas del mapa salieron de Grafo.tsx: el teléfono las lee igual (16/10/2026)
+
+El Second Brain del teléfono (app/m/second-brain) necesitaba contar los datos de cada área, pintar cada punto
+y saber qué documento se puede mirar, y esas reglas vivían ADENTRO de Grafo.tsx (`'use client'`, ~1.950
+líneas): `porArea`, `grados`, `rellenoDe`, `urlPreview`, `esImagen`, `sePuedeVer`. Lo mismo con la subida
+del Archivero (los tres pasos de `analizar`, ACCEPT y el rótulo de «Analizar») en app/onboarding/Archivero.tsx.
+Un módulo de cliente no se puede llamar desde el server ni importar sin llevarse la pantalla entera, así que
+se mudaron a **lib/cerebro-areas.ts** y **lib/archivero-subida.ts** (puros) y escritorio pasó a importarlas.
+
+- **El conteo de «Tu negocio» no cuenta estructura ni pendientes** (`esEstructura`: raíz, `n1:`, `area:`):
+  un «3 datos» que incluye lo que falta miente. Un área sin datos no aparece en el conteo: quien dibuja
+  escribe «falta», nunca un 0.
+- **La ruta de la vista previa va SIN `?ws=`** (`rutaVistaDocumento`) y la pega quien la usa
+  (`conWs(…, wsDeBusqueda(location.search))` en escritorio, `useWs()` en el teléfono): un `<iframe>` o un
+  `<a target=_blank>` no pasan por el parche de fetch, y el super-admin mirando a un cliente recibía «Archivo
+  no encontrado».
+- **Un nodo `falta:<área>` es un pendiente con el nombre del área** (lib/cerebro-grafo.ts:936-950): listado
+  adentro de su área duplica el vacío. El teléfono lo saca de la hoja del área y lo deja en la búsqueda.
+
+Lo que fija que no vuelva la copia: tests/m-second-brain.test.ts (Grafo.tsx con su `porArea` a mano, con la
+ruta de la vista previa escrita o Archivero.tsx con su fetch a /upload-url dan 10 / 1 cada uno).
+⚠️ Archivero.tsx conserva su normalización del link pegado (en main se llama `urlDelLink`, 607ceb205): no se
+pasó a `normalizarUrlArchivero` para no pisar ese renombre.
+
+**Vive en:** lib/cerebro-areas.ts · lib/archivero-subida.ts · app/second-brain/Grafo.tsx ·
+app/onboarding/Archivero.tsx · app/m/second-brain/modelo.ts · tests/m-second-brain.test.ts · *2026-10-16*

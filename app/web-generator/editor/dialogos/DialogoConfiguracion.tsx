@@ -7,7 +7,8 @@
 // (gamma-ui.md §5.12.7): navegación a la izquierda y el formulario a la derecha. De lo que lista
 // Gamma, lo que tiene sentido en una landing:
 //   · Secciones: «Animaciones» (la entrada de las secciones al hacer scroll en la página
-//     publicada: `config.pagina.animaciones`), y el ancho y la alineación de contenido de TODAS
+//     publicada: `config.pagina.animaciones`, el interruptor maestro; el estilo y el efecto de cada
+//     sección, desde el 15/10, en el panel «Animar», al que lleva «Cambiar»), y el ancho y la alineación de contenido de TODAS
 //     las secciones de la página a la vez («Ancho de la diapositiva» y «Alineación de
 //     contenido» de Gamma). Si las secciones no coinciden, no hay ninguna opción marcada.
 //   · Fondo: la imagen de fondo de la página (`config.pagina.fondoImagen`, detrás de las
@@ -38,6 +39,7 @@ import { useState } from 'react';
 import { useEditorState } from '@tiptap/react';
 import { NODO, type AttrsTarjeta } from '@/lib/editor-landing/doc';
 import { attrsTarjeta } from '@/lib/editor-landing/especificacion';
+import { estiloPorId } from '@/lib/editor-landing/animaciones';
 import { diapositivaFija, esPresentacion, proporcionDe, terminoTarjeta, type FormatoDoc, type Proporcion } from '@/lib/editor-landing/api-tipos';
 import { useEditorLanding } from '../contexto';
 import { Campo, CampoImagen, EstilosGmp, FilaAjuste, Icono, Interruptor, ModalGma, Segmentado, useConfigViva, useFijo, type OpcionSeg } from './piezas-gma';
@@ -88,7 +90,7 @@ export function DialogoConfiguracion({ onCerrar }: { onCerrar?: () => void } = {
 }
 
 function DialogoConfiguracionAbierto({ onCerrar }: { onCerrar?: () => void }) {
-  const { editor, setDialogo } = useEditorLanding();
+  const { editor, setDialogo, abrirAnimar } = useEditorLanding();
   const { config, cambiar } = useConfigViva();
   const cerrar = useFijo(() => (onCerrar ? onCerrar() : setDialogo(null)));
   const [seccion, setSeccion] = useState<Seccion>('secciones');
@@ -146,9 +148,14 @@ function DialogoConfiguracionAbierto({ onCerrar }: { onCerrar?: () => void }) {
                 </Campo>
               ) : null}
               <hr className="gmp-sep" />
-              <FilaAjuste titulo="Animaciones">
-                <Interruptor etiqueta="Animaciones" activo={config.pagina.animaciones}
-                  onCambiar={(v) => cambiar((c) => ({ ...c, pagina: { ...c.pagina, animaciones: v } }))} />
+              {/* El interruptor MAESTRO sigue acá y escribe lo mismo que el de «Animar» (config.pagina.animaciones).
+                  El estilo y el efecto de cada sección se eligen en el panel «Animar» (paneles/PanelAnimacion.tsx). */}
+              <FilaAjuste titulo="Animaciones" ayuda={`Estilo: ${estiloPorId(config.pagina.estiloAnimacion).nombre}`}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
+                  <button type="button" className="gmp-btn gmp-btn-contorno gmp-btn-chico" onClick={() => { cerrar(); abrirAnimar('pagina'); }}>Cambiar</button>
+                  <Interruptor etiqueta="Animaciones" activo={config.pagina.animaciones}
+                    onCambiar={(v) => cambiar((c) => ({ ...c, pagina: { ...c.pagina, animaciones: v } }))} />
+                </span>
               </FilaAjuste>
               <hr className="gmp-sep" />
               {fija ? null : (

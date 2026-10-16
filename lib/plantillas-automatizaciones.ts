@@ -220,6 +220,11 @@ function mako(id: string, texto: string, siguiente: string | null): PasoDePlanti
   return { ...RELLENO, id, siguiente, accion: { operacion: OP_AVISAR, params: paramsConPartes({ leadId: LEAD_DEL_EVENTO }, [{ tipo: 'texto', cuerpo: texto }]) } };
 }
 
+/** LA MISMA TARJETA POR EMAIL («MaKo por email», 16/10/2026): un correo al equipo del negocio, con su asunto. */
+function makoEmail(id: string, asunto: string, texto: string, siguiente: string | null): PasoDePlantilla {
+  return { ...RELLENO, id, siguiente, accion: { operacion: OP_AVISAR, params: paramsConPartes({ leadId: LEAD_DEL_EVENTO, canal: 'email', asunto }, [{ tipo: 'texto', cuerpo: texto }]) } };
+}
+
 /**
  * EL AI STEP de la plantilla: UNA tarjeta con su OBJETIVO y los escenarios del CATÁLOGO (`escenarioTipico`, con su
  * libertad: la escribe `camposDeLibertad`). `casos`: la clave del catálogo y el id del caso. De WhatsApp (`medio`
@@ -626,6 +631,69 @@ export const PLANTILLAS_PLATAFORMA: readonly PlantillaAutomatizacion[] = [
         'Hola:\n\nPara crear tu contraseña nueva de MaKo, entra a este link. Vence en 30 minutos y sirve una sola vez:\n{{link_restablecer}}\n\nSi no lo pediste tú, ignora este correo: tu contraseña no cambia.',
         null, { revisar: false },
       ),
+    ],
+  },
+  // LOS MENSAJES DE MaKo A SUS CLIENTES, mudados a automatizaciones de la plataforma (15/10/2026, el 2 de las doce de
+  // Martín; docs/diseno-avisos-plataforma.md). El evento lo emite el NEGOCIO cuya línea se cayó (lib/lineas-vigilante.ts)
+  // y la tarjeta le llega al grupo de ESE negocio (`negocioWs`, lib/flujos.ts). Cada dato en su renglón: un renglón con
+  // un dato vacío se va entero (`textoConDatos`), y la línea sin número ni etiqueta no deja «()». Con la firma «— MaKo»
+  // del texto de siempre: una tarjeta TAL CUAL no le suma envoltorio (16/10/2026, tests/avisos-plataforma.test.ts).
+  {
+    id: 'mako-whatsapp-caido',
+    nombre: 'Se Cayó el WhatsApp de un Negocio',
+    emoji: '🔴',
+    linea: 'Le avisa al grupo de un negocio que su WhatsApp se cayó, y qué hacer.',
+    origen: 'el vigilante de líneas (wa-desconectado): dos pruebas seguidas con la línea caída',
+    objetivo: 'clientes',
+    soloPlataforma: true,
+    cron: { fijo: TRIGGER_AVISO_MAKO, evento: 'whatsapp_caido' },
+    pasos: [
+      mako('wc_mk', '🔴 *{{linea_titulo}}*\n📱 {{linea_numero}}\n{{linea_motivo}} {{linea_link}} — MaKo', null),
+    ],
+  },
+  {
+    id: 'mako-whatsapp-volvio',
+    nombre: 'Volvió el WhatsApp de un Negocio',
+    emoji: '🟢',
+    linea: 'Le avisa al grupo de un negocio que su WhatsApp volvió (sólo si se había avisado la caída).',
+    origen: 'el vigilante de líneas (wa-reconectado)',
+    objetivo: 'clientes',
+    soloPlataforma: true,
+    cron: { fijo: TRIGGER_AVISO_MAKO, evento: 'whatsapp_volvio' },
+    pasos: [
+      mako('wv_mk', '🟢 *Volvió tu WhatsApp*\n📱 {{linea_numero}}\nPor ese número ya entran y salen mensajes otra vez. — MaKo', null),
+    ],
+  },
+  {
+    // La grabación de Fathom (`reunion-ocurrio-fathom`, 10/10/2026: «El de Fathom también debería ser algo que se configura
+    // en SuperAdmin»). Sale DESPUÉS del Closing Analyst, con el link a la pantalla del resumen (`{{link_lead}}`). La
+    // duración en su renglón: sin ella, se va sola y no se lleva la frase.
+    id: 'mako-reunion-grabada',
+    nombre: 'Terminó la Reunión de un Negocio',
+    emoji: '✅',
+    linea: 'Le avisa al grupo de un negocio que terminó una reunión con un lead, con el link al resumen de la llamada.',
+    origen: 'el webhook de Fathom (reunion-ocurrio-fathom), después de que MaKo analiza la charla',
+    objetivo: 'clientes',
+    soloPlataforma: true,
+    cron: { fijo: TRIGGER_AVISO_MAKO, evento: 'reunion_grabada' },
+    pasos: [
+      mako('rg_mk', '✅ Terminó la *{{grabacion_reunion}} con {{nombre_completo}}*.\n⏱️ {{grabacion_duracion}}\n\n👉 Mira el resumen de la llamada:\n{{link_lead}}\n\n— MaKo', null),
+    ],
+  },
+  {
+    // El reporte de los lunes (16/10/2026, docs/diseno-avisos-plataforma.md §6): lo arma el cron de cada negocio con sus
+    // preferencias, y sale POR EMAIL al equipo del negocio, como hasta hoy (nunca por WhatsApp: `REPORTE_POR_WHATSAPP`).
+    // El asunto y el cuerpo son los de `despacharReporte` (lib/notify.ts). Sin firma: el correo ya la lleva al pie.
+    id: 'mako-reporte-semanal',
+    nombre: 'Reporte Semanal de un Negocio',
+    emoji: '🗓️',
+    linea: 'Los lunes, le manda por email al equipo de cada negocio el reporte de su semana (Meta, ventas, cobranza).',
+    origen: 'el cron de los lunes (reporte-semanal), en cada negocio al que le toca según sus preferencias',
+    objetivo: 'clientes',
+    soloPlataforma: true,
+    cron: { fijo: TRIGGER_AVISO_MAKO, evento: 'reporte_semanal' },
+    pasos: [
+      makoEmail('rs_mk', '{{reporte_titulo}}', '{{reporte_texto}}', null),
     ],
   },
 ];

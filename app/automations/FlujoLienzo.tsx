@@ -49,7 +49,10 @@ import {
   type EditorMensajeWhatsAppProps,
 } from './EditorMensajeWhatsApp';
 // La tarjeta «MaKo en WhatsApp» POR PARTES (undécima tanda): su editor es el de WhatsApp sobre ESTE DTO.
-import { pasoDeMako, paramsDeMako, chipDeEspera, esperaQueAbra, FUERAS_DE_HORARIO, ROTULO_FUERA_DE_HORARIO, type CambioDeMako, type FueraDeHorario } from '@/lib/mako-tarjeta';
+import {
+  pasoDeMako, paramsDeMako, chipDeEspera, esperaQueAbra, FUERAS_DE_HORARIO, ROTULO_FUERA_DE_HORARIO, CANALES_MAKO, ROTULO_CANAL_MAKO,
+  TOPE_ASUNTO_MAKO, esPorEmail, asuntoDeMako, type CambioDeMako, type CanalMako, type FueraDeHorario,
+} from '@/lib/mako-tarjeta';
 import { useHorarioOficina } from './horario-oficina';
 // El contexto de los datos de una tarjeta: el MISMO con que Publicar los valida.
 import { contextoDeTarjeta } from '@/lib/tokens-del-flujo';
@@ -76,7 +79,7 @@ import { aplicarVariables } from '@/lib/template-vars';
 import { datosOfrecidos, type ContextoDatos } from '@/lib/variables-aviso';
 import type { AdjuntoDto } from '@/lib/setting-adjuntos-reglas';
 import {
-  claseDe, idDe, indicePorId, borrarNodo, condicionARespuesta, raizRespuesta, esPasoIA, TOPE_CASOS,
+  claseDe, idDe, indicePorId, borrarNodo, condicionARespuesta, raizRespuesta, esPasoIA, TOPE_CASOS, OPCIONES_SI_AGENDA_CERCA, textoSiAgendaCerca,
   type Espera, type NombresParaTexto,
 } from '@/lib/flujo-grafo';
 import {
@@ -324,6 +327,21 @@ export function FlujoLienzo({
   }, [rolAdmin, hayArchivos, biblioteca]);
   const archivoNuevo = (a: AdjuntoDto) => setBiblioteca((b) => (b?.estado === 'ok' ? { estado: 'ok', lista: [a, ...b.lista.filter((x) => x.id !== a.id)] } : b));
 
+  // CON CUÁNTA ANTICIPACIÓN SE PUEDE AGENDAR HOY (16/10/2026, `avisoAgendaCerca`): la ⚠ de una espera «antes de la
+  // reunión» que no llega a salir. Se pide sólo si hay una de esas esperas y quien mira es admin (la ruta es de admin).
+  // `undefined` = sin pedir; `null` = no se sabe (sin Calendly, o no se pudo leer): no se avisa nada.
+  const hayAntes = pasos.some((p) => claseDe(p) === 'esperar' && p.espera?.modo === 'antes_reunion');
+  const [anticipacion, setAnticipacion] = useState<number | null | undefined>(undefined);
+  useEffect(() => {
+    if (!rolAdmin || !hayAntes || anticipacion !== undefined) return;
+    let vivo = true;
+    fetch('/api/flujos/anticipacion', { cache: 'no-store', signal: AbortSignal.timeout(30_000) })
+      .then((r) => r.json())
+      .then((j: { ok?: boolean; minutos?: number | null }) => { if (vivo) setAnticipacion(j?.ok && typeof j.minutos === 'number' ? j.minutos : null); })
+      .catch(() => { if (vivo) setAnticipacion(null); });
+    return () => { vivo = false; };
+  }, [rolAdmin, hayAntes, anticipacion]);
+
   // Los catálogos de las condiciones (cursos, clases, posts, campañas), para que la tarjeta diga el
   // nombre de lo elegido («Completó la clase «Bienvenida»» y no «una clase»). Se piden sólo si hay una
   // condición y quien mira es admin (la ruta es de admin): un setter ve el texto genérico.
@@ -338,7 +356,7 @@ export function FlujoLienzo({
     disparador, secuencias, tituloAccion: (op) => titulos?.get(op),
     nombres, colorEtiqueta: (id) => etiquetas.find((t) => t.id === id)?.color ?? null,
     audioDe: (id) => audios.find((a) => a.id === id) ?? null,
-    pendientesOtraCosa,
+    pendientesOtraCosa, anticipacionMin: anticipacion ?? null,
     // El alto de la tarjeta CRON es fijo y se suma por cajita (`altoCron`): tiene que saber cuántas son.
     disparadores, nuevoDisparador: conNuevoDisparador,
   };
@@ -1283,15 +1301,20 @@ function EditorMako({ paso, id, busy, onPasos, eventoMako, triggerTipo, adjuntos
   // oficina. Y por defecto si esta configurado horario de oficina que esté eso»). Sólo con horario: sin él no hay nada
   // que esperar. Elegir es una decisión: apila.
   const oficina = useHorarioOficina();
-  const fuera: FueraDeHorario = esperaQueAbra(paso.accion?.params as Record<string, unknown> | undefined) ? 'espera' : 'igual';
-  const cambiarFuera = (v: FueraDeHorario) => onPasos((prev) => {
+  const paramsAhora = paso.accion?.params as Record<string, unknown> | undefined;
+  const fuera: FueraDeHorario = esperaQueAbra(paramsAhora) ? 'espera' : 'igual';
+  // Lo que no es el mensaje (fuera del horario, por dónde, el asunto), sobre la tarjeta de AHORA. `apila`: elegir apila,
+  // tipear el asunto no (como el texto).
+  const cambiarEnvio = (cambio: CambioDeMako, apila: boolean) => onPasos((prev) => {
     const i = indicePorId(prev, id);
     const accion = i >= 0 ? prev[i].accion : null;
     if (!accion) return prev;
     const params = accion.params ?? {};
-    const sig = paramsDeMako({ ...params, leadId: params.leadId ?? LEAD_DEL_EVENTO }, { fueraDeHorario: v });
+    const sig = paramsDeMako({ ...params, leadId: params.leadId ?? LEAD_DEL_EVENTO }, cambio);
     return cambiarNodo(prev, id, { accion: { operacion: accion.operacion ?? '', params: sig } });
-  }, true);
+  }, apila);
+  const cambiarFuera = (v: FueraDeHorario) => cambiarEnvio({ fueraDeHorario: v }, true);
+  const porEmail = esPorEmail(paramsAhora);
   const campoFuera = oficina?.horario ? (
     <div data-fuera-de-horario style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
       <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--dim)', whiteSpace: 'nowrap' }}>Fuera del horario</span>
@@ -1304,16 +1327,52 @@ function EditorMako({ paso, id, busy, onPasos, eventoMako, triggerTipo, adjuntos
       />
     </div>
   ) : null;
+  // UN EVENTO DE LA PLATAFORMA (15/10/2026, `EventoMako.plataforma`): la tarjeta le llega al grupo del NEGOCIO que lo emitió
+  // (`negocioWs`, lib/flujos.ts), no al tuyo. Nada por detrás: lo dice.
+  const aNegocio = EVENTOS_MAKO.find((e) => e.subtipo === eventoMako)?.plataforma === true;
   return (
     <>
+    {aNegocio && <div data-mako-a-negocio style={{ fontSize: 12, color: 'var(--dim)', marginBottom: 8 }}>{porEmail ? 'Le llega por email al equipo del negocio del evento.' : 'Le llega al grupo del negocio del evento.'}</div>}
+    <EnvioDeMako params={paramsAhora} busy={busy} onCambio={cambiarEnvio} />
     {campoFuera}
+    {/* Por email, un solo texto: sin la Voz de MaKo, sin archivos (y con eso, sin varios mensajes ni minutos). */}
     <EditorMensajeWhatsApp
-      paso={dto} autor="MaKo" vozMako placeholder="Mensaje para tu equipo"
-      audios={[]} permiteAudio={false} permiteAdjuntos adjuntos={adjuntos} onAdjuntoNuevo={onAdjuntoNuevo}
+      key={porEmail ? 'email' : 'grupo'}
+      paso={dto} autor="MaKo" vozMako={!porEmail} placeholder={porEmail ? 'Texto del correo' : aNegocio ? 'Mensaje para el negocio' : 'Mensaje para tu equipo'}
+      audios={[]} permiteAudio={false} permiteAdjuntos={!porEmail} adjuntos={adjuntos} onAdjuntoNuevo={onAdjuntoNuevo}
       datos={datos} redactaCon={contexto} permiteIA paraGuion={paraGuion} disparador={disparador} negocio={negocio}
-      onPartirConEspera={(i, m) => onPasos((prev) => { const r = partirConEspera(prev, id, i, m); return r.ok ? r.pasos : prev; }, true)}
+      onPartirConEspera={porEmail ? undefined : (i, m) => onPasos((prev) => { const r = partirConEspera(prev, id, i, m); return r.ok ? r.pasos : prev; }, true)}
       onChange={cambiarMako} onError={onError} deshabilitado={busy} chatMako={chatMako}
     />
+    </>
+  );
+}
+
+/**
+ * POR DÓNDE SALE LA TARJETA MAKO, y su asunto (16/10/2026, la mudanza del reporte semanal: docs/diseno-avisos-plataforma.md
+ * §6): el grupo de WhatsApp, o un correo al EQUIPO del negocio (sus destinatarios de Notificaciones, desde
+ * equipo@hola-mako.com). Por email va un texto con su asunto: sin voz ni archivos ni varios mensajes
+ * (`problemaDeEmailMako` lo frena al publicar). Elegir apila; tipear el asunto no (como el texto).
+ */
+function EnvioDeMako({ params, busy, onCambio }: { params: Record<string, unknown> | undefined; busy: boolean; onCambio: (c: CambioDeMako, apila: boolean) => void }) {
+  const porEmail = esPorEmail(params);
+  return (
+    <>
+      <div data-canal-mako style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+        <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--dim)', whiteSpace: 'nowrap' }}>Por dónde</span>
+        <Dropdown
+          value={porEmail ? 'email' : 'grupo'}
+          options={CANALES_MAKO.map((v) => ({ value: v, label: ROTULO_CANAL_MAKO[v], icono: v === 'email' ? 'email' : 'whatsapp' }))}
+          onChange={(v) => onCambio({ canal: v as CanalMako }, true)}
+          ariaLabel="Por dónde sale este aviso"
+          disabled={busy}
+        />
+      </div>
+      {porEmail && (
+        <input data-asunto-mako value={asuntoDeMako(params)} placeholder="Asunto" aria-label="Asunto del correo" maxLength={TOPE_ASUNTO_MAKO}
+          disabled={busy} onChange={(e) => onCambio({ asunto: e.target.value }, false)}
+          style={{ width: '100%', boxSizing: 'border-box', marginBottom: 10, padding: '9px 12px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--card)', color: 'var(--ink)', fontWeight: 600, fontSize: 14 }} />
+      )}
     </>
   );
 }
@@ -1370,8 +1429,10 @@ function EditorEspera({ espera, busy, cambiar }: { espera: Espera | undefined; b
   const [preferida, setPreferida] = useState<Unidad | null>(null);
   const unidad = unidadMostrada(seg, preferida);
   const n = seg / SEGUNDOS_DE[unidad];
+  // «Si agenda más cerca» (16/10/2026) se conserva al cambiar el número o la unidad; pasar a «Esperar» lo suelta.
+  const cerca = e.modo === 'antes_reunion' && e.siAgendaCerca === 'sale' ? { siAgendaCerca: 'sale' as const } : {};
   const poner = (modo: Espera['modo'], cuanto: number, u: Unidad, apilar: boolean) =>
-    cambiar({ espera: { modo, minutos: minutosDeSegundos(Math.max(1, Math.round(cuanto)) * SEGUNDOS_DE[u]) } }, apilar);
+    cambiar({ espera: { modo, minutos: minutosDeSegundos(Math.max(1, Math.round(cuanto)) * SEGUNDOS_DE[u]), ...(modo === 'antes_reunion' ? cerca : {}) } }, apilar);
   // Un ícono por unidad (general 10: «pon íconos en todos los desplegable»): el cronómetro para lo corto,
   // el reloj para minutos y horas, el calendario para los días.
   const iconoUnidad: Record<Unidad, NombreIconoMenu> = { s: 'cronometro', min: 'reloj', h: 'reloj', dias: 'calendario' };
@@ -1405,6 +1466,13 @@ function EditorEspera({ espera, busy, cambiar }: { espera: Espera | undefined; b
         <Dropdown value={e.modo} width="100%" ariaLabel="Cuándo" search={false} disabled={busy} buttonStyle={botonGrande}
           options={[{ value: 'tiempo', label: 'Esperar', icono: 'reloj' }, { value: 'antes_reunion', label: 'antes de la reunión', icono: 'calendario' }]}
           onChange={(v) => poner(v as Espera['modo'], n, unidad, true)} />
+      </div>
+      {/* «SI AGENDA MÁS CERCA» (16/10/2026, Martín: «si está configurado "1 día antes" y se agendó dentro de 3 horas, que
+          simplemente no salga»): lo que pasa cuando el lead llega con menos de la mitad (`llegaTarde`). De fábrica, no sale. */}
+      <div style={{ flex: '1 1 100%', minWidth: 0 }}>
+        <Dropdown value={e.siAgendaCerca ?? 'no_sale'} width="100%" ariaLabel="Si agenda más cerca" search={false} disabled={busy}
+          options={OPCIONES_SI_AGENDA_CERCA.map((o) => ({ value: o, label: textoSiAgendaCerca({ ...e, siAgendaCerca: o }) ?? '', icono: o === 'sale' ? 'reloj' : 'calendario' }))}
+          onChange={(v) => cambiar({ espera: v === 'sale' ? { modo: 'antes_reunion', minutos: e.minutos, siAgendaCerca: 'sale' } : { modo: 'antes_reunion', minutos: e.minutos } }, true)} />
       </div>
     </div>
   );

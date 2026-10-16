@@ -52,6 +52,7 @@ import type { Muelles } from '@/lib/lienzo-grafo';
 import { abrirFlujo } from '@/lib/flujo-legado';
 import {
   insertarDesdeLienzo, renumerar, borradorAlAbrir, errorLegible, tarjetaDelError, estrategiaConLimpieza, disparoDeValor, canalesParaProbar, frenoDelFlujo,
+  motivoParaNoProbar, cronSinElegir,
   type QueAgregar,
 } from '@/lib/flujo-conversacion';
 import { EmojiPickerMini } from '@/app/plan/board/EmojiPicker';
@@ -1013,6 +1014,10 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
     setErr(null);
     onProbar(canal);
   };
+  // «PROBAR» APAGADO MIENTRAS FALTE ALGO (16/10/2026, `motivoParaNoProbar`): el porqué al lado; con una tarjeta a medias,
+  // tocarlo lleva a esa tarjeta (lo de Publicar).
+  const frenoAhora = frenoDeEsta(pasos);
+  const sinProbar = motivoParaNoProbar({ cronSinElegir: cronSinElegir(crons.lista), pasos, frena: !!frenoAhora });
   // MÁS GRANDES (10/10/2026: «Pon el botón de "Publicar" y "Activar" y "Probar" más grandes»): los tres
   // con el mismo alto, `ALTO_ACCION`, para que se lean como la misma familia.
   const estiloProbar: CSSProperties = { ...tarjetaChrome, height: ALTO_ACCION, boxSizing: 'border-box', padding: '0 18px', display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 14.5, fontWeight: 700, color: 'var(--ink)', cursor: 'pointer', fontFamily: 'inherit' };
@@ -1154,9 +1159,17 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
                 `marginLeft: auto` lo empuja contra el borde derecho del chrome, que ya
                 descuenta el panel de «Probar» abierto (`insetDer`). */}
             {onProbar && (
-              <div style={{ marginLeft: 'auto', flex: 'none' }}>
+              <div style={{ marginLeft: 'auto', flex: 'none', display: 'inline-flex', alignItems: 'center', gap: 10 }}>
+                {!probarAbierto && sinProbar && (
+                  <button type="button" data-sin-probar onClick={() => { if (frenoAhora) frenar(frenoAhora.error, frenoAhora.tarjeta); }}
+                    style={{ border: 'none', background: 'none', padding: 0, font: 'inherit', fontSize: 12.5, color: 'var(--dim)', whiteSpace: 'nowrap', cursor: frenoAhora ? 'pointer' : 'default' }}>
+                    {sinProbar}
+                  </button>
+                )}
                 {probarAbierto ? (
                   <button onClick={() => onCerrarProbar?.()} title="Cerrar la prueba" style={estiloProbar}>✕ Cerrar</button>
+                ) : sinProbar ? (
+                  <button disabled aria-disabled title={sinProbar} style={{ ...estiloProbar, opacity: 0.45, cursor: 'not-allowed' }}>▶ Probar</button>
                 ) : canales.length > 1 ? (
                   // Los canales que el flujo usa, con su logo (`CANALES_PROBAR`, el mismo lugar del que
                   // lee el panel): WhatsApp, Email, Instagram y Messenger. Hasta la segunda pasada lo

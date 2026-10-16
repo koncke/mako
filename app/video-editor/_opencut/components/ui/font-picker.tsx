@@ -9,7 +9,7 @@ import {
 } from "@/app/video-editor/_opencut/components/ui/popover";
 import { Input } from "@/app/video-editor/_opencut/components/ui/input";
 import { Button } from "@/app/video-editor/_opencut/components/ui/button";
-import { loadFullFont } from "@/app/video-editor/_opencut/fonts/google-fonts";
+import { FONT_CHUNK_PATH_PREFIX, loadFullFont } from "@/app/video-editor/_opencut/fonts/google-fonts";
 import { SYSTEM_FONTS } from "@/app/video-editor/_opencut/fonts/system-fonts";
 import type { FontAtlas, FontAtlasEntry } from "@/app/video-editor/_opencut/fonts/types";
 import { useFontAtlas } from "@/app/video-editor/_opencut/fonts/use-font-atlas";
@@ -191,10 +191,12 @@ function FontSpritePreview({ entry }: { entry: FontAtlasEntry }) {
 				width: entry.w,
 				height: ROW_HEIGHT,
 				backgroundColor: "currentColor",
-				WebkitMaskImage: `url(/fonts/font-chunk-${entry.ch}.avif)`,
+				// En /ve/fonts (google-fonts.ts): con «/fonts/…» la máscara no cargaba y la
+				// lista del selector salía VACÍA (medido en producción el 15/10).
+				WebkitMaskImage: `url(${FONT_CHUNK_PATH_PREFIX}${entry.ch}.avif)`,
 				WebkitMaskPosition: `-${entry.x}px -${entry.y}px`,
 				WebkitMaskRepeat: "no-repeat",
-				maskImage: `url(/fonts/font-chunk-${entry.ch}.avif)`,
+				maskImage: `url(${FONT_CHUNK_PATH_PREFIX}${entry.ch}.avif)`,
 				maskPosition: `-${entry.x}px -${entry.y}px`,
 				maskRepeat: "no-repeat",
 				transform: `scale(${PREVIEW_SCALE})`,

@@ -284,8 +284,9 @@ export function encabezadoAviso(id: string): string {
  * que el negocio agrega desde la GALERÍA (lib/plantillas-automatizaciones.ts, `esPlantillaMako`) y que
  * nace vacía para todos («Todos arrancan vacíos»). Los emite `emitirPorEvento` (lib/aviso-evento.ts):
  * su store ya no se lee. El diseño entero, en docs/diseno-mako-en-whatsapp-unificado.md.
- *   · `reporte-semanal` NO se mudó: sale sólo por email (`notification_prefs`, decisión del 10/10:
- *     «Apagar WhatsApp en los reportes») y pasó a `AVISOS_SOLO_SUPERADMIN`, abajo.
+ *   · `reporte-semanal` sale sólo por email (`notification_prefs`, decisión del 10/10: «Apagar WhatsApp en
+ *     los reportes») y pasó a `AVISOS_SOLO_SUPERADMIN`, abajo. Desde el 16/10/2026 es un evento de la
+ *     PLATAFORMA (`reporte_semanal`): lo manda la automatización de SuperAdmin con «MaKo por email».
  *   · `lead-no-confirmo` había salido el 09/10/2026 (lo emite el desenlace de una automatización de
  *     ANTES, que ya no corre ninguna); la grabación de Fathom y los dos de la línea de WhatsApp, el
  *     10/10/2026, a `AVISOS_SOLO_SUPERADMIN`.
@@ -314,9 +315,9 @@ export const AVISOS_SOLO_SUPERADMIN: readonly string[] = [
   'wa-desconectado',        // se cayó su WhatsApp
   'wa-reconectado',         // y volvió
   'reunion-ocurrio-fathom', // terminó la reunión y quedó la grabación
-  // El reporte de los lunes (11/10/2026): NO se mudó a «MaKo en WhatsApp» porque no sale por WhatsApp
-  // (`REPORTE_POR_WHATSAPP = false`, decisión del 10/10) y sale como siempre, por email, según
-  // `notification_prefs`. Sale de la lista del cliente y lo configura la agencia (docs/diseno-mako-en-whatsapp-unificado.md).
+  // El reporte de los lunes (11/10/2026): no sale por WhatsApp (`REPORTE_POR_WHATSAPP = false`, decisión del 10/10)
+  // y sale por email, según `notification_prefs`. Sale de la lista del cliente y lo configura la agencia. Desde el
+  // 16/10/2026 es una automatización de la plataforma con «MaKo por email» (docs/diseno-avisos-plataforma.md §6).
   'reporte-semanal',
 ];
 

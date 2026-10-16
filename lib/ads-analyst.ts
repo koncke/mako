@@ -1069,6 +1069,9 @@ export async function valorarGuion(guion: string, dur?: number): Promise<{ ok: t
     const [system, user] = await Promise.all([buildSystemValoracion(angles), buildValorarPrompt(guion, dur, profile)]);
     const text = await chatClaude(system, [{ role: 'user', content: user }], {
       thinking: true, effort: 'high', maxTokens: 6000, feature: 'script-valorador',
+      // Valorar un guion es de la primera semana de un cliente nuevo, que no trae una API
+      // (15/10/2026). `chatClaude` le pasa la red a la cascada barata tal cual.
+      redDePlataforma: true,
     });
     const raw = parseJsonObject(text) as Record<string, unknown>;
     return { ok: true, valoracion: sanitizeValoracion(raw, dur, profile, angles.map((a) => a.key)) };

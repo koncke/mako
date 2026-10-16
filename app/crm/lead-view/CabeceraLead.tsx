@@ -232,4 +232,10 @@ const CSS = `
   .cl-cab .cd-fila{ flex-wrap:wrap; row-gap:10px; }
   .cl-cab .cl-acc{ margin-left:0; align-items:flex-start; flex-basis:100%; }
 }
+/* En una pantalla tactil (un iPad, que recibe la computadora adaptada: app/globals.css) lo que se toca a la
+   derecha, el desplegable del funnel y el Ver de los datos sin marcar, va a los 44 px de toque. Se decide
+   por capacidad, no por ancho: un iPad acostado mide 1024 o mas. */
+@media (pointer: coarse){
+  .cl-cab .cl-acc button{ min-height:var(--touch); }
+}
 `;

@@ -345,7 +345,24 @@ test('«Quitar "Sin cobro"» se ve en las TRES superficies, no sólo donde el re
   assert.match(quitar, /onCambio\?\.\(\{ venta_tipo: r\.ventaTipo \}\)/, 'avisa al contenedor');
 
   // Los montajes con el lead en estado de cliente le pasan `onCambio` y lo aplican.
-  assert.match(fuente('app/crm/LeadSheet.tsx'), /<DealDetailsCard lead=\{lead\} pagos=\{pagos\} onCambio=\{\(patch\) => \{\s*setFresca\(\{ \.\.\.vigente, lead: \{ \.\.\.vigente\.lead, \.\.\.patch \} \}\)/);
+  // ⚠️ CAMBIADO A PROPÓSITO EL 14/10/2026 (la ficha por bloques): la tarjeta de la ficha del CRM se monta
+  // UNA vez, como el bloque `venta` (app/crm/lead-view/ficha/registro-pagos.tsx), y le pasa el cambio a
+  // `ctx.parchear`. El pop-up (LeadSheet) es el que lo aplica sobre su estado de cliente y relee; en la
+  // ruta /crm/[id] `parchear` es un refresh (su lead viene del server). Re-verificado rompiéndolo: el
+  // registro sin `onCambio` → 1 fallo; LeadSheet sin `parchear` → 1 fallo.
+  // ⚠️ Y OTRA VEZ EL 16/10/2026 (la tab Pagos en bloques, docs/hallazgos-pagos.md): la tab ya no monta DealDetailsCard.
+  // El bloque `venta` (app/crm/lead-view/ficha/pagos/bloques-cobro.tsx) sale de «Sin cobro» por la MISMA acción, pinta
+  // con lo que devuelve (`ctx.parchear`), y un clic que no escribió lo dice. Re-verificado rompiéndolo: el bloque sin
+  // `ctx.parchear` del tipo devuelto → 1 fallo; sin el aviso de «ya no era» → 1 fallo.
+  assert.doesNotMatch(fuente('app/crm/lead-view/ficha/registro-pagos.tsx'), /<DealDetailsCard\b/);
+  const venta = fuente('app/crm/lead-view/ficha/pagos/bloques-cobro.tsx');
+  const salir = venta.slice(venta.indexOf("if (tipo === 'sin_cobro') {"), venta.indexOf("const e = await guardar({ campo: 'tipo', valor: nuevo }"));
+  assert.ok(salir.length > 100 && salir.length < 1500, `recorte de la salida de «Sin cobro»: ${salir.length}`);
+  assert.match(salir, /await quitarSinCobroAction\(lead\.id\)/, 'sale por su acción (compare-and-set), no por guardar la venta');
+  assert.match(salir, /if \(!r\.cambio\) show\(/, 'un clic que no escribió lo dice');
+  assert.match(salir, /ctx\.parchear\(\{ venta_tipo: r\.ventaTipo \}\)/, 'pinta con lo DEVUELTO');
+  assert.match(fuente('app/crm/LeadSheet.tsx'), /parchear=\{\(patch\) => \{ setFresca\(\{ \.\.\.vigente, lead: \{ \.\.\.vigente\.lead, \.\.\.patch \} \}\); releer\(\); \}\}/);
+  assert.match(fuente('app/crm/lead-view/ficha/FichaPorBloques.tsx'), /parchear: parchear \?\? \(\(\) => refrescar\(\)\)/);
   assert.match(fuente('app/customer-success/FichaPestanas.tsx'), /<DealDetailsCard lead=\{datos\.lead\} pagos=\{datos\.pagos\} onCambio=\{onCambio\} \/>/);
   assert.match(fuente('app/customer-success/FichaCliente.tsx'), /<PagosCliente datos=\{crm \?\? 'cargando'\}\s*onCambio=\{\(patch\) => setCrm\(/);
   // Y la ruta /crm/[id] NO lo necesita: su lead viene del server (el refresh lo trae). Si
@@ -353,9 +370,8 @@ test('«Quitar "Sin cobro"» se ve en las TRES superficies, no sólo donde el re
   const montajes = execFileSync('git', ['ls-files', 'app'], { cwd: RAIZ, encoding: 'utf8' })
     .split('\n').map((s) => s.trim()).filter((f) => /\.tsx$/.test(f) && /<DealDetailsCard\b/.test(fuente(f))).sort();
   assert.deepEqual(montajes, [
-    'app/crm/LeadSheet.tsx',               // estado de cliente → onCambio
     'app/crm/[id]/EditarDeal.tsx',         // ruta /crm/[id]: props del server
-    'app/crm/[id]/page.tsx',               // ruta /crm/[id]: server component
+    // (16/10/2026: la ficha del CRM ya no la monta; el bloque `venta` sale de «Sin cobro» solo, ver arriba)
     'app/customer-success/FichaPestanas.tsx', // estado de cliente → onCambio
   ]);
 });

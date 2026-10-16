@@ -41,12 +41,16 @@ import {
 	type MediaTime,
 } from "@/app/video-editor/_opencut/wasm";
 import { conElementosDePista, correrDesde, videoElegido, videoEn } from "./clip-elegido";
+import { PREFIJO_TRANSICION } from "@/app/video-editor/_opencut/transiciones/claves";
+import { PREFIJO_PLANTILLA } from "@/app/video-editor/_opencut/plantillas/huecos";
 
 /** CapCut congela 3 s. */
 export const DURACION_CONGELAR = mediaTime({ ticks: 3 * TICKS_PER_SECOND });
 
-// Lo que NO pasa del clip a su cuadro congelado (ver la cabecera).
-const PREFIJOS_QUE_NO_PASAN = ["anim.", "transicion.", "revertir."];
+// Lo que NO pasa del clip a su cuadro congelado (ver la cabecera). Las marcas de una
+// plantilla tampoco: el cuadro congelado no es el hueco (hoy no están declaradas; si
+// mañana lo estuvieran, igual no pasan).
+const PREFIJOS_QUE_NO_PASAN = ["anim.", PREFIJO_TRANSICION, "revertir.", PREFIJO_PLANTILLA];
 
 function paramsParaCongelado(clip: VideoElement): ParamValues {
 	const definiciones = getBuiltInElementParams({ type: "image" });

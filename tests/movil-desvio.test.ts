@@ -13,6 +13,9 @@
 // redirigiendo a /inicio, y /inicio mandándolo a /customer-success en el teléfono. Medido (base 9 / 0):
 //   · el guard de vuelta a redirect('/inicio')                                     → 8 / 1
 //   · destinoMovil devolviendo el destino sin el workspace propio                  → 8 / 1
+// 15/10/2026, las siete de More (Calendario, Second Brain, Experiments, Offer, Copywriting, Curso y Comunidad)
+// dejaron de ser «en la computadora»; Curso y Comunidad, de caer en Clientes. Base 9 / 0; roto mapeando Curso
+// después del `dentro(p, '/customer-success')` de Clientes → 8 / 1 (el de v2).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -53,7 +56,10 @@ test('v2: las secciones de More (y sus subrutas) van a su pantalla de /m, no a �
     ['/dashboard', '/m/dashboard'], ['/marketing', '/m/dashboard'], ['/comercial', '/m/dashboard?hoja=comercial'],
     ['/dashboard', '/m/dashboard?hoja=comercial', '?hoja=comercial&ws=3'],
     ['/ads-manager', '/m/ads'], ['/ads-manager/120330001', '/m/ads'],
-    ['/customer-success', '/m/cs'], ['/customer-success/curso', '/m/cs'],
+    ['/customer-success', '/m/cs'], ['/customer-success/curso', '/m/curso'], ['/customer-success/comunidad', '/m/comunidad'],
+    ['/calendario', '/m/calendario'], ['/second-brain', '/m/second-brain'], ['/experimentos', '/m/experimentos'],
+    ['/analisis', '/m/experimentos?tab=analisis'], ['/offer', '/m/offer'], ['/offer-analyst', '/m/offer'],
+    ['/ads-writer', '/m/copywriting'],
     ['/automations', '/m/automations'], ['/setting', '/m/automations'], ['/chatbot', '/m/automations'],
     ['/video-generator', '/m/video'],
     ['/video-generator', '/m/video/3f2b8c1e-9a4d-4c6b-8e2f-0a1b2c3d4e5f', '?plan=3f2b8c1e-9a4d-4c6b-8e2f-0a1b2c3d4e5f'],
@@ -64,7 +70,9 @@ test('v2: las secciones de More (y sus subrutas) van a su pantalla de /m, no a �
 });
 
 test('lo que no va al teléfono dice que se usa en la computadora', () => {
-  for (const p of ['/configuraciones', '/marketing/salud', '/ads-writer', '/funnel', '/metodo', '/mensajes']) {
+  // /ads-writer salió de esta lista el 15/10/2026 (es Copywriting en More); lo que queda de su tab es del super admin.
+  // /analisis/trimestre es el informe congelado que se mandó por WhatsApp: no tiene pantalla en el teléfono.
+  for (const p of ['/configuraciones', '/marketing/salud', '/youtube-writer', '/analisis/trimestre', '/funnel', '/metodo', '/mensajes']) {
     assert.deepEqual(decidirDesvio(p), { tipo: 'computadora' }, p);
   }
   // La bandeja de WhatsApp SÍ va (v3, 14/10/2026): es la pestaña Chats del teléfono.

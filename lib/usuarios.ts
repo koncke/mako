@@ -171,21 +171,36 @@ export async function eliminarUsuario(id: number): Promise<void> {
   if (error) throw new Error(`usuarios: ${error.message}`);
 }
 
-/** Marca el login: invitado → activo, actualiza nombre/foto si Google los trae. */
+/**
+ * Marca el login: invitado → activo, la foto si Google la trae, y el nombre de Google SÓLO si no hay uno.
+ *
+ * ⚠️ Hasta el 16/10/2026 el nombre de Google pisaba el guardado en CADA login: lo que la persona escribía en
+ * «Tu cuenta» (setPerfil) o lo que le pregunta el chat de arranque del onboarding («¿cómo te llamo?») se
+ * perdía en la próxima entrada, sin un error. El nombre que eligió una persona le gana al de su cuenta de
+ * Google; el de Google sólo llena el vacío (el primer login de alguien invitado sin nombre).
+ */
 export async function registrarLogin(
   email: string,
   datos: { nombre?: string; foto_url?: string },
 ): Promise<void> {
+  const correo = email.trim().toLowerCase();
   const patch: Record<string, unknown> = {
     estado: 'activo',
     ultimo_login: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   };
-  if (datos.nombre?.trim()) patch.nombre = datos.nombre.trim();
   if (datos.foto_url?.trim()) patch.foto_url = datos.foto_url.trim();
-  const { error } = await getSupabaseServer()
-    .from('usuarios').update(patch).eq('email', email.trim().toLowerCase()).neq('estado', 'suspendido');
+  const db = getSupabaseServer();
+  const { error } = await db.from('usuarios').update(patch).eq('email', correo).neq('estado', 'suspendido');
   if (error) console.error(`[usuarios] registrarLogin(${email}): ${error.message}`);
+  const nombre = datos.nombre?.trim();
+  if (nombre) {
+    // El filtro va EN el update, no en una lectura previa: así no hay ventana entre leer y escribir. Llena el
+    // vacío y también el PROVISORIO: las altas de customer-success y de la agencia guardan el email como
+    // nombre cuando no hay uno, y antes el primer login lo cambiaba por el real (revisión del 16/10).
+    const r = await db.from('usuarios').update({ nombre }).eq('email', correo).neq('estado', 'suspendido').or('nombre.is.null,nombre.eq.,nombre.ilike.*@*');
+    if (r.error) console.error(`[usuarios] registrarLogin(${email}) nombre: ${r.error.message}`);
+  }
 }
 
 export async function contarUsuarios(): Promise<number> {

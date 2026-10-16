@@ -871,6 +871,13 @@ camino es transparente». En esta corrida pegó así:
   llega como `p{…}`.
 - **El árbol de OpenCut sale con CRLF** (`core.autocrlf`) y una regex con `\n` no matchea. Se edita
   normalizando a LF y se devuelve el fin de línea original.
+- **Python en Windows convierte el archivo ENTERO a CRLF** si se escribe con `open(p, 'w')` (pasó el 15/10 con
+  `editor-page.tsx`, `congelar.ts` y un test), y `git diff --stat` no lo muestra por `autocrlf=true`. Se escribe con
+  `newline='\n'`, en binario o con Edit. Y para editar varios archivos respetando su fin de línea, el patrón que
+  anduvo todo el 15/10: un script de node que normaliza a LF, aplica reemplazos EXACTOS (que aparezcan una sola
+  vez) y devuelve el CRLF si lo tenía; los reemplazos escritos en un `.mjs` con Write (sin heredoc).
+- **`assert.match` sobre un archivo fuente vuelca el archivo entero** cuando falla (31.000 caracteres): para los
+  tests que leen el fuente, `assert.ok(texto.includes(…), 'qué')`.
 - **Falsa alarma, medida el 11/10:** «`\p{Extended_Pictographic}` en una regex literal es candidato a
   error con `target: ES2017`». No: con TypeScript 5.9.3 compila a ES2017 (falla recién a ES5), y el repo
   ya tiene literales así (`app/conocimientos/PortadaModulo.tsx:344`). El `new RegExp(…)` de
@@ -1049,12 +1056,34 @@ Hecho el 15/10 (pasos 2–4 del plan de subtítulos). Biblioteca › Subtítulos
   en CAPTURA sobre el documento y sólo se aparta si el foco está en un campo de texto: un `div` con `tabIndex`
   no lo es. Arreglado con `data-teclas-propias="delete backspace"`: el panel declara sus teclas y el atajo
   global las respeta. Regla: un panel que usa una tecla que también es atajo global la declara así.
-- **Se colgó la pestaña al aplicar la plantilla «Palabra resaltada»**, con 1,2 GB libres en la máquina y el
-  modelo de Whisper cargado en la pestaña: no se pudo separar bug de falta de memoria (como el congelamiento
-  del 13/10 con «Agregar texto predeterminado»). Leyendo el dibujo del karaoke no hay un bucle que no termine.
-  Reproducirlo con RAM libre y la página recién cargada (sin Whisper en memoria). El dibujo no se puede probar
-  en node: arrastra el WASM.
-- **SIN HACER:** verlo en el navegador lo que falta (karaoke, el chat); copiar y pegar partes del video desde
+- **El karaoke se vio andar en producción** (15/10, ~22:00): «Palabra resaltada» sobre los subtítulos de
+  Whisper dibuja «COMPRA HOY Y AHORRA MUCHO» en Anton con la palabra que se dice («AHORRA») en verde.
+- ⚠️ **La pestaña se colgó dos veces «al aplicar la plantilla de karaoke», y el diagnóstico obvio («el dibujo
+  del karaoke») era el equivocado.** Medido con la API Long Animation Frames de Chrome: un cuadro de **2,37 s
+  de estilo y layout, 0 ms de script**. Pasa al abrir **Subtítulos › Plantillas**, que al montarse carga de
+  golpe las familias de TODAS las plantillas (`PlantillasSubtitulosView`, `loadFonts` → `loadFullFont`: un
+  `<link>` de Google Fonts por familia, ~79 caras declaradas). Es pasajero (con las fuentes ya cargadas, la misma
+  grilla da 0 ms de layout) y viene de ANTES (las 6 familias eran las mismas antes del karaoke). En un proyecto
+  con video y el modelo de Whisper en memoria, ese pico dejó la pestaña sin responder minutos. Con la biblioteca
+  en otra sección, el mismo proyecto abre y responde. Lo más probable es que el congelamiento del 13/10
+  («Agregar texto predeterminado», en Texto) sea el mismo patrón: `biblioteca-estilos.tsx` también carga todas
+  sus fuentes al montarse.
+- **Para medir en el Chrome de Martín**: si su ventana queda tapada, Chrome frena los timers y los cuadros
+  (`visibilityState` sigue en «visible»), y contar cuadros o vueltas de `setTimeout` da una página «trabada» que
+  no lo está. La API Long Animation Frames (`PerformanceObserver` de `long-animation-frame`) separa script de
+  estilo/layout y no se confunde con eso.
+- **Arreglado el 15/10 (falta medir el «después» en producción):** ninguna biblioteca carga sus fuentes
+  enteras al abrirse. Cada miniatura pide a Google SÓLO las letras que dibuja (`&text=`), con un nombre de familia
+  propio («Anton · muestra 400», una `FontFace`, sin hojas de estilo) y recién al entrar en pantalla
+  (`fonts/muestras.ts`, `useFuenteMuestra`), como el menú de fuentes de Google; la fuente entera llega al elegir
+  (subtítulos) o al pasar el mouse por la tarjeta (texto, antes de arrastrarla). El «antes» medido: abrir
+  Subtítulos › Plantillas agregaba 5 hojas y 38 caras, con ~2,6 s de bloqueo. Test `tests/video-editor-fuentes.test.ts`.
+- ⚠️ **La lista del selector de fuentes salía VACÍA en producción, y no era el freno de la ventana**: cada renglón
+  es una máscara con la imagen del atlas, y apuntaba a `/fonts/font-chunk-N.avif`, que no existe (las imágenes
+  viven en `public/ve/fonts/` desde el port; el atlas JSON sí se pedía bien). Sin la máscara, el renglón no se ve.
+  Ahora usa `FONT_CHUNK_PATH_PREFIX` de `fonts/google-fonts.ts`. Regla: una ruta de `public/ve/` vive en UNA
+  constante.
+- **SIN HACER:** verlo en el navegador lo que falta (el chat); copiar y pegar partes del video desde
   el texto; la puntuación final de una palabra borrada se va con ella («…de prueba.» → «…video», sin punto);
   «Mostrar texto eliminado»; marcar pausas y repeticiones (CapCut: «Pausa, repetición y duda»); CapCut fuerza el imán de la
   principal mientras se edita por transcripción (`pc_text_cut_mode_lock_cant_change`) y acá no.
@@ -1108,6 +1137,100 @@ todo el editor:
 - **`params/registry.ts` y `timeline/element-utils.ts` tampoco cargan en node** (llegan al WASM por
   `timeline/defaults → creation`): lo puro recibe los params por defecto, `tps`, `fps` y la medida por parámetro.
 - **La máquina de escribir y el glitch SÍ existen** (el relevamiento de plantillas decía que no; corregido).
+
+**Tanda 1 de las plantillas (15/10, catálogo y armado, puros; `lib/editor-video/plantillas.ts`,
+`_opencut/plantillas/{huecos,geometria,armar,escena}.ts`, test `tests/video-editor-plantillas.test.ts`, 46 roturas):**
+- ⚠️ **«En un lienzo el doble de grande, las escalas van ×2» era el diagnóstico equivocado.** El compositor encaja
+  la fuente RELATIVO al lienzo (`computeVisualTransform`): en 2160x3840 la escala y el tamaño de letra quedan
+  IGUALES; lo que va ×2 son las posiciones y el relleno del fondo (su param es em·alto/6). `letterSpacing` va en px
+  crudos. Regla: la escala es relativa al lienzo; posición, relleno y espaciado se escalan a mano.
+- **`partirYUbicar` ubica la caja CON la tarjeta**: la caja visual incluye el fondo (`getTextVisualRect`) pero el
+  ancho disponible se mide sólo con la letra. Alineado a la izquierda, el borde de la tarjeta va al margen y la
+  tarjeta puede salir hasta margen + ancho + 2·relleno. Con margen 0,11 en 1080: relleno ≤ 27 px a la izquierda,
+  ≤ 54 px centrado.
+- **Un default que inventa un dato**: `plantillaPorId` de `subtitles/estilos.ts` devuelve el predeterminado con un id
+  desconocido (nunca `null`): validar con `PLANTILLAS_SUBTITULO.some`. La de `lib/editor-video/plantillas.ts`, con el
+  mismo nombre, sí devuelve `null`.
+- **La máquina de escribir no va por letra**: revela una fracción de un tiempo total (`revelacionTexto`), así que un
+  texto más largo se escribe más rápido y el cursor que parpadea del Typewriter de Remotion no existe.
+- **Cargan en node** (verificado): `animaciones/{elegir,catalogo,calcular}`, `transiciones/{catalogo,claves,reglas}`,
+  `text/{estilos-predefinidos,typography}`, `subtitles/estilos`, `params/extra/{recorte,animaciones,texto}`,
+  `recorte/geometria`, `timeline/placement/track-factory`.
+- `0.45*60` da 27.000000000000004: las comprobaciones en un borde justo necesitan tolerancia.
+**Tanda 2 (15/10, «Reemplazar el clip»; `_opencut/reemplazo/`, test `tests/video-editor-reemplazo.test.ts`, 31
+roturas):** se prendió «Reemplazar el clip» del menú, el botón «Sustituir» en las muestras de una plantilla y soltar
+un medio sobre una muestra; las tres entradas pasan por `reemplazarClip`. El clip conserva id, inicio, duración,
+transición, animaciones, efectos, máscaras, fotogramas y velocidad; un video más corto que lo que el clip recorre de
+fuente (duración × velocidad media, también con curva) se rechaza, como CapCut; una muestra cubre el rectángulo donde
+se ve HOY (aunque la hayan movido).
+- ⚠️ **El diagnóstico obvio («al rearmar los params, excluir `audio.normalizar` y `revertir.*`») era el
+  equivocado**: esos dos no son params declarados y nunca pasaban. El riesgo real era el contrario: las marcas
+  `plantilla.*` tampoco son declaradas, y al rearmar los params desde los defaults del tipo un hueco dejaba de serlo.
+  Regla: quien rearma los params desde los defaults lleva a mano las marcas no declaradas (`reemplazo/puro.ts` →
+  `paramsConservados`; lo mismo `clip.silenciadoAntes`).
+- **Un filtro que vive en la pantalla no lo ve ningún test**: la grilla del diálogo filtraba en el componente; una
+  rotura no cayó hasta pasarlo a una función pura (`mediosParaReemplazo`).
+- **SIN HACER:** `rectoMostrado` no mira el giro ni los fotogramas de posición o escala (si un hueco los tiene, pisan
+  el transform nuevo); reemplazar un video al que se le extrajo el audio deja ese audio viejo con la misma marca
+  (suenan los dos); si el panel derecho y el decodificador aguantan que un clip pase de foto a video con el mismo
+  id; nada se vio en el navegador.
+
+- **SIN HACER de la tanda 1**: la zona segura se probó con anchos de letra ESTIMADOS (verla en el navegador); en el
+  peor caso (24 caracteres en Montserrat 60) un beneficio puede partirse en dos renglones y pisar al siguiente.
+
+**Tanda 3 (15/10, la pestaña «Plantillas» y «Utilizar plantilla»; `_opencut/plantillas/{uso,dibujo,muestras,instanciar,registro}.ts`,
+`plantillas/components/`, `app/video-editor/plantilla/ArmarPlantilla.tsx`, test `tests/video-editor-plantillas-uso.test.ts`, 28 roturas):**
+- ⚠️ **El historial de deshacer nunca se vacía al cambiar de proyecto**: `CommandManager.clear()` no lo llama nadie
+  (`core/managers/commands.ts`, `project-manager.ts`). Abriendo B en la misma pestaña, Ctrl+Z aplica sobre B las pistas
+  de A. **Arreglado el 15/10**: `ProjectManager` lo vacía al crear, abrir y cerrar un proyecto (CapCut tampoco
+  conserva el deshacer entre proyectos); `tests/video-editor-historial.test.ts` lo REPRODUCE con el CommandManager
+  de verdad (carga en node) y un editor de mentira. No visto en el navegador.
+- ⚠️ **«Para ir a un proyecto nuevo alcanza con `router.push`» era el diagnóstico equivocado**: la salida de
+  `editor-page.tsx` corre una microtarea DESPUÉS de desmontarse y actúa sobre el proyecto activo; si el componente
+  nuevo crea su proyecto en el mismo ciclo, la salida le haría la miniatura y lo guardaría a medio armar. Regla:
+  cerrar el proyecto antes de navegar (`prepareExit`, `save.flush`, `closeProject`), o esperar una vuelta del bucle.
+- **Una línea de un plan queda vieja**: el plan decía «cargar las fuentes al montar, como `biblioteca-estilos.tsx`»,
+  justo lo que colgaba la pestaña. Las líneas de un plan se releen contra los hallazgos posteriores.
+- **Probar una transformación con datos que ya la cumplen no prueba nada**: las muestras del catálogo vienen en
+  mayúscula, así que sacar las mayúsculas no rompía nada hasta sumar un dato en minúscula.
+- **Cargan en node:** `text/revelado`, `plantillas/{uso,dibujo}`. **No:** `media/processing`, `subtitles/insert`.
+- **CapCut 9.6 está instalado en la máquina** (`C:/Users/marti/AppData/Local/CapCut/Apps/9.6.0.4097/Resources/po/es-LA.po`):
+  `template_pc` «Plantillas», `pc_lyrics_loading_add_effect` «Aplicando plantillas…», `pc_template_editor_material_be_replaced`
+  «%1 clips por reemplazar».
+- **SIN HACER:** todo lo visual en el navegador; la miniatura no dibuja transiciones, brillo ni curva; las muestras
+  se guardan por proyecto en OPFS y nadie las recolecta.
+
+**Tanda 4 (15/10, el chat y la API; tests 43–50 del chat, 28 roturas):** el chat suma `usar_plantilla` (sólo con la
+línea de tiempo vacía; si viene con otras operaciones, va la plantilla y lo demás se descarta con su motivo) y
+`reemplazar_clip` (el comando del menú); la vista marca `hueco`/`muestra` y lista los `medios` (m1, m2…); un
+`cambiar_texto` en un hueco se vuelve a partir y ubicar con su ancla. La API de MaKo suma `listar_plantillas_video`
+(gratis, tab `video-editor`, las 7 con sus huecos); USAR una plantilla por la API sigue sin poder (el proyecto vive en
+el navegador).
+- ⚠️ **El fin de línea medido con Git Bash miente**: `grep -c $'\r'`, `sed -n` y `od -c` no mostraban CR en
+  `PanelChat.tsx` y node lo leía CRLF (un reemplazo con `\n` daba «0 veces»). Regla: se mide con node.
+- **Una operación que cambia el TIPO de un clip lo cambia también en la simulación de la revisión** (una muestra-foto
+  reemplazada por un video seguía «imagen» y un «silenciar» del mismo pedido se descartaba; `simularReemplazo`).
+- **Un comando que puede no hacer nada dentro de un lote se verifica después por su efecto** (`ReemplazarClipCommand`
+  devuelve `undefined` en silencio; `aplicar.ts` dice «no se pudo reemplazar X»).
+- **Exponer una operación por HTTP pide cuatro cosas**: la def, el runner, la ruta en `lib/api-mako/rest.ts` (sin
+  ella falla `api-mako-rest`) y regenerar `docs/api-mako.md` y el snapshot. Y `lib/api-mako/` NO entra en
+  `tsconfig.ve.json`: para revisarlo, sumarlo un momento al `include`.
+- **SIN HACER:** verlo en el navegador (`usar_plantilla` por chat, un reemplazo en un lote, el texto de un hueco
+  re-partido); partir una muestra y reemplazarla (la revisión no ve la mitad derecha; el chequeo de después lo dice);
+  si por WhatsApp «qué plantillas de video hay» llega a la herramienta nueva.
+
+**Las sugeridas para el negocio (16/10, Martín: «que al principio se posicionen los sugeridos… con un texto sutil de
+"Sugerido"»; la regla compartida en docs/plantillas-sugeridas.md, test `tests/plantillas-sugeridas-editores.test.ts`,
+27 roturas):** la pestaña, `listar_plantillas_video` y el chat dan la misma lista (`plantillasEnOrden`).
+- **Un dato del server llega al motor por un CONTEXTO que pone `VideoEditorCliente`** (`app/video-editor/sugeridas.tsx`),
+  no por props por el árbol de OpenCut ni por un módulo global como `espacio.ts`: ése es para lo que el motor lee ANTES
+  de montarse (las bases locales) y no se entera si la page vuelve con otro dato.
+- **El `para` de `usar_plantilla` en `OPERACIONES_CHAT` es el de SIN señales.** La IA lee el que rearma
+  `catalogoParaPrompt(senales)` en cada pedido (las señales las lee `lib/editor-video/ia.ts`, en paralelo con el
+  prompt). Quien lea el fijo —la bitácora de /admin/dev, un test— no ve las sugeridas, y es a propósito.
+- **Las variantes van `{}`** («Gancho escrito», «Oferta con glitch»): con la fila de su original salían de a dos.
+- **«Sugerido» va DEBAJO del nombre**: la tarjeta mide 92 px y al costado lo cortaba a cinco letras.
+- **SIN HACER:** verlo en el navegador (ws9, con un funnel declarado: el orden de la pestaña y el `title` del porqué).
 
 ## Lottie en un editor de VIDEO: qué aporta si la pieza termina en mp4
 

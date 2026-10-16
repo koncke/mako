@@ -45,7 +45,16 @@ export type LecturaArchivo = { texto: string; warning?: string; via: 'texto' | '
  * opcionales para que los llamadores de siempre sigan anotando exactamente lo mismo; la tab Offer los
  * pasa para que lo que lee se vea como suyo y no como una importación al plan.
  */
-export type OpcionesLectura = { feature?: string; motivo?: string };
+export type OpcionesLectura = {
+  feature?: string; motivo?: string;
+  /**
+   * La red de la plataforma para la lectura por VISIÓN (PDF escaneado, imagen), como en
+   * `leerDocumentoIA`. Opt-in, porque sólo el que llama sabe si lo usa un cliente nuevo sin API:
+   * Offer la pide (16/10/2026, la primera semana de un cliente sin API). El audio ya la tiene
+   * siempre (`transcribirAudio`).
+   */
+  redDePlataforma?: boolean;
+};
 
 /**
  * El texto sale limpio de lo que la base no acepta guardar (el NUL de un PDF, un sustituto suelto):
@@ -104,14 +113,14 @@ async function leerArchivo(file: File, opts: OpcionesLectura): Promise<LecturaAr
       if (text && text.trim().length > 80) return { texto: text, via: 'pdf' };
     } catch { /* sin capa de texto → es un escaneo, va por visión */ }
     try {
-      const { text } = await leerDocumentoIA({ dataUrl: `data:application/pdf;base64,${buf.toString('base64')}`, isPdf: true, nombreArchivo: file.name, prompt: LEER_DOC, feature: featureVision, motivo: opts.motivo || `Leer «${file.name}»` });
+      const { text } = await leerDocumentoIA({ dataUrl: `data:application/pdf;base64,${buf.toString('base64')}`, isPdf: true, nombreArchivo: file.name, prompt: LEER_DOC, feature: featureVision, motivo: opts.motivo || `Leer «${file.name}»`, redDePlataforma: opts.redDePlataforma });
       return { texto: text, via: 'pdf-vision' };
     } catch (e) { return { texto: '', via: 'pdf-vision', warning: `No pude leer «${file.name}»: ${msg(e)}` }; }
   }
 
   if (familia === 'imagen') {
     try {
-      const { text } = await leerDocumentoIA({ dataUrl: `data:${mime || 'image/jpeg'};base64,${buf.toString('base64')}`, isPdf: false, nombreArchivo: file.name, prompt: LEER_DOC, feature: featureVision, motivo: opts.motivo || `Leer «${file.name}»` });
+      const { text } = await leerDocumentoIA({ dataUrl: `data:${mime || 'image/jpeg'};base64,${buf.toString('base64')}`, isPdf: false, nombreArchivo: file.name, prompt: LEER_DOC, feature: featureVision, motivo: opts.motivo || `Leer «${file.name}»`, redDePlataforma: opts.redDePlataforma });
       return { texto: text, via: 'imagen' };
     } catch (e) { return { texto: '', via: 'imagen', warning: `No pude leer «${file.name}»: ${msg(e)}` }; }
   }

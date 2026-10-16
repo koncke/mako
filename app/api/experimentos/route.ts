@@ -8,10 +8,11 @@
 //   - cerrar    { id }                   (mide resultado y MaKo dicta veredicto + aprendizaje)
 //   - descartar { id }
 //   - eliminar  { id }
-// Gated por el login del dashboard (middleware).
+// Sólo el admin del negocio con la tab en su capa (lib/puerta-admin-tab.ts): el proxy sólo pide sesión.
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
+import { soloAdminDeTab } from '@/lib/puerta-admin-tab';
 import {
   getExperimentosView,
   crearExperimento,
@@ -27,6 +28,8 @@ export const revalidate = 0;
 export const maxDuration = 120; // cerrar/crear miden contra el dato real + Claude
 
 export async function GET() {
+  const cerrada = await soloAdminDeTab('experimentos');
+  if (cerrada) return cerrada;
   try {
     return Response.json({ ok: true, view: await getExperimentosView() });
   } catch (err) {
@@ -35,6 +38,8 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const cerrada = await soloAdminDeTab('experimentos');
+  if (cerrada) return cerrada;
   let body: Record<string, unknown>;
   try { body = await req.json(); } catch { return Response.json({ ok: false, error: 'JSON inválido' }, { status: 400 }); }
   const action = String(body.action ?? '');

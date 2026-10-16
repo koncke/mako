@@ -20,6 +20,7 @@ agregar_seccion_landing
 analisis_negocio
 analizar_hoja_dashboard
 analizar_llamadas_lead
+anticipacion_agenda
 anular_link_pago
 apagar_kpi
 archivar_etiqueta
@@ -52,6 +53,7 @@ buscar_leads
 buscar_lugares_meta
 buscar_tareas_plan
 buscar_tutorial
+cambiar_animacion_landing
 cambiar_espera_paso
 cambiar_estado_comentario_landing
 cambiar_ficha_funnel
@@ -115,6 +117,7 @@ crear_modulo_curso
 crear_oferta_lead
 crear_presentacion_desde_plantilla
 crear_secuencia_email
+dar_de_baja_mi_plan
 dar_estrella
 declarar_entradas_funnel
 desarchivar_secuencia
@@ -124,6 +127,7 @@ descartar_item_plan_retro
 deshacer_item_plan_retro
 despublicar_landing
 destacados_periodo_retro
+desvincular_evento_etapa
 detectar_fatiga_adsets
 detectar_piezas_landing
 diagnosticar_funnel
@@ -139,7 +143,9 @@ editar_cuota
 editar_dato_deal
 editar_etiqueta
 editar_grafico_dashboard
+editar_hoja_con_ia_dashboard
 editar_hoja_dashboard
+editar_hoja_general_con_ia
 editar_lead_magnet
 editar_meta_secuencia_email
 editar_obligacion_deal
@@ -256,6 +262,7 @@ listar_disenos_landing
 listar_etapas_email
 listar_etiquetas
 listar_etiquetas_whatsapp
+listar_eventos_agenda
 listar_eventos_calendario
 listar_eventos_pixel_meta
 listar_experimentos
@@ -287,6 +294,7 @@ listar_pendientes_arranque
 listar_pixeles_meta
 listar_plantillas_aprobadas
 listar_plantillas_imagen
+listar_plantillas_video
 listar_preguntas_diagnostico_fase
 listar_productos
 listar_propuestas_revisar
@@ -473,6 +481,7 @@ ver_integracion
 ver_integraciones
 ver_landing_creada
 ver_metricas_video_panda
+ver_mi_plan
 ver_moneda_negocio
 ver_montaje_anuncio
 ver_mrr_activo
@@ -514,5 +523,6 @@ verificar_aprobacion_meta
 verificar_dominio_envio
 verificar_ganadores_reusables
 verificar_pagina_pixel
+vincular_evento_etapa
 vista_experimentos
 volver_a_mostrar_sugerencia

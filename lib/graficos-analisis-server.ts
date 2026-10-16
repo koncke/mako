@@ -41,7 +41,7 @@ import { datosDeGraficos, hastaDeFuente, type DatosGrafico, type PedidoDatos } f
 import { cortarEnHoy } from './graficos-agregar';
 import { tableroInicial } from './graficos-plantillas';
 import { getSettingEstricto } from './settings';
-import { chatCheapCascade, CASCADA_DOCS, MODELO_DOCS, docsIADisponible, errorDeCascada, type ProvName } from './ai-cheap';
+import { chatCheapCascade, CASCADA_DOCS, MODELO_DOCS, errorDeCascada, type ProvName } from './ai-cheap';
 import { overrideDeFeature } from './model-registry';
 import { porLaRedDePlataforma } from './graficos-ia-red';
 import { getPromptText } from './prompt-render';
@@ -289,14 +289,15 @@ export async function leerGraficosParaIA(p: { hoja: Hoja; graficos: Grafico[]; v
 export type RespuestaIA = { crudo: string; modelo: string | null; errores: string[]; rechazos: string[] };
 
 /**
- * La IA, sólo gratis: primero las keys del negocio (con el pin de /modelos-ia de ESA feature) y, si ninguna
- * devuelve algo usable (o no tiene ninguna), la RED DE PLATAFORMA (lib/graficos-ia-red.ts). Martín, 11/10/2026:
+ * La IA, sin cobrar por pedido: primero las keys del negocio (con el pin de /modelos-ia de ESA feature) y, si
+ * ninguna devuelve algo usable (o no tiene ninguna), la RED DE PLATAFORMA (lib/graficos-ia-red.ts: el crédito de Claude de la
+ * plataforma y, sólo si el pedido no lleva datos de clientes, las keys gratis de la agencia). Martín, 11/10/2026:
  * «siempre tiene que probar con otros provedoores» — la única key de Gemini del ws1 la bloqueó Google y el
  * panel decía que no pudo, con la agencia teniendo con qué contestar. El mensaje para la persona lo arma quien
  * llama (`errorDeCascada` con SU trabajo), con los errores de las keys del negocio y nunca los de la red.
+ * `pii`: si el pedido lleva datos de los clientes del negocio; sin él, lo dice la marca `pii` del catálogo.
  */
-export async function pedirIAGratis(p: { system: string; user: string; maxTokens: number; feature: string; motivo: string; hastaMs: number; validar: (t: string) => boolean }): Promise<RespuestaIA> {
-  const hayIaDelNegocio = await docsIADisponible().catch(() => false);
+export async function pedirIAGratis(p: { system: string; user: string; maxTokens: number; feature: string; motivo: string; hastaMs: number; validar: (t: string) => boolean; pii?: boolean }): Promise<RespuestaIA> {
   const pin = await overrideDeFeature(p.feature).catch(() => null);
   const usaPin = pin != null && pin.provider !== 'anthropic';
   const errores: string[] = [];
@@ -325,11 +326,15 @@ export async function pedirIAGratis(p: { system: string; user: string; maxTokens
     hastaMs: p.hastaMs,
     respondioOut: respondio,
   };
-  let crudo = hayIaDelNegocio ? await chatCheapCascade(opciones) : '';
+  // ⚠️ SIN PREGUNTAR ANTES SI EL NEGOCIO TIENE IA (AGENTS.md: «y nada la corta antes»). `docsIADisponible` no
+  // cuenta la clave de Claude del negocio, que es el PRIMER intento de `chatCheapCascade` (la segunda puerta del
+  // veto): con esa pregunta delante, un negocio con sólo su Claude no lo usaba nunca. Sin ninguna key cargada, la
+  // cascada no le pega a ningún proveedor y no deja errores (lo lee `avisoSinIA`, lib/graficos-ia-elemento.ts).
+  let crudo = await chatCheapCascade(opciones);
   if (!crudo.trim()) {
     const red = await porLaRedDePlataforma({
       system: opciones.system, user: opciones.user, maxTokens: p.maxTokens,
-      feature: p.feature, motivo: p.motivo, hastaMs: p.hastaMs, validar,
+      feature: p.feature, motivo: p.motivo, hastaMs: p.hastaMs, validar, pii: p.pii,
     });
     if (red) {
       crudo = red.texto;

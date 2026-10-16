@@ -149,6 +149,7 @@ test('reconciliar: un pagado sin su cuota en el CRM o con el alta sin terminar v
   assert.match(rc, /\.in\('cobro_id', pagados\.map/, 'no cruza los pagados contra sus cuotas');
   assert.match(rc, /const faltaCuota = [^;]*!conCuota\.has\(c\.id\)/);
   assert.match(rc, /if \(!faltaCuota && !faltaAlta\) continue;/);
-  assert.match(rc, /if \(c\.proveedor_pago_id\) await aplicarPagoAprobado\(c, \{ proveedorPagoId: c\.proveedor_pago_id \}\)/);
+  // Con la fecha en que se PAGÓ (15/10/2026): reparar días después no corre la cuota al día de la reparación.
+  assert.match(rc, /if \(c\.proveedor_pago_id\) await aplicarPagoAprobado\(c, \{ proveedorPagoId: c\.proveedor_pago_id, pagadoAt: c\.pagado_at \}\)/);
   assert.match(rc, /\.gte\('updated_at', desde\)/, 'la ventana de los pendientes cuenta desde el último movimiento, no desde que se creó');
 });

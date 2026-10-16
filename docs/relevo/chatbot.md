@@ -1,5 +1,49 @@
 # Relevo: Automations (ex /chatbot) y las secuencias
 
+> **16/10/2026 ~07:00 AR (`claude3`) — LOS DOS HUECOS DEL AI STEP (docs/mapa-ia-24h.md), por orden del coordinador
+> antes que los 61 avisos:**
+> (1) **la red de plataforma**: clasificar, redactar y calificar la piden en vivo (`EnVivo`, con plazo) y en el Probar.
+> Las lecturas de la API no la piden, a propósito.
+> (2) **las notas de voz**: el motor las escucha antes de clasificar, guarda lo que dijo en su mensaje, y el aviso del
+> negocio lo cita con 🎤.
+> ⛔ Con la regla de PII del mismo día: lo del lead va sólo por el crédito de Claude (`pii: true`), y la nota de voz
+> nunca a la red gratis. Sin keys del negocio, la nota no se escucha y el aviso dice por qué.
+> **Reporte semanal:** #256 creada y verificada (son cuatro filas, #253-#256).
+> Una revisión adversarial encontró 11 defectos en la primera versión, todos arreglados. Las trampas, en
+> docs/hallazgos-chatbot.md («El AI Step en vivo»).
+> **Commits:** a378040a6 (el AI Step) y 73667ff88 (las flechas: la punta de una flecha con espera, y «Desconectar» al
+> soltarla en el vacío; falta verlo con clics después del deploy).
+> **Siguiente (orden de Cerebro, 16/10):** el resto del feedback de Martín (Probar en la sidebar, el orden de los «antes de», el grupo de MaKo, Calendly, la
+> configuración por automatización y la sidebar de chat), y después los 61 avisos por familias.
+
+> **16/10/2026 ~05:00 AR (`claude3`) — TRES FILAS EN PRODUCCIÓN:** con e50eaf6c2 desplegada (main fc31e0564), la mudanza
+> creó y prendió en el ws 9 **#253** «Se Cayó el WhatsApp de un Negocio», **#254** «Volvió el WhatsApp de un Negocio» y
+> **#255** «Terminó la Reunión de un Negocio» (`--eventos=whatsapp_caido,whatsapp_volvio,reunion_grabada`). Verificadas
+> con la consulta del motor (`leerFilas`) y su decisión (`emitirPorEvento` con el envío simulado): las tres traducen a un
+> mensaje, el texto sale con sus datos, y el camino viejo ya no corre (`sinFila` falso). Desde ahí esos tres avisos los
+> manda SÓLO la automatización: pausarla en SuperAdmin los apaga para todos los negocios.
+> **FALTA la cuarta:** después del deploy de 12ac3cb85, `--eventos=reporte_semanal` (simulacro primero).
+> **Después, por orden del coordinador, ANTES que los 61 avisos:** los dos huecos del AI Step de docs/mapa-ia-24h.md
+> (la red de plataforma y las notas de voz).
+
+> **16/10/2026 ~04:00 AR (`claude3`) — EL 2, CUATRO MUDADOS:** el reporte semanal también (`reporte_semanal`, 12ac3cb85). Para eso
+> la tarjeta MaKo suma «Por dónde»: el grupo, o **«MaKo por email»** al equipo del negocio (diseño §6). Y la tarjeta de un
+> evento de la plataforma ya espera el horario de oficina del NEGOCIO, no el del ws 9 (a5b9e6d06).
+> **PASO PENDIENTE, DESPUÉS DEL DEPLOY:** `node --conditions react-server --import tsx scripts/mudanza-avisos-plataforma.mts
+> --env=C:/dev/mako-api/.env.local --eventos=reporte_semanal` (simulacro) y después con `--aplicar` (las otras tres ya
+> están, arriba). Desde ahí, el ws 1 recibe el reporte a las 9 (su horario), no a las 7:20.
+
+> **16/10/2026 ~02:15 AR (`claude3`) — EL 2, TRES MUDADOS:** se sumó la grabación de Fathom (`reunion_grabada`,
+> 16fa52568), y las tres plantillas firman «— MaKo» como el texto de siempre (efcc58d46).
+> **#252** («Un Lead Agendó Llamada», ws 9, la de probar «Probar» en producción): **ARCHIVADA, no borrada**
+> (respaldo en el scratchpad de esta sesión; se deshace con `archivada_at = null`).
+
+> **16/10/2026 ~01:30 AR (`claude3`) — EL 2, EMPEZADO:** la pieza que faltaba está construida (729789dfa), y los dos
+> primeros avisos están mudados: «WhatsApp caído» y «volvió». Diseño y estado en docs/diseno-avisos-plataforma.md.
+> **PASO PENDIENTE, DESPUÉS DEL DEPLOY:** `node --conditions react-server --import tsx scripts/mudanza-avisos-plataforma.mts
+> --aplicar` crea y prende las dos filas del ws 9. Hasta entonces, el aviso sale como siempre (`sinFila`).
+> **Siguiente:** `reunion-ocurrio-fathom`, `reporte-semanal` (sale por email: otra tarjeta) y los otros 61 por familias.
+
 > **15/10/2026 ~22:30 AR (`claude3`) — LO DECIDIDO del 2 y el 3 (coordinador «Estrategia 3 cuentas», sin Ticketera:
 > «siempre intentar evitar mandar tickets, y resolverlo por tu propia cuenta. Solo si es 100% necesario»):**
 > - **3, la línea de WhatsApp de SuperAdmin = camino (a).** En la plataforma (ws 9), la línea de MaKo (…2605) es la de

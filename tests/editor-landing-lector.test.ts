@@ -429,18 +429,30 @@ test('el Pixel v24: con ?mako_leer= y la ventana de MaKo detrás no mide nada y 
   const correr = (search: string, opener: unknown) => {
     const agregados: string[] = [];
     let pedidos = 0;
+    // `siguio`: el script pasó de largo la lectura y empezó a MEDIR (lo primero que hace es leer la cookie del visitante).
+    let siguio = false;
     const ctx = createContext({
       window: { opener }, location: { search, href: `https://su-landing.com/${search}` }, URLSearchParams,
-      document: { createElement: () => ({ src: '' }), head: { appendChild: (s: { src: string }) => { agregados.push(s.src); } } },
+      document: {
+        createElement: () => ({ src: '' }), head: { appendChild: (s: { src: string }) => { agregados.push(s.src); } },
+        get cookie() { siguio = true; return ''; }, set cookie(_v: string) { siguio = true; },
+      },
       fetch: () => { pedidos++; return Promise.resolve({}); },
     });
     try { runInContext(codigo, ctx); } catch { /* sin opener sigue y choca con lo que no se simuló: se mira sólo lo de arriba */ }
-    return { agregados, pedidos };
+    return { agregados, pedidos, siguio };
   };
   const leyendo = correr(`?${PARAM_LEER}=${ID}`, {});
   assert.deepEqual(leyendo.agregados, [`https://app.ejemplo.com/m.js?${PARAM_LECTOR_CARGADOR}=${ID}`]);
   assert.equal(leyendo.pedidos, 0, 'leerla no es una visita');
-  assert.deepEqual(correr(`?${PARAM_LEER}=${ID}`, null).agregados, [], 'sin la ventana de MaKo, el parámetro no hace nada');
+  const sinVentana = correr(`?${PARAM_LEER}=${ID}`, null);
+  assert.deepEqual(sinVentana.agregados, [], 'sin la ventana de MaKo, no carga el lector');
+  // 16/10/2026 (revisión de la tanda 8): tampoco MIDE. El lector suelta el opener al arrancar; si la página se recarga
+  // sola, el documento nuevo no lo ve y antes contaba la lectura como una visita real. Rotura: con «&& window.opener»
+  // de vuelta en la condición → 1 fallo (éste).
+  assert.equal(sinVentana.pedidos, 0, 'una lectura de MaKo nunca es una visita, aunque haya perdido la ventana');
+  assert.equal(sinVentana.siguio, false, 'ni siquiera empieza a medir');
+  assert.equal(correr('', null).siguio, true, 'sin el parámetro, mide como siempre (el arnés llega a medir)');
   assert.deepEqual(correr(`?${PARAM_LEER}=corto`, {}).agregados, [], 'un id sin forma no carga nada');
 });
 

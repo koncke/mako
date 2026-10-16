@@ -94,11 +94,13 @@ test('los links viejos al hub llegan a la MISMA sección; sin ?tab=, a la portad
   assert.equal(destinoDeTabVieja('toString'), DESTINO_SIN_TAB, 'un valor del prototipo no es una pestaña');
 });
 
-test('la página ya no dibuja el hub: el wizard, o un redirect con el ?ws= a la sección pedida', () => {
+test('la página ya no dibuja el hub: el chat de arranque, o un redirect con el ?ws= a la sección pedida', () => {
   assert.ok(!existsSync(join(RAIZ, 'app/onboarding/OnboardingTabs.tsx')), 'el hub volvió');
   const page = sinComentarios(leer('app/onboarding/page.tsx'));
   assert.doesNotMatch(page, /OnboardingTabs/);
-  assert.match(page, /if \(!done\) return <>[\s\S]*<OnboardingWizard \/><\/>;/, 'el wizard dejó de dibujarse');
+  // Desde el 16/10/2026 el onboarding es el chat de arranque (el wizard se borró).
+  assert.match(page, /if \(!done\) \{[\s\S]*<ChatArranque [\s\S]*\/><\/>;/, 'el chat de arranque dejó de dibujarse');
+  assert.ok(!existsSync(join(RAIZ, 'app/onboarding/OnboardingWizard.tsx')), 'volvió el wizard');
   assert.match(page, /redirect\(await rutaConWs\(destinoDeTabVieja\(tab\)\)\);/, 'sin el redirect (o sin el ?ws=) al lugar nuevo');
 });
 
@@ -106,7 +108,7 @@ test('ni el menú de la foto ni Configuraciones llevan a /onboarding', () => {
   assert.ok(!USER_NAV.some((i) => i.href === '/onboarding'), 'el ítem «Onboarding» volvió al menú de la foto');
   assert.ok(!TODOS_LOS_ITEMS.some((i) => i.href === '/onboarding'));
   // ConfigTabs.tsx se fue el 15/10/2026 con «Configuración del negocio»: su índice sale de lib/ajustes-secciones.ts.
-  assert.ok(!seccionesNegocio({ general: true, integraciones: true, metodo: true }).some((s) => s.href === '/onboarding'));
+  assert.ok(!seccionesNegocio({ general: true, integraciones: true, metodo: true, plan: true }).some((s) => s.href === '/onboarding'));
 });
 
 test('ningún archivo de producto vuelve a mandar a /onboarding, salvo los que van al wizard', () => {
