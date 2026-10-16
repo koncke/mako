@@ -639,16 +639,33 @@ export const PLANTILLAS_PLATAFORMA: readonly PlantillaAutomatizacion[] = [
   // un dato vacío se va entero (`textoConDatos`), y la línea sin número ni etiqueta no deja «()». Con la firma «— MaKo»
   // del texto de siempre: una tarjeta TAL CUAL no le suma envoltorio (16/10/2026, tests/avisos-plataforma.test.ts).
   {
+    // ⚠️ TEXTO LITERAL (16/10/2026, Martín: «el mensaje NO es igual... esa automatización esta al pedo»): hasta ese día la
+    // tarjeta citaba `{{linea_titulo}}` y `{{linea_motivo}}`, frases enteras escritas en el código. Ahora cada caso es su
+    // evento y su texto: el corte acá, y «WhatsApp cerró la sesión» en `mako-whatsapp-desvinculado`. La fecha va en su
+    // renglón: sin ella, se va sola y no se lleva la frase.
     id: 'mako-whatsapp-caido',
-    nombre: 'Se Cayó el WhatsApp de un Negocio',
+    nombre: 'Se Cortó el WhatsApp de un Negocio',
     emoji: '🔴',
-    linea: 'Le avisa al grupo de un negocio que su WhatsApp se cayó, y qué hacer.',
-    origen: 'el vigilante de líneas (wa-desconectado): dos pruebas seguidas con la línea caída',
+    linea: 'Le avisa al grupo de un negocio que su WhatsApp se cortó, y qué hacer.',
+    origen: 'el vigilante de líneas (wa-desconectado): dos pruebas seguidas con la línea caída, sin que WhatsApp haya cerrado la sesión',
     objetivo: 'clientes',
     soloPlataforma: true,
     cron: { fijo: TRIGGER_AVISO_MAKO, evento: 'whatsapp_caido' },
     pasos: [
-      mako('wc_mk', '🔴 *{{linea_titulo}}*\n📱 {{linea_numero}}\n{{linea_motivo}} {{linea_link}} — MaKo', null),
+      mako('wc_mk', '🔴 *Se cortó tu WhatsApp*\n📱 {{linea_numero}}\n🕐 Desde el {{linea_fecha}}\nPor ese número no entran ni salen mensajes. Puede volver solo; si sigue así, reconéctalo:\n{{linea_link}}\n\n— MaKo', null),
+    ],
+  },
+  {
+    id: 'mako-whatsapp-desvinculado',
+    nombre: 'Se Desconectó el WhatsApp de un Negocio',
+    emoji: '🔴',
+    linea: 'Le avisa al grupo de un negocio que WhatsApp cerró la sesión de su línea, y que vuelva a escanear el QR.',
+    origen: 'el vigilante de líneas (wa-desvinculado): WhatsApp cerró la sesión del dispositivo vinculado',
+    objetivo: 'clientes',
+    soloPlataforma: true,
+    cron: { fijo: TRIGGER_AVISO_MAKO, evento: 'whatsapp_desvinculado' },
+    pasos: [
+      mako('wd_mk', '🔴 *Se desconectó tu WhatsApp*\n📱 {{linea_numero}}\n🕐 Desde el {{linea_fecha}}\nWhatsApp cerró la sesión del dispositivo vinculado: tu teléfono está bien, pero por ese número no entran ni salen mensajes. Vuelve a escanear el QR:\n{{linea_link}}\n\n— MaKo', null),
     ],
   },
   {

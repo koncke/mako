@@ -55,10 +55,12 @@ test('⚠️ el cron semanal recorre los workspaces y corre cada uno ADENTRO del
   assert.match(bucle, /try \{[\s\S]*\} catch \(err\) \{[\s\S]*modo: 'error'/,
     'un workspace que falla corta la corrida de los demás');
   // Y el único camino al despacho es esa función: declarada una vez y llamada una vez,
-  // adentro del `runWithWorkspace`.
+  // adentro del `runWithWorkspace`. (16/10/2026: el despacho es el EVENTO de la plataforma, que corre la automatización de
+  // SuperAdmin; `despacharReporte` era el camino viejo y no vuelve.)
   assert.equal((ROUTE.match(/reporteDelWorkspace\(/g) ?? []).length, 2, 'apareció otro camino al reporte');
-  assert.equal((ROUTE.match(/despacharReporte\(/g) ?? []).length, 1, 'el reporte se despacha desde otro lado');
-  assert.match(fnWorkspace(), /despacharReporte\(rep, prefs\.semanal, perfil\)/, 'el despacho salió de la función por workspace');
+  assert.equal((ROUTE.match(/emitirEventoDePlataforma\(/g) ?? []).length, 1, 'el reporte se despacha desde otro lado');
+  assert.doesNotMatch(ROUTE, /despacharReporte\(/, 'volvió el camino viejo del reporte');
+  assert.match(fnWorkspace(), /emitirEventoDePlataforma\('reporte-semanal', \{ ws, datos: datosDelReporte\(rep\) \}\)/, 'el despacho salió de la función por workspace');
 });
 
 test('saltea al que lo apagó —en sus DOS interruptores— o no tiene a quién mandárselo', () => {
@@ -74,7 +76,7 @@ test('?dry=1 lista a quién le mandaría y no arma ni manda nada', () => {
   const fn = fnWorkspace();
   const iDry = fn.indexOf('if (dry)');
   const iArma = fn.indexOf('buildReporteSemanal(');
-  const iManda = fn.indexOf('despacharReporte(');
+  const iManda = fn.indexOf('emitirEventoDePlataforma(');
   assert.ok(iDry > 0 && iDry < iArma && iArma < iManda, 'el dry-run arma o manda el reporte');
   const dry = fn.slice(iDry, iArma);
   assert.match(dry, /enmascararDestino/, 'el dry-run imprime los teléfonos y correos enteros en el log del cron');

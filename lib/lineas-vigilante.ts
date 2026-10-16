@@ -36,7 +36,7 @@ import { emitirDelCatalogo } from './avisos';
 import { linkApp } from './app-url';
 import { zonaDelNegocio } from './timezone';
 import {
-  decidirLinea, textoCaida, textoVolvio, datosCaida, datosVolvio, lineaLegible, keyDesde, keyAvisado, DEDUP_LINEA_MIN,
+  decidirLinea, avisoDeCaida, datosCaida, datosVolvio, lineaLegible, keyDesde, keyAvisado, DEDUP_LINEA_MIN,
   type DecisionLinea, type MarcasLinea,
 } from './linea-vigilancia';
 
@@ -132,8 +132,9 @@ async function vigilarUna(f: FilaLinea): Promise<ResultadoLinea> {
       // perdido es lo menos caro de los dos. El dedup va con su propia clave: no comparte ventana
       // con el «se cortó» de la misma línea.
       // Los DATOS van con el texto (15/10/2026): la automatización de la plataforma los cita por nombre; sin ella, el texto.
+      // SÓLO LOS DATOS (16/10/2026): el texto es el de la automatización de SuperAdmin, sin camino viejo.
       const r = await emitirDelCatalogo('wa-reconectado', {
-        ws, texto: textoVolvio({ linea: lineaLegible(f) }), datos: datosVolvio({ linea: lineaLegible(f) }), dedupKey: `volvio:${linea}`, dedupTtlMin: DEDUP_LINEA_MIN,
+        ws, datos: datosVolvio({ linea: lineaLegible(f) }), dedupKey: `volvio:${linea}`, dedupTtlMin: DEDUP_LINEA_MIN,
       });
       const llego = r.wa || r.email === true;
       return {
@@ -149,8 +150,9 @@ async function vigilarUna(f: FilaLinea): Promise<ResultadoLinea> {
       motivo, desde: marcas.desde, linea: lineaLegible(f), tz,
       link: linkApp(`/whatsapp?canal=no-oficial&linea=${encodeURIComponent(linea)}`, ws),
     };
-    const r = await emitirDelCatalogo('wa-desconectado', {
-      ws, texto: textoCaida(hechos), datos: datosCaida(hechos), dedupKey: linea, dedupTtlMin: DEDUP_LINEA_MIN,
+    // Cerró la sesión o se cortó: cada uno es su aviso, con su texto literal en su fila (`avisoDeCaida`, 16/10/2026).
+    const r = await emitirDelCatalogo(avisoDeCaida(hechos), {
+      ws, datos: datosCaida(hechos), dedupKey: linea, dedupTtlMin: DEDUP_LINEA_MIN,
     });
     // ⚠️ LA MARCA SE PONE SÓLO SI LE LLEGÓ. Si el aviso no salió (el negocio no tiene grupo
     // todavía, la voz de MaKo está caída, lo apagó), la próxima corrida vuelve a probar: el

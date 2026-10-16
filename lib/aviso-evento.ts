@@ -374,10 +374,10 @@ export type DepsEvento = {
 };
 
 /**
- * `sinFila`: un evento de la PLATAFORMA cuya plataforma todavía no tiene NINGUNA fila (ni pausada): quien llama manda el
- * aviso como antes (la mudanza no deja hueco). Con una fila, aunque esté pausada, decide la automatización.
+ * `filas`: cuántas automatizaciones corrieron. Cero = no salió nada (ninguna prendida, o ninguna con este evento): desde el
+ * 16/10/2026 no hay camino viejo que lo mande igual (docs/inventario-nada-por-detras.md).
  */
-export type ResultadoEvento = EmitirAvisoResult & { filas: number; sinFila?: true };
+export type ResultadoEvento = EmitirAvisoResult & { filas: number };
 
 /** El id de corrida de una fila de evento (`flujo_corridas.aviso_id`): `retomarCorrida` relee la fila por él. */
 export const idCorridaDeFila = (filaId: number): string => `sec:${filaId}`;
@@ -425,8 +425,11 @@ export async function emitirPorEvento(
     log(`[aviso-evento] ${cat.id} (ws ${wsFilas}): no pude leer sus automatizaciones — ${e instanceof Error ? e.message : String(e)}`);
     return { ok: false, feedId: null, wa: false, deduped: false, filas: 0 };
   }
-  // ⚠️ LA MUDANZA NO DEJA HUECO: mientras la plataforma no tenga NINGUNA fila con este evento, el aviso sale como antes.
-  if (dePlataforma && !filas.some((f) => eventoDeFila(f) === evento)) return { ok: true, feedId: null, wa: false, deduped: false, filas: 0, sinFila: true };
+  // ⚠️ SIN CAMINO VIEJO (16/10/2026, Martín: «depreca absolutamente todos los mensajes que corren por detrás»). Hasta ese día,
+  // un evento de la plataforma sin NINGUNA fila salía «como antes», sin fila, con el texto del código: era otro camino por
+  // detrás, y el que mandó el «Se desconectó tu WhatsApp» de Leila que no era el de la #253. Ahora sin fila no sale: el feed
+  // lo anota como apagado (abajo) y el registro lo dice.
+  if (dePlataforma && !filas.some((f) => eventoDeFila(f) === evento)) log(`[aviso-evento] ${cat.id}: la plataforma no tiene ninguna automatización de «${evento}»: no sale`);
 
   // ⚠️ SE TRADUCE ANTES DE RECLAMAR. Una fila prendida que no se puede correr (Publicar no la deja llegar así,
   // pero la base sí) no puede consumir la ventana del dedup: en la cobranza son 120 días sin ese aviso.

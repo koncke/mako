@@ -31,6 +31,7 @@ config({ path: arg('env') ?? '.env.local' });
 /** Los mudados, en orden. Uno nuevo se suma acá, con su plantilla y su evento. */
 const TODOS: ReadonlyArray<{ plantilla: string; evento: string }> = [
   { plantilla: 'mako-whatsapp-caido', evento: 'whatsapp_caido' },
+  { plantilla: 'mako-whatsapp-desvinculado', evento: 'whatsapp_desvinculado' },
   { plantilla: 'mako-whatsapp-volvio', evento: 'whatsapp_volvio' },
   { plantilla: 'mako-reunion-grabada', evento: 'reunion_grabada' },
   { plantilla: 'mako-reporte-semanal', evento: 'reporte_semanal' },

@@ -340,8 +340,11 @@ export const VARIABLES_AVISO: VariableAviso[] = [
   // ── La LÍNEA de WhatsApp de un negocio que se cayó o volvió (15/10/2026, los Mensajes de MaKo a sus clientes mudados a
   //    automatizaciones de la plataforma): lo arma lib/linea-vigilancia.ts (`datosCaida`) con lo que se midió.
   { key: 'linea_numero', label: 'Qué línea', ejemplo: '+52 55 1234 5678', alcance: 'linea', grupo: 'linea', fuente: 'linea', soloPara: 'equipo' },
-  { key: 'linea_titulo', label: 'Qué le pasó', ejemplo: 'Se desconectó tu WhatsApp', alcance: 'linea', grupo: 'linea', fuente: 'linea', soloPara: 'equipo' },
-  { key: 'linea_motivo', label: 'Qué pasa y qué hacer', ejemplo: 'WhatsApp cerró la sesión del dispositivo vinculado el 3 de octubre: tu teléfono está bien, pero por ese número no entran ni salen mensajes. Vuelve a escanear el QR:', alcance: 'linea', grupo: 'linea', fuente: 'linea', soloPara: 'equipo' },
+  { key: 'linea_fecha', label: 'Desde cuándo', ejemplo: '3 de octubre', alcance: 'linea', grupo: 'linea', fuente: 'linea', soloPara: 'equipo' },
+  // ⚠️ OCULTOS DESDE EL 16/10/2026: eran frases enteras escritas en el código (la fila no tenía el texto que salía). Se siguen
+  // resolviendo para la #253 de antes hasta que la mudanza la reescribe (scripts/mudanza-avisos-plataforma.mts), y se borran.
+  { key: 'linea_titulo', label: 'Qué le pasó', ejemplo: 'Se desconectó tu WhatsApp', alcance: 'linea', grupo: 'linea', fuente: 'linea', soloPara: 'equipo', oculta: true },
+  { key: 'linea_motivo', label: 'Qué pasa y qué hacer', ejemplo: 'WhatsApp cerró la sesión del dispositivo vinculado el 3 de octubre: tu teléfono está bien, pero por ese número no entran ni salen mensajes. Vuelve a escanear el QR:', alcance: 'linea', grupo: 'linea', fuente: 'linea', soloPara: 'equipo', oculta: true },
   { key: 'linea_link', label: 'Link para reconectarla', ejemplo: 'https://hola-mako.com/whatsapp', alcance: 'linea', grupo: 'linea', fuente: 'linea', soloPara: 'equipo' },
   // ── La reunión que TERMINÓ y quedó grabada (15/10/2026, el evento de la plataforma `reunion_grabada`): la pasa el
   //    webhook de Fathom. No es la «Próxima reunión»: ésa todavía no pasó.
