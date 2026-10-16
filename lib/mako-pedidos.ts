@@ -225,7 +225,11 @@ const ANCLADAS: Readonly<Record<Area, RegExp>> = Object.fromEntries(
  *   · el Image Editor: un diseño tiene páginas, como en Canva. «Página» es palabra del área `landing`: sin esto,
  *     «crea otra página» en un diseño se iba al Web Generator;
  *   · el Dashboard: una hoja tiene gráficos y métricas («crea otro gráfico» no es otra hoja);
- *   · el Video Editor: un proyecto tiene clips y escenas («borra el otro clip» no es otro proyecto).
+ *   · el Video Editor: un proyecto tiene clips y escenas («borra el otro clip» no es otro proyecto);
+ *   · General (16/10/2026): una hoja tiene BLOQUES que son vistas de otras tabs (las tareas y los proyectos del Plan,
+ *     los KPIs y los objetivos, «Mi día» del Calendario, los cobros) y gráficos. «Agrega mis tareas prioritarias» es un
+ *     bloque más de la hoja abierta, no ir al Plan: `tareas` es palabra del área `plan` y, con la IA etiquetándola así,
+ *     se iba (lib/general-piezas.ts, `PIEZAS_GENERAL`).
  * Fuera de su tab sí cuentan («créame otra página» en Automations va al Web Generator).
  */
 const PARTES_DE_LO_ABIERTO: Partial<Readonly<Record<Area, RegExp>>> = {
@@ -233,6 +237,7 @@ const PARTES_DE_LO_ABIERTO: Partial<Readonly<Record<Area, RegExp>>> = {
   imagen: /^paginas?$/,
   metricas: /^(?:graficos?|metricas?)$/,
   video: /^(?:clips?|escenas?)$/,
+  general: /^(?:bloques?|graficos?|metricas?|numeros?|tareas?|proyectos?|prioridades?|deadlines?|kpis?|objetivos?|okrs?|metas?|semaforos?|dia|agenda|cobros?)$/,
 };
 
 const esParteDeLoAbierto = (tab: Area, palabra: string | undefined): boolean =>

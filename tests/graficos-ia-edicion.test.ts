@@ -210,8 +210,9 @@ test('la cascada: la de «Pídeselo», gratis y con los mismos escalones en el m
 
 test('el panel: aplica por el editor sólo si la hoja no cambió, re-sanea lo que llega, y deshace sólo lo suyo', () => {
   const p = leer('app', 'dashboard', 'PanelEditarMako.tsx');
-  assert.match(p, /fetch\('\/api\/graficos\/editar', \{[\s\S]*?body: JSON\.stringify\(\{ hoja: enviada, pedido, historial, informe \}\)/);
-  assert.match(p, /const nueva = sanearHoja\(j\.hoja, 0\);/);
+  // 16/10/2026: a la edición va lo de ESTA hoja (`deEstaHoja`, lo que dejó /api/mako/pedidos; tests/dashboard-pedidos-chat.test.ts).
+  assert.match(p, /fetch\('\/api\/graficos\/editar', \{[\s\S]*?body: JSON\.stringify\(\{ hoja: enviada, pedido: deEstaHoja, historial, informe \}\)/);
+  assert.match(p, /const nueva = j\.hoja != null && cambios\.length \? sanearHoja\(j\.hoja, 0\) : null;/);
   const i = p.indexOf('if (leerHoja(enviada.id) !== enviada)');
   assert.ok(i > 0 && i < p.indexOf('onAplicar(nueva);'), 'se compara ANTES de aplicar');
   assert.match(p, /if \(!m\.antes \|\| !m\.hojaId \|\| leerHoja\(m\.hojaId\) !== m\.aplicada\) return;/);
