@@ -37,6 +37,7 @@ const TODOS: ReadonlyArray<{ plantilla: string; evento: string }> = [
   { plantilla: 'mako-whatsapp-volvio', evento: 'whatsapp_volvio' },
   { plantilla: 'mako-reunion-grabada', evento: 'reunion_grabada' },
   { plantilla: 'mako-reporte-semanal', evento: 'reporte_semanal' },
+  { plantilla: 'mako-oferta-lista', evento: 'oferta_lista' },
   // 16/10/2026, lote 1 de docs/inventario-nada-por-detras.md: la alerta de la cuenta publicitaria, con su techo.
   { plantilla: 'mako-meta-cuenta-frenada', evento: 'meta_cuenta_frenada' },
   { plantilla: 'mako-meta-cuenta-recuperada', evento: 'meta_cuenta_recuperada' },

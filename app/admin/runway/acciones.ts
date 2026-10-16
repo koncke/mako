@@ -25,10 +25,10 @@ export async function responderDecision(
   const texto = String(formData.get('texto') ?? '');
   const r = await guardarRespuesta(id, clave, texto);
   if (!r.ok) return { error: r.error, ok: false };
-  // La lista de la Ticketera, en la computadora y en el teléfono. El mazo no: arma su cola una
-  // vez y lleva la cuenta él (Mazo.tsx); rehacerla al contestar traería de vuelta las «después».
-  revalidatePath('/tickets/decisiones/lista');
-  revalidatePath('/m/decisiones');
+  // El mazo no se rehace al contestar: arma su cola una vez y lleva la cuenta él (Mazo.tsx); rehacerla traería de
+  // vuelta las «después». La lista del teléfono se dibuja en el server (/m/operaciones?ticketera=lista); la de la computadora vive en el
+  // estado del Centro, que anota la respuesta en el acto (16/10/2026: la Ticketera está adentro del Centro).
+  revalidatePath('/m/operaciones');
   return { error: null, ok: true };
 }
 
@@ -42,7 +42,8 @@ export async function deshacerDecision(formData: FormData): Promise<EstadoDeshac
   if (!admin) return { error: 'Sólo el super admin', ok: false, yaRecogida: false };
   const r = await deshacerRespuesta(Number(formData.get('id')));
   if (!r.ok) return { error: r.error, ok: false, yaRecogida: false };
-  revalidatePath('/tickets/decisiones/lista');
-  revalidatePath('/m/decisiones');
+  // La lista del teléfono se dibuja en el server (/m/operaciones?ticketera=lista); la de la computadora vive en el
+  // estado del Centro, que anota la respuesta en el acto (16/10/2026: la Ticketera está adentro del Centro).
+  revalidatePath('/m/operaciones');
   return { error: null, ok: true, yaRecogida: r.yaRecogida };
 }

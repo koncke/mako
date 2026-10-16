@@ -304,12 +304,60 @@ export const BITACORA: Hito[] = [
       'No recalcula el brief (`buildEstado(true)` se llevaba lo del wizard): suma sólo las claves de ese documento, y un test lo compara contra `computeEffective` de verdad. Sin panorama (sería otra llamada paga) y sin audios ni links (no son archivos del negocio).',
       'El gasto va como «El Archivero» con el motivo «Offer → El Archivero: …», así la medición por documento del Pricing sigue valiendo. 13 tests, 30 roturas cazadas.',
     ],
-    commits: [{ sha: '718e00b', msg: 'Offer: cada archivo del chat queda también en El Archivero, con una extracción por documento', lineas: 812, archivos: 12 }],
+    // El commit se rebasó antes de subir: era 718e00b en su worktree y en main es f4ed5e0.
+    commits: [{ sha: 'f4ed5e0', msg: 'Offer: cada archivo del chat queda también en El Archivero, con una extracción por documento', lineas: 812, archivos: 12 }],
     archivos: [
       'lib/archivero.ts — `registrarDocumentoSinPisar` y `reclamarLugar`',
       'lib/archivero-registro.ts — lo puro: el id de contenido, el «sin pisar», el binario huérfano',
       'app/api/offer/route.ts — `leer` entrega el binario; `archivarDespues` y `anotarArchivero`',
       'lib/offer-reglas.ts — `seArchivaDesdeOffer`, `conArchivero` y los saneos que lo conservan',
+    ],
+  },
+  {
+    fecha: '12 oct', hora: '—', chat: 'Llamada con Leila (Fathom)', cuenta: 'claude3', actor: 'martin', tipo: 'prompt',
+    titulo: 'El chat de Offer no se va nunca',
+    pedido: 'yo de hecho quisiera que jamás se salga el recuadro del chat. O sea, si vos querés seguir afinando, le vas escribiendo ahí en el mismo chat… nunca se salga como, de última que haya como una preview de un pop-up, por ejemplo, o algo así donde vos puedas ver lo que te mandó, pero que nunca se sale el recuadro del chat',
+    puntos: [
+      'Lo dijo en la llamada con Leila del 12/10 (Fathom, 00:42:47), mirando la pantalla de la oferta que reemplazaba al chat. A los 00:37:00, sobre la pantalla de carga: «en lugar de que cambie el chat, que siga manteniendo el mismo chat pero que MaKo te envíe un mensaje diciéndote ya estoy trabajando».',
+      'No había quedado escrito en ningún lado del repo: lo encontró una búsqueda en la transcripción de Fathom el 16/10.',
+    ],
+  },
+  {
+    fecha: '16 oct', hora: '05:07', chat: 'Offer', sesion: 'local_34d54ef6-523c-46f8-b83f-9fd310dfd667', cuenta: 'claude3', actor: 'claude', tipo: 'implementacion',
+    titulo: 'El chat no desaparece, y Offer es el onboarding',
+    puntos: [
+      'Armar la oferta es un mensaje más del hilo, con sus dos pasos y su reintento; la oferta se ve en una ventana ENCIMA del chat, desde «Ver mi oferta» del PDF o del riel. Ya no hay vistas que reemplacen al chat.',
+      'El mismo motor es el onboarding de MaKo (modo `arranque` de OfferApp): la conversación de la oferta nace en el funnel principal y alrededor van las preguntas del arranque.',
+      'El crédito de Claude de la plataforma entra en `pedir` antes de la red gratis, sólo mientras el onboarding esté pendiente (lo habilita la lista de lib/veto-claude.ts).',
+    ],
+    commits: [
+      { sha: 'dbbabfe', msg: 'Offer: el crédito de Claude de la plataforma, antes de la red gratis, para cuando Offer sea el onboarding', lineas: 60, archivos: 2 },
+      { sha: 'dd3b650', msg: 'Onboarding: el arranque es el chat de Offer, con MaKo de foto de perfil; y el chat de Offer ya no desaparece', lineas: 4973, archivos: 34 },
+    ],
+    archivos: [
+      'app/offer/OfferApp.tsx — sin vistas que tapen el chat; la Conclusión en un Modal; el modo arranque',
+      'app/offer/ChatOffer.tsx — `armando` en el hilo, «Ver mi oferta» en el PDF, avatar y tarjetas enchufables',
+      'app/offer/Generando.tsx — `GenerandoEnChat`, el armado adentro de una burbuja',
+      'lib/offer-ia.ts — el crédito de Claude antes de la red gratis',
+    ],
+  },
+  {
+    fecha: '16 oct', hora: '08:59', chat: 'Offer', sesion: 'local_34d54ef6-523c-46f8-b83f-9fd310dfd667', cuenta: 'claude3', actor: 'claude', tipo: 'implementacion',
+    titulo: 'La oferta se arma aunque cierres la pestaña, y MaKo avisa cuando está',
+    puntos: [
+      'Antes, si la persona cerraba la pestaña mientras MaKo armaba la oferta, a veces no se hacía nunca. Ahora la arma el servidor de punta a punta, y la pantalla sólo mira cómo va: al volver, está ahí.',
+      'Al terminar, MaKo le avisa al grupo del negocio por WhatsApp: «Tu oferta está lista», con el nombre y el link. Lo configura el SuperAdmin como una automatización más.',
+      'Falta prender esa automatización en la cuenta de la plataforma después de subirlo. Y un negocio que todavía no tiene grupo con MaKo no recibe el WhatsApp: ve la oferta en el chat cuando vuelve.',
+    ],
+    commits: [
+      { sha: '132225c', msg: 'Offer: la oferta se arma en el servidor, y al terminar MaKo avisa (evento de la plataforma oferta_lista)', lineas: 795, archivos: 28 },
+    ],
+    archivos: [
+      'app/api/offer/route.ts — `armar` y `armarPorDetras`: los dos pasos en el servidor',
+      'app/offer/OfferApp.tsx — pide el armado y relee lo guardado mientras corre',
+      'lib/oferta-lista-server.ts — el evento de la plataforma al terminar',
+      'supabase/migrations/0296_offer_armado.sql — el armado en curso, en la fila',
+      'tests/offer-armado-servidor.test.ts — 14 roturas, todas caen',
     ],
   },
 ];

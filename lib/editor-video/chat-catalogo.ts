@@ -37,10 +37,13 @@
 //
 // Las plantillas de anuncio (tanda 4 del plan docs/editor-video/plan-plantillas-anuncio.md):
 // el `para` de usar_plantilla se arma desde el catálogo (./plantillas.ts, puro) con los ids,
-// la duración, los huecos y sus topes: una plantilla nueva entra sola al prompt.
+// la duración, los huecos y sus topes: una plantilla nueva entra sola al prompt. Van en el
+// orden de la pestaña, con las sugeridas para el negocio primero y marcadas
+// (`catalogoParaPrompt(senales)`; las señales las lee ./ia.ts en el server).
 // =============================================================================
 
-import { PLANTILLAS, huecosDe, plantillaPorId, validarValores, type Plantilla } from './plantillas';
+import { PLANTILLAS, huecosDe, plantillaPorId, plantillasEnOrden, validarValores, type Plantilla } from './plantillas';
+import type { SenalesNegocio } from '../plantillas-sugeridas';
 
 /** Entrada · Salida · Combinado (video e imagen) · Bucle (texto, sticker y forma). */
 export type CategoriaAnimChat = 'entrada' | 'salida' | 'combinado' | 'bucle';
@@ -203,20 +206,28 @@ const IDS = (lista: string) => `"id" es uno de DISPONIBLES.${lista} (copia el id
 const segundosTexto = (s: number) => `${String(Math.round(s * 10) / 10).replace('.', ',')} s`;
 
 /** Una plantilla en un renglón, como la lee la IA: id, nombre, duración, qué es y sus huecos con sus topes. */
-function plantillaEnRenglon(p: Plantilla): string {
+function plantillaEnRenglon(p: Plantilla, porque: string | null = null): string {
   const huecos = huecosDe(p);
   const clips = huecos
     .filter((h) => h.tipo === 'clip')
     .map((h) => `${h.nombre} (${segundosTexto(h.segundos)}${h.acepta && h.acepta !== 'ambos' ? `, sólo ${h.acepta === 'video' ? 'video' : 'foto'}` : ''}${h.opcional ? ', opcional' : ''})`);
   const textos = huecos.filter((h) => h.tipo === 'texto').map((h) => `${h.nombre} (hasta ${h.maxCaracteres}: «${h.muestra}»)`);
-  return `  · "${p.id}" «${p.nombre}», ${segundosTexto(p.duracion)}: ${p.descripcion} Clips: ${clips.join(', ')}. Textos: ${textos.join(', ')}.`;
+  const sugerida = porque ? ` (SUGERIDA para este negocio: ${porque})` : '';
+  return `  · "${p.id}" «${p.nombre}»${sugerida}, ${segundosTexto(p.duracion)}: ${p.descripcion} Clips: ${clips.join(', ')}. Textos: ${textos.join(', ')}.`;
 }
 
-/** Lo que lee la IA de usar_plantilla: la regla y el catálogo entero (sale de PLANTILLAS). */
-function paraUsarPlantilla(): string {
+/**
+ * Lo que lee la IA de usar_plantilla: la regla y el catálogo entero, en el orden de la pestaña Plantillas. Con las
+ * señales del negocio, primero las sugeridas y marcadas (lib/plantillas-sugeridas.ts): si la persona no dice cuál,
+ * el chat elige como elegiría ella mirando la galería.
+ */
+function paraUsarPlantilla(senales?: SenalesNegocio | null): string {
+  const orden = plantillasEnOrden(senales);
   return [
-    'Arma una PLANTILLA de anuncio vertical, como «Utilizar plantilla»: pasa el lienzo a 9:16 y pone sus clips, textos, animaciones y transiciones. SÓLO con la línea de tiempo VACÍA (ningún elemento en "pistas") y SOLA en el pedido: lo que arma recién tiene ref en el pedido siguiente. "textos": {"hueco": "texto"} con lo que DICTA la persona, hasta el máximo de cada hueco; lo que no llenes queda con el texto de ejemplo para cambiarlo después con cambiar_texto (no lo inventes). "clips": {"hueco": "m1"} con la ref de un medio de "medios"; un video tiene que durar al menos los segundos de su hueco y una foto sirve siempre; lo que no llenes queda con una imagen de muestra para sustituir con reemplazar_clip (los opcionales pueden quedar así). Las plantillas ("id" «nombre», duración: qué es · huecos):',
-    ...PLANTILLAS.map(plantillaEnRenglon),
+    'Arma una PLANTILLA de anuncio vertical, como «Utilizar plantilla»: pasa el lienzo a 9:16 y pone sus clips, textos, animaciones y transiciones. SÓLO con la línea de tiempo VACÍA (ningún elemento en "pistas") y SOLA en el pedido: lo que arma recién tiene ref en el pedido siguiente. "textos": {"hueco": "texto"} con lo que DICTA la persona, hasta el máximo de cada hueco; lo que no llenes queda con el texto de ejemplo para cambiarlo después con cambiar_texto (no lo inventes). "clips": {"hueco": "m1"} con la ref de un medio de "medios"; un video tiene que durar al menos los segundos de su hueco y una foto sirve siempre; lo que no llenes queda con una imagen de muestra para sustituir con reemplazar_clip (los opcionales pueden quedar así).'
+      + (orden.some((x) => x.porque) ? ' Si la persona no dice cuál, elige una SUGERIDA para este negocio.' : '')
+      + ' Las plantillas ("id" «nombre», duración: qué es · huecos):',
+    ...orden.map(({ plantilla, porque }) => plantillaEnRenglon(plantilla, porque)),
   ].join('\n');
 }
 
@@ -376,9 +387,10 @@ export const NO_SE_PUEDE_CHAT =
 const IDS_OP = new Set<string>(OPERACIONES_CHAT.map((o) => o.op));
 
 /** El catálogo como lo lee la IA (va en el slot {{catalogo}} del prompt): una operación por renglón y lo que no se puede. */
-export function catalogoParaPrompt(): string {
+export function catalogoParaPrompt(senales?: SenalesNegocio | null): string {
   return [
-    ...OPERACIONES_CHAT.map((o) => `- ${o.forma} → ${o.para}`),
+    // usar_plantilla se rearma con las señales: sus plantillas van en el orden de la pestaña, con las sugeridas primero.
+    ...OPERACIONES_CHAT.map((o) => `- ${o.forma} → ${o.op === 'usar_plantilla' ? paraUsarPlantilla(senales) : o.para}`),
     '',
     `NO SE PUEDE DESDE EL CHAT (dilo en el resumen, no lo simules): ${NO_SE_PUEDE_CHAT}.`,
   ].join('\n');

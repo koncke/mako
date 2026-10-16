@@ -77,6 +77,7 @@ export function datosDelEvento(sub: unknown): ContextoDatos {
     ...(ev.trae.includes('linea') ? { conLinea: true } : {}),
     ...(ev.trae.includes('grabacion') ? { conGrabacion: true } : {}),
     ...(ev.trae.includes('reporte') ? { conReporte: true } : {}),
+    ...(ev.trae.includes('oferta') ? { conOferta: true } : {}),
     ...(ev.trae.includes('anuncios') ? { conAnuncios: true } : {}),
   };
 }

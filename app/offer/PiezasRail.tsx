@@ -20,8 +20,8 @@ import { Button } from '@/app/_ui';
 import { IconoMenu } from '@/app/_ui/iconos-menu';
 import { Icon } from '@/app/_components/icons';
 import { MakoStar } from '@/app/_components/MakoBrand';
-import { PIEZAS, type PiezaKey, type PiezasSabidas } from '@/lib/offer-marco';
-import { contarSabidas, estadoDePieza, tituloDePieza, type EstadoPieza } from './ayudas';
+import { PIEZAS, type PiezasSabidas } from '@/lib/offer-marco';
+import { GRUPOS_PIEZAS, contarSabidas, estadoDePieza, piezasAgrupadas, tituloDePieza, type EstadoPieza } from './ayudas';
 
 export type AccionesPiezas = {
   puedeConcluir: boolean;
@@ -53,34 +53,9 @@ function Marca({ estado }: { estado: EstadoPieza }) {
   );
 }
 
-/**
- * Las piezas agrupadas por tema, para que 20 renglones se lean de un vistazo (Martín, 12/10/2026: «más
- * legible, más fácil»). Es SÓLO cómo se dibujan: el orden y la lista salen de PIEZAS (lib/offer-marco.ts),
- * y una pieza nueva que nadie agrupó cae en «Más» en vez de desaparecer (tests/offer-pulir-pdf.test.ts).
- */
-export const GRUPOS_PIEZAS: ReadonlyArray<{ titulo: string; keys: readonly PiezaKey[] }> = [
-  { titulo: 'Para quién', keys: ['cliente', 'problema', 'resultado', 'objecion'] },
-  { titulo: 'Cómo', keys: ['mecanismo', 'entregables', 'semana', 'formato'] },
-  { titulo: 'Prueba', keys: ['ventas', 'prueba'] },
-  { titulo: 'Precio', keys: ['precio', 'cobro', 'valor', 'costo'] },
-  { titulo: 'Cierre', keys: ['garantia', 'bonos', 'urgencia', 'frase'] },
-  { titulo: 'Tu negocio', keys: ['escalera', 'otras'] },
-];
-
-/** Los grupos con sus piezas, en el orden de GRUPOS_PIEZAS, más «Más» con lo que no esté agrupado. */
-export function piezasAgrupadas<P extends { key: string }>(
-  lista: readonly P[] = PIEZAS as unknown as readonly P[],
-  gruposDef: ReadonlyArray<{ titulo: string; keys: readonly string[] }> = GRUPOS_PIEZAS,
-): Array<{ titulo: string; piezas: P[] }> {
-  const usadas = new Set<string>();
-  const grupos = gruposDef.map((g) => {
-    const piezas = lista.filter((p) => g.keys.includes(p.key));
-    piezas.forEach((p) => usadas.add(p.key));
-    return { titulo: g.titulo, piezas };
-  }).filter((g) => g.piezas.length > 0);
-  const resto = lista.filter((p) => !usadas.has(p.key));
-  return resto.length ? [...grupos, { titulo: 'Más', piezas: resto }] : grupos;
-}
+// Los grupos de piezas viven en ayudas.ts (puro): «Tu oferta» del teléfono agrupa con lo mismo. Se
+// re-exportan para que quien los importaba de aquí siga igual.
+export { GRUPOS_PIEZAS, piezasAgrupadas };
 
 export function ListaPiezas({ piezas }: { piezas: PiezasSabidas }) {
   return (

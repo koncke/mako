@@ -3,6 +3,95 @@
 <sub>Escrito por el chat «MaKo Mobile» (cuenta 3) el 11/10/2026 a las 15:00, al cruzar el 85% de uso
 semanal. Material de primera mano: lo hizo este chat.</sub>
 
+## 16/10/2026 ~04:40 (cuenta 3) — MORE COMPLETO, TANDA 3 DE 3: Ads Writer, Curso y Comunidad (SIN COMMIT)
+
+Misma rama (`movil-more-9`, en `C:/dev/wt-mobile`); el orquestador commitea por ruta y otra sesión pushea. Con esta
+tanda las 14 secciones de More tienen su página: **el mapa ya se puede subir**.
+
+**Lo que quedó en el worktree, sin commitear:**
+- **Ads Writer** (app/m/copywriting, en /ads-writer): Anuncios · Guiones · Analizar guion, como escritorio. «Escribir el
+  próximo guion» fijo abajo (la misma celda que elige escritorio), copiar y leer un guion como teleprompter, y valorar
+  un guion escrito o dictado. Lo que necesitaba de escritorio se mudó a app/ads-writer/reglas.ts,
+  lib/guion-secciones.ts y app/ads-writer/analizar.ts.
+- **Curso** (app/m/curso): el curso elegido, sus módulos y clases en el orden de escritorio, y la hoja de una clase para
+  ponerla en Público o Privado (con Deshacer) y leer su avance entre los alumnos.
+- **Comunidad** (app/m/comunidad, la app de Skool): el feed con categorías, likes, comentarios y respuestas, encuestas,
+  publicar un post de texto, Miembros, Ranking y buscar. Los íconos de la comunidad se mudaron a app/_comunidad/iconos.tsx.
+- En el mismo worktree, también sin commit, sigue la revisión de la tanda 2: las rutas de Experiments, Retro y la
+  búsqueda del Second Brain cierran por rol, y la nota de voz de Offer se escucha antes de mandarla.
+
+**Verificado:** tsc acotado de la rama en 0 (143 archivos con los importadores de lo mudado, por partes: la corrida
+entera la mató el vigía); los tests de la tanda (m-copywriting 13/0, m-curso 8/0, m-comunidad 12/0), los movil-*
+(movil-mas-secciones ya en 7/0, movil-mismas-rutas 14/0), layout-sin-suspense 7/0 y los guards, verdes.
+`puente-panel-copy` falla 8/1 sólo por VistaAfuera.tsx:201, que ya está arreglado en main.
+
+**Lo que falta, en orden:**
+1. Commit y push del mapa con las nueve pantallas de las tres tandas: con `MOVIL_ACTIVO` prendido, una sección sin su
+   página es un 404 en todo teléfono, así que salen juntas.
+2. **Que Martín pruebe en su teléfono el refresco (tirar hacia abajo) del Centro, la Ticketera y Ads**: nunca se probó en
+   un teléfono de verdad (hallazgos-mobile.md, «Refrescar en TODAS las pantallas»). Y mirar las nueve pantallas nuevas a
+   390 px: ninguna se vio en un navegador.
+3. **Lo decide Martín: la Comunidad del equipo.** La sidebar la muestra sólo al admin, pero la página y sus actions dejan
+   entrar a cualquier rol (un closer fija y borra lo ajeno), y D8 dice que el equipo es admin en la comunidad
+   (hallazgos-seguridad.md, «La Comunidad del equipo»). El teléfono quedó como la sidebar.
+4. Al rebasar sobre main, lo de la tanda 2: el chip del teléfono sin `notaDelAdjunto`, y `urlDelLink` en Archivero.tsx.
+5. Lo pendiente de cada pantalla, con su archivo, en hallazgos-mobile.md → «Las pantallas de More que faltaban» →
+   «Tanda 3».
+
+## 16/10/2026 (cuenta 3) — MORE COMPLETO, TANDA 2 DE 3: Second Brain, Experiments y Offer (SIN COMMIT)
+
+Misma rama (`movil-more-9`, en `C:/dev/wt-mobile`); el orquestador commitea por ruta y otra sesión pushea.
+
+**Lo que quedó en el worktree, sin commitear:**
+- **Second Brain** (app/m/second-brain, Obsidian y Notion en el teléfono): buscar (también con MaKo), el mapa en
+  chico, «Tu negocio» con sus carpetas, cada área y cada dato en una hoja, y subirle al Archivero archivos, fotos o una
+  web. Las reglas que comparte con escritorio salieron de Grafo.tsx y Archivero.tsx a lib/cerebro-areas.ts y
+  lib/archivero-subida.ts, y escritorio ya las importa.
+- **Experiments** (app/m/experimentos): Retro · Experiments · Conclusions · Análisis en `?tab=`, decidir el plan de una
+  Retro con Deshacer, cerrar, iniciar o descartar un experimento, el alta con MaKo y el Análisis con sus tres rangos.
+  El formato de los números se mudó a lib/experimentos-formato.ts.
+- **Offer** (app/m/offer, la app de ChatGPT): el chat entero (texto, links, documentos, nota de voz), armar y bajar el
+  PDF, guardar en el funnel y «Probarlo». Los grupos de piezas pasaron a app/offer/ayudas.ts.
+- **Escritorio, un bug arreglado**: Offer borraba de Storage la nota de voz que SÍ se mandó y dejaba de sonar
+  (app/offer/OfferApp.tsx, `enviarAudio`; hallazgos-offer.md).
+
+**Verificado:** tsc acotado de la rama en 0 (80 archivos); los tests de la tanda y de las pantallas de /m, los guards
+y los de escritorio tocados, verdes. `movil-mas-secciones` falla A PROPÓSITO (6/1) con las tres de la tanda 3, y el
+guard de voseo (`puente-panel-copy`) falla 8/1 por VistaAfuera.tsx:201, que ya está arreglado en main.
+
+**Lo que falta, en orden:**
+1. **Tanda 3:** Copywriting, Curso y Comunidad. ⚠️ El mapa sigue sin poder pushearse sin ellas (404 en todo teléfono).
+2. Al rebasar sobre main: el chip de un adjunto del teléfono no muestra `notaDelAdjunto` (f4ed5e069), y Archivero.tsx
+   conserva su `urlDelLink`.
+3. Mirar las tres pantallas a 390 px y en un teléfono (nada se vio); lo pendiente de cada una, con su archivo, en
+   hallazgos-mobile.md → «Las pantallas de More que faltaban» → «Tanda 2».
+
+## 15/10/2026 ~21:55 (cuenta 3) — MORE COMPLETO, TANDA 1 DE 3: el mapa, Calendario, Avisos y Tu cuenta (SIN COMMIT)
+
+Pedido de Martín (14/10): «Implementá TODAS las tabs que construimos, todo». Se trabaja en `C:/dev/wt-mobile`, rama
+`movil-more-9` (salió de origin/main c4ef8a68e); el orquestador commitea por ruta y otra sesión pushea.
+
+**Lo que quedó en el worktree, sin commitear:**
+- **El mapa:** `SECCIONES_MAS` pasa de 7 a 14 secciones, en el orden de la sidebar, con su vuelta en `rutaEscritorio`
+  y la query de cada página de escritorio (`QUERY_DE_SECCION`). Copywriting se titula «Ads Writer» y Offer es pantalla
+  de trabajo.
+- **Calendario** (app/m/calendario, copia de Google Calendar): Día · Agenda, crear con el «+», marcar hecho, borrar con
+  Deshacer. Lo que comparte con escritorio se mudó a app/calendario/comun.ts.
+- **Avisos** (la campana de General, app/m/inbox): se titula «Avisos» como en el v3 (`TITULO_INBOX`, en los ocho
+  lugares donde decía «Inbox»), con los rótulos de los botones de escritorio.
+- **Tu cuenta** (app/m/cuenta, copia de la cuenta de Google): las secciones de la computadora en su orden, el modo
+  oscuro, los avisos del teléfono. Refrescar ahora trae lo nuevo.
+- El placeholder de Información personal ya no es un cliente real (app/perfil/InformacionPersonal.tsx).
+
+**Verificado:** tsc acotado contra `HEAD` en 0 (50 archivos más lo que importan); los tests de la tanda y los
+guards, verdes; `tests/movil-mas-secciones.test.ts` falla A PROPÓSITO (6/1) nombrando las seis páginas que faltan.
+
+**Lo que falta, en orden:**
+1. **Tandas 2 y 3:** Second Brain, Experiments, Offer, Copywriting, Curso y Comunidad. ⚠️ **El mapa no se pushea sin
+   ellas**: con `MOVIL_ACTIVO` prendido, /second-brain, /offer, /experimentos… darían 404 en todo teléfono.
+2. Mirar las pantallas en un navegador a 390 px y en un teléfono (nada se vio: sin next dev ni Chrome).
+3. Lo que quedó sin hacer de la tanda 1, con su archivo, en hallazgos-mobile.md → «Las pantallas de More que faltaban».
+
 ## 🆕🆕🆕 14/10/2026 ~21:00 (cuenta 1) — TANDA 1 DEL v3 EN CÓDIGO (Martín: «que lo pushee así por ahora»)
 
 Martín aprobó el v3 («está mucho mejor, sigo teniendo feedback») y pidió pushear sin esperar al resto. Tres commits:

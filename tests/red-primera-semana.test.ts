@@ -23,7 +23,11 @@
 //     `hayIAParaCrear` mirando sólo las keys del negocio → 3/1 cada una.
 //   Second Brain (16/10/2026, base 5/0): la búsqueda sin red → 4/1.
 //   Análisis del lead (16/10/2026, base 6/0): el corte por datos de clientes que no corta, el corte sin mirar la
-//     marca `pii`, el análisis sin red, y `lead_insights` sin la marca → 5/1 cada una.
+//     marca `pii`, el análisis sin red, y `lead_insights` sin la marca → 5/1 cada una. Y sin IA propia, el
+//     mensaje de vuelta a «Claude vetado» en vez de decir qué conectar → 5/1.
+//   Segunda tanda (16/10/2026, orden de Cerebro, base 10/0): el diagnóstico sin red, el análisis de la landing sin
+//     pasarle la red a chatClaude, importar un archivo sin red, carruseles/reels/stories sin red, el plan del anuncio
+//     sin red y su reparación sin red → 9/1 cada una.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -98,6 +102,10 @@ test('Análisis del lead: con red, pero NUNCA por las keys gratis (son datos de 
     'el corte por datos de clientes tiene que ir DESPUÉS del crédito de Claude y ANTES de las keys gratis');
   assert.match(src.slice(corte, gratis), /return '';/, 'el corte tiene que terminar ahí, no seguir a las keys gratis');
   assert.match(src, /const conPII = opts\.pii \?\? CATALOGO_MODELOS\.some\(\(f\) => f\.feature === opts\.feature && f\.pii === true\);/);
+  // Y como el crédito NO está habilitado para el análisis del lead («Por ahora solo en onboarding»), sin una
+  // key propia no hay análisis: el mensaje dice qué conectar, no «Claude vetado».
+  const lead = sinComentarios(leer('lib/lead-insights.ts'));
+  assert.match(lead, /if \(!\(await tieneIAPropia\(\)\)\) \{\s*return \{ ok: false, motivo: 'Conecta tu Claude/, 'sin IA propia, el análisis del lead no dice qué conectar');
 });
 
 test('Second Brain: buscar por significado', () => {
@@ -134,6 +142,40 @@ test('Crear una landing: el esquema, las secciones y la reparación del JSON', (
   const ls = llamadas(src.slice(ini, src.indexOf('\n}\n', ini)));
   assert.equal(ls.length, 1, 'el reparador hace UNA llamada');
   assert.match(ls[0], /redDePlataforma: true/, 'el reparador sin red tira lo que la red ya escribió');
+});
+
+// ── La segunda tanda (16/10/2026, orden de Cerebro): sin datos de clientes, red gratis ─────────────
+
+test('El diagnóstico de una landing: la red llega hasta la IA, y nada la corta antes', () => {
+  // Ya la tenía desde el 15/10 (`comoAnalizar`); este test la fija entera, de la ruta a la llamada.
+  const diag = sinComentarios(leer('lib/editor-landing/diagnostico-server.ts'));
+  assert.match(diag, /const comoAnalizar = \(\) => \(\{ redDePlataforma: true,/);
+  assert.match(diag, /analizarLanding\([^)]*\.\.\.comoAnalizar\(\)/, 'el diagnóstico no le pasa la red al análisis');
+  const analista = sinComentarios(leer('lib/landing-analyst.ts'));
+  const ini = analista.indexOf('chatClaude(system, [{ role: \'user\', content: await buildUserPrompt(pagina, comp) }]');
+  assert.ok(ini > 0, 'no encuentro la llamada del análisis');
+  assert.match(analista.slice(ini, analista.indexOf('});', ini)), /redDePlataforma: opts\.redDePlataforma/, 'el análisis no le pasa la red a chatClaude');
+  for (const f of ['lib/editor-landing/diagnostico-server.ts', 'app/api/landing-generator/diagnostico/route.ts', 'lib/landing-analyst.ts']) {
+    assert.doesNotMatch(sinComentarios(leer(f)), /if \(!\(await (docsIADisponible|cheapDisponible)\(\)/, `${f} corta antes de la red`);
+  }
+});
+
+test('Importar un archivo para armar la landing: la lectura por visión con red', () => {
+  assert.match(sinComentarios(leer('app/api/landing-generator/importar/route.ts')), /archivoATexto\(file, \{ redDePlataforma: true \}\)/);
+});
+
+test('Carruseles, reels y stories: la pieza con red', () => {
+  conRed('lib/ig-writer.ts', 'generarPieza');
+});
+
+test('Planificar el anuncio en video: el plan y la reparación de su JSON', () => {
+  conRed('lib/video-planner.ts', 'generarPlan');
+  const src = sinComentarios(leer('lib/video-planner.ts'));
+  const ini = src.indexOf('async function objetoDelPlan(');
+  assert.ok(ini > 0, 'no encuentro la reparación del plan');
+  const ls = llamadas(src.slice(ini, src.indexOf('\n}\n', ini)));
+  assert.equal(ls.length, 1, 'la reparación hace UNA llamada');
+  assert.match(ls[0], /redDePlataforma: true/, 'la reparación sin red tira el plan que la red ya escribió');
 });
 
 test('Ads Writer: motivaciones, sugerir y generar guiones, y valorarlos', () => {

@@ -109,7 +109,7 @@ export function tramosConVariables(linea: string): Array<{ txt: string; esVar: b
  */
 export type FuenteDato = 'nombre' | 'ficha' | 'zona' | 'producto' | 'etiquetas' | 'pagos' | 'curso'
   | 'perfil' | 'lead_magnet' | 'momento' | 'negocio' | 'links' | 'evento' | 'cuota' | 'cobro'
-  | 'proxima' | 'respuestas' | 'pago' | 'escrito' | 'analisis' | 'cuenta' | 'linea' | 'grabacion' | 'reporte' | 'anuncios';
+  | 'proxima' | 'respuestas' | 'pago' | 'escrito' | 'analisis' | 'cuenta' | 'linea' | 'grabacion' | 'reporte' | 'oferta' | 'anuncios';
 
 /**
  * A quién le llega el mensaje: al lead (las automatizaciones), al equipo (MaKo en WhatsApp) o a un USUARIO de MaKo
@@ -144,10 +144,12 @@ export type VariableAviso = {
    *               lo pasa el webhook de Fathom (`datosPostLlamada`, lib/reunion-grabada.ts).
    * · `reporte` — necesita el REPORTE SEMANAL ya armado de un negocio (el evento de la plataforma `reporte_semanal`): lo
    *               pasa el cron de los lunes (`datosDelReporte`, lib/reporte-destino.ts).
+   * · `oferta`  — necesita la OFERTA QUE MaKo TERMINÓ DE ARMAR (el evento de la plataforma `oferta_lista`): lo pasa el
+   *               armado en el servidor (`datosOfertaLista`, lib/oferta-lista.ts).
    * · `anuncios` — necesita la CUENTA PUBLICITARIA que Meta frenó (el evento de la plataforma `meta_cuenta_frenada`): lo
    *               pasa el cron de las alertas críticas (`datosCuentaFrenada`, lib/alerta-critica-texto.ts).
    */
-  alcance: 'siempre' | 'lead' | 'cuota' | 'mensaje' | 'pago' | 'escrito' | 'analisis' | 'restablecer' | 'linea' | 'grabacion' | 'reporte' | 'anuncios';
+  alcance: 'siempre' | 'lead' | 'cuota' | 'mensaje' | 'pago' | 'escrito' | 'analisis' | 'restablecer' | 'linea' | 'grabacion' | 'reporte' | 'oferta' | 'anuncios';
   /**
    * UN DATO SECRETO (15/10/2026, docs/diseno-2fa-obligatorio.md §3 y §8): el link de restablecer la contraseña (y
    * después el código del 2FA por correo). Sale SÓLO en el mail a la persona y NUNCA se guarda: `sinSecretos` lo saca
@@ -380,6 +382,11 @@ export const VARIABLES_AVISO: VariableAviso[] = [
   //    Son los números del negocio (Meta, ventas, cobranza), por eso van en el Dashboard.
   { key: 'reporte_titulo', label: 'Título del reporte', ejemplo: 'Reporte semanal · 05/10/2026–11/10/2026', alcance: 'reporte', grupo: 'dashboard', rama: 'El reporte semanal', fuente: 'reporte', soloPara: 'equipo' },
   { key: 'reporte_texto', label: 'El reporte entero', ejemplo: '🗓️ *Reporte semanal* — 05/10/2026 a 11/10/2026…', alcance: 'reporte', grupo: 'dashboard', rama: 'El reporte semanal', fuente: 'reporte', soloPara: 'equipo' },
+  // ── La oferta que MaKo TERMINÓ DE ARMAR (16/10/2026, el evento de la plataforma `oferta_lista`): la pasa el armado en
+  //    el servidor. Es del negocio (su oferta), por eso va en Second Brain.
+  { key: 'oferta_lista_nombre', label: 'Cómo se llama la oferta', ejemplo: 'Método Lumen: 8 Semanas sin Dolor de Espalda', alcance: 'oferta', grupo: 'cerebro', rama: 'La oferta que armó MaKo', fuente: 'oferta', soloPara: 'equipo' },
+  { key: 'oferta_lista_version', label: 'Qué versión', ejemplo: '1', alcance: 'oferta', grupo: 'cerebro', rama: 'La oferta que armó MaKo', fuente: 'oferta', soloPara: 'equipo' },
+  { key: 'oferta_lista_link', label: 'Link para verla', ejemplo: 'https://hola-mako.com/offer', alcance: 'oferta', grupo: 'cerebro', rama: 'La oferta que armó MaKo', fuente: 'oferta', soloPara: 'equipo' },
   // ── La CUENTA PUBLICITARIA que Meta frenó (16/10/2026, el evento de la plataforma `meta_cuenta_frenada`): la pasa el cron de
   //    las alertas críticas (`datosCuentaFrenada`), sólo HECHOS. El estado, la entrega y el número de aviso se PREGUNTAN en la
   //    CONDITION (`condicion`): cada estado con su texto literal en la fila, y el techo de avisos también
@@ -538,6 +545,8 @@ export type ContextoDatos = {
   conGrabacion?: boolean;
   /** El reporte semanal ya armado de un negocio (el evento de la plataforma `reporte_semanal`). */
   conReporte?: boolean;
+  /** La oferta que MaKo terminó de armar (el evento de la plataforma `oferta_lista`). */
+  conOferta?: boolean;
   /** La cuenta publicitaria que Meta frenó (el evento de la plataforma `meta_cuenta_frenada`). */
   conAnuncios?: boolean;
   /** El link de restablecer la contraseña (sólo el evento `contrasena_restablecer`, y sólo al mail a la persona). */
@@ -571,6 +580,7 @@ function alcanzaPara(a: VariableAviso['alcance'], opts: ContextoDatos): boolean 
   if (a === 'linea') return opts.conLinea === true;
   if (a === 'grabacion') return opts.conGrabacion === true;
   if (a === 'reporte') return opts.conReporte === true;
+  if (a === 'oferta') return opts.conOferta === true;
   if (a === 'anuncios') return opts.conAnuncios === true;
   return false;
 }

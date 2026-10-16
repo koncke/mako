@@ -1,0 +1,252 @@
+/* =============================================================================
+   /m/comunidad — el feed, el post abierto con su campo de comentar, Miembros, Ranking y las hojas
+   =============================================================================
+   Referencia: docs/prototipos/mako-mobile-tableros.html (la pantalla «comunidad»: el segmentado, la caja
+   «Escribe algo» con la cara, los chips y la tarjeta .post con la cara y su nivel) y la app de Skool para
+   iPhone. Todo con prefijo .m-comunidad-* (el nombre ENTERO de la carpeta: Next deja la hoja cargada al salir
+   de la ruta). Lo demás (lista, fila, sección, segmentado, hoja) es del shell (app/m/m.css). Sólo var(--token)
+   de app/globals.css. Un <p> con margen va con [data-m] delante. Ningún control de menos de 44 px; los campos,
+   a 16 px (iOS hace zoom con menos).
+   ========================================================================== */
+
+.m-comunidad-seg { margin: 14px 0 16px; }
+.m-comunidad-vista { display: flex; flex-direction: column; gap: 14px; }
+.m-comunidad-feed { display: flex; flex-direction: column; gap: 12px; }
+
+/* ── «Escribe algo» (la caja de Skool: tu cara y el texto en gris) ───────── */
+.m-comunidad-escribe {
+  display: flex; align-items: center; gap: 12px; width: 100%; min-height: 60px; padding: 10px 14px;
+  border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--surface);
+  font: inherit; font-size: var(--fs-md); color: var(--faint); text-align: left; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.m-comunidad-escribe:active { background-image: linear-gradient(var(--velo-hover), var(--velo-hover)); }
+.m-comunidad-escribe:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.m-comunidad-escribe__txt { flex: 1; min-width: 0; }
+
+/* ── Los chips (categorías, filtros, período). Elegido = tinta (el prototipo) ── */
+.m-comunidad-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.m-comunidad-chips--hoja { margin: 2px 0 14px; }
+.m-comunidad-chip {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 16px; box-sizing: border-box;
+  border: 1px solid var(--border-strong); border-radius: 999px; background: var(--surface); color: var(--dim);
+  font: inherit; font-size: var(--fs-sm); font-weight: 600; text-decoration: none; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.m-comunidad-chip[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: var(--surface); }
+.m-comunidad-chip:active { opacity: .7; }
+.m-comunidad-chip:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.m-comunidad-chip__n { font-variant-numeric: tabular-nums; opacity: .75; }
+
+/* ── La cara con su nivel (la insignia azul abajo a la derecha, como Skool) ── */
+.m-comunidad-av {
+  position: relative; flex: none; display: grid; place-items: center; border-radius: 999px;
+  background: color-mix(in srgb, var(--primary) 14%, var(--surface)); color: var(--primary-strong);
+}
+.m-comunidad-av__foto { width: 100%; height: 100%; border-radius: 999px; object-fit: cover; display: block; }
+.m-comunidad-av__ini { font-weight: 700; letter-spacing: .02em; line-height: 1; }
+.m-comunidad-av__nivel {
+  position: absolute; right: -4px; bottom: -4px; min-width: 18px; height: 18px; padding: 0 4px; box-sizing: border-box;
+  display: grid; place-items: center; border-radius: 999px; border: 2px solid var(--surface);
+  background: var(--primary); color: var(--on-primary); font-size: 10.5px; font-weight: 800; line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.m-comunidad-av[data-grande] .m-comunidad-av__nivel { min-width: 28px; height: 28px; font-size: 13px; right: 0; bottom: 0; }
+/* «En línea»: el punto verde arriba a la derecha (el nivel ocupa la esquina de abajo). */
+.m-comunidad-av__linea {
+  position: absolute; right: -1px; top: -1px; width: 11px; height: 11px; border-radius: 50%;
+  background: var(--good); border: 2px solid var(--surface);
+}
+.m-comunidad-av[data-grande] .m-comunidad-av__linea { width: 16px; height: 16px; right: 4px; top: 4px; }
+
+/* ── La tarjeta de un post ─────────────────────────────────────────────── */
+.m-comunidad-post {
+  border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--surface); overflow: hidden;
+}
+.m-comunidad-post[data-fijado] { border-color: color-mix(in srgb, var(--primary) 35%, var(--border)); }
+.m-comunidad-post__abre {
+  display: flex; flex-direction: column; gap: 8px; width: 100%; padding: 14px 14px 6px;
+  border: 0; background: none; font: inherit; color: var(--ink); text-align: left; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.m-comunidad-post__abre:active { background-image: linear-gradient(var(--velo-hover), var(--velo-hover)); }
+.m-comunidad-post__abre:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--primary); }
+.m-comunidad-post__cab { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.m-comunidad-post__quien { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.m-comunidad-post__autor {
+  font-size: var(--fs-sm); font-weight: 600; color: var(--ink);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.m-comunidad-post__meta {
+  font-size: var(--fs-meta); color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.m-comunidad-post__fijado {
+  flex: none; display: inline-flex; align-items: center; gap: 4px;
+  font-size: var(--fs-meta); font-weight: 700; color: var(--primary-strong);
+}
+.m-comunidad-post__titulo { font-size: var(--fs-card); font-weight: 700; line-height: 1.3; overflow-wrap: anywhere; }
+.m-comunidad-post__ext {
+  font-size: var(--fs-sm); line-height: 1.45; color: var(--dim); overflow-wrap: anywhere;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+}
+.m-comunidad-post__tapa {
+  display: block; width: 100%; max-height: 220px; margin-top: 4px; border-radius: var(--r-md);
+  object-fit: cover; background: var(--surface-2);
+}
+.m-comunidad-post__pie { display: flex; align-items: center; gap: 4px; padding: 0 6px 4px; }
+.m-comunidad-post__tags { margin-left: auto; display: inline-flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; padding-right: 8px; }
+.m-comunidad-tag {
+  display: inline-flex; align-items: center; gap: 4px; height: 24px; padding: 0 8px; border-radius: 999px;
+  background: var(--surface-2); border: 1px solid var(--border); font-size: var(--fs-meta); color: var(--dim); white-space: nowrap;
+}
+
+/* El pulgar y el globo: 44 de toque, el número al lado. Activo = azul en el ÍCONO y el número en tinta. */
+.m-comunidad-accion {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 44px; min-width: 44px; padding: 0 10px;
+  border: 0; border-radius: 999px; background: none; color: var(--dim);
+  font: inherit; font-size: var(--fs-sm); font-weight: 600; font-variant-numeric: tabular-nums; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.m-comunidad-accion:active:not(:disabled) { background: var(--surface-2); }
+.m-comunidad-accion:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.m-comunidad-accion:disabled { cursor: default; opacity: .6; }
+.m-comunidad-accion[data-on] { color: var(--ink); }
+.m-comunidad-accion[data-on] svg { color: var(--primary); }
+.m-comunidad-accion--quieta { cursor: default; }
+
+/* ── El post abierto ───────────────────────────────────────────────────── */
+.m-comunidad-detalle__cab { display: flex; align-items: center; gap: 10px; margin: 2px 0 14px; }
+.m-comunidad-detalle { display: flex; flex-direction: column; gap: 14px; }
+.m-comunidad-detalle__pie { padding: 6px 0 0; margin: 10px 0 0; border-top: 1px solid var(--border); }
+[data-m] .m-comunidad-texto {
+  margin: 0; font-size: var(--fs-md); line-height: 1.55; color: var(--ink);
+  white-space: pre-wrap; overflow-wrap: anywhere;
+  -webkit-user-select: text; user-select: text;
+}
+.m-comunidad-link { color: var(--primary-strong); text-decoration: underline; text-underline-offset: 2px; }
+.m-comunidad-mencion { color: var(--primary-strong); font-weight: 600; }
+.m-comunidad-video { position: relative; aspect-ratio: 16 / 9; border-radius: var(--r-md); overflow: hidden; background: var(--surface-2); }
+.m-comunidad-video iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+.m-comunidad-img { display: block; width: 100%; border-radius: var(--r-md); background: var(--surface-2); }
+.m-comunidad-adjunto {
+  display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 0 14px;
+  border: 1px solid var(--border); border-radius: var(--r-md); background: var(--surface);
+  color: var(--ink); text-decoration: none; font-size: var(--fs-sm);
+}
+.m-comunidad-adjunto__nombre { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* La encuesta: cada opción es un botón de 48; votada, la barra detrás y el % a la derecha. */
+.m-comunidad-encuesta { display: flex; flex-direction: column; gap: 8px; }
+.m-comunidad-opcion {
+  position: relative; display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 0 14px;
+  border: 1px solid var(--border-strong); border-radius: var(--r-md); background: var(--surface); overflow: hidden;
+  font: inherit; font-size: var(--fs-sm); color: var(--ink); text-align: left; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.m-comunidad-opcion[aria-pressed="true"] { border-color: var(--primary); }
+.m-comunidad-opcion:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.m-comunidad-opcion__barra { position: absolute; inset: 0 auto 0 0; background: var(--primary-bg); }
+.m-comunidad-opcion__txt { position: relative; flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.m-comunidad-opcion__pct { position: relative; flex: none; font-weight: 600; font-variant-numeric: tabular-nums; }
+
+[data-m] .m-comunidad-meta { margin: 0; font-size: var(--fs-meta); color: var(--dim); }
+[data-m] .m-comunidad-cerrados { display: flex; align-items: center; gap: 6px; padding: 4px 4px 0; }
+
+/* Los comentarios: la burbuja gris (Skool), el pulgar y «Responder» debajo; las respuestas, corridas. */
+.m-comunidad-coms { display: flex; flex-direction: column; gap: 12px; margin-top: 12px; }
+.m-comunidad-resps { display: flex; flex-direction: column; gap: 10px; margin-top: 6px; padding-left: 44px; }
+.m-comunidad-com { display: flex; align-items: flex-start; gap: 10px; }
+.m-comunidad-com__cuerpo { flex: 1; min-width: 0; }
+.m-comunidad-com__burbuja { padding: 8px 12px 10px; border-radius: 16px; background: var(--surface-2); }
+.m-comunidad-com__cab { display: flex; align-items: baseline; gap: 8px; min-width: 0; margin-bottom: 2px; }
+.m-comunidad-com__autor { font-size: var(--fs-sm); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.m-comunidad-com__acc { display: flex; align-items: center; gap: 2px; margin-left: -6px; }
+
+/* El campo de comentar, en el pie de la hoja (pegado abajo, como un chat). */
+.m-comunidad-composer { display: flex; flex-direction: column; gap: 8px; }
+.m-comunidad-composer__resp {
+  display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 0 0 12px;
+  border-radius: var(--r-md); background: var(--surface-2); font-size: var(--fs-sm); color: var(--dim);
+}
+.m-comunidad-composer__resp-txt { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.m-comunidad-composer__resp-txt b { color: var(--ink); font-weight: 600; }
+.m-comunidad-composer__x {
+  flex: none; width: 44px; height: 44px; display: grid; place-items: center; padding: 0;
+  border: 0; border-radius: var(--r-md); background: none; color: var(--dim); cursor: pointer;
+}
+.m-comunidad-composer__x:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.m-comunidad-composer__fila { display: flex; align-items: flex-end; gap: 8px; }
+.m-comunidad-composer__campo {
+  flex: 1; min-width: 0; min-height: 44px; max-height: 132px; box-sizing: border-box; margin: 0; padding: 11px 14px;
+  border: 1px solid var(--border-strong); border-radius: 22px; background: var(--surface); color: var(--ink);
+  font: inherit; font-size: 16px; line-height: 1.35; resize: none; outline: none; overflow-y: auto;
+}
+.m-comunidad-composer__campo:focus { border-color: var(--primary); }
+.m-comunidad-composer__campo::placeholder { color: var(--faint); }
+
+/* ── El buscador (gris de iOS, como el de Second Brain) ─────────────────── */
+.m-comunidad-buscar {
+  display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 0 0 12px; border-radius: 12px;
+  background: color-mix(in srgb, var(--ink) 7%, var(--bg)); color: var(--faint);
+}
+.m-comunidad-buscar:focus-within { box-shadow: var(--focus-ring); }
+.m-comunidad-buscar__ico { flex: none; display: grid; place-items: center; }
+.m-comunidad-buscar input {
+  flex: 1; min-width: 0; min-height: 44px; margin: 0; padding: 0; border: 0; background: none; outline: none;
+  font: inherit; font-size: 16px; color: var(--ink); -webkit-appearance: none; appearance: none;
+}
+.m-comunidad-buscar input::placeholder { color: var(--faint); }
+.m-comunidad-buscar input::-webkit-search-cancel-button { -webkit-appearance: none; appearance: none; }
+.m-comunidad-buscar__limpiar {
+  flex: none; width: 44px; height: 44px; display: grid; place-items: center; padding: 0;
+  border: 0; border-radius: 12px; background: none; color: var(--faint); cursor: pointer;
+}
+
+/* ── Ranking: el puesto (1-3 en tinta fuerte) y los puntos ──────────────── */
+.m-comunidad-puesto { display: inline-flex; align-items: center; gap: 10px; }
+.m-comunidad-puesto__n {
+  min-width: 22px; text-align: center; font-size: var(--fs-sm); font-weight: 600; color: var(--dim);
+  font-variant-numeric: tabular-nums;
+}
+.m-comunidad-puesto__n[data-podio] { color: var(--ink); font-weight: 800; }
+.m-comunidad-puntos { font-size: var(--fs-sm); font-weight: 600; color: var(--primary-strong); font-variant-numeric: tabular-nums; }
+.m-comunidad-nivel {
+  width: 32px; height: 32px; border-radius: 9px; display: grid; place-items: center;
+  background: var(--primary-bg); color: var(--primary-strong); font-weight: 700; font-variant-numeric: tabular-nums;
+}
+
+/* ── El perfil ─────────────────────────────────────────────────────────── */
+.m-comunidad-perfil { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 6px 4px 16px; text-align: center; }
+[data-m] .m-comunidad-perfil__nivel { margin: 0; font-size: var(--fs-sm); color: var(--dim); }
+[data-m] .m-comunidad-perfil__bio {
+  margin: 0; font-size: var(--fs-md); line-height: 1.5; color: var(--ink); white-space: pre-wrap; overflow-wrap: anywhere;
+}
+.m-comunidad-links { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+
+/* ── «Nuevo post» ──────────────────────────────────────────────────────── */
+.m-comunidad-titulo {
+  box-sizing: border-box; width: 100%; min-height: 52px; margin: 0 0 4px; padding: 8px 4px;
+  border: 0; border-bottom: 1px solid var(--border); border-radius: 0; background: none; outline: none;
+  font: inherit; font-size: 20px; font-weight: 600; color: var(--ink);
+}
+.m-comunidad-titulo:focus { border-bottom-color: var(--primary); }
+.m-comunidad-titulo::placeholder { color: var(--faint); }
+.m-comunidad-cuerpo {
+  box-sizing: border-box; width: 100%; min-height: 180px; margin: 8px 0 0; padding: 8px 4px;
+  border: 0; background: none; outline: none; resize: none;
+  font: inherit; font-size: 16px; line-height: 1.5; color: var(--ink);
+}
+.m-comunidad-cuerpo::placeholder { color: var(--faint); }
+
+/* Lo que no salió: el punto rojo y el texto en TINTA (el rojo como texto no pasa AA a este tamaño). */
+[data-m] .m-comunidad-error {
+  display: flex; gap: 8px; align-items: baseline; margin: 8px 4px 0;
+  font-size: var(--fs-sm); line-height: 1.4; color: var(--ink); text-align: left;
+}
+[data-m] .m-comunidad-error::before {
+  content: ''; flex: none; width: 8px; height: 8px; border-radius: 50%;
+  background: var(--bad); transform: translateY(-1px);
+}
+
+/* El producto elegido en su hoja: el ✓ azul. */
+.m-comunidad-check { display: grid; place-items: center; color: var(--primary-strong); }

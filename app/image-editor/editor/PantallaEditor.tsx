@@ -22,6 +22,7 @@ import { EditorApp, type EditorHandle } from '../_doory/editor';
 import { registerCommand } from '../_doory/editor/extensions';
 import type { EditorAdapter } from '../_doory/types/adapter';
 import type { DoryDocument } from '../_doory/types/document';
+import type { SenalesNegocio } from '@/lib/plantillas-sugeridas';
 import { repositorioDe } from '../espacio';
 import { crearAdaptadorNube } from '../mako/adaptadorNube';
 import { mudarLocales } from '../mako/mudanza';
@@ -46,7 +47,12 @@ async function abrir(id: string, ws: number | null): Promise<Carga> {
   return /no existe/i.test(r.error) ? { estado: 'no-existe' } : { estado: 'error', mensaje: r.error };
 }
 
-export function PantallaEditor({ disenoId, ws }: { disenoId: string; ws: number | null }) {
+export function PantallaEditor({ disenoId, ws, senales = null }: {
+  disenoId: string;
+  ws: number | null;
+  /** Lo que se sabe del negocio (lo lee la page): el panel de plantillas pone primero las sugeridas. */
+  senales?: SenalesNegocio | null;
+}) {
   const router = useRouter();
   const [carga, setCarga] = useState<Carga>({ estado: 'cargando' });
   const editorRef = useRef<EditorHandle>(null);
@@ -87,7 +93,8 @@ export function PantallaEditor({ disenoId, ws }: { disenoId: string; ws: number 
       if (!r.ok) throw new Error(r.error);
       router.push(rutaDiseno(r.id));
     },
-  }), [disenoId, version, ws, router]);
+    senales,
+  }), [disenoId, version, ws, router, senales]);
 
   // Otra pestaña guardó este diseño en el medio (409). «Recargar» trae la última; «Guardar una copia»
   // guarda lo de ESTA pestaña como un diseño nuevo y lo abre, sin pisar a nadie.

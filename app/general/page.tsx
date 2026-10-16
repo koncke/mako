@@ -32,6 +32,7 @@ import { leerInformeGeneral } from '@/lib/graficos-tablero';
 import { datosDeGraficos } from '@/lib/graficos-datos';
 import { ocultosPorPlegado, plegadasDeEntrada } from '@/lib/graficos-secciones';
 import { informeGeneralInicial } from '@/lib/general-plantillas';
+import { senalesDelNegocio } from '@/lib/plantillas-sugeridas-server';
 import { EditorInforme } from '../dashboard/EditorInforme';
 import { pedidosDeHoja } from '../dashboard/exportar';
 import { armarDatosGeneral, variablesDeQuienMira } from './datos';
@@ -58,10 +59,12 @@ export default async function GeneralPage({ searchParams }: { searchParams: Prom
   const pedidos0 = pedidosDeHoja(hoja, {}, hoy, 0, ocultosPorPlegado(hoja.componentes, plegadasDeEntrada(hoja.componentes)));
   // En blanco no se dibuja ningún gráfico: no se lee nada. Los bloques se arman igual: la plantilla que se elija los usa.
   const graficos = sinPaginas ? [] : pedidos0.graficos;
-  const [datos, bloques, variables] = await Promise.all([
+  const [datos, bloques, variables, senales] = await Promise.all([
     datosDeGraficos(graficos.map(({ pedido }) => pedido)),
     armarDatosGeneral(),
     variablesDeQuienMira(),
+    // Para que la galería ponga primero sus sugeridas (lib/plantillas-sugeridas.ts). Sin IA: lo guardado.
+    senalesDelNegocio().catch(() => null),
   ]);
 
   return (
@@ -76,6 +79,7 @@ export default async function GeneralPage({ searchParams }: { searchParams: Prom
           versionInicial={lectura.version}
           sinPaginas={sinPaginas}
           informe="general"
+          senales={senales}
         />
       </ProveedorGeneral>
     </Pagina>

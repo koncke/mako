@@ -50,6 +50,9 @@ import {
   type Preset, type Tablero,
 } from '@/lib/graficos-catalogo';
 import { PLANTILLAS_HOJA, tableroInicial } from '@/lib/graficos-plantillas';
+import { ETIQUETAS_DASHBOARD } from '@/lib/graficos-plantillas-etiquetas';
+import { ordenarConSugeridas, type SenalesNegocio } from '@/lib/plantillas-sugeridas';
+import { firmaDeHoja } from '@/lib/graficos-ia-edicion';
 import { PLANTILLAS_TEMA, sanearTema } from '@/lib/graficos-temas';
 import { fmtValor, type Resultado } from '@/lib/graficos-agregar';
 import { Alias, conNombres, dimensionPublica, etiquetaSegura, haceCuanto, type SalidaAnalisis, type VistaAnalisis } from '@/lib/graficos-analisis';
@@ -754,6 +757,8 @@ export type Cambio =
   | { op: 'quitar_filtro'; hojaId: string; controlId: string }
   | { op: 'agregar_conector'; hojaId: string; conector: Conector }
   | { op: 'quitar_conector'; hojaId: string; conectorId: string }
+  /** «Editar con MaKo» (16/10/2026): la hoja que armó la IA, si la de ahora sigue siendo la que leyó (`antes`, su firma). */
+  | { op: 'editar_con_ia'; hojaId: string; antes: string; hoja: Hoja }
   | { op: 'restablecer' };
 
 export type Aplicado = { ok: true; tablero: Tablero } | { ok: false; error: string; yaEstaba?: true };
@@ -808,6 +813,13 @@ export function aplicarCambio(t: Tablero, c: Cambio): Aplicado {
     return { ok: true, tablero: { ...t, hojas } };
   };
   switch (c.op) {
+    case 'editar_con_ia': {
+      if (firmaDeHoja(h) !== c.antes) return { ok: false, error: `La hoja ${comillas(h.nombre)} cambió desde que MaKo la leyó: pídelo de nuevo.` };
+      const nueva = sanearHoja({ ...c.hoja, id: h.id }, i);
+      if (!nueva) return { ok: false, error: 'La hoja que armó MaKo no se pudo leer.' };
+      if (igual(nueva, h)) return { ok: false, error: `La hoja ${comillas(h.nombre)} ya está así.`, yaEstaba: true };
+      return conHoja(nueva);
+    }
     case 'editar_hoja': {
       const nueva: Hoja = {
         ...h,
@@ -992,8 +1004,16 @@ const conjuntoJson = (f: Fuente, detalle: boolean) => ({
   ...(f.porDimension ? { por_dimension: true, cruces: f.cruces ?? {} } : {}),
 });
 
-/** El catálogo en JSON (toda la lista, o una sección, o un conjunto con su detalle). */
-export function catalogoJson(p: { conjunto?: string; seccion?: SeccionCatalogo }): Record<string, unknown> | ErrorPedido {
+/**
+ * Las plantillas de hoja, con las SUGERIDAS para este negocio primero (lib/plantillas-sugeridas.ts): el mismo orden y el
+ * mismo porqué que la galería de «Nueva hoja». Sin señales, el orden de siempre y ninguna marcada.
+ */
+export const plantillasDelCatalogo = (senales?: SenalesNegocio | null): Array<{ id: string; nombre: string; emoji: string; linea: string; sugerida?: string }> =>
+  ordenarConSugeridas(PLANTILLAS_HOJA, ETIQUETAS_DASHBOARD, senales)
+    .map(({ plantilla: x, porque }) => ({ id: x.id, nombre: x.nombre, emoji: x.emoji, linea: x.linea, ...(porque ? { sugerida: porque } : {}) }));
+
+/** El catálogo en JSON (toda la lista, o una sección, o un conjunto con su detalle). `senales`: para ordenar las plantillas. */
+export function catalogoJson(p: { conjunto?: string; seccion?: SeccionCatalogo; senales?: SenalesNegocio | null }): Record<string, unknown> | ErrorPedido {
   if (p.conjunto) {
     const f = fuenteDe(p.conjunto);
     if (!f) return { error: `El conjunto ${comillas(p.conjunto)} no existe.`, disponibles: FUENTES.map((x) => x.id) };
@@ -1002,7 +1022,7 @@ export function catalogoJson(p: { conjunto?: string; seccion?: SeccionCatalogo }
   const todo: Record<SeccionCatalogo, unknown> = {
     conjuntos: FUENTES.map((f) => conjuntoJson(f, false)),
     tipos: TIPOS.map((t) => ({ id: t.id, nombre: t.nombre, grupo: t.grupo, dimension: t.dimension, desglose: t.desglose, metricas: { min: t.minMetricas, max: t.maxMetricas }, ...(t.soloSumas ? { solo_sumas: true } : {}), ...(t.soloDims ? { solo_dimensiones: t.soloDims } : {}) })),
-    plantillas: PLANTILLAS_HOJA.map((x) => ({ id: x.id, nombre: x.nombre, emoji: x.emoji, linea: x.linea })),
+    plantillas: plantillasDelCatalogo(p.senales),
     estilos: PLANTILLAS_TEMA.map((x) => ({ id: x.id, nombre: x.nombre, linea: x.linea })),
     filtros: TIPOS_CONTROL.map((x) => ({ id: x.id, nombre: x.nombre, linea: x.linea })),
     // La FICHA vive sólo adentro de un pop-up (y la API no arma pop-ups): se lista, marcada. La Acción trae
@@ -1025,7 +1045,7 @@ export function catalogoJson(p: { conjunto?: string; seccion?: SeccionCatalogo }
  * (un chat: el techo de entrada de Groq son ~7 k tokens), los conjuntos van sin sus dimensiones y métricas,
  * que se piden por conjunto: completo pasa de 14 mil caracteres (medido el 11/10/2026).
  */
-export function catalogoMarkdown(p: { conjunto?: string; seccion?: SeccionCatalogo; compacto?: boolean }): string | ErrorPedido {
+export function catalogoMarkdown(p: { conjunto?: string; seccion?: SeccionCatalogo; compacto?: boolean; senales?: SenalesNegocio | null }): string | ErrorPedido {
   if (p.conjunto) {
     const f = fuenteDe(p.conjunto);
     if (!f) return { error: `El conjunto ${comillas(p.conjunto)} no existe.`, disponibles: FUENTES.map((x) => x.id) };
@@ -1053,7 +1073,10 @@ export function catalogoMarkdown(p: { conjunto?: string; seccion?: SeccionCatalo
     out.push('', '## Tipos de gráfico', 'id · dimensión que pide · desglose · métricas (mín-máx).');
     for (const t of TIPOS) out.push(`- \`${t.id}\` ${t.nombre} · ${t.dimension} · desglose ${t.desglose} · ${t.minMetricas}-${t.maxMetricas}${t.soloSumas ? ' · sólo las que se suman' : ''}${t.soloDims ? ` · sólo ${t.soloDims.join(', ')}` : ''}`);
   }
-  if (ver('plantillas')) { out.push('', '## Plantillas de hoja'); for (const x of PLANTILLAS_HOJA) out.push(`- \`${x.id}\` ${x.emoji} ${x.nombre}: ${x.linea}`); }
+  if (ver('plantillas')) {
+    out.push('', '## Plantillas de hoja');
+    for (const x of plantillasDelCatalogo(p.senales)) out.push(`- \`${x.id}\` ${x.emoji} ${x.nombre}: ${x.linea}${x.sugerida ? ` · sugerida para este negocio (${x.sugerida})` : ''}`);
+  }
   if (ver('estilos')) { out.push('', '## Estilos de página'); for (const x of PLANTILLAS_TEMA) out.push(`- \`${x.id}\` ${x.nombre}: ${x.linea}`); }
   if (ver('filtros')) { out.push('', '## Filtros de una hoja'); for (const x of TIPOS_CONTROL) out.push(`- \`${x.id}\` ${x.nombre}: ${x.linea}`); }
   if (ver('elementos')) {

@@ -94,11 +94,13 @@ test('los links viejos al hub llegan a la MISMA sección; sin ?tab=, a la portad
   assert.equal(destinoDeTabVieja('toString'), DESTINO_SIN_TAB, 'un valor del prototipo no es una pestaña');
 });
 
-test('la página ya no dibuja el hub: el wizard, o un redirect con el ?ws= a la sección pedida', () => {
+test('la página ya no dibuja el hub: el chat de arranque, o un redirect con el ?ws= a la sección pedida', () => {
   assert.ok(!existsSync(join(RAIZ, 'app/onboarding/OnboardingTabs.tsx')), 'el hub volvió');
   const page = sinComentarios(leer('app/onboarding/page.tsx'));
   assert.doesNotMatch(page, /OnboardingTabs/);
-  assert.match(page, /if \(!done\) return <>[\s\S]*<OnboardingWizard \/><\/>;/, 'el wizard dejó de dibujarse');
+  // Desde el 16/10/2026 el onboarding es el chat de arranque (el wizard se borró).
+  assert.match(page, /if \(!done\) \{[\s\S]*<ChatArranque [\s\S]*\/><\/>;/, 'el chat de arranque dejó de dibujarse');
+  assert.ok(!existsSync(join(RAIZ, 'app/onboarding/OnboardingWizard.tsx')), 'volvió el wizard');
   assert.match(page, /redirect\(await rutaConWs\(destinoDeTabVieja\(tab\)\)\);/, 'sin el redirect (o sin el ?ws=) al lugar nuevo');
 });
 

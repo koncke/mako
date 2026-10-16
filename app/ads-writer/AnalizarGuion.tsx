@@ -45,7 +45,7 @@ import type { ScriptDraft, Valoracion } from '@/lib/ads-analyst';
 import { ValoracionView, rgba, veredictoDe, type InfoAngulo } from './ValoracionGuion';
 import {
   TOPE_BORRAR_MS, TOPE_SYNC_MS, TOPE_VALORAR_MS,
-  faltaParaValorar, haceCuanto, lineaConteo, mensajeDeFallo, puertaSync, textoResultadoSync,
+  diaMes, extracto, faltaParaValorar, haceCuanto, lineaConteo, mensajeDeFallo, puertaSync, textoResultadoSync,
   type ConteoGuiones,
 } from './analizar';
 
@@ -64,20 +64,8 @@ export type DatosAnalizar = {
   avatares: TaxItem[];
 };
 
-/**
- * El día de una fecha ISO como dd/mm (o dd/mm/aaaa), sacado del TEXTO: con un `Date` el server y el
- * navegador lo pasarían cada uno a su huso, y el día dibujado podría cambiar al hidratar.
- */
-function diaMes(iso: string, conAnio = false): string {
-  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
-  return m ? `${m[3]}/${m[2]}${conAnio ? `/${m[1]}` : ''}` : '';
-}
-
-/** Lo que distingue a una fila del historial: el guion en una línea. */
-function extracto(guion: string): string {
-  const plano = guion.replace(/\s+/g, ' ').trim();
-  return plano.length > 80 ? `${plano.slice(0, 80)}…` : plano;
-}
+// `diaMes` y `extracto` viven en ./analizar.ts (16/10/2026): el historial del teléfono
+// (app/m/copywriting) dibuja la misma fila con las mismas dos funciones.
 
 const POST_JSON = { method: 'POST', headers: { 'Content-Type': 'application/json' } } as const;
 

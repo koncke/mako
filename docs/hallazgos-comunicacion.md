@@ -43,6 +43,21 @@ re-verificaron lo aclaran. El registro completo de corridas está en
 
 ---
 
+## El chat de MaKo por WhatsApp: sólo grupos, sin autor, y 14 horas de memoria (16/10/2026)
+
+Medido leyendo `origin/main` para sumar «el chat de MaKo en WhatsApp» al Second Brain (docs/diseno-mako-ai-native.md, (c)).
+Tres cosas que no se ven y cambian cualquier diseño que lo toque:
+
+- **MaKo contesta SÓLO en grupos.** En las líneas de MaKo el webhook ignora el 1 a 1 («línea de MaKo: solo mensajes de
+  grupo», `app/api/webhooks/evolution/route.ts`). El 1 a 1 que entra por las líneas de los CLIENTES es el espejo de su
+  inbox con sus leads: no es una charla con MaKo. Un «chat 1 a 1 con MaKo» es trabajo nuevo, no algo que ya se guarda.
+- **`mako_doer_conv` no guarda QUIÉN habló** (mig 0086): todo lo humano es `role: 'user'`. Mostrar esa conversación a
+  alguien que no es el admin, o atribuir una decisión a una persona, no se puede con lo que hay.
+- **La memoria corta es a propósito** (`HORAS_CONTEXTO = 14`, `lib/mako-doer-conv.ts`): con 48 h, un «sí, cargalo» se
+  pegó a una charla de cuatro días antes y duplicó tareas. **El diagnóstico obvio («que guarde contexto de todo» =
+  re-leer más historial) es el equivocado**: lo de antes tiene que volver como HECHOS del Second Brain (lo creado, lo
+  decidido), no como turnos viejos.
+
 ## Reglas del dueño para todo lo que sale de la app
 
 ### ⚠️ Un dedup de «leer, hacer, marcar» sólo aguanta reintentos MÁS LENTOS que lo del medio

@@ -437,7 +437,8 @@ export const DealDetailsCard = forwardRef<DealDetailsHandle, {
   const desmarcarPago = (p: Pago) => {
     setFeedback(null);
     startTransition(async () => {
-      try { await marcarPagoAction(p.id, lead.id, false, null); setPagoToast({ pago: p, accion: 'desmarcada' }); refrescarFicha(); }
+      // Un pago que nació cobrado se QUITA al deshacerlo (mig 0295): su toast re-marcaría una fila que ya no existe.
+      try { const r = await marcarPagoAction(p.id, lead.id, false, null); if (r?.quitada) setFeedback({ kind: 'ok', msg: 'Pago quitado.' }); else setPagoToast({ pago: p, accion: 'desmarcada' }); refrescarFicha(); }
       catch (err) { setFeedback({ kind: 'err', msg: err instanceof Error ? err.message : String(err) }); }
     });
   };

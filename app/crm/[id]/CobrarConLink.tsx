@@ -26,6 +26,11 @@
 // pero no puede sumar al cash del CRM (`pagos.monto_usd` es en USD y nunca se inventa una tasa).
 //
 // Sin ninguna pasarela conectada no hay asistente: un renglón corto que lleva a /integraciones.
+//
+// EL LINK DE UNA CUOTA (16/10/2026, la tab Pagos en bloques): `CobrarCuotaConLink` abre el mismo asistente sobre
+// UNA cuota del plan. No pregunta qué ni cada cuánto (es esa cuota, una vez) y, en dólares, tampoco cuánto: el
+// valor ES el de la cuota (`crearCobro`, lib/cobros.ts). En otra moneda pregunta cuánto es en esa moneda. Si la
+// cuota ya tiene un link vivo, el server devuelve ése (`yaEstaba`): dos links para la misma plata son dos cobros.
 
 import { useEffect, useState, type CSSProperties } from 'react';
 import { BotonIntegracion } from '@/app/_components/ConectarIntegracion';
@@ -39,6 +44,8 @@ const SANS = "'Geist', sans-serif";
 const MONO = "'Geist Mono', monospace";
 
 type LeadCobro = { id: number; nombre: string; email: string | null; telefono: string | null };
+/** La cuota que salda el link: su id, cómo se llama («Cuota 2») y su valor en dólares. */
+export type CuotaACobrar = { pagoId: number; nombre: string; montoUsd: number };
 
 export function CobrarConLink({ lead, pasarelas, productos, onCreado }: {
   lead: LeadCobro;
@@ -73,10 +80,21 @@ export function CobrarConLink({ lead, pasarelas, productos, onCreado }: {
   );
 }
 
-type Que = { tipo: 'producto'; id: number } | { tipo: 'otro' };
-type PasoId = 'que' | 'pasarela' | 'monto' | 'usd' | 'frecuencia' | 'email' | 'listo';
+/** El asistente sobre UNA cuota, abierto ya (lo abre el botón de la cuota o el del estado de cuenta). */
+export function CobrarCuotaConLink({ lead, pasarelas, cuota, onCreado, onCerrar }: {
+  lead: LeadCobro; pasarelas: Pasarela[]; cuota: CuotaACobrar; onCreado: () => void; onCerrar: () => void;
+}) {
+  return (
+    <div onClick={(e) => e.stopPropagation()}>
+      <Asistente lead={lead} pasarelas={pasarelas} productos={[]} cuota={cuota} onCreado={onCreado} onCerrar={onCerrar} />
+    </div>
+  );
+}
 
-const PREGUNTA: Record<Exclude<PasoId, 'monto'>, string> = {
+type Que = { tipo: 'producto'; id: number } | { tipo: 'otro' };
+type PasoId = 'cuota' | 'que' | 'pasarela' | 'monto' | 'usd' | 'frecuencia' | 'email' | 'listo';
+
+const PREGUNTA: Record<Exclude<PasoId, 'monto' | 'cuota'>, string> = {
   que: '¿Qué cobras?',
   pasarela: '¿Con qué cobras?',
   usd: '¿Cuánto es en dólares?',
@@ -111,8 +129,8 @@ const chipMoneda = (on: boolean): CSSProperties => ({
   fontFamily: MONO, fontSize: 12, fontWeight: 700, cursor: 'pointer',
 });
 
-function Asistente({ lead, pasarelas, productos, onCreado, onCerrar }: {
-  lead: LeadCobro; pasarelas: Pasarela[]; productos: ProductoCobrable[]; onCreado: () => void; onCerrar: () => void;
+function Asistente({ lead, pasarelas, productos, cuota = null, onCreado, onCerrar }: {
+  lead: LeadCobro; pasarelas: Pasarela[]; productos: ProductoCobrable[]; cuota?: CuotaACobrar | null; onCreado: () => void; onCerrar: () => void;
 }) {
   const [paso, setPaso] = useState<PasoId>('que');
   const [que, setQue] = useState<Que | null>(null);
@@ -126,7 +144,7 @@ function Asistente({ lead, pasarelas, productos, onCreado, onCerrar }: {
   const [monedas, setMonedas] = useState<MonedasCobro | null>(null);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [hecho, setHecho] = useState<{ link: string; prueba: boolean } | null>(null);
+  const [hecho, setHecho] = useState<{ link: string; prueba: boolean; yaEstaba?: boolean } | null>(null);
   const { ok: copiado, flash } = useOkFlash();
 
   // La moneda de cada cuenta: habla con la pasarela, así que va al abrir y no al montar la ficha.
@@ -143,18 +161,21 @@ function Asistente({ lead, pasarelas, productos, onCreado, onCerrar }: {
   const moneda: string | null = pasarela === 'mercadopago'
     ? monedaMp
     : monedaElegida && monedasStripe.includes(monedaElegida) ? monedaElegida : 'USD';
-  const precioUsd = producto?.monto_usd ?? null;
-  const necesitaMonto = !producto || precioUsd == null || moneda !== 'USD';
-  const necesitaUsd = !!moneda && moneda !== 'USD' && precioUsd == null;
-  const tipo: TipoCobro | null = producto ? producto.tipo : frecuencia;
+  const precioUsd = cuota?.montoUsd ?? producto?.monto_usd ?? null;
+  // Una cuota: en dólares su valor ya está; en otra moneda, cuánto es en ésa. Nunca «en dólares» aparte: es el de la cuota.
+  const necesitaMonto = cuota ? moneda !== 'USD' : !producto || precioUsd == null || moneda !== 'USD';
+  const necesitaUsd = !cuota && !!moneda && moneda !== 'USD' && precioUsd == null;
+  const tipo: TipoCobro | null = cuota ? 'unico' : producto ? producto.tipo : frecuencia;
   const necesitaEmail = pasarela === 'mercadopago' && tipo === 'suscripcion' && !lead.email?.trim();
 
   const pasos: PasoId[] = [
-    'que',
+    // La cuota tiene su paso aunque no haya nada que preguntar: con una sola pasarela en dólares, el asistente
+    // sería sólo el botón «Crear link», sin decir qué ni cuánto se cobra.
+    ...(cuota ? ['cuota' as const] : ['que' as const]),
     ...(pasarelas.length > 1 ? ['pasarela' as const] : []),
     ...(necesitaMonto ? ['monto' as const] : []),
     ...(necesitaUsd ? ['usd' as const] : []),
-    ...(!producto ? ['frecuencia' as const] : []),
+    ...(!producto && !cuota ? ['frecuencia' as const] : []),
     ...(necesitaEmail ? ['email' as const] : []),
   ];
   const mapa: PasoId[] = hecho ? [...pasos, 'listo'] : pasos;
@@ -167,6 +188,7 @@ function Asistente({ lead, pasarelas, productos, onCreado, onCerrar }: {
 
   const puedeAvanzar = (() => {
     switch (actual) {
+      case 'cuota': return true;
       case 'que': return que != null;
       case 'pasarela': return pasarelaElegida != null && !(pasarelaElegida === 'mercadopago' && sinMonedaMp);
       case 'monto': return numero(monto) != null && !!moneda;
@@ -184,7 +206,8 @@ function Asistente({ lead, pasarelas, productos, onCreado, onCerrar }: {
     const r = await crearCobroAction(lead.id, {
       pasarela,
       productoId: producto?.id ?? null,
-      concepto: producto ? null : concepto.trim() || null,
+      pagoId: cuota?.pagoId ?? null,
+      concepto: producto ? null : cuota ? cuota.nombre : concepto.trim() || null,
       monto: necesitaMonto ? numero(monto) : null,
       moneda,
       montoUsd: necesitaUsd ? numero(usd) : null,
@@ -193,12 +216,12 @@ function Asistente({ lead, pasarelas, productos, onCreado, onCerrar }: {
     }).catch((e: unknown) => ({ ok: false as const, error: e instanceof Error ? e.message : String(e) }));
     setPending(false);
     if (!r.ok) { setError(r.error); return; }
-    setHecho({ link: r.link, prueba: r.prueba });
+    setHecho({ link: r.link, prueba: r.prueba, yaEstaba: r.yaEstaba === true });
     onCreado();
   };
 
   const primerNombre = lead.nombre.trim().split(/\s+/)[0] ?? '';
-  const queSeCobra = producto?.nombre ?? (concepto.trim() || null);
+  const queSeCobra = cuota ? cuota.nombre.toLowerCase() : producto?.nombre ?? (concepto.trim() || null);
   const textoWa = hecho
     ? `Hola${primerNombre ? ` ${primerNombre}` : ''}, te paso el link para pagar${queSeCobra ? ` ${queSeCobra}` : ''}: ${hecho.link}`
     : '';
@@ -210,10 +233,14 @@ function Asistente({ lead, pasarelas, productos, onCreado, onCerrar }: {
     try { await navigator.clipboard.writeText(hecho.link); flash(); } catch { setError('No pude copiar: selecciona el link y cópialo a mano.'); }
   };
 
-  const pregunta = actual === 'monto'
-    ? (producto ? `¿Cuánto cobras por ${producto.nombre}?` : '¿Cuánto cobras?')
-    : PREGUNTA[actual];
+  const pregunta = actual === 'cuota' && cuota
+    ? `Se cobra ${cuota.nombre.toLowerCase()}: ${formatoMonto(cuota.montoUsd, 'USD')}`
+    : actual === 'monto'
+    ? (cuota ? `¿Cuánto es ${cuota.nombre.toLowerCase()} en ${moneda ?? 'tu moneda'}?` : producto ? `¿Cuánto cobras por ${producto.nombre}?` : '¿Cuánto cobras?')
+    : PREGUNTA[actual as Exclude<PasoId, 'monto' | 'cuota'>];
   const sub = (() => {
+    if (actual === 'cuota') return 'Cuando pague, la cuota se marca sola y su recordatorio se corta.';
+    if (actual === 'monto' && cuota) return `La cuota es de ${formatoMonto(cuota.montoUsd, 'USD')}.`;
     if (actual === 'monto' && pasarela === 'mercadopago' && monedaMp) {
       return precioUsd != null
         ? `Tu precio es ${formatoMonto(precioUsd, 'USD')}${producto?.tipo === 'suscripcion' ? ' al mes' : ''}. Mercado Pago cobra en ${monedaMp}.`
@@ -221,7 +248,11 @@ function Asistente({ lead, pasarelas, productos, onCreado, onCerrar }: {
     }
     if (actual === 'usd') return 'Para sumarlo al cash del CRM. Si lo dejas vacío, el pago se registra igual pero no suma al cash.';
     if (actual === 'email') return 'Mercado Pago lo pide para cobrar todos los meses.';
-    if (actual === 'listo') return hecho?.prueba ? 'Es un link de PRUEBA: el pago no es real.' : `Mándaselo${primerNombre ? ` a ${primerNombre}` : ''}. Cuando pague, se marca solo en el CRM.`;
+    if (actual === 'listo') {
+      if (hecho?.prueba) return 'Es un link de PRUEBA: el pago no es real.';
+      if (hecho?.yaEstaba) return 'Esta cuota ya tenía un link sin pagar: es el mismo.';
+      return `Mándaselo${primerNombre ? ` a ${primerNombre}` : ''}. Cuando pague, se marca solo en el CRM.`;
+    }
     return undefined;
   })();
 
@@ -229,6 +260,8 @@ function Asistente({ lead, pasarelas, productos, onCreado, onCerrar }: {
 
   const cuerpo = () => {
     switch (actual) {
+      case 'cuota':
+        return null;
       case 'que':
         return (
           <div style={columna}>
@@ -268,7 +301,7 @@ function Asistente({ lead, pasarelas, productos, onCreado, onCerrar }: {
             {numero(monto) != null && moneda && (
               <span style={{ fontSize: 13, color: 'var(--dim)', textAlign: 'center' }}>Se cobra <b style={{ color: 'var(--ink)' }}>{formatoMonto(numero(monto)!, moneda)}</b>{tipo === 'suscripcion' ? ' al mes' : ''}</span>
             )}
-            {!producto && (
+            {!producto && !cuota && (
               <input value={concepto} onChange={(e) => setConcepto(e.target.value)} maxLength={200}
                 placeholder="Concepto (opcional)" style={wizardInput} aria-label="Concepto" />
             )}
@@ -309,7 +342,7 @@ function Asistente({ lead, pasarelas, productos, onCreado, onCerrar }: {
 
   return (
     <WizardShell
-      titulo={`Cobrar a ${lead.nombre}`}
+      titulo={cuota ? `Cobrar ${cuota.nombre.toLowerCase()} a ${lead.nombre}` : `Cobrar a ${lead.nombre}`}
       pasos={mapa}
       pasoActual={actual}
       pregunta={pregunta}

@@ -33,7 +33,9 @@ type Campo = 'nombre' | 'cargo' | 'empresa' | 'web' | 'bio' | 'telefono' | 'time
 const ROTULO: Record<Campo, string> = {
   nombre: 'Nombre', cargo: 'Cargo', empresa: 'Empresa', web: 'Sitio web', bio: 'Sobre ti', telefono: 'Teléfono', timezone: 'Zona horaria',
 };
-const EJEMPLO: Partial<Record<Campo, string>> = { nombre: 'Mauricio Bustos', cargo: 'Fundador', empresa: 'Negocio que Escala', web: 'https://…' };
+// Inventado: un placeholder con el nombre de un cliente real (era el de Mauricio y su negocio) se le
+// muestra a todos los workspaces, y desde el 15/10/2026 también en la hoja del teléfono (/m/cuenta).
+const EJEMPLO: Partial<Record<Campo, string>> = { nombre: 'Ana Torres', cargo: 'Fundadora', empresa: 'Estudio Norte', web: 'https://…' };
 
 export function InformacionPersonal({ inicial, vista, sinTitulo = false }: {
   inicial: Perfil;

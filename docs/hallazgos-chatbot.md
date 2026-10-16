@@ -4970,6 +4970,35 @@ sin respuesta al negocio que sólo tiene ese proveedor vivo. La espera dice «ha
 **Vive en:** `lib/fallo-ia-texto.ts` (`sinRedPorDatos`) · `lib/setting-simulador.ts` · `lib/nutricion.ts` · test:
 `tests/ai-step-conecta-claude.test.ts`
 
+## Lo que el evento de la oferta lista destapó del motor: tres huecos de los eventos de la plataforma (16/10/2026)
+
+Al sumar `oferta_lista` (docs/diseno-avisos-plataforma.md §7) se mapeó qué puede y qué no puede hacer hoy un evento de
+la plataforma. Ninguno de los tres se arregló en esa tanda: son del motor, y quedan acá para quien lo toque.
+
+- **Un evento de la plataforma no admite CONDITION.** Publicar la rechaza (`MOTIVO_EVENTO.condicionPersona`,
+  lib/aviso-evento.ts, con test en tests/avisos-plataforma.test.ts). Y aunque se levantara, los hechos que leen las
+  condiciones son SÓLO de un lead (`hechosDeLaCorrida` → `hechosDeUnLead`, lib/flujos.ts) y saldrían del ws 9, no de
+  `negocioWs`. Por eso «avisar sólo si no vio su oferta» no se puede armar: necesitaría hechos DEL NEGOCIO, una fuente
+  nueva en lib/condiciones-catalogo.ts y la hora del evento en `datos` (sobrevive al DELAY: `ctxParaDormir` sólo saca
+  `cuota_dias`). **16/10/2026, noche: resuelto en parte:** ya hay CONDITION sobre los DATOS DEL EVENTO (la
+  sección de abajo); los hechos DEL NEGOCIO siguen sin existir.
+- **Sin grupo de MaKo, la tarjeta de WhatsApp se pierde sin decirlo.** `enviarAlGrupoMaKo` contesta «el workspace no
+  tiene grupo de MaKo todavía» (lib/mako-grupo.ts), `emitirAviso` sólo lo loguea y `emitirPorEvento` igual devuelve
+  `wa: true` cuando corrió una fila. No hay respaldo por email: «email sólo si no hay grupo» no se puede escribir como
+  una condición visible. El grupo nace con `setNumeroDuenoYSync`; un cliente que posterga el teléfono en el onboarding
+  no tiene grupo. (16/10/2026, noche: el emisor devuelve además `llegaron`, lo que de verdad llegó; el respaldo sigue sin hacer.)
+- **No hay aviso «en la app» de escritorio.** No existe una tarjeta in-app: `emitirAviso` siempre llama
+  `crearNotificacion`, pero la tabla `notificaciones` **no existe en producción** (docs/estado-del-arte.md), así que esas
+  filas no van a ningún lado. Lo único que llega es el push de MaKo Mobile (salvo las tarjetas por email, `push: false`),
+  y no hay campanita en escritorio. **Medido el 16/10/2026 (noche): la tabla SÍ existe en producción** (mig 0250, 273 filas, la lee el
+  «Avisos» de MaKo Mobile); lo que falta es la campanita de escritorio (docs/hallazgos-comunicacion.md).
+
+**Vive en:** lib/aviso-evento.ts (`MOTIVO_EVENTO`, `emitirPorEvento`) · lib/flujos.ts (`hechosDeLaCorrida`,
+`emitirTarjetaDelEvento`) · lib/mako-grupo.ts (`enviarAlGrupoMaKo`) · lib/avisos.ts (`emitirAviso`) ·
+lib/notificaciones.ts
+
+*16/10/2026, chat «Offer» (claude3), al sumar el evento `oferta_lista`.*
+
 ## La CONDITION sobre los datos del evento, con «Si no» (16/10/2026)
 
 - **Un evento de la plataforma no admitía CONDITION** (miraba los hechos de un LEAD, y no trae ninguno), así que el

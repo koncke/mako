@@ -67,3 +67,18 @@ tira el typecheck (hay guarda); SendMessage NO cruza carpetas de config (ENOINBO
   de Claude → key de Gemini con facturación → gratis sólo sin PII. El Plan nunca paga IA.
 - Las TRES cuentas de Claude son de Martín (no volver a plantear lo contrario).
 - Cancelar el plan: botón «Darme de baja» propio; plazo de reembolso 5 días hábiles.
+
+## Al cortar (16/10 ~01:30 AR)
+
+- Crédito de Claude ACTIVO: el script guardó las dos claves cifradas en el ws9 (releídas iguales). Falta ver la primera fila real en anthropic_usage.
+- Run 26 (`4825aa05a`: secciones altas + Dashboard con crédito + este relevo) corriendo al cortar.
+- Para el run 27: dashboard-bloques `318f80b0d` (las Conclusiones caja por caja con o sin datos de clientes; reemplaza a b2189353c).
+- Martín tiene el resumen de todo lo subido en `que-revisar-16-10.md` (carpeta de la sesión, fuera del repo).
+
+## Al cortar (16/10 ~06:05 AR, ventana de 5 h al 94%)
+
+- main = run 35 (`701efb8e2`). Run 36 (`5148f0012`) corriendo: Editar con MaKo (Dashboard), seguridad de /api/chart-insights, Pagos 42e704a28 + 31d245ed1 (revisión), Automations 360196182 (bugs A, punto 4, aviso D), MaKo Mobile More completo + cortes de rol, crédito del chat de Offer. En wt-push-q, encima: Onboarding 2d029f783 (lecturas estrictas) para el run 37.
+- **Retenido a propósito:** el onboarding nuevo de Offer (`af7b9fae1`, C:/dev/wt-onboarding-offer). No sube hasta que Offer lo recorra en el ws3 con `npm run dev` + Playwright (escritorio y 390 px) y mande capturas. El único conflicto con Onboarding es `app/admin/dev/onboarding/bitacora.ts` (dejar las entradas de los dos, por hora).
+- **Plan (sin jefe, lo lleva el Cerebro):** workflow `plan-kanban-de-verdad` (wf_323c84eb-4a9) en C:/dev/wt-plan-kanban, rama plan-kanban; SPEC en el scratchpad de la sesión (plan-wf/SPEC.md). Al terminar: integrar su punta (trae migración `estado` en plan_tareas: la tanda 1 la aplica).
+- Repartido el 16/10: CRM ficha v2 (T1 en curso, config POR FUNNEL), Pagos (pendientes: marca de origen del pago suelto + índice único de links), Dashboard («Sugerido» hecho; Editar con MaKo hecho), Video Editor (Sugerido en video e imagen, hecho), Web Generator (módulo «entender el pedido»), Automations (B: avisos por detrás → automatizaciones; el de anuncios del ws1 se apagó a mano el 16/10 con OK por criterio), Offer (onboarding nuevo).
+- Leandro (ws10) tiene la clave de la cuenta 2 como key propia (script `claude-propio-de-un-negocio.mts`, corrido el 16/10). El crédito de Claude: SÓLO onboarding (`CREDITO_HABILITADO_PARA`: offer, El Archivero, onboarding-extract).

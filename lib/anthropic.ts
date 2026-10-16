@@ -9,7 +9,7 @@ import { recordUsage, type UsageInfo } from './anthropic-usage';
 import { credWs, credDelCliente, credWsEstricta } from './credenciales';
 import {
   permisoDeGasto, evaluarClaveDelNegocio, MOTIVO_CLAVE_DEL_NEGOCIO,
-  evaluarCreditoDeLaPlataforma, CLAVES_CREDITO_PLATAFORMA, MOTIVO_CREDITO_PLATAFORMA, type PermisoClaude,
+  evaluarCreditoDeLaPlataforma, CLAVES_CREDITO_PLATAFORMA, CREDITO_HABILITADO_PARA, MOTIVO_CREDITO_PLATAFORMA, type PermisoClaude,
 } from './veto-claude';
 import type { ProvName } from './ai-cheap';
 
@@ -145,6 +145,19 @@ export async function conCreditoDeLaPlataforma(p: {
   /** El workspace del CLIENTE que lo usa: la fila de uso va ahí, nunca al ws1. */
   wsCliente: number;
 }): Promise<{ texto: string } | { error: string } | null> {
+  // PARA QUÉ, antes de leer nada: lo que Martín no habilitó no gasta ni una lectura (la lista y el porqué,
+  // en `CREDITO_HABILITADO_PARA`). Lo que se habilitó «sólo durante el onboarding» pregunta lo MISMO que el
+  // wizard (`onboardingPendiente`): si no se sabe, no.
+  const habilitado = CREDITO_HABILITADO_PARA.find((h) => h.feature === (p.feature ?? '').trim());
+  if (!habilitado) return null;
+  let onboardingEnCurso = false;
+  if (habilitado.soloDuranteElOnboarding) {
+    try {
+      const { onboardingPendiente } = await import('@/lib/onboarding-state');
+      onboardingEnCurso = await onboardingPendiente();
+    } catch { return null; }
+    if (!onboardingEnCurso) return null;
+  }
   let creditos: Array<string | null>;
   try {
     const { wsSuperAdmin } = await import('@/lib/workspace');
@@ -161,7 +174,7 @@ export async function conCreditoDeLaPlataforma(p: {
   const errores: string[] = [];
   for (const clave of creditos) {
     if (!clave) continue;
-    const v = evaluarCreditoDeLaPlataforma({ feature: p.feature, clave, creditos, pausa });
+    const v = evaluarCreditoDeLaPlataforma({ feature: p.feature, clave, creditos, pausa, onboardingEnCurso });
     if (!v.ok) return null;
     const permiso = v.permiso;
     if ((creditoAgotado.get(permiso.cuenta) ?? 0) > Date.now()) continue;

@@ -53,6 +53,13 @@ export const CSS_OFFER = `
 }
 .of-doc__nombre { font-size: var(--fs-md); font-weight: 600; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .of-doc__meta { font-size: var(--fs-meta); color: var(--faint); }
+.of-doc-ver {
+  align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px;
+  border: 1px solid var(--border); background: var(--surface); color: var(--primary); font: inherit;
+  font-size: var(--fs-sm); font-weight: 600; cursor: pointer;
+}
+.of-doc-ver:hover { border-color: var(--primary); background: var(--primary-bg); }
+.of-doc-ver:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 
 .of-reintento { display: flex; align-items: center; justify-content: center; gap: 12px; flex-wrap: wrap; padding: 8px 12px; border-radius: 12px; background: var(--warn-bg); color: var(--warn); font-size: 13.5px; }
 

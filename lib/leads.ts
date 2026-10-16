@@ -1933,6 +1933,15 @@ export async function upsertLeadFromCalendly(
     // empresa puesta a mano, etc.). El webhook en vivo usa false (default):
     // refresca fechas porque Calendly es la fuente fresca.
     soloCompletarVacios?: boolean;
+    /**
+     * Sólo al CREAR (16/10/2026): el evento reservado está vinculado a una etapa de reunión de un
+     * embudo (lib/agenda-evento-etapa.ts), y el lead nuevo nace en ESE embudo (`funnelId`, ya
+     * traducido con `casaParaEscribir`: NULL es el del negocio) y en ESA etapa. La etapa va como
+     * override sólo si la derivada de sus fechas no es ya esa (en un embudo con las etapas de
+     * siempre, «Agenda R1» sale sola de la fecha y no se escribe nada). Un lead que YA existe no
+     * cambia de casa por acá: lo ubica `ubicarReservaVinculada`, que lo AGREGA al otro embudo.
+     */
+    alCrear?: { funnelId: number | null; etapa: string } | null;
   },
 ): Promise<{ created: boolean; lead: Lead }> {
   if (!input.email || !input.email.includes('@')) {
@@ -2081,6 +2090,12 @@ export async function upsertLeadFromCalendly(
     closer:                   soloCal ?? null,
     // Backdatear created_at SOLO en backfill, para reflejar cuándo agendó
     ...(opts?.fechaCreacion ? { created_at: opts.fechaCreacion } : {}),
+    // El evento vinculado a una etapa (ver `alCrear` arriba): la casa y, si hace falta, la etapa.
+    ...(opts?.alCrear ? {
+      ...(opts.alCrear.funnelId != null ? { funnel_id: opts.alCrear.funnelId } : {}),
+      ...(deriveStageKey({ estado_lead: 'abierto', fecha_agenda: input.fecha_agenda, fecha_junta_1: input.fecha_junta_1, fecha_junta_2: null, asistio_j1: null, asistio_j2: null }) !== opts.alCrear.etapa
+        ? { pipeline_stage: opts.alCrear.etapa } : {}),
+    } : {}),
   };
 
   const { data, error } = await supabase

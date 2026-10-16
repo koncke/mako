@@ -65,7 +65,8 @@ function filasDelDocumento(): FilaDoc[] {
 const FILAS = filasDelDocumento();
 
 test('el catálogo tiene EXACTAMENTE los bloques del documento, en su orden', () => {
-  assert.equal(FILAS.length, 56, `el documento cambió: ahora tiene ${FILAS.length} bloques`);
+  // 57 desde el 16/10/2026: `movimientos`, de la tab Pagos en bloques (docs/hallazgos-pagos.md).
+  assert.equal(FILAS.length, 57, `el documento cambió: ahora tiene ${FILAS.length} bloques`);
   assert.deepEqual(BLOQUES.map((b) => b.id), FILAS.map((f) => f.id));
 });
 

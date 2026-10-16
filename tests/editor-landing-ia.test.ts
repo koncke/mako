@@ -523,7 +523,8 @@ test('las dos rutas: admin + la tab en la capa, maxDuration 300, sin server acti
   for (const a of ['esquema', 'secciones', 'editar', 'texto', 'disenos', 'notas']) assert.match(ia, new RegExp(`case '${a}':`), a);
   const imp = sinComentarios(leer('app/api/landing-generator/importar/route.ts'));
   assert.match(imp, /req\.formData\(\)/);
-  assert.match(imp, /archivoATexto\(file\)/);
+  // Con opciones desde el 16/10/2026 (la red de plataforma para la lectura por visión: tests/red-primera-semana.test.ts).
+  assert.match(imp, /archivoATexto\(file(, \{[^}]*\})?\)/);
   const tope = Number(imp.match(/TOPE_IMPORTAR_BYTES = (\d+) \* 1024 \* 1024/)?.[1]);
   assert.ok(tope > 0 && tope < 18, `el tope (${tope} MB) tiene que quedar por debajo de los ~18 MB del proxy`);
 });

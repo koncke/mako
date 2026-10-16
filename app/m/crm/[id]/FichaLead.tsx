@@ -6,12 +6,16 @@
 // Prototipo: docs/prototipos/mako-mobile-v2.html, data-ir="ficha". El encabezado (avatar, nombre,
 // etapa y funnel) lo dibuja el server en page.tsx; aquí va el resto, porque las filas abren sheets:
 //
-//   Llamar · WhatsApp · Agendar          tres botones grandes
-//   Datos                                Próxima llamada · Etapa (› mover) · Teléfono · Llegó por
-//   [Última llamada ›] [Lo que contestó ›]   lo que la v1 tenía en la ficha, ahora en un sheet
+//   Llamar · WhatsApp · Agendar          tres botones grandes (fijos)
+//   Datos                                Etapa (› mover), fija arriba, y debajo las piezas de la ficha
 //   Notas                                las últimas + «Nota por voz»
-//   Actividad                            las últimas 4 líneas del historial
+//   Actividad                            las últimas 4 líneas del historial (fija: es el Historial)
 //   Pagos, historial y campos · En la computadora
+//
+// ⚠️ DESDE EL 15/10/2026 LAS PIEZAS SIGUEN A LA FICHA DEL FUNNEL DEL LEAD (`piezas`, ../ficha-bloques.ts):
+// Próxima llamada, Teléfono · Email · Empresa (el contacto), Lo que contestó ›, Llegó por, Notas y
+// Última llamada › van en el orden en que el admin puso sus bloques en «Personalizar», y las que el funnel
+// no tiene no salen. Las filas seguidas van en una lista; las notas, en su sección. Sin editor aquí.
 //
 // ⚠️ AGENDAR NO PASA POR IA: las horas libres las lee /api/crm/horarios por código y se agenda
 // con reagendarReunionAction (Google) o con la reserva de Calendly, que casi siempre devuelve un
@@ -29,7 +33,7 @@
 // antes de guardar.
 // =============================================================================
 
-import { useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react';
 import Link, { useRouter } from '@/app/_ui/Link';
 import { Button } from '@/app/_ui/Button';
 import { IconoMenu } from '@/app/_ui/iconos-menu';
@@ -42,6 +46,7 @@ import { duracionReunionAction, linkDeAgendaAction, reagendarReunionAction } fro
 import { huecosR2Action, reservarR2Action } from '@/app/crm/agendar-r2-actions';
 import { notaLeadAction, moverEtapaAction, deshacerMoverAction } from '../acciones';
 import { chipsDeDia, rotuloAgendar, rotuloDia, type CualAgendar, type EtapaM, type LineaActividad } from '../reglas';
+import { gruposDeLaFicha, type PiezaFicha, type SaldoTelefono } from '../ficha-bloques';
 
 export type ProductoFicha = { funnelId: number; nombre: string; esCasa: boolean; etapa: string | null; etapaLabel: string | null; movibles: EtapaM[] };
 export type ModoAgendaFicha = 'google' | 'calendly-r2' | 'link' | 'nada';
@@ -70,6 +75,13 @@ export type FichaLeadProps = {
   actividad: Array<LineaActividad & { id: number; riel: string }>;
   llamada: LlamadaFicha | null;
   respuestas: Array<{ pregunta: string; respuesta: string }>;
+  /**
+   * Lo que va debajo de los tres botones, EN ORDEN: la ficha del funnel del lead destilada a lo que tiene
+   * versión de teléfono, sin lo que se calla vacío (../ficha-bloques.ts). Lo arma el server.
+   */
+  piezas: PiezaFicha[];
+  /** El estado de cuenta en una fila (la pieza `saldo`, de Pagos). */
+  saldo?: SaldoTelefono | null;
 };
 
 type Sheet = 'agendar' | 'nota' | 'notas' | 'mover' | 'llamada' | 'respuestas' | null;
@@ -112,6 +124,37 @@ export function FichaLead(p: FichaLeadProps) {
 
   const puedeWa = p.tieneChat || !!p.waMe;
 
+  // La versión de teléfono de cada bloque de escritorio (../ficha-bloques.ts, PIEZA_DE_BLOQUE). Las que se
+  // callan sin datos ya vienen filtradas del server; el `&&` de aquí es el cinturón.
+  const filaDe = (pz: PiezaFicha): ReactNode => {
+    switch (pz) {
+      case 'proxima': return <FilaDatoM k="Próxima llamada" v={p.proxima ?? 'Sin agendar'} />;
+      case 'contacto': return (
+        <>
+          <FilaDatoM k="Teléfono" v={p.telefono ?? 'Sin teléfono'} />
+          {p.email && <FilaDatoM k="Email" v={p.email} />}
+          {p.empresa && <FilaDatoM k="Empresa" v={p.empresa} />}
+        </>
+      );
+      case 'llego-por': return p.llegoPor && <FilaDatoM k="Llegó por" v={p.llegoPor} />;
+      // El estado de cuenta: lo que debe en rojo, como en escritorio. El teléfono no cobra (destila).
+      case 'saldo': return p.saldo && <FilaDatoM k="Estado de cuenta" v={<span style={{ color: p.saldo.tono === 'rojo' ? 'var(--bad)' : p.saldo.tono === 'ambar' ? 'var(--warn)' : undefined }}>{p.saldo.texto}</span>} />;
+      case 'contesto': return p.respuestas.length > 0 && (
+        <FilaM icono="notepencil" navegacion titulo="Lo que contestó al agendar" riel={String(p.respuestas.length)} onClick={() => setSheet('respuestas')} />
+      );
+      case 'llamada': return p.llamada && (
+        <FilaM
+          icono="closing"
+          navegacion
+          titulo="Última llamada"
+          segunda={[p.llamada.cuando, p.llamada.resultado].filter(Boolean).join(' · ') || undefined}
+          onClick={() => setSheet('llamada')}
+        />
+      );
+      case 'notas': return null;
+    }
+  };
+
   return (
     <>
       <div className="m-crm-acc3">
@@ -138,53 +181,44 @@ export function FichaLead(p: FichaLeadProps) {
         </button>
       </div>
 
-      <SeccionM titulo="Datos">
-        <ListaM>
-          <FilaDatoM k="Próxima llamada" v={p.proxima ?? 'Sin agendar'} />
-          {casa ? (
-            <FilaDatoM k="Etapa" v={casa.etapaLabel ?? 'Sin etapa'} azul onClick={() => setSheet('mover')} />
-          ) : (
-            <FilaDatoM k="Etapa" v="Sin etapa" />
-          )}
-          <FilaDatoM k="Teléfono" v={p.telefono ?? 'Sin teléfono'} />
-          {p.email && <FilaDatoM k="Email" v={p.email} />}
-          {p.empresa && <FilaDatoM k="Empresa" v={p.empresa} />}
-          {p.llegoPor && <FilaDatoM k="Llegó por" v={p.llegoPor} />}
-        </ListaM>
-        {(p.llamada || p.respuestas.length > 0) && (
-          <ListaM>
-            {p.llamada && (
-              <FilaM
-                icono="closing"
-                navegacion
-                titulo="Última llamada"
-                segunda={[p.llamada.cuando, p.llamada.resultado].filter(Boolean).join(' · ') || undefined}
-                onClick={() => setSheet('llamada')}
-              />
-            )}
-            {p.respuestas.length > 0 && (
-              <FilaM icono="notepencil" navegacion titulo="Lo que contestó al agendar" riel={String(p.respuestas.length)} onClick={() => setSheet('respuestas')} />
-            )}
-          </ListaM>
-        )}
-      </SeccionM>
-
-      <SeccionM titulo="Notas">
-        <ListaM>
-          {p.notas.slice(0, NOTAS_A_LA_VISTA).map((n) => <Nota key={n.id} n={n} />)}
-          {p.notas.length > NOTAS_A_LA_VISTA && (
-            <FilaM titulo="Todas las notas" navegacion riel={String(p.totalNotas)} onClick={() => setSheet('notas')} />
-          )}
-          <FilaM
-            leading={<IconoM nombre="mic" azul />}
-            titulo={<span className="m-crm-azul">Nota por voz</span>}
-            navegacion
-            chevron={false}
-            onClick={notaPorVoz}
-            etiqueta="Agregar una nota por voz"
-          />
-        </ListaM>
-      </SeccionM>
+      {/* ⚠️ LO DE AQUÍ ABAJO SIGUE A LA FICHA DEL FUNNEL (`p.piezas`, ../ficha-bloques.ts): qué piezas y en qué
+          orden. Arriba de todo «Datos» con la etapa, que es del encabezado y no se personaliza. */}
+      {gruposDeLaFicha(p.piezas).map((g, i) => {
+        if (g.tipo === 'notas') {
+          return (
+            <SeccionM key={`notas-${i}`} titulo="Notas">
+              <ListaM>
+                {p.notas.slice(0, NOTAS_A_LA_VISTA).map((n) => <Nota key={n.id} n={n} />)}
+                {p.notas.length > NOTAS_A_LA_VISTA && (
+                  <FilaM titulo="Todas las notas" navegacion riel={String(p.totalNotas)} onClick={() => setSheet('notas')} />
+                )}
+                <FilaM
+                  leading={<IconoM nombre="mic" azul />}
+                  titulo={<span className="m-crm-azul">Nota por voz</span>}
+                  navegacion
+                  chevron={false}
+                  onClick={notaPorVoz}
+                  etiqueta="Agregar una nota por voz"
+                />
+              </ListaM>
+            </SeccionM>
+          );
+        }
+        const filas = g.piezas.map((pz) => <Fragment key={pz}>{filaDe(pz)}</Fragment>);
+        if (!g.primero) return g.piezas.length ? <div key={`filas-${i}`} className="m-crm-grupo"><ListaM>{filas}</ListaM></div> : null;
+        return (
+          <SeccionM key={`datos-${i}`} titulo="Datos">
+            <ListaM>
+              {casa ? (
+                <FilaDatoM k="Etapa" v={casa.etapaLabel ?? 'Sin etapa'} azul onClick={() => setSheet('mover')} />
+              ) : (
+                <FilaDatoM k="Etapa" v="Sin etapa" />
+              )}
+              {filas}
+            </ListaM>
+          </SeccionM>
+        );
+      })}
 
       {p.actividad.length > 0 && (
         <SeccionM titulo="Actividad">

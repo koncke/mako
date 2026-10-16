@@ -27,12 +27,47 @@ import {
 import type { CronAviso } from './cron-aviso';
 import type { ClosingDim, ClosingEvidence, ClosingMoment, ClosingObjection } from './closing';
 import type { ScriptView } from './ads-analyst';
+import type { TipoEntidad } from './graficos-acciones';
 
 /**
  * La feature del registro de modelos (lib/model-catalogo.ts). APARTE de la del AI Analyst porque la caja de un
  * pop-up de llamada lee el transcript (con nombres y lo que dijo el lead): `pii: true`. Gratis por defecto.
+ * La marca es de la feature ENTERA; cada caja la afina con `cajaLlevaDatosDeClientes`.
  */
 export const FEATURE_CONCLUSIONES = 'dashboard-conclusiones';
+
+/** Lo que lee una caja: los gráficos de su lugar, o lo que se abrió en un pop-up. */
+export type QueLeeLaCaja = 'graficos' | TipoEntidad;
+
+/**
+ * Lo que una caja lee SIN datos de los clientes del negocio, EN POSITIVO (como `DIMENSIONES_PUBLICAS`). Regla del
+ * 16/10/2026: esos datos nunca van a un proveedor que entrena con lo que recibe, y la red de plataforma
+ * (lib/graficos-ia-red.ts) corta las keys gratis de la agencia cuando el pedido los lleva. Con la marca de la
+ * feature entera, una caja que sólo lee números se quedaba sin IA en un negocio sin key propia: una regla que
+ * corta de más tampoco está bien. Por qué cada una:
+ *   · 'graficos' → lo mismo que lee el AI Analyst (`pii: false`): números ya agregados por `serializarHoja`, con
+ *     las personas y los filtros sobre ellas como «Closer 1» (`DIMENSIONES_PUBLICAS`, lib/graficos-analisis.ts).
+ *   · 'anuncio' → los números de Meta del anuncio y lo que escribió quien armó la campaña (`entradaDeAnuncio`).
+ * AFUERA: 'llamada' (su análisis y el transcript traen al lead: su nombre y lo que dijo) y 'lead' (su ficha). Lo
+ * que se sume mañana lleva la marca hasta que alguien lo revise y lo agregue acá.
+ */
+export const CAJAS_SIN_DATOS_DE_CLIENTES: readonly QueLeeLaCaja[] = ['graficos', 'anuncio'];
+
+/** ¿Lo que lee la caja lleva datos de los clientes del negocio? Todo lo que no está en la lista de arriba, sí. */
+export const cajaLlevaDatosDeClientes = (lee: QueLeeLaCaja): boolean => !CAJAS_SIN_DATOS_DE_CLIENTES.includes(lee);
+
+/** Lo que dice una caja con datos de clientes cuando el negocio no tiene ninguna key: la de Claude no entrena. */
+export const SIN_IA_PARA_DATOS_DE_CLIENTES =
+  'Esta caja lee datos de tus clientes, y MaKo no los manda a una IA gratis que entrena con ellos. Conecta tu Claude en Integraciones.';
+
+/**
+ * El aviso de una caja que no tuvo respuesta, o null para el de siempre (`errorDeCascada`). Con datos de clientes la
+ * red de plataforma no prueba las keys gratis, y si el negocio no tiene ninguna key (sin errores suyos: no se probó
+ * nada), el aviso de siempre diría «conecta una IA gratis, con Gemini alcanza», que es una que entrena. Si una key
+ * suya falló, su error es el que sirve.
+ */
+export const avisoSinIA = (pii: boolean, erroresDelNegocio: readonly string[]): string | null =>
+  pii && erroresDelNegocio.length === 0 ? SIN_IA_PARA_DATOS_DE_CLIENTES : null;
 /** La clave del system en /configuraciones (lib/prompt-registry.ts), molde `dashboard.analista.system`. */
 export const CLAVE_PROMPT_CAJA = 'dashboard.elemento_ia.system';
 

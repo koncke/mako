@@ -284,6 +284,25 @@ export function estadoAvisos(plantilla: PlantillaFicha, guardada: FichaGuardada 
   });
 }
 
+/**
+ * Los apagados de la CASA de un lead (`leads.funnel_id`) cuando ya se leyeron todos los funnels del workspace
+ * (el worklist, `avisosDelWorkspace` en ./config-server.ts). `idDelNegocio` es el funnel del negocio (el
+ * `es_default`, o el primero); `delNegocio`, el respaldo del negocio, para cuando no hay ningún funnel.
+ *
+ * ⚠️ UNA CASA QUE NO ESTÁ EN EL MAPA ES COMO UNA NULL: el funnel del negocio, no el respaldo pelado. Es la
+ *    regla de mig 0181 («un `funnel_id` que apunta a un funnel que ya no existe se comporta igual que un
+ *    NULL») y la de los lectores de UN funnel (`apagadosDeFunnel`, `fichaDelFunnelDelLead`), que cuentan la
+ *    ficha. Con el respaldo pelado, un lead con la casa borrada salía con 12 datos en «A revisar» y 6 en su
+ *    ficha (revisión del 16/10/2026, tests/ficha-casa-huerfana.test.ts).
+ */
+export function apagadosDeLaCasa(
+  porFunnel: ReadonlyMap<number, readonly StepId[]>, idDelNegocio: number | null, delNegocio: readonly StepId[], casa: number | null | undefined,
+): StepId[] {
+  const propia = casa == null ? undefined : porFunnel.get(Number(casa));
+  const delFunnelDelNegocio = idDelNegocio == null ? undefined : porFunnel.get(idDelNegocio);
+  return [...(propia ?? delFunnelDelNegocio ?? delNegocio)];
+}
+
 /** Completa las opciones que le faltan a un bloque de una tab tocada (uno puesto por la API sin opciones). */
 function conOpciones(b: BloquePuesto, respaldo: RespaldoNegocio): BloquePuesto {
   const def = bloqueDef(b.id);
@@ -365,8 +384,12 @@ export type CambioFicha =
   | { op: 'volver'; tab?: TabFicha }
   /** Usar otra plantilla (null = la que elige MaKo). Arranca de cero las tabs y los avisos; el estilo queda. */
   | { op: 'plantilla'; plantilla: PlantillaId | null }
-  /** Deshacer: vuelve a una ficha guardada antes (la que devolvió el cambio anterior). */
-  | { op: 'restaurar'; ficha: FichaGuardada };
+  /**
+   * Deshacer: vuelve a una ficha guardada antes (la que devolvió el cambio anterior). `esperado` es cómo dejó
+   * la ficha el cambio que se deshace: si hoy es otra, alguien la cambió después y NO se restaura (sería
+   * borrarle su cambio a la otra persona, para todos los leads del funnel). Sin `esperado`, restaura igual.
+   */
+  | { op: 'restaurar'; ficha: FichaGuardada; esperado?: FichaGuardada };
 
 export type ResultadoCambio = { ok: true; ficha: FichaGuardada; cambio: boolean } | { ok: false; error: string };
 
@@ -447,7 +470,7 @@ export function sanearCambio(raw: unknown): CambioFicha | { error: string } {
     case 'plantilla':
       if (o.plantilla !== null && !esPlantillaId(o.plantilla)) return { error: 'Esa plantilla no existe.' };
       return { op, plantilla: (o.plantilla ?? null) as PlantillaId | null };
-    case 'restaurar': return { op, ficha: sanearFicha(o.ficha) };
+    case 'restaurar': return { op, ficha: sanearFicha(o.ficha), ...(o.esperado !== undefined ? { esperado: sanearFicha(o.esperado) } : {}) };
   }
   return { error: 'Ese cambio no existe.' };
 }
@@ -566,9 +589,14 @@ export function aplicarCambio(actual: FichaGuardada, c: CambioFicha, elegida: Pl
       delete g.tabs; delete g.avisos;
       break;
     case 'restaurar': {
-      const f = sanearFicha(c.ficha);
-      const n = normalizar(f, elegida, respaldo);
-      return { ok: true, ficha: n, cambio: !igual(n, normalizar(actual, elegida, respaldo)) };
+      const hoy = normalizar(actual, elegida, respaldo);
+      // Compare-and-set del Deshacer: el parche de los demás cambios no pisa a nadie, pero restaurar reemplaza
+      // la ficha entera. Si no está como la dejó el cambio que se deshace, otra persona la tocó después.
+      if (c.esperado && !igual(normalizar(sanearFicha(c.esperado), elegida, respaldo), hoy)) {
+        return { ok: false, error: 'Otra persona cambió la ficha.' };
+      }
+      const n = normalizar(sanearFicha(c.ficha), elegida, respaldo);
+      return { ok: true, ficha: n, cambio: !igual(n, hoy) };
     }
   }
   const n = normalizar(g, elegida, respaldo);

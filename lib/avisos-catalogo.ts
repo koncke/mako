@@ -181,6 +181,8 @@ const AREA_POR_AVISO: Record<string, AreaAviso> = {
   'cierre-mes': 'reporte', 'retro-lista': 'reporte',
   // El análisis del AI Analyst del Dashboard (lib/graficos-analisis-server.ts `avisarAnalisisListo`).
   'dashboard-analisis-listo': 'reporte',
+  // La oferta que MaKo terminó de armar (16/10/2026, el evento de la plataforma `oferta_lista`).
+  'oferta-lista': 'reporte',
   // El pedido de restablecer la contraseña (Seguridad, 15/10/2026): un mail a la persona, de la plataforma.
   'seguridad-contrasena-restablecer': 'sistema',
 
@@ -320,6 +322,8 @@ export const AVISOS_SOLO_SUPERADMIN: readonly string[] = [
   // y sale por email, según `notification_prefs`. Sale de la lista del cliente y lo configura la agencia. Desde el
   // 16/10/2026 es una automatización de la plataforma con «MaKo por email» (docs/diseno-avisos-plataforma.md §6).
   'reporte-semanal',
+  // La oferta quedó lista (16/10/2026): la arma el servidor y avisa la automatización de la plataforma.
+  'oferta-lista',
   // La cuenta publicitaria frenada y su «ya está» (16/10/2026): eventos de la plataforma, con su texto y su techo en la
   // automatización de SuperAdmin (docs/inventario-nada-por-detras.md, lote 1).
   'meta-cuenta-frenada',
@@ -1041,6 +1045,22 @@ https://hola-mako.com/crm/123/resumen
 Las agendas subieron 18% y el costo por lead bajó a US$ 4,10.
 
 👉 https://hola-mako.com/dashboard?hoja=marketing
+
+— MaKo`,
+  },
+  {
+    id: 'oferta-lista', titulo: 'La oferta está lista', categoria: 'aviso',
+    prioridad: 'media', semaforo: 'na', requiereRespuesta: false, yaImplementado: 'si',
+    // 16/10/2026: un EVENTO de la plataforma (`oferta_lista`, lib/disparadores.ts). Pedido de Martín en la llamada con
+    // Leila (12/10, 00:37:00): «te mando una notificación cuando esté listo», para que la persona no se quede
+    // esperando en la pestaña. La oferta se arma en el SERVIDOR (app/api/offer/route.ts, `armarPorDetras`) aunque
+    // se cierre la pestaña, y al terminar lo emite `avisarOfertaLista` (lib/oferta-lista-server.ts) con
+    // `{{oferta_lista_nombre}}`, `{{oferta_lista_version}}` y `{{oferta_lista_link}}`. Lo corre la automatización del
+    // SuperAdmin «Oferta Lista de un Negocio» (`mako-oferta-lista`).
+    disparador: 'MaKo termina de armar la oferta de un negocio, en la tab Offer o en el onboarding, aunque la persona haya cerrado la pestaña.',
+    ejemplo: `✨ *Tu oferta está lista*: Método Lumen: 8 Semanas sin Dolor de Espalda (versión 1).
+
+👉 Mírala aquí: https://hola-mako.com/offer
 
 — MaKo`,
   },
