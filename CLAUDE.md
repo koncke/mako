@@ -1,5 +1,7 @@
 @AGENTS.md
 
+> **Si eres una sesión en la nube o una cuenta nueva:** lee primero [docs/relevo/nube.md](docs/relevo/nube.md) (quién te habla, por dónde seguir y cómo se sube).
+
 ## graphify
 
 This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.
