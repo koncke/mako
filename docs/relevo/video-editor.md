@@ -2,6 +2,32 @@
 
 *12/10/2026, chat «Video Editor», cuenta claude3 (semana al 88 %).*
 
+## 16/10 mañana (cuenta 3): las plantillas sugeridas, en los dos editores
+
+- **Hecho** (pedido del Cerebro, sobre el módulo compartido del Dashboard): la pestaña Plantillas del Video Editor y
+  el panel de plantillas del Image Editor ponen primero las que le sirven al negocio, con «Sugerido» chico y gris
+  y el porqué al pasar el mouse; `listar_plantillas_video`, `listar_plantillas_imagen` y el chat «Editar con IA» dan
+  la misma lista. Las tablas: `lib/editor-video/plantillas-etiquetas.ts` y `app/image-editor/mako/plantillas-etiquetas.ts`;
+  la guía, `docs/plantillas-sugeridas.md`; el test, `tests/plantillas-sugeridas-editores.test.ts` (27 roturas).
+- **Falta mirarlo en el navegador** (ws9 con un funnel declarado), junto con la tanda 5 de abajo.
+
+## 16/10 madrugada (cuenta 3): plantillas de anuncio, fuentes y deshacer — lo que queda es MIRARLO
+
+- **Hecho y commiteado** (rama `video-editor`; el coordinador sube): el arreglo de la carga de fuentes que colgaba
+  la pestaña (`7cf012ab4`) y el selector de fuentes con la lista vacía; las plantillas de anuncio en 4 tandas
+  (`4a4733313` catálogo y armado, `42003f0c3` «Reemplazar el clip», `75f559502` la pestaña «Plantillas»,
+  `10e746653` chat y API); el deshacer que pisaba un proyecto con otro (`5c9cb8b7f`). Plan y estado:
+  `docs/editor-video/plan-plantillas-anuncio.md`; lo aprendido, en los hallazgos.
+- **Lo primero que sigue, las dos cosas en el Chrome de Martín (ws9, NUNCA ws1) y con su ventana SIN minimizar**
+  (minimizada, la página ve 0×0 y no dibuja; no se restaura desde acá):
+  1. medir el «después» de las fuentes con Long Animation Frames, en el proyecto «1015 (1)»
+     (`711d3216-1bf8-48c1-8e4e-21616a7a0617`), abriendo Subtítulos › Plantillas. «Antes»: +5 hojas de Google
+     Fonts, +38 caras, ~2,6 s de bloqueo;
+  2. la tanda 5 de las plantillas: las siete en la pestaña, «Utilizar plantilla», «Sustituir» con video e imagen
+     (corto y justo), Ctrl+Z, deshacer entre proyectos, el chat (`usar_plantilla`, `reemplazar_clip`), exportar y
+     medir con ffprobe. Sin reproducir con sonido.
+- Proyectos de prueba en el navegador de Martín (su negocio): «1015» y «1015 (1)»; se pueden borrar.
+
 ## 15/10 noche (cuenta 3): pasos 2–4 de los subtítulos y el chat con todo lo que el editor sabe hacer
 
 **Más tarde, el mismo 15/10:** una revisión adversarial encontró 10 bugs y se arreglaron (`5760ab72e`,

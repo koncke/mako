@@ -14,6 +14,7 @@ import { borrarDiseno, crearDiseno, duplicarDiseno, guardarDiseno, leerDiseno, l
 import { cambiarTextos, documentoEnBlanco, textosDe, uuidValido } from '@/lib/image-editor/reglas';
 import { TAMANOS_API } from '@/lib/image-editor/tamanos';
 import { catalogoPlantillas, documentoDePlantilla } from '@/app/image-editor/mako/plantillas';
+import { senalesDelNegocio } from '@/lib/plantillas-sugeridas-server';
 
 const str = (input: Record<string, unknown>, k: string): string | null => {
   const v = input[k];
@@ -81,8 +82,9 @@ export const RUNNERS: Runners = {
     },
   },
 
+  // Con las sugeridas para ESTE negocio primero, como en el panel del editor (lib/plantillas-sugeridas.ts).
   listar_plantillas_imagen: {
-    leer: async () => JSON.stringify({ plantillas: catalogoPlantillas() }),
+    leer: async () => JSON.stringify({ plantillas: catalogoPlantillas(await senalesDelNegocio().catch(() => null)) }),
   },
 
   crear_diseno_imagen: {

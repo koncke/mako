@@ -12,6 +12,7 @@
 
 import type { EditorServices } from '../_doory/types/adapter';
 import type { FontFamily, Page } from '../_doory/types/api';
+import type { SenalesNegocio } from '@/lib/plantillas-sugeridas';
 import { servicioElementos } from './elementos';
 import { FUENTES } from './fuentes';
 import { servicioPlantillas } from './plantillas';
@@ -25,8 +26,8 @@ function pagina<T>(todo: T[], q?: { page?: number; page_size?: number }): Page<T
   return { count: todo.length, next: desde + tam < todo.length ? 'next' : null, previous: null, results: todo.slice(desde, desde + tam) };
 }
 
-/** Fuentes, elementos y plantillas para el adaptador de MaKo. */
-export function serviciosCatalogo(): Pick<EditorServices, 'fonts' | 'elements' | 'templates'> {
+/** Fuentes, elementos y plantillas para el adaptador de MaKo. `senales`: las plantillas sugeridas para el negocio, primero. */
+export function serviciosCatalogo(senales?: SenalesNegocio | null): Pick<EditorServices, 'fonts' | 'elements' | 'templates'> {
   return {
     fonts: {
       async list(q) {
@@ -45,6 +46,6 @@ export function serviciosCatalogo(): Pick<EditorServices, 'fonts' | 'elements' |
       },
     },
     elements: servicioElementos(),
-    templates: servicioPlantillas(),
+    templates: servicioPlantillas(senales),
   };
 }

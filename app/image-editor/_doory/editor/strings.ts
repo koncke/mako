@@ -1312,6 +1312,8 @@ export const t = {
     noMatch: (q: string) => `Ninguna plantilla coincide con “${q}”.`,
     empty: 'Aún no hay plantillas.',
     use: (title: string) => `Usar plantilla ${title}`,
+    /** MaKo: next to a template suggested for the business (its reason goes in the tooltip). */
+    suggested: 'Sugerido',
     pageCount: (n: number) => `${n} páginas`,
     noRoom: 'El diseño no admite más páginas.',
     applied: (title: string) => `“${title}” aplicada`,
