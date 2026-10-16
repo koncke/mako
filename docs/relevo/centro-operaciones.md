@@ -6,6 +6,34 @@ Escrito por el chat «Centro de Operaciones» de la cuenta 3 (`local_428051c1…
 
 ## Dónde quedó
 
+**El 16/10 (madrugada), los 11 puntos de Martín más el 12 y el 13**, en la rama `centro-chat` (la sube el
+coordinador; merge, nunca rebase). Una punta cada dos o tres puntos:
+
+| Punta | Puntos | Qué | Estado |
+|---|---|---|---|
+| B | — | Un Runner por carpeta de config | `a5df91c3c` + `d4c2624b5` |
+| 1 | 1, 2, 11 | La pregunta tipo Claude Code arriba de la caja, la Ticketera adentro del Centro, el Uso siempre a la vista | `81d842745` … `f41d956eb` |
+| 2 | 5, 10, 9 | Muñecos sin accesorios, en qué trabaja cada chat, «Nuevo chat» | `4a004a28a` + `f0eb6a80c` |
+| 3 | 4, 8 | El Cerebro aparte, los jefes por tab, «Sin asignar», cada pedido sólo en el chat que lo trabajó | `f83efea40` + `70519ffa4` |
+| 4a | 3 | Sin «Antes del 16/10»: el historial de cada tab en su jefe, lo pendiente primero | `b8b008f02` |
+| 4b | 12 | El Plan adentro de cada jefe: sus tareas, «Marcar hecha», «Sumar al Plan» (por `/api/centro/plan`) | ver el log |
+| 6 y 7, parte | 6, 7 | El campo `revisar` del cierre (cartero 1.6.0) y el micrófono en la caja | ver el log |
+| — | 13 | `docs/diseno-second-brain-centro.md` (sin construir: se le pasa al coordinador) | ver el log |
+| — | diseño | `docs/diseno-mako-ai-native.md` (sin construir; Martín elige el alcance en la sección f) | `f9c10d2db` |
+
+**Lo que sigue, en este orden:**
+1. **El 6: mi parte está hecha** («Plan» con las sub-tabs «Plan» y «Review», `porRevisar`, `enlaceRevisar` y el
+   `--revisar` del cierre, cartero 1.6.0). Falta el VISOR, que hace «Centro de Operaciones › Review»: cuando cree
+   `app/admin/operaciones/revisar/page.tsx`, enciende `VISOR_REVISAR` (lib/centro-chats.ts) en el mismo commit. Mientras
+   tanto «Revisar» abre la página misma.
+2. **El 7, los adjuntos:** NO están, a propósito: un archivo tiene que bajar a la PC, y eso es una puerta nueva. El
+   diseño mínimo está en hallazgos-operaciones.md → «Review y el dictado». Necesita el OK de Martín.
+3. **El 13:** `docs/diseno-second-brain-centro.md`, escrito y sin construir: pasárselo al coordinador.
+4. Lo «SIN HACER» de la 4b (en hallazgos-operaciones.md → «El Plan adentro de cada jefe»).
+
+**Lo que necesita a Martín:** renombrar los «Estrategia 3 cuentas» de las otras cuentas a «Cerebro» (con «⋯ Renombrar»:
+firma su dispositivo); la prueba de punta a punta de un trabajo firmado; abrir los Runners de terminal (abajo).
+
 - **El Centro es una app de chat, con cada chat como un empleado** (Grok Bot), en producción desde el 15/10. A la
   izquierda los chats, a la derecha la conversación con su **caja de escribir abajo**. En el teléfono, lo mismo.
 - **El feedback de Martín del 15/10 son siete puntos** (textual en la bitácora). Van en este orden, uno por punta:

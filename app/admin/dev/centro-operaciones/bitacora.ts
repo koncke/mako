@@ -500,4 +500,22 @@ export const BITACORA: Hito[] = [
       'tests/centro-chats.test.ts, tests/centro-avance.test.ts',
     ],
   },
+  {
+    fecha: '16 oct', hora: '06:00', chat: CH, sesion: SESION_CH_3, cuenta: 'claude3', actor: 'claude', tipo: 'implementacion',
+    titulo: 'El Plan adentro de cada jefe, «Review» con su página, y el micrófono en la caja',
+    puntos: [
+      'Martín: «Los chats y el Centro deberían poder conectarse con el PLAN... Crear tareas nuevas, marcar como completadas».',
+      'Cada jefe es un proyecto del Plan: la barra del avance trae sus tareas abiertas, «Marcar hecha», «+ Sumar una tarea» y «Sumar al Plan» en cada pedido sin terminar.',
+      'Por las operaciones de la API de MaKo, aplicadas en el acto, en una ruta (el Perro tarda y las server actions van de a una).',
+      'El cierre de un chat puede dejar --revisar con la página de MaKo para mirar (el lado del Centro del punto 6).',
+      'El micrófono de la casa en la caja (punto 7): dicta y el texto se firma al mandar. Los adjuntos, no todavía.',
+    ],
+    archivos: [
+      'lib/centro-plan.ts, lib/centro-plan-reglas.ts, app/api/centro/plan/route.ts — el Plan del Centro',
+      'app/admin/operaciones/PlanJefe.tsx — la sección «En el Plan»',
+      'lib/operaciones-reglas.ts, scripts/operaciones/cartero.mjs — el campo revisar del cierre',
+      'app/admin/operaciones/Microfono.tsx — el micrófono',
+      'tests/centro-plan.test.ts, tests/centro-revisar.test.ts',
+    ],
+  },
 ];

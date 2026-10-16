@@ -735,6 +735,65 @@ trabajando» y «Falta la opción de "Nuevo chat" tipo placeholder arriba de tod
 **Vive en:** `app/admin/operaciones/NuevoChat.tsx` · `lib/runner.ts` (`comandoNuevoChat`) · `lib/centro-chats.ts`
 (`enQueTrabaja`) · `lib/centro-munecos.ts` · `tests/centro-fila.test.ts`
 
+## «Review» y el dictado: lo que entra por el cierre y lo que se firma (16/10/2026)
+
+**Los pedidos.** El 6: «"Review"... que graficamente me diga que tengo que ir a revisar de las cosas que ha implementado,
+si puede dejarme el link». El 7: «Agrega la funcionalidad de dictar con audio, como ya lo hacemos en otros lados... Y la
+de adjuntar archivos o imagenes al chat».
+
+- **Lo que se revisa lo deja el chat, no se adivina.** El cierre suma `--revisar "/crm?lead=12"` (cartero 1.6.0) y el hito
+  de la bitácora, `revisar`. Sólo una ruta interna: el Runner la rechaza al escribirla y el servidor la vuelve a sanear
+  (`rutaParaRevisar`). Es la MISMA regla que `esHrefInterno` de la Ticketera, pero escrita aparte: ese módulo importa
+  `operaciones-reglas`, e importarla al revés era circular. Un test fija que las dos digan lo mismo.
+- **«Avance» se llama «Plan», con dos sub-tabs** (copiadas del control segmentado de Linear): «Plan» (el Plan del jefe y
+  lo pedido) y «Review» (lo terminado con página, con «Revisar»). Mientras el visor no exista, «Revisar» abre la página
+  misma: un link al visor daba 404. El interruptor es `VISOR_REVISAR` (lib/centro-chats.ts) y un test falla si no dice lo
+  mismo que el archivo del visor: lo enciende el chat del visor en su commit.
+- **El dictado es el de la casa** (`app/_components/useDictar.ts`, el del alta del Plan y del chat de MaKo del
+  teléfono): el texto se PEGA en la caja y se firma al mandar, como lo escrito. El audio no viaja a la PC.
+- **Los adjuntos NO están, a propósito.** El trabajo firmado lleva sólo texto; un archivo tiene que subirse a MaKo y que
+  el Runner lo BAJE a la PC, que es una puerta nueva hacia la PC de Martín. El diseño mínimo: subirlo a un bucket privado,
+  poner en el texto FIRMADO su ruta y su sha256, y que el Runner lo baje con su token y lo descarte si la huella no
+  coincide. Se construye con el OK de Martín.
+
+**Vive en:** `lib/operaciones-reglas.ts` (`rutaParaRevisar`, `sanearCierres`) · `scripts/operaciones/cartero.mjs` (`cierre`)
+· `lib/centro-chats.ts` (`porRevisar`, `enlaceRevisar`) · `app/admin/operaciones/Microfono.tsx` ·
+`tests/centro-revisar.test.ts`
+
+## El Plan adentro de cada jefe: las operaciones de la API, aplicadas en el acto, por una RUTA (16/10/2026)
+
+**El pedido.** «Los chats y el Centro deberían poder conectarse con el PLAN... Crear tareas nuevas, marcar como
+completadas, etc». La convención ya estaba: los proyectos del tablero del super admin se llaman como una tab, y los
+jefes también. Cada jefe ES un proyecto.
+
+- **El proyecto se llama «Feature: CRM», no «CRM».** El tablero guarda el nombre canónico con su prefijo. La primera
+  versión comparaba el nombre entero y la lista salía SIEMPRE vacía con datos reales; el test pasaba porque su fixture
+  decía «CRM». Lo encontró la revisión. Se compara con `nucleo()` (lib/plan-proyectos-catalogo.ts), y el fixture usa
+  los nombres como los guarda el tablero. Un jefe que no es un proyecto del catálogo («Automations») lo dice en pantalla.
+- **Sin puerta nueva de escritura.** Se lee con `listar_tareas_plan` + `ver_proyecto_plan` (hasta 100 abiertas del
+  proyecto, sin el tope de las 300 de más puntaje de toda la lista) y se escribe con `proponer_tareas_plan` y
+  `proponer_cierre_tareas` aplicadas EN EL ACTO (`aplicarEnElActo`, lib/api-mako/flujo.ts), el camino de las
+  automatizaciones. Quien confirma es Martín con su clic.
+- **Es una RUTA (`/api/centro/plan`), no una server action.** Al aplicar corre el Perro (30 a 60 s), y el navegador
+  manda las server actions DE A UNA: como acción, mandarle algo a otro chat quedaba esperando a que el Perro terminara.
+- **Nada queda a medias.** Antes de proponer se mira si ya hay una abierta con ese título («Ya está en el Plan»): sumarla
+  otra vez la fusionaba con ésa o dejaba el borrador colgado en /plan/revisar. Si el borrador no se aplica, se descarta.
+  `aplicarEnElActo` ahora devuelve `datos` con el borrador y cuántas nacieron: con 0, el aviso dice «Ya estaba: le
+  sumé esto» en vez de «Sumada».
+- **Un mensaje NO se vuelve tarea solo.** La propuesta era «los pedidos de Martín a un jefe son tareas de ese proyecto».
+  No se hizo así: un mensaje del Centro puede ser una pregunta o un «dale», y el Plan ya se limpió una vez de 64
+  proyectos inventados. «Sumar al Plan» es un clic, sin preguntas, en cada pedido sin terminar.
+
+**SIN HACER:**
+- Cuando un chat cierra un trabajo «hecho», proponer el cierre de su tarea: falta el vínculo trabajo ↔ tarea (una
+  columna en `operaciones_pedidos` o una marca en el detalle). Vive en `lib/operaciones.ts` → `cicloCartero`.
+- Lo «SIN HACER» de los relevos (`docs/relevo/*.md`, 13 renglones en 4 archivos) cargado como tareas de su jefe.
+- El alta queda firmada con el origen de la tool heredada (WhatsApp) y `ctx.actor` no se usa: lo compensa el texto del
+  detalle y de la evidencia, que dicen «Centro de Operaciones».
+
+**Vive en:** `lib/centro-plan.ts` · `lib/centro-plan-reglas.ts` · `app/api/centro/plan/route.ts` ·
+`app/admin/operaciones/PlanJefe.tsx` · `tests/centro-plan.test.ts`
+
 ## El avance «casi nulo» no era la ventana de 14 días: el historial colgaba de nombres que ningún chat tiene (16/10/2026)
 
 **El pedido.** «Elimina lo de "Antes del 16/10"... Eso debería estar dentro de los mismos chats, como el historial y el
