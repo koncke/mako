@@ -4134,8 +4134,11 @@ aplica a una función ya recortada; se corrigió igual.
   nueva que no se sume ahí usaría el crédito del negocio.
 - **Sólo la cascada de texto.** La visión (`leerDocumentoIA`), el audio y el loop con herramientas (`chatCheapTools`,
   el doer) no prueban la clave del negocio.
-- **El gasto queda en `anthropic_usage` con el motivo «⚠ clave de Anthropic del negocio»**, pero con su `cost_usd`: un
-  tablero que sume el costo de Claude como gasto de MaKo lo va a contar. No se revisó cuáles lo hacen.
+- **El gasto se registra con la marca «⚠ clave de Anthropic del negocio» AL PRINCIPIO del motivo** (`insertUsage`
+  corta a 200 y al final se perdía) y en el workspace del negocio (`wsDeProveedor`). De los lectores de
+  `anthropic_usage`, el único que lo sumaba como gasto de MaKo era `resumenDelPeriodo` (lib/costos-ia.ts, el global
+  del super admin): ahora lo saca del total y lo muestra aparte en /integraciones. El panel de cada negocio y el
+  Dashboard leen sólo su workspace, y ahí ese gasto SÍ es suyo. El aviso «saldo de IA bajo» no está implementado.
 - **Sin probar contra Anthropic de verdad**: no había una clave de negocio para hacerlo. El primer cliente que cargue
   la suya es la prueba, y la fila de `anthropic_usage` con ese motivo es la forma de verlo.
 

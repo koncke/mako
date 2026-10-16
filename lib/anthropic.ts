@@ -7,7 +7,7 @@
 import 'server-only';
 import { recordUsage, type UsageInfo } from './anthropic-usage';
 import { credWs, credDelCliente, credWsEstricta } from './credenciales';
-import { permisoDeGasto, evaluarClaveDelNegocio, type PermisoClaude } from './veto-claude';
+import { permisoDeGasto, evaluarClaveDelNegocio, MOTIVO_CLAVE_DEL_NEGOCIO, type PermisoClaude } from './veto-claude';
 import type { ProvName } from './ai-cheap';
 
 // ⛔ ACÁ NO HAY NI `MODEL` NI `ENDPOINT`, y ese es el punto entero del veto.
@@ -100,8 +100,8 @@ export async function conClaveDelNegocio(p: {
     });
     const body = await res.json().catch(() => ({}));
     if (!res.ok || body?.error) return { error: String(body?.error?.message ?? `Anthropic ${res.status}`) };
-    // Lo paga el negocio: el motivo lo dice, para que el gasto de IA no lo lea como de MaKo.
-    await recordUsage(permiso.feature, permiso.model, body.usage, `${(p.motivo ?? '').trim()} · ⚠ clave de Anthropic del negocio`.trim()).catch(() => {});
+    // Lo paga el negocio: la marca va PRIMERO en el motivo, y lib/costos-ia.ts la saca del gasto de MaKo.
+    await recordUsage(permiso.feature, permiso.model, body.usage, [MOTIVO_CLAVE_DEL_NEGOCIO, (p.motivo ?? '').trim()].filter(Boolean).join(' · ')).catch(() => {});
     const texto = (body.content ?? [])
       .filter((c: { type?: string }) => c.type === 'text')
       .map((c: { text?: string }) => c.text ?? '')

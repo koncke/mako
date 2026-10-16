@@ -22,11 +22,14 @@
 //   - el fetch con otra clave que la que verificó el veto                   → 10/1
 //   - el Plan deja de estar excluido                                        → 10/1
 //   - una clave «PENDING…» pasa como cargada                                → 10/1
+// Y las dos del gasto, sumadas el mismo día (base 14/0):
+//   - lib/costos-ia.ts vuelve a sumar lo del negocio como gasto de MaKo     → 13/1
+//   - la marca va al FINAL del motivo (el corte a 200 la perdería)          → 13/1
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { evaluarClaveDelNegocio, evaluarPermiso, FEATURES_DEL_PLAN, CLAUDE_CON_CLAVE_DEL_NEGOCIO } from '../lib/veto-claude';
+import { evaluarClaveDelNegocio, evaluarPermiso, FEATURES_DEL_PLAN, CLAUDE_CON_CLAVE_DEL_NEGOCIO, MOTIVO_CLAVE_DEL_NEGOCIO, esDeLaClaveDelNegocio } from '../lib/veto-claude';
 
 const leer = (p: string) => readFileSync(p, 'utf8').replace(/\r\n/g, '\n');
 // Las líneas `//` primero y los bloques después, y NADA más. Una versión con un paso que borra
@@ -118,6 +121,30 @@ test('el fetch usa la clave que verificó el veto, y la URL del permiso', () => 
   const b = cuerpoDelIntento();
   assert.match(b, /'x-api-key': permiso\.clave/, 'el fetch tiene que usar permiso.clave, no volver a resolver otra');
   assert.match(b, /fetch\(permiso\.endpoint/);
+});
+
+// ── El gasto: lo del negocio no es de MaKo ──────────────────────────────────────
+
+test('la marca del gasto del negocio se reconoce, y una fila de MaKo no', () => {
+  assert.equal(esDeLaClaveDelNegocio(`${MOTIVO_CLAVE_DEL_NEGOCIO} · Armar el catálogo`), true);
+  assert.equal(esDeLaClaveDelNegocio('Analizar la llamada de Ana'), false);
+  // Al final del motivo NO cuenta: `insertUsage` corta a 200 y ahí se pierde.
+  assert.equal(esDeLaClaveDelNegocio(`Armar el catálogo · ${MOTIVO_CLAVE_DEL_NEGOCIO}`), false);
+  assert.equal(esDeLaClaveDelNegocio(null), false);
+});
+
+test('la llamada con la clave del negocio se registra con la marca PRIMERO', () => {
+  const b = cuerpoDelIntento();
+  assert.match(b, /recordUsage\([^)]*\[MOTIVO_CLAVE_DEL_NEGOCIO, /, 'la marca tiene que ir al principio del motivo');
+});
+
+test('el gasto de MaKo (lib/costos-ia.ts) no suma lo que pagó un negocio con su clave', () => {
+  const src = sinComentarios(leer('lib/costos-ia.ts'));
+  const ini = src.indexOf('function costoDe(');
+  assert.ok(ini > 0, 'no encuentro costoDe');
+  const cuerpo = src.slice(ini, src.indexOf('\n}', ini));
+  assert.match(cuerpo, /if \(esDeLaClaveDelNegocio\(r\.motivo\)\) return 0;/, 'costoDe suma el crédito del negocio como gasto de MaKo');
+  assert.match(src, /delNegocio: \{ llamadas: delNegocio\.length/, 'lo del negocio tiene que quedar aparte, no desaparecer');
 });
 
 test('la cascada de texto prueba la clave del negocio ANTES que los proveedores gratis', () => {

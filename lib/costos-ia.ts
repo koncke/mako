@@ -26,6 +26,7 @@ import 'server-only';
 
 import { getSupabaseServer } from '@/lib/supabase';
 import { leerTodo } from '@/lib/supabase-paginado';
+import { esDeLaClaveDelNegocio } from '@/lib/veto-claude';
 
 /** Proveedores que no cobran dinero (free tier por rate-limit). Espeja
  *  PROVEEDORES_GRATIS de anthropic-usage.ts, que es quien guarda el costo en 0. */
@@ -64,16 +65,21 @@ export type ResumenPeriodo = {
   porWorkspace: Array<Corte & { atribuible: boolean }>;
   /** Los meses con datos, para poblar el selector sin adivinar. */
   mesesDisponibles: string[];
+  /** Lo que se pagó con la clave de Anthropic DE UN NEGOCIO: no entra en `costUsd`, que es lo de MaKo. */
+  delNegocio: { llamadas: number; costUsd: number };
 };
 
 const num = (v: unknown) => (Number(v) || 0);
 
-/** Costo REAL de una fila: las gratis por rate-limit valen 0 aunque la tabla diga
- *  otra cosa. Es la misma corrección que hace `getUsageSummary`, replicada acá
- *  para no depender de su ventana de lectura. */
+/** Costo REAL de una fila PARA MAKO: las gratis por rate-limit valen 0 aunque la tabla diga
+ *  otra cosa (la misma corrección que hace `getUsageSummary`), y las pagadas con la clave de
+ *  Anthropic de un negocio también, porque esa plata es del negocio (lib/veto-claude.ts, la
+ *  segunda puerta). Sumarlas acá haría ver un gasto de Claude que no es de MaKo, y el veto
+ *  parecería roto. */
 function costoDe(r: FilaUso): number {
   const p = r.provider ?? 'anthropic';
   if (GRATIS.includes(p)) return 0;
+  if (esDeLaClaveDelNegocio(r.motivo)) return 0;
   return num(r.cost_usd);
 }
 
@@ -127,7 +133,10 @@ export async function resumenDelPeriodo(periodo = 'todo'): Promise<ResumenPeriod
   });
 
   const porProveedor = agrupar(filas, (r) => r.provider ?? 'anthropic');
-  const anthropicTieneFilas = filas.some((r) => (r.provider ?? 'anthropic') === 'anthropic');
+  // Las de la clave de un negocio se registran en SU workspace (`wsDeProveedor`), así que no
+  // vuelven constante el corte por workspace: sólo cuentan las de la clave de la agencia.
+  const anthropicTieneFilas = filas.some((r) => (r.provider ?? 'anthropic') === 'anthropic' && !esDeLaClaveDelNegocio(r.motivo));
+  const delNegocio = filas.filter((r) => esDeLaClaveDelNegocio(r.motivo));
 
   return {
     periodo,
@@ -147,6 +156,7 @@ export async function resumenDelPeriodo(periodo = 'todo'): Promise<ResumenPeriod
       atribuible: !anthropicTieneFilas,
     })),
     mesesDisponibles: await mesesConDatos(),
+    delNegocio: { llamadas: delNegocio.length, costUsd: delNegocio.reduce((s, r) => s + num(r.cost_usd), 0) },
   };
 }
 

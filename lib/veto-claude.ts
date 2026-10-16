@@ -191,6 +191,19 @@ export const CLAUDE_CON_CLAVE_DEL_NEGOCIO = {
 } as const;
 
 /**
+ * La marca con la que se registra en `anthropic_usage` una llamada pagada con la clave del
+ * negocio, y la pregunta que la reconoce. Va al PRINCIPIO del motivo: `insertUsage` lo corta a
+ * 200 caracteres, y al final se perdería con un motivo largo.
+ *
+ * ⚠️ ESE GASTO NO ES DE MAKO, y todo lo que sume `anthropic_usage` como costo de la agencia lo
+ * tiene que sacar con `esDeLaClaveDelNegocio` (lib/costos-ia.ts). Si no, el día que un cliente
+ * use su crédito de Max, Martín ve un gasto de Claude que no es suyo y el veto parece roto.
+ */
+export const MOTIVO_CLAVE_DEL_NEGOCIO = '⚠ clave de Anthropic del negocio';
+export const esDeLaClaveDelNegocio = (motivo: string | null | undefined): boolean =>
+  typeof motivo === 'string' && motivo.trimStart().startsWith(MOTIVO_CLAVE_DEL_NEGOCIO);
+
+/**
  * Las funciones del PLAN no pasan por la puerta 2, aunque la clave sea del negocio. Martín,
  * 30/09/2026, textual: «NO, JAMÁS algo pago para el plan» y «nunca sonnet ni nada pago para
  * el plan. JAMÁS». El Plan es lo que más se usa: con la clave del negocio, el Perro y la
