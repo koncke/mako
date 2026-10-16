@@ -2388,6 +2388,22 @@ principal e incluye sólo las 55): **3,8 s y 291 MB de pico**, medido sobre el �
 hito sin `puntos` da 1 con el TS2741 exacto. Si el `tsc` no termina (código 1 y cero salida: lo
 mató el vigía; o sin heap), el push sigue: no es un error de tipos y Actions corre el completo.
 
+**Y el acotado que usa cada chat para validar tenía su receta sólo en la memoria (16/10).** Cada
+uno armaba su tsconfig temporal a mano, y el Web Generator midió dos falsos rojos que salían de la
+receta y no del código. Medido después en un worktree con `app/web-generator/editor/insertar.ts`:
+
+| Versión de `insertar.ts` | Sin `typeRoots`/`types` | Con `typeRoots` + `types: ["node"]` |
+|---|---|---|
+| la de `main` (sin importar los comandos de TipTap) | 5 errores TS2339/TS2551 | 5 errores TS2339/TS2551 |
+| con `import type` de esos comandos (`563c873ad`) | 1: TS2580 `process` | **0** |
+
+Son dos causas distintas y cada una tapa a la otra: los `declare module` de las extensiones de
+TipTap no existen para un archivo compilado solo, y los tipos de Node entran en el completo por
+`next-env.d.ts`, que un tsconfig fuera del repo no ve. La segunda la resuelve el script nuevo
+(`scripts/tsc-acotado.mjs`, que además trae el `"include": []` y sale 99 si el `tsc` no terminó);
+la primera no se puede resolver sola, y el script lo dice al final cuando hay errores. La receta,
+en AGENTS.md → «Para validar lo tuyo sin el tsc completo».
+
 **El vigía, en la misma tanda:** se levanta solo (un disparador cada 5 min además del de inicio de
 sesión: el 13/10 estuvo 6 horas muerto con un solo disparador; probado matándolo, volvió en 21 s),
 prefiere matar un `tsc` que corre FUERA del lock antes que el del pre-push (el del lock se

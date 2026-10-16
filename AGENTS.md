@@ -372,6 +372,33 @@ trabó la cola, y tres pushes salieron verdes **sin llegar a producción**. Se c
   un solo heap con el tope de 4 GB en vez de dos (no medido: puede ser más lento). **Subir la máquina de build cuesta plata y lo
   decide Martín.**
 
+# Para validar lo tuyo sin el tsc completo: `node scripts/tsc-acotado.mjs`
+
+El `tsc` completo pide 3-5 GB y lo corre GitHub Actions (ver «El typecheck NO corre en el
+build»). Para chequear lo que tocaste, el ACOTADO: `node scripts/tsc-acotado.mjs <archivos>` o
+`--rama` (lo que cambió la rama contra el merge-base con `origin/main`; contra `origin/main` a
+secas entran los archivos que movió main, con la versión vieja de la rama). ~2,5 GB de heap y
+segundos. **No se arma el tsconfig a mano**: el script ya trae las trampas que daban rojos que no
+eran del código:
+
+- `"files"` con la lista **y** `"include": []`. Sin el include vacío, `extends` hereda el del
+  repo y se chequea todo (sin heap a 2 GB, medido el 14/10).
+- `"typeRoots"` ABSOLUTO a `node_modules/@types` + `"types": ["node"]`. En el completo los tipos
+  de Node entran por `next-env.d.ts` (generado: un worktree ni lo tiene): sin esto sale
+  «Cannot find name 'process'» (TS2580). Medido el 16/10 con
+  `app/web-generator/editor/insertar.ts`: 1 error sin esto, 0 con esto.
+
+Lo que el script NO puede resolver, y conviene saber antes de creerle a un rojo:
+
+- **Un tipo que agrega OTRO archivo con `declare module`** no existe para un archivo compilado
+  solo. Los comandos de cada extensión de TipTap sobre `ChainedCommands` son el caso: ese mismo
+  `insertar.ts` daba 5 rojos así. La cura es importar por tipos lo que se usa
+  (`import type {} from '@tiptap/extension-task-list'`) o sumar ese archivo a la lista.
+- **El acotado no sube a los que importan lo tuyo.** Si cambiaste un TIPO compartido, sumá a
+  sus consumidores.
+- **Salida 99 no es un verde**: el `tsc` no terminó (el vigía de RAM lo mató, o sin heap) y no se
+  miró nada. 0 es «sin errores en esos archivos», no en el repo: el completo lo corre Actions.
+
 # La guardia de RAM puede demorar o negar: no es un error, y no se esquiva
 
 El 11/10/2026 la app de Claude se colgó y murió con 7 chats adentro: RAM agotada, con un `next
