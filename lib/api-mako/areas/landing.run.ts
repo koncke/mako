@@ -63,6 +63,8 @@ import type { LandingContenido } from '@/lib/editor-landing/doc';
 // «Replicar» (tanda 6): el MISMO server que la ruta de la pantalla (app/api/landing-generator/replicar).
 import { replicar as replicarEnEditor } from '@/lib/editor-landing/replicar';
 import { NOMBRE_FORMATO_REPLICAR, formatoReplicar, urlParaReplicar } from '@/lib/editor-landing/replicar-reglas';
+// El nombre del estilo de animación copiado (tanda 8), el del catálogo.
+import { estiloPorId } from '@/lib/editor-landing/animaciones';
 import { estadoValido, type ResumenDiagnostico, type Sugerencia } from '@/lib/editor-landing/diagnostico';
 // Los rechazos del Botón de pago (Paquete 3 de la tanda 6): el MISMO lector que la pantalla.
 import { rechazosDePago, DIAS_RECHAZOS_PAGO } from '@/lib/editor-landing/pago-landing-server';
@@ -908,10 +910,17 @@ export const RUNNERS: Runners = {
           return { ok: false, resumen: `No se pudo replicar ${url} (${r.error}).` };
         }
         const link = linkEditor(r.id, ctx.ws);
+        // Tanda 8: las animaciones copiadas (como «landing») y, en `aviso`, lo que no se copió del scroll.
+        const anim = r.animaciones
+          ? ` Copió las animaciones${r.animaciones.estilo ? ` (estilo «${estiloPorId(r.animaciones.estilo).nombre}»)` : ''}${r.animaciones.propias ? `; ${r.animaciones.propias === 1 ? 'una sección lleva' : `${r.animaciones.propias} secciones llevan`} su propio efecto` : ''}.`
+          : '';
         return {
           ok: true,
-          resumen: `Listo: «${r.titulo}» quedó como ${NOMBRE_FORMATO_REPLICAR[r.formato]} en el editor (id ${r.id}, ${r.secciones} ${r.formato === 'presentacion' ? 'diapositivas' : 'secciones'}), sin publicar.${r.aviso ? ` ${r.aviso}` : ''} Se revisa y se adapta en el editor: ${link}`,
-          datos: { id: r.id, titulo: r.titulo, formato: r.formato, secciones: r.secciones, link },
+          resumen: `Listo: «${r.titulo}» quedó como ${NOMBRE_FORMATO_REPLICAR[r.formato]} en el editor (id ${r.id}, ${r.secciones} ${r.formato === 'presentacion' ? 'diapositivas' : 'secciones'}), sin publicar.${anim}${r.aviso ? ` ${r.aviso}` : ''} Se revisa y se adapta en el editor: ${link}`,
+          datos: {
+            id: r.id, titulo: r.titulo, formato: r.formato, secciones: r.secciones, link,
+            animaciones: r.animaciones ?? null, aviso_scroll: r.avisoScroll === true,
+          },
         };
       } catch (e) {
         return { ok: false, resumen: `No se pudo replicar la página (${mensaje(e)}).` };
