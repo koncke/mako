@@ -6,6 +6,50 @@ el briefing anterior (`b5f7fb55`, 10/10 17:10) con todo verificado contra el ár
 **Rutas de esta área:** `app/crm/**`, `lib/leads.ts`, `lib/funnel*.ts`, `lib/crm*.ts`,
 `lib/lead-*.ts`, `lib/campana-*.ts`, `lib/etiquetas*.ts`, `lib/pipeline.ts`.
 
+## 0-Ω9. 16/10/2026 (frente «Resumen» de la ficha v2, cuenta `claude3`): el Resumen NATIVO
+
+Rama `crm-ficha-v2` en `C:/dev/wt-crm-ficha2`, sobre main `2f913cddc` (el marco del 0-Ω8 ya está en main). Martín,
+16/10: «completamente diferente en diseño y funcionalidad... NO tengas miedo a ELIMINAR todo lo que existe hoy... Los
+datos de los leads se van a guardar». Referencias: los «Highlights» y los «Record details» de Attio y la columna del
+medio de HubSpot (documentación oficial; no se entró a las apps); la épica, General y MaKo Mobile v3.
+
+**Qué cambia para Martín y los clientes al desplegar:**
+- El Resumen ya no son las tarjetas de antes: cada bloque es una pieza propia que se lee de un vistazo y se corrige
+  en el lugar (con «Deshacer» y su línea en el historial, los mismos campos de siempre). Arriba, los datos de un
+  vistazo (calificación con tres botones, cuánto lleva en la etapa contra su plazo, el ingreso estimado); después la
+  próxima reunión (día, hora, cuánto falta, «Entrar», y «¿Vino?» cuando pasó), el setter y el closer, el contacto
+  como lista de propiedades o con la botonera Llamar · WhatsApp · Email, lo que contestó (ahora también lo de la
+  agenda), de dónde vino, las notas y, si salió, el motivo con sus categorías.
+- Bloques nuevos con datos de hoy: la siguiente acción (la reunión sin marcar, la que viene, el próximo paso de la
+  llamada, lo que sigue según MaKo o los datos que faltan, con su botón), las fichas parecidas (mismo email o
+  teléfono), cuánto lleva en la etapa, el setter y el closer, la página donde se registró, cómo entró por
+  Instagram/Messenger, la respuesta destacada, la dirección y el sexo.
+- Cada bloque tiene su versión ÉPICA (un número o una frase protagonista, sin metadata).
+- La galería del Resumen: «Antes de la llamada», «Antes del evento», «Lo que contestó», «Su registro», «La charla»,
+  «Para prospectar», «Si compró», «Épica», «Para llamarlo» y «Completa», con «Sugerido» la de su tipo. Un funnel sin
+  tocar ve la suya (la ficha cambia de diseño para todos: a propósito).
+- Personalizando, «Opciones» en la barra del bloque: qué redes van, qué fuentes de respuestas y qué pregunta se
+  destaca. MaKo lo hace también (`cambiar_ficha_funnel`, cambio `opciones`).
+- El teléfono suma una fila por bloque nuevo (siguiente, equipo, calificación, en la etapa, ingreso, motivo, plazo,
+  redes, página, cómo entró, dirección, sexo).
+
+**Tests:** el barrido de lo tocado (los tests del área, la API de MaKo, el teléfono y los guards que barren el repo):
+5.618 de 5.620 en verde, 0 fallos (2 skipped). tests/ficha-resumen.test.ts nuevo y 15 reescritos porque leían las
+tarjetas que se fueron, con sus roturas medidas. El tsc fue el ACOTADO (`scripts/tsc-acotado.mjs`, en tandas de 8 a 24
+archivos: con 3 GB libres, una de 82 la mató el vigía). Mirado en un banco (las dos puertas reales con datos de
+mentira) a 1440, 1024 táctil, 820×1180 táctil y 390 táctil, normal, épica y un lead perdido; «Opciones» probado de
+punta a punta (manda UN cambio `opciones`).
+
+**SIN HACER (con su archivo):**
+- Los bloques del Resumen sin componente: `pase-a-humano`, `cambios-de-mako`, `charla-whatsapp` (tienen datos: son
+  los siguientes), `charla-dm`, `mensaje-listo`, `automatizaciones-en-curso`, `lo-que-le-mandamos`
+  (app/crm/lead-view/ficha/registro-resumen.tsx).
+- Sacar de ReunionesCard el setter y el closer, el chip de la calificación y lo que contestó al agendar, que ahora
+  están también en el Resumen (tanda 2, app/crm/lead-view/ReunionesCard.tsx); y el bloque `cohorte` de Reuniones
+  (hoy la dibuja el contacto).
+- Unificar la siguiente acción del teléfono con la de escritorio (app/m/crm/reglas.ts vs resumen/logica.ts).
+- Mirarlo con datos reales (verificación de la tanda 1).
+
 ## 0-Ω8. 16/10/2026 (frente «marco» de la ficha v2, cuenta `claude3`): cada tab personalizable
 
 Rama `crm-ficha-v2` en `C:/dev/wt-crm-ficha2`, sobre main `81b966b86`. Martín, 16/10: «Sobre todo que sea
@@ -34,7 +78,7 @@ archivos nuevos (tests/ficha-tabs.test.ts, tests/ficha-galeria.test.ts) probados
 
 **SIN HACER (con su archivo):**
 - Mirarla en el ws 3 con datos reales y la caja contra la IA de verdad (en el banco la ruta iba simulada).
-- La épica por dentro de cada bloque: el frente del Resumen (registro-resumen.tsx) y Pagos (registro-pagos.tsx).
+- La épica por dentro de cada bloque: Pagos (registro-pagos.tsx). La del Resumen, hecha (0-Ω9).
 - Las plantillas de Pagos ya están (el merge de main trajo las cuatro del chat Pagos): la tab Pagos de un funnel sin
   tocar es la sugerida para su tipo. Mirarla con datos reales (registro-pagos.tsx, lib/ficha/plantillas-pagos.ts).
 - La tarjeta del lead en el kanban personalizable (tanda 2).

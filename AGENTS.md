@@ -8495,6 +8495,14 @@ costó, en [docs/hallazgos-objectives.md](docs/hallazgos-objectives.md) → «Ge
   minúsculas en `CambioFicha`, con su `cambio` en la API (tests/ficha-api.test.ts sólo ve esa forma). Un bloque
   recibe `epico` y decide cómo se agranda. Lo que no se ve en el código: docs/hallazgos-crm.md → «La ficha
   personalizable POR TAB».
+- **Un bloque de la ficha es NATIVO** (16/10/2026, el Resumen; Martín: «completamente diferente en diseño y
+  funcionalidad»): lee su dato de `LeadFullData` o con SU acción al montarse, escribe su campo con los primitivos de
+  app/crm/lead-view/CampoEditable.tsx (guardan, dejan el historial y «Deshacer»; nunca una tarjeta vieja envuelta), lo
+  que DICE va en un módulo puro con test (`ficha/resumen/logica.ts`), recibe `epico` (un protagonista, sin metadata) y,
+  si no tiene nada, devuelve null (el marco no deja hueco). Lo que le pide a la ficha (cambiar de tab, «Solucionar») va
+  por `CtxFicha`. Una plantilla de tab que es la de ENTRADA de un tipo tiene, como mínimo, los bloques de la lista de
+  ese tipo (los avisos siguen a la plantilla del funnel). Y su versión de teléfono, en `PIEZA_DE_BLOQUE`. Lo que no se
+  ve: docs/hallazgos-crm.md → «El Resumen NATIVO de la ficha».
 
 # MaKo Mobile (/m): lo que gobierna una pantalla nueva del teléfono
 

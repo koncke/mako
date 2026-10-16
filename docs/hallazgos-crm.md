@@ -9394,3 +9394,79 @@ lib/ficha/ia-generar.ts · app/api/crm/ficha/armar/route.ts · app/crm/lead-view
 FichaPorBloques.tsx · PanelFicha.tsx · app/crm/lead-view/LeadTabs.tsx · tests/ficha-tabs.test.ts ·
 tests/ficha-galeria.test.ts.
 *16/10/2026, frente «marco» de la ficha v2 (claude3).*
+
+## El Resumen NATIVO de la ficha: lo que no se ve en el código (16/10/2026)
+
+El frente «Resumen» de la ficha v2 (rama `crm-ficha-v2`): cada bloque del Resumen dejó de envolver una tarjeta de antes
+(InfoPrincipalCard, CalificacionCard, RespuestasFormulario, OrigenCard, MotivoYPlazoCard; las cuatro últimas se
+borraron) y es una pieza propia en `app/crm/lead-view/ficha/resumen/`, con lo que DICE en un módulo puro
+(`resumen/logica.ts`) y cuándo se calla en `reglas-resumen.ts`. Referencias: los «Highlights» y los «Record details» de
+Attio y la columna del medio de HubSpot (documentación oficial, no se entró a las apps); la épica, General y MaKo
+Mobile v3.
+
+- **Cambiar el Resumen de entrada cambia la ficha de TODOS los funnels sin tocar, y es a propósito.** Las plantillas
+  armadas del Resumen (`lib/ficha/plantillas-resumen.ts`) son la de entrada de cada tipo, como las de Pagos. Lo que NO
+  puede pasar es que un aviso de «datos sin marcar» se quede sin dónde llenarse: los avisos siguen saliendo de la
+  plantilla del FUNNEL (`lib/ficha/plantillas.ts`), así que cada plantilla del Resumen tiene, como mínimo, los bloques
+  de la lista de su tipo. **Regla:** una plantilla de tab que es la de entrada de un tipo ⊇ la lista de ese tipo para
+  esa tab. Lo fija tests/ficha-resumen.test.ts («sin perder un bloque de la lista de su tipo»); sacarle las notas al
+  del carrito lo pone rojo.
+- **Un bloque que lee lo suyo al montarse y no tiene nada que decir dejaba un HUECO en la grilla.** `estaVacio` corre
+  ANTES de que el bloque lea (los duplicados, el estado de cuenta de Pagos), así que el armador le reserva la celda y el
+  componente devuelve null: queda una fila vacía con su `gap`. **Regla:** el bloque devuelve null y el marco lo
+  esconde (`.fb:not(.fb--editando) .fb-bloque:has(> .fb-cuerpo:empty)`, ../ficha-css.ts); personalizando, el marco dice
+  «Sin datos en este lead». Nunca un texto «no hay nada» adentro: eso es ruido fijo.
+- **«Solucionar» desde un bloque es el MISMO camino que la cabecera.** La siguiente acción ofrece «Completar» y
+  «¿Vino?»: llaman a `ctx.solucionar(paso)`, que es la función que ya atendía el pedido de la cabecera (`tabDelDato` +
+  el señalador, o el asistente). Antes vivía adentro de un `useEffect` atado a `pedido.n` y un bloque no tenía cómo
+  pedirlo. **Regla:** lo que un bloque necesita de la ficha (cambiar de tab, solucionar) va en `CtxFicha`, no en un
+  evento propio.
+- **Un dato pedido tiene que tener su campo en el bloque que «cubre» ese dato.** La próxima reunión declara que cubre
+  las fechas y las asistencias (`PASOS_DE_REUNION`), así que «Solucionar» la elige. Eso sólo es verdad si el bloque
+  dibuja el campo cuando la etapa lo pide: por eso `estadoReuniones` mira lo que pide la etapa (`pide`) además del
+  reloj (una asistencia pedida va a «¿Vino?» aunque el navegador diga que la reunión no pasó) y suma la fecha de la
+  junta que falta. ⚠️ El diagnóstico obvio («la asistencia se marca cuando pasó la hora») dejaba un dato pedido sin
+  campo: el reloj del navegador y el del server que contó el dato no coinciden.
+- **El setter y el closer, y lo que contestó al agendar, quedaron en DOS lugares**: su bloque del Resumen y
+  ReunionesCard (la tab Reuniones, que es de la tanda 2). Es el mismo campo por el mismo camino, así que no se
+  contradicen, pero «Solucionar» el setter ahora va al Resumen (la primera tab). Cuando Reuniones se parta en bloques,
+  sale de ReunionesCard (§5 del diseño: «cada dato queda en un solo bloque»).
+- **`cambiar_ficha_funnel` tenía 26 caracteres de más al sumar `opciones`** (3.822 contra el tope de 3.796, el turno
+  de WhatsApp). Se pagó con UN parámetro de texto (`opcion`: las redes, las fuentes o la pregunta, según el bloque) en
+  vez de tres, y diciendo «la densidad» donde decía «el tamaño de las tarjetas». **Regla:** una op nueva de la ficha
+  entra a la API midiendo el ToolDef, no a ojo (`JSON.stringify(aToolDef(def)).length`).
+- **Los tres botones de la calificación son un PRIMITIVO de la ficha (`TriBotones`, CampoEditable.tsx), pero su CSS es
+  del Resumen** (`.fr-seg`, resumen/estilo.ts, que monta `<EstiloResumen />`). Usarlo fuera del Resumen sin esa hoja
+  lo dibuja como tres botones sin estilo.
+- **NotasCard es de las dos fichas** (la del CRM y la de Customer Success). Los diseños «Últimas 3» y «La última» son
+  props (`limite`, `plegada`, `epico`) con defaults que dejan la de CS igual; las notas no se duplicaron.
+- **Los duplicados no se buscan por el nombre solo**: `duplicadosDeLead` sin email ni teléfono lee la tabla ENTERA (un
+  nombre de pila corto no filtra), y eso al abrir cada ficha es caro y casi siempre un falso parecido.
+- **El tsc ACOTADO con 3 GB libres: en tandas chicas pasa, en una grande lo mata el vigía.** Una lista de 82 archivos
+  (la ficha entera con sus tests) salió con código 1 y cero texto aunque nada tenía errores; partida en tandas de 8 a 24
+  archivos con `node scripts/tsc-acotado.mjs <archivos> --heap=2048`, las cuatro pasaron. Lo que pesa no es la lista
+  sino lo que arrastra (un componente que importa app/crm/actions.ts trae medio repo).
+- **Quince tests fallaron por el LUGAR** (leían OrigenCard, CalificacionCard, RespuestasFormulario, MotivoYPlazoCard o
+  el registro con la tarjeta envuelta). Se reescribieron leyendo el bloque nuevo, y donde se pudo, EJECUTANDO la regla
+  pura (`canalDeEntrada`, `respuestasPorFuente`); cada uno dice por qué cambió y su rotura medida.
+
+**Lo que quedó SIN hacer:**
+- Los bloques del Resumen sin datos hoy, que siguen sin componente (no se dibujan ni se ofrecen): `pase-a-humano`,
+  `cambios-de-mako`, `charla-whatsapp`, `charla-dm`, `mensaje-listo`, `automatizaciones-en-curso`,
+  `lo-que-le-mandamos` (están en las plantillas para el día que lo tengan). `cambios-de-mako`, `pase-a-humano` y
+  `charla-whatsapp` SÍ tienen datos (propuestas, `chat_agent_handoffs`, `hiloWhatsApp`): son los siguientes.
+- Sacar de ReunionesCard el setter, el closer, la calificación y lo que contestó al agendar (la tanda 2, Reuniones).
+- La cohorte vive adentro del contacto hasta que Reuniones tenga su bloque `cohorte` (`incluye: ['cohorte']`).
+- «Tarjeta con el mapa» de la dirección (un iframe de Google Maps manda la dirección del lead al abrir la ficha:
+  decidir) y «Miniatura y comentario» de la publicación (no guardamos la miniatura).
+- La siguiente acción del teléfono sigue con su regla (`siguienteAccion`, app/m/crm/reglas.ts, sin la asistencia
+  primero); la de escritorio es `siguienteAccionDe`. Unificarlas pide que `fichaMovil` traiga la asistencia y los ids de
+  lo que falta.
+- La respuesta destacada no tiene versión de teléfono (el teléfono no lee las respuestas de Meta ni de la landing).
+- Mirarlo con datos reales (el frente de verificación de la tanda 1).
+
+**Vive en:** app/crm/lead-view/ficha/resumen/ · reglas-resumen.ts · registro-resumen.tsx · tipos.ts (`irATab`,
+`solucionar`) · FichaPorBloques.tsx · Armador.tsx (Opciones) · ficha-css.ts · lib/ficha/plantillas-resumen.ts ·
+lib/ficha/plantillas-tab.ts · lib/ficha/api.ts (`opciones`) · app/crm/lead-view/CampoEditable.tsx (`TriBotones`) ·
+app/m/crm/ficha-bloques.ts (`resumenDelTelefono`) · tests/ficha-resumen.test.ts.
+*16/10/2026, frente «Resumen» de la ficha v2 (claude3).*
