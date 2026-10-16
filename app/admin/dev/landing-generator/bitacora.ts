@@ -566,7 +566,7 @@ export const BITACORA: Hito[] = [
     ],
   },
   {
-    fecha: '16 oct', hora: '09:30', chat: 'Landing Generator', cuenta: 'claude3',
+    fecha: '16 oct', hora: '09:30', chat: 'Landing Generator', sesion: 'local_0c7ad2f8-3540-4e69-8d37-574de8292f80', cuenta: 'claude3',
     actor: 'claude', tipo: 'implementacion',
     titulo: 'Los pedidos sueltos: el módulo compartido y el chat del Web Generator enganchado',
     puntos: [
