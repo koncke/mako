@@ -66,6 +66,7 @@ import {
 	NORMALIZAR_OBJETIVO,
 	OBJETIVO_PREDETERMINADO,
 	REDUCIR_RUIDO,
+	EXTRAIDO_DE,
 } from "@/app/video-editor/_opencut/audio/claves";
 import { buscarFrase, muletillasDe, palabrasEnOrden, type ParrafoTx } from "@/app/video-editor/_opencut/transcripcion/modelo";
 import type { Disponibles } from "./disponibles";
@@ -139,6 +140,8 @@ export type RefElemento = {
 	subtitulo?: boolean;
 	/** Lo agrega esta misma propuesta (agregar_texto o capa_efecto con "ref"): sus ids se conocen al aplicar. */
 	nuevo?: boolean;
+	/** Un audio que salió de «Extraer audio» de un video: los cortes lo parten como a su video. */
+	extraido?: boolean;
 	estado: EstadoElemento;
 };
 
@@ -537,6 +540,7 @@ export function vistaDeLinea({
 					...(sonoro ? { volumenDb: Number(el.params?.volume ?? 0) || 0, silenciado: el.params?.muted === true } : {}),
 					...("hidden" in el ? { oculto: el.hidden === true } : {}),
 					...(el.type === "text" && el.params?.subtitulo === true ? { subtitulo: true } : {}),
+					...(el.type === "audio" && typeof el.params?.[EXTRAIDO_DE] === "string" ? { extraido: true } : {}),
 					estado: leerEstado(el, tipo, tps, mediosSinAudio),
 				};
 				refs.set(ref, r);
@@ -599,8 +603,14 @@ export type OperacionResuelta =
 	| { op: "borrar"; els: RefElemento[] }
 	| { op: "mover"; el: RefElemento; inicio: number }
 	| { op: "duracion"; el: RefElemento; duracion: number }
-	| { op: "dividir"; el: RefElemento; en: number }
-	| { op: "recortar"; el: RefElemento; inicio?: number; fin?: number }
+	/**
+	 * `base`: dónde empezaba el elemento en la simulación al pedirlo. Lo que se aplica
+	 * antes en el mismo lote pudo correrlo (el imán junta la principal); los tiempos se
+	 * aplican RELATIVOS a su lugar de ese momento (chat/comandos.ts). Absolutos, «recorta 2 s
+	 * al inicio de cada clip» recortaba 2, 4 y 8 s.
+	 */
+	| { op: "dividir"; el: RefElemento; en: number; base: number }
+	| { op: "recortar"; el: RefElemento; inicio?: number; fin?: number; base: number }
 	| { op: "volumen"; el: RefElemento; db: number }
 	| { op: "silenciar"; el: RefElemento; silenciado: boolean }
 	| { op: "ocultar"; el: RefElemento; oculto: boolean }
@@ -638,7 +648,7 @@ const MARGEN_CORTE = 0.05;
 /** Lo mínimo que puede durar un clip después de un recorte o una velocidad (pc_clip_too_short). */
 const LARGO_MINIMO = 0.1;
 /** Un subtítulo se vuelve a partir si cambia esto (subtitles/repartir.ts): desde el chat no. */
-const ESTILO_QUE_PARTE: ReadonlyArray<keyof EstiloTextoChat> = ["fuente", "tamano", "negrita", "cursiva", "espaciado"];
+const ESTILO_QUE_PARTE: ReadonlyArray<keyof EstiloTextoChat> = ["fuente", "tamano", "negrita", "cursiva", "espaciado", "mayusculas"];
 
 const ETIQUETA_ESTILO: Record<keyof EstiloTextoChat, string> = {
 	fuente: "fuente", tamano: "tamaño", color: "color", negrita: "negrita", cursiva: "cursiva", subrayado: "subrayado",
@@ -832,6 +842,15 @@ export function revisarOperaciones({
 			o.op === "eliminar_muletillas",
 	);
 	const hayCortes = operaciones.some((o) => o.op === "cortar_frase" || o.op === "cortar_tramo" || o.op === "eliminar_muletillas");
+	// Los cortes por texto salen de los tiempos por palabra de los subtítulos, que no se
+	// mueven con un recorte o una velocidad de la principal: en el mismo pedido, cortarían
+	// otra parte del video. (Congelar y revertir no cuentan: con un corte, son ELLOS los que
+	// van aparte, más abajo.)
+	const cambiaTiemposPrincipal = operaciones.some(
+		(o) =>
+			(o.op === "borrar" && o.refs.some(enPrincipal)) ||
+			((o.op === "recortar" || o.op === "velocidad" || o.op === "duracion" || o.op === "mover") && enPrincipal(o.ref)),
+	);
 	const subtitulaAhora = operaciones.some((o) => o.op === "generar_subtitulos");
 
 	for (const op of operaciones) {
@@ -975,7 +994,7 @@ export function revisarOperaciones({
 				st.fin = op.en;
 				if (e.anim) e.anim[ANIM.salida.id] = ID_NINGUNO;
 				if (e.transicion) e.transicion = null;
-				resueltas.push({ op: "dividir", el, en: op.en });
+				resueltas.push({ op: "dividir", el, en: op.en, base: st.inicio });
 				break;
 			}
 			case "recortar": {
@@ -1000,6 +1019,7 @@ export function revisarOperaciones({
 				resueltas.push({
 					op: "recortar",
 					el,
+					base: st.inicio,
 					...(Math.abs(desde - st.inicio) >= 0.01 ? { inicio: desde } : {}),
 					...(Math.abs(hasta - st.fin) >= 0.01 ? { fin: hasta } : {}),
 				});
@@ -1315,7 +1335,8 @@ export function revisarOperaciones({
 	}
 
 	// ── Los cortes: al final del lote ──────────────────────────────────────────
-	const parrafos = transcripcion?.parrafos ?? [];
+	// Los subtítulos de una pista bloqueada no se tocan (como en el panel «Transcripción»).
+	const parrafos = (transcripcion?.parrafos ?? []).filter((p) => !p.bloqueado);
 	const conPalabras = parrafos.some((p) => p.palabras.length > 0);
 	const sinPalabras = () =>
 		descartes.push(
@@ -1341,6 +1362,11 @@ export function revisarOperaciones({
 			continue;
 		}
 		if (!conPalabras) { sinPalabras(); continue; }
+		if (cambiaTiemposPrincipal) {
+			const que = op.op === "cortar_frase" ? `el corte de «${corto(op.frase, 40)}»` : "sacar las muletillas";
+			descartes.push(`${que} va en un pedido aparte: los otros cambios corren el video de la pista principal y los subtítulos quedan donde estaban`);
+			continue;
+		}
 		if (op.op === "cortar_frase") {
 			const apariciones = buscarFrase(parrafos, op.frase);
 			const frase = `«${corto(op.frase, 40)}»`;
@@ -1381,6 +1407,12 @@ export function revisarOperaciones({
 		if ("motivo" in r) { descartes.push(r.motivo); continue; }
 		const el = r.el;
 		const st = estado.get(el.ref)!;
+		// Normalizar y revertir corren después del lote y buscan el clip por su id: con un
+		// corte en el mismo pedido, el clip ya está partido y sólo se procesaría el primer pedazo.
+		if (hayCortes && (op.op === "normalizar" || op.op === "revertir") && (el.principal || el.extraido)) {
+			descartes.push(`${op.op === "normalizar" ? "normalizar" : "revertir"} ${el.titulo} va en un pedido aparte: los cortes parten el clip`);
+			continue;
+		}
 		if (op.op === "normalizar") {
 			const objetivo = op.objetivo ?? "predeterminado";
 			st.e.normalizado = objetivo;

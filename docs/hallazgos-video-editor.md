@@ -952,12 +952,24 @@ que no sabe hacer va en `NO_SE_PUEDE_CHAT` para que lo DIGA en vez de simularlo.
 - **Revertir y congelar tomaban el clip de la SELECCIÓN**; ahora aceptan un objetivo (`videoEn`). Crean medios y
   tardan: van después del lote, cada uno con su paso de deshacer, igual que normalizar y subtitular.
 - **Un `cortar_tramo` sólo vale si nada más mueve la principal en el mismo pedido** (sus tiempos son los de la
-  vista); los cortes por frase y por muletillas se resuelven por texto al ejecutar y no tienen ese problema.
+  vista).
+- ⚠️ **«Los cortes por frase y por muletillas se resuelven por texto al ejecutar y no tienen ese problema» era el
+  diagnóstico equivocado** (lo encontró la revisión adversarial del 15/10). Salen de los tiempos por palabra de los
+  SUBTÍTULOS, y un recorte o una velocidad de un clip de la principal no mueven los subtítulos: en el mismo
+  pedido, el corte sacaba habla real y la muletilla quedaba. Ahora van en un pedido aparte, con su motivo.
+- **Varios recortes o cortes sobre la principal en un pedido se aplicaban corridos**: el destino iba en segundos
+  de la vista y el imán ya había corrido el clip («recorta 2 s al inicio de cada clip» recortaba 2, 4 y 8 s).
+  Ahora la revisión guarda dónde empezaba el elemento en su simulación (`base`) y el comando aplica relativo a
+  dónde está al ejecutarse (`corrimiento` en `chat/comandos.ts`).
+- **Normalizar o revertir un clip que un corte del mismo pedido parte** corrían después del lote y encontraban
+  por id sólo el primer pedazo: van aparte. Y `Diferido` al REHACER vuelve a armar el comando (lo nuevo del
+  lote vuelve en otra pista, con otro id, y el comando viejo apuntaba a la de antes).
 - **La Y es hacia abajo en el motor y hacia arriba en el panel**: la IA habla como el panel y se invierte al
   escribir.
 - **Lo que cambia con el código va en un slot del prompt, no en su texto editable**: un override del prompt de
-  sistema guardado en /configuraciones antes del 15/10 sigue diciendo que transiciones y filtros no se pueden;
-  hay que restablecerlo.
+  sistema guardado en /configuraciones antes del 15/10 seguiría diciendo que transiciones y filtros no se
+  pueden. Medido el 15/10 en la base: ningún negocio tiene overrides guardados (`app_settings` sin ninguna fila
+  `mako.prompt-overrides`), así que no había nada que restablecer.
 - **Los nombres válidos los manda el editor** (`chat/disponibles.ts`: transiciones, animaciones, filtros,
   efectos, curvas y fuentes, 3,9 k) y la revisión valida contra eso; el estilo de los subtítulos va UNA vez
   (`estilo_subtitulos`): 300 subtítulos con estilo ocupan 36,6 k del tope de 60 k.
@@ -1009,7 +1021,21 @@ Hecho el 15/10 (pasos 2–4 del plan de subtítulos). Biblioteca › Subtítulos
 - **El chat** pide frases o tramos («corta donde digo…», «saca las muletillas») y el comando los resuelve
   AL EJECUTAR (`CortarTramosCommand` acepta una función de las pistas): en un lote, lo de antes pudo
   correr el video.
-- **SIN HACER:** verlo en el navegador; copiar y pegar partes del video desde el texto; «Mostrar texto
+- **Lo que arregló la revisión adversarial del 15/10** (un agente que sólo lee, con escenas simuladas):
+  - Un subtítulo partido con «Dividir» (o recortado) guarda el texto ENTERO y sus palabras valen sólo contra
+    ese texto: re-guardar sólo las visibles las anulaba (perdía karaoke y transcripción). Ahora pasan todas por
+    la misma cuenta, con su `trimStart`; y lo que se borra en una mitad se va del texto de las dos.
+  - El audio extraído de un video de SUPERPOSICIÓN se cortaba y su video no: ahora sólo se corta el de un
+    video de la principal. Y cada pedazo del audio extraído queda emparejado con el pedazo de video de arriba
+    (todos apuntaban al primero: «Recuperar audio» los borraba a todos o a ninguno).
+  - Deshacer un corte dejaba corrido un elemento vinculado que empezaba justo donde empezaba el tramo: la
+    regla del imán «lo que el cambio no tocó se corre con su clip» lo toma por no tocado. El corte se aplica
+    y se deshace SIN el imán (`updateTracks(…, { sinIman: true })`): su cuenta ya deja todo en su lugar.
+    ⚠️ El mismo problema existe al deshacer otros comandos («Borrar a la derecha»): sin arreglar, porque
+    algunos deshacen con parches y necesitan el imán.
+- **SIN HACER:** verlo en el navegador; el `borrar` del chat no borra lo vinculado como el botón
+  (`actions/use-editor-actions.ts`) y `cambiar_texto` sobre un subtítulo no usa `rehacerPalabras` ni vuelve a
+  partir los renglones (pierde los tiempos por palabra); copiar y pegar partes del video desde el texto; «Mostrar texto
   eliminado»; marcar pausas y repeticiones (CapCut: «Pausa, repetición y duda»); CapCut fuerza el imán de la
   principal mientras se edita por transcripción (`pc_text_cut_mode_lock_cant_change`) y acá no.
 

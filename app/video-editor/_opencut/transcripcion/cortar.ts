@@ -38,8 +38,9 @@ import { EXTRAIDO_DE } from "@/app/video-editor/_opencut/audio/claves";
 import type { dividirElemento } from "@/app/video-editor/_opencut/timeline/dividir-elemento";
 import {
 	codificarPalabras,
+	coincidenConTexto,
+	leerCodificadas,
 	PARAM_PALABRAS,
-	palabrasDe,
 	tokens,
 	type PalabraSubtitulo,
 } from "@/app/video-editor/_opencut/subtitles/palabras";
@@ -62,8 +63,6 @@ export const BORDE_CLIP_S = 0.05;
 export const QUEDA_MINIMO_S = 0.1;
 
 const esSubtitulo = (el: TimelineElement): el is TextElement => el.type === "text" && el.params.subtitulo === true;
-const esCortable = (el: TimelineElement, principal: boolean) =>
-	principal || (el.type === "audio" && typeof el.params[EXTRAIDO_DE] === "string");
 
 /**
  * Los tramos en orden, sin superponerse, juntando los que casi se tocan y pegando
@@ -195,6 +194,11 @@ export function cortarTramos({
 }): ResultadoCorte {
 	const sinCambios: ResultadoCorte = { tracks, quitado: 0, subtitulosCambiados: 0, subtitulosBorrados: 0 };
 	if (tracks.main.locked) return sinCambios;
+	// El audio extraído se corta sólo si es de un video de la PRINCIPAL: el de una superposición
+	// no se corta (su video se corre en bloque), y cortarle el audio lo dejaría desfasado.
+	const idsPrincipal = new Set((tracks.main.elements as TimelineElement[]).map((e) => e.id));
+	const esCortable = (el: TimelineElement, principal: boolean) =>
+		principal || (el.type === "audio" && idsPrincipal.has(String(el.params[EXTRAIDO_DE] ?? "")));
 
 	const bordes: number[] = [];
 	const cortables = (track: TimelineTrack, principal: boolean) =>
@@ -209,9 +213,12 @@ export function cortarTramos({
 	let subtitulosCambiados = 0;
 	let subtitulosBorrados = 0;
 
+	/** De qué clip de la principal salió cada pieza (para volver a emparejar el audio extraído). */
+	const origenDe = new Map<string, string>();
 	/** Lo que se corta: dividido, sin lo de adentro y corrido. */
-	const cortar = (el: TimelineElement): TimelineElement[] =>
+	const cortar = (el: TimelineElement, principal: boolean): TimelineElement[] =>
 		piezasSinTramos(el, tramos, dividir).map((p) => {
+			if (principal) origenDe.set(p.id, el.id);
 			const ini2 = f(p.startTime as number);
 			return p === el && ini2 === el.startTime ? el : { ...p, startTime: ini2 as MediaTime };
 		});
@@ -228,50 +235,59 @@ export function cortarTramos({
 		return izq ? { ...izq, startTime: ini2 as MediaTime } : null;
 	};
 
-	/** Un subtítulo: sin las palabras que caen en un tramo, y corrido. Null = se va. */
+	/**
+	 * Un subtítulo: sin las palabras que caen en un tramo, y corrido. Null = se va.
+	 *
+	 * Se miran TODAS sus palabras, no sólo las que se ven: un subtítulo partido con
+	 * «Dividir» (o recortado) guarda el texto entero, y sus palabras sólo valen si siguen
+	 * diciendo ese texto (`coincidenConTexto`). Re-guardar sólo las visibles las anulaba.
+	 * Cada palabra pasa por la misma cuenta (`aLinea`), con el `trimStart` de siempre: las
+	 * de afuera de lo visible quedan afuera, del mismo lado.
+	 */
 	const subtitulo = (el: TextElement): TextElement | null => {
 		const ini = el.startTime as number;
 		const fin = ini + (el.duration as number);
+		const ini2 = f(ini);
+		const fin2 = f(fin);
 		const toca = tramos.some(([a, b]) => a < fin && b > ini);
-		if (!toca) {
-			const ini2 = f(ini);
-			return ini2 === ini ? el : { ...el, startTime: ini2 as MediaTime };
-		}
 		const contenido = String(el.params.content ?? "");
-		const guardadas = palabrasDe({
-			contenido,
-			param: el.params[PARAM_PALABRAS],
-			inicio: ini / tps,
-			recorteInicio: (el.trimStart as number) / tps,
-			duracion: (el.duration as number) / tps,
-		});
-		if (!guardadas) {
+		const g = leerCodificadas(el.params[PARAM_PALABRAS]);
+		if (!g || g.palabras.length === 0 || !coincidenConTexto(g.palabras, contenido)) {
+			if (!toca) return ini2 === ini ? el : { ...el, startTime: ini2 as MediaTime };
 			// Sin tiempos por palabra: un bloque, como un sticker.
 			const corrido = correr(el) as TextElement | null;
 			if (!corrido) subtitulosBorrados++;
 			else subtitulosCambiados++;
 			return corrido;
 		}
-		const queda = (p: PalabraSubtitulo) => !adentro(((p.inicio + p.fin) / 2) * tps, tramos);
-		const quedan = guardadas.palabras.filter(queda);
+		// Ticks de la línea de tiempo de cada palabra (el origen es `startTime − trimStart`).
+		const origen = ini - (el.trimStart as number);
+		const enLinea = (s: number) => origen + s * tps;
+		const quitada = (p: PalabraSubtitulo) => adentro(enLinea((p.inicio + p.fin) / 2), tramos);
+		const seVe = (p: PalabraSubtitulo) => {
+			const m = enLinea((p.inicio + p.fin) / 2);
+			return m >= ini && m < fin;
+		};
+		const quedan = g.palabras.filter((p) => !quitada(p));
+		if (!toca && quedan.length === g.palabras.length) return ini2 === ini ? el : { ...el, startTime: ini2 as MediaTime };
+		const dichasVisibles = g.palabras.filter((p) => !p.muletilla && seVe(p)).length;
+		if ((dichasVisibles > 0 && !quedan.some((p) => !p.muletilla && seVe(p))) || fin2 - ini2 < minimo) {
+			subtitulosBorrados++;
+			return null;
+		}
 		const dichas = quedan.filter((p) => !p.muletilla);
 		if (dichas.length === 0) {
 			subtitulosBorrados++;
 			return null;
 		}
-		const ini2 = f(ini);
-		const fin2 = f(fin);
-		if (fin2 - ini2 < minimo) {
-			subtitulosBorrados++;
-			return null;
-		}
 		subtitulosCambiados++;
+		const origen2 = ini2 - (el.trimStart as number);
 		const corridas = quedan.map((p) => ({
 			...p,
-			inicio: f(p.inicio * tps) / tps,
-			fin: f(p.fin * tps) / tps,
+			inicio: (f(enLinea(p.inicio)) - origen2) / tps,
+			fin: (f(enLinea(p.fin)) - origen2) / tps,
 		}));
-		const quitoDichas = dichas.length !== guardadas.palabras.filter((p) => !p.muletilla).length;
+		const quitoDichas = dichas.length !== g.palabras.filter((p) => !p.muletilla).length;
 		let params: ParamValues = el.params;
 		if (quitoDichas) {
 			let texto = dichas.map((p) => p.texto).join(" ");
@@ -288,10 +304,10 @@ export function cortarTramos({
 			...el,
 			startTime: ini2 as MediaTime,
 			duration: (fin2 - ini2) as MediaTime,
-			trimStart: 0 as MediaTime,
 			params: {
 				...params,
-				[PARAM_PALABRAS]: codificarPalabras({ palabras: corridas, origen: ini2 / tps, precision: guardadas.precision }),
+				// `corridas` ya van relativas al origen nuevo.
+				[PARAM_PALABRAS]: codificarPalabras({ palabras: corridas, origen: 0, precision: g.precision }),
 			},
 		};
 	};
@@ -301,7 +317,7 @@ export function cortarTramos({
 		let cambio = false;
 		const elements = (track.elements as TimelineElement[]).flatMap((el): TimelineElement[] => {
 			let nuevos: TimelineElement[];
-			if (esCortable(el, principal)) nuevos = cortar(el);
+			if (esCortable(el, principal)) nuevos = cortar(el, principal);
 			else if (esSubtitulo(el)) {
 				const s = subtitulo(el);
 				nuevos = s ? [s] : [];
@@ -315,10 +331,32 @@ export function cortarTramos({
 		return cambio ? ({ ...track, elements } as TTrack) : track;
 	};
 
+	const principal = pista(tracks.main, true);
+	// Cada pedazo del audio extraído, con el pedazo de video que tiene arriba: si todos
+	// siguieran apuntando al primero, «Recuperar audio» en el primero los borraría a todos
+	// (y los demás quedarían mudos) y en otro no borraría nada (sonarían dos audios).
+	const piezasDe = new Map<string, Array<{ id: string; ini: number; fin: number }>>();
+	for (const p of principal.elements as TimelineElement[]) {
+		const o = origenDe.get(p.id);
+		if (!o) continue;
+		if (!piezasDe.has(o)) piezasDe.set(o, []);
+		piezasDe.get(o)!.push({ id: p.id, ini: p.startTime as number, fin: (p.startTime as number) + (p.duration as number) });
+	}
+	const emparejar = <TTrack extends TimelineTrack>(track: TTrack): TTrack => {
+		if (track === tracks.audio.find((t) => t.id === track.id) || track.locked) return track;
+		const elements = (track.elements as TimelineElement[]).map((e) => {
+			const de = e.type === "audio" ? piezasDe.get(String(e.params[EXTRAIDO_DE] ?? "")) : undefined;
+			if (!de) return e;
+			const medio = (e.startTime as number) + (e.duration as number) / 2;
+			const arriba = de.find((p) => medio >= p.ini && medio < p.fin);
+			return !arriba || arriba.id === e.params[EXTRAIDO_DE] ? e : { ...e, params: { ...e.params, [EXTRAIDO_DE]: arriba.id } };
+		});
+		return { ...track, elements } as TTrack;
+	};
 	const nuevas: SceneTracks = {
 		overlay: tracks.overlay.map((t) => pista(t, false)),
-		main: pista(tracks.main, true),
-		audio: tracks.audio.map((t) => pista(t, false)),
+		main: principal,
+		audio: tracks.audio.map((t) => emparejar(pista(t, false))),
 	};
 	const quitado = tramos.reduce((s, [a, b]) => s + (b - a), 0);
 	const cambio =
