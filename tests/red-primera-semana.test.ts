@@ -16,6 +16,8 @@
 //
 // PROBADO ROMPIÉNDOLO, cada rotura restaurada DE MEMORIA (`redDePlataforma: true` → `false` en UNA llamada):
 //   Ads Writer (16/10/2026, base 1/0): generarRazones, sugerirGuion, generarGuion y valorarGuion → 0/1 cada una.
+//   Offer (16/10/2026, base 2/0): vuelve el corte «sin IA propia» antes de la red, la ruta lee documentos
+//     sin red, y una de las dos lecturas por visión no pasa la red → 1/1 cada una.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -53,6 +55,25 @@ function conRed(archivo: string, nombre: string): void {
   ls.forEach((l, i) => assert.match(l, /redDePlataforma: true/,
     `${archivo} → ${nombre}, llamada ${i + 1}: sin redDePlataforma, un cliente nuevo sin API ve «conecta tu IA»`));
 }
+
+test('Offer: sin IA propia no corta antes de la red, y lee los documentos con red', () => {
+  // Offer tiene su propia red (un bucle sobre provsGratisDePlataforma en `pedir`). Lo que la dejaba
+  // sin probar era un corte ANTES: «sin ninguna IA conectada → "conecta una"».
+  const src = sinComentarios(leer('lib/offer-ia.ts'));
+  const ini = src.indexOf('async function pedir<T>(');
+  assert.ok(ini > 0, 'no encuentro pedir en lib/offer-ia.ts');
+  const b = src.slice(ini, src.indexOf('\n}\n', ini));
+  const red = b.indexOf('provsGratisDePlataforma()');
+  const primerFallo = b.indexOf('return { ok: false');
+  assert.ok(red > 0, 'pedir ya no prueba la red de la plataforma');
+  assert.ok(primerFallo > red, 'pedir devuelve un error ANTES de probar la red: un cliente sin API ve «conecta tu IA»');
+  assert.doesNotMatch(b, /docsIADisponible\(/, 'volvió el corte por «no tiene IA propia» antes de la red');
+  // Los documentos que se suben a Offer: la lectura por visión con la red.
+  assert.match(sinComentarios(leer('app/api/offer/route.ts')), /archivoATexto\(file, \{ feature: 'offer'[^\n]*redDePlataforma: true \}\)/);
+  const lector = sinComentarios(leer('lib/archivo-a-texto.ts'));
+  assert.equal((lector.match(/leerDocumentoIA\(\{[^\n]*redDePlataforma: opts\.redDePlataforma/g) || []).length, 2,
+    'las dos lecturas por visión (PDF escaneado e imagen) tienen que pasar la red que pide el que llama');
+});
 
 test('Ads Writer: motivaciones, sugerir y generar guiones, y valorarlos', () => {
   conRed('lib/razones.ts', 'generarRazones');
