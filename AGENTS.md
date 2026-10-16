@@ -3854,7 +3854,10 @@ voz con un mensaje que le pedía cargar otra key. Dos reglas al escribir un cami
   (`lib/model-catalogo.ts`) o `opts.pii`: con datos de clientes, si nada que no entrene contesta, se
   corta y el cliente conecta su key. Una feature nueva que lea leads, conversaciones o llamadas se marca
   `pii: true`. Y un camino con su PROPIA red (un bucle sobre `provsGratisDePlataforma`) aplica la
-  misma regla él mismo: el corte de la cascada no lo cubre.
+  misma regla él mismo: el corte de la cascada no lo cubre. Una regla que corta de más tampoco está
+  bien: si una feature mezcla pedidos con y sin datos de clientes, la marca del catálogo queda como
+  default cerrado y quien llama la afina con `pii`, EN POSITIVO (lo que no está revisado la lleva;
+  molde: `CAJAS_SIN_DATOS_DE_CLIENTES`, lib/graficos-ia-elemento.ts).
 - **Un 429 del MINUTO también se cubre con otro modelo, y repetir un PEDIDO no repite
   herramientas.** El 07/10/2026 a Brigitte (una sola key) una pregunta de 6-8 pedidos de ~15k
   tokens llenó el cupo del minuto, y el 429 tiraba el turno con seis pasos hechos por una regla
