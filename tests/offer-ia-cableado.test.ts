@@ -195,7 +195,8 @@ test('cada prompt offer.*: registrado con la MISMA key, el MISMO default y los M
 // de 'leer' → 1 fallo, 12 pases; el CAS que se rinde sin nombrar el archivo (forma nueva `{ res, sesionId }`) → 1 fallo, 12 pases.
 test('la ruta: gate del admin del negocio, path de ESTE workspace, el binario se borra en el finally si no pasó al Archivero, onboarding en try', () => {
   assert.match(RUTA, /export const dynamic = 'force-dynamic';/);
-  assert.match(RUTA, /export const maxDuration = 300;/);
+  // 800 desde el 16/10/2026: el ARMADO en el servidor corre diagnóstico + oferta en el after() de una sola invocación.
+  assert.match(RUTA, /export const maxDuration = 800;/);
   assert.match(RUTA, /export const runtime = 'nodejs';/);
   assert.match(RUTA, /const ws = await adminDeWorkspaceActual\(\);\n\s*if \(ws == null\) return no\(403,/);
   assert.doesNotMatch(RUTA, /resolverWsAdmin/);
@@ -318,7 +319,7 @@ test('el diagnóstico de fase: se guarda en el negocio SÓLO si no había uno (i
   // El cálculo es el de `diagnosticar` (adentro de estadoDiagnostico): la ruta no hace otra cuenta.
   assert.doesNotMatch(RUTA, /\bdiagnosticar\(/);
   // El PDF y los prompts: la MISMA regla (`faseVigenteDe`), leída después de asegurar; y lo que falta, dicho.
-  const gen = funcion(RUTA, 'generar');
+  const gen = funcion(RUTA, 'generarSesion');
   assert.match(gen, /const fase = faseVigenteDe\(ctx\);/);
   assert.ok(gen.indexOf('await asegurarFaseGuardada(fila, ctx);') < gen.indexOf('const fase = faseVigenteDe(ctx);'), 'la fase se lee DESPUÉS de asegurar');
   assert.doesNotMatch(gen, /ctx\.faseSesion \?\?/);
@@ -450,7 +451,7 @@ test('offer_sesiones está en los DOS registros de inquilino', () => {
 // rotura (el PDF agregado al chat FUERA del CAS de la conclusión): 1 fallo, 12 pases. rotura (la propuesta sin las fuentes
 // de las cifras): 1 fallo, 12 pases. rotura (la ruta del PDF cayendo a la última versión): 1 fallo, 12 pases.
 test('«A definir»: avisos antes de la IA, el control final con las piezas, el PDF de cada versión en el chat y por versión', () => {
-  const diag = RUTA.slice(RUTA.indexOf("case 'diagnosticar':"), RUTA.indexOf("case 'generar':"));
+  const diag = funcion(RUTA, 'diagnosticarSesion');
   const iAvisos = diag.indexOf('avisosAntesDelDiagnostico(');
   assert.ok(iAvisos > 0 && iAvisos < diag.indexOf('await diagnosticoOffer('), 'los avisos van ANTES de la IA (la de Foco tiene que verlos)');
   assert.match(diag, /alertas: \[\.\.\.\(avisos\.foco \? \[avisos\.foco\] : \[\]\), \.\.\.avisos\.otras\],/);
@@ -461,7 +462,7 @@ test('«A definir»: avisos antes de la IA, el control final con las piezas, el 
   assert.match(dIA, /alertas: p\.alertas\.length \? p\.alertas\.map\(\(a\) => `- \$\{a\}`\)\.join\('\\n'\) : '\(ninguno\)',/);
   assert.match(IA, /AVISOS QUE YA CALCULÓ EL SISTEMA:\n\{\{alertas\}\}/);
   // Generar: las fuentes de las cifras y el nombre del negocio; lo provisional; el PDF en el MISMO CAS.
-  const gen = funcion(RUTA, 'generar');
+  const gen = funcion(RUTA, 'generarSesion');
   assert.match(gen, /reglas: \{ fuentes, negocio \}/);
   assert.match(gen, /\.\.\.fila\.mensajes\.filter\(\(m\) => m\.de === 'yo'\)\.map\(\(m\) => m\.texto\),/);
   assert.match(gen, /const provisional = provisionalDe\(borrador\.diagnostico\);/);
