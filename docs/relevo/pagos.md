@@ -54,3 +54,49 @@ la API de MaKo, como automatios, como el CRM, etc...».
 **13/10/2026:** las tres siguen sin hacer. No se pueden medir sin las claves de prueba de Martín (se las pidió el chat de
 Integraciones). Lo demás de la pasarela está cerrado: el commit que había quedado suelto en el worktree
 `C:/dev/wt-pagos-auto` ya está en `main` como `67b7695d`.
+
+**14/10/2026 — la revisión de b2 (Pagos campo por campo, rama del CRM `crm-bloques-b2`):** las dos ALTAS y las seis
+MEDIAS están cerradas. Las altas y tres medias, en commits del chat CRM sobre `crm-bloques-b2`; las otras tres
+medias (la cuota reprogramada sin recordatorio, el link vivo de una cuota cobrada a mano, el plazo de la suscripción
+al reactivar), en la rama `pagos-b2-medias` del chat de Pagos, que el CRM mergea en b2. Nada de esto está en `main`
+todavía: entra cuando Estrategia integre la tanda B. Quedan las seis BAJAS de esa revisión (lista en
+docs/hallazgos-crm.md, «Una cuota reprogramada…»). La migración XXXX de b2 ahora suma `leads.suscripcion_meses_antes`.
+Después se cerraron también las seis BAJAS (docs/hallazgos-crm.md, «Las seis bajas de b2»). Todo vive en UNA rama,
+`crm-bloques-b2`, y espera la decisión de integrar (tablero, ref `crm-bloques-b2-integrar`). Las ramas `pagos-pasarela` y
+`pagos-automations` no tienen nada que no esté en `main`: se pueden borrar (las borra su chat, no éste).
+
+**15/10/2026 — `pagos-pendientes` (cda1bf49f), integrada por Estrategia en la tanda con b2; sale con el próximo push.**
+Quitar la clave de una pasarela desconecta del todo (campos, ruteo y el aviso de MaKo en la cuenta de Stripe), las
+claves de cobro del ws1 ya no van a `process.env`, el «ya es de otro» del cambio de email gasta el intento y los avisos
+de MP sin dueño dejan una fila por día. Lo aprendido, en docs/hallazgos-integraciones.md («Quitar la clave de una
+pasarela…», «Prohibir el lector no alcanza…») y docs/hallazgos-planes-y-cobro.md. Las ramas `pagos-automations` y su
+worktree están borradas; `pagos-rojo-cobranza` no tiene nada fuera de `main`.
+
+### Lo que está QUIETO, y qué lo destraba
+
+| Qué | Lo destraba | Dónde |
+|---|---|---|
+| Si una clave restringida (`rk_`) lee `GET /v1/account`; si la `notification_url` de MP llega firmada y con `data.id` en el query; un pago de punta a punta en modo prueba | las claves de PRUEBA de Martín (Stripe `sk_test_`/`rk_test_`, una cuenta de prueba de MP) | `lib/cobros-conexion.ts`, `lib/metodo-catalogo.ts`, `app/api/webhooks/mercadopago/route.ts` |
+| Stripe no abre cuentas a negocios de Argentina; la primera venta a un mexicano arranca el reloj del RFC | Martín (precio y fiscal): pasa ANTES por Estrategia, que lo mira con este chat cuando b2 esté en `main` | `app/admin/dev/pricing/modelo.ts` |
+| Los BORRADORES legales de `/reembolsos` y `/terminos` §8 | que Martín los lea; igual que el RFC, pasa antes por Estrategia | `app/reembolsos/page.tsx`, `app/terminos/page.tsx` |
+
+Las otras cuatro «decisiones de Martín» que estaban acá se DECIDIERON el 15/10 con la vara de AGENTS.md (copiar a Stripe y
+Mercado Pago, o contestar con lo escrito): el lead ganado que recibe un reembolso se queda donde está; un pago único que
+paga una suscripción sigue de pago único y la mensualidad cuenta en el MRR; un flujo puede reembolsar (lo decidió Martín
+el 08/10); y un contracargo se muestra y desmarca la cuota sólo si la plata salió. El porqué, en
+docs/hallazgos-planes-y-cobro.md → «Cuatro «decisiones de Martín» que no eran suyas». Antes de mandar CUALQUIER
+pregunta a la Ticketera: `node --import tsx scripts/decisiones.ts listar`, y la vara de AGENTS.md.
+
+### Lo que sigue SIN bloqueo (código; casi todo vive en archivos de b2, así que va DESPUÉS de que b2 esté en `main`)
+
+En este orden, de lo que más plata toca a lo que menos:
+1. Un link de MP anulado se puede pagar igual y nadie avisa que la plata entró dos veces → aviso a la ficha (`lib/cobros.ts`).
+2. Un reembolso de Stripe se da por hecho con `pending`: escuchar `charge.refund.updated` y `refund.failed` (`lib/cobros.ts`, `lib/stripe-api.ts`).
+3. El Outstanding del Dashboard cuenta como deuda las cuotas devueltas (`lib/pagos.ts`, `getOutstandingTotal`).
+3b. Contracargos (decidido 15/10): al historial y al motivo del cobro, y desmarcar la cuota cuando la plata salió; sumar `charge.dispute.created` y `charge.dispute.closed` a `EVENTOS_STRIPE` (`lib/cobros-eventos.ts`, `lib/cobros.ts`, `lib/stripe-api.ts`).
+3c. El MRR cuenta la mensualidad de un link de suscripción pagado por un lead de pago único (decidido 15/10; `lib/queries.ts`, `getMrrActivo`).
+4. Un producto de suscripción con plazo se cobra sin fin (`cancel_at` en Stripe, `end_date` en MP) (`lib/cobros.ts`, `lib/stripe-api.ts`).
+5. La fecha de la cuota es la del procesamiento y no la del pago; el MRR al cancelar redondea por meses (`lib/cobros.ts`, `lib/cobros-reglas.ts`).
+6. En `/mako/revisar`, el `cobroId` de un reembolso se puede editar y el título muestra el original (`lib/api-mako/areas/cobros.*`).
+7. El cambio de email tras el alta: falta un código al email ACTUAL (`app/pagar/cambio-email.ts`, `app/api/pagar/email/route.ts`).
+8. Más grandes, con su propio diseño: precios en moneda local en el catálogo (`lib/productos.ts`), `crear_link_pago` en el «⚡ Acción» (área de Automations, `lib/editor-acciones.ts`), y los topes de `/api/pagar/email` fuera de la memoria (`lib/rate-limit.ts`).

@@ -207,20 +207,26 @@ export type DatosCobro = {
   tipo?: TipoCobro | null;
   /** Sólo si el lead no tiene email y la pasarela lo exige (suscripción de Mercado Pago). */
   email?: string | null;
+  /** La CUOTA del CRM que salda el link (`pagos.id`): el «cobrar una cuota con link» del bloque `cuotas`. */
+  pagoId?: number | null;
 };
 
 export type ResultadoCobrar =
-  | { ok: true; link: string; prueba: boolean }
+  | { ok: true; link: string; prueba: boolean; yaEstaba?: true }
   | { ok: false; error: string; faltan?: string[] };
 
 /**
  * Crea el link de pago. Lo que llega del navegador se re-valida acá (es entrada de afuera) y lo demás
  * —qué pasarela, qué moneda, el valor en USD— lo decide `crearCobro` con `decidirCobro`.
  *
- * ⚠️ NO recibe `pagoId` (el link que salda una cuota puntual) a propósito: `registrarCobroDeProveedor`
- * marca la cuota por su id SIN mirar de qué lead es, así que aceptarlo del navegador dejaría que un
- * link de este lead pague la cuota de otro. Cuando se sume «link por cuota», el id se valida contra
- * las cuotas de ESTE lead antes de pasarlo.
+ * `pagoId` (14/10/2026): el link que salda UNA cuota. Hasta hoy se rechazaba a propósito porque
+ * `registrarCobroDeProveedor` marcaba la cuota por su id sin mirar de qué lead era; eso se cerró el 11/10
+ * (`.eq('lead_id', p.leadId)`) y se abre con tres cortes más, en lib/cobros.ts y lib/pagos.ts:
+ *   · `crearCobro` valida la cuota adentro del workspace del cobro (de ESTE lead, impaga, sin pasarela) y si
+ *     ya tiene un link vivo devuelve ése (`yaEstaba`);
+ *   · el link cobra la cuota: su valor en dólares ES el de la cuota, y en USD el monto tiene que coincidir;
+ *   · al pagarse, `registrarCobroDeProveedor` la salda por id SÓLO si sigue impaga y por el mismo monto, y
+ *     `marcarPago` corta su cobranza (`cerrarCorridasDeCuota`). Si no coincide, entra como cuota nueva.
  */
 export async function crearCobroAction(leadId: number, datos: DatosCobro): Promise<ResultadoCobrar> {
   if (!idValido(leadId)) return { ok: false, error: 'Lead inválido.' };
@@ -229,11 +235,13 @@ export async function crearCobroAction(leadId: number, datos: DatosCobro): Promi
   const d = datos ?? {};
   const email = textoCorto(d.email, 200);
   if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { ok: false, error: 'Ese email no es válido.', faltan: ['email'] };
+  if (d.pagoId != null && !idValido(d.pagoId)) return { ok: false, error: 'Cuota inválida.' };
   try {
     const r = await crearCobro(ctx.ws, {
       leadId,
       pasarela: esPasarela(d.pasarela) ? d.pasarela : null,
       productoId: idValido(d.productoId) ? d.productoId : null,
+      pagoId: idValido(d.pagoId) ? d.pagoId : null,
       concepto: textoCorto(d.concepto, 200),
       monto: positivo(d.monto),
       moneda: d.moneda ? normalizarMoneda(d.moneda) : null,
@@ -245,7 +253,7 @@ export async function crearCobroAction(leadId: number, datos: DatosCobro): Promi
     if (!r.ok) return { ok: false, error: r.error, ...(r.faltan ? { faltan: r.faltan } : {}) };
     bust(TAG.pagos, TAG.leads);
     revalidarLead(leadId);
-    return { ok: true, link: r.link, prueba: r.cobro.modo === 'prueba' };
+    return { ok: true, link: r.link, prueba: r.cobro.modo === 'prueba', ...(r.yaEstaba ? { yaEstaba: true as const } : {}) };
   } catch (e) {
     return { ok: false, error: `No pude crear el link: ${mensaje(e)}` };
   }

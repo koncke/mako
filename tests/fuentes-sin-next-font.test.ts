@@ -35,13 +35,17 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 
 const raiz = new URL('..', import.meta.url);
 const leer = (r: string) => readFileSync(new URL(r, raiz), 'utf8').replace(/\r\n/g, '\n');
 
 /** Los archivos versionados de app/ y lib/, que es donde puede entrar una fuente. */
 function fuentes(): string[] {
-  const salida = execFileSync('git', ['ls-files', 'app', 'lib'], { cwd: new URL('.', raiz).pathname.replace(/^\//, ''), encoding: 'utf8' });
+  // fileURLToPath y no `.pathname.replace(/^\//, '')`: ese recorte sólo anda en Windows (deja «C:/…»);
+  // en Linux convierte «/home/runner/…» en una ruta RELATIVA que no existe y git sale con ENOENT.
+  // Lo cazó el primer run de GitHub Actions (15/10/2026): 10.496 de 10.497, y el que faltaba era éste.
+  const salida = execFileSync('git', ['ls-files', 'app', 'lib'], { cwd: fileURLToPath(raiz), encoding: 'utf8' });
   return salida.split('\n').filter((f) => /\.(ts|tsx)$/.test(f));
 }
 

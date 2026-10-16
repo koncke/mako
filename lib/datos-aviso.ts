@@ -109,6 +109,76 @@ export function partirDatos(
   return { avisar, ocultos: [...pendientesOcultos, ...yaEstan] };
 }
 
+// ── El MISMO número en las tres puertas (14/10/2026) ─────────────────────────
+// «N sin marcar» de la cabecera de la ficha, la fila del lead en «A revisar» y el worklist tienen que
+// contar lo mismo para el mismo lead. Hasta el 14/10 no: el worklist sacaba lo del lead entero ignorado
+// (`pendientes_ignorados`, mig 0109) y la empresa omitida (`empresa_omitido`), y la ficha no, así que un
+// lead ignorado decía «3 sin marcar» en su cabecera y no aparecía en «A revisar». Las dos puertas pasan
+// ahora por estas funciones, y tests/ficha-avisos.test.ts lo fija ejecutándolas.
+
+/** Lo que hace falta del lead para saber qué tiene ignorado. */
+export type IgnoradosDelLead = {
+  datos_ignorados?: readonly string[] | null;
+  pendientes_ignorados?: string | null;
+  empresa_omitido?: boolean | null;
+};
+
+/** Los datos ignorables, todos (lo que no es una asistencia). */
+export const IGNORABLES: readonly StepId[] = DATOS_AVISABLES.map((d) => d.id).filter((id) => !NO_IGNORABLES.has(id));
+
+/**
+ * Todo lo que el lead tiene ignorado, junto: lo ignorado dato por dato (mig 0270), el lead entero
+ * ignorado antes de que existiera eso (mig 0109: cuenta como TODOS ignorados, y no se lo «despierta») y
+ * la empresa omitida (la ✕ de «Ignorar empresa» en lote).
+ */
+export function ignoradosDelLead(l: IgnoradosDelLead): StepId[] {
+  if (l.pendientes_ignorados) return [...IGNORABLES];
+  const out = sanearIds(l.datos_ignorados);
+  if (l.empresa_omitido && !out.includes('empresa')) out.push('empresa');
+  return out;
+}
+
+/** Lo que AVISA de este lead: el número de «N sin marcar», de su fila en «A revisar» y del worklist. */
+export function avisanDelLead(faltan: readonly Step[], l: IgnoradosDelLead, apagados: readonly string[] | null | undefined): Step[] {
+  return avisables(faltan, ignoradosDelLead(l), apagados);
+}
+
+/** El desplegable de la ficha, con lo ignorado del lead entero. `avisar` es SIEMPRE `avisanDelLead`. */
+export function partirDatosDelLead(
+  faltan: readonly Step[],
+  resueltos: readonly Step[],
+  l: IgnoradosDelLead,
+  apagados: readonly string[] | null | undefined,
+): EstadoDatos {
+  return partirDatos(faltan, resueltos, ignoradosDelLead(l), apagados);
+}
+
+/** Lo que se escribe en `leads` al ignorar o volver a avisar. Sólo las columnas que cambian. */
+export type CambioIgnorados = { datos_ignorados: StepId[]; pendientes_ignorados?: null; empresa_omitido?: false };
+
+/**
+ * Ignorar (o volver a avisar) unos datos de UN lead: la escritura que comparten la ficha, la ✕ de «A
+ * revisar» y la API de MaKo. Las asistencias no se ignoran nunca.
+ *
+ * ⚠️ «VOLVER A AVISAR» TIENE QUE CUMPLIR LO QUE DICE en un lead ignorado ENTERO (mig 0109) o con la empresa
+ *    omitida: esos datos se dibujan como «ignorados» con su botón, y sacarlos sólo de `datos_ignorados` no
+ *    cambiaba nada. Ahí el lead entero pasa a ignorado dato por dato (todos menos los que vuelven) y se
+ *    limpia la marca vieja: vuelve a avisar lo que se pidió, y nada más se despierta.
+ */
+export function cambioDeIgnorados(l: IgnoradosDelLead, pasos: readonly StepId[], ignorar: boolean): CambioIgnorados {
+  const validos = sanearIds(pasos).filter((p) => !NO_IGNORABLES.has(p));
+  if (ignorar) {
+    let nuevos = sanearIds(l.datos_ignorados);
+    for (const p of validos) nuevos = conIgnorado(nuevos, p, true);
+    return { datos_ignorados: nuevos };
+  }
+  const base = l.pendientes_ignorados ? [...IGNORABLES] : sanearIds(l.datos_ignorados);
+  const out: CambioIgnorados = { datos_ignorados: base.filter((x) => !validos.includes(x)) };
+  if (l.pendientes_ignorados) out.pendientes_ignorados = null;
+  if (l.empresa_omitido && validos.includes('empresa')) out.empresa_omitido = false;
+  return out;
+}
+
 /** Ignorar o dejar de ignorar UN dato: la lista nueva, sin repetidos y sin ids que no existen. */
 export function conIgnorado(actual: unknown, id: StepId, ignorar: boolean): StepId[] {
   const base = sanearIds(actual).filter((x) => x !== id);

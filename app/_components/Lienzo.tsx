@@ -560,7 +560,10 @@ export function Lienzo({
    * pasa a dibujarse como tarjeta (`colapsable`, lib/flujo-conversacion.ts).
    */
   const tarjetaBajo = (clientX: number, clientY: number, salvo: string): string | null => {
-    const el = typeof document !== 'undefined' ? document.elementFromPoint(clientX, clientY) : null;
+    // La punta que se está llevando sigue montada (tiene el puntero capturado, ver `bajarPunta`): se mira lo de abajo.
+    const el = typeof document !== 'undefined'
+      ? document.elementsFromPoint(clientX, clientY).find((x) => !x.closest('[data-punta-flecha]')) ?? null
+      : null;
     if (!(el instanceof Element) || !caja.current?.contains(el)) return null;
     const id = el.closest('[data-nodo]')?.getAttribute('data-nodo') ?? el.closest('[data-pildora]')?.getAttribute('data-pildora') ?? null;
     return id && id !== salvo ? id : null;
@@ -666,6 +669,37 @@ export function Lienzo({
     setMenu(null);
     setFantasma({ desde: n.id, puerto, x1: g.sx, y1: g.sy, x2: fin.x, y2: fin.y, menuX: pant.x + 6, menuY: pant.y - 14, items: [...conectarA, ...comoItems(opciones, elegir)] });
   }
+
+  /**
+   * LA RED DEL ARRASTRE DE UNA FLECHA (15/10/2026, Martín: «cuando agarro el extremo de la flecha, no donde está el +,
+   * sino donde esta la punta de la flecha, si la saco se bugea, se queda trabada y no se puede mover más, ni apretando
+   * esc»). La causa: al volverse arrastre, la lista de puntas se DESMONTABA entera (`!arrastreFlecha`), incluida la que
+   * tenía el puntero capturado; el `pointerup` ya no le llegaba a nadie y `arrastreFlecha` no se limpiaba nunca. Ahora
+   * la punta llevada sigue montada, y además, si el elemento que capturó desaparece por lo que sea, el `pointerup` lo
+   * termina la ventana (después del de React: si ése corrió, `gestoFlecha` ya está en null y acá no pasa nada). Esc
+   * cancela, como en «Conectar a una tarjeta».
+   */
+  useEffect(() => {
+    if (!arrastreFlecha || eligiendo) return;
+    const soltar = (e: PointerEvent) => { if (gestoFlecha.current) soltarCirculo(e as unknown as React.PointerEvent); };
+    const cancelar = (e: PointerEvent) => { if (gestoFlecha.current) soltarCirculo(e as unknown as React.PointerEvent, true); };
+    const tecla = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      e.preventDefault();
+      gestoFlecha.current = null;
+      setArrastreFlecha(null); setSobreFlecha(null);
+    };
+    window.addEventListener('pointerup', soltar);
+    window.addEventListener('pointercancel', cancelar);
+    window.addEventListener('keydown', tecla);
+    return () => {
+      window.removeEventListener('pointerup', soltar);
+      window.removeEventListener('pointercancel', cancelar);
+      window.removeEventListener('keydown', tecla);
+    };
+    // Un gesto: lo que cambia adentro (el grafo, los callbacks) se lee al soltar, como en `eligiendo`.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [arrastreFlecha, eligiendo]);
 
   /** Arranca «Conectar a una tarjeta»: la flecha sale del círculo y sigue al puntero hasta el clic. */
   function empezarAElegir(desde: string, fila: string, sx: number, sy: number) {
@@ -1363,12 +1397,16 @@ export function Lienzo({
               flecha, donde está la flecha, debería dejarme arrastrar esa flecha a otra tarjeta, o si la suelto
               en el lienzo que salga el desplegable de nueva tarjeta»). Un punto chico en la punta, que se ve
               al pasar el cursor por la flecha y se arrastra como el círculo de una salida (`bajarPunta`). */}
-          {onReconectar && !revelando && !arrastreFlecha && grafo.aristas.map((a, i) => {
+          {/* ⚠️ Durante un arrastre se esconden TODAS MENOS LA LLEVADA (15/10/2026): ésa tiene el puntero capturado, y
+              desmontarla dejaba el arrastre trabado para siempre (ver la red del arrastre, arriba). */}
+          {onReconectar && !revelando && grafo.aristas.map((a, i) => {
+            if (arrastreFlecha && arrastreFlecha.indice !== i) return null;
             if (a.sinMas || a.esperas?.length) return null;
             const h = grafo.nodos.find((n) => n.id === a.hasta);
             if (!h) return null;
             const p = puntoDeEntrada(h);
-            const vista = enFlecha === i;
+            // La llevada no se ve en su lugar viejo: la punta va con la flecha temporal.
+            const vista = enFlecha === i && !arrastreFlecha;
             return (
               <div key={`punta-${i}`} data-no-pan data-punta-flecha={i} title="Arrastrar para llevar la flecha a otra tarjeta"
                 onPointerEnter={() => entrarFlecha(i)} onPointerLeave={() => salirFlecha(i)}

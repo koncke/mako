@@ -7,8 +7,8 @@
 
 import { getTenantDb } from './workspace';
 import { cachedRead, TAG, TTL } from './cache';
-import { avisables, NO_IGNORABLES } from './datos-aviso';
-import { apagadosDelNegocio } from './datos-aviso-config';
+import { avisanDelLead, NO_IGNORABLES } from './datos-aviso';
+import { avisosDelWorkspace } from './ficha/config-server';
 import { RECON_LEADS_VALIDACION, RECON_SPEND_SIN_LEADS_USD, VSL_PRUEBA_VIDEO_ID } from './config';
 import { conversorGastoMeta } from './moneda-meta';
 import { getCashCollectedPeriodo, getOutstandingPeriodo, getCuotasPendientes } from './pagos';
@@ -2259,7 +2259,9 @@ const PENDIENTES_COLS =
   // Excepciones y omisiones declaradas: eximen requisitos de forma persistente
   'sin_r1, sin_r2, fathom_omitido, deal_fiscal_doc_omitido, comprobante_omitido, empresa_omitido, pendientes_ignorados, r2_agenda_externa_motivo, ' +
   // Los datos ignorados UNO POR UNO (mig 0270): sin la columna, lo ignorado vuelve a avisar.
-  'datos_ignorados';
+  'datos_ignorados, ' +
+  // La casa del lead (mig 0181/0207): decide de qué datos avisa, según la ficha de SU funnel.
+  'funnel_id';
 
 /**
  * Los leads de la pasada, paginados. Si la lista de columnas explícita falla
@@ -2358,9 +2360,11 @@ async function _getPendientesDeMarcar(
   // Un encuentro que no deja grabación no puede tener «falta el link de Fathom»
   // como dato sin marcar: sería una tarea imposible, repetida por cada lead.
   const grabable = await encuentroGrabable();
-  // Qué tipos de dato tiene apagado el negocio (13/10/2026). Si la lectura falla devuelve []:
-  // avisar de más se nota, callar sin que nadie lo decida no (lib/datos-aviso-config.ts).
-  const apagados = await apagadosDelNegocio();
+  // Qué tipos de dato NO avisan, POR FUNNEL del lead (14/10/2026, decisión 1 de
+  // docs/diseno-ficha-bloques.md): la ficha de su casa, con la plantilla de su tipo y lo del negocio
+  // de respaldo. UNA lectura de los funnels del workspace por pasada, nunca una por lead. Si falla,
+  // vale lo del negocio, que es lo que había (lib/ficha/config-server.ts).
+  const avisosPorFunnel = await avisosDelWorkspace();
 
   const items: PendienteItem[] = [];
   const ignorados: NonNullable<Pendientes['ignorados']> = [];
@@ -2421,10 +2425,9 @@ async function _getPendientesDeMarcar(
     // único pendiente que no es "dato lindo de tener": el lead está parado en R1/R2
     // esperando que alguien diga qué ocurrió, y silenciarlo lo deja colgado para
     // siempre. Todo lo demás sí respeta el "ignorar" del lead (mig 0109), el de cada
-    // dato (mig 0270) y lo que el negocio apagó — la regla vive en lib/datos-aviso.ts.
-    const faltan = l.pendientes_ignorados
-      ? faltanSinEmpresa.filter((f) => NO_IGNORABLES.has(f.id))
-      : avisables(faltanSinEmpresa, l.datos_ignorados, apagados);
+    // dato (mig 0270), la empresa omitida y lo que no avisa en SU funnel — la regla vive
+    // en lib/datos-aviso.ts (`avisanDelLead`), la MISMA que cuenta «N sin marcar» de su ficha.
+    const faltan = avisanDelLead(faltanRaw, l, avisosPorFunnel.apagadosDe(l.funnel_id));
     if (!l.pendientes_ignorados && l.datos_ignorados?.length && ignorados.length < TOPE_IGNORADOS) {
       for (const f of faltanSinEmpresa) {
         if (ignorados.length >= TOPE_IGNORADOS) break;

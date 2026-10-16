@@ -162,3 +162,58 @@
   font-size: var(--fs-meta);
   color: var(--faint);
 }
+
+/* ── Chats (16/10/2026): la fila con su punto y lo último que pasó; la conversación con la caja fija abajo,
+   como WhatsApp en el iPhone. El hilo usa las clases de app/admin/operaciones/centro.css (Hilo.tsx). ── */
+[data-m] .m-operaciones-vivo { color: var(--good); }
+[data-m] .m-operaciones-previa {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+[data-m] .m-operaciones-hilo {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-bottom: 8px;
+}
+[data-m] .m-operaciones-hilo__meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 4px;
+  font-size: var(--fs-meta);
+  color: var(--faint);
+}
+[data-m] .m-operaciones-hilo .co-yo { max-width: 88%; }
+[data-m] .m-operaciones-hilo .co-vacio { margin-top: 12vh; }
+
+/* La caja de escribir, en el pie fijo de la hoja. 16 px de letra: con menos, iOS hace zoom al tocarla. */
+[data-m] .m-operaciones-caja { display: flex; flex-direction: column; gap: 8px; }
+[data-m] .m-operaciones-caja__fila { display: flex; align-items: flex-end; gap: 8px; }
+[data-m] .m-operaciones-caja__fila--meta { align-items: center; }
+[data-m] .m-operaciones-caja textarea {
+  flex: 1;
+  min-width: 0;
+  min-height: 42px;
+  max-height: 140px;
+  padding: 10px 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: 21px;
+  background: var(--surface);
+  font: inherit;
+  font-size: 16px;
+  line-height: 1.35;
+  color: var(--ink);
+  resize: none;
+  field-sizing: content;
+}
+[data-m] .m-operaciones-caja textarea:focus { outline: none; border-color: var(--primary-weak); }
+[data-m] .m-operaciones-caja .co-enviar { width: 42px; height: 42px; margin-left: 0; }
+[data-m] .m-operaciones-caja__estado { min-width: 0; font-size: var(--fs-meta); color: var(--faint); }
+[data-m] .m-operaciones-caja--quieta { flex-direction: row; align-items: center; justify-content: space-between; gap: 10px; }
+[data-m] .m-operaciones-espera { color: var(--warn); }

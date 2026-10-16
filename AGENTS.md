@@ -108,31 +108,35 @@ gobierna la factura es el **tamaño de la máquina de build**, no la duración. 
 está en [docs/hallazgos-infra.md](docs/hallazgos-infra.md) → «La factura de builds no mide
 TIEMPO».
 
-La red de seguridad se movió a **`.git/hooks/pre-push`**: corre `npm run typecheck` y
-**bloquea el push** si falla. Vive en `.git`, así que aplica a cualquier sesión que
-pushee desde este clon sin que tenga que saberlo (hay varias sesiones en paralelo).
+**Desde el 15/10/2026 el chequeo completo corre en GitHub Actions, no en la notebook.** Se
+pushea a la rama **`integracion`**, nunca directo a `main`:
+`.github/workflows/integracion.yml` corre tipos, las guardas del push y los tests sobre ese
+commit, y si todo da verde **avanza `main` hasta él por fast-forward** (si `main` se movió
+por otro lado, el fast-forward se rechaza solo: hay que rebasar `integracion` sobre
+`origin/main`). Por qué: el `tsc` pide 3-5 GB y la notebook de 16 GB la comparten 10-20 chats;
+ese día el push del coordinador murió con 240 MB libres. El runner tiene su propia RAM.
+
+- **Costo: cero.** El repo es privado de la cuenta Free `hola-mako`: 2.000 minutos de Actions
+  por mes y **sin medio de pago**. Si se acaban, los runs no corren y no se cobra nada — pero
+  `main` deja de avanzar. `concurrency` cancela el run viejo cuando llega un push nuevo, así
+  que se chequea sólo la punta.
+- **El push a `integracion` NO genera deploy en Vercel** (`git.deploymentEnabled` en
+  `vercel.json`): cada build cuesta, y sólo `main` va a producción.
+- **El pre-push local queda liviano pero no desaparece** (`scripts/claude-hooks/pre-push`):
+  a cualquier rama corre sólo las guardas baratas (`scripts/guardas-push.sh`, la MISMA lista
+  que corre Actions); a **`main`** corre además el `tsc` local completo por el lock, como
+  antes. Así `main` no recibe código sin chequear, venga por donde venga, y pushear directo a
+  `main` es el camino de emergencia (si Actions no corre o se acabaron los minutos).
+- ⚠️ **No medido todavía:** cuántos minutos gasta un run, que los tests den verde en Linux
+  igual que en Windows (algunos pueden depender de archivos que sólo existen en la notebook),
+  y que Vercel despliegue el fast-forward que hace Actions. **El primer run hay que mirarlo.**
 
 ⚠️ **Los hooks de git NO se versionan.** Si se reclona el repo, el hook desaparece **en
-silencio** y un error de tipos vuelve a llegar a producción en vez de frenar el build.
-Si `.git/hooks/pre-push` no existe, recrealo con este contenido y `chmod +x`:
+silencio**. Si `.git/hooks/pre-push` no existe o es el viejo, se copia la versión del repo:
 
 ```sh
-#!/bin/sh
-LOCK_TSC="$(dirname "$(git rev-parse --git-common-dir)")/scripts/typecheck-lock.mjs"
-echo "[pre-push] Chequeando tipos…"
-if [ -f "$LOCK_TSC" ]; then node "$LOCK_TSC"; else npm run --silent typecheck; fi
-TIPOS=$?
-# 99 = «no pude chequear» (sin RAM, o el vigía mató el tsc), NO «hay errores».
-if [ "$TIPOS" -eq 99 ]; then
-  echo "\n  ✖ PUSH BLOQUEADO: no se pudo chequear los tipos (el motivo está arriba)."
-  echo "    NO es un error de tipos. Cerrá unos chats de Claude y volvé a pushear.\n"
-  exit 1
-fi
-if [ "$TIPOS" -ne 0 ]; then
-  echo "\n  ✖ PUSH BLOQUEADO: hay errores de tipos.\n"
-  exit 1
-fi
-echo "[pre-push] ✓ Tipos OK."
+cp scripts/claude-hooks/pre-push "$(git rev-parse --git-common-dir)/hooks/pre-push"
+chmod +x "$(git rev-parse --git-common-dir)/hooks/pre-push"
 ```
 
 ⚠️ **Y «NO PUDE CHEQUEAR» NO ES «HAY ERRORES»: son dos causas con dos acciones.** El lock
@@ -175,6 +179,8 @@ El detalle, en [docs/hallazgos-infra.md](docs/hallazgos-infra.md) → «El typec
 "salía con 1 sin errores"».
 
 Reglas para cualquier agente que trabaje acá:
+- **Se pushea a `integracion`; a `main` lo avanza Actions con el verde.** Directo a `main`
+  sólo en emergencia, y ahí el pre-push corre el `tsc` local completo.
 - **Nunca** uses `git push --no-verify` (saltea el único chequeo de tipos que queda).
 - Antes de pushear, si tocaste rutas nuevas, corré `npm run build` una vez: el hook usa
   `tsc --noEmit`, que solo valida los tipos generados de rutas si `.next/types` está fresco.
@@ -212,7 +218,9 @@ vecina). Y que los artefactos del replay de sesion (`public/replay/<v>/`) no hay
 respecto de `node_modules` (`node scripts/replay-libs.mjs --check`): ese `r.js` lo baja el
 navegador de un VISITANTE de la landing de un cliente, asi que si queda viejo el que graba
 es el de `public/` y no hay un solo error que lo diga. Es la misma familia que el zip de la
-extension y que `plugin/`. Si lo recreás, poné los trece.
+extension y que `plugin/`. Desde el 15/10/2026 las doce que no son el typecheck viven en
+`scripts/guardas-push.sh`, que corren el pre-push y GitHub Actions: una guarda nueva se agrega
+AHÍ, no en el hook.
 
 ⚠️ El último se agregó el 29/08/2026, después de que **producción estuviera 46 minutos en
 la versión vieja sin que nada lo dijera**: un commit subió `catalogo.ts` con 18 imports
@@ -326,6 +334,28 @@ el test del título quedó roto en `main`. **Si tocás `nav.ts`, los títulos de
 catálogo o cualquier cosa que un test mire por su NOMBRE, corré `npm test` antes de
 pushear.** No se suma al hook a propósito: son ~9 segundos más en cada push y la mayoría
 de los cambios no los necesita — pero los renombres, sí.
+
+# El build de Vercel tiene un tope de memoria que NO está en el repo
+
+`NODE_OPTIONS=--max-old-space-size=4096`, en el **proyecto de Vercel** (Settings → Environment
+Variables, Production y Preview). Se puso el 15/10/2026: sin tope, `next build` crecía hasta que
+la máquina `standard` (8 GB) lo mataba con `out_of_memory` a los ~7 min, un build colgado de 29 min
+trabó la cola, y tres pushes salieron verdes **sin llegar a producción**. Se comprueba con
+`npx vercel env ls | grep NODE_OPTIONS`, y si falta, `next.config.ts` lo grita en el log del build.
+
+- **No se sube «para tener margen».** 7168 se probó y fue PEOR (murió en 2 min). Medido en el
+  código de Next 16.2.6: el tope es **por heap de JavaScript**, no del build. Lo heredan el
+  hilo principal **y** el worker de Turbopack, que corre como otro hilo con su propio heap
+  (`isolatedMemory: false` en `build/turbopack-build/index.js`): con 7168 podían ser dos heaps de
+  7 GB en una máquina de 8. Los workers de páginas estáticas lo descartan (`isolatedMemory: true`),
+  y la memoria nativa de Turbopack (Rust) no la cubre ningún tope.
+- **Por eso el margen no se deduce: se mide**, y todavía no se midió. La forma es un deploy de
+  preview con `next build --experimental-debug-memory-usage` (Next no lo prende con una variable:
+  es un flag de la línea de comandos), que imprime el pico de heap en el log.
+- **Si vuelve a morir por memoria**, antes de pagar una máquina más grande hay una palanca
+  gratis para probar: `NEXT_TURBOPACK_USE_WORKER=0` corre Turbopack en el hilo principal y deja
+  un solo heap con el tope de 4 GB en vez de dos (no medido: puede ser más lento). **Subir la máquina de build cuesta plata y lo
+  decide Martín.**
 
 # La guardia de RAM puede demorar o negar: no es un error, y no se esquiva
 
@@ -1136,6 +1166,10 @@ código nuevo:
   al abrirlo (15/10/2026): «Me dice que todavía no hay pedidos, cuando tenemos muchos». Las claves
   (`operaciones_pedidos`, `ver_pedidos_operaciones`) no se renombran; lo que se dibuja, sí. Lo fija
   tests/operaciones.test.ts.
+- **Escribirle a un chat se hace desde SU conversación, y por UN camino** (16/10/2026; Martín: «NO es funcional, no
+  puedo mandar un prompt por allí»): la caja de `Conversacion.tsx` y la del teléfono firman por `mandar.ts`. Un
+  formulario aparte para mandar no vuelve. Y la caja no manda lo que la PC va a rechazar ni dice «sale ya» sobre lo que
+  espera: lo decide `comoSale` (lib/centro-chats.ts), con test.
 
 # Un guard sobre algo destructivo se escribe en POSITIVO
 

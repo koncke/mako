@@ -50,7 +50,16 @@ function Candidatos {
     if ($tipo) {
       $p = Get-Process -Id $_.ProcessId
       if ($p) {
-        [pscustomobject]@{ Id = $_.ProcessId; Tipo = $tipo; PrivMB = [math]::Round($p.PrivateMemorySize64 / 1MB); Cmd = ($cmd -replace '\s+', ' ') }
+        # ¿Es el tsc que lanzó el lock del typecheck (el del pre-push)? Su padre es
+        # `node scripts/typecheck-lock.mjs`. Ése tiene su turno y su espera de RAM;
+        # los que corren a mano por fuera del lock no (15/10/2026: el coordinador
+        # pidió que se maten primero los de afuera).
+        $delLock = $false
+        if ($tipo -eq 'pesado') {
+          $padre = Get-CimInstance Win32_Process -Filter "ProcessId=$($_.ParentProcessId)"
+          $delLock = [bool]($padre -and ([string]$padre.CommandLine -match 'typecheck-lock'))
+        }
+        [pscustomobject]@{ Id = $_.ProcessId; Tipo = $tipo; DelLock = $delLock; PrivMB = [math]::Round($p.PrivateMemorySize64 / 1MB); Cmd = ($cmd -replace '\s+', ' ') }
       }
     }
   }
@@ -68,20 +77,31 @@ function Matar($c, $motivo, $libre) {
 Log "arranca (zona roja < $ROJA_MB MB x$LECTURAS_ROJAS; fuga next dev > $FUGA_DEV_MB MB)"
 $rojas = 0
 $ultimoKill = [datetime]::MinValue
+$estabaPausado = $false
 
 while ($true) {
   $libre = LibreMB
   $rojas = if ($libre -lt $ROJA_MB) { $rojas + 1 } else { 0 }
   $enfriando = ((Get-Date) - $ultimoKill).TotalSeconds -lt $ENFRIAMIENTO_S
 
-  if (-not $enfriando) {
+  # PAUSA: desde el 15/10 la tarea se relanza sola cada 5 min, así que
+  # `Stop-ScheduledTask` ya no pausa al vigía. Se pausa tocando el archivo
+  # ~/.claude/guardia/vigia-pausa (vale 45 min desde que se escribió, para que
+  # una pausa olvidada no lo deje apagado para siempre) y se reanuda borrándolo.
+  $pausa = Get-Item (Join-Path $dir 'vigia-pausa') -ErrorAction SilentlyContinue
+  $pausado = [bool]($pausa -and ((Get-Date) - $pausa.LastWriteTime).TotalMinutes -lt 45)
+  if ($pausado -ne $estabaPausado) { Log ($(if ($pausado) { 'en PAUSA (vigia-pausa)' } else { 'sale de la pausa' })); $estabaPausado = $pausado }
+  if (-not $enfriando -and -not $pausado) {
     $cands = @(Candidatos)
     $fuga = $cands | Where-Object { $_.Tipo -eq 'dev' -and $_.PrivMB -gt $FUGA_DEV_MB } | Sort-Object PrivMB -Descending | Select-Object -First 1
     if ($fuga) {
       Matar $fuga 'fuga-next-dev' $libre; $ultimoKill = Get-Date; $rojas = 0
     } elseif ($rojas -ge $LECTURAS_ROJAS) {
-      $c = $cands | Where-Object { $_.PrivMB -gt 300 } | Sort-Object PrivMB -Descending | Select-Object -First 1
-      if ($c) { Matar $c 'zona-roja' $libre; $ultimoKill = Get-Date }
+      # Primero lo que NO es el tsc del lock; ése sólo si no queda otra cosa.
+      $c = $cands | Where-Object { $_.PrivMB -gt 300 } |
+        Sort-Object -Property @{ Expression = 'DelLock'; Ascending = $true }, @{ Expression = 'PrivMB'; Descending = $true } |
+        Select-Object -First 1
+      if ($c) { Matar $c ($(if ($c.DelLock) { 'zona-roja-tsc-del-lock' } else { 'zona-roja' })) $libre; $ultimoKill = Get-Date }
       else { Log "zona roja ($libre MB) sin nada que pueda matar" }
       $rojas = 0
     }

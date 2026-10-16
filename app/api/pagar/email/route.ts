@@ -43,6 +43,8 @@ const TOPE_CUERPO = 2_000;
 const no = (status: number, error: string) => NextResponse.json({ ok: false, error }, { status, headers: SIN_CACHE });
 const noPude = () => no(503, `No pudimos cambiar el email. Prueba de nuevo en unos minutos o escríbenos a ${EMAIL_MAKO}.`);
 
+const EMAIL_NO_DISPONIBLE = `No pudimos usar ese email. Prueba con otro, o escríbenos a ${EMAIL_MAKO}.`;
+
 export async function POST(req: NextRequest) {
   // Topes: por IP (quien prueba tokens) y, más abajo, por token (quien prueba emails con uno bueno).
   if (!rateLimit(`pagar-email:ip:${clientIp(req)}`, 10, 10 * 60_000)) {
@@ -81,17 +83,6 @@ export async function POST(req: NextRequest) {
   const nuevo = emailNuevoValido(cuerpo.email, usuario.email);
   if (!nuevo.ok) return no(nuevo.status, nuevo.error);
 
-  // `usuarios.email` es único: si ya es de otra persona, no se puede (y se dice qué hacer).
-  try {
-    const otro = await buscarUsuarioPorEmail(nuevo.email);
-    if (otro && otro.id !== usuario.id) {
-      return no(409, `Ese email ya tiene una cuenta de MaKo. Usa otro, o escríbenos a ${EMAIL_MAKO}.`);
-    }
-  } catch (e) {
-    console.error('[pagar-email] no pude buscar el email nuevo:', e instanceof Error ? e.message : e);
-    return noPude();
-  }
-
   const db = getSupabaseServer();
   const antes = cobro.alta_email_cambios;
 
@@ -107,16 +98,31 @@ export async function POST(req: NextRequest) {
   }
   if (!reclamo) return no(409, 'Algo cambió mientras tanto. Recarga la página y prueba de nuevo.');
 
+  // `usuarios.email` es único: si ya es de otra persona, no se puede. ⚠️ Se pregunta DESPUÉS del reclamo y el
+  // intento NO se devuelve (revisión del 11/10/2026): antes, el «ese email ya tiene cuenta» salía sin gastar
+  // ninguno de los 3 cambios, y un token servía para preguntar sin límite qué emails son usuarios de MaKo (los
+  // topes por IP y por token viven en memoria, por instancia). Ahora son, como mucho, tres preguntas por link.
+  try {
+    const otro = await buscarUsuarioPorEmail(nuevo.email);
+    if (otro && otro.id !== usuario.id) return no(409, EMAIL_NO_DISPONIBLE);
+  } catch (e) {
+    console.error('[pagar-email] no pude buscar el email nuevo:', e instanceof Error ? e.message : e);
+    const { error: e0 } = await db.from('cobros').update({ alta_email_cambios: antes }).eq('id', cobro.id).eq('alta_email_cambios', antes + 1);
+    if (e0) console.error(`[pagar-email] no pude devolver el reclamo del cobro ${cobro.id}: ${e0.message}`);
+    return noPude();
+  }
+
   // 2. El email, también condicionado: sigue siendo el que se leyó y la persona sigue sin haber entrado.
   const { data: cambiado, error: e2 } = await db.from('usuarios')
     .update({ email: nuevo.email, invitacion_enviada_at: null, updated_at: new Date().toISOString() })
     .eq('id', usuario.id).eq('email', usuario.email).is('ultimo_login', null)
     .select('id').maybeSingle();
   if (e2 || !cambiado) {
-    // El cambio no se hizo: se devuelve el reclamo (si falla, se pierde uno de los 3, que es lo menos malo).
+    // Un email que se volvió de otro en el medio gasta el intento, igual que arriba.
+    if (e2?.code === '23505') return no(409, EMAIL_NO_DISPONIBLE);
+    // El cambio no se hizo por otra cosa: se devuelve el reclamo (si falla, se pierde uno de los 3, que es lo menos malo).
     const { error: e3 } = await db.from('cobros').update({ alta_email_cambios: antes }).eq('id', cobro.id).eq('alta_email_cambios', antes + 1);
     if (e3) console.error(`[pagar-email] no pude devolver el reclamo del cobro ${cobro.id}: ${e3.message}`);
-    if (e2?.code === '23505') return no(409, `Ese email ya tiene una cuenta de MaKo. Usa otro, o escríbenos a ${EMAIL_MAKO}.`);
     if (e2) {
       console.error(`[pagar-email] no pude cambiar el email del usuario ${usuario.id}: ${e2.message}`);
       return noPude();

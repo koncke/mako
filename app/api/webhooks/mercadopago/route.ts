@@ -102,9 +102,12 @@ export async function POST(req: NextRequest) {
     }
   }
   if (ws == null) {
-    // Rastro sin datos personales: el tipo, el id del recurso y que no es de ningún negocio.
+    // Rastro sin datos personales y CON TECHO: UNA fila por día, no una por aviso (revisión del 11/10/2026). Este
+    // camino no tiene firma ni dueño: con una fila por `data.id`, cualquiera hacía crecer la tabla sin límite
+    // mandando ids al azar. El primero del día queda escrito (tipo y motivo); los demás, en el log.
+    console.warn(`[webhook:mercadopago] aviso sin workspace (${n.tipo}, user_id ${n.userId ?? '—'})`);
     await anotarEvento(
-      { proveedor: 'mercadopago', eventoId: claveEventoMp(n.tipo, n.id, 'sin-workspace'), ws: null, tipo: n.tipo },
+      { proveedor: 'mercadopago', eventoId: `sin-workspace:${new Date().toISOString().slice(0, 10)}`, ws: null, tipo: n.tipo },
       { estado: 'ignorado', motivo: n.userId ? 'ninguna cuenta conectada con ese user_id' : 'la notificación no dice de qué cuenta es' },
     );
     // La MISMA respuesta que un aviso procesado (revisión del 11/10/2026): con «sin workspace» acá y el motivo de

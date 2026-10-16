@@ -1,0 +1,74 @@
+# =============================================================================
+# integracion → main: el typecheck y los tests corren ACÁ, no en la notebook
+# =============================================================================
+# Por qué (15/10/2026): el chequeo de tipos vivía sólo en el pre-push de la
+# notebook de Martín (16 GB), compartida por 10-20 chats de Claude. `tsc` pide
+# 3-4 GB; con la máquina en 240 MB libres el push del coordinador moría, y el
+# vigía de RAM llegó a matar 46 typechecks en un día. Acá el runner tiene su
+# propia RAM y nadie más adentro.
+#
+# Cómo se usa: se pushea a la rama `integracion` (nunca directo a `main`). Este
+# flujo corre tipos, las guardas del push y los tests sobre ESE commit, y si todo
+# da verde avanza `main` hasta él por fast-forward. Si `main` se movió por otro
+# lado, el fast-forward se rechaza solo (un push sin --force no pisa nada) y hay
+# que rebasar `integracion` sobre `origin/main`.
+#
+# Costo: el repo es privado de una cuenta Free: 2.000 minutos por mes incluidos y
+# SIN medio de pago. Si se acaban, los runs dejan de correr y no se cobra nada —
+# pero `main` deja de avanzar: el camino de emergencia es pushear directo a
+# `main` con el pre-push COMPLETO (corre el tsc local). Ver AGENTS.md.
+#
+# `concurrency` cancela el run viejo cuando llega un push nuevo: se chequea sólo
+# la punta, que contiene a lo anterior. Así no se gastan minutos en commits que
+# ya quedaron atrás.
+# =============================================================================
+name: integracion → main
+
+on:
+  push:
+    branches: [integracion]
+  workflow_dispatch:
+
+concurrency:
+  group: integracion
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  chequear-y-avanzar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci --no-audit --no-fund
+
+      # En la notebook, tsc ve los tipos de las rutas que deja `.next/` (y el
+      # next-env.d.ts): los dos están en .gitignore. Acá se generan.
+      - name: Tipos de las rutas
+        run: npx next typegen
+
+      - name: Tipos
+        run: node --max-old-space-size=5120 node_modules/typescript/bin/tsc --noEmit
+
+      - name: Guardas del push
+        run: sh scripts/guardas-push.sh origin
+
+      - name: Tests
+        run: npm test
+
+      - name: Avanzar main (sólo fast-forward)
+        run: |
+          if ! git push origin "HEAD:refs/heads/main"; then
+            echo "::error::main avanzó por otro lado y no es fast-forward. Rebaseá integracion sobre origin/main y volvé a pushear."
+            exit 1
+          fi

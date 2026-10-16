@@ -1,63 +1,36 @@
 'use client';
 
 // =============================================================================
-// El Centro en el teléfono: Chats · Avance · Pushes · Áreas (15/10/2026); los trabajos, en una hoja
+// El Centro en el teléfono: Chats · Avance · Pushes (16/10/2026), y el cartero en una hoja
 // =============================================================================
-// Las mismas pestañas que la computadora (app/admin/operaciones/CentroPestanas.tsx), destiladas: cada
-// fila lleva tres cosas (título, una línea y su estado) y lo demás va en una hoja, como la lista de
-// GitHub Actions en el teléfono. Sirve para MIRAR: no depende del cartero ni de la clave del teléfono.
-// El color va en el punto de la píldora, nunca en el texto (app/m/_ui/LEEME.md).
+// Las mismas vistas que la computadora (app/admin/operaciones/CentroApp.tsx), destiladas: Chats con su caja de
+// escribir (ChatsMovil.tsx), Avance y Pushes. «Áreas» se fue en el rediseño de punta a punta («Eliminando las
+// tabs innecesarias», Martín, 15/10): lo que decía es la lista de chats. El color va en el punto de la
+// píldora, nunca en el texto (app/m/_ui/LEEME.md).
+//
+// ⚠️ La pantalla se refresca sola cada pocos segundos con la pestaña a la vista (el estado de los chats y la
+// cola), y además se tira hacia abajo (PantallaM). Los pushes de Vercel llegan después de dibujar.
 
-import { useState } from 'react';
-import { useRouter } from '@/app/_ui/Link';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  ErrorM, FilaM, ListaM, PildoraM, SeccionM, SegmentadoM, SheetM, VacioM, type TonoPildora,
+  FilaM, ListaM, PildoraM, SeccionM, SegmentadoM, SheetM, VacioM, useToastM, type TonoPildora,
 } from '@/app/m/_ui';
 import {
   GRUPOS_PEDIDO, PESTANAS_CENTRO, ROTULO_GRUPO, ROTULO_PEDIDO, ROTULO_TIPO, diaDeNovedad, estadoDeProduccion, grupoPedido, hace,
-  pushDelCommit, type EstadoPedidoP, type Frente, type NovedadP, type PedidoP, type PestanaCentro,
+  pushDelCommit, type EstadoPedidoP, type NovedadP, type PedidoP, type PestanaCentro,
 } from '@/lib/progreso-reglas';
 import type { LecturaPushes } from '@/lib/progreso';
-import { CentroMovil, type CarteroM, type PedidoM } from './CentroMovil';
+import type { EstadoCarteros, Pedido } from '@/lib/operaciones';
+import { carteroVivo } from '@/lib/operaciones-reglas';
+import { completarChats, esperasPorChat, type ChatCentro, type DecisionEspera, type TrabajoP } from '@/lib/centro-chats';
+import { fotoCentroAction, pushesCentroAction } from '@/app/admin/operaciones/acciones';
+import { copiar, useFirma } from '@/app/admin/operaciones/mandar';
+import { CarteroMovil } from './CentroMovil';
 import { ChatsM } from './ChatsMovil';
-import type { ChatCentro, TrabajoP } from '@/lib/centro-chats';
 
 const TONO_PEDIDO: Record<EstadoPedidoP, TonoPildora> = { pendiente: 'warn', en_curso: 'info', hecho: 'good' };
 /** Cuántos hechos se ven antes de «Ver todos»: en el teléfono la lista se lee, no se recorre. */
 const HECHOS_VISIBLES = 12;
-
-function diaDe(instante: number, ahora: number): 'Hoy' | 'Ayer' | 'Antes' {
-  const dia = (t: number) => Math.floor((t - 3 * 3_600_000) / 86_400_000);
-  const d = dia(ahora) - dia(instante);
-  return d <= 0 ? 'Hoy' : d === 1 ? 'Ayer' : 'Antes';
-}
-
-function EnCursoM({ frentes, ahora }: { frentes: Frente[]; ahora: number }) {
-  if (!frentes.length) return <VacioM frase="Nada se movió en las últimas 48 h." />;
-  return (
-    <>
-      {(['Hoy', 'Ayer', 'Antes'] as const).map((g) => {
-        const filas = frentes.filter((f) => diaDe(f.instante, ahora) === g);
-        if (!filas.length) return null;
-        return (
-          <SeccionM key={g} titulo={`${g} · ${filas.length}`}>
-            <ListaM etiqueta={g}>
-              {filas.map((f) => (
-                <FilaM
-                  key={f.slug}
-                  titulo={f.area}
-                  segunda={<span className="m-operaciones-texto1">{`${f.chat} · ${ROTULO_TIPO[f.tipo] ?? f.tipo}: ${f.ultimo}`}</span>}
-                  pill={f.pendientes ? <PildoraM tono="warn">{`${f.pendientes} sin empezar`}</PildoraM> : undefined}
-                  riel={<span className="m-operaciones-hace">{hace(f.instante, ahora)}</span>}
-                />
-              ))}
-            </ListaM>
-          </SeccionM>
-        );
-      })}
-    </>
-  );
-}
 
 /** El camino en una línea: quién lo tomó y dónde está. */
 function caminoM(p: PedidoP, ahora: number): string {
@@ -67,10 +40,10 @@ function caminoM(p: PedidoP, ahora: number): string {
   return `${p.tomo ?? ultimo.chat} · ${ROTULO_TIPO[ultimo.tipo] ?? ultimo.tipo} ${hace(p.ultimo, ahora)}`;
 }
 
-function PedidosM({ pedidos, pushes, todos, ahora }: { pedidos: PedidoP[]; pushes: LecturaPushes; todos: boolean; ahora: number }) {
+function PedidosM({ pedidos, pushes, ahora }: { pedidos: PedidoP[]; pushes: LecturaPushes | null; ahora: number }) {
   const [abierto, setAbierto] = useState<string | null>(null);
   const [verHechos, setVerHechos] = useState(false);
-  const lista = pushes.ok ? pushes.pushes : [];
+  const lista = pushes?.ok ? pushes.pushes : [];
   const elegido = pedidos.find((p) => p.id === abierto) ?? null;
   if (!pedidos.length) return <VacioM frase="Ningún pedido anotado en estos días." />;
   return (
@@ -99,9 +72,6 @@ function PedidosM({ pedidos, pushes, todos, ahora }: { pedidos: PedidoP[]; pushe
           </SeccionM>
         );
       })}
-      <p className="m-operaciones-nota">
-        {todos ? 'Todos tus pedidos anotados.' : 'Últimos 14 días.'} Un pedido aparece cuando un chat lo anota: lo que pediste y nadie anotó todavía no está, tampoco en «Sin empezar».
-      </p>
       <SheetM abierto={!!elegido} onCerrar={() => setAbierto(null)} titulo="Pedido">
         {elegido && (
           <div className="m-operaciones-hoja">
@@ -142,9 +112,9 @@ function PedidosM({ pedidos, pushes, todos, ahora }: { pedidos: PedidoP[]; pushe
   );
 }
 
-function NovedadesM({ lista, lectura, ahora }: { lista: NovedadP[]; lectura: LecturaPushes; ahora: number }) {
+function NovedadesM({ lista, lectura, ahora }: { lista: NovedadP[]; lectura: LecturaPushes | null; ahora: number }) {
   const [abierto, setAbierto] = useState<string | null>(null);
-  const prod = lectura.ok ? estadoDeProduccion(lectura.pushes, ahora) : null;
+  const prod = lectura?.ok ? estadoDeProduccion(lectura.pushes, ahora) : null;
   const elegido = lista.find((n) => n.id === abierto) ?? null;
   const dias: Array<{ dia: string; items: NovedadP[] }> = [];
   for (const n of lista) {
@@ -183,32 +153,71 @@ function NovedadesM({ lista, lectura, ahora }: { lista: NovedadP[]; lectura: Lec
   );
 }
 
-const ETIQUETA: Record<PestanaCentro, string> = { chats: 'Chats', pedidos: 'Avance', pushes: 'Pushes', areas: 'Áreas' };
+const ETIQUETA: Record<PestanaCentro, string> = { chats: 'Chats', avance: 'Avance', pushes: 'Pushes' };
+const REFRESCO_MS = 8000;
 
-export function CentroMovilPestanas({ inicial, frentes, pedidos, pushes, novedades, todos, ahora, cola, carteros, hayToken, chats, cuentas, trabajos }: {
+/** Lo de la cola que dibuja un chat (la misma forma que en la computadora). */
+const trabajoDe = (p: Pedido): TrabajoP => ({
+  id: p.id, destino: p.destino, destino_titulo: p.destino_titulo, destino_cuenta: p.destino_cuenta, created_at: p.created_at,
+  texto: p.texto, estado: p.estado, motivo: p.motivo, entregado_at: p.entregado_at, cerrado_at: p.cerrado_at, cierre: p.cierre,
+});
+
+export function CentroMovilPestanas({ inicial, base, colaInicial, carterosIniciales, decisionesIniciales, pedidos, novedades, ahora: ahoraServer, sub }: {
   inicial: PestanaCentro;
-  frentes: Frente[];
+  /** La mitad de la lista que sale de las bitácoras (lib/centro-chats.ts → chatsDeBitacoras). */
+  base: ChatCentro[];
+  colaInicial: Pedido[] | null;
+  carterosIniciales: EstadoCarteros | null;
+  decisionesIniciales: DecisionEspera[] | null;
   pedidos: PedidoP[];
-  pushes: LecturaPushes;
   novedades: NovedadP[];
-  todos: boolean;
   ahora: number;
-  /** La cola firmada y sus carteros; null si no se pudieron leer (Progreso se ve igual). */
-  cola: PedidoM[] | null;
-  carteros: CarteroM[] | null;
-  hayToken: boolean;
-  chats: ChatCentro[];
-  cuentas: string[];
-  trabajos: TrabajoP[];
+  sub: string;
 }) {
   const [tab, setTab] = useState<PestanaCentro>(inicial);
+  const [cola, setCola] = useState<Pedido[]>(colaInicial ?? []);
+  const [locales, setLocales] = useState<TrabajoP[]>([]);
+  const [estado, setEstado] = useState<EstadoCarteros | null>(carterosIniciales);
+  const [decisiones, setDecisiones] = useState<DecisionEspera[]>(decisionesIniciales ?? []);
+  const [ahora, setAhora] = useState(ahoraServer);
+  const [pushes, setPushes] = useState<LecturaPushes | null>(null);
   const [cartero, setCartero] = useState(false);
-  const router = useRouter();
+  const toast = useToastM();
+  const firma = useFirma(sub);
+
+  // Lo recién mandado se ve enseguida; cuando el refresco lo trae de la cola, se usa el de la cola.
+  const trabajos = useMemo(() => {
+    const deCola = cola.map(trabajoDe);
+    return [...locales.filter((l) => !deCola.some((w) => w.id === l.id)), ...deCola];
+  }, [cola, locales]);
+  const carteros = useMemo(() => estado?.carteros ?? [], [estado]);
+  const esperas = useMemo(() => esperasPorChat(decisiones, carteros), [decisiones, carteros]);
+  const chats = useMemo(() => completarChats(base, { carteros, trabajos, ahora }), [base, carteros, trabajos, ahora]);
   const abiertos = pedidos.filter((p) => p.estado !== 'hecho').length;
+
+  const refrescar = useCallback(async () => {
+    const f = await fotoCentroAction();
+    if (f.ok) { setCola(f.pedidos); setEstado(f.carteros); if (f.decisiones) setDecisiones(f.decisiones); }
+    setAhora(Date.now());
+  }, []);
+  useEffect(() => {
+    const t = setInterval(() => { if (document.visibilityState === 'visible') refrescar(); }, REFRESCO_MS);
+    return () => clearInterval(t);
+  }, [refrescar]);
+  useEffect(() => { let vivo = true; pushesCentroAction().then((p) => { if (vivo) setPushes(p); }).catch(() => {}); return () => { vivo = false; }; }, []);
+
   const cambiar = (t: PestanaCentro) => {
     setTab(t);
-    router.replace(t === PESTANAS_CENTRO[0] ? '/m/operaciones' : `/m/operaciones?tab=${t}`, { scroll: false });
+    try {
+      const u = new URL(window.location.href);
+      if (t === PESTANAS_CENTRO[0]) u.searchParams.delete('tab'); else u.searchParams.set('tab', t);
+      window.history.replaceState(window.history.state, '', `${u.pathname}${u.search}`);
+    } catch { /* la URL es una comodidad */ }
   };
+  const copiarClave = async () => { if (firma.clave) toast(await copiar(firma.clave.spki) ? 'Clave copiada: pégala en el chat Cartero' : 'No pude copiar'); };
+  const crearClave = async () => { toast((await firma.crear()) ? 'Clave creada: cópiala y pégala en el chat Cartero' : 'No pude crear la clave'); };
+  const andando = carteros.filter((k) => carteroVivo(k, ahora)).length;
+
   return (
     <>
       <div className="m-operaciones-seg">
@@ -216,24 +225,24 @@ export function CentroMovilPestanas({ inicial, frentes, pedidos, pushes, novedad
           etiqueta="Vista del Centro"
           valor={tab}
           onCambio={cambiar}
-          opciones={PESTANAS_CENTRO.map((id) => ({ id, label: ETIQUETA[id], n: id === 'pedidos' && abiertos ? abiertos : undefined }))}
+          opciones={PESTANAS_CENTRO.map((id) => ({ id, label: ETIQUETA[id], n: id === 'avance' && abiertos ? abiertos : undefined }))}
         />
       </div>
       {tab === 'chats' && (
         <>
-          <ChatsM chats={chats} cuentas={cuentas} pedidos={pedidos} trabajos={trabajos} ahora={ahora} />
+          <ChatsM
+            chats={chats} carteros={carteros} pedidos={pedidos} trabajos={trabajos} pushes={pushes?.ok ? pushes.pushes : []} ahora={ahora}
+            esperas={esperas} firma={firma} onEnviado={(t) => { setLocales((l) => [t, ...l]); refrescar(); }}
+          />
           <ListaM etiqueta="Cartero">
-            <FilaM titulo="Cartero y trabajos" segunda="Los trabajos firmados y los carteros" onClick={() => setCartero(true)} />
+            <FilaM icono="config" titulo="Cartero" segunda={`${andando} de ${carteros.length} dando vueltas`} onClick={() => setCartero(true)} navegacion />
           </ListaM>
         </>
       )}
-      {tab === 'pedidos' && <PedidosM pedidos={pedidos} pushes={pushes} todos={todos} ahora={ahora} />}
+      {tab === 'avance' && <PedidosM pedidos={pedidos} pushes={pushes} ahora={ahora} />}
       {tab === 'pushes' && <NovedadesM lista={novedades} lectura={pushes} ahora={ahora} />}
-      {tab === 'areas' && <EnCursoM frentes={frentes} ahora={ahora} />}
-      <SheetM abierto={cartero} onCerrar={() => setCartero(false)} titulo="Cartero y trabajos">
-        {cola && carteros
-          ? <CentroMovil pedidos={cola} carteros={carteros} hayToken={hayToken} ahora={ahora} />
-          : <ErrorM frase="No pude leer la cola de trabajos." />}
+      <SheetM abierto={cartero} onCerrar={() => setCartero(false)} titulo="Cartero">
+        <CarteroMovil carteros={estado ? carteros : null} clave={firma.clave} ahora={ahora} onCrearClave={crearClave} onCopiarClave={copiarClave} />
       </SheetM>
     </>
   );

@@ -53,16 +53,30 @@ test('slotDeReunion — lo que no es reunión devuelve null', () => {
   assert.equal(slotDeReunion(s, 'etapa-que-no-existe'), null);
 });
 
-test('slotDeReunion — funnel VSL/webinar: la reunión se llama distinto y IGUAL se detecta', () => {
-  const vsl = FUNNEL_TEMPLATES.find((t) => t.id === 'vsl');
-  assert.ok(vsl, 'existe el template vsl');
-  const s = completo(vsl.pipeline);
+test('slotDeReunion — funnel armado a mano: la reunión se llama distinto y IGUAL se detecta', () => {
+  // ⚠️ CAMBIADO A PROPÓSITO el 14/10/2026: este caso usaba la plantilla `vsl`, que tenía la
+  // reunión en la clave `webinar`. La plantilla pasó a las claves canónicas (lib/pipeline.ts), así
+  // que el funnel de claves propias se arma acá: es el que un negocio construye a mano en el editor,
+  // y sigue existiendo en producción con las claves viejas de la plantilla.
+  const propio: Stage[] = [pk('registro', 'entrada'), pk('grupo', 'grupo'), pk('webinar', 'reunion'), pk('checkout', 'pago'), pk('ganado', 'cierre')];
+  const s = completo(propio);
   assert.deepEqual(etapasDeReunion(s), ['webinar']);
   assert.deepEqual(slotDeReunion(s, 'webinar'), { indice: 0, numero: 1, cual: 'r1', colFecha: 'fecha_junta_1', colAt: 'junta_1_at' });
   // Y las keys canónicas, que este funnel NO tiene, no se cuelan por el nombre.
   assert.equal(slotDeReunion(s, 'agenda'), null);
   assert.equal(slotDeReunion(s, 'agendaj2'), null);
   assert.equal(slotDeReunion(s, 'grupo'), null, 'un grupo/evento no es una reunión');
+});
+
+test('slotDeReunion — plantilla VSL/webinar: el webinar es la R1 con la clave canónica', () => {
+  // La plantilla de hoy: el webinar vive en `agenda`, así que hereda `fecha_junta_1` y `asistio_j1`.
+  const vsl = FUNNEL_TEMPLATES.find((t) => t.id === 'vsl');
+  assert.ok(vsl, 'existe el template vsl');
+  const s = completo(vsl.pipeline);
+  assert.deepEqual(etapasDeReunion(s), ['agenda']);
+  assert.equal(s.find((x) => x.key === 'agenda')?.label, 'Webinar');
+  assert.deepEqual(slotDeReunion(s, 'agenda'), { indice: 0, numero: 1, cual: 'r1', colFecha: 'fecha_junta_1', colAt: 'junta_1_at' });
+  assert.equal(slotDeReunion(s, 'conversando'), null, 'el grupo no es una reunión');
 });
 
 test('slotDeReunion — funnel de 1 sola reunión: no hay R2', () => {

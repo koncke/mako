@@ -19,8 +19,9 @@ const db: Record<string, Fila[]> = { credenciales: [], webhook_routing: [], cred
 let log: string[] = [];
 let cuentasStripe: Record<string, Resp> = {};
 let cuentasMp: Record<string, Resp> = {};
-let endpoints: Array<{ id: string; url: string }> = [];
+let endpoints: Array<{ id: string; url: string; metadata?: Record<string, string> }> = [];
 let falloAlCrearAviso: Resp | null = null;
+let falloAlBorrarAviso: Resp | null = null;
 let nAviso = 0;
 
 const json = (status: number, body: unknown) =>
@@ -71,6 +72,7 @@ async function stripe(u: URL, init: RequestInit): Promise<Response> {
   }
   if (u.pathname === '/v1/webhook_endpoints' && metodo === 'GET') return json(200, { data: endpoints });
   if (u.pathname.startsWith('/v1/webhook_endpoints/') && metodo === 'DELETE') {
+    if (falloAlBorrarAviso) return json(falloAlBorrarAviso.status, falloAlBorrarAviso.body);
     const id = decodeURIComponent(u.pathname.split('/').pop() ?? '');
     endpoints = endpoints.filter((e) => e.id !== id);
     return json(200, { id, deleted: true });
@@ -106,8 +108,8 @@ process.env.APP_BASE_URL = 'https://mako.test';
 
 // El paquete es CommonJS: sin `await` de primer nivel, todo va adentro de main().
 async function main() {
-  const { descubrirStripe, descubrirMercadoPago } = await import('../lib/cobros-conexion');
-  const { credDelCliente } = await import('../lib/credenciales');
+  const { descubrirStripe, descubrirMercadoPago, desconectarPasarela } = await import('../lib/cobros-conexion');
+  const { credDelCliente, hidratarCredenciales } = await import('../lib/credenciales');
   const { cifrar } = await import('../lib/cripto-credenciales');
 
   const PLATAFORMA = 9;
@@ -124,6 +126,7 @@ async function main() {
     log = [];
     endpoints = [];
     falloAlCrearAviso = null;
+    falloAlBorrarAviso = null;
     cuentasStripe = { [KEY_A]: cuenta('acct_A'), [KEY_B]: cuenta('acct_B') };
     cuentasMp = {
       [TOKEN_A]: { status: 200, body: { id: 111, site_id: 'MLM', nickname: 'NEGOCIO', email: 'dueno@negocio.test', tags: [] } },
@@ -186,6 +189,48 @@ async function main() {
   sembrar(CLIENTE, 'MERCADOPAGO_USER_ID', '111', 'mercadopago');
   sembrar(CLIENTE, 'MERCADOPAGO_WEBHOOK_SECRET', 'clave-del-aviso-de-la-cuenta-vieja');
   out.mpCambio = { r: await descubrirMercadoPago(CLIENTE, TOKEN_B, 'test'), creds: await leer(CLIENTE, ...MP), ruteo: ruteo() };
+
+  // 9. DESCONECTAR Stripe: se van los tres campos y el ruteo, y de la cuenta de Stripe el aviso de MaKo (el de hoy y
+  //    el de un dominio viejo), nunca uno ajeno. La cuenta queda libre para conectarla en otro workspace.
+  reset();
+  await descubrirStripe(PLATAFORMA, KEY_A, 'test');
+  endpoints.push({ id: 'we_dominio_viejo', url: 'https://mako-viejo.test/api/webhooks/stripe?acct=acct_A', metadata: { mako: '1' } });
+  endpoints.push({ id: 'we_ajeno', url: 'https://otro-sistema.test/hook' });
+  log = [];
+  const rDesc = await desconectarPasarela(PLATAFORMA, 'stripe', 'test');
+  out.desconecta = { r: rDesc, creds: await leer(PLATAFORMA, ...STRIPE), ruteo: ruteo(), endpoints: [...endpoints], log: [...log] };
+  out.desconectaLuegoOtro = { r: await descubrirStripe(CLIENTE, KEY_A, 'test'), ruteo: ruteo() };
+
+  // 10. Stripe no deja borrar el aviso (falta el permiso): se desconecta IGUAL y se dice dónde borrarlo a mano.
+  reset();
+  await descubrirStripe(PLATAFORMA, KEY_A, 'test');
+  falloAlBorrarAviso = { status: 403, body: { error: { message: "Having the 'rak_webhook_write' permission would allow this request to continue." } } };
+  out.desconectaSinPermiso = { r: await desconectarPasarela(PLATAFORMA, 'stripe', 'test'), creds: await leer(PLATAFORMA, ...STRIPE), ruteo: ruteo() };
+
+  // 11. DESCONECTAR Mercado Pago: los tres campos y el ruteo; el aviso vive en SU panel y se le dice.
+  reset();
+  await descubrirMercadoPago(CLIENTE, TOKEN_A, 'test');
+  sembrar(CLIENTE, 'MERCADOPAGO_WEBHOOK_SECRET', 'clave-del-aviso-de-la-cuenta');
+  out.mpDesconecta = { r: await desconectarPasarela(CLIENTE, 'mercadopago', 'test'), creds: await leer(CLIENTE, ...MP), ruteo: ruteo() };
+
+  // 12. Las claves de cobro del ws1 (Mauricio, un CLIENTE) NO se copian a process.env: ni al conectar (guardarCredencial
+  //     refleja al entorno lo del dueño) ni en el boot (hidratarCredenciales). Copiadas ahí, cualquier lectura con
+  //     credWs o credWsEstricta de otro camino cobraría con la cuenta de Mauricio. Una clave cualquiera SÍ se hidrata:
+  //     es el control de que el camino corre.
+  reset();
+  const DUENO = 1;
+  const ENV_COBRO = [...STRIPE, ...MP];
+  for (const k of ENV_COBRO) delete process.env[k];
+  delete process.env.X_PRUEBA_HIDRATA;
+  await descubrirMercadoPago(DUENO, TOKEN_A, 'test');
+  await descubrirStripe(DUENO, KEY_A, 'test');
+  sembrar(DUENO, 'X_PRUEBA_HIDRATA', 'si');
+  await hidratarCredenciales();
+  out.envDelDueno = {
+    r: { ok: true },
+    creds: Object.fromEntries(ENV_COBRO.map((k) => [k, process.env[k] ?? null])),
+    log: [`control=${process.env.X_PRUEBA_HIDRATA ?? ''}`, `guardadas=${(await Promise.all(ENV_COBRO.map((k) => credDelCliente(k, DUENO)))).filter(Boolean).length}`],
+  };
 
   process.stdout.write(`\n@@RESULTADO@@${JSON.stringify(out)}`);
 }

@@ -107,20 +107,53 @@ function ultimaCaida() {
     }
     if (secundaria) ruido.add(i); else arranques.push(i);
   }
-  if (arranques.length < 2) return null;
-  const iNuevo = arranques[arranques.length - 1];
-  const iViejo = arranques[arranques.length - 2];
-  let ultima = null;
-  let tipo = 'crash';
-  for (let j = iViejo; j < iNuevo; j++) {
-    if (ruido.has(j)) continue;
-    ultima = lineas[j];
-    const m = lineas[j].msg;
-    if (m.includes('beforeQuitForUpdate')) tipo = 'actualizacion';
-    else if (m.includes('Windows session ending') && tipo !== 'actualizacion') tipo = 'apagado';
+  // ⚠️ Y desde la 2.4x la segunda instancia YA NO DICE `Not main instance`.
+  // Medido el 15/10/2026: «Starting app» a las 13:12 y a las 19:09 (la vuelta de un
+  // login, un clic en un link claude://) con el proceso principal VIVO — el mismo
+  // `electron_main:<pid>` antes y después. El relevo lo tomó por caída y le mandó
+  // «retomá» a un chat que no se había cortado. Lo que no miente es el PID: un
+  // arranque de verdad cambia el proceso principal.
+  const pidDe = (l) => /electron_main:(\d+)/.exec(l.msg)?.[1] || null;
+  const reales = arranques.filter((i, k) => {
+    let antes = null;
+    for (let j = i - 1; j >= 0 && !antes; j--) antes = pidDe(lineas[j]);
+    let despues = null;
+    const tope = k + 1 < arranques.length ? arranques[k + 1] : lineas.length;
+    for (let j = i + 1; j < tope && !despues; j++) despues = pidDe(lineas[j]);
+    return !(antes && despues && antes === despues);   // sin PID para comparar, se cree el arranque
+  });
+  let reinicio = null;
+  if (reales.length >= 2) {
+    const iNuevo = reales[reales.length - 1];
+    const iViejo = reales[reales.length - 2];
+    let ultima = null;
+    let tipo = 'crash';
+    for (let j = iViejo; j < iNuevo; j++) {
+      if (ruido.has(j)) continue;
+      ultima = lineas[j];
+      const m = lineas[j].msg;
+      if (m.includes('beforeQuitForUpdate')) tipo = 'actualizacion';
+      else if (m.includes('Windows session ending') && tipo !== 'actualizacion') tipo = 'apagado';
+    }
+    if (ultima) reinicio = { fin: ultima.t, arranque: lineas[iNuevo].t, tipo };
   }
-  if (!ultima) return null;
-  return { fin: ultima.t, arranque: lineas[iNuevo].t, tipo };
+  // El CAMBIO DE CUENTA corta las sesiones sin reiniciar la app (medido 15/10 19:09:
+  // `Login-state transition (loggedOut: false → true`, y 11 de 13 procesos de chat
+  // arrancaron de nuevo). Es un corte propio: los chats de la cuenta que VUELVE se
+  // pueden retomar; los de la que se fue los descarta el filtro de cuenta de abajo.
+  let cuenta = null;
+  for (let i = lineas.length - 1; i >= 0 && !cuenta; i--) {
+    if (!/Login-state transition \(loggedOut: false/.test(lineas[i].msg)) continue;
+    const login = lineas.slice(i + 1).find((l) => /Login-state transition \(loggedOut: true/.test(l.msg));
+    cuenta = { fin: lineas[i].t, arranque: login ? login.t : lineas[i].t, tipo: 'cuenta' };
+  }
+  if (!reinicio) return cuenta;
+  if (!cuenta) return reinicio;
+  // A veces el cambio de cuenta además reinicia la app (14/10 15:29: logout y, 12 s
+  // después, otro proceso principal). Es el mismo corte: se nombra por su causa.
+  const seg = (reinicio.fin - cuenta.fin) / 1000;
+  if (seg >= 0 && seg <= 120) return { ...reinicio, tipo: 'cuenta' };
+  return cuenta.fin > reinicio.fin ? cuenta : reinicio;
 }
 
 // ---------------------------------------------------------------------------
@@ -227,11 +260,51 @@ function estadoDe(archivo, caida) {
   return { mitadDeTurno, enFondo, retomada };
 }
 
+/**
+ * De qué cuenta es cada sesión, según la bitácora, y cuál está activa ahora.
+ *
+ * ⚠️ Esto existe porque CAMBIAR DE CUENTA se ve exactamente igual que una caída.
+ * Martín se desloguea y entra con la otra cuenta: la app se reinicia, el log dice
+ * «Starting app» dos veces, y todas las sesiones de la cuenta que se va terminan
+ * en el mismo segundo. Igualito a un crash.
+ *
+ * La diferencia es que esas sesiones son de la OTRA cuenta, y desde ésta no
+ * existen: `get_session` sobre ellas da «not found» y SendMessage no las alcanza.
+ * Pedir que se las despierte es mandar a alguien a hacer algo imposible.
+ *
+ * Medido el 14/10/2026: a las 15:30:10 terminaron cinco sesiones de claude2 y el
+ * marcador pasó a claude1 a las 15:31:37. El aviso de «relevo tras la caída»
+ * estuvo toda la tarde pidiendo despertar cinco chats inalcanzables, y dos
+ * sesiones distintas lo intentaron y fallaron antes de que alguien lo mirara.
+ */
+function cuentaActiva() {
+  try {
+    return fs.readFileSync(path.join(HOME, '.claude', 'cuenta-activa.txt'), 'utf8').trim().split(/\s+/)[0] || null;
+  } catch { return null; }
+}
+
+function cuentaPorSesion() {
+  const mapa = new Map();
+  try {
+    const tsv = fs.readFileSync(path.join(HOME, '.claude', 'bitacora-sesiones.tsv'), 'utf8');
+    for (const linea of tsv.split('\n')) {
+      const [, , cuenta, sid] = linea.split('\t');
+      if (cuenta && sid) mapa.set(sid.trim(), cuenta.trim());   // gana la última
+    }
+  } catch { /* sin bitácora, no se filtra nada */ }
+  return mapa;
+}
+
 function cortadas(caida) {
   const out = [];
+  const activa = cuentaActiva();
+  const deQuien = cuentaPorSesion();
   for (const s of sesionesEscritorio()) {
     const archivo = transcriptDe(s.cli);
     if (!archivo) continue;
+    // Una sesión de otra cuenta no se puede despertar desde ésta: no se lista.
+    const suya = deQuien.get(s.cli);
+    if (activa && suya && suya !== activa) continue;
     const e = estadoDe(archivo, caida);
     if (!e || (!e.mitadDeTurno && !e.enFondo)) continue;
     out.push({ ...s, ...e });
@@ -259,7 +332,8 @@ function reclamar(dir, cli, quien) {
 }
 
 function mensajeParaElModelo(caida, propia, otras) {
-  const que = caida.tipo === 'actualizacion' ? 'se reinició para actualizarse' : 'se cayó';
+  const que = caida.tipo === 'actualizacion' ? 'se reinició para actualizarse'
+    : caida.tipo === 'cuenta' ? 'cortó los chats por un cambio de cuenta' : 'se cayó';
   const partes = [`La app de Claude ${que} a las ${hhmm(caida.fin)} y se reabrió a las ${hhmm(caida.arranque)}.`];
   if (propia) partes.push('TU trabajo quedó cortado a mitad: retomalo exactamente donde quedó (si tenías un workflow o agentes corriendo, relanzalos; la guardia de RAM te hace esperar si no hay memoria).');
   if (otras.length) {

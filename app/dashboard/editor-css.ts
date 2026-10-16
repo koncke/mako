@@ -135,6 +135,9 @@ export const CSS = `
 .lk-pila > * { grid-column: 1 / -1; }
 .lk-pila > .lk-comp--kpi { grid-column: auto; }
 .lk-pila > .lk-comp--titular { grid-column: 1 / -1; }
+/* El número que queda solo en su fila (el último de un grupo impar, app/dashboard/pila.ts) va a lo ancho: de a dos dejaba
+   media fila vacía al lado. */
+.lk-pila > .lk-comp--solo { grid-column: 1 / -1; }
 
 /* Las tarjetas: las de MaKo, con el tema de la hoja. */
 .lk-comp { display: flex; flex-direction: column; gap: 10px; padding: var(--dash-tarjeta-pad, 20px 22px); box-sizing: border-box; background: var(--dash-tarjeta-fondo, var(--surface)); border: 1px solid var(--dash-tarjeta-borde, var(--border)); border-radius: var(--dash-tarjeta-radio, 16px); box-shadow: var(--dash-tarjeta-sombra, none); overflow: hidden; font-family: var(--dash-letra, 'Geist', system-ui, sans-serif); color: var(--ink); min-width: 0; }

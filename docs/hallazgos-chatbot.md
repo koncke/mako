@@ -4563,3 +4563,52 @@ Espera a que abra / Lo manda igual», de fábrica espera (Martín), y su chip di
   Lo único que cambia es su «Un Lead Agendó Llamada» (#213): el aviso de las 23 llega a las 9.
 
 **Vive en:** `lib/mako-tarjeta.ts` (`esperaQueAbra`, `chipDeEspera`) · `lib/horario-envio.ts` (`proximaApertura`, `textoDeApertura`) · `lib/nutricion.ts` (`sigueIgual`) · `lib/aviso-evento.ts` (`esperaApertura`) · `lib/flujos.ts` (`aperturaDelNegocio`)
+
+## El chat del lienzo editaba cuando le preguntabas: «No cambies nada, sólo explícamelo» terminó en «Cambié 1» (15/10/2026)
+
+**Síntoma (medido en producción, 15/10 ~19:30 AR, en «Un Lead Entró» #198):** «¿Qué hace esta automatización? No cambies
+nada, sólo explícamelo.» estuvo ~100 s en «Escribiendo el flujo» y contestó «Cambié 1». El borrador tenía el texto que
+acompaña al audio de bienvenida reescrito: «Te dejo aquí el video: https://confirmar.lovable.app» pasó a «Hola estimado
+{{nombre}}! espero que estés muy bien! …», **sin el link del video**. No se publicó: se deshizo con ↶, y al recargar la
+fila seguía con `updated_at` del 12/10 y `pasos_borrador` en null.
+
+**Causa:** no era el modelo. La ruta (`app/api/chat-agent/secuencias/ia`) mandaba TODO lo que se escribe en el chat al
+prompt de EDITAR, que sólo sabe devolver cambios. No había un camino para contestar una pregunta. Joan y Mauricio usan
+ese chat.
+
+**Lo que quedó (dos capas):**
+- **Una pregunta no pasa por editar.** `esConsulta` (lib/flujo-ia-consulta.ts) decide antes de llamar al modelo, y lo que
+  es claramente una pregunta va a un prompt (`chatbot.explicar-ia.system`, editable en /configuraciones) que sólo puede
+  devolver `{"respuesta"}`. La ruta devuelve el borrador tal cual: no hay forma de que cambie una tarjeta. En el chat se
+  ve «Pensando la respuesta» en vez de «Escribiendo el flujo».
+- **Lo que se le escapa a la regla:** el prompt de editar ahora también puede contestar con "respuesta", y si lo hace
+  `deIAEdicion` no aplica NADA de lo que haya traído junto, ni el cambio de canal que se lee del pedido.
+- ⚠️ **La regla es a propósito estrecha.** En español «¿Qué manda?» y «Manda un email» usan la misma forma del verbo, así
+  que un verbo de cambio al principio de una frase, con un pronombre pegado («agrégale») o detrás de «¿puedes…?» la saca
+  de la consulta y la manda a editar. Ante la duda edita, y el modelo decide con la segunda capa. Una negación («no
+  cambies el audio») se borra antes de buscar el pedido: sin eso, «¿Puedes no cambiar nada…?» se leía como «¿puedes
+  cambiar…?».
+- ⚠️ **Hay otra `respuestaDe` en lib/flujo-ia.ts** (la del «Si responde», devuelve un Set). Importar una con el mismo
+  nombre no da error en tsx: la local la tapa y el test vio `Set {undefined}` donde esperaba un texto. La del modelo se
+  llama `respuestaDelModelo`.
+- **Para editar, «no cambió nada» es un error que pide otro intento** (`erroresEdicion`). Por eso la ruta no revisa una
+  respuesta: si lo hiciera, cada pregunta pagaría un reintento y terminaría en «MaKo armó el flujo pero quedó mal».
+
+**La trampa que costó la pasada:** el Chrome de Martín tenía abierta la sesión de **Mauricio** (cliente, ws1), no la de
+super admin. Para un usuario normal `?ws=3` no hace nada y no da error: se ve SU negocio. Las automatizaciones que
+parecían de ws3 eran la #198 y la #213 de Mauricio. Lo delató medir en la base (ws3 tiene cero automatizaciones vivas) y
+`/api/auth/me`. **Antes de una pasada en producción: `/api/auth/me` y mirar `email` y `ws`.** (También en
+docs/hallazgos-infra.md.)
+
+**SIN HACER:**
+1. **Un cambio pedido de verdad puede reescribir otra tarjeta** que nadie nombró, y llevarse un link. Nada lo frena: la
+   capa de hoy sólo cubre preguntas. La pista es comparar los links y los datos de cada mensaje `cambiado` contra el
+   de antes (lib/texto-critico.ts ya lo hace con el mensaje que la IA reescribe al mandarlo).
+2. **~100 s para tocar una tarjeta.** No se midió dónde se va el tiempo (la cascada, `armarContexto` o la reparación).
+3. **La pasada con clics en ws3 sigue sin hacer.** Hace falta la sesión de super admin en el Chrome.
+4. **Dos mensajes de prueba en el chat de MaKo de la #198 de Mauricio** (`app_settings` `automatizacion.chat:198`, ws1):
+   la pregunta y el «Cambié 1». Es la fila entera (no tenía nada antes); se borra con el OK de Martín.
+
+**Vive en:** `lib/flujo-ia-consulta.ts` (`esConsulta`, `pideCambio`, `EXPLICAR_IA_SYSTEM_TEMPLATE`) · `lib/flujo-ia.ts`
+(`deIAEdicion`, la salida temprana con `respuesta`) · `app/api/chat-agent/secuencias/ia/route.ts` (`contestar`) ·
+`app/automations/stream-ia.ts` (`TEXTO_FASE.respuesta`) · test: `tests/flujo-ia-consulta.test.ts`

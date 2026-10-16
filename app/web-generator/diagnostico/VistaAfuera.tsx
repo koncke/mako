@@ -198,7 +198,7 @@ export function VistaAfuera({ url, objetivos, controlRef, senal, onUbicar }: {
           <p>
             {estado === 'error' && mensaje ? mensaje
               : estado === 'directo' ? 'Esta página se dibuja con JavaScript: se muestra la página real.'
-              : estado === 'vacia' ? 'Esta página se dibuja con JavaScript y acá no llega a verse.'
+              : estado === 'vacia' ? 'Esta página se dibuja con JavaScript y aquí no llega a verse.'
               : 'No pude mostrar la página aquí.'}
           </p>
           <a className="gp-btn gp-btn-contorno" href={url} target="_blank" rel="noopener noreferrer">Abrir la página</a>
