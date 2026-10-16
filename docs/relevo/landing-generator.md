@@ -408,13 +408,16 @@ producción»; la regla para código nuevo, en AGENTS.md.
 **Mirado con clics en producción el 16/10** (ws9, la IA de verdad): los cuatro casos bien (lo actual, el mixto con
 Sí / Después, «borra la otra landing» con las dos más recientes y la Papelera, y el link al CRM).
 
-**Lo que sigue, decidido por Cerebro el 16/10, con su archivo:**
-1. La edición con IA del editor (`landing-editor-ia`, `lib/editor-landing/ia.ts` + `lib/model-catalogo.ts`): tarda de
-   12 a 65 s en Gemini. Probar Groq primero, medir antes y después; si la salida no entra en su techo, Gemini queda de
-   respaldo.
-2. «Mi otro producto» al crear: que pregunte cuál, con los productos del negocio (`lib/mako-pedidos.ts` arma el pedido
-   `nuevo`; `app/web-generator/editor/pedidos-chat.ts` dibuja la burbuja).
-3. «Crear ahora» con su propio estilo (hoy se parece a las sugerencias): `app/web-generator/editor/paneles/PanelAgente.tsx`.
+**Lo decidido por Cerebro el 16/10, hecho (commits `53c299c95` a `f100e062b`, SIN pushear al escribir esto):**
+1. La edición con IA del editor con Groq: medido y NO se cambió (Groq 7,5-11 s pero acierta 2 de 3; Gemini 19-33 s y
+   3 de 3). La tabla, en `docs/hallazgos-editor-landing.md` → «Mirado con clics en producción».
+2. «Mi otro producto»: pregunta «¿Para cuál producto?» con los del catálogo (`productoDelPedido`). Con un solo producto
+   no pregunta (ws9 hoy). Falta: preguntarlo en texto libre cuando no está en el catálogo.
+3. «Crear ahora» azul con «+»; ningún botón de burbuja en el celeste de las sugerencias.
+
+**Lo que sigue, con su archivo:**
+- Que Martín lo mire con clics: «Créame otra landing para mi otro producto» con dos productos activos o más
+  (ws9 tiene uno: la pregunta no sale ahí).
 - No tocar: el modelo muerto de OpenRouter en `MODELO_DOCS` (lib/ai-cheap.ts) lo arregla Onboarding.
 - De otros chats: Automations engancha su chat y su función de `objetosDeTab`; el Centro, el chat del Second Brain;
   los chats de Image Editor, Dashboard y Video Editor llaman a la ruta (el de Video Editor manda `objetos`).
