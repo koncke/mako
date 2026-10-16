@@ -42,8 +42,8 @@ Video Editor en el editor de imágenes, con la cara del panel de Canva AI.
    Test `tests/image-editor-chat.test.ts` (24, cuarenta roturas cazadas). **Sin mirar en el navegador** (ws9).
 2. **Sin hacer: las operaciones en la API de MaKo que PROPONEN** (área `imagen`, como `lib/editor-video/chat-api.ts`).
    El diseño YA está en la base (`image_disenos`): la vista sale del doc guardado con `vistaDeDiseno` y la revisión
-   con `aplicarOperaciones` (los dos puros, sin `_doory`). Pide su tabla de propuestas: número a pedirle al Cerebro
-   (la 0304 era la prevista) ANTES de crearla.
+   con `aplicarOperaciones` (los dos puros, sin `_doory`). Pide su tabla de propuestas: la **0304** ya está
+   RESERVADA por el Cerebro para esto (16/10 tarde; la 0303 es la del hilo).
 3. **Sin hacer: «entender el pedido»** en `pedirEdicion` (`app/image-editor/mako/chat/acciones.ts`), con `tab: 'imagen'`
    y el molde de `app/video-editor/_opencut/chat/pedidos.ts` (sin `objetos`: los diseños están en el server).
 
