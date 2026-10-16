@@ -45,6 +45,8 @@ export type Mensaje =
 			aviso?: string;
 			/** Sólo en memoria: lo que hace falta para «Restaurar» (el deshacer no sobrevive a recargar). */
 			aplicada?: AplicadaChat;
+			/** Una propuesta que llegó por la API de MaKo (./propuestas.ts): al aceptarla o descartarla se cierra en la base. */
+			propuestaApi?: { id: string; canal: string };
 	  };
 export type MensajeMako = Extract<Mensaje, { de: "mako" }>;
 type SinId<M> = M extends unknown ? Omit<M, "id" | "c" | "t"> : never;

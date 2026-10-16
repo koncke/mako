@@ -121,7 +121,7 @@ test('5: las dos lecturas están declaradas (gratis, con la tab del editor, por 
   const run = leer('lib', 'api-mako', 'areas', 'video.run.ts');
   assert.match(run, /const r = await listarEspejos\(ctx\.ws\);/, 'con el workspace del contexto');
   assert.match(run, /const r = await leerEspejo\(ctx\.ws, proyecto\);/);
-  assert.match(run, /if \(!idDelMotor\(proyecto\)\)/);
+  assert.match(run, /const cual = await resolverProyecto\(ctx\.ws, str\(input, 'proyecto'\) \?\? ''\);/, 'por id o por nombre');
   const rest = leer('lib', 'api-mako', 'rest.ts');
   assert.match(rest, /\['GET', '\/video\/proyectos', 'listar_proyectos_video'\]/);
   assert.match(rest, /\['GET', '\/video\/proyectos\/\{proyecto\}', 'ver_proyecto_video'\]/);

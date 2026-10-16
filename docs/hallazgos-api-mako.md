@@ -1442,3 +1442,33 @@ de WhatsApp. Una op grande que empata arriba se come el lugar de las chicas.
 **Vive en:** lib/doer-herramientas.ts · lib/api-mako/registro.ts (`toolsDelRegistro`, `ordenarPorRelevancia`) ·
 lib/api-mako/areas/crm.def.ts (`cambiar_ficha_funnel`) · tests/ficha-api.test.ts ·
 *16/10/2026, chat «CRM» (claude3), corrida wf_e3cc574c-723 (`665f5bed1`).*
+
+## El Video Editor en la API: 34 acciones que PROPONEN, y lo que le pidieron al registro (16/10/2026)
+
+Etapa 3 de docs/diseno-mako-ai-native.md: las operaciones del chat «Editar con IA» pasan a la API. El proyecto vive
+en el navegador de quien lo edita, así que cada una es de pantalla PROPIA (`/video-editor`): deja su cambio en una
+propuesta del proyecto (mig 0302), lo del mismo canal se junta, y una persona lo acepta en el editor. Se generan del
+catálogo del chat (lib/editor-video/chat-api.ts): la descripción es el mismo `para` que lee la IA del chat.
+- ⚠️ **El test del registro busca los runners ESCRITOS en el fuente** (`^  id: {` en el `.run.ts`): 34 runners
+  generados con `Object.fromEntries` eran invisibles y el test decía «no tiene runner». Van explícitos
+  (`agregar_texto_video: { ...enElEditor('agregar_texto_video') },`), que además es lo que lee quien busca un id.
+- ⚠️ **En un pedido de edición por WhatsApp entra la acción, pero no la lista** (medido con `toolsDelRegistro` y el
+  presupuesto de 12.000): con «quitale las muletillas al video de testimonio» viajaba `eliminar_muletillas_video` y
+  no `listar_proyectos_video`, y sin el id no había cómo. **El proyecto va por NOMBRE o por id** (`elegirProyecto`),
+  y si no alcanza, el error lista los proyectos. En una PREGUNTA no viaja ninguna acción (`incluirAcciones`) y las
+  lecturas del Video Generator siguen enteras. Lo fija `tests/video-editor-propuestas-api.test.ts` (prueba 9).
+- ⚠️ **Una acción de pantalla PROPIA tiene que decidir qué pasa en un flujo.** `ejecutarDesdeFlujo` manda toda
+  propuesta que no conoce a `aplicarPropuestaGenerica`, que la busca en `propuestas`: el paso fallaba cada vez, y el
+  editor de Automations ofrecía las 34 como «⚡ Acción». Quedan afuera de los flujos (`enElEditorDeVideo`,
+  lib/api-mako/flujo.ts): un flujo corre sin nadie mirando el editor.
+- **«SOLO PASA LO DECLARADO» con formas del chat que no se declaran:** los «textos» y «clips» de una plantilla son
+  objetos con claves que dependen de la plantilla. En la API van como listas (`[{hueco, texto}]`) y vuelven a la forma
+  del chat en `operacionDesdeInput`, que valida con la MISMA `validarOperacion`; «no» saca un color (el chat usa
+  `false`). La prueba 2 pasa el ejemplo de cada operación del catálogo por `validarInput`: un campo sin declarar se
+  perdería sin error.
+- **Un rótulo con una sigla («Volumen (dB)») parece «pegado»** para la guarda de tests/editor-acciones.test.ts (una
+  minúscula seguida de una mayúscula): va «Volumen», y la descripción dice dB.
+
+**Vive en:** lib/editor-video/chat-api.ts · lib/editor-video/propuestas.ts y propuestas-server.ts ·
+lib/api-mako/areas/video.def.ts y video.run.ts · lib/api-mako/flujo.ts · lib/api-mako/rest.ts ·
+tests/video-editor-propuestas-api.test.ts (35 roturas). *16/10/2026, chat «Video Editor» (claude3).*

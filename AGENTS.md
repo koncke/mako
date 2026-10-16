@@ -8706,6 +8706,16 @@ docs/diseno-mako-ai-native.md; molde: `lib/editor-video/chat-hilo.ts`, el del Vi
 - **La persona sale de la sesión** (`personaDeSesion`), nunca del pedido; y dos pestañas se unen por id de mensaje
   ante el 409 del compare-and-set, sin pisarse.
 
+# Una acción de pantalla PROPIA nueva decide qué pasa en un FLUJO
+
+`ejecutarDesdeFlujo` (lib/api-mako/flujo.ts) aplica en el acto lo que un paso propone, y toda propuesta que no conoce
+la manda a `aplicarPropuestaGenerica`, que la busca en `propuestas`. Una acción con su propia tabla de propuestas que
+no se decide ahí FALLA en cada corrida del flujo, y el editor de Automations igual la ofrece como «⚡ Acción». Se
+agrega su rama de aplicar (como el plan o los borradores de WhatsApp) o se la saca de los flujos (como las del Video
+Editor, que se aceptan en el navegador: `enElEditorDeVideo`). Y antes de commitear operaciones nuevas, se mide el
+turno de WhatsApp (`toolsDelRegistro` con el presupuesto de 12.000): una acción puede entrar sin la lectura que
+necesita para tener el id (docs/hallazgos-api-mako.md, 16/10/2026).
+
 # El onboarding es una conversación: lo que gobierna una pregunta nueva
 
 Desde el 16/10/2026 /onboarding es el CHAT DE ARRANQUE (`app/onboarding/ChatArranque.tsx`, sobre el motor de

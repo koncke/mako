@@ -238,8 +238,9 @@ export type LecturaDef = Base & {
   formatos?: readonly Formato[];
 };
 
-/** Dónde se revisa una propuesta. Cerrado: cada pantalla existe en app/. */
-export type RutaPantalla = '/crm/revisar' | '/plan/revisar' | '/mako/revisar' | '/whatsapp';
+/** Dónde se revisa una propuesta. Cerrado: cada pantalla existe en app/. `/video-editor` es el editor mismo: lo que la
+ *  API propone en un proyecto se acepta en su chat «Editar con IA» (lib/editor-video/propuestas.ts). */
+export type RutaPantalla = '/crm/revisar' | '/plan/revisar' | '/mako/revisar' | '/whatsapp' | '/video-editor';
 
 export type AccionDef = Base & {
   tipo: 'accion';

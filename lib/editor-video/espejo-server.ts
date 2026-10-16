@@ -12,7 +12,7 @@
 
 import 'server-only';
 import { getTenantDb } from '../workspace';
-import { unirRefs, type EspejoSubido, type FilaEspejo } from './espejo';
+import { elegirProyecto, unirRefs, type EspejoSubido, type FilaEspejo } from './espejo';
 
 const TABLA = 'video_editor_proyectos';
 const COLUMNAS_LISTA = 'proyecto_id, nombre, duracion, demasiado_grande, updated_at, editado_por';
@@ -62,6 +62,14 @@ export async function listarEspejos(ws: number): Promise<{ ok: true; filas: Fila
     .eq('workspace_id', ws).is('borrado_at', null).order('updated_at', { ascending: false }).limit(100);
   if (error) return falla(error);
   return { ok: true, filas: (data ?? []) as FilaEspejo[] };
+}
+
+/** El proyecto que nombra un pedido de la API, por id o por nombre (`elegirProyecto`, con el motivo si no alcanza). */
+export async function resolverProyecto(ws: number, valor: string): Promise<{ ok: true; proyecto: string } | { ok: false; motivo: string } | Falla> {
+  const r = await listarEspejos(ws);
+  if (!r.ok) return r;
+  const e = elegirProyecto(r.filas, valor);
+  return e.ok ? { ok: true, proyecto: e.fila.proyecto_id } : e;
 }
 
 /** Un proyecto con su línea de tiempo. null = no hay copia (o se borró). */
