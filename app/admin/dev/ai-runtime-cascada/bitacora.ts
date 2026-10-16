@@ -275,4 +275,24 @@ export const BITACORA: Hito[] = [
       'lib/flujo-ia-crear.ts — `hayIAParaCrear` cuenta la red',
     ],
   },
+  {
+    fecha: '16 oct', hora: '00:51', chat: 'Onboarding', sesion: 'local_79844152-91d5-49c1-b833-c917ed1fc4a6', cuenta: 'claude3',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El crédito de Claude Max de la plataforma, primero en la red',
+    puntos: [
+      'Martín: «Vinculalas a MaKo», el crédito de API de dos planes Max suyos, para que los usuarios nuevos no traigan su API.',
+      'Tercera puerta del veto: pasan SÓLO las dos claves con nombre, nunca en el Plan. Va antes de las keys gratis: el crédito vence sin acumularse, las gratis chocan por minuto con el ws9, y Anthropic no entrena con la API.',
+      '⚠️ Sin clave propia, `wsDeProveedor` anotaba la fila de Anthropic en el ws1 (un cliente): ahora va al workspace que la usó.',
+      'Falta activarlo: las claves no están en producción. O Martín las carga en Vercel, o se corre el script que las guarda cifradas en el ws de la plataforma, con su OK.',
+    ],
+    commits: [
+      { sha: 'dd8dba3d', msg: 'IA: el crédito de Claude Max de la plataforma, primero en la red para los clientes sin API', lineas: 481, archivos: 10 },
+    ],
+    archivos: [
+      'lib/veto-claude.ts — `evaluarCreditoDeLaPlataforma`, la tercera puerta (pura)',
+      'lib/anthropic.ts — `conCreditoDeLaPlataforma`',
+      'scripts/credito-claude-a-plataforma.mts — guarda las claves cifradas, sin imprimirlas',
+      'tests/veto-claude-credito-plataforma.test.ts — la frontera, probada rompiéndola',
+    ],
+  },
 ];

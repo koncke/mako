@@ -4215,8 +4215,6 @@ pocos dólares contra 400 por mes.
   escribe en producción y espera el OK de Martín.
 - **Si una de esas organizaciones de Console tiene crédito comprado o auto-recarga, al acabarse el incluido sigue
   cobrando** (lo dice la página de Anthropic). No se puede ver desde acá: lo revisa Martín en platform.claude.com.
-- Las cuentas están registradas con el gmail de Mauricio y el de Leandro; según `~/.claude/cuentas.tsv` (16/10) las
-  tres las paga y las usa Martín. Los términos del crédito dicen que lo usa el titular de la cuenta.
 - Sólo la cascada de texto: ni visión, ni audio, ni el doer.
 
 · *2026-10-16 chat «Onboarding» (claude3)*
