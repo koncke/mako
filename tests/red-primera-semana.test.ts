@@ -18,6 +18,7 @@
 //   Ads Writer (16/10/2026, base 1/0): generarRazones, sugerirGuion, generarGuion y valorarGuion → 0/1 cada una.
 //   Offer (16/10/2026, base 2/0): vuelve el corte «sin IA propia» antes de la red, la ruta lee documentos
 //     sin red, y una de las dos lecturas por visión no pasa la red → 1/1 cada una.
+//   Crear una landing (16/10/2026, base 3/0): el esquema, las secciones y el reparador de JSON → 2/1 cada una.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -73,6 +74,18 @@ test('Offer: sin IA propia no corta antes de la red, y lee los documentos con re
   const lector = sinComentarios(leer('lib/archivo-a-texto.ts'));
   assert.equal((lector.match(/leerDocumentoIA\(\{[^\n]*redDePlataforma: opts\.redDePlataforma/g) || []).length, 2,
     'las dos lecturas por visión (PDF escaneado e imagen) tienen que pasar la red que pide el que llama');
+});
+
+test('Crear una landing: el esquema, las secciones y la reparación del JSON', () => {
+  conRed('lib/editor-landing/ia.ts', 'esquema');
+  conRed('lib/editor-landing/ia.ts', 'secciones');
+  // El reparador no es una función exportada: se mira su única llamada.
+  const src = sinComentarios(leer('lib/editor-landing/ia.ts'));
+  const ini = src.indexOf('function reparador(');
+  assert.ok(ini > 0, 'no encuentro el reparador de JSON');
+  const ls = llamadas(src.slice(ini, src.indexOf('\n}\n', ini)));
+  assert.equal(ls.length, 1, 'el reparador hace UNA llamada');
+  assert.match(ls[0], /redDePlataforma: true/, 'el reparador sin red tira lo que la red ya escribió');
 });
 
 test('Ads Writer: motivaciones, sugerir y generar guiones, y valorarlos', () => {
