@@ -85,10 +85,13 @@ Reglas del resolver (código, no IA):
   con el texto (`ordenarPorRelevancia` del registro, que llega INYECTADA en `ctx.ordenar`: el núcleo no importa valores del
   registro). Sólo de las que la persona VE. Sin ninguna, `operacion: null` (queda el link).
 - **Nuevo vs. cambio**: crear con objeto directo de ESTA tab («créame otra landing») es `nuevo`; «crea una sección» es un
-  cambio de lo abierto. ⚠️ **«Página» dentro del Web Generator es una PARTE de lo abierto** (`PARTES_DE_LO_ABIERTO`): un
-  sitio tiene páginas («Añadir página», PanelPaginas.tsx), y `AREA_KEYWORDS.landing` incluye «página», así que «crea otra
-  página con los testimonios» salía como una landing nueva. Dentro de su tab no crea, no borra la landing ni es «la otra»;
-  fuera de ella («créame otra página» en Automations) sí es una landing del Web Generator.
+  cambio de lo abierto. ⚠️ **Las PARTES de lo abierto son por TAB, no por área** (`PARTES_DE_LO_ABIERTO`):
+  `AREA_KEYWORDS` dice de qué área es una palabra, pero si nombra otro objeto o una parte del abierto depende de dónde se
+  dice. Web Generator: «página» (un sitio tiene páginas, «Añadir página»). Image Editor: «página» también (un diseño
+  tiene páginas, como Canva), y ahí la palabra es de OTRA área (`landing`): sin esto «crea otra página» en un diseño se
+  iba al Web Generator. Dashboard: «gráfico», «métrica» (una hoja los tiene). Video Editor: «clip», «escena». Dentro de su
+  tab no crean otro objeto, no borran lo abierto, no son «la otra» ni mandan a otra tab (aunque la IA etiquete la otra
+  área); fuera de ella sí cuentan («créame otra página» en Automations es una landing del Web Generator).
 - **El objeto** («la otra», «la anterior», «la de Juan», un nombre entero o entre comillas): sin el actual; un nombre que
   calza → ése; «la otra» con UN solo otro → ése; con dos o más → los DOS más recientes (`tocadoAt`) en `candidatos` y una
   `pregunta` («¿Cuál: «X» o «Y»?»); sin ninguno, «¿Cuál? Dime su nombre.». «Otra X» sólo cuenta si X es la palabra de esta
@@ -141,10 +144,30 @@ const { ok, pedidos, propuesta } = await r.json(); // ok:false (400/401/429) →
 //    `nuevo` con la propuesta y los botones Sí / Después.
 ```
 
-Los objetos de cada tab los resuelve la ruta (`objetosDeTab`): `landing` está hecho (las landings del negocio sin las de
-la papelera, la última tocada arriba, con `listar()` de lib/editor-landing/server.ts —la del Panel— y la misma puerta que
-el Web Generator: admin y `landing-writer` en la capa); un chat nuevo agrega su área ahí, una función por área. Hasta que
-Automations agregue la suya, `chatbot` devuelve [] y «la otra automatización» contesta «¿Cuál? Dime su nombre.».
+Los objetos de cada tab los resuelve la ruta (`objetosDeTab`), una función por área y cada una con la MISMA puerta que su
+pantalla (sin eso, alguien leería por acá los nombres de lo que su pantalla le esconde). Un chat nuevo agrega la suya:
+
+| Área (tab) | Objetos | Fuente | Puerta |
+|---|---|---|---|
+| `landing` (Web Generator) | las landings, sin las de la papelera, la última tocada arriba | `listar()` de lib/editor-landing/server.ts (la del Panel) | admin y `landing-writer` en la capa |
+| `imagen` (Image Editor) | los diseños, sin los borrados, el último editado arriba | `listarDisenos(ws)` de lib/image-editor/server.ts (la del inicio del editor) | `veEditorImagen()` (admin y la tab en la capa) |
+| `metricas` (Dashboard) | las HOJAS del informe de QUIEN MIRA (es por persona), en el orden de sus pestañas | `leerTablero()` + `hojasVisibles` | admin y `graphics` en la capa; quien nunca guardó un informe ve la pantalla sin páginas → [] |
+| `video` (Video Editor) | sus proyectos | los manda el NAVEGADOR (`objetos` del cuerpo) | — (son suyos) |
+
+⚠️ **El Video Editor no tiene de dónde listarse en el servidor**: sus proyectos viven en IndexedDB (decisión 5 de su
+diseño). Para las tabs de `TABS_CON_OBJETOS_EN_EL_NAVEGADOR` (hoy sólo `video`) la lista la manda su chat y la ruta la
+valida (`objetosDelNavegador`: forma, sin repetidos, nombres cortados, tope de 200); en las demás, lo que mande el
+navegador se ignora. Son SUYOS y sólo vuelven a él (una pregunta o un link): no se ejecuta nada con ellos ni van a la IA.
+Su chat los arma así:
+
+```ts
+const objetos = (await storageService.loadAllProjectsMetadata())
+  .map((p) => ({ id: p.id, nombre: p.name, tocadoAt: p.updatedAt.toISOString() }));
+fetch('/api/mako/pedidos', { method: 'POST', body: JSON.stringify({ texto, tab: 'video', actualId: proyecto.id, actualNombre: proyecto.name, objetos }) });
+```
+
+El área `video` es también la del Video Generator: su chat, si se engancha, no manda `objetos` y queda con []. Hasta que
+Automations agregue su función, `chatbot` devuelve [] y «la otra automatización» contesta «¿Cuál? Dime su nombre.».
 
 El link es RELATIVO con `?ws=` (`conWs`, lib/ws-tab.ts, isomórfico): el chat está adentro de la app. `linkPantalla`
 (lib/api-mako/link.ts) no sirve acá: importa lib/workspace (server-only) y arma el link absoluto de los que salen de la app.
@@ -166,6 +189,8 @@ la manda a la Papelera (se restaura); la ABIERTA nunca se borra desde el chat: s
 ruta falla o tarda más de `PLAZO_PEDIDOS_MS`, el mensaje entero va a «editar», como antes.
 
 - **Automations**: su función en `objetosDeTab` y el fetch de arriba en su chat.
+- **Image Editor, Dashboard y Video Editor**: sus objetos ya están (16/10); falta que sus chats llamen a la ruta (el del
+  Video Editor, mandando `objetos`).
 - **El chat único del Second Brain** (Centro de Operaciones): el mismo fetch con `tab` = el área de lo que esté abierto.
 - **Correr la operación de OTRA tab** desde la burbuja: hoy `otra-tab` deja el link (y la operación como dato); ejecutarla
   pasa por el registro (`ejecutar.ts`), que propone y confirma como siempre.

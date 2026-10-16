@@ -586,4 +586,21 @@ export const BITACORA: Hito[] = [
       'app/web-generator/editor/pedidos-chat.ts + paneles/PanelAgente.tsx — las burbujas del chat del editor',
     ],
   },
+  {
+    fecha: '16 oct', hora: '09:52', chat: 'Landing Generator', sesion: 'local_0c7ad2f8-3540-4e69-8d37-574de8292f80', cuenta: 'claude3',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Los pedidos sueltos llegan a los vecinos: Image Editor, Dashboard y Video Editor',
+    puntos: [
+      'Pedido de Cerebro: «la otra», «el de Juan» y «¿cuál de los dos?» también con los diseños del Image Editor, las hojas del Dashboard y los proyectos del Video Editor.',
+      'Cada lista con la misma puerta que su pantalla. Las hojas son las del informe de quien mira; los proyectos del Video Editor viven en el navegador, así que los manda su chat.',
+      '«Crea otra página» en un diseño es una página del diseño, «otro gráfico» es de la hoja abierta y «el otro clip» es del proyecto abierto: lo que es parte de lo abierto se decide por tab.',
+    ],
+    commits: [
+      { sha: '44a389c64', msg: 'MaKo sabe cuál es «el otro» también en el Image Editor, el Dashboard y el Video Editor', lineas: 265, archivos: 6 },
+    ],
+    archivos: [
+      'app/api/mako/pedidos/route.ts — objetosDeTab: imagen y metricas; los objetos del navegador para video',
+      'lib/mako-pedidos.ts — PARTES_DE_LO_ABIERTO por tab y objetosDelNavegador',
+    ],
+  },
 ];

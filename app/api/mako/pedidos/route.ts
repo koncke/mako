@@ -4,7 +4,8 @@
 // El punto de enganche COMPARTIDO de los chats (docs/diseno-mako-pedidos.md): el del Web Generator primero, el de
 // Automations después, y cualquier chat nuevo. ANTES de mandarle el mensaje a su modelo, el chat pregunta acá:
 //
-//   body:      { texto: string, tab: Area, actualId?: string | number | null, actualNombre?: string }
+//   body:      { texto: string, tab: Area, actualId?: string | number | null, actualNombre?: string,
+//                objetos?: { id, nombre, tocadoAt? }[] }  ← sólo en TABS_CON_OBJETOS_EN_EL_NAVEGADOR (el Video Editor)
 //   respuesta: { ok: true, pedidos: PedidoResuelto[], propuesta: { texto, botones: ['Sí','Después'] } | null,
 //                origen: 'reglas' | 'ia' }   ·   { ok: false, error } con 400 / 401 / 429
 //
@@ -28,7 +29,12 @@ import { canalKeyDe } from '@/lib/api-mako/canal';
 import { REGISTRO, esArea, ordenarPorRelevancia, porId, visible } from '@/lib/api-mako/registro';
 import { esAccion, esLectura, type Area, type Ctx, type OperacionDef, type Rol } from '@/lib/api-mako/tipos';
 import { listar as listarLandings } from '@/lib/editor-landing/server';
+import { veEditorImagen } from '@/lib/image-editor/acceso';
+import { listarDisenos } from '@/lib/image-editor/server';
+import { leerTablero } from '@/lib/graficos-tablero';
+import { hojasVisibles } from '@/lib/graficos-catalogo';
 import { interpretarMensaje } from '@/lib/mako-pedidos-ia';
+import { TABS_CON_OBJETOS_EN_EL_NAVEGADOR, objetosDelNavegador } from '@/lib/mako-pedidos';
 import type { ContextoPedidos, ObjetoChat, OperacionChat, OrdenarOperaciones } from '@/lib/mako-pedidos';
 
 export const dynamic = 'force-dynamic';
@@ -41,9 +47,32 @@ const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
 /**
  * Los objetos de una tab del negocio, la última tocada arriba. UNA función por área: un chat nuevo agrega la suya
- * acá. Las que no están devuelven [] y el resolver pregunta «¿Cuál?» en vez de adivinar.
+ * acá. Las que no están devuelven [] y el resolver pregunta «¿Cuál?» en vez de adivinar. Cada una con la MISMA
+ * puerta que su pantalla: sin eso, alguien leería por acá los nombres de lo que su pantalla le esconde. Las tabs
+ * cuyos objetos viven en el navegador (el Video Editor) no pasan por acá: los manda su chat (`objetos`).
  */
-async function objetosDeTab(tab: Area, rol: Rol): Promise<ObjetoChat[]> {
+async function objetosDeTab(tab: Area, rol: Rol, ws: number): Promise<ObjetoChat[]> {
+  if (tab === 'imagen') {
+    // La puerta del Image Editor (lib/image-editor/acceso.ts: admin y la tab en su capa) y su lista, la del inicio
+    // del editor: sin los borrados, la última editada primero.
+    if (rol !== 'admin' || !(await veEditorImagen().catch(() => false))) return [];
+    const r = await listarDisenos(ws);
+    if (!r.ok) {
+      console.warn(`[api:mako/pedidos] no pude listar los diseños: ${r.error}`);
+      return [];
+    }
+    return r.disenos.map((d) => ({ id: d.id, nombre: d.titulo, tocadoAt: d.actualizado }));
+  }
+  if (tab === 'metricas') {
+    // Las HOJAS del Dashboard: las del informe de QUIEN MIRA (es por persona, lib/graficos-tablero.ts), en el orden
+    // de sus pestañas. La puerta del área en la API (`{ tab: 'graphics', rolMinimo: 'admin' }`): el closer y el
+    // setter ven sólo SU hoja, en memoria, y no tienen «otra». Quien nunca guardó un informe ve la pantalla SIN
+    // páginas (app/dashboard/page.tsx): el inicial no es una lista de hojas suyas. Con la lectura caída, [].
+    if (rol !== 'admin' || !tabEnCapa('graphics', await getCapaActual().catch(() => null))) return [];
+    const l = await leerTablero();
+    if (l.estado !== 'propio') return [];
+    return hojasVisibles(l.tablero).map((h) => ({ id: h.id, nombre: h.nombre }));
+  }
   if (tab === 'landing') {
     // La misma puerta que el Web Generator (app/api/landing-generator/route.ts): admin y la tab en su capa. Sin
     // eso, un closer leería por acá los nombres de las landings que su pantalla le esconde.
@@ -79,7 +108,7 @@ export async function POST(req: Request) {
   if (!rolWs) return err(401, 'Tu sesión venció.');
   if (ws == null) return err(400, 'Elige una cuenta primero.');
 
-  let body: { texto?: unknown; tab?: unknown; actualId?: unknown; actualNombre?: unknown };
+  let body: { texto?: unknown; tab?: unknown; actualId?: unknown; actualNombre?: unknown; objetos?: unknown };
   try { body = await req.json(); } catch { return err(400, 'Pedido inválido.'); }
   const texto = typeof body?.texto === 'string' ? body.texto.trim() : '';
   if (!texto) return err(400, 'Falta el mensaje.');
@@ -93,7 +122,8 @@ export async function POST(req: Request) {
     const ctxApi: Ctx = { ws, canal: 'app', canalKey: canalKeyDe('app', `ws${ws}`), alcance: 'proponer', rol, actor: sesion.email || sesion.sub };
     const vista = await vistaDe(ctxApi);
     const operaciones = REGISTRO.filter((d) => (esAccion(d) || esLectura(d)) && visible(d, vista)).map(aOperacion);
-    const objetos = await objetosDeTab(tab, rol);
+    // Donde los objetos viven en el navegador, los manda el chat (validados); en las demás, los arma el servidor.
+    const objetos = TABS_CON_OBJETOS_EN_EL_NAVEGADOR.includes(tab) ? objetosDelNavegador(body.objetos) : await objetosDeTab(tab, rol, ws);
 
     const idActual = typeof body.actualId === 'number' || typeof body.actualId === 'string' ? String(body.actualId).trim() : '';
     const nombreActual = typeof body.actualNombre === 'string' ? body.actualNombre.trim().slice(0, 200) : '';
