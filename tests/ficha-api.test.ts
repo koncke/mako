@@ -117,7 +117,8 @@ test('todo lo que hace «Personalizar» en la pantalla lo puede hacer MaKo, íco
   const API_DE_OP: Record<string, string> = { tema: 'estilo' };
   // 16/10/2026: la galería de una tab (GaleriaTab.tsx y su lógica, galeria.ts) también manda cambios: elegir una
   // plantilla de tab y lo que armó MaKo. Lo que va por OTRA operación (`armar`: pasa por la IA) tiene que existir.
-  const ficha = ['Armador.tsx', 'FichaPorBloques.tsx', 'PanelFicha.tsx', 'AgregarBloque.tsx', 'useFichaDelFunnel.ts', 'GaleriaTab.tsx', 'galeria.ts']
+  // Y desde el mismo día el estilo y la vista épica viven en «Estilo de la hoja» (EstiloDeLaHoja.tsx).
+  const ficha = ['Armador.tsx', 'FichaPorBloques.tsx', 'PanelFicha.tsx', 'AgregarBloque.tsx', 'useFichaDelFunnel.ts', 'GaleriaTab.tsx', 'galeria.ts', 'EstiloDeLaHoja.tsx']
     .map((f) => sinComentarios(leer(`app/crm/lead-view/ficha/${f}`))).join('\n');
   const ops = new Set([...ficha.matchAll(/\bop: '([a-z]+)'/g)].map((m) => m[1]));
   assert.ok(ops.size >= 10, `encontré ${ops.size} cambios en la pantalla: el test no está leyendo lo que debe`);

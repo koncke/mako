@@ -41,6 +41,7 @@
 
 import { useCallback, useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
+import { EstiloDeLaHoja } from './EstiloDeLaHoja';
 import { Dropdown } from '@/app/components/Dropdown';
 import dynamic from 'next/dynamic';
 import { deriveStageKey } from '@/lib/pipeline';
@@ -293,6 +294,7 @@ export function FichaPorBloques({ data, parchear, altoChat, initialTab, onTab, f
             <div className="fb-barra-fin">
               {!delLead.includes(tab) && <span className="fb-panel-linea" style={{ margin: 0, padding: '0 8px' }}>Este lead no ve esta tab.</span>}
               <SelectorDispositivo valor={dispositivo} onCambiar={setDispositivo} />
+              <EstiloDeLaHoja ef={efectiva} tab={tab} onCambio={cambiar} />
             </div>
           </div>
           {galeriaNodo}
