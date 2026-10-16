@@ -3757,7 +3757,7 @@ nuevo:
 
 - ⚠️ **SÓLO PARA LO QUE MARTÍN HABILITÓ, y hoy es el onboarding.** Textual (16/10/2026): «Yo debo decirte cuando
   utilizar creditos, no tenemos infinitos... Por ahora solo en onboarding.» La lista es `CREDITO_HABILITADO_PARA`
-  (lib/veto-claude.ts): las funciones del wizard y el chat de Offer que lo reemplaza, y sólo mientras el onboarding
+  (lib/veto-claude.ts): el chat de Offer, que es el onboarding, y lo que usa de El Archivero, y sólo mientras el onboarding
   del negocio está en curso (`onboardingPendiente`). Para todo lo demás el crédito dice que no y la cascada sigue como si no existiera. Un
   camino nuevo NO se suma a la lista por su cuenta: lo pide Martín.
 - **Pasan SÓLO las dos claves con nombre** (`CLAVES_CREDITO_PLATAFORMA`), leídas por ese nombre del entorno o de la
@@ -5644,6 +5644,11 @@ El diagnóstico obvio («alguien borró la etapa en el editor») era el equivoca
 - **El olor:** una función de lectura con un `catch`/`if (error)` que devuelve un default, y
   un call site que con ese resultado hace un `insert`, un `update` o un envío. Es la misma
   familia que «No pude leer» es un tercer estado, del lado del que decide.
+- **Y es peor si lo que se escribe es el objeto ENTERO.** El estado del onboarding se guarda completo: una
+  escritura sobre `getEstadoOnboarding` (tolerante: con la base caída da el estado INICIAL) le ponía `pending`
+  a un onboarding terminado y mandaba al cliente de vuelta al arranque. Todo lo que lo escribe lee con
+  `getEstadoOnboardingEstricto`, y `patchEstadoOnboarding` ya lo hace (16/10/2026;
+  `tests/onboarding-escritura-estricta.test.ts`).
 
 # Dos escritores con dos ritmos son dos claves
 
