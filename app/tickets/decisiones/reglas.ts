@@ -21,9 +21,26 @@
 // =============================================================================
 import { OTRA, URGENCIAS, motivoRespuestaInvalida, repartir, type Decision } from '@/app/admin/runway/decisiones';
 
+/**
+ * La Ticketera vive ADENTRO del Centro de Operaciones desde el 16/10/2026 (Martín: «elimines la ruta de la ticketera y
+ * lo pongas dentro del centro de operaciones»). Sus dos vistas son `?ticketera=` del Centro; las rutas de antes
+ * (/tickets/decisiones, su lista, /admin/runway y las del teléfono) quedan como puertas que traen acá con la vista que
+ * eran y SIN PERDER LA QUERY: las tienen avisos, links y favoritos viejos.
+ */
+export const CENTRO = '/admin/operaciones';
+export type VistaDeTicketera = 'tarjetas' | 'lista';
+export function aLaTicketera(vista: VistaDeTicketera, query: Readonly<Record<string, string | string[] | undefined>> = {}, base = CENTRO): string {
+  const q = new URLSearchParams();
+  for (const [k, v] of Object.entries(query)) {
+    if (k === 'ticketera' || v == null) continue;
+    for (const x of Array.isArray(v) ? v : [v]) q.append(k, x);
+  }
+  q.set('ticketera', vista);
+  return `${base}?${q.toString()}`;
+}
 /** Las dos vistas de la Ticketera. El mazo es la de entrada; la lista, la secundaria. */
-export const TICKETERA = '/tickets/decisiones';
-export const TICKETERA_LISTA = '/tickets/decisiones/lista';
+export const TICKETERA = aLaTicketera('tarjetas');
+export const TICKETERA_LISTA = aLaTicketera('lista');
 
 /** Las pendientes en el orden del tablero: primero lo que frena a un chat, al final los avisos. */
 export function colaInicial(ds: readonly Decision[]): Decision[] {

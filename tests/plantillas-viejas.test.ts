@@ -101,6 +101,14 @@ const EMISORES = (() => {
 /** Los dos avisos de la cobranza los emite el cron con el id en una variable (`d.avisoId`). */
 const CRON_COBRANZA = 'app/api/cron/cobranza/route.ts';
 const IDS_COBRANZA = [...new Set([...leer('lib/cobranza.ts').matchAll(/avisoId: '([a-z0-9-]+)'/g)].map((m) => m[1]))].sort();
+/**
+ * Los dos de la línea caída los emite el vigilante con el id que elige `avisoDeCaida` (16/10/2026: «se cortó» o «se
+ * desconectó», cada uno su aviso y su automatización de SuperAdmin; lib/linea-vigilancia.ts).
+ */
+const VIGILANTE = 'lib/lineas-vigilante.ts';
+const fnCaida = leer('lib/linea-vigilancia.ts');
+const IDS_CAIDA = [...new Set([...fnCaida.slice(fnCaida.indexOf('export const avisoDeCaida')).split('\n').slice(0, 3).join('\n')
+  .matchAll(/'(wa-[a-z-]+)'/g)].map((m) => m[1]))].sort();
 
 // ── 1. El texto que se ofrece para editar es el que sale ─────────────────────────────
 // ⚠️ Desde el 11/10/2026 `AVISOS_DEL_CLIENTE` está vacía: los que cruza este test son los EVENTOS de MaKo
@@ -116,15 +124,27 @@ test('1. el texto que arma el código (`textoDelCodigo`) es el que sale, cruzado
   const i = src.indexOf('emitirDelCatalogo(d.avisoId');
   assert.ok(i > 0, 'el cron de cobranza ya no emite con `emitirDelCatalogo(d.avisoId`: el barrido quedó viejo');
   const cobranzaPasaTexto = pasaTexto(llamada(src, i));
+  const vig = FUENTES.get(VIGILANTE)!;
+  const iCaida = vig.indexOf('emitirDelCatalogo(avisoDeCaida(');
+  assert.ok(iCaida > 0, 'el vigilante ya no emite con `emitirDelCatalogo(avisoDeCaida(`: el barrido quedó viejo');
+  assert.deepEqual(IDS_CAIDA, ['wa-desconectado', 'wa-desvinculado'], '`avisoDeCaida` cambió sus avisos: revisá este test');
+  const caidaPasaTexto = pasaTexto(llamada(vig, iCaida));
 
   assert.ok(CRUZADOS.length >= 4, `se cruzan ${CRUZADOS.length}: el universo quedó vacío`);
   for (const id of CRUZADOS) {
-    const em = [...(EMISORES.get(id) ?? []), ...(IDS_COBRANZA.includes(id) ? [{ archivo: CRON_COBRANZA, texto: cobranzaPasaTexto }] : [])];
+    const em = [
+      ...(EMISORES.get(id) ?? []),
+      ...(IDS_COBRANZA.includes(id) ? [{ archivo: CRON_COBRANZA, texto: cobranzaPasaTexto }] : []),
+      ...(IDS_CAIDA.includes(id) ? [{ archivo: VIGILANTE, texto: caidaPasaTexto }] : []),
+    ];
     if (id === 'reporte-semanal') {
-      // El reporte no pasa por `emitirDelCatalogo`: lo arma `buildReporteSemanal` y lo manda `despacharReporte`.
+      // El reporte no pasa por `emitirDelCatalogo`: lo arma `buildReporteSemanal` y, desde el 16/10/2026, lo manda SÓLO la
+      // automatización de SuperAdmin (`emitirEventoDePlataforma`, con el reporte en sus datos). `despacharReporte` era el
+      // camino viejo.
       const cron = FUENTES.get('app/api/cron/reporte-semanal/route.ts')!;
       assert.match(cron, /buildReporteSemanal\(/);
-      assert.match(cron, /despacharReporte\(/);
+      assert.match(cron, /emitirEventoDePlataforma\('reporte-semanal', \{ ws, datos: datosDelReporte\(rep\) \}\)/);
+      assert.doesNotMatch(cron, /despacharReporte\(/, 'volvió el camino viejo del reporte');
       assert.doesNotMatch(FUENTES.get('lib/reportes.ts')!, /from '\.\/plantillas'/, 'el reporte pasó a leer la plantilla: sacale `textoDelCodigo`');
       assert.equal(textoLoArmaElCodigo(id), true, 'el reporte semanal lo arma el código y se ofrece para editar');
       continue;

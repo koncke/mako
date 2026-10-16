@@ -8,8 +8,8 @@
 // el porqué, qué destraba y el link. Lo que decide vive en ./reglas.ts (puro, con test); acá el
 // gesto y el dibujo.
 //
-// Lo dibujan DOS páginas —app/tickets/decisiones (compu) y app/m/tickets/decisiones (teléfono,
-// misma URL)— y contesta con la MISMA acción que la lista: no hay un segundo almacén.
+// Desde el 16/10/2026 lo dibuja el Centro de Operaciones (app/admin/operaciones/TicketeraCentro.tsx y, en el teléfono,
+// app/m/operaciones/TicketeraMovil.tsx), y contesta con la MISMA acción que la lista: no hay un segundo almacén.
 //
 // ⚠️ TODA SALIDA SE PUEDE DESHACER (Martín, 14/10/2026: «arrastré sin querer una tarjeta y ya no
 // tengo forma de volver, debería haber un botón para volver»). Por eso «Volver» vive ARRIBA Y
@@ -47,7 +47,7 @@ import {
   type AccionDeshacer, type AccionResponder, type Decision, type LecturaDecisiones,
 } from '@/app/admin/runway/decisiones';
 import { alFrente, colaInicial, marcadaInicial, nuevasParaElMazo, porDecidir, puedeMandar, rotuloMandar, sinLa, veredictoGesto, TICKETERA_LISTA } from './reglas';
-import { CambioVista } from './CambioVista';
+import { CambioVista, type VistaTicketera } from './CambioVista';
 
 const URGENCIA_CORTA: Record<Decision['urgencia'], string> = {
   bloquea: 'Frena un chat',
@@ -65,6 +65,8 @@ type Pasada = { d: Decision; salida: Salida; clave: string | null; marcada: stri
 type PropsMazo = {
   responder: AccionResponder;
   deshacer: AccionDeshacer;
+  /** Adentro del Centro: cambiar a la lista sin irse de la pantalla. */
+  onCambioVista?: (v: VistaTicketera) => void;
 };
 
 /** Lo que montan las dos páginas: el mazo, o por qué no se pudo leer (sin hooks: decide y delega). */
@@ -79,7 +81,7 @@ export function MazoDecisiones({ lectura, ...p }: PropsMazo & { lectura: Lectura
   return <Mazo decisiones={lectura.decisiones} {...p} />;
 }
 
-function Mazo({ decisiones, responder, deshacer }: PropsMazo & { decisiones: Decision[] }) {
+function Mazo({ decisiones, responder, deshacer, onCambioVista }: PropsMazo & { decisiones: Decision[] }) {
   // El mazo se arma UNA vez con lo que mandó el server: después de cada respuesta la página se
   // revalida y llegan props nuevas, y rearmar la cola ahí haría volver a una «después».
   const [cola, setCola] = useState<Decision[]>(() => colaInicial(decisiones));
@@ -256,7 +258,7 @@ function Mazo({ decisiones, responder, deshacer }: PropsMazo & { decisiones: Dec
           <p className="mazo-cuenta" aria-live="polite">
             {quedan ? <><b>{quedan}</b> por decidir</> : cola.length ? 'Para saber' : hechas ? <><b>{hechas}</b> listas</> : null}
           </p>
-          <CambioVista actual="tarjetas" />
+          <CambioVista actual="tarjetas" onCambio={onCambioVista} />
         </div>
       </header>
 
@@ -277,7 +279,7 @@ function Mazo({ decisiones, responder, deshacer }: PropsMazo & { decisiones: Dec
             onTexto={(v) => setTextos((t) => ({ ...t, [actual.id]: v }))}
           />
         ) : (
-          <Vacio luego={luego.length} hechas={hechas} onDeNuevo={() => { setCola(luego); setLuego([]); setAtras([]); }} />
+          <Vacio luego={luego.length} hechas={hechas} onDeNuevo={() => { setCola(luego); setLuego([]); setAtras([]); }} onCambioVista={onCambioVista} />
         )}
 
         {/* Lo que acaba de pasar: flota sobre la tarjeta, abajo, y se va solo. No empuja nada. */}
@@ -534,7 +536,7 @@ function CuerpoCarta(p: {
 // =============================================================================
 // Cuando no queda ninguna
 // =============================================================================
-function Vacio({ luego, hechas, onDeNuevo }: { luego: number; hechas: number; onDeNuevo: () => void }) {
+function Vacio({ luego, hechas, onDeNuevo, onCambioVista }: { luego: number; hechas: number; onDeNuevo: () => void; onCambioVista?: (v: VistaTicketera) => void }) {
   return (
     <div className="mazo-vacio">
       <span className="mazo-vacio-ico" aria-hidden>
@@ -551,7 +553,10 @@ function Vacio({ luego, hechas, onDeNuevo }: { luego: number; hechas: number; on
           <p>Lo nuevo aparece aquí.</p>
         </>
       )}
-      <Link href={TICKETERA_LISTA} className="mazo-link">Ver la lista</Link>
+      {/* Adentro del Centro cambia de vista ahí mismo: un link a la misma página no la cambia (su estado se queda). */}
+      {onCambioVista
+        ? <button type="button" className="mazo-link" onClick={() => onCambioVista('lista')}>Ver la lista</button>
+        : <Link href={TICKETERA_LISTA} className="mazo-link">Ver la lista</Link>}
     </div>
   );
 }

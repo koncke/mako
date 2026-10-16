@@ -12,6 +12,20 @@ verificá contra el código.** Las marcadas ⚠️ estaban vivas la última vez 
 
 La regla que produce este documento está en [AGENTS.md](../AGENTS.md) → «La cosecha».
 
+## Leer los proyectos del tablero por su NOMBRE pide `nucleo()`, y ampliar una tarea puede comerse su detalle (16/10/2026)
+
+Lo encontró la revisión del Plan adentro del Centro de Operaciones (docs/hallazgos-operaciones.md → «El Plan adentro de
+cada jefe»). Las dos cosas viven acá:
+
+- **El tablero guarda «Feature: CRM», no «CRM»** (`canonNombre`, `lib/plan-board.ts`). Todo lector que busque un
+  proyecto por el nombre de una tab tiene que comparar con `nucleo()` (lib/plan-proyectos-catalogo.ts). Con el nombre
+  entero, la lista sale vacía y no hay error. Un test con fixture «CRM» lo deja pasar: los fixtures van con el prefijo.
+- **`fusionarDetalle` (lib/detalle-fusion.ts) se queda con el texto NUEVO entero cuando éste contiene el arranque del
+  viejo**, y se pierde lo que el viejo tenía después (lo que sumó el Perro, por ejemplo). Pasa cuando la misma tarea se
+  vuelve a proponer con el mismo texto: el cruce la detecta como repetida y la «amplía». Leído en el código, no probado
+  con una tarea real. El Centro lo evita mirando antes si ya hay una abierta con ese título; el arreglo de fondo (unir sin
+  perder la cola del viejo) está SIN HACER.
+
 ## Lo que más muerde acá
 
 - **El detalle rico que cargás nunca llega entero al tablero**: hay un sexto escritor aguas abajo que lo reescribe y dos topes de 600 caracteres que nadie tenía en el inventario → [El detalle y el contexto de las tareas](#el-detalle-y-el-contexto-de-las-tareas).

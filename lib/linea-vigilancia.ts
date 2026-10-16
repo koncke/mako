@@ -136,15 +136,17 @@ export type HechosCaida = {
 };
 
 /**
- * LOS DATOS DEL AVISO, por nombre (15/10/2026: «un Mensaje de MaKo ES una automatización»). Los cita la automatización
- * de la plataforma («{{linea_titulo}}», «{{linea_motivo}}»…, lib/variables-aviso.ts) y de ellos sale también
- * `textoCaida`, así la plantilla y el código no pueden decir cosas distintas.
+ * LOS DATOS DEL AVISO, por nombre (15/10/2026: «un Mensaje de MaKo ES una automatización»). Los citan las automatizaciones
+ * de la plataforma («{{linea_numero}}», «{{linea_fecha}}», «{{linea_link}}», lib/variables-aviso.ts). Desde el 16/10/2026 el
+ * código no arma ningún texto: el de cada caso es literal en su fila.
  * ⚠️ SIN número ni etiqueta, `linea_numero` FALTA (no viene vacío): un dato vacío es un valor para `textoConDatos`, y el
  * renglón «📱» quedaba solo; uno que falta se lleva su renglón entero.
  */
-export function datosCaida(e: HechosCaida): Record<'linea_titulo' | 'linea_motivo' | 'linea_link', string> & { linea_numero?: string } {
+export function datosCaida(e: HechosCaida): Record<'linea_titulo' | 'linea_motivo' | 'linea_link', string> & { linea_numero?: string; linea_fecha?: string } {
   const fecha = fechaLegible(e.motivo?.cuando ?? e.desde, e.tz);
-  const base = { ...(e.linea ? { linea_numero: e.linea } : {}), linea_link: e.link };
+  // `linea_fecha` (16/10/2026): el dato que citan los textos literales de las dos filas. `linea_titulo` y `linea_motivo`
+  // quedan sólo para la #253 de antes, hasta la mudanza (lib/variables-aviso.ts los oculta).
+  const base = { ...(e.linea ? { linea_numero: e.linea } : {}), ...(fecha ? { linea_fecha: fecha } : {}), linea_link: e.link };
   if (e.motivo?.desvinculado) {
     return {
       ...base, linea_titulo: 'Se desconectó tu WhatsApp',
@@ -157,23 +159,17 @@ export function datosCaida(e: HechosCaida): Record<'linea_titulo' | 'linea_motiv
   };
 }
 
-export function textoCaida(e: HechosCaida): string {
-  const d = datosCaida(e);
-  const cual = d.linea_numero ? ` (${d.linea_numero})` : '';
-  return `🔴 *${d.linea_titulo}*${cual}. ${d.linea_motivo} ${d.linea_link} — MaKo`;
-}
+/**
+ * ¿CUÁL DE LOS DOS AVISOS? (16/10/2026): WhatsApp cerró la sesión (`wa-desvinculado`, evento `whatsapp_desvinculado`) o se
+ * cortó (`wa-desconectado`, evento `whatsapp_caido`). Cada uno tiene su texto literal en su automatización de SuperAdmin.
+ * ⚠️ `textoCaida` y `textoVolvio` SE BORRARON ese día: eran el camino viejo, el que salía sin la fila.
+ */
+export const avisoDeCaida = (e: Pick<HechosCaida, 'motivo'>): 'wa-desvinculado' | 'wa-desconectado' =>
+  (e.motivo?.desvinculado ? 'wa-desvinculado' : 'wa-desconectado');
 
 /** Los datos del «volvió»: sólo la línea (un negocio con dos números tiene que saber cuál). Sin ella, nada. */
 export function datosVolvio(e: { linea: string | null }): { linea_numero?: string } {
   return e.linea ? { linea_numero: e.linea } : {};
 }
 
-/**
- * El «volvió». Corto y sin link: no hay nada que hacer, y lo único que tiene que decir es que lo
- * que se avisó ya no pasa. Lleva la línea porque un negocio con dos números tiene que saber cuál.
- */
-export function textoVolvio(e: { linea: string | null }): string {
-  const d = datosVolvio(e);
-  const cual = d.linea_numero ? ` (${d.linea_numero})` : '';
-  return `🟢 *Volvió tu WhatsApp*${cual}. Por ese número ya entran y salen mensajes otra vez. — MaKo`;
-}
+

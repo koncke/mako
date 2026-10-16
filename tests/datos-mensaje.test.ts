@@ -106,9 +106,10 @@ function porFuente(): Record<FuenteDato, Set<string>> {
     // 15/10/2026: lo que pasa Seguridad al pedir restablecer la contraseña (`valoresDeRestablecer`, por su emisor
     // `avisarPedidoDeRestablecer`, lib/restablecer-aviso.ts).
     cuenta: set(valoresDeRestablecer({ usuarioId: 7, link: 'https://x/restablecer?t=1' })),
-    // 15/10/2026: lo que pasa el vigilante de líneas cuando una se cae o vuelve (`datosCaida`, `datosVolvio`).
+    // 15/10/2026: lo que pasa el vigilante de líneas cuando una se cae o vuelve (`datosCaida`, `datosVolvio`). Desde el
+    // 16/10 con un «desde»: `linea_fecha` sólo sale con una fecha, y el fixture tiene que ser completo.
     linea: new Set([
-      ...Object.keys(datosCaida({ motivo: null, desde: null, linea: '+5215512345678', link: 'https://x/whatsapp', tz: 'America/Tijuana' })),
+      ...Object.keys(datosCaida({ motivo: null, desde: '2026-10-05T18:00:00Z', linea: '+5215512345678', link: 'https://x/whatsapp', tz: 'America/Tijuana' })),
       ...Object.keys(datosVolvio({ linea: '+5215512345678' })),
     ]),
     // Y la reunión que terminó, que pasa el webhook de Fathom (`datosPostLlamada`, lib/reunion-grabada.ts).

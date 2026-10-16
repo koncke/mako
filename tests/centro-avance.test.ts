@@ -15,7 +15,8 @@
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { avanceDelChat, conteoAvance, mensajeDeCommit, tituloDeTexto, type LineaChat, type TrabajoP } from '../lib/centro-chats';
+import { avanceDelChat, conteoAvance, gruposDelAvance, mensajeDeCommit, tituloDeTexto, type LineaChat, type TrabajoP } from '../lib/centro-chats';
+import { pedidosDelCentro, type AreaP, type HitoP } from '../lib/progreso-reglas';
 import type { PasoP, PedidoP } from '../lib/progreso-reglas';
 
 const T = Date.parse('2026-10-15T16:00:00Z');
@@ -69,4 +70,39 @@ test('el título de un trabajo es su primer renglón, y un commit se lee sin su 
   assert.ok(!/\s…$/.test(largo), 'corta en una palabra entera');
   assert.equal(mensajeDeCommit('feat(operaciones): el cartero se llama Runner'), 'El cartero se llama Runner');
   assert.equal(mensajeDeCommit('Merge commit abc'), 'Merge commit abc');
+});
+
+test('la lista del avance: LO PENDIENTE PRIMERO, y cada grupo con lo más nuevo arriba', () => {
+  // Martín (16/10/2026): «Sobre todo me interesa ver las cosas que pedí y están pendientes».
+  // ⚠️ Probado ROMPIÉNDOLO (16/10/2026): ordenando sólo por fecha (lo terminado nuevo arriba de lo pendiente viejo) → 1 fallo
+  // (éste); con lo que no salió en el grupo de lo terminado → 1 fallo (éste).
+  const lineas: LineaChat[] = [
+    { tipo: 'pedido', instante: T, pedido: pedido('viejo', 'pendiente', []), pasos: [], desde: null },
+    { tipo: 'pedido', instante: T + 1, pedido: pedido('hecho1', 'hecho', []), pasos: [], desde: null },
+    { tipo: 'trabajo', instante: T + 2, trabajo: trabajo('w1', 'no_entregado', 'No salió', { motivo: 'El chat se cerró' }) },
+    { tipo: 'pedido', instante: T + 3, pedido: pedido('curso', 'en_curso', []), pasos: [], desde: null },
+    { tipo: 'pedido', instante: T + 4, pedido: pedido('hecho2', 'hecho', []), pasos: [], desde: null },
+  ];
+  const g = gruposDelAvance(avanceDelChat(lineas));
+  assert.deepEqual(g.map((x) => x.titulo), ['Pendiente', 'Terminado']);
+  assert.deepEqual(g[0].nodos.map((n) => n.id), ['p:curso', 'p:viejo', 't:w1'], 'en curso, sin empezar, y lo que hay que volver a mandar');
+  assert.deepEqual(g[1].nodos.map((n) => n.id), ['p:hecho2', 'p:hecho1'], 'lo terminado, lo más nuevo arriba');
+  assert.deepEqual(gruposDelAvance([]), []);
+});
+
+test('el historial del Centro trae TODAS las fechas, y lo terminado hace rato viaja corto', () => {
+  // ⚠️ Probado ROMPIÉNDOLO (16/10/2026): con la ventana de 14 días de antes → 1 fallo (éste: faltan los de agosto).
+  const h = (fecha: string, hora: string, tipo: string, pedido?: string): HitoP => ({ fecha, hora, chat: 'CRM', cuenta: 'claude1', actor: 'claude', tipo, titulo: `${tipo} ${fecha}`, puntos: [], ...(pedido ? { pedido } : {}) });
+  const largo = 'x'.repeat(700);
+  const area: AreaP = { slug: 'crm', titulo: 'CRM', bitacora: [
+    h('3 ago', '10:00', 'prompt', largo), h('3 ago', '11:00', 'implementacion'),
+    h('4 ago', '10:00', 'prompt', largo), h('4 ago', '11:00', 'investigacion'),
+    h('15 oct', '10:00', 'prompt', largo), h('15 oct', '11:00', 'implementacion'),
+  ] };
+  const ps = pedidosDelCentro([area], T);
+  assert.equal(ps.length, 3, 'los de agosto también');
+  const de = (fecha: string) => ps.find((p) => p.titulo === `prompt ${fecha}`)!;
+  assert.equal(de('3 ago').texto.length, 300, 'terminado hace rato: corto');
+  assert.equal(de('4 ago').texto.length, 700, 'lo que no está terminado va entero, aunque sea viejo');
+  assert.equal(de('15 oct').texto.length, 700, 'lo terminado reciente, entero');
 });

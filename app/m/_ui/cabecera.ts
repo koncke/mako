@@ -66,13 +66,12 @@ const CHAT_LEAD = /^\/m\/crm\/([^/]+)\/chat$/;
  */
 export function esTrabajo(pathname: string | null | undefined): boolean {
   const p = limpia(pathname);
+  // El mazo de la Ticketera vive en /m/operaciones?ticketera= desde el 16/10/2026: su <CabeceraM trabajo> saca la barra.
   return dentro(p, '/m/mako') || /^\/m\/(video|landing)\/[^/]+/.test(p) || CHAT_LEAD.test(p) || p === RUTA_CONFIGURAR
     // Offer (15/10/2026): en escritorio la tab ES un chat con MaKo por funnel, y en el prototipo v3 su
     // pantalla es la del chat de MaKo (el funnel arriba, el hilo y el composer en la franja del pulgar),
     // sin título grande. Como el chat de MaKo: de trabajo desde el HTML del server.
-    || dentro(p, '/m/offer')
-    // El mazo de decisiones: ✕ y ✓ viven en la franja del pulgar, donde iría la barra.
-    || p === '/m/tickets/decisiones';
+    || dentro(p, '/m/offer');
 }
 
 /** El lugar de la barra cuya raíz es esta ruta (o null). */

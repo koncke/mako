@@ -9,21 +9,24 @@
 // Lo que fija este archivo:
 //   · el evento lo emite el NEGOCIO, pero lo corren las filas de la PLATAFORMA, y la tarjeta le llega al negocio
 //     (`negocioWs`);
-//   · la mudanza NO DEJA HUECO: sin ninguna fila de la plataforma, el aviso sale como antes (`sinFila`); con una (aunque
-//     esté pausada), decide la automatización;
+//   · ⚠️ SIN CAMINO VIEJO (desde la tarde del 16/10/2026, docs/inventario-nada-por-detras.md): sin ninguna fila de la
+//     plataforma, el aviso NO sale (el feed lo anota apagado). Hasta ese día salía «como antes» (`sinFila`), con el texto
+//     del código: otro camino por detrás;
 //   · lo que se avisó se dice (`wa`), porque el vigilante marca «avisado» con eso y sin la marca el «volvió» no sale;
-//   · el texto: la plantilla con los datos dice lo mismo que el código de siempre;
+//   · el texto ES el de la fila (16/10/2026): literal por caso —«se cortó» y «se desconectó» son dos eventos—, sin
+//     variables que sean frases del código;
 //   · sólo se ofrecen en la plataforma, y no aceptan una CONDITION (no hay lead).
 //
 // ⚠️ PROBADO ROMPIENDO (15/10/2026, scratchpad romper-plataforma.mjs, una rotura por vez y restaurada con sha1 igual).
-// Base 7 pass / 0 fail; los números medidos de cada rotura, al lado de su test.
+// Base 7 pass / 0 fail; los números medidos de cada rotura, al lado de su test. El 16/10/2026 (tarde), las del texto literal
+// y el camino viejo con scratchpad romper-lote1b.mjs, junto con los otros tres tests del lote: cinco roturas, todas atajadas.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { emitirPorEvento, pasosDelEvento, MOTIVO_EVENTO, type DepsEvento, type FilaEvento } from '../lib/aviso-evento';
 import { eventosOfrecidos, TRIGGER_AVISO_MAKO } from '../lib/disparadores';
-import { datosCaida, datosVolvio, textoCaida, textoVolvio } from '../lib/linea-vigilancia';
+import { datosCaida, datosVolvio, avisoDeCaida } from '../lib/linea-vigilancia';
 import { datosPostLlamada } from '../lib/reunion-grabada';
 import { plantillaPorId, plantillasPara, pasosDePlantilla } from '../lib/plantillas-automatizaciones';
 import { textoConDatos } from '../lib/variables-del-lead';
@@ -55,7 +58,7 @@ function deps(filas: FilaEvento[]) {
   return { d, anotado };
 }
 const HECHOS = { motivo: { desvinculado: true, cuando: '2026-10-03T15:00:00Z' }, desde: null, linea: '+5215512345678', link: 'https://hola-mako.com/whatsapp', tz: 'America/Mexico_City' };
-const OPTS = { texto: textoCaida(HECHOS), datos: datosCaida(HECHOS), dedupKey: 'mako_ws13', dedupTtlMin: 60 };
+const OPTS = { datos: datosCaida(HECHOS), dedupKey: 'mako_ws13', dedupTtlMin: 60 };
 
 // rotura 1 (las filas se leen en el negocio, no en la plataforma): 6 pass / 1 fail, cae éste.
 test('lo emite el negocio, lo corren las filas de la PLATAFORMA, y la tarjeta le llega al negocio', async () => {
@@ -70,53 +73,61 @@ test('lo emite el negocio, lo corren las filas de la PLATAFORMA, y la tarjeta le
   assert.equal(r.wa, true, 'lo que corrió se dice: el vigilante marca «avisado» con esto');
 });
 
-// rotura 3 (sin el `sinFila`): 6 pass / 1 fail, cae éste.
-test('la mudanza no deja hueco: sin fila en la plataforma, `sinFila` (sale como antes); con una pausada, decide ella', async () => {
-  const sin = deps([]);
-  const r = await emitirPorEvento(CAT, NEGOCIO, OPTS, sin.d);
-  assert.equal(r.sinFila, true);
-  assert.equal(sin.anotado.corridas.length + sin.anotado.emitidos.length, 0, 'sin fila, el emisor no hace nada: lo manda el de siempre');
-  const pausada = deps([fila(301, { activa: false })]);
-  const r2 = await emitirPorEvento(CAT, NEGOCIO, OPTS, pausada.d);
-  assert.equal(r2.sinFila, undefined, 'pausada es una decisión: no vuelve al de siempre');
-  assert.equal(pausada.anotado.corridas.length, 0);
-  // El de siempre, en lib/avisos.ts: sólo con `sinFila` sigue al store.
-  assert.match(leer('lib/avisos.ts'), /const r = await emitirPorEvento\(cat, ws, opts, await depsDelEvento\(\)\);\n(\s*\/\/[^\n]*\n)*\s*if \(!r\.sinFila\) return r;/);
+// rotura 3 (vuelve el camino viejo en lib/avisos.ts): 6 pass / 1 fail, cae éste.
+test('sin camino viejo: sin fila en la plataforma no sale nada (el feed lo anota apagado); con una pausada, tampoco', async () => {
+  for (const filas of [[], [fila(301, { activa: false })]]) {
+    const { d, anotado } = deps(filas);
+    const r = await emitirPorEvento(CAT, NEGOCIO, OPTS, d);
+    assert.equal(r.wa, false);
+    assert.equal(r.filas, 0);
+    assert.equal(anotado.corridas.length, 0, 'ninguna corrida');
+    assert.equal(anotado.emitidos.length, 1, 'el feed lo anota');
+    assert.equal(anotado.emitidos[0].estado?.wa, false, 'apagado: no sale por WhatsApp');
+  }
+  const avisos = leer('lib/avisos.ts');
+  assert.match(avisos, /if \(AVISOS_POR_EVENTO\.has\(id\)\) \{\n(\s*\/\/[^\n]*\n)*\s*return emitirPorEvento\(cat, ws, opts, await depsDelEvento\(\)\);\n\s*\}/);
+  assert.doesNotMatch(avisos + leer('lib/aviso-evento.ts') + leer('app/api/cron/reporte-semanal/route.ts'), /sinFila/, 'quedó el camino viejo');
 });
 
-// rotura 4 (`datosCaida` con otro texto: el de los clientes cambiaría): 6 pass / 1 fail, cae éste.
-test('el texto: la plantilla con los datos dice lo mismo que el código de siempre', () => {
+// rotura 4 (el título vuelve a una variable): 6 pass / 1 fail, cae éste.
+// ⚠️ DESDE EL 16/10/2026 (tarde): EL TEXTO ES LITERAL EN LA FILA, uno por caso. Hasta ese día la #253 citaba
+// `{{linea_titulo}}` y `{{linea_motivo}}`, frases enteras del código, y el test comparaba con `textoCaida` (borrado).
+test('el texto ES el de la fila: «se desconectó» y «se cortó» son dos eventos, cada uno con su texto', () => {
   const tarjeta = (id: string) => {
     const p = pasosDePlantilla(plantillaPorId(id)!)[0] as unknown as PasoGrafo;
     const parte = partesDeMako((p.accion as { params?: Record<string, unknown> }).params)[0];
     return parte && 'cuerpo' in parte ? String(parte.cuerpo) : '';
   };
-  // Lo que reciben HOY los negocios, letra por letra (lib/linea-vigilancia.ts antes del 15/10): la mudanza no lo cambia.
-  assert.equal(textoCaida(HECHOS), '🔴 *Se desconectó tu WhatsApp* (+5215512345678). WhatsApp cerró la sesión del dispositivo vinculado el 3 de octubre: tu teléfono está bien, pero por ese número no entran ni salen mensajes. Vuelve a escanear el QR: https://hola-mako.com/whatsapp — MaKo');
-  assert.equal(textoCaida({ ...HECHOS, motivo: null, desde: '2026-10-03T15:00:00Z' }), '🔴 *Se cortó tu WhatsApp* (+5215512345678). Por ese número no entran ni salen mensajes desde el 3 de octubre. Puede volver solo; si sigue así, reconéctalo: https://hola-mako.com/whatsapp — MaKo');
-  assert.equal(textoVolvio({ linea: null }), '🟢 *Volvió tu WhatsApp*. Por ese número ya entran y salen mensajes otra vez. — MaKo');
+  assert.equal(avisoDeCaida(HECHOS), 'wa-desvinculado');
+  assert.equal(avisoDeCaida({ motivo: null }), 'wa-desconectado');
+  assert.equal(avisoDeCaida({ motivo: { desvinculado: false, cuando: null } }), 'wa-desconectado');
+  assert.equal(textoConDatos(tarjeta('mako-whatsapp-desvinculado'), datosCaida(HECHOS)),
+    '🔴 *Se desconectó tu WhatsApp*\n📱 +5215512345678\n🕐 Desde el 3 de octubre\nWhatsApp cerró la sesión del dispositivo vinculado: tu teléfono está bien, pero por ese número no entran ni salen mensajes. Vuelve a escanear el QR:\nhttps://hola-mako.com/whatsapp\n\n— MaKo');
+  assert.equal(textoConDatos(tarjeta('mako-whatsapp-caido'), datosCaida({ ...HECHOS, motivo: null, desde: '2026-10-03T15:00:00Z' })),
+    '🔴 *Se cortó tu WhatsApp*\n📱 +5215512345678\n🕐 Desde el 3 de octubre\nPor ese número no entran ni salen mensajes. Puede volver solo; si sigue así, reconéctalo:\nhttps://hola-mako.com/whatsapp\n\n— MaKo');
   // La firma «— MaKo» cuenta (16/10/2026): una tarjeta TAL CUAL no le suma envoltorio, así que va en la plantilla.
   // rotura 8 (la plantilla de la caída sin firma): 6 pass / 1 fail, cae éste.
-  const plano = (t: string) => t.replace(/\s*\n\s*/g, ' ').replace(/\s*📱\s*/g, ' ');
-  for (const motivo of [HECHOS.motivo, null]) {
-    const h = { ...HECHOS, motivo };
-    const conPlantilla = textoConDatos(tarjeta('mako-whatsapp-caido'), datosCaida(h));
-    // Lo mismo, salvo el formato: un dato por renglón (la tarjeta), contra la línea entre paréntesis (el código).
-    assert.equal(plano(conPlantilla), plano(textoCaida(h)).replace(/ \((\+\d+)\)\./, ' $1'));
-  }
-  assert.equal(plano(textoConDatos(tarjeta('mako-whatsapp-volvio'), datosVolvio({ linea: '+5215512345678' }))), plano(textoVolvio({ linea: '+5215512345678' })).replace(/ \((\+\d+)\)\./, ' $1'));
-  // Sin número ni etiqueta, el renglón se va entero: nada de «()» ni de «📱» solo.
-  assert.doesNotMatch(textoConDatos(tarjeta('mako-whatsapp-caido'), datosCaida({ ...HECHOS, linea: null })), /📱/);
+  assert.equal(textoConDatos(tarjeta('mako-whatsapp-volvio'), datosVolvio({ linea: '+5215512345678' })), '🟢 *Volvió tu WhatsApp*\n📱 +5215512345678\nPor ese número ya entran y salen mensajes otra vez. — MaKo');
+  // Sin número ni fecha, sus renglones se van enteros, y la frase sigue.
+  const sinNada = textoConDatos(tarjeta('mako-whatsapp-caido'), datosCaida({ ...HECHOS, motivo: null, desde: null, linea: null }));
+  assert.doesNotMatch(sinNada, /📱|🕐/);
+  assert.match(sinNada, /^🔴 \*Se cortó tu WhatsApp\*\nPor ese número no entran ni salen mensajes\./);
+  // Ninguna plantilla de la plataforma cita una frase del código.
+  for (const id of ['mako-whatsapp-caido', 'mako-whatsapp-desvinculado', 'mako-whatsapp-volvio']) assert.doesNotMatch(tarjeta(id), /linea_titulo|linea_motivo/, id);
 });
 
 // rotura 5 (se ofrecen en un negocio): 5 pass / 2 fail, caen éste y el de Fathom.
 test('sólo en la plataforma: el evento en el CRON y la plantilla en la galería', () => {
   const sub = (o: { plataforma?: boolean }) => eventosOfrecidos('mako', null, o).map((e) => e.subtipo);
-  assert.ok(!sub({}).includes('whatsapp_caido') && !sub({}).includes('whatsapp_volvio'), 'un negocio no los ve');
-  assert.ok(sub({ plataforma: true }).includes('whatsapp_caido') && sub({ plataforma: true }).includes('whatsapp_volvio'));
+  for (const ev of ['whatsapp_caido', 'whatsapp_desvinculado', 'whatsapp_volvio']) {
+    assert.ok(!sub({}).includes(ev), `un negocio no ve ${ev}`);
+    assert.ok(sub({ plataforma: true }).includes(ev), ev);
+  }
   const ids = (o: { plataforma: boolean }) => plantillasPara(o).map((p) => p.id);
-  assert.ok(!ids({ plataforma: false }).includes('mako-whatsapp-caido'));
-  assert.ok(ids({ plataforma: true }).includes('mako-whatsapp-caido') && ids({ plataforma: true }).includes('mako-whatsapp-volvio'));
+  for (const id of ['mako-whatsapp-caido', 'mako-whatsapp-desvinculado', 'mako-whatsapp-volvio']) {
+    assert.ok(!ids({ plataforma: false }).includes(id), id);
+    assert.ok(ids({ plataforma: true }).includes(id), id);
+  }
 });
 
 // rotura 6 (una CONDITION pasa en un evento de la plataforma): 6 pass / 1 fail, cae éste.

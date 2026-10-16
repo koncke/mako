@@ -11,8 +11,9 @@
 //     Publicar lo frena (los flujos de leads y los eventos);
 //   · el aviso de una tarjeta por email: sólo correo, con su asunto, sin push al teléfono; «le escribí» sólo si salió;
 //   · la plantilla «Reporte Semanal de un Negocio»: el asunto y el cuerpo de siempre, letra por letra;
-//   · lo emite el cron de cada negocio; lo corre la fila de la plataforma; sin fila, sale como siempre
-//     (`despacharReporte`), y sin poder leer si hay fila no sale por ninguna de las dos puertas;
+//   · lo emite el cron de cada negocio; lo corre la fila de la plataforma; ⚠️ desde la tarde del 16/10/2026 SIN CAMINO
+//     VIEJO: sin fila prendida no sale (hasta ese día salía como siempre, `despacharReporte`), y sin poder leer las filas,
+//     tampoco;
 //   · el runner de los eventos y el envío respetan el email, y el editor ofrece «Por dónde».
 //
 // ⚠️ PROBADO ROMPIENDO (16/10/2026, scratchpad romper-reporte.mjs, una rotura por vez y restaurada con sha1 igual).
@@ -148,16 +149,16 @@ test('lo emite el cron de cada negocio y lo corre la fila de la plataforma; sin 
   assert.deepEqual(con.anotado.corridas[0].ctx.datos, datos);
   assert.equal(r.filas, 1);
   const sin = deps([]);
-  assert.equal((await emitirPorEvento(CAT, NEGOCIO, { datos }, sin.d)).sinFila, true);
-  // El cron: decide y arma como siempre, emite el evento, y SÓLO sin fila sigue con `despacharReporte`.
+  const rSin = await emitirPorEvento(CAT, NEGOCIO, { datos }, sin.d);
+  assert.equal(rSin.filas, 0);
+  assert.equal(sin.anotado.corridas.length, 0, 'sin fila no corre nada');
+  // El cron: decide y arma como siempre, emite el evento, y sin fila NO sigue con `despacharReporte` (16/10/2026, tarde).
   const cron = leer('app/api/cron/reporte-semanal/route.ts');
   assert.match(cron, /const ev = await emitirEventoDePlataforma\('reporte-semanal', \{ ws, datos: datosDelReporte\(rep\) \}\);/);
-  const iError = cron.indexOf("if (!ev.ok) return { ws, modo: 'error'");
-  const iSin = cron.indexOf('if (!ev.sinFila) {');
-  const iDespacho = cron.indexOf('despacharReporte(rep');
-  assert.ok(iError > 0 && iSin > iError && iDespacho > iSin, 'el de siempre, sólo después de saber que no hay fila');
-  assert.equal(cron.split('despacharReporte(').length, 2, 'una sola llamada al de siempre');
-  // `emitirEventoDePlataforma` no sigue al motor de avisos: sin fila devuelve, y el llamador sigue con lo suyo.
+  assert.match(cron, /if \(!ev\.ok\) return \{ ws, modo: 'error'/);
+  assert.match(cron, /return ev\.filas > 0\n\s+\? \{ ws, modo: 'enviado', porAutomatizacion: \{ filas: ev\.filas \} \}\n\s+: \{ ws, modo: 'salteado', motivo: 'sin_automatizacion_en_superadmin' \};/);
+  assert.doesNotMatch(cron, /despacharReporte\(/, 'el camino viejo volvió');
+  // `emitirEventoDePlataforma` no sigue al motor de avisos.
   const av = leer('lib/avisos.ts');
   const fn = av.slice(av.indexOf('export async function emitirEventoDePlataforma('), av.indexOf('\n}\n', av.indexOf('export async function emitirEventoDePlataforma(')));
   assert.match(fn, /return emitirPorEvento\(cat, opts\.ws, opts, await depsDelEvento\(\)\);/);

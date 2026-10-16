@@ -34,7 +34,9 @@ export const URGENCIAS: ReadonlyArray<{ clave: Urgencia; titulo: string }> = [
   { clave: 'aviso', titulo: 'Para saber' },
 ];
 
-export type Opcion = { clave: string; texto: string };
+/** Una opción: su texto, y si el chat la explica, una descripción corta (`detalle`). En el Centro cada opción se
+ *  dibuja como los renglones de AskUserQuestion de Claude Code: el título y, abajo, la descripción (16/10/2026). */
+export type Opcion = { clave: string; texto: string; detalle?: string };
 
 /** Una decisión como la lee la pantalla. */
 export type Decision = {
@@ -82,7 +84,7 @@ export type Publicada = {
   orden: number;
 };
 
-export const TOPES = { chat: 40, pregunta: 160, opcion: 100, destraba: 120, contexto: 180, texto: 1000, opciones: 4 } as const;
+export const TOPES = { chat: 40, pregunta: 160, opcion: 100, detalle: 140, destraba: 120, contexto: 180, texto: 1000, opciones: 4 } as const;
 
 /** Lo que contesta la lectura de la tabla: las decisiones, o por qué no se pudieron leer. */
 export type LecturaDecisiones =
@@ -169,10 +171,12 @@ export function sanearPublicada(x: unknown): { ok: true; d: Publicada } | { ok: 
   for (const c of crudas) {
     const clave = txt((c as Record<string, unknown>)?.clave).toUpperCase();
     const texto = txt((c as Record<string, unknown>)?.texto);
+    const detalle = txt((c as Record<string, unknown>)?.detalle);
     if (!CLAVE.test(clave)) return { ok: false, motivo: `${ref}: la clave de una opción es A, B, C o D` };
     if (opciones.some((p) => p.clave === clave)) return { ok: false, motivo: `${ref}: la opción ${clave} está repetida` };
     if (!texto || texto.length > TOPES.opcion) return { ok: false, motivo: `${ref}: la opción ${clave} va de 1 a ${TOPES.opcion} caracteres` };
-    opciones.push({ clave, texto });
+    if (detalle.length > TOPES.detalle) return { ok: false, motivo: `${ref}: el detalle de la opción ${clave} va hasta ${TOPES.detalle} caracteres` };
+    opciones.push(detalle ? { clave, texto, detalle } : { clave, texto });
   }
   const destraba = txt(o.destraba) || null;
   if (destraba && destraba.length > TOPES.destraba) return { ok: false, motivo: `${ref}: «destraba» va hasta ${TOPES.destraba} caracteres` };
@@ -200,8 +204,12 @@ export function sanearPublicada(x: unknown): { ok: true; d: Publicada } | { ok: 
 /** La fila de `admin_decisiones` como la lee la pantalla. Lo que no cierra, se ignora. */
 export function filaADecision(f: Record<string, unknown>): Decision {
   const ops = Array.isArray(f.opciones) ? f.opciones : [];
-  const opciones = ops
-    .map((c) => ({ clave: txt((c as Record<string, unknown>)?.clave), texto: txt((c as Record<string, unknown>)?.texto) }))
+  const opciones: Opcion[] = ops
+    .map((c) => {
+      const o = c as Record<string, unknown>;
+      const detalle = txt(o?.detalle);
+      return { clave: txt(o?.clave), texto: txt(o?.texto), ...(detalle ? { detalle } : {}) };
+    })
     .filter((c) => c.clave && c.texto);
   const u = txt(f.urgencia);
   return {
