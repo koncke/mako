@@ -220,7 +220,10 @@ navegador de un VISITANTE de la landing de un cliente, asi que si queda viejo el
 es el de `public/` y no hay un solo error que lo diga. Es la misma familia que el zip de la
 extension y que `plugin/`. Desde el 15/10/2026 las doce que no son el typecheck viven en
 `scripts/guardas-push.sh`, que corren el pre-push y GitHub Actions: una guarda nueva se agrega
-AHÍ, no en el hook.
+AHÍ, no en el hook. La primera es un `tsc` ACOTADO a las bitácoras de `/admin/dev`
+(`scripts/tsc-bitacoras.mjs`, ~4 s y ~300 MB): un hito sin `puntos` (TS2741) frenó tres pushes
+el 14/10 y el 15/10 tiró un run entero de Actions. Si el `tsc` no termina (lo mató el vigía, o
+se quedó sin heap), no frena el push: eso no es un error de tipos, y Actions corre el completo.
 
 ⚠️ El último se agregó el 29/08/2026, después de que **producción estuviera 46 minutos en
 la versión vieja sin que nada lo dijera**: un commit subió `catalogo.ts` con 18 imports
