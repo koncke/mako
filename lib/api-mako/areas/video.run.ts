@@ -117,7 +117,7 @@ async function proponerEnElEditor(o: OperacionApi, input: Record<string, unknown
     extra: {
       cambios: r.lineas,
       nota: NOTA_PROPUESTA,
-      ...(r.sinRevisar ? { aviso: 'El proyecto es muy grande para revisarlo acá: lo revisa el editor al aceptarlo.' } : {}),
+      ...(r.sinRevisar ? { aviso: 'El proyecto es muy grande para revisarlo aquí: lo revisa el editor al aceptarlo.' } : {}),
     },
   };
 }
