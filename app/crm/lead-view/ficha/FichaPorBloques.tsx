@@ -42,6 +42,7 @@
 import { useCallback, useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { EstiloDeLaHoja } from './EstiloDeLaHoja';
+import { csvDelLead, nombreArchivoLead } from './exportar-lead';
 import { Dropdown } from '@/app/components/Dropdown';
 import dynamic from 'next/dynamic';
 import { deriveStageKey } from '@/lib/pipeline';
@@ -354,6 +355,21 @@ export function FichaPorBloques({ data, parchear, altoChat, initialTab, onTab, f
 
   // El «⋯» al lado de «Editar», como el del Dashboard. Lo ve todo el que ve la ficha (el AI Analyst era una pestaña
   // de todos); «Editar» sigue siendo sólo del admin.
+  /** «Exportar (CSV)»: los datos de este lead, en dos columnas (./exportar-lead.ts). */
+  const exportarCsv = () => {
+    const csv = csvDelLead([
+      ['Lead', `#${lead.id}`], ['Nombre', lead.nombre], ['Email', lead.email], ['Teléfono', lead.telefono],
+      ['Empresa', lead.empresa], ['Web', lead.web], ['Instagram', lead.instagram],
+      ['Etapa', stages.find((x) => x.key === etapa)?.label ?? etapa], ['Campaña', data.campana?.texto], ['Anuncio', data.adNombre],
+      ['Creado', lead.created_at?.slice(0, 10)],
+    ]);
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+    const a = document.createElement('a');
+    a.href = url; a.download = nombreArchivoLead(lead.id, lead.nombre);
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    show('CSV descargado');
+  };
   const copiarLink = () => {
     const ws = new URLSearchParams(window.location.search).get('ws');
     const url = `${window.location.origin}/crm/${lead.id}${ws ? `?ws=${encodeURIComponent(ws)}` : ''}`;
@@ -365,8 +381,9 @@ export function FichaPorBloques({ data, parchear, altoChat, initialTab, onTab, f
       options={[
         { value: 'analyst', label: 'AI Analyst', icono: 'mako' },
         { value: 'link', label: 'Copiar el link', icono: 'link' },
+        { value: 'csv', label: 'Exportar (CSV)', icono: 'descargar' },
       ]}
-      onChange={(v) => { if (v === 'analyst') setAnalyst(true); else if (v === 'link') copiarLink(); }} />
+      onChange={(v) => { if (v === 'analyst') setAnalyst(true); else if (v === 'link') copiarLink(); else if (v === 'csv') exportarCsv(); }} />
   );
   const acciones = <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>{boton}{menu}</span>;
 

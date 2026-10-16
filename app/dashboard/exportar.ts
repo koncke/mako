@@ -25,6 +25,7 @@
 //   · `loQueSeVeDe` es lo que el AI Analyst recibe de la pantalla, y NO va a ningún modelo: el panel
 //     sólo saca la firma de cada resultado para decir si la hoja cambió desde el análisis.
 
+import { BOM_CSV, SEPARADOR_CSV, celdaCsv, numeroCsv } from '@/lib/csv-celda';
 import {
   PRESET_AUTOMATICO, campoDe, conVista, efectivoDe, esBloque, esElemento, esGrafico, fuenteDe, nombrePreset, rangoDe, tipoDe, tituloDe,
   type Componente, type ControlVista, type Efectivo, type FiltroDim, type Grafico, type Hoja, type VistaValores,
@@ -256,30 +257,13 @@ export function loQueSeVeDe(hoja: Hoja, resultados: Record<string, Resultado | u
 //     escribe cualquiera) se abre en Excel como una fórmula. Se le antepone un apóstrofo. A un NÚMERO
 //     negativo no: es un número.
 
-export const SEPARADOR_CSV = ',';
-// Con su código y no como el carácter: es invisible, y un editor que lo «limpia» lo borra sin que el
-// diff muestre nada (AGENTS.md: un carácter de control no se escribe crudo).
-const BOM = String.fromCharCode(0xfeff);
+// ⚠️ LA CELDA, EL SEPARADOR Y EL BOM VIVEN EN lib/csv-celda.ts desde el 16/10/2026 (los usa también la ficha del
+// lead): se re-exportan acá con el mismo nombre.
+export { SEPARADOR_CSV, numeroCsv, celdaCsv } from '@/lib/csv-celda';
+const BOM = BOM_CSV;
 const FIN = '\r\n';
 
 const UNIDAD: Record<Formato, string> = { numero: '', usd: ' (US$)', pct: ' (%)', veces: ' (x)', segundos: ' (s)' };
-
-/** Un número para el CSV: con punto, hasta 4 decimales, sin ceros de más. */
-export function numeroCsv(n: number): string {
-  if (!Number.isFinite(n)) return '';
-  const r = Math.round(n * 10_000) / 10_000;
-  return Object.is(r, -0) ? '0' : String(r);
-}
-
-/** Una celda: los números tal cual; los textos con comillas cuando hacen falta y sin fórmulas. */
-export function celdaCsv(v: string | number | null | undefined, sep = SEPARADOR_CSV): string {
-  if (v == null) return '';
-  if (typeof v === 'number') return numeroCsv(v);
-  let s = String(v);
-  if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`;
-  const comillas = s.includes(sep) || /["\r\n]/.test(s) || /^\s|\s$/.test(s);
-  return comillas ? `"${s.replace(/"/g, '""')}"` : s;
-}
 
 const filaCsv = (celdas: Array<string | number | null | undefined>, sep: string) => celdas.map((c) => celdaCsv(c, sep)).join(sep);
 
