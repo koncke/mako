@@ -35,6 +35,7 @@ import dynamic from 'next/dynamic';
 import { Badge, Button, ButtonLink, IconButton } from '@/app/_ui';
 import { IconoMenu } from '@/app/_ui/iconos-menu';
 import { MakoLogo } from '@/app/_components/MakoBrand';
+import { RAIL } from '@/app/_components/Sidebar';
 import { leerRespuesta } from '@/app/m/mako/chat-ui';
 import type { SugerenciaDePantalla } from '@/lib/sugerencias-crm';
 
@@ -162,10 +163,13 @@ function PanelDeUnCrm({ funnelId }: { funnelId: number | null }) {
   return (
     <>
       {!abierto && (
-        <button type="button" data-esquina-ocupada data-boton-mako-crm onClick={abrir}
+        // ⚠️ A LA IZQUIERDA desde el 16/10/2026 («El botón de MaKo siempre a la izquierda, no a la derecha», Martín),
+        // pegado a la barra lateral: el layout le reserva siempre `RAIL` (abierta, se superpone). Ya no ocupa el rincón
+        // de abajo a la derecha, así que no lleva `data-esquina-ocupada` («A revisar» vuelve a su esquina).
+        <button type="button" data-boton-mako-crm onClick={abrir}
           title="Abrir MaKo" aria-label={n ? `Abrir MaKo · ${n} ${n === 1 ? 'sugerencia' : 'sugerencias'}` : 'Abrir MaKo'}
           style={{
-            ...CARA_BOTON, position: 'fixed', right: 20, bottom: 12, zIndex: Z_PANEL,
+            ...CARA_BOTON, position: 'fixed', left: RAIL + 20, bottom: 12, zIndex: Z_PANEL,
             width: LADO_BOTON, height: LADO_BOTON, padding: 0, cursor: 'pointer', boxSizing: 'border-box',
             display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
           }}>
@@ -179,11 +183,12 @@ function PanelDeUnCrm({ funnelId }: { funnelId: number | null }) {
       )}
 
       {montado && (
-        <aside aria-label="MaKo" data-esquina-ocupada={abierto || undefined}
+        // El panel abre del MISMO lado que el botón: a la izquierda, al lado de la barra lateral.
+        <aside aria-label="MaKo"
           style={{
-            position: 'fixed', top: 'var(--barra-agencia, 0px)', right: 0, bottom: 0, zIndex: Z_PANEL,
+            position: 'fixed', top: 'var(--barra-agencia, 0px)', left: RAIL, bottom: 0, zIndex: Z_PANEL,
             width: 'min(420px, 100vw)', display: abierto ? 'flex' : 'none', flexDirection: 'column',
-            background: 'var(--surface)', borderLeft: '1px solid var(--border)', boxShadow: '-12px 0 32px rgba(18,21,27,.12)',
+            background: 'var(--surface)', borderRight: '1px solid var(--border)', boxShadow: '12px 0 32px rgba(18,21,27,.12)',
           }}>
           <header style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', borderBottom: '1px solid var(--border)', borderTop: '3px solid var(--mako)' }}>
             <MakoLogo size={28} animate={false} />

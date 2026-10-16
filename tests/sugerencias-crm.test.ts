@@ -457,9 +457,13 @@ test('el chat: permiso del CRM, el hilo sólo al abrir, y el rincón marcado', (
     assert.ok(tramos.length >= 2, `${nombre}: no encontré los fetch`);
     for (const t of tramos) assert.match(t.slice(0, 600), /AbortSignal\.timeout\(/, `${nombre}: un fetch sin corte`);
   }
-  // El botón plegado y el panel abierto, en el rincón de abajo a la derecha: con la marca.
-  assert.match(panel, /<button type="button" data-esquina-ocupada data-boton-mako-crm/);
-  assert.match(panel, /<aside aria-label="MaKo" data-esquina-ocupada=\{abierto \|\| undefined\}/);
+  // El botón plegado y el panel abierto, A LA IZQUIERDA desde el 16/10/2026 (Martín: «El botón de MaKo siempre a la
+  // izquierda»), pegados a la barra lateral; ya no ocupan el rincón de abajo a la derecha.
+  // Probado rompiéndolo (16/10/2026): volver a `right: 20` → 1 fallo; el panel con `right: 0` → 1 fallo.
+  assert.match(panel, /<button type="button" data-boton-mako-crm onClick=\{abrir\}/);
+  assert.match(panel, /position: 'fixed', left: RAIL \+ 20, bottom: 12/);
+  assert.match(panel, /<aside aria-label="MaKo"\n\s*style=\{\{\n\s*position: 'fixed', top: 'var\(--barra-agencia, 0px\)', left: RAIL, bottom: 0/);
+  assert.doesNotMatch(panel, /data-esquina-ocupada/);
   // Nada de next/link: los links con el `?ws=` de la casa.
   assert.ok(!/from 'next\/link'/.test(panel + chat));
 });
