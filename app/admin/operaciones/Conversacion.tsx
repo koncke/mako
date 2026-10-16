@@ -23,7 +23,7 @@ import { Muneco, animoDe } from './Muneco';
 /** La Ticketera, donde se contesta lo que un empleado espera (app/_components/nav.ts → admin-ticketera). */
 const RUTA_TICKETERA = '/tickets/decisiones';
 
-const ESTADO_CHAT: Record<ChatCentro['estado'], string> = { trabajando: 'Trabajando', abierto: 'Abierto', cerrado: 'Cerrado', sin_dato: 'Sin dato' };
+const ESTADO_CHAT: Record<ChatCentro['estado'], string> = { trabajando: 'Trabajando', abierto: 'Abierto', cerrado: 'Cerrado', sin_dato: '' };
 
 export function Conversacion({
   chat, pedidos, trabajos, pushes, ahora, espera, envio, texto, onTexto, alcance, onAlcance, enviando, onMandar, onCrearClave, onCopiarClave, onVolver,
@@ -86,7 +86,7 @@ export function Conversacion({
 
       <div className="co-hilo" ref={hilo}>
         <div className="co-hilo__col">
-          <Hilo lineas={lineas} pushes={pushes} ahora={ahora} vacio="Todavía no hay nada con este chat." quien={{ titulo: chat.titulo, animo: animoDe(chat), dato: meta }} />
+          <Hilo lineas={lineas} pushes={pushes} ahora={ahora} vacio="Escríbele abajo para empezar." quien={{ titulo: chat.titulo, animo: animoDe(chat), dato: meta }} />
         </div>
       </div>
 
@@ -128,8 +128,8 @@ export function Conversacion({
         ) : (
           <div className="co-caja co-caja--quieta">
             <p>{estado}</p>
-            {envio.por === 'sin_clave' && <button type="button" className="co-chip" onClick={onCrearClave}>Crear clave</button>}
-            {envio.por === 'clave_no_aceptada' && <button type="button" className="co-chip" onClick={onCopiarClave}><Icon name="copy" size={14} />Copiar clave</button>}
+            {envio.por === 'sin_clave' && <button type="button" className="co-chip" onClick={onCrearClave}>Crear Token</button>}
+            {envio.por === 'clave_no_aceptada' && <button type="button" className="co-chip" onClick={onCopiarClave}><Icon name="copy" size={14} />Copiar Token</button>}
           </div>
         )}
         <p className="co-caja__estado" aria-live="polite">{envio.puede ? estado ?? '' : ''}</p>

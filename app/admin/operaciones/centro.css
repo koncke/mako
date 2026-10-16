@@ -396,13 +396,53 @@
 .co-vista__titulo { margin: 0; font-size: var(--fs-sect); font-weight: 600; }
 .co-vista__accion { font-size: var(--fs-sm); color: var(--faint); }
 
-/* ── El cartero (el modal) ───────────────────────────────────────────────── */
-.co-cartero { display: flex; flex-direction: column; gap: 18px; font-size: var(--fs-md); }
-.co-cartero__fila { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); }
-.co-cartero__fila:last-child { border-bottom: 0; }
-.co-cartero__nombre { font-weight: 600; }
-.co-cartero__dato { margin-left: auto; font-size: var(--fs-sm); color: var(--faint); text-align: right; }
-.co-cartero__titulo { margin: 0 0 4px; font-size: var(--fs-meta); font-weight: 600; color: var(--faint); text-transform: uppercase; letter-spacing: .04em; }
+/* ── Los Runners (el modal), copiado de GitHub → Settings → Actions → Runners ───────────── */
+.co-runner { display: flex; flex-direction: column; gap: 12px; font-size: var(--fs-md); color: var(--ink); }
+.co-runner__barra { display: flex; align-items: center; justify-content: flex-end; gap: 12px; }
+.co-runner__cuenta { margin-right: auto; font-size: var(--fs-sm); color: var(--faint); }
+.co-runner__caja { border: 1px solid var(--border); border-radius: 12px; background: var(--surface); overflow: hidden; }
+.co-runner__fila { display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 10px 14px; border-top: 1px solid var(--border); }
+.co-runner__fila:first-child { border-top: 0; }
+.co-runner__fila--quieta { min-height: 52px; }
+.co-runner__nombre { display: flex; flex-direction: column; gap: 2px; min-width: 0; font-weight: 600; }
+.co-runner__hacer { font-size: var(--fs-sm); font-weight: 400; color: var(--faint); }
+.co-runner__etiqueta {
+  flex: none; padding: 2px 9px; border: 1px solid var(--border); border-radius: 999px;
+  font-size: var(--fs-meta); color: var(--faint); white-space: nowrap;
+}
+.co-runner__estado { flex: none; margin-left: auto; font-size: var(--fs-sm); color: var(--faint); white-space: nowrap; }
+.co-runner__fin { flex: none; margin-left: auto; }
+.co-runner__estado + .co-runner__fin { margin-left: 8px; }
+.co-runner__vacio { margin: 0; padding: 28px 16px; text-align: center; color: var(--faint); font-size: var(--fs-sm); }
+.co-runner__vacio p { margin: 0; }
+.co-runner__vacio-titulo { margin: 0 0 4px !important; font-size: var(--fs-card); font-weight: 600; color: var(--ink); }
+.co-runner__seccion { margin: 10px 0 0; font-size: var(--fs-md); font-weight: 600; }
+.co-runner__consecuencia { margin: 0; padding: 0 14px 12px 31px; font-size: var(--fs-sm); color: var(--faint); }
+.co-runner__paso { display: flex; flex-direction: column; gap: 8px; }
+.co-runner__paso + .co-runner__paso { margin-top: 8px; }
+.co-runner__paso > p { margin: 0; font-size: var(--fs-sm); color: var(--faint); }
+.co-runner__paso > .co-runner__paso-titulo { display: flex; align-items: center; gap: 8px; font-size: var(--fs-md); font-weight: 600; color: var(--ink); }
+.co-runner__paso-titulo span {
+  display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%;
+  background: var(--primary-bg); color: var(--primary-strong); font-size: var(--fs-meta); font-weight: 700;
+}
+.co-runner__codigo { position: relative; border: 1px solid var(--border); border-radius: 12px; background: var(--bg); }
+.co-runner__codigo pre {
+  margin: 0; padding: 12px 44px 12px 14px; overflow: auto; white-space: pre-wrap; word-break: break-word;
+  font-family: 'Geist Mono', monospace; font-size: var(--fs-meta); line-height: 1.55; color: var(--ink);
+}
+.co-runner__copiar {
+  position: absolute; top: 8px; right: 8px; display: inline-grid; place-items: center; width: 30px; height: 30px;
+  border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--faint); cursor: pointer;
+}
+.co-runner__copiar:hover { color: var(--ink); background: var(--velo-hover); }
+.co-runner__copiar:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.co-runner__miga { display: inline-flex; align-items: center; gap: 8px; }
+.co-runner__miga button {
+  padding: 0; border: 0; background: none; font: inherit; color: var(--primary-strong); cursor: pointer;
+}
+.co-runner__miga button:hover { text-decoration: underline; }
+.co-runner__miga > span { color: var(--faint); font-weight: 400; }
 
 /* El muñeco (Muneco.tsx): dormido se apaga; trabajando flota apenas y parpadea. Con movimiento reducido, quieto. */
 .mun--dormido .mun-cuerpo { opacity: .55; filter: saturate(.35); }

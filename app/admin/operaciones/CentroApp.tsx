@@ -47,7 +47,7 @@ import type { EstadoCarteros, Pedido } from '@/lib/operaciones';
 import { Conversacion } from './Conversacion';
 import { Tick } from './Hilo';
 import { Muneco, animoDe } from './Muneco';
-import { PanelCartero } from './PanelCartero';
+import { PanelRunner, TituloRunner, type VistaRunner } from './PanelRunner';
 import { Progreso } from './Progreso';
 import { fotoCentroAction, pushesCentroAction } from './acciones';
 import { copiar, useFirma } from './mandar';
@@ -127,7 +127,7 @@ export function CentroApp({ base, colaInicial, carterosIniciales, decisionesInic
   const [borradores, setBorradores] = useState<Record<string, string>>({});
   const [alcance, setAlcance] = useState<Alcance>('solo_esto');
   const [enviando, setEnviando] = useState(false);
-  const [cartero, setCartero] = useState(false);
+  const [runner, setRunner] = useState<VistaRunner | null>(null);
   const { toast, show, clear } = useToast();
   const firma = useFirma(sub);
 
@@ -196,13 +196,15 @@ export function CentroApp({ base, colaInicial, carterosIniciales, decisionesInic
     refrescar();
   }
 
+  // Los toasts dicen qué hacer, cortos (Martín, 15/10/2026: «Jamás pongas mensajes no claros»). Después de crear
+  // el Token, el paso siguiente (pegárselo al Runner) ya lo dice la caja.
   const copiarConAviso = async (t: string, aviso: string) => {
-    show(await copiar(t) ? aviso : 'No pude copiar', undefined, 'good');
+    if (await copiar(t)) show(aviso, undefined, 'good'); else show('No pude copiar', undefined, 'bad');
   };
   const crearClave = async () => {
     const c = await firma.crear();
-    if (!c) { show('No pude crear la clave', undefined, 'bad'); return; }
-    show('Clave creada: cópiala y pégala en el chat Cartero', undefined, 'good');
+    if (!c) { show('No pude crear tu Token', undefined, 'bad'); return; }
+    show('Token creado', undefined, 'good');
   };
 
   const vivos = carteros.filter((k) => carteroVivo(k, ahora)).length;
@@ -265,8 +267,8 @@ export function CentroApp({ base, colaInicial, carterosIniciales, decisionesInic
         </nav>
 
         <div className="co-barra__abajo">
-          <button type="button" className="co-acceso" onClick={() => setCartero(true)} title={`${vivos} de ${carteros.length} carteros dando vueltas`}>
-            <Icon name="config" size={17} />Cartero
+          <button type="button" className="co-acceso" onClick={() => setRunner('lista')} title={`${vivos} de ${carteros.length} Runners activos`}>
+            <Icon name="config" size={17} />Runners
             <span className="co-carteros" aria-hidden>
               {carteros.map((k) => <span key={k.cuenta} className={`co-punto co-punto--${carteroVivo(k, ahora) ? 'trabajando' : 'viejo'}`} />)}
             </span>
@@ -281,17 +283,17 @@ export function CentroApp({ base, colaInicial, carterosIniciales, decisionesInic
             espera={esperas[actual.clave] ?? 0}
             envio={envio} texto={texto} onTexto={setTexto} alcance={alcance} onAlcance={setAlcance} enviando={enviando}
             onMandar={mandar} onCrearClave={crearClave}
-            onCopiarClave={() => firma.clave && copiarConAviso(firma.clave.spki, 'Clave copiada: pégala en el chat Cartero')}
+            onCopiarClave={() => firma.clave && copiarConAviso(firma.clave.spki, 'Copiado: pégalo en el Runner')}
             onVolver={() => setConChat(false)}
           />
         ) : (
           <section className="co-panel">
             {chats.length
-              ? <p className="co-vacio">Elige un chat.</p>
+              ? <p className="co-vacio">Elige un chat para escribirle.</p>
               : (
                 <div className="co-vacio">
-                  <p style={{ margin: '0 0 12px' }}>Ningún chat todavía: aparecen cuando el cartero da su vuelta.</p>
-                  <button type="button" className="co-chip" onClick={() => setCartero(true)}>Ver el cartero</button>
+                  <p style={{ margin: '0 0 12px' }}>Conecta un Runner para ver tus chats aquí.</p>
+                  <button type="button" className="co-chip" onClick={() => setRunner('nuevo')}>Nuevo Runner</button>
                 </div>
               )}
           </section>
@@ -316,9 +318,10 @@ export function CentroApp({ base, colaInicial, carterosIniciales, decisionesInic
         </section>
       )}
 
-      {cartero && (
-        <Modal titulo="Cartero" onCerrar={() => setCartero(false)} ancho={560}>
-          <PanelCartero estado={estado} clave={firma.clave} ahora={ahora} onCrearClave={crearClave} onCopiar={copiarConAviso} />
+      {runner && (
+        // Alto fijo: pasar de la lista al alta no cambia el tamaño de la caja (AGENTS.md → «Una caja cuyo alto es un TOPE»).
+        <Modal titulo={<TituloRunner vista={runner} onVista={setRunner} />} onCerrar={() => setRunner(null)} ancho={640} alto="min(600px, 90dvh)">
+          <PanelRunner vista={runner} onVista={setRunner} estado={estado} clave={firma.clave} ahora={ahora} onCrearClave={crearClave} onCopiar={copiarConAviso} />
         </Modal>
       )}
       <Toast state={toast} onClose={clear} />

@@ -442,6 +442,44 @@ dependencia ni licencia que cuidar.
 **Vive en:** `app/admin/operaciones/Muneco.tsx` · `lib/centro-chats.ts` (`esperasPorChat`) · `acciones.ts`
 (`fotoCentroAction` trae las tarjetas) · `tests/centro-empleados.test.ts`
 
+## El cartero pasa a llamarse Runner, y cada texto dice qué hacer (15/10/2026)
+
+**El pedido.** Martín, mirando el Centro en producción: «Jamás pongas mensajes no claros como "Este dispositivo todavía
+no firma.", es mucho mejor "Crea tu Token para comenzar a chatear"», y «No quiero que se llame más "cartero", sino un
+nombre más formal, tecnico... profesional... mejora el diseño de ese modal».
+
+**Runner, copiado de GitHub Actions.** Un self-hosted runner es un proceso en TU máquina que consulta una cola en la
+nube, hace el trabajo ahí y reporta cómo salió: es lo que hace el cartero. No choca con «Puente» (Google Flow) ni con
+«Pasarela» (pagos). El modal copia GitHub → Settings → Actions → Runners, mirado en el Chrome de Martín ese día
+(hola-mako/dashboard-marketing no tiene runners, así que se miró la lista vacía y el alta «Add new self-hosted runner»):
+la caja con un renglón por runner (punto, nombre, etiquetas, estado) y el botón primario arriba a la derecha; el alta
+como pasos con un bloque de código para copiar. Acá los pasos son tres: crear el chat (sus instrucciones, que antes
+vivían sólo en este documento, ahora están en `lib/runner.ts` y se copian con un botón), su token, y tu Token.
+
+**Dos tokens, dos nombres.** «Tu Token» (palabra de Martín) es la clave de firma de ESTE dispositivo; el «token del
+Runner» (`mkop_…`) es el que conecta al Runner con MaKo. Antes eran «clave» y «token de los carteros» y en pantalla
+se leían como la misma cosa. El chat Runner acepta los dos pegados (`clave` y `token`).
+
+**Las claves no se renombraron**: `cartero.mjs`, `operaciones_carteros`, `/api/operaciones/cartero`,
+`ver_carteros_operaciones` siguen igual (la regla de «trabajo»/«pedido»). La PC reconoce al chat por su título:
+`esElCartero` acepta «Runner» y «Cartero», también como sub-chat («Centro de Operaciones › Runner», mirando el último
+tramo), así el renombre de Martín y la convención del chat jefe no lo vuelven un destino. Instalado como 1.3.0.
+
+**Lo que costó medir:**
+- **El guard de los textos no veía el texto JSX que sigue en el renglón de abajo.** La primera versión tomaba
+  `>texto<` en un mismo renglón; `<Icon … />Runners` sigue con su `<span>` abajo, y devolverle «Cartero» a ese botón a
+  propósito dio 0 fallos. Ahora toma el texto después del `>` de una ETIQUETA (no de un `=>`) hasta el próximo `<` o
+  `{`, y descarta lo que parece código.
+- **Una interpolación no es texto**: `${carteros.length}` adentro de un template daba un falso «cartero». Se borran las
+  `${…}` antes de mirar.
+- **El motivo de un trabajo que no salió lo escribe la PC, no MaKo** (`rechazar`, `acuse` en cartero.mjs, y «Venció…»
+  en lib/operaciones.ts). Reescribirlo como acción («El chat se cerró: ábrelo y vuelve a mandarlo») exige reinstalar el
+  script; las filas viejas conservan el texto de antes.
+
+**Vive en:** `lib/runner.ts` · `app/admin/operaciones/PanelRunner.tsx` · `lib/centro-chats.ts` (`textoDeEnvio`) ·
+`scripts/operaciones/cartero.mjs` (`esElCartero`, los motivos) · `app/m/operaciones/CentroMovil.tsx` (`RunnerMovil`) ·
+`tests/centro-textos.test.ts`
+
 ## Lo que creí medido y no estaba al día
 
 - **`soloPlataforma` ya existía en el registro de la API** (lo sumó el 2FA obligatorio el 14/10, por
@@ -449,16 +487,23 @@ dependencia ni licencia que cuidar.
   corrigió. Las lecturas del Centro lo usan.
 - **`docs/api-mako.md` documenta lo que sale por HTTP**: un área sin `'http'`, como ésta, no aparece
   ahí, y el generador dice «al día» con razón.
+- **La hora de una bitácora es la de ARGENTINA, no la UTC** (`instanteHito`, lib/progreso-reglas.ts). Los hitos de la
+  cuenta 3 del 15/10 se anotaron con la hora UTC de los mensajes (23:18 sobre un commit de las 20:18 -0300): el avance
+  los ponía tres horas en el futuro. Se corrigieron; la hora sale de `git log --format=%ci`. Y la FECHA también: los
+  mensajes de los chats y varios documentos del Centro dicen «16/10» para lo que en Argentina fue la noche del 15/10
+  (la fecha UTC). `date` en la PC lo contesta en un comando.
 
 ## Lo que quedó sin hacer
 
-- **El chat «Cartero» con su cron** (el cartero de claude1 ya está instalado desde el 15/10): lo abre Martín,
-  y corre `ciclo`, manda lo de `pendientes` y anota `acuse`. Hasta entonces nada se entrega solo. Y una
-  clave de firma por dispositivo (`clave <SPKI>`) para que los trabajos firmados salgan.
+- ~~El chat «Cartero» con su cron~~: corre desde el 15/10 en la cuenta 3 («pasó hace 41 s») y la PC acepta un Token
+  (`cartero.mjs estado`, 15/10). Falta que Martín lo renombre a «Runner» (la línea, en docs/relevo/centro-operaciones.md).
 - **La Ticketera no muestra si el aviso llegó**: el dato está (`aviso_estado`), la pantalla no lo dibuja.
 - **Fase 2 del aviso**: firmar la respuesta al contestar, para que el aviso la lleve adentro.
-- **El chat «Cartero» en cada cuenta que esté corriendo** (16/10): sin él, lo que se escribe en la caja queda «escrito».
-  El prompt para pegarle está en `docs/relevo/centro-operaciones.md`. Y la clave de cada dispositivo, cargada a mano.
+- **El chat Runner en cada cuenta que esté corriendo** (15/10): sin él, lo que se escribe en la caja queda «escrito».
+  Sus instrucciones se copian desde el Centro (Runners → Nuevo Runner; viven en `lib/runner.ts`). Y el Token de cada
+  dispositivo, pegado en el Runner.
+- **Los textos de Avance y Pushes no se reescribieron** (15/10): esas dos vistas se van en la punta siguiente (el avance
+  pasa a cada chat), y se escriben de nuevo con la regla.
 - **Que un trabajo llegue a una cuenta que NO está abierta**: hoy espera a que la app pase a esa cuenta (o a que corra
   en terminal con su Cartero). Para las tres en paralelo: `/login` de la 1 y la 2 en terminal (lo hace Martín), su
   cartero como `cli` y un Cartero en cada una. ⚠️ El cartero acepta UNA fuente por cuenta (`app` o `cli`): una cuenta

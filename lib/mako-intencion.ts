@@ -1138,8 +1138,9 @@ export const AREA_KEYWORDS: Readonly<Record<Area, RegExp>> = {
   // El Centro de Operaciones (15/10/2026): sólo dos LECTURAS y sólo para la plataforma (`soloPlataforma`), así que
   // nombrarlas desde un cliente no le suma nada (lo saca `gatingOk`). Para Martín sí: «¿cómo van mis pedidos del centro?»,
   // «¿pasó el cartero?». Palabras propias y nunca «pedido» suelto, que en un negocio es un pedido de un cliente.
+  // Desde el 15/10/2026 el cartero se llama Runner en pantalla (lib/runner.ts): «¿está andando el runner?».
   // MANDAR un pedido no está en el registro (exige la firma del dispositivo): no hay palabra que lo traiga.
-  operaciones: /\b(centro de operaciones|carteros?\b|cola de (?:pedidos|trabajos)|(?:pedidos?|trabajos?) (?:a|al|para|de|del) (?:los |mis |un |el |la )?(?:chats?|centro)\b|chats? de claude)/i,
+  operaciones: /\b(centro de operaciones|carteros?\b|runners?\b|cola de (?:pedidos|trabajos)|(?:pedidos?|trabajos?) (?:a|al|para|de|del) (?:los |mis |un |el |la )?(?:chats?|centro)\b|chats? de claude)/i,
 };
 
 /** Las áreas que nombra un mensaje, en el orden de la tabla. Vacío = ninguna. */
