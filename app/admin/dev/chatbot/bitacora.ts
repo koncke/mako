@@ -1637,6 +1637,10 @@ FEEDBACK PROBAR:
     fecha: "15 oct", hora: "21:30", chat: "Chatbot", cuenta: "claude3",
     actor: "martin", tipo: "prompt",
     titulo: "Las doce cosas de Automations (vivían sólo en un mensaje entre chats)",
+    puntos: [
+      "Tres son bugs: la punta de la flecha que queda trabada, y en SuperAdmin el WhatsApp y el Gmail de MaKo como «no conectados» y las automatizaciones de MaKo que no se ven.",
+      "Las otras nueve son la vista «Probar»: casos cortos («Caso 1»), el lead que contesta para ver al AI Step, fotos, sin «Hay más caminos» y una pantalla que respire.",
+    ],
     pedido: "«En Automatios, cuando agarro el extremo de la flecha, no donde está el +, sino donde esta la punta de la flecha, si la saco se bugea, se queda trabada y no se puede mover más, ni apretando esc. Y también en Automations de SuperAdmin no veo las automatizaciones que armamos para los clientes de MaKo... Y en SuperAdmin me dice que no tengo conectado WhatsApp y Gmail, cuando si lo tengo... Mira como se bugea la vista de \"Probar\"... Pusiste una cantidad impresionante de chats en la auth de \"Un lead agendó llamada\", revisa por qué tantos casos... En ninguno de esos casos el LEAD responde para simular el AI Step... La barra donde se escriben los mensajes esta rota, se ve compacta... En general la tab se me muy compacta... Cuando ingreso a un contacto debería saltar la animación de la prueba, pero luego si me voy a otro contacto y vuelvo ya no debería... Los nombres de los contactos deberían ser mucho más cortos... tal vez \"Caso 1\"... Elimina lo de \"Hay más caminos\"... Ten presets de fotos de perfil en lugar de \"1,2,3...\"»",
   },
   {

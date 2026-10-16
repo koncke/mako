@@ -2369,4 +2369,20 @@ export const BITACORA: Hito[] = [
       'tests/sugerencias-crm.test.ts',
     ],
   },
+  {
+    fecha: '15 oct', hora: '21:27', chat: 'CRM', cuenta: 'claude3',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El panel de avisos de la ficha muestra y guarda los del funnel del lead',
+    puntos: [
+      'Visto en producción con la tanda B ya subida: en un funnel de Prospección, el panel mostraba «¿Era lead calificado?» prendido aunque la plantilla lo apaga.',
+      'Ahora la ficha (página y panel lateral) abre el panel con su funnel. «A revisar», que mezcla funnels, sigue con los del negocio.',
+      'El texto del panel dice cuál de los dos es.',
+    ],
+    commits: [{ sha: '855160673', msg: 'CRM: el panel de avisos de la ficha muestra y guarda los del funnel del lead', lineas: 63, archivos: 4 }],
+    archivos: [
+      'app/crm/lead-view/AvisosDatosModal.tsx — funnelId',
+      'app/crm/LeadSheet.tsx · app/crm/[id]/LeadDetailBody.tsx',
+      'tests/ficha-avisos.test.ts',
+    ],
+  },
 ];

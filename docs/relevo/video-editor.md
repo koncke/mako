@@ -4,6 +4,12 @@
 
 ## 15/10 noche (cuenta 3): pasos 2–4 de los subtítulos y el chat con todo lo que el editor sabe hacer
 
+**Más tarde, el mismo 15/10:** una revisión adversarial encontró 10 bugs y se arreglaron (`5760ab72e`,
+`27bf7b9fd`); y se probó EN PRODUCCIÓN la transcripción y las muletillas (anda; detalle en los hallazgos), donde
+apareció un bug grave ya arreglado en `997ec0728`: Supr en la transcripción borraba además el clip elegido.
+Sin separar: la pestaña se colgó al aplicar la plantilla «Palabra resaltada» (1,2 GB libres). Quedó un
+proyecto de prueba «1015» en el navegador de Martín, en SU negocio (no el de un cliente): se puede borrar.
+
 Orden aprobado por el coordinador «Estrategia 3 cuentas». Escrito y con tests, **NADA visto en Chrome**:
 - **Edición por transcripción**: Biblioteca › Subtítulos › «Transcripción» (y el botón de la barra): elegir
   palabras y Supr las saca del video y del subtítulo. **«Eliminar las muletillas»** del video, ahí mismo.

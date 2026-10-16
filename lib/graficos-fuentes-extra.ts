@@ -246,7 +246,8 @@ export const FUENTES_EXTRA: readonly Fuente[] = [
   },
   {
     // El MRR, con la regla de `getMrrActivo` (lib/queries.ts), la misma de la API de MaKo: ganado, venta
-    // de suscripción, y activa mientras dure su plazo (o indefinida).
+    // de suscripción, y activa mientras dure su plazo (o indefinida); más las suscripciones activas de la pasarela
+    // de un lead que no es de suscripción.
     id: 'suscripciones', nombre: 'Suscripciones', area: 'CRM y ventas',
     descripcion: 'El ingreso mensual de las suscripciones activas (MRR).',
     fechas: [{ id: 'actual', nombre: 'Hoy', sinRango: true }],

@@ -98,7 +98,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'anular_link_pago', area: 'cobros', tipo: 'accion', confirmacion: 'chat', reversible: false,
     titulo: 'Anular un link de pago',
-    descripcion: 'PROPONE anular un link de pago que todavía no se pagó: deja de poder pagarse desde MaKo (en Stripe además vence el checkout). Pide antes el cobroId (listar_cobros). Un cobro pagado no se anula: se reembolsa con reembolsar_cobro.',
+    descripcion: 'PROPONE anular un link de pago que todavía no se pagó: deja de poder pagarse desde MaKo, y se cierra también en Stripe o Mercado Pago. Pide antes el cobroId (listar_cobros). Un cobro pagado no se anula: se reembolsa con reembolsar_cobro.',
     escribe: 'marca el cobro anulado en `cobros`, vence el checkout de Stripe y deja historial en el lead',
     parametros: [cobroId()],
     // Pega a Stripe (vence la sesión del checkout): `externo`, no `gratis`.

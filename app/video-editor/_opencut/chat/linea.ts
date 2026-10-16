@@ -931,7 +931,9 @@ export function revisarOperaciones({
 			for (const el of els) {
 				const st = estado.get(el.ref)!;
 				st.borrado = true;
-				cambios.push({ tipo: "quita", titulo: el.titulo, antes: `de ${textoSegundos(st.inicio)} a ${textoSegundos(st.fin)}`, despues: "" });
+				// Como el botón: con «Vinculación», un clip de la principal se lleva lo que tiene encima.
+				const conEncima = el.principal ? " · y lo que tiene encima, si la vinculación está prendida" : "";
+				cambios.push({ tipo: "quita", titulo: el.titulo, antes: `de ${textoSegundos(st.inicio)} a ${textoSegundos(st.fin)}${conEncima}`, despues: "" });
 			}
 			resueltas.push({ op: "borrar", els });
 			continue;

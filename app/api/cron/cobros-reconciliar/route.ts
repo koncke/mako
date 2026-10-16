@@ -7,7 +7,8 @@
 // Pago no manda notificaciones a la notification_url de un pago de PRUEBA, así que probar el flujo
 // entero depende de esto. El cron relee al proveedor los cobros pendientes de los últimos días y
 // aplica lo que la pasarela ya confirmó, y reintenta las altas de MaKo que quedaron en error
-// (`reconciliarCobros`, lib/cobros.ts: idempotente, repasar no duplica nada).
+// (`reconciliarCobros`, lib/cobros.ts: idempotente, repasar no duplica nada). Y una vez por día (la vuelta de las 06:17
+// UTC) pone al día los eventos del aviso de Stripe de cada negocio (`mantenerAvisosStripe`, 15/10/2026).
 //
 // Molde: app/api/cron/meta-leads-poll (la red de seguridad del webhook de Meta).
 //
@@ -21,7 +22,8 @@
 import type { NextRequest } from 'next/server';
 import { checkCronAuth } from '@/lib/cron-auth';
 import { runWithWorkspace } from '@/lib/workspace';
-import { reconciliarCobros, workspacesConPasarela } from '@/lib/cobros';
+import { mantenerAvisosStripe, reconciliarCobros, workspacesConPasarela } from '@/lib/cobros';
+import { esLaVueltaDelDia } from '@/lib/cobros-reglas';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
@@ -51,6 +53,9 @@ export async function GET(req: NextRequest) {
   const giro = workspaces.length ? Math.floor(t0 / 1_800_000) % workspaces.length : 0;
   const orden = [...workspaces.slice(giro), ...workspaces.slice(0, giro)];
 
+  // Una vez por día, además, los avisos de Stripe se ponen al día con los eventos de HOY (los contracargos llegan sin
+  // que MaKo haga nada; un aviso registrado antes de sumarlos no los escucharía). Best effort: nunca corta la corrida.
+  const delDia = esLaVueltaDelDia(t0);
   const resultados: Resultado[] = [];
   const sinTurno: number[] = [];
   for (const ws of orden) {
@@ -58,6 +63,7 @@ export async function GET(req: NextRequest) {
     try {
       const r = await runWithWorkspace(ws, () => reconciliarCobros(ws));
       resultados.push({ ws, ok: true, ...r });
+      if (delDia) await runWithWorkspace(ws, () => mantenerAvisosStripe(ws)).catch((e) => console.warn(`[cron:cobros-reconciliar] ws=${ws} avisos de Stripe:`, msg(e)));
       if (r.cambiados || r.errores) {
         console.log(`[cron:cobros-reconciliar] ws=${ws} revisados=${r.revisados} cambiados=${r.cambiados} errores=${r.errores}`);
       }

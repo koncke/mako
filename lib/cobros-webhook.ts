@@ -26,16 +26,17 @@ import { revalidateTag } from 'next/cache';
 import { credDelCliente, credWsEstricta } from './credenciales';
 import { TAG } from './cache';
 import {
-  aplicarPagoAprobado, aplicarPagoFallido, aplicarReembolso, aplicarSuscripcionCancelada, cobroDelAviso,
+  aplicarContracargo, aplicarPagoAprobado, aplicarPagoFallido, aplicarReembolso, aplicarReembolsoFallido, aplicarSuscripcionCancelada, cobroDelAviso,
 } from './cobros';
 import type { Cobro } from './cobros-tipos';
+import { textoContracargo } from './cobros-reglas';
 import {
-  avisoStripe, buscarDePagoMp, claveEventoMp, confirmarCargo, confirmarCheckout, confirmarFactura, esDelCobro,
+  avisoStripe, buscarDePagoMp, claveEventoMp, confirmarCargo, confirmarCheckout, confirmarDevolucionFallida, confirmarFactura, esDelCobro, faseDeDisputa,
   mismoModo, nombreModo, planDePagoMp, suscripcionMpCancelada, tokenReleido,
   type ClaveCobro, type EventoStripe, type NotificacionMp, type PlanPagoMp, type ResultadoEvento,
 } from './cobros-eventos';
 import {
-  facturaDePagoStripe, leerCargoStripe, leerCheckoutStripe, leerFacturaStripe, leerSuscripcionStripe, modoDeClaveStripe,
+  facturaDePagoStripe, leerCargoStripe, leerCheckoutStripe, leerDisputaStripe, leerFacturaStripe, leerReembolsoStripe, leerSuscripcionStripe, modoDeClaveStripe,
 } from './stripe-api';
 import { leerCuotaSuscripcionMp, leerPagoMp, leerSuscripcionMp, type PagoMp } from './mercadopago-api';
 
@@ -155,16 +156,70 @@ export async function procesarEventoStripe(ws: number, ev: EventoStripe): Promis
     return procesado(c.id);
   }
 
-  // objeto === 'cargo': un reembolso. Se relee el cargo PRIMERO (es lo que dice si fue total), y el
-  // cobro se busca por el payment intent (pago único) o, si no aparece, por la factura que pagó ese
-  // payment intent (una cuota de suscripción: desde basil el cargo ya no trae `invoice`).
+  if (objeto === 'disputa') {
+    // ⚠️ UN CONTRACARGO (15/10/2026). El texto sale de la FASE (el tipo del evento); la plata, de la disputa releída
+    // (`retirada` / `reintegrada`, sus balance_transactions), no del evento: los avisos pueden llegar desordenados.
+    const fase = faseDeDisputa(ev.tipo);
+    if (!fase) return ignorado(`evento ${ev.tipo}: no es de una disputa`);
+    const d = await leerDisputaStripe(key, id);
+    if (!d.ok) throw errorDelProveedor('Stripe', 'la disputa', d);
+    if (!d.cargo) return ignorado('la disputa releída no dice de qué cargo es');
+    const cargo = await leerCargoStripe(key, d.cargo);
+    if (!cargo.ok) throw errorDelProveedor('Stripe', 'el cargo', cargo);
+    const pi = cargo.paymentIntent ?? d.paymentIntent ?? aviso.buscar.pagoId ?? null;
+    const { b, pagoId } = await cobroDelPagoStripe(key, ws, ev, null, pi);
+    if ('ignorar' in b) return b.ignorar;
+    // Una disputa PARCIAL no mueve la cuota (no se parte), y un cargo ya devuelto entero tampoco (la cuota ya salió).
+    const total = d.monto != null && cargo.monto != null && d.monto >= cargo.monto - 0.005;
+    const plataAfuera = !total || cargo.reembolsado ? null : d.retirada && !d.reintegrada;
+    await aplicarContracargo(b.cobro, {
+      fase, texto: textoContracargo({ pasarela: 'stripe', fase, estado: d.estado, razon: d.motivo }),
+      plataAfuera, proveedorPagoId: pagoId, fechaCargo: cargo.creado,
+    });
+    invalidarLecturas();
+    return procesado(b.cobro.id, `contracargo: ${fase}${total ? '' : ' (parcial)'}`);
+  }
+
+  if (objeto === 'reembolso') {
+    // ⚠️ UNA DEVOLUCIÓN QUE FALLÓ (15/10/2026): se relee la devolución (que de verdad falló) y su CARGO, que es lo que
+    // dice si sigue devuelto por otra. Lo que `aplicarReembolso` deshizo, `aplicarReembolsoFallido` lo rehace.
+    const dev = await leerReembolsoStripe(key, id);
+    if (!dev.ok) throw errorDelProveedor('Stripe', 'la devolución', dev);
+    const fallo = confirmarDevolucionFallida(dev);
+    if (!fallo.ok) return ignorado(fallo.motivo);
+    const cargo = await leerCargoStripe(key, fallo.cargo);
+    if (!cargo.ok) throw errorDelProveedor('Stripe', 'el cargo', cargo);
+    const pi = cargo.paymentIntent ?? dev.paymentIntent ?? aviso.buscar.pagoId ?? null;
+    const { b, pagoId } = await cobroDelPagoStripe(key, ws, ev, aviso.buscar.token ?? null, pi);
+    if ('ignorar' in b) return b.ignorar;
+    await aplicarReembolsoFallido(b.cobro, { proveedorPagoId: pagoId, sigueDevuelto: cargo.reembolsado, razon: dev.motivo, fechaCargo: cargo.creado });
+    invalidarLecturas();
+    return procesado(b.cobro.id, cargo.reembolsado ? 'devolución fallida (el cargo sigue devuelto por otra)' : 'devolución fallida');
+  }
+
+  // objeto === 'cargo': un reembolso. Se relee el cargo PRIMERO (es lo que dice si fue total).
   const cargo = await leerCargoStripe(key, id);
   if (!cargo.ok) throw errorDelProveedor('Stripe', 'el cargo', cargo);
   const conf = confirmarCargo(cargo);
   if (!conf.ok) return ignorado(conf.motivo);
   const pi = conf.paymentIntent ?? aviso.buscar.pagoId ?? null;
-  let pagoReembolsado: string | null = pi;
-  let b = await cobroStripe(ws, ev, { token: aviso.buscar.token, pagoId: pi });
+  const { b, pagoId } = await cobroDelPagoStripe(key, ws, ev, aviso.buscar.token ?? null, pi);
+  if ('ignorar' in b) return b.ignorar;
+  await aplicarReembolso(b.cobro, { proveedorPagoId: pagoId, total: conf.total });
+  invalidarLecturas();
+  return procesado(b.cobro.id, conf.total ? null : 'reembolso parcial');
+}
+
+/**
+ * El cobro de un PAGO de Stripe (un reembolso o una devolución fallida): por el payment intent (pago único) o, si no
+ * aparece, por la factura que pagó ese payment intent (una cuota de suscripción: desde basil el cargo ya no trae
+ * `invoice`). Devuelve también el id con que se asentó ese pago en el CRM (el payment intent o la factura).
+ */
+async function cobroDelPagoStripe(
+  key: string, ws: number, ev: EventoStripe, token: string | null, pi: string | null,
+): Promise<{ b: { cobro: Cobro } | { ignorar: ResultadoEvento }; pagoId: string | null }> {
+  let pagoId: string | null = pi;
+  let b = await cobroStripe(ws, ev, { token, pagoId: pi });
   // Sólo si NO apareció (cobroId null): uno que apareció y se ignoró por el modo ya está decidido.
   if ('ignorar' in b && b.ignorar.cobroId == null && pi) {
     const fp = await facturaDePagoStripe(key, pi);
@@ -172,14 +227,11 @@ export async function procesarEventoStripe(ws: number, ev: EventoStripe): Promis
     if (fp.invoice) {
       const f = await leerFacturaStripe(key, fp.invoice);
       if (!f.ok) throw errorDelProveedor('Stripe', 'la factura', f);
-      pagoReembolsado = f.id;
+      pagoId = f.id;
       b = await cobroStripe(ws, ev, { token: tokenReleido({ metadata: f.metadata }), suscripcionId: f.suscripcion, pagoId: f.id });
     }
   }
-  if ('ignorar' in b) return b.ignorar;
-  await aplicarReembolso(b.cobro, { proveedorPagoId: pagoReembolsado, total: conf.total });
-  invalidarLecturas();
-  return procesado(b.cobro.id, conf.total ? null : 'reembolso parcial');
+  return { b, pagoId };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -290,6 +342,15 @@ export async function aplicarNotificacionMp(ws: number, l: LecturaMp): Promise<R
     await aplicarReembolso(c, { proveedorPagoId: pago.id, total: true });
     invalidarLecturas();
     return procesado(c.id);
+  }
+  if (plan.accion === 'contracargo') {
+    // Se CUENTA, sin mover la cuota (`plataAfuera: null`): MP documenta `settled`/`reimbursed` de dos maneras opuestas.
+    await aplicarContracargo(c, {
+      fase: 'mp', texto: textoContracargo({ pasarela: 'mercadopago', fase: 'mp', estado: plan.detalle }),
+      plataAfuera: null, proveedorPagoId: pago.id, fechaCargo: pago.fecha,
+    });
+    invalidarLecturas();
+    return procesado(c.id, `contracargo: ${plan.detalle ?? 'sin detalle'}`);
   }
   return ignorado(plan.motivo, c.id);
 }
