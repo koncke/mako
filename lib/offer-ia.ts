@@ -8,9 +8,11 @@
 //      historial y cae a Sonnet: AGENTS.md «Claude está VETADO» y «Claude es el ÚLTIMO recurso»), con
 //      la lista local gemini → groq → openrouter. SIN OpenAI (cobra contra la key del cliente) y SIN
 //      Mistral (rebota siempre con 429 y fabrica el veredicto «sin cuota»).
-//   2. Si ninguna key del cliente contestó algo usable, la RED DE PLATAFORMA (gemini y groq de la
-//      agencia, `provsGratisDePlataforma`), con el motivo «⚠ red de plataforma» para que se vea en el
-//      Saldo de IA. Molde exacto: app/api/chat-agent/redactar/route.ts.
+//   2. Si ninguna key del cliente contestó algo usable, la RED DE PLATAFORMA: primero el crédito de
+//      Claude de la plataforma, SÓLO si lib/veto-claude.ts lo habilita para esta feature (desde el
+//      16/10/2026, mientras el onboarding esté pendiente: Offer ES el onboarding); después gemini y groq
+//      de la agencia (`provsGratisDePlataforma`), con el motivo «⚠ red de plataforma» para que se vea en
+//      el Saldo de IA. Molde exacto: app/api/chat-agent/redactar/route.ts.
 //   3. El error que lee el cliente sale de `errorDeCascada` con los errores de SUS keys solamente: los
 //      de la red son nuestros y no pueden elegir su texto (AGENTS.md «Los errores de NUESTRAS
 //      credenciales no eligen el texto que lee el cliente»).
@@ -37,7 +39,7 @@ import {
 } from './ai-cheap';
 import { overrideDeFeature } from './model-registry';
 import { renderPrompt, contenidoNoConfiable } from './prompt-render';
-import { wsSuperAdmin } from './workspace';
+import { getWorkspaceActual, wsSuperAdmin } from './workspace';
 import {
   DIMENSION_IDS, MARCO_OFERTA_TEXTO, PIEZAS_MINIMAS, dimensionLabel, piezaLabel,
   type CalculoDiagnostico, type DiagnosticoOferta, type PiezasSabidas, type PropuestaOferta,
@@ -332,6 +334,29 @@ async function pedir<T>(p: Pedido<T>): Promise<ResultadoIA<T>> {
   //    aparte y sólo al log: con ellos se fabricaría el texto que lee el cliente.
   const erroresRed: string[] = [];
   const superWs = await wsSuperAdmin().catch(() => null);
+
+  // 2a) PRIMERO, EL CRÉDITO DE CLAUDE DE LA PLATAFORMA (16/10/2026). Offer pasa a ser EL onboarding y
+  //     Martín habilitó el crédito «SÓLO en onboarding»: quién puede usarlo lo decide la lista de
+  //     lib/veto-claude.ts (CREDITO_HABILITADO_PARA, que mantiene el chat Onboarding, atada a
+  //     onboardingPendiente()). Fuera de esa lista, conCreditoDeLaPlataforma devuelve null y esto no hace
+  //     nada. Va acá y NO pidiéndole `redDePlataforma` a la cascada: esa red vuelve a probar las mismas
+  //     keys gratis que el bucle de abajo (el doble de cuota por minuto de la agencia), usa un solo plazo
+  //     en vez de `hastaRedMs` y no conoce el respaldo flojo. El super admin no: ya probó SUS keys arriba.
+  const wsActual = await getWorkspaceActual().catch(() => null);
+  if (superWs != null && wsActual != null && wsActual !== superWs && p.hastaRedMs - Date.now() >= MIN_INTENTO_MS) {
+    const { conCreditoDeLaPlataforma } = await import('./anthropic');
+    const c = await conCreditoDeLaPlataforma({
+      system: p.system, user: p.user, json: true, maxTokens: p.maxTokens,
+      feature: FEATURE_OFFER, motivo: p.motivo, timeoutMs: Math.min(p.timeoutMs, p.hastaRedMs - Date.now()), wsCliente: wsActual,
+    }).catch(() => null);
+    if (c && 'texto' in c) {
+      validar(c.texto);
+      const valor = v.resultado();
+      if (valor != null) return { ok: true, valor, modelo: 'crédito de Claude de la plataforma' };
+      erroresRed.push('crédito de Claude: contestó y lo descartamos (no tiene la forma pedida)');
+    } else if (c && 'error' in c) erroresRed.push(`crédito de Claude: ${c.error}`);
+  }
+
   const red = superWs != null ? await provsGratisDePlataforma().catch(() => []) : [];
   for (const r of red) {
     const queda = p.hastaRedMs - Date.now();
