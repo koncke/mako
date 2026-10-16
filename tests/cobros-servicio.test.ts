@@ -107,7 +107,7 @@ test('ganar el lead: setPipelineStage con la etapa de SU embudo, nunca `estado_l
   const g = bloque('async function ganarLead(');
   assert.match(g, /const etapa = etapaDeGanado\(await getPipelineStagesDeLead\(lead\)\);/);
   assert.match(g, /await setPipelineStage\(lead\.id, etapa, \{/);
-  assert.match(bloque('export async function aplicarPagoAprobado('), /await ganarLead\(actual, autor\)/);
+  assert.match(bloque('export async function aplicarPagoAprobado('), /await ganarLead\(actual, autor, plazo\)/);
   // En TODO el módulo: escribir estado_lead saltea la cascada de ganar (tests/crm-curso-al-ganar.test.ts).
   assert.doesNotMatch(SRC, /\bestado_lead\s*:/);
 });

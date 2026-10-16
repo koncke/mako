@@ -156,6 +156,19 @@ export function mrrDeLaPasarela(
 }
 
 /**
+ * El fin del PLAZO de una suscripción (15/10/2026): `meses` meses después del arranque, a la misma hora, con el día capado
+ * al último del mes (como factura Stripe una suscripción que arrancó un 31). Es el fin del período N: se cobran N
+ * mensualidades y la N+1 no sale.
+ */
+export function finDelPlazo(inicioMs: number, meses: number): number {
+  const d = new Date(inicioMs);
+  const y = d.getUTCFullYear();
+  const m = d.getUTCMonth() + meses;
+  const ultimo = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
+  return Date.UTC(y, m, Math.min(d.getUTCDate(), ultimo), d.getUTCHours(), d.getUTCMinutes(), d.getUTCSeconds());
+}
+
+/**
  * ¿Es la vuelta del cron de cobros que hace lo de UNA VEZ POR DÍA? El cron corre a los :17 y :47 de cada hora
  * (vercel.json): la de las 06:17 UTC es la única con hora 6 y minuto < 30.
  */

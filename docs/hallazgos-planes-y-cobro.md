@@ -656,6 +656,25 @@ eran sólo retiro, retiro + reintegro, y nada. Hizo falta el caso de un reintegr
 `mantenerAvisosStripe`) · `lib/cobros-reglas.ts` (`textoContracargo`, `esLaVueltaDelDia`) ·
 `app/api/cron/cobros-reconciliar/route.ts` · `tests/contracargos.test.ts`.
 
+### Una suscripción con plazo se cobraba para siempre, y el plazo del lead no sirve para reabrir (15/10/2026)
+
+**Síntoma:** un producto del catálogo «6 meses» (`productos.suscripcion_meses`) se cobraba por la pasarela como
+suscripción sin fin: al séptimo mes la tarjeta del cliente se seguía cobrando.
+**Causa:** los dos checkouts nacían sin fin, y el lead se ganaba con `suscripcion_meses: null`.
+**Regla:** el plazo sale del producto (aunque esté inactivo) y cada pasarela lo lleva a su manera. **Stripe:** Checkout
+no acepta un fin, así que al PRIMER pago se programa `cancel_at` en el fin del período N (el ancla de facturación + N
+meses, día capado como factura Stripe), sin prorrateo: se cobran N mensualidades y la N+1 no sale. Nunca tumba el pago;
+si falla, el cobro dice «cancélala a mano». **Mercado Pago:** nace con `auto_recurring.end_date` un día ANTES de ese
+fin, porque MP cobra desde que la persona autoriza: si autoriza tarde se pierde una mensualidad, no se cobra una de más
+(en lo que es plata ajena, cobrar de menos es el error barato). Sin poder leer el plazo, la suscripción de MP no se
+crea. El lead que se GANA con ese pago lleva el plazo (su `fecha_cierre` es hoy), así el MRR deja de contarla.
+**La trampa:** el plazo del LEAD se cuenta desde su `fecha_cierre`. Un lead que ya era cliente y vuelve con un link de
+suscripción con plazo (`reabrirSuscripcionDelLead`) tiene una fecha de cierre de hace meses: ponerle el plazo lo daba
+por vencido antes de tiempo. Ahí queda sin plazo, y el fin lo marca la pasarela al cancelar.
+**Vive en:** `lib/cobros.ts` (`plazoDelCobro`, `crearCheckout`, `aplicarPagoAprobado` paso 2a, `programarPlazoStripe`,
+`ganarLead`) · `lib/stripe-api.ts` (`programarFinSuscripcionStripe`) · `lib/mercadopago-api.ts` (`crearSuscripcionMp`)
+· `lib/cobros-reglas.ts` (`finDelPlazo`) · `tests/suscripcion-plazo.test.ts`.
+
 ### Cuatro «decisiones de Martín» que no eran suyas (15/10/2026)
 
 La tabla de abajo tenía seis filas marcadas «decisión de Martín». Pasadas por la vara de AGENTS.md (lo que copia lo que
@@ -702,8 +721,7 @@ implementación en un worktree propio (`C:/dev/wt-pagos`) y una rama aparte para
 | `funnel_id` en el motor de nutrición y en el CRM automático | mig 0170, `lib/nutricion*.ts`, `lib/crm-auto.ts` |
 | Contraseña o segundo proveedor de login | `app/api/auth/callback/google/route.ts` |
 | Atribución de referidos (`workspaces.origen = 'referido:<ws>'`), sólo con Paddle cobrando y 5+ referidos pagando | `embudo-y-high-ticket.md:401`, [referidos.md](referidos.md) § 6 |
-| **Pasarela:** probar con claves REALES — si una clave restringida (`rk_`) puede leer `GET /v1/account` y si la `notification_url` de MP llega firmada; y si MP respeta el vencimiento de una preferencia que se anuló con el checkout ya abierto (`vencerPreferenciaMp`) | `lib/cobros-conexion.ts`, `lib/metodo-catalogo.ts` (tutorial), `app/api/webhooks/mercadopago/route.ts` |
-| **Pasarela:** un producto de suscripción con plazo (`suscripcion_meses`) se cobra como suscripción sin fin | `lib/cobros.ts`, `lib/stripe-api.ts` |
+| **Pasarela:** probar con claves REALES — si una clave restringida (`rk_`) puede leer `GET /v1/account` y si la `notification_url` de MP llega firmada; y si MP respeta el vencimiento de una preferencia que se anuló con el checkout ya abierto (`vencerPreferenciaMp`); y en qué estado queda una suscripción de MP al llegar su `end_date` (si sigue `authorized`, `mrrDeLaPasarela` la contaría después del plazo) | `lib/cobros-conexion.ts`, `lib/metodo-catalogo.ts` (tutorial), `app/api/webhooks/mercadopago/route.ts` |
 | **Pasarela:** precios en moneda local en el catálogo (para que la API y las automatizaciones creen links de Mercado Pago) | `lib/productos.ts`, `lib/api-mako/areas/cobros.run.ts` |
 | **Pasarela:** un contracargo de Mercado Pago se cuenta pero NO mueve la cuota: falta medir con las claves de prueba qué dice `coverage_applied` (GET del contracargo, otro tópico de aviso) y qué significan de verdad `settled`/`reimbursed` | `lib/cobros-eventos.ts` (`planDePagoMp`), `lib/cobros-webhook.ts`, `lib/mercadopago-api.ts` |
 | **Pasarela:** `crear_link_pago` en la lista corta del «⚡ Acción» (necesita un control propio para el producto del catálogo) | `lib/editor-acciones.ts` |

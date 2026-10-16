@@ -106,14 +106,18 @@ export async function crearPreferenciaMp(
  */
 export async function crearSuscripcionMp(
   token: string,
-  p: { idem: string; concepto: string; monto: number; moneda: string; email: string; token: string; volverUrl: string },
+  p: { idem: string; concepto: string; monto: number; moneda: string; email: string; token: string; volverUrl: string; finAt?: string | null },
 ): Promise<R<{ id: string; url: string }>> {
   const r = await llamar(token, 'POST', '/preapproval', {
     reason: p.concepto.slice(0, 200),
     external_reference: p.token,
     payer_email: p.email,
     back_url: p.volverUrl,
-    auto_recurring: { frequency: 1, frequency_type: 'months', transaction_amount: Math.round(p.monto * 100) / 100, currency_id: p.moneda.toUpperCase() },
+    auto_recurring: {
+      frequency: 1, frequency_type: 'months', transaction_amount: Math.round(p.monto * 100) / 100, currency_id: p.moneda.toUpperCase(),
+      // El PLAZO de un producto con fin (15/10/2026): sin `end_date` se cobraba para siempre.
+      ...(p.finAt ? { end_date: p.finAt } : {}),
+    },
     status: 'pending',
   }, p.idem);
   if (!r.ok) return fallo(r);
