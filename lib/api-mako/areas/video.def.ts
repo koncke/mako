@@ -9,9 +9,11 @@
 // El área es /video-generator: un guion ya escrito se reparte en tomas, cada
 // escenario tiene su imagen en Google Flow, se filma toma por toma con los créditos
 // de la suscripción del CLIENTE y un worker propio monta el anuncio.
-// Una sola operación es del Video EDITOR (/video-editor): listar_plantillas_video, el
-// catálogo de sus plantillas de anuncio. Del editor no hay más: sus proyectos viven en el
-// navegador (docs/hallazgos-video-editor.md → «La API de MaKo y el chat al costado»).
+// Del Video EDITOR (/video-editor) hay tres lecturas: listar_plantillas_video (el catálogo de
+// sus plantillas de anuncio) y, desde el 16/10/2026, listar_proyectos_video y ver_proyecto_video,
+// que leen la COPIA que el editor sube de cada proyecto (mig 0299, lib/editor-video/espejo.ts):
+// los proyectos viven en el navegador (docs/hallazgos-video-editor.md → «La API de MaKo y el
+// chat al costado»), así que nada de acá escribe una línea de tiempo.
 //
 // ⚠️ EN v1 ENTRAN SOLO LECTURAS. Todo lo que encola, genera, regenera, monta o
 // reintenta queda afuera (veredicto §8 de docs/api-mako-diseno.md): gasta créditos
@@ -133,6 +135,20 @@ export const DEFS: readonly OperacionDef[] = [
     titulo: 'Plantillas de anuncio del editor',
     descripcion: 'El catálogo de plantillas de anuncio vertical (9:16) del Video Editor (/video-editor): id, nombre, qué es, cuánto dura y sus huecos, primero las sugeridas para este negocio (con su porqué en "sugerida"). Un hueco de clip se llena con un video o una foto (con los segundos que pide: un video más corto no entra; una foto sirve siempre; uno opcional puede quedar con su muestra); uno de texto, con hasta su máximo de caracteres (trae el texto de ejemplo). Usar una plantilla NO se puede por la API: el proyecto vive en el navegador de quien edita. Se usa en el editor, en la pestaña Plantillas o pidiéndoselo al chat «Editar con IA».',
     parametros: [],
+    salida: 'json', canales: TODOS, costo: 'gratis', gating: GATING_EDITOR,
+  },
+  {
+    id: 'listar_proyectos_video', area: 'video', tipo: 'lectura',
+    titulo: 'Proyectos del Video Editor',
+    descripcion: 'Los proyectos del Video Editor (/video-editor) de este negocio, del más reciente al más viejo: id, nombre, duración, cuándo se editó por última vez y el link para abrirlo. Es una COPIA que el editor sube mientras se edita: el proyecto vive en el navegador de quien lo edita, así que lo último puede tardar unos segundos en aparecer, y uno que no se abrió desde el 16/10/2026 todavía no está. El link lo abre en ese navegador; en otro, el editor no lo tiene. Para ver la línea de tiempo de uno, ver_proyecto_video.',
+    parametros: [],
+    salida: 'json', canales: TODOS, costo: 'gratis', gating: GATING_EDITOR,
+  },
+  {
+    id: 'ver_proyecto_video', area: 'video', tipo: 'lectura',
+    titulo: 'Línea de tiempo de un proyecto',
+    descripcion: 'La línea de tiempo de un proyecto del Video Editor, tal como la lee su chat «Editar con IA»: la duración total, el lienzo, las pistas (la principal marcada) con cada elemento —su ref corta (v1 video, i2 foto, t3 texto, a4 audio, s5 sticker…), inicio y fin en segundos, el texto o el nombre, el volumen y lo que tiene puesto (transición, animación, filtro, estilo)—, los medios de Multimedia (m1, m2…) y los nombres disponibles (transiciones, animaciones, filtros, efectos, curvas de velocidad, fuentes). Es la copia que subió el editor (dice cuándo): cambiarla no se puede desde aquí, porque el proyecto vive en el navegador de quien lo edita; se cambia en el editor o pidiéndoselo a su chat. Si el proyecto es muy grande, avisa en vez de mandarla.',
+    parametros: [{ nombre: 'proyecto', rotulo: 'Proyecto', tipo: 'string', obligatorio: true, max: 100, descripcion: 'El id del proyecto (de listar_proyectos_video).' }],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: GATING_EDITOR,
   },
   {

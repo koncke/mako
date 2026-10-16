@@ -146,9 +146,16 @@ export function decidir(pasos: Paso[], est: EstadoCorrida): Decision {
   // LA CONDITION DE UN EVENTO DE MAKO: una sola salida. Se cumple con los hechos del lead → sigue; no, o sin
   // hechos → termina. «No sé» no es «sí»: mandarle al grupo lo de una rama que no se pudo decidir sería
   // afirmar algo del lead que nadie miró.
+  // ⚠️ CON «SI NO» (16/10/2026, `siNo`): si no se cumple, a la salida siguiente; siempre HACIA ADELANTE (un salto atrás sería
+  // una vuelta, y `pasosDelEvento` no la arma). Sin él, como siempre: termina.
+  // ⚠️ Y SIN HECHOS (no hay lead que leer, o ya no está) TERMINA, también con «Si no» (revisión del 16/10/2026): ir al «Si
+  // no» era mandar «sigue sin pagar» de un lead que nadie miró. El «Si no» es para «miré y no se cumple».
   if (paso.tipo === 'condicion') {
-    return est.hechos && cumpleRama(paso.rama, est.hechos) ? { que: 'saltar', siguiente: est.paso + 1 } : { que: 'terminar' };
+    if (!est.hechos) return { que: 'terminar' };
+    if (cumpleRama(paso.rama, est.hechos)) return { que: 'saltar', siguiente: est.paso + 1 };
+    return paso.siNo != null && paso.siNo > est.paso ? { que: 'saltar', siguiente: paso.siNo } : { que: 'terminar' };
   }
+  if (paso.tipo === 'fin') return { que: 'terminar' };
 
   return { que: 'ejecutar', paso, siguiente: est.paso + 1 };
 }

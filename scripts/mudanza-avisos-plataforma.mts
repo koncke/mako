@@ -10,7 +10,9 @@
 //   3. la prende por la MISMA puerta que «Activar» (`setSecuenciaActiva`, que valida lo mismo que Publicar).
 // ⚠️ VA DESPUÉS DEL DEPLOY del código de cada evento (la línea: 729789dfa; Fathom: 16fa52568 y la firma efcc58d46; el
 // reporte semanal y «MaKo por email»: el commit que los suma). Con el código de antes, el evento no existe y la fila no
-// correría. Antes de la fila, el aviso sale como siempre (`sinFila`); desde la fila, sólo por ella. Ni hueco ni doble.
+// correría. ⚠️ Desde el 16/10/2026 (7b2bc409a) no hay camino viejo: sin la fila, el aviso NO sale. Para un evento cuyo aviso
+// el código de producción todavía manda por su lado (la alerta de anuncios antes de B3), crear la fila ANTES del deploy no
+// cambia nada (ese código no la lee) y deja el evento cubierto apenas se despliega.
 //
 //   node --conditions react-server --import tsx scripts/mudanza-avisos-plataforma.mts             → SIMULACRO (default)
 //   node --conditions react-server --import tsx scripts/mudanza-avisos-plataforma.mts --aplicar   → escribe
@@ -36,6 +38,9 @@ const TODOS: ReadonlyArray<{ plantilla: string; evento: string }> = [
   { plantilla: 'mako-reunion-grabada', evento: 'reunion_grabada' },
   { plantilla: 'mako-reporte-semanal', evento: 'reporte_semanal' },
   { plantilla: 'mako-oferta-lista', evento: 'oferta_lista' },
+  // 16/10/2026, lote 1 de docs/inventario-nada-por-detras.md: la alerta de la cuenta publicitaria, con su techo.
+  { plantilla: 'mako-meta-cuenta-frenada', evento: 'meta_cuenta_frenada' },
+  { plantilla: 'mako-meta-cuenta-recuperada', evento: 'meta_cuenta_recuperada' },
 ];
 // POR TANDAS DE DEPLOY (16/10/2026): la fila de un evento cuyo código todavía no está en producción no correría, así
 // que se mudan sólo los desplegados. Sin `--eventos`, todos.

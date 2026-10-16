@@ -9337,3 +9337,60 @@ una oferta (opcional, nace vacío y la siembra del brief no lo escribe). Un lect
 negocio lee eso, no el `unico` de un producto.
 *16/10/2026, claude3 (chat Dashboard).*
 
+## La ficha personalizable POR TAB: lo que no se ve en el código (16/10/2026)
+
+El marco de la ficha v2 (rama `crm-ficha-v2`): cada tab con su galería de plantillas, su nombre, su vista épica y
+«¿Qué vas a crear hoy?». El motor es lib/ficha/plantillas-tab.ts y lib/ficha/config.ts; la pantalla,
+app/crm/lead-view/ficha/ (GaleriaTab.tsx, galeria.ts).
+
+- **«Usar la sugerida» TIENE que escribir, aunque sea la que ya se ve.** `normalizar` borra todo lo que coincide con la
+  plantilla, y una tab sin nada guardado es «sin configurar»: la galería se volvería a abrir sola para todos los admins.
+  Por eso la plantilla de tab elegida a mano queda aunque sea la de entrada (la misma regla que la plantilla del
+  funnel), y lo que arma MaKo (`armar`) deja fija la plantilla de la tab aunque arme lo mismo que traía.
+- **«Ahora no» NO se guarda en el funnel.** Cerrar no es elegir: escribirlo cambiaría la ficha de todos y la API la
+  vería «configurada». Vive en el navegador (`mako.ficha.galeria-cerrada.<funnel>.<tab>`): otro admin, u otro
+  navegador, la ve una vez más. Es a propósito.
+- **La de entrada de cada tab es la que ya se veía.** Las plantillas de tab «de hoy» salen partiendo las del funnel
+  por tab, y dos tipos con la MISMA lista son una sola (Tracking de las dos de llamada: «Llamada»). Si la de entrada
+  la eligiera otra regla (la épica primero, por ejemplo), cambia lo que ven todos los funnels que nadie tocó: lo fija
+  tests/ficha-tabs.test.ts («LA DE ENTRADA ES LA QUE YA SE VEÍA»).
+- **La plantilla de una tab no toca los avisos.** «Datos sin marcar» sigue saliendo de la plantilla del FUNNEL: elegir
+  «En blanco» para Pagos no apaga el aviso del monto. Cambia lo que se ve, no lo que falta.
+- **`sugeridaPara` también decide la DE ENTRADA, y eso cambió la tab Pagos de todos al llegar las de Pagos.** Un no-admin
+  ve la sugerida, y «Usar la sugerida» guarda la misma: si la de entrada fuera otra, la tarjeta «Sugerido» diría una
+  cosa y la tab mostraría otra. Al mergear lib/ficha/plantillas-pagos.ts (cuatro plantillas que cubren los nueve
+  tipos), la tab Pagos de un funnel sin tocar pasó de la lista de Pagos de su plantilla de funnel a la plantilla de
+  Pagos de su tipo (Formulario de Meta: «Cobrar una venta», que trae cuotas). Las listas de Pagos de
+  lib/ficha/plantillas.ts quedan para los AVISOS (qué dato nace apagado) y de respaldo para un tipo que ninguna nombre.
+  Lo vio tests/ficha-config.test.ts, que usaba `cuotas` como «no está puesto» en Formulario de Meta.
+- **El guard «todo lo que hace Personalizar lo hace MaKo» sólo veía ops en minúsculas** (`/\bop: '([a-z]+)'/`, en
+  tests/ficha-api.test.ts): un op `nombreTab` habría pasado sin que nadie lo viera, y la galería no estaba en su lista
+  de archivos. **Regla:** un op de `CambioFicha` es UNA palabra en minúsculas (`nombre`, `epica`, `armar`; la plantilla
+  de una tab es `plantilla` con `tab`), y un archivo nuevo de la ficha que mande cambios se suma a esa lista.
+- **cambiar_ficha_funnel tiene tope (3.796 caracteres) y se paga.** Sumar `nombre` y `epica` se pagó sacándole el enum a
+  `plantilla` (ahora acepta también las de tab, que crecen con las de Pagos, y la traducción valida y devuelve las que
+  hay): quedó en 3.641, MENOS que antes. La operación nueva (`armar_tab_ficha`) va al FINAL de las del CRM: el
+  presupuesto del turno de WhatsApp ordena por relevancia y, empatadas, por declaración; declarada antes de las
+  heredadas les come lugar en un mensaje que no la nombra (lo fija tests/ficha-tabs.test.ts).
+- **Cuatro tests leían el rótulo de una tab como `label: '…'` literal** (crm-ficha-y-selector ×2, lead-cabecera,
+  ficha-avisos con la firma de PanelFicha). Con el nombre por funnel las tabs se declaran con `deTab('<tab>')` y su
+  nombre de siempre es `NOMBRE_TAB`; se reescribieron para leer eso, con su rotura medida. Antes de cambiar cómo se
+  declara una tab: `grep -l "label: '" tests/`.
+- **El banco del navegador recuerda «Ahora no» entre escenas**: el perfil de Chrome conserva el localStorage, y la
+  segunda escena ya no veía la galería. Cada escena limpia el almacenamiento y recarga.
+
+**Lo que quedó SIN hacer:**
+- Mirarla con datos reales en el ws 3 con sesión de super admin (se miró en el banco: las dos puertas reales con datos
+  de mentira, a 1440, 1024, 820 y 390, táctil en las dos de tablet). Y la caja contra la IA de verdad (en el banco la
+  ruta estaba simulada).
+- La vista épica por DENTRO de cada bloque: el marco pasa `epico` y da el aire y el titular; cada bloque decide cómo se
+  agranda (el contenido del Resumen es del frente siguiente; Pagos, del chat Pagos).
+- Las sugeridas de la ficha usan el TIPO del funnel (`sugeridasDeTab`), no las señales del negocio del módulo compartido
+  (lib/plantillas-sugeridas.ts): la ficha es de UN funnel y su tipo ya es lo analizado de ese funnel. Si se suma la
+  oferta (el cobro), entra por `sugeridasDeTab` y por ningún otro lado.
+
+**Vive en:** lib/ficha/plantillas-tab.ts · lib/ficha/plantillas-pagos.ts · lib/ficha/config.ts · lib/ficha/ia.ts ·
+lib/ficha/ia-generar.ts · app/api/crm/ficha/armar/route.ts · app/crm/lead-view/ficha/galeria.ts · GaleriaTab.tsx ·
+FichaPorBloques.tsx · PanelFicha.tsx · app/crm/lead-view/LeadTabs.tsx · tests/ficha-tabs.test.ts ·
+tests/ficha-galeria.test.ts.
+*16/10/2026, frente «marco» de la ficha v2 (claude3).*

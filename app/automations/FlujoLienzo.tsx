@@ -108,7 +108,7 @@ import { EditorMensajeSocial, CabeceraSocialPanel } from './EditorMensajeSocial'
 // El ícono de cada CRON de la tarjeta (sexta tanda, CRON 10): el de su clase, como en el panel.
 import { IconoDisparador } from './IconosDisparador';
 import { EVENTOS_MAKO, TRIGGER_AVISO_MAKO, type ClaseDisparador, type SubtipoMako } from '@/lib/disparadores';
-import { datosDeLaPersona } from '@/lib/aviso-evento';
+import { condicionesDelEvento, datosDeLaPersona } from '@/lib/aviso-evento';
 // El chip «Sin conectar» de una tarjeta (décima tanda, GENERAL 6) y el modal que conecta ahí mismo.
 import { ConectarMedio, useEstadoMedios } from './ConectarMedio';
 import { chipDeTarjeta, lineaDePaso, mediosQueUsa, MOTIVO_MEDIO, type Medio } from '@/lib/medios-automatizacion';
@@ -1087,7 +1087,9 @@ function EditorDeNodo(pr: PropsEditor) {
           ambito={ambitoDeDisparo(pr.triggerTipo)} etapas={pr.etapas} productos={pr.productos ?? []} busy={pr.busy}
           onAgregarRama={() => pr.onPasos((prev) => agregarRama(prev, id), true)}
           onQuitarRama={(ramaId) => pr.onPasos((prev) => quitarRama(prev, id, ramaId), true)}
-          onPasarARespuesta={pasarARespuesta} />
+          onPasarARespuesta={pasarARespuesta}
+          // Los DATOS DEL EVENTO (16/10/2026): en una fila de evento, lo que ese evento trae y se pregunta.
+          datos={pr.eventoMako ? condicionesDelEvento(pr.eventoMako) : null} />
       );
     }
     case 'respuesta': {

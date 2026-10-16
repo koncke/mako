@@ -122,11 +122,17 @@ export type Paso =
   | { tipo: 'insistir'; texto: string; cadaMin: number; veces: number }
   /**
    * LA CONDITION DE UN EVENTO DE MAKO (11/10/2026, lib/aviso-evento.ts `pasosDelEvento`): la rama de la tarjeta
-   * CONDITION del lienzo de las automatizaciones, sobre los hechos del LEAD (`cumpleRama`). Se cumple, sigue;
-   * no —o no se sabe—, la corrida termina (`decidir`, lib/flujo-pasos.ts). SÓLO la arma la traducción de una
+   * CONDITION del lienzo de las automatizaciones, sobre los hechos del LEAD (`cumpleRama`) o los DATOS DEL EVENTO
+   * (16/10/2026, lib/dato-evento.ts). Se cumple, sigue; no —o no se sabe—, salta a `siNo` (la salida siguiente o el «Si
+   * no», 16/10/2026) o, sin él, la corrida termina (`decidir`, lib/flujo-pasos.ts). SÓLO la arma la traducción de una
    * fila de evento: en el store de /mensajes no entra (`esFlujoValido`).
    */
-  | { tipo: 'condicion'; rama: RamaCondicion }
+  | { tipo: 'condicion'; rama: RamaCondicion; siNo?: number }
+  /**
+   * EL FINAL DE UNA SALIDA (16/10/2026): una CONDITION de un evento con «Si no» o con varias salidas se escribe en fila
+   * (`pasosDelEvento`, lib/aviso-evento.ts), y cada salida termina acá para no seguir con la de al lado.
+   */
+  | { tipo: 'fin' }
   /**
    * «EMAIL A LA PERSONA» DE UN EVENTO DE UNA PERSONA (15/10/2026, `EventoMako.persona`, lib/disparadores.ts): un mail
    * a un USUARIO de MaKo (`datos.usuario_id`), por el remitente de MaKo. A dónde, lo decide `destinoDeUsuario` con el
@@ -291,6 +297,7 @@ export function describirPaso(p: Paso): string {
     return p.condicion === 'contestaron' ? 'Si alguien contestó en el grupo' : 'Si nadie contestó';
   }
   if (p.tipo === 'condicion') return 'Si se cumple la condición';
+  if (p.tipo === 'fin') return 'Fin';
   return `Esperar ${p.horas}h`;
 }
 
@@ -305,7 +312,7 @@ export function esFlujoValido(x: unknown): x is Flujo {
   if (!x || typeof x !== 'object') return false;
   const f = x as Flujo;
   return f.version === 1 && typeof f.activo === 'boolean' && !!f.disparador && Array.isArray(f.pasos)
-    && !f.pasos.some((p) => (p as { tipo?: unknown } | null)?.tipo === 'condicion');
+    && !f.pasos.some((p) => ['condicion', 'fin'].includes(String((p as { tipo?: unknown } | null)?.tipo)));
 }
 
 // ── CADA CUÁNTO INSISTE, EN UNIDADES QUE ALGUIEN PUEDE ELEGIR ──────────────

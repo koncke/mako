@@ -11,6 +11,9 @@
 // su marco y su rótulo; un clic lo elige y le pone su barra (arrastrar, ancho, diseño, ícono, quitar); se
 // arrastra para reordenar; y lo de adentro no se toca (`inert`): personalizar no es editar el lead.
 //
+// LA TAB ÉPICA (16/10/2026): con `epico`, la grilla reparte menos por fila (./armar.ts) y cada bloque recibe
+// `epico: true` para dibujarse en grande (./tipos.ts). El aire y el titular los pone ./FichaPorBloques.tsx.
+//
 // ⚠️ EL ARRASTRE (AGENTS.md, «En HTML5 drag-and-drop, el navegador saca la FOTO al terminar tu handler»):
 //    la marca del que se arrastra va en un `setTimeout(0)`, no adentro del `dragstart`, y a su caja no se le
 //    toca el tamaño. El `dragover` sólo cambia el estado cuando cambia el destino (no 60 veces por segundo), y
@@ -32,7 +35,7 @@ import type { CtxFicha } from './tipos';
 
 type Soltar = { indice: number; lado: 'antes' | 'despues' };
 
-export function Armador({ tab, lista, ctx, editando, sel, onSel, onCambio, onAgregar, dispositivo = 'escritorio' }: {
+export function Armador({ tab, lista, ctx, editando, sel, onSel, onCambio, onAgregar, epico = false, dispositivo = 'escritorio' }: {
   tab: TabFicha;
   /** La lista ENTERA de la tab (la ficha efectiva del funnel), con lo que no se dibuja. */
   lista: readonly BloquePuesto[];
@@ -44,6 +47,8 @@ export function Armador({ tab, lista, ctx, editando, sel, onSel, onCambio, onAgr
   onCambio: (c: CambioFicha) => void;
   /** Abre «Agregar bloque» anclado al botón que lo pidió. */
   onAgregar?: (ancla: HTMLElement) => void;
+  /** La tab va épica: menos bloques por fila y cada bloque en grande. */
+  epico?: boolean;
   /** La vista por dispositivo de «Personalizar»: sólo decide hacia dónde va la raya de soltar. */
   dispositivo?: DispositivoFicha;
 }) {
@@ -52,6 +57,7 @@ export function Armador({ tab, lista, ctx, editando, sel, onSel, onCambio, onAgr
     vacio: (p, r) => !!r.estaVacio?.(ctx, p),
     editando,
     verPrivado: ctx.verPrivado,
+    epico,
   });
   const [arrastrando, setArrastrando] = useState<number | null>(null);
   const desdeRef = useRef<number | null>(null);
@@ -158,7 +164,7 @@ export function Armador({ tab, lista, ctx, editando, sel, onSel, onCambio, onAgr
         <div className="fb-cuerpo" inert={editando || undefined}>
           {b.vacio
             ? <div className="fb-vacio">Sin datos en este lead</div>
-            : <Componente ctx={ctx} puesto={b.puesto} def={b.def} tab={tab} titulo={titulo} diseno={disenoADibujar(b.puesto, b.def, b.reglas)} ancho={b.puesto.ancho} icono={icono} editando={editando} />}
+            : <Componente ctx={ctx} puesto={b.puesto} def={b.def} tab={tab} titulo={titulo} diseno={disenoADibujar(b.puesto, b.def, b.reglas)} ancho={b.puesto.ancho} icono={icono} editando={editando} epico={epico} />}
         </div>
       </div>
     );

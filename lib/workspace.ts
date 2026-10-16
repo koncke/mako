@@ -223,6 +223,11 @@ const TENANT_TABLES = new Set<string>([
   // El Image Editor (la copia de Canva, mig 0278): los diseños y «Subidos». N filas por workspace:
   // sin esta línea el inicio del editor de un negocio listaría los diseños de TODOS.
   'image_disenos', 'image_subidos',
+  // El hilo del chat «Editar con IA» del Video Editor (mig 0298): una fila por persona y proyecto,
+  // N por workspace. Sin esta línea un negocio podría leer el hilo de otro con el mismo proyecto.
+  'video_editor_chats',
+  // La copia de lectura de cada proyecto del Video Editor, para la API de MaKo (mig 0299): N por workspace.
+  'video_editor_proyectos',
   // Canal Instagram vía Zernio (mig 0136). La tab se retiró el 06/10/2026 y ya no
   // las lee ni las escribe nadie, pero las TABLAS quedan en la base (sin migración
   // de drop), así que siguen acá: si alguien vuelve a leerlas por getTenantDb, que

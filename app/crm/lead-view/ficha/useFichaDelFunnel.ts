@@ -17,7 +17,7 @@ import { crearGuardado, type EstadoGuardado, type Guardado } from './guardado-fi
 
 /** Lo que cambia los AVISOS de «datos sin marcar»: después de guardarlo, la cabecera se recuenta. */
 export const cambiaAvisos = (c: CambioFicha): boolean =>
-  c.op === 'aviso' || c.op === 'avisos' || c.op === 'plantilla' || c.op === 'restaurar' || (c.op === 'volver' && !c.tab);
+  c.op === 'aviso' || c.op === 'avisos' || (c.op === 'plantilla' && !c.tab) || c.op === 'restaurar' || (c.op === 'volver' && !c.tab);
 
 export function useFichaDelFunnel(base: FichaDelFunnel | null, o: { onGuardado: (c: CambioFicha) => void; onError: (msg: string) => void }) {
   // Lo de esta sesión gana sobre lo que trajo la ficha mientras sea el MISMO funnel: una relectura que

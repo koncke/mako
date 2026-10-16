@@ -35,15 +35,28 @@
 //    de la otra: aplicar al volver la respuesta podría reemplazar secciones de OTRA página. Se
 //    compara la página de la propuesta con la viva (por un getter: el `ctx` de un render viejo
 //    miente después de un `await`).
+//
+// LOS PEDIDOS SUELTOS (Martín, 16/10/2026, textual en docs/diseno-mako-pedidos.md: «Feedback sobre lo
+// actual... Y luego y también quiero que me crees otra landing para mi otro producto...»). Antes de
+// «editar», el mensaje pasa por POST /api/mako/pedidos (`pedirPedidos`, con su plazo): lo de la
+// landing abierta sigue a «editar» como siempre y lo demás queda en el hilo como burbujas de MaKo
+// con sus botones (crear otra landing, mandar OTRA a la Papelera, abrir otra, ir a otra tab). Lo
+// que se dibuja y lo que hace cada botón es puro: ../pedidos-chat.ts, con test. Si la ruta falla o
+// tarda, el mensaje ENTERO va a «editar»: el chat hace lo de antes. Las sugerencias son pedidos
+// NUESTROS, de edición: no se interpretan.
 // =============================================================================
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type RefObject } from 'react';
 import type { Editor } from '@tiptap/react';
-import Link from '@/app/_ui/Link';
+import Link, { useRouter } from '@/app/_ui/Link';
 import { useEditorLanding, type CtxEditorLanding } from '../contexto';
 import { esPresentacion, formatoDe, terminoTarjeta, type ConfigLanding } from '@/lib/editor-landing/api-tipos';
 import type { JsonNodo } from '@/lib/editor-landing/doc';
-import { cortadoPorUsuario, pedirDocs, pedirIA } from '../../cliente';
+import { PLAZO_PEDIDOS_MS, cortadoPorUsuario, pedirDocs, pedirIA, pedirPedidos } from '../../cliente';
+import {
+  CLAVE_CAJA, RUTA_CREAR, alTerminar, alVolver, burbujasDe, cajaParaCrear, cuerpoPedidos, interpretacionDe, pulsar, sinTerminar,
+  textoActual, trasNoAbrir, trasPapelera, trasRestaurar, vistaDeBurbuja, type BurbujaPedido, type EfectoPedido,
+} from '../pedidos-chat';
 import { urlFuentes, type Tema } from '@/lib/editor-landing/temas';
 import { htmlDeTarjeta } from '@/lib/editor-landing/render';
 import { CSS_CONTENIDO } from '@/lib/editor-landing/css';
@@ -387,7 +400,9 @@ export function RevisionPropuesta({ propuesta, estado, aviso, onAceptar, onAplic
 
 type Mensaje =
   | { id: number; de: 'yo'; texto: string; seccion: string | null }
-  | { id: number; de: 'mako'; texto: string; error?: boolean; propuesta?: Propuesta; estado?: EstadoPropuesta; aviso?: string; aplicada?: Aplicada };
+  | { id: number; de: 'mako'; texto: string; error?: boolean; propuesta?: Propuesta; estado?: EstadoPropuesta; aviso?: string; aplicada?: Aplicada }
+  /** Un pedido que NO es de la landing abierta (../pedidos-chat.ts): una burbuja de MaKo con sus botones. */
+  | { id: number; de: 'pedido'; burbuja: BurbujaPedido };
 
 type Hilo = { mensajes: Mensaje[]; corriendo: boolean };
 const HILO_VACIO: Hilo = { mensajes: [], corriendo: false };
@@ -403,6 +418,29 @@ function cambiarHilo(docId: number, f: (h: Hilo) => Hilo) {
 function cambiarMensaje(docId: number, id: number, cambio: Partial<Extract<Mensaje, { de: 'mako' }>>) {
   cambiarHilo(docId, (h) => ({ ...h, mensajes: h.mensajes.map((m) => (m.id === id && m.de === 'mako' ? { ...m, ...cambio } : m)) }));
 }
+function cambiarBurbuja(docId: number, id: number, f: (b: BurbujaPedido) => BurbujaPedido) {
+  cambiarHilo(docId, (h) => ({ ...h, mensajes: h.mensajes.map((m) => (m.id === id && m.de === 'pedido' ? { ...m, burbuja: f(m.burbuja) } : m)) }));
+}
+const comoMensajes = (bs: readonly BurbujaPedido[]): Mensaje[] => bs.map((burbuja) => ({ id: ++ultimoId, de: 'pedido', burbuja }));
+
+/**
+ * Un clic en un botón de una burbuja de pedido. Lee la burbuja del STORE, no la del render: el cambio de estado
+ * es sincrónico, así que un segundo clic (aunque llegue antes de dibujar) ya la ve apagada y no repite la acción.
+ */
+function pulsarEnHilo(docId: number, id: number, boton: string): EfectoPedido | null {
+  const mensajes = hilos.get(docId)?.mensajes ?? [];
+  const m = mensajes.find((x) => x.id === id);
+  if (!m || m.de !== 'pedido') return null;
+  // «¿Terminamos esto y después…?» → «Sí» con un cambio sin aceptar ni descartar: la creación espera a que termine.
+  const r = pulsar(m.burbuja, boton, docId, { sinTerminar: mensajes.some((x) => x.de === 'mako' && sinTerminar(x.estado)) });
+  if (r.burbuja !== m.burbuja) cambiarBurbuja(docId, id, () => r.burbuja);
+  if (r.efecto?.tipo === 'agregar') {
+    const nueva = r.efecto.burbuja;
+    cambiarHilo(docId, (h) => ({ ...h, mensajes: [...h.mensajes, ...comoMensajes([nueva])] }));
+  }
+  return r.efecto;
+}
+
 const suscribir = (f: () => void) => { oyentes.add(f); return () => { oyentes.delete(f); }; };
 function useHilo(docId: number): Hilo {
   return useSyncExternalStore(suscribir, () => hilos.get(docId) ?? HILO_VACIO, () => HILO_VACIO);
@@ -421,12 +459,20 @@ export function tituloVivo(editor: Editor | null, id: string | null): string | n
   return titulo;
 }
 
-/** Manda una instrucción al agente. Corre afuera del componente: su respuesta cae en el store. */
-async function pedirEdicion(ctx: CtxEditorLanding, instruccion: string, alcance: 'landing' | 'seccion'): Promise<void> {
+/**
+ * Manda una instrucción al agente. Corre afuera del componente: su respuesta cae en el store.
+ *
+ * Primero QUÉ se pide (`pedirPedidos`, mientras el hilo dice «Pensando» como siempre): lo de esta landing va a
+ * «editar» con su texto; lo demás, como burbujas debajo de la respuesta («se contesta lo actual y se propone lo
+ * otro»). Sin nada de esta landing, no se llama a «editar». `interpretar: false` = un pedido NUESTRO (una
+ * sugerencia), que es de edición por definición y no gasta la vuelta.
+ */
+async function pedirEdicion(ctx: CtxEditorLanding, instruccion: string, alcance: 'landing' | 'seccion', op: { interpretar?: boolean } = {}): Promise<void> {
   const docId = ctx.docId;
   const editor = ctx.editor;
   const texto = instruccion.trim();
   if (!texto || !editor || editor.isDestroyed || (hilos.get(docId)?.corriendo)) return;
+  // Lo que se manda se toma AHORA, con la página de ahora: la propuesta es de su página (cabecera).
   const todas = tarjetasDelDoc(editor.getJSON());
   const activa = alcance === 'seccion' ? todas.find((t) => idDe(t) === ctx.tarjetaActiva) ?? null : null;
   const enviadas = activa ? [activa] : todas;
@@ -434,15 +480,31 @@ async function pedirEdicion(ctx: CtxEditorLanding, instruccion: string, alcance:
     corriendo: true,
     mensajes: [...h.mensajes, { id: ++ultimoId, de: 'yo', texto, seccion: activa ? tituloVivo(editor, idDe(activa)) : null }],
   }));
-  if (!enviadas.length) {
-    cambiarHilo(docId, (h) => ({ corriendo: false, mensajes: [...h.mensajes, { id: ++ultimoId, de: 'mako', texto: `Esta página no tiene ${terminoTarjeta(ctx.config, { plural: true })}.`, error: true }] }));
-    return;
-  }
   const corte = new AbortController();
   cortes.set(docId, corte);
+  const terminar = (...msgs: Mensaje[]) => {
+    cortes.delete(docId);
+    cambiarHilo(docId, (h) => ({ corriendo: false, mensajes: [...h.mensajes, ...msgs] }));
+  };
+
+  let paraEditar: string | null = texto;
+  let burbujas: Mensaje[] = [];
+  if (op.interpretar !== false) {
+    const ri = await pedirPedidos(cuerpoPedidos(texto, docId, ctx.titulo), { ms: PLAZO_PEDIDOS_MS, signal: corte.signal });
+    // «Detener» mientras se interpretaba: no se sigue con nada.
+    if (!ri.ok && cortadoPorUsuario(ri)) { terminar({ id: ++ultimoId, de: 'mako', texto: ri.error }); return; }
+    // Falló o tardó: `interpretacionDe` devuelve lo de siempre (el mensaje entero a «editar»).
+    const interp = interpretacionDe(ri, texto);
+    paraEditar = textoActual(interp);
+    burbujas = comoMensajes(burbujasDe(interp, docId));
+  }
+  if (!paraEditar) { terminar(...burbujas); return; }
+  if (!enviadas.length) {
+    terminar({ id: ++ultimoId, de: 'mako', texto: `Esta página no tiene ${terminoTarjeta(ctx.config, { plural: true })}.`, error: true }, ...burbujas);
+    return;
+  }
   // T3: con una presentación, la IA edita diapositivas (ia.ts lee `params.formato` del pedido crudo).
-  const r = await pedirIA({ accion: 'editar', instruccion: texto, tarjetas: enviadas, alcance: activa ? 'seccion' : 'landing', params: { formato: formatoDe(ctx.config) } }, { signal: corte.signal });
-  cortes.delete(docId);
+  const r = await pedirIA({ accion: 'editar', instruccion: paraEditar, tarjetas: enviadas, alcance: activa ? 'seccion' : 'landing', params: { formato: formatoDe(ctx.config) } }, { signal: corte.signal });
   let msg: Mensaje;
   if (!r.ok) msg = { id: ++ultimoId, de: 'mako', texto: r.error, error: !cortadoPorUsuario(r) };
   else if ('tarjetas' in r) {
@@ -450,7 +512,7 @@ async function pedirEdicion(ctx: CtxEditorLanding, instruccion: string, alcance:
       ? { id: ++ultimoId, de: 'mako', texto: r.resumen || 'Listo.', estado: 'pendiente', propuesta: { paginaId: ctx.paginaActual, enviadas, tarjetas: r.tarjetas, anclaNuevas: activa ? idDe(activa) : null } }
       : { id: ++ultimoId, de: 'mako', texto: r.resumen || 'Sin cambios.' };
   } else msg = { id: ++ultimoId, de: 'mako', texto: 'Respuesta inválida', error: true };
-  cambiarHilo(docId, (h) => ({ corriendo: false, mensajes: [...h.mensajes, msg] }));
+  terminar(msg, ...burbujas);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -479,6 +541,37 @@ function sugerenciasDe(config: ConfigLanding): Sugerencia[] {
     .map((s) => (s.enfocar ? { ...s, rotulo: `Edita todas las ${terminoTarjeta(config, { plural: true })} con IA` } : s));
 }
 
+/**
+ * Una burbuja de MaKo para un pedido que no es de la landing abierta: el texto, los botones (el usado queda
+ * apagado y marcado) y los links. Los links van por el `Link` de app/_ui/Link (el ?ws= de la pestaña); su
+ * texto dice a dónde llevan.
+ */
+function BurbujaDePedido({ burbuja, onBoton }: { burbuja: BurbujaPedido; onBoton: (boton: string) => void }) {
+  const v = vistaDeBurbuja(burbuja);
+  return (
+    <div className="gma-ag-mako">
+      <div className="gma-ag-burbuja" data-de="mako">{v.texto}</div>
+      {(v.botones.length > 0 || v.links.length > 0 || v.nota) && (
+        <div className="gma-ag-acciones">
+          {v.botones.map((b) => (
+            <button key={b.id} type="button" className="gma-pb-boton" data-v={b.v} data-t="s" disabled={b.apagado} data-elegido={b.elegido ? '' : undefined} onClick={() => onBoton(b.id)}>
+              {b.elegido && <Ico n="check" t={13} />}{b.texto}
+            </button>
+          ))}
+          {v.links.map((l) => (
+            <Link key={l.href} href={l.href} className="gma-pb-boton gma-ag-link" data-v="secundario" data-t="s">{l.texto}</Link>
+          ))}
+          {v.nota && (
+            <span className="gma-ag-nota" data-error={v.error ? '' : undefined} role={v.error ? 'alert' : undefined}>
+              {v.ocupado && <span className="gma-pb-giro" aria-hidden />}{v.nota}
+            </span>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /** `onCerrar`: quien lo monta puede cerrarlo a su manera; si no, el panel se colapsa por el contexto. */
 export function PanelAgente({ onCerrar }: { onCerrar?: () => void } = {}) {
   const ctx = useEditorLanding();
@@ -486,6 +579,7 @@ export function PanelAgente({ onCerrar }: { onCerrar?: () => void } = {}) {
   useLayoutEffect(() => { ctxRef.current = ctx; });
   const ctxVivo = useCallback(() => ctxRef.current, []);
   const { docId, titulo, editor, tarjetaActiva, modoIA, setPanelIzq, avisar, setPanelDer } = ctx;
+  const router = useRouter();
   const hilo = useHilo(docId);
   const sugerencias = sugerenciasDe(ctx.config);
   const [texto, setTexto] = useState('');
@@ -511,15 +605,16 @@ export function PanelAgente({ onCerrar }: { onCerrar?: () => void } = {}) {
     if (el) el.scrollTop = el.scrollHeight;
   }, [hilo.mensajes.length, hilo.corriendo]);
 
-  const enviar = (instruccion: string, alc: 'landing' | 'seccion' = alcanceReal) => {
+  const enviar = (instruccion: string, alc: 'landing' | 'seccion' = alcanceReal, op: { interpretar?: boolean } = {}) => {
     if (hilo.corriendo || !instruccion.trim()) return;
-    void pedirEdicion(ctxRef.current, instruccion, alc);
+    void pedirEdicion(ctxRef.current, instruccion, alc, op);
     setTexto('');
   };
 
   const sugerir = (s: Sugerencia) => {
     if (s.alcance) setAlcance(s.alcance);
-    if (s.instruccion) { enviar(s.instruccion, s.alcance ?? alcanceReal); return; }
+    // Una sugerencia es una edición escrita por nosotros: va directo a «editar», sin interpretarla.
+    if (s.instruccion) { enviar(s.instruccion, s.alcance ?? alcanceReal, { interpretar: false }); return; }
     if (s.rellenar) setTexto(s.rellenar);
     requestAnimationFrame(() => {
       const el = inputRef.current;
@@ -552,6 +647,71 @@ export function PanelAgente({ onCerrar }: { onCerrar?: () => void } = {}) {
 
   const detener = () => cortes.get(docId)?.abort();
 
+  // ── Los botones de las burbujas de pedidos (../pedidos-chat.ts) ──────────
+
+  // De vuelta en esta landing: una creación que quedó «Abriendo…» ya se abrió (el hilo sobrevive a navegar).
+  useEffect(() => {
+    if ((hilos.get(docId)?.mensajes ?? []).some((m) => m.de === 'pedido' && alVolver(m.burbuja) !== m.burbuja)) {
+      cambiarHilo(docId, (h) => ({ ...h, mensajes: h.mensajes.map((m) => (m.de === 'pedido' ? { ...m, burbuja: alVolver(m.burbuja) } : m)) }));
+    }
+  }, [docId]);
+
+  /**
+   * «Sí» / «Crear ahora»: la creación del Panel con el pedido escrito. Lo del editor se guarda primero (como al
+   * salir por ⌂), el pedido va a sessionStorage para `tomarCaja` y se navega a Crear con IA, que lo muestra arriba
+   * mientras escribe el plan: se ve por qué se cambió de pantalla. Mientras tanto la burbuja dice «Abriendo…».
+   */
+  const abrirCreacion = async (id: number, pedido: string) => {
+    await ctxRef.current.guardarAhora();
+    try {
+      window.sessionStorage.setItem(CLAVE_CAJA, cajaParaCrear(pedido, Date.now()));
+    } catch {
+      // Sin sessionStorage el Panel abriría la caja VACÍA: un botón que parece roto. Se queda acá y lo dice.
+      cambiarBurbuja(docId, id, trasNoAbrir);
+      return;
+    }
+    router.push(RUTA_CREAR);
+  };
+
+  // El cambio de la landing abierta terminó (aceptado o descartado): la creación que esperaba su «Sí» se abre. Una
+  // sola: abrir navega.
+  useEffect(() => {
+    if (hilo.mensajes.some((m) => m.de === 'mako' && sinTerminar(m.estado))) return;
+    for (const m of hilo.mensajes) {
+      if (m.de !== 'pedido') continue;
+      const r = alTerminar(m.burbuja);
+      if (r.efecto?.tipo !== 'crear') continue;
+      cambiarBurbuja(docId, m.id, () => r.burbuja);
+      void abrirCreacion(m.id, r.efecto.pedido);
+      return;
+    }
+  }, [hilo.mensajes, docId]);
+
+  /** «Deshacer» del aviso: la MISMA landing vuelve de la Papelera (como en el Panel). */
+  const sacarDePapelera = async (id: number, landing: number) => {
+    const r = await pedirDocs({ accion: 'restaurar', id: landing });
+    if (!r.ok) { avisar('No se pudo restaurar'); console.error('[agente] restaurar', r.error); return; }
+    cambiarBurbuja(docId, id, (b) => trasRestaurar(b, true));
+  };
+
+  /**
+   * «Sí, a la Papelera»: la MISMA acción que «Archivar» en el ⋯ del Panel (Inicio.tsx). Se restaura; nunca borra
+   * para siempre. Y nunca la landing abierta: la burbuja no la ofrece y acá se vuelve a mirar.
+   */
+  const mandarAPapelera = async (id: number, landing: number) => {
+    if (landing === ctxRef.current.docId) { cambiarBurbuja(docId, id, (b) => trasPapelera(b, false)); return; }
+    const r = await pedirDocs({ accion: 'papelera', id: landing });
+    if (!r.ok) { cambiarBurbuja(docId, id, (b) => trasPapelera(b, false)); console.error('[agente] papelera', r.error); return; }
+    cambiarBurbuja(docId, id, (b) => trasPapelera(b, true));
+    avisar('Archivada', () => void sacarDePapelera(id, landing));
+  };
+
+  const alBoton = (id: number, boton: string) => {
+    const efecto = pulsarEnHilo(docId, id, boton);
+    if (efecto?.tipo === 'crear') void abrirCreacion(id, efecto.pedido);
+    else if (efecto?.tipo === 'papelera') void mandarAPapelera(id, efecto.id);
+  };
+
   return (
     <aside className="gma gma-pb gma-ag" aria-label="Edición con IA">
       <EstilosPanelesB />
@@ -582,6 +742,8 @@ export function PanelAgente({ onCerrar }: { onCerrar?: () => void } = {}) {
               {m.texto}
             </div>
           )
+          : m.de === 'pedido'
+          ? <BurbujaDePedido key={m.id} burbuja={m.burbuja} onBoton={(b) => alBoton(m.id, b)} />
           : (
             <div key={m.id} className="gma-ag-mako">
               <div className="gma-ag-burbuja" data-de="mako" data-error={m.error ? '' : undefined}>{m.texto}</div>
@@ -682,4 +844,10 @@ const CSS_AGENTE = `
 .gma-ag-enviar[data-listo],.gma-ag-enviar[data-detener]{background:var(--pb-azul);color:var(--pb-azul-txt)}
 .gma-ag-enviar:disabled{cursor:default}
 .gma-ag-cuadro{display:block;width:10px;height:10px;border-radius:2px;background:currentColor}
+.gma-ag-acciones{display:flex;flex-wrap:wrap;align-items:center;gap:6px;min-width:0}
+.gma-ag-acciones>.gma-pb-boton{max-width:100%;overflow:hidden;text-overflow:ellipsis}
+.gma-ag-acciones>.gma-pb-boton[data-elegido]:disabled{opacity:1}
+.gma-ag-link{text-decoration:none}
+.gma-ag-nota{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:var(--pb-tenue)}
+.gma-ag-nota[data-error]{color:var(--pb-mal)}
 `;
