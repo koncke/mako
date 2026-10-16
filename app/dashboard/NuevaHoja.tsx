@@ -353,7 +353,8 @@ export function CrearHoja({ onCrear, onListo, enBlanco = 'Página nueva', inform
     try {
       const res = await fetch('/api/graficos/ia', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pedido: texto }), signal: c.signal,
+        // `informe`: en General la hoja sale con lo que General ofrece y sus bloques (16/10/2026: salía con lo del Dashboard).
+        body: JSON.stringify({ pedido: texto, informe }), signal: c.signal,
       });
       const j = await res.json().catch(() => null) as { ok?: boolean; hoja?: unknown; avisos?: unknown; error?: string; link?: string } | null;
       if (ctrl.current !== c) return;
@@ -479,7 +480,7 @@ export function CrearHoja({ onCrear, onListo, enBlanco = 'Página nueva', inform
  * El error, con la palabra «Integraciones» convertida en el link a donde se arregla (si lo hay). Si el link nombra una
  * integración (`/integraciones?abrir=gemini`), abre su modal acá: conectar nunca saca de la tab (regla del 14/10/2026).
  */
-function TextoConLink({ texto, link }: { texto: string; link?: string }) {
+export function TextoConLink({ texto, link }: { texto: string; link?: string }) {
   if (!link) return <>{texto}</>;
   const i = texto.indexOf('Integraciones');
   if (i < 0) return <>{texto} <LinkIntegracion href={link} style={S.link}>Abrir</LinkIntegracion></>;

@@ -4866,3 +4866,30 @@ lead de cada caso se llama así en sus mensajes), y qué quiere decir «los chip
 **Vive en:** `app/automations/ChipDelCaso.tsx` · `app/automations/PanelProbar.tsx` (`pildoraDelCaso`, `esDeLaCharla`,
 `pedirMensajeDelLead`, `ANCHO_PARA_COLUMNA`) · `app/automations/SimuladorSocial.tsx` · test:
 `tests/probar-chip-caso.test.ts`
+
+## «Probar»: el grupo de MaKo como primer contacto (16/10/2026)
+
+Martín: «En todas las automatizaciones de WhatsApp que haya un paso del grupo de WhatsApp de MaKo, debería salir como
+primer contacto, con el nombre real del grupo... Y al reproducir cada caso, MaKo debería enviar el mensaje
+correspondiente». Hasta ese día la tarjeta «MaKo en WhatsApp» pasaba como la pastilla «⚡ Avisar al equipo», y lo que le
+llega al grupo no se veía en ningún lado.
+
+- ⚠️ **La prueba NUNCA le escribe al grupo de verdad, tampoco con «Probar en WhatsApp».** El grupo es el del cliente,
+  con su equipo adentro (en el ws1, el de Mauricio): una prueba ahí es un aviso falso a gente real. Lo que MaKo le
+  mandaría queda en el chat del grupo DE LA PRUEBA, con la nota «Prueba: al grupo no le llega nada» arriba. El test
+  fija que `alGrupo` no llame a `mandarReal`, `postar` ni `fetch`, y que la ruta sólo LEA el grupo.
+- **En SuperAdmin no hay UN grupo.** La fila de un evento de la plataforma le escribe al grupo del negocio que lo emitió
+  (`negocioWs`, lib/flujos.ts): leer el grupo del ws de SuperAdmin habría mostrado un nombre que nunca recibe ese
+  mensaje. Con `evento=1` la ruta contesta «Grupo de cada negocio».
+- **«No pude leer el nombre» no es «no tiene grupo».** El nombre sale de WhatsApp (Evolution, `infoGrupoMaKo`), con 8 s
+  de plazo: si no contesta, el contacto dice «Grupo de MaKo», que no finge ser el real. Sin grupo guardado
+  (`hay: false`) el renglón dice «Sin grupo todavía».
+- **Lo que le llega, como lo arma el motor:** la tarjeta de hoy, por partes y con los datos de ejemplo; una de antes (sin
+  `partes`), con el texto envuelto de `armarAvisoDeTarjeta` («🟡 título», el lead, «— MaKo»). La que va por email
+  («MaKo por email») no le escribe al grupo: sigue siendo la pastilla.
+- **Una guarda vieja prohíbe `readOnly` en el panel** (era el «Editar» de cuando «Probar» era una vista de sólo
+  lectura): el chat del grupo va sin caja porque no recibe `onEnviarTexto`, y la nota es su primer renglón.
+
+**Vive en:** `lib/probar-grupo.ts` · `app/automations/PanelProbar.tsx` (`alGrupo`, `pildora`, `verGrupo`,
+`BarraEscenarios` con `grupo`) · `app/api/chat-agent/simulador/route.ts` (`GET ?grupo=1`) · `lib/simulador-grafo.ts`
+(el evento `accion` lleva su `paso`) · test: `tests/probar-grupo-mako.test.ts`

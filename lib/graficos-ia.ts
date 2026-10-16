@@ -40,6 +40,20 @@ import {
   type Componente, type Fuente, type Hoja, type InfoTipo, type Preset,
 } from './graficos-catalogo';
 import { contenidoNoConfiable } from './prompt-render-pure';
+import { FUENTES_GENERAL, PIEZAS_GENERAL, TIPOS_GENERAL, esPiezaGeneral, piezaGeneral } from './general-piezas';
+
+/**
+ * Lo que se le ofrece al modelo y lo ÚNICO que se acepta de vuelta. Sin alcance, el catálogo entero del Dashboard.
+ * General ofrece poco (AGENTS.md, «General ofrece poco del Dashboard»: `TIPOS_GENERAL`, `FUENTES_GENERAL`) y suma sus
+ * BLOQUES (lib/general-piezas.ts). ⚠️ Va en las DOS capas: el catálogo que lee el modelo (`catalogoParaIA`) y `pieza`,
+ * que descarta lo de afuera. Hasta el 16/10/2026 «Pídeselo a MaKo» en General no sabía que era General: armaba y
+ * guardaba una hoja con tipos del Dashboard (lo encontró el diseño del Centro, docs/diseno-mako-ai-native.md).
+ */
+export type AlcanceIA = { tipos?: readonly string[]; fuentes?: readonly string[]; bloquesGeneral?: boolean };
+/** El de una hoja de General. */
+export const ALCANCE_GENERAL: AlcanceIA = { tipos: TIPOS_GENERAL, fuentes: FUENTES_GENERAL, bloquesGeneral: true };
+/** Lo que se le dice al modelo de más en una hoja de General (va en el user: el system es el de siempre y es editable). */
+const GUIA_GENERAL = 'ES UNA HOJA DE GENERAL: lo que alguien quiere ver al entrar, no un informe. Pocas piezas, los BLOQUES antes que los gráficos y tres números como mucho.';
 
 /** La feature del registro de modelos (lib/model-catalogo.ts): gratis por defecto, sin fila en CLAUDE_PERMITIDO. */
 export const FEATURE_HOJA_IA = 'dashboard-hoja-ia';
@@ -146,25 +160,31 @@ const NIVELES: readonly Nivel[] = [
   { nombresCampos: false, nombresTipos: false },
 ];
 
-function armarCatalogo(n: Nivel, fuentes: readonly Fuente[]): string {
+function armarCatalogo(n: Nivel, fuentes: readonly Fuente[], alcance: AlcanceIA): string {
+  const tipos = alcance.tipos ? TIPOS.filter((t) => alcance.tipos!.includes(t.id)) : TIPOS;
   return [
     'CONJUNTOS (id «nombre» | fechas | dim = dimensiones | met = métricas; tiempo = dia, semana, mes; ÷ = no se suma):',
     ...fuentes.map((f) => `- ${lineaFuente(f, n)}`),
     '',
     'TIPOS (id [lo que pide]):',
-    ...TIPOS.map((t) => `- ${lineaTipo(t, n)}`),
+    ...tipos.map((t) => `- ${lineaTipo(t, n)}`),
+    ...(alcance.bloquesGeneral
+      ? ['', 'BLOQUES DE GENERAL (van como {"bloque_general":"<id>","titulo":"…"}; id «nombre»: qué muestra):',
+        ...PIEZAS_GENERAL.map((b) => `- ${b.id} «${b.nombre}»: ${b.linea}`)]
+      : []),
   ].join('\n');
 }
 
 /**
  * El catálogo compacto: los conjuntos con sus fechas, dimensiones y métricas y los tipos con lo que pide
  * cada uno. Ids y nombres, nada de datos. Si ni el más apretado entra en el tope, viaja igual (y el test
- * avisa): mejor sin Groq que sin hoja.
+ * avisa): mejor sin Groq que sin hoja. `alcance`: lo que ofrece la hoja (General ofrece poco, y sus bloques).
  */
-export function catalogoParaIA(fuentes: readonly Fuente[] = FUENTES): string {
+export function catalogoParaIA(fuentes: readonly Fuente[] = FUENTES, alcance: AlcanceIA = {}): string {
+  const lasQueVan = alcance.fuentes ? fuentes.filter((f) => alcance.fuentes!.includes(f.id)) : fuentes;
   let ultimo = '';
   for (const n of NIVELES) {
-    ultimo = armarCatalogo(n, fuentes);
+    ultimo = armarCatalogo(n, lasQueVan, alcance);
     if (ultimo.length <= TOPE_CATALOGO_CARACTERES) return ultimo;
   }
   return ultimo;
@@ -173,10 +193,11 @@ export function catalogoParaIA(fuentes: readonly Fuente[] = FUENTES): string {
 /**
  * El mensaje user: el catálogo y el pedido, envuelto como dato (nunca como instrucción). `fuentes`: los conjuntos que
  * ve el modelo (13/10/2026: al sumar gráficos a una plantilla, SÓLO los que tienen datos en ese negocio,
- * lib/graficos-con-datos-server.ts). Sin esto, todos.
+ * lib/graficos-con-datos-server.ts). Sin esto, todos. `alcance`: el de la hoja (`ALCANCE_GENERAL` en General).
  */
-export function userDeHoja(pedido: string, fuentes: readonly Fuente[] = FUENTES): string {
-  return `${catalogoParaIA(fuentes)}\n\nEL PEDIDO:\n${contenidoNoConfiable(pedido.slice(0, TOPE_PEDIDO_IA), 'pedido')}`;
+export function userDeHoja(pedido: string, fuentes: readonly Fuente[] = FUENTES, alcance: AlcanceIA = {}): string {
+  const guia = alcance.bloquesGeneral ? `\n\n${GUIA_GENERAL}` : '';
+  return `${catalogoParaIA(fuentes, alcance)}${guia}\n\nEL PEDIDO:\n${contenidoNoConfiable(pedido.slice(0, TOPE_PEDIDO_IA), 'pedido')}`;
 }
 
 // ── El lugar: la grilla de 12 columnas, por código ──────────────────────────────────────────
@@ -306,14 +327,28 @@ function metricasPedidas(o: Record<string, unknown>): string[] {
   return [...new Set(crudas.filter((x): x is string => typeof x === 'string' && x.trim() !== '').map((x) => x.trim()))];
 }
 
-type Pieza =
+export type PiezaIA =
   | { ok: true; c: Componente; corregida: string[]; cuenta: boolean }
   | { ok: false; motivo: string };
 
-/** Un componente del modelo. `cuenta`: si entra en la vara de «más de la mitad» (los títulos no). */
-function pieza(raw: unknown, n: number): Pieza {
+/**
+ * Un componente del modelo. `cuenta`: si entra en la vara de «más de la mitad» (los títulos no). `alcance`: lo que la
+ * hoja acepta (lo de afuera se DESCARTA con su motivo). Lo usan `deIAHoja` y la edición con IA (lib/graficos-ia-edicion.ts).
+ */
+export function piezaDeIA(raw: unknown, n: number, alcance: AlcanceIA = {}): PiezaIA {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return { ok: false, motivo: `componente ${n}: no es un objeto` };
   const o = raw as Record<string, unknown>;
+
+  // Un bloque de General (16/10/2026): sólo en General, y uno que existe. Lleva el tamaño de su catálogo.
+  if (typeof o.bloque_general === 'string') {
+    if (!alcance.bloquesGeneral) return { ok: false, motivo: `componente ${n}: los bloques de General van sólo en General` };
+    if (!esPiezaGeneral(o.bloque_general)) return { ok: false, motivo: `componente ${n}: el bloque ${lista([o.bloque_general])} no existe` };
+    const info = piezaGeneral(o.bloque_general);
+    const e = sanearElemento({
+      id: nuevoId(), clase: 'elemento', tipo: 'general', texto: texto(o.titulo, 80), general: { pieza: o.bloque_general }, w: info.w, h: info.h,
+    });
+    return e ? { ok: true, c: e, corregida: [], cuenta: true } : { ok: false, motivo: `componente ${n}: un bloque que no se pudo armar` };
+  }
 
   // Un título de sección.
   const seccion = texto(o.seccion, 60) || (o.clase === 'elemento' || o.tipo === 'texto' ? texto(o.texto, 60) : '');
@@ -330,11 +365,13 @@ function pieza(raw: unknown, n: number): Pieza {
   // Un gráfico.
   const fuente = fuenteDe(String(o.fuente ?? ''));
   if (!fuente) return { ok: false, motivo: `componente ${n}: el conjunto ${lista([String(o.fuente ?? '')])} no existe` };
+  if (alcance.fuentes && !alcance.fuentes.includes(fuente.id)) return { ok: false, motivo: `componente ${n}: el conjunto "${fuente.id}" no va en esta hoja` };
   // Los nombres del v1 siguen valiendo, como en `sanearGrafico`.
   const tipoPedido = o.tipo === 'linea' ? 'serie' : o.tipo === 'torta' ? 'circular' : String(o.tipo ?? '');
   const info = tipoDe(tipoPedido);
   // ⚠️ `sanearGrafico` lo pasaría a «barras» sin decir nada: un tipo que no existe no tiene arreglo.
   if (!info) return { ok: false, motivo: `componente ${n}: el tipo ${lista([tipoPedido])} no existe` };
+  if (alcance.tipos && !alcance.tipos.includes(info.id)) return { ok: false, motivo: `componente ${n}: el tipo "${info.id}" no va en esta hoja (van: ${alcance.tipos.join(', ')})` };
   // Lo mismo con un tipo atado a otro conjunto (v5: el mapa de calor, sólo sobre los toques): `sanearGrafico`
   // lo pasaría a «barras» en silencio.
   if (!tipoAdmite(info, fuente.id)) return { ok: false, motivo: `componente ${n}: "${info.id}" va sólo sobre ${lista([...(info.soloFuentes ?? [])])}, no sobre "${fuente.id}"` };
@@ -396,7 +433,7 @@ function pieza(raw: unknown, n: number): Pieza {
  *   5. RECHAZA si no quedó ningún gráfico o si se corrigió o descartó más de la mitad: ahí el
  *      reintento con los errores sale más barato que una hoja que no es la pedida.
  */
-export function deIAHoja(json: unknown): ResultadoHojaIA {
+export function deIAHoja(json: unknown, alcance: AlcanceIA = {}): ResultadoHojaIA {
   const o = (json && typeof json === 'object' && !Array.isArray(json) ? json : {}) as Record<string, unknown>;
   const nombre = texto(o.nombre, 40) || 'Nueva hoja';
   const emojiCrudo = emojiValido(o.emoji);
@@ -422,7 +459,7 @@ export function deIAHoja(json: unknown): ResultadoHojaIA {
   let corregidos = 0;
   let graficos = 0;
   crudos.forEach((raw, i) => {
-    const p = pieza(raw, i + 1);
+    const p = piezaDeIA(raw, i + 1, alcance);
     if (!p.ok) { descartados++; considerados++; correcciones.push(p.motivo); return; }
     componentes.push(p.c);
     if (!p.cuenta) return;

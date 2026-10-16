@@ -1219,6 +1219,19 @@ el navegador).
   re-partido); partir una muestra y reemplazarla (la revisión no ve la mitad derecha; el chequeo de después lo dice);
   si por WhatsApp «qué plantillas de video hay» llega a la herramienta nueva.
 
+**Las sugeridas para el negocio (16/10, Martín: «que al principio se posicionen los sugeridos… con un texto sutil de
+"Sugerido"»; la regla compartida en docs/plantillas-sugeridas.md, test `tests/plantillas-sugeridas-editores.test.ts`,
+27 roturas):** la pestaña, `listar_plantillas_video` y el chat dan la misma lista (`plantillasEnOrden`).
+- **Un dato del server llega al motor por un CONTEXTO que pone `VideoEditorCliente`** (`app/video-editor/sugeridas.tsx`),
+  no por props por el árbol de OpenCut ni por un módulo global como `espacio.ts`: ése es para lo que el motor lee ANTES
+  de montarse (las bases locales) y no se entera si la page vuelve con otro dato.
+- **El `para` de `usar_plantilla` en `OPERACIONES_CHAT` es el de SIN señales.** La IA lee el que rearma
+  `catalogoParaPrompt(senales)` en cada pedido (las señales las lee `lib/editor-video/ia.ts`, en paralelo con el
+  prompt). Quien lea el fijo —la bitácora de /admin/dev, un test— no ve las sugeridas, y es a propósito.
+- **Las variantes van `{}`** («Gancho escrito», «Oferta con glitch»): con la fila de su original salían de a dos.
+- **«Sugerido» va DEBAJO del nombre**: la tarjeta mide 92 px y al costado lo cortaba a cinco letras.
+- **SIN HACER:** verlo en el navegador (ws9, con un funnel declarado: el orden de la pestaña y el `title` del porqué).
+
 ## Lottie en un editor de VIDEO: qué aporta si la pieza termina en mp4
 
 - **El repo que vio Martín es `diffusionstudio/lottie`**: 5,6 k estrellas, MIT en el archivo `LICENSE` y en

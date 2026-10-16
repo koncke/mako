@@ -99,7 +99,7 @@ export async function guardarConexionMeta(
   // (lib/onboarding-extract.ts). Hasta el 16/10/2026 lo arrancaba sólo el wizard.
   if (guardadas.length) {
     const { arrancarHistoricoEnSegundoPlano } = await import('./onboarding-extract');
-    await arrancarHistoricoEnSegundoPlano(ws);
+    await arrancarHistoricoEnSegundoPlano(ws, 'meta');
   }
   return { d, guardadas, conflictos };
 }

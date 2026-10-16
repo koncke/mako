@@ -45,6 +45,7 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['PUT', '/general/capacidad', 'guardar_capacidad'],
   ['GET', '/general/hojas', 'listar_hojas_general'],
   ['POST', '/general/hojas', 'crear_hoja_general'],
+  ['POST', '/general/hojas/{hoja}/ediciones', 'editar_hoja_general_con_ia'],
   ['POST', '/general/hojas/{hoja}/bloques', 'agregar_bloque_general'],
   ['PATCH', '/general/hojas/{hoja}/bloques/{elemento}', 'configurar_bloque_general'],
   ['GET', '/general/kpis', 'listar_kpis'],
@@ -323,6 +324,8 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['POST', '/metricas/dashboard/hojas', 'crear_hoja_dashboard'],
   ['GET', '/metricas/dashboard/hojas/{hoja}', 'leer_hoja_dashboard'],
   ['PATCH', '/metricas/dashboard/hojas/{hoja}', 'editar_hoja_dashboard'],
+  // 16/10/2026: «Editar con MaKo» crea una EDICIÓN de la hoja (MaKo la arma y se propone), como una copia crea una copia.
+  ['POST', '/metricas/dashboard/hojas/{hoja}/ediciones', 'editar_hoja_con_ia_dashboard'],
   ['DELETE', '/metricas/dashboard/hojas/{hoja}', 'borrar_hoja_dashboard'],
   ['POST', '/metricas/dashboard/hojas/{hoja}/copias', 'duplicar_hoja_dashboard'],
   ['POST', '/metricas/dashboard/hojas/{hoja}/componentes', 'agregar_grafico_dashboard'],

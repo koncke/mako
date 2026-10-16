@@ -3180,9 +3180,11 @@ página, así que reconectar dejaba el viejo. Una tercera puerta que escriba las
 la que se va a olvidar de esto. (07/10/2026)
 
 ⚠️ **Y conectar Meta ARRANCA EL HISTÓRICO de leads y métricas** (16/10/2026; hasta ese día lo arrancaba sólo el
-wizard). Toda puerta que guarde una credencial de Meta llama una vez, al final, a `arrancarHistoricoEnSegundoPlano(ws)`
-(lib/onboarding-extract.ts: lee el estado ESTRICTO y no tumba la conexión). `tests/historico-meta-al-conectar.test.ts`
-enumera cada archivo que llama a `guardarCredencial`: uno nuevo falla hasta que se decida si conecta Meta.
+wizard). Igual Fathom, YouTube y Panda, cada una SU parte (`JOBS_DEL_HISTORICO`, lib/onboarding-contrato.ts). Toda puerta
+que guarde una integración llama una vez, al final, a `arrancarHistoricoEnSegundoPlano(ws, servicio)`
+(lib/onboarding-extract.ts: lee el estado ESTRICTO y no tumba la conexión; lo que no tiene histórico no hace nada).
+`tests/historico-al-conectar.test.ts` enumera cada archivo que llama a `guardarCredencial`: uno nuevo falla hasta que se
+decida. Una integración nueva con histórico se suma a `JOBS_DEL_HISTORICO`, y el cron la recorre sola.
 
 ⚠️ **Y `META_APP_SECRET` es el secreto de la app VIEJA**, con el que se verifica la firma de
 cada lead del webhook. El de la app MaKo es `MAKO_META_APP_SECRET` (`lib/meta-login.ts`).
@@ -8409,6 +8411,11 @@ costó, en [docs/hallazgos-objectives.md](docs/hallazgos-objectives.md) → «Ge
   el suyo por el id del elemento.
 - **Lo que existe en otra tab se monta, no se copia**: las tarjetas del Plan son las de BoardShell (`TarjetaPrioridad`,
   `ProyectoCardTile`, traídas con `next/dynamic`), y escribir pasa por la acción que ya existe (`marcarHechaAction`).
+- **Lo que arma o cambia la IA en una hoja lleva el ALCANCE de su informe, en las dos capas** (16/10/2026): el catálogo
+  que lee el modelo y `piezaDeIA`, que descarta lo de afuera (`ALCANCE_GENERAL`, lib/graficos-ia.ts). «Pídeselo», las
+  plantillas que MaKo completa (`hojaConDatos`) y «Editar con MaKo» lo pasan; un camino nuevo de IA sobre una hoja de
+  General también. Y la IA EDITA con operaciones (`aplicarEdicion`, lib/graficos-ia-edicion.ts), nunca reescribiendo la
+  hoja, y el cambio lo aplica el editor con `mutar`: docs/hallazgos-graficos.md → «Editar con MaKo».
 - **General ofrece poco del Dashboard** (`TIPOS_GENERAL`, `FUENTES_GENERAL`, `ELEMENTOS_FUERA_DE_GENERAL`), y sus
   plantillas no usan nada de afuera.
 - **Un tipo de elemento nuevo en `TIPOS_ELEMENTO` aparece solo en todas las listas que derivan de él**: la API del

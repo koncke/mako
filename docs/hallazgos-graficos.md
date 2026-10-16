@@ -1024,6 +1024,49 @@ Cómo se enchufa otra galería: [plantillas-sugeridas.md](plantillas-sugeridas.m
 ejemplo. Y enchufar las otras galerías (Automations, Web Generator, Video Editor, Image Editor, CRM).
 *16/10/2026, claude3 (chat Dashboard).*
 
+## «Editar con MaKo»: operaciones sobre la hoja abierta, y lo de General que la IA no sabía (16/10/2026)
+
+**Vive en:** `lib/graficos-ia-edicion.ts` (lo puro: el system, `hojaParaIA`, `aplicarEdicion`, `firmaDeHoja`) ·
+`lib/graficos-ia-editar.ts` (la cascada) · `app/api/graficos/editar/route.ts` · `app/dashboard/PanelEditarMako.tsx` · el
+`ALCANCE_GENERAL` de `lib/graficos-ia.ts` · `editar_hoja_con_ia_dashboard` y `editar_hoja_general_con_ia` en la API ·
+`tests/graficos-ia-edicion.test.ts`. Es la etapa 1 de docs/diseno-mako-ai-native.md (rama `centro-chat`).
+
+Martín, 16/10: «en dashboard y general no está la edición con IA, y debería... quiero que la app sea AI NATIVE». Un panel
+a la derecha de la hoja (copiado del de Gemini en Google Workspace) donde una frase agrega, quita o cambia gráficos,
+títulos y bloques, con su Deshacer. Lo que no se ve en el código:
+
+- **El modelo devuelve OPERACIONES, no la hoja.** Una hoja reescrita entera perdería todo lo que el modelo no ve: el
+  lugar, el estilo, los filtros, los pop-ups. Lo que el pedido no nombra queda idéntico, y lo nuevo va abajo de todo (o
+  arriba) sin mover lo demás.
+- **No es `turnoApp`**, aunque el diseño del Centro lo proponía. A esta IA le llega la ESTRUCTURA de la hoja y el catálogo,
+  nunca un valor del negocio: corre por la feature de «Pídeselo» (`dashboard-hoja-ia`, sin la marca `pii`) y por la IA
+  gratis. `turnoApp` lee leads, y el diseño dejó abierto si esos datos llegan a una key gratis que entrena.
+- **Un solo escritor.** La ruta no guarda: el editor aplica con `mutar`, así hay Ctrl+Z y el autoguardado no recibe un
+  409 por un cambio que no hizo él. El panel aplica sólo si la hoja sigue siendo la que mandó (por referencia), y el
+  Deshacer sólo vale mientras la hoja sigue siendo la que dejó MaKo. Por la API, la misma idea con `firmaDeHoja`: si
+  alguien tocó la hoja entre la propuesta y el «sí», no se aplica.
+- ⚠️ **«Pídeselo a MaKo» en General armaba hojas con tipos del Dashboard, y por DOS caminos.** El diseño del Centro
+  encontró uno: la galería mandaba sólo `{pedido}` y `generarHojaIA` no sabía de General. El otro estaba al lado: una
+  PLANTILLA de General pasa por `hojaConDatos`, y ahí MaKo le «suma» gráficos con el catálogo entero. Ahora el
+  `ALCANCE_GENERAL` (sus tipos, sus conjuntos y sus bloques) va en las dos capas: el catálogo que lee el modelo y
+  `piezaDeIA`, que descarta lo de afuera. Y la ruta de plantillas pide la tab de General para una plantilla de General
+  (pedía la del Dashboard).
+- ⚠️ **Los tests que leen el código no ven un import duplicado.** El system nuevo se llamaba `EDITAR_IA_SYSTEM_TEMPLATE`,
+  igual que el de Automations (`lib/flujo-ia.ts`), y `lib/prompt-registry.ts` importaba los dos. Los 253 tests que leen
+  el registro dieron verde; lo cazó el tsc acotado del registro. Al registrar un prompt, ese archivo va en el tsc.
+- **El CSS del panel lateral (`.an`) vivía adentro del render del AI Analyst**: un segundo panel en el mismo lugar no lo
+  tenía. Se exporta (`CSS_PANEL_LATERAL`), y abrir un panel cierra el otro.
+
+**Lo que quedó SIN hacer:**
+- **Probarlo con la IA de verdad.** Sin `next dev` por la RAM: el panel se vio en el arnés (`node capturar.cjs "" mako
+  editar`) y la regla tiene sus tests, pero nadie le pidió un cambio a un modelo todavía.
+- **El hilo no se guarda**: es de la sesión, por hoja. Guardarlo es la etapa 2 del diseño (la pieza única de chat).
+- **Groq queda afuera casi siempre**: catálogo, hoja y pedido pasan los ~12.000 caracteres, y la cascada lo saltea sola.
+  Contestan Gemini y OpenRouter.
+- **No edita lo de adentro de un pop-up** ni las opciones de un bloque de General (eso sigue en su panel). Y el teléfono
+  (`/m/dashboard`) no tiene el panel.
+*16/10/2026, claude3 (chat Dashboard).*
+
 ## Lo que quedó sin hacer
 
 - **Las portadas (15/10/2026):** mirado en producción en el ESCRITORIO con las 6 hojas de Mauricio; el celular, sólo en el
