@@ -36,6 +36,9 @@ import type { MediaAsset } from "@/app/video-editor/_opencut/media/types";
 import type { ProcessedMediaAsset } from "@/app/video-editor/_opencut/media/processing";
 import { roundFrameTime, type MediaTime } from "@/app/video-editor/_opencut/wasm";
 import { soltarTransicion } from "@/app/video-editor/_opencut/transiciones/acciones";
+import { EditorCore } from "@/app/video-editor/_opencut/core";
+import { esMuestraEn } from "@/app/video-editor/_opencut/reemplazo/puro";
+import { reemplazarClip } from "@/app/video-editor/_opencut/reemplazo/reemplazar";
 
 // --- Config ---
 
@@ -461,7 +464,13 @@ export class DragDropController {
 		dragData: Extract<TimelineDragData, { type: "media" }>;
 	}): void {
 		if (target.targetElement) {
-			// Replace media source — not yet implemented
+			// Sobre un clip de MUESTRA de una plantilla, el medio lo sustituye (la misma
+			// entrada que «Sustituir» y el menú: reemplazo/reemplazar.ts). Sobre un clip
+			// común no hace nada todavía (plan de plantillas §8: falta confirmarlo contra CapCut).
+			const { trackId, elementId } = target.targetElement;
+			if (esMuestraEn(this.config.getSceneTracks(), { trackId, elementId })) {
+				reemplazarClip(EditorCore.getInstance(), { trackId, elementId }, dragData.id);
+			}
 			return;
 		}
 

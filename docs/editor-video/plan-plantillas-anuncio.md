@@ -191,7 +191,12 @@ Textos: «Plantillas» / «Anuncios» · «Utilizar plantilla» · rótulos «Tu
 «Reemplazar el clip» / «Sustituir» / «Muy corto» · «Sustituido», «No se pudo reemplazar», «Sustituye los clips de
 muestra», «No se pudo cargar la plantilla.» · «Cargando plantilla…».
 
-## 4. Las cinco
+## 4. Las cinco (y dos variantes)
+
+**Cambio de alcance (coordinador, 15/10):** como la máquina de escribir y el glitch existen (§0.1), entran sus
+variantes: `gancho-escrito` «Gancho escrito» (como `gancho`, con el gancho de 0 a 3 s y la entrada
+`maquina-escribir` de ~1,2 s) y `oferta-glitch` «Oferta con glitch» (como `oferta`, con la transición `glitch`
+entre el producto y el cierre). Sólo el comparador deslizante espera.
 
 Lienzo 1080x1920, 30 fps. y en px desde arriba; todos los textos entre 269 y 1248, margen lateral 0,11. Una
 «tarjeta» es un efecto con fondo más su relleno en em.
@@ -321,6 +326,21 @@ ya no está `disabled` y el soltar llama a `reemplazarClip`.
 `medios`; `usar_plantilla` descartada con la línea de tiempo no vacía o junto con otras; `catalogoParaPrompt` nombra
 cada plantilla y cada hueco. **API**: el def existe y el runner devuelve 5 plantillas con sus huecos.
 
+## 6b. Hecho (y lo que cambió del plan)
+
+**Tanda 1, 15/10:** las 5 + 2 variantes en `lib/editor-video/plantillas.ts` (con `cajaDeTexto`, la caja estimada de
+un texto) y `_opencut/plantillas/{huecos,geometria,armar,escena}.ts`; 14 tests, 46 roturas. Distinto del plan:
+`medir` es `typeof partirYUbicar` (como `cortar.ts`) y pasar el ancla a `Ubicacion` quedó puro en `armar.ts`
+(`ubicarTexto`, `ubicacionDeAncla`, `paramsDeAnimacion`, para el chat); `base(tipo, definicion?)` trae los params del
+rectángulo; el test 11 prueba escalas IGUALES en 2160x3840 (el plan decía ×2: estaba mal, ver hallazgos); el relleno
+de una tarjeta alineada a la izquierda topa en 27 px; toda muestra en mayúsculas lleva «mayúsculas»; un video llena
+un hueco sólo si alcanza para la pieza más larga de ese hueco; si falta la muestra de un rótulo, `armarLinea` tira
+error (es de código); la máquina de escribir dura 1,5 s (los 45 cuadros del Typewriter) y el glitch 0,4 s.
+
+Para las tandas que siguen: `base` sale de `buildDefaultParamValues(getBuiltInElementParams({ type }))` (para la forma,
++ `buildDefaultGraphicInstance({ definitionId: 'rectangle' }).params`); `medir` es `partirYUbicar`; las muestras van
+por rótulo, con `""` para el cierre; la miniatura tiene que dibujar `revelado`; la API devuelve 7 plantillas, no 5.
+
 ## 7. Orden de trabajo (de a un agente, por la RAM)
 
 | Tanda | Es dueña de | Depende de |
@@ -335,7 +355,7 @@ Después de cada tanda: `node C:/dev/tsc-ve.mjs` y los tests de a uno.
 
 ## 8. Lo que no entra, y por qué
 
-Plantillas con máquina de escribir, glitch o comparador (la orden; ver 0.1) · música (no hay con licencia) · una
+Plantillas con comparador deslizante (no existe en el motor; la máquina de escribir y el glitch sí entraron) · música (no hay con licencia) · una
 muestra en video real al pasar el mouse (no hay material con licencia; va la miniatura dibujada) · elegir qué parte
 del clip nuevo se usa al reemplazar (se usa el principio y se recorta después) · el «Sustituir» sobre el reproductor
 · el pop letra por letra y el resaltado palabra por palabra fuera de los subtítulos (el motor anima el texto entero)
