@@ -7,6 +7,16 @@ viejas). El informe inicial es la réplica de las tabs viejas de Marketing y Com
 Analysts (Ads, Landing, Closing, Productividad) son plantillas de «Nueva hoja». Lo que se hizo está en
 el commit; acá va lo que hay que saber **antes** de tocarlo.
 
+## «Pídeselo a MaKo» en General arma una hoja con tipos del Dashboard (16/10/2026, leído, no probado en el navegador)
+
+- «Pídeselo a MaKo» manda sólo `{pedido}` (`app/dashboard/NuevaHoja.tsx`), `lib/graficos-ia-generar.ts` no conoce General
+  y ni `sanearHoja` (`lib/graficos-catalogo.ts`) ni `guardarTableroSi` miran `TIPOS_GENERAL`, que sólo usa el editor. O
+  sea: General guarda una hoja con tipos del Dashboard, contra «General ofrece poco del Dashboard».
+- **Ejecutar una operación del Dashboard por la API escribe en el servidor y deja afuera la pila de deshacer**: con el editor
+  abierto hay dos escritores y el autoguardado da 409 o pisa. Por eso `app/api/graficos/ia/route.ts` NO escribe. **Regla
+  para un chat que edita la hoja abierta:** la acción confirmada devuelve el informe cambiado y el editor lo aplica con
+  `mutar` (un solo escritor, el Ctrl+Z vivo). Por WhatsApp y HTTP sigue escribiendo. Ver `docs/diseno-mako-ai-native.md`, (b).
+
 ## Cómo está armado, en una tabla
 
 | Pieza | Vive en | Qué decide |
