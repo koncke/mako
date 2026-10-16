@@ -139,7 +139,8 @@ test('⚠️ el vigilante limpia las marcas y DESPUÉS manda el «volvió», con
   const iLimpia = rama.indexOf('setSetting(keyAvisado(linea), \'\')');
   const iEmite = rama.indexOf("emitirDelCatalogo('wa-reconectado'");
   assert.ok(iLimpia > 0 && iEmite > iLimpia, 'el «volvió» sale antes de limpiar las marcas (o no sale)');
-  assert.match(rama, /texto: textoVolvio\(\{ linea: lineaLegible\(f\) \}\), dedupKey: `volvio:\$\{linea\}`/);
+  // (15/10/2026: con sus DATOS, que cita la automatización de la plataforma.)
+  assert.match(rama, /texto: textoVolvio\(\{ linea: lineaLegible\(f\) \}\), datos: datosVolvio\(\{ linea: lineaLegible\(f\) \}\), dedupKey: `volvio:\$\{linea\}`/);
 });
 
 // Era «el cliente los VE y los puede apagar» (09/10/2026, «las dos cosas»). Martín lo revirtió el 10/10/2026:

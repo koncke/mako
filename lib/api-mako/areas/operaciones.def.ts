@@ -34,8 +34,8 @@ export const DEFS: readonly OperacionDef[] = [
   },
   {
     id: 'ver_carteros_operaciones', area: 'operaciones', tipo: 'lectura',
-    titulo: 'Carteros del Centro de Operaciones',
-    descripcion: 'El estado de los carteros del Centro de Operaciones, uno por cuenta de Claude: cuándo pasó cada uno por última vez, si está vivo, cuántos chats tiene abiertos y cuáles, y cuántas claves de firma acepta. Sirve para contestar «¿por qué no salió mi trabajo?»: si el cartero de esa cuenta no pasa, el trabajo espera.',
+    titulo: 'Runners del Centro de Operaciones',
+    descripcion: 'El estado de los Runners del Centro de Operaciones (el proceso de la PC que entrega lo que Martín escribe a sus chats de Claude), uno por cuenta: cuándo se conectó cada uno por última vez, si está activo, cuántos chats tiene abiertos y cuáles, y cuántos Tokens de dispositivo acepta. Sirve para contestar «¿por qué no salió mi trabajo?»: si el Runner de esa cuenta no está activo, el trabajo espera hasta que Martín abra el chat Runner en la app de Claude.',
     parametros: [],
     salida: 'json', canales: SIN_HTTP, costo: 'gratis', gating: PLATAFORMA,
   },

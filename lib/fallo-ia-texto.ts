@@ -135,6 +135,22 @@ export function causaDelFallo(errores: string[], keysDelCliente: number, ctx: Co
   return 'proveedor_caido';
 }
 
+/**
+ * LA CAUSA EN UNA FRASE, para un renglón de un aviso al DUEÑO (16/10/2026: «no pude escuchar su nota de voz: …», el AI
+ * Step). Es la misma `causaDelFallo`, sin el link ni el pedido de `textoFalloIA`: el aviso de un lead no es el lugar del
+ * tutorial. Y como ella, se elige con los errores de las keys DEL NEGOCIO, nunca con los de la red de plataforma.
+ */
+export function fraseDelFallo(causa: CausaFalloIA): string {
+  switch (causa) {
+    case 'sin_keys': return 'no hay ninguna API key de IA cargada';
+    case 'sin_cuota': return 'las keys de IA del negocio no tienen cuota ahora';
+    case 'sin_respaldo': return 'la única key de IA del negocio no contestó';
+    case 'proveedor_caido': return 'los proveedores de IA no contestaron';
+    case 'mensaje_muy_largo': return 'es demasiado largo para la IA';
+    case 'fallo_nuestro': return 'falló de nuestro lado';
+  }
+}
+
 /** Qué era lo que MaKo estaba por hacer, para que la frase no quede genérica. */
 export type QueIntentaba = 'contestar' | 'escuchar tu audio' | 'armar el borrador';
 

@@ -5,8 +5,8 @@
 // diseñado, lo del Centro». En la URL es /admin/operaciones (LAS MISMAS RUTAS: el proxy sirve esta
 // página en un teléfono, lib/movil-rutas.ts → rutaMovil).
 //
-// Las mismas vistas que la computadora (Chats · Avance · Pushes), destiladas, con la conversación de cada chat
-// en una hoja y su caja de escribir fija abajo (ProgresoMovil.tsx y ChatsMovil.tsx).
+// Lo mismo que la computadora, destilado: los chats, con la conversación de cada uno en una hoja, su avance arriba
+// y su caja de escribir fija abajo, y los Runners (CentroAppMovil.tsx y ChatsMovil.tsx).
 //
 // ⚠️ DESDE EL 16/10 EL TELÉFONO TAMBIÉN MANDA (Martín: «NO es funcional, no puedo mandar un prompt por allí a
 // mis otras cuentas»): por el MISMO camino que la computadora (app/admin/operaciones/mandar.ts →
@@ -27,17 +27,18 @@ import { conWs } from '@/lib/ws-tab';
 import { puedeOperar } from '@/lib/operaciones-reglas';
 import { leerCarteros, listarPedidos } from '@/lib/operaciones';
 import { areasDeProgreso } from '@/lib/progreso';
-import { PESTANAS_CENTRO, novedades, pedidosRecientes, recortarPedido, type PestanaCentro } from '@/lib/progreso-reglas';
+import { pedidosRecientes, recortarPedido } from '@/lib/progreso-reglas';
 import { chatsDeBitacoras } from '@/lib/centro-chats';
 import { leerDecisiones } from '@/lib/admin-decisiones';
+import { leerMunecos } from '@/lib/centro-munecos-db';
 import { CabeceraM, PantallaM, VacioM } from '@/app/m/_ui';
-import { CentroMovilPestanas } from './ProgresoMovil';
+import { CentroAppMovil } from './CentroAppMovil';
 
 export const dynamic = 'force-dynamic';
 
 const RUTA = '/m/operaciones';
 
-export default async function CentroOperacionesMovil({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
+export default async function CentroOperacionesMovil() {
   const admin = await getSesionAdmin();
   if (!admin) redirect(await rutaConWs(HOME_MOVIL));
   const plataforma = await wsSuperAdmin();
@@ -47,31 +48,29 @@ export default async function CentroOperacionesMovil({ searchParams }: { searchP
   await requireMovil({ onboarding: false });
   const cabecera = <CabeceraM titulo="Centro de Operaciones" padre={{ href: RUTA_MAS, label: 'More' }} />;
   if (!puedeOperar(admin, plataforma)) {
-    return <PantallaM>{cabecera}<VacioM frase="El Centro lo abre el super admin con su segundo factor." /></PantallaM>;
+    return <PantallaM>{cabecera}<VacioM frase="Entra como super admin, con tu segundo factor, para usar el Centro." /></PantallaM>;
   }
-  const { tab } = await searchParams;
-  const inicial: PestanaCentro = (PESTANAS_CENTRO as readonly string[]).includes(tab ?? '') ? (tab as PestanaCentro) : PESTANAS_CENTRO[0];
   const ahora = Date.now();
   const areas = areasDeProgreso();
   // Cada lectura falla sola: los chats (de las bitácoras) se ven aunque la cola no se pueda leer.
-  const [cola, estado, tarjetas] = await Promise.all([
+  const [cola, estado, tarjetas, munecos] = await Promise.all([
     listarPedidos().catch(() => null),
     leerCarteros().catch(() => null),
     leerDecisiones().catch(() => null),
+    leerMunecos(),
   ]);
   const decisiones = tarjetas?.ok ? tarjetas.decisiones.map((d) => ({ chat: d.chat, destino: d.destino ?? null, respuesta: d.respuesta })) : null;
   const pedidos = pedidosRecientes(areas, ahora, 14).map(recortarPedido);
   return (
     <PantallaM>
       {cabecera}
-      <CentroMovilPestanas
-        inicial={inicial}
+      <CentroAppMovil
         base={chatsDeBitacoras({ areas, pedidos, ahora })}
         colaInicial={cola}
         carterosIniciales={estado}
         decisionesIniciales={decisiones}
+        munecosIniciales={munecos}
         pedidos={pedidos}
-        novedades={novedades(areas, ahora)}
         ahora={ahora}
         sub={admin.sub}
       />

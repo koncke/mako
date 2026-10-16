@@ -35,7 +35,7 @@ import { lookup } from 'node:dns/promises';
 import { isIP, type LookupFunction } from 'node:net';
 import { request as pedidoHttps } from 'node:https';
 import { request as pedidoHttp } from 'node:http';
-import { normalizarUrl, urlTalCual } from './landing-url';
+import { claveDeLanding, urlTalCual } from './landing-url';
 import { copyDeHtml, ErrorDeLectura, type LandingExtraida } from './landing-extraer';
 
 // Los tipos y el extractor viven en landing-extraer.ts (puro); se re-exportan: quien ya importaba de
@@ -69,7 +69,7 @@ const UA = 'Mozilla/5.0 (compatible; MaKoLandingAnalyst/1.0; +https://hola-mako.
 // La normalización de la entidad que se analiza vive en lib/landing-url.ts desde el
 // 06/10/2026 (sin `server-only`, para que tenga test y la use el análisis
 // automático). Se re-exporta: sigue habiendo UNA.
-export { normalizarUrl, urlTalCual };
+export { claveDeLanding, urlTalCual };
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Baranda SSRF
@@ -278,12 +278,12 @@ async function bajarHtml(url: string): Promise<{ html: string; final: string; by
  * (`lib/pixel-servido.ts`). Tira si no se pudo bajar: «no pude leer» no es un valor.
  *
  * `talCual` (tanda 6): baja EXACTAMENTE la URL pegada, con su www y su querystring. Lo usa «Replicar»:
- * `normalizarUrl` le saca el www, y hay hosts que sólo existen con www (la copia daba «no se pudo
+ * `claveDeLanding` le saca el www, y hay hosts que sólo existen con www (la copia daba «no se pudo
  * resolver el dominio» de una página que abre). La URL normalizada es la LLAVE de landing_analyses,
  * no una dirección para bajar.
  */
 export async function htmlDePagina(urlInput: string, opts: { talCual?: boolean } = {}): Promise<string> {
-  return (await bajarHtml(opts.talCual ? urlTalCual(urlInput) : normalizarUrl(urlInput))).html;
+  return (await bajarHtml(opts.talCual ? urlTalCual(urlInput) : claveDeLanding(urlInput))).html;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -303,7 +303,7 @@ export async function extraerLanding(
   // pega el link de SU pagina: un `?page_id=245` no es ruido de medicion, ES la pagina, y normalizarla
   // bajaba la home sin que nada avise. Landing Analyst sigue con la URL normalizada, que es su ENTIDAD.
   // La baranda SSRF no cambia: `bajarHtml` revalida el destino en cada salto, venga como venga la URL.
-  const url = opts.talCual ? urlTalCual(urlInput) : normalizarUrl(urlInput);
+  const url = opts.talCual ? urlTalCual(urlInput) : claveDeLanding(urlInput);
   const { html, final, bytes } = await bajarHtml(url);
   return { url, urlFinal: final, ...copyDeHtml(html), htmlBytes: bytes, fetchMs: Date.now() - t0 };
 }

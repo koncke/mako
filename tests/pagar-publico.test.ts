@@ -121,6 +121,22 @@ test('«ese email ya es de otro» se pregunta DESPUÉS del reclamo y gasta el in
   assert.doesNotMatch(cuerpo, /ya tiene una cuenta/);
 });
 
+test('cambiar el email de acceso AVISA al email anterior, después del cambio y sin frenar la respuesta', () => {
+  // 15/10/2026: quien tiene el link de la compra puede cambiar el acceso. Un código al email ACTUAL bloqueaba el caso
+  // legítimo más común (se tipeó mal al pagar); se copia a Google y GitHub: el nuevo se prueba al entrar con Google, y
+  // al anterior le llega un aviso con cómo revertirlo.
+  const cuerpo = sinComentarios(leer(EMAIL));
+  const cambio = cuerpo.indexOf(".is('ultimo_login', null)");
+  const aviso = cuerpo.indexOf('avisarCambioDeEmailDeAcceso({ anterior: usuario.email, nuevoEnmascarado: emailEnmascarado(nuevo.email)');
+  assert.ok(cambio > 0 && aviso > cambio, 'el aviso va DESPUÉS de que el cambio quedó hecho (y a la dirección de ANTES)');
+  assert.match(cuerpo, /try \{ after\(avisarAnterior\); \} catch \{ void avisarAnterior\(\); \}/, 'el aviso no frena la respuesta');
+  const inv = sinComentarios(leer('lib/invitaciones.ts'));
+  const f = inv.slice(inv.indexOf('export async function avisarCambioDeEmailDeAcceso('), inv.indexOf('export async function invitarAlCursoPorEmail('));
+  assert.match(f, /await enviarDePlataforma\(/, 'habla MaKo: la key y el remitente de la plataforma, no los del negocio');
+  assert.match(f, /\$\{p\.nuevoEnmascarado\}/, 'el nuevo va enmascarado: si el anterior estaba mal tipeado, es de un desconocido');
+  assert.match(f, /\$\{EMAIL_MAKO\}/, 'el aviso dice a dónde escribir para revertirlo');
+});
+
 test('ninguna ruta del comprador lee cookies', () => {
   for (const r of TODAS) {
     const src = sinComentarios(leer(r));
@@ -169,3 +185,5 @@ test('la página del comprador no recibe POST (lo único que escribe es /api/pag
 //   · el 23505 saliendo DESPUÉS de devolver el intento                          → 7 / 1
 //   · si la búsqueda falla (la base), sin devolver el intento                   → 7 / 1
 //   · el texto otra vez «Ese email ya tiene una cuenta de MaKo»                 → 7 / 1
+// Y con el aviso al email anterior (9 pases en verde), cada una → 8 / 1: sin mandarlo, mandándolo al email NUEVO,
+// y con el nuevo sin enmascarar en el texto.

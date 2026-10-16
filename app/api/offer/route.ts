@@ -17,7 +17,9 @@
 //                                                   app/api/onboarding/archivero/upload-url/route.ts). Sirve
 //                                                   también para el AUDIO del turno.
 //   · 'leer'           { sesionId|null, path, nombre, mime, funnelId? } → { sesion, doc }  (crea la sesión si
-//                                                   hace falta; baja el archivo, lo pasa a texto y BORRA el binario)
+//                                                   hace falta; baja el archivo y lo pasa a texto. El binario de
+//                                                   un ARCHIVO va después, por detrás, a El Archivero; el resto
+//                                                   se BORRA)
 //   · 'descartar-subida' { path } → { borrado }  (un binario que al final no se usa)
 //   · 'leer-link'      { sesionId|null, url, funnelId? } → { sesion, doc }  (baja la web con la descarga
 //                                                   SSRF-segura de lib/landing-fetch.ts y la guarda como documento)
@@ -42,8 +44,17 @@
 //    CLIENTE) al super admin que no está mirando a nadie, y la tab escribiría en la cuenta de otro.
 // ⚠️ ANTI-IDOR en 'leer' y en el audio del turno: el `path` lo manda el navegador, así que se exige que sea
 //    de ESTE workspace y de esta tab (`<ws>/offer/<uuid>`) antes de bajarlo. Un path ajeno no se toca.
-// ⚠️ EL BINARIO DE UN DOCUMENTO SE BORRA SIEMPRE, también si la lectura falla: lo que queda es el texto.
-//    El de un AUDIO no: el mensaje lo reproduce (GET /api/offer/audio). Se borra con la conversación.
+// ⚠️ EL BINARIO DE UN DOCUMENTO NUNCA QUEDA SUELTO. Desde la decisión de Martín (Ticketera, 15/10/2026 05:32,
+//    ref `offer-archivero`: «¿El Archivero del chat guarda el archivo y paga una extracción por documento? →
+//    A · Sí»), un ARCHIVO leído y guardado en la conversación pasa POR DETRÁS (`after`) a El Archivero:
+//    `registrarDocumentoSinPisar` se hace cargo y, al terminar, o quedó con su fila o lo borró. En todo
+//    otro caso (la lectura falló, la conversación no lo aceptó, un audio subido como documento) se borra
+//    en el `finally`, como antes. El de un AUDIO del dueño no: el mensaje lo reproduce (GET
+//    /api/offer/audio). Se borra con la conversación.
+// ⚠️ GUARDARLO EN EL ARCHIVERO PAGA (una extracción de campos por documento, la del Archivero) y NO FRENA
+//    NI ENSUCIA EL CHAT: la lectura para la conversación es la de siempre, el registro corre después de
+//    responder, y si falla el chat sigue y el porqué queda escrito en el chip del archivo (`archivero` en
+//    el documento y en los adjuntos que lo llevan). La IA de la conversación nunca lo lee.
 // ⚠️ UN TURNO QUE FALLA NO GUARDA UN MENSAJE DE MaKo: el cartel de error no es algo que MaKo «dijo»
 //    (AGENTS.md «Un cartel de la PLATAFORMA no es un turno de la conversación»). El mensaje del dueño sí
 //    queda guardado, y la respuesta de error lleva la sesión para que la pantalla no la pierda. La única
@@ -54,12 +65,13 @@
 //    y MaKo sigue con lo suyo. El resultado va al PDF (lib/offer-pdf.ts).
 // =============================================================================
 
-import type { NextRequest } from 'next/server';
+import { after, type NextRequest } from 'next/server';
 import { randomUUID } from 'node:crypto';
 import { adminDeWorkspaceActual, runWithWorkspace } from '@/lib/workspace';
 import { getUsuarioActual } from '@/lib/auth';
 import { getSupabaseServer } from '@/lib/supabase';
 import { archivoATexto } from '@/lib/archivo-a-texto';
+import { registrarDocumentoSinPisar, type RegistroArchivero } from '@/lib/archivero';
 import { MAX_ARCHIVO_BYTES, formatosLegibles, puedeLeerse } from '@/lib/formatos-archivo';
 import { marcarPasoTab } from '@/lib/tab-onboarding-state';
 import { transcribirAudio, SttSinEscucha, errorDeCascada } from '@/lib/ai-cheap';
@@ -68,12 +80,12 @@ import { leerFunnels } from '@/lib/funnels';
 import { listarOfertas } from '@/lib/ofertas';
 import { guardarFaseSiNoHay } from '@/lib/fase-store';
 import type { Diagnostico } from '@/lib/fase-diagnostico';
-import { MARCA_COMPLETAR, faltanMinimas, type ConclusionOferta } from '@/lib/offer-marco';
+import { MARCA_COMPLETAR, faltanMinimas, type ArchiveroDoc, type ConclusionOferta } from '@/lib/offer-marco';
 import {
-  MAX_DOCS_SESION, TOPE_TEXTO_DOC, adjuntoDe, avisosAntesDelDiagnostico, calcularDiagnostico, canalParaElNegocio, conRespuestaInferida,
+  MAX_DOCS_SESION, TOPE_TEXTO_DOC, adjuntoDe, avisosAntesDelDiagnostico, calcularDiagnostico, canalParaElNegocio, conArchivero, conRespuestaInferida,
   diagnosticoFaltante, diagnosticoParaPrompt, docsDeLaConversacion, estadoDiagnostico, faltanTexto, faseDeSetting,
-  faseVigenteDe, linkParaLeer, mensajeDeMako, mensajePdf, mergePiezas, planDiagnostico, primerMensaje, primerMensajeFunnel, provisionalDe, recortar,
-  repartirTranscripcion, respuestaDiagnostico, respuestaSinIA,
+  faseVigenteDe, linkParaLeer, mensajeDeMako, mensajePdf, mergePiezas, motivoArchivoOffer, planDiagnostico, primerMensaje, primerMensajeFunnel, provisionalDe, recortar,
+  repartirTranscripcion, respuestaDiagnostico, respuestaSinIA, seArchivaDesdeOffer,
   type AudioGuardado, type DocumentoGuardado, type MensajeGuardado,
 } from '@/lib/offer-reglas';
 import { contextoOffer, type ContextoOffer } from '@/lib/offer-contexto';
@@ -93,6 +105,11 @@ const BUCKET = 'archivero';
 const TOPE_MENSAJE = 12_000;
 /** Lo más largo que se acepta de un link. */
 const TOPE_URL = 2_000;
+/**
+ * Hasta cuándo puede correr la extracción del Archivero, contado desde que llegó el pedido: el
+ * `maxDuration` (300 s) menos lo que hace falta para mover el binario, escribir la fila y anotar el chip.
+ */
+const PLAZO_ARCHIVERO_MS = 240_000;
 
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 const ok = (datos: Record<string, unknown> = {}) => Response.json({ ok: true, ...datos });
@@ -217,7 +234,7 @@ export async function POST(req: NextRequest) {
         }
 
         case 'leer':
-          return await leer(ws, body);
+          return await leer(ws, body, inicio);
 
         // Un binario subido que al final no se usa (el dueño descarta la nota de voz, o cambia de
         // conversación mientras algo sube). Antes 'leer' era lo ÚNICO que borraba, y en esos dos
@@ -343,8 +360,11 @@ async function nueva(body: Record<string, unknown>): Promise<Response> {
 
 // ── leer / leer-link ─────────────────────────────────────────────────────────
 
-/** La conversación a la que va un documento: la que viene, o una nueva (atada al funnel, si viene). */
-async function guardarDocumento(body: Record<string, unknown>, doc: DocumentoGuardado): Promise<Response> {
+/**
+ * La conversación a la que va un documento: la que viene, o una nueva (atada al funnel, si viene).
+ * `sesionId` = en cuál quedó (null si no quedó): lo necesita quien después le anota el Archivero.
+ */
+async function guardarDocumento(body: Record<string, unknown>, doc: DocumentoGuardado): Promise<{ res: Response; sesionId: number | null }> {
   const sesionId = body.sesionId == null ? null : entero(body.sesionId);
   const funnelId = entero(body.funnelId);
   let fila: FilaOffer;
@@ -356,11 +376,12 @@ async function guardarDocumento(body: Record<string, unknown>, doc: DocumentoGua
       })
       : await sesionNueva(await contextoOffer({ funnelId }), [doc], { funnelId });
   } catch (e) {
-    // El binario ya se borró (`leer` lo borra siempre): que el error diga CUÁL archivo hay que volver a subir.
-    if (e instanceof ConflictoCAS) return no(409, `No pude guardar «${doc.nombre}»: había otros archivos guardándose en esta conversación a la vez. Vuelve a subirlo.`);
+    // El binario se borra (un documento que la conversación no aceptó no va al Archivero): que el error diga
+    // CUÁL archivo hay que volver a subir.
+    if (e instanceof ConflictoCAS) return { res: no(409, `No pude guardar «${doc.nombre}»: había otros archivos guardándose en esta conversación a la vez. Vuelve a subirlo.`), sesionId: null };
     throw e;
   }
-  return ok({ sesion: await vistaSesion(fila), doc: adjuntoDe(doc) });
+  return { res: ok({ sesion: await vistaSesion(fila), doc: adjuntoDe(doc) }), sesionId: fila.id };
 }
 
 /** Las validaciones que van ANTES de bajar nada: la conversación existe y tiene lugar, el funnel es del negocio. */
@@ -377,20 +398,24 @@ async function antesDeLeer(body: Record<string, unknown>): Promise<Response | nu
   return funnelId ? validarFunnel(funnelId) : null;
 }
 
-async function leer(ws: number, body: Record<string, unknown>): Promise<Response> {
+async function leer(ws: number, body: Record<string, unknown>, inicio: number): Promise<Response> {
   const path = cadena(body.path);
   const nombre = cadena(body.nombre).slice(0, 200) || 'documento';
   const mime = cadena(body.mime);
   // El path lo escribe el navegador: sólo uno de ESTE workspace y de esta tab. Uno ajeno no se toca.
   if (!esPathDeOffer(ws, path)) return no(400, 'Ese archivo no es de esta cuenta. Vuelve a subirlo.');
   const storage = getSupabaseServer().storage.from(BUCKET);
+  // true = el binario pasó a El Archivero (`archivarDespues`), que desde ahí es su dueño: no se borra acá.
+  let entregado = false;
   try {
     const previo = await antesDeLeer(body);
     if (previo) return previo;
     const { data, error } = await storage.download(path);
     if (error || !data) return no(400, `No encontré «${nombre}» en la subida. Vuelve a subirlo.`);
-    const file = new File([await data.arrayBuffer()], nombre, { type: mime || data.type || '' });
-    const lectura = await archivoATexto(file, { feature: 'offer', motivo: `Offer: leer «${nombre}»` });
+    const contenido = new Uint8Array(await data.arrayBuffer());
+    const file = new File([contenido], nombre, { type: mime || data.type || '' });
+    // Con la red: Offer es de la primera semana de un cliente nuevo, que no trae una API (16/10/2026).
+    const lectura = await archivoATexto(file, { feature: 'offer', motivo: `Offer: leer «${nombre}»`, redDePlataforma: true });
     const texto = (lectura.texto ?? '').trim();
     if (!texto) return no(422, lectura.warning || `No pude sacar texto de «${nombre}». Si es una foto o un escaneo borroso, prueba con otra versión o pega el texto en el chat.`);
     const recortado = texto.length > TOPE_TEXTO_DOC;
@@ -399,11 +424,63 @@ async function leer(ws: number, body: Record<string, unknown>): Promise<Response
       ...(lectura.warning ? { aviso: recortar(lectura.warning, 200) } : recortado ? { aviso: `Leí sólo el principio (${TOPE_TEXTO_DOC.toLocaleString('es-MX')} de ${texto.length.toLocaleString('es-MX')} caracteres).` } : {}),
       at: new Date().toISOString(),
     };
-    return await guardarDocumento(body, doc);
+    const { res, sesionId } = await guardarDocumento(body, doc);
+    // Recién con el documento EN la conversación: uno que no quedó no va a ningún lado.
+    if (sesionId != null && seArchivaDesdeOffer(lectura.via)) {
+      entregado = true;
+      await archivarDespues(ws, { sesionId, docId: doc.id, origen: path, contenido, nombre, mime: file.type, texto, inicio });
+    }
+    return res;
   } finally {
-    // SIEMPRE, también si algo de arriba tiró: el binario no se guarda (lo que queda es el texto).
-    const { error } = await storage.remove([path]).catch((e) => ({ error: { message: msg(e) } }));
-    if (error) console.warn(`[offer:leer] no pude borrar ${path}: ${error.message}`);
+    // También si algo de arriba tiró: lo que no pasó al Archivero no se guarda (lo que queda es el texto).
+    if (!entregado) {
+      const { error } = await storage.remove([path]).catch((e) => ({ error: { message: msg(e) } }));
+      if (error) console.warn(`[offer:leer] no pude borrar ${path}: ${error.message}`);
+    }
+  }
+}
+
+/**
+ * El archivo, también en El Archivero (decisión de Martín, Ticketera 15/10/2026 05:32, ref `offer-archivero`).
+ * POR DETRÁS (`after`): la respuesta de 'leer' sale ya, y el turno no espera una extracción. Fuera de un
+ * pedido (un script) `after` tira y se hace en línea (molde: lib/curso-avance.ts).
+ *
+ * `registrarDocumentoSinPisar` es dueño del binario desde acá y nunca tira. Lo que pasó se anota en el
+ * documento y en los adjuntos que lo llevan (`conArchivero`): si falló, el chip lo dice.
+ */
+async function archivarDespues(ws: number, p: {
+  sesionId: number; docId: string; origen: string; contenido: Uint8Array; nombre: string; mime: string; texto: string; inicio: number;
+}): Promise<void> {
+  const trabajo = () => runWithWorkspace(ws, async () => {
+    let r: RegistroArchivero;
+    try {
+      r = await registrarDocumentoSinPisar(ws, {
+        origen: p.origen, contenido: p.contenido, nombre: p.nombre, mime: p.mime, texto: p.texto,
+        motivo: motivoArchivoOffer(p.nombre), hastaMs: p.inicio + PLAZO_ARCHIVERO_MS,
+      });
+    } catch (e) {
+      // No debería: registrarDocumentoSinPisar devuelve sus fallos. Si igual tira, el binario no queda suelto.
+      await getSupabaseServer().storage.from(BUCKET).remove([p.origen]).catch(() => null);
+      r = { ok: false, motivo: 'algo falló de nuestro lado al guardarlo' };
+      console.error('[offer:archivero]', e);
+    }
+    if (!r.ok) console.error(`[offer:archivero] «${p.nombre}» (conversación #${p.sesionId}) no quedó en El Archivero: ${r.motivo}`);
+    await anotarArchivero(p.sesionId, p.docId, r.ok ? { ok: true, id: r.id, ...(r.aviso ? { aviso: r.aviso } : {}) } : { ok: false, motivo: r.motivo });
+  });
+  try {
+    after(trabajo);
+    return;
+  } catch { /* sin pedido: en línea */ }
+  await trabajo();
+}
+
+/** Lo que pasó en El Archivero, en el documento de la conversación. Nunca tira: el registro ya está hecho. */
+async function anotarArchivero(sesionId: number, docId: string, estado: ArchiveroDoc): Promise<void> {
+  try {
+    await actualizarSesion(sesionId, (f) => conArchivero(f, docId, estado));
+  } catch (e) {
+    // La conversación pudo borrarse mientras tanto (404): no hay dónde anotarlo, y El Archivero quedó igual.
+    console.error(`[offer:archivero] no pude anotar el resultado en la conversación #${sesionId}:`, msg(e));
   }
 }
 
@@ -445,7 +522,7 @@ async function leerLink(body: Record<string, unknown>): Promise<Response> {
     ...(avisoLink(texto.length) ?? {}),
     at: new Date().toISOString(),
   };
-  return guardarDocumento(body, doc);
+  return (await guardarDocumento(body, doc)).res;
 }
 
 /**

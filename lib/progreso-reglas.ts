@@ -61,18 +61,9 @@ export const ROTULO_TIPO: Record<string, string> = {
   prompt: 'Pedido', implementacion: 'Hecho', correccion: 'Corrección', investigacion: 'Investigando', cosecha: 'Cosecha',
 };
 
-/**
- * Las pestañas del Centro, en su orden. Los PEDIDOS van primero (Martín, 15/10/2026: «Lo que quiero ver allí
- * es lo que te pedí, los pushes de lo terminado, los pendientes que estamos trabajando ahora mismo, las cosas
- * que ya están terminadas, empezadas, etc...»): la unidad de la pantalla es lo que él pidió, y lo demás es el
- * camino que hizo. Y después (15/10, tarde): «Al principio debería haber una tab que simule los chats», y «No
- * entiendo para nada la tab de "trabajos", eliminala». Chats va primero; Trabajos ya no es una pestaña.
- * Y el 16/10, con el rediseño de punta a punta («Eliminando las tabs innecesarias»): «Áreas» se fue —lo que
- * decía es la lista de chats— y las otras dos dejaron de ser pestañas: son accesos de la barra. Un `?tab=areas`
- * viejo abre los chats.
- */
-export const PESTANAS_CENTRO = ['chats', 'avance', 'pushes'] as const;
-export type PestanaCentro = (typeof PESTANAS_CENTRO)[number];
+// El Centro ya no tiene pestañas (15/10/2026, a la noche; Martín: «Elimina lo de "Avances y pushes", quiero que cada
+// chat tenga arriba, en su topbar un botón para ver los avances»): lo que eran Avance y Pushes es la barra derecha de
+// cada conversación (app/admin/operaciones/Avance.tsx). Un `?tab=` viejo abre los chats.
 
 // ── En curso ──────────────────────────────────────────────────────────────────────────────────
 export type Frente = {
@@ -114,6 +105,9 @@ export const ROTULO_PEDIDO: Record<EstadoPedidoP, string> = { pendiente: 'Sin em
 
 export type PasoP = {
   instante: number | null; chat: string; sesion: string | null; tipo: string; titulo: string; commits: Array<{ sha: string; msg: string }>;
+  /** La cuenta de Claude que lo anotó: el avance de un chat la muestra como chip (Martín: «con un chip... de en que
+   *  cuenta se trabajó... Y en el progreso, en el detalle»). */
+  cuenta: string | null;
 };
 
 export type PedidoP = {
@@ -166,7 +160,7 @@ export function cadenas(a: AreaP, ahora: number): PedidoP[] {
       const p = b[j];
       pasos.push({
         instante: instanteHito(p.fecha, p.hora, ahora), chat: p.chat, sesion: p.sesion ?? null, tipo: p.tipo, titulo: p.titulo,
-        commits: (p.commits ?? []).map((c) => ({ sha: c.sha, msg: c.msg })),
+        commits: (p.commits ?? []).map((c) => ({ sha: c.sha, msg: c.msg })), cuenta: p.cuenta || null,
       });
     }
     const commits = pasos.flatMap((p) => p.commits);

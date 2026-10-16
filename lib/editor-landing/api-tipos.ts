@@ -11,6 +11,7 @@
 import type { JsonNodo, LandingContenido } from './doc';
 import type { ObjetivoLanding } from '../landing-spec';
 import type { FallaEnNavegador, Lectura } from './lectura-tipos';
+import { ESTILO_DEFAULT, type IdEstilo } from './animaciones';
 
 export type Falla = { ok: false; error: string; conflicto?: boolean; versionActual?: number };
 
@@ -52,7 +53,12 @@ export type ConfigLanding = {
   /** Sólo cuenta en una presentación ('16:9' por default). */
   proporcion?: Proporcion;
   sitio: ConfigSitio;
-  pagina: { animaciones: boolean; fondoImagen: string | null };
+  /**
+   * `animaciones` es el interruptor MAESTRO (apagado, nada anima). `estiloAnimacion` es la «Animación de página»
+   * (animaciones.ts, `ESTILOS_PAGINA`): la que heredan las secciones que no eligieron la suya. Lo guardado antes
+   * del catálogo no lo trae: `sanearConfig` lo completa con `ESTILO_DEFAULT` («Subir», la entrada de siempre).
+   */
+  pagina: { animaciones: boolean; estiloAnimacion: IdEstilo; fondoImagen: string | null };
   /** Lo que MaKo usó para generarla (para «Ver instrucción de origen»). */
   origen?: { modo: 'cero' | 'ia' | 'plantilla' | 'importar' | 'generador'; pedido?: string; objetivo?: ObjetivoLanding; basadoEnUrl?: string | null; plantilla?: string };
 };
@@ -67,7 +73,7 @@ export const CONFIG_DEFAULT: ConfigLanding = {
     pie: { mostrar: false, texto: '' },
     metaPixelId: null, marcaMako: true,
   },
-  pagina: { animaciones: true, fondoImagen: null },
+  pagina: { animaciones: true, estiloAnimacion: ESTILO_DEFAULT, fondoImagen: null },
 };
 
 /** El formato de una configuración (sin el campo, o con uno que no existe: 'pagina'). */

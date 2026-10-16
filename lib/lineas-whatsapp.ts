@@ -88,10 +88,13 @@ export type Eleccion = { ok: true; instance: string } | { ok: false; motivo: str
  * Por qué línea sale un mensaje. `lineas` son las del workspace (leídas con su scope);
  * `pedida` es la que nombró quien manda (la secuencia, la bandeja, un borrador), o nada.
  */
-export function elegirLinea(lineas: ReadonlyArray<LineaMin>, pedida: string | null | undefined, ws: number): Eleccion {
+export function elegirLinea(lineas: ReadonlyArray<LineaMin>, pedida: string | null | undefined, ws: number, deMaKo: string | null = null): Eleccion {
+  // `deMaKo`: la línea de MaKo, que en la PLATAFORMA cuenta como del negocio para MANDAR (lib/linea-plataforma.ts). Sólo
+  // la pasa el envío; fuera de la plataforma es null y la regla es la de siempre.
+  const delWs = (n: string) => esLineaDelWorkspace(n, ws) || (!!deMaKo && n === deMaKo);
   const p = (pedida ?? '').trim();
   if (p) {
-    if (!esLineaDelWorkspace(p, ws)) return { ok: false, motivo: 'Esa línea de WhatsApp no es de este negocio.' };
+    if (!delWs(p)) return { ok: false, motivo: 'Esa línea de WhatsApp no es de este negocio.' };
     if (lineas.some((l) => l.instance_name === p)) return { ok: true, instance: p };
     // Sin ninguna fila todavía, la única línea posible es la de siempre: pedirla por su
     // nombre es lo mismo que no pedir nada.
@@ -101,7 +104,7 @@ export function elegirLinea(lineas: ReadonlyArray<LineaMin>, pedida: string | nu
   const d = lineaPorDefault(lineas);
   if (!d) return { ok: true, instance: instanceNameDeWs(ws) };
   // Defensa en profundidad: una fila del workspace con un nombre ajeno no se usa nunca.
-  if (!esLineaDelWorkspace(d.instance_name, ws)) return { ok: false, motivo: 'La línea de WhatsApp de este negocio está mal registrada.' };
+  if (!delWs(d.instance_name)) return { ok: false, motivo: 'La línea de WhatsApp de este negocio está mal registrada.' };
   return { ok: true, instance: d.instance_name };
 }
 

@@ -80,7 +80,7 @@ import { alternarValor } from '../app/components/dropdown-varios';
 // Puro (sólo importa ./nutricion-canal): cuántas partes tiene un mensaje, para su alto (`altoDeMensaje`).
 import { partesExplicitas, partesDe, type ParteMensaje } from './mensaje-partes';
 // Puro: la tarjeta «MaKo en WhatsApp» por partes (undécima tanda). Lo que la tarjeta dice y si está escrita.
-import { partesDeMako, resumenDeMako } from './mako-tarjeta';
+import { partesDeMako, resumenDeMako, problemaDeEmailMako, esPorEmail } from './mako-tarjeta';
 // SÓLO EL TIPO (undécima tanda): el valor NO se importa acá. lib/tokens-del-flujo.ts → lib/aviso-evento.ts →
 // lib/disparadores.ts → ESTE archivo es un ciclo, y aviso-evento lee `EVENTOS_MAKO` al cargarse: medido el 11/10/2026,
 // con el import estático `import('lib/disparadores.ts')` tira «Cannot access 'EVENTOS_MAKO' before initialization».
@@ -318,9 +318,12 @@ export function makoDeAccion(p: PasoGrafo): { mensaje: string; titulo: string; p
 /** ¿La tarjeta MAKO no dice nada? Sin ninguna parte (ni texto, ni la Voz de MaKo, ni un archivo). */
 const makoVacia = (p: PasoGrafo): boolean => !(makoDeAccion(p)?.partes.length);
 
+/** Los `params` de una tarjeta MAKO. */
+const paramsDeMakoDe = (p: PasoGrafo): Record<string, unknown> | undefined =>
+  (p.accion as { params?: Record<string, unknown> } | null | undefined)?.params;
+
 /** La tarjeta MAKO en un renglón (`resumenDeMako`): lo que dibuja el lienzo y nombra un error. */
-const resumenMako = (p: PasoGrafo): string =>
-  resumenDeMako((p.accion as { params?: Record<string, unknown> } | null | undefined)?.params);
+const resumenMako = (p: PasoGrafo): string => resumenDeMako(paramsDeMakoDe(p));
 
 /**
  * «Agregar Cualificado» / «Eliminar Seguimiento» / «Agregar Cualificado y Seguimiento»: lo que dice la
@@ -557,6 +560,8 @@ export const TITULO = {
   // Sexta tanda, MaKo en WhatsApp 1, literal: «El título debe ser ese, "MaKo en WhatsApp" no solo
   // MaKo... Sino se confunde con una ayuda de la IA».
   mako: 'MAKO EN WHATSAPP',
+  // La misma tarjeta por correo al equipo (16/10/2026, `esPorEmail`, lib/mako-tarjeta.ts): se nombra como sale.
+  mako_email: 'MAKO POR EMAIL',
   // (`respuesta: 'REPLY'` se fue en la segunda pasada de la sexta tanda: «Si responde» se dibuja como
   // la CONDITION que escucha —punto 12: «Reply ya te dije que tiene que estar dentro de CONDITION»—.)
   // «Ir a» ya no se crea (decisión 3), pero los que existen se siguen dibujando.
@@ -582,7 +587,7 @@ export function tituloDeTarjeta(p: PasoGrafo, enRespuesta?: boolean): string {
     case 'condicion': return TITULO.condicion;
     case 'ir_a': return TITULO.ir_a;
     case 'esperar': return TITULO.esperar;
-    case 'accion': return etiquetaDeAccion(p) ? TITULO.etiqueta : esMako(p) ? TITULO.mako : TITULO.accion;
+    case 'accion': return etiquetaDeAccion(p) ? TITULO.etiqueta : esMako(p) ? (esPorEmail(paramsDeMakoDe(p)) ? TITULO.mako_email : TITULO.mako) : TITULO.accion;
     case 'inicio': return TITULO.cron;
     // Un WhatsApp con texto, audio, archivo o escrito por MaKo es WHATSAPP (decisión 5): «no pongas
     // "Nota de voz" es simplemente "WhatsApp" y un WhatsApp puede contener diversas cosas».
@@ -645,6 +650,12 @@ export function faltaEscribir(pasos: readonly PasoGrafo[]): { id: string; error:
       const id = idDe(p, i);
       return { id, error: `Falta completar «${nombreDeTarjeta(pasos, id)}»` };
     }
+    // «MaKo por email» (16/10/2026): sin asunto, o con algo que un correo no lleva, no se publica.
+    const malEmail = esMako(p) ? problemaDeEmailMako(paramsDeMakoDe(p)) : null;
+    if (malEmail) {
+      const id = idDe(p, i);
+      return { id, error: `«${nombreDeTarjeta(pasos, id)}»: ${malEmail}` };
+    }
     if (claseDe(p) !== 'mensaje') continue;
     const id = idDe(p, i);
     if (mensajeVacio(p)) return { id, error: `Falta completar «${nombreDeTarjeta(pasos, id)}»` };
@@ -667,7 +678,7 @@ export function tarjetasIncompletas(pasos: readonly PasoGrafo[]): Set<string> {
     if (t) out.add(t);
   }
   pasos.forEach((p, i) => {
-    const vacia = esMako(p) ? makoVacia(p) : claseDe(p) === 'mensaje' && mensajeVacio(p);
+    const vacia = esMako(p) ? makoVacia(p) || !!problemaDeEmailMako(paramsDeMakoDe(p)) : claseDe(p) === 'mensaje' && mensajeVacio(p);
     if (vacia) out.add(idDe(p, i));
   });
   return out;

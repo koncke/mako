@@ -164,6 +164,10 @@ export type Parametro = {
    *  vacía, que es lo correcto para un filtro y deja sin forma de vaciar algo que se reemplaza entero
    *  (las tareas de una clase: `tareas: []` las saca). */
   vaciaEsValor?: true;
+  /** el que dice SOBRE QUÉ se hace (el cobro que se devuelve): en /mako/revisar se ve y NO se cambia. El resumen que la
+   *  persona confirma se armó con él; cambiarlo ejecutaba la acción sobre otro bajo el título del primero (devolverle la
+   *  plata a otro cliente). Para otro, se propone de nuevo. Lo hace cumplir `aplicarPropuestaGenerica` (15/10/2026). */
+  fijoAlRevisar?: true;
   /** para `object` y `object[]`: sus campos, recursivo */
   campos?: readonly Parametro[];
   ejemplo?: unknown;

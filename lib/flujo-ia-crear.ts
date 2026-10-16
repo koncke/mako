@@ -24,7 +24,7 @@
 
 import 'server-only';
 import { runWithWorkspace, getTenantDb } from '@/lib/workspace';
-import { chatCheapCascade, MODELO_DOCS, provsDe, tokensAprox, techoDeEntrada, type ProvName } from '@/lib/ai-cheap';
+import { chatCheapCascade, MODELO_DOCS, provsDe, provsGratisDePlataforma, tokensAprox, techoDeEntrada, type ProvName } from '@/lib/ai-cheap';
 import { overrideDeFeature } from '@/lib/model-registry';
 import { getPromptText } from '@/lib/prompt-render';
 import { parseJsonObject } from '@/lib/json-del-modelo';
@@ -273,11 +273,17 @@ async function proveedores(): Promise<{ provs: ProvName[]; modelos: Partial<Reco
 
 /**
  * ¿HAY UNA IA GRATIS para crear? La pregunta que hace la API de MaKo ANTES de proponer (`preparar`: lo que se
- * puede saber sin escribir falla ahí, AGENTS.md). Las mismas cuentas que va a probar `generar`.
+ * puede saber sin escribir falla ahí, AGENTS.md). Las mismas cuentas que va a probar `generar`: las del negocio
+ * Y la red de la plataforma.
+ *
+ * ⚠️ Hasta el 16/10/2026 miraba sólo las del negocio, y `generar` ya corría con la red: a un cliente nuevo sin
+ * API (que desde el 15/10 no la trae) MaKo le contestaba «conecta tu IA» por WhatsApp para algo que la pantalla
+ * le creaba sin problema.
  */
 export async function hayIAParaCrear(): Promise<boolean> {
   const { provs } = await proveedores();
-  return (await Promise.all(provs.map((x) => provsDe(x).catch(() => [])))).some((l) => l.length > 0);
+  if ((await Promise.all(provs.map((x) => provsDe(x).catch(() => [])))).some((l) => l.length > 0)) return true;
+  return (await provsGratisDePlataforma().catch(() => [])).length > 0;
 }
 
 /**

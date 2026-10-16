@@ -11,6 +11,7 @@
 //
 // Probado rompiéndolo (15/10/2026): el resultado de cada rotura está al final.
 import { test } from 'node:test';
+import { readFileSync } from 'node:fs';
 import assert from 'node:assert/strict';
 import {
   aLinea, cortarTramos, normalizarTramos, piezasSinTramos, tramosConClip, type Dividir,
@@ -18,7 +19,7 @@ import {
 import {
   buscarFrase, muletillasDe, palabrasEnOrden, tramosDePalabras, transcripcionDe,
 } from '../app/video-editor/_opencut/transcripcion/modelo';
-import { codificarPalabras, leerCodificadas, PARAM_PALABRAS } from '../app/video-editor/_opencut/subtitles/palabras';
+import { codificarPalabras, leerCodificadas, palabrasDe, PARAM_PALABRAS } from '../app/video-editor/_opencut/subtitles/palabras';
 
 /** Ticks por segundo de mentira: milisegundos, para leer los números. */
 const TPS = 1000;
@@ -229,6 +230,57 @@ test('15: el audio extraído del video se corta igual que el video', () => {
   assert.equal(voz[0].id, 'ex');
 });
 
+test('17: un subtítulo partido con «Dividir» conserva sus tiempos al cortar, y lo que se borra en una mitad se va de las dos', () => {
+  // «uno dos tres eh cuatro» de 1 a 4,2 s, partido en 3 s: las dos mitades guardan el texto y las palabras enteras.
+  const ws: W[] = [['uno', 1, 1.4], ['dos', 1.5, 1.9], ['tres', 3.1, 3.4], ['eh', 3.45, 3.55, 'm'], ['cuatro', 3.6, 4]];
+  const izq = sub('L', 1, 3, ws);
+  const der = { ...sub('R', 1, 4.2, ws), id: 'R', startTime: ms(3), duration: ms(1.2), trimStart: ms(2) };
+  const tracks = escena() as any;
+  tracks.overlay[0].elements = [izq, der];
+  // Se va la muletilla (sólo en lo visible de R) y «dos» (en lo visible de L).
+  const r = cortar(tracks, [[3.42, 3.58], [1.45, 1.95]]);
+  const R = el(r, 'R')!;
+  assert.equal(R.params.content, 'uno tres cuatro');
+  const visibles = palabrasDe({ contenido: R.params.content, param: R.params[PARAM_PALABRAS], inicio: R.startTime / TPS, recorteInicio: R.trimStart / TPS, duracion: R.duration / TPS });
+  assert.ok(visibles, 'las palabras siguen valiendo para el texto entero');
+  assert.deepEqual(visibles!.palabras.map((p) => p.texto), ['tres', 'cuatro']);
+  assert.equal(el(r, 'L')!.params.content, 'uno tres cuatro');
+});
+
+test('18: el audio extraído de una SUPERPOSICIÓN no se corta (su video no se corta)', () => {
+  const tracks = escena() as any;
+  tracks.overlay.push({ id: 'sup', name: 's', type: 'video', muted: false, hidden: false, elements: [video('b1', 0, 10)] });
+  tracks.audio.push({ id: 'voz', name: 'v', type: 'audio', muted: false, elements: [{ ...musica('ex', 0, 10), sourceType: 'upload', mediaId: 'm', params: { 'audio.extraidoDe': 'b1' } }] });
+  const r = cortar(tracks, [[1.45, 2.05]], nadaVinculado);
+  assert.equal(r.tracks.audio[1].elements.length, 1);
+  assert.equal(el(r, 'ex')!.duration, 10000);
+});
+
+test('19: cada pedazo del audio extraído queda emparejado con el pedazo de video que tiene arriba', () => {
+  const tracks = escena() as any;
+  tracks.audio.push({ id: 'voz', name: 'v', type: 'audio', muted: false, elements: [{ ...musica('ex', 0, 10), sourceType: 'upload', mediaId: 'm', params: { 'audio.extraidoDe': 'v1' } }] });
+  const r = cortar(tracks, [[1.45, 2.05]], nadaVinculado);
+  const videos = r.tracks.main.elements as Array<Record<string, any>>;
+  const voz = r.tracks.audio[1].elements as Array<Record<string, any>>;
+  assert.deepEqual(voz.map((e) => e.params['audio.extraidoDe']), videos.map((v) => v.id));
+});
+
+test('20: el corte y su deshacer no pasan por el imán (la cuenta ya trae todo en su lugar)', () => {
+  // Leyendo el fuente: con el imán, deshacer un corte corría un sticker que empezaba justo donde
+  // empezaba el tramo (la regla de «lo que el cambio no tocó se corre con su clip», ripple/iman.ts).
+  const fuente = readFileSync(new URL('../app/video-editor/_opencut/commands/timeline/element/cortar-tramos.ts', import.meta.url), 'utf8');
+  assert.equal((fuente.match(/updateTracks\([^)]*\{ sinIman: true \}\)/g) ?? []).length, 2);
+});
+
+test('21: Supr en la transcripción es de la transcripción: el atajo global no borra además el clip elegido', () => {
+  // Medido en producción el 15/10: elegir «de prueba.» y Supr borró el CLIP de 3 s que estaba
+  // elegido en la línea de tiempo (el atajo global escucha en captura sobre el documento).
+  const vista = readFileSync(new URL('../app/video-editor/_opencut/transcripcion/components/transcripcion-view.tsx', import.meta.url), 'utf8');
+  assert.ok(vista.includes('data-teclas-propias="delete backspace"'));
+  const atajos = readFileSync(new URL('../app/video-editor/_opencut/actions/use-keybindings.ts', import.meta.url), 'utf8');
+  assert.ok(atajos.includes('closest("[data-teclas-propias]")'), 'el atajo global mira si la tecla es de un panel');
+});
+
 test('16: tramosConClip separa lo que tiene clip debajo de lo que no', () => {
   const { con, sin } = tramosConClip(escena(), [[ms(1), ms(2)], [ms(11), ms(12)]]);
   assert.equal(con.length, 1);
@@ -246,3 +298,11 @@ test('16: tramosConClip separa lo que tiene clip debajo de lo que no', () => {
 // · sin mayúscula heredada → 15/1 (12). · una pista bloqueada se toca → 15/1 (14).
 // · muletillas: sólo las guardadas → 15/1 (11). · buscarFrase sin la muletilla de adentro → 15/1 (13).
 // · tramosConClip cuenta todo como con clip → 15/1 (16).
+//
+// Los arreglos de la revisión adversarial (15/10/2026), base 20 de 20:
+// · el subtítulo guarda sólo las palabras visibles → 19/1 (17).
+// · se corta el audio extraído de cualquier video → 19/1 (18).
+// · sin emparejar el audio extraído con su pedazo de video → 19/1 (19).
+// · el deshacer del corte pasa por el imán → 19/1 (20). Restaurado: 20/0.
+// · Supr (test 21, visto en producción): el panel no declara sus teclas → 20/1 (21); el atajo global
+//   no mira las teclas del panel → 20/1 (21). Restaurado: 21/0.

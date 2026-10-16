@@ -437,10 +437,15 @@ reescribir la clave entera. Molde: `persistirBrief` y `completarHuecoPerfil` en
 `lib/api-mako/areas/negocio.helpers.ts:131-164`.
 
 **Lo que quedó SIN hacer.** Las dos rutas del Archivero siguen llamando a `buildEstado(true)`; el
-arreglo va en `lib/archivero.ts:172-175`. La API de MaKo no lo tocó porque es la lib que pinta
+arreglo va en `buildEstado` (`lib/archivero.ts`). La API de MaKo no lo tocó porque es la lib que pinta
 la pantalla del Archivero, y lo esquiva por su lado.
 
-**Vive en:** `lib/archivero.ts:73-75,138-153,172-179` · `lib/onboarding.ts:67-69` ·
+**15/10/2026:** `computeEffective` se mudó, sin cambios, a `lib/archivero-registro.ts` (sin
+`server-only`, para que un test lo ejecute; `lib/archivero.ts` la re-exporta). Y El Archivero tiene una
+SEGUNDA PUERTA que no pasa por `buildEstado`: ver «El Archivero tiene una segunda puerta» más abajo.
+
+**Vive en:** `lib/archivero.ts` (`esCampoArchivero`, `buildEstado`) · `lib/archivero-registro.ts`
+(`computeEffective`) · `lib/onboarding.ts:67-69` ·
 `app/api/onboarding/route.ts:235-243` · `app/api/onboarding/archivero/route.ts:122` ·
 `app/api/onboarding/archivero/manual/route.ts:43` · *2026-09-16 api-mako-areas*
 
@@ -1146,6 +1151,28 @@ lentes · 38 hallazgos, 12 sobrevivieron, 5 bloqueaban.*
 
 ---
 
+## El Archivero tiene una segunda puerta: un documento que otra pantalla ya leyó (15/10/2026)
+
+Desde la decisión de Martín del 15/10 (ref `offer-archivero`: «¿El Archivero del chat guarda el archivo y
+paga una extracción por documento? → A · Sí»), cada archivo que el dueño manda en el chat de Offer queda
+también en El Archivero. Entra por `registrarDocumentoSinPisar` (`lib/archivero.ts`), y **cualquier otra
+pantalla que quiera guardar un documento en El Archivero entra por ahí**, no copiando la ruta:
+
+- **Es dueña del binario que recibe**: lo mueve a `<ws>/<id>` (el formato de `pathSubidoValido`) o lo borra.
+  Nunca queda suelto.
+- **El id sale del contenido** (`idDeContenido`: sha256 del workspace + los bytes), y el lugar se gana
+  MOVIENDO el binario antes de pagar la extracción: dos envíos del mismo archivo pagan uno. Mirar si la
+  fila existe no alcanza, porque la extracción tarda segundos.
+- **No llama a `buildEstado(true)`** (ver «`buildEstado(true)` reescribe el brief…»): suma sólo las claves de ese documento
+  (`answersConDocumento`), con lecturas estrictas antes de escribir.
+- **No regenera el panorama** (sería otra llamada paga) y paga UNA extracción, anotada como «El
+  Archivero» con el motivo de quien la pidió.
+
+El detalle y lo que enseñó, en `docs/hallazgos-offer.md` → «El Archivero desde el chat (15/10/2026)».
+
+**Vive en:** `lib/archivero.ts` (`registrarDocumentoSinPisar`, `reclamarLugar`) · `lib/archivero-registro.ts`
+· `tests/offer-archivero.test.ts`
+
 ## El prototipo conversacional: cuatro trampas de escenas y animación (04/09/2026)
 
 Salieron auditando el prototipo del onboarding-como-chat (el canvas de Claude Design), pero
@@ -1827,3 +1854,64 @@ sacarla. Ningún generador lee sus recomendaciones (`elegirAngulo` elige de la b
 `app/second-brain/AreasHub.tsx` · `app/second-brain/VistaCerebro.tsx`
 
 *15/10/2026 · chat «Offer» (cuenta claude1) · no se miró en el navegador.*
+
+## «Se queda en Cargando tu onboarding…» no era un bug: era la máquina sin RAM (15/10/2026)
+
+**Vive en:** `app/onboarding/OnboardingWizard.tsx:228` (el `fetch('/api/onboarding')`) y `:305` (el «Cargando…»)
+
+El chat de Video Editor reportó que `/video-editor?ws=3` redirigía a `/onboarding?ws=3` y se quedaba en «Cargando tu
+onboarding…». El sospechoso obvio era el retiro del hub de esa mañana, y **era el equivocado**: ese commit no tocó la rama
+del wizard. Medido en el Chrome de Martín, sin escribir nada, por los dos caminos (directo y por el redirect, con el 307
+llegando al navegador): documento a ~1,5 s, `/api/onboarding?ws=3` 200 en ~2,4 s, datos a la vista a ~4,2 s, cero
+errores de consola. A las 21:05, cuando falló, la máquina tenía ~1 GB libre y Whisper cargado en otra pestaña: era una
+hidratación lenta, no una carga trabada.
+
+- **Cómo se distinguen las dos cosas sin adivinar:** «Cargando…» es lo que el server pinta siempre (`data` arranca en
+  null), y si el GET falla el wizard pinta el error en rojo. Así que «se queda cargando» es (a) no hidrató o (b) el GET no
+  vuelve. Lo decide la pestaña Network: si sale el pedido a `/api/onboarding` y cuánto tarda.
+- **Lo que quedó SIN hacer:** el `fetch` de la carga no lleva `signal`. Con la conexión caída a mitad no resuelve nunca
+  y la pantalla queda en «Cargando…» para siempre, sin decir nada. Va con `AbortSignal.timeout` y un mensaje que diga
+  qué hacer (AGENTS.md, «Un tope que vive en la RUTA no protege al cliente»). Y `/api/auth/me` se pide dos veces en
+  paralelo al cargar.
+
+*15/10/2026 · chat «Onboarding» (claude3), con la medición del chat «MaKo Editor» en el Chrome de Martín.*
+
+## El arranque sin API: el paso de la IA frenaba por un motivo que ya no existía (15/10/2026)
+
+**Vive en:** `app/onboarding/OnboardingWizard.tsx` (el `puedeAvanzar` y el paso `gemini`) · `lib/todo-seed-ia.ts` ·
+`lib/metodo-catalogo.ts` (la ficha de Anthropic) · `tests/onboarding-sin-api.test.ts`
+
+El paso `gemini` exigía una key con un porqué escrito: «sin una key que ande, Entregable, Avatares, Persona y Ángulos
+van a fallar más adelante». Medido el 15/10: **ninguno de esos cuatro está en el wizard de hoy.** Las dos capas que
+tienen el paso (`completo` y `agencia`, `lib/capas.ts`) siguen con El Archivero, Productos, el teléfono y las
+integraciones, y lo único con IA (El Archivero, Productos y el plan de arranque del cierre) tiene la red de la
+plataforma: 3 keys de Gemini y 2 de Groq del ws9. Su carga, del 9 al 15/10, fue de 1 a 100 pedidos por día por key de
+Gemini, y un arranque usa de 2 a 61 llamadas del Archivero (la mediana anda en 6). El freno era un comentario
+que nadie volvió a medir contra la lista de pasos.
+
+- **El plan de arranque no tenía red** (`generarPlanArranque`). Con el paso opcional, un cliente sin keys terminaba
+  el wizard sin su plan, en silencio, porque la pantalla de cierre se dibuja igual sin el borrador.
+- **El diagnóstico obvio del crédito de Max era el equivocado.** «Que cargue su crédito de API como key de Anthropic
+  y MaKo lo usa» suena completo, y no lo es: desde el veto del 13/08 (`lib/veto-claude.ts`) la key de Anthropic de un
+  cliente la usa UNA feature, el análisis de llamadas de cierre, con permiso hasta el 13/11. La ficha decía «el
+  cerebro de MaKo: análisis, chats, sugerencias y todos los Analysts», falso desde agosto para cualquiera. Ahora dice
+  lo que hace. Si el crédito tiene que mover más, la cascada barata tendría que usar la key de Anthropic del
+  cliente, y eso es una decisión de qué modelo paga, no un arreglo. **Se tomó el 16/10** (la decisión A ya lo
+  cubría, según el coordinador) y se hizo: `docs/hallazgos-ia.md` → «La clave de Anthropic del negocio».
+- **La regla que queda la fija el test, en las dos mitades juntas**: que el paso no frene, y que todo paso con IA
+  de una capa que tiene el paso de la IA esté clasificado y tenga red. Un paso nuevo sin clasificar lo hace fallar.
+- ⚠️ **CORRECCIÓN DEL 16/10: «tiene la red» era falso para El Archivero.** Su ruta cortaba ANTES con tres
+  `if (!(await docsIADisponible()))` («Carga tu API key de Gemini»), así que un cliente sin keys que salteaba el
+  paso de la IA se trababa ahí. El test de arriba daba verde porque miraba que la red estuviera escrita, no que nada
+  la cortara antes. Arreglado en `daebfcc89` (y aparte, sobre main, en la rama `onboarding-archivero-fix`); el test
+  ahora lo fija. El detalle, en `docs/hallazgos-ia.md` → «La red de la plataforma para la primera semana».
+
+### Lo que quedó SIN hacer
+
+- **Después del arranque, 60 llamadas a IA del producto no tienen red** (13 la tienen; contadas el 15/10 en `app/` y
+  `lib/`). Un cliente sin keys entra a Ads Writer, Automations o el chat de MaKo y ve «conecta tu IA» (con su botón,
+  por `ErrorIA`). Extender la red a todo es una decisión de capacidad: 5 keys gratis de la agencia para todos.
+- **No se miró en el navegador**: no se levantó la app por RAM. Falta ver el paso en escritorio y en celular (el
+  wizard corre también en el teléfono: `/onboarding` está fuera de la cubierta de MaKo Mobile).
+
+*15/10/2026 · chat «Onboarding» (claude3), medido contra el código y la base, sin subagentes.*

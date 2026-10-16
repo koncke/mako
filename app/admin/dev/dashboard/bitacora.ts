@@ -466,7 +466,7 @@ export const BITACORA: Hito[] = [
     archivos: ['scripts/rehacer-hojas-dashboard.ts', 'lib/graficos-datos.ts', 'lib/graficos-portadas.ts', 'app/dashboard/Grafico.tsx', 'app/dashboard/editor-css.ts', 'docs/portadas-propuesta.md'],
   },
   {
-    fecha: '15 oct', hora: '23:40', chat: 'Dashboard', cuenta: 'claude3', actor: 'claude', tipo: 'implementacion',
+    fecha: '15 oct', hora: '20:40', chat: 'Dashboard', cuenta: 'claude3', actor: 'claude', tipo: 'implementacion',
     titulo: 'Bloque por bloque, segunda pasada: el celular sin huecos y las barras que llenan su tarjeta',
     puntos: [
       'En el celular, las tablas, las tarjetas, las barras y la caja de IA miden lo que dibujan: ya no queda media pantalla en blanco abajo de una tabla de cuatro filas.',
@@ -478,7 +478,7 @@ export const BITACORA: Hito[] = [
     archivos: ['app/dashboard/pila.ts', 'app/dashboard/EditorInforme.tsx', 'app/dashboard/graficos/estilos-html.ts', 'app/dashboard/graficos/Tabla.tsx', 'app/dashboard/Grafico.tsx', 'lib/graficos-plantillas-analysts.ts', 'tests/dashboard-pila.test.ts'],
   },
   {
-    fecha: '15 oct', hora: '23:40', chat: 'Dashboard', cuenta: 'claude3', actor: 'claude', tipo: 'cosecha',
+    fecha: '15 oct', hora: '20:40', chat: 'Dashboard', cuenta: 'claude3', actor: 'claude', tipo: 'cosecha',
     titulo: 'Lo que dejó la segunda pasada: la regla del celular tenía tres tipos y el arnés su propia copia',
     puntos: [
       'docs/hallazgos-graficos.md: la pila con el alto del escritorio, la copia de la regla en el arnés, las barras amontonadas, y que un arnés cortado por tiempo con la máquina sin RAM sacó capturas del bundle viejo, idénticas a las de antes.',

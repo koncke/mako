@@ -74,7 +74,7 @@ test('⚠️ una suscripción de la pasarela ACTIVA le gana a la manual cancelad
 test('⚠️ un pago de suscripción NUEVO reabre la del lead aunque ya esté ganado, antes de ganar y sin tirar', () => {
   const aplicar = bloque(COBROS, 'export async function aplicarPagoAprobado(');
   const iReabrir = aplicar.indexOf("if (actual.lead_id && actual.tipo === 'suscripcion' && nuevo && !renovacion) await reabrirSuscripcionDelLead(actual, autor);");
-  const iGanar = aplicar.indexOf('await ganarLead(actual, autor)');
+  const iGanar = aplicar.indexOf('await ganarLead(actual, autor, plazo)');
   assert.ok(iReabrir > 0 && iGanar > iReabrir, 'sólo el primer pago (no la renovación ni la reentrega), y antes de ganar');
   const reabrir = bloque(COBROS, 'async function reabrirSuscripcionDelLead(');
   assert.match(reabrir, /suscripcion_cancelada_at: null, suscripcion_meses_antes: null, suscripcion_meses: null,/);

@@ -64,7 +64,7 @@ export const DEFS: readonly OperacionDef[] = [
     // LOS ESCENARIOS DE «PROBAR» (14/10/2026): los mismos contactos de la barra de Probar (`escenariosDePrueba`).
     id: 'escenarios_secuencia', area: 'chatbot', tipo: 'lectura',
     titulo: 'Escenarios de prueba de una secuencia',
-    descripcion: 'Los caminos distintos de UNA automatización por sus condiciones, los mismos que «Probar» muestra como contactos de su barra: qué sale en cada condición, en orden, y cuántos mensajes de WhatsApp le llegan por ese camino. El primero es el de un lead recién llegado por su CRON. Hasta 8; `faltan` dice cuántas ramas quedaron afuera. Úsala para saber qué conviene probar antes de prenderla; el `numero` de cada uno es el que recibe probar_secuencia. Pide antes el secuenciaId con listar_secuencias_nutricion.',
+    descripcion: 'Los caminos distintos de UNA automatización por sus condiciones, los mismos que «Probar» muestra como contactos de su barra: cuándo cae cada uno (`cuando`: los hechos del lead que lo deciden, como «Su reunión sigue en pie»), qué sale en cada condición, en orden, y cuántos mensajes de WhatsApp le llegan por ese camino. Un mismo hecho vale lo mismo en todo el flujo, y dos caminos que mandan lo mismo son uno. El primero es el de un lead recién llegado por su CRON. Hasta 8; `faltan` dice cuántos quedaron afuera. Úsala para saber qué conviene probar antes de prenderla; el `numero` de cada uno es el que recibe probar_secuencia. Pide antes el secuenciaId con listar_secuencias_nutricion.',
     parametros: [pSecuenciaId],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: { tab: TAB },
   },
@@ -382,8 +382,12 @@ export const DEFS: readonly OperacionDef[] = [
       // La tarjeta «MaKo en WhatsApp» en una automatización (15/10/2026, lib/mako-tarjeta.ts `FueraDeHorario`): qué hace
       // fuera del horario de oficina del negocio. La lee el motor, no la acción.
       { nombre: 'fueraDeHorario', tipo: 'string', enum: ['espera', 'igual'], descripcion: 'opcional, sólo en una automatización con horario de oficina: «espera» (lo de fábrica) la manda cuando abre; «igual», a cualquier hora.' },
+      // «MaKo por email» (16/10/2026, lib/mako-tarjeta.ts `CanalMako`): en vez del grupo, un correo a los destinatarios
+      // del negocio (Notificaciones), desde equipo@hola-mako.com. Un texto y su asunto.
+      { nombre: 'canal', tipo: 'string', enum: ['grupo', 'email'], descripcion: 'opcional: «email» le escribe un correo al equipo del negocio (sus destinatarios de Notificaciones) en vez de mandarlo al grupo de WhatsApp. Por email va un solo texto, sin audio ni archivos, y con asunto. Sin elegir, el grupo.' },
+      { nombre: 'asunto', tipo: 'string', max: 160, descripcion: 'el asunto del correo, obligatorio con canal «email». Admite los mismos datos {{…}} que el texto.' },
     ],
-    reversible: true, escribe: 'manda un aviso al grupo de WhatsApp del negocio y deja una notificación en la app (no toca al lead)',
+    reversible: true, escribe: 'manda un aviso al grupo de WhatsApp del negocio (o, con canal «email», un correo a su equipo) y deja una notificación en la app (no toca al lead)',
     canales: TODOS, costo: 'gratis', gating: { tab: TAB },
   },
 
@@ -607,7 +611,9 @@ export const DEFS: readonly OperacionDef[] = [
     id: 'enviar_plantilla_meta_paso', area: 'chatbot', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/mako/revisar',
     titulo: 'Mandar a Meta la plantilla',
     descripcion: 'PROPONE convertir el texto de un paso de WhatsApp oficial en plantilla de Meta y mandarla a aprobar, y devuelve un link para confirmarlo. Usa IA y consume el cupo de plantillas de la cuenta de Meta (la cuenta se lee del inbox de Chatwoot del negocio). Si ya hay una plantilla con ese nombre aprobada o en revisión, no la reenvía ni la reemplaza, aunque el texto del paso haya cambiado. Solo pasos de WhatsApp oficial con texto; revisa antes plantillas_meta_de_secuencia.',
-    parametros: [pSecuenciaId, pOrden],
+    // El paso que se manda queda FIJO al revisar (`fijoAlRevisar`, 15/10/2026): sólo en esta acción, no en `pOrden` (en otra
+    // puede ser un valor que se corrige).
+    parametros: [{ ...pSecuenciaId, fijoAlRevisar: true }, { ...pOrden, fijoAlRevisar: true }],
     reversible: false, escribe: 'crea la plantilla en meta_templates, la envía a Meta y la vincula al paso en nutricion_secuencias',
     canales: SIN_HTTP, costo: 'ia', lenta: true, gating: { tab: TAB, rolMinimo: 'admin', integracion: 'chatwoot' },
   },

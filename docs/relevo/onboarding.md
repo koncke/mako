@@ -167,9 +167,37 @@ coordinador). Los números quedaron en el encabezado del test.
 - **El checklist «Qué hacer ahora» no se guarda**: `app/onboarding/FaseUI.tsx:121` sigue siendo
   un `useState` local. Es el defecto real que encontró el prototipo y NO se tocó.
 - **Una decisión de Martín**: la pregunta de canal avanza con su default marcado
-  (`OnboardingWizard.tsx:629`) y ese valor siembra la plantilla de funnel del canal. ¿Se exige
+  (`OnboardingWizard.tsx:632`) y ese valor siembra la plantilla de funnel del canal. ¿Se exige
   elegir, o queda el default?
 - **`lib/entregable.ts`** quedó sin red de plataforma a propósito: no es del arranque.
+
+## Ventana del 15/10 a la noche: el arranque sin API
+
+<sub>Chat «Onboarding», cuenta claude3, por pedido del coordinador sobre la decisión de Martín en la
+Ticketera (`clientes-usan-su-claude`, opción A). Commit `7f0ced90f`.</sub>
+
+- **El paso de la IA del wizard es OPCIONAL** («Tu propia IA (opcional)»). Ya no frena: lo que viene
+  después en las dos capas que lo tienen (El Archivero, Productos y el plan de arranque) corre con la
+  red de la plataforma. El plan de arranque (`lib/todo-seed-ia.ts`) no la tenía y se le sumó. Lo fija
+  `tests/onboarding-sin-api.test.ts` (6 roturas, 6 cazadas).
+- **La guía del crédito de Claude Max** vive en la ficha de Anthropic (`lib/metodo-catalogo.ts`, el
+  tutorial del servicio y el «?» del campo), y el paso del wizard abre ese modal ahí mismo.
+- **La clave de Anthropic del negocio ya mueve sus funciones de texto** (16/10, commit `a488757c`): el
+  coordinador contestó que la decisión A de Martín ya lo cubría. Es la segunda puerta del veto
+  (`lib/veto-claude.ts`), nunca con una clave de la plataforma ni en el Plan; el detalle, en
+  `docs/hallazgos-ia.md`.
+- **16/10: El Archivero cortaba a los clientes sin keys** antes de la red (tres `docsIADisponible()`), y
+  con el paso de la IA opcional ya en main, un cliente sin keys se trababa ahí. Arreglado (`daebfcc89`, y
+  sólo el arreglo en la rama `onboarding-archivero-fix`).
+- **16/10: la red se extendió a la primera semana** de un cliente sin API: Ads Writer, Offer, crear landing,
+  crear automatización y buscar en el Second Brain (`tests/red-primera-semana.test.ts`). La capacidad y el
+  porqué, en `docs/hallazgos-ia.md`.
+- **Lo que NO está hecho y no es mío decidir** (se lo pasé al coordinador):
+  - el análisis del lead: manda datos personales de los leads por las keys de la agencia, y no se sabe
+    si están en el plan gratis de Google (que entrena). Es una decisión de privacidad de Martín;
+  - el resto de las llamadas sin red, en el orden que diga el coordinador sobre `docs/mapa-ia-24h.md`;
+  - sin mirar en el navegador: no se levantó la app (RAM). Falta ver el paso en escritorio y celular
+    cuando esté desplegado.
 
 ## Dónde leer más
 

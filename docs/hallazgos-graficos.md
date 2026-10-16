@@ -945,10 +945,49 @@ arnés, las 13 plantillas en el escritorio y en la pila del celular, y cada tipo
 - **El tema de una plantilla manda sobre el del arnés**: `capturar.cjs "" <tema> plantillas` saca las 13 cada una en su
   propio tema. Los temas se miran en el modo por tipo (`capturar.cjs "" <tema>`, y `lamina-grilla.cjs` junta los casos).
 
+**Lo que se vio en PRODUCCIÓN después del deploy** (`24c0ad441`, la sesión de super admin de Martín en su Chrome, ws9):
+
+- La pila funciona como en el arnés: «SCL P90», que quedaba sola, va a lo ancho, y ninguna pieza deja más de 44 px de aire
+  abajo (antes, media pantalla).
+- ⚠️ **Un defecto que el arnés no mostraba:** el rótulo de un número de media fila se cortaba en un renglón («RATIO DE …»,
+  «TASA DE ASIST…»), y así no se sabe qué número es. En la pila va en dos renglones.
+- ⚠️ **Cómo se mira el celular en producción, y lo que NO sirve:** la ventana de la extensión no se deja angostar (sigue en
+  1536 px); un iframe del mismo sitio lo bloquea la política de encuadre (bien); y la sesión firmada a mano con
+  `token-dev.mts` producción la manda a `/login`. Lo que anda es la **«Vista de celular» del editor** (Editar → el ícono
+  del teléfono), que dibuja la misma pila a 364 px. En un teléfono de verdad, MaKo Mobile lleva `/dashboard` a
+  `/m/dashboard`, que es OTRA pantalla.
+- **El informe es por persona**: el super admin mirando el ws1 ve SU informe en ese workspace (la galería, si no tiene), no
+  el de Mauricio. Para probar sin escribir en un cliente, las hojas se arman en el ws9 y se borran al final.
+
 **Vive en:** `app/dashboard/pila.ts` · `app/dashboard/EditorInforme.tsx` (`tarjeta`) · `app/dashboard/graficos/estilos-html.ts`
 (`.gr-barras`) · `app/dashboard/graficos/Tabla.tsx` (`portada`) · `app/dashboard/Grafico.tsx` (`separacion`, el margen del eje
 X) · `lib/graficos-gordo.ts` (`BARRA.separacionGrupo`) · `lib/graficos-plantillas-analysts.ts` (Productividad).
 *15/10/2026, claude3 (chat Dashboard).*
+
+## La IA del Dashboard tiene su PROPIA red, y el corte por datos de clientes no la cubría (16/10/2026)
+
+**Vive en:** `lib/graficos-ia-red.ts` (`porLaRedDePlataforma`, `llevaDatosDeClientes`) · `lib/graficos-analisis-server.ts`
+(`pedirIAGratis`) · `lib/graficos-ia-generar.ts` · `tests/graficos-ia-red.test.ts`
+
+La regla del 16/10 (los datos de los clientes de un cliente nunca van a un proveedor que entrena; AGENTS.md, la red de
+plataforma) se puso en `chatCheapCascade`. El AI Analyst, las «Conclusiones de MaKo» y «Pídeselo a MaKo» no pasan por
+ahí: su red es un bucle propio sobre `provsGratisDePlataforma`. Ahora sigue el mismo orden: el crédito de Claude de la
+plataforma, después el corte si la feature lleva `pii` en el catálogo, y recién ahí las keys gratis. Sin nada que
+cumpla, devuelve `null` y quien llama dice lo de siempre: que el negocio conecte su IA.
+
+- ⚠️ **Un test viejo fijaba lo contrario.** `tests/graficos-analisis.test.ts` exigía que la red no nombrara `anthropic`
+  («gratis por construcción»): con la regla nueva, el crédito de Claude es lo que va PRIMERO. Ahora admite sólo esa
+  importación (`conCreditoDeLaPlataforma`) y sigue prohibiendo todo lo demás que cobra por pedido.
+- ⚠️ **La marca `pii` es de la feature ENTERA.** «dashboard-conclusiones» la lleva porque una caja de un pop-up lee el
+  transcript de una llamada, así que también las cajas que sólo leen números agregados se quedan sin keys gratis.
+  Mientras el crédito de Claude no esté activo en producción (docs/hallazgos-ia.md, «la tercera puerta del veto»), un
+  negocio sin key propia ve «conecta tu IA» en TODAS sus Conclusiones. El AI Analyst y «Pídeselo a MaKo» no llevan la
+  marca y siguen con las gratis.
+
+**Lo que quedó SIN hacer:** afinar el corte por caja (pasar `pii: false` desde `pedirIAGratis` cuando la caja no lee
+pop-ups ni llamadas: `lib/graficos-ia-elemento-server.ts`). Y nada se probó contra la red de verdad: sin `next dev`
+por la RAM.
+*16/10/2026, claude3 (chat Dashboard).*
 
 ## Lo que quedó sin hacer
 

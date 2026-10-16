@@ -10,7 +10,9 @@
 //   · las keys y los slots del prompt coinciden con el registro editable;
 //   · cada operación usa el comando del botón de la pantalla (tests 22-38, tanda del 15/10:
 //     transiciones, animaciones, filtros, efectos, color, velocidad, recorte, estilo,
-//     posición, audio, revertir, congelar y los cortes por frase, tramo y muletillas).
+//     posición, audio, revertir, congelar y los cortes por frase, tramo y muletillas);
+//   · las plantillas de anuncio: reemplazar_clip, usar_plantilla, el texto de un hueco y la
+//     lectura de la API de MaKo (tests 43-50).
 //
 // Probado rompiéndolo (15/10/2026): el resultado de cada rotura está al final del archivo.
 import { test } from 'node:test';
@@ -31,6 +33,11 @@ import { DURACION_MINIMA as TRANSICION_MINIMA } from '../app/video-editor/_openc
 import type { ParrafoTx } from '../app/video-editor/_opencut/transcripcion/modelo';
 import { DEFAULTS_RESALTADO, PARAM_NO_DICHAS_OPACIDAD, PARAM_RESALTAR, PARAM_RESALTAR_COLOR } from '../app/video-editor/_opencut/params/extra/subtitulos';
 import type { SceneTracks } from '../app/video-editor/_opencut/timeline/types';
+import { NO_SE_PUEDE_CHAT } from '../lib/editor-video/chat-catalogo';
+import { PLANTILLAS, huecosDe, plantillaPorId, plantillasParaApi } from '../lib/editor-video/plantillas';
+import { armarLinea, paramsDeTextoDeHueco, type Medir } from '../app/video-editor/_opencut/plantillas/armar';
+import { MARCA, codificarAncla } from '../app/video-editor/_opencut/plantillas/huecos';
+import { DEFS as DEFS_VIDEO } from '../lib/api-mako/areas/video.def';
 
 const leer = (r: string) => readFileSync(new URL(`../${r}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 const sinComentarios = (s: string) => s.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
@@ -647,6 +654,270 @@ test('39: resaltar las palabras (karaoke): a todos los subtítulos con los param
   assert.doesNotMatch(catalogoParaPrompt(), /resaltar palabras de los subtítulos \(karaoke\)/, 'ya no figura entre lo que no se puede');
 });
 
+test('40: recortar y dividir van RELATIVOS a dónde está el clip al aplicarse, y rehacer vuelve a armar el comando', () => {
+  // Con el imán, recortar un clip corre los que siguen: en segundos absolutos de la vista,
+  // «recorta 2 s al inicio de cada clip» recortaba 2, 4 y 8 s (revisión del 15/10).
+  const r = revisar([
+    { op: 'recortar', ref: 'v1', inicio: 0.5 },
+    { op: 'recortar', ref: 'v2', inicio: 7 },
+    { op: 'dividir', ref: 'v1', en: 3 },
+  ]);
+  const bases = (r.resueltas as Array<Extract<OperacionResuelta, { op: 'recortar' | 'dividir' }>>).map((x) => x.base);
+  assert.deepEqual(bases, [0, 6, 0.5], 'dividir v1 después de recortarlo: en la simulación ya empieza en 0,5');
+  const fuente = sinComentarios(leer('app/video-editor/_opencut/chat/comandos.ts'));
+  assert.match(fuente, /splitTime: segundos\(r\.en \+ corrimiento\(actual, r\.base\)\)/);
+  assert.match(fuente, /const s = pedido \+ corrimiento\(actual, r\.base\)/);
+  // Al rehacer, lo nuevo del lote vuelve en otra pista: `Diferido` se arma de nuevo.
+  assert.match(fuente, /redo\(\): CommandResult \| undefined \{\s*return this\.execute\(\);/);
+});
+
+test('41: lo que el corte por texto no puede acompañar va aparte, y nada toca los subtítulos de una pista bloqueada', () => {
+  const p = (id: string, texto: string, inicio: number, fin: number, muletilla = false) => ({ id, elementId: id.split('#')[0], texto, inicio, fin, muletilla });
+  const parrafos: ParrafoTx[] = [
+    { elementId: 'sub1', trackId: 'ps', inicio: 0, fin: 3, texto: 'hola mundo', bloqueado: false, palabras: [p('sub1#0', 'hola', 0, 0.5), p('sub1#1', 'eh', 0.6, 0.8, true), p('sub1#2', 'mundo', 0.9, 1.4)] },
+  ];
+  const tx = { transcripcion: { parrafos, idioma: 'es' } };
+  // Un recorte de la principal corre el video y los subtítulos se quedan: el corte por texto va aparte.
+  const conRecorte = revisar([{ op: 'recortar', ref: 'v2', inicio: 7 }, { op: 'cortar_frase', frase: 'hola mundo' }], tx);
+  assert.deepEqual(conRecorte.resueltas.map((x) => x.op), ['recortar']);
+  assert.match(motivos(conRecorte), /pedido aparte: los otros cambios corren el video de la pista principal/);
+  // Un recorte de un audio que no es de la principal, no.
+  assert.deepEqual(revisar([{ op: 'recortar', ref: 'a1', fin: 5 }, { op: 'eliminar_muletillas' }], tx).resueltas.map((x) => x.op), ['recortar', 'eliminar_muletillas']);
+  // Normalizar o revertir un clip que los cortes parten: sólo se procesaría el primer pedazo.
+  const largas = revisar([{ op: 'normalizar', ref: 'v1', activo: true }, { op: 'revertir', ref: 'v1', revertido: true }, { op: 'normalizar', ref: 'a1', activo: true }, { op: 'eliminar_muletillas' }], tx);
+  assert.deepEqual(largas.resueltas.map((x) => x.op), ['eliminar_muletillas', 'normalizar']);
+  assert.match(motivos(largas), /normalizar vid1\.mp4 va en un pedido aparte: los cortes parten el clip/);
+  assert.match(motivos(largas), /revertir vid1\.mp4 va en un pedido aparte/);
+  // Un subtítulo de una pista bloqueada no cuenta para cortar.
+  const bloqueado = { transcripcion: { parrafos: parrafos.map((x) => ({ ...x, bloqueado: true })), idioma: 'es' } };
+  assert.equal(revisar([{ op: 'cortar_frase', frase: 'hola mundo' }], bloqueado).resueltas.length, 0);
+  // Las mayúsculas cambian el ancho: en un subtítulo, como la fuente, van por el panel.
+  const may = revisar([{ op: 'estilo_texto', ref: 't2', estilo: { mayusculas: 'mayusculas' } }]);
+  assert.equal(may.resueltas.length, 0);
+  assert.match(motivos(may), /subtítulo se cambian en el panel Texto/);
+});
+
+test('42: el chat cumple las reglas del botón y del panel: borrar con lo vinculado, y el texto de un subtítulo con sus tiempos', () => {
+  // Una regla, un lugar (AGENTS.md → «Una regla que vive en un COMPONENTE no la cumple otra entrada»).
+  const comandos = sinComentarios(leer('app/video-editor/_opencut/chat/comandos.ts'));
+  assert.ok(comandos.includes('conLoVinculado({ tracks, refs: elements })'), 'el borrar del chat, como el botón');
+  assert.ok(comandos.includes('paramsConTexto(EditorCore.getInstance(), actual, r.texto)'), 'cambiar_texto de un subtítulo, como el panel');
+  assert.ok(sinComentarios(leer('app/video-editor/_opencut/actions/use-editor-actions.ts')).includes('conLoVinculado({ tracks, refs: aBorrar })'));
+  assert.ok(sinComentarios(leer('app/video-editor/_opencut/subtitles/components/pestana-subtitulos.tsx')).includes('paramsConTexto(editor, element, texto)'));
+  assert.match(revisar([{ op: 'borrar', refs: ['v2'] }]).cambios[0].antes, /lo que tiene encima/);
+});
+
+// ─── Las plantillas de anuncio (tanda 4 de docs/editor-video/plan-plantillas-anuncio.md) ──
+// La vista marca los huecos y lista Multimedia; reemplazar_clip sustituye un clip (y las
+// muestras de su hueco); usar_plantilla va SOLA y con la línea de tiempo vacía. La escena es
+// una plantilla armada de verdad (armarLinea), con el motor de mentira de los tests de plantillas.
+
+const baseFalsa = (tipo: string) => ({
+  'transform.scaleX': 1, 'transform.scaleY': 1, 'transform.positionX': 0, 'transform.positionY': 0, opacity: 1,
+  [ANIM.entrada.id]: 'ninguno', [ANIM.entrada.duracion]: 0.5, [ANIM.salida.id]: 'ninguno', [ANIM.salida.duracion]: 0.5,
+  ...(tipo === 'video' || tipo === 'image' ? { [ANIM.combo.id]: 'ninguno', [ANIM.combo.duracion]: 0.5 } : { [ANIM.bucle.id]: 'ninguno', [ANIM.bucle.duracion]: 0.5 }),
+});
+const medirFalso: Medir = ({ params }) => ({ content: params.content, 'transform.positionX': 0, 'transform.positionY': 0 });
+
+/**
+ * «Antes y después» recién armada: textos t1-t6, el divisor g1, el «Después» chico i1 (6,2-11,
+ * silenciado al sustituir) y en la principal «Antes» i2 (0-3), «Después» i3 (3-6), «Antes» i4
+ * (6-11, el mismo hueco que i2) y el cierre i5 (opcional).
+ */
+function escenaPlantilla(id = 'antes-despues'): SceneTracks {
+  let n = 0;
+  const p = plantillaPorId(id)!;
+  const muestras = Object.fromEntries([...new Set(p.piezas.flatMap((x) => (x.tipo === 'clip' ? [x.hueco.rotulo] : [])))].map((r) => [r, { mediaId: `muestra-${r}`, width: 1080, height: 1920 }]));
+  return armarLinea({
+    plantilla: p, lienzo: { width: 1080, height: 1920 }, fps: 30, tps: TPS,
+    principal: { id: 'pm', name: 'Principal', type: 'video', elements: [], muted: false, hidden: false } as never,
+    muestras, base: baseFalsa as never, medir: medirFalso, nuevoId: () => `e${++n}`,
+  }).tracks;
+}
+/** Multimedia: dos videos (uno de 4 s, otro de 20 s sin sonido), una foto, un audio y una muestra oculta. */
+const MEDIOS = [
+  { id: 'a1', name: 'corto.mp4', type: 'video', duration: 4, hasAudio: true },
+  { id: 'a2', name: 'largo.mp4', type: 'video', duration: 20, hasAudio: false },
+  { id: 'a3', name: 'foto.jpg', type: 'image' },
+  { id: 'a4', name: 'musica.mp3', type: 'audio', duration: 100 },
+  { id: 'a5', name: 'Muestra · Antes.png', type: 'image', ephemeral: true },
+] as const;
+const vistaPlantilla = (tracks = escenaPlantilla()) =>
+  vistaDeLinea({ tracks, tps: TPS, cabezal: 0, elegidos: [], disponibles: DISP, lienzo: { ancho: 1080, alto: 1920 }, medios: MEDIOS as never });
+const revisarPlantilla = (operaciones: unknown[], vista = vistaPlantilla()) =>
+  revisarOperaciones({ operaciones: operaciones as never, vista, alcance: 'video' });
+const VACIA = { overlay: [], main: { id: 'pm', type: 'video', name: 'P', muted: false, hidden: false, elements: [] }, audio: [] } as unknown as SceneTracks;
+
+test('43: la FORMA de reemplazar_clip y usar_plantilla: los huecos y sus topes son los del catálogo', () => {
+  const v = validarOperacion;
+  assert.deepEqual(v({ op: 'reemplazar_clip', ref: 'i2', medio: 'm3' }), { ok: true, op: { op: 'reemplazar_clip', ref: 'i2', medio: 'm3' } });
+  assert.equal(v({ op: 'reemplazar_clip', ref: 'i2' }).ok, false, 'sin medio');
+  assert.equal(v({ op: 'reemplazar_clip', ref: 'i2', medio: 'v1' }).ok, false, 'el medio es «m1», «m2»…');
+  assert.deepEqual(v({ op: 'usar_plantilla', id: ' Testimonio ', textos: { cita: ' Hola ' }, clips: { clip: 'm1' } }), {
+    ok: true, op: { op: 'usar_plantilla', id: 'testimonio', textos: { cita: 'Hola' }, clips: { clip: 'm1' } },
+  });
+  assert.deepEqual(v({ op: 'usar_plantilla', id: 'gancho' }), { ok: true, op: { op: 'usar_plantilla', id: 'gancho', textos: {}, clips: {} } });
+  const motivo = (raw: unknown) => { const r = v(raw); return r.ok ? '' : r.motivo; };
+  assert.match(motivo({ op: 'usar_plantilla', id: 'inventada' }), /no es una plantilla \(son: gancho, gancho-escrito/);
+  assert.match(motivo({ op: 'usar_plantilla', id: 'gancho', textos: { gancho: 'x'.repeat(29) } }), /hasta 28 caracteres/);
+  assert.match(motivo({ op: 'usar_plantilla', id: 'gancho', textos: { clip: 'hola' } }), /hueco de clip: va en "clips"/);
+  assert.match(motivo({ op: 'usar_plantilla', id: 'gancho', clips: { gancho: 'm1' } }), /hueco de texto: va en "textos"/);
+  assert.match(motivo({ op: 'usar_plantilla', id: 'gancho', clips: { clip: 'archivo.mp4' } }), /ref de un medio/);
+  assert.match(motivo({ op: 'usar_plantilla', id: 'gancho', textos: { noexiste: 'x' } }), /no tiene el hueco "noexiste"/);
+  assert.match(motivo({ op: 'usar_plantilla', id: 'gancho', musica: true }), /no es algo de usar_plantilla/);
+});
+
+test('44: la vista marca los huecos y las muestras, y lista Multimedia sin lo oculto ni el audio (las refs de los medios se conservan)', () => {
+  const v = vistaPlantilla();
+  const j = JSON.parse(v.json);
+  const todos = (j.pistas as Array<{ elementos: Array<Record<string, unknown>> }>).flatMap((p) => p.elementos);
+  const el = (ref: string) => todos.find((e) => e.ref === ref)!;
+  assert.deepEqual([el('i2').hueco, el('i2').muestra, el('i4').hueco], ['antes', true, 'antes'], 'dos piezas, un hueco');
+  assert.equal(el('i5').opcional, true, 'el cierre se puede dejar con su muestra');
+  assert.deepEqual([el('t1').hueco, el('t1').max_caracteres], ['rotulo-antes', 12]);
+  assert.ok(!('hueco' in el('g1')) && !('muestra' in el('t1')), 'el divisor no es un hueco y un texto no es una muestra');
+  assert.deepEqual(j.medios, [
+    { ref: 'm1', nombre: 'corto.mp4', tipo: 'video', duracion: 4 },
+    { ref: 'm2', nombre: 'largo.mp4', tipo: 'video', duracion: 20, sin_audio: true },
+    { ref: 'm3', nombre: 'foto.jpg', tipo: 'imagen' },
+  ]);
+  // Al aceptar, «m2» sigue siendo el mismo medio aunque se haya importado otro adelante.
+  const previas = new Map([...[...v.refs.values()].map((r) => [r.elementId, r.ref] as const), ...[...v.medios.values()].map((m) => [m.mediaId, m.ref] as const)]);
+  const v2 = vistaDeLinea({ tracks: escenaPlantilla(), tps: TPS, cabezal: 0, elegidos: [], refsPrevias: previas, medios: [{ id: 'nuevo', name: 'nuevo.mp4', type: 'video', duration: 9 }, ...MEDIOS] as never });
+  assert.equal(v2.medios.get('m2')?.mediaId, 'a2');
+  assert.ok([...v2.medios.values()].some((m) => m.mediaId === 'nuevo' && m.ref === 'm4'));
+  // Con más de 100 medios se listan 100 y el resto se cuenta.
+  const muchos = Array.from({ length: TOPES_CHAT.medios + 5 }, (_, i) => ({ id: `x${i}`, name: `f${i}.jpg`, type: 'image' }));
+  const jm = JSON.parse(vistaDeLinea({ tracks: VACIA, tps: TPS, cabezal: 0, elegidos: [], medios: muchos as never }).json);
+  assert.deepEqual([jm.medios.length, jm.medios_sin_listar], [TOPES_CHAT.medios, 5]);
+});
+
+test('45: reemplazar_clip: una muestra llena las de su hueco, un video corto o de otro tipo no entra, y el clip cambia de tipo en la simulación', () => {
+  // «Antes» (i2, 3 s) tiene una hermana de 5 s (i4): el video de 4 s no alcanza.
+  const corto = revisarPlantilla([{ op: 'reemplazar_clip', ref: 'i2', medio: 'm1' }]);
+  assert.equal(corto.resueltas.length, 0);
+  assert.match(motivos(corto), /«corto\.mp4» dura 4 s y Antes pide 5 s de video/);
+  // Una foto sirve siempre; después de llenarla, la hermana ya no es muestra y se reemplaza sola.
+  const r = revisarPlantilla([
+    { op: 'reemplazar_clip', ref: 'i2', medio: 'm3' },
+    { op: 'reemplazar_clip', ref: 'i4', medio: 'm2' },
+    { op: 'reemplazar_clip', ref: 'i3', medio: 'm2' },
+    { op: 'silenciar', ref: 'i3', silenciado: true },
+    { op: 'silenciar', ref: 'i1', silenciado: true },
+    { op: 'reemplazar_clip', ref: 't1', medio: 'm3' },
+    { op: 'reemplazar_clip', ref: 'i5', medio: 'm9' },
+  ]);
+  assert.deepEqual(r.resueltas.map((x) => x.op), ['reemplazar_clip', 'reemplazar_clip', 'reemplazar_clip', 'silenciar']);
+  const [antes, hermana] = r.resueltas as Array<Extract<OperacionResuelta, { op: 'reemplazar_clip' }>>;
+  assert.deepEqual([antes.el.ref, antes.mediaId, hermana.mediaId], ['i2', 'a3', 'a2']);
+  assert.deepEqual([r.cambios[0].antes, r.cambios[0].despues], ['muestra de «antes»', 'foto.jpg · y otra muestra de «antes»']);
+  assert.equal(r.cambios[1].antes, 'foto.jpg', 'la hermana ya tiene la foto: el segundo reemplazo es de un clip común');
+  // i3 pasó de foto a video y se puede silenciar; i1 (su hermana chica) entró silenciada por su hueco.
+  assert.equal((r.resueltas[3] as Extract<OperacionResuelta, { op: 'silenciar' }>).el.ref, 'i3');
+  const m = motivos(r);
+  assert.match(m, /no es un clip de video o imagen/);
+  assert.match(m, /no encontré el medio «m9»/);
+  // Lo que el hueco no acepta (ninguna plantilla de hoy pide un tipo: se fuerza en la vista).
+  const v = vistaPlantilla();
+  v.refs.get('i5')!.acepta = 'video';
+  assert.match(motivos(revisarPlantilla([{ op: 'reemplazar_clip', ref: 'i5', medio: 'm3' }], v)), /Cierre pide un video/);
+});
+
+test('46: usar_plantilla va SOLA y con la línea de tiempo vacía; un medio que no alcanza deja la muestra y se dice', () => {
+  const vacia = () => vistaDeLinea({ tracks: VACIA, tps: TPS, cabezal: 0, elegidos: [], medios: MEDIOS as never });
+  const uso = (extra: Record<string, unknown>) => validarOperacion({ op: 'usar_plantilla', id: 'gancho', ...extra });
+  const op = (x: ReturnType<typeof validarOperacion>) => (x.ok ? x.op : assert.fail(x.motivo));
+  const bien = revisarOperaciones({ operaciones: [op(uso({ textos: { gancho: 'Oferta loca' }, clips: { clip: 'm2' } }))], vista: vacia(), alcance: 'video' });
+  assert.deepEqual(bien.resueltas, [{ op: 'usar_plantilla', plantilla: 'gancho', textos: { gancho: 'Oferta loca' }, medios: { clip: 'a2' } }]);
+  assert.deepEqual([bien.cambios[0].titulo, bien.cambios[0].despues], ['Plantilla «Anuncio con gancho»', '15 s en 9:16']);
+  assert.deepEqual(bien.cambios.slice(1).map((c) => `${c.titulo}: ${c.despues}`), ['Clip «clip»: largo.mp4', 'Texto «gancho»: «Oferta loca»']);
+  // El video de 4 s no llena un hueco de 12 s: la plantilla va igual, con la muestra.
+  const corto = revisarOperaciones({ operaciones: [op(uso({ clips: { clip: 'm1' } }))], vista: vacia(), alcance: 'video' });
+  assert.deepEqual((corto.resueltas[0] as Extract<OperacionResuelta, { op: 'usar_plantilla' }>).medios, {});
+  assert.match(corto.cambios[0].despues, /1 clip de muestra para sustituir/);
+  assert.match(motivos(corto), /«corto\.mp4» dura 4 s y «clip» pide 12 s: queda con la muestra/);
+  // Antes y después: el hueco «antes» pide su pieza más larga (5 s).
+  const ad = revisarOperaciones({ operaciones: [op(validarOperacion({ op: 'usar_plantilla', id: 'antes-despues', clips: { antes: 'm1', despues: 'm3' } }))], vista: vacia(), alcance: 'video' });
+  assert.deepEqual((ad.resueltas[0] as Extract<OperacionResuelta, { op: 'usar_plantilla' }>).medios, { despues: 'a3' });
+  assert.match(motivos(ad), /«antes» pide 5 s/);
+  // Con otra cosa en el pedido: va la plantilla, lo demás se dice.
+  const conOtra = revisarOperaciones({ operaciones: [op(uso({})), { op: 'agregar_texto', texto: 'Hola', inicio: 0, duracion: 2 }], vista: vacia(), alcance: 'video' });
+  assert.deepEqual(conOtra.resueltas.map((x) => x.op), ['usar_plantilla']);
+  assert.match(motivos(conOtra), /otro pedido/);
+  // Con la línea de tiempo con algo: la plantilla no va, y lo demás sigue su revisión.
+  const llena = revisarOperaciones({ operaciones: [op(uso({})), { op: 'silenciar', ref: 'v1', silenciado: true }], vista: vista(), alcance: 'video' });
+  assert.deepEqual(llena.resueltas.map((x) => x.op), ['silenciar']);
+  assert.match(motivos(llena), /línea de tiempo vacía/);
+});
+
+test('47: el catálogo nombra cada plantilla con sus huecos y topes, y ya no dice que «cambiar» medios no se puede', () => {
+  const txt = catalogoParaPrompt();
+  for (const p of PLANTILLAS) {
+    const renglon = txt.split('\n').find((l) => l.startsWith(`  · "${p.id}"`));
+    assert.ok(renglon, `falta la plantilla ${p.id}`);
+    assert.ok(renglon!.includes(`«${p.nombre}»`) && renglon!.includes(`${p.duracion} s`), p.id);
+    for (const h of huecosDe(p)) {
+      assert.ok(renglon!.includes(h.tipo === 'texto' ? `${h.nombre} (hasta ${h.maxCaracteres}` : `${h.nombre} (${String(h.segundos).replace('.', ',')} s`), `${p.id}: ${h.nombre}`);
+    }
+  }
+  assert.doesNotMatch(NO_SE_PUEDE_CHAT, /agregar o cambiar videos/);
+  assert.match(NO_SE_PUEDE_CHAT, /reemplazar_clip/);
+  assert.match(txt, /"op":"reemplazar_clip"/);
+});
+
+test('48: el texto de un hueco respeta su tope y se vuelve a partir y ubicar con su ancla', () => {
+  const largo = revisarPlantilla([{ op: 'cambiar_texto', ref: 't1', texto: 'ANTES DEL TRATAMIENTO' }, { op: 'cambiar_texto', ref: 't2', texto: 'HOY' }]);
+  assert.deepEqual(largo.resueltas.map((x) => (x as { el: { ref: string } }).el.ref), ['t2']);
+  assert.match(motivos(largo), /«rotulo-antes» admite hasta 12 caracteres \(tiene 21\)/);
+  // paramsDeTextoDeHueco: el ancla del armado, juntando los saltos.
+  const pedidos: Array<Parameters<Medir>[0]> = [];
+  const medir: Medir = (a) => { pedidos.push(a); return { content: 'HOLA\nMUNDO', 'transform.positionX': 1, 'transform.positionY': 2 }; };
+  const params = { content: 'ANTES', [MARCA.ancla]: codificarAncla({ borde: 'arriba', y: 300, margen: 0.11 }) };
+  assert.deepEqual(paramsDeTextoDeHueco({ params, texto: 'Hola mundo', lienzo: { width: 2160, height: 3840 }, medir }), { content: 'HOLA\nMUNDO', 'transform.positionX': 1, 'transform.positionY': 2 });
+  assert.equal(pedidos[0].repartir, true);
+  assert.equal(pedidos[0].params.content, 'Hola mundo');
+  assert.deepEqual(pedidos[0].ubicacion, { vertical: 'top', margenPx: 600, margenIzquierdo: 0.11, margenDerecho: 0.11 });
+  assert.equal(paramsDeTextoDeHueco({ params: { content: 'x' }, texto: 'y', lienzo: { width: 1080, height: 1920 }, medir }), null, 'sin ancla no es de plantilla');
+});
+
+test('49: cada operación de plantillas pasa por la MISMA entrada que la pantalla', () => {
+  const com = sinComentarios(leer('app/video-editor/_opencut/chat/comandos.ts'));
+  assert.ok(com.includes('new ReemplazarClipCommand({ ref: o, mediaId: r.mediaId })'), 'el comando del menú «Reemplazar el clip»');
+  assert.ok(com.includes('paramsDeTextoDeHueco({ params: actual.params, texto: r.texto, lienzo, medir: partirYUbicar })'));
+  assert.ok(/const LARGAS = new Set<[^>]+>\(\[[^\]]*"usar_plantilla"/.test(com), 'usar_plantilla corre después del lote');
+  const apl = sinComentarios(leer('app/video-editor/_opencut/chat/aplicar.ts'));
+  assert.ok(apl.includes('usarPlantilla(editor, plantilla, { textos: r.textos, medios: r.medios, avisar: false })'), 'la entrada de la pestaña Plantillas');
+  const cuerpo = apl.slice(apl.indexOf('export async function aceptarPropuesta'));
+  const fuentes = cuerpo.indexOf('fuentesDeHuecos(editor, p)');
+  assert.ok(fuentes > 0 && fuentes < cuerpo.indexOf('datosDeLinea('), 'la fuente del hueco, cargada antes de mirar la línea de tiempo');
+  assert.ok(cuerpo.indexOf('no se pudo reemplazar') > cuerpo.indexOf('new BatchCommand(comandos)'), 'un reemplazo que no entró se dice');
+  assert.ok(sinComentarios(leer('app/video-editor/_opencut/chat/PanelChat.tsx')).includes('vista.medios.values()].map((m) => [m.mediaId, m.ref]'), 'las refs de los medios viajan a «Aceptar»');
+});
+
+test('50: la API de MaKo LISTA las plantillas (gratis, con la tab del editor) y no las usa', () => {
+  const def = DEFS_VIDEO.find((d) => d.id === 'listar_plantillas_video');
+  assert.ok(def, 'falta listar_plantillas_video en video.def.ts');
+  assert.equal(def!.tipo, 'lectura');
+  assert.equal(def!.costo, 'gratis');
+  assert.deepEqual(def!.gating, { tab: 'video-editor' });
+  assert.deepEqual([...def!.canales].sort(), ['app', 'http', 'whatsapp']);
+  assert.match(def!.descripcion, /NO se puede por la API/);
+  const api = plantillasParaApi();
+  assert.equal(api.total, PLANTILLAS.length);
+  assert.equal(api.plantillas.length, 7, 'las cinco y sus dos variantes');
+  for (const p of PLANTILLAS) {
+    const de = api.plantillas.find((x) => x.id === p.id)!;
+    assert.deepEqual(de.huecos.map((h) => h.nombre), huecosDe(p).map((h) => h.nombre), p.id);
+  }
+  const ad = api.plantillas.find((x) => x.id === 'antes-despues')!;
+  assert.deepEqual(ad.huecos.find((h) => h.nombre === 'antes'), { nombre: 'antes', tipo: 'clip', acepta: 'ambos', segundos: 5, opcional: false });
+  assert.deepEqual(ad.huecos.find((h) => h.nombre === 'final'), { nombre: 'final', tipo: 'clip', acepta: 'ambos', segundos: 3, opcional: true });
+  assert.deepEqual(api.plantillas[0].huecos.find((h) => h.nombre === 'gancho'), { nombre: 'gancho', tipo: 'texto', max_caracteres: 28, ejemplo: 'ESTO LO CAMBIA TODO' });
+  // El runner (server-only) devuelve eso y nada más.
+  const run = sinComentarios(leer('lib/api-mako/areas/video.run.ts'));
+  assert.ok(run.includes('\n  listar_plantillas_video: {\n    leer: async () => json(plantillasParaApi()),\n  },'), 'el runner de listar_plantillas_video');
+});
+
 // Roturas (15/10/2026), cada una sola y restaurada desde memoria; base 21 de 21:
 // · lo borrado sigue vivo para las que siguen          → 1 fallo (10)
 // · la pista bloqueada se toca                         → 1 fallo (11)
@@ -687,6 +958,35 @@ test('39: resaltar las palabras (karaoke): a todos los subtítulos con los param
 // · R21 la vista no muestra el resaltado actual · R22 un modo inventado se acepta
 // · R23 resalta también los textos que no son subtítulos · R24 sigue en «no se puede»
 // → cada una 39/1 (39). Restaurado: 40/0.
+//
+// Los arreglos de la revisión adversarial (tests 40 y 41, 15/10), base 42 de 42:
+// · R25 recortar sin la base · R26 dividir en segundos absolutos · R27 Diferido rehace el
+//   comando viejo → cada una 41/1 (40).
+// · R28 el corte por texto va con un recorte de la principal · R29 normalizar el clip que se
+//   corta · R30 los subtítulos bloqueados cuentan · R31 mayúsculas en un subtítulo se aceptan
+//   → cada una 41/1 (41). Restaurado: 42/0.
+// · R32 el borrar del chat sin lo vinculado · R33 cambiar_texto de un subtítulo sin la regla del
+//   panel · R34 la fila de borrar no avisa lo vinculado → cada una 42/1 (42). Restaurado: 43/0.
+//
+// Las plantillas de anuncio (tests 43-50, tanda 4, 15/10), con el script que rompe, corre y
+// restaura de a una; base 51 de 51 → cada una 50/1, en el test que dice el paréntesis:
+// · (43) R35 reemplazar_clip acepta un medio que no es «m1» · R36 el id de la plantilla no pasa
+//   a minúsculas · R37 los valores no pasan por validarValores (el tope del hueco).
+// · (44) R38 la vista no marca la muestra · R39 lista lo oculto y el audio · R40 las refs de los
+//   medios no se conservan · R41 sin tope de medios.
+// · (45) R42 la muestra no llena a sus hermanas · R43 un video corto se acepta · R44 el tipo no
+//   cambia en la simulación (la muestra que pasa a video no se puede silenciar) · R45 no se mira
+//   qué acepta el hueco.
+// · (46) R46 la plantilla va con la línea de tiempo con algo · R47 lo demás del pedido va con la
+//   plantilla · R48 un video corto llena el hueco de la plantilla.
+// · (47) R49 falta una plantilla en el catálogo · R50 «cambiar» medios sigue en lo que no se puede.
+// · (48) R51 el texto de un hueco no respeta su tope · R52 no junta los saltos al re-partir.
+// · (49) R53 el chat reemplaza sin el comando del menú · R54 usar_plantilla no es larga · R55 el
+//   chat avisa con el toast de la pestaña · R56 la fuente del hueco no se carga · R57 un reemplazo
+//   que no entró se calla · R58 las refs de los medios no viajan a «Aceptar».
+// · (50) R59 la lectura de la API pide admin · R60 no sale por HTTP · R61 lista cinco · R62 el
+//   runner devuelve otra cosa.
+// Restaurado: 51/0.
 //
 // Lo que NO cubre: que los comandos del motor hagan en pantalla lo que dice la fila
 // (chat/comandos.ts, chat/aplicar.ts). Eso se mira en el navegador

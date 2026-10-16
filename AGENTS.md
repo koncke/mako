@@ -220,7 +220,10 @@ navegador de un VISITANTE de la landing de un cliente, asi que si queda viejo el
 es el de `public/` y no hay un solo error que lo diga. Es la misma familia que el zip de la
 extension y que `plugin/`. Desde el 15/10/2026 las doce que no son el typecheck viven en
 `scripts/guardas-push.sh`, que corren el pre-push y GitHub Actions: una guarda nueva se agrega
-AHÍ, no en el hook.
+AHÍ, no en el hook. La primera es un `tsc` ACOTADO a las bitácoras de `/admin/dev`
+(`scripts/tsc-bitacoras.mjs`, ~4 s y ~300 MB): un hito sin `puntos` (TS2741) frenó tres pushes
+el 14/10 y el 15/10 tiró un run entero de Actions. Si el `tsc` no termina (lo mató el vigía, o
+se quedó sin heap), no frena el push: eso no es un error de tipos, y Actions corre el completo.
 
 ⚠️ El último se agregó el 29/08/2026, después de que **producción estuviera 46 minutos en
 la versión vieja sin que nada lo dijera**: un commit subió `catalogo.ts` con 18 imports
@@ -301,10 +304,32 @@ worktree, encontraron por separado los mismos 7 rojos en cuatro tests que cortab
 con `'\n}\n'`: en el clon los archivos estaban en LF y pasaban. Todo test que haga
 `readFileSync` de un fuente normaliza con `.replace(/\r\n/g, '\n')` ANTES de buscar.
 
+⚠️ **Y LOS TESTS CORREN TAMBIÉN EN LINUX (GitHub Actions): una ruta sale de `fileURLToPath`,
+nunca de `.pathname`.** El 15/10/2026 el primer run de Actions cayó por un test que armaba
+su cwd con `new URL('..', import.meta.url).pathname.replace(/^\//, '')`: en Windows deja
+`C:/…`, en Linux deja una ruta RELATIVA (`home/runner/…`) y `git` contesta ENOENT. Va
+`fileURLToPath(new URL('..', import.meta.url))` (o `dirname(fileURLToPath(import.meta.url))`),
+que además decodifica los `%20`. Y lo mismo vale para lo que en la notebook existe y en Linux
+no: un test que lee algo fuera de git (`.git/hooks`, `.next/`, el home) **lee la copia
+versionada**, o se saltea diciendo por qué. Uno que se saltea mudo da verde sin haber mirado
+nada (pasaba con el del pre-push hasta ese mismo día).
+
+⚠️ **Y vale para los DATOS de prueba: una ruta que pasa por `resolve`, `join` o un `cwd` no
+puede ser `C:\…` fijo.** En Linux es RELATIVA y `resolve` le pega delante el cwd del runner: el
+16/10/2026 un `REPO = 'C:\\repo\\dashboard-marketing'` dio verde en la notebook y 2 rojos en el
+run 38845971505 (mío, en `tests/tsc-acotado.test.ts`, la noche después de escribir la regla de
+arriba). Va `resolve('/repo/x')` —en Windows queda `C:\repo\x`, en Linux `/repo/x`, y lo esperado
+se deriva de ahí— o `join(tmpdir(), …)`. Lo frena en el push `scripts/rutas-windows-en-tests.mjs`
+(en las guardas baratas): un literal `C:\…` o `C:/…` en `tests/` fuera de los comentarios es un
+error, salvo que el archivo esté en su lista `PERMITIDOS` con el motivo — un nombre de archivo que
+manda el navegador o un texto que se redacta son datos, no rutas.
+
 ⚠️ **Si el árbol compartido tiene trabajo ajeno que no compila, se pushea desde un worktree
 limpio — nunca con `--no-verify`.** `git worktree add --detach <ruta> main`, un junction a
-`node_modules` (`New-Item -ItemType Junction`), `git push origin HEAD:main` desde ahí, y
-después `git worktree remove --force` + `git worktree prune`.
+`node_modules` (`New-Item -ItemType Junction`), `git push origin HEAD:integracion` desde ahí, y
+después `git worktree remove --force` + `git worktree prune`. Desde el 15/10 casi no hace
+falta: un push a `integracion` ya no corre el `tsc` sobre el árbol de trabajo, y Actions
+chequea el COMMIT, no el disco.
 
 ⚠️ **Y en ese worktree `npm run build` NO corre tal cual**: con `node_modules` como junction,
 Turbopack aborta con «Symlink [project]/node_modules is invalid, it points out of the filesystem
@@ -356,6 +381,33 @@ trabó la cola, y tres pushes salieron verdes **sin llegar a producción**. Se c
   gratis para probar: `NEXT_TURBOPACK_USE_WORKER=0` corre Turbopack en el hilo principal y deja
   un solo heap con el tope de 4 GB en vez de dos (no medido: puede ser más lento). **Subir la máquina de build cuesta plata y lo
   decide Martín.**
+
+# Para validar lo tuyo sin el tsc completo: `node scripts/tsc-acotado.mjs`
+
+El `tsc` completo pide 3-5 GB y lo corre GitHub Actions (ver «El typecheck NO corre en el
+build»). Para chequear lo que tocaste, el ACOTADO: `node scripts/tsc-acotado.mjs <archivos>` o
+`--rama` (lo que cambió la rama contra el merge-base con `origin/main`; contra `origin/main` a
+secas entran los archivos que movió main, con la versión vieja de la rama). ~2,5 GB de heap y
+segundos. **No se arma el tsconfig a mano**: el script ya trae las trampas que daban rojos que no
+eran del código:
+
+- `"files"` con la lista **y** `"include": []`. Sin el include vacío, `extends` hereda el del
+  repo y se chequea todo (sin heap a 2 GB, medido el 14/10).
+- `"typeRoots"` ABSOLUTO a `node_modules/@types` + `"types": ["node"]`. En el completo los tipos
+  de Node entran por `next-env.d.ts` (generado: un worktree ni lo tiene): sin esto sale
+  «Cannot find name 'process'» (TS2580). Medido el 16/10 con
+  `app/web-generator/editor/insertar.ts`: 1 error sin esto, 0 con esto.
+
+Lo que el script NO puede resolver, y conviene saber antes de creerle a un rojo:
+
+- **Un tipo que agrega OTRO archivo con `declare module`** no existe para un archivo compilado
+  solo. Los comandos de cada extensión de TipTap sobre `ChainedCommands` son el caso: ese mismo
+  `insertar.ts` daba 5 rojos así. La cura es importar por tipos lo que se usa
+  (`import type {} from '@tiptap/extension-task-list'`) o sumar ese archivo a la lista.
+- **El acotado no sube a los que importan lo tuyo.** Si cambiaste un TIPO compartido, sumá a
+  sus consumidores.
+- **Salida 99 no es un verde**: el `tsc` no terminó (el vigía de RAM lo mató, o sin heap) y no se
+  miró nada. 0 es «sin errores en esos archivos», no en el repo: el completo lo corre Actions.
 
 # La guardia de RAM puede demorar o negar: no es un error, y no se esquiva
 
@@ -1174,6 +1226,26 @@ código nuevo:
   puedo mandar un prompt por allí»): la caja de `Conversacion.tsx` y la del teléfono firman por `mandar.ts`. Un
   formulario aparte para mandar no vuelve. Y la caja no manda lo que la PC va a rechazar ni dice «sale ya» sobre lo que
   espera: lo decide `comoSale` (lib/centro-chats.ts), con test.
+- **En pantalla el cartero se llama RUNNER y la clave del dispositivo es «tu Token»** (15/10/2026; Martín: «No quiero
+  que se llame más "cartero", sino un nombre más formal, tecnico... profesional»). Copiado de los self-hosted runners de
+  GitHub Actions; el nombre y las instrucciones de su chat viven en `lib/runner.ts`. En el código, la base y la PC sigue
+  siendo el cartero (`cartero.mjs`, `operaciones_carteros`, `ver_carteros_operaciones`): las claves no se renombran. La
+  PC lo reconoce por el título del chat («Runner» o «Cartero», también como «Centro de Operaciones › Runner»:
+  `esElCartero`). Un texto nuevo del Centro no dice «cartero» ni «clave»: lo fija tests/centro-textos.test.ts.
+- **UN CHAT ES SU NOMBRE, Y UN SUB-CHAT SE LLAMA «<Jefe> › <Sub>»** (15/10/2026; Martín: «todos los chats de todas las
+  cuentas se llamen igual» y «quiero que cada chat esté englobado en su chat "jefe" que siempre se debe llamar como la
+  tab... ESO no lo quiero decidir yo, lo decide el chat jefe»). Lo que gobierna a cualquier chat:
+  - **El jefe se llama como la tab** («CRM», «Offer», «Web Generator»), y el mismo trabajo se llama IGUAL en las tres
+    cuentas: el Centro une por nombre (sin mayúsculas ni tildes) y le escribe a la sesión abierta
+    (lib/centro-chats.ts → `unirPorNombre`).
+  - **Un sub-chat se nombra «CRM › Lead Detail»** (también vale «>»), y va adentro de su jefe (`porJefe`). No hay
+    registro aparte: el nombre es la convención. Lo decide el jefe —se renombra a sí mismo o renombra al sub-chat con
+    `set_session_title`— y funciona igual si el sub-chat lo crea Martín con un clic y lo nombra así.
+  - **Dos chats distintos no se llaman igual**: si pasa, se unen. Se separan renombrando uno («⋯ → Renombrar»), que le
+    manda a cada sesión un trabajo firmado que le pide `set_session_title` (`textoDeRenombre`): el mismo camino de la
+    firma, sin una puerta nueva a la PC.
+  - **El muñeco que Martín elige se guarda por nombre** (app_settings del workspace de la plataforma,
+    lib/centro-munecos-db.ts) y se lee estricto antes de escribir.
 
 # Un guard sobre algo destructivo se escribe en POSITIVO
 
@@ -1470,6 +1542,31 @@ glosario, está en otro idioma.** Lo que se escribe es lo que la cosa ES para qu
 lee — «la junta del 3 de septiembre», «Código Inmobiliario»— y el identificador, si hace
 falta para trabajar, va en el detalle o en el comentario del código. Vale para títulos de
 tarjetas, toasts, avisos, mensajes de WhatsApp y cualquier texto que salga del repo.
+
+⚠️ **Y UN AVISO DICE QUÉ HACER Y PARA QUÉ, NUNCA EL ESTADO INTERNO.** Martín, 15/10/2026,
+sobre la caja del Centro de Operaciones: **«Jamás pongas mensajes no claros como "Este
+dispositivo todavía no firma.", es mucho mejor "Crea tu Token para comenzar a chatear"»**.
+La primera frase es verdad y no sirve: describe cómo está el sistema por dentro, y quien la
+lee tiene que deducir qué hacer. La segunda arranca con la acción, nombra la cosa como la ve
+él (su Token, no «la clave de firma») y dice para qué.
+
+| No | Sí |
+|---|---|
+| «Este dispositivo todavía no firma.» | «Crea tu Token para comenzar a chatear.» |
+| «La PC todavía no acepta la clave de este dispositivo.» | «Pégale tu Token al Runner para comenzar a chatear.» |
+| «Sale cuando el cartero de la cuenta 3 dé su vuelta.» | «Abre el chat Runner en la app de Claude para que salga.» |
+| «Ningún chat todavía: aparecen cuando el cartero da su vuelta.» | «Conecta un Runner para ver tus chats aquí.» |
+
+- **La prueba antes de escribir un aviso:** ¿arranca con un verbo que la persona puede hacer, y
+  dice para qué? Si arranca con el sujeto del sistema («Este dispositivo…», «La PC…», «El
+  cartero…»), está describiendo el estado.
+- **Vale también para el motivo de un fallo** que se dibuja (el de un mensaje que no salió):
+  «Venció con el chat cerrado: ábrelo y vuelve a mandarlo», no «Venció sin que su chat
+  estuviera abierto».
+- **Y lo que no tiene acción** (un estado que sólo se mira: «Activo», «trabajando…») va como
+  rótulo corto, no como frase.
+- En el Centro lo fija `tests/centro-textos.test.ts` (frases prohibidas y que la caja arranque
+  con la acción); en el resto, se revisa a mano con esta tabla.
 
 ⚠️ **Y CUANDO LA PANTALLA SÍ MUESTRA UN PORQUÉ, ES EL PORQUÉ DE LA DECISIÓN QUE
 ESTÁ AL LADO — no el del problema.** Una columna «por qué» pegada a una columna
@@ -3642,6 +3739,33 @@ apagar, nunca encender. Si la base se cae, el resultado es «no pausado» — y 
 nada, porque lo que autoriza es la lista de código. Un store que puede fallar solo tiene
 permitido hacer las cosas MÁS restrictivas.
 
+**Y desde el 16/10/2026 hay una SEGUNDA puerta, y no se deriva de la primera: la clave de Anthropic DEL
+NEGOCIO.** Martín eligió que el crédito de API de Claude Max de un cliente entre por su clave propia (Ticketera
+`clientes-usan-su-claude`), y esa plata es del negocio, no de MaKo. La cascada de texto (`chatCheapCascade`) la prueba
+primero, por `conClaveDelNegocio` (lib/anthropic.ts), con un solo modelo barato y nunca en las funciones del Plan
+(`FEATURES_DEL_PLAN`). Lo que gobierna código nuevo:
+
+- **La clave del negocio se lee con `credDelCliente`, nunca con `credWs`**: `credWs` cae al env de la plataforma
+  cuando el workspace es el del dueño, y esa clave pasaría como del negocio.
+- **Se compara contra las TRES copias de la plataforma** (el env, la fila del dueño y la del workspace de la
+  plataforma), leídas estrictas, en `evaluarClaveDelNegocio` (lib/veto-claude.ts, puro). Si no se pudo leer, no se
+  llama.
+- **El `fetch` usa la clave que lleva el permiso** (`permiso.clave`), nunca vuelve a resolver otra.
+- Lo fija `tests/veto-claude-clave-negocio.test.ts`, probado rompiéndolo (7 de 7). El porqué, en la cabecera del veto.
+
+**Y una TERCERA puerta, también desde el 16/10/2026: el crédito de API de dos planes Max de Martín** («Vinculalas a
+MaKo»). Ya está pago con la suscripción y al acabarse corta en vez de cobrar, así que cubre la IA de texto de los
+clientes cuyas keys no contestaron: va primero en la red de plataforma de `chatCheapCascade`, antes de las keys
+gratis (`conCreditoDeLaPlataforma`, lib/anthropic.ts). Lo que gobierna código nuevo:
+
+- **Pasan SÓLO las dos claves con nombre** (`CLAVES_CREDITO_PLATAFORMA`), leídas por ese nombre del entorno o de la
+  fila del workspace de la plataforma, estrictas. `ANTHROPIC_API_KEY` no se lee ahí, y `evaluarCreditoDeLaPlataforma`
+  rechaza cualquier otra clave. Nunca en el Plan, con un solo modelo barato, y con fecha de revisión (`hasta`).
+- **Su gasto no es de MaKo ni del cliente**: la fila va al workspace del cliente que lo usó (`recordUsage(…, ws)`;
+  sin eso caía al ws1) con la marca `MOTIVO_CREDITO_PLATAFORMA` al principio, y `costos-ia` y el panel de cada
+  negocio la ponen en 0 y la muestran aparte.
+- Lo fija `tests/veto-claude-credito-plataforma.test.ts`, probado rompiéndolo (9 de 9).
+
 # Un default que cobra es un cobro silencioso
 
 El `def` de una feature en `lib/model-catalogo.ts` no es «lo que usa hoy el código»: es
@@ -3760,6 +3884,29 @@ voz con un mensaje que le pedía cargar otra key. Dos reglas al escribir un cami
   que el que falló, y con el motivo «⚠ red de plataforma»** (`provsGratisDePlataforma`; el molde
   es `transcribirAudio` en `lib/ai-cheap.ts`). Y los errores de la red viajan SEPARADOS de los
   del cliente: con ellos se fabricaría el texto que lee él.
+- ⚠️ **Y NADA LA CORTA ANTES: un `if (!(await docsIADisponible()))` (o `cheapDisponible`, o una
+  pregunta previa como `hayIAParaCrear`) delante de la llamada apaga la red sin que se note.** La
+  red queda escrita y no corre nunca para un cliente sin keys, que desde el 15/10/2026 es cualquier
+  cliente nuevo (el paso de la IA del wizard es opcional). Medido el 16/10: El Archivero tenía tres
+  cortes así y un cliente sin keys se trababa en el wizard; Offer y la API de MaKo, uno cada uno. Un
+  test que sólo mira que `redDePlataforma: true` esté escrito da VERDE con el corte puesto: el test
+  también pregunta qué hay ANTES (molde: `tests/onboarding-sin-api.test.ts`). «Conecta tu IA» se
+  dice DESPUÉS de que la red falló, con `errorDeCascada`.
+- ⛔ **LOS DATOS DE LOS CLIENTES DE UN CLIENTE NUNCA VAN A UN PROVEEDOR QUE ENTRENA CON LO QUE RECIBE**
+  (16/10/2026). Mandar algo a entrenar no se deshace, y la opción segura no cuesta nada. Las keys
+  gratis de la agencia son el plan gratis de Gemini (que entrena, con revisión humana) y de Groq. El
+  orden de la red es: primero el crédito de Claude de la plataforma (la API de Anthropic no entrena),
+  después una key de Gemini con facturación si se identifica cuál es, y las del plan gratis sólo al
+  final y NUNCA con datos personales. En `chatCheapCascade` lo decide la marca `pii` del catálogo
+  (`lib/model-catalogo.ts`) o `opts.pii`: con datos de clientes, si nada que no entrene contesta, se
+  corta y el cliente conecta su key. Una feature nueva que lea leads, conversaciones o llamadas se marca
+  `pii: true`. Y un camino con su PROPIA red (un bucle sobre `provsGratisDePlataforma`) aplica la
+  misma regla él mismo: el corte de la cascada no lo cubre.
+- **La red va como OPCIÓN del que llama, nunca fija en una función compartida** (`EnVivo`,
+  `lib/setting-simulador.ts`, 16/10/2026). Una lectura de la API que un agente externo puede llamar
+  en bucle no la pide: gastaría la cuota gratis de la agencia, que es de la que viven las respuestas
+  en vivo de todos. Y lo que corre adentro de un webhook la pide CON PLAZO (`hastaMs`): sin él, una
+  red lenta mata la función sin dejar ni el aviso.
 - **Un 429 del MINUTO también se cubre con otro modelo, y repetir un PEDIDO no repite
   herramientas.** El 07/10/2026 a Brigitte (una sola key) una pregunta de 6-8 pedidos de ~15k
   tokens llenó el cupo del minuto, y el 429 tiraba el turno con seis pasos hechos por una regla
@@ -5212,8 +5359,9 @@ de `app/admin/dev/_registro/tipos.ts`:
   (ver «Hay dos cuentas»), nunca de una deducción.
 - **`sesion`: el id de TU sesión** (`echo $CLAUDE_CODE_HOST_SESSION_ID` en la app, que da `local_…`; en
   una terminal, `cli_` + `$CLAUDE_CODE_SESSION_ID`). El Centro de Operaciones muestra los chats como una
-  lista y junta cada hito con su chat por la sesión, nunca por `chat`: hay títulos repetidos y chats
-  renombrados (el 15/10/2026, 17 de 37 coincidían por nombre). Desde el 16/10 tests/progreso.test.ts
+  lista y junta cada hito con su chat por la sesión, nunca por `chat`: la sesión le da el nombre que el chat
+  tiene HOY (un chat renombrado no se parte en dos; el 15/10/2026, 17 de 37 coincidían por nombre), y recién
+  ahí une las cuentas por ese nombre (ver «el Centro de Operaciones» más arriba). Desde el 16/10 tests/progreso.test.ts
   lo exige en los hitos de trabajo. En un `prompt` que llegó por otro chat va la sesión de ESE chat si la
   sabés (el `from-session` de su mensaje); si no, sin `sesion`: no se inventa.
 

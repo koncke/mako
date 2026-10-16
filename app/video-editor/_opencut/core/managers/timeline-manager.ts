@@ -931,15 +931,21 @@ export class TimelineManager {
 		return null;
 	}
 
-	updateTracks(newTracks: SceneTracks): void {
+	updateTracks(newTracks: SceneTracks, opciones: { sinIman?: boolean } = {}): void {
 		this.previewOverlay.clear();
 		this.previewTracks = null;
 		// El imán de la pista principal y la vinculación de CapCut corren acá,
 		// el único lugar por donde pasa TODO cambio de pistas (ripple/iman.ts).
-		const tracks = aplicarImanPrincipal({
-			antes: this.editor.scenes.getActiveSceneOrNull()?.tracks ?? null,
-			despues: newTracks,
-		});
+		// `sinIman`: para quien ya trae la línea de tiempo ENTERA en su lugar (el corte por
+		// transcripción y su deshacer). La regla de «lo que el cambio no tocó se corre con
+		// su clip» corre de más un elemento que quedó en el mismo instante: al deshacer un
+		// corte, un sticker que empezaba justo donde empezaba el tramo terminaba corrido.
+		const tracks = opciones.sinIman
+			? newTracks
+			: aplicarImanPrincipal({
+					antes: this.editor.scenes.getActiveSceneOrNull()?.tracks ?? null,
+					despues: newTracks,
+				});
 		this.editor.scenes.updateSceneTracks({ tracks });
 		this.notify();
 	}

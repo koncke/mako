@@ -52,6 +52,7 @@ buscar_leads
 buscar_lugares_meta
 buscar_tareas_plan
 buscar_tutorial
+cambiar_animacion_landing
 cambiar_espera_paso
 cambiar_estado_comentario_landing
 cambiar_ficha_funnel
@@ -115,6 +116,7 @@ crear_modulo_curso
 crear_oferta_lead
 crear_presentacion_desde_plantilla
 crear_secuencia_email
+dar_de_baja_mi_plan
 dar_estrella
 declarar_entradas_funnel
 desarchivar_secuencia
@@ -287,6 +289,7 @@ listar_pendientes_arranque
 listar_pixeles_meta
 listar_plantillas_aprobadas
 listar_plantillas_imagen
+listar_plantillas_video
 listar_preguntas_diagnostico_fase
 listar_productos
 listar_propuestas_revisar
@@ -473,6 +476,7 @@ ver_integracion
 ver_integraciones
 ver_landing_creada
 ver_metricas_video_panda
+ver_mi_plan
 ver_moneda_negocio
 ver_montaje_anuncio
 ver_mrr_activo

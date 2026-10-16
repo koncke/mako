@@ -164,8 +164,16 @@ export const DIMENSIONES_CRITICAS: readonly DimensionId[] = ['D1', 'D2', 'D4'];
 
 // ── La conversación ──────────────────────────────────────────────────────────
 
+/**
+ * Qué pasó al guardar el documento TAMBIÉN en El Archivero (decisión de Martín, Ticketera 15/10/2026 05:32,
+ * ref `offer-archivero`). Lo escribe la ruta POR DETRÁS, cuando termina: sin el campo, todavía no terminó
+ * o el documento no va al Archivero (una nota de voz, la página de un link). `ok: false` se dibuja en el
+ * chip del archivo; NUNCA entra a un prompt (la IA lee el texto del documento, no esto).
+ */
+export type ArchiveroDoc = { ok: true; id: string; aviso?: string } | { ok: false; motivo: string };
+
 /** Un adjunto ya leído. El texto NO viaja a la pantalla: vive en `documentos`. */
-export type AdjuntoVista = { id: string; nombre: string; via: string; chars: number; aviso?: string };
+export type AdjuntoVista = { id: string; nombre: string; via: string; chars: number; aviso?: string; archivero?: ArchiveroDoc };
 
 export type OfferMensaje = {
   id: string;

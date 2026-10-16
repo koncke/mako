@@ -60,7 +60,7 @@ import { conWs } from '@/lib/ws-tab';
 import type { AdjuntoVista, OfferMensaje, OfferSesionVista } from '@/lib/offer-marco';
 import { AvatarMako } from './AvatarMako';
 import { ChipArchivo } from './ChipArchivo';
-import { esOpcionArmar, horaDe, nombrePdfVersion, pdfDeMensaje, ticksDe } from './ayudas';
+import { esOpcionArmar, horaDe, nombrePdfVersion, notaDelAdjunto, pdfDeMensaje, ticksDe } from './ayudas';
 import { descargarPdf, mensajeDeError } from './offer-api';
 
 /** El acento de la tarjeta y la burbuja del dueño: tokens que existen en claro Y en oscuro. */
@@ -80,7 +80,10 @@ const TEXTO_BURBUJA = { fontSize: 14, lineHeight: 1.45, color: 'var(--ink)', ove
 function Adjuntos({ lista }: { lista: AdjuntoVista[] }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'stretch' }}>
-      {lista.map((a) => <ChipArchivo key={a.id} nombre={a.nombre} via={a.via} estado={a.aviso ? 'aviso' : 'listo'} nota={a.aviso} />)}
+      {lista.map((a) => {
+        const nota = notaDelAdjunto(a);
+        return <ChipArchivo key={a.id} nombre={a.nombre} via={a.via} estado={nota ? 'aviso' : 'listo'} nota={nota || undefined} />;
+      })}
     </div>
   );
 }

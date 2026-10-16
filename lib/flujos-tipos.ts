@@ -102,6 +102,11 @@ export type Paso =
      * fuera del horario de oficina. Ausente = espera a que abra (lo de fábrica). Lo pone `pasosDelEvento`.
      */
     saleIgual?: true;
+    /**
+     * SÓLO la tarjeta «MaKo por email» de una fila de EVENTO (16/10/2026, `esPorEmail`, lib/mako-tarjeta.ts): sale como
+     * correo al equipo del negocio, con este asunto crudo (sus datos se resuelven al mandar). Lo pone `pasosDelEvento`.
+     */
+    email?: { asunto: string };
   }
   | PasoAccion
   | { tipo: 'esperar'; horas: number }

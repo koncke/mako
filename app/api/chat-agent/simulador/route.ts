@@ -14,6 +14,9 @@
 // POST { action: 'responder', secuenciaId, historial, escenario } → { respuesta }
 //      Redacta un «MaKo contesta» con el redactor del motor (`responderSimulador`) y el caso
 //      LOCAL como guía.
+// POST { action: 'mensaje-lead', titulo, cuando, ultimo } → { mensaje }
+//      Lo que ESCRIBE el lead de un escenario que contesta (15/10/2026, lib/probar-lead.ts): un mensaje que cae en ese
+//      caso del AI Step. Siempre ok: sin IA, el «cuándo» del caso.
 // POST { action: 'enviar-real', secuenciaId, destino, mensaje, primero, emisor? } → { enviados }
 //      Manda DE VERDAD un mensaje que apareció en el panel (lib/prueba-paso.ts). Sólo admin, con
 //      tope por (workspace, destino): 10 mensajes cada 10 minutos. `emisor` (sexta tanda): `{ linea }`
@@ -35,6 +38,9 @@ import { buscarUsuarioPorEmail } from '@/lib/usuarios';
 import { escenariosDeRespuesta, normalizar, TOPE_NODOS, TOPE_GUIA, TOPE_OBJETIVO, TOPE_EJEMPLO, TOPE_EJEMPLOS, type PasoGrafo } from '@/lib/flujo-grafo';
 import { destinoDelQueMira, destinosGuardados, sanearDestinoPrueba, sanearMensajePrueba, sanearEmisorPrueba } from '@/lib/simulador-grafo';
 import { enviarPasoDePrueba, guardarDestinoDeQuienPrueba } from '@/lib/prueba-paso';
+import { chatCheapCascade } from '@/lib/ai-cheap';
+import { getPromptText } from '@/lib/prompt-render';
+import { MENSAJE_LEAD_SYSTEM_TEMPLATE, userMensajeLead, mensajeLeadDe } from '@/lib/probar-lead';
 import type { EscenarioSecuencia } from '@/lib/setting-estrategia';
 
 export const dynamic = 'force-dynamic';
@@ -121,7 +127,8 @@ export async function POST(req: NextRequest) {
       const escenarios: EscenarioSecuencia[] = casos.map((c) => ({
         titulo: c.titulo, cuando: c.cuando, comoResponder: c.comoResponder, ...(c.contestaSolo ? { contestaSolo: true } : {}),
       }));
-      const r = await clasificarEscenario(mensaje, escenarios);
+      // Con la red de plataforma, como en vivo (AGENTS.md: todo camino de IA que use un cliente necesita su red).
+      const r = await clasificarEscenario(mensaje, escenarios, { redDePlataforma: true });
       const i = r.encaja ? escenarios.indexOf(r.escenario) : -1;
       return json({
         ok: true,
@@ -151,9 +158,22 @@ export async function POST(req: NextRequest) {
       };
       // ⚠️ `responderSimulador` lee de lo GUARDADO el nombre, el objetivo, el gancho y las
       // preguntas de la secuencia; lo que se edita en el lienzo (el caso y su guía) viaja acá.
-      const r = await responderSimulador(id, historial, { escenario });
+      const r = await responderSimulador(id, historial, { escenario, redDePlataforma: true });
       if (!r.ok) return json({ ok: false, error: r.error }, 400);
       return json({ ok: true, respuesta: r.respuesta });
+    }
+
+    // ── Lo que escribe el lead de un escenario que contesta (15/10/2026) ──────
+    if (body.action === 'mensaje-lead') {
+      const caso = { titulo: String(body.titulo ?? '').slice(0, 200), cuando: String(body.cuando ?? '').slice(0, 1000) };
+      const system = await getPromptText('automations.probar.lead', MENSAJE_LEAD_SYSTEM_TEMPLATE);
+      // La cascada gratis con la red de plataforma (AGENTS.md: todo camino de IA que use un cliente necesita su red). Si
+      // no contesta, el «cuándo» del caso: la prueba sigue igual.
+      const raw = await chatCheapCascade({
+        system, user: userMensajeLead({ ...caso, ultimo: String(body.ultimo ?? '') }), json: true, maxTokens: 150, temperature: 0.8,
+        feature: 'setting-simulador', motivo: 'Probar: lo que escribe el lead', redDePlataforma: true,
+      }).catch((e) => { console.error(`[api:chat-agent/simulador mensaje-lead] ${msg(e)}`); return ''; });
+      return json({ ok: true, mensaje: mensajeLeadDe(raw, caso) });
     }
 
     // ── Mandar DE VERDAD un mensaje que apareció en el panel ──────────────────
@@ -187,7 +207,7 @@ export async function POST(req: NextRequest) {
     if ('error' in t) return json({ ok: false, error: t.error }, 400);
     if (t.texto) historial.push({ de: 'lead', texto: t.texto });
     if (!historial.length) return json({ ok: false, error: 'Escribe un mensaje como el lead primero.' }, 400);
-    const r = await responderSimulador(id, historial);
+    const r = await responderSimulador(id, historial, { redDePlataforma: true });
     if (!r.ok) return json({ ok: false, error: r.error }, 400);
     return json({ ok: true, respuesta: r.respuesta, desenlace: r.desenlace, ...(t.texto ? { transcript: t.texto } : {}) });
   } catch (e) {

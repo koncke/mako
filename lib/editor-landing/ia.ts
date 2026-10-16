@@ -130,6 +130,9 @@ function reparador(feature: string, motivo: string, hastaMs: number) {
       // y es la diferencia entre devolver lo que se escribió y tirarlo.
       hastaMs: Math.max(hastaMs, Date.now() + 10_000),
       validar: (t: string) => { try { parseJsonObject(t); return true; } catch { return false; } },
+      // La reparación corre detrás de crear una landing, que tiene red: sin la suya, un cliente sin
+      // API perdía lo que la red ya había escrito por una coma (16/10/2026).
+      redDePlataforma: true,
     }).catch(() => '');
   };
 }
@@ -256,7 +259,7 @@ export async function esquema(p: PedidoEsquema): Promise<ResultadoIA<{ esquema: 
       const url = String(p.url ?? '').trim();
       if (!url) return invalido('Falta el enlace.');
       try {
-        // TAL CUAL la pegó la persona: `normalizarUrl` le saca el www y el querystring (es la LLAVE de
+        // TAL CUAL la pegó la persona: `claveDeLanding` le saca el www y el querystring (es la LLAVE de
         // landing_analyses, no una dirección para bajar), y hay hosts que sólo existen con www.
         const pagina = await extraerLanding(url, { talCual: true });
         const motivo = motivoDePagina(pagina);
@@ -317,6 +320,9 @@ export async function esquema(p: PedidoEsquema): Promise<ResultadoIA<{ esquema: 
       maxTokens: 4_000,
       effort: 'medium',
       hastaMs,
+      // Crear una landing es de la primera semana de un cliente nuevo, que no trae una API
+      // (16/10/2026). `chatClaude` le pasa la red a la cascada barata tal cual.
+      redDePlataforma: true,
     });
     const raw = await objetoConUnaReparacion(salida, reparador(FEATURE_GENERAR, 'esquema', hastaMs));
     const e = sanearEsquema(raw, { exactas, tituloFallback });
@@ -387,6 +393,7 @@ export async function secciones(p: PedidoSecciones): Promise<ResultadoIA<{ tarje
       maxTokens: Math.min(16_000, Math.max(2_200 * indices.length + 800, Math.ceil(tanda.pedidas.length / 2.5))),
       effort: 'medium',
       hastaMs: hastaIA,
+      redDePlataforma: true, // primera semana de un cliente sin API (ver `esquema`)
     });
     const raw = await objetoConUnaReparacion(salida, reparador(FEATURE_GENERAR, 'secciones', hastaIA));
     const orden = ordenarPorIndice(comoTarjetasIA(raw), indices);

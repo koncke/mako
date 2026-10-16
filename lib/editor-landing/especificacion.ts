@@ -48,6 +48,9 @@ import {
   type AttrsRecuadro, type AttrsTarjeta, type AttrsVideo, type CampoFormulario, type ColorTema, type Degradado,
   type TamanoTexto, type TipoCampo, type VarianteOptimizado, type VarianteParrafo,
 } from './doc';
+import {
+  CORTE_CELULAR, datosDeAnimacion, sanearAnimacionSeccion, sanearDireccion, type AnimacionResuelta, type VideoFondo,
+} from './animaciones';
 import { altoDeEmbed, atributosDeIframe, claseDeProveedor, embedDe, esProveedorEmbed, nombreDeProveedor } from '../embeds';
 import { SANDBOX_PUBLICO } from './html-libre';
 import { hrefPagoValido } from './pago-landing';
@@ -105,6 +108,14 @@ export type CtxSpec = {
    * El `renderHTML` de TipTap nunca lo pide: `getHTML()` y el portapapeles salen sin marcar.
    */
   completar?: boolean;
+  /**
+   * La SECCIÓN que se está dibujando (sólo la lee `specTarjeta`): su `indice` entre las VISIBLES de su página
+   * (0 = la primera, la que ve quien entra) y su animación ya resuelta con el estilo de la landing
+   * (`animacionDeSeccion`, animaciones.ts). La pone render.ts sección por sección; el NodeView del editor la
+   * puede pasar igual. Sin esto: sin `data-anim` (la sección anima con las reglas de siempre, o no anima) y un
+   * póster de video sin prioridad declarada.
+   */
+  seccion?: { indice: number; animacion: AnimacionResuelta | null };
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -255,6 +266,21 @@ export function srcVideo(v: unknown): string | null {
   return srcPermitido(v) && EXT_VIDEO.test(v) ? v : null;
 }
 
+/**
+ * El video de fondo de una sección (animaciones.ts, `VideoFondo`) con la MISMA regla que `imagenSrc`: los videos
+ * y los pósters sólo del bucket `landing-imagenes`. Sin un video o sin un póster válidos, null entero (un video
+ * sin póster deja el hero vacío hasta que arranca, y el póster es el LCP). Las variantes del teléfono que no
+ * pasan quedan en null: el teléfono usa las de escritorio.
+ */
+export function videoFondoValido(raw: unknown): VideoFondo | null {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const r = raw as Crudo;
+  const src = srcVideo(r.src);
+  const poster = srcImagen(r.poster);
+  if (!src || !poster) return null;
+  return { src, srcMovil: srcVideo(r.srcMovil), poster, posterMovil: srcImagen(r.posterMovil) };
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Enlaces
 // ─────────────────────────────────────────────────────────────────────────────
@@ -328,6 +354,7 @@ export function attrsTarjeta(raw: unknown): AttrsTarjeta {
   let fondo = enLista(FONDOS_TARJETA, r.fondo, 'tema');
   if (fondo === 'color' && !fondoColor) fondo = 'tema';
   if (fondo === 'degradado' && !fondoDegradado) fondo = 'tema';
+  const animacion = sanearAnimacionSeccion(r.animacion);
   return {
     id: idValido(r.id) ?? '',
     diseno: enLista(DISENOS_TARJETA, r.diseno, 'sin'),
@@ -345,6 +372,10 @@ export function attrsTarjeta(raw: unknown): AttrsTarjeta {
     oculta: bool(r.oculta),
     notas: textoLimpio(r.notas, TOPES.notas),
     bloqueadaIA: bool(r.bloqueadaIA),
+    // El catálogo de animaciones (animaciones.ts): lo que no está en él se lee null (= hereda el estilo).
+    animacion,
+    animacionDireccion: sanearDireccion(r.animacionDireccion, animacion),
+    videoFondo: videoFondoValido(r.videoFondo),
   };
 }
 
@@ -681,12 +712,15 @@ function estiloDeVars(vars: Record<string, string> | undefined): string | undefi
  */
 export function specTarjeta(raw: unknown, ctx?: CtxSpec): NodoArbol {
   const a = attrsTarjeta(raw);
-  const conImagen = a.diseno !== 'sin' && !!a.imagenSrc;
+  // El video de fondo sólo con el diseño «fondo» (el hero): su póster hace de imagen (ver `acentoConVideo`).
+  const video = a.diseno === 'fondo' ? a.videoFondo : null;
+  const conImagen = a.diseno !== 'sin' && (!!a.imagenSrc || !!video);
   const diseno = conImagen ? a.diseno : 'sin';
   const fondoEstilo = a.fondo === 'color' && a.fondoColor ? `background:${a.fondoColor}`
     : a.fondo === 'degradado' && a.fondoDegradado ? `background:${DEGRADADOS[a.fondoDegradado]}` : undefined;
   const hijos: Hijo[] = [el('div', { class: 'gm-tarjeta-fondo', style: fondoEstilo })];
-  if (conImagen && a.imagenSrc) {
+  if (video) hijos.push(acentoConVideo(a, video, ctx));
+  else if (conImagen && a.imagenSrc) {
     hijos.push(el('div', {
       class: 'gm-acento',
       'data-ajuste': a.imagenAjuste,
@@ -709,8 +743,55 @@ export function specTarjeta(raw: unknown, ctx?: CtxSpec): NodoArbol {
     'data-fondo': a.fondo,
     'data-superposicion': a.superposicion,
     'data-oculta': modo(ctx) !== 'publico' ? si(a.oculta) : undefined,
+    // La animación resuelta (data-anim / data-anim-dir / data-anim-texto: animaciones.ts, `datosDeAnimacion`).
+    // En la publicada la usa la hoja bajo html.gm-anim; en el editor y las tiles, sólo con .gm-reproducir.
+    ...datosDeAnimacion(ctx?.seccion?.animacion),
     style: estiloDeVars(varsFondo),
   }, ...hijos);
+}
+
+/**
+ * El acento de un hero con VIDEO de fondo (animaciones.ts, `VideoFondo`; hoy la pantalla no lo ofrece:
+ * `VIDEO_FONDO.disponible`). Lo medido está en docs/hallazgos-editor-landing.md → «Animaciones: el video de fondo
+ * del hero» («Lo que la plataforma ya deja y lo que no»):
+ *   · En la PUBLICADA, el póster como `<img>` (es el LCP: `fetchpriority="high"` en la primera sección visible,
+ *     `loading="lazy"` en las demás) y encima un `<video muted playsinline loop preload="none">` SIN `autoplay` ni
+ *     `src` en el HTML: `autoplay` le gana a `preload` y le robaba ancho de banda al póster (+0,7-0,8 s de LCP en
+ *     Slow 4G). El script de la página (pagina-publica.ts) le pone `src` después del load (`data-src`, o
+ *     `data-src-movil` en el ancho del teléfono), lo muestra recién con `playing` y agrega la pausa (WCAG 2.2.2).
+ *   · El póster del teléfono (`posterMovil`, vertical) va por `srcset` con `sizes="<corte> 1px, 100vw"`: en el
+ *     ancho del teléfono el navegador toma el candidato más chico (el vertical, 480w) — el MISMO corte con que el
+ *     script elige el video vertical. No va en un `<picture>` porque htmlDeArbol (grafico-svg.ts) no lo deja salir.
+ *   · En el editor, las miniaturas y lo exportado, sólo el póster, de fondo como una imagen de acento.
+ * El encuadre (`imagenFocoX/Y`) y el ajuste (`imagenAjuste`) de la imagen valen para el póster y el video.
+ */
+function acentoConVideo(a: AttrsTarjeta, v: VideoFondo, ctx?: CtxSpec): NodoArbol {
+  const foco = `${Math.round(a.imagenFocoX * 10) / 10}% ${Math.round(a.imagenFocoY * 10) / 10}%`;
+  if (modo(ctx) !== 'publico') {
+    return el('div', { class: 'gm-acento', 'data-ajuste': a.imagenAjuste, style: `background-image:url("${v.poster}");background-position:${foco}` });
+  }
+  const indice = ctx?.seccion?.indice;
+  const primera = indice === 0;
+  return el('div', { class: 'gm-acento', 'data-ajuste': a.imagenAjuste, 'data-video': 'si' },
+    el('img', {
+      class: 'gm-acento-poster',
+      src: v.poster,
+      srcset: v.posterMovil ? `${v.posterMovil} 480w, ${v.poster} 1280w` : undefined,
+      sizes: v.posterMovil ? `${CORTE_CELULAR} 1px, 100vw` : undefined,
+      alt: '',
+      fetchpriority: primera ? 'high' : undefined,
+      loading: indice !== undefined && !primera ? 'lazy' : undefined,
+      decoding: primera ? undefined : 'async',
+      style: `object-position:${foco}`,
+    }),
+    el('video', {
+      class: 'gm-acento-video',
+      muted: '', playsinline: '', loop: '', preload: 'none',
+      'data-src': v.src,
+      'data-src-movil': v.srcMovil ?? undefined,
+      'aria-hidden': 'true', tabindex: '-1', disablepictureinpicture: '', disableremoteplayback: '',
+      style: `object-position:${foco}`,
+    }));
 }
 
 /** `.gm-columnas[style="--gm-cols: 4fr 8fr"][data-divisores]` (anchos en una grilla de 12). */

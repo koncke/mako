@@ -39,7 +39,9 @@ const CANALES_SIN_HTTP = ['whatsapp', 'app'] as const;
 
 const idSecuencia = (desc = 'id de la secuencia de email (de listar_secuencias_email).'): Parametro =>
   ({ nombre: 'id', tipo: 'number', descripcion: desc, obligatorio: true, entero: true, minimo: 1 });
-const idBroadcast: Parametro = { nombre: 'id', tipo: 'number', descripcion: 'id del broadcast (de listar_broadcasts).', obligatorio: true, entero: true, minimo: 1 };
+// `fijoAlRevisar` (15/10/2026): en /mako/revisar el título es el del broadcast de cuando se propuso; cambiar el id ahí
+// programaba o mandaba OTRO envío bajo el título del primero (docs/hallazgos-api-mako.md).
+const idBroadcast: Parametro = { nombre: 'id', tipo: 'number', descripcion: 'id del broadcast (de listar_broadcasts).', obligatorio: true, entero: true, minimo: 1, fijoAlRevisar: true };
 const segmento = (obligatorio: boolean): Parametro => ({
   nombre: 'segmento', tipo: 'string', enum: SEGMENTOS_EMAIL, ...(obligatorio ? { obligatorio: true } : {}),
   descripcion: 'Segmento del CRM: activos (abiertos o ganados), no-agenda, no-paga (confirmaron sin primer pago), no-show (no asistieron a R1), post-agenda (asistieron a R1), ganados o residuo-formularios (abiertos que nunca agendaron, sin pago, de hace más de 45 días). Siempre leads con email y sin baja.',

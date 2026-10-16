@@ -15,7 +15,7 @@
 //
 // Rótulos del es-LA.po de CapCut 9.3 (`pc_caption_menu_*`, `pc_materiallib_*`).
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { Button } from "@/app/video-editor/_opencut/components/ui/button";
 import { Checkbox } from "@/app/video-editor/_opencut/components/ui/checkbox";
@@ -34,7 +34,7 @@ import {
 	ZonaImportar,
 } from "@/app/video-editor/_opencut/components/editor/panels/assets/views/biblioteca-ui";
 import { useEditor } from "@/app/video-editor/_opencut/editor/use-editor";
-import { loadFonts } from "@/app/video-editor/_opencut/fonts/google-fonts";
+import { cssFamilia, useFuenteMuestra } from "@/app/video-editor/_opencut/fonts/muestras";
 import { cn } from "@/app/video-editor/_opencut/utils/ui";
 import { TICKS_PER_SECOND } from "@/app/video-editor/_opencut/wasm";
 import { TRANSCRIPTION_DIAGNOSTICS_SCOPE } from "@/app/video-editor/_opencut/transcription/diagnostics";
@@ -250,6 +250,16 @@ function MiniaturaPlantilla({
 	onElegir: () => void;
 }) {
 	const escala = plantilla.escala ?? 1;
+	const texto = plantilla.resaltado ? "Tu voz" : "Subtítulos";
+	// Sólo las letras de la muestra, cuando la tarjeta entra en pantalla (fonts/muestras.ts):
+	// cargar las familias enteras de todas las plantillas al abrir colgaba la pestaña.
+	const refTexto = useRef<HTMLSpanElement>(null);
+	const muestra = useFuenteMuestra({
+		ref: refTexto,
+		familia: plantilla.fuente,
+		peso: plantilla.negrita ? 700 : 400,
+		texto: plantilla.mayusculas ? texto.toUpperCase() : texto,
+	});
 	return (
 		<button
 			type="button"
@@ -265,9 +275,10 @@ function MiniaturaPlantilla({
 		>
 			{/* Los colores son los de la plantilla: es una muestra de lo que escribe. */}
 			<span
+				ref={refTexto}
 				className="max-w-[90%] truncate leading-tight"
 				style={{
-					fontFamily: `"${plantilla.fuente}", sans-serif`,
+					fontFamily: cssFamilia(muestra),
 					fontWeight: plantilla.negrita ? 700 : 400,
 					fontSize: `${Math.round(13 * escala)}px`,
 					letterSpacing: plantilla.espaciado ? `${plantilla.espaciado * 0.5}px` : undefined,
@@ -307,12 +318,9 @@ export function PlantillasSubtitulosView() {
 	);
 	const [aplicando, setAplicando] = useState(false);
 
-	// Las fuentes de las miniaturas (Google Fonts; las mismas que usa el render).
-	useEffect(() => {
-		void loadFonts({ families: [...new Set(PLANTILLAS_SUBTITULO.map((p) => p.fuente))] }).catch(
-			() => {},
-		);
-	}, []);
+	// Las fuentes de las miniaturas: cada tarjeta pide su muestra al entrar en pantalla
+	// (MiniaturaPlantilla). La fuente ENTERA llega al elegir (aplicarEstiloASubtitulos →
+	// cargarFuentes), antes de medir.
 
 	const elegir = async (plantilla: PlantillaSubtitulo) => {
 		fijar({ plantilla: plantilla.id });

@@ -63,6 +63,7 @@ export function plano(p: Parametro): Parametro {
     ...(p.enum ? { enum: [...p.enum] } : {}),
     ...(p.max != null ? { max: p.max } : {}),
     ...(p.entero ? { entero: true as const } : {}),
+    ...(p.fijoAlRevisar ? { fijoAlRevisar: true as const } : {}),
     ...(p.minimo != null ? { minimo: p.minimo } : {}),
     ...(p.maximo != null ? { maximo: p.maximo } : {}),
     ...(p.campos ? { campos: p.campos.map(plano) } : {}),

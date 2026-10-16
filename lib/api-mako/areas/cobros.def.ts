@@ -50,7 +50,7 @@ const leadId = (desc: string, obligatorio = true): Parametro =>
   ({ nombre: 'leadId', rotulo: 'Lead', tipo: 'number', descripcion: desc, entero: true, minimo: 1, ...(obligatorio ? { obligatorio: true } : {}) });
 
 const cobroId = (desc = 'id del cobro en MaKo (de listar_cobros o ver_cobro). No es el id de Stripe ni el de Mercado Pago, ni el pagoId de una cuota del CRM.'): Parametro =>
-  ({ nombre: 'cobroId', rotulo: 'Cobro', tipo: 'number', obligatorio: true, entero: true, minimo: 1, descripcion: desc });
+  ({ nombre: 'cobroId', rotulo: 'Cobro', tipo: 'number', obligatorio: true, entero: true, minimo: 1, fijoAlRevisar: true, descripcion: desc });
 
 /** El id de UNA cuota del CRM (fila de `pagos`): el pago_id de cobranza_lead. Acá se llama cuotaId a propósito. */
 const cuotaId = (): Parametro =>
@@ -98,7 +98,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'anular_link_pago', area: 'cobros', tipo: 'accion', confirmacion: 'chat', reversible: false,
     titulo: 'Anular un link de pago',
-    descripcion: 'PROPONE anular un link de pago que todavía no se pagó: deja de poder pagarse desde MaKo (en Stripe además vence el checkout). Pide antes el cobroId (listar_cobros). Un cobro pagado no se anula: se reembolsa con reembolsar_cobro.',
+    descripcion: 'PROPONE anular un link de pago que todavía no se pagó: deja de poder pagarse desde MaKo, y se cierra también en Stripe o Mercado Pago. Pide antes el cobroId (listar_cobros). Un cobro pagado no se anula: se reembolsa con reembolsar_cobro.',
     escribe: 'marca el cobro anulado en `cobros`, vence el checkout de Stripe y deja historial en el lead',
     parametros: [cobroId()],
     // Pega a Stripe (vence la sesión del checkout): `externo`, no `gratis`.

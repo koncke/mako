@@ -32,13 +32,21 @@ export const maxDuration = 300;
 
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 const MAX_ARCHIVO_BYTES = 25 * 1024 * 1024;
-// El caller ya confirmó docsIADisponible() antes de llegar acá, así que "sinIA" en
-// este punto SIEMPRE significa "había key pero la cascada falló igual" — nunca
-// "no hay key". Si extraerDeArchivo pudo interpretar por qué (cuota, key vencida,
-// timeout), lo mostramos; si no, un genérico honesto (ya no dice "reintentá en un
-// momento" sin más, que sonaba a que ni valía la pena investigar).
-const mensajeSinIA = (nombre: string, motivo?: string) =>
-  motivo ? `No pude analizar "${nombre}": ${motivo}` : `Tu IA está conectada pero no pudo analizar "${nombre}" ahora mismo. Prueba de nuevo en un momento.`;
+// ⚠️ ACÁ HABÍA TRES CORTES `if (!(await docsIADisponible()))` que devolvían «Carga tu API key de
+// Gemini» ANTES de llamar a la IA, y con eso la red de la plataforma de este archivo no corría nunca
+// para un cliente sin keys. Desde el 15/10/2026 un cliente nuevo no trae una API (el paso de la IA
+// del wizard es opcional) y El Archivero es bloqueante: con los cortes puestos, se quedaba trabado
+// acá. Se sacaron el 16/10/2026; lo fija tests/onboarding-sin-api.test.ts.
+//
+// Así que "sinIA" ya no significa «había key y falló»: puede ser la red de la plataforma, sin keys
+// propias. El mensaje lo distingue, y a quien no tiene IA propia le dice cómo dejar de depender de la
+// red (sin acusarlo: no hizo nada mal). Si extraerDeArchivo pudo interpretar por qué (cuota, key
+// vencida, timeout), eso va primero.
+const mensajeSinIA = async (nombre: string, motivo?: string): Promise<string> => {
+  if (motivo) return `No pude analizar "${nombre}": ${motivo}`;
+  if (await docsIADisponible().catch(() => false)) return `Tu IA está conectada pero no pudo analizar "${nombre}" ahora mismo. Prueba de nuevo en un momento.`;
+  return `No pude analizar "${nombre}" ahora mismo. Prueba de nuevo en un momento, o conecta tu propia IA en Integraciones para no depender de la de MaKo.`;
+};
 const LEER_DOC = 'Transcribe TODO el texto legible de este documento, tal cual, sin resumir ni omitir nada. Si es una imagen o captura, describe también lo que se ve. Devuelve solo el texto.';
 
 async function leerArchivo(file: File): Promise<{ texto: string; warning?: string }> {
@@ -87,9 +95,6 @@ async function leerArchivo(file: File): Promise<{ texto: string; warning?: strin
 // runWithWorkspace(ws). Chequea que el path pertenezca al ws (anti-IDOR).
 async function procesarDirecto(ws: number, body: { fileId?: string; path?: string; nombre?: string; mime?: string; tamano?: number; finalizar?: boolean }): Promise<Response> {
   try {
-    if (!(await docsIADisponible())) {
-      return Response.json({ ok: false, error: 'Necesito una IA para leer tus documentos. Carga tu API key de Gemini (es gratis) en Integraciones y vuelve a analizar.' }, { status: 400 });
-    }
     const fileId = String(body.fileId || '');
     const path = String(body.path || '');
     const nombre = String(body.nombre || 'documento');
@@ -114,7 +119,7 @@ async function procesarDirecto(ws: number, body: { fileId?: string; path?: strin
     else {
       const fields = (await flatFields()).map((f) => ({ key: f.key, label: `${f.grupo} — ${f.label}` }));
       const { campos, razonamiento, sinIA, motivoSinIA } = await extraerDeArchivo(texto, fields, 24000);
-      if (sinIA) warnings.push(mensajeSinIA(nombre, motivoSinIA));
+      if (sinIA) warnings.push(await mensajeSinIA(nombre, motivoSinIA));
       else { await insertFile(ws, { id: fileId, nombre, mime, tamano, storage_path: path, razonamiento, campos }); textoOk = texto; leido = true; }
     }
     if (!leido) await getSupabaseServer().storage.from('archivero').remove([path]).catch(() => {}); // binario huérfano
@@ -189,10 +194,6 @@ async function procesarLink(ws: number, body: { url?: string }): Promise<Respons
     const muro = muroConocido(host);
     if (muro) return Response.json({ ok: false, error: muro, warnings: [muro], ...(await buildEstado(false)) }, { status: 422 });
 
-    if (!(await docsIADisponible())) {
-      return Response.json({ ok: false, error: 'Necesito una IA para leer la web. Carga tu API key de Gemini (es gratis) y vuelve a analizar.' }, { status: 400 });
-    }
-
     const warnings: string[] = [];
     const { texto, titulo, warning } = await fetchWebText(url);
     let leido = false;
@@ -203,7 +204,7 @@ async function procesarLink(ws: number, body: { url?: string }): Promise<Respons
       const fields = (await flatFields()).map((f) => ({ key: f.key, label: `${f.grupo} — ${f.label}` }));
       const { campos, razonamiento, sinIA, motivoSinIA } = await extraerDeArchivo(texto, fields, 24000);
       const vacia = sinDatosDelNegocio(host, campos);
-      if (sinIA) warnings.push(mensajeSinIA(host, motivoSinIA));
+      if (sinIA) warnings.push(await mensajeSinIA(host, motivoSinIA));
       // Cero datos NO es una lectura: la fila se mostraba como documento leído
       // y el texto del muro entraba al panorama del negocio (tarea #201).
       else if (vacia) warnings.push(vacia);
@@ -252,11 +253,6 @@ export async function POST(req: NextRequest) {
 
   return runWithWorkspace(ws, async () => {
     try {
-      // Sin una IA para leer los docs, subir no sirve: avisamos claro (y no guardamos
-      // archivos que quedarían "sin datos"). Gemini es gratis y alcanza (ver #onboarding).
-      if (!(await docsIADisponible())) {
-        return Response.json({ ok: false, error: 'Necesito una IA para leer tus documentos. Carga tu API key de Gemini (es gratis) en Integraciones y vuelve a analizar.' }, { status: 400 });
-      }
       const fields = (await flatFields()).map((f) => ({ key: f.key, label: `${f.grupo} — ${f.label}` }));
       const warnings: string[] = [];
       const textos: string[] = [];
@@ -266,7 +262,7 @@ export async function POST(req: NextRequest) {
         if (warning) { warnings.push(warning); continue; }
         if (!texto.trim()) { warnings.push(`No pude sacar texto de "${file.name}".`); continue; }
         const { campos, razonamiento, sinIA, motivoSinIA } = await extraerDeArchivo(texto, fields, 24000);
-        if (sinIA) { warnings.push(mensajeSinIA(file.name, motivoSinIA)); continue; }
+        if (sinIA) { warnings.push(await mensajeSinIA(file.name, motivoSinIA)); continue; }
         const id = randomUUID();
         const buf = Buffer.from(await file.arrayBuffer());
         const path = await subirBinario(ws, id, buf, file.type || '');

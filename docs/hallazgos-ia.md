@@ -4059,3 +4059,184 @@ dejar de valer solo; el error tiene que llegar entero, y el parámetro tiene que
 **Sin hacer.** Ver si `lib/transcribe.ts` y `lib/embeddings.ts` (OpenAI, que manda objetos) necesitan
 `leerErrorProveedor`. Y que un 400 de un proveedor también deje fila (docs/diseno-ia-claves-caidas.md, el registro).
 · *2026-10-15 Automations*
+
+## Que el cliente use SU Claude o su ChatGPT en vez de una API: qué se puede y qué no (15/10/2026)
+
+**El pedido.** Martín, el 15/10: «quiero implementar esto en todos los workspace de los clientes, para que puedan
+conectar sus cuentas de lo que sea, Claude, GPT, etc... Entonces deprecamos todas las "API gratuitas"». Su modelo
+es el del Centro de Operaciones: Claude Code abierto en una PC, y MaKo mandándole pedidos.
+
+**El diagnóstico obvio era el equivocado, dos veces.** Primero se contestó «Claude lo prohíbe» sin distinguir:
+lo prohibido es que OTRA app use el token de la suscripción, no que el cliente corra el Claude Code oficial. Y
+después se dio por hecho que «lo automático no lo cubre ninguna suscripción»: las routines de Claude Code en la
+nube SÍ corren solas con la suscripción del cliente. Lo que de verdad decide es la cuota y la latencia, no el
+mecanismo.
+
+**Lo verificado en fuente primaria (15/10/2026, hora de Argentina):**
+
+| Qué | Estado | Fuente |
+|---|---|---|
+| Usar el token OAuth de Pro/Max en otro software (lo de OpenClaw) | **Prohibido**, y se hace cumplir sin aviso | code.claude.com/docs/en/legal-and-compliance |
+| Automatizar la CLI oficial (`claude -p`, `claude setup-token` para scripts) | **Permitido** como mecanismo; los topes suponen uso «ordinary, individual» | code.claude.com/docs/en/authentication · Consumer Terms (8/10/2025) |
+| Alojar Claude Code del cliente en un servidor de MaKo | Permitido con condiciones: MaKo firma los Commercial Terms, binario sin tocar, login de Anthropic, MaKo no paga ni revende el uso | legal-and-compliance |
+| Routines (Claude Code en la nube del cliente) | Permitido; disparo por API (`POST /fire`): **30/h por routine y 100/h por cuenta**, horario mínimo 1 h, arranque en frío (latencia no publicada) | code.claude.com/docs/en/routines (research preview) |
+| Que MaKo le dé órdenes 24/7 al Claude Code del cliente para atender leads | **Zona gris**: se parece a «enrutar pedidos por credenciales del plan en nombre de los usuarios». La página manda a consultar a ventas | legal-and-compliance |
+| Topes de Pro/Max | Ventana de 5 h y semanal, compartidas con el uso del dueño; **sin números publicados**; al tocarlos, corta | support.claude.com/en/articles/11145838 |
+| Crédito de API incluido en Max 5x / 20x | **US$100 / US$200 por mes**, con una API key de Console vinculada; al acabarse corta, no cobra | platform.claude.com/docs/en/about-claude/api-credits-for-subscribers |
+| «Use your ChatGPT plan» en apps de terceros | Sólo socios y apps de código abierto (lista de espera); sin audio, transcripción ni imágenes generadas | developers.openai.com/siwc/quickstart · DevDay 29/09/2026 |
+| Usage Policy de Anthropic | Un bot que le habla a gente de afuera dice que es una IA al empezar cada chat | anthropic.com/legal/aup |
+
+**Lo que ninguna suscripción de chat cubre:** transcripción, voz, generación de imagen o video, embeddings
+(Anthropic recomienda Voyage). Entender una imagen (una captura) sí entra.
+
+**La regla que queda:**
+1. MaKo **nunca** toca el token de la suscripción de un cliente: ni lo guarda, ni lo usa, ni ofrece «Iniciar sesión
+   con Claude» en su pantalla.
+2. Lo que SÍ se puede ya: MaKo como herramienta (MCP / la API de MaKo) **dentro** del Claude o del ChatGPT del
+   cliente, y el crédito de API de Max cargado como clave propia en el BYOK que ya existe.
+3. Lo que necesita respuesta en vivo (un lead que escribe por WhatsApp) no se apoya en una suscripción: cuota sin
+   números, compartida con el dueño y que corta en silencio. Siempre con respaldo de API.
+4. Antes de construir «MaKo le da órdenes al Claude Code del cliente las 24 horas», preguntarle a ventas de Anthropic.
+
+**Vive en:** la decisión, en la Ticketera (`clientes-conectan-su-ia`); la memoria `ia-del-cliente-suscripcion`; el
+BYOK en `lib/credenciales.ts` y `/integraciones`.
+· *2026-10-15 Estrategia 3 cuentas*
+
+## El mapa de la IA: qué corre solo 24/7 y qué es conversado (16/10/2026)
+
+Para la decisión A de Martín (el cliente usa su Claude/ChatGPT para lo conversado; lo que corre solo, con API) se mapeó TODO lo que usa IA: **docs/mapa-ia-24h.md** (108 funciones: 28 corren solas, 68 son conversadas o de un clic, 16 son medios).
+
+**Lo que no se veía y cambia prioridades:**
+- **El AI Step (le contesta al lead) usa SÓLO las keys del negocio y no tiene red de plataforma.** Un negocio sin key propia deja al lead sin respuesta. Es el primer lugar donde un usuario nuevo sin API se queda sin nada.
+- **El AI Step no escucha las notas de voz del lead:** le llega texto vacío. De una imagen sólo ve el pie de foto.
+- **Que el código diga «Claude» no quiere decir que use Claude:** sólo el Closing Analyst paga Claude Sonnet; el resto va por la cascada barata.
+- **Dependen sólo de OpenAI, sin alternativa:** la transcripción y lectura de los anuncios, la búsqueda en la metodología (embeddings, con la key de la plataforma: si falla, MaKo contesta sin la metodología y nadie se entera) y mirar los creativos.
+
+**Vive en:** docs/mapa-ia-24h.md (con su lista de lo que quedó sin revisar a fondo).
+· *2026-10-16 Estrategia 3 cuentas*
+
+
+## La clave de Anthropic del negocio: la segunda puerta del veto (16/10/2026)
+
+**Vive en:** `lib/veto-claude.ts` (`evaluarClaveDelNegocio`, `FEATURES_DEL_PLAN`) · `lib/anthropic.ts`
+(`conClaveDelNegocio`) · `lib/ai-cheap.ts` (el primer intento de `chatCheapCascade`) ·
+`tests/veto-claude-clave-negocio.test.ts`
+
+**El diagnóstico obvio era el equivocado.** «Que el cliente cargue su crédito de Max como clave de Anthropic y MaKo lo
+usa» suena completo y no lo era: desde el veto del 13/08 la clave de Anthropic de un negocio la usaba UNA feature, el
+análisis de llamadas de cierre. Y la ficha de /integraciones decía «el cerebro de MaKo: análisis, chats, sugerencias y
+todos los Analysts», falso desde agosto para cualquiera. El veto era sobre la plata de MaKo; la del negocio no tenía
+puerta.
+
+**La trampa que hacía peligrosa la puerta nueva: `credWs` no contesta «¿cuál es la clave del negocio?».** Para el
+workspace del dueño cae al env de la plataforma, y `migrarEnvACredenciales` siembra la fila del dueño desde ese mismo
+env. Con `credWs`, el ws1 (un cliente) habría usado la clave de la plataforma como si fuera suya, por la puerta que no
+tiene lista blanca. Por eso la clave se lee con `credDelCliente` (sólo la fila), se compara contra las tres copias de
+la plataforma leídas estrictas, y el permiso lleva adentro la clave verificada: el `fetch` no resuelve otra.
+
+**Y una trampa de los tests que leen fuente, medida en la misma tanda:** un `sinComentarios` que borra las líneas que
+empiezan con `*` ANTES de recortar los bloques se lleva también los ` */` que cierran cada JSDoc, y el recorte de
+bloques queda abierto hasta el próximo cierre. Sobre `lib/ai-cheap.ts` entero se comía `chatCheapCascade` completa, y
+el test contestaba «no encuentro la función». Lo que sirve es líneas `//` primero y bloques después, nada más (el orden
+que ya pide AGENTS.md). El de `tests/onboarding-red-plataforma.test.ts` tenía el mismo paso y no mordía porque se
+aplica a una función ya recortada; se corrigió igual.
+
+### Lo que quedó SIN hacer
+
+- **Las funciones del Plan quedan afuera aunque la clave sea del negocio** (`FEATURES_DEL_PLAN`), por la regla de
+  Martín del 30/09 («JAMÁS algo pago para el plan»). Es una lista negativa a propósito y se dice: una feature del Plan
+  nueva que no se sume ahí usaría el crédito del negocio.
+- **Sólo la cascada de texto.** La visión (`leerDocumentoIA`), el audio y el loop con herramientas (`chatCheapTools`,
+  el doer) no prueban la clave del negocio.
+- **El gasto se registra con la marca «⚠ clave de Anthropic del negocio» AL PRINCIPIO del motivo** (`insertUsage`
+  corta a 200 y al final se perdía) y en el workspace del negocio (`wsDeProveedor`). De los lectores de
+  `anthropic_usage`, el único que lo sumaba como gasto de MaKo era `resumenDelPeriodo` (lib/costos-ia.ts, el global
+  del super admin): ahora lo saca del total y lo muestra aparte en /integraciones. El panel de cada negocio y el
+  Dashboard leen sólo su workspace, y ahí ese gasto SÍ es suyo. El aviso «saldo de IA bajo» no está implementado.
+- **Sin probar contra Anthropic de verdad**: no había una clave de negocio para hacerlo. El primer cliente que cargue
+  la suya es la prueba, y la fila de `anthropic_usage` con ese motivo es la forma de verlo.
+
+· *2026-10-16 chat «Onboarding» (claude3), por pedido del coordinador sobre la decisión de Martín*
+
+## La red de la plataforma para la primera semana de un cliente sin API (16/10/2026)
+
+**Vive en:** `lib/razones.ts` · `lib/ads-analyst.ts` · `lib/offer-ia.ts` · `lib/archivo-a-texto.ts` ·
+`lib/editor-landing/ia.ts` · `lib/flujo-ia-crear.ts` · `app/api/second-brain/buscar/route.ts` ·
+`app/api/onboarding/archivero/route.ts` · `tests/red-primera-semana.test.ts`
+
+Desde el 15/10 un cliente nuevo no trae una API, y lo primero que toca después del wizard le contestaba «conecta tu
+IA». Se extendió la red a Ads Writer, Offer, crear una landing, crear una automatización y la búsqueda del Second
+Brain, en ese orden, de a uno y con un test cada uno.
+
+**La capacidad, medida antes (sólo lectura, últimos 14 días):**
+
+| Qué | Número |
+|---|---|
+| Keys gratis de la plataforma (ws9) | 3 de Gemini y 2 de Groq |
+| La key de Gemini con más pedidos en un día | 29, contra un tope de 250 cada una |
+| Groq | de 1 a 4 pedidos por día |
+| Rechazos por cuota (429) de esas keys | 194 el 13/10, todos del propio ws9 (159 entre las 16 y las 18 UTC) |
+| Lo que usa un cliente nuevo en su primera semana | de 5 a 58 llamadas en total; los cuatro últimos, de 5 a 11 |
+
+Con 10 clientes nuevos en la misma semana son menos de ~100 pedidos por día contra ~750: **por día alcanza**. Lo que
+muerde es el tope POR MINUTO, y lo pisa el uso del propio ws9 de Martín, que comparte esas keys. Y la red es UN
+proveedor de verdad (Gemini; Groq no entra con prompts de más de ~7.000 tokens): el 14/10, cuando Google cambió
+`gemini-flash-latest`, estuvo caída para todos.
+
+**El diagnóstico obvio era el equivocado, y lo cometí yo:** «la red está escrita» no es «la red corre». El Archivero
+tenía tres cortes `if (!(await docsIADisponible()))` que devolvían «Carga tu API key de Gemini» ANTES de llamar a la
+IA, Offer uno en `pedir`, y la API de MaKo otro en `hayIAParaCrear`. Con el paso de la IA del wizard ya opcional
+(7f0ced90f, en main), un cliente sin keys se trababa en El Archivero, que es bloqueante; el test de ese commit daba
+verde porque sólo miraba que la red estuviera escrita. La regla quedó en AGENTS.md (la red de plataforma: «y nada la
+corta antes») y los tests ahora preguntan qué hay antes de la llamada.
+
+### Lo que quedó SIN hacer
+
+- **El análisis del lead se resolvió con una regla** (el coordinador, el mismo día): los datos de los clientes de un
+  cliente nunca van a un proveedor que entrena con lo que recibe. Va con red, pero en `chatCheapCascade` un pedido con
+  la marca `pii` del catálogo usa sólo el crédito de Claude de la plataforma y se corta antes de las keys gratis
+  (`7068a0903`; la regla en AGENTS.md). El ws9 tiene un crédito de Gemini de US$10 cargado el 22/07
+  (`saldo.gemini`), pero la base no dice a cuál de las tres keys corresponde: «la key de Gemini con facturación» del
+  orden de la red queda sin usar hasta que alguien la identifique en Google Cloud.
+- **Los caminos con su PROPIA red (un bucle sobre `provsGratisDePlataforma`, no la cascada) no tienen ese corte**, y
+  algunos llevan datos de clientes: el doer de WhatsApp (`lib/mako-doer-in.ts`; `mako-doer-in` es `pii` en el
+  catálogo), los gráficos con IA (`lib/graficos-ia-red.ts`; `dashboard-conclusiones` es `pii`), la transcripción de
+  audio (`transcribirAudio`) y el guion de audio de Automations (`app/api/chat-agent/redactar`). Son de otras áreas: la
+  regla de AGENTS.md les pide aplicarla ellos mismos.
+- **Las otras ~50 llamadas sin red** siguen sin ella: el coordinador decide el orden sobre `docs/mapa-ia-24h.md`.
+- **Ningún camino se probó contra la red de verdad con un workspace sin keys**: sin `next dev` por la RAM.
+
+· *2026-10-16 chat «Onboarding» (claude3)*
+
+## El crédito de Claude Max de la plataforma: la tercera puerta del veto (16/10/2026)
+
+**Vive en:** `lib/veto-claude.ts` (`evaluarCreditoDeLaPlataforma`, `CLAVES_CREDITO_PLATAFORMA`) · `lib/anthropic.ts`
+(`conCreditoDeLaPlataforma`) · `lib/ai-cheap.ts` (la red de plataforma) · `lib/anthropic-usage.ts` (`recordUsage(…, ws)`)
+· `lib/costos-ia.ts` · `scripts/credito-claude-a-plataforma.mts` · `tests/veto-claude-credito-plataforma.test.ts`
+
+Martín vinculó el crédito de API de dos planes Max suyos (US$200 por mes cada uno; «Vinculalas a MaKo»). El código lo
+usa primero en la red de plataforma, antes de las keys gratis, por lo medido el mismo día: las gratis alcanzan por día
+pero chocan por minuto con el uso del ws9, el crédito vence cada mes sin acumularse, y la API de Anthropic no entrena
+con lo que recibe (el plan gratis de Gemini sí). Un cliente nuevo usa de 5 a 58 llamadas en su primera semana: unos
+pocos dólares contra 400 por mes.
+
+**Dos trampas que se cazaron escribiéndolo:**
+- **`wsDeProveedor` manda una fila de Anthropic al ws1 cuando el workspace no tiene clave propia**, que es justo el
+  caso del crédito: Mauricio (un cliente) habría visto un gasto de Claude que no es suyo. `recordUsage` acepta ahora el
+  workspace explícito, y el crédito anota en el del cliente que lo usó.
+- **El test que buscaba «la fila va al ws del cliente» daba verde con una de las dos filas sin el ws**: encontraba la
+  otra. Ahora exige que TODAS lo lleven.
+
+### Lo que quedó SIN hacer
+
+- **Las claves no están activas en producción.** Viven en el `.env.local` del clon; en Vercel no se pudieron cargar (el
+  usuario de la CLI es Developer). Hay dos caminos: Martín las carga en Vercel con el rol de dueño, o se corre
+  `scripts/credito-claude-a-plataforma.mts`, que las guarda cifradas en la fila del ws de la plataforma. El script
+  escribe en producción y espera el OK de Martín.
+- **Si una de esas organizaciones de Console tiene crédito comprado o auto-recarga, al acabarse el incluido sigue
+  cobrando** (lo dice la página de Anthropic). No se puede ver desde acá: lo revisa Martín en platform.claude.com.
+- Sólo la cascada de texto: ni visión, ni audio, ni el doer.
+
+· *2026-10-16 chat «Onboarding» (claude3)*
+
+

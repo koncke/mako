@@ -43,6 +43,7 @@ import {
 } from './funnel-comercial';
 import { leerTodo, leerPorPaginas, type OrdenPaginado, type ConsultaPaginada } from './supabase-paginado';
 import { faltaComprobante } from './pago-comprobante';
+import { mrrDeLaPasarela } from './cobros-reglas';
 
 /**
  * Orden de TODO barrido de `marketing_metrics_daily` en este archivo.
@@ -795,26 +796,52 @@ function isoMasMeses(iso: string, n: number): string {
   return dt.toISOString().slice(0, 10);
 }
 
-export const getMrrActivo = cachedRead('getMrrActivo', _getMrrActivo, { tags: [TAG.leads], revalidate: TTL.user });
+export const getMrrActivo = cachedRead('getMrrActivo', _getMrrActivo, { tags: [TAG.leads, TAG.pagos], revalidate: TTL.user });
 async function _getMrrActivo(hoy: string = new Date().toISOString().slice(0, 10)): Promise<MrrResumen> {
   const supabase = (await getTenantDb());
   const { data, error } = await supabase
     .from('leads')
-    .select('suscripcion_monto_usd, suscripcion_meses, fecha_cierre')
+    .select('suscripcion_monto_usd, suscripcion_meses, fecha_cierre, suscripcion_cancelada_at')
     .eq('venta_tipo', 'suscripcion')
     .eq('estado_lead', 'ganado');
   if (error) throw new Error(`getMrrActivo falló: ${error.message}`);
   let mrr = 0;
   let activas = 0;
-  for (const r of (data ?? []) as Array<{ suscripcion_monto_usd: number | null; suscripcion_meses: number | null; fecha_cierre: string | null }>) {
+  for (const r of (data ?? []) as Array<{ suscripcion_monto_usd: number | null; suscripcion_meses: number | null; fecha_cierre: string | null; suscripcion_cancelada_at: string | null }>) {
     const monto = r.suscripcion_monto_usd ?? 0;
     if (monto <= 0) continue;
+    // Una CANCELADA (a mano o por la pasarela) no es MRR desde el día que se canceló, quede o no plazo por cumplir.
+    if (r.suscripcion_cancelada_at) continue;
     // Plazo fijo con fecha de cierre → activa mientras el fin del plazo sea >= hoy.
     // Indefinida (o sin fecha de cierre) → activa.
     const activa = r.suscripcion_meses && r.suscripcion_meses > 0 && r.fecha_cierre
       ? isoMasMeses(r.fecha_cierre, r.suscripcion_meses) >= hoy
       : true;
     if (activa) { mrr += monto; activas++; }
+  }
+
+  // ⚠️ Y LAS SUSCRIPCIONES DE LA PASARELA DE UN LEAD QUE NO ES «DE SUSCRIPCIÓN» (decidido el 15/10/2026, copia de Stripe:
+  // el MRR son las suscripciones activas). Un cliente que compró como pago único y después paga un link de suscripción
+  // sigue de pago único —pasarlo a suscripción sacaría su compra de lo vendido—, y su mensualidad no la contaba nadie.
+  // Las de un lead de suscripción NO se suman acá: ya las cuenta el lead (con su plazo), y serían dos veces.
+  const { data: subs, error: eSubs } = await supabase
+    .from('cobros')
+    .select('lead_id, monto_usd')
+    .eq('tipo', 'suscripcion')
+    .eq('estado', 'pagado')
+    .eq('suscripcion_estado', 'activa')
+    .not('lead_id', 'is', null);
+  if (eSubs) throw new Error(`getMrrActivo (cobros) falló: ${eSubs.message}`);
+  const cobros = (subs ?? []) as Array<{ lead_id: number; monto_usd: number | string | null }>;
+  if (cobros.length) {
+    const ids = [...new Set(cobros.map((c) => Number(c.lead_id)))];
+    const { data: tipos, error: eTipos } = await supabase.from('leads').select('id, venta_tipo').in('id', ids);
+    if (eTipos) throw new Error(`getMrrActivo (leads de los cobros) falló: ${eTipos.message}`);
+    const deSuscripcion = new Set(((tipos ?? []) as Array<{ id: number; venta_tipo: string | null }>)
+      .filter((l) => l.venta_tipo === 'suscripcion').map((l) => Number(l.id)));
+    const p = mrrDeLaPasarela(cobros, deSuscripcion);
+    mrr += p.mrr;
+    activas += p.activas;
   }
   return { mrr, activas };
 }

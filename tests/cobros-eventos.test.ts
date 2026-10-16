@@ -261,7 +261,10 @@ test('MP: el pago releído decide la acción', () => {
   assert.equal(rech.accion, 'fallido');
   assert.equal(rech.accion === 'fallido' && rech.motivo, 'La tarjeta no tiene fondos suficientes.');
   assert.equal(planDePagoMp({ estado: 'pending', detalle: 'pending_waiting_payment', reembolsado: 0 }).accion, 'ignorar');
-  assert.equal(planDePagoMp({ estado: 'charged_back', detalle: 'settled', reembolsado: 0 }).accion, 'ignorar', 'un contracargo no se aplica solo');
+  // Un contracargo de MP se CUENTA (15/10/2026: antes se ignoraba con rastro) pero NO se aplica como un reembolso: MP
+  // documenta `settled`/`reimbursed` de dos maneras opuestas. Una vez por cada `status_detail`.
+  assert.deepEqual(planDePagoMp({ estado: 'charged_back', detalle: 'settled', reembolsado: 0 }),
+    { accion: 'contracargo', estadoResultante: 'charged_back-settled', detalle: 'settled' }, 'un contracargo no se aplica solo');
   assert.equal(motivoRechazoMp('cc_rejected_bad_filled_security_code'), 'Los datos de la tarjeta estaban mal.');
   assert.equal(suscripcionMpCancelada('cancelled'), true);
   assert.equal(suscripcionMpCancelada('canceled'), true);

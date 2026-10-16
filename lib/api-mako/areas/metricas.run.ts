@@ -554,7 +554,7 @@ export const RUNNERS: Runners = {
         mrr_usd: r2(r.mrr),
         suscripciones_activas: r.activas,
         notas: [
-          'Activas = leads en etapa ganado con venta de tipo suscripción y monto mayor a 0: indefinidas, o de plazo fijo cuyo fin (fecha de cierre + meses) todavía no pasó.',
+          'Activas = leads en etapa ganado con venta de tipo suscripción y monto mayor a 0: indefinidas, o de plazo fijo cuyo fin (fecha de cierre + meses) todavía no pasó. Más las suscripciones activas que cobra la pasarela (Stripe o Mercado Pago) a un lead que no es de suscripción (por ejemplo, uno que compró como pago único y después se suscribió).',
           'Va aparte del high-ticket: no está en sold ni en cash.',
         ],
       });

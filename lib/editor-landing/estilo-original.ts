@@ -34,6 +34,11 @@
 
 import { FUENTES, contraste, mezclar, pesoDisponible, sanearTemaPropio } from './temas';
 import type { TemaPropio } from './api-tipos';
+// Las animaciones de la página (tanda 8): viajan con el estilo, con los MISMOS índices de parte (replicar-animaciones.ts).
+import {
+  agruparSenales, appearDeFramer, sanearAnimaciones, scrollEnHtml, senalDeEtiqueta,
+  type AnimacionesOriginal, type SenalCruda,
+} from './replicar-animaciones';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // El contrato
@@ -74,6 +79,12 @@ export type EstiloOriginal = {
   pesoCuerpo: number | null;
   secciones: SeccionOriginal[];
   imagenes: ImagenOriginal[];
+  /**
+   * Tanda 8 (Martín, 14/10/2026: «poder replicarlas al copiar una web»): las animaciones de entrada de la página ya
+   * en el catálogo, por parte (el índice de `secciones`), y si tenía efectos atados al scroll. Sin el campo: no se
+   * vio ninguna. Lo arman el lector (lector-script.ts) y `estiloDeHtml`; lo sanea `sanearAnimaciones`.
+   */
+  animaciones?: AnimacionesOriginal;
 };
 
 export const TOPES_ESTILO = {
@@ -504,6 +515,7 @@ export function sanearEstilo(raw: unknown): EstiloOriginal | null {
     vistas.add(url);
     imagenes.push({ url, seccion: Math.max(-1, s), fondo: o.fondo === true, ancho: medida(o.ancho) ?? 0, alto: medida(o.alto) ?? 0 });
   }
+  const animaciones = sanearAnimaciones(r.animaciones, secciones.length);
   const e: EstiloOriginal = {
     v: 1,
     fondo: colorDeFondoCss(r.fondo),
@@ -523,6 +535,7 @@ export function sanearEstilo(raw: unknown): EstiloOriginal | null {
     pesoCuerpo: pesoCss(r.pesoCuerpo),
     secciones,
     imagenes,
+    ...(animaciones ? { animaciones } : {}),
   };
   return estiloUtil(e) ? e : null;
 }
@@ -785,7 +798,8 @@ export function hojasDeHtml(html: string, base: string): string[] {
   return [...propias, ...otras].slice(0, TOPES_ESTILO.hojas);
 }
 
-type Marco = { tag: string; fondo: string | null; pendientes: ImagenOriginal[] };
+/** `pendientes`: lo que espera saber de qué parte es (las imágenes de fondo y, desde la tanda 8, las señales de animación). */
+type Marco = { tag: string; fondo: string | null; pendientes: { seccion: number }[] };
 type CandidatoBoton = { fondo: string; degradado: string | null; texto: string | null; radio: number | null; veces: number };
 
 /**
@@ -858,6 +872,10 @@ export function estiloDeHtml(html: string, base: string, hojas: readonly string[
   const pila: Marco[] = [];
   const botones = new Map<string, CandidatoBoton>();
   const sinTitulo: ImagenOriginal[] = [];
+  // Las animaciones (tanda 8): la señal de cada etiqueta, en la parte del primer título que cierra ADENTRO de ella (un
+  // envoltorio con data-aos que trae su título es de esa parte), o en la última si no trae ninguno, como las imágenes de fondo.
+  const framer = appearDeFramer(doc);
+  const senales: { seccion: number; senal: SenalCruda }[] = [];
   let ultimo = -1;
   let titulo: { tag: string; texto: string; attrs: string } | null = null;
   let vistoH1 = false;
@@ -907,6 +925,10 @@ export function estiloDeHtml(html: string, base: string, hojas: readonly string[
     }
     // Lo de adentro de un <nav> no es la página (un megamenú trae decenas de títulos): como el extractor.
     const enNav = pila.some((x) => x.tag === 'nav');
+    const vacio = VACIOS.has(tag) || /\/\s*$/.test(attrs);
+    const senal = enNav || senales.length >= 4_000 ? null : senalDeEtiqueta((k) => atributo(attrs, k), framer);
+    const animPendiente = senal ? { seccion: vacio ? ultimo : -2, senal } : null;
+    if (animPendiente) senales.push(animPendiente);
     if ((tag === 'h1' || tag === 'h2' || tag === 'h3') && !enNav) {
       if (tag === 'h1') vistoH1 = true;
       titulo = { tag, texto: '', attrs };
@@ -937,8 +959,8 @@ export function estiloDeHtml(html: string, base: string, hojas: readonly string[
         botones.set(clave1, c);
       }
     }
-    if (VACIOS.has(tag) || /\/\s*$/.test(attrs)) continue;
-    const marco: Marco = { tag, fondo: null, pendientes: [] };
+    if (vacio) continue;
+    const marco: Marco = { tag, fondo: null, pendientes: animPendiente ? [animPendiente] : [] };
     if (CONTENEDORES.has(tag)) {
       const d = estiloEl(tag, attrs);
       marco.fondo = fondoDe(d);
@@ -956,6 +978,11 @@ export function estiloDeHtml(html: string, base: string, hojas: readonly string[
     if (img.seccion === -2) img.seccion = ultimo;
     if (img.seccion < 0 && ultimo >= 0) img.seccion = 0;
   }
+  // Las animaciones: lo mismo (una de antes de todo título va con la primera parte: lo hace el saneo), agrupadas por
+  // parte, y el scroll mirado en el HTML entero (sus scripts y atributos) y en el CSS de las hojas que bajó el server.
+  for (const x of senales) if (x.seccion === -2) x.seccion = ultimo;
+  const animaciones = sanearAnimaciones({ senales: agruparSenales(senales), scroll: scrollEnHtml(doc, css) }, e.secciones.length);
+  if (animaciones) e.animaciones = animaciones;
 
   // ── El botón principal: el color que más se repite entre los botones (el de una landing se repite), con color ──
   const lista = [...botones.values()].sort((a, b) => (b.veces + (esColorido(b.fondo) ? 2 : 0)) - (a.veces + (esColorido(a.fondo) ? 2 : 0)));

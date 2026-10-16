@@ -18,6 +18,12 @@
 //                                              (effects/capas.ts, origenEfecto)
 //   extraer audio                              ToggleSourceAudioSeparationCommand
 //   cortar tramo / frase / muletillas          CortarTramosCommand (el de «Transcripción»)
+//   reemplazar el clip                         ReemplazarClipCommand (reemplazo/comando.ts: el
+//                                              del menú, el botón «Sustituir» y el soltar)
+//   cambiar el texto de un hueco               paramsDeTextoDeHueco (plantillas/armar.ts): se
+//                                              vuelve a partir y ubicar con su ancla
+//   usar una plantilla                         usarPlantilla (plantillas/instanciar.ts), LARGA:
+//                                              la corre chat/aplicar.ts después del lote
 //
 // Todo va en UN BatchCommand (chat/aplicar.ts). Los comandos que dependen de cómo quedó
 // el elemento después de los anteriores del lote (los efectos se REEMPLAZAN como lista, los
@@ -48,7 +54,9 @@ import {
 	duracionConRetime,
 } from "@/app/video-editor/_opencut/commands/timeline/element/velocidad";
 import { CortarTramosCommand } from "@/app/video-editor/_opencut/commands/timeline/element/cortar-tramos";
-import { ReemplazarSubtitulosCommand } from "@/app/video-editor/_opencut/subtitles/editar";
+import { paramsConTexto, ReemplazarSubtitulosCommand } from "@/app/video-editor/_opencut/subtitles/editar";
+import { conLoVinculado } from "@/app/video-editor/_opencut/ripple/iman";
+import { useTimelineStore } from "@/app/video-editor/_opencut/timeline/timeline-store";
 import { buildEffectElement, buildTextElement } from "@/app/video-editor/_opencut/timeline/element-utils";
 import { findTrackInSceneTracks } from "@/app/video-editor/_opencut/timeline/track-element-update";
 import type { ElementRef, RetimeConfig, SceneTracks, TimelineElement, VisualElement } from "@/app/video-editor/_opencut/timeline/types";
@@ -61,11 +69,14 @@ import { PARAMS_BASICO, TIPO_AJUSTE } from "@/app/video-editor/_opencut/effects/
 import { PREFIJO_FILTRO } from "@/app/video-editor/_opencut/effects/definitions/filtros";
 import { buscarFrase, muletillasDe, palabrasEnOrden, tramosDePalabras, transcripcionDe } from "@/app/video-editor/_opencut/transcripcion/modelo";
 import { TICKS_PER_SECOND, mediaTime, mediaTimeFromSeconds } from "@/app/video-editor/_opencut/wasm";
+import { ReemplazarClipCommand } from "@/app/video-editor/_opencut/reemplazo/comando";
+import { paramsDeTextoDeHueco } from "@/app/video-editor/_opencut/plantillas/armar";
+import { partirYUbicar } from "@/app/video-editor/_opencut/subtitles/build-subtitle-text-element";
 import type { OperacionResuelta, RefElemento } from "./linea";
 
 /** Lo que se aplica después del lote, con su propio paso de deshacer (tarda). */
-export type OperacionLarga = Extract<OperacionResuelta, { op: "revertir" | "congelar" | "normalizar" | "generar_subtitulos" }>;
-const LARGAS = new Set<OperacionResuelta["op"]>(["revertir", "congelar", "normalizar", "generar_subtitulos"]);
+export type OperacionLarga = Extract<OperacionResuelta, { op: "revertir" | "congelar" | "normalizar" | "generar_subtitulos" | "usar_plantilla" }>;
+const LARGAS = new Set<OperacionResuelta["op"]>(["revertir", "congelar", "normalizar", "generar_subtitulos", "usar_plantilla"]);
 export const esLarga = (r: OperacionResuelta): r is OperacionLarga => LARGAS.has(r.op);
 
 /** Un comando que se arma al EJECUTAR, contra la línea de tiempo de ese momento del lote. */
@@ -82,9 +93,15 @@ class Diferido extends Command {
 		this.real?.undo();
 	}
 	redo(): CommandResult | undefined {
-		return this.real?.redo();
+		// Se vuelve a ARMAR: al rehacer, lo nuevo del lote se reinserta en otra pista (otro
+		// id), y el comando de antes apuntaría a la pista vieja (el estilo de un texto nuevo
+		// se perdía con Ctrl+Z y Ctrl+Y).
+		return this.execute();
 	}
 }
+
+/** Cuánto se corrió el elemento desde donde lo vio la revisión (`base`), en segundos. */
+const corrimiento = (actual: TimelineElement, base: number) => actual.startTime / TICKS_PER_SECOND - base;
 
 const segundos = (s: number) => mediaTimeFromSeconds({ seconds: s });
 
@@ -156,13 +173,37 @@ export function armarLote(resueltas: readonly OperacionResuelta[], { idioma }: {
 				break;
 			}
 			case "cambiar_texto":
-				comandos.push(sobre(r.el, (o) => actualizar(o, { params: { content: r.texto } } as Partial<TimelineElement>)));
+				// Un subtítulo, como el panel: vuelve a partir las líneas y conserva los tiempos por
+				// palabra si son las mismas palabras (subtitles/editar.ts → paramsConTexto). Un texto
+				// de HUECO de plantilla se vuelve a partir y ubicar con su ancla, como lo armó la
+				// plantilla (su fuente la carga aplicar.ts antes del lote).
+				comandos.push(
+					sobre(r.el, (o, actual) => {
+						if (actual.type === "text" && actual.params.subtitulo === true) {
+							return actualizar(o, { params: paramsConTexto(EditorCore.getInstance(), actual, r.texto) } as Partial<TimelineElement>);
+						}
+						const lienzo = EditorCore.getInstance().project.getActiveOrNull()?.settings.canvasSize;
+						const deHueco =
+							actual.type === "text" && lienzo ? paramsDeTextoDeHueco({ params: actual.params, texto: r.texto, lienzo, medir: partirYUbicar }) : null;
+						return actualizar(o, { params: deHueco ?? { content: r.texto } } as Partial<TimelineElement>);
+					}),
+				);
+				break;
+			case "reemplazar_clip":
+				// El mismo comando que «Reemplazar el clip» del menú (reemplazo/comando.ts): se arma
+				// contra la línea de tiempo del momento; si es una muestra, llena las de su hueco.
+				comandos.push(sobre(r.el, (o) => new ReemplazarClipCommand({ ref: o, mediaId: r.mediaId })));
 				break;
 			case "borrar":
+				// Como el botón Eliminar: con «Vinculación», lo de encima de un clip de la principal se va con él.
 				comandos.push(
 					new Diferido(() => {
 						const elements = r.els.map(objetivo).filter((o): o is ElementRef => o !== null);
-						return elements.length ? new DeleteElementsCommand({ elements }) : null;
+						if (!elements.length) return null;
+						const tracks = EditorCore.getInstance().scenes.getActiveScene().tracks;
+						return new DeleteElementsCommand({
+							elements: useTimelineStore.getState().vinculacion ? conLoVinculado({ tracks, refs: elements }) : elements,
+						});
 					}),
 				);
 				break;
@@ -173,13 +214,17 @@ export function armarLote(resueltas: readonly OperacionResuelta[], { idioma }: {
 				comandos.push(sobre(r.el, (o) => actualizar(o, { duration: segundos(r.duracion) })));
 				break;
 			case "dividir":
-				comandos.push(sobre(r.el, (o) => new SplitElementsCommand({ elements: [o], splitTime: segundos(r.en) })));
+				// Relativo a donde está el clip AHORA (lo de antes en el lote pudo correrlo).
+				comandos.push(sobre(r.el, (o, actual) => new SplitElementsCommand({ elements: [o], splitTime: segundos(r.en + corrimiento(actual, r.base)) })));
 				break;
 			case "recortar": {
 				// Como arrastrar cada borde. El derecho primero: el izquierdo, en la principal con
 				// el imán, corre el clip y el borde derecho pedido ya no caería en su lugar.
-				const borde = (lado: "left" | "right", s: number) =>
-					sobre(r.el, (o) => {
+				// Relativo a donde está el clip AHORA: con el imán, recortar un clip corre los que
+				// siguen, y un borde en segundos de la vista caería en otro lado.
+				const borde = (lado: "left" | "right", pedido: number) =>
+					sobre(r.el, (o, actual) => {
+						const s = pedido + corrimiento(actual, r.base);
 						const editor = EditorCore.getInstance();
 						const fps = editor.project.getActiveOrNull()?.settings.fps;
 						const [miembro] = buildResizeMembers({ tracks: editor.scenes.getActiveScene().tracks, selectedElements: [o] });
@@ -287,7 +332,8 @@ export function armarLote(resueltas: readonly OperacionResuelta[], { idioma }: {
 				// Por TEXTO, al ejecutar: lo de antes en el lote pudo correr el video.
 				const comando = new CortarTramosCommand({
 					tramos: (tracks) => {
-						const parrafos = transcripcionDe({ tracks, tps: TICKS_PER_SECOND });
+						// Sin los de una pista bloqueada, como el panel «Transcripción».
+						const parrafos = transcripcionDe({ tracks, tps: TICKS_PER_SECOND }).filter((p) => !p.bloqueado);
 						const apariciones = buscarFrase(parrafos, r.frase);
 						const elegidas = r.vez ? apariciones.slice(r.vez - 1, r.vez) : apariciones;
 						return tramosDePalabras({ palabras: palabrasEnOrden(parrafos), quitar: new Set(elegidas.flat()) });
@@ -300,7 +346,7 @@ export function armarLote(resueltas: readonly OperacionResuelta[], { idioma }: {
 			case "eliminar_muletillas": {
 				const comando = new CortarTramosCommand({
 					tramos: (tracks) => {
-						const parrafos = transcripcionDe({ tracks, tps: TICKS_PER_SECOND });
+						const parrafos = transcripcionDe({ tracks, tps: TICKS_PER_SECOND }).filter((p) => !p.bloqueado);
 						return tramosDePalabras({ palabras: palabrasEnOrden(parrafos), quitar: muletillasDe(parrafos, idioma) });
 					},
 				});

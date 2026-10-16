@@ -40,20 +40,23 @@ import {
   vistaTokenValido, type FotoPublicada, type PaginaPublicada,
 } from './server-reglas';
 import type { ConfigLanding, TemaPropio } from './api-tipos';
+import { sanearEstilo, type IdEstilo } from './animaciones';
 
 export type { FotoPublicada, PaginaPublicada } from './server-reglas';
 
 /**
  * Lo que reciben las rutas públicas para armar el documento de UNA página: es lo que lee
- * `LecturaPublica` (lib/editor-landing/pagina-publica.ts). La foto viene con tres atajos de su
- * configuración congelada (`sitio`, `temaId`, `animaciones`) además de la configuración entera.
+ * `LecturaPublica` (lib/editor-landing/pagina-publica.ts). La foto viene con cuatro atajos de su
+ * configuración congelada (`sitio`, `temaId`, `animaciones`, `estiloAnimacion`) además de la configuración
+ * entera. `leerFoto` no sanea la config: una foto de antes del catálogo de animaciones no trae el estilo, y
+ * `sanearEstilo` la lee con el de siempre.
  */
 export type SitioPublico = {
   workspaceId: number;
   docId: number;
   /** El título de la landing (último respaldo del `<title>`). */
   titulo: string;
-  foto: FotoPublicada & { sitio: ConfigLanding['sitio']; temaId: string; animaciones: boolean };
+  foto: FotoPublicada & { sitio: ConfigLanding['sitio']; temaId: string; animaciones: boolean; estiloAnimacion: IdEstilo };
   /** La página pedida, ya elegida por su ruta (`titulo`/`descripcion` = su `<title>` y su SEO). */
   pagina: PaginaPublicada;
 };
@@ -64,7 +67,10 @@ function sitioDe(ws: number, docId: number, titulo: string, foto: FotoPublicada,
   if (!pagina) return null;
   return {
     workspaceId: ws, docId, titulo, pagina,
-    foto: { ...foto, sitio: foto.config.sitio, temaId: foto.config.tema, animaciones: foto.config.pagina.animaciones },
+    foto: {
+      ...foto, sitio: foto.config.sitio, temaId: foto.config.tema, animaciones: foto.config.pagina.animaciones,
+      estiloAnimacion: sanearEstilo(foto.config.pagina?.estiloAnimacion),
+    },
   };
 }
 

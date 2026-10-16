@@ -126,6 +126,36 @@ export function elementosVinculados({
 	);
 }
 
+/**
+ * Lo que se borra con «Vinculación» prendida: los elegidos y, por cada clip de la pista
+ * principal, lo que tiene encima (`elementosVinculados`). El borrado vinculado va acá y
+ * no en el imán (ver la cabecera); lo usan el botón Eliminar
+ * (actions/use-editor-actions.ts) y el `borrar` del chat (chat/comandos.ts).
+ */
+export function conLoVinculado({
+	tracks,
+	refs,
+	tipos = useTimelineStore.getState().tiposVinculados,
+}: {
+	tracks: SceneTracks;
+	refs: ReadonlyArray<{ trackId: string; elementId: string }>;
+	tipos?: Record<TipoVinculo, boolean>;
+}): Array<{ trackId: string; elementId: string }> {
+	const salida = [...refs];
+	const ids = new Set(refs.map((r) => r.elementId));
+	for (const ref of refs) {
+		if (ref.trackId !== tracks.main.id) continue;
+		const clip = tracks.main.elements.find((e) => e.id === ref.elementId);
+		if (!clip) continue;
+		for (const vinculado of elementosVinculados({ tracks, clip, tipos })) {
+			if (ids.has(vinculado.elementId)) continue;
+			ids.add(vinculado.elementId);
+			salida.push(vinculado);
+		}
+	}
+	return salida;
+}
+
 /** Empaqueta la pista principal desde 0. Devuelve los inicios nuevos por id. */
 function empaquetar({
 	elementos,
