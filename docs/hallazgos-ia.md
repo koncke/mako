@@ -4060,9 +4060,9 @@ dejar de valer solo; el error tiene que llegar entero, y el parámetro tiene que
 `leerErrorProveedor`. Y que un 400 de un proveedor también deje fila (docs/diseno-ia-claves-caidas.md, el registro).
 · *2026-10-15 Automations*
 
-## Que el cliente use SU Claude o su ChatGPT en vez de una API: qué se puede y qué no (16/10/2026)
+## Que el cliente use SU Claude o su ChatGPT en vez de una API: qué se puede y qué no (15/10/2026)
 
-**El pedido.** Martín, el 16/10: «quiero implementar esto en todos los workspace de los clientes, para que puedan
+**El pedido.** Martín, el 15/10: «quiero implementar esto en todos los workspace de los clientes, para que puedan
 conectar sus cuentas de lo que sea, Claude, GPT, etc... Entonces deprecamos todas las "API gratuitas"». Su modelo
 es el del Centro de Operaciones: Claude Code abierto en una PC, y MaKo mandándole pedidos.
 
@@ -4072,7 +4072,7 @@ después se dio por hecho que «lo automático no lo cubre ninguna suscripción�
 nube SÍ corren solas con la suscripción del cliente. Lo que de verdad decide es la cuota y la latencia, no el
 mecanismo.
 
-**Lo verificado en fuente primaria (15-16/10/2026):**
+**Lo verificado en fuente primaria (15/10/2026, hora de Argentina):**
 
 | Qué | Estado | Fuente |
 |---|---|---|
@@ -4100,4 +4100,4 @@ mecanismo.
 
 **Vive en:** la decisión, en la Ticketera (`clientes-conectan-su-ia`); la memoria `ia-del-cliente-suscripcion`; el
 BYOK en `lib/credenciales.ts` y `/integraciones`.
-· *2026-10-16 Estrategia 3 cuentas*
+· *2026-10-15 Estrategia 3 cuentas*
