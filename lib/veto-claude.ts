@@ -22,6 +22,27 @@
 //
 // SIN `server-only` a propósito: un módulo con server-only no lo puede importar ningún
 // test, y la guarda del gasto quedaría sin red justo donde más duele.
+//
+// ── LA SEGUNDA PUERTA: LA CLAVE DE ANTHROPIC DEL NEGOCIO (15/10/2026) ─────────────
+// El veto del 13/8 es sobre la plata de MaKo: «que ya no se pueda gastar con Claude
+// directamente, que se prohíba». El 15/10 Martín pidió lo otro, textual: «quiero
+// implementar esto en todos los workspace de los clientes, para que puedan conectar sus
+// cuentas de lo que sea, Claude, GPT, etc...», y esa noche eligió la opción A de la
+// Ticketera (`clientes-usan-su-claude`): el crédito de API de Claude Max del cliente entra
+// por su clave propia. Esa plata es del NEGOCIO, no de MaKo.
+//
+// Así que hay dos puertas y ninguna se deriva de la otra:
+//   1. `evaluarPermiso`: la lista blanca de abajo, con la clave que resuelva el runtime.
+//   2. `evaluarClaveDelNegocio`: cualquier función de texto del negocio, con UN modelo
+//      barato, y SÓLO con la clave que el negocio cargó en su propia fila.
+//
+// ⚠️ TODO EL RIESGO ESTÁ EN ESA FRONTERA: una clave de la PLATAFORMA (el env, la fila del
+// dueño, que `migrarEnvACredenciales` siembra desde el env, o la del workspace de la
+// plataforma) que pase por la puerta 2 es el gasto de MaKo sin lista blanca, que es
+// exactamente lo que el veto cerró. Por eso la puerta 2 recibe la clave YA LEÍDA y las de
+// la plataforma, las compara acá —puro, con test— y el permiso lleva adentro la clave
+// verificada: el `fetch` usa ÉSA, nunca vuelve a resolver otra. Lo prueba rompiéndolo
+// tests/veto-claude-clave-negocio.test.ts.
 // =============================================================================
 
 import { CATALOGO_MODELOS } from '@/lib/model-catalogo';
@@ -47,6 +68,9 @@ export type PermisoClaude = {
   readonly porque: string;
   readonly [marcaDeVeto]: true;
 };
+
+/** El permiso de la puerta 2: trae ADENTRO la clave que se verificó que es del negocio. */
+export type PermisoClaveDelNegocio = PermisoClaude & { readonly clave: string };
 
 export type PermisoDeclarado = {
   feature: string;
@@ -142,8 +166,68 @@ export function evaluarPermiso(p: {
     return { ok: false, razon: `«${feature}» tiene permiso para ${permiso.modelos.join(', ')}, no para «${model}».` };
   }
 
-  // El ÚNICO cast a PermisoClaude de todo el repo. El test lo verifica.
-  return { ok: true, permiso: { endpoint: ENDPOINT, model, feature, porque: permiso.porque } as PermisoClaude };
+  return { ok: true, permiso: fabricar({ model, feature, porque: permiso.porque }) };
+}
+
+/** El ÚNICO cast a PermisoClaude de todo el repo, para las dos puertas. El test lo verifica. */
+function fabricar<T extends { model: string; feature: string; porque: string }>(p: T): PermisoClaude & T {
+  return { endpoint: ENDPOINT, ...p } as PermisoClaude & T;
+}
+
+// ── PUERTA 2: la clave de Anthropic del negocio ──────────────────────────────────
+
+/**
+ * Lo que puede comprar la clave del NEGOCIO. Un solo modelo, el barato: es para sus
+ * funciones de TEXTO (extraer, clasificar, redactar), las mismas que hoy hace Gemini Flash,
+ * y el crédito de Max son 100 o 200 dólares por mes. Sin `hasta`, a diferencia de la lista
+ * blanca: la lista es una excepción al gasto de MaKo y vence; esto no gasta plata de MaKo,
+ * y lo que lo habilita no es una fecha sino de quién es la clave.
+ */
+export const CLAUDE_CON_CLAVE_DEL_NEGOCIO = {
+  modelos: ['claude-haiku-4-5'],
+  porque: 'El negocio cargó SU clave de Anthropic (el crédito de API de Claude Max, o la suya paga): '
+    + 'MaKo la usa primero para sus funciones de texto, y lo paga su cuenta, no la de MaKo.',
+  pidio: 'Martín, 15/10/2026 — opción A de la Ticketera `clientes-usan-su-claude`.',
+} as const;
+
+/**
+ * Las funciones del PLAN no pasan por la puerta 2, aunque la clave sea del negocio. Martín,
+ * 30/09/2026, textual: «NO, JAMÁS algo pago para el plan» y «nunca sonnet ni nada pago para
+ * el plan. JAMÁS». El Plan es lo que más se usa: con la clave del negocio, el Perro y la
+ * lectura de reuniones se comerían su crédito de Max en silencio. Sacar una de acá es una
+ * decisión suya, no un arreglo.
+ */
+export const FEATURES_DEL_PLAN: readonly string[] = [
+  'mako-guardian', 'checklist-coach', 'plan-seed-ia', 'plan-fathom', 'plan-criterio',
+];
+
+/**
+ * ¿Esta función de texto puede usar la clave de Anthropic del negocio? Puro y síncrono.
+ *
+ * `clave` es la que el negocio tiene en SU fila (`credDelCliente`, que no cae al env), y
+ * `clavesPlataforma` son TODAS las copias de la clave de la plataforma que el llamador pudo
+ * leer: el env, la fila del dueño y la del workspace de la plataforma. Si no las pudo leer,
+ * no llama: «no pude leer» nunca habilita nada.
+ */
+export function evaluarClaveDelNegocio(p: {
+  feature?: string; model?: string; pausa?: boolean;
+  clave?: string | null; clavesPlataforma: ReadonlyArray<string | null | undefined>;
+}): { ok: true; permiso: PermisoClaveDelNegocio } | { ok: false; razon: string } {
+  if (p.pausa) return { ok: false, razon: 'Claude está PAUSADO a mano (`mako.claude.pausa`): apaga también la clave del negocio.' };
+  const feature = (p.feature ?? '').trim();
+  if (!feature) return { ok: false, razon: 'sin `feature` no se sabe qué se compra, ni con la plata del negocio.' };
+  if (FEATURES_DEL_PLAN.includes(feature)) return { ok: false, razon: `«${feature}» es del Plan, y el Plan nunca paga IA (Martín, 30/09/2026).` };
+  const clave = typeof p.clave === 'string' ? p.clave.trim() : '';
+  if (!clave || clave.startsWith('PENDING')) return { ok: false, razon: 'el negocio no tiene su clave de Anthropic cargada.' };
+  // LA FRONTERA. Comparada sin espacios: una copia pegada con un espacio de más sigue siendo
+  // la clave de la plataforma.
+  if (p.clavesPlataforma.some((x) => typeof x === 'string' && x.trim() !== '' && x.trim() === clave)) {
+    return { ok: false, razon: 'esa clave es una copia de la de la PLATAFORMA: con ella paga MaKo, y eso sólo pasa por la lista blanca.' };
+  }
+  const modelos: readonly string[] = CLAUDE_CON_CLAVE_DEL_NEGOCIO.modelos;
+  const model = (p.model ?? '').trim() || modelos[0];
+  if (!modelos.includes(model)) return { ok: false, razon: `con la clave del negocio sólo ${modelos.join(', ')}, no «${model}».` };
+  return { ok: true, permiso: fabricar({ model, feature, porque: CLAUDE_CON_CLAVE_DEL_NEGOCIO.porque, clave }) };
 }
 
 export class VetoClaude extends Error {

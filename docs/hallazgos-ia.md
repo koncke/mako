@@ -4101,3 +4101,42 @@ mecanismo.
 **Vive en:** la decisión, en la Ticketera (`clientes-conectan-su-ia`); la memoria `ia-del-cliente-suscripcion`; el
 BYOK en `lib/credenciales.ts` y `/integraciones`.
 · *2026-10-15 Estrategia 3 cuentas*
+
+## La clave de Anthropic del negocio: la segunda puerta del veto (16/10/2026)
+
+**Vive en:** `lib/veto-claude.ts` (`evaluarClaveDelNegocio`, `FEATURES_DEL_PLAN`) · `lib/anthropic.ts`
+(`conClaveDelNegocio`) · `lib/ai-cheap.ts` (el primer intento de `chatCheapCascade`) ·
+`tests/veto-claude-clave-negocio.test.ts`
+
+**El diagnóstico obvio era el equivocado.** «Que el cliente cargue su crédito de Max como clave de Anthropic y MaKo lo
+usa» suena completo y no lo era: desde el veto del 13/08 la clave de Anthropic de un negocio la usaba UNA feature, el
+análisis de llamadas de cierre. Y la ficha de /integraciones decía «el cerebro de MaKo: análisis, chats, sugerencias y
+todos los Analysts», falso desde agosto para cualquiera. El veto era sobre la plata de MaKo; la del negocio no tenía
+puerta.
+
+**La trampa que hacía peligrosa la puerta nueva: `credWs` no contesta «¿cuál es la clave del negocio?».** Para el
+workspace del dueño cae al env de la plataforma, y `migrarEnvACredenciales` siembra la fila del dueño desde ese mismo
+env. Con `credWs`, el ws1 (un cliente) habría usado la clave de la plataforma como si fuera suya, por la puerta que no
+tiene lista blanca. Por eso la clave se lee con `credDelCliente` (sólo la fila), se compara contra las tres copias de
+la plataforma leídas estrictas, y el permiso lleva adentro la clave verificada: el `fetch` no resuelve otra.
+
+**Y una trampa de los tests que leen fuente, medida en la misma tanda:** un `sinComentarios` que borra las líneas que
+empiezan con `*` ANTES de recortar los bloques se lleva también los ` */` que cierran cada JSDoc, y el recorte de
+bloques queda abierto hasta el próximo cierre. Sobre `lib/ai-cheap.ts` entero se comía `chatCheapCascade` completa, y
+el test contestaba «no encuentro la función». Lo que sirve es líneas `//` primero y bloques después, nada más (el orden
+que ya pide AGENTS.md). El de `tests/onboarding-red-plataforma.test.ts` tenía el mismo paso y no mordía porque se
+aplica a una función ya recortada; se corrigió igual.
+
+### Lo que quedó SIN hacer
+
+- **Las funciones del Plan quedan afuera aunque la clave sea del negocio** (`FEATURES_DEL_PLAN`), por la regla de
+  Martín del 30/09 («JAMÁS algo pago para el plan»). Es una lista negativa a propósito y se dice: una feature del Plan
+  nueva que no se sume ahí usaría el crédito del negocio.
+- **Sólo la cascada de texto.** La visión (`leerDocumentoIA`), el audio y el loop con herramientas (`chatCheapTools`,
+  el doer) no prueban la clave del negocio.
+- **El gasto queda en `anthropic_usage` con el motivo «⚠ clave de Anthropic del negocio»**, pero con su `cost_usd`: un
+  tablero que sume el costo de Claude como gasto de MaKo lo va a contar. No se revisó cuáles lo hacen.
+- **Sin probar contra Anthropic de verdad**: no había una clave de negocio para hacerlo. El primer cliente que cargue
+  la suya es la prueba, y la fila de `anthropic_usage` con ese motivo es la forma de verlo.
+
+· *2026-10-16 chat «Onboarding» (claude3), por pedido del coordinador sobre la decisión de Martín*

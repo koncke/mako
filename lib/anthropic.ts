@@ -6,8 +6,8 @@
 
 import 'server-only';
 import { recordUsage, type UsageInfo } from './anthropic-usage';
-import { credWs } from './credenciales';
-import { permisoDeGasto, type PermisoClaude } from './veto-claude';
+import { credWs, credDelCliente, credWsEstricta } from './credenciales';
+import { permisoDeGasto, evaluarClaveDelNegocio, type PermisoClaude } from './veto-claude';
 import type { ProvName } from './ai-cheap';
 
 // ⛔ ACÁ NO HAY NI `MODEL` NI `ENDPOINT`, y ese es el punto entero del veto.
@@ -51,6 +51,66 @@ async function registrarBloqueo(e: unknown, feature: string | undefined, model: 
   const razon = e instanceof Error ? e.message : String(e);
   console.error(`[veto-claude] ${razon}`);
   await recordUsage(feature?.trim() || 'sin-feature', `vetado:${model || '-'}`, {}, razon).catch(() => {});
+}
+
+/**
+ * LA CLAVE DE ANTHROPIC DEL NEGOCIO, como primer intento de la cascada de texto
+ * (`chatCheapCascade`). Decisión de Martín del 15/10/2026: el crédito de API de Claude Max
+ * del cliente entra por su clave propia (lib/veto-claude.ts, «la segunda puerta»).
+ *
+ * Devuelve `null` cuando no corresponde (lo normal: el negocio no cargó su clave), y
+ * `{ error }` cuando la clave es suya y Anthropic dijo que no: ése sí va a la lista con la
+ * que se le habla al cliente, porque es SU clave.
+ *
+ * ⚠️ LAS TRES LECTURAS SON A PROPÓSITO, Y NINGUNA ES `credWs`:
+ *   · la del negocio es `credDelCliente` —sólo su fila—: `credWs` cae al env de la
+ *     plataforma cuando el workspace es el del dueño, y esa clave se haría pasar por suya;
+ *   · las de la plataforma son ESTRICTAS: si la base no contesta, tiran, y esta función
+ *     devuelve null. Un «no pude leer» tratado como «no hay clave de la plataforma» haría
+ *     pasar cualquier copia;
+ *   · el `fetch` usa `permiso.clave`, la que el veto verificó, y no vuelve a resolver nada.
+ */
+export async function conClaveDelNegocio(p: {
+  system: string; user: string; json?: boolean; maxTokens?: number; feature?: string; motivo?: string; timeoutMs: number;
+}): Promise<{ texto: string } | { error: string } | null> {
+  const clave = await credDelCliente('ANTHROPIC_API_KEY').catch(() => null);
+  if (!clave) return null;
+  let clavesPlataforma: Array<string | null | undefined>;
+  try {
+    const { OWNER_WS, wsSuperAdmin } = await import('@/lib/workspace');
+    clavesPlataforma = [
+      process.env.ANTHROPIC_API_KEY,
+      await credWsEstricta('ANTHROPIC_API_KEY', OWNER_WS),
+      await credWsEstricta('ANTHROPIC_API_KEY', await wsSuperAdmin()),
+    ];
+  } catch { return null; }
+  const v = evaluarClaveDelNegocio({ feature: p.feature, clave, clavesPlataforma, pausa: await claudePausado() });
+  if (!v.ok) return null;
+  const permiso = v.permiso;
+
+  // Claude no tiene modo JSON: se le pide en el system, y la cascada verifica que parsee.
+  const system = p.json ? `${p.system}\n\nResponde SOLO con el JSON pedido, sin texto antes ni después y sin bloques de código.` : p.system;
+  try {
+    const res = await fetch(permiso.endpoint, {
+      method: 'POST',
+      headers: { 'x-api-key': permiso.clave, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+      body: JSON.stringify({ model: permiso.model, max_tokens: p.maxTokens ?? 1024, system, messages: [{ role: 'user', content: p.user }] }),
+      cache: 'no-store',
+      signal: AbortSignal.timeout(Math.max(1_000, p.timeoutMs)),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok || body?.error) return { error: String(body?.error?.message ?? `Anthropic ${res.status}`) };
+    // Lo paga el negocio: el motivo lo dice, para que el gasto de IA no lo lea como de MaKo.
+    await recordUsage(permiso.feature, permiso.model, body.usage, `${(p.motivo ?? '').trim()} · ⚠ clave de Anthropic del negocio`.trim()).catch(() => {});
+    const texto = (body.content ?? [])
+      .filter((c: { type?: string }) => c.type === 'text')
+      .map((c: { text?: string }) => c.text ?? '')
+      .join('\n')
+      .trim();
+    return texto ? { texto } : { error: 'Claude contestó vacío' };
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : String(e) };
+  }
 }
 
 export async function chatClaude(

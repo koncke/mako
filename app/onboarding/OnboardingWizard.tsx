@@ -898,11 +898,11 @@ export function OnboardingWizard() {
               </div>
             )}
             {/* El crédito de API de Claude Max entra como key de Anthropic, en su modal de
-                /integraciones abierto acá mismo (nunca se sale de la tab). Lo que gana HOY: el
-                análisis de las llamadas de cierre, la única feature con permiso para Claude
-                (lib/veto-claude.ts). Si ese permiso cambia, cambia esta frase. */}
+                /integraciones abierto acá mismo (nunca se sale de la tab). Lo que gana sale de
+                lib/veto-claude.ts: MaKo la usa primero en las funciones de texto del negocio,
+                salvo las del Plan (la segunda puerta, 16/10/2026). Si el veto cambia, cambia esta frase. */}
             <div style={{ marginTop: 10, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '6px 12px', fontSize: 13, color: 'var(--dim)', lineHeight: 1.5 }}>
-              <span style={{ flex: '1 1 220px' }}>¿Tienes Claude Max? Con su crédito de API, MaKo analiza tus llamadas de cierre.</span>
+              <span style={{ flex: '1 1 220px' }}>¿Tienes Claude Max? Con su crédito de API, MaKo escribe y analiza con Claude.</span>
               <BotonIntegracion servicio="anthropic" style={{ color: 'var(--primary)', fontWeight: 600, flex: 'none' }}>Conectar Claude</BotonIntegracion>
             </div>
           </div>

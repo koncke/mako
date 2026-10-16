@@ -481,6 +481,15 @@ const TECHO_ENTRADA: Partial<Record<ProvName, number>> = {
  *  que usa la cascada para saltear proveedores (Crear con IA, 09/10/2026: `salidaParaIA`). */
 export const tokensAprox = (texto: string): number => Math.ceil(texto.length / 3.5);
 
+/** Claude no tiene modo JSON: se queda con el objeto (o la lista) de la respuesta si parsea; si no, ''. */
+function soloElJson(t: string): string {
+  const ini = t.search(/[[{]/);
+  const fin = Math.max(t.lastIndexOf('}'), t.lastIndexOf(']'));
+  if (ini < 0 || fin <= ini) return '';
+  const s = t.slice(ini, fin + 1);
+  try { JSON.parse(s); return s; } catch { return ''; }
+}
+
 /** El techo de entrada de un proveedor (prompt + salida), el mismo con el que la cascada lo saltea. */
 export function techoDeEntrada(p: ProvName): number | undefined {
   return TECHO_ENTRADA[p];
@@ -549,6 +558,26 @@ export async function chatCheapCascade(opts: { system: string; user: string; jso
   // plataforma para empezar por OTRO proveedor: si Google está saturado, su segunda
   // cuenta le pega al mismo Google.
   const probados = new Set<ProvName>();
+  // ── PRIMERO, LA CLAVE DE ANTHROPIC DEL NEGOCIO ─────────────────────────────────────
+  // Si el negocio cargó SU clave de Anthropic (el crédito de Claude Max, decisión de Martín
+  // del 15/10/2026), sus funciones de texto la usan antes que la cascada gratis. Quién puede
+  // y quién no lo decide el veto (lib/veto-claude.ts, «la segunda puerta»): nunca una clave
+  // de la plataforma, nunca una función del Plan. Si Claude no contesta, o lo que contesta no
+  // pasa `validar` o no es JSON cuando se pidió, se sigue con la cascada de siempre.
+  if (quedan() >= MIN_INTENTO_MS) {
+    const { conClaveDelNegocio } = await import('./anthropic');
+    const r = await conClaveDelNegocio({
+      system: opts.system, user: opts.user, json: opts.json, maxTokens: opts.maxTokens,
+      feature: opts.feature, motivo: opts.motivo, timeoutMs: plazoDeIntento(),
+    }).catch(() => null);
+    if (r && 'texto' in r) {
+      const t = opts.json ? soloElJson(r.texto) : r.texto;
+      if (t && (!opts.validar || opts.validar(t))) return t;
+      opts.erroresOut?.push('anthropic/ANTHROPIC_API_KEY: la respuesta no tenía la forma pedida');
+    } else if (r && 'error' in r) {
+      opts.erroresOut?.push(`anthropic/ANTHROPIC_API_KEY: ${r.error}`);
+    }
+  }
   for (const prov of orden as ProvName[]) {
     // DOS ejes de rotación, y este es el de adentro: todas las CUENTAS cargadas de
     // este proveedor antes de pasar al siguiente. El free tier se agota por cuenta,

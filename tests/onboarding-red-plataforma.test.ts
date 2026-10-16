@@ -35,8 +35,11 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 const leer = (p: string) => readFileSync(p, 'utf8').replace(/\r\n/g, '\n');
+// Sin el paso que borraba las líneas que empiezan con `*`: se llevaba los ` */` que cierran un
+// JSDoc y dejaba el recorte de bloques abierto hasta el próximo cierre (medido el 16/10/2026 sobre
+// lib/ai-cheap.ts entero; acá no mordía porque se aplica a una función ya recortada).
 const sinComentarios = (src: string) =>
-  src.replace(/^[ \t]*\/\/.*$/gm, '').replace(/^[ \t]*\*.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+  src.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
 
 const AI = leer('lib/ai-cheap.ts');
 
