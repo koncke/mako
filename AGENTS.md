@@ -8711,6 +8711,19 @@ docs/diseno-mako-ai-native.md; molde: `lib/editor-video/chat-hilo.ts`, el del Vi
 - **La persona sale de la sesión** (`personaDeSesion`), nunca del pedido; y dos pestañas se unen por id de mensaje
   ante el 409 del compare-and-set, sin pisarse.
 
+# Un chat que edita lo abierto (Video Editor, Image Editor y los que vengan): proponer, no aplicar
+
+Martín quiere el chat en todas las tabs (16/10/2026). Los dos que hay (`app/video-editor/_opencut/chat/`,
+`app/image-editor/mako/chat/`) comparten las reglas; uno nuevo las copia:
+- **Pedir SÓLO arma la propuesta**: la IA devuelve operaciones de un catálogo cerrado, se validan otra vez en el
+  navegador y se prueban sobre una COPIA para mostrar «Original | Modificado». Nada se toca hasta «Aceptar».
+- **Aceptar vuelve a aplicar sobre lo de AHORA, por id**, en UN paso de deshacer; lo que se borró o se bloqueó en el
+  medio se descarta con su motivo. Las refs que ve la IA no pueden depender de la posición, o la propuesta apunta a otro.
+- **Lo que el motor ignora en silencio se revisa ANTES** (una fuente que el editor no tiene, un efecto que no existe)
+  y se descarta con su motivo; lo que el motor necesita listo (las fuentes) se carga antes de aplicar.
+- **«Restaurar» es el deshacer de ESE paso**, sólo si nada cambió después; si no, se dice «Ctrl+Z».
+Lo que costó, en docs/hallazgos-editor-imagen.md y docs/hallazgos-video-editor.md.
+
 # Una acción de pantalla PROPIA nueva decide qué pasa en un FLUJO
 
 `ejecutarDesdeFlujo` (lib/api-mako/flujo.ts) aplica en el acto lo que un paso propone, y toda propuesta que no conoce

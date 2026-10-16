@@ -1,6 +1,6 @@
 # Relevo — Video Editor (y la unificación de las tabs de contenido)
 
-*12/10/2026, chat «Video Editor», cuenta claude3 (semana al 88 %).*
+*12/10/2026, chat «Video Editor», cuenta claude3 (16/10 tarde: semana al 95 %).*
 
 ## Antes de cada punta (además de los tests del área)
 
@@ -28,7 +28,24 @@ Mientras tanto este chat hace la etapa 3 del diseño AI-native (docs/diseno-mako
    para aceptarla con el mismo «Aceptar». Ningún canal escribe la línea de tiempo. Fuera de los flujos de Automations.
    **Falta verlo de punta a punta** con las tres migraciones aplicadas: un pedido por WhatsApp y aceptarlo en el editor.
 4. **«Entender el pedido» en el chat** (hecho, pedido del Cerebro): lo del proyecto abierto a la IA, lo demás burbujas
-   con link (docs/diseno-mako-pedidos.md). El del Image Editor NO se hizo: el Image Editor no tiene chat todavía.
+   con link (docs/diseno-mako-pedidos.md).
+
+## 16/10 tarde (cuenta 3, semana al 95 %): el chat «MaKo IA» del Image Editor — tanda 1 hecha, 2 y 3 NO
+
+Pedido del Cerebro (Martín: «implementes este chat en todas las tabs… quiero que la app sea AI NATIVE»): el chat del
+Video Editor en el editor de imágenes, con la cara del panel de Canva AI.
+1. **Hecho: el chat en el editor.** Botón redondo del pie del riel (y último de la tira en pantallas chicas) → panel
+   `mako-ia` (`app/image-editor/mako/chat/PanelMakoIA.tsx`); la IA es `/api/image-editor/ia` (feature
+   `image-editor-ia`, Gemini gratis, prompts editables `image_editor.chat.*`); 18 operaciones
+   (`lib/image-editor/chat/catalogo.ts`) que se prueban sobre una copia y se aceptan en un paso; el hilo guardado por
+   persona y diseño, mig **0303** (`image_editor_chats`, ANTES o JUNTO con el deploy; la aplica el coordinador).
+   Test `tests/image-editor-chat.test.ts` (24, cuarenta roturas cazadas). **Sin mirar en el navegador** (ws9).
+2. **Sin hacer: las operaciones en la API de MaKo que PROPONEN** (área `imagen`, como `lib/editor-video/chat-api.ts`).
+   El diseño YA está en la base (`image_disenos`): la vista sale del doc guardado con `vistaDeDiseno` y la revisión
+   con `aplicarOperaciones` (los dos puros, sin `_doory`). Pide su tabla de propuestas: la **0304** ya está
+   RESERVADA por el Cerebro para esto (16/10 tarde; la 0303 es la del hilo).
+3. **Sin hacer: «entender el pedido»** en `pedirEdicion` (`app/image-editor/mako/chat/acciones.ts`), con `tab: 'imagen'`
+   y el molde de `app/video-editor/_opencut/chat/pedidos.ts` (sin `objetos`: los diseños están en el server).
 
 ## 16/10 mañana (cuenta 3): las plantillas sugeridas, en los dos editores
 

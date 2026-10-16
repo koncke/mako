@@ -9,7 +9,7 @@
  *
  */
 export { registerCommand, type Command, type CommandContext } from './commands'
-export { registerPanel, type PanelDefinition } from './panels/registry'
+export { registerPanel, PANEL_IA, type PanelDefinition } from './panels/registry'
 export { registerToolbarSection, type ToolbarSectionDefinition } from './toolbar/registry'
 export { registerDialog, type DialogDefinition } from './dialogs/registry'
 export { registerPalette, type Palette } from './ui/swatches'

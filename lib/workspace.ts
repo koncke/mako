@@ -230,6 +230,8 @@ const TENANT_TABLES = new Set<string>([
   // El Image Editor (la copia de Canva, mig 0278): los diseños y «Subidos». N filas por workspace:
   // sin esta línea el inicio del editor de un negocio listaría los diseños de TODOS.
   'image_disenos', 'image_subidos',
+  // El hilo del chat «MaKo IA» del Image Editor (mig 0303): una fila por persona y diseño, N por workspace.
+  'image_editor_chats',
   // El hilo del chat «Editar con IA» del Video Editor (mig 0298): una fila por persona y proyecto,
   // N por workspace. Sin esta línea un negocio podría leer el hilo de otro con el mismo proyecto.
   'video_editor_chats',

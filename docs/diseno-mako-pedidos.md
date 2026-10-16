@@ -211,6 +211,7 @@ aparece la burbuja (se deshace con su botón), así que no queda nada a medias q
 - **Automations**: su función en `objetosDeTab` y el fetch de arriba en su chat.
 - **Image Editor y Video Editor**: sus objetos ya están (16/10); falta que sus chats llamen a la ruta (el del Video
   Editor, mandando `objetos`).
+
 - **Video Editor**: enganchado el 16/10 (`app/video-editor/_opencut/chat/pedidos.ts` + `PanelChat.tsx`, test
   `tests/video-editor-pedidos-chat.test.ts`): manda sus proyectos como `objetos`; lo del proyecto abierto va a su IA y
   lo demás son burbujas con link. Borrar un proyecto NO se hace desde el chat (no hay papelera: se va con su
@@ -222,6 +223,10 @@ aparece la burbuja (se deshace con su botón), así que no queda nada a medias q
   `wip/automations-pedidos`, SIN SUBIR**: la revisión encontró regresiones del chat de siempre, varias del resolver
   (con el lienzo vacío, «crea una automatización» es de ESTA; un nombre de otra dentro de una edición no es un pedido
   aparte). Detalle en docs/hallazgos-chatbot.md («Los pedidos sueltos en el chat de Automations»).
+
+- **Image Editor**: sus objetos ya están (16/10); su chat («MaKo IA», 16/10: `app/image-editor/mako/chat/acciones.ts`,
+  `pedirEdicion`) todavía no llama a la ruta: se engancha como el del Video Editor, antes de su IA, con `tab: 'imagen'`
+  y los diseños del server (no hace falta mandar `objetos`).
 
 - **El chat único del Second Brain** (Centro de Operaciones): el mismo fetch con `tab` = el área de lo que esté abierto.
 - **Correr la operación de OTRA tab** desde la burbuja: hoy `otra-tab` deja el link (y la operación como dato); ejecutarla
