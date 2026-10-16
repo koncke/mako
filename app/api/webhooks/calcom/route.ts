@@ -54,6 +54,8 @@ import { runWithWorkspace } from '@/lib/workspace';
 import { credWsEstricta } from '@/lib/credenciales';
 import { wsPorIdentificadorEstricto } from '@/lib/webhook-routing';
 import { responderFalloDeRuteo } from '@/lib/webhook-fallo-ruteo';
+import { decidirReserva } from '@/lib/agenda-evento-etapa';
+import { rutaDeReserva, ubicarReservaVinculada } from '@/lib/agenda-evento-etapa-server';
 
 export const dynamic = 'force-dynamic';
 
@@ -167,6 +169,11 @@ export async function POST(request: NextRequest) {
         j2: await credWsEstricta('CALCOM_EVENT_TYPE_J2', ws),
       };
       const tipo = clasificarJuntaCalcom(reserva.eventType, cfg);
+      // ¿El evento está VINCULADO a una etapa de reunión de un embudo? (16/10/2026, lib/agenda-evento-etapa.ts.) Si
+      // lo está, la R y el embudo los dice la etapa; sin vínculo `ruta` es null y todo sigue como antes. La MISMA
+      // decisión que Calendly (`decidirReserva`): la R2 nunca crea un lead.
+      const vinculada = await rutaDeReserva('calcom', candidatos, ws);
+      const decision = decidirReserva(vinculada.ruta, tipo);
       // ── CANCELACIÓN ───────────────────────────────────────────────────────
       if (accion === 'cancela') {
         const lead = await findLeadByContacto(reserva.email, reserva.telefono);
@@ -201,7 +208,7 @@ export async function POST(request: NextRequest) {
       // ⚠️ UNA R2 NUNCA CREA UN LEAD. Si es la segunda reunión, esa persona ya tiene
       // que existir: crearla desde acá produciría un lead que nació en la mitad del
       // embudo, sin R1 y sin origen. Es la misma regla que en Calendly.
-      if (tipo === 'j2') {
+      if (!decision.puedeCrearLead) {
         const lead = await findLeadByContacto(reserva.email, reserva.telefono);
         if (!lead) {
           console.warn(`[webhook:calcom] J2 SIN MATCH email=${reserva.email ?? '—'} uid=${reserva.uid} ms=${ms}`);
@@ -215,6 +222,8 @@ export async function POST(request: NextRequest) {
         // Calendly, y también en null: una reserva sin videollamada no hereda el link de la anterior.
         // Cal.com lo manda en `metadata.videoCallUrl`, no en `location` (`linkDeReunionCalcom`).
         await guardarLinkDeReunion(lead.id, 'R2', linkDeReunionCalcom(body.payload));
+        // Evento vinculado: a SU embudo y SU etapa (agregado si su casa es otra), antes del aviso y de los flujos.
+        const ubicacion = decision.destino ? await ubicarReservaVinculada(lead, vinculada, 'Cal.com') : null;
         await emitirDelCatalogo('reunion-nuevo-agendado', {
           // ⚠️ Dedup POR RESERVA. Los webhooks se reentregan y el mismo agendado
           // salía 2 y 3 veces (medido: 9 s, 25 s, 38 s y 41 s de diferencia). La
@@ -232,8 +241,8 @@ export async function POST(request: NextRequest) {
         });
         // La MISMA clave que el aviso de arriba: Cal.com reentrega, y una reentrega no repite los pasos.
         await dispararEvento('lead.agendo', { ws, leadId: lead.id, leadNombre: lead.nombre, reunion: 'R2', dedupKey: `calcom:${reserva.uid ?? reserva.email}|${reserva.inicio}` });
-        console.log(`[webhook:calcom] J2 → lead=${lead.id} fecha=${fechaReunion} ms=${ms}`);
-        return Response.json({ ok: true, trigger: body.triggerEvent, tipo: 'j2', action: 'set_j2', lead_id: lead.id, ms });
+        console.log(`[webhook:calcom] J2 → lead=${lead.id} fecha=${fechaReunion}${ubicacion ? ` etapa: ${ubicacion}` : ''} ms=${ms}`);
+        return Response.json({ ok: true, trigger: body.triggerEvent, tipo: 'j2', action: 'set_j2', lead_id: lead.id, ...(ubicacion ? { ubicacion } : {}), ms });
       }
 
       // R1 (o desconocido, que se trata como R1 por compatibilidad con Calendly).
@@ -259,13 +268,17 @@ export async function POST(request: NextRequest) {
         // De qué agenda vino, para que la ficha y el reporte de origen no le
         // atribuyan la venta a una herramienta que este cliente no usa.
         origen_lead: 'calcom',
-      });
+      // Evento vinculado: el lead NUEVO nace en ese embudo y esa etapa. Sin vínculo es null: lo de antes.
+      }, { alCrear: vinculada.alCrear });
       // El link de la R1, aparte de `upsertLeadFromCalendly` y sin tirar (ver `guardarLinkDeReunion`).
       await guardarLinkDeReunion(lead.id, 'R1', linkDeReunionCalcom(body.payload));
 
       // Lo que completó en el formulario (el rubro, si es agente, su Instagram…), como las de
       // Calendly: hasta el 08/10/2026 se tiraban, y la ficha y el aviso no tenían de dónde sacarlas.
       await saveLeadRespuestas(lead.id, 'R1', preguntasDeReserva(reserva.respuestas), fechaReunion);
+
+      // Evento vinculado y el lead YA existía: a SU embudo y SU etapa, sin cambiarle la casa. El nuevo ya nació ahí.
+      const ubicacion = decision.destino && !created ? await ubicarReservaVinculada(lead, vinculada, 'Cal.com') : null;
 
       await emitirDelCatalogo('reunion-nuevo-agendado', {
         // Ver la nota de la R2: dedup por reserva + horario.
@@ -286,7 +299,11 @@ export async function POST(request: NextRequest) {
       await enrolarPorEvento(lead.id, 'agenda_nueva');
 
       console.log(`[webhook:calcom] R1 → lead=${lead.id} ${created ? 'creado' : 'actualizado'} fecha=${fechaReunion} respuestas=${reserva.respuestas.length} ms=${ms}`);
-      return Response.json({ ok: true, trigger: body.triggerEvent, tipo, action: created ? 'crear' : 'actualizar', lead_id: lead.id, respuestas: reserva.respuestas.length, ms });
+      return Response.json({
+        ok: true, trigger: body.triggerEvent, tipo, action: created ? 'crear' : 'actualizar', lead_id: lead.id, respuestas: reserva.respuestas.length,
+        ...(decision.destino ? { funnel_id: decision.destino.funnelId, etapa: decision.destino.etapa, ...(ubicacion ? { ubicacion } : {}) } : {}),
+        ms,
+      });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       console.error(`[webhook:calcom] error procesando ${body.triggerEvent}: ${message}`);

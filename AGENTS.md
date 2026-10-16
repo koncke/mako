@@ -8490,3 +8490,19 @@ los tiempos por palabra del elegido y los dejaba sin los suyos (docs/hallazgos-v
 módulo que importe de ahí `TICKS_PER_SECOND`, `roundMediaTime` o `addMediaTime` (directo o por `timeline/index.ts`,
 `animation/`…) no carga en los tests de node. Lo que se quiera probar recibe los ticks por segundo y lo que llega
 al motor por PARÁMETRO, e importa sólo TIPOS (molde: `transcripcion/cortar.ts`, con `tps` y `dividir`).
+
+# Una reserva de agenda decide a DÓNDE va por un solo camino, y la agenda tiene tres fuentes de ruteo
+
+Desde el 16/10/2026 una etapa de reunión puede tener vinculado un evento de Calendly o Cal.com (mig 0293,
+`lib/agenda-evento-etapa.ts`): quien lo reserva cae en ESA etapa de ESE funnel, y no en el principal.
+
+- **Todo lo que crea o ubica un lead desde una reserva** (los dos webhooks hoy; un backfill, MaKo reservando
+  o un proveedor nuevo mañana) pasa por `rutaDeReserva` + `decidirReserva`, y al lead que ya existía lo ubica
+  `ubicarReservaVinculada` (lo AGREGA si su casa es otro funnel; no le cambia la casa). Sin eso, el evento
+  vinculado cae en el funnel principal y la R sale de J1/J2. La R2 nunca crea un lead.
+  `tests/agenda-evento-etapa.test.ts` lo fija en los dos webhooks.
+- **En `webhook_routing` la agenda tiene TRES fuentes** (la R1, la R2 y los eventos vinculados) bajo el mismo
+  servicio. `borrarRoutingDeWs` se lleva todas: quien lo use después vuelve a reclamar lo que sigue en uso
+  (`reclamarRuteoDeAgenda`), y para soltar UNA se pregunta antes si alguien más la usa.
+- **Un vínculo se guarda con el identificador que manda el webhook** (Calendly: la URI del event type; Cal.com:
+  su id), nunca con el nombre: el ruteo compara exacto y dos eventos se pueden llamar igual.
