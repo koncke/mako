@@ -15,6 +15,7 @@
 //    que se agrega al final se agrega a la fila DE ESE MOMENTO, no a la que se leyó al empezar.
 // ⚠️ SE LEE EL `error` DE CADA CONSULTA (AGENTS.md «Un select de PostgREST con UNA columna que no
 //    existe rechaza la consulta ENTERA»): un error no leído se ve como «no hay conversaciones».
+// ⚠️ `armado` (mig 0296) también está en COLS, con la misma regla: la migración va ANTES del deploy.
 // ⚠️ v2: `funnel_id` y `oferta_base_id` (mig 0256) están en COLS. Sin la migración aplicada, TODA lectura
 //    de esta tabla falla (es la regla de arriba): la 0256 va ANTES del deploy, no hay lectura tolerante.
 // =============================================================================
@@ -32,13 +33,14 @@ import {
 } from './offer-marco';
 import {
   INTENTOS_CAS, adjuntoDe, construirArbol, esperaCAS, ligadaParaVista, mensajeParaVista, ofertaDesdePropuesta, ofertaYaAnotada, primerMensaje,
-  sanearDocumentos, sanearMensajes, sanearPiezas,
+  sanearArmado, armadoParaVista, sanearDocumentos, sanearMensajes, sanearPiezas,
+  type ArmadoOffer,
   type DocumentoGuardado, type MensajeGuardado, type SesionParaArbol,
 } from './offer-reglas';
 import { contextoOffer } from './offer-contexto';
 
 const TABLA = 'offer_sesiones';
-const COLS = 'id, titulo, estado, mensajes, piezas, documentos, borrador, conclusiones, oferta_id, oferta_version, funnel_id, oferta_base_id, updated_at';
+const COLS = 'id, titulo, estado, mensajes, piezas, documentos, borrador, conclusiones, oferta_id, oferta_version, funnel_id, oferta_base_id, armado, updated_at';
 /** El título con el que nace una conversación (el default de la columna). */
 export const TITULO_DEFAULT = 'Mi oferta';
 /** Cuántas conversaciones lista la tab. */
@@ -67,6 +69,8 @@ export type FilaOffer = {
   /** v2: el funnel (fila de `funnels`) y la oferta que se analiza. No cambian después del alta. */
   funnelId: number | null;
   ofertaBaseId: number | null;
+  /** El armado de la oferta en el servidor (mig 0296), en curso o fallido; null = ninguno. */
+  armado: ArmadoOffer | null;
   updatedAt: string;
 };
 
@@ -81,6 +85,7 @@ export type CambioOffer = Partial<{
   conclusiones: ConclusionOferta[];
   ofertaId: number | null;
   ofertaVersion: number | null;
+  armado: ArmadoOffer | null;
 }>;
 
 const fallo = (que: string, m: string) => new Error(`${que} falló: ${m}`);
@@ -115,6 +120,7 @@ function aFila(r: Record<string, unknown>): FilaOffer {
     ofertaVersion: num(r.oferta_version),
     funnelId: num(r.funnel_id),
     ofertaBaseId: num(r.oferta_base_id),
+    armado: sanearArmado(r.armado),
     updatedAt: typeof r.updated_at === 'string' ? r.updated_at : '',
   };
 }
@@ -152,6 +158,7 @@ export function vistaDe(f: FilaOffer, nombres: NombresSesion = {}): OfferSesionV
     modo: f.ofertaBaseId != null ? 'analizar' : 'crear',
     ofertaGuardadaId: f.ofertaId,
     ligada: ligadaParaVista(f, nombres.ligada),
+    armando: armadoParaVista(f.armado, Date.now()),
   };
 }
 
@@ -215,6 +222,7 @@ function aColumnas(c: CambioOffer): Record<string, unknown> {
   if (c.conclusiones !== undefined) r.conclusiones = c.conclusiones;
   if (c.ofertaId !== undefined) r.oferta_id = c.ofertaId;
   if (c.ofertaVersion !== undefined) r.oferta_version = c.ofertaVersion;
+  if (c.armado !== undefined) r.armado = c.armado;
   return r;
 }
 

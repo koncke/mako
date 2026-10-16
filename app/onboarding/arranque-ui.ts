@@ -12,7 +12,7 @@ import type { EtapaArranque, MensajeArranque, TarjetaArranque } from '@/lib/onbo
 export const SESION_VACIA: OfferSesionVista = {
   id: 0, titulo: '', estado: 'conversando', mensajes: [], piezas: {}, docs: [], conclusion: null, versiones: 0,
   ofertaId: null, puedeConcluir: false, updatedAt: '', funnelId: null, funnelNombre: '', ofertaBaseId: null,
-  ofertaBaseNombre: '', modo: 'crear', ofertaGuardadaId: null, ligada: true,
+  ofertaBaseNombre: '', modo: 'crear', ofertaGuardadaId: null, ligada: true, armando: null,
 };
 
 /** Un mensaje del arranque como mensaje del chat de Offer (sin hora: no la tiene). */
