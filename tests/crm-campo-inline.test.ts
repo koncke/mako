@@ -338,9 +338,8 @@ test('⚠️ el guardado campo por campo no puede dejar un estado que el formula
   // devolviendo siempre false → 1 fallo.
   const regla = REGLAS_RESUMEN['plazo-nutricion'].estaVacio;
   const conEtapa = (etapa: string) => ({ etapa, lead: {}, data: {} }) as unknown as Parameters<typeof regla>[0];
-  const puesto = { id: 'plazo-nutricion' as const, ancho: 4 as const, diseno: 'fecha' };
-  assert.equal(regla(conEtapa('manual'), puesto), false, 'en la nutrición manual el plazo se dibuja');
-  assert.equal(regla(conEtapa('agenda'), puesto), true, 'el plazo no está condicionado a la etapa');
+  assert.equal(regla(conEtapa('manual')), false, 'en la nutrición manual el plazo se dibuja');
+  assert.equal(regla(conEtapa('agenda')), true, 'el plazo no está condicionado a la etapa');
   for (const ruta of ['../app/crm/LeadSheet.tsx', '../app/crm/[id]/LeadDetailBody.tsx']) {
     assert.match(leer(ruta), /<FichaPorBloques\b/, `${ruta}: no monta la ficha compartida`);
     assert.doesNotMatch(leer(ruta), /<PlazoNutricionCard/, `${ruta}: monta el plazo a mano, sin la regla de la etapa`);
