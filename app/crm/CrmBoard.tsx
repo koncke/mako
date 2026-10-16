@@ -55,7 +55,6 @@ import {
   markManualNutritionAction,
   markMeetingManualAction,
   bulkFillLeadFieldAction,
-  bulkIgnoreEmpresaAction,
   ignorarPendientesAction,
   reactivarPendientesAction,
   ignorarPendientesMasaAction,
@@ -501,26 +500,11 @@ export function CrmBoard({
   const [campanaFilter, setCampanaFilter] = useState<Set<string>>(() => new Set());
   const [creativoFilter, setCreativoFilter] = useState<Set<string>>(() => new Set());
   const [filtroAbierto, setFiltroAbierto] = useState<FiltroAbierto>(null);
-  // ?pendientes=1 mantiene el worklist abierto: al volver de una ficha (Solucionar)
-  // se restaura la vista de "Datos sin marcar" con su scroll (restauración de Next).
-  const [showSinMarcar, setShowSinMarcar] = useState(sp.get('pendientes') === '1');
-  // "Pendientes" es una VISTA más (reemplaza el tablero entero), así que vive en el
-  // mismo selector que Kanban/Tabla. El query param se mantiene: es el que hace que
-  // volver de una ficha te devuelva al worklist y no al tablero.
-  const irSinMarcar = (abrir: boolean) => {
-    if (abrir === showSinMarcar) return;
-    setShowSinMarcar(abrir);
-    const params = new URLSearchParams(sp.toString());
-    if (abrir) params.set('pendientes', '1'); else params.delete('pendientes');
-    const qs = params.toString();
-    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
-  };
-  const vista: CrmVista = showSinMarcar ? 'pendientes' : view === 'kanban' ? 'kanban' : 'tabla';
-  const cambiarVista = (v: CrmVista) => {
-    if (v === 'pendientes') { irSinMarcar(true); return; }
-    irSinMarcar(false);
-    setView(v === 'kanban' ? 'kanban' : 'table');
-  };
+  // ⚠️ SIN LA VISTA «PENDIENTES» desde el 16/10/2026: «Elimina completamente lo de "/crm?pendientes"... Si quiero ir
+  // a corregir un dato sin marcar se debe abrir la ficha del lead, nunca redirección a otra ruta» (Martín). Los datos
+  // sin marcar se resuelven desde «A revisar» (app/_components/MakoConfirmGate.tsx), que abre la ficha encima.
+  const vista: CrmVista = view === 'kanban' ? 'kanban' : 'tabla';
+  const cambiarVista = (v: CrmVista) => setView(v === 'kanban' ? 'kanban' : 'table');
   const [selectedId, setSelectedId] = useState<number | null>(null);
   /**
    * LO TILDADO, COMPARTIDO POR LAS DOS VISTAS. Un `Set` de ids y no de leads: la lista se
@@ -1057,14 +1041,6 @@ export function CrmBoard({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [altaPendiente, leads]);
 
-  // "Solucionar" un dato sin marcar → abre el wizard IN-PLACE (pop-up), sin salir
-  // del kanban. La pasada única resuelve TODO (reuniones/venta/higiene + Deal
-  // Details + documentos + respuestas R2). El paso final ofrece ver la ficha o salir.
-  const solucionarMarcar = (leadId: number) => {
-    const l = leads.find((x) => x.id === leadId);
-    if (!l) { router.push(`/crm/${leadId}?solucionar=1`); return; }
-    openStageMove(l, { to: effStage(l) });
-  };
 
   // "Nutrición - Manual" desde el worklist: pide MOTIVO antes de guardar.
   const openManualNutri = (leadId: number) => {
@@ -2356,7 +2332,7 @@ export function CrmBoard({
       };
     }
     // En «Pendientes» la barra de lote no se dibuja: ofrecer «Quitar la selección» ahí es limpiar algo que no se ve.
-    return { leadId: null, colKey: null, ctx: { sobre: 'fondo', seleccionados: showSinMarcar ? 0 : elegidos.length } };
+    return { leadId: null, colKey: null, ctx: { sobre: 'fondo', seleccionados: elegidos.length } };
   };
 
   /**
@@ -2865,12 +2841,9 @@ export function CrmBoard({
           diferencia es la caja, no el ancho. Va ANTES de los avisos. El esqueleto (app/crm/loading.tsx)
           dibuja la misma caja. */}
       <div className="crm-tb" style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'nowrap', minWidth: 0, marginBottom: 16, padding: '12px 14px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, boxShadow: '0 1px 2px rgba(18,21,27,.04)' }}>
-        {vista !== 'pendientes' && <SelectorFunnel funnels={funnelsConNombre} activo={funnelActivo} onEditarEtapas={(id, nombre) => setEtapasDe({ id, nombre })} />}
+        <SelectorFunnel funnels={funnelsConNombre} activo={funnelActivo} onEditarEtapas={(id, nombre) => setEtapasDe({ id, nombre })} />
         <VistaSelector vista={vista} onVista={cambiarVista} pendientes={marcarPending} />
-        {/* Buscar, filtrar y el conteo describen la LISTA de leads. En "Pendientes" no
-            hay lista de leads sino un worklist con su propia lógica: dejarlos ahí era
-            ofrecer controles que no hacían nada. */}
-        {vista !== 'pendientes' && <>
+        <>
           <Buscador value={search} onChange={setSearch} />
           <CrmFilterMenu
             stages={stages}
@@ -2888,7 +2861,7 @@ export function CrmBoard({
             } : undefined}
             abierto={filtroAbierto} setAbierto={setFiltroAbierto}
           />
-        </>}
+        </>
         {/* Las reuniones cercanas: después de «Filtrar», y sólo si hay alguna (punto 1 del
             segundo feedback del 12/10/2026). En cualquier vista, como lo era la sección. */}
         <BotonReuniones juntas={juntas} onAbrir={(id) => { const l = leads.find((x) => x.id === id); if (l) openDetail(l); }} />
@@ -2973,7 +2946,7 @@ export function CrmBoard({
           del CRM. ⚠️ Y VA AFUERA de la caja de la tabla, que lleva `overflow: hidden`:
           un sticky adentro de algo que recorta se queda clavado igual que si no lo
           tuviera, con el `position` puesto y sin un solo error. */}
-      {!showSinMarcar && elegidos.length > 0 && (
+      {elegidos.length > 0 && (
         <div style={{ position: 'sticky', top: 8, zIndex: 20, marginBottom: 10 }}>
           <AccionesLoteLeads
             // El clic derecho sobre un tildado pide sus acciones por acá (`manijaLote`, ver `elegirContextual`).
@@ -3002,17 +2975,7 @@ export function CrmBoard({
         </div>
       )}
 
-      {/* DATOS SIN MARCAR */}
-      {showSinMarcar ? (
-        <SinMarcar
-          marcar={marcar}
-          aviso={marcarAviso}
-          equipo={equipo}
-          onSolucionar={solucionarMarcar}
-          onQueHacer={(id) => abrirQueHacer(id)}
-          onBulkDone={() => router.refresh()}
-        />
-      ) : view === 'kanban' ? (
+      {view === 'kanban' ? (
         <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
           {/* ⚠️ CON CERO LEADS SE DIBUJAN LAS COLUMNAS IGUAL, y eso cambió el 28/09/2026.
               Antes, sin tarjetas el Kanban no pintaba NINGUNA columna — y desde que cada
@@ -3941,322 +3904,6 @@ export function CrmBoard({
         />
       )}
     </main>
-  );
-}
-
-// ── Marcar en lote: asigna un dato que se repite (Setter/Closer) a todos ──
-// Los "Datos sin marcar" están dominados por datos iguales para muchos leads
-// (ej. el mismo Setter). En vez de abrir 400 fichas, se asigna de una — con el
-// MISMO formulario simple (desplegable del equipo) que la ficha y el wizard.
-function BulkHigiene({ marcar, equipo, onDone }: {
-  marcar: CrmMarcar[];
-  equipo: MiembroEquipo[];
-  onDone: () => void;
-}) {
-  const [pending, startTransition] = useTransition();
-  const [flash, setFlash] = useState<string | null>(null);
-  const [open, setOpen] = useState<{ field: 'setter' | 'closer'; label: string; ids: number[] } | null>(null);
-  const [openEmpresa, setOpenEmpresa] = useState(false);
-  // Mismo caso que los dos de CrmBoard: estaba en `zIndex: 100` contra una pila
-  // que arranca en 130.
-  const capaBulk = useCapaModal(!!open);
-  const [openIgnorar, setOpenIgnorar] = useState(false);
-  const [sel, setSel] = useState('');
-  // Confirmación del "asignar en lote": guarda el valor elegido para poder
-  // nombrarlo en la pregunta ("Asignar Setter «Mauricio» a 12 leads").
-  const [aAsignar, setAAsignar] = useState<{ field: 'setter' | 'closer'; label: string; value: string; ids: number[] } | null>(null);
-
-  const idsCon = (stepId: string) => marcar.filter((m) => m.faltantes?.some((f) => f.id === stepId)).map((m) => m.leadId);
-  const grupos = ([
-    { field: 'setter', label: 'Setter', ids: idsCon('setter') },
-    { field: 'closer', label: 'Closer', ids: idsCon('closer') },
-  ] as const).filter((g) => g.ids.length > 0);
-  const idsEmpresa = idsCon('empresa');
-  // "Ignorar todos": los datos sin marcar de verdad (tipo A). La nutrición manual
-  // vencida (M) no se ignora en masa — tiene su propia resolución.
-  // Ni la nutrición manual vencida (M) ni la reunión pasada sin desenlace (R) se
-  // pueden ignorar: son leads TRABADOS esperando una decisión, no datos de más.
-  const idsIgnorar = marcar.filter((m) => m.tipo !== 'M' && m.tipo !== 'R').map((m) => m.leadId);
-
-  if (!grupos.length && !idsEmpresa.length && !idsIgnorar.length) return null;
-
-  const abrir = (g: { field: 'setter' | 'closer'; label: string; ids: number[] }) => { setSel(''); setFlash(null); setOpen(g); };
-
-  const ignorarEmpresa = () => {
-    startTransition(async () => {
-      try {
-        const r = await bulkIgnoreEmpresaAction(idsEmpresa);
-        setOpenEmpresa(false);
-        setFlash(`✓ Empresa ignorada en ${r.updated} lead${r.updated === 1 ? '' : 's'} — ya no la pide el CRM (sigue en la ficha).`);
-        onDone();
-      } catch (e) {
-        // Cerrar también al fallar: si no, el aviso queda tapado por el backdrop.
-        setOpenEmpresa(false);
-        setFlash(`No se pudo: ${e instanceof Error ? e.message : 'error'}`);
-      }
-    });
-  };
-
-  const ignorarTodos = () => {
-    startTransition(async () => {
-      try {
-        const r = await ignorarPendientesMasaAction(idsIgnorar);
-        setOpenIgnorar(false);
-        setFlash(`✓ ${r.updated} lead${r.updated === 1 ? '' : 's'} ignorado${r.updated === 1 ? '' : 's'} — salen del worklist (siguen con sus avisos en la ficha, reversible).`);
-        onDone();
-      } catch (e) {
-        setOpenIgnorar(false);
-        setFlash(`No se pudo: ${e instanceof Error ? e.message : 'error'}`);
-      }
-    });
-  };
-
-  const confirmar = () => {
-    if (!aAsignar) return;
-    const { field, ids, label, value } = aAsignar;
-    startTransition(async () => {
-      try {
-        const r = await bulkFillLeadFieldAction(field, value, ids);
-        setAAsignar(null);
-        setOpen(null);
-        setFlash(r.updated === 0
-          ? `Sin cambios: esos leads ya tenían ${label} cargado.`
-          : `✓ ${label} «${value}» asignado a ${r.updated} lead${r.updated === 1 ? '' : 's'}.`);
-        onDone();
-      } catch (e) {
-        setAAsignar(null);
-        setOpen(null);
-        setFlash(`No se pudo: ${e instanceof Error ? e.message : 'error'}`);
-      }
-    });
-  };
-
-  const opts: DropdownOption[] = equipo.map((m) => ({ value: m.nombre, label: m.nombre, avatar: m.foto_url ?? null }));
-  const btn: CSSProperties = { padding: '9px 16px', borderRadius: 10, border: 'none', fontSize: 13.5, fontWeight: 700, cursor: 'pointer', fontFamily: SANS };
-
-  return (
-    <div style={{ background: 'var(--surface)', border: '1px solid var(--primary)', borderRadius: 16, padding: 'var(--card-pad)', marginBottom: 16 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-        <span aria-hidden style={{ fontSize: 16 }}>⚡</span>
-        <h3 style={{ fontWeight: 700, fontSize: 17, margin: 0, color: 'var(--ink)' }}>Marcar en lote</h3>
-      </div>
-      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-        {grupos.map((g) => (
-          <button key={g.field} type="button" onClick={() => abrir(g)} style={{ ...btn, background: 'var(--primary)', color: '#fff' }}>
-            Asignar {g.label} · {g.ids.length}
-          </button>
-        ))}
-        {idsEmpresa.length > 0 && (
-          <button type="button" onClick={() => { setFlash(null); setOpenEmpresa(true); }} style={{ ...btn, background: 'var(--surface)', color: 'var(--dim)', border: '1px solid var(--border-strong)' }}>
-            Ignorar Empresa · {idsEmpresa.length}
-          </button>
-        )}
-        {idsIgnorar.length > 0 && (
-          <button type="button" onClick={() => { setFlash(null); setOpenIgnorar(true); }} style={{ ...btn, background: 'var(--surface)', color: 'var(--dim)', border: '1px solid var(--border-strong)' }}>
-            Ignorar todos · {idsIgnorar.length}
-          </button>
-        )}
-      </div>
-      {flash && <div style={{ marginTop: 10, fontSize: 13.5, fontWeight: 600, color: flash.startsWith('✓') ? 'var(--good)' : flash.startsWith('Sin cambios') ? 'var(--dim)' : 'var(--bad)' }}>{flash}</div>}
-
-      {open && (
-        <div onClick={() => !pending && setOpen(null)} style={{ position: 'fixed', inset: 0, zIndex: capaBulk.z, background: 'rgba(18,21,27,.5)', backdropFilter: 'blur(2px)', display: capaBulk.visible ? 'flex' : 'none', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-          <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 460, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, boxShadow: '0 30px 70px rgba(18,21,27,.35)', padding: '22px 24px' }}>
-            <h3 style={{ fontWeight: 700, fontSize: 18, margin: '0 0 4px', color: 'var(--ink)' }}>Asignar {open.label} a {open.ids.length} lead{open.ids.length === 1 ? '' : 's'}</h3>
-            <p style={{ fontSize: 13, color: 'var(--dim)', margin: '0 0 16px', lineHeight: 1.45 }}>
-              {open.field === 'setter' ? 'El que agendó la reunión.' : 'El que corrió la llamada de venta.'} Elígelo de tu equipo. Solo rellena los que están vacíos.
-            </p>
-            {equipo.length > 0 ? (
-              <Dropdown value={sel} options={opts} onChange={setSel} placeholder="Elige del equipo…" width="100%" ariaLabel={open.label} />
-            ) : (
-              <div style={{ fontSize: 13, color: 'var(--dim)', lineHeight: 1.5, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, padding: '12px 14px' }}>
-                Todavía no tienes equipo configurado. Agrega a tus setters y closers en <b>Configuraciones › Equipo</b> y después vas a poder asignarlos aquí.
-              </div>
-            )}
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 20 }}>
-              <button type="button" disabled={pending} onClick={() => setOpen(null)} style={{ ...btn, background: 'var(--surface)', color: 'var(--dim)', border: '1px solid var(--border-strong)' }}>Cancelar</button>
-              <button type="button" disabled={pending || !sel.trim()} onClick={() => setAAsignar({ ...open, value: sel.trim() })}
-                style={{ ...btn, background: sel.trim() && !pending ? 'var(--primary)' : 'var(--surface-2)', color: sel.trim() && !pending ? '#fff' : 'var(--faint)' }}>
-                {pending ? 'Asignando…' : `Asignar a los ${open.ids.length}`}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Las dos acciones en lote que TOCAN leads pasan por LA confirmación de la
-          app, con el número exacto en el título — no por un modal propio. */}
-      {openEmpresa && (
-        <ConfirmDialog
-          title={`Ignorar Empresa en ${idsEmpresa.length} lead${idsEmpresa.length === 1 ? '' : 's'}`}
-          // El porqué —que la empresa muchas veces no se tiene, que el aviso sigue
-          // vivo adentro de cada ficha y que se puede reactivar— vive acá y no en el
-          // modal: son 33 palabras para una acción reversible, y el techo de una
-          // confirmación es UNA frase con la consecuencia (AGENTS.md).
-          message="Deja de contar en el CRM. El aviso sigue en cada ficha."
-          confirmLabel={`Ignorar en los ${idsEmpresa.length}`}
-          loading={pending}
-          onConfirm={ignorarEmpresa}
-          onCancel={() => setOpenEmpresa(false)}
-        />
-      )}
-
-      {openIgnorar && (
-        <ConfirmDialog
-          title={`Ignorar los datos sin marcar de ${idsIgnorar.length} lead${idsIgnorar.length === 1 ? '' : 's'}`}
-          message="Salen del worklist. Sus avisos siguen en cada ficha."
-          confirmLabel={`Ignorar los ${idsIgnorar.length}`}
-          loading={pending}
-          onConfirm={ignorarTodos}
-          onCancel={() => setOpenIgnorar(false)}
-        />
-      )}
-
-      {/* Asignar en lote ya se explica solo en su form (dice el campo y a cuántos
-          leads), pero el paso final vuelve a decirlo CON el valor elegido: es un
-          write sobre decenas de fichas y el nombre recién se sabe acá. */}
-      {aAsignar && (
-        <ConfirmDialog
-          title={`Asignar ${aAsignar.label} «${aAsignar.value}» a ${aAsignar.ids.length} lead${aAsignar.ids.length === 1 ? '' : 's'}`}
-          message="Solo se rellenan los que están vacíos: nunca pisa un valor cargado a mano. Cada asignación queda en el historial del lead."
-          confirmLabel={`Asignar a los ${aAsignar.ids.length}`}
-          tone="primary"
-          loading={pending}
-          onConfirm={confirmar}
-          onCancel={() => setAAsignar(null)}
-        />
-      )}
-    </div>
-  );
-}
-
-// ── Datos sin marcar (worklist) ──
-function SinMarcar({
-  marcar, aviso = '', equipo, onSolucionar, onQueHacer, onBulkDone,
-}: {
-  marcar: CrmMarcar[];
-  /** Texto de "esta lista puede estar incompleta". Vacío = se leyó todo. */
-  aviso?: string;
-  equipo: MiembroEquipo[];
-  onSolucionar: (leadId: number) => void;
-  onQueHacer: (leadId: number) => void;
-  onBulkDone: () => void;
-}) {
-  // ⚠️ ÁMBAR, NO ROJO — y es la fila «Pendientes pintado del color de los errores»
-  // del plan de fricción, que estaba marcada como aplicada sin un solo cambio en el
-  // código. El worklist es trabajo POR HACER; el rojo de esta casa es el de «Perdido»
-  // y el de los errores. Con el mismo color, la pantalla que más se mira del CRM se
-  // lee como una lista de cosas rotas — y un rojo permanente se deja de ver.
-  //
-  // Es el mismo cambio que ya se le hizo al aviso de la ficha; acá quedó a medias.
-  //
-  // `--warn` (#B4530E) y no `--warn-fill` (#EE7B1C): el relleno naranja es para barras
-  // y chips sin texto encima — con blanco arriba da 2,6:1. El oscuro es el legible, y
-  // es para lo que existe (ver el comentario de los tokens en app/globals.css).
-  const btn: CSSProperties = { flex: 'none', padding: '9px 18px', borderRadius: 10, border: 'none', background: 'var(--warn)', color: '#fff', fontSize: 13.5, fontWeight: 700, cursor: 'pointer', fontFamily: SANS };
-  const ghost: CSSProperties = { flex: 'none', padding: '9px 14px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer', fontFamily: SANS };
-  const [ignorando, startIgnorar] = useTransition();
-  const [ignId, setIgnId] = useState<number | null>(null);
-  const { toast, show, clear } = useToast();
-  // ⚠️ IGNORAR NO PREGUNTA, AVISA CON DESHACER (27/09/2026). Antes abría un
-  // ConfirmDialog de tres renglones sobre algo que el propio texto declaraba
-  // reversible — y es la acción que MÁS se usa del worklist (21 leads ignorados en
-  // el workspace del dueño). La red no se pierde: el toast deja la salida puesta
-  // cinco segundos, que es la misma regla que ya declara app/_ui/Toast.tsx.
-  const ignorar = (m: CrmMarcar) => {
-    setIgnId(m.leadId);
-    startIgnorar(async () => {
-      try {
-        await ignorarPendientesAction(m.leadId);
-        onBulkDone();
-        // Tres palabras y el nombre: qué pasó y a quién. El porqué (sigue en la
-        // ficha, se puede reactivar) no va acá — va en el comentario y en la ficha.
-        show(<>Ignorado · <b>{m.name}</b></>, () => deshacerIgnorar(m.leadId));
-      } catch (e) {
-        show(`No se pudo ignorar: ${e instanceof Error ? e.message : 'error'}`, undefined, 'bad');
-      } finally { setIgnId(null); }
-    });
-  };
-
-  // Deshacer escribe en el SERVER, no solo en la pantalla: lo ignorado ya se guardó,
-  // así que revertir solo el estado local sería mentir hasta el próximo F5.
-  const deshacerIgnorar = (leadId: number) => {
-    startIgnorar(async () => {
-      try { await reactivarPendientesAction(leadId); onBulkDone(); }
-      catch (e) { show(`No se pudo deshacer: ${e instanceof Error ? e.message : 'error'}`, undefined, 'bad'); }
-    });
-  };
-  return (
-    <div>
-      <BulkHigiene marcar={marcar} equipo={equipo} onDone={onBulkDone} />
-      <div style={{ background: 'var(--surface)', border: '1px solid var(--warn)', borderRadius: 16, padding: 'var(--card-pad)' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
-        <h2 style={{ fontWeight: 600, fontSize: 23, letterSpacing: '-0.015em', margin: 0, color: 'var(--ink)' }}>Datos sin marcar</h2>
-        <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 600, padding: '3px 10px', borderRadius: 999, background: 'var(--warn-bg)', border: '1px solid var(--warn)', color: 'var(--warn)' }}>{marcar.length}</span>
-      </div>
-      {aviso && marcar.length > 0 && (
-        <div style={{ marginBottom: 14, padding: '10px 14px', borderRadius: 10, background: 'var(--warn-fill)', border: '1px solid var(--warn)', color: 'var(--ink)', fontSize: 13, lineHeight: 1.45 }}>
-          {aviso}
-        </div>
-      )}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {marcar.map((m) => (
-          <div key={m.id} style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '15px 18px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
-              {/* ⚠️ LA FILA NO ES EL MENSAJE DEL SERVER. Ese mensaje trae el detalle
-                  pegado al final y con 20 pendientes son 20 párrafos donde lo único
-                  que cambia está al final. Se parte en dos: el motivo como texto y
-                  los faltantes como chips (`./worklist-fila`). El dato no se toca —
-                  `mensaje` sigue entero para los avisos y para «Marcar en lote». */}
-              <div style={{ minWidth: 240, flex: 1 }}>
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
-                  <span style={{ fontWeight: 600, fontSize: 15.5, color: 'var(--ink)' }}>{m.name}</span>
-                  {m.company && <span style={{ fontSize: 12.5, color: 'var(--dim)' }}>{m.company}</span>}
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap', marginTop: 5 }}>
-                  {motivoCorto(m.message) && (
-                    <span style={{ fontSize: 13, color: 'var(--dim)' }}>{motivoCorto(m.message)}</span>
-                  )}
-                  {(() => {
-                    const { chips, resto } = chipsFaltantes(m.faltantes);
-                    return (<>
-                      {chips.map((f) => (
-                        <span key={f.id} style={{ flex: 'none', fontSize: 11.5, fontWeight: 600, color: 'var(--dim)', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 999, padding: '2px 9px' }}>{f.label}</span>
-                      ))}
-                      {resto > 0 && (
-                        <span style={{ flex: 'none', fontSize: 11.5, color: 'var(--dim)' }}>+{resto}</span>
-                      )}
-                    </>);
-                  })()}
-                </div>
-              </div>
-              {/* Solucionar abre el wizard de datos. La nutrición manual vencida
-                  pregunta "¿qué hacer ahora?" (elegir la etapa destino). "Ignorar"
-                  saca el lead del worklist (sigue con sus avisos en la ficha). */}
-              {m.tipo === 'M' || m.tipo === 'R'
-                ? <button type="button" style={{ ...btn, background: 'var(--warn-fill)' }} onClick={() => onQueHacer(m.leadId)}>¿Qué hacer ahora?</button>
-                : (
-                  <div style={{ display: 'flex', gap: 8, flex: 'none' }}>
-                    <button type="button" style={btn} onClick={() => onSolucionar(m.leadId)}>Solucionar</button>
-                    <button type="button" style={ghost} disabled={ignorando && ignId === m.leadId} onClick={() => { clear(); ignorar(m); }}>
-                      {ignorando && ignId === m.leadId ? 'Ignorando…' : 'Ignorar'}
-                    </button>
-                  </div>
-                )}
-            </div>
-          </div>
-        ))}
-        {/* El ✓ verde es una AFIRMACIÓN, y solo se puede hacer si la lista se pudo
-            calcular entera. Con una lectura caída la lista también llega vacía, y
-            celebrar ahí es el peor final posible: el usuario deja de mirar. */}
-        {marcar.length === 0 && (aviso
-          ? <div style={{ padding: 28, textAlign: 'center', color: 'var(--warn)', fontSize: 14.5, fontWeight: 600, lineHeight: 1.5 }}>{aviso}<br /><span style={{ fontWeight: 500, color: 'var(--dim)', fontSize: 13 }}>Recarga en un momento: no se puede afirmar que no haya nada pendiente.</span></div>
-          : <div style={{ padding: 36, textAlign: 'center', color: 'var(--good)', fontSize: 15.5, fontWeight: 600 }}>✓ Todo marcado — datos al día.</div>)}
-      </div>
-      </div>
-
-      <Toast state={toast} onClose={clear} />
-    </div>
   );
 }
 
