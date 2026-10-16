@@ -24,6 +24,10 @@
 //   - el plan de arranque (lib/todo-seed-ia.ts) sin redDePlataforma              → 3/1
 //   - Productos (lib/productos-ia.ts) sin redDePlataforma                        → 3/1
 //   - un paso con IA nuevo (`avatares`) en una capa que tiene el paso de la IA   → 3/1
+// Y el 16/10/2026, con el test de «nada corta antes de la red» (base 5/0), que la versión de arriba no
+// tenía y por eso dio verde con El Archivero cortando a los clientes sin keys:
+//   - vuelve el corte «sin IA → carga tu key» en la subida de archivos          → 4/1
+//   - vuelve el corte en la lectura de una web                                  → 4/1
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -79,6 +83,19 @@ test('todo lo que viene después del paso de la IA corre con la red de la plataf
         assert.match(leer(f), /redDePlataforma: true/, `${f} (paso ${paso}) no tiene red: un cliente sin keys se traba ahí`);
       }
     }
+  }
+});
+
+test('NADA corta antes de la red: ningún «sin IA propia → carga tu key» en el camino del arranque', () => {
+  // ⚠️ La versión del 15/10 de este test sólo miraba que `redDePlataforma: true` estuviera escrito, y
+  // daba VERDE con El Archivero cortando ANTES: tres `if (!(await docsIADisponible()))` devolvían
+  // «Carga tu API key de Gemini» y la red no corría nunca. Un cliente sin keys que salteaba el paso de
+  // la IA quedaba trabado en El Archivero, que es bloqueante (medido el 16/10/2026).
+  const archivos = [...new Set([...Object.values(CON_IA).flat(), 'lib/todo-seed-ia.ts'])];
+  for (const f of archivos) {
+    const src = sinComentarios(leer(f));
+    assert.doesNotMatch(src, /if \(!\(await (docsIADisponible|cheapDisponible|sttDisponible)\(\)/,
+      `${f} corta a quien no tiene IA propia ANTES de probar la red: un cliente nuevo sin API se traba ahí`);
   }
 });
 
