@@ -1,5 +1,5 @@
 -- =============================================================================
--- 0303 — Los adjuntos de un mensaje del chat con MaKo, guardados (`chart_chats.bloques`)
+-- 0305 — Los adjuntos de un mensaje del chat con MaKo, guardados (`chart_chats.bloques`)
 -- =============================================================================
 -- ⚠️ ORDEN DE DESPLIEGUE: ANTES, JUNTO o DESPUÉS del deploy que trae los adjuntos del Second Brain: agrega una
 -- columna y no saca nada, y el código la tolera ausente. Sin la columna, el chat anda igual que antes: la foto o el

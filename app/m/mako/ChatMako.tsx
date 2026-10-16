@@ -193,7 +193,7 @@ export function ChatMako({ sesionesIniciales, inicial, hrefMapa = null }: {
         return;
       }
       const r = l.datos;
-      // Los archivos volvieron guardados (mig 0303): la burbuja pasa a mostrarlos como quedaron.
+      // Los archivos volvieron guardados (mig 0305): la burbuja pasa a mostrarlos como quedaron.
       const guardados = archivosDeRespuesta(r);
       marcar(idU, { estado: undefined, error: undefined, ...(guardados.length ? { archivos: guardados, adjuntos: undefined } : {}) });
       setItems((xs) => {

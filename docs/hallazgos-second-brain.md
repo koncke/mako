@@ -48,9 +48,11 @@ Tanda 4 de la etapa 2 (docs/diseno-mako-ai-native.md). Pedido de Martín: «los 
   `3/chat/abc`.
 - **Pegar desde Excel o Word trae texto Y una imagen.** Interceptar los archivos del portapapeles sin mirar si hay
   `text/plain` le robaba el texto a la persona.
-- La migración 0303 sólo agrega, y el código la tolera ausente: sin la columna el mensaje se guarda sin bloques y el
-  binario se borra en el acto. La 0299 que decía el plan ya la había tomado Video Editor (y del 0300 al 0302 están en
-  integración).
+- La migración 0305 sólo agrega, y el código la tolera ausente: sin la columna el mensaje se guarda sin bloques y el
+  binario se borra en el acto.
+- **El número de una migración lo da el Cerebro, no un barrido.** Salió como 0303 después de recorrer todas las ramas
+  y los worktrees: estaba libre en todos. Pero 0303-0304 estaban RESERVADAS para el Image Editor, sin archivo en
+  ningún árbol, y la 0299 del plan ya era de Video Editor. Quedó 0305.
 
 **SIN HACER:**
 - `chart_sessions.previa` (la segunda línea de la barra), que pedía el plan: no se hizo.

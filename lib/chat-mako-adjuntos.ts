@@ -5,7 +5,7 @@
 // archivero»). Lo que decide —la forma del bloque, qué path vale— está en lib/chat-mako-bloques.ts (puro, con test).
 //
 // ⚠️ EL BINARIO NUNCA QUEDA SUELTO: se sube ANTES de guardar el mensaje (la referencia va en el mismo insert) y, si el
-//    mensaje se guarda sin ella (la 0303 sin aplicar), quien lo subió lo borra en el acto (lib/mako-turno-app.ts).
+//    mensaje se guarda sin ella (la 0305 sin aplicar), quien lo subió lo borra en el acto (lib/mako-turno-app.ts).
 //    Se va con la conversación (`deleteSession`, lib/chart-chats.ts).
 // ⚠️ UN PDF DEL ADMIN TAMBIÉN VA A EL ARCHIVERO, como el chat de Offer (decisión de Martín, Ticketera 15/10/2026
 //    05:32, ref `offer-archivero`: «¿El Archivero del chat guarda el archivo y paga una extracción por documento? → A

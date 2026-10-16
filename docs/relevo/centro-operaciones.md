@@ -15,13 +15,15 @@ entero quedó en el scratchpad de la sesión, que no viaja):
 | 1 | La pieza única en `/second-brain` (jefe «Second Brain» y sus sub-chats, conversación, caja) | `ad60dedfa` + `a26929c4d` |
 | 2 | «Pregúntale a MaKo» es el Second Brain; `/mako` y `/mako-doer` redirigen; «Antes» | `1af0906b6` + `1971c9a89` |
 | 3 | El teléfono: `/m/second-brain` es el chat, el Mapa en `/m/second-brain/mapa` | `36fcaa16e` |
-| 4 | Los adjuntos se guardan en el Archivero (mig **0303**) + lo que encontró la revisión | `4da56c37c` + `129eed9b9` |
+| 4 | Los adjuntos se guardan en el Archivero (mig **0305**) + lo que encontró la revisión | `4da56c37c` + `129eed9b9` |
 | 7, 8, 9, 10 | La parte de SERVIDOR, sin pantalla todavía (abajo) | el commit de este relevo |
 | 5, 6 | Sin empezar | — |
 
-⚠️ **La migración 0303 (`chart_chats.bloques`) hay que aplicarla** (`node scripts/apply-migration.mjs
-supabase/migrations/0303_chart_chats_bloques.sql`). Sólo agrega y el código la tolera ausente: sin ella los adjuntos le
-llegan a MaKo pero no vuelven al recargar. La 0299 que decía el plan la tomó Video Editor; 0300-0302 están en integración.
+⚠️ **La migración 0305 (`chart_chats.bloques`) la aplica el Cerebro** (`node scripts/apply-migration.mjs
+supabase/migrations/0305_chart_chats_bloques.sql`). Sólo agrega y el código la tolera ausente: sin ella los adjuntos le
+llegan a MaKo pero no vuelven al recargar. El número lo dio el Cerebro: la 0299 es de Video Editor, 0300-0302 del Plan y
+del Video Editor, y 0303-0304 están RESERVADAS para el Image Editor sin estar en ningún árbol (salió como 0303 y se
+renumeró el 16/10).
 
 **Lo que sigue, en este orden** (cada uno con su archivo listo):
 1. **Tanda 10, «entender el pedido»** (`/api/mako/pedidos` ya está en main). La regla pura está: `linksDePedidos`
@@ -45,8 +47,8 @@ llegan a MaKo pero no vuelven al recargar. La 0299 que decía el plan la tomó V
    Centro como adaptador de la pieza; es la herramienta diaria de Martín: probar las tres cuentas). Después, la
    **etapa 5** (chats y creaciones como nodos del grafo, con el layout guardado).
 
-**SIN HACER que no es de la etapa:** retirar `/api/mako-doer` (sin pantalla desde la tanda 2); la guarda de PII en el
-turno con herramientas (área de IA, reportado al Cerebro); el hilo del teléfono no dibuja listas de Markdown.
+**SIN HACER que no es de la etapa:** retirar `/api/mako-doer` (sin pantalla desde la tanda 2); el hilo del teléfono no dibuja
+listas de Markdown. (La guarda de PII en el turno con herramientas ya la hizo Onboarding, `08892dc41`.)
 
 **Lo que necesita a Martín:** renombrar los «Estrategia 3 cuentas» de las otras cuentas a «Cerebro» (con «⋯ Renombrar»:
 firma su dispositivo); la prueba de punta a punta de un trabajo firmado; abrir los Runners de terminal (abajo); el OK para

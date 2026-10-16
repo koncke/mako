@@ -30,7 +30,7 @@ import { GRAMATICA } from '@/lib/mako-gramatica';
 // ── El hilo ──────────────────────────────────────────────────────────────────
 
 /**
- * Un archivo de un mensaje de la persona. Guardado (mig 0303): `ref`, que se pide a /api/mako/chat?adjunto=. Recién
+ * Un archivo de un mensaje de la persona. Guardado (mig 0305): `ref`, que se pide a /api/mako/chat?adjunto=. Recién
  * elegido, mientras sale: `local`, la vista previa del navegador (un `blob:`), que no se guarda.
  */
 export type ArchivoHilo = { nombre: string; tipo: TipoAdjunto; ref?: string; local?: string; archivero?: EstadoArchivero };

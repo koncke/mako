@@ -135,7 +135,7 @@ export async function setArchived(id: number, archived: boolean): Promise<void> 
 }
 export async function deleteSession(id: number): Promise<void> {
   const supabase = (await getTenantDb());
-  // Los adjuntos guardados de la conversación (mig 0303) se van con ella: el binario no queda suelto en el bucket.
+  // Los adjuntos guardados de la conversación (mig 0305) se van con ella: el binario no queda suelto en el bucket.
   const { data: conBloques } = await supabase.from('chart_chats').select('bloques').eq('session_id', id).not('bloques', 'is', null);
   const paths = (conBloques ?? []).flatMap((r) => (Array.isArray((r as { bloques?: unknown }).bloques) ? (r as { bloques: unknown[] }).bloques : []))
     .map((b) => (b && typeof b === 'object' ? (b as { path?: unknown }).path : null)).filter(esRutaDeChatDeAlguno);
@@ -157,9 +157,9 @@ export async function getSessionMessages(sessionId: number): Promise<ChartMsg[]>
 }
 
 /**
- * Guarda un mensaje. Devuelve su id y si quedaron sus `bloques` (los adjuntos, mig 0303).
+ * Guarda un mensaje. Devuelve su id y si quedaron sus `bloques` (los adjuntos, mig 0305).
  *
- * ⚠️ SIN LA COLUMNA `bloques` (un deploy antes de la 0303) EL MENSAJE IGUAL SE GUARDA, sin ellos, y vuelve
+ * ⚠️ SIN LA COLUMNA `bloques` (un deploy antes de la 0305) EL MENSAJE IGUAL SE GUARDA, sin ellos, y vuelve
  *    `conBloques: false`: quien subió los binarios los borra. Lo que escribió la persona no se pierde nunca por esto.
  */
 export async function appendMessage(
@@ -183,7 +183,7 @@ export async function appendMessage(
 /** El bucket de los adjuntos del chat (el de El Archivero; la carpeta es `<ws>/chat/`, lib/chat-mako-bloques.ts). */
 export const BUCKET_ADJUNTOS = 'archivero';
 
-/** ¿El error es de una columna `bloques` que la base todavía no tiene (la 0303 sin aplicar)? */
+/** ¿El error es de una columna `bloques` que la base todavía no tiene (la 0305 sin aplicar)? */
 function faltaLaColumna(e: { code?: string; message?: string }): boolean {
   return (e.code === '42703' || e.code === 'PGRST204') && /bloques/.test(e.message ?? '');
 }
@@ -193,7 +193,7 @@ export type ChartMsgConBloques = ChartMsg & { id: number; bloques: unknown };
 
 /**
  * Los mensajes de una conversación con su id y sus `bloques`. Para el chat con MaKo (lib/mako-turno-app.ts): el
- * resto de la casa sigue con `getSessionMessages`, que no los trae. Sin la columna (la 0303 sin aplicar), sin bloques.
+ * resto de la casa sigue con `getSessionMessages`, que no los trae. Sin la columna (la 0305 sin aplicar), sin bloques.
  */
 export async function getSessionMessagesConBloques(sessionId: number): Promise<ChartMsgConBloques[]> {
   const supabase = (await getTenantDb());

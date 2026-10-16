@@ -210,7 +210,7 @@ export type EntradaTurnoApp = {
    */
   contexto?: string;
   /**
-   * Guardar los archivos (mig 0303) y pasar los PDF del admin a El Archivero. Lo prenden SÓLO el Second Brain y el chat
+   * Guardar los archivos (mig 0305) y pasar los PDF del admin a El Archivero. Lo prenden SÓLO el Second Brain y el chat
    * del teléfono (las rutas /api/mako/chat y /api/m/mako). Sin esto, el turno de siempre: los lee y no los guarda.
    */
   guardarAdjuntos?: boolean;
@@ -262,7 +262,7 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     const previos = await getSessionMessages(s.id);
 
     // LO QUE ESCRIBIÓ LA PERSONA SE GUARDA SIEMPRE, antes del modelo.
-    // Los archivos se guardan (mig 0303): el binario ANTES, y su referencia en el mismo insert del mensaje
+    // Los archivos se guardan (mig 0305): el binario ANTES, y su referencia en el mismo insert del mensaje
     // (lib/chat-mako-adjuntos.ts). Si el mensaje quedó sin ella, el binario no queda suelto.
     const guardados: MensajeChat[] = [];
     // ⚠️ SÓLO SI QUIEN LLAMA LO PIDE (`guardarAdjuntos`): el Second Brain y el chat del teléfono. El MaKo Analyst de un

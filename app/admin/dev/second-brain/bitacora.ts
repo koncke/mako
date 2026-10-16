@@ -327,7 +327,7 @@ export const BITACORA: Hito[] = [
     ],
     archivos: [
       'lib/chat-mako-bloques.ts, chat-mako-adjuntos.ts — los adjuntos',
-      'supabase/migrations/0303_chart_chats_bloques.sql — la columna',
+      'supabase/migrations/0305_chart_chats_bloques.sql — la columna',
       'app/_chat/ArchivosHilo.tsx — la miniatura y la ficha',
     ],
   },

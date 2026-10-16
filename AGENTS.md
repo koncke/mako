@@ -638,6 +638,9 @@ fuera un hecho. Va en las DOS direcciones, y la segunda es la que no se nota:
   número después de recorrer `git worktree list` y listar cada `supabase/migrations/`. Si
   renumerás, borrá el archivo viejo del clon: un `0190_secuencia_cron.sql` huérfano en otro
   worktree se aplica solo el día que alguien corre las migraciones en orden.
+  ⚠️ **Y hay números RESERVADOS que no están en ningún árbol.** El 16/10/2026 la 0303 estaba libre en todas las ramas y
+  todos los worktrees, y era del Image Editor (0303-0304, reservadas por el coordinador). Con un coordinador
+  («Cerebro»), el número se le pide a él antes de nombrar el archivo; el barrido sólo confirma.
 - ⚠️ **`git add <ruta>` NO acota el commit: se commitea TODO el índice.** Si otra sesión ya
   stageó algo, `git add mi-archivo && git commit` se lo lleva adentro de tu commit, con tu
   mensaje y tu trailer. Pasó el 05/10/2026: un commit de docs salió con una baja ajena de 430

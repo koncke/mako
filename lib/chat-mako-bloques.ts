@@ -3,7 +3,7 @@
 // =============================================================================
 // Etapa 2 de docs/diseno-mako-ai-native.md, tanda 4 (16/10/2026): una foto o un PDF que la persona le manda a MaKo
 // (Second Brain en la computadora, o el chat del teléfono) se guarda. El binario va al bucket privado `archivero`
-// en `<ws>/chat/<uuid>`; en `chart_chats.bloques` (mig 0303) queda la referencia. Lo escribe el server
+// en `<ws>/chat/<uuid>`; en `chart_chats.bloques` (mig 0305) queda la referencia. Lo escribe el server
 // (lib/chat-mako-adjuntos.ts) y lo lee la ruta del adjunto (/api/mako/chat?adjunto=).
 //
 // ⚠️ LO QUE SE LEE DE LA BASE SE SANEA ANTES DE USARLO: el `path` de un bloque es lo que se firma, así que tiene que

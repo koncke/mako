@@ -288,7 +288,7 @@ export const TEXTO_SOLO_TARJETA = 'Te lo dejé listo para que lo confirmes.';
 
 export type MensajeChat = {
   role: 'user' | 'assistant'; content: string; created_at?: string;
-  /** Los archivos guardados del mensaje (mig 0303, lib/chat-mako-bloques.ts): sin el path; no van al modelo. */
+  /** Los archivos guardados del mensaje (mig 0305, lib/chat-mako-bloques.ts): sin el path; no van al modelo. */
   adjuntos?: AdjuntoVisible[];
 };
 
