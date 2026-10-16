@@ -48,6 +48,9 @@ export const HECHO: SeccionChecklist[] = [
     { id: 'crm-resumen', t: 'Resumen nuevo: 19 bloques editables con Deshacer y 10 plantillas (cambia el diseño de todos).' },
     { id: 'crm-pagos', t: 'Tab Pagos rehecha: estado de cuenta, cuotas con botones, Movimientos y 4 plantillas.' },
     { id: 'crm-calendly', t: 'Un evento de Calendly o Cal.com se vincula a una etapa de reunión (por la API de MaKo).' },
+    { id: 'crm-asignar-campanas', t: '«⋯» de «Lead entrante»: «Asignar campañas» con el logo de Meta.' },
+    { id: 'crm-a-revisar-1610', t: '«A revisar»: número junto al nombre, basurero rojo, «Ignorar todos»; «Revisar» abre el «Ver».' },
+    { id: 'crm-cabecera-1610', t: 'Cabecera del lead sin «Sin empresa», con la foto grande y el nombre pegado, como en Clientes.' },
   ] },
   { titulo: 'Automations', items: [
     { id: 'aut-flechas', t: 'Toda flecha se desconecta; el paso con IA escucha notas de voz.', ruta: '/automations' },
@@ -92,5 +95,18 @@ export const PENDIENTE: SeccionChecklist[] = [
     { id: 'p-doer-pii', t: 'Onboarding: cortar la IA gratis del chat de WhatsApp cuando lee datos de leads.' },
     { id: 'p-web-producto', t: 'Web Generator: preguntar el producto con texto libre cuando no está cargado.' },
     { id: 'p-pagos-cs', t: 'Pagos: dos ajustes chicos y Customer Success en bloques, junto con CRM.' },
+  ] },
+  // Feedback del 16/10 a la tarde: textual y con su archivo en docs/feedback-16-10-crm-onboarding-second-brain.md.
+  { titulo: 'Tu feedback del 16/10 a la tarde', items: [
+    { id: 'p16-crm-nombre', t: 'CRM: renombrar se guarda solo al salir del campo, y el editor muestra el nombre nuevo.' },
+    { id: 'p16-crm-evento', t: 'CRM: «Asignar evento» en las etapas de reunión (Calendly, Cal o Calendar), y crear uno ahí.' },
+    { id: 'p16-crm-velocidad', t: 'CRM: que la ficha del lead abra rápido.' },
+    { id: 'p16-crm-hojas', t: 'CRM: tabs como las hojas del Dashboard, templates con miniaturas propias, sin la barra lateral.' },
+    { id: 'p16-crm-obligatorio', t: 'CRM: «Obligatorio» en cada bloque decide los datos sin marcar; el «Ver» igual que «A revisar».' },
+    { id: 'p16-crm-pendientes', t: 'CRM: borrar entera la vista de pendientes del CRM.' },
+    { id: 'p16-crm-chat', t: 'CRM: botón de MaKo a la izquierda, chat con la cara del Second Brain y el muñeco de la tab.' },
+    { id: 'p16-crm-editar', t: 'CRM: «Editar» + «⋯» con «AI Analyst» (reemplaza la tab), el chat abre a la izquierda.' },
+    { id: 'p16-onb-pdf', t: 'Onboarding: sin el análisis de Offer; sólo ordenar en un PDF lo que vendes.' },
+    { id: 'p16-sb-skills', t: 'Second Brain: «Skills» como skills.sh, se instalan solas y crean un chat para todos.' },
   ] },
 ];

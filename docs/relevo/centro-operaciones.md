@@ -4,6 +4,12 @@ Escrito por el chat «Centro de Operaciones» de la cuenta 3 (`local_428051c1…
 Lo que costó cada cosa está en `docs/hallazgos-second-brain.md` y `docs/hallazgos-mobile.md` (las entradas del 16/10);
 lo pedido, textual, en `app/admin/dev/second-brain/bitacora.ts` y `app/admin/dev/centro-operaciones/bitacora.ts`.
 
+## FEEDBACK DE MARTÍN DEL 16/10/2026 a la tarde — Second Brain: «Skills» como skills.sh
+
+Un botón «Skills» con un catálogo como skills.sh: «agregar» la instala sola, crea un chat con esa skill que usa todo
+el equipo, y corre con el Claude o el GPT que el cliente conectó. Textual en **docs/feedback-16-10-crm-onboarding-second-brain.md** (sección Second Brain). Va
+después de las pantallas que faltan del Second Brain (abajo).
+
 ## Dónde quedó: la etapa 2 del Second Brain (docs/diseno-mako-ai-native.md)
 
 Orden de Martín, por el Cerebro: «Termina con todo, faltan mis pedidos del Second Brain» (etapa 2 completa y después la 5).

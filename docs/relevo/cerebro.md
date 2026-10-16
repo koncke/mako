@@ -157,3 +157,6 @@ tandas 2-3; la tanda 5 del editor de video POSPUESTA por Martín). Todos esos ch
   tiene un id FIJO: el texto se corrige, el id no se toca (perdería la marca). Al cerrar algo de «Lo que queda», se
   agrega su ítem a «Lo que se hizo» con un id nuevo. Ojo: ningún archivo de app/ puede llevar el string `'/onboarding'`
   (tests/onboarding-hub-retirado.test.ts frenó el run 60 por un link «Abrir» de la checklist).
+- **Feedback del 16/10 a la tarde (CRM, Onboarding, Second Brain):** guardado textual en **docs/feedback-16-10-crm-onboarding-second-brain.md**, con un puntero
+  arriba de los relevos de CRM, Onboarding y Centro. Hecho lo simple del CRM (`9f595cc6f`); el resto, con su archivo,
+  en ese documento. Agregado también a la checklist de /admin/runway/checklist («Lo que queda»).

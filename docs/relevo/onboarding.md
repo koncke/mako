@@ -1,5 +1,12 @@
 # Onboarding: el arranque del cliente nuevo y el onboarding de cada tab
 
+## FEEDBACK DE MARTÍN DEL 16/10/2026 a la tarde — LO PRIMERO PARA QUIEN SIGA
+
+«Sería bueno que la funcionalidad de "OFFER" no esté en el onboarding... Pero simular "Offer" en el onboarding
+simplemente para organizar en un PDF lo que vende el usuario.» El onboarding deja el diagnóstico y la oferta mejorada
+para la tab Offer y se queda con armar el PDF de lo que vende. Textual y con su archivo en **docs/feedback-16-10-crm-onboarding-second-brain.md** (sección
+Onboarding).
+
 ## ⚠️ Actualización del 16/10/2026: el wizard ya no existe
 
 <sub>Escrito el 16/10/2026 por el chat «Onboarding» (claude3), sobre lo suyo. Main `9f89a5004`. Lo de abajo

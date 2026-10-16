@@ -6,6 +6,14 @@ el briefing anterior (`b5f7fb55`, 10/10 17:10) con todo verificado contra el ár
 **Rutas de esta área:** `app/crm/**`, `lib/leads.ts`, `lib/funnel*.ts`, `lib/crm*.ts`,
 `lib/lead-*.ts`, `lib/campana-*.ts`, `lib/etiquetas*.ts`, `lib/pipeline.ts`.
 
+## 0-Ω12. FEEDBACK DE MARTÍN DEL 16/10/2026 a la tarde — LO PRIMERO PARA QUIEN SIGA
+
+Diez puntos sobre la ficha, «A revisar», el renombrar un CRM, «Asignar evento» y el chat del CRM, textuales y con
+su archivo, en **docs/feedback-16-10-crm-onboarding-second-brain.md**. Cerebro hizo lo simple (`9f595cc6f`: «Asignar campañas» con el logo de Meta, «A revisar»
+con basurero rojo e «Ignorar todos», «Revisar» abre el «Ver», cabecera sin «Sin empresa» y con la foto de 88). El
+resto (puntos 1, 3, 4, 5, 6, 7, 8, 9 y 10) va antes que la T2 de abajo: el 5 cambia cómo se cambia de tab (como las
+hojas del Dashboard) y el 10 saca «Personalizar» y la tab «MaKo Analyst».
+
 ## 0-Ω11. CIERRE del 16/10/2026 ~12:00 (chat «CRM», cuenta `claude3`, al 96% semanal): qué quedó y cómo se retoma
 
 Se cerró por el umbral del 95%. Ningún agente quedó corriendo; el worktree está limpio.
