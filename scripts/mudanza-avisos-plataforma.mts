@@ -15,6 +15,8 @@
 //   node --conditions react-server --import tsx scripts/mudanza-avisos-plataforma.mts             → SIMULACRO (default)
 //   node --conditions react-server --import tsx scripts/mudanza-avisos-plataforma.mts --aplicar   → escribe
 //   opciones: --env=<ruta del .env.local> (default ./.env.local; un worktree no tiene: --env=C:/dev/mako-api/.env.local)
+//             --eventos=<a,b,c> → sólo esos eventos (los de lo que YA está desplegado; sin esto, todos los de MUDADOS).
+//             Un evento que no está en MUDADOS frena el script antes de tocar nada.
 // =============================================================================
 
 import { config } from 'dotenv';
@@ -27,12 +29,18 @@ const aplicar = process.argv.includes('--aplicar');
 config({ path: arg('env') ?? '.env.local' });
 
 /** Los mudados, en orden. Uno nuevo se suma acá, con su plantilla y su evento. */
-const MUDADOS: ReadonlyArray<{ plantilla: string; evento: string }> = [
+const TODOS: ReadonlyArray<{ plantilla: string; evento: string }> = [
   { plantilla: 'mako-whatsapp-caido', evento: 'whatsapp_caido' },
   { plantilla: 'mako-whatsapp-volvio', evento: 'whatsapp_volvio' },
   { plantilla: 'mako-reunion-grabada', evento: 'reunion_grabada' },
   { plantilla: 'mako-reporte-semanal', evento: 'reporte_semanal' },
 ];
+// POR TANDAS DE DEPLOY (16/10/2026): la fila de un evento cuyo código todavía no está en producción no correría, así
+// que se mudan sólo los desplegados. Sin `--eventos`, todos.
+const pedidos = arg('eventos')?.split(',').map((e) => e.trim()).filter(Boolean) ?? null;
+const ajenos = (pedidos ?? []).filter((e) => !TODOS.some((m) => m.evento === e));
+if (ajenos.length) throw new Error(`--eventos: ${ajenos.join(', ')} no está en la mudanza`);
+const MUDADOS = pedidos ? TODOS.filter((m) => pedidos.includes(m.evento)) : TODOS;
 
 const { runWithWorkspace, getTenantDb, wsSuperAdmin } = await import('../lib/workspace');
 const { plantillaPorId, pasosDePlantilla } = await import('../lib/plantillas-automatizaciones');

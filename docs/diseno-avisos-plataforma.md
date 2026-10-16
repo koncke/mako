@@ -59,8 +59,8 @@
   de renglón cuando el dato falta (sólo el renglón entero).
 - **La firma (efcc58d46):** las tres plantillas terminan en «— MaKo», como el texto de siempre. Una tarjeta TAL CUAL no
   le suma envoltorio: sin escribirla, el cliente la habría perdido.
-- **Falta, después del deploy de 16fa52568 y efcc58d46:** `scripts/mudanza-avisos-plataforma.mts --aplicar` crea y
-  prende las TRES filas en el ws 9 (simulacro primero). Hasta entonces sale como siempre (`sinFila`).
+- **HECHO el 16/10/2026** (con e50eaf6c2 desplegada): #253, #254 y #255 en el ws 9, prendidas y verificadas con la
+  lectura del motor. Desde ahí esos tres avisos los manda sólo la automatización.
 - **Siguiente:** `reporte-semanal`, que sale por email al dueño (otra tarjeta); después, el resto por familias.
 
 ## 6. El reporte semanal (16/10/2026): la tarjeta MaKo también por EMAIL
