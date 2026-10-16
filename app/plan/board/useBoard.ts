@@ -6,7 +6,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useUndoToast } from '../../_components/UndoToast';
 import { quarterDeFecha } from './cuando';
-import { type BoardTask, type Label, type BoardUser, type Repo, type Hist, type Actor, type Fuente, type Prio, type Check, type GuardPatch, type GuardProjPatch, PLABEL, MAX_PRIORIDAD, HIST_CAP, uid, clampPct, clampScore, clampProj, prioFromScore, scoreFromPrio } from './types';
+import { type BoardTask, type Label, type BoardUser, type Repo, type Hist, type Actor, type Fuente, type Prio, type EstadoTarea, type Check, type GuardPatch, type GuardProjPatch, PLABEL, MAX_PRIORIDAD, HIST_CAP, uid, clampPct, clampScore, clampProj, prioFromScore, scoreFromPrio } from './types';
 import { type Dep, type ClaseDep, type EntidadDep, puedeDepender } from './dependencias';
 import { baseCorrida } from './lugar-al-soltar';
 // «Se repite para siempre» (mig 0163). El predicado, la regla de la fecha y los porqués
@@ -16,6 +16,7 @@ import { esRecurrente, llevaDeadline, recurrenciaOk, textoRepeticionCorto } from
 // DE QUIÉN es una tarjeta (mig 0172). Mismo criterio que arriba: el predicado y los
 // textos salen del módulo compartido, que también leen los dos pickers y Customer Success.
 import { clienteDe, SIN_CLIENTE } from '@/lib/plan-clientes';
+import { alCrear } from '@/lib/todo-estados';
 
 export type GuardScore = { id: string; score: number; razon: string; impacto?: number; esfuerzo?: number };
 
@@ -137,7 +138,7 @@ export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user
     show(entry.text, () => undoHist(id, entry));
   }
 
-  const create = async (title: string, priority: Prio, labelsIn?: string[], meta?: { origen?: Actor; fuente?: Fuente; altaText?: string; detalle?: string }): Promise<BoardTask | null> => {
+  const create = async (title: string, priority: Prio, labelsIn?: string[], meta?: { origen?: Actor; fuente?: Fuente; altaText?: string; detalle?: string; score?: number; estado?: EstadoTarea }): Promise<BoardTask | null> => {
     const v = title.trim(); if (!v) return null;
     const maxN = tasks.reduce((m, t) => Math.max(m, t.num), 0);
     // `labelsIn` undefined = "no me dijeron proyecto" → hereda el primero (alta manual
@@ -152,7 +153,12 @@ export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user
     // origen + fuente + texto del alta: por default es una tarjeta del usuario, pero
     // quien la crea desde otra fuente (Fathom/WhatsApp/archivo) los pasa por `meta`.
     const actor: Actor = meta?.origen ?? 'user';
-    const draft: BoardTask = { id: 'tmp' + uid(), num: maxN + 1, emoji: emoji0, title: v, detalle: meta?.detalle ?? '', priority, score: scoreFromPrio[priority], progress: 0, deadline: '', labels: labels0, checklist: [], historial: [{ id: uid(), ts: now(), actor, text: meta?.altaText || 'Creó la tarjeta' }], origen: actor, fuente: meta?.fuente, enPrioridad: false, recurrente: false };
+    // El SCORE y la COLUMNA con que nace (16/10/2026): `meta.score` 0 = «Sin priorizar» (la tarea
+    // libre que no puntúa nadie hasta «Re-priorizar todo»); sin él, el número representativo de
+    // la banda, como siempre. `meta.estado` = el «＋» de una columna; el avance se acomoda a él.
+    const score0 = meta?.score != null ? clampScore(meta.score) : scoreFromPrio[priority];
+    const nace = alCrear(meta?.estado, 0);
+    const draft: BoardTask = { id: 'tmp' + uid(), num: maxN + 1, emoji: emoji0, title: v, detalle: meta?.detalle ?? '', priority: meta?.score != null ? prioFromScore(score0) : priority, score: score0, estado: nace.estado, progress: nace.progreso, deadline: '', labels: labels0, checklist: [], historial: [{ id: uid(), ts: now(), actor, text: meta?.altaText || 'Creó la tarjeta' }], origen: actor, fuente: meta?.fuente, enPrioridad: false, recurrente: false };
     setTasks((ts) => [draft, ...ts]);
     try {
       const canon = await repo.createTask(draft);
@@ -169,7 +175,10 @@ export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user
       //
       // `?? x.clienteLeadId` y no a secas: un repo que NO inyecta nada (el tablero normal)
       // devuelve el borrador tal cual, y ahí lo que vale es lo que ya tenía el local.
-      setTasks((ts) => ts.map((x) => (x.id === draft.id ? { ...x, id: canon.id, num: canon.num || x.num, origen: canon.origen, clienteLeadId: canon.clienteLeadId ?? x.clienteLeadId, clienteNombre: canon.clienteNombre ?? x.clienteNombre } : x)));
+      setTasks((ts) => ts.map((x) => (x.id === draft.id ? { ...x, id: canon.id, num: canon.num || x.num, origen: canon.origen, clienteLeadId: canon.clienteLeadId ?? x.clienteLeadId, clienteNombre: canon.clienteNombre ?? x.clienteNombre,
+        // La columna y el LUGAR los decide el server (`ordenTope`: arriba de la columna). Sin esto
+        // la tarjeta local no tiene `orden` y el kanban no sabe dónde dibujarla hasta el F5.
+        estado: canon.estado ?? x.estado, orden: canon.orden ?? x.orden } : x)));
       markDirty(canon.id);
       draft.labels.forEach((lid) => logProject(lid, `Agregó la tarea «${v.slice(0, 38)}»`));
       return { ...draft, id: canon.id };

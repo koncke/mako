@@ -68,7 +68,7 @@ import { matchTarea, coincide, CAMPOS_POR_DEFECTO, type CampoBusqueda } from '@/
 import { RichText, mdAHtml, stripHtml, FOCO_BARRA } from './RichText';
 import type { Board } from './useBoard';
 import { separarRepetidas, textoRepetidas } from '@/lib/tareas-dedup';
-import { type BoardTask, type Label, type Prio, type Check, type Actor, type Fuente, type FuenteTipo, ACTOR_LABEL, PRIOS, PLABEL, PCOLOR, SWATCHES, MAX_PRIORIDAD, scoreFromPrio, uid, relTime, fechaHora, fuenteEfectiva, prioFromScore, displayPrio } from './types';
+import { type BoardTask, type Label, type Prio, type EstadoTarea, type Check, type Actor, type Fuente, type FuenteTipo, ACTOR_LABEL, PRIOS, PLABEL, PCOLOR, SWATCHES, MAX_PRIORIDAD, scoreFromPrio, uid, relTime, fechaHora, fuenteEfectiva, prioFromScore, displayPrio } from './types';
 import { resolverDeps, type EstadoDeps, type Dep } from './dependencias';
 import { prioridadesDelTablero } from './prioridades';
 import { ESCALERA } from './types';
@@ -1079,14 +1079,22 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido
     }
     return l;
   };
-  // resumen del plan para que el guardián compare al debatir/crear
-  const planResumen = tasks.filter((t) => t.progress < 100).map((t) => `- [${t.score}] ${t.title} (${board.labelById(t.labels[0])?.name ?? 'sin proyecto'})`).join('\n');
-
-  // crear una tarea: el usuario propone proyecto(s) + prioridad; el GUARDIÁN la puntúa
-  // (arrancando de la sugerencia del usuario) y decide su columna final (#10).
-  const crearConGuardian = async (d: { title: string; detalle: string; labelIds: string[]; userScore: number; motivoNinguno: string; nuevoProyecto: string; nuevoProyEmoji: string; argumento: string; deadline: string; fijarPrioridad: boolean }) => {
+  // CREAR UNA TAREA: nace LIBRE (16/10/2026, decisión 6 de «hacer el kanban un kanban»).
+  //
+  // «Quiero hacerlo "libre", que se creen sin prioridad, y luego de última un botón en los 3
+  // puntos de arriba del plan para "re-priorizar" todo» (Martín, 16/10/2026). Así que el alta ya
+  // NO llama al Perro: la tarea nace con score 0 = «Sin priorizar» (`sinPriorizar`, types.ts) en
+  // la columna que se pidió, y la puntúa «Re-priorizar todo» cuando la persona lo decide.
+  //
+  // ⛔ ACÁ CORRÍA EL PERRO EN CADA ALTA, en las dos mitades: `repo.priorizarNuevas` en segundo
+  // plano en el tablero del dueño, y un `debatir` contra /api/mako-guardian en el del cliente,
+  // con un número de arranque inventado (`userScore || 50`). Era una llamada de IA por cada
+  // tarjeta y un número que nadie había decidido — lo que el pedido saca.
+  //
+  // Lo que SÍ se respeta: si la PERSONA fijó la prioridad (`fijarPrioridad` con un número), se
+  // fija a mano como siempre (`prioridadManual`, con su candado). Eso no es el Perro: es ella.
+  const crearConGuardian = async (d: { title: string; detalle: string; labelIds: string[]; userScore: number; motivoNinguno: string; nuevoProyecto: string; nuevoProyEmoji: string; argumento: string; deadline: string; fijarPrioridad: boolean; estado?: EstadoTarea }) => {
     let labelIds = d.labelIds;
-    const proyIds: string[] = [];
     // Si el usuario dijo que el proyecto todavía no existe, lo creamos inline. Nace en 50
     // (la escala es 1-100; el 5 viejo lo dejaba último siempre) y con alta en el historial,
     // igual que un proyecto creado desde WhatsApp.
@@ -1096,74 +1104,27 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido
       // y descarta los NaN. Era la causa de las tareas huérfanas.
       const canon = await board.createLabel({ id: uid(), emoji: d.nuevoProyEmoji || '🏷', name: d.nuevoProyecto.trim(), color: SWATCHES[labels.length % SWATCHES.length], score: 50, detalle: '', historial: [{ id: uid(), ts: Date.now(), actor: 'user', text: 'Creó el proyecto — alta manual' }] });
       labelIds = [canon.id];
-      proyIds.push(canon.id);
     }
-    const starter = d.userScore || 50;
-    const t = await board.create(d.title, prioFromScore(starter), labelIds.length ? labelIds : undefined, { detalle: d.detalle });
+    const fija = d.fijarPrioridad && d.userScore > 0;
+    const score = fija ? Math.max(1, Math.min(100, Math.round(d.userScore))) : 0;
+    // ⚠️ La re-puntuación oculta del navegador (`rePriorizar`, más arriba) se dispara sola
+    // cuando cambia la firma del plan — o sea con esta alta — y puntuaría la tarea libre por
+    // atrás. Se la saltea para este cambio, como hacía el alta cuando corría el Perro. (La
+    // decisión 8 del 16/10 la apaga entera.)
+    skipRePrio.current = true;
+    setTimeout(() => { skipRePrio.current = false; }, 3500);
+    const t = await board.create(d.title, prioFromScore(score), labelIds.length ? labelIds : undefined, { detalle: d.detalle, score, estado: d.estado });
     if (!t) return null;
-    // La FECHA que puso la persona, antes que nada: el Perro propone una solo si no hay.
+    // La FECHA que puso la persona.
     if (d.deadline) board.setDeadline(t.id, d.deadline, '');
-    // ⚠️ Y SI LA PRIORIDAD LA PUSO ELLA, SE FIJA ANTES DE LLAMAR AL PERRO. «Si el usuario
-    // ya puso la prioridad, el Perro no la pisa»: el que la respeta es
-    // `priorizarNuevasOwner`, que mira `score_manual` — o sea que el candado tiene que
-    // estar puesto cuando la corrida lee la fila, no después.
-    if (d.fijarPrioridad && board.repo.prioridadManual) {
+    if (fija && board.repo.prioridadManual) {
       try {
-        const r = await board.repo.prioridadManual('tarea', t.id, starter);
+        const r = await board.repo.prioridadManual('tarea', t.id, score);
         board.aplicarCascadaManual('tarea', { id: t.id, score: r.score, razon: 'Prioridad fijada a mano', texto: `La creaste con prioridad ${r.score}` }, r.movidos);
+        return { id: t.id, score: r.score, razon: 'Prioridad fijada a mano', respuesta: '', prio: prioFromScore(r.score) };
       } catch (e) { console.warn('[alta] fijar prioridad', e); }
     }
-    // Los HECHOS que aportó el usuario (no su número: la prioridad la decide el Perro).
-    const partes: string[] = [];
-    if (d.argumento) partes.push(d.argumento);
-    if (!labelIds.length && d.motivoNinguno) partes.push(`Sin proyecto: ${d.motivoNinguno}.`);
-    // El número que movió el dueño en el slider viaja como SUGERENCIA declarada, no como
-    // ancla: el Perro tiene que puntuarla contra la pirámide del plan y puede ignorarla
-    // por completo. Decírselo explícito es lo que evita que la tome de punto de partida
-    // — un modelo al que le mostrás un número tiende a quedarse cerca de ese número.
-    partes.push(d.fijarPrioridad
-      ? `(El dueño YA FIJÓ la prioridad en ${starter}/100 a mano: no la discutas ni la cambies. Escríbele la descripción y nada más.)`
-      : `(El dueño SUGIRIÓ ${starter}/100 al crearla. Es una sugerencia, no un dato: puntúala tú contra el resto del plan y, si no se sostiene, corrígela sin problema.)`);
-    const contexto = partes.join(' ');
-
-    // UNIFICACIÓN: una tarea cargada a mano recibe EXACTAMENTE el mismo trato que una de
-    // WhatsApp o de una reunión → el Perro server-side, que la ancla contra la pirámide del
-    // plan (no contra el número que propuso el usuario), le arma la checklist y le describe
-    // el proyecto nuevo. El debate 1-a-1 quedaba de rubber-stamp: su veredicto más duro
-    // ("rechaza") dejaba la tarea justo donde el usuario la había puesto.
-    if (board.repo?.priorizarNuevas) {
-      // ⚠️ EL PERRO CORRE EN SEGUNDO PLANO, Y ESO ES EL CAMBIO. Antes el modal se quedaba
-      // en «El Perro Guardián está priorizando la tarea…» hasta que volvían TRES llamadas
-      // a un modelo: entre 10 y 20 segundos mirando un cartel para cargar una línea. Se
-      // crea, se cierra, y cuando el Perro contesta el tablero se actualiza solo.
-      skipRePrio.current = true;
-      marcarTrabajando([t.id, ...proyIds], true);
-      void (async () => {
-        try {
-          const r = await board.repo!.priorizarNuevas!([t.id], proyIds, contexto || '(sin argumento del usuario: puntúala por impacto objetivo contra el resto del plan)');
-          if (r) board.aplicarPerroServer(r.patches, r.proyectosPatch);
-        } catch (e) { console.warn('[alta] priorizarNuevas', e); }
-        finally {
-          marcarTrabajando([t.id, ...proyIds], false);
-          setTimeout(() => { skipRePrio.current = false; }, 3500);
-        }
-      })();
-      return { id: t.id, score: t.score, razon: '', respuesta: '', prio: displayPrio(t, topProjectId) };
-    } else {
-      // Board del cliente (sin Perro server-side): debate client-side, como antes.
-      const argFinal = contexto || '(sin argumento: puntúalo por impacto objetivo comparándolo con el resto del plan)';
-      try {
-        const j = await fetch('/api/mako-guardian', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'debatir', tarea: d.title + (d.detalle ? `\n\n${d.detalle}` : ''), scoreActual: starter, argumento: argFinal, plan: planResumen, uso: 'Nueva tarea' }) }).then((r) => r.json());
-        if (j.ok && typeof j.score === 'number') {
-          board.setScore(t.id, j.score, `Priorizada al crear · score ${j.score}`, 'ia', j.razon);
-          showUsage(j.usage, 'nueva tarea');
-          return { id: t.id, score: j.score, razon: j.razon ?? '', respuesta: j.respuesta ?? '', prio: displayPrio({ ...t, score: j.score }, topProjectId) };
-        }
-      } catch { /* fallback abajo */ }
-    }
-    // Sin veredicto: devolvemos el score REAL con el que quedó la fila (antes se mostraba
-    // el número que había tipeado el usuario, que no era el guardado).
-    return { id: t.id, score: t.score, razon: '', respuesta: 'No pude priorizar ahora; quedó con una prioridad provisoria. Puedes debatirla después.', prio: displayPrio(t, topProjectId) };
+    return { id: t.id, score: t.score, razon: '', respuesta: '', prio: displayPrio(t, topProjectId) };
   };
 
   // G3: crear en lote las tareas que MaKo sacó de una reunión. Entran con la prioridad

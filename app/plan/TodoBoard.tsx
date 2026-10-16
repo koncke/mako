@@ -19,6 +19,7 @@ import { toBoard, toLabel } from './board/desde-todo';
 import type { Tarea, Categoria } from '@/lib/todo';
 import { CATALOGO_TODO } from '@/lib/todo-proyectos-catalogo';
 import type { ClienteRef } from '@/lib/plan-clientes';
+import { avanceSiCambio } from '@/lib/todo-estados';
 
 
 async function api(body: Record<string, unknown>): Promise<{ ok: boolean; tarea?: Tarea; categoria?: Categoria; patches?: GuardPatch[]; error?: string }> {
@@ -27,8 +28,20 @@ async function api(body: Record<string, unknown>): Promise<{ ok: boolean; tarea?
 }
 
 // patch completo de una tarea → payload de editar
-const editPatch = (d: BoardTask) => ({
-  titulo: d.title, detalle: d.detalle || null, prioridad: d.priority, progreso: d.progress,
+//
+// ⚠️ EL AVANCE VIAJA SÓLO SI CAMBIÓ (16/10/2026, decisión 10). `progresoGuardado` es el último
+// avance que la base confirmó para esta tarjeta; si es el mismo, `progreso` no va. Mandarlo
+// siempre era el retroceso del kanban: `editarTarea` recalculaba la columna desde el avance en
+// cada guardado, y corregirle el título a una tarjeta arrastrada a «En proceso» al 0% la
+// devolvía a «Por iniciar». El server ahora también lo compara contra la fila
+// (`estadoAlGuardar`) — esto es la primera capa, y la que evita la lectura extra.
+// `undefined` (no se sabe qué hay guardado) manda el avance: el server decide.
+//
+// ⚠️ Y EL ESTADO NO VA, NUNCA: lo escribe `mover`. Este objeto es lo que viaja en cada
+// guardado; con el estado adentro, una pestaña vieja devolvería de columna lo que se movió
+// desde otra.
+const editPatch = (d: BoardTask, progresoGuardado?: number) => ({
+  titulo: d.title, detalle: d.detalle || null, prioridad: d.priority, ...avanceSiCambio(d.progress, progresoGuardado),
   // Los ids de proyecto del cliente son NUMÉRICOS. Si llega uno que no lo es, es el id
   // TEMPORAL de un proyecto recién creado que alguien no esperó — antes se descartaba en
   // silencio y la tarea nacía huérfana. Se sigue filtrando (mandarlo rompería el insert)
@@ -91,6 +104,13 @@ export function TodoBoard({ tareas, categorias, demo, user, wsId, vistaInicial, 
   // desde el navegador), así que la foto es el estado del board — no las `tareas` con las
   // que se montó, que envejecen con el primer cambio.
   const tareasVivas = useRef<BoardTask[]>([]);
+  // EL ÚLTIMO AVANCE QUE CONFIRMÓ LA BASE, por tarea (16/10/2026). Es lo que le dice a
+  // `editPatch` si el avance cambió: si no, no viaja, y la columna no se recalcula. Se siembra
+  // con lo que se leyó al montar y se actualiza con cada respuesta del server (alta, editar,
+  // mover). No es estado de React a propósito: no dibuja nada.
+  const progresoGuardado = useRef<Map<string, number> | null>(null);
+  if (progresoGuardado.current === null) progresoGuardado.current = new Map(tareas.map((t) => [String(t.id), t.progreso]));
+  const confirmar = (t: Tarea | undefined) => { if (t) progresoGuardado.current!.set(String(t.id), t.progreso); };
   const repo: Repo = {
     // MISMA config que el board del super-admin (PlanBoard): la única diferencia real
     // es la persistencia (DB vs localStorage). Proyectos 1-a-1, mismo naming.
@@ -116,9 +136,14 @@ export function TodoBoard({ tareas, categorias, demo, user, wsId, vistaInicial, 
       // El cliente va en el ALTA: `responsableDe` de /api/todo ya lo acepta (mig 0159), y
       // el `editar` de abajo sólo corre si la tarjeta trae contenido — un alta pelada se lo
       // saltearía y la tarea nacería sin dueño en la pantalla de su propio cliente.
-      const j = await api({ action: 'crear', tarea: { titulo: d.title, prioridad: d.priority, origen: d.origen === 'user' ? 'manual' : 'mako', fuente: d.fuente ?? null, recurrente: !!d.recurrente, recurrencia: d.recurrencia ?? null, cliente_lead_id: clienteFijo?.leadId ?? null, cliente_nombre: clienteFijo?.nombre ?? null } });
+      // LA COLUMNA, EL LUGAR Y EL SCORE VAN EN EL ALTA (16/10/2026). El «＋» de una columna crea
+      // la tarea con ese estado; restaurar un borrado la devuelve con su estado, su motivo y su
+      // lugar; y `score: 0` es «Sin priorizar» — sin él, el server sacaría el número de
+      // `prioridad` y la tarea libre nacería «Media».
+      const j = await api({ action: 'crear', tarea: { titulo: d.title, prioridad: d.priority, score: d.score, estado: d.estado, motivo_atorada: d.motivoAtorada ?? null, orden: d.orden, origen: d.origen === 'user' ? 'manual' : 'mako', fuente: d.fuente ?? null, recurrente: !!d.recurrente, recurrencia: d.recurrencia ?? null, cliente_lead_id: clienteFijo?.leadId ?? null, cliente_nombre: clienteFijo?.nombre ?? null } });
       if (!j.ok || !j.tarea) throw new Error(j.error || 'no se pudo crear');
       let t = j.tarea;
+      confirmar(t);
       // si la tarjeta ya traía contenido (p.ej. restaurar un borrado), aplicá el resto
       //
       // ⚠️ Y EL CLIENTE VIAJA EN ESE PATCH, o el `editar` BORRA lo que el alta de arriba
@@ -131,11 +156,28 @@ export function TodoBoard({ tareas, categorias, demo, user, wsId, vistaInicial, 
           ? { ...d, clienteLeadId: clienteFijo.leadId, clienteNombre: clienteFijo.nombre }
           : d;
         const j2 = await api({ action: 'editar', id: t.id, patch: editPatch(conCli) });
-        if (j2.ok && j2.tarea) t = j2.tarea;
+        if (j2.ok && j2.tarea) { t = j2.tarea; confirmar(t); }
       }
       return toBoard(t);
     },
-    saveTask: async (d) => { if (demo) return; await api({ action: 'editar', id: Number(d.id), patch: editPatch(d) }); },
+    saveTask: async (d) => {
+      if (demo) return;
+      const j = await api({ action: 'editar', id: Number(d.id), patch: editPatch(d, progresoGuardado.current!.get(d.id)) });
+      if (j.ok) confirmar(j.tarea);
+    },
+    /**
+     * MOVER EN EL KANBAN (16/10/2026): la acción `mover` de /api/todo, que existía desde la mig
+     * 0051 sin un solo llamador. Escribe el estado, el lugar y lo que se acomoda solo
+     * (`trasMover`: el avance al completar o reabrir, el motivo de «Atorada»).
+     */
+    mover: async (id, estado, orden, opts) => {
+      // Sin base no hay canónica: la pantalla se queda con su estado optimista (`trasMover`).
+      if (demo) return null;
+      const j = await api({ action: 'mover', id: Number(id), estado, orden, motivo: opts?.motivo, historial: opts?.historial });
+      if (!j.ok || !j.tarea) throw new Error(j.error || 'No se pudo mover.');
+      confirmar(j.tarea);
+      return toBoard(j.tarea);
+    },
     /**
      * LA PRIORIDAD A MANO, TAMBIÉN ACÁ. El slider del detalle, el pop-up del arrastre y la
      * casilla del alta salen de esta capacidad: sin ella el tablero de un cliente dibuja el

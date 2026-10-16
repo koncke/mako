@@ -89,6 +89,8 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['GET', '/plan/tareas/sin-fecha', 'listar_tareas_sin_datos'],
   ['GET', '/plan/tareas/vencidas', 'listar_tareas_vencidas'],
   ['PUT', '/plan/tareas/{id}/avance', 'actualizar_avance_tarea'],
+  // La columna del kanban (16/10/2026): un PUT idempotente, como el avance.
+  ['PUT', '/plan/tareas/{id}/estado', 'mover_tarea_plan'],
   // ── crm ───────────────────────────────────────────────────────────────────
   ['GET', '/crm/automatizaciones/confirmaciones', 'confirmaciones_crm_automatico'],
   ['PUT', '/crm/automatizaciones/confirmaciones/{id}/resolucion', 'resolver_confirmacion_crm'],

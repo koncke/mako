@@ -13,6 +13,7 @@ import {
   type EstadoTarea, type Prioridad, type OrigenTarea, type ChecklistItem, type HistEntry, type CamposResponsable,
 } from '@/lib/todo';
 import { priorizarNuevasCliente } from '@/lib/todo-guardian';
+import { esEstado } from '@/lib/todo-estados';
 // «Cómo se repite» (mig 0167): la RRULE. El saneo vive en el módulo compartido — esta ruta
 // es la PUERTA del tablero del cliente, y la columna no tiene `check`, así que lo que pase
 // de acá llega a la base tal cual. No se sanea EN esta puerta a propósito: la invariante
@@ -51,6 +52,10 @@ type TareaBody = {
   // por eso las tareas del cliente que venían de una reunión perdían el chip de origen
   // y el link al minuto de la grabación, mientras que en el board del dueño sí salían.
   fuente?: { tipo: string; etiqueta?: string; url?: string } | null;
+  // LA COLUMNA EN EL ALTA (16/10/2026): el «＋» de una columna crea la tarea con ese estado, y
+  // restaurar un borrado la devuelve con su estado, su motivo y su lugar. Sólo en `crear`: en
+  // `editar` el estado NO viaja (lo escribe `mover`, ver `BoardTask.estado`).
+  motivo_atorada?: string | null; orden?: number;
 } & CamposResponsable;
 
 /** Los campos de QUIÉN, tal cual vinieron (lib/todo los sanea). Una persona puede
@@ -85,6 +90,10 @@ export async function POST(req: NextRequest) {
       if (!t || !t.titulo) return Response.json({ ok: false, error: 'falta el título' }, { status: 400 });
       return Response.json({ ok: true, tarea: await crearTarea({
         titulo: t.titulo, detalle: t.detalle ?? null, prioridad: t.prioridad, estado: t.estado,
+        // El SCORE viaja en el alta (16/10/2026): 0 = «Sin priorizar», la tarea nace libre y no
+        // la puntúa nadie hasta «Re-priorizar todo». Sin esta línea `crearTarea` lo sacaría de
+        // `prioridad`, que el tablero siempre manda, y la libre nacería «Media».
+        score: t.score, motivo_atorada: t.motivo_atorada, orden: t.orden,
         progreso: t.progreso, deadline: t.deadline, categorias: t.categorias,
         // ⚠️ `recurrente` VA EN EL ALTA, y faltaba: `NuevaTarea` lo soporta desde la 0163 y
         // esta rama no lo nombraba, así que una tarea del cliente NACÍA compitiendo aunque
@@ -110,12 +119,21 @@ export async function POST(req: NextRequest) {
       const n = await crearTareasDesde(items, { origen: meta.origen ?? 'mako', retro_id: meta.retro_id ?? null, experimento_id: meta.experimento_id ?? null });
       return Response.json({ ok: true, creadas: n });
     }
+    // MOVER en el kanban (16/10/2026): la capacidad `mover` del Repo del cliente. Existía desde
+    // la 0051 y no la llamaba ninguna pantalla.
+    // ⚠️ UN ESTADO QUE NO EXISTE ES UN 400, NO «Por iniciar». `moverTarea` hacía `estadoOk(…)`,
+    // que convierte cualquier cosa en `por_hacer`: un typo en un llamador movía la tarjeta a la
+    // primera columna y contestaba 200.
     if (action === 'mover') {
       if (!Number.isFinite(id)) return Response.json({ ok: false, error: 'id requerido' }, { status: 400 });
-      const estado = String(body.estado) as EstadoTarea;
-      const orden = body.orden != null ? Number(body.orden) : undefined;
-      const historial = (body.historial as HistEntry[] | undefined);
-      return Response.json({ ok: true, tarea: await moverTarea(id, estado, orden, historial) });
+      const estado: unknown = body.estado;
+      if (!esEstado(estado)) return Response.json({ ok: false, error: 'estado inválido' }, { status: 400 });
+      const orden = body.orden != null && Number.isFinite(Number(body.orden)) ? Number(body.orden) : undefined;
+      const historial = Array.isArray(body.historial) ? (body.historial as HistEntry[]) : undefined;
+      // `undefined` = «no me dijeron» (conserva el motivo si ya estaba atorada); `null` lo borra.
+      const motivo = body.motivo === null ? null : typeof body.motivo === 'string' ? body.motivo : undefined;
+      const r = await moverTarea(id, estado, orden, { motivo, historial });
+      return r.ok ? Response.json({ ok: true, tarea: r.tarea }) : Response.json({ ok: false, error: r.error }, { status: r.status });
     }
     if (action === 'editar') {
       if (!Number.isFinite(id)) return Response.json({ ok: false, error: 'id requerido' }, { status: 400 });

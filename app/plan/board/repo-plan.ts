@@ -56,6 +56,14 @@ export function repoPlan(): Repo {
     // hay que hacer enumerar a esa ruta, son `recurrente` y `recurrencia`, juntos.
     saveTask: async (d) => { await apiPlan({ action: 'guardar-tarea', tarea: d }); },
     deleteTask: async (id) => { await apiPlan({ action: 'borrar-tarea', id }); },
+    // MOVER EN EL KANBAN (16/10/2026). Una acción propia y no `saveTask`: el estado y el lugar
+    // NO viajan en el guardado de la fila entera (`guardarPlanTarea` los saca del payload, para
+    // que una pestaña vieja no devuelva de columna lo que se movió desde otra).
+    mover: async (id, estado, orden, opts) => {
+      const j = await apiPlan({ action: 'mover-tarea', id, estado, orden, motivo: opts?.motivo, historial: opts?.historial });
+      if (!j.ok || !j.tarea) throw new Error(j.error || 'No se pudo mover.');
+      return j.tarea;
+    },
     // ⚠️ Y LO MISMO A NIVEL PROYECTO (mig 0164): `Label.recurrente` tampoco necesita una
     // acción propia. Acá viaja el `Label` ENTERO, la ruta lo castea entero y `labelToRow` lo
     // escribe — y `guardarPlanProyecto` sólo saca del payload lo que decide el SERVER

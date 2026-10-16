@@ -330,6 +330,7 @@ mis_creaciones
 mover_a_nutricion_manual
 mover_clase_curso
 mover_estado_guion_anuncio
+mover_tarea_plan
 nombrar_video
 ocultar_video
 oferta_del_lead

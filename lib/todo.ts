@@ -19,7 +19,7 @@ import { recurrenciaDe } from '@/lib/plan-recurrentes';
 // es la misma que corre en el navegador al dibujar.
 import { sanearHtmlEmail } from './email-html-seguro';
 import {
-  esEstado, esResponsableTipo, estadoTrasProgreso,
+  esEstado, esResponsableTipo, estadoAlGuardar, trasMover, alCrear, motivoAtoradaOk, motivoParaNoMover,
   type EstadoTarea, type ResponsableTipo, type CriterioVeredicto,
 } from './todo-estados';
 
@@ -43,6 +43,8 @@ export type Tarea = {
   titulo: string;
   detalle: string | null;        // nota
   estado: EstadoTarea;
+  /** Por qué está «Atorada» (`en_seguimiento`), en una línea. null fuera de ahí (mig 0294). */
+  motivo_atorada: string | null;
   prioridad: Prioridad;
   progreso: number;              // 0-100
   deadline: string | null;       // YYYY-MM-DD
@@ -195,6 +197,10 @@ export const rowTo = (r: Record<string, unknown>): Tarea => {
   t.score = Math.max(0, Math.min(100, Math.round(Number(r.score) || 0)));
   t.score_razon = typeof r.score_razon === 'string' && r.score_razon.trim() ? (r.score_razon as string) : null;
   t.estado = estadoOk(r.estado);
+  // Sólo existe en «Atorada»: un motivo pegado a otra columna (un script, una fila vieja) se lee
+  // como null, que es lo que la tarjeta sabe dibujar.
+  t.motivo_atorada = t.estado === 'en_seguimiento' ? motivoAtoradaOk(r.motivo_atorada) : null;
+  t.orden = Number.isFinite(Number(r.orden)) ? Number(r.orden) : 0;
   t.responsable = txtOk(r.responsable);
   t.responsable_email = txtOk(r.responsable_email);
   t.responsable_tipo = esResponsableTipo(r.responsable_tipo) ? r.responsable_tipo : null;
@@ -213,9 +219,26 @@ export const rowTo = (r: Record<string, unknown>): Tarea => {
   return t;
 };
 
-// estado derivado del avance: 100→hecho, >0→en_curso, 0→por_hacer.
-// score representativo de cada columna, para tareas nuevas (hasta que el guardián puntúe).
+// score representativo de cada columna, para tareas nuevas que traen una prioridad.
 const scoreDePrioridad = (p: Prioridad): number => ({ alta: 85, media: 62, baja: 37, futuro: 12 }[p] ?? 62);
+
+/**
+ * EL SCORE CON QUE NACE UNA TAREA (16/10/2026, «que se creen sin prioridad»):
+ *  · un `score` explícito (1-100, o 0) manda — es lo que manda el tablero, que ya sabe si la
+ *    tarea nace libre o con la prioridad que fijó la persona;
+ *  · si no, una `prioridad` explícita da su número representativo (los lotes de la Retro, la
+ *    extracción, el doer de WhatsApp: todos la pasan);
+ *  · si no vino NINGUNA de las dos, nace en 0 = «Sin priorizar» (`sinPriorizar`,
+ *    app/plan/board/types.ts). Antes caía en 62 por `prioridadOk(undefined) → 'media'`: una
+ *    tarea que nadie juzgó nacía diciendo «Media», que es un juicio inventado.
+ * Medido el 16/10: todos los llamadores de hoy pasan `prioridad`, así que ninguno cambia.
+ */
+export function scoreAlCrear(input: { score?: unknown; prioridad?: unknown }): number {
+  const s = Number(input.score);
+  if (input.score != null && Number.isFinite(s)) return Math.max(0, Math.min(100, Math.round(s)));
+  if (input.prioridad === 'alta' || input.prioridad === 'media' || input.prioridad === 'baja' || input.prioridad === 'futuro') return scoreDePrioridad(input.prioridad);
+  return 0;
+}
 
 const checklistOk = (c: unknown): ChecklistItem[] =>
   Array.isArray(c)
@@ -380,8 +403,15 @@ export async function listTareas(): Promise<Tarea[]> {
 export type NuevaTarea = {
   titulo: string;
   detalle?: string | null;
+  /** La columna en la que nace (el «＋» de una columna, o restaurar un borrado). Sin esto, sale del avance. */
   estado?: EstadoTarea;
+  /** El motivo de «Atorada», si nace atorada (restaurar un borrado). */
+  motivo_atorada?: string | null;
+  /** El lugar en su columna (restaurar un borrado). Sin esto, arriba de todo. */
+  orden?: number;
   prioridad?: Prioridad;
+  /** El score con que nace: 0 = «Sin priorizar». Ver `scoreAlCrear`. */
+  score?: number;
   progreso?: number;
   deadline?: string | null;
   /** «Se repite para siempre» (mig 0163). Nace sin fecha: ver `crearTarea`. */
@@ -418,14 +448,18 @@ async function ordenTope(estado: EstadoTarea): Promise<number> {
 }
 
 export async function crearTarea(input: NuevaTarea): Promise<Tarea> {
-  const estado = estadoOk(input.estado);
+  // El estado manda y el avance se acomoda (`alCrear`): una tarea creada en «Completada» nace al
+  // 100%, y una que trae avance y ningún estado nace en la columna que le toca.
+  const { estado, progreso } = alCrear(input.estado, input.progreso != null ? clampPct(input.progreso) : 0);
   const origen = origenOk(input.origen);
   const fila = {
     titulo: (input.titulo || '').trim() || 'Tarea',
     detalle: typeof input.detalle === 'string' ? sanearDetalle(input.detalle) : (input.detalle ?? null),
     estado,
+    motivo_atorada: estado === 'en_seguimiento' ? motivoAtoradaOk(input.motivo_atorada) : null,
+    hecho_at: estado === 'hecho' ? new Date().toISOString() : null,
     prioridad: prioridadOk(input.prioridad),
-    progreso: input.progreso != null ? clampPct(input.progreso) : 0,
+    progreso,
     // ⚠️ UNA RECURRENTE NACE SIN FECHA. La misma regla que `editarTarea`, acá arriba del
     // insert: si entra con deadline, el motor de vencimientos la hace titilar para siempre
     // pidiendo que se cierre algo que por definición no cierra.
@@ -442,11 +476,11 @@ export async function crearTarea(input: NuevaTarea): Promise<Tarea> {
     historial: [{ id: 'h' + Date.now(), ts: Date.now(), actor: origenActor(origen), text: 'Creó la tarjeta' }] as HistEntry[],
     en_prioridad: false,
     fuente: input.fuente ?? null,
-    score: scoreDePrioridad(prioridadOk(input.prioridad)),
+    score: scoreAlCrear(input),
     origen,
     experimento_id: input.experimento_id ?? null,
     retro_id: input.retro_id ?? null,
-    orden: await ordenTope(estado),
+    orden: input.orden != null && Number.isFinite(Number(input.orden)) ? Number(input.orden) : await ordenTope(estado),
     updated_at: new Date().toISOString(),
     // ⚠️ Esta lista es una de las TRES que se comían los campos nuevos de la
     // extracción (docs/hallazgos-plan.md): lo que no se copia acá no llega a la fila.
@@ -498,21 +532,52 @@ export async function crearTareasDesde(
   return filas.length;
 }
 
-/** Mueve una tarea de columna y/o la reordena. Al pasar a 'hecho' completa el avance. */
-export async function moverTarea(id: number, estado: EstadoTarea, orden?: number, historial?: HistEntry[]): Promise<Tarea> {
-  const est = estadoOk(estado);
+/**
+ * MUEVE UNA TAREA DE COLUMNA y/o la reordena: la capacidad `mover` del Repo del cliente
+ * (16/10/2026, «hacer el kanban un kanban»). El estado lo decide quien mueve; el avance y el
+ * motivo de «Atorada» se acomodan con `trasMover` (lib/todo-estados.ts), la MISMA función que
+ * usa la mitad del dueño (`moverPlanTarea`, lib/plan-board.ts).
+ *
+ * Sin `orden`, va arriba de la columna destino. Con `historial`, lo reemplaza (el tablero manda
+ * la lista con la entrada nueva, que lleva su deshacer); sin él, no lo toca.
+ *
+ * ⚠️ RELEE LA FILA antes de escribir: el avance de una reabierta (de «Completada» a otra, 0%) y
+ * el `hecho_at` dependen de dónde ESTABA, y eso lo sabe la base, no quien llama. Hasta el 16/10
+ * no la leía: mover dentro de «Completada» re-sellaba `hecho_at` con la hora del arrastre, y
+ * sacar una tarjeta de ahí la dejaba abierta al 100%.
+ *
+ * Contesta `{ ok: false }` (y no tira) para lo que la PERSONA puede arreglar: la tarea no existe
+ * o es una recurrente que se quiere completar. Un error de la base sí tira.
+ */
+export async function moverTarea(
+  id: number, estado: EstadoTarea, orden?: number,
+  opts: { motivo?: string | null; historial?: HistEntry[] } = {},
+): Promise<{ ok: true; tarea: Tarea } | { ok: false; error: string; status: number }> {
+  if (!esEstado(estado)) return { ok: false, error: `estado inválido: ${String(estado)}`, status: 400 };
+  const supabase = (await getTenantDb());
+  const { data: cur, error: e0 } = await supabase.from('experimento_tareas')
+    .select('estado, progreso, motivo_atorada, hecho_at, recurrente').eq('id', id).limit(1);
+  if (e0) throw new Error(`moverTarea (leer): ${e0.message}`);
+  const fila = (cur ?? [])[0] as { estado?: unknown; progreso?: unknown; motivo_atorada?: unknown; hecho_at?: string | null; recurrente?: unknown } | undefined;
+  if (!fila) return { ok: false, error: 'La tarea ya no existe', status: 404 };
+  const no = motivoParaNoMover({ recurrente: !!fila.recurrente }, estado);
+  if (no) return { ok: false, error: no, status: 409 };
+  const antes = estadoOk(fila.estado);
+  const r = trasMover({ estado: antes, progreso: clampPct(fila.progreso), motivo: txtOk(fila.motivo_atorada) }, estado, opts.motivo);
   const patch: Record<string, unknown> = {
-    estado: est,
-    orden: orden ?? (await ordenTope(est)),
-    hecho_at: est === 'hecho' ? new Date().toISOString() : null,
+    estado: r.estado,
+    progreso: r.progreso,
+    motivo_atorada: r.motivo,
+    orden: orden != null && Number.isFinite(orden) ? orden : await ordenTope(r.estado),
+    // Se SELLA al entrar a «Completada» y se conserva si ya estaba ahí (reordenar adentro no la
+    // vuelve a completar); fuera de ahí, no hay fecha de completada.
+    hecho_at: r.estado !== 'hecho' ? null : (antes === 'hecho' ? (fila.hecho_at ?? new Date().toISOString()) : new Date().toISOString()),
     updated_at: new Date().toISOString(),
   };
-  if (est === 'hecho') patch.progreso = 100;
-  if (historial !== undefined) patch.historial = histOk(historial);
-  const supabase = (await getTenantDb());
+  if (opts.historial !== undefined) patch.historial = histOk(opts.historial);
   const { data, error } = await supabase.from('experimento_tareas').update(patch).eq('id', id).select(COLS).single();
   if (error) throw new Error(`moverTarea: ${error.message}`);
-  return rowTo(data);
+  return { ok: true, tarea: rowTo(data) };
 }
 
 /**
@@ -553,20 +618,33 @@ export async function editarTarea(
   // Saneado al guardar: ver `sanearDetalle`.
   if (patch.detalle !== undefined) upd.detalle = typeof patch.detalle === 'string' ? sanearDetalle(patch.detalle) : patch.detalle;
   if (patch.prioridad != null) upd.prioridad = prioridadOk(patch.prioridad);
-  // El estado se DERIVA del avance (el board /todo ya no muestra "Estado" aparte):
-  // 100→hecho, >0→en_curso, 0→por_hacer. hecho_at se sella SOLO en la transición
-  // a hecho — si ya estaba hecha, se preserva (no re-sellar en cada edición).
-  // ⚠️ Desde la 0159 la derivación mira DÓNDE ESTÁ la tarea: aplicada a ciegas
-  // sacaba de «No cumplen criterio» a cualquiera que le tocaran el avance, que es
-  // promoverla sin que nadie lo decida (estadoTrasProgreso, lib/todo-estados.ts).
+  // EL AVANCE MUEVE LA COLUMNA SÓLO SI EL AVANCE CAMBIA (decisión 10 del 16/10/2026,
+  // `estadoAlGuardar` en lib/todo-estados.ts). El estado explícito lo escribe `moverTarea`.
+  //
+  // ⚠️ ESTO ERA EL RETROCESO DEL KANBAN. `editPatch` (TodoBoard.tsx) manda el objeto entero de
+  // la tarjeta en cada guardado, avance incluido, y acá se recalculaba el estado desde el
+  // avance cada vez que venía: arrastrar una tarjeta a «En proceso» al 0% y después corregirle
+  // el título la devolvía a «Por iniciar». Ahora «¿cambió?» se pregunta contra la FILA, no
+  // contra el navegador — el doer, los lotes y el cierre por señales también llaman acá.
+  // hecho_at se sella SOLO en la transición a hecho — si ya estaba hecha, se preserva.
+  // Desde la 0159 la derivación además mira DÓNDE ESTÁ la tarea (`estadoTrasProgreso`): no saca
+  // de «No cumplen tu criterio» ni de «Atorada» a nadie, salvo al 100%.
   if (patch.progreso != null) {
     const p = clampPct(patch.progreso);
-    const { data: cur } = await (await getTenantDb()).from('experimento_tareas').select('estado, hecho_at').eq('id', id).single();
-    const actual = cur as { estado?: unknown; hecho_at?: string | null } | null;
-    const est = estadoTrasProgreso(estadoOk(actual?.estado), p);
+    // «No pude leer» no es «no cambió»: sin la fila no hay forma honesta de decidir la columna,
+    // y escribir el avance sin ella dejaría el 100% en una tarjeta abierta. Se tira.
+    const { data: cur, error: e0 } = await (await getTenantDb()).from('experimento_tareas').select('estado, progreso, hecho_at, motivo_atorada').eq('id', id).single();
+    if (e0) throw new Error(`editarTarea (leer el avance): ${e0.message}`);
+    const actual = cur as { estado?: unknown; progreso?: unknown; hecho_at?: string | null; motivo_atorada?: unknown } | null;
+    const antes = estadoOk(actual?.estado);
+    const est = estadoAlGuardar({ estado: antes, progreso: clampPct(actual?.progreso) }, p);
     upd.progreso = p;
-    upd.estado = est;
-    upd.hecho_at = est !== 'hecho' ? null : (actual?.hecho_at ?? new Date().toISOString());
+    if (est !== antes) {
+      upd.estado = est;
+      upd.hecho_at = est !== 'hecho' ? null : (actual?.hecho_at ?? new Date().toISOString());
+      // El motivo de «Atorada» sólo existe ahí: si el 100% la sacó, se va con ella.
+      if (est !== 'en_seguimiento') upd.motivo_atorada = null;
+    }
   }
   if (patch.deadline !== undefined) upd.deadline = dateOk(patch.deadline);
   // Los cinco de #157. `!== undefined` y no `!= null`: `null` es un valor real acá

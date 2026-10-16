@@ -10,6 +10,10 @@
 // pantallas), así que traerlo desde este archivo —que también viaja al navegador— es gratis.
 import { llevaDeadline } from '@/lib/plan-recurrentes';
 import type { OpcionesPrioridadManual } from './lugar-al-soltar';
+// Las COLUMNAS del kanban (16/10/2026): el estado y sus reglas viven en un módulo de datos sin
+// `server-only`, el mismo que lee el server de las dos mitades. Acá sólo se declara el campo.
+import { estadoDeAvance, type EstadoTarea } from '@/lib/todo-estados';
+export type { EstadoTarea };
 
 export type Prio = 'alta' | 'media' | 'baja' | 'futuro';
 // Quién tocó algo. Los dos últimos son IA pero NO son lo mismo, y confundirlos es
@@ -102,7 +106,31 @@ export type BoardTask = {
   title: string;
   detalle: string;
   priority: Prio;           // DERIVADA del score (prioFromScore); no la fija el usuario
-  score: number;            // 1-100 (MaKo perro guardián). 0 = sin puntuar
+  score: number;            // 1-100 (MaKo perro guardián). 0 = «Sin priorizar» (`sinPriorizar`)
+  /**
+   * LA COLUMNA DEL KANBAN (16/10/2026, «hacer el kanban un kanban»): Por iniciar · En proceso ·
+   * Atorada · Completada · No cumplen tu criterio. Las claves y las etiquetas, en
+   * `lib/todo-estados.ts`. Es un DATO de las dos mitades: `experimento_tareas.estado` (mig 0159)
+   * y `plan_tareas.estado` (mig 0294).
+   *
+   * ⚠️ LO ESCRIBE `repo.mover`, NO EL GUARDADO DE LA TARJETA. El del dueño es un upsert de la
+   * fila ENTERA desde la memoria de la pestaña: si el estado viajara ahí, una pestaña abierta
+   * hace una hora devolvería de columna cada tarjeta que alguien movió desde otra (o MaKo por la
+   * API) apenas le corrigieran un título. `guardarPlanTarea` lo saca del payload y lo deriva del
+   * avance SÓLO si el avance cambió (`estadoAlGuardar`); `editPatch` del cliente no lo manda.
+   *
+   * ⚠️ OPCIONAL, como `recurrente`: una tarjeta optimista o un objeto armado a mano (un test, un
+   * script) puede no traerlo. NO se lee suelto: `estadoDe(t)` cae al avance, que es la misma
+   * regla del backfill.
+   */
+  estado?: EstadoTarea;
+  /** Por qué está «Atorada», en una línea. Sólo existe con `estado: 'en_seguimiento'` (mig 0294). */
+  motivoAtorada?: string | null;
+  /**
+   * El lugar dentro de su columna, ASCENDENTE (la de menor `orden` arriba). Lo escriben el alta
+   * y `repo.mover`; como `estado`, NO viaja en el guardado de la fila entera del dueño.
+   */
+  orden?: number;
   /**
    * EL JUICIO, separado del número que se muestra (mig 0141). `score` se DERIVA de acá:
    * `curva(scoreBase + deadline − quietud, dependencias)`. Lo escribe quien JUZGA (el
@@ -447,6 +475,25 @@ export type Repo = {
    * ESCRIBE, no qué se escribe. La prop ES la capacidad, igual que las dos de arriba.
    */
   prioridadDesempata?: boolean;
+  /**
+   * MOVER UNA TARJETA en el kanban (16/10/2026): a otra columna (`estado`) y/o a otro lugar
+   * dentro de la columna (`orden`, ver `ordenEntre` en lib/todo-estados.ts). Sin `orden`, va
+   * arriba de la columna destino. `motivo` sólo significa algo al ir a «Atorada»
+   * (`trasMover`: `undefined` lo conserva si ya estaba atorada, `null` lo borra).
+   *
+   * Devuelve la tarjeta como quedó en la base (estado, avance, motivo y orden: mover a
+   * «Completada» la deja al 100%, sacarla de ahí la reabre en 0%), o `null` si no hay base
+   * (la demo). TIRA si el server la rechaza (una recurrente no se completa; un estado que no
+   * existe): la pantalla tiene que poder volver la tarjeta a su lugar.
+   *
+   * ⚠️ UNA ACCIÓN PROPIA Y NO EL GUARDADO DE LA TARJETA, a propósito: ver `BoardTask.estado`.
+   * Y NO pregunta la prioridad: «cuando tú muevas una tarjeta, yo no debería preguntarte cuál
+   * es la nueva prioridad» → «Es correcto» (Mauricio, 12/10/2026).
+   *
+   * ⚠️ OPCIONAL porque el tipo lo implementan también tableros armados a mano (tests, la demo
+   * de Customer Success); los DOS tableros reales la tienen (TodoBoard y `repoPlan`).
+   */
+  mover?(id: string, estado: EstadoTarea, orden?: number, opts?: { motivo?: string | null; historial?: Hist[] }): Promise<BoardTask | null>;
   addDep?(d: { entidad: 'tarea' | 'proyecto'; deId: string; aId: string; clase?: 'bloquea' | 'ordena'; razon?: string }): Promise<{ ok: boolean; error?: string; camino?: string[]; deps?: import('./dependencias').Dep[] }>;
   delDep?(entidad: 'tarea' | 'proyecto', deId: string, aId: string): Promise<{ ok: boolean; deps?: import('./dependencias').Dep[] }>;
 };
@@ -596,6 +643,31 @@ export function prioFromScore(score: number): Prio {
 }
 // score representativo de cada columna (migración de tareas viejas / bajar prioridad a mano)
 export const scoreFromPrio: Record<Prio, number> = { alta: 85, media: 62, baja: 37, futuro: 12 };
+
+/**
+ * «SIN PRIORIZAR» (16/10/2026): una tarea que nació LIBRE, sin que nadie —ni el Perro— le
+ * pusiera un número. Es `score` 0 y nada más: ningún juicio produce un 0 (la prioridad a mano
+ * va de 1 a 100, `clampProj` también, y el reparto tiene piso 1).
+ *
+ * ⚠️ NO ES «A FUTURO», Y POR ESO NO ES `prioFromScore`. `prioFromScore(0)` sigue diciendo
+ * 'futuro' porque es la BANDA de un número (y 0 < 25), y la usan el reparto y las cuentas.
+ * Pero «A futuro» es un juicio —«esto importa poco»— y una tarea recién cargada de una
+ * reunión no fue juzgada: decirle «A futuro» es inventar que alguien decidió que no importa.
+ * El chip y el filtro preguntan por `prioFiltroDe`, que contesta las dos cosas.
+ *
+ * Hasta el 16/10, `toBoard` (desde-todo.ts) convertía el 0 en 62 («Media»), así que «sin
+ * priorizar» no se podía ni ver.
+ */
+export const sinPriorizar = (t: { score: number }): boolean => !(t.score > 0);
+export type PrioFiltro = Prio | 'sin_priorizar';
+/** Las opciones del filtro de prioridad, en orden (decisión 3 del 16/10/2026). */
+export const PRIOS_FILTRO: readonly PrioFiltro[] = ['alta', 'media', 'baja', 'futuro', 'sin_priorizar'];
+export const PFILTRO_LABEL: Record<PrioFiltro, string> = { ...PLABEL, sin_priorizar: 'Sin priorizar' };
+/** La prioridad que dice el CHIP y que mira el FILTRO: la banda del score, o «Sin priorizar». */
+export const prioFiltroDe = (t: { score: number }): PrioFiltro => (sinPriorizar(t) ? 'sin_priorizar' : prioFromScore(t.score));
+
+/** La columna de una tarjeta: su estado, o el que le toca por el avance si no lo trae. */
+export const estadoDe = (t: { estado?: EstadoTarea; progress: number }): EstadoTarea => t.estado ?? estadoDeAvance(t.progress);
 
 /**
  * A QUIÉNES MUEVE DE VERDAD UN CAMBIO DE BANDA EN LOTE, Y EN QUÉ ORDEN APLICARLO.

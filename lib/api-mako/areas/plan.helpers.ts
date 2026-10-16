@@ -28,6 +28,7 @@ import type { Dep } from '@/app/plan/board/dependencias';
 // reescribe acá. Sin `server-only`, así que se puede importar desde cualquier lado.
 import { diasQuieta } from '@/app/plan/board/envejecer';
 import { esRecurrente, textoRepeticion } from '@/lib/plan-recurrentes';
+import { estadoDeAvance, type EstadoTarea } from '@/lib/todo-estados';
 
 import { tableroDeCapa } from '../../tablero-de-capa';
 
@@ -42,6 +43,14 @@ export type TareaPlan = {
   detalle: string;
   score: number;
   prioridad: string;
+  /**
+   * LA COLUMNA DEL KANBAN (16/10/2026): por_hacer (Por iniciar) · en_curso (En proceso) ·
+   * en_seguimiento (Atorada) · hecho (Completada) · no_cumple (No cumplen tu criterio). Existe
+   * en las DOS mitades desde la mig 0294. Las etiquetas, en lib/todo-estados.ts.
+   */
+  estado: EstadoTarea;
+  /** Por qué está Atorada, en una línea; null fuera de ahí o si nadie lo dijo. */
+  motivoAtorada: string | null;
   avance: number;
   deadline: string | null;
   proyectoId: string | null;
@@ -143,6 +152,7 @@ export async function leerTablero(ws: number): Promise<Tablero> {
       board: 'plan',
       tareas: b.tareas.map((t) => ({
         id: t.id, num: t.num, titulo: t.title, detalle: t.detalle ?? '', score: t.score, prioridad: t.priority,
+        estado: t.estado ?? estadoDeAvance(t.progress ?? 0), motivoAtorada: t.motivoAtorada ?? null,
         avance: t.progress ?? 0, deadline: t.deadline || null, proyectoId: t.labels[0] ?? null, labels: [...t.labels],
         checklist: (t.checklist ?? []).map((c) => ({ id: c.id, text: c.text, done: !!c.done })),
         notas: t.notas ?? '', scoreRazon: t.scoreRazon ?? null, deadlineRazon: t.deadlineRazon ?? null,
@@ -166,6 +176,7 @@ export async function leerTablero(ws: number): Promise<Tablero> {
     board: 'todo',
     tareas: tareas.map((t) => ({
       id: String(t.id), num: null, titulo: t.titulo, detalle: t.detalle ?? '', score: t.score, prioridad: t.prioridad,
+      estado: t.estado, motivoAtorada: t.motivo_atorada,
       avance: t.progreso ?? 0, deadline: t.deadline ?? null, proyectoId: t.categorias[0] != null ? String(t.categorias[0]) : null,
       labels: t.categorias.map(String),
       checklist: (t.checklist ?? []).map((c) => ({ id: c.id, text: c.text, done: !!c.done })),
@@ -236,7 +247,14 @@ export const DIAS_PARADA_NOTORIA = 30;
 export function tareaCompacta(t: TareaPlan, nombreProyecto: Map<string, string>) {
   const parada = diasParada(t);
   return {
-    id: t.id, ...(t.num != null ? { num: t.num } : {}), titulo: t.titulo, score: t.score, prioridad: t.prioridad,
+    id: t.id, ...(t.num != null ? { num: t.num } : {}), titulo: t.titulo, score: t.score,
+    // «Sin priorizar» (score 0, 16/10/2026) viaja con su nombre: con la banda del número diría
+    // «futuro», que es un juicio que nadie hizo — y el agente lo repetiría como tal.
+    prioridad: t.score > 0 ? t.prioridad : 'sin_priorizar',
+    // La columna, sólo cuando NO es la de siempre: «Por iniciar» es lo normal de una abierta, y
+    // una clave más en 300 tareas es ruido en el prompt (la misma regla que `se_repite`).
+    ...(t.estado !== 'por_hacer' ? { estado: t.estado } : {}),
+    ...(t.estado === 'en_seguimiento' && t.motivoAtorada ? { atorada_por: t.motivoAtorada } : {}),
     avance_pct: t.avance, deadline: t.deadline, proyecto: t.proyectoId ? nombreProyecto.get(t.proyectoId) ?? null : null,
     // ⚠️ LA MARCA VIAJA, Y CON SU EXPLICACIÓN. Lo único que un modelo sabe de esta tarea es
     // este JSON: sin la nota, ve `score: 85` al lado de `se_repite: true` y no tiene forma

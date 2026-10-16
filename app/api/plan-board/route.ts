@@ -13,10 +13,11 @@ import { getSesionAdmin } from '@/lib/auth';
 import {
   listPlanBoard, planVacio, crearPlanTarea, guardarPlanTarea, borrarPlanTarea,
   crearPlanProyecto, guardarPlanProyecto, borrarPlanProyecto, guardarPlanBulk,
-  priorizarNuevasOwner, ampliarTareasPlanOwner,
+  priorizarNuevasOwner, ampliarTareasPlanOwner, moverPlanTarea,
   agregarDependencia, borrarDependencia, listDependencias,
 } from '@/lib/plan-board';
-import type { BoardTask, Label, Fuente } from '@/app/plan/board/types';
+import type { BoardTask, Label, Fuente, Hist } from '@/app/plan/board/types';
+import { esEstado } from '@/lib/todo-estados';
 import type { EntidadDep, ClaseDep } from '@/app/plan/board/dependencias';
 import { proponerTareasParaProyecto } from '@/lib/plan-proyecto-vacio';
 import { fijarPrioridadAMano, devolverPrioridadAlPerro } from '@/lib/plan-reprio';
@@ -92,6 +93,21 @@ export async function POST(req: NextRequest) {
       if (!t?.id) return NextResponse.json({ ok: false, error: 'falta la tarea' }, { status: 400 });
       await guardarPlanTarea(t);
       return NextResponse.json({ ok: true });
+    }
+    // MOVER EN EL KANBAN (16/10/2026): la capacidad `mover` de `repoPlan`. Escribe por columna
+    // (estado, lugar y lo que se acomoda solo), nunca la fila entera: ver `moverPlanTarea`.
+    // Un estado que no existe es un 400, no «Por iniciar».
+    if (action === 'mover-tarea') {
+      const id = String(body.id ?? '');
+      if (!id) return NextResponse.json({ ok: false, error: 'id requerido' }, { status: 400 });
+      const estado: unknown = body.estado;
+      if (!esEstado(estado)) return NextResponse.json({ ok: false, error: 'estado inválido' }, { status: 400 });
+      const orden = body.orden != null && Number.isFinite(Number(body.orden)) ? Number(body.orden) : undefined;
+      // `undefined` = «no me dijeron» (conserva el motivo si ya estaba atorada); `null` lo borra.
+      const motivo = body.motivo === null ? null : typeof body.motivo === 'string' ? body.motivo : undefined;
+      const historial = Array.isArray(body.historial) ? (body.historial as Hist[]) : undefined;
+      const r = await moverPlanTarea(id, estado, orden, { motivo, historial });
+      return r.ok ? NextResponse.json({ ok: true, tarea: r.tarea }) : NextResponse.json({ ok: false, error: r.error }, { status: r.status });
     }
     if (action === 'borrar-tarea') {
       const id = String(body.id ?? '');

@@ -29,8 +29,10 @@ import 'server-only';
 import type { Ctx, Ejecutado, Runners, SalidaLectura } from '../tipos';
 import { runMakoTool } from '@/lib/mako-tools';
 import { crearRunnerAcciones } from '@/lib/mako-doer-acciones';
-import { listPlanBoard, guardarPlanTarea, agregarDependencia, borrarDependencia, listDependencias } from '@/lib/plan-board';
-import { listTareas, editarTarea } from '@/lib/todo';
+import { listPlanBoard, guardarPlanTarea, moverPlanTarea, agregarDependencia, borrarDependencia, listDependencias } from '@/lib/plan-board';
+import { listTareas, editarTarea, moverTarea } from '@/lib/todo';
+// Las columnas del kanban (16/10/2026): claves, etiquetas y qué es un pendiente, de UN lugar.
+import { esEstado, estaPendiente, etiquetaEstado, motivoAtoradaOk } from '@/lib/todo-estados';
 import {
   getPropuesta, getPropuestaPorRef, listPropuestasPendientes, estadoDePropuesta, resumenPropuestasPorRefs,
   descartarPropuesta, crearPropuesta,
@@ -83,7 +85,10 @@ const recortar = (s: string | null | undefined, n: number): string => {
  * pregunta «¿esto ya existe en el plan?» usa `abierta`, porque una recurrente EXISTE y
  * proponerla de nuevo es el error que la marca en el payload viene a evitar.
  */
-const abierta = (t: TareaPlan): boolean => t.avance < 100;
+// ⚠️ Y «abierta» es además un PENDIENTE (16/10/2026): lo que está en «No cumplen tu criterio» no
+// es trabajo, y listarlo como abierto es justo lo que `estaPendiente` (lib/todo-estados.ts)
+// existe para evitar. Hasta hoy acá bastaba el avance porque el estado no viajaba al JSON.
+const abierta = (t: TareaPlan): boolean => t.avance < 100 && estaPendiente(t.estado);
 const compite = (t: TareaPlan): boolean => abierta(t) && !esRecurrente(t);
 const genHistId = (): string => 'h' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 const aviso = (tab: Tablero): Record<string, string> =>
@@ -687,6 +692,58 @@ export const RUNNERS: Runners = {
       const texto = `MaKo cambió el avance de ${t.progreso}% a ${avance}%`;
       await editarTarea(t.id, { progreso: avance, historial: [{ id: genHistId(), ts: Date.now(), actor: 'ia' as const, text: texto }, ...t.historial].slice(0, 40) });
       return { ok: true, resumen: `«${t.titulo}»: ${texto}` };
+    },
+  },
+
+  /**
+   * MOVER DE COLUMNA (16/10/2026). Escribe por las MISMAS funciones que el arrastre del tablero
+   * (`moverPlanTarea` / `moverTarea`): la regla de qué pasa con el avance y el motivo
+   * (`trasMover`) es una sola. Sin `orden`: va arriba de la columna destino, como una tarjeta
+   * recién soltada ahí.
+   */
+  mover_tarea_plan: {
+    preparar: async (input, ctx) => {
+      const tab = await leerTablero(ctx.ws);
+      const t = buscarTarea(tab, str(input, 'id'), null);
+      if (!t) return { error: `No encuentro la tarea «${str(input, 'id')}» en el plan de este negocio.` };
+      const estado = str(input, 'estado');
+      // El validador ya filtra por el enum; esto es la segunda puerta para quien llame sin él.
+      if (!esEstado(estado) || estado === 'hecho') return { error: 'Columna inválida: usa por_hacer, en_curso, en_seguimiento o no_cumple. Para completarla, proponer_cierre_tareas.' };
+      const motivo = estado === 'en_seguimiento' ? motivoAtoradaOk(input.motivo) : null;
+      const destino = etiquetaEstado(estado);
+      // «Ya está así» es un éxito sin nada que hacer para un flujo o un token (yaEstaba), y un
+      // rechazo con la razón para una persona.
+      if (t.estado === estado && (estado !== 'en_seguimiento' || !motivo || motivo === t.motivoAtorada)) {
+        return { error: `La tarea «${recortar(t.titulo, 120)}» ya está en ${destino}.`, yaEstaba: true };
+      }
+      const desde = etiquetaEstado(t.estado);
+      return {
+        payload: { id: t.id, estado, motivo },
+        resumen: `Mover «${recortar(t.titulo, 120)}» de ${desde} a ${destino}${motivo ? ` (${motivo})` : ''}`,
+      };
+    },
+    ejecutar: async (payload, ctx): Promise<Ejecutado> => {
+      const id = String(payload.id ?? '');
+      const estado = String(payload.estado ?? '');
+      if (!esEstado(estado) || estado === 'hecho') return { ok: false, resumen: 'Columna inválida.' };
+      // `undefined` y no null cuando no vino: un reordenamiento dentro de Atorada no borra el motivo.
+      const motivo = typeof payload.motivo === 'string' && payload.motivo ? payload.motivo : undefined;
+      const entrada = (antes: string) => ({
+        id: genHistId(), ts: Date.now(), actor: 'ia' as const,
+        text: `MaKo la movió de ${antes} a ${etiquetaEstado(estado)}${motivo ? ` — ${motivo}` : ''}`.slice(0, 220),
+      });
+      if (await usaPlanBoard(ctx.ws)) {
+        const t = (await listPlanBoard()).tareas.find((x) => x.id === id);
+        if (!t) return { ok: false, resumen: 'La tarea ya no existe.' };
+        const e = entrada(etiquetaEstado(t.estado ?? 'por_hacer'));
+        const r = await moverPlanTarea(id, estado, undefined, { motivo, historial: [e, ...(t.historial ?? [])].slice(0, 40) });
+        return r.ok ? { ok: true, resumen: `«${t.title}»: ${e.text}` } : { ok: false, resumen: r.error };
+      }
+      const t = (await listTareas()).find((x) => x.id === Number(id));
+      if (!t) return { ok: false, resumen: 'La tarea ya no existe.' };
+      const e = entrada(etiquetaEstado(t.estado));
+      const r = await moverTarea(t.id, estado, undefined, { motivo, historial: [e, ...t.historial].slice(0, 40) });
+      return r.ok ? { ok: true, resumen: `«${t.titulo}»: ${e.text}` } : { ok: false, resumen: r.error };
     },
   },
 

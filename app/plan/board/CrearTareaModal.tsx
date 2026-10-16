@@ -24,12 +24,17 @@
 // alguien que puntúe del 1 al 100 algo que todavía no escribió. La pone el Perro en la
 // misma corrida en la que escribe el detalle y elige el proyecto; si se equivoca, se cambia
 // con el lápiz del panel, que es un click.
+//
+// ⚠️ Y DESDE EL 16/10/2026 EL PERRO YA NO CORRE AL CREAR: «que se creen sin prioridad, y luego
+// de última un botón… para "re-priorizar" todo». La tarea nace «Sin priorizar» (score 0) en la
+// columna que se pidió (`crearConGuardian`, BoardShell.tsx), sin descripción ni proyecto de
+// MaKo; eso lo hace «Re-priorizar todo» cuando la persona lo decide.
 // =============================================================================
 
 import { useEffect, useState, type CSSProperties } from 'react';
 import { useDictar } from '@/app/_components/useDictar';
 import { GuardianIcon } from './GuardianIcon';
-import { type Prio, scoreFromPrio } from './types';
+import { type Prio, type EstadoTarea, scoreFromPrio } from './types';
 
 const SANS = "'Geist', sans-serif";
 const MONO = "'Geist Mono', monospace";
@@ -43,6 +48,8 @@ export type CrearData = {
   deadline: string;
   /** la prioridad la puso la PERSONA: se fija a mano y el Perro no la pisa */
   fijarPrioridad: boolean;
+  /** La COLUMNA en la que nace (el «＋» de una columna, 16/10/2026). Sin esto, «Por iniciar». */
+  estado?: EstadoTarea;
 };
 
 export function CrearTareaModal({ proyectoInicial, prioInicial, onCrear, onDone, onClose }: {

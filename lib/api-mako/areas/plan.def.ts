@@ -259,6 +259,22 @@ export const DEFS: readonly OperacionDef[] = [
     canales: TODOS, costo: 'gratis', gating: TAB,
   },
   {
+    // EL KANBAN ES DE FLUJO (16/10/2026): las columnas son el estado, y moverla es lo que hace
+    // la persona al arrastrar (`repo.mover`). La misma escritura de las dos mitades
+    // (`moverPlanTarea` / `moverTarea`), no una tercera. «Completada» NO está en el enum a
+    // propósito: cerrar por chat pasa por proponer_cierre_tareas, que pide la evidencia.
+    id: 'mover_tarea_plan', area: 'plan', tipo: 'accion', confirmacion: 'chat', reversible: true,
+    titulo: 'Mover una tarea de columna',
+    descripcion: 'Mueve UNA tarea a otra columna del kanban: por_hacer (Por iniciar), en_curso (En proceso), en_seguimiento (Atorada) o no_cumple (No cumplen tu criterio). Atorada admite un motivo corto. No toca la prioridad. Sacarla de Completada la reabre en 0%; para completarla usa proponer_cierre_tareas.',
+    parametros: [
+      { nombre: 'id', tipo: 'string', descripcion: 'id de la tarea (de listar_tareas_plan), o «#412».', obligatorio: true, max: 80 },
+      { nombre: 'estado', tipo: 'string', descripcion: 'la columna destino.', obligatorio: true, enum: ['por_hacer', 'en_curso', 'en_seguimiento', 'no_cumple'] },
+      { nombre: 'motivo', tipo: 'string', descripcion: 'solo con en_seguimiento: por qué está atorada, en una línea.', max: 140 },
+    ],
+    escribe: 'el estado, el lugar en la columna y el historial de la tarea (plan_tareas o experimento_tareas)',
+    canales: TODOS, costo: 'gratis', gating: TAB,
+  },
+  {
     id: 'agregar_dependencia_plan', area: 'plan', tipo: 'accion', confirmacion: 'chat', reversible: true,
     titulo: 'Declarar una dependencia',
     descripcion: 'Declara que una tarea o proyecto depende de otro: «B no puede empezar hasta que A termine» (bloquea) o «A va antes pero no frena a B» (ordena), con la razón. Antes de proponerla verifica que las dos puntas existan y que no se forme un círculo. No escribe puntos: la urgencia sube sola por la cadena. Solo en el tablero del super-admin.',
