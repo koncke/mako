@@ -1182,8 +1182,9 @@ se ve HOY (aunque la hayan movido).
 `plantillas/components/`, `app/video-editor/plantilla/ArmarPlantilla.tsx`, test `tests/video-editor-plantillas-uso.test.ts`, 28 roturas):**
 - ⚠️ **El historial de deshacer nunca se vacía al cambiar de proyecto**: `CommandManager.clear()` no lo llama nadie
   (`core/managers/commands.ts`, `project-manager.ts`). Abriendo B en la misma pestaña, Ctrl+Z aplica sobre B las pistas
-  de A. Leído, no visto. `ArmarPlantilla` lo vacía para su caso; **SIN HACER** el arreglo general (`loadProject`,
-  `createNewProject` y `closeProject` deberían limpiarlo).
+  de A. **Arreglado el 15/10**: `ProjectManager` lo vacía al crear, abrir y cerrar un proyecto (CapCut tampoco
+  conserva el deshacer entre proyectos); `tests/video-editor-historial.test.ts` lo REPRODUCE con el CommandManager
+  de verdad (carga en node) y un editor de mentira. No visto en el navegador.
 - ⚠️ **«Para ir a un proyecto nuevo alcanza con `router.push`» era el diagnóstico equivocado**: la salida de
   `editor-page.tsx` corre una microtarea DESPUÉS de desmontarse y actúa sobre el proyecto activo; si el componente
   nuevo crea su proyecto en el mismo ciclo, la salida le haría la miniatura y lo guardaría a medio armar. Regla:
