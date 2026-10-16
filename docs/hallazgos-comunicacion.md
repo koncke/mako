@@ -9946,7 +9946,7 @@ ENTREGAR… (18ª vez)» del grupo de Mauricio.
   en escritorio: hoy sólo la lee el «Avisos» de MaKo Mobile.
 
 **Sin hacer:** cada cuánto insiste (`CADENCIA_MIN`, una hora) sigue en el código: falta la pieza «el ritmo, en la fila».
-`despacharReporte` (lib/notify.ts) quedó sin llamadas: borrarlo junto con sus tests. Lo que un negocio tenía guardado para
+`despacharReporte` (lib/notify.ts) lo siguen usando los reportes diario y horario (sólo del dueño); el semanal ya no. Lo que un negocio tenía guardado para
 «meta-cuenta-frenada» en su lista (apagado, o también por email) ya no se lee: lo decide la fila de SuperAdmin.
 
 **Vive en:** `lib/linea-vigilancia.ts` (`avisoDeCaida`, `datosCaida`) · `lib/alerta-critica.ts` ·
@@ -9954,3 +9954,40 @@ ENTREGAR… (18ª vez)» del grupo de Mauricio.
 (`llegaron`) · `lib/plantillas-automatizaciones.ts` (`mako-whatsapp-*`, `mako-meta-cuenta-*`, `makoUrgente`) ·
 `scripts/mudanza-avisos-plataforma.mts` · `scripts/reescribir-filas-plataforma.mts` · tests: `tests/linea-vigilancia.test.ts`,
 `tests/alerta-critica.test.ts`, `tests/avisos-plataforma.test.ts`
+
+## La campanita de escritorio y el «sin grupo de MaKo»: lo que hay que saber antes de tocarlos (16/10/2026)
+
+Mapeo de sólo lectura (tres lectores y un crítico) antes de construir la campanita de escritorio y el respaldo visible
+cuando un negocio no tiene grupo de MaKo. Nada de esto se arregló todavía: son las trampas para quien lo haga.
+
+- ⚠️ **«No pude leer» se dibuja como «vacío».** `listNotificaciones` atrapa cualquier error y devuelve `[]`
+  (lib/notificaciones.ts), así que el «Avisos» del teléfono dice «Sin avisos todavía.» con la base caída. `contarNoVistas`
+  sí devuelve `null`. Una campanita nueva necesita una lectura ESTRICTA.
+- **El contador y el punto no cuentan lo mismo.** Sin marca de agua, `contarNoVistas` cuenta la última semana y el «nuevo»
+  del teléfono marca TODO (app/m/inbox/page.tsx). Y la campana del teléfono cuenta decisiones pendientes, no el feed:
+  con otra campana en escritorio, el mismo ícono contaría otra cosa según el dispositivo.
+- ⚠️ **La fila del feed se escribe ANTES del interruptor y del envío, y no dice si llegó.** El payload es
+  `{texto, categoria, semaforo}`; `feedId` vive adentro del `try` de `emitirAviso` y el `catch` lo devuelve `null`. Para
+  decir «No llegó por WhatsApp» hay que anotar la salida en la misma fila (el update de supabase-js REEMPLAZA el jsonb,
+  no lo mezcla) o guardarla en el insert.
+- **Ruido que vería hoy una campanita sin agrupar:** una fila APAGADO por cada evento de MaKo sin fila (ignora el dedup,
+  lib/aviso-evento.ts), las alertas que insisten, los avisos agrupados que salen dos veces (su fila y la del resumen) y
+  casi todo apuntando al default `/configuraciones?tab=notif` (`emitirDelCatalogo` no pasa link). Se agrupa y se filtra
+  en la LECTURA, sin borrar nada: la fila es el registro.
+- ⚠️ **«Sin grupo» también puede ser «no pude leer».** `getGrupoJidMaKo` lee con `getSetting`, que convierte un error en
+  `null` (lib/settings.ts): un respaldo por email que se dispare con «no tiene grupo» mandaría un correo por cada aviso de
+  cada negocio ante un bache de la base. Va con `getSettingEstricto` y un marcador tipado (`sinGrupo`), nunca comparando
+  el texto del error. Un grupo guardado pero borrado da un error de Evolution, no «sin grupo».
+- **El respaldo es una opción VISIBLE de la tarjeta** («Sin grupo de MaKo: por email / queda en la app»), con el molde de
+  «Lo manda igual» (`fueraDeHorario`, lib/mako-tarjeta.ts), con default «queda en la app» (lo de hoy: si no, el día del
+  deploy todos los negocios sin grupo empiezan a recibir correos), sin duplicar el email que el aviso ya mandó, y diciendo
+  si no hay nadie en Notificaciones por email.
+- **El shell de escritorio:** no hay cabecera global; el pie del Sidebar es el lugar de lo global (ahí va «Avisos»), los
+  desplegables van por portal y en blanco, el plegado mira el `:hover` de cada panel (uno nuevo tiene que sumarse) y el
+  nav ya scrollea, contra la regla de AGENTS.md: otra fila en el pie se mide en 1024×768 antes de subirla. La marca de
+  agua (`setNotifVistoHasta`) reescribe el `perfil` entero sin comparar: abrir la campanita seguido sube el riesgo de
+  pisar un guardado.
+
+**Vive en:** `lib/notificaciones.ts` · `lib/avisos.ts` (`emitirAviso`) · `lib/mako-grupo.ts` (`getGrupoJidMaKo`,
+`enviarAlGrupoMaKo`) · `lib/mako-tarjeta.ts` · `app/api/notificaciones/route.ts` · `app/m/inbox/` ·
+`app/_components/Sidebar.tsx` · `lib/perfil.ts` (`setNotifVistoHasta`)
