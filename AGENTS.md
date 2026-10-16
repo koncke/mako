@@ -3897,12 +3897,16 @@ voz con un mensaje que le pedía cargar otra key. Dos reglas al escribir un cami
   datos de clientes, si nada que no entrene contesta, se corta, y el mensaje dice que conecte su Claude
   (no «Claude vetado» ni «falló»: molde, el `catch` de `lib/lead-insights.ts`). Una feature nueva que lea leads, conversaciones o llamadas se marca
   `pii: true`. Y un camino con su PROPIA red (un bucle sobre `provsGratisDePlataforma`) aplica la
-  misma regla él mismo: el corte de la cascada no lo cubre.
+  misma regla él mismo: el corte de la cascada no lo cubre. Una regla que corta de más tampoco está
+  bien: si una feature mezcla pedidos con y sin datos de clientes, la marca del catálogo queda como
+  default cerrado y quien llama la afina con `pii`, EN POSITIVO (lo que no está revisado la lleva;
+  molde: `CAJAS_SIN_DATOS_DE_CLIENTES`, lib/graficos-ia-elemento.ts).
 - **La red va como OPCIÓN del que llama, nunca fija en una función compartida** (`EnVivo`,
   `lib/setting-simulador.ts`, 16/10/2026). Una lectura de la API que un agente externo puede llamar
   en bucle no la pide: gastaría la cuota gratis de la agencia, que es de la que viven las respuestas
   en vivo de todos. Y lo que corre adentro de un webhook la pide CON PLAZO (`hastaMs`): sin él, una
   red lenta mata la función sin dejar ni el aviso.
+
 - **Un 429 del MINUTO también se cubre con otro modelo, y repetir un PEDIDO no repite
   herramientas.** El 07/10/2026 a Brigitte (una sola key) una pregunta de 6-8 pedidos de ~15k
   tokens llenó el cupo del minuto, y el 429 tiraba el turno con seis pasos hechos por una regla

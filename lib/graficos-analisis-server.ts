@@ -295,8 +295,9 @@ export type RespuestaIA = { crudo: string; modelo: string | null; errores: strin
  * «siempre tiene que probar con otros provedoores» — la única key de Gemini del ws1 la bloqueó Google y el
  * panel decía que no pudo, con la agencia teniendo con qué contestar. El mensaje para la persona lo arma quien
  * llama (`errorDeCascada` con SU trabajo), con los errores de las keys del negocio y nunca los de la red.
+ * `pii`: si el pedido lleva datos de los clientes del negocio; sin él, lo dice la marca `pii` del catálogo.
  */
-export async function pedirIAGratis(p: { system: string; user: string; maxTokens: number; feature: string; motivo: string; hastaMs: number; validar: (t: string) => boolean }): Promise<RespuestaIA> {
+export async function pedirIAGratis(p: { system: string; user: string; maxTokens: number; feature: string; motivo: string; hastaMs: number; validar: (t: string) => boolean; pii?: boolean }): Promise<RespuestaIA> {
   const hayIaDelNegocio = await docsIADisponible().catch(() => false);
   const pin = await overrideDeFeature(p.feature).catch(() => null);
   const usaPin = pin != null && pin.provider !== 'anthropic';
@@ -330,7 +331,7 @@ export async function pedirIAGratis(p: { system: string; user: string; maxTokens
   if (!crudo.trim()) {
     const red = await porLaRedDePlataforma({
       system: opciones.system, user: opciones.user, maxTokens: p.maxTokens,
-      feature: p.feature, motivo: p.motivo, hastaMs: p.hastaMs, validar,
+      feature: p.feature, motivo: p.motivo, hastaMs: p.hastaMs, validar, pii: p.pii,
     });
     if (red) {
       crudo = red.texto;

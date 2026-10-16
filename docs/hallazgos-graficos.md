@@ -967,7 +967,8 @@ X) · `lib/graficos-gordo.ts` (`BARRA.separacionGrupo`) · `lib/graficos-plantil
 ## La IA del Dashboard tiene su PROPIA red, y el corte por datos de clientes no la cubría (16/10/2026)
 
 **Vive en:** `lib/graficos-ia-red.ts` (`porLaRedDePlataforma`, `llevaDatosDeClientes`) · `lib/graficos-analisis-server.ts`
-(`pedirIAGratis`) · `lib/graficos-ia-generar.ts` · `tests/graficos-ia-red.test.ts`
+(`pedirIAGratis`) · `lib/graficos-ia-elemento.ts` (`CAJAS_SIN_DATOS_DE_CLIENTES`) · `lib/graficos-ia-generar.ts` ·
+`tests/graficos-ia-red.test.ts`
 
 La regla del 16/10 (los datos de los clientes de un cliente nunca van a un proveedor que entrena; AGENTS.md, la red de
 plataforma) se puso en `chatCheapCascade`. El AI Analyst, las «Conclusiones de MaKo» y «Pídeselo a MaKo» no pasan por
@@ -978,15 +979,17 @@ cumpla, devuelve `null` y quien llama dice lo de siempre: que el negocio conecte
 - ⚠️ **Un test viejo fijaba lo contrario.** `tests/graficos-analisis.test.ts` exigía que la red no nombrara `anthropic`
   («gratis por construcción»): con la regla nueva, el crédito de Claude es lo que va PRIMERO. Ahora admite sólo esa
   importación (`conCreditoDeLaPlataforma`) y sigue prohibiendo todo lo demás que cobra por pedido.
-- ⚠️ **La marca `pii` es de la feature ENTERA.** «dashboard-conclusiones» la lleva porque una caja de un pop-up lee el
-  transcript de una llamada, así que también las cajas que sólo leen números agregados se quedan sin keys gratis.
-  Mientras el crédito de Claude no esté activo en producción (docs/hallazgos-ia.md, «la tercera puerta del veto»), un
-  negocio sin key propia ve «conecta tu IA» en TODAS sus Conclusiones. El AI Analyst y «Pídeselo a MaKo» no llevan la
-  marca y siguen con las gratis.
+- ⚠️ **La marca `pii` del catálogo es de la feature ENTERA, y corta de más.** «dashboard-conclusiones» la lleva porque
+  la caja del pop-up de una llamada lee el transcript; con eso solo, también las cajas que leen números agregados se
+  quedaban sin keys gratis (y, sin el crédito de Claude activo, sin IA en un negocio sin key propia). Ahora cada caja
+  dice lo suyo, EN POSITIVO como `DIMENSIONES_PUBLICAS`: van sin la marca las que leen GRÁFICOS (mandan lo mismo que el
+  AI Analyst, con las personas y los filtros sobre ellas como «Closer 1») y un ANUNCIO (números de Meta y lo que
+  escribió quien armó la campaña). Una llamada, un lead, y todo lo que se sume mañana, la llevan. El catálogo sigue con
+  `pii: true`: es el default cerrado y el que muestra el sello PII en /modelos-ia.
+- **El test fija también el PORQUÉ:** que la caja de gráficos mande `paraModelo(e)` y que los campos del anuncio sean
+  los revisados. Un campo nuevo en `entradaDeAnuncio` (los comentarios, por ejemplo) lo hace fallar: se revisa antes.
 
-**Lo que quedó SIN hacer:** afinar el corte por caja (pasar `pii: false` desde `pedirIAGratis` cuando la caja no lee
-pop-ups ni llamadas: `lib/graficos-ia-elemento-server.ts`). Y nada se probó contra la red de verdad: sin `next dev`
-por la RAM.
+**Lo que quedó SIN hacer:** nada se probó contra la red de verdad (sin `next dev` por la RAM).
 *16/10/2026, claude3 (chat Dashboard).*
 
 ## Lo que quedó sin hacer
