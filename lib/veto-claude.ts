@@ -53,6 +53,9 @@
 // cobrar. Por eso pasa como excepción EXPLÍCITA y NOMBRADA: sólo las dos claves de
 // `CLAVES_CREDITO_PLATAFORMA`, comparadas acá contra la que llega, y ninguna otra clave de la
 // plataforma. Lo prueba rompiéndolo tests/veto-claude-credito-plataforma.test.ts.
+//
+// Y el MISMO día, el PARA QUÉ: «Yo debo decirte cuando utilizar creditos, no tenemos infinitos...
+// Por ahora solo en onboarding.» El crédito lo usa sólo lo que está en `CREDITO_HABILITADO_PARA`.
 // =============================================================================
 
 import { CATALOGO_MODELOS } from '@/lib/model-catalogo';
@@ -272,6 +275,23 @@ export const CREDITO_DE_LA_PLATAFORMA = {
   pidio: 'Martín, 16/10/2026: «Vinculalas a MaKo».',
 } as const;
 
+/**
+ * PARA QUÉ se usa el crédito: una lista, y lo que no está no lo usa. Martín, 16/10/2026, textual: «Yo debo
+ * decirte cuando utilizar creditos, no tenemos infinitos... Por ahora solo en onboarding.» Hoy entran las
+ * funciones del wizard del primer ingreso, y sólo MIENTRAS el onboarding del negocio está en curso
+ * (`soloDuranteElOnboarding`): las mismas features corren después desde Second Brain, y ahí no.
+ *
+ * Habilitar algo más es sumar una línea acá, y lo decide Martín. Lo que no está recibe un «no» y la cascada
+ * sigue como si el crédito no existiera: con datos de clientes, sin nada gratis que entrene (AGENTS.md). El
+ * Plan, además, queda afuera siempre (`FEATURES_DEL_PLAN`): el plan de arranque del cierre del wizard
+ * (`plan-seed-ia`) no está, a propósito.
+ */
+export const CREDITO_HABILITADO_PARA: ReadonlyArray<{ feature: string; soloDuranteElOnboarding: boolean; para: string }> = [
+  { feature: 'El Archivero', soloDuranteElOnboarding: true, para: 'leer los documentos que sube en el wizard' },
+  { feature: 'onboarding-extract', soloDuranteElOnboarding: true, para: 'sacar el brief de sus documentos' },
+  { feature: 'productos', soloDuranteElOnboarding: true, para: 'armar su catálogo en el paso Productos' },
+];
+
 /** La marca del gasto de este crédito en `anthropic_usage`, al PRINCIPIO del motivo (ver la del negocio). */
 export const MOTIVO_CREDITO_PLATAFORMA = '⚠ crédito de Claude de la plataforma';
 export const esDelCreditoDeLaPlataforma = (motivo: string | null | undefined): boolean =>
@@ -290,11 +310,19 @@ export type PermisoCredito = PermisoClaude & { readonly clave: string; readonly 
 export function evaluarCreditoDeLaPlataforma(p: {
   feature?: string; model?: string; pausa?: boolean; hoy?: Date;
   clave?: string | null; creditos: ReadonlyArray<string | null | undefined>;
+  /** ¿El onboarding del negocio que pide está en curso? Lo lee el llamador; sin saberlo, se toma que no. */
+  onboardingEnCurso?: boolean;
 }): { ok: true; permiso: PermisoCredito } | { ok: false; razon: string } {
   if (p.pausa) return { ok: false, razon: 'Claude está PAUSADO a mano (`mako.claude.pausa`): apaga también el crédito de la plataforma.' };
   const feature = (p.feature ?? '').trim();
   if (!feature) return { ok: false, razon: 'sin `feature` no se sabe qué se compra con el crédito.' };
   if (FEATURES_DEL_PLAN.includes(feature)) return { ok: false, razon: `«${feature}» es del Plan, y el Plan nunca paga IA (Martín, 30/09/2026).` };
+  // PARA QUÉ: sólo lo que Martín habilitó, en positivo.
+  const habilitado = CREDITO_HABILITADO_PARA.find((h) => h.feature === feature);
+  if (!habilitado) return { ok: false, razon: `el crédito no está habilitado para «${feature}»: lo decide Martín («Por ahora solo en onboarding»).` };
+  if (habilitado.soloDuranteElOnboarding && p.onboardingEnCurso !== true) {
+    return { ok: false, razon: `«${feature}» usa el crédito sólo durante el onboarding, y el de este negocio no está en curso.` };
+  }
   if (diaISO(p.hoy ?? new Date()) > CREDITO_DE_LA_PLATAFORMA.hasta) {
     return { ok: false, razon: `el permiso del crédito de la plataforma venció el ${CREDITO_DE_LA_PLATAFORMA.hasta}. Renuévalo con una fecha nueva o déjalo vencido.` };
   }
