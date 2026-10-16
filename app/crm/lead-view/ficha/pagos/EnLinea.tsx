@@ -11,6 +11,9 @@
 // abierto con lo escrito, en vez de volver solo al valor viejo como si hubiera guardado.
 //
 // ⚠️ Lo que no se puede editar no se dibuja clickeable (`bloqueado`): un campo que invita y rebota se lee roto.
+// ⚠️ UN GUARDADO A LA VEZ (revisión del 16/10/2026): Enter guarda, y el blur que sigue (el campo se deshabilita
+//    mientras guarda) volvía a guardar el mismo valor contra el valor VIEJO del prop. En una obligación, la segunda
+//    llamada llevaba el texto de antes como `esperado` y volvía con «otra pestaña lo cambió» sobre lo que sí guardó.
 // =============================================================================
 
 import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent } from 'react';
@@ -40,6 +43,7 @@ export function EnLinea({ valor, tipo = 'texto', vacio = '—', titulo, prefijo,
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const ref = useRef<HTMLInputElement & HTMLTextAreaElement>(null);
+  const enCurso = useRef(false);
 
   useEffect(() => { if (!abierto) setBorrador(valor); }, [valor, abierto]);
   useEffect(() => { if (abierto) ref.current?.focus(); }, [abierto]);
@@ -48,10 +52,13 @@ export function EnLinea({ valor, tipo = 'texto', vacio = '—', titulo, prefijo,
   if (bloqueado) return <span style={{ ...estilo, color: valor ? estilo?.color ?? 'var(--ink)' : 'var(--faint)' }}>{visible}</span>;
 
   const salir = async () => {
+    if (enCurso.current) return;
     const v = tipo === 'largo' ? borrador.trim() : borrador.replace(/\s+/g, ' ').trim();
     if (v === valor.trim()) { setAbierto(false); setError(null); return; }
+    enCurso.current = true;
     setGuardando(true);
     const e = await onGuardar(v).catch((x: unknown) => (x instanceof Error ? x.message : String(x)));
+    enCurso.current = false;
     setGuardando(false);
     if (e) { setError(e); return; }
     setError(null);

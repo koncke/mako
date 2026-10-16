@@ -126,6 +126,25 @@ el MRR un 85% (hallazgos-crm.md).
 - **La regla.** El modo cuota tiene su propio paso, que dice qué se cobra (CobrarConLink.tsx). Una lista de pasos de
   WizardShell nunca puede quedar vacía.
 
+### Un error del server que dice «córtalo» y una pantalla sin dónde cortarlo
+
+- **Síntoma** (revisión del 16/10/2026, antes de subir). Editar una cuota con un recordatorio de cobro en curso
+  devolvía «córtalo para editarla». La tab nueva no tenía dónde cortarlo: un callejón sin salida que la tarjeta vieja
+  no tenía, porque guardaba todo junto y conservaba esa cuota en silencio.
+- **La regla.** Si el server rechaza algo por una protección, la pantalla la LEE antes y la dice:
+  - `proteccionesDeCuotasAction`, en pagos/cuotas-actions.ts, trae lo que protege a cada cuota;
+  - el renglón muestra «Link enviado» o «Recordatorio en curso»;
+  - no deja editar lo que el server va a rechazar;
+  - ofrece «Cortar el recordatorio».
+
+### Enter y el blur que le sigue eran dos guardados
+
+- **La causa.** El campo en el lugar (pagos/EnLinea.tsx) se deshabilita mientras guarda, y eso dispara el blur. Ese
+  blur guardaba otra vez contra el valor VIEJO del prop.
+- **El síntoma.** En una obligación, la segunda llamada llevaba el texto anterior como `esperado` y volvía con «otra
+  pestaña lo cambió» sobre algo que sí se había guardado.
+- **La regla.** Un candado (`enCurso`): un guardado a la vez.
+
 ### El teléfono muestra el estado de cuenta también desde el Resumen
 
 - **Qué pasa.** Cuatro plantillas ya traían `cobrado` en el Resumen. Con `cobrado → 'saldo'`, el teléfono lo dibuja

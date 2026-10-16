@@ -14,7 +14,7 @@
 // Lo que se relevó de la tarjeta de antes y por qué cambió: docs/hallazgos-pagos.md §1.
 // =============================================================================
 
-import { useState, useTransition, type CSSProperties } from 'react';
+import { useEffect, useState, useTransition, type CSSProperties } from 'react';
 import { Button, Confirm, Toast, useToast } from '@/app/_ui';
 import { cobradoDelLead, esCuotaDevuelta, type CuotaParaCobrado } from '@/lib/cobrado-lead';
 import { estadoDeCuenta, movimientosDelLead, renglonDeCuota, usd } from '@/lib/pagos-vistazo';
@@ -24,7 +24,9 @@ import { fmtDDMMYYYY } from '@/lib/date-utils';
 import { marcaDato } from '@/lib/datos-aviso';
 import type { VentaTipo } from '@/lib/venta-tipo';
 import type { Pago } from '@/lib/pagos';
-import { ajustarPlanAction, cambiarEstadoSuscripcionAction, editarCuotaAction, guardarCuotasAction, guardarVentaAction } from '@/app/crm/[id]/pagos-campo-actions';
+import { ajustarPlanAction, cambiarEstadoSuscripcionAction, cortarRecordatoriosCuotaAction, editarCuotaAction, guardarCuotasAction, guardarVentaAction } from '@/app/crm/[id]/pagos-campo-actions';
+import { proteccionesDeCuotasAction } from './cuotas-actions';
+import type { Proteccion } from '@/lib/pagos-campo';
 import { cancelarSuscripcionAction } from '@/app/crm/[id]/cobros-actions';
 import { quitarSinCobroAction } from '@/app/crm/[id]/deal-actions';
 import { CobrarConLink } from '@/app/crm/[id]/CobrarConLink';
@@ -124,6 +126,24 @@ export function Cuotas(props: PropsBloque) {
   const vivas = pagos.filter((q) => !esCuotaDevuelta(q));
   const devueltas = pagos.filter((q) => esCuotaDevuelta(q));
   const conPlan = planEnLead(lead);
+  // Lo que protege a cada impaga (un link sin pagar, un recordatorio corriendo): el server no deja editarla, y el
+  // renglón lo dice antes y ofrece cortar el recordatorio. Se relee cuando cambian las cuotas.
+  const [protegidas, setProtegidas] = useState<Record<number, Proteccion[]>>({});
+  const firma = vivas.filter((q) => !q.pagado).map((q) => `${q.id}:${q.monto_usd}:${q.fecha_esperada}`).join('|');
+  const [vuelta, setVuelta] = useState(0);
+  useEffect(() => {
+    let vivo = true;
+    if (!firma) { setProtegidas({}); return; }
+    proteccionesDeCuotasAction(lead.id).then((p) => { if (vivo) setProtegidas(p); }).catch(() => {});
+    return () => { vivo = false; };
+  }, [lead.id, firma, vuelta]);
+  const cortar = (q: Pago) => start(async () => {
+    const r = await cortarRecordatoriosCuotaAction(lead.id, q.id);
+    if (!r.ok) { show(r.error, undefined, 'bad'); return; }
+    setVuelta((v) => v + 1);
+    ctx.releer();
+    show(r.cortados ? 'Recordatorio cortado' : 'No había recordatorio');
+  });
 
   const editar = (q: Pago, cambio: { monto?: number; fecha?: string | null }) =>
     editarCuotaAction(lead.id, q.id, cambio).then((r) => {
@@ -161,28 +181,35 @@ export function Cuotas(props: PropsBloque) {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }} data-recorrido={marcaDato('comprobante')}>
         {lista.map((q) => {
           const r = renglonDeCuota(q, ctx.hoy);
+          const prot = protegidas[q.id] ?? [];
+          // Con un recordatorio corriendo no se edita nada; con un link vivo, el monto no (el link cobra ese monto).
+          const montoEditable = r.editable && !prot.includes('link') && !prot.includes('recordatorio');
+          const fechaEditable = r.editable && !prot.includes('recordatorio');
           return (
             <div key={q.id} style={{ ...renglon, borderColor: BORDE[r.estado] ?? 'var(--border)', opacity: r.estado === 'devuelta' ? 0.7 : 1 }}>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, flexWrap: 'wrap', minWidth: 0 }}>
                 <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--ink)' }}>{r.nombre}</span>
                 <span style={{ fontSize: 14, color: 'var(--ink)', fontVariantNumeric: 'tabular-nums', minWidth: 70 }}>
-                  {r.editable && !editando
+                  {montoEditable && !editando
                     ? <EnLinea valor={String(Number(q.monto_usd))} tipo="numero" prefijo="$" titulo={`Edita el monto de ${r.nombre.toLowerCase()}`}
                       onGuardar={(v) => editar(q, { monto: Number(v) })} />
                     : r.montoTexto}
                 </span>
                 <span style={{ fontSize: 13, color: TONO_UI[r.tono] === 'bad' ? 'var(--bad)' : TONO_UI[r.tono] === 'warn' ? 'var(--warn)' : 'var(--dim)' }}>
-                  {r.editable && !editando
+                  {fechaEditable && !editando
                     ? <EnLinea valor={q.fecha_esperada ?? ''} tipo="fecha" vacio="sin fecha" titulo={`Edita el vencimiento de ${r.nombre.toLowerCase()}`}
                       estilo={{ fontSize: 13, color: 'inherit' }} onGuardar={(v) => editar(q, { fecha: v || null })} />
                     : r.cuando}
                 </span>
-                {r.editable && r.estado !== 'futura' && r.estado !== 'sin-fecha' && <span style={{ fontSize: 12.5, color: r.estado === 'vencida' ? 'var(--bad)' : 'var(--warn)' }}>{r.cuando.split(' · ')[1]}</span>}
+                {fechaEditable && r.estado !== 'futura' && r.estado !== 'sin-fecha' && <span style={{ fontSize: 12.5, color: r.estado === 'vencida' ? 'var(--bad)' : 'var(--warn)' }}>{r.cuando.split(' · ')[1]}</span>}
+                {prot.includes('link') && <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--primary)' }}>Link enviado</span>}
+                {prot.includes('recordatorio') && <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--warn)' }}>Recordatorio en curso</span>}
               </div>
               {!editando && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                   {r.accion === 'marcar' && <Button variant={r.estado === 'vencida' ? 'primary' : 'secondary'} size="sm" onClick={() => cobrar.marcar(q)}>Marcar pagada</Button>}
                   {r.accion === 'marcar' && cobrar.hayPasarela && <Button variant="tertiary" size="sm" onClick={() => cobrar.mandarLink(q)}>Mandar link</Button>}
+                  {r.accion === 'marcar' && prot.includes('recordatorio') && <Button variant="tertiary" size="sm" onClick={() => cortar(q)}>Cortar el recordatorio</Button>}
                   {r.accion === 'marcar' && <Button variant="tertiary" size="sm" onClick={() => quitar(q)}>Quitar</Button>}
                   {q.pagado && q.comprobante_path && <Button variant="tertiary" size="sm" onClick={() => cobrar.verComprobante(q)}>Ver comprobante</Button>}
                   {r.accion === 'deshacer' && <Button variant="tertiary" size="sm" onClick={() => cobrar.desmarcar(q)}>Deshacer</Button>}
