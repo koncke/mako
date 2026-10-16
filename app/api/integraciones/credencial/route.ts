@@ -312,8 +312,9 @@ export async function POST(req: NextRequest) {
         await auditarCredencial(ctx.ws, env, 'guardar', ctx.autor);
         guardadas++;
       }
-      // Los campos de Meta guardados a mano también conectan Meta: arranca el histórico (una vez, en segundo plano).
-      if (servicio.key === 'meta' && guardadas > 0) await arrancarHistoricoEnSegundoPlano(ctx.ws);
+      // Guardar Meta, Fathom, YouTube o Panda a mano también los conecta: arranca SU parte del histórico (una vez,
+      // en segundo plano; lo que no tiene histórico no hace nada).
+      if (guardadas > 0) await arrancarHistoricoEnSegundoPlano(ctx.ws, servicio.key);
       const estado = await estadoServicio(servicio.key, ctx);
       return NextResponse.json({ ok: true, guardadas, servicio: estado });
     }
@@ -460,7 +461,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ ok: false, error: 'tipo inválido' }, { status: 400 });
       }
       // Elegir la cuenta o la página es lo que destraba las métricas y los leads del histórico.
-      if (!conflicto) await arrancarHistoricoEnSegundoPlano(ctx.ws);
+      if (!conflicto) await arrancarHistoricoEnSegundoPlano(ctx.ws, 'meta');
 
       const estado = await estadoServicio('meta', ctx);
       return NextResponse.json({

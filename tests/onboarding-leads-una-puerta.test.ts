@@ -73,9 +73,12 @@ test('el gate del onboarding decide con la MISMA puerta que el ingestor', () => 
 
 test('en todo el motor de extracción no quedó un lector de la setting vieja', () => {
   assert.doesNotMatch(sinComentarios(EXTRACT), /getSetting\('meta_page_id'\)/);
-  // …y los otros jobs siguen usando getSetting, que para ELLOS es lo correcto:
-  // esta prueba cae si el arreglo se llevó puesto el import de al lado.
-  assert.match(EXTRACT, /getSetting\('youtube_vsl_video_id'\)/);
+  // …y el VSL lee sus videos con `configWs` (el setting y, si no está, la credencial que guarda
+  // /integraciones), el mismo lector de los crons. Hasta el 16/10/2026 acá se exigía `getSetting`,
+  // «que para ELLOS es lo correcto»: no lo era, el único escritor de ese setting es la acción 'config'
+  // de /api/onboarding, que no llama nadie (tests/historico-al-conectar.test.ts). Esta prueba sigue
+  // cayendo si el arreglo se llevó puesto el import de al lado.
+  assert.match(EXTRACT, /configWs\('youtube_vsl_video_id'\)/);
   assert.match(EXTRACT, /import \{ pollMetaLeads, credencialesDeLeads \} from '\.\/meta-leads'/);
 });
 
