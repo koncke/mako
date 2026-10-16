@@ -6504,3 +6504,40 @@ táctil y lo de mouse se miden en pestañas distintas, o lo de mouse primero. Un
 escritorio es la emulación pegada, no la hoja.
 
 *16/10/2026, chat «CRM» (claude3), midiendo la ficha por bloques a 1280 y a 390 táctil.*
+
+## Recorrer una pantalla en local con nueve chats abiertos: `next dev` no entra, un build PARCIAL sí (16/10/2026)
+
+**El síntoma:** `next dev` de `/onboarding` (el chat de Offer más el grafo) llegó a 5,1–6,1 GB en un minuto y el
+vigía lo mató cinco veces (`fuga-next-dev` por pasar 5 GB, o `zona-roja` cuando la máquina quedó con 133 MB).
+**Lo obvio que NO alcanzó:** `experimental.turbopackMemoryLimit` (1,5 y 2,5 GB), `NODE_OPTIONS=--max-old-space-size=1792`,
+ni cortar en Playwright las consultas de la barra común (`/api/whatsapp/**`, `voz-alerta`, `datos-sin-marcar-count`)
+para que no compilaran sus rutas. Cada ruta nueva que compila suma, y la pantalla dispara varias.
+
+**Lo que anduvo:**
+1. `next build --debug-build-paths "app/onboarding/page.tsx,app/offer/page.tsx,app/api/onboarding/**,app/api/offer/**,app/api/auth/**,app/api/integraciones/**"`:
+   compila SÓLO eso (65–69 s, sin que el vigía lo toque; el repo ya trae `ignoreBuildErrors`). Después
+   `next start -H 127.0.0.1` levanta en 277 ms y casi no gasta. Lo que quedó fuera del build da 404 (p. ej.
+   «Abrirla igual» de la guardia de MaKo Mobile): no es un bug de la pantalla.
+2. **En `next start` el dev-login es 404 a propósito** (`esEntornoDesplegado` mira `NODE_ENV`). La misma sesión se
+   firma con `crearToken` de `lib/auth-session.ts` (no lleva `server-only`) en un script con `tsx`, se escribe a un
+   archivo del scratchpad sin imprimirla, y se pone como cookie `mako_session` en el contexto de Playwright.
+3. **El worktree en `C:/dev` con el junction a `wt-video-editor`:** con `turbopack.root` subido a `C:/dev` arranca,
+   pero esa raíz abarca TODOS los worktrees de `C:/dev`, y fue con esa raíz la primera muerte en 5,1 GB. Una copia
+   real de `node_modules` (`robocopy /E /MT:16`, 176 s, 576 carpetas) deja la raíz en `__dirname` sin tocar
+   `next.config.ts`. Antes de copiar: sacar los enlaces de `.next/dev/node_modules` y el junction con
+   `[System.IO.Directory]::Delete`.
+4. `waitUntil: 'networkidle'` no llega nunca en las pantallas de la app (algo consulta en bucle): se espera `load`
+   y un elemento.
+
+**La foto del workspace de prueba (`scripts/ws-prueba-foto.mjs`)**, dos trampas de `postgres` que dieron CERO
+errores visibles:
+- Con `max: 1`, una consulta con `sql` DENTRO de `sql.begin` espera una conexión que la transacción no suelta: se
+  cuelga para siempre (salió por el `timeout` con 124). Lo que haga falta leer, se lee antes de abrir la transacción.
+- Un parámetro `jsonb` pasado como `JSON.stringify(...)` se vuelve a codificar: llega una CADENA y no un arreglo
+  («cannot call jsonb_populate_recordset on a non-array»). Va como `$1::text::jsonb`.
+- Las dos veces la transacción entera se deshizo y el ws3 quedó intacto: restaurar todo en UNA transacción es
+  lo que hizo inofensivos los dos bugs.
+- Durante un recorrido cambian cosas que no son del recorrido: la marca de un cron (`mako.fathom_auto.last`, se
+  deja con `--conservar`) y el gasto de IA (`anthropic_usage`, es gasto real: `--excluir`).
+
+*16/10/2026, chat «Offer» (claude3), recorriendo el onboarding nuevo en el ws3.*

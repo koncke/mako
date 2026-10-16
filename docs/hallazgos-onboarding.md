@@ -2088,16 +2088,42 @@ vuelven a morder a quien toque esto:
 - **Un error de IA en el chat no puede encerrar.** Sin key propia y con la red caída, el chat quedaba sin
   salida: el error trae «Conectar mi propia IA» (el modal de integraciones, sin salir de la tab).
 
+**Lo que encontró el recorrido en el ws3** (16/10, 1440×900 y 390×844, con una foto de todo el ws3 antes y
+la vuelta exacta después — `scripts/ws-prueba-foto.mjs`). Ni los tests ni la revisión lo habían visto:
+- **El diagnóstico que Offer deja para después TRABABA el arranque.** El diagnóstico de fase va adentro de
+  la conversación de la oferta, y Offer lo vuelve obligatorio cuando ya están las piezas mínimas — pero eso
+  lo decide el turno de la IA, y el botón **«Armar mi oferta» no pasa por el turno**: arma igual. En la tab
+  Offer da lo mismo; en el arranque la etapa pedía «puede concluir Y diagnóstico guardado» para pasar al
+  CRM, y se quedaba en 'oferta' para siempre, con la pregunta ya fuera de pantalla («¿La pulimos?» en su
+  lugar) y sin un error. Ahora, con la oferta armada y el diagnóstico sin guardar, la etapa es 'fase' y
+  las preguntas que faltan las hace el arranque (las mismas del modo plan, `preguntarFase`), sin repetir
+  lo que ya contestó en Offer (`conFaseDeOffer`, leído de los mensajes de la conversación con
+  `estadoDiagnostico`). Ojo: si no contestó ninguna en Offer son siete preguntas seguidas.
+- **Una animación le gana a un `opacity` estático.** La leyenda entra con `animation: … both`, y la regla de
+  salida (`opacity: 0` con transición) no la tocaba: el texto quedaba opaco encima del chat durante el vuelo.
+  El grafo, que no tiene animación propia, sí se iba. La salida de algo que entró animado es otra animación.
+- **Con UN producto ya cargado, la oferta del onboarding se liga a ése** (regla de Offer,
+  `ligarProductoQueCorresponde`: «el que se llama igual, o el único que hay»), y el selector de la tab Offer
+  nombra al funnel por ese producto. En un cliente nuevo no pasa: el cierre crea primero el producto de la
+  oferta (por eso el orden importa). Se vio porque el ws3 tenía un producto de otra prueba.
+- **Recargar a mitad de la oferta vuelve a la MISMA conversación** (una sola fila en `offer_sesiones`), la
+  oferta queda UNA sola vez (sin «· versión 1») y el ws3 terminó con el funnel principal sembrado, el brief,
+  el diagnóstico, el onboarding cerrado con el teléfono y Meta postergados, y el histórico quieto.
+- **En el teléfono, recargar después de terminar muestra «Esta pantalla se usa en la computadora»**: es la
+  guardia de MaKo Mobile, que sólo deja pasar `/onboarding` mientras está pendiente. Quien termina en el
+  teléfono ve el final sin recargar.
+
 **La interpretación que tomé** (para que Martín la corrija si no era): «una animación de los mismos 3
 pasos» = los tres tiempos de la bienvenida de antes (el centro → las cinco piezas → las áreas), solos y
 con MaKo como el centro del grafo; al terminar MaKo vuela a su lugar de foto del chat.
 
 **Lo que quedó SIN hacer:**
-- **No se vio en el navegador** (la RAM no dejaba levantar la app): falta recorrerlo en el ws3 (Cliente de
-  Prueba, pendiente a propósito) en escritorio y en el teléfono, con la animación y el vuelo.
+- **Lo que no se vio en el navegador:** la capa Project Manager (no hay un workspace de prueba con esa capa;
+  se recorrió con las reglas puras), el teléfono con su código de WhatsApp (se eligió «Ahora no» para no
+  mandarle un mensaje a nadie), subir un documento al Archivero desde el chat, y los links del final
+  abiertos (se miraron sus `href`). Y en modo dev salió un aviso de hidratación por atributos en
+  `/onboarding` que no se rastreó (sospecha: `TemaOscuroScript`, que ya usaba el wizard).
 - **El aviso cuando la oferta termina de armarse si la persona se fue** (WhatsApp de MaKo y la app).
-- **La lista del crédito**: el chat llama `offer` (la conversación y el armado) y `El Archivero` (los
-  documentos); `productos` (el paso viejo) quedó sin uso y se puede sacar de `CREDITO_HABILITADO_PARA`.
 - **La API de MaKo no cambió, a propósito:** el onboarding es la primera conversación de una persona y no
   tiene sentido que un agente la haga por ella; `ver_estado_onboarding` ya lo cuenta, y lo que el chat crea
   (el CRM, la oferta, el brief) ya tiene sus operaciones.
@@ -2106,7 +2132,7 @@ con MaKo como el centro del grafo; al terminar MaKo vuela a su lugar de foto del
 `app/onboarding/arranque-ui.ts` · `lib/onboarding-arranque.ts` (lo puro) · `lib/onboarding-arranque-server.ts`
 (los hechos, la siembra, el cierre) · `app/api/onboarding/arranque/route.ts` · `lib/onboarding-state.ts`
 (`cerrarPasosOnboarding`) · `lib/onboarding-guard.ts` · `lib/usuarios.ts` (`registrarLogin`) ·
-`tests/onboarding-arranque.test.ts` (22 tests; 10 roturas en la primera vuelta y 9 tras la revisión,
-cazadas con los de postergar y sin-api)
+`tests/onboarding-arranque.test.ts` (23 tests; 10 roturas en la primera vuelta, 9 tras la revisión y 7
+tras el recorrido, cazadas con los de postergar y sin-api) · `scripts/ws-prueba-foto.mjs` (la foto del ws3)
 
 *16/10/2026, cuenta claude3.*

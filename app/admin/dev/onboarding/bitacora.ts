@@ -580,4 +580,24 @@ export const BITACORA: Hito[] = [
       "tests/onboarding-arranque.test.ts — nueve roturas más, todas caen",
     ],
   },
+  {
+    fecha: "16 oct", hora: "08:21", chat: "Offer", sesion: "local_34d54ef6-523c-46f8-b83f-9fd310dfd667", cuenta: "claude3",
+    actor: "claude", tipo: "correccion",
+    titulo: "El onboarding nuevo, recorrido en el Cliente de Prueba",
+    puntos: [
+      "Se recorrió entero en escritorio y en el teléfono: la animación y el vuelo de MaKo a la foto, la conversación, la oferta en una ventana encima, el CRM, el final y la tab Offer.",
+      "Apareció un bloqueo: si la persona tocaba «Armar mi oferta» antes de contestar las preguntas de su fase, el chat se quedaba quieto sin pregunta y sin forma de seguir. Ahora las que faltan las pregunta MaKo, sin repetir las que ya contestó.",
+      "El texto de la animación se quedaba encima del chat mientras MaKo volaba a la foto: ahora se va con el grafo.",
+      "Recargar a mitad de la oferta vuelve a la misma conversación, y queda una sola oferta. El Cliente de Prueba quedó como estaba.",
+    ],
+    commits: [
+      { sha: "b23a5a3", msg: "Onboarding: lo que encontró el recorrido en el ws3 — el diagnóstico que faltaba trababa el arranque", lineas: 174, archivos: 7 },
+    ],
+    archivos: [
+      "lib/onboarding-arranque.ts — la etapa 'fase' cuando la oferta ya está armada, sin repetir lo de Offer",
+      "app/onboarding/IntroMako.tsx — la leyenda sale con su propia animación",
+      "scripts/ws-prueba-foto.mjs — la foto del ws3 antes de recorrerlo, y la vuelta exacta",
+      "tests/onboarding-arranque.test.ts — siete roturas más, todas caen",
+    ],
+  },
 ];

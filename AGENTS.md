@@ -8555,6 +8555,10 @@ chat». Lo que costó, en `docs/hallazgos-onboarding.md` y `docs/hallazgos-offer
   ninguna vista reemplaza al chat (lo que hay que mirar entero va en un `Modal` encima).
 - **El brief que deja el chat se FUNDE** (sólo llena lo vacío) **y se lee estricto antes de escribir**: lo
   leen los generadores y el Perro, y con la base caída `saveAnswers` sobre `{}` lo borraba.
+- **Una regla que vive en el turno de la IA no es una regla del flujo.** Offer vuelve obligatorio el
+  diagnóstico desde el prompt del turno, y el botón «Armar mi oferta» no pasa por el turno: armaba sin él y
+  el arranque se trababa. Lo que el arranque NECESITA para avanzar lo mira en lo guardado
+  (`etapaDeArranque`) y, si falta, lo pregunta él; nunca supone que otra pantalla ya lo pidió.
 
 # Una reserva de agenda decide a DÓNDE va por un solo camino, y la agenda tiene tres fuentes de ruteo
 

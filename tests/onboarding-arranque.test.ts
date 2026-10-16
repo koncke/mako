@@ -25,6 +25,10 @@
 // entra al brief · el nombre provisorio (un email) ya no se reemplaza · el plan queda «armando» para siempre
 // · se ofrece un email como nombre · el producto lleva un precio inventado. Y tras el merge con main: la
 // puerta del cierre vuelve a leer tolerante, «1 fallo, 21 pases».
+// Tercera vuelta, tras el recorrido en el ws3 (arnés romper-fase.mjs). Base: 23 pasan, 0 fallan. Cada rotura,
+// «1 fallo, 22 pases»: la etapa vuelve a quedarse en 'oferta' con la oferta armada · repite lo que contestó
+// en Offer · guarda lo de Offer como propio · la ruta pierde el canal de Offer · la respuesta optimista va
+// del lado equivocado · los hechos no miden lo de Offer · la leyenda sale con un opacity estático.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
