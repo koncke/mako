@@ -9,6 +9,9 @@
 // El área es /video-generator: un guion ya escrito se reparte en tomas, cada
 // escenario tiene su imagen en Google Flow, se filma toma por toma con los créditos
 // de la suscripción del CLIENTE y un worker propio monta el anuncio.
+// Una sola operación es del Video EDITOR (/video-editor): listar_plantillas_video, el
+// catálogo de sus plantillas de anuncio. Del editor no hay más: sus proyectos viven en el
+// navegador (docs/hallazgos-video-editor.md → «La API de MaKo y el chat al costado»).
 //
 // ⚠️ EN v1 ENTRAN SOLO LECTURAS. Todo lo que encola, genera, regenera, monta o
 // reintenta queda afuera (veredicto §8 de docs/api-mako-diseno.md): gasta créditos
@@ -36,6 +39,12 @@ const GATING = { tab: 'video-generator', rolMinimo: 'admin' } as const;
  * Los formatos no entran: formatosOfrecidos trae también los que creó el cliente.
  */
 const GATING_CATALOGO = { tab: 'video-generator' } as const;
+/**
+ * Las plantillas de anuncio del VIDEO EDITOR (/video-editor, lib/editor-video/plantillas.ts):
+ * otro catálogo constante, de otra tab. Sin `rolMinimo`: la tab dejó de ser `adminOnly` el
+ * 12/10/2026 (lib/capas.ts).
+ */
+const GATING_EDITOR = { tab: 'video-editor' } as const;
 
 const PLAN_ID: Parametro = {
   nombre: 'planId', tipo: 'string', obligatorio: true, max: 80,
@@ -118,6 +127,13 @@ export const DEFS: readonly OperacionDef[] = [
       { nombre: 'camara', tipo: 'string', enum: ['estatica', 'mano', 'selfie', 'seguimiento'], descripcion: 'La cámara del formato, para ver solo los lugares compatibles.' },
     ],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: GATING_CATALOGO,
+  },
+  {
+    id: 'listar_plantillas_video', area: 'video', tipo: 'lectura',
+    titulo: 'Plantillas de anuncio del editor',
+    descripcion: 'El catálogo de plantillas de anuncio vertical (9:16) del Video Editor (/video-editor): id, nombre, qué es, cuánto dura y sus huecos. Un hueco de clip se llena con un video o una foto (con los segundos que pide: un video más corto no entra; una foto sirve siempre; uno opcional puede quedar con su muestra); uno de texto, con hasta su máximo de caracteres (trae el texto de ejemplo). Usar una plantilla NO se puede por la API: el proyecto vive en el navegador de quien edita. Se usa en el editor, en la pestaña Plantillas o pidiéndoselo al chat «Editar con IA».',
+    parametros: [],
+    salida: 'json', canales: TODOS, costo: 'gratis', gating: GATING_EDITOR,
   },
   {
     id: 'ver_contexto_video', area: 'video', tipo: 'lectura',

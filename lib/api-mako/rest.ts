@@ -515,6 +515,7 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['GET', '/video/guiones', 'listar_guiones_para_video'],
   ['GET', '/video/lugares', 'listar_lugares_grabacion'],
   ['GET', '/video/onboarding', 'estado_onboarding_video'],
+  ['GET', '/video/plantillas', 'listar_plantillas_video'],
   ['GET', '/video/voz', 'ver_voz_cliente'],
   // ── integraciones ─────────────────────────────────────────────────────────
   ['GET', '/integraciones/agente-claude', 'ver_estado_agente_claude'],

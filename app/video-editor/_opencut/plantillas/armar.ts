@@ -64,7 +64,7 @@ import {
 	type Plantilla,
 } from "@/lib/editor-video/plantillas";
 import { cubrirCelda, paramsDeCubrir, type Rect } from "./geometria";
-import { codificarAncla, MARCA, type AnclaTexto } from "./huecos";
+import { codificarAncla, leerAncla, MARCA, type AnclaTexto } from "./huecos";
 
 /** partirYUbicar (subtitles/build-subtitle-text-element.ts): llega al WASM, entra por parámetro. */
 export type Medir = typeof partirYUbicar;
@@ -179,6 +179,29 @@ export function ubicarTexto({
 	const r = medir({ params, lienzo, ubicacion, repartir });
 	if (!desplazarY) return r;
 	return { ...r, "transform.positionY": r1(Number(r["transform.positionY"] ?? 0) + desplazarY) };
+}
+
+/**
+ * El texto NUEVO de un texto de plantilla, partido y ubicado con su ancla (`plantilla.ancla`)
+ * como lo dejó el armado; `null` si el texto no tiene ancla. Lo usa el chat (`cambiar_texto`,
+ * chat/comandos.ts). Junta los saltos que traiga (los de antes los puso el armado). Escrito a
+ * mano en el panel, no se vuelve a partir (plan §8).
+ */
+export function paramsDeTextoDeHueco({
+	params,
+	texto,
+	lienzo,
+	medir,
+}: {
+	params: ParamValues;
+	texto: string;
+	lienzo: Lienzo;
+	medir: Medir;
+}): ParamValues | null {
+	const ancla = leerAncla(params);
+	if (!ancla) return null;
+	// La medida devuelve el texto ya partido en renglones, y dónde va.
+	return ubicarTexto({ params: { ...params, content: texto }, ancla, lienzo, medir, repartir: true });
 }
 
 /** Lo que cada pista de la plantilla es en el motor, de ARRIBA hacia abajo (la principal va aparte). */
