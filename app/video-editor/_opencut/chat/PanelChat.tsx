@@ -14,8 +14,9 @@
 //   · el alcance en chips: «Todo el video» o lo elegido en la línea de tiempo;
 //   · la respuesta es un CAMBIO PROPUESTO con «Original | Modificado», que se acepta o se
 //     descarta entero; después de aceptar, «Restaurar» lo vuelve atrás.
-// El hilo vive en la memoria de la pestaña, por proyecto (como el del Landing: no hay tabla
-// para eso). Nada se aplica sin «Aceptar»: lo fija tests/video-editor-chat.test.ts.
+// El hilo es por proyecto y, desde el 16/10, queda GUARDADO por persona (chat/hilo.ts, mig 0298):
+// al recargar vuelve, con las propuestas pendientes todavía para aceptar. Nada se aplica sin
+// «Aceptar»: lo fija tests/video-editor-chat.test.ts.
 // =============================================================================
 
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
@@ -27,56 +28,18 @@ import type { EditorCore } from "@/app/video-editor/_opencut/core";
 import { TICKS_PER_SECOND } from "@/app/video-editor/_opencut/wasm";
 import { TOPES_CHAT, validarOperaciones } from "@/lib/editor-video/chat-catalogo";
 import { resumenDeCambios, revisarOperaciones, vistaDeLinea, type CambioChat } from "./linea";
-import { aceptarPropuesta, deshacerPropuesta, type AplicadaChat, type PropuestaChat } from "./aplicar";
+import { aceptarPropuesta, deshacerPropuesta } from "./aplicar";
 import { datosDeLinea, disponiblesChat } from "./contexto";
+import { cambiarHilo, cambiarMensaje, cargarHilo, conId, leerHilo, suscribir, type EstadoPropuesta, type Hilo, type MensajeMako } from "./hilo";
 
 /** La ruta corta a 120 s; el pedido se corta un poco después. */
 const PLAZO_MS = 125_000;
 
-type EstadoPropuesta = "pendiente" | "aplicando" | "sin-version" | "aplicada" | "descartada" | "restaurada";
-
-type Mensaje =
-	| { id: number; de: "yo"; texto: string; alcance: string | null }
-	| {
-			id: number;
-			de: "mako";
-			texto: string;
-			error?: boolean;
-			propuesta?: PropuestaChat;
-			cambios?: CambioChat[];
-			descartes?: string[];
-			estado?: EstadoPropuesta;
-			aviso?: string;
-			aplicada?: AplicadaChat;
-	  };
-
-// ─────────────────────────────────────────────────────────────────────────────
-// El hilo: un store de módulo, por proyecto
-// ─────────────────────────────────────────────────────────────────────────────
-// Un store y no un estado del componente: el panel se cierra y se desmonta, y la respuesta
-// de un pedido largo tiene que caer en el chat aunque el panel no esté abierto cuando llega.
-// Se pierde al recargar la pestaña, como el del Landing.
-
-type Hilo = { mensajes: Mensaje[]; corriendo: boolean };
-const HILO_VACIO: Hilo = { mensajes: [], corriendo: false };
-const hilos = new Map<string, Hilo>();
 const cortes = new Map<string, AbortController>();
-const oyentes = new Set<() => void>();
-let ultimoId = 0;
+const HILO_SERVER: Hilo = { mensajes: [], corriendo: false };
 
-function cambiarHilo(proyectoId: string, f: (h: Hilo) => Hilo) {
-	hilos.set(proyectoId, f(hilos.get(proyectoId) ?? HILO_VACIO));
-	for (const o of oyentes) o();
-}
-function cambiarMensaje(proyectoId: string, id: number, cambio: Partial<Extract<Mensaje, { de: "mako" }>>) {
-	cambiarHilo(proyectoId, (h) => ({ ...h, mensajes: h.mensajes.map((m) => (m.id === id && m.de === "mako" ? { ...m, ...cambio } : m)) }));
-}
-const suscribir = (f: () => void) => {
-	oyentes.add(f);
-	return () => { oyentes.delete(f); };
-};
 function useHilo(proyectoId: string): Hilo {
-	return useSyncExternalStore(suscribir, () => hilos.get(proyectoId) ?? HILO_VACIO, () => HILO_VACIO);
+	return useSyncExternalStore(suscribir, () => leerHilo(proyectoId), () => HILO_SERVER);
 }
 
 type Respuesta = { ok: true; resumen: string; operaciones: unknown[] } | { ok: false; error: string };
@@ -113,22 +76,22 @@ async function pedirEdicion(editor: EditorCore, instruccion: string, alcance: "v
 	const texto = instruccion.trim();
 	if (!proyecto || !escena || !texto) return;
 	const proyectoId = proyecto.metadata.id;
-	if (hilos.get(proyectoId)?.corriendo) return;
+	if (leerHilo(proyectoId).corriendo) return;
 
 	const elegidos = editor.selection.getSelectedElements().map((e) => ({ trackId: e.trackId, elementId: e.elementId }));
 	const alcanceReal = alcance === "seleccion" && elegidos.length ? "seleccion" : "video";
 	cambiarHilo(proyectoId, (h) => ({
 		corriendo: true,
-		mensajes: [...h.mensajes, { id: ++ultimoId, de: "yo", texto, alcance: alcanceReal === "seleccion" ? rotuloSeleccion(elegidos.length) : null }],
+		mensajes: [...h.mensajes, conId({ de: "yo", texto, alcance: alcanceReal === "seleccion" ? rotuloSeleccion(elegidos.length) : null })],
 	}));
-	const terminar = (m: Mensaje) => cambiarHilo(proyectoId, (h) => ({ corriendo: false, mensajes: [...h.mensajes, m] }));
+	const terminar = (m: Omit<MensajeMako, "id" | "c" | "t">) => cambiarHilo(proyectoId, (h) => ({ corriendo: false, mensajes: [...h.mensajes, conId(m)] }));
 
 	// Lo que el motor tiene con nombre (la primera vez espera la lista de fuentes) y, recién
 	// después, la línea de tiempo de ese momento: la misma que se le manda a la IA.
 	const disponibles = await disponiblesChat(editor);
 	const escenaAhora = editor.scenes.getActiveSceneOrNull();
 	if (!escenaAhora || escenaAhora.id !== escena.id) {
-		terminar({ id: ++ultimoId, de: "mako", texto: "Cambiaste de escena. Vuelve a pedirlo.", error: true });
+		terminar({ de: "mako", texto: "Cambiaste de escena. Vuelve a pedirlo.", error: true });
 		return;
 	}
 	const tracks = escenaAhora.tracks;
@@ -146,7 +109,7 @@ async function pedirEdicion(editor: EditorCore, instruccion: string, alcance: "v
 	});
 
 	if (vista.json.length > TOPES_CHAT.vistaMax) {
-		terminar({ id: ++ultimoId, de: "mako", texto: "El proyecto es muy grande para el chat. Elige unos clips y pídelo sobre la selección.", error: true });
+		terminar({ de: "mako", texto: "El proyecto es muy grande para el chat. Elige unos clips y pídelo sobre la selección.", error: true });
 		return;
 	}
 
@@ -155,7 +118,7 @@ async function pedirEdicion(editor: EditorCore, instruccion: string, alcance: "v
 	const r = await pedirIA({ instruccion: texto, linea: vista.json, alcance: alcanceReal }, corte.signal);
 	cortes.delete(proyectoId);
 	if (!r.ok) {
-		terminar({ id: ++ultimoId, de: "mako", texto: r.error, error: !("cortado" in r) });
+		terminar({ de: "mako", texto: r.error, error: !("cortado" in r) });
 		return;
 	}
 	// La forma ya la validó la ruta; acá se vuelve a validar (el editor no le cree a nadie) y se
@@ -164,7 +127,7 @@ async function pedirEdicion(editor: EditorCore, instruccion: string, alcance: "v
 	const revision = revisarOperaciones({ operaciones, vista, alcance: alcanceReal, transcripcion: datos.transcripcion });
 	const descartes = [...deForma, ...revision.descartes];
 	if (!revision.resueltas.length) {
-		terminar({ id: ++ultimoId, de: "mako", texto: r.resumen || "Sin cambios.", descartes: descartes.length ? descartes : undefined });
+		terminar({ de: "mako", texto: r.resumen || "Sin cambios.", descartes: descartes.length ? descartes : undefined });
 		return;
 	}
 	// Las refs de los elementos y de los medios («m2» tiene que seguir siendo el mismo al aceptar).
@@ -173,7 +136,6 @@ async function pedirEdicion(editor: EditorCore, instruccion: string, alcance: "v
 		...[...vista.medios.values()].map((m) => [m.mediaId, m.ref] as const),
 	]);
 	terminar({
-		id: ++ultimoId,
 		de: "mako",
 		texto: r.resumen || "Listo.",
 		estado: "pendiente",
@@ -198,6 +160,7 @@ function RevisionPropuesta({
 	estado,
 	aviso,
 	tocada,
+	puedeRestaurar,
 	onAceptar,
 	onAplicarIgual,
 	onDescartar,
@@ -208,6 +171,8 @@ function RevisionPropuesta({
 	estado: EstadoPropuesta;
 	aviso?: string;
 	tocada: boolean;
+	/** Hay con qué deshacer: una aplicada que volvió de la base ya no tiene «Restaurar». */
+	puedeRestaurar: boolean;
 	onAceptar: () => void;
 	onAplicarIgual: () => void;
 	onDescartar: () => void;
@@ -294,7 +259,9 @@ function RevisionPropuesta({
 						<span className="mr-auto flex items-center gap-1 text-[12px] font-semibold text-(--cc-text-2)">
 							<HugeiconsIcon icon={Tick02Icon} className="size-3.5" /> Aplicado
 						</span>
-						<button type="button" onClick={onRestaurar} className={`${boton} border border-(--cc-btn-2) text-(--cc-text) hover:bg-(--cc-raised)`}>Restaurar</button>
+						{puedeRestaurar && (
+							<button type="button" onClick={onRestaurar} className={`${boton} border border-(--cc-btn-2) text-(--cc-text) hover:bg-(--cc-raised)`}>Restaurar</button>
+						)}
 					</>
 				)}
 				{estado === "descartada" && <span className="mr-auto text-[12px] font-semibold text-(--cc-text-3)">Descartado</span>}
@@ -325,6 +292,7 @@ export function PanelChat({ onCerrar }: { onCerrar: () => void }) {
 	const proyectoId = useEditor((e) => e.project.getActiveOrNull()?.metadata.id ?? "");
 	const tracksVivos = useEditor((e) => e.scenes.getActiveSceneOrNull()?.tracks ?? null);
 	const seleccion = useEditor((e) => e.selection.getSelectedElements());
+	const nombreProyecto = useEditor((e) => e.project.getActiveOrNull()?.metadata.name ?? null);
 	const hilo = useHilo(proyectoId);
 	const [texto, setTexto] = useState("");
 	const [alcance, setAlcance] = useState<"video" | "seleccion">("video");
@@ -335,6 +303,11 @@ export function PanelChat({ onCerrar }: { onCerrar: () => void }) {
 
 	// Sin nada elegido no hay alcance de selección: se CALCULA, no se dispara.
 	const alcanceReal: "video" | "seleccion" = alcance === "seleccion" && seleccion.length > 0 ? "seleccion" : "video";
+
+	// El hilo guardado de este proyecto, la primera vez que se abre su chat en la pestaña (chat/hilo.ts).
+	useEffect(() => {
+		if (proyectoId) void cargarHilo(proyectoId, nombreProyecto);
+	}, [proyectoId, nombreProyecto]);
 
 	// El chat baja solo con cada mensaje nuevo.
 	useEffect(() => {
@@ -362,7 +335,7 @@ export function PanelChat({ onCerrar }: { onCerrar: () => void }) {
 		});
 	};
 
-	const aceptar = async (m: Extract<Mensaje, { de: "mako" }>, sinVersion = false) => {
+	const aceptar = async (m: MensajeMako, sinVersion = false) => {
 		if (!m.propuesta) return;
 		cambiarMensaje(proyectoId, m.id, { estado: "aplicando", aviso: undefined });
 		const r = await aceptarPropuesta(editorRef.current, m.propuesta, { sinVersion });
@@ -375,7 +348,7 @@ export function PanelChat({ onCerrar }: { onCerrar: () => void }) {
 		toast.success("Cambio aplicado");
 	};
 
-	const restaurar = (m: Extract<Mensaje, { de: "mako" }>) => {
+	const restaurar = (m: MensajeMako) => {
 		if (!m.aplicada) return;
 		if (deshacerPropuesta(editorRef.current, m.aplicada)) {
 			cambiarMensaje(proyectoId, m.id, { estado: "restaurada" });
@@ -440,7 +413,8 @@ export function PanelChat({ onCerrar }: { onCerrar: () => void }) {
 									descartes={m.descartes}
 									estado={m.estado}
 									aviso={m.aviso}
-									tocada={!!tracksVivos && tracksVivos !== m.propuesta.tracksEnviados}
+									tocada={!!tracksVivos && !!m.propuesta.tracksEnviados && tracksVivos !== m.propuesta.tracksEnviados}
+									puedeRestaurar={!!m.aplicada}
 									onAceptar={() => void aceptar(m)}
 									onAplicarIgual={() => void aceptar(m, true)}
 									onDescartar={() => cambiarMensaje(proyectoId, m.id, { estado: "descartada", aviso: undefined })}

@@ -1265,6 +1265,30 @@ el navegador).
   cadena tiene que seguir. Si se abre otro proyecto en el medio, la toma no se pega ahí: queda en el
   Video Generator.
 
+## El hilo del chat «Editar con IA», guardado (16/10, etapa 3 del diseño AI-native)
+
+**Vive en:** `lib/editor-video/chat-hilo.ts` (el formato, puro) · `lib/editor-video/chat-hilo-server.ts` ·
+`app/api/video-editor/chat/route.ts` · `app/video-editor/_opencut/chat/hilo.ts` (el store) · mig 0298
+(`video_editor_chats`) · test `tests/video-editor-chat-hilo.test.ts` (21 roturas).
+
+Uno por persona y por proyecto (decisión 3 del diseño). La persona sale de la sesión (`personaDeSesion`), nunca del
+pedido. Sin la tabla, el editor sigue como antes: el hilo vive en la pestaña.
+- ⚠️ **Un estado intermedio guardado no vuelve a «pendiente».** Una propuesta guardada en «aplicando» se cortó a la
+  mitad de aplicarse (la pestaña se cerró): volver a ofrecerla aplicaría dos veces lo que ya entró. Al abrir queda
+  descartada, con el aviso de mirar la línea de tiempo (`hiloAlAbrir`).
+- **El deshacer no sobrevive a recargar** (`ProjectManager` vacía el historial al abrir): una aplicada que vuelve de la
+  base no tiene «Restaurar», y el botón no se dibuja. Las pistas de cuando se pidió tampoco se guardan, así que sin
+  ellas no se avisa «Cambiaste la línea de tiempo»: la revisión al aceptar es la misma.
+- **Dos pestañas no se pisan:** el guardado es compare-and-set y ante un 409 la pestaña une su copia con la del server
+  por id de mensaje (gana el último cambio, `t`). Al unir, si gana el de la pestaña se queda ESE objeto, que tiene el
+  deshacer que no viaja.
+- **La prueba 1d de `tests/video-editor-integracion.test.ts` exige `await veEditorVideo()` ESCRITO en cada
+  `route.ts`** de /api/video-editor: sacar la puerta a un módulo común la rompe. Por eso la ruta nueva la copia.
+- **El test de un tope se prueba con el caso que lo alcanza:** con 80 mensajes de texto, el tope total del hilo
+  (400 k) nunca se toca, y la rotura que lo sacaba sobrevivía. Hacen falta las listas de cambios llenas.
+- **SIN HACER:** mirarlo en el navegador (recargar con una propuesta pendiente y aceptarla; dos pestañas); el hilo en
+  la API de MaKo y en el índice de chats, que es la etapa 2 del diseño (la lista de chats).
+
 ## Lo que quedó SIN hacer
 
 **Del 14/10 (barra lateral, Borrar silencios, Avatar de IA)**
