@@ -48,7 +48,8 @@ test('revisar abre la ficha del lead EN EL LUGAR, con el «Ver» de sus datos ab
   assert.match(gate, /onClick=\{ignorarTodos\}[\s\S]{0,200}>Ignorar todos<\/button>/);
   // Y la ficha lo cumple: el modal se lo pasa a la hoja y la hoja a la tarjeta, que se monta abierta.
   assert.match(leer('app/crm/LeadEditModal.tsx'), /verDatosAlAbrir=\{verDatos\}/);
-  assert.match(leer('app/crm/LeadSheet.tsx'), /<DatosSinMarcarCard [^>]*abrirAlMontar=\{verDatosAlAbrir\}/);
+  // (O el engranaje, que la abre para elegir qué avisa MaKo: tests/a-revisar-engranaje.test.ts.)
+  assert.match(leer('app/crm/LeadSheet.tsx'), /<DatosSinMarcarCard [^>]*abrirAlMontar=\{verDatosAlAbrir \|\| avisosAlAbrir\}/);
   assert.match(leer('app/crm/lead-view/DatosSinMarcarCard.tsx'), /useEffect\(\(\) => \{ if \(abrirAlMontar\) setAbierto\(true\); \}, \[abrirAlMontar\]\);/);
 });
 

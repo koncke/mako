@@ -36,12 +36,14 @@ import { EtiquetasDelLead, versionDeEtiquetas } from './lead-view/EtiquetasDelLe
 
 const SANS = "'Geist', sans-serif";
 
-export function LeadSheet({ data, onClose, initialTab, solucionarAlAbrir, verDatosAlAbrir }: {
+export function LeadSheet({ data, onClose, initialTab, solucionarAlAbrir, verDatosAlAbrir, avisosAlAbrir }: {
   data: LeadFullData; onClose: () => void; initialTab?: string;
   /** Abrir llevando a ese dato sin marcar («A revisar» del CRM, 13/10/2026). Se aplica UNA vez. */
   solucionarAlAbrir?: StepId;
   /** Abrir con el «Ver» de los datos sin marcar desplegado («A revisar» del CRM, 16/10/2026). */
   verDatosAlAbrir?: boolean;
+  /** Abrir para ELEGIR QUÉ AVISA MaKo (el engranaje de «A revisar»): el basurero ignora en todo el funnel. */
+  avisosAlAbrir?: boolean;
 }) {
   // ⚠️ LA FICHA SE RELEE CUANDO CAMBIA LA CASA DEL LEAD. Sus datos los trajo una action al abrir
   // (LeadEditModal) y el `router.refresh()` no los toca: si desde el desplegable de productos se
@@ -214,7 +216,8 @@ export function LeadSheet({ data, onClose, initialTab, solucionarAlAbrir, verDat
             <>
               <FunnelYEtapa ficha={fichaProd} etapasCasa={stages} etapaCasa={stageKey} onElegirCasa={pickStage} ariaLabel="Cambiar etapa o funnel" />
               {datos && (
-                <DatosSinMarcarCard leadId={lead.id} datos={datos} onSolucionar={solucionarDato} onCambio={releer} abrirAlMontar={verDatosAlAbrir} />
+                <DatosSinMarcarCard leadId={lead.id} datos={datos} onSolucionar={solucionarDato} onCambio={releer} abrirAlMontar={verDatosAlAbrir || avisosAlAbrir}
+                  ignorarSiempre={avisosAlAbrir ? { funnelId: lead.funnel_id ?? null } : undefined} />
               )}
             </>
           }

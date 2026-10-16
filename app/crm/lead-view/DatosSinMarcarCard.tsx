@@ -29,6 +29,8 @@ import { useCapaModal } from '@/app/_components/pila-modales';
 import { ubicarPanel } from '@/app/_components/PortadaPicker';
 import { IconoMenu, type NombreIconoMenu } from '@/app/_ui/iconos-menu';
 import { Toast, useToast } from '@/app/_ui/Toast';
+import { Confirm } from '@/app/_ui';
+import { cambiarFichaFunnelAction } from '../ficha-actions';
 import { ignorarDatoAction } from '../datos-sin-marcar-actions';
 import type { DatoDeLaFicha, EstadoDatos } from '@/lib/datos-aviso';
 import type { StepId } from '@/lib/stage-requirements';
@@ -80,7 +82,7 @@ function conIgnoradoLocal(d: EstadoDatos, id: StepId, ignorar: boolean): EstadoD
 // ⚠️ SIN ENGRANAJE (14/10/2026): «de qué datos te avisa MaKo» se elige en la ficha misma, en «Personalizar»
 // (lead-view/ficha/PanelFicha.tsx), y por FUNNEL. El modal del negocio que abría el engranaje se fue de acá:
 // Martín, «Todas las personalizables, no los hagas con un modal diferente».
-export function DatosSinMarcarCard({ leadId, datos, onSolucionar, onCambio, abrirAlMontar = false }: {
+export function DatosSinMarcarCard({ leadId, datos, onSolucionar, onCambio, abrirAlMontar = false, ignorarSiempre }: {
   leadId: number;
   datos: EstadoDatos;
   /** Llevar al dato: la ficha cambia de tab y lo señala. */
@@ -89,10 +91,17 @@ export function DatosSinMarcarCard({ leadId, datos, onSolucionar, onCambio, abri
   onCambio?: () => void;
   /** Montar con el desplegable abierto: la ficha la abrió «Revisar» de «A revisar» (16/10/2026). */
   abrirAlMontar?: boolean;
+  /**
+   * ELEGIR QUÉ AVISA MaKo (16/10/2026, el engranaje de «A revisar»): el basurero pregunta «¿Ignorar siempre?» y, con
+   * un sí, ese dato deja de ser obligatorio en ESTE funnel (el mismo `op: 'aviso'` que «Obligatorio» en la barra del
+   * bloque), para todos sus leads. Sin esto, el basurero ignora sólo en este lead.
+   */
+  ignorarSiempre?: { funnelId: number | null };
 }) {
   const [local, setLocal] = useState(datos);
   useEffect(() => { setLocal(datos); }, [datos]);
   const [abierto, setAbierto] = useState(false);
+  const [preguntar, setPreguntar] = useState<{ id: StepId; label: string } | null>(null);
   // En un efecto y no en el useState: el desplegable se cuelga de `anclaRef`, que recién existe después de pintar.
   useEffect(() => { if (abrirAlMontar) setAbierto(true); }, [abrirAlMontar]);
   const [verMas, setVerMas] = useState(false);
@@ -119,6 +128,18 @@ export function DatosSinMarcarCard({ leadId, datos, onSolucionar, onCambio, abri
     }).catch(() => { setLocal(antes); show('No se pudo guardar', undefined, 'bad'); });
   };
 
+  /** «Ignorar siempre»: apaga el aviso del dato en el funnel. Deshacer lo vuelve a prender. */
+  const dejarDeAvisar = (id: StepId, avisa: boolean) => {
+    if (!ignorarSiempre) return;
+    const antes = local;
+    if (!avisa) setLocal({ ...local, avisar: local.avisar.filter((d) => d.id !== id) });
+    void cambiarFichaFunnelAction(ignorarSiempre.funnelId, { op: 'aviso', paso: id, avisa }).then((r) => {
+      if (!r.ok) { setLocal(antes); show(r.error, undefined, 'bad'); return; }
+      onCambio?.();
+      show(avisa ? 'Vuelve a avisar' : 'Ya no avisa en este funnel', avisa ? undefined : () => dejarDeAvisar(id, true));
+    }).catch(() => { setLocal(antes); show('No se pudo guardar', undefined, 'bad'); });
+  };
+
   const n = local.avisar.length;
   return (
     <>
@@ -142,9 +163,19 @@ export function DatosSinMarcarCard({ leadId, datos, onSolucionar, onCambio, abri
           verMas={verMas}
           onVerMas={() => setVerMas(true)}
           onSolucionar={(id) => { setAbierto(false); onSolucionar(id); }}
-          onIgnorar={ignorar}
+          onIgnorar={(id, si) => {
+            if (si && ignorarSiempre) { setPreguntar({ id, label: local.avisar.find((d) => d.id === id)?.label ?? 'este dato' }); return; }
+            ignorar(id, si);
+          }}
           onCerrar={() => setAbierto(false)}
         />
+      )}
+      {preguntar && (
+        <Confirm title="¿Ignorar siempre?"
+          message={`MaKo deja de avisar «${preguntar.label}» en todos los leads de este funnel. Se vuelve a prender con «Obligatorio» en el bloque.`}
+          confirmLabel="Sí, ignorar siempre" cancelLabel="No" tone="danger"
+          onConfirm={() => { const p = preguntar; setPreguntar(null); dejarDeAvisar(p.id, false); }}
+          onCancel={() => setPreguntar(null)} />
       )}
       <Toast state={toast} onClose={clear} />
     </>

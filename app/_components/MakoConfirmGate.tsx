@@ -150,7 +150,8 @@ function Tarjeta() {
   const [error, setError] = useState<string | null>(null);
   // `ver`: la ficha abre con el «Ver» de los datos sin marcar YA desplegado («Cuando le doy click a revisar en el
   // desplegable del CRM, me debe abrir el detail del lead con el desplegable de "Ver" abierto», Martín, 16/10/2026).
-  const [ficha, setFicha] = useState<{ id: number; nombre: string; ver: true } | null>(null);
+  // `avisos`: la abrió el ENGRANAJE para elegir qué avisa MaKo (el basurero pregunta «¿Ignorar siempre?»).
+  const [ficha, setFicha] = useState<{ id: number; nombre: string; ver: true; avisos?: true } | null>(null);
   // Sube cuando se cierra una ficha: lo que se arregló adentro sale de la lista.
   const [releer, setReleer] = useState(0);
   const panelRef = useRef<HTMLElement | null>(null);
@@ -303,7 +304,12 @@ function Tarjeta() {
         <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>A revisar</span>
         <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 19, height: 19, padding: '0 5px', borderRadius: 999, background: 'var(--warn)', color: '#fff', fontFamily: MONO, fontSize: 11, fontWeight: 700, lineHeight: 1 }}>{total}</span>
         {/* El engranaje: de qué datos avisa MaKo (13/10/2026: «en el título del desplegable»). */}
-        <button type="button" onClick={() => setConfig(true)} title="Elegir de qué datos te avisa MaKo" aria-label="Elegir de qué datos te avisa MaKo"
+        {/* ⚠️ EL ENGRANAJE ABRE UNA FICHA, no el modal de interruptores (16/10/2026, Martín: «debería abrirme el detalle
+            de un lead... con el desplegable de "Datos sin marcar" abierto, y dentro... el botón de Basura rojo, y
+            cuando le doy me pregunta ¿Ignorar siempre?»). Es la del primer lead de la lista (uno de verdad: uno de
+            ejemplo pediría datos inventados); sin leads en la lista, el modal de siempre. */}
+        <button type="button" onClick={() => { const p = filas[0]; if (p) setFicha({ id: p.lead_id, nombre: p.lead_nombre, ver: true, avisos: true }); else setConfig(true); }}
+          title="Elegir de qué datos te avisa MaKo" aria-label="Elegir de qué datos te avisa MaKo"
           style={{ ...iconoBtn, border: 'none', background: 'none', marginLeft: 'auto' }}>
           <IconoMenu nombre="configurar" size={16} />
         </button>
@@ -355,7 +361,7 @@ function Tarjeta() {
         </div>
       </div>
       {ficha && (
-        <LeadEditModal leadId={ficha.id} seed={{ nombre: ficha.nombre }} verDatos={ficha.ver}
+        <LeadEditModal leadId={ficha.id} seed={{ nombre: ficha.nombre }} verDatos={ficha.ver} avisos={ficha.avisos}
           onClose={() => { setFicha(null); setReleer((n) => n + 1); router.refresh(); }} />
       )}
       {config && <AvisosDatosModal onCerrar={() => setConfig(false)} onGuardado={() => setReleer((n) => n + 1)} />}
