@@ -23,6 +23,7 @@ import { getCapaActual, getRolWsEfectivo } from '@/lib/workspace';
 import { puedeVerKey } from '@/lib/movil-rutas';
 import { marcarHecha } from '@/lib/plan-marcar';
 import type { DeshacerMarca, ResultadoMarcar } from '@/app/plan/board/hoy';
+import { moverDesdeElTelefono, type DeshacerMover, type ResultadoMoverTarea } from '@/lib/plan-mover';
 
 /**
  * `hecha: true` = completar; `false` = reabrir. Con `deshacer` (lo que devolvió el
@@ -51,6 +52,30 @@ export async function marcarHechaAction(id: string, hecha: boolean, deshacer?: D
   if (r.ok && !r.yaEstaba) {
     // Re-pide la página desde acá: las 5 prioridades se rellenan solas al completar una.
     // Envuelto: la escritura ya pasó, y un fallo al refrescar no puede volverla un error.
+    try { refresh(); } catch (e) { console.error('[m/plan] refresh:', e instanceof Error ? e.message : e); }
+  }
+  return r;
+}
+
+/**
+ * MOVER UNA TAREA DE COLUMNA desde el kanban del teléfono (16/10/2026): el mismo gesto que el
+ * CRM, ahora que las columnas del Plan son el ESTADO. Con `deshacer` (lo que devolvió el mover:
+ * `{ entryId }`) la devuelve a `estado` sacando esa entrada del historial.
+ *
+ * Mismo guard que `marcarHechaAction` y por lo mismo: una server action no hereda ninguno.
+ */
+export async function moverTareaAction(id: string, estado: string, deshacer?: DeshacerMover): Promise<ResultadoMoverTarea> {
+  if (typeof id !== 'string' || typeof estado !== 'string') return { ok: false, error: 'Tarea inválida' };
+  const desh = deshacer == null ? undefined
+    : (typeof deshacer === 'object' && typeof deshacer.entryId === 'string' && deshacer.entryId) ? { entryId: deshacer.entryId.slice(0, 80) } : null;
+  if (desh === null) return { ok: false, error: 'Ya no se puede deshacer' };
+
+  if (!(await getUsuarioActual())) return { ok: false, error: 'Sesión vencida' };
+  const [rol, capa] = await Promise.all([getRolWsEfectivo(), getCapaActual()]);
+  if (!puedeVerKey('todo', rol, capa)) return { ok: false, error: 'Sin permiso' };
+
+  const r = await moverDesdeElTelefono(id, estado, desh);
+  if (r.ok && !r.yaEstaba) {
     try { refresh(); } catch (e) { console.error('[m/plan] refresh:', e instanceof Error ? e.message : e); }
   }
   return r;

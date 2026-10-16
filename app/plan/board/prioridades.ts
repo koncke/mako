@@ -27,9 +27,17 @@
 import { MAX_PRIORIDAD, PRIOS, prioFromScore } from './types';
 import { resolverDeps, estaBloqueada, type Dep, type EstadoDeps, type TareaDep } from './dependencias';
 import { sinRecurrentes } from '@/lib/plan-recurrentes';
+import type { EstadoTarea } from '@/lib/todo-estados';
 
 /** Lo que la cuenta lee de una tarea: lo mismo que el grafo de dependencias. */
-export type TareaPrio = TareaDep;
+/**
+ * Lo que la cuenta lee de una tarea: lo del grafo, y la COLUMNA si la trae (16/10/2026). Con el
+ * kanban por estado, una tarea se puede arrastrar a «No cumplen tu criterio» en las dos mitades,
+ * y ahí NO es un pendiente (`estaPendiente`, lib/todo-estados.ts): sin mirar el estado, la vista
+ * Prioridades ofrecería como «lo que hay que hacer AHORA» algo que el criterio no dejó pasar.
+ * Opcional: sin estado, la que manda es el avance, como siempre.
+ */
+export type TareaPrio = TareaDep & { estado?: EstadoTarea };
 /** Lo que la cuenta lee de un proyecto. */
 export type ProyectoPrio = { id: string; score: number; recurrente?: boolean };
 
@@ -83,6 +91,9 @@ export function prioridadesDelTablero<T extends TareaPrio, P extends ProyectoPri
   // `conFin` (BoardShell): las tareas con inicio y fin, las únicas que se rankean. Una
   // recurrente ocupando 1 de 5 es el 20% de la pantalla del día contestando otra pregunta.
   const conFin = sinRecurrentes(tareas);
+  // ABIERTA = con avance < 100 y fuera de «No cumplen tu criterio» (ver `TareaPrio`). Es la
+  // pregunta de `estaPendiente` hecha con lo que trae cada llamador.
+  const abierta = (t: T) => t.progress < 100 && t.estado !== 'no_cumple';
 
   // ── El Objetivo Principal ─────────────────────────────────────────────────────
   // Es el proyecto de mayor score QUE TODAVÍA TIENE TRABAJO. Antes era, sin más, el de
@@ -93,10 +104,10 @@ export function prioridadesDelTablero<T extends TareaPrio, P extends ProyectoPri
   // seguido en la punta. El desempate NO puede quedar en `orden` (el orden en que se
   // crearon): empata el que tiene MÁS trabajo abierto.
   const pendientesPorProy = new Map<string, number>();
-  for (const t of conFin) if (t.progress < 100) for (const id of t.labels) pendientesPorProy.set(id, (pendientesPorProy.get(id) ?? 0) + 1);
+  for (const t of conFin) if (abierta(t)) for (const id of t.labels) pendientesPorProy.set(id, (pendientesPorProy.get(id) ?? 0) + 1);
   // Un proyecto está frenado cuando NINGUNA de sus tareas abiertas se puede empezar:
   // alcanza con que UNA sea arrancable para que el proyecto lo sea.
-  const proyArrancable = (id: string) => conFin.some((t) => t.progress < 100 && t.labels.includes(id) && !estaBloqueada(t.id, estDeps));
+  const proyArrancable = (id: string) => conFin.some((t) => abierta(t) && t.labels.includes(id) && !estaBloqueada(t.id, estDeps));
   // ⚠️ SIN LOS QUE SE REPITEN: marcar un proyecto recurrente no le baja el score, así que
   // sin este corte el norte del tablero señalaría algo que no se puede terminar.
   const porScore = sinRecurrentes(proyectos).slice().sort((a, b) => b.score - a.score || (pendientesPorProy.get(b.id) ?? 0) - (pendientesPorProy.get(a.id) ?? 0));
@@ -116,11 +127,12 @@ export function prioridadesDelTablero<T extends TareaPrio, P extends ProyectoPri
   // ⚠️ Prioridades responde «¿qué hago AHORA?», así que lo BLOQUEADO no entra. Su score no
   // se toca —en el Kanban sigue donde estaba—: es que hoy no se puede empezar. Lo que sí
   // sube es lo que las DESTRABA, por la urgencia heredada.
-  const pendientesTodas = conFin.filter((t) => t.progress < 100 && (incluirBloqueadas || !estaBloqueada(t.id, estDeps)) && (!filtro || filtro.tarea(t)));
+  const pendientesTodas = conFin.filter((t) => abierta(t) && (incluirBloqueadas || !estaBloqueada(t.id, estDeps)) && (!filtro || filtro.tarea(t)));
   // EL NORTE DE ESTA VISTA. Sin filtro es el Objetivo Principal; con filtro, el mejor
   // proyecto que lo pasa, con el mismo criterio. ⚠️ `objetivoPrincipal` NO cambia con el
-  // filtro, y es a propósito: decide en qué COLUMNA cae cada tarjeta del Kanban, y un
-  // filtro que mueve tarjetas de columna no filtra: reordena.
+  // filtro, y es a propósito: es el norte del TABLERO, no el de la vista. (Hasta el 16/10/2026
+  // este comentario decía que decidía la columna de cada tarjeta del Kanban; las columnas
+  // pasaron a ser el estado ese día, y `displayPrio` ya ignoraba el norte.)
   const objetivoVista = filtro ? elegirObjetivo(porScore.filter(filtro.proyecto)) : objetivoPrincipal;
   const topVistaId = objetivoVista?.id ?? null;
   // ⚠️ MANDA LA BANDA, Y EL PROYECTO TOP DESEMPATA ADENTRO DE ELLA. Antes entraban primero

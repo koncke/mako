@@ -237,6 +237,29 @@ async function main() {
     movidas: rv.movidas,
   };
 
+  // 9. EL TELÉFONO (tanda 2, 16/10/2026): `moverEnTablero` mueve por el camino de cada tablero,
+  //    deja UNA entrada en el historial, y el Deshacer vuelve a la columna de antes SACANDO esa
+  //    entrada (no sumando otra). Lo que no es una columna, no se escribe.
+  reset();
+  const mv = await import('../lib/plan-mover');
+  const textos = (f: Fila) => ((f.historial ?? []) as Array<{ text: string }>).map((h) => h.text);
+  const c9 = await enWs(() => todo.crearTarea({ titulo: 'del teléfono' }));
+  const histAntesCli = textos(filaCli(c9.id)).length;
+  const m9 = await enWs(() => mv.moverEnTablero('cliente', String(c9.id), 'en_curso'));
+  const trasMoverCli = { ...resumenCli(filaCli(c9.id)), hist: textos(filaCli(c9.id)) };
+  const d9 = m9.ok ? await enWs(() => mv.moverEnTablero('cliente', String(c9.id), m9.antes, { entryId: m9.entryId })) : m9;
+  const trasDeshacerCli = { ...resumenCli(filaCli(c9.id)), hist: textos(filaCli(c9.id)) };
+  const yaEstaba = await enWs(() => mv.moverEnTablero('cliente', String(c9.id), 'por_hacer'));
+  const invalida = await enWs(() => mv.moverEnTablero('cliente', String(c9.id), 'Completada'));
+  const p9 = await enWs(() => plan.crearPlanTarea(borrador({ title: 'del teléfono' })));
+  const m9p = await enWs(() => mv.moverEnTablero('dueno', p9.id, 'hecho'));
+  const trasMoverPlan = { ...resumenPlan(filaPlan(p9.id)), hist: textos(filaPlan(p9.id)) };
+  const d9p = m9p.ok ? await enWs(() => mv.moverEnTablero('dueno', p9.id, m9p.antes, { entryId: m9p.entryId })) : m9p;
+  out.telefono = {
+    histAntesCli, m9, trasMoverCli, d9, trasDeshacerCli, yaEstaba, invalida,
+    m9p, trasMoverPlan, d9p, trasDeshacerPlan: { ...resumenPlan(filaPlan(p9.id)), hist: textos(filaPlan(p9.id)) },
+  };
+
   process.stdout.write('@@RESULTADO@@' + JSON.stringify(out));
 }
 

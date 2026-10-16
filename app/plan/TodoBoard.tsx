@@ -121,6 +121,9 @@ export function TodoBoard({ tareas, categorias, demo, user, wsId, vistaInicial, 
     // que ya existen — el proyecto de un CLIENTE lo resuelve aparte el server, contra
     // el CRM. Sin esto, cada reunión abría un proyecto con el nombre de su tema.
     catalogo: CATALOGO_TODO.map((c) => ({ nombre: c.nombre, emoji: c.emoji, que: c.que })),
+    // QUIÉN LA HACE viaja en cada tarjeta (`responsable_tipo`, mig 0159, leído en `toBoard`): el
+    // kanban dibuja el filtro «Responsable» (16/10/2026). El tablero del dueño no lo declara.
+    responsables: true,
     createTask: async (d) => {
       if (demo) return d;
       // origen preservado (al restaurar un borrado de una tarea de MaKo mantiene el ✦).

@@ -49,6 +49,9 @@ export const toBoard = (t: Tarea): BoardTask => ({
   // aunque la fila tenga el cliente escrito — y peor: el próximo `editPatch` lo mandaría
   // como `null` y borraría la asignación sin que nadie la tocara.
   clienteLeadId: t.cliente_lead_id, clienteNombre: t.cliente_nombre,
+  // QUIÉN LA HACE (mig 0159): lo mira el filtro «Responsable» del kanban (16/10/2026). Se LEE y
+  // nada más: `editPatch` no lo manda, así que ningún guardado del tablero lo puede borrar.
+  responsableTipo: t.responsable_tipo,
   // ⚠️ LOS CINCO DE #157. El panel de una tarea los dibuja para los DOS tableros; del
   // lado del cliente el camino entero faltaba, así que se editában, contestaba 200 y
   // al recargar volvían como estaban. `notas` entra como '' y no undefined: es un

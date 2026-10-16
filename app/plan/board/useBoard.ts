@@ -6,7 +6,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useUndoToast } from '../../_components/UndoToast';
 import { quarterDeFecha } from './cuando';
-import { type BoardTask, type Label, type BoardUser, type Repo, type Hist, type Actor, type Fuente, type Prio, type EstadoTarea, type Check, type GuardPatch, type GuardProjPatch, PLABEL, MAX_PRIORIDAD, HIST_CAP, uid, clampPct, clampScore, clampProj, prioFromScore, scoreFromPrio } from './types';
+import { type BoardTask, type Label, type BoardUser, type Repo, type Hist, type Actor, type Fuente, type Prio, type EstadoTarea, type Check, type GuardPatch, type GuardProjPatch, PLABEL, MAX_PRIORIDAD, HIST_CAP, uid, clampPct, clampScore, clampProj, prioFromScore, scoreFromPrio, estadoDe } from './types';
 import { type Dep, type ClaseDep, type EntidadDep, puedeDepender } from './dependencias';
 import { baseCorrida } from './lugar-al-soltar';
 // «Se repite para siempre» (mig 0163). El predicado, la regla de la fecha y los porqués
@@ -16,7 +16,10 @@ import { esRecurrente, llevaDeadline, recurrenciaOk, textoRepeticionCorto } from
 // DE QUIÉN es una tarjeta (mig 0172). Mismo criterio que arriba: el predicado y los
 // textos salen del módulo compartido, que también leen los dos pickers y Customer Success.
 import { clienteDe, SIN_CLIENTE } from '@/lib/plan-clientes';
-import { alCrear } from '@/lib/todo-estados';
+import { alCrear, trasMover, motivoParaNoMover, etiquetaEstado } from '@/lib/todo-estados';
+// EL KANBAN POR ESTADO (16/10/2026): la columna que le toca a un avance nuevo y el lugar de
+// «arriba de todo», con la misma regla que el server. Ver app/plan/board/kanban.ts.
+import { avanceLocal, ordenTopeLocal } from './kanban';
 
 export type GuardScore = { id: string; score: number; razon: string; impacto?: number; esfuerzo?: number };
 
@@ -74,9 +77,19 @@ export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user
 
   const mkEntry = (actor: Actor, text: string, field: string, prev: unknown): Hist => ({ id: uid(), ts: now(), actor, text, undo: { field, prev } });
 
+  /**
+   * LA COLUMNA SIGUE AL AVANCE EN LA PANTALLA, como en el server (16/10/2026). Las columnas del
+   * kanban son el ESTADO, y el server lo mueve cuando el avance CAMBIA (`estadoAlGuardar`):
+   * completar desde «En proceso» la pasa a «Completada», reabrir la devuelve. Sin esto la
+   * tarjeta tachada se quedaba en su columna hasta el F5 — la base decía una cosa y la pantalla
+   * otra. Si el MISMO cambio trae un estado explícito (mover, deshacer un mover), manda ése.
+   */
+  const conAvance = (antes: BoardTask, despues: BoardTask): BoardTask =>
+    despues.progress === antes.progress || despues.estado !== antes.estado ? despues : { ...despues, ...avanceLocal(antes, despues.progress) };
+
   // patch sin log (acumula en el updater con el task fresco)
   const patch = (id: string, fields: Partial<BoardTask>) => {
-    setTasks((ts) => ts.map((x) => (x.id === id ? { ...x, ...fields } : x)));
+    setTasks((ts) => ts.map((x) => (x.id === id ? conAvance(x, { ...x, ...fields }) : x)));
     markDirty(id);
   };
 
@@ -86,14 +99,14 @@ export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user
   function patchLog<K extends keyof BoardTask>(id: string, field: K, value: BoardTask[K], text: string, actor: Actor = 'user') {
     const t = byId(id); if (!t) return;
     const entry = mkEntry(actor, text, field, t[field]);
-    setTasks((ts) => ts.map((x) => (x.id === id ? { ...x, [field]: value, historial: [entry, ...x.historial].slice(0, HIST_CAP) } : x)));
+    setTasks((ts) => ts.map((x) => (x.id === id ? conAvance(x, { ...x, [field]: value, historial: [entry, ...x.historial].slice(0, HIST_CAP) }) : x)));
     markDirty(id);
     ofrecerDeshacer(id, entry, actor);
   }
   // igual pero con `prev` explícito (para valores que ya venían editándose en vivo)
   function patchLogExplicit<K extends keyof BoardTask>(id: string, field: K, value: BoardTask[K], prev: unknown, text: string, actor: Actor = 'user') {
     const entry = mkEntry(actor, text, field, prev);
-    setTasks((ts) => ts.map((x) => (x.id === id ? { ...x, [field]: value, historial: [entry, ...x.historial].slice(0, HIST_CAP) } : x)));
+    setTasks((ts) => ts.map((x) => (x.id === id ? conAvance(x, { ...x, [field]: value, historial: [entry, ...x.historial].slice(0, HIST_CAP) }) : x)));
     markDirty(id);
     ofrecerDeshacer(id, entry, actor);
   }
@@ -112,7 +125,7 @@ export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user
     const prev: Record<string, unknown> = {};
     for (const k of Object.keys(fields)) prev[k] = (t as unknown as Record<string, unknown>)[k];
     const entry = mkEntry(actor, text, '__task__', prev);
-    setTasks((ts) => ts.map((x) => (x.id === id ? { ...x, ...fields, historial: [entry, ...x.historial].slice(0, HIST_CAP) } : x)));
+    setTasks((ts) => ts.map((x) => (x.id === id ? conAvance(x, { ...x, ...fields, historial: [entry, ...x.historial].slice(0, HIST_CAP) }) : x)));
     markDirty(id);
     ofrecerDeshacer(id, entry, actor);
   }
@@ -229,6 +242,84 @@ export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user
     // el representativo de la columna). Acá había uno propio y con el arrepentimiento
     // general salían dos, uno encima del otro.
     setScore(id, scoreFromPrio[priority], `Movió a ${PLABEL[priority]}`);
+  };
+  /**
+   * MOVER UNA TARJETA EN EL KANBAN (16/10/2026, «hacer el kanban un kanban»): a otra columna
+   * (`estado`) y/o a otro lugar dentro de la columna (`orden`). Sin `orden`, arriba de la columna
+   * (el dedo, el detalle). `motivo` sólo dice algo yendo a «Atorada» (`undefined` lo conserva).
+   *
+   * Optimista: la tarjeta cambia ya (`trasMover`, la MISMA regla del server: Completada = 100%,
+   * sacarla de ahí la reabre en 0%), escribe por `repo.mover` y se queda con lo que contesta la
+   * base. Si la base dice que no, vuelve a su lugar y el toast dice por qué.
+   *
+   * ⚠️ NO PREGUNTA LA PRIORIDAD, y es la decisión entera: «cuando tú muevas una tarjeta, yo no
+   * debería preguntarte cuál es la nueva prioridad» → «Es correcto» (Mauricio, 12/10/2026). Hasta
+   * el 16/10 soltar en una columna abría el pop-up del 1 al 100 (decisión del 23/09, reemplazada).
+   *
+   * ⚠️ NO PASA POR EL GUARDADO DE LA TARJETA (`markDirty`): el estado y el lugar no viajan en el
+   * upsert de la fila entera (ver `BoardTask.estado`). La entrada del historial va en el MISMO
+   * pedido (`opts.historial`). Reordenar dentro de la columna no deja historial: es acomodar, no
+   * un cambio de la tarea — pero sí ofrece deshacer, como todo cambio de una persona.
+   */
+  const tasksVivas = useRef<BoardTask[]>(tasks);
+  useEffect(() => { tasksVivas.current = tasks; });
+  type AntesDeMover = { estado: EstadoTarea; progress: number; motivoAtorada: string | null; orden: number | undefined };
+  const mover = async (id: string, estado: EstadoTarea, orden?: number, motivo?: string | null): Promise<boolean> => {
+    const t = byId(id); if (!t || !repo.mover) return false;
+    const no = motivoParaNoMover(t, estado);
+    if (no) { show(no); return false; }
+    const desde = estadoDe(t);
+    const lugar = orden ?? (desde === estado ? t.orden : undefined) ?? ordenTopeLocal(tasks, estado, id);
+    const r = trasMover({ estado: desde, progreso: t.progress, motivo: t.motivoAtorada ?? null }, estado, motivo);
+    const cambiaCol = desde !== estado;
+    const cambiaMotivo = !cambiaCol && r.motivo !== (t.motivoAtorada ?? null);
+    if (!cambiaCol && !cambiaMotivo && lugar === t.orden) return true;
+    const texto = cambiaCol ? `Movió a ${etiquetaEstado(estado)}${r.motivo ? ` — ${r.motivo}` : ''}`
+      : cambiaMotivo ? (r.motivo ? `Atorada: ${r.motivo}` : 'Le quitó el motivo') : null;
+    const entry: Hist | null = texto ? { id: uid(), ts: now(), actor: 'user', text: texto.slice(0, 220) } : null;
+    const historial = entry ? [entry, ...t.historial].slice(0, HIST_CAP) : undefined;
+    const antes: AntesDeMover = { estado: desde, progress: t.progress, motivoAtorada: t.motivoAtorada ?? null, orden: t.orden };
+    setTasks((ts) => ts.map((x) => (x.id === id
+      ? { ...x, estado: r.estado, progress: r.progreso, motivoAtorada: r.motivo, orden: lugar, ...(entry ? { historial: [entry, ...x.historial].slice(0, HIST_CAP) } : {}) }
+      : x)));
+    // El TOAST es corto (3-4 palabras, la regla de la casa): el motivo va al historial, no acá.
+    show(cambiaCol ? `Movió a ${etiquetaEstado(estado)}` : cambiaMotivo ? 'Motivo guardado' : 'Cambió el lugar', () => { void deshacerMover(id, antes, entry?.id); });
+    try {
+      const canon = await repo.mover(id, estado, lugar, { motivo, historial });
+      if (canon) setTasks((ts) => ts.map((x) => (x.id === id ? { ...x, estado: canon.estado ?? x.estado, progress: canon.progress, motivoAtorada: canon.motivoAtorada ?? null, orden: canon.orden ?? x.orden } : x)));
+      return true;
+    } catch (e) {
+      console.error('[board] mover', e);
+      setTasks((ts) => ts.map((x) => (x.id === id
+        ? { ...x, ...antes, historial: entry ? x.historial.filter((h) => h.id !== entry.id) : x.historial }
+        : x)));
+      show(e instanceof Error && e.message ? e.message.slice(0, 80) : 'No se pudo mover');
+      return false;
+    }
+  };
+  /** El «Deshacer» del toast de mover: vuelve a la columna, al lugar y al motivo de antes, y saca la entrada. */
+  const deshacerMover = async (id: string, antes: AntesDeMover, entryId?: string) => {
+    if (!repo.mover) return;
+    // El toast se aprieta DESPUÉS: la tarjeta de este closure es vieja. Se lee la viva.
+    const vivo = tasksVivas.current.find((x) => x.id === id);
+    if (!vivo) return;
+    const historial = entryId ? vivo.historial.filter((h) => h.id !== entryId) : undefined;
+    setTasks((ts) => ts.map((x) => (x.id === id ? { ...x, ...antes, ...(entryId ? { historial: x.historial.filter((h) => h.id !== entryId) } : {}) } : x)));
+    try {
+      const canon = await repo.mover(id, antes.estado, antes.orden, { motivo: antes.motivoAtorada, historial });
+      // Mover acomoda el avance (reabrir = 0%). Si antes tenía otro, vuelve por el guardado, con
+      // el estado explícito para que la columna no lo recalcule en la pantalla.
+      if (canon && canon.progress !== antes.progress) patch(id, { progress: antes.progress, estado: antes.estado });
+      else if (canon) setTasks((ts) => ts.map((x) => (x.id === id ? { ...x, estado: canon.estado ?? x.estado, motivoAtorada: canon.motivoAtorada ?? null, orden: canon.orden ?? x.orden } : x)));
+    } catch (e) {
+      console.error('[board] deshacer mover', e);
+      show('No se pudo deshacer');
+    }
+  };
+  /** El motivo de «Atorada», sin moverla de lugar (el campo chico que sale al soltar ahí). */
+  const setMotivoAtorada = (id: string, motivo: string | null) => {
+    const t = byId(id); if (!t || estadoDe(t) !== 'en_seguimiento') return;
+    void mover(id, 'en_seguimiento', t.orden, motivo);
   };
   // aplica la puntuación del guardián: score → columna derivada, 1 entrada por tarea.
   const applyGuardian = (tareas: GuardScore[], proyectos: GuardScore[]) => {
@@ -407,7 +498,7 @@ export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user
     const derived = next.length ? Math.round((next.filter((c) => c.done).length / next.length) * 100) : null;
     const entry = text ? mkEntry(actor, text, 'checklist', t.checklist) : null;
     setTasks((ts) => ts.map((x) => (x.id === id
-      ? { ...x, checklist: next, ...(derived != null ? { progress: derived } : {}), ...(entry ? { historial: [entry, ...x.historial].slice(0, HIST_CAP) } : {}) }
+      ? conAvance(x, { ...x, checklist: next, ...(derived != null ? { progress: derived } : {}), ...(entry ? { historial: [entry, ...x.historial].slice(0, HIST_CAP) } : {}) })
       : x)));
     markDirty(id);
   };
@@ -587,8 +678,9 @@ export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user
       // id de un cliente y el nombre de otro.
       if (field === '__task__' && prev && typeof prev === 'object') Object.assign(next, prev as Partial<BoardTask>);
       else (next as unknown as Record<string, unknown>)[field] = prev;
-      if (field === 'score') next.priority = prioFromScore(clampScore(Number(prev))); // la columna deriva del score
-      return next;
+      if (field === 'score') next.priority = prioFromScore(clampScore(Number(prev))); // la banda deriva del score
+      // Deshacer un avance también devuelve la columna (el server hace lo mismo al guardarlo).
+      return conAvance(x, next);
     }));
     markDirty(id);
   };
@@ -775,6 +867,9 @@ export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user
     tasks, labels, user, repo, deps, addDep, delDep,
     labelById: (id: string) => labels.find((l) => l.id === id) ?? null,
     create, remove, removeSilent, patch, moveTo, setScore, applyGuardian, aplicarPerroServer, aplicarCascadaManual, soltarCandadoManual, toggleEnPrioridad, setChecklist, replaceTask,
+    // ⚠️ `mover` Y `setMotivoAtorada` (16/10/2026): el kanban por estado. Misma advertencia que
+    // las de abajo — si no están en este `return`, el arrastre no tiene con qué escribir.
+    mover, setMotivoAtorada,
     // ⚠️ `setRecurrente` Y `setLabelRecurrente` VAN EN ESTE `return` O NO EXISTEN. Es el
     // modo de falla que este repo ya pagó dos veces el 25/09/2026: la capacidad queda
     // escrita, el typecheck pasa, los tests pasan, y en pantalla no hay nada que tocar

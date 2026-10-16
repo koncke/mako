@@ -2,7 +2,8 @@
 // /m/plan — el plan en el teléfono: Prioridades · Tareas · Proyectos · Recurrentes (v3)
 // =============================================================================
 // v3 (14/10/2026): las cuatro vistas del Plan de escritorio; Tareas y Proyectos son tableros
-// por prioridad (./tableros.ts arma los modelos, ./ListaPlan.tsx los dibuja). Lo de abajo es la
+// (./tableros.ts arma los modelos, ./ListaPlan.tsx los dibuja): Tareas por ESTADO desde el
+// 16/10/2026, como escritorio, y Proyectos por prioridad. Lo de abajo es la
 // v2, que sigue valiendo para la lista de Prioridades y para marcar hecha.
 // =============================================================================
 // El prototipo es `#plan` de docs/prototipos/mako-mobile-v2.html: el segmentado, una lista
@@ -51,10 +52,13 @@ export default async function PlanMovil() {
     );
   }
 
+  // El kanban de Tareas por ESTADO (16/10/2026): columnas con su conteo real y las tarjetas.
+  const kanban = tareasDelTablero({ tareas, proyectos, hoy: plan.fecha, conNum: plan.tablero === 'dueno' });
   return (
     <PantallaM>
       <ListaPlan
-        listas={{ prioridades: plan.prioridades, tareas: tareasDelTablero({ tareas, proyectos, hoy: plan.fecha, conNum: plan.tablero === 'dueno' }) }}
+        listas={{ prioridades: plan.prioridades, tareas: kanban.tareas }}
+        columnasTareas={kanban.columnas}
         proyectos={proyectosDelTablero({ tareas, proyectos })}
         recurrentes={recurrentesDelTablero({ tareas, proyectos })}
         fecha={plan.fecha}

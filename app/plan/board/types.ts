@@ -12,8 +12,8 @@ import { llevaDeadline } from '@/lib/plan-recurrentes';
 import type { OpcionesPrioridadManual } from './lugar-al-soltar';
 // Las COLUMNAS del kanban (16/10/2026): el estado y sus reglas viven en un módulo de datos sin
 // `server-only`, el mismo que lee el server de las dos mitades. Acá sólo se declara el campo.
-import { estadoDeAvance, type EstadoTarea } from '@/lib/todo-estados';
-export type { EstadoTarea };
+import { estadoDeAvance, type EstadoTarea, type ResponsableTipo } from '@/lib/todo-estados';
+export type { EstadoTarea, ResponsableTipo };
 
 export type Prio = 'alta' | 'media' | 'baja' | 'futuro';
 // Quién tocó algo. Los dos últimos son IA pero NO son lo mismo, y confundirlos es
@@ -239,6 +239,21 @@ export type BoardTask = {
    *  `leads` en cada carga; la clave es `clienteLeadId` y ningún cálculo se apoya acá.
    *  Si el lead se renombra en el CRM, esto queda viejo hasta la próxima asignación. */
   clienteNombre?: string | null;
+  /**
+   * QUIÉN LA HACE, relativo al dueño del tablero (mig 0159): 'mio' / 'cliente' / 'tercero';
+   * `null` = nadie lo dijo, que NO es «mío». Es lo que mira el filtro «Responsable» del kanban
+   * (16/10/2026, app/plan/board/kanban.ts).
+   *
+   * ⚠️ SÓLO LO TIENE EL TABLERO DEL CLIENTE (`experimento_tareas.responsable_tipo`). Lo escribe
+   * la extracción de una reunión (`aplicarPropuestas`); `plan_tareas` no tiene la columna, así
+   * que en el tablero del dueño llega siempre `undefined` y el filtro no se dibuja (`Repo.responsables`).
+   *
+   * ⚠️ SE LEE Y NO SE ESCRIBE desde el tablero, a propósito: `editPatch` (TodoBoard.tsx) es
+   * PARCIAL y no lo manda, así que ningún guardado puede borrarlo; y `taskToRow` del dueño no
+   * tiene a dónde escribirlo. No hay control en pantalla para cambiarlo — el día que lo haya, va
+   * por los seis lugares (AGENTS.md).
+   */
+  responsableTipo?: ResponsableTipo | null;
 };
 
 export type Label = { id: string; pid?: string; emoji: string; name: string; color: string; score: number; scoreRazon?: string; impacto?: number; esfuerzo?: number; deadline?: string; detalle: string; notas?: string; historial: Hist[]; fuente?: Fuente; escalon?: number; desbloquea?: string;
@@ -494,6 +509,14 @@ export type Repo = {
    * de Customer Success); los DOS tableros reales la tienen (TodoBoard y `repoPlan`).
    */
   mover?(id: string, estado: EstadoTarea, orden?: number, opts?: { motivo?: string | null; historial?: Hist[] }): Promise<BoardTask | null>;
+  /**
+   * ¿LAS TARJETAS DE ESTE TABLERO SABEN QUIÉN LAS HACE? (`BoardTask.responsableTipo`, mig 0159).
+   * Es lo que dibuja el filtro «Responsable» del kanban (16/10/2026). Sólo el del CLIENTE:
+   * `plan_tareas` no tiene la columna, y un filtro que en el tablero del dueño mete el 100% de
+   * las tarjetas en «Sin asignar» se lee como un control roto. La prop ES la capacidad, como
+   * `prioridadManual` y `debatePrioridad`.
+   */
+  responsables?: boolean;
   addDep?(d: { entidad: 'tarea' | 'proyecto'; deId: string; aId: string; clase?: 'bloquea' | 'ordena'; razon?: string }): Promise<{ ok: boolean; error?: string; camino?: string[]; deps?: import('./dependencias').Dep[] }>;
   delDep?(entidad: 'tarea' | 'proyecto', deId: string, aId: string): Promise<{ ok: boolean; deps?: import('./dependencias').Dep[] }>;
 };

@@ -34,7 +34,8 @@
 import { useEffect, useState, type CSSProperties } from 'react';
 import { useDictar } from '@/app/_components/useDictar';
 import { GuardianIcon } from './GuardianIcon';
-import { type Prio, type EstadoTarea, scoreFromPrio } from './types';
+import { type Prio, type EstadoTarea } from './types';
+import { etiquetaEstado } from '@/lib/todo-estados';
 
 const SANS = "'Geist', sans-serif";
 const MONO = "'Geist Mono', monospace";
@@ -52,10 +53,16 @@ export type CrearData = {
   estado?: EstadoTarea;
 };
 
-export function CrearTareaModal({ proyectoInicial, prioInicial, onCrear, onDone, onClose }: {
-  proyectoInicial: string | null; prioInicial: Prio | null;
-  /** las tareas del plan con su score, para comparar al elegir el número (no se usa hoy) */
-  ejemplos?: Array<{ title: string; score: number }>;
+export function CrearTareaModal({ proyectoInicial, estadoInicial, onCrear, onDone, onClose }: {
+  proyectoInicial: string | null;
+  /**
+   * LA COLUMNA DESDE LA QUE SE ABRIÓ (el «＋» de una columna del kanban): la tarea nace con ESE
+   * estado (decisión 4 del 16/10/2026). `null` = desde la tabla o un proyecto → «Por iniciar».
+   *
+   * ⛔ Hasta el 16/10 acá venía `prioInicial`, la BANDA de la columna, y viajaba como sugerencia
+   * al Perro. Las columnas ya no son bandas y la tarea nace sin prioridad.
+   */
+  estadoInicial?: EstadoTarea | null;
   onCrear: (data: CrearData) => Promise<CrearResult>; onDone: (id: string) => void; onClose: () => void;
 }) {
   const [title, setTitle] = useState('');
@@ -65,10 +72,6 @@ export function CrearTareaModal({ proyectoInicial, prioInicial, onCrear, onDone,
   const detalle = '';
   const proy = proyectoInicial ?? '';
   const deadline = '';
-  // Abrir el alta desde la cabecera de una columna sigue SUGIRIENDO esa banda —es una pista
-  // de dónde la vio quien la está cargando—, pero ya no la fija nadie a mano: viaja como
-  // sugerencia declarada al Perro, que la puntúa contra el resto del plan y puede ignorarla.
-  const sugerido = prioInicial ? scoreFromPrio[prioInicial] : 0;
   const [creando, setCreando] = useState(false);
   const [err, setErr] = useState('');
   const [restored, setRestored] = useState(false);
@@ -108,11 +111,13 @@ export function CrearTareaModal({ proyectoInicial, prioInicial, onCrear, onDone,
     const r = await onCrear({
       title: title.trim(), detalle: detalle.trim(),
       labelIds: proy ? [proy] : [],
-      userScore: sugerido, motivoNinguno: '',
+      userScore: 0, motivoNinguno: '',
       // Un proyecto NUEVO ya no se abre desde acá: tiene su propia alta, que es una
       // decisión y no un campo de un formulario de tareas.
       nuevoProyecto: '', nuevoProyEmoji: '🏷',
       argumento: '', deadline, fijarPrioridad: false,
+      // La columna del «＋» que se tocó (16/10/2026). Sin ella, «Por iniciar».
+      ...(estadoInicial ? { estado: estadoInicial } : {}),
     }).catch((e) => { setErr(e instanceof Error ? e.message : String(e)); return null; });
     try { localStorage.removeItem(DRAFT_KEY); } catch { /* no-op */ }
     if (!r) { setCreando(false); return; }
@@ -150,7 +155,10 @@ export function CrearTareaModal({ proyectoInicial, prioInicial, onCrear, onDone,
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, padding: '0 20px 18px' }}>
-          <span style={{ fontSize: 12, color: 'var(--faint)' }}>MaKo le pone el proyecto, la prioridad y el detalle.</span>
+          {/* LO QUE PASA AL CREAR, dicho como es desde el 16/10/2026: nace en la columna del «＋»
+              y SIN prioridad. Hasta ese día decía «MaKo le pone el proyecto, la prioridad y el
+              detalle», que dejó de ser cierto cuando el alta dejó de llamar al Perro. */}
+          <span style={{ fontSize: 12, color: 'var(--faint)' }}>{estadoInicial ? `En «${etiquetaEstado(estadoInicial)}», sin prioridad.` : 'Nace sin prioridad.'}</span>
           <div style={{ display: 'flex', gap: 9 }}>
             <button type="button" onClick={onClose} style={ghostBtn}>Cancelar</button>
             <button type="button" onClick={() => void crear()} disabled={!puedeCrear || creando} style={{ ...primaryBtn, opacity: !puedeCrear || creando ? 0.55 : 1, cursor: !puedeCrear || creando ? 'default' : 'pointer' }}>

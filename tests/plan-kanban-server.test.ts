@@ -120,3 +120,38 @@ test('el reparto de las 9:10 no toca las «Sin priorizar» ni lo que no cumple e
   assert.equal(R.recurvar.r.sinPriorizar, 2, 'y las cuenta: una exclusión que nadie disparó se ve igual que una que funciona');
   assert.equal(R.recurvar.r.total, 24, 'sólo las 24 priorizadas entran al reparto');
 });
+
+// ── EL TELÉFONO (tanda 2, 16/10/2026) ──────────────────────────────────────────────
+// El kanban del teléfono es el mismo por estado y mueve con el gesto del CRM
+// (`moverTareaAction` → `moverEnTablero`, lib/plan-mover.ts). Escribe por las MISMAS funciones
+// que el arrastre de escritorio, así que acá se mira lo que agrega: la entrada del historial y
+// el Deshacer que la SACA (no suma otra).
+//
+// ⚠️ PROBADO ROMPIÉNDOLO (16/10/2026), base en verde (9 de 9), cada rotura restaurada:
+//   7. `historialAlMover` sumando una entrada también al deshacer → cae «el teléfono» (1 de 9)
+//   8. `moverEnTablero` sin el `esEstado` (escribe «Completada» como estado) → cae «el teléfono» (1 de 9)
+//   9. `moverCliente` sin el `yaEstaba` (escribe aunque ya esté ahí)          → cae «el teléfono» (1 de 9)
+test('el teléfono: mueve por el camino de cada tablero y el Deshacer saca SU entrada', () => {
+  const T = (R as unknown as { telefono: Record<string, unknown> }).telefono as {
+    histAntesCli: number; m9: { ok: boolean; antes: string; entryId: string };
+    trasMoverCli: ResCli & { hist: string[] }; d9: { ok: boolean }; trasDeshacerCli: ResCli & { hist: string[] };
+    yaEstaba: { ok: boolean; yaEstaba?: boolean }; invalida: { ok: boolean; error: string };
+    m9p: { ok: boolean; antes: string }; trasMoverPlan: ResPlan & { hist: string[] }; d9p: { ok: boolean }; trasDeshacerPlan: ResPlan & { hist: string[] };
+  };
+  // Cliente: a «En proceso», con UNA entrada nueva arriba.
+  assert.deepEqual([T.m9.ok, T.m9.antes], [true, 'por_hacer']);
+  assert.equal(T.trasMoverCli.estado, 'en_curso');
+  assert.equal(T.trasMoverCli.hist.length, T.histAntesCli + 1);
+  assert.equal(T.trasMoverCli.hist[0], 'Movió a En proceso');
+  // Deshacer: vuelve a «Por iniciar» y el historial queda como estaba (sin una segunda entrada).
+  assert.equal(T.d9.ok, true);
+  assert.equal(T.trasDeshacerCli.estado, 'por_hacer');
+  assert.equal(T.trasDeshacerCli.hist.length, T.histAntesCli);
+  // Ya estaba ahí: éxito sin escribir (sin Deshacer). Lo que no es una columna: no se escribe.
+  assert.deepEqual([T.yaEstaba.ok, T.yaEstaba.yaEstaba], [true, true]);
+  assert.deepEqual([T.invalida.ok, T.invalida.error], [false, 'Columna inválida']);
+  // Dueño: a «Completada» queda al 100% (la regla de `trasMover`), y el Deshacer la reabre.
+  assert.deepEqual([T.m9p.ok, T.m9p.antes], [true, 'por_hacer']);
+  assert.deepEqual([T.trasMoverPlan.estado, T.trasMoverPlan.progress, T.trasMoverPlan.hist[0]], ['hecho', 100, 'Movió a Completada']);
+  assert.deepEqual([T.d9p.ok, T.trasDeshacerPlan.estado, T.trasDeshacerPlan.progress, T.trasDeshacerPlan.hist.length], [true, 'por_hacer', 0, T.trasMoverPlan.hist.length - 1]);
+});

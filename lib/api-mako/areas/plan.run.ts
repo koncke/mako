@@ -114,10 +114,11 @@ const estadoDeps = (tab: Tablero): EstadoDeps | null => {
  * dependencias: `progress`, no `avance`), con la tarea original colgada en `t` para
  * devolverla tal cual. Es el mismo mapeo que `estadoDeps`, arriba.
  */
-type TareaPrioApi = { id: string; num: number; score: number; progress: number; labels: string[]; recurrente: boolean; t: TareaPlan };
+type TareaPrioApi = { id: string; num: number; score: number; progress: number; labels: string[]; recurrente: boolean; estado: TareaPlan['estado']; t: TareaPlan };
 type ProyectoPrioApi = { id: string; score: number; recurrente: boolean };
 const tareasPrio = (tab: Tablero): TareaPrioApi[] =>
-  tab.tareas.map((t) => ({ id: t.id, num: t.num ?? 0, score: t.score, progress: t.avance, labels: t.labels, recurrente: t.recurrente, t }));
+  // `estado` va para que Prioridades no ofrezca lo que está en «No cumplen tu criterio» (16/10/2026).
+  tab.tareas.map((t) => ({ id: t.id, num: t.num ?? 0, score: t.score, progress: t.avance, labels: t.labels, recurrente: t.recurrente, estado: t.estado, t }));
 const proyectosPrio = (tab: Tablero): ProyectoPrioApi[] =>
   tab.proyectos.map((p) => ({ id: p.id, score: p.score, recurrente: p.recurrente }));
 
