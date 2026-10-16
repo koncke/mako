@@ -23,6 +23,8 @@
 //   · la acción sin `adminDeWorkspaceActual`                                            → 6 / 1
 //   · la pantalla sin la confirmación (un clic da de baja)                               → 6 / 1
 //   · la acción de la API confirmada por chat y no en pantalla                           → 6 / 1
+// Y el 15/10, después de verlo en producción en el workspace de la plataforma (cada una → 6 / 1): la sección sin su
+// condición `plan`, la condición siempre verdadera, y la página sin la guarda que la manda al índice.
 // Correr: node --import tsx --test tests/mi-plan.test.ts
 // =============================================================================
 
@@ -122,8 +124,13 @@ test('la pantalla: dos pasos (el botón y la confirmación), sin el portal de St
 });
 
 test('la sección, la API y los textos legales', () => {
-  const plan = seccionesNegocio({ general: false, integraciones: false, metodo: false }).find((s) => s.key === 'plan');
+  const plan = seccionesNegocio({ general: false, integraciones: false, metodo: false, plan: true }).find((s) => s.key === 'plan');
   assert.equal(plan?.href, '/configuraciones/plan', 'la sección no está en Configuración del negocio');
+  // La plataforma no tiene un plan de MaKo: ni la sección en su índice, ni la página (visto en producción el 15/10/2026:
+  // decía «SuperAdmin — Acordado con MaKo — para darte de baja, escríbenos»).
+  assert.ok(!seccionesNegocio({ general: true, integraciones: true, metodo: true, plan: false }).some((s) => s.key === 'plan'));
+  assert.match(fuente('lib/ajustes-negocio.ts'), /plan: ws != null && ws !== plataforma,/);
+  assert.match(fuente('app/configuraciones/plan/page.tsx'), /if \(ws == null \|\| ws === \(await wsSuperAdmin\(\)\)\) redirect\('\/configuraciones'\);/);
   assert.equal(porId('ver_mi_plan')?.gating?.rolMinimo, 'admin');
   const baja = porId('dar_de_baja_mi_plan');
   assert.ok(baja && esAccion(baja), 'la API de MaKo no la ofrece (AGENTS.md: toda feature nueva va a la API)');

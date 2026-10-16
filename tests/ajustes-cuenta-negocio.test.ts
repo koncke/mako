@@ -28,14 +28,16 @@ import { USER_NAV } from '../app/_components/nav';
 const raiz = join(__dirname, '..');
 const leer = (r: string) => readFileSync(join(raiz, r), 'utf8').replace(/\r\n/g, '\n');
 const sinComentarios = (src: string) => src.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\{\/\*[\s\S]*?\*\/\}/g, '').replace(/\/\*[\s\S]*?\*\//g, '');
-const TODAS = { general: true, integraciones: true, metodo: true };
+const TODAS = { general: true, integraciones: true, metodo: true, plan: true };
 
 test('las dos listas: el orden y los rótulos que aprobó Martín', () => {
   assert.deepEqual(SECCIONES_CUENTA.map((s) => s.label), ['Información personal', 'Seguridad', 'Notificaciones', 'Instalar la app']);
   // «Tu plan» se sumó el 15/10/2026: cancelar uno mismo el plan de MaKo, como todo SaaS (lo decidió Estrategia).
   assert.deepEqual(seccionesNegocio(TODAS).map((s) => s.label), ['General', 'Equipo', 'Integraciones', 'Notificaciones', 'Identidades fiscales', 'Tu plan', 'Método']);
   // Sin General (hoy, quien no es el super admin), sin Integraciones (no lo compró) y sin Método (no es la agencia).
-  assert.deepEqual(seccionesNegocio({ general: false, integraciones: false, metodo: false }).map((s) => s.key), ['equipo', 'notificaciones', 'fiscal', 'plan']);
+  assert.deepEqual(seccionesNegocio({ general: false, integraciones: false, metodo: false, plan: true }).map((s) => s.key), ['equipo', 'notificaciones', 'fiscal', 'plan']);
+  // En el workspace de la PLATAFORMA no hay «Tu plan»: la plataforma no tiene un plan de MaKo (15/10/2026).
+  assert.ok(!seccionesNegocio({ general: true, integraciones: true, metodo: true, plan: false }).some((s) => s.key === 'plan'));
   // Mirando a un cliente, «Tu cuenta» muestra su perfil; lo tuyo sólo si es donde estás parado.
   assert.deepEqual(seccionesCuenta(true, 'info').map((s) => s.key), ['info']);
   assert.deepEqual(seccionesCuenta(true, 'seguridad').map((s) => s.key), ['info', 'seguridad']);

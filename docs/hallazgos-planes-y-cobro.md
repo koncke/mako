@@ -728,6 +728,10 @@ se cancela en el acto.
 sigue cobrando… hasta el fin del período) vive en el `motivo` con un prefijo, como la renovación fallida; y la clave de
 idempotencia de la baja NO puede ser la de cancelar en el acto (`idemBaja`): Stripe rechaza una clave repetida con otro
 pedido dentro de las 24 h, y el super admin puede cancelarla del todo el mismo día.
+**Visto en producción (15/10/2026):** en el workspace de la PLATAFORMA (ws9) la sección decía «SuperAdmin — Acordado con
+MaKo — para darte de baja, escríbenos». La plataforma no tiene un plan de MaKo: el índice ya no la ofrece ahí
+(`DisponiblesNegocio.plan`) y la página manda al índice. En un cliente (ws1) se veía bien. No había ningún cobro todavía,
+así que el botón no se pudo ver con un plan cobrado de verdad.
 **Lo que la baja NO hace:** dejar de cobrar no le saca el plan al workspace. No existe el estado de suscripción por
 workspace (la fila «Estado de suscripción por workspace» de la tabla de abajo): la capa queda. La baja corta la plata, no
 el acceso; eso sigue siendo a mano desde /admin.

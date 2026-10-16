@@ -5,10 +5,11 @@
 // /reembolsos y /terminos remiten acá). Sólo el admin: es lo que la plataforma le cobra al negocio. La suscripción se
 // lee por `alta_ws` (lib/cobros.ts, `suscripcionDeMakoDe`); sin una, el plan se acordó a mano y se dice a quién escribir.
 
+import { redirect } from 'next/navigation';
 import { requireRolWs } from '@/lib/tab-access';
 import { TITULO_NEGOCIO } from '@/lib/ajustes-secciones';
 import { seccionesNegocioActuales } from '@/lib/ajustes-negocio';
-import { getCapaActual, getWorkspaceActual } from '@/lib/workspace';
+import { getCapaActual, getWorkspaceActual, wsSuperAdmin } from '@/lib/workspace';
 import { capaDef } from '@/lib/capas';
 import { suscripcionDeMakoDe } from '@/lib/cobros';
 import { esBajaPedida } from '@/lib/cobros-reglas';
@@ -23,6 +24,8 @@ export const revalidate = 0;
 export default async function PlanPage() {
   await requireRolWs([], { nav: 'configuraciones' });
   const ws = await getWorkspaceActual();
+  // La plataforma no tiene un plan de MaKo (el índice ya no ofrece la sección ahí): un link viejo vuelve al índice.
+  if (ws == null || ws === (await wsSuperAdmin())) redirect('/configuraciones');
   const [capa, sus] = await Promise.all([
     getCapaActual(),
     ws != null ? suscripcionDeMakoDe(ws).catch(() => null) : Promise.resolve(null),
