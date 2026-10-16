@@ -4848,3 +4848,21 @@ Martín: «en "Un Lead Agendó Llamada" solo puedo desconectar la flecha del CON
 
 **Vive en:** `lib/simulador-grafo.ts` (`correrHilo`, `iniciar`, `reunionMinDe`) · `app/automations/PanelProbar.tsx`
 (`reunionDeLaPrueba`) · `lib/setting-secuencias.ts` · test: `tests/probar-orden-antes.test.ts`
+
+## «Probar»: el encabezado del caso, la sidebar y el «escribiendo…» (16/10/2026)
+
+- ⚠️ **Un tipo de mensaje nuevo en el hilo tiene que quedar fuera de la charla.** El encabezado del caso pasó a ser su
+  propio tipo (`'caso'`, `ChipDelCaso`), y había tres lugares que filtraban sólo `'sistema'`: lo que lee el redactor
+  (la IA habría leído «Caso 1: …» como algo que dijo el negocio), el último mensaje de un contacto y lo que contesta el
+  lead. Ahora pasan por UN filtro (`esDeLaCharla`); el test fija que no quede ningún `m.tipo !== 'sistema'` suelto.
+- **La sidebar «salía arriba» por 5 píxeles:** el cuerpo del panel en la pantalla de Martín mide ~645 px y la columna
+  pedía 640 (con el borde caía debajo). Desde 520.
+- **El «escribiendo…» del lead sumaba dos esperas:** las pausas de la animación y DESPUÉS la IA. Ahora el mensaje se
+  pide apenas aparece lo que contesta, y el «escribiendo…» espera sólo lo que falte.
+
+**Pendiente de Martín (consultado a Cerebro):** si «su nombre» en la sidebar es un nombre de persona (y entonces el
+lead de cada caso se llama así en sus mensajes), y qué quiere decir «los chips de "antes de"... no en el medio».
+
+**Vive en:** `app/automations/ChipDelCaso.tsx` · `app/automations/PanelProbar.tsx` (`pildoraDelCaso`, `esDeLaCharla`,
+`pedirMensajeDelLead`, `ANCHO_PARA_COLUMNA`) · `app/automations/SimuladorSocial.tsx` · test:
+`tests/probar-chip-caso.test.ts`
