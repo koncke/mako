@@ -31,12 +31,23 @@ local de la PC de Martín ni sus chats: lo esencial de eso está acá abajo.
 
 ## Por dónde seguir (en este orden)
 
-1. **CRM, feedback del 16/10** (el documento de arriba; ya hechos: renombrar, «A revisar», la cabecera, borrar la vista
-   de pendientes, «Templates», el «Ver» de la ficha y el botón de MaKo a la izquierda): «Asignar evento» en las etapas
-   de reunión (el motor ya está, falta la pantalla en app/crm/EtapasModal.tsx), las tabs de la ficha como las hojas del
-   Dashboard con templates propios y sin la barra lateral, «Editar» + «⋯» con «AI Analyst» (el chat abre a la
-   izquierda y la ficha se corre), «Obligatorio» por bloque, el chat del CRM con la cara del Second Brain, y que la
-   ficha abra rápido (medir antes).
+1. **CRM, feedback del 16/10** (el documento de arriba). Ya hecho y en producción el 16/10 a la noche: renombrar,
+   «A revisar», la cabecera, borrar la vista de pendientes, «Templates», el «Ver» de la ficha, el botón de MaKo a la
+   izquierda con el muñeco del CRM, «Editar» en azul + «⋯» con «AI Analyst», la ficha más rápida, «Estilo de la hoja»,
+   la galería que ya no se abre sola, «Asignar evento» y «Obligatorio» por bloque. Lo que FALTA, en este orden:
+   - **Las tabs de la ficha como las hojas del Dashboard** (punto 5): el desplegable del título con las secciones y
+     «Nueva hoja», templates con miniaturas propias por tab, la plantilla de toda la ficha como templates. Con eso se
+     borra la barra lateral (app/crm/lead-view/ficha/PanelFicha.tsx: quedan la plantilla de toda la ficha y los
+     interruptores de avisos, que ya tienen reemplazo en «Obligatorio») y se alinea el desplegable con el nombre (9).
+   - **El chat del CRM con la cara del Second Brain** (punto 8): app/crm/mako-crm/ChatMakoCrm.tsx dibuja con las
+     piezas de WhatsApp (ChatHilo, BurbujaHilo, ComposerWhatsApp); el Second Brain con app/_chat/HiloMako.tsx. El
+     modelo de mensajes es el mismo (lib/mako-turno-app-reglas.ts).
+   - **El «⋯» de la ficha**: Exportar (PDF/CSV, como el ⋮ del Dashboard en app/dashboard/EditorInforme.tsx) y la guía de
+     edición; y que al EDITAR se abra solo el chat para editar la vista (punto 10).
+   - **El engranaje de «A revisar»** (punto 6): abrir un lead de ejemplo con «Datos sin marcar» abierto y «¿Ignorar
+     siempre?» → desmarca «Obligatorio» (hoy abre app/crm/lead-view/AvisosDatosModal.tsx con interruptores).
+   - «Asignar evento» con Google Calendar (el motor sólo conoce Calendly y Cal.com).
+   - MIRAR en pantalla todo lo de la noche del 16/10: nadie lo vio (la PC no tenía RAM para `next dev`).
 2. **Onboarding**: sacar el análisis de Offer; sólo ordenar en un PDF lo que vende (app/onboarding/ChatArranque.tsx,
    lib/onboarding-arranque.ts). El corte de la IA gratis del doer de WhatsApp con datos de leads (docs/relevo/onboarding.md).
 3. **Second Brain**: las pantallas que faltan (docs/relevo/centro-operaciones.md) y después «Skills» como skills.sh.
