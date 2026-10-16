@@ -1695,4 +1695,22 @@ FEEDBACK PROBAR:
     ],
     archivos: ["docs/diseno-avisos-plataforma.md — §5", "docs/hallazgos-chatbot.md — los Mensajes de MaKo a sus clientes"],
   },
+  {
+    fecha: "16 oct", hora: "04:00", chat: "Chatbot", cuenta: "claude3",
+    sesion: "local_b1f59213-087e-4203-83e1-b3f59eadbaed",
+    actor: "claude", tipo: "implementacion",
+    titulo: "El reporte semanal también es una automatización de SuperAdmin, y la tarjeta de MaKo puede ir por email",
+    puntos: [
+      "En Automations de SuperAdmin aparece «Reporte Semanal de un Negocio»: los lunes le manda a cada negocio el reporte de su semana, como hoy.",
+      "La tarjeta de MaKo suma «Por dónde»: al grupo de WhatsApp, o por email al equipo del negocio, con su asunto. Sirve en cualquier automatización.",
+      "El reporte sale con el mismo asunto y el mismo texto de siempre. Hoy le llega a 8 negocios.",
+      "Un aviso de MaKo a un negocio ahora espera el horario de oficina de ESE negocio, no el de SuperAdmin.",
+      "Las cuatro automatizaciones se crean con un script después del deploy. Hasta entonces, todo sale como siempre.",
+    ],
+    commits: [
+      { sha: "a5b9e6d06", msg: "Avisos de la plataforma: la tarjeta espera el horario de oficina del NEGOCIO, no el de la plataforma", lineas: 7, archivos: 2 },
+      { sha: "12ac3cb85", msg: "SuperAdmin: el reporte semanal pasa a ser una automatización de la plataforma, con «MaKo por email»", lineas: 587, archivos: 26 },
+    ],
+    archivos: ["docs/diseno-avisos-plataforma.md — §6", "docs/hallazgos-chatbot.md — los Mensajes de MaKo a sus clientes", "docs/hallazgos-infra.md — un script de roturas no se corta con head"],
+  },
 ];

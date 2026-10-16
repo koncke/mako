@@ -35,7 +35,7 @@ import { abrirCorrida, avanzar, cerrarCorrida } from './flujo-corridas';
 import { reclamarEspaciado } from './espaciado';
 import { AVISOS_POR_EVENTO, ESTADO_EVENTO, esperaApertura, filaDeIdCorrida, pasosParaRetomar, type FilaParaRetomar } from './aviso-evento';
 import { CLAVE_MENSAJE_MAKO } from './variables-aviso';
-import { textoDePreparadas, type PartePreparada } from './mako-tarjeta';
+import { avisoPorEmail, textoDePreparadas, type PartePreparada } from './mako-tarjeta';
 import type { ParteMensaje } from './mensaje-partes';
 import type { HechosLead } from './flujo-grafo';
 
@@ -192,8 +192,10 @@ export async function ejecutarPasos(
     // al despertar se decide con lo de ese momento. Hasta el 15/10/2026 este runner no miraba el horario: el aviso de
     // un evento salía a cualquier hora, una regla escondida. Duerme con el contexto ENTERO (como el reintento): es el
     // mismo aviso unas horas después, y su texto lo armó el evento. Sin poder leer el horario, vuelve a mirar en un rato.
+    // ⚠️ La oficina es la del NEGOCIO al que le llega (16/10/2026): en un evento de la plataforma, `ws` es la plataforma
+    // (la fila corre ahí) y su horario es el de Martín, no el del cliente que recibe la tarjeta.
     if (esperaApertura(pasos, i)) {
-      if (apertura === undefined) apertura = await aperturaDelNegocio(ws);
+      if (apertura === undefined) apertura = await aperturaDelNegocio(ctx.negocioWs ?? ws);
       const hasta = apertura === 'ilegible' ? new Date(Date.now() + REINTENTO_HORARIO_MS)
         : apertura != null && apertura > Date.now() ? new Date(apertura) : null;
       if (hasta) {
@@ -408,7 +410,7 @@ async function ejecutarPaso(flujoId: string, paso: Paso, ws: number, ctx: CtxFlu
       const propio = (paso.texto ?? '').trim();
       // La tarjeta «MaKo en WhatsApp» de un EVENTO DE MAKO sale como el aviso de siempre (ver la función), y con su
       // lista (undécima tanda), por partes y tal cual.
-      if (ctx.aviso) { await emitirTarjetaDelEvento(flujoId, { texto: propio, partes: paso.partes }, ws, ctx, ctx.aviso); return; }
+      if (ctx.aviso) { await emitirTarjetaDelEvento(flujoId, { texto: propio, partes: paso.partes, email: paso.email }, ws, ctx, ctx.aviso); return; }
       const contexto = [ctx.leadNombre && `Lead: ${ctx.leadNombre}`, ctx.reunion && `Reunión: ${ctx.reunion}`, ctx.texto].filter(Boolean).join(' · ');
       // `conVariables` pone los datos con LA regla de todo envío (`textoConDatos`, undécima tanda): el renglón que nombra
       // un dato sin valor se va entero; lo que no es del catálogo queda crudo (y Publicar ya no lo deja pasar).
@@ -507,9 +509,12 @@ function nombreDelAviso(flujoId: string): string {
  * bajados antes de mandar nada (`prepararPartesGrupo`): si falta la nota de voz o el archivo no sale una tarjeta a
  * medias. Y como en el registro (`problemaDePartesGrupo`), un audio que no es la Voz de MaKo no sale: sería la voz
  * del dueño en el grupo, suplantándolo. Sin lista, el texto de siempre.
+ *
+ * ⚠️ «MaKo por email» (16/10/2026, `tarjeta.email`): el mismo aviso, pero sólo por correo al equipo del negocio, con
+ * su asunto resuelto con los mismos datos y sin push (`avisoPorEmail`, lib/mako-tarjeta.ts). Sin partes: es un texto.
  */
 async function emitirTarjetaDelEvento(
-  flujoId: string, tarjeta: { texto: string; partes?: ParteMensaje[] }, ws: number, ctx: CtxFlujo, aviso: { id: string; titulo: string },
+  flujoId: string, tarjeta: { texto: string; partes?: ParteMensaje[]; email?: { asunto: string } }, ws: number, ctx: CtxFlujo, aviso: { id: string; titulo: string },
 ): Promise<void> {
   // ⚠️ `{{mensaje_mako}}` SE SIGUE INYECTANDO hasta la limpieza (docs/diseno-undecima-tanda.md §8.7): #239 y #240 lo usan
   // hasta que el script de flujos las archive. Ya no se ofrece ni se publica (`problemasDeTokens`, lib/tokens-del-flujo.ts).
@@ -535,13 +540,15 @@ async function emitirTarjetaDelEvento(
   }
   const cat = CATALOGO_AVISOS.find((c) => c.id === aviso.id);
   const { emitirAviso } = await import('./avisos');
+  const porEmail = tarjeta.email ? avisoPorEmail((await resolver(tarjeta.email.asunto)) || aviso.titulo) : null;
   const r = await emitirAviso({
-    tipo: aviso.id, titulo: aviso.titulo, texto,
+    tipo: aviso.id, titulo: porEmail?.titulo ?? aviso.titulo, texto,
     categoria: cat?.categoria, semaforo: cat?.semaforo, ws: wsDestino,
     ...(ctx.leadId ? { lead: { id: ctx.leadId, nombre: ctx.leadNombre ?? null } } : {}),
-    estado: ESTADO_EVENTO,
-    ...(partes ? { partes, rotulo: false as const } : {}),
+    estado: porEmail?.estado ?? ESTADO_EVENTO,
+    ...(porEmail ? { asuntoEmail: porEmail.asuntoEmail, push: porEmail.push, rotulo: false as const } : partes ? { partes, rotulo: false as const } : {}),
   });
   if (!r.ok) console.error(`[flujos] ${flujoId}: el aviso «${aviso.id}» no salió`);
+  else if (porEmail && !r.email) console.error(`[flujos] ${flujoId}: el aviso «${aviso.id}» no salió por email (ws ${wsDestino}: ¿sin destinatarios?)`);
   else if (partes && !r.wa && r.waError) console.error(`[flujos] ${flujoId}: el aviso «${aviso.id}» no salió al grupo — ${r.waError}`);
 }

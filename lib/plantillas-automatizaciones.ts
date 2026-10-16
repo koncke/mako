@@ -220,6 +220,11 @@ function mako(id: string, texto: string, siguiente: string | null): PasoDePlanti
   return { ...RELLENO, id, siguiente, accion: { operacion: OP_AVISAR, params: paramsConPartes({ leadId: LEAD_DEL_EVENTO }, [{ tipo: 'texto', cuerpo: texto }]) } };
 }
 
+/** LA MISMA TARJETA POR EMAIL («MaKo por email», 16/10/2026): un correo al equipo del negocio, con su asunto. */
+function makoEmail(id: string, asunto: string, texto: string, siguiente: string | null): PasoDePlantilla {
+  return { ...RELLENO, id, siguiente, accion: { operacion: OP_AVISAR, params: paramsConPartes({ leadId: LEAD_DEL_EVENTO, canal: 'email', asunto }, [{ tipo: 'texto', cuerpo: texto }]) } };
+}
+
 /**
  * EL AI STEP de la plantilla: UNA tarjeta con su OBJETIVO y los escenarios del CATÁLOGO (`escenarioTipico`, con su
  * libertad: la escribe `camposDeLibertad`). `casos`: la clave del catálogo y el id del caso. De WhatsApp (`medio`
@@ -673,6 +678,22 @@ export const PLANTILLAS_PLATAFORMA: readonly PlantillaAutomatizacion[] = [
     cron: { fijo: TRIGGER_AVISO_MAKO, evento: 'reunion_grabada' },
     pasos: [
       mako('rg_mk', '✅ Terminó la *{{grabacion_reunion}} con {{nombre_completo}}*.\n⏱️ {{grabacion_duracion}}\n\n👉 Mira el resumen de la llamada:\n{{link_lead}}\n\n— MaKo', null),
+    ],
+  },
+  {
+    // El reporte de los lunes (16/10/2026, docs/diseno-avisos-plataforma.md §6): lo arma el cron de cada negocio con sus
+    // preferencias, y sale POR EMAIL al equipo del negocio, como hasta hoy (nunca por WhatsApp: `REPORTE_POR_WHATSAPP`).
+    // El asunto y el cuerpo son los de `despacharReporte` (lib/notify.ts). Sin firma: el correo ya la lleva al pie.
+    id: 'mako-reporte-semanal',
+    nombre: 'Reporte Semanal de un Negocio',
+    emoji: '🗓️',
+    linea: 'Los lunes, le manda por email al equipo de cada negocio el reporte de su semana (Meta, ventas, cobranza).',
+    origen: 'el cron de los lunes (reporte-semanal), en cada negocio al que le toca según sus preferencias',
+    objetivo: 'clientes',
+    soloPlataforma: true,
+    cron: { fijo: TRIGGER_AVISO_MAKO, evento: 'reporte_semanal' },
+    pasos: [
+      makoEmail('rs_mk', '{{reporte_titulo}}', '{{reporte_texto}}', null),
     ],
   },
 ];

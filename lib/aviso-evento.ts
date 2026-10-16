@@ -34,7 +34,7 @@ import { DELAY_MAX_HORAS, QUE_ENVEJECEN } from './flujo-pasos';
 import { CLAVE_MENSAJE_MAKO, VARIABLES_AVISO, citaSecreto, tokensDe, type ContextoDatos } from './variables-aviso';
 import { textoLoArmaElCodigo, type AvisoCatalogo } from './avisos-catalogo';
 // Puro: la tarjeta «MaKo en WhatsApp» por partes (undécima tanda). Qué partes tiene y si sale tal cual.
-import { esTarjetaTalCual, esperaQueAbra, partesDeMako, textoDePartes } from './mako-tarjeta';
+import { esTarjetaTalCual, esperaQueAbra, partesDeMako, textoDePartes, esPorEmail, asuntoDeMako, problemaDeEmailMako } from './mako-tarjeta';
 
 // ── Qué aviso es qué evento ─────────────────────────────────────────────────────────────────────
 
@@ -73,6 +73,7 @@ export function datosDelEvento(sub: unknown): ContextoDatos {
     conPago: ev.trae.includes('pago'), conEscrito: ev.trae.includes('escrito'), conAnalisis: ev.trae.includes('analisis'), destino: 'equipo',
     ...(ev.trae.includes('linea') ? { conLinea: true } : {}),
     ...(ev.trae.includes('grabacion') ? { conGrabacion: true } : {}),
+    ...(ev.trae.includes('reporte') ? { conReporte: true } : {}),
   };
 }
 
@@ -123,6 +124,8 @@ export const MOTIVO_EVENTO = {
   delayTope: 'El DELAY va de un minuto a 30 días.',
   condicion: 'La CONDITION de un evento tiene una salida: «Sí» sigue y «Si no» termina.',
   makoVacia: 'La tarjeta «MaKo en WhatsApp» está vacía.',
+  // «MaKo por email» (16/10/2026, `problemaDeEmailMako`, lib/mako-tarjeta.ts).
+  makoEmail: 'La tarjeta «MaKo por email» lleva asunto y un solo texto, sin audio ni archivos.',
   sinMensaje: 'Este evento no trae «Lo que arma MaKo».',
   envejece: 'Después de un DELAY no va «Hace cuánto venció»: diría el de ese día.',
   mensajeViejo: 'Después de un DELAY no va «Lo que arma MaKo»: es el de ese momento.',
@@ -226,7 +229,12 @@ export function pasosDelEvento(pasosIn: readonly PasoGrafo[], evento: unknown): 
       // La de ANTES (sin lista) sale EXACTAMENTE como hasta hoy: el paso no lleva `partes`. Fuera del horario espera a
       // que abra, salvo que la tarjeta diga «Lo manda igual» (`esperaQueAbra`, 15/10/2026).
       const igual = esperaQueAbra(params) ? {} : { saleIgual: true as const };
-      pasos.push(talCual ? { tipo: 'mensaje', canal: 'aviso_dueno', texto, partes: lista, ...igual } : { tipo: 'mensaje', canal: 'aviso_dueno', texto, ...igual });
+      // POR EMAIL (16/10/2026): un texto con su asunto, al equipo del negocio. El asunto también es de lo escrito.
+      const malEmail = problemaDeEmailMako(params);
+      if (malEmail) return mal(MOTIVO_EVENTO.makoEmail, cur);
+      if (esPorEmail(params) && citaSecreto(asuntoDeMako(params))) return mal(MOTIVO_EVENTO.secretoFuera, cur);
+      const email = esPorEmail(params) ? { email: { asunto: asuntoDeMako(params) } } : {};
+      pasos.push(talCual ? { tipo: 'mensaje', canal: 'aviso_dueno', texto, partes: lista, ...igual, ...email } : { tipo: 'mensaje', canal: 'aviso_dueno', texto, ...igual });
       huella.push(`${cur}:mensaje`);
       makos += 1;
       cur = siguienteDe(pasosIn, i);
