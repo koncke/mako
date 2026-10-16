@@ -43,6 +43,8 @@ export type BloqueEnGrilla = {
   vacio: boolean;
   /** Las columnas que ocupa en su fila, ya repartidas (`spansDeFilas`). */
   span: number;
+  /** Las que ocupa en una tablet: ¼ y ⅓ pasan a ½, y la fila se vuelve a repartir (`spansPorDispositivo`). */
+  spanTableta: number;
 };
 
 /** El número de ocurrencia (desde 1) del bloque en `indice` entre los de su mismo id. */
@@ -99,7 +101,7 @@ export function bloquesDeLaGrilla(lista: readonly BloquePuesto[], o: {
   editando: boolean;
   verPrivado: boolean;
 }): BloqueEnGrilla[] {
-  const quedan: Omit<BloqueEnGrilla, 'span'>[] = [];
+  const quedan: Omit<BloqueEnGrilla, 'span' | 'spanTableta'>[] = [];
   lista.forEach((puesto, indice) => {
     const def = bloqueDef(puesto.id);
     const reglas = def ? o.reglasDe(def.id) : undefined;
@@ -109,8 +111,44 @@ export function bloquesDeLaGrilla(lista: readonly BloquePuesto[], o: {
     if (vacio && !o.editando) return;
     quedan.push({ puesto, def, reglas, indice, n: ocurrencia(lista, indice), vacio });
   });
-  const spans = spansDeFilas(quedan.map((b) => b.puesto.ancho));
-  return quedan.map((b, i) => ({ ...b, span: spans[i] }));
+  const spans = spansPorDispositivo(quedan.map((b) => b.puesto.ancho));
+  return quedan.map((b, i) => ({ ...b, span: spans.escritorio[i], spanTableta: spans.tableta[i] }));
+}
+
+/**
+ * EL CORTE DE COLUMNAS POR PANTALLA (Martín, 14/10/2026: «La app de MaKo se debe adaptar al tamaño de la
+ * pantalla siempre», desde un iPad). La grilla sigue siendo de 12, pero lo que no entra se ensancha:
+ *   · escritorio: el ancho que eligió el admin;
+ *   · tablet (la ventana hasta CORTE_TABLETA, un iPad de 820 parado o de 1024 acostado): ¼ y ⅓ pasan a ½.
+ *     En una tablet un ¼ queda en ~160 px, y las tarjetas de adentro (tres botones, una fecha con su
+ *     etiqueta) no entran. Como mucho dos bloques por fila;
+ *   · celular (hasta CORTE_MOVIL): uno abajo del otro.
+ * Es lo mismo que muestra «Personalizar» con el selector de dispositivo (./ficha-css.ts lo dice dos veces:
+ * por el ancho de la ventana y por `data-dispositivo`), así lo que se arma en la vista de tablet es lo que ve
+ * la tablet.
+ */
+export const CORTE_TABLETA = 1024;
+export const CORTE_MOVIL = 720;
+
+export function anchoEnDispositivo(ancho: number, d: DispositivoFicha): number {
+  if (d === 'movil') return COLS_FICHA;
+  if (d === 'tableta') return ancho < COLS_FICHA / 2 ? COLS_FICHA / 2 : ancho;
+  return ancho;
+}
+
+/** Los anchos ya repartidos en filas, en cada pantalla: una fila de tablet se reparte con los anchos de tablet. */
+export function spansPorDispositivo(anchos: readonly number[]): Record<DispositivoFicha, number[]> {
+  return {
+    escritorio: spansDeFilas(anchos.map((a) => anchoEnDispositivo(a, 'escritorio'))),
+    tableta: spansDeFilas(anchos.map((a) => anchoEnDispositivo(a, 'tableta'))),
+    movil: spansDeFilas(anchos.map((a) => anchoEnDispositivo(a, 'movil'))),
+  };
+}
+
+/** ¿El bloque comparte su fila en esa pantalla? (la raya de «soltar aquí» va al costado, no arriba). */
+export function compartiendoFila(b: Pick<BloqueEnGrilla, 'span' | 'spanTableta'>, d: DispositivoFicha): boolean {
+  const span = d === 'movil' ? COLS_FICHA : d === 'tableta' ? b.spanTableta : b.span;
+  return span < COLS_FICHA;
 }
 
 /** Los «datos sin marcar» cuyos campos dibuja un bloque: los suyos y los de lo que incluye, o los que declara. */

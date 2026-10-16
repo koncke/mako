@@ -30,6 +30,11 @@
 //   `dispositivoVisto` sin volver al escritorio; un nombre distinto del Dashboard ('Tablet'); la tablet a
 //   768 px; el celular sin apilar los bloques; el armador fuera de la página del dispositivo; la ficha sin
 //   `dispositivoVisto` (queda angostada al volver a «Ver»); un `transform` en la página del dispositivo.
+//
+// ⚠️ UNA ASERCIÓN REESCRITA EL 15/10/2026 porque cambió DÓNDE vive lo que fija, no lo que fija: el celular de
+//   «Personalizar» apila SIN `!important`: el ancho del bloque dejó de ir en un `style` en línea (va en
+//   variables, ./Armador.tsx, para que la tablet corte por CSS) y ya no hay nada que pisar. El corte de la
+//   tablet y del celular lo fija tests/ficha-pantallas.test.ts. Re-medido: base 11/0; sin apilar → 10/1.
 // =============================================================================
 
 import { test } from 'node:test';
@@ -202,7 +207,7 @@ test('personalizando, la vista por dispositivo del Dashboard angosta la ficha re
     assert.ok(ancho(dashCss, 'lk-pagina', d), `no encontré el ancho de ${d} en el Dashboard`);
     assert.equal(ancho(fichaCss, 'fb-pagina', d), ancho(dashCss, 'lk-pagina', d), `el ${d} de la ficha no mide lo mismo que el del Dashboard`);
   }
-  assert.match(fichaCss, /\.fb-pagina\[data-dispositivo="movil"\] \.fb-bloque \{ grid-column: 1 \/ -1 !important; \}/, 'en el celular los bloques no van uno abajo del otro');
+  assert.match(fichaCss, /\.fb-pagina\[data-dispositivo="movil"\] \.fb-bloque \{ grid-column: 1 \/ -1; \}/, 'en el celular los bloques no van uno abajo del otro');
   const reglasDisp = fichaCss.split('\n').filter((l) => /\.fb-(lienzo|pagina)\[data-dispositivo/.test(l)).join('\n');
   assert.ok(reglasDisp.length > 0);
   assert.doesNotMatch(reglasDisp, /[{;\s](transform|filter|container-type)\s*:/, 'la página del dispositivo es ancestro de las tarjetas: un `position: fixed` adentro (modales, toasts) quedaría atado a ella');

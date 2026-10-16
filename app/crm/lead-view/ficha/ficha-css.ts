@@ -6,6 +6,14 @@
 // ⚠️ NADA DE `container-type`, `transform` NI `filter` EN UN ANCESTRO DE LAS TARJETAS: los tres vuelven a un
 //    `position: fixed` relativo a ESE elemento, y las tarjetas abren modales y toasts fijos (el WhatsApp no
 //    oficial de InfoPrincipalCard, el toast de guardado). Por eso lo angosto va por @media y no por @container.
+// ⚠️ EL ANCHO DE CADA BLOQUE LLEGA EN DOS VARIABLES (./Armador.tsx): `--fb-span` (escritorio) y `--fb-span-t`
+//    (tablet), ya repartidas por `spansPorDispositivo` (./armar.ts). Los cortes son los de ./armar.ts
+//    (CORTE_TABLETA = 1024, CORTE_MOVIL = 720) y van DOS veces: por el ancho de la ventana (la tablet y el
+//    celular de verdad) y por `data-dispositivo` (la vista de «Personalizar»). Lo fija tests/ficha-pantallas.test.ts.
+// ⚠️ LO TÁCTIL VA POR CAPACIDAD, NO POR ANCHO (AGENTS.md; app/globals.css): con `pointer: coarse` (un iPad,
+//    que recibe la computadora adaptada) los controles van a `--touch` (44 px) y los campos a 16 px, porque
+//    iOS hace zoom (y no lo deshace) al enfocar un campo de menos de 16. Las tarjetas traen su letra en
+//    `style`: por eso los campos van con !important.
 // ⚠️ El ESTILO de la ficha (tema y densidad) pisa las tarjetas de siempre, que llevan su caja en `style`:
 //    por eso va con !important y sólo sobre la caja de cada bloque (`.fb-cuerpo > section`), no adentro.
 //    Lo que dibuja un bloque con color propio (el «Va bien») lleva `fb-propio` y no se pisa.
@@ -16,11 +24,12 @@ export const CSS_FICHA = `
 .fb-dens-compacta { --fb-gap: 10px; }
 .fb-dens-amplia { --fb-gap: 26px; }
 .fb-grilla { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: var(--fb-gap); align-items: stretch; }
-.fb-bloque { min-width: 0; position: relative; display: flex; flex-direction: column; }
+.fb-bloque { min-width: 0; position: relative; display: flex; flex-direction: column; grid-column: span var(--fb-span, 12); }
 .fb-cuerpo { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: var(--fb-gap); }
 .fb-cuerpo > section:only-of-type { flex: 1 1 auto; }
 .fb-nada { margin: 4px 0; font-size: 13.5px; color: var(--faint); }
-@media (max-width: 720px) { .fb-bloque { grid-column: 1 / -1 !important; } }
+@media (max-width: 1024px) { .fb-bloque { grid-column: span var(--fb-span-t, 12); } }
+@media (max-width: 720px) { .fb-bloque { grid-column: 1 / -1; } }
 
 .fb-dens-compacta .fb-cuerpo > section:not(.fb-propio) { padding: 14px 16px !important; border-radius: 12px; }
 .fb-dens-amplia .fb-cuerpo > section:not(.fb-propio) { padding: 28px 30px !important; }
@@ -66,14 +75,16 @@ export const CSS_FICHA = `
 .fb-herr--icono { padding: 0; width: 32px; color: var(--dim); }
 
 /* LA VISTA POR DISPOSITIVO (personalizando): la de app/dashboard/editor-css.ts (lk-lienzo y lk-pagina), con los
-   mismos anchos. Angosta la ficha REAL; sin «transform» ni «container-type» (ver arriba). En el celular los
-   bloques van uno abajo del otro: es la MISMA regla del @media de arriba, que en un celular de verdad dispara
-   el ancho de la ventana y acá no, porque se angosta la ficha y no la ventana. La tablet (820) no la dispara. */
+   mismos anchos. Angosta la ficha REAL; sin «transform» ni «container-type» (ver arriba). Los cortes son las
+   MISMAS reglas de los @media de arriba, que en una tablet o un celular de verdad dispara el ancho de la
+   ventana y aquí no, porque se angosta la ficha y no la ventana: en la tablet ¼ y ⅓ pasan a ½, y en el
+   celular los bloques van uno abajo del otro. */
 .fb-lienzo[data-dispositivo] { background: var(--surface-2); border-radius: 14px; padding: 1px 0; }
 .fb-pagina[data-dispositivo] { margin: 18px auto 32px; background: var(--bg); border: 1px solid var(--border-strong); box-sizing: border-box; }
 .fb-pagina[data-dispositivo="tableta"] { width: 820px; max-width: calc(100% - 32px); border-radius: 22px; padding: 18px 18px 36px; }
 .fb-pagina[data-dispositivo="movil"] { width: 390px; max-width: calc(100% - 32px); border-radius: 30px; padding: 16px 12px 36px; }
-.fb-pagina[data-dispositivo="movil"] .fb-bloque { grid-column: 1 / -1 !important; }
+.fb-pagina[data-dispositivo="tableta"] .fb-bloque { grid-column: span var(--fb-span-t, 12); }
+.fb-pagina[data-dispositivo="movil"] .fb-bloque { grid-column: 1 / -1; }
 .fb-edicion { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 20px; align-items: start; }
 @media (max-width: 900px) { .fb-edicion { grid-template-columns: minmax(0, 1fr); } .fb-panel { position: static !important; max-height: none !important; } }
 .fb-panel { position: sticky; top: 58px; max-height: calc(100dvh - 120px); overflow-y: auto; box-sizing: border-box; border: 1px solid var(--border); border-radius: 14px;
@@ -96,6 +107,24 @@ export const CSS_FICHA = `
   background: var(--surface); color: var(--ink); font-family: 'Geist', sans-serif; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; }
 .fb-personalizar:hover { border-color: var(--primary); color: var(--primary); }
 .fb-personalizar[aria-pressed="true"] { background: var(--primary); border-color: var(--primary); color: var(--surface); }
+/* «Personalizar» NO va en una pantalla de celular, como en HubSpot, donde la vista del registro en la app del
+   celular se arma desde la computadora (documentación oficial, knowledge.hubspot.com). Un teléfono de verdad
+   ni llega aquí: ve la ficha de MaKo Mobile (app/m/crm/[id]), que sigue a esta y no tiene editor. Lo que se
+   esconde es el botón para ENTRAR: si ya se está personalizando, «Ver» sigue a mano para salir. */
+@media (max-width: 720px) { .fb-personalizar:not([aria-pressed="true"]) { display: none; } }
+
+/* La pantalla táctil (ver arriba): 44 px de toque y campos de 16 px. */
+@media (pointer: coarse) {
+  .fb-personalizar { height: auto; min-height: var(--touch); padding: 0 16px; }
+  .fb-herr, .fb-barra .fb-herr { height: var(--touch); min-width: var(--touch); }
+  .fb-iconos .fb-herr { height: var(--touch); }
+  .fb-barra-bloque { top: -27px; }
+  .fb-opcion { min-height: var(--touch); }
+  .fb-buscar { height: var(--touch); }
+  .fb-boton-texto { min-height: var(--touch); }
+  .fb-aviso { min-height: var(--touch); }
+  .fb input, .fb textarea, .fb select, .fb-flotante input { font-size: 16px !important; }
+}
 
 /* El menú anclado (Flotante) y sus listas. */
 .fb-flotante { position: fixed; background: var(--surface); color: var(--ink); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 10px 30px rgba(0, 0, 0, .18);

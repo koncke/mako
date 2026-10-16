@@ -17,7 +17,7 @@
 //    el auto-scroll va AHÍ: durante un arrastre nativo el navegador congela los timers y el rAF.
 // =============================================================================
 
-import { useEffect, useRef, useState, type DragEvent, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type DragEvent, type ReactNode } from 'react';
 import { IconoMenu, type NombreIconoMenu } from '@/app/_ui/iconos-menu';
 import { BotonBorrar } from '@/app/_ui/BotonBorrar';
 import { bloqueDef, type BloqueId, type TabFicha } from '@/lib/ficha/catalogo';
@@ -25,14 +25,14 @@ import type { BloquePuesto, CambioFicha } from '@/lib/ficha/config';
 import { tituloDeBloque } from '@/lib/ficha/registro';
 // La MISMA lista que ofrece la API de MaKo (cambiar_ficha_funnel, cambio icono): una sola fuente.
 import { ICONOS_BLOQUE } from '@/lib/ficha/api';
-import { anchosDeLaBarra, bloquesDeLaGrilla, disenoADibujar, disenosOfrecidos, lugarAlSoltar, ocurrencia, type BloqueEnGrilla } from './armar';
+import { anchosDeLaBarra, bloquesDeLaGrilla, compartiendoFila, disenoADibujar, disenosOfrecidos, lugarAlSoltar, ocurrencia, type BloqueEnGrilla, type DispositivoFicha } from './armar';
 import { entradaDe } from './registro';
 import { Flotante } from './Flotante';
 import type { CtxFicha } from './tipos';
 
 type Soltar = { indice: number; lado: 'antes' | 'despues' };
 
-export function Armador({ tab, lista, ctx, editando, sel, onSel, onCambio, onAgregar }: {
+export function Armador({ tab, lista, ctx, editando, sel, onSel, onCambio, onAgregar, dispositivo = 'escritorio' }: {
   tab: TabFicha;
   /** La lista ENTERA de la tab (la ficha efectiva del funnel), con lo que no se dibuja. */
   lista: readonly BloquePuesto[];
@@ -44,6 +44,8 @@ export function Armador({ tab, lista, ctx, editando, sel, onSel, onCambio, onAgr
   onCambio: (c: CambioFicha) => void;
   /** Abre «Agregar bloque» anclado al botón que lo pidió. */
   onAgregar?: (ancla: HTMLElement) => void;
+  /** La vista por dispositivo de «Personalizar»: sólo decide hacia dónde va la raya de soltar. */
+  dispositivo?: DispositivoFicha;
 }) {
   const bloques = bloquesDeLaGrilla(lista, {
     reglasDe: (id) => entradaDe(id),
@@ -87,7 +89,7 @@ export function Armador({ tab, lista, ctx, editando, sel, onSel, onCambio, onAgr
     const titulo = tituloDeBloque(b.def, ctx.stages);
     const icono: NombreIconoMenu = b.puesto.icono ?? b.def.icono;
     const elegido = editando && sel === b.indice;
-    const enFila = b.span < 12;
+    const enFila = compartiendoFila(b, dispositivo);
     const clases = ['fb-bloque',
       editando && 'fb-bloque--editando', elegido && 'fb-bloque--sel', arrastrando === b.indice && 'fb-bloque--arrastrado',
       soltar?.indice === b.indice && `fb-bloque--${soltar.lado}`, soltar?.indice === b.indice && (enFila ? 'fb-bloque--fila' : 'fb-bloque--columna'),
@@ -129,7 +131,9 @@ export function Armador({ tab, lista, ctx, editando, sel, onSel, onCambio, onAgr
     };
 
     return (
-      <div key={`${b.def.id}:${b.n}`} className={clases} style={{ gridColumn: `span ${b.span}` }}
+      // ⚠️ EL ANCHO VA EN VARIABLES, NO EN `gridColumn`: un estilo en línea le gana a todo @media, y la tablet
+      // y el celular cortan las columnas por CSS (./ficha-css.ts, con los anchos de `spansPorDispositivo`).
+      <div key={`${b.def.id}:${b.n}`} className={clases} style={{ '--fb-span': b.span, '--fb-span-t': b.spanTableta } as CSSProperties}
         draggable={editando || undefined}
         onDragStart={editando ? alArrastrar : undefined}
         onDragOver={editando ? alPasar : undefined}

@@ -178,7 +178,7 @@ export function FichaPorBloques({ data, parchear, altoChat, initialTab, onTab, f
     const armador = (
       <Armador tab={tab} lista={efectiva.tabs[tab]} ctx={ctx} editando={enEdicion}
         sel={sel?.tab === tab ? sel.indice : null} onSel={(i) => setSel(i == null ? null : { tab, indice: i })}
-        onCambio={cambiar} onAgregar={(ancla) => setAgregar({ tab, ancla })} />
+        onCambio={cambiar} onAgregar={(ancla) => setAgregar({ tab, ancla })} dispositivo={dispositivo} />
     );
     if (!enEdicion || !ff.ficha) return armador;
     return (
