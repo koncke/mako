@@ -143,8 +143,10 @@ const { ok, pedidos, propuesta } = await r.json(); // ok:false (400/401/429) →
 
 Los objetos de cada tab los resuelve la ruta (`objetosDeTab`): `landing` está hecho (las landings del negocio sin las de
 la papelera, la última tocada arriba, con `listar()` de lib/editor-landing/server.ts —la del Panel— y la misma puerta que
-el Web Generator: admin y `landing-writer` en la capa); un chat nuevo agrega su área ahí, una función por área. Hasta que
-Automations agregue la suya, `chatbot` devuelve [] y «la otra automatización» contesta «¿Cuál? Dime su nombre.».
+el Web Generator: admin y `landing-writer` en la capa); un chat nuevo agrega su área ahí, una función por área.
+`chatbot` (Automations) está hecho desde el 16/10/2026: las automatizaciones sin archivar, la última tocada arriba, con
+la puerta de su lista (admin y setter); su chat engancha la ruta y dibuja las burbujas (app/automations/pedidos-chat.ts):
+«Eliminar» es ARCHIVAR, como el «⋯» de la lista, siempre con confirmación y con «Deshacer».
 
 El link es RELATIVO con `?ws=` (`conWs`, lib/ws-tab.ts, isomórfico): el chat está adentro de la app. `linkPantalla`
 (lib/api-mako/link.ts) no sirve acá: importa lib/workspace (server-only) y arma el link absoluto de los que salen de la app.
@@ -165,7 +167,7 @@ en el acto se iba del editor con el cambio a medias. Borrar OTRA landing confirm
 la manda a la Papelera (se restaura); la ABIERTA nunca se borra desde el chat: se dice dónde está «⋯ › Eliminar». Si la
 ruta falla o tarda más de `PLAZO_PEDIDOS_MS`, el mensaje entero va a «editar», como antes.
 
-- **Automations**: su función en `objetosDeTab` y el fetch de arriba en su chat.
+- ~~**Automations**: su función en `objetosDeTab` y el fetch de arriba en su chat.~~ Hecho el 16/10/2026 (chat «Automations»).
 - **El chat único del Second Brain** (Centro de Operaciones): el mismo fetch con `tab` = el área de lo que esté abierto.
 - **Correr la operación de OTRA tab** desde la burbuja: hoy `otra-tab` deja el link (y la operación como dato); ejecutarla
   pasa por el registro (`ejecutar.ts`), que propone y confirma como siempre.

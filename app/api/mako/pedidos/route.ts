@@ -20,7 +20,7 @@
 // =============================================================================
 
 import { getUsuarioActual } from '@/lib/auth';
-import { getCapaActual, getRolWsEfectivo, getWorkspaceActual } from '@/lib/workspace';
+import { getCapaActual, getRolWsEfectivo, getTenantDb, getWorkspaceActual } from '@/lib/workspace';
 import { tabEnCapa } from '@/lib/capas';
 import { rateLimit } from '@/lib/rate-limit';
 import { vistaDe } from '@/lib/api-mako/vista';
@@ -28,6 +28,8 @@ import { canalKeyDe } from '@/lib/api-mako/canal';
 import { REGISTRO, esArea, ordenarPorRelevancia, porId, visible } from '@/lib/api-mako/registro';
 import { esAccion, esLectura, type Area, type Ctx, type OperacionDef, type Rol } from '@/lib/api-mako/tipos';
 import { listar as listarLandings } from '@/lib/editor-landing/server';
+// Puro: las filas de la lista de Automations como objetos del chat (16/10/2026).
+import { objetosDeAutomatizaciones } from '@/app/automations/pedidos-chat';
 import { interpretarMensaje } from '@/lib/mako-pedidos-ia';
 import type { ContextoPedidos, ObjetoChat, OperacionChat, OrdenarOperaciones } from '@/lib/mako-pedidos';
 
@@ -36,6 +38,8 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 30;
 
 const MAX_TEXTO = 4_000;
+/** Cuántos objetos de una tab se le dan al resolver (los más recién tocados). */
+const TOPE_OBJETOS = 300;
 const err = (status: number, error: string) => Response.json({ ok: false, error }, { status });
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
@@ -43,7 +47,7 @@ const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
  * Los objetos de una tab del negocio, la última tocada arriba. UNA función por área: un chat nuevo agrega la suya
  * acá. Las que no están devuelven [] y el resolver pregunta «¿Cuál?» en vez de adivinar.
  */
-async function objetosDeTab(tab: Area, rol: Rol): Promise<ObjetoChat[]> {
+async function objetosDeTab(tab: Area, rol: Rol, rolWs: string | null): Promise<ObjetoChat[]> {
   if (tab === 'landing') {
     // La misma puerta que el Web Generator (app/api/landing-generator/route.ts): admin y la tab en su capa. Sin
     // eso, un closer leería por acá los nombres de las landings que su pantalla le esconde.
@@ -56,8 +60,20 @@ async function objetosDeTab(tab: Area, rol: Rol): Promise<ObjetoChat[]> {
     }
     return r.docs.filter((d) => !d.papelera).map((d) => ({ id: String(d.id), nombre: d.titulo, tocadoAt: d.actualizado }));
   }
-  // ENGANCHE: 'chatbot' (Automations) devuelve [] hasta que su chat se enganche. Cuando lo haga, va acá su función
-  // —las automatizaciones del negocio sin las archivadas, la última tocada arriba— con la puerta de su página.
+  if (tab === 'chatbot') {
+    // Automations (16/10/2026): la MISMA puerta que su lista (GET /api/chat-agent/secuencias): admin y setter. Las del
+    // negocio sin las archivadas (lo que la lista muestra), la última tocada arriba. Sólo id, nombre y cuándo: el chat
+    // las nombra («la otra», «la de cobranza»), nada más.
+    if (rolWs !== 'admin' && rolWs !== 'setter') return [];
+    const db = await getTenantDb();
+    const { data, error } = await db.from('nutricion_secuencias').select('id, nombre, updated_at')
+      .is('archivada_at', null).order('updated_at', { ascending: false }).limit(TOPE_OBJETOS);
+    if (error) {
+      console.warn(`[api:mako/pedidos] no pude listar las automatizaciones: ${error.message}`);
+      return [];
+    }
+    return objetosDeAutomatizaciones((data ?? []) as Array<{ id: unknown; nombre?: unknown; updated_at?: unknown }>);
+  }
   return [];
 }
 
@@ -93,7 +109,7 @@ export async function POST(req: Request) {
     const ctxApi: Ctx = { ws, canal: 'app', canalKey: canalKeyDe('app', `ws${ws}`), alcance: 'proponer', rol, actor: sesion.email || sesion.sub };
     const vista = await vistaDe(ctxApi);
     const operaciones = REGISTRO.filter((d) => (esAccion(d) || esLectura(d)) && visible(d, vista)).map(aOperacion);
-    const objetos = await objetosDeTab(tab, rol);
+    const objetos = await objetosDeTab(tab, rol, rolWs);
 
     const idActual = typeof body.actualId === 'number' || typeof body.actualId === 'string' ? String(body.actualId).trim() : '';
     const nombreActual = typeof body.actualNombre === 'string' ? body.actualNombre.trim().slice(0, 200) : '';

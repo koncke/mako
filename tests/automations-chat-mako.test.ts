@@ -154,7 +154,9 @@ test('cada turno re-POSTea el pedido ORIGINAL con las respuestas acumuladas (y l
     { pedido: PEDIDO, modo: 'editar', secuenciaId: 7, pasos: [] });
   // El cableado: una respuesta manda el pedido de la ronda, no el rótulo que tocó.
   const turno = tramo(CHAT, 'const turno = async (', '\n  };', 7000);
-  assert.match(turno, /const enCurso = respuesta && ronda\s*\? \{ pedido: ronda\.pedido, respuestas: \[\.\.\.ronda\.respuestas, respuesta\] \}\s*: \{ pedido: dicho, respuestas: \[\] as RespuestaMako\[\] \};/);
+  // (16/10/2026: con un mensaje que traía algo más —los pedidos sueltos—, MaKo recibe sólo lo de esta automatización:
+  // `pedido`; tests/automations-pedidos-chat.test.ts.)
+  assert.match(turno, /const enCurso = respuesta && ronda\s*\? \{ pedido: ronda\.pedido, respuestas: \[\.\.\.ronda\.respuestas, respuesta\] \}\s*: \{ pedido: pedido \?\? dicho, respuestas: \[\] as RespuestaMako\[\] \};/);
   // Decimotercera: con el lienzo VACÍO crea sobre ESTA fila; con tarjetas, edita el borrador que se manda.
   assert.match(turno, /const modo = crea \? 'crear' : 'editar';\n\s+const base = modo === 'editar' \? p\.pasos : undefined;/);
   assert.match(turno, /pedido: enCurso\.pedido, modo, respuestas: enCurso\.respuestas, secuenciaId: p\.secuenciaId,/);

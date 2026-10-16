@@ -40,6 +40,12 @@
 //
 // ⚠️ NADA INVENTADO: los botones de una pregunta son los rótulos del catálogo TAL CUAL (los arma el server), y el
 // valor que viaja es el del catálogo. Acá no se escribe ninguna opción.
+//
+// LOS PEDIDOS SUELTOS (16/10/2026, docs/diseno-mako-pedidos.md → «El punto de enganche»): ANTES de MaKo, un pedido nuevo
+// pasa por POST /api/mako/pedidos. Lo de ESTA automatización sigue a MaKo como siempre (sólo su texto); lo demás
+// —«y elimina la otra automatización», «créame otra para los que no pagan», algo de otra tab— queda como burbujas de
+// MaKo debajo, con sus botones (./pedidos-chat.ts). Si la ruta falla o tarda, el mensaje entero va a MaKo, como antes.
+// Las burbujas son de esta pantalla: no se guardan en el hilo.
 // =============================================================================
 
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
@@ -64,6 +70,13 @@ import { usoDelArchivo, pedidoConContenido, pedidoSinLeer } from '@/lib/archivo-
 import { copiaPegada, rotuloFlujoPegado } from '@/lib/flujo-copia';
 import { resumenDePegado } from './copia-flujo-cliente';
 import { useEscucharChatMako } from './chat-mako-eventos';
+import Link from '@/app/_ui/Link';
+import {
+  cuerpoPedidos, interpretacionDe, textoActual, burbujasDe, vistaDeBurbuja, pulsar, trasEliminar, trasRecuperar, trasCrear,
+  alTerminar, type BurbujaPedido, type EfectoPedido,
+} from './pedidos-chat';
+// Los POST de los pedidos sueltos viven aparte: este chat no hace POST propios (el stream lo lee sólo ./stream-ia.ts).
+import { pedirPedidos, pedirALaLista } from './pedidos-cliente';
 
 /** Los colores de MaKo sobre el hilo de WhatsApp (punto 6: «Solo cambiale unos colores»). */
 export const COLORES_MAKO = {
@@ -97,7 +110,23 @@ export type ChatMakoProps = {
    */
   pedidoInicial?: string | null;
   onPedidoInicialUsado?: () => void;
+  /** El nombre de esta automatización: los pedidos sueltos la distinguen de «la otra» (`cuerpoPedidos`). */
+  nombre?: string;
+  /** «Crea otra automatización…» (los pedidos sueltos): la MISMA puerta que «Pídeselo a MaKo». Sin esto, no se ofrece. */
+  onCrearOtra?: (pedido: string) => void;
+  /** Se eliminó o volvió OTRA automatización desde una burbuja: la lista se vuelve a leer. */
+  onListaCambio?: () => void;
 };
+
+
+/** Lo de esta pantalla que no es del hilo guardado: lo que se escribió sin nada para la abierta, y las burbujas. */
+type ExtraChat = { id: string; at: string; yo?: string; b?: BurbujaPedido };
+const PREFIJO_EXTRA = 'pedido:';
+
+/** Una clave por burbuja, para no repetir la misma al volver a mandar el mismo mensaje. */
+const claveBurbuja = (b: BurbujaPedido): string =>
+  b.tipo === 'crear' ? `crear:${b.pedido}` : b.tipo === 'eliminar' ? `eliminar:${b.objeto.id}` : b.tipo === 'elegir' ? `elegir:${b.candidatos.map((c) => c.id).join(',')}`
+    : b.tipo === 'abrir' ? `abrir:${b.objetos.map((o) => o.id).join(',')}` : b.tipo === 'ir' ? `ir:${b.link}` : b.tipo === 'aviso' ? `aviso:${b.texto}` : 'abierta';
 
 /** Lo que dice el campo en el lienzo, y con una pregunta abierta (la respuesta escrita es «Otra cosa»). */
 export const PLACEHOLDER_EDITAR = 'Pídele un cambio';
@@ -166,6 +195,12 @@ export function ChatMako(p: ChatMakoProps) {
   /** Lo que vuelve a la barra cuando un pedido que no nació en ella no salió (`ChatHilo.ponerBorrador`). */
   const [devolver, setDevolver] = useState<{ texto: string; vez: number } | null>(null);
   const { estado, trabajando, enviar, cancelar } = useStreamIA();
+  /** Lo de esta pantalla (los pedidos sueltos). El ref es la verdad sincrónica: dos clics en el mismo tick no repiten. */
+  const [extras, setExtras] = useState<ExtraChat[]>([]);
+  const extrasRef = useRef<ExtraChat[]>([]);
+  const ponerExtras = useCallback((f: (xs: ExtraChat[]) => ExtraChat[]) => { extrasRef.current = f(extrasRef.current); setExtras(extrasRef.current); }, []);
+  /** Mientras la ruta de los pedidos contesta (el «escribiendo…» de MaKo). */
+  const [interpretando, setInterpretando] = useState(false);
   const [ahora, setAhora] = useState(() => Date.now());
   const raizRef = useRef<HTMLDivElement | null>(null);
   /** Turnos hechos en esta pantalla: si ya hubo uno, el GET no pisa la ronda de acá. */
@@ -246,14 +281,15 @@ export function ChatMako(p: ChatMakoProps) {
    *   · `origen: 'afuera'` — el pedido con que nació la fila, o una nota de voz transcrita (lo devuelve `devolver`);
    *   · `origen: 'boton'` — una opción de una pregunta (la pregunta sigue viva: se vuelve a tocar).
    */
-  const turno = async (dicho: string, respuesta: RespuestaMako | null, origen: 'barra' | 'afuera' | 'boton'): Promise<true | { error: string | null }> => {
+  const turno = async (dicho: string, respuesta: RespuestaMako | null, origen: 'barra' | 'afuera' | 'boton', pedido?: string): Promise<true | { error: string | null }> => {
     if (trabajando || p.deshabilitado) return origen === 'barra' ? { error: null } : true;
     const yo: MensajeChatMako = {
       id: nuevoId('yo'), de: 'yo', texto: dicho, at: new Date().toISOString(), via: 'app', ...(respuesta ? { respuesta } : {}),
     };
+    // `pedido`: lo de ESTA automatización cuando el mensaje traía algo más (los pedidos sueltos); en el hilo queda lo dicho.
     const enCurso = respuesta && ronda
       ? { pedido: ronda.pedido, respuestas: [...ronda.respuestas, respuesta] }
-      : { pedido: dicho, respuestas: [] as RespuestaMako[] };
+      : { pedido: pedido ?? dicho, respuestas: [] as RespuestaMako[] };
     turnos.current += 1;
     setMensajes((ms) => [...ms, yo]); setError(null); setAhora(Date.now());
     // Con el lienzo VACÍO, MaKo CREA sobre esta fila (la ruta exige que siga vacía y pausada); con tarjetas, EDITA el
@@ -335,8 +371,70 @@ export function ChatMako(p: ChatMakoProps) {
     const t = texto.trim();
     if (!t) return true;
     if (ronda) { const r = respuestaMako(ronda.pregunta, { texto: t }); return turno(r.texto, r.respuesta, origen); }
-    return turno(t, null, origen);
+    // Ocupado (MaKo trabajando, el chat apagado) o sin automatización: lo de siempre (el turno lo devuelve a la barra).
+    if (trabajando || p.deshabilitado || interpretando) return turno(t, null, origen);
+    // LOS PEDIDOS SUELTOS: qué es de ESTA automatización y qué no. Sin respuesta útil, todo es de ésta (cero regresión).
+    setInterpretando(true);
+    const crudo = await pedirPedidos(cuerpoPedidos(t, p.secuenciaId, p.nombre ?? ''));
+    if (!vivo.current) return true;
+    setInterpretando(false);
+    const i = interpretacionDe(crudo, t);
+    const nuevas = burbujasDe(i, p.secuenciaId).filter((b) => b.tipo !== 'crear' || !!p.onCrearOtra);
+    const actual = textoActual(i);
+    if (!nuevas.length) return turno(t, null, origen, actual ?? undefined);
+    // Lo escrito queda en el hilo; las burbujas, debajo (las mismas no se repiten si se vuelve a mandar).
+    const ya = new Set(extrasRef.current.flatMap((x) => (x.b ? [claveBurbuja(x.b)] : [])));
+    const base = Date.now();
+    const burbujas = nuevas.filter((b) => !ya.has(claveBurbuja(b)))
+      .map((b, k): ExtraChat => ({ id: `${PREFIJO_EXTRA}${nuevoId('mako')}`, at: new Date(base + 1 + k).toISOString(), b }));
+    if (!actual) {
+      // Nada de esta automatización: MaKo no trabaja. Lo escrito se ve igual (sólo en esta pantalla).
+      ponerExtras((xs) => [...xs, { id: `${PREFIJO_EXTRA}${nuevoId('yo')}`, at: new Date(base).toISOString(), yo: t }, ...burbujas]);
+      return true;
+    }
+    ponerExtras((xs) => [...xs, ...burbujas]);
+    return turno(t, null, origen, actual);
   };
+
+  /** Lo que pide un clic en una burbuja: crear por la puerta de «Pídeselo a MaKo», eliminar o recuperar por la de la lista. */
+  const efectuar = async (id: string, ef: EfectoPedido | null) => {
+    if (!ef) return;
+    const cambiar = (f: (b: BurbujaPedido) => BurbujaPedido) => ponerExtras((xs) => xs.map((x) => (x.id === id && x.b ? { ...x, b: f(x.b) } : x)));
+    if (ef.tipo === 'agregar') {
+      ponerExtras((xs) => [...xs, { id: `${PREFIJO_EXTRA}${nuevoId('mako')}`, at: new Date().toISOString(), b: ef.burbuja }]);
+      return;
+    }
+    if (ef.tipo === 'crear') {
+      if (!p.onCrearOtra) { cambiar((b) => trasCrear(b, false)); return; }
+      p.onCrearOtra(ef.pedido);
+      cambiar((b) => trasCrear(b, true));
+      return;
+    }
+    const ok = await pedirALaLista(ef.cuerpo);
+    if (!vivo.current) return;
+    cambiar((b) => (ef.tipo === 'eliminar' ? trasEliminar(b, ok) : trasRecuperar(b, ok)));
+    if (ok) p.onListaCambio?.();
+  };
+  /** Un botón de una burbuja: se lee la burbuja del REF (sincrónico) y no la del render. */
+  const tocarBurbuja = (id: string, boton: string) => {
+    const x = extrasRef.current.find((e) => e.id === id);
+    if (!x?.b) return;
+    const r = pulsar(x.b, boton, p.secuenciaId, { trabajando });
+    ponerExtras((xs) => xs.map((e) => (e.id === id ? { ...e, b: r.burbuja } : e)));
+    void efectuar(id, r.efecto);
+  };
+  // MaKo terminó con esta automatización: una creación que esperaba («Sí» mientras trabajaba) sale ahora.
+  useEffect(() => {
+    if (trabajando) return;
+    for (const x of extrasRef.current) {
+      if (!x.b) continue;
+      const r = alTerminar(x.b);
+      if (!r.efecto) continue;
+      ponerExtras((xs) => xs.map((e) => (e.id === x.id ? { ...e, b: r.burbuja } : e)));
+      void efectuar(x.id, r.efecto);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trabajando]);
   /** La nota de voz (✓ termina, ➤ manda): se transcribe y viaja como lo escrito. */
   const enviarAudio = async (blob: Blob): Promise<boolean> => {
     setError(null);
@@ -356,7 +454,18 @@ export function ChatMako(p: ChatMakoProps) {
   const preguntaViva = !trabajando && ronda ? ronda.pregunta : null;
   const ultimoMako = mensajes.reduce((k, m, i) => (m.de === 'mako' ? i : k), -1);
   const porId = useMemo(() => new Map(mensajes.map((m, i) => [m.id, { m, i }] as const)), [mensajes]);
-  const hilo = useMemo(() => hiloDeChat(mensajes), [mensajes]);
+  // El hilo guardado y lo de esta pantalla (los pedidos sueltos), en el orden en que pasaron.
+  const hilo = useMemo(() => {
+    const deChat = hiloDeChat(mensajes);
+    if (!extras.length) return deChat;
+    const conHora = (h: HiloMsg, k: number) => ({ h, t: Date.parse(String(h.fecha ?? '')) || 0, k });
+    const deAca = extras.map((x, k) => conHora({ id: x.id, fromMe: !!x.yo, texto: x.yo ?? '', fecha: x.at, autor: x.yo ? null : 'MaKo' }, deChat.length + k));
+    // Lo guardado sin hora (una línea de sistema) se queda pegado a lo anterior: hereda la hora de su vecino.
+    let previa = 0;
+    const guardados = deChat.map((h, k) => { const x = conHora(h, k); previa = x.t || previa; return { ...x, t: previa }; });
+    return [...guardados, ...deAca].sort((a, b) => a.t - b.t || a.k - b.k).map((x) => x.h);
+  }, [mensajes, extras]);
+  const extraPorId = useMemo(() => new Map(extras.map((x) => [x.id, x] as const)), [extras]);
   const segundos = estado.t === 'trabajando' ? Math.max(0, Math.round((ahora - estado.desde) / 1000)) : 0;
   const placeholder = ronda ? PLACEHOLDER_OTRA : crea ? PLACEHOLDER_QUIETO : PLACEHOLDER_EDITAR;
 
@@ -390,13 +499,16 @@ export function ChatMako(p: ChatMakoProps) {
         onEnviarTexto={(t) => enviarTexto(t, 'barra')}
         onEnviarAudio={(b) => enviarAudio(b)}
         placeholder={placeholder}
-        typing={trabajando ? { lado: 'left', autor: 'MaKo' } : null}
+        typing={trabajando || interpretando ? { lado: 'left', autor: 'MaKo' } : null}
         draftKey={`mako-chat:${secId}`}
         animarNuevos
         ponerBorrador={devolver}
         encimaDelComposer={encima}
         vacio={<div style={S.vacio}>{crea ? VACIO_CREAR : VACIO_EDITAR}</div>}
         renderMensaje={(h) => {
+          const e = extraPorId.get(String(h.id));
+          if (e) return e.yo !== undefined ? <Mensaje m={{ id: e.id, de: 'yo', texto: e.yo, at: e.at, via: 'app' }} viva={null} ultimo={false} onElegir={elegir} deshabilitado />
+            : e.b ? <BurbujaDePedido b={e.b} at={e.at} onBoton={(boton) => tocarBurbuja(e.id, boton)} deshabilitado={!!p.deshabilitado} /> : null;
           const x = porId.get(String(h.id));
           if (!x) return null;
           const viva = x.i === mensajes.length - 1 && preguntaViva && x.m.pregunta?.id === preguntaViva.id ? preguntaViva : null;
@@ -433,6 +545,29 @@ function Mensaje({ m, viva, ultimo, onElegir, deshabilitado }: {
         </ul>
       ) : null}
       {viva && <TarjetaPregunta pregunta={viva} onElegir={onElegir} deshabilitado={deshabilitado} />}
+    </div>
+  );
+}
+
+/**
+ * UNA BURBUJA DE UN PEDIDO SUELTO (16/10/2026, ./pedidos-chat.ts): el texto de MaKo, sus botones (con los de la pregunta)
+ * y sus links (el `Link` de la casa: conserva el ?ws=). Lo que dice y qué botón está prendido lo decide `vistaDeBurbuja`.
+ */
+function BurbujaDePedido({ b, at, onBoton, deshabilitado }: { b: BurbujaPedido; at: string; onBoton: (boton: string) => void; deshabilitado: boolean }) {
+  const v = vistaDeBurbuja(b);
+  return (
+    <div data-mensaje="mako" data-pedido-suelto={b.tipo} style={S.filaMako}>
+      <BurbujaHilo saliente={false} autor="MaKo" maxAncho="92%" contenido={{ texto: v.texto }} hora={horaDe(at)} />
+      {(v.botones.length > 0 || v.links.length > 0) && (
+        <div style={S.opciones} role="group" aria-label={v.texto}>
+          {v.botones.map((x) => (
+            <button key={x.id} type="button" className={`chm-op${x.v === 'contorno' ? ' chm-op--suave' : ''}`} data-boton-pedido={x.id}
+              aria-pressed={x.elegido || undefined} disabled={deshabilitado || x.apagado} onClick={() => onBoton(x.id)}>{x.texto}</button>
+          ))}
+          {v.links.map((l) => <Link key={l.href} href={l.href} className="chm-op chm-op--suave" data-link-pedido="">{l.texto}</Link>)}
+        </div>
+      )}
+      {v.nota && <p style={{ ...S.dim, margin: '4px 0 0', color: v.error ? 'var(--bad)' : undefined }} role={v.error ? 'alert' : 'status'}>{v.nota}</p>}
     </div>
   );
 }

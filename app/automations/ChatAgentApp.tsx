@@ -775,6 +775,8 @@ function ChatAgentInner() {
           negocio={negocio} rolAdmin={rolAdmin} audios={audios} canalCaido={canalCaido} tz={tz} onAudioNuevo={(a) => setAudios((prev) => [a, ...prev.filter((x) => x.id !== a.id)])}
           onNueva={abrirGaleria} errorNueva={errCrear} onReload={() => void load()}
           abrir={abrirSec} onElegida={escribirSec} onMakoTrabajando={setMakoTrabajando}
+          /* Los pedidos sueltos del chat de MaKo (16/10/2026): «créame otra…» entra por la puerta de «Pídeselo a MaKo». */
+          onCrearOtra={pedirAMako}
           handoffs={sinCaso}
           /* EL MENÚ, antes del buscador de la lista (undécima tanda, punto 9): «Configuraciones» (el horario de
              oficina y los límites, en un modal: el admin edita, el resto ve) y «Tutorial» (el recorrido). Son de la

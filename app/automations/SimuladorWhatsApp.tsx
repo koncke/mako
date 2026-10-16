@@ -284,7 +284,7 @@ export type AbrirSecuencia = { id: number; mako?: true; pedido?: string };
 // (Acá vivía `AbrirAviso`, el pedido de abrir un Mensaje de MaKo desde el link de Notificaciones,
 // `/automations?aviso=<id>`. Se fue el 11/10/2026 con esos mensajes: un mensaje de MaKo se abre con `?sec=`.)
 
-export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negocio, rolAdmin, audios, canalCaido, onAudioNuevo, onNueva, errorNueva, onReload, productos, disparadores, menu, tz, abrir, handoffs, onElegida, onMakoTrabajando }: {
+export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negocio, rolAdmin, audios, canalCaido, onAudioNuevo, onNueva, errorNueva, onReload, productos, disparadores, menu, tz, abrir, handoffs, onElegida, onMakoTrabajando, onCrearOtra }: {
   // (Acá iban `arranque` y `onArranqueUsado`: la recién creada con un tipo de CRON elegido en «¿Qué la dispara?» del
   // modal abría su CRON en ese tipo. Se fueron con esos botones en la décima tanda: «eso ya lo hacemos dentro en el CRON».)
   /**
@@ -295,6 +295,8 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
   onElegida?: (id: number) => void;
   /** MaKo está armando el flujo abierto (`SecuenciaPerfil`): la tab no abre el recorrido hasta que termine. */
   onMakoTrabajando?: (trabajando: boolean) => void;
+  /** «Crea otra automatización…» desde el chat de MaKo (los pedidos sueltos): la puerta de «Pídeselo a MaKo». */
+  onCrearOtra?: (pedido: string) => void;
   // (Acá iban `avisos`, `abrirAviso`, `onAvisosCambio` y `onOcultosCambio`: los Mensajes de MaKo de antes,
   // que venían de otro endpoint. Se fueron el 11/10/2026: son filas de `secuencias` con el CRON del evento.)
   /** Las respuestas sin caso pendientes: la tarjeta «Si responde» las cuenta en «Otra cosa». */
@@ -769,6 +771,7 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
             muelles={m}
             onSinPublicar={setSinPublicar}
             onMakoTrabajando={onMakoTrabajando}
+            onCrearOtra={onCrearOtra} onListaCambio={onReload}
             descartarBorrador={descartarBorrador}
             handoffs={handoffs}
             onAudioNuevo={onAudioNuevo}
