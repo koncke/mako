@@ -1191,6 +1191,11 @@ código nuevo:
   siendo el cartero (`cartero.mjs`, `operaciones_carteros`, `ver_carteros_operaciones`): las claves no se renombran. La
   PC lo reconoce por el título del chat («Runner» o «Cartero», también como «Centro de Operaciones › Runner»:
   `esElCartero`). Un texto nuevo del Centro no dice «cartero» ni «clave»: lo fija tests/centro-textos.test.ts.
+- **UNA TARJETA DE LA TICKETERA SE CONTESTA EN EL CHAT QUE LA PREGUNTÓ, COMO LA PREGUNTA DE CLAUDE CODE** (16/10/2026),
+  o en la Ticketera, que vive ADENTRO del Centro (`?ticketera=tarjetas|lista`; las rutas de antes son puertas que
+  conservan la query). Las dos contestan con `responderDecision`. Código nuevo que dibuje tarjetas de un chat pregunta
+  de qué chat son a `lib/centro-preguntas.ts` (con `destino`, o por un nombre único), nunca por su cuenta: así el
+  globito, la pregunta y la conversación cuentan lo mismo. Una opción puede traer su `detalle` (la descripción).
 - **UN RUNNER POR CARPETA DE CONFIG, NO POR CUENTA** (16/10/2026; Martín pasó las tres cuentas a la terminal, cada una
   con su `CLAUDE_CONFIG_DIR`). `SendMessage` sólo llega a las sesiones registradas en la carpeta del que manda (medido:
   «ENOINBOX: no-key»), y la app comparte `~/.claude` con `claude1`. Código nuevo que entregue algo a un chat: lo

@@ -634,6 +634,50 @@ cuota): ver «Tres cuentas a la vez».
 `lib/centro-chats.ts` (`comoSale`, `textoDeRenombre`) · `lib/runner.ts` (`COMANDO_TERMINAL`, las instrucciones) ·
 `tests/cartero-carpetas.test.ts` (la PC entera, contra un servidor falso)
 
+## La pregunta de cada chat como la de Claude Code, y la Ticketera adentro del Centro (16/10/2026)
+
+**El pedido.** Martín: «prefiero ahí donde está "Una tarjeta espera tu respuesta en la Ticketera" que salga lo mismo que
+hoy sale en claude, las opciones», «La ticketera con los desplegables queda para el botón de "ticketera" de arriba», y
+mirándolo en producción: «Me dice "Espera tu respuesta" y aún no me salta lo que te pedí tipo claude» y «No veo el botón
+de la ticketera dentro del Centro».
+
+**De dónde se copió la pregunta.** La app de escritorio no trae el dibujo de AskUserQuestion en su paquete (el
+`app.asar` sólo tiene la notificación: la pantalla se carga de claude.ai), así que se leyó del CLI 2.1.299 de esta PC,
+que sí lo trae: las opciones numeradas con su título y su descripción, «(Recommended)», «Type something.» como último
+renglón, «Enter to select · Tab/Arrow keys to navigate · Esc to cancel», y «Review your answers / Submit answers» al
+final. Se copió todo menos el repaso del final: acá cada respuesta se guarda al elegirla (como la Ticketera), así no
+hay un envío que se pueda perder. La descripción de una opción es nueva (`detalle`, hasta 140 letras); las opciones de
+antes que la traen en el texto («Sí — porque…») se parten en la raya.
+
+**De qué chat es una tarjeta se decide UNA vez** (`lib/centro-preguntas.ts`): su `destino` manda; sin él, el nombre, y
+sólo si un único chat se llama así. El globito del muñeco, la pregunta de arriba de la caja y la respuesta en la
+conversación salen de esa misma función: un test fija que el globito y la pregunta cuentan lo mismo.
+
+**El diagnóstico obvio era el equivocado: «elimina la ruta» no era «saca el ítem de la barra».** El 15/10 Martín reclamó
+que la Ticketera NO estaba en la barra de admin («Eso esta mal»). Se dejó el ítem (y la fila de More) como atajo a la
+Ticketera adentro del Centro (`?ticketera=`): una sola Ticketera, con dos puertas.
+
+**Lo que costó ver** (de la revisión adversarial: dos revisores y un refutador por hallazgo, 7 de 7 confirmados; el
+commit 81d842745 dice 5 porque se escribió antes de la segunda tanda):
+- **La pregunta abierta se seguía por su POSICIÓN**: el refresco de cada 8 s mete adelante una tarjeta que frena, y lo que
+  Martín escribía para una se guardaba en la otra (medido por el refutador). Ahora por su id (`preguntaAbierta`), y si
+  la abierta se contesta en otro lado mientras escribe, se dice. Y un rechazo de la acción (sin red, un deploy nuevo) ya
+  no la deja en «…».
+- **Next no vuelve a montar una página cuando sólo cambia la query, y la prop tampoco sigue a la URL.** El ítem
+  «Ticketera» de la barra, estando en el Centro, cambiaba la URL y no la pantalla. Seguir a la prop no alcanzaba: un
+  `replaceState` con el estado de Next (lo que hacía `anotarEnUrl`) no le avisa al router, que se queda con la URL
+  vieja. Ahora `anotarEnUrl` pasa `null` (el router copia su estado y se entera) y la vista sigue a `useSearchParams`.
+  Lo mismo hacía «Ver la lista» del mazo vacío (un link a la misma página): adentro del Centro cambia la vista ahí.
+- **Una página de /m a la que nadie llega es un test rojo** (`tests/movil-mismas-rutas.test.ts`: cada página de /m
+  tiene que volver a sí misma). El proxy manda todo /m/* a su URL de escritorio, y ésa ahora cae en el Centro: las
+  páginas viejas del teléfono no se dejan como redirect, se borran (la URL vieja igual llega, por el mapa de rutas).
+- **`/admin/runway` perdía la query** (era la única puerta que no la pasaba por `aLaTicketera`), el botón que cierra la
+  Ticketera dejaba `?ticketera=` en la URL, y las acciones revalidaban dos rutas que ya no dibujan nada.
+
+**Vive en:** `lib/centro-preguntas.ts` · `app/admin/operaciones/Pregunta.tsx` · `TicketeraCentro.tsx` · `CentroApp.tsx` ·
+`app/m/operaciones/TicketeraMovil.tsx` · `app/tickets/decisiones/reglas.ts` (`aLaTicketera`) · `lib/movil-rutas.ts` ·
+`tests/centro-preguntas.test.ts`
+
 ## Lo que creí medido y no estaba al día
 
 - **`soloPlataforma` ya existía en el registro de la API** (lo sumó el 2FA obligatorio el 14/10, por

@@ -416,4 +416,22 @@ export const BITACORA: Hito[] = [
       'tests/cartero-carpetas.test.ts — la PC entera contra un servidor falso',
     ],
   },
+  {
+    fecha: '16 oct', hora: '02:59', chat: CH, sesion: SESION_CH_3, cuenta: 'claude3', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Cada chat pregunta como Claude Code, y la Ticketera vive adentro del Centro',
+    puntos: [
+      'Martín: «Me dice "Espera tu respuesta" y aún no me salta lo que te pedí tipo claude» y «No veo el botón de la ticketera dentro del Centro».',
+      'Arriba de la caja de cada chat, sus preguntas como AskUserQuestion de Claude Code: tema, opciones numeradas con su descripción, «(Recomendada)», «Escribe otra cosa» y «1 de 3».',
+      'Lo contestado queda en la conversación como su respuesta. El botón «Ticketera» de arriba de los chats abre el mazo y la lista de siempre adentro del Centro.',
+      'Las rutas de antes llevan a la Ticketera del Centro sin perder la query; la barra de admin y More quedan como atajo.',
+    ],
+    commits: [{ sha: '81d842745', msg: 'feat(operaciones): cada chat pregunta como Claude Code, y la Ticketera vive adentro del Centro', lineas: 1264, archivos: 37 }],
+    archivos: [
+      'lib/centro-preguntas.ts — de qué chat es cada tarjeta, la abierta por su id, las opciones como renglones',
+      'app/admin/operaciones/Pregunta.tsx — la pregunta tipo Claude Code',
+      'app/admin/operaciones/TicketeraCentro.tsx — la Ticketera adentro del Centro',
+      'app/tickets/decisiones/reglas.ts — aLaTicketera, las puertas de antes',
+      'tests/centro-preguntas.test.ts — siete, cada uno probado rompiéndolo',
+    ],
+  },
 ];
