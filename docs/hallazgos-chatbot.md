@@ -4957,3 +4957,15 @@ sin respuesta al negocio que sólo tiene ese proveedor vivo. La espera dice «ha
 `lib/archivo-del-pedido.ts` · `app/automations/ChatMako.tsx` (`BarraPideselo`) · `app/automations/archivo-pedido-cliente.ts`
 · `lib/flujo-conversacion.ts` (`motivoParaNoProbar`) · `app/automations/SecuenciaPerfil.tsx` · tests:
 `tests/crear-ia-instagram-solo.test.ts`, `tests/crear-ia-adjunto.test.ts`, `tests/probar-apagado.test.ts`
+
+## El AI Step sin red por llevar datos del lead dice «Conecta tu Claude» (16/10/2026)
+
+- La cascada saltea la red gratis de la agencia cuando el pedido lleva datos de clientes, y lo anota en
+  `erroresPlataformaOut` con «red gratis salteada:». Pero el aviso al negocio se elegía sólo con los errores de SUS keys,
+  así que decía «no hay ninguna API key de IA cargada»: un remedio equivocado. Ahora, con ese salto, dice
+  `CONECTA_TU_CLAUDE` (lib/fallo-ia-texto.ts), la misma frase que ya usan el análisis del lead y las cajas del Dashboard.
+  Vale para la respuesta (`responderSimulador`) y para la nota de voz (`escucharDelLead`). Con la compuerta del crédito
+  de Claude que pone Onboarding, éste pasa a ser el camino de todo negocio sin su Claude.
+
+**Vive en:** `lib/fallo-ia-texto.ts` (`sinRedPorDatos`) · `lib/setting-simulador.ts` · `lib/nutricion.ts` · test:
+`tests/ai-step-conecta-claude.test.ts`

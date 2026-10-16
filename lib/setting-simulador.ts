@@ -271,7 +271,11 @@ export async function responderSimulador(secuenciaId: number, historial: TurnoSi
   // «MaKo no respondió. Vuelve a intentarlo.» era verdad y no servía para nada: si lo
   // que pasó es que se acabó la cuota, reintentar no arregla nada y el usuario lo
   // descubre reintentando diez veces.
-  if (!respuesta || !respuesta.trim()) return { ok: false, error: await errorDeCascada(errores, tema) };
+  // Sin red POR LLEVAR DATOS DEL LEAD (16/10/2026): el remedio no es otra key gratis, es su Claude (`CONECTA_TU_CLAUDE`).
+  if (!respuesta || !respuesta.trim()) {
+    const { sinRedPorDatos, CONECTA_TU_CLAUDE } = await import('./fallo-ia-texto');
+    return { ok: false, error: sinRedPorDatos(erroresRed) ? CONECTA_TU_CLAUDE : await errorDeCascada(errores, tema) };
+  }
   const marca = respuesta.match(MARCA_FIN);
   const limpio = respuesta.replace(MARCA_FIN, '').trim();
   // El modelo contestó SÓLO el marcador de cierre: entendió que la charla terminó y no
