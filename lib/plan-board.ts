@@ -29,6 +29,7 @@ import { puntuarNuevas, describirProyectosNuevos, asignarTareasAProyectos, puntu
 import { desempatar } from '@/app/plan/board/metodologia';
 import { checklistsParaTareas } from '@/lib/checklist-coach';
 import { CATALOGO_PROYECTOS, delCatalogo, canonNombre, nucleo } from '@/lib/plan-proyectos-catalogo';
+import { destinoSinIA, esProyectoBandeja, esProyectoDeCliente, PROYECTO_SIN_PROYECTO, EMOJI_SIN_PROYECTO, COLOR_SIN_PROYECTO, QUE_SIN_PROYECTO } from '@/lib/plan-bandeja';
 import { faseNegocioTexto } from '@/lib/fase-store';
 import { objetivosContextoTexto } from '@/lib/objectives';
 // El detalle y las notas se guardan SANEADOS, con la MISMA regla que el tablero del cliente
@@ -645,7 +646,16 @@ export type NuevaTareaPlan = { titulo: string; prioridad?: Prio; proyecto?: stri
  *  localStorage, que el server no podía tocar). Resuelve/crea el proyecto por nombre,
  *  pone score inicial por prioridad (después el Perro las re-puntúa), firma el historial
  *  con la fuente y devuelve los ids para armar los deep-links (?tarea=<id>). */
-export async function agregarTareasPlanOwner(items: NuevaTareaPlan[], fuente?: Fuente): Promise<{ ids: string[]; nums: number[]; proyectoIds: string[] }> {
+/**
+ * `opts.sinIA` (16/10/2026, «Fathom sin fricción»): la carga de un BORRADOR no llama a ningún
+ * modelo. Sin el ruteo del Perro, el proyecto sale de `destinoSinIA` (lib/plan-bandeja.ts): el que
+ * propuso la reunión si existe, si es del catálogo o si es el del cliente de esa reunión
+ * (`clienteDeLaReunion`); si no, la bandeja «Sin proyecto», que «Re-priorizar todo» reparte. Sin
+ * `sinIA` todo sigue igual (el doer de WhatsApp y los lotes).
+ */
+export type OpcionesAlta = { sinIA?: boolean; clienteDeLaReunion?: boolean };
+
+export async function agregarTareasPlanOwner(items: NuevaTareaPlan[], fuente?: Fuente, opts: OpcionesAlta = {}): Promise<{ ids: string[]; nums: number[]; proyectoIds: string[] }> {
   return enPlan(async () => {
     const db = await getTenantDb();
     const { actor, desde } = desdeDeFuente(fuente);
@@ -680,13 +690,15 @@ export async function agregarTareasPlanOwner(items: NuevaTareaPlan[], fuente?: F
     // aporta los que todavía no se crearon. Sin repetir el que ya está en el tablero.
     const yaEnTablero = new Set(proyectos.map((p) => nucleo(p.name)));
     const destinos = [
-      ...proyectos.map((p) => ({ nombre: p.name, que: delCatalogo(p.name)?.que || p.detalle || '', n: cuentaPorProy.get(p.id) ?? 0 })),
+      // La BANDEJA no es un destino (16/10/2026): una tarea cae ahí cuando nada la reclama.
+      ...proyectos.filter((p) => !esProyectoBandeja(p.name)).map((p) => ({ nombre: p.name, que: delCatalogo(p.name)?.que || p.detalle || '', n: cuentaPorProy.get(p.id) ?? 0 })),
       ...CATALOGO_PROYECTOS.filter((c) => !yaEnTablero.has(nucleo(c.nombre))).map((c) => ({ nombre: c.nombre, que: c.que })),
     ];
     const ruteo: Record<number, string> = {}; // índice de tarea → NOMBRE del proyecto destino
     const propuestosPorElPerro = new Map<string, { nombre: string; que: string; porQue: string }>();
     const noSeAbrio: (string | undefined)[] = validos.map(() => undefined); // índice → por qué NO nació su proyecto
-    if (destinos.length) {
+    // ⛔ SIN IA, este bloque no corre: es la llamada al modelo que la carga de un borrador ya no hace.
+    if (destinos.length && !opts.sinIA) {
       const r = await asignarTareasAProyectos(
         // El DETALLE va: sin él el ruteador ve una lista de títulos sueltos y manda
         // «Diseñar el módulo de Diagnóstico» a Onboarding porque suena parecido.
@@ -723,7 +735,46 @@ export async function agregarTareasPlanOwner(items: NuevaTareaPlan[], fuente?: F
     const sinProyecto: string[] = []; // índice → por qué se quedó sin proyecto (va al historial)
     let siguientePid = maxPid(proyectos) + 1; // P# estable para cada proyecto nuevo
     const motivoSin: (string | undefined)[] = validos.map(() => undefined);
+    // SIN IA (16/10/2026): el destino lo decide `destinoSinIA`, y la bandeja se busca —o se crea—
+    // UNA vez por carga. Un proyecto del catálogo o el del cliente de la reunión nacen igual que
+    // siempre (con su historial); un nombre inventado no abre nada.
+    let bandejaId: string | undefined = proyectos.find((p) => esProyectoBandeja(p.name))?.id;
+    const aBandeja = (): string => {
+      if (bandejaId) return bandejaId;
+      bandejaId = genId('p');
+      byName.set(nucleo(PROYECTO_SIN_PROYECTO), bandejaId);
+      nuevosProy.push({
+        id: bandejaId, pid: `P${siguientePid++}`, emoji: EMOJI_SIN_PROYECTO, name: PROYECTO_SIN_PROYECTO,
+        color: COLOR_SIN_PROYECTO, score: 1, detalle: QUE_SIN_PROYECTO, fuente: fu,
+        historial: [{ id: genId('h'), ts: ahora, actor, text: `Creó la bandeja «${PROYECTO_SIN_PROYECTO}» — ${desde}` }],
+      });
+      return bandejaId;
+    };
+    const destinoSin = (it: NuevaTareaPlan, i: number): string => {
+      const d = destinoSinIA({
+        propuesto: it.proyecto,
+        existe: (n) => !!resolverProy(n),
+        delCatalogo: (n) => delCatalogo(n)?.nombre,
+        esClienteDeLaReunion: (n) => !!opts.clienteDeLaReunion && esProyectoDeCliente(n),
+      });
+      if (d.via === 'bandeja') { motivoSin[i] = d.razon; return aBandeja(); }
+      const exist = resolverProy(d.nombre);
+      if (exist) return exist;
+      const k = nucleo(d.nombre);
+      const yaCreado = byName.get(k);
+      if (yaCreado) return yaCreado;
+      const cat = delCatalogo(d.nombre);
+      const nid = genId('p');
+      byName.set(k, nid);
+      nuevosProy.push({
+        id: nid, pid: `P${siguientePid++}`, emoji: cat?.emoji ?? '🗂', name: canonNombre(d.nombre).slice(0, 120),
+        color: '#2F6FED', score: 50, detalle: cat?.que ?? '', fuente: fu,
+        historial: [{ id: genId('h'), ts: ahora, actor, text: `${cat ? 'Creó el proyecto (está en el catálogo)' : 'Creó el proyecto del cliente de la reunión'} — ${desde}`.slice(0, 300) }],
+      });
+      return nid;
+    };
     const projDeTarea: (string | undefined)[] = validos.map((it, i) => {
+      if (opts.sinIA) return destinoSin(it, i);
       const nombre = (ruteo[i] || it.proyecto?.trim() || '').trim();
       if (!nombre) return undefined;
       const exist = resolverProy(nombre);

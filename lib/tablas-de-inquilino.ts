@@ -39,7 +39,7 @@
  * `dashboard_analisis`, mig 0247; 123 el mismo día con `notificaciones`, mig 0250, y las conversaciones
  * de la tab Offer, `offer_sesiones`, mig 0254; 126 con `cobros` y `pasarela_eventos` de la pasarela, mig
  * 0255; 129 el mismo día con las tres del editor de landings, mig 0246; 130 el 13/10/2026 con `calendario_eventos`, mig 0271; las del Image Editor, `image_disenos` e
- * `image_subidos`, mig 0278, el 14/10; y las tres de la tab Chats, `chat_estado`, `chat_leidos` y `chat_eventos`, mig 0284), en orden alfabético.
+ * `image_subidos`, mig 0278, el 14/10; y las tres de la tab Chats, `chat_estado`, `chat_leidos` y `chat_eventos`, mig 0284; y `plan_reuniones_descartadas`, mig 0296, el 16/10), en orden alfabético.
  *
  * ⚠️ EL ORDEN NO ES EL DE BORRADO. 39 de las 87 claves foráneas que apuntan a
  * `workspaces` no cascadean, y adentro de un inquilino hay hijos antes que padres
@@ -79,7 +79,8 @@ export const TABLAS_DE_INQUILINO = [
   // No va en TENANT_TABLES: nadie la lee con getTenantDb. `cobros` sí está en las dos.
   'pasarela_eventos',
   'pipeline_stages', 'plan_dependencias', 'plan_propuestas', 'plan_proyectos',
-  'plan_reprios', 'plan_tareas', 'producto_entrega', 'productos',
+  // Las reuniones de Fathom que el cron descartó por tipo, con su motivo (mig 0296, 16/10/2026).
+  'plan_reprios', 'plan_reuniones_descartadas', 'plan_tareas', 'producto_entrega', 'productos',
   'propuestas', 'prospeccion_busquedas', 'prospectos', 'retros', 'review_queue', 'script_analyses',
   'script_drafts', 'service_incidents', 'setting_adjuntos', 'setting_audios', 'shares', 'tarea_categorias',
   'vsl_events', 'wa_bloqueados', 'wa_borradores', 'wa_mensajes',

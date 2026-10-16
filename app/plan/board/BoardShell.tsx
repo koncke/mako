@@ -70,6 +70,7 @@ import { matchTarea, coincide, CAMPOS_POR_DEFECTO, type CampoBusqueda } from '@/
 import { RichText, mdAHtml, stripHtml, FOCO_BARRA } from './RichText';
 import type { Board } from './useBoard';
 import { separarRepetidas, textoRepetidas } from '@/lib/tareas-dedup';
+import { esProyectoBandeja, PROYECTO_SIN_PROYECTO, EMOJI_SIN_PROYECTO, COLOR_SIN_PROYECTO, QUE_SIN_PROYECTO } from '@/lib/plan-bandeja';
 import { type BoardTask, type Label, type Prio, type EstadoTarea, type Check, type Actor, type Fuente, type FuenteTipo, type PrioFiltro, ACTOR_LABEL, PLABEL, PCOLOR, SWATCHES, MAX_PRIORIDAD, scoreFromPrio, uid, relTime, fechaHora, fuenteEfectiva, prioFromScore, displayPrio, estadoDe, prioFiltroDe, PFILTRO_LABEL, PRIOS_FILTRO } from './types';
 // EL KANBAN POR ESTADO (16/10/2026): columnas, orden manual, lugar al soltar y los dos filtros
 // nuevos (Prioridad y Responsable). Puro y compartido con el teléfono: ver app/plan/board/kanban.ts.
@@ -1085,10 +1086,12 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido
     return { id: t.id, score: t.score, razon: '', respuesta: '', prio: displayPrio(t, topProjectId) };
   };
 
-  // G3: crear en lote las tareas que MaKo sacó de una reunión. Entran con la prioridad
-  // sugerida. (Hasta el 16/10 el navegador las re-puntuaba solo al cambiar la firma del plan;
-  // eso se apagó — decisión 8 — y este camino, que todavía llama al Perro abajo, lo cambia la
-  // tanda de Fathom.)
+  // G3: crear en lote las tareas que MaKo sacó de una reunión (el modal de Fathom, la lectura a
+  // mano). Nacen LIBRES y SIN IA (16/10/2026, «Fathom sin fricción»: «que se creen sin prioridad»):
+  // score 0 = «Sin priorizar», en «Por iniciar», y sin el Perro — que acá corría con `await` después
+  // de crear, puntuando y re-curvando el tablero con la pantalla esperando. La prioridad la pone
+  // «Re-priorizar todo». Es el gemelo de `aplicarPropuestas` (lib/plan-propuesta.ts), el otro
+  // camino de alta desde una reunión, y los dos cambiaron juntos.
   // Deshacer = borrar las que se acaban de crear (fue una acción revisada, no un click suelto).
   type CandReunion = { titulo: string; detalle: string; prioridad: Prio; proyectoId: string | null; proyectoNombre?: string; minuto?: number; minutos?: number[] };
   /**
@@ -1135,10 +1138,6 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido
     const altaText = fuente?.tipo === 'fathom' ? `Creó la tarjeta — de la reunión «${fuente.etiqueta ?? ''}» (Fathom)`
       : fuente?.tipo === 'archivo' ? `Creó la tarjeta — del archivo «${fuente.etiqueta ?? ''}»`
         : undefined;
-    // Si el board puede correr el Perro server-side, lo hace ÉL (mismo trato que WhatsApp).
-    // (Hasta el 16/10 acá también se apagaba la re-puntuación oculta del navegador para no
-    // puntuar dos veces; esa re-puntuación ya no existe.)
-    const usaServerPerro = !!board.repo?.priorizarNuevas;
     // El MINUTO en que se dijo, por tarjeta: el mismo chip que traen las que vienen del
     // borrador. Sin esto, las creadas por el botón manual nacían sin forma de volver al
     // momento de la grabación — dos tarjetas de la misma reunión, una con contexto y la
@@ -1182,14 +1181,24 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido
       nuevosProy.set(norm(nom), canon.id);
     }
 
+    // LA BANDEJA «Sin proyecto» (16/10/2026): lo que la reunión no mandó a ningún proyecto va ahí,
+    // igual que en la carga de un borrador (lib/plan-bandeja.ts), y lo reparte «Re-priorizar todo».
+    // Se busca —o se crea— UNA vez, y sólo si alguna la necesita.
+    let bandeja: string | null = labels.find((l) => esProyectoBandeja(l.name))?.id ?? null;
+    const aBandeja = async (): Promise<string> => {
+      if (bandeja) return bandeja;
+      const canon = await board.createLabel({
+        id: uid(), emoji: EMOJI_SIN_PROYECTO, name: PROYECTO_SIN_PROYECTO, color: COLOR_SIN_PROYECTO, score: 1, detalle: QUE_SIN_PROYECTO,
+        historial: [{ id: uid(), ts: Date.now(), actor: 'ia', text: `Creó la bandeja «${PROYECTO_SIN_PROYECTO}» — de la reunión «${fuente?.etiqueta ?? ''}»` }],
+      });
+      bandeja = canon.id;
+      return canon.id;
+    };
     const ids: string[] = [];
     for (const c of cands) {
-      // el detalle va DENTRO del alta: si se escribiera después, el Perro server-side
-      // podría leer la fila antes de que llegue y puntuar solo con el título.
-      // `[]` explícito, NO undefined: si la IA no le encontró proyecto, la tarea queda
-      // suelta y se ve como tal. Con undefined heredaba el primer proyecto del tablero.
-      const proy = c.proyectoId ?? (c.proyectoNombre ? nuevosProy.get(norm(c.proyectoNombre)) ?? null : null);
-      const t = await board.create(c.titulo, c.prioridad, proy ? [proy] : [], { origen: 'ia', fuente: fuenteDe(c), altaText, detalle: c.detalle });
+      const proy = c.proyectoId ?? (c.proyectoNombre ? nuevosProy.get(norm(c.proyectoNombre)) ?? null : null) ?? await aBandeja();
+      // `score: 0` = nace LIBRE («Sin priorizar»): la prioridad que sugirió la extracción no se usa.
+      const t = await board.create(c.titulo, c.prioridad, [proy], { origen: 'ia', fuente: fuenteDe(c), altaText, detalle: c.detalle, score: 0 });
       if (!t) continue;
       ids.push(t.id);
     }
@@ -1197,21 +1206,8 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido
       const extra = repetidas.length ? ` · ${textoRepetidas(repetidas.length)}, no las dupliqué` : '';
       board.showUndo(`${ids.length} tarea${ids.length > 1 ? 's' : ''} de la reunión al plan${extra}`, () => ids.forEach((id) => board.removeSilent(id)));
     }
-    // UNIFICACIÓN (#1): el Perro server-side puntúa/describe estas tareas nuevas y les arma
-    // checklist, igual que las de WhatsApp — y con el MISMO contexto (de dónde salieron),
-    // que antes no le pasábamos: puntuaba "(sin brief adicional)".
-    if (usaServerPerro && ids.length) {
-      const contexto = fuente?.tipo === 'fathom' ? `Salieron de la reunión «${fuente.etiqueta ?? ''}» (Fathom): son compromisos que se asumieron ahí.`
-        : fuente?.tipo === 'archivo' ? `Salieron del archivo «${fuente.etiqueta ?? ''}» que subió el dueño.`
-          : '';
-      const proyIds = [...new Set(cands.map((c) => c.proyectoId).filter((x): x is string => !!x))];
-      try {
-        const r = await board.repo!.priorizarNuevas!(ids, proyIds, contexto);
-        // Traer el veredicto a la pantalla. Sin esto la UI mostraba el score adivinado por
-        // la extracción y el próximo guardado del board le pisaba encima al Perro.
-        if (r) board.aplicarPerroServer(r.patches, r.proyectosPatch);
-      } catch (e) { console.warn('[reunion] priorizarNuevas', e); }
-    }
+    // ⛔ ACÁ CORRÍA EL PERRO (`repo.priorizarNuevas`, con `await`): puntuaba, describía y armaba la
+    // checklist de estas tareas, y re-curvaba el tablero. Se fue el 16/10/2026 (ver arriba).
   };
 
   return (
@@ -1619,7 +1615,6 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido
             .catch(() => { /* si falla, queda lo que ya habíamos pintado */ })
             .finally(() => setCargandoBorrador(null));
         }}
-        existentes={tasks.filter((t) => t.progress < 100).map((t) => ({ id: t.id, titulo: t.title, detalle: t.detalle }))}
         onUsage={(u) => showUsage(u, 'extraer tareas de reunión')} onCrear={crearDesdeReunion} onAmpliar={ampliarDesdeReunion} onClose={() => { setExtraerReunion(false); setReunionArchivo(null); }} />}
       {exportar && <ExportarModal tasks={tasks} labels={labels} titulo={repo.labelPlural === 'Proyectos' ? 'Plan' : repo.labelPlural} onClose={() => setExportar(false)} />}
       {/* Borrar es UNA pregunta con dos botones: ya no se le pide permiso al Perro. La

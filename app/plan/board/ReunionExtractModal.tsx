@@ -2,8 +2,15 @@
 
 // ReunionExtractModal — G3: MaKo lee una reunión de Fathom y saca los action items
 // del equipo como tarjetas del plan. Dos fases: elegir la reunión → revisar los
-// candidatos (incluir/excluir + reasignar proyecto) → agregar al plan. El perro
-// guardián los re-puntúa solo cuando entran (cambia la firma del plan).
+// candidatos (incluir/excluir + reasignar proyecto) → agregar al plan. Entran SIN
+// prioridad («Sin priorizar»): la pone «Re-priorizar todo» (16/10/2026).
+//
+// ⛔ SIN ESPERA Y SIN IA EN EL NAVEGADOR (16/10/2026, «Fathom sin fricción»). Leer una reunión
+// ya no te tiene mirando un spinner: el server deja el borrador en «procesando» y lo llena en
+// segundo plano (lib/leer-reunion-en-segundo-plano.ts); este modal sólo lo SONDEA y se puede
+// cerrar. El cruce con el plan («¿esto ya está?») tampoco corre acá: el borrador llega cruzado
+// (lib/reunion-cruce.ts). Y las reuniones que el cron NO leyó —descartadas por tipo, o con la
+// lectura fallida— se ven arriba de la lista, con su motivo y «Leer igual» (mig 0296).
 //
 // Lo que sale de acá al plan es SIEMPRE tuyo: las tareas de otras personas viven en
 // su propia tab (ReunionTareas) y se les mandan a ellas — no se pueden tildar.
@@ -24,13 +31,18 @@ const MONO = "'Geist Mono', monospace";
 type Participante = { nombre: string; email: string };
 type ReunionMeta = { recordingId: number; titulo: string; fecha: string | null; durMin: number | null; url: string | null; involucrados: string[]; tipo: TipoReunion; participantes?: Participante[] };
 type Candidata = CandidataTarea;
-type Existente = { id: string; titulo: string; detalle: string };
 type Duda = { termino: string; porque: string };
 // enriquece = ya existe en el plan; el Perro sugiere sumarle a esa tarjeta en vez de duplicar.
 type Fila = FilaTarea;
 
-/** Lo que YA salió de una reunión (borrador pendiente o ya aplicado). */
-export type ResumenBorrador = { id: string; estado: 'pendiente' | 'aplicada' | 'descartada'; creadas: number; pendientesMias: number; pendientesOtros: number };
+/** Lo que YA salió de una reunión (borrador pendiente o ya aplicado). 'procesando' = se está
+ *  leyendo en segundo plano; 'fallado' = no salió (o salió sin compromisos), `resumen` dice cuál. */
+export type ResumenBorrador = { id: string; estado: 'pendiente' | 'aplicada' | 'descartada' | 'procesando' | 'fallado'; creadas: number; pendientesMias: number; pendientesOtros: number; resumen?: string };
+
+/** Una reunión que el cron NO leyó (mig 0296), con el motivo en una línea: el clasificador la dio
+ *  por ventas u «otra», o iba al plan y la lectura falló ('fallo'). */
+type Descartada = { recordingId: number; titulo: string; fecha: string | null; url: string | null; tipo: 'ventas' | 'otra' | 'fallo'; motivo: string };
+const TIPO_NO_LEIDA: Record<Descartada['tipo'], string> = { ventas: 'Ventas', otra: 'Sin clasificar', fallo: 'Falló la lectura' };
 
 
 // ── El caché de la lista ─────────────────────────────────────────────────────
@@ -75,7 +87,13 @@ export type ClienteReunion = { nombre: string; empresa: string | null; proyecto:
 /** Lo que se ofrece cuando el server NO tuvo certeza (pregunta cerrada, una sola). */
 type OpcionCliente = { nombre: string; sub: string };
 
-async function apiFathom(body: Record<string, unknown>): Promise<{ ok: boolean; reuniones?: ReunionMeta[]; nextCursor?: string | null; borradores?: Record<string, ResumenBorrador>; tareas?: Candidata[]; dudas?: Duda[]; cruces?: Array<{ i: number; idExistente: string | null; razon: string }>; cliente?: ClienteReunion | null; opcionesCliente?: OpcionCliente[]; borradorId?: string; usage?: unknown; error?: string; estado?: string; resumen?: string; n?: number; yaEstaba?: boolean;
+async function apiFathom(body: Record<string, unknown>): Promise<{ ok: boolean; reuniones?: ReunionMeta[]; nextCursor?: string | null; borradores?: Record<string, ResumenBorrador>; tareas?: Candidata[]; dudas?: Duda[]; cliente?: ClienteReunion | null; opcionesCliente?: OpcionCliente[]; borradorId?: string; usage?: unknown; error?: string; estado?: string; resumen?: string; n?: number; yaEstaba?: boolean;
+  /** `extraer` sin caché (16/10/2026): la lectura quedó corriendo en el server; hay que sondear. */
+  procesando?: boolean;
+  /** `reuniones`: las que el cron descartó. `null` = no se pudieron leer (no es «ninguna»). */
+  descartadas?: Descartada[] | null;
+  /** `estado-borrador`: la lectura terminó sin compromisos (no es un error). */
+  sinCompromisos?: boolean;
   /** `estado-borrador`: la revisión YA guardada, con el resultado del cruce adentro.
    *  `cruzadoAt` es lo que dice si hay que volver a comparar con el plan o no. */
   cruzadoAt?: string; guardadas?: Array<Pick<FilaTarea, 'titulo' | 'enriquece' | 'incluir' | 'ampliar'>> }> {
@@ -95,9 +113,10 @@ function fmtFecha(iso: string | null): string {
   try { return new Date(iso).toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' }); } catch { return ''; }
 }
 
-export function ReunionExtractModal({ labels, existentes, archivoInicial, onCrear, onAmpliar, onUsage, onClose, onAbrirBorrador, recibidos, onAbrirRecibido, catalogo }: {
+export function ReunionExtractModal({ labels, archivoInicial, onCrear, onAmpliar, onUsage, onClose, onAbrirBorrador, recibidos, onAbrirRecibido, catalogo }: {
   labels: Label[];
-  existentes: Existente[];               // tareas abiertas del plan, para el dedup del Perro (punto 8)
+  // ⛔ `existentes` (las tareas abiertas, para el cruce del Perro en el navegador) se fue el
+  // 16/10/2026: el cruce corre en el server (lib/reunion-cruce.ts).
   archivoInicial?: File[] | null;        // los archivos que salieron de la bandeja de importación
   onCrear: (cands: Candidata[], fuente?: Fuente) => void;
   /** Las que YA existen: en vez de crear una segunda, se le suma el contexto a la que está. */
@@ -133,6 +152,8 @@ export function ReunionExtractModal({ labels, existentes, archivoInicial, onCrea
   // Qué salió ya de cada reunión, por recordingId. Lo manda el server con la lista, así
   // que no cuesta un round-trip: es lo que convierte "Extraer →" en "Ver lo que sacó →".
   const [borradores, setBorradores] = useState<Record<number, ResumenBorrador>>({});
+  // Las que el cron descartó por tipo (mig 0296). Arriba de la lista, cortas, con «Leer igual».
+  const [descartadas, setDescartadas] = useState<Descartada[]>([]);
   const [q, setQ] = useState('');                              // búsqueda por título/email
   const [desde, setDesde] = useState('');                      // filtro por fecha (YYYY-MM-DD)
   const [elegida, setElegida] = useState<ReunionMeta | null>(null);
@@ -164,6 +185,8 @@ export function ReunionExtractModal({ labels, existentes, archivoInicial, onCrea
       setReuniones((prev) => (reset || !prev ? j.reuniones! : [...prev, ...j.reuniones!]));
       setCursor(j.nextCursor ?? null);
       if (reset) guardarCache(desde, j.reuniones!, j.nextCursor ?? null, j.borradores ?? {});
+      // `null` (no se pudieron leer) deja lo que había: no se dibuja «ninguna» sobre una lectura fallida.
+      if (reset && Array.isArray(j.descartadas)) setDescartadas(j.descartadas);
       const porId: Record<number, ResumenBorrador> = {};
       for (const [ref, v] of Object.entries(j.borradores ?? {})) {
         const n = Number(ref.replace('fathom:', ''));
@@ -207,19 +230,14 @@ export function ReunionExtractModal({ labels, existentes, archivoInicial, onCrea
     (t ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
 
   /**
-   * Guarda el borrador. `cruzado` sella `cruzado_at` (mig 0123) y es lo que hace que la
-   * próxima apertura NO vuelva a comparar con el plan.
-   *
-   * Se llama a mano después del cruce y NO se deja al autosave: aquel es un debounce de
-   * 900 ms que muere con el componente, así que cerrar el modal antes se llevaba el
-   * resultado de una llamada de IA. Para las ediciones a mano da igual —volvés y
-   * reescribís—; esto no se puede perder.
+   * Guarda la revisión en el borrador (el autosave). Ya NO sella `cruzado_at`: desde el
+   * 16/10/2026 el cruce y su sello los escribe el server (lib/reunion-cruce.ts).
    */
-  const guardarBorrador = async (id: string, fs: Fila[], cruzado?: boolean) => {
+  const guardarBorrador = async (id: string, fs: Fila[]) => {
     await fetch('/api/plan-propuesta', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        action: 'guardar', id, cruzado,
+        action: 'guardar', id,
         tareas: fs.map((f) => ({
           titulo: f.titulo, detalle: f.detalle, prioridad: f.prioridad,
           proyecto: labels.find((l) => l.id === f.proyectoId)?.name ?? f.proyectoNombre,
@@ -264,17 +282,14 @@ export function ReunionExtractModal({ labels, existentes, archivoInicial, onCrea
     let filasNuevas: Fila[] = aProyecto(tareas.map((t) => ({ ...t, incluir: !t.esDeOtro })), cliente?.proyecto ?? '');
     setCliente(cliente ?? null);
 
-    // ⛔ EL CRUCE CORRE UNA VEZ POR REUNIÓN, NO UNA VEZ POR APERTURA.
+    // EL CRUCE CON EL PLAN YA NO CORRE ACÁ (16/10/2026). Lo hace el server antes de que la reunión
+    // llegue a esta pantalla (lib/reunion-cruce.ts) y lo SELLA en el borrador (`cruzado_at`). Acá
+    // sólo se HIDRATA lo que encontró —el resultado viaja en `guardadas`—, casado por título. Si
+    // todavía no se cruzó, no se espera ni se llama a nadie: se revisa y se carga igual.
     //
-    // Acá se llamaba a `cruzar` SIEMPRE, y esa es una llamada de IA con su espera. El
-    // dueño lo reportó dos veces: «le doy al botón de Regresar a todas las reuniones y
-    // cuando entro otra vez, volvió a analizar todo y cruzarlo con mi plan, cuando ya
-    // habíamos dicho muchas veces que debe quedar como borrador». Y lo peor no es el
-    // gasto: el cruce nuevo PISA lo que él ya había destildado o corregido.
-    //
-    // El borrador ya guardaba ese resultado —`cruzado_at`, mig 0123— pero por el otro
-    // modal, no por este. Ahora se pregunta primero: si ya está cruzado, se hidrata de lo
-    // guardado y no se llama a nadie.
+    // (Antes acá se llamaba a `cruzar` desde el navegador, con su espera, cada vez que el borrador no
+    // estaba sellado: «le doy al botón de Regresar a todas las reuniones y cuando entro otra vez,
+    // volvió a analizar todo y cruzarlo con mi plan».)
     const yaCruzado = borrador
       ? await apiFathom({ action: 'estado-borrador', id: borrador }).catch(() => ({ ok: false } as never))
       : { ok: false } as never;
@@ -285,22 +300,8 @@ export function ReunionExtractModal({ labels, existentes, archivoInicial, onCrea
       const porTitulo = new Map(guardadas.map((g) => [normTit(g.titulo ?? ''), g]));
       filasNuevas = filasNuevas.map((f) => {
         const g = porTitulo.get(normTit(f.titulo));
-        return g ? { ...f, enriquece: g.enriquece, incluir: g.incluir ?? f.incluir, ampliar: g.ampliar } : f;
+        return g ? { ...f, enriquece: g.enriquece, incluir: g.incluir ?? f.incluir, ampliar: g.ampliar ?? (g.enriquece?.id ? true : undefined) } : f;
       });
-      console.info('[reunion-extract] el borrador ya estaba cruzado: no se vuelve a comparar con el plan');
-    } else {
-      // Dedup contra el plan (best-effort: apiFathom nunca lanza; si el server falla, ok:false).
-      const jc = await apiFathom({ action: 'cruzar', candidatas: tareas.map((t) => ({ titulo: t.titulo, detalle: t.detalle })), existentes, uso: 'Cruzar con el plan' });
-      if (jc.ok && Array.isArray(jc.cruces)) {
-        // `ampliar: true` es el default de una repetida: no se puede volver a cargar, se
-        // le suma el contexto a la tarjeta que ya está. Sin esto la fila solo nacía
-        // destildada y alcanzaba con tildarla para dejar la misma tarea dos veces.
-        for (const c of jc.cruces) if (filasNuevas[c.i]) filasNuevas[c.i] = { ...filasNuevas[c.i], enriquece: { id: c.idExistente!, razon: c.razon }, incluir: false, ampliar: !!c.idExistente };
-      }
-      // Se SELLA aunque no haya encontrado nada: «ya se cruzó» y «no encontró nada» son
-      // lo mismo para la próxima apertura. Si la llamada falló NO se sella, para poder
-      // reintentar entrando de nuevo.
-      if (borrador && jc.ok) void guardarBorrador(borrador, filasNuevas, true);
     }
     setFilas(filasNuevas); setDudas(dudasIn); setDefs({});
     // SIN CERTEZA → se pregunta, una sola vez y cerrada. Es el paso que faltaba: sin él
@@ -343,6 +344,18 @@ export function ReunionExtractModal({ labels, existentes, archivoInicial, onCrea
     clearTimeout(avisar);
     setEnSegundoPlano(false);
     if (j.usage) onUsage?.(j.usage);
+    // «Leer igual» la saca de la lista «Sin leer» (el server ya le puso `leida_at`).
+    setDescartadas((ds) => ds.filter((d) => d.recordingId !== r.recordingId));
+    // SIN CACHÉ, LA LECTURA QUEDÓ EN EL SERVER (16/10/2026): se sondea el borrador. Puedes cerrar
+    // el modal: cuando termine, aparece en tus pendientes.
+    if (j.ok && j.procesando && j.borradorId) {
+      const id = j.borradorId;
+      setBorradorId(id);
+      setBorradores((b) => ({ ...b, [r.recordingId]: { id, estado: 'procesando', creadas: b[r.recordingId]?.creadas ?? 0, pendientesMias: 0, pendientesOtros: 0 } }));
+      setEnSegundoPlano(true);
+      await esperarBorrador(id, r);
+      return;
+    }
     if (j.ok && j.tareas) {
       // La lista se entera ACÁ de que esta reunión ya está leída. Antes el mapa
       // `borradores` solo se llenaba al cargar la lista (una vez, antes de extraer):
@@ -395,7 +408,7 @@ export function ReunionExtractModal({ labels, existentes, archivoInicial, onCrea
    * termina mire quien mire. Esto es solo la ventana. Si el usuario cierra el modal, se
    * corta el `parar` y no pasa nada — el borrador aparece igual en la lista.
    */
-  const esperarBorrador = async (id: string) => {
+  const esperarBorrador = async (id: string, reunion?: ReunionMeta) => {
     const arranque = Date.now();
     // Cada 4 segundos: es una fila, no cuesta nada, y el techo de 6 minutos cubre el
     // peor caso medido (122 s) con margen de sobra sin quedarse girando para siempre.
@@ -406,9 +419,19 @@ export function ReunionExtractModal({ labels, existentes, archivoInicial, onCrea
       if (!primera) await new Promise((r) => setTimeout(r, 4000));
       primera = false;
       if (pararRef.current) return;
-      const e = await apiFathom({ action: 'estado-borrador', id }).catch(() => ({ ok: false } as Awaited<ReturnType<typeof apiFathom>>));
+      const e = await apiFathom({ action: 'estado-borrador', id, conReunion: !!reunion }).catch(() => ({ ok: false } as Awaited<ReturnType<typeof apiFathom>>));
       if (!e.ok || !e.estado || e.estado === 'procesando') { setEnSegundoPlano(true); continue; }
       setEnSegundoPlano(false);
+      if (reunion) {
+        // LA REUNIÓN TERMINÓ DE LEERSE. La lista se entera acá (sin recargar).
+        const mias = (e.tareas ?? []).filter((t) => !t.esDeOtro).length;
+        setBorradores((b) => ({ ...b, [reunion.recordingId]: { id, estado: (e.estado as ResumenBorrador['estado']) ?? 'pendiente', creadas: b[reunion.recordingId]?.creadas ?? 0, pendientesMias: mias, pendientesOtros: (e.tareas?.length ?? 0) - mias, resumen: e.resumen } }));
+        // Sin compromisos NO es un error: es la lectura vacía de siempre, con «Volver a analizar».
+        if (e.sinCompromisos) { setFilas([]); setFase('revisar'); return; }
+        if (e.estado === 'fallado') { setErr(e.resumen || 'MaKo no pudo leer la reunión.'); volverALista(); return; }
+        await procesar(e.tareas ?? [], e.dudas ?? [], e.cliente ?? null, e.opcionesCliente ?? [], id);
+        return;
+      }
       if (e.estado === 'fallado') { setErr(e.resumen || 'No pude leer esos archivos.'); volverALista(); return; }
       if (e.estado === 'descartada' || !e.tareas?.length) {
         setErr('MaKo leyó los archivos y no encontró ninguna tarea para cargar.');
@@ -588,6 +611,18 @@ export function ReunionExtractModal({ labels, existentes, archivoInicial, onCrea
                 </div>
               )}
 
+              {/* LAS QUE EL CRON NO LEYÓ (mig 0296, 16/10/2026). Hasta ese día una reunión de ventas,
+                  sin nadie reconocible o con la lectura fallida desaparecía sin rastro: ni borrador,
+                  ni aviso, sólo un log de Vercel. Ahora se ven acá, con el motivo y «Leer igual».
+                  Corta a propósito: tres a la vista y el resto detrás de «Ver todas». */}
+              {descartadas.length > 0 && !q && (
+                <ListaDescartadas descartadas={descartadas} onLeer={(d) => void extraer({
+                  recordingId: d.recordingId, titulo: d.titulo, fecha: d.fecha, durMin: null, url: d.url, involucrados: [],
+                  // Una que FALLÓ sí iba al plan: su tipo real no se guardó, y 'otra' no frena nada.
+                  tipo: d.tipo === 'fallo' ? 'otra' : d.tipo,
+                })} />
+              )}
+
               {reuniones == null
                 ? <Cargando texto="Buscando tus reuniones en Fathom…" />
                 : visibles.length === 0
@@ -616,7 +651,11 @@ export function ReunionExtractModal({ labels, existentes, archivoInicial, onCrea
                         // lo mismo). Se entra a ver lo que salió: las tarjetas que ya están
                         // en el plan y lo que quedó del lado de otras personas.
                         const b = borradores[r.recordingId];
-                        const yaLeida = !!b && !!onAbrirBorrador;
+                        // 'procesando' (se está leyendo) y 'fallado' (no salió) NO son «ya leída»: el
+                        // primero vuelve a mirar la lectura en curso, el segundo deja leerla de nuevo.
+                        const leyendo = b?.estado === 'procesando';
+                        const fallo = b?.estado === 'fallado';
+                        const yaLeida = !!b && !!onAbrirBorrador && !leyendo && !fallo;
                         // Cuántas de esa reunión YA ESTÁN en el plan. Se dice siempre que
                         // haya alguna: antes solo salía si el borrador seguía vivo, así que
                         // una reunión con 32 tareas cargadas se veía igual que una que nunca
@@ -633,7 +672,9 @@ export function ReunionExtractModal({ labels, existentes, archivoInicial, onCrea
                         // puede volver a mirar.
                         const cerrada = b?.estado === 'aplicada' || b?.estado === 'descartada';
                         return (
-                          <button key={r.recordingId} type="button" onClick={() => (yaLeida ? onAbrirBorrador!(r.recordingId, { titulo: r.titulo, fecha: r.fecha, n: yaEnPlan + (b?.pendientesMias ?? 0) + (b?.pendientesOtros ?? 0) }) : extraer(r))}
+                          <button key={r.recordingId} type="button" onClick={() => (yaLeida ? onAbrirBorrador!(r.recordingId, { titulo: r.titulo, fecha: r.fecha, n: yaEnPlan + (b?.pendientesMias ?? 0) + (b?.pendientesOtros ?? 0) })
+                            : leyendo && b ? (() => { setElegida(r); setFase('extrayendo'); setErr(''); setBorradorId(b.id); setEnSegundoPlano(true); void esperarBorrador(b.id, r); })()
+                              : extraer(r))}
                             // Sin leer = APAGADA. Lo que MaKo ya miró tiene que saltar a la
                             // vista; lo que todavía no, se ve pero no compite. Una lista donde
                             // todo pesa igual obliga a leer los 40 títulos.
@@ -669,7 +710,12 @@ export function ReunionExtractModal({ labels, existentes, archivoInicial, onCrea
                               </span>
                               <span style={{ display: 'block', fontSize: 12, color: 'var(--faint)', marginTop: 2 }}>{fmtFecha(r.fecha)}{r.durMin ? ` · ${r.durMin} min` : ''}</span>
                               {r.involucrados.length > 0 && <span style={{ display: 'block', fontSize: 11.5, color: 'var(--dim)', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>👤 {r.involucrados.join(', ')}</span>}
-                              {b && (
+                              {(leyendo || fallo) && (
+                                <span style={{ display: 'block', fontSize: 11.5, color: leyendo ? 'var(--primary)' : 'var(--faint)', fontWeight: 600, marginTop: 3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                  {leyendo ? 'MaKo la está leyendo…' : (b?.resumen || 'No se pudo leer')}
+                                </span>
+                              )}
+                              {b && !leyendo && !fallo && (
                                 <span style={{ display: 'block', fontSize: 11.5, color: b.estado === 'descartada' ? 'var(--faint)' : yaEnPlan > 0 ? 'var(--good)' : 'var(--dim)', fontWeight: 600, marginTop: 3 }}>
                                   {/* Si de esta reunión salió aunque sea UNA tarea al plan, eso
                                       es lo que se dice — aunque el borrador figure descartado.
@@ -691,7 +737,7 @@ export function ReunionExtractModal({ labels, existentes, archivoInicial, onCrea
                                 que arriba queden solo los chips. */}
                             <span style={{ display: 'flex', alignItems: 'flex-end', flex: 'none' }}>
                               <span style={{ fontSize: 13, color: yaLeida ? 'var(--primary)' : 'var(--dim)', fontWeight: 600, whiteSpace: 'nowrap' }}>
-                                {yaLeida ? 'Ver lo que sacó →' : 'Extraer →'}
+                                {yaLeida ? 'Ver lo que sacó →' : leyendo ? 'Leyendo…' : fallo ? 'Leer de nuevo →' : 'Extraer →'}
                               </span>
                             </span>
                           </button>
@@ -824,7 +870,7 @@ export function ReunionExtractModal({ labels, existentes, archivoInicial, onCrea
                     labels={labels}
                     onFila={setFila}
                     reunion={{ recordingId: elegida?.recordingId, titulo: elegida?.titulo ?? archivoNombre, fecha: elegida?.fecha ?? null, url: elegida?.url ?? null }}
-                    cabecera="Elige cuáles agregar a TU plan. El perro les pone la prioridad final."
+                    cabecera="Elige cuáles agregar a TU plan. Entran sin prioridad."
                     pieAcciones={pieSlot}
                     onPersonaActiva={setPersonaActiva}
                   />
@@ -879,6 +925,47 @@ export function ReunionExtractModal({ labels, existentes, archivoInicial, onCrea
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+/**
+ * «Sin leer»: las reuniones que el cron no leyó, por las dos causas (mig 0296): el clasificador las
+ * dio por ventas u «otra» (lib/reunion-clasificar.ts), o iban al plan y la lectura falló. Una fila por
+ * reunión: título, fecha, por qué (el correo que lo decidió, o el error) y «Leer igual». En el
+ * teléfono el botón baja de renglón en vez de apretar el título.
+ *
+ * Se llama «Sin leer» y no «Descartadas» (el nombre de la decisión del 16/10) porque la medición
+ * dijo que en el ws1 la causa eran las FALLAS, no el clasificador: «descartada» le diría al dueño que
+ * MaKo decidió no leerla, cuando lo que pasó es que no pudo.
+ */
+function ListaDescartadas({ descartadas, onLeer }: { descartadas: Descartada[]; onLeer: (d: Descartada) => void }) {
+  const [todas, setTodas] = useState(false);
+  const visibles = todas ? descartadas : descartadas.slice(0, 3);
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--faint)', fontWeight: 700 }}>
+        Sin leer · {descartadas.length}
+      </div>
+      {visibles.map((d) => (
+        <div key={d.recordingId} style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '6px 12px', padding: '10px 13px', borderRadius: 12, border: '1px dashed var(--border-strong)', background: 'var(--surface-2)' }}>
+          <span style={{ flex: '1 1 220px', minWidth: 0 }}>
+            <span style={{ display: 'block', fontSize: 13.5, fontWeight: 600, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{d.titulo || 'Reunión sin título'}</span>
+            <span style={{ display: 'block', fontSize: 11.5, color: d.tipo === 'fallo' ? 'var(--warn)' : 'var(--faint)', marginTop: 2 }}>{[fmtFecha(d.fecha), TIPO_NO_LEIDA[d.tipo]].filter(Boolean).join(' · ')}</span>
+            {d.motivo && <span style={{ display: 'block', fontSize: 12, color: 'var(--dim)', marginTop: 2, lineHeight: 1.4, overflowWrap: 'anywhere' }}>{d.motivo}</span>}
+          </span>
+          <button type="button" onClick={() => onLeer(d)}
+            style={{ flex: 'none', marginLeft: 'auto', padding: '7px 13px', borderRadius: 9, border: '1px solid var(--primary-weak)', background: 'var(--primary-bg)', color: 'var(--primary)', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', fontFamily: SANS }}>
+            {d.tipo === 'fallo' ? 'Reintentar' : 'Leer igual'}
+          </button>
+        </div>
+      ))}
+      {descartadas.length > 3 && (
+        <button type="button" onClick={() => setTodas((x) => !x)}
+          style={{ alignSelf: 'flex-start', padding: '4px 2px', border: 'none', background: 'transparent', color: 'var(--dim)', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', fontFamily: SANS }}>
+          {todas ? 'Ver menos' : `Ver todas (${descartadas.length})`}
+        </button>
+      )}
     </div>
   );
 }

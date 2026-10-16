@@ -8,8 +8,10 @@
 //
 // LA REGLA DEL PLAN: un agente NUNCA crea, edita, cierra ni borra tareas directo.
 // Todo entra por un BORRADOR (plan_propuestas) que una persona revisa en
-// /plan/revisar/<id>, y al aplicarlo corre el Perro Guardián (puntúa, rutea al
-// proyecto, arma la checklist). Lo único que va por chat son cambios chicos sobre UNA
+// /plan/revisar/<id>. Al aplicarlo las tareas entran LIBRES y SIN IA (16/10/2026, «Fathom
+// sin fricción»): sin prioridad («Sin priorizar»), al proyecto que se deduce sin modelo o a
+// la bandeja «Sin proyecto»; la prioridad la pone «Re-priorizar todo». Antes corría el Perro
+// (puntuaba, ruteaba, armaba la checklist). Lo único que va por chat son cambios chicos sobre UNA
 // cosa ya identificada por id (tildar un paso, cambiar el avance, una dependencia).
 //
 // Hay DOS tableros: el del super-admin (ids de texto, #num, dependencias) y el de
@@ -154,7 +156,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'ver_estado_borrador', area: 'plan', tipo: 'lectura',
     titulo: 'Estado de un borrador',
-    descripcion: 'Estado liviano de un borrador que MaKo puede estar llenando en segundo plano (archivos subidos): procesando, pendiente, aplicada, descartada o fallado, cuántas tareas lleva y el resumen. Sirve para sondear sin traer todo el contenido.',
+    descripcion: 'Estado liviano de un borrador que MaKo puede estar llenando en segundo plano (archivos subidos o una reunión leída a mano): procesando, pendiente, aplicada, descartada o fallado, cuántas tareas lleva y el resumen. Sirve para sondear sin traer todo el contenido.',
     parametros: [
       { nombre: 'id', tipo: 'string', descripcion: 'id del borrador (empieza con «prop»).', obligatorio: true, max: 80 },
     ],
@@ -172,7 +174,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'listar_reuniones_fathom', area: 'plan', tipo: 'lectura',
     titulo: 'Últimas reuniones de Fathom',
-    descripcion: 'Una página de las grabaciones recientes del Fathom del negocio: título, fecha, duración en minutos, link, cantidad de participantes y tipo (equipo, ventas, entrega u otra, calculado contra el CRM y el equipo), más qué borrador dejó cada una. Las de ventas no van al plan: sus compromisos son del lead. Para seguir, pasa el cursor que devuelve. Necesita Fathom conectado.',
+    descripcion: 'Una página de las grabaciones recientes del Fathom del negocio: título, fecha, duración en minutos, link, cantidad de participantes y tipo (equipo, ventas, entrega u otra, calculado contra el CRM y el equipo), más qué borrador dejó cada una y `sin_leer`: las que el cron no leyó y por qué. Para seguir, pasa el cursor que devuelve. Necesita Fathom conectado.',
     parametros: [
       { nombre: 'cursor', tipo: 'string', descripcion: 'el cursor de la página anterior (campo siguiente_cursor).', max: 400 },
       { nombre: 'recordedAfter', tipo: 'string', descripcion: 'solo las grabadas después de esta fecha, ISO (AAAA-MM-DD o con hora).', max: 40 },
@@ -221,7 +223,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'sugerir_proyecto_plan', area: 'plan', tipo: 'lectura',
     titulo: 'Sugerir nombre de proyecto',
-    descripcion: 'Dada una descripción en palabras del usuario, MaKo sugiere nombre corto (tipo nombre de pestaña), emoji y detalle para un proyecto. NO crea nada: el nombre se pasa en `proyecto` de proponer_tareas_plan y el Perro Guardián decide al aplicar si nace o si va a uno existente.',
+    descripcion: 'Dada una descripción en palabras del usuario, MaKo sugiere nombre corto (tipo nombre de pestaña), emoji y detalle para un proyecto. NO crea nada: el nombre se pasa en `proyecto` de proponer_tareas_plan; al aplicar entra ahí si existe o es del catálogo, y si no, a «Sin proyecto».',
     parametros: [
       { nombre: 'descripcion', tipo: 'string', descripcion: 'qué es el proyecto, en las palabras del usuario.', obligatorio: true, max: 1500 },
     ],
@@ -316,7 +318,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'proponer_tareas_plan', area: 'plan', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/plan/revisar', reversible: true,
     titulo: 'Proponer tareas al plan',
-    descripcion: 'PROPONE agregar tareas al plan: deja un BORRADOR con las tareas. Úsala cuando pasan una lista de cosas para el plan, aunque venga desordenada. Resuelve lo DEDUCIBLE antes (a qué proyecto va y si ya existe, con listar_tareas_plan). Lo que no puedas deducir va escrito en el `detalle` de la tarea: el alta NO hace preguntas, y la prioridad y la fecha las decide el Perro Guardián al aplicar. Devuelve un LINK: pásalo TAL CUAL, sin pedir «sí» ni repetir la lista. Nada se crea hasta que la persona confirma en esa pantalla.',
+    descripcion: 'PROPONE agregar tareas al plan: deja un BORRADOR con las tareas. Úsala cuando pasan una lista de cosas para el plan, aunque venga desordenada. Resuelve lo DEDUCIBLE antes (a qué proyecto va y si ya existe, con listar_tareas_plan). Lo que no puedas deducir va escrito en el `detalle` de la tarea: el alta NO hace preguntas y las tareas entran sin prioridad. Devuelve un LINK: pásalo TAL CUAL, sin pedir «sí» ni repetir la lista. Nada se crea hasta que la persona confirma en esa pantalla.',
     parametros: [
       {
         nombre: 'tareas', tipo: 'object[]', descripcion: 'las tareas a agregar, con lo deducible resuelto.', obligatorio: true, max: 30,
@@ -325,7 +327,7 @@ export const DEFS: readonly OperacionDef[] = [
           { nombre: 'detalle', tipo: 'string', descripcion: 'EL CAMPO MÁS IMPORTANTE: qué es, por qué, qué sería «listo» y todo el contexto que dio la persona. Lo que no quede aquí se pierde.', max: TOPE_DETALLE },
           { nombre: 'proyecto', tipo: 'string', descripcion: 'NOMBRE legible del proyecto (nunca un id). Si ya existe, el nombre exacto de listar_tareas_plan. Es una propuesta: no le digas a la persona en qué proyecto quedó.', max: 120 },
           { nombre: 'deadline', tipo: 'string', descripcion: 'fecha límite AAAA-MM-DD, solo si la dijeron.', max: 10 },
-          { nombre: 'prioridad', tipo: 'string', descripcion: 'se ignora al aplicar: la decide el Perro Guardián.', enum: ['alta', 'media', 'baja', 'futuro'] },
+          { nombre: 'prioridad', tipo: 'string', descripcion: 'se ignora al aplicar: la tarea entra sin prioridad.', enum: ['alta', 'media', 'baja', 'futuro'] },
         ],
       },
     ],

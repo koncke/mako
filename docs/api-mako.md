@@ -1009,7 +1009,7 @@ curl -L \
 
 ### `GET /api/v1/plan/borradores/{id}/estado` — Estado de un borrador
 
-Estado liviano de un borrador que MaKo puede estar llenando en segundo plano (archivos subidos): procesando, pendiente, aplicada, descartada o fallado, cuántas tareas lleva y el resumen. Sirve para sondear sin traer todo el contenido.
+Estado liviano de un borrador que MaKo puede estar llenando en segundo plano (archivos subidos o una reunión leída a mano): procesando, pendiente, aplicada, descartada o fallado, cuántas tareas lleva y el resumen. Sirve para sondear sin traer todo el contenido.
 
 - **Ruta por operación:** `GET /api/v1/plan/ver_estado_borrador`
 - **Token detallado:** permiso `plan=read` (Solo lectura en «Plan»)
@@ -1280,7 +1280,7 @@ curl -L \
 
 ### `POST /api/v1/plan/borradores` — Proponer tareas al plan
 
-PROPONE agregar tareas al plan: deja un BORRADOR con las tareas. Úsala cuando pasan una lista de cosas para el plan, aunque venga desordenada. Resuelve lo DEDUCIBLE antes (a qué proyecto va y si ya existe, con listar_tareas_plan). Lo que no puedas deducir va escrito en el `detalle` de la tarea: el alta NO hace preguntas, y la prioridad y la fecha las decide el Perro Guardián al aplicar. Devuelve un LINK: pásalo TAL CUAL, sin pedir «sí» ni repetir la lista. Nada se crea hasta que la persona confirma en esa pantalla.
+PROPONE agregar tareas al plan: deja un BORRADOR con las tareas. Úsala cuando pasan una lista de cosas para el plan, aunque venga desordenada. Resuelve lo DEDUCIBLE antes (a qué proyecto va y si ya existe, con listar_tareas_plan). Lo que no puedas deducir va escrito en el `detalle` de la tarea: el alta NO hace preguntas y las tareas entran sin prioridad. Devuelve un LINK: pásalo TAL CUAL, sin pedir «sí» ni repetir la lista. Nada se crea hasta que la persona confirma en esa pantalla.
 
 - **Ruta por operación:** `POST /api/v1/plan/proponer_tareas_plan`
 - **Token detallado:** permiso `plan=write` (Lectura y escritura en «Plan»)
@@ -1299,7 +1299,7 @@ PROPONE agregar tareas al plan: deja un BORRADOR con las tareas. Úsala cuando p
 | `tareas.detalle` | string | no | EL CAMPO MÁS IMPORTANTE: qué es, por qué, qué sería «listo» y todo el contexto que dio la persona. Lo que no quede aquí se pierde. |
 | `tareas.proyecto` | string | no | NOMBRE legible del proyecto (nunca un id). Si ya existe, el nombre exacto de listar_tareas_plan. Es una propuesta: no le digas a la persona en qué proyecto quedó. |
 | `tareas.deadline` | string | no | fecha límite AAAA-MM-DD, solo si la dijeron. |
-| `tareas.prioridad` | string (alta \\| media \\| baja \\| futuro) | no | se ignora al aplicar: la decide el Perro Guardián. |
+| `tareas.prioridad` | string (alta \\| media \\| baja \\| futuro) | no | se ignora al aplicar: la tarea entra sin prioridad. |
 
 ```bash
 curl -L \

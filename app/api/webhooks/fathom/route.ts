@@ -9,6 +9,9 @@
 // marca la asistencia (solo si estaba sin marcar) + guarda el link de la
 // grabación. Esto es el disparador "asistencia" del funnel: el lead avanza solo.
 //
+// Y desde el 16/10/2026 también le avisa al PLAN: dispara la lectura de esa reunión (la misma del
+// cron de cada hora, lib/reunion-auto.ts) para que el borrador aparezca al terminar la junta.
+//
 // Inerte hasta registrar la URL en Fathom (Settings → API → Add Webhook).
 // =============================================================================
 
@@ -26,6 +29,7 @@ import { redactarFollowUpPostLlamada } from '@/lib/post-llamada';
 import { textoAvisoPostLlamada } from '@/lib/lead-resumen';
 import { datosPostLlamada } from '@/lib/reunion-grabada';
 import { esGrabacionDeEntrega } from '@/lib/insights-llamada-reparto';
+import { procesarReunionesNuevas } from '@/lib/reunion-auto';
 
 export const dynamic = 'force-dynamic';
 // El follow-up post-llamada (Closing Analyst + redacción con Claude) corre en
@@ -124,6 +128,32 @@ export async function POST(request: NextRequest) {
   if (ws == null) {
     console.warn(`[webhook:fathom] sin workspace para recorded_by=${hostEmail ?? '—'} — ignorado`);
     return Response.json({ ok: true, ignored: 'sin workspace' });
+  }
+
+  // 3') EL PLAN SE ENTERA AL TERMINAR LA REUNIÓN (16/10/2026, «Fathom sin fricción»). Hasta ese día
+  //     las tareas de una reunión las sacaba sólo el cron de cada hora (a los :40): entre que terminaba
+  //     la junta y que el borrador aparecía podía pasar una hora entera. Este aviso de Fathom es
+  //     justamente «terminó la reunión y ya está el contenido», así que dispara la MISMA lectura del
+  //     cron (`procesarReunionesNuevas`), acotada a esta grabación: el clasificador decide si va al
+  //     plan, el candado de lectura (lib/reunion-leyendo.ts) impide que el cron la lea otra vez, y lo
+  //     descartado queda anotado igual que en el cron.
+  //
+  //     Va ANTES de matchear el lead y por su cuenta: una reunión de EQUIPO no tiene invitado
+  //     externo ni lead, y el camino de abajo la ignora en la primera línea. En `after()`: Svix
+  //     reintenta si la respuesta tarda, y una lectura son minutos. Comparte el maxDuration (300 s)
+  //     con el follow-up de abajo; `hasta` es ese reloj.
+  {
+    const wsPlan = ws;
+    const rid = Number(body.recording_id);
+    const hasta = tStart + 280_000;
+    after(() => runWithWorkspace(wsPlan, async () => {
+      try {
+        const r = await procesarReunionesNuevas(wsPlan, { hasta, max: 1, ...(Number.isFinite(rid) && rid > 0 ? { soloRecording: rid } : {}) });
+        console.log(`[webhook:fathom] plan ws=${wsPlan} recording=${Number.isFinite(rid) ? rid : '—'}: miradas=${r.miradas} alPlan=${r.alPlan} borradores=${r.conTareas} tareas=${r.tareas}${r.enCurso ? ` · ya la leía otro` : ''}`);
+      } catch (e) {
+        console.error(`[webhook:fathom] plan ws=${wsPlan}: la lectura falló (${e instanceof Error ? e.message : String(e)}) — la levanta el cron`);
+      }
+    }));
   }
 
   // 3) Matchear lead + aplicar — TODO confinado al workspace resuelto.

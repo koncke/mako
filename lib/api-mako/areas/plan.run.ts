@@ -46,6 +46,7 @@ import { proponerProyecto } from '@/lib/checklist-coach';
 import { proyectosSinTareas, proponerTareasParaProyecto } from '@/lib/plan-proyecto-vacio';
 import { leerSenales, contextoDelNegocio } from '@/lib/plan-senales';
 import { listReunionesRecientes } from '@/lib/plan-fathom';
+import { listarDescartadas } from '@/lib/reunion-descartadas';
 import { AREA_GLOSARIO } from '@/lib/glosario';
 import { createKnowledge, updateKnowledge } from '@/lib/mako-knowledge';
 import { hoyEnWorkspace } from '@/lib/timezone';
@@ -554,18 +555,27 @@ export const RUNNERS: Runners = {
         recordedAfter: str(input, 'recordedAfter') || undefined,
       });
       const refs = pagina.reuniones.map((r) => `fathom:${r.recordingId}`);
-      const borr = await resumenPropuestasPorRefs(refs);
+      // LAS QUE EL CRON NO LEYÓ (mig 0296, 16/10/2026): descartadas por tipo o con la lectura fallida.
+      // Sólo en la primera página. `null` = no se pudieron leer (no es «ninguna»).
+      const sinLeer = str(input, 'cursor') ? undefined : await listarDescartadas();
+      const borr = await resumenPropuestasPorRefs([...refs, ...(sinLeer ?? []).map((d) => `fathom:${d.recordingId}`)]);
       return json({
         reuniones: pagina.reuniones.map((r) => {
           const b = borr[`fathom:${r.recordingId}`];
           return {
             recordingId: r.recordingId, titulo: r.titulo, fecha: r.fecha, dur_min: r.durMin, url: r.url, tipo: r.tipo,
+            motivo_del_tipo: r.motivo ?? null,
             participantes: r.participantes.length,
             borrador: b ? { id: b.id, estado: b.estado, ya_cargadas: b.creadas, pendientes_propias: b.pendientesMias, pendientes_de_otras_personas: b.pendientesOtros } : null,
           };
         }),
         siguiente_cursor: pagina.nextCursor,
-        nota: 'tipo ventas = sus compromisos son del lead, no van al plan. borrador null = la reunión no se leyó todavía.',
+        ...(sinLeer === undefined ? {} : {
+          sin_leer: sinLeer === null ? null : sinLeer
+            .filter((d) => !borr[`fathom:${d.recordingId}`])
+            .map((d) => ({ recordingId: d.recordingId, titulo: d.titulo, fecha: d.fecha, por_que: d.tipo === 'fallo' ? 'la lectura falló' : `tipo ${d.tipo}`, motivo: d.motivo })),
+        }),
+        nota: 'tipo ventas = sus compromisos son del lead, no van al plan. borrador null = la reunión no se leyó todavía. sin_leer = las que el cron no leyó en los últimos 14 días (null: no se pudo saber); se leen desde el modal de Fathom del plan.',
       });
     },
   },

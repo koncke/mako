@@ -155,7 +155,7 @@ export const AREAS: AreaDev[] = [
     vive: ['lib/mako-guardian.ts', 'app/api/mako-guardian/route.ts', 'lib/preguntas-contrato.ts', 'lib/todo-guardian.ts', 'lib/todo-rutear.ts', 'app/plan/board/guardian-form.tsx', 'app/plan/board/AudienciaModal.tsx', 'app/plan/board/metodologia.ts', 'lib/plan-prueba.ts', 'lib/plan-reprio.ts', 'app/plan/board/dependencias.ts', 'scripts/recurvar-plan.mts'],
     proyectos: ['Agente: Perro Guardián'],
     hallazgos: 'hallazgos-plan',
-    nota: 'El Perro NO se dispara principalmente desde /api/mako-guardian: la corrida real sobre tareas nuevas es priorizarNuevasOwner() en lib/plan-board.ts:448 (llamada desde lib/plan-propuesta.ts, lib/mako-doer-acciones.ts y app/api/plan-board/route.ts), y tiene un GEMELO para el board del cliente en lib/todo-guardian.ts. Tocar solo mako-guardian.ts arregla la mitad. Ojo también: lib/preguntas-contrato.ts va SIN \'server-only\' a propósito, porque lo comparten servidor y cliente.',
+    nota: 'El Perro NO se dispara principalmente desde /api/mako-guardian: la corrida real sobre tareas nuevas es priorizarNuevasOwner() en lib/plan-board.ts:448 (llamada desde lib/mako-doer-acciones.ts y app/api/plan-board/route.ts; desde el 16/10/2026 cargar un borrador —lib/plan-propuesta.ts— ya no la llama: las tareas nacen libres y sin IA), y tiene un GEMELO para el board del cliente en lib/todo-guardian.ts. Tocar solo mako-guardian.ts arregla la mitad. Ojo también: lib/preguntas-contrato.ts va SIN \'server-only\' a propósito, porque lo comparten servidor y cliente.',
   },
   {
     slug: 'meeting-reader', titulo: 'Meeting Reader', familia: 'Operate', grupo: 'Plan',

@@ -25,6 +25,7 @@ import { listCategorias } from './todo';
 import { proyectoParaTarea } from './reunion-cliente';
 import { asignarTareasAProyectos } from './mako-guardian';
 import { CATALOGO_TODO, delCatalogoTodo, PREFIJO_CLIENTE } from './todo-proyectos-catalogo';
+import { esProyectoDeCliente, esProyectoBandeja, destinoSinIA, type DestinoSinIA } from './plan-bandeja';
 
 const norm = (s: string): string =>
   s.normalize('NFD').replace(/[̀-ͯ]/g, '').trim().toLowerCase();
@@ -43,9 +44,9 @@ const norm = (s: string): string =>
  *  dos puntos) Y el prefijo canónico que crea `nombreProyectoCliente`. Lo que no
  *  lleva prefijo —un proyecto llamado con el nombre pelado del cliente— sigue sin
  *  detectarse: para eso está el renombre. */
-export function esProyectoDeCliente(nombre: string): boolean {
-  return /^(cliente|cuenta)\s*:?\s+/.test(norm(nombre));
-}
+// La regla vive en lib/plan-bandeja.ts desde el 16/10/2026 (sin `server-only`): la usa también
+// la carga SIN IA de un borrador, que tiene que reconocer el proyecto del cliente de la reunión.
+export { esProyectoDeCliente };
 
 export type TareaARutear = { titulo: string; detalle?: string | null; proyectoSugerido?: string };
 export type DestinoTarea = {
@@ -81,7 +82,9 @@ export async function rutearTareasCliente(items: TareaARutear[]): Promise<Destin
   // proyecto de un cliente cualquiera solo porque el tema se parece.
   const yaEstan = new Set(cats.map((c) => norm(c.nombre)));
   const destinos = [
-    ...cats.filter((c) => !esProyectoDeCliente(c.nombre))
+    // La BANDEJA tampoco es un destino (16/10/2026): una tarea no «va» a «Sin proyecto», cae ahí
+    // cuando nada la reclama — y este ruteo es justamente lo que la saca de ahí.
+    ...cats.filter((c) => !esProyectoDeCliente(c.nombre) && !esProyectoBandeja(c.nombre))
       .map((c) => ({ nombre: c.nombre, que: delCatalogoTodo(c.nombre)?.que ?? '' })),
     ...CATALOGO_TODO.filter((c) => !yaEstan.has(norm(c.nombre))).map((c) => ({ nombre: c.nombre, que: c.que })),
   ];
@@ -122,4 +125,36 @@ export async function rutearTareasCliente(items: TareaARutear[]): Promise<Destin
     if (!out[i].nombre && items[i].proyectoSugerido) out[i] = { nombre: items[i].proyectoSugerido, razon: 'lo propuso quien cargó la tarea (el ruteo no respondió)' };
   }
   return out;
+}
+
+/**
+ * EL RUTEO SIN IA del tablero del cliente (16/10/2026, «Fathom sin fricción»): los pasos 1, 2 y 4
+ * de `rutearTareasCliente` —los que no llaman a ningún modelo— y, en vez del Perro, la BANDEJA
+ * «Sin proyecto». Es lo que usa «Cargar» un borrador (aplicarPropuestas): la carga tiene que tardar
+ * segundos y no gastar nada; a qué ÁREA va lo que no se pudo deducir lo decide «Re-priorizar todo».
+ *
+ * La regla entera (qué propuesta se acepta y cuál va a la bandeja) es `destinoSinIA`
+ * (lib/plan-bandeja.ts, pura y con test). Acá sólo se hacen las lecturas: los proyectos que hay y,
+ * por tarea, si el texto nombra a un cliente del CRM o a un proyecto existente.
+ *
+ * `clienteDeLaReunion`: el borrador sabe con qué cliente fue la reunión (mig 0160). Sólo así un
+ * «Cliente: X» que todavía no existe puede nacer: es la señal del CRM, no el modelo.
+ */
+export async function rutearSinIA(items: TareaARutear[], opts: { clienteDeLaReunion?: boolean } = {}): Promise<DestinoSinIA[]> {
+  if (!items.length) return [];
+  const cats = await listCategorias().catch(() => [] as Array<{ id: number; nombre: string }>);
+  const existentes = new Set(cats.map((c) => norm(c.nombre)));
+  return Promise.all(items.map(async (it) => {
+    const r = await proyectoParaTarea({ titulo: it.titulo, detalle: it.detalle }).catch(() => null);
+    const deTexto = r?.cliente && r.nombre ? { nombre: r.nombre, via: 'cliente-en-texto' as const }
+      : r?.porProyecto ? { nombre: r.porProyecto, via: 'proyecto-en-texto' as const }
+        : null;
+    return destinoSinIA({
+      deTexto,
+      propuesto: it.proyectoSugerido,
+      existe: (n) => existentes.has(norm(n)),
+      delCatalogo: (n) => delCatalogoTodo(n)?.nombre,
+      esClienteDeLaReunion: (n) => !!opts.clienteDeLaReunion && esProyectoDeCliente(n),
+    });
+  }));
 }

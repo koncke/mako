@@ -5,23 +5,26 @@
 // ida-y-vuelta frágil por chat. El dueño O EL CLIENTE abre /plan/revisar/<id>,
 // responde de a 1 pregunta (WizardShell) y confirma → se crean las tareas.
 // WORKSPACE-AWARE (impacta a TODOS, no solo al dueño): el borrador vive en el ws
-// de quien lo crea/mira. Al aplicar: super-admin → plan_tareas + Perro; cualquier
-// otro → su board (lib/todo). Nunca forzamos OWNER_WS.
+// de quien lo crea/mira. Al aplicar: super-admin → plan_tareas; cualquier otro → su board
+// (lib/todo). Nunca forzamos OWNER_WS. Y desde el 16/10/2026 aplicar NO llama a ninguna IA
+// (ver `aplicarPropuestas`): las tareas nacen libres y el proyecto sale sin modelo.
 
 import 'server-only';
 import { getTenantDb, runWithWorkspace, getWorkspaceActual, getWorkspace, OWNER_WS } from '@/lib/workspace';
 import { getSupabaseServer } from '@/lib/supabase';
-import { agregarTareasPlanOwner, ampliarTareasPlanOwner, priorizarNuevasOwner, borrarPlanTarea, cerrarPlanTareaOwner, listPlanBoard, fusionarDetalle } from '@/lib/plan-board';
-import { crearTarea, crearCategoria, listCategorias, borrarTarea, listTareas, editarTarea, ampliarTareasCliente, type Prioridad } from '@/lib/todo';
-import { priorizarNuevasCliente } from '@/lib/todo-guardian';
+import { agregarTareasPlanOwner, ampliarTareasPlanOwner, borrarPlanTarea, cerrarPlanTareaOwner, listPlanBoard, fusionarDetalle } from '@/lib/plan-board';
+import { crearTarea, crearCategoria, listCategorias, borrarTarea, listTareas, editarTarea, ampliarTareasCliente } from '@/lib/todo';
 import { mismaTarea } from '@/lib/tareas-dedup';
-import { rutearTareasCliente } from '@/lib/todo-rutear';
+import { rutearSinIA } from '@/lib/todo-rutear';
+import { delCatalogoTodo } from '@/lib/todo-proyectos-catalogo';
+import { PROYECTO_SIN_PROYECTO, EMOJI_SIN_PROYECTO, COLOR_SIN_PROYECTO, QUE_SIN_PROYECTO } from '@/lib/plan-bandeja';
 import { criterioDelWorkspace } from '@/lib/plan-criterio';
 import { decidirRecurrente } from '@/lib/plan-criterio-reglas';
 import { tipoDeResponsable } from '@/lib/reunion-reparto';
 import type { Pregunta, TipoPregunta } from '@/lib/preguntas-contrato';
 import { corregirMarca } from '@/lib/mako-gramatica';
 import type { Prio, Fuente, FuenteTipo } from '@/app/plan/board/types';
+
 import { tableroDeCapa } from './tablero-de-capa';
 import { recortarPrueba, renglonDeCierre } from './cierre-tarjeta';
 
@@ -310,6 +313,20 @@ export async function crearPropuesta(draft: CrearPropuestaDraft): Promise<string
           await db.from('plan_propuestas').update({ estado: draft.estado ?? 'pendiente' }).eq('id', str(fila.id));
           console.log(`[plan-propuesta] borrador ${str(fila.id)} revivido: se volvió a extraer la fuente`);
         }
+        // ⚠️ UNA FILA «PROCESANDO» SE LLENA, NO SE DEVUELVE VACÍA (16/10/2026). Desde que leer una
+        // reunión a mano corre en segundo plano, el modal deja la fila en 'procesando' ANTES de
+        // leer; si el cron (o el webhook) termina primero la MISMA reunión, llega acá con las tareas.
+        // Devolver el id sin escribirlas dejaba un borrador vacío para siempre y la lectura del
+        // cron tirada. El que trae tareas, llena.
+        if (str(fila.estado) === 'procesando' && draft.estado !== 'procesando' && tareas.length) {
+          await db.from('plan_propuestas').update({
+            estado: 'pendiente', tareas, resumen: (draft.resumen ?? '').slice(0, 300),
+            ...(draft.fuenteTitulo ? { fuente_titulo: draft.fuenteTitulo.slice(0, 200) } : {}),
+            ...(draft.fuenteUrl ? { fuente_url: draft.fuenteUrl.slice(0, 500) } : {}),
+            ...(draft.fuenteFecha ? { fuente_fecha: draft.fuenteFecha } : {}),
+          }).eq('id', str(fila.id)).eq('estado', 'procesando');
+          console.log(`[plan-propuesta] borrador ${str(fila.id)}: estaba «procesando» y lo llenó otra lectura (${tareas.length} tareas)`);
+        }
         return str(fila.id);
       }
     }
@@ -417,7 +434,9 @@ export async function getPropuestaPorRef(ref: string): Promise<Propuesta | null>
 }
 
 /** Qué salió de cada reunión (por ref), para marcar la lista del selector de un saque. */
-export type ResumenPorRef = { id: string; estado: Propuesta['estado']; creadas: number; pendientesMias: number; pendientesOtros: number };
+/** `estado` puede ser también 'procesando' (se está leyendo en segundo plano) o 'fallado' (la
+ *  lectura no salió, o salió sin compromisos): `resumen` dice cuál. */
+export type ResumenPorRef = { id: string; estado: Propuesta['estado'] | 'procesando' | 'fallado'; creadas: number; pendientesMias: number; pendientesOtros: number; resumen?: string };
 
 export async function resumenPropuestasPorRefs(refs: string[]): Promise<Record<string, ResumenPorRef>> {
   const limpias = [...new Set(refs.filter(Boolean))].slice(0, 100);
@@ -427,7 +446,7 @@ export async function resumenPropuestasPorRefs(refs: string[]): Promise<Record<s
     // TODOS los estados: la lista del selector tiene que poder decir «✓ 23 en tu plan ·
     // 30 para repartir» o «la descartaste» — nunca volver a «Extraer →» como si la
     // reunión no se hubiera leído nunca.
-    const { data } = await db.from('plan_propuestas').select('id, ref, estado, tareas, aplicadas')
+    const { data } = await db.from('plan_propuestas').select('id, ref, estado, tareas, aplicadas, resumen')
       .in('ref', limpias);
     const out: Record<string, ResumenPorRef> = {};
     for (const r of asArr<Row>(data)) {
@@ -436,10 +455,11 @@ export async function resumenPropuestasPorRefs(refs: string[]): Promise<Record<s
       const tareas = asArr<unknown>(r.tareas).map(limpiarTarea).filter((t): t is PropuestaTarea => !!t);
       out[ref] = {
         id: str(r.id),
-        estado: str(r.estado, 'pendiente') as Propuesta['estado'],
+        estado: str(r.estado, 'pendiente') as ResumenPorRef['estado'],
         creadas: asArr<unknown>(r.aplicadas).length,
         pendientesMias: tareas.filter((t) => !t.esDeOtro).length,
         pendientesOtros: tareas.filter((t) => t.esDeOtro).length,
+        resumen: r.resumen ? str(r.resumen) : undefined,
       };
     }
     return out;
@@ -479,6 +499,8 @@ export async function listPropuestasPendientes(limite = 8): Promise<Propuesta[]>
 // absolutamente toda la fricción al agregar tareas». Ver docs/hallazgos-plan.md.
 
 export type LoteAplicar = {
+  /** `contexto` era la nota para el Perro al puntuar; desde el 16/10/2026 aplicar no puntúa y se
+   *  ignora (sigue en el tipo para no romper a quien lo manda). */
   id: string; tareas?: PropuestaTarea[]; eliminarIds?: string[]; contexto?: string;
   /** ids que el dueño CONFIRMÓ que ya están hechas (de `prop.cerrar`). Nada se cierra
    *  sin pasar por acá: el borrador propone, la persona decide. */
@@ -496,8 +518,8 @@ export type LoteAplicar = {
 };
 export type ResultadoAplicar = { ok: boolean; ids: string[]; borradas: number; cerradas?: number; ampliadas?: number; error?: string };
 
-/** Aplica el borrador: crea las tareas y marca 'aplicada'. Dueño → plan_tareas + Perro;
- *  cliente → su board (lib/todo). `tareasEditadas` = lo que quedó en la revisión. */
+/** Aplica el borrador: crea las tareas y marca 'aplicada'. Dueño → plan_tareas; cliente → su
+ *  board (lib/todo). Sin IA (ver `aplicarPropuestas`). `tareasEditadas` = lo que quedó en la revisión. */
 export async function aplicarPropuesta(id: string, tareasEditadas?: PropuestaTarea[], eliminarIds?: string[], contexto?: string, cerrarIds?: string[], aMediasIds?: string[]): Promise<ResultadoAplicar | null> {
   const r = await aplicarPropuestas([{ id, tareas: tareasEditadas, eliminarIds, contexto, cerrarIds, aMediasIds }]);
   return r.noExiste ? null : { ok: r.ok, ids: r.ids, borradas: r.borradas, cerradas: r.cerradas, error: r.error };
@@ -505,11 +527,24 @@ export async function aplicarPropuesta(id: string, tareasEditadas?: PropuestaTar
 
 /**
  * Aplica VARIOS borradores de una sola vez. Es lo que usa el modal del plan cuando
- * MaKo dejó esperando más de una reunión: se confirman juntas y el PERRO CORRE UNA
- * SOLA VEZ sobre todas las tareas nuevas. Correrlo por borrador tenía dos problemas:
- * cada pasada tarda ~30s (con 3 reuniones se comía el maxDuration de la ruta) y cada
- * una puntuaba su lote a ciegas del resto, cuando lo que hace bueno al Perro es
- * comparar TODO lo nuevo contra el mismo plan.
+ * MaKo dejó esperando más de una reunión: se confirman juntas.
+ *
+ * ⛔ SIN IA EN EL PEDIDO (16/10/2026, «Fathom sin fricción»). Martín, textual: «optimiza la
+ * velocidad de importación de tareas de Fathom… Que hoy en día tardan un montón porque "cruzan"
+ * con las otras tareas... Quiero que elimines eso y toda la fricción. Quiero hacerlo "libre", que
+ * se creen sin prioridad». Hasta ese día esto llamaba, EN EL PEDIDO y con la pantalla esperando:
+ * el ruteo del Perro (`rutearTareasCliente` / el de `agregarTareasPlanOwner`), el Perro por tandas
+ * de 10 (`priorizarNuevasCliente` / `priorizarNuevasOwner`, que además re-curvaba el tablero
+ * ENTERO: medido el 15/10, un alta «re-curvó 22 de 175 tareas y re-priorizó 62 de 70 proyectos»)
+ * y las checklists. Medido con tests/fathom-sin-friccion.test.ts sobre un borrador de cuatro
+ * tareas (tres nuevas y una repetida): 3 llamadas de IA en el cliente y 4 en el dueño (3 y 5
+ * intentos de red), y la del Perro escala con el lote. Ahora: 0.
+ *
+ * Lo que queda, y no cuesta nada: el anti-duplicado (`mismaTarea` + el id del cruce, si el
+ * borrador ya lo trae del cron), y el proyecto por señales deterministas (`rutearSinIA` /
+ * `destinoSinIA`), con la bandeja «Sin proyecto» para lo que no tiene ninguna. Las tareas nacen
+ * con score 0 = «Sin priorizar» en «Por iniciar»: la prioridad la pone «Re-priorizar todo» o la
+ * persona.
  */
 export async function aplicarPropuestas(lotes: LoteAplicar[]): Promise<ResultadoAplicar & { noExiste?: boolean }> {
   return enWs(async () => {
@@ -529,8 +564,6 @@ export async function aplicarPropuestas(lotes: LoteAplicar[]): Promise<Resultado
     const tableroUnico = !usaPlanBoard && !!(await criterioDelWorkspace());
 
     const idsCreadas: string[] = [];
-    const proyectosNuevos: string[] = [];
-    const contextos: string[] = [];
     /** Por borrador: qué se creó y qué le queda pendiente (define si se cierra o sigue vivo). */
     const cierre = new Map<string, { creadas: PropuestaAplicada[]; restantes: PropuestaTarea[] }>();
     const aplicados: string[] = [];
@@ -652,9 +685,9 @@ export async function aplicarPropuestas(lotes: LoteAplicar[]): Promise<Resultado
           // `recurrente` va en el ALTA (NuevaTareaPlan): es el último eslabón de la
           // cadena que arranca en el prompt de extracción. Si se cae acá, todo lo de
           // arriba está escrito y no se ofrece.
-          const r = await agregarTareasPlanOwner(base.map((t) => ({ titulo: t.titulo, prioridad: t.prioridad, proyecto: t.proyecto, deadline: t.deadline, detalle: t.detalle, recurrente: t.recurrente, fuente: fuenteDe(t) })), { tipo: fuenteTipo } as Fuente);
+          // SIN `prioridad`: nacen libres (score 0). Y SIN IA: el proyecto lo decide `destinoSinIA`.
+          const r = await agregarTareasPlanOwner(base.map((t) => ({ titulo: t.titulo, proyecto: t.proyecto, deadline: t.deadline, detalle: t.detalle, recurrente: t.recurrente, fuente: fuenteDe(t) })), { tipo: fuenteTipo } as Fuente, { sinIA: true, clienteDeLaReunion: !!prop?.clienteNombre });
           idsCreadas.push(...r.ids);
-          proyectosNuevos.push(...r.proyectoIds);
           // Mismo orden que `base` (agregarTareasPlanOwner filtra solo los títulos
           // vacíos, y acá no hay ninguno): la tarea i quedó con el id i.
           r.ids.forEach((id, i) => { if (base[i]) anotar(base[i], id); });
@@ -683,26 +716,33 @@ export async function aplicarPropuestas(lotes: LoteAplicar[]): Promise<Resultado
         if (base.length) {
           const cats = await listCategorias().catch(() => [] as Array<{ id: number; nombre: string }>);
           const byName = new Map(cats.map((c) => [normNom(c.nombre), c.id]));
-          // RUTEO DE TODO EL LOTE, de una: ¿es de un cliente suyo? ¿nombra un proyecto
-          // que ya existe? y si no, ¿a qué ÁREA del catálogo va (lib/todo-proyectos-
-          // catalogo)? Antes el fallback era el nombre que se le hubiera ocurrido a
-          // quien la cargó, y así nacían cincuenta proyectos de una tarea cada uno.
-          const destinos = await rutearTareasCliente(base.map((t) => ({ titulo: t.titulo, detalle: t.detalle, proyectoSugerido: t.proyecto })))
-            .catch((e) => { console.error('[plan-propuesta] rutear cliente:', e instanceof Error ? e.message : String(e)); return base.map(() => ({ razon: '' } as { nombre?: string; razon: string; color?: string; emoji?: string })); });
+          // EL PROYECTO, SIN IA (16/10/2026): ¿la tarea nombra a un cliente suyo o a un proyecto que
+          // ya existe? Si no, ¿lo que propuso la reunión existe, es del catálogo o es el cliente de
+          // la reunión? Si tampoco, la bandeja «Sin proyecto». A qué ÁREA va lo que cayó en la
+          // bandeja lo decide «Re-priorizar todo», no esta carga (ver lib/plan-bandeja.ts).
+          const destinos = await rutearSinIA(
+            base.map((t) => ({ titulo: t.titulo, detalle: t.detalle, proyectoSugerido: t.proyecto })),
+            { clienteDeLaReunion: !!prop?.clienteNombre },
+          ).catch((e) => { console.error('[plan-propuesta] rutear sin IA:', e instanceof Error ? e.message : String(e)); return [] as Awaited<ReturnType<typeof rutearSinIA>>; });
           for (let bi = 0; bi < base.length; bi++) {
             const t = base[bi];
             try {
-              let catId: number | undefined;
-              const d = destinos[bi] ?? { razon: '' };
-              const proyectoFinal = d.nombre ?? t.proyecto;
-              if (proyectoFinal) {
-                const nombre = proyectoFinal.slice(0, 40).trim();
-                const k = normNom(nombre);
-                catId = byName.get(k);
-                if (catId == null) { const c = await crearCategoria(nombre, d.color ?? '#2F6FED'); catId = c.id; byName.set(k, c.id); }
+              const d = destinos[bi] ?? { nombre: PROYECTO_SIN_PROYECTO, via: 'bandeja' as const, razon: '' };
+              const nombre = d.nombre.slice(0, 40).trim();
+              const k = normNom(nombre);
+              let catId = byName.get(k);
+              if (catId == null) {
+                const cat = delCatalogoTodo(nombre);
+                const c = d.via === 'bandeja'
+                  ? await crearCategoria(PROYECTO_SIN_PROYECTO, COLOR_SIN_PROYECTO, EMOJI_SIN_PROYECTO, 1, QUE_SIN_PROYECTO)
+                  : await crearCategoria(nombre, cat?.color ?? '#2F6FED', cat?.emoji);
+                catId = c.id; byName.set(k, c.id);
               }
               const tarea = await crearTarea({
-                titulo: t.titulo, prioridad: (t.prioridad ?? 'media') as Prioridad, deadline: t.deadline ?? null, detalle: t.detalle ?? null, categorias: catId != null ? [catId] : [], origen: 'mako', fuente: fuenteDe(t),
+                // SIN `prioridad`: nace libre, score 0 = «Sin priorizar», en «Por iniciar».
+                titulo: t.titulo, deadline: t.deadline ?? null, detalle: t.detalle ?? null, categorias: [catId], origen: 'mako', fuente: fuenteDe(t),
+                // Por qué quedó en la bandeja, en SU historial: «no tenía proyecto» se lee en la app.
+                notaAlta: d.via === 'bandeja' ? d.razon : undefined,
                 // El tablero del CLIENTE también tiene la columna (mig 0163): una tarea
                 // sólo puede nacer recurrente en los dos lados o en ninguno.
                 recurrente: t.recurrente,
@@ -738,7 +778,6 @@ export async function aplicarPropuestas(lotes: LoteAplicar[]): Promise<Resultado
           } catch (e) { console.error('[plan-propuesta] cerrar cliente:', e instanceof Error ? e.message : String(e)); }
         }
       }
-      if (lote.contexto?.trim()) contextos.push(lote.contexto.trim());
       // Lo que le queda: por defecto, lo que está marcado como de otra persona. Con
       // tablero único no queda nada: ya entró todo, y un borrador abierto «para repartir»
       // volvería a ofrecer lo que ya está en el tablero.
@@ -759,11 +798,9 @@ export async function aplicarPropuestas(lotes: LoteAplicar[]): Promise<Resultado
     // tarjetas y después dijo que había fallado.
     if (!idsCreadas.length && !borradas && !cerradas && !ampliadas) return { ok: false, ids: [], borradas: 0, error: 'No pude crear ni ampliar ninguna tarea.' };
 
-    // El borrador se marca APLICADO acá, ANTES del Perro. El Perro es una mejora
-    // (prioridad + checklist), no parte del alta: si tarda o se cae, las tareas ya
-    // están creadas y el borrador NO puede volver a aplicarse. Al revés —como estaba—
-    // un timeout dejaba 69 tareas creadas y el borrador "pendiente", listo para
-    // duplicarlas enteras al siguiente click.
+    // El borrador se marca APLICADO acá, al final del alta. (Hasta el 16/10/2026 iba ANTES del
+    // Perro, que corría después: un timeout del Perro dejaba 69 tareas creadas y el borrador
+    // "pendiente", listo para duplicarlas enteras al siguiente click. El Perro ya no corre acá.)
     //
     // Y NO siempre se cierra: si de esa reunión quedaron compromisos de OTRAS personas
     // sin repartir, el borrador sigue PENDIENTE con solo esos adentro. Cerrarlo era
@@ -788,31 +825,10 @@ export async function aplicarPropuestas(lotes: LoteAplicar[]): Promise<Resultado
         : { estado: 'aplicada', aplicadas, notas: [], applied_at: now }).eq('id', id);
     }
 
-    // El Perro, POR TANDAS. Puntuar 69 tareas en una sola llamada no entra en el
-    // tiempo de la función (y encima el modelo se queda sin salida).
-    //
-    // 10 y no 20: con 20 tareas de detalle largo el JSON del modelo se corta a la mitad
-    // y el lote entero queda con el score de fábrica. Pasó el 5/8 con las 20 del
-    // documento de rediseño — 20 tarjetas con score 62, sin razón y sin fecha. El techo
-    // de salida ahora escala con el lote (topeSalidaPerro), pero una tanda más chica
-    // además ordena mejor: el modelo compara diez tareas entre sí, no veinte.
-    if (idsCreadas.length) {
-      const contexto = contextos.join(' ');
-      const TANDA = 10;
-      for (let i = 0; i < idsCreadas.length; i += TANDA) {
-        const lote = idsCreadas.slice(i, i + TANDA);
-        const nota = idsCreadas.length > TANDA ? `${contexto} (tanda ${Math.floor(i / TANDA) + 1} de ${Math.ceil(idsCreadas.length / TANDA)})` : contexto;
-        if (usaPlanBoard) {
-          // Los proyectos nuevos se describen en la primera tanda nomás.
-          await priorizarNuevasOwner(lote, i === 0 ? proyectosNuevos : [], nota).catch((e) => { console.error('[plan-propuesta] priorizar:', e instanceof Error ? e.message : String(e)); return null; });
-        } else {
-          // Acá los patches se descartan a propósito: este camino (wizard de borradores)
-          // recarga el board después, no aplica parches en vivo como el tablero.
-          await priorizarNuevasCliente(lote.map(Number).filter(Number.isFinite), nota)
-            .catch((e) => { console.error('[plan-propuesta] perro cliente:', e instanceof Error ? e.message : String(e)); return { n: 0, patches: [] }; });
-        }
-      }
-    }
+    // ⛔ ACÁ CORRÍA EL PERRO, POR TANDAS DE 10 (`priorizarNuevasOwner` / `priorizarNuevasCliente`):
+    // puntuaba, le ponía fecha y checklist a cada tarea y re-curvaba el tablero entero, con la
+    // pantalla esperando. Se fue el 16/10/2026 con la carga libre (ver la cabecera): la prioridad la
+    // pone «Re-priorizar todo», en segundo plano, cuando la persona lo pide.
     return { ok: true, ids: idsCreadas, borradas, cerradas, ampliadas };
   });
 }
@@ -831,15 +847,45 @@ export async function aplicarPropuestas(lotes: LoteAplicar[]): Promise<Resultado
  */
 /** El borrador pasa de 'procesando' a 'pendiente' con lo que salió. Es el final feliz
  *  de la lectura en segundo plano: hasta acá la fila existía vacía. */
-export async function marcarProcesado(id: string, datos: { tareas: Array<Record<string, unknown>>; resumen?: string; avisos?: string[] }): Promise<void> {
+export async function marcarProcesado(id: string, datos: { tareas: Array<Record<string, unknown>>; resumen?: string; avisos?: string[]; clienteNombre?: string; clienteLeadId?: number }): Promise<void> {
   return enWs(async () => {
     const limpias = datos.tareas.map(limpiarTarea).filter((t): t is PropuestaTarea => !!t);
     const db = await getTenantDb();
     const resumen = [datos.resumen ?? '', (datos.avisos ?? []).length ? `· ${(datos.avisos ?? []).length} archivo(s) no se pudieron leer` : ''].filter(Boolean).join(' ').slice(0, 300);
+    // El CLIENTE de la reunión (mig 0160), si la lectura lo reconoció: es lo que deja que «Cargar»
+    // (sin IA) cree su proyecto «Cliente: X» en vez de mandar las tareas a la bandeja.
+    const cliente = datos.clienteNombre?.trim() ? clienteDelBorrador(datos) : {};
     const { error } = await db.from('plan_propuestas')
-      .update({ estado: limpias.length ? 'pendiente' : 'descartada', tareas: limpias, resumen })
+      .update({ estado: limpias.length ? 'pendiente' : 'descartada', tareas: limpias, resumen, ...cliente })
       .eq('id', id);
     if (error) console.error(`[plan-propuesta] marcarProcesado ${id}: ${error.message}`);
+  });
+}
+
+/**
+ * La reunión se leyó ENTERA y no salió ningún compromiso (16/10/2026, la lectura en segundo plano).
+ * Queda en 'fallado' y no en 'descartada' a propósito: la lista de Fathom dibuja 'descartada' como
+ * «la descartaste», que acá es falso, y 'fallado' deja volver a leerla (crearPropuesta la revive).
+ * El resumen dice la verdad.
+ */
+export const RESUMEN_SIN_COMPROMISOS = 'Sin compromisos: MaKo la leyó entera y no encontró ninguno.';
+export async function marcarSinCompromisos(id: string): Promise<void> {
+  return enWs(async () => {
+    const db = await getTenantDb();
+    const { error } = await db.from('plan_propuestas')
+      .update({ estado: 'fallado', tareas: [], resumen: RESUMEN_SIN_COMPROMISOS })
+      .eq('id', id);
+    if (error) console.error(`[plan-propuesta] marcarSinCompromisos ${id}: ${error.message}`);
+  });
+}
+
+/** Vuelve a poner un borrador en 'procesando' (volver a leer una reunión que ya tenía borrador).
+ *  Las ya cargadas (`aplicadas`) se quedan: lo que se cargue después no las duplica. */
+export async function ponerProcesando(id: string, resumen: string): Promise<void> {
+  return enWs(async () => {
+    const db = await getTenantDb();
+    const { error } = await db.from('plan_propuestas').update({ estado: 'procesando', resumen: resumen.slice(0, 300) }).eq('id', id);
+    if (error) console.error(`[plan-propuesta] ponerProcesando ${id}: ${error.message}`);
   });
 }
 
@@ -866,16 +912,20 @@ export async function marcarFallado(id: string, motivo: string): Promise<void> {
  * volver a entrar disparaba el cruce de nuevo, con su llamada de IA y pisando lo que el
  * dueño ya había decidido.
  */
-export async function estadoDePropuesta(id: string): Promise<{ estado: string; n: number; resumen: string; tareas: PropuestaTarea[]; cruzadoAt?: string } | null> {
+export async function estadoDePropuesta(id: string): Promise<{ estado: string; n: number; resumen: string; tareas: PropuestaTarea[]; cruzadoAt?: string; ref?: string; fuenteTitulo?: string } | null> {
   return enWs(async () => {
     const db = await getTenantDb();
-    const { data } = await db.from('plan_propuestas').select('estado, tareas, resumen, cruzado_at').eq('id', id).limit(1);
+    const { data } = await db.from('plan_propuestas').select('estado, tareas, resumen, cruzado_at, ref, fuente_titulo').eq('id', id).limit(1);
     const fila = (data ?? [])[0] as Row | undefined;
     if (!fila) return null;
     const tareas = asArr<unknown>(fila.tareas).map(limpiarTarea).filter((t): t is PropuestaTarea => !!t);
     return {
       estado: str(fila.estado, 'pendiente'), n: tareas.length, resumen: str(fila.resumen), tareas,
       cruzadoAt: fila.cruzado_at ? str(fila.cruzado_at) : undefined,
+      // De qué reunión es (la lectura a mano en segundo plano, 16/10/2026): con esto el sondeo del
+      // modal sabe a qué cliente y con qué dudas volver, sin una segunda vuelta.
+      ref: fila.ref ? str(fila.ref) : undefined,
+      fuenteTitulo: fila.fuente_titulo ? str(fila.fuente_titulo) : undefined,
     };
   });
 }

@@ -432,6 +432,9 @@ export type NuevaTarea = {
   fuente?: { tipo: string; etiqueta?: string; url?: string } | null;
   experimento_id?: number | null;
   retro_id?: number | null;
+  /** Un renglón más del historial, debajo del alta: POR QUÉ quedó donde quedó (16/10/2026, la carga
+   *  sin IA de un borrador escribe ahí por qué una tarea cayó en la bandeja «Sin proyecto»). */
+  notaAlta?: string;
 } & CamposResponsable & CamposCriterio;
 
 /** Orden para el tope de una columna (las nuevas entran arriba). */
@@ -473,7 +476,10 @@ export async function crearTarea(input: NuevaTarea): Promise<Tarea> {
     recurrencia: recurrenciaDe(input),
     categorias: catsOk(input.categorias),
     checklist: [] as ChecklistItem[],
-    historial: [{ id: 'h' + Date.now(), ts: Date.now(), actor: origenActor(origen), text: 'Creó la tarjeta' }] as HistEntry[],
+    historial: [
+      { id: 'h' + Date.now(), ts: Date.now(), actor: origenActor(origen), text: 'Creó la tarjeta' },
+      ...(input.notaAlta?.trim() ? [{ id: 'h' + Date.now() + 'n', ts: Date.now(), actor: origenActor(origen), text: input.notaAlta.trim().slice(0, 300) }] : []),
+    ] as HistEntry[],
     en_prioridad: false,
     fuente: input.fuente ?? null,
     score: scoreAlCrear(input),

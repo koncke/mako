@@ -35,7 +35,7 @@ import {
 } from './fathom-api';
 import { getLeadsByEmail } from './closing';
 import { listarUsuarios } from './usuarios';
-import { clasificarReunion, type TipoReunion } from './reunion-clasificar';
+import { clasificarReunion, motivoDelTipo, type TipoReunion } from './reunion-clasificar';
 import { resolverDueño, normNombre, rotuloDePersona, fuenteDicha, type FuenteDicha } from './tarea-dueno';
 import { decidirRecurrente } from './plan-criterio-reglas';
 import { invitadosDeReunionPorFecha } from './google-calendar';
@@ -67,6 +67,9 @@ export type ReunionMeta = {
   url: string | null;     // link a la grabación en Fathom
   involucrados: string[]; // emails de los invitados (para preview + búsqueda + clasificación)
   tipo: TipoReunion;      // clasificación automática (punto 10)
+  /** Por qué es de ese tipo, en una línea (`motivoDelTipo`). Es lo que se muestra de una reunión
+   *  que el cron descartó (mig 0296, 16/10/2026). */
+  motivo?: string;
   participantes: Participante[]; // TODOS los invitados con nombre (para repartir las tareas de otros)
   host: Participante | null;     // quién grabó (de él es el plan al que van las tareas, en el cron)
 };
@@ -201,6 +204,7 @@ export async function listReunionesRecientes(opts: { limit?: number; cursor?: st
       url: m.url ?? m.share_url ?? null,
       involucrados: externalInviteeEmails(m),
       tipo: clasificarReunion(m, leadsByEmail, equipoEmails),
+      motivo: motivoDelTipo(m, leadsByEmail, equipoEmails),
       participantes: participantesDeReunion(m),
       host: m.recorded_by?.email
         ? { nombre: (m.recorded_by.name ?? '').trim(), email: m.recorded_by.email.trim().toLowerCase() }

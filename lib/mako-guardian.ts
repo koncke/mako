@@ -481,6 +481,9 @@ export async function cruzarCandidatas(
   candidatas: Array<{ titulo: string; detalle?: string }>,
   existentes: Array<{ id: string; titulo: string; detalle?: string }>,
   usoMotivo?: string,
+  /** El reloj de quien llama (el cron, 16/10/2026): fecha ABSOLUTA en la que tiene que haber
+   *  terminado. Va derecho a `chatClaude` (`hastaMs`): si no alcanza, falla — nunca paga para ganar tiempo. */
+  hastaMs?: number,
 ): Promise<CruceOut> {
   if (!candidatas.length || !existentes.length) return { cruces: [] };
   const cands = candidatas.map((c, i) => `[${i}] ${c.titulo}${c.detalle ? ` — ${c.detalle.slice(0, 120)}` : ''}`).join('\n');
@@ -491,7 +494,7 @@ export async function cruzarCandidatas(
   // 4000 y no 1500: ahora una reunión larga puede traer 40 candidatas, y con el tope
   // viejo la respuesta se cortaba → el catch devolvía {cruces: []} y el gate
   // anti-duplicados quedaba CIEGO en silencio (dejando entrar tareas repetidas).
-  const raw = await chatClaude(sys, [{ role: 'user', content: user }], { effort: 'high', maxTokens: 4000, feature: 'mako-guardian', motivo: usoMotivo || 'Cruzar candidatas con el plan', onUsage: (u) => { usage = u; } });
+  const raw = await chatClaude(sys, [{ role: 'user', content: user }], { effort: 'high', maxTokens: 4000, feature: 'mako-guardian', motivo: usoMotivo || 'Cruzar candidatas con el plan', hastaMs, onUsage: (u) => { usage = u; } });
   let obj: Record<string, unknown>;
   try { obj = parseJsonObject(raw); } catch { return { cruces: [], usage }; }
   const idsOk = new Set(existentes.map((e) => e.id));
