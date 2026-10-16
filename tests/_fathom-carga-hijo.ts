@@ -624,3 +624,6 @@ async function main() {
 }
 
 main().catch((e) => { console.error(e); process.exit(1); });
+
+// Módulo, no script: sin esto tsc los junta en un solo ámbito global con los otros hijos y choca cada `db`/`json`.
+export {};
