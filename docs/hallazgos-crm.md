@@ -9261,6 +9261,7 @@ en un evento. Se crea la primera vez que se usa, adentro de un `useCallback`, co
 
 **Vive en:** app/crm/lead-view/ficha/ficha-css.ts · armar.ts · Armador.tsx · tests/ficha-pantallas.test.ts ·
 *16/10/2026, chat «CRM» (claude3), corrida wf_e3cc574c-723.*
+
 ## Que un producto diga «pago único» no prueba nada: lo pone el código (16/10/2026)
 
 **Vive en:** `lib/producto-con-funnel.ts` (crear un funnel) · `lib/productos.ts` (`seedProductosDesdeOferta`).
