@@ -27,6 +27,9 @@
 // el 2, lee el ESTILO de la página (`leerEstilo`: colores, fuentes e imágenes como los ve un visitante) y
 // lo manda en el mismo mensaje final. Se sirve fresco desde `/m.js?leer=<id>` (sin caché): el Pixel no
 // cambia, así que ni SNIPPET_VERSION ni VERSION_PIXEL_LECTOR suben.
+// Y desde la tanda 8 (Martín, 14/10/2026: «poder replicarlas al copiar una web»), en el paso 1 —antes de bajar y
+// en cada paso de la bajada, sin esperas nuevas— las ANIMACIONES de la página (`JS_LEER_ANIMACIONES`): viajan
+// dentro del estilo (`estilo.animaciones`, un resumen de hasta 6.000 caracteres) y las pasa al catálogo MaKo.
 // Antes de tocar nada, apaga los rastreadores de la página (fbq, gtag, ttq…, sendBeacon y los pedidos a
 // sus dominios): un clic del lector no puede ser una conversión en el Meta de un cliente.
 //
@@ -38,6 +41,8 @@
 // =============================================================================
 
 import { CAMINOS_LECTURA, idLecturaValido, type CaminoLectura } from './lector';
+// Las animaciones (tanda 8): las listas que el lector comparte con el server (puro, sin DOM).
+import { NOMBRES_ANIMATE, RE_CODIGO_SCROLL, RE_SCRIPT_SCROLL, SEL_SCROLL } from './replicar-animaciones';
 
 /** El parámetro de `/m.js` que pide el lector en vez del Pixel (lo arma el Pixel, lib/landing-token.ts). */
 export const PARAM_LECTOR_CARGADOR = 'leer';
@@ -102,6 +107,208 @@ export const JS_APAGAR_RASTREADORES = String.raw`function () {
       return sa.apply(this, arguments);
     };
   } catch (e) {}
+}`;
+
+/**
+ * Las ANIMACIONES de la página (tanda 8; Martín, 14/10/2026: «poder replicarlas al copiar una web»). Una expresión de
+ * función `(SEL_FUERA)` que devuelve lo que usa el lector, aparte para que el test la corra con un DOM de mentira:
+ *   · `delDom()`: ANTES de bajar, lo que el DOM dice sin correr nada: data-aos, la clase de animate.css, el JSON de
+ *     Framer appear (JSON.parse: un dato) y el estado escondido que Webflow IX2 o Framer dejan escrito en línea en lo
+ *     que todavía no entró (lo de abajo no se animó: su `style` es el de partida); y si la página trae una librería
+ *     o atributos de parallax / ScrollTrigger (el aviso del scroll);
+ *   · `mirar()`: el primer cuadro de lo que da getAnimations() por elemento (las de entrada corren mientras se baja:
+ *     se mira en cada paso de la bajada que ya existe, sin sumar esperas). Sólo entradas: con fin natural (opacidad
+ *     plena y sin transform), finitas y de hasta 4 s. Una animación con línea de tiempo de SCROLL marca el aviso;
+ *   · `vigilar(fase)` y `probar(irA, esperar)`: los transforms que escribe un script AL SCROLL (Framer/Motion,
+ *     GSAP scrub). Se cuentan los cambios de `style` por elemento mientras se baja ('scroll') y en el rato quieto de
+ *     después ('quieto'); los que cambiaron 6 veces o más bajando y nada quietos se prueban moviendo el scroll 400 px
+ *     una vez (120 ms): si cambian, siguen al scroll. Un marquee o un carrusel cambian también quietos y no cuentan;
+ *   · `resumen(parteDe)`: las señales agrupadas por parte (`parteDe`, la de las imágenes) con su cuenta, las más
+ *     repetidas primero, hasta 60 y 6.000 caracteres: un resumen chico al lado de las piezas (58 KB de tope).
+ * Las señales van CRUDAS (`SenalCruda` de replicar-animaciones.ts); el catálogo lo decide MaKo al sanear. Nada de
+ * esto llama a una función de la página: se leen atributos, el DOM y la API de animaciones del navegador.
+ */
+export const JS_LEER_ANIMACIONES = String.raw`function (SEL_FUERA) {
+  var por = new Map(), framer = Object.create(null), scroll = 0, mo = null, fase = '';
+  var enScroll = new Map(), enQuieto = new Map();
+  var MAX_EL = 300, MAX_ANIM = 600, MAX_MS = 4000, MAX_SENALES = 60, PRESUPUESTO = 6000, MAX_VALOR = 160;
+  var SEL_SCROLL = ` + JSON.stringify(SEL_SCROLL) + String.raw`;
+  var RE_SCRIPT = new RegExp(` + JSON.stringify(RE_SCRIPT_SCROLL.source) + String.raw`, 'i');
+  var RE_CODIGO = new RegExp(` + JSON.stringify(RE_CODIGO_SCROLL.source) + String.raw`);
+  var ANIMATE = Object.create(null);
+  ` + JSON.stringify(NOMBRES_ANIMATE) + String.raw`.forEach(function (n) { ANIMATE[n] = 1; });
+  function fuera(el) { try { return !!el.closest(SEL_FUERA); } catch (e) { return false; } }
+  function corto(v) { return String(v == null ? '' : v).slice(0, MAX_VALOR); }
+  function poner(el, s) { if (por.size < MAX_EL && !por.has(el)) por.set(el, s); }
+  function claseAnimate(el) {
+    var t = String(el.getAttribute('class') || '').split(/\s+/), viejo = t.indexOf('animated') >= 0 || t.indexOf('wow') >= 0;
+    for (var i = 0; i < t.length && i < 60; i++) {
+      var c = t[i];
+      if (c.indexOf('animate__') === 0 && ANIMATE[c.slice(9)] === 1) return c.slice(9);
+      if (viejo && ANIMATE[c] === 1) return c;
+    }
+    return '';
+  }
+  function inicial(v, prof) {
+    if (!v || typeof v !== 'object' || prof > 4) return null;
+    if (v.initial && typeof v.initial === 'object' && !Array.isArray(v.initial)) {
+      var o = {}, K = ['opacity', 'x', 'y', 'scale', 'rotate', 'rotateX', 'rotateY'], n = 0;
+      for (var i = 0; i < K.length; i++) {
+        var x = v.initial[K[i]];
+        if ((typeof x === 'number' && isFinite(x)) || (typeof x === 'string' && x.length <= 40)) { o[K[i]] = x; n++; }
+      }
+      return n ? o : null;
+    }
+    var ks = Object.keys(v);
+    for (var j = 0; j < ks.length && j < 40; j++) { var r = inicial(v[ks[j]], prof + 1); if (r) return r; }
+    return null;
+  }
+  function leerFramer() {
+    var l = document.querySelectorAll('script[type="framer/appear"]');
+    for (var i = 0; i < l.length && i < 4; i++) {
+      var t = String(l[i].textContent || '').trim(), j = null;
+      if (!t || t.length > 500000) continue;
+      try { j = JSON.parse(t); } catch (e) { continue; }
+      if (!j || typeof j !== 'object' || Array.isArray(j)) continue;
+      var ids = Object.keys(j);
+      for (var k = 0; k < ids.length && k < 2000; k++) { var ini = inicial(j[ids[k]], 0); if (ini) framer[ids[k]] = ini; }
+    }
+  }
+  function enLinea(el) {
+    var st = el.style;
+    if (!st) return null;
+    var o = String(st.opacity || ''), t = String(st.transform || '');
+    var oculto = o !== '' && Number(o) < 0.99, mueve = t !== '' && t !== 'none';
+    return oculto || mueve ? { o: corto(o), t: corto(t) } : null;
+  }
+  function mirarScroll() {
+    try { if (document.querySelector(SEL_SCROLL)) scroll = 1; } catch (e) {}
+    try { if (window.ScrollTrigger) scroll = 1; } catch (e) {}
+    var s = document.scripts || [];
+    for (var i = 0; i < s.length && i < 300 && !scroll; i++) {
+      var src = s[i].getAttribute('src') || '';
+      if (src) { if (RE_SCRIPT.test(src)) scroll = 1; continue; }
+      var t = String(s[i].textContent || '');
+      if (t.length < 3000000 && RE_CODIGO.test(t)) scroll = 1;
+    }
+  }
+  function delDom() {
+    try { leerFramer(); } catch (e) {}
+    var l = [];
+    try { l = document.querySelectorAll('[data-aos], [class*="animate__"], .animated, .wow, [data-w-id], [data-framer-appear-id]'); } catch (e) {}
+    for (var i = 0; i < l.length && i < 1500 && por.size < MAX_EL; i++) {
+      var el = l[i];
+      if (por.has(el) || fuera(el)) continue;
+      var aos = el.getAttribute('data-aos');
+      if (aos && aos.trim()) { poner(el, { aos: aos.trim().slice(0, 60) }); continue; }
+      var ac = claseAnimate(el);
+      if (ac) { poner(el, { ac: ac }); continue; }
+      var fid = el.getAttribute('data-framer-appear-id');
+      if (fid && framer[fid]) { poner(el, { fr: framer[fid] }); continue; }
+      if (fid || el.hasAttribute('data-w-id')) { var k = enLinea(el); if (k) poner(el, { kf: k }); }
+    }
+    mirarScroll();
+  }
+  function identidad(t) {
+    try {
+      if (typeof DOMMatrix === 'function') {
+        var m = new DOMMatrix(String(t));
+        return Math.abs(m.a - 1) < 0.02 && Math.abs(m.d - 1) < 0.02 && Math.abs(m.b) < 0.02 && Math.abs(m.c) < 0.02 && Math.abs(m.e) < 1 && Math.abs(m.f) < 1;
+      }
+    } catch (e) {}
+    return /^(?:\s*(?:translate(?:3d|X|Y|Z)?|scale(?:3d|X|Y)?|rotate[XYZ]?)\(\s*[01](?:px|deg|%)?(?:\s*,\s*[01](?:px|deg|%)?)*\s*\))+\s*$/i.test(String(t));
+  }
+  function natural(z) {
+    if (z.opacity != null && z.opacity !== '' && Number(z.opacity) < 0.99) return false;
+    var t = z.transform;
+    return !t || t === 'none' || identidad(t);
+  }
+  function primerCuadro(a) {
+    var ef = a.effect;
+    if (!ef || !ef.getKeyframes || ef.pseudoElement) return null;
+    var tm = ef.getTiming ? ef.getTiming() : {};
+    if (tm.iterations === Infinity || Number(tm.duration) > MAX_MS) return null;
+    var k = ef.getKeyframes();
+    if (!k || !k.length || (k[0].computedOffset || 0) > 0.01) return null;
+    if (k.length > 1 && !natural(k[k.length - 1])) return null;
+    var P = [['opacity', 'o'], ['transform', 't'], ['translate', 'tr'], ['scale', 'sc'], ['rotate', 'ro'], ['clipPath', 'c'], ['filter', 'f']], o = {}, n = 0;
+    for (var i = 0; i < P.length; i++) { var v = k[0][P[i][0]]; if (v != null && v !== '') { o[P[i][1]] = corto(v); n++; } }
+    return n ? o : null;
+  }
+  function mirar() {
+    if (por.size >= MAX_EL || !document.getAnimations) return;
+    var l = null;
+    try { l = document.getAnimations(); } catch (e) { return; }
+    var nuevos = new Map();
+    for (var i = 0; i < l.length && i < MAX_ANIM; i++) {
+      var a = l[i], tl = null, el = null, c = null;
+      try { tl = a.timeline; } catch (e) {}
+      if (tl && tl !== document.timeline && ('source' in tl || 'subject' in tl)) { scroll = 1; continue; }
+      try { el = a.effect && a.effect.target; } catch (e) {}
+      if (!el || el.nodeType !== 1 || por.has(el) || fuera(el)) continue;
+      try { c = primerCuadro(a); } catch (e) {}
+      if (!c) continue;
+      var ya = nuevos.get(el);
+      if (!ya) nuevos.set(el, c);
+      else for (var p in c) if (!(p in ya)) ya[p] = c[p];
+    }
+    nuevos.forEach(function (c, el) { poner(el, { kf: c }); });
+  }
+  function vigilar(f) {
+    fase = f;
+    if (f === 'fin') { if (mo) { try { mo.disconnect(); } catch (e) {} } mo = null; return; }
+    if (mo || typeof MutationObserver !== 'function') return;
+    try {
+      mo = new MutationObserver(function (lista) {
+        var m = fase === 'quieto' ? enQuieto : enScroll;
+        for (var i = 0; i < lista.length; i++) {
+          var t = lista[i].target;
+          if (t && t.nodeType === 1 && (m.size < 3000 || m.has(t))) m.set(t, (m.get(t) || 0) + 1);
+        }
+      });
+      mo.observe(document.documentElement, { attributes: true, attributeFilter: ['style'], subtree: true });
+    } catch (e) { mo = null; }
+  }
+  async function probar(irA, esperar) {
+    vigilar('fin');
+    if (scroll) return;
+    var cand = [];
+    enScroll.forEach(function (n, el) {
+      if (cand.length < 20 && n >= 6 && !enQuieto.has(el) && el.isConnected && !fuera(el)) cand.push(el);
+    });
+    if (!cand.length) return;
+    var alto = Math.max(document.documentElement.scrollHeight, document.body ? document.body.scrollHeight : 0) - window.innerHeight;
+    if (alto < 50) return;
+    var antes = cand.map(function (el) { return el.getAttribute('style'); });
+    irA(Math.min(400, alto));
+    await esperar(120);
+    for (var i = 0; i < cand.length; i++) if (cand[i].getAttribute('style') !== antes[i]) { scroll = 1; break; }
+    irA(0);
+  }
+  function resumen(parteDe) {
+    var grupos = Object.create(null), lista = [];
+    por.forEach(function (s, el) {
+      if (!el.isConnected) return;
+      var p = -1;
+      try { p = parteDe(el); } catch (e) {}
+      var clave = p + '|' + JSON.stringify(s), g = grupos[clave];
+      if (g) { g.n++; return; }
+      g = { s: p, n: 1 };
+      for (var k in s) g[k] = s[k];
+      grupos[clave] = g;
+      lista.push(g);
+    });
+    lista.sort(function (a, b) { return b.n - a.n; });
+    var out = [], tam = 0;
+    for (var i = 0; i < lista.length && out.length < MAX_SENALES; i++) {
+      var largo = JSON.stringify(lista[i]).length;
+      if (tam + largo > PRESUPUESTO) continue;
+      tam += largo;
+      out.push(lista[i]);
+    }
+    return { senales: out, scroll: !!scroll };
+  }
+  return { delDom: delDom, mirar: mirar, vigilar: vigilar, probar: probar, resumen: resumen };
 }`;
 
 /**
@@ -293,7 +500,8 @@ export const JS_LECTOR = String.raw`function (id, camino, origenMako) {
       })();
     });
   }
-  async function bajarYSubir() {
+  // alPaso (tanda 8): lo que se mira en cada paso, con la página quieta en esa altura (las animaciones de entrada).
+  async function bajarYSubir(alPaso) {
     var paso = Math.max(300, Math.floor(window.innerHeight * 0.85)), y = 0;
     for (var n = 0; n < 40 && !tarde(); n++) {
       y += paso;
@@ -301,6 +509,7 @@ export const JS_LECTOR = String.raw`function (id, camino, origenMako) {
       if (y >= h) break;
       irA(y);
       await esperar(60);
+      if (alPaso) alPaso();
     }
     irA(0);
   }
@@ -546,6 +755,11 @@ export const JS_LECTOR = String.raw`function (id, camino, origenMako) {
     }
   }
 
+  // ── Las animaciones de la página (tanda 8): JS_LEER_ANIMACIONES, arriba; viajan dentro del estilo ──
+  var anim = null;
+  try { anim = (` + JS_LEER_ANIMACIONES + String.raw`)(SEL_RUIDO + ', nav, [role="navigation"]'); } catch (e) { anim = null; }
+  function conAnim(fn) { if (anim) { try { fn(anim); } catch (e) {} } }
+
   // ── El estilo de la página (tanda 6, d): para replicarla con SUS colores, fuentes e imágenes ──
   // Decisión de Martín (14/10/2026): «Al replicar como landing se COPIA el estilo (colores y fuentes
   // leídos en el navegador → tema propio; imágenes al bucket), nada de fotos de stock». Son los estilos
@@ -658,8 +872,24 @@ export const JS_LECTOR = String.raw`function (id, camino, origenMako) {
       cs = cssDe(as[i]);
       if (cs && alfa(cs.backgroundColor) < 0.5) { e.enlace = cs.color; break; }
     }
-    // Las imágenes grandes visibles, cada una con su parte: en el contenedor más chico que tiene títulos,
-    // el último título de ANTES de la imagen (o el primero, si la imagen va arriba del título).
+    // La parte de un elemento: en el contenedor más chico que tiene títulos, el último título de ANTES del
+    // elemento (o el primero, si el elemento va arriba del título, o los contiene). La usan las imágenes y,
+    // desde la tanda 8, las animaciones (con los mismos índices que «secciones»).
+    function parteDe(nodo) {
+      var s = -1, jj;
+      for (var a = nodo.parentElement, m = 0; a && m < 12 && s < 0 && a !== document.body; a = a.parentElement, m++) {
+        var primero = -1;
+        for (jj = 0; jj < vis.length; jj++) {
+          if (!a.contains(vis[jj])) continue;
+          if (primero < 0) primero = jj;
+          if (vis[jj].compareDocumentPosition(nodo) & 4) s = jj;
+        }
+        if (s < 0) s = primero;
+      }
+      if (s < 0) for (jj = vis.length - 1; jj >= 0 && s < 0; jj--) if (vis[jj].compareDocumentPosition(nodo) & 4) s = jj;
+      return s < 0 ? (vis.length ? 0 : -1) : s;
+    }
+    // Las imágenes grandes visibles, cada una con su parte.
     var imgs = document.images;
     for (i = 0; i < imgs.length && i < 400 && e.imagenes.length < 24; i++) {
       el = imgs[i];
@@ -668,19 +898,10 @@ export const JS_LECTOR = String.raw`function (id, camino, origenMako) {
       if (ri.width < 120 || ri.height < 80) continue;
       var su = urlImg(el.currentSrc || el.src || el.getAttribute('data-src'));
       if (!su) continue;
-      var s = -1;
-      for (var a = el.parentElement, m = 0; a && m < 12 && s < 0 && a !== document.body; a = a.parentElement, m++) {
-        var primero = -1;
-        for (j = 0; j < vis.length; j++) {
-          if (!a.contains(vis[j])) continue;
-          if (primero < 0) primero = j;
-          if (vis[j].compareDocumentPosition(el) & 4) s = j;
-        }
-        if (s < 0) s = primero;
-      }
-      if (s < 0) for (j = vis.length - 1; j >= 0 && s < 0; j--) if (vis[j].compareDocumentPosition(el) & 4) s = j;
-      sumarImagen(su, s < 0 ? (vis.length ? 0 : -1) : s, false, ri);
+      sumarImagen(su, parteDe(el), false, ri);
     }
+    // Las animaciones (tanda 8), agrupadas por parte. Sin ninguna, el campo no va.
+    conAnim(function (x) { var ra = x.resumen(parteDe); if (ra.senales.length || ra.scroll) e.animaciones = ra; });
     return e;
   }
 
@@ -730,6 +951,7 @@ export const JS_LECTOR = String.raw`function (id, camino, origenMako) {
     if (enviado) return;
     enviado = true;
     tocando = false;
+    conAnim(function (x) { x.vigilar('fin'); });
     var piezas = [];
     try { piezas = construir(); } catch (e) {}
     var estilo = estiloLeido;
@@ -746,8 +968,15 @@ export const JS_LECTOR = String.raw`function (id, camino, origenMako) {
       apagarRastreadores();
       await cargado(TOPE_QUIETO - ahora());
       quietoOk = await esperarQuieto(QUIETO, Math.max(300, TOPE_QUIETO - ahora()));
-      await bajarYSubir();
+      // Las animaciones (tanda 8): lo que dice el DOM ANTES de bajar, getAnimations() en cada paso de la bajada y
+      // los cambios de style mientras se baja y en el rato quieto de después. Sin esperas nuevas: sólo la prueba
+      // del scroll (120 ms), y sólo si algo cambió bajando.
+      conAnim(function (x) { x.delDom(); x.mirar(); x.vigilar('scroll'); });
+      await bajarYSubir(anim ? function () { conAnim(function (x) { x.mirar(); }); } : null);
+      conAnim(function (x) { x.vigilar('quieto'); });
       await esperarQuieto(300, 1500);
+      if (anim && !tarde()) { try { anim.mirar(); await anim.probar(irA, esperar); } catch (e) {} }
+      conAnim(function (x) { x.vigilar('fin'); });
       try { estiloLeido = leerEstilo(); } catch (e) {}
       mirarAgendas(null, null);
       tocando = true;
