@@ -690,6 +690,16 @@ test('41: lo que el corte por texto no puede acompañar va aparte, y nada toca l
   assert.match(motivos(may), /subtítulo se cambian en el panel Texto/);
 });
 
+test('42: el chat cumple las reglas del botón y del panel: borrar con lo vinculado, y el texto de un subtítulo con sus tiempos', () => {
+  // Una regla, un lugar (AGENTS.md → «Una regla que vive en un COMPONENTE no la cumple otra entrada»).
+  const comandos = sinComentarios(leer('app/video-editor/_opencut/chat/comandos.ts'));
+  assert.ok(comandos.includes('conLoVinculado({ tracks, refs: elements })'), 'el borrar del chat, como el botón');
+  assert.ok(comandos.includes('paramsConTexto(EditorCore.getInstance(), actual, r.texto)'), 'cambiar_texto de un subtítulo, como el panel');
+  assert.ok(sinComentarios(leer('app/video-editor/_opencut/actions/use-editor-actions.ts')).includes('conLoVinculado({ tracks, refs: aBorrar })'));
+  assert.ok(sinComentarios(leer('app/video-editor/_opencut/subtitles/components/pestana-subtitulos.tsx')).includes('paramsConTexto(editor, element, texto)'));
+  assert.match(revisar([{ op: 'borrar', refs: ['v2'] }]).cambios[0].antes, /lo que tiene encima/);
+});
+
 // Roturas (15/10/2026), cada una sola y restaurada desde memoria; base 21 de 21:
 // · lo borrado sigue vivo para las que siguen          → 1 fallo (10)
 // · la pista bloqueada se toca                         → 1 fallo (11)
@@ -737,6 +747,8 @@ test('41: lo que el corte por texto no puede acompañar va aparte, y nada toca l
 // · R28 el corte por texto va con un recorte de la principal · R29 normalizar el clip que se
 //   corta · R30 los subtítulos bloqueados cuentan · R31 mayúsculas en un subtítulo se aceptan
 //   → cada una 41/1 (41). Restaurado: 42/0.
+// · R32 el borrar del chat sin lo vinculado · R33 cambiar_texto de un subtítulo sin la regla del
+//   panel · R34 la fila de borrar no avisa lo vinculado → cada una 42/1 (42). Restaurado: 43/0.
 //
 // Lo que NO cubre: que los comandos del motor hagan en pantalla lo que dice la fila
 // (chat/comandos.ts, chat/aplicar.ts). Eso se mira en el navegador

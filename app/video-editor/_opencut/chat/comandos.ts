@@ -48,7 +48,9 @@ import {
 	duracionConRetime,
 } from "@/app/video-editor/_opencut/commands/timeline/element/velocidad";
 import { CortarTramosCommand } from "@/app/video-editor/_opencut/commands/timeline/element/cortar-tramos";
-import { ReemplazarSubtitulosCommand } from "@/app/video-editor/_opencut/subtitles/editar";
+import { paramsConTexto, ReemplazarSubtitulosCommand } from "@/app/video-editor/_opencut/subtitles/editar";
+import { conLoVinculado } from "@/app/video-editor/_opencut/ripple/iman";
+import { useTimelineStore } from "@/app/video-editor/_opencut/timeline/timeline-store";
 import { buildEffectElement, buildTextElement } from "@/app/video-editor/_opencut/timeline/element-utils";
 import { findTrackInSceneTracks } from "@/app/video-editor/_opencut/timeline/track-element-update";
 import type { ElementRef, RetimeConfig, SceneTracks, TimelineElement, VisualElement } from "@/app/video-editor/_opencut/timeline/types";
@@ -162,13 +164,29 @@ export function armarLote(resueltas: readonly OperacionResuelta[], { idioma }: {
 				break;
 			}
 			case "cambiar_texto":
-				comandos.push(sobre(r.el, (o) => actualizar(o, { params: { content: r.texto } } as Partial<TimelineElement>)));
+				// Un subtítulo, como el panel: vuelve a partir las líneas y conserva los tiempos por
+				// palabra si son las mismas palabras (subtitles/editar.ts → paramsConTexto).
+				comandos.push(
+					sobre(r.el, (o, actual) =>
+						actualizar(o, {
+							params:
+								actual.type === "text" && actual.params.subtitulo === true
+									? paramsConTexto(EditorCore.getInstance(), actual, r.texto)
+									: { content: r.texto },
+						} as Partial<TimelineElement>),
+					),
+				);
 				break;
 			case "borrar":
+				// Como el botón Eliminar: con «Vinculación», lo de encima de un clip de la principal se va con él.
 				comandos.push(
 					new Diferido(() => {
 						const elements = r.els.map(objetivo).filter((o): o is ElementRef => o !== null);
-						return elements.length ? new DeleteElementsCommand({ elements }) : null;
+						if (!elements.length) return null;
+						const tracks = EditorCore.getInstance().scenes.getActiveScene().tracks;
+						return new DeleteElementsCommand({
+							elements: useTimelineStore.getState().vinculacion ? conLoVinculado({ tracks, refs: elements }) : elements,
+						});
 					}),
 				);
 				break;
