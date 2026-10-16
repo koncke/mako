@@ -324,6 +324,12 @@ export async function crearCobro(ws: number, p: {
       monto_usd: montoUsd, email, nombre: nombre?.slice(0, 200) ?? null, estado: 'pendiente',
       alta_capa: altaCapa, creado_por: p.creadoPor,
     }).select(COLS_COBRO).single();
+    // ⚠️ DOS PEDIDOS A LA VEZ PARA LA MISMA CUOTA (mig 0295): el segundo choca con `cobros_un_link_vivo_por_cuota` y
+    // se devuelve el link que ganó, como cuando ya existía (`yaEstaba`). Dos links vivos eran dos cobros de la misma plata.
+    if (error && cuota && error.code === '23505' && /cobros_un_link_vivo_por_cuota/.test(error.message ?? '')) {
+      const otra = await cuotaParaLink(lead.id, cuota.id);
+      if (otra.ok && otra.pendiente) return { ok: true, cobro: otra.pendiente, link: linkDelCobro(otra.pendiente.token), yaEstaba: true };
+    }
     if (error || !fila) return { ok: false, error: `No pude guardar el cobro: ${error?.message ?? 'sin respuesta'}` };
     const cobro = cobroDeFila(fila as Record<string, unknown>);
 

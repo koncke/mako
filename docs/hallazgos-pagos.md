@@ -201,6 +201,19 @@ el MRR un 85% (hallazgos-crm.md).
   misma plata.
 - **La regla.** `cuotaParaLink` (lib/cobros.ts) no crea el link de una cuota que ya tiene un cobro pagado.
 
+### Quitar una fila de `pagos` va por la reconciliación, aunque no sea un plan
+
+- **Qué pasó** (mig 0295, 16/10/2026). Deshacer un pago que nació cobrado lo tiene que QUITAR. El reflejo fue un
+  `.from('pagos').delete()` en `marcarPago`, y lo frenó la guarda de tests/pagos-escritura.test.ts: en lib/pagos.ts
+  hay UN solo borrado de cuotas, el de la reconciliación.
+- **Por qué la guarda tiene razón.** Cada escritor que borraba y volvía a insertar les cambiaba el id a las cuotas y
+  rompía el link, el corte de la cobranza y su dedup.
+- **La regla.** Se deja impaga y se reconcilia con esa cuota como la única vista
+  (`guardarCuotasPorId(lead, [], { vistos: [id] })`): la quita el borrado de siempre, que además respeta lo que la
+  protege. `marcarPago` lee la cuota con `*`, así una base sin la migración no rompe todo marcar.
+- **Medido al aplicarla.** 0 cuotas con dos links vivos y 0 cobros en producción. El índice
+  `cobros_un_link_vivo_por_cuota` se creó sin choques.
+
 ### El teléfono muestra el estado de cuenta también desde el Resumen
 
 - **Qué pasa.** Cuatro plantillas ya traían `cobrado` en el Resumen. Con `cobrado → 'saldo'`, el teléfono lo dibuja
@@ -217,8 +230,6 @@ el MRR un 85% (hallazgos-crm.md).
 | Diseños que no se dibujan: `cobrado` anillo, `cuotas` lista y calendario, `suscripcion` tarjeta y meses, y los de `oferta` (OfertaDelLead es sólo el desplegable) | registro-pagos.tsx | No se ofrecen: el menú «Diseño» sólo muestra los que están en `disenos` |
 | **No se vio en el navegador**, ni en escritorio ni en el teléfono | — | No hubo RAM para `next dev`. Hay que mirarlo en producción con un ganado con cuotas, una suscripción y un lead abierto |
 | El teléfono muestra el saldo pero no cobra: no hay «Mandar link» | app/m/crm/[id]/FichaLead.tsx | El teléfono destila. El cobro con link en el teléfono es otra pieza |
-| «Deshacer» un pago suelto o una mensualidad deja una deuda vencida que no existía: nacen con vencimiento = el día del pago. Ya pasaba con la tarjeta de antes | lib/pagos.ts, `registrarPagoSuelto` | Hace falta una marca de origen en `pagos` («nació cobrada»), para que deshacerla la quite en vez de dejarla impaga |
-| Dos pedidos simultáneos pueden crear dos links para la misma cuota: no hay un índice único en `cobros(pago_id)` para los vivos. Ya era así | lib/cobros.ts, `cuotaParaLink` | Un índice parcial único (pendiente/fallido por `pago_id`) es una migración |
 | Marcar a mano una cuota cuyo link ya se pagó pero no se asentó: después el cron la asienta como otra cuota y lo cobrado se cuenta dos veces | lib/pagos.ts, `cobrarCuota` | Frenarlo puede trabar una cuota para siempre si el pago entró por otro monto. Se ve el link pagado en «Links de pago» |
 | `epico` llega en PropsBloque en la próxima tanda del CRM. Hasta entonces se lee con un cast | pagos/bloques-cobro.tsx, `esEpico` | Lo hace el CRM |
 | `PlantillaTab` está declarado localmente. Va el import de lib/ficha/plantillas-tab.ts cuando el CRM lo cree | lib/ficha/plantillas-pagos.ts | Lo hace el CRM |
