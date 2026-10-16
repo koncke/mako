@@ -220,6 +220,16 @@ const pesoSesion = (s: Pick<SesionDeChat, 'estado' | 'viejo' | 'sinRunner'>) => 
 };
 
 /**
+ * EL CEREBRO, el chat orquestador (Martín, 16/10/2026: «todos los chats que se llaman "Estrategia 3 cuentas" deberían ser
+ * un chat orquestador de todo... allí podría ir tirando ideas de todo tipo... se encargará de delegarlo con algún "jefe"...
+ * no debería llamarse "Estrategia 3 cuentas"»). Se llama «Cerebro»; los que todavía se llaman como antes (en las otras
+ * cuentas, hasta que se renombren) son EL MISMO chat. No es un jefe: va aparte, arriba de la lista (`seccionesDeChats`).
+ */
+export const CEREBRO = 'Cerebro';
+const NOMBRES_DEL_CEREBRO = new Set(['cerebro', 'estrategia 3 cuentas', 'estrategia']);
+export const esCerebro = (titulo: string) => NOMBRES_DEL_CEREBRO.has(normal(titulo));
+
+/**
  * Junta en UN chat todo lo que se llama igual (sin mayúsculas ni tildes): sus sesiones de las tres cuentas, lo que
  * trabajó cada una y lo anotado sin sesión con ese nombre. Martín (15/10/2026): «todos los chats de todas las cuentas
  * se llamen igual». Se le escribe a la sesión que mejor recibe (`pesoSesion`, y a igual peso la más reciente); su
@@ -228,7 +238,7 @@ const pesoSesion = (s: Pick<SesionDeChat, 'estado' | 'viejo' | 'sinRunner'>) => 
 export function unirPorNombre(chats: readonly ChatCentro[]): ChatCentro[] {
   const grupos = new Map<string, ChatCentro[]>();
   for (const c of chats) {
-    const k = normal(c.titulo) || c.clave;
+    const k = esCerebro(c.titulo) ? 'cerebro' : normal(c.titulo) || c.clave;
     if (!grupos.has(k)) grupos.set(k, []);
     grupos.get(k)!.push(c);
   }
@@ -245,7 +255,7 @@ export function unirPorNombre(chats: readonly ChatCentro[]): ChatCentro[] {
       clave: `nombre:${k}`,
       sesion: mejor?.sesion ?? null,
       porNombre: !mejor,
-      titulo: nombre.titulo,
+      titulo: k === 'cerebro' ? CEREBRO : nombre.titulo,
       cuenta: mejor?.cuenta ?? nombre.cuenta,
       estado: mejor?.estado ?? 'sin_dato',
       vistoAt: mejor?.vistoAt ?? null,
@@ -328,10 +338,9 @@ export function historialDelChat(
     const pidio = claveDe(p.pidioEn);
     out.push({ tipo: 'pedido', instante: p.instante, pedido: p, pasos: pasosDelChat(p, chat.miembros), desde: chat.miembros.includes(pidio) ? null : p.pidioEn.chat });
   }
-  for (const id of chat.pidioAca) {
-    const p = pedidos.get(id);
-    if (p) out.push({ tipo: 'derivado', instante: p.instante, pedido: p, trabajaron: [...new Set(p.pasos.map((s) => s.chat))] });
-  }
+  // ⚠️ Lo que este chat le pasó a otro NO va en su conversación ni en su avance (Martín, 16/10/2026: «dentro de ese chat
+  // dice "Lo trabajó Centro de Operaciones"... Si lo trabajó otro, no debería salir allí»): un pedido sale SÓLO en el chat
+  // que lo trabajó. `pidioAca` sigue calculándose (dice de dónde vino), pero no se dibuja acá.
   for (const w of trabajos) {
     const t = fecha(w.created_at);
     if (chat.trabajos.includes(w.id) && t != null) out.push({ tipo: 'trabajo', instante: t, trabajo: w });
@@ -478,11 +487,27 @@ export const SECCION_ANTES = 'antes';
 export const SECCION_CHATS = 'chats';
 export type SeccionChats = { clave: string; titulo: string | null; chats: ChatCentro[] };
 
-export function seccionesDeChats(chats: readonly ChatCentro[]): SeccionChats[] {
+export const SECCION_CEREBRO = 'cerebro';
+export const SECCION_SIN_ASIGNAR = 'sin-asignar';
+
+/**
+ * Martín (16/10/2026): «No estás aplicando la modularización y organización de chats... Quiero chats con los nombres de las
+ * tabs que sean "jefes"... Y no veo que ningún "jefe" tenga sus chats», y que el orquestador no es un jefe más. Con
+ * `tabs` (app/admin/operaciones/tabs.ts), un chat cuyo jefe no se llama como ninguna tab («dashboard-marketing-7d», un
+ * título que inventó la app) va a «Sin asignar», que nace plegado: se renombra con su «⋯» y pasa a su jefe. Sin `tabs`,
+ * todos van a la lista (como antes).
+ */
+export function seccionesDeChats(chats: readonly ChatCentro[], tabs?: readonly string[]): SeccionChats[] {
   const reciben = chats.filter((c) => !c.porNombre && c.sesion);
   const antes = chats.filter((c) => c.porNombre || !c.sesion);
+  const cerebro = reciben.filter((c) => esCerebro(c.titulo));
+  const resto = reciben.filter((c) => !esCerebro(c.titulo));
+  const conocidas = tabs ? new Set(tabs.map(normal)) : null;
+  const deTab = (c: ChatCentro) => !conocidas || conocidas.has(normal(partesDelNombre(c.titulo).jefe));
   const out: SeccionChats[] = [];
-  if (reciben.length) out.push({ clave: SECCION_CHATS, titulo: null, chats: reciben });
+  if (cerebro.length) out.push({ clave: SECCION_CEREBRO, titulo: null, chats: cerebro });
+  if (resto.some(deTab)) out.push({ clave: SECCION_CHATS, titulo: null, chats: resto.filter(deTab) });
+  if (resto.some((c) => !deTab(c))) out.push({ clave: SECCION_SIN_ASIGNAR, titulo: 'Sin asignar', chats: resto.filter((c) => !deTab(c)) });
   if (antes.length) out.push({ clave: SECCION_ANTES, titulo: 'Antes del 16/10', chats: antes });
   return out;
 }

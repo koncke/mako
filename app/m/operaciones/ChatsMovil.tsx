@@ -22,7 +22,7 @@ import { Button, Field, Input } from '@/app/_ui';
 import { Icon } from '@/app/_components/icons';
 import type { Alcance } from '@/lib/operaciones-reglas';
 import {
-  SECCION_CHATS, avanceDelChat, comoSale, enQueTrabaja, esperaDe, historialDelChat, nombreCuenta, nombreValido, partesDelNombre, porJefe, seccionesDeChats,
+  CEREBRO, SECCION_CEREBRO, SECCION_CHATS, avanceDelChat, comoSale, enQueTrabaja, esperaDe, historialDelChat, nombreCuenta, nombreValido, partesDelNombre, porJefe, seccionesDeChats,
   textoDeEnvio, textoDeRenombre, vistaPrevia, type CarteroP, type ChatCentro, type TrabajoP,
 } from '@/lib/centro-chats';
 import type { PedidoP, PushP } from '@/lib/progreso-reglas';
@@ -54,7 +54,8 @@ const edad = (t: number | null, ahora: number): string => {
   return `${Math.round(s / 86_400)} d`;
 };
 
-export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, esperas, firma, onEnviado, munecos, onMunecos, decisiones, responder }: {
+export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, esperas, firma, onEnviado, munecos, onMunecos, decisiones, responder, tabs }: {
+  tabs: readonly string[];
   /** Las tarjetas de la Ticketera: cada chat contesta las suyas al final de su conversación, pegadas a la caja. */
   decisiones: readonly Decision[];
   responder: AccionResponder;
@@ -96,7 +97,7 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
     return () => clearTimeout(t);
   }, [abierto, lineas.length]);
 
-  const secciones = useMemo(() => seccionesDeChats(chats), [chats]);
+  const secciones = useMemo(() => seccionesDeChats(chats, tabs), [chats, tabs]);
 
   if (!chats.length) return <VacioM frase="Conecta un Runner desde la computadora para ver tus chats aquí." />;
 
@@ -203,8 +204,8 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
         const todas = enteras.has(k);
         const corte = todas ? lista : lista.slice(0, VISIBLES);
         return (
-          <SeccionM key={k} titulo={titulo ?? 'Chats'}>
-            <ListaM etiqueta={titulo ?? 'Chats'}>
+          <SeccionM key={k} titulo={titulo ?? (k === SECCION_CEREBRO ? CEREBRO : 'Chats')}>
+            <ListaM etiqueta={titulo ?? (k === SECCION_CEREBRO ? CEREBRO : 'Chats')}>
               {(k === SECCION_CHATS
                 ? porJefe(corte).flatMap((g) => [
                   ...(g.chat ? [{ c: g.chat, sub: false }] : []),

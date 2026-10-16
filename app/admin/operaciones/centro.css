@@ -129,6 +129,9 @@
 .co-fila:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 .co-fila[aria-current='true'] { background: var(--surface); box-shadow: inset 0 0 0 1px var(--border), 0 1px 2px rgba(18, 21, 27, .04); }
 .co-fila { align-items: center; gap: 12px; }
+/* El Cerebro (el orquestador) va aparte, arriba de los jefes: no es uno más. */
+.co-cuenta--cerebro { padding-bottom: 6px; margin-bottom: 6px; border-bottom: 1px solid var(--border); }
+
 /* «Nuevo chat»: el primer renglón, con el muñeco de un lugar vacío (gris y transparente). */
 .co-fila--nuevo { margin-bottom: 4px; color: var(--dim); }
 .co-muneco-nuevo { display: inline-flex; flex: none; opacity: .38; filter: grayscale(1); }

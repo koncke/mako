@@ -51,7 +51,7 @@ import { MenuContextual } from '@/app/_ui/MenuContextual';
 import { Icon } from '@/app/_components/icons';
 import type { Alcance } from '@/lib/operaciones-reglas';
 import {
-  SECCION_ANTES, SECCION_CHATS, chatDeClave, comoSale, completarChats, enQueTrabaja, esperaDe, esperasPorChat, historialDelChat, nombreValido, partesDelNombre,
+  SECCION_ANTES, SECCION_CEREBRO, SECCION_CHATS, SECCION_SIN_ASIGNAR, chatDeClave, comoSale, completarChats, enQueTrabaja, esperaDe, esperasPorChat, historialDelChat, nombreValido, partesDelNombre,
   porJefe, seccionesDeChats, textoDeEnvio, textoDeRenombre, vistaPrevia,
   type DecisionEspera, type ChatCentro, type TrabajoP, type VistaPrevia,
 } from '@/lib/centro-chats';
@@ -130,7 +130,7 @@ function Previa({ c, p, espera, enCurso }: { c: ChatCentro; p: VistaPrevia | nul
 
 export function CentroApp({
   base, colaInicial, carterosIniciales, decisionesIniciales, munecosIniciales, pedidos, ahora: ahoraServer, sub, chatInicial,
-  responder, deshacer, ticketeraInicial,
+  responder, deshacer, ticketeraInicial, tabs,
 }: {
   base: ChatCentro[];
   colaInicial: Pedido[] | null;
@@ -142,6 +142,8 @@ export function CentroApp({
   deshacer: AccionDeshacer;
   /** `?ticketera=`: las rutas viejas de la Ticketera traen acá, con la vista que eran. */
   ticketeraInicial: VistaTicketera | null;
+  /** Los nombres de las tabs: el jefe de un chat se llama como una; los demás van a «Sin asignar» (tabs.ts). */
+  tabs: readonly string[];
   /** Los muñecos que Martín eligió, por nombre (lib/centro-munecos-db.ts). */
   munecosIniciales: MunecosElegidos;
   pedidos: PedidoP[];
@@ -157,7 +159,7 @@ export function CentroApp({
   const [ahora, setAhora] = useState(ahoraServer);
   const [pushes, setPushes] = useState<LecturaPushes | null>(null);
   const [busca, setBusca] = useState('');
-  const [plegadas, setPlegadas] = useState<Set<string>>(() => new Set([SECCION_ANTES]));
+  const [plegadas, setPlegadas] = useState<Set<string>>(() => new Set([SECCION_ANTES, SECCION_SIN_ASIGNAR]));
   const [enteras, setEnteras] = useState<Set<string>>(new Set());
   const [borradores, setBorradores] = useState<Record<string, string>>({});
   const [alcance, setAlcance] = useState<Alcance>('solo_esto');
@@ -239,7 +241,7 @@ export function CentroApp({
   // ── La barra: una lista, lo que trabaja primero ────────────────────────────────────────────────
   const filtro = normal(busca.trim());
   const visibles = filtro ? chats.filter((c) => normal(c.titulo).includes(filtro)) : chats;
-  const secciones = useMemo(() => seccionesDeChats(visibles), [visibles]);
+  const secciones = useMemo(() => seccionesDeChats(visibles, tabs), [visibles, tabs]);
   // La conversación de cada chat, una vez: de ella salen el segundo renglón y en qué está trabajando.
   const lineasDe = useMemo(
     () => new Map(chats.map((c) => [c.clave, historialDelChat(c, porId, trabajos, respuestasDelChat(c, decisiones, carteros))])),
@@ -386,7 +388,7 @@ export function CentroApp({
             // El elegido se ve siempre, aunque esté más abajo del corte.
             const corte = todas ? lista : lista.filter((c, i) => i < VISIBLES || c.clave === actual?.clave);
             return (
-              <div key={k} className="co-cuenta">
+              <div key={k} className={`co-cuenta${k === SECCION_CEREBRO ? ' co-cuenta--cerebro' : ''}`}>
                 {/* La lista no lleva título; sólo lo anotado antes del 16/10 va aparte, plegado. */}
                 {titulo && (
                   <button type="button" className="co-cuenta__cab" aria-expanded={!plegada} onClick={() => setPlegadas((s) => alternar(s, k))}>

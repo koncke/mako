@@ -36,7 +36,7 @@ const trabajoDe = (p: Pedido): TrabajoP => ({
   texto: p.texto, estado: p.estado, motivo: p.motivo, entregado_at: p.entregado_at, cerrado_at: p.cerrado_at, cierre: p.cierre,
 });
 
-export function CentroAppMovil({ base, colaInicial, carterosIniciales, decisionesIniciales, munecosIniciales, pedidos, ahora: ahoraServer, sub, responder }: {
+export function CentroAppMovil({ base, colaInicial, carterosIniciales, decisionesIniciales, munecosIniciales, pedidos, ahora: ahoraServer, sub, responder, tabs }: {
   /** La mitad de la lista que sale de las bitácoras (lib/centro-chats.ts → chatsDeBitacoras). */
   base: ChatCentro[];
   colaInicial: Pedido[] | null;
@@ -49,6 +49,8 @@ export function CentroAppMovil({ base, colaInicial, carterosIniciales, decisione
   sub: string;
   /** La acción de la Ticketera: contestar la pregunta de un chat acá es contestarla allá. */
   responder: AccionResponder;
+  /** Los nombres de las tabs: el jefe de un chat se llama como una (app/admin/operaciones/tabs.ts). */
+  tabs: readonly string[];
 }) {
   const [cola, setCola] = useState<Pedido[]>(colaInicial ?? []);
   const [locales, setLocales] = useState<TrabajoP[]>([]);
@@ -106,7 +108,7 @@ export function CentroAppMovil({ base, colaInicial, carterosIniciales, decisione
         <FilaM icono="soporte" titulo="Ticketera" segunda={pendientes ? `${pendientes} por decidir` : 'Nada por decidir'} href="/m/operaciones?ticketera=tarjetas" navegacion />
       </ListaM>
       <ChatsM
-        decisiones={decisiones} responder={responderAca}
+        decisiones={decisiones} responder={responderAca} tabs={tabs}
         chats={chats} carteros={carteros} pedidos={pedidos} trabajos={trabajos} pushes={pushes?.ok ? pushes.pushes : null} ahora={ahora}
         esperas={esperas} firma={firma} onEnviado={(t) => { setLocales((l) => [t, ...l]); refrescar(); }}
         munecos={munecos} onMunecos={setMunecos}

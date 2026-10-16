@@ -10,6 +10,7 @@ import { chatsDeBitacoras } from '@/lib/centro-chats';
 import { leerDecisiones } from '@/lib/admin-decisiones';
 import { leerMunecos } from '@/lib/centro-munecos-db';
 import { CentroApp } from './CentroApp';
+import { nombresDeTabs } from './tabs';
 import { deshacerDecision, responderDecision } from '@/app/admin/runway/acciones';
 // La Ticketera vive adentro del Centro (16/10/2026): sus hojas las importa la página (CambioVista.tsx lo explica).
 import '@/app/tickets/decisiones/mazo.css';
@@ -63,6 +64,7 @@ export default async function OperacionesPage({ searchParams }: { searchParams: 
         responder={responderDecision}
         deshacer={deshacerDecision}
         ticketeraInicial={ticketera === 'lista' ? 'lista' : ticketera === 'tarjetas' ? 'tarjetas' : null}
+        tabs={nombresDeTabs()}
       />
     </Pagina>
   );

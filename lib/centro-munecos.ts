@@ -54,6 +54,8 @@ export const claveDeMuneco = (titulo: string) => normal(titulo).slice(0, 120);
  */
 const EQUIPO: Array<[string, Forma, Color, CaraMuneco]> = [
   ['estrategia', 'circulo', '--grafo-avatares', 'sonrisa'],
+  // El Cerebro es el orquestador que se llamaba «Estrategia 3 cuentas»: el mismo empleado (lib/centro-chats.ts → CEREBRO).
+  ['cerebro', 'circulo', '--grafo-avatares', 'sonrisa'],
   ['centro de operaciones', 'cuadrado', '--grafo-documentos', 'tranquila'],
   ['crm', 'hexagono', '--grafo-oferta', 'risa'],
   ['automations', 'cuadrado', '--grafo-panorama', 'dientes'],

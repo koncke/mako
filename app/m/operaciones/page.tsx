@@ -34,6 +34,7 @@ import { leerMunecos } from '@/lib/centro-munecos-db';
 import { CabeceraM, PantallaM, VacioM } from '@/app/m/_ui';
 import { CentroAppMovil } from './CentroAppMovil';
 import { TicketeraMovil } from './TicketeraMovil';
+import { nombresDeTabs } from '@/app/admin/operaciones/tabs';
 import { deshacerDecision, responderDecision } from '@/app/admin/runway/acciones';
 // La Ticketera vive adentro del Centro (16/10/2026): sus hojas las importa la página.
 import '@/app/tickets/decisiones/mazo.css';
@@ -94,6 +95,7 @@ export default async function CentroOperacionesMovil({ searchParams }: { searchP
         ahora={ahora}
         sub={admin.sub}
         responder={responderDecision}
+        tabs={nombresDeTabs()}
       />
     </PantallaM>
   );

@@ -73,7 +73,7 @@ test('el punto tiene edad: con el cartero quieto el estado es una foto y no orde
   assert.equal(q[0].vistoAt, Date.parse('2026-10-15T13:00:00Z'));
 });
 
-test('un pedido repartido está en cada chat con lo suyo, y el chat donde se pidió lo sabe', () => {
+test('un pedido repartido está en cada chat con lo suyo, y NO en el que lo pasó', () => {
   const EST = S(9);
   const area: AreaP = { slug: 'x', titulo: 'X', bitacora: [
     hito('09:00', 'prompt', 'Estrategia', { sesion: EST, pedido: 'Hacelo en los dos' }),
@@ -87,12 +87,12 @@ test('un pedido repartido está en cada chat con lo suyo, y el chat donde se pid
   assert.deepEqual(pasosDelChat(pedidos[0], S(1)).map((s) => s.chat), ['Landing'], 'cada uno ve sólo sus pasos');
   assert.deepEqual(est.pidioAca, [pedidos[0].id], 'Estrategia lo pidió y lo trabajaron otros');
   assert.equal(est.estado, 'sin_dato', 'ningún cartero vio estas sesiones: sin estado, que no es «cerrado»');
-  // La conversación de cada uno: en Landing, el pedido con SU paso y de dónde vino; en Estrategia, a quién fue.
+  // La conversación de cada uno: en Landing, el pedido con SU paso y de dónde vino. En el que lo pasó, nada (Martín,
+  // 16/10/2026: «Si lo trabajó otro, no debería salir allí»). Probado rompiéndolo: dibujando `pidioAca` → 1 fallo.
   const porId = new Map(pedidos.map((p) => [p.id, p]));
   const [l] = historialDelChat(landing, porId, []);
   assert.ok(l.tipo === 'pedido' && l.desde === 'Estrategia' && l.pasos.length === 1);
-  const [e] = historialDelChat(est, porId, []);
-  assert.ok(e.tipo === 'derivado' && e.trabajaron.join() === 'Landing,Video');
+  assert.deepEqual(historialDelChat(est, porId, []), [], 'sale sólo en los chats que lo trabajaron');
 });
 
 test('un trabajo firmado va a su sesión aunque el cartero no la vea, y lo quieto de hace semanas no entra', () => {
