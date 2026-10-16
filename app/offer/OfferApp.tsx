@@ -68,7 +68,7 @@ import { SelectorFunnel } from './SelectorFunnel';
 import { leerAdjuntos } from './adjuntos-envio';
 import { arbolSeguro, arbolVacio, conSesionEnArbol, leerValor } from './arbol';
 import {
-  ACTUALIZAR_PDF, TOPE_MENSAJE, bienvenidaDe, esOpcionArmar, etiquetaArmar, linksDe, pasoTrasFalloDeOferta, quedoGuardado, reemplaza,
+  ACTUALIZAR_PDF, TOPE_MENSAJE, bienvenidaDe, esOpcionArmar, etiquetaArmar, linksDe, quedoGuardado, reemplaza,
   resumenDe, type AvisoGuardado,
 } from './ayudas';
 import { CSS_OFFER } from './estilos';
@@ -76,6 +76,8 @@ import { ErrorOfferApi, TOPE, esRechazoDefinitivo, llamarOffer, mensajeDeError, 
 
 type EstadoGeneracion = { paso: PasoGeneracion; corriendo: boolean; error: string | null };
 const GEN_QUIETA: EstadoGeneracion = { paso: 'diagnostico', corriendo: false, error: null };
+/** Cada cuánto se relee la conversación mientras el servidor arma la oferta. */
+const RELEER_ARMADO_MS = 4_000;
 
 /** Una nota de voz grabada: el binario, cuánto dura y su URL `blob:` (la del reproductor mientras sale). */
 /**
@@ -619,59 +621,60 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
 
   // ── Armar la oferta ────────────────────────────────────────────────────────
   /**
-   * Diagnóstico → oferta nueva. Si falla, se reintenta DESDE el paso que falló.
-   * `generando` (un ref, no un estado) es lo que impide dispararlo dos veces: un
-   * doble clic llega antes de que el estado se vuelva a dibujar.
+   * Le pide al SERVIDOR que arme la oferta (16/10/2026). Antes el navegador esperaba los dos pasos (diagnóstico
+   * y oferta) y, si la persona cerraba la pestaña en el primero, la oferta no se hacía nunca. Ahora 'armar'
+   * contesta al toque y el servidor corre los dos pasos solo (y avisa al terminar, el evento `oferta_lista`); lo
+   * que se ve sale de lo GUARDADO (`sesion.armando`, ver el efecto de abajo), así que una recarga o la pestaña
+   * que vuelve muestran el mismo armado. El reintento es el mismo pedido: el servidor arranca desde el paso que
+   * falló. `generando` (un ref, no un estado) impide dispararlo dos veces con un doble clic, y el servidor
+   * tampoco arranca otro si ya hay uno corriendo.
    */
-  const armar = async (desde: PasoGeneracion = 'diagnostico') => {
+  const armar = async () => {
     const id = sesionId.current;
     if (id == null || generando.current) return;
     generando.current = true;
     const e = epoca.current;
-    let paso: PasoGeneracion = desde === 'listo' ? 'diagnostico' : desde;
-    // La versión de antes de armar: si el 'generar' se cortó del lado del navegador pero el servidor
-    // terminó, al releer aparece una MÁS NUEVA, y eso es la oferta, no un fallo.
-    const versionAntes = sesionRef.current?.conclusion?.version ?? 0;
     // Sin cambiar de vista: el armado es un mensaje más del hilo (`armando`) y el chat sigue ahí.
-    setGen({ paso, corriendo: true, error: null });
-    const corte = 'Tardó más de 5 minutos. Prueba de nuevo.';
+    setGen({ paso: sesionRef.current?.armando?.paso ?? 'diagnostico', corriendo: true, error: null });
     try {
-      if (paso === 'diagnostico') {
-        await llamarOffer<{ ok: true }>({ action: 'diagnosticar', sesionId: id }, TOPE.generar, corte);
-        if (e !== epoca.current) return;
-        paso = 'oferta';
-        setGen({ paso, corriendo: true, error: null });
-      }
-      const r = await llamarOffer<{ sesion: OfferSesionVista }>({ action: 'generar', sesionId: id }, TOPE.generar, corte);
+      const r = await llamarOffer<{ sesion: OfferSesionVista }>({ action: 'armar', sesionId: id, origen: arranque ? 'arranque' : 'tab' }, TOPE.corto);
       if (e !== epoca.current) return;
       aplicarSesion(r.sesion, e);
-      // El PDF llega como un mensaje de MaKo con «Ver mi oferta»: no se abre solo encima de lo que la
-      // persona esté haciendo (en el arranque, eligiendo su CRM mientras tanto).
-      setGen({ paso: 'listo', corriendo: false, error: null });
     } catch (err) {
       if (e !== epoca.current) return;
-      if (paso !== 'oferta') { setGen({ paso, corriendo: false, error: mensajeDeError(err) }); return; }
-      // Falló la OFERTA (revisión del 11/10): repetir 'generar' tal cual podía ser un bucle sin salida.
-      // Se relee la conversación: si el servidor sí terminó, se muestra lo que armó; si contestó 409
-      // (falta el diagnóstico: otra pestaña mandó un mensaje o ya lo consumió una generación), el
-      // reintento arranca desde el diagnóstico. El resto (un corte, un 502) reintenta la oferta.
-      let versionAhora: number | null = null;
-      try {
-        const r = await llamarOffer<{ sesion: OfferSesionVista }>({ action: 'abrir', id }, TOPE.corto);
-        if (e !== epoca.current) return;
-        aplicarSesion(r.sesion, e);
-        versionAhora = r.sesion.conclusion?.version ?? 0;
-      } catch { /* sin conexión: decide sólo el status del error */ }
-      const siguiente = pasoTrasFalloDeOferta({ status: err instanceof ErrorOfferApi ? err.status : undefined, versionAntes, versionAhora });
-      if (siguiente === 'listo') {
-        setGen({ paso: 'listo', corriendo: false, error: null });
-        return;
-      }
-      setGen({ paso: siguiente, corriendo: false, error: mensajeDeError(err) });
+      setGen((g) => ({ ...g, corriendo: false, error: mensajeDeError(err) }));
     } finally {
       generando.current = false;
     }
   };
+
+  // Lo que se ve del armado sale de lo guardado: en curso (con su paso), fallido (con su error) o terminado.
+  const armado = sesion?.armando ?? null;
+  const armadoPaso = armado?.paso ?? null;
+  const armadoCorre = !!armado?.corriendo;
+  const armadoError = armado?.error ?? null;
+  useEffect(() => {
+    if (armadoPaso) { setGen({ paso: armadoPaso, corriendo: armadoCorre, error: armadoError }); return; }
+    // Sin armado guardado: si había uno a la vista, terminó (la oferta ya está en el chat como un mensaje).
+    setGen((g) => (g.corriendo ? { paso: 'listo', corriendo: false, error: null } : g));
+  }, [armadoPaso, armadoCorre, armadoError]);
+  // Mientras el servidor arma, la conversación se relee: la conclusión aparece sola, y una pestaña que se
+  // durmió se pone al día al despertar. Un fallo de red no corta nada: se reintenta en la vuelta siguiente.
+  const idSesionArmando = armadoCorre ? (sesion?.id ?? null) : null;
+  useEffect(() => {
+    if (idSesionArmando == null) return;
+    const e = epoca.current;
+    const releer = async () => {
+      try {
+        const r = await llamarOffer<{ sesion: OfferSesionVista }>({ action: 'abrir', id: idSesionArmando }, TOPE.corto);
+        aplicarSesion(r.sesion, e);
+      } catch { /* sin conexión: la próxima vuelta */ }
+    };
+    const t = setInterval(() => { void releer(); }, RELEER_ARMADO_MS);
+    const alVolver = () => { if (document.visibilityState === 'visible') void releer(); };
+    document.addEventListener('visibilitychange', alVolver);
+    return () => { clearInterval(t); document.removeEventListener('visibilitychange', alVolver); };
+  }, [idSesionArmando, aplicarSesion]);
 
   /** Una respuesta rápida de MaKo (`idx` = su lugar en `opciones` del último mensaje). */
   const elegirOpcion = (idx: number) => {
@@ -779,7 +782,7 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
   const armoArranque = useRef(false);
   const armarArranque = !!arranque?.armar;
   useEffect(() => {
-    if (!armarArranque || armoArranque.current || !sesion || sesion.conclusion || generando.current) return;
+    if (!armarArranque || armoArranque.current || !sesion || sesion.conclusion || sesion.armando?.corriendo || generando.current) return;
     armoArranque.current = true;
     void armar();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `armar` cambia en cada render
@@ -861,7 +864,7 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
   };
   const opcionesHabilitadas = arranque && ultimoVisible?.id.startsWith('arr-') ? !arranque.ocupado : puedeMandar;
   const armandoEnChat = gen.corriendo || gen.error
-    ? { paso: gen.paso, corriendo: gen.corriendo, error: gen.error, onReintentar: () => void armar(gen.paso) }
+    ? { paso: gen.paso, corriendo: gen.corriendo, error: gen.error, onReintentar: () => void armar() }
     : null;
   const conRiel = !arranque || arranque.conRiel;
 

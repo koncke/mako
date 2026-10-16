@@ -583,9 +583,8 @@ de este motor, y vale para tocarlo después:
 ni `hastaRedMs`). Lo habilita la lista del veto sólo mientras `onboardingPendiente()`.
 
 **Lo que quedó SIN hacer:**
-- **El aviso al terminar si la persona se fue** (00:37:00: «te dejaré una notificación al WhatsApp de MaKo
-  y… en la propia aplicación»). Hoy el armado sigue en el chat; si se cierra la pestaña, el pedido del
-  navegador se corta. Falta correr el armado por detrás del servidor y avisar por WhatsApp y en la app.
+- ~~El aviso al terminar si la persona se fue~~ **HECHO el 16/10**: la oferta se arma en el servidor y avisa
+  (ver «La oferta se arma en el servidor, y MaKo avisa cuando está», abajo).
 - **El resto del feedback de esa llamada, sin tocar:** que detecte las ofertas de menor a mayor precio
   («¿qué le vendes después?», 00:34:26); que distinga low ticket de high ticket y servicio hecho por vos /
   con vos / para vos (00:38:54, 00:39:11: no prometer implementar algo que hace el cliente en un curso);
@@ -599,5 +598,54 @@ ni `hastaRedMs`). Lo habilita la lista del veto sólo mientras `onboardingPendie
 `app/offer/ChatOffer.tsx` (`armando`, `onVerOferta`, `avatar`, `extra`, `soloTexto`) ·
 `app/offer/Generando.tsx` (`GenerandoEnChat`) · `app/offer/Conclusion.tsx` (`conProbar`) ·
 `lib/offer-ia.ts` (el crédito en `pedir`) · `tests/onboarding-arranque.test.ts`, `tests/offer-ia-cableado.test.ts`
+
+*16/10/2026, cuenta claude3.*
+
+## La oferta se arma en el servidor, y MaKo avisa cuando está (16/10/2026)
+
+**El pedido** (Martín, llamada con Leila del 12/10, 00:37:00): que MaKo arme la oferta sin que la persona se quede
+esperando en la pestaña, «te mando una notificación cuando esté listo».
+
+**El diagnóstico obvio era el equivocado.** Parecía que alcanzaba con avisar al final. Pero «Armar mi oferta» eran DOS
+pedidos que esperaba el NAVEGADOR (`diagnosticar` y `generar`, cada uno de hasta ~285 s): si la persona cerraba la
+pestaña durante el primero, el segundo no salía nunca y la oferta no se hacía. Con el segundo ya en curso, sí
+terminaba (nada en la ruta mira `req.signal`). Y en el onboarding, volver a montar la pantalla re-corría el
+diagnóstico desde cero: pagaba la IA otra vez, y si el primer `generar` seguía vivo, su CAS fallaba con un 409.
+
+**Ahora:** `armar` anota el armado en la fila (`offer_sesiones.armado`, mig 0296: cuándo, en qué paso, de dónde, quién
+y el error), contesta al toque y corre los dos pasos en un `after()` (`armarPorDetras`). La pantalla sólo relee cada
+4 s mientras `sesion.armando.corriendo`, y lo que dibuja sale de lo guardado: una recarga, otra pestaña o la persona
+que vuelve ven el mismo armado. Al terminar, el evento de la plataforma `oferta_lista` (docs/diseno-avisos-plataforma.md §7).
+
+**Lo que conviene saber antes de tocarlo:**
+- **`maxDuration = 800`** (como /api/retro): los dos pasos en una sola invocación son ≤285 + ≤288 s. Cada paso cuenta
+  su plazo desde SU arranque (`inicio` de lib/offer-ia.ts), no desde el pedido.
+- **Cada escritura es de ESTE intento** (`armado.intento`, por CAS): un armado viejo que termina tarde no pisa el
+  nuevo. Y `armar` es idempotente: con uno corriendo, devuelve la conversación sin arrancar otro (el doble clic, la
+  pantalla del onboarding que se vuelve a montar, dos pestañas).
+- **Un armado que se cortó no queda «armando» para siempre:** pasados `ARMADO_VENCE_MS` (15 min, más que el
+  `maxDuration`), la vista lo muestra como fallido («Se cortó…») y se puede volver a pedir.
+- **El reintento arranca desde el paso que falló:** con `borrador` (el diagnóstico hecho), desde la oferta.
+- **La columna está en las COLS:** la mig 0296 va ANTES del deploy (se aplicó el 16/10 con
+  scripts/apply-migration.mjs; es aditiva y el código de antes no la lee).
+- **MaKo Mobile sigue con los dos pasos sueltos** (app/m/offer/OfferM.tsx): `diagnosticar` y `generar` se quedaron
+  para él. Si se lo pasa a `armar`, el teléfono gana lo mismo.
+
+**El aviso:** se emite SIEMPRE al terminar (Martín no pidió «sólo si se fue», y un evento de la plataforma no admite
+condiciones hoy). Va por `emitirEventoDePlataforma`, nunca por `emitirDelCatalogo`: sin fila, éste cae al camino viejo
+y mandaría el `ejemplo` del catálogo como si fuera real.
+
+**Lo que quedó SIN hacer:**
+- **Correr la mudanza después del deploy:** `node scripts/mudanza-avisos-plataforma.mts --eventos=oferta_lista
+  --aplicar`. Sin esa fila en el ws 9, la oferta se arma en el servidor igual, pero no avisa.
+- **Sin grupo de MaKo no llega el WhatsApp.** En el onboarding pasa seguido: el teléfono se pide DESPUÉS de la oferta.
+  Lo ve en el chat cuando vuelve. «En la app» de escritorio no existe todavía: la tabla `notificaciones` no está en
+  producción y no hay campanita (docs/hallazgos-chatbot.md, «Lo que el evento de la oferta lista destapó del motor»).
+- **No se vio en el navegador ni se armó una oferta contra la IA por este camino.**
+
+**Vive en:** `app/api/offer/route.ts` (`armar`, `armarPorDetras`, `diagnosticarSesion`, `generarSesion`) ·
+`lib/offer-reglas.ts` (`sanearArmado`, `armadoEnCurso`, `armadoParaVista`) · `lib/offer-sesiones.ts` (la columna) ·
+`app/offer/OfferApp.tsx` (`armar`, la relectura) · `lib/oferta-lista.ts` y `lib/oferta-lista-server.ts` (el aviso) ·
+`supabase/migrations/0296_offer_armado.sql` · `tests/offer-armado-servidor.test.ts` (14 roturas)
 
 *16/10/2026, cuenta claude3.*

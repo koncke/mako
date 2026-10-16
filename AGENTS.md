@@ -8575,6 +8575,11 @@ chat». Lo que costó, en `docs/hallazgos-onboarding.md` y `docs/hallazgos-offer
   diagnóstico desde el prompt del turno, y el botón «Armar mi oferta» no pasa por el turno: armaba sin él y
   el arranque se trababa. Lo que el arranque NECESITA para avanzar lo mira en lo guardado
   (`etapaDeArranque`) y, si falta, lo pregunta él; nunca supone que otra pantalla ya lo pidió.
+- **Lo que tarda minutos de IA no se espera en el navegador.** Se anota en la fila, corre en un `after()` del
+  servidor (con el `maxDuration` que le alcance) y la pantalla relee lo guardado: así una pestaña cerrada no
+  deja el trabajo a medias, y una recarga ve lo mismo. Cada escritura de fondo lleva su `intento` (un trabajo
+  viejo que termina tarde no pisa el nuevo) y lo que corre tiene un vencimiento. El molde: el armado de la
+  oferta (`armar` / `armarPorDetras` en app/api/offer/route.ts, mig 0296).
 
 # Una reserva de agenda decide a DÓNDE va por un solo camino, y la agenda tiene tres fuentes de ruteo
 

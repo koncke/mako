@@ -696,6 +696,22 @@ export const PLANTILLAS_PLATAFORMA: readonly PlantillaAutomatizacion[] = [
       makoEmail('rs_mk', '{{reporte_titulo}}', '{{reporte_texto}}', null),
     ],
   },
+  {
+    // La oferta que MaKo terminó de armar (16/10/2026, pedido de Martín en la llamada con Leila: «te mando una
+    // notificación cuando esté listo»). La arma el servidor aunque la persona cierre la pestaña
+    // (app/api/offer/route.ts, `armarPorDetras`). El nombre en su renglón: si la oferta no tiene uno que sirva, se va solo.
+    id: 'mako-oferta-lista',
+    nombre: 'Oferta Lista de un Negocio',
+    emoji: '✨',
+    linea: 'Le avisa al grupo de un negocio que MaKo terminó de armar su oferta, con el link para verla.',
+    origen: 'el armado de la oferta en el servidor (tab Offer u onboarding), al terminar',
+    objetivo: 'clientes',
+    soloPlataforma: true,
+    cron: { fijo: TRIGGER_AVISO_MAKO, evento: 'oferta_lista' },
+    pasos: [
+      mako('ol_mk', '✨ *Tu oferta está lista* (versión {{oferta_lista_version}}).\n📝 {{oferta_lista_nombre}}\n\n👉 Mírala aquí: {{oferta_lista_link}} — MaKo', null),
+    ],
+  },
 ];
 
 export const PLANTILLAS_REEMPLAZADAS: Readonly<Record<string, string | null>> = {
