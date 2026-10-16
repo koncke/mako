@@ -16,7 +16,7 @@
 // Cada workspace corre ADENTRO de `runWithWorkspace(w.id, …)`, y eso es lo que hace que
 // cada lectura y cada envío sean de ESE cliente: las preferencias, los destinatarios
 // (`getDestinatarios`) y los números del reporte (`getTenantDb`).
-// El mail sale firmado por MaKo (`REMITENTE_MAKO`, en `despacharReporte`).
+// El mail sale firmado por MaKo: lo manda la tarjeta «MaKo por email» de la automatización de SuperAdmin.
 //
 // ⛔ EL REPORTE YA NO SALE POR WHATSAPP. Salía por el Chatwoot del workspace (sólo el ws1 lo
 // tenía completo), que se borró el 09/10/2026 con toda la integración (ver lib/notify.ts).
@@ -24,7 +24,8 @@
 //
 // 🔀 DESDE EL 16/10/2026 ES UN EVENTO DE LA PLATAFORMA (`reporte_semanal`): este cron sigue decidiendo a qué negocio le
 // toca y arma su reporte, pero lo MANDA la automatización «Reporte Semanal de un Negocio» de SuperAdmin si existe
-// (`emitirEventoDePlataforma`). Sin ella, `despacharReporte`, como siempre.
+// (`emitirEventoDePlataforma`). ⚠️ Sin ella, NO sale (desde la tarde del 16/10: sin camino viejo, `despacharReporte` era
+// el de antes; docs/inventario-nada-por-detras.md).
 //
 // Modos:
 //   ?dry=1[&ws=N] → lista a quién le mandaría (destinos enmascarados), sin armar el
@@ -38,7 +39,6 @@ import { listarWorkspaces, runWithWorkspace } from '@/lib/workspace';
 import { estadoAviso, getContactoReportes, getNotifPrefs } from '@/lib/perfil';
 import { getDestinatarios } from '@/lib/notif-destinatarios';
 import { buildReporteSemanal } from '@/lib/reportes';
-import { despacharReporte } from '@/lib/notify';
 import { idDeMensaje } from '@/lib/disparador-mensaje';
 import { datosDelReporte, decidirReporte, destinosDelReporte, enmascararDestino } from '@/lib/reporte-destino';
 import { emitirEventoDePlataforma } from '@/lib/avisos';
@@ -74,20 +74,14 @@ async function reporteDelWorkspace(ws: number, dry: boolean): Promise<ResultadoW
   }
 
   const rep = await buildReporteSemanal(prefs);
-  // LA AUTOMATIZACIÓN DE LA PLATAFORMA (16/10/2026, docs/diseno-avisos-plataforma.md §6): si SuperAdmin tiene una fila
-  // con `reporte_semanal` (prendida o pausada), decide ella, y su «MaKo por email» le escribe al equipo de este negocio.
-  // Sin ninguna, sale como siempre (`sinFila` → `despacharReporte`): ni hueco ni doble. Si no se pudo leer si hay fila,
-  // no se manda por las dos puertas a ciegas: error, y el lunes siguiente vuelve.
+  // LA AUTOMATIZACIÓN DE LA PLATAFORMA (16/10/2026, docs/diseno-avisos-plataforma.md §6): SuperAdmin decide con su fila
+  // `reporte_semanal`, y su «MaKo por email» le escribe al equipo de este negocio. ⚠️ SIN CAMINO VIEJO desde la tarde del
+  // 16/10 (docs/inventario-nada-por-detras.md): sin fila prendida, el reporte no sale (`despacharReporte` era el de antes).
   const ev = await emitirEventoDePlataforma('reporte-semanal', { ws, datos: datosDelReporte(rep) });
   if (!ev.ok) return { ws, modo: 'error', error: 'no pude leer las automatizaciones de la plataforma' };
-  if (!ev.sinFila) {
-    // Con la fila PAUSADA no corre ninguna (`filas: 0`): el reporte no sale, y lo decidió SuperAdmin.
-    return ev.filas > 0
-      ? { ws, modo: 'enviado', porAutomatizacion: { filas: ev.filas } }
-      : { ws, modo: 'salteado', motivo: 'pausada_en_superadmin' };
-  }
-  const despacho = await despacharReporte(rep, prefs.semanal, perfil);
-  return { ws, modo: 'enviado', despacho };
+  return ev.filas > 0
+    ? { ws, modo: 'enviado', porAutomatizacion: { filas: ev.filas } }
+    : { ws, modo: 'salteado', motivo: 'sin_automatizacion_en_superadmin' };
 }
 
 export async function GET(req: NextRequest) {

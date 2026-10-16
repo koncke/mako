@@ -16,6 +16,7 @@ import { FilaM, ListaM, PildoraM, SeccionM, VacioM } from '@/app/m/_ui';
 import { carteroVivo } from '@/lib/operaciones-reglas';
 import { nombreCuenta, type CarteroP } from '@/lib/centro-chats';
 import type { ClaveDispositivo } from '@/app/admin/operaciones/clave-dispositivo';
+import { ListaUso } from '@/app/admin/operaciones/Uso';
 
 export function RunnerMovil({ carteros, clave, ahora, onCrearClave, onCopiarClave }: {
   carteros: CarteroP[] | null;
@@ -28,7 +29,13 @@ export function RunnerMovil({ carteros, clave, ahora, onCrearClave, onCopiarClav
   const activos = (carteros ?? []).filter((k) => carteroVivo(k, ahora)).length;
   return (
     <>
-      {/* La hoja ya se llama «Runners»: la sección dice el número, como la cabecera de la computadora. */}
+      {/* El Uso de cada cuenta, lo primero (Martín: «Falta el poder visualizar el USO»): la misma pieza que la computadora. */}
+      {carteros && carteros.length > 0 && (
+        <SeccionM titulo="Uso">
+          <ListaUso cuentas={carteros.map((k) => ({ cuenta: k.cuenta, vistoAt: k.vistoAt, cuota: k.cuota ?? null }))} ahora={ahora} />
+        </SeccionM>
+      )}
+      {/* La sección dice el número, como la cabecera de la computadora. */}
       <SeccionM titulo={carteros?.length ? `${activos} de ${carteros.length} activos` : 'Runners'}>
         {!carteros ? <VacioM frase="No pude leer los Runners: reintenta en un momento." /> : carteros.length ? (
           <ListaM etiqueta="Runners">
@@ -42,7 +49,7 @@ export function RunnerMovil({ carteros, clave, ahora, onCrearClave, onCopiarClav
                   titulo={nombreCuenta(k.cuenta) ?? k.cuenta}
                   segunda={vivo
                     ? `${abiertos} ${abiertos === 1 ? 'chat abierto' : 'chats abiertos'}`
-                    : 'Abre su chat en la PC para conectarlo'}
+                    : 'Abre su Runner en la PC para conectarlo'}
                   pill={<PildoraM tono={vivo ? 'good' : 'bad'}>{vivo ? 'Activo' : 'Sin conexión'}</PildoraM>}
                 />
               );

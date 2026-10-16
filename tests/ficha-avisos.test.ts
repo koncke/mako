@@ -178,7 +178,9 @@ test('desde la ficha, los avisos son los del funnel del lead (en «Personalizar�
   // 3. …que la ficha guarda en ESE funnel (el de `data.ficha`), no en el negocio.
   const ficha = sinComentarios(leer('app/crm/lead-view/ficha/FichaPorBloques.tsx'));
   assert.match(ficha, /useFichaDelFunnel\(data\.ficha \?\? null,/);
-  assert.match(ficha, /<PanelFicha ficha=\{ff\.ficha\} onCambio=\{cambiar\} \/>/);
+  // 16/10/2026: el panel recibe además la tab que se personaliza (su nombre, su plantilla y su épica) y cómo abrir su
+  // galería; los avisos siguen yendo por el mismo `cambiar` sobre la ficha de `ff.ficha`.
+  assert.match(ficha, /<PanelFicha ficha=\{ff\.ficha\} tab=\{tab\} onCambio=\{cambiar\} onPlantillas=/);
   const hook = sinComentarios(leer('app/crm/lead-view/ficha/useFichaDelFunnel.ts'));
   // Desde el 16/10/2026 la cola y el deshacer viven en guardado-ficha.ts (puro, lo ejecuta
   // tests/ficha-guardado.test.ts): el funnel sale de la ficha que se ve ahí, y el hook lo pasa a la acción.

@@ -104,10 +104,12 @@ test('reintentar la oferta: 409 rehace el diagnóstico; una conclusión nueva al
   assert.equal(pasoTrasFalloDeOferta({ status: 409, versionAntes: 0, versionAhora: 1 }), 'listo', 'si ya terminó, se muestra aunque haya sido 409');
   assert.equal(pasoTrasFalloDeOferta({ status: 502, versionAntes: 1, versionAhora: 1 }), 'oferta');
   assert.equal(pasoTrasFalloDeOferta({ status: undefined, versionAntes: 0, versionAhora: null }), 'oferta');
-  // Y `armar` la consulta en su catch (con la versión de ANTES de armar).
+  // `pasoTrasFalloDeOferta` la sigue usando MaKo Mobile (app/m/offer/OfferM.tsx, tests/m-offer.test.ts), que arma con
+  // los dos pasos sueltos. ESCRITORIO arma en el SERVIDOR desde el 16/10/2026: el reintento es el mismo pedido
+  // ('armar'), y el servidor arranca desde el paso que falló (`pasoInicialDelArmado`, tests/offer-armado-servidor.test.ts).
   const armar = sinComentarios(bloque(leer('app/offer/OfferApp.tsx'), 'const armar = async', 'const elegirOpcion'));
-  assert.match(armar, /const versionAntes = sesionRef\.current\?\.conclusion\?\.version \?\? 0/);
-  assert.match(armar, /pasoTrasFalloDeOferta\(\{ status: err instanceof ErrorOfferApi \? err\.status : undefined, versionAntes, versionAhora \}\)/);
+  assert.match(armar, /llamarOffer<\{ sesion: OfferSesionVista \}>\(\{ action: 'armar', sesionId: id, origen: arranque \? 'arranque' : 'tab' \}, TOPE\.corto\)/);
+  assert.doesNotMatch(armar, /action: 'diagnosticar'|action: 'generar'/, 'escritorio volvió a esperar los dos pasos en el navegador');
 });
 
 // ── 3. «No pude leer» no es «no hay» ─────────────────────────────────────────

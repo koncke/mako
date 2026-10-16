@@ -28,8 +28,8 @@ import { guardarMuneco } from '@/lib/centro-munecos-db';
 const NO_PUEDE = 'Entra con tu segundo factor para usar el Centro.';
 const msg = (e: unknown) => (e instanceof Error && e.message ? e.message : 'Algo falló: vuelve a intentarlo.');
 
-/** `decisiones`: las tarjetas de la Ticketera, en lo mínimo que hace falta para saber qué empleado espera una
- *  respuesta (null si no se pudieron leer: el resto se ve igual). */
+/** `decisiones`: las tarjetas de la Ticketera, enteras: cada chat dibuja las suyas arriba de la caja (null si no se
+ *  pudieron leer: el resto se ve igual). */
 export type FotoCentro = { ok: true; pedidos: Pedido[]; carteros: EstadoCarteros; decisiones: DecisionEspera[] | null } | { ok: false; error: string };
 
 export async function fotoCentroAction(): Promise<FotoCentro> {
@@ -51,10 +51,10 @@ export async function pushesCentroAction(): Promise<LecturaPushes> {
   return leerPushes();
 }
 
-/** Las tarjetas abiertas de la Ticketera, en lo mínimo (chat, sesión y si ya se contestó). No es una acción. */
+/** Las tarjetas abiertas de la Ticketera (las archivadas no vienen). No es una acción. */
 async function decisionesQueEsperan(): Promise<DecisionEspera[] | null> {
   const l = await leerDecisiones().catch(() => null);
-  return l?.ok ? l.decisiones.map((d) => ({ chat: d.chat, destino: d.destino ?? null, respuesta: d.respuesta })) : null;
+  return l?.ok ? l.decisiones : null;
 }
 
 export async function encolarPedidoAction(entrada: {

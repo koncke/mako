@@ -116,3 +116,26 @@ Si la plataforma no tiene fila (`sinFila`), sale por `despacharReporte`, como si
 - Test: tests/reporte-semanal-plataforma.test.ts (12 roturas).
 - **Antes, un arreglo de la pieza (a5b9e6d06):** la tarjeta de un evento de la plataforma esperaba el horario de oficina
   de la PLATAFORMA (el ws 9 corre la fila). Ahora espera el del negocio que la recibe.
+
+## 7. La oferta lista (16/10/2026): el primer evento de la plataforma que NACE así
+
+No es una mudanza: no había un aviso viejo. Pedido de Martín en la llamada con Leila (12/10, 00:37:00): que MaKo arme
+la oferta sin que la persona se quede esperando en la pestaña, «te mando una notificación cuando esté listo».
+
+- **Antes había que arreglar el armado.** «Armar mi oferta» eran dos pedidos que esperaba el navegador; cerrar la
+  pestaña en el primero dejaba al negocio sin oferta. Ahora la arma el servidor (app/api/offer/route.ts, `armar` y
+  `armarPorDetras`, mig 0296) y, al terminar, emite el evento.
+- **El evento** `oferta_lista` (`trae: ['oferta']`, `plataforma: true`), con `oferta_lista_nombre`,
+  `oferta_lista_version` y `oferta_lista_link` (`datosOfertaLista`, lib/oferta-lista.ts). El emisor es
+  `avisarOfertaLista` (lib/oferta-lista-server.ts), con `emitirEventoDePlataforma`: **sin fila no manda nada**. No hay
+  camino viejo al que volver, y `emitirDelCatalogo` caería al de antes con el `ejemplo` del catálogo como si fuera real.
+- **La plantilla** `mako-oferta-lista` («Oferta Lista de un Negocio»): una tarjeta «MaKo en WhatsApp» al grupo del
+  negocio. El nombre en su propio renglón: si la oferta no tiene uno que sirva, se va solo.
+- **Se emite SIEMPRE**, también si la persona sigue mirando. Martín pidió «una notificación cuando esté listo», sin
+  condición. «Sólo si no la vio» no se puede armar hoy: un evento de la plataforma rechaza las CONDITION, y los hechos
+  que leen son sólo del lead (ver docs/hallazgos-chatbot.md, «Lo que el evento de la oferta lista destapó del motor»).
+- **Falta, después del deploy:** `node scripts/mudanza-avisos-plataforma.mts --eventos=oferta_lista --aplicar`. Hasta
+  esa fila, la oferta se arma en el servidor igual, pero no avisa.
+- **Un negocio sin grupo de MaKo no recibe el WhatsApp**, y no hay un error que lo diga. En el onboarding pasa seguido: el
+  teléfono se pide DESPUÉS de la oferta. Lo ve en el chat cuando vuelve (la oferta queda como un mensaje de MaKo).
+- Test: tests/offer-armado-servidor.test.ts (14 roturas).

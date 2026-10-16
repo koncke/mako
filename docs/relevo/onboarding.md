@@ -1,5 +1,32 @@
 # Onboarding: el arranque del cliente nuevo y el onboarding de cada tab
 
+## ⚠️ Actualización del 16/10/2026: el wizard ya no existe
+
+<sub>Escrito el 16/10/2026 por el chat «Onboarding» (claude3), sobre lo suyo. Main `9f89a5004`. Lo de abajo
+(10/10) describe el wizard: sirve como historia, no como mapa.</sub>
+
+- **El onboarding es el chat de Offer** (Martín: «el onboarding será ese chat de offer»). Lo lleva el chat
+  Offer: `/onboarding` dibuja `ChatArranque.tsx`, el cierre pasa por UNA puerta (`cerrarPasosOnboarding`,
+  lib/onboarding-state.ts) y la regla del cierre es `aplicarCambiosDePaso` (lib/onboarding-contrato.ts).
+  `OnboardingWizard.tsx`, `Bienvenida.tsx` y `Listo.tsx` se borraron. Las cuatro redirecciones a /onboarding
+  siguen igual.
+- **El crédito de Claude de la plataforma** (dos planes Max de Martín) sólo durante el onboarding, y sólo para
+  `'offer'`, `'El Archivero'` y `'onboarding-extract'` (`CREDITO_HABILITADO_PARA`, lib/veto-claude.ts). Sumar
+  algo lo decide Martín.
+- **El histórico (Meta, Fathom, YouTube, Panda) arranca al CONECTAR la integración**, por cualquier puerta
+  (`arrancarHistoricoEnSegundoPlano(ws, servicio)`, lib/onboarding-extract.ts), y lo corre el cron de cada 15
+  minutos, que recorre a quien tenga cualquiera de las cuatro. Antes lo arrancaba sólo el wizard.
+- **Toda escritura del estado lee estricto** (`getEstadoOnboardingEstricto`): la tolerante, con la base caída,
+  reabría onboardings terminados.
+- Las trampas y lo medido, en `docs/hallazgos-onboarding.md` → «Si el onboarding deja de ser el wizard».
+  Tests: `historico-al-conectar`, `onboarding-escritura-estricta`, `veto-claude-credito-plataforma`.
+- **Queda abierto:** los comentarios de otras áreas que nombran al wizard como vivo (lib/capas.ts,
+  lib/paises.ts, app/onboarding/FaseUI.tsx, OnboardingForm.tsx, app/automations/*) son historia y no
+  rompen nada. Y la ruta /api/onboarding/extraccion queda sin llamadores en la app: sirve para pedir un
+  `tick` o un `retry` a mano.
+
+---
+
 <sub>Escrito el 10/10/2026 por el chat «Onboarding» (cuenta claude3), sobre lo que hizo ese
 mismo chat. Es el primer briefing de esta área: no había ninguno, y no hubo un chat
 «Onboarding» desde el 05/09 (el del prototipo conversacional). Cubre hasta el commit

@@ -14,6 +14,22 @@ en el documento de cada área. Lo de la skill del cliente, en
 
 ---
 
+## El filtro por TAB no existe, y el presupuesto de 12.000 caracteres no alcanza para un jefe (16/10/2026)
+
+**Síntoma (medido leyendo, para el diseño del chat único, `docs/diseno-mako-ai-native.md`).** La idea obvia para darle a
+cada tab su chat era «el turno carga las operaciones de la tab». No hay cómo: `toolsDelRegistro` filtra por `area`, no
+por `gating.tab` (`lib/api-mako/registro.ts`, el filtro), y las dos cosas no calzan: `graphics` es el área `metricas`,
+`script` es el área `ads` (mezclada con las 39 de Ads Manager) y `landing-an` es el área `landing` (con las 65 de
+`landing-writer`). Fijar áreas metía Ads Manager y Web Generator enteros en el Dashboard.
+
+**Y aunque existiera, no entra.** El turno carga hasta `PRESUPUESTO_REGISTRO_CHARS` = 12.000 (`lib/doer-herramientas.ts`);
+sólo las acciones del Dashboard (`graphics`) son 26.377 caracteres, las del CRM 60.800. Cuando se pasa, el corte se
+avisa con un `console.warn` y nada más.
+
+**La regla:** un chat por tab lleva una LISTA de claves de gating (las tabs retiradas siguen guardando operaciones: con sólo
+`graphics`, el Dashboard pierde 15 de sus 32 acciones), un filtro nuevo en `FiltroTools`, y un tope propio medido para
+ese panel; si algo queda afuera, el turno lo sabe y lo dice. Detalle y números: `docs/diseno-mako-ai-native.md`, (a) y (b).
+
 ## ⚠️ Pasar una acción a `pantalla` no la saca del chat: la tool vieja del mismo nombre gana
 
 **Síntoma.** `proponer_presupuesto_campana` se declaró `confirmacion: 'pantalla'` (mueve

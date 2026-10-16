@@ -4,10 +4,11 @@
 // Motor por tandas reanudables (el techo serverless es 300s por request): cada
 // tick corre EL primer job no terminado en orden de dependencias, con un
 // presupuesto de tiempo, persiste el cursor en onboarding.state y devuelve el
-// estado. La UI del wizard repite ticks mientras extraction.status='running'
-// (patrón del botón Sincronizar de /closing); si el usuario cierra, el próximo
-// login retoma donde quedó. Todo corre en el WORKSPACE del request (sesión del
-// admin-cliente o super admin impersonando) → getTenantDb/credWs ya scopean.
+// estado. Lo arranca conectar una integración con histórico (`arrancarHistoricoEnSegundoPlano`,
+// abajo) y los ticks los corre el cron de cada 15 minutos (app/api/cron/onboarding-extraccion).
+// Hasta el 16/10/2026 los repetía también la UI del wizard mientras extraction.status='running';
+// el wizard se borró ese día (el onboarding es el chat de Offer). Todo corre en el WORKSPACE del
+// contexto (la sesión, o runWithWorkspace en el cron y al conectar) → getTenantDb/credWs ya scopean.
 //
 // Orden (dependencias reales de los crons):
 //   meta_metrics    → marketing_metrics_daily (ayer → 365 días atrás, cursor)

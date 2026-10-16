@@ -181,6 +181,8 @@ const AREA_POR_AVISO: Record<string, AreaAviso> = {
   'cierre-mes': 'reporte', 'retro-lista': 'reporte',
   // El análisis del AI Analyst del Dashboard (lib/graficos-analisis-server.ts `avisarAnalisisListo`).
   'dashboard-analisis-listo': 'reporte',
+  // La oferta que MaKo terminó de armar (16/10/2026, el evento de la plataforma `oferta_lista`).
+  'oferta-lista': 'reporte',
   // El pedido de restablecer la contraseña (Seguridad, 15/10/2026): un mail a la persona, de la plataforma.
   'seguridad-contrasena-restablecer': 'sistema',
 
@@ -234,7 +236,7 @@ const AREA_POR_AVISO: Record<string, AreaAviso> = {
   'prueba-grabada': 'landing',
   'landing-cambio': 'landing',
   'prueba-recibida': 'landing',
-  'wa-desconectado': 'sistema', 'wa-reconectado': 'sistema',
+  'wa-desconectado': 'sistema', 'wa-desvinculado': 'sistema', 'wa-reconectado': 'sistema',
   'nutricion-frenada': 'sistema',
   'datos-sin-marcar': 'sistema', 'cron-ingesta-fallo': 'sistema',
   'saldo-ia-bajo': 'sistema', 'accion-confirmada': 'sistema',
@@ -312,13 +314,16 @@ export const esAvisoDelCliente = (id: string): boolean => AVISOS_DEL_CLIENTE.inc
  * (tests/avisos-solo-superadmin.test.ts).
  */
 export const AVISOS_SOLO_SUPERADMIN: readonly string[] = [
-  'wa-desconectado',        // se cayó su WhatsApp
+  'wa-desconectado',        // se cortó su WhatsApp
+  'wa-desvinculado',        // WhatsApp cerró la sesión de su línea (16/10/2026)
   'wa-reconectado',         // y volvió
   'reunion-ocurrio-fathom', // terminó la reunión y quedó la grabación
   // El reporte de los lunes (11/10/2026): no sale por WhatsApp (`REPORTE_POR_WHATSAPP = false`, decisión del 10/10)
   // y sale por email, según `notification_prefs`. Sale de la lista del cliente y lo configura la agencia. Desde el
   // 16/10/2026 es una automatización de la plataforma con «MaKo por email» (docs/diseno-avisos-plataforma.md §6).
   'reporte-semanal',
+  // La oferta quedó lista (16/10/2026): la arma el servidor y avisa la automatización de la plataforma.
+  'oferta-lista',
 ];
 
 export const esAvisoSoloSuperAdmin = (id: string): boolean => AVISOS_SOLO_SUPERADMIN.includes(id);
@@ -903,24 +908,36 @@ https://hola-mako.com/plan — MaKo`,
      * lo que se midió: qué línea, si WhatsApp cerró la sesión o fue un corte, y desde cuándo.
      * El ejemplo es ficticio, a propósito.
      */
-    id: 'wa-desconectado', titulo: 'WhatsApp de empresa desconectado', categoria: 'aviso', porDefecto: 'on',
+    id: 'wa-desconectado', titulo: 'WhatsApp de empresa cortado', categoria: 'aviso', porDefecto: 'on',
     prioridad: 'alta', semaforo: 'rojo', requiereRespuesta: false, yaImplementado: 'si',
-    textoDelCodigo: true,   // `textoCaida` (lib/linea-vigilancia.ts): sale de lo que se midió
-    disparador: 'Cuando una línea de WhatsApp del negocio queda caída dos pruebas seguidas (se prueba cada 10 minutos). Avisa al negocio y repite cada 24 h mientras siga así. Una línea que nunca se vinculó, o que el negocio desvinculó, no avisa.',
-    ejemplo: `🔴 *Se desconectó tu WhatsApp* (+52 55 1234 5678). WhatsApp cerró la sesión del dispositivo vinculado el 3 de octubre: tu teléfono está bien, pero por ese número no entran ni salen mensajes. Vuelve a escanear el QR: https://hola-mako.com/whatsapp — MaKo`,
+    // ⚠️ DESDE EL 16/10/2026 EL TEXTO ES EL DE SU AUTOMATIZACIÓN (la #253 de SuperAdmin, evento `whatsapp_caido`), sin
+    // camino viejo: el código sólo pasa los datos de la línea (`datosCaida`). Cuando WhatsApp CERRÓ la sesión, el aviso es
+    // otro (`wa-desvinculado`).
+    disparador: 'Cuando una línea de WhatsApp del negocio queda caída dos pruebas seguidas (se prueba cada 10 minutos) y no es porque WhatsApp cerró la sesión. Avisa al negocio y repite cada 24 h mientras siga así. Una línea que nunca se vinculó, o que el negocio desvinculó, no avisa.',
+    ejemplo: `🔴 *Se cortó tu WhatsApp*\n📱 +52 55 1234 5678\n🕐 Desde el 3 de octubre\nPor ese número no entran ni salen mensajes. Puede volver solo; si sigue así, reconéctalo:\nhttps://hola-mako.com/whatsapp\n\n— MaKo`,
+  },
+  {
+    /**
+     * WhatsApp CERRÓ LA SESIÓN del dispositivo vinculado (16/10/2026): hasta ese día era el mismo aviso que el corte, con el
+     * título en una variable. Lo dispara lib/lineas-vigilante.ts cuando Evolution dice que la línea se desvinculó. El texto es
+     * el de su automatización de SuperAdmin (evento `whatsapp_desvinculado`). Ejemplo ficticio.
+     */
+    id: 'wa-desvinculado', titulo: 'WhatsApp de empresa desvinculado', categoria: 'aviso', porDefecto: 'on',
+    prioridad: 'alta', semaforo: 'rojo', requiereRespuesta: false, yaImplementado: 'si',
+    disparador: 'Cuando WhatsApp cierra la sesión del dispositivo vinculado de una línea del negocio (se prueba cada 10 minutos, dos pruebas seguidas). Avisa al negocio y repite cada 24 h mientras siga así.',
+    ejemplo: `🔴 *Se desconectó tu WhatsApp*\n📱 +52 55 1234 5678\n🕐 Desde el 3 de octubre\nWhatsApp cerró la sesión del dispositivo vinculado: tu teléfono está bien, pero por ese número no entran ni salen mensajes. Vuelve a escanear el QR:\nhttps://hola-mako.com/whatsapp\n\n— MaKo`,
   },
   {
     /**
      * La contracara del de arriba (09/10/2026, decisión de Martín al cerrar el Chatbot). Sale
      * sólo si la caída SE AVISÓ: un corte que volvió entre dos corridas del cron no tiene nada
-     * que desmentir. Lo dispara lib/lineas-vigilante.ts con el texto de `textoVolvio`
+     * que desmentir. Lo dispara lib/lineas-vigilante.ts con los datos de `datosVolvio`
      * (lib/linea-vigilancia.ts). Ejemplo ficticio.
      */
     id: 'wa-reconectado', titulo: 'WhatsApp de empresa reconectado', categoria: 'aviso', porDefecto: 'on',
     prioridad: 'baja', semaforo: 'verde', requiereRespuesta: false, yaImplementado: 'si',
-    textoDelCodigo: true,   // `textoVolvio` (lib/linea-vigilancia.ts)
-    disparador: 'Cuando vuelve una línea cuya caída ya se había avisado (se prueba cada 10 minutos). Sale una vez y deja de insistir.',
-    ejemplo: `🟢 *Volvió tu WhatsApp* (+52 55 1234 5678). Por ese número ya entran y salen mensajes otra vez. — MaKo`,
+    disparador: 'Cuando vuelve una línea cuya caída ya se había avisado (se prueba cada 10 minutos). Sale una vez y deja de insistir. El texto es el de su automatización de SuperAdmin (evento `whatsapp_volvio`).',
+    ejemplo: `🟢 *Volvió tu WhatsApp*\n📱 +52 55 1234 5678\nPor ese número ya entran y salen mensajes otra vez. — MaKo`,
   },
   {
     id: 'wa-sin-responder', titulo: 'Conversaciones sin responder hace X horas', categoria: 'accion',
@@ -1037,6 +1054,22 @@ https://hola-mako.com/crm/123/resumen
 Las agendas subieron 18% y el costo por lead bajó a US$ 4,10.
 
 👉 https://hola-mako.com/dashboard?hoja=marketing
+
+— MaKo`,
+  },
+  {
+    id: 'oferta-lista', titulo: 'La oferta está lista', categoria: 'aviso',
+    prioridad: 'media', semaforo: 'na', requiereRespuesta: false, yaImplementado: 'si',
+    // 16/10/2026: un EVENTO de la plataforma (`oferta_lista`, lib/disparadores.ts). Pedido de Martín en la llamada con
+    // Leila (12/10, 00:37:00): «te mando una notificación cuando esté listo», para que la persona no se quede
+    // esperando en la pestaña. La oferta se arma en el SERVIDOR (app/api/offer/route.ts, `armarPorDetras`) aunque
+    // se cierre la pestaña, y al terminar lo emite `avisarOfertaLista` (lib/oferta-lista-server.ts) con
+    // `{{oferta_lista_nombre}}`, `{{oferta_lista_version}}` y `{{oferta_lista_link}}`. Lo corre la automatización del
+    // SuperAdmin «Oferta Lista de un Negocio» (`mako-oferta-lista`).
+    disparador: 'MaKo termina de armar la oferta de un negocio, en la tab Offer o en el onboarding, aunque la persona haya cerrado la pestaña.',
+    ejemplo: `✨ *Tu oferta está lista*: Método Lumen: 8 Semanas sin Dolor de Espalda (versión 1).
+
+👉 Mírala aquí: https://hola-mako.com/offer
 
 — MaKo`,
   },

@@ -341,6 +341,59 @@ export const BITACORA: Hito[] = [
       'lib/offer-ia.ts — el crédito de Claude antes de la red gratis',
     ],
   },
+  {
+    fecha: '16 oct', hora: '08:59', chat: 'Offer', sesion: 'local_34d54ef6-523c-46f8-b83f-9fd310dfd667', cuenta: 'claude3', actor: 'claude', tipo: 'implementacion',
+    titulo: 'La oferta se arma aunque cierres la pestaña, y MaKo avisa cuando está',
+    puntos: [
+      'Antes, si la persona cerraba la pestaña mientras MaKo armaba la oferta, a veces no se hacía nunca. Ahora la arma el servidor de punta a punta, y la pantalla sólo mira cómo va: al volver, está ahí.',
+      'Al terminar, MaKo le avisa al grupo del negocio por WhatsApp: «Tu oferta está lista», con el nombre y el link. Lo configura el SuperAdmin como una automatización más.',
+      'Falta prender esa automatización en la cuenta de la plataforma después de subirlo. Y un negocio que todavía no tiene grupo con MaKo no recibe el WhatsApp: ve la oferta en el chat cuando vuelve.',
+    ],
+    commits: [
+      { sha: '132225c', msg: 'Offer: la oferta se arma en el servidor, y al terminar MaKo avisa (evento de la plataforma oferta_lista)', lineas: 795, archivos: 28 },
+    ],
+    archivos: [
+      'app/api/offer/route.ts — `armar` y `armarPorDetras`: los dos pasos en el servidor',
+      'app/offer/OfferApp.tsx — pide el armado y relee lo guardado mientras corre',
+      'lib/oferta-lista-server.ts — el evento de la plataforma al terminar',
+      'supabase/migrations/0296_offer_armado.sql — el armado en curso, en la fila',
+      'tests/offer-armado-servidor.test.ts — 14 roturas, todas caen',
+    ],
+  },
+  {
+    fecha: '16 oct', hora: '09:20', chat: 'Offer', sesion: 'local_34d54ef6-523c-46f8-b83f-9fd310dfd667', cuenta: 'claude3', actor: 'claude', tipo: 'implementacion',
+    titulo: 'El PDF en dos partes: tu oferta de hoy, y la propuesta que te armo',
+    puntos: [
+      'Primero, lo que MaKo encontró en tu oferta de hoy: lo que le gustó (una lista, no una sola frase) y lo que cambiaría y cómo, parte por parte.',
+      'Después, en otra página, la propuesta que te arma, con su nombre arriba. La portada ya no pone el nombre de la oferta nueva sobre el puntaje de la actual.',
+      'Lo pidió Martín en la llamada con Leila del 12/10: «de tu oferta me gustó esto, esto y esto… y por el otro lado, esta es la propuesta que yo te armo».',
+    ],
+    commits: [
+      { sha: '79cd546', msg: 'Offer: el PDF en dos partes, «Tu oferta hoy» y «La propuesta que te armo»', lineas: 242, archivos: 7 },
+    ],
+    archivos: [
+      'lib/offer-pdf.ts — las dos partes, la segunda en página nueva',
+      'lib/offer-marco.ts — «Lo que me gustó» y «Para subir cada parte», con lo que ya deja el diagnóstico',
+      'tests/offer-pdf.test.ts — 11 roturas, todas caen',
+    ],
+  },
+  {
+    fecha: '16 oct', hora: '09:49', chat: 'Offer', sesion: 'local_34d54ef6-523c-46f8-b83f-9fd310dfd667', cuenta: 'claude3', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Una oferta de entrada no se vuelve un alto ticket',
+    puntos: [
+      'MaKo sabe si la oferta es una entrada o un alto ticket por su precio. A una entrada la mejora en su nivel y le pregunta qué vende DESPUÉS, en vez de convertirla en un programa caro.',
+      'Pregunta quién hace el trabajo (tu cliente solo, con tu acompañamiento o lo haces tú por él) y no promete «implementamos» si es un curso.',
+      'La oferta sale con las palabras del cliente, sin jerga de consultor, y avisa si se le cuela alguna. Y ya no ofrece «avanzar con el diagnóstico», un paso que no existía.',
+    ],
+    commits: [
+      { sha: 'd5f3428', msg: 'Offer: una entrada no es un alto ticket; quién hace el trabajo; las palabras del cliente; sin el paso de «diagnóstico» que no existe', lineas: 473, archivos: 8 },
+    ],
+    archivos: [
+      'lib/offer-reglas.ts — el nivel por el precio, la escalera, los avisos de jerga y de quién hace el trabajo',
+      'lib/offer-ia.ts — los tres prompts sin el alto ticket por defecto',
+      'tests/offer-nivel-y-voz.test.ts — 15 roturas, todas caen',
+    ],
+  },
 ];
 
 export const PARTES: Parte[] = [

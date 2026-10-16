@@ -30,6 +30,19 @@ arregladas, y donde el rescate lo sabía, lo dice.
 
 ---
 
+## ⛔ `/api/chart-insights` le pasa a closer y setter los montos del trimestre (16/10/2026, leído, SIN ARREGLAR)
+
+**Lo que se vio** (relevando los chats de MaKo para el diseño del chat único): `/api/chart-insights` llama a
+`buildSystemPrompt` sin `sinNumerosDelNegocio` en sus tres llamadas y no mira el rol. «Pregúntale a MaKo» (`/mako`) está
+abierta a closer y setter (`app/_components/nav.ts`, `rolesWs`), así que un closer recibe por `objetivosContextoTexto`
+(`lib/mako-context.ts`) los USD vendidos y cobrados del trimestre. Es lo mismo que la auditoría del 14/10 cerró en
+`turnoApp` (`sinNumerosDelNegocio: persona.rol !== 'admin'`) y no en esta ruta. Además, cualquier miembro lee por id
+cualquier chat de escritorio del workspace (la rama `sessionId` de la misma ruta).
+
+**El diagnóstico obvio era el equivocado:** «se arregla retirando `/mako`». No: la ruta la usan también el chat por gráfico
+del Dashboard y el de Ads Manager. Se arregla en la RUTA (el rol de la sesión → `sinNumerosDelNegocio`, y el chat por id
+sólo si es de quien lo pide), con un test que la llame como closer.
+
 ## La credencial de la PLATAFORMA adentro del panel de un cliente (GitHub)
 
 *2026-08-24 — pedido del dueño: «revisá MUY bien que GitHub NO debe estar en los

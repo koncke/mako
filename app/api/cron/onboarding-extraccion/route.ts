@@ -31,10 +31,10 @@
 //
 // IDEMPOTENTE, y NO por disciplina: `tickExtraccion` ya tiene un lease de 5 minutos
 // (`leaseAt`) contra dos runners simultáneos, escrito el día que el problema eran dos
-// pestañas del wizard. O sea que este cron y el bucle del navegador pueden convivir:
-// el que llega segundo ve el lease fresco y se va sin tocar nada. Los dos drivers son
-// deliberados — el del navegador avanza rápido mientras el cliente mira, y éste es el
-// que garantiza que termine aunque cierre.
+// pestañas del wizard. O sea que dos ticks a la vez (este cron y un `tick` pedido a mano a
+// /api/onboarding/extraccion) pueden convivir: el que llega segundo ve el lease fresco y
+// se va sin tocar nada. Desde el 16/10/2026 éste es el ÚNICO driver: el bucle del
+// navegador vivía en el wizard, que se borró ese día (el onboarding es el chat de Offer).
 //
 // CADA 15 MINUTOS, y el número es una decisión: parado cuesta una lista de workspaces
 // y dos lecturas por cada uno con Meta, así que la frecuencia se paga casi entera en

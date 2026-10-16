@@ -193,7 +193,7 @@ export const EVENTOS_PAGO: readonly EventoCanal[] = [
 
 /** Cuál de los «Eventos de MaKo» (`EVENTOS_MAKO`). */
 export type SubtipoMako = 'reunion_pronto' | 'lead_contesta' | 'cuota_vencida' | 'lead_agendo' | 'pago_recibido' | 'analisis_listo' | 'contrasena_restablecer'
-  | 'whatsapp_caido' | 'whatsapp_volvio' | 'reunion_grabada' | 'reporte_semanal';
+  | 'whatsapp_caido' | 'whatsapp_desvinculado' | 'whatsapp_volvio' | 'reunion_grabada' | 'reporte_semanal' | 'oferta_lista';
 
 /**
  * PARA QUÉ LE ESCRIBE A LA PERSONA un evento de una PERSONA (15/10/2026, docs/diseno-2fa-obligatorio.md §8): lo DECLARA
@@ -223,12 +223,12 @@ export type PropositoPersona = 'restablecer' | 'aviso' | 'codigo';
  * dejarían de salir. Ni `apagado`: eso las frenaría al guardar.
  */
 export type EventoMako = EventoCanal & {
-  subtipo: SubtipoMako; aviso: string; trae: ReadonlyArray<'lead' | 'mensaje' | 'cuota' | 'pago' | 'escrito' | 'analisis' | 'restablecer' | 'linea' | 'grabacion' | 'reporte'>; retirado?: true;
+  subtipo: SubtipoMako; aviso: string; trae: ReadonlyArray<'lead' | 'mensaje' | 'cuota' | 'pago' | 'escrito' | 'analisis' | 'restablecer' | 'linea' | 'grabacion' | 'reporte' | 'oferta'>; retirado?: true;
   /**
    * UN MENSAJE DE MaKo A SUS CLIENTES (15/10/2026, el 2 de las doce: «un Mensaje de MaKo ES una automatización»): lo
    * emite el negocio X (su línea se cayó), pero lo corren las automatizaciones de la PLATAFORMA, y su tarjeta «MaKo en
-   * WhatsApp» le llega al grupo de X. Sólo se ofrece en la plataforma. Mientras la plataforma no tenga NINGUNA fila con
-   * el evento, el aviso sale como antes (`emitirPorEvento` → `sinFila`): la mudanza no deja hueco.
+   * WhatsApp» le llega al grupo de X. Sólo se ofrece en la plataforma. ⚠️ Sin NINGUNA fila con el evento, NO sale (desde
+   * la tarde del 16/10/2026: hasta ese día salía como antes, `sinFila`, y era un camino por detrás).
    */
   plataforma?: true;
   /**
@@ -263,7 +263,12 @@ export const EVENTOS_MAKO: readonly EventoMako[] = [
   { subtipo: 'contrasena_restablecer', aviso: 'seguridad-contrasena-restablecer', label: 'Alguien pide restablecer su contraseña', trae: ['restablecer'], persona: 'restablecer', quien: 'Quien pide restablecer su contraseña' },
   // LOS MENSAJES DE MaKo A SUS CLIENTES, mudados de a uno (15/10/2026, docs/diseno-avisos-plataforma.md). La línea por QR
   // de un negocio se cae y vuelve: lo mide lib/lineas-vigilante.ts, que pasa los datos de la línea (`datosCaida`).
-  { subtipo: 'whatsapp_caido', aviso: 'wa-desconectado', label: 'Se cae el WhatsApp de un negocio', trae: ['linea'], plataforma: true },
+  { subtipo: 'whatsapp_caido', aviso: 'wa-desconectado', label: 'Se corta el WhatsApp de un negocio', trae: ['linea'], plataforma: true },
+  // ⚠️ DOS EVENTOS Y NO UNO CON EL TÍTULO EN UNA VARIABLE (16/10/2026, Martín: «hay casos peores donde el mensaje NO es
+  // igual, como el de Leila y el WhatsApp caido... esa automatización esta al pedo»). La #253 decía «🔴 *{{linea_titulo}}*
+  // … {{linea_motivo}}», y esas dos variables eran frases enteras escritas en el código: la fila no tenía el texto que salía.
+  // Cada caso es ahora su evento, con su texto literal en su fila (docs/inventario-nada-por-detras.md, lote 1).
+  { subtipo: 'whatsapp_desvinculado', aviso: 'wa-desvinculado', label: 'WhatsApp cierra la sesión del WhatsApp de un negocio', trae: ['linea'], plataforma: true },
   { subtipo: 'whatsapp_volvio', aviso: 'wa-reconectado', label: 'Vuelve el WhatsApp de un negocio', trae: ['linea'], plataforma: true },
   // Fathom entrega la grabación de una reunión de un negocio con SU lead, y MaKo terminó de analizarla
   // (app/api/webhooks/fathom/route.ts): el lead y la grabación (`datosPostLlamada`, lib/reunion-grabada.ts).
@@ -271,6 +276,9 @@ export const EVENTOS_MAKO: readonly EventoMako[] = [
   // Los lunes, el reporte semanal de un negocio, ya armado (16/10/2026, app/api/cron/reporte-semanal/route.ts): sale si
   // las preferencias del negocio lo piden y tiene a quién (`decidirReporte`). Los datos, `datosDelReporte`.
   { subtipo: 'reporte_semanal', aviso: 'reporte-semanal', label: 'Llega el lunes y el reporte semanal de un negocio está listo', trae: ['reporte'], plataforma: true },
+  // MaKo termina de armar la oferta de un negocio (16/10/2026): la arma el servidor aunque la persona cierre la pestaña
+  // (app/api/offer/route.ts, `armarPorDetras`). Los datos, `datosOfertaLista` (lib/oferta-lista.ts).
+  { subtipo: 'oferta_lista', aviso: 'oferta-lista', label: 'MaKo termina de armar la oferta de un negocio', trae: ['oferta'], plataforma: true },
 ];
 
 /**

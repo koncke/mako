@@ -87,9 +87,10 @@ test('EVENTOS_MAKO: siete (15/10: restablecer la contraseña), cada subtipo se g
   // El quinto, «Entra un pago» (11/10/2026): lo emite la pasarela de pagos (lib/cobros.ts). El séptimo (15/10/2026) es
   // de una PERSONA: lo emite Seguridad en el ws de la plataforma (tests/email-persona.test.ts).
   // (15/10/2026: y los dos primeros Mensajes de MaKo a sus clientes, de la PLATAFORMA: la línea caída y la que volvió.)
-  // (16/10/2026: y el reporte de los lunes, que sale por «MaKo por email».)
-  assert.deepEqual(EVENTOS_MAKO.map((e) => e.subtipo), ['reunion_pronto', 'lead_contesta', 'cuota_vencida', 'lead_agendo', 'pago_recibido', 'analisis_listo', 'contrasena_restablecer', 'whatsapp_caido', 'whatsapp_volvio', 'reunion_grabada', 'reporte_semanal']);
-  assert.deepEqual(EVENTOS_MAKO.map((e) => e.aviso), ['reunion-recordatorio', 'wa-mensaje-entrante', 'cuota-vencida', 'reunion-nuevo-agendado', 'pago-recibido', 'dashboard-analisis-listo', 'seguridad-contrasena-restablecer', 'wa-desconectado', 'wa-reconectado', 'reunion-ocurrio-fathom', 'reporte-semanal']);
+  // (16/10/2026: y el reporte de los lunes, que sale por «MaKo por email»; y la oferta que MaKo terminó de armar.)
+  // (16/10/2026, tarde: «WhatsApp cerró la sesión» es su propio evento, con su texto literal: docs/inventario-nada-por-detras.md.)
+  assert.deepEqual(EVENTOS_MAKO.map((e) => e.subtipo), ['reunion_pronto', 'lead_contesta', 'cuota_vencida', 'lead_agendo', 'pago_recibido', 'analisis_listo', 'contrasena_restablecer', 'whatsapp_caido', 'whatsapp_desvinculado', 'whatsapp_volvio', 'reunion_grabada', 'reporte_semanal', 'oferta_lista']);
+  assert.deepEqual(EVENTOS_MAKO.map((e) => e.aviso), ['reunion-recordatorio', 'wa-mensaje-entrante', 'cuota-vencida', 'reunion-nuevo-agendado', 'pago-recibido', 'dashboard-analisis-listo', 'seguridad-contrasena-restablecer', 'wa-desconectado', 'wa-desvinculado', 'wa-reconectado', 'reunion-ocurrio-fathom', 'reporte-semanal', 'oferta-lista']);
   for (const e of EVENTOS_MAKO) {
     // El subtipo pasa el saneo del CRON (el id crudo, con guion, no pasaría).
     assert.equal(sanearDisparador({ id: 'd1', trigger_tipo: TRIGGER_AVISO_MAKO, subtipo: e.subtipo })?.subtipo, e.subtipo, e.subtipo);
@@ -165,7 +166,7 @@ test('el CRON: clase «mako», su texto es el label, no es un botón de la prime
 // `{{mensaje_mako}}`) → 23 / 1 (los datos del «{ }»). Y R19 (`problemaDeCambio` deja nacer una fila NUEVA con un
 // evento retirado, al pegar o duplicar) → 23 / 1 (problemaDeCambio).
 test('los retirados (el nuevo agendado y la media hora antes) no se ofrecen, y siguen vivos para las filas que los usan', () => {
-  assert.deepEqual(EVENTOS_MAKO_OFRECIDOS.map((e) => e.subtipo), ['lead_contesta', 'cuota_vencida', 'pago_recibido', 'analisis_listo', 'contrasena_restablecer', 'whatsapp_caido', 'whatsapp_volvio', 'reunion_grabada', 'reporte_semanal']);
+  assert.deepEqual(EVENTOS_MAKO_OFRECIDOS.map((e) => e.subtipo), ['lead_contesta', 'cuota_vencida', 'pago_recibido', 'analisis_listo', 'contrasena_restablecer', 'whatsapp_caido', 'whatsapp_desvinculado', 'whatsapp_volvio', 'reunion_grabada', 'reporte_semanal', 'oferta_lista']);
   assert.deepEqual(EVENTOS_MAKO.filter((e) => e.retirado).map((e) => e.subtipo), ['reunion_pronto', 'lead_agendo']);
   // EL SELECTOR DEL CRON los ofrece así (enchufado en el cierre de la ola 3: dibujaba `eventosDe`, con los retirados):
   // sin los retirados, salvo el que la fila YA tiene (la viva de antes se ve elegida hasta el script). Probado
@@ -174,7 +175,7 @@ test('los retirados (el nuevo agendado y la media hora antes) no se ofrecen, y s
   assert.deepEqual(eventosOfrecidos('mako', 'lead_agendo').map((e) => e.subtipo), ['lead_contesta', 'cuota_vencida', 'lead_agendo', 'pago_recibido', 'analisis_listo']);
   // El de una PERSONA (15/10/2026) se ofrece sólo en la plataforma: en un negocio no le llegaría nunca.
   // Y los de la PLATAFORMA a sus clientes (15/10/2026), también sólo ahí (el negocio de arriba no los ve).
-  assert.deepEqual(eventosOfrecidos('mako', null, { plataforma: true }).map((e) => e.subtipo), ['lead_contesta', 'cuota_vencida', 'pago_recibido', 'analisis_listo', 'contrasena_restablecer', 'whatsapp_caido', 'whatsapp_volvio', 'reunion_grabada', 'reporte_semanal']);
+  assert.deepEqual(eventosOfrecidos('mako', null, { plataforma: true }).map((e) => e.subtipo), ['lead_contesta', 'cuota_vencida', 'pago_recibido', 'analisis_listo', 'contrasena_restablecer', 'whatsapp_caido', 'whatsapp_desvinculado', 'whatsapp_volvio', 'reunion_grabada', 'reporte_semanal', 'oferta_lista']);
   assert.deepEqual(eventosOfrecidos('pagos', null), eventosDe('pagos'), 'las otras clases, como siempre');
   assert.match(leer('app/automations/EditorDisparadores.tsx'), /\{eventosOfrecidos\(clase, d\.subtipo, \{ plataforma \}\)\.map\(\(ev\) => \{/);
   assert.doesNotMatch(leer('app/automations/EditorDisparadores.tsx'), /eventosDe\(clase\)/, 'el selector volvió a ofrecer los retirados');
@@ -479,9 +480,10 @@ const NUT = sinComentarios(leer('lib/nutricion.ts'));
 test('emitirDelCatalogo desvía los tres ANTES de leer el store, con el ws ya resuelto', () => {
   const f = bloque(AVISOS, 'export async function emitirDelCatalogo(', '\n}\n');
   const ws = f.indexOf('const ws = opts.ws ?? (await getWorkspaceActual()) ?? OWNER_WS;');
-  // (15/10/2026: el de la PLATAFORMA sin su fila todavía sigue al store, `sinFila`: la mudanza no deja hueco.)
-  const desvio = f.indexOf('const r = await emitirPorEvento(cat, ws, opts, await depsDelEvento());');
-  assert.match(f, /const r = await emitirPorEvento\(cat, ws, opts, await depsDelEvento\(\)\);\n(\s*\/\/[^\n]*\n)*\s*if \(!r\.sinFila\) return r;/, 'el desvío tiene que devolver lo que corrió');
+  // (15/10/2026: el de la PLATAFORMA sin su fila seguía al store. Desde el 16/10, tarde, NO: sin camino viejo, devuelve lo
+  // que corrió también ahí — docs/inventario-nada-por-detras.md.)
+  const desvio = f.indexOf('return emitirPorEvento(cat, ws, opts, await depsDelEvento());');
+  assert.match(f, /if \(AVISOS_POR_EVENTO\.has\(id\)\) \{\n(\s*\/\/[^\n]*\n)*\s*return emitirPorEvento\(cat, ws, opts, await depsDelEvento\(\)\);/, 'el desvío tiene que devolver lo que corrió');
   const store = f.indexOf('getPlantilla');
   assert.ok(ws > 0 && desvio > ws, 'el desvío tiene que ir con el ws resuelto');
   assert.ok(store > desvio, 'el desvío va antes de getPlantilla');

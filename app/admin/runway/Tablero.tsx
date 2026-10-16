@@ -14,7 +14,7 @@
 
 import { TarjetaDecision } from './TarjetaDecision';
 import { repartir, textoDeRespuesta, URGENCIAS, type AccionResponder, type Decision, type LecturaDecisiones } from './decisiones';
-import { CambioVista } from '@/app/tickets/decisiones/CambioVista';
+import { CambioVista, type VistaTicketera } from '@/app/tickets/decisiones/CambioVista';
 
 function Contestada({ d, responder }: { d: Decision; responder: AccionResponder }) {
   return (
@@ -34,10 +34,12 @@ function Contestada({ d, responder }: { d: Decision; responder: AccionResponder 
   );
 }
 
-export function TableroDecisiones({ lectura, responder }: {
+export function TableroDecisiones({ lectura, responder, onCambioVista }: {
   lectura: LecturaDecisiones;
   /** La acción que guarda una respuesta (app/admin/runway/acciones.ts), que pasa la página. */
   responder: AccionResponder;
+  /** Adentro del Centro: cambiar a las tarjetas sin irse de la pantalla. */
+  onCambioVista?: (v: VistaTicketera) => void;
 }) {
   if (!lectura.ok) {
     return (
@@ -54,7 +56,7 @@ export function TableroDecisiones({ lectura, responder }: {
 
   return (
     <div className="decisiones">
-      <CambioVista actual="lista" />
+      <CambioVista actual="lista" onCambio={onCambioVista} />
 
       {!hayPendientes && <p className="decisiones-vacio">No hay nada esperando una decisión.</p>}
 

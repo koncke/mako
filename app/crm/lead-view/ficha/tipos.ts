@@ -17,6 +17,7 @@
 //      la lectura de un bloque que no está. Nadie toca `getLeadFullAction`.
 //   4. Si escribe algo, avisa con `useRefrescarFicha()` (../ficha-cambio.tsx) o con `ctx.releer()`: es
 //      lo que hace que el pop-up se relea y que la cabecera recuente «N sin marcar».
+//   5. (16/10/2026) Si la tab va ÉPICA, el bloque recibe `epico: true` y se dibuja en grande (ver `PropsBloque`).
 //
 // Sólo tipos, sin 'use client' ni `server-only`: lo importan la pantalla, las reglas y los tests.
 // =============================================================================
@@ -68,6 +69,13 @@ export type PropsBloque = {
   icono: NombreIconoMenu;
   /** Se está personalizando la ficha (el bloque se ve, pero no se toca: lo cubre su marco). */
   editando: boolean;
+  /**
+   * LA TAB VA ÉPICA (16/10/2026, Martín: «que se pueda ver "epico" como lo tenemos en general»): pocas cosas, en grande.
+   * La grilla ya le da más ancho y más aire (./armar.ts, `spansPorDispositivo`); el bloque decide cómo se agranda por
+   * dentro (un número protagonista, sin metadata), como los bloques de General (app/general/bloques/comun.tsx). Es una
+   * propiedad de la TAB: la trae su plantilla y la prende o apaga el admin en «Personalizar».
+   */
+  epico: boolean;
 };
 
 /** Las reglas PURAS de un bloque (en ./reglas-<tab>.ts, para que un test las ejecute). */

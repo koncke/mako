@@ -353,13 +353,16 @@ export function rutaMovil(href: string | null | undefined): string | null {
   if (p === '/general' || p === '/focus' || p === '/inicio') return HOME_MOVIL;
   if (p === '/mako/pendientes' || p.startsWith('/mako/revisar') || p.startsWith('/crm/revisar') || p.startsWith('/plan/revisar')) return '/m/inbox';
   if (p === '/mako' || p === '/mako-doer') return '/m/mako';
-  // La Ticketera del super admin (14/10/2026): el mazo es la vista de entrada y la lista, la
-  // secundaria. /admin/runway era la lista y ahora redirige al mazo: el teléfono va directo.
-  if (p === '/tickets/decisiones' || p === '/admin/runway') return '/m/tickets/decisiones';
-  if (p === '/tickets/decisiones/lista') return '/m/decisiones';
+  // La Ticketera del super admin vive ADENTRO del Centro desde el 16/10/2026 (`?ticketera=`): sus rutas de antes
+  // (y /admin/runway, la más vieja) van directo a la Ticketera del Centro en el teléfono, con la vista que eran.
+  if (p === '/tickets/decisiones' || p === '/admin/runway') return '/m/operaciones?ticketera=tarjetas';
+  if (p === '/tickets/decisiones/lista') return '/m/operaciones?ticketera=lista';
   // El Centro de Operaciones del super admin (15/10/2026). Desde esa noche no tiene pestañas (el avance va en cada
-  // chat): un `?tab=` viejo no viaja, y abre los chats.
-  if (p === '/admin/operaciones') return '/m/operaciones';
+  // chat): un `?tab=` viejo no viaja, y abre los chats. Lo que sí viaja es la Ticketera (`?ticketera=`).
+  if (p === '/admin/operaciones') {
+    const t = q.get('ticketera');
+    return t === 'tarjetas' || t === 'lista' ? `/m/operaciones?ticketera=${t}` : '/m/operaciones';
+  }
   // Las pantallas que SÓLO existen en el teléfono, con la URL que muestran (`SOLO_TELEFONO`).
   const chat = p.match(/^\/crm\/(\d+)\/chat$/);
   if (chat) return `/m/crm/${chat[1]}/chat`;
@@ -497,8 +500,8 @@ export function rutaEscritorio(href: string): string {
   else if (p === '/m/plan') destino = '/plan';
   else if (p === RUTA_MAS) destino = '/mas';
   else if (p === '/m/mako') destino = '/mako';
-  else if (p === '/m/decisiones') destino = '/tickets/decisiones/lista';
-  else if (p === '/m/tickets/decisiones') destino = '/tickets/decisiones';
+  else if (p === '/m/decisiones') { destino = '/admin/operaciones'; q.set('ticketera', 'lista'); }
+  else if (p === '/m/tickets/decisiones') { destino = '/admin/operaciones'; q.set('ticketera', 'tarjetas'); }
   else if (p === '/m/operaciones') destino = '/admin/operaciones';
   else if (p === '/m/cuenta/instalar') destino = '/perfil/instalar';
   else if (p === '/m/cuenta/seguridad') destino = '/perfil/seguridad';
