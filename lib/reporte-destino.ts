@@ -77,3 +77,13 @@ export function enmascararDestino(d: string): string {
   const dig = s.replace(/\D/g, '');
   return dig.length > 4 ? `…${dig.slice(-4)}` : '…';
 }
+
+/**
+ * LOS DATOS DEL REPORTE YA ARMADO, por nombre (16/10/2026): el reporte semanal pasa a ser una automatización de la
+ * plataforma (el evento `reporte_semanal`, docs/diseno-avisos-plataforma.md §6), y su tarjeta «MaKo por email» los
+ * cita: «{{reporte_titulo}}» en el asunto y «{{reporte_texto}}» en el cuerpo (lib/variables-aviso.ts). Son el mismo
+ * asunto y el mismo cuerpo que manda `despacharReporte` (lib/notify.ts).
+ */
+export function datosDelReporte(rep: { titulo: string; texto: string }): { reporte_titulo: string; reporte_texto: string } {
+  return { reporte_titulo: rep.titulo, reporte_texto: rep.texto };
+}

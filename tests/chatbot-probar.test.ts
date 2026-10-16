@@ -156,8 +156,9 @@ test('escribir como el lead deja ESPERANDO la salida (no la corta) y clasifica c
   // El server: el MISMO clasificador y el MISMO redactor del motor, con lo local (y el medio de la prueba).
   const ruta = RUTA();
   assert.match(ruta, /const casos = escenariosDeRespuesta\(pasos, \{ medio \}\);/);
-  assert.match(ruta, /const r = await clasificarEscenario\(mensaje, escenarios\);/);
-  assert.match(ruta, /const r = await responderSimulador\(id, historial, \{ escenario \}\);/);
+  // (16/10/2026: con la red de plataforma, como en vivo: tests/ai-step-red-y-voz.test.ts.)
+  assert.match(ruta, /const r = await clasificarEscenario\(mensaje, escenarios, \{ redDePlataforma: true \}\);/);
+  assert.match(ruta, /const r = await responderSimulador\(id, historial, \{ escenario, redDePlataforma: true \}\);/);
 });
 
 // (Quinta tanda, punto 1: los destinos de QUIEN PRUEBA sí se guardan, en SU fila de `usuarios`; lo

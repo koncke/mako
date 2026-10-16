@@ -37,7 +37,7 @@ import { tzDeWorkspace, TZ_DEFAULT } from '@/lib/timezone';
 import { PREFIJO_FLUJO } from '../canal';
 import { proveedorDelPaso } from '@/lib/nutricion-canal';
 import { partesExplicitas, pasosUsanAudio, problemaDePartes, sanearPartes } from '@/lib/mensaje-partes';
-import { partesDeMako, esTarjetaTalCual, armarAvisoDeTarjeta, resultadoDelAviso, textoDePreparadas, type PartePreparada } from '@/lib/mako-tarjeta';
+import { partesDeMako, esTarjetaTalCual, armarAvisoDeTarjeta, resultadoDelAviso, textoDePreparadas, esPorEmail, asuntoDeMako, problemaDeEmailMako, type PartePreparada } from '@/lib/mako-tarjeta';
 import { prepararPartesGrupo, problemaDePartesGrupo } from '@/lib/mako-tarjeta-envio';
 import { getSettingData, guardarEstrategia, probarSecuencia, escenarioDePrueba, muestraParaCriterio, productosConEtapas, TriggerInvalidoError } from '@/lib/setting-secuencias';
 import { escenariosDeLaSecuencia } from '@/lib/simulador-grafo';
@@ -838,6 +838,10 @@ export const RUNNERS: Runners = {
         const ajena = await problemaDePartesGrupo(partes);
         if (ajena) return { error: ajena };
       }
+      // POR EMAIL (16/10/2026): con su asunto y un solo texto, la misma vara que Publicar.
+      const porEmail = esPorEmail(input);
+      const malEmail = problemaDeEmailMako(input);
+      if (malEmail) return { error: malEmail };
       let quien: string | null = null;
       if (leadId != null) {
         const l = await leadDelAviso(leadId);
@@ -845,8 +849,11 @@ export const RUNNERS: Runners = {
         quien = l.nombre;
       }
       return {
-        payload: { ...(leadId != null ? { leadId } : {}), ...(titulo ? { titulo } : {}), mensaje, ...(conPartes ? { partes } : {}), ...(respuesta ? { respuesta } : {}) },
-        resumen: `Avisar al equipo${quien ? ` sobre ${quien}` : ''}: «${mensaje.slice(0, 120)}»${partes.length > 1 ? ` (${partes.length} mensajes)` : ''}`,
+        payload: {
+          ...(leadId != null ? { leadId } : {}), ...(titulo ? { titulo } : {}), mensaje, ...(conPartes ? { partes } : {}), ...(respuesta ? { respuesta } : {}),
+          ...(porEmail ? { canal: 'email', asunto: asuntoDeMako(input) } : {}),
+        },
+        resumen: `${porEmail ? 'Escribirle por email al equipo' : 'Avisar al equipo'}${quien ? ` sobre ${quien}` : ''}: «${mensaje.slice(0, 120)}»${partes.length > 1 ? ` (${partes.length} mensajes)` : ''}`,
       };
     },
     ejecutar: async (payload, ctx) => {
@@ -862,6 +869,9 @@ export const RUNNERS: Runners = {
       // Los datos «{ }» (la tarjeta MAKO EN WHATSAPP los ofrece): sin esto, «{{nombre}}» salía crudo al grupo.
       const mensaje = await textoDelAviso(mensajeCrudo, lead, ctx.ws);
       const titulo = (await textoDelAviso(String(payload.titulo ?? ''), lead, ctx.ws)) || (lead ? `${lead.nombre}: hay que verlo` : 'Una automatización te avisa');
+      // Por email, el asunto con los mismos datos que el texto (16/10/2026).
+      const porEmail = esPorEmail(payload);
+      const asunto = porEmail ? await textoDelAviso(asuntoDeMako(payload), lead, ctx.ws) : '';
       // ⚠️ TODOS LOS BINARIOS SE BAJAN ANTES DE MANDAR NADA (y antes del feed): si falta la nota de voz o el
       // archivo, no sale una tarjeta a medias. Cada texto, con los mismos datos que el de antes.
       let partes: PartePreparada[] | null = null;
@@ -870,18 +880,17 @@ export const RUNNERS: Runners = {
         if (!p.ok) return { ok: false, resumen: `No salió el aviso: ${p.error}` };
         partes = p.partes;
       }
-      const r = await emitirAviso({
-        ws: ctx.ws,
-        ...armarAvisoDeTarjeta(payload, {
-          desdeUnFlujo: desdeUnFlujo(ctx), respuesta, lead,
-          // El link que viaja en el WhatsApp va por `linkApp` (lleva el `?ws=`): abierto desde el
-          // teléfono, sin él abre la ficha en el negocio que esté mirando la pestaña.
-          linkLead: lead ? linkApp(`/crm/${lead.id}`, ctx.ws) : null,
-          textos: { titulo, mensaje: partes ? textoDePreparadas(partes) : mensaje },
-          partes,
-        }),
+      const aviso = armarAvisoDeTarjeta(payload, {
+        desdeUnFlujo: desdeUnFlujo(ctx), respuesta, lead,
+        // El link que viaja en el WhatsApp va por `linkApp` (lleva el `?ws=`): abierto desde el
+        // teléfono, sin él abre la ficha en el negocio que esté mirando la pestaña.
+        linkLead: lead ? linkApp(`/crm/${lead.id}`, ctx.ws) : null,
+        textos: { titulo, mensaje: partes ? textoDePreparadas(partes) : mensaje, ...(porEmail ? { asunto } : {}) },
+        partes,
       });
-      return resultadoDelAviso(r, lead);
+      const r = await emitirAviso({ ws: ctx.ws, ...aviso });
+      // Si salió por email lo dice el aviso armado (`asuntoEmail`), no una copia de su condición.
+      return resultadoDelAviso(r, lead, aviso.asuntoEmail !== undefined);
     },
   },
 

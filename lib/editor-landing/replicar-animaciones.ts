@@ -421,7 +421,9 @@ function inicialDeFramer(v: unknown, prof = 0): Record<string, unknown> | null {
  */
 export function appearDeFramer(html: string): Map<string, Record<string, unknown>> {
   const out = new Map<string, Record<string, unknown>>();
-  const re = /<script\b[^>]*\btype\s*=\s*["']?framer\/appear["']?[^>]*>([\s\S]*?)<\/script\s*>/gi;
+  // Los «[^>]» van ACOTADOS (revisión de la tanda 8): sin tope, un HTML con «<a » repetido sin cerrar tardaba
+  // decenas de segundos (240 KB → 43 s, medido) y trababa el server, que baja hasta 5 MB al replicar.
+  const re = /<script\b[^>]{0,2000}\btype\s*=\s*["']?framer\/appear["']?[^>]{0,2000}>([\s\S]*?)<\/script\s*>/gi;
   let n = 0;
   for (const m of String(html ?? '').matchAll(re)) {
     if (++n > 4) break;
@@ -529,10 +531,40 @@ export function scrollEnHtml(html: string, css = ''): boolean {
   const doc = String(html ?? '').slice(0, 6_000_000);
   if (scrollEnCss(doc) || (css && scrollEnCss(css))) return true;
   if (RE_CODIGO_SCROLL.test(doc)) return true;
-  for (const m of doc.matchAll(/<script\b[^>]*\bsrc\s*=\s*["']?([^"'\s>]+)/gi)) if (RE_SCRIPT_SCROLL.test(m[1])) return true;
-  if (new RegExp(`<[a-z][^>]*\\s(?:${ATRIBUTOS_SCROLL.join('|')})(?=[\\s=>/])`, 'i').test(doc)) return true;
-  if (new RegExp(`<[a-z][^>]*\\sclass\\s*=\\s*["'][^"']*\\b(?:${CLASES_SCROLL.join('|')})\\b`, 'i').test(doc)) return true;
-  return /<[a-z][^>]*\sdata-parallax\s*=\s*["']?scroll\b/i.test(doc);
+  // Etiqueta por etiqueta, en UNA pasada (revisión de la tanda 8, 16/10/2026): las regex de antes empezaban en cada
+  // «<» y corrían «[^>]*» hasta el final, así que un HTML con «<a » repetido sin cerrar era cuadrático (240 KB → 43 s,
+  // medido) y trababa el server, que baja hasta 5 MB al replicar. Acotarlas a 2.000 bajó a 1,4 s pero seguía
+  // creciendo con el tamaño; `etiquetas` salta de «>» en «>» y es lineal.
+  const reAtributo = new RegExp(`\\s(?:${ATRIBUTOS_SCROLL.join('|')})(?=[\\s=>/])`, 'i');
+  const reClase = new RegExp(`\\sclass\\s*=\\s*["'][^"']*\\b(?:${CLASES_SCROLL.join('|')})\\b`, 'i');
+  for (const tag of etiquetas(doc)) {
+    if (/^<script\b/i.test(tag)) {
+      const src = /\bsrc\s*=\s*["']?([^"'\s>]+)/i.exec(tag);
+      if (src && RE_SCRIPT_SCROLL.test(src[1])) return true;
+    }
+    if (reAtributo.test(tag) || reClase.test(tag) || /\sdata-parallax\s*=\s*["']?scroll\b/i.test(tag)) return true;
+  }
+  return false;
+}
+
+/**
+ * Las etiquetas de apertura de un HTML, de a una y en una pasada lineal: de cada «<» seguido de una letra hasta el
+ * «>» siguiente, y la búsqueda sigue DESPUÉS de ese «>» (nunca vuelve atrás: por eso no puede volverse cuadrática).
+ * Una etiqueta de más de 8.000 caracteres se saltea (ninguna real los tiene).
+ */
+function* etiquetas(doc: string): Generator<string> {
+  let i = 0;
+  for (;;) {
+    i = doc.indexOf('<', i);
+    if (i === -1) return;
+    const fin = doc.indexOf('>', i + 1);
+    if (fin === -1) return;
+    // Un «<» suelto sin cerrar no se traga lo que viene: si de acá al «>» hay más de 8.000, la búsqueda sigue desde
+    // los últimos 8.000 antes de ese «>» (una etiqueta real que cierre ahí empieza adentro de ese tramo).
+    if (fin - i > 8_000) { i = Math.max(i + 1, fin - 8_000); continue; }
+    if (/[a-z]/i.test(doc.charAt(i + 1))) yield doc.slice(i, fin + 1);
+    i = fin + 1;
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -30,6 +30,7 @@ import { areasDeProgreso } from '@/lib/progreso';
 import { pedidosRecientes, recortarPedido } from '@/lib/progreso-reglas';
 import { chatsDeBitacoras } from '@/lib/centro-chats';
 import { leerDecisiones } from '@/lib/admin-decisiones';
+import { leerMunecos } from '@/lib/centro-munecos-db';
 import { CabeceraM, PantallaM, VacioM } from '@/app/m/_ui';
 import { CentroAppMovil } from './CentroAppMovil';
 
@@ -52,10 +53,11 @@ export default async function CentroOperacionesMovil() {
   const ahora = Date.now();
   const areas = areasDeProgreso();
   // Cada lectura falla sola: los chats (de las bitácoras) se ven aunque la cola no se pueda leer.
-  const [cola, estado, tarjetas] = await Promise.all([
+  const [cola, estado, tarjetas, munecos] = await Promise.all([
     listarPedidos().catch(() => null),
     leerCarteros().catch(() => null),
     leerDecisiones().catch(() => null),
+    leerMunecos(),
   ]);
   const decisiones = tarjetas?.ok ? tarjetas.decisiones.map((d) => ({ chat: d.chat, destino: d.destino ?? null, respuesta: d.respuesta })) : null;
   const pedidos = pedidosRecientes(areas, ahora, 14).map(recortarPedido);
@@ -67,6 +69,7 @@ export default async function CentroOperacionesMovil() {
         colaInicial={cola}
         carterosIniciales={estado}
         decisionesIniciales={decisiones}
+        munecosIniciales={munecos}
         pedidos={pedidos}
         ahora={ahora}
         sub={admin.sub}

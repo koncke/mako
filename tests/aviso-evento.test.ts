@@ -87,8 +87,9 @@ test('EVENTOS_MAKO: siete (15/10: restablecer la contraseña), cada subtipo se g
   // El quinto, «Entra un pago» (11/10/2026): lo emite la pasarela de pagos (lib/cobros.ts). El séptimo (15/10/2026) es
   // de una PERSONA: lo emite Seguridad en el ws de la plataforma (tests/email-persona.test.ts).
   // (15/10/2026: y los dos primeros Mensajes de MaKo a sus clientes, de la PLATAFORMA: la línea caída y la que volvió.)
-  assert.deepEqual(EVENTOS_MAKO.map((e) => e.subtipo), ['reunion_pronto', 'lead_contesta', 'cuota_vencida', 'lead_agendo', 'pago_recibido', 'analisis_listo', 'contrasena_restablecer', 'whatsapp_caido', 'whatsapp_volvio', 'reunion_grabada']);
-  assert.deepEqual(EVENTOS_MAKO.map((e) => e.aviso), ['reunion-recordatorio', 'wa-mensaje-entrante', 'cuota-vencida', 'reunion-nuevo-agendado', 'pago-recibido', 'dashboard-analisis-listo', 'seguridad-contrasena-restablecer', 'wa-desconectado', 'wa-reconectado', 'reunion-ocurrio-fathom']);
+  // (16/10/2026: y el reporte de los lunes, que sale por «MaKo por email».)
+  assert.deepEqual(EVENTOS_MAKO.map((e) => e.subtipo), ['reunion_pronto', 'lead_contesta', 'cuota_vencida', 'lead_agendo', 'pago_recibido', 'analisis_listo', 'contrasena_restablecer', 'whatsapp_caido', 'whatsapp_volvio', 'reunion_grabada', 'reporte_semanal']);
+  assert.deepEqual(EVENTOS_MAKO.map((e) => e.aviso), ['reunion-recordatorio', 'wa-mensaje-entrante', 'cuota-vencida', 'reunion-nuevo-agendado', 'pago-recibido', 'dashboard-analisis-listo', 'seguridad-contrasena-restablecer', 'wa-desconectado', 'wa-reconectado', 'reunion-ocurrio-fathom', 'reporte-semanal']);
   for (const e of EVENTOS_MAKO) {
     // El subtipo pasa el saneo del CRON (el id crudo, con guion, no pasaría).
     assert.equal(sanearDisparador({ id: 'd1', trigger_tipo: TRIGGER_AVISO_MAKO, subtipo: e.subtipo })?.subtipo, e.subtipo, e.subtipo);
@@ -164,7 +165,7 @@ test('el CRON: clase «mako», su texto es el label, no es un botón de la prime
 // `{{mensaje_mako}}`) → 23 / 1 (los datos del «{ }»). Y R19 (`problemaDeCambio` deja nacer una fila NUEVA con un
 // evento retirado, al pegar o duplicar) → 23 / 1 (problemaDeCambio).
 test('los retirados (el nuevo agendado y la media hora antes) no se ofrecen, y siguen vivos para las filas que los usan', () => {
-  assert.deepEqual(EVENTOS_MAKO_OFRECIDOS.map((e) => e.subtipo), ['lead_contesta', 'cuota_vencida', 'pago_recibido', 'analisis_listo', 'contrasena_restablecer', 'whatsapp_caido', 'whatsapp_volvio', 'reunion_grabada']);
+  assert.deepEqual(EVENTOS_MAKO_OFRECIDOS.map((e) => e.subtipo), ['lead_contesta', 'cuota_vencida', 'pago_recibido', 'analisis_listo', 'contrasena_restablecer', 'whatsapp_caido', 'whatsapp_volvio', 'reunion_grabada', 'reporte_semanal']);
   assert.deepEqual(EVENTOS_MAKO.filter((e) => e.retirado).map((e) => e.subtipo), ['reunion_pronto', 'lead_agendo']);
   // EL SELECTOR DEL CRON los ofrece así (enchufado en el cierre de la ola 3: dibujaba `eventosDe`, con los retirados):
   // sin los retirados, salvo el que la fila YA tiene (la viva de antes se ve elegida hasta el script). Probado
@@ -173,7 +174,7 @@ test('los retirados (el nuevo agendado y la media hora antes) no se ofrecen, y s
   assert.deepEqual(eventosOfrecidos('mako', 'lead_agendo').map((e) => e.subtipo), ['lead_contesta', 'cuota_vencida', 'lead_agendo', 'pago_recibido', 'analisis_listo']);
   // El de una PERSONA (15/10/2026) se ofrece sólo en la plataforma: en un negocio no le llegaría nunca.
   // Y los de la PLATAFORMA a sus clientes (15/10/2026), también sólo ahí (el negocio de arriba no los ve).
-  assert.deepEqual(eventosOfrecidos('mako', null, { plataforma: true }).map((e) => e.subtipo), ['lead_contesta', 'cuota_vencida', 'pago_recibido', 'analisis_listo', 'contrasena_restablecer', 'whatsapp_caido', 'whatsapp_volvio', 'reunion_grabada']);
+  assert.deepEqual(eventosOfrecidos('mako', null, { plataforma: true }).map((e) => e.subtipo), ['lead_contesta', 'cuota_vencida', 'pago_recibido', 'analisis_listo', 'contrasena_restablecer', 'whatsapp_caido', 'whatsapp_volvio', 'reunion_grabada', 'reporte_semanal']);
   assert.deepEqual(eventosOfrecidos('pagos', null), eventosDe('pagos'), 'las otras clases, como siempre');
   assert.match(leer('app/automations/EditorDisparadores.tsx'), /\{eventosOfrecidos\(clase, d\.subtipo, \{ plataforma \}\)\.map\(\(ev\) => \{/);
   assert.doesNotMatch(leer('app/automations/EditorDisparadores.tsx'), /eventosDe\(clase\)/, 'el selector volvió a ofrecer los retirados');
@@ -498,11 +499,12 @@ test('el runner: correrFlujoDe corta los tres, la tarjeta MaKo emite el aviso co
   assert.match(bloque(FLUJOS, 'export async function correrFlujoDe(', '\n}\n'), /^[^\n]*\n\s*if \(AVISOS_POR_EVENTO\.has\(avisoId\)\) return false;/);
   const paso = bloque(FLUJOS, 'async function ejecutarPaso(', '\nasync function emitirTarjetaDelEvento(');
   // Undécima tanda: con la lista de la tarjeta (`paso.partes`, la tarjeta TAL CUAL).
-  assert.match(paso, /if \(paso\.canal === 'aviso_dueno'\) \{\n\s*const propio = [^\n]*\n(\s*\/\/[^\n]*\n)*\s*if \(ctx\.aviso\) \{ await emitirTarjetaDelEvento\(flujoId, \{ texto: propio, partes: paso\.partes \}, ws, ctx, ctx\.aviso\); return; \}/,
+  assert.match(paso, /if \(paso\.canal === 'aviso_dueno'\) \{\n\s*const propio = [^\n]*\n(\s*\/\/[^\n]*\n)*\s*if \(ctx\.aviso\) \{ await emitirTarjetaDelEvento\(flujoId, \{ texto: propio, partes: paso\.partes, email: paso\.email \}, ws, ctx, ctx\.aviso\); return; \}/,
     'la tarjeta de un evento tiene que desviarse ANTES de la línea suelta al grupo');
   const tarjeta = bloque(FLUJOS, 'async function emitirTarjetaDelEvento(', '\n}\n');
   assert.match(tarjeta, /\[CLAVE_MENSAJE_MAKO\]: ctx\.texto/);
-  assert.match(tarjeta, /await emitirAviso\(\{\n\s*tipo: aviso\.id, titulo: aviso\.titulo, texto,[\s\S]*estado: ESTADO_EVENTO,/);
+  // (16/10/2026: por email, el título y el estado son los del correo, `avisoPorEmail`; si no, los de siempre.)
+  assert.match(tarjeta, /await emitirAviso\(\{\n\s*tipo: aviso\.id, titulo: porEmail\?\.titulo \?\? aviso\.titulo, texto,[\s\S]*estado: porEmail\?\.estado \?\? ESTADO_EVENTO,/);
   assert.doesNotMatch(tarjeta, /enviarAlGrupoMaKo|dedupTtlMin/, 'ni una línea suelta al grupo ni un dedup por tarjeta');
   // ⚠️ POR PARTES (undécima, decisión 2 de la décima): primero la guarda de la Voz de MaKo (`problemaDePartesGrupo`: un
   // audio del negocio sería la voz del dueño en el grupo), después TODOS los binarios bajados con los textos resueltos
@@ -513,7 +515,8 @@ test('el runner: correrFlujoDe corta los tres, la tarjeta MaKo emite el aviso co
   // (15/10/2026: un evento de la PLATAFORMA resuelve y manda en el negocio que lo emitió, `negocioWs`.)
   assert.match(tarjeta, /const wsDestino = ctx\.negocioWs \?\? ws;\n\s*const resolver = \(t: string\) => conVariables\(t, \{ ws: wsDestino, leadId: ctx\.leadId \?\? null, leadNombre: ctx\.leadNombre \?\? null \}, datos\)/);
   assert.match(tarjeta, /categoria: cat\?\.categoria, semaforo: cat\?\.semaforo, ws: wsDestino,/);
-  assert.match(tarjeta, /\.\.\.\(partes \? \{ partes, rotulo: false as const \} : \{\}\),/, 'la tarjeta por partes salía con el rótulo, o sin sus partes');
+  // (16/10/2026: por email, sin partes ni rótulo: tests/reporte-semanal-plataforma.test.ts.)
+  assert.match(tarjeta, /: partes \? \{ partes, rotulo: false as const \} : \{\}\),/, 'la tarjeta por partes salía con el rótulo, o sin sus partes');
   // Los hechos se leen en la CONDITION, una vez, y van a `decidir`.
   const ej = bloque(FLUJOS, 'export async function ejecutarPasos(', '\n}\n');
   assert.match(ej, /if \(pasos\[i\]\?\.tipo === 'condicion' && hechos === undefined\) \{\n\s*const leidos = await hechosDeLaCorrida\(pasos, ws, ctx\);/);

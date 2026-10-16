@@ -127,13 +127,14 @@ export async function POST(req: NextRequest) {
       // El MISMO clasificador del motor, sobre los escenarios del lienzo (sin publicar).
       const { clasificarEscenario } = await import('@/lib/chat-agent-handoff');
       const { casos, escenarios } = casosDelClasificador(pasos, medio);
-      const clas = await clasificarEscenario(historial[historial.length - 1].texto, escenarios);
+      // Con la red de plataforma, como en vivo (AGENTS.md: todo camino de IA que use un cliente necesita su red).
+      const clas = await clasificarEscenario(historial[historial.length - 1].texto, escenarios, { redDePlataforma: true });
       const i = clas.encaja ? escenarios.indexOf(clas.escenario) : -1;
       const elegido = respuestaDelEnsayo(pasos, medio, i >= 0 ? casos[i].casoId : null);
       // Sólo te avisa: MaKo no contesta (le avisaría al equipo).
       if (!elegido.escenario) return Response.json({ ok: true, respuesta: null, escenario: elegido.titulo });
       const { responderSimulador } = await import('@/lib/setting-simulador');
-      const r = await responderSimulador(secuenciaId, historial, { tema: 'contestar en el ensayo', escenario: elegido.escenario });
+      const r = await responderSimulador(secuenciaId, historial, { tema: 'contestar en el ensayo', escenario: elegido.escenario, redDePlataforma: true });
       if (!r.ok) return Response.json({ ok: false, error: r.error }, { status: 502 });
       return Response.json({ ok: true, respuesta: r.respuesta, escenario: elegido.titulo });
     }

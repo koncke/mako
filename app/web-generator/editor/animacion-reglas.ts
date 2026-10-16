@@ -220,7 +220,7 @@ export const MARGEN_FIN_MS = 250;
 /** La consulta de «reducir movimiento» (la de useReducedMotion.ts del Image Editor). */
 export const CONSULTA_MENOS_MOVIMIENTO = '(prefers-reduced-motion: reduce)';
 /** Cuándo una sección «entra en pantalla»: lo mismo que el script de la publicada (pagina-publica.ts, SCRIPT_PAGINA). */
-export const ENTRADA_EN_PANTALLA = { rootMargin: '0px 0px -6% 0px', threshold: 0.06 } as const;
+export const ENTRADA_EN_PANTALLA = { rootMargin: '0px 0px -6% 0px', threshold: 0 } as const;
 
 /** Lo que hace falta de un elemento para reproducirlo (un HTMLElement; en el test, uno de mentira). */
 export type Reproducible = { classList: { add(c: string): void; remove(c: string): void }; readonly offsetWidth: number };

@@ -380,4 +380,22 @@ export const BITACORA: Hito[] = [
       'tests/centro-avance.test.ts — los colores, los pasos y las cuentas de ese chat',
     ],
   },
+  {
+    fecha: '16 oct', hora: '00:01', chat: CH, sesion: SESION_CH_3, cuenta: 'claude3', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Un chat por nombre en las tres cuentas, el chat jefe, «⋯ Renombrar» y muñecos para elegir',
+    puntos: [
+      'El mismo chat en las tres cuentas es uno solo, y se le escribe a la sesión abierta; las cuentas van como chips.',
+      'Los sub-chats («CRM › Lead Detail») van adentro de su jefe, corridos y con su línea, como los hilos de Discord.',
+      'Cada chat tiene su «⋯» con Renombrar (le pide a cada sesión que se cambie el nombre, firmado) y Cambiar su muñeco.',
+      'Siete cuerpos, nueve colores, seis caras y siete accesorios; el selector copia a Notion Faces y lo elegido se guarda por nombre.',
+    ],
+    commits: [{ sha: '168de956d', msg: 'feat(operaciones): un chat por nombre en las tres cuentas, el chat jefe, «⋯ Renombrar» y muñecos para elegir', lineas: 1229, archivos: 18 }],
+    archivos: [
+      'lib/centro-chats.ts — unirPorNombre, porJefe, partesDelNombre, nombreValido, textoDeRenombre',
+      'lib/centro-munecos.ts — las piezas, lo elegido y su saneo',
+      'lib/centro-munecos-db.ts — dónde se guarda lo elegido',
+      'app/admin/operaciones/ElegirMuneco.tsx — el selector',
+      'app/admin/operaciones/CentroApp.tsx — el «⋯», Renombrar y la lista por jefe',
+    ],
+  },
 ];

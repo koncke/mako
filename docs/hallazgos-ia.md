@@ -4102,6 +4102,20 @@ mecanismo.
 BYOK en `lib/credenciales.ts` y `/integraciones`.
 · *2026-10-15 Estrategia 3 cuentas*
 
+## El mapa de la IA: qué corre solo 24/7 y qué es conversado (16/10/2026)
+
+Para la decisión A de Martín (el cliente usa su Claude/ChatGPT para lo conversado; lo que corre solo, con API) se mapeó TODO lo que usa IA: **docs/mapa-ia-24h.md** (108 funciones: 28 corren solas, 68 son conversadas o de un clic, 16 son medios).
+
+**Lo que no se veía y cambia prioridades:**
+- **El AI Step (le contesta al lead) usa SÓLO las keys del negocio y no tiene red de plataforma.** Un negocio sin key propia deja al lead sin respuesta. Es el primer lugar donde un usuario nuevo sin API se queda sin nada.
+- **El AI Step no escucha las notas de voz del lead:** le llega texto vacío. De una imagen sólo ve el pie de foto.
+- **Que el código diga «Claude» no quiere decir que use Claude:** sólo el Closing Analyst paga Claude Sonnet; el resto va por la cascada barata.
+- **Dependen sólo de OpenAI, sin alternativa:** la transcripción y lectura de los anuncios, la búsqueda en la metodología (embeddings, con la key de la plataforma: si falla, MaKo contesta sin la metodología y nadie se entera) y mirar los creativos.
+
+**Vive en:** docs/mapa-ia-24h.md (con su lista de lo que quedó sin revisar a fondo).
+· *2026-10-16 Estrategia 3 cuentas*
+
+
 ## La clave de Anthropic del negocio: la segunda puerta del veto (16/10/2026)
 
 **Vive en:** `lib/veto-claude.ts` (`evaluarClaveDelNegocio`, `FEATURES_DEL_PLAN`) · `lib/anthropic.ts`
@@ -4224,3 +4238,5 @@ pocos dólares contra 400 por mes.
 - Sólo la cascada de texto: ni visión, ni audio, ni el doer.
 
 · *2026-10-16 chat «Onboarding» (claude3)*
+
+
