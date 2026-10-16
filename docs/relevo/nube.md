@@ -31,9 +31,12 @@ local de la PC de Martín ni sus chats: lo esencial de eso está acá abajo.
 
 ## Por dónde seguir (en este orden)
 
-1. **CRM, feedback del 16/10** (el documento de arriba): «Asignar evento» en las etapas de reunión (el motor ya está,
-   falta la pantalla en app/crm/EtapasModal.tsx), borrar la vista `/crm?pendientes`, las tabs de la ficha como las
-   hojas del Dashboard con templates propios, «Editar» + «⋯» con «AI Analyst», el chat del CRM a la izquierda.
+1. **CRM, feedback del 16/10** (el documento de arriba; ya hechos: renombrar, «A revisar», la cabecera, borrar la vista
+   de pendientes, «Templates», el «Ver» de la ficha y el botón de MaKo a la izquierda): «Asignar evento» en las etapas
+   de reunión (el motor ya está, falta la pantalla en app/crm/EtapasModal.tsx), las tabs de la ficha como las hojas del
+   Dashboard con templates propios y sin la barra lateral, «Editar» + «⋯» con «AI Analyst» (el chat abre a la
+   izquierda y la ficha se corre), «Obligatorio» por bloque, el chat del CRM con la cara del Second Brain, y que la
+   ficha abra rápido (medir antes).
 2. **Onboarding**: sacar el análisis de Offer; sólo ordenar en un PDF lo que vende (app/onboarding/ChatArranque.tsx,
    lib/onboarding-arranque.ts). El corte de la IA gratis del doer de WhatsApp con datos de leads (docs/relevo/onboarding.md).
 3. **Second Brain**: las pantallas que faltan (docs/relevo/centro-operaciones.md) y después «Skills» como skills.sh.
