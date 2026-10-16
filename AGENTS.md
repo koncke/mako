@@ -3692,6 +3692,20 @@ apagar, nunca encender. Si la base se cae, el resultado es «no pausado» — y 
 nada, porque lo que autoriza es la lista de código. Un store que puede fallar solo tiene
 permitido hacer las cosas MÁS restrictivas.
 
+**Y desde el 16/10/2026 hay una SEGUNDA puerta, y no se deriva de la primera: la clave de Anthropic DEL
+NEGOCIO.** Martín eligió que el crédito de API de Claude Max de un cliente entre por su clave propia (Ticketera
+`clientes-usan-su-claude`), y esa plata es del negocio, no de MaKo. La cascada de texto (`chatCheapCascade`) la prueba
+primero, por `conClaveDelNegocio` (lib/anthropic.ts), con un solo modelo barato y nunca en las funciones del Plan
+(`FEATURES_DEL_PLAN`). Lo que gobierna código nuevo:
+
+- **La clave del negocio se lee con `credDelCliente`, nunca con `credWs`**: `credWs` cae al env de la plataforma
+  cuando el workspace es el del dueño, y esa clave pasaría como del negocio.
+- **Se compara contra las TRES copias de la plataforma** (el env, la fila del dueño y la del workspace de la
+  plataforma), leídas estrictas, en `evaluarClaveDelNegocio` (lib/veto-claude.ts, puro). Si no se pudo leer, no se
+  llama.
+- **El `fetch` usa la clave que lleva el permiso** (`permiso.clave`), nunca vuelve a resolver otra.
+- Lo fija `tests/veto-claude-clave-negocio.test.ts`, probado rompiéndolo (7 de 7). El porqué, en la cabecera del veto.
+
 # Un default que cobra es un cobro silencioso
 
 El `def` de una feature en `lib/model-catalogo.ts` no es «lo que usa hoy el código»: es

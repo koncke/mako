@@ -93,7 +93,7 @@ type Resumen = {
 //     filas sin avisar y subestima el gasto viejo (ver lib/costos-ia.ts).
 // No se unifican a propósito: responden preguntas distintas.
 const PERIODO_ACTUAL = 'actual';
-type ResumenPeriodo = { periodo: string; llamadas: number; tokens: number; costUsd: number; filas: number; porFeature: Array<{ clave: string; llamadas: number; tokens: number; costUsd: number }> };
+type ResumenPeriodo = { periodo: string; llamadas: number; tokens: number; costUsd: number; filas: number; porFeature: Array<{ clave: string; llamadas: number; tokens: number; costUsd: number }>; delNegocio?: { llamadas: number; costUsd: number } };
 
 const rotuloMes = (yyyymm: string) => {
   const [y, m] = yyyymm.split('-');
@@ -734,6 +734,11 @@ function CostoMaKo({ usage, cuotas, onVerOps, onOpenService }: { usage: Resumen 
       {filtrado && per && (
         <div style={{ fontSize: 12.5, color: 'var(--dim)', marginTop: -8, marginBottom: 18 }}>
           {per.llamadas.toLocaleString('es-MX')} llamadas · {fmtTok(per.tokens)} tokens, leídas {per.filas.toLocaleString('es-MX')} filas sin truncar.
+          {/* Lo pagado con la clave de Claude de un negocio (lib/veto-claude.ts) está en las llamadas
+              y NO en el total: esa plata es suya. Se nombra para que el total no parezca incompleto. */}
+          {per.delNegocio && per.delNegocio.llamadas > 0 && (
+            <> {per.delNegocio.llamadas.toLocaleString('es-MX')} las pagó un negocio con su clave de Claude ({usd(per.delNegocio.costUsd)}): no son gasto de MaKo.</>
+          )}
           {' '}<strong style={{ color: 'var(--ink)' }}>Los tiles de saldo y cuota de aquí abajo son de hoy</strong>, no del período: el saldo es un estado, no un acumulado.
         </div>
       )}

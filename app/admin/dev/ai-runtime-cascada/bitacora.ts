@@ -231,4 +231,23 @@ export const BITACORA: Hito[] = [
       'tests/ia-rotacion-modelo.test.ts — ocho roturas probadas',
     ],
   },
+  {
+    fecha: '16 oct', hora: '00:16', chat: 'Onboarding', sesion: 'local_79844152-91d5-49c1-b833-c917ed1fc4a6', cuenta: 'claude3',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'La clave de Anthropic del negocio, primera en su cascada de texto',
+    puntos: [
+      'Decisión de Martín (Ticketera clientes-usan-su-claude, 15/10): el crédito de API de Claude Max del cliente entra por su clave propia. El veto del 13/08 es sobre la plata de MaKo, así que tiene una segunda puerta para la del negocio.',
+      '⚠️ **La frontera:** `credWs` cae al env de la plataforma para el dueño, y la fila del dueño la siembra ese env. La clave se lee con `credDelCliente`, se compara contra las tres copias de la plataforma y el fetch usa la que verificó el veto. Siete roturas de esa frontera, siete cazadas.',
+      'Un solo modelo barato, nunca en las funciones del Plan («JAMÁS algo pago para el plan»), y sólo en la cascada de texto: ni visión, ni audio, ni el doer.',
+    ],
+    commits: [
+      { sha: 'a488757c', msg: 'IA: la clave de Anthropic del negocio, primera en su cascada de texto', lineas: 390, archivos: 10 },
+    ],
+    archivos: [
+      'lib/veto-claude.ts — `evaluarClaveDelNegocio`, la segunda puerta (pura)',
+      'lib/anthropic.ts — `conClaveDelNegocio`, el pedido con la clave verificada',
+      'lib/ai-cheap.ts — el primer intento de `chatCheapCascade`',
+      'tests/veto-claude-clave-negocio.test.ts — la frontera, probada rompiéndola',
+    ],
+  },
 ];
