@@ -161,7 +161,7 @@ export function useGuardarCampo(leadId: number, campo: CampoInline) {
   const refrescarFicha = useRefrescarFicha();
   const { toast, show, clear } = useToast();
   const [, startGuardar] = useTransition();
-  const guardar = (nuevo: ValorInline, antes: ValorInline) => {
+  const guardar = (nuevo: ValorInline, antes: ValorInline, alFallar?: () => void) => {
     startGuardar(async () => {
       try {
         await guardarCampoLeadAction(leadId, campo, nuevo);
@@ -176,6 +176,7 @@ export function useGuardarCampo(leadId: number, campo: CampoInline) {
           });
         });
       } catch (e) {
+        alFallar?.();
         show(e instanceof Error ? e.message : 'No se pudo guardar', undefined, 'bad');
       }
     });
@@ -183,6 +184,27 @@ export function useGuardarCampo(leadId: number, campo: CampoInline) {
   // `show` sale afuera porque hay avisos que NO son el resultado de un guardado:
   // el link de Fathom se rechaza sin pedir nada al server (ver EnlaceFathomEditable).
   return { guardar, toast, clear, show };
+}
+
+/**
+ * El sí / no / sin marcar que se pinta AL TOCARLO (#854, llamadas del 16/10/2026).
+ *
+ * Marcar «Calificado» esperaba al server para cambiar de color, y el server esperaba a Meta: el chip seguía gris
+ * uno o dos segundos y se volvía a tocar. Ahora el elegido se dibuja en el acto y el aviso a Meta va de fondo
+ * (`updateLead`, lib/leads.ts). La verdad sigue siendo el server: cuando la ficha relee, manda lo que volvió; si el
+ * guardado falla, vuelve a lo de antes con el aviso del error.
+ */
+function useTriAlInstante(leadId: number, campo: CampoInline, valor: boolean | null) {
+  const { guardar, toast, clear } = useGuardarCampo(leadId, campo);
+  const [pintado, setPintado] = useState<{ v: boolean | null } | null>(null);
+  useEffect(() => { setPintado(null); }, [valor]);
+  const visto = pintado ? pintado.v : valor;
+  const elegir = (v: boolean | null) => {
+    if (v === visto) return;
+    setPintado({ v });
+    guardar(v, visto, () => setPintado(null));
+  };
+  return { visto, elegir, toast, clear };
 }
 
 // ── Fecha ────────────────────────────────────────────────────────────────────
@@ -275,15 +297,14 @@ export function TriEditable({ leadId, campo, valor, si, no, titulo, bloqueado = 
   titulo: string;
   bloqueado?: boolean;
 }) {
-  const { guardar, toast, clear } = useGuardarCampo(leadId, campo);
+  const { visto, elegir: guardarTri, toast, clear } = useTriAlInstante(leadId, campo, valor);
   const [abierto, setAbierto] = useState(false);
 
   if (bloqueado) return <ChipTri valor={valor} si={si} no={no} />;
 
   const elegir = (v: boolean | null) => {
     setAbierto(false);
-    if (v === valor) return;
-    guardar(v, valor);
+    guardarTri(v);
   };
 
   return (
@@ -307,14 +328,14 @@ export function TriEditable({ leadId, campo, valor, si, no, titulo, bloqueado = 
           {([true, false, null] as const).map((v, i) => (
             <button key={String(v)} type="button" autoFocus={i === 0} onClick={() => elegir(v)}
               title={v === true ? si : v === false ? no : 'Sin marcar'}
-              style={{ ...disparador, opacity: v === valor ? 1 : 0.65 }}>
+              style={{ ...disparador, opacity: v === visto ? 1 : 0.65 }}>
               <ChipTri valor={v} si={si} no={no} />
             </button>
           ))}
         </span>
       ) : (
         <button type="button" data-campo-abrir title={titulo} onClick={() => setAbierto(true)} style={disparador}>
-          <ChipTri valor={valor} si={si} no={no} />
+          <ChipTri valor={visto} si={si} no={no} />
         </button>
       )}
       <Toast state={toast} onClose={clear} />
@@ -341,7 +362,7 @@ export function TriBotones({ leadId, campo, valor, si, no, titulo, bloqueado = f
   /** Lo que busca «Solucionar» (`marcaDato`). */
   marca?: string;
 }) {
-  const { guardar, toast, clear } = useGuardarCampo(leadId, campo);
+  const { visto, elegir, toast, clear } = useTriAlInstante(leadId, campo, valor);
   const opciones = [
     { v: true, rotulo: si, clave: 'si' },
     { v: false, rotulo: no, clave: 'no' },
@@ -351,8 +372,8 @@ export function TriBotones({ leadId, campo, valor, si, no, titulo, bloqueado = f
     <>
       <span className="fr-seg fr-seg--llena" role="group" aria-label={titulo} data-recorrido={marca}>
         {opciones.map((o) => (
-          <button key={o.clave} type="button" data-v={o.clave} aria-pressed={valor === o.v} disabled={bloqueado}
-            onClick={() => { if (o.v !== valor) guardar(o.v, valor); }}>
+          <button key={o.clave} type="button" data-v={o.clave} aria-pressed={visto === o.v} disabled={bloqueado}
+            onClick={() => elegir(o.v)}>
             {o.rotulo}
           </button>
         ))}
