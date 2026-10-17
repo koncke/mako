@@ -31,8 +31,10 @@ import {
   listCustomAudiences, searchInterests, listLeadForms, listPixels, listPixelEvents, listCustomConversions,
   searchLugares, cuentaMeta, identidadesMeta, paginasDeGanadores, getAdsetTargeting, getAdForEdit,
   getCampaignBasics, getAdsetForAdd, getAdsAprobacionPendiente, getAdAccountId, formularioBase,
-  addAdToAdset, updateAdCopy, createCustomAudience, crearFormularioInstantaneo, metaErrorEnvelope,
+  addAdToAdset, updateAdCopy, createCustomAudience, crearFormularioInstantaneo, metaErrorEnvelope, editarPublicoConjunto,
 } from '@/lib/meta-ads-create';
+import { cambiosDesdeEntrada, entradaDesdeApi, resumenDeCambios, type EntradaPublico } from '@/lib/publico-cambios';
+import { lugaresDesdeMeta } from '@/lib/meta-geo';
 import { explicarRechazoPublicacion } from '@/lib/meta-publicar-errores';
 import { erroresFormulario, type FormularioNuevo, type PreguntaEstandar } from '@/lib/meta-formularios';
 import type { Creative, CTAType } from '@/lib/campaign-types';
@@ -801,6 +803,29 @@ export const RUNNERS: Runners = {
       try {
         const r = await updateAdCopy(String(p.adId), p.edited as Record<string, string>);
         return { ok: true, resumen: 'Textos actualizados: Meta vuelve a revisar el anuncio.', datos: { creative_id: r.creative_id } };
+      } catch (err) { return errorAlCrear(err); }
+    },
+  },
+  proponer_editar_publico_conjunto: {
+    preparar: async (input) => {
+      if (!(await metaConectada())) return { error: SIN_META };
+      const adsetId = str(input, 'adsetId');
+      if (!soloDigitos(adsetId)) return { error: 'adsetId tiene que ser el id numérico del conjunto.' };
+      const entrada = entradaDesdeApi(input);
+      if ('error' in entrada) return { error: entrada.error };
+      let actual: Awaited<ReturnType<typeof getAdsetTargeting>>;
+      try { actual = await getAdsetTargeting(adsetId); } catch (err) { return { error: `No pude leer el conjunto en Meta (${metaErrorEnvelope(err).message}).` }; }
+      // Un pin sobre un geo que MaKo no sabe re-escribir se frena ACÁ, antes del «sí» (al ejecutar tiraría igual).
+      if (entrada.pin && lugaresDesdeMeta(actual.targeting.geo_locations, actual.targeting.excluded_geo_locations).noEntiendo.length) {
+        return { error: 'Este conjunto tiene lugares que MaKo no sabe editar: el punto del mapa se agrega en Meta.' };
+      }
+      const cambios = resumenDeCambios(cambiosDesdeEntrada(actual.targeting, entrada));
+      return { payload: { adsetId, entrada }, resumen: `Cambiar el público del conjunto «${actual.name}» (${adsetId}): ${cambios.join(' · ')}. Lo demás se conserva. Vuelve a revisión de Meta y reinicia el aprendizaje.` };
+    },
+    ejecutar: async (p) => {
+      try {
+        const r = await editarPublicoConjunto(String(p.adsetId), p.entrada as EntradaPublico);
+        return { ok: true, resumen: `Público de «${r.name}» actualizado: Meta vuelve a revisar el conjunto.` };
       } catch (err) { return errorAlCrear(err); }
     },
   },

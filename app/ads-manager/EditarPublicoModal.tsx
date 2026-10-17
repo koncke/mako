@@ -18,7 +18,8 @@ import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { Dropdown } from '../components/Dropdown';
 import { MakoStar, MakoWord } from '../_components/MakoBrand';
 import { GENEROS, type AudienceRef } from '@/lib/campaign-types';
-import { aplicarLugares, explicarErrorGeo, lugaresCambiaron, lugaresDesdeMeta, type LecturaGeo, type LugarMeta } from '@/lib/meta-geo';
+import { explicarErrorGeo, lugaresCambiaron, lugaresDesdeMeta, type LecturaGeo, type LugarMeta } from '@/lib/meta-geo';
+import { aplicarCambiosDePublico } from '@/lib/publico-cambios';
 import { LugarPicker } from './LugarPicker';
 import { LugaresLectura } from './LugaresLectura';
 
@@ -91,25 +92,14 @@ export function EditarPublicoModal({ adsetId, adsetName, onClose, onSaved }: { a
     if (!base || !lectura || geoBloquea) return;
     setSaving(true); setErr(null);
     try {
-      // Superponemos SOLO lo editado sobre el targeting crudo. Los lugares PRIMERO y por su
-      // función: sin cambios devuelve el geo crudo idéntico; con cambios lo re-escribe
-      // conservando location_types; y tira antes de borrar algo que no entendió.
-      const t: Record<string, unknown> = { ...aplicarLugares(base, lectura, lugares) };
-      const genders = GENEROS.find((x) => x.value === genero)?.genders ?? [];
-      if (genders.length) t.genders = genders; else delete t.genders;
-      if (ageMin != null) t.age_min = ageMin; else delete t.age_min;
-      if (ageMax != null) t.age_max = ageMax; else delete t.age_max;
-      if (auds.length) t.custom_audiences = auds.map((a) => ({ id: a.id })); else delete t.custom_audiences;
-      // Ubicaciones: coherencia con positions (Meta rechaza positions sin su plataforma).
-      if (placements && placements.length) {
-        t.publisher_platforms = placements;
-        if (!placements.includes('facebook')) delete t.facebook_positions;
-        if (!placements.includes('instagram')) delete t.instagram_positions;
-      } else { delete t.publisher_platforms; delete t.facebook_positions; delete t.instagram_positions; }
-      // Advantage+: si es 0 pero no hay señal fina, forzamos 1 (Meta rechaza 0 sin criterios).
-      const hasFine = !!(t.age_min || t.age_max || (Array.isArray(t.genders) && t.genders.length) || (Array.isArray(t.custom_audiences) && t.custom_audiences.length) || (Array.isArray(t.flexible_spec) && (t.flexible_spec as unknown[]).length));
-      t.targeting_automation = { ...(base.targeting_automation as Record<string, unknown> ?? {}), advantage_audience: advantage === 0 && !hasFine ? 1 : advantage };
-      const targeting = t;
+      // Superponemos SOLO lo editado sobre el targeting crudo, con la MISMA función que usa el server para la API
+      // de MaKo (lib/publico-cambios.ts, 17/10/2026). Los lugares van primero y por `aplicarLugares`: sin cambios
+      // devuelve el geo crudo idéntico; con cambios lo re-escribe conservando location_types; y tira antes de borrar
+      // algo que no entendió. Advantage+ en 0 sin ninguna señal fina va en 1 (Meta lo rechaza).
+      const targeting = aplicarCambiosDePublico(base, {
+        lugares: { lectura, lista: lugares },
+        genero, edadMin: ageMin, edadMax: ageMax, publicos: auds.map((a) => a.id), ubicaciones: placements, advantage,
+      });
       const r = await fetch('/api/ads-manager/adset-targeting', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ adset_id: adsetId, targeting }) });
       const j = await r.json();
       // Un rechazo de lugares viene en inglés y genérico; el que sirve es el subcode.
