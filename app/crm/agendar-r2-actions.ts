@@ -29,6 +29,7 @@ import { tzDeWorkspace, TZ_DEFAULT } from '@/lib/timezone';
 import { getWorkspaceActual } from '@/lib/workspace';
 import { fechaHoraEnTz } from '@/lib/date-utils';
 import { agruparHuecos, puedeAgendarR2, type DiaConHuecos } from './agendar-r2';
+import { exigirSesion } from '@/lib/sesion-accion';
 
 /**
  * La ventana que se le pide a Calendly. Su tope por llamada es 31 días
@@ -75,6 +76,7 @@ function refrescar(leadId: number): void {
  * que se dibuja y contesta «servicio inválido» se lee como que la app está rota.
  */
 export async function puedeAgendarR2Action(): Promise<boolean> {
+  await exigirSesion();
   try {
     const ws = await getWorkspaceActual();
     if (ws == null) return false;
@@ -99,6 +101,7 @@ export type HuecosR2 =
  * y la enorme mayoría de las fichas se abren para otra cosa.
  */
 export async function huecosR2Action(): Promise<HuecosR2> {
+  await exigirSesion();
   try {
     const ws = await getWorkspaceActual();
     if (ws == null) return { ok: false, error: 'No se pudo resolver el negocio de esta sesión.' };
@@ -124,6 +127,7 @@ export type ReservaR2 =
  * `startIso` tiene que ser uno de los que devolvió `huecosR2Action`, tal cual.
  */
 export async function reservarR2Action(leadId: number, startIso: string): Promise<ReservaR2> {
+  await exigirSesion();
   const id = Number(leadId);
   if (!Number.isInteger(id) || id <= 0) return { ok: false, error: 'Ese lead no existe.' };
   const iso = String(startIso ?? '').trim();
