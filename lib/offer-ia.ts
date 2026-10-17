@@ -41,13 +41,16 @@ import { overrideDeFeature } from './model-registry';
 import { renderPrompt, contenidoNoConfiable } from './prompt-render';
 import { getWorkspaceActual, wsSuperAdmin } from './workspace';
 import {
-  DIMENSION_IDS, MARCO_OFERTA_TEXTO, PIEZAS_MINIMAS, dimensionLabel, piezaLabel,
+  DIMENSION_IDS, MARCO_OFERTA_TEXTO, PIEZAS, PIEZAS_MINIMAS, dimensionLabel, piezaLabel,
   type CalculoDiagnostico, type DiagnosticoOferta, type PiezasSabidas, type PropuestaOferta,
 } from './offer-marco';
 import {
-  conversacionParaPrompt, documentosParaPrompt, guiaParaPrompt, parseDiagnostico, parsePropuesta, parseTurno,
+  conversacionParaPrompt, documentosParaPrompt, faltanDelArranqueParaPrompt, guiaDelArranque, guiaParaPrompt, parseDiagnostico, parsePropuesta, parseTurno,
   parseTurnoConDiagnostico, piezasParaPrompt, validadorConRespaldo, type ContextoReglas, type DocParaPrompt, type MensajeParaPrompt, type TurnoOffer,
 } from './offer-reglas';
+
+/** Las keys de las piezas con lo que es cada una: el prompt del onboarding no lleva el marco entero. */
+const clavesParaPrompt = (): string => PIEZAS.map((p) => `- ${p.key}: ${p.que}`).join('\n');
 
 /** El tag de gasto y la fila de /modelos-ia (lib/model-catalogo.ts). NO es 'ofertas' (ése es el paso del onboarding). */
 export const FEATURE_OFFER = 'offer';
@@ -148,6 +151,39 @@ LA CONVERSACIÓN HASTA AHORA (contestas el último mensaje del DUEÑO):
 {{conversacion}}
 
 Contesta con UNA sola pregunta. Devuelve SOLO el JSON ${FORMA_TURNO}`;
+
+/**
+ * La conversación del ONBOARDING (17/10/2026). Martín: «simular "Offer" en el onboarding simplemente para organizar
+ * en un PDF lo que vende el usuario». Mismo turno, mismo JSON y mismo user que la tab, pero sólo hasta saber QUÉ
+ * VENDE (`PIEZAS_DEL_ARRANQUE`): sin el diagnóstico de fase (lo pregunta el arranque con sus opciones), sin
+ * construir lo que falta y sin hablar de armar la oferta. El análisis queda para la tab Offer, sobre esta misma
+ * conversación: lo que se anote acá ya no se vuelve a preguntar allá.
+ */
+export const OFFER_ARRANQUE_SYSTEM_TEMPLATE = `Eres MaKo, el copiloto de marketing de un negocio. Es el primer día del dueño en MaKo: en esta conversación sólo quieres entender QUÉ VENDE, para dejarlo ordenado en un documento que MaKo usa para ayudarlo. NO analizas su oferta, NO le das notas ni consejos y NO le propones cambios ni una oferta nueva: eso lo hace después, si quiere, en la tab Offer.
+
+LO QUE NECESITAS SABER, en este orden (salta lo que ya sabes):
+{{guia}}
+
+LAS PIEZAS EN LAS QUE ANOTAS (key: qué es):
+{{claves}}
+
+CÓMO CONVERSAS (no negociable):
+1. UNA sola pregunta por mensaje. La respuesta tiene de 1 a 2 frases.
+2. Nunca preguntes lo que ya está en las piezas que ya sabes, en el contexto del negocio o en los documentos: sácalo de ahí y anótalo en "piezas".
+3. Si todavía no mandó nada, puedes pedirle UNA vez el link de su web o un documento de lo que vende; si dice que no tiene, pregunta.
+4. Pregunta por HECHOS, con sus palabras: «¿qué recibe exactamente tu cliente?», no «define tu propuesta de valor».
+5. "opciones": si la pregunta se contesta eligiendo, hasta 4 respuestas cortas (60 caracteres como máximo) a medida de ESTE negocio; si es abierta, []. "varias": false.
+6. "piezas": sólo lo NUEVO de este turno, con la key de la pieza y en una o dos frases con las palabras del dueño. Si cuenta algo de otra pieza (cómo lo entrega, si da garantía, cuántos clientes tuvo), anótalo también, pero no lo preguntes. Si no sabe o no quiere contestar, anota en esa pieza "sin dato: " seguido de lo que dijo, y sigue con otra.
+7. No construyas lo que falta ni sugieras nada: si no tiene garantía o no sabe su resultado con números, se anota como lo dijo.
+8. "listo": true cuando ya están las piezas de «LO QUE NECESITAS SABER». Ese turno dice en una frase que ya entendiste lo que vende, sin otra pregunta, y "opciones" [].
+9. "diagnostico": null y "diagnostico_respuesta": null, siempre. No inventes datos.
+
+${SEGURIDAD}
+
+${IDIOMA}
+
+Devuelve SOLO un objeto JSON, sin texto fuera:
+${FORMA_TURNO}`;
 
 // ── El diagnóstico ───────────────────────────────────────────────────────────
 
@@ -416,11 +452,15 @@ export async function turnoOffer(p: {
   diagnostico: string; diagnosticoObligatorio: boolean;
   /** La voz del negocio (ContextoOffer.voz), o null. */
   voz: string | null;
+  /** La conversación del ONBOARDING: sólo lo que vende (`OFFER_ARRANQUE_SYSTEM_TEMPLATE`). */
+  arranque?: boolean;
 }): Promise<ResultadoIA<TurnoOffer>> {
   const b = bloquesComunes(p);
-  const system = await renderPrompt('offer.turno.system', OFFER_TURNO_SYSTEM_TEMPLATE, { marco: b.marco, guia: guiaParaPrompt(), voz: vozParaPrompt(p.voz) });
+  const system = p.arranque
+    ? await renderPrompt('offer.arranque.system', OFFER_ARRANQUE_SYSTEM_TEMPLATE, { guia: guiaDelArranque(), claves: clavesParaPrompt() })
+    : await renderPrompt('offer.turno.system', OFFER_TURNO_SYSTEM_TEMPLATE, { marco: b.marco, guia: guiaParaPrompt(), voz: vozParaPrompt(p.voz) });
   const user = await renderPrompt('offer.turno.user', OFFER_TURNO_USER_TEMPLATE, {
-    contexto: b.contexto, piezas: b.piezas, faltan: b.faltan, documentos: b.documentos,
+    contexto: b.contexto, piezas: b.piezas, faltan: p.arranque ? faltanDelArranqueParaPrompt(p.piezas) : b.faltan, documentos: b.documentos,
     // SIN `contenidoNoConfiable`, a propósito: el bloque lo escribe el CÓDIGO (las preguntas son las de
     // lib/fase-diagnostico.ts) y trae una orden («OBLIGATORIA»); envuelto como dato, la cláusula de
     // seguridad le diría al modelo que no la obedezca.

@@ -1114,6 +1114,34 @@ puede leer, la cuota queda sin funnel (dimensión vacía) en vez de caerse cada 
 **Vive en:** `filasPagos` (lib/graficos-datos.ts) · `ubicarLeads` (lib/funnels-elegidos-server.ts).
 *17/10/2026, claude4 (chat Dashboard).*
 
+## «Estilo de la hoja»: ajustes encima de la plantilla, y una pieza que la ficha del CRM sólo puede prender después (17/10/2026)
+
+Martín, desde el feedback del CRM del 16/10: «deberías mejorar ese desplegable de estilos, ya que quedó limitado». Era
+limitado de verdad: la hoja guardaba plantilla, color y letra, y TODO lo demás lo fijaba la plantilla. Ahora el tema
+lleva también ajustes (`AJUSTES_TEMA`, lib/graficos-temas.ts): el fondo, las esquinas, el borde, la sombra y los títulos
+de las tarjetas, y los valores, la leyenda y la cuadrícula de los gráficos. Cada uno se elige de un conjunto cerrado y,
+sin tocar, es el de la plantilla.
+
+- **Todo lo que dibuja pasa por `plantillaEfectiva`** (las variables de la tarjeta, el estilo del gráfico, el halo de las
+  etiquetas y la muestra del panel): un ajuste no puede verse en la tarjeta y no en el gráfico. Test probado rompiéndolo.
+- **El saneo sólo guarda lo distinto de la plantilla.** Elegir el valor de la plantilla vuelve a ella, y una hoja de
+  antes no gana ni una clave (se lee y se compara igual que siempre). Elegir otra plantilla vuelve los ajustes a los
+  suyos, en el panel y en la API (`editar_hoja_dashboard` con `ajustes`).
+- ⚠️ **La ficha del CRM usa el MISMO panel, pero los ajustes van apagados ahí** (`PanelEstilo` con `ajustes`, sólo el
+  editor del Dashboard lo prende). Si se prendieran sin más, serían un control que no guarda: el op `tema` de
+  lib/ficha/config.ts copia sólo `plantilla`, `acento` y `fuente`, y `estiloDeFicha` (app/crm/lead-view/ficha/armar.ts)
+  decide si hay tema con esas tres (usar `temaPropio`). Se le avisó al jefe del CRM.
+- ⚠️ **Tocar app/dashboard/EditorInforme.tsx mete en el tsc acotado a app/conocimientos/Compartir.tsx**, que da rojo por
+  `<style jsx>` (el tipo de styled-jsx no entra en el chequeo acotado). No es del cambio: el tsc completo de la CI lo lee.
+
+**«Editar con MaKo» con la cara del Second Brain.** Donde iba el logo va el muñeco de la tab («Dashboard» o «General»,
+el del Centro de Operaciones), trabajando mientras piensa, y la caja dicta con su micrófono. El hilo NO pasó a `HiloMako`
+(app/_chat/): lo de MaKo acá es «lo que cambió» con su Deshacer y los pedidos de otra hoja, que el modelo de mensajes del
+teléfono no tiene. Test: tests/dashboard-editar-mako-muneco.test.ts. **Nadie lo miró en pantalla** (sin RAM para un
+`next dev`, y Claude in Chrome desconectado).
+**Vive en:** app/dashboard/PanelEstilo.tsx · lib/graficos-temas.ts · app/dashboard/PanelEditarMako.tsx.
+*17/10/2026, claude4 (chat Dashboard).*
+
 ## Lo que quedó sin hacer
 
 - **El filtro «Producto» de los LEADS mira sólo la casa** (17/10/2026): una hoja filtrada por un funnel de agregados

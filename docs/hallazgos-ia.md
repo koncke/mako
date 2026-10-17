@@ -4355,6 +4355,26 @@ Y `linkPantalla` (lib/api-mako/link.ts) no sirve para un link de ADENTRO de la a
 
 · *2026-10-16 chat «Web Generator» (claude3)*
 
+### Probado con la IA de verdad en el ws9, desde «Editar con MaKo» del Dashboard (17/10/2026)
+
+Sólo leyendo: el código de la ruta (`interpretarMensaje` con las hojas del informe guardado del ws9, «CRM y pipeline» y
+«Landing», y las operaciones que ve un admin) y las burbujas del panel (`burbujasDeHoja`), sin apretar nada. Andan
+**crear otra hoja** («¿Armo otra hoja con…?», 3 s por la IA), **el compuesto** («Agrega los leads por semana y después
+créame otra hoja de anuncios»: lo primero a la hoja abierta y «¿Terminamos esto y después…?») y **«Quiero ver mis leads
+en el CRM»** (el link a /crm). Tres fallas, todas en lib/mako-pedidos.ts:
+
+1. **Una hoja que se llama como una tab no se abre.** «Abre la hoja Landing» y «Archiva la hoja Landing» contestan «Eso
+   se hace en Web Generator» con su link: la palabra del área le gana al nombre exacto de un objeto de ESTA tab.
+2. **Los verbos de ir no existen.** «Ve al CRM», «Llévame al CRM» y «Llévame a la tab de General» no tienen verbo en
+   `RE_VERBOS` (sólo «ver», «mira», «muestra»…), así que `dudaDeLasReglas` no duda, las reglas los resuelven en 0 s y van
+   ENTEROS a editar la hoja abierta (a `/api/graficos/editar`, que contesta que no cambió nada).
+3. **Una hoja que no existe va a la hoja abierta.** «Abre la hoja de Marketing» (no hay ninguna) sale por reglas como un
+   cambio de la hoja abierta, en vez de «No hay una hoja «Marketing»» con las que hay.
+
+El script, fuera del repo: `probar-pedidos-ws9.mts` en el scratchpad del chat «Dashboard» (cuenta 4); se rehace con
+`objetosDeTab` + `interpretarMensaje` + `burbujasDeHoja` bajo `runWithWorkspace(9)` y `--conditions=react-server`.
+· *2026-10-17 chat «Dashboard» (claude4)*
+
 ## La key de la plataforma copiada en la fila de un cliente: los datos del ws1 iban a un Gemini gratis (16/10/2026)
 
 **Vive en:** lib/ai-cheap.ts (`provsDe`, `provDe`, `soloLasPropias`, `huellasDeLaPlataforma`) · lib/ia-keys.ts
