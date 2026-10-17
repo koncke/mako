@@ -27,9 +27,11 @@
 // DOS MODOS (medidos el 17/10/2026 en esta PC con ~14 chats abiertos, sobre la punta de Automations de 21 archivos, que tiene 3 rojos reales):
 //   · COMPLETO (el default): guardas + tipos de lo cambiado + tests afectados a TODOS los saltos. Los tests: 4 min 21 s (396 archivos, 4.712 tests).
 //   · `--rapido`: el MÍNIMO que un jefe corre antes de pasar una punta (AGENTS.md). Guardas + los tests que nombran o importan DIRECTO un archivo
-//     cambiado (profundidad 1) + todas las barredoras, SIN tipos (`--con-tipos` los suma): 3 min 28 s en total. Le deja a Actions los tipos y
-//     los importadores a 2+ saltos; el replay (`replay-fallos-ci.mjs --rapido`) dice exactamente qué cubre: 19 de los 20 rojos de «Tests», y de los
-//     5 de «Tipos» sólo los 2 que frena la guarda de módulos.
+//     cambiado (profundidad 1) + todas las barredoras + los tipos de lo cambiado SI ENTRAN EN RAM SIN ESPERAR (20 s; `--sin-tipos` los apaga): 3 min 28 s
+//     sin tipos, en total. Le deja a Actions los importadores a 2+ saltos (y los tipos si no entraron: la línea lo dice); el replay
+//     (`replay-fallos-ci.mjs --rapido`) dice qué cubre: 19 de los 20 rojos de «Tests» y los 5 de «Tipos» (3 de ellos sólo con los tipos incluidos).
+//     ⚠️ Los tipos se incluyen POR DEFECTO aunque el pedido era «sin tsc»: 3 de los 25 rojos de Actions eran errores de tipos de archivos CAMBIADOS, y los 5
+//     que tuvo el test de este mismo script al armarlo los vio sólo el modo completo — un VERDE rápido sin tipos los habría dejado pasar.
 //   ⚠️ Antes de compartir procesos (abajo) la misma punta tardaba 26 min con 388 archivos, y el modo rápido 9 min 23 s.
 //
 // POR QUÉ ES RÁPIDO: los tests que no tocan estado global corren JUNTOS en UN proceso (`--test-isolation=none`) con las lecturas de archivos en
@@ -49,7 +51,7 @@
 // Uso:  node scripts/antes-de-subir.mjs [--base origin/main] [--todo] [--cortar] [--sin-fetch] [--listar]
 //   --listar: sólo el plan (qué tests y qué archivos de tipos), no corre nada · --sin-fetch: no baja origin/main antes
 //   --sin-condiciones: no exige árbol limpio ni origin/main mergeado (lo usa el pre-push, que ya sabe qué commit sube)
-//   --rapido [--con-tipos]: el modo rápido (arriba) · --sin-compartir: cada test en su proceso, como `npm test`.
+//   --rapido [--sin-tipos]: el modo rápido (arriba) · --sin-compartir: cada test en su proceso, como `npm test`.
 //   --importadores: el tsc acotado suma, además de lo cambiado, a quienes lo importan (un nivel).
 //   MAKO_TIPOS_ESPERA_S=<segundos>: cuánto espera RAM para los tipos antes de decir «los chequea Actions» (default 90).
 //   --profundidad N: de los tests que IMPORTAN un archivo cambiado, sólo los que están a N saltos o menos (default: todos).
@@ -176,13 +178,13 @@ const pisoTsc = (heapMb) => (() => heapMb / 1024 + 0.1 + ZONA_ROJA_VIGIA_GB);
 // «El gate tiene que poder correr en esta PC con 14 chats abiertos; si no, nadie lo va a usar.»
 const ESPERA_TIPOS_MS = (Number(process.env.MAKO_TIPOS_ESPERA_S) || 90) * 1000;
 
-async function correrTsc(alcance, out) {
+async function correrTsc(alcance, out, esperaMs = ESPERA_TIPOS_MS) {
   if (alcance.length === 0) { out('  ✔ ningún .ts/.tsx cambió: nada que compilar'); return { ok: true }; }
   const heap = heapPara(alcance.length);
   const saltar = (porque) => { out(`  ⚠ tipos: los chequea Actions (${porque})`); return { ok: true, saltado: porque }; };
-  if (!(await tomarLock(ESPERA_TIPOS_MS))) return saltar('otro typecheck está corriendo y no se liberó');
+  if (!(await tomarLock(esperaMs))) return saltar('otro typecheck está corriendo y no se liberó');
   try {
-    const c = await esperarRam(1, { pisoGb: pisoTsc(heap), quien: 'antes-de-subir', esperaMaxMs: ESPERA_TIPOS_MS });
+    const c = await esperarRam(1, { pisoGb: pisoTsc(heap), quien: 'antes-de-subir', esperaMaxMs: esperaMs });
     if (c === 0) return saltar(`no hay RAM: quedan ${ramLibreGb().toFixed(1)} GB y el tsc acotado pide ${pisoTsc(heap)(1).toFixed(1)}`);
     const dir = mkdtempSync(path.join(os.tmpdir(), 'antes-de-subir-tsc-'));
     const config = path.join(dir, 'tsconfig.json');
@@ -227,7 +229,7 @@ export function sucio() {
 }
 
 function leerArgs(argv) {
-  const o = { base: 'origin/main', todo: false, cortar: false, fetch: true, listar: false, condiciones: true, solo: '', profundidad: Infinity, importadores: false, rapido: false, conTipos: false, compartir: !process.env.CI };
+  const o = { base: 'origin/main', todo: false, cortar: false, fetch: true, listar: false, condiciones: true, solo: '', profundidad: Infinity, importadores: false, rapido: false, conTipos: true, compartir: !process.env.CI };
   for (let i = 0; i < argv.length; i++) {
     const [k, v] = argv[i].split(/=(.*)/s);
     if (k === '--base') o.base = v !== undefined ? v : argv[++i];
@@ -239,6 +241,7 @@ function leerArgs(argv) {
     else if (k === '--importadores') o.importadores = true;
     else if (k === '--rapido') { o.rapido = true; o.profundidad = 1; }
     else if (k === '--con-tipos') o.conTipos = true;
+    else if (k === '--sin-tipos') o.conTipos = false;
     else if (k === '--sin-compartir') o.compartir = false;
     else if (k === '--solo') o.solo = v !== undefined ? v : argv[++i];
     else if (k === '--profundidad') o.profundidad = Math.max(1, Number.parseInt(v !== undefined ? v : argv[++i], 10) || 1);
@@ -255,7 +258,7 @@ async function main(argv) {
     out(linea);
     if (process.env.MAKO_LINEA_VEREDICTO) { try { writeFileSync(process.env.MAKO_LINEA_VEREDICTO, linea + '\n'); } catch { /* sólo es un espejo */ } }
   };
-  if (o.ayuda) { out('node scripts/antes-de-subir.mjs [--base origin/main] [--todo] [--cortar] [--sin-fetch] [--sin-condiciones] [--solo guardas|tipos|tests] [--profundidad N] [--importadores] [--rapido [--con-tipos]] [--sin-compartir] [--listar]'); return 2; }
+  if (o.ayuda) { out('node scripts/antes-de-subir.mjs [--base origin/main] [--todo] [--cortar] [--sin-fetch] [--sin-condiciones] [--solo guardas|tipos|tests] [--profundidad N] [--importadores] [--rapido [--sin-tipos]] [--sin-compartir] [--listar]'); return 2; }
   process.chdir(RAIZ);
 
   const sha = git(['rev-parse', '--short=9', 'HEAD']).trim();
@@ -298,7 +301,9 @@ async function main(argv) {
 
   if (toca('tipos') && !parar() && (!o.rapido || o.conTipos)) {
     out(`\n[2/3] tipos (tsc acotado a ${alcance.length} archivos)`);
-    const t = await correrTsc(alcance, out);
+    // En --rapido los tipos se intentan SIN esperar (20 s): si la RAM no alcanza ya, no se frena al jefe. Medido: 3 de los 25 rojos de Actions
+    // eran errores de tipos de archivos CAMBIADOS, y los 5 que tuvo mi propio test al armar esto los vio sólo el modo completo.
+    const t = await correrTsc(alcance, out, o.rapido ? 20 * 1000 : ESPERA_TIPOS_MS);
     if (!t.ok) { rojos.push(t.porque); if (t.sinRam) sinRam = true; }
     if (t.saltado) tiposSaltados = t.saltado;
   }
@@ -347,9 +352,9 @@ async function main(argv) {
 
   out(`\n[antes-de-subir] ${min(Date.now() - t0)} en total`);
   // Sin RAM para el tsc acotado el VERDE sigue valiendo, pero lo dice: los tipos los decide Actions (que corre el tsc completo).
-  // `--rapido` es el MÍNIMO que un jefe corre antes de pasar una punta (AGENTS.md): sin tipos y sin los importadores lejanos — los decide Actions —,
-  // y la línea lo dice, para que el Cerebro sepa qué se miró.
-  if (rojos.length === 0) { lineaFinal(`VERDE ${sha}${o.rapido ? (o.conTipos && !tiposSaltados ? ' (rápido: sin importadores lejanos; los chequea Actions)' : ' (rápido: sin tipos ni importadores lejanos; los chequea Actions)') : tiposSaltados ? ' (tipos: los chequea Actions)' : ''}`); return 0; }
+  // `--rapido` es el MÍNIMO que un jefe corre antes de pasar una punta (AGENTS.md): sin los importadores lejanos —los decide Actions—, y con los tipos
+  // de lo cambiado sólo si entraron en RAM; la línea lo dice, para que el Cerebro sepa qué se miró.
+  if (rojos.length === 0) { lineaFinal(`VERDE ${sha}${o.rapido ? (o.conTipos && !tiposSaltados ? ' (rápido: tipos de lo cambiado sí; sin importadores lejanos: los chequea Actions)' : ' (rápido: sin tipos ni importadores lejanos; los chequea Actions)') : tiposSaltados ? ' (tipos: los chequea Actions)' : ''}`); return 0; }
   lineaFinal(`ROJO: ${rojos.join(' · ')}`);
   return sinRam && rojos.length === 1 ? SALIDA_SIN_CORRER : 1;
 }

@@ -373,8 +373,10 @@ node scripts/antes-de-subir.mjs --rapido
 
 **Es el MÍNIMO OBLIGATORIO** y tarda ~3-4 min en esta PC con 14 chats abiertos (medido sobre una punta de 21 archivos que traía 3
 rojos reales: 3 min 28 s y los tres salieron; la misma punta tardaba 26 min antes de compartir procesos). Corre las guardas, los
-tests que **nombran o importan DIRECTO** un archivo cambiado y **todas las barredoras**, sin tipos; le deja a Actions los tipos y los
-importadores a dos saltos o más (el replay: 19 de los 20 rojos de «Tests»). Sin `--rapido` es el chequeo COMPLETO (todos los saltos
+tests que **nombran o importan DIRECTO** un archivo cambiado, **todas las barredoras** y los **tipos de lo cambiado si entran en RAM
+sin esperar** (20 s; si no, lo dice en la línea y los decide Actions; `--sin-tipos` los apaga); le deja a Actions los importadores a dos
+saltos o más (el replay: 19 de los 20 rojos de «Tests» y los 5 de «Tipos»). Los tipos van por defecto porque 3 de los 25 rojos de Actions
+fueron errores de tipos de archivos cambiados. Sin `--rapido` es el chequeo COMPLETO (todos los saltos
 y los tipos de lo cambiado: ~6-7 min, estimado: 4 min 21 s medidos para los tests más las guardas y los tipos); el Cerebro lo usa para
 el push a `integracion`, y un jefe con tiempo puede correrlo también.
 
