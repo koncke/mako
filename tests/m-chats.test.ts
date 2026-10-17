@@ -9,7 +9,7 @@
 //   · el hilo por día con la zona del NEGOCIO (el server corre en UTC);
 //   · la ida y vuelta de la URL de una conversación (/chats?c=<clave> ↔ /m/chats/<clave>).
 //
-// Probado rompiéndolo (17/10/2026), con `MAKO_TESTS_SIN_ESPERA=1 node --test --import tsx`:
+// Probado rompiéndolo (17/10/2026, con los 8 tests de ese momento), con `MAKO_TESTS_SIN_ESPERA=1 node --test --import tsx`:
 //   · datos.ts de vuelta a `getConversacionesNoOficial` sin `listarChats`: 7 pasan / 1 falla («lee la bandeja unificada»);
 //   · «Míos» renombrado a «Mios» en modelo.ts: 7 / 1 («los rótulos son los de escritorio»);
 //   · `diaEnZona` con la hora del server (getUTC…) en vez de la zona: 7 / 1 («el día sale de la zona del negocio»);
@@ -114,4 +114,11 @@ test('el hilo: un documento no repite su nombre como texto, y el canal se dice s
   assert.deepEqual(dos[0].items.map((x) => x.canal), ['WhatsApp', 'Instagram']);
   const evento = diasDelHilo([msj('ev:1', '2026-10-17T16:00:00Z', { tipo: 'evento', canal: null, texto: null, partes: [{ t: 'Cerrada por ' }, { t: 'Ana', b: true }] })], tz, ahora);
   assert.equal(evento[0].items[0].texto, 'Cerrada por Ana');
+});
+
+test('«WhatsApp» de la ficha del teléfono abre la conversación en Chats, con la función de escritorio', () => {
+  // Roto (17/10/2026) volviendo al hilo de sólo WhatsApp (`/m/crm/${p.id}/chat`): 8 / 1.
+  const ficha = sinComentarios(leer('app/m/crm/[id]/FichaLead.tsx'));
+  assert.match(ficha, /href=\{rutaChatsDeLead\(p\.id\)\} aria-label=\{`WhatsApp con/);
+  assert.equal(rutaMovil('/chats?lead=12'), rutaHiloM('lead:12'), 'y en el teléfono ese link es la conversación');
 });
