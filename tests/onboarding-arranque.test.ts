@@ -29,6 +29,12 @@
 // «1 fallo, 22 pases»: la etapa vuelve a quedarse en 'oferta' con la oferta armada · repite lo que contestó
 // en Offer · guarda lo de Offer como propio · la ruta pierde el canal de Offer · la respuesta optimista va
 // del lado equivocado · los hechos no miden lo de Offer · la leyenda sale con un opacity estático.
+//
+// 17/10/2026: EL ONBOARDING SIN EL ANÁLISIS DE OFFER. Martín: «Sería bueno que la funcionalidad de "OFFER" no esté
+// en el onboarding... Pero simular "Offer" en el onboarding simplemente para organizar en un PDF lo que vende el
+// usuario». La conversación pregunta sólo lo que vende (`PIEZAS_DEL_ARRANQUE`), deja el PDF y no arma la oferta;
+// el diagnóstico de fase lo pregunta el arranque después, con sus opciones. Cuarta vuelta (arnés
+// romper-lo-que-vende.mjs): ver la cabecera de tests/onboarding-lo-que-vende.test.ts.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -40,7 +46,7 @@ import {
   AHORA_NO, CAMBIAR_NUMERO, VER_OTROS_TIPOS, OBJETIVOS_SUGERIDOS,
   type EstadoArranque, type HechosArranque,
 } from '../lib/onboarding-arranque';
-import { mandaElArranque, ladoDeLaPregunta, SESION_VACIA, aMensajeOffer } from '../app/onboarding/arranque-ui';
+import { mandaElArranque, ladoDeLaPregunta, SESION_VACIA, aMensajeOffer, linkPdfLoQueVende } from '../app/onboarding/arranque-ui';
 import { PREGUNTAS, CANALES } from '../lib/fase-diagnostico';
 import { TIPOS_CRM } from '../lib/pipeline';
 import { AREAS } from '../lib/cerebro-modelo';
@@ -60,26 +66,40 @@ const bloque = (src: string, desde: string, hasta: string) => {
 
 const H: HechosArranque = {
   modo: 'oferta', nombreCuenta: 'Martín Koncke', nombreWorkspace: 'Negocio que Escala', faseGuardada: false,
-  canalNegocio: null, puedeConcluir: false, ofertaLista: false, conCrm: true, conTelefono: true, terminado: false,
+  canalNegocio: null, loQueVende: false, conCrm: true, conTelefono: true, terminado: false,
 };
 const PLAN: HechosArranque = { ...H, modo: 'plan', conCrm: false, conTelefono: false };
 const QUIEN: EstadoArranque = { nombre: 'Martín', negocio: 'Negocio que Escala', objetivo: 'Vender más cada mes' };
 
 // ── La etapa ────────────────────────────────────────────────────────────────
-test('modo oferta: quién es → la oferta → el CRM → el teléfono → espera la oferta → cierra', () => {
+test('modo oferta: quién es → lo que vende → la fase → el CRM → el teléfono → cierra, sin esperar ninguna oferta', () => {
   assert.equal(etapaDeArranque({}, H), 'nombre');
   assert.equal(etapaDeArranque({ nombre: 'M' }, H), 'negocio');
   assert.equal(etapaDeArranque({ nombre: 'M', negocio: 'N' }, H), 'objetivo');
   assert.equal(etapaDeArranque(QUIEN, H), 'oferta');
-  // Las piezas solas no alcanzan: falta el diagnóstico (lo pregunta el chat de Offer).
-  assert.equal(etapaDeArranque(QUIEN, { ...H, puedeConcluir: true }), 'oferta');
-  const conOferta = { ...H, puedeConcluir: true, faseGuardada: true };
-  assert.equal(etapaDeArranque(QUIEN, conOferta), 'crm');
-  assert.equal(etapaDeArranque({ ...QUIEN, crmTipo: 'llamada' }, conOferta), 'telefono');
-  assert.equal(etapaDeArranque({ ...QUIEN, crmTipo: 'llamada', telefono: 'codigo' }, conOferta), 'codigo');
-  assert.equal(etapaDeArranque({ ...QUIEN, crmTipo: 'llamada', telefono: 'postergado' }, conOferta), 'armando');
-  assert.equal(etapaDeArranque({ ...QUIEN, crmTipo: 'llamada', telefono: 'verificado' }, { ...conOferta, ofertaLista: true }), 'cierre');
+  // Con lo que vende, el diagnóstico de fase lo pregunta el arranque (la conversación ya no lo hace).
+  assert.equal(etapaDeArranque(QUIEN, { ...H, loQueVende: true }), 'fase');
+  const vende = { ...H, loQueVende: true, faseGuardada: true };
+  assert.equal(etapaDeArranque(QUIEN, vende), 'crm');
+  assert.equal(etapaDeArranque({ ...QUIEN, crmTipo: 'llamada' }, vende), 'telefono');
+  assert.equal(etapaDeArranque({ ...QUIEN, crmTipo: 'llamada', telefono: 'codigo' }, vende), 'codigo');
+  // Ya no hay una etapa que espere la oferta armada: el análisis es de la tab Offer.
+  assert.equal(etapaDeArranque({ ...QUIEN, crmTipo: 'llamada', telefono: 'postergado' }, vende), 'cierre');
+  assert.equal(etapaDeArranque({ ...QUIEN, crmTipo: 'llamada', telefono: 'verificado' }, vende), 'cierre');
   assert.equal(etapaDeArranque({}, { ...H, terminado: true }), 'listo');
+});
+
+test('lo que vende queda en un PDF: el mensaje con su tarjeta va justo después de la conversación', () => {
+  const { despues } = mensajesDeArranque(QUIEN, { ...H, loQueVende: true });
+  assert.equal(despues[0].id, 'arr-pdf');
+  assert.equal(despues[0].tarjeta, 'pdf');
+  assert.match(despues[0].texto, /PDF/);
+  // Mientras conversa, todavía no.
+  assert.deepEqual(mensajesDeArranque(QUIEN, H).despues, []);
+  assert.equal(linkPdfLoQueVende(42), '/api/offer/pdf?id=42&tipo=lo-que-vendes');
+  const chat = sinComentarios(leer('app/onboarding/ChatArranque.tsx'));
+  assert.match(chat, /if \(t === 'pdf'\) return vista\.sesion \? <TarjetaPdf sesionId=\{vista\.sesion\.id\} \/> : null;/);
+  assert.match(chat, /href=\{linkPdfLoQueVende\(sesionId\)\}/);
 });
 
 test('modo plan (Project Manager, sin Offer ni CRM): quién es → a qué se dedica → diagnóstico → cierra', () => {
@@ -115,7 +135,7 @@ test('el nombre del workspace no se ofrece como «tu negocio» si es un email o 
 });
 
 test('el CRM: la tarjeta va con la pregunta, y propone el tipo de su canal primero', () => {
-  const h = { ...H, puedeConcluir: true, faseGuardada: true, canalNegocio: 'conversaciones' as const };
+  const h = { ...H, loQueVende: true, faseGuardada: true, canalNegocio: 'conversaciones' as const };
   const { despues } = mensajesDeArranque(QUIEN, h);
   const crm = despues.find((m) => m.id === 'arr-crm');
   assert.ok(crm && crm.tarjeta === 'crm');
@@ -132,9 +152,9 @@ test('las respuestas: texto libre, una opción, el código y «ahora no»', () =
   assert.deepEqual(leerRespuesta({}, H, { texto: '  Martín  ' }), { ok: true, patch: { nombre: 'Martín' } });
   assert.deepEqual(leerRespuesta({}, H, { opcion: 0 }), { ok: true, patch: { nombre: 'Martín' } });
   assert.equal(leerRespuesta({}, H, { texto: '   ' }).ok, false);
-  const h = { ...H, puedeConcluir: true, faseGuardada: true };
+  const h = { ...H, loQueVende: true, faseGuardada: true };
   assert.deepEqual(leerRespuesta(QUIEN, h, { opcion: 0 }), { ok: true, patch: { crmTipo: 'llamada' } });
-  const verOtros = mensajesDeArranque(QUIEN, h).despues[0].opciones!.indexOf(VER_OTROS_TIPOS);
+  const verOtros = mensajesDeArranque(QUIEN, h).despues.find((m) => m.id === 'arr-crm')!.opciones!.indexOf(VER_OTROS_TIPOS);
   assert.deepEqual(leerRespuesta(QUIEN, h, { opcion: verOtros }), { ok: true, patch: { crmVerTodos: true } });
   assert.equal(leerRespuesta(QUIEN, h, { texto: 'cualquier cosa' }).ok, false, 'el CRM se elige, no se escribe');
   const tel = { ...QUIEN, crmTipo: 'llamada' as const };
@@ -165,20 +185,20 @@ test('el diagnóstico del modo plan: el canal va antes del volumen, y al complet
   assert.equal(leerRespuesta({ ...QUIEN, queHace: 'x' }, PLAN, { texto: 'mucho' }).ok, false);
 });
 
-test('armó la oferta antes de terminar el diagnóstico: lo que falta lo pregunta el arranque, sin repetir lo de Offer', () => {
-  // Medido en el recorrido del ws3 (16/10): «Armar mi oferta» antes de contestar «¿Dónde cierras la venta?»
-  // dejaba la etapa en 'oferta' para siempre, sin la pregunta en pantalla y sin forma de seguir.
-  const armada: HechosArranque = { ...H, puedeConcluir: true, ofertaLista: true, faseGuardada: false };
-  assert.equal(etapaDeArranque(QUIEN, { ...H, puedeConcluir: true }), 'oferta', 'sin armar, el diagnóstico sigue en la conversación de Offer');
-  assert.equal(etapaDeArranque(QUIEN, armada), 'fase');
-  assert.equal(etapaDeArranque(QUIEN, { ...armada, faseGuardada: true }), 'crm');
+test('después de lo que vende, el diagnóstico de fase lo pregunta el arranque, sin repetir lo que ya contestó en Offer', () => {
+  // Desde el 17/10 la conversación del onboarding no pregunta la fase: la pregunta el arranque con sus opciones.
+  // Una conversación que venía de antes puede traer respuestas (la de Offer las hacía adentro): no se repiten.
+  const vende: HechosArranque = { ...H, loQueVende: true, faseGuardada: false };
+  assert.equal(etapaDeArranque(QUIEN, vende), 'fase');
+  assert.equal(etapaDeArranque(QUIEN, { ...vende, faseGuardada: true }), 'crm');
 
   // En Offer contestó el canal y la primera pregunta: el arranque no las repite.
   const q0 = PREGUNTAS[0].id;
-  const conOffer: HechosArranque = { ...armada, faseOffer: { respuestas: { [q0]: 2 }, canal: CANALES[1].id } };
+  const conOffer: HechosArranque = { ...vende, faseOffer: { respuestas: { [q0]: 2 }, canal: CANALES[1].id } };
   const { despues } = mensajesDeArranque(QUIEN, conOffer);
   const ultima = despues[despues.length - 1];
-  assert.equal(despues[0].id, 'arr-fase');
+  assert.equal(despues[0].id, 'arr-pdf');
+  assert.equal(despues[1].id, 'arr-fase');
   assert.ok(!despues.some((m) => m.id === 'arr-fase-canal' || m.id === 'arr-fase-0'), 'repitió lo que ya contestó en Offer');
   assert.equal(ultima.id, 'arr-fase-1');
   assert.ok(ultima.opciones?.length, 'la pregunta va con sus opciones');
@@ -247,7 +267,7 @@ test('el producto que deja el cierre no lleva un precio inventado, y la oferta n
 });
 
 test('una opción de una pregunta vieja no contesta la de hoy', () => {
-  const h = { ...H, puedeConcluir: true, faseGuardada: true };
+  const h = { ...H, loQueVende: true, faseGuardada: true };
   const tel = { ...QUIEN, crmTipo: 'llamada' as const };
   // La pestaña vieja muestra el CRM («Llamada de venta» es la 0) y el server ya está en el teléfono.
   const r = leerRespuesta(tel, h, { opcion: 0, opcionTexto: 'Llamada de venta' });
@@ -287,12 +307,12 @@ test('un fallo pasajero no encierra: «no pude leer» no abre otra conversación
 // ── La pantalla: el chat del arranque sobre el motor de Offer ───────────────
 test('qué contesta el composer en cada etapa, y dónde va la respuesta optimista', () => {
   assert.equal(mandaElArranque('nombre'), true);
-  assert.equal(mandaElArranque('oferta'), false, 'en la oferta contesta Offer');
-  assert.equal(mandaElArranque('armando'), false);
+  assert.equal(mandaElArranque('oferta'), false, 'en lo que vende contesta Offer');
+  assert.equal(mandaElArranque('fase'), true);
   assert.equal(mandaElArranque('listo'), true, 'después de «¡Listo!» un turno de Offer quedaría arriba de la tarjeta final');
   assert.equal(ladoDeLaPregunta('objetivo'), 'antes');
   assert.equal(ladoDeLaPregunta('crm'), 'despues');
-  // El diagnóstico: antes en modo plan, después de la oferta en modo oferta (lo que faltó tras armarla).
+  // El diagnóstico: antes en modo plan, después de lo que vende en modo oferta.
   assert.equal(ladoDeLaPregunta('fase', 'plan'), 'antes');
   assert.equal(ladoDeLaPregunta('fase', 'oferta'), 'despues');
   assert.match(sinComentarios(leer('app/onboarding/ChatArranque.tsx')), /ladoDeLaPregunta\(vista\.etapa, vista\.modo\)/);
