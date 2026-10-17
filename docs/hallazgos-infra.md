@@ -6681,6 +6681,16 @@ muestra, y el diagnóstico obvio (la RAM) es el equivocado: no es un rojo ni un 
 
 *17/10/2026, chat «Automations» (claude4), al abrir C:/dev/wt-aut-pedidos para la rama de los pedidos sueltos.*
 
+## El tsc acotado de las pantallas del Ops Center: una lista larga muere, en tandas pasa (17/10/2026)
+
+Con ~14 chats abiertos y 1,5 GB libres, `scripts/tsc-acotado.mjs` sobre 25 archivos del Ops Center salió 99 dos veces:
+con el heap de siempre lo mató el vigía de RAM («código 1, 0 bytes de salida»), y con `--heap=1800` se quedó sin heap
+(«código 134»). Las pantallas arrastran casi toda la app por sus imports (app/_ui, el Second Brain, el teléfono), así que
+achicar el heap no ayuda. **Lo que anduvo:** tandas de 3 a 5 archivos con `--heap=2300`, y las librerías y los tests en
+otra tanda: las cinco dieron ✓. Un 99 sigue sin ser un verde: se vuelve a correr en tandas, nunca se da por bueno.
+
+*17/10/2026, chat «Ops Center» (claude4), en C:/dev/wt-centro-chat.*
+
 ## Los logs de producción de AYER se leen con `vercel logs --since/--until` (17/10/2026)
 
 **Síntoma:** «Crear con IA se quedó pensando» en una llamada de la noche anterior. En la base no había rastro del
@@ -6701,14 +6711,16 @@ motivo: `anthropic_usage` anota cada respuesta que LLEGÓ (proveedor, tokens, ho
 ## Verde en la PC, rojo en Linux, y al revés: los tests que dependen del sistema (17/10/2026)
 
 Hoy cayó dos veces la misma clase, una para cada lado:
-- **Rojo en Linux (run 94):** tests/centro-abrir.test.ts arma rutas con forma de Windows (`C:….txt`) a propósito,
+- **Rojo en Linux (run 94):** tests/centro-abrir.test.ts arma rutas con forma de Windows (`C:\…\x.txt`) a propósito,
   porque el cartero sólo corre en la PC. En Actions la carpeta temporal es /tmp/…, la lista blanca la rechaza y la
   apertura sale `no_entregado`. Esos tres tests llevan `{ skip: SOLO_WINDOWS }`: corren en la PC y se saltan en Linux.
-- **Rojo en la PC (chequeo local):** tests/ai-avatar.test.ts recortaba una función buscando `n}n`. Con autocrlf
-  el archivo trae `
-`, el corte daba -1 y el test leía el archivo entero. Ahora normaliza los saltos al leer.
+- **Rojo en la PC (chequeo local):** tests/ai-avatar.test.ts recortaba una función buscando `'\n}\n'`. Con autocrlf
+  el archivo trae `\r\n`, el corte daba -1 y el test leía el archivo entero. Ahora normaliza los saltos al leer.
 
-**Regla:** un test que lee código como texto normaliza `
-` al leer. Un test que depende del sistema (rutas de
+**Regla:** un test que lee código como texto normaliza `\r\n` al leer. Un test que depende del sistema (rutas de
 Windows, explorer.exe) lo dice con un `skip` con su motivo. La guarda rutas-windows-en-tests sólo ve las rutas
 LITERALES en el test, no las que arma el código.
+
+**Y una trampa al escribir esta misma entrada:** el `\r\n` pasado por `node -e '…'` desde el Bash se convirtió en un
+salto de línea de verdad y partió una fila del índice en dos. Texto con barras invertidas va con el editor, no por el
+shell (memoria heredoc-come-backslash).

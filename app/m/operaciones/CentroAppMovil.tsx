@@ -65,7 +65,7 @@ export function ChatsMDelCentro({ centro: k, parte, tituloChats, abierto, onAbie
   return (
     <ChatsM
       parte={parte} tituloChats={tituloChats} abierto={abierto} onAbierto={onAbierto}
-      decisiones={k.decisiones} responder={k.responderAca} tabs={k.tabs}
+      decisiones={k.decisiones} responder={k.responderAca}
       chats={k.chats} carteros={k.carteros} pedidos={k.pedidos} trabajos={k.trabajos} pushes={k.pushes?.ok ? k.pushes.pushes : null} ahora={k.ahora}
       esperas={k.esperas} firma={k.firma} onEnviado={k.anotarEnviado}
       munecos={k.munecos} onMunecos={k.setMunecos} centro={k}

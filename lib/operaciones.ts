@@ -31,11 +31,13 @@ import 'server-only';
 import { createHash, createPublicKey, randomBytes, randomUUID, verify } from 'node:crypto';
 import { getSupabaseServer } from './supabase';
 import {
-  CUENTA_RE, DESTINO_NUEVO, POR_VUELTA, TOMADO_VENCE_MS, claveIdDe, sanearAbre, estadoDeCierre, leerFirmable, nombresDeAdjuntos, sanearAcuses, sanearChats,
+  CUENTA_RE, DESTINO_NUEVO, POR_VUELTA, TOMADO_VENCE_MS, UUID_RE, claveIdDe, sanearAbre, estadoDeCierre, leerFirmable, nombresDeAdjuntos, sanearAcuses, sanearChats,
   sanearCierres, sanearClaves, sanearEntregables, sanearTurnos, todosLosChats, type ChatCartero, type Cierre, type EstadoPedido,
 } from './operaciones-reglas';
 import { sanearCuota, type Cuota } from './centro-uso';
 import { guardarTurnos } from './centro-turnos-db';
+import { guardarPreguntas } from './centro-preguntas-chat-db';
+import { sanearPreguntas } from './centro-preguntas-chat';
 import { AVISOS_POR_VUELTA, destinoDeDecision, filaAviso, mismoInstante, necesitaAviso } from './decisiones-aviso';
 import { borrarAdjuntosDe } from './operaciones-adjuntos';
 
@@ -80,6 +82,15 @@ export type EstadoCarteros = {
 };
 
 const COLS = 'id, created_at, autor, destino, destino_cuenta, destino_titulo, texto, clave_id, estado, motivo, tomado_at, entregado_at, cerrado_at, cierre';
+
+/** La sesión y el texto firmado de un trabajo de la cola, para comprobar que una respuesta salió (las preguntas de los
+ *  chats, lib/centro-preguntas-chat.ts). null = no está. */
+export async function trabajoDeLaCola(id: string): Promise<{ destino: string; texto: string } | null> {
+  if (!UUID_RE.test(id)) return null;
+  const { data, error } = await getSupabaseServer().from(T_PEDIDOS).select('destino, texto').eq('id', id).maybeSingle();
+  if (error) throw new Error(`no pude leer el trabajo: ${error.message}`);
+  return data ? { destino: String(data.destino), texto: String(data.texto ?? '') } : null;
+}
 
 export async function listarPedidos(limite = 100): Promise<Pedido[]> {
   const { data, error } = await getSupabaseServer()
@@ -195,6 +206,9 @@ export type SalidaCiclo = {
   cierresIds: string[];
   /** Si lo que se dijo en los chats entró (cartero 1.8.0): sin esto la PC no avanza su marca y lo vuelve a subir. */
   turnosOk: boolean;
+  /** Las preguntas de los chats que entraron (17/10/2026, `cartero.mjs preguntar`): la PC borra ésas y vuelve a subir las
+   *  demás, el molde de `cierresIds`. */
+  preguntasIds: string[];
 };
 
 const T_DECISIONES = 'admin_decisiones';
@@ -317,6 +331,13 @@ export async function cicloCartero(token: string, entrada: unknown): Promise<Sal
   if (turnos.length) {
     try { await guardarTurnos(turnos); } catch (err) { turnosOk = false; console.error('[operaciones] turnos:', err instanceof Error ? err.message : err); }
   }
+  // Las preguntas de los chats (17/10/2026, Martín: «en lugar de darme las opciones tipo multiple select»): el formulario de
+  // su conversación (lib/centro-preguntas-chat.ts). Si no se pudieron guardar, la PC las vuelve a subir en la vuelta siguiente.
+  let preguntasIds: string[] = [];
+  const preguntas = sanearPreguntas(e.preguntas);
+  if (preguntas.length) {
+    try { preguntasIds = await guardarPreguntas(preguntas); } catch (err) { console.error('[operaciones] preguntas:', err instanceof Error ? err.message : err); }
+  }
 
   // Los acuses de la vuelta anterior: sólo sobre un pedido TOMADO, o sobre un aviso de la
   // Ticketera TOMADO (comparten el formato de id, y cada id es de uno solo de los dos).
@@ -401,5 +422,5 @@ export async function cicloCartero(token: string, entrada: unknown): Promise<Sal
   } catch (err) {
     avisosError = err instanceof Error ? err.message.slice(0, 200) : 'error';
   }
-  return { pedidos, avisos, avisosError, vencidos: (venc ?? []).length, acuses, cierres, cierresIds, turnosOk };
+  return { pedidos, avisos, avisosError, vencidos: (venc ?? []).length, acuses, cierres, cierresIds, turnosOk, preguntasIds };
 }

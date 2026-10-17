@@ -1273,6 +1273,46 @@ no que se leyó.
 ninguna (operaciones_carteros.visto_at quieto), y no tomaba mensajes nuevos. Se destrabó al parar su turno con
 stop_session y reprogramar el cron con `vigilar` (1.12.0). Si vuelve a pasar, mirar visto_at antes de creerle al Runner.
 
+## El chat abierto, el «Trabajando…» y las preguntas de los chats (17/10/2026, Ops Center de la cuenta 4)
+
+**Renombrar sacaba del chat, y redirigir después no alcanzaba.** Martín: «me dejó en una tab tipo "No existe este
+chat"». La clave de un chat ES su nombre (`nombre:video generator`, `unirPorNombre`), y la URL también lo llevaba: con
+el nombre nuevo nace otro chat y el viejo deja de existir. El arreglo obvio («redirigir al terminar de renombrar») no
+cubre nada: el nombre nuevo llega MINUTOS después, con la vuelta del Runner, y un F5 o un link viejo caen igual.
+**Regla:** lo que sigue a un chat usa su SESIÓN, que no cambia (`seguirChat`, `claveParaUrl`, lib/centro-chats.ts); un
+nombre viejo sólo sirve para buscar en los trabajos mandados (`destino_titulo` → `destino`), y el renombre mismo es uno.
+
+**El «Trabajando…» tenía un hueco de hasta dos minutos.** `vigilar` entrega en segundos, pero su consulta liviana no sube
+el estado de los chats: el «busy» llega con la vuelta COMPLETA siguiente. Entre «Entregado» y «busy» el chat ya trabaja y
+la pantalla lo mostraba quieto. **Regla:** un `entregado` sin respuesta del chat cuenta como trabajando por 3 minutos
+(`chatTrabajando`, `RECIEN_ENTREGADO_MS`).
+
+**El motivo de una espera tiene ORDEN.** Sin cuota, el Runner de esa cuenta tampoco corre: su `visto_at` envejece y la
+pantalla diría «el Runner no responde», que lleva a abrir un Runner que ya está abierto. La cuota va primero. Y si
+NINGÚN Runner da noticias es la PC (dormida o apagada), no una cuenta (`porQueTarda`, con `sinNoticiasDesde`).
+
+**Contestar una pregunta: lo que manda es lo firmado.** Marcar «contestada» en la base no le dice nada a la PC, que sólo
+entrega lo firmado. Por eso la respuesta sale primero por mandar.ts, con la marca `[pregunta <id>]` adentro del texto, y
+el servidor la marca sólo si el trabajo existe, es de esa sesión y dice EXACTAMENTE `textoDeRespuesta`
+(`contestarPreguntaAction`). La conversación esconde ese trabajo y lo dibuja dentro de su pregunta: aparte, se leería la
+marca.
+
+**El globito de las preguntas sin abrir cada chat.** Las preguntas viven una clave por chat (como los turnos), pero la
+lista necesita, en cada refresco, cuántas espera CADA chat. Leer 60 claves cada 2,5 s no va: una clave índice
+(`operaciones.preguntas-abiertas`) se recalcula para el chat que se escribe, cada vez que se escribe.
+
+**Una regla de CSS del teléfono escondía el botón.** `@media (hover: none)` escondía `.co-preg__pie` entero, que era sólo
+la ayuda del teclado. Con «Responder» adentro (una pregunta de «varias»), en el teléfono no se podía contestar, y en la
+computadora se veía bien. **Regla:** antes de meter un botón en una pieza que ya existe, buscar sus `@media`.
+
+**Vive en:** lib/centro-chats.ts (`estadoDelEnvio`, `chatTrabajando`, `seguirChat`, `seccionesDeChats`) ·
+lib/centro-preguntas-chat.ts y su `-db` · app/admin/operaciones/PreguntaChat.tsx · scripts/operaciones/cartero.mjs
+(`preguntar`, 1.14.0) · tests/centro-envio, centro-renombre, centro-jefes, centro-preguntas-chat, cartero-carpetas.
+
+**Sin hacer (docs/relevo/centro-operaciones.md):** B (la caja con «+», listas en vivo, el borrador que nunca se pierde),
+C y D (el «Ya está» con links y la tarjeta del Plan, sin Review), E (los pasos en vivo: otra vez cartero.mjs), F (la
+Criatura), G (las cuentas) y los links azules. Sin medir en una pantalla real: nada de esto se vio en un navegador.
+
 ## Lo que creí medido y no estaba al día
 
 - **`soloPlataforma` ya existía en el registro de la API** (lo sumó el 2FA obligatorio el 14/10, por
