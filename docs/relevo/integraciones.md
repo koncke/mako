@@ -50,7 +50,11 @@ no los sabe leer (las tres skills instaladas dejarían de autenticar).
 2. **Los reportes por WhatsApp ya no salen.** Salían por Chatwoot (texto libre dentro de la ventana
    que abría la plantilla `reporte_mako`); con el borrado volvieron a `wa: 'no'` (`dae6b3b4`). Falta
    decidir si van por la línea de MaKo (Evolution).
-3. **Las slides de «MaKo IA (Anthropic)»** (`lib/servicio-slides.ts`) dicen «Sin esta llave, MaKo no piensa» y
+3. ~~**Las slides de «MaKo IA (Anthropic)»**~~ **DECIDIDO con criterio el 17/10/2026 (B5), sin Martín:** la tarjeta promete
+   lo que corre: «Con tu llave, MaKo usa Claude donde hace falta. No es necesaria para empezar» y «Claude entra sólo donde
+   está permitido» (el veto, lib/veto-claude.ts). Sin Opus/Sonnet ni «MaKo no piensa». Si Martín quiere otra cosa, es
+   cambiar dos renglones de lib/servicio-slides.ts. Lo de antes:
+   **Las slides de «MaKo IA (Anthropic)»** (`lib/servicio-slides.ts`) dicen «Sin esta llave, MaKo no piensa» y
    «Opus para el análisis pesado, Sonnet para lo conversacional»: lo contrario del veto de Claude. Qué se le
    promete al cliente en esa tarjeta lo decide él (13/10).
 4. **Los tutoriales acortados el 12/10**: falta que Martín mire Meta, Resend, Cal.com y Fathom. Lo que se cayó al

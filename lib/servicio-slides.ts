@@ -30,11 +30,15 @@ export const SLIDES: Record<string, Slide[]> = {
     { t: 'Quién abrió y quién clickeó', d: 'Aperturas, clicks y rebotes por paso. El que rebota duro se suprime solo y la baja es de un click.' },
   ],
   anthropic: [
-    { t: 'El motor de MaKo', d: 'Claude es quien analiza, sugiere y escribe. Sin esta llave, MaKo no piensa.' },
+    // ⚠️ 17/10/2026 (decisión 3 del relevo de Integraciones, tomada con criterio): la tarjeta decía «Sin esta llave, MaKo no
+    // piensa» y «Opus para el análisis pesado, Sonnet para lo conversacional», lo contrario de lo que corre: MaKo piensa con
+    // su red de IA sin ninguna llave (el onboarding no pide una desde el 15/10) y Claude entra SÓLO en las tareas de
+    // `CLAUDE_PERMITIDO` (lib/veto-claude.ts). Lo que se promete es eso, y nada que dependa de un modelo en particular.
+    { t: 'Tu Claude, para lo que pide más cabeza', d: 'Con tu llave, MaKo usa Claude donde hace falta. No es necesaria para empezar: MaKo tiene su propia red de IA.' },
     // lib/closing.ts (SPIN, objeciones, recomendaciones)
     { t: 'Analiza tus llamadas', d: 'El Closing Analyst puntúa cada llamada de venta por SPIN, marca las objeciones y te deja recomendaciones.' },
     // lib/model-registry.ts (modeloDeFeature, editable en /modelos-ia)
-    { t: 'Tú eliges el modelo', d: 'Opus para el análisis pesado, Sonnet para lo conversacional. Se cambia por tarea, sin tocar código.' },
+    { t: 'Cada tarea, con su IA a la vista', d: 'En Modelos de IA ves qué IA hace cada tarea. Claude entra sólo donde está permitido.' },
     // recordUsage → /api/anthropic-usage (Costo de MaKo)
     { t: 'Cada peso, a la vista', d: 'Qué proceso gastó cuánto, con qué modelo y cuándo. Sin sorpresas a fin de mes.' },
   ],
