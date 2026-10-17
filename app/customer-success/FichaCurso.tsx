@@ -47,7 +47,7 @@ import type { EntregaFicha } from './FichaEntrega';
 import {
   cursoDeClienteAction, aprobarTareaCursoAction, mandarLinkCursoAction, cortarAccesoCursoAction,
   habilitarAccesoCursoAction, agendarLlamadaCursoAction, borrarLlamadaCursoAction, linkDelCursoAction,
-  linkDeLiderAction, cambiarLiderAction, guardarAlcanceCursoAction, urlEntregaCursoAction, otroIntentoQuizAction,
+  linkDeLiderAction, cambiarLiderAction, guardarAlcanceCursoAction, urlEntregaCursoAction, otroIntentoQuizAction, quitarCursoDelAccesoAction,
   desbloquearAction,
 } from './curso-ficha-actions';
 import {
@@ -624,6 +624,29 @@ function Permisos({ leadId, curso, editar }: { leadId: number; curso: CursoDeCli
     }
   }
 
+  /**
+   * «Sacarle este curso» (17/10/2026): su acceso deja de abrir ESE curso; los demás siguen. Se pregunta antes (lo deja
+   * sin ver un curso que ve hoy) y se pinta el acceso que vuelve.
+   */
+  const [aSacar, setASacar] = useState<{ productoId: number; nombre: string } | null>(null);
+  async function sacar(productoId: number) {
+    setOcupado(productoId);
+    setError('');
+    try {
+      const r = await quitarCursoDelAccesoAction(leadId, productoId);
+      if (!r.ok) { setError(r.error); return; }
+      editar((c) => ({ ...c, acceso: r.acceso, errorAcceso: undefined }));
+    } catch (e) {
+      setError(msg(e, 'No se le pudo sacar el curso.'));
+    } finally {
+      setOcupado(null);
+      setASacar(null);
+    }
+  }
+  // Los que su acceso abre hoy. «Sacarle» sólo con dos o más: el último se corta con «Cortar acceso».
+  const listaAcceso = curso.acceso?.productos;
+  const abiertos = listaAcceso === undefined ? [] : productos.filter((x) => abreElProducto(listaAcceso, x.productoId));
+
   async function guardar(productoId: number, claves: string[] | null) {
     setOcupado(productoId);
     setError('');
@@ -676,6 +699,11 @@ function Permisos({ leadId, curso, editar }: { leadId: number; curso: CursoDeCli
             {/* Lo cerrado por un candado (y lo que ya se le abrió a mano): un renglón cada uno, con el
                 motivo en el title — el mismo que lee el alumno. Ausente = no se pudo evaluar: no se
                 ofrece abrir nada a ciegas. */}
+            {abiertos.length > 1 && (
+              <Button size="sm" variant="tertiary" disabled={ocupado != null} onClick={() => setASacar({ productoId: p.productoId, nombre: p.nombre })}>
+                Sacarle este curso
+              </Button>
+            )}
             {(p.bloqueos?.length ?? 0) > 0 && (
               <ul className="fcu-abrir">
                 {p.bloqueos!.map((b) => (
@@ -692,6 +720,11 @@ function Permisos({ leadId, curso, editar }: { leadId: number; curso: CursoDeCli
         );
       })}
       {error && <p className="fcu-mal">{error}</p>}
+      {aSacar && (
+        <Confirm title={`¿Sacarle «${aSacar.nombre}»?`} loading={ocupado != null}
+          message="Deja de verlo en su portal. Los otros cursos siguen abiertos y sigue en el kanban."
+          confirmLabel="Sacarle el curso" onConfirm={() => void sacar(aSacar.productoId)} onCancel={() => setASacar(null)} />
+      )}
     </section>
   );
 }
