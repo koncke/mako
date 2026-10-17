@@ -1,0 +1,61 @@
+/* =============================================================================
+   /m/carousels — lo propio de Carousels (el shell es app/m/m.css)
+   =============================================================================
+   Todo con el prefijo .m-carousels-*. Sólo tokens de app/globals.css. Un p con margen va con [data-m] delante. */
+
+.m-carousels-mini {
+  flex: none; display: grid; place-items: center; width: 40px; height: 50px; border-radius: 7px;
+  background: var(--primary-bg); color: var(--primary-strong);
+}
+
+/* ── El post de Instagram: las slides de costado, una por pantalla, en 4:5 ── */
+.m-carousels-post { margin: 0 0 12px; }
+.m-carousels-pista {
+  display: flex; overflow-x: auto; scroll-snap-type: x mandatory; overscroll-behavior-x: contain;
+  scrollbar-width: none; -webkit-overflow-scrolling: touch; border-radius: 14px;
+}
+.m-carousels-pista::-webkit-scrollbar { display: none; }
+.m-carousels-slide {
+  position: relative; flex: 0 0 100%; scroll-snap-align: center; aspect-ratio: 4 / 5; max-height: 62dvh;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px;
+  box-sizing: border-box; padding: 44px 22px 22px; border: 1px solid var(--border); border-radius: 14px;
+  background: var(--surface); color: var(--ink); font: inherit; text-align: center; cursor: pointer;
+  -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none;
+}
+.m-carousels-slide + .m-carousels-slide { margin-left: 8px; }
+.m-carousels-slide:focus-visible { outline: none; box-shadow: inset 0 0 0 3px var(--primary); }
+/* El «1/7» de Instagram, arriba a la derecha. */
+.m-carousels-slide__n {
+  position: absolute; top: 12px; right: 12px; padding: 3px 9px; border-radius: 999px;
+  background: var(--scrim-oscuro); color: #fff; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums;
+}
+.m-carousels-slide__rol {
+  position: absolute; top: 15px; left: 14px; font-family: 'Geist Mono', monospace; font-size: 10.5px;
+  letter-spacing: .1em; text-transform: uppercase; color: var(--faint);
+}
+.m-carousels-slide__texto {
+  font-size: 20px; font-weight: 700; line-height: 1.3; letter-spacing: -0.01em; text-wrap: balance; overflow-wrap: anywhere;
+  display: -webkit-box; -webkit-line-clamp: 7; -webkit-box-orient: vertical; overflow: hidden;
+}
+.m-carousels-slide__visual {
+  font-size: var(--fs-sm); line-height: 1.4; color: var(--dim);
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+}
+/* Los puntos de Instagram: el de la slide que se ve, en azul. */
+.m-carousels-puntos { display: flex; justify-content: center; gap: 5px; padding: 10px 0 2px; }
+.m-carousels-puntos i { width: 6px; height: 6px; border-radius: 50%; background: var(--border-strong); }
+.m-carousels-puntos i[data-activo] { background: var(--primary); }
+
+/* El caption, cortado en el «… más» de Instagram. Tocarlo lo edita. */
+.m-carousels-caption {
+  display: block; width: 100%; margin: 6px 0 0; padding: 6px 4px; border: 0; border-radius: var(--r-sm);
+  background: none; font: inherit; font-size: 15px; line-height: 1.45; color: var(--ink); text-align: left;
+  white-space: pre-wrap; overflow-wrap: anywhere; cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.m-carousels-caption__mas { color: var(--faint); }
+.m-carousels-vermas {
+  min-height: 44px; padding: 0 4px; border: 0; background: none; font: inherit; font-size: var(--fs-sm);
+  font-weight: 600; color: var(--primary); cursor: pointer;
+}
+.m-carousels-datos { margin: 14px 4px 8px; }
+[data-m] .m-carousels-datos__t { margin: 0 0 14px; font-size: 15px; line-height: 1.5; color: var(--ink); }
