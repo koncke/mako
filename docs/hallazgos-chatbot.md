@@ -5182,3 +5182,18 @@ test: `tests/equipo-contesto.test.ts`
 
 **Vive en:** `lib/flujo-ia-crear.ts` (`pasada`, `generar`) · `lib/flujo-ia.ts` (`validarIA`, el error de la reunión) ·
 test: `tests/crear-ia-revision-corrige.test.ts`
+
+## El CRON sólo dispara: «Número» y «Reentrada» fuera de su panel (17/10/2026, tarjeta #846)
+
+- **El «Número» del CRON estaba de más:** desde la sexta tanda cada WhatsApp elige el suyo en la cabecera de su panel
+  (`CabeceraWhatsApp`, «sin "Toda la automatización"»), el motor usa `lineaDelPaso(paso) ?? sec.instance_name`, y una
+  respuesta sale por la línea donde escribió el lead (`lineaEntrante ?? secuencia.instance_name`). El selector del CRON
+  editaba ese respaldo. Se fue; `instance_name` sigue valiendo para lo que ya lo tenía.
+- **La «Reentrada» es de toda la automatización** (lib/reentrada.ts), así que no se volvió «de cada mensaje»: va debajo
+  de cada WhatsApp (`pieWhatsApp`, el MISMO control y el mismo guardado en todos) rotulada «toda la automatización». Un
+  flujo sin ningún WhatsApp (sólo email) la sigue teniendo en el CRON: si no, no habría dónde elegirla.
+- **Sin verificar en pantalla:** el pie suma ~70 px debajo del composer; el cuerpo del panel scrollea (Lienzo.tsx),
+  pero no se miró en un panel bajo.
+
+**Vive en:** `app/automations/SecuenciaPerfil.tsx` (`controlReentrada`, `hayWhatsApp`) ·
+`app/automations/FlujoLienzo.tsx` (`pieWhatsApp`, `EditorMensaje`) · test: `tests/cron-solo-disparo.test.ts`
