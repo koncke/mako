@@ -52,7 +52,9 @@ export type IdSeccionMas =
   | 'calendario' | 'ads' | 'second-brain' | 'dashboard' | 'experimentos' | 'offer' | 'landing' | 'automations'
   | 'video' | 'copywriting' | 'cs' | 'curso' | 'comunidad' | 'partners' | 'mako'
   // Las pantallas del MENÚ DE LA FOTO (17/10/2026): ocultas como sección (More arma su fila desde nav.ts → USER_NAV).
-  | 'tickets' | 'configuraciones';
+  | 'tickets' | 'configuraciones'
+  // Las del super admin (17/10/2026): las herramientas que la sidebar cuelga de una tab o del menú de su foto.
+  | 'mensajes' | 'modelos-ia' | 'contexto';
 /** Lo que puede ocupar un lugar de la barra: un destino fijo o una sección de More que subió. */
 export type IdBarra = DestinoMovil | IdSeccionMas;
 
@@ -93,6 +95,12 @@ export type DefSeccionMas = {
    * (17/10/2026: salió de la sidebar de escritorio, nav.ts → SIN_FILA). Sin esto, borrar la fila rompía `rutaMovil`.
    */
   oculta?: true;
+  /**
+   * Sólo el SUPER ADMIN (17/10/2026): una herramienta de la plataforma (nav.ts → HERRAMIENTAS), cuya key no está en
+   * `TODOS_LOS_ITEMS` y que `puedeVerKey` no conoce. Su página se cuida como la de escritorio, con `getSesionAdmin()`,
+   * y no con `requireMovil({ navKey })` (que le cerraría la puerta a todos). Va siempre `oculta`.
+   */
+  superAdmin?: true;
 };
 
 /** Las familias de la sidebar, con su nombre de escritorio y en su orden (una caja de More cada una). */
@@ -176,7 +184,22 @@ export const SECCIONES_MAS: readonly DefSeccionMas[] = [
   { id: 'tickets', label: 'Reportar problema', href: '/m/tickets', icon: 'soporte', navKey: 'tickets', familia: null, oculta: true },
   // «Configuración del negocio»: el índice y cada sección debajo (/m/configuraciones/<sección>, `SECCIONES_NEGOCIO_M`).
   { id: 'configuraciones', label: 'Configuración del negocio', href: '/m/configuraciones', icon: 'config', navKey: 'configuraciones', familia: null, oculta: true },
+  // Las del SUPER ADMIN (nav.ts → HERRAMIENTAS), con el nombre de la sidebar. MaKo Messages es una sección de Automations
+  // (se llega por la barra de secciones de /m/automations); AI Models y MaKo Context, del menú de su foto.
+  { id: 'mensajes', label: 'MaKo Messages', href: '/m/mensajes', icon: 'mako', navKey: 'mensajes', familia: null, oculta: true, superAdmin: true },
+  { id: 'modelos-ia', label: 'AI Models', href: '/m/modelos-ia', icon: 'mako', navKey: 'modelos-ia', familia: null, oculta: true, superAdmin: true },
+  { id: 'contexto', label: 'MaKo Context', href: '/m/contexto', icon: 'contexto', navKey: 'contexto', familia: null, oculta: true, superAdmin: true },
 ];
+
+/**
+ * Las pantallas del teléfono que son UNA ruta de escritorio sin query ni subrutas (17/10/2026): la misma tabla sirve a
+ * `rutaMovil` y a `rutaEscritorio`, así que la ida y la vuelta no pueden divergir.
+ */
+const UNA_A_UNA: Readonly<Record<string, string>> = {
+  '/mensajes': '/m/mensajes',
+  '/modelos-ia': '/m/modelos-ia',
+  '/contexto': '/m/contexto',
+};
 
 /**
  * Las secciones de «Configuración del negocio» que tienen pantalla en el teléfono, con su ruta de ESCRITORIO (cada
@@ -355,8 +378,7 @@ export const EN_CAMINO: Readonly<Record<string, string>> = {
   'ai-avatar-crear': 'Mobile 1', 'ai-avatar-avatares': 'Mobile 1', 'ai-avatar-voces': 'Mobile 1', 'ai-avatar-plantillas': 'Mobile 1',
   'image-editor': 'Mobile 1', carousels: 'Mobile 1', stories: 'Mobile 1', 'admin-copywriting': 'Mobile 1',
   // «Mobile 2» (17/10/2026): negocio y configuración.
-  'api-mako': 'Mobile 2',
-  contexto: 'Mobile 2', 'modelos-ia': 'Mobile 2', conocimientos: 'Mobile 2', mensajes: 'Mobile 2',
+  'api-mako': 'Mobile 2', conocimientos: 'Mobile 2',
   // Herramientas del super admin que colgaron de una tab el 17/10/2026 y todavía no tienen chat (docs/relevo/mako-mobile.md).
   agencia: 'sin dueño', 'admin-estrategia': 'sin dueño', 'admin-offer-playbook': 'sin dueño', 'admin-cobros': 'sin dueño',
   'admin-agente': 'sin dueño',
@@ -604,6 +626,7 @@ export function rutaMovil(href: string | null | undefined): string | null {
     return sec ? `${RUTA_CONFIG_M}/${sec}` : RUTA_CONFIG_M;
   }
   if (p === '/marketing/salud') return `${RUTA_CONFIG_M}/integraciones`;
+  if (UNA_A_UNA[p]) return UNA_A_UNA[p];
   for (const k of CLAVES_NEGOCIO_M) {
     if (p !== SECCIONES_NEGOCIO_M[k]) continue;
     // Integraciones lee `?abrir=<key>` (o `?servicio=`) para abrir ESA integración (lib/integracion-en-tab.ts): viaja.
@@ -756,6 +779,7 @@ export function rutaEscritorio(href: string): string {
   else if (p === '/m/operaciones') destino = '/admin/operaciones';
   else if (p === '/m/tickets') destino = '/tickets';
   else if (p === RUTA_CONFIG_M) destino = '/configuraciones';
+  else if (Object.values(UNA_A_UNA).includes(p)) destino = Object.keys(UNA_A_UNA).find((k) => UNA_A_UNA[k] === p) ?? null;
   else if ((m = p.match(/^\/m\/configuraciones\/([^/]+)$/)) && esSeccionNegocioM(m[1])) destino = SECCIONES_NEGOCIO_M[m[1]];
   else if ((m = p.match(/^\/m\/tickets\/(\d+)$/))) { destino = '/tickets'; q.set('t', m[1]); }
   else if (p === '/m/cuenta/instalar') destino = '/perfil/instalar';

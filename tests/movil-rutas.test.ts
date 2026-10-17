@@ -40,7 +40,7 @@
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { TODOS_LOS_ITEMS, USER_NAV } from '../app/_components/nav';
+import { TODOS_LOS_ITEMS, USER_NAV, ADMIN_NAV } from '../app/_components/nav';
 import { NOMBRES_ICONO } from '../app/_components/icons';
 import {
   DESTINOS_MOVIL, SECCIONES_MAS, HOME_MOVIL, RUTA_MAS, esRutaMovil, puedeVerKey, destinosVisibles, destinoActivo,
@@ -60,7 +60,8 @@ test('el prefijo móvil es /m o /m/..., nunca /mako, /marketing ni /m.js', () =>
 });
 
 test('cada destino y cada sección de More hereda una key que EXISTE en nav.ts, con un ícono que existe', () => {
-  const keys = new Set([...TODOS_LOS_ITEMS, ...USER_NAV].map((i) => i.key));
+  // Las del super admin (17/10/2026) son herramientas de la plataforma: su key está en ADMIN_NAV (nav.ts → HERRAMIENTAS).
+  const keys = new Set([...TODOS_LOS_ITEMS, ...USER_NAV, ...ADMIN_NAV].map((i) => i.key));
   const iconos = new Set(NOMBRES_ICONO);
   for (const d of [...DESTINOS_MOVIL, ...SECCIONES_MAS]) {
     if (d.navKey) assert.ok(keys.has(d.navKey), `${d.id} → navKey «${d.navKey}» no está en nav.ts`);
@@ -98,6 +99,8 @@ test('v3: CRM · Chats · General · Plan · More; More por las familias de la s
     ['curso', 'cs-curso', null, true], ['comunidad', 'cs-comunidad', null, true],
     // 17/10/2026, «Mobile 2»: las pantallas del menú de la foto, ocultas (More arma su fila desde USER_NAV).
     ['tickets', 'tickets', null, true], ['configuraciones', 'configuraciones', null, true],
+    // Las del super admin (su página pregunta `getSesionAdmin`, como la de escritorio).
+    ['mensajes', 'mensajes', null, true], ['modelos-ia', 'modelos-ia', null, true], ['contexto', 'contexto', null, true],
   ]);
 });
 

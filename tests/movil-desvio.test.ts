@@ -76,7 +76,8 @@ test('lo que no va al teléfono dice que se usa en la computadora', () => {
   // /youtube-writer salió el 17/10/2026: es «Coming soon», y las «pronto» tienen su pantalla (/m/pronto/<key>). Dev y
   // Email son SOLO_ESCRITORIO, con su motivo (lib/movil-rutas.ts).
   // /configuraciones y /marketing/salud (Integraciones) salieron el 17/10/2026: tienen su pantalla («Mobile 2»).
-  for (const p of ['/admin/dev', '/email', '/analisis/trimestre', '/funnel', '/metodo', '/mensajes']) {
+  // /mensajes también tiene pantalla desde el 17/10/2026 (MaKo Messages, sólo el super admin).
+  for (const p of ['/admin/dev', '/email', '/analisis/trimestre', '/funnel', '/metodo']) {
     assert.deepEqual(decidirDesvio(p), { tipo: 'computadora' }, p);
   }
   // La bandeja de WhatsApp SÍ va (v3, 14/10/2026): es la pestaña Chats del teléfono.
