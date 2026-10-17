@@ -156,8 +156,14 @@ export const LANDING_TOKEN_KEY = 'landing_token';
  *       desde qué versión el código pegado lo trae.
  *       ⚠️ TAMPOCO SE LE PIDE A NADIE QUE REPEGUE: PIXEL_MINIMO_AVISO sigue en 22. Quien tiene la línea de
  *       /m.js ya la tiene; a quien pegó el código, el lector le llega por la ventana aislada.
+ *  25 — la cookie del visitante va en el dominio entero (17/10/2026): con www y sin www la misma persona contaba
+ *       como DOS visitantes (docs/hallazgos-landing.md, 06/10; docs/relevo/pixel-clarity-landing.md §2). La cookie
+ *       iba sin `domain=`, o sea sólo para el host exacto. Ahora va en el dominio más corto que el navegador acepta
+ *       (`dominioDelVisitante`, como el «auto» de Google Analytics). Las cookies de antes no se juntan solas: cada
+ *       host conserva su visitante viejo hasta que vence; desde acá, uno solo.
+ *       ⚠️ TAMPOCO SE LE PIDE A NADIE QUE REPEGUE: PIXEL_MINIMO_AVISO sigue en 22 (con la línea de /m.js llega sola).
  */
-export const SNIPPET_VERSION = 24;
+export const SNIPPET_VERSION = 25;
 
 /** Key en app_settings donde el beacon deja la versión que el cliente TIENE puesta. */
 export const SNIPPET_VERSION_KEY = 'landing.snippet_version';
@@ -210,6 +216,7 @@ const NOVEDADES: Record<number, string> = {
   // lee la pantalla de cualquier negocio y el aviso de WhatsApp: «llega apagada»
   // era falso para los cuatro negocios con la grabación prendida (06/10/2026). Si
   // un mensaje necesita decir el estado, lo agrega quien lo arma, leyendo el dato.
+  25: 'que la misma persona cuente una sola vez aunque entre a tu página con www y sin www',
   24: 'que MaKo lea tu página como la ve un visitante —lo que hay dentro de cada desplegable, a dónde lleva cada botón y si tu agenda carga— cuando la analizas o la replicas',
   23: 'una línea de instalación que se actualiza sola: la pegas una vez y cada mejora del Pixel te llega sin volver a pegar nada',
   22: 'el mapa de calor de tu página: en qué parte exacta toca la gente, dibujado sobre tu página y separado en celular y computadora',
@@ -1377,13 +1384,32 @@ export function landingSnippet(token: string): string {
     var m = document.cookie.match(new RegExp('(?:^|; )' + n + '=([^;]*)'));
     return m ? decodeURIComponent(m[1]) : null;
   }
+  // v25: la cookie va en el dominio MÁS CORTO que el navegador acepta (como el «auto» de Google Analytics):
+  // www.tunegocio.com y tunegocio.com comparten visitante. El navegador rechaza un sufijo público
+  // (com, com.mx, vercel.app), así que se prueba de lo más corto a lo más largo y gana el primero que queda.
+  function dominioDelVisitante() {
+    var partes = location.hostname.split('.');
+    for (var i = partes.length - 2; i >= 0; i--) {
+      var d = partes.slice(i).join('.');
+      try {
+        document.cookie = 'nqe_dom=1; path=/; SameSite=Lax; domain=' + d;
+        if (getCookie('nqe_dom') === '1') {
+          document.cookie = 'nqe_dom=; max-age=0; path=/; SameSite=Lax; domain=' + d;
+          return d;
+        }
+      } catch (e) {}
+    }
+    return null;
+  }
   var visitorId = getCookie('nqe_visitor_id');
+  var dominioCookie = dominioDelVisitante();
   if (!visitorId) {
     visitorId = (window.crypto && crypto.randomUUID)
       ? crypto.randomUUID()
       : String(Date.now()) + '-' + Math.random().toString(36).slice(2);
-    document.cookie = 'nqe_visitor_id=' + visitorId + '; max-age=31536000; path=/; SameSite=Lax';
   }
+  // Se (re)escribe siempre: una cookie de antes, sólo de este host, pasa a valer para el dominio entero.
+  document.cookie = 'nqe_visitor_id=' + visitorId + '; max-age=31536000; path=/; SameSite=Lax' + (dominioCookie ? '; domain=' + dominioCookie : '');
   var leadToken = new URLSearchParams(location.search).get('l') || null;
 
   // MARCADOR DE PRUEBA (como el test_event_code de Meta). La app abre la landing
