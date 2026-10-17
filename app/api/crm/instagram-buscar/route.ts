@@ -1,11 +1,13 @@
 // =============================================================================
 // /api/crm/instagram-buscar — el buscador de Instagram del alta de un lead (punto 28, 12/10/2026)
 // =============================================================================
-// GET ?q=<texto> → { ok, perfiles: PerfilIg[], porNombre }
+// GET ?q=<texto> → { ok, perfiles: PerfilIg[], porNombre, meta }
 //   · perfiles   — lo que contestaron Meta y Google, sin repetidos, Meta primero (hasta 8).
 //   · porNombre  — true si Google contestó: el buscador por NOMBRE está andando. Con false (sin las
 //                  claves de la plataforma, sin cuota o caído) la pantalla pide el @ exacto cuando
 //                  no hay resultados. null = no hizo falta preguntarle (Meta ya encontró el @).
+//   · meta       — qué pasó con Meta (`EstadoMeta`, #844): sin resultados, la pantalla dice POR QUÉ (cuenta personal,
+//                  el negocio sin Meta conectado, sin permiso, Meta no contestó) en vez de «Sin resultados».
 //
 // Las dos fuentes y por qué, en lib/instagram-buscar.ts (lo puro, con test). Acá viven la red, las
 // credenciales y la caché:
@@ -37,7 +39,7 @@ import { getWorkspaceActual, wsSuperAdmin } from '@/lib/workspace';
 import { credDelCliente, credWs } from '@/lib/credenciales';
 import {
   MAX_LARGO, alcanzaParaBuscar, combinarPerfiles, leerRespuestaGoogle, leerRespuestaMeta,
-  motivoDeErrorGraph, normalizarBusqueda, usuarioDeTexto, usuariosCandidatos, type PerfilIg,
+  motivoDeErrorGraph, normalizarBusqueda, usuarioDeTexto, usuariosCandidatos, type EstadoMeta, type PerfilIg,
 } from '@/lib/instagram-buscar';
 
 export const dynamic = 'force-dynamic';
@@ -62,7 +64,8 @@ const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 //                             se filtraba la prospección de otro inquilino, y con datos leídos con SU token.
 //   · ig:<ws>               → la cuenta de Instagram de la página del negocio (o null = no tiene).
 //   · mx:<ws>               → la conexión de Meta del negocio no sirve para esto (token o permiso), o
-//                             Meta la está limitando: no se le pregunta en cada tecla.
+//                             Meta la está limitando: no se le pregunta en cada tecla. Guarda el motivo
+//                             ('sin-permiso' o 'limite'): la pantalla dice cuál (#844).
 // Un FALLO («no pude») no se guarda nunca: el próximo pedido vuelve a preguntar.
 const TTL_MS = 10 * 60_000;
 const TTL_SIN_CUOTA_MS = 15 * 60_000;
@@ -105,8 +108,16 @@ async function igDelNegocio(ws: number, token: string): Promise<string | null> {
   return id;
 }
 
-/** Los perfiles que Meta encontró entre estos @ (cada uno, una consulta; en paralelo). Nunca tira. */
-async function buscarEnMeta(usuarios: string[], ws: number): Promise<PerfilIg[]> {
+/** El estado cuando no encontró: lo peor que pasó gana (no poder preguntar dice más que «no está»). */
+const estadoDe = (encontrados: PerfilIg[], peor: EstadoMeta): EstadoMeta => (encontrados.length ? 'encontro' : peor);
+/** Lo que guarda `mx:<ws>`: por qué la conexión del negocio no sirve ahora. */
+const pausaDe = (motivo: unknown): EstadoMeta => (motivo === 'limite' ? 'no-pude' : 'sin-permiso');
+
+/**
+ * Los perfiles que Meta encontró entre estos @ (cada uno, una consulta; en paralelo), y QUÉ PASÓ (#844): la pantalla
+ * lo dice en vez de un «Sin resultados» que miente. Nunca tira.
+ */
+async function buscarEnMeta(usuarios: string[], ws: number): Promise<{ perfiles: PerfilIg[]; estado: EstadoMeta }> {
   const encontrados: PerfilIg[] = [];
   const pendientes: string[] = [];
   for (const u of usuarios) {
@@ -114,7 +125,9 @@ async function buscarEnMeta(usuarios: string[], ws: number): Promise<PerfilIg[]>
     if (ya === undefined) pendientes.push(u);
     else if (ya) encontrados.push(ya);
   }
-  if (!pendientes.length || leerCache<boolean>(`mx:${ws}`)) return encontrados;
+  if (!pendientes.length) return { perfiles: encontrados, estado: estadoDe(encontrados, 'no-esta') };
+  const pausa = leerCache<string>(`mx:${ws}`);
+  if (pausa) return { perfiles: encontrados, estado: estadoDe(encontrados, pausaDe(pausa)) };
 
   let token: string | null = null;
   let ig: string | null = null;
@@ -126,15 +139,17 @@ async function buscarEnMeta(usuarios: string[], ws: number): Promise<PerfilIg[]>
     // igual en cada tecla, y la pausa de abajo sólo se alcanzaba si ESTA lectura salía bien. Se pausa
     // acá también; una caída de la base o de la red (sin motivo) no se cachea.
     const motivo = (e as { motivo?: unknown } | null)?.motivo;
-    if (motivo === 'sin-permiso' || motivo === 'limite') guardarCache(`mx:${ws}`, true);
+    if (motivo === 'sin-permiso' || motivo === 'limite') guardarCache(`mx:${ws}`, motivo);
     console.error(`[api:crm/instagram-buscar] la cuenta de Instagram del ws ${ws}: ${msg(e)}`);
-    return encontrados;
+    return { perfiles: encontrados, estado: estadoDe(encontrados, motivo === 'sin-permiso' ? 'sin-permiso' : 'no-pude') };
   }
   // Sin conexión de Meta o sin Instagram profesional en la página: no es un error, sigue Google.
-  if (!token || !ig) return encontrados;
+  if (!token || !ig) return { perfiles: encontrados, estado: estadoDe(encontrados, 'sin-conexion') };
   const tk = token;
   const cuenta = ig;
 
+  let peor: EstadoMeta = 'no-esta';
+  const peorQue = (e: EstadoMeta) => { if (e === 'sin-permiso' || (e === 'no-pude' && peor === 'no-esta')) peor = e; };
   await Promise.all(pendientes.map(async (u) => {
     try {
       const url = new URL(`${GRAPH}/${ver()}/${cuenta}`);
@@ -152,18 +167,21 @@ async function buscarEnMeta(usuarios: string[], ws: number): Promise<PerfilIg[]>
       } else if (lectura.motivo === 'sin-permiso' || lectura.motivo === 'limite') {
         // Un token vencido, sin el permiso o limitado por Meta va a contestar igual en cada tecla: se
         // deja de preguntar un rato y queda UNA línea en el log, no una por búsqueda.
-        if (!leerCache<boolean>(`mx:${ws}`)) console.error(`[api:crm/instagram-buscar] la conexión de Meta del ws ${ws} no sirve para Business Discovery (${lectura.motivo}): ${lectura.detalle}`);
-        guardarCache(`mx:${ws}`, true);
+        if (!leerCache<string>(`mx:${ws}`)) console.error(`[api:crm/instagram-buscar] la conexión de Meta del ws ${ws} no sirve para Business Discovery (${lectura.motivo}): ${lectura.detalle}`);
+        guardarCache(`mx:${ws}`, lectura.motivo);
+        peorQue(pausaDe(lectura.motivo));
       } else {
         console.error(`[api:crm/instagram-buscar] Meta sobre @${u}: ${lectura.detalle}`);
+        peorQue('no-pude');
       }
     } catch (e) {
       console.error(`[api:crm/instagram-buscar] Meta sobre @${u}: ${msg(e)}`);
+      peorQue('no-pude');
     }
   }));
   // El orden de los candidatos (el usuario, el nombre pegado, con punto, con guion bajo) es el de la lista.
   encontrados.sort((a, b) => usuarios.indexOf(a.usuario) - usuarios.indexOf(b.usuario));
-  return encontrados;
+  return { perfiles: encontrados, estado: estadoDe(encontrados, peor) };
 }
 
 // ── 2. Google: Custom Search JSON API ─────────────────────────────────────────
@@ -221,24 +239,25 @@ export async function GET(req: NextRequest) {
   if (!s || ws == null) return Response.json({ ok: false, error: 'No autorizado' }, { status: 401 });
 
   const texto = (req.nextUrl.searchParams.get('q') ?? '').trim().slice(0, MAX_LARGO);
-  if (!alcanzaParaBuscar(texto)) return Response.json({ ok: true, perfiles: [], porNombre: false });
+  if (!alcanzaParaBuscar(texto)) return Response.json({ ok: true, perfiles: [], porNombre: false, meta: null });
 
   // Lo escrito es un @ → Meta primero, y Google sólo si Meta no lo encontró (cada búsqueda de Google
   // es una de las 100 del día). Es un nombre → las dos a la vez: Meta con el nombre pegado, Google
   // con el nombre.
   const candidatos = usuariosCandidatos(texto);
-  let meta: PerfilIg[];
+  let meta: { perfiles: PerfilIg[]; estado: EstadoMeta };
   let google: EstadoGoogle | null;   // null = no hizo falta preguntarle
   if (usuarioDeTexto(texto) != null) {
     meta = await buscarEnMeta(candidatos, ws);
-    google = meta.length ? null : await buscarEnGoogle(texto);
+    google = meta.perfiles.length ? null : await buscarEnGoogle(texto);
   } else {
     [meta, google] = await Promise.all([buscarEnMeta(candidatos, ws), buscarEnGoogle(texto)]);
   }
 
   return Response.json({
     ok: true,
-    perfiles: combinarPerfiles(meta, google?.perfiles ?? []),
+    perfiles: combinarPerfiles(meta.perfiles, google?.perfiles ?? []),
+    meta: meta.estado,
     // false = Google no pudo contestar (sin claves, sin cuota, caído): sin resultados, la pantalla
     // pide el @ exacto. null = no se le preguntó.
     porNombre: google ? google.respondio : null,
