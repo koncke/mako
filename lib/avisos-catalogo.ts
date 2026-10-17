@@ -334,6 +334,8 @@ export const AVISOS_SOLO_SUPERADMIN: readonly string[] = [
   'lead-fusionado',
   // La copia del recordatorio de clases (17/10/2026, lote 2): evento de la plataforma con su texto en la fila.
   'curso-recordatorio-clases',
+  // El navegador que dejó de tomar los videos (17/10/2026, lote 2), con la cantidad de tomas en sus datos.
+  'flow-puente-ausente',
 ];
 
 export const esAvisoSoloSuperAdmin = (id: string): boolean => AVISOS_SOLO_SUPERADMIN.includes(id);
@@ -431,7 +433,9 @@ Nada urgente, por eso esperaron. — MaKo`,
     // la única señal era un clip que se generaba para siempre en una pantalla que
     // alguien tenía que estar mirando.
     disparador: 'Cron cada 10 min: hay trabajos `pendiente` que nadie tomó en 12 minutos (`flow_cerrar_abandonados`).',
-    ejemplo: `🔴 Tus videos no se están generando: tu navegador dejó de responder y quedaron *3 tomas* sin tomar.
+    // ⚠️ DESDE EL 17/10/2026 EL TEXTO ES EL DE SU AUTOMATIZACIÓN de SuperAdmin (evento `flow_puente_ausente`, lote 2).
+    ejemplo: `🔴 Tus videos no se están generando: tu navegador dejó de responder.
+⏸️ Sin tomar: *3 tomas*
 
 Abre la extensión de MaKo y toca *Conectar*. Las tomas no se cobraron: cuando vuelvas, las vuelves a mandar. — MaKo`,
   },

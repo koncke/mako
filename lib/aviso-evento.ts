@@ -79,6 +79,7 @@ export function datosDelEvento(sub: unknown): ContextoDatos {
     ...(ev.trae.includes('cancelada') ? { conCancelada: true } : {}),
     ...(ev.trae.includes('fusion') ? { conFusion: true } : {}),
     ...(ev.trae.includes('recordatorio') ? { conRecordatorio: true } : {}),
+    ...(ev.trae.includes('flow') ? { conFlow: true } : {}),
     ...(ev.trae.includes('reporte') ? { conReporte: true } : {}),
     ...(ev.trae.includes('oferta') ? { conOferta: true } : {}),
     ...(ev.trae.includes('anuncios') ? { conAnuncios: true } : {}),
