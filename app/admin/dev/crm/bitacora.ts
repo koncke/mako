@@ -2481,4 +2481,18 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/crm',
   },
+  {
+    fecha: '17 oct', hora: '03:10', chat: 'CRM', sesion: 'local_64949e84-3d68-4c31-bf78-5caa382ebc37', cuenta: 'claude4',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Cada pago guarda de qué funnel es: un OKR de «Renovación» ya no se lleva la cuota vieja del VSL (#897)',
+    puntos: [
+      'En producción desde el run 87, con la migración 0310 aplicada.',
+      'Un pago queda atado al funnel donde estaba el lead cuando SE CREÓ (la venta, el plan, la renovación), no cuando se cobró: una cuota de la venta del VSL cobrada después de pasar al lead a «Renovación» sigue sumando en el VSL.',
+      'Lo usan el avance de un OKR o un KPI de unos funnels, los gráficos de pagos del Dashboard y el desglose del número grande de /general.',
+      'No cambió ningún número de hoy (medido antes de aplicar). El 0 de «Renovación» en el ws1 es verdad: sus 5 leads se agregaron el 13/10 y todos sus pagos son anteriores; empieza a sumar con los cobros de renovación que se registren de acá en más.',
+    ],
+    commits: [{ sha: 'def566223', msg: 'Pagos: cada pago guarda de qué funnel es al crearse (mig 0310, #897), y el OKR, los gráficos y el desglose lo usan', lineas: 249, archivos: 10 }],
+    archivos: ['supabase/migrations/0310_pagos_funnel.sql — la columna, el trigger y el backfill', 'lib/funnels-elegidos.ts — la regla y `faltaColumnaFunnel`', 'tests/pagos-funnel.test.ts'],
+    revisar: '/general',
+  },
 ];
