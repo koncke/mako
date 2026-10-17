@@ -22,7 +22,7 @@
 import { useEffect, useState } from 'react';
 import { SANS } from '@/app/_ui';
 import { asignadasDe, type CampanaAsignada } from '@/lib/campana-config';
-import { campanasAsignadasAction, quitarCampanaAction } from './campanas-actions';
+import { alternarFunnelCampanaAction, campanasAsignadasAction } from './campanas-actions';
 import { CampanasModal } from './CampanasModal';
 
 export function CampanasDelProducto({ funnelId, nombreProducto }: {
@@ -46,11 +46,12 @@ export function CampanasDelProducto({ funnelId, nombreProducto }: {
 
   const mias = asignadas ? asignadasDe(asignadas, funnelId) : [];
 
-  const quitar = async (id: string) => {
-    setQuitando(id);
+  // Saca ESTE funnel de la campaña, no la campaña entera (#893): si va a otros, sigue yendo ahí.
+  const quitar = async (a: CampanaAsignada) => {
+    setQuitando(a.id);
     setError(null);
     try {
-      const r = await quitarCampanaAction(id);
+      const r = await alternarFunnelCampanaAction(funnelId, { tipo: a.tipo, id: a.id, nombre: a.nombre, campanaId: a.campanaId });
       if (r.ok) setAsignadas(r.asignadas); else setError(r.error);
     } catch {
       setError('No se pudo quitar');
@@ -91,7 +92,7 @@ export function CampanasDelProducto({ funnelId, nombreProducto }: {
                 {a.tipo === 'conjunto' ? '↳ ' : ''}{a.nombre}
               </span>
               <button type="button" className="mk-icon-btn" data-tone="dim" disabled={quitando === a.id}
-                onClick={() => void quitar(a.id)}
+                onClick={() => void quitar(a)}
                 title={`Quitar «${a.nombre}»`} aria-label={`Quitar «${a.nombre}»`}
                 style={{ width: 20, height: 20, flex: 'none', borderRadius: 99, cursor: 'pointer' }}>
                 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" aria-hidden><path d="M6 6l12 12M18 6L6 18" /></svg>

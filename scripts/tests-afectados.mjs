@@ -44,7 +44,7 @@
 //   node scripts/tests-afectados.mjs --base origin/main   # (es el default)
 //   node scripts/tests-afectados.mjs --listar             # sólo elige, no corre (--explicar: el porqué de cada uno)
 //   node scripts/tests-afectados.mjs --cortar             # frena en la primera tanda roja (lo usa el pre-push)
-//   --tanda N (default 6) · --concurrencia N (default 2)
+//   --tanda N (default 6) · --concurrencia N (default 2) | auto (= todos los núcleos, 4 como tope: es lo que usa Actions)
 // Salida: 0 verde · 1 hay tests rojos · 2 no se pudo calcular (base inexistente…) · 99 no corrió por falta de RAM.
 // ⚠️ Que esto dé verde NO reemplaza a Actions (tipos, las demás guardas, y los ~950 tests que acá no
 // se miran): reduce el riesgo de la falla más cara, no la elimina.
@@ -436,8 +436,17 @@ export const ZONA_ROJA_VIGIA_GB = 0.9;
 const COSTO_PROCESO_GB = 0.35;
 const MARGEN_GB = 0.05;
 const ESPERA_RAM_MAX_MS = 15 * 60 * 1000;
+const REINTENTO_MAX = 8;    // más rojos que esto en una tanda no es la carga: es un cambio que rompe cosas
 const TOPE_TANDA_MS = 10 * 60 * 1000;
 export const pisoRam = (concurrencia) => ZONA_ROJA_VIGIA_GB + COSTO_PROCESO_GB * concurrencia + MARGEN_GB;
+
+/**
+ * `--concurrencia auto`: TODOS los núcleos de la máquina (2 como mínimo, 4 como tope por la RAM). ⚠️ NO es el default de node, que es
+ * `núcleos − 1`: en el runner de Actions (2 vCPU) eso es UN proceso a la vez y deja un núcleo parado. Medido el 17/10/2026 con la API
+ * (`/actions/runs/{id}/timing`): con ese default las dos fases de tests sumaron 550 s contra 508 s del `npm test` de antes, y un run
+ * verde pasó de ~11 a 14 min facturables (el rojo bajó de 5-10 a 2: fallar rápido funcionó, pero el verde es ~85 % de los runs).
+ */
+export const concurrenciaAuto = () => Math.max(2, Math.min(os.availableParallelism(), 4));
 
 export function ramLibreGb() {
   try { const m = readFileSync('/proc/meminfo', 'utf8').match(/MemAvailable:\s+(\d+)\s*kB/); if (m) return Number(m[1]) * 1024 / GB; } catch { /* no es Linux */ }
@@ -482,7 +491,9 @@ function correrTanda(archivos, concurrencia, env) {
   return new Promise((resolve) => {
     const t0 = Date.now();
     const bandera = concurrencia > 0 ? [`--test-concurrency=${concurrencia}`] : [];    // 0 = el de node (Actions)
-    const hijo = spawn(process.execPath, ['--import', 'tsx', '--test', ...bandera, ...archivos], { env, stdio: ['ignore', 'pipe', 'pipe'] });
+    // Sin NODE_TEST_CONTEXT: si esto se llama desde adentro de un test, node cree que el hijo es un test ANIDADO y deja de imprimir el reporte.
+    const { NODE_TEST_CONTEXT: _anidado, ...limpio } = env;
+    const hijo = spawn(process.execPath, ['--import', 'tsx', '--test', ...bandera, ...archivos], { env: limpio, stdio: ['ignore', 'pipe', 'pipe'] });
     const trozos = [];
     hijo.stdout.on('data', (d) => trozos.push(d));
     hijo.stderr.on('data', (d) => trozos.push(d));
@@ -517,17 +528,34 @@ export async function correrTests({ lista, tanda, concurrencia, cortar, env, car
   const vigilante = setInterval(() => { ramMin = Math.min(ramMin, ramLibreGb()); }, 1000);
   const total = { tests: 0, pasan: 0, fallan: 0 };
   const rojos = new Set();
+  const flaky = [];
   let sinRam = false;
   let cortada = false;
+  out(`  [tests-afectados] ${lista.length} archivos en ${tandas.length} tandas de hasta ${tanda}, ${concurrencia || 'los de node'} procesos a la vez (${os.availableParallelism()} CPU)`);
   try {
     for (let n = 0; n < tandas.length; n++) {
       const c = await esperarRam(concurrencia || 2);
       if (c === 0) { sinRam = true; break; }
-      const r = await correrTanda(tandas[n], concurrencia === 0 ? 0 : c, env);
-      const res = leerResultado(r.salida);
+      let r = await correrTanda(tandas[n], concurrencia === 0 ? 0 : c, env);
+      let res = leerResultado(r.salida);
       total.tests += res.tests; total.pasan += res.pasan; total.fallan += res.fallan + res.canceladas;
-      const roja = r.codigo !== 0;
+      let roja = r.codigo !== 0;
       out(`  tanda ${n + 1}/${tandas.length} · ${tandas[n].length} archivos · ${res.tests} tests · ${roja ? `ROJA (${res.rojos.length || '?'} archivos)` : 'verde'} · ${min(r.ms)}`);
+      // ⚠️ Subir la concurrencia puede sacar rojos que son de la CARGA: medido el 17/10/2026, `ads-video-procesando` (un tope de 40 ms) falló con 2
+      // procesos en una PC saturada y pasó solo. Cada rojo falso en Actions cuesta 11-14 min, así que un archivo rojo se REPITE de a uno: si
+      // pasa, se informa como FLAKY (no se esconde: queda en la salida y en el resultado) y no frena; si sigue rojo, es rojo de verdad.
+      if (roja && !r.colgada && c > 1 && res.rojos.length > 0 && res.rojos.length <= REINTENTO_MAX) {
+        const solos = res.rojos.filter((f) => /\.test\.ts$/.test(f));
+        if (solos.length === res.rojos.length) {
+          out(`    ↻ ${solos.length} archivo(s) rojo(s) con ${c} procesos a la vez: los repito de a UNO, por si es la carga`);
+          const r2 = await correrTanda(solos, 1, env);
+          if (r2.codigo === 0) {
+            flaky.push(...solos);
+            out(`    ⚠ FLAKY: ${solos.join(', ')} pasaron solos (rojos sólo con ${c} procesos). No frena, pero conviene arreglar el test: depende de la carga.`);
+            roja = false;
+          } else { r = r2; res = leerResultado(r2.salida); }
+        }
+      }
       if (roja) {
         for (const f of res.rojos) rojos.add(f);
         if (!res.rojos.length) for (const f of tandas[n]) rojos.add(`${f} (¿alguno de la tanda?)`);
@@ -541,7 +569,7 @@ export async function correrTests({ lista, tanda, concurrencia, cortar, env, car
   } finally {
     clearInterval(vigilante);
   }
-  return { sinRam, total, rojos, cortada, ms: Date.now() - t0, ramMin, tandas: tandas.length };
+  return { sinRam, total, rojos, flaky, cortada, ms: Date.now() - t0, ramMin, tandas: tandas.length };
 }
 
 // -----------------------------------------------------------------------------
@@ -555,7 +583,7 @@ function leerArgs(argv) {
     const valor = () => (v !== undefined ? v : argv[++i]);
     if (k === '--base') o.base = valor();
     else if (k === '--tanda') o.tanda = Math.max(1, Number.parseInt(valor(), 10) || 6);
-    else if (k === '--concurrencia') { const c = valor(); o.concurrencia = c === 'auto' ? 0 : Math.max(1, Number.parseInt(c, 10) || 2); }
+    else if (k === '--concurrencia') { const c = valor(); o.concurrencia = c === 'auto' ? concurrenciaAuto() : Math.max(1, Number.parseInt(c, 10) || 2); }
     else if (k === '--profundidad') o.profundidad = Math.max(1, Number.parseInt(valor(), 10) || 1);
     else if (k === '--listar') o.listar = true;
     else if (k === '--explicar') o.explicar = true;
@@ -644,6 +672,7 @@ async function main(argv) {
   }
   rmSync(carpetaTmp, { recursive: true, force: true });
   out(`\n[tests-afectados] ${r.rojos.size === 0 ? '✔ VERDE' : '✖ ROJO'} · ${r.total.tests} tests de ${lista.length} archivos${r.cortada ? ' (cortado en la primera tanda roja)' : ''} · ${min(r.ms)} · RAM libre mínima ${Number.isFinite(r.ramMin) ? r.ramMin.toFixed(1) : '?'} GB`);
+  if (r.flaky.length) out(`  ⚠ ${r.flaky.length} FLAKY (rojos con varios procesos, verdes solos): ${r.flaky.join(', ')}`);
   if (r.rojos.size) {
     out('  Rojos: ' + [...r.rojos].join(', '));
     out('  Repetilos solos: node --import tsx --test ' + [...r.rojos].filter((f) => f.startsWith('tests/') && !f.includes(' ')).join(' '));

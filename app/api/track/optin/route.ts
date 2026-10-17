@@ -320,11 +320,10 @@ export async function POST(req: NextRequest) {
   // enrutaba el formulario de Meta y no la landing de esa misma campaña.
   const porCampana = await runWithWorkspace(ws, () => funnelDeCampana({ campaignId: atrib.utm_campaign, adId: atrib.utm_content }))
     .catch(() => ({ asignada: false as const }));
-  // ⚠️ LA CAMPAÑA ASIGNADA ES **UNA**, la landing puede ser VARIAS. Asignar una
-  // campaña a un producto es decir a qué producto van sus leads, no a cuáles: el
-  // mapeo es campaña → producto y tiene un solo destino. Así que cuando manda la
-  // campaña, la lista es de uno — y la landing con tres productos no la amplía.
-  const funnelesDelLead: Array<number | null> = porCampana.asignada ? [porCampana.funnelId] : funnelesDeLaLanding;
+  // ⚠️ CUANDO MANDA LA CAMPAÑA, MANDA ENTERA: su casa primero y sus otros funnels (#893,
+  // `otros`, con el id real que el bucle de abajo agrega tal cual). La landing con tres
+  // productos no la amplía: decir a qué funnels van sus leads es lo que hace la campaña.
+  const funnelesDelLead: Array<number | null> = porCampana.asignada ? [porCampana.funnelId, ...porCampana.otros] : funnelesDeLaLanding;
 
   const dup = await runWithWorkspace(ws, () => duplicadosDeLead({ nombre, email, telefono })).catch(() => []);
 

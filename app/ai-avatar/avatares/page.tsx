@@ -14,7 +14,7 @@ export default async function AvataresPage({ searchParams }: { searchParams: Pro
   const sp = await searchParams;
   return (
     <Pagina>
-      <PageHeader titulo="Avatares" proposito="Tu cara, en las escenas que elijas." />
+      <PageHeader titulo="Avatars" proposito="Tu cara, en las escenas que elijas." />
       <Avatares plantillaInicial={typeof sp.plantilla === 'string' ? sp.plantilla.slice(0, 80) : undefined} />
     </Pagina>
   );

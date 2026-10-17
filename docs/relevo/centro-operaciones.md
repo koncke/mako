@@ -1,4 +1,11 @@
-# Relevo — Ops Center, ex Centro de Operaciones (17/10/2026, ~08:00; cuenta 4, `claude4`)
+# Relevo — Ops Center, ex Centro de Operaciones (17/10/2026, ~09:30; cuenta 4, `claude4`)
+
+**Lo último (17/10, ~09:30, el TERCER Ops Center del día, `local_c2a7cb77…`):** hechas y pasadas al Cerebro la parte 2 del
+urgente (la pantalla dice en qué está lo que mandaste), el renombre que no te saca del chat, la lista sin «Sin asignar»,
+la A (las preguntas como formulario, con el cartero **1.14.0**), la H (fuera los tres puntos) y la I («Second Brain» abre
+sólo el grafo). Lo que costó, en docs/hallazgos-operaciones.md → «El chat abierto, el "Trabajando…" y las preguntas».
+**Sigue:** C y D, E, F, G y los links azules, en ese orden (la B quedó hecha después, con el cartero 1.14.1). Para la E hay que volver a avisarle al Cerebro: toca
+cartero.mjs (los pasos del turno abierto).
 
 Lo tomó el 17/10 a la mañana el chat «Ops Center» de la cuenta 4, el segundo de ese día (el primero cerró con el
 contexto al 87%). Lo que costó cada cosa está en `docs/hallazgos-operaciones.md`, en la entrada «Adjuntos hasta la PC,
@@ -25,10 +32,14 @@ Cerebro: lo mandó a Video Generator a las 07:55 UTC, el buzón salió a las 07:
    dormida (`visto_at` viejo) o la cuota se acabó (`cuota` al 100%). Las piezas: `motivoDeEspera`
    (lib/operaciones-reglas.ts), `Tick` y `ROTULO` (Hilo.tsx), `sinNoticiasDesde`.
 
-**Estado del urgente:** la parte 1 (`vigilar`, cartero 1.12.0) está hecha y pasada al Cerebro (ver la tabla de
-abajo). La parte 2, que la pantalla diga en qué está, queda para el próximo Ops Center.
+**Estado del urgente:** las dos partes hechas. La 1 (`vigilar`, cartero 1.12.0) y la 2: debajo de lo que manda Martín,
+«Enviado» → «La PC lo recibió», y al pie «Trabajando…»; si tarda más de 30 s, el motivo (`estadoDelEnvio`,
+`chatTrabajando`, lib/centro-chats.ts), y la pantalla se refresca cada 2,5 s mientras algo va en camino.
 
-## Dos pedidos más de Martín (17/10, ~05:00 AR), para hacer DESPUÉS del urgente y ANTES de la A
+## Dos pedidos más de Martín (17/10, ~05:00 AR), para hacer DESPUÉS del urgente y ANTES de la A — LOS DOS HECHOS
+
+El chat abierto se sigue por su sesión (`seguirChat`, `claveParaUrl`), y la lista es una sola, con lo que trabaja y lo
+que espera a Martín arriba (`seccionesDeChats`, `esPrioritario`). Lo que sigue es lo que se pidió:
 
 **El renombre te deja en «No existe este chat».** «Le pedí que renombre el chat, lo hizo, pero falta que
 automáticamente me posicione en el mismo chat que estaba, porque me dejó en una tab tipo "No existe este chat".» La URL
@@ -92,8 +103,11 @@ Ticketera): un canal PROPIO del Centro, no admin_decisiones.
 - **Cuando ande:** cambiar la regla de AGENTS.md («preguntar por la Ticketera» → «preguntar con el formulario en tu
   chat: `cartero.mjs preguntar`») y avisarle al chat Ticketera. Desde ahí, sacar del mazo las preguntas de los chats es
   suyo. Hasta entonces, la pregunta de admin_decisiones sigue arriba de la caja (Pregunta.tsx), como hoy.
+- **HECHA (17/10):** todo lo de arriba, con la regla ya en AGENTS.md («A la Ticketera va lo que DECIDE Martín»). Lo que
+  falta: que el Cerebro instale el cartero 1.14.0 al integrarla (sin eso `preguntar` no existe en la PC), y avisarle al
+  chat Ticketera que las preguntas de los chats ya no van al mazo.
 
-**B) La caja** (sus puntos 4, 14 y 15, y las listas):
+**B) HECHA (17/10, cartero 1.14.1), menos «Tareas vinculadas (N)», que va con la D. La caja** (sus puntos 4, 14 y 15, y las listas). Las reglas en lib/centro-caja.ts; el «+» y las miniaturas en AdjuntosCaja.tsx:
 - abajo, un solo «+» con un desplegable bien diseñado. Adentro: «Importar archivo» e «Imagen» como dos botones (copiar
   el diseño de la caja de MaKo Mobile o del Second Brain), la cuenta, el modelo y el esfuerzo, y «Tareas vinculadas
   (N)» (ver D);
@@ -143,10 +157,12 @@ mueve adentro de su recuadro como en el chat (Muneco.tsx, ElegirMuneco.tsx, lib/
 - «Sesión de 5 horas: Sin medir» es un bug: medirlo. La cuenta de la app trae la 5 h por `get_usage` (la mide el
   Runner de la app); el cartero descarta la de 5 h si tiene más de 30 min (hallazgos, «Ops Center: una sola pantalla»).
 
-**H) Fuera los tres puntos de arriba a la derecha de cada chat** (su punto 10): renombrar y cambiar la criatura ya
+**H) HECHA (17/10). Fuera los tres puntos de arriba a la derecha de cada chat** (su punto 10): renombrar y cambiar la criatura ya
 están en la barra lateral. Es `co-cab__mas` en Conversacion.tsx, y el «⋯» de la hoja en ChatsMovil.tsx.
 
-**I) La entrada «Second Brain» del Centro** (su punto 11, la parte del Centro): abre SÓLO el grafo y nunca cambia de
+**I) HECHA (17/10): en Ops Center la lista es siempre la de Claude Code y el grafo se abre con el chat anotado
+(`listaSB`, `hrefMapa`); el chat con MaKo se abre sólo si la URL lo pide. La entrada «Second Brain» del Centro** (su
+punto 11, la parte del Centro): abre SÓLO el grafo y nunca cambia de
 chat, y la entrada «Mapa» se va. Reparto acordado con el chat Second Brain:
 - él toca la rama `mapa ? (<section className="co-panel" aria-label="Mapa">…)` de ChatSecondBrain.tsx y VistaCerebro.tsx;
 - el Ops Center toca sólo la barra (`enSB`, `irAlSecondBrain`, el botón «Mapa») y app/m/operaciones/CentroAppMovil.tsx.

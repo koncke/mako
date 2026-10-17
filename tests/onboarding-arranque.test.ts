@@ -35,6 +35,10 @@
 // usuario». La conversación pregunta sólo lo que vende (`PIEZAS_DEL_ARRANQUE`), deja el PDF y no arma la oferta;
 // el diagnóstico de fase lo pregunta el arranque después, con sus opciones. Cuarta vuelta (arnés
 // romper-lo-que-vende.mjs): ver la cabecera de tests/onboarding-lo-que-vende.test.ts.
+// Quinta vuelta (17/10/2026, arnés romper-entrada.mjs): la entrada de MaKo sin el grafo, el modo claro sin recuadro y
+// las reacciones. Base 25/0; cada rotura, 24/1: avanza sola · corre con movimiento reducido · no se puede tocar ·
+// vuelve el grafo · la entrada tapa la barra · vuelve el oscuro · vuelve el recuadro · sin medidas de celular · MaKo no
+// reacciona · el muñeco dibujado directo (sin el adaptador de la estrella).
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -49,7 +53,6 @@ import {
 import { mandaElArranque, ladoDeLaPregunta, SESION_VACIA, aMensajeOffer, linkPdfLoQueVende } from '../app/onboarding/arranque-ui';
 import { PREGUNTAS, CANALES } from '../lib/fase-diagnostico';
 import { TIPOS_CRM } from '../lib/pipeline';
-import { AREAS } from '../lib/cerebro-modelo';
 
 const RAIZ = join(import.meta.dirname, '..');
 const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8').replace(/\r\n/g, '\n');
@@ -396,23 +399,25 @@ test('el chat no desaparece nunca: armar es un mensaje del hilo y la oferta se v
   assert.match(app, /conProbar=\{!arranque\}/);
 });
 
-test('la animación: los nombres reales del cerebro, salteable, sin movimiento si se pide, y aterriza en la foto del chat', () => {
-  const intro = leer('app/onboarding/IntroMako.tsx');
-  const sin = sinComentarios(intro);
-  assert.match(sin, /import \{ AREAS \} from '@\/lib\/cerebro-modelo'/, 'el grafo dejó de usar los nombres reales de las áreas');
-  assert.ok(AREAS.length >= 10);
-  assert.doesNotMatch(sin, /fetch\(|getSetting|await /, 'la animación es ficción: no lee datos');
-  assert.match(sin, /prefers-reduced-motion: reduce\)'\)\.matches\) \{ onFinRef\.current\(\); return; \}/, 'con movimiento reducido no corre');
-  assert.match(sin, /addEventListener\('keydown', saltar\)/, 'una tecla no la saltea');
-  assert.match(sin, /onClick=\{\(\) => terminarRef\.current\(\)\}/, 'un clic no la saltea');
+test('la entrada: sin el grafo, no avanza sola, se toca (o Enter), sin movimiento si se pide, y aterriza en la foto', () => {
+  // 17/10/2026, Martín: «En el onboarding elimina la animación del grafo... haz una buena entrada de la criatura de
+  // MaKo tipo motion graphics, y que al clickearla recién pase al siguiente mensaje, que la animación no sea automática».
+  assert.ok(!existsSync(join(RAIZ, 'app/onboarding/IntroMako.tsx')), 'volvió la animación del grafo');
+  const sin = sinComentarios(leer('app/onboarding/EntradaMako.tsx'));
+  assert.doesNotMatch(sin, /cerebro-modelo|<svg/, 'volvió el grafo');
+  assert.doesNotMatch(sin, /fetch\(|getSetting|await /, 'la entrada no lee datos');
+  // No avanza sola: el único temporizador es el que le da el foco al botón.
+  assert.equal((sin.match(/setTimeout\(/g) ?? []).length, 1);
+  assert.match(sin, /setTimeout\(\(\) => boton\.current\?\.focus\(/);
+  assert.match(sin, /<button ref=\{boton\} type="button" className="en-boton" onClick=\{empezar\} aria-label="Empezar con MaKo">/, 'no se puede tocar (ni con el teclado)');
+  assert.match(sin, /if \(!el \|\| !destino \|\| destino\.width === 0 \|\| reduce\) \{ onFin\(\); return; \}/, 'con movimiento reducido no corre');
   assert.match(sin, /querySelector<HTMLElement>\('\[data-mako-foto\]'\)/);
-  assert.match(sinComentarios(leer('app/onboarding/ChatArranque.tsx')), /data-mako-foto/, 'el chat no tiene dónde aterrizar a MaKo');
-  // La leyenda entra con una ANIMACIÓN (`both`), que le gana a un opacity estático: su salida tiene que ser
-  // otra animación, o queda opaca encima del chat durante todo el vuelo (recorrido en el ws3, 16/10).
-  assert.match(sin, /\.im-capa--sale \.im-leyenda \{ animation: im-baja [^}]*forwards; \}/, 'la leyenda no se va con el grafo');
-  assert.match(sin, /@keyframes im-baja \{ from \{[^}]*\} to \{[^}]*opacity: 0/);
-  // El CSS vive en un template literal: una comilla invertida adentro lo corta y rompe el build entero.
-  for (const [archivo, constante] of [['app/onboarding/IntroMako.tsx', 'const CSS_INTRO = '], ['app/onboarding/ChatArranque.tsx', 'const CSS_ARRANQUE = ']]) {
+  assert.match(sin, /top: var\(--barra-agencia, 0px\)/, 'la entrada queda debajo de la barra de «Inspeccionar»');
+  const chat = sinComentarios(leer('app/onboarding/ChatArranque.tsx'));
+  assert.match(chat, /data-mako-foto/, 'el chat no tiene dónde aterrizar a MaKo');
+  assert.match(chat, /\{intro && <EntradaMako onFin=/);
+  // El CSS vive en template literals: una comilla invertida adentro lo corta y rompe el build entero.
+  for (const [archivo, constante] of [['app/onboarding/EntradaMako.tsx', 'const CSS_ENTRADA = '], ['app/onboarding/CriaturaMako.tsx', 'const CSS_CRIATURA = '], ['app/onboarding/ChatArranque.tsx', 'const CSS_ARRANQUE = ']]) {
     const src = leer(archivo);
     const i = src.indexOf(constante);
     assert.ok(i > 0, `no encuentro ${constante}`);
@@ -421,16 +426,31 @@ test('la animación: los nombres reales del cerebro, salteable, sin movimiento s
   // La salida del modo agencia (el aviso de arriba, z 300) no queda tapada por el onboarding.
   const banner = leer('app/_components/ImpersonationBanner.tsx');
   const zBanner = Number(/zIndex: (\d+)/.exec(banner)?.[1]);
-  for (const archivo of ['app/onboarding/IntroMako.tsx', 'app/onboarding/ChatArranque.tsx']) {
+  for (const archivo of ['app/onboarding/EntradaMako.tsx', 'app/onboarding/ChatArranque.tsx', 'app/onboarding/CriaturaMako.tsx']) {
     for (const m of leer(archivo).matchAll(/z-index: (\d+)/g)) {
       assert.ok(Number(m[1]) < zBanner, `${archivo} tapa la salida del modo agencia (z ${m[1]} ≥ ${zBanner})`);
     }
   }
 });
 
+test('modo claro, sin recuadro, como la referencia, y MaKo reacciona a lo que contestan', () => {
+  // «El onboarding, que sea white mode, como todo» y «sin recuadro de chat, sin el bloque» (Martín, 17/10/2026).
+  const page = sinComentarios(leer('app/onboarding/page.tsx'));
+  assert.doesNotMatch(page, /TemaOscuro/, 'el onboarding vuelve a forzar el oscuro');
+  const chat = leer('app/onboarding/ChatArranque.tsx');
+  assert.match(chat, /\.arr-capa \.of-hilo \{ background: transparent !important; border: 0 !important; border-radius: 0 !important; \}/, 'volvió el recuadro del chat');
+  assert.match(chat, /<span className="arr-sub">Tu onboarding<\/span>/);
+  assert.match(chat, /@media \(max-width: 640px\)/, 'sin medidas para el celular');
+  const sin = sinComentarios(chat);
+  assert.match(sin, /reaccionar\(salio \? 'contenta' : 'duda'/, 'MaKo no reacciona a la respuesta');
+  assert.match(sin, /reaccion=\{ocupado \? 'piensa' : gesto \?\? 'escucha'\}/);
+  // La cara pasa por el ADAPTADOR (la estrella de Ops Center 3 se enchufa ahí): nada dibuja el muñeco directo.
+  assert.doesNotMatch(sin, /<MunecoMako /);
+});
+
 test('el taller de temas no se monta para un cliente (lo cuidaba el test de la bienvenida de antes)', () => {
   const layout = leer('app/layout.tsx');
   assert.ok(/\{esAdmin && <TemaCandidato \/>\}/.test(layout), 'el taller de temas volvió a montarse para cualquiera');
   assert.ok(/getSesionAdmin/.test(layout), 'el guard del taller dejó de mirar la sesión');
-  assert.doesNotMatch(leer('app/onboarding/IntroMako.tsx'), /\[data-chip-tema\][^\n]*display:\s*none/, 'el onboarding esconde la salida del taller');
+  assert.doesNotMatch(leer('app/onboarding/EntradaMako.tsx'), /\[data-chip-tema\][^\n]*display:\s*none/, 'el onboarding esconde la salida del taller');
 });

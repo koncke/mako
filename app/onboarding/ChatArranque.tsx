@@ -9,7 +9,10 @@
 // «yo de hecho quisiera que jamás se salga el recuadro del chat».
 //
 // Qué hace esta pantalla, y nada más:
-//   · la animación del principio (./IntroMako.tsx) una sola vez, que termina con MaKo como foto del chat;
+//   · la entrada de MaKo (./EntradaMako.tsx) una sola vez: aparece, saluda y espera que la toquen; recién ahí
+//     vuela a su lugar de foto y empieza el chat (17/10/2026: sin el grafo y sin avanzar sola);
+//   · en el tema de la app (claro) y SIN RECUADRO: los mensajes sueltos sobre el fondo, como la referencia que mandó
+//     Martín el 17/10. La cara de MaKo reacciona a lo que contesta la persona (./CriaturaMako.tsx);
 //   · el chat ES el motor de Offer (app/offer/OfferApp.tsx en modo `arranque`): la conversación de lo que
 //     vende va por /api/offer como en la tab, en su versión del onboarding (sólo lo que vende, sin «Armar mi
 //     oferta»: el análisis es de la tab Offer, 17/10/2026); alrededor van los mensajes del arranque (quién es,
@@ -27,11 +30,12 @@ import { BotonIntegracion } from '@/app/_components/ConectarIntegracion';
 import { DIAL_DEFAULT } from '@/lib/paises';
 import { tipoCrmPorId } from '@/lib/pipeline';
 import { rutaDeEntrada, tipoRecomendado, type MensajeArranque } from '@/lib/onboarding-arranque';
+import { MENSAJE_BLOQUEADO } from '@/lib/onboarding-guardia';
 import type { VistaArranque } from '@/lib/onboarding-arranque-server';
 import type { ArbolOffer, OfferMensaje, OfferSesionVista } from '@/lib/offer-marco';
 import { OfferApp, type ArranqueOffer } from '../offer/OfferApp';
-import { IntroMako } from './IntroMako';
-import { MunecoMako } from './MunecoMako';
+import { EntradaMako } from './EntradaMako';
+import { CriaturaMako, type Reaccion } from './CriaturaMako';
 import { SESION_VACIA, aMensajeOffer, ladoDeLaPregunta, linkPdfLoQueVende, mandaElArranque, placeholderDe, tarjetasDe, terminoElArranque } from './arranque-ui';
 
 type Respuesta = { ok?: boolean; error?: string; vista?: VistaArranque; aviso?: string };
@@ -64,6 +68,16 @@ export function ChatArranque({ inicial, arbolVacio, opcionArmar }: { inicial: Vi
   const cerrando = useRef(false);
   const ligando = useRef<number | null>(null);
   const preparando = useRef(false);
+  // La cara de MaKo REACCIONA a lo que contesta la persona (17/10/2026, Martín: «debe parpadear y reaccionar con las
+  // respuestas»): piensa mientras guarda, se alegra cuando entró, duda cuando no la entendió. El gesto dura un momento.
+  const [gesto, setGesto] = useState<Reaccion | null>(null);
+  const gestoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reaccionar = (r: Reaccion, ms: number) => {
+    setGesto(r);
+    if (gestoTimer.current) clearTimeout(gestoTimer.current);
+    gestoTimer.current = setTimeout(() => setGesto(null), ms);
+  };
+  useEffect(() => () => { if (gestoTimer.current) clearTimeout(gestoTimer.current); }, []);
 
   const aplicar = (r: Respuesta): boolean => {
     if (r.vista) setVista(r.vista);
@@ -85,7 +99,9 @@ export function ChatArranque({ inicial, arbolVacio, opcionArmar }: { inicial: Vi
     setAviso(null);
     setPendiente(mostrar);
     try {
-      return aplicar(await llamar({ action: 'responder', ...cuerpo }));
+      const salio = aplicar(await llamar({ action: 'responder', ...cuerpo }));
+      reaccionar(salio ? 'contenta' : 'duda', salio ? 1200 : 1600);
+      return salio;
     } finally {
       setOcupado(false);
       setPendiente(null);
@@ -183,12 +199,14 @@ export function ChatArranque({ inicial, arbolVacio, opcionArmar }: { inicial: Vi
     },
     ocupado,
     extra,
-    avatar: (animar) => <MunecoMako size={30} animo={animar ? 'trabajando' : 'despierto'} />,
+    avatar: (animar) => <CriaturaMako size={30} reaccion={animar ? 'piensa' : 'escucha'} />,
     // Sólo si NUNCA hubo una conversación anotada: con una anotada que no se pudo leer, abrir otra hacía
     // rehacer la oferta y dejaba la vieja huérfana (revisión del 16/10).
     abrirEnFunnel: vista.modo === 'oferta' && vista.etapa === 'oferta' && !vista.tieneSesion && !vista.sesionCaida
       ? vista.funnelDefaultId : null,
     onSesion: alCambiarSesion,
+    // La guardia lo bloqueó a mitad de la conversación de lo que vende: se relee y se muestra el aviso.
+    onBloqueado: () => { void releer(); },
     // Sin el riel: sus piezas y su «Armar mi oferta» son del análisis, que se hace en la tab Offer.
     conRiel: false,
     placeholder: placeholderDe(vista.etapa),
@@ -198,14 +216,42 @@ export function ChatArranque({ inicial, arbolVacio, opcionArmar }: { inicial: Vi
     errorExtra: <BotonIntegracion servicio="gemini" style={{ color: 'var(--primary)', fontWeight: 600 }}>Conectar mi propia IA</BotonIntegracion>,
   };
 
+  // ⛔ BLOQUEADO POR LA GUARDIA (lib/onboarding-guardia.ts, 17/10/2026): sin chat. El cliente lee que quedó en revisión;
+  // el equipo de MaKo, mirándolo, ve el motivo, lo que escribió y «Desbloquear». Va DESPUÉS de todos los hooks.
+  if (vista.bloqueo) {
+    const desbloquear = async () => { if (ocupado) return; setOcupado(true); try { aplicar(await llamar({ action: 'desbloquear' })); } finally { setOcupado(false); } };
+    return (
+      <div className="arr-capa">
+        <style>{CSS_ARRANQUE}</style>
+        <main className="arr-bloqueo" role="status">
+          <CriaturaMako size={64} reaccion="duda" />
+          <p className="arr-bloqueo__titulo">{MENSAJE_BLOQUEADO}</p>
+          {vista.equipo && (
+            <div className="arr-tarjeta arr-bloqueo__equipo">
+              <span className="arr-tarjeta__rotulo">Para el equipo · {vista.bloqueo.motivo}</span>
+              {vista.equipo.ultimasFaltas.map((f, i) => <span key={i} className="arr-bloqueo__falta">{f}</span>)}
+              <Button variant="primary" size="sm" loading={ocupado} onClick={() => void desbloquear()}>Desbloquear</Button>
+            </div>
+          )}
+          {aviso && <span className="arr-bloqueo__falta">{aviso.texto}</span>}
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className="arr-capa">
       <style>{CSS_ARRANQUE}</style>
+      {/* La cabecera de la referencia que mandó Martín (17/10): la foto de MaKo, su nombre y «Tu onboarding», y una
+          línea. Los mensajes van sueltos sobre el fondo, sin recuadro (CSS de abajo). */}
       <header className="arr-cabecera">
         <span data-mako-foto className="arr-foto" style={{ opacity: intro ? 0 : 1 }}>
-          <MunecoMako size={36} animo={ocupado ? 'trabajando' : 'despierto'} />
+          <CriaturaMako size={40} reaccion={ocupado ? 'piensa' : gesto ?? 'escucha'} />
         </span>
-        <span className="arr-nombre">MaKo</span>
+        <span className="arr-titulos">
+          <span className="arr-nombre">MaKo</span>
+          <span className="arr-sub">Tu onboarding</span>
+        </span>
       </header>
       {aviso && (
         <div role="status" className="arr-aviso">
@@ -223,7 +269,7 @@ export function ChatArranque({ inicial, arbolVacio, opcionArmar }: { inicial: Vi
           opcionArmar={opcionArmar}
         />
       </main>
-      {intro && <IntroMako onFin={() => { setIntro(false); void llamar({ action: 'intro' }); }} />}
+      {intro && <EntradaMako onFin={() => { setIntro(false); void llamar({ action: 'intro' }); }} />}
     </div>
   );
 }
@@ -297,20 +343,37 @@ const CSS_ARRANQUE = `
   font-family: 'Geist', sans-serif; color: var(--ink);
 }
 .arr-cabecera {
-  flex: none; display: flex; align-items: center; gap: 10px; padding: 12px max(16px, calc((100vw - 1180px) / 2));
+  flex: none; display: flex; align-items: center; gap: 14px; padding: 18px max(16px, calc((100vw - 960px) / 2)) 16px;
   border-bottom: 1px solid var(--border);
 }
 .arr-foto { display: inline-flex; transition: opacity .2s ease; }
-.arr-nombre { font-size: 16px; font-weight: 650; letter-spacing: -0.01em; }
+.arr-titulos { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.arr-nombre { font-size: 18px; font-weight: 700; letter-spacing: -0.01em; line-height: 1.2; }
+.arr-sub { font-size: 13.5px; color: var(--primary); line-height: 1.2; }
 .arr-aviso {
   flex: none; display: flex; align-items: center; gap: 10px; justify-content: space-between;
-  margin: 10px max(16px, calc((100vw - 1180px) / 2)) 0; padding: 10px 14px; border-radius: 12px;
+  margin: 10px max(16px, calc((100vw - 960px) / 2)) 0; padding: 10px 14px; border-radius: 12px;
   background: var(--warn-bg); border: 1px solid var(--warn); font-size: var(--fs-sm);
 }
 .arr-aviso button { border: none; background: none; color: var(--dim); cursor: pointer; font: inherit; }
 .arr-cuerpo {
   flex: 1; min-height: 0; display: flex; flex-direction: column;
-  padding: 16px max(16px, calc((100vw - 1180px) / 2)) 16px;
+  padding: 8px max(16px, calc((100vw - 960px) / 2)) 16px;
+}
+/* SIN RECUADRO (17/10/2026, Martín: «Me gusta que el onboarding sea como la imagen que adjunto, sin recuadro de chat,
+   sin el bloque»): la caja del chat de Offer, la de su hilo y los fondos de sus franjas se vuelven transparentes, y
+   los mensajes quedan sueltos sobre el fondo. Sólo acá: la tab Offer sigue con su caja. Los estilos de esas cajas van
+   en línea, por eso el !important. */
+.arr-capa .of-hilo { background: transparent !important; border: 0 !important; border-radius: 0 !important; }
+.arr-capa .of-hilo-lista > div { background: transparent !important; }
+.arr-capa .of-hilo-lista > div > div { background: transparent !important; border-top-color: transparent !important; }
+.arr-capa .of-hilo-lista > div > div:first-child { padding-left: 0 !important; padding-right: 0 !important; }
+@media (max-width: 640px) {
+  .arr-cabecera { padding: 12px 16px; gap: 12px; }
+  .arr-nombre { font-size: 16px; }
+  .arr-sub { font-size: 12.5px; }
+  .arr-cuerpo { padding: 4px 12px 10px; }
+  .arr-tarjeta { min-width: 0; }
 }
 .arr-tarjeta {
   display: flex; flex-direction: column; gap: 10px; padding: 12px; border-radius: 12px;
@@ -331,4 +394,11 @@ const CSS_ARRANQUE = `
 .arr-link:hover { border-color: var(--border-strong); }
 .arr-link--principal { background: var(--primary); border-color: var(--primary); color: #fff; }
 .arr-link--espera { color: var(--faint); font-weight: 500; }
+.arr-bloqueo {
+  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px;
+  padding: 24px 16px; text-align: center;
+}
+.arr-bloqueo__titulo { margin: 0; max-width: 420px; font-size: 17px; font-weight: 600; line-height: 1.45; color: var(--ink); }
+.arr-bloqueo__equipo { max-width: 520px; width: 100%; text-align: left; }
+.arr-bloqueo__falta { font-size: var(--fs-sm); color: var(--dim); overflow-wrap: anywhere; }
 `;

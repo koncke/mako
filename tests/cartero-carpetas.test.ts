@@ -290,3 +290,41 @@ test('un Runner que no da vueltas no cuenta: el nombre solo no alcanza', async (
     v.matar(); pc.cerrar();
   }
 });
+
+test('una pregunta (1.14.0): `preguntar` la deja en preguntas/, la vuelta la sube, y se borra sólo cuando MaKo dice que entró', async () => {
+  // Martín (17/10/2026): «en lugar de darme las opciones tipo multiple select». La pregunta va a la conversación del chat
+  // como un formulario; lo que se fija acá es el camino en la PC, con el molde de los cierres (`cierresIds`).
+  // Probado rompiéndolo (17/10/2026): borrando las preguntas sin mirar `preguntasIds` → 1 fallo (éste).
+  const pc = await armarPC((cuerpo, n) => ({ preguntasIds: n === 2 ? ((cuerpo.preguntas ?? []) as Array<{ id: string }>).map((p) => p.id) : [] }));
+  const v = vivos(1);
+  const cfg = pc.carpeta('a');
+  try {
+    pc.sesion(cfg, v.pids[0], 'Runner');
+    pc.config({ claude2: { fuentes: [{ fuente: 'cli', configDir: cfg }] } });
+    const archivo = join(pc.dir, 'mi-pregunta.json');
+    writeFileSync(archivo, JSON.stringify({ pregunta: '¿Abro la ventana?', opciones: [{ titulo: 'Sí' }, { titulo: 'Después' }], recomendada: 0 }));
+    const preguntar = () => new Promise<{ ok: boolean; out: string; err: string }>((ok) => execFile(process.execPath, [CARTERO, 'preguntar', archivo],
+      { env: { ...process.env, CARTERO_DIR: pc.dir, CLAUDE_CODE_HOST_SESSION_ID: '', CLAUDE_CODE_SESSION_ID: local(7).slice(4) } },
+      (e, out, err) => ok({ ok: !e, out, err })));
+    const r = await preguntar();
+    assert.ok(r.ok, r.err);
+    const { id: pid, sesion } = JSON.parse(r.out) as { id: string; sesion: string };
+    assert.equal(sesion, local(7), 'en la terminal, la sesión es cli_<CLAUDE_CODE_SESSION_ID>');
+    const enDisco = join(pc.dir, 'preguntas', `${pid}.json`);
+    assert.equal(existsSync(enDisco), true);
+    // 1ª vuelta: sube, MaKo no confirma (se cayó la base): queda para la próxima.
+    await pc.json(['ciclo'], cfg, v.pids[0]);
+    assert.deepEqual(((pc.recibido[0] as { preguntas?: Array<{ id: string; local: string }> }).preguntas ?? []).map((p) => [p.id, p.local]), [[pid, local(7)]]);
+    assert.equal(existsSync(enDisco), true, 'la que no entró queda para la próxima');
+    // 2ª vuelta: entra, y recién ahí se borra.
+    await pc.json(['ciclo'], cfg, v.pids[0]);
+    assert.equal(existsSync(enDisco), false);
+    // Una pregunta mal armada no se escribe: el chat recibe el motivo en el acto.
+    writeFileSync(archivo, JSON.stringify({ pregunta: '¿Y ahora?', opciones: [{ titulo: 'Una sola' }] }));
+    const mal = await preguntar();
+    assert.equal(mal.ok, false);
+    assert.match(mal.err, /opciones: de 2 a 6/);
+  } finally {
+    v.matar(); pc.cerrar();
+  }
+});

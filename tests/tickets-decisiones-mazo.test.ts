@@ -9,7 +9,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { aLaTicketera, colaInicial, marcadaInicial, porDecidir, puedeMandar, rotuloMandar, veredictoGesto, TICKETERA, TICKETERA_LISTA } from '../app/tickets/decisiones/reglas';
+import { aLaTicketera, colaInicial, marcadaInicial, porDecidir, puedeMandar, rotuloMandar, veredictoGesto, TICKETERA, TICKETERA_LISTA, TICKETERA_TICKETS } from '../app/tickets/decisiones/reglas';
 import { MazoDecisiones } from '../app/tickets/decisiones/Mazo';
 import { OTRA, RESUELTA, type Decision } from '../app/admin/runway/decisiones';
 import { rutaEscritorio, rutaMovil } from '../lib/movil-rutas';
@@ -334,8 +334,9 @@ test('la ticketera tiene su puerta en la barra: el Ops Center de arriba, y su at
   const admin = nav.slice(nav.indexOf('const HERRAMIENTAS'), nav.indexOf('export const FAMILIAS'));
   assert.ok(admin.length > 500, `el recorte de HERRAMIENTAS quedó en ${admin.length}: está mirando otra cosa`);
 
-  // Desde el 16/10/2026 es un atajo a la Ticketera ADENTRO del Centro (`TICKETERA`), no otra pantalla.
-  const fila = admin.split('\n').find((l) => l.includes(`href: '${TICKETERA}'`));
+  // Desde el 16/10/2026 es un atajo a la Ticketera ADENTRO del Centro, no otra pantalla; y desde el 17/10/2026 abre los
+  // tickets de los usuarios (`TICKETERA_TICKETS`): el mazo de las preguntas de los chats es la vista secundaria.
+  const fila = admin.split('\n').find((l) => l.includes(`href: '${TICKETERA_TICKETS}'`));
   assert.ok(fila, 'la ticketera no tiene su atajo en HERRAMIENTAS');
   assert.match(fila!, /match:\s*starts\('\/tickets\/decisiones'\)/, 'el ítem no se marca como activo al estar en la ticketera');
 

@@ -91,6 +91,9 @@ export const TABLAS_DE_INQUILINO = [
   'plan_repriorizaciones', 'plan_reprios', 'plan_reuniones_descartadas', 'plan_tareas', 'producto_entrega', 'productos',
   'propuestas', 'prospeccion_busquedas', 'prospectos', 'retros', 'review_queue', 'script_analyses',
   'script_drafts', 'service_incidents', 'setting_adjuntos', 'setting_audios', 'shares', 'tarea_categorias',
+  // Los tickets que levantan las personas del negocio al equipo de MaKo (mig 0311, 17/10/2026). `ticket_eventos` no
+  // tiene `workspace_id`: se va con su ticket (on delete cascade). No va en TENANT_TABLES: la lee lib/tickets-db.ts.
+  'tickets',
   'video_editor_chats', 'video_editor_propuestas', 'video_editor_proyectos', 'vsl_events', 'wa_bloqueados', 'wa_borradores', 'wa_mensajes',
   'wa_ocultos', 'webhook_routing', 'whatsapp_template_drafts', 'workspace_telefonos',
   'zernio_workspace',] as const;

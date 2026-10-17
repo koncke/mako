@@ -25,14 +25,8 @@ import { getEstadoOnboarding, pasosDeCapaActual } from '@/lib/onboarding-state';
 import { vistaArranque } from '@/lib/onboarding-arranque-server';
 import { OPCION_ARMAR } from '@/lib/offer-reglas';
 import { ARBOL_VACIO } from '../offer/arbol';
-// El onboarding se pinta OSCURO, sea cual sea el tema que el cliente tenga elegido.
-// Pedido de Martín: «quiero que todo el onboarding sea en black mode». Las dos mitades
-// hacen falta y no son un duplicado: el `<script>` corre antes del primer pintado (sin
-// él hay un fogonazo blanco de pantalla completa) y el componente cliente cubre volver
-// a esta ruta por navegación —donde no hay documento nuevo que parsear— y apagar el
-// atributo al salir, para no dejarle la app oscura a quien no la eligió.
-import { TemaOscuroScript } from '../_components/TemaOscuroScript';
-import { TemaOscuro } from '../_components/TemaOscuro';
+// El onboarding va en el tema de la app, CLARO como todo (17/10/2026, Martín: «El onboarding, que sea white mode,
+// como todo»). Hasta ese día se forzaba oscuro con TemaOscuro/TemaOscuroScript; se fueron como en el Second Brain.
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -50,12 +44,9 @@ export default async function OnboardingPage({ searchParams }: { searchParams: P
   const estado = await getEstadoOnboarding();
   const pasos = await pasosDeCapaActual();
   const done = pasos.length === 0 || estado.status === 'done';
-  // ⚠️ El tema oscuro se prende SOLO en la rama del wizard: lo que sigue es otra tab y tiene
-  // que respetar el tema que el cliente eligió (el error del laboratorio de paletas, cuando un
-  // tema de prueba terminó aplicado sobre la app de un cliente).
   if (!done) {
     const vista = await vistaArranque();
-    return <><TemaOscuroScript /><TemaOscuro /><ChatArranque inicial={vista} arbolVacio={ARBOL_VACIO} opcionArmar={OPCION_ARMAR} /></>;
+    return <ChatArranque inicial={vista} arbolVacio={ARBOL_VACIO} opcionArmar={OPCION_ARMAR} />;
   }
 
   // Ya onboardeado → Second Brain, a la sección que pedía el link (`?tab=`), o a su portada.
