@@ -1348,6 +1348,12 @@ código nuevo:
   - **TODO LO QUE SE TERMINA LLEVA SU `revisar`** (17/10/2026; Martín: «se terminaron y pushearon cosas y no las puedo ver
     en Review»). El hito de la bitácora o el cierre (`cartero.mjs cierre … --revisar`) trae la ruta INTERNA donde Martín
     lo prueba (`/crm?lead=…`, `/general`, `/automations/…`). Sin eso, el trabajo no aparece para revisar.
+  - **EL «YA ESTÁ» LO DICE CADA CHAT EN EL OPS CENTER, NO EL CEREBRO** (17/10/2026; Martín: «Todos los mensajes de "Ya
+    está x cosa" quiero que me los manden los chats del Center... No por aquí... Así puedo verlos y darles feedback...
+    además de ponerlo en Review»). Cuando el Cerebro le avisa a un jefe que su punta llegó a producción, el jefe:
+    - escribe el «Ya está» en SU chat, en palabras de producto y con la ruta donde se prueba;
+    - deja en la bitácora del área el hito «Hecho» con `revisar` y `sesion`, para que aparezca en Review.
+    El Cerebro, en su chat con Martín, sólo coordina y pide lo que es de Martín: no repite el «ya está» de cada área.
   - **Cada jefe ES un proyecto del Plan** (16/10/2026; los dos se llaman como la tab). El Centro lee y escribe el Plan
     SÓLO con las operaciones de la API de MaKo (`listar_tareas_plan`, `proponer_tareas_plan`, `proponer_cierre_tareas`)
     aplicadas en el acto con `ctxDelCentro` (lib/centro-plan.ts), por la ruta `/api/centro/plan` y NO por una server
