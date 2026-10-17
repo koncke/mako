@@ -23,10 +23,7 @@ import { upsertLeadFromMeta, logLeadEvent } from '@/lib/leads';
 import { sendMetaCAPIEvent } from '@/lib/meta-capi';
 import { eventIdLeadCrudo } from '@/lib/meta-capi-payload';
 import { parseLeadFields, META_GRAPH_VERSION } from '@/lib/meta-leads';
-import { resumenRespuestas } from '@/lib/meta-leads-campos';
-import { emitirDelCatalogo } from '@/lib/avisos';
-import { dispararEvento } from '@/lib/flujos';
-import { enrolarPorEvento } from '@/lib/nutricion';
+import { alNacerLeadDeMeta } from '@/lib/meta-lead-nuevo';
 import { credWsEstricta } from '@/lib/credenciales';
 import { wsPorIdentificadorEstricto } from '@/lib/webhook-routing';
 import { anotarFalloDeRuteo } from '@/lib/webhook-fallo-ruteo';
@@ -302,30 +299,13 @@ export async function POST(request: NextRequest) {
         // (Hasta el 09/10/2026 acá se le creaba al lead nuevo su contacto y su conversación en
         // Chatwoot; se fue con la integración.)
 
-        // Aviso al dueño del workspace: entró un lead nuevo por formulario de Meta
-        // (solo en INSERT, para no re-avisar si Meta reenvía el batch). Best-effort.
+        // LO INMEDIATO de un lead nuevo (el aviso, los flujos, las automatizaciones): sólo en INSERT, para no re-avisar
+        // si Meta reenvía el batch. Vive en lib/meta-lead-nuevo.ts porque el POLL también crea leads (17/10/2026, #868):
+        // una página sin suscribir no recibe este webhook nunca, y sus leads entraban sin disparar nada.
         if (created) {
-          // ⚠️ VAN LOS DATOS, NO EL TEXTO. Con `texto` armado acá, lo que el negocio
-          // escribiera en /automations no salía nunca: el texto es el de la plantilla
-          // (lib/avisos-catalogo.ts, que nace APAGADA) y esto le pone los valores. Los
-          // que ya están en la mano van en `datos`, que ganan sobre la lectura de la
-          // ficha. Y los dos que pueden faltar se dicen: un `{{lead_telefono}}` crudo en
-          // el WhatsApp de un cliente se lee como que el mensaje está roto.
-          const respuestasForm = resumenRespuestas(graphLead.field_data ?? null);
-          await emitirDelCatalogo('lead-formulario-meta', {
-            ws,
-            lead: { id: lead.id, nombre: lead.nombre },
-            datos: {
-              lead_telefono: lead.telefono?.trim() || 'sin teléfono',
-              lead_formulario: respuestasForm ?? 'Sin preguntas extra en el formulario.',
-              ...(graphLead.campaign_name ? { lead_campana: graphLead.campaign_name } : {}),
-            },
+          await alNacerLeadDeMeta(ws, { id: lead.id, nombre: lead.nombre, telefono: lead.telefono }, {
+            fieldData: graphLead.field_data ?? null, campana: graphLead.campaign_name ?? null,
           });
-          // Flujos configurados por el dueño: disparar 'lead.form_meta'.
-          await dispararEvento('lead.form_meta', { ws, leadId: lead.id, leadNombre: lead.nombre });
-          // Nutrición INMEDIATA (reunión 31/07): al que llena el formulario se
-          // le escribe casi al instante, no en la próxima corrida del cron.
-          await enrolarPorEvento(lead.id, 'lead_nuevo');
         }
       });
     } catch (err) {
