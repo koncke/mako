@@ -7,8 +7,7 @@
 // (evolution-envio → evolution-mensajes → nutricion → evolution-envio).
 
 import 'server-only';
-import { getTenantDb, getWorkspaceActual } from '@/lib/workspace';
-import { OWNER_WS } from '@/lib/auth-session';
+import { getTenantDb, wsObligatorio } from '@/lib/workspace';
 import { instanceNameDeWs } from '@/lib/evolution';
 
 export const MEDIA_BUCKET = 'wa-media';
@@ -31,7 +30,7 @@ export async function subirMedia(ws: number, instance: string, msgId: string, ba
 // Espejo del SALIENTE con media (imagen/audio/doc que mandamos nosotros): sube al
 // MISMO bucket/convención que el entrante. Resuelve ws + instance por su cuenta.
 export async function subirMediaSaliente(msgId: string, base64: string, mime: string, ext: string): Promise<string | null> {
-  const ws = (await getWorkspaceActual()) ?? OWNER_WS;
+  const ws = await wsObligatorio();
   return subirMedia(ws, instanceNameDeWs(ws), msgId, base64, mime, ext);
 }
 

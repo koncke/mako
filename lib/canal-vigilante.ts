@@ -47,7 +47,7 @@ import 'server-only';
 import { sondearSocketDetalle, type Sondeo } from './evolution';
 import { instanciaVoz } from './mako-grupo';
 import { getSetting, getSettingEstricto, setSetting } from './settings';
-import { runWithWorkspace, wsSuperAdmin, OWNER_WS } from './workspace';
+import { runWithWorkspace, wsSuperAdmin, WS_NINGUNO } from './workspace';
 import { sendEmail } from './resend';
 import { APP_BASE_URL, EMAIL_MAKO, REMITENTE_MAKO } from './app-url';
 
@@ -172,7 +172,8 @@ export function estadoAlertaVoz(opts?: { fresco?: boolean }): Promise<AlertaVoz>
 async function calcularAlertaVoz(): Promise<AlertaVoz> {
   const { instancia, sondeo, status, detalle } = await vozViva(4000);
   if (sondeo === 'vivo') return { caida: false, sinConfirmar: false, medido: true, instancia, desde: null, status, detalle: null };
-  const ws = await wsSuperAdmin().catch(() => OWNER_WS);
+  // Sin la plataforma resuelta, NINGÚN negocio (no el ws1, que es Mauricio): las marcas no se leen.
+  const ws = await wsSuperAdmin().catch(() => WS_NINGUNO);
   const desde = await runWithWorkspace(ws, () => getSetting(KEY_CAIDA_DESDE)).catch(() => null);
   if (sondeo === 'muerto') {
     return { caida: true, sinConfirmar: false, medido: true, instancia, desde: desde || null, status, detalle };
@@ -199,7 +200,7 @@ export async function vigilarVozMaKo(): Promise<{
   viva: boolean; aviso: 'ninguno' | 'caida' | 'recuperada' | 'sin_confirmar'; enviadoA?: number; error?: string;
 }> {
   const { instancia, viva, sondeo, status, detalle } = await vozViva();
-  const ws = await wsSuperAdmin().catch(() => OWNER_WS);
+  const ws = await wsSuperAdmin().catch(() => WS_NINGUNO);
 
   // Las marcas se leen ESTRICTAS: una lectura fallida leída como «no hay marca» mandaba el
   // mismo mail dos veces, o el de «volvió» sin haber avisado nada.

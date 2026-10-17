@@ -8,7 +8,7 @@
 
 import 'server-only';
 import { getSettingEstricto, setSetting } from './settings';
-import { runWithWorkspace, wsSuperAdmin, OWNER_WS, getWorkspace } from './workspace';
+import { runWithWorkspace, wsSuperAdmin, getWorkspace } from './workspace';
 import { clientIp, rateLimit } from './rate-limit';
 import { sendEmail } from './resend';
 import { EMAIL_MAKO, REMITENTE_MAKO, linkApp } from './app-url';
@@ -80,10 +80,12 @@ async function registrarFalta(e: EstadoGuardia, ws: number, usuario: string | nu
 
 /** El aviso al EQUIPO de MaKo (no al cliente): el mismo correo de la plataforma que usan los avisos de la voz. */
 async function avisarBloqueo(ws: number, e: EstadoGuardia): Promise<void> {
-  const plataforma = await wsSuperAdmin().catch(() => OWNER_WS);
+  // Sin la plataforma resuelta, sólo al correo de MaKo: caía al ws1 y el aviso del bloqueo de un
+  // negocio les llegaba a los destinatarios de Mauricio, un cliente (17/10/2026).
+  const plataforma = await wsSuperAdmin().catch(() => null);
   const negocio = (await getWorkspace(ws).catch(() => null))?.nombre ?? `Workspace ${ws}`;
   const { getDestinatariosDe } = await import('./notif-destinatarios');
-  const dest = await getDestinatariosDe(plataforma).catch(() => null);
+  const dest = plataforma == null ? null : await getDestinatariosDe(plataforma).catch(() => null);
   const para = [...new Set([EMAIL_MAKO, ...(dest?.emails ?? [])].map((x) => x.trim().toLowerCase()).filter(Boolean))];
   const cuerpo = [
     `Bloqueé el onboarding de «${negocio}» (ws ${ws}): ${e.bloqueo?.motivo ?? 'faltas'}${e.bloqueo?.usuario ? `, usuario ${e.bloqueo.usuario}` : ''}.`,

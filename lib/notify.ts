@@ -23,7 +23,7 @@ import { REMITENTE_MAKO, EMAIL_MAKO } from './app-url';
 import { reclamarEspaciado } from './espaciado';
 import { estadoAviso } from './perfil';
 import { frecuenciaEfectiva, idDeMensaje } from './disparador-mensaje';
-import { getWorkspaceActual, OWNER_WS } from './workspace';
+import { wsObligatorio } from './workspace';
 import { destinosDelReporte } from './reporte-destino';
 
 
@@ -52,7 +52,7 @@ export async function despacharReporte(rep: Reporte, canal: CanalPrefs, perfil: 
   // El reclamo es ATÓMICO por lo mismo que el de los avisos, y el `Math.max` de
   // `frecuenciaEfectiva` con el piso en 0 deja el comportamiento de hoy cuando nadie
   // eligió nada: los crons ya cortan por `canal.activo` y por su propia cadencia.
-  const wsRep = (await getWorkspaceActual()) ?? OWNER_WS;
+  const wsRep = await wsObligatorio();
   const idMsg = idDeMensaje(rep.tipo);
   const minutos = frecuenciaEfectiva(0, (await estadoAviso(wsRep, idMsg)).frecuenciaMin);
   if (minutos && !(await reclamarEspaciado(wsRep, idMsg, minutos))) {

@@ -25,7 +25,7 @@ import { completarBorradorDeArchivos } from '@/lib/importar-en-segundo-plano';
 import { completarBorradorDeReunion, tareasDeLaExtraccion, extrasDeLectura } from '@/lib/leer-reunion-en-segundo-plano';
 import { tomarLectura, leyendoAhora } from '@/lib/reunion-leyendo';
 import { listarDescartadas, marcarDescartadaLeida } from '@/lib/reunion-descartadas';
-import { getWorkspaceActual, OWNER_WS } from '@/lib/workspace';
+import { wsObligatorio } from '@/lib/workspace';
 
 export const dynamic = 'force-dynamic';
 // 300s porque una reunión larga se extrae POR PARTES (lib/plan-fathom → trocear): son
@@ -164,7 +164,7 @@ export async function POST(req: NextRequest) {
       // El ws se captura ACÁ: `after()` corre fuera del runWithWorkspace del request y
       // el AsyncLocalStorage no viaja. Sin esto, el borrador se llenaría en el ws
       // equivocado (o en ninguno).
-      const ws = (await getWorkspaceActual()) ?? OWNER_WS;
+      const ws = await wsObligatorio();
       after(() => completarBorradorDeArchivos({ ws, borradorId, archivos, proyectos, yo, hasta: Date.now() + 285_000 }));
 
       return Response.json({ ok: true, borradorId, estado: 'procesando', procesando: true, archivos: archivos.map((a) => a.nombre) });
@@ -315,7 +315,7 @@ export async function POST(req: NextRequest) {
       }
       // El ws se captura ACÁ: `after()` corre fuera del runWithWorkspace del pedido. Y el reloj es el
       // de esta ruta (`after()` comparte su maxDuration de 300 s), con margen para escribir.
-      const ws = (await getWorkspaceActual()) ?? OWNER_WS;
+      const ws = await wsObligatorio();
       const hasta = Date.now() + 285_000;
       after(() => completarBorradorDeReunion({ ws, borradorId, recordingId, titulo, proyectos, yo, uso, hasta }));
       return Response.json({ ok: true, procesando: true, borradorId });

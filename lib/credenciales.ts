@@ -22,7 +22,7 @@ import 'server-only';
 // testear suelto: scripts/test-cripto.mjs. Es el código más caro de equivocar.
 import { cifrar, descifrar, versionCripto } from './cripto-credenciales';
 import { getSupabaseServer } from './supabase';
-import { getWorkspaceActual } from './workspace';
+import { getWorkspaceActual, WS_NINGUNO } from './workspace';
 import { OWNER_WS } from './auth-session';
 import { ENVS_METODO, servicioDeEnv, servicioMetodo } from './metodo-catalogo';
 import { ROUTING_CREDS, upsertRouting, borrarRoutingDeWs } from './webhook-routing';
@@ -110,7 +110,7 @@ const esValorReal = (v: string | undefined | null): v is string =>
   Boolean(v && v.trim() && !v.trim().startsWith('PENDING'));
 
 async function wsDefault(ws?: number): Promise<number> {
-  return ws ?? (await getWorkspaceActual()) ?? OWNER_WS;
+  return ws ?? (await getWorkspaceActual()) ?? WS_NINGUNO;
 }
 
 // Lee (y descifra) UNA credencial de un workspace de la base. null si no está.

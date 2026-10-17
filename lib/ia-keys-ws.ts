@@ -25,7 +25,7 @@ import 'server-only';
 import { cache } from 'react';
 import { getSupabaseServer } from './supabase';
 import { clavesDe } from './ia-keys';
-import { OWNER_WS, getWorkspaceActual } from './workspace';
+import { getWorkspaceActual, WS_NINGUNO } from './workspace';
 
 /**
  * Los nombres de clave que tienen fila en `credenciales` para un workspace.
@@ -81,7 +81,7 @@ const clavesEnBase = cache(async (ws: number): Promise<Set<string> | null> => {
 export async function clavesCargadas(prov: string, ws?: number): Promise<string[]> {
   const delCatalogo = clavesDe(prov);
   if (!delCatalogo.length) return [];
-  const w = ws ?? (await getWorkspaceActual()) ?? OWNER_WS;
+  const w = ws ?? (await getWorkspaceActual()) ?? WS_NINGUNO;
   const enBase = await clavesEnBase(w);
   // Si la lectura FALLÓ (`null`), caemos a la lista entera del catálogo para no dejar al
   // workspace sin IA por un error de red. Un Set VACÍO es otra cosa: es la respuesta

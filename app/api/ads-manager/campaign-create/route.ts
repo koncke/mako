@@ -24,7 +24,7 @@ import { type CampaignSpec, objetivoDef } from '@/lib/campaign-types';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { guardAdsWs } from '@/lib/ads-guard';
 import { marcarPasoTab } from '@/lib/tab-onboarding-state';
-import { getWorkspaceActual, OWNER_WS } from '@/lib/workspace';
+import { wsObligatorio } from '@/lib/workspace';
 import { motivoVideos, videosDeCampana } from '@/lib/campana-videos';
 import { abrirRegistro, claveIdemDe, decidirReintentoCampana, salidaAMedias, salidaEsperar, type Decision, type FilaPublicacion, type Salida } from '@/lib/meta-idempotencia';
 
@@ -91,9 +91,9 @@ export async function POST(req: NextRequest) {
   try { supabase = getSupabaseServer(); } catch { supabase = null; }
 // ⚠️ meta_campaign_drafts es POR CLIENTE (mig 0157) y la columna no tiene default a
 // propósito: se escribe el workspace explícito, el MISMO sobre cuya cuenta de Meta
-// crea lib/meta-ads-create.ts (`getWorkspaceActual() ?? OWNER_WS`). Sin esto el insert
+// crea lib/meta-ads-create.ts (`wsObligatorio()`, que tira antes que caer al ws1). Sin esto el insert
 // falla por not null — y como es best-effort, no quedaría ningún registro.
-  const wsDraft = (await getWorkspaceActual()) ?? OWNER_WS;
+  const wsDraft = await wsObligatorio();
   const apertura = await abrirRegistro({
     db: supabase, ws: wsDraft, clave: idem.clave, decidir: decidirReintentoCampana, responder: responderCampana,
     insertar: (db, conClave) => db.from('meta_campaign_drafts').insert({

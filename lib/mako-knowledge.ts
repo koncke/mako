@@ -17,7 +17,7 @@
 
 import 'server-only';
 import { getSupabaseServer } from './supabase';
-import { getTenantDb, getWorkspaceActual, OWNER_WS } from './workspace';
+import { getTenantDb, getWorkspaceActual, OWNER_WS, WS_NINGUNO } from './workspace';
 import { sinLoAjenoDelDueno } from './rag-prestamo';
 import { embed, cosine, hashText } from './embeddings';
 
@@ -49,7 +49,7 @@ const COLS = 'id, titulo, categoria, cuerpo, curso, autor, area, fuente, activo,
 
 /** Workspaces que el RAG puede leer: el propio + el dueño (método curado de la agencia). */
 async function wsParaRag(): Promise<number[]> {
-  const ws = (await getWorkspaceActual()) ?? OWNER_WS;
+  const ws = (await getWorkspaceActual()) ?? WS_NINGUNO;
   return ws === OWNER_WS ? [OWNER_WS] : [ws, OWNER_WS];
 }
 
@@ -89,7 +89,7 @@ export async function listKnowledge(): Promise<KnowledgeEntry[]> {
  * para que la UI lo diga en vez de dejar que el usuario intente y falle.
  */
 export async function listKnowledgeAgencia(): Promise<Array<KnowledgeEntry & { esDelDueno: boolean }>> {
-  const ws = (await getWorkspaceActual()) ?? OWNER_WS;
+  const ws = (await getWorkspaceActual()) ?? WS_NINGUNO;
   const { data, error } = await getSupabaseServer()
     .from('mako_knowledge')
     .select(`${COLS}, workspace_id`)
@@ -213,7 +213,7 @@ export async function searchKnowledge(
   const q = query.trim();
   if (!q) return [];
   let data: Array<{ titulo: string; categoria: string | null; cuerpo: string; area: string; fuente: string; workspace_id: number; embedding: number[] }>;
-  const wsPropio = (await getWorkspaceActual()) ?? OWNER_WS;
+  const wsPropio = (await getWorkspaceActual()) ?? WS_NINGUNO;
   try {
     let sel = getSupabaseServer()
       .from('mako_knowledge')
@@ -266,7 +266,7 @@ export async function searchKnowledge(
 /** Todas las entradas ACTIVAS de un área (workspace propio + método curado del dueño),
  *  para inyectar una metodología completa. Ordenadas por id (orden de carga del curso). */
 export async function listActiveKnowledgeByArea(area: string): Promise<Array<{ titulo: string; categoria: string | null; cuerpo: string }>> {
-  const wsPropio = (await getWorkspaceActual()) ?? OWNER_WS;
+  const wsPropio = (await getWorkspaceActual()) ?? WS_NINGUNO;
   const { data, error } = await getSupabaseServer()
     .from('mako_knowledge')
     // Las dos columnas de más son las que permiten aplicar la MISMA regla de préstamo que

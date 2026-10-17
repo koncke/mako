@@ -11,8 +11,7 @@
 // esta tabla es solo el catálogo por workspace.
 
 import 'server-only';
-import { getTenantDb, getWorkspaceActual } from './workspace';
-import { OWNER_WS } from './auth-session';
+import { getTenantDb, wsObligatorio } from './workspace';
 import { MEDIA_BUCKET, extDeMime } from './evolution-media';
 import { transcribirAudio } from './ai-cheap';
 
@@ -76,7 +75,7 @@ export async function crearAudio(input: {
   if (!buf.length) throw new Error('El audio está vacío.');
   if (buf.length > 16 * 1024 * 1024) throw new Error('El audio es muy pesado (máx 16 MB).');
 
-  const ws = (await getWorkspaceActual()) ?? OWNER_WS;
+  const ws = await wsObligatorio();
   const supabase = await getTenantDb();
   const path = `${ws}/setting-audios/${Date.now().toString(36)}-${Math.abs(hash(input.titulo))}.${extDeMime(mime)}`;
   const { error: upErr } = await supabase.storage.from(MEDIA_BUCKET).upload(path, buf, { contentType: mime, upsert: false });
@@ -105,7 +104,7 @@ export async function crearAudio(input: {
 }
 
 export async function borrarAudio(id: number): Promise<void> {
-  const ws = (await getWorkspaceActual()) ?? OWNER_WS;
+  const ws = await wsObligatorio();
   const supabase = await getTenantDb();
   const { data } = await supabase.from('setting_audios').select('media_path').eq('id', id).maybeSingle();
   const path = (data as { media_path?: string } | null)?.media_path;
