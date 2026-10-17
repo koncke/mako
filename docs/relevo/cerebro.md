@@ -423,3 +423,6 @@ tandas 2-3; la tanda 5 del editor de video POSPUESTA por Martín). Todos esos ch
   - Sidebar y Dashboard (run 111);
   - CRM Partners, Onboarding F (cierra #850), Plan (los dos arreglos de «Marcar hecha»), Ticketera 4 y Automations (bitácora + lote 3) (runs 113/116);
   - Infra (4d10a74a1 y los tiempos del 113, más arriba; SÍ al `npm test` semanal).
+- **17:20 UTC:** sube Automations 034ae2e34, la familia «reuniones» del lote 3. El recordatorio de reunión ya no cae a la configuración de antes: estaba apagada en ws1 y ws11, así que no cambia lo que sale. El de 24 h del ws1 sale por la secuencia 212/213.
+  - **DECIDIDO, falta decírselo a Automations y al Plan** (tope de 10): `reunion-tareas-al-plan` (lib/reunion-auto.ts) lo toma el chat **Plan**, que es el dueño del archivo, para que no haya dos escribiendo ahí.
+  - `lead-no-confirmo` (la tarjeta «avisar al equipo» visible en la automatización «preparar») lo sigue Automations.
