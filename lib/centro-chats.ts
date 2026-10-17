@@ -376,6 +376,11 @@ export type LineaChat =
 export const lineasDeConversacion = (lineas: readonly LineaChat[]): LineaChat[] =>
   lineas.filter((l) => l.tipo === 'trabajo' || l.tipo === 'respuesta' || (l.tipo === 'turno' && !(l.turno.rol === 'yo' && l.turno.trabajo)));
 
+/** Un chat que trabaja y todavía no escribió nada lo dice (Martín, 17/10/2026: «No puede haber un chat en "trabajando"
+ *  sin nada escrito»): nunca una conversación vacía. null = escribió algo, o no está trabajando. */
+export const trabajaSinEscribir = (c: Pick<ChatCentro, 'estado' | 'viejo'>, lineas: readonly LineaChat[]): string | null =>
+  c.estado === 'trabajando' && !c.viejo && !lineasDeConversacion(lineas).length ? 'Está trabajando: todavía no escribió nada' : null;
+
 /** La conversación de un chat, la más vieja arriba (como un chat). */
 export function historialDelChat(
   chat: ChatCentro, pedidos: ReadonlyMap<string, PedidoP>, trabajos: readonly TrabajoP[],
@@ -486,6 +491,17 @@ export function comoSale(
   const sesion = carteros.flatMap((k) => k.chats ?? []).find((x) => x.local === chat.sesion && x.vivo);
   if (sesion?.runner === false) return sale('cartero');
   return sale(null);
+}
+
+/**
+ * Cuándo dio su última vuelta un Runner, si NINGUNO da vueltas ahora: el estado de los chats es una foto de ese momento
+ * (Martín, 17/10/2026: «aparecen todos los chats como que no están haciendo nada, cuando no es así»; el Runner se había
+ * caido con la app). null = alguno da vueltas, o ninguno dio nunca: no hay nada que avisar.
+ */
+export function sinNoticiasDesde(carteros: readonly Pick<CarteroP, 'vistoAt'>[], ahora: number): number | null {
+  if (!carteros.length || carteros.some((k) => carteroVivo(k, ahora))) return null;
+  const vistos = carteros.map((k) => fecha(k.vistoAt)).filter((t): t is number => t != null);
+  return vistos.length ? Math.max(...vistos) : null;
 }
 
 /** «Cuenta 3», o null si no se sabe. */

@@ -18,7 +18,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { Icon } from '@/app/_components/icons';
 import type { Alcance, TurnoChat } from '@/lib/operaciones-reglas';
-import { avanceDelChat, conteoAvance, historialDelChat, nombreCuenta, textoDeEnvio, type ChatCentro, type Envio, type TrabajoP } from '@/lib/centro-chats';
+import { avanceDelChat, conteoAvance, historialDelChat, nombreCuenta, textoDeEnvio, trabajaSinEscribir, type ChatCentro, type Envio, type TrabajoP } from '@/lib/centro-chats';
 import type { Aspecto } from '@/lib/centro-munecos';
 import { hace, type PedidoP, type PushP } from '@/lib/progreso-reglas';
 import type { AccionResponder, Decision } from '@/app/admin/runway/decisiones';
@@ -136,7 +136,7 @@ export function Conversacion({
       <div className="co-conv">
       <div className="co-hilo" ref={hilo}>
         <div className="co-hilo__col">
-          <Hilo lineas={lineas} pushes={pushes ?? []} ahora={ahora} vacio="Escríbele abajo para empezar." quien={{ titulo: chat.titulo, aspecto, animo: animoDe(chat), dato: [cuenta, meta].filter(Boolean).join(' · ') }} />
+          <Hilo lineas={lineas} pushes={pushes ?? []} ahora={ahora} vacio="Escríbele abajo para empezar." quien={{ titulo: chat.titulo, aspecto, animo: animoDe(chat), dato: trabajaSinEscribir(chat, lineas) ?? [cuenta, meta].filter(Boolean).join(' · ') }} />
         </div>
       </div>
 

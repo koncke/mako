@@ -11,9 +11,10 @@
 //   4. Los hitos de la bitácora otra vez en la conversación.
 //   5. La PC subiendo lo mismo en cada vuelta, o perdiendo lo que no entró.
 //
-// ⚠️ Probado ROMPIÉNDOLO (17/10/2026), una rotura por vez contra la base en verde de 4 pases (cada rotura → 1 fallo):
+// ⚠️ Probado ROMPIÉNDOLO (17/10/2026), una rotura por vez contra la base en verde de 4 pases (los cuatro primeros; cada rotura → 1 fallo):
 //   · turnosDeLineas sin sacar los <system-reminder> → 1 fallo;
 //   · la respuesta con el PRIMER texto del turno (sin pisar `p`) → 1 fallo;
+//   · (17/10, «Voy a trabajar en…») sin sacar el primer texto en el acto → 2 fallos; cierreDe sin mirar si ya salió → 2 fallos;
 //   · sin cerrar el turno con `stop_hook_summary` → 1 fallo;
 //   · lineasDeConversacion dejando los pedidos de la bitácora → 1 fallo;
 //   · unirTurnos sin sacar los repetidos → 1 fallo;
@@ -67,6 +68,8 @@ test('del transcript sale lo que se le dijo y lo que contestó; lo del sistema, 
   const ver = r.turnos.map((t: { rol: string; de: string | null; texto: string; trabajo: string | null }) => [t.rol, t.de, t.texto.split('\n')[0], t.trabajo]);
   assert.deepEqual(ver, [
     ['yo', null, 'Arregla el login, por favor', null],
+    // El primer texto del turno («Voy a trabajar en…») sale en el acto; el último, al terminar.
+    ['el', null, 'Ahora miro el código del login.', null],
     ['el', null, 'Listo: el login ya anda. Lo subí en abc123.', null],
     ['yo', null, 'Pedido de Martín desde el Centro de Operaciones (firmado en su dispositivo, 17/10 06:10).', TRABAJO],
     ['el', null, 'Sumé el botón.', null],
@@ -75,13 +78,17 @@ test('del transcript sale lo que se le dijo y lo que contestó; lo del sistema, 
     ['el', null, 'Sigo con el clic.', null],
   ]);
   assert.equal(r.pendiente, null);
-  // Un turno que todavía no terminó (ni fin, ni otro mensaje) queda pendiente para la vuelta que sigue.
-  const abierta = turnosDeLineas([yo('Hola', 30), el('Sigo con el clic.', 31)]);
-  assert.equal((abierta.pendiente as { texto: string } | null)?.texto, 'Sigo con el clic.', 'el .mjs no tipa la respuesta pendiente');
-  assert.deepEqual(abierta.turnos.map((t: { rol: string }) => t.rol), ['yo']);
+  // Un turno que todavía no terminó (ni fin, ni otro mensaje): su primer texto ya salió y el último queda pendiente para la
+  // vuelta que sigue, que lo cierra (y no repite el primero).
+  const abierta = turnosDeLineas([yo('Hola', 30), el('Voy a trabajar en el clic.', 31), el('Listo el clic.', 32)]);
+  assert.deepEqual(abierta.turnos.map((t: { rol: string; texto: string }) => [t.rol, t.texto]), [['yo', 'Hola'], ['el', 'Voy a trabajar en el clic.']]);
+  assert.equal((abierta.pendiente as { ultimo: { texto: string } } | null)?.ultimo.texto, 'Listo el clic.', 'el .mjs no tipa la respuesta pendiente');
   const siguiente = turnosDeLineas([fin()], abierta.pendiente);
-  assert.deepEqual(siguiente.turnos.map((t: { rol: string; texto: string }) => [t.rol, t.texto]), [['el', 'Sigo con el clic.']]);
+  assert.deepEqual(siguiente.turnos.map((t: { rol: string; texto: string }) => [t.rol, t.texto]), [['el', 'Listo el clic.']]);
   assert.equal(siguiente.pendiente, null);
+  // Un turno de un solo texto no se dibuja dos veces.
+  const uno = turnosDeLineas([yo('Hola', 40), el('Hecho.', 41), fin()]);
+  assert.deepEqual(uno.turnos.map((t: { texto: string }) => t.texto), ['Hola', 'Hecho.']);
 });
 
 test('lo que llega de la PC se sanea, y unir dos vueltas no repite ni se pasa del tope', () => {
@@ -152,4 +159,20 @@ test('la PC sube lo nuevo de cada transcript una vez, y lo que sigue en la vuelt
   } finally {
     srv.close();
   }
+});
+
+// 17/10/2026, Martín: «aparecen todos los chats como que no están haciendo nada, cuando no es así» (el Runner se había
+// caído con la app) y «No puede haber un chat en "trabajando" sin nada escrito». Probado ROMPIÉNDOLO: sinNoticiasDesde
+// sin mirar si alguno da vueltas → 1 fallo; trabajaSinEscribir contando los hitos de la bitácora → 1 fallo.
+test('con la foto vieja se dice desde cuándo, y un chat que trabaja sin escribir lo dice', async () => {
+  const { sinNoticiasDesde, trabajaSinEscribir } = await import('../lib/centro-chats');
+  const ahora = Date.parse(at(59));
+  const viejo = (min: number) => ({ vistoAt: at(min) });
+  assert.equal(sinNoticiasDesde([viejo(2), viejo(10)], ahora), Date.parse(at(10)), 'el último latido de los Runners');
+  assert.equal(sinNoticiasDesde([viejo(10), { vistoAt: new Date(ahora - 30_000).toISOString() }], ahora), null, 'uno da vueltas: nada que avisar');
+  assert.equal(sinNoticiasDesde([], ahora), null);
+  const pedido = { tipo: 'pedido', instante: 1, pedido: {}, pasos: [], desde: null } as never;
+  assert.equal(trabajaSinEscribir({ estado: 'trabajando', viejo: false }, [pedido]), 'Está trabajando: todavía no escribió nada', 'un hito no es algo escrito');
+  assert.equal(trabajaSinEscribir({ estado: 'trabajando', viejo: true }, []), null, 'con la foto vieja no se afirma que trabaja');
+  assert.equal(trabajaSinEscribir({ estado: 'abierto', viejo: false }, []), null);
 });
