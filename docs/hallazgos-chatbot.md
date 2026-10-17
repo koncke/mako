@@ -5088,3 +5088,26 @@ Prender #247 lo decide Joan.
 
 **Vive en:** `lib/meta-lead-nuevo.ts` · `lib/meta-leads.ts` (`pollMetaLeads`) · `lib/meta-leads-poll-reglas.ts`
 (`esNuevoParaElNegocio`) · `lib/nutricion.ts` (`enrolarPorEvento`, `conSuEtapa`) · test: `tests/meta-lead-nuevo.test.ts`
+
+## «Probar en el grupo»: la regla del 16/10 a la mañana, dada vuelta por Martín a la tarde (17/10/2026, tarjeta #852)
+
+- ⚠️ **«La prueba nunca le escribe al grupo de verdad» era una decisión de un chat, no de Martín**, y Martín la dio vuelta
+  en la revisión de esa misma tarde (44:06): «que se envíen las pruebas al grupo… si la automatización no tiene ningún
+  mensaje a clientes… que se pueda probar en el grupo de MaKo». Se conservó lo que la regla protegía: sólo una
+  automatización que SÓLO le habla al grupo (`soloAlGrupo`: ningún mensaje al lead ni AI Step), sólo el admin, con tope,
+  y cada envío abre con «🧪 Prueba de «X» · Caso N. No es un lead real.» (`ENCABEZADO_PRUEBA`).
+- **«¿Por qué me piden un remitente?» (Joan):** el botón de esas automatizaciones es «Probar en el grupo», sin «De» ni
+  «Para»: sale por la línea de MaKo al grupo del negocio. Con un mensaje al lead sigue «Probar en WhatsApp» con su
+  remitente, y la tarjeta del grupo de ESA prueba sigue sin salir de verdad.
+- **Lo que viaja lo valida el server como una tarjeta de verdad** (`problemaDePartesGrupo`, `prepararPartesGrupo`): el
+  texto llega con los datos DE EJEMPLO del panel (nunca de un lead), el audio sólo la Voz de MaKo, el archivo del
+  negocio; y la automatización tiene que ser del negocio. Una fila de un evento de SuperAdmin no lo ofrece (le escribe al
+  grupo de cada negocio, no hay uno).
+- **#845 (sacar la exclusión del número y el email de Martín): no hay ninguna.** Medido el 17/10: ninguna regla en el
+  código, `wa_bloqueados` vacía, ningún lead de Martín dado de baja. Lo que frena una prueba repetida con el mismo
+  contacto es el tope anti-spam (una por persona cada 20 h, `lib/limites-envio.ts`), la reentrada «Una sola vez» y el
+  embudo de la automatización (`ámbito`). Los leads de prueba de la llamada ya no existen: no se pudo saber cuál fue.
+
+**Vive en:** `lib/probar-grupo.ts` (`soloAlGrupo`, `ENCABEZADO_PRUEBA`, `partesDeBurbujas`) · `lib/probar-grupo-envio.ts`
+· `app/api/chat-agent/simulador/route.ts` (`enviar-grupo`) · `app/automations/PanelProbar.tsx` (`enElGrupo`, `alGrupo`) ·
+tests: `tests/probar-en-el-grupo.test.ts`, `tests/probar-grupo-mako.test.ts`

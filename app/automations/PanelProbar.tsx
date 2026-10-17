@@ -133,6 +133,7 @@ import { SimuladorSocial } from './SimuladorSocial';
 import { MakoStar } from '@/app/_components/MakoBrand';
 import {
   ID_GRUPO, avisaAlGrupo, vaAlGrupo, nombreDelGrupo, loQueLlegaAlGrupo, PILDORA_AL_GRUPO, NOTA_DEL_GRUPO, SIN_GRUPO_TODAVIA,
+  soloAlGrupo, PROBAR_EN_EL_GRUPO, NOTA_DEL_GRUPO_DE_VERDAD, partesDeBurbujas,
   GRUPO_SIN_MENSAJES, type LecturaGrupo, type BurbujaGrupo,
 } from '@/lib/probar-grupo';
 import { TEXTO_SOLO_AUDIO } from '@/lib/mako-tarjeta';
@@ -572,6 +573,8 @@ function FotoGrupo({ tam }: { tam: number }) {
 
 /** El primer renglón del chat del grupo, fijo: que nadie crea que le llegó al equipo. */
 const NOTA_GRUPO: HiloMsg = { id: 'nota-grupo', fromMe: false, tipo: 'sistema', texto: NOTA_DEL_GRUPO };
+/** El mismo renglón cuando la prueba SÍ le llega al grupo («Probar en el grupo», #852). */
+const NOTA_GRUPO_DE_VERDAD: HiloMsg = { id: 'nota-grupo', fromMe: false, tipo: 'sistema', texto: NOTA_DEL_GRUPO_DE_VERDAD };
 
 /** Los no leídos del grupo: el globo verde de WhatsApp. */
 function NoLeidos({ n }: { n: number }) {
@@ -1102,6 +1105,12 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
   const triggerProbado = propia?.trigger_tipo ?? secuencia.trigger_tipo;
   const datosExtra = triggerProbado === TRIGGER_RECORDATORIO ? EJEMPLOS_RECORDATORIO
     : triggerProbado === TRIGGER_AVISO_MAKO ? ejemplosDelEvento(eventoDeFila(secuencia as SecuenciaDto & { disparadores?: unknown })) : undefined;
+  // «PROBAR EN EL GRUPO» (17/10/2026, #852): una automatización que SÓLO le habla al grupo se prueba ahí, de verdad, sin
+  // pedir remitente ni número (lib/probar-grupo.ts). No en una fila de un evento de SuperAdmin: ésa le escribe al grupo de
+  // CADA negocio, y no hay uno solo que probar.
+  const enElGrupo = conGrupo && soloAlGrupo(flujoVivo) && triggerProbado !== TRIGGER_AVISO_MAKO;
+  const enElGrupoRef = useRef(enElGrupo);
+  useEffect(() => { enElGrupoRef.current = enElGrupo; });
   const ctx = useRef({ nombres, negocio, audios, adjuntos, destino, canal, secuenciaId: secuencia.id, emisor: emisorReal, datosExtra });
   useEffect(() => {
     ctx.current = { nombres, negocio, audios, adjuntos, destino, canal, secuenciaId: secuencia.id, emisor: emisorReal, datosExtra };
@@ -1167,6 +1176,24 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
     setGrupoMsgs(grupoRef.current);
     if (!viendoGrupoRef.current) setNoLeidosGrupo((n) => n + lista.length);
     sistema(PILDORA_AL_GRUPO);
+    // DE VERDAD, sólo en «Probar en el grupo» (#852): una vez por tarjeta y por prueba, con su encabezado de prueba.
+    if (realRef.current && enElGrupoRef.current && debeSalirDeVerdad(enviadosReal.current, `grupo:${String(paso.id ?? '')}`, false, 0)) {
+      const partes = partesDeBurbujas(burbujas);
+      const r0 = run.current;
+      const caso = k >= 0 ? nombreDelCaso(k) : null;
+      colaReal.current = colaReal.current.then(async () => {
+        const primero = !yaSalioUno.current;
+        yaSalioUno.current = true;
+        const j = await postar({ action: 'enviar-grupo', secuenciaId: c.secuenciaId, partes, caso });
+        if (!j.ok) {
+          if (primero) yaSalioUno.current = false;
+          if (run.current === r0) {
+            grupoRef.current = [...grupoRef.current, { id: nuevoId('gs'), fromMe: false, tipo: 'sistema', tono: 'bad', texto: `No salió al grupo · ${j.error ?? 'error'}`, fecha: new Date().toISOString() }];
+            setGrupoMsgs(grupoRef.current);
+          }
+        } else if (primero) onEnviado?.('Enviado · revisa el grupo');
+      });
+    }
   };
   /** La pastilla de una espera, un salto o una ⚡ Acción. La «MaKo en WhatsApp», en WhatsApp, además le escribe al grupo. */
   const pildora = (e: Extract<EventoSim, { t: 'espera' | 'accion' | 'salto' }>) => {
@@ -1714,7 +1741,7 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
           {viendoGrupo && conGrupo ? (
             // EL CHAT DEL GRUPO (16/10/2026): lo que MaKo le escribió en cada caso, debajo de la nota de que es una prueba.
             // Sin caja para escribir: la prueba no le escribe al grupo.
-            <ChatHilo key={ID_GRUPO} accent="var(--wa)" accentBubble="var(--wa-bubble)" mensajes={[NOTA_GRUPO, ...grupoMsgs]} animarNuevos />
+            <ChatHilo key={ID_GRUPO} accent="var(--wa)" accentBubble="var(--wa-bubble)" mensajes={[real && enElGrupo ? NOTA_GRUPO_DE_VERDAD : NOTA_GRUPO, ...grupoMsgs]} animarNuevos />
           ) : <ChatHilo
             key={escenarioSel?.id ?? 'uno'}
             accent="var(--wa)" accentBubble="var(--wa-bubble)"
@@ -1753,7 +1780,7 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
             <div role="status" data-linea-envio style={{ display: 'flex', alignItems: 'flex-start', gap: 7, minWidth: 0, fontSize: 12.5, lineHeight: 1.35, color: 'var(--dim)', whiteSpace: 'normal' }}>
               <span aria-hidden style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--good)', flex: 'none', marginTop: 5 }} />
               {/* Desde dónde y a dónde (sexta tanda, «Probar» 2). Sin emisor leído, sólo a dónde. */}
-              <span style={{ minWidth: 0, overflowWrap: 'anywhere' }}>{lineaDeEnvio(rotuloEmisor, destinoLegible(destino, esEmail))}</span>
+              <span style={{ minWidth: 0, overflowWrap: 'anywhere' }}>{enElGrupo ? lineaDeEnvio('MaKo', `«${nombreDelGrupo(lecturaGrupo)}»`) : lineaDeEnvio(rotuloEmisor, destinoLegible(destino, esEmail))}</span>
             </div>
           )}
         </div>
@@ -1766,7 +1793,11 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
         {/* «PROBAR EN WHATSAPP» AL LADO DE ↻, y el emisor y el destino en un DESPLEGABLE que abre el
             botón (quinta tanda, punto 1; sexta, «Probar» 2). Sólo el admin manda de verdad. */}
         {/* Sin «Probar en Instagram» de verdad: Meta no deja escribirle primero a nadie (SimuladorSocial). */}
-        {rolAdmin && !real && !social && (sinConectar
+        {/* «Probar en el grupo» (#852): sin «De» ni «Para», a la línea de MaKo y al grupo del negocio. */}
+        {rolAdmin && !real && !social && enElGrupo && (
+          <Button size="sm" data-probar-en-el-grupo onClick={() => { cerrarMenu(); if (!frenado()) reiniciar(true); }}>{PROBAR_EN_EL_GRUPO}</Button>
+        )}
+        {rolAdmin && !real && !social && !enElGrupo && (sinConectar
           // SIN CONECTAR, «Conectar» (GENERAL 6): el modal del medio ahí mismo, sin salir de la pestaña.
           ? <Button size="sm" data-conectar-medio={medioProbar ?? undefined} aria-haspopup="dialog" onClick={() => { cerrarMenu(); setVinculando('conectar'); }}>Conectar</Button>
           : <Button ref={setBtnProbar} size="sm" aria-haspopup="dialog" aria-expanded={menu}
