@@ -131,6 +131,8 @@ export function PanelBandejas({ ws, conteos, filtro, onFiltro, lineas, cuentasSo
         out.push(conCanal(canal, null, canal === 'instagram' ? 'Instagram' : 'Messenger'));
       }
     }
+    // El email (17/10/2026): un renglón, el canal entero (el negocio tiene un solo dominio), en cuanto haya una conversación.
+    if (chats.some((c) => c.canales.some((i) => i.canal === 'email'))) out.push(conCanal('email', null, 'Email'));
     return out;
   }, [lineas, cuentasSociales, chats, conteos, filtro]);
 

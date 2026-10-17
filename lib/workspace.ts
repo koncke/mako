@@ -184,6 +184,9 @@ const TENANT_TABLES = new Set<string>([
   // del hilo. Sin estas líneas getTenantDb() es PASSTHROUGH: la bandeja de un negocio vería cerradas las
   // conversaciones que cerró OTRO, y `chat_leidos` mezclaría las marcas de dos negocios con la misma clave.
   'chat_estado', 'chat_leidos', 'chat_eventos',
+  // El canal email de Chats (mig 0312, 17/10/2026): lo que llega y lo que se contesta. Sin esta línea la bandeja de un
+  // negocio mostraría los emails de todos.
+  'email_mensajes',
   'identidades_fiscales', 'lead_insights', 'lead_respuestas', 'mako_acciones_pendientes', 'mako_confirmaciones', 'mako_doer_buffer', 'mako_doer_conv', 'mako_doer_lock', 'mako_knowledge', 'meta_campaign_drafts', 'meta_health_history', 'nutricion_envios', 'nutricion_inscripciones', 'nutricion_secuencias', 'pagos',
   'pipeline_stages', 'plan_dependencias', 'plan_propuestas', 'plan_reprios', 'propuestas', 'plan_proyectos', 'plan_tareas', 'productos', 'retros',
   // Las reuniones de Fathom que el cron descartó por tipo (mig 0300, 16/10/2026). Sin esta línea

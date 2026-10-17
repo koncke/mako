@@ -133,14 +133,30 @@ Medido el 17/10 (antes de tocar nada):
   que llega por email sólo dispara automatizaciones (`lib/email-entrante.ts`), guarda el sobre y no el cuerpo, y
   «Receiving» de Resend todavía no está prendido. Por eso **la página /email no se borra**: se entra desde Chats.
 
-Lo que queda para que Chats sea TODO (la segunda entrega del jefe «Sidebar»):
-1. **Email como canal de la bandeja**: prender Receiving en Resend, guardar cuerpo y adjuntos del email entrante,
-   ampliar `CanalChat` con `email`, responder desde el composer con el dominio del negocio (hilo con `In-Reply-To`) y
-   adjuntos. Toca `lib/chats.ts`, `lib/email-entrante.ts` (de Automations) y el webhook.
-2. Traer a Chats lo que sólo tiene /whatsapp: la bandeja «Ocultos», «Borrar historial» en el «⋯», conectar un número
+**Segunda entrega (17/10/2026): el email ES un canal de la bandeja** (`lib/chats-email.ts`, mig 0312
+`email_mensajes`, `POST /api/chats/email`, `tests/chats-email.test.ts`):
+- **Recibir**: el webhook de Resend (`email.received`) sigue disparando las automatizaciones como siempre y, DESPUÉS
+  (`after()`), lee el cuerpo y los adjuntos con `GET /emails/receiving/{id}`, sube los adjuntos al bucket privado
+  `chats-email` y deja el email en el hilo. Con lead (cae en su conversación) y sin lead (`em:<email>`: alguien que
+  todavía no está en el CRM también se ve).
+- **Hilos**: un contacto con lead junta su WhatsApp, su Instagram y su email en UNA conversación (el modelo de
+  respond.io). La burbuja muestra lo que escribió, sin la cita del email anterior; arriba, el asunto.
+- **Enviar**: «Email · ana@…» en el selector de canal del composer, con un campo de asunto (vacío = «Re:» del último
+  que llegó) y la respuesta en el hilo del cliente de correo (`In-Reply-To`). Sale con el remitente DEL NEGOCIO
+  (`sendEmail`; sin dominio propio, la identidad se ve gris: «Sin email propio»).
+- **Adjuntos**: hasta 5 por email, 4 MB cada uno, en un solo email; los que llegan se bajan (hasta 10 MB) y se abren
+  con una URL firmada.
+- La API de MaKo filtra la bandeja por `canal: email` (`listar_chats`).
+
+⚠️ **Para que LLEGUE un email hace falta «Receiving» prendido en Resend y el MX del dominio del negocio apuntando a
+Resend.** Es de la cuenta, no del código: sin eso, la bandeja muestra lo que se contesta desde Chats y nada más.
+
+Lo que queda:
+1. Traer a Chats lo que sólo tiene /whatsapp: la bandeja «Ocultos», «Borrar historial» en el «⋯», conectar un número
    en un modal (el `ConectarMedio` de Automations) y la alarma de número caído.
-3. Después, /whatsapp queda sólo para las líneas y /email sólo para dominio, secuencias y envíos (o se mudan a
+2. Después, /whatsapp queda sólo para las líneas y /email sólo para dominio, secuencias y envíos (o se mudan a
    Integraciones y Automations).
+3. El teléfono (/m/chats) lee la bandeja de WhatsApp: el email se suma cuando se sumen Instagram y Messenger.
 
 ## 6. Lo que NO cambió (y no se cambia)
 

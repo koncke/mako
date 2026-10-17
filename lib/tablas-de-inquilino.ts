@@ -42,8 +42,8 @@
  * `image_subidos`, mig 0278, el 14/10; las tres de la tab Chats, `chat_estado`, `chat_leidos` y `chat_eventos`, mig 0284; y el hilo
  * del chat del Video Editor, `video_editor_chats`, mig 0298, la copia de sus proyectos, `video_editor_proyectos`, mig 0299, y lo
  * que la API propone en ellos, `video_editor_propuestas`, mig 0302, el 16/10; y `plan_reuniones_descartadas`, mig 0300, y
- * `plan_repriorizaciones`, mig 0301, el mismo día; y el hilo del chat del Image Editor, `image_editor_chats`, mig 0303), en
- * orden alfabético.
+ * `plan_repriorizaciones`, mig 0301, el mismo día; y el hilo del chat del Image Editor, `image_editor_chats`, mig 0303; y el
+ * canal email de Chats, `email_mensajes`, mig 0312, el 17/10), en orden alfabético.
  *
  * ⚠️ EL ORDEN NO ES EL DE BORRADO. 39 de las 87 claves foráneas que apuntan a
  * `workspaces` no cascadean, y adentro de un inquilino hay hijos antes que padres
@@ -71,7 +71,7 @@ export const TABLAS_DE_INQUILINO = [
   // Los emails que LLEGAN (mig 0245, sexta tanda). `workspace_id` admite null (lo que no es de nadie
   // queda escrito igual): el reset y el borrado vacían sólo los de este inquilino. No va en
   // TENANT_TABLES: nadie la lee con getTenantDb.
-  'email_entrantes', 'evolution_contactos',
+  'email_entrantes', 'email_mensajes', 'evolution_contactos',
   'evolution_instancias', 'evolution_labels', 'evolution_stage_labels', 'experimento_tareas',
   'experimentos', 'flow_puentes', 'flow_trabajos', 'formatos',
   'funnel_config', 'funnel_ofertas', 'funnels', 'identidades_fiscales',
