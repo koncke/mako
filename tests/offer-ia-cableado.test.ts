@@ -148,6 +148,8 @@ const slots = (s: string) => [...new Set([...s.matchAll(/\{\{(\w+)\}\}/g)].map((
 
 const PROMPTS: Array<[string, string]> = [
   ['offer.turno.system', 'OFFER_TURNO_SYSTEM_TEMPLATE'], ['offer.turno.user', 'OFFER_TURNO_USER_TEMPLATE'],
+  // La conversación del onboarding (17/10/2026): sólo lo que vende, con el mismo user que la tab.
+  ['offer.arranque.system', 'OFFER_ARRANQUE_SYSTEM_TEMPLATE'],
   ['offer.diagnostico.system', 'OFFER_DIAGNOSTICO_SYSTEM_TEMPLATE'], ['offer.diagnostico.user', 'OFFER_DIAGNOSTICO_USER_TEMPLATE'],
   ['offer.propuesta.system', 'OFFER_PROPUESTA_SYSTEM_TEMPLATE'], ['offer.propuesta.user', 'OFFER_PROPUESTA_USER_TEMPLATE'],
 ];
@@ -160,7 +162,7 @@ test('cada prompt offer.*: registrado con la MISMA key, el MISMO default y los M
   assert.match(REG, /from '\.\/offer-ia';/);
   const enRegistro = [...REG.matchAll(/key: '(offer\.[\w.]+)'/g)].map((m) => m[1]).sort();
   const enCallSite = [...IA.matchAll(/renderPrompt\('(offer\.[\w.]+)'/g)].map((m) => m[1]).sort();
-  assert.deepEqual(enRegistro, PROMPTS.map(([k]) => k).sort(), 'las keys del registro no son las seis');
+  assert.deepEqual(enRegistro, PROMPTS.map(([k]) => k).sort(), 'las keys del registro no son las siete');
   assert.deepEqual(enCallSite, enRegistro, 'el call site lee keys que el registro no tiene (o al revés)');
   for (const [key, constante] of PROMPTS) {
     const i = REG.indexOf(`key: '${key}'`);
@@ -178,7 +180,10 @@ test('cada prompt offer.*: registrado con la MISMA key, el MISMO default y los M
       assert.match(fila, /scope: 'static-only'/);
       assert.ok(template(constante).includes('${SEGURIDAD}'), `${key}: falta la cláusula de seguridad`);
       assert.ok(template(constante).includes('${IDIOMA}'), `${key}: falta el bloque de idioma`);
-      assert.ok(delTemplate.includes('marco'), `${key}: falta el marco`);
+      // El del onboarding NO lleva el marco, a propósito: el marco es la rúbrica del análisis, y ahí sólo se pregunta
+      // qué vende (lleva las keys de las piezas, `claves`).
+      if (key !== 'offer.arranque.system') assert.ok(delTemplate.includes('marco'), `${key}: falta el marco`);
+      else assert.ok(delTemplate.includes('claves') && !delTemplate.includes('marco'), `${key}: el onboarding volvió a llevar el marco del análisis`);
     }
   }
   // Los datos del dueño viajan envueltos como dato no confiable.

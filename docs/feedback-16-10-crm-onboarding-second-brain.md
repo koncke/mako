@@ -145,6 +145,11 @@ modo claro** (`b401cd017`, «pon en white mode la tab de Second Brain»). Las ci
    que vende el usuario. Y eso le sirve a MaKo para crear las cosas que necesite...» Vive en app/onboarding/
    ChatArranque.tsx y lib/onboarding-arranque.ts (el paso de la oferta). Lo que se saca es el diagnóstico y la oferta
    mejorada; lo que queda es preguntar qué vende y armar el PDF con eso.
+   - [x] **Hecho el 17/10 (chat Onboarding, claude4).** La conversación del onboarding pregunta sólo qué vende (qué
+     es y qué recibe, para quién, qué le resuelve, qué logra, cuánto cuesta), deja «Lo que vendes» en un PDF y no
+     arma la oferta; «Analizar mi oferta» lleva a /offer, sobre la misma conversación. El diagnóstico de FASE se
+     quedó (es el Norte de MaKo), preguntado con sus opciones. Detalle y lo que quedó: docs/hallazgos-onboarding.md
+     («El onboarding sin el análisis de Offer»). Falta mirarlo en el ws3.
 
 ## Second Brain
 
