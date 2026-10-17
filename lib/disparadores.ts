@@ -195,7 +195,7 @@ export const EVENTOS_PAGO: readonly EventoCanal[] = [
 export type SubtipoMako = 'reunion_pronto' | 'lead_contesta' | 'cuota_vencida' | 'lead_agendo' | 'pago_recibido' | 'analisis_listo' | 'contrasena_restablecer'
   | 'whatsapp_caido' | 'whatsapp_desvinculado' | 'whatsapp_volvio' | 'reunion_grabada' | 'reporte_semanal' | 'oferta_lista'
   | 'meta_cuenta_frenada' | 'meta_cuenta_recuperada' | 'reunion_cancelada' | 'lead_fusionado' | 'curso_recordatorio'
-  | 'flow_puente_ausente';
+  | 'flow_puente_ausente' | 'tracking_apagado' | 'pixel_viejo' | 'landing_cambio';
 
 /**
  * PARA QUÉ LE ESCRIBE A LA PERSONA un evento de una PERSONA (15/10/2026, docs/diseno-2fa-obligatorio.md §8): lo DECLARA
@@ -225,7 +225,7 @@ export type PropositoPersona = 'restablecer' | 'aviso' | 'codigo';
  * dejarían de salir. Ni `apagado`: eso las frenaría al guardar.
  */
 export type EventoMako = EventoCanal & {
-  subtipo: SubtipoMako; aviso: string; trae: ReadonlyArray<'lead' | 'mensaje' | 'cuota' | 'pago' | 'escrito' | 'analisis' | 'restablecer' | 'linea' | 'grabacion' | 'cancelada' | 'fusion' | 'recordatorio' | 'flow' | 'reporte' | 'oferta' | 'anuncios'>; retirado?: true;
+  subtipo: SubtipoMako; aviso: string; trae: ReadonlyArray<'lead' | 'mensaje' | 'cuota' | 'pago' | 'escrito' | 'analisis' | 'restablecer' | 'linea' | 'grabacion' | 'cancelada' | 'fusion' | 'recordatorio' | 'flow' | 'tracking' | 'pixel' | 'landing' | 'reporte' | 'oferta' | 'anuncios'>; retirado?: true;
   /**
    * UN MENSAJE DE MaKo A SUS CLIENTES (15/10/2026, el 2 de las doce: «un Mensaje de MaKo ES una automatización»): lo
    * emite el negocio X (su línea se cayó), pero lo corren las automatizaciones de la PLATAFORMA, y su tarjeta «MaKo en
@@ -299,6 +299,11 @@ export const EVENTOS_MAKO: readonly EventoMako[] = [
   // EL NAVEGADOR DE UN NEGOCIO DEJA DE TOMAR SUS VIDEOS (17/10/2026, lote 2): lo emite el cron flow-abandono con cuántas tomas
   // quedaron sin tomar (`datosPuenteAusente`, lib/flow-puente-aviso.ts).
   { subtipo: 'flow_puente_ausente', aviso: 'flow-puente-ausente', label: 'El navegador de un negocio deja de tomar sus videos', trae: ['flow'], plataforma: true },
+  // EL PIXEL Y LA LANDING DE UN NEGOCIO (17/10/2026, «nada por detrás», lote 3): los tres avisos del cron tracking-vigilante, con
+  // sus datos (lib/tracking-aviso.ts). Lo que el código elegía (graba o no, se puede medir o no) lo pregunta una CONDITION.
+  { subtipo: 'tracking_apagado', aviso: 'tracking-apagado', label: 'La landing de un negocio deja de mandar visitas', trae: ['tracking'], plataforma: true },
+  { subtipo: 'pixel_viejo', aviso: 'tracking-desactualizado', label: 'El Pixel de MaKo de un negocio quedó viejo', trae: ['pixel'], plataforma: true },
+  { subtipo: 'landing_cambio', aviso: 'landing-cambio', label: 'La landing de un negocio cambió lo que se mide', trae: ['landing'], plataforma: true },
 ];
 
 /**

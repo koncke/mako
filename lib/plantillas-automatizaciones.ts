@@ -830,6 +830,56 @@ export const PLANTILLAS_PLATAFORMA: readonly PlantillaAutomatizacion[] = [
     ],
   },
   {
+    // LA LANDING QUE DEJÓ DE MANDAR VISITAS (17/10/2026, «nada por detrás», lote 3). Antes la redactaba una IA con `contexto`
+    // (el cron le pasaba los días y la fecha en ISO); ahora el texto es éste, con los días y la fecha como datos.
+    id: 'mako-tracking-apagado',
+    nombre: 'Una Landing Dejó de Mandar Datos',
+    emoji: '🔴',
+    linea: 'Le avisa al grupo de un negocio que su landing no registra visitas hace 2 días o más, y dónde revisarlo.',
+    origen: 'el cron tracking-vigilante, una vez por día',
+    objetivo: 'clientes',
+    soloPlataforma: true,
+    cron: { fijo: TRIGGER_AVISO_MAKO, evento: 'tracking_apagado' },
+    pasos: [
+      mako('ta_mk', '🔴 *Tu landing dejó de mandarme datos*\n⏱️ Sin visitas hace {{tracking_dias}}\n🕐 La última: el {{tracking_ultima}}\nLos anuncios pueden seguir corriendo, así que no lo vas a notar en los leads: lo que se pierde es saber de dónde vienen. Suele ser que el Pixel de MaKo quedó apuntando a una dirección vieja.\n\nRevísalo aquí:\n{{tracking_link}}\n\n— MaKo', null),
+    ],
+  },
+  {
+    // EL PIXEL QUE QUEDÓ VIEJO (17/10/2026, lote 3). Lo que el código elegía —si por ser viejo no graba, una página o varias—
+    // es una CONDITION (`pixel_graba`) y un renglón opcional (las páginas: sin ninguna nombrada, el renglón no va).
+    id: 'mako-pixel-viejo',
+    nombre: 'El Pixel de un Negocio Quedó Viejo',
+    emoji: '🟡',
+    linea: 'Le avisa al grupo de un negocio que su Pixel de MaKo es viejo, qué se pierde y cómo se arregla.',
+    origen: 'el cron tracking-vigilante, una vez por semana mientras siga viejo',
+    objetivo: 'clientes',
+    soloPlataforma: true,
+    cron: { fijo: TRIGGER_AVISO_MAKO, evento: 'pixel_viejo' },
+    pasos: [
+      condicion('pv_graba', [[[{ campo: 'dato:pixel_graba', valor: 'no graba' }], 'pv_no']], 'pv_si'),
+      mako('pv_no', '🟡 *Tu Pixel de MaKo es viejo y no graba las visitas*\n📄 Las páginas:{{pixel_paginas}}\n✨ Te estás perdiendo: {{pixel_novedades}}\n\n*Cómo se arregla* (2 minutos): entra aquí, copia la línea del Pixel y ponla en lugar del código viejo. Con esa línea no vuelves a actualizar nada.\n{{pixel_link}}\n\n— MaKo', null),
+      mako('pv_si', '🟡 *Tu Pixel de MaKo es una versión vieja*\n📄 Las páginas:{{pixel_paginas}}\n✨ Te estás perdiendo: {{pixel_novedades}}\n\n*Cómo se arregla* (2 minutos): entra aquí, copia la línea del Pixel y ponla en lugar del código viejo. Con esa línea no vuelves a actualizar nada.\n{{pixel_link}}\n\n— MaKo', null),
+    ],
+  },
+  {
+    // LA LANDING QUE CAMBIÓ LO QUE SE MIDE (17/10/2026, lote 3): se le agregó o se le sacó un video, un formulario o la
+    // agenda. Si lo agregado se puede medir lo pregunta la CONDITION (`landing_medible`); lo agregado y lo sacado, cada uno
+    // en su renglón opcional.
+    id: 'mako-landing-cambio',
+    nombre: 'Cambió la Landing de un Negocio',
+    emoji: '🟡',
+    linea: 'Le avisa al grupo de un negocio qué le agregó o le sacó a su landing y si eso se puede medir.',
+    origen: 'el cron tracking-vigilante, una vez por cambio',
+    objetivo: 'clientes',
+    soloPlataforma: true,
+    cron: { fijo: TRIGGER_AVISO_MAKO, evento: 'landing_cambio' },
+    pasos: [
+      condicion('lc_medir', [[[{ campo: 'dato:landing_medible', valor: 'no' }], 'lc_no']], 'lc_si'),
+      mako('lc_no', '🟡 *Cambió tu página*\n📄 {{landing_pagina}}\n➕ Le agregaste *{{landing_agregaste}}*. Desde ahí el reproductor no le avisa nada a la página, así que no puedo medir las reproducciones. Si quieres que se midan, súbelo directo a tu página o a Panda.\n➖ Sacaste *{{landing_sacaste}}*: dejo de pedírtelo en las pruebas, y lo que ya se registró sigue en tu CRM.\n\n{{landing_link}}\n\n— MaKo', null),
+      mako('lc_si', '🟡 *Cambió tu página*\n📄 {{landing_pagina}}\n➕ Le agregaste *{{landing_agregaste}}*. Ya lo estoy midiendo.\n➖ Sacaste *{{landing_sacaste}}*: dejo de pedírtelo en las pruebas, y lo que ya se registró sigue en tu CRM.\n\n{{landing_link}}\n\n— MaKo', null),
+    ],
+  },
+  {
     // El reporte de los lunes (16/10/2026, docs/diseno-avisos-plataforma.md §6): lo arma el cron de cada negocio con sus
     // preferencias, y sale POR EMAIL al equipo del negocio, como hasta hoy (nunca por WhatsApp: `REPORTE_POR_WHATSAPP`).
     // El asunto y el cuerpo son los de `despacharReporte` (lib/notify.ts). Sin firma: el correo ya la lleva al pie.

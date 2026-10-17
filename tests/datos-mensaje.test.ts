@@ -43,6 +43,7 @@ import { datosCancelada } from '../lib/reunion-cancelada';
 import { datosFusion } from '../lib/lead-fusionado';
 import { datosRecordatorioDueno } from '../lib/curso-mensajes-texto';
 import { datosPuenteAusente } from '../lib/flow-puente-aviso';
+import { datosLandingCambio, datosPixelViejo, datosTrackingApagado } from '../lib/tracking-aviso';
 import { datosDelReporte } from '../lib/reporte-destino';
 import { datosOfertaLista } from '../lib/oferta-lista';
 import { datosCuentaFrenada } from '../lib/alerta-critica-texto';
@@ -127,6 +128,10 @@ function porFuente(): Record<FuenteDato, Set<string>> {
     recordatorio: set(datosRecordatorioDueno({ hechos: [{ cliente: 'Ana', bloques: [{ etapa: 'Norte', videos: ['a'] }], noLlego: null }, { cliente: 'Eva', bloques: [], noLlego: 'sin línea' }], sinEscribir: [{ cliente: 'Juan', motivo: 'sin teléfono' }] }) as Record<string, string>),
     // Y las tomas de video sin tomar, que pasa el cron flow-abandono (`datosPuenteAusente`).
     flow: set(datosPuenteAusente(3)),
+    // 17/10/2026, lote 3: y la landing y el Pixel de un negocio, que pasa el cron tracking-vigilante (lib/tracking-aviso.ts).
+    tracking: set(datosTrackingApagado({ horas: 80, ultima: '2026-10-14T20:00:00Z', tz: 'America/Mexico_City', link: 'https://hola-mako.com/integraciones' })),
+    pixel: set(datosPixelViejo({ paginas: ['https://a.com'], noGraba: true, novedades: 'la grabación', link: 'https://hola-mako.com/integraciones' })),
+    landing: set(datosLandingCambio({ pagina: 'https://a.com', agregaste: 'un video', todasSinMedir: false, sacaste: 'la agenda', link: 'https://hola-mako.com/integraciones' })),
     // 16/10/2026: y el reporte de los lunes ya armado, que pasa el cron (`datosDelReporte`, lib/reporte-destino.ts).
     reporte: set(datosDelReporte({ titulo: 'Reporte semanal · 05/10/2026–11/10/2026', texto: '🗓️ *Reporte semanal*' })),
     // Y la oferta que MaKo terminó de armar, que pasa el armado en el servidor (`datosOfertaLista`, lib/oferta-lista.ts).
@@ -193,7 +198,7 @@ test('⚠️ TODO lo que el árbol ofrece tiene quien lo PONGA: cada clave sale 
   for (const g of GRUPOS_VARIABLES) assert.ok(g.icono, `${g.key} sin ícono`);
   // (15/10/2026: «Cuenta de MaKo» es SÓLO del mail a una persona: el equipo dibuja todos los demás, y ella el suyo.)
   // (15/10/2026: y «WhatsApp del negocio», con `conLinea`. 16/10/2026: y «Cuenta publicitaria», con `conAnuncios`.)
-  assert.equal(datosOfrecidos({ destino: 'equipo', conLead: true, conCuota: true, conAnalisis: true, conLinea: true, conGrabacion: true, conReporte: true, conOferta: true, conAnuncios: true }).length, GRUPOS_VARIABLES.length - 1);
+  assert.equal(datosOfrecidos({ destino: 'equipo', conLead: true, conCuota: true, conAnalisis: true, conLinea: true, conGrabacion: true, conReporte: true, conOferta: true, conAnuncios: true, conTracking: true }).length, GRUPOS_VARIABLES.length - 1);
   assert.ok(datosOfrecidos(datosDeLaPersona('contrasena_restablecer')!).some((g) => g.key === 'cuenta'), 'el mail a la persona no tiene su grupo');
   assert.ok(VARIABLES_AVISO.filter((v) => !v.oculta).length >= 70, 'se pidieron MUCHOS más datos');
   // La previa tiene con qué dibujar cada uno.

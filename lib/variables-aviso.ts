@@ -109,7 +109,7 @@ export function tramosConVariables(linea: string): Array<{ txt: string; esVar: b
  */
 export type FuenteDato = 'nombre' | 'ficha' | 'zona' | 'producto' | 'etiquetas' | 'pagos' | 'curso'
   | 'perfil' | 'lead_magnet' | 'momento' | 'negocio' | 'links' | 'evento' | 'cuota' | 'cobro'
-  | 'proxima' | 'respuestas' | 'pago' | 'escrito' | 'analisis' | 'cuenta' | 'linea' | 'grabacion' | 'cancelada' | 'fusion' | 'recordatorio' | 'flow' | 'reporte' | 'oferta' | 'anuncios';
+  | 'proxima' | 'respuestas' | 'pago' | 'escrito' | 'analisis' | 'cuenta' | 'linea' | 'grabacion' | 'cancelada' | 'fusion' | 'recordatorio' | 'flow' | 'tracking' | 'pixel' | 'landing' | 'reporte' | 'oferta' | 'anuncios';
 
 /**
  * A quién le llega el mensaje: al lead (las automatizaciones), al equipo (MaKo en WhatsApp) o a un USUARIO de MaKo
@@ -150,6 +150,9 @@ export type VariableAviso = {
    *               `curso_recordatorio`): lo pasa el cron curso-sesiones (`datosRecordatorioDueno`, lib/curso-mensajes-texto.ts).
    * · `flow`    — necesita las TOMAS DE VIDEO que quedaron sin tomar porque el navegador del negocio dejó de responder (el
    *               evento de la plataforma `flow_puente_ausente`): lo pasa el cron flow-abandono (`datosPuenteAusente`).
+   * · `tracking` / `pixel` / `landing` — necesitan la LANDING de un negocio: que dejó de mandar visitas (`tracking_apagado`),
+   *               que su Pixel quedó viejo (`pixel_viejo`) o que cambió lo que se mide (`landing_cambio`). Los pasa el cron
+   *               tracking-vigilante (lib/tracking-aviso.ts).
    * · `reporte` — necesita el REPORTE SEMANAL ya armado de un negocio (el evento de la plataforma `reporte_semanal`): lo
    *               pasa el cron de los lunes (`datosDelReporte`, lib/reporte-destino.ts).
    * · `oferta`  — necesita la OFERTA QUE MaKo TERMINÓ DE ARMAR (el evento de la plataforma `oferta_lista`): lo pasa el
@@ -157,7 +160,7 @@ export type VariableAviso = {
    * · `anuncios` — necesita la CUENTA PUBLICITARIA que Meta frenó (el evento de la plataforma `meta_cuenta_frenada`): lo
    *               pasa el cron de las alertas críticas (`datosCuentaFrenada`, lib/alerta-critica-texto.ts).
    */
-  alcance: 'siempre' | 'lead' | 'cuota' | 'mensaje' | 'pago' | 'escrito' | 'analisis' | 'restablecer' | 'linea' | 'grabacion' | 'cancelada' | 'fusion' | 'recordatorio' | 'flow' | 'reporte' | 'oferta' | 'anuncios';
+  alcance: 'siempre' | 'lead' | 'cuota' | 'mensaje' | 'pago' | 'escrito' | 'analisis' | 'restablecer' | 'linea' | 'grabacion' | 'cancelada' | 'fusion' | 'recordatorio' | 'flow' | 'tracking' | 'pixel' | 'landing' | 'reporte' | 'oferta' | 'anuncios';
   /**
    * UN DATO SECRETO (15/10/2026, docs/diseno-2fa-obligatorio.md §3 y §8): el link de restablecer la contraseña (y
    * después el código del 2FA por correo). Sale SÓLO en el mail a la persona y NUNCA se guarda: `sinSecretos` lo saca
@@ -203,7 +206,7 @@ export type VariableAviso = {
 
 export type GrupoVariable =
   | 'lead' | 'crm' | 'reuniones' | 'pagos' | 'campana' | 'formulario' | 'curso' | 'cerebro' | 'dashboard' | 'momento' | 'links' | 'cuenta' | 'linea'
-  | 'anuncios';
+  | 'anuncios' | 'landing';
 
 /**
  * Las ramas del árbol, en orden, con su ícono (el `name` de `<Icon>`, app/_components/icons.tsx).
@@ -225,6 +228,7 @@ export const GRUPOS_VARIABLES: ReadonlyArray<{ key: GrupoVariable; titulo: strin
   { key: 'cuenta', titulo: 'Cuenta de MaKo', icono: 'perfil' },
   { key: 'linea', titulo: 'WhatsApp del negocio', icono: 'whatsapp' },
   { key: 'anuncios', titulo: 'Cuenta publicitaria', icono: 'meta' },
+  { key: 'landing', titulo: 'Landing y Pixel', icono: 'web' },
 ];
 
 /**
@@ -405,6 +409,27 @@ export const VARIABLES_AVISO: VariableAviso[] = [
   // ── Las tomas de video que quedaron sin tomar (17/10/2026, el evento de la plataforma `flow_puente_ausente`): las pasa el
   //    cron flow-abandono. La cantidad con su unidad, como «42 min» de la grabación.
   { key: 'flow_tomas', label: 'Tomas sin tomar', ejemplo: '3 tomas', alcance: 'flow', grupo: 'cuenta', rama: 'Los videos', fuente: 'flow', soloPara: 'equipo' },
+  // ── La LANDING y el PIXEL de un negocio (17/10/2026, «nada por detrás», lote 3): los pasa el cron tracking-vigilante
+  //    (lib/tracking-aviso.ts). Lo que el código elegía —si el Pixel viejo graba, si lo agregado se puede medir— se PREGUNTA en
+  //    la CONDITION (`condicion`), con un texto literal por caso.
+  { key: 'tracking_dias', label: 'Días sin visitas', ejemplo: '3 días', alcance: 'tracking', grupo: 'landing', rama: 'Sin visitas', fuente: 'tracking', soloPara: 'equipo' },
+  { key: 'tracking_ultima', label: 'Fecha de la última visita', ejemplo: '14 de octubre', alcance: 'tracking', grupo: 'landing', rama: 'Sin visitas', fuente: 'tracking', soloPara: 'equipo' },
+  { key: 'tracking_link', label: 'Link a la landing en Integraciones', ejemplo: 'https://hola-mako.com/integraciones?abrir=landing', alcance: 'tracking', grupo: 'landing', rama: 'Sin visitas', fuente: 'tracking', soloPara: 'equipo' },
+  {
+    key: 'pixel_graba', label: 'Graba las visitas', ejemplo: 'no graba', alcance: 'pixel', grupo: 'landing', rama: 'El Pixel viejo', fuente: 'pixel', soloPara: 'equipo',
+    condicion: { rotulo: ['El Pixel viejo', 'El Pixel viejo no'], tipo: 'opciones', opciones: [{ value: 'no graba', label: 'No graba las visitas' }, { value: 'graba', label: 'Graba las visitas' }] },
+  },
+  { key: 'pixel_paginas', label: 'Las páginas con el Pixel viejo', ejemplo: '· https://tu-pagina.com/vsl', alcance: 'pixel', grupo: 'landing', rama: 'El Pixel viejo', fuente: 'pixel', soloPara: 'equipo' },
+  { key: 'pixel_novedades', label: 'Lo que se está perdiendo', ejemplo: 'la grabación de cada visita · el mapa de calor', alcance: 'pixel', grupo: 'landing', rama: 'El Pixel viejo', fuente: 'pixel', soloPara: 'equipo' },
+  { key: 'pixel_link', label: 'Link para copiar el Pixel', ejemplo: 'https://hola-mako.com/integraciones?abrir=landing', alcance: 'pixel', grupo: 'landing', rama: 'El Pixel viejo', fuente: 'pixel', soloPara: 'equipo' },
+  { key: 'landing_pagina', label: 'La página', ejemplo: 'https://tu-pagina.com/vsl', alcance: 'landing', grupo: 'landing', rama: 'Lo que cambió', fuente: 'landing', soloPara: 'equipo' },
+  { key: 'landing_agregaste', label: 'Lo que se agregó', ejemplo: 'un video', alcance: 'landing', grupo: 'landing', rama: 'Lo que cambió', fuente: 'landing', soloPara: 'equipo' },
+  {
+    key: 'landing_medible', label: 'Se puede medir', ejemplo: 'sí', alcance: 'landing', grupo: 'landing', rama: 'Lo que cambió', fuente: 'landing', soloPara: 'equipo',
+    condicion: { rotulo: ['Lo agregado se puede medir', 'Lo agregado no se puede medir'], tipo: 'opciones', opciones: [{ value: 'sí', label: 'Sí' }, { value: 'no', label: 'No' }] },
+  },
+  { key: 'landing_sacaste', label: 'Lo que se sacó', ejemplo: 'el formulario', alcance: 'landing', grupo: 'landing', rama: 'Lo que cambió', fuente: 'landing', soloPara: 'equipo' },
+  { key: 'landing_link', label: 'Link a la landing en Integraciones', ejemplo: 'https://hola-mako.com/integraciones?abrir=landing', alcance: 'landing', grupo: 'landing', rama: 'Lo que cambió', fuente: 'landing', soloPara: 'equipo' },
   // ── El reporte de los lunes YA ARMADO (16/10/2026, el evento de la plataforma `reporte_semanal`): lo pasa el cron.
   //    Son los números del negocio (Meta, ventas, cobranza), por eso van en el Dashboard.
   { key: 'reporte_titulo', label: 'Título del reporte', ejemplo: 'Reporte semanal · 05/10/2026–11/10/2026', alcance: 'reporte', grupo: 'dashboard', rama: 'El reporte semanal', fuente: 'reporte', soloPara: 'equipo' },
@@ -578,6 +603,10 @@ export type ContextoDatos = {
   conRecordatorio?: boolean;
   /** Las tomas de video sin tomar de un negocio (el evento de la plataforma `flow_puente_ausente`). */
   conFlow?: boolean;
+  /** La landing de un negocio que dejó de mandar visitas, su Pixel viejo o lo que cambió (los eventos del cron tracking-vigilante). */
+  conTracking?: boolean;
+  conPixel?: boolean;
+  conLanding?: boolean;
   /** El reporte semanal ya armado de un negocio (el evento de la plataforma `reporte_semanal`). */
   conReporte?: boolean;
   /** La oferta que MaKo terminó de armar (el evento de la plataforma `oferta_lista`). */
@@ -618,6 +647,9 @@ function alcanzaPara(a: VariableAviso['alcance'], opts: ContextoDatos): boolean 
   if (a === 'fusion') return opts.conFusion === true;
   if (a === 'recordatorio') return opts.conRecordatorio === true;
   if (a === 'flow') return opts.conFlow === true;
+  if (a === 'tracking') return opts.conTracking === true;
+  if (a === 'pixel') return opts.conPixel === true;
+  if (a === 'landing') return opts.conLanding === true;
   if (a === 'reporte') return opts.conReporte === true;
   if (a === 'oferta') return opts.conOferta === true;
   if (a === 'anuncios') return opts.conAnuncios === true;

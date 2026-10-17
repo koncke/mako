@@ -10213,3 +10213,30 @@ teléfono sigue con su lectura que traga errores (`listNotificaciones` sin `estr
 **Vive en:** `lib/reunion-cancelada.ts` · `lib/curso-mensajes-texto.ts` (`datosRecordatorioDueno`) · `lib/curso-mensajes.ts` · `lib/lead-fusionado.ts` · `lib/leads.ts` (`avisarFusion`) · `tests/lead-fusionado-evento.test.ts` · `lib/disparadores.ts` (`reunion_cancelada`) · `lib/variables-aviso.ts`
 (`cancelada_*`) · `lib/plantillas-automatizaciones.ts` (`mako-reunion-cancelada`) · `app/api/webhooks/calendly/route.ts`
 · test: `tests/reunion-cancelada-evento.test.ts`
+
+## «Nada por detrás», lote 3: el Pixel y la landing, con una CONDITION en vez de frases del código (17/10/2026)
+
+- **`tracking-apagado` lo escribía una IA** (`emitirDelCatalogo` con `contexto`): cada aviso costaba una llamada y los días
+  y la fecha (en ISO) llegaban como el modelo quisiera. Ahora es el evento `tracking_apagado` con su texto literal; los
+  días y la fecha de la última visita (en la zona del negocio, `fechaLegible`) son datos.
+- **Cuando el código elige la frase según el caso, no va un dato con la frase: va una CONDITION** sobre un dato con
+  `condicion: { tipo: 'opciones' }` (la pieza 1 del inventario, la del lote 1). El Pixel viejo pregunta «graba / no graba»
+  (`pixel_graba`) y la landing que cambió «se puede medir» (`landing_medible`), cada caso con su texto en la fila. Lo que
+  era «una página / varias / ninguna» es un renglón opcional (`pixel_paginas` falta si no se pudo nombrar ninguna), y «en
+  esa página / en cada página» pasó a «en lugar del código viejo», que sirve para todos.
+- ⚠️ **Tres fuentes, no una**: con una sola `tracking` para los tres, el «{ }» de la automatización de la landing sin visitas
+  ofrecía los datos del Pixel y del cambio, que ese evento no trae (`variablesPara` filtra por el alcance). Cada evento
+  trae lo suyo (`tracking`, `pixel`, `landing`), con un grupo nuevo «Landing y Pixel».
+- **Las opciones de la CONDITION van escritas en lib/variables-aviso.ts**, como las de la cuenta publicitaria, y no
+  importadas del módulo del cron: ese archivo lo importa el editor del navegador.
+- **Lo que se pierde, a propósito:** el negocio ya no apaga «El Pixel de MaKo quedó viejo» desde /mensajes (era `'on'`, «se
+  puede apagar»): como todo evento de la plataforma, lo configura SuperAdmin (`AVISOS_SOLO_SUPERADMIN`).
+
+- **Las filas van ANTES del deploy**, como en el lote 2: #273 (`tracking_apagado`), #274 (`pixel_viejo`) y #275
+  (`landing_cambio`) del ws 9, con `scripts/mudanza-avisos-plataforma.mts --eventos=… --aplicar` el 17/10.
+
+**Lo que quedó SIN hacer de la familia:** `lead-de-landing` (track/optin), `prueba-grabada` y `prueba-recibida`.
+
+**Vive en:** `lib/tracking-aviso.ts` · `app/api/cron/tracking-vigilante/route.ts` · `lib/disparadores.ts` (`tracking_apagado`,
+`pixel_viejo`, `landing_cambio`) · `lib/variables-aviso.ts` · `lib/plantillas-automatizaciones.ts` (`mako-tracking-apagado`,
+`mako-pixel-viejo`, `mako-landing-cambio`) · test: `tests/tracking-evento.test.ts`
