@@ -419,4 +419,25 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/admin/operaciones?panel=mapa',
   },
+  {
+    fecha: '17 oct', hora: '07:10', chat: 'Second Brain', sesion: 'local_26ff7b73-b712-4726-9882-89617840bf7c', cuenta: 'claude4',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'La construcción de MaKo es la segunda capa del grafo, y /admin/dev lleva ahí',
+    pedido: 'Para el SUPER ADMIN suma además la CONSTRUCCIÓN DE MAKO: las áreas, los chats, las bitácoras, los hitos. Había otro grafo de eso que hay que DEPRECAR al 100%.',
+    puntos: [
+      'Arriba a la derecha del Second Brain, sólo para ti, «Negocio · Construcción». La construcción muestra cada área con su bitácora, sus últimos hitos y los chats jefe que trabajan en ella.',
+      'Se ve qué chat trabaja en qué área y qué áreas comparten código. Cada punto lleva a su bitácora o a su «Revisar».',
+      'La vista vieja de /admin/dev se borró: ahora lleva a esta capa. Las páginas de cada área siguen.',
+      'En el teléfono, el mismo selector y la construcción en listas.',
+    ],
+    archivos: [
+      'lib/cerebro-construccion.ts — el grafo de la construcción (puro)',
+      'lib/cerebro-construccion-datos.ts — lo lee del registro de /admin/dev',
+      'lib/cerebro-modelo.ts — la taxonomía de un grafo',
+      'app/second-brain/VistaCerebro.tsx — el selector de capa',
+      'app/m/second-brain/ConstruccionM.tsx — el teléfono',
+      'tests/second-brain-construccion.test.ts',
+    ],
+    revisar: '/admin/operaciones?panel=mapa&capa=construccion',
+  },
 ];

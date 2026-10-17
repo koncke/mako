@@ -47,7 +47,7 @@ El id es estable y sale de la clave de la fuente (un id inestable rearma el mapa
 | **Objetivo y KPI** (nuevo: «los gráficos y los datos del negocio») | `objectives`, `kpis` (los números de /general) | `okr:<id>`, `kpi:<id>` | el KPI mide su objetivo; los dos, sus funnels | cliente |
 | **Chat con MaKo** (nuevo) | `chart_sessions` de quien mira | `chat:<id>` | el área de lo que habló (por las palabras de su título) | sólo quien mira: es SU chat |
 | **Chat de Offer** (nuevo) | `offer_sesiones` (las 6 más recientes) | `offerchat:<id>` | la oferta principal | cliente |
-| Área MaKo, chat jefe, bitácora, hito | `app/admin/dev/areas.ts`, `registros.ts`, `operaciones/tabs.ts` | `dev:`, `jefe:`, `hito:` | hito → área → familia; jefe → área | **sólo el super admin**, capa «Construcción» |
+| Área MaKo (con su bitácora), chat jefe, hito | `app/admin/dev/areas.ts` + `registros.ts` (todo en el build) | `dev:<slug>`, `jefe:<título>`, `hito:<slug>:<n>` | hito → su área y su chat; jefe → cada área donde anotó; área ↔ área si comparten código; las áreas → su familia | **sólo el super admin**, capa «Construcción» |
 
 **Las hojas del Dashboard no entran** (se pensó al revés al empezar): viven en `graficos.tablero.<persona>`, son la
 vista de CADA persona sobre los datos, no un dato del negocio. Los números que el negocio se propuso medir son los

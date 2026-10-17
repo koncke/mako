@@ -32,7 +32,10 @@
 // =============================================================================
 
 import { useMemo, useState, useRef, useEffect, useCallback, Fragment, type ReactNode } from 'react';
-import { AREAS, NIVEL1, AUTORIA_TEXTO, radioNodo, type Cerebro, type NodoCerebro, type AreaId, type Punto } from '@/lib/cerebro-modelo';
+import { AUTORIA_TEXTO, TAXONOMIA_NEGOCIO, radioNodo, type AreaGrafo, type Cerebro, type AreaId, type Punto } from '@/lib/cerebro-modelo';
+import type { NodoCerebro as NodoNegocio } from '@/lib/cerebro-modelo';
+/** Un nodo de CUALQUIER grafo que dibuja este componente (el del negocio o el de la construcción de MaKo). */
+type NodoCerebro = NodoNegocio<string>;
 // Lo que el Second Brain del teléfono (app/m/second-brain) lee IGUAL que este mapa: el conteo de cada área,
 // los grados, el color de cada punto y qué documento se puede mirar. Vive en un módulo puro porque este es
 // 'use client' (AGENTS.md, MaKo Mobile: lo que /m reusa se muda a lib; nunca una copia).
@@ -124,7 +127,8 @@ function hashDe(id: string): number {
 }
 
 export function Grafo({ cerebro, onEditarArea, onVerse, filtro, onFiltro: setFiltro, accion }: {
-  cerebro: Cerebro;
+  /** El grafo, con su taxonomía (sin ella, la del negocio). El de la construcción de MaKo trae la suya. */
+  cerebro: Cerebro<string>;
   /** Abre el EDITOR de un área en una caja encima del grafo (VistaCerebro → AreasHub). Sólo con una intención
    *  explícita: el botón «Editar» de la barra lateral o el del estado vacío. Tocar un nodo NO lo llama, jamás
    *  (Martín, 17/10/2026: «al tocar un nodo NO aparece nada abajo»). Si no se pasa, no hay botón «Editar». */
@@ -143,6 +147,10 @@ export function Grafo({ cerebro, onEditarArea, onVerse, filtro, onFiltro: setFil
   accion?: ReactNode;
 }) {
   const { nodos, aristas, cuenta, posiciones, encuadre } = cerebro;
+  /** LA TAXONOMÍA de este grafo: la del negocio, o la de la construcción de MaKo (super admin). Pinta, agrupa, navega y
+   *  filtra; el filtro de áreas y el editor de cada una son sólo del negocio (`esNegocio`). */
+  const tax = cerebro.taxonomia ?? TAXONOMIA_NEGOCIO;
+  const esNegocio = !cerebro.taxonomia;
 
   const svgRef = useRef<SVGSVGElement | null>(null);
   const gRef = useRef<SVGGElement | null>(null);
@@ -287,7 +295,7 @@ export function Grafo({ cerebro, onEditarArea, onVerse, filtro, onFiltro: setFil
   /** El predicado vive en lib/cerebro-filtro.ts: lo comparten el mapa y el exportador.
    *  Dos ideas de «qué se ve» divergen, y acá el costo es que el ZIP traiga algo
    *  distinto de lo que la pantalla mostró. */
-  const pasaVer = useCallback((n: NodoCerebro) => pasaFiltro(n, filtro), [filtro]);
+  const pasaVer = useCallback((n: NodoCerebro) => pasaFiltro(n, filtro, tax), [filtro, tax]);
 
 
   // Refs para que `visible()` no cambie de identidad en cada tecla: lo consumen el
@@ -504,7 +512,7 @@ export function Grafo({ cerebro, onEditarArea, onVerse, filtro, onFiltro: setFil
   // Precedencia, de arriba abajo, el primero que matchea gana. Es la de Obsidian:
   // el color de grupo gana contra el tipo pero nunca tapa un estado interactivo.
   // La regla vive en lib/cerebro-areas.ts (`rellenoNodo`): el teléfono pinta cada punto con la misma.
-  const rellenoDe = (n: NodoCerebro): string => rellenoNodo(n);
+  const rellenoDe = (n: NodoCerebro): string => rellenoNodo(n, tax);
 
 
 
@@ -861,7 +869,9 @@ export function Grafo({ cerebro, onEditarArea, onVerse, filtro, onFiltro: setFil
   };
 
 
-  const areaDe = (id: AreaId) => AREAS.find((a) => a.id === id)!;
+  const areaDe = (id: string): AreaGrafo => tax.areas.find((a) => a.id === id) ?? { id, padre: '', nombre: id, color: 'var(--sidebar-text)', que: '' };
+  /** El filtro de áreas guarda ids como texto: sirve para las dos taxonomías (lib/cerebro-filtro.ts). */
+  const areasFiltradas = filtro.areas as ReadonlySet<string>;
 
   /** Cuántos datos REALES tiene cada sección. No cuenta el nodo de la propia área ni los
    *  pendientes: un «3 datos» que incluye lo que falta miente sobre lo que hay. */
@@ -870,7 +880,7 @@ export function Grafo({ cerebro, onEditarArea, onVerse, filtro, onFiltro: setFil
   /** El área «en foco» no es un estado propio: ES el filtro cuando hay UNA sección
    *  elegida. Con dos o más no hay foco — atenuar «todo menos estas tres» no dice nada
    *  que el propio filtro no diga ya escondiéndolas. */
-  const areaFoco: AreaId | null = filtro.areas.size === 1 ? [...filtro.areas][0] : null;
+  const areaFoco: string | null = filtro.areas.size === 1 ? [...areasFiltradas][0] : null;
 
   /** Los dos nodos con significado propio: el Norte (dorado) y el cuello de botella
    *  (naranja). El lienzo los pintaba distinto y no los explicaba en ningún lado. */
@@ -886,7 +896,7 @@ export function Grafo({ cerebro, onEditarArea, onVerse, filtro, onFiltro: setFil
     const cuello = nodos.find((n) => n.alerta);
     if (norte) out.push({ value: norte.id, label: `Tu Norte · ${norte.etiqueta}` });
     if (cuello) out.push({ value: cuello.id, label: `Tu cuello de botella · ${cuello.etiqueta}` });
-    for (const a of AREAS) {
+    for (const a of tax.areas) {
       const dentro = nodos.filter((n) => n.area === a.id && !n.id.startsWith('area:') && n.id !== 'raiz' && n.autoria !== 'pendiente');
       if (!dentro.length) continue;
       const mejor = dentro.reduce((x, y) => ((grados[y.id] ?? 0) > (grados[x.id] ?? 0) ? y : x));
@@ -951,14 +961,14 @@ export function Grafo({ cerebro, onEditarArea, onVerse, filtro, onFiltro: setFil
   }, [fijado, aristas, porId]);
 
   /** Las conexiones agrupadas por área, con la regla que comparte el teléfono (lib/cerebro-areas.ts). */
-  const gruposConexion = useMemo(() => agruparConexiones(conexiones, verTodas ? null : TOPE_CONEXIONES), [conexiones, verTodas]);
+  const gruposConexion = useMemo(() => agruparConexiones(conexiones, verTodas ? null : TOPE_CONEXIONES, tax), [conexiones, verTodas, tax]);
 
   /** Los pares del nodo fijado que tienen valor: nada se dibuja vacío. */
   const datosSel = useMemo(() => (nodoSel?.datos ?? []).filter((d) => d.v && d.v.trim()), [nodoSel]);
   const puedeVerDoc = !!nodoSel && nodoSel.id.startsWith('doc:') && sePuedeVer(nodoSel.mime);
   // Lo que se edita en OTRA pantalla (una oferta en Offer, un funnel en el CRM) lleva ahí; el «Editar» del área es
   // para lo que se edita acá.
-  const puedeEditar = !!nodoSel && !!onEditarArea && !nodoSel.href && nodoSel.id !== 'raiz' && !nodoSel.id.startsWith('n1:');
+  const puedeEditar = esNegocio && !!nodoSel && !!onEditarArea && !nodoSel.href && nodoSel.id !== 'raiz' && !nodoSel.id.startsWith('n1:');
   /** «Lo último»: los datos más recientes, en el navegador. */
   const ultimos = useMemo(() => ultimosDelCerebro(nodos), [nodos]);
 
@@ -1195,7 +1205,7 @@ export function Grafo({ cerebro, onEditarArea, onVerse, filtro, onFiltro: setFil
       let dy = p.y - cy;
       if (Math.hypot(dx, dy) < 1) { dx = -1; dy = -1; }
       const t = Math.min(hw / Math.max(Math.abs(dx), 1e-6), hh / Math.max(Math.abs(dy), 1e-6));
-      return [{ id: n.id, inicio: arranque + i * MS_ENTRE_VIAJES, desde: { x: cx + dx * t, y: cy + dy * t }, color: rellenoNodo(n) }];
+      return [{ id: n.id, inicio: arranque + i * MS_ENTRE_VIAJES, desde: { x: cx + dx * t, y: cy + dy * t }, color: rellenoNodo(n, tax) }];
     });
     viajesRef.current = lista;
     setViajes(lista);
@@ -1659,14 +1669,16 @@ export function Grafo({ cerebro, onEditarArea, onVerse, filtro, onFiltro: setFil
               viven el estado y los conteos, que salen del mismo cálculo que dibuja el
               mapa — un contador que no sale de ahí es un contador que se va a
               desincronizar, y ya pasó una vez (decía 14 y el mapa mostraba 5). */}
-          <FiltroMapa
+          {/* El filtro de carpetas, secciones y autoría es del grafo del negocio: el de la construcción se filtra desde el
+              navegador de la barra lateral (sus familias y sus áreas). */}
+          {esNegocio && <FiltroMapa
             filtro={filtro}
             onFiltro={setFiltro}
             abierto={filtroAbierto}
             onAbrir={setFiltroAbierto}
             conteoArea={porArea}
             conteoAutoria={{ mako: cuenta.mako, usuario: cuenta.usuario, falta: cuenta.pendientes }}
-          />
+          />}
           {/* «N de M», que el tablero no tiene y el CRM sí. Sin esto, filtrar y no ver
               nada es indistinguible de que el mapa esté vacío. */}
           {hayFiltro && (
@@ -1949,7 +1961,7 @@ export function Grafo({ cerebro, onEditarArea, onVerse, filtro, onFiltro: setFil
               <button
                 type="button"
                 className="cbg-area-btn"
-                onClick={() => setFiltro((f) => ({ ...f, areas: f.areas.has(nodoSel.area) ? new Set() : new Set([nodoSel.area]) }))}
+                onClick={() => setFiltro((f) => ({ ...f, areas: (f.areas as ReadonlySet<string>).has(nodoSel.area) ? new Set() : new Set([nodoSel.area as AreaId]) }))}
                 aria-pressed={areaFoco === nodoSel.area}
                 title={areaFoco === nodoSel.area ? 'Ver todo' : `Ver sólo ${areaDe(nodoSel.area).nombre}`}
               >
@@ -2047,7 +2059,7 @@ export function Grafo({ cerebro, onEditarArea, onVerse, filtro, onFiltro: setFil
                 </ButtonLink>
               )}
               {puedeEditar && (
-                <Button variant={nodoSel.autoria === 'pendiente' ? 'primary' : 'secondary'} full onClick={() => onEditarArea?.(nodoSel.area)}>
+                <Button variant={nodoSel.autoria === 'pendiente' ? 'primary' : 'secondary'} full onClick={() => onEditarArea?.(nodoSel.area as AreaId)}>
                   {nodoSel.autoria === 'pendiente' ? `Completar ${areaDe(nodoSel.area).nombre}` : `Editar ${areaDe(nodoSel.area).nombre}`}
                 </Button>
               )}
@@ -2095,8 +2107,8 @@ export function Grafo({ cerebro, onEditarArea, onVerse, filtro, onFiltro: setFil
               </div>
             )}
 
-            {NIVEL1.map((c: (typeof NIVEL1)[number]) => {
-              const suyas = AREAS.filter((a) => a.padre === c.id);
+            {tax.carpetas.map((c) => {
+              const suyas = tax.areas.filter((a) => a.padre === c.id);
               if (!suyas.length) return null;
               return (
                 <div key={c.id} className="cbg-nav__carpeta">
@@ -2121,11 +2133,12 @@ export function Grafo({ cerebro, onEditarArea, onVerse, filtro, onFiltro: setFil
                           <button
                             type="button"
                             className="cbg-nav-fila"
-                            aria-pressed={filtro.areas.has(a.id)}
+                            aria-pressed={areasFiltradas.has(a.id)}
                             onClick={() => {
                               setFiltro((f) => {
                                 const as = new Set(f.areas);
-                                if (as.has(a.id)) as.delete(a.id); else as.add(a.id);
+                                const id = a.id as AreaId;
+                                if (as.has(id)) as.delete(id); else as.add(id);
                                 return { ...f, areas: as };
                               });
                               irA(`area:${a.id}`, false);
@@ -2137,11 +2150,11 @@ export function Grafo({ cerebro, onEditarArea, onVerse, filtro, onFiltro: setFil
                             {/* El conteo dice si hay algo; el «falta» dice que no. Nunca un 0. */}
                             <span className="cbg-nav__conteo" data-falta={n ? undefined : '1'}>{n || 'falta'}</span>
                           </button>
-                          {onEditarArea && (
+                          {onEditarArea && esNegocio && (
                             <button
                               type="button"
                               className="cbg-nav-abrir"
-                              onClick={() => onEditarArea(a.id)}
+                              onClick={() => onEditarArea(a.id as AreaId)}
                               title={`Editar ${a.nombre}`}
                               aria-label={`Editar ${a.nombre}`}
                             >Editar</button>

@@ -122,14 +122,26 @@ export const colorArea = (id: AreaId): string =>
 
 export type AreaId = (typeof AREAS)[number]['id'];
 
+/**
+ * LA TAXONOMÍA DE UN GRAFO: las carpetas madre y las áreas que lo pintan, lo agrupan y lo filtran. La del negocio es
+ * NIVEL1 + AREAS (y es la de siempre, el default en todos lados). Desde el 17/10/2026 hay otra: la de la CONSTRUCCIÓN
+ * DE MAKO que ve el super admin (lib/cerebro-construccion.ts), con las familias de /admin/dev como áreas. El mismo
+ * componente dibuja los dos grafos; lo que cambia es esto.
+ */
+export type CarpetaGrafo = { id: string; nombre: string; que: string };
+export type AreaGrafo = { id: string; padre: string; nombre: string; color: string; que: string };
+export type Taxonomia = { carpetas: readonly CarpetaGrafo[]; areas: readonly AreaGrafo[] };
+export const TAXONOMIA_NEGOCIO: Taxonomia = { carpetas: NIVEL1, areas: AREAS };
+
 /** Quién puso este nodo. Es la única dimensión de color permanente del lienzo:
  *  un borde, nunca un relleno — «un filo de 3 px alcanza; fondos de color
  *  distinto son una bolsa de caramelos» (la regla ya escrita en ui.css). */
 export type Autoria = 'mako' | 'usuario' | 'pendiente';
 
-export type NodoCerebro = {
+/** `A` es el tipo de las áreas: las del negocio por defecto (AreaId); un grafo con otra taxonomía usa `string`. */
+export type NodoCerebro<A extends string = AreaId> = {
   id: string;
-  area: AreaId;
+  area: A;
   /** Lo que se dibuja al lado del punto. Corto: es una etiqueta, no una frase. */
   etiqueta: string;
   /** El hover: qué es esto, en las palabras del propio dato cuando se puede. */
@@ -203,13 +215,13 @@ export type Punto = { x: number; y: number };
  *  asentadas, no es fijo: un negocio con 12 nodos y otro con 300 se ven igual de bien. */
 export type Encuadre = { x: number; y: number; lado: number };
 
-export type Cerebro = {
+export type Cerebro<A extends string = AreaId> = {
   negocio: string;
-  nodos: NodoCerebro[];
+  nodos: NodoCerebro<A>[];
   aristas: AristaCerebro[];
   cuenta: { total: number; mako: number; usuario: number; pendientes: number };
   /** Las áreas que todavía no tienen un solo nodo real. */
-  vacias: AreaId[];
+  vacias: A[];
   /**
    * Dónde va cada nodo. Se calcula EN EL SERVIDOR con d3-force (lib/cerebro-layout.ts)
    * y viaja como números: así el motor de física nunca entra al bundle del browser.
@@ -219,4 +231,6 @@ export type Cerebro = {
   /** La huella del CONTENIDO (ids, nombres, textos, datos y aristas). El grafo vivo la manda al pedir de nuevo
    *  (`/api/second-brain/cerebro?huella=`) y sólo se redibuja si cambió. */
   huella?: string;
+  /** La taxonomía de este grafo; sin ella, la del negocio (TAXONOMIA_NEGOCIO). */
+  taxonomia?: Taxonomia;
 };

@@ -23,6 +23,36 @@ hay), `lib/cerebro-layout.ts` (dónde va cada uno), `lib/cerebro-modelo.ts` (la 
 
 ---
 
+## La construcción de MaKo, como segunda capa del super admin (17/10/2026, punto 13b)
+
+`lib/cerebro-construccion.ts` (puro) arma el grafo de las áreas con bitácora, sus últimos hitos y los chats jefe;
+`lib/cerebro-construccion-datos.ts` lo junta del registro de /admin/dev. Reemplaza a `MapaAreas.tsx` (borrado);
+`/admin/dev` lleva a `/admin/operaciones?panel=mapa&capa=construccion`.
+
+- **El mismo componente dibuja los dos grafos: lo que cambia es la TAXONOMÍA.** `NodoCerebro<A>` y `Cerebro<A>` son
+  genéricos (el default es `AreaId`, así que el código del negocio no cambió) y el grafo trae `taxonomia` (carpetas y
+  áreas con su color). Grafo.tsx pinta, agrupa, navega y filtra con ella (`rellenoNodo(n, tax)`, `pasaFiltro(n, f, tax)`,
+  `agruparConexiones(…, tax)`); el filtro de secciones, el editor y «Exportar» son sólo del negocio (`esNegocio`).
+- **El hub, medido con el registro real (56 áreas):** con los hitos adentro del racimo de su familia daba 14,8× (el tope
+  de `scripts/medir-grafo.mjs` es 4,5×); con los jefes adentro, 6,5×. El racimo es sólo de las ÁREAS; un hito cuelga de su
+  área y de su chat, un jefe de las áreas donde anotó. Quedó: 176 nodos, 16 % de hojas, hub 4,0×, densidad 1,63, una
+  sola isla.
+- **El layout de ~180 nodos cuesta segundos** (4,4 s medidos con la máquina cargada; ~100 nodos del negocio, décimas).
+  Las bitácoras viajan en el build y no cambian entre deploys: la capa se guarda armada 10 minutos en memoria.
+- **Un chat jefe es un TÍTULO** (`claveDeNombre`, la misma clave del Centro), con la ventana del Centro (14 días) y dos
+  hitos o más: con 30 días y un hito eran 48 jefes, la mitad de un solo hito.
+- **«Comparten código» no cuenta los archivos que están en todas** (más de 6 áreas): `lib/workspace.ts` une todo con todo
+  y no dice nada. Con dos archivos o más en común quedan 19 aristas laterales, las que sacan al mapa de la forma de
+  estrella.
+- **La fecha de un hito va en la hora de Argentina con su desfase** (`isoDeHito`): la fecha corta sale del texto, y un
+  hito de las 22:30 escrito en UTC caía al día siguiente.
+- **La guarda es la del Centro, sin copiarla**: `puedeOperar(getSesionAdmin(), wsSuperAdmin())` adentro de `quienOpera()`
+  (app/second-brain/pagina.tsx), que usa también el teléfono. `mapaDelSecondBrain()` no cambió de firma a propósito: la
+  página del Ops Center la llama así y `tests/second-brain-chat.test.ts` lo mira con un regex sobre un archivo que es del
+  Ops Center.
+- **«Dev» en la barra de admin ahora cae en el grafo.** La barra de Dev (las 122 áreas, `familiasDev`) sigue apareciendo
+  en `/admin/dev/<área>`, que es a donde lleva cada nodo («Abrir en su bitácora»).
+
 ## Lo que el negocio TIENE, como nodos, y el nodo que viaja (17/10/2026, punto 13a)
 
 `lib/cerebro-vivo.ts` (puro) suma ofertas, lead magnets, funnels, leads, objetivos/KPI y chats; las lecturas van en el

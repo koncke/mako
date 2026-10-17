@@ -37,7 +37,7 @@ import { forceSimulation, forceLink, forceManyBody, forceCollide, forceX, forceY
 // colisión de esta simulación y el dibujo del cliente. Cuando estaba escrito en los
 // dos archivos, cada uno llevaba un comentario avisando que si divergían los nodos se
 // pisaban — que es la señal de que estaba en el lugar equivocado.
-import { radioNodo, type AreaId, type NodoCerebro, type AristaCerebro } from './cerebro-modelo';
+import { radioNodo, type NodoCerebro, type AristaCerebro } from './cerebro-modelo';
 
 export type Punto = { x: number; y: number };
 export type Encuadre = { x: number; y: number; lado: number };
@@ -113,7 +113,7 @@ function semilla(id: string, n: number): Punto {
 
 /** Identifica un grafo + su receta. Sirve para saber si un layout guardado sigue
  *  valiendo sin volver a simular. */
-export function huellaDe(nodos: NodoCerebro[], aristas: AristaCerebro[]): string {
+export function huellaDe(nodos: readonly Pick<NodoCerebro<string>, 'id'>[], aristas: AristaCerebro[]): string {
   const ns = nodos.map((n) => n.id).sort().join(',');
   const as = aristas.map((a) => `${a.de}>${a.a}`).sort().join(',');
   let h = 2166136261;
@@ -122,7 +122,7 @@ export function huellaDe(nodos: NodoCerebro[], aristas: AristaCerebro[]): string
   return (h >>> 0).toString(36);
 }
 
-type NodoSim = SimulationNodeDatum & { id: string; area: AreaId; r: number; x: number; y: number };
+type NodoSim = SimulationNodeDatum & { id: string; area: string; r: number; x: number; y: number };
 type LinkSim = SimulationLinkDatum<NodoSim>;
 
 /**
@@ -130,7 +130,7 @@ type LinkSim = SimulationLinkDatum<NodoSim>;
  * anterior: si se pasan, los nodos que ya existían arrancan de ahí y se re-acomodan
  * poco, en vez de que el mapa entero se rearme porque entró un dato.
  */
-export function layoutCerebro(nodos: NodoCerebro[], aristas: AristaCerebro[], previo?: Record<string, Punto>): Layout {
+export function layoutCerebro(nodos: NodoCerebro<string>[], aristas: AristaCerebro[], previo?: Record<string, Punto>): Layout {
   const grados = gradosDe(nodos, aristas);
   const n = nodos.length;
 

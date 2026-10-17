@@ -13,6 +13,8 @@ import '../second-brain.css';
 import { requireMovil } from '@/lib/movil-guard';
 import { construirCerebro } from '@/lib/cerebro-grafo';
 import { chatsMakoDeQuienMira } from '@/lib/cerebro-chats';
+import { construccionDeMako } from '@/lib/cerebro-construccion-datos';
+import { quienOpera } from '@/app/second-brain/pagina';
 import type { Cerebro } from '@/lib/cerebro-modelo';
 import { ComputadoraM, ErrorM, PantallaM } from '@/app/m/_ui';
 import { SecondBrainM } from '../SecondBrainM';
@@ -28,6 +30,8 @@ export default async function MapaSecondBrainPagina({ searchParams }: {
   const sp = await searchParams;
 
   let cerebro: Cerebro;
+  // La construcción de MaKo, sólo para quien opera (la misma guarda que la computadora, app/second-brain/pagina.tsx).
+  const construccion = (await quienOpera()) ? construccionDeMako() : null;
   try {
     cerebro = await construirCerebro({ chatsMako: await chatsMakoDeQuienMira() });
   } catch (e) {
@@ -42,7 +46,7 @@ export default async function MapaSecondBrainPagina({ searchParams }: {
 
   return (
     <PantallaM>
-      <SecondBrainM cerebro={cerebro} areaInicial={areaDeParam(sp.area)} />
+      <SecondBrainM cerebro={cerebro} areaInicial={areaDeParam(sp.area)} construccion={construccion} />
       <ComputadoraM que="El grafo entero y Exportar" />
     </PantallaM>
   );

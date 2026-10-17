@@ -34,7 +34,8 @@ import {
   elegidosPorMako, esCorto, miniMapa, primeraLinea, totalBuscable, type DondeBuscar,
 } from './modelo';
 import { ArchiveroM } from './ArchiveroM';
-import { SUBTITULO_SECOND_BRAIN, TITULO_SECOND_BRAIN } from '@/app/second-brain/VistaCerebro';
+import { SUBTITULO_CONSTRUCCION, SUBTITULO_SECOND_BRAIN, TITULO_SECOND_BRAIN } from '@/app/second-brain/VistaCerebro';
+import { ConstruccionM } from './ConstruccionM';
 
 type Hoja = { tipo: 'area'; area: AreaId } | { tipo: 'dato'; id: string };
 
@@ -44,7 +45,7 @@ type EstadoIA = { pensando: boolean; ids: string[] | null; explico: string };
 const SIN_IA: EstadoIA = { pensando: false, ids: null, explico: '' };
 
 /** El punto de color de un área o un dato, en su baldosa oscura (el lienzo de escritorio, en chico). */
-function Punto({ color, apagado = false }: { color: string; apagado?: boolean }) {
+export function Punto({ color, apagado = false }: { color: string; apagado?: boolean }) {
   return (
     <span className="m-second-brain-punto" aria-hidden>
       <i style={{ color, opacity: apagado ? OPACIDAD_PENDIENTE : 1 }} />
@@ -68,7 +69,7 @@ function ParLargo({ k, v }: { k: string; v: string }) {
 
 /** La foto del mapa: las mismas posiciones del server, sin gestos, adentro del lienzo oscuro. Los puntos NUEVOS desde
  *  la última visita entran viajando desde el borde izquierdo, de a uno (el nodo que viaja de la computadora, en chico). */
-function MapaChico({ cerebro, nuevos }: { cerebro: Cerebro; nuevos: readonly string[] }) {
+export function MapaChico({ cerebro, nuevos }: { cerebro: Cerebro<string>; nuevos: readonly string[] }) {
   const { puntos, lineas } = useMemo(() => miniMapa(cerebro, 340, 200), [cerebro]);
   if (!puntos.length) return null;
   return (
@@ -95,7 +96,15 @@ function MapaChico({ cerebro, nuevos }: { cerebro: Cerebro; nuevos: readonly str
   );
 }
 
-export function SecondBrainM({ cerebro, areaInicial }: { cerebro: Cerebro; areaInicial: AreaId | null }) {
+export function SecondBrainM({ cerebro, areaInicial, construccion = null }: {
+  cerebro: Cerebro;
+  areaInicial: AreaId | null;
+  /** La construcción de MaKo: sólo para quien opera (el servidor la manda null a los demás, mapa/page.tsx). */
+  construccion?: Cerebro<string> | null;
+}) {
+  // Las dos capas del super admin, como en la computadora (VistaCerebro.tsx): el negocio y la construcción de MaKo.
+  const [capa, setCapa] = useState<'negocio' | 'construccion'>('negocio');
+  const enObra = capa === 'construccion' && construccion != null;
   const ws = useWs();
   const [q, setQ] = useState('');
   const [donde, setDonde] = useState<DondeBuscar>('nombre');
@@ -246,9 +255,20 @@ export function SecondBrainM({ cerebro, areaInicial }: { cerebro: Cerebro; areaI
       <CabeceraM accion={accion} grande={false} />
       <section className="m-second-brain-lienzo" data-tema="oscuro" aria-label={TITULO_SECOND_BRAIN}>
         <h1 className="m-second-brain-titulo" data-m-titulo-grande>{TITULO_SECOND_BRAIN}</h1>
-        <p className="m-second-brain-sub">{SUBTITULO_SECOND_BRAIN}</p>
-        {cerebro.cuenta.total > 0 && <MapaChico cerebro={cerebro} nuevos={nuevos} />}
+        <p className="m-second-brain-sub">{enObra ? SUBTITULO_CONSTRUCCION : SUBTITULO_SECOND_BRAIN}</p>
+        {construccion && (
+          <div className="m-second-brain-capas">
+            <SegmentadoM<'negocio' | 'construccion'> etiqueta="Qué grafo ver" valor={capa} onCambio={setCapa}
+              opciones={[{ id: 'negocio', label: 'Negocio' }, { id: 'construccion', label: 'Construcción' }]} />
+          </div>
+        )}
+        {enObra
+          ? construccion.nodos.length > 1 && <MapaChico cerebro={construccion} nuevos={[]} />
+          : cerebro.cuenta.total > 0 && <MapaChico cerebro={cerebro} nuevos={nuevos} />}
       </section>
+
+      {enObra && <ConstruccionM cerebro={construccion} />}
+      {!enObra && (<>
 
       <div className="m-second-brain-buscar" role="search">
         <span className="m-second-brain-buscar__ico" aria-hidden><Icon name="search" size={18} /></span>
@@ -390,6 +410,7 @@ export function SecondBrainM({ cerebro, areaInicial }: { cerebro: Cerebro; areaI
       </SheetM>
 
       <ArchiveroM abierto={subir} onCerrar={() => setSubir(false)} />
+      </>)}
     </>
   );
 }

@@ -77,7 +77,7 @@ test('12 · tocar un nodo no abre nada abajo: editar es «Editar», en una caja 
   const soltar = g.slice(g.indexOf('const soltarNodo = useCallback('), g.indexOf('const irA = useCallback('));
   assert.ok(!soltar.includes('onEditarArea'), 'soltar tampoco');
   // onEditarArea sólo adentro de un onClick de un botón.
-  const usos = g.split('\n').filter((l) => l.includes('onEditarArea') && !/onEditarArea\?: |onEditarArea, |\{ cerebro, onEditarArea|!!onEditarArea|\{onEditarArea && \(/.test(l));
+  const usos = g.split('\n').filter((l) => l.includes('onEditarArea') && !/onEditarArea\?: |onEditarArea, |\{ cerebro, onEditarArea|!!onEditarArea|\{onEditarArea (&& esNegocio )?&& \(/.test(l));
   assert.ok(usos.length > 0 && usos.every((l) => l.includes('onClick')), `sólo en botones: ${usos.join(' | ')}`);
   assert.ok(!/areaAbierta|onAbrirArea/.test(g), 'sin la costura de la sección de abajo');
 
@@ -114,7 +114,7 @@ test('11 y 12 en el teléfono: el lienzo oscuro con el mismo título, y la hoja 
   const m = sinComentarios(leer('app/m/second-brain/SecondBrainM.tsx'));
   assert.match(m, /<section className="m-second-brain-lienzo" data-tema="oscuro"/, 'el grafo del teléfono, en oscuro');
   assert.match(m, /\{TITULO_SECOND_BRAIN\}<\/h1>/);
-  assert.match(m, /\{SUBTITULO_SECOND_BRAIN\}<\/p>/);
+  assert.match(m, /SUBTITULO_SECOND_BRAIN\}<\/p>/);
   assert.match(m, /from '@\/app\/second-brain\/VistaCerebro'/, 'los textos son los de la computadora, no una copia');
   assert.match(m, /agruparConexiones\(conexiones, /, 'la misma regla de agrupar que la barra lateral');
   assert.match(m, /tipoDeNodo\(n\)/, 'el mismo tipo arriba del dato');

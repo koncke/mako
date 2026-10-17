@@ -32,8 +32,16 @@ const MS_GRAFO_VIVO = 180_000;
 
 export const TITULO_SECOND_BRAIN = 'Second Brain';
 export const SUBTITULO_SECOND_BRAIN = 'Todo lo que MaKo sabe de tu negocio.';
+/** La capa del super admin: la construcción de MaKo (lib/cerebro-construccion.ts). */
+export const SUBTITULO_CONSTRUCCION = 'Cómo se está construyendo MaKo.';
+type Capa = 'negocio' | 'construccion';
 
-export function VistaCerebro({ cerebro: delServidor, funnelPanel }: { cerebro: Cerebro; funnelPanel: ReactNode }) {
+export function VistaCerebro({ cerebro: delServidor, construccion = null, funnelPanel }: {
+  cerebro: Cerebro;
+  /** La construcción de MaKo: sólo para quien opera (el servidor la manda null a todos los demás, pagina.tsx). */
+  construccion?: Cerebro<string> | null;
+  funnelPanel: ReactNode;
+}) {
   // ── EL GRAFO VIVO (punto 13, 17/10/2026) ──────────────────────────────────
   // El grafo llega del servidor y se vuelve a pedir cada 3 minutos mientras la pestaña está a la vista. Con la huella
   // del que ya se tiene: si nada cambió, no viaja el grafo ni se redibuja. Si cambió, los nodos nuevos entran VIAJANDO
@@ -63,6 +71,21 @@ export function VistaCerebro({ cerebro: delServidor, funnelPanel }: { cerebro: C
   const [editando, setEditando] = useState<AreaId | null>(areaInicial);
   const volver = useVolverDelGrafo();
 
+  // ── LAS DOS CAPAS (super admin): el negocio que se mira y la construcción de MaKo. Son dos grafos, no uno mezclado:
+  //    la construcción es de la plataforma y el negocio es del workspace. `?capa=construccion` abre en ella. ──
+  const [capa, setCapa] = useState<Capa>(() => (construccion && params?.get('capa') === 'construccion' ? 'construccion' : 'negocio'));
+  const enObra = capa === 'construccion' && construccion != null;
+  const elegirCapa = (c: Capa) => {
+    setCapa(c);
+    try {
+      const u = new URL(window.location.href);
+      if (c === 'construccion') u.searchParams.set('capa', c); else u.searchParams.delete('capa');
+      // `null` y no el estado de Next: con el `__NA` del router, la URL se pisa (docs/hallazgos-operaciones.md).
+      window.history.replaceState(null, '', u);
+    } catch { /* es una comodidad */ }
+  };
+  const [filtroObra, setFiltroObra] = useState<EstadoFiltro>(filtroVacio);
+
   const [filtro, setFiltro] = useState<EstadoFiltro>(filtroVacio);
   /** Lo que el grafo muestra de verdad (filtro + búsquedas): el rótulo de «Exportar» lo usa. */
   const [verse, setVerse] = useState<{ ids: string[]; recortado: boolean }>({ ids: [], recortado: false });
@@ -84,6 +107,14 @@ export function VistaCerebro({ cerebro: delServidor, funnelPanel }: { cerebro: C
         }
         .sb-cab__volver:hover { background: var(--surface-2); color: var(--ink); }
         .sb-cab__volver:focus-visible { outline: 2px solid var(--mako); outline-offset: 2px; }
+        /* El selector de capa del super admin: un segmentado chico, a la derecha de la cabecera. */
+        .sb-capas { margin-left: auto; display: inline-flex; padding: 3px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--border); flex: none; }
+        .sb-capas button {
+          border: none; background: transparent; color: var(--dim); font: inherit; font-size: 12.5px; font-weight: 550;
+          padding: 6px 12px; border-radius: 999px; cursor: pointer; white-space: nowrap;
+        }
+        .sb-capas button[aria-selected="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.3); }
+        .sb-capas button:focus-visible { outline: 2px solid var(--mako); outline-offset: 1px; }
         /* El volver es de la ventana angosta: ahí la lista de chats y el panel no entran juntos
            (app/admin/operaciones/centro.css, el mismo corte de 720 px). */
         @media (max-width: 720px) {
@@ -101,17 +132,30 @@ export function VistaCerebro({ cerebro: delServidor, funnelPanel }: { cerebro: C
         )}
         <div style={{ minWidth: 0 }}>
           <h1 className="sb-cab__titulo">{TITULO_SECOND_BRAIN}</h1>
-          <p className="sb-cab__sub">{SUBTITULO_SECOND_BRAIN}</p>
+          <p className="sb-cab__sub">{enObra ? SUBTITULO_CONSTRUCCION : SUBTITULO_SECOND_BRAIN}</p>
         </div>
+        {construccion && (
+          <div className="sb-capas" role="tablist" aria-label="Qué grafo ver">
+            <button type="button" role="tab" aria-selected={!enObra} onClick={() => elegirCapa('negocio')}>Negocio</button>
+            <button type="button" role="tab" aria-selected={enObra} onClick={() => elegirCapa('construccion')}>Construcción</button>
+          </div>
+        )}
       </header>
-      <Grafo
-        cerebro={cerebro}
-        onEditarArea={setEditando}
-        onVerse={alVerse}
-        filtro={filtro}
-        onFiltro={setFiltro}
-        accion={<BotonExportar cerebro={cerebro} filtroMapa={filtro} recorte={verse} />}
-      />
+      {/* `key`: cambiar de capa es otro grafo (su entrada, su foco y sus vistos), no el mismo con otros datos. La
+          construcción no se edita ni se exporta: es la bitácora de MaKo, y cada nodo lleva a la suya. */}
+      {enObra ? (
+        <Grafo key="construccion" cerebro={construccion} onVerse={alVerse} filtro={filtroObra} onFiltro={setFiltroObra} />
+      ) : (
+        <Grafo
+          key="negocio"
+          cerebro={cerebro}
+          onEditarArea={setEditando}
+          onVerse={alVerse}
+          filtro={filtro}
+          onFiltro={setFiltro}
+          accion={<BotonExportar cerebro={cerebro} filtroMapa={filtro} recorte={verse} />}
+        />
+      )}
       <AreasHub abierta={editando} onAbrir={setEditando} funnelPanel={funnelPanel} vistaInicial={vistaInicial} />
     </div>
   );
