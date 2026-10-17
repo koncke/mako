@@ -77,7 +77,7 @@ export async function sumarTareaAlPlan(ctx: Ctx, chat: string, t: { titulo: stri
     // ⚠️ Puede tapar un alta distinta con el mismo primer renglón: por eso el aviso dice cuál y dónde, y Martín la suma
     // con otro título si no es la misma.
     const ya = yaAbierta(antes.tareas, t.titulo);
-    if (ya) return { ok: true, aviso: avisoDeYaEstaba(ya), plan: await leerPlanDelJefe(ctx, chat) };
+    if (ya) return { ok: true, aviso: avisoDeYaEstaba(ya), plan: await leerPlanDelJefe(ctx, chat), tareaId: ya.id };
   }
   const r = await enElActo('proponer_tareas_plan', { tareas: [{ titulo: t.titulo, detalle: t.detalle, proyecto: t.proyecto }] }, ctx);
   const borrador = typeof r.datos.propuestaId === 'string' ? r.datos.propuestaId : null;
@@ -88,7 +88,8 @@ export async function sumarTareaAlPlan(ctx: Ctx, chat: string, t: { titulo: stri
   const creadas = typeof r.datos.creadas === 'number' ? r.datos.creadas : 1;
   const despues = await listado(ctx);
   const donde = despues.ok ? dondeQuedo(despues.tareas, t.titulo, chat) : null;
-  return { ok: true, aviso: avisoDeAlta(creadas, donde), plan: await leerPlanDelJefe(ctx, chat) };
+  const tareaId = despues.ok ? yaAbierta(despues.tareas, t.titulo)?.id ?? null : null;
+  return { ok: true, aviso: avisoDeAlta(creadas, donde), plan: await leerPlanDelJefe(ctx, chat), tareaId };
 }
 
 /** Cierra UNA tarea abierta con la evidencia. Cerrar no es borrar: queda con su historial y su checklist tildada. */

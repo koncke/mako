@@ -105,3 +105,4 @@ export function borradorQueVale(local: Borrador | null, remoto: Borrador | null)
   if (!remoto) return local;
   return remoto.at > local.at ? remoto : local;
 }
+

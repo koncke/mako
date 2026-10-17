@@ -1015,3 +1015,83 @@
 .co-burbuja__p { display: block; }
 .co-burbuja__lista { margin: 2px 0; padding-left: 20px; white-space: normal; }
 .co-burbuja__lista li { margin: 1px 0; }
+
+/* El «Ya está» de un chat como mensaje (17/10/2026, la C), copiado de las tarjetas de tarea completada de Linear y de los
+   mensajes con acciones de Slack: el sello verde, el título, el detalle, los links como botones y responder al pie. */
+.co-ya {
+  max-width: 600px; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px;
+  border-radius: var(--r-xl); background: var(--surface);
+  box-shadow: 0 0 0 1px var(--border-strong), 0 2px 10px rgba(18, 21, 27, .05);
+}
+.co-ya__cab { display: flex; align-items: center; gap: 8px; }
+.co-ya__sello { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: var(--good); color: var(--surface); }
+.co-ya__rotulo { font-size: var(--fs-meta); font-weight: 700; letter-spacing: .02em; text-transform: uppercase; color: var(--good); }
+.co-ya__titulo { margin: 0; font-size: var(--fs-md); font-weight: 600; line-height: 1.4; overflow-wrap: anywhere; }
+.co-ya__md { font-size: var(--fs-sm); color: var(--dim); line-height: 1.5; }
+.co-ya__links { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+.co-ya__revisar, .co-ya__plan {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 0 12px; max-width: 100%;
+  border: 1px solid var(--border); border-radius: 999px; background: var(--surface-2); color: var(--ink);
+  font-size: var(--fs-sm); text-decoration: none;
+}
+.co-ya__revisar { border-color: var(--primary-weak); background: var(--primary-bg); color: var(--primary-strong); font-weight: 600; }
+.co-ya__revisar:hover, .co-ya__plan:hover { filter: brightness(.97); }
+.co-ya__revisar:focus-visible, .co-ya__plan:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.co-ya__plan-titulo { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.co-ya__plan-estado { flex: none; font-size: var(--fs-meta); color: var(--dim); }
+.co-ya__plan-estado[data-estado='hecha'] { color: var(--good); font-weight: 600; }
+.co-ya__plan-estado[data-estado='no_se_pudo'] { color: var(--bad); }
+.co-ya__pie { display: flex; gap: 8px; margin-top: 2px; }
+/* Tocar una tarea vinculada trae su mensaje y lo marca un rato. */
+.co-el--visto > .co-el__cuerpo { animation: co-visto 1.6s ease; border-radius: var(--r-xl); }
+@keyframes co-visto { 0%, 40% { background: var(--primary-bg); } 100% { background: transparent; } }
+@media (prefers-reduced-motion: reduce) { .co-el--visto > .co-el__cuerpo { animation: none; background: var(--primary-bg); } }
+/* «Tareas vinculadas (N)», adentro del «+». */
+.co-tareas { display: flex; flex-direction: column; gap: 4px; padding-top: 6px; border-top: 1px solid var(--border); }
+.co-tareas__titulo { margin: 0; font-size: var(--fs-meta); font-weight: 600; color: var(--dim); }
+.co-tareas__vacio { margin: 0; font-size: var(--fs-meta); color: var(--faint); }
+.co-tareas__lista { list-style: none; margin: 0; padding: 0; max-height: 180px; overflow-y: auto; display: flex; flex-direction: column; }
+.co-tareas__fila {
+  display: flex; align-items: center; gap: 8px; width: 100%; padding: 6px; border: 0; border-radius: var(--r-md);
+  background: transparent; color: var(--ink); font: inherit; font-size: var(--fs-sm); text-align: left; cursor: pointer;
+}
+.co-tareas__fila:hover { background: var(--velo-hover); }
+.co-tareas__fila:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.co-tareas__punto { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--warn); }
+.co-tareas__punto[data-estado='hecha'] { background: var(--good); }
+.co-tareas__punto[data-estado='no_se_pudo'] { background: var(--bad); }
+.co-tareas__nombre { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.co-tareas__estado { flex: none; font-size: var(--fs-meta); color: var(--faint); }
+
+/* La criatura pasea adentro de su recuadro del selector, como en el chat (17/10/2026, la F). */
+.co-elegir__retrato { overflow: hidden; }
+.co-elegir__retrato .mun { animation: mun-pasea 6s ease-in-out infinite; }
+@keyframes mun-pasea {
+  0%, 100% { transform: translateX(-14%) rotate(-3deg); }
+  20% { transform: translateX(-4%) translateY(-6%) rotate(0); }
+  50% { transform: translateX(14%) rotate(3deg); }
+  70% { transform: translateX(4%) translateY(-6%) rotate(0); }
+}
+@media (prefers-reduced-motion: reduce) { .co-elegir__retrato .mun { animation: none; } }
+
+/* Los links, siempre azules y clickeables (17/10/2026: «en la caja y en los mensajes»). */
+.co-link { color: var(--primary); text-decoration: underline; text-underline-offset: 2px; overflow-wrap: anywhere; }
+a.co-link:hover { color: var(--primary-strong); }
+/* En la caja: el <textarea> se vuelve transparente sólo mientras hay un link, y la capa de abajo pinta el mismo texto con
+   los links en azul. Las dos con la MISMA letra, el mismo renglón y el mismo corte: si no, el cursor no cae en su letra. */
+.co-caja__campo { position: relative; min-width: 0; }
+.co-caja__resalte {
+  position: absolute; inset: 0; overflow: hidden; pointer-events: none;
+  white-space: pre-wrap; overflow-wrap: break-word; word-break: normal;
+  font: inherit; font-size: var(--fs-md); line-height: 1.5; color: var(--ink);
+}
+.co-caja textarea.co-caja__texto--resalte { position: relative; color: transparent; caret-color: var(--ink); background: transparent; }
+.co-caja textarea.co-caja__texto--resalte::selection { color: transparent; background: color-mix(in srgb, var(--primary) 25%, transparent); }
+.co-caja__links { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.co-caja__link {
+  display: inline-flex; align-items: center; max-width: 100%; height: 26px; padding: 0 10px; overflow: hidden;
+  border-radius: 999px; background: var(--primary-bg); color: var(--primary-strong);
+  font-size: var(--fs-meta); font-weight: 600; text-decoration: none; white-space: nowrap; text-overflow: ellipsis;
+}
+.co-caja__link:hover { text-decoration: underline; }
+.co-caja__link:focus-visible { outline: none; box-shadow: var(--focus-ring); }

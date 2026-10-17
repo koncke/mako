@@ -17,7 +17,9 @@
 
 import { Icon } from '@/app/_components/icons';
 import { ROTULO, type EstadoPedido } from '@/lib/operaciones-reglas';
-import { chatTrabajando, estadoDelEnvio, lineasDeConversacion, type CarteroP, type ChatCentro, type LineaChat, type TrabajoP } from '@/lib/centro-chats';
+import { chatTrabajando, esYaEsta, estadoDelEnvio, lineasDeConversacion, type CarteroP, type ChatCentro, type LineaChat, type TrabajoP } from '@/lib/centro-chats';
+import { YaEstaMensaje } from './Avance';
+import type { TareaDelChat } from '@/lib/centro-plan-auto-reglas';
 import type { TurnoChat } from '@/lib/operaciones-reglas';
 import { Markdown } from '@/app/_components/Markdown';
 import { textoDeRespuesta } from '@/app/admin/runway/decisiones';
@@ -26,6 +28,7 @@ import type { Aspecto } from '@/lib/centro-munecos';
 import { ROTULO_TIPO, hace, pushDelCommit, type PushP } from '@/lib/progreso-reglas';
 import { PreguntaChat, type Responder } from './PreguntaChat';
 import { bloquesDeMensaje } from '@/lib/centro-caja';
+import { ConLinks } from './ConLinks';
 
 /** «10:52», con el reloj de Argentina. */
 const horaAR = (t: number) => new Date(t).toLocaleTimeString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
@@ -54,14 +57,14 @@ export function Tick({ estado }: { estado: EstadoPedido }) {
  *  el texto tal cual (la burbuja respeta los renglones). */
 function TextoMio({ texto }: { texto: string }) {
   const bloques = bloquesDeMensaje(texto);
-  if (!bloques.some((b) => b.tipo === 'lista')) return <>{texto}</>;
+  if (!bloques.some((b) => b.tipo === 'lista')) return <ConLinks texto={texto} />;
   return (
     <>
       {bloques.map((b, i) => (b.tipo === 'parrafo'
-        ? <span key={i} className="co-burbuja__p">{b.texto}</span>
+        ? <span key={i} className="co-burbuja__p"><ConLinks texto={b.texto} /></span>
         : b.numerada
-          ? <ol key={i} className="co-burbuja__lista">{b.items.map((x, j) => <li key={j}>{x}</li>)}</ol>
-          : <ul key={i} className="co-burbuja__lista">{b.items.map((x, j) => <li key={j}>{x}</li>)}</ul>))}
+          ? <ol key={i} className="co-burbuja__lista">{b.items.map((x, j) => <li key={j}><ConLinks texto={x} /></li>)}</ol>
+          : <ul key={i} className="co-burbuja__lista">{b.items.map((x, j) => <li key={j}><ConLinks texto={x} /></li>)}</ul>))}
     </>
   );
 }
@@ -71,7 +74,10 @@ function TextoMio({ texto }: { texto: string }) {
 type Quien = { titulo: string; aspecto?: Aspecto | null };
 
 /** Con qué se cuenta en qué está lo que mandó Martín (lib/centro-chats.ts → estadoDelEnvio): el chat y los Runners. */
-export type VivoDelHilo = { chat: Pick<ChatCentro, 'estado' | 'viejo' | 'sinRunner'>; carteros: readonly CarteroP[] };
+export type VivoDelHilo = { chat: Pick<ChatCentro, 'estado' | 'viejo' | 'sinRunner' | 'clave' | 'sesion' | 'titulo'>; carteros: readonly CarteroP[] };
+
+/** Lo del «Ya está» de un chat (17/10/2026, la C): sus tareas del Plan y responder sobre lo que dijo. */
+export type ExtrasDelHilo = { tareas?: readonly TareaDelChat[]; onFeedback?: (titulo: string) => void };
 
 function Trabajo({ w, quien, vivo, ahora }: { w: TrabajoP; quien: Quien; vivo?: VivoDelHilo; ahora: number }) {
   const t = Date.parse(w.created_at);
@@ -118,14 +124,26 @@ function Trabajo({ w, quien, vivo, ahora }: { w: TrabajoP; quien: Quien; vivo?: 
 
 /** Un turno: lo de Martín a la derecha en su burbuja; lo de otra sesión, igual pero con su nombre; lo que contestó el chat,
  *  a la izquierda con su muñeco, en Markdown (los chats contestan con listas y negritas), como Claude y ChatGPT. */
-function Turno({ t, quien }: { t: TurnoChat; quien: Quien }) {
+function Turno({ t, quien, vivo, extras }: { t: TurnoChat; quien: Quien; vivo?: VivoDelHilo; extras?: ExtrasDelHilo }) {
   const hora = horaAR(Date.parse(t.at));
+  // El «Ya está» es un mensaje aparte (17/10/2026, la C): qué cambió, dónde revisarlo, su tarea del Plan y responder.
+  if (t.rol === 'el' && esYaEsta(t.texto)) {
+    return (
+      <div className="co-el" id={`co-turno-${t.uuid}`}>
+        <Muneco titulo={quien.titulo} aspecto={quien.aspecto} animo="despierto" size={26} />
+        <div className="co-el__cuerpo co-el__cuerpo--ancho">
+          <YaEstaMensaje t={t} chat={vivo?.chat} tareas={extras?.tareas} onFeedback={extras?.onFeedback} />
+          <p className="co-el__rotulo">{hora}</p>
+        </div>
+      </div>
+    );
+  }
   if (t.rol === 'el') {
     return (
-      <div className="co-el">
+      <div className="co-el" id={`co-turno-${t.uuid}`}>
         <Muneco titulo={quien.titulo} aspecto={quien.aspecto} animo="despierto" size={26} />
         <div className="co-el__cuerpo">
-          <div className="co-el__texto co-el__md"><Markdown text={t.texto} /></div>
+          <div className="co-el__texto co-el__md"><Markdown text={t.texto} enlaces /></div>
           <p className="co-el__rotulo">{hora}</p>
         </div>
       </div>
@@ -142,8 +160,8 @@ function Turno({ t, quien }: { t: TurnoChat; quien: Quien }) {
   );
 }
 
-function Linea({ l, pushes, ahora, quien, vivo, onResponder }: { l: LineaChat; pushes: readonly PushP[]; ahora: number; quien: Quien; vivo?: VivoDelHilo; onResponder?: Responder }) {
-  if (l.tipo === 'turno') return <Turno t={l.turno} quien={quien} />;
+function Linea({ l, pushes, ahora, quien, vivo, onResponder, extras }: { l: LineaChat; pushes: readonly PushP[]; ahora: number; quien: Quien; vivo?: VivoDelHilo; onResponder?: Responder; extras?: ExtrasDelHilo }) {
+  if (l.tipo === 'turno') return <Turno t={l.turno} quien={quien} vivo={vivo} extras={extras} />;
   if (l.tipo === 'pregunta') {
     // Lo que el chat pregunta: un mensaje suyo, con el formulario de opciones adentro (PreguntaChat.tsx, 17/10/2026).
     return (
@@ -211,7 +229,7 @@ function Trabajando({ quien }: { quien: Quien }) {
 
 /** Las líneas de un chat, la más vieja arriba, con la píldora del día cada vez que cambia (WhatsApp). Sólo la
  *  conversación (`lineasDeConversacion`): los hitos van a la barra del Plan. */
-export function Hilo({ lineas: todas, pushes, ahora, vacio, quien, vivo, onResponder }: {
+export function Hilo({ lineas: todas, pushes, ahora, vacio, quien, vivo, onResponder, tareas, onFeedback }: {
   lineas: readonly LineaChat[]; pushes: readonly PushP[]; ahora: number; vacio: string;
   /** El empleado de este chat: su muñeco va al lado de lo que hizo, y grande si todavía no hay nada. */
   quien: Quien & { animo: Animo; dato?: string | null };
@@ -219,7 +237,7 @@ export function Hilo({ lineas: todas, pushes, ahora, vacio, quien, vivo, onRespo
   vivo?: VivoDelHilo;
   /** Contestar una pregunta del chat (useCentro.ts → contestarPregunta). Sin esto, el formulario se ve y no se toca. */
   onResponder?: Responder;
-}) {
+} & ExtrasDelHilo) {
   const lineas = lineasDeConversacion(todas);
   const trabaja = vivo ? chatTrabajando(vivo.chat, todas, ahora) : false;
   if (!lineas.length) {
@@ -242,7 +260,7 @@ export function Hilo({ lineas: todas, pushes, ahora, vacio, quien, vivo, onRespo
     <>
       {items.map((it) => (it.dia
         ? <span key={it.k} className="co-dia">{it.dia}</span>
-        : <Linea key={it.k} l={it.l!} pushes={pushes} ahora={ahora} quien={quien} vivo={vivo} onResponder={onResponder} />))}
+        : <Linea key={it.k} l={it.l!} pushes={pushes} ahora={ahora} quien={quien} vivo={vivo} onResponder={onResponder} extras={{ tareas, onFeedback }} />))}
       {trabaja && <Trabajando quien={quien} />}
     </>
   );

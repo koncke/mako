@@ -1317,6 +1317,37 @@ lib/centro-preguntas-chat.ts y su `-db` · app/admin/operaciones/PreguntaChat.ts
 C y D (el «Ya está» con links y la tarjeta del Plan, sin Review), E (los pasos en vivo: otra vez cartero.mjs), F (la
 Criatura), G (las cuentas) y los links azules. Sin medir en una pantalla real: nada de esto se vio en un navegador.
 
+## El Plan que se arma solo, la tarjeta del «Ya está», la Criatura y los links (17/10/2026, Ops Center de la cuenta 4)
+
+**El Plan de cada chat no se puede escribir en la vuelta del Runner.** Lo obvio era «cuando entra un "Ya está", cerrar su
+tarea ahí mismo». Pero cada alta o cierre del Plan pasa por el Perro (30 a 60 s) y la vuelta la corre el Bash del Runner,
+que corta a los 120 s: dos pasos y la vuelta muere, sin entregar nada. **Regla:** lo lento que sale de una vuelta del
+Runner se ANOTA en la vuelta (rápido, en app_settings) y se APLICA en `after()`, con presupuesto, y lo que no entra queda
+para la vuelta siguiente (lib/centro-plan-auto.ts). Un candado con vencimiento evita que dos vueltas seguidas apliquen
+lo mismo (no es atómico; el resto lo frena `sumarTareaAlPlan`, que mira si ya hay una abierta con ese título).
+
+**Sumar opciones a una lista que también SORTEA cambia lo que ya se veía.** La criatura de un chat que nadie eligió sale
+de su nombre con `hash % FORMAS.length`: con 9 cuerpos en vez de 7, TODOS los chats cambiaban de cara de golpe. **Regla:**
+las piezas nuevas van al final y el sorteo usa las de antes (`DE_SIEMPRE`, lib/centro-munecos.ts).
+
+**Un test de «se dibujan distintas» que no veía un cuerpo repetido.** Comparaba el SVG entero de la criatura: con el
+«Diamante» cayendo al dibujo del círculo, el SVG igual cambiaba, porque los ojos y el brillo se corren con cada cuerpo.
+Se compara la PIEZA sola (`Cuerpo`, `Boca`).
+
+**Un <textarea> no tiene colores.** Para que un link se vea azul mientras se escribe, una capa debajo pinta el mismo
+texto y el <textarea> se vuelve transparente, SÓLO mientras hay un link (sin links, la caja de siempre: nada que pueda
+correr el cursor). Las dos tienen que tener la misma letra, el mismo renglón, el mismo padding y el mismo borde, o el
+cursor cae en otra letra (en el teléfono el campo tiene 10 px 14 px y 1 px de borde: la capa, 11 px 15 px).
+
+**El Markdown de la casa es de todos.** Los links clickeables los pidió el Ops Center: `Markdown` los dibuja sólo con
+`enlaces` (opt-in), y los otros chats de MaKo quedan como estaban (tests/centro-links.test.ts lo vigila).
+
+**Vive en:** lib/centro-plan-auto-reglas.ts y lib/centro-plan-auto.ts · app/admin/operaciones/Avance.tsx (YaEstaMensaje,
+TareasVinculadas) · lib/centro-munecos.ts · lib/links-texto.ts y app/admin/operaciones/ConLinks.tsx.
+
+**Sin hacer:** que un chat maneje el Plan a PEDIDO de Martín («tráeme las más prioritarias», «bórralas»): necesita una puerta
+de la PC al Plan, y es de revisión de seguridad. Sin medir en una pantalla real: nada de esto se miró en un navegador.
+
 ## Lo que creí medido y no estaba al día
 
 - **`soloPlataforma` ya existía en el registro de la API** (lo sumó el 2FA obligatorio el 14/10, por

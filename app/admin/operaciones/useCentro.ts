@@ -40,14 +40,12 @@ import { contestarPreguntaAction, fotoCentroAction, guardarBorradorAction, guard
 import { ESPERA_LOCAL_MS, ESPERA_REMOTA_MS, borradorQueVale, claveDeBorrador, leerBorrador, textoParaMandar, type Borrador } from '@/lib/centro-caja';
 import { guardarAdjuntos, leerAdjuntosGuardados } from './adjuntos-guardados';
 import { textoDeRespuesta, type PreguntaChat } from '@/lib/centro-preguntas-chat';
+import type { TareaDelChat } from '@/lib/centro-plan-auto-reglas';
 import { TEXTO_SOLO_ADJUNTOS, copiar, subirAdjuntos, useFirma } from './mandar';
 
 const REFRESCO_MS = 8000;
 /** Con algo en camino (escrito o tomado), la pantalla mira más seguido: sale en segundos y tiene que verse (17/10/2026). */
 const REFRESCO_APURADO_MS = 2500;
-/** La barra del avance se recuerda abierta o cerrada entre chats y visitas: es una preferencia (AGENTS.md). */
-const CLAVE_AVANCE = 'centro.avance';
-const leerAvance = () => { try { return window.localStorage.getItem(CLAVE_AVANCE) === '1'; } catch { return false; } };
 
 /** Lo que el servidor lee para el Centro, DESPUÉS de `puedeOperar`. Viaja entero de la página a la pantalla. */
 export type DatosCentro = {
@@ -129,7 +127,6 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
     adjuntosRef.current = { ...adjuntosRef.current, [clave]: xs };
     setAdjuntos(adjuntosRef.current);
   };
-  const [avance, setAvance] = useState(false);
   // El «⋯» de una fila (o el clic derecho): dónde abre y de qué chat es.
   const [menu, setMenu] = useState<{ x: number; y: number; clave: string } | null>(null);
   const [renombrando, setRenombrando] = useState<{ clave: string; texto: string; error: string | null; mandando: boolean } | null>(null);
@@ -140,6 +137,8 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
   const [turnos, setTurnos] = useState<Record<string, TurnoChat[]>>({});
   // Y sus preguntas (17/10/2026, el formulario de su conversación): viajan con los turnos.
   const [preguntas, setPreguntas] = useState<Record<string, PreguntaChat[]>>({});
+  // Y sus tareas del Plan (la C y la D): las que armaron su «Voy a trabajar en…» y su «Ya está».
+  const [tareas, setTareas] = useState<Record<string, TareaDelChat[]>>({});
   const [abiertas, setAbiertas] = useState<Record<string, number>>(d.preguntasAbiertasIniciales ?? {});
   const mirado = useRef<ChatCentro | null>(null);
   const pedirTurnos = useCallback(async (c: ChatCentro) => {
@@ -149,6 +148,7 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
     if (r?.ok) {
       setTurnos((t) => ({ ...t, [c.clave]: r.turnos }));
       setPreguntas((q) => ({ ...q, [c.clave]: r.preguntas ?? [] }));
+      setTareas((x) => ({ ...x, [c.clave]: r.tareas ?? [] }));
       // El borrador de MaKo: el del teléfono, si es más nuevo que lo de acá.
       cargarBorrador(c, r.borrador ?? null);
     }
@@ -171,13 +171,8 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
   }, [pedirTurnos, cargarBorrador]);
   const turnosDe = (c: ChatCentro): TurnoChat[] => turnos[c.clave] ?? [];
   const preguntasDe = (c: ChatCentro): PreguntaChat[] => preguntas[c.clave] ?? [];
+  const tareasDe = (c: ChatCentro): TareaDelChat[] => tareas[c.clave] ?? [];
 
-  // Se lee después de montar: el server no sabe lo del navegador, y el primer dibujo tiene que coincidir.
-  useEffect(() => { setAvance(leerAvance()); }, []);
-  const cambiarAvance = useCallback((v: boolean) => {
-    setAvance(v);
-    try { window.localStorage.setItem(CLAVE_AVANCE, v ? '1' : '0'); } catch { /* es una comodidad */ }
-  }, []);
 
   const trabajos = useMemo(() => {
     const deCola = cola.map(trabajoDe);
@@ -439,14 +434,13 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
     if (!r.ok) { setEligiendo({ ...eligiendo, guardando: false }); avisar(r.error, 'bad'); return; }
     setMunecos(r.munecos);
     setEligiendo(null);
-    avisar('Muñeco guardado', 'good');
+    avisar('Criatura guardada', 'good');
   }
 
   return {
     chats, carteros, trabajos, porId, esperas, decisiones, decisionesOk, ahora, pushes, estado, munecos, setMunecos, tabs, firma, pedidos,
-    turnosDe, preguntasDe, contestarPregunta, mirar,
+    turnosDe, preguntasDe, tareasDe, contestarPregunta, mirar,
     lineasDe, previas, enCursos, pendientesTicketera, refrescar, responderAca, deshacerAca,
-    avance, cambiarAvance,
     envioDe, borradorDe, ponerBorrador, limpiarBorrador, enviando, mandar, anotarEnviado, copiarConAviso, crearClave, copiarClave,
     adjuntosDe, puedeAdjuntar, sumarAdjuntos, quitarAdjunto, vaciarAdjuntos,
     puedeAbrirEn, apertura, abrirChat,

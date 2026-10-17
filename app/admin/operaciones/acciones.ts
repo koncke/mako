@@ -30,6 +30,8 @@ import { leerAbiertas, leerPreguntas, marcarContestada } from '@/lib/centro-preg
 import { eleccionValida, textoDeRespuesta, type PreguntaChat } from '@/lib/centro-preguntas-chat';
 import { guardarBorradorDe, leerBorradorDe } from '@/lib/centro-borradores-db';
 import type { Borrador } from '@/lib/centro-caja';
+import { leerTareasDelChat } from '@/lib/centro-plan-auto';
+import type { TareaDelChat } from '@/lib/centro-plan-auto-reglas';
 
 const NO_PUEDE = 'Entra con tu segundo factor para usar el Centro.';
 const msg = (e: unknown) => (e instanceof Error && e.message ? e.message : 'Algo falló: vuelve a intentarlo.');
@@ -62,16 +64,17 @@ export async function pushesCentroAction(): Promise<LecturaPushes> {
 
 /** Lo que se dijo en un chat (sus sesiones, las de todas sus cuentas), para su conversación (17/10/2026: «los chats no
  *  se entienden»). Lo pide la pantalla al abrir un chat y en cada refresco de ese chat; los demás no viajan. */
-export async function turnosCentroAction(locales: string[], direccion?: string): Promise<{ ok: true; turnos: TurnoChat[]; preguntas: PreguntaChat[]; borrador: Borrador | null } | { ok: false; error: string }> {
+export async function turnosCentroAction(locales: string[], direccion?: string): Promise<{ ok: true; turnos: TurnoChat[]; preguntas: PreguntaChat[]; borrador: Borrador | null; tareas: TareaDelChat[] } | { ok: false; error: string }> {
   const admin = await getSesionAdmin();
   if (!puedeOperar(admin, await wsSuperAdmin())) return { ok: false, error: NO_PUEDE };
   if (!Array.isArray(locales)) return { ok: false, error: 'Falta el chat.' };
   const validos = locales.filter((l): l is string => typeof l === 'string');
   // Las preguntas del chat y su borrador viajan con lo que se dijo en él: son parte de su conversación (17/10/2026).
-  const [turnos, preguntas, borrador] = await Promise.all([
+  const [turnos, preguntas, borrador, tareas] = await Promise.all([
     leerTurnos(validos), leerPreguntas(validos), typeof direccion === 'string' ? leerBorradorDe(direccion) : Promise.resolve(null),
+    leerTareasDelChat(validos),
   ]);
-  return { ok: true, turnos, preguntas, borrador };
+  return { ok: true, turnos, preguntas, borrador, tareas };
 }
 
 /** Guarda el borrador de un chat en MaKo, para que cruce al teléfono (17/10/2026, la B). Sólo si es más nuevo. */
@@ -162,9 +165,9 @@ export async function crearTokenCarteroAction(): Promise<{ ok: true; token: stri
 export async function guardarMunecoAction(titulo: string, aspecto: unknown): Promise<{ ok: true; munecos: MunecosElegidos } | { ok: false; error: string }> {
   const admin = await getSesionAdmin();
   if (!puedeOperar(admin, await wsSuperAdmin())) return { ok: false, error: NO_PUEDE };
-  if (typeof titulo !== 'string' || !titulo.trim()) return { ok: false, error: 'Elige un chat para cambiarle el muñeco.' };
+  if (typeof titulo !== 'string' || !titulo.trim()) return { ok: false, error: 'Elige un chat para cambiarle la criatura.' };
   const limpio = aspecto == null ? null : sanearAspecto(aspecto);
-  if (aspecto != null && !limpio) return { ok: false, error: 'Elige otro muñeco: ése no existe.' };
+  if (aspecto != null && !limpio) return { ok: false, error: 'Elige otra criatura: ésa no existe.' };
   try {
     return { ok: true, munecos: await guardarMuneco(titulo, limpio) };
   } catch (e) {

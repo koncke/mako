@@ -137,7 +137,9 @@ export function dondeQuedo(tareas: readonly TareaPlanP[], titulo: string, chat: 
 
 /** Lo que vuelve de sumar o marcar, en pocas palabras (la línea de estado de la sección). */
 export type EscritoPlan =
-  | { ok: true; aviso: string; plan: LecturaPlan }
+  /** `tareaId`: la tarea que quedó (la creada, o la abierta que ya estaba), si se encontró en el tablero (17/10/2026: el
+   *  Plan que se arma solo la necesita para marcarla hecha con el «Ya está»). */
+  | { ok: true; aviso: string; plan: LecturaPlan; tareaId?: string | null }
   | { ok: false; error: string; plan?: LecturaPlan };
 
 const sinPrefijo = (p: string) => p.replace(/^(feature|agente)\s*:\s*/i, '');
