@@ -82,7 +82,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 
-export const VERSION = '1.15.1';
+export const VERSION = '1.15.2';
 const HOME = os.homedir();
 const DIR = process.env.CARTERO_DIR || path.join(HOME, '.claude', 'operaciones');
 const APP = process.env.CARTERO_APP_DIR || path.join(process.env.APPDATA || path.join(HOME, 'AppData', 'Roaming'), 'Claude', 'claude-code-sessions');
@@ -933,6 +933,8 @@ async function ciclo(cuenta, cfg = config(), propio = dirPropio(cfg), runners = 
       chats: [...[...chats.values()].map(({ pipe, dir, transcript, ...c }) => c), ...enNube],
       entregables, claves: spkis.map(claveId), acuses, cierres, uso: cuotaDe(cuenta), turnos,
       ...(preguntas.length ? { preguntas } : {}),
+      // El nombre y el email de esta cuenta, de cuentas.tsv (1.15.2, la G): el Uso los muestra; un servidor de antes los ignora.
+      ...(titularDe(cuenta) ? { titular: titularDe(cuenta) } : {}),
       // Las cuentas en las que esta PC abre chats (1.11.0): MaKo le da un trabajo «nuevo» sólo a quien lo declara.
       abre: puedeAbrir(cfg, cuenta) ? [cuenta] : [],
     }),
@@ -1104,6 +1106,25 @@ async function uso() {
   }
   const n = cuenta ? `Runner de la cuenta ${cuenta.replace('claude', '')}` : 'Runner';
   return c ? `${n} · 5 h ${c.cinco?.pct ?? '—'}% · semana ${c.semana?.pct ?? '—'}%` : n;
+}
+
+/** Los titulares de las cuentas de la PC: «claudeN<TAB>Nombre <email>» (lo lee también el hook del 97%). */
+const CUENTAS_TSV = path.join(process.env.CARTERO_HOME || HOME, '.claude', 'cuentas.tsv');
+const EMAIL_TITULAR_RE = /^[^\s@<>]{1,64}@[^\s@<>]{1,190}\.[a-z]{2,24}$/i;
+/**
+ * El titular de UNA cuenta, para el Uso del Ops Center (1.15.2, 17/10/2026, la G: «"Cuenta 1" trae su NOMBRE, editable, y
+ * debajo el email de esa cuenta»). Sólo el nombre y el email de su renglón, con el mismo molde que lib/centro-titulares.ts
+ * → titularDeRenglon; sin el archivo o sin su renglón, null (MaKo dice «Cuenta N»). El nombre que Martín le pone en la
+ * pantalla gana y vive en MaKo: este archivo es de la PC y del hook, nunca se escribe desde acá.
+ */
+export function titularDe(cuenta, texto = (() => { try { return fs.readFileSync(CUENTAS_TSV, 'utf8'); } catch { return ''; } })()) {
+  const renglon = sinCR(texto).split('\n').find((l) => l.startsWith(`${cuenta}\t`));
+  if (!renglon) return null;
+  const t = renglon.slice(cuenta.length + 1).replace(/\s+/g, ' ').trim();
+  const m = /^(.*?)\s*<([^>]+)>\s*$/.exec(t);
+  const nombre = (m ? m[1] : t).trim().slice(0, 40) || null;
+  const email = m && EMAIL_TITULAR_RE.test(m[2].trim()) ? m[2].trim().toLowerCase() : null;
+  return nombre || email ? { nombre, email } : null;
 }
 
 /** La cuota que sube la vuelta de una cuenta: la de su barra de estado y, si es más nueva, la semanal que midió la app. */

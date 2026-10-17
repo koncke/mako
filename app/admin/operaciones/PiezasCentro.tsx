@@ -37,7 +37,6 @@ import {
 import { nombreValido } from '@/lib/centro-chats';
 import { ElegirMuneco } from './ElegirMuneco';
 import { Conversacion } from './Conversacion';
-import { PanelRunner, TituloRunner, type VistaRunner } from './PanelRunner';
 import { BotonUso } from './Uso';
 import { cuentasDeUso } from '@/lib/centro-uso';
 import { MunecoNuevo, NuevoChat, sePuedeAbrir, type BorradorNuevoChat } from './NuevoChat';
@@ -301,22 +300,17 @@ export function MenusCentro({ centro: k }: { centro: Centro }) {
   );
 }
 
-/** Abajo de la barra: el Uso de las cuentas y sus Runners, en un desplegable siempre a la vista (Uso.tsx), con la lista
- *  y el alta de Runners en un modal de alto fijo (AGENTS.md → «Una caja cuyo alto es un TOPE»). */
+/** Las cuentas del Uso con su nombre y su email (la G, 17/10/2026): las cuatro siempre, tengan o no Runner. */
+export const cuentasConTitular = (k: Centro) => cuentasDeUso(k.carteros).map((c) => ({ ...c, titular: k.nombresCuentas[c.cuenta] ?? null }));
+
+/** Abajo de la barra: el Uso de las cuentas, en un desplegable siempre a la vista (Uso.tsx). Sin los botones «Runners» y
+ *  «Nuevo Runner» desde el 17/10/2026 (la G): el Runner se arma solo, y el Token se crea y se copia desde la caja. */
 export function PieCentro({ centro: k }: { centro: Centro }) {
-  const [runner, setRunner] = useState<VistaRunner | null>(null);
   return (
-    <>
-      <div className="co-barra__abajo">
-        {/* Las CUATRO cuentas siempre, tengan o no Runner (Martín: «no sale el uso de las otras 2 cuentas»). */}
-        <BotonUso cuentas={cuentasDeUso(k.carteros)} ahora={k.ahora} onRunners={() => setRunner('lista')} onNuevo={() => setRunner('nuevo')} />
-      </div>
-      {runner && (
-        <Modal titulo={<TituloRunner vista={runner} onVista={setRunner} />} onCerrar={() => setRunner(null)} ancho={640} alto="min(600px, 90dvh)">
-          <PanelRunner vista={runner} onVista={setRunner} estado={k.estado} clave={k.firma.clave} ahora={k.ahora} onCrearClave={() => void k.crearClave()} onCopiar={k.copiarConAviso} />
-        </Modal>
-      )}
-    </>
+    <div className="co-barra__abajo">
+      {/* Las CUATRO cuentas siempre, tengan o no Runner (Martín: «no sale el uso de las otras 2 cuentas»). */}
+      <BotonUso cuentas={cuentasConTitular(k)} ahora={k.ahora} onRenombrar={k.renombrarCuenta} />
+    </div>
   );
 }
 

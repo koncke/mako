@@ -33,6 +33,9 @@ import type { Borrador } from '@/lib/centro-caja';
 import { leerTareasDelChat } from '@/lib/centro-plan-auto';
 import type { TareaDelChat } from '@/lib/centro-plan-auto-reglas';
 import { leerMarcasDe, marcarDe } from '@/lib/centro-mensajes-db';
+import { guardarAlias, leerCuentasConNombre } from '@/lib/centro-titulares-db';
+import { CUENTA_RE } from '@/lib/operaciones-reglas';
+import { aliasValido, type CuentasConNombre } from '@/lib/centro-titulares';
 import { sanearCambio, type MarcasChat } from '@/lib/centro-mensajes';
 
 const NO_PUEDE = 'Entra con tu segundo factor para usar el Centro.';
@@ -43,14 +46,16 @@ const msg = (e: unknown) => (e instanceof Error && e.message ? e.message : 'Algo
  *  de la lista; las preguntas mismas viajan con los turnos del chat abierto). */
 export type FotoCentro = {
   ok: true; pedidos: Pedido[]; carteros: EstadoCarteros; decisiones: DecisionEspera[] | null; preguntasAbiertas: Record<string, number>;
+  /** El nombre y el email de cada cuenta (la G, 17/10/2026). */
+  cuentas: CuentasConNombre;
 } | { ok: false; error: string };
 
 export async function fotoCentroAction(): Promise<FotoCentro> {
   const admin = await getSesionAdmin();
   if (!puedeOperar(admin, await wsSuperAdmin())) return { ok: false, error: NO_PUEDE };
   try {
-    const [pedidos, carteros, decisiones, preguntasAbiertas] = await Promise.all([listarPedidos(), leerCarteros(), decisionesQueEsperan(), leerAbiertas()]);
-    return { ok: true, pedidos, carteros, decisiones, preguntasAbiertas };
+    const [pedidos, carteros, decisiones, preguntasAbiertas, cuentas] = await Promise.all([listarPedidos(), leerCarteros(), decisionesQueEsperan(), leerAbiertas(), leerCuentasConNombre()]);
+    return { ok: true, pedidos, carteros, decisiones, preguntasAbiertas, cuentas };
   } catch (e) {
     return { ok: false, error: msg(e) };
   }
@@ -78,6 +83,21 @@ export async function turnosCentroAction(locales: string[], direccion?: string):
     leerTareasDelChat(validos), typeof direccion === 'string' ? leerMarcasDe(direccion) : Promise.resolve(null),
   ]);
   return { ok: true, turnos, preguntas, borrador, tareas, marcas };
+}
+
+/** El nombre que Martín le pone a una cuenta en el Uso (la G, 17/10/2026). Vacío vuelve al del titular. Vive en MaKo, nunca
+ *  en cuentas.tsv: ése es de la PC y del hook del 97%. */
+export async function guardarAliasCuentaAction(cuenta: string, alias: string): Promise<{ ok: true; cuentas: CuentasConNombre } | { ok: false; error: string }> {
+  const admin = await getSesionAdmin();
+  if (!puedeOperar(admin, await wsSuperAdmin())) return { ok: false, error: NO_PUEDE };
+  if (typeof cuenta !== 'string' || !CUENTA_RE.test(cuenta) || typeof alias !== 'string') return { ok: false, error: 'Elige la cuenta otra vez.' };
+  const v = aliasValido(alias);
+  if (!v.ok) return v;
+  try {
+    return { ok: true, cuentas: await guardarAlias(cuenta, v.alias) };
+  } catch (e) {
+    return { ok: false, error: msg(e) };
+  }
 }
 
 /** Una marca de Martín sobre un mensaje (17/10/2026, lo de WhatsApp): reaccionar, destacar, fijar o eliminar para él. NO

@@ -36,6 +36,7 @@ import {
 } from './operaciones-reglas';
 import { sanearCuota, type Cuota } from './centro-uso';
 import { guardarTurnos } from './centro-turnos-db';
+import { guardarTitular } from './centro-titulares-db';
 import { after } from 'next/server';
 import { anotarTurnosDelPlan, aplicarPlanDeLosChats } from './centro-plan-auto';
 import { guardarPreguntas } from './centro-preguntas-chat-db';
@@ -337,6 +338,9 @@ export async function cicloCartero(token: string, entrada: unknown): Promise<Sal
   const { error: eUp } = await db.from(T_CARTEROS)
     .upsert({ cuenta, visto_at: ahoraIso, version, chats, claves, updated_at: ahoraIso, ...(cuota ? { cuota } : {}) }, { onConflict: 'cuenta' });
   if (eUp) throw new Error(eUp.message);
+  // El nombre y el email de la cuenta (cartero 1.15.2, la G): de cuentas.tsv de la PC. Sólo escribe si cambió; si falla, la
+  // vuelta sigue (el Uso dice «Cuenta N»).
+  if (e.titular) await guardarTitular(cuenta, e.titular).catch((err) => console.error('[operaciones] titular:', err instanceof Error ? err.message : err));
 
   // Lo que se dijo en cada chat desde la vuelta anterior (cartero 1.8.0, 17/10/2026: «los chats no se entienden»). Si no se
   // pudo guardar, la vuelta sigue: la PC no avanza su marca hasta que MaKo diga que entró (`turnosOk`).

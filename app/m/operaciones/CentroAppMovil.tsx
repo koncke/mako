@@ -20,6 +20,7 @@ import { carteroVivo } from '@/lib/operaciones-reglas';
 import { useCentro, type Centro, type DatosCentro } from '@/app/admin/operaciones/useCentro';
 import { RunnerMovil } from './RunnerMovil';
 import { ChatsM } from './ChatsMovil';
+import { cuentasConTitular } from '@/app/admin/operaciones/PiezasCentro';
 import { usoPrincipal } from '@/lib/centro-uso';
 import { hace } from '@/lib/progreso-reglas';
 
@@ -48,7 +49,8 @@ export function CentroAppMovil(datos: DatosCentro) {
       </ListaM>
       <ChatsMDelCentro centro={k} />
       <SheetM abierto={runners} onCerrar={() => setRunners(false)} titulo="Uso y Runners">
-        <RunnerMovil carteros={estado ? carteros : null} clave={firma.clave} ahora={ahora} onCrearClave={() => void k.crearClave()} onCopiarClave={k.copiarClave} />
+        <RunnerMovil carteros={estado ? carteros : null} clave={firma.clave} ahora={ahora} onCrearClave={() => void k.crearClave()} onCopiarClave={k.copiarClave}
+          cuentas={cuentasConTitular(k)} onRenombrar={k.renombrarCuenta} />
       </SheetM>
     </>
   );
