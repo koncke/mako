@@ -2207,3 +2207,42 @@ IA falló y se toca «Reintentar») no lo lleva, ese turno vuelve a la conversac
 cazadas, junto con tests/onboarding-arranque.test.ts)
 
 *17/10/2026, chat «Onboarding», cuenta claude4.*
+
+## El onboarding entiende lo que le dicen, y suma dos preguntas que cambian algo (17/10/2026)
+
+**El pedido** (Martín, desde el Ops Center): «le dije "Soy Martin" y me respondió "Un gusto, Soy. ¿Cómo se llama tu
+negocio?", eso es básico... investiga las preguntas que nos hacen falta: me imagino "¿Cómo nos conociste?", "¿Qué
+funcionalidad de estas te interesa más?"».
+
+**El nombre:** el saludo tomaba la PRIMERA palabra de lo escrito. Ahora `extraerNombre` saca el saludo y la
+presentación («hola, soy», «me llamo», «mi nombre es», «me dicen»), corta en la primera coma o en lo que ya no es un
+nombre, y se queda con hasta tres palabras. Si nombró su negocio («Martín de Acme», «tengo una agencia que se llama
+Pixel»), vuelve como SUGERENCIA para la pregunta siguiente, nunca como respuesta: en «Martín de Córdoba» lo de después
+del «de» es un lugar. El negocio pasa por `extraerNegocio` («Se llama Acme» → «Acme»).
+
+**Lo investigado antes de sumar preguntas:** el abandono de una encuesta de bienvenida sube con cada pregunta, más
+rápido en las primeras (SurveyMonkey, ~100.000 encuestas); las de producto que funcionan son cortas y cada pregunta
+CAMBIA algo visible (si no cambia nada, se saca); y una encuesta corta adentro de la app termina por encima del 80%.
+Por eso son dos, de un toque, y cada una decide algo:
+- **«¿Cómo llegaste a MaKo?»** (`ORIGENES`, o lo que escriba): de dónde vienen los clientes. Lo mira el super admin
+  para la pauta (la ventana del 1/11 al 15/12).
+- **«¿Qué te gustaría que MaKo resuelva primero?»** (`INTERESES`): decide a qué pestaña entra al terminar
+  (`rutaDeEntrada`): anuncios → Ads Writer, ventas → CRM, WhatsApp → Automations, organizar → Plan. Sólo en las capas
+  que ven todo (el Project Manager no tiene anuncios ni CRM).
+
+Las dos van antes del objetivo, y quedan en el setting `onboarding.encuesta` al cerrar (`ver_estado_onboarding` de la
+API de MaKo las devuelve). ⚠️ Una conversación que ya había pasado el objetivo (empezada antes) NO vuelve atrás a
+preguntarlas: sin esa regla, quien estaba a mitad del onboarding veía aparecer dos preguntas viejas.
+
+### Lo que quedó SIN hacer
+
+- **El super admin todavía no tiene una pantalla que junte los orígenes** de todos los clientes: hoy se leen por
+  cliente (setting y API). Una tabla en la ficha del cliente o en el panel de la plataforma es lo que sigue.
+- El texto libre de «¿Cómo llegaste?» no se normaliza («por un amigo» y «Me lo recomendaron» cuentan distinto).
+
+**Vive en:** `lib/onboarding-arranque.ts` (`extraerNombre`, `extraerNegocio`, `ORIGENES`, `INTERESES`, `interesDe`,
+`rutaDeEntrada`, `CLAVE_ENCUESTA`) · `lib/onboarding-arranque-server.ts` (el cierre) ·
+`lib/api-mako/areas/negocio.run.ts` (`ver_estado_onboarding`) · `app/onboarding/ChatArranque.tsx` (la entrada al
+terminar) · `tests/onboarding-preguntas.test.ts` (11 roturas, 11 caen)
+
+*17/10/2026, chat «Onboarding», cuenta claude4.*

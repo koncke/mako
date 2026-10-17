@@ -22,7 +22,7 @@
 //
 // ⚠️ SIN `server-only`, a propósito: lo leen el servidor, las pantallas y los tests.
 
-import { CARTERO_VIVO_MS, DESTINO_RE, carteroVivo, rutaParaRevisar, type ChatCartero, type Cierre, type EstadoPedido, type TurnoChat } from './operaciones-reglas';
+import { CARTERO_VIVO_MS, DESTINO_NUEVO, DESTINO_RE, carteroVivo, rutaParaRevisar, type ChatCartero, type Cierre, type EstadoPedido, type TurnoChat } from './operaciones-reglas';
 import { instanteHito, type AreaP, type PasoP, type PedidoP } from './progreso-reglas';
 import { destinoDeDecision } from './decisiones-aviso';
 import { textoDeRespuesta, type Decision } from '../app/admin/runway/decisiones';
@@ -750,6 +750,29 @@ const paraRevisar = (pagina: unknown, sesion: string | null): NodoAvance['revisa
 /** Todo lo terminado, deje o no una página para mirar, lo más nuevo arriba. */
 export const porRevisar = (nodos: readonly NodoAvance[]): NodoAvance[] =>
   nodos.filter((n) => n.estado === 'hecho').sort((a, b) => b.instante - a.instante);
+
+// ── «Nuevo chat» con un clic (Ops Center, 17/10/2026, docs/diseno-nuevo-chat-un-clic.md) ──────────────────────────────
+
+/** El primer mensaje de un chat nuevo cuando Martín no escribe nada (el del diseño). */
+export const primerMensajeNuevo = (nombre: string) => `Hola, eres el chat «${nombre}». Lee AGENTS.md y espera instrucciones.`;
+
+/**
+ * Cómo va el último chat que se pidió abrir, para «Nuevo chat»: un trabajo `nuevo` no es de ningún chat de la lista, así
+ * que su estado se dice ahí. null = no se pidió ninguno.
+ */
+export function estadoDeApertura(trabajos: readonly Pick<TrabajoP, 'destino' | 'destino_titulo' | 'created_at' | 'estado' | 'motivo'>[]): string | null {
+  const nuevos = trabajos.filter((w) => w.destino === DESTINO_NUEVO);
+  if (!nuevos.length) return null;
+  const w = nuevos.reduce((a, b) => (Date.parse(b.created_at) > Date.parse(a.created_at) ? b : a));
+  const nombre = `«${w.destino_titulo ?? 'Nuevo chat'}»`;
+  switch (w.estado ?? 'escrito') {
+    case 'escrito': return `${nombre}: espera al Runner. Si en 2 minutos no se abre, pídele al Runner «prende la apertura de chats».`;
+    case 'tomado': return `${nombre}: abriéndose en la PC.`;
+    case 'entregado': case 'hecho': case 'comprobado': return w.motivo ? `${nombre}: ${w.motivo.replace(/^Se pidió abrir «[^»]*»/, 'se pidió abrir')}` : `${nombre}: se pidió abrir.`;
+    case 'cancelado': return `${nombre}: cancelado.`;
+    default: return `${nombre}: no se abrió${w.motivo ? ` · ${w.motivo}` : ''}`;
+  }
+}
 
 // ── Los «Ya está» de cada chat, en Review (Ops Center, 17/10/2026) ──────────────────────────────────────────────────
 // La regla de Martín (AGENTS.md): cada chat cierra lo que llegó a producción con «Ya está» en SU chat, con la ruta donde se

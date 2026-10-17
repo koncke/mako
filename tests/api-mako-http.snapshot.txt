@@ -473,6 +473,7 @@ ver_analitica_landing
 ver_anuncio_planteado
 ver_anuncio_video
 ver_archivero
+ver_avatares
 ver_base_formulario_meta
 ver_borrador_de_reunion
 ver_borrador_landing

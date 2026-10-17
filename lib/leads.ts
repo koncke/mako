@@ -849,11 +849,15 @@ async function avisarFusion(canal: 'Meta' | 'Calendly' | 'Cal.com', lead: Lead, 
     const { linkApp } = await import('./app-url');
     const { getWorkspaceActual } = await import('./workspace');
     const ws = await getWorkspaceActual();
+    const { datosFusion, claveFusion, DEDUP_FUSION_MIN } = await import('./lead-fusionado');
+    // ⚠️ DESDE EL 17/10/2026 EL TEXTO ES EL DE SU AUTOMATIZACIÓN de SuperAdmin (evento `lead_fusionado`, «nada por detrás»,
+    // lote 2): acá van sólo el lead y los datos. Y el freno es POR LEAD: con 60 min SIN clave, la fusión de OTRO lead en esa
+    // hora no se avisaba, y este aviso es lo único que hace visible un match equivocado.
     await emitirDelCatalogo('lead-fusionado', {
-      texto: `Entró un contacto por *${canal}* y lo sumé a *${lead.nombre}*, que ya tenías (${porQue}). Si no era la misma persona, avísame y lo separo 👉 ${linkApp(`/crm/${lead.id}`, ws)}`,
-      // Una fusión por hora del mismo canal no son diez avisos: es un patrón, y
-      // diez mensajes por el mismo patrón se leen como ruido y se silencian.
-      dedupTtlMin: 60,
+      ...(ws != null ? { ws } : {}),
+      lead: { id: lead.id, nombre: lead.nombre },
+      datos: datosFusion({ canal, porQue, link: linkApp(`/crm/${lead.id}`, ws) }),
+      dedupKey: claveFusion(lead.id), dedupTtlMin: DEDUP_FUSION_MIN,
     });
   } catch (e) {
     // El aviso no puede tumbar la ingesta: el lead ya se actualizó y eso es el
