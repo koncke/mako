@@ -45,6 +45,14 @@ errores en automático cuando surjan». El ejemplo: el Google Calendar de Pablo 
   que todos los grupos están en el default, `libre`. Si alguno pasa a `ventana`, hay que leer `mako.doer.modo.<jid>`
   (en el ws1, `OPS`) antes de contar.
 
+- **«Levantar un ticket» desde el grupo (pedido de la Ticketera, 17/10), ESPERANDO que su rama `ticketera` llegue a
+  main** (ella avisa). Lo acordado: en el doer, `ctx.actor = 'whatsapp:<teléfono>'` (de `key.participant`; si no hay,
+  el pushName) — su `preparar()` busca un usuario con ese teléfono y si no, el teléfono es la identidad;
+  `ctx.contextoTicket = () => ({ pedido, respuestaMako, error, herramienta })` con `errorParaTicket(name, out)` en el
+  `runTool`; que MaKo lo proponga SÓLO con las marcas de falla de verdad (cartel de IA, saneo de una promesa), no ante
+  cada «no puedo»; y el aviso de cierre al grupo pasa por `sanearSalida` antes de `enviarAlGrupoMaKo`. El molde del
+  «ticket que propone el código» está en lib/mako-turno-app.ts.
+
 ## 4. Qué espera una decisión de Martín
 
 - **«¿Me programás un mensaje por privado a un número?»** (ws13, 10/10). MaKo dijo que no puede y es verdad: no existe.
