@@ -567,4 +567,21 @@ export const BITACORA: Hito[] = [
     archivos: ['app/dashboard/NuevaHoja.tsx', 'app/dashboard/EditorInforme.tsx', 'lib/graficos-plantilla-relleno.ts', 'app/api/graficos/plantilla/route.ts', 'tests/dashboard-plantilla-al-instante.test.ts — probado rompiéndolo'],
     revisar: '/dashboard',
   },
+  {
+    fecha: '16 oct', hora: '—', chat: 'Cerebro', cuenta: 'claude4', actor: 'martin', tipo: 'prompt',
+    titulo: 'Los bloques épicos con el color de la hoja (#859)',
+    pedido: 'los bloques que hicimos para que sean épicos, es decir los bloques principales no están reaccionando con la edición del estilo de la hoja como el cambio de color eso deberíamos llevarlo yo creo que sí',
+    puntos: ['De la revisión de MaKo del 16/10 (1:12:30), mirando la General de una clienta. Lo repartió el Cerebro al chat Dashboard el 17/10.'],
+  },
+  {
+    fecha: '17 oct', hora: '10:00', chat: 'Dashboard', sesion: 'local_ca08f72a-8eb5-4957-a8e0-2b5c7bcbd699', cuenta: 'claude4', actor: 'claude', tipo: 'implementacion',
+    titulo: 'La portada y los bloques de General toman el color de la hoja',
+    puntos: [
+      'Si eliges un color en «Estilo de la hoja», la portada (el bloque grande de arriba) se pinta de ese color, con la letra que mejor se lee encima.',
+      'Los bloques de General pintan con ese color sus barras, sus botones y los números del Plan; en el celular también.',
+      'Sin un color elegido, cada plantilla sigue con el suyo.',
+    ],
+    archivos: ['lib/graficos-identidad.ts', 'app/dashboard/EditorInforme.tsx', 'app/dashboard/Grafico.tsx', 'app/dashboard/MiniaturaHoja.tsx', 'app/general/bloques/comun.tsx', 'tests/graficos-identidad-acento.test.ts — probado rompiéndolo'],
+    revisar: '/general',
+  },
 ];

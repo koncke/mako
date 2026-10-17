@@ -1216,6 +1216,29 @@ aparecer por defecto», y editando falta cómo agregarlos. Revierte el 14/10, cu
 Test: tests/general-filtros-por-defecto.test.ts (probado rompiéndolo). **Nadie lo miró en pantalla.**
 *17/10/2026, claude4 (chat Dashboard).*
 
+## Los bloques épicos siguen el color de la hoja: la portada, y lo relleno de los bloques de General (17/10/2026)
+
+Martín (#859, revisión del 16/10, 1:12:30): «los bloques… épicos… no están reaccionando con la edición del estilo de la
+hoja como el cambio de color». La portada se pintaba con la identidad de su plantilla (lib/graficos-identidad.ts) y los
+bloques de General con `--primary`, el azul de la app: ninguno leía el acento de «Estilo de la hoja».
+
+- **Con un acento elegido, la portada es de ese color** (`identidadEfectiva`); la forma sigue siendo la de su identidad.
+  Sin acento, la de la plantilla (cada plantilla se distingue por su color). ⚠️ Son TRES los que dibujan una tarjeta —el
+  editor (el marco), el gráfico de adentro (su paleta y su halo, Grafico.tsx) y la miniatura de la galería— y los tres
+  reciben el acento: con uno solo, la tarjeta sale de un color y sus series de otro.
+- ⚠️ **La tinta sobre un color que eligió la persona se CALCULA** (`tintaSobre`): la tabla de identidades trae sus tintas
+  curadas, un acento libre no. La primera versión (92 % de negro) la tiró el propio test: 4,47 sobre #338833. Con 96 %, el
+  peor fondo de la grilla del test da 4,53 (#3377CC): queda poco margen, así que no se aclara la tinta oscura.
+- **Los bloques de General pintan con el acento sólo lo RELLENO** (barras, botones, los números del Plan: `--gb-acento`,
+  app/general/bloques/comun.tsx), también en el teléfono (app/m/hoy/GeneralM.tsx). Los links de texto siguen en
+  `--primary`: un acento claro (el lima) sobre la tarjeta blanca no se lee.
+- En Propiedades, con un acento en la hoja, el color de portada dice «Usa el color de la hoja» (elegir uno cambia la forma).
+
+Test: tests/graficos-identidad-acento.test.ts (probado rompiéndolo). **Nadie lo miró en pantalla.**
+**Vive en:** lib/graficos-identidad.ts · app/dashboard/EditorInforme.tsx · app/dashboard/Grafico.tsx ·
+app/dashboard/MiniaturaHoja.tsx · app/general/bloques/comun.tsx.
+*17/10/2026, claude4 (chat Dashboard).*
+
 ## Lo que quedó sin hacer
 
 - **Una plantilla que se ajusta por detrás (17/10/2026):** mientras llega el ajuste, la hoja muestra los gráficos que

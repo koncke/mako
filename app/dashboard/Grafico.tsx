@@ -39,7 +39,7 @@ import { Spinner } from '@/app/_ui';
 import { destinoDetalle, dimensionDe, fuenteDe, metricaDe, tipoDe, tonoDe, type Efectivo, type Formato, type Grafico as G } from '@/lib/graficos-catalogo';
 import { alternarSerie, serieOculta, type SelDetalle } from '@/lib/graficos-acciones';
 import { colorDeTono, estiloEfectivo, fondoDeTarjeta, type TemaHoja } from '@/lib/graficos-temas';
-import { identidadDe, paletaDePortada, PAPEL, DIMENSIONES_PERSONA, MAXIMO_PORTADA } from '@/lib/graficos-identidad';
+import { identidadEfectiva, paletaDePortada, PAPEL, DIMENSIONES_PERSONA, MAXIMO_PORTADA } from '@/lib/graficos-identidad';
 import {
   anchoEjeY, anchoTexto, BARRA, colorDeCategoria, columnaConBarra, EJES, ESCALA_EPICA, intervaloPorAncho, LETRA, LETRA_MINIMA, MARGEN, tamChip, tamProtagonista, tamSecundaria, modoPorAlto, ocultoPorCero,
   ordenarPorValores, textoConMuestra, usaPaneles,
@@ -169,10 +169,10 @@ export function CuerpoGrafico({ g, estado, tema, onDetalle, efectivo }: { g: G; 
     if (!r0) return <Mensaje>{estado.error ?? <Spinner size={20} />}</Mensaje>;
     if (estado.error) return <Mensaje>{estado.error}</Mensaje>;
     // La PORTADA (lib/graficos-identidad.ts): las series en tonos de su tinta, sin cuadrícula, y el halo de las etiquetas
-    // y los puntos es su color (no el de la tarjeta del tema).
-    const portada = identidadDe(g.portada);
+    // y los puntos es su color (no el de la tarjeta del tema). El color es el de la hoja si eligió uno (#859).
+    const portada = identidadEfectiva(g.portada, tema.acento);
     const e0 = estiloEfectivo(tema);
-    const e = portada ? { ...e0, colores: paletaDePortada(portada.id) ?? e0.colores, cuadricula: false } : e0;
+    const e = portada ? { ...e0, colores: paletaDePortada(portada.id, tema.acento) ?? e0.colores, cuadricula: false } : e0;
     const halo = portada ? portada.fondo : fondoDeTarjeta(tema);
     const fuente = fuenteDe(g.fuente);
     const dim = fuente ? dimensionDe(fuente, g.dimension) : undefined;

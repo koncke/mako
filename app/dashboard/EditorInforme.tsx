@@ -103,7 +103,7 @@ import {
   type Componente, type Conector, type ControlVista, type Efectivo, type Elemento, type Grafico, type Hoja, type Tablero, type TipoElemento, type ValorControl, type VistaValores,
 } from '@/lib/graficos-catalogo';
 import { colorDeTono, estiloEfectivo, letrasDe, paletaDe, sanearTema, varsDeTema, type TemaHoja } from '@/lib/graficos-temas';
-import { FILAS_PORTADA_EN_PILA, marcoDePortada } from '@/lib/graficos-identidad';
+import { FILAS_PORTADA_EN_PILA, acentoDeBloque, marcoDePortada } from '@/lib/graficos-identidad';
 import { conHojaAgregada } from '@/lib/graficos-plantillas';
 import { FUENTES_GENERAL, PIEZAS_GENERAL, TIPOS_GENERAL, piezaGeneral, type PiezaGeneral } from '@/lib/general-piezas';
 import { useGeneral } from './ElementoGeneral';
@@ -1141,10 +1141,15 @@ export function EditorInforme({
     const altoLibre = enPila && esGrafico(c) && graficoAltoLibreEnPila(c);
     // Un número (los cuadros de resultados) mide en la pila lo que dibuja, con el piso de una tarjeta de 3 filas: un CPM de
     // 3 × 6 (alto para acompañar al embudo en el escritorio) eran 276 px de celular para un número.
-    // La PORTADA (lib/graficos-identidad.ts): la tarjeta se pinta con su color; en la pila mide menos que en el escritorio.
-    const portada = marcoDePortada(c);
+    // La PORTADA (lib/graficos-identidad.ts): la tarjeta se pinta con su color —el de la hoja, si eligió uno (#859)—; en la
+    // pila mide menos que en el escritorio.
+    const portada = marcoDePortada(c, hoja.tema.acento);
     const alto: CSSProperties = enPila ? (altoLibre ? { height: 'auto', minHeight: altoDe(Math.min(c.h, 3)) } : { height: altoDe(portada ? Math.min(c.h, FILAS_PORTADA_EN_PILA) : c.h) }) : {};
-    const base = { '--lk-col': `${c.x + 1} / span ${c.w}`, '--lk-fila': `${c.y + 1} / span ${c.h}`, ...alto, ...(portada?.estilo ?? {}) } as CSSProperties;
+    // #859: lo que un bloque de General pinta RELLENO (barras, botones, los números del Plan) toma el color de la hoja
+    // (`--gb-acento`, app/general/bloques/comun.tsx). Los links de texto siguen en `--primary`: un acento claro sobre la
+    // tarjeta blanca no se leería. Con portada manda la portada.
+    const acento = esElemento(c) && c.tipo === 'general' && !portada ? acentoDeBloque(hoja.tema.acento) : null;
+    const base = { '--lk-col': `${c.x + 1} / span ${c.w}`, '--lk-fila': `${c.y + 1} / span ${c.h}`, ...alto, ...(portada?.estilo ?? {}), ...(acento ?? {}) } as CSSProperties;
     const alClic = (ev: ReactMouseEvent) => {
       if (!editando) return;
       ev.stopPropagation();
