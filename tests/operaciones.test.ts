@@ -89,10 +89,13 @@ test('cada acción pregunta por Martín con su segundo factor ANTES de hacer cua
 });
 
 test('la página también pasa por puedeOperar antes de leer la cola', () => {
+  // Desde el 17/10/2026 la página lee por `datosDelCentroSiOpera` (la lectura que comparte con /second-brain, con su
+  // propio `puedeOperar` adentro: tests/second-brain-centro.test.ts). La guarda de la página va igual antes.
   const src = sinComentarios(leer('app/admin/operaciones/page.tsx'));
   const guarda = src.indexOf('puedeOperar(admin, await wsSuperAdmin())');
-  const lectura = src.indexOf('listarPedidos()');
-  assert.ok(guarda > 0 && lectura > guarda, 'la guarda va antes de listarPedidos');
+  const lectura = src.indexOf('datosDelCentroSiOpera()');
+  assert.ok(guarda > 0 && lectura > guarda, 'la guarda va antes de leer');
+  assert.doesNotMatch(src, /listarPedidos|leerCarteros|leerDecisiones/, 'la cola no se lee por fuera de la lectura guardada');
 });
 
 // Martín, al abrirlo en el teléfono (15/10/2026): «Me dice que todavía no hay pedidos, cuando tenemos
@@ -102,7 +105,7 @@ test('en las pantallas del Centro no hay «pedidos»: son trabajos (la palabra e
     .map((m) => m[1] ?? m[2] ?? m[3] ?? '');
   // Desde el 16/10 el Centro es una app de chat: lo que despacha se ve en la conversación (Hilo.tsx), en la caja
   // (Conversacion.tsx), en la barra (CentroApp.tsx) y en el panel del cartero, en la computadora y en el teléfono.
-  for (const f of ['app/admin/operaciones/CentroApp.tsx', 'app/admin/operaciones/Conversacion.tsx', 'app/admin/operaciones/Hilo.tsx',
+  for (const f of ['app/admin/operaciones/Conversacion.tsx', 'app/admin/operaciones/Hilo.tsx',
     'app/admin/operaciones/PanelRunner.tsx', 'app/admin/operaciones/acciones.ts', 'app/admin/operaciones/page.tsx',
     'app/admin/operaciones/Avance.tsx', 'app/m/operaciones/RunnerMovil.tsx', 'app/m/operaciones/ChatsMovil.tsx', 'app/m/operaciones/CentroAppMovil.tsx',
     'app/m/operaciones/page.tsx',

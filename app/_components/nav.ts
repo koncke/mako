@@ -493,7 +493,9 @@ export const ADMIN_FAMILIAS: NavFamilia[] = [
         { key: 'admin-cobros', label: 'Cobros', href: '/admin/cobros', icon: 'tag', match: starts('/admin/cobros') },
         // El Centro de Operaciones (15/10/2026): pedidos firmados para los chats de Claude de la PC
         // de Martín. Sólo él (puedeOperar), y la key tampoco lleva el prefijo 'dev-'.
-        { key: 'admin-operaciones', label: 'Centro de Operaciones', href: '/admin/operaciones', icon: 'config', match: starts('/admin/operaciones') },
+        // «Ops Center» (Martín, 17/10/2026: «Me gustaría que quede el nombre de "Ops Center"»): la misma pantalla que
+        // /second-brain para el super admin (app/second-brain/pagina.tsx).
+        { key: 'admin-operaciones', label: 'Ops Center', href: '/admin/operaciones', icon: 'config', match: starts('/admin/operaciones') },
         // La ticketera: el mazo donde Martín contesta las decisiones que le publican los chats
         // (15/10/2026, reportado por él: «tampoco tengo la ticketera en superadmin en desktop, en
         // la sidebar... Eso esta mal»). En el TELÉFONO ya se podía llegar —`lib/movil-rutas.ts`

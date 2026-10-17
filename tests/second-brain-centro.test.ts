@@ -41,7 +41,7 @@ test('la lectura del Centro para otra página pide puedeOperar en sus dos primer
 });
 
 test('las dos páginas del Second Brain leen el Centro SÓLO por la lectura guardada', () => {
-  for (const f of ['app/second-brain/page.tsx', 'app/m/second-brain/page.tsx']) {
+  for (const f of ['app/second-brain/page.tsx', 'app/m/second-brain/page.tsx', 'app/admin/operaciones/page.tsx']) {
     const src = sinComentarios(leer(f));
     assert.match(src, /datosDelCentroSiOpera\(\)/, `${f}: por datos.ts`);
     assert.doesNotMatch(src, /listarPedidos|leerCarteros|leerDecisiones|leerMunecos/, `${f}: la cola no se lee por fuera de la guarda`);

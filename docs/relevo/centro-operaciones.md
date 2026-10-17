@@ -5,6 +5,23 @@ Lo retomó el chat «Centro de Operaciones» de la cuenta 4 el 17/10 a la madrug
 17/10), `docs/hallazgos-second-brain.md` y `docs/hallazgos-mobile.md`. Lo pedido, textual, está en
 `app/admin/dev/second-brain/bitacora.ts` y `app/admin/dev/centro-operaciones/bitacora.ts`.
 
+## FEEDBACK DE MARTÍN DEL 17/10 (~01:30 y ~01:45), mirando producción — VA ANTES QUE TODO, en este orden
+
+Llegó por el Cerebro. Textual en sus mensajes; cada punto, con su estado:
+
+| # | Pedido | Estado |
+|---|---|---|
+| 1 | «los chats no se entienden»: la conversación como un chat de verdad, con lo que Martín escribió y lo que el chat le CONTESTÓ (el texto final de cada turno, del transcript). Los hitos van a la barra del Plan | sin empezar: necesita una tabla (pedido el número al Cerebro) y que el cartero suba los turnos |
+| 2 | «El Second Brain y el Centro deberían ser exactamente lo mismo en SuperAdmin» | **hecho**: Ops Center, una pantalla con dos puertas (app/second-brain/pagina.tsx) |
+| b | «que quede el nombre de "Ops Center"» | **hecho** (barra, teléfono, título) |
+| c | «que "Second brain" sea la sub tab debajo de la Ticketera» | **hecho** (también en el teléfono, una fila debajo de «Ticketera») |
+| 3 | elegir la cuenta al mandar, con «Automático» por defecto (la de más cuota libre que pueda correr ese chat) | sin empezar |
+| 4 | el Uso de las CUATRO cuentas, con su plan, la de 5 horas y la semanal, y «medido hace X» | **hecho en la pantalla**; falta que la PC mande el plan y la 5 h de la cuenta de la app (cartero.mjs y el Runner) |
+| 5 | ningún «Pega su comando en PowerShell» en ninguna pantalla: el clic más el permiso de la PC | el Uso ya no lo dice; falta el clic (docs/diseno-nuevo-chat-un-clic.md), que saca los de PanelRunner y «Nuevo chat» |
+| 6 | Review con TODO lo terminado; sin ruta, la tab de su área | **hecho** |
+| 7 | elegir el modelo (Automático, Opus, Sonnet, Haiku) y el esfuerzo al mandar o abrir un chat | sin empezar: el Runner lo aplica con `set_session_model` / `set_session_effort` (sólo chats de la APP; los de terminal no se pueden) |
+| a | todo chat abierto se ve (faltaban «Pagos», «MaKo en WhatsApp», «Runner» y uno de la nube) | sin empezar: mirar los filtros de cartero.mjs (`chatsDeLaApp`: `enCwds`, `esElCartero`) y la sección «Sin asignar», que va plegada |
+
 ## PRIORIDAD DEL 17/10: escribirle a Claude Code desde el Second Brain (tanda 5) — HECHA, falta probarla
 
 Martín: «quiero dejar de mandar prompts por aquí, quiero mandar prompts por MaKo en el Second Brain, terminemos de

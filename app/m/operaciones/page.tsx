@@ -53,7 +53,7 @@ export default async function CentroOperacionesMovil({ searchParams }: { searchP
   const ctx = await contextoMovil();
   if (ctx && ctx.ws == null) redirect(conWs(RUTA, plataforma));
   await requireMovil({ onboarding: false });
-  const cabecera = <CabeceraM titulo="Centro de Operaciones" padre={{ href: RUTA_MAS, label: 'More' }} />;
+  const cabecera = <CabeceraM titulo="Ops Center" padre={{ href: RUTA_MAS, label: 'More' }} />;
   if (!puedeOperar(admin, plataforma)) {
     return <PantallaM>{cabecera}<VacioM frase="Entra como super admin, con tu segundo factor, para usar el Centro." /></PantallaM>;
   }

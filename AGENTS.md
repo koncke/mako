@@ -1281,6 +1281,11 @@ código nuevo:
   Hoy las montan /admin/operaciones, /m/operaciones, /second-brain y /m/second-brain. Una pantalla nueva con los chats
   de Claude Code usa las mismas piezas: nada de estado propio ni de leer la cola por fuera. Lo fija
   tests/second-brain-centro.test.ts.
+- **PARA EL SUPER ADMIN HAY UNA SOLA PANTALLA, «OPS CENTER»** (17/10/2026; Martín: «El Second Brain y el Centro deberían
+  ser exactamente lo mismo en SuperAdmin»). /second-brain y /admin/operaciones son dos PUERTAS: cada una tiene su guarda
+  y las dos dibujan `PantallaSecondBrain` (app/second-brain/pagina.tsx → ChatSecondBrain.tsx). CentroApp.tsx se borró.
+  Algo nuevo del Centro o del Second Brain va en esa pantalla, nunca en una segunda. En la barra, «Second Brain» es la
+  sub-tab de debajo de la Ticketera.
 - **En pantalla el cartero se llama RUNNER y la clave del dispositivo es «tu Token»** (15/10/2026; Martín: «No quiero
   que se llame más "cartero", sino un nombre más formal, tecnico... profesional»). Copiado de los self-hosted runners de
   GitHub Actions; el nombre y las instrucciones de su chat viven en `lib/runner.ts`. En el código, la base y la PC sigue

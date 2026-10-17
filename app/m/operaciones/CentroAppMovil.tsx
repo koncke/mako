@@ -37,6 +37,8 @@ export function CentroAppMovil(datos: DatosCentro) {
       {/* La Ticketera entera, arriba de los chats (Martín: «No veo el botón de la ticketera dentro del Centro»). */}
       <ListaM etiqueta="Ticketera">
         <FilaM icono="soporte" titulo="Ticketera" segunda={k.pendientesTicketera ? `${k.pendientesTicketera} por decidir` : 'Nada por decidir'} href="/m/operaciones?ticketera=tarjetas" navegacion />
+        {/* Ops Center (17/10/2026): «que "Second brain" sea la sub tab debajo de la Ticketera», como en la computadora. */}
+        <FilaM icono="cerebro" titulo="Second Brain" href="/m/second-brain" navegacion />
       </ListaM>
       <ChatsMDelCentro centro={k} />
       {/* El Uso de las cuentas y sus Runners, en una fila que dice siempre el número (Uso.tsx, la de la computadora). */}
