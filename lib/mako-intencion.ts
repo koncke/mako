@@ -91,6 +91,9 @@ export type VeredictoIntencion = {
    *  revisor midió «buen día, movela al viernes» con las dos áreas y SIN la pregunta, porque
    *  doer-herramientas re-leía el texto y su preludio no pelaba «buen día» (09/10/2026). */
   mover?: 'sin-decir-que' | 'tarea';
+  /** La persona le reclama a MaKo lo que le prometió («Pasamelo» después de «Eso lo miro y te lo paso»): las
+   *  herramientas se eligen por el pedido que MaKo prometió, no por el último mensaje (lib/mako-doer-in.ts). */
+  reclamaPromesa?: boolean;
 };
 
 /** Lo que dice un pedido de agenda para el presupuesto: pone primero las de agenda. */
@@ -583,7 +586,14 @@ const CONFIRMACION = /^[\s¡!¿?]*(s[ií]|dale|ok(ey)?|listo|perfecto|obvio|clar
 /** El vocabulario del saludo, UNA vez: lo usan el detector y el pelador.
  *  Dos listas se separan, y acá ya pasó: el SALUDO del router incluye `mako` y
  *  el de acá no, que es por lo que «hola mako, cómo venimos» cayó en charlar. */
-const SALUDOS = 'hola|ola|holis|opa|buenas|buen[oa]s|buen d[ií]a|hey|ey|che|qu[eé] tal|c[oó]mo (and|est|va)|todo bien|gracias|mil gracias|genial|joya|b[aá]rbaro|buen[ií]simo|jaja|abrazo|saludos|chau|nos vemos|buen finde|test|prueba|probando|ping';
+// ⚠️ «¿CÓMO ESTÁS?» NO SE PELABA, y el pedido que venía detrás se leía como una pregunta (16/10/2026, ws18): «Hola
+// MaKo, ¿cómo estás? ¿Me agendás una visita… mañana a las 9:30?» llegó como `consultar` —en una pregunta no viajan las
+// herramientas que escriben— y MaKo terminó diciendo que no podía escribir en su Google Calendar. La alternativa era
+// `c[oó]mo (and|est|va)` seguida del corte `(?![a-záéíóúñ])`, y después de «est» o «and» SIEMPRE viene una letra: sólo
+// «cómo va» se pelaba. Va la forma entera y sólo CERRADA (un «?», una coma, un punto o el final): «cómo están los
+// leads» es una pregunta por un dato y no se toca.
+const CORTESIA = 'c[oó]mo (?:est[aá]s|and[aá]s|est[aá]n|and[aá]n|te va|les va)(?=\\s*[?,.!]|\\s*$)';
+const SALUDOS = `hola|ola|holis|opa|buenas|buen[oa]s|buen d[ií]a|hey|ey|che|qu[eé] tal|${CORTESIA}|c[oó]mo (and|est|va)|todo bien|gracias|mil gracias|genial|joya|b[aá]rbaro|buen[ií]simo|jaja|abrazo|saludos|chau|nos vemos|buen finde|test|prueba|probando|ping`;
 const SALUDO = new RegExp(`^[\s¡!¿?]*(${SALUDOS})(?![a-záéíóúñ])`, 'i');
 const SOLO_EMOJI = /^[\s\p{Emoji_Presentation}\p{Extended_Pictographic}!?.]+$/u;
 
@@ -637,7 +647,10 @@ const INTERROGATIVO = /\b(cu[aá]nt[oa]s?|qu[eé]|cu[aá]l(es)?|qui[eé]n(es)?|c
 //
 // «agenda» suelta es también el sustantivo («mi agenda de mañana»): cuenta como verbo sólo
 // si no la precede un artículo o posesivo y la sigue un pronombre o un objeto.
-const VERBO_AGENDAR = /(?<!\b(?:mi|tu|su|la|de|en|mis|tus|sus|una|esta)\s)\bagenda\s+(?:me|le|les|nos|una?|la|el|a)\b|\b(?:re)?agend(?:ame|ale|ales|ala|alo|alas|alos|anos)\b|\breagenda\b|\bprograma(?:me|la|le)\b/;
+// ⚠️ Y «¿me agendás una visita…?»: la segunda persona con el pronombre ADELANTE (16/10/2026, ws18). Es como pide quien
+// vosea o tutea en una pregunta («me agendás», «me agendas», «le agendarías»), no era ninguna de estas formas y el
+// pedido caía en `consultar`. Sólo con el pronombre: «tus agendas» es el sustantivo.
+const VERBO_AGENDAR = /(?<!\b(?:mi|tu|su|la|de|en|mis|tus|sus|una|esta)\s)\bagenda\s+(?:me|le|les|nos|una?|la|el|a)\b|\b(?:re)?agend(?:ame|ale|ales|ala|alo|alas|alos|anos)\b|\breagenda\b|\bprograma(?:me|la|le)\b|\b(?:me|nos|le|les)\s+(?:la\s+|lo\s+)?(?:re)?agend(?:as|aras|arias)\b/;
 const VERBO_SOBRE_REUNION = /\b(?:crea(?:me|la|le)?|arma(?:me|la|le)?|pon(?:e|eme|ela|me|la|le)|mueve(?:la|lo|me)?|move(?:la|lo|me|las|los)|pasa(?:la|lo|me|las|los)?|cambia(?:la|lo|le|me|las|los)?|cancela(?:la|lo|me|las|los)?|borra(?:la|lo|me|las|los)?|elimina(?:la|lo|me|las|los)?|edita(?:la|lo|le)?|modifica(?:la|lo|le)?|suspende(?:la|lo)?|renombra(?:la|lo)?)\b/;
 // Las formas con modal: es como pide un cliente que tutea («me puedes agendar…»).
 const MODAL_AGENDA = /\b(?:puedes|podes|podrias|podras|puede|podria|quiero|queria|necesito|hay que|vamos a)\s+(?:me\s+|nos\s+|le\s+)?(?:re)?(agendar|crear|armar|poner|mover|pasar|cambiar|cancelar|borrar|eliminar|editar|modificar|programar|suspender|renombrar)(?:me|la|lo|le|nos|las|los)?\b/;
@@ -689,6 +702,46 @@ function esPedidoAgenda(n: string): boolean {
   // «cambiá», «pasá», «cancelá» quieren decir muchas: hace falta la reunión, y además un
   // día u hora, o que el mensaje ARRANQUE con el verbo (ahí es una orden, no una idea).
   return sobre && reunion && (tiempo || VERBO_SOBRE_REUNION.test(t.slice(0, 14)) || /^(?:me |nos )?(?:puedes|podes|podrias)/.test(t));
+}
+
+// ── PROBAR UNA INTEGRACIÓN ───────────────────────────────────────────────────────
+// EL CASO (16/10/2026, ws18). «probá el calendario de google» cayó al default —material para anotar, dudosa— con dos
+// herramientas del plan y ninguna para mirar la conexión. MaKo contestó «primero debes activar la integración» con su
+// Google Calendar CONECTADO, y la persona: «mentira, ya está conectado». El modelo no tenía con qué leerlo, y lo
+// dedujo. «probá» no está entre los imperativos de arriba, y «prueba» es un SALUDO (así se estrena un canal), así que
+// esto va antes que el saludo. Es una LECTURA: mirar el estado y el día, nunca escribir nada.
+const VERBO_PROBAR = /^(?:proba|prueba|probame|probala|probalo|probar|testea|testear|testeame|chequea|chequear|verifica|verificar|fijate si|mira si|(?:me\s+)?(?:puedes|podes|podrias)\s+(?:probar|testear|chequear|verificar|fijarte si|mirar si))\b/;
+const OBJETO_INTEGRACION = /\b(?:calendario|calendar|google|calendly|integracion(?:es)?|conexion|conectad[oa]|whatsapp|gmail|meta|instagram|stripe|mercado ?pago|fathom|zoom)\b/;
+/** Lo que suma al presupuesto: el estado de la conexión y el día de la agenda (lo que prueba que anda). */
+export const RELEVANCIA_PROBAR_INTEGRACION = 'probar conexion integracion estado conectado google calendar agenda dia hoy';
+/** ¿Pide probar una integración? Recibe el texto SIN tildes. */
+function esPruebaDeIntegracion(n: string): boolean {
+  const t = n.replace(PRELUDIO, '').trim();
+  if (!t || t.length > 160 || t.includes('\n')) return false;
+  const v = VERBO_PROBAR.exec(t);
+  return !!v && OBJETO_INTEGRACION.test(t.slice(v[0].length, v[0].length + 60));
+}
+
+/**
+ * ¿El último mensaje de MaKo le PIDIÓ algo a la persona? Una pregunta («¿a qué hora?») o un pedido
+ * («pásame el nombre y la dirección»). `makoPreguntoAlgo` sólo mira el «?», y el 16/10/2026 (ws18)
+ * MaKo pidió los datos de una visita con un «pásame…», sin signo: la respuesta («El nombre es Nancy y
+ * la dirección es Alem 1987») llegó como material para anotar y sin la agenda.
+ */
+export function makoPidioDatos(ultimoDeMako: string | null | undefined): boolean {
+  if (makoPreguntoAlgo(ultimoDeMako)) return true;
+  const fin = norm((ultimoDeMako ?? '').slice(-280));
+  return /\b(?:pasame|dime|decime|mandame|enviame|confirmame|indicame|contame|cuentame|necesito (?:el|la|los|las|que|saber))\b/.test(fin);
+}
+
+/**
+ * ¿Era un pedido de agenda? Lo decide el MISMO clasificador, con su pelado del saludo («Hola MaKo, ¿cómo estás?
+ * ¿Me agendás…?»): el doer lo pregunta sobre los mensajes ANTERIORES de la persona para saber si la respuesta de
+ * ahora sigue ese pedido (`siguePedidoDeAgenda`). Sin contexto: lo de antes se mira como llegó.
+ */
+export function esPedidoDeAgenda(texto: string): boolean {
+  const v = clasificarIntencion(texto);
+  return v.intencion === 'actuar' && v.relevancia === RELEVANCIA_AGENDA;
 }
 
 /**
@@ -795,7 +848,14 @@ const NEGATIVA = /^[\s¡!¿?]*(no|nop|cancela|cancel[áa]|mejor no|dejalo|déjal
 
 export function clasificarIntencion(
   texto: string,
-  ctx: { hayPendientes?: boolean; hayPendienteDeAgenda?: boolean; hayMedia?: boolean; hayContacto?: boolean; hayAgendaAbierta?: boolean; makoPregunto?: boolean; preguntoReunionOTarea?: boolean } = {},
+  ctx: {
+    hayPendientes?: boolean; hayPendienteDeAgenda?: boolean; hayMedia?: boolean; hayContacto?: boolean; hayAgendaAbierta?: boolean; makoPregunto?: boolean; preguntoReunionOTarea?: boolean;
+    /** Uno de los últimos pedidos de la persona fue de agenda y MaKo le acaba de pedir datos (`makoPidioDatos`). */
+    siguePedidoDeAgenda?: boolean;
+    /** El último mensaje de MaKo PROMETIÓ algo (lib/doer-salida.ts, `promesasDe`), y ésta es la intención del pedido
+     *  de la persona que prometía cumplir. Sin promesa, undefined. */
+    pedidoPrometido?: Intencion;
+  } = {},
 ): VeredictoIntencion {
   const t = (texto || '').trim();
   const n = norm(t);
@@ -834,6 +894,12 @@ export function clasificarIntencion(
   //    (ver `esPedidoSobreLead`). Pasa de largo y lo toma la regla 3-quater.
   if (PEDIDO_ANOTAR.test(n) && !pedidoLead) {
     return { intencion: 'capturar', dudosa: false, porque: 'pidió anotarlo explícitamente' };
+  }
+
+  // 2-bis) PROBAR UNA INTEGRACIÓN («probá el calendario de google», ver `esPruebaDeIntegracion`). Antes del saludo:
+  //        «prueba» es un saludo, y pelado dejaba «el calendario de google» sin verbo, al default.
+  if (esPruebaDeIntegracion(nPersona)) {
+    return { intencion: 'consultar', dudosa: false, porque: 'pide probar una integración: se lee su estado', areas: ['integraciones', 'crm'], relevancia: RELEVANCIA_PROBAR_INTEGRACION };
   }
 
   // 3) Saludo o emoji suelto, corto y sin nada más.
@@ -883,6 +949,17 @@ export function clasificarIntencion(
     return { intencion: 'actuar', dudosa: false, porque: 'sigue un pedido de agenda: el sistema le acaba de mostrar opciones' };
   }
 
+  // 3-bis-bis) LE DA LOS DATOS QUE MaKo PIDIÓ PARA AGENDAR. «El nombre es Nancy y la dirección es Alem 1987», después
+  //            de un «pásame el nombre y la dirección» a un pedido de visita (16/10/2026, ws18). Sin esto caía al default
+  //            —material, dudosa, dos herramientas del plan— y MaKo contestó «desde este chat no tengo acceso para
+  //            escribir en tu Google Calendar». `sigueOfrecimiento`: las herramientas se eligen también por el pedido
+  //            anterior y por lo que pidió MaKo (lib/doer-herramientas.ts), porque «Nancy» no nombra nada.
+  //            ⚠️ Una PREGUNTA no es un dato que se da («¿cuántos leads entraron hoy?» después del «pásame…» es otro
+  //            pedido, y en una pregunta MaKo ofrece), ni lo es un pedido sobre un lead o una landing.
+  if (ctx.siguePedidoDeAgenda && t.length <= 200 && !esLista(t) && cuentaLinks(t) === 0 && !NEGATIVA.test(t) && !PREGUNTA.test(t) && !pedidoLead && !pedidoLanding) {
+    return { intencion: 'actuar', dudosa: false, porque: 'le da los datos que MaKo pidió para un pedido de agenda', sigueOfrecimiento: true, areas: ['crm'], relevancia: RELEVANCIA_AGENDA };
+  }
+
   // 3-ter) DICE QUE SÍ A LO QUE MaKo LE OFRECIÓ. Desde el 08/10/2026 MaKo, cuando contesta
   //        una pregunta, OFRECE la acción («¿Querés que pase a Rosana a Agendado?») en vez
   //        de dejarla armada, porque en consultar/pensar ya no viajan las herramientas de
@@ -896,6 +973,16 @@ export function clasificarIntencion(
   //        a «¿te la agendo mañana a las 12?» llegaba sin ninguna herramienta de Google.
   if (ctx.makoPregunto && CONFIRMACION.test(t) && !NEGATIVA.test(t) && t.length <= 160 && !esLista(t)) {
     return { intencion: 'actuar', dudosa: false, porque: 'dice que sí a lo que MaKo le acaba de ofrecer', sigueOfrecimiento: true };
+  }
+
+  // 3-ter-promesa) LE RECLAMA LO QUE MaKo PROMETIÓ. EL CASO (13/10/2026, ws13): «MaKo pasame todas las reuniones que
+  //               tengo hoy» → (la IA no contestó) → «ok» → «Eso lo miro y te lo paso.» → «Pasamelo» → capturar, dudosa,
+  //               sin herramientas → «no tengo acceso a la lista de reuniones de hoy». «Pasamelo» no nombra nada: lo que
+  //               pide es lo que MaKo dijo que iba a hacer, y llega con la intención de ESE pedido y sus herramientas.
+  //               Corto y sin un «no»: «no, dejá» no reclama nada. Va antes del pedido sobre un lead: «pasamelo» es
+  //               también un verbo del CRM pegado a un pronombre.
+  if (ctx.pedidoPrometido && ctx.pedidoPrometido !== 'charlar' && t.length <= 80 && !esLista(t) && cuentaLinks(t) === 0 && !NEGATIVA.test(t)) {
+    return { intencion: ctx.pedidoPrometido, dudosa: false, porque: 'le reclama a MaKo lo que le prometió', sigueOfrecimiento: true, reclamaPromesa: true };
   }
 
   // 3-ter-bis) CONTESTA «¿La reunión o la tarea?» (ver `esMoverSinObjeto`). «la reunión» no trae

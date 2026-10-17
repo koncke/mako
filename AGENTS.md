@@ -1522,6 +1522,23 @@ hacía lo contrario —ante `{tipo:'escala', opciones:[fechas]}` se quedaba con 
 tiraba las fechas— y esas respuestas no quedaban en ningún lado: ni en la base, ni en la
 pantalla, ni en el log.
 
+## Y un canal de MaKo no promete: su respuesta es el FINAL del turno
+
+Un turno del doer (o de cualquier chat de MaKo) termina cuando contesta. No hay un «después» en el
+que vuelva con el dato, así que «déjame ver», «ya te lo cargo» o «lo miro y te paso» sin haber
+corrido una herramienta es una mentira con fecha. Pasó en el grupo de un cliente el 16/10/2026, y
+el prompt lo FABRICABA: el system de un turno sin herramientas decía, como ejemplo, «dilo en una
+línea («eso lo miro y te lo paso»)», y el modelo lo dijo textual.
+
+- **Un ejemplo entre comillas en un prompt es lo que el modelo va a decir.** Antes de escribir uno,
+  preguntá si es verdad en TODOS los turnos que lo leen.
+- **«No puedo» casi nunca es que no puede: es que el turno llegó sin la herramienta.** Antes de
+  culpar a la integración, armá el turno con la frase real (`clasificarIntencion` +
+  `herramientasDelTurno`) y mirá qué viajó.
+- La segunda capa ya existe y se usa: `sanearSalida` (`lib/doer-salida.ts`) saca la oración que
+  promete sin haber hecho nada, y la grosería. Detalle en
+  [docs/hallazgos-comunicacion.md](docs/hallazgos-comunicacion.md) → «No puedo», «déjame ver».
+
 # Tres topes del entorno que no dan error: te dan otra cosa
 
 Los tres se descubrieron el mismo día, los tres escribiendo código nuevo, y los tres
