@@ -1,0 +1,65 @@
+/* =============================================================================
+   /m/stories — lo propio de Stories (el shell es app/m/m.css)
+   =============================================================================
+   Todo con el prefijo .m-stories-*. Sólo tokens de app/globals.css, salvo lo que va ENCIMA del fondo oscuro del
+   visor (blanco literal: el visor es oscuro en los dos temas, como el reproductor de app/m/video/video.css). Un p
+   con margen va con [data-m] delante. */
+
+.m-stories-mini {
+  flex: none; display: grid; place-items: center; width: 36px; height: 64px; border-radius: 7px;
+  background: var(--sidebar-2); color: var(--sidebar-text);
+}
+
+/* ── El visor (el de historias de Instagram) ─────────────────────────────── */
+.m-stories-visor {
+  position: relative; margin: 0 auto 18px; overflow: hidden;
+  height: min(560px, 62dvh); aspect-ratio: 9 / 16; max-width: 100%;
+  border-radius: 14px; background: var(--sidebar);
+  -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
+}
+.m-stories-visor__segs { position: absolute; z-index: 2; top: 10px; left: 10px; right: 10px; display: flex; gap: 3px; }
+.m-stories-visor__segs i { flex: 1; height: 2.5px; border-radius: 2px; background: rgba(255, 255, 255, .35); }
+.m-stories-visor__segs i[data-lleno] { background: #fff; }
+.m-stories-visor__cabeza {
+  position: absolute; z-index: 2; top: 22px; left: 12px; right: 12px;
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+}
+.m-stories-visor__tipo {
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  color: #fff; font-size: 13px; font-weight: 700; text-transform: capitalize;
+}
+.m-stories-visor__n { flex: none; color: rgba(255, 255, 255, .8); font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.m-stories-visor__centro {
+  position: absolute; inset: 56px 18px 92px; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 16px; text-align: center;
+}
+[data-m] .m-stories-visor__texto {
+  margin: 0; color: #fff; font-size: 21px; font-weight: 700; line-height: 1.3; letter-spacing: -0.01em;
+  text-wrap: balance; overflow-wrap: anywhere;
+  display: -webkit-box; -webkit-line-clamp: 9; -webkit-box-orient: vertical; overflow: hidden;
+}
+.m-stories-visor__sticker {
+  padding: 8px 14px; border-radius: 10px; background: #fff; color: var(--sidebar);
+  font-size: 13px; font-weight: 700; box-shadow: 0 2px 10px rgba(0, 0, 0, .25); transform: rotate(-2deg);
+}
+.m-stories-visor__prod {
+  position: absolute; z-index: 1; left: 0; right: 0; bottom: 0; padding: 28px 14px 14px;
+  background: linear-gradient(to top, rgba(0, 0, 0, .55), transparent);
+  color: rgba(255, 255, 255, .85); font-size: 12.5px; line-height: 1.4;
+  display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden;
+}
+/* Las dos zonas de toque: el tercio izquierdo vuelve, el resto avanza (como Instagram). Por encima de todo. */
+.m-stories-visor__toque {
+  position: absolute; z-index: 3; top: 0; bottom: 0; padding: 0; border: 0; background: none; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.m-stories-visor__toque:disabled { cursor: default; }
+.m-stories-visor__toque--atras { left: 0; width: 33%; }
+.m-stories-visor__toque--sigue { right: 0; width: 67%; }
+.m-stories-visor__toque:focus-visible { outline: none; box-shadow: inset 0 0 0 3px var(--primary); }
+
+/* ── Debajo del visor: la idea y el cierre ───────────────────────────────── */
+.m-stories-dia { margin: 0 4px 8px; }
+[data-m] .m-stories-dia__idea { margin: 0 0 14px; font-size: 17px; font-weight: 650; line-height: 1.35; color: var(--ink); }
+[data-m] .m-stories-dia__cierre { margin: 0 0 14px; font-size: 15px; line-height: 1.5; color: var(--ink); }
+[data-m] .m-stories-dia__nota { margin: 0; font-size: var(--fs-sm); line-height: 1.45; color: var(--dim); }

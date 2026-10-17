@@ -127,7 +127,6 @@ test('cada fila de More es la de la sidebar: el nombre, el ícono, la familia y 
   // More, o acá con su motivo. Una tab nueva de la sidebar no se olvida en silencio.
   const FUERA: Record<string, string> = {
     general: 'es General, la del medio de la barra',
-    image: 'Image (la copia de Canva) no entró en la tanda del 15/10/2026: si va al teléfono, es una fila de More',
   };
   const visible = (t: NavItem) => !t.adminOnly && !t.comingSoon;
   for (const f of FAMILIAS) {
@@ -159,7 +158,8 @@ test('quién ve qué en More: rol × capa, con la regla de la sidebar (puedeVerK
     [null, ['mako']],
     // Clients es UNA fila (sus sub-tabs van adentro); MaKo Partners sólo para el admin de una agencia.
     ['Operate', ['calendario', 'dashboard', 'ads', 'cs']],
-    ['Sales Machine', ['offer', 'landing', 'automations', 'video', 'copywriting']],
+    // Image (la copia de Canva) entró el 17/10/2026, debajo de Video, como en la sidebar (tests/m-creacion.test.ts).
+    ['Sales Machine', ['offer', 'landing', 'automations', 'video', 'image', 'copywriting']],
   ]);
   // El admin de la capa pm no ve CRM ni Chats: suben las dos primeras de More que ve, en el orden de la
   // sidebar (Calendario y Dashboard), y en More le queda MaKo.

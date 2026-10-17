@@ -42,13 +42,16 @@ import { capaDeHojaDeRol } from './graficos-roles';
 import { RUTA_AUTOMATIONS, RUTAS_VIEJAS_AUTOMATIONS } from './ruta-automations';
 import { RUTA_WEB_GENERATOR, RUTAS_VIEJAS_WEB_GENERATOR } from './ruta-web-generator';
 import { SECCIONES_COMUNIDAD as SECCIONES_COMUNIDAD_CLIENTS } from './clients-rutas';
+// Las tabs de CREACIÓN (17/10/2026): sus filas ocultas y su ida y vuelta viven en ./movil-creacion.ts.
+import { SECCIONES_CREACION, rutaEscritorioCreacion, rutaMovilCreacion, type IdCreacion } from './movil-creacion';
 
 /** Los cinco destinos FIJOS de la barra. `hoy` es General (la portada; su ruta interna es /m/hoy). */
 export type DestinoMovil = 'crm' | 'chats' | 'hoy' | 'plan' | 'mas';
 /** Las secciones que viven en More. */
 export type IdSeccionMas =
   | 'calendario' | 'ads' | 'second-brain' | 'dashboard' | 'experimentos' | 'offer' | 'landing' | 'automations'
-  | 'video' | 'copywriting' | 'cs' | 'curso' | 'comunidad' | 'partners' | 'mako';
+  | 'video' | 'copywriting' | 'cs' | 'curso' | 'comunidad' | 'partners' | 'mako'
+  | IdCreacion;
 /** Lo que puede ocupar un lugar de la barra: un destino fijo o una sección de More que subió. */
 export type IdBarra = DestinoMovil | IdSeccionMas;
 
@@ -153,8 +156,11 @@ export const SECCIONES_MAS: readonly DefSeccionMas[] = [
   // sección que el teléfono muestra (Video Generator; Ads Writer, la única de Copywriting que ve un
   // cliente). `copywriting` NO sirve de navKey: no está en TODOS_LOS_ITEMS (itemsDe aplana las
   // secciones) y la de ADMIN_NAV es otra tab (/admin/copywriting), así que puedeVerKey diría que no.
-  // Image (la copia de Canva) no entró en la tanda del 15/10/2026: si va al teléfono, es una fila acá.
+  // Image (la copia de Canva) no entró en la tanda del 15/10/2026; entró el 17/10/2026, debajo de Video.
   { id: 'video', label: 'Video', href: '/m/video', icon: 'videogen', navKey: 'video-generator', familia: 'sales' },
+  // Image (17/10/2026): la tab unificada abre su Editor, la copia de Canva (app/m/image-editor), como en escritorio
+  // (`resolverTab` lleva a la primera sección que no es «pronto»). Sus otras secciones van en la barra de arriba.
+  { id: 'image', label: 'Image', titulo: 'Image Editor', href: '/m/image-editor', icon: 'imagegen', navKey: 'image-editor', familia: 'sales' },
   { id: 'copywriting', label: 'Copywriting', titulo: 'Ads Writer', href: '/m/copywriting', icon: 'escribir', navKey: 'ads-writer', familia: 'sales' },
   // «Second Brain» (16/10/2026), ARRIBA de todo y sin título desde el 17/10/2026, como en escritorio
   // (app/_components/nav.ts → ARRIBA): el chat con MaKo. Hasta ese día había otra fila igual en Analyze.
@@ -166,6 +172,8 @@ export const SECCIONES_MAS: readonly DefSeccionMas[] = [
   // Course y Community: sub-tabs de Clients desde el 17/10/2026 (arriba de las tres pantallas, app/m/cs/SeccionesClientsM.tsx).
   { id: 'curso', label: 'Classroom', href: '/m/curso', icon: 'video', navKey: 'cs-curso', familia: null, oculta: true },
   { id: 'comunidad', label: 'Community', href: '/m/comunidad', icon: 'comunidad', navKey: 'cs-comunidad', familia: null, oculta: true },
+  // Las pantallas de CREACIÓN (17/10/2026), todas ocultas: lib/movil-creacion.ts dice por qué.
+  ...SECCIONES_CREACION,
 ];
 
 /** El nombre de la PANTALLA de una sección (la cabecera, su «volver» y la pestaña): `titulo` o, si no, el de la fila. */
@@ -474,6 +482,9 @@ export function rutaMovil(href: string | null | undefined): string | null {
   const landing = p.match(/^\/(?:web-generator|landing-generator)\/(\d+)$/);
   if (landing) return `/m/landing/${landing[1]}`;
   if (dentro(p, RUTA_WEB_GENERATOR) || RUTAS_VIEJAS_WEB_GENERATOR.some((r) => dentro(p, r))) return '/m/landing';
+  // Las tabs de CREACIÓN (17/10/2026): Video Editor, Image Editor, AI Avatar, Reels, Stories, Carousels y las «pronto».
+  const creacion = rutaMovilCreacion(p, q);
+  if (creacion) return creacion;
   return null;
 }
 
@@ -583,6 +594,8 @@ export function rutaEscritorio(href: string): string {
   else if (p === '/m/video') destino = '/video-generator';
   else if ((m = p.match(/^\/m\/landing\/([^/]+)$/))) destino = `${RUTA_WEB_GENERATOR}/${m[1]}`;
   else if (p === '/m/landing') destino = RUTA_WEB_GENERATOR;
+  // Las tabs de CREACIÓN (17/10/2026): la carpeta de /m se llama como la ruta de escritorio (lib/movil-creacion.ts).
+  if (!destino) destino = rutaEscritorioCreacion(p);
   if (!destino) return href;
   const resto = q.toString();
   return `${destino}${resto ? `?${resto}` : ''}${hash ? `#${hash}` : ''}`;

@@ -39,3 +39,5 @@ export {
   RUBBER, VELOCIDAD_FLICK, HISTERESIS, UMBRAL_SWIPE, UMBRAL_PULL, RETENCION_PULL,
   type Muestra, type SnapSheet,
 } from './gestos';
+export { SeccionesTabM, type SeccionTabM } from './SeccionesTabM';
+export { BotonFlotanteM, HuecoFlotanteM } from './BotonFlotanteM';

@@ -92,10 +92,14 @@ test('v3: CRM · Chats · General · Plan · More; More por las familias de la s
     ['calendario', 'calendario', 'operate', false], ['dashboard', 'graphics', 'operate', false], ['ads', 'ads-manager', 'operate', false],
     ['cs', 'customer-success', 'operate', false], ['partners', 'partners', 'operate', false],
     ['offer', 'offer', 'sales', false], ['landing', 'landing-writer', 'sales', false], ['automations', 'setting', 'sales', false],
-    ['video', 'video-generator', 'sales', false], ['copywriting', 'ads-writer', 'sales', false],
+    ['video', 'video-generator', 'sales', false], ['image', 'image-editor', 'sales', false], ['copywriting', 'ads-writer', 'sales', false],
     ['mako', 'mako', null, false],
     ['second-brain', 'second-brain', null, true], ['experimentos', 'experimentos', null, true],
     ['curso', 'cs-curso', null, true], ['comunidad', 'cs-comunidad', null, true],
+    // 17/10/2026, las tabs de CREACIÓN: Image es fila (debajo de Video, como en la sidebar); las demás, ocultas
+    // (secciones de Video, Image y Copywriting: lib/movil-creacion.ts y tests/m-creacion.test.ts).
+    ['video-editor', 'video-editor', null, true], ['reels', 'reels', null, true],
+    ['carousels', 'carousels', null, true], ['stories', 'stories', null, true],
   ]);
 });
 
@@ -105,7 +109,8 @@ test('admin de un cliente completo: la barra de cinco y More con todo, una caja 
   // Probado rompiéndolo: con la caja de Second Brain al final en `gruposMas` → cae este assert.
   assert.deepEqual(mas('admin', 'completo'), [
     ['mako'], ['calendario', 'dashboard', 'ads', 'cs'],
-    ['offer', 'landing', 'automations', 'video', 'copywriting'],
+    // Image (la copia de Canva) es fila de More desde el 17/10/2026, debajo de Video.
+    ['offer', 'landing', 'automations', 'video', 'image', 'copywriting'],
   ]);
   assert.deepEqual(familias('admin', 'completo'), [null, 'Operate', 'Sales Machine']);
 });
@@ -246,8 +251,9 @@ test('las siete de More (15/10/2026): cada pantalla de escritorio, y sus alias, 
     ['/analisis/trimestre', null],
     ['/offer', '/m/offer'], ['/offer?oferta=7&funnel=2', '/m/offer?oferta=7&funnel=2'], ['/offer-analyst', '/m/offer'],
     ['/ads-writer', '/m/copywriting'], ['/ads-writer?tab=analizar', '/m/copywriting?tab=analizar'], ['/content-machine', '/m/copywriting'],
-    // Lo demás de la tab Copywriting es del super admin: en la computadora.
-    ['/youtube-writer', null], ['/stories', null], ['/ideas', null],
+    // Lo demás de la tab Copywriting tiene pantalla en el teléfono desde el 17/10/2026: Stories la suya
+    // (tests/m-creacion.test.ts), y las «Coming soon», la de /m/pronto.
+    ['/youtube-writer', '/m/pronto/youtube-writer'], ['/stories', '/m/stories'], ['/ideas', '/m/pronto/ideas'],
     // Curso y Comunidad ANTES que Clientes (`dentro(p, '/customer-success')` se quedaba con las dos).
     ['/customer-success/curso', '/m/curso'], ['/customer-success/curso?producto=3', '/m/curso?producto=3'],
     ['/customer-success/curso/vista?producto=3', '/m/curso?producto=3'],

@@ -76,7 +76,10 @@ export function esTrabajo(pathname: string | null | undefined): boolean {
     // sin título grande. Como el chat de MaKo: de trabajo desde el HTML del server.
     || dentro(p, '/m/offer')
     // UNA conversación de Chats (17/10/2026, /m/chats/<clave>): un chat, como el del lead. La lista no.
-    || CHAT_DE_CHATS.test(p);
+    || CHAT_DE_CHATS.test(p)
+    // El editor de UN proyecto del Video Editor o de UN diseño del Image Editor (17/10/2026), como el de un video:
+    // en CapCut y en Canva del teléfono el editor ocupa la pantalla. Sus inicios (las listas) no.
+    || /^\/m\/(video-editor|image-editor)\/[^/]+/.test(p);
 }
 
 /** El lugar de la barra cuya raíz es esta ruta (o null). */
