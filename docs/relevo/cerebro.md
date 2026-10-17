@@ -397,3 +397,7 @@ tandas 2-3; la tanda 5 del editor de video POSPUESTA por Martín). Todos esos ch
   - Ya sabe que la sidebar nueva cambia el teléfono.
 - **Sin encontrar:** `dashboard-cierres-run103.json`, que Dashboard dice haber dejado en la «carpeta de notas del Cerebro». No está ni en el scratchpad ni en ~/.claude ni en C:/dev. Hay que pedírselo de nuevo.
 - **El pedido «Sí mándalo siempre, sin aprobación» a MaKo en WhatsApp quedó retenido** (otro modo de permisos). Martín lo tiene que aprobar en ese chat o escribirlo en el del Cerebro.
+- **15:10 UTC:** el run 111 está en producción (f3d6f0612 Ready): Dashboard 5933718c1 y Sidebar 51cbc9df8.
+  - **Sin avisar por el tope de 10:** Sidebar, Dashboard e Infra. Mandarles el «Ya está» después del próximo mensaje de Martín.
+  - Subido 02ffcf29f: MaKo en WhatsApp 8d90f8357 y 118148d1e (la falla se registra sola como ticket), la bitácora de Clients y este relevo.
+  - Esperan: Ticketera punta 4 (6fa9e6431, avisarArregloAlGrupo), la bitácora de Automations (bf44b3cf1), la de Dashboard (b88893a00) y los dos arreglos de «Marcar hecha» del Plan (explicación de más de 400 caracteres; «Ya no estaba abierta» falso con otro proyecto).
