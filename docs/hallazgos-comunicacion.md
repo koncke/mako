@@ -10330,3 +10330,12 @@ Plan, pagos, reportes por email, mensajes al lead: docs/inventario-nada-por-detr
 **Vive en:** `lib/tracking-aviso.ts` · `lib/optin-aviso.ts` · `lib/prueba-aviso.ts` · `app/api/track/optin/route.ts` · `app/api/cron/tracking-vigilante/route.ts` · `lib/disparadores.ts` (`tracking_apagado`,
 `pixel_viejo`, `landing_cambio`) · `lib/variables-aviso.ts` · `lib/plantillas-automatizaciones.ts` (`mako-tracking-apagado`,
 `mako-pixel-viejo`, `mako-landing-cambio`, `mako-lead-de-landing`) · tests: `tests/tracking-evento.test.ts`, `tests/optin-evento.test.ts`, `tests/prueba-pixel-evento.test.ts`
+
+## El chat de MaKo en la app y el teléfono tampoco «putea suave» (17/10/2026)
+
+La persona de MaKo (lib/mako-persona.ts) dice «puedes putear suave», y lo que pasa por `buildSystemPrompt` la hereda. El
+doer de WhatsApp lo cortaba (la voz en su system y `sanearSalida` antes de mandar); el chat de la app y del teléfono
+(`turnoApp`, lib/mako-turno-app.ts), que usan los clientes y su equipo, no. Ahora lleva la misma línea de voz y el mismo
+corte antes de guardar: se saca la oración grosera, no la respuesta entera. Las promesas no se sacan ahí (la tarjeta y la
+pantalla dicen lo que quedó hecho). **Sin hacer:** otros caminos que usan `buildSystemPrompt` (el analista de un lead, el
+Second Brain) no se revisaron uno por uno. Test: tests/mako-app-sin-groserias.test.ts. *17/10/2026, B5 (claude4)*
