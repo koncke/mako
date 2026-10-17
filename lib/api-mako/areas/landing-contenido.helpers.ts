@@ -23,6 +23,7 @@
 // =============================================================================
 
 import { sanearContenido, sanearConfig } from '@/lib/editor-landing/validar';
+import { hacerInicio, rutaLibre } from '@/lib/editor-landing/paginas-reglas';
 import {
   NODO, TOPES, ATTRS_TARJETA_DEFAULT, DISENOS_TARJETA, ANCHOS_TARJETA, ALINEACIONES_TARJETA, ALTOS_TARJETA,
   FONDOS_TARJETA, DEGRADADOS, VARIANTES_BOTON, TIPOS_CAMPO, nuevoId, parrafo, titulo as nodoTitulo, docPagina,
@@ -934,37 +935,14 @@ export function planQuitarCobro(c: LandingContenido, e: { boton?: unknown }): Pl
 // ─────────────────────────────────────────────────────────────────────────────
 // Las páginas (el panel «Páginas»)
 // ─────────────────────────────────────────────────────────────────────────────
-// ⚠️ COPIA de las reglas puras de app/web-generator/editor/PanelPaginas.tsx (`rutaLibre`, `hacerInicio`,
-// `duplicarPagina`): ese archivo es 'use client' y un módulo del server NO puede importarlo (recibiría una
-// referencia de cliente, no la función). tests/api-mako-landing-contenido.test.ts compara las dos con los
-// mismos casos hasta que se muden a un módulo puro y las dos importen de ahí (el bloqueante de la tanda 7).
+// Las reglas de las páginas son las MISMAS del panel «Páginas» (lib/editor-landing/paginas-reglas.ts). Hasta el
+// 17/10/2026 estaban copiadas acá (PanelPaginas.tsx es 'use client' y el server no puede importarlo).
 
-/** Una ruta libre a partir de un texto (PanelPaginas.tsx, `rutaLibre`). */
-export function rutaLibreApi(texto: string, usadas: readonly string[]): string {
-  let base = slugDe(texto).slice(0, 50).replace(/-+$/g, '');
-  if (!rutaValida(base)) base = 'pagina';
-  const tomadas = new Set(usadas);
-  if (!tomadas.has(base)) return base;
-  for (let i = 2; i < 1000; i++) {
-    const r = `${base}-${i}`;
-    if (!tomadas.has(r)) return r;
-  }
-  return `${base}-${nuevoId('').slice(0, 6)}`;
-}
+/** Una ruta libre a partir de un texto (la del panel). */
+export const rutaLibreApi = rutaLibre;
 
-/** La página `id` pasa a ser la de inicio (PanelPaginas.tsx, `hacerInicio`). */
-export function hacerInicioApi(paginas: readonly Pagina[], id: string): Pagina[] {
-  const elegida = paginas.find((p) => p.id === id);
-  if (!elegida) return [...paginas];
-  const usadas = paginas.filter((p) => p.id !== id && p.ruta).map((p) => p.ruta);
-  const resto = paginas.filter((p) => p.id !== id).map((p) => {
-    if (p.ruta !== '') return p;
-    const ruta = rutaLibreApi(p.titulo || 'pagina', usadas);
-    usadas.push(ruta);
-    return { ...p, ruta };
-  });
-  return [{ ...elegida, ruta: '' }, ...resto];
-}
+/** La página `id` pasa a ser la de inicio (la del panel). */
+export const hacerInicioApi = hacerInicio;
 
 
 /**

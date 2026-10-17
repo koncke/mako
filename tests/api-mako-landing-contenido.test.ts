@@ -408,8 +408,11 @@ test('las páginas: agregar con una ruta libre, hacer de inicio, borrar la de in
   assert.equal(borr.contenido.paginas[0].ruta, '', 'siempre hay una de inicio');
   assert.match(falla(planAcomodarPagina(c, { accion: 'renombrar', pagina: 'pGracias', ruta: 'Mala Ruta' })).error, /a-z/);
   assert.equal(falla(planAcomodarPagina(c, { accion: 'inicio', pagina: 'pInicio' })).yaEstaba, true);
-  // Las copias de las reglas de PanelPaginas.tsx ('use client') dan lo MISMO que las de la pantalla.
+  // Las reglas de las páginas son las MISMAS funciones que usa la pantalla (lib/editor-landing/paginas-reglas.ts, 17/10/2026:
+  // antes eran una copia). Rotura: volver a copiarlas acá → 1 fallo (la identidad).
   const { rutaLibre, hacerInicio } = await import('../app/web-generator/editor/PanelPaginas');
+  assert.equal(rutaLibreApi, rutaLibre, 'la API usa la regla de la pantalla, no una copia');
+  assert.equal(hacerInicioApi, hacerInicio);
   for (const [t, usadas] of [['Gracias por tu compra', []], ['Oferta', ['oferta', 'oferta-2']], ['Sí', []], ['Ñandú Ágil', ['nandu-agil']]] as const) {
     assert.equal(rutaLibreApi(t, usadas), rutaLibre(t, usadas), t);
   }
