@@ -127,6 +127,13 @@ cosas más, del ws13 y del ws9:
   trampa que «reagendá» del 07/10, y su familia no se buscó entonces**: `\bprograma` no matchea adentro de «reprograma»
   (entre «re» y «programa» no hay borde de palabra). Al arreglar un prefijo, enumerá TODOS los verbos de la regla que lo
   admiten, no sólo el que se vio.
+- **«Mago, probá de vuelta agendarle a Pablo lo que te pidió en el calendario»** (ws18, 17/10 13:30): default, sin agenda,
+  «no tengo acceso para agendar citas en tu calendario» — con Google conectado. Dos huecos: el infinitivo con pronombre
+  («agendarle») no era el verbo, y «calendario» no contaba como lugar de la agenda. ⚠️ **Y lo que pedía «de vuelta» (la
+  visita a Nancy) era de 15 horas antes: quedó FUERA de las 14 horas de memoria del grupo** (`HORAS_CONTEXTO`, a
+  propósito). Con la herramienta en la mesa MaKo puede preguntar qué agendar o mirar el día, pero no recuerda el pedido:
+  esto es lo que dice la entrada de arriba, «lo de antes vuelve como HECHO, no como turno viejo». Un pedido que MaKo no
+  pudo cumplir no queda en ningún lado del que se pueda retomar.
 
 **Levantar un ticket desde el grupo (17/10, con la Ticketera).** El doer le pasa al ticket QUIÉN escribió y el contexto
 del turno, y el código lo propone cuando una herramienta de MaKo falló (el molde del chat de la app). Tres cosas que no
