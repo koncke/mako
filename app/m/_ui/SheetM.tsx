@@ -57,7 +57,8 @@ export type SheetMProps = {
   abierto: boolean;
   /** Lo llama la hoja cuando la persona la cierra (botón, velo, arrastre, «atrás»). */
   onCerrar: () => void;
-  titulo: string;
+  /** El texto de la cabecera. Puede ser un nodo (17/10/2026: el Ops Center pone la criatura a la izquierda del nombre del chat). */
+  titulo: ReactNode;
   children?: ReactNode;
   /** El pie fijo: la advertencia + el botón primario + la salida, apilados (<PieM>). */
   pie?: ReactNode;

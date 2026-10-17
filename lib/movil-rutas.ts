@@ -449,9 +449,12 @@ export function masCompleto(rol: RolMovil, capa: string | null | undefined, admi
   const vista: VistaNav = { adminShell, rolWs: rol ?? '', capa: capa ?? '' };
   const conPantalla = gruposMas(rol, capa);
   const out: GrupoMasCompleto[] = [];
+  // Arriba de todo, como la sidebar (nav.ts → `arribaDe`): el super admin NO ve «Second Brain» acá (17/10/2026, Martín: «el
+  // second brain vive dentro de ops center»): se abre desde el Ops Center, con su grafo. Los demás, sí: es su chat con MaKo.
   const arriba = conPantalla.find((g) => g.familia === null);
-  if (arriba) {
-    out.push({ id: 'arriba', titulo: null, filas: arriba.secciones.map((s) => ({ tipo: 'pantalla' as const, key: s.navKey, label: s.label, icon: s.icon, href: s.href, seccion: s.id })) });
+  const sueltas = (arriba?.secciones ?? []).filter((s) => !(adminShell && s.navKey === 'mako'));
+  if (sueltas.length) {
+    out.push({ id: 'arriba', titulo: null, filas: sueltas.map((s) => ({ tipo: 'pantalla' as const, key: s.navKey, label: s.label, icon: s.icon, href: s.href, seccion: s.id })) });
   }
   const enBarra = new Set(DESTINOS_MOVIL.map((d) => d.navKey).filter((k): k is string => k != null));
   // Lo que ya está en la barra de ESTE rol, por su ruta del teléfono: General no tiene key en DESTINOS_MOVIL (es la

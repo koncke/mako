@@ -29,7 +29,7 @@ import Link from '@/app/_ui/Link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
-import { FAMILIAS, ARRIBA, USER_NAV, SUPERADMIN_MENU, ADMIN_FAMILIAS, itemsDe, fuenteContador, sumaDeContadores, type FuenteContador, type NavItem, type NavGrupo } from './nav';
+import { FAMILIAS, arribaDe, USER_NAV, SUPERADMIN_MENU, ADMIN_FAMILIAS, itemsDe, fuenteContador, sumaDeContadores, type FuenteContador, type NavItem, type NavGrupo } from './nav';
 import { familiasDev } from '@/app/admin/dev/nav-dev';
 import { puedeVerItem, resolverTab } from '@/lib/nav-visibilidad';
 import { MakoLogo, MakoWord, MakoStar } from './MakoBrand';
@@ -463,11 +463,10 @@ export function Sidebar({ inicial }: { inicial?: SidebarInicial }) {
   const vistaNav = { adminShell, rolWs, capa };
   const puedeVer = (it: NavItem) => puedeVerItem(it, vistaNav);
   /**
-   * Lo de ARRIBA de todo (17/10/2026): Ops Center sólo en la barra del super admin (`adminOnly`) y Second Brain para todos
-   * los que tienen MaKo. Al super admin se le dibuja Second Brain aunque su capa no lo nombre: es una capacidad global y
-   * si va a vender el producto usándolo no puede ser lo único que le falte (lo mismo que hacía la entrada de abajo).
+   * Lo de ARRIBA de todo (17/10/2026): Ops Center sólo en la barra del super admin (`adminOnly`) y Second Brain para los demás.
+   * El super admin NO ve Second Brain acá: vive dentro del Ops Center (nav.ts → `arribaDe`).
    */
-  const arriba = ARRIBA.filter((it) => (it.adminOnly ? adminShell : adminShell || puedeVer(it)));
+  const arriba = arribaDe(adminShell, puedeVer);
 
   const familiasProducto = FAMILIAS
     .map((f) => {

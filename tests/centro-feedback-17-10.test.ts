@@ -38,13 +38,14 @@ const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8');
 /** El código sin comentarios: un «⋯» que se nombra para decir que se fue no cuenta. */
 const codigo = (r: string) => leer(r).replace(/\{\/\*[\s\S]*?\*\/\}/g, '').replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
 
-test('H: sin los tres puntos arriba de cada chat; en el teléfono, el muñeco abre Renombrar y el muñeco', () => {
+test('H: sin los tres puntos arriba de cada chat; en el teléfono, la criatura y el nombre son el título de la hoja', () => {
   assert.doesNotMatch(codigo('app/admin/operaciones/Conversacion.tsx'), /co-cab__mas|name="mas"/, 'la computadora');
   const movil = codigo('app/m/operaciones/ChatsMovil.tsx');
   assert.doesNotMatch(movil, /m-operaciones-mas/, 'el teléfono');
-  // Desde el 17/10 a la tarde la criatura va en la cabecera pegada arriba (Martín: «en el teléfono no se puede editar la
-  // criatura»: el muñeco estaba arriba de todo de una conversación que abre en lo último, y nunca se veía).
-  assert.match(movil, /className="m-operaciones-hilo__meta m-operaciones-cabeza__boton" onClick=\{\(\) => setOpciones\(true\)\}/, 'Renombrar sigue a mano en el teléfono');
+  // Desde el 17/10 a las 19:31 la criatura va AL LADO del título (Martín: «como la foto en WhatsApp»): tocarla la cambia y tocar
+  // el nombre lo renombra en el lugar, sin el desplegable de opciones.
+  assert.match(movil, /<TituloDeChat chat=\{elegido\}/, 'el título de la hoja lleva la criatura');
+  assert.doesNotMatch(movil, /setOpciones|m-operaciones-cabeza__boton/, 'sin el desplegable de opciones');
 });
 
 test('I: «Second Brain» abre sólo el grafo y no cambia de chat ni de lista; «Mapa» no está en el Ops Center', () => {

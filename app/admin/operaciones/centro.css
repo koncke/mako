@@ -875,6 +875,18 @@
 .co-cab__muneco { flex: none; padding: 0; border: 0; border-radius: 50%; background: none; cursor: pointer; }
 .co-cab__muneco:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 .co-cab__muneco:hover .mun { transform: scale(1.06); transition: transform .12s ease; }
+/* El título se toca para renombrarlo EN EL LUGAR (17/10/2026): un botón que se ve como texto, y el campo que lo reemplaza. */
+.co-cab__nombre {
+  max-width: 100%; margin: 0; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: text;
+}
+.co-cab__nombre:hover { text-decoration: underline dotted var(--faint); text-underline-offset: 4px; }
+.co-cab__nombre:focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: var(--r-sm); }
+.co-cab__input {
+  width: min(360px, 100%); margin: 0; padding: 2px 8px; border: 1px solid var(--primary-weak); border-radius: var(--r-sm);
+  background: var(--surface); color: var(--ink); font: inherit; outline: none;
+}
+.co-cab__error { font-size: var(--fs-meta); color: var(--bad); }
 
 /* ── Elegir el muñeco (ElegirMuneco.tsx), copiado del armador de Notion Faces ───────────────────────── */
 .co-elegir { display: grid; grid-template-columns: 132px minmax(0, 1fr) 200px; gap: 16px; min-height: 360px; }
@@ -1200,6 +1212,21 @@ a.co-link:hover { color: var(--primary-strong); }
 .co-pasos { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 1px; }
 .co-pasos__hecho { font-size: var(--fs-meta); color: var(--faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .co-pasos__hecho::before { content: "✓ "; color: var(--good); }
+/* «Trabajando…» se toca y se despliega (17/10/2026, Trabajando.tsx): el botón se ve como texto, el paso de ahora en chico al lado,
+   y la lista abierta con el de ahora animado (el punto late como los tres de arriba). */
+.co-trabajando__boton {
+  display: inline-flex; align-items: center; gap: 8px; max-width: 100%; min-height: 28px; margin: 0; padding: 0; border: 0;
+  background: none; color: inherit; font: inherit; text-align: left; cursor: pointer;
+}
+.co-trabajando__boton:focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: var(--r-sm); }
+.co-trabajando__paso { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-meta); color: var(--faint); }
+.co-trabajando__boton .co-chev { color: var(--faint); }
+.co-pasos { animation: co-despliega .16s ease-out; }
+.co-pasos__ahora { display: flex; align-items: center; gap: 6px; font-size: var(--fs-meta); color: var(--dim); }
+.co-pasos__ahora::before { content: ''; flex: none; width: 6px; height: 6px; border-radius: 50%; background: var(--primary); animation: co-late 1.2s ease-in-out infinite; }
+.co-pasos__vacio { font-size: var(--fs-meta); color: var(--faint); }
+@keyframes co-despliega { from { opacity: 0; transform: translateY(-3px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .co-pasos { animation: none; } .co-pasos__ahora::before { animation: none; } }
 .co-trabajando .co-trabajando__texto { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: inline-block; }
 .co-trabajando .co-trabajando__puntos { vertical-align: middle; }
 
@@ -1208,17 +1235,12 @@ a.co-link:hover { color: var(--primary-strong); }
 .co-anteriores:hover { background: var(--velo-hover); }
 
 /* ── Lo del quinto Ops Center (17/10/2026, WhatsApp como referencia de todo) ───────────────────────────────────────── */
-/* «Completado» en la lista: el sello verde de un «Ya está», y el aviso de uno sin ver (el globito de no leídos de WhatsApp:
-   verde, a la derecha, y la hora también en verde). */
+/* «Completado» en la lista: el sello verde de un «Ya está». Uno SIN VER avisa como «Espera tu respuesta» (el mismo renglón y el
+   mismo globito en la criatura, 17/10/2026): ya no lleva un globito verde ni la hora en verde. */
 .co-sello-ok {
   display: inline-flex; align-items: center; gap: 3px; flex: none; margin-right: 6px; padding: 1px 7px 1px 5px; border-radius: 999px;
   background: color-mix(in srgb, var(--good) 14%, transparent); color: var(--good); font-size: 11px; font-weight: 700; line-height: 16px;
 }
-.co-aviso-ya {
-  display: inline-grid; place-items: center; flex: none; width: 18px; height: 18px; margin-left: 6px; border-radius: 50%;
-  background: var(--good); color: #fff;
-}
-.co-fila__hace--nuevo { color: var(--good) !important; font-weight: 600; visibility: visible !important; }
 [data-m] .m-operaciones-riel { display: inline-flex; align-items: center; }
 /* Las fotos de un mensaje enviado, arriba del texto y ocupando la burbuja (WhatsApp; FotosEnviadas.tsx). */
 .co-burbuja--con-adjuntos { padding-top: 4px; padding-inline: 4px; }

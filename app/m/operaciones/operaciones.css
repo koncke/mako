@@ -95,13 +95,22 @@
 [data-m] .m-operaciones-fijados:empty { display: none; }
 [data-m] .m-operaciones-fijados .co-fijados { padding-inline: 16px; }
 
-/* La cabecera del chat, pegada arriba de la hoja como la de WhatsApp (17/10/2026): la criatura, la cuenta y el estado;
-   tocarla abre la info (Renombrar, su criatura y tu foto). Los fijados van debajo, en el mismo bloque pegado. */
+/* Los fijados van pegados arriba de la conversación (WhatsApp). La criatura y el nombre del chat son el TÍTULO de la hoja
+   (17/10/2026): la criatura a la izquierda, como la foto de WhatsApp. */
 [data-m] .m-operaciones-cabeza { position: sticky; top: 0; z-index: 3; margin: 0 -16px; padding: 0 16px; background: var(--bg); }
 [data-m] .m-operaciones-cabeza .m-operaciones-fijados { position: static; margin: 0 -16px; }
-[data-m] .m-operaciones-cabeza__boton {
-  width: 100%; margin: 0; padding: 6px 0 8px; border: 0; border-bottom: 1px solid var(--border); background: none;
-  font: inherit; text-align: left; cursor: pointer;
+[data-m] .m-operaciones-titulo { display: flex; align-items: center; gap: 10px; min-width: 0; }
+[data-m] .m-operaciones-titulo__muneco { flex: none; display: inline-flex; padding: 0; border: 0; border-radius: 50%; background: none; }
+[data-m] button.m-operaciones-titulo__muneco { cursor: pointer; }
+[data-m] .m-operaciones-titulo__texto { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+[data-m] .m-operaciones-titulo__nombre {
+  display: block; min-width: 0; margin: 0; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-[data-m] .m-operaciones-cabeza__texto { flex: 1; min-width: 0; display: inline-flex; align-items: center; gap: 6px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-[data-m] .m-operaciones-cabeza__ir { flex: none; font-size: 22px; line-height: 1; color: var(--faint); }
+[data-m] button.m-operaciones-titulo__nombre { cursor: text; }
+/* 16 px: con menos, el navegador hace zoom al tocar el campo. */
+[data-m] .m-operaciones-titulo__input {
+  width: 100%; min-width: 0; margin: 0; padding: 4px 8px; border: 1px solid var(--primary-weak); border-radius: 8px;
+  background: var(--surface); color: var(--ink); font: inherit; font-size: 16px; outline: none;
+}
+[data-m] .m-operaciones-titulo__error { font-size: var(--fs-meta); font-weight: 400; color: var(--bad); }

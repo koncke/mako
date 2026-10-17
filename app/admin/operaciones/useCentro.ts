@@ -28,7 +28,7 @@ import { achicarImagen } from '@/app/m/mako/achicar-imagen';
 import {
   claveParaUrl, comoSale, completarChats, enQueTrabaja, estadoDeApertura, esperasPorChat, hayEnCamino, historialDelChat, nombreValido, primerMensajeNuevo, textoDeEnvio, textoDeRenombre, vistaPrevia,
   type ChatCentro, type DecisionEspera, type Envio, type LineaChat, type TrabajoP, type VistaPrevia,
-  avisaYaEsta, type VistosDeChats,
+  avisaYaEsta, avisosDe, esperaDe, sinElRunner, type VistosDeChats,
 } from '@/lib/centro-chats';
 import type { PedidoP } from '@/lib/progreso-reglas';
 import type { LecturaPushes } from '@/lib/progreso';
@@ -241,7 +241,10 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
     for (const [local, n] of Object.entries(abiertas)) m[local] = (m[local] ?? 0) + n;
     return m;
   }, [decisiones, carteros, abiertas]);
-  const chats = useMemo(() => completarChats(base, { carteros, trabajos, ahora }), [base, carteros, trabajos, ahora]);
+  // Sin el Runner (17/10/2026, Martín: «El chat de "Runner" no tiene sentido que esté visible en el Center»): sigue trabajando
+  // por detrás y su estado está en «Uso y Runners». Se saca ACÁ, no en `completarChats`: la PC lo sube marcado (`esRunner`) y de
+  // esa marca sale que no se le entrega nada (tests/centro-runner-nube.test.ts).
+  const chats = useMemo(() => sinElRunner(completarChats(base, { carteros, trabajos, ahora })), [base, carteros, trabajos, ahora]);
   const porId = useMemo(() => new Map(pedidos.map((p) => [p.id, p])), [pedidos]);
   // La conversación de cada chat, una vez: de ella salen el segundo renglón y en qué está trabajando.
   const lineasDe = useMemo(
@@ -268,6 +271,9 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
   };
   /** Los chats cuyo último mensaje es un «Ya está» que este dispositivo todavía no vio (lib/centro-chats.ts → avisaYaEsta). */
   const yaSinVer = useMemo(() => new Set([...previas].filter(([k, p]) => k !== mirando && avisaYaEsta(p, vistos, k)).map(([k]) => k)), [previas, vistos, mirando]);
+  /** Cuánto avisa cada chat en su fila: lo que espera a Martín MÁS un «Completado» sin ver (es el mismo aviso, 17/10/2026). Del
+   *  globito de la criatura y del orden de la lista. */
+  const avisos = useMemo(() => (c: ChatCentro) => avisosDe(esperaDe(c, esperas), yaSinVer.has(c.clave)), [esperas, yaSinVer]);
 
   const refrescar = useCallback(async () => {
     const f = await fotoCentroAction();
@@ -501,26 +507,33 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
   };
   // El nombre lo cambia cada sesión del chat (en todas sus cuentas): se le manda a cada una un trabajo firmado que se lo
   // pide (lib/centro-chats.ts → textoDeRenombre). La que está cerrada lo recibe cuando se abre.
-  async function renombrar() {
-    if (!renombrando || !deRenombre) return;
-    const v = nombreValido(renombrando.texto);
-    if (!v.ok) { setRenombrando({ ...renombrando, error: v.error }); return; }
-    if (v.nombre === deRenombre.titulo) { setRenombrando(null); return; }
-    const sale = envioDe(deRenombre);
-    if (!sale.puede) { setRenombrando({ ...renombrando, error: textoDeEnvio(sale) }); return; }
-    setRenombrando({ ...renombrando, mandando: true, error: null });
+  // Lo usan la ventana «Renombrar» de la fila y el título de la cabecera, que se renombra EN EL LUGAR (17/10/2026, Martín:
+  // «tocar el título deja renombrarlo en el lugar»), en la computadora y en el teléfono. Devuelve el error, o null si salió.
+  async function renombrarChat(c: ChatCentro, texto: string): Promise<string | null> {
+    const v = nombreValido(texto);
+    if (!v.ok) return v.error;
+    if (v.nombre === c.titulo) return null;
+    const sale = envioDe(c);
+    if (!sale.puede) return textoDeEnvio(sale);
     let mal: string | null = null;
-    for (const s of deRenombre.sesiones) {
-      const r = await firma.mandar({ sesion: s.sesion, cuenta: s.cuenta, titulo: deRenombre.titulo }, textoDeRenombre(v.nombre), 'solo_esto');
+    for (const s of c.sesiones) {
+      const r = await firma.mandar({ sesion: s.sesion, cuenta: s.cuenta, titulo: c.titulo }, textoDeRenombre(v.nombre), 'solo_esto');
       if (!r.ok) mal = r.error;
     }
-    if (mal) { setRenombrando({ ...renombrando, mandando: false, error: mal }); return; }
+    if (mal) return mal;
     // El muñeco elegido se guarda por nombre: viaja con el nombre nuevo, o el chat renombrado lo perdería.
-    const suyo = elegidoPara(munecos, deRenombre.titulo);
+    const suyo = elegidoPara(munecos, c.titulo);
     if (suyo) { const g = await guardarMunecoAction(v.nombre, suyo); if (g.ok) setMunecos(g.munecos); }
-    setRenombrando(null);
     avisar('Renombre enviado', 'good');
     refrescar();
+    return null;
+  }
+  async function renombrar() {
+    if (!renombrando || !deRenombre) return;
+    setRenombrando({ ...renombrando, mandando: true, error: null });
+    const mal = await renombrarChat(deRenombre, renombrando.texto);
+    if (mal) { setRenombrando({ ...renombrando, mandando: false, error: mal }); return; }
+    setRenombrando(null);
   }
   async function guardarElegido(aspecto: Aspecto | null) {
     if (!eligiendo || !deMuneco) return;
@@ -536,7 +549,7 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
     chats, carteros, trabajos, porId, esperas, decisiones, decisionesOk, ahora, pushes, estado, munecos, setMunecos, tabs, firma, pedidos,
     turnosDe, preguntasDe, tareasDe, contestarPregunta, mirar,
     marcasDe, marcar, citaDe, citar, reenviar, nombresCuentas, renombrarCuenta, pasosDe,
-    lineasDe, previas, enCursos, yaSinVer, pendientesTicketera, refrescar, responderAca, deshacerAca,
+    lineasDe, previas, enCursos, yaSinVer, avisos, pendientesTicketera, refrescar, responderAca, deshacerAca,
     envioDe, borradorDe, borradorDeLista, ponerBorrador, limpiarBorrador, enviando, mandar, anotarEnviado, copiarConAviso, crearClave, copiarClave,
     adjuntosDe, puedeAdjuntar, sumarAdjuntos, quitarAdjunto, vaciarAdjuntos,
     /** Se pegó una imagen en un chat que todavía no recibe adjuntos. */
@@ -544,7 +557,7 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
     puedeAbrirEn, apertura, abrirChat,
     cuentaElegida, elegirCuenta, cuentasDe, destinoDeChat, modelo, setModelo, esfuerzo, setEsfuerzo,
     menu, delMenu, abrirMenu, cerrarMenu: () => setMenu(null), elegirEnMenu,
-    renombrando, setRenombrando, deRenombre, renombrar,
+    renombrando, setRenombrando, deRenombre, renombrar, renombrarChat,
     eligiendo, setEligiendo, deMuneco, abrirMuneco, guardarElegido,
   };
 }

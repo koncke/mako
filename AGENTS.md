@@ -1451,7 +1451,17 @@ código nuevo:
   ser exactamente lo mismo en SuperAdmin»). /second-brain y /admin/operaciones son dos PUERTAS: cada una tiene su guarda
   y las dos dibujan `PantallaSecondBrain` (app/second-brain/pagina.tsx → ChatSecondBrain.tsx). CentroApp.tsx se borró.
   Algo nuevo del Centro o del Second Brain va en esa pantalla, nunca en una segunda. En la barra, «Second Brain» es la
-  sub-tab de debajo de la Ticketera.
+  sub-tab de debajo de la Ticketera. **Y la entrada «Second Brain» de la barra y de More es sólo de quien NO tiene Ops Center**
+  (17/10/2026; Martín: «el second brain vive dentro de ops center y es el grafo, no otro chat»): `arribaDe` (nav.ts) la saca para el
+  super admin y la deja al cliente, a su equipo y al super admin mirando a un cliente, para quienes es su chat con MaKo. Nunca se
+  borra el ítem para todos; un `/second-brain` guardado lleva al grafo del Ops Center sólo a quien `puedeOperar`
+  (lib/ops-center-ruta.ts). Lo fija tests/centro-ops6.test.ts.
+- **LO QUE AVISA EN UNA FILA DEL OPS CENTER ES UN SOLO AVISO** (17/10/2026; Martín: «la misma notif de "Espera tu respuesta"»): una
+  pregunta que espera y un «Completado» sin ver se dibujan igual, con el mismo renglón y el mismo globito en la criatura
+  (`segundoRenglon`, `avisosDe`, lib/centro-chats.ts). Un aviso nuevo se suma ahí, no con otro globito. El chat del Runner no se lista
+  (`sinElRunner`, useCentro.ts): se saca en la pantalla y no en `completarChats`, porque su marca `esRunner` es lo que impide entregarle
+  trabajos. «Trabajando…» es UNA pieza para todos los chats (Trabajando.tsx) y despliega los pasos que sube la PC; el texto del
+  razonamiento no se sube sin revisar qué viaja.
 - **En pantalla el cartero se llama RUNNER y la clave del dispositivo es «tu Token»** (15/10/2026; Martín: «No quiero
   que se llame más "cartero", sino un nombre más formal, tecnico... profesional»). Copiado de los self-hosted runners de
   GitHub Actions; el nombre y las instrucciones de su chat viven en `lib/runner.ts`. En el código, la base y la PC sigue

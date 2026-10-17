@@ -136,7 +136,9 @@ test('el teléfono abre la MISMA lista adentro del Centro, y /admin/runway va di
   assert.equal(rutaEscritorio('/m/decisiones'), '/admin/operaciones?ticketera=lista');
   assert.equal(rutaMovil('/admin/runway'), '/m/operaciones?ticketera=tarjetas', 'la entrada vieja abre el mazo');
   assert.equal(rutaMovil('/admin/runway/foto'), null, 'la foto es ancha: se queda en la computadora');
-  assert.match(leer('app/m/operaciones/TicketeraMovil.tsx'), /<TableroDecisiones /);
+  // Y desde el 17/10/2026 (19:31) la lista y el mazo ya no se dibujan en el teléfono: la URL de antes abre los tickets.
+  assert.doesNotMatch(leer('app/m/operaciones/TicketeraMovil.tsx'), /TableroDecisiones|MazoDecisiones/);
+  assert.match(sinComentarios(leer('app/m/operaciones/page.tsx')), /ticketera === 'tickets' \|\| ticketera === 'tarjetas' \|\| ticketera === 'lista'/);
 });
 
 test('la tabla nace con RLS, sin grants a anon, y su CHECK dice las mismas urgencias que el código', () => {

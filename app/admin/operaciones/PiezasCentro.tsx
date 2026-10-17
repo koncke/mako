@@ -53,12 +53,14 @@ const VISIBLES = 14;
 /** El segundo renglón de la fila: mientras trabaja, EN QUÉ (Martín, 16/10/2026: «Cuando un chat dice "Trabajando..." debo
  *  saber en qué está trabajando»: el título de lo que tiene en curso, `enQueTrabaja`; «trabajando…» si no se sabe), si no
  *  lo último que pasó, con el tick si es un trabajo propio. */
-function Previa({ c, p, espera, enCurso, borrador }: { c: ChatCentro; p: VistaPrevia | null; espera: number; enCurso: string | null; borrador?: string | null }) {
+function Previa({ c, p, espera, enCurso, borrador, sinVer }: { c: ChatCentro; p: VistaPrevia | null; espera: number; enCurso: string | null; borrador?: string | null; sinVer: boolean }) {
   // El orden lo decide `segundoRenglon` (lib/centro-chats.ts), el mismo del teléfono. Sin nada que contar, la fila es de un
   // renglón: «Sin nada anotado» repetido en 40 filas no distingue a ninguna.
-  switch (segundoRenglon(c, espera, borrador, p)) {
+  switch (segundoRenglon(c, espera, borrador, p, sinVer)) {
     case 'vivo': return <span className="co-fila__l2 co-fila__l2--vivo" title={enCurso ?? undefined}>{enCurso ?? 'trabajando…'}</span>;
     case 'espera': return <span className="co-fila__l2 co-fila__l2--espera">Espera tu respuesta</span>;
+    // El MISMO aviso, con el mismo estilo (Martín, 17/10/2026): un «Completado» sin ver, para revisar.
+    case 'revisar': return <span className="co-fila__l2 co-fila__l2--espera">Completado · para revisar</span>;
     case 'borrador': return <span className="co-fila__l2"><span className="co-borrador">Borrador:</span><span className="co-fila__l2-texto">{borrador}</span></span>;
     case 'ya': return <span className="co-fila__l2"><SelloCompletado /><span className="co-fila__l2-texto">{p?.texto}</span></span>;
     case 'previa': return (
@@ -81,6 +83,8 @@ export function FilaCentro({ centro: k, c, sub, actual, onElegir }: {
   centro: Centro; c: ChatCentro; sub: boolean; actual: boolean; onElegir: (clave: string) => void;
 }) {
   const espera = esperaDe(c, k.esperas);
+  // Un «Completado» sin ver avisa IGUAL que una pregunta que espera (el globito de la criatura y el renglón de abajo).
+  const sinVer = k.yaSinVer.has(c.clave);
   return (
     <div className={`co-fila-wrap${sub ? ' co-fila-wrap--sub' : ''}`}>
       <button
@@ -90,17 +94,15 @@ export function FilaCentro({ centro: k, c, sub, actual, onElegir }: {
         onClick={() => onElegir(c.clave)}
         onContextMenu={(e) => { e.preventDefault(); k.abrirMenu(c.clave, e.clientX, e.clientY); }}
       >
-        <Muneco titulo={c.titulo} aspecto={elegidoPara(k.munecos, c.titulo)} animo={animoDe(c)} size={sub ? 30 : 38} espera={espera} />
+        <Muneco titulo={c.titulo} aspecto={elegidoPara(k.munecos, c.titulo)} animo={animoDe(c)} size={sub ? 30 : 38} espera={k.avisos(c)} />
         <span className="co-fila__cuerpo">
           <span className="co-fila__l1">
             <span className="co-fila__titulo">{sub ? partesDelNombre(c.titulo).sub : c.titulo}</span>
             {/* Un chat de la nube (lo anota el Runner de la app): se ve, con su marca, y no se le escribe desde acá. */}
             {c.nube && <span className="co-chip-cuenta">Nube</span>}
-            <span className={`co-fila__hace${k.yaSinVer.has(c.clave) ? ' co-fila__hace--nuevo' : ''}`}>{edadCorta(c.actividad, k.ahora)}</span>
-            {/* El aviso de un «Ya está» sin ver, como el globito de no leídos de WhatsApp (verde, a la derecha). */}
-            {k.yaSinVer.has(c.clave) && <span className="co-aviso-ya" role="status" aria-label="Completado sin ver"><Icon name="check" size={11} /></span>}
+            <span className="co-fila__hace">{edadCorta(c.actividad, k.ahora)}</span>
           </span>
-          <Previa c={c} p={k.previas.get(c.clave) ?? null} espera={espera} enCurso={k.enCursos.get(c.clave) ?? null} borrador={actual ? null : k.borradorDeLista(c.clave)} />
+          <Previa c={c} p={k.previas.get(c.clave) ?? null} espera={espera} sinVer={sinVer} enCurso={k.enCursos.get(c.clave) ?? null} borrador={actual ? null : k.borradorDeLista(c.clave)} />
         </span>
       </button>
       <button type="button" className="co-fila__mas" aria-label={`Opciones de ${c.titulo}`} title="Opciones"
@@ -128,8 +130,8 @@ export function ListaCentro({ centro: k, visibles, actual, buscando, onElegir }:
   // elimínalo»): una sola lista, y lo que trabaja o espera una respuesta arriba.
   const [plegadas, setPlegadas] = useState<Set<string>>(() => new Set());
   const [enteras, setEnteras] = useState<Set<string>>(new Set());
-  const { esperas } = k;
-  const avisos = useMemo(() => (c: ChatCentro) => esperaDe(c, esperas), [esperas]);
+  // Lo que espera a Martín arriba: una pregunta, o un «Completado» sin ver (el mismo aviso: `k.avisos`).
+  const { avisos } = k;
   const secciones = useMemo(() => seccionesDeChats(visibles, avisos), [visibles, avisos]);
   const fila = (c: ChatCentro, sub: boolean) => <FilaCentro key={c.clave} centro={k} c={c} sub={sub} actual={actual === c.clave} onElegir={onElegir} />;
   // Sin ningún Runner dando vueltas, lo de abajo es una foto: se dice desde cuándo, en vez de mostrarlos «quietos».
@@ -189,6 +191,8 @@ export function ChatDelCentro({ centro: k, chat, onVolver }: { centro: Centro; c
       aspecto={elegidoPara(k.munecos, chat.titulo)}
       // El Cerebro es siempre la estrella de MaKo: tocarla no abre el selector.
       onMuneco={esCriaturaDeMako(chat.titulo) ? undefined : () => k.abrirMuneco(chat)}
+      // El título se renombra en el lugar (sólo si el chat tiene una sesión a la que pedírselo).
+      onRenombrar={chat.sesiones.length ? (nombre) => k.renombrarChat(chat, nombre) : undefined}
       lineas={k.lineasDe.get(chat.clave)}
       pasos={k.pasosDe(chat)}
       // Lo de WhatsApp (17/10/2026): las marcas y la cita de este chat, reenviar a otros y copiar (MensajeWA.tsx).

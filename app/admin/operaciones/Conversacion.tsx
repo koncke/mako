@@ -11,9 +11,9 @@
 //
 // ⚠️ El borrador de cada chat lo guarda el padre: cambiar de chat no borra lo que se estaba escribiendo.
 //
-// LA CABECERA (15/10/2026): la cuenta va como CHIP acá y no como grupo de la lista (Martín: «eso debe estar dentro
-// de cada chat, con un chip»), y a la derecha el botón «Avance» abre la barra derecha con el roadmap de ESTE chat
-// (Avance.tsx), como la de Offer.
+// LA CABECERA (17/10/2026, 19:31): la criatura AL LADO del título, a la izquierda, como la foto de WhatsApp. Tocar la criatura
+// deja cambiarla; tocar el título deja renombrarlo EN EL LUGAR (Enter guarda, Escape lo deja como estaba). Sin chips de cuenta
+// ni estado: «esos botones al lado de la criatura NO van, para eso está el "+"» (la cuenta se elige en el «+» de la caja).
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { Icon } from '@/app/_components/icons';
@@ -55,7 +55,7 @@ export type WaDeConversacion = {
 
 export function Conversacion({
   chat, pedidos, trabajos, pushes, ahora, espera, envio, texto, onTexto, enviando, onMandar, onCrearClave, onCopiarClave, onVolver,
-  aspecto, onMuneco, preguntas, respuestas, responder, selectores, turnos = [], adjuntos, carteros,
+  aspecto, onMuneco, onRenombrar, preguntas, respuestas, responder, selectores, turnos = [], adjuntos, carteros,
   preguntasChat = [], onResponder, resumenEnvio = null, tareas = [], lineas: lineasDeFuera, wa, pasos,
 }: {
   /** Los pasos en vivo de su turno abierto (la E): van en el «Trabajando…» del hilo. */
@@ -97,6 +97,9 @@ export function Conversacion({
   /** Tocar al muñeco abre el selector (Martín: «que si le doy click pueda elegir cambiar a otro»). Sin esto (el Cerebro,
    *  que es siempre la estrella de MaKo) la criatura no se toca. */
   onMuneco?: () => void;
+  /** Renombrar el chat desde el título, en el lugar: devuelve el error, o null si salió (useCentro.ts → renombrarChat). Sin esto
+   *  (un chat sin sesión abierta) el título no se toca. */
+  onRenombrar?: (nombre: string) => Promise<string | null>;
   envio: Envio;
   texto: string;
   onTexto: (t: string) => void;
@@ -144,9 +147,15 @@ export function Conversacion({
 
   const estado = textoDeEnvio(envio);
   const cuenta = nombreCuenta(chat.cuenta);
-  // La cuenta como chip: una por cuenta donde vive el chat (unido por nombre), la que recibe primero.
-  const cuentas = [...new Set(chat.sesiones.map((s) => s.cuenta).filter((c): c is string => !!c))];
-  if (!cuentas.length && chat.cuenta) cuentas.push(chat.cuenta);
+  // El título se renombra en el lugar (la cabecera): `editando` es lo que se está escribiendo.
+  const [editando, setEditando] = useState<{ texto: string; error: string | null; mandando: boolean } | null>(null);
+  useEffect(() => { setEditando(null); }, [chat.clave]);
+  const guardarNombre = async () => {
+    if (!editando || !onRenombrar || editando.mandando) return;
+    setEditando({ ...editando, mandando: true, error: null });
+    const mal = await onRenombrar(editando.texto);
+    if (mal) setEditando({ ...editando, mandando: false, error: mal }); else setEditando(null);
+  };
   const meta = chat.viejo && chat.vistoAt != null ? `${ESTADO_CHAT[chat.estado]} ${hace(chat.vistoAt, ahora)}` : ESTADO_CHAT[chat.estado];
   /** Responder sobre un «Ya está»: la caja arranca con «Sobre «…»: » y queda lista para escribir. */
   const responderSobre = (titulo: string) => {
@@ -210,11 +219,22 @@ export function Conversacion({
           </button>
         ) : <span className="co-cab__muneco"><Muneco titulo={chat.titulo} aspecto={aspecto} animo={animoDe(chat)} size={34} espera={espera} /></span>}
         <div className="co-cab__texto">
-          <h1 className="co-cab__titulo" title={chat.titulo}>{chat.titulo}</h1>
-          <span className="co-cab__meta">
-            {cuentas.map((c) => <span key={c} className="co-chip-cuenta">{nombreCuenta(c)}</span>)}
-            {meta}
-          </span>
+          <h1 className="co-cab__titulo" title={chat.titulo}>
+            {editando ? (
+              <input className="co-cab__input" value={editando.texto} maxLength={120} autoFocus disabled={editando.mandando}
+                aria-label={`Nombre de ${chat.titulo}`} enterKeyHint="done"
+                onChange={(e) => setEditando({ ...editando, texto: e.target.value, error: null })}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); void guardarNombre(); }
+                  if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); setEditando(null); }
+                }}
+                onBlur={() => { if (!editando.mandando) setEditando(null); }} />
+            ) : onRenombrar ? (
+              <button type="button" className="co-cab__nombre" title="Renombrar" aria-label={`Renombrar ${chat.titulo}`}
+                onClick={() => setEditando({ texto: chat.titulo, error: null, mandando: false })}>{chat.titulo}</button>
+            ) : chat.titulo}
+          </h1>
+          {editando?.error && <span className="co-cab__error" role="alert">{editando.error}</span>}
         </div>
         {/* Sin el botón «Plan» desde el 17/10/2026 (la C): el Plan del chat va en cada «Ya está» y en el «+» de la caja. */}
         {/* Sin «⋯» acá desde el 17/10/2026 (Martín: fuera los tres puntos): Renombrar y la criatura están en la fila de la

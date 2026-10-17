@@ -39,10 +39,9 @@ export function CentroAppMovil(datos: DatosCentro) {
   return (
     <>
       {/* La Ticketera entera, arriba de los chats (Martín: «No veo el botón de la ticketera dentro del Centro»). Desde el
-          17/10 es la de los tickets de los usuarios; el mazo de siempre quedó aparte, como en la computadora. */}
+          17/10 es la de los tickets de los usuarios; «Preguntas de los chats» se sacó (se contestan en cada chat). */}
       <ListaM etiqueta="Ticketera">
         <FilaM icono="soporte" titulo="Ticketera" segunda={tickets == null ? 'Tickets de clientes' : tickets ? `${tickets} por decidir` : 'Nada por decidir'} href="/m/operaciones?ticketera=tickets" navegacion />
-        <FilaM icono="soporte" titulo="Preguntas de los chats" segunda={k.pendientesTicketera ? `${k.pendientesTicketera} por decidir` : 'Nada por decidir'} href="/m/operaciones?ticketera=tarjetas" navegacion />
         {/* Ops Center (17/10/2026): «que "Second brain" sea la sub tab debajo de la Ticketera», como en la computadora.
             Abre el GRAFO («debería saltar el grafo»): `?panel=mapa` lleva al Mapa a quien lo ve, y al chat a quien no. */}
         <FilaM icono="cerebro" titulo="Second Brain" href="/m/second-brain?panel=mapa" navegacion />

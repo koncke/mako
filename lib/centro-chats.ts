@@ -324,6 +324,22 @@ export function unirPorNombre(chats: readonly ChatCentro[]): ChatCentro[] {
   return out;
 }
 
+/**
+ * ¿Es el chat del Runner? Lo marca la PC (`esRunner`, cartero.mjs → esElCartero) o, sin esa marca (un Runner que ya no sube, o
+ * lo anotado en una bitácora), lo dice su nombre ENTERO: «Runner», «Cartero» o «Centro de Operaciones › Runner». Por nombre
+ * sólo el exacto: «Offer › Runner de pruebas» es un sub-chat de Offer.
+ */
+export const esChatDelRunner = (c: Pick<ChatCentro, 'titulo' | 'esRunner'>): boolean =>
+  c.esRunner === true || /^(centro de operaciones\s*[›>]\s*)?(runner|cartero)$/i.test(c.titulo.trim());
+
+/**
+ * Los chats que se ven en el Ops Center: sin el Runner (Martín, 17/10/2026, 19:33: «El chat de "Runner" no tiene sentido que
+ * esté visible en el Center»). El Runner sigue trabajando por detrás y su estado está en «Uso y Runners». `completarChats` lo
+ * sigue devolviendo (con `esRunner`: la PC lo sube marcado y de ahí sale que no se le entrega nada); lo saca la pantalla.
+ */
+export const sinElRunner = <T extends Pick<ChatCentro, 'titulo' | 'esRunner'>>(chats: readonly T[]): T[] =>
+  chats.filter((c) => !esChatDelRunner(c));
+
 /** El chat de una clave: la suya, o la de una de sus sesiones (un link viejo con `?chat=<sesión>` sigue abriendo). */
 export const chatDeClave = (chats: readonly ChatCentro[], clave: string | null) =>
   clave ? chats.find((c) => c.clave === clave || c.miembros.includes(clave)) ?? null : null;
@@ -491,17 +507,32 @@ export type VistaPrevia = { texto: string; propio: boolean; tick: EstadoPedido |
 
 /**
  * Qué dice el segundo renglón de la fila de un chat, en este orden, en la computadora y en el teléfono: en qué trabaja, que
- * espera una respuesta, el borrador sin mandar («Borrador: …», como WhatsApp, 17/10/2026), un «Completado», o lo último.
- * null = la fila va de un renglón.
+ * espera una respuesta, que trae un «Completado» sin ver (`revisar`), el borrador sin mandar («Borrador: …», como WhatsApp,
+ * 17/10/2026), un «Completado» ya visto, o lo último. null = la fila va de un renglón.
+ *
+ * ⚠️ `revisar` es el MISMO aviso que `espera` (Martín, 17/10/2026, 19:33: «Cuando tengo algo pendiente que revisar de
+ * "Completado" la misma notif de "Espera tu respuesta"»): mismo lugar, mismo estilo y el mismo globito en la criatura
+ * (`avisosDe`). Desaparece cuando se abre el chat (`avisaYaEsta`).
  */
-export type SegundoRenglon = 'vivo' | 'espera' | 'borrador' | 'ya' | 'previa' | null;
-export function segundoRenglon(c: Pick<ChatCentro, 'estado' | 'viejo'>, espera: number, borrador: string | null | undefined, p: VistaPrevia | null | undefined): SegundoRenglon {
+export type SegundoRenglon = 'vivo' | 'espera' | 'revisar' | 'borrador' | 'ya' | 'previa' | null;
+export function segundoRenglon(
+  c: Pick<ChatCentro, 'estado' | 'viejo'>, espera: number, borrador: string | null | undefined, p: VistaPrevia | null | undefined,
+  /** Su «Completado» llegó y este dispositivo todavía no lo vio (`avisaYaEsta`). */
+  sinVer = false,
+): SegundoRenglon {
   if (c.estado === 'trabajando' && !c.viejo) return 'vivo';
   if (espera > 0) return 'espera';
+  if (sinVer && p?.ya) return 'revisar';
   if (borrador) return 'borrador';
   if (!p) return null;
   return p.ya ? 'ya' : 'previa';
 }
+
+/**
+ * Cuánto avisa un chat en su fila (el globito de la criatura y el orden de la lista): las tarjetas y preguntas que esperan
+ * una respuesta, más UNO si trae un «Completado» sin ver. Es el mismo aviso: lo que está esperando a Martín.
+ */
+export const avisosDe = (esperas: number, yaSinVer: boolean): number => esperas + (yaSinVer ? 1 : 0);
 
 /** Lo que este dispositivo ya vio de cada chat: `desde` = la primera vez que abrió el Ops Center; `chats` = cuándo abrió cada uno. */
 export type VistosDeChats = { desde: number; chats: Record<string, number> };

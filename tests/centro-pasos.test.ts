@@ -17,7 +17,7 @@
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -26,8 +26,10 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { pasosDelChat, pasosVigentes, sanearPasos } from '../lib/centro-pasos';
 import { Hilo } from '../app/admin/operaciones/Hilo';
+import { Trabajando } from '../app/admin/operaciones/Trabajando';
 
 const RAIZ = join(import.meta.dirname, '..');
+const leerFuente = (r: string) => readFileSync(join(RAIZ, r), 'utf8').replace(/\r\n/g, '\n').replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '');
 const CARTERO = join(RAIZ, 'scripts/operaciones/cartero.mjs');
 const SESION = '22222222-3333-4444-8555-666666666666';
 const LOCAL = `cli_${SESION}`;
@@ -112,15 +114,36 @@ test('`vigilar` sube los pasos del chat ocupado mientras espera (con el token), 
   }
 });
 
-test('el «Trabajando…» muestra los pasos: el de ahora y los dos de antes', () => {
+// Cambió el 17/10/2026, 19:45 (Martín, punto 9: «Cuando está trabajando, debería poder clickear y ver el razonamiento, lo mismo
+// que se ve en Claude»): antes los últimos tres pasos se veían siempre; ahora «Trabajando…» se toca y despliega la lista.
+// Probado ROMPIÉNDOLO (17/10/2026, base en verde): el botón sin `aria-expanded` → 1 fallo; la lista siempre abierta
+// (`abierto && (` → `true && (`) → 1 fallo (el cerrado trae la lista); sin tildar los de antes (`co-pasos__hecho` → `co-pasos__ahora`
+// en el map) → 1 fallo; el hilo dibujando otra «Trabajando» a mano en vez de la pieza → 1 fallo.
+test('el «Trabajando…» se toca y se despliega: cerrado, el paso de ahora; abierto, los de antes tildados y el de ahora animado', () => {
   const lineas = [{ tipo: 'turno' as const, instante: Date.UTC(2026, 9, 17, 15), turno: { local: LOCAL, uuid: 'u00000001', rol: 'yo' as const, de: null, texto: 'Arreglá la lista', at: T(0), trabajo: null } }];
+  const pasos = [{ at: T(1), texto: 'Lee lista.ts' }, { at: T(2), texto: 'Edita lista.ts' }, { at: T(3), texto: 'Corre los tests' }, { at: T(4), texto: 'Busca en el código' }];
   const html = renderToStaticMarkup(createElement(Hilo, {
     lineas, pushes: [], ahora: Date.UTC(2026, 9, 17, 15, 1), vacio: '', quien: { titulo: 'CRM', animo: 'trabajando' },
     vivo: { chat: { estado: 'trabajando', viejo: false, sinRunner: false, clave: 'nombre:crm', sesion: LOCAL, titulo: 'CRM' }, carteros: [] },
-    pasos: [{ at: T(1), texto: 'Lee lista.ts' }, { at: T(2), texto: 'Edita lista.ts' }, { at: T(3), texto: 'Corre los tests' }, { at: T(4), texto: 'Busca en el código' }],
+    pasos,
   }));
-  assert.match(html, /Edita lista\.ts[\s\S]*Corre los tests[\s\S]*Busca en el código/);
-  assert.doesNotMatch(html, /Lee lista\.ts/, 'los últimos tres');
+  // Cerrado: «Trabajando» con sus puntos que laten y el paso de ahora al lado; la lista no está.
+  assert.match(html, /<button[^>]*aria-expanded="false"[^>]*>[\s\S]*Trabajando[\s\S]*co-trabajando__puntos[\s\S]*Busca en el código/);
+  assert.doesNotMatch(html, /co-pasos|Lee lista\.ts|Edita lista\.ts|Corre los tests/, 'cerrado no hay lista');
+  // Abierto (la pieza que monta el hilo, pedida abierta): los de antes tildados y el de ahora animado, todos.
+  const abierto = renderToStaticMarkup(createElement(Trabajando, { titulo: 'CRM', pasos, abierto: true }));
+  assert.match(abierto, /aria-expanded="true"/);
+  assert.deepEqual([...abierto.matchAll(/class="co-pasos__hecho">([^<]+)</g)].map((m) => m[1]), ['Lee lista.ts', 'Edita lista.ts', 'Corre los tests']);
+  assert.match(abierto, /class="co-pasos__ahora">Busca en el código<span class="co-trabajando__puntos"/);
+  // Sin pasos todavía: lo dice, no se queda callada.
+  assert.match(renderToStaticMarkup(createElement(Trabajando, { titulo: 'CRM', abierto: true })), /Sin pasos todavía/);
+  // UNA pieza para todos los chats, en la computadora y en el teléfono: el hilo la monta, ninguna pantalla dibuja la suya.
+  const hilo = leerFuente('app/admin/operaciones/Hilo.tsx');
+  assert.match(hilo, /<Trabajando key=\{quien\.titulo\} titulo=\{quien\.titulo\} aspecto=\{quien\.aspecto\} pasos=\{pasos\} \/>/);
+  assert.doesNotMatch(hilo, /co-trabajando__texto/, 'el hilo no dibuja «Trabajando…» a mano');
+  for (const f of ['app/admin/operaciones/Conversacion.tsx', 'app/m/operaciones/ChatsMovil.tsx']) {
+    assert.doesNotMatch(leerFuente(f), /co-trabajando/, `${f}: usa el hilo, no su propia animación`);
+  }
 });
 
 // La revisión del Cerebro (17/10/2026, cartero 1.15.5): `subirPasos` corría DESPUÉS de mirar el reloj, con un POST de hasta

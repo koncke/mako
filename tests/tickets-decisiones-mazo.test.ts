@@ -159,7 +159,8 @@ const LECTURA: Record<string, string> = { 'app/admin/operaciones/page.tsx': 'dat
 /** Y de dónde sale la acción que contesta: la misma en las dos. */
 const RESPONDE: Record<string, [string, RegExp]> = {
   'app/admin/operaciones/page.tsx': ['app/admin/operaciones/datos.ts', /responder: responderDecision,/],
-  'app/m/operaciones/page.tsx': ['app/m/operaciones/page.tsx', /responder=\{responderDecision\}/],
+  // El teléfono ya no dibuja el mazo (17/10/2026): lleva la acción en los datos del motor, que contesta las preguntas de cada chat.
+  'app/m/operaciones/page.tsx': ['app/m/operaciones/page.tsx', /responder: responderDecision,/],
 };
 
 // Rotura «sin el notFound del guard» → 11 pases, 1 fallo.
@@ -291,20 +292,19 @@ test('la tarjeta de atrás asoma por ARRIBA: por abajo se metía detrás de los 
   assert.match(acciones, /background: var\(--bg\)/);
 });
 
-// Rotura «la página del teléfono sin deshacer» → 15 pases, 1 fallo.
-test('las dos páginas del mazo pasan el deshacer; la lista no lo necesita', () => {
+// Rotura «la página de la computadora sin deshacer» → 15 pases, 1 fallo.
+test('la página de la computadora pasa el deshacer; el teléfono ya no dibuja el mazo ni la lista', () => {
   // La computadora (Ops Center, 17/10/2026) lo pasa por su lectura guardada (datos.ts), y la pantalla lo enchufa al motor.
-  const PASA: Record<string, [string, RegExp]> = {
-    'app/admin/operaciones/page.tsx': ['app/admin/operaciones/datos.ts', /deshacer: deshacerDecision,/],
-    'app/m/operaciones/page.tsx': ['app/m/operaciones/page.tsx', /deshacer=\{deshacerDecision\}/],
-  };
-  for (const r of PAGINAS) {
-    const [archivo, re] = PASA[r];
-    const src = sinComentarios(leer(archivo));
-    assert.match(src, /deshacerDecision/, `${archivo}: sin la acción, volver no despega la respuesta`);
-    assert.match(src, re, archivo);
-  }
-  assert.match(sinComentarios(leer('app/second-brain/ChatSecondBrain.tsx')), /responder=\{centro\.responderAca\} deshacer=\{centro\.deshacerAca\}/, 'Ops Center la enchufa a la Ticketera');
+  // El teléfono dejó de dibujar «Preguntas de los chats» ese día (Martín: «para eso tenemos en cada chat la notif de "Espera
+  // tu respuesta"»): ya no lo necesita, y su página no vuelve a importar `deshacerDecision`.
+  const src = sinComentarios(leer('app/admin/operaciones/datos.ts'));
+  assert.match(src, /deshacerDecision/, 'sin la acción, volver no despega la respuesta');
+  assert.match(src, /deshacer: deshacerDecision,/);
+  const movil = sinComentarios(leer('app/m/operaciones/page.tsx'));
+  assert.doesNotMatch(movil, /deshacerDecision|<TicketeraMovil|MazoDecisiones|TableroDecisiones/, 'el teléfono ya no dibuja las preguntas de los chats');
+  // Y Ops Center contesta las preguntas desde el chat que las hizo (ChatDelCentro → `responder={k.responderAca}`), no desde la Ticketera.
+  assert.match(sinComentarios(leer('app/admin/operaciones/PiezasCentro.tsx')), /responder=\{k\.responderAca\}/, 'cada chat contesta las suyas');
+  assert.doesNotMatch(sinComentarios(leer('app/second-brain/ChatSecondBrain.tsx')), /deshacer=\{centro\.deshacerAca\}/, 'la Ticketera ya no lleva el mazo');
 });
 
 // ---------------------------------------------------------------------------

@@ -303,7 +303,8 @@ function Cuerpo({ veMapa, mapa, chatInicial, centro, centroInicial, ticketeraIni
   const qTicketera = useSearchParams().get('ticketera');
   useEffect(() => {
     if (!ops) return;
-    const v: VistaDeTicketera | null = esVistaTicketera(qTicketera) ? qTicketera : null;
+    // Las vistas de antes (`tarjetas`, `lista`: las preguntas de los chats) ya no existen: un link viejo abre los tickets.
+    const v: VistaDeTicketera | null = esVistaTicketera(qTicketera) ? 'tickets' : null;
     setTicketera(v);
     if (v) setConChat(true);
   }, [qTicketera, ops]);
@@ -623,11 +624,7 @@ function Cuerpo({ veMapa, mapa, chatInicial, centro, centroInicial, ticketeraIni
       </aside>
 
       {centro && ticketera ? (
-        <TicketeraCentro cerebro={cerebroDelCentro(centro)}
-          decisiones={centro.decisionesOk ? centro.decisiones : null} vista={ticketera} onVista={abrirTicketera}
-          responder={centro.responderAca} deshacer={centro.deshacerAca}
-          onVolver={() => { cerrarTicketera(); setConChat(false); }}
-        />
+        <TicketeraCentro cerebro={cerebroDelCentro(centro)} onVolver={() => { cerrarTicketera(); setConChat(false); }} />
       ) : mapa ? (
         // El grafo trae su cabecera («Second Brain», siempre en oscuro: VistaCerebro.tsx); el «volver» de la ventana
         // angosta le llega por contexto, porque el grafo lo arma el servidor y una función no viaja de ahí (volver.ts).

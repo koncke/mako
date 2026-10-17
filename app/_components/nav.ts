@@ -503,6 +503,22 @@ export const OPS_CENTER: NavItem = {
 export const ARRIBA: NavItem[] = [OPS_CENTER, ...MAKO_NAV];
 
 /**
+ * Lo de arriba de todo PARA QUIEN MIRA (17/10/2026, Martín: «Me sigue apareciendo una tab de "ops center" y otra de "Second
+ * brain"... Elimina la de second brain, el second brain vive dentro de ops center y es el grafo, no otro chat»).
+ *
+ *   · el super admin ve SÓLO el Ops Center: el Second Brain se abre desde adentro (la sub-tab de debajo de la Ticketera, que
+ *     abre el grafo: `/admin/operaciones?panel=mapa`), y un `/second-brain` guardado lo lleva ahí (app/second-brain/page.tsx);
+ *   · los demás (el cliente, su setter y closer, y el super admin MIRANDO a un cliente) siguen con «Second Brain», que para
+ *     ellos es el chat con MaKo y no tienen otro lugar donde abrirlo.
+ *
+ * `puedeVer` es la regla de la barra de quien mira (lib/nav-visibilidad.ts). El teléfono hace lo mismo en More
+ * (lib/movil-rutas.ts → masCompleto).
+ */
+export function arribaDe(adminShell: boolean, puedeVer: (it: NavItem) => boolean): NavItem[] {
+  return ARRIBA.filter((it) => (it.adminOnly ? adminShell : !adminShell && puedeVer(it)));
+}
+
+/**
  * El menú de la foto, sólo para el super admin (17/10/2026): las herramientas de la ex familia Admin que no son el
  * trabajo de ninguna tab del producto. Son la CONFIGURACIÓN de MaKo como plataforma —con qué sabe y con qué modelos
  * piensa— más la formación del equipo y el modo Dev: el lugar donde Linear y Notion ponen «Settings», al lado de

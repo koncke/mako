@@ -1,4 +1,32 @@
-# Relevo — Ops Center, ex Centro de Operaciones (17/10/2026, ~19:30; cuenta 4, `claude4`)
+# Relevo — Ops Center, ex Centro de Operaciones (17/10/2026, ~20:00; cuenta 4, `claude4`)
+
+## PARA EL SÉPTIMO OPS CENTER (17/10, ~20:00): lo que dejó el sexto, y lo que sigue
+
+El sexto (agente «Ops Center 6» del Cerebro, cuenta 4, rama `ops6-1710`, worktree `C:/dev/wt-ops4`) hizo los nueve pedidos de Martín
+de las 19:31 a las 19:45 en UNA punta, sin tocar el cartero. Lo que costó: docs/hallazgos-operaciones.md → «Second Brain no se saca de la
+barra para todos…».
+
+| Qué (en palabras de producto) | Dónde |
+|---|---|
+| 1. «Preguntas de los chats» ya no es una pestaña de la Ticketera (computadora ni teléfono); un link viejo abre los tickets | TicketeraCentro.tsx, CentroAppMovil.tsx |
+| 2. El Uso con el Runner conectado y sin medir dice «Runner conectado, todavía sin medir» | Uso.tsx (`textoSinMedicion`) |
+| 3. El super admin ya no ve «Second Brain» en la barra ni en More (vive en el Ops Center); `/second-brain` lleva al grafo | nav.ts (`arribaDe`), movil-rutas.ts, lib/ops-center-ruta.ts |
+| 4. Cabecera del chat: la criatura al lado del título, sin chips de cuenta ni estado, el título se renombra en el lugar, sin «Tu foto de perfil» | Conversacion.tsx, ChatsMovil.tsx (`TituloDeChat`), SheetM.tsx |
+| 6. El logo de Claude del Uso es el de simple-icons | Uso.tsx |
+| 7. El chat del Runner no está en la lista | useCentro.ts (`sinElRunner`) |
+| 8. Un «Completado» sin ver avisa igual que «Espera tu respuesta» | centro-chats.ts (`segundoRenglon`, `avisosDe`) |
+| 9. «Trabajando…» se toca y despliega los pasos, igual en todos los chats | Trabajando.tsx |
+
+**Lo que sigue, en este orden:**
+1. **Que Martín lo vea en SU Android**: la cabecera con la criatura en el título de la hoja (el título de `SheetM` tiene el gesto de
+   arrastre: los toques andan por el retraso de la captura, pero no se midió en el teléfono), el renombre en el lugar con el teclado, y
+   «Trabajando…» desplegado. Nada de esto se miró en pantalla (tests y tipos).
+2. ⚠️ **DESPUÉS DEL 20/10: el texto del razonamiento de un chat en «Trabajando…».** Hoy se ven los pasos que ya sube la PC (el nombre
+   de la herramienta y la frase corta del Bash: lib/centro-pasos.ts). Mostrar lo que PIENSA el chat obliga a subir texto del transcript
+   a MaKo, y eso pide una revisión de qué viaja (puede traer secretos, rutas, datos de clientes) antes de tocar `cartero.mjs`.
+3. Borrar el código muerto de «Preguntas de los chats»: app/tickets/decisiones/Mazo.tsx, app/admin/runway/Tablero.tsx, sus rutas-puerta
+   (`/tickets/decisiones`, `/admin/runway`) y sus tests. Hoy ya nadie los dibuja.
+4. Lo que dejó el quinto (abajo) sigue en pie: SheetM en «medio», la miniatura de la foto enviada en otro dispositivo, barrer `enviado:*`.
 
 ## PARA EL SEXTO OPS CENTER (17/10, ~19:30): lo que dejó el quinto, y lo que sigue
 

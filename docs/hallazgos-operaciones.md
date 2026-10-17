@@ -1585,3 +1585,52 @@ lib/centro-uso.ts (`USO_VENCIDO_MS`) · tests/centro-ops5.test.ts.
 - SheetM en «medio» con un cuerpo largo, para todas las hojas (app/m/_ui/SheetM.tsx);
 - nada de esto se vio en una pantalla real: ni la hoja del mensaje en el Android de Martín, ni los globos, ni los emojis.
 
+
+## «Second Brain» no se saca de la barra para todos, el Uso se contradecía y el Runner volvió a esconderse (17/10/2026, sexto Ops Center)
+
+Nueve pedidos de Martín al mirar el Ops Center en su Android (19:31 a 19:45). Lo que no era obvio:
+
+**Sacar «Second Brain» de `nav.ts` habría dejado a los clientes sin su chat con MaKo.** El pedido dice «elimina la de second
+brain», pero la entrada `mako` es la puerta del chat de CADA cliente, closer y setter incluidos; el Ops Center no existe para ellos
+(`puedeOperar` es del super admin con su workspace). Lo que sobra es la fila del SUPER ADMIN. Por eso `ARRIBA` sigue entera y quien
+decide es `arribaDe(adminShell, puedeVer)` (nav.ts), que usan la barra (Sidebar.tsx) y, con la misma regla, More del teléfono
+(`masCompleto`). El super admin MIRANDO a un cliente (`adminShell` falso) sigue viendo el Second Brain del cliente. El redirect de
+`/second-brain` usa `quienOpera()`, que pide su propio workspace: mirando a un cliente no redirige. **Regla:** «sacá esta entrada» se
+resuelve por QUIÉN la ve, no borrando el ítem; el guardián (`tests/movil-toda-tab.test.ts`) ahora también recorre lo de arriba.
+
+**El Uso se contradecía porque dos renglones salían de dos estados distintos.** «Runner activo» sale de `estadoRunnerUso` y «Su uso
+aparece cuando su Runner esté conectado» estaba escrito a mano para «sin medición». Un Runner conectado puede no tener medición
+todavía (la cuenta de la app sólo trae la semanal, y una medición nueva tarda una vuelta). **Regla:** el texto de «vacío» de una
+pieza se deriva del mismo estado que el renglón de al lado (`textoSinMedicion(vivo)`), nunca se escribe aparte.
+
+**El Runner estaba en la lista a propósito (17/10, «todo chat abierto se ve») y Martín lo desdijo.** Se saca en la PANTALLA
+(`sinElRunner`, useCentro.ts), no en `completarChats`: la PC lo sube marcado `esRunner` y de esa marca sale que no se le entrega
+nada (tests/centro-runner-nube.test.ts); sacarlo antes le quitaría al guard lo que lo protege. Por nombre sólo el exacto
+(«Runner», «Cartero», «Centro de Operaciones › Runner»): «Offer › Runner de pruebas» es un sub-chat de Offer.
+
+**Un «Completado» sin ver ahora avisa como «Espera tu respuesta».** Eran dos avisos distintos (globito verde a la derecha y hora en
+verde, contra renglón naranja y globito en la criatura). Pasó a uno: `segundoRenglon(…, sinVer)` devuelve `revisar` (mismo estilo
+que `espera`) y `avisosDe` suma uno al globito de la criatura y al orden de la lista (lo que espera a Martín va arriba). Se apaga
+al abrir el chat (`avisaYaEsta`, por dispositivo, igual que antes).
+
+**La cabecera.** La criatura queda a la izquierda del título; tocarla la cambia y tocar el nombre lo renombra EN EL LUGAR (Enter
+guarda, Escape y salir del campo lo dejan como estaba: salir NO guarda, porque un renombre manda un trabajo firmado a cada sesión).
+Computadora y teléfono comparten `renombrarChat` (useCentro.ts). El título de `SheetM` pasó de `string` a `ReactNode`. «Tu foto de
+perfil» salió del chat (no vuelve: se cambia en Tu cuenta) y con ella `achicarImagen`/`ponerMiFoto` del teléfono.
+
+**El logo de Claude** era un dibujo de doce rayos. `react-icons` (ya dependencia) trae el de simple-icons: se embebió su ruta y
+`tests/centro-ops6.test.ts` la compara con `SiClaude`, así que una ruta tocada a mano falla.
+
+**«Trabajando…» se despliega** (Trabajando.tsx, una pieza para todos los chats): cerrado, el paso de ahora; abierto, los de antes
+tildados y el de ahora animado. Muestra lo que YA sube la PC: el nombre de la herramienta y la frase del Bash (lib/centro-pasos.ts).
+⚠️ NO es el texto del razonamiento de Claude: subirlo pide revisar qué viaja a MaKo (relevo, después del 20/10).
+
+**Vive en:** app/_components/nav.ts (`arribaDe`) · lib/ops-center-ruta.ts · lib/centro-chats.ts (`segundoRenglon`, `avisosDe`,
+`sinElRunner`) · app/admin/operaciones/{Trabajando,Uso,Conversacion,PiezasCentro,useCentro,TicketeraCentro}.tsx ·
+app/m/operaciones/ChatsMovil.tsx · tests/centro-ops6.test.ts.
+
+**Sin hacer:**
+- el mazo y la lista de «Preguntas de los chats» ya no los dibuja nadie, pero sus archivos siguen (app/tickets/decisiones/Mazo.tsx,
+  app/admin/runway/Tablero.tsx, sus rutas-puerta y tests): borrarlos es otra tanda;
+- el razonamiento real (texto) de un chat en «Trabajando…»: ⚠️ después del 20/10, con revisión de qué viaja;
+- nada de esto se vio en el Android de Martín: tests y tipos, no pantalla.

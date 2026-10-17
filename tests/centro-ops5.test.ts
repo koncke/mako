@@ -227,21 +227,24 @@ test('6: un borrador sin mandar se ve en la fila («Borrador: …»), de todos l
   assert.equal(segundoRenglon(quieto, 0, '', null), null);
   // Las dos listas usan ESE orden, y el chat abierto no muestra su borrador (se está escribiendo ahí).
   const piezas = codigo('app/admin/operaciones/PiezasCentro.tsx');
-  assert.match(piezas, /switch \(segundoRenglon\(c, espera, borrador, p\)\)/);
+  assert.match(piezas, /switch \(segundoRenglon\(c, espera, borrador, p, sinVer\)\)/);
   assert.match(piezas, /borrador=\{actual \? null : k\.borradorDeLista\(c\.clave\)\}/);
   const movil = codigo('app/m/operaciones/ChatsMovil.tsx');
-  assert.match(movil, /const renglon = segundoRenglon\(c, espera, borrador, p\);/);
+  assert.match(movil, /const renglon = segundoRenglon\(c, espera, borrador, p, nuevo\);/);
   assert.match(movil, /borrador=\{f\.c\.clave === elegido\?\.clave \? null : centro\.borradorDeLista\(f\.c\.clave\)\}/);
   assert.match(movil, /a\.borrador === b\.borrador/, 'la fila memorizada se redibuja si cambia su borrador');
   // Los de TODOS los chats, no sólo los que se abrieron: se leen de este navegador al aparecer en la lista.
   assert.match(codigo('app/admin/operaciones/useCentro.ts'), /for \(const c of chats\) if \(!conBorradorLeido\.current\.has\(c\.clave\)\) \{[^}]*cargarBorrador\(c, null\)/);
 });
 
-test('10: en el teléfono la cabecera del chat queda pegada arriba y abre la criatura y «Tu foto de perfil»', () => {
+test('10: en el teléfono el título de la hoja es el chat (criatura a la izquierda) y ya no lleva «Tu foto de perfil»', () => {
+  // Cambió el 17/10/2026, 19:31 (Martín: «la criatura va AL LADO del título, a la izquierda, como la foto en WhatsApp», «SACÁ la
+  // opción de cambiar la foto de perfil de Martín de la cabecera del chat: eso se configura en su perfil»). Lo de las 18:06
+  // (la cabecera pegada con «Tu foto de perfil») quedó atrás; los fijados siguen pegados arriba.
   const movil = codigo('app/m/operaciones/ChatsMovil.tsx');
-  assert.match(movil, /className="m-operaciones-cabeza"/);
+  assert.match(movil, /className="m-operaciones-cabeza"/, 'los fijados siguen pegados arriba');
   assert.match(leer('app/m/operaciones/operaciones.css'), /\.m-operaciones-cabeza \{ position: sticky; top: 0;/);
-  assert.match(movil, /titulo="Tu foto de perfil"/);
-  assert.match(movil, /fetch\('\/api\/perfil\/avatar', \{ method: 'POST', body: fd \}\)/, 'por la ruta del perfil, que mira los bytes');
-  assert.match(movil, /ponerMiFoto\(j\.url\)/, 'y se ve en el acto en los globos');
+  assert.doesNotMatch(movil, /Tu foto de perfil|\/api\/perfil\/avatar|ponerMiFoto|<MiFoto/, 'la foto de perfil se cambia en Tu cuenta');
+  assert.match(leer('app/m/operaciones/operaciones.css'), /\.m-operaciones-titulo__muneco/);
 });
+

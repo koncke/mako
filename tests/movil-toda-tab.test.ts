@@ -34,7 +34,7 @@ import assert from 'node:assert/strict';
 import { existsSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  ADMIN_FAMILIAS, ADMIN_NAV, ARRIBA, FAMILIAS, SIN_FILA, SUPERADMIN_MENU, USER_NAV, itemsDe, type NavItem,
+  ADMIN_FAMILIAS, ADMIN_NAV, ARRIBA, FAMILIAS, OPS_CENTER, arribaDe, SIN_FILA, SUPERADMIN_MENU, USER_NAV, itemsDe, type NavItem,
 } from '../app/_components/nav';
 import { resolverTab, puedeVerItem, type VistaNav } from '../lib/nav-visibilidad';
 import { tituloDe } from '../lib/titulo-tab';
@@ -159,6 +159,11 @@ test('More tiene un lugar para cada tab que la sidebar le muestra a cada persona
       if (!enMas && !enBarra && !MAS_ESTRICTO_EN_EL_TELEFONO[`${p.nombre}|${it.label}`]) faltan.push(`${p.nombre}: ${it.label}`);
     }
     for (const f of filas) if (f.tipo === 'pantalla' && !existePagina(f.href)) rotas.push(`${p.nombre}: ${f.label} → ${f.href}`);
+    // Lo de ARRIBA de la sidebar (nav.ts → arribaDe) también: «Second Brain» está en More de quien lo ve en la barra, y NO está en
+    // el del super admin, que lo abre desde adentro del Ops Center (17/10/2026). El Ops Center lo pone la página.
+    const arriba = arribaDe(p.adminShell, (it) => puedeVerItem(it, vista));
+    for (const it of arriba) if (it !== OPS_CENTER && !filas.some((f) => f.label === it.label) && !MAS_ESTRICTO_EN_EL_TELEFONO[`${p.nombre}|${it.label}`]) faltan.push(`${p.nombre}: ${it.label} (arriba)`);
+    for (const it of ARRIBA) if (it !== OPS_CENTER && !arriba.includes(it) && filas.some((f) => f.label === it.label)) repetidas.push(`${p.nombre}: ${it.label} (la sidebar no lo dibuja)`);
     // Una cosa en un solo lugar, como el «More» de iOS: nada de lo que está en la barra se repite en More, y nada dos veces.
     const etiquetas = filas.map((f) => f.label);
     for (const f of filas) {

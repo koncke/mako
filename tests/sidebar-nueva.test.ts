@@ -28,7 +28,7 @@ import assert from 'node:assert/strict';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  ARRIBA, FAMILIAS, MAKO_NAV, OPS_CENTER, SIN_FILA, SUPERADMIN_MENU, TODOS_LOS_ITEMS, ADMIN_NAV, itemsDe, type NavItem,
+  ARRIBA, FAMILIAS, MAKO_NAV, OPS_CENTER, SIN_FILA, SUPERADMIN_MENU, TODOS_LOS_ITEMS, ADMIN_NAV, arribaDe, itemsDe, type NavItem,
 } from '../app/_components/nav';
 import { puedeVerItem, resolverTab, type VistaNav } from '../lib/nav-visibilidad';
 import { FAMILIAS_MAS, gruposMas } from '../lib/movil-rutas';
@@ -60,7 +60,7 @@ test('las familias: Operate y Sales Machine, en ese orden; Analyze, Content Mach
   assert.deepEqual(FAMILIAS[0].bloques[0].map((i) => i.key), ['general', 'todo', 'calendario', 'graphics']);
 });
 
-test('arriba de todo: Ops Center (sólo el super admin) y Second Brain (todos), cada uno con su criatura', () => {
+test('arriba de todo: Ops Center (sólo el super admin) y Second Brain (los demás), cada uno con su criatura', () => {
   assert.deepEqual(ARRIBA.map((i) => [i.key, i.label, i.criatura]), [
     ['admin-operaciones', 'Ops Center', 'Ops Center'],
     ['mako', 'Second Brain', 'Second Brain'],
@@ -69,6 +69,10 @@ test('arriba de todo: Ops Center (sólo el super admin) y Second Brain (todos), 
   assert.equal(puedeVerItem(OPS_CENTER, CLIENTE), false, 'el admin de un cliente vería el Ops Center');
   assert.equal(puedeVerItem(MAKO_NAV[0], CLIENTE), true, 'el admin de un cliente no vería Second Brain');
   assert.equal(puedeVerItem(MAKO_NAV[0], { adminShell: false, rolWs: 'setter', capa: 'completo' }), true, 'el setter tampoco');
+  // El super admin NO ve Second Brain (17/10/2026, Martín: «el second brain vive dentro de ops center y es el grafo, no otro
+  // chat»): sólo el Ops Center. Los demás, su Second Brain. Probado rompiéndolo: `arribaDe` devolviendo ARRIBA entero → 1 fallo.
+  assert.deepEqual(arribaDe(true, (it) => puedeVerItem(it, SUPER)).map((i) => i.key), ['admin-operaciones'], 'el super admin: sólo Ops Center');
+  assert.deepEqual(arribaDe(false, (it) => puedeVerItem(it, CLIENTE)).map((i) => i.key), ['mako'], 'el cliente: Second Brain y no Ops Center');
   // Una sola entrada de Second Brain: ninguna familia vuelve a tener otra fila a /second-brain.
   assert.ok(!FAMILIAS.flatMap(itemsDe).some((i) => i.href.startsWith('/second-brain')), 'volvió una fila de Second Brain a una familia');
   // El Sidebar dibuja la criatura (el muñeco del Ops Center) para los ítems con `criatura`, y su movimiento vive en
@@ -156,7 +160,7 @@ test('todos los workspaces: la misma barra para el super admin, un cliente y un 
   ]);
 });
 
-test('el teléfono sigue a la sidebar: las mismas familias, y Second Brain arriba', () => {
+test('el teléfono sigue a la sidebar: las mismas familias, y Second Brain arriba (menos para el super admin)', () => {
   assert.deepEqual(FAMILIAS_MAS.map((f) => f.label), FAMILIAS.map((f) => f.label));
   const grupos = gruposMas('admin', 'completo');
   assert.equal(grupos[0].titulo, null, 'Second Brain no va arriba, sin título');
