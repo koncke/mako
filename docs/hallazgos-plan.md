@@ -7157,3 +7157,18 @@ renglón: «0 de los demás» no viaja.
 --aplicar`; el simulacro ya pasó). Y el aviso de «esta reunión no se pudo leer» sigue sin existir: sería otro evento igual.
 **Vive en:** lib/reunion-plan-aviso.ts · lib/reunion-auto.ts (`datosAviso`) · lib/plantillas-automatizaciones.ts ·
 lib/disparadores.ts · lib/variables-aviso.ts · tests/reunion-tareas-al-plan-evento.test.ts · *17/10/2026, B5 (claude4)*
+
+## «Movela al viernes» → «la tarea»: la fecha de una tarea por WhatsApp, y el presupuesto de herramientas (17/10/2026)
+
+`cambiar_fecha_tarea_plan` no existía en main (en wip/api-acciones-0910 era sólo HTTP) y MaKo contestaba que no podía.
+Ahora es una acción de chat con todos los canales (lib/api-mako/areas/plan.def.ts y plan.run.ts): queda pendiente, una
+persona la confirma, y `ejecutar` RELEE la fila antes de guardar (el tablero del dueño no tiene patch por columna). La
+fecha la valida `validarFechaLimite` (lib/plan-fecha-limite.ts): un modelo convierte «el viernes» y a veces devuelve el
+año pasado o un 31 de febrero.
+
+**La trampa (medida):** sumar UNA operación de 839 caracteres al área `plan` dejó afuera a `listar_tareas_plan` en «mové
+eso al viernes» (el presupuesto del doer es de 12.000). No era la operación nueva sola: «mové» sumaba puntos a
+`requisitos_para_mover` y `mover_a_nutricion_manual`, que mueven un LEAD, no algo a otro día. Fueron a `NO_MUEVEN_DE_DIA`
+(lib/doer-herramientas.ts). Lo cazó tests/agenda-whatsapp.test.ts, que ya pedía la herramienta el día que viajara.
+**Vive en:** lib/plan-fecha-limite.ts · lib/api-mako/areas/plan.def.ts · plan.run.ts · lib/doer-herramientas.ts ·
+tests/plan-fecha-por-whatsapp.test.ts · *17/10/2026, B5 (claude4)*

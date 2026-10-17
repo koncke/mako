@@ -32,8 +32,11 @@ export const DE_CALENDLY: readonly string[] = ['listar_horarios_reunion', 'propo
  * («las 34 acciones del Video Editor») era el equivocado: en ese turno no viaja ninguna de video.
  * `cancelar_reunion_calendly` (4c, 17/10/2026) tampoco: cancelar no es mover, y con «reunión» en su descripción le
  * ganaba el lugar a `listar_tareas_plan` (tests/agenda-whatsapp.test.ts).
+ * `requisitos_para_mover` y `mover_a_nutricion_manual` (17/10/2026) mueven un LEAD de etapa o a nutrición, no a otro día:
+ * con «mové» en el mensaje sumaban por su id y, el día que `cambiar_fecha_tarea_plan` empezó a viajar por WhatsApp, entre
+ * las tres dejaron afuera a `listar_tareas_plan` en «mové eso al viernes».
  */
-export const NO_MUEVEN_DE_DIA: readonly string[] = ['mover_tarea_plan', 'cancelar_reunion_calendly'];
+export const NO_MUEVEN_DE_DIA: readonly string[] = ['mover_tarea_plan', 'cancelar_reunion_calendly', 'requisitos_para_mover', 'mover_a_nutricion_manual'];
 
 /** Lo que el doer le pasa al presupuesto del registro (los mismos números de siempre). */
 export const PRESUPUESTO_REGISTRO_CHARS = 12_000;
@@ -179,10 +182,10 @@ export function preguntoReunionOTarea(ultimoDeMako: string | null | undefined): 
 }
 
 /**
- * La herramienta que le cambia la fecha a una tarea. ⚠️ Al 09/10/2026 NO viaja por WhatsApp: en
- * main no existe, y en la rama que la trae (wip/api-acciones-0910) es `canales: HTTP`. O sea que
- * «la tarea» no tiene con qué moverse por aquí, y sin decírselo el modelo improvisa (la única
- * escritura del plan que viaja es `proponer_tareas_plan`, que CREA una tarea).
+ * La herramienta que le cambia la fecha a una tarea. Hasta el 17/10/2026 NO viajaba por WhatsApp (no existía en main; en
+ * wip/api-acciones-0910 era `canales: HTTP`), y sin decírselo el modelo improvisaba: la única escritura del plan que viajaba
+ * era `proponer_tareas_plan`, que CREA una tarea. Desde ese día existe con todos los canales (lib/api-mako/areas/plan.def.ts);
+ * el aviso queda para el turno en que no entre en el presupuesto.
  */
 const CAMBIA_FECHA_DE_TAREA = 'cambiar_fecha_tarea_plan';
 export const SIN_FECHA_DE_TAREA = 'Si es una tarea: en este turno no tienes con qué cambiarle la fecha. Dilo en una línea (se cambia desde el plan) y no la cargues como tarea nueva.';

@@ -45,7 +45,9 @@ no los sabe leer (las tres skills instaladas dejarían de autenticar).
 
 ## Lo que espera una decisión de Martín
 
-1. **`cambiar_fecha_tarea_plan` por WhatsApp.** Hoy es sólo HTTP; a «movela al viernes» → «la
+1. ~~**`cambiar_fecha_tarea_plan` por WhatsApp.**~~ **HECHO con criterio el 17/10/2026 (B5):** existe en main con todos los
+   canales y confirmación de chat (una persona dice «sí»); no toca el Quarter ni una tarea que se repite. Lo de antes:
+   **`cambiar_fecha_tarea_plan` por WhatsApp.** Hoy es sólo HTTP; a «movela al viernes» → «la
    tarea», el turno sabe que no tiene con qué cambiarle la fecha.
 2. **Los reportes por WhatsApp ya no salen.** Salían por Chatwoot (texto libre dentro de la ventana
    que abría la plantilla `reporte_mako`); con el borrado volvieron a `wa: 'no'` (`dae6b3b4`). Falta
