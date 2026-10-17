@@ -72,14 +72,15 @@ Modulo._load = function (this: unknown, pedido: string, padre: unknown, esMain: 
       ...real,
       listReunionesRecientes: async (...a: unknown[]) => (reunionesFalsas ? { reuniones: reunionesFalsas, nextCursor: null } : real.listReunionesRecientes(...a)),
       // `null` de la mentira = la real (un escenario puede mezclar las dos: R5 lee una de verdad).
-      extraerTareasDeReunion: async (...a: unknown[]) => ((extraccionFalsa ? await extraccionFalsa(Number(a[0])) : null) ?? real.extraerTareasDeReunion(...a)),
+      // Las `opts` viajan (17/10/2026): el escenario `parcial` mira el reloj y la lectura a medias que recibe.
+      extraerTareasDeReunion: async (...a: unknown[]) => ((extraccionFalsa ? await extraccionFalsa(Number(a[0]), (a[3] ?? {}) as Fila) : null) ?? real.extraerTareasDeReunion(...a)),
     };
   }
   return cargarOriginal.call(this, pedido, padre, esMain);
 };
 /** La lista de Fathom y la extracción de mentira del escenario `cron` (`null` = las reales). */
 let reunionesFalsas: Fila[] | null = null;
-let extraccionFalsa: ((recordingId: number) => unknown) | null = null;
+let extraccionFalsa: ((recordingId: number, opts: Fila) => unknown) | null = null;
 /** Se corre ADENTRO del cruce de mentira, mientras «el modelo piensa» (`null` = nada). */
 let alCruzar: (() => Promise<void>) | null = null;
 /** Fathom «tose» en estas rutas: las grabaciones contestan 503 (pasajero) en vez del 404 de siempre. */
@@ -660,6 +661,39 @@ async function main() {
       categorias: db.tarea_categorias.map((c) => ({ nombre: c.nombre, lead: c.cliente_lead_id ?? null })),
       nuevoId: nuevo,
       creadas: db.experimento_tareas.map((t) => ({ titulo: t.titulo, proyectos: catDe(t.categorias) })),
+    };
+  }
+
+  // ── Una reunión LARGA leída a medias (17/10/2026): la próxima corrida lee SÓLO lo que falta, en un borrador aparte.
+  //    Sólo con `parcial` (lo pide tests/reunion-larga-reloj.test.ts).
+  if (modo === 'parcial') {
+    const auto = await import('../lib/reunion-auto');
+    reset(); sembrarWorkspace('completo');
+    reunionesFalsas = [{ recordingId: 950, titulo: 'Junta de tres horas', fecha: '2026-10-17T15:00:00Z', durMin: 180, url: null, involucrados: [], tipo: 'equipo', motivo: 'equipo', participantes: [], host: { nombre: 'Martín', email: 'martin@mako.test' } }];
+    const cand = (titulo: string) => ({ titulo, detalle: 'algo', prioridad: 'media', proyectoId: null, proyectoNombre: '', dueño: '', dueñoEmail: '', esDeOtro: false });
+    const pedidos: Array<{ hasta: boolean; previa: unknown }> = [];
+    // Cuatro partes: la primera corrida lee la 1 y la 2 (el reloj no le da para más); la segunda, la 3 y la 4.
+    extraccionFalsa = (_rid: number, opts: Fila) => {
+      const previa = (opts.previa ?? null) as { partes: number; leidas: number[] } | null;
+      pedidos.push({ hasta: typeof opts.hasta === 'number', previa });
+      if (!previa) return { tareas: [cand('Armar el tablero de la campaña de octubre'), cand('Grabar el video de bienvenida del curso')], dudas: [], partes: 4, leidas: [0, 1], partesFallidas: 2, sinTiempo: 2, transcript: 'texto', participantes: [] };
+      // Lo que falta: una repetida del corte (sale en la parte 2 y en la 3) y una nueva.
+      return { tareas: [cand('Grabar el video de bienvenida del curso'), cand('Llamar al contador por la factura de septiembre')], dudas: [], partes: 4, leidas: [2, 3], partesFallidas: 0, transcript: 'texto', participantes: [] };
+    };
+    respuestaCruce = [];
+    const cron = () => runWithWorkspace(WS_CLIENTE, () => auto.procesarReunionesNuevas(WS_CLIENTE, { hasta: Date.now() + 280_000 }));
+    const marca = () => { const s = db.app_settings.find((x) => x.key === 'mako.reunion.parcial.950'); return s ? String(s.value) : null; };
+    const vista = () => db.app_settings.some((x) => x.key === 'mako.reunion.auto.950' && x.value);
+    const borradores = () => db.plan_propuestas.map((p) => ({ ref: String(p.ref), estado: String(p.estado), titulos: ((p.tareas as Fila[]) ?? []).map((t) => String(t.titulo)), resumen: String(p.resumen ?? '') }));
+    const c1 = await cron();
+    const tras1 = { borradores: borradores(), marca: marca(), vista: vista() };
+    const c2 = await cron();
+    const tras2 = { borradores: borradores(), marca: marca(), vista: vista() };
+    const c3 = await cron();
+    out.parcial = {
+      pedidos, tras1, tras2,
+      corridas: [c1, c2, c3].map((c) => ({ nuevas: c.nuevas, conTareas: c.conTareas, tareas: c.tareas })),
+      noLeidas: db.plan_reuniones_descartadas.map((f) => ({ id: Number(f.recording_id), motivo: String(f.motivo ?? '') })),
     };
   }
 

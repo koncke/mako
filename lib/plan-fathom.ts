@@ -41,6 +41,7 @@ import { resolverDueño, normNombre, rotuloDePersona, fuenteDicha, aliasDelDueno
 import { fuenteDeDatos, permitidosDe, limpiarLoDicho, type ControlDeLoDicho } from './detalle-sin-inventos';
 import { decidirRecurrente } from './plan-criterio-reglas';
 import { invitadosDeReunionPorFecha } from './google-calendar';
+import { leerPorRondas, saltearSi, MARGEN_ESCRITURA_MS, type MarcaParcial } from './lectura-por-partes';
 
 export type PlanPrioridad = 'alta' | 'media' | 'baja' | 'futuro';
 
@@ -477,6 +478,14 @@ export type ExtractOut = {
   tareas: TareaCandidata[]; dudas: DudaTermino[]; usage?: UsageInfo;
   participantes?: Participante[]; partes?: number; partesFallidas?: number;
   /**
+   * Las partes (índices del troceado) que ESTA lectura leyó enteras, con o sin tareas (17/10/2026). Junto con `partes`
+   * es la marca de una lectura a medias: la próxima lee sólo las que faltan. No incluye las que se saltearon por
+   * `previa`: ésas ya estaban en la marca.
+   */
+  leidas?: number[];
+  /** De las sin leer, cuántas ni se intentaron porque no entraban en el reloj (las demás fallaron). */
+  sinTiempo?: number;
+  /**
    * El resumen de Fathom y sus action items — o sea, DE QUÉ SE HABLÓ.
    *
    * Se devuelve porque `tareas` no sirve para eso: quien quiera saber qué se
@@ -547,8 +556,14 @@ Si no hay ninguna repetida, devuelve {"grupos": []}.`;
  *
  * La tarea fusionada se queda con TODOS los minutos: el contexto no se pierde, se suma.
  */
-export async function fusionarDuplicadas(tareas: TareaCandidata[], usoMotivo?: string): Promise<{ tareas: TareaCandidata[]; fusionadas: number; usage?: UsageInfo }> {
+export async function fusionarDuplicadas(tareas: TareaCandidata[], usoMotivo?: string, hastaMs?: number): Promise<{ tareas: TareaCandidata[]; fusionadas: number; usage?: UsageInfo }> {
   if (tareas.length < 2) return { tareas, fusionadas: 0 };
+  // CON EL RELOJ DE LA LECTURA (17/10/2026): esta pasada es UNA llamada más, después de todas las partes. Sin tiempo para
+  // ella, se queda el dedup léxico que ya corrió: mejor dos tarjetas repetidas que ninguna (la función muerta no escribe).
+  if (hastaMs != null && hastaMs - Date.now() < 45_000) {
+    console.warn(`[plan-fathom] dedup: no queda reloj para la fusión con IA (${tareas.length} tareas) — queda el dedup léxico`);
+    return { tareas, fusionadas: 0 };
+  }
   // EL DUEÑO VA, y el detalle va más largo. Se le pedía agrupar las repetidas mostrándole
   // 140 caracteres y NINGÚN dueño — o sea sin el contexto para decidir y sin el campo que
   // después bloquea la fusión río abajo. Con 10 pares de duplicados reales en una reunión
@@ -569,6 +584,7 @@ export async function fusionarDuplicadas(tareas: TareaCandidata[], usoMotivo?: s
       // silencio. Lo cazó el log de finish_reason.
       effort: 'high', maxTokens: 12000, feature: 'plan-fathom',
       motivo: usoMotivo || 'Fusionar tareas repetidas de la reunión', onUsage: (u) => { usage = u; },
+      ...(hastaMs != null ? { hastaMs } : {}),
     });
     obj = parseJsonObject(raw);
   } catch (e) {
@@ -674,6 +690,18 @@ export type ExtractOpts = {
   cabecera?: string;
   /** El nombre de la cuenta de Fathom de quien mira el tablero, si es otro (`aliasDelDueno`). */
   alias?: AliasDelDueno | null;
+  /**
+   * EL RELOJ de quien llama (epoch ms): el `hasta` del cron, de la ruta del modal o del webhook (17/10/2026). La
+   * extracción deja `MARGEN_ESCRITURA_MS` para escribir, no arranca una ronda que no entra, y lo que no leyó vuelve
+   * como parte sin leer (`partesFallidas`, `sinTiempo`). Sin reloj, como antes: lee todo.
+   */
+  hasta?: number;
+  /**
+   * La lectura a medias de antes (lib/lectura-por-partes.ts, `MarcaParcial`): sus partes leídas NO se vuelven a leer, si
+   * la marca es de este mismo troceado (`saltearSi`). Es lo que hace que una junta de 3 h se termine de leer en dos
+   * corridas en vez de morirse en el mismo lugar cada vez.
+   */
+  previa?: Pick<MarcaParcial, 'partes' | 'leidas'> | null;
 };
 
 // ── Troceado del transcript ──────────────────────────────────────────────────
@@ -756,6 +784,8 @@ export async function extraerTareasDeTexto(texto: string, proyectos: ProyectoRef
 
   const sys = await brandSystem(await renderPrompt('plan-fathom.extraer.system', PLAN_FATHOM_SYSTEM_TEMPLATE, { jsonShape: PLAN_FATHOM_JSON_SHAPE, molde: MOLDE_DETALLE }));
   const partes = trocear(texto);
+  // EL PLAZO de la lectura: el reloj de quien llama menos lo que hace falta para escribir lo leído (17/10/2026).
+  const plazo = opts.hasta != null ? opts.hasta - MARGEN_ESCRITURA_MS : undefined;
   const glosario = opts.glosario?.trim() || '(sin glosario cargado todavía)';
   const yoTxt = `${yo.nombre || 'el usuario'}${yo.email ? ` (${yo.email})` : ''}`;
   // Lo que se dijo (la reunión entera y su resumen), UNA vez: contra esto se mira que un
@@ -797,6 +827,9 @@ ${texto}`);
       effort: 'high', maxTokens: 32000, feature: 'plan-fathom',
       motivo: partes.length > 1 ? `${opts.usoMotivo || 'Extraer tareas'} (parte ${i + 1}/${partes.length})` : (opts.usoMotivo || 'Extraer tareas'),
       onUsage: (u) => { usage = u; },
+      // EL PLAZO de la lectura (17/10/2026): una parte que no termina a tiempo FALLA (la cascada no paga para ganar
+      // tiempo) y vuelve como sin leer. Sin esto, la parte lenta seguía y Vercel mataba la función sin escribir nada.
+      ...(plazo != null ? { hastaMs: plazo } : {}),
     });
     let obj: Record<string, unknown>;
     // Un JSON que no parsea devuelve lo mismo que una reunión sin compromisos: cero
@@ -814,18 +847,17 @@ ${texto}`);
   // Con UN reintento por parte: cada parte son ~20 minutos de reunión, y un 429 o un
   // timeout puntual los borraba del resultado sin dejar rastro — la lista salía más
   // corta pero perfectamente creíble. La espera es escalonada por índice para no
-  // volver a pegarle a la API todas juntas.
-  const conReintento = async (p: string, i: number) => {
-    const primera = await unaParte(p, i).catch((e) => {
+  // volver a pegarle a la API todas juntas. (El reintento, las rondas y el reloj viven en
+  // lib/lectura-por-partes.ts, `leerPorRondas`, que es puro y tiene su test.)
+  type SalidaParte = { tareas: TareaCandidata[]; dudas: DudaTermino[]; usage?: UsageInfo };
+  const leerParte = async (i: number): Promise<{ salida: SalidaParte; fallo: boolean }> => {
+    try {
+      const r = await unaParte(partes[i], i);
+      return { salida: { tareas: r.tareas, dudas: r.dudas, usage: r.usage }, fallo: !!r.fallo };
+    } catch (e) {
       console.error(`[plan-fathom] parte ${i + 1}/${partes.length} falló: ${e instanceof Error ? e.message : String(e)}`);
-      return { tareas: [] as TareaCandidata[], dudas: [] as DudaTermino[], usage: undefined, fallo: true };
-    });
-    if (!primera.fallo) return primera;
-    await new Promise((r) => setTimeout(r, 1200 + i * 400));
-    return unaParte(p, i).catch((e) => {
-      console.error(`[plan-fathom] parte ${i + 1}/${partes.length} falló también en el reintento: ${e instanceof Error ? e.message : String(e)}`);
-      return { tareas: [] as TareaCandidata[], dudas: [] as DudaTermino[], usage: undefined, fallo: true };
-    });
+      return { salida: { tareas: [], dudas: [] }, fallo: true };
+    }
   };
   // ⚠️ DE A DOS, NO TODAS JUNTAS. Siete llamadas de ~19k tokens simultáneas contra UNA
   // sola key de Gemini son un 429 garantizado — y un 429 en la cascada barata no se
@@ -841,14 +873,22 @@ ${texto}`);
   // que antes (5 partes → 2, 7 → 3). Medido: 279 s y 154 s para las dos llamadas del 16/10 (Gemini tarda de 70 a
   // 140 s por parte con mucha demanda). La cascada reparte entre las cuentas de Gemini; un 429 se reintenta.
   const CONCURRENCIA = 3;
-  const salidas: Array<Awaited<ReturnType<typeof conReintento>>> = [];
-  for (let i = 0; i < partes.length; i += CONCURRENCIA) {
-    salidas.push(...await Promise.all(partes.slice(i, i + CONCURRENCIA).map((p, j) => conReintento(p, i + j))));
-  }
+  // ⚠️ LO QUE YA SE LEYÓ NO SE VUELVE A LEER (17/10/2026): con una lectura a medias de antes (`previa`), sólo las partes
+  // que faltan. Una junta de 3 h no entra en los 300 s de una corrida: así se completa en dos, en vez de morirse siempre
+  // en el mismo lugar.
+  const saltear = saltearSi(opts.previa, partes.length);
+  const aLeer = partes.map((_, i) => i).filter((i) => !saltear.has(i));
+  const leidasPorRonda = await leerPorRondas<SalidaParte>({
+    indices: aLeer, concurrencia: CONCURRENCIA, leer: leerParte, vacia: () => ({ tareas: [], dudas: [] }), plazo,
+  });
+  const salidas = leidasPorRonda.map((x) => ({ ...x.salida, fallo: x.fallo }));
   // Cuántos tramos se perdieron DE VERDAD: el caller decide si el resultado es
   // confiable (el cron NO cierra una reunión leída a medias).
-  const partesFallidas = salidas.filter((s) => s.fallo).length;
-  if (partesFallidas) console.error(`[plan-fathom] ${partesFallidas} de ${partes.length} tramos no se pudieron leer — el resultado está INCOMPLETO`);
+  const partesFallidas = leidasPorRonda.filter((s) => s.fallo).length;
+  const sinTiempo = leidasPorRonda.filter((s) => s.sinTiempo).length;
+  const leidas = leidasPorRonda.filter((s) => !s.fallo).map((s) => s.i);
+  if (saltear.size) console.log(`[plan-fathom] lectura que completa otra: ${saltear.size} de ${partes.length} partes ya estaban leídas`);
+  if (partesFallidas) console.error(`[plan-fathom] ${partesFallidas} de ${aLeer.length} tramos no se pudieron leer${sinTiempo ? ` (${sinTiempo} por el reloj)` : ''} — el resultado está INCOMPLETO`);
 
   // Fusión: el solape entre partes repite tareas (a veces con otras palabras). Ante
   // duplicado gana la que trae más detalle; el orden de la charla se conserva.
@@ -871,11 +911,11 @@ ${texto}`);
   // Última pasada: las que son la MISMA tarea dicha con otras palabras en otro momento
   // de la charla. El parecido de palabras no las agarra ("definir el enfoque de
   // comunicación" vs "definir la estrategia de posicionamiento" = la misma decisión).
-  const dedup = await fusionarDuplicadas(fusionadas, opts.usoMotivo);
+  const dedup = await fusionarDuplicadas(fusionadas, opts.usoMotivo, plazo);
   return {
     tareas: dedup.tareas, dudas,
     usage: sumarUsage([...salidas.map((s) => s.usage), dedup.usage]),
-    participantes, partes: partes.length, partesFallidas,
+    participantes, partes: partes.length, partesFallidas, leidas, ...(sinTiempo ? { sinTiempo } : {}),
     // La que faltaba. Se recibe por `opts` y se devuelve: quien llama necesita
     // saber DE QUÉ SE HABLÓ, no solo qué tareas salieron.
     cabecera: opts.cabecera ?? '',

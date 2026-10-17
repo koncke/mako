@@ -2738,9 +2738,8 @@ cliente, por `prioridadOk(undefined)`) y no la columna. Era el mismo error que l
 - **Siguen llamando al Perro al crear**: el doer de WhatsApp (`tareas_plan`, lib/mako-doer-acciones.ts), las acciones
   `priorizar-nuevas` (app/api/todo/route.ts y app/api/plan-board/route.ts) y crear un proyecto a mano (BoardShell,
   `createLabel`).
-- **⚠️ Una lectura PARCIAL con tareas no se completa nunca, aunque el comentario diga que sí.** lib/reunion-auto.ts deja
-  la reunión abierta «y el próximo cron completa lo que falta» (el bloque de `parcial`), pero el cron la saltea porque
-  ya tiene borrador: `existePropuestaRef` sólo ignora las «procesando».
+- ~~**⚠️ Una lectura PARCIAL con tareas no se completa nunca, aunque el comentario diga que sí.**~~ **Arreglado el
+  17/10/2026**: ver [Una reunión larga](#una-reunión-larga-la-extracción-mira-el-reloj-y-una-lectura-a-medias-se-completa-17102026).
 - **El modal de una reunión ya leída (la rama de caché, `asegurarBorrador`) no cruza**: si su borrador no estaba
   sellado, SU «Agregar» (`crearDesdeReunion`) puede duplicar. Lo cubren el barrido del cron y el «Cargar» de la lista.
 - **Nadie avisa cuando una reunión pasa a «Sin leer»**: se ve sólo abriendo el modal. Y las diez del ws1 del 08 al 15/10
@@ -7025,8 +7024,7 @@ es el EMAIL (`aliasDelDueno`, lib/tarea-dueno.ts), nunca el parecido. El nombre 
   demanda: 279 s y 154 s.
 
 **Sin hacer:**
-- **La extracción no mira el reloj.** `extraerTareasDeTexto` no recibe `hasta`. Una reunión de 3 h, o un Gemini
-  lento, pasa los 300 s y la función muere sin escribir nada. El cron y la ruta tienen reloj; el extractor, no.
+- ~~**La extracción no mira el reloj.**~~ **Arreglado el 17/10/2026**: ver [Una reunión larga](#una-reunión-larga-la-extracción-mira-el-reloj-y-una-lectura-a-medias-se-completa-17102026).
 - **Los 5 pedidos que la revisión todavía pierde son del mismo tipo:** una frase sobre la pantalla mientras se
   muestra otra cosa. Son el bug de pantalla completa del Second Brain, «que guarde solo», Pablo que no pudo agendar,
   el «43» de Offer y la tab de email de Chats.
@@ -7086,3 +7084,45 @@ Nada por parecido: cerrar la tarjeta equivocada esconde trabajo pendiente, y no 
 **Vive en:** lib/plan-cerrar.ts · lib/api-mako/areas/plan.def.ts y plan.run.ts (`cerrar_tareas_plan`) ·
 lib/centro-plan.ts (`cerrarTareaDelPlan`, `cerrarPorYaEsta`) · lib/centro-plan-reglas.ts (`tarjetasDelYaEsta`) ·
 tests/plan-cierre-en-el-acto.test.ts
+
+## Una reunión larga: la extracción mira el reloj y una lectura a medias se completa (17/10/2026)
+
+**Síntoma (dos, que se veían como uno):** una junta de 3 h no dejaba ninguna tarea en el Plan. Y una reunión leída a
+medias (un tramo caído) se quedaba así para siempre, aunque el comentario del cron dijera «el próximo cron completa lo
+que falta».
+
+**Causa:**
+- **La extracción no recibía el reloj.** El cron, la ruta del modal y el webhook corren con `maxDuration = 300` y tienen
+  su `hasta`; `extraerTareasDeTexto` no. Con partes de 20k de a tres y Gemini cargado (70-140 s por ronda), 8-9 partes
+  pasan los 300 s y Vercel mata la función ANTES de escribir el borrador: ni tareas ni rastro, y la corrida siguiente
+  empieza de cero para morirse en el mismo lugar. `completarBorradorDeReunion` recibía `hasta` y no se lo pasaba.
+- **El cron salteaba la reunión porque ya tenía borrador** (`existePropuestaRef`). Y aunque la hubiera releído, una
+  junta que no entra en 300 s se vuelve a morir igual: releer entera no completa nada.
+
+**El diagnóstico obvio era el equivocado:** «subir el `maxDuration`» o «partes más chicas». Las partes más chicas son
+MÁS rondas (15k tardó 399 s), y el techo de Vercel no se mueve. Lo que hace falta es que la lectura se pueda CORTAR y
+RETOMAR.
+
+**La regla que queda** (lib/lectura-por-partes.ts, puro, con test):
+- **Una lectura larga es por rondas con plazo**: deja `MARGEN_ESCRITURA_MS` (25 s) para escribir, no arranca una ronda
+  con menos de `MIN_PARTE_MS` (120 s) por delante, cada llamada lleva `hastaMs` (si no llega, FALLA: no paga) y lo que
+  no se leyó vuelve como parte sin leer (`sinTiempo`). La fusión con IA se saltea si no queda reloj (queda el dedup léxico).
+- **Lo leído queda ANOTADO** (`mako.reunion.parcial.<id>`: en cuántas partes, cuáles se leyeron —con o sin tareas— y
+  qué borradores dejó) y la vuelta siguiente lee SÓLO lo que falta (`previa`). La marca vale sólo para el MISMO troceado
+  (`saltearSi`): con otro número de partes, se lee todo.
+- **Lo que completa va a un borrador APARTE** (`fathom:<id>:partes-3-4`, `refDelResto`), sin lo que ya propuso la vuelta
+  anterior (`sinLasYaPropuestas`: las partes se solapan y la tarea del corte sale en las dos). Sumarlo al primero lo
+  podía borrar el autoguardado del modal (guarda la lista entera). La ref es determinista: si la función muere entre
+  crear el borrador y anotar la marca, la vuelta siguiente lee lo mismo y `crearPropuesta` devuelve el que ya existe.
+- Una reunión que la persona DESCARTÓ no se completa (se cierra sin leer). Un «procesando» del modal se lee de cero.
+
+**Trampas:** `Number(ref.slice(7))` (el `recordingDeRef` del modal) da NaN con la ref nueva: ahora es una regex. La
+marca se escribe con `getSetting`/`setSetting` del workspace en contexto; vacía = no hay lectura a medias (no existe
+«borrar setting»).
+
+**Sin hacer:** el AVISO de «esta reunión no se pudo leer» (ver más arriba) sigue sin existir; con esto, una reunión
+que no entra en el reloj ya no es una de ésas: se lee en dos corridas. No se midió contra una junta real de 3 h.
+
+**Vive en:** lib/lectura-por-partes.ts · lib/reunion-parcial.ts · lib/plan-fathom.ts (`extraerTareasDeTexto`,
+`fusionarDuplicadas`) · lib/reunion-auto.ts · lib/leer-reunion-en-segundo-plano.ts · app/plan/board/TareasRecibidasModal.tsx ·
+tests/reunion-larga-reloj.test.ts (+ el modo `parcial` de tests/_fathom-carga-hijo.ts) · *17/10/2026, B5 (claude4)*

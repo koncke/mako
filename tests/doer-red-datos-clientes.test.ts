@@ -119,6 +119,27 @@ test('lo que se pide de clientes CORTA la red; lo demás corre sin las herramien
   if (!campanas.r.cortar) assert.ok(campanas.r.tools.some((t) => t.name === 'listar_campanas_meta'), 'las campañas se quedaron sin listar_campanas_meta');
 });
 
+// 17/10/2026 (pendientes del Plan, B5): el Dashboard ENTERO contaba como datos de clientes (`metricas: true`), así que
+// sin keys propias MaKo cortaba «¿cuánto vendí este mes?». Ahora cada lectura de métricas que trae sólo NÚMEROS lo
+// declara (`datosDeClientes: false`, lib/api-mako/areas/metricas.def.ts); las que nombran personas (a quién cobrar, las
+// cuotas, los leads de una cohorte) siguen cortando.
+// PROBADO ROMPIÉNDOLO: `ver_revenue_periodo` y `metricas_negocio` sin su marca → 1 fallo; `a_quien_cobrar` con
+// `datosDeClientes: false` → 1 fallo.
+test('«¿cuánto vendí este mes?» corre sin keys propias; «¿a quién le cobro?» sigue cortando', () => {
+  const vendi = corre('¿cuánto vendí este mes?');
+  if (!vendi.r.cortar) {
+    const numeros = vendi.r.tools.map((t) => t.name).filter((n) => ['ver_revenue_periodo', 'metricas_negocio', 'resumir_marketing_periodo'].includes(n));
+    assert.ok(numeros.length > 0, `la pregunta se quedó sin una lectura de números: ${vendi.r.tools.map((t) => t.name).join(', ')}`);
+  }
+  for (const n of ['metricas_negocio', 'ver_revenue_periodo', 'diagnosticar_funnel', 'ver_mrr_activo', 'ver_embudo_comercial_maduro']) {
+    assert.equal(llevaDatosDeClientes(n), false, `${n} trae sólo números y quedó como datos de clientes`);
+  }
+  for (const n of ['a_quien_cobrar', 'cuotas_pendientes', 'listar_leads_embudo_maduro', 'analisis_negocio']) {
+    assert.equal(llevaDatosDeClientes(n), true, `${n} nombra personas (o sus respuestas) y quedó como sin datos`);
+  }
+  corta('¿a quién le cobro esta semana?');
+});
+
 test('cargar al plan y confirmar corren enteros, salvo con una pendiente que nombra a un cliente', () => {
   const anota = corre('anota: revisar la landing el lunes');
   if (!anota.r.cortar) {

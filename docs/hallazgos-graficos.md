@@ -1301,6 +1301,33 @@ Test: tests/general-red-por-bloque.test.ts (probado rompiéndolo, cinco roturas)
 **Vive en:** app/dashboard/RedDeBloque.tsx · app/dashboard/ElementoGeneral.tsx · app/dashboard/EditorInforme.tsx.
 *17/10/2026, claude4 (chat Dashboard).*
 
+## Un lead agregado a otro funnel lo encuentra el FILTRO, no el agrupado (17/10/2026)
+
+**Síntoma:** una hoja filtrada por «Renovación» (ws1) salía vacía: ese funnel tiene sólo leads AGREGADOS, y el filtro de
+los leads miraba la casa (`leads.funnel_id`). Y la dimensión se seguía llamando «Producto» (Martín decidió «Funnel» el 11/10).
+
+**La decisión (con criterio, sin Martín):** la fila del lead lleva dónde MÁS está (`Fila.m.producto`, de `lead_funnel`,
+`funnelsAgregados` en lib/graficos-lectura.ts) y eso lo mira SÓLO `filtrarFilas`. Filtrar trae a los agregados; agrupar
+por funnel cuenta a cada lead UNA vez, en su casa. Así ningún total se duplica (era el «sin decidir») y ninguna hoja
+filtrada queda vacía. Lo mismo en la cartera. Los pagos ya iban por el funnel del día. El id de la dimensión sigue siendo
+`producto` (hojas guardadas); cambió el nombre que se ve.
+
+**Trampa:** `sed -i` en Git Bash pasa el archivo entero a LF en el working copy (el diff igual sale chico, porque el
+índice ya es LF). **Sin hacer:** un gráfico agrupado por funnel DENTRO de una hoja filtrada por «Renovación» muestra a
+esos leads bajo su casa (p. ej. «Ventas»), no bajo «Renovación». Si molesta, que el agrupado use el valor del filtro.
+**Vive en:** lib/graficos-agregar.ts (`Fila.m`, `filtrarFilas`) · lib/graficos-lectura.ts (`funnelsAgregados`) ·
+lib/graficos-datos.ts (`filasLeads`) · lib/graficos-datos-extra.ts (`filasCartera`) · lib/graficos-catalogo.ts ·
+tests/graficos-funnel-agregados.test.ts · *17/10/2026, B5 (claude4)*
+
+## Los experimentos que ya existen: «Editar con MaKo» los conoce (17/10/2026)
+
+Los de antes de la mudanza y los que crea la API no tenían elemento: no se veían en ninguna pantalla. `editarHojaIA`
+(lib/graficos-ia-editar.ts) le pasa al modelo los del negocio (id, título, estado; hasta 20, los títulos como dato no
+confiable) y `aplicarEdicion` pone `{"experimento":{"id":N}}` validado contra ESA lista y una vez por hoja. Lo que la
+API y la ruta comparten está en `editarHojaIA`, así que los dos caminos lo tienen. **Vive en:** lib/graficos-ia.ts
+(`AlcanceIA.experimentos`) · lib/graficos-ia-edicion.ts · lib/graficos-ia-editar.ts ·
+tests/experimentos-existentes-en-la-hoja.test.ts · *17/10/2026, B5 (claude4)*
+
 ## Lo que quedó sin hacer
 
 - **La red por bloque (17/10/2026):** las miniaturas de la galería dibujan los gráficos de ejemplo sin red
@@ -1315,9 +1342,9 @@ Test: tests/general-red-por-bloque.test.ts (probado rompiéndolo, cinco roturas)
   después se van (los vacíos dicen «Sin datos» unos segundos). Si se quisiera, marcarlos como «midiendo» hasta que llegue.
 
 - **Experiments en la hoja (17/10/2026):**
-  - Un experimento creado por la API (`crear_experimento`) o uno de antes del 17/10 **no tiene elemento: no se ve en
-    ninguna pantalla** (sí en el contexto de MaKo y por la API). `sanearElemento` ya acepta `experimento: { id: N }`;
-    falta que «Editar con MaKo» conozca los experimentos del negocio para poder agregarlos a una hoja.
+  - ~~Un experimento creado por la API o uno de antes del 17/10 no se ve en ninguna pantalla~~ **Arreglado el
+    17/10/2026**: «Editar con MaKo» los conoce y los pone en la hoja (ver «Los experimentos que ya existen», más arriba).
+    Sigue sin pasar SOLO: hay que pedírselo («traeme mis experimentos»).
   - El teléfono no muestra ni pide experimentos: /m/dashboard destila la hoja en sus números y su serie
     (`piezasDeHoja`, app/m/dashboard/datos.ts, sólo gráficos) y no tiene el panel de «Editar con MaKo».
   - Una Retro nueva ya no se genera en ningún lado. Si vuelve, que sea otro elemento de la hoja.
@@ -1327,10 +1354,8 @@ Test: tests/general-red-por-bloque.test.ts (probado rompiéndolo, cinco roturas)
     app/_components/nav.ts, lib/movil-rutas.ts y lib/capas.ts (la capa superadmin), se van esas dos líneas y el
     `experimentos` de `conRol`, y /experimentos y /m/experimentos entran en `RETIRADAS` de tests/tabs-retiradas.test.ts.
 
-- **El filtro «Producto» de los LEADS mira sólo la casa** (17/10/2026): una hoja filtrada por un funnel de agregados
-  («Renovación») no muestra a sus leads. Contar a un lead en sus dos funnels duplica los totales: sin decidir. Vive en
-  `filasLeads` (lib/graficos-datos.ts). Y la dimensión se sigue llamando «Producto» (la decisión del 11/10 de llamarla
-  «Funnel» no llegó a los gráficos).
+- ~~**El filtro «Producto» de los LEADS mira sólo la casa**~~ **Arreglado el 17/10/2026**: ver «Un lead agregado a otro
+  funnel lo encuentra el FILTRO, no el agrupado», más arriba.
 
 - **Las portadas (15/10/2026):** mirado en producción en el ESCRITORIO con las 6 hojas de Mauricio; el celular, sólo en el
   arnés (la ventana de la extensión no se dejó angostar). Falta decidir con Leila (o con Martín) su Cobranza, que es una

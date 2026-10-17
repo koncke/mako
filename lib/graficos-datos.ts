@@ -23,7 +23,7 @@
 
 import 'server-only';
 import { getTenantDb, getWorkspaceActual } from './workspace';
-import { enRango, queTableroLeer, fechaTj, host, leer, leerPorIds, lindo, nombres, num, rotulosDelCrm, ruta, txt, type Rango } from './graficos-lectura';
+import { enRango, queTableroLeer, fechaTj, funnelsAgregados, host, leer, leerPorIds, lindo, nombres, num, rotulosDelCrm, ruta, txt, type Rango } from './graficos-lectura';
 import { LECTORES_EXTRA, noEsDelNegocio } from './graficos-datos-extra';
 export type { Rango };
 import { conversorGastoMeta } from './moneda-meta';
@@ -222,7 +222,10 @@ async function madurezDeCohortes(): Promise<{ semana: Map<string, string>; mes: 
  */
 async function filasLeads(fecha: string, rg: Rango): Promise<Fila[]> {
   const [rows, rot, madurez] = await Promise.all([leadsCrudos(fecha, rg), rotulosDelCrm(), madurezDeCohortes()]);
+  // DÓNDE MÁS ESTÁ CADA LEAD (17/10/2026): sin esto, una hoja filtrada por un funnel de agregados salía vacía.
+  const agregados = await funnelsAgregados(rows.map((x) => Number(x.id)), rot.producto);
   return rows.map((x) => {
+    const tambien = (agregados.get(Number(x.id)) ?? []).filter((n) => n !== rot.producto(x.funnel_id));
     const ciclo = diasEntre(x.fecha_agenda, x.fecha_primer_pago);
     const vendio = gano(x);
     const cicloCierre = vendio ? diasEntre(x.fecha_junta_1, x.fecha_cierre) : null;
@@ -245,6 +248,7 @@ async function filasLeads(fecha: string, rg: Rango): Promise<Fila[]> {
         madurez_mes: j1 ? madurez.mes.get(`${j1.slice(0, 7)}-01`) || null : null,
       },
       r: { lead: String(x.id) },
+      ...(tambien.length ? { m: { producto: tambien } } : {}),
       v: {
         leads: 1, agendas: x.fecha_junta_1 ? 1 : 0, asistencias: x.asistio_j1 ? 1 : 0, calificados: x.calificado ? 1 : 0,
         limpias: x.asistio_j1 && x.calificado ? 1 : 0,

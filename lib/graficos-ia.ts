@@ -49,7 +49,17 @@ import { FUENTES_GENERAL, PIEZAS_GENERAL, TIPOS_GENERAL, esPiezaGeneral, piezaGe
  * que descarta lo de afuera. Hasta el 16/10/2026 «Pídeselo a MaKo» en General no sabía que era General: armaba y
  * guardaba una hoja con tipos del Dashboard (lo encontró el diseño del Centro, docs/diseno-mako-ai-native.md).
  */
-export type AlcanceIA = { tipos?: readonly string[]; fuentes?: readonly string[]; bloquesGeneral?: boolean };
+export type AlcanceIA = {
+  tipos?: readonly string[]; fuentes?: readonly string[]; bloquesGeneral?: boolean;
+  /**
+   * LOS EXPERIMENTOS QUE YA TIENE EL NEGOCIO (17/10/2026): los de antes de que Experiments se mudara al Dashboard y los que
+   * crea MaKo por la API no tenían elemento y no se veían en ninguna pantalla. «Editar con MaKo» los conoce para ponerlos
+   * en la hoja (`{"experimento":{"id":N}}`); lo llena `editarHojaIA`. Sólo en el Dashboard (`conExperimentos`).
+   */
+  experimentos?: ReadonlyArray<ExperimentoConocido>;
+};
+/** Lo que «Editar con MaKo» sabe de un experimento que ya existe: lo justo para nombrarlo. */
+export type ExperimentoConocido = { id: number; titulo: string; estado: string };
 /** El de una hoja de General. */
 export const ALCANCE_GENERAL: AlcanceIA = { tipos: TIPOS_GENERAL, fuentes: FUENTES_GENERAL, bloquesGeneral: true };
 /** Lo que se le dice al modelo de más en una hoja de General (va en el user: el system es el de siempre y es editable). */

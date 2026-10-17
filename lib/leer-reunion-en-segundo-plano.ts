@@ -29,6 +29,7 @@ import { marcarProcesado, marcarFallado, marcarSinCompromisos, type PropuestaTar
 import { resolverClienteDeReunion, proyectoQueManda } from './reunion-cliente';
 import { cruzarTareas } from './reunion-cruce';
 import { soltarLectura } from './reunion-leyendo';
+import { anotarParcial, cerrarParcial } from './reunion-parcial';
 
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
@@ -83,8 +84,18 @@ export async function completarBorradorDeReunion(opts: {
   try {
     await runWithWorkspace(ws, async () => {
       const glosario = await glosarioTexto().catch(() => '');
-      const out = await extraerTareasDeReunion(recordingId, proyectos, yo, { glosario, usoMotivo: opts.uso });
+      // CON EL RELOJ DE LA RUTA (17/10/2026): `hasta` llegaba hasta acá y no se le pasaba a la extracción, así que una
+      // junta de 3 h seguía leyendo después de los 300 s y la función moría sin llenar el borrador («Leyendo…» hasta que
+      // venciera el candado). Ahora lee lo que entra; lo que falta queda en la marca y lo completa el cron.
+      const out = await extraerTareasDeReunion(recordingId, proyectos, yo, { glosario, usoMotivo: opts.uso, hasta: opts.hasta });
       const partesFallidas = out.partesFallidas ?? 0;
+      // La marca de la lectura a medias: lo leído (con o sin tareas) no se vuelve a leer. Es una lectura DE CERO
+      // («Extraer», «Volver a analizar»): la marca de antes no cuenta.
+      if (partesFallidas && out.partes && out.leidas?.length) {
+        await anotarParcial(recordingId, { partes: out.partes, leidas: out.leidas, ref: `fathom:${recordingId}`, fresca: true });
+      } else if (!partesFallidas) {
+        await cerrarParcial(recordingId);
+      }
       // EL CACHÉ, con el mismo criterio que antes en la ruta y en el cron: sólo una lectura ENTERA
       // y con tareas. Uno a medias se serviría para siempre como «esto es todo».
       if (out.tareas.length && !partesFallidas) {
@@ -94,8 +105,11 @@ export async function completarBorradorDeReunion(opts: {
         dudas: out.dudas ?? [], participantes: out.participantes ?? [], partesFallidas, fin: new Date().toISOString(),
       } satisfies ExtrasDeLectura)).catch(() => {});
 
+      // Lo que se le dice a la persona cuando la reunión era más larga que el reloj: no es una falla, sigue sola.
+      const leidasTxt = out.partes ? `leí ${out.leidas?.length ?? 0} de ${out.partes} partes` : '';
+      const sigue = out.sinTiempo ? ` Es larga: ${leidasTxt} y sigo con el resto sola en la próxima vuelta.` : '';
       if (!out.tareas.length) {
-        if (partesFallidas) await marcarFallado(borradorId, `no pude leer ${partesFallidas} tramo(s) de la reunión. Prueba de nuevo en un rato.`);
+        if (partesFallidas) await marcarFallado(borradorId, out.sinTiempo ? `todavía no termino.${sigue}` : `no pude leer ${partesFallidas} tramo(s) de la reunión. Prueba de nuevo en un rato.`);
         else await marcarSinCompromisos(borradorId);
         return;
       }
@@ -112,7 +126,7 @@ export async function completarBorradorDeReunion(opts: {
         .catch((e) => ({ tareas, cruzado: false, marcadas: 0, motivo: msg(e) }));
       await marcarProcesado(borradorId, {
         tareas: cruce.tareas, cruzado: cruce.cruzado,
-        resumen: `MaKo leyó «${titulo ?? 'la reunión'}» y sacó ${mias} compromiso${mias === 1 ? '' : 's'} tuyo${mias === 1 ? '' : 's'}.${partesFallidas ? ` (${partesFallidas} tramo(s) sin leer)` : ''}`,
+        resumen: `MaKo leyó «${titulo ?? 'la reunión'}» y sacó ${mias} compromiso${mias === 1 ? '' : 's'} tuyo${mias === 1 ? '' : 's'}.${sigue || (partesFallidas ? ` (${partesFallidas} tramo(s) sin leer)` : '')}`,
         clienteNombre: cli?.nombre, clienteLeadId: cli?.leadId,
       });
       console.log(`[leer-reunion-bg] ws ${ws} · ${borradorId} · ${out.tareas.length} tareas en ${Math.round((Date.now() - t0) / 1000)}s · ${cruce.cruzado ? 'cruzada' : `sin cruzar (${cruce.motivo ?? ''})`}`);

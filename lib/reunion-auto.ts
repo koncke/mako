@@ -28,7 +28,9 @@ import 'server-only';
 // =============================================================================
 
 import { listReunionesRecientes, extraerTareasDeReunion, cacheKeyReunion, ROL_CONSULTOR, ROL_DESCONOCIDO, type ProyectoRef, type ReunionMeta, type Yo } from './plan-fathom';
-import { crearPropuesta, existePropuestaRef, resolverProcesandoSinCompromisos, type PropuestaTarea } from './plan-propuesta';
+import { crearPropuesta, getPropuestaPorRef, resolverProcesandoSinCompromisos, type PropuestaTarea } from './plan-propuesta';
+import { refDelResto, sinLasYaPropuestas, unirLeidas } from './lectura-por-partes';
+import { leerParcial, anotarParcial, cerrarParcial } from './reunion-parcial';
 import { criterioDelWorkspace } from './plan-criterio';
 import { juzgarConCriterio, type SalidaJuez } from './plan-criterio-juez';
 import { normCita, type Veredicto } from './plan-criterio-reglas';
@@ -80,7 +82,19 @@ type ReunionHecha = { titulo: string; fecha: string | null; conQuien: string; mi
    * es justo lo contrario de lo que la tercera cubeta viene a hacer.
    */
   descartadas?: number;
-  partesFallidas?: number; recordingId: number; propId: string };
+  partesFallidas?: number; recordingId: number; propId: string;
+  /** Esta vuelta COMPLETÓ una lectura a medias (17/10/2026): son las tareas que faltaban, en un borrador aparte. */
+  resto?: boolean };
+
+/**
+ * Lo que ya propusieron las vueltas anteriores de ESTA reunión: el borrador de la reunión y los que la completaron
+ * (están en la marca). Lo que no se puede leer cuenta como nada: en el peor caso sale una tarjeta repetida en el
+ * borrador, que el cruce contra el tablero igual marca si ya se cargó.
+ */
+async function tareasYaPropuestas(ref: string, refs: readonly string[]): Promise<Array<{ titulo: string }>> {
+  const todas = await Promise.all([...new Set([ref, ...refs])].map((x) => getPropuestaPorRef(x).catch(() => null)));
+  return todas.flatMap((p) => (p ? p.tareas.map((t) => ({ titulo: t.titulo })) : []));
+}
 
 /**
  * El mensaje al grupo. Dos formas: una reunión (frase suelta) o varias (viñetas con
@@ -127,7 +141,10 @@ export function textoAviso(hechas: ReunionHecha[], tz: string): string {
   if (hechas.length === 1) {
     const h = hechas[0];
     const cuando = fechaHoraEnTz(h.fecha, tz);
-    return `📝 Leí tu reunión${h.conQuien ? ` con *${h.conQuien}*` : ''}${h.titulo ? ` — *${h.titulo}*` : ''}${cuando ? `\n🗓️ ${cuando}` : ''}\n\nSaqué ${tuyas}${deOtros} y te las dejé en el plan para que las confirmes:\n${linkDe(h)}${dejadas}${aviso}\n\nEntras, revisas y con un toque quedan cargadas. — MaKo`;
+    // LA QUE COMPLETA UNA LECTURA A MEDIAS (17/10/2026): son las que faltaban, no una reunión nueva.
+    const leí = h.resto ? 'Terminé de leer tu reunión' : 'Leí tu reunión';
+    const mas = h.resto ? ' más' : '';
+    return `📝 ${leí}${h.conQuien ? ` con *${h.conQuien}*` : ''}${h.titulo ? ` — *${h.titulo}*` : ''}${cuando ? `\n🗓️ ${cuando}` : ''}\n\nSaqué ${tuyas}${mas}${deOtros} y te las dejé en el plan para que las confirmes:\n${linkDe(h)}${dejadas}${aviso}\n\nEntras, revisas y con un toque quedan cargadas. — MaKo`;
   }
 
   const filas = hechas.slice(0, 4).map((h) => {
@@ -311,8 +328,29 @@ export async function procesarReunionesNuevas(ws: number, opts: { horas?: number
     // Ya la vio: o dejó borrador, o la leímos y no había nada que anotar. En los dos
     // casos no se vuelve a gastar el análisis. (Ante un error de lectura, saltear:
     // mejor perderse una reunión que duplicarla o quemar tokens en loop.)
-    if (await existePropuestaRef(ref, ws).catch(() => true)) continue;
+    //
+    // ⚠️ SALVO QUE SE HAYA LEÍDO A MEDIAS (17/10/2026). Este `continue` era lo que hacía que una lectura parcial no se
+    // completara NUNCA, aunque el bloque de `parcial` de más abajo dijera «el próximo cron completa lo que falta»: el
+    // borrador ya existía y la reunión se salteaba. Ahora queda la MARCA de las partes leídas (lib/reunion-parcial.ts) y
+    // esta corrida lee sólo las que faltan; lo nuevo va a un borrador aparte (`refDelResto`).
+    // Un borrador «procesando» (el modal pidió leerla) NO cuenta como visto: esta lectura lo llena, y entera.
+    const previo = await getPropuestaPorRef(ref).then((p) => p ?? null, () => undefined);
+    if (previo === undefined) continue;
+    const estadoPrevio: string | null = previo ? String(previo.estado) : null;
+    const yaVista = !!previo && estadoPrevio !== 'procesando';
+    const marca = await leerParcial(r.recordingId);
+    if (yaVista && !marca) continue;
+    if (yaVista && estadoPrevio === 'descartada') {
+      // La descartó la persona: lo que faltaba leer no le interesa. Se cierra sin gastar la lectura.
+      await cerrarParcial(r.recordingId);
+      await setSetting(KEY_VISTA(r.recordingId), new Date().toISOString()).catch(() => {});
+      continue;
+    }
     if (await getSetting(KEY_VISTA(r.recordingId)).catch(() => 'error')) continue;
+    /** Esta vuelta COMPLETA una lectura a medias que ya dejó su borrador. */
+    const completando = yaVista && !!marca;
+    /** Lo que ya se leyó y no se vuelve a leer: nunca en una lectura que el modal pidió de cero. */
+    const previa = estadoPrevio === 'procesando' ? null : marca;
     // EL CANDADO (16/10/2026): desde que el webhook y el botón del modal también leen, la misma
     // reunión puede estar leyéndose en otro lado AHORA. Se saltea sin pagar dos veces; si esa
     // lectura se murió, el candado vence solo y la próxima corrida la agarra.
@@ -335,12 +373,23 @@ export async function procesarReunionesNuevas(ws: number, opts: { horas?: number
       const clienteDeLaReunion = await resolverClienteDeReunion({
         titulo: r.titulo, participantes: r.participantes, emails: [r.host?.email ?? ''].filter(Boolean),
       }).catch(() => null);
-      const { tareas, partesFallidas = 0, transcript } = await extraerTareasDeReunion(r.recordingId, proyectos, yo, {
-        glosario, participantes: r.participantes, usoMotivo: 'Reunión nueva → tareas al plan (automático)',
+      const extraida = await extraerTareasDeReunion(r.recordingId, proyectos, yo, {
+        glosario, participantes: r.participantes,
+        usoMotivo: completando ? 'Reunión larga → el resto de las tareas al plan (automático)' : 'Reunión nueva → tareas al plan (automático)',
         rolDelDueno: clienteDeLaReunion ? ROL_CONSULTOR : ROL_DESCONOCIDO,
+        // EL RELOJ DE ESTA CORRIDA (17/10/2026): sin él, una junta de 3 h pasaba los 300 s y la función moría antes de
+        // escribir el borrador. Con él, lo que no entra queda como parte sin leer y lo completa la próxima corrida.
+        hasta, previa,
       });
-      // Lectura PARCIAL: se leyó parte del transcript y otra parte se perdió.
+      const { partesFallidas = 0, transcript, partes = 0, leidas = [], sinTiempo: partesSinTiempo = 0 } = extraida;
+      // Completando: sin lo que ya propuso la vuelta anterior (las partes se solapan: la tarea dicha en el corte sale en
+      // las dos). Lo que ya está en el TABLERO lo marca el cruce, más abajo.
+      const yaPropuestas = completando ? await tareasYaPropuestas(ref, marca?.refs ?? []) : [];
+      const tareas = completando ? sinLasYaPropuestas(extraida.tareas, yaPropuestas) : extraida.tareas;
+      // Lectura PARCIAL: se leyó parte del transcript y otra parte se perdió (o no entró en el reloj).
       const parcial = partesFallidas > 0;
+      /** Las partes leídas contando las de antes: es lo que dice la marca y lo que se le cuenta a la persona. */
+      const leidasTotal = unirLeidas(previa && previa.partes === partes ? previa.leidas : [], leidas);
       // El cache es también la lista blanca de a quién se le puede mandar algo de esta
       // reunión (/api/plan-reunion), y evita que re-abrirla en la app vuelva a cobrar.
       // SOLO si hubo tareas: cachear un resultado vacío le serviría ese vacío al botón
@@ -352,7 +401,9 @@ export async function procesarReunionesNuevas(ws: number, opts: { horas?: number
       // faltan dos tramos. El comentario de app/api/plan-fathom/route.ts dice textual
       // «mismo criterio que el cron» y era falso: la ruta sí exigía `!partesFallidas` y
       // acá no se miraba. Ahora sí, y son el mismo criterio de verdad.
-      if (tareas.length && !parcial) {
+      // ⚠️ Y SÓLO UNA LECTURA DE CERO (17/10/2026): una que salteó partes (`previa`) o que completa otra no es «la
+      // reunión entera», aunque no le haya fallado nada.
+      if (tareas.length && !parcial && !previa && !completando) {
         await setSetting(cacheKeyReunion(r.recordingId), JSON.stringify({ tareas, participantes: r.participantes, ts: Date.now() })).catch(() => {});
       }
 
@@ -408,6 +459,8 @@ export async function procesarReunionesNuevas(ws: number, opts: { horas?: number
         // vaciaria el borrador de una reunion entera sin que nadie se entere.
         juicio = j && !j.fallo ? j : null;
         if (!juicio) console.warn(`[reunion-auto] ws=${ws} recording=${r.recordingId}: hay criterio y el juez no se pronunció — las tareas entran sin juzgar`);
+        // Completando, lo que el criterio «encontró» puede ser lo que ya propuso la vuelta anterior (lee la reunión entera).
+        if (juicio && completando) juicio = { ...juicio, faltantes: sinLasYaPropuestas(juicio.faltantes, [...yaPropuestas, ...tareas]) };
       }
 
 
@@ -428,10 +481,14 @@ export async function procesarReunionesNuevas(ws: number, opts: { horas?: number
         if (parcial) {
           out.errores += 1;
           console.error(`[reunion-auto] ws=${ws} recording=${r.recordingId} «${r.titulo}»: la lectura FALLÓ (${partesFallidas} tramo(s) sin leer) — queda para reintentar`);
+          // LO LEÍDO, aunque no haya dejado tareas, no se vuelve a leer (17/10/2026): la marca lo anota.
+          if (partes && leidas.length) await anotarParcial(r.recordingId, { partes, leidas, fresca: !previa });
           // Y QUEDA ESCRITO (16/10/2026): el `console.error` era todo el rastro, y así se perdieron
           // diez reuniones del ws1 entre el 08 y el 15/10 (la ventana de 26 h se termina y nadie
           // vuelve a mirarla). En el modal de Fathom, en «Sin leer», con «Leer igual».
-          await registrarNoLeida(r, `No pude leer ${partesFallidas} tramo(s): la IA no contestó. La reintento sola.`);
+          await registrarNoLeida(r, partesSinTiempo
+            ? `Es larga: leí ${leidasTotal.length} de ${partes} partes y no me alcanzó el tiempo. Sigo con el resto en la próxima vuelta.`
+            : `No pude leer ${partesFallidas} tramo(s): la IA no contestó. La reintento sola.`);
           // (Una fila «Leyendo…» que el modal dejó esperando esta lectura se QUEDA así a propósito:
           // la próxima corrida la vuelve a leer —`existePropuestaRef` no cuenta las «procesando»— y
           // la llena. Marcarla «fallado» la sacaría del reintento: el cron saltea una ref que ya
@@ -445,7 +502,9 @@ export async function procesarReunionesNuevas(ws: number, opts: { horas?: number
           // reunión que ya se leyó bien).
           await resolverProcesandoSinCompromisos(ref, ws).catch(() => false);
           await marcarDescartadaLeida(r.recordingId);
-          console.warn(`[reunion-auto] ws=${ws} recording=${r.recordingId} «${r.titulo}»: leída completa, sin compromisos`);
+          // Y la marca de una lectura a medias, si la había: lo que faltaba se leyó y no traía nada nuevo.
+          if (marca) await cerrarParcial(r.recordingId);
+          console.warn(`[reunion-auto] ws=${ws} recording=${r.recordingId} «${r.titulo}»: ${completando ? 'terminé de leerla, sin nada nuevo' : 'leída completa, sin compromisos'}`);
         }
         continue;
       }
@@ -565,8 +624,11 @@ export async function procesarReunionesNuevas(ws: number, opts: { horas?: number
 
       // ⛔ Acá se armaban preguntas de contexto para responder antes de cargar. El alta
       // dejó de preguntar el 05/10/2026: el Perro decide fecha y prioridad solo.
+      // Completando, lo nuevo va a un borrador APARTE (lib/lectura-por-partes.ts, `refDelResto`): sumarlo al primero podía
+      // borrarlo el autoguardado del modal si la persona lo tenía abierto.
+      const refDestino = completando ? refDelResto(r.recordingId, leidas) : ref;
       const propId = await crearPropuesta({
-        ws, ref, tareas: cruce.tareas, cruzado: cruce.cruzado, origen: 'fathom',
+        ws, ref: refDestino, tareas: cruce.tareas, cruzado: cruce.cruzado, origen: 'fathom',
         fuenteTitulo: r.titulo, fuenteUrl: r.url ?? undefined, fuenteFecha: r.fecha ?? undefined,
         // CON QUÉ CLIENTE fue (mig 0160). Antes se usaba para elegir el proyecto y se
         // tiraba: al confirmar ya no había reunión a la cual preguntarle, y las tareas
@@ -578,7 +640,9 @@ export async function procesarReunionesNuevas(ws: number, opts: { horas?: number
         // El resumen sale del MISMO cálculo que la clasificación. Escrito aparte decía
         // «sacó 37 compromisos tuyos» sobre una reunión donde 26 eran de Mau: el aviso
         // confirmaba el bug en vez de delatarlo.
-        resumen: `MaKo leyó tu reunión${r.titulo ? ` «${r.titulo}»` : ''}${conQuien ? ` con ${conQuien}` : ''} y sacó ${resumenDelReparto(aCrear)}.`,
+        resumen: completando
+          ? `MaKo terminó de leer tu reunión${r.titulo ? ` «${r.titulo}»` : ''} y sacó ${resumenDelReparto(aCrear)} más.`
+          : `MaKo leyó tu reunión${r.titulo ? ` «${r.titulo}»` : ''}${conQuien ? ` con ${conQuien}` : ''} y sacó ${resumenDelReparto(aCrear)}.`,
       });
       // RECIÉN ACÁ se cierra la reunión: el borrador ya está guardado. Antes esto
       // corría ANTES de crearPropuesta (con otra llamada de IA en el medio), así que
@@ -592,8 +656,12 @@ export async function procesarReunionesNuevas(ws: number, opts: { horas?: number
       // la reunión sigue abierta y el próximo cron completa lo que falta.
       if (!parcial) {
         await setSetting(KEY_VISTA(r.recordingId), new Date().toISOString()).catch(() => {});
+        if (marca) await cerrarParcial(r.recordingId);
       } else {
-        console.warn(`[reunion-auto] ws=${ws} recording=${r.recordingId}: ${partesFallidas} tramo(s) SIN leer — borrador parcial, NO se cachea ni se cierra: el próximo cron reintenta`);
+        // ⚠️ «EL PRÓXIMO CRON REINTENTA» ERA FALSO hasta el 17/10/2026: lo salteaba porque ya había borrador. Ahora queda
+        // la marca con lo leído y el borrador que lo trae, y la próxima corrida lee SÓLO lo que falta.
+        await anotarParcial(r.recordingId, { partes, leidas, ref: refDestino, fresca: !previa });
+        console.warn(`[reunion-auto] ws=${ws} recording=${r.recordingId}: ${partesFallidas} tramo(s) SIN leer${partesSinTiempo ? ` (${partesSinTiempo} por el reloj)` : ''} — borrador parcial (${leidasTotal.length} de ${partes} partes), NO se cachea ni se cierra: el próximo cron lee lo que falta`);
       }
       out.conTareas += 1;
       // ⚠️ SE CUENTA LO MISMO QUE SE PROMETE. `mias` sale de `aCrear` (lo tildado) y
@@ -602,7 +670,7 @@ export async function procesarReunionesNuevas(ws: number, opts: { horas?: number
       // anunciaba como «de otros» lo que el criterio había sacado. Mezclar una cifra
       // filtrada con una sin filtrar es el bug que este mismo archivo ya pagó una vez.
       out.tareas += aCrear.length;
-      hechas.push({ titulo: r.titulo, fecha: r.fecha, conQuien, mias, otras: aCrear.length - mias, descartadas: propuestas.length - aCrear.length, partesFallidas, recordingId: r.recordingId, propId });
+      hechas.push({ titulo: r.titulo, fecha: r.fecha, conQuien, mias, otras: aCrear.length - mias, descartadas: propuestas.length - aCrear.length, partesFallidas, recordingId: r.recordingId, propId, ...(completando ? { resto: true } : {}) });
     } catch (e) {
       out.errores += 1;
       console.error(`[reunion-auto] ws=${ws} recording=${r.recordingId}: ${e instanceof Error ? e.message : String(e)}`);

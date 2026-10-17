@@ -46,6 +46,12 @@ import { diasAntes, lunesDeFecha } from './date-utils';
 export type Fila = {
   f: string | null; d: Record<string, string | null>; v: Record<string, number>; u?: Record<string, string | null>; r?: Record<string, string | null>;
   img?: string | null; geo?: { lat: number; lon: number } | null;
+  /**
+   * DÓNDE MÁS ESTÁ esta fila, por dimensión (17/10/2026): un lead AGREGADO a otros funnels además del de su casa. Lo mira
+   * SÓLO el filtro (`filtrarFilas`), nunca el agrupado: filtrar por «Renovación» trae a los que están ahí aunque su casa
+   * sea otra, y sin filtro el lead se cuenta UNA vez, en su casa. Contarlo en cada funnel duplicaba los totales.
+   */
+  m?: Record<string, readonly string[]>;
 };
 
 /** «X de Y»: el numerador y el denominador de una razón cuyo denominador no llegó al `minimo`. */
@@ -337,10 +343,12 @@ export function filtrarFilas(filas: Fila[], filtros: Filtro[]): Fila[] {
   if (!activos.length) return filas;
   // Sin acentos: se separan las marcas (NFD) y se sacan las combinantes (de U+0300 a U+036F).
   const plano = (t: string) => t.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
+  // Lo que la fila ES en esa dimensión, y dónde MÁS está (`m`: un lead agregado a otro funnel).
+  const valoresDe = (fl: Fila, dim: string): string[] => [claveCategoria(fl.d[dim]), ...(fl.m?.[dim] ?? []).map((v) => claveCategoria(v))];
   const pruebas = activos.map((x) => {
-    if (x.valores && x.valores.length) { const set = new Set(x.valores.map((v) => claveCategoria(v))); return (fl: Fila) => set.has(claveCategoria(fl.d[x.dimension])); }
+    if (x.valores && x.valores.length) { const set = new Set(x.valores.map((v) => claveCategoria(v))); return (fl: Fila) => valoresDe(fl, x.dimension).some((v) => set.has(v)); }
     const t = plano(x.texto!.trim());
-    return (fl: Fila) => plano(claveCategoria(fl.d[x.dimension])).includes(t);
+    return (fl: Fila) => valoresDe(fl, x.dimension).some((v) => plano(v).includes(t));
   });
   return filas.filter((fl) => pruebas.every((p) => p(fl)));
 }
