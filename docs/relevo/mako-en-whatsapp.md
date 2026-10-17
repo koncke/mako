@@ -29,6 +29,13 @@ errores en automático cuando surjan». El ejemplo: el Google Calendar de Pablo 
   roturas). La causa de cada uno, con números, en `docs/hallazgos-comunicacion.md` → «No puedo», «déjame ver» y «la
   cagada es real». En una línea: **no era Google, era el clasificador**; y una respuesta del doer es el FINAL del turno.
 - **La regla nueva** está en AGENTS.md → «Y un canal de MaKo no promete».
+- **El aviso «ya quedó arreglado» al grupo del cliente** (pedido de Martín, 17/10 09:36, por el Ops Center: «al terminar
+  de solucionar algo que detectaste de un cliente… le envíes un mensaje al grupo de MaKo diciendo que se solucionó eso.
+  Con una aclaración de que sos el "Desarrollador"»): `scripts/avisar-arreglo-al-grupo.mts` + `lib/aviso-arreglo.ts`
+  (50a24c25c). Prueba la producción con git + Vercel, firma «👨‍💻 Desarrollador de MaKo», un aviso por clave, tope de 3
+  por negocio en 24 h, el ws1 sólo con `--ws1-seguro`. La regla, en AGENTS.md («Un jefe que arregla algo que le falló
+  a un CLIENTE…»). **El vigía sigue sin escribir en los grupos, salvo ESTE aviso**, y el primero de cada negocio lo
+  aprueba Martín.
 
 ## 3. Lo que quedó a medio hacer o sin verificar, y dónde vive
 
@@ -53,6 +60,13 @@ errores en automático cuando surjan». El ejemplo: el Google Calendar de Pablo 
   `runTool`; que MaKo lo proponga SÓLO con las marcas de falla de verdad (cartel de IA, saneo de una promesa), no ante
   cada «no puedo»; y el aviso de cierre al grupo pasa por `sanearSalida` antes de `enviarAlGrupoMaKo`. El molde del
   «ticket que propone el código» está en lib/mako-turno-app.ts.
+- ⚠️ **Martín pidió que lo que falla se registre SOLO, sin preguntarle a la persona** («Y todo lo solucionás
+  automáticamente», 17/10). Hoy el doer PREGUNTA («¿Se lo aviso al equipo?»). Cuando la punta de la Ticketera con
+  `registrarError({ origen: 'mako', nombre: herramienta, mensaje: error }, identidad)` (lib/errores-app.ts) esté en main,
+  el doer pasa a registrar el error solo (agrupa por huella, un ticket por error) y le dice a la persona, sin preguntar,
+  que el equipo ya lo sabe. El cambio vive en `lib/mako-doer-in.ts`, en el bloque «El ticket que propone el CÓDIGO».
+- **El aviso a Código Inmobiliario (ws13) por «reprogramar» ESPERA el OK de Martín en este chat** (el texto exacto está
+  ahí). El clasificador de permisos de Claude Code bloqueó correr el script, incluso en seco.
 
 ## 4. Qué espera una decisión de Martín
 
@@ -69,8 +83,10 @@ errores en automático cuando surjan». El ejemplo: el Google Calendar de Pablo 
    WhatsApp: corré `cd C:/dev/wt-mako-wa && npx tsx scripts/vigia-mako-grupos.mts`. Si no imprime nada, terminá sin
    escribir nada. Si trae incidentes: por cada uno buscá la causa real armando el turno con la frase literal
    (clasificarIntencion + herramientasDelTurno) y mirando el modelo de la fila; arreglá con su test probado rompiéndolo,
-   cosechá en docs/hallazgos-comunicacion.md y pasale la punta al Cerebro con una línea para Martín. Nunca escribas en
-   el grupo de un cliente ni le mandes nada a nadie: se lee producción y se prueba en el ws3.»
+   cosechá en docs/hallazgos-comunicacion.md y pasale la punta al Cerebro (por su id, no por el nombre) con una línea
+   para Martín. NO escribas en el grupo de un cliente ni le mandes nada a nadie, salvo el aviso de arreglo: cuando un
+   arreglo tuyo esté en producción, avísalo con scripts/avisar-arreglo-al-grupo.mts (sin --enviar primero; el primero
+   de cada negocio lo aprueba Martín). Se lee producción y se prueba en el ws3.»
 3. Un incidente ya contado no vuelve (la clave queda en el estado). Para releer un tramo: `--desde <ISO> --estado
    <otro archivo>`.
 
