@@ -1341,7 +1341,7 @@ export const REGISTRY: Group[] = [
         label: 'El diagnóstico de la oferta actual (system)', kind: 'system', dynamic: true,
         variables: [v('marco', 'el marco de oferta entero: piezas, rúbrica y reglas (lib/offer-marco.ts)')], scope: 'static-only', sensitive: true,
         default: OFFER_DIAGNOSTICO_SYSTEM_TEMPLATE,
-        context: 'Las 9 notas con su porqué citando al dueño, la tesis, lo más fuerte y 3 cambios como HIPÓTESIS para probar en Experiments (con menos, el código completa los que faltan con «[completar]»). El total, el cuello de botella y si está lista los calcula el código, no el modelo. Conserva la forma EXACTA del JSON (las 9 dimensiones) o el diagnóstico se descarta.',
+        context: 'Las 9 notas con su porqué citando al dueño, la tesis, lo más fuerte y 3 cambios como HIPÓTESIS para probar en el Dashboard (con menos, el código completa los que faltan con «[completar]»). El total, el cuello de botella y si está lista los calcula el código, no el modelo. Conserva la forma EXACTA del JSON (las 9 dimensiones) o el diagnóstico se descarta.',
       },
       {
         key: 'offer.diagnostico.user', source: 'override',

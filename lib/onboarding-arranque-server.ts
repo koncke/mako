@@ -11,7 +11,8 @@ import 'server-only';
 import { capaDef } from './capas';
 import { getSetting, getSettingEstricto, setSetting } from './settings';
 import { getCapaActual, getWorkspace, getWorkspaceActual, actualizarWorkspace } from './workspace';
-import { getUsuarioActual } from './auth';
+import { getSesionAdmin, getUsuarioActual } from './auth';
+import { CLAVE_GUARDIA, parseGuardia } from './onboarding-guardia';
 import { getPerfil, setPerfil } from './perfil';
 import { getDiagnosticoFase } from './fase-store';
 import { PREGUNTAS, esCanal } from './fase-diagnostico';
@@ -29,7 +30,7 @@ import { ANSWERS_KEY, saveAnswers } from './onboarding';
 import { mapaParaEscribir } from './archivero';
 import { faltanDelArranque, type OfferSesionVista } from './offer-marco';
 import {
-  briefDesdeArranque, cierreDePasos, etapaDeArranque, fundirBrief, mensajesDeArranque, sinMarca,
+  CLAVE_ENCUESTA, briefDesdeArranque, cierreDePasos, etapaDeArranque, fundirBrief, mensajesDeArranque, sinMarca,
   type EstadoArranque, type EtapaArranque, type HechosArranque, type MensajeArranque, type ModoArranque,
 } from './onboarding-arranque';
 
@@ -140,11 +141,22 @@ export type VistaArranque = {
   crmTipo: TipoCrmId | null;
   /** El canal con el que se propone el CRM. */
   canal: HechosArranque['canalNegocio'];
+  /** Lo que quiere resolver primero: decide a qué pestaña entra al terminar (`rutaDeEntrada`). */
+  interes: EstadoArranque['interes'] | null;
+  /** La guardia lo bloqueó (lib/onboarding-guardia.ts): la pantalla muestra el aviso en vez del chat. */
+  bloqueo: { at: string; motivo: string } | null;
+  /** Quien mira es el equipo de MaKo: ve el motivo, lo que escribió y «Desbloquear». Para el cliente, vacío. */
+  equipo: { ultimasFaltas: string[] } | null;
 };
 
 export async function vistaArranque(): Promise<VistaArranque> {
   const e = await leerEstadoArranque();
-  const h = await hechosDelArranque(e);
+  const [h, guardia, superAdmin] = await Promise.all([
+    hechosDelArranque(e),
+    // Para DIBUJAR: una lectura caída no muestra el bloqueo (las rutas lo vuelven a mirar estricto antes de dejar pasar).
+    getSetting(CLAVE_GUARDIA).then(parseGuardia).catch(() => ({}) as ReturnType<typeof parseGuardia>),
+    getSesionAdmin().catch(() => null),
+  ]);
   const { antes, despues } = mensajesDeArranque(e, h);
   return {
     modo: h.modo,
@@ -160,6 +172,9 @@ export async function vistaArranque(): Promise<VistaArranque> {
     telefonoNumero: e.telefonoNumero ?? '',
     crmTipo: e.crmTipo ?? null,
     canal: h.canalNegocio,
+    interes: e.interes ?? null,
+    bloqueo: guardia.bloqueo ? { at: guardia.bloqueo.at, motivo: guardia.bloqueo.motivo } : null,
+    equipo: superAdmin && guardia.bloqueo ? { ultimasFaltas: guardia.ultimasFaltas ?? [] } : null,
   };
 }
 
@@ -277,7 +292,14 @@ export async function cerrarArranque(): Promise<{ estado: OnboardingState; aviso
     avisos.push('No pude guardar el perfil de tu negocio; lo completas en Second Brain.');
   }
 
-  // 4. Los pasos.
+  // 4. Cómo llegó y qué quiere resolver primero (17/10/2026): un setting propio, para que el super admin los lea sin
+  // abrir la conversación (y la API de MaKo, `ver_estado_onboarding`). Best-effort: no traba el cierre.
+  if (e.origen || e.interes) {
+    await setSetting(CLAVE_ENCUESTA, JSON.stringify({ origen: e.origen ?? null, interes: e.interes ?? null, at: new Date().toISOString() }))
+      .catch((err) => console.error('[arranque] encuesta:', err instanceof Error ? err.message : err));
+  }
+
+  // 5. Los pasos.
   const quien = (await getUsuarioActual().catch(() => null))?.email || 'admin-cliente';
   const cambios = cierreDePasos(h.pasosCapa, { telefonoVerificado: h.telefonoVerificado, metaConectado: h.metaConectado });
   const estado = await cerrarPasosOnboarding(cambios, quien);

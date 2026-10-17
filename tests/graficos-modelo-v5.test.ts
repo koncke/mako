@@ -245,7 +245,8 @@ test('los tipos nuevos: barra de proporción, línea de tiempo, tarjetas, mapa d
 // La ficha aceptada en la hoja → 12 / 1 (éste). Sin el tope de cajas de IA → 12 / 1 (éste).
 test('elementos: fuera las formas; sección a lo ancho; IA, ficha y acción con sus objetos y topes', () => {
   // 14/10/2026: 'general' = un bloque de la tab General (lib/general-piezas.ts), el mismo editor con otro informe.
-  assert.deepEqual(TIPOS_ELEMENTO.map((t) => t.id).sort(), ['accion', 'enlace', 'entidad', 'flecha', 'general', 'ia', 'imagen', 'insertado', 'linea', 'seccion', 'texto', 'video']);
+  // 17/10/2026: 'experimento' = «probemos X» en «Editar con MaKo» (lib/experimentos-catalogo.ts): Experiments se mudó acá.
+  assert.deepEqual(TIPOS_ELEMENTO.map((t) => t.id).sort(), ['accion', 'enlace', 'entidad', 'experimento', 'flecha', 'general', 'ia', 'imagen', 'insertado', 'linea', 'seccion', 'texto', 'video']);
   assert.equal(sanearElemento({ tipo: 'rectangulo' }), null);
   assert.equal(sanearElemento({ tipo: 'circulo' }), null);
 

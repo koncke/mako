@@ -148,8 +148,8 @@ function accionPlan(op: PlanOp) {
           const e = item.experimento;
           if (item.expCreado && item.expCreado > 0) {
             const prev = await getExperimento(item.expCreado);
-            if (!prev) return { error: `El experimento #${item.expCreado} que se había creado al aceptar este item ya no existe, y aceptar lo reusaría igual. Crea uno nuevo con crear_experimento o acéptalo desde la tab Experiments.` };
-            if (prev.estado === 'descartado') return { error: `El experimento #${prev.id} que se había creado al aceptar este item está «descartado», y aceptar lo reusaría: quedaría contando como «en curso» para siempre y trabaría el gate del Perro. Crea uno nuevo con crear_experimento o acéptalo desde la tab Experiments.` };
+            if (!prev) return { error: `El experimento #${item.expCreado} que se había creado al aceptar este item ya no existe, y aceptar lo reusaría igual. Crea uno nuevo con crear_experimento.` };
+            if (prev.estado === 'descartado') return { error: `El experimento #${prev.id} que se había creado al aceptar este item está «descartado», y aceptar lo reusaría: quedaría contando como «en curso» para siempre y trabaría el gate del Perro. Crea uno nuevo con crear_experimento.` };
             resumen = `Aceptar ${etiquetaItem(retroId, item)}: vuelve a marcarlo aceptado y reusa el experimento #${prev.id} que ya se había creado (hoy «${prev.estado}»). No crea nada nuevo.`;
           } else {
             resumen = `Aceptar ${etiquetaItem(retroId, item)}: crea y arranca hoy un experimento que mide ${metricaDef(e.metrica)?.label ?? e.metrica} (${e.direccion}) durante ${e.ventana_dias} días${item.chain?.length ? `, y ${item.chain.length} tarea(s) en el tablero: ${item.chain.join('; ')}` : ''}.`;
@@ -440,8 +440,8 @@ export const RUNNERS: Runners = {
         ultima_corrida_at: g.ultimaCorridaISO, dias_desde_ultima: g.diasDesde,
         ...(s.items.length ? {} : { advertencia: 'Sin items: no hay Retro con plan, el plan está vacío, o la lectura falló por dentro (la lib no distingue esos casos). «No bloquea» puede ser falta de dato: no lo afirmes como un hecho.' }),
         nota: g.bloquea
-          ? 'Bloquea: antes de una Retro nueva hay que terminar lo aceptado, o dar un motivo que el Perro evalúa al correrla desde la tab Experiments.'
-          : 'No bloquea. La Retro se corre desde la tab Experiments.',
+          ? 'Bloquea: quedan cosas aceptadas de la última Retro sin terminar. Una Retro nueva ya no se corre: la tab Experiments se retiró el 17/10/2026 (los experimentos viven en el Dashboard).'
+          : 'No bloquea. Una Retro nueva ya no se corre: la tab Experiments se retiró el 17/10/2026 (los experimentos viven en el Dashboard).',
       });
     },
   },

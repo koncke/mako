@@ -895,6 +895,36 @@ como pago del lead, cae en Renovación.
 guardar_objetivo y guardar_kpi; `funnels_del_negocio` en listar_objetivos).
 *17/10/2026, claude4, chat Dashboard.*
 
+## El ejemplo de la Meta objetivo sin `funnelIds`: /general se rompía en todo negocio sin OKR (17/10/2026)
+
+**Síntoma.** Martín abrió /general en su Android (17/10, 09:34 UTC) y salió app/error.tsx: «Cannot read properties of
+undefined (reading 'length')». Producción en 70276424a.
+
+**El diagnóstico obvio era el equivocado.** Parecía de la vista del teléfono, o de un OKR guardado antes de la mig 0306.
+No: los lectores reales siempre traen `funnelIds` (`leerFunnelIds` devuelve `[]` sin la columna). El que no lo traía era
+el **ejemplo**: `META_MUESTRA.objetivo` estaba escrito como `{…} as ObjectiveConAvance`, y el `as` deja pasar un objeto
+al que le falta un campo obligatorio. e5ded0af8 (17/10, 01:15) sumó `funnelIds` al OKR y `objetivo.funnelIds.length` a
+`CuerpoMeta` (Meta.tsx:94), y el ejemplo quedó sin él.
+
+**La cadena, medida en la base el 17/10:** Martín (usuarios.id 1, ws 9) no tiene `general.informe.1` guardado en ningún
+ws → su hoja es la de siempre (`informeGeneralInicial`, con «Meta objetivo» primero). El ws 9 no tiene OKR (en 2026 sólo
+el ws 1 tiene uno del Q4; el 4 y el 13, del Q3) → el bloque dibuja el placeholder, que **recién al montar** pinta
+`CuerpoMeta` con el ejemplo. Por eso el server lo dibujaba bien y se rompía en el navegador. En el teléfono es lo
+primero que se ve (/general → /m/hoy → `GeneralM`, la primera hoja). En la computadora, el mismo ejemplo lo dibujan la
+miniatura «General» de la galería en blanco y la vista previa del menú «Bloques de General»: cualquier negocio sin OKR
+que los abriera también se rompía.
+
+**La regla que queda:** un objeto armado a mano (ejemplo, muestra, estado optimista) se tipa con `const x: T` o
+`satisfies T`, nunca `{…} as T` (AGENTS.md → «Un objeto armado a mano se TIPA»). Con el tipo declarado, sacar
+`funnelIds` da TS2322 en el tsc acotado.
+
+**Vive en:** `app/general/bloques/muestras.ts` (`OBJETIVO_MUESTRA`) · `tests/general-meta-muestra.test.ts` dibuja la
+vista previa de verdad, con `server-only` resuelto por un hook de `node:module` (`registerHooks`). Es la primera vez
+que un test dibuja un bloque de General: Meta.tsx arrastra `EditarObjetivo` → actions → módulos con `server-only`.
+**Lo que no se hizo:** `GeneralM` (app/m/hoy) no tiene un error boundary por bloque, así que un bloque roto se lleva
+la portada entera del teléfono.
+*17/10/2026, claude4.*
+
 ## Lo que quedó sin hacer
 
 - **Elegir funnels en el resto de la app (17/10/2026).** El inventario de cada configuración que elige UN funnel, con

@@ -142,9 +142,10 @@ export const CAPACIDADES: Capacidad[] = [
     como: ['Entra a Ads Writer, en Analizar guion', 'Pega el guion completo', 'Lee la valoración y qué esperar; los intentos quedan guardados'],
   },
   {
-    id: 'experimento', tab: 'Experiments', ruta: '/experimentos',
-    que: 'Registrar un experimento, su hipótesis y su resultado. Es el único lugar donde se concluye si algo funcionó.',
-    como: ['Entra a Experiments', 'Carga la hipótesis y qué vas a medir', 'Vuelve cuando tengas el dato y ciérralo'],
+    // 17/10/2026: Experiments se retiró y vive en el Dashboard, en «Editar con MaKo» (lib/experimentos-catalogo.ts).
+    id: 'experimento', tab: 'Dashboard', ruta: '/dashboard',
+    que: 'Probar una idea contra el dato real: MaKo la convierte en un experimento, lo mide y al terminar dice si se cumplió.',
+    como: ['Entra al Dashboard y abre «Editar con MaKo»', 'Pide «Probemos …» con tu idea', 'Arráncalo en la hoja y vuelve cuando termine para concluirlo'],
   },
   {
     id: 'contexto', tab: 'Contexto de MaKo', ruta: '/contexto',

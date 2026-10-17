@@ -148,7 +148,10 @@ test('el control de Tracking escribe por el camino que avisa a Meta', () => {
   // (`leer` saca las líneas de comentario: el corte va hasta la función que sigue, no hasta su título.)
   const tres = campo.slice(campo.indexOf('export function TriBotones'), campo.indexOf('export function TextoEditable'));
   assert.ok(tres.length > 100 && tres.length < 3000, 'no encontré TriBotones entero');
-  assert.match(tres, /const \{ guardar, toast, clear \} = useGuardarCampo\(leadId, campo\);/, 'los tres botones guardan por otro lado');
+  // Desde el 17/10/2026 (#854) pasan por `useTriAlInstante`, que pinta en el acto y guarda con el MISMO `useGuardarCampo`.
+  assert.match(tres, /const \{ visto, elegir, toast, clear \} = useTriAlInstante\(leadId, campo, valor\);/, 'los tres botones guardan por otro lado');
+  const alInstante = campo.slice(campo.indexOf('function useTriAlInstante'), campo.indexOf('export function FechaEditable'));
+  assert.match(alInstante, /const \{ guardar, toast, clear \} = useGuardarCampo\(leadId, campo\);/, 'el pintado al instante guarda por otro lado');
   // Una escritura propia sería un segundo camino: la pantalla diría que sí y Meta no
   // se enteraría, que es exactamente lo que Martín preguntó el mismo día.
   assert.ok(!/from '\.\.\/actions'/.test(card), 'no llama a ninguna action por su cuenta');

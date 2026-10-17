@@ -167,7 +167,8 @@ export const CAPAS: Record<CapaId, CapaDef> = {
     navKeys: ['todo', 'mako', 'productivity-analyst', 'graphics', 'calendario'],
     // Sin /integraciones: no tiene nada que conectar y la tab sería una lista de
     // rojos que le hace creer que le falta algo. Sin /contexto (es de agencia).
-    userNavKeys: ['perfil', 'configuraciones'],
+    // `tickets` («Reportar problema») desde el 17/10/2026: cualquier cliente le puede escribir al equipo de MaKo.
+    userNavKeys: ['perfil', 'configuraciones', 'tickets'],
     // Negocio → diagnóstico de fase (el Norte) → plan. La fase alimenta al Perro
     // Guardián para que priorice con el criterio de la etapa real del negocio.
     // Desde el 16/10/2026 es el modo 'plan' del chat de arranque (lib/onboarding-arranque.ts):

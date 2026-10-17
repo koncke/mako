@@ -1552,3 +1552,46 @@ la GPU de MediaPipe, 1080p30, el alfa en el compositor y el cuentagotas (`fondo/
 
 *Chat «Video Editor»: tanda 1 (paquetes A–E), tanda 2 (F, I, K, L) y su integración el 11/10/2026;
 tanda 3 (G, H, J, M) el 12/10.*
+
+## «Esta pantalla se rompió al dibujarse» al entrar: el editor sin GPU (17/10/2026)
+
+**Vive en:** `app/video-editor/_opencut/preview/components/index.tsx` (el montaje del lienzo) ·
+`components/providers/editor-provider.tsx` (`setDegraded`) · `services/renderer/compositor/wasm-compositor.ts`
+· `editor-page.tsx` (`AvisoRenderDegradado`) · test `tests/video-editor-sin-gpu.test.ts`.
+
+**Síntoma (tarjeta #853, llamadas del 16/10):** al entrar al editor sale el cartel de `app/error.tsx` y
+«no deja entrar». A Joan le pasó después de arrastrar un video: la vista previa quedó en blanco con el
+audio sonando, y al recargar ya no pudo volver a entrar.
+
+**Causa, medida (no deducida):** el compositor del WASM necesita un contexto de GPU. Con un Chrome sin
+ventana y el WASM real: con GPU, `initializeGpu()` anda (y sin WebGPU cae solo a WebGL2: también anda);
+**sin WebGPU NI WebGL2** falla («Failed to create a WebGPU surface… webgl2 not available»). El
+`EditorProvider` lo atrapa y marca `renderer.isDegraded`… y el reproductor llamaba igual a
+`renderer.getOutputCanvas()` → `initCompositor()` **dentro de un efecto**, que tira «GPU context not
+initialized. Call initializeGpu() first.». Un error en un efecto cae en `error.tsx`. A Chrome le pasa
+cuando su proceso de GPU se cae varias veces —un video pesado alcanza— y queda así **hasta reiniciarlo**:
+de ahí el «irrecuperable» aunque se recargue.
+
+**⚠️ El diagnóstico obvio era el equivocado, dos veces:**
+- El detalle de la tarjeta («capturar el error en el React Error Boundary», «optimizar la carga de tracks
+  pesados») lo inventó el extractor: el boundary ya existía y era justo lo que se veía.
+- La primera sospecha fue un DATO guardado (un video sin duración, un tiempo con decimales: el WASM tira
+  con cualquier tiempo que no sea un entero de ticks — medido). Un barrido de los caminos de render no
+  encontró ninguno que se alimente de lo que deja el reporte. Lo que quedaba «guardado» no era el proyecto:
+  era el **estado del navegador** (la GPU caída).
+- El comentario de `AvisoRenderDegradado` decía «sin WebGPU el motor dibuja por el camino lento». **Ese
+  camino lento no existe**: sin GPU no hay compositor. El aviso mandaba a «abrir el editor en Chrome» a
+  gente que ya estaba en Chrome.
+
+**Regla que queda:** todo lo que llama al compositor del WASM desde React (efecto, render, selector) mira
+antes `renderer.isDegraded`. Sin GPU, el editor sigue usable sin vista previa y dice qué hacer
+(«reinicia el navegador»).
+
+**Lo que quedó SIN hacer:**
+- **Exportar sin GPU**: `scene-exporter.ts` también llama a `getOutputCanvas()`; falla dentro del export
+  (asíncrono, no tumba la pantalla) con un error que no dice que es la GPU.
+- **Una vista previa sin GPU** (dibujar el cuadro con el contexto 2D que ya tiene `CanvasRenderer`): es
+  reescribir el compositor; no se hizo.
+- **No se recorrió en un navegador real con la app**: se midió el WASM en un Chrome sin GPU y la guarda
+  se probó por estructura. La prueba de punta a punta es abrir el editor en un Chrome con la aceleración
+  de gráficos apagada (`chrome://settings/system`).

@@ -53,7 +53,10 @@ test('las dos pantallas usan las acciones del CRM y no escriben el setting a man
     assert.match(celda, new RegExp(accion), `la celda usa ${accion}`);
   }
   assert.doesNotMatch(celda, /meta\.campanas|setSetting/, 'el setting lo escriben las acciones, no la pantalla');
-  assert.match(celda, /hayQuePreguntar\(previa\.aTraer, desde\)/, 'la regla sale de la función compartida');
+  // Desde el 17/10/2026 (#893) la celda tiene casillas: asignar (sin funnel todavía) pregunta con la misma regla, sin
+  // «desde» (no se le saca a nadie), y sumar otro funnel pregunta con `preguntaSumar`.
+  assert.match(celda, /hayQuePreguntar\(previa\.aTraer, null\)/, 'la regla sale de la función compartida');
+  assert.match(celda, /pide\.sumar \? preguntaSumar\(pide\) : preguntaAsignar\(pide\)/);
 
   assert.match(sinComentarios(leer('app/ads-manager/CampanasBrowser.tsx')), /<ProductoCelda/, 'la tabla ofrece la celda');
 

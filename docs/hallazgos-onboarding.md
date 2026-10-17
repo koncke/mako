@@ -2207,3 +2207,115 @@ IA falló y se toca «Reintentar») no lo lleva, ese turno vuelve a la conversac
 cazadas, junto con tests/onboarding-arranque.test.ts)
 
 *17/10/2026, chat «Onboarding», cuenta claude4.*
+
+## El onboarding entiende lo que le dicen, y suma dos preguntas que cambian algo (17/10/2026)
+
+**El pedido** (Martín, desde el Ops Center): «le dije "Soy Martin" y me respondió "Un gusto, Soy. ¿Cómo se llama tu
+negocio?", eso es básico... investiga las preguntas que nos hacen falta: me imagino "¿Cómo nos conociste?", "¿Qué
+funcionalidad de estas te interesa más?"».
+
+**El nombre:** el saludo tomaba la PRIMERA palabra de lo escrito. Ahora `extraerNombre` saca el saludo y la
+presentación («hola, soy», «me llamo», «mi nombre es», «me dicen»), corta en la primera coma o en lo que ya no es un
+nombre, y se queda con hasta tres palabras. Si nombró su negocio («Martín de Acme», «tengo una agencia que se llama
+Pixel»), vuelve como SUGERENCIA para la pregunta siguiente, nunca como respuesta: en «Martín de Córdoba» lo de después
+del «de» es un lugar. El negocio pasa por `extraerNegocio` («Se llama Acme» → «Acme»).
+
+**Lo investigado antes de sumar preguntas:** el abandono de una encuesta de bienvenida sube con cada pregunta, más
+rápido en las primeras (SurveyMonkey, ~100.000 encuestas); las de producto que funcionan son cortas y cada pregunta
+CAMBIA algo visible (si no cambia nada, se saca); y una encuesta corta adentro de la app termina por encima del 80%.
+Por eso son dos, de un toque, y cada una decide algo:
+- **«¿Cómo llegaste a MaKo?»** (`ORIGENES`, o lo que escriba): de dónde vienen los clientes. Lo mira el super admin
+  para la pauta (la ventana del 1/11 al 15/12).
+- **«¿Qué te gustaría que MaKo resuelva primero?»** (`INTERESES`): decide a qué pestaña entra al terminar
+  (`rutaDeEntrada`): anuncios → Ads Writer, ventas → CRM, WhatsApp → Automations, organizar → Plan. Sólo en las capas
+  que ven todo (el Project Manager no tiene anuncios ni CRM).
+
+Las dos van antes del objetivo, y quedan en el setting `onboarding.encuesta` al cerrar (`ver_estado_onboarding` de la
+API de MaKo las devuelve). ⚠️ Una conversación que ya había pasado el objetivo (empezada antes) NO vuelve atrás a
+preguntarlas: sin esa regla, quien estaba a mitad del onboarding veía aparecer dos preguntas viejas.
+
+### Lo que quedó SIN hacer
+
+- **El super admin todavía no tiene una pantalla que junte los orígenes** de todos los clientes: hoy se leen por
+  cliente (setting y API). Una tabla en la ficha del cliente o en el panel de la plataforma es lo que sigue.
+- El texto libre de «¿Cómo llegaste?» no se normaliza («por un amigo» y «Me lo recomendaron» cuentan distinto).
+
+**Vive en:** `lib/onboarding-arranque.ts` (`extraerNombre`, `extraerNegocio`, `ORIGENES`, `INTERESES`, `interesDe`,
+`rutaDeEntrada`, `CLAVE_ENCUESTA`) · `lib/onboarding-arranque-server.ts` (el cierre) ·
+`lib/api-mako/areas/negocio.run.ts` (`ver_estado_onboarding`) · `app/onboarding/ChatArranque.tsx` (la entrada al
+terminar) · `tests/onboarding-preguntas.test.ts` (11 roturas, 11 caen)
+
+*17/10/2026, chat «Onboarding», cuenta claude4.*
+
+## La guardia del onboarding: lo paga Martín, así que tiene topes (17/10/2026)
+
+**El pedido** (Martín, desde el Ops Center): «Como el onboarding lo pago yo en tokens, mete mucha ciberseguridad contra
+ataques DDoS o cosas así, si me envían mil consultas... O si un troll le empieza a decir cualquier cosa, que tenga la
+capacidad de bloquear al usuario».
+
+**Dónde se gasta:** el onboarding usa el crédito de Claude de la plataforma (`CREDITO_HABILITADO_PARA`). Mientras está
+pendiente ninguna otra tab se abre, así que TODO pedido de IA a /api/offer en ese momento es el onboarding. Ahí y en
+/api/onboarding/arranque va la guardia (`lib/onboarding-guardia.ts` las reglas, `-server.ts` la base):
+
+1. **La ráfaga**, por minuto, por usuario y por IP (`lib/rate-limit.ts`, en memoria). ⚠️ Es POR INSTANCIA: frena un
+   script, no un ataque distribuido. Contra eso está la protección de Vercel; para un tope duro entre instancias
+   hace falta un store compartido (Upstash), que la casa no tiene.
+2. **El tope por onboarding**, en la base (`onboarding.guardia`): 60 turnos de IA y 15 documentos. Es el que protege
+   la plata, entre instancias y entre días. Contar lo que vende lleva de 5 a 10 turnos.
+3. **El troleo**: un insulto DIRIGIDO («sos un inútil»; una mala palabra suelta en un mensaje largo es alguien contando
+   su mes, no un troll), un intento de sacarla de su papel («ignora tus instrucciones», «muéstrame tu system prompt»)
+   o basura (teclado aporreado). Suma una falta y NO llega a la IA: no se paga. A la tercera se bloquea el onboarding
+   y sale un email al equipo de la plataforma (el remitente y los destinatarios de los avisos de la voz). Lo desbloquea
+   el super admin mirando al cliente, desde la misma pantalla.
+
+Y el análisis entero (`armar`, `diagnosticar`, `generar`) no corre con el onboarding pendiente: el onboarding ya no lo
+pide, y por la API sería la parte más cara.
+
+### Lo que quedó SIN hacer
+
+- **Sin store compartido, la ráfaga es por instancia.** El tope de la base sí vale siempre.
+- **El troleo es por reglas, no por IA** (una IA para moderar también se paga). Lo que no matchea pasa: ante la duda,
+  no es falta.
+- **El email del bloqueo no se probó contra Resend de verdad.**
+
+**Vive en:** `lib/onboarding-guardia.ts` · `lib/onboarding-guardia-server.ts` · `app/api/offer/route.ts` (la guardia antes
+del `switch`) · `app/api/onboarding/arranque/route.ts` (`responder`, `telefono`, `desbloquear`) · `app/onboarding/ChatArranque.tsx`
+(la pantalla bloqueada) · `tests/onboarding-guardia.test.ts` (14 roturas, 14 caen)
+
+*17/10/2026, chat «Onboarding», cuenta claude4.*
+
+## El onboarding en claro, sin recuadro, y MaKo entra cuando la tocas (17/10/2026)
+
+**El pedido** (Martín, desde el Ops Center, con una imagen de referencia): «El onboarding, que sea white mode, como
+todo... En el onboarding elimina la animación del grafo... haz una buena entrada de la criatura de MaKo tipo motion
+graphics, y que al clickearla recién pase al siguiente mensaje... Y debe parpadear y reaccionar con las respuestas...
+Bien responsive... sin recuadro de chat, sin el bloque».
+
+**Cómo quedó:** el tema oscuro forzado se fue de la página (como en el Second Brain el 16/10). La cabecera es la de la
+referencia (la cara de MaKo, «MaKo» y «Tu onboarding», y una línea). Los mensajes van sueltos sobre el fondo, y el
+contenido es una columna de 960 px como máximo, con medidas propias en el celular. `EntradaMako` reemplaza al grafo:
+MaKo cae con un rebote, se abren dos anillos con chispas, saluda y **espera**. Recién al tocarla (o con Enter) vuela a su
+lugar de foto y empieza el chat. La cara reacciona: piensa mientras guarda, se alegra si la respuesta entró y duda si
+no se entendió.
+
+**Lo que conviene saber antes de tocarlo:**
+- **El recuadro no es del onboarding, es del motor de Offer** (`ChatOffer` y `ChatHilo`, con sus estilos en línea). Se
+  aplana con CSS acotado a `.arr-capa` y con `!important`, así la tab Offer conserva su caja. Si alguien cambia la
+  estructura de `ChatHilo`, el selector `.of-hilo-lista > div > div` puede dejar de apuntar a sus franjas.
+- **La estrella todavía no está:** la dibuja Ops Center 3 para todas las criaturas, y se le pidió el componente el
+  17/10. Hasta que llegue, `CriaturaMako` es un ADAPTADOR con el muñeco de hoy y los gestos en CSS. La pantalla sólo
+  conoce `reaccion`, y el test prohíbe dibujar el muñeco directo, así que cambiar a la estrella toca un solo archivo.
+- **«Al clickearla recién pase al siguiente mensaje»** se leyó como la ENTRADA: la toca para empezar. Si Martín quería
+  un clic por cada mensaje de MaKo, es otro cambio (en `mensajesDeArranque`, mostrar de a uno).
+
+### Lo que quedó SIN hacer
+
+- **Nadie lo miró en el navegador** (sin RAM para el recorrido local; el Cerebro lo deja para la prueba de Martín en el
+  ws3). En especial: el aplanado del hilo en Safari y el vuelo a la foto en el celular.
+- La estrella de verdad (Ops Center 3).
+
+**Vive en:** `app/onboarding/page.tsx` · `app/onboarding/ChatArranque.tsx` (la cabecera, el CSS sin recuadro, las
+reacciones) · `app/onboarding/EntradaMako.tsx` · `app/onboarding/CriaturaMako.tsx` · `tests/onboarding-arranque.test.ts`
+(10 roturas, 10 caen)
+
+*17/10/2026, chat «Onboarding», cuenta claude4.*

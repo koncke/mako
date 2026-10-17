@@ -5528,3 +5528,22 @@ validación al guardar) y la papelera, que ahora borra también esa fila al purg
 **Vive en:** `lib/api-mako/areas/cs.def.ts` y `cs.run.ts` (`invitar_cliente_curso_cs`) · `lib/editor-acciones.ts`
 («Invitar al curso», control `curso`) · `app/api/flujos/opciones/route.ts` (`cursos`) · `app/_components/CamposAccion.tsx`
 (`SelectorCurso`) · test: `tests/accion-invitar-curso.test.ts`
+
+## Una fila de cartera REVOCADA seguía siendo dueña del cliente (17/10/2026)
+
+**El síntoma** (Martín, desde el Ops Center): entrando a la vista del Cliente de Prueba como super admin, «Salir de la
+vista» lo llevó a inspeccionar los clientes de Código Inmobiliario; y el Cliente de Prueba «no se puede reiniciar como
+antes» (el Reset no aparecía).
+
+**El diagnóstico obvio era el equivocado:** parecían dos bugs de la barra y era UN dato. El ws 3 tiene una fila de
+Código Inmobiliario (ws 13) en `agencia_clientes`, **revocada** el 28/09 («El ws3 es el Cliente de Prueba, no un
+cliente de Codigo»). Dos lecturas la contaban como vigente: `agenciaDeCliente` (lib/agencia.ts, «cualquier estado»,
+para que un pedido pendiente tenga su escalón) mandaba «Salir» a `/customer-success?ws=13`, y `wsDePrueba`
+(app/api/datos-mau) escondía el panel de pruebas, con su Reset, ante CUALQUIER fila.
+
+**La regla:** una fila revocada es historia y no se borra (lleva el motivo y quién la revocó), pero no es dueña de
+nadie: `esCarteraVigente` (lib/agencia-cartera.ts) = pendiente o aprobada. Las dos lecturas la usan. Lo fija
+`tests/inspeccionar-cliente-prueba.test.ts` (cuatro roturas, cuatro caen), junto con que el onboarding empiece debajo
+de la barra (`top: var(--barra-agencia)`), que lo tapaba.
+
+· *2026-10-17 chat «Onboarding» (claude4)*

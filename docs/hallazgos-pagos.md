@@ -247,6 +247,27 @@ el MRR un 85% (hallazgos-crm.md).
 - **La regla.** Una lectura que filtra en memoria por una columna nueva lee con `*`: si la columna no está, el campo
   llega `undefined` y la regla da «no es de baja». Lo fija tests/pagos-baja.test.ts.
 
+### «Quitar» no falló la primera vez: tardó sin decir nada (#891, 17/10/2026)
+
+- **El síntoma** (llamada con Mauricio, 16/10, 27:42): «Se me hace que no la quitaste... Eso es un error», y al rato
+  «ahí sí se quitó».
+- **El diagnóstico obvio era el equivocado: que el server la rechazó la primera vez** (un link o un recordatorio la
+  protegían). En el ws1 (lead 91) no había ni link ni recordatorio, y el historial tiene UNA sola baja (16/10 20:41):
+  el primer clic se aplicó, tarde.
+- **La causa.** La confirmación se cerraba DESPUÉS de la acción, que revalida cinco pantallas; y la fila se iba recién
+  cuando la ficha se releía (otra acción, en la misma cola). Segundos con el diálogo abierto y sin una señal.
+- **La regla.** Una acción de la ficha que tarda cierra su diálogo y marca el renglón («Quitando…») ANTES de llamar
+  al server, y AFUERA de `startTransition`: un setState adentro de una transición puede no dibujarse hasta que
+  termina. Lo que el server confirmó se saca de la vista sin esperar la relectura. tests/pagos-quitar-al-instante.test.ts.
+
+### «General marca vencido algo cobrado» era un dato, no un bug (#890, 17/10/2026)
+
+- **Leído en el ws1** (lead 23, Adrian Medina): venta de US$7.500 y US$5.625 cobrados. La tercera cuota (US$1.875,
+  vence 15/10) está sin cobrar, y General la marca vencida con razón.
+- **De dónde salió.** El 16/09 «Cuotas actualizadas desde Deal Details» partió la segunda cuota de US$3.750 en dos de
+  US$1.875, y el 13/10 se marcó pagada sólo una.
+- **La regla.** Antes de tocar General por un «ya está cobrado», se leen los pagos del lead y su historial.
+
 ### Cliente de agencia (#866 y #867)
 
 No es de esta tab: es la pasarela y la cuenta de la agencia. Está en
@@ -284,6 +305,15 @@ avance de un OKR (lib/objectives-fuentes.ts), los gráficos de pagos (lib/grafic
   el plan de cuotas; uno solo, y sólo llena lo que viene vacío.
 - **Lo que no resuelve:** un pago suelto de la venta VIEJA registrado a mano después de agregar al lead a otro funnel se
   guarda en el nuevo (el día de su creación ya estaba ahí). Si pasa, se corrige el `funnel_id` de esa fila.
+- **«Firmado» de una renovación: DESCARTADO por ahora (la otra mitad de la tarjeta).** La revisión del 17/10 lo marcó
+  como a medias, y es cierto: «Firmado» (`sold_usd`) suma `leads.monto_cierre_usd` en `fecha_cierre`, y un lead tiene
+  UN solo trato. Ganar en el tablero de un funnel agregado sólo mueve `lead_funnel.etapa` (`moverEtapaEnProducto`,
+  lib/lead-funnel.ts): no hay monto ni fecha de esa renovación en ningún lado, y «corregir el cierre en el deal» la
+  cuenta pisando la venta del VSL. Contarla bien pide un trato POR FUNNEL (monto y fecha en `lead_funnel`, una pantalla
+  que los pida al ganar ahí, y los cuatro lectores de «Firmado»: objectives-fuentes, graficos-datos, pagos y el desglose)
+  y mueve el número de Revenue de todo el negocio. Para medir renovaciones, el OKR va con «Cobrado», que con esta
+  migración ya cae en el funnel correcto. Si se retoma, empieza en lib/lead-funnel.ts y en `hechosDelPeriodo`
+  (lib/objectives-fuentes.ts), con un `Hecho.funnel` explícito como el de los pagos.
 
 **Vive en:** supabase/migrations/0310_pagos_funnel.sql · lib/funnels-elegidos.ts · tests/pagos-funnel.test.ts ·
 *17/10/2026, chat «CRM» (claude4).*
