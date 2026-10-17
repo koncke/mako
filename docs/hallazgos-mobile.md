@@ -33,6 +33,11 @@ era Chats.
   (`diasDelHilo`, app/m/chats/hilo-modelo.ts).
 - Los rótulos (bandejas, Mostrar, Orden, canales) se escriben una vez en app/m/chats/modelo.ts y
   tests/m-chats.test.ts los cruza contra app/chats/PanelBandejas.tsx y ListaChats.tsx.
+- **Los tests que fijan rutas del teléfono no son sólo los `movil-*`**: tests/chats-verificacion.test.ts esperaba
+  `/chats?lead=7` → `/m/crm/7/chat`, y tests/chats-datos.test.ts contaba TRES argumentos en cada lectura de WhatsApp
+  de lib/chats.ts (el cuarto, las páginas del teléfono, se leía como «sin la línea»). Los encontró el Cerebro al
+  integrar. Antes de un VERDE que toque lib/chats.ts o una ruta de Chats: `tests/chats*.test.ts` y
+  tests/sidebar-nueva.test.ts, además de los del teléfono.
 
 **Mirar /m en local sin `next dev` (lo que costó una hora):**
 - **`next start -H 127.0.0.1` + LAS MISMAS RUTAS = ERR_TOO_MANY_REDIRECTS en TODA pantalla.** El diagnóstico obvio
