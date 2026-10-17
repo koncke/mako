@@ -54,6 +54,9 @@ faltaba. 243 entradas crudas, 132 únicas por el lugar del envío. Las líneas c
   del evento con «Si no» y la alerta de la cuenta publicitaria como automatización con techo (B2+B3, revisadas). Piezas 1
   y 3 hechas; de la 2, el techo sí (por estado y contando lo que llegó), y cada cuánto insiste sigue en el código
   (`CADENCIA_MIN`).
+- **Lote 2, 17/10/2026:** `reunion-cancelada` es el evento de la plataforma `reunion_cancelada` (fila #269 del ws 9, creada antes
+  del deploy): el webhook de Calendly pasa sólo el lead y la reunión, y una reentrega ya no lo repite (`claveCancelada`).
+  Quedan 7 del lote 2.
 
 ## El orden
 
