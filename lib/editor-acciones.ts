@@ -256,6 +256,7 @@ export const ACCIONES_DEL_FLUJO: readonly AccionDelFlujo[] = [
   { id: 'avisar_al_equipo', titulo: 'Avisar al equipo', que: 'Manda un aviso al grupo de WhatsApp', grupo: 'Equipo', icono: 'mako' },
   { id: 'inscribir_lead_secuencia', titulo: 'Inscribir en otra automatización', que: 'Lo mete en otra automatización', grupo: 'Automatizaciones', icono: 'accion' },
   { id: 'marcar_estado_cliente_cs', titulo: 'Cambiar el estado del cliente', que: 'Activo, graduado, baja o pausado', grupo: 'Cliente', icono: 'cliente' },
+  { id: 'invitar_cliente_curso_cs', titulo: 'Invitar al curso', que: 'Le manda su acceso al curso', grupo: 'Cliente', icono: 'cliente' },
   { id: 'aplicar_etiqueta_lead_whatsapp', titulo: 'Etiquetar su chat por su etapa', que: 'Le agrega en el chat la etiqueta de su etapa', grupo: 'Chat', icono: 'whatsapp' },
 ];
 
@@ -440,16 +441,21 @@ export type SecuenciaDeAccion = { id: number; nombre: string };
  * PUDO LEER, que no es «no hay» (AGENTS.md: «No pude leer» es un tercer estado): el control lo dice
  * y conserva lo puesto, en vez de ofrecer una lista vacía que se lee como que el negocio no tiene.
  */
+/** Un curso que se puede elegir: el producto del catálogo con al menos una clase (#874). */
+export type CursoDeAccion = { productoId: number; nombre: string };
+
 export type OpcionesAccion = {
   productos: ProductoDeAccion[] | null;
   equipo: string[] | null;
   secuencias: SecuenciaDeAccion[] | null;
+  /** Los cursos del negocio (`productoId` de una acción de curso). Ausente = una respuesta de antes: «no se pudo leer». */
+  cursos?: CursoDeAccion[] | null;
 };
 
 // ── El control de cada parámetro ─────────────────────────────────────────────────────────────
 
 export type Control =
-  | 'lead' | 'etapa' | 'producto' | 'etiqueta' | 'secuencia' | 'persona' | 'monto' | 'fecha'
+  | 'lead' | 'etapa' | 'producto' | 'curso' | 'etiqueta' | 'secuencia' | 'persona' | 'monto' | 'fecha'
   | 'si_no' | 'casilla' | 'opcion' | 'varias' | 'numero' | 'lista' | 'json' | 'texto_largo' | 'texto';
 
 type ParamDeControl = { nombre: string; tipo: TipoParametro; obligatorio?: boolean; enum?: readonly string[]; descripcion?: string };
@@ -477,6 +483,9 @@ export function controlDe(p: ParamDeControl): Control {
   if (p.nombre === 'leadId') return 'lead';
   if (p.nombre === 'etapa' && p.tipo === 'string' && !p.enum?.length) return 'etapa';
   if (p.nombre === 'embudoId' && p.tipo === 'number') return 'producto';
+  // EL CURSO (#874): un `productoId` que habla de un curso se elige entre los productos con clases. El de un cobro
+  // («Producto del catálogo») no: ése es cualquier producto, con su precio.
+  if (p.nombre === 'productoId' && p.tipo === 'number' && /curso/i.test(p.descripcion ?? '')) return 'curso';
   if (p.nombre === 'etiquetaId' && p.tipo === 'number') return 'etiqueta';
   if (p.nombre === 'secuenciaId' && p.tipo === 'number') return 'secuencia';
   if ((p.nombre === 'closer' || p.nombre === 'setter') && p.tipo === 'string') return 'persona';
