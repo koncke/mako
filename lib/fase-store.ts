@@ -8,7 +8,7 @@
 
 import 'server-only';
 import { getSetting, setSetting, getSettingEstricto, cambiarSettingSi } from './settings';
-import { diagnosticar, faseContextoTexto, type CanalId, type Diagnostico } from './fase-diagnostico';
+import { diagnosticar, faseContextoTexto, sanearHechas, type CanalId, type Diagnostico } from './fase-diagnostico';
 
 const FASE_KEY = 'negocio.fase.diagnostico';
 
@@ -34,6 +34,19 @@ export async function setDiagnosticoFase(respuestas: number[], canal?: CanalId):
   const d = diagnosticar(respuestas, canal);
   await setSetting(FASE_KEY, JSON.stringify(d));
   return d;
+}
+
+/**
+ * Guarda lo que el dueño tachó de «Qué hacer ahora» en el diagnóstico VIGENTE (17/10/2026). Compare-and-set sobre el
+ * texto que se leyó: si en el medio se rehízo el diagnóstico (otra fase, otra lista), no se pisa y devuelve null.
+ * Sin diagnóstico, null.
+ */
+export async function guardarHechasFase(hechasRaw: unknown): Promise<Diagnostico | null> {
+  const raw = await getSettingEstricto(FASE_KEY);
+  const d = parseFase(raw);
+  if (!d || raw == null) return null;
+  const nuevo: Diagnostico = { ...d, hechas: sanearHechas(hechasRaw, d.fase) };
+  return (await cambiarSettingSi(FASE_KEY, raw, JSON.stringify(nuevo))) ? nuevo : null;
 }
 
 /** Texto del Norte para inyectar en el contexto de MaKo (vacío si no hay diagnóstico). */
