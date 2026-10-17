@@ -32,7 +32,7 @@ import { clasificarIntencion } from '../lib/mako-intencion';
 import { herramientasDelChat } from '../lib/mako-turno-app-reglas';
 import { contextoDeEdicion, edicionDe, PISTA_EDICION_FICHA } from '../lib/mako-analyst-lead-reglas';
 import { PASOS_FICHA_EDICION } from '../app/crm/lead-view/ficha/recorrido-ficha';
-import type { Vista } from '../lib/api-mako/tipos';
+import type { Vista } from '../lib/api-mako/registro';
 
 const RAIZ = join(__dirname, '..');
 const leer = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8').replace(/\r\n/g, '\n');
