@@ -37,7 +37,7 @@ import { tzDeWorkspace, TZ_DEFAULT } from '@/lib/timezone';
 import { PREFIJO_FLUJO } from '../canal';
 import { proveedorDelPaso } from '@/lib/nutricion-canal';
 import { partesExplicitas, pasosUsanAudio, problemaDePartes, sanearPartes } from '@/lib/mensaje-partes';
-import { partesDeMako, esTarjetaTalCual, armarAvisoDeTarjeta, resultadoDelAviso, textoDePreparadas, esPorEmail, asuntoDeMako, problemaDeEmailMako, type PartePreparada } from '@/lib/mako-tarjeta';
+import { partesDeMako, esTarjetaTalCual, armarAvisoDeTarjeta, resultadoDelAviso, textoDePreparadas, esPorEmail, asuntoDeMako, problemaDeEmailMako, sinGrupoDeMako, type PartePreparada } from '@/lib/mako-tarjeta';
 import { prepararPartesGrupo, problemaDePartesGrupo } from '@/lib/mako-tarjeta-envio';
 import { getSettingData, guardarEstrategia, probarSecuencia, escenarioDePrueba, muestraParaCriterio, productosConEtapas, TriggerInvalidoError } from '@/lib/setting-secuencias';
 import { escenariosDeLaSecuencia } from '@/lib/simulador-grafo';
@@ -852,6 +852,8 @@ export const RUNNERS: Runners = {
         payload: {
           ...(leadId != null ? { leadId } : {}), ...(titulo ? { titulo } : {}), mensaje, ...(conPartes ? { partes } : {}), ...(respuesta ? { respuesta } : {}),
           ...(porEmail ? { canal: 'email', asunto: asuntoDeMako(input) } : {}),
+          // Sin grupo de MaKo, también por email (17/10/2026). Sin elegir, queda en la app.
+          ...(!porEmail && sinGrupoDeMako(input) === 'email' ? { sinGrupo: 'email' } : {}),
         },
         resumen: `${porEmail ? 'Escribirle por email al equipo' : 'Avisar al equipo'}${quien ? ` sobre ${quien}` : ''}: «${mensaje.slice(0, 120)}»${partes.length > 1 ? ` (${partes.length} mensajes)` : ''}`,
       };

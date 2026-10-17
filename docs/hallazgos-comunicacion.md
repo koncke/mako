@@ -9958,7 +9958,7 @@ ENTREGAR… (18ª vez)» del grupo de Mauricio.
 ## La campanita de escritorio y el «sin grupo de MaKo»: lo que hay que saber antes de tocarlos (16/10/2026)
 
 Mapeo de sólo lectura (tres lectores y un crítico) antes de construir la campanita de escritorio y el respaldo visible
-cuando un negocio no tiene grupo de MaKo. Nada de esto se arregló todavía: son las trampas para quien lo haga.
+cuando un negocio no tiene grupo de MaKo. **Construido el 17/10/2026: lo que pasó al hacerlo, en la sección de abajo.**
 
 - ⚠️ **«No pude leer» se dibuja como «vacío».** `listNotificaciones` atrapa cualquier error y devuelve `[]`
   (lib/notificaciones.ts), así que el «Avisos» del teléfono dice «Sin avisos todavía.» con la base caída. `contarNoVistas`
@@ -9991,3 +9991,37 @@ cuando un negocio no tiene grupo de MaKo. Nada de esto se arregló todavía: son
 **Vive en:** `lib/notificaciones.ts` · `lib/avisos.ts` (`emitirAviso`) · `lib/mako-grupo.ts` (`getGrupoJidMaKo`,
 `enviarAlGrupoMaKo`) · `lib/mako-tarjeta.ts` · `app/api/notificaciones/route.ts` · `app/m/inbox/` ·
 `app/_components/Sidebar.tsx` · `lib/perfil.ts` (`setNotifVistoHasta`)
+
+## La campanita y «Sin grupo de MaKo», construidas: lo que no estaba en el mapeo (17/10/2026)
+
+La opción de la tarjeta (`SinGrupo`, lib/mako-tarjeta.ts; de fábrica «queda en la app»), el marcador `sinGrupo` del envío
+(lib/mako-grupo.ts), la salida anotada en la fila (`SalidaAviso`, lib/notificaciones.ts) y la campanita en el pie del
+Sidebar (app/_components/CampanitaAvisos.tsx, con lo puro en lib/campanita.ts). Test: tests/sin-grupo-campanita.test.ts.
+
+- ⚠️ **«Quedó en la app» tiene que contar como LLEGÓ, o el arreglo no arregla el ws4.** `emitirTarjetaDelEvento` contaba
+  sólo grupo o email, y la alerta de anuncios pone su techo con lo que llegó (`vecesDelEstado`). Sin grupo, nunca llegaba
+  nada: el techo no se gastaba y volvía cada hora. Medido el 17/10 a las 03:00 UTC: **63 filas de `meta-cuenta-frenada`
+  en el ws4 en 24 h**, una cada ~70 min. Ahora cuenta la campanita cuando no hay grupo (`llegoLaTarjeta`): tres por
+  estado y se calla. Un WhatsApp caído CON grupo sigue sin contar.
+- ⚠️ **Cambiar una lectura de `getSetting` a `getSettingEstricto` rompe en silencio los arneses que simulan el módulo.**
+  tests/voz-mako.test.ts simulaba `getSetting` con el JID y `getSettingEstricto` con `null`: con el grupo leído estricto,
+  el aviso de prueba pasaba a «sin grupo» y no salía. Al endurecer una lectura, buscar quién simula `lib/settings.ts`.
+  Lo mismo con `mock.module` de un módulo al que se le suma una exportación (`anotarSalida`): el mock sin ella no linkea.
+- **El interruptor se lee ANTES de escribir la fila** (antes iba después): así la fila nace diciendo `apagado` o
+  `sin_automatizacion`, sin un segundo update. La bitácora de un evento sin automatización (`sin_automatizacion`) la deja
+  afuera la LECTURA, en la lista y en el contador por igual (`SIN_RUIDO`); lo que el negocio apagó sí se ve («quedó acá»).
+- **PostgREST sobre un jsonb:** `payload->>salida.neq.X` deja afuera también las filas SIN la clave (NULL ≠ X es NULL), y
+  todas las filas de antes del 17/10 no la tienen. Va como `.or('payload->>salida.is.null,payload->>salida.neq.X')`.
+  Medido contra producción con `semaforo` (163 filas, 163 rojas: el `.or` con `neq.rojo` dio 0).
+- **No es una fila nueva del pie:** la campanita va en la fila de la identidad (plegada, un punto sobre la foto). El
+  Sidebar la suma a su chequeo de `:hover` antes de plegarse (`avisos-menu`). La marca de agua se escribe sólo si al abrir
+  hay algo posterior a ella (`marcaAlAbrir`).
+
+**Sin hacer:** verla con clics en el ws3 después del deploy (escritorio 1024×768 y el pie plegado). El «Avisos» del
+teléfono sigue con su lectura que traga errores (`listNotificaciones` sin `estricto`, app/m/inbox/page.tsx). La pantalla
+«Probar» no simula «sin grupo»: siempre dibuja el grupo.
+
+**Vive en:** `lib/mako-tarjeta.ts` (`SinGrupo`, `llegoLaTarjeta`, `resultadoDelAviso`) · `lib/mako-grupo.ts`
+(`grupoJidEstricto`, `SIN_GRUPO_MAKO`) · `lib/avisos.ts` (`emitirAviso`) · `lib/notificaciones.ts` (`SalidaAviso`,
+`anotarSalida`, `SIN_RUIDO`) · `lib/flujos.ts` (`emitirTarjetaDelEvento`) · `lib/campanita.ts` ·
+`app/_components/CampanitaAvisos.tsx` · `app/automations/FlujoLienzo.tsx` (`EnvioDeMako`)

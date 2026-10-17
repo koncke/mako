@@ -239,7 +239,10 @@ test('7. lo que LLEGÓ se cuenta, y una CONDITION de datos no se guarda fuera de
   assert.equal((await emitirPorEvento(CAT, 1, { datos: { anuncios_vez: '1' } }, deps(null))).llegaron, 0);
   // Y las piezas que lo cuentan: la tarjeta dice si llegó (al grupo o por email), y `depsDelEvento` lo junta.
   const flujos = leer('lib/flujos.ts');
-  assert.match(flujos, /return r\.ok && \(r\.wa \|\| r\.email === true\);\n\}/);
+  // (17/10/2026: también la campanita, cuando el negocio no tiene grupo y la tarjeta dice «queda en la app»:
+  // `llegoLaTarjeta`, lib/mako-tarjeta.ts, con su test en tests/sin-grupo-campanita.test.ts.)
+  assert.match(flujos, /return llegoLaTarjeta\(r\);\n\}/);
+  assert.match(leer('lib/mako-tarjeta.ts'), /if \(r\.wa \|\| r\.email === true\) return true;/);
   assert.match(leer('lib/avisos.ts'), /const entregas = \{ llegaron: 0 \};\n\s*await runWithWorkspace\(ws, \(\) => ejecutarPasos\(flujoId, pasos, ws, ctx, undefined, entregas\)\);\n\s*return entregas;/);
   // Fuera de una fila de evento no hay evento que conteste un dato: Publicar lo frena (la API, «Crear con IA»).
   assert.match(leer('lib/nutricion.ts'), /if \(\(previo as \{ trigger_tipo\?: string \} \| null\)\?\.trigger_tipo !== TRIGGER_AVISO_MAKO && filasDelFlujo\(grafo\)\.some\(\(f\) => datoDeCampo\(f\.campo\) != null\)\) \{\n\s*throw new PasosInvalidosError\(/);
