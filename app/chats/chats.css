@@ -81,8 +81,10 @@
   display: flex;
   flex: 1;
   min-width: 0;
-  height: 100dvh;
-  max-height: 100dvh;
+  /* Menos la barra de secciones (app/_components/SeccionesTab.tsx), que el super admin ve desde el 17/10/2026 con
+     «MaKo WhatsApp»: sin restarla, la bandeja pasaba 40 px de la pantalla y scrolleaba el documento. */
+  height: calc(100dvh - var(--alto-secciones, 0px));
+  max-height: calc(100dvh - var(--alto-secciones, 0px));
   box-sizing: border-box;
   overflow: hidden;
   position: relative;

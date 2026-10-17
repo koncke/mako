@@ -981,6 +981,19 @@ avance?» necesita el último valor que la base le confirmó a ESA pestaña** (`
 dos mitades): contra la fila sola, una pestaña vieja reabre lo que se completó en otro lado
 (16/10/2026, revisión adversarial).
 
+⚠️ **Y «el proyecto lo define la reunión» vale SÓLO en el tablero de un cliente** (#870, 17/10/2026). En el
+del dueño, una llamada con un cliente de MaKo deja trabajo de las tabs: cada tarea va al proyecto que eligió la
+extracción. Lo decide `proyectoQueManda` (lib/reunion-cliente.ts), y nadie más llama a
+`nombreDeProyectoPara` para pisar el proyecto de una reunión. **Y el proyecto de un cliente se busca por su LEAD**
+(`proyectoDelCliente`, lib/reunion-cliente-reglas.ts) y nace con su `cliente_lead_id`. Por nombre solo, el ws1
+terminó con tres proyectos para el mismo cliente.
+
+⚠️ **Lo que el detalle de una tarea extraída AFIRMA tiene que haberse dicho** (17/10/2026). Cada tarea del modelo pasa por
+`limpiarLoDicho` (lib/detalle-sin-inventos.ts): el nombre real en vez del de la cuenta de Fathom, y fuera el renglón con un
+dato técnico (librería, proveedor, versión, año) que no está en la transcripción. Un prompt nuevo que pida un LARGO mínimo
+vuelve a empujar el relleno: medido, 14 de 37 tarjetas. **Y para marcar hecha una tarea desde afuera del tablero se usa
+`cerrar_tareas_plan`** (en el acto, con la evidencia, sin borrador); `proponer_cierre_tareas` es sólo para lo que se deduce.
+
 # Una capacidad nueva de MaKo se DECLARA en el registro de la API, no se escribe en una ruta
 
 Todo lo que un agente puede leer o hacer en MaKo —MaKo por WhatsApp, el chat de la app,
@@ -1384,7 +1397,10 @@ código nuevo:
   Lo fija tests/centro-abrir.test.ts.
 - **Lo único que el cartero entrega SIN firma es un texto FIJO que arma él**: el aviso de una respuesta
   de la Ticketera (`mensajeAviso`, scripts/operaciones/cartero.mjs) lleva sólo el `ref` validado y el
-  comando para leerla. Un mensaje nuevo sin firma sigue ese molde: de MaKo no viaja ni una palabra.
+  comando para leerla, y el bug del triage de un ticket de cliente (`mensajeTicket`, 1.15.0) lleva sólo el NÚMERO.
+  Un mensaje nuevo sin firma sigue ese molde: de MaKo no viaja ni una palabra. Y si `hayParaElCartero` cuenta algo
+  nuevo, lo cuenta sólo para un Runner de la versión que lo entrega: con uno de antes, `vigilar` saldría en cada
+  vuelta por algo que nunca le llega (tests/tickets-cartero.test.ts).
 - **Una tarjeta de la Ticketera se publica con `destino`** (la sesión que pregunta, `local_…`/`cli_…`):
   `chat` es un nombre y con un nombre no se sabe a quién avisar (lib/decisiones-aviso.ts).
 - **En la pantalla, lo que despacha el Centro es un «trabajo»; «pedido» es lo que pide Martín.** Martín,
@@ -1470,14 +1486,21 @@ código nuevo:
     - **Un brief nombra el archivo, el «hecho» y lo que no se toca.** Nunca «lee todo el relevo» si alcanza una sección.
     - **Con la ventana de 5 horas arriba del 85%:** nada de workflows ni tandas grandes de tests. Se termina lo que está
       a medias y se commitea.
+    - **Un chat que necesita datos del negocio NO lee el cerebro entero** (17/10/2026, docs/diseno-second-brain-grafo.md):
+      pide `indice_segundo_cerebro` (~300 tokens) y después `recuperar_del_segundo_cerebro` con su pregunta o con ids
+      (lib/cerebro-recuperar.ts, sin IA). Medido en dos workspaces reales: 118-190 tokens por pregunta contra 459-678 del
+      grafo entero y 1.105-1.606 del vault. `leer_segundo_cerebro_como_archivos` es para un área ENTERA, no para contestar.
   - **TODO LO QUE SE TERMINA LLEVA SU `revisar`** (17/10/2026; Martín: «se terminaron y pushearon cosas y no las puedo ver
     en Review»). El hito de la bitácora o el cierre (`cartero.mjs cierre … --revisar`) trae la ruta INTERNA donde Martín
-    lo prueba (`/crm?lead=…`, `/general`, `/automations/…`). Sin eso, el trabajo no aparece para revisar.
+    lo prueba (`/crm?lead=…`, `/general`, `/automations/…`). Sin eso, su «Ya está» sólo lleva a la tab del área.
   - **EL «YA ESTÁ» LO DICE CADA CHAT EN EL OPS CENTER, NO EL CEREBRO** (17/10/2026; Martín: «Todos los mensajes de "Ya
     está x cosa" quiero que me los manden los chats del Center... No por aquí... Así puedo verlos y darles feedback...
     además de ponerlo en Review»). Cuando el Cerebro le avisa a un jefe que su punta llegó a producción, el jefe:
-    - escribe el «Ya está» en SU chat, en palabras de producto y con la ruta donde se prueba;
-    - deja en la bitácora del área el hito «Hecho» con `revisar` y `sesion`, para que aparezca en Review.
+    - escribe el «Ya está» en SU chat, en palabras de producto y con la ruta donde se prueba: el primer renglón
+      («Ya está: …») es el título de la tarjeta y lo demás su detalle. Desde el 17/10/2026 (la C) Review se fue: el
+      «Ya está» se dibuja como una tarjeta en la conversación, con «Revisar» en esa ruta (o en la tab de su área),
+      su tarea del Plan y «Responder sobre esto» (app/admin/operaciones/Avance.tsx → YaEstaMensaje);
+    - deja en la bitácora del área el hito «Hecho» con `revisar` y `sesion`.
     **Y TODO lo de un área, también lo que Martín tiene que hacer por ella** (conectar una cuenta, cargar un precio, abrir
     su Chrome), lo dice el chat de esa área en su conversación: «¡Deja de decirme estas cosas por aquí!» (17/10/2026).
     El Cerebro no lo repite. En su chat queda sólo lo que no es de ningún área (cuentas, GitHub, la PC, la nube).
@@ -1495,8 +1518,13 @@ código nuevo:
     SÓLO con las operaciones de la API de MaKo (`listar_tareas_plan`, `proponer_tareas_plan`, `proponer_cierre_tareas`)
     aplicadas en el acto con `ctxDelCentro` (lib/centro-plan.ts), por la ruta `/api/centro/plan` y NO por una server
     action (el Perro tarda hasta un minuto y las acciones van de a una): ninguna escritura directa a `plan_tareas`. Un
-    proyecto se busca por `nucleo()`: el tablero lo guarda como «Feature: CRM». **Un mensaje NO se vuelve tarea solo**:
-    «Sumar al Plan» es un clic de Martín, sin preguntas. El Cerebro no tiene proyecto.
+    proyecto se busca por `nucleo()`: el tablero lo guarda como «Feature: CRM». El Cerebro no tiene proyecto.
+    **EL PLAN DE CADA CHAT SE ARMA SOLO** (17/10/2026, la D; Martín: «no puede haber chats con el Plan vacío» y «marcar
+    resuelta una tarea... es AUTOMÁTICO, siempre»): el «Voy a trabajar en X» de un chat crea la tarea «X» en el proyecto de
+    su jefe, y su «Ya está» la marca hecha. Lo hace el SERVIDOR con los turnos que sube la PC (lib/centro-plan-auto.ts,
+    actor «MaKo · Ops Center»), después de contestarle al Runner (`after()`, porque cada paso pasa por el Perro). Un chat
+    no las suma a mano: lo que cuida es escribir el «Voy a trabajar en…» con un título que sirva de tarea. Un mensaje
+    cualquiera de Martín sigue sin volverse tarea.
   - **Dos chats distintos no se llaman igual**: si pasa, se unen. Se separan renombrando uno («⋯ → Renombrar»), que le
     manda a cada sesión un trabajo firmado que le pide `set_session_title` (`textoDeRenombre`): el mismo camino de la
     firma, sin una puerta nueva a la PC.
@@ -1686,6 +1714,25 @@ línea («eso lo miro y te lo paso»)», y el modelo lo dijo textual.
 - La segunda capa ya existe y se usa: `sanearSalida` (`lib/doer-salida.ts`) saca la oración que
   promete sin haber hecho nada, y la grosería. Detalle en
   [docs/hallazgos-comunicacion.md](docs/hallazgos-comunicacion.md) → «No puedo», «déjame ver».
+
+## Un jefe que arregla algo que le falló a un CLIENTE, cuando llega a producción, se lo avisa en su grupo
+
+Pedido de Martín (17/10/2026, por el Ops Center): «al terminar de solucionar algo que detectaste de un cliente… le
+envíes un mensaje al grupo de MaKo diciendo que se solucionó eso. Con una aclaración de que sos el "Desarrollador"».
+
+- **Con la herramienta, nunca a mano:** `scripts/avisar-arreglo-al-grupo.mts --ws <n> --clave <incidente|ticket>
+  --commit <sha> --texto "…" --origen "<tu chat>"`. Sin `--enviar` no manda nada: prueba la producción y muestra el texto.
+  Con `--enviar`, `avisarArregloAlGrupo` (lib/aviso-arreglo.ts) firma «👨‍💻 Desarrollador de MaKo», respeta el tope del
+  día, no repite la misma clave y deja el registro en el negocio (`mako.dev.aviso_arreglo.<clave>`).
+- **Nunca antes de producción.** El script lo prueba: el commit en `origin/main` Y un despliegue de producción de Vercel
+  en «Ready» que lo contiene. «Pushear no es desplegar».
+- **Nunca en el ws1 sin estar seguro** (es de Mauricio, un cliente): `--ws1-seguro` y sólo después de mirar que el
+  arreglo es suyo.
+- **El texto dice lo que YA pasó**, en palabras del cliente y de tú: qué le falló, que ya anda y cómo probarlo. Sin
+  promesas ni groserías (se rechaza, no se corrige). Un aviso por arreglo.
+- **NO necesita el OK de Martín** (17/10/2026, 10:09: «No necesitas mi aprobacion, manda el mensaje tranquilamente al
+  grupo»): lo manda el jefe que arregló, con la herramienta y sus topes. Si el clasificador de permisos de Claude Code
+  lo bloquea, se le dice a Martín en una línea, en el chat del jefe, con el comando exacto para que lo apruebe ahí.
 
 # Tres topes del entorno que no dan error: te dan otra cosa
 
@@ -3889,6 +3936,23 @@ nació mirando una sola punta. Lo mismo vale para «demasiado lento / demasiado 
 «muy chico / muy grande», «cero resultados / demasiados resultados»: una distribución tiene
 dos colas, y la que no se mira es por donde entra.
 
+# Una tasa cuenta a la MISMA gente, y un número que ve el cliente dice de dónde sale
+
+El 16/10/2026, en la revisión con Código Inmobiliario, Martín leyó en el diagnóstico de Offer «Cierras el 43% de las
+llamadas» y preguntó «¿de dónde sacó ese número?». Lo calculaba el código: las 9 ventas del PERÍODO sobre las 21
+asistencias del PERÍODO, y 4 de esas ventas nunca habían pasado por una llamada. Sobre la misma gente eran 6 de 21.
+
+- **Numerador y denominador salen de la MISMA lectura** («de los que asistieron, cuántos compraron»), no de dos conteos
+  del mismo rango de fechas. Si sólo hay conteos del período, se dice como tal («ventas del período»), nunca «cierras el X%».
+- **Un número que ve un cliente lleva su fuente al lado** («tu CRM, del 19/07 al 16/10», «según me dijiste», «en MaKo»).
+  Lo que la IA escribe con cifras se revisa cifra por cifra contra lo que dio el dueño y lo que calculó el código
+  (lib/offer-reglas.ts → `diagnosticoConFuentes`): una cifra sin fuente saca su frase.
+- **Ni una hora ni una fecha es una cifra del negocio.** Una transcripción («0:04:43 Cristian: …») vuelve «dicho por el
+  dueño» a todo número del 0 al 59 si se cuentan (`cifrasDelNegocio` ya no las lee).
+- **Un conteo no le da fuente a un porcentaje**: «43 llamadas» y «43%» son claves distintas (`claveConFuente`).
+
+Detalle en docs/hallazgos-offer.md → «El “43” de Código Inmobiliario».
+
 # Dos números que se comparan salen de UN juicio — no de una fórmula sobre el otro
 
 Si en la misma pantalla un número se lee CONTRA otro —el score de un proyecto y el de sus
@@ -4597,9 +4661,13 @@ Un `<button>` con un párrafo adentro se anuncia leyendo el párrafo entero, as�
 
 # Una pantalla oscura se hace redefiniendo TOKENS, no reglas
 
-La app es **tema claro con islas oscuras** (el sidebar, el tooltip, el toast). No hay
-`prefers-color-scheme` ni modo oscuro global, y no se está agregando uno. Cuando una
-pantalla tiene que ser oscura —hoy solo `/second-brain`— se marca `<html data-tema="oscuro">`
+La app es **tema claro con islas oscuras** (el sidebar, el tooltip, el toast). **Desde el 17/10/2026 cada persona
+puede elegir oscuro** (tarjeta #883): el interruptor al lado de la foto de la barra (`InterruptorModo`) guarda
+`mako.modo` en su navegador, `ModoArranque` lo aplica antes del primer pintado y `ModoDelUsuario` lo sostiene al
+navegar. **Claro por defecto y nunca `prefers-color-scheme`**: oscuro sólo si la persona lo eligió. Una pantalla nueva
+consume tokens (`var(--surface)`, `var(--ink)`…) y así respeta la elección sin hacer nada; un color escrito a mano
+(`#fff`) es una pantalla que se queda clara en el oscuro de alguien. Cuando una pantalla tiene que ser oscura SIEMPRE
+—el editor de video, como CapCut— se marca `<html data-tema="oscuro">`
 y se redefinen los tokens en `app/globals.css`. Todo lo que ya consume `var(--surface)`,
 `var(--ink)`, `var(--border)`… se da vuelta solo. El inventario de esa pantalla contó **40
 usos** repartidos en tres archivos: tocarlos uno por uno era garantizar que el próximo se
@@ -5672,6 +5740,16 @@ lo que costó: [docs/hallazgos-ticketera.md](docs/hallazgos-ticketera.md). Lo qu
   cuando el build lo trae, el cron lo cierra y le avisa al cliente por donde lo levantó. No se cierra a mano.
 - **Lo del cliente filtra por SU workspace Y SU email** (lib/tickets-db.ts); lo de Martín pasa por `puedeOperar`. Lo fija
   tests/tickets.test.ts.
+- **Un error de la app NO se reporta a mano: va solo a `registrarError`** (lib/errores-app.ts, 17/10/2026; Martín: «córrelo
+  en toda la app... Y todo lo solucionas automáticamente»). Lo llaman los boundaries, el reportador de la ventana,
+  `onRequestError` y el turno del chat. Lo que gobierna código nuevo:
+  - un boundary nuevo (`error.tsx` de una sección) manda a `/api/errores` SIN importar nada de la app, como `app/error.tsx`;
+  - un chat de MaKo con su propio turno registra lo que falló con `registrarError({ origen: 'mako', … })`, nunca le pide
+    a la persona que lo reporte;
+  - la HUELLA no lleva el stack ni números: el stack de producción cambia en cada deploy y abriría un ticket por deploy;
+  - un error que no es de MaKo (el proveedor de IA, la red, una extensión) se suma a `RUIDO` (lib/errores-app-reglas.ts),
+    no se filtra en quien llama.
+  Lo fija tests/errores-app.test.ts.
 
 # A la Ticketera va lo que DECIDE Martín, no lo que a vos te falta decidir
 
@@ -8932,6 +9010,11 @@ técnicas están en [docs/diseno-mako-mobile.md](docs/diseno-mako-mobile.md), lo
   página de escritorio lee la URL, las claves van en `QUERY_DE_SECCION`: un push vuelve a la computadora por
   `rutaEscritorio`, y la clave que se cae al ir al teléfono se cae también allá. Una tab UNIFICADA de escritorio se
   gatea con la key de la sección que muestra (`ads-writer`, no `copywriting`: esa no está en TODOS_LOS_ITEMS).
+- **Una pantalla que deja de ser fila de la sidebar NO se borra de nav.ts: va a `SIN_FILA`** (17/10/2026), y su fila
+  de More queda con `oculta: true`. `requireMovil({ navKey })` busca la key en `TODOS_LOS_ITEMS`: sin el ítem, la
+  puerta del teléfono se cierra para todos, sin error; y `rutaMovil` tira si la fila de More no está. La sidebar
+  (familias, lo de arriba y el menú de la foto) la edita UN solo chat, el jefe «Sidebar»: los demás le pasan nombre,
+  ruta, key y roles (docs/diseno-sidebar.md).
 - **Lo que una pantalla de /m reusa de escritorio no puede vivir en un módulo `'use client'`**: el server no lo puede
   llamar y el cliente se lleva la pantalla entera al bundle. Se muda a lib o a un módulo puro y escritorio lo
   re-exporta (`tomas-estado.ts`, `deSiempreDisparador`, `borradorAlAbrir`); nunca una copia en /m.
@@ -9071,3 +9154,19 @@ Desde el 16/10/2026 una etapa de reunión puede tener vinculado un evento de Cal
   (`reclamarRuteoDeAgenda`), y para soltar UNA se pregunta antes si alguien más la usa.
 - **Un vínculo se guarda con el identificador que manda el webhook** (Calendly: la URI del event type; Cal.com:
   su id), nunca con el nombre: el ruteo compara exacto y dos eventos se pueden llamar igual.
+
+# La barra de inspección: lo que se pega a la ventana va debajo, y el primer cuadro lo arma el server
+
+Con un cliente inspeccionado (o la alerta de la voz), `<html>` lleva `data-barra-agencia` y `--barra-agencia` vale su alto
+(docs/hallazgos-ui.md, #850 y #881).
+
+- **Lo que se pega a la VENTANA va a `top: var(--barra-agencia, 0px)`** (o `calc(N + var(--barra-agencia, 0px))`): un
+  `sticky` de una página que scrollea entera, o un `fixed` arriba. Lo que se pega ADENTRO de un modal o de un panel con
+  scroll va en su número de siempre, porque ahí la barra no está. Si el mismo componente vive en los dos lugares, cada
+  puerta dice dónde se pega (`arribaTabs` en la ficha del lead). Un `<aside>` ya lo baja la regla de globals.css.
+- **Un selector sobre el estilo en línea reconoce las DOS escrituras**: el navegador escribe «height: 100dvh» y el server
+  escribe «height:100dvh», sin espacios, y la hidratación no lo reescribe. Con una sola, la regla falla justo en la carga
+  del server, que es como se entra a inspeccionar. `tests/barra-inspeccion-alto.test.ts` lo fija.
+- **Un estado que se corrige con un fetch nace con lo que sabe el server, nunca con un literal**: el Sidebar nacía con
+  «Mauricio Bustos», y TODOS los clientes lo veían en el primer cuadro. A quién se mira sale de `lib/vista-de-otro.ts`, que
+  usan el layout y `/api/auth/me`, y de ningún otro lado.

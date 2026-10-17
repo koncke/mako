@@ -657,30 +657,41 @@ function titulosEnLinea(titulos: readonly string[]): string {
   return resto > 0 ? `${vis.join(', ')} y ${resto} más` : vis.join(', ');
 }
 
+/** Los datos de la copia a Mauricio, por nombre (lib/variables-aviso.ts, grupo «El recordatorio»). */
+export type DatosRecordatorioDueno = {
+  recordatorio_cuantos?: string; recordatorio_dias?: string; recordatorio_enviados?: string;
+  recordatorio_no_llego?: string; recordatorio_sin_escribir?: string;
+};
+
 /**
  * La copia CORTA a Mauricio: a quién se le recordó qué, en UN aviso por corrida (no uno por
  * cliente: diez recordatorios a las 9:00 serían diez WhatsApps al grupo). Lleva también a quién
  * no le llegó y a quién no se le pudo escribir — sin esa línea, Mauricio da por recordado a alguien
  * a quien nadie le escribió. `null` = no hay nada que contarle.
  *
+ * ⚠️ DESDE EL 17/10/2026 SON LOS DATOS, NO EL TEXTO («nada por detrás», lote 2): el texto es el de la automatización
+ * de SuperAdmin (evento `curso_recordatorio`), con un renglón por sección. Cada lista viaja como UN dato que arranca con
+ * su salto de línea, así la sección que no tiene nada no trae su dato y su renglón se va ENTERO (`sinRenglonesVacios`).
+ * La redacción sirve para uno y para varios («Recordé… a 1 cliente», «No llegó el recordatorio a:»): el «Le/Les» del
+ * texto de antes era una frase armada en el código, y una fila no la puede decir sin dos casos.
+ *
  * ⚠️ Nunca lleva el link del cliente: va a un grupo.
  */
-export function textoRecordatorioDueno(p: { hechos: readonly RecordatorioHecho[]; sinEscribir?: readonly RecordatorioSinEscribir[] }): string | null {
+export function datosRecordatorioDueno(p: { hechos: readonly RecordatorioHecho[]; sinEscribir?: readonly RecordatorioSinEscribir[] }): DatosRecordatorioDueno | null {
   const ok = p.hechos.filter((h) => !h.noLlego);
   const mal = p.hechos.filter((h) => h.noLlego);
   const sin = p.sinEscribir ?? [];
-  const partes: string[] = [];
-  if (ok.length) {
-    const lineas = ok.map((h) => {
-      const con = h.bloques.filter((b) => b.videos.length);
-      const etapas = con.map((b) => `*${b.etapa}*`).join(', ');
-      return `· *${quienEs(h.cliente)}* (${etapas}): ${titulosEnLinea(con.flatMap((b) => [...b.videos]))}`;
-    });
-    partes.push(`${ok.length === 1 ? 'Le' : 'Les'} recordé sus videos pendientes a ${plural(ok.length, 'cliente', 'clientes')} con ${DIAS_SIN_ENTRAR} días sin entrar:\n${lineas.join('\n')}`);
-  }
-  if (mal.length) partes.push(`No ${mal.length === 1 ? 'le' : 'les'} llegó el recordatorio:\n${mal.map((h) => `· *${quienEs(h.cliente)}*: ${h.noLlego}`).join('\n')}`);
-  if (sin.length) partes.push(`No ${sin.length === 1 ? 'le' : 'les'} pude escribir:\n${sin.map((s) => `· *${quienEs(s.cliente)}*: ${s.motivo}`).join('\n')}`);
-  return partes.length ? partes.join('\n') : null;
+  if (!ok.length && !mal.length && !sin.length) return null;
+  const enviados = ok.map((h) => {
+    const con = h.bloques.filter((b) => b.videos.length);
+    const etapas = con.map((b) => `*${b.etapa}*`).join(', ');
+    return `\n· *${quienEs(h.cliente)}* (${etapas}): ${titulosEnLinea(con.flatMap((b) => [...b.videos]))}`;
+  }).join('');
+  return {
+    ...(ok.length ? { recordatorio_cuantos: plural(ok.length, 'cliente', 'clientes'), recordatorio_dias: String(DIAS_SIN_ENTRAR), recordatorio_enviados: enviados } : {}),
+    ...(mal.length ? { recordatorio_no_llego: mal.map((h) => `\n· *${quienEs(h.cliente)}*: ${h.noLlego}`).join('') } : {}),
+    ...(sin.length ? { recordatorio_sin_escribir: sin.map((s) => `\n· *${quienEs(s.cliente)}*: ${s.motivo}`).join('') } : {}),
+  };
 }
 
 /** El título del aviso en el feed. */

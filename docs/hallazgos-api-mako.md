@@ -1494,3 +1494,31 @@ catálogo del chat (lib/editor-video/chat-api.ts): la descripción es el mismo `
 **Vive en:** lib/editor-video/chat-api.ts · lib/editor-video/propuestas.ts y propuestas-server.ts ·
 lib/api-mako/areas/video.def.ts y video.run.ts · lib/api-mako/flujo.ts · lib/api-mako/rest.ts ·
 tests/video-editor-propuestas-api.test.ts (35 roturas). *16/10/2026, chat «Video Editor» (claude3).*
+
+## `diagnosticar_funnel` de uno o varios funnels: dos embudos con etapas distintas NO se suman (17/10/2026)
+
+**El pedido (#896):** Martín, tras el OKR por funnels: «estoy seguro que no solamente en los OKR, esa configuración seguro
+debe faltar en varios lugares». La Retro se retiró con Experiments; quedaba el embudo de la API (`diagnosticar_funnel`,
+`getFunnelEtapas` en lib/queries.ts), que siempre medía el funnel principal.
+
+- **El parámetro `funnels` se lee UNA vez para todas las áreas** (lib/api-mako/funnels-del-pedido.ts): era una función
+  privada de general.run.ts (guardar_objetivo, guardar_kpi), y una segunda copia sería otra respuesta a «¿de qué funnels?».
+- **Cada lead cuenta en el funnel donde estaba ESE día** (`filtrarPorFunnels`, la regla del OKR), también las altas. Las
+  altas no se pueden contar con un COUNT cuando hay funnels: hay que saber de cuál es cada una, así que van como filas
+  paginadas.
+- ⚠️ **Dos funnels con etapas distintas no se suman paso por paso.** Medido el 17/10 en el ws1: «Negocio que ESCALA» y
+  «Renovación» no comparten sus pasos comerciales (`pasosComercialesDe`), así que pedirlos juntos da
+  `FunnelsConEtapasDistintas` y la API dice «pídelos de a uno». No se adivina cuál vale.
+- ⚠️ **Lo de Meta no se parte por funnel** (impresiones, clics, formularios: Meta no dice a qué funnel va cada uno). Las
+  etapas del CRM sí; la salida lo dice en `notas` porque el modelo no ve la pantalla.
+- ⚠️ **Trampa para medir con un script:** `getFunnelEtapas` llama a `getMarketingWindow`, que va por la caché de Next
+  (`unstable_cache`), y fuera de Next tira «Invariant: incrementalCache missing». Un script de sólo lectura con
+  `runWithWorkspace` no puede medir una lectura que pasa por `cachedRead`: se mide lo de abajo o en el server.
+- tests/funnel-comercial.test.ts limita el largo de `getFunnelEtapas` (un recorte que mide el doble está mirando otra
+  cosa): lo de funnels se sacó a `enLosFunnels` y `altasEnFunnels`, y el tope pasó de 6.000 a 7.000 (medía 6.343).
+
+Test: tests/funnel-etapas-elegidos.test.ts (probado rompiéndolo; la primera versión no veía un `if` que nunca daba y se
+ajustó). **No se midió con números reales** (la trampa de arriba).
+**Vive en:** lib/queries.ts (`getFunnelEtapas`, `etapasDeFunnels`) · lib/api-mako/areas/metricas.run.ts ·
+lib/api-mako/funnels-del-pedido.ts.
+*17/10/2026, claude4 (chat Dashboard).*

@@ -1192,13 +1192,22 @@ details[open] > summary .chev {
    UNA regla y no un cambio en cada pantalla: son de otros chats y mañana hay otra. Mira el estilo EN LÍNEA tal como lo
    serializa el navegador («flex: none; height: 100dvh; …»): el espacio de adelante deja afuera `min-height`, que no
    desborda nada. El riel del Sidebar queda afuera: tiene su regla de arriba (con `100dvh` para el iPad), y ésta le
-   ganaría por especificidad. Lo fija tests/barra-inspeccion-alto.test.ts. */
+   ganaría por especificidad. Lo fija tests/barra-inspeccion-alto.test.ts.
+   ⚠️ Y LAS DOS ESCRITURAS DEL ESTILO (17/10/2026, medido en Chrome sin ventana). Lo que pinta el NAVEGADOR sale
+   «flex: none; height: 100dvh;», pero lo que llega del SERVER sale como lo escribe React: «flex:none;height:100dvh»,
+   sin espacios, y la hidratación no lo reescribe. Con sólo la primera forma, la pantalla que llegaba del server —toda
+   entrada a inspeccionar es una carga del server: `<a href="/general?ws=N">`— medía la ventana entera (608 de 608, en
+   vez de 558) hasta que React le cambiaba algún estilo. Por eso van las cuatro: al principio o después de `;`/espacio. */
 [data-barra-agencia] [style^="height: 100vh"]:not([data-sidebar]), [data-barra-agencia] [style*=" height: 100vh"]:not([data-sidebar]),
-[data-alerta-voz] [style^="height: 100vh"]:not([data-sidebar]), [data-alerta-voz] [style*=" height: 100vh"]:not([data-sidebar]) {
+[data-barra-agencia] [style^="height:100vh"]:not([data-sidebar]), [data-barra-agencia] [style*=";height:100vh"]:not([data-sidebar]),
+[data-alerta-voz] [style^="height: 100vh"]:not([data-sidebar]), [data-alerta-voz] [style*=" height: 100vh"]:not([data-sidebar]),
+[data-alerta-voz] [style^="height:100vh"]:not([data-sidebar]), [data-alerta-voz] [style*=";height:100vh"]:not([data-sidebar]) {
   height: calc(100vh - var(--barra-agencia)) !important;
 }
 [data-barra-agencia] [style^="height: 100dvh"]:not([data-sidebar]), [data-barra-agencia] [style*=" height: 100dvh"]:not([data-sidebar]),
-[data-alerta-voz] [style^="height: 100dvh"]:not([data-sidebar]), [data-alerta-voz] [style*=" height: 100dvh"]:not([data-sidebar]) {
+[data-barra-agencia] [style^="height:100dvh"]:not([data-sidebar]), [data-barra-agencia] [style*=";height:100dvh"]:not([data-sidebar]),
+[data-alerta-voz] [style^="height: 100dvh"]:not([data-sidebar]), [data-alerta-voz] [style*=" height: 100dvh"]:not([data-sidebar]),
+[data-alerta-voz] [style^="height:100dvh"]:not([data-sidebar]), [data-alerta-voz] [style*=";height:100dvh"]:not([data-sidebar]) {
   height: calc(100dvh - var(--barra-agencia)) !important;
 }
 

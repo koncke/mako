@@ -2512,4 +2512,28 @@ export const BITACORA: Hito[] = [
     archivos: ['app/crm/lead-view/ficha/EstiloDeLaHoja.tsx', 'lib/ficha/config.ts (el cambio `tema`)', 'tests/ficha-estilo-ajustes.test.ts'],
     revisar: '/crm',
   },
+  {
+    fecha: '17 oct', hora: '09:30', chat: 'CRM', sesion: 'local_64949e84-3d68-4c31-bf78-5caa382ebc37', cuenta: 'claude4',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: '«Calificado» se pinta al instante, y una campaña de Meta entra a varios funnels',
+    puntos: [
+      'En producción desde el run 102. Las tarjetas #854, #893 y #897 quedaron cerradas en el Plan con su prueba.',
+      'En la ficha, «Calificado» se pinta verde al tocarlo: ya no espera a Meta. El aviso a Meta sale de fondo y, si Meta lo rechaza, queda en el historial del lead.',
+      'Una campaña o un conjunto de Meta puede ir a uno o varios funnels: en la columna «Producto» de Ads Manager (y en la tabla de campañas del CRM) se marcan con casillas. El primero es su funnel principal; el lead nuevo entra también a los demás, venga del formulario de Meta o de la landing.',
+      'MaKo ve y cambia a qué funnels va cada campaña.',
+      '«Firmado» de una renovación queda para más adelante: un lead tiene un solo trato. Para medir renovaciones, el OKR va con «Cobrado», que ya cae en el funnel correcto.',
+    ],
+    commits: [
+      { sha: '8c160becf', msg: 'CRM (#854): «Calificado» se pinta al tocarlo y el aviso a Meta va de fondo', lineas: 172, archivos: 4 },
+      { sha: '7096f40c1', msg: 'CRM (#893): una campaña o un conjunto de Meta apunta a uno o varios funnels, y el lead nuevo entra a todos', lineas: 621, archivos: 20 },
+      { sha: '2cfe12c5d', msg: 'Hallazgos de pagos (#897): «Firmado» de una renovación queda descartado por ahora, con el porqué', lineas: 9, archivos: 1 },
+    ],
+    archivos: [
+      'app/crm/lead-view/CampoEditable.tsx — los botones de sí / no que se pintan al tocarlos',
+      'lib/leads.ts — el aviso a Meta de fondo; el lead de Meta que entra a varios funnels',
+      'lib/campana-config.ts y app/ads-manager/ProductoCelda.tsx — la campaña con varios funnels',
+      'lib/api-mako/areas/crm.def.ts — ver_campanas_funnels y asignar_campana_funnels',
+    ],
+    revisar: '/ads-manager',
+  },
 ];

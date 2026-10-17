@@ -18,6 +18,10 @@
 //      tabla no se dispara nada: sin fila no hay cómo deduplicar, y un reintento dispararía dos veces.
 //   4. EL LEAD, dentro de su workspace (`runWithWorkspace`), por su email EXACTO.
 //   5. EL DISPARO, por UNA función (`enrolarPorEmailRecibido`).
+//   6. (17/10/2026) LA BANDEJA DE CHATS: el email se guarda como mensaje de la conversación, con su cuerpo y sus adjuntos
+//      (`guardarEmailEntrante`, lib/chats-email.ts). DESPUÉS del disparo y sin poder frenarlo: si falla, se anota y el
+//      webhook contesta lo mismo. Con lead y sin lead (el de alguien que todavía no está en el CRM también se ve). Corre
+//      con `after()`, DESPUÉS de contestar: leer el cuerpo y bajar adjuntos tarda, y un webhook lento Resend lo reintenta.
 //
 // ⚠️ NO MANDA NADA NI TOCA LA FICHA DEL LEAD: inscribe en las automatizaciones de ese evento, y lo que
 // salga después lo manda el motor con sus frenos. Que un email del lead PAUSE una automatización que
@@ -31,6 +35,8 @@ import { enrolarPorEvento, type CtxEvento } from './nutricion';
 import { esErrorTransitorio, mensajeDeError } from './calendly-error';
 import { responderFalloDeRuteo } from './webhook-fallo-ruteo';
 import { EVENTOS_EMAIL } from './disparadores';
+import { after } from 'next/server';
+import { guardarEmailEntrante } from './chats-email';
 import {
   leerEmailRecibido, workspaceDelEmail, leadDelEmail, esRemitenteAutomatico, escaparIlike, yaProcesado,
   EVENTO_EMAIL_RECIBIDO, type EmailRecibido, type DominioReclamado, type EstadoEntrante,
@@ -125,6 +131,11 @@ async function falloDeRuteo(e: unknown, identificador: string | null): Promise<R
   return responder(r.status, (await r.json()) as Record<string, unknown>);
 }
 
+/** 6. La bandeja de Chats, después de contestar y adentro de SU workspace (el contexto no viaja solo a `after`). */
+function aLaBandeja(ws: number, resendId: string, leadId: number | null): void {
+  after(() => runWithWorkspace(ws, () => guardarEmailEntrante({ ws, resendId, leadId })));
+}
+
 /** Un `email.received` ya verificado: de quién es, de qué lead, y el disparo. */
 export async function recibirEmailEntrante(raw: unknown): Promise<RespuestaEntrante> {
   const email = leerEmailRecibido(raw);
@@ -165,10 +176,12 @@ export async function recibirEmailEntrante(raw: unknown): Promise<RespuestaEntra
       const lead = leadDelEmail((data ?? []) as Array<{ id: unknown; email: unknown }>, email.de);
       if (lead.leadId == null) {
         await marcar(email.emailId, { estado: lead.motivo, motivo: lead.motivo === 'ambiguo' ? 'varios leads con ese email' : 'ningún lead con ese email' });
+        aLaBandeja(ws, email.emailId, null);
         return responder(200, { ok: true, ignorado: lead.motivo });
       }
       const inscripciones = await enrolarPorEmailRecibido(lead.leadId);
       await marcar(email.emailId, { estado: 'disparado', lead_id: lead.leadId, inscripciones });
+      aLaBandeja(ws, email.emailId, lead.leadId);
       return responder(200, { ok: true, leadId: lead.leadId, inscripciones });
     });
   } catch (e) {

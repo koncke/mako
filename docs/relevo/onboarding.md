@@ -1,6 +1,28 @@
 # Onboarding: el arranque del cliente nuevo y el onboarding de cada tab
 
-## ESTADO AL 17/10/2026 ~08:30 AR — LO PRIMERO PARA QUIEN SIGA
+## ESTADO AL 17/10/2026 ~11:30 AR — LO PRIMERO PARA QUIEN SIGA
+
+<sub>Chat «Onboarding», cuenta 4. Rama onboarding-v3 (C:/dev/wt-onboarding-v3) con origin/integracion mergeado
+(344c8b515): las cuatro puntas de la mañana (abajo) pasaron los 148 barridos del repo, 1680 tests, 0 fallas.</sub>
+
+**El Cerebro sumó #881 y #850 al punto 2 («Inspeccionar»), en una punta E encima de la misma rama:**
+- **#881 (Martín veía primero el perfil de Mauricio al inspeccionar):** el Sidebar nacía con `useState('Mauricio Bustos')`.
+  Ahora el primer cuadro lo arma el server: `lib/vista-de-otro.ts` lo pasa el layout al Sidebar y a la barra, y lo usa
+  también `/api/auth/me`. Test: tests/inspeccionar-primer-cuadro.test.ts.
+- **#850 (la barra tapa cosas):** la regla de alto no tomaba el estilo como lo escribe el SERVER, y entrar a inspeccionar
+  es una carga del server. Medido en Chrome: 608 antes, 558 después. Los dos «sin hacer» del hallazgo ya bajaban porque
+  son `<aside>`. Se bajaron los cuatro que sí quedaban debajo: «Editando el deal», la hoja de la ruta del lead,
+  /admin/estrategia y el índice de la API. Test: tests/barra-inspeccion-alto.test.ts (4 y 5).
+- **Sin hacer** (detalle en docs/hallazgos-ui.md): las barras de lote `sticky; top: 8` del Plan, el CRM y Customer
+  Success, porque viven también adentro de un modal; y `rolWs`/`capa` del Sidebar, que siguen naciendo vacíos.
+- **Cerrar #881 y #850 en el Plan** (`cerrar_tareas_plan`, con la prueba) y escribir el «Ya está» cuando el Cerebro
+  confirme el deploy. Verlo con clics inspeccionando el ws3.
+- #883 (Sidebar): el onboarding ya no fuerza el oscuro desde la D; el único color fijo (`#fff` del botón principal) pasó a
+  `var(--on-primary)` en la E.
+- **La estrella NO está hecha** (Ops Center 3, 17/10 ~12:30; la toma el próximo Ops Center). Cuando llegue, el cambio es
+  una línea en app/onboarding/CriaturaMako.tsx (escrito ahí, con la API de `Criatura`).
+
+## ESTADO AL 17/10/2026 ~08:30 AR
 
 <sub>Chat «Onboarding», cuenta 4 (claude4). Las puntas de la mañana están en la rama onboarding-v3
 (C:/dev/wt-onboarding-v3) y se le pasaron al Cerebro; las de la noche (abajo) ya están en producción.</sub>

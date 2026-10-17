@@ -4116,3 +4116,69 @@ anuncio del ws1: desde 2023-09-18 contesta, desde 2023-09-16 no). El creativo y 
 ganadores»: tienen que aparecer los números, el diario y la audiencia.
 **Vive en:** lib/meta-rango.ts · app/api/ad-insights/route.ts · app/api/entity-insights/route.ts · lib/meta-desgloses.ts.
 *17/10/2026, claude4 (chat Dashboard).*
+
+## ¿Se puede corregir una calificación que ya viajó a Meta? No: lo que se manda por CAPI no se borra ni se edita (#856, 17/10/2026)
+
+**La pregunta (revisión del 16/10):** el CRM daba por hecho que «no se deshace» (docs/api-mako-inventario.md), sin
+fuente. Se buscaron las tres salidas posibles en la documentación OFICIAL de Meta, y ninguna corrige:
+
+- **Borrar o editar el evento:** la API no lo ofrece. Ni «Using the API», ni los parámetros del evento de servidor, ni
+  los de `custom_data` mencionan borrar, actualizar o corregir un evento ya enviado.
+- **Otro evento («Lead descalificado»):** en Conversion Leads el `event_name` es libre («Free form field to capture
+  the stages you use within your CRM») y piden mandar cada etapa cuando cambia. Mandar una etapa nueva SUMA una señal;
+  no resta la anterior, y la página no dice nada de un lead que vuelve para atrás.
+- **Un valor negativo:** `value` es «A numeric value associated with the event. This must represent a monetary
+  amount», obligatorio para compras y optimización por valor. No hay ninguna mención de valores negativos ni de
+  reembolsos; no es un mecanismo de corrección.
+- **El dedup por `event_id`:** sólo descarta un DUPLICADO del mismo par (`event_name`, `event_id`), y se queda con el
+  PRIMERO («we only consider the first one»). Reenviar con el mismo id no pisa nada: se descarta el nuevo.
+
+**La trampa que sale de esto (lo que corrige un comentario del código):** la ventana del dedup es de **48 horas**
+(«events are only deduplicated if they are received within 48 hours»). `eventIdCalificado` (lib/meta-capi-payload.ts)
+cubre marcar → desmarcar → marcar dentro de esas 48 h; pasado ese plazo, volver a marcar a un lead es una SEGUNDA
+conversión. Y la página de deduplicación describe el `event_id` para el par navegador + servidor; para dos eventos de
+servidor sólo dice, en el método por FBP, «If you send us two consecutive server events with the same information, we
+do not discard either». O sea: el dedup entre dos envíos nuestros es lo esperable, no una garantía escrita.
+
+**La regla que queda:** lo que viaja a Meta es definitivo. El «Deshacer» del CRM vuelve la ficha atrás, pero la
+conversión ya contó. **Sin hacer:** que el envío espere la ventana del «Deshacer» y relea el lead antes de mandar
+(`after()` en `updateLead`, lib/leads.ts, que desde #854 ya va de fondo); y una marca nuestra de «ya se mandó» para que
+volver a marcar después de 48 h no cuente dos veces (sigue sin columna).
+
+**Fuentes (Meta for Developers, leídas el 17/10/2026):**
+[Deduplicación](https://developers.facebook.com/documentation/ads-commerce/conversions-api/deduplicate-pixel-and-server-events) ·
+[Parámetros del evento de servidor](https://developers.facebook.com/docs/marketing-api/conversions-api/parameters/server-event) ·
+[custom_data](https://developers.facebook.com/docs/marketing-api/conversions-api/parameters/custom-data) ·
+[Conversion Leads: payload](https://developers.facebook.com/documentation/ads-commerce/conversions-api/conversion-leads-integration/payload-specification) ·
+[Using the API](https://developers.facebook.com/documentation/ads-commerce/conversions-api/using-the-api)
+
+*17/10/2026, chat «CRM» (claude4).*
+
+## Reproducir un anuncio sin salir de la hoja: la vista previa de Meta NO sirve, el `embed_html` del video sí (17/10/2026)
+
+**El pedido (#860, revisión del 16/10, 1:14:00):** en «Los anuncios que más te traen» la miniatura cortaba la cara (iba
+4:3 y los anuncios son verticales) y «debería poder reproducirse ahí mismo» en vez de abrir Meta en otra pestaña.
+
+**Lo medido contra Meta (un anuncio del ws1, sólo lectura):**
+
+- `GET /{video_id}?fields=source` sigue sin `source` (la entrada de arriba): no hay un .mp4 propio que poner en un `<video>`.
+- **La vista previa del anuncio parecía lo obvio y es la equivocada:** `/{ad_id}/previews?ad_format=INSTAGRAM_REELS`
+  devuelve un iframe de `business.facebook.com/ads/api/preview_iframe.php` que, SIN sesión de Facebook, contesta **400** y
+  **`X-Frame-Options: DENY`**. En Ads Manager anda porque quien mira está logueado; a un cliente no le carga.
+- **`embed_html` del video** es un iframe de `www.facebook.com/plugins/video.php` que sin sesión contesta 200, **sin**
+  `X-Frame-Options`, y trae las URLs del .mp4 adentro (`sd_src`/`hd_src`). Ojo: el HTML contiene «Unavailable…» (es el
+  nombre de un recurso de su JS, `UnavailableResources`), y buscar «unavailable» da un falso «no disponible».
+- Los formatos del video confirman el vertical: `native:1080x1920`.
+
+**Cómo quedó:** /api/anuncios/video (la puerta de Ads, el token del workspace) devuelve el src del plugin, validado por
+host y ruta (`srcDelReproductor`, lib/anuncio-video.ts: sale de una respuesta de un tercero y va a un iframe de la app).
+Las tarjetas de anuncios llevan un ▶ que lo abre en una ventana vertical (app/dashboard/graficos/ReproductorAnuncio.tsx),
+sólo con sesión y mirando; en un link compartido no hay ▶ (la ruta pide sesión). La miniatura de la portada es un póster
+9:16 de alto fijo.
+
+**Nadie lo miró en pantalla:** que el plugin REPRODUZCA dentro del iframe se dedujo de la respuesta (200, sin
+`X-Frame-Options`, con los .mp4), no se vio en un navegador. Después del deploy: ws1, General con la plantilla «Anuncios»,
+▶ en un anuncio. Si no reproduce, el siguiente intento es bajar el .mp4 de `sd_src` del lado del server.
+**Vive en:** lib/anuncio-video.ts · app/api/anuncios/video/route.ts · app/dashboard/graficos/ReproductorAnuncio.tsx ·
+app/dashboard/graficos/Tarjetas.tsx · app/dashboard/editor-css.ts.
+*17/10/2026, claude4 (chat Dashboard).*

@@ -162,7 +162,7 @@ function ChipProyecto({ l }: { l: Label }) {
   );
 }
 
-const NUMERO: CSSProperties = { flex: 'none', width: 'clamp(24px, calc(2cqi + 18px), 34px)', height: 'clamp(24px, calc(2cqi + 18px), 34px)', borderRadius: '50%', display: 'grid', placeItems: 'center', fontSize: 'clamp(12px, calc(1.2cqi + 8px), 15px)', fontWeight: 800, background: 'var(--primary)', color: 'var(--on-primary, #fff)' };
+const NUMERO: CSSProperties = { flex: 'none', width: 'clamp(24px, calc(2cqi + 18px), 34px)', height: 'clamp(24px, calc(2cqi + 18px), 34px)', borderRadius: '50%', display: 'grid', placeItems: 'center', fontSize: 'clamp(12px, calc(1.2cqi + 8px), 15px)', fontWeight: 800, background: 'var(--gb-acento, var(--primary))', color: 'var(--gb-acento-tinta, var(--on-primary, #fff))' };
 
 /** Una tarea en la lista de la hoja: su puesto, el título, su proyecto y su deadline, y el círculo para completarla. */
 function FilaTarea({ t, puesto, proyecto, hoy, onOpen, onCompletar }: {

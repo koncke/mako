@@ -34,6 +34,7 @@ import 'server-only';
 import { getTenantDb } from './workspace';
 import { leerPorPaginas } from './supabase-paginado';
 import { cuentaAUsd } from './presupuesto-cambio';
+import { cuentaComoVenta } from './venta-tipo';
 import { reporteMetricas, resolverRango, type ReporteMetricas } from './metricas-negocio';
 import {
   costoPor, tasa, cuadratura, planDesdeMeta, ordenarCreativos, creativosEscondidos,
@@ -246,11 +247,12 @@ async function leerCalificacion(desde: string, hasta: string): Promise<Calificac
     respuesta_facturacion: string | null; respuesta_inversion: string | null;
     respuesta_colaboradores: string | null; respuesta_decisor: string | null;
     respuesta_objetivo: string | null;
+    cerro: boolean | null; venta_tipo: string | null;
   };
   const filas: Fila[] = [];
   await leerPorPaginas<Fila>(
     db, 'leads',
-    'id, calificado, respuesta_facturacion, respuesta_inversion, respuesta_colaboradores, respuesta_decisor, respuesta_objetivo',
+    'id, calificado, respuesta_facturacion, respuesta_inversion, respuesta_colaboradores, respuesta_decisor, respuesta_objetivo, cerro, venta_tipo',
     (page) => { filas.push(...page); },
     {
       orden: 'id',
@@ -270,12 +272,16 @@ async function leerCalificacion(desde: string, hasta: string): Promise<Calificac
     return { pregunta, respuestas: conteo };
   }).filter((r) => Object.keys(r.respuestas).length > 0);
 
+  // La misma definición de venta que la cascada (`cerro = true`, sin los becados), sobre la MISMA gente.
+  const compro = (f: Fila) => f.cerro === true && cuentaComoVenta(f);
   return {
     asistieron: filas.length,
     calificados: filas.filter((f) => f.calificado === true).length,
     no_calificados: noCal.length,
     sin_marcar: filas.filter((f) => f.calificado == null).length,
     respuestas_no_calificados: respuestas,
+    compraron: filas.filter(compro).length,
+    compraron_calificados: filas.filter((f) => f.calificado === true && compro(f)).length,
   };
 }
 

@@ -86,35 +86,37 @@ test('v3: CRM · Chats · General · Plan · More; More por las familias de la s
   assert.equal(DESTINOS_MOVIL.find((d) => d.id === 'chats')?.navKey, 'chats');
   // 15/10/2026: las siete del prototipo v3, cada una en su lugar de la sidebar (Copywriting se gatea con la key
   // de su sección Ads Writer: la de la tab unificada no está en TODOS_LOS_ITEMS).
-  assert.deepEqual(SECCIONES_MAS.map((s) => [s.id, s.navKey, s.familia]), [
-    ['calendario', 'calendario', 'operate'], ['ads', 'ads-manager', 'operate'],
-    ['second-brain', 'second-brain', 'analyze'], ['dashboard', 'graphics', 'analyze'], ['experimentos', 'experimentos', 'analyze'],
-    ['offer', 'offer', 'sales'], ['landing', 'landing-writer', 'sales'], ['automations', 'setting', 'sales'],
-    ['video', 'video-generator', 'content'], ['copywriting', 'ads-writer', 'content'],
-    ['cs', 'customer-success', 'customer'], ['curso', 'cs-curso', 'customer'], ['comunidad', 'cs-comunidad', 'customer'],
-    ['mako', 'mako', null],
+  // 17/10/2026, la sidebar nueva: dos familias (Operate con Dashboard y Clients; Sales Machine con Video y Copywriting),
+  // Second Brain arriba sin título, y el Mapa y Experiments OCULTOS (sus páginas siguen; no son filas).
+  assert.deepEqual(SECCIONES_MAS.map((s) => [s.id, s.navKey, s.familia, s.oculta ?? false]), [
+    ['calendario', 'calendario', 'operate', false], ['dashboard', 'graphics', 'operate', false], ['ads', 'ads-manager', 'operate', false],
+    ['cs', 'customer-success', 'operate', false], ['partners', 'partners', 'operate', false],
+    ['offer', 'offer', 'sales', false], ['landing', 'landing-writer', 'sales', false], ['automations', 'setting', 'sales', false],
+    ['video', 'video-generator', 'sales', false], ['copywriting', 'ads-writer', 'sales', false],
+    ['mako', 'mako', null, false],
+    ['second-brain', 'second-brain', null, true], ['experimentos', 'experimentos', null, true],
+    ['curso', 'cs-curso', null, true], ['comunidad', 'cs-comunidad', null, true],
   ]);
 });
 
 test('admin de un cliente completo: la barra de cinco y More con todo, una caja por familia', () => {
   assert.deepEqual(barra('admin', 'completo'), ['crm', 'chats', 'hoy', 'plan', 'mas']);
+  // Desde el 17/10/2026: Second Brain PRIMERO y sin título (arriba de todo, como en escritorio), y las dos familias.
+  // Probado rompiéndolo: con la caja de Second Brain al final en `gruposMas` → cae este assert.
   assert.deepEqual(mas('admin', 'completo'), [
-    ['calendario', 'ads'], ['second-brain', 'dashboard', 'experimentos'], ['offer', 'landing', 'automations'],
-    ['video', 'copywriting'], ['cs', 'curso', 'comunidad'],
+    ['mako'], ['calendario', 'dashboard', 'ads', 'cs'],
+    ['offer', 'landing', 'automations', 'video', 'copywriting'],
   ]);
-  // Cada caja lleva el nombre de su familia en la sidebar. La de abajo, sin título, no está: su única fila era el chat
-  // con MaKo, que desde el 16/10/2026 es el Second Brain de Analyze (como en escritorio, una entrada por persona).
-  assert.deepEqual(familias('admin', 'completo'),
-    ['Operate', 'Analyze', 'Sales Machine', 'Content Machine', 'Customer Success']);
+  assert.deepEqual(familias('admin', 'completo'), [null, 'Operate', 'Sales Machine']);
 });
 
 test('quién ve qué en More: lo que nav.ts le da a cada rol, y nada más', () => {
   // Closer: Dashboard (graphics, su hoja Closing) y MaKo. Setter: Dashboard (su hoja Chat Analyst, desde la v5
   // del 12/10/2026), Automations (setting) y MaKo.
-  assert.deepEqual(mas('closer', 'completo'), [['dashboard'], ['mako']]);
-  assert.deepEqual(mas('setter', 'completo'), [['dashboard'], ['automations'], ['mako']]);
+  assert.deepEqual(mas('closer', 'completo'), [['mako'], ['dashboard']]);
+  assert.deepEqual(mas('setter', 'completo'), [['mako'], ['dashboard'], ['automations']]);
   // Una familia sin nada que el rol vea no deja una caja vacía.
-  assert.deepEqual(familias('closer', 'completo'), ['Analyze', null]);
+  assert.deepEqual(familias('closer', 'completo'), [null, 'Operate']);
   // El closer entra al Dashboard SÓLO por la hoja Closing (app/dashboard/page.tsx): en una capa
   // sin Closing (pm tiene graphics, no closing), More no le ofrece una fila que lo rebota a Today.
   assert.equal(puedeVerKey('graphics', 'closer', 'pm'), true, 'el nav solo se la daría');
@@ -242,13 +244,19 @@ test('las siete de More (15/10/2026): cada pantalla de escritorio, y sus alias, 
     // El Avance se fue del Curso a Clientes: el link viejo, en escritorio, redirige ahí.
     ['/customer-success/curso?vista=avance&producto=3', '/m/cs'],
     ['/customer-success/comunidad', '/m/comunidad'], ['/customer-success/comunidad?post=12&ws=3', '/m/comunidad?post=12'],
+    // La tab Clients (17/10/2026): Classroom y las cinco sub-tabs de la comunidad, ANTES que Clients.
+    ['/clients', '/m/cs'], ['/clients?producto=3&cliente=21', '/m/cs'], ['/clients/classroom', '/m/curso'],
+    ['/clients/classroom?producto=3', '/m/curso?producto=3'], ['/clients/classroom/preview?producto=3', '/m/curso?producto=3'],
+    ['/clients/community', '/m/comunidad'], ['/clients/community?post=12&ws=3', '/m/comunidad?post=12'],
+    ['/clients/calendar', '/m/comunidad'], ['/clients/members', '/m/comunidad'], ['/clients/leaderboards', '/m/comunidad'],
+    ['/clients/about?producto=4', '/m/comunidad?producto=4'], ['/clientsx', null],
     // El prefijo va con barra.
     ['/calendariox', null], ['/offerx', null], ['/second-brainx', null],
   ];
   for (const [p, esperado] of casos) assert.equal(rutaMovil(p), esperado, p);
   // Un Web Push sale por `rutaMovilOHome` y VUELVE a escritorio (lib/push-payload.ts: linkApp → conWs →
   // rutaEscritorio): lo que no se conserva acá, la computadora también lo pierde.
-  for (const p of ['/experimentos?tab=analisis', '/ads-writer?tab=analizar', '/customer-success/comunidad?post=12',
+  for (const p of ['/experimentos?tab=analisis', '/ads-writer?tab=analizar', '/clients/community?post=12',
     '/calendario?vista=mes&fecha=2026-10-14', '/second-brain?area=voz&vista=persona', '/offer?oferta=7']) {
     assert.equal(rutaEscritorio(rutaMovilOHome(p)), p, p);
   }

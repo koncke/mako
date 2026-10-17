@@ -605,8 +605,14 @@ export function techoDeEntrada(p: ProvName): number | undefined {
  */
 export async function chatCheapCascade(opts: { system: string; user: string; json?: boolean; maxTokens?: number; temperature?: number; feature?: string; motivo?: string; provs?: ProvName[]; timeoutMs?: number; modelos?: Partial<Record<ProvName, string>>; validar?: (t: string) => boolean; erroresOut?: string[]; esfuerzo?: EsfuerzoBarato; hastaMs?: number; sinRespaldoDeModelo?: boolean; redDePlataforma?: boolean; erroresPlataformaOut?: string[];
   /** ¿El pedido lleva datos de los clientes del negocio? Por default lo dice la marca `pii` del catálogo. */
-  pii?: boolean }): Promise<string> {
+  pii?: boolean;
+  /**
+   * Se llama justo ANTES de cada pedido a un proveedor (17/10/2026, tarjeta #847: «que diga en qué está»). Con eso quien
+   * espera sabe que el anterior no sirvió y se está probando otro. Un aviso que tira no frena la cascada.
+   */
+  alIntentar?: () => void }): Promise<string> {
   const quedan = (): number => (opts.hastaMs ?? Number.POSITIVE_INFINITY) - Date.now();
+  const avisar = (): void => { try { opts.alIntentar?.(); } catch { /* el aviso no frena nada */ } };
   // El timeout de UN intento: el de siempre, o lo que queda del plazo si es menos.
   const plazoDeIntento = (): number => Math.min(opts.timeoutMs ?? 30_000, quedan());
   const sinTiempo = (): string => {
@@ -705,6 +711,7 @@ export async function chatCheapCascade(opts: { system: string; user: string; jso
         // cuenta, ni otro modelo. `return` sale de los tres bucles de una.
         if (quedan() < MIN_INTENTO_MS) return sinTiempo();
         try {
+          avisar();
           let t = await chatCheap({ ...base, timeoutMs: plazoDeIntento(), json: opts.json });
           // La capa OpenAI-compat de Gemini a veces devuelve contenido VACÍO con
           // response_format json_object (el modelo native anda; el /chat/completions no).
@@ -819,6 +826,7 @@ export async function chatCheapCascade(opts: { system: string; user: string; jso
           // ⏱ El plazo del pedido manda también acá: la red no puede estirar un turno.
           if (quedan() < MIN_INTENTO_MS) return sinTiempo();
           try {
+            avisar();
             const t = await chatCheap({
               system: opts.system, user: opts.user, maxTokens: opts.maxTokens, temperature: opts.temperature,
               feature: opts.feature, esfuerzo: opts.esfuerzo, json: opts.json,

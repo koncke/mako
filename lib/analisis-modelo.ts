@@ -273,6 +273,15 @@ export type Calificacion = {
   no_calificados: number;
   /** ⚠️ NI SÍ NI NO: nadie lo marcó. Ver la advertencia. */
   sin_marcar: number;
+  /**
+   * De los que ASISTIERON, cuántos compraron (`cerro = true`, sin contar los becados), con cualquier fecha de cierre:
+   * el cierre de la MISMA gente. El de la cascada divide los cierres del período por las asistencias del período, y
+   * ahí entran ventas que nunca pasaron por una llamada (en el ws13, 17/10/2026: 9 cierres sobre 21 asistencias daba
+   * «43%», y 4 de esas 9 ventas no tenían llamada; de los 21 que asistieron compraron 6). Opcional: lo usa Offer.
+   */
+  compraron?: number;
+  /** De los que asistieron y estaban marcados como calificados, cuántos compraron (la misma cuenta que `compraron`). */
+  compraron_calificados?: number;
   /** Qué contestaron en el formulario los que NO calificaban. Es lo que dice
    *  POR QUÉ no calificaban, y por lo tanto a quién hay que dejar de traer. */
   respuestas_no_calificados: Array<{ pregunta: string; respuestas: Record<string, number> }>;

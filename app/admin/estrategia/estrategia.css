@@ -148,8 +148,9 @@ html:not([data-tema="oscuro"]):not([data-tema-candidato]) .est { --est-on-verde:
 .est-det-chev { grid-area: c; display: flex; color: var(--faint); transition: transform 0.15s ease; }
 .est-det[open] > .est-det-cab .est-det-chev { transform: rotate(90deg); color: var(--primary); }
 .est-det[open] > .est-det-cab .est-det-n { background: var(--primary); color: var(--on-primary); }
+/* Se pega a la VENTANA: debajo de la barra de inspección cuando se mira un cliente (#850). */
 .est-det[open] > .est-det-cab {
-  position: sticky; top: 0; z-index: 3;
+  position: sticky; top: var(--barra-agencia, 0px); z-index: 3;
   border-bottom: 1px solid var(--border);
   border-radius: 15px 15px 0 0;
 }

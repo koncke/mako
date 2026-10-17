@@ -510,3 +510,78 @@ test('Automations: un nombre en una comparación es de lo abierto, borrar una pa
   const ia = doble(JSON.stringify({ pedidos: [{ texto: email, verbo: 'editar', area: 'email', referencia: null }] }));
   assert.deepEqual((await interpretarCon(email, ctx, ia)).pedidos, [{ sobre: 'actual', texto: email }], 'con la IA diciendo «email», se iba a Email Marketing');
 });
+
+// ── Probado con la IA de verdad en el ws9 (17/10/2026, chat «Dashboard»): tres fallas, las tres de las reglas ──────────
+// docs/hallazgos-ia.md → «Probado con la IA de verdad en el ws9». Las hojas del ws9 tal cual: «CRM y pipeline» (la
+// abierta) y «Landing». Roturas (arnés `romper.py` + `roturas-pedidos.json`, sobre 24 tests, base 24 / 0), en el comentario
+// de cada test.
+const HOJA_CRM: ObjetoChat = { id: 'h1', nombre: 'CRM y pipeline' };
+const HOJA_LANDING: ObjetoChat = { id: 'h2', nombre: 'Landing' };
+const ctxWs9 = (actual: ObjetoChat = HOJA_CRM) => ctxDe('metricas', actual, [HOJA_CRM, HOJA_LANDING]);
+
+// R30 (`enUnNombre` fuera de `decidir`): 23 / 1. R31 (`dudaDeLasReglas` con `l.areas`): 23 / 1. R32 («abre» fuera de
+// `RE_VERBOS`): 22 / 2 (éste y el 3). R40 (sin `unaDeEsaArea`: «créame otra landing» se volvía la hoja «Landing»): 23 / 1.
+test('1. «Abre / Archiva la hoja Landing»: el NOMBRE de una hoja le gana a la palabra del área, aunque la IA diga landing', async () => {
+  for (const [t, verbo] of [['Abre la hoja Landing', 'ver'], ['Archiva la hoja Landing', 'borrar'], ['Abre Landing', 'ver']] as const) {
+    // «Landing» es el nombre de la hoja: no son dos áreas y no se le pregunta a la IA.
+    const f = doble(JSON.stringify({ pedidos: [{ texto: t, verbo, area: 'landing', referencia: null }] }));
+    const p = (await interpretarCon(t, ctxWs9(), f)).pedidos[0];
+    assert.ok(p.sobre === 'otro' && p.objeto?.id === 'h2' && p.verbo === verbo, `${t}: ${JSON.stringify(p)}`);
+    assert.equal(f.llamadas, 0, `${t}: las reglas dudaban por «Landing»`);
+    // Y con la etiqueta de la IA diciendo `landing` (lo que pasó en el ws9: «Eso se hace en Web Generator»), la hoja.
+    const conIA = resolverPedidos([{ texto: t, verbo, area: 'landing', referencia: null, etiqueta: 'ia' }], ctxWs9(), { origen: 'ia', texto: t }).pedidos[0];
+    assert.ok(conIA.sobre === 'otro' && conIA.objeto?.id === 'h2', `${t} con la IA diciendo landing: ${JSON.stringify(conIA)}`);
+  }
+  const archivar = (await interpretarCon('Archiva la hoja Landing', ctxWs9(), null)).pedidos[0];
+  assert.ok(archivar.sobre === 'otro' && archivar.confirmar, 'archivar siempre confirma');
+  // Fuera de un nombre, «landing» sigue siendo del Web Generator.
+  const web = (await interpretarCon('Créame otra landing para el curso', ctxWs9(), null)).pedidos[0];
+  assert.ok(web.sobre === 'otra-tab' && web.titulo === 'Web Generator', JSON.stringify(web));
+});
+
+// R34 (`destinoEn` fuera de `leer`): 23 / 1. R35 (sin `RE_CONTENEDOR`: «la tab de»): 23 / 1. R36 (un verbo cuenta como
+// destino): 23 / 1. R37 (sin el corte de «y llévame»): 23 / 1.
+test('2. «Ve al CRM», «Llévame al CRM», «Llévame a la tab de General»: el link, sin pasar por la hoja ni por la IA', async () => {
+  for (const [t, titulo, ruta] of [['Ve al CRM', 'CRM', '/crm'], ['Llévame al CRM', 'CRM', '/crm'], ['Llévame a la tab de General', 'General', '/general'],
+    ['Quiero ir a Automations', 'Automations', '/automations'], ['Llévame a mis leads', 'CRM', '/crm']] as const) {
+    const f = doble(null);
+    const i = await interpretarCon(t, ctxWs9(), f);
+    assert.equal(i.pedidos.length, 1, t);
+    const p = i.pedidos[0];
+    assert.ok(p.sobre === 'otra-tab' && p.titulo === titulo && p.link === `${ruta}?ws=${WS}` && p.operacion === null && !p.confirmar, `${t}: ${JSON.stringify(p)}`);
+    assert.equal(f.llamadas, 0, `${t}: las reglas ya saben adónde va`);
+  }
+  // A la tab en la que ya está, por su título: se dice, no se edita la hoja.
+  const aca = (await interpretarCon('Llévame al Dashboard', ctxWs9(), null)).pedidos[0];
+  assert.ok(aca.sobre === 'otro' && aca.objeto === null && aca.pregunta === 'Ya estás en Dashboard.', JSON.stringify(aca));
+  // «A y llévame a B»: el cambio de la hoja no se pierde en el link.
+  const dos = await interpretarCon('Agrega el CAC por semana y llévame al CRM', ctxWs9(), null);
+  assert.deepEqual(dos.pedidos.map((p) => p.sobre), ['actual', 'otra-tab']);
+  assert.equal(dos.pedidos[0].texto, 'Agrega el CAC por semana');
+  // Lo que NO es ir: «vamos a agendar» es agendar (con su operación), y la descripción de una automatización no es un link.
+  const agendar = (await interpretarCon('Vamos a agendar una reunión con Juan', ctxWs9(), null)).pedidos[0];
+  assert.ok(agendar.sobre === 'otra-tab' && agendar.operacion != null, JSON.stringify(agendar));
+  const desc = 'Cuando un lead entra al funnel, mándale un WhatsApp';
+  assert.deepEqual((await interpretarCon(desc, ctxChatbot([A, B]), null)).pedidos, [{ sobre: 'actual', texto: desc }]);
+  assert.equal(partirPedidos('Vamos a crear otra landing')[0].verbo, 'crear');
+});
+
+// R33 (`porSuPalabra` fuera de `decidir`): 23 / 1. R38 (`noHay` fuera: la lista vacía cae a `sobreOtro`): 23 / 1. R39 (sin
+// «ya está abierta»): 23 / 1.
+test('3. «Abre la hoja de Marketing» sin ninguna así: «No hay…» con las que hay, nunca un cambio de la abierta', async () => {
+  const p = (await interpretarCon('Abre la hoja de Marketing', ctxWs9(), null)).pedidos[0];
+  assert.ok(p.sobre === 'otro' && p.objeto === null && p.candidatos.length === 0 && !p.confirmar, JSON.stringify(p));
+  assert.equal(p.sobre === 'otro' ? p.pregunta : null, 'No hay una hoja «Marketing». Están «CRM y pipeline» y «Landing».');
+  // Con comillas, y para archivar, lo mismo.
+  const q = (await interpretarCon('Archiva la hoja «Ventas Q4»', ctxWs9(), null)).pedidos[0];
+  assert.ok(q.sobre === 'otro' && q.pregunta?.startsWith('No hay una hoja «Ventas Q4».'), JSON.stringify(q));
+  // La abierta, pedida por su nombre: ya está abierta (antes la burbuja no decía nada).
+  const ya = (await interpretarCon('Abre la hoja Landing', ctxWs9(HOJA_LANDING), null)).pedidos[0];
+  assert.ok(ya.sobre === 'otro' && ya.objeto === null && ya.pregunta === '«Landing» ya está abierta.', JSON.stringify(ya));
+  // «La otra hoja» y «la hoja nueva» no son nombres: lo de siempre.
+  const otra = (await interpretarCon('Abre la otra hoja', ctxWs9(), null)).pedidos[0];
+  assert.ok(otra.sobre === 'otro' && otra.objeto?.id === 'h2', JSON.stringify(otra));
+  // Un nombre que CONTIENE el de la hoja (o al revés) también la encuentra.
+  const parte = (await interpretarCon('Abre la hoja del CRM y pipeline de ventas', ctxWs9(HOJA_LANDING), null)).pedidos[0];
+  assert.ok(parte.sobre === 'otro' && parte.objeto?.id === 'h1', JSON.stringify(parte));
+});

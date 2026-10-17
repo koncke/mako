@@ -22,7 +22,7 @@ import { AREAS, type NodoCerebro } from './cerebro-modelo';
 
 export type CampoCerebro = 'nombre' | 'detalle' | 'fuente' | 'area';
 
-export const CAMPOS_CEREBRO: Array<{ id: CampoCerebro; label: string; ayuda: string; texto: (n: NodoCerebro) => string }> = [
+export const CAMPOS_CEREBRO: Array<{ id: CampoCerebro; label: string; ayuda: string; texto: (n: NodoCerebro<string>) => string }> = [
   { id: 'nombre', label: 'El nombre', ayuda: 'Lo que se lee al lado del punto en el mapa.', texto: (n) => n.etiqueta },
   { id: 'detalle', label: 'El contenido', ayuda: 'Lo que dice adentro. Encuentra mucho más.', texto: (n) => `${n.detalle} ${(n.datos ?? []).map((d) => `${d.k} ${d.v}`).join(' ')} ${n.cuerpo ?? ''}` },
   { id: 'fuente', label: 'De dónde salió', ayuda: 'Si lo dedujo MaKo, de qué documento, o si lo escribiste tú.', texto: (n) => n.fuente },
@@ -35,7 +35,7 @@ export const CAMPOS_CEREBRO_DEFECTO: CampoCerebro[] = ['nombre'];
 export const CAMPOS_CEREBRO_TODOS: CampoCerebro[] = CAMPOS_CEREBRO.map((c) => c.id);
 
 /** ¿Este nodo matchea? */
-export function matchNodo(n: NodoCerebro, q: string, campos: CampoCerebro[] = CAMPOS_CEREBRO_DEFECTO): boolean {
+export function matchNodo(n: NodoCerebro<string>, q: string, campos: CampoCerebro[] = CAMPOS_CEREBRO_DEFECTO): boolean {
   if (!q.trim()) return false;
   const heno = CAMPOS_CEREBRO.filter((c) => campos.includes(c.id)).map((c) => c.texto(n)).join(' ');
   return coincide(heno, q);

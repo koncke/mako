@@ -31,6 +31,9 @@ import { runMakoTool } from '@/lib/mako-tools';
 import { crearRunnerAcciones } from '@/lib/mako-doer-acciones';
 import { listPlanBoard, guardarPlanTarea, moverPlanTarea, agregarDependencia, borrarDependencia, listDependencias } from '@/lib/plan-board';
 import { listTareas, editarTarea, moverTarea } from '@/lib/todo';
+// Cerrar EN EL ACTO (17/10/2026): la misma escritura en los dos tableros, sin borrador.
+import { cerrarConEvidencia, type CierreEnElActo } from '@/lib/plan-cerrar';
+import { rutaParaRevisar } from '@/lib/operaciones-reglas';
 // Las columnas del kanban (16/10/2026): claves, etiquetas y qué es un pendiente, de UN lugar.
 import { esEstado, estaPendiente, etiquetaEstado, motivoAtoradaOk } from '@/lib/todo-estados';
 import {
@@ -750,7 +753,7 @@ export const RUNNERS: Runners = {
       if (!t) return { error: `No encuentro la tarea «${str(input, 'id')}» en el plan de este negocio.` };
       const estado = str(input, 'estado');
       // El validador ya filtra por el enum; esto es la segunda puerta para quien llame sin él.
-      if (!esEstado(estado) || estado === 'hecho') return { error: 'Columna inválida: usa por_hacer, en_curso, en_seguimiento o no_cumple. Para completarla, proponer_cierre_tareas.' };
+      if (!esEstado(estado) || estado === 'hecho') return { error: 'Columna inválida: usa por_hacer, en_curso, en_seguimiento o no_cumple. Para completarla, cerrar_tareas_plan.' };
       const motivo = estado === 'en_seguimiento' ? motivoAtoradaOk(input.motivo) : null;
       const destino = etiquetaEstado(estado);
       // «Ya está así» es un éxito sin nada que hacer para un flujo o un token (yaEstaba), y un
@@ -974,6 +977,50 @@ export const RUNNERS: Runners = {
       return { id, url: linkBorrador(id), nueva: true, extra: { cierres: cerrar.length } };
     },
     ejecutar: async () => ({ ok: false, resumen: 'Los cierres se confirman de a uno en la pantalla de revisión (/plan/revisar), no por aquí.' }),
+  },
+
+  /**
+   * CERRAR EN EL ACTO (17/10/2026): lo mismo que valida `proponer_cierre_tareas` (que exista, que esté abierta, que
+   * traiga evidencia), pero sin borrador: la confirmación es la de cualquier acción de chat. Una que ya estaba hecha
+   * es «ya está así» (`yaEstaba`): un éxito sin nada que hacer para el Centro, un flujo o un token.
+   */
+  cerrar_tareas_plan: {
+    preparar: async (input, ctx) => {
+      const tab = await leerTablero(ctx.ws);
+      const cerrar: Array<{ id: string; titulo: string; evidencia: string; revisar: string | null }> = [];
+      const noEstan: string[] = [];
+      const cortas: string[] = [];
+      const yaHechas: string[] = [];
+      for (const c of lista(input, 'cerrar')) {
+        const t = buscarTarea(tab, str(c, 'id'), null);
+        if (!t) { noEstan.push(str(c, 'id')); continue; }
+        if (!abierta(t)) { yaHechas.push(t.titulo); continue; }
+        const evidencia = str(c, 'evidencia');
+        if (evidencia.length < 10) { cortas.push(t.titulo); continue; }
+        if (cerrar.some((x) => x.id === t.id)) continue;
+        cerrar.push({ id: t.id, titulo: t.titulo, evidencia, revisar: rutaParaRevisar(str(c, 'revisar')) });
+      }
+      if (noEstan.length) return { error: `Estas tareas no existen en el plan de este negocio: ${noEstan.join(', ')}. Revisa los ids con listar_tareas_plan.` };
+      if (cortas.length) return { error: `Falta evidencia (mínimo 10 caracteres) para: ${cortas.map((x) => `«${recortar(x, 60)}»`).join(', ')}.` };
+      if (!cerrar.length) {
+        return yaHechas.length
+          ? { error: `Ya estaba${yaHechas.length === 1 ? '' : 'n'} hecha${yaHechas.length === 1 ? '' : 's'}: ${yaHechas.map((x) => `«${recortar(x, 60)}»`).join(', ')}.`, yaEstaba: true }
+          : { error: 'Pasa al menos una tarea en `cerrar`.' };
+      }
+      const nombres = cerrar.map((x) => `«${recortar(x.titulo, 80)}»`).join(', ');
+      return { payload: { cerrar }, resumen: `Marcar hecha${cerrar.length === 1 ? '' : 's'} ${nombres}` };
+    },
+    ejecutar: async (payload, ctx): Promise<Ejecutado> => {
+      const items = (Array.isArray(payload.cerrar) ? payload.cerrar : []) as CierreEnElActo[];
+      const r = await cerrarConEvidencia(await usaPlanBoard(ctx.ws), items);
+      if (!r.cerradas.length) return { ok: false, resumen: `No pude marcar hecha ninguna${r.fallidas.length ? `: ${r.fallidas.map((x) => `«${recortar(x, 60)}»`).join(', ')}` : ''}.`, datos: { cerradas: 0 } };
+      const hechas = r.cerradas.map((x) => `«${recortar(x.titulo, 80)}»`).join(', ');
+      return {
+        ok: true,
+        resumen: `Marcada${r.cerradas.length === 1 ? '' : 's'} hecha${r.cerradas.length === 1 ? '' : 's'}: ${hechas}${r.fallidas.length ? `. No pude con ${r.fallidas.length}.` : ''}`,
+        datos: { cerradas: r.cerradas.length, ids: r.cerradas.map((x) => x.id) },
+      };
+    },
   },
 
   proponer_ampliar_tareas: {

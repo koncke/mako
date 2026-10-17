@@ -137,7 +137,9 @@ export function dondeQuedo(tareas: readonly TareaPlanP[], titulo: string, chat: 
 
 /** Lo que vuelve de sumar o marcar, en pocas palabras (la línea de estado de la sección). */
 export type EscritoPlan =
-  | { ok: true; aviso: string; plan: LecturaPlan }
+  /** `tareaId`: la tarea que quedó (la creada, o la abierta que ya estaba), si se encontró en el tablero (17/10/2026: el
+   *  Plan que se arma solo la necesita para marcarla hecha con el «Ya está»). */
+  | { ok: true; aviso: string; plan: LecturaPlan; tareaId?: string | null }
   | { ok: false; error: string; plan?: LecturaPlan };
 
 const sinPrefijo = (p: string) => p.replace(/^(feature|agente)\s*:\s*/i, '');
@@ -151,4 +153,27 @@ export function avisoDeAlta(creadas: number, donde: { enEsteChat: boolean; proye
   if (creadas === 0) return 'Ya estaba: le sumé esto';
   if (donde && !donde.enEsteChat && donde.proyecto) return `Quedó en «${sinPrefijo(donde.proyecto)}»`;
   return 'Sumada al Plan';
+}
+
+// ── El «Ya está» de un chat cierra su tarjeta (17/10/2026) ──────────────────────────────────────────────────────────
+// Martín: que marcar resuelta una tarea, cuando algo ya está, sea AUTOMÁTICO siempre. El lado del chat (detectar el
+// «Ya está» y llamar) es del Ops Center; acá, qué tarjetas cierra un texto. La regla es estricta a propósito: cerrar la
+// tarjeta equivocada esconde trabajo pendiente, y no cerrar una se arregla con un clic.
+//   1. Las que el texto NOMBRA por número («#870», «la 870» no): son las que el chat sabe que trabajó.
+//   2. Si no nombra ninguna, la abierta del proyecto del jefe cuyo título entero aparece en el texto.
+//   Nada más: ni parecidos ni la «más probable». Sin ninguna, no se cierra nada y se dice.
+
+/** Los números de tarjeta que nombra un texto («#870, #873 y #882»). */
+export const numerosDeTarjeta = (texto: string): number[] =>
+  [...new Set([...texto.matchAll(/(?:^|[^\w&/])#(\d{2,6})\b/g)].map((m) => Number(m[1])))];
+
+/** Las tarjetas abiertas que cierra este «Ya está» (`abiertas`: las del proyecto del jefe, o todas para los números). */
+export function tarjetasDelYaEsta(texto: string, abiertas: readonly TareaPlanP[], delJefe: readonly TareaPlanP[] = abiertas): TareaPlanP[] {
+  const nums = numerosDeTarjeta(texto);
+  if (nums.length) return abiertas.filter((t) => t.num != null && nums.includes(t.num));
+  const t = ` ${normal(texto).replace(/[^a-z0-9ñ ]+/g, ' ').replace(/\s+/g, ' ')} `;
+  return delJefe.filter((x) => {
+    const tit = normal(x.titulo).replace(/[^a-z0-9ñ ]+/g, ' ').replace(/\s+/g, ' ').trim();
+    return tit.split(' ').length >= 3 && t.includes(` ${tit} `);
+  });
 }

@@ -5547,3 +5547,80 @@ nadie: `esCarteraVigente` (lib/agencia-cartera.ts) = pendiente o aprobada. Las d
 de la barra (`top: var(--barra-agencia)`), que lo tapaba.
 
 · *2026-10-17 chat «Onboarding» (claude4)*
+
+## Clientes, Curso y Comunidad son UNA tab, «Clients»; las cuentas de agencia se mudaron a MaKo Partners (17/10/2026)
+
+Pedido de Martín del 17/10 (textual, en `docs/diseno-clients.md`, con las decisiones D1-D10). Chat «Clients», cuenta 4.
+Lo que no se ve leyendo el código:
+
+- **El código NO se mudó de carpeta, y fue a propósito.** 157 archivos nombran `app/customer-success` (370 menciones) y
+  tres áreas lo tocan en paralelo. La URL nueva es `/clients`; cada `page.tsx` viejo pasó su cuerpo a `pantalla.tsx` y
+  quedó SÓLO como redirect (`app/customer-success/a-clients.ts`, 307 y con la query entera). Una pantalla, dos URLs:
+  `tests/clients-rutas.test.ts` frena que una ruta vieja vuelva a montar una pantalla, y que una línea de código nueva
+  enlace `/customer-success` (lo que queda está en `QUEDAN`, con su motivo, y la lista sólo se achica).
+  **Vive en:** `lib/clients-rutas.ts` (`rutaNuevaDeVieja`), `app/clients/*`.
+- **⚠️ `history.replaceState(window.history.state, …)` NO le avisa a Next; con `null`, sí.** Next parchea `pushState` y
+  `replaceState`: si el estado ya trae su marca (`__NA`) lo deja pasar sin tocar su router, así que `useSearchParams` de
+  la cabecera de Clients no se enteraba de que el kanban había cambiado de producto. Con `null`, Next copia su estado
+  interno (`copyNextJsInternalHistoryState`) y actualiza `canonicalUrl`: el pathname y la query quedan sincronizados, y
+  las server actions posteriores van a la URL nueva. `app/conocimientos/posicion.ts` pasa el estado a propósito (no
+  quiere avisar del hash); para sincronizar la cabecera hace falta lo contrario. **Vive en:** `app/clients/programa-url.ts`.
+- **Las cinco sub-tabs de la comunidad son UNA página (`/clients/[seccion]`) y entre ellas no se navega**: la cabecera
+  hace `pushState` y la comunidad lee su pestaña del pathname. Desde Clients o Classroom sí se navega (otra pantalla).
+  Las vueltas internas (la campana abre un post, «Ver ranking») pasan por la misma URL.
+- **Un `revalidatePath('/customer-success')` viejo SIGUE refrescando la pantalla en la que estás**: en Next 16.2.6
+  cualquier `revalidatePath` dentro de una server action marca `pathWasRevalidated` sin mirar la ruta (el propio código
+  de Next dice «TODO: only revalidate if the path matches»). Por eso los del CRM (archivos de otro chat) no rompieron
+  nada al mudar la URL; igual se pasaron a `/clients` los del área.
+- **El Classroom va EMBEBIDO**: con la cabecera de Clients encima, el alto ya no es la ventana. `.cls--alto` (un flex en
+  columna del alto de la ventana menos la barra de agencia) le da el alto y baja por flex hasta `CursoUgc`
+  (`modo="embebido"`). Con `modo="pagina"` el curso medía la ventana entera y se salía por abajo lo que mide la cabecera.
+- **⚠️ Un popover que se cierra «al clic de afuera» y adentro tiene el desplegable de la FUENTE**: `SelectorFuente`
+  monta su lista adentro del `.ugc-menu` más cercano; sin esa clase la lista va al `body` y elegir una fuente contaba
+  como un clic AFUERA (cerraba el panel sin elegir). El panel «Personalizar» lleva `ugc-menu`.
+- **«Personalizar» no es un ajuste nuevo**: el color y la fuente de la cabecera y de la comunidad son los de
+  `curso_estilo` (los del Classroom y del portal del alumno), por `guardarEstiloCursoAction`. Uno por programa, sin
+  migración. La comunidad del equipo tomó la piel del curso (`.cmu--papel`, que era `.cmu--alumno`): las clases de la
+  hoja dicen la PIEL, no quién mira.
+- **Un script de reemplazos que no verifica cada reemplazo deja el archivo a medias en silencio.** La raíz de la
+  comunidad (`cmu--${piel}`) no se reemplazó porque el ancla tenía `}), [` y el fuente `} : null), [`; el script siguió
+  y escribió el resto. Lo cazó el test (no la lectura). Cada `replace` de un script de edición pregunta antes si el
+  ancla está, y frena si no.
+- **Un guard que lee los ~3000 archivos de `app/` y `lib/` desde node tarda UN MINUTO en esta PC**; con `git grep -l`
+  como prefiltro (nativo) y la limpieza de comentarios sólo sobre los candidatos, 4,5 s. Y `git grep` lista el ÍNDICE:
+  un archivo nuevo sin `git add` no se revisa.
+- **Las cuentas de MaKo de los clientes de una agencia salieron de Clients** (D8): `pantalla.tsx` ya no lee la cartera,
+  el plan, el equipo ni el cobro (eran lecturas que cruzan de inquilino) y la ficha dice «MaKo Partners →» cuando el
+  cliente además tiene cuenta. Abrir una cuenta es UNA implementación, `abrirCuentaDePartner` (lib/partners.ts);
+  `crearCuentaMakoAction` la envuelve. Lo de Partners, en [hallazgos-partners.md](hallazgos-partners.md).
+- **⚠️ El teléfono lee rótulos de los archivos de ESCRITORIO por su ruta** (`tests/m-comunidad.test.ts`,
+  `tests/m-curso.test.ts`: «cada rótulo que el teléfono repite sigue, ENTERO, en su archivo de escritorio»). Pasar un
+  `page.tsx` a `pantalla.tsx` o cambiar «Ir a Clientes» por «Ir a Clients» en la computadora rompe esos dos, que NO
+  nombran «customer-success» en su nombre: la batería «de lo que cambió» elegida por nombre de archivo no los agarró.
+  Se eligen por CONTENIDO (`git grep -l <la carpeta> -- 'tests/*.test.ts'`).
+
+- **El código de agencia que quedó dormido en la tarjeta y la ficha se BORRÓ, no se dejó apagado** (`CuentaDeMaKo.tsx`,
+  la tab Equipo, el chip del plan, «Reenviar el acceso», «Nadie puede entrar todavía», el filtro «Con/Sin cuenta»).
+  Antes de borrar, lo que hacía y Partners todavía no tenía se mudó allá («Reenviar el acceso», «Nadie puede entrar»).
+  Un flag dormido (`cuentas.visible`) es una puerta que alguien vuelve a abrir pasando una prop.
+  `tests/cs-tarjeta-cuentas.test.ts` fija las dos mitades: que no vuelva, y que lo de Partners esté.
+- **⚠️ Comillas invertidas en un comentario adentro del CSS de un componente lo rompen**: el CSS va en un template
+  literal (`` const CSS = `…` ``), y una comilla invertida en un comentario `/* … */` cierra el string. Ningún test lo vio
+  (los de esta tab leen el fuente con regex, no lo compilan) y el tsc no entraba en RAM: lo cazó un chequeo de sintaxis
+  con `ts.createSourceFile` sobre los archivos tocados (segundos, sin RAM).
+- **⚠️ Restaurar una rotura de test con `git checkout -- <archivo>` se lleva lo que no está commiteado.** Pasó acá: la
+  rotura de `app/m/curso/page.tsx` se «restauró» al commit anterior y se fue el trío recién puesto (lo cazó el test, se
+  rehízo). Cada rotura se restaura de una COPIA hecha antes (tests/cs-tarjeta-cuentas.test.ts ya lo decía).
+
+**Lo que quedó SIN hacer, con su archivo:**
+- **La barra**: la ordena el chat Sidebar (`app/_components/nav.ts`: Clients en Operate, MaKo Partners sólo agencia) y
+  el «← Regresar a Clientes» de `Sidebar.tsx`. Con eso, las keys `cs-curso`/`cs-comunidad` y sus tests
+  (`tests/comunidad-nav.test.ts`, `tests/curso-admin.test.ts`) y la lista de More del teléfono (`SECCIONES_MAS`, una
+  sola fila Clients) tienen que cambiar en el MISMO deploy.
+- **Links viejos en otros archivos** (funcionan por el redirect): los avisos del curso (`lib/curso-mensajes.ts`, lo tocaba
+  Automations ese día), los `revalidatePath` del CRM, la salida de la vista de agencia (`lib/agencia-cartera.ts`,
+  `app/api/auth/me/route.ts`, `lib/movil-guard.ts`, `ImpersonationBanner.tsx`). La lista exacta: `QUEDAN` en
+  `tests/clients-rutas.test.ts`.
+- **Nada se miró en el navegador**: la extensión de Chrome no estaba conectada y la PC sin RAM para `next dev`. Lo
+  primero cuando esté en producción: `/clients?ws=3` (las siete sub-tabs, «Personalizar», el Classroom embebido) en
+  escritorio y a 820 px.

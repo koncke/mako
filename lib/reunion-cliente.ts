@@ -29,6 +29,8 @@ import { getTenantDb, getWorkspaceActual, getWorkspace, listarWorkspaces } from 
 import { listarUsuarios } from './usuarios';
 import { listCategorias, crearCategoria } from './todo';
 import { PREFIJO_CLIENTE, NOMBRES_TODO } from './todo-proyectos-catalogo';
+import { tableroDeCapa } from './tablero-de-capa';
+import { proyectoDelCliente, clientePorTitulo, clienteManda, type TableroDe } from './reunion-cliente-reglas';
 
 /** El cliente al que pertenece una reunión, con de dónde salió la certeza. */
 export type ClienteDeReunion = {
@@ -184,26 +186,55 @@ async function porWorkspaceCliente(candidatos: string[]): Promise<ClienteDeReuni
  * que el dueño ya tenía —"Teriyaki baja" junto a "Cliente Baja Teriyaki"— porque los
  * que crean la categoría buscan por nombre exacto.
  */
-export async function nombreDeProyectoPara(c: { empresa: string | null; nombre: string }): Promise<string> {
+export async function nombreDeProyectoPara(c: { empresa: string | null; nombre: string; leadId?: number }): Promise<string> {
   const nombre = nombreProyectoCliente(c);
-  const nucleo = nucleoCliente(c);
   if (!nombre) return nombre;
   try {
-    const cats = await listCategorias();
-    // La búsqueda va por el NÚCLEO (sin el prefijo "Cliente: "): el proyecto que ya
-    // tiene puede llamarse "Grupo Esquer" o "Cuenta Grupo Esquer", y exigirle la
-    // palabra "cliente" le abriría uno nuevo al lado del que ya está usando.
-    const ya = cats.find((x) => norm(x.nombre) === norm(nombre))
-      ?? cats.find((x) => norm(x.nombre) === norm(nucleo))
-      ?? cats.find((x) => esElProyectoDe(x.nombre, nucleo));
+    // Primero por el LEAD (la categoría que ya está atada a este cliente), después por nombre
+    // —sin el prefijo, en cualquier orden— (lib/reunion-cliente-reglas.ts). Por nombre solo,
+    // el ws1 terminó con tres proyectos para Macario Romero (#870).
+    const ya = proyectoDelCliente(await listCategorias(), { leadId: c.leadId ?? 0, empresa: c.empresa, nombre: c.nombre });
     return ya?.nombre ?? nombre;
   } catch { return nombre; }
+}
+
+/** El tablero de ESTE workspace: el del dueño (super admin) o el de un cliente. */
+export async function tableroDelWorkspace(wsDado?: number): Promise<TableroDe> {
+  const ws = wsDado ?? await getWorkspaceActual().catch(() => null);
+  return tableroDeCapa(ws == null ? null : (await getWorkspace(ws).catch(() => null))?.capa);
+}
+
+/**
+ * El proyecto al que la reunión manda TODAS sus tareas, o '' si no manda ninguno. Sólo en el
+ * tablero de un cliente (`clienteManda`): en el del dueño, una llamada con un cliente de MaKo deja
+ * trabajo de las TABS de MaKo, y cada tarea va al proyecto que eligió la extracción (#870). Es el
+ * único lugar donde se decide: lo llaman la ruta del modal, la lectura en segundo plano y el cron.
+ */
+export async function proyectoQueManda(cli: ClienteDeReunion | null, ws?: number): Promise<string> {
+  if (!cli) return '';
+  if (!clienteManda(await tableroDelWorkspace(ws))) return '';
+  return nombreDeProyectoPara(cli).catch(() => '');
 }
 
 /** El cliente que NOMBRA el título de la reunión, cuando no hubo email que mirar. */
 async function porTitulo(titulo?: string | null): Promise<ClienteDeReunion | null> {
   const t = (titulo ?? '').trim();
-  return t.length >= 4 ? clienteEnTexto(t).catch(() => null) : null;
+  if (t.length < 4) return null;
+  const porNombre = await clienteEnTexto(t).catch(() => null);
+  if (porNombre) return porNombre;
+  // La SIGLA de la empresa o la empresa con las palabras en otro orden: «Junta Monserrat HMO» es
+  // de «Congelados HMO» (lib/reunion-cliente-reglas.ts, `clientePorTitulo`). Sin esto, 7 de las 15
+  // tareas de esa junta cayeron en «Sin proyecto» (#870).
+  try {
+    const db = await getTenantDb();
+    const { data } = await db.from('leads').select('id, nombre, empresa, email').eq('estado_lead', 'ganado').limit(200);
+    const l = clientePorTitulo(t, (data ?? []) as Array<{ id: number; nombre: string | null; empresa: string | null; email: string | null }>);
+    if (!l) return null;
+    return {
+      leadId: l.id, nombre: (l.nombre ?? l.empresa ?? '').trim(), empresa: l.empresa?.trim() || null,
+      email: (l.email ?? '').trim(), via: 'nombre-en-texto', confianza: 'media',
+    };
+  } catch (e) { console.error('[reunion-cliente] porTitulo', e); return null; }
 }
 
 /**
@@ -216,21 +247,15 @@ async function porTitulo(titulo?: string | null): Promise<ClienteDeReunion | nul
  */
 export async function proyectoDeCliente(c: ClienteDeReunion): Promise<number | null> {
   const nombre = nombreProyectoCliente(c);
-  const nucleo = nucleoCliente(c);
   if (!nombre) return null;
   try {
-    const cats = await listCategorias();
-    // Coincidencia exacta normalizada, o el proyecto cuyo nombre CONTIENE al del
-    // cliente ("Cuenta Grupo Esquer" para el lead "Grupo Esquer"): el dueño ya le
-    // puso su nombre y no hay que crearle otro al lado. Se busca por el NÚCLEO, sin
-    // el prefijo "Cliente: " — si no, a cada cliente que ya tenía proyecto se le
-    // abriría un segundo con el nombre nuevo.
-    const n = norm(nombre);
-    const ya = cats.find((x) => norm(x.nombre) === n)
-      ?? cats.find((x) => norm(x.nombre) === norm(nucleo))
-      ?? cats.find((x) => esElProyectoDe(x.nombre, nucleo));
+    // El que ya tiene, por el lead o por el nombre (lib/reunion-cliente-reglas.ts): si no, a cada
+    // cliente que ya tenía proyecto se le abriría un segundo con el nombre nuevo.
+    const ya = proyectoDelCliente(await listCategorias(), { leadId: c.leadId, empresa: c.empresa, nombre: c.nombre });
     if (ya) return ya.id;
-    const nueva = await crearCategoria(nombre, '#0E9B8E');
+    // Nace ATADO al lead: la próxima reunión lo encuentra por el dato, no por cómo se escribió.
+    const nueva = await crearCategoria(nombre, '#0E9B8E', undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined,
+      c.leadId > 0 ? { lead_id: c.leadId, nombre: c.nombre } : undefined);
     console.log(`[reunion-cliente] proyecto creado para el cliente: «${nombre}» (#${nueva.id})`);
     return nueva.id;
   } catch (e) { console.error('[reunion-cliente] proyectoDeCliente', e); return null; }

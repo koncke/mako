@@ -21,7 +21,9 @@
 // bloques): es el héroe que aprobó Martín en el prototipo. Si el negocio lo eligió oscuro, ya lo es.
 // =============================================================================
 
+import type { CSSProperties } from 'react';
 import type { Elemento, Hoja } from '@/lib/graficos-catalogo';
+import { acentoDeBloque } from '@/lib/graficos-identidad';
 import { conVariables, type ValoresVariables } from '@/lib/general-piezas';
 import { ProveedorGeneral } from '@/app/general/ProveedorGeneral';
 import type { DatosGeneral } from '@/app/general/datos-tipos';
@@ -33,13 +35,15 @@ const HEROE = new Set(['cabecera']);
 
 export function GeneralM({ hoja, datos, variables }: { hoja: Hoja; datos: DatosGeneral; variables: ValoresVariables }) {
   const componentes = [...hoja.componentes].sort((a, b) => a.y - b.y || a.x - b.x);
+  // Lo relleno de cada bloque, con el color de la hoja (#859): el mismo que en la computadora.
+  const acento = (acentoDeBloque(hoja.tema.acento) ?? undefined) as CSSProperties | undefined;
   let fuera = 0;
   const piezas = componentes.map((c) => {
     if (c.clase !== 'elemento') { fuera++; return null; }
     const e = c as Elemento;
     if (e.tipo === 'general' && e.general) {
       return (
-        <article key={e.id} className="m-hoy-gen-tarjeta" data-heroe={HEROE.has(e.general.pieza) || undefined}>
+        <article key={e.id} className="m-hoy-gen-tarjeta" data-heroe={HEROE.has(e.general.pieza) || undefined} style={acento}>
           <ElementoGeneral e={e} />
         </article>
       );

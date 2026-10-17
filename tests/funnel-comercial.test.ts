@@ -211,8 +211,9 @@ function cuerpo(src: string, abre: string, cierra: string): string {
   const j = src.indexOf(cierra, i + abre.length);
   assert.ok(j > i, `no se encontró el cierre '${cierra}' después de '${abre}'`);
   const trozo = src.slice(i, j);
-  // Si mañana mide el doble, está mirando otra cosa.
-  assert.ok(trozo.length < 6000, `el recorte quedó en ${trozo.length} caracteres: está abarcando más que la función`);
+  // Si mañana mide el doble, está mirando otra cosa. 17/10/2026: 6000 → 7000 porque `getFunnelEtapas` creció de verdad
+  // (#896, los funnels elegidos: medía 6.343 limpia, con lo de funnels ya sacado a `enLosFunnels` y `altasEnFunnels`).
+  assert.ok(trozo.length < 7000, `el recorte quedó en ${trozo.length} caracteres: está abarcando más que la función`);
   return trozo;
 }
 

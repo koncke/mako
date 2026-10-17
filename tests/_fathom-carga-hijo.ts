@@ -619,6 +619,85 @@ async function main() {
     if (antesEnv.secreto === undefined) delete process.env.FATHOM_WEBHOOK_SECRET;
   }
 
+  // ── #870 (17/10/2026): la reunión con un cliente en los DOS tableros. Sólo con `cliente870`, no con `todo`:
+  // lo pide tests/reunion-cliente-870.test.ts y no cambia la salida que leen los otros.
+  if (modo === 'cliente870') {
+    const pp = await import('../lib/plan-propuesta');
+    const rc = await import('../lib/reunion-cliente');
+    const cli = { leadId: 31, nombre: 'Macario Romero Valencia', empresa: 'Congelados HMO', email: 'mromero@grupo21.com.mx', via: 'email-invitado' as const, confianza: 'alta' as const };
+
+    // EL DUEÑO: la reunión con un cliente NO manda el proyecto, y su «Cliente: X» no se abre.
+    reset(); sembrarWorkspace('superadmin');
+    db.plan_proyectos.push({ workspace_id: WS_DUENO, id: 'pcrm', pid: 'P1', name: 'Feature: CRM', emoji: '🧲', color: '#000', score: 80, detalle: '', historial: [], orden: 1 });
+    db.plan_proyectos.push({ workspace_id: WS_DUENO, id: 'pmau', pid: 'P2', name: 'Cliente: Mauricio', emoji: '🤝', color: '#000', score: 50, detalle: '', historial: [], orden: 2 });
+    const mandaDueno = await runWithWorkspace(WS_DUENO, () => rc.proyectoQueManda({ ...cli, leadId: 0, nombre: 'Mauricio Bustos', empresa: 'Mauricio Bustos', via: 'workspace-cliente' }));
+    borrador(WS_DUENO, 'p870d', [
+      { titulo: 'Arreglar el guardado de la ficha', detalle: 'No guarda al cambiar de etapa.', proyecto: 'Feature: CRM' },
+      { titulo: 'Revisar el acceso de Mauricio al repo', detalle: 'Pasarlo a lectura.', proyecto: 'Cliente: Mauricio Bustos' },
+    ], { cliente_nombre: 'Mauricio Bustos', cliente_lead_id: null });
+    await runWithWorkspace(WS_DUENO, () => pp.aplicarPropuestas([{ id: 'p870d' }]));
+    const proyDe = (labels: unknown) => ((labels as string[]) ?? []).map((id) => db.plan_proyectos.find((p) => p.id === id)?.name ?? `?${id}`);
+    out.dueno870 = {
+      manda: mandaDueno,
+      proyectos: db.plan_proyectos.map((p) => p.name),
+      creadas: db.plan_tareas.map((t) => ({ titulo: t.title, proyectos: proyDe(t.labels) })),
+    };
+
+    // EL CLIENTE: la reunión manda, y el proyecto del cliente se encuentra por su LEAD aunque el borrador
+    // traiga el nombre de uno que ya se unió («Cliente: Congelados HMO»).
+    reset(); sembrarWorkspace('completo');
+    db.tarea_categorias.push(defaults('tarea_categorias', { workspace_id: WS_CLIENTE, id: 47, nombre: 'Cliente: Macario Romero — HMO', cliente_lead_id: 31, color: '#111' }));
+    db.tarea_categorias.push(defaults('tarea_categorias', { workspace_id: WS_CLIENTE, id: 76, nombre: 'Cliente: Baja Teriyaki', cliente_lead_id: 14, color: '#111' }));
+    const mandaCliente = await runWithWorkspace(WS_CLIENTE, () => rc.proyectoQueManda(cli));
+    const nuevo = await runWithWorkspace(WS_CLIENTE, () => rc.proyectoDeCliente({ ...cli, leadId: 99, nombre: 'Ana Pérez', empresa: 'Panadería Sol' }));
+    borrador(WS_CLIENTE, 'p870c', [
+      { titulo: 'Enviar el contrato del proyecto ganado', detalle: 'Para pedir el anticipo.', proyecto: 'Cliente: Congelados HMO' },
+    ], { cliente_nombre: 'Macario Romero Valencia', cliente_lead_id: 31 });
+    await runWithWorkspace(WS_CLIENTE, () => pp.aplicarPropuestas([{ id: 'p870c' }]));
+    const catDe = (ids: unknown) => ((ids as number[]) ?? []).map((id) => db.tarea_categorias.find((c) => c.id === id)?.nombre ?? `?${id}`);
+    out.cliente870 = {
+      manda: mandaCliente,
+      categorias: db.tarea_categorias.map((c) => ({ nombre: c.nombre, lead: c.cliente_lead_id ?? null })),
+      nuevoId: nuevo,
+      creadas: db.experimento_tareas.map((t) => ({ titulo: t.titulo, proyectos: catDe(t.categorias) })),
+    };
+  }
+
+  // ── El cierre EN EL ACTO (17/10/2026, `cerrar_tareas_plan`): los dos tableros, sin borrador. Sólo con `cierre`.
+  if (modo === 'cierre') {
+    const { RUNNERS } = await import('../lib/api-mako/areas/plan.run');
+    const run = RUNNERS.cerrar_tareas_plan as { preparar: (i: Record<string, unknown>, c: unknown) => Promise<Record<string, unknown>>; ejecutar: (p: Record<string, unknown>, c: unknown) => Promise<Record<string, unknown>> };
+    const ctx = { ws: 1, canal: 'app', canalKey: 'app:test', alcance: 'ejecutar', rol: 'admin', actor: 'test' };
+    const correr = async (input: Record<string, unknown>) => {
+      const prep = await runWithWorkspace(1, () => run.preparar(input, ctx));
+      if ('error' in prep) return { prep };
+      const ej = await runWithWorkspace(1, () => run.ejecutar(prep.payload as Record<string, unknown>, ctx));
+      return { prep: { resumen: prep.resumen }, ej };
+    };
+
+    // EL DUEÑO (plan_tareas).
+    reset(); sembrarWorkspace('superadmin');
+    db.plan_proyectos.push({ workspace_id: WS_DUENO, id: 'pplan', pid: 'P1', name: 'Feature: Plan', emoji: '🗺', color: '#000', score: 80, detalle: '', historial: [], orden: 1 });
+    db.plan_tareas.push(defaults('plan_tareas', { workspace_id: WS_DUENO, id: 't870', num: 870, title: 'Arreglar la asignación de proyectos de Fathom', progress: 30, score: 60, labels: ['pplan'], historial: [], checklist: [{ id: 'c1', text: 'probar', done: false }], recurrente: false, deadline: '', estado: 'en_curso' }));
+    db.plan_tareas.push(defaults('plan_tareas', { workspace_id: WS_DUENO, id: 't871', num: 871, title: 'Ya hecha antes', progress: 100, score: 10, labels: ['pplan'], historial: [], checklist: [], recurrente: false, deadline: '', estado: 'hecho' }));
+    const dCorta = await correr({ cerrar: [{ id: '#870', evidencia: 'listo' }] });
+    const dYa = await correr({ cerrar: [{ id: '#871', evidencia: 'Ya estaba hecha de antes.' }] });
+    const dOk = await correr({ cerrar: [{ id: '#870', evidencia: 'Las tareas de una reunión con cliente van a su tab.', revisar: '/plan?tarea=t870' }] });
+    const t870 = db.plan_tareas.find((t) => t.id === 't870') as Fila;
+    out.cierreDueno = {
+      corta: dCorta, ya: dYa, ok: dOk,
+      fila: { progress: t870.progress, estado: t870.estado, checklist: t870.checklist, historial: ((t870.historial as Fila[]) ?? []).map((h) => h.text) },
+      borradores: db.plan_propuestas.length,
+    };
+
+    // EL CLIENTE (experimento_tareas).
+    reset(); sembrarWorkspace('completo');
+    db.experimento_tareas.push(defaults('experimento_tareas', { workspace_id: WS_CLIENTE, id: 600, titulo: 'Mandar el contrato a Macario', estado: 'por_hacer', progreso: 0, orden: 1, origen: 'manual' }));
+    const cOk = await correr({ cerrar: [{ id: '600', evidencia: 'Contrato enviado por mail el 17/10.' }] });
+    const t600 = db.experimento_tareas.find((t) => t.id === 600) as Fila;
+    out.cierreCliente = { ok: cOk, fila: { progreso: t600.progreso, estado: t600.estado, historial: ((t600.historial as Fila[]) ?? []).map((h) => h.text) }, borradores: db.plan_propuestas.length };
+  }
+
   out.sinMock = [...sinMock];
   process.stdout.write('@@RESULTADO@@' + JSON.stringify(out));
 }

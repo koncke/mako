@@ -48,6 +48,35 @@ re-verificaron lo aclaran. El registro completo de corridas está en
 
 ---
 
+## «Unificar Email en Chats» no era mudar una bandeja: Email no tiene bandeja (17/10/2026)
+
+El pedido fue «eliminar las tabs de Email y WhatsApp y unificarlo todo en Chats». Lo obvio era mover la bandeja de
+Email a Chats. **No hay bandeja de email en ningún lado:** /email es marketing (secuencias, envíos masivos y el dominio
+de Resend), y lo que LLEGA por email sólo dispara automatizaciones (`lib/email-entrante.ts`): `email_entrantes` guarda
+el SOBRE (de, para, asunto), no el cuerpo, y «Receiving» de Resend todavía no está prendido. Y /whatsapp sí tiene cosas
+que Chats no (ver «Ocultos» y desocultar, borrar historial, gestionar líneas, Chatbot ON/OFF, la alarma de número caído).
+
+**La regla:** sacar una tab de la barra no es borrar su página. /whatsapp y /email siguen y se entra desde Chats (el
+«+» de Canales y el pie de la Bandeja); estando ahí la barra marca Chats (`RUTAS_DE_CHATS` en nav.ts). Email como
+CANAL de la bandeja (recibir el cuerpo y los adjuntos, responder en el hilo con `In-Reply-To`) es una feature nueva,
+no una mudanza: está en [diseno-sidebar.md](diseno-sidebar.md) §5.
+
+**Lo que se aprendió haciéndolo** (la segunda entrega, el mismo día):
+- **El webhook de Resend trae el SOBRE, no el email.** El cuerpo, los encabezados y la LISTA de adjuntos se piden con
+  `GET /emails/receiving/{id}`; cada adjunto, con `GET /emails/receiving/{email_id}/attachments/{id}`, que devuelve un
+  `download_url` firmado que VENCE (`expires_at`). Guardar la URL en la fila es guardar un link roto: el archivo se baja
+  y se sube a un bucket propio (`chats-email`, privado). Con la key con que se reclamó el dominio (`resendKey`).
+- **Lo lento del webhook va en `after()`.** Bajar cuerpo y adjuntos tarda segundos; si la respuesta tarda, Resend
+  (Svix) reintenta, y el reintento choca con la deduplicación de `email_entrantes` ANTES de llegar a la bandeja: el
+  email quedaba disparado y sin hilo. Con `after(() => runWithWorkspace(ws, …))` se contesta primero; el workspace se
+  pasa a mano porque el contexto no viaja solo al callback.
+- **Un `.or()` de PostgREST armado con un valor del navegador es una inyección de filtro.** El hilo de un `em:<email>`
+  busca por lead O por dirección: son dos lecturas (`.eq` y `.in`, que escapan) y se unen en memoria. Y la dirección
+  se valida con los caracteres de RFC 5322 (sin comas, paréntesis ni comillas) antes de ser una clave.
+- `sendEmail` no aceptaba adjuntos: suma `attachments` (base64) sin tocar a nadie más.
+
+**Vive en:** `lib/chats-email.ts`, `lib/chats-email-reglas.ts`, `lib/resend.ts` (receiving) · `tests/chats-email.test.ts`
+
 ## El chat de MaKo por WhatsApp: sólo grupos, sin autor, y 14 horas de memoria (16/10/2026)
 
 Medido leyendo `origin/main` para sumar «el chat de MaKo en WhatsApp» al Second Brain (docs/diseno-mako-ai-native.md, (c)).
@@ -127,6 +156,45 @@ cosas más, del ws13 y del ws9:
   trampa que «reagendá» del 07/10, y su familia no se buscó entonces**: `\bprograma` no matchea adentro de «reprograma»
   (entre «re» y «programa» no hay borde de palabra). Al arreglar un prefijo, enumerá TODOS los verbos de la regla que lo
   admiten, no sólo el que se vio.
+
+**Levantar un ticket desde el grupo (17/10, con la Ticketera).** El doer le pasa al ticket QUIÉN escribió y el contexto
+del turno, y el código lo propone cuando una herramienta de MaKo falló (el molde del chat de la app). Tres cosas que no
+se ven:
+- **El doer no sabe el email de quien escribe**, y del mensaje sólo llega `key.participant`. El actor es
+  `whatsapp:+<teléfono>` (`lib/doer-ticket.ts`). ⚠️ **Un `…@lid` NO es un teléfono**: es el id anónimo que WhatsApp usa en
+  algunos grupos, y leerlo como número le pondría al ticket un teléfono que no existe; ahí va el pushName.
+- ⚠️ **Todo LOTE perdía quién escribió**: los dos mensajes que arma el doer al juntar mensajes (el del buffer y el del
+  cron de huérfanos) copiaban `remoteJid`, `id` y `fromMe`, y no `participant`. Cualquier dato del remitente que se
+  agregue al turno tiene que pasar por esos dos lugares.
+- **La pendiente del ticket que propone el código no la ve nadie si no se dice**: el modelo ya contestó. La línea la
+  escribe el código, después del saneo, y termina pidiendo el «sí» (si no, el saneo la leería como promesa). Al
+  probarlo rompiéndolo apareció un agujero del detector: «ya le aviso al equipo y te lo arreglo» no era una promesa para
+  `promesasDe` («aviso» y «arreglo» no estaban, ni el «le» del «ya le…»).
+- ⚠️ **Hasta la próxima punta de la Ticketera, `preparar()` contesta «No sé quién eres»** para un actor `whatsapp:…`:
+  el ticket no se levanta y no se rompe nada (el código no agrega la línea si la propuesta falló).
+
+**El aviso «ya quedó arreglado» al grupo del cliente (17/10, pedido de Martín por el Ops Center).** Cambió la regla del
+vigía: ahora un jefe SÍ escribe en el grupo de un cliente, pero sólo para avisar que algo que le falló ya anda en
+producción, firmado «Desarrollador de MaKo» (`lib/aviso-arreglo.ts`, `scripts/avisar-arreglo-al-grupo.mts`; la regla en
+AGENTS.md). Lo que costó medir:
+- ⚠️ **«Está en producción» no se puede saber desde la base ni desde GitHub con lo que hay.** No existe un endpoint de
+  versión (`docs/hallazgos-infra.md`), y el `GITHUB_TOKEN` de la plataforma apunta a `mbustos-digital/dashboard-marketing`
+  y no ve `hola-mako/dashboard-marketing` (404 en deployments). Lo que SÍ anda es el CLI de Vercel filtrando por commit:
+  `vercel ls --prod --meta githubCommitSha=<sha>` devuelve el despliegue de producción de ESE commit con su estado. El
+  script mira la punta de `main` hacia atrás hasta encontrar uno Ready que contenga el arreglo.
+- **No es una operación del registro de la API, a propósito**: una operación la puede pedir el modelo en un chat o una
+  automatización, y firmar como el equipo en el grupo de un cliente no puede estar al alcance de ninguno. La Ticketera
+  la llama como función, desde su cron.
+- **Un aviso por arreglo se cumple RESERVANDO antes de mandar** (`cambiarSettingSi(key, null, …)`, atómico) y soltando
+  la reserva si el envío falló: con la marca después del envío, dos llamadas mandan dos; con la marca antes y sin
+  soltarla, un Evolution caído dejaba el arreglo «avisado» para siempre.
+- **Lo que MaKo manda al grupo por otro camino tiene que entrar al anti-eco del doer** (`anotarEnviadoAlGrupo`): si el
+  eco vuelve como `fromMe` y no está en el anillo, el doer lo procesa como un mensaje de la persona. Medido el 17/10:
+  desde el 01/10 ningún aviso del catálogo entró así, pero la guarda del doer no lo distingue.
+- ⚠️ **Y el clasificador de permisos de Claude Code bloquea correr el script, aunque sin `--enviar` no mande nada**: lo
+  lee como una transacción real. Martín dijo que el aviso no necesita su OK; cuando el clasificador lo frena, se le pasa
+  el comando exacto en el chat del jefe para que lo apruebe ahí. Y sin `NODE_OPTIONS=--conditions=react-server` el
+  script se cae al importar (`server-only`), ANTES de mandar o reservar nada.
 
 **Lo que quedó sin hacer:**
 - **Nada se probó contra una agenda real.** El ws18 tiene Google conectado y es un cliente: la primera prueba es su
@@ -10161,6 +10229,16 @@ teléfono sigue con su lectura que traga errores (`listNotificaciones` sin `estr
   `encabezadoAviso`); la tarjeta «tal cual» no lo lleva, como en las mudanzas de Fathom y de la línea (lo que se ve en
   la tarjeta es lo que llega). La comparación letra por letra es del CUERPO.
 
-**Vive en:** `lib/reunion-cancelada.ts` · `lib/lead-fusionado.ts` · `lib/leads.ts` (`avisarFusion`) · `tests/lead-fusionado-evento.test.ts` · `lib/disparadores.ts` (`reunion_cancelada`) · `lib/variables-aviso.ts`
+- **Una copia con LISTAS también entra en una fila literal** (`curso-recordatorio-clases`, fila #271): cada sección va
+  en su renglón y su lista es UN dato que arranca con su salto de línea y sólo viene si tiene a alguien
+  (`datosRecordatorioDueno`). Así la sección vacía no trae su dato y `sinRenglonesVacios` se lleva el renglón ENTERO,
+  encabezado incluido. El runner de eventos no recorta los datos (`emitirTarjetaDelEvento` → `textoConDatos`).
+- ⚠️ **El «Le/Les» del texto viejo era una frase armada en el código:** una fila no lo puede decir sin dos casos. La
+  redacción quedó buena para uno y para varios («Recordé… a 1 cliente», «No llegó el recordatorio a:»).
+- ⚠️ **El emisor va con el id LITERAL** (`emitirDelCatalogo('curso-recordatorio-clases', …)`): tests/plantillas-viejas.test.ts
+  busca a cada emisor por él, y con el id en una constante decía «nada lo emite».
+- El color del feed (amarillo cuando a alguien no le llegó) se pierde: el evento usa el semáforo del catálogo.
+
+**Vive en:** `lib/reunion-cancelada.ts` · `lib/curso-mensajes-texto.ts` (`datosRecordatorioDueno`) · `lib/curso-mensajes.ts` · `lib/lead-fusionado.ts` · `lib/leads.ts` (`avisarFusion`) · `tests/lead-fusionado-evento.test.ts` · `lib/disparadores.ts` (`reunion_cancelada`) · `lib/variables-aviso.ts`
 (`cancelada_*`) · `lib/plantillas-automatizaciones.ts` (`mako-reunion-cancelada`) · `app/api/webhooks/calendly/route.ts`
 · test: `tests/reunion-cancelada-evento.test.ts`

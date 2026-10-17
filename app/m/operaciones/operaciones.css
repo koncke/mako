@@ -83,3 +83,9 @@
   display: inline-flex; align-items: center; gap: 6px; margin: 0 0 12px; padding: 0; border: 0; background: none;
   font: inherit; font-size: var(--fs-md); color: var(--primary); cursor: pointer;
 }
+
+/* Los links en la caja del teléfono (17/10/2026): la capa con el mismo padding y borde que su <textarea>. */
+[data-m] .m-operaciones-caja .co-caja__campo { flex: 1; min-width: 0; display: flex; border-radius: 21px; background: var(--surface); }
+[data-m] .m-operaciones-caja .co-caja__resalte { padding: 11px 15px; font-size: 16px; line-height: 1.35; }
+[data-m] .m-operaciones-caja textarea.co-caja__texto--resalte { position: relative; color: transparent; caret-color: var(--ink); background: transparent; }
+[data-m] .m-operaciones-caja .co-caja__links { padding: 0 4px; }

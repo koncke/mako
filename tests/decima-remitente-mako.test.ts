@@ -126,6 +126,7 @@ function llamadas(src: string): string[] {
 const SIN_FROM_DEL_NEGOCIO: Record<string, number> = {
   'lib/email-marketing.ts': 2, // la prueba de un broadcast y el broadcast (con su preflight)
   'lib/setting-secuencias.ts': 1, // el «Probar» de las secuencias de antes
+  'lib/chats-email.ts': 1, // contestar un email desde la bandeja de Chats (17/10/2026): es el negocio hablándole a su contacto
 };
 
 test('barrido: todo `sendEmail` sin `from` es un mail del NEGOCIO, declarado; los de MaKo pasan su remitente', () => {

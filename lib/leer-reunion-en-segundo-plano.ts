@@ -26,7 +26,7 @@ import { extraerTareasDeReunion, cacheKeyReunion, type ProyectoRef, type Yo, typ
 import { glosarioTexto } from './glosario';
 import { getSetting, setSetting } from './settings';
 import { marcarProcesado, marcarFallado, marcarSinCompromisos, type PropuestaTarea } from './plan-propuesta';
-import { resolverClienteDeReunion, nombreDeProyectoPara } from './reunion-cliente';
+import { resolverClienteDeReunion, proyectoQueManda } from './reunion-cliente';
 import { cruzarTareas } from './reunion-cruce';
 import { soltarLectura } from './reunion-leyendo';
 
@@ -54,7 +54,8 @@ export async function extrasDeLectura(recordingId: number): Promise<ExtrasDeLect
  * segundo plano y para la rama de caché de la ruta (`asegurarBorrador`): si divergen, una de las
  * dos pierde un campo — ya pasó con el `minuto` (12/8) y con `recurrente`.
  *
- * Con cliente reconocido, MANDA el cliente: todas van a su proyecto.
+ * Con cliente reconocido EN EL TABLERO DE UN CLIENTE, manda el cliente: todas van a su proyecto. En el del
+ * dueño `proyCliente` llega vacío (`proyectoQueManda`, #870) y cada una se queda con el que eligió la extracción.
  */
 export function tareasDeLaExtraccion(tareas: TareaCandidata[], proyectos: ProyectoRef[], proyCliente: string): PropuestaTarea[] {
   const nombreProy = new Map(proyectos.map((pr) => [pr.id, pr.nombre]));
@@ -99,7 +100,7 @@ export async function completarBorradorDeReunion(opts: {
         return;
       }
       const cli = await resolverClienteDeReunion({ titulo, participantes: out.participantes ?? [] }).catch(() => null);
-      const proyCliente = cli ? await nombreDeProyectoPara(cli).catch(() => '') : '';
+      const proyCliente = await proyectoQueManda(cli, ws);
       const mias = out.tareas.filter((t) => !t.esDeOtro).length;
       // EL CRUCE, ACÁ Y ANTES DE MOSTRARLAS (16/10/2026): el modal ya no lo corre, y tampoco ve el
       // borrador hasta que esté cruzado. Hasta ese día esto marcaba «pendiente» y DESPUÉS cruzaba: el

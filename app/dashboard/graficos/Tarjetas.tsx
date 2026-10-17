@@ -34,7 +34,7 @@ const imagenDe = (f: FilaResultado): string | null => {
   return /^https:\/\/[^\s"'<>]{4,2000}$/i.test(v) || /^data:image\/svg\+xml;base64,[A-Za-z0-9+/=]{20,20000}$/.test(v) ? v : null;
 };
 
-export function Tarjetas({ r, barraEn, chips, color, compacto, alFila, personas = false }: {
+export function Tarjetas({ r, barraEn, chips, color, compacto, alFila, personas = false, alReproducir }: {
   r: Resultado;
   /** El índice de la métrica con barra, o -1. */
   barraEn: number;
@@ -44,6 +44,11 @@ export function Tarjetas({ r, barraEn, chips, color, compacto, alFila, personas 
   alFila?: (clave: string) => void;
   /** Sobre una portada, tarjetas de personas: sin miniatura, el avatar con sus iniciales en su lugar. */
   personas?: boolean;
+  /**
+   * #860: las tarjetas de ANUNCIOS llevan un ▶ sobre la miniatura que reproduce el video ahí mismo
+   * (./ReproductorAnuncio.tsx). Recibe el id del anuncio (`FilaResultado.ref`) y su nombre. Sin esto, no hay ▶.
+   */
+  alReproducir?: (adId: string, nombre: string) => void;
 }) {
   const conBarra = barraEn >= 0 && barraEn < r.columnas.length;
   const max = conBarra ? Math.max(0, ...r.filas.map((f) => Math.max(0, f.valores[barraEn] ?? 0))) : 0;
@@ -60,8 +65,18 @@ export function Tarjetas({ r, barraEn, chips, color, compacto, alFila, personas 
         return (
           <div key={f.clave} className="gr-tarjeta" {...(abre ? { role: 'button', tabIndex: 0, onClick: abre, onKeyDown: teclas, 'aria-label': `Ver detalle: ${f.etiqueta}` } : {})}>
             <div className={`gr-tarjeta-cab${img || personas ? '' : ' gr-tarjeta-cab--sin'}`}>
-              {/* eslint-disable-next-line @next/next/no-img-element -- miniatura de un tercero (Meta), sin optimizar */}
-              {img && <img className="gr-tarjeta-mini" src={img} alt="" loading="lazy" draggable={false} referrerPolicy="no-referrer" />}
+              {img && alReproducir && f.ref ? (
+                <span className="gr-tarjeta-mini-caja">
+                  {/* eslint-disable-next-line @next/next/no-img-element -- miniatura de un tercero (Meta), sin optimizar */}
+                  <img className="gr-tarjeta-mini" src={img} alt="" loading="lazy" draggable={false} referrerPolicy="no-referrer" />
+                  <button type="button" className="gr-tarjeta-play" aria-label={`Reproducir: ${f.etiqueta}`} title="Reproducir"
+                    onClick={(ev) => { ev.stopPropagation(); alReproducir(f.ref!, f.etiqueta); }}
+                    onKeyDown={(ev) => ev.stopPropagation()}>▶</button>
+                </span>
+              ) : img ? (
+                // eslint-disable-next-line @next/next/no-img-element -- miniatura de un tercero (Meta), sin optimizar
+                <img className="gr-tarjeta-mini" src={img} alt="" loading="lazy" draggable={false} referrerPolicy="no-referrer" />
+              ) : null}
               {!img && personas && <span className="gr-avatar gr-avatar--tarjeta" aria-hidden>{iniciales(f.etiqueta)}</span>}
               <div style={{ minWidth: 0 }}>
                 <div className="gr-tarjeta-nom" title={f.etiqueta}>{f.etiqueta}</div>

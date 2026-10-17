@@ -74,7 +74,8 @@ test('la hoja: sin interpolación, y cada var(--x) existe (o es de la paleta del
   for (const m of CSS_COMUNIDAD.matchAll(/var\((--[\w-]+)(\s*,)?/g)) {
     const [, nombre, conRespaldo] = m;
     if (nombre.startsWith('--cm-')) { if (!propios.has(nombre)) faltan.push(nombre); continue; }
-    if (nombre.startsWith('--u-')) { if (!conRespaldo) faltan.push(`${nombre} (sin respaldo)`); continue; }
+    // La paleta del curso (--u-*) y su fuente (--ugc-fuente, la que pinta el programa: 17/10/2026), con respaldo.
+    if (nombre.startsWith('--u-') || nombre === '--ugc-fuente') { if (!conRespaldo) faltan.push(`${nombre} (sin respaldo)`); continue; }
     if (!new RegExp(`${nombre}\\s*:`).test(globals)) faltan.push(nombre);
   }
   assert.deepEqual([...new Set(faltan)], []);

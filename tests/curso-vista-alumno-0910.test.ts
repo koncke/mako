@@ -220,7 +220,7 @@ test('las DOS puertas del alumno le ponen de vuelta las correctas de sus quizzes
 test('5: la PÁGINA de la vista previa le pasa al portal TODAS las correctas', () => {
   // Revisión del 09/10/2026: `conCorrectasDelEquipo` tenía test y CERO call sites, así que la vista
   // previa seguía sin poder corregir el quiz. Sin esta línea el punto 5 no llega a la app.
-  const pagina = leer('app/customer-success/curso/vista/page.tsx');
+  const pagina = leer('app/customer-success/curso/vista/pantalla.tsx');
   assert.match(pagina, /<PortalAlumno token="" vista=\{conCorrectasDelEquipo\(vista, clases\)\} vistaPrevia/);
   // `clases` es la de la base (con las correctas), no la vista armada.
   // (13/10/2026: la lista suma `nombreCurso`, el nombre del curso por su oferta, tests/curso-nombre.test.ts.)

@@ -2,7 +2,7 @@
 // La PUERTA de las server actions de Customer Success, y quién firma lo que mueven
 // =============================================================================
 // Una server action es un POST que se puede mandar directo, sin pasar por la página: el
-// `requireCapa('customer-success')` de app/customer-success/page.tsx no corre ahí. Hasta el
+// `requireCapa('customer-success')` de app/customer-success/pantalla.tsx no corre ahí. Hasta el
 // 06/10/2026 las 16 actions de app/customer-success/actions.ts preguntaban si el lead era de
 // ESTE workspace y nada más, así que un usuario de un workspace con capa 'pm' (la única sin
 // esta tab) podía crear clientes, moverlos de etapa o leer sus pagos con un POST.

@@ -13,35 +13,39 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { FAMILIAS, itemsDe } from '../app/_components/nav';
+import { FAMILIAS, TODOS_LOS_ITEMS, itemsDe } from '../app/_components/nav';
 import { NOMBRES_ICONO } from '../app/_components/icons';
 import { CAPAS, tabEnCapa, type CapaId } from '../lib/capas';
 import { TAB_ONBOARDINGS } from '../lib/tab-onboarding-catalogo';
 import { PASOS_COMUNIDAD, TAB_COMUNIDAD, cambiosDeOnboarding, lineaOnboarding, pasosDeLosDatos } from '../app/customer-success/comunidad/onboarding-comunidad';
 
-const todos = FAMILIAS.flatMap(itemsDe);
+// Desde el 17/10/2026 Community es una sub-tab de Clients (/clients/community): no es fila de la barra, pero su key sigue
+// en nav.ts (SIN_FILA) porque la pantalla del teléfono la pide. Se busca entre TODOS los ítems.
+const todos = TODOS_LOS_ITEMS;
 const item = todos.find((i) => i.key === 'cs-comunidad');
 
-test('la barra tiene «Comunidad» (key cs-comunidad) en la familia Customer Success', () => {
+// Desde el 17/10/2026 Customer Success dejó de ser familia: «Clients» es UNA tab de Operate (/clients) con sus sub-tabs
+// adentro de la pantalla (docs/diseno-clients.md), y Community es una de ellas.
+test('«Community» (key cs-comunidad) es una sub-tab de Clients, y Clients es la fila de Operate', () => {
   assert.ok(item, 'falta el ítem cs-comunidad');
-  assert.equal(item.label, 'Comunidad');
-  assert.equal(item.href, '/customer-success/comunidad');
+  assert.equal(item.label, 'Community');
+  assert.equal(item.href, '/clients/community');
   assert.ok(NOMBRES_ICONO.includes(item.icon), `el ícono «${item.icon}» no existe: dibujaría un punto`);
-  // Desde el 12/10/2026 Customer Success es una FAMILIA propia (antes, un desplegable de Operate).
-  const familia = FAMILIAS.find((f) => f.bloques.some((b) => b.some((i) => i.key === 'cs-comunidad')));
-  assert.equal(familia?.label, 'Customer Success', 'va en la familia Customer Success');
-  assert.ok(!FAMILIAS.find((f) => f.key === 'operate')?.grupos?.some((g) => g.items.some((i) => i.key === 'cs-comunidad')), 'volvió al desplegable de Operate');
+  assert.ok(!FAMILIAS.flatMap(itemsDe).some((i) => i.key === 'cs-comunidad'), 'Community volvió a ser una fila de la barra');
+  const clients = FAMILIAS.find((f) => f.key === 'operate')?.bloques.flat().find((i) => i.key === 'customer-success');
+  assert.equal(clients?.href, '/clients', 'Clients no está en Operate');
 });
 
 test('se enciende sólo en su ruta: ni Clientes ni Curso se encienden ahí, ni ella en las de ellos', () => {
   const clientes = todos.find((i) => i.key === 'customer-success')!;
   const curso = todos.find((i) => i.key === 'cs-curso')!;
-  assert.equal(item!.match('/customer-success/comunidad'), true);
-  assert.equal(item!.match('/customer-success/comunidad/x'), true);
-  assert.equal(item!.match('/customer-success'), false);
-  assert.equal(item!.match('/customer-success/curso'), false);
-  assert.equal(clientes.match('/customer-success/comunidad'), false);
-  assert.equal(curso.match('/customer-success/comunidad'), false);
+  assert.equal(item!.match('/clients/community'), true);
+  assert.equal(item!.match('/customer-success/comunidad'), true, 'la ruta vieja (redirige) no se reconoce');
+  assert.equal(item!.match('/clients'), false);
+  assert.equal(item!.match('/clients/classroom'), false);
+  // La fila de la barra es Clients: se enciende en todas sus sub-tabs.
+  assert.equal(clientes.match('/clients/community'), true, 'en Community la barra no marca Clients');
+  assert.equal(curso.match('/clients/community'), false);
   const keys = todos.map((i) => i.key);
   assert.equal(new Set(keys).size, keys.length, 'hay keys de ítem repetidas en la barra');
 });
@@ -53,7 +57,7 @@ test('se ve en la barra en cada capa donde la página deja entrar', () => {
 });
 
 test('la página pide la capa de Customer Success', () => {
-  const src = readFileSync(join(import.meta.dirname, '..', 'app', 'customer-success', 'comunidad', 'page.tsx'), 'utf8')
+  const src = readFileSync(join(import.meta.dirname, '..', 'app', 'customer-success', 'comunidad', 'pantalla.tsx'), 'utf8')
     .replace(/\r\n/g, '\n').replace(/^[ \t]*\/\/.*$/gm, '');
   assert.match(src, /await requireCapa\('customer-success'\);/);
 });
@@ -64,7 +68,7 @@ test('el catálogo tiene la tab con los pasos EN EL MISMO ORDEN que la regla', (
   const def = TAB_ONBOARDINGS[TAB_COMUNIDAD];
   assert.ok(def, 'falta cs-comunidad en el catálogo de onboardings');
   assert.equal(def.key, TAB_COMUNIDAD);
-  assert.equal(def.href, '/customer-success/comunidad');
+  assert.equal(def.href, '/clients/community');
   assert.deepEqual(def.pasos.map((p) => p.key), [...PASOS_COMUNIDAD]);
   assert.deepEqual(def.pasos.filter((p) => !p.opcional).map((p) => p.key), ['comunidad_post'], 'el único obligatorio es el primer post');
 });

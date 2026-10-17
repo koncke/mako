@@ -46,6 +46,7 @@ import { esIOS } from '@/lib/movil-instalar';
 import { FilaM, ListaM, SheetM } from '../_ui';
 import { IconoChat, type NombreIconoChat } from './iconos';
 import { achicarImagen } from './subir';
+import { caracteres, conPegados, esPegadoLargo, nombrePegado } from '@/lib/chat-pegado';
 import { VistaAdjuntosM } from './VistaAdjuntosM';
 import {
   ESPERA_MANTENER_MS, TOPE_NOTA_S, altoTeclado, avisoDeVista, comoHabilitarMic, duracion, envioDe,
@@ -76,6 +77,8 @@ export function Composer({ enLinea, ocupado, onEnviar, onAltura }: {
   onAltura: (px: number) => void;
 }) {
   const [texto, setTexto] = useState('');
+  /** Los textos pegados de más de 1.000 caracteres (#864): van como documento con el mensaje (lib/chat-pegado.ts). */
+  const [pegados, setPegados] = useState<string[]>([]);
   const lista = useListaAdjuntos(TOPES_LISTA);
   const [procesando, setProcesando] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -231,13 +234,14 @@ export function Composer({ enLinea, ocupado, onEnviar, onAltura }: {
   // ── Enviar (el composer o la vista previa: lo mismo) ──
   const hayVista = lista.items.length > 0;
   const listo = enLinea && !ocupado && procesando === 0 && !transcribiendo && !dictar.escuchando && !dictar.subiendo;
-  const hayAlgo = texto.trim().length > 0 || hayVista;
+  const hayAlgo = texto.trim().length > 0 || hayVista || pegados.length > 0;
   const puedeEnviar = hayAlgo && listo;
   const enviar = () => {
     if (!puedeEnviar) return;
     // La lista de AHORA (la ref), no la del render: el «+» pudo sumar uno recién.
-    onEnviar(envioDe(texto, lista.ref.current));
+    onEnviar(envioDe(conPegados(texto, pegados), lista.ref.current));
     setTexto('');
+    setPegados([]);
     lista.vaciar();
     setError(null);
     ajustarAlto();
@@ -315,6 +319,20 @@ export function Composer({ enLinea, ocupado, onEnviar, onAltura }: {
         </ul>
       )}
 
+      {pegados.length > 0 && (
+        <ul className="ch-elegidos" aria-label="Textos pegados para enviar">
+          {pegados.map((p, i) => (
+            <li key={i} className="ch-elegido ch-elegido--pegado">
+              <IconoChat nombre="archivo" size={20} />
+              <span className="ch-elegido__nombre">{`${nombrePegado(p, 20)} · ${caracteres(p)}`}</span>
+              <button type="button" className="ch-elegido__quitar" onClick={() => setPegados((xs) => xs.filter((_, k) => k !== i))} aria-label="Quitar el texto pegado">
+                <Icon name="x" size={14} />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+
       <div className="m-mako-composer__fila">
         {modo === 'bloqueado' ? (
           <>
@@ -353,6 +371,11 @@ export function Composer({ enLinea, ocupado, onEnviar, onAltura }: {
                   value={texto}
                   enterKeyHint="send"
                   onChange={(e) => { setTexto(e.target.value); ajustarAlto(); }}
+                  onPaste={(e) => {
+                    // Un texto de más de 1.000 caracteres no entra a la caja: queda como un documento pegado (#864).
+                    const pegado = e.clipboardData.getData('text/plain');
+                    if (esPegadoLargo(pegado)) { e.preventDefault(); setPegados((xs) => [...xs, pegado]); }
+                  }}
                   onFocus={() => setEnfocado(true)}
                   onBlur={() => {
                     // Tocar un botón del composer no cuenta como salir.

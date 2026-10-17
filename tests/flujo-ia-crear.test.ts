@@ -39,6 +39,8 @@ const DEL_MODELO = { nombre: 'Bienvenida a nuevos', disparador: 'd1', inicio: 't
 type Llamada = { op: string; args: unknown[] };
 function deps(o: {
   falla?: { error: string; link?: string }; alGenerar?: () => void; guardarTira?: Error; triggerTira?: Error;
+  /** Cuántos pedidos a un proveedor «arrancan» mientras genera (`alIntento`, #847). */
+  intentos?: number;
   filaPrevia?: { pasos: PasoGrafo[]; nombre: string } | null; etiquetasNuevas?: ResultadoIA['etiquetasNuevas'];
 } = {}) {
   const ll: Llamada[] = [];
@@ -50,6 +52,7 @@ function deps(o: {
     generar: async (p) => {
       anota('generar');
       o.alGenerar?.();
+      for (let n = 1; n <= (o.intentos ?? 0); n++) p.alIntento?.(n);
       if (o.falla) return o.falla;
       const tr = p.traducir(DEL_MODELO);
       assert.deepEqual(tr.errores, [], 'el flujo de mentira no pasa la revisión');
@@ -91,6 +94,16 @@ test('cancelado MIENTRAS el modelo escribe: no se escribe NADA y vuelve `cancela
   assert.equal(r.ok, false);
   assert.equal(!r.ok && 'cancelado' in r && r.cancelado, true);
   assert.deepEqual(escribio(ops()), [], `escribió: ${ops().join(', ')}`);
+});
+
+// #847 (17/10/2026, «que diga en qué está»): desde el SEGUNDO pedido a un proveedor, la fase lo dice; el primero no
+// (es el de siempre). Rotura (`if (n > 1)` → `if (n > 0)`, el primero también): 9 / 1 de 10, cae éste.
+test('«intento N»: el segundo pedido a un proveedor y los que siguen van como fase; el primero, no', async () => {
+  const fases: string[] = [];
+  const { d } = deps({ intentos: 3 });
+  const r = await crearConIA({ ws: 3, pedido: 'Dar la bienvenida', alFase: (f: FaseCrearIA) => { fases.push(f.fase === 'modelo' && f.intento ? `modelo:${f.intento}` : f.fase); } }, d);
+  assert.ok(r.ok, JSON.stringify(r));
+  assert.deepEqual(fases, ['contexto', 'modelo', 'modelo:2', 'modelo:3', 'revision']);
 });
 
 // ── 2. Sin id: la fila nace al guardar ───────────────────────────────────────────

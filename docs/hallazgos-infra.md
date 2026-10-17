@@ -6782,3 +6782,19 @@ LITERALES en el test, no las que arma el código.
 **Y una trampa al escribir esta misma entrada:** el `\r\n` pasado por `node -e '…'` desde el Bash se convirtió en un
 salto de línea de verdad y partió una fila del índice en dos. Texto con barras invertidas va con el editor, no por el
 shell (memoria heredoc-come-backslash).
+
+## Hay un jsdom en node_modules y no arranca: la casa no tiene DOM para los tests (17/10/2026)
+
+Para probar un error boundary montándolo (chat Dashboard, la red por bloque de General) se usó el jsdom que aparece en
+node_modules (26.1.0). No arranca: `Cannot find module '@asamuzakjp/css-color'`, que pide `cssstyle`. No es nuestro:
+viene como dependencia **opcional** de `fabric` (el Image Editor), y npm la dejó instalada sin esa dependencia (el
+package-lock sí la lista).
+
+**Regla:** en esta casa los tests no tienen DOM. Lo que necesita montarse (un error boundary, un efecto) se prueba
+llamando a sus métodos y leyendo el montaje en el código. Y un render en el server (`renderToStaticMarkup`) no corre
+error boundaries. Antes de sumar una dependencia de DOM a los tests, la decisión es del Cerebro: `npm install` toca el
+node_modules que comparten todos los worktrees (es un enlace al del clon principal).
+
+Y si se escribe un script de una vez en el scratchpad: desde ahí node no resuelve los paquetes del repo (`Cannot find
+module`), y un `.tsx` con `await` arriba de todo falla con «Top-level await is currently not supported with the "cjs"
+output format». Se corre desde adentro del worktree, envuelto en una función `async`.

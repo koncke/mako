@@ -52,6 +52,7 @@ import { editarHojaIA } from '@/lib/graficos-ia-editar';
 import { firmaDeHoja } from '@/lib/graficos-ia-edicion';
 import { PIEZAS_GENERAL, atarFunnels, esPiezaGeneral, funnelsDeBloque, opcionesDePieza, piezaGeneral, piezaPorFunnel, piezaPorVariosFunnels, sanearOpciones, type OpcionesElegidas, type PiezaGeneral } from '@/lib/general-piezas';
 import { leerFunnelsDeGeneral, type FunnelDeGeneral } from '@/lib/general-alcance';
+import { funnelsDelPedido } from '../funnels-del-pedido';
 import { PLANTILLAS_GENERAL, elegirPersona, type PersonaGeneral } from '@/lib/general-plantillas';
 import { ETIQUETAS_GENERAL } from '@/lib/graficos-plantillas-etiquetas';
 import { ordenarConSugeridas } from '@/lib/plantillas-sugeridas';
@@ -102,25 +103,6 @@ const diff = (campo: string, antes: string, despues: string): string =>
 
 const periodoTxt = (o: { quarter: number | null; anio: number }): string =>
   o.quarter === null ? `anual ${o.anio}` : quarterKey({ anio: o.anio, q: o.quarter });
-
-/**
- * `funnels` de guardar_objetivo y guardar_kpi (mig 0306): «todos» o ids separados por coma, que tienen que ser funnels
- * activos del negocio (los lista listar_objetivos en `funnels_del_negocio`). `null` = no vino: al editar queda el que
- * estaba. Con la lista de funnels caída no se puede elegir: se dice, no se adivina.
- */
-async function funnelsDelPedido(input: Record<string, unknown>): Promise<{ ids: number[]; nombres: FunnelDeGeneral[] } | { error: string } | null> {
-  const crudo = str(input, 'funnels');
-  if (crudo == null) return null;
-  const disponibles = await leerFunnelsDeGeneral();
-  if (/^tod[oa]s?$/i.test(crudo)) return { ids: [], nombres: disponibles ?? [] };
-  const partes = crudo.split(/[,\s]+/).filter(Boolean);
-  const ids = sanearFunnelIds(partes);
-  if (!ids.length || ids.length !== new Set(partes).size) return { error: `funnels: «${crudo}» no es «todos» ni una lista de ids de funnels separados por coma.` };
-  if (!disponibles) return { error: 'No se pudieron leer los funnels del negocio: ahora no se puede elegir de cuáles suma.' };
-  const faltan = ids.filter((id) => !disponibles.some((f) => f.id === id));
-  if (faltan.length) return { error: `No hay un funnel activo con id ${faltan.join(', ')}. Los del negocio están en listar_objetivos (funnels_del_negocio).` };
-  return { ids, nombres: disponibles };
-}
 
 /** «todo el negocio» o los nombres, para el resumen que se confirma en pantalla. */
 const funnelsTxt = (ids: readonly number[], nombres: readonly FunnelDeGeneral[]): string =>

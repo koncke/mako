@@ -25,7 +25,7 @@ import { useEffect, useMemo, useRef, useState, useTransition, type CSSProperties
 import { Pagina, PageHeader, Banner, EmptyState, ErrorState, Status, Toast, useToast } from '@/app/_ui';
 
 import type { ClienteCruce } from './cruce';
-import type { CuentasProp } from './CuentaDeMaKo';
+import { usePrograma, useProgramaEnUrl } from '@/app/clients/programa-url';
 import type { ResumenTrabajo, TableroCartera } from './trabajo';
 import { FichaCliente } from './FichaCliente';
 import type { TrabajoDeCliente } from './trabajo';
@@ -95,16 +95,15 @@ type OrdenCS = OrdenClientes | 'manual';
 const ORDEN_CS: Record<OrdenCS, string> = { ...ORDEN_LABEL, manual: 'Manual' };
 
 /**
- * Los filtros de la barra SIN los de la cuenta de MaKo. «Con / Sin cuenta de MaKo» es parte
- * de invitar a MaKo, y desde el 05/10/2026 eso sólo existe en una AGENCIA («todo lo que
- * tenga que ver con invitar a MaKo, debería solo verse si la cuenta es AGENCIA»): en otro
- * workspace el filtro preguntaría por algo que la pantalla no ofrece en ningún lado.
+ * Los filtros de la barra SIN los de la cuenta de MaKo. «Con / Sin cuenta de MaKo» es parte de las cuentas de los
+ * clientes de una agencia, que desde el 17/10/2026 viven en MaKo Partners (app/partners/): acá el filtro preguntaría
+ * por algo que la pantalla no ofrece en ningún lado.
  */
 const FILTRO_SIN_CUENTAS = Object.fromEntries(
   Object.entries(FILTRO_LABEL).filter(([k]) => k !== 'con-cuenta' && k !== 'sin-cuenta'),
 ) as Partial<typeof FILTRO_LABEL>;
 
-export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, entrega, puedeEditarEtapas = false, onboarding = null, curso, vistaInicial = null, productoInicial = null, clienteInicial = null }: {
+export function ClientesApp({ clientes, tablero, trabajo, user, error, entrega, puedeEditarEtapas = false, onboarding = null, curso, vistaInicial = null, productoInicial = null, clienteInicial = null }: {
   /** Los leads GANADOS del workspace, en orden de `id` — o sea, de antigüedad como
    *  cliente. Ese orden es el que numera («Cliente 1»); la grilla se ordena aparte. */
   clientes: ClienteCruce[];
@@ -115,10 +114,6 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, 
   user: BoardUser;
   /** La lista no se pudo leer. NO es «no tenés clientes»: son dos pantallas. */
   error?: string;
-  /** Vista de agencia: en qué estado está la cuenta de MaKo de cada cliente, quién
-   *  ve el control y por qué puerta entra. La forma vive en `CuentaDeMaKo` y se
-   *  importa: escrita tres veces, la tercera se queda vieja. */
-  cuentas?: CuentasProp;
   /**
    * Las etapas de entrega de cada servicio y en que etapa esta cada cliente (mig 0188).
    *
@@ -242,8 +237,12 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, 
     ? vistaElegida
     : (vistasDisponibles[0] ?? 'tabla');
   /** De que servicio es el tablero. `null` = todavia no se eligio; cae al primero. */
-  const [servicioId, setServicioId] = useState<number | null>(productoInicial);
+  // El servicio (el programa): el de la URL, RE-SEMBRADO cuando la cabecera de Clients cambia de programa (navega
+  // con otro `?producto=`); elegirlo acá lo escribe en la URL para que la cabecera diga el mismo
+  // (app/clients/programa-url.ts, 17/10/2026).
+  const [servicioId, setServicioId] = usePrograma(productoInicial);
   const servicio = servicios.find((s) => s.productoId === servicioId) ?? servicios[0] ?? null;
+  useProgramaEnUrl(servicio?.productoId ?? null, servicios[0]?.productoId ?? null);
   /** Lo que de verdad se está dibujando. ⚠️ No es `vista === 'kanban'` a secas: lo
    *  escribiría dos veces y el día que una de las dos cambie, el renglón de «no
    *  encontré» aparece sobre un tablero o desaparece sobre una tabla. */
@@ -909,7 +908,7 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, 
        y eso no se nota en el diff. /admin sigue con su 1180, porque es otra pantalla. */
     <Pagina ancho="completo" style={{ '--cartera-max': 'none' } as CSSProperties}>
       <PageHeader
-        titulo="Clientes"
+        titulo="Clients"
         estado={lista.length > 0
           ? <Status>{lista.length} {lista.length === 1 ? 'cliente' : 'clientes'}</Status>
           : undefined}
@@ -955,7 +954,7 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, 
         <>
           <BarraClientes
             q={q} onQ={setQ} vista={vista} onVista={setVista}
-            filtros={cuentas?.visible ? FILTRO_LABEL : FILTRO_SIN_CUENTAS}
+            filtros={FILTRO_SIN_CUENTAS}
             /* ⚠️ LAS VISTAS QUE ESTA PANTALLA PUEDE DIBUJAR, en positivo. Sin servicios
                —o con la lectura de la entrega caída— el kanban no se ofrece: un botón que
                abre una pantalla vacía se lee como que la app está rota. Con una sola
@@ -1073,12 +1072,9 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, 
               numeroDe={numeroDe}
               trabajoDe={resumenDe}
               tableroOk={tablero.ok}
-              cuentas={cuentas}
               onSoltar={soltarEnColumna}
               onAbrir={(leadId) => { setAbrirEn(null); setAbiertoId(leadId); }}
-              onEquipo={(leadId) => { setAbrirEn('equipo'); setAbiertoId(leadId); }}
               onNuevoCliente={(etapa) => setCreando(etapa)}
-              onError={setMal}
               seleccion={sel}
               onSeleccion={setSel}
               /* EL CURSO EN EL MENÚ DE CADA TARJETA (item 9): «Invitar al curso» abre el modal de
@@ -1132,7 +1128,6 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, 
               : { dueno: false as const, tareas: [], categorias: [] }) : null)}
           user={user}
           clientes={clientes}
-          cuentas={cuentas}
           entrega={entrega?.ok ? {
             servicios, asignacionDe, casa,
             inicial: servicio?.productoId ?? null,
@@ -1253,7 +1248,7 @@ function AvanceDelServicio({ curso, productoId, visibles, accesoMovs, onAcceso }
   if (!curso.avance.ok) return <AvanceCurso etapas={[]} filas={[]} error={curso.avance.error} />;
   const p = curso.avance.porProducto[productoId];
   // Un producto sin clases no es «nadie empezó»: es que no hay curso, y se dice dónde se arma.
-  if (!p) return <EmptyState titulo="Este producto no tiene curso" detalle="Sus clases se cargan en Curso." accion={{ label: 'Ir a Curso', href: '/customer-success/curso' }} />;
+  if (!p) return <EmptyState titulo="Este producto no tiene curso" detalle="Sus clases se cargan en Classroom." accion={{ label: 'Ir a Classroom', href: '/clients/classroom' }} />;
   const ids = new Set(visibles.map((c) => c.leadId));
   const filas = p.filas
     .filter((f) => ids.has(f.leadId))

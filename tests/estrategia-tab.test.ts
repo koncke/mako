@@ -62,7 +62,8 @@ import {
 } from '../app/admin/estrategia/datos';
 import { textoPlazo } from '../app/admin/runway/datos';
 import Estrategia from '../app/admin/estrategia/Estrategia';
-import { ADMIN_FAMILIAS, FAMILIAS, itemsDe } from '../app/_components/nav';
+import { ADMIN_NAV, FAMILIAS, itemsDe } from '../app/_components/nav';
+import { puedeVerItem } from '../lib/nav-visibilidad';
 
 const RAIZ = join(__dirname, '..');
 const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8').replace(/\r\n/g, '\n');
@@ -212,12 +213,14 @@ test('la tab es sólo para el super admin, y /vsl/estrategia redirige a ella', (
   assert.match(costos, /const admin = await getSesionAdmin\(\);\s*if \(!admin\) redirect\('\/inicio'\);\s*return <Costos \/>/);
   const vieja = sinComentarios(leer('app/vsl/estrategia/page.tsx'));
   assert.match(vieja, /redirect\('\/admin\/estrategia'\)/);
-  // El item vive en la familia de ADMIN, y ninguna familia de clientes enlaza la tab:
-  // buscar la línea en el archivo daba verde aunque se mudara a la barra de los clientes.
-  const admin = ADMIN_FAMILIAS.flatMap(itemsDe).find((i) => i.key === 'admin-estrategia');
+  // El item es una herramienta del super admin (ADMIN_NAV) y, desde el 17/10/2026, una SECCIÓN de Offer que sólo ve él:
+  // ningún cliente la ve en la barra. Buscar la línea en el archivo daba verde aunque se mudara a la barra de los clientes.
+  const admin = ADMIN_NAV.find((i) => i.key === 'admin-estrategia');
   assert.equal(admin?.href, '/admin/estrategia');
-  const deClientes = FAMILIAS.flatMap(itemsDe).filter((i) => i.href.startsWith('/admin/estrategia'));
-  assert.deepEqual(deClientes.map((i) => i.key), []);
+  const enBarra = FAMILIAS.flatMap(itemsDe).filter((i) => i.href.startsWith('/admin/estrategia'));
+  assert.ok(enBarra.length > 0 && enBarra.every((i) => i.adminOnly), 'Strategy cuelga de Offer y sólo para el super admin');
+  assert.equal(puedeVerItem(admin!, { adminShell: false, rolWs: 'admin', capa: 'completo' }), false, 'el admin de un cliente la vería');
+  assert.equal(puedeVerItem(admin!, { adminShell: true, rolWs: '', capa: 'superadmin' }), true);
 });
 
 // ── La página dibujada ───────────────────────────────────────────────────────

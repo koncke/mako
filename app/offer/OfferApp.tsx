@@ -664,6 +664,20 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
     // Sin armado guardado: si había uno a la vista, terminó (la oferta ya está en el chat como un mensaje).
     setGen((g) => (g.corriendo ? { paso: 'listo', corriendo: false, error: null } : g));
   }, [armadoPaso, armadoCorre, armadoError]);
+  // Al TERMINAR con la pantalla abierta, la oferta se abre sola en la vista del PDF (17/10/2026, tarjeta #887: «al terminar
+  // el análisis, lo primero que se ve es la vista del PDF»). Sólo si el armado corría EN ESTA conversación y terminó con
+  // una oferta: con un error, o si la persona cambió de conversación, no. Ni en el onboarding (`arranque`): ahí la persona
+  // sigue con su CRM o su teléfono, y la oferta queda en el chat.
+  const armandoEn = useRef<number | null>(null);
+  const idSesion = sesion?.id ?? null;
+  const versionConclusion = sesion?.conclusion?.version ?? null;
+  useEffect(() => {
+    if (armadoCorre) { armandoEn.current = idSesion; return; }
+    const era = armandoEn.current;
+    armandoEn.current = null;
+    if (era == null || era !== idSesion || armadoError || versionConclusion == null || arranque) return;
+    setVerConclusion(true);
+  }, [armadoCorre, armadoError, idSesion, versionConclusion, arranque]);
   // Mientras el servidor arma, la conversación se relee: la conclusión aparece sola, y una pestaña que se
   // durmió se pone al día al despertar. Un fallo de red no corta nada: se reintenta en la vuelta siguiente.
   const idSesionArmando = armadoCorre ? (sesion?.id ?? null) : null;
@@ -798,11 +812,12 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
   const onSesionArranque = arranque?.onSesion;
   useEffect(() => { if (sesion && onSesionArranque) onSesionArranque(sesion); }, [sesion, onSesionArranque]);
 
-  const guardarOferta = async (): Promise<AvisoGuardado | null> => {
+  /** Guarda la oferta en los funnels elegidos (#895: uno o varios; [] = todos). Sin `funnelIds`, en el de la conversación. */
+  const guardarOferta = async (funnelIds?: number[]): Promise<AvisoGuardado | null> => {
     const id = sesionRef.current?.id;
     if (id == null) return null;
     const e = epoca.current;
-    const r = await llamarOffer<{ ofertaId: number; sesion: OfferSesionVista; aviso?: unknown; avisoReintentable?: unknown }>({ action: 'guardar-oferta', sesionId: id }, TOPE.corto);
+    const r = await llamarOffer<{ ofertaId: number; sesion: OfferSesionVista; aviso?: unknown; avisoReintentable?: unknown }>({ action: 'guardar-oferta', sesionId: id, ...(funnelIds ? { funnelIds } : {}) }, TOPE.corto);
     aplicarSesion(r.sesion, e);
     // Guardarla la liga al funnel y puede mover la conversación de rama (de «oferta nueva» a la oferta).
     void refrescarArbol();
@@ -812,6 +827,8 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
   };
 
   // ── Lo que se dibuja ───────────────────────────────────────────────────────
+  // Los funnels del negocio, para elegir en cuáles guardar la oferta (#895): los del árbol, con el nombre que ve el dueño.
+  const funnelsElegibles = useMemo(() => arbol.funnels.map((f) => ({ id: f.id, nombre: f.nombre })), [arbol]);
   const conclusion = sesion?.conclusion ?? null;
   const puedeConcluir = !!sesion?.puedeConcluir;
   // En el arranque, fuera de la oferta, lo que ocupa es guardar SU respuesta: la oferta que se arma por
@@ -970,7 +987,7 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
       )}
 
       {/* La oferta, en su ventana ENCIMA del chat: cerrarla vuelve a la conversación tal como estaba.
-          La key la remonta con cada versión nueva (vuelve a abrir en «Diagnóstico»). */}
+          La key la remonta con cada versión nueva (vuelve a abrir en el PDF, #887). */}
       {sesion && conclusion && verConclusion && (
         <Modal titulo="Tu oferta" ancho={860} onCerrar={() => setVerConclusion(false)}>
           <Conclusion
@@ -979,6 +996,7 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
             conclusion={conclusion}
             onSeguir={() => setVerConclusion(false)}
             onGuardar={guardarOferta}
+            funnels={funnelsElegibles}
             conProbar={!arranque}
           />
         </Modal>

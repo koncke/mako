@@ -18,7 +18,7 @@
 // =============================================================================
 
 import {
-  DIMENSIONES, MARCA_COMPLETAR, PUNTOS_CONTROL, avisosAfirmables, dimensionLabel, loQueMeGusto, paraSubirCadaParte,
+  DIMENSIONES, FUENTE_PUNTAJE, MARCA_COMPLETAR, PUNTOS_CONTROL, avisosAfirmables, dimensionLabel, loQueMeGusto, paraSubirCadaParte,
   type ConclusionOferta, type PropuestaOferta, type PuntoControl,
 } from './offer-marco';
 import { CANALES, dimensionDeFase, faseDef, repartoTexto, type Diagnostico } from './fase-diagnostico';
@@ -93,6 +93,18 @@ export function nombreArchivoOferta(titulo: string, version: number): string {
 
 /** Genera el PDF de una conclusión. Nunca tira por el contenido: lo que no entra se corta en líneas y páginas. */
 export function pdfDeOferta(c: ConclusionOferta, meta: MetaPdfOferta): Uint8Array {
+  return documentoDeOferta(c, meta).bytes();
+}
+
+/**
+ * Las páginas del MISMO PDF en SVG, para verlo en la pantalla antes de descargarlo (17/10/2026, tarjeta #887: «al terminar
+ * el análisis, lo primero que se ve es la vista del PDF»). Mismo documento, misma función: no hay una segunda maqueta.
+ */
+export function paginasDeOferta(c: ConclusionOferta, meta: MetaPdfOferta): string[] {
+  return documentoDeOferta(c, meta).paginasSvg();
+}
+
+function documentoDeOferta(c: ConclusionOferta, meta: MetaPdfOferta): PdfDoc {
   const fecha = fechaCorta(meta.fecha, meta.zona);
   const doc = new PdfDoc({ pie: `Generado por MaKo · ${fecha}` });
   const W = doc.anchoUtil;
@@ -129,6 +141,8 @@ export function pdfDeOferta(c: ConclusionOferta, meta: MetaPdfOferta): Uint8Arra
   const estado = lista ? 'Lista para vender' : `Lo que más frena: ${dimensionLabel(c.calculo.cuello)}`;
   doc.textoEn(xEstado, yp + 28, estado, { tam: 12, fuente: 'Helvetica-Bold', color: lista ? C.bien : C.ojo });
   doc.barra(xEstado, yp + 40, W - (xEstado - X) - 18, 8, c.calculo.total / 100, lista ? C.bien : colorNota(Math.round(c.calculo.total / 10)));
+  // De dónde sale el puntaje (tarjeta #888): el promedio de las notas de abajo, lo calcula el sistema.
+  doc.textoEn(xEstado, yp + 62, FUENTE_PUNTAJE, { tam: 8.5, color: C.tenue });
   doc.y = yp + altoPanel + 22;
   // El control final del marco (tarjeta «lista», 12/10/2026): si no está lista, qué punto falta.
   const faltan = (c.calculo.controlFinal ?? []).filter((x) => !x.ok);
@@ -242,7 +256,7 @@ export function pdfDeOferta(c: ConclusionOferta, meta: MetaPdfOferta): Uint8Arra
     }
   }
 
-  return doc.bytes();
+  return doc;
 }
 
 const etiquetaPunto = (k: PuntoControl): string => PUNTOS_CONTROL.find((x) => x.punto === k)?.label ?? k;

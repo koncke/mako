@@ -349,4 +349,22 @@ export const BITACORA: Hito[] = [
       'tests/mako-en-whatsapp-pablo.test.ts (13, 19 roturas) y tests/vigia-mako-grupos.test.ts (5, 9 roturas)',
     ],
   },
+  {
+    fecha: '17 oct', hora: '09:07', chat: 'MaKo en WhatsApp', sesion: 'local_d3ed9496-3ca1-4037-abc2-a59ce57d3f9d', cuenta: 'claude4',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Hecho: «reprogramame la reunión…» ya llega con la herramienta de mover (lo encontró el vigía en el ws13)',
+    revisar: '/second-brain?ws=13',
+    puntos: [
+      'Lo primero que el vigía encontró en vivo: Joan (ws13) pidió «MaKo reprogramame la reunión de ayer viernes… con Marita Pagani, reprogramámela para el lunes a las 12» y MaKo contestó «no tengo acceso para mover o reprogramar eventos de tu calendario».',
+      '⚠️ **La gemela de «reagendá» del 07/10, y su familia no se buscó entonces**: `\\bprograma` no matchea adentro de «reprograma». El pedido caía al default, sin ninguna herramienta de agenda. Ahora «reprogramame», «reprogramámela» y «reprogramá» llegan como pedido de agenda, con `proponer_mover_reunion`; «el programa» sigue siendo el sustantivo.',
+      '**Cómo se prueba:** pedirle a MaKo en el grupo «reprogramame la reunión de mañana a las 10 para el jueves a las 12»: tiene que proponer moverla y esperar el «sí».',
+    ],
+    commits: [
+      { sha: '618c79c4', msg: 'MaKo en WhatsApp: «reprogramame la reunión…» llega con la herramienta de mover (ws13, lo encontró el vigía)', lineas: 24, archivos: 2 },
+    ],
+    archivos: [
+      'lib/mako-intencion.ts — VERBO_AGENDAR con `(re)programa` + pronombre y «reprograma» suelto',
+      'tests/mako-en-whatsapp-pablo.test.ts — el literal del grupo; 3 roturas, 1 fallo cada una',
+    ],
+  },
 ];
