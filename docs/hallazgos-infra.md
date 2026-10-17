@@ -6596,6 +6596,13 @@ alcanzar, aunque se cumpliera al pie de la letra:
   errores de tipos de archivos que cambiaron: sólo salen si el `tsc` acotado entró en RAM). **Se pidió «sin tsc» y se desvió a propósito:** el primer VERDE rápido de
   esta punta (sin tipos) lo dio el mismo script cuyo test tenía 5 errores de tipos, que vio sólo el modo completo. Si el `tsc` no entra, el VERDE lo dice
   («sin tipos…») y los decide Actions, igual que los saltos lejanos.
+- **El `tsc` ACOTADO daba verde donde el completo daba rojo** (run 100 de Actions y el que le siguió, mismo archivo, dos errores distintos). Un test pasaba `{}` donde se pide un
+  `NodeJS.ProcessEnv`: el completo da TS2345, y al castear con `as NodeJS.ProcessEnv`, TS2352. **El diagnóstico obvio —«el acotado no mira ese archivo»— era el equivocado: SÍ lo
+  miraba.** Lo que cambiaba era el MUNDO: el completo carga `next-env.d.ts`, que trae `next/types/global.d.ts`, y ese hace OBLIGATORIO `NODE_ENV` en `ProcessEnv`; un archivo
+  suelto sólo tenía `@types/node`, donde `{}` es un `ProcessEnv` válido (la línea del `as` con una propiedad que no está sí daba rojo, por eso no se notó). Ahora `armarTsconfig`
+  suma `node_modules/next/types/global.d.ts` y `image-types/global.d.ts` a `files` si existen (`next-env.d.ts` está en .gitignore y un worktree no lo tiene). Reproducido con un
+  archivo de 3 líneas: antes, sólo el TS2352; después, también el TS2345 del run 100. La cura del código es `as unknown as NodeJS.ProcessEnv`. Quedan los límites ya escritos:
+  un tipo que agrega OTRO archivo con `declare module` y lo que sólo ve el completo por `include` (el acotado nunca es «el repo»).
 
 **Lo que NO cubre** (y por qué Actions sigue corriendo todo):
 - Las interacciones ENTRE puntas: sólo existen en el árbol integrado. Por eso el pre-push a `integracion` también corre `antes-de-subir`, y

@@ -477,6 +477,10 @@ eran del código:
   de Node entran por `next-env.d.ts` (generado: un worktree ni lo tiene): sin esto sale
   «Cannot find name 'process'» (TS2580). Medido el 16/10 con
   `app/web-generator/editor/insertar.ts`: 1 error sin esto, 0 con esto.
+- **Los `.d.ts` globales de Next** (`node_modules/next/types/global.d.ts` y `image-types/global.d.ts`) en `files`, si existen. En el
+  completo entran por `next-env.d.ts` y hacen OBLIGATORIO `NODE_ENV` en `NodeJS.ProcessEnv`: el 17/10/2026 un test pasaba `{}` como
+  `ProcessEnv` (run 100 de Actions), el acotado dio verde y el completo dio rojo DOS veces (TS2345, y al castear con
+  `as NodeJS.ProcessEnv`, TS2352 — la cura es `as unknown as NodeJS.ProcessEnv`). Sin esto el acotado tampoco veía eso.
 
 Lo que el script NO puede resolver, y conviene saber antes de creerle a un rojo:
 
