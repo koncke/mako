@@ -51,7 +51,8 @@ import {
 // La tarjeta «MaKo en WhatsApp» POR PARTES (undécima tanda): su editor es el de WhatsApp sobre ESTE DTO.
 import {
   pasoDeMako, paramsDeMako, chipDeEspera, esperaQueAbra, FUERAS_DE_HORARIO, ROTULO_FUERA_DE_HORARIO, CANALES_MAKO, ROTULO_CANAL_MAKO,
-  TOPE_ASUNTO_MAKO, esPorEmail, asuntoDeMako, type CambioDeMako, type CanalMako, type FueraDeHorario,
+  TOPE_ASUNTO_MAKO, esPorEmail, asuntoDeMako, sinGrupoDeMako, SINES_GRUPO, ROTULO_SIN_GRUPO,
+  type CambioDeMako, type CanalMako, type FueraDeHorario, type SinGrupo,
 } from '@/lib/mako-tarjeta';
 import { useHorarioOficina } from './horario-oficina';
 // El contexto de los datos de una tarjeta: el MISMO con que Publicar los valida.
@@ -1335,7 +1336,7 @@ function EditorMako({ paso, id, busy, onPasos, eventoMako, triggerTipo, adjuntos
   return (
     <>
     {aNegocio && <div data-mako-a-negocio style={{ fontSize: 12, color: 'var(--dim)', marginBottom: 8 }}>{porEmail ? 'Le llega por email al equipo del negocio del evento.' : 'Le llega al grupo del negocio del evento.'}</div>}
-    <EnvioDeMako params={paramsAhora} busy={busy} onCambio={cambiarEnvio} />
+    <EnvioDeMako params={paramsAhora} busy={busy} onCambio={cambiarEnvio} aNegocio={aNegocio} />
     {campoFuera}
     {/* Por email, un solo texto: sin la Voz de MaKo, sin archivos (y con eso, sin varios mensajes ni minutos). */}
     <EditorMensajeWhatsApp
@@ -1356,8 +1357,12 @@ function EditorMako({ paso, id, busy, onPasos, eventoMako, triggerTipo, adjuntos
  * equipo@hola-mako.com). Por email va un texto con su asunto: sin voz ni archivos ni varios mensajes
  * (`problemaDeEmailMako` lo frena al publicar). Elegir apila; tipear el asunto no (como el texto).
  */
-function EnvioDeMako({ params, busy, onCambio }: { params: Record<string, unknown> | undefined; busy: boolean; onCambio: (c: CambioDeMako, apila: boolean) => void }) {
+function EnvioDeMako({ params, busy, onCambio, aNegocio }: { params: Record<string, unknown> | undefined; busy: boolean; onCambio: (c: CambioDeMako, apila: boolean) => void; aNegocio: boolean }) {
   const porEmail = esPorEmail(params);
+  const sinGrupo = sinGrupoDeMako(params);
+  // «Por email» sin nadie a quien escribirle no hace nada: lo dice (17/10/2026). Sólo para TU negocio: en un evento de la
+  // plataforma el correo va al equipo de cada negocio, y esos destinatarios no son los tuyos.
+  const sinDestinatarios = useSinDestinatariosEmail(!porEmail && sinGrupo === 'email' && !aNegocio);
   return (
     <>
       <div data-canal-mako style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
@@ -1370,6 +1375,21 @@ function EnvioDeMako({ params, busy, onCambio }: { params: Record<string, unknow
           disabled={busy}
         />
       </div>
+      {/* SIN GRUPO DE MAKO (17/10/2026): qué pasa si el negocio no tiene grupo. Antes se perdía sin decirlo. De fábrica,
+          queda en la app (la campanita y el teléfono). */}
+      {!porEmail && (
+        <div data-sin-grupo-mako style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--dim)', whiteSpace: 'nowrap' }}>Sin grupo de MaKo</span>
+          <Dropdown
+            value={sinGrupo}
+            options={SINES_GRUPO.map((v) => ({ value: v, label: ROTULO_SIN_GRUPO[v], icono: v === 'email' ? 'email' : 'avisar' }))}
+            onChange={(v) => onCambio({ sinGrupo: v as SinGrupo }, true)}
+            ariaLabel="Qué pasa si el negocio no tiene grupo de MaKo"
+            disabled={busy}
+          />
+          {sinDestinatarios && <span data-sin-destinatarios style={{ fontSize: 12, color: 'var(--warn)' }}>Nadie recibe avisos por email</span>}
+        </div>
+      )}
       {porEmail && (
         <input data-asunto-mako value={asuntoDeMako(params)} placeholder="Asunto" aria-label="Asunto del correo" maxLength={TOPE_ASUNTO_MAKO}
           disabled={busy} onChange={(e) => onCambio({ asunto: e.target.value }, false)}
@@ -1377,6 +1397,28 @@ function EnvioDeMako({ params, busy, onCambio }: { params: Record<string, unknow
       )}
     </>
   );
+}
+
+/**
+ * ¿EL NEGOCIO NO TIENE A NADIE EN «Notificaciones por email»? (17/10/2026, la tarjeta MaKo «Sin grupo: por email»). Se lee
+ * recién cuando hace falta y una vez por página (`/api/perfil/destinatarios`, sólo admin). true SÓLO si se leyó y está
+ * vacío: lo que no se pudo leer no se afirma.
+ */
+let destinatariosEmail: Promise<number | null> | null = null;
+function useSinDestinatariosEmail(activo: boolean): boolean {
+  const [sin, setSin] = useState(false);
+  useEffect(() => {
+    if (!activo) { setSin(false); return; }
+    let vivo = true;
+    destinatariosEmail ??= fetch('/api/perfil/destinatarios', { cache: 'no-store', signal: AbortSignal.timeout(30_000) })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j: { ok?: boolean; destinatarios?: { emails?: unknown[] } } | null) => (j?.ok && Array.isArray(j.destinatarios?.emails) ? j.destinatarios.emails.length : null))
+      .catch(() => null);
+    const p = destinatariosEmail;
+    void p.then((n) => { if (vivo) setSin(n === 0); if (n == null && destinatariosEmail === p) destinatariosEmail = null; });
+    return () => { vivo = false; };
+  }, [activo]);
+  return activo && sin;
 }
 
 /**

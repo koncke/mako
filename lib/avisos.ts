@@ -11,9 +11,9 @@
 // existen (crearNotificacion, grupos de mako-grupo) y agrega estado+dedup.
 
 import 'server-only';
-import { crearNotificacion, type NotifSeveridad } from './notificaciones';
+import { crearNotificacion, anotarSalida, type NotifSeveridad, type SalidaAviso } from './notificaciones';
 import { enviarAlGrupoSuperAdmin, enviarAlGrupoMaKo, enviarPartesAlGrupoMaKo, getGrupoJidMaKo, getGrupoSuperAdminJid } from './mako-grupo';
-import { partesConRotulo, textoDePreparadas, type PartePreparada } from './mako-tarjeta';
+import { partesConRotulo, textoDePreparadas, type PartePreparada, type SinGrupo } from './mako-tarjeta';
 import { reclamarEspaciado, salioReciente } from './espaciado';
 import { frecuenciaEfectiva } from './disparador-mensaje';
 import { estadoAviso, resumenAvisosActivo, type EstadoAviso } from './perfil';
@@ -100,6 +100,11 @@ export type EmitirAvisoInput = {
    * la tarjeta dice «email», y un push que nadie dibujó sería algo por detrás.
    */
   push?: false;
+  /**
+   * La tarjeta MaKo cuando el negocio NO TIENE grupo (17/10/2026, `SinGrupo`, lib/mako-tarjeta.ts): 'email' le escribe
+   * también al equipo; sin esto, queda en la app (la campanita y el teléfono). Sólo al grupo del CLIENTE.
+   */
+  sinGrupo?: 'email';
 };
 
 // `wa:false` con `waError` = el aviso NO llegó a WhatsApp (línea desconectada, grupo
@@ -123,6 +128,8 @@ export type EmitirAvisoResult = {
   agrupado?: boolean;
   /** Un evento de MaKo: cuántas automatizaciones del negocio corrieron (lib/aviso-evento.ts). */
   filas?: number;
+  /** El negocio no tiene grupo de MaKo (leído): lo que se hizo en su lugar. 'app' = quedó en la campanita. */
+  sinGrupo?: SinGrupo;
 };
 
 // El reclamo ATÓMICO de «¿ya salió hace poco?» vive en lib/espaciado.ts: lo usan los
@@ -157,6 +164,14 @@ export async function emitirAviso(a: EmitirAvisoInput): Promise<EmitirAvisoResul
     // workspace de PLATAFORMA. Con el `ws` del cliente, el cliente vería en su Inbox los
     // avisos de agencia sobre él, y el super admin no los vería en el suyo.
     const wsLector = a.alDueno === true ? await wsSuperAdmin().catch(() => ws) : ws;
+    // Un evento de MaKo trae el estado decidido (`a.estado`): de esos avisos el store ya no se lee.
+    // ⚠️ SE LEE ANTES DE ESCRIBIR LA FILA (17/10/2026), para que la fila diga si quedó apagada: la campanita de escritorio
+    // esconde la de un evento sin ninguna automatización (`salida: 'sin_automatizacion'`, una por evento y sin dedup:
+    // era el ruido que medía docs/hallazgos-comunicacion.md) y muestra la que el negocio apagó («quedó sólo en la app»).
+    const canal = a.estado ?? await estadoAviso(ws, a.tipo);
+    const apagado = !canal.activo || (!canal.wa && !canal.email);
+    const payloadFeed = { texto: a.texto, categoria: a.categoria ?? null, semaforo: a.semaforo ?? 'na' };
+    const salidaApagado: SalidaAviso = a.estado ? 'sin_automatizacion' : 'apagado';
     const feedId = await crearNotificacion({
       ws: wsLector,
       tipo: a.tipo,
@@ -165,7 +180,7 @@ export async function emitirAviso(a: EmitirAvisoInput): Promise<EmitirAvisoResul
       descripcion: a.texto,
       link: a.link ?? '/configuraciones?tab=notif',
       entityType: 'aviso',
-      payload: { texto: a.texto, categoria: a.categoria ?? null, semaforo: a.semaforo ?? 'na' },
+      payload: apagado ? { ...payloadFeed, salida: salidaApagado } : payloadFeed,
       origen: `aviso:${a.tipo}`,
     });
     // El dueño puede apagar este aviso desde Configuraciones › Notificaciones. Se
@@ -181,9 +196,7 @@ export async function emitirAviso(a: EmitirAvisoInput): Promise<EmitirAvisoResul
     // `wa`/`email` es «por dónde me llega». Estaban fundidas en un booleano, y por eso
     // «éste sí, pero sólo por mail» no existía: el único camino era apagarlo entero.
     // Apagar los DOS canales equivale a apagarlo — y conserva su texto y su flujo.
-    // Un evento de MaKo trae el estado decidido (`a.estado`): de esos avisos el store ya no se lee.
-    const canal = a.estado ?? await estadoAviso(ws, a.tipo);
-    if (!canal.activo || (!canal.wa && !canal.email)) {
+    if (apagado) {
       return { ok: true, feedId, wa: false, deduped: false, apagado: true };
     }
 
@@ -269,16 +282,28 @@ export async function emitirAviso(a: EmitirAvisoInput): Promise<EmitirAvisoResul
     // lo heredan sin que nadie se acuerde. Primero el correo y después WhatsApp no es
     // capricho: el de WhatsApp puede tardar (abre sesión, resuelve el grupo) y el correo
     // no depende de él — si la línea está caída, el aviso igual sale por mail.
-    const email = canal.email ? await enviarAvisoPorEmail(a, texto) : false;
+    let email = canal.email ? await enviarAvisoPorEmail(a, texto) : false;
     // ⚠️ Por partes, una parte salió sólo con su `key.id` y corta en la primera que falla: `salieron` dice
     // cuántas le llegaron al grupo, y el historial guarda ésas (no las que no salieron).
     const porPartes = canal.wa && salida ? await enviarPartesAlGrupoMaKo(ws, salida) : null;
     const env = canal.wa
       ? (a.alDueno === true ? await enviarAlGrupoSuperAdmin(texto)
-        : porPartes ? (porPartes.ok ? { ok: true as const, id: porPartes.ids[porPartes.ids.length - 1] ?? '' } : { ok: false as const, error: porPartes.error ?? 'no salió' })
+        : porPartes ? (porPartes.ok ? { ok: true as const, id: porPartes.ids[porPartes.ids.length - 1] ?? '' } : { ok: false as const, error: porPartes.error ?? 'no salió', ...(porPartes.sinGrupo ? { sinGrupo: true as const } : {}) })
           : await enviarAlGrupoMaKo(ws, texto))
       : { ok: false as const, id: undefined, error: undefined };
-    if (canal.wa && !env.ok) console.error(`[avisos] ${a.tipo}: NO salió por WhatsApp (ws ${ws}) — ${env.error}`);
+    // ⚠️ SIN GRUPO DE MAKO (17/10/2026): lo dice el MARCADOR del envío (`sinGrupo`, leído con `getSettingEstricto`), nunca
+    // el texto del error ni un «no pude leer». La tarjeta eligió qué hacer (`SinGrupo`, lib/mako-tarjeta.ts): quedar en la
+    // app (la fila de arriba y el push, que ya salieron) o, además, un correo al equipo. Sin duplicar el que ya salió.
+    const sinGrupo: SinGrupo | undefined = canal.wa && a.alDueno !== true && !env.ok && 'sinGrupo' in env && env.sinGrupo
+      ? (a.sinGrupo === 'email' ? 'email' : 'app') : undefined;
+    if (sinGrupo === 'email' && !canal.email) email = await enviarAvisoPorEmail(a, texto);
+    if (sinGrupo) console.warn(`[avisos] ${a.tipo}: el negocio no tiene grupo de MaKo (ws ${ws}) — ${sinGrupo === 'email' ? `por email: ${email ? 'salió' : 'no salió'}` : 'quedó en la app'}`);
+    else if (canal.wa && !env.ok) console.error(`[avisos] ${a.tipo}: NO salió por WhatsApp (ws ${ws}) — ${env.error}`);
+    // La fila de la campanita dice si NO LLEGÓ al grupo, y por qué (17/10/2026). Se reescribe el payload entero: el update
+    // de supabase-js REEMPLAZA el jsonb, no lo mezcla.
+    if (feedId != null && canal.wa && !env.ok) {
+      await anotarSalida(wsLector, feedId, { ...payloadFeed, salida: sinGrupo ? 'sin_grupo' : 'no_llego', ...(email ? { porEmail: true } : {}) });
+    }
     // Lo que el grupo VIO: el texto, o las partes que salieron (sin las que no).
     const textoTurno = porPartes && salida ? textoDePreparadas(salida.slice(0, porPartes.salieron)) : texto;
     if (porPartes && !porPartes.ok && porPartes.salieron > 0) {
@@ -333,7 +358,7 @@ export async function emitirAviso(a: EmitirAvisoInput): Promise<EmitirAvisoResul
       }
     }
     const push = await pushP;
-    return { ok: true, feedId, wa: env.ok, email, push, deduped: false, waError: env.ok ? undefined : env.error };
+    return { ok: true, feedId, wa: env.ok, email, push, deduped: false, waError: env.ok ? undefined : env.error, ...(sinGrupo ? { sinGrupo } : {}) };
   } catch (e) {
     console.error(`[avisos] emitirAviso(${a.tipo}) falló:`, e);
     return { ok: false, feedId: null, wa: false, deduped: false };

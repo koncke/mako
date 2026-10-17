@@ -6,6 +6,13 @@
 // fija. El resto del área (el estado de pendientes y propuestas, las bandejas y
 // el catálogo de capacidades) se declara abajo con el mismo molde.
 //
+// ⛔ El área cuenta como CON datos de clientes (tipos.ts, `DATOS_DE_CLIENTES_POR_AREA`): las
+// propuestas y los chats con MaKo traen lo de cualquier área. Listar, confirmar y cancelar
+// van en `datosDeClientes: false` porque sólo tocan las pendientes VIGENTES y lo que traen es
+// lo de cada una, que el turno del doer mira pendiente por pendiente
+// (`turnoParaLaRed`, lib/doer-herramientas.ts). `ver_pendiente` no: trae cualquiera
+// por id, también las ya resueltas, con su resultado.
+//
 // Español neutro en descripciones y textos: los lee el cliente en la referencia.
 // =============================================================================
 
@@ -17,6 +24,7 @@ const TODOS = ['whatsapp', 'app', 'http'] as const;
 export const DEFS: readonly OperacionDef[] = [
   {
     id: 'listar_pendientes', area: 'mako', tipo: 'lectura',
+    datosDeClientes: false,
     titulo: 'Acciones pendientes de confirmar',
     descripcion: 'Lista las acciones que quedaron pendientes de confirmación y siguen vigentes (no vencidas): qué se propuso, de dónde vino y cuándo vence. En WhatsApp muestra las del grupo y las que llegaron por la API del mismo negocio. No requiere parámetros.',
     parametros: [],
@@ -24,6 +32,7 @@ export const DEFS: readonly OperacionDef[] = [
   },
   {
     id: 'confirmar_accion', area: 'mako', tipo: 'control', alcanceMinimo: 'ejecutar',
+    datosDeClientes: false,
     titulo: 'Confirmar una acción pendiente',
     descripcion: 'EJECUTA una acción que estaba pendiente de confirmación, cuando la persona dio el OK («sí», «dale», «confirmo»). En WhatsApp, si hay una sola pendiente vigente puedes omitir el id; en cualquier otro canal el id es obligatorio (de listar_pendientes). Por la API solo funciona con un token de alcance «ejecutar».',
     parametros: [{ nombre: 'id', tipo: 'number', descripcion: 'id de la acción pendiente a ejecutar (de listar_pendientes).' }],
@@ -31,6 +40,7 @@ export const DEFS: readonly OperacionDef[] = [
   },
   {
     id: 'cancelar_accion', area: 'mako', tipo: 'control', alcanceMinimo: 'proponer',
+    datosDeClientes: false,
     titulo: 'Cancelar una acción pendiente',
     descripcion: 'Cancela una acción pendiente (la persona dijo que no, o cambió de idea). En WhatsApp, si hay una sola vigente puedes omitir el id; en cualquier otro canal el id es obligatorio.',
     parametros: [{ nombre: 'id', tipo: 'number', descripcion: 'id de la acción pendiente a cancelar (de listar_pendientes).' }],
@@ -60,6 +70,7 @@ export const DEFS: readonly OperacionDef[] = [
   },
   {
     id: 'resumen_bandejas_confirmacion', area: 'mako', tipo: 'lectura',
+    datosDeClientes: false,
     titulo: 'Todo lo que espera confirmación',
     descripcion: 'Cuenta cuántas cosas esperan a una persona, por bandeja y con su link: acciones por chat (/mako/pendientes), acciones con formulario (/mako/revisar) y las que fallaron al aplicarse, contactos propuestos (/crm/revisar), borradores de tareas (/plan) y cambios del CRM automático. Úsala cuando pregunten «¿qué tengo pendiente de aprobar?»; para el detalle de cada bandeja usa su lectura propia. Solo cuenta las bandejas de las tabs que tiene este negocio.',
     parametros: [],
@@ -68,6 +79,7 @@ export const DEFS: readonly OperacionDef[] = [
   // ── Qué se hace adentro de MaKo ─────────────────────────────────────────────
   {
     id: 'listar_capacidades_mako', area: 'mako', tipo: 'lectura',
+    datosDeClientes: false,
     titulo: 'Qué se hace dentro de MaKo',
     descripcion: 'El catálogo cerrado de lo que se resuelve ADENTRO de MaKo: por cada capacidad, la tab, el link absoluto, qué se hace ahí y los pasos. Úsala cuando pregunten «¿qué puedes hacer?», «¿dónde hago X?» o antes de mandar a alguien a resolver algo afuera: los links salen de aquí, nunca escritos a mano. Solo trae las tabs que tiene este negocio; para un miembro del equipo en la app el filtro por rol es aproximado (no distingue closer de setter).',
     parametros: [{ nombre: 'id', tipo: 'string', enum: CAPACIDADES.map((c) => c.id), descripcion: 'id de UNA capacidad para traer solo esa. Sin id, trae todas.' }],

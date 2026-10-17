@@ -78,8 +78,9 @@ function sinTipos(ts) {
       'export function puedeFilmar(\n'
       + '  plantillas: Record<string, PlantillaGuardada | null | undefined>,\n'
       + '  necesarias: readonly OperacionMinima[],\n'
+      + '  interfaz?: EstadoInterfaz,\n'
       + '): Ensayo {',
-      'export function puedeFilmar(plantillas, necesarias) {',
+      'export function puedeFilmar(plantillas, necesarias, interfaz) {',
     )
     .replace('  const pl = hallada[1] as PlantillaGuardada;', '  const pl = hallada[1];');
 }

@@ -60,6 +60,14 @@ import { comoViajo } from './boq-patch.js';
 
 /** Lo mínimo del catálogo que este ensayo necesita. */
 
+/**
+ * Lo que contesta el motor por interfaz de la pestaña de Flow
+ * (`extension/flow-interfaz.js`, mensaje `INTERFAZ_ESTADO`).
+ *
+ * `null` = la extensión tiene el motor pero la pestaña no contestó: no hay
+ * pestaña, está dormida, o el script no se pudo poner. Es «no puede», no «no sé».
+ */
+
 
 /**
  * El ensayo de UNA operación.
@@ -154,7 +162,19 @@ export function ensayarOperacion(plantillas, cat) {
  * no puede resolver a un verde: sería exactamente el éxito falso que este módulo
  * viene a cerrar, con la ventaja de que además no dejaría nada que investigar.
  */
-export function puedeFilmar(plantillas, necesarias) {
+export function puedeFilmar(plantillas, necesarias, interfaz) {
+  // ⚠️ CON EL MOTOR POR INTERFAZ, LA PLANTILLA NO DECIDE NADA. El server le manda
+  // los trabajos con `motor: 'interfaz'` a toda extensión que lo tiene, y esos
+  // trabajos se hacen apretando «Start generation» en la pestaña: una plantilla
+  // aprendida no participa. Juzgar por ella daría un verde sobre una pestaña que
+  // no puede generar, o un rojo («enséñame») sobre una que sí — y «enséñame»
+  // cuesta un crédito de la persona por algo que ya no se usa.
+  //
+  // `undefined` es una extensión sin el motor: ahí sigue mandando la plantilla.
+  if (interfaz !== undefined) {
+    if (interfaz && interfaz.puede === true) return { puede: true, falta: null, porQue: '', motor: 'interfaz' };
+    return { puede: false, falta: null, porQue: (interfaz && interfaz.porQue) || 'INTERFAZ_MUDA', motor: 'interfaz' };
+  }
   if (!necesarias || !necesarias.length) {
     return { puede: false, falta: null, porQue: 'SIN_CATALOGO' };
   }

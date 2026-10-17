@@ -26,6 +26,10 @@
 import { randomUUID } from 'node:crypto';
 import { getRolWsEfectivo, getWorkspaceActual, getTenantDb } from '@/lib/workspace';
 import { encolar, estadoPuente } from '@/lib/flow-cola';
+import {
+  usaInterfaz, pedidoClipInterfaz, pedidoImagenInterfaz, pedidoSubidaInterfaz,
+  clipDeInterfaz, rutaDeSubida, PREFIJO_OPERACION_INTERFAZ,
+} from '@/lib/flow-interfaz';
 import { ENDPOINTS, obj, arr, str, extraerMediaId, parchesEstadoClip, urlDeMedioFlow, parchesSubirImagen, KEY_CARAS_FLOW } from '@/lib/flow-protocolo';
 import {
   cuerpoClipReferencias, semillaDeToma, mediaIdDeReferencia, KEY_CARA_FLOW,
@@ -294,6 +298,10 @@ async function guardarClip(planId: string, n: number, firmada: string, operacion
   try {
     const r = await fetch(firmada);
     if (!r.ok) return '';
+    // ⚠️ UNA PÁGINA DE LOGIN NO ES UN CLIP. Una url de Flow que pide la sesión de
+    // Google redirige al login y contesta 200 con HTML: pasaba el `ok` y el tamaño,
+    // y se guardaba como .mp4 una página de Google.
+    if (/text\/html/i.test(r.headers.get('content-type') || '')) return '';
     const bytes = new Uint8Array(await r.arrayBuffer());
     // Un archivo de cero bytes no es un clip: es un error que se ve como un video.
     if (bytes.byteLength < 1000) return '';
@@ -592,7 +600,17 @@ export async function generarTomaAction(
     item.plan.puestaId, clip, item.promptsPropios?.[String(n)],
     undefined, acentoDelPlan(item.plan.clips),
   );
-  const trabajoId = await encolar('generar_clip', {
+  // ⚠️ CON EL MOTOR POR INTERFAZ (extensión ≥ 0.69) el pedido es OTRO: el prompt,
+  // la cara y la duración, y la pestaña aprieta los botones de Flow. Al resto se le
+  // sigue mandando el cuerpo de BOQ, que es lo único que sabe hacer.
+  const trabajoId = usaInterfaz(puente.version)
+    ? await encolar('generar_clip', pedidoClipInterfaz({
+      prompt: promptClip,
+      mediaId,
+      segundos: clip.segundos,
+      ruta: rutaDeSubida(planId, 'toma', n, randomUUID()),
+    }))
+    : await encolar('generar_clip', {
     prompt: promptClip,
     path: ENDPOINTS.clipDesdeReferencias,
     body: cuerpoClipReferencias(
@@ -757,6 +775,31 @@ export async function estadoTomaAction(
       return { ok: true, item, estado: { fase: 'encolado', trabajoId: marca.trabajoId } };
     }
 
+    // ── El motor por interfaz devuelve el ARCHIVO, no una operación ─────────
+    //
+    // La pestaña siguió la generación hasta el final: lo que vuelve es el id del
+    // medio y su url —en nuestro Storage si pudo subirlo, o la que mostraba Flow
+    // si no—. No hay nada que sondear. Si la url de Flow no se deja bajar, la toma
+    // queda «a ciegas» (está hecha y pagada) y la vuelta siguiente lo reintenta.
+    const deInterfaz = clipDeInterfaz(data?.resultado);
+    if (deInterfaz) {
+      const operacionI = `${PREFIJO_OPERACION_INTERFAZ}${marca.trabajoId}`;
+      const propia = deInterfaz.propio && deInterfaz.url
+        ? deInterfaz.url
+        : deInterfaz.url ? await guardarClip(planId, n, deInterfaz.url, deInterfaz.mediaId || operacionI.replace(':', '-')) : '';
+      if (propia) {
+        item = await guardarMarca(item, n, { url: propia, mediaId: deInterfaz.mediaId, operacion: operacionI, ciego: undefined });
+        if (typeof marca.saldoAntes === 'number') await encolar('creditos', { path: ENDPOINTS.creditos, body: {} });
+        return { ok: true, item, estado: { fase: 'listo', url: propia, mediaId: deInterfaz.mediaId } };
+      }
+      const texto = textoFlow('sin_enlace', `la toma ${n}`).detalle;
+      item = await guardarMarca(item, n, {
+        operacion: operacionI, mediaId: deInterfaz.mediaId,
+        ciego: { desde: new Date().toISOString(), error: texto },
+      });
+      return { ok: true, item, estado: { fase: 'a_ciegas', operacion: operacionI, error: texto } };
+    }
+
     const nombre = nombreDeOperacion(data?.resultado);
     if (!nombre) {
       const e = 'Flow aceptó el pedido pero no devolvió una operación.';
@@ -770,6 +813,21 @@ export async function estadoTomaAction(
 
   // ── Paso 2: ¿ya hay video? ───────────────────────────────────────────────
   const operacion = String(marca.operacion);
+
+  // Una toma del motor por interfaz que ya terminó en Flow pero cuyo archivo no se
+  // pudo traer: no hay operación que sondear, se vuelve a intentar la bajada.
+  if (operacion.startsWith(PREFIJO_OPERACION_INTERFAZ)) {
+    const idT = Number(operacion.slice(PREFIJO_OPERACION_INTERFAZ.length));
+    const { data: tI } = await db.from('flow_trabajos').select('resultado').eq('id', idT).maybeSingle();
+    const r = clipDeInterfaz(tI?.resultado);
+    const propia = r?.url ? await guardarClip(planId, n, r.url, r.mediaId || `interfaz-${idT}`) : '';
+    if (propia) {
+      item = await guardarMarca(item, n, { url: propia, mediaId: r?.mediaId ?? '', ciego: undefined });
+      return { ok: true, item, estado: { fase: 'listo', url: propia, mediaId: r?.mediaId ?? '' } };
+    }
+    const texto = marca.ciego?.error || textoFlow('sin_enlace', `la toma ${n}`).detalle;
+    return { ok: true, item, estado: { fase: 'a_ciegas', operacion, error: texto } };
+  }
   // ⚠️ SIN `.eq('estado','listo')`, y ese filtro era el bug.
   //
   // Preguntando sólo por las consultas que salieron BIEN, una consulta que falla
@@ -1408,7 +1466,10 @@ export async function generarImagenAction(
 
   // formado hecho por nosotros — con una imagen de resultado y sin ningún error.
 
-  const cara = (await caraParcheable()) ? await caraEnFlow(item) : '';
+  // Con el motor por interfaz la cara se adjunta desde el selector de Flow: no
+  // depende de que una plantilla tenga dónde ponerla.
+  const porInterfaz = usaInterfaz(puente.version);
+  const cara = (porInterfaz || (await caraParcheable())) ? await caraEnFlow(item) : '';
 
   // ⚠️ SI HAY UNA FOTO ELEGIDA Y TODAVÍA NO ESTÁ EN FLOW, NO SE GENERA.
   //
@@ -1422,7 +1483,7 @@ export async function generarImagenAction(
   //
   // Esperar un latido no cuesta nada; generar con la cara vieja cuesta la
   // generación y la confianza en el selector.
-  if (item.fotoId && !cara && (await caraParcheable())) {
+  if (item.fotoId && !cara && (porInterfaz || (await caraParcheable()))) {
     // ⚠️ SE BORRA EL FALLO VIEJO ANTES DE SALIR, Y ESA ES LA MITAD QUE FALTABA.
     //
     // La limpieza de los cuatro campos del error vive abajo, en la escritura que
@@ -1443,7 +1504,13 @@ export async function generarImagenAction(
       error: 'MaKo está subiendo tu foto a Google. En unos segundos vuelve a intentar.',
     };
   }
-  const trabajoId = await encolar('generar_imagen', {
+  const trabajoId = porInterfaz
+    ? await encolar('generar_imagen', pedidoImagenInterfaz({
+      prompt: promptFinal(escena.prompt, { conCara: !!cara, puestaId: item.plan.puestaId, propio: item.promptsImagenPropios?.[String(n)] }),
+      cara,
+      ruta: rutaDeSubida(planId, 'escena', n, randomUUID()),
+    }))
+    : await encolar('generar_imagen', {
     // ⚠️ EL MISMO PROMPT FINAL QUE VA EN EL PARCHE, también al tope: es lo que lee
     // la rama de BOQ de la cola. Ver el clip, más arriba.
     prompt: promptFinal(escena.prompt, { conCara: !!cara, puestaId: item.plan.puestaId, propio: item.promptsImagenPropios?.[String(n)] }),
@@ -2006,12 +2073,17 @@ async function caraEnFlow(item: PlanGuardado): Promise<string> {
     const bin = await db.storage.from('archivero').download(foto.path);
     if (bin.error || !bin.data) return '';
     const b64 = Buffer.from(await bin.data.arrayBuffer()).toString('base64');
-    await encolar('subir_imagen', {
-      path: ENDPOINTS.subirImagen,
-      parches: parchesSubirImagen(b64),
-      // Para poder encontrar este trabajo despues sin mirar el cuerpo entero.
-      fotoId,
-    });
+    // Con el motor por interfaz la foto se sube por el menú «Upload» de Flow: viaja
+    // el archivo, no un parche de un pedido aprendido.
+    const puenteF = await estadoPuente().catch(() => null);
+    await encolar('subir_imagen', usaInterfaz(puenteF?.version)
+      ? pedidoSubidaInterfaz({ imagenB64: b64, mime: /\.png$/i.test(foto.path) ? 'image/png' : 'image/jpeg', fotoId })
+      : {
+        path: ENDPOINTS.subirImagen,
+        parches: parchesSubirImagen(b64),
+        // Para poder encontrar este trabajo despues sin mirar el cuerpo entero.
+        fotoId,
+      });
   }
   return '';
 }

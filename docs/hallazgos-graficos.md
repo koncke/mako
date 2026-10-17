@@ -1103,7 +1103,23 @@ la dio `/api/graficos/plantilla` y se la mandó a `/api/graficos/editar`, que no
   en el ws9.
 *16/10/2026, claude3 (chat Dashboard).*
 
+## Los pagos tienen funnel: el de donde estaba el lead ese día, no su casa (17/10/2026)
+
+La fuente «Pagos» no tenía de qué funnel es cada cuota, así que «Cobrado por funnel» o una hoja filtrada por funnel no
+contaban la plata. Ahora tiene la dimensión `producto` (y entra en el campo compartido «Producto», así que el filtro de
+la hoja también la recorta). **Con la regla de los OKR, no con la casa del lead**: en el ws1 el funnel «Renovación»
+tiene sólo leads agregados, y por la casa su plata sería siempre cero. La explicación entera, en
+[hallazgos-objectives.md](hallazgos-objectives.md) → «Un OKR que suma varios funnels». Si la ubicación de los leads no se
+puede leer, la cuota queda sin funnel (dimensión vacía) en vez de caerse cada gráfico de pagos.
+**Vive en:** `filasPagos` (lib/graficos-datos.ts) · `ubicarLeads` (lib/funnels-elegidos-server.ts).
+*17/10/2026, claude4 (chat Dashboard).*
+
 ## Lo que quedó sin hacer
+
+- **El filtro «Producto» de los LEADS mira sólo la casa** (17/10/2026): una hoja filtrada por un funnel de agregados
+  («Renovación») no muestra a sus leads. Contar a un lead en sus dos funnels duplica los totales: sin decidir. Vive en
+  `filasLeads` (lib/graficos-datos.ts). Y la dimensión se sigue llamando «Producto» (la decisión del 11/10 de llamarla
+  «Funnel» no llegó a los gráficos).
 
 - **Las portadas (15/10/2026):** mirado en producción en el ESCRITORIO con las 6 hojas de Mauricio; el celular, sólo en el
   arnés (la ventana de la extensión no se dejó angostar). Falta decidir con Leila (o con Martín) su Cobranza, que es una

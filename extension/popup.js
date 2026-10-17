@@ -405,6 +405,30 @@ async function pintar() {
       });
       return;
     }
+    // ⚠️ CON EL MOTOR POR INTERFAZ NO HAY NADA QUE ENSEÑAR, Y ESO NO ES «LISTO».
+    // MaKo genera apretando los botones de Flow en esta pestaña, así que lo único
+    // que hace falta es que la pestaña esté dentro de un proyecto y contestando.
+    // Sin esta rama, `siguiente` vacío caía en «MaKo ya puede hacer tus anuncios»
+    // con la pestaña muda: un verde que la cola iba a desmentir con el botón ya
+    // apretado.
+    if (v.juicio && v.juicio.motor === 'interfaz' && !v.juicio.puede) {
+      if (!v.flowEnProyecto) {
+        pantalla({
+          titulo: 'Abre un proyecto en Flow',
+          tenue: 'MaKo hace tus anuncios dentro de un proyecto de Flow. Entra a cualquiera —o crea uno— y vuelve acá.',
+          boton: 'Ir a Google Flow',
+          accion: abrirFlow,
+        });
+        return;
+      }
+      pantalla({
+        titulo: 'Recarga Google Flow',
+        tenue: 'La pestaña de Flow no contesta. Al recargarla queda lista; no toques nada mientras se recarga.',
+        boton: 'Recargar',
+        accion: recargarFlow,
+      });
+      return;
+    }
     // ⚠️ MIENTRAS NO APRENDIÓ, LA PANTALLA PIDE LA ÚNICA COSA QUE DESTRABA TODO.
     //
     // Para poder generar con la app nueva hace falta ver UNA generación de

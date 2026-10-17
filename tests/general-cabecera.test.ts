@@ -85,7 +85,7 @@ test('lo urgente le gana al arranque: una alerta roja se lleva el titular aunque
 
 const obj = (p: Partial<Objective>): Objective => ({
   id: 'o', anio: 2026, quarter: 3, titulo: 'x', metrica: 'cierres', metaValor: 10,
-  unidad: 'cantidad', avanceManual: null, orden: 0, estado: 'activo', origen: 'manual',
+  unidad: 'cantidad', avanceManual: null, orden: 0, estado: 'activo', origen: 'manual', funnelIds: [],
   ...p,
 });
 

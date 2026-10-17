@@ -41,6 +41,7 @@ import {
   proponerKpis, migrarSettingsAObjectives,
   type ObjectiveConAvance, type KpiEnTablero, type CapacidadLeida,
 } from './objectives';
+import { filtrarPorFunnels } from './funnels-elegidos-server';
 import {
   elegirObjetivoPrincipal, ES_PLATA,
   type Quarter, type ProgresoQuarter, type Cadencia, type UnidadObjetivo,
@@ -198,7 +199,10 @@ export async function leerVistaGeneral(): Promise<VistaGeneral> {
   if (objetivoPrincipal && ES_PLATA(objetivoPrincipal.metrica)) {
     try {
       const br = await getRevenueBreakdowns(objetivoPrincipal.desde, objetivoPrincipal.hasta);
-      plata = plataDelObjetivo(objetivoPrincipal.metrica, br);
+      // El OKR que suma sólo algunos funnels (mig 0306): el desglose y el complemento, de esos mismos funnels.
+      const fs = objetivoPrincipal.funnelIds;
+      const [cash, sold] = await Promise.all([filtrarPorFunnels(br.cash, fs), filtrarPorFunnels(br.sold, fs)]);
+      plata = plataDelObjetivo(objetivoPrincipal.metrica, { cash, sold });
     } catch { /* el número grande no depende de esto */ }
   }
 

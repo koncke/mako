@@ -4073,7 +4073,11 @@ voz con un mensaje que le pedía cargar otra key. Dos reglas al escribir un cami
   datos de clientes, si nada que no entrene contesta, se corta, y el mensaje dice que conecte su Claude
   (no «Claude vetado» ni «falló»: molde, el `catch` de `lib/lead-insights.ts`). Una feature nueva que lea leads, conversaciones o llamadas se marca
   `pii: true`. Y un camino con su PROPIA red (un bucle sobre `provsGratisDePlataforma`) aplica la
-  misma regla él mismo: el corte de la cascada no lo cubre. Una regla que corta de más tampoco está
+  misma regla él mismo: el corte de la cascada no lo cubre. Si la red manda HERRAMIENTAS de la API, «¿lee datos de
+  clientes?» lo contesta el registro (`leeDatosDeClientes`: `DATOS_DE_CLIENTES_POR_AREA` y la marca `datosDeClientes`
+  de cada operación), y se corta por lo que el turno PIDE, no por lo que viaja (molde: `turnoParaLaRed`,
+  lib/doer-herramientas.ts, 17/10/2026). Una operación nueva que lea leads, conversaciones, llamadas o cobros en un
+  área marcada sin datos de clientes lleva `datosDeClientes: true`. Una regla que corta de más tampoco está
   bien: si una feature mezcla pedidos con y sin datos de clientes, la marca del catálogo queda como
   default cerrado y quien llama la afina con `pii`, EN POSITIVO (lo que no está revisado la lleva;
   molde: `CAJAS_SIN_DATOS_DE_CLIENTES`, lib/graficos-ia-elemento.ts).
@@ -4687,6 +4691,20 @@ mensajes o dispara la conversión de Meta. Martín, cuando el «Mover a prueba»
 del producto principal: «No se debe "Mover", se debe agregar al otro producto». La regla de
 arriba sigue valiendo para las entidades que SÍ son N (una tarea por tablero, una fila por
 cuota); la pregunta es la primera línea.
+
+# Elegir funnels: UNO O VARIOS, con una pieza y una regla (17/10/2026)
+
+Martín, a un cliente: «si tienes varios CRM que sea una selección múltiple y que puedas seleccionar 1 o varios».
+
+- **Una configuración que elige de qué funnels cuenta algo usa `ElegirFunnels`**
+  (app/components/ElegirFunnels.tsx): vacío = todo el negocio, y un valor viejo de UNO se lee como lista de uno
+  (`leerFunnelIds`, lib/funnels-elegidos.ts; `funnelsDeBloque` en los bloques de General), sin migrar a mano.
+- ⚠️ **Plata o cierres por funnel NO se cuentan por la casa del lead.** En el ws1 «Renovación» tenía 0 leads con casa y
+  5 agregados (`lead_funnel`): filtrar por `leads.funnel_id` da cero para todo funnel de agregados, en silencio. Se
+  reparte con `funnelDelMomento` sobre `ubicarLeads` (lib/funnels-elegidos-server.ts): el funnel donde estaba el lead
+  ESE día. El número y su desglose usan la misma, o no cuadran.
+- **Lo que es UNO por naturaleza sigue siendo uno**: las etapas de un kanban, dónde nace un lead, a qué etapa mueve un
+  evento o una etiqueta. La pregunta es si se SUMA (varios) o si se UBICA (uno).
 
 # Si la misma pregunta se contesta en DOS lugares, el BORRADO va por una función
 

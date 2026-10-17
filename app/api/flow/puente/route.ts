@@ -30,6 +30,7 @@ import { runWithWorkspace, getTenantDb } from '@/lib/workspace';
 import { NextResponse, type NextRequest } from 'next/server';
 import {
   workspaceDeToken, marcarVisto, tomarTrabajos, resolver, fallar, estadoGuardado,
+  seguirTomados, firmarSubidas,
   type EstadoPuente,
   proyectoGuardado,
 } from '@/lib/flow-cola';
@@ -416,7 +417,10 @@ export async function POST(req: NextRequest) {
   // y devuelve vacío. Preguntarle acá al `estado` que reportó la extensión sería
   // preguntarle al que no puede saberlo — la extensión solo dice `listo` o
   // `sin_sesion`, nunca `marcada`.
-  const trabajos = estado === 'sin_sesion' ? [] : await tomarTrabajos(ws, cuantos);
+  // Los que el motor por interfaz sigue trabajando no vuelven a la cola: ver
+  // `seguirTomados`. Va ANTES de tomar, que es donde el RPC rescata los colgados.
+  await seguirTomados(ws, body.enCurso);
+  const trabajos = estado === 'sin_sesion' ? [] : await firmarSubidas(ws, await tomarTrabajos(ws, cuantos));
   const guardado = await estadoGuardado(ws);
 
   return NextResponse.json({

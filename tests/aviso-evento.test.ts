@@ -507,7 +507,7 @@ test('el runner: correrFlujoDe corta los tres, la tarjeta MaKo emite el aviso co
   const paso = bloque(FLUJOS, 'async function ejecutarPaso(', '\nasync function emitirTarjetaDelEvento(');
   // Undécima tanda: con la lista de la tarjeta (`paso.partes`, la tarjeta TAL CUAL).
   // (16/10/2026, revisión de B3: devuelve si LLEGÓ, para el techo de la alerta de anuncios: tests/dato-evento.test.ts.)
-  assert.match(paso, /if \(paso\.canal === 'aviso_dueno'\) \{\n\s*const propio = [^\n]*\n(\s*\/\/[^\n]*\n)*\s*if \(ctx\.aviso\) return emitirTarjetaDelEvento\(flujoId, \{ texto: propio, partes: paso\.partes, email: paso\.email \}, ws, ctx, ctx\.aviso\);/,
+  assert.match(paso, /if \(paso\.canal === 'aviso_dueno'\) \{\n\s*const propio = [^\n]*\n(\s*\/\/[^\n]*\n)*\s*if \(ctx\.aviso\) return emitirTarjetaDelEvento\(flujoId, \{ texto: propio, partes: paso\.partes, email: paso\.email, sinGrupo: paso\.sinGrupo \}, ws, ctx, ctx\.aviso\);/,
     'la tarjeta de un evento tiene que desviarse ANTES de la línea suelta al grupo');
   const tarjeta = bloque(FLUJOS, 'async function emitirTarjetaDelEvento(', '\n}\n');
   assert.match(tarjeta, /\[CLAVE_MENSAJE_MAKO\]: ctx\.texto/);

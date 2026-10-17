@@ -193,9 +193,10 @@ globalThis.fetch = async (u, init) => {
 const settings = await import(${url('lib/settings.ts')});
 mock.module(${url('lib/settings.ts')}, { exports: { ...real(settings),
   getSetting: async (k) => (k === 'mako.grupo_jid' ? '${JID}' : k === 'mako.voz.instancia' ? 'mako_test' : null),
-  getSettingEstricto: async () => null, setSetting: async () => {},
+  // El grupo del negocio se lee ESTRICTO desde el 17/10/2026 (\`sinGrupo\`, lib/mako-grupo.ts).
+  getSettingEstricto: async (k) => (k === 'mako.grupo_jid' ? '${JID}' : null), setSetting: async () => {},
 } });
-mock.module(${url('lib/notificaciones.ts')}, { exports: { crearNotificacion: async (x) => { log.feed.push(x.descripcion); return 1; } } });
+mock.module(${url('lib/notificaciones.ts')}, { exports: { crearNotificacion: async (x) => { log.feed.push(x.descripcion); return 1; }, anotarSalida: async () => {} } });
 mock.module(${url('lib/espaciado.ts')}, { exports: { reclamarEspaciado: async () => true, salioReciente: async () => false } });
 const perfil = await import(${url('lib/perfil.ts')});
 mock.module(${url('lib/perfil.ts')}, { exports: { ...real(perfil), estadoAviso: async () => { log.estado++; return { activo: true, wa: true, email: false, frecuenciaMin: 0 }; }, resumenAvisosActivo: async () => false } });
