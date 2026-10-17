@@ -638,7 +638,8 @@ async function filasRevenue(rg: Rango): Promise<Fila[]> {
     leer<FLeadVenta>('leads', 'id, fecha_cierre, cerro, estado_lead, venta_tipo, monto_cierre_usd', rg, { col: 'fecha_cierre' }),
     leer<FCuota>('pagos', 'id, lead_id, monto_usd, fecha_pago, fecha_esperada', rg, { col: 'fecha_pago', extra: (q) => q.eq('pagado', true) }),
     leer<FCuota>('pagos', 'id, lead_id, monto_usd, fecha_pago, fecha_esperada', rg, { col: 'fecha_esperada', extra: (q) => q.eq('pagado', false) }),
-    todo ? leer<FCuota>('pagos', 'id, lead_id, monto_usd, fecha_pago, fecha_esperada, proveedor, cobro_id, baja_at', { ...rg, sinRango: true }, { extra: (q) => q.eq('pagado', false).is('fecha_esperada', null) }) : Promise.resolve([] as FCuota[]),
+    // `*`: la regla mira proveedor, cobro_id y `baja_at` (mig 0307); con `*` una base sin la migración no rompe el Revenue.
+    todo ? leer<FCuota>('pagos', '*', { ...rg, sinRango: true }, { extra: (q) => q.eq('pagado', false).is('fecha_esperada', null) }) : Promise.resolve([] as FCuota[]),
   ]);
   // Las sin fecha son deuda… salvo las DEVUELTAS por un reembolso, que también quedan impagas y sin vencimiento (15/10/2026).
   // Y las de un cliente que se DIO DE BAJA (#871, 17/10/2026): la baja las deja igual, impagas y sin vencimiento.

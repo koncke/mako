@@ -389,10 +389,11 @@ export async function editarCuota(
   cambio: { monto?: number | null; fecha?: string | null },
 ): Promise<{ antes: { monto_usd: number; fecha_esperada: string | null }; despues: { monto_usd: number; fecha_esperada: string | null }; numero: number }> {
   const db = await getTenantDb();
-  const { data, error } = await db.from('pagos').select('id, numero, monto_usd, fecha_esperada, pagado, proveedor, cobro_id, baja_at').eq('id', pagoId).eq('lead_id', leadId).maybeSingle();
+  // `*` y no la lista: `baja_at` (mig 0307) se lee si existe, y una base sin la migración no rompe editar.
+  const { data, error } = await db.from('pagos').select('*').eq('id', pagoId).eq('lead_id', leadId).maybeSingle();
   if (error) throw new Error(`Error leyendo la cuota ${pagoId}: ${error.message}`);
   if (!data) throw new Error('Esa cuota no existe en este lead.');
-  const q = data as { numero: number; monto_usd: number; fecha_esperada: string | null; pagado: boolean; proveedor: string | null; cobro_id: number | null; baja_at: string | null };
+  const q = data as { numero: number; monto_usd: number; fecha_esperada: string | null; pagado: boolean; proveedor: string | null; cobro_id: number | null; baja_at?: string | null };
   if (q.pagado) throw new Error('Esa cuota ya está cobrada: para corregirla, desmárcala primero.');
   if (esCuotaDevuelta(q)) throw new Error('Esa cuota se devolvió: no se edita.');
   if (esCuotaDeBaja(q)) throw new Error('El cliente se dio de baja: deshaz la baja para editar esa cuota.');
@@ -1062,7 +1063,8 @@ export async function getOutstandingTotal(): Promise<number> {
   const supabase = (await getTenantDb());
   const { data, error } = await supabase
     .from('pagos')
-    .select('monto_usd, pagado, fecha_esperada, proveedor, cobro_id, baja_at')
+    // `*`: la regla mira proveedor, cobro_id y `baja_at` (mig 0307); con la lista, una base sin la migración rompía el número.
+    .select('*')
     .eq('pagado', false);
   if (error) throw new Error(`Error sumando outstanding: ${error.message}`);
   // Sin las de un cliente dado de baja (#871, `noEsDeuda`): impagas y sin vencimiento, como las devueltas.
@@ -1101,7 +1103,8 @@ async function _getOutstandingDetalle(
   const supabase = (await getTenantDb());
   const { data, error } = await supabase
     .from('pagos')
-    .select('id, lead_id, numero, monto_usd, fecha_esperada, pagado, proveedor, cobro_id, baja_at, leads(nombre, monto_cierre_usd, fecha_cierre)');
+    // `*`: la regla (`noEsDeuda`) mira proveedor, cobro_id y `baja_at` (mig 0307), y con `*` una base sin la migración no rompe.
+    .select('*, leads(nombre, monto_cierre_usd, fecha_cierre)');
   if (error) throw new Error(`Error leyendo detalle de outstanding: ${error.message}`);
 
   type Row = {
@@ -1113,7 +1116,7 @@ async function _getOutstandingDetalle(
     pagado: boolean;
     proveedor: string | null;
     cobro_id: number | null;
-    baja_at: string | null;
+    baja_at?: string | null;
     leads: { nombre: string; monto_cierre_usd: number | null; fecha_cierre: string | null } | { nombre: string; monto_cierre_usd: number | null; fecha_cierre: string | null }[] | null;
   };
 

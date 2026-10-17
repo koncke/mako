@@ -117,9 +117,9 @@ test('⚠️ barrido: toda suma de lo impago sin fecha excluye la baja (usa `noE
   const archivos = execFileSync('git', ['ls-files', 'app', 'lib'], { encoding: 'utf8' }).split('\n').filter((f) => /\.(ts|tsx)$/.test(f));
   const viejas = archivos.filter((f) => /!esCuotaDevuelta\(/.test(leer(f)));
   assert.deepEqual(viejas, [], 'una suma de deuda con !esCuotaDevuelta( cuenta a quien se dio de baja: usa !noEsDeuda(');
-  // Las que leen `pagos` con un select explícito y filtran en memoria traen la columna.
-  assert.match(leer('lib/pagos.ts'), /select\('monto_usd, pagado, fecha_esperada, proveedor, cobro_id, baja_at'\)/);
-  assert.match(leer('lib/pagos.ts'), /proveedor, cobro_id, baja_at, leads\(nombre, monto_cierre_usd, fecha_cierre\)/);
+  // Las que filtran en memoria leen con `*`: traen `baja_at` si existe, y sin la migración 0307 no rompen (pedido del Cerebro).
+  assert.doesNotMatch(leer('lib/pagos.ts') + leer('lib/cobros.ts') + leer('lib/graficos-datos-extra.ts'), /select\([^)]*baja_at|'pagos', '[^']*baja_at/, 'una lista con baja_at rompe sin la migración');
+  assert.match(leer('lib/pagos.ts'), /\.select\('\*, leads\(nombre, monto_cierre_usd, fecha_cierre\)'\)/);
 });
 
 test('sólo lib/pagos-baja.ts escribe la baja, y una suscripción no se da de baja (se cancela)', () => {
