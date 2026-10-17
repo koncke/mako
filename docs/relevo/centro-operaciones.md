@@ -1,20 +1,46 @@
-# Relevo — Centro de Operaciones (16/10/2026, 14:45; cuenta 3 al 95% semanal)
+# Relevo — Centro de Operaciones (17/10/2026; cuenta 4, `claude4`)
 
-Escrito por el chat «Centro de Operaciones» de la cuenta 3 (`local_428051c1…`), que cerró por el 95% de uso semanal.
-Lo que costó cada cosa está en `docs/hallazgos-second-brain.md` y `docs/hallazgos-mobile.md` (las entradas del 16/10);
-lo pedido, textual, en `app/admin/dev/second-brain/bitacora.ts` y `app/admin/dev/centro-operaciones/bitacora.ts`.
+Lo retomó el chat «Centro de Operaciones» de la cuenta 4 el 17/10 a la madrugada, donde lo dejó el de la cuenta 3
+(16/10, 95% semanal). Lo que costó cada cosa está en `docs/hallazgos-operaciones.md` (la tanda 5, la entrada del
+17/10), `docs/hallazgos-second-brain.md` y `docs/hallazgos-mobile.md`. Lo pedido, textual, está en
+`app/admin/dev/second-brain/bitacora.ts` y `app/admin/dev/centro-operaciones/bitacora.ts`.
+
+## PRIORIDAD DEL 17/10: escribirle a Claude Code desde el Second Brain (tanda 5) — HECHA, falta probarla
+
+Martín: «quiero dejar de mandar prompts por aquí, quiero mandar prompts por MaKo en el Second Brain, terminemos de
+configurar eso así ya comenzamos».
+
+- **Escritorio.** En `/second-brain`, quien `puedeOperar` (Martín, con su segundo factor) ve en la barra la sección
+  **«Claude Code»**. Tiene el Cerebro y cada jefe con sus sub-chats, los mismos del Centro. Al elegir uno se abre su
+  conversación con la caja firmada, el avance y la pregunta de la Ticketera, y el «⋯» trae Renombrar y el muñeco. La
+  URL: `?centro=<clave>`.
+- **Teléfono.** En `/m/second-brain`, la hoja «Tus chats» muestra los mismos chats debajo de los de MaKo. Al tocar uno se
+  abre su conversación en una hoja aparte.
+- **Cómo.** El Centro pasó a ser un adaptador: `useCentro` es el motor, `PiezasCentro.tsx` las piezas y
+  `datosDelCentroSiOpera` la lectura, con la guarda adentro. Lo montan las cuatro pantallas. La regla quedó en
+  AGENTS.md, y el test en `tests/second-brain-centro.test.ts`.
+- **Lo que se queda en /admin/operaciones:** la Ticketera entera, los Runners con el Uso y el comando de «Nuevo chat».
+- **No verificado:** la pantalla real (no se levantó `next dev`, que no entra en la RAM). El chequeo de tipos acotado
+  dio 0 errores en los 13 archivos tocados, y los tests del Centro y del Second Brain están en verde (151).
+
+**La prueba de punta a punta la hace Martín.** Abre `/second-brain` → «Claude Code» → «Cerebro», escribe algo y lo
+manda. Tiene que ver el tick y la respuesta del Cerebro. Si la caja dice «Pégale tu Token al Runner», copia el Token
+desde ahí y se lo pega al Runner de la cuenta 4.
 
 ## FEEDBACK DE MARTÍN DEL 16/10/2026 a la tarde — Second Brain: «Skills» como skills.sh
 
-Un botón «Skills» con un catálogo como skills.sh: «agregar» la instala sola, crea un chat con esa skill que usa todo
-el equipo, y corre con el Claude o el GPT que el cliente conectó. Textual en **docs/feedback-16-10-crm-onboarding-second-brain.md** (sección Second Brain). Va
-después de las pantallas que faltan del Second Brain (abajo).
+Un botón «Skills» con un catálogo como skills.sh:
+- «agregar» instala la skill sola;
+- se crea un chat con esa skill, que usa todo el equipo;
+- corre con el Claude o el GPT que el cliente conectó.
 
-## Dónde quedó: la etapa 2 del Second Brain (docs/diseno-mako-ai-native.md)
+Está textual en **docs/feedback-16-10-crm-onboarding-second-brain.md** (sección Second Brain). Va después de las
+tandas que faltan (abajo), y el diseño va primero: antes, mirar skills.sh entero.
 
-Orden de Martín, por el Cerebro: «Termina con todo, faltan mis pedidos del Second Brain» (etapa 2 completa y después la 5).
-Rama `centro-chat` (la sube el coordinador; merge, nunca rebase). Lo que sigue tiene el archivo de cada pieza (el plan
-entero quedó en el scratchpad de la sesión, que no viaja):
+## Lo que sigue: el orden del Cerebro (17/10)
+
+Orden: **10, 8, 7 y 9**, después la **6** y después «Skills». La etapa 2 está en docs/diseno-mako-ai-native.md. Rama
+`centro-chat` (la sube el Cerebro; merge, nunca rebase).
 
 | Tanda | Qué | Estado |
 |---|---|---|
@@ -22,44 +48,60 @@ entero quedó en el scratchpad de la sesión, que no viaja):
 | 2 | «Pregúntale a MaKo» es el Second Brain; `/mako` y `/mako-doer` redirigen; «Antes» | `1af0906b6` + `1971c9a89` |
 | 3 | El teléfono: `/m/second-brain` es el chat, el Mapa en `/m/second-brain/mapa` | `36fcaa16e` |
 | 4 | Los adjuntos se guardan en el Archivero (mig **0305**) + lo que encontró la revisión | `4da56c37c` + `129eed9b9` |
-| 7, 8, 9, 10 | La parte de SERVIDOR, sin pantalla todavía (abajo) | el commit de este relevo |
-| 5, 6 | Sin empezar | — |
+| **5** | **El Centro como adaptador: Claude Code desde el Second Brain** | **la punta del 17/10** |
+| 7, 8, 9, 10 | La parte de SERVIDOR, sin pantalla todavía (abajo) | `440bd6eea` |
+| 6 | Sin empezar | — |
 
-⚠️ **La migración 0305 (`chart_chats.bloques`) la aplica el Cerebro** (`node scripts/apply-migration.mjs
-supabase/migrations/0305_chart_chats_bloques.sql`). Sólo agrega y el código la tolera ausente: sin ella los adjuntos le
-llegan a MaKo pero no vuelven al recargar. El número lo dio el Cerebro: la 0299 es de Video Editor, 0300-0302 del Plan y
-del Video Editor, y 0303-0304 están RESERVADAS para el Image Editor sin estar en ningún árbol (salió como 0303 y se
-renumeró el 16/10).
+⚠️ **La migración 0305 (`chart_chats.bloques`) la aplica el Cerebro**, con `node scripts/apply-migration.mjs
+supabase/migrations/0305_chart_chats_bloques.sql`. Sólo agrega, y el código la tolera ausente: sin ella los adjuntos le
+llegan a MaKo pero no vuelven al recargar. Una migración nueva se le pide al Cerebro (la próxima libre era la 0306).
 
-**Lo que sigue, en este orden** (cada uno con su archivo listo):
-1. **Tanda 10, «entender el pedido»** (`/api/mako/pedidos` ya está en main). La regla pura está: `linksDePedidos`
-   (lib/chat-mako-reglas.ts, con test). Falta la pantalla: en `mandar` de app/second-brain/ChatSecondBrain.tsx, pedir
-   `POST /api/mako/pedidos {texto, tab: 'mako'}` EN PARALELO al turno, y colgar los links debajo de la respuesta de
-   MaKo. ⚠️ NO partir el mensaje: en el Second Brain no hay nada abierto, y todo lo que nombra un área sería «otra
-   tab» (MaKo dejaría de contestar). Se suma el link, no se saca la respuesta.
-2. **Tanda 8, el grupo de WhatsApp en la barra (sólo admin).** Está `grupoDeMaKo` y `hiloDelGrupoMaKo`
-   (lib/chat-mako-indice.ts), `hiloDelGrupo` (lib/mako-doer-conv.ts), `TITULO_GRUPO`, `AVISO_GRUPO` y `antesValido`
-   (lib/chat-mako-reglas.ts). Falta: `GET /api/mako/chat?grupo=1` y `?grupoHilo=1&antes=` con `persona` de
-   `personaDelRequest`, la fila en la barra y la caja reemplazada por `AVISO_GRUPO`. NO va a la API de MaKo (no va a
-   ningún modelo: pii).
-3. **Tanda 7, el riel «Lo que hizo».** Está `loQueHizo` (lib/chat-mako-hecho.ts), `estadoDeLoHecho` (con test) y la
-   lectura `lo_que_hizo_chat_mako` de la API. Falta el riel en la pieza (`ListaAvance` de Avance.tsx, con
-   `PILL_PROPUESTA`) y su `GET ?hecho=<sessionId>` (mirando `sesionDe` antes de leer).
-4. **Tanda 9, muñecos y Renombrar.** Está el almacén `lib/chat-munecos(-db).ts` (compare-and-set, con test) y la acción
-   `renombrar_chat_mako`. Falta el «⋯» de cada fila (Renombrar con `nombreValido`, «Cambiar su muñeco» con el
-   `ElegirMuneco` del Centro) y leer `munecosDeChats` al listar. La acción `muneco_chat_mako` se sacó hasta que la
-   pantalla lea los muñecos (un «Listo» que no cambia nada en pantalla sería mentira).
-5. **Tanda 6** (sub-chats del CRM y del lead en la barra; «Second Brain › <Área>»; el Mapa limpio) y **tanda 5** (el
-   Centro como adaptador de la pieza; es la herramienta diaria de Martín: probar las tres cuentas). Después, la
-   **etapa 5** (chats y creaciones como nodos del grafo, con el layout guardado).
+**Cada tanda que falta, con su archivo listo:**
+1. **Tanda 10, «entender el pedido».** `/api/mako/pedidos` ya está en main, y la regla pura también: `linksDePedidos`
+   (lib/chat-mako-reglas.ts, con test). Falta la pantalla:
+   - en `mandar` de app/second-brain/ChatSecondBrain.tsx, pedir `POST /api/mako/pedidos {texto, tab: 'mako'}` EN
+     PARALELO al turno;
+   - colgar los links debajo de la respuesta de MaKo.
 
-**SIN HACER que no es de la etapa:** retirar `/api/mako-doer` (sin pantalla desde la tanda 2); el hilo del teléfono no dibuja
-listas de Markdown. (La guarda de PII en el turno con herramientas ya la hizo Onboarding, `08892dc41`.)
+   ⚠️ NO partir el mensaje. En el Second Brain no hay nada abierto, así que todo lo que nombra un área sería «otra tab»
+   y MaKo dejaría de contestar. Se suma el link; la respuesta no se saca.
+2. **Tanda 8, el grupo de WhatsApp en la barra (sólo admin).** Ya están:
+   - `grupoDeMaKo` y `hiloDelGrupoMaKo` (lib/chat-mako-indice.ts);
+   - `hiloDelGrupo` (lib/mako-doer-conv.ts);
+   - `TITULO_GRUPO`, `AVISO_GRUPO` y `antesValido` (lib/chat-mako-reglas.ts).
 
-**Lo que necesita a Martín:** renombrar los «Estrategia 3 cuentas» de las otras cuentas a «Cerebro» (con «⋯ Renombrar»:
-firma su dispositivo); la prueba de punta a punta de un trabajo firmado; abrir los Runners de terminal (abajo); el OK para
-que un archivo baje a la PC (los adjuntos del CENTRO, no los del Second Brain); el alcance de la sección (f) del diseño
-AI-native.
+   Falta:
+   - `GET /api/mako/chat?grupo=1` y `?grupoHilo=1&antes=`, con `persona` de `personaDelRequest`;
+   - la fila en la barra;
+   - la caja reemplazada por `AVISO_GRUPO`.
+
+   NO va a la API de MaKo: no va a ningún modelo (pii).
+3. **Tanda 7, el riel «Lo que hizo».** Ya están `loQueHizo` (lib/chat-mako-hecho.ts), `estadoDeLoHecho` (con test) y la
+   lectura `lo_que_hizo_chat_mako` de la API. Falta:
+   - el riel en la pieza: `ListaAvance` de Avance.tsx, con `PILL_PROPUESTA`;
+   - su `GET ?hecho=<sessionId>`, mirando `sesionDe` antes de leer.
+4. **Tanda 9, muñecos y Renombrar.** Ya están el almacén `lib/chat-munecos(-db).ts` (compare-and-set, con test) y la
+   acción `renombrar_chat_mako`. Falta:
+   - el «⋯» de cada fila: Renombrar con `nombreValido`, y «Cambiar su muñeco» con `ElegirMuneco`. El «⋯» de las filas
+     de Claude Code ya existe (`MenusCentro`, PiezasCentro.tsx): copiarlo;
+   - leer `munecosDeChats` al listar.
+
+   La acción `muneco_chat_mako` se sacó hasta que la pantalla lea los muñecos: un «Listo» que no cambia nada en
+   pantalla sería mentira.
+5. **Tanda 6:** los sub-chats del CRM y del lead en la barra, «Second Brain › <Área>» y el Mapa limpio.
+6. **Después, la etapa 5:** los chats y las creaciones como nodos del grafo, con el layout guardado.
+
+**SIN HACER que no es de la etapa:**
+- retirar `/api/mako-doer`, que no tiene pantalla desde la tanda 2;
+- que el hilo del teléfono dibuje las listas de Markdown: es de MaKo Mobile, no de este chat.
+
+**Lo que necesita a Martín:**
+- la prueba de punta a punta (arriba);
+- renombrar los «Estrategia 3 cuentas» de las otras cuentas a «Cerebro»: con «⋯ Renombrar», que ahora también está en
+  el Second Brain, porque firma su dispositivo;
+- abrir los Runners de terminal (abajo);
+- el OK para que un archivo baje a la PC (los adjuntos del CENTRO, no los del Second Brain);
+- el alcance de la sección (f) del diseño AI-native.
 
 ## El Centro (lo de antes del 16/10, sigue valiendo)
 
@@ -80,6 +122,14 @@ AI-native.
   Para que LLEGUE al chat falta lo de abajo, que no es código.
 
 ## Lo que falta para que un trabajo llegue
+
+**La cuenta 4 (17/10, lo armó el Cerebro):**
+- el Runner de la app (`~/.claude`) ya está abierto;
+- la carpeta `7d03ccd6…` está declarada como `claude4` en el cartero;
+- la PC acepta un Token (`9813c2b3…`).
+
+`claude4` ya está en `CUENTAS` (app/admin/dev/_registro/tipos.ts, `6d3626f95`). **NO** se suma a `CUENTAS_TERMINAL`: no
+hay función `claude4` en el `$PROFILE`, y la pantalla ofrecería un comando que falla.
 
 1. **El Token de cada dispositivo, pegado en el Runner.** Medido el 15/10 (`cartero.mjs estado`): la PC acepta UN
    Token (`9813c2b3…`); el de cada dispositivo que falte se pega igual. En el Centro: Runners → la fila «Este dispositivo» (o la caja de cualquier chat) dice «Pégale tu Token al
@@ -142,7 +192,7 @@ tabla: si necesita algo de este lado, lo pide acá.
 
 ## No verificado
 
-- La pantalla real en producción: las capturas son del arnés con datos ficticios (el guard no deja entrar a otra
-  sesión). Martín lo abre él.
+- La pantalla real en producción: las capturas del 16/10 son del arnés con datos ficticios (el guard no deja entrar a
+  otra sesión). La tanda 5 (17/10) no se miró en ninguna pantalla. Martín lo abre él.
 - El teclado del iPhone sobre la hoja de la conversación.
 - El typecheck COMPLETO: corrió el acotado a los archivos tocados (0 errores). El completo lo corre Actions.

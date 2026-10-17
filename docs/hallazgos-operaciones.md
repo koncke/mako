@@ -847,6 +847,54 @@ chats con los nombres de las tabs que sean "jefes"», y que el orquestador no es
 **Vive en:** `lib/centro-chats.ts` (`CEREBRO`, `esCerebro`, `seccionesDeChats`) · `app/admin/operaciones/tabs.ts` ·
 `tests/centro-jefes.test.ts`
 
+## El Centro adentro del Second Brain: se monta su MOTOR, no su pantalla (17/10/2026)
+
+**El pedido.** Martín, 17/10 de madrugada: «quiero dejar de mandar prompts por aquí, quiero mandar prompts por MaKo en el
+Second Brain, terminemos de configurar eso así ya comenzamos». Es la tanda 5 de docs/diseno-mako-ai-native.md («el Centro
+como adaptador de la pieza»), adelantada.
+
+**El diagnóstico obvio era el equivocado, dos veces.**
+- *Montar `CentroApp` adentro del Second Brain*: las dos páginas son la misma grilla `.co` (barra + panel), así que salen
+  dos barras de chats una al lado de la otra.
+- *Copiar el estado del Centro en `ChatSecondBrain`*: es justo la falla que el diseño ya marcaba («hoy está escrita dos
+  veces», CentroApp y ChatsMovil). Con tres copias del refresco, de la firma y del renombre, se separan en una semana.
+
+Lo que se monta es el MOTOR. `useCentro` tiene la cola y los Runners (cada 8 s), los pushes después de dibujar, la
+Ticketera de cada chat, el borrador y el alcance, `mandar` por `firma.mandar`, Renombrar y el muñeco. `PiezasCentro.tsx`
+tiene la fila, la lista, la conversación y los menús, y `datosDelCentroSiOpera` hace la lectura del servidor.
+CentroApp, CentroAppMovil, ChatSecondBrain y SecondBrainCentroM montan esas piezas. Cada pantalla pone sólo lo suyo:
+
+- el Centro, la Ticketera entera, los Runners y el comando de «Nuevo chat»;
+- el Second Brain, la sección «Claude Code».
+
+**Lo que costó ver:**
+- **Un hook no puede ser condicional, y el Second Brain lo abre todo el mundo.** El motor se monta en un componente
+  aparte (`ConCentro`) sólo cuando el servidor mandó los datos, y le pasa el motor al cuerpo por una función
+  (`children(k)`). Sin datos no corre ningún intervalo ni ninguna lectura de IndexedDB.
+- **La guarda va ADENTRO de la lectura, no en la página.** Las páginas del Centro tienen la guarda y la lectura en su
+  cuerpo, y el test las mira ahí. Una tercera página que leyera la cola por su cuenta tendría que acordarse de la guarda.
+  Por eso `datosDelCentroSiOpera` devuelve null si no `puedeOperar`, y lo hace en sus dos primeras líneas, antes de leer
+  nada (con test).
+- **`?chat=` ya era el número de una conversación con MaKo.** Un chat de Claude Code va en `?centro=<clave>`. Volver del
+  Mapa conserva cuál estaba abierto (`hrefVolver`); si no, la página rearmada abría el jefe de MaKo.
+- **En el teléfono, la conversación no puede vivir adentro de la hoja «Tus chats».** Una hoja sobre otra REEMPLAZA
+  (SheetM.tsx): al elegir un chat se cierra «Tus chats», y si la hoja de la conversación vivía adentro, se desmontaba
+  con ella. Así no se abría nunca, y sin error. Por eso ChatsM va en dos partes: `parte="lista"` adentro y
+  `parte="hoja"` afuera, con el chat abierto en el padre.
+- **El script que rompía el código para probar el test se cayó a mitad y dejó un archivo roto.** Python en esta PC
+  imprime en cp1252, y el «ℹ» de la salida de `node --test` lo tiró (UnicodeEncodeError) ANTES de restaurar. Se restauró
+  a mano. La regla para un script que rompe y restaura: `PYTHONIOENCODING=utf-8`, y la restauración en un `finally`.
+- **El chequeo de tipos acotado no entró en la RAM** con cuatro chats trabajando. La primera vez el vigía lo mató
+  (salida 99), y con el heap bajado se quedó sin memoria (134). Entró a la tercera, con 2,5 GB libres: 13 archivos sin
+  errores. Hay que esperar a que se libere la RAM: bajar el heap no lo hace entrar.
+
+**Vive en:**
+- `app/admin/operaciones/useCentro.ts`, `PiezasCentro.tsx` y `datos.ts`;
+- `app/second-brain/ChatSecondBrain.tsx` (`ConCentro`, la sección «Claude Code»);
+- `app/m/second-brain/SecondBrainCentroM.tsx`;
+- `app/m/operaciones/ChatsMovil.tsx` (`parte`);
+- `tests/second-brain-centro.test.ts`.
+
 ## Lo que creí medido y no estaba al día
 
 - **`soloPlataforma` ya existía en el registro de la API** (lo sumó el 2FA obligatorio el 14/10, por
@@ -862,6 +910,10 @@ chats con los nombres de las tabs que sean "jefes"», y que el orquestador no es
 
 ## Lo que quedó sin hacer
 
+- **En el Second Brain (17/10) no están la Ticketera entera, los Runners con el Uso ni el «Nuevo chat» de Claude Code**:
+  siguen en /admin/operaciones. Cada chat sí muestra su pregunta arriba de la caja, y la caja ofrece crear y copiar el
+  Token. Si Martín los pide ahí, entran por la barra de `ChatSecondBrain.tsx` con `TicketeraCentro`, `BotonUso` y
+  `NuevoChat`, montados sobre el mismo `useCentro`.
 - ~~El chat «Cartero» con su cron~~: corre desde el 15/10 en la cuenta 3 («pasó hace 41 s») y la PC acepta un Token
   (`cartero.mjs estado`, 15/10). Falta que Martín lo renombre a «Runner» (la línea, en docs/relevo/centro-operaciones.md).
 - **La Ticketera no muestra si el aviso llegó**: el dato está (`aviso_estado`), la pantalla no lo dibuja.

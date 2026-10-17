@@ -1268,6 +1268,16 @@ código nuevo:
   puedo mandar un prompt por allí»): la caja de `Conversacion.tsx` y la del teléfono firman por `mandar.ts`. Un
   formulario aparte para mandar no vuelve. Y la caja no manda lo que la PC va a rechazar ni dice «sale ya» sobre lo que
   espera: lo decide `comoSale` (lib/centro-chats.ts), con test.
+- **EL CENTRO SE MONTA EN OTRA PÁGINA POR SU MOTOR, NUNCA COPIÁNDOLO** (17/10/2026; Martín: «quiero mandar prompts por
+  MaKo en el Second Brain»). Son tres piezas:
+  - `useCentro` (app/admin/operaciones/useCentro.ts): el refresco, la cola, la firma, la caja y el «⋯»;
+  - `PiezasCentro.tsx`: la fila, la lista, la conversación y los menús;
+  - `datosDelCentroSiOpera` (app/admin/operaciones/datos.ts): la lectura del servidor, con `puedeOperar` ADENTRO y antes
+    de leer.
+
+  Hoy las montan /admin/operaciones, /m/operaciones, /second-brain y /m/second-brain. Una pantalla nueva con los chats
+  de Claude Code usa las mismas piezas: nada de estado propio ni de leer la cola por fuera. Lo fija
+  tests/second-brain-centro.test.ts.
 - **En pantalla el cartero se llama RUNNER y la clave del dispositivo es «tu Token»** (15/10/2026; Martín: «No quiero
   que se llame más "cartero", sino un nombre más formal, tecnico... profesional»). Copiado de los self-hosted runners de
   GitHub Actions; el nombre y las instrucciones de su chat viven en `lib/runner.ts`. En el código, la base y la PC sigue

@@ -52,11 +52,14 @@ const TOPE_MS = 425_000;
 type Abierta = { sesion: SesionChat; mensajes: MensajeChat[]; propuestas: TarjetaPendiente[] };
 type Trabajo = { fase: 'subiendo' | 'revisando'; pct: number; desde: number; fuente: string };
 
-export function ChatMako({ sesionesIniciales, inicial, hrefMapa = null }: {
+export function ChatMako({ sesionesIniciales, inicial, hrefMapa = null, masChats }: {
   sesionesIniciales: SesionChat[];
   inicial: Abierta | null;
   /** El Mapa del Second Brain (sólo el admin, lo decide el servidor): va arriba de la hoja «Tus chats» (16/10/2026). */
   hrefMapa?: string | null;
+  /** Otros chats debajo de los de MaKo en la hoja «Tus chats»: los de Claude Code del super admin en /m/second-brain
+   *  (17/10/2026, app/m/second-brain/SecondBrainCentroM.tsx). `cerrar` cierra la hoja al elegir uno. */
+  masChats?: (cerrar: () => void) => ReactNode;
 }) {
   const ws = useWs();
   const { enLinea } = useConexion();
@@ -273,6 +276,7 @@ export function ChatMako({ sesionesIniciales, inicial, hrefMapa = null }: {
               })}
             </ListaM>
           )}
+        {masChats?.(() => setHojaChats(false))}
       </SheetM>
     </div>
   );
