@@ -222,7 +222,7 @@ async function hechosDelPeriodo(fuenteId: string, desde: string, hasta: string):
   if (fuenteId === 'agendas') return deLeads('fecha_junta_1', (q) => q.not('fecha_junta_1', 'is', null), false);
   if (fuenteId === 'leads_nuevos') return deLeads('created_at', (q) => q, false, finDeDia(hasta));
   if (fuenteId === 'cash_usd') {
-    // Con el funnel que guardó cada pago (#897, mig 0309); sin la columna, la regla de siempre.
+    // Con el funnel que guardó cada pago (#897, mig 0310); sin la columna, la regla de siempre.
     type P = { id: number; lead_id: number | null; monto_usd: number | null; fecha_pago: string | null; funnel_id?: number | null };
     const leerPagos = (cols: string) => leerTodo<P>(db, 'pagos', cols, { orden: 'id', filtros: (q) => q.eq('pagado', true).gte('fecha_pago', desde).lte('fecha_pago', hasta) });
     const pagos = await leerPagos('id, lead_id, monto_usd, fecha_pago, funnel_id')

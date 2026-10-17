@@ -1,5 +1,5 @@
 -- =============================================================================
--- 0309 — Cada PAGO guarda de qué funnel es (#897)
+-- 0310 — Cada PAGO guarda de qué funnel es (#897)
 -- =============================================================================
 -- ⚠️ ORDEN DE DESPLIEGUE: da igual, antes o después del deploy. Agrega y no saca nada, y es idempotente. El código
 -- nuevo lee la columna si está y, si no, cuenta con la regla de siempre (lib/funnels-elegidos.ts, `faltaColumnaFunnel`);
@@ -20,7 +20,7 @@
 
 alter table pagos add column if not exists funnel_id bigint references funnels(id) on delete set null;
 
-comment on column pagos.funnel_id is 'El funnel de este pago, fijado al crearlo: el último funnel al que se agregó al lead (lead_funnel) ese día o antes; si ninguno, su casa; la casa NULL es el funnel del negocio. Lo llena el trigger pagos_funnel (mig 0309). NULL = no se supo (pago sin lead).';
+comment on column pagos.funnel_id is 'El funnel de este pago, fijado al crearlo: el último funnel al que se agregó al lead (lead_funnel) ese día o antes; si ninguno, su casa; la casa NULL es el funnel del negocio. Lo llena el trigger pagos_funnel (mig 0310). NULL = no se supo (pago sin lead).';
 
 create index if not exists pagos_funnel_idx on pagos (workspace_id, funnel_id);
 

@@ -1,5 +1,5 @@
 // =============================================================================
-// #897: cada PAGO guarda de qué funnel es (mig 0309), y los lectores lo prefieren
+// #897: cada PAGO guarda de qué funnel es (mig 0310), y los lectores lo prefieren
 // =============================================================================
 // Un OKR o un KPI de UNOS funnels (mig 0306) repartía cada pago en el funnel donde estaba su lead el día del PAGO: una
 // cuota de la venta del VSL cobrada DESPUÉS de agregar al lead a «Renovación» contaba en Renovación. Ahora el pago guarda
@@ -64,7 +64,7 @@ test('los tres lectores usan el funnel guardado: el OKR, los gráficos y el desg
 });
 
 test('la migración: aditiva, el trigger sólo llena lo vacío al insertar, y el backfill con el día en que se creó', () => {
-  const m = leer('supabase/migrations/0309_pagos_funnel.sql');
+  const m = leer('supabase/migrations/0310_pagos_funnel.sql');
   assert.match(m, /alter table pagos add column if not exists funnel_id bigint references funnels\(id\) on delete set null;/);
   assert.match(m, /if new\.funnel_id is null and new\.lead_id is not null then/, 'el trigger pisa un funnel que ya venía');
   assert.match(m, /create trigger pagos_funnel before insert on pagos for each row/);

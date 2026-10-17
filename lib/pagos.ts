@@ -1035,7 +1035,7 @@ const relNombre = (leads: unknown): string => {
 export const getRevenueBreakdowns = cachedRead('getRevenueBreakdowns', _getRevenueBreakdowns, { tags: [TAG.pagos, TAG.leads], revalidate: TTL.user });
 async function _getRevenueBreakdowns(start: string, end: string): Promise<RevenueBreakdowns> {
   const supabase = (await getTenantDb());
-  // Cash con el funnel que guardó cada pago (#897, mig 0309): el desglose de un OKR de UNOS funnels filtra igual que su
+  // Cash con el funnel que guardó cada pago (#897, mig 0310): el desglose de un OKR de UNOS funnels filtra igual que su
   // número. Sin la columna, se reintenta sin ella (la regla de siempre).
   const cashSin = () => supabase.from('pagos').select('monto_usd, fecha_pago, numero, lead_id, leads(nombre)').eq('pagado', true).gte('fecha_pago', start).lte('fecha_pago', end);
   const [soldRes, cashCon, outRes] = await Promise.all([
