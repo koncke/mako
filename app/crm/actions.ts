@@ -114,6 +114,7 @@ import { tzDeWorkspace, TZ_DEFAULT } from '@/lib/timezone';
 import type { Step } from '@/lib/stage-requirements';
 import { getSupabaseServer } from '@/lib/supabase';
 import { getTenantDb, getWorkspaceActual, getRolWsEfectivo, getCapaActual, rutaConWs } from '@/lib/workspace';
+import { ofrecePartners } from './partners-crm';
 import type { EstadoDatos } from '@/lib/datos-aviso';
 // La ficha del funnel del lead y «N sin marcar»: las MISMAS lecturas que la ficha del teléfono (app/m/crm/datos.ts).
 import { fichaDelFunnelDelLead, type FichaDelFunnel } from '@/lib/ficha/config-server';
@@ -279,6 +280,8 @@ export type LeadFullData = {
   verPrivado: boolean;
   /** «Personalizar» la ficha del funnel: sólo el admin. Lo que cierra es `cambiarFichaFunnelAction`. */
   puedeEditarFicha: boolean;
+  /** El «⋯» ofrece «Llevar a MaKo Partners» (o «Ver en…» con `lead.cliente_ws`): agencia y su admin (app/crm/partners-crm.ts). */
+  partners: boolean;
 };
 
 /**
@@ -358,10 +361,10 @@ export async function getLeadFullAction(id: number): Promise<LeadFullData | null
   // y es el mismo en todos los workspaces (mismo criterio que el selector del tablero).
   const productos = funnels.map((f) => ({ id: f.id, nombre: nombreVisible(f), esDefault: f.esDefault }));
   const fotoEmail = lead.email?.trim() ? urlGravatar(lead.email, 160) : null;
-  const [ficha, rolWs] = await Promise.all([fichaP, rolP]);
+  const [ficha, rolWs, partners] = await Promise.all([fichaP, rolP, ofrecePartners()]);
   const rol = rolDeFicha(rolWs);
   return { lead, stages, pagos, vslEng, videos, replay, campana, adNombre, adId: adIdCand, visitas, insights, tracking, pixelPuesto, respuestas, respuestasForm: respuestasPropias(lead.meta_field_data), respuestasLanding: respuestasGuardadas(lead.optin_respuestas), resumen: await resumenP, cohorte: cohorteDeLead(lead), insightGen, faltantesInsight, faltantes, datos, equipo, closerDetectado, productos, fotoEmail, cobro, verTracking: await verTrackingP,
-    ficha, rol, verPrivado: vePrivado(rol, lead.closer, sesion), puedeEditarFicha: rol === 'admin' };
+    ficha, rol, verPrivado: vePrivado(rol, lead.closer, sesion), puedeEditarFicha: rol === 'admin', partners };
 }
 
 /** Cuota explícita del plan (modelo simple: monto + fecha). */

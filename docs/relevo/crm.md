@@ -26,10 +26,10 @@ app/admin/dev/crm/bitacora.ts (con `revisar` y `sesion`) y cerrar cada tarjeta e
 **Sin hacer (con su archivo):** el envío a Meta que espere el «Deshacer» (lib/leads.ts); el lead que vuelve por otra
 campaña no se suma a sus funnels (lib/leads.ts, rama `existing`); las plantillas de Pagos (lib/ficha/plantillas-pagos.ts,
 apagar avisos es otra decisión); buscar Instagram por nombre necesita una fuente paga (app/api/crm/instagram-buscar).
-Y lo de antes: «Llevar a MaKo Partners» espera que Clients avise que su núcleo está en main
-(app/crm/menu-contextual-crm.ts y el «⋯» de app/crm/lead-view/ficha/FichaPorBloques.tsx). Acordado con Clients: `ModalLlevarAPartners` (app/partners/LlevarAPartners.tsx) por portal, sólo si el workspace es
-agencia (`esAgencia(ws)` desde el server) Y quien mira es ADMIN (/partners y `llevarAPartnersAction` lo exigen); con
-`leads.cliente_ws`, «Ver en MaKo Partners» → /partners?cuenta=<ws>. La API ya tiene `llevar_a_partners` (área cs): no sumar otra.
+**«Llevar a MaKo Partners» HECHO en la rama (17/10, tarde):** el menú de un lead en el tablero y el «⋯» de la ficha
+abren la ventana de Clients (`ModalLlevarAPartners`); con `leads.cliente_ws`, «Ver en MaKo Partners» → /partners?cuenta=<ws>.
+Lo decide `ofrecePartners()` (app/crm/partners-crm.ts): agencia Y su admin, la regla de /partners. Test: tests/crm-partners.test.ts.
+La API ya tenía `llevar_a_partners` (área cs).
 
 ## 0-Ω13. 17/10/2026 (chat «CRM», cuenta `claude4`): el feedback del 16/10 hecho, en la rama `crm-ficha-v2`
 
