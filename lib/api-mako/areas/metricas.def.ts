@@ -99,8 +99,12 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'diagnosticar_funnel', area: 'metricas', tipo: 'lectura',
     titulo: 'Salud del embudo por etapa',
-    descripcion: 'El embudo del período con el porcentaje de paso de cada etapa y su salud (verde, ámbar, rojo, sin_datos): Impresión→Click de link, Click→Formulario, Formulario→Agenda, Agenda→Asistió a la R1, Asistió→Calificado, Calificado→Cierre, más dos etapas de contexto (Click→Landing, Landing→VSL) que no compiten por ser el cuello. Devuelve el cuello de botella. Úsala para «¿dónde pierdo más gente?» o «¿qué etapa optimizo primero?». Una etapa con su fuente desconectada dice fuente_pendiente, no 0%. Los umbrales son una referencia fija de la plataforma, no del negocio del cliente: dilo si repites un «rojo». Cierre = etapa ganado.',
-    parametros: [desde(RANGO_DEFAULT), hasta(' Default: hoy.')],
+    descripcion: 'El embudo del período con el porcentaje de paso de cada etapa y su salud (verde, ámbar, rojo, sin_datos): Impresión→Click de link, Click→Formulario, Formulario→Agenda, Agenda→Asistió a la R1, Asistió→Calificado, Calificado→Cierre, más dos etapas de contexto (Click→Landing, Landing→VSL) que no compiten por ser el cuello. Devuelve el cuello de botella. Úsala para «¿dónde pierdo más gente?» o «¿qué etapa optimizo primero?». Una etapa con su fuente desconectada dice fuente_pendiente, no 0%. Los umbrales son una referencia fija de la plataforma, no del negocio del cliente: dilo si repites un «rojo». Cierre = etapa ganado. Con «funnels», el embudo de ESOS funnels: las etapas del CRM cuentan sólo sus leads (cada uno en el funnel donde estaba ese día); lo de Meta (impresiones, clics, formularios) sigue siendo de toda la cuenta y la salida lo dice.',
+    parametros: [
+      desde(RANGO_DEFAULT), hasta(' Default: hoy.'),
+      // #896 (17/10/2026): uno o varios funnels, con la MISMA lectura que el OKR (lib/api-mako/funnels-del-pedido.ts).
+      { nombre: 'funnels', tipo: 'string', max: 200, descripcion: 'De qué funnels es el embudo: «todos» (el negocio entero, el default) o ids separados por coma de funnels_del_negocio (listar_objetivos), p. ej. «1,29». Funnels con etapas distintas (uno con reuniones y otro sin) no se miden juntos: pídelos de a uno.' },
+    ],
     salida: 'json',
     canales: TODOS, costo: 'gratis',
     gating: GATING_GRAPHICS,

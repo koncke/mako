@@ -1258,7 +1258,58 @@ Test: tests/dashboard-mako-modos.test.ts (probado rompiéndolo). **Nadie lo mir�
 app/dashboard/PanelAnalista.tsx · app/dashboard/ModosMako.tsx · app/dashboard/EditorInforme.tsx.
 *17/10/2026, claude4 (chat Dashboard).*
 
+## Del mapa de calor al diagnóstico de estructura del Web Generator (17/10/2026, la mitad del Dashboard)
+
+Martín (#886, revisión del 16/10, 1:29:51): «que lo que recién vimos en dashboard del template de landing se combine
+con esta funcionalidad del feedback de la estructura que te da Web Generator, que vivan ambos lugares». La hoja Landing
+dice qué HACE la gente en una página; el Web Generator, qué le FALTA.
+
+- El mapa de calor lleva «Analizar la estructura →» a `/web-generator?analizar=<url>`, de la MISMA página que se está
+  mirando. Es el contrato que el Web Generator ya entiende (app/web-generator/page.tsx): no se inventó uno con otra tab.
+- La URL se valida (sólo http/https, `hrefAnalizarEstructura`): sale de lo que el Pixel guardó, que viene de afuera.
+- Sólo con sesión y mirando: el gráfico le pasa `conEnlaces` al dibujo propio (app/dashboard/graficos/registro.ts), lo
+  mismo que decide el ▶ de los anuncios.
+
+Test: tests/landing-estructura-enlace.test.ts (probado rompiéndolo). **Nadie lo miró en pantalla.**
+**Vive en:** lib/landing-estructura-enlace.ts · app/dashboard/MapaCalor.tsx.
+*17/10/2026, claude4 (chat Dashboard).*
+
+## Una tarjeta rota ya no se lleva la hoja: la red por bloque (17/10/2026)
+
+**Síntoma:** Martín, en el celular: «Cannot read properties of undefined (reading 'length')» y la portada de General
+entera en blanco. Era UN bloque (el ejemplo de «Meta objetivo» sin `funnelIds`, lo arregló el Cerebro en 6b922f7e3).
+
+**Causa:** React desmonta hasta el error boundary más cercano, y el único era el de la app (app/error.tsx). No había
+ninguno por bloque ni por gráfico: cualquier tarjeta que tirara tumbaba la pantalla, en General y en el Dashboard.
+
+**Lo que quedó:** `RedDeBloque` (app/dashboard/RedDeBloque.tsx) envuelve cada tarjeta. Si su dibujo tira, ESA dice «Este
+bloque no cargó» y el resto sigue. Va en los bloques de General (ElementoGeneral, que es también lo que dibuja el
+teléfono), en sus miniaturas, y en cada elemento y cada gráfico del editor. En un gráfico, el título y el filtro quedan
+arriba.
+
+- **Lo obvio no alcanzaba:** envolver lo que devuelve `dibujar(e)` no atrapa nada si `dibujar` corre en el render del
+  PADRE. El error sale de quien llama, por encima de la red. Por eso `dibujar` (y `muestra`) corren en un hijo de la red
+  (`DibujoDeBloque`, `MuestraDeBloque`). La regla: lo que puede tirar se llama ADENTRO, no se le pasa ya armado.
+- **Volver a intentar sin remontar:** una tarjeta rota reintenta cuando cambia algo de `reiniciarCon` (el gráfico, sus
+  datos), comparado de a uno como las dependencias de un efecto. Una `key` con la configuración remontaría la tarjeta
+  sana en cada arrastre y perdería lo de adentro (el scroll de una tabla). Al gráfico se le pasa `datos[c.id]` y no
+  `est`: sin datos, `est` es un objeto nuevo en cada render y la tarjeta rota reintentaría (y se rompería) en cada uno.
+- **No se puede montar en un test:** el jsdom de node_modules no arranca (docs/hallazgos-infra.md), y un render en el
+  server no corre error boundaries. El test llama a los métodos de la red y lee el montaje en el código.
+
+Test: tests/general-red-por-bloque.test.ts (probado rompiéndolo, cinco roturas). **Nadie lo miró en pantalla.**
+**Vive en:** app/dashboard/RedDeBloque.tsx · app/dashboard/ElementoGeneral.tsx · app/dashboard/EditorInforme.tsx.
+*17/10/2026, claude4 (chat Dashboard).*
+
 ## Lo que quedó sin hacer
+
+- **La red por bloque (17/10/2026):** las miniaturas de la galería dibujan los gráficos de ejemplo sin red
+  (app/dashboard/MiniaturaHoja.tsx; sólo los bloques de General la tienen ahí). Los datos de ejemplo son fijos, así que
+  el riesgo es bajo. Y lo que falla al LEER los datos de /general (app/general/datos.ts) no es un dibujo: eso sigue en
+  la página.
+
+- **#886, la otra mitad:** que el diagnóstico del Web Generator muestre las métricas de la página (visitas, hasta dónde
+  bajan, qué tocan) es del chat Web Generator (app/web-generator/diagnostico/PanelDiagnostico.tsx). Avisado al Cerebro.
 
 - **Una plantilla que se ajusta por detrás (17/10/2026):** mientras llega el ajuste, la hoja muestra los gráficos que
   después se van (los vacíos dicen «Sin datos» unos segundos). Si se quisiera, marcarlos como «midiendo» hasta que llegue.
