@@ -65,6 +65,8 @@
 //                                  los corre el Runner de la app en cada vuelta, antes de `ciclo`
 //   cierre <id> --hecho "…" [--decidido "…"] [--comprobado "…"] [--sigue "…"] [--prueba "…"] [--revisar "/ruta"]
 //                                  lo corre el CHAT QUE RECIBIÓ el pedido, al terminarlo
+//   plan prioridades [--n 10]      (1.15.4) lo corre un CHAT a pedido de Martín: las tareas abiertas del proyecto de su
+//   plan cerrar <#N> [--evidencia "…"]  jefe en el Plan, o cerrar una de ellas (lib/centro-plan-chat.ts). Nada más.
 //   preguntar <archivo.json>       (1.14.0) lo corre un CHAT que necesita una decisión de Martín: la pregunta va a su
 //                                  conversación del Ops Center como un formulario de opciones, y la respuesta le llega
 //                                  como un trabajo firmado. El archivo: { pregunta, contexto?, opciones: [{ titulo,
@@ -82,7 +84,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 
-export const VERSION = '1.15.3';
+export const VERSION = '1.15.4';
 const HOME = os.homedir();
 const DIR = process.env.CARTERO_DIR || path.join(HOME, '.claude', 'operaciones');
 const APP = process.env.CARTERO_APP_DIR || path.join(process.env.APPDATA || path.join(HOME, 'AppData', 'Roaming'), 'Claude', 'claude-code-sessions');
@@ -1435,6 +1437,33 @@ export function armarPregunta(x, local, ahora = new Date()) {
   return { id: crypto.randomUUID(), local, pregunta, contexto, opciones, recomendada, varias: x.varias === true, at: ahora.toISOString() };
 }
 
+/**
+ * El Plan desde un chat (1.15.4, 17/10/2026): «tráeme las más prioritarias» o «ciérrala», sin que Martín abra el Plan. Va
+ * con el token del cartero a la ruta del cartero (`?plan=1`) y MaKo decide QUÉ puede: sólo el proyecto del jefe de ESTE
+ * chat (la sesión sale de `sesionQuePregunta`), sólo leer o cerrar (lib/centro-plan-chat.ts). ⚠️ REVISAR (seguridad).
+ */
+async function planDelChat(args) {
+  const cfg = config();
+  if (!cfg.token) throw new Error('falta el token del Runner en esta PC');
+  const sesion = sesionQuePregunta();
+  if (!sesion) throw new Error('no sé qué chat sos: corre esto desde el chat (CLAUDE_CODE_HOST_SESSION_ID o CLAUDE_CODE_SESSION_ID)');
+  const v = (k) => { const i = args.indexOf(`--${k}`); return i >= 0 && args[i + 1] && !args[i + 1].startsWith('--') ? String(args[i + 1]) : ''; };
+  const op = args[0];
+  let cuerpo;
+  if (op === 'prioridades') cuerpo = { op, sesion, n: Number(v('n')) || 10 };
+  else if (op === 'cerrar') cuerpo = { op, sesion, num: String(args[1] ?? '').replace(/^#/, ''), evidencia: v('evidencia').slice(0, 400) };
+  else throw new Error('uso: plan prioridades [--n 10] | plan cerrar <#N> [--evidencia "…"]');
+  if (op === 'cerrar') cuerpo.num = Number(cuerpo.num);
+  const url = (cfg.url || 'https://hola-mako.com').replace(/\/$/, '');
+  const r = await fetch(`${url}/api/operaciones/cartero?plan=1`, {
+    method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${cfg.token}` },
+    body: JSON.stringify(cuerpo), signal: AbortSignal.timeout(90_000),
+  });
+  const o = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(`MaKo contestó ${Number(r.status) || 0}: ${textoRemoto(o?.error) || 'sin detalle'}`);
+  return o;
+}
+
 function preguntar(archivo) {
   const local = sesionQuePregunta();
   if (!local) throw new Error('no sé qué sesión eres: corre esto desde el chat que pregunta');
@@ -1641,6 +1670,7 @@ if (esMain) {
       case 'acuse': acuse(cuentaOpcional(), resto[0], resto[1], resto.slice(2).join(' ')); imprimir({ ok: true }); break;
       case 'cierre': cierre(resto[0], resto.slice(1)); imprimir({ ok: true }); break;
       case 'preguntar': imprimir(preguntar(resto[0])); break;
+      case 'plan': imprimir(await planDelChat(resto)); break;
       case 'abrir': imprimir(abrir()); break;
       // El permiso local para abrir chats desde MaKo: lo prende Martín, una vez, pidiéndoselo al Runner.
       case 'abrir-permitir': {
