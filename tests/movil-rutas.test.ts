@@ -178,8 +178,18 @@ test('el mapa escritorio → móvil de los links que salen', () => {
   // La bandeja de escritorio es la pestaña Chats del teléfono (v3).
   assert.equal(rutaMovil('/whatsapp'), '/m/chats');
   assert.equal(rutaMovil('/chats'), '/m/chats', 'la bandeja unificada de escritorio es la misma pestaña');
-  // El link profundo de un lead que manda MaKo (/chats?lead=N) abre SU chat, no la lista.
-  assert.equal(rutaMovil('/chats?lead=412&ws=3'), '/m/crm/412/chat');
+  // Los links profundos de UNA conversación abren SU pantalla, con todos sus canales (17/10/2026): el de un lead
+  // que manda MaKo (/chats?lead=N) y el de una clave (?c=, un aviso de Instagram). Hasta ese día ?c= iba a la lista,
+  // que no tenía Instagram, y ?lead= al WhatsApp del lead.
+  assert.equal(rutaMovil('/chats?lead=412&ws=3'), '/m/chats/lead%3A412');
+  assert.equal(rutaMovil('/chats?c=ig%3A77&ws=3'), '/m/chats/ig%3A77');
+  assert.equal(rutaMovil('/whatsapp?lead=9'), '/m/chats/lead%3A9');
+  // El de un mensaje de WhatsApp no nombra la clave: va a la lista CON la query (la página lo busca), sin el ws.
+  assert.equal(rutaMovil('/chats?linea=mako_ws3&chat=5491100000000%40s.whatsapp.net&ws=3'), '/m/chats?linea=mako_ws3&chat=5491100000000%40s.whatsapp.net');
+  // Y vuelven a escritorio con la misma URL (un push sale por acá y vuelve por rutaEscritorio).
+  assert.equal(rutaEscritorio('/m/chats/lead%3A412'), '/chats?c=lead%3A412');
+  assert.equal(rutaEscritorio('/m/chats/ig%3A77?ws=3'), '/chats?ws=3&c=ig%3A77');
+  assert.equal(rutaEscritorio('/m/chats?linea=mako_ws3&chat=1%40s.whatsapp.net'), '/chats?linea=mako_ws3&chat=1%40s.whatsapp.net');
   assert.equal(rutaMovil('/chats?lead=abc'), '/m/chats');
   assert.equal(rutaMovil('/configuraciones?tab=notif'), '/m/cuenta');
   assert.equal(rutaMovil('/configuraciones'), null);

@@ -348,8 +348,12 @@ export type ListaChats = {
  * de `usuario`) y su borrador. Con `buscar` (≥ 2 caracteres) devuelve en cambio lo que matchea en el servidor
  * — leads del CRM y personas de Instagram/Messenger, aunque no tengan mensajes — para que la pantalla lo sume
  * a lo que ya filtró en memoria (ver `buscarChats`).
+ *
+ * `paginasWhatsapp` (el teléfono, 17/10/2026): cuántas páginas de 1000 mensajes del espejo de WhatsApp se leen
+ * por línea, las más nuevas. Sin él, todas (hasta 20 en serie: 5,5-7,8 s en el ws1, medido el 14/10/2026); el
+ * teléfono pide pocas y no ve una conversación cuyo último mensaje quedó más atrás (docs/hallazgos-mobile.md).
  */
-export async function listarChats(opts?: { buscar?: string; usuario?: YoChats }): Promise<ListaChats> {
+export async function listarChats(opts?: { buscar?: string; usuario?: YoChats; paginasWhatsapp?: number }): Promise<ListaChats> {
   const ws = await getWorkspaceActual();
   if (ws == null) return { chats: [], lineas: [], cuentasSociales: [], etapas: [], fallas: ['workspace'] };
   const yo = opts?.usuario ?? { id: 0, nombre: '' };
@@ -382,7 +386,7 @@ export async function listarChats(opts?: { buscar?: string; usuario?: YoChats })
     const varias = aLeer.length > 1;
     const porLinea = await Promise.all(aLeer.map((l) =>
       // Sin ninguna fila de línea, el espejo es de una sola (la de siempre): se lee sin filtro, que es lo mismo.
-      getConversacionesNoOficial(600, false, lns.leidas.length ? l.linea : null)
+      getConversacionesNoOficial(600, false, lns.leidas.length ? l.linea : null, opts?.paginasWhatsapp ? { paginas: opts.paginasWhatsapp } : undefined)
         .then((convs) => ({ l, convs }))
         .catch((e) => { console.error(`[chats] whatsapp ${l.linea}: ${msg(e)}`); fallas.push(`whatsapp:${l.linea}`); return { l, convs: [] as WaConversacion[] }; })));
     for (const { l, convs } of porLinea) for (const c of convs) fuentes.push(fuenteWhatsapp(c, l, varias));

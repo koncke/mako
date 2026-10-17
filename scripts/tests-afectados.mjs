@@ -436,7 +436,7 @@ export function planear(base, { profundidad = Infinity } = {}) {
  * Los tests en el orden en que conviene correrlos, agrupados por su motivo principal.
  * @param {Map<string, {tipo: string, detalle: string}[]>} tests
  * @param {Set<string>} [compartibles]
- * @param {{ compartir?: boolean | 'todo' | 'barredoras' }} [opciones]
+ * @param {{ compartir?: boolean | 'todo' | 'barredoras' }} [opciones] compartir: false/true/'todo' (todos los compartibles) o 'barredoras' (sólo las que barren)
  */
 export function agrupar(tests, compartibles = new Set(), { compartir = false } = {}) {
   const grupos = { cambio: [], nombra: [], importa: [], barre: [] };

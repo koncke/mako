@@ -401,3 +401,10 @@ tandas 2-3; la tanda 5 del editor de video POSPUESTA por Martín). Todos esos ch
   - **Sin avisar por el tope de 10:** Sidebar, Dashboard e Infra. Mandarles el «Ya está» después del próximo mensaje de Martín.
   - Subido 02ffcf29f: MaKo en WhatsApp 8d90f8357 y 118148d1e (la falla se registra sola como ticket), la bitácora de Clients y este relevo.
   - Esperan: Ticketera punta 4 (6fa9e6431, avisarArregloAlGrupo), la bitácora de Automations (bf44b3cf1), la de Dashboard (b88893a00) y los dos arreglos de «Marcar hecha» del Plan (explicación de más de 400 caracteres; «Ya no estaba abierta» falso con otro proyecto).
+- **15:40 UTC:** el run 112 (02ffcf29f) está en producción. Subido 23da7a136:
+  - Automations (bitácora), CRM «Llevar a MaKo Partners» (119a48574), Onboarding F (3a47301ed), Plan (12c0f6066: los dos arreglos de «Marcar hecha»);
+  - Infra 5e9570953, más mi arreglo de tipos e3ec09bf4;
+  - Ticketera punta 4 (d43ff381b: aviso al grupo sólo con la prueba del deploy, revisado).
+  - **MaKo Mobile 86ba6dae6 quedó AFUERA:** rompe tests/chats-datos.test.ts:514 (la línea de WhatsApp con un 4º argumento) y tests/chats-verificacion.test.ts:96 (el lead abre /m/chats/lead:7 en vez de /m/crm/7/chat). Ya se lo devolví al agente.
+- **En wt-push-q para la tanda que sigue:** Infra 4d10a74a1 (las dos fases con `--compartir`, tandas de 100; reemplaza al 5e9570953).
+- **DECIDIDO, falta avisarle a Infra** (tope de 10): SÍ al `npm test` completo y aislado UNA vez por semana, con un workflow programado de ~11 min. Cuesta ~45 min al mes y caza un falso verde por contagio ahora que Actions comparte proceso.

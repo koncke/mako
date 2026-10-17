@@ -434,10 +434,14 @@ calcular, la segunda fase cae a `npm test`. Medido con la API (`/actions/runs/{i
 facturables (run 94: 107 s; antes 5-10). El VERDE (run 95: 781 s) subió de ~11 a 14 porque `--concurrencia auto` dejaba el default de
 node (núcleos − 1 = UN proceso en un runner de 2 vCPU): ahora `auto` usa todos los núcleos, la segunda fase va en UNA sola corrida
 de `node --test`, y un archivo que sólo falla con varios procesos se repite solo y, si pasa, sale como FLAKY (no frena, pero se ve).
-Eso bajó el verde de 14 a 12 min (run 102: 683 s), no a los ~9 estimados: con 2 procesos los tests casi no ganaron, porque el costo es el
-ARRANQUE de cada archivo (~0,4 s × ~1.100), no el cómputo. El experimento que sigue (a medir con el próximo run verde): en Actions los afectados
-comparten procesos SÓLO en sus barredoras (`--compartir=barredoras`) y los demás tests comparten todo lo compartible (`--compartir`). Si un run
-da un rojo raro o el tiempo no baja, `--sin-compartir` en esos dos pasos del workflow lo deja como era.
+Eso bajó el verde de 14 a 12 min (run 102: 683 s), no a los ~9 estimados. El job del 102, paso por paso: checkout 15 s, setup-node 4, `npm ci` 29,
+guardas 10, afectados 279 (489 archivos: 0,57 s por archivo), tipos 154, los demás 182 (653 archivos: 0,28 s por archivo) — runner de 2 CPU y 7,9 GB.
+El doble por archivo de los afectados son las ~150 barredoras (~1,2 s de reloj cada una), y los 0,28 s de los demás son sobre todo el ARRANQUE de cada
+archivo (node + `tsx`), que sólo se evita compartiendo proceso. **El experimento que sigue** (a medir con el próximo run verde; estimación sin medir en
+Linux: ~7-9 min): en Actions las DOS fases comparten todo lo compartible (`--compartir`) — en la fase 1 siguen aislados los tests que el cambio mismo toca
+y los que tocan el entorno, y las tandas son de 100 (había 6 GB libres) —. Si un run da un rojo raro o el tiempo no baja, `--sin-compartir` en esos dos pasos
+del workflow lo deja como era. Contrapeso del riesgo (el falso verde por contagio, que Actions ya no vería por sí sola): correr `npm test` completo, aislado,
+de vez en cuando (a mano o programado: ~11 min por vez).
 
 **La prueba de que sirve es un replay**: `node scripts/replay-fallos-ci.mjs` repite los 21 runs rojos de Actions
 (`docs/fallos-ci-integracion.jsonl`) sobre el árbol exacto de la cabeza que falló y con la base real (el último verde):
@@ -9018,6 +9022,10 @@ técnicas están en [docs/diseno-mako-mobile.md](docs/diseno-mako-mobile.md), lo
 - **Lo que una pantalla de /m reusa de escritorio no puede vivir en un módulo `'use client'`**: el server no lo puede
   llamar y el cliente se lleva la pantalla entera al bundle. Se muda a lib o a un módulo puro y escritorio lo
   re-exporta (`tomas-estado.ts`, `deSiempreDisparador`, `borradorAlAbrir`); nunca una copia en /m.
+- **Si escritorio cambia DE DÓNDE lee una tab, la lectura del teléfono cambia en el MISMO trabajo** (17/10/2026):
+  Chats del teléfono siguió leyendo sólo WhatsApp dos días después de que escritorio unificó la bandeja, y un negocio
+  que vende por Instagram veía «Todavía no hay chats.». Un teléfono con la fuente vieja no rompe: muestra VACÍO. Antes
+  de cerrar, `grep -rn <el lector viejo> app/m` (docs/hallazgos-mobile.md, «Chats del teléfono con todos los canales»).
 - **Las clases CSS de una pantalla llevan el nombre ENTERO de su carpeta** (`.m-crm-*`, `.m-cuenta-*`): Next deja la
   hoja cargada al salir de la ruta, y dos prefijos abreviados iguales se pisan entre pantallas.
 - **Desde /m, una pantalla de escritorio se abre escribiendo la cookie de vista de escritorio y navegando con

@@ -7,6 +7,74 @@ Corridas del 11/10/2026: la v1 (relevo de 7 agentes + 11 de implementación + 1 
 el diseño v2 a la tarde, y a la noche la implementación v2 (12 agentes + la integración) con el desvío
 de teléfonos PRENDIDO. Lo de la v2 está en su propia sección, más abajo.
 
+## Chats del teléfono con todos los canales, y la primera auditoría MIRADA a 390 px (17/10/2026)
+
+Pedido de Martín (17/10, 10:35): «Implementa end to end MaKo mobile, hay muchas cosas que faltan o podrían
+mejorarse». Rama `mobile-e2e-1710` (C:/dev/wt-mobile). Por primera vez se miraron TODAS las pantallas de /m en un
+navegador (Chrome headless, iPhone a 390 px) contra un `next start` local: ninguna rompía; lo roto para un cliente
+era Chats.
+
+**Chats vacío con la bandeja de la computadora llena.**
+- Síntoma: un negocio que vende por Instagram (o Messenger, o Email) veía «Todavía no hay chats.» en el teléfono, y
+  un aviso de Instagram (`/chats?c=ig:…`) abría esa lista vacía.
+- Causa: `app/m/chats/datos.ts` leía `getConversacionesNoOficial` (sólo WhatsApp, sólo con lead). Su cabecera decía
+  «cuando lleguen los chats unificados, la lectura cambia acá»: llegaron a main el 15/10 y nadie volvió.
+- **La regla:** cuando escritorio cambia DE DÓNDE lee una tab (una bandeja que se unifica, una tabla nueva), la
+  lectura del teléfono se cambia en el mismo trabajo. Se busca quién lee la fuente vieja en `app/m`
+  (`grep -rn <lector viejo> app/m`): un teléfono que lee la fuente vieja no rompe, muestra VACÍO.
+- Ahora: la lista es `listarChats` (lib/chats.ts, la misma de GET /api/chats) con `paginasWhatsapp: 3` (la opción
+  nueva: sin ella, el espejo entero, 5,5-7,8 s en el ws1); los filtros son los de escritorio (`filtrarChats`,
+  `contarBandejas`, `coincideBusqueda`); una conversación es `/m/chats/<clave>` (en escritorio `/chats?c=<clave>`),
+  con `hiloDeChat` y un composer que sale por las MISMAS rutas que escritorio (WhatsApp con su línea, social con
+  idempotencia, email). `/chats?c=` y `?lead=` van directo a la conversación; `?linea=&chat=` se busca en la lista
+  con `resolverLinkProfundo`, que nunca elige otra.
+- **El día del hilo sale de la zona del NEGOCIO.** `armarHilo` de escritorio usa la hora local porque dibuja en el
+  navegador; el teléfono dibuja en el server (UTC) y un mensaje de las 22 h de Buenos Aires caía en el día siguiente
+  (`diasDelHilo`, app/m/chats/hilo-modelo.ts).
+- Los rótulos (bandejas, Mostrar, Orden, canales) se escriben una vez en app/m/chats/modelo.ts y
+  tests/m-chats.test.ts los cruza contra app/chats/PanelBandejas.tsx y ListaChats.tsx.
+- **Los tests que fijan rutas del teléfono no son sólo los `movil-*`**: tests/chats-verificacion.test.ts esperaba
+  `/chats?lead=7` → `/m/crm/7/chat`, y tests/chats-datos.test.ts contaba TRES argumentos en cada lectura de WhatsApp
+  de lib/chats.ts (el cuarto, las páginas del teléfono, se leía como «sin la línea»). Los encontró el Cerebro al
+  integrar. Antes de un VERDE que toque lib/chats.ts o una ruta de Chats: `tests/chats*.test.ts` y
+  tests/sidebar-nueva.test.ts, además de los del teléfono.
+
+**Mirar /m en local sin `next dev` (lo que costó una hora):**
+- **`next start -H 127.0.0.1` + LAS MISMAS RUTAS = ERR_TOO_MANY_REDIRECTS en TODA pantalla.** El diagnóstico obvio
+  («el desvío arma un bucle») era el equivocado: el proxy reescribe a `new URL('/m/crm', req.url)` con host
+  `localhost`, y Next trata un rewrite a OTRO host como externo — lo pide de nuevo por HTTP, entra por el proxy como
+  `/m/crm` («URL /m vieja») y lo redirige a `/crm`. Con `-H localhost` (y el navegador en `localhost`) anda.
+  Producción no lo tiene: el host del pedido y el del rewrite son el mismo.
+- **Un build parcial (`--debug-build-paths`) deja `dynamicRoutes` vacío en `.next/routes-manifest.json`**: toda ruta
+  con `[param]` da 404 en `next start` aunque compiló (y la tabla «Route (app)» no se imprime). Se parchea el
+  manifest con la regex de cada página (script en el relevo). No es un bug de la pantalla.
+- El vigía mata un build parcial de más de ~8 páginas de /m (3,4 GB con 16 chats abiertos): de a 3-8 páginas,
+  con el server parado (comparten `.next`).
+- **La sesión firmada a mano se firma con `ws: 9`** (lo que tiene la fila de Martín). Sin `ws`, `requireMovil`
+  manda al admin a `/general?ws=9`, y con `?ws=9` el admin «está mirando un cliente»: el Plan lee el tablero de
+  CLIENTE del ws9 y dice «No hay tareas abiertas». Parecía un bug del Plan del teléfono; era la sesión de prueba.
+- El ws3 tiene el onboarding pendiente y tapa todo /m (`/configurar`): las tabs se miraron en el ws9 sólo leyendo,
+  y el ws3 sirvió para ver el onboarding (el chat de Offer anda a 390 px). La píldora del funnel de Offer tocaba la línea de la cabecera: 8 px arriba (app/m/offer/offer.css).
+
+**Lo que se vio y no es nuestro:** al redirigir el server en medio del render (`/general` → `/configurar` con el
+onboarding pendiente) la consola registra el error de React #310 dentro del AppRouter de Next; la página llega bien.
+
+**Y el Second Brain del teléfono dibuja el markdown de escritorio** (listas y títulos; antes, sólo negritas):
+`<Markdown>` en app/m/mako/ChatMako.tsx, tests/m-mako-markdown.test.ts.
+
+**SIN HACER (con su archivo):**
+- Chats: adjuntar archivos y notas de voz, notas internas, asignar, mover de etapa y posponer desde el teléfono
+  (escritorio: app/chats/Composer.tsx y VentanaChat.tsx); buscar en el servidor un lead sin mensajes
+  (`listarChats({ buscar })`); la página no se vio con chats reales (el ws9 no tiene y el ws1 no se toca): mirarla
+  en el ws3 cuando termine el onboarding, con un Instagram conectado.
+- El botón «WhatsApp» de la ficha del lead (app/m/crm/[id]/FichaLead.tsx) sigue yendo al hilo de sólo WhatsApp
+  (`/m/crm/<id>/chat`); escritorio lleva a Chats (`rutaChatsDeLead`). Es del chat del CRM.
+
+**Vive en:** app/m/chats/ (`modelo.ts`, `hilo-modelo.ts`, `datos.ts`, `ListaChats.tsx`, `[clave]/`) ·
+lib/chats.ts (`paginasWhatsapp`) · lib/movil-rutas.ts (`rutaMovil`, `rutaEscritorio`) · app/m/_ui/cabecera.ts
+(`CHAT_DE_CHATS`) · tests/m-chats.test.ts.
+*17/10/2026, claude4 (chat «MaKo Mobile»).*
+
 ## El Second Brain del teléfono es el chat con MaKo; el Mapa, su propia página (16/10/2026)
 
 Tanda 3 de la etapa 2 (docs/diseno-mako-ai-native.md): como en escritorio, «Second Brain» es el chat con MaKo y el
