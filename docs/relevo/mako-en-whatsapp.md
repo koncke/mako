@@ -62,11 +62,9 @@ errores en automático cuando surjan». El ejemplo: el Google Calendar de Pablo 
   `runTool`; que MaKo lo proponga SÓLO con las marcas de falla de verdad (cartel de IA, saneo de una promesa), no ante
   cada «no puedo»; y el aviso de cierre al grupo pasa por `sanearSalida` antes de `enviarAlGrupoMaKo`. El molde del
   «ticket que propone el código» está en lib/mako-turno-app.ts.
-- ⚠️ **Martín pidió que lo que falla se registre SOLO, sin preguntarle a la persona** («Y todo lo solucionás
-  automáticamente», 17/10). Hoy el doer PREGUNTA («¿Se lo aviso al equipo?»). Cuando la punta de la Ticketera con
-  `registrarError({ origen: 'mako', nombre: herramienta, mensaje: error }, identidad)` (lib/errores-app.ts) esté en main,
-  el doer pasa a registrar el error solo (agrupa por huella, un ticket por error) y le dice a la persona, sin preguntar,
-  que el equipo ya lo sabe. El cambio vive en `lib/mako-doer-in.ts`, en el bloque «El ticket que propone el CÓDIGO».
+- **Lo que falla se registra SOLO, sin preguntarle a la persona** («Y todo lo solucionás automáticamente», 17/10):
+  HECHO en el doer con `registrarError` + `identidadDelActor` de la Ticketera (bloque «Lo que falló de MaKo va SOLO a la
+  Ticketera» de `lib/mako-doer-in.ts`). A la persona se le dice sólo si entró como ticket.
 - **El aviso a Código Inmobiliario (ws13) por «reprogramar» ESPERA el OK de Martín en este chat** (el texto exacto está
   ahí). El clasificador de permisos de Claude Code bloqueó correr el script, incluso en seco.
 

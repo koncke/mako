@@ -177,8 +177,13 @@ se ven:
   escribe el código, después del saneo, y termina pidiendo el «sí» (si no, el saneo la leería como promesa). Al
   probarlo rompiéndolo apareció un agujero del detector: «ya le aviso al equipo y te lo arreglo» no era una promesa para
   `promesasDe` («aviso» y «arreglo» no estaban, ni el «le» del «ya le…»).
-- ⚠️ **Hasta la próxima punta de la Ticketera, `preparar()` contesta «No sé quién eres»** para un actor `whatsapp:…`:
-  el ticket no se levanta y no se rompe nada (el código no agrega la línea si la propuesta falló).
+- **Desde la tarde del 17/10 la falla ya no se PREGUNTA: se registra sola** («Y todo lo solucionás automáticamente»).
+  El doer llama `registrarError` (lib/errores-app.ts, agrupa por huella) con `identidadDelActor(ws, actor)`, y a la
+  persona se le dice sólo si entró como ticket (`ok && ticketId`): el ruido de la IA vuelve `ok: false`. ⚠️ **La línea
+  de la app no sirve en WhatsApp**: «te aviso por aquí cuando esté arreglado» es una promesa a futuro y la marcarían el
+  saneo y el vigía. La del doer dice lo que ya pasó, y el aviso de arreglado llega solo por el grupo (el negocio queda
+  como afectado por `identidad.ws`). `levantar_ticket` sigue viajando para lo que pide la persona («reporta esto», algo
+  que no existe).
 
 **El aviso «ya quedó arreglado» al grupo del cliente (17/10, pedido de Martín por el Ops Center).** Cambió la regla del
 vigía: ahora un jefe SÍ escribe en el grupo de un cliente, pero sólo para avisar que algo que le falló ya anda en
