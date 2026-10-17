@@ -18,7 +18,7 @@ import {
 } from '@/app/m/_ui';
 
 type Rol = 'admin' | 'closer' | 'setter';
-type Miembro = {
+export type Miembro = {
   id: number; email: string; nombre: string; foto_url: string | null;
   estado: 'invitado' | 'activo' | 'suspendido'; rol_ws: Rol | null; ultimo_login: string | null;
   invitacion_enviada_at: string | null;
@@ -51,9 +51,9 @@ async function post(body: Record<string, unknown>): Promise<Respuesta> {
   }
 }
 
-export function EquipoM({ leido }: { leido: number }) {
+export function EquipoM({ iniciales }: { iniciales: Miembro[] | null }) {
   const toast = useToastM();
-  const [equipo, setEquipo] = useState<Miembro[] | null>(null);
+  const [equipo, setEquipo] = useState<Miembro[] | null>(iniciales);
   const [errCarga, setErrCarga] = useState<string | null>(null);
   const [aviso, setAviso] = useState<AvisoInvitacion | null>(null);
   const [abierto, setAbierto] = useState<Miembro | null>(null);
@@ -69,8 +69,10 @@ export function EquipoM({ leido }: { leido: number }) {
       setErrCarga('No se pudo cargar el equipo. Revisa tu conexión.');
     }
   }, []);
-  // `leido` cambia con cada pasada del server (tirar hacia abajo): se vuelve a pedir.
-  useEffect(() => { void cargar(); }, [cargar, leido]);
+  // ⚠️ ABRE CON LO QUE LEYÓ EL SERVER (17/10/2026, «que el teléfono ande más rápido»): sin esto pintaba un esqueleto y
+  // recién después pedía la lista (otra ida y vuelta). La página la monta con `key` nuevo en cada pasada del server
+  // (tirar hacia abajo trae lo nuevo); si el server no pudo leer (`null`), se pide como en la computadora.
+  useEffect(() => { if (iniciales == null) void cargar(); }, [cargar, iniciales]);
 
   /** Una acción sobre una persona: guarda, recarga y dice lo que pasó en 3-4 palabras. */
   const accion = async (body: Record<string, unknown>, listo: string): Promise<boolean> => {

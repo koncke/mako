@@ -15,8 +15,9 @@
 //   · `SECCIONES_NEGOCIO_M.plan` = '/configuraciones/planes'           → 5 / 1 (la tabla contra lib/ajustes-secciones.ts)
 //   · la pantalla de Integraciones con la key 'configuraciones'        → 5 / 1 (la puerta)
 //   · el índice sin el motivo de «metodo»                              → 5 / 1 (sin pantalla y sin motivo)
-//   · Equipo sin `leido` en el efecto (refrescar no traía nada)        → 5 / 1
+//   · Equipo sin `key` nuevo en cada pasada del server (refrescar no traía nada) → 5 / 1
 //   · Integraciones llamando a `reconciliarIncidentes`                 → 5 / 1
+//   · el GET de /api/equipo con su propia lectura (no `equipoDe`)      → 5 / 1 (17/10/2026, al abrir con lo del server)
 // =============================================================================
 
 import test from 'node:test';
@@ -97,9 +98,21 @@ test('la MISMA API que escritorio, y refrescar vuelve a leer', () => {
   const notif = leer('app/m/configuraciones/notificaciones/NotificacionesNegocioM.tsx');
   assert.match(notif, /fetch\('\/api\/perfil\/destinatarios'/);
   assert.match(notif, /JSON\.stringify\(\{ telefonos, emails \}\)/, 'guarda las DOS listas, como DestinatariosCanal');
-  // `leido` cambia con cada pasada del server: sin él en el efecto, tirar hacia abajo animaba y no traía nada.
-  for (const f of ['app/m/configuraciones/equipo/EquipoM.tsx', 'app/m/configuraciones/notificaciones/NotificacionesNegocioM.tsx']) {
-    assert.match(leer(f), /useEffect\(\(\) => \{ void cargar\(\); \}, \[cargar, leido\]\);/, `${f}: refrescar no vuelve a leer`);
+  // Abre con lo que leyó el SERVER, con la MISMA función que la ruta (17/10/2026, «que el teléfono ande más rápido»), y
+  // se monta con `key` nuevo en cada pasada del server: tirar hacia abajo trae lo nuevo. Si el server no leyó, la pide.
+  const lecturas: [string, string, string, RegExp][] = [
+    // La de la ruta, en su GET (el POST también la usa, para validar el objetivo: no alcanza con que aparezca).
+    ['app/m/configuraciones/equipo/page.tsx', 'app/m/configuraciones/equipo/EquipoM.tsx', 'app/api/equipo/route.ts', /equipoDe\(/],
+    ['app/m/configuraciones/notificaciones/page.tsx', 'app/m/configuraciones/notificaciones/NotificacionesNegocioM.tsx', 'app/api/perfil/destinatarios/route.ts', /destinatariosDelNegocio\(\)/],
+  ];
+  for (const [pagina, cliente, ruta, lectura] of lecturas) {
+    assert.match(leer(pagina), lectura, `${pagina}: otra lectura que la ruta`);
+    assert.match(leer(ruta), lectura, `${ruta}: la ruta dejó de usar la lectura compartida`);
+  }
+  assert.match(leer('app/api/equipo/route.ts'), /equipo: await equipoDe\(ctx\.ws\)/, 'el GET de /api/equipo dejó de usar `equipoDe`');
+  for (const [pagina, cliente] of lecturas) {
+    assert.match(leer(pagina), /key=\{Date\.now\(\)\} iniciales=\{iniciales\}/, `${pagina}: refrescar no trae lo nuevo`);
+    assert.match(leer(cliente), /useEffect\(\(\) => \{ if \(iniciales == null\) void cargar\(\); \}, \[cargar, iniciales\]\);/, `${cliente}: sin lo del server, no lo pide`);
   }
   assert.match(leer('app/m/configuraciones/fiscal/FiscalM.tsx'), /saveIdentidadFiscalAction\(/);
   assert.match(leer('app/m/configuraciones/plan/PlanM.tsx'), /darmeDeBajaAction\(\)/);
