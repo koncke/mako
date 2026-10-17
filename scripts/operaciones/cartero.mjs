@@ -69,7 +69,7 @@ import os from 'node:os';
 import path from 'node:path';
 import crypto from 'node:crypto';
 
-export const VERSION = '1.6.0';
+export const VERSION = '1.7.0';
 const HOME = os.homedir();
 const DIR = process.env.CARTERO_DIR || path.join(HOME, '.claude', 'operaciones');
 const APP = process.env.CARTERO_APP_DIR || path.join(process.env.APPDATA || path.join(HOME, 'AppData', 'Roaming'), 'Claude', 'claude-code-sessions');
@@ -168,6 +168,9 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 const DESTINO_RE = /^(local|cli)_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const CUENTA_RE = /^claude\d{1,2}$/;
 const MAX_TEXTO = 8000;
+/** El modelo y el esfuerzo que eligió Martín (opcionales; copia de lib/operaciones-reglas.ts → MODELOS y ESFUERZOS). */
+const MODELOS = ['opus', 'sonnet', 'haiku'];
+const ESFUERZOS = ['low', 'medium', 'high', 'xhigh', 'max'];
 const VENCE_DIAS = 14;
 /** La forma de un `ref` de la Ticketera (copia de REF_DECISION, app/admin/runway/decisiones.ts). */
 export const REF_DECISION = /^[a-z0-9][a-z0-9-]{1,63}$/;
@@ -184,6 +187,8 @@ export function leerFirmable(texto, ahora) {
   if (o.cuenta !== null && (typeof o.cuenta !== 'string' || !CUENTA_RE.test(o.cuenta))) return { ok: false, motivo: 'cuenta inválida' };
   if (o.titulo !== null && typeof o.titulo !== 'string') return { ok: false, motivo: 'título inválido' };
   if (o.alcance !== 'solo_esto' && o.alcance !== 'de_ahora_en_mas') return { ok: false, motivo: 'alcance inválido' };
+  if (o.modelo != null && !MODELOS.includes(o.modelo)) return { ok: false, motivo: 'modelo inválido' };
+  if (o.esfuerzo != null && !ESFUERZOS.includes(o.esfuerzo)) return { ok: false, motivo: 'esfuerzo inválido' };
   const creado = typeof o.creado === 'string' ? Date.parse(o.creado) : NaN;
   const vence = typeof o.vence === 'string' ? Date.parse(o.vence) : NaN;
   if (!Number.isFinite(creado) || !Number.isFinite(vence)) return { ok: false, motivo: 'fechas inválidas' };
@@ -191,6 +196,14 @@ export function leerFirmable(texto, ahora) {
   if (creado > ahora + 60_000) return { ok: false, motivo: 'fecha en el futuro' };
   if (vence <= ahora) return { ok: false, motivo: 'venció' };
   return { ok: true, p: o };
+}
+
+/** Lo que el Runner necesita para aplicar el modelo y el esfuerzo antes de entregar: la sesión y los dos valores. Sólo en
+ *  un chat de la APP (`local_…`): las herramientas que los cambian son de la app, y a uno de terminal no se le puede. */
+export function comoCorre(p) {
+  return String(p?.destino ?? '').startsWith('local_') && (p.modelo || p.esfuerzo)
+    ? { sesion: p.destino, modelo: p.modelo ?? null, esfuerzo: p.esfuerzo ?? null }
+    : {};
 }
 
 /** ¿Alguna de las claves de la PC firmó este texto? Devuelve el id de la clave, o null. */
@@ -451,6 +464,7 @@ async function ciclo(cuenta, cfg = config(), propio = dirPropio(cfg), runners = 
     escribirJson(path.join(BUZON, `${id}.json`), {
       id, reclamado: new Date().toISOString(), clave: quien, dir: chat.dir,
       to: `uds:${chat.pipe}`, titulo: chat.titulo, mensaje: mensaje(l.p),
+      ...comoCorre(l.p),
     });
     log(`[${cuenta}] BUZON ${id} → ${chat.titulo} (${rotuloDir(chat.dir)})`);
   }
@@ -603,7 +617,7 @@ function pendientes(cuenta, propio = dirPropio()) {
     .filter(({ b }) => b && mismoDir(b.dir || '~/.claude', propio))
     .sort((x, y) => x.b.reclamado.localeCompare(y.b.reclamado))
     .filter(({ f }) => tomar(f))
-    .map(({ b: { id, to, titulo, mensaje } }) => ({ id, to, titulo, mensaje }));
+    .map(({ b: { id, to, titulo, mensaje, sesion, modelo, esfuerzo } }) => ({ id, to, titulo, mensaje, ...(sesion ? { sesion, modelo, esfuerzo } : {}) }));
 }
 
 function acuse(cuenta, id, resultado, motivo) {

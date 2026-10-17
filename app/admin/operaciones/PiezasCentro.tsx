@@ -23,7 +23,7 @@ import { Button, Field, Input, Modal } from '@/app/_ui';
 import { MenuContextual } from '@/app/_ui/MenuContextual';
 import { Icon } from '@/app/_components/icons';
 import {
-  SECCION_CEREBRO, SECCION_CHATS, SECCION_SIN_ASIGNAR, esperaDe, partesDelNombre, porJefe, seccionesDeChats,
+  SECCION_CEREBRO, SECCION_CHATS, SECCION_SIN_ASIGNAR, esperaDe, nombreCuenta, partesDelNombre, porJefe, seccionesDeChats,
   type ChatCentro, type VistaPrevia,
 } from '@/lib/centro-chats';
 export { buscarChats } from '@/lib/centro-chats';
@@ -31,6 +31,9 @@ import { elegidoPara } from '@/lib/centro-munecos';
 import { preguntasDelChat, respuestasDelChat } from '@/lib/centro-preguntas';
 import { edadCorta } from '@/lib/chat-mako-reglas';
 import { comandoNuevoChat, tieneTerminal } from '@/lib/runner';
+import {
+  AUTOMATICO, ESFUERZOS, MODELOS, NOMBRE_ESFUERZO, NOMBRE_MODELO, aceptaModelo, type Esfuerzo, type Modelo,
+} from '@/lib/centro-cuentas';
 import { nombreValido } from '@/lib/centro-chats';
 import { ElegirMuneco } from './ElegirMuneco';
 import { Conversacion } from './Conversacion';
@@ -164,7 +167,45 @@ export function ChatDelCentro({ centro: k, chat, onVolver }: { centro: Centro; c
       alcance={k.alcance} onAlcance={k.setAlcance} enviando={k.enviando}
       onMandar={() => void k.mandar(chat)} onCrearClave={() => void k.crearClave()} onCopiarClave={k.copiarClave}
       onVolver={onVolver}
+      selectores={<SelectoresDeEnvio centro={k} chat={chat} />}
     />
+  );
+}
+
+/**
+ * A qué cuenta va lo que se escribe, y con qué modelo y esfuerzo corre (Martín, 17/10/2026: «debería poder seleccionar»
+ * la cuenta, con «Automático» si no elige, y «eligiendo qué modelo de IA debe correr»). Copiado del selector de modelo de
+ * Claude y ChatGPT, al lado de la caja: un desplegable chico por cosa, con «Automático» primero. La cuenta automática dice
+ * cuál sería; el modelo y el esfuerzo sólo se ofrecen en un chat de la app (los de terminal no se pueden cambiar desde
+ * afuera) y vuelven a «Automático» después de mandar. Las reglas: lib/centro-cuentas.ts.
+ */
+export function SelectoresDeEnvio({ centro: k, chat }: { centro: Centro; chat: ChatCentro }) {
+  const { opciones, automatica } = k.cuentasDe(chat);
+  const destino = k.destinoDeChat(chat);
+  const conModelo = aceptaModelo(destino.sesion);
+  const libre = (n: number | null) => (n == null ? '' : ` · ${n}% libre`);
+  return (
+    <>
+      {opciones.length > 0 && (
+        <select className="co-chip co-elegir" aria-label="Cuenta" title="A qué cuenta va" value={k.cuentaElegida(chat.clave)}
+          onChange={(e) => k.elegirCuenta(chat.clave, e.target.value)} disabled={k.enviando}>
+          <option value={AUTOMATICO}>{automatica ? `Automático · ${nombreCuenta(automatica)}` : 'Automático'}</option>
+          {opciones.map((o) => <option key={o.cuenta} value={o.cuenta}>{`${nombreCuenta(o.cuenta)}${libre(o.libre)}`}</option>)}
+        </select>
+      )}
+      <select className="co-chip co-elegir" aria-label="Modelo" value={conModelo ? k.modelo ?? AUTOMATICO : AUTOMATICO} disabled={!conModelo || k.enviando}
+        title={conModelo ? 'Con qué modelo corre' : 'El modelo se elige sólo en los chats de la app'}
+        onChange={(e) => k.setModelo(e.target.value === AUTOMATICO ? null : e.target.value as Modelo)}>
+        <option value={AUTOMATICO}>Modelo automático</option>
+        {MODELOS.map((m) => <option key={m} value={m}>{NOMBRE_MODELO[m]}</option>)}
+      </select>
+      <select className="co-chip co-elegir" aria-label="Esfuerzo" value={conModelo ? k.esfuerzo ?? AUTOMATICO : AUTOMATICO} disabled={!conModelo || k.enviando}
+        title={conModelo ? 'Cuánto piensa' : 'El esfuerzo se elige sólo en los chats de la app'}
+        onChange={(e) => k.setEsfuerzo(e.target.value === AUTOMATICO ? null : e.target.value as Esfuerzo)}>
+        <option value={AUTOMATICO}>Esfuerzo automático</option>
+        {ESFUERZOS.map((x) => <option key={x} value={x}>{NOMBRE_ESFUERZO[x]}</option>)}
+      </select>
+    </>
   );
 }
 

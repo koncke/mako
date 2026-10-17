@@ -1256,6 +1256,13 @@ código nuevo:
 - **La verdad de un pedido es el texto FIRMADO en el dispositivo** (WebCrypto, clave no exportable).
   El servidor lo guarda y lo devuelve tal cual, nunca lo arma; el cartero entrega lo que dice ese
   texto. Ningún camino encola sin firma: por eso «mandar un pedido» no está en el registro de la API.
+- **Un campo nuevo del trabajo firmado entra OPCIONAL** (17/10/2026: el modelo y el esfuerzo). Tiene que cumplir tres
+  cosas:
+  - sin el campo, el texto firmado es idéntico al de antes (`armarFirmable` sólo lo agrega si se eligió);
+  - el servidor y la PC lo validan igual, con su caso en el test diferencial de tests/operaciones.test.ts;
+  - un cartero de antes lo ignora sin rechazar el trabajo.
+
+  Nunca se sube `VERSION_PEDIDO` por un campo opcional: eso rechazaría lo que ya está en la cola.
 - **La confianza vive en la PC**: el cartero verifica la firma contra las claves cargadas A MANO y
   lleva su registro de entregados. Nada de lo que diga MaKo puede agregar una clave ni reentregar.
 - **Lo único que el cartero entrega SIN firma es un texto FIJO que arma él**: el aviso de una respuesta

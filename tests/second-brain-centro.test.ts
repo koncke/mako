@@ -54,7 +54,8 @@ test('las pantallas del Second Brain escriben a un chat sólo por mandar.ts (la 
     assert.doesNotMatch(sinComentarios(leer(f)), /encolarPedido|cancelarPedido|crearTokenCartero/, `${f}: el único camino es mandar.ts`);
   }
   const motor = sinComentarios(leer('app/admin/operaciones/useCentro.ts'));
-  assert.match(motor, /const r = await firma\.mandar\(\{ sesion: c\.sesion, cuenta: c\.cuenta, titulo: c\.titulo \}, texto, alcance\);/, 'mandar firma en el dispositivo');
+  // Desde el 17/10 va a la sesión de la cuenta elegida (o la automática) y con el modelo elegido (lib/centro-cuentas.ts).
+  assert.match(motor, /const r = await firma\.mandar\(\{ sesion: d\.sesion, cuenta: d\.cuenta, titulo: c\.titulo \}, texto, alcance, como\);/, 'mandar firma en el dispositivo');
   // El panel de un chat de Claude Code en el Second Brain es la conversación del Centro, no otra caja.
   const sb = sinComentarios(leer('app/second-brain/ChatSecondBrain.tsx'));
   assert.match(sb, /<ChatDelCentro centro=\{centro\} chat=\{chatCentro\}/);

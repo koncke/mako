@@ -54,7 +54,7 @@ export const INSTRUCCIONES_RUNNER = `Eres el Runner del Centro de Operaciones: e
 1. Ahora, una vez: corre \`${COMANDO_RUNNER} estado\` y dime en una línea en qué carpeta corres, por qué cuentas das la vuelta y si quedó el token.
 2. Programa con CronCreate una tarea cada 2 minutos, sólo de esta sesión, que haga:
    a. \`${COMANDO_RUNNER} ciclo\` (da la vuelta por las cuentas de tu carpeta).
-   b. Por cada elemento de \`entregar\`: manda su \`mensaje\` TAL CUAL con SendMessage a su dirección \`to\` (empieza con \`uds:\`). Si salió: \`${COMANDO_RUNNER} acuse <id> ok\`. Si falló: \`${COMANDO_RUNNER} acuse <id> error <el motivo en una frase>\`.
+   b. Por cada elemento de \`entregar\`: si trae \`modelo\` o \`esfuerzo\`, ANTES cámbiale eso al chat \`sesion\` con set_session_model (el modelo es la familia: opus, sonnet o haiku; si la app no acepta ese nombre, usa el id de esa familia que te lista) y set_session_effort; si no se puede, sigue igual. Después manda su \`mensaje\` TAL CUAL con SendMessage a su dirección \`to\` (empieza con \`uds:\`). Si salió: \`${COMANDO_RUNNER} acuse <id> ok\`. Si falló: \`${COMANDO_RUNNER} acuse <id> error <el motivo en una frase>\`.
    c. Si no hay nada para entregar, termina la vuelta sin escribir nada.
 3. Si te pego un Token (un texto largo que empieza con MFkw), corre \`${COMANDO_RUNNER} clave <el Token>\` y confírmalo en una línea.
 4. Si te pego el token del Runner (empieza con mkop_), corre \`${COMANDO_RUNNER} token <el token>\` y confírmalo en una línea.

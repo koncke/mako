@@ -44,6 +44,17 @@ export const ROTULO: Record<EstadoPedido, string> = {
 export const ALCANCES = ['solo_esto', 'de_ahora_en_mas'] as const;
 export type Alcance = (typeof ALCANCES)[number];
 
+/**
+ * El modelo y el esfuerzo con los que Martín quiere que corra el chat (17/10/2026: «que los jefes y el cerebro tengan la
+ * capacidad de ahorrar tokens... eligiendo qué modelo de IA debe correr»). Van ADENTRO de la firma, OPCIONALES: sin
+ * ellos el texto firmado es idéntico al de siempre, y un cartero de antes los ignora. Los aplica el Runner (lib/runner.ts)
+ * y sólo en un chat de la app (lib/centro-cuentas.ts → aceptaModelo). El cartero los valida igual (test diferencial).
+ */
+export const MODELOS = ['opus', 'sonnet', 'haiku'] as const;
+export type Modelo = (typeof MODELOS)[number];
+export const ESFUERZOS = ['low', 'medium', 'high', 'xhigh', 'max'] as const;
+export type Esfuerzo = (typeof ESFUERZOS)[number];
+
 export type PayloadPedido = {
   v: typeof VERSION_PEDIDO;
   /** uuid que pone el navegador; va adentro de la firma. */
@@ -59,6 +70,9 @@ export type PayloadPedido = {
   alcance: Alcance;
   creado: string;
   vence: string;
+  /** null o ausente = «Automático»: no se toca el modelo del chat. */
+  modelo?: Modelo | null;
+  esfuerzo?: Esfuerzo | null;
 };
 
 export const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
@@ -71,11 +85,15 @@ export function armarFirmable(p: PayloadPedido): string {
   return JSON.stringify({
     v: p.v, id: p.id, texto: p.texto, destino: p.destino, cuenta: p.cuenta,
     titulo: p.titulo, alcance: p.alcance, creado: p.creado, vence: p.vence,
+    // Sólo si se eligieron: sin ellos, el texto firmado es el de siempre.
+    ...(p.modelo ? { modelo: p.modelo } : {}),
+    ...(p.esfuerzo ? { esfuerzo: p.esfuerzo } : {}),
   });
 }
 
 export function nuevoPayload(entrada: {
   id: string; texto: string; destino: string; cuenta: string | null; titulo: string | null; alcance: Alcance;
+  modelo?: Modelo | null; esfuerzo?: Esfuerzo | null;
 }, ahora: number): PayloadPedido {
   return {
     v: VERSION_PEDIDO,
@@ -87,6 +105,8 @@ export function nuevoPayload(entrada: {
     alcance: entrada.alcance,
     creado: new Date(ahora).toISOString(),
     vence: new Date(ahora + VENCE_DIAS * 86_400_000).toISOString(),
+    modelo: entrada.modelo ?? null,
+    esfuerzo: entrada.esfuerzo ?? null,
   };
 }
 
@@ -107,6 +127,8 @@ export function leerFirmable(texto: string, ahora: number): Lectura {
   if (o.cuenta !== null && (typeof o.cuenta !== 'string' || !CUENTA_RE.test(o.cuenta))) return { ok: false, motivo: 'cuenta inválida' };
   if (o.titulo !== null && typeof o.titulo !== 'string') return { ok: false, motivo: 'título inválido' };
   if (!(ALCANCES as readonly unknown[]).includes(o.alcance)) return { ok: false, motivo: 'alcance inválido' };
+  if (o.modelo != null && !(MODELOS as readonly unknown[]).includes(o.modelo)) return { ok: false, motivo: 'modelo inválido' };
+  if (o.esfuerzo != null && !(ESFUERZOS as readonly unknown[]).includes(o.esfuerzo)) return { ok: false, motivo: 'esfuerzo inválido' };
   const creado = typeof o.creado === 'string' ? Date.parse(o.creado) : NaN;
   const vence = typeof o.vence === 'string' ? Date.parse(o.vence) : NaN;
   if (!Number.isFinite(creado) || !Number.isFinite(vence)) return { ok: false, motivo: 'fechas inválidas' };
@@ -120,6 +142,7 @@ export function leerFirmable(texto: string, ahora: number): Lectura {
       v: VERSION_PEDIDO, id: o.id, texto: o.texto, destino: o.destino,
       cuenta: (o.cuenta as string | null) ?? null, titulo: (o.titulo as string | null) ?? null,
       alcance: o.alcance as Alcance, creado: o.creado as string, vence: o.vence as string,
+      modelo: (o.modelo as Modelo | null | undefined) ?? null, esfuerzo: (o.esfuerzo as Esfuerzo | null | undefined) ?? null,
     },
   };
 }

@@ -534,4 +534,20 @@ export const BITACORA: Hito[] = [
       'lib/centro-uso.ts, app/admin/operaciones/Uso.tsx — las cuatro cuentas',
     ],
   },
+  {
+    fecha: '17 oct', hora: '06:30', chat: 'Centro de Operaciones', sesion: 'local_aac76313-d8b5-4b86-85f4-e579e4f33304', cuenta: 'claude4',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Al mandar, eliges la cuenta, el modelo y el esfuerzo',
+    pedido: 'Al enviar un prompt por el Second Brain no me deja seleccionar qué cuenta',
+    puntos: [
+      'Al lado de la caja, la cuenta: «Automático» elige la que puede recibir ya y tiene más uso libre, o eliges una.',
+      'En los chats de la app también eliges el modelo (Opus, Sonnet, Haiku) y el esfuerzo; «Automático» no cambia nada.',
+      'Lo mismo en el teléfono.',
+    ],
+    archivos: [
+      'lib/centro-cuentas.ts — a qué cuenta va y si se puede elegir el modelo',
+      'app/admin/operaciones/PiezasCentro.tsx — los selectores de la caja',
+      'scripts/operaciones/cartero.mjs, lib/runner.ts — el Runner aplica el modelo',
+    ],
+  },
 ];
