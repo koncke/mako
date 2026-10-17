@@ -31,7 +31,7 @@ import 'server-only';
 import { createHash, createPublicKey, randomBytes, randomUUID, verify } from 'node:crypto';
 import { getSupabaseServer } from './supabase';
 import {
-  CUENTA_RE, POR_VUELTA, claveIdDe, estadoDeCierre, leerFirmable, nombresDeAdjuntos, sanearAcuses, sanearChats,
+  CUENTA_RE, POR_VUELTA, TOMADO_VENCE_MS, claveIdDe, estadoDeCierre, leerFirmable, nombresDeAdjuntos, sanearAcuses, sanearChats,
   sanearCierres, sanearClaves, sanearEntregables, sanearTurnos, todosLosChats, type ChatCartero, type Cierre, type EstadoPedido,
 } from './operaciones-reglas';
 import { sanearCuota, type Cuota } from './centro-uso';
@@ -322,6 +322,13 @@ export async function cicloCartero(token: string, entrada: unknown): Promise<Sal
     .update({ estado: 'no_entregado', motivo: 'Venció con el chat cerrado: ábrelo y vuelve a mandarlo', updated_at: ahoraIso })
     .eq('estado', 'escrito').lt('created_at', limite).select('id, firmado');
   for (const f of venc ?? []) terminados.push(f.firmado as string | null);
+  // Lo tomado que nunca acusó (17/10/2026, la revisión de seguridad de los adjuntos): el acuse era su ÚNICA salida, y
+  // cancelar y vencer miran sólo lo `escrito`. Quedaba `tomado` para siempre, con su adjunto servido y sin borrar.
+  const tomadoLimite = new Date(Date.now() - TOMADO_VENCE_MS).toISOString();
+  const { data: perdidos } = await db.from(T_PEDIDOS)
+    .update({ estado: 'incierto', motivo: 'El Runner no confirmó si le llegó: míralo en el chat', updated_at: ahoraIso })
+    .eq('estado', 'tomado').lt('tomado_at', tomadoLimite).select('id, firmado');
+  for (const f of perdidos ?? []) terminados.push(f.firmado as string | null);
   await borrarAdjuntosDe(terminados);
 
   // Lo que ESTE cartero puede entregar ahora: pedidos escritos para uno de SUS chats vivos que la PC alcanza.

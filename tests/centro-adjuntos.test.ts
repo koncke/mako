@@ -16,6 +16,12 @@
 //   · subirAdjuntos firmando el sha256 que devolvió MaKo → 1 fallo;
 //   · el ciclo sin pasarle las rutas al mensaje → 1 fallo (el de punta a punta).
 //   Restaurado de memoria (no con git checkout): 8 pases.
+// ⚠️ Y los dos defectos de la revisión de seguridad del Cerebro (17/10/2026, cartero 1.9.1), contra la base de 10 pases:
+//   · la bajada otra vez con `arrayBuffer()` (la 1.9.0) → 1 fallo (leyó las 400 partes: 25 MB a la RAM);
+//   · aceptando una respuesta con content-encoding → 1 fallo;
+//   · sin vencer lo `tomado` sin acuse, o venciéndolo sin borrar sus adjuntos → 1 fallo cada una;
+//   · el adjunto servido sin la ventana de `tomado_at` → 1 fallo.
+//   Restaurado de memoria: 10 pases.
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -228,10 +234,11 @@ test('de punta a punta: el ciclo baja el adjunto de un trabajo firmado y el chat
   }
 });
 
-test('la caja firma el hash que calculó ELLA, y no ofrece adjuntar hasta el cartero 1.9.0', async () => {
+test('la caja firma el hash que calculó ELLA, y no ofrece adjuntar hasta el cartero 1.9.1', async () => {
   const cartero = await import('../scripts/operaciones/cartero.mjs');
   assert.ok(aceptaAdjuntos(cartero.VERSION), `el cartero ${cartero.VERSION} baja adjuntos (${VERSION_ADJUNTOS})`);
   assert.equal(aceptaAdjuntos('1.8.1'), false, 'el instalado hoy no los baja: el trabajo saldría sin sus archivos');
+  assert.equal(aceptaAdjuntos('1.9.0'), false, 'la 1.9.0 leía la respuesta entera a la RAM: no se instala ni habilita el «+»');
   assert.equal(aceptaAdjuntos(null), false);
   assert.ok(aceptaAdjuntos('1.10.0') && aceptaAdjuntos('2.0.0'), 'la versión se compara por número, no por texto');
 
@@ -258,4 +265,56 @@ test('MaKo da un adjunto sólo al cartero, sólo de un trabajo en vuelo, y lo su
   assert.ok(get.indexOf('tokenDelCarteroValido') < get.indexOf('adjuntoParaElCartero'), 'el token antes de leer');
   const subir = sinComentarios(leer('app/api/operaciones/adjuntos/route.ts'));
   assert.ok(subir.indexOf('puedeOperar(') > 0 && subir.indexOf('puedeOperar(') < subir.indexOf('formData()'), 'la guarda del Centro antes de leer el cuerpo');
+});
+
+// ── La revisión de seguridad del Cerebro (17/10/2026), los dos defectos que no se cayeron al refutarlos ──────────────
+
+test('la PC corta la bajada apenas pasa lo firmado (sin content-length) y no acepta una respuesta comprimida', async () => {
+  const { bajarAdjuntos } = await import('../scripts/operaciones/cartero.mjs');
+  const { gzipSync } = await import('node:zlib');
+  const dir = mkdtempSync(join(tmpdir(), 'adjuntos-ram-'));
+  const CHUNKED = '55555555-5555-4555-8555-555555555555';
+  const GZIP = '66666666-6666-4666-8666-666666666666';
+  const PARTES = 400; // 400 × 64 KB = 25 MB, si nadie corta
+  let enviadas = 0;
+  const srv = createServer((req, res) => {
+    const ref = new URL(req.url ?? '/', 'http://x').searchParams.get('adjunto');
+    if (ref === GZIP) {
+      res.setHeader('content-encoding', 'gzip');
+      res.end(gzipSync(PNG));
+      return;
+    }
+    // «chunked»: sin content-length, y sigue mandando hasta que la PC corte.
+    res.setHeader('content-type', 'application/octet-stream');
+    const parte = Buffer.concat([PNG, Buffer.alloc(64 * 1024 - PNG.length)]);
+    const mandar = () => {
+      if (res.destroyed || enviadas >= PARTES) { res.end(); return; }
+      enviadas++;
+      if (res.write(parte)) setImmediate(mandar); else res.once('drain', mandar);
+    };
+    mandar();
+  });
+  const url = await escuchar(srv);
+  const token = `mkop_${'x'.repeat(30)}`;
+  try {
+    await assert.rejects(bajarAdjuntos(url, token, 'aaaaaaaa-0000-4000-8000-0000000000c1', [adj(CHUNKED, PNG, 'image/png')], dir), /pesa más de lo firmado/);
+    assert.ok(enviadas < PARTES, `cortó en la parte ${enviadas} de ${PARTES}: no se leyó todo a la RAM`);
+    assert.equal(existsSync(join(dir, 'aaaaaaaa-0000-4000-8000-0000000000c1')), false);
+    // Con gzip el content-length es el comprimido y la PC descomprimiría sin tope: no se acepta.
+    await assert.rejects(bajarAdjuntos(url, token, 'aaaaaaaa-0000-4000-8000-0000000000c2', [adj(GZIP, PNG, 'image/png')], dir), /vino comprimido/);
+  } finally {
+    srv.close();
+  }
+});
+
+test('un trabajo tomado que nunca acusó tiene salida, y su adjunto se da sólo un rato', () => {
+  const lib = sinComentarios(leer('lib/operaciones.ts'));
+  const ciclo = lib.slice(lib.indexOf('export async function cicloCartero'));
+  const vence = ciclo.indexOf(".eq('estado', 'tomado').lt('tomado_at', tomadoLimite)");
+  assert.ok(vence > 0, 'lo tomado sin acuse de más de TOMADO_VENCE_MS se da por terminado');
+  assert.match(ciclo.slice(ciclo.lastIndexOf('.update(', vence), vence), /estado: 'incierto'/, 'como «no sé si llegó»');
+  assert.ok(ciclo.indexOf('for (const f of perdidos ?? []) terminados.push(f.firmado', vence) > vence
+    && ciclo.indexOf('await borrarAdjuntosDe(terminados)', vence) > vence, 'y sus adjuntos se borran');
+  const dar = sinComentarios(leer('lib/operaciones-adjuntos.ts'));
+  assert.match(dar, /\.eq\('estado', 'tomado'\)\.gt\('tomado_at', new Date\(Date\.now\(\) - VENTANA_ADJUNTO_MS\)/, 'el adjunto se da sólo recién tomado');
 });

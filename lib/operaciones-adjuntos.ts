@@ -9,8 +9,9 @@ import 'server-only';
 // ⚠️ LO QUE PROTEGE ES LA FIRMA, NO ESTE ARCHIVO. El navegador calcula el sha256 de los bytes que sube y lo firma con el
 //    trabajo; la PC compara lo que baja con ESE hash (cartero.mjs → bajarAdjuntos). Este servidor guarda y entrega bytes:
 //    si mintiera, la PC no los acepta.
-// ⚠️ SÓLO SE ENTREGA UN ADJUNTO DE UN TRABAJO EN VUELO: `tomado` (lo reclamó un cartero y todavía no acusó) y nombrado en su
-//    texto firmado. Quien robe el token del cartero no puede pedir cualquier archivo del bucket: sólo los de un trabajo que
+// ⚠️ SÓLO SE ENTREGA UN ADJUNTO DE UN TRABAJO EN VUELO: `tomado` hace menos de `VENTANA_ADJUNTO_MS` (lo reclamó un
+//    cartero y todavía no acusó) y nombrado en su texto firmado. Lo `tomado` que nunca acusa vence a las 2 horas
+//    (`TOMADO_VENCE_MS`, lib/operaciones.ts → cicloCartero) y su binario se borra. Quien robe el token del cartero no puede pedir cualquier archivo del bucket: sólo los de un trabajo que
 //    la PC está por entregar.
 // ⚠️ EL BINARIO NO QUEDA: se borra cuando el trabajo termina para la PC (cualquier acuse), cuando se cancela y cuando
 //    vence. Lo subido que nunca se firmó (se cerró la pestaña entre subir y firmar) queda: no hay barrido todavía.
@@ -24,6 +25,8 @@ import { MIMES_ADJUNTO, UUID_RE, leerFirmable, type AdjuntoPedido, type MimeAdju
 /** Fuera de los `<ws>/…` del Archivero: los trabajos del Centro son de la plataforma, como sus tablas (mig 0285). */
 const rutaDe = (ref: string) => `operaciones/${ref}`;
 const bucket = () => getSupabaseServer().storage.from(BUCKET_ADJUNTOS);
+/** Un adjunto se da sólo en este rato desde que la PC tomó su trabajo: lo baja en la misma vuelta (segundos). */
+export const VENTANA_ADJUNTO_MS = 15 * 60 * 1000;
 
 export type SubidaAdjuntos = { ok: true; adjuntos: AdjuntoPedido[] } | { ok: false; error: string };
 
@@ -56,7 +59,7 @@ export async function subirAdjuntosCentro(lista: ReadonlyArray<{ nombre: string;
 export async function adjuntoParaElCartero(pedido: string, ref: string): Promise<Buffer | null> {
   if (!UUID_RE.test(pedido) || !UUID_RE.test(ref)) return null;
   const { data, error } = await getSupabaseServer().from('operaciones_pedidos').select('firmado')
-    .eq('id', pedido).eq('estado', 'tomado').maybeSingle();
+    .eq('id', pedido).eq('estado', 'tomado').gt('tomado_at', new Date(Date.now() - VENTANA_ADJUNTO_MS).toISOString()).maybeSingle();
   if (error) throw new Error(error.message);
   if (!data?.firmado) return null;
   if (!refsDe(data.firmado as string).includes(ref)) return null;
