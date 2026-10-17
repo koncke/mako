@@ -50,6 +50,10 @@ export const TOPE_MOTIVO_API = 300;
 /** Lo que dura un evento si no se dice (la vista lo lee así de una fila sin duración). */
 export const DURACION_DEFAULT_API = 60;
 
+/** Al revisar en /mako/revisar, el id que dice SOBRE QUÉ se hace no se edita (`fijoAlRevisar`, tipos.ts): el resumen que la persona
+ *  confirma es de ése, y cambiarlo ejecutaba la acción sobre otro con el título del primero. */
+const fijo = (p: Parametro): Parametro => ({ ...p, fijoAlRevisar: true });
+
 const FIRMA = 'Se publica FIRMADO por la persona del equipo que lo confirma en MaKo (o la que creó el token): sin una persona, no se publica.';
 
 // ── Parámetros que se repiten ─────────────────────────────────────────────────────
@@ -222,7 +226,7 @@ export const DEFS: readonly OperacionDef[] = [
     titulo: 'Editar un post propio',
     descripcion: `Cambia el título, el texto, la categoría, el video o las menciones de un post. Sólo lo edita quien lo escribió (la persona que firma tiene que ser la autora). La encuesta y el adjunto no se editan, ni el hilo de una clase. Lo que no se pasa queda igual; «${VACIAR}» en cuerpo o videoUrl lo vacía. Avisa sólo a las menciones nuevas.`,
     parametros: [
-      postId,
+      fijo(postId),
       { nombre: 'titulo', tipo: 'string', max: TOPE_TITULO, descripcion: `el título nuevo (hasta ${TOPE_TITULO} letras).` },
       { nombre: 'cuerpo', tipo: 'string', max: TOPE_CUERPO, descripcion: `el texto nuevo (hasta ${TOPE_CUERPO} letras). «${VACIAR}» lo vacía.` },
       { nombre: 'categoriaId', tipo: 'number', entero: true, minimo: 1, descripcion: 'la categoría nueva (de ver_comunidad).' },
@@ -236,8 +240,8 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'borrar_post_comunidad', area: 'comunidad', tipo: 'accion',
     titulo: 'Borrar un post',
-    descripcion: 'Moderación: borra un post de cualquiera, con sus comentarios, likes y votos (esos puntos se les van a sus autores) y su adjunto. No se puede deshacer. El hilo de una clase no se borra entero: se borran sus comentarios uno por uno (borrar_comentario_comunidad) o se cierran.',
-    parametros: [postId],
+    descripcion: 'Borra un post de cualquiera (es moderación), con sus comentarios, likes y votos (esos puntos se les van a sus autores) y su adjunto. No se puede deshacer. El hilo de una clase no se borra entero: se borran sus comentarios uno por uno (borrar_comentario_comunidad) o se cierran.',
+    parametros: [fijo(postId)],
     canales: HTTP, costo: 'gratis', gating: GATING,
     confirmacion: 'pantalla', pantalla: '/mako/revisar', reversible: false,
     escribe: 'borra el post (comunidad_posts) y, en cascada, sus comentarios, likes y votos; y su archivo del bucket',
@@ -254,7 +258,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'cerrar_comentarios_post_comunidad', area: 'comunidad', tipo: 'accion',
     titulo: 'Cerrar o abrir los comentarios',
-    descripcion: 'Moderación: cierra los comentarios de un post o del hilo de una clase (lo que ya está se sigue viendo; no comenta nadie, tampoco el equipo) o los vuelve a abrir.',
+    descripcion: 'Cierra los comentarios de un post o del hilo de una clase (lo que ya está se sigue viendo; no comenta nadie, tampoco el equipo) o los vuelve a abrir.',
     parametros: [postId, { nombre: 'cerrados', tipo: 'boolean', obligatorio: true, descripcion: 'true cierra, false abre.' }],
     canales: HTTP, costo: 'gratis', gating: GATING,
     confirmacion: 'chat', reversible: true,
@@ -294,13 +298,13 @@ export const DEFS: readonly OperacionDef[] = [
     titulo: 'Comentar o responder',
     descripcion: `Comenta un post o responde a un comentario (dos niveles: responder a una respuesta la cuelga del mismo hilo). Sirve para contestar dentro del hilo de una clase con su postId. Avisa a quien se le contestó, a los mencionados y a quienes siguen el post, y lo sube en «Recientes». ${FIRMA} Devuelve el id en \`datos.comentarioId\`.`,
     parametros: [
-      postId,
+      fijo(postId),
       { nombre: 'cuerpo', tipo: 'string', obligatorio: true, max: TOPE_COMENTARIO, descripcion: `el texto (hasta ${TOPE_COMENTARIO} letras).` },
       { nombre: 'responderA', tipo: 'number', entero: true, minimo: 1, descripcion: 'el id del comentario al que responde (de ver_post_comunidad). Sin esto, comenta en el primer nivel.' },
       menciones,
     ],
     canales: HTTP, costo: 'gratis', gating: GATING,
-    confirmacion: 'chat', reversible: true,
+    confirmacion: 'pantalla', pantalla: '/mako/revisar', reversible: true,
     escribe: 'un comentario (comunidad_comentarios), la actividad del post y los avisos (comunidad_notificaciones)',
   },
   {
@@ -308,19 +312,19 @@ export const DEFS: readonly OperacionDef[] = [
     titulo: 'Editar un comentario propio',
     descripcion: 'Cambia el texto (y las menciones) de un comentario. Sólo lo edita quien lo escribió: la persona que firma tiene que ser la autora. Avisa sólo a las menciones nuevas.',
     parametros: [
-      comentarioId,
+      fijo(comentarioId),
       { nombre: 'cuerpo', tipo: 'string', obligatorio: true, max: TOPE_COMENTARIO, descripcion: `el texto nuevo (hasta ${TOPE_COMENTARIO} letras).` },
       { ...menciones, vaciaEsValor: true, descripcion: `${menciones.descripcion} Si se pasa, REEMPLAZA la lista; [] las saca todas. Sin esto quedan las que tenía.` },
     ],
     canales: HTTP, costo: 'gratis', gating: GATING,
-    confirmacion: 'chat', reversible: true,
+    confirmacion: 'pantalla', pantalla: '/mako/revisar', reversible: true,
     escribe: 'el texto y las menciones del comentario (comunidad_comentarios)',
   },
   {
     id: 'borrar_comentario_comunidad', area: 'comunidad', tipo: 'accion',
     titulo: 'Borrar un comentario',
-    descripcion: 'Moderación: borra un comentario de cualquiera, con sus respuestas (también en el hilo de una clase). No se puede deshacer.',
-    parametros: [comentarioId],
+    descripcion: 'Borra un comentario de cualquiera (es moderación), con sus respuestas (también en el hilo de una clase). No se puede deshacer.',
+    parametros: [fijo(comentarioId)],
     canales: HTTP, costo: 'gratis', gating: GATING,
     confirmacion: 'pantalla', pantalla: '/mako/revisar', reversible: false,
     escribe: 'borra el comentario (comunidad_comentarios) y, en cascada, sus respuestas y sus likes',
@@ -348,12 +352,12 @@ export const DEFS: readonly OperacionDef[] = [
     titulo: 'Comentar una clase',
     descripcion: `Comenta una clase del curso en el primer nivel: si es el primer comentario abre su hilo (y quien lo abre lo sigue). Para responder dentro del hilo, comentar_post_comunidad con su postId y responderA. Con los comentarios de las clases apagados se comenta igual y ningún alumno lo ve. ${FIRMA} Devuelve \`datos.comentarioId\` y \`datos.postId\`.`,
     parametros: [
-      claseId,
+      fijo(claseId),
       { nombre: 'cuerpo', tipo: 'string', obligatorio: true, max: TOPE_COMENTARIO, descripcion: `el texto (hasta ${TOPE_COMENTARIO} letras).` },
       menciones,
     ],
     canales: HTTP, costo: 'gratis', gating: GATING,
-    confirmacion: 'chat', reversible: true,
+    confirmacion: 'pantalla', pantalla: '/mako/revisar', reversible: true,
     escribe: 'el hilo de la clase si no existía (comunidad_posts con clase_id), el comentario (comunidad_comentarios) y los avisos',
   },
 
@@ -390,7 +394,7 @@ export const DEFS: readonly OperacionDef[] = [
     id: 'borrar_categoria_comunidad', area: 'comunidad', tipo: 'accion',
     titulo: 'Borrar una categoría',
     descripcion: 'Borra una categoría. Sus posts NO se borran: quedan sin categoría, y volver a crearla no los devuelve a ella.',
-    parametros: [productoId, categoriaIdObligatorio],
+    parametros: [productoId, fijo(categoriaIdObligatorio)],
     canales: HTTP, costo: 'gratis', gating: GATING_ADMIN,
     confirmacion: 'pantalla', pantalla: '/mako/revisar', reversible: false,
     escribe: 'borra la categoría (comunidad_categorias); sus posts quedan sin categoría',
@@ -493,7 +497,7 @@ export const DEFS: readonly OperacionDef[] = [
     titulo: 'Sacar a un alumno',
     descripcion: 'Saca a un alumno de la comunidad, con un motivo: deja de verla y de escribir, pero NO pierde el curso. Con borrarContenido, además borra sus posts y comentarios de los últimos 7 días, sin vuelta atrás (los hilos de las clases no se borran enteros: sólo sus comentarios). Al equipo no se lo saca.',
     parametros: [
-      productoId, leadId,
+      productoId, fijo(leadId),
       { nombre: 'motivo', tipo: 'string', max: TOPE_MOTIVO_API, descripcion: `el motivo (hasta ${TOPE_MOTIVO_API} letras). Lo ve el equipo, no el alumno.` },
       { nombre: 'borrarContenido', tipo: 'boolean', descripcion: 'true borra lo que escribió en los últimos 7 días. No se puede deshacer.' },
     ],
@@ -547,7 +551,7 @@ export const DEFS: readonly OperacionDef[] = [
     id: 'editar_evento_comunidad', area: 'comunidad', tipo: 'accion',
     titulo: 'Editar un evento',
     descripcion: 'Edita un evento: lo que no se pasa queda igual. En una SERIE, `alcance` dice qué se edita desde la ocurrencia elegida: este (nace un evento suelto que la reemplaza), siguientes (la serie se parte) o todos. Con este o siguientes nace un evento NUEVO: su id vuelve en `datos.eventoId`.',
-    parametros: [productoId, eventoId, alcanceEvento, ocurrencia, ...camposEvento(false)],
+    parametros: [productoId, fijo(eventoId), alcanceEvento, ocurrencia, ...camposEvento(false)],
     canales: HTTP, costo: 'gratis', gating: GATING,
     confirmacion: 'pantalla', pantalla: '/mako/revisar', reversible: false,
     escribe: 'el evento (comunidad_eventos); con una serie, puede partirla o crear el reemplazo de una ocurrencia',
@@ -556,7 +560,7 @@ export const DEFS: readonly OperacionDef[] = [
     id: 'borrar_evento_comunidad', area: 'comunidad', tipo: 'accion',
     titulo: 'Borrar un evento',
     descripcion: 'Borra un evento del calendario. En una SERIE, `alcance` dice qué se borra desde la ocurrencia elegida: este, siguientes o todos. No se puede deshacer.',
-    parametros: [productoId, eventoId, alcanceEvento, ocurrencia],
+    parametros: [productoId, fijo(eventoId), alcanceEvento, ocurrencia],
     canales: HTTP, costo: 'gratis', gating: GATING,
     confirmacion: 'pantalla', pantalla: '/mako/revisar', reversible: false,
     escribe: 'borra el evento o parte de la serie (comunidad_eventos)',
@@ -588,7 +592,7 @@ export const DEFS: readonly OperacionDef[] = [
     titulo: 'Editar el perfil propio',
     descripcion: `Cambia la bio, la ubicación y los links públicos de la persona del equipo que firma (el perfil vale en todas las comunidades del negocio). Nadie edita el perfil de otro. Lo que no se pasa queda igual; «${VACIAR}» vacía un campo o saca un link.`,
     parametros: [
-      productoId,
+      fijo(productoId),
       { nombre: 'bio', tipo: 'string', max: TOPE_BIO, descripcion: `la bio (hasta ${TOPE_BIO} letras).` },
       { nombre: 'ubicacion', tipo: 'string', max: TOPE_UBICACION, descripcion: `la ubicación (hasta ${TOPE_UBICACION} letras).` },
       {
@@ -597,7 +601,7 @@ export const DEFS: readonly OperacionDef[] = [
       },
     ],
     canales: HTTP, costo: 'gratis', gating: GATING,
-    confirmacion: 'chat', reversible: true,
+    confirmacion: 'pantalla', pantalla: '/mako/revisar', reversible: true,
     escribe: 'el perfil de esa persona en la comunidad (comunidad_perfiles)',
   },
 ];

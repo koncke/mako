@@ -131,6 +131,17 @@ async function firmaAlEscribir(ctx: Ctx): Promise<Firma | { error: string }> {
   return q.firma ?? { error: SIN_PERSONA };
 }
 
+/**
+ * `faltaParaConfirmar` de las que firman: quien confirma tiene que poder FIRMAR. Se mira ANTES de reclamar la pendiente
+ * (acciones.ts): fallar recién en `ejecutar` la dejaba quemada (`error`) para el admin que sí la podía confirmar en la
+ * bandeja, por ejemplo cuando un «sí» llegaba por un token clásico o por WhatsApp.
+ */
+async function faltaFirma(_payload: In, ctx: Ctx): Promise<string | null> {
+  const q = await quienFirma(ctx);
+  if ('error' in q) return q.error;
+  return q.firma ? null : SIN_PERSONA;
+}
+
 /** El nombre que queda escrito en lo que no se firma (un baneo, un evento, los ajustes). Nunca tira. */
 async function nombreRegistro(ctx: Ctx): Promise<string> {
   try {
@@ -339,6 +350,7 @@ export const RUNNERS: Runners = {
 
   // ── Posts: escribir ─────────────────────────────────────────────────────────────
   publicar_post_comunidad: {
+    faltaParaConfirmar: faltaFirma,
     preparar: revisando(async (input, ctx) => {
       const p = await productoDe(ctx, input);
       if ('error' in p) return p;
@@ -371,6 +383,7 @@ export const RUNNERS: Runners = {
   },
 
   editar_post_comunidad: {
+    faltaParaConfirmar: faltaFirma,
     preparar: revisando(async (input, ctx) => {
       const r = await postDeId(ctx, num(input, 'postId'));
       if ('error' in r) return r;
@@ -485,6 +498,7 @@ export const RUNNERS: Runners = {
   },
 
   seguir_post_comunidad: {
+    faltaParaConfirmar: faltaFirma,
     preparar: revisando(async (input, ctx) => {
       const r = await postDeId(ctx, num(input, 'postId'));
       if ('error' in r) return r;
@@ -510,6 +524,7 @@ export const RUNNERS: Runners = {
   },
 
   votar_encuesta_comunidad: {
+    faltaParaConfirmar: faltaFirma,
     preparar: revisando(async (input, ctx) => {
       const r = await postDeId(ctx, num(input, 'postId'));
       if ('error' in r) return r;
@@ -539,6 +554,7 @@ export const RUNNERS: Runners = {
   },
 
   cambiar_like_post_comunidad: {
+    faltaParaConfirmar: faltaFirma,
     preparar: revisando(async (input, ctx) => {
       const r = await postDeId(ctx, num(input, 'postId'));
       if ('error' in r) return r;
@@ -566,6 +582,7 @@ export const RUNNERS: Runners = {
 
   // ── Comentarios ─────────────────────────────────────────────────────────────────
   comentar_post_comunidad: {
+    faltaParaConfirmar: faltaFirma,
     preparar: revisando(async (input, ctx) => {
       const r = await postDeId(ctx, num(input, 'postId'));
       if ('error' in r) return r;
@@ -596,6 +613,7 @@ export const RUNNERS: Runners = {
   },
 
   editar_comentario_comunidad: {
+    faltaParaConfirmar: faltaFirma,
     preparar: revisando(async (input, ctx) => {
       const c = await comentarioDeId(ctx, num(input, 'comentarioId'));
       if ('error' in c) return { error: c.error };
@@ -647,6 +665,7 @@ export const RUNNERS: Runners = {
   },
 
   cambiar_like_comentario_comunidad: {
+    faltaParaConfirmar: faltaFirma,
     preparar: revisando(async (input, ctx) => {
       const c = await comentarioDeId(ctx, num(input, 'comentarioId'));
       if ('error' in c) return { error: c.error };
@@ -696,6 +715,7 @@ export const RUNNERS: Runners = {
   },
 
   comentar_clase_comunidad: {
+    faltaParaConfirmar: faltaFirma,
     preparar: revisando(async (input, ctx) => {
       const id = num(input, 'claseId');
       if (id == null) return { error: 'Falta el claseId.' };
@@ -1151,7 +1171,9 @@ export const RUNNERS: Runners = {
       const q = await quienFirma(ctx);
       if ('error' in q) return fallo(q.error);
       if (!q.firma) return fallo('La campana es de una persona, y este pedido no trae a ninguna: hace falta un token creado por una persona del equipo.');
-      const c = await campanaComunidad(firmado(ctx, p.id, q.firma));
+      // `sinEscribir`: leer la campana por la API NO anota los avisos de los eventos próximos (la pantalla sí, al abrirla):
+      // un token «Solo lectura» no puede escribir filas en la campana de su creador.
+      const c = await campanaComunidad(firmado(ctx, p.id, q.firma), { sinEscribir: true });
       return J({
         productoId: p.id, de: q.firma.nombre, sinLeer: c.sinLeer,
         avisos: c.items.map((i) => ({
@@ -1164,6 +1186,7 @@ export const RUNNERS: Runners = {
   },
 
   marcar_avisos_leidos_comunidad: {
+    faltaParaConfirmar: faltaFirma,
     preparar: revisando(async (input, ctx) => {
       const p = await productoDe(ctx, input);
       if ('error' in p) return p;
@@ -1190,6 +1213,7 @@ export const RUNNERS: Runners = {
   },
 
   editar_perfil_comunidad: {
+    faltaParaConfirmar: faltaFirma,
     preparar: revisando(async (input, ctx) => {
       const p = await productoDe(ctx, input);
       if ('error' in p) return p;

@@ -426,6 +426,11 @@ export type AccionRun = {
   /** la escritura, por el caller ya gateado (setPipelineStage, metaWrite, …). Corre
    *  al confirmar: en WhatsApp, en la bandeja, o por HTTP con `ejecutar`. */
   ejecutar: (payload: Record<string, unknown>, ctx: Ctx) => Promise<Ejecutado>;
+  /** Lo que se puede saber SIN escribir y haría fallar a `ejecutar` (por ejemplo: «esto sale firmado y este pedido no trae a
+   *  nadie que firme»). Lo pregunta `confirmarPendiente` ANTES de reclamar la pendiente, y la pantalla genérica antes de
+   *  marcarla aplicada: reclamar la quema (queda en `error`), y un «sí» que no se puede cumplir no puede dejarla así para
+   *  quien sí la podía confirmar (regla 3 de AGENTS.md: lo que se sabe sin escribir falla antes). Devuelve el motivo, o null. */
+  faltaParaConfirmar?: (payload: Record<string, unknown>, ctx: Ctx) => Promise<string | null>;
   /** SOLO las `pantalla` con pantalla PROPIA (leads → /crm/revisar, tareas →
    *  /plan/revisar, borradores → /whatsapp): dejan la propuesta en su tabla y
    *  devuelven el link. Sin esto, una `pantalla` va a la genérica /mako/revisar/<id>. */

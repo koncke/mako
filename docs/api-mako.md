@@ -15159,7 +15159,7 @@ curl -L \
 
 ### `DELETE /api/v1/comunidad/posts/{postId}` — Borrar un post
 
-Moderación: borra un post de cualquiera, con sus comentarios, likes y votos (esos puntos se les van a sus autores) y su adjunto. No se puede deshacer. El hilo de una clase no se borra entero: se borran sus comentarios uno por uno (borrar_comentario_comunidad) o se cierran.
+Borra un post de cualquiera (es moderación), con sus comentarios, likes y votos (esos puntos se les van a sus autores) y su adjunto. No se puede deshacer. El hilo de una clase no se borra entero: se borran sus comentarios uno por uno (borrar_comentario_comunidad) o se cierran.
 
 - **Ruta por operación:** `POST /api/v1/comunidad/borrar_post_comunidad`
 - **Token detallado:** permiso `comunidad=write` (Lectura y escritura en «Comunidad»)
@@ -15216,7 +15216,7 @@ curl -L \
 
 ### `PUT /api/v1/comunidad/posts/{postId}/comentarios-cerrados` — Cerrar o abrir los comentarios
 
-Moderación: cierra los comentarios de un post o del hilo de una clase (lo que ya está se sigue viendo; no comenta nadie, tampoco el equipo) o los vuelve a abrir.
+Cierra los comentarios de un post o del hilo de una clase (lo que ya está se sigue viendo; no comenta nadie, tampoco el equipo) o los vuelve a abrir.
 
 - **Ruta por operación:** `POST /api/v1/comunidad/cerrar_comentarios_post_comunidad`
 - **Token detallado:** permiso `comunidad=write` (Lectura y escritura en «Comunidad»)
@@ -15342,7 +15342,7 @@ Comenta un post o responde a un comentario (dos niveles: responder a una respues
 - **Token detallado:** permiso `comunidad=write` (Lectura y escritura en «Comunidad»)
 - **Token clásico:** alcance mínimo proponer
 - **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
-- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/mako/revisar) a la pantalla donde una persona la revisa, la corrige y la confirma.
 - **Escribe:** un comentario (comunidad_comentarios), la actividad del post y los avisos (comunidad_notificaciones)
 - **Reversible:** sí
 - **Costo:** gratis
@@ -15374,7 +15374,7 @@ Cambia el texto (y las menciones) de un comentario. Sólo lo edita quien lo escr
 - **Token detallado:** permiso `comunidad=write` (Lectura y escritura en «Comunidad»)
 - **Token clásico:** alcance mínimo proponer
 - **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
-- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/mako/revisar) a la pantalla donde una persona la revisa, la corrige y la confirma.
 - **Escribe:** el texto y las menciones del comentario (comunidad_comentarios)
 - **Reversible:** sí
 - **Costo:** gratis
@@ -15399,7 +15399,7 @@ curl -L \
 
 ### `DELETE /api/v1/comunidad/comentarios/{comentarioId}` — Borrar un comentario
 
-Moderación: borra un comentario de cualquiera, con sus respuestas (también en el hilo de una clase). No se puede deshacer.
+Borra un comentario de cualquiera (es moderación), con sus respuestas (también en el hilo de una clase). No se puede deshacer.
 
 - **Ruta por operación:** `POST /api/v1/comunidad/borrar_comentario_comunidad`
 - **Token detallado:** permiso `comunidad=write` (Lectura y escritura en «Comunidad»)
@@ -15485,7 +15485,7 @@ Comenta una clase del curso en el primer nivel: si es el primer comentario abre 
 - **Token detallado:** permiso `comunidad=write` (Lectura y escritura en «Comunidad»)
 - **Token clásico:** alcance mínimo proponer
 - **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
-- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/mako/revisar) a la pantalla donde una persona la revisa, la corrige y la confirma.
 - **Escribe:** el hilo de la clase si no existía (comunidad_posts con clase_id), el comentario (comunidad_comentarios) y los avisos
 - **Reversible:** sí
 - **Costo:** gratis
@@ -16122,7 +16122,7 @@ Cambia la bio, la ubicación y los links públicos de la persona del equipo que 
 - **Token detallado:** permiso `comunidad=write` (Lectura y escritura en «Comunidad»)
 - **Token clásico:** alcance mínimo proponer
 - **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
-- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/mako/revisar) a la pantalla donde una persona la revisa, la corrige y la confirma.
 - **Escribe:** el perfil de esa persona en la comunidad (comunidad_perfiles)
 - **Reversible:** sí
 - **Costo:** gratis

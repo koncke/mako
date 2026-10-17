@@ -34,7 +34,7 @@ const sinComentarios = (src: string) => src.replace(/^[ \t]*\/\/.*$/gm, '').repl
 test('el CTX de un token detallado trae a quien lo creó; el clásico no trae a nadie; y sólo si es un email', () => {
   const http = sinComentarios(leer('lib/api-mako/http.ts'));
   assert.match(http, /\.\.\.\(r\.creadoPor\.includes\('@'\) \? \{ persona: r\.creadoPor \} : \{\}\)/, 'el ctx del detallado no trae a su creador');
-  assert.equal(http.split('persona:').length - 1, 1, 'la persona se arma en UN lugar (el ctx del detallado)');
+  assert.equal((http.match(/\{ persona: r\.creadoPor \}/g) ?? []).length, 1, 'la persona se arma en UN lugar (el ctx del detallado)');
   assert.ok(http.indexOf('persona: r.creadoPor') < http.indexOf('alcance: alcanceDeToken(auth.token)'), 'el clásico no puede traer persona: va antes de su rama');
   const tokens = sinComentarios(leer('lib/api-mako/tokens.ts'));
   assert.match(tokens, /vencido: venc, sinCreador, creadoPor: r\.g\.creadoPor/, 'el resolvedor del token no devuelve su creador');
@@ -50,6 +50,7 @@ type R = { error?: string; payload?: Record<string, unknown>; resumen?: string; 
 type Hijo = {
   tokenSinPersona: R; personaDeOtroNegocio: R; personaSuspendida: R; personaInexistente: R; personaDelEquipo: R; adminDePlataforma: R;
   actorSinBandeja: R; productoAjeno: R; clasicoPropone: R; ejecutarSinPersona: R; ejecutarConTokenSinPersona: R; postsEscritos: number; ia: string[];
+  faltaSinPersona: string | null; faltaConBandeja: string | null; faltaConPersonaDeOtroNegocio: string | null;
 };
 const salida = execFileSync(process.execPath, ['--conditions=react-server', '--import', 'tsx', join(RAIZ, 'tests', '_api-comunidad-hijo.ts')], {
   cwd: RAIZ, encoding: 'utf8', maxBuffer: 16 * 1024 * 1024, timeout: 280_000,
@@ -75,6 +76,51 @@ test('con una persona del equipo (o un admin de la plataforma) se firma con su n
   assert.equal(H.ejecutarSinPersona.ok, false);
   assert.equal(H.ejecutarConTokenSinPersona.ok, false);
   assert.match(String(H.ejecutarSinPersona.resumen), /no trae a ninguna/);
+});
+
+test('⚠️ un «sí» que no se puede cumplir no quema la pendiente: la firma se pregunta ANTES de reclamar', () => {
+  assert.match(String(H.faltaSinPersona), /no trae a ninguna/, 'un pedido sin persona pasó el control previo');
+  assert.equal(H.faltaConBandeja, null, 'quien confirma en la bandeja firma');
+  assert.match(String(H.faltaConPersonaDeOtroNegocio), /no firma en la comunidad de este negocio/);
+  // El cableado: el control corre antes de reclamar la pendiente y antes de marcar aplicada la propuesta.
+  const acc = sinComentarios(leer('lib/api-mako/acciones.ts'));
+  const confirmar = acc.slice(acc.indexOf('export async function confirmarPendiente'));
+  assert.ok(confirmar.indexOf('faltaParaConfirmar') > 0 && confirmar.indexOf('faltaParaConfirmar') < confirmar.indexOf('reclamarPendiente(ctx.ws, p.id)'), 'el control va DESPUÉS de reclamar: la pendiente queda quemada');
+  const generica = acc.slice(acc.indexOf('export async function aplicarPropuestaGenerica'));
+  assert.ok(generica.indexOf('faltaParaConfirmar') > 0 && generica.indexOf('faltaParaConfirmar') < generica.indexOf('marcarAplicada('), 'la pantalla genérica marca aplicada antes de preguntar');
+  // Las once que firman lo declaran.
+  const run = sinComentarios(leer('lib/api-mako/areas/comunidad.run.ts'));
+  const firman = ['publicar_post', 'editar_post', 'seguir_post', 'votar_encuesta', 'cambiar_like_post', 'comentar_post', 'editar_comentario', 'cambiar_like_comentario', 'comentar_clase', 'marcar_avisos_leidos', 'editar_perfil'];
+  for (const op of firman) assert.match(run, new RegExp(`\\n  ${op}_comunidad: \\{\\n    faltaParaConfirmar: faltaFirma,`), `${op}: firma y no pregunta antes de reclamar`);
+  assert.equal((run.match(/faltaParaConfirmar: faltaFirma,/g) ?? []).length, firman.length, 'una que NO firma declara el control');
+});
+
+test('⚠️ lo que se firma con texto largo se confirma en una pantalla que lo muestra ENTERO, y el id de lo irreversible no se edita al revisar', () => {
+  // La bandeja muestra el resumen a 120 letras y cada valor a 240; un comentario admite 4.000. De chat, un link de phishing
+  // pasadas las 240 letras se confirmaba sin verse.
+  for (const id of ['publicar_post_comunidad', 'editar_post_comunidad', 'comentar_post_comunidad', 'editar_comentario_comunidad', 'comentar_clase_comunidad', 'editar_perfil_comunidad']) {
+    const d = porId(id);
+    assert.ok(d && esAccion(d), id);
+    assert.equal(d.confirmacion, 'pantalla', `${id}: firma un texto con el nombre de una persona y se confirma sobre un resumen recortado`);
+  }
+  const fijos: Record<string, string[]> = {
+    borrar_post_comunidad: ['postId'], borrar_comentario_comunidad: ['comentarioId'], borrar_categoria_comunidad: ['categoriaId'],
+    sacar_alumno_comunidad: ['leadId'], editar_evento_comunidad: ['eventoId'], borrar_evento_comunidad: ['eventoId'],
+    editar_post_comunidad: ['postId'], comentar_post_comunidad: ['postId'], editar_comentario_comunidad: ['comentarioId'],
+    comentar_clase_comunidad: ['claseId'], editar_perfil_comunidad: ['productoId'],
+  };
+  for (const [id, campos] of Object.entries(fijos)) {
+    const d = porId(id);
+    assert.ok(d, id);
+    for (const c of campos) assert.equal(d.parametros.find((p) => p.nombre === c)?.fijoAlRevisar, true, `${id}: «${c}» se puede cambiar al revisar`);
+  }
+});
+
+test('leer la campana por la API no escribe en ella (un token «Solo lectura» no anota filas)', () => {
+  const run = sinComentarios(leer('lib/api-mako/areas/comunidad.run.ts'));
+  assert.match(run, /campanaComunidad\(firmado\(ctx, p\.id, q\.firma\), \{ sinEscribir: true \}\)/);
+  const campana = sinComentarios(leer('lib/comunidad-campana.ts'));
+  assert.match(campana, /if \(!opts\.sinEscribir\) await avisarEventosProximos\(a\);/);
 });
 
 test('el área está enchufada: en el registro, SÓLO por HTTP, con sus datos como de clientes y sin sumarle herramientas al doer', () => {

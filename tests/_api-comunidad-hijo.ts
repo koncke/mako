@@ -78,6 +78,12 @@ async function main() {
   // …y si lo ejecutan sin persona (nadie confirmó en la bandeja), no se escribe.
   out.ejecutarSinPersona = await enA(() => publicar.ejecutar({ ...post }, base));
   out.ejecutarConTokenSinPersona = await enA(() => publicar.ejecutar({ ...post }, conToken));
+  // La pendiente no se quema: lo que se sabe sin escribir (¿hay quién firme?) se pregunta ANTES de reclamarla.
+  type Falta = (p: Record<string, unknown>, c: Ctx) => Promise<string | null>;
+  const falta = (publicar as unknown as { faltaParaConfirmar: Falta }).faltaParaConfirmar;
+  out.faltaSinPersona = await enA(() => falta(post, base));
+  out.faltaConBandeja = await enA(() => falta(post, { ...base, bandeja: true, actor: 'ana@a.com' }));
+  out.faltaConPersonaDeOtroNegocio = await enA(() => falta(post, { ...conToken, persona: 'beto@b.com' }));
   out.postsEscritos = db.comunidad_posts.length;
   out.ia = [...ia];
   process.stdout.write(`\n@@JSON@@${JSON.stringify(out)}@@FIN@@\n`);
