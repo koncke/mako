@@ -152,7 +152,7 @@ test('El diagnóstico de una landing: la red llega hasta la IA, y nada la corta 
   assert.match(diag, /const comoAnalizar = \(\) => \(\{ redDePlataforma: true,/);
   assert.match(diag, /analizarLanding\([^)]*\.\.\.comoAnalizar\(\)/, 'el diagnóstico no le pasa la red al análisis');
   const analista = sinComentarios(leer('lib/landing-analyst.ts'));
-  const ini = analista.indexOf('chatClaude(system, [{ role: \'user\', content: await buildUserPrompt(pagina, comp) }]');
+  const ini = analista.indexOf('chatClaude(system, [{ role: \'user\', content: await buildUserPrompt(pagina, comp'); // desde el 17/10/2026 (#886) lleva también `tocado` (lo más tocado del mapa)
   assert.ok(ini > 0, 'no encuentro la llamada del análisis');
   assert.match(analista.slice(ini, analista.indexOf('});', ini)), /redDePlataforma: opts\.redDePlataforma/, 'el análisis no le pasa la red a chatClaude');
   for (const f of ['lib/editor-landing/diagnostico-server.ts', 'app/api/landing-generator/diagnostico/route.ts', 'lib/landing-analyst.ts']) {
