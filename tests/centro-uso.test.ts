@@ -305,15 +305,16 @@ test('el desplegable: las cuatro cuentas, su plan, las dos ventanas, «Medido ha
   // 3: sin Runner ni cuota: lo dice en pocas palabras, sin botón.
   assert.equal(t[2], 'Cuenta 3 Sin Runner todavía Su uso aparece cuando su Runner esté conectado');
   // 4: la ventana de 5 horas NO desaparece: dice «Sin medir». Y como no mide en vivo, lleva «Medido hace 5 min» aunque sea de recién.
-  assert.match(t[3], /^Cuenta 4 Max 20x Sin el Runner de su terminal/);
+  // Desde el 17/10 (la G) no dice «Sin el Runner de su terminal»: la recorre el Runner de la app, y eso es estar activo.
+  assert.match(t[3], /^Cuenta 4 Max 20x Runner activo/);
   assert.match(t[3], /Sesión de 5 horas Sin medir Semana 47% usado/);
   assert.match(t[3], /Medido hace 5 min$/);
   // Ningún comando ni botón de copiar (Martín: «no quiero copiar en PowerShell, que se instale todo solo»).
   assert.doesNotMatch(h, /PowerShell|<button|Copiar|comando/i);
   // El botón cerrado: un punto por cuenta (cuatro) y el conteo sobre las cuatro.
-  const boton = renderToStaticMarkup(createElement(BotonUso, { cuentas, ahora: AHORA, onRunners: () => {}, onNuevo: () => {} }));
+  const boton = renderToStaticMarkup(createElement(BotonUso, { cuentas, ahora: AHORA }));
   assert.equal((boton.match(/co-punto /g) ?? []).length, 4);
-  assert.match(boton, /title="1 de 4 Runners activos"/);
+  assert.match(boton, /title="2 de 4 Runners activos"/);
 });
 
 const leerJson = (f: string) => JSON.parse(readFileSync(f, 'utf8'));
