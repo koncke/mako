@@ -20,7 +20,7 @@ export const PARTES: Parte[] = [
   { titulo: 'La bandeja de Martín', detalle: 'Linear Triage adentro de Ops Center: de quién, el reporte, el porqué del triage y Aprobar · Rechazar · Duplicado · Preguntar · Responder', estado: 'hecha' },
   { titulo: 'El bug automático llega solo al Cerebro', detalle: 'El Runner (cartero 1.15.0) le escribe un texto fijo con el número; falta que el Cerebro lo reinstale en la PC', estado: 'hecha' },
   { titulo: 'Los errores de la app llegan solos', detalle: 'Navegador, servidor y chats de MaKo, agrupados por huella (mig 0313): cada error nuevo es un bug que va solo al Cerebro', estado: 'hecha' },
-  { titulo: 'El aviso de arreglado al grupo del negocio', detalle: 'Con `avisar_arreglo_al_grupo`, que arma «MaKo en WhatsApp»: mientras no exista, no sale nada', estado: 'sigue' },
+  { titulo: 'El aviso de arreglado al grupo del negocio', detalle: 'Con `avisarArregloAlGrupo` de «MaKo en WhatsApp», firmado «Desarrollador», y sólo con la prueba del deploy que trae el arreglo', estado: 'hecha' },
   { titulo: 'La bandeja en el teléfono', detalle: 'Hoy la Ticketera del teléfono sigue siendo el mazo de las preguntas de los chats', estado: 'cola' },
   { titulo: 'Levantarlo por WhatsApp', detalle: 'La operación ya está en el registro; enchufarla al doer de WhatsApp es del chat «MaKo en WhatsApp»', estado: 'cola' },
 ];
@@ -80,6 +80,16 @@ export const BITACORA: Hito[] = [
       'Cada huella nueva es un bug del sistema que el triage manda solo al Cerebro; si vuelve a pasar después de arreglado, es una regresión y abre otro.',
       'Sin datos de clientes: se borran emails, teléfonos y lo citado. Y lo que no es de MaKo (el proveedor de IA caído, la red, una extensión) no abre nada.',
       '⚠️ El aviso al grupo del negocio cuando está arreglado espera a `avisar_arreglo_al_grupo` de «MaKo en WhatsApp».',
+    ],
+  },
+  {
+    fecha: '17 oct', hora: '11:30', chat: CH, sesion: SESION, cuenta: 'claude4', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Al cliente le llega en su grupo que el error ya está arreglado',
+    revisar: '/admin/operaciones?ticketera=tickets',
+    puntos: [
+      'Con `avisarArregloAlGrupo` de «MaKo en WhatsApp» (firmado «Desarrollador de MaKo», uno por arreglo y por negocio). Es una función y no una operación del registro: nadie más puede firmar como el equipo.',
+      '**Sólo con prueba**: el build que corre trae el hito con el número del ticket (su commit y su url). Un ticket del sistema que Martín sólo contestó no avisa nada.',
+      'Los títulos de los errores, en palabras del cliente: «La pantalla «CRM» se rompió», «MaKo no pudo «Mover un lead de etapa»», en vez de la ruta.',
     ],
   },
 ];

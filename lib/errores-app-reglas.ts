@@ -16,6 +16,8 @@
 // ⚠️ SIN `server-only`: lo usan el servidor, el reportador del navegador (app/_components/ReportarErrores.tsx) y los
 // tests. El boundary (app/error.tsx) no importa nada a propósito: manda el error crudo y el servidor lo sanea.
 
+import { tituloDe } from './titulo-tab';
+
 export const ORIGENES = ['navegador', 'servidor', 'mako'] as const;
 export type OrigenError = (typeof ORIGENES)[number];
 
@@ -32,6 +34,8 @@ export type ReporteError = {
   pantalla?: string;
   /** El hilo del chat de MaKo donde falló (origen `mako`): ahí le llega el aviso de que está arreglado. */
   hilo?: string;
+  /** Lo que intentó MaKo en palabras de la persona («Mover un lead de etapa»): sólo para el título. La huella usa `nombre`. */
+  etiqueta?: string;
 };
 
 const corta = (v: unknown, n: number): string => (typeof v === 'string' ? v.replace(/\u0000/g, '').trim().slice(0, n) : '');
@@ -83,6 +87,8 @@ export function sanearReporte(x: unknown): ReporteError | null {
   if (navegador) r.navegador = navegador;
   const pantalla = corta(o.pantalla, 20);
   if (/^\d{2,5}x\d{2,5}$/.test(pantalla)) r.pantalla = pantalla;
+  const etiqueta = sinDatos(corta(o.etiqueta, 80));
+  if (r.origen === 'mako' && etiqueta) r.etiqueta = etiqueta;
   const hilo = corta(o.hilo, 12);
   if (r.origen === 'mako' && /^\d{1,12}$/.test(hilo)) r.hilo = hilo;
   return r;
@@ -138,11 +144,14 @@ export function huellaDe(r: Pick<ReporteError, 'origen' | 'nombre' | 'mensaje' |
 }
 
 /** El título del ticket, en palabras de quien lo lee (el cliente también lo ve en «Tus tickets»). */
-export function tituloDeError(r: Pick<ReporteError, 'origen' | 'nombre' | 'ruta'>): string {
-  const donde = rutaPatron(r.ruta ?? '') || 'la app';
-  if (r.origen === 'mako') return `MaKo no pudo hacer «${r.nombre}»`.slice(0, 140);
-  if (r.origen === 'servidor') return `Falló ${donde} en el servidor`.slice(0, 140);
-  return `La pantalla ${donde} se rompió`.slice(0, 140);
+export function tituloDeError(r: Pick<ReporteError, 'origen' | 'nombre' | 'ruta' | 'etiqueta'>): string {
+  if (r.origen === 'mako') return `MaKo no pudo «${r.etiqueta || r.nombre}»`.slice(0, 140);
+  // El nombre de la pantalla como lo ve el cliente en la barra («CRM», «General»), no la ruta («/crm/:id»): este título lo
+  // lee en «Tus tickets» y en el aviso a su grupo. Sale de lib/titulo-tab.ts, el mismo de la pestaña del navegador.
+  const pantalla = r.ruta ? tituloDe(r.ruta.split('?')[0]).replace(/^MaKo - /, '').trim() : '';
+  const donde = pantalla && pantalla !== 'MaKo' ? `la pantalla «${pantalla}»` : 'una pantalla de MaKo';
+  if (r.origen === 'servidor') return `Falló ${donde}`.slice(0, 140);
+  return `${donde.charAt(0).toUpperCase()}${donde.slice(1)} se rompió`.slice(0, 140);
 }
 
 /** Lo que va al ticket: el título, una descripción para el cliente y el contexto técnico (para Martín y el Cerebro). */

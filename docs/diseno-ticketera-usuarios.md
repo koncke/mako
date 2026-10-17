@@ -224,7 +224,9 @@ Lo que pasa después (lib/errores-app.ts):
 4. **Huella conocida → suma una vez y el afectado.** Si su ticket ya estaba resuelto y vuelve a pasar más de 15 minutos
    después, es una REGRESIÓN: un ticket nuevo («Volvió a pasar»).
 5. **Arreglado y desplegado → se cierra solo** (el hito con `tickets: [n]`), y a cada negocio que lo vio se le avisa en su
-   grupo con `avisar_arreglo_al_grupo`, la herramienta de «MaKo en WhatsApp», firmada «Desarrollador».
+   grupo con `avisarArregloAlGrupo` (lib/aviso-arreglo.ts, de «MaKo en WhatsApp», firmada «Desarrollador de MaKo»). Es
+   una función de lib y no una operación del registro, para que nadie más pueda firmar como el equipo, y exige la PRUEBA
+   de producción: el build que corre trae el hito (su commit y su url).
 
 **Sin datos de clientes**: emails, teléfonos y lo citado se borran del mensaje y del stack; la pantalla va sin los valores
 de su query (salvo los números, que son ids).
