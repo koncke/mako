@@ -54,6 +54,7 @@ import {
 } from '@/app/m/mako/chat-ui';
 import { achicarImagen } from '@/app/m/mako/subir';
 import { IconoChat } from '@/app/m/mako/iconos';
+import { VolverDelGrafo } from './volver';
 import { ACCEPT_ADJUNTOS_CHAT, ERROR_ADJUNTO } from '@/lib/mako-adjuntos';
 import {
   ARRANQUES_SECOND_BRAIN, AVISO_ANTES, JEFE_SECOND_BRAIN, SECCION_ANTES, SIN_TITULO, SUBS_VISIBLES, arbolDelJefe, colgarIrA, edadCorta, filtrarSubs,
@@ -607,15 +608,10 @@ function Cuerpo({ veMapa, mapa, chatInicial, centro, centroInicial, ticketeraIni
           onVolver={() => { cerrarTicketera(); setConChat(false); }}
         />
       ) : mapa ? (
-        <section className="co-panel" aria-label="Mapa">
-          <header className="co-cab">
-            <button type="button" className="co-acceso co-cab__volver" style={{ width: 'auto' }} aria-label="Volver a los chats"
-              onClick={() => { setConChat(false); router.push(hrefVolver); }}>
-              <span style={{ display: 'inline-flex', transform: 'rotate(90deg)' }}><Icon name="chevron" size={18} /></span>
-            </button>
-            <div className="co-cab__texto"><h1 className="co-cab__titulo">Mapa</h1></div>
-          </header>
-          <div className="ch-mapa__cuerpo">{mapa}</div>
+        // El grafo trae su cabecera («Second Brain», siempre en oscuro: VistaCerebro.tsx); el «volver» de la ventana
+        // angosta le llega por contexto, porque el grafo lo arma el servidor y una función no viaja de ahí (volver.ts).
+        <section className="co-panel" aria-label="Second Brain">
+          <VolverDelGrafo.Provider value={() => { setConChat(false); router.push(hrefVolver); }}>{mapa}</VolverDelGrafo.Provider>
         </section>
       ) : centro && chatCentro ? (
         // Un chat de Claude Code: la conversación del Centro, con su caja firmada (el único camino, mandar.ts).

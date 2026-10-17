@@ -20,9 +20,6 @@ import Link from '@/app/_ui/Link';
 import { VistaCerebro } from './VistaCerebro';
 import { ChatSecondBrain } from './ChatSecondBrain';
 import { construirCerebro } from '@/lib/cerebro-grafo';
-import { tokenAgenteVisible } from '@/lib/agente-token';
-import { getWorkspaceActual } from '@/lib/workspace';
-import { APP_BASE_URL } from '@/lib/app-url';
 import type { DatosCentro } from '@/app/admin/operaciones/useCentro';
 // La Ticketera vive adentro de Ops Center (16/10/2026): sus hojas las importa la página (CambioVista.tsx lo explica).
 import '@/app/tickets/decisiones/mazo.css';
@@ -34,8 +31,9 @@ export type QuerySecondBrain = { chat?: string; panel?: string; area?: string; c
 /** ¿La URL pide el Mapa? `?panel=mapa`, o un `?area=` de los links de siempre. */
 export const pideElMapa = (q: QuerySecondBrain): boolean => q.panel === 'mapa' || !!q.area;
 
-/** El Mapa: el grafo del negocio, con el editor del funnel y la skill de Claude (VistaCerebro.tsx). Sólo adentro del `if`
- *  del Mapa de cada página. */
+/** El Mapa: el grafo del negocio, con el editor de cada área (VistaCerebro.tsx). Sólo adentro del `if` del Mapa de cada
+ *  página. Sin la skill de Claude desde el 17/10/2026 (Martín: «fuera el botón Conectar a Claude, el Centro ya lo hace por
+ *  defecto»): el token se sigue acuñando en /integraciones. */
 export async function mapaDelSecondBrain(): Promise<ReactNode> {
   // El embudo se configura ENTERO en el pop-up del CRM (29/09/2026): el área se nombra y se linkea, no se dibuja.
   const funnelPanel = (
@@ -45,14 +43,8 @@ export async function mapaDelSecondBrain(): Promise<ReactNode> {
       las etapas, la nutrición y cómo entra tu gente.
     </p>
   );
-  const ws = await getWorkspaceActual();
-  const [cerebro, agenteActual] = await Promise.all([
-    construirCerebro(),
-    // Sólo la pista y el alcance: el token se muestra una vez, al acuñarlo (09/10/2026).
-    ws == null ? Promise.resolve(null) : tokenAgenteVisible(ws).catch(() => null),
-  ]);
-  // `APP_BASE_URL` y no una variable de entorno a mano: la skill salía con `BASE=` vacío (lib/app-url.ts).
-  return <VistaCerebro cerebro={cerebro} funnelPanel={funnelPanel} agenteActual={agenteActual} appUrl={APP_BASE_URL} />;
+  const cerebro = await construirCerebro();
+  return <VistaCerebro cerebro={cerebro} funnelPanel={funnelPanel} />;
 }
 
 const enteroDe = (v: string | undefined): number | null => {

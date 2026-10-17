@@ -13,7 +13,7 @@
 // acá desde el 15/10/2026): tests/m-second-brain.test.ts falla si vuelve a tener su copia.
 // =============================================================================
 
-import { colorArea, type AreaId, type AristaCerebro, type NodoCerebro } from './cerebro-modelo';
+import { AREAS, colorArea, type AreaId, type AristaCerebro, type NodoCerebro } from './cerebro-modelo';
 
 /** La raíz (el negocio), una carpeta madre (`n1:`) o la caja de un área (`area:`): no son DATOS. */
 export function esEstructura(n: Pick<NodoCerebro, 'id'>): boolean {
@@ -67,4 +67,49 @@ export const sePuedeVerDocumento = (mime?: string | null): boolean =>
 export function rutaVistaDocumento(idNodo: string): string {
   const id = idNodo.startsWith('doc:') ? idNodo.slice(4) : idNodo;
   return `/api/onboarding/archivero/download?id=${encodeURIComponent(id)}&preview=1`;
+}
+
+/**
+ * Qué CLASE de cosa es un nodo, en una o dos palabras: el *supertag* de Tana. Lo dicen la barra lateral del grafo y la
+ * hoja del teléfono, arriba del título. Gana el `tipo` que trae el nodo; si no lo trae, sale del prefijo de su id
+ * (lib/cerebro-grafo.ts arma los ids así desde siempre). Nunca vacío: lo desconocido es «Dato».
+ */
+const TIPO_FIJO: Record<string, string> = {
+  raiz: 'Tu negocio', fase: 'Fase del negocio', cuello: 'Cuello de botella', canal: 'Canal de venta', objetivo: 'Objetivo',
+  voz: 'Voz de marca', persona: 'Cara de marca', vozcom: 'Voz comercial', glosario: 'Vocabulario',
+};
+const TIPO_POR_PREFIJO: ReadonlyArray<readonly [string, string]> = [
+  ['doc:', 'Documento'], ['pan:', 'Resumen'], ['campo:', 'Dato del negocio'], ['prod:', 'Producto'],
+  ['ent:', 'Lead magnet'], ['av:', 'Avatar'], ['raz:', 'Razón de compra'], ['fmt:', 'Formato de anuncio'],
+  ['etapa:', 'Etapa del funnel'], ['sec:', 'Nutrición'], ['land:', 'Landing'], ['audio:', 'Audio'],
+  ['area:', 'Área'], ['n1:', 'Carpeta'], ['falta:', 'Falta'],
+];
+export function tipoDeNodo(n: Pick<NodoCerebro, 'id' | 'tipo'>): string {
+  if (n.tipo?.trim()) return n.tipo.trim();
+  if (TIPO_FIJO[n.id]) return TIPO_FIJO[n.id];
+  return TIPO_POR_PREFIJO.find(([p]) => n.id.startsWith(p))?.[1] ?? 'Dato';
+}
+
+/** La autoría en una palabra, para la pastilla de la barra lateral (la frase larga es AUTORIA_TEXTO). */
+export const AUTORIA_CORTA: Record<NodoCerebro['autoria'], string> = { mako: 'MaKo', usuario: 'Tú', pendiente: 'Falta' };
+
+/**
+ * Las conexiones de un nodo AGRUPADAS POR ÁREA, en el orden de AREAS (el del reloj del lienzo), con tope opcional:
+ * se muestran las primeras `tope` repartidas en sus grupos y el resto espera a «Ver las N». Un vecino suelto en una
+ * lista de 14 no dice de qué parte del negocio es; agrupado se lee «esto toca tu Oferta y tu Funnel». La barra lateral
+ * del grafo y la hoja del teléfono agrupan con ÉSTA (tests/second-brain-grafo.test.ts).
+ */
+export function agruparConexiones<T extends { nodo: Pick<NodoCerebro, 'area'> }>(
+  conexiones: readonly T[], tope: number | null = null,
+): Array<{ area: AreaId; items: T[] }> {
+  const orden = new Map<string, number>(AREAS.map((a, i) => [a.id, i]));
+  const ordenadas = [...conexiones].sort((x, y) => (orden.get(x.nodo.area) ?? 99) - (orden.get(y.nodo.area) ?? 99));
+  const visibles = tope == null ? ordenadas : ordenadas.slice(0, tope);
+  const grupos: Array<{ area: AreaId; items: T[] }> = [];
+  for (const c of visibles) {
+    const g = grupos[grupos.length - 1];
+    if (g && g.area === c.nodo.area) g.items.push(c);
+    else grupos.push({ area: c.nodo.area, items: [c] });
+  }
+  return grupos;
 }

@@ -23,6 +23,38 @@ hay), `lib/cerebro-layout.ts` (dónde va cada uno), `lib/cerebro-modelo.ts` (la 
 
 ---
 
+## La pantalla sólo dibuja el grafo: oscuro, la barra lateral, y nada abajo (17/10/2026)
+
+Feedback de Martín del 17/10, puntos 11 y 12. El diseño entero está en `docs/diseno-second-brain-grafo.md`.
+
+- **«Nada aparece abajo» NO es borrar lo de abajo.** Debajo del grafo vivía `AreasHub`, y desde el 15/10 es el ÚNICO
+  lugar donde se editan las diez secciones del negocio (lo que era el hub de `/onboarding`; `lib/secciones-negocio.ts`
+  → `DONDE_SE_EDITA`, y los `?area=` de otras pantallas caen ahí). Lo que molestaba era que **tocar un nodo** lo abría
+  (`irA` llamaba a `onAbrirArea(n.area, false)`). Quedó: tocar sólo fija; el editor se abre con «Editar» de la barra
+  lateral o con un `?area=`, en un `Modal` ENCIMA del grafo. Con `contenedor`: adentro de la Matriz se abren otros
+  modales, y sin eso la pila apaga la caja y con ella al que se acaba de abrir (pantalla en blanco, sin error).
+- **Una función no viaja del servidor al grafo, pero el contexto sí.** El grafo lo arma el servidor
+  (`mapaDelSecondBrain`, `app/second-brain/pagina.tsx`) y llega como un nodo ya renderizado a `ChatSecondBrain`. El
+  «volver a los chats» de la ventana angosta no puede ser una prop de `VistaCerebro` (sería una función cruzando la
+  frontera): se la da la pantalla por `VolverDelGrafo` (`app/second-brain/volver.ts`). Funciona porque `VistaCerebro` es
+  un componente de cliente que React monta ADENTRO del árbol de `ChatSecondBrain`, aunque lo haya creado el servidor.
+- **El oscuro fijo es `data-tema="oscuro"` en la raíz, más el fondo escrito.** Los tokens se dan vuelta en cualquier
+  caja (app/globals.css); sin `background: var(--bg)` se ve el fondo claro del panel de atrás. En el teléfono el tema de
+  la PWA es del shell (`app/m/_ui/ShellM.tsx`): el grafo es una ISLA oscura con el título adentro, y las listas siguen el
+  tema de la persona.
+- **El alto del lienzo ya no sale del viewport.** El `clamp(…100svh - 280px…)` existía para dejar asomar las tarjetas de
+  abajo; con la pantalla entera para el grafo, el alto sale del padre (una columna flex) y la fila de la grilla es
+  `minmax(0, 1fr)` — con `auto`, el SVG empuja y el panel crece en vez de recortar.
+- **Los controles flotan con `pointer-events: none` en la barra y `auto` en sus hijos.** Si la barra entera recibe el
+  puntero, la franja de arriba del lienzo deja de panear.
+- **«El otro grafo de la construcción» no era un grafo.** Los dos candidatos: `/admin/dev` (`MapaAreas.tsx`) monta la
+  barra (`BarraPreview`) con las 122 áreas y sus trampas, sin nodos ni aristas; «App viva» es una nota de memoria, no una
+  pantalla. El único otro grafo de verdad es graphify (`/api/admin/graph`), que es el del CÓDIGO y se queda. Lo que se
+  depreca es `/admin/dev` como foto de la construcción, cuando la capa «Construcción» del grafo la reemplace (13b).
+- **La regla de agrupar y el tipo viven en `lib/cerebro-areas.ts`** (`agruparConexiones`, `tipoDeNodo`): la barra lateral
+  y la hoja del teléfono dicen lo mismo con la misma función (`tests/second-brain-grafo.test.ts` falla si el teléfono
+  agrupa por su cuenta).
+
 ## «Entender el pedido» en el chat central: el link no demora la respuesta ni se cuelga de otra (17/10/2026)
 
 Tanda 10 de la etapa 2. Martín: «que el chat le deje ahí el link para ir a donde corresponde». Debajo de la respuesta de

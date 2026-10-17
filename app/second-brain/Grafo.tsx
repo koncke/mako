@@ -31,18 +31,18 @@
 //    el drag nativo del navegador hay que apagarlo a mano o se come el paneo.
 // =============================================================================
 
-import { useMemo, useState, useRef, useEffect, useCallback, Fragment, type CSSProperties } from 'react';
+import { useMemo, useState, useRef, useEffect, useCallback, Fragment, type ReactNode } from 'react';
 import { AREAS, NIVEL1, AUTORIA_TEXTO, radioNodo, type Cerebro, type NodoCerebro, type AreaId, type Punto } from '@/lib/cerebro-modelo';
 // Lo que el Second Brain del teléfono (app/m/second-brain) lee IGUAL que este mapa: el conteo de cada área,
 // los grados, el color de cada punto y qué documento se puede mirar. Vive en un módulo puro porque este es
 // 'use client' (AGENTS.md, MaKo Mobile: lo que /m reusa se muda a lib; nunca una copia).
 import {
-  OPACIDAD_PENDIENTE, contarPorArea, esImagenDocumento, gradosDe, rellenoNodo, rutaVistaDocumento, sePuedeVerDocumento,
+  AUTORIA_CORTA, OPACIDAD_PENDIENTE, agruparConexiones, contarPorArea, esImagenDocumento, gradosDe, rellenoNodo, rutaVistaDocumento, sePuedeVerDocumento,
+  tipoDeNodo,
 } from '@/lib/cerebro-areas';
 import { conWs, wsDeBusqueda } from '@/lib/ws-tab';
 import type { NodoFisico, Simulacion } from './fisica';
-import { MONO } from '@/app/_ui/tokens';
-import { Button, Eyebrow } from '@/app/_ui';
+import { Button } from '@/app/_ui';
 import { FiltroMapa, type PanelAbierto } from './FiltroMapa';
 import { cuentaFiltros, filtroVacio, pasaFiltro, type EstadoFiltro } from '@/lib/cerebro-filtro';
 import { NoResults } from '@/app/_ui/Estados';
@@ -79,6 +79,16 @@ const FLOTE = 16;
 
 type Vista = { k: number; x: number; y: number };
 
+/** Cuántas conexiones se ven en la barra lateral antes de «Ver las N». */
+const TOPE_CONEXIONES = 6;
+
+/** «12 oct»: cuándo apareció un dato, corto (el texto que se dibuja es corto). Sin fecha legible, nada. */
+function fechaCorta(iso?: string | null): string | null {
+  if (!iso) return null;
+  const t = Date.parse(iso);
+  return Number.isFinite(t) ? new Date(t).toLocaleDateString('es', { day: 'numeric', month: 'short' }) : null;
+}
+
 /** El atributo `draggable` es de HTML y React lo rechaza en un `<svg>`, así que el
  *  drag-and-drop nativo se corta acá: sin esto, arrastrar sobre un nodo levanta el
  *  «fantasma» de imagen del navegador y mata el paneo a mitad del gesto. */
@@ -105,22 +115,12 @@ function hashDe(id: string): number {
   return h >>> 0;
 }
 
-export function Grafo({ cerebro, onAbrirArea, onVerse, filtro, onFiltro: setFiltro, areaAbierta = null }: {
+export function Grafo({ cerebro, onEditarArea, onVerse, filtro, onFiltro: setFiltro, accion }: {
   cerebro: Cerebro;
-  /** Qué área está abierta abajo, para marcarla en el navegador de la derecha. Antes acá
-   *  entraba `areaResaltada`, que la prendía el cursor sobre una TARJETA del hub — y esas
-   *  tarjetas ya no existen. Se fue con ellas el efecto que hacía re-renderizar el mapa
-   *  entero en cada movimiento del mouse. */
-  areaAbierta?: AreaId | null;
-  /** Abre el área abajo, en la misma página. Es la costura entre las dos mitades de la
-   *  pantalla. Si no se pasa, la tarjeta no ofrece la acción — nunca se promete un
-   *  botón que no lleva a ningún lado. */
-  /** @param saltar si además hay que traer la sección a la vista. Lo pide el botón
-   *  «Abrir», que es una intención explícita de ir a editar; NO lo pide el click en un
-   *  nodo, que abre la sección igual pero sin moverle la pantalla a nadie: uno toca un
-   *  punto para leerlo, y que la página se vaya sola al formulario de abajo es perder
-   *  de vista justo lo que se acaba de tocar. */
-  onAbrirArea?: (area: AreaId | null, saltar?: boolean) => void;
+  /** Abre el EDITOR de un área en una caja encima del grafo (VistaCerebro → AreasHub). Sólo con una intención
+   *  explícita: el botón «Editar» de la barra lateral o el del estado vacío. Tocar un nodo NO lo llama, jamás
+   *  (Martín, 17/10/2026: «al tocar un nodo NO aparece nada abajo»). Si no se pasa, no hay botón «Editar». */
+  onEditarArea?: (area: AreaId) => void;
   /** Qué se está viendo AHORA, para que el exportador pueda bajar exactamente eso.
    *  Se publica el RESULTADO (la lista de ids) y no los criterios: el filtro son tres
    *  dimensiones que se combinan más la búsqueda por texto y la de MaKo, y mandar los
@@ -128,12 +128,11 @@ export function Grafo({ cerebro, onAbrirArea, onVerse, filtro, onFiltro: setFilt
    *  implementaciones de «qué se ve» divergen — este archivo ya pagó ese bug entre el
    *  contador y el dibujo. */
   onVerse?: (info: { ids: string[]; recortado: boolean }) => void;
-  /** El filtro lo posee el padre. No es un capricho de arquitectura: el botón de
-   *  exportar es HERMANO del mapa, y exportar y mirar tienen que ser el mismo recorte.
-   *  Con el estado adentro del grafo, el exportador tenía que aprender su propio
-   *  vocabulario de «qué me llevo», y el usuario dos sistemas para una sola idea. */
+  /** El filtro lo posee el padre: «Exportar» y mirar tienen que ser el mismo recorte. */
   filtro: EstadoFiltro;
   onFiltro: (f: EstadoFiltro | ((prev: EstadoFiltro) => EstadoFiltro)) => void;
+  /** Lo que va ADENTRO del lienzo, arriba a la derecha («Exportar»). */
+  accion?: ReactNode;
 }) {
   const { nodos, aristas, cuenta, posiciones, encuadre } = cerebro;
 
@@ -185,6 +184,8 @@ export function Grafo({ cerebro, onAbrirArea, onVerse, filtro, onFiltro: setFilt
    * haberlo pedido.
    */
   const [filtroAbierto, setFiltroAbierto] = useState<PanelAbierto>(null);
+  /** El navegador de áreas cuando no hay columna (ventana angosta o tableta): se pide con «Áreas». */
+  const [navAbierto, setNavAbierto] = useState(false);
 
   /**
    * EL ANCHO DEL PANEL, arrastrable. Los topes NO son un detalle: sin ellos se puede
@@ -877,6 +878,14 @@ export function Grafo({ cerebro, onAbrirArea, onVerse, filtro, onFiltro: setFilt
     return out;
   }, [fijado, aristas, porId]);
 
+  /** Las conexiones agrupadas por área, con la regla que comparte el teléfono (lib/cerebro-areas.ts). */
+  const gruposConexion = useMemo(() => agruparConexiones(conexiones, verTodas ? null : TOPE_CONEXIONES), [conexiones, verTodas]);
+
+  /** Los pares del nodo fijado que tienen valor: nada se dibuja vacío. */
+  const datosSel = useMemo(() => (nodoSel?.datos ?? []).filter((d) => d.v && d.v.trim()), [nodoSel]);
+  const puedeVerDoc = !!nodoSel && nodoSel.id.startsWith('doc:') && sePuedeVer(nodoSel.mime);
+  const puedeEditar = !!nodoSel && !!onEditarArea && nodoSel.id !== 'raiz' && !nodoSel.id.startsWith('n1:');
+
   const vb = `${encuadre.x} ${encuadre.y} ${encuadre.lado} ${encuadre.lado}`;
 
   // ── EL ENCUADRE ────────────────────────────────────────────────────────────
@@ -964,12 +973,11 @@ export function Grafo({ cerebro, onAbrirArea, onVerse, filtro, onFiltro: setFilt
    */
   const soltarNodo = useCallback(() => {
     setFijado(null);
-    onAbrirArea?.(null);
     // Vuelve al encuadre completo. `tocoElZoom` en false es lo que además le devuelve el
     // control al re-encuadre automático del ResizeObserver.
     tocoElZoom.current = false;
     ajustarRef.current?.();
-  }, [onAbrirArea]);
+  }, []);
 
   // ⚠️ SI EL NODO FIJADO SE VA DEL MAPA, SE SUELTA. Filtrar dejaba la columna de la
   // derecha mostrando el detalle de un punto que ya no estaba dibujado, y la sección de
@@ -984,15 +992,10 @@ export function Grafo({ cerebro, onAbrirArea, onVerse, filtro, onFiltro: setFilt
     // `fijar` es opcional porque los renglones del navegador vuelan a un área SIN
     // abrirla: si fijaran, el primer click reemplazaría el navegador por el detalle del
     // nodo de área y para seguir recorriendo habría que cerrarlo cada vez.
-    if (fijar) {
-      setFijado(id);
-      // Y ABRE SU SECCIÓN ABAJO, sin saltar. El detalle de la derecha contesta «qué es
-      // esto»; la sección de abajo contesta «cómo lo cambio», y tenerla ya abierta es la
-      // diferencia entre leer el mapa y trabajar sobre él. La carpeta madre no tiene
-      // sección propia (su `area` es prestada de su primera hija), así que no abre nada.
-      const n = porId.get(id);
-      if (n && n.id !== 'raiz' && !n.id.startsWith('n1:')) onAbrirArea?.(n.area, false);
-    }
+    // ⚠️ FIJAR NO ABRE NADA MÁS. Hasta el 17/10/2026 fijar un nodo abría además su sección DEBAJO del grafo, y
+    // Martín lo cortó: «al tocar un nodo NO aparece nada abajo, jamás: para eso está la barra lateral». Editar es el
+    // botón «Editar» de la barra (onEditarArea), nunca un efecto de tocar.
+    if (fijar) setFijado(id);
     setVerTodas(false);
     setTextoEntero(false);
     if (!p) return;
@@ -1042,7 +1045,7 @@ export function Grafo({ cerebro, onAbrirArea, onVerse, filtro, onFiltro: setFilt
       vueloRef.current = t < 1 ? requestAnimationFrame(paso) : null;
     };
     vueloRef.current = requestAnimationFrame(paso);
-  }, [posiciones, encuadre, pedirPintado, cortarVuelo, porId, onAbrirArea]);
+  }, [posiciones, encuadre, pedirPintado, cortarVuelo]);
 
   // ⚠️ Pantalla completa con la Fullscreen API sobre `.cbg`, NUNCA con un overlay
   // `position:fixed`. En esta app los z-index son literales y ya se quemó: la pila de
@@ -1117,10 +1120,15 @@ export function Grafo({ cerebro, onAbrirArea, onVerse, filtro, onFiltro: setFilt
            lienzo. Antes el panel flotaba ENCIMA del mapa y tapaba nodos; y la columna no
            queda vacía cuando no hay nada elegido, porque ahí vive la navegación por
            carpetas — que es lo que reemplazó a las tarjetas de abajo. */
+        /* ⚠️ DESDE EL 17/10/2026 EL GRAFO LLENA EL PANEL: la pantalla del Second Brain sólo dibuja el grafo (Martín),
+           así que el alto ya no se calcula contra el viewport —eso era para dejar asomar las tarjetas de abajo, que se
+           fueron— sino que sale del padre (VistaCerebro, una columna flex). La fila de la grilla es \`minmax(0, 1fr)\`:
+           con \`auto\` el SVG empujaría el alto y el panel crecería en vez de recortar. */
         .cbg {
+          position: relative; flex: 1; min-height: 0;
           display: grid; grid-template-columns: minmax(0, 1fr) 14px var(--cbg-col, 400px); gap: 4px;
-          align-items: start;
-          --cbg-alto: clamp(420px, calc(100svh - 280px), 760px);
+          grid-template-rows: minmax(0, 1fr);
+          padding: 0 16px 16px;
           --cbg-texto: var(--ink);
           --cbg-tenue: var(--dim);
           --cbg-linea: var(--border);
@@ -1145,12 +1153,35 @@ export function Grafo({ cerebro, onAbrirArea, onVerse, filtro, onFiltro: setFilt
         /* El recorte vive acá y no en el marco: el SVG es lo único que hay que
            recortar, y en el marco además cortaba el panel del filtro, que es
            absolute y sale de la barra hacia abajo. */
-        .cbg .cbg-lienzo { position: relative; height: var(--cbg-alto); overflow: hidden; }
+        .cbg .cbg-marco { position: relative; min-width: 0; min-height: 0; }
+        .cbg .cbg-lienzo { position: absolute; inset: 0; overflow: hidden; }
+        /* ── LOS CONTROLES FLOTAN ADENTRO DEL LIENZO (Martín, 17/10/2026) ──────────────
+           Arriba a la izquierda, el buscador y, casi pegado, «Filtrar»; arriba a la derecha, «Exportar»; abajo a la
+           izquierda, el zoom, ajustar y pantalla completa (el lugar de Figma, tldraw y Google Maps). La barra no tapa
+           el gesto: sólo sus botones reciben el puntero, el resto deja pasar el arrastre al mapa. */
         .cbg .cbg-barra {
-          display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
-          min-height: 46px; padding: 0 2px 10px;
+          position: absolute; top: 10px; left: 10px; right: 10px; z-index: 3;
+          display: flex; align-items: flex-start; gap: 6px; flex-wrap: wrap;
+          font-size: 12px; color: var(--cbg-tenue); pointer-events: none;
+        }
+        .cbg .cbg-barra > * { pointer-events: auto; }
+        .cbg .cbg-barra__fin { margin-left: auto; display: flex; align-items: center; gap: 6px; }
+        .cbg .cbg-cuenta {
+          align-self: center; font-family: var(--font-mono, ui-monospace, monospace); font-size: 11px;
+          color: var(--cbg-tenue); white-space: nowrap; padding: 0 4px;
+        }
+        .cbg .cbg-zoom {
+          position: absolute; left: 10px; bottom: 10px; z-index: 3;
+          display: flex; align-items: center; gap: 2px; padding: 3px;
+          border-radius: 12px; border: 1px solid var(--cbg-linea);
+          background: color-mix(in srgb, var(--surface) 86%, transparent);
+          backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
           font-size: 12px; color: var(--cbg-tenue);
         }
+        .cbg .cbg-zoom__pct { font-family: var(--font-mono, ui-monospace, monospace); font-size: 11px; min-width: 40px; text-align: center; }
+        .cbg .cbg-zoom__sep { width: 1px; height: 18px; background: var(--cbg-linea); margin: 0 3px; }
+        /* «Áreas» abre el navegador encima del lienzo cuando no hay columna (ventana angosta o tableta). */
+        .cbg .cbg-areas-btn { display: none; }
         .cbg .cbg-chip {
           display: inline-flex; align-items: center; gap: 6px;
           background: none; border: 1px solid transparent; border-radius: 999px;
@@ -1183,7 +1214,7 @@ export function Grafo({ cerebro, onAbrirArea, onVerse, filtro, onFiltro: setFilt
            por una franja de 14 px es una funcionalidad que nadie encuentra. Apagada
            —del color de la línea— no compite con nada; al acercarse se enciende. */
         .cbg .cbg-tirador {
-          align-self: stretch; height: var(--cbg-alto);
+          align-self: stretch; height: 100%;
           display: flex; align-items: center; justify-content: center;
           cursor: col-resize; touch-action: none;
           border: none; background: none; padding: 0;
@@ -1220,9 +1251,9 @@ export function Grafo({ cerebro, onAbrirArea, onVerse, filtro, onFiltro: setFilt
            visto. Sin sombra — en oscuro una sombra de tinta no separa nada, separa el
            borde. */
         .cbg .cbg-detalle {
-          max-height: var(--cbg-alto); overflow-y: auto;
+          height: 100%; min-height: 0; overflow-y: auto; display: flex; flex-direction: column;
           background: var(--surface); border: 1px solid var(--cbg-linea);
-          border-radius: 14px; padding: 20px;
+          border-radius: 16px; padding: 0;
         }
         /* ── LO CLICKEABLE TIENE QUE VERSE CLICKEABLE ──────────────────────────
            Las conexiones y el rótulo del área eran <button> con aspecto de texto suelto:
@@ -1254,8 +1285,7 @@ export function Grafo({ cerebro, onAbrirArea, onVerse, filtro, onFiltro: setFilt
           border-radius: 14px; overflow: hidden; display: flex; flex-direction: column;
           box-shadow: 0 12px 40px rgba(10,12,16,.4);
         }
-        .cbg:fullscreen { --cbg-alto: calc(100svh - 46px); }
-        .cbg:fullscreen .cbg-marco { border-radius: 0; border: none; height: 100svh; }
+        .cbg:fullscreen { background: var(--bg); padding: 16px; }
         /* user-select y -webkit-user-drag NO son adorno: sin ellos, arrastrar sobre un
            nodo dispara el drag-and-drop NATIVO del navegador — aparece el «fantasma»
            de la imagen, se cancelan los pointer events y el paneo se muere a mitad de
@@ -1371,7 +1401,7 @@ export function Grafo({ cerebro, onAbrirArea, onVerse, filtro, onFiltro: setFilt
         }
         .cbg .cbg-nav-carpeta:hover { color: var(--cbg-texto); }
         .cbg .cbg-nav-carpeta[aria-pressed="true"] { color: var(--primary); }
-        .cbg .cbg-nav-par { display: flex; align-items: center; gap: 4; border-radius: 8px; }
+        .cbg .cbg-nav-par { display: flex; align-items: center; gap: 4px; border-radius: 8px; }
         .cbg .cbg-nav-par:hover { background: var(--surface-2); }
         .cbg .cbg-nav-fila {
           display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0;
@@ -1399,28 +1429,111 @@ export function Grafo({ cerebro, onAbrirArea, onVerse, filtro, onFiltro: setFilt
         .cbg .cbg-nav-par:hover .cbg-nav-abrir { color: var(--cbg-texto); border-color: var(--border-strong); }
         .cbg .cbg-nav-abrir:hover { color: var(--primary); border-color: var(--primary-weak); }
 
-        @media (max-width: 1100px) {
-          /* Apilado: el detalle baja debajo del mapa. Una columna de 400 px sobre un
-             lienzo de menos de 700 no deja mapa. Y sin dos columnas no hay nada que
-             arrastrar. */
-          .cbg { grid-template-columns: minmax(0, 1fr); }
-          .cbg .cbg-detalle { max-height: none; }
-          .cbg .cbg-tirador { display: none; }
+        /* ── LA BARRA LATERAL (17/10/2026) ──────────────────────────────────────────
+           Un cuerpo que scrollea y un pie de acciones quieto. Jerarquía por TAMAÑO y peso, no por cajas: el tipo en
+           versalita chica, el nombre grande, las pastillas en una fila, y cada bloque separado por aire y un filete. */
+        .cbg .cbg-det__cuerpo { flex: 1; min-height: 0; overflow-y: auto; padding: 18px 20px 20px; scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
+        .cbg .cbg-det__cab { display: flex; align-items: center; gap: 8px; margin: -4px 0 10px; }
+        .cbg .cbg-area-btn { font-family: var(--font-mono, ui-monospace, monospace); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--faint); }
+        .cbg .cbg-area-btn[aria-pressed="true"] { color: var(--primary); }
+        .cbg .cbg-punto { width: 7px; height: 7px; border-radius: 50%; flex: none; display: inline-block; }
+        .cbg .cbg-det__cerrar {
+          width: 28px; height: 28px; border-radius: 8px; border: none; background: none; cursor: pointer;
+          color: var(--faint); font-size: 14px; line-height: 1;
         }
-        @media (max-width: 900px) {
-          /* El tope es OBLIGATORIO, no estético: el svg lleva \`touch-action:none\` para
-             el pellizco, así que un lienzo alto ATRAPA el scroll de la página — el dedo
-             apoyado sobre el grafo panea el mapa en vez de bajar. */
-          .cbg { --cbg-alto: clamp(300px, 52svh, 440px); }
+        .cbg .cbg-det__cerrar:hover { background: var(--surface-2); color: var(--ink); }
+        .cbg .cbg-det__cerrar:focus-visible { outline: 2px solid var(--mako); outline-offset: 1px; }
+        .cbg .cbg-det__tipo {
+          margin: 0 0 4px; font-family: var(--font-mono, ui-monospace, monospace); font-size: 10.5px;
+          letter-spacing: .12em; text-transform: uppercase; color: var(--dim);
+        }
+        .cbg .cbg-det__titulo { margin: 0; font-size: 20px; font-weight: 680; line-height: 1.25; color: var(--ink); letter-spacing: -.005em; overflow-wrap: anywhere; }
+        .cbg .cbg-det__pastillas { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 14px; }
+        .cbg .cbg-pastilla {
+          display: inline-flex; align-items: center; height: 22px; padding: 0 9px; border-radius: 999px;
+          font-size: 11.5px; font-weight: 550; color: var(--dim); background: var(--surface-2); border: 1px solid var(--border);
+        }
+        /* Dorado = MaKo intervino; azul = lo hiciste tú (la regla de color de la casa). */
+        .cbg .cbg-pastilla[data-autoria="mako"], .cbg .cbg-pastilla[data-tono="mako"] { color: var(--mako); border-color: var(--mako-border); }
+        .cbg .cbg-pastilla[data-autoria="usuario"] { color: var(--primary); border-color: var(--primary-weak); }
+        .cbg .cbg-pastilla[data-autoria="pendiente"], .cbg .cbg-pastilla[data-tono="warn"] { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 40%, transparent); }
+        .cbg .cbg-det__resumen { margin: 0; font-size: 14px; color: var(--ink); line-height: 1.55; white-space: pre-line; opacity: .92; }
+        .cbg .cbg-det__props {
+          margin: 16px 0 0; display: grid; grid-template-columns: minmax(84px, auto) 1fr; gap: 8px 14px; align-items: baseline;
+          padding: 12px 14px; border-radius: 12px; background: var(--surface-2);
+        }
+        .cbg .cbg-det__props dt { font-size: 12px; color: var(--dim); line-height: 1.45; }
+        .cbg .cbg-det__props dd { margin: 0; font-size: 13px; color: var(--ink); line-height: 1.45; overflow-wrap: anywhere; }
+        .cbg .cbg-det__prosa { margin: 14px 0 0; font-size: 13px; color: var(--dim); line-height: 1.6; white-space: pre-line; }
+        .cbg .cbg-det__leer { margin-top: 10px; font-size: 13px; color: var(--dim); }
+        .cbg .cbg-det__bloque { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--border); }
+        .cbg .cbg-det__h {
+          margin: 0 0 8px; font-size: 11px; font-weight: 650; letter-spacing: .08em; text-transform: uppercase; color: var(--faint);
+          display: flex; align-items: center; gap: 6px;
+        }
+        .cbg .cbg-det__h span { font-family: var(--font-mono, ui-monospace, monospace); font-weight: 500; color: var(--dim); }
+        .cbg .cbg-det__grupo + .cbg-det__grupo { margin-top: 8px; }
+        .cbg .cbg-det__grupo-nombre { display: flex; align-items: center; gap: 7px; font-size: 11.5px; color: var(--dim); margin: 2px 0 2px; }
+        .cbg .cbg-det__grupo ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 1px; }
+        .cbg .cbg-link__txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+        .cbg .cbg-link__nombre { font-size: 13.5px; color: var(--ink); overflow-wrap: anywhere; }
+        .cbg .cbg-link__motivo { font-size: 12px; color: var(--faint); line-height: 1.4; }
+        .cbg .cbg-det__mas { background: none; border: none; padding: 6px 0 0; cursor: pointer; font: inherit; font-size: 13px; color: var(--primary); }
+        .cbg .cbg-det__origen p { margin: 0; font-size: 12.5px; color: var(--dim); line-height: 1.5; }
+        .cbg .cbg-det__acciones {
+          flex: none; display: flex; flex-direction: column; gap: 8px; padding: 12px 20px 16px;
+          border-top: 1px solid var(--border); background: var(--surface); border-radius: 0 0 16px 16px;
+        }
+        /* El navegador «Tu negocio». */
+        .cbg .cbg-nav__resumen { display: flex; align-items: baseline; gap: 8px; }
+        .cbg .cbg-nav__n { font-size: 34px; font-weight: 720; letter-spacing: -.02em; line-height: 1; color: var(--ink); }
+        .cbg .cbg-nav__que { font-size: 14px; color: var(--dim); }
+        .cbg .cbg-nav__desglose { margin: 6px 0 0; font-size: 12.5px; color: var(--faint); }
+        .cbg .cbg-nav__accesos { display: flex; flex-direction: column; gap: 2px; margin: 14px 0 4px; }
+        .cbg .cbg-nav__carpeta { margin-top: 16px; }
+        .cbg .cbg-nav__areas { display: flex; flex-direction: column; gap: 1px; margin-top: 4px; }
+        .cbg .cbg-nav__conteo { font-family: var(--font-mono, ui-monospace, monospace); font-size: 10.5px; color: var(--faint); flex: none; }
+        .cbg .cbg-nav__conteo[data-falta="1"] { color: var(--warn); }
+        .cbg .cbg-nav__pista { margin: 18px 0 0; font-size: 12.5px; color: var(--faint); }
+
+        @media (max-width: 1100px) {
+          /* SIN COLUMNA: una de 400 px sobre un lienzo de menos de 700 no deja mapa. Pero el detalle NO baja debajo del
+             grafo (eso era «algo aparece abajo»): flota ENCIMA, pegado a la derecha, y sólo cuando hay un nodo fijado
+             o se pidió «Áreas». El lienzo ya no comparte la página con nada, así que no atrapa ningún scroll. */
+          .cbg { grid-template-columns: minmax(0, 1fr); }
+          .cbg .cbg-tirador { display: none; }
+          .cbg .cbg-areas-btn { display: inline-flex; }
+          .cbg .cbg-detalle {
+            position: absolute; z-index: 4; top: 58px; right: 26px; bottom: 26px;
+            width: min(380px, calc(100% - 52px)); height: auto;
+            box-shadow: 0 18px 48px rgba(0,0,0,.45);
+          }
+          .cbg .cbg-detalle[data-plegado="1"] { display: none; }
+        }
+        @media (max-width: 720px) {
+          /* Angosto: el detalle es una hoja que sube desde abajo, encima del lienzo. */
+          .cbg { padding: 0 8px 8px; }
+          .cbg .cbg-detalle { top: auto; left: 14px; right: 14px; bottom: 14px; width: auto; max-height: 62%; }
         }
       `}</style>
 
       <div className="cbg-marco">
-        {/* ── LA BARRA DE CONTROL ────────────────────────────────────────────
-            Acá viven las dos únicas señales cromáticas del lienzo que SIGNIFICAN algo
-            —el Norte y el cuello de botella—, nombradas y clicables. Antes el mapa las
-            pintaba de dorado y de naranja y no las explicaba en ningún lado. */}
+        {/* ── LA BARRA DE CONTROL, FLOTANDO SOBRE EL LIENZO ─────────────────────
+            Martín, 17/10/2026: la búsqueda a la IZQUIERDA, antes de «Filtrar», con el filtro casi pegado a ella;
+            «Exportar» adentro del grafo, arriba a la derecha (donde estaba el zoom). */}
         <div className="cbg-barra">
+          <BuscadorCerebro
+            q={busca}
+            onQ={(v) => { setBusca(v); if (ia.ids !== null) setIa({ pensando: false, ids: null, explico: '' }); }}
+            campos={campos}
+            onCampos={setCampos}
+            ia={ia}
+            onBuscarIA={(t) => void buscarConIA(t)}
+            onLimpiarIA={() => setIa({ pensando: false, ids: null, explico: '' })}
+            resultados={resultados.length}
+            total={nodos.length}
+            portalTo={enPantallaCompleta ? marcoRef.current : null}
+          />
           {/* ── EL FILTRO ───────────────────────────────────────────────────
               Su anatomía y el porqué de cada pieza están en FiltroMapa.tsx. Acá solo
               viven el estado y los conteos, que salen del mismo cálculo que dibuja el
@@ -1437,38 +1550,19 @@ export function Grafo({ cerebro, onAbrirArea, onVerse, filtro, onFiltro: setFilt
           {/* «N de M», que el tablero no tiene y el CRM sí. Sin esto, filtrar y no ver
               nada es indistinguible de que el mapa esté vacío. */}
           {hayFiltro && (
-            <span
-              style={{ fontFamily: MONO, fontSize: 11, color: 'var(--cbg-tenue)', whiteSpace: 'nowrap' }}
-              title={`Se muestran ${datosVisibles} de ${datosTotal} datos del mapa`}
-            >
+            <span className="cbg-cuenta" title={`Se muestran ${datosVisibles} de ${datosTotal} datos del mapa`}>
               <b style={{ fontWeight: 600, color: 'var(--cbg-texto)' }}>{datosVisibles}</b> de {datosTotal}
             </span>
           )}
-
-          <span style={{ flex: 1 }} />
-          <BuscadorCerebro
-            q={busca}
-            onQ={(v) => { setBusca(v); if (ia.ids !== null) setIa({ pensando: false, ids: null, explico: '' }); }}
-            campos={campos}
-            onCampos={setCampos}
-            ia={ia}
-            onBuscarIA={(t) => void buscarConIA(t)}
-            onLimpiarIA={() => setIa({ pensando: false, ids: null, explico: '' })}
-            resultados={resultados.length}
-            total={nodos.length}
-            portalTo={enPantallaCompleta ? marcoRef.current : null}
-          />
-          {/* El zoom es UN control (alejar · cuánto · acercar) y va junto. «Ajustar a la
-              vista» y «Pantalla completa» son los dos que cambian el ENCUADRE, así que
-              van juntos y al final. Antes «ajustar» quedaba del otro lado del zoom,
-              separado del único botón con el que se emparenta. */}
-          <button type="button" className="cbg-ico" onClick={() => zoomPaso(1 / 1.3)} title="Alejar">−</button>
-          <span style={{ fontFamily: MONO, fontSize: 11, minWidth: 38, textAlign: 'center' }}>
-            {zoomPct}%
-          </span>
-          <button type="button" className="cbg-ico" onClick={() => zoomPaso(1.3)} title="Acercar">+</button>
-          <button type="button" className="cbg-ico" onClick={() => { tocoElZoom.current = false; ajustar(); }} title="Ajustar a la vista">⤢</button>
-          <button type="button" className="cbg-ico" onClick={pantallaCompleta} title={enPantallaCompleta ? 'Salir de pantalla completa' : 'Pantalla completa'}>⛶</button>
+          <div className="cbg-barra__fin">
+            {/* Sin columna (ventana angosta o tableta) el navegador de áreas se pide: no ocupa el lienzo solo. */}
+            {!nodoSel && (
+              <button type="button" className="cbg-chip cbg-areas-btn" aria-pressed={navAbierto} onClick={() => setNavAbierto((v) => !v)}>
+                Áreas
+              </button>
+            )}
+            {accion}
+          </div>
         </div>
 
         <div className="cbg-lienzo">
@@ -1657,12 +1751,23 @@ export function Grafo({ cerebro, onAbrirArea, onVerse, filtro, onFiltro: setFilt
               <p style={{ margin: 0, fontSize: 'var(--fs-sm)', color: 'var(--dim)', maxWidth: 340, lineHeight: 1.55 }}>
                 Suelta tus documentos en El Archivero y el mapa se arma solo.
               </p>
-              {onAbrirArea && (
-                <Button variant="primary" onClick={() => onAbrirArea('documentos', true)}>Abrir El Archivero</Button>
+              {onEditarArea && (
+                <Button variant="primary" onClick={() => onEditarArea('documentos')}>Abrir El Archivero</Button>
               )}
             </div>
           )}
 
+        </div>
+
+        {/* El zoom es UN control (alejar · cuánto · acercar) y va junto; «ajustar» y «pantalla completa» cambian el
+            ENCUADRE y van al lado, separados por una raya. Abajo a la izquierda desde el 17/10/2026. */}
+        <div className="cbg-zoom" role="toolbar" aria-label="Zoom del grafo">
+          <button type="button" className="cbg-ico" onClick={() => zoomPaso(1 / 1.3)} title="Alejar" aria-label="Alejar">−</button>
+          <span className="cbg-zoom__pct">{zoomPct}%</span>
+          <button type="button" className="cbg-ico" onClick={() => zoomPaso(1.3)} title="Acercar" aria-label="Acercar">+</button>
+          <span className="cbg-zoom__sep" aria-hidden />
+          <button type="button" className="cbg-ico" onClick={() => { tocoElZoom.current = false; ajustar(); }} title="Ajustar a la vista" aria-label="Ajustar a la vista">⤢</button>
+          <button type="button" className="cbg-ico" onClick={pantallaCompleta} title={enPantallaCompleta ? 'Salir de pantalla completa' : 'Pantalla completa'} aria-label={enPantallaCompleta ? 'Salir de pantalla completa' : 'Pantalla completa'}>⛶</button>
         </div>
       </div>
 
@@ -1691,264 +1796,207 @@ export function Grafo({ cerebro, onAbrirArea, onVerse, filtro, onFiltro: setFilt
         }}
       />
 
-          {/* ── LA TARJETA DE DETALLE ────────────────────────────────────────
-              Flota sobre el lienzo. Dos modos, y la diferencia es deliberada:
-              · AL PASO (hover) se LEE. Sin botones, porque la tarjeta flota: mover el
-                mouse del nodo hacia ella cruza el lienzo, dispara el onMouseLeave y la
-                tarjeta desaparecería justo antes del clic.
-              · FIJADA (clic) se ACTÚA: conexiones clicables y la acción de abrir.
-              El pie del modo lectura enseña ese contrato en una línea. */}
-          {nodoSel && (
-            <div className="cbg-detalle">
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                <button
-                  type="button"
-                  className="cbg-area-btn"
-                  onClick={() => setFiltro((f) => ({ ...f, areas: f.areas.has(nodoSel.area) ? new Set() : new Set([nodoSel.area]) }))}
-                  aria-pressed={areaFoco === nodoSel.area}
-                  title={areaFoco === nodoSel.area ? 'Ver todo' : `Ver solo ${areaDe(nodoSel.area).nombre}`}
-                  style={{
-                    fontFamily: MONO, fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase',
-                    color: areaFoco === nodoSel.area ? 'var(--primary)' : 'var(--faint)',
-                  }}
-                >
-                  <span style={{ width: 7, height: 7, borderRadius: '50%', background: areaDe(nodoSel.area).color, flex: 'none' }} />
-                  {areaDe(nodoSel.area).nombre}
-                </button>
-                <span style={{ flex: 1 }} />
-                {fijado && (
-                  <>
-                    <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)' }}>Fijado</span>
-                    <button
-                      type="button"
-                      onClick={soltarNodo}
-                      title="Soltar"
-                      aria-label="Soltar el dato fijado"
-                      style={{ background: 'none', border: 'none', padding: 2, cursor: 'pointer', color: 'var(--faint)', lineHeight: 1 }}
-                    >✕</button>
-                  </>
-                )}
-              </div>
+      {/* ── LA BARRA LATERAL (Martín, 17/10/2026: «al tocar un nodo NO aparece nada abajo, jamás: para eso está la
+          barra lateral del grafo. Hay que mejorar mucho su diseño y su información») ─────────────────────────────
+          Copiada de la tarjeta que Heptabase abre al costado del lienzo y de los campos de Tana: arriba QUÉ CLASE de
+          cosa es (el tipo) y su nombre; después quién lo puso y cuándo, el resumen, los datos como nombre → valor, lo
+          que MaKo explica (plegado), con qué se conecta AGRUPADO POR ÁREA (cada vecino con su motivo) y de dónde salió.
+          Las acciones van abajo y quietas, a la vista aunque se baje: «Ver el documento» y «Editar <área>», que abre el
+          editor en una caja encima. Sin nodo fijado, la misma columna es el navegador de «Tu negocio». */}
+      {nodoSel ? (
+        <aside className="cbg-detalle cbg-det" aria-label={`Detalle: ${nodoSel.etiqueta}`}>
+          <div className="cbg-det__cuerpo">
+            <div className="cbg-det__cab">
+              <button
+                type="button"
+                className="cbg-area-btn"
+                onClick={() => setFiltro((f) => ({ ...f, areas: f.areas.has(nodoSel.area) ? new Set() : new Set([nodoSel.area]) }))}
+                aria-pressed={areaFoco === nodoSel.area}
+                title={areaFoco === nodoSel.area ? 'Ver todo' : `Ver sólo ${areaDe(nodoSel.area).nombre}`}
+              >
+                <span className="cbg-punto" style={{ background: areaDe(nodoSel.area).color }} />
+                {areaDe(nodoSel.area).nombre}
+              </button>
+              <span style={{ flex: 1 }} />
+              <button type="button" className="cbg-det__cerrar" onClick={soltarNodo} title="Soltar (Esc)" aria-label="Soltar el dato">✕</button>
+            </div>
 
-              <div style={{ fontSize: 'var(--fs-card)', fontWeight: 650, color: 'var(--ink)', lineHeight: 1.3, marginBottom: 8 }}>
-                {nodoSel.etiqueta}
-              </div>
-              {nodoSel.detalle && (
-                <p style={{ margin: 0, fontSize: 'var(--fs-sm)', color: 'var(--dim)', lineHeight: 1.55, whiteSpace: 'pre-line' }}>
-                  {nodoSel.detalle}
-                </p>
-              )}
+            <p className="cbg-det__tipo">{tipoDeNodo(nodoSel)}</p>
+            <h2 className="cbg-det__titulo">{nodoSel.etiqueta}</h2>
+            <div className="cbg-det__pastillas">
+              <span className="cbg-pastilla" data-autoria={nodoSel.autoria} title={AUTORIA_TEXTO[nodoSel.autoria]}>{AUTORIA_CORTA[nodoSel.autoria]}</span>
+              {nodoSel.destacado && <span className="cbg-pastilla" data-tono="mako">Tu Norte</span>}
+              {nodoSel.alerta && <span className="cbg-pastilla" data-tono="warn">Cuello de botella</span>}
+              {fechaCorta(nodoSel.nace) && <span className="cbg-pastilla">{fechaCorta(nodoSel.nace)}</span>}
+            </div>
 
-              {/* ── LOS DATOS DEL NODO ─────────────────────────────────────────
-                  Antes todo esto se pegaba con « · » adentro del mismo párrafo, así que
-                  cada productor tenía que elegir entre tirar campos o escribir un renglón
-                  corrido ilegible. Como pares nombre/valor entran todos y se leen. */}
-              {(nodoSel.datos ?? []).filter((d) => d.v && d.v.trim()).length > 0 && (
-                <dl style={{ margin: '12px 0 0', display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '6px 10px', alignItems: 'baseline' }}>
-                  {(nodoSel.datos ?? []).filter((d) => d.v && d.v.trim()).map((d) => (
-                    <Fragment key={d.k}>
-                      <dt style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.04em', textTransform: 'uppercase', color: 'var(--faint)', whiteSpace: 'nowrap' }}>{d.k}</dt>
-                      <dd style={{ margin: 0, fontSize: 'var(--fs-sm)', color: 'var(--ink)', lineHeight: 1.5 }}>{d.v}</dd>
-                    </Fragment>
-                  ))}
-                </dl>
-              )}
+            {nodoSel.detalle && <p className="cbg-det__resumen">{nodoSel.detalle}</p>}
 
-              {/* ── LA PROSA LARGA ─────────────────────────────────────────────
-                  ⚠️ El recorte anterior tenía un bug silencioso: clampeaba por LÍNEAS
-                  (WebkitLineClamp) y decidía si mostrar «Leer todo» por CARACTERES (> 320).
-                  O sea que había una banda entera —textos de ~270 a 320 caracteres— donde
-                  el texto se cortaba y NO había ningún botón para verlo entero. Ahora el
-                  que decide es uno solo: si hay cuerpo, hay botón. */}
-              {nodoSel.cuerpo && (
-                <div style={{ marginTop: 12 }}>
-                  {textoEntero
-                    ? <p style={{ margin: 0, fontSize: 'var(--fs-sm)', color: 'var(--dim)', lineHeight: 1.55, whiteSpace: 'pre-line' }}>{nodoSel.cuerpo}</p>
-                    : (
-                      <button
-                        type="button"
-                        className="cbg-link"
-                        onClick={() => setTextoEntero(true)}
-                        style={{ fontSize: 'var(--fs-sm)', color: 'var(--faint)' }}
-                      >
-                        <span style={{ flex: 1 }}>Leer lo que MaKo explica</span>
-                        <svg className="cbg-flecha" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M6 9l6 6 6-6" /></svg>
-                      </button>
-                    )}
-                </div>
-              )}
+            {/* Los datos del nodo, como pares nombre → valor (antes se pegaban con « · » en un renglón). */}
+            {datosSel.length > 0 && (
+              <dl className="cbg-det__props">
+                {datosSel.map((d) => (
+                  <Fragment key={d.k}>
+                    <dt>{d.k}</dt>
+                    <dd>{d.v}</dd>
+                  </Fragment>
+                ))}
+              </dl>
+            )}
 
-              {(nodoSel.fuente || nodoSel.autoria) && (
-                <div style={{ marginTop: 12, paddingTop: 10, borderTop: '1px solid var(--border)' }}>
-                  <Eyebrow>De dónde salió</Eyebrow>
-                  <div style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)', lineHeight: 1.5, marginTop: 4 }}>
-                    {[nodoSel.fuente, AUTORIA_TEXTO[nodoSel.autoria]].filter(Boolean).join(' · ')}
+            {/* La prosa larga: si hay cuerpo, hay botón (el recorte por líneas y la regla por caracteres dejaban una
+                banda de textos cortados sin forma de leerlos enteros). */}
+            {nodoSel.cuerpo && (
+              textoEntero
+                ? <p className="cbg-det__prosa">{nodoSel.cuerpo}</p>
+                : (
+                  <button type="button" className="cbg-link cbg-det__leer" onClick={() => setTextoEntero(true)}>
+                    <span style={{ flex: 1 }}>Leer lo que MaKo explica</span>
+                    <svg className="cbg-flecha" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M6 9l6 6 6-6" /></svg>
+                  </button>
+                )
+            )}
+
+            {conexiones.length > 0 && (
+              <section className="cbg-det__bloque">
+                <h3 className="cbg-det__h">Conectado con <span>{conexiones.length}</span></h3>
+                {gruposConexion.map((g) => (
+                  <div key={g.area} className="cbg-det__grupo">
+                    <div className="cbg-det__grupo-nombre">
+                      <span className="cbg-punto" style={{ background: areaDe(g.area).color }} />
+                      {areaDe(g.area).nombre}
+                    </div>
+                    <ul>
+                      {g.items.map((c) => (
+                        <li key={c.nodo.id}>
+                          <button type="button" className="cbg-link" onClick={() => irA(c.nodo.id)} title={`Ir a ${c.nodo.etiqueta}`}>
+                            <span className="cbg-link__txt">
+                              <span className="cbg-link__nombre">{c.nodo.etiqueta}</span>
+                              {/* El motivo de cada arista se calcula con cuidado: es lo que hay que poder leer. */}
+                              {c.motivo && <span className="cbg-link__motivo">{c.motivo}</span>}
+                            </span>
+                            <svg className="cbg-flecha" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M9 6l6 6-6 6" /></svg>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
                   </div>
-                </div>
-              )}
+                ))}
+                {conexiones.length > TOPE_CONEXIONES && !verTodas && (
+                  <button type="button" className="cbg-det__mas" onClick={() => setVerTodas(true)}>Ver las {conexiones.length}</button>
+                )}
+              </section>
+            )}
 
-              {fijado && conexiones.length > 0 && (
-                <div style={{ marginTop: 12 }}>
-                  <Eyebrow>Conectado con · {conexiones.length}</Eyebrow>
-                  <ul style={{ listStyle: 'none', margin: '6px 0 0', padding: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
-                    {conexiones.slice(0, verTodas ? undefined : 3).map((c) => (
-                      <li key={c.nodo.id}>
-                        <button
-                          type="button"
-                          className="cbg-link"
-                          onClick={() => irA(c.nodo.id)}
-                          title={`Ir a ${c.nodo.etiqueta}`}
-                          style={{ fontSize: 'var(--fs-sm)' }}
-                        >
-                          <span style={{ width: 6, height: 6, borderRadius: '50%', background: areaDe(c.nodo.area).color, flex: 'none' }} />
-                          <span style={{ flex: 1, minWidth: 0 }}>
-                          {c.nodo.etiqueta}
-                          {/* `motivo` se venía calculando con cuidado en cada arista, viajaba al
-                              browser en cada carga y no lo leía NADIE: el panel mostraba solo
-                              «5 conexiones». Su propio tipo dice que es lo que hay que poder leer. */}
-                          {c.motivo && <span style={{ color: 'var(--faint)' }}> — {c.motivo}</span>}
-                          </span>
-                          <svg className="cbg-flecha" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M9 6l6 6-6 6" /></svg>
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                  {conexiones.length > 3 && !verTodas && (
-                    <button
-                      type="button"
-                      onClick={() => setVerTodas(true)}
-                      style={{ background: 'none', border: 'none', padding: '4px 0 0', cursor: 'pointer', fontSize: 'var(--fs-sm)', color: 'var(--faint)' }}
-                    >Ver las {conexiones.length}</button>
-                  )}
-                </div>
-              )}
+            {nodoSel.fuente && (
+              <section className="cbg-det__bloque cbg-det__origen">
+                <h3 className="cbg-det__h">De dónde salió</h3>
+                <p>{nodoSel.fuente}</p>
+              </section>
+            )}
+          </div>
 
-              {fijado && (
-                <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {/* Un documento se MIRA, no se «abre en su área»: el archivo está a un
-                      clic y hasta ahora había que salir de la pantalla para verlo. Solo
-                      aparece si de verdad se puede previsualizar — un .docx no se
-                      previsualiza, y prometer un botón que no muestra nada es peor que no
-                      tenerlo. */}
-                  {nodoSel.id.startsWith('doc:') && sePuedeVer(nodoSel.mime) && (
-                    <Button variant="primary" full onClick={() => setVerDoc(nodoSel)}>
-                      Ver el documento
-                    </Button>
-                  )}
-                  {/* TODA área se abre desde el mapa, incluido SU PROPIO NODO — que era
-                      el más grande de su racimo, el primero que uno toca, y el único que
-                      no ofrecía nada.
-                      ⚠️ La carpeta MADRE no ofrece acción, y es a propósito: agrupa varias
-                      áreas, así que no tiene un destino único. Su `area` es la de su
-                      primera hija, o sea que un botón ahí diría «Completar Norte» estando
-                      parado en «Negocio». La regla de la casa es que nunca se promete un
-                      botón que no lleva a donde dice. Tampoco la raíz: es el negocio
-                      entero, no un área. */}
-                  {onAbrirArea && nodoSel.id !== 'raiz' && !nodoSel.id.startsWith('n1:') && (
-                    <Button variant="secondary" full onClick={() => onAbrirArea(nodoSel.area, true)}>
-                      {nodoSel.id.startsWith('area:')
-                        ? `Completar ${areaDe(nodoSel.area).nombre}`
-                        : `Abrir ${areaDe(nodoSel.area).nombre}`}
-                    </Button>
-                  )}
-                </div>
+          {/* Las acciones: un documento se MIRA (sólo si se puede previsualizar: un .docx no), y un dato se EDITA en su
+              área. La carpeta madre y la raíz no ofrecen editar: no tienen un área única, y un botón que no lleva a
+              donde dice es peor que ninguno. */}
+          {(puedeVerDoc || puedeEditar) && (
+            <div className="cbg-det__acciones">
+              {puedeVerDoc && <Button variant="primary" full onClick={() => setVerDoc(nodoSel)}>Ver el documento</Button>}
+              {puedeEditar && (
+                <Button variant={nodoSel.autoria === 'pendiente' ? 'primary' : 'secondary'} full onClick={() => onEditarArea?.(nodoSel.area)}>
+                  {nodoSel.autoria === 'pendiente' ? `Completar ${areaDe(nodoSel.area).nombre}` : `Editar ${areaDe(nodoSel.area).nombre}`}
+                </Button>
               )}
-
             </div>
           )}
-
-
-          {/* ── EL NAVEGADOR ────────────────────────────────────────────────
-              La columna no se queda vacía cuando no hay nada elegido: acá vive la
-              navegación por carpetas que REEMPLAZA a las tarjetas de abajo.
-
-              Por qué se fueron las tarjetas: eran once cajas del mismo tamaño repitiendo
-              lo que el mapa ya dibuja, debajo del mapa, y competían con él por ser la
-              navegación de la pantalla. Acá la misma lista ocupa una columna, está SIEMPRE
-              a la vista mientras se mira el mapa, y cada renglón hace las dos cosas que
-              las tarjetas hacían por separado: volar hasta esa parte del mapa, y abrir la
-              sección para completarla. */}
-          {!nodoSel && (
-            <div className="cbg-detalle">
-              <Eyebrow>Tu negocio</Eyebrow>
-              <p style={{ margin: '6px 0 14px', fontSize: 'var(--fs-sm)', color: 'var(--dim)', lineHeight: 1.5 }}>
-                Toca un punto del mapa para verlo. O entra por aquí:
+        </aside>
+      ) : (
+        /* El navegador: «Tu negocio» de un vistazo y las áreas, cada una con su conteo y su «Editar». */
+        <aside className="cbg-detalle cbg-nav" data-plegado={navAbierto ? '0' : '1'} aria-label="Tu negocio">
+          <div className="cbg-det__cuerpo">
+            <div className="cbg-nav__resumen">
+              <span className="cbg-nav__n">{cuenta.total}</span>
+              <span className="cbg-nav__que">{cuenta.total === 1 ? 'cosa que MaKo sabe' : 'cosas que MaKo sabe'}</span>
+            </div>
+            {cuenta.total > 0 && (
+              <p className="cbg-nav__desglose">
+                {cuenta.mako} de MaKo · {cuenta.usuario} tuyas{cuenta.pendientes ? ` · ${cuenta.pendientes} ${cuenta.pendientes === 1 ? 'falta' : 'faltan'}` : ''}
               </p>
+            )}
 
-              {accesos.slice(0, 2).length > 0 && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 16 }}>
-                  {accesos.slice(0, 2).map((a) => (
-                    <button key={a.value} type="button" className="cbg-nav-fila" onClick={() => irA(a.value)}>
-                      <span style={{ width: 7, height: 7, borderRadius: '50%', flex: 'none', background: a.value === destacado?.id ? 'var(--mako)' : 'var(--warn)' }} />
-                      <span className="cbg-nav-txt">{a.label}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
+            {accesos.slice(0, 2).length > 0 && (
+              <div className="cbg-nav__accesos">
+                {accesos.slice(0, 2).map((a) => (
+                  <button key={a.value} type="button" className="cbg-nav-fila" onClick={() => irA(a.value)}>
+                    <span className="cbg-punto" style={{ background: a.value === destacado?.id ? 'var(--mako)' : 'var(--warn)' }} />
+                    <span className="cbg-nav-txt">{a.label}</span>
+                  </button>
+                ))}
+              </div>
+            )}
 
-              {NIVEL1.map((c: (typeof NIVEL1)[number]) => {
-                const suyas = AREAS.filter((a) => a.padre === c.id);
-                if (!suyas.length) return null;
-                return (
-                  <div key={c.id} style={{ marginBottom: 14 }}>
-                    <button
-                      type="button"
-                      className="cbg-nav-carpeta"
-                      onClick={() => setFiltro((f) => {
-                        const cs = new Set(f.carpetas);
-                        if (cs.has(c.id)) cs.delete(c.id); else cs.add(c.id);
-                        return { ...f, carpetas: cs };
-                      })}
-                      aria-pressed={filtro.carpetas.has(c.id)}
-                      title={filtro.carpetas.has(c.id) ? `Dejar de ver solo ${c.nombre}` : `Ver solo ${c.nombre}`}
-                    >
-                      {c.nombre}
-                    </button>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginTop: 4 }}>
-                      {suyas.map((a) => {
-                        const n = porArea[a.id] ?? 0;
-                        return (
-                          <div key={a.id} className="cbg-nav-par">
+            {NIVEL1.map((c: (typeof NIVEL1)[number]) => {
+              const suyas = AREAS.filter((a) => a.padre === c.id);
+              if (!suyas.length) return null;
+              return (
+                <div key={c.id} className="cbg-nav__carpeta">
+                  <button
+                    type="button"
+                    className="cbg-nav-carpeta"
+                    onClick={() => setFiltro((f) => {
+                      const cs = new Set(f.carpetas);
+                      if (cs.has(c.id)) cs.delete(c.id); else cs.add(c.id);
+                      return { ...f, carpetas: cs };
+                    })}
+                    aria-pressed={filtro.carpetas.has(c.id)}
+                    title={filtro.carpetas.has(c.id) ? `Dejar de ver sólo ${c.nombre}` : `Ver sólo ${c.nombre}`}
+                  >
+                    {c.nombre}
+                  </button>
+                  <div className="cbg-nav__areas">
+                    {suyas.map((a) => {
+                      const n = porArea[a.id] ?? 0;
+                      return (
+                        <div key={a.id} className="cbg-nav-par">
+                          <button
+                            type="button"
+                            className="cbg-nav-fila"
+                            aria-pressed={filtro.areas.has(a.id)}
+                            onClick={() => {
+                              setFiltro((f) => {
+                                const as = new Set(f.areas);
+                                if (as.has(a.id)) as.delete(a.id); else as.add(a.id);
+                                return { ...f, areas: as };
+                              });
+                              irA(`area:${a.id}`, false);
+                            }}
+                            title={`Ver ${a.nombre} en el grafo`}
+                          >
+                            <span className="cbg-punto" style={{ background: a.color }} />
+                            <span className="cbg-nav-txt">{a.nombre}</span>
+                            {/* El conteo dice si hay algo; el «falta» dice que no. Nunca un 0. */}
+                            <span className="cbg-nav__conteo" data-falta={n ? undefined : '1'}>{n || 'falta'}</span>
+                          </button>
+                          {onEditarArea && (
                             <button
                               type="button"
-                              className="cbg-nav-fila"
-                              aria-pressed={filtro.areas.has(a.id)}
-                              onClick={() => {
-                                setFiltro((f) => {
-                                  const as = new Set(f.areas);
-                                  if (as.has(a.id)) as.delete(a.id); else as.add(a.id);
-                                  return { ...f, areas: as };
-                                });
-                                irA(`area:${a.id}`, false);
-                              }}
-                              title={`Ver ${a.nombre} en el mapa`}
-                            >
-                              <span style={{ width: 7, height: 7, borderRadius: '50%', flex: 'none', background: a.color }} />
-                              <span className="cbg-nav-txt">{a.nombre}</span>
-                              {/* El conteo dice si hay algo; el «Falta» dice que no lo hay.
-                                  Nunca un 0, que se lee como un dato que vale cero. */}
-                              <span style={{ fontFamily: MONO, fontSize: 10.5, color: n ? 'var(--faint)' : 'var(--warn)', flex: 'none' }}>
-                                {n || 'falta'}
-                              </span>
-                            </button>
-                            {onAbrirArea && (
-                              <button
-                                type="button"
-                                className="cbg-nav-abrir"
-                                onClick={() => onAbrirArea(a.id, true)}
-                                title={`Abrir ${a.nombre} para completarla`}
-                                aria-label={`Abrir ${a.nombre} para completarla`}
-                              >{areaAbierta === a.id ? 'Abierta' : 'Abrir'}</button>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
+                              className="cbg-nav-abrir"
+                              onClick={() => onEditarArea(a.id)}
+                              title={`Editar ${a.nombre}`}
+                              aria-label={`Editar ${a.nombre}`}
+                            >Editar</button>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
-                );
-              })}
-            </div>
-          )}
+                </div>
+              );
+            })}
+            <p className="cbg-nav__pista">Toca un punto para verlo.</p>
+          </div>
+        </aside>
+      )}
     </div>
   );
 }

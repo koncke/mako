@@ -43,10 +43,17 @@
 .m-second-brain-skel-mapa { margin-top: 16px; aspect-ratio: 2 / 1; border-radius: var(--r-lg); }
 .m-second-brain-skel-lista { margin-top: 28px; }
 
-/* ── El mapa chico: la isla oscura con las posiciones del server ──────────── */
+/* ── El lienzo: la isla oscura con el título, el subtítulo y el mapa chico (17/10/2026) ──
+   El grafo va SIEMPRE en oscuro (Martín). `data-tema="oscuro"` en la caja da vuelta los tokens sólo acá: la barra del
+   teléfono y las listas siguen el tema de la persona (el tema de la PWA es del shell, app/m/_ui/ShellM.tsx). */
+.m-second-brain-lienzo {
+  margin-bottom: 16px; padding: 18px 16px 14px; border-radius: var(--r-lg);
+  background: var(--bg); border: 1px solid var(--border); color: var(--ink);
+}
+[data-m] .m-second-brain-titulo { margin: 0; font-size: 26px; font-weight: 700; letter-spacing: -.01em; line-height: 1.15; color: var(--ink); }
+[data-m] .m-second-brain-sub { margin: 4px 0 0; font-size: var(--fs-sm); color: var(--dim); line-height: 1.4; }
 .m-second-brain-mapa {
-  margin-top: 16px; aspect-ratio: 2 / 1; border-radius: var(--r-lg); overflow: hidden;
-  background: var(--bg); border: 1px solid var(--border);
+  margin-top: 12px; aspect-ratio: 17 / 10; overflow: hidden;
 }
 .m-second-brain-mapa svg { display: block; width: 100%; height: 100%; }
 .m-second-brain-mapa__aristas line { stroke: var(--border-strong); stroke-width: .75; }
@@ -98,6 +105,22 @@
   font-size: var(--fs-md); color: var(--ink); line-height: 1.5; white-space: pre-line; overflow-wrap: anywhere;
   -webkit-user-select: text; user-select: text;
 }
+
+/* El tipo y las pastillas de un dato (los mismos de la barra lateral de la computadora). */
+[data-m] .m-second-brain-tipo {
+  margin: 0 4px 6px; font-size: 11px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--dim);
+}
+.m-second-brain-pastillas { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 4px 12px; }
+.m-second-brain-pastilla {
+  display: inline-flex; align-items: center; min-height: 26px; padding: 0 10px; border-radius: 999px;
+  font-size: var(--fs-meta); font-weight: 600; color: var(--dim); background: var(--surface-2); border: 1px solid var(--border);
+}
+.m-second-brain-pastilla[data-autoria="mako"], .m-second-brain-pastilla[data-tono="mako"] { color: var(--mako-ink); }
+.m-second-brain-pastilla[data-autoria="usuario"] { color: var(--primary-strong); }
+.m-second-brain-pastilla[data-autoria="pendiente"], .m-second-brain-pastilla[data-tono="warn"] { color: var(--warn); }
+/* Las conexiones, agrupadas por área: el nombre del área arriba de su lista. */
+.m-second-brain-grupo + .m-second-brain-grupo { margin-top: 10px; }
+[data-m] .m-second-brain-grupo__nombre { margin: 0 4px 6px; font-size: var(--fs-meta); font-weight: 600; color: var(--dim); }
 
 /* «Ver las 9»: el resto de las conexiones. */
 .m-second-brain-mas {

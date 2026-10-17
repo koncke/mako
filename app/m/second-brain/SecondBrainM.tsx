@@ -20,7 +20,10 @@ import { Button } from '@/app/_ui/Button';
 import { Icon } from '@/app/_components/icons';
 import { conWs } from '@/lib/ws-tab';
 import type { AreaId, Cerebro, NodoCerebro } from '@/lib/cerebro-modelo';
-import { contarPorArea, rellenoNodo, rutaVistaDocumento, sePuedeVerDocumento, OPACIDAD_PENDIENTE } from '@/lib/cerebro-areas';
+import {
+  AUTORIA_CORTA, agruparConexiones, contarPorArea, rellenoNodo, rutaVistaDocumento, sePuedeVerDocumento, tipoDeNodo, OPACIDAD_PENDIENTE,
+} from '@/lib/cerebro-areas';
+import { AUTORIA_TEXTO } from '@/lib/cerebro-modelo';
 import {
   CabeceraM, ComputadoraM, FilaDatoM, FilaM, ListaM, PieM, SeccionM, SegmentadoM, SheetM, SkeletonFilas, VacioM,
 } from '@/app/m/_ui';
@@ -29,8 +32,16 @@ import {
   elegidosPorMako, esCorto, miniMapa, primeraLinea, totalBuscable, type DondeBuscar,
 } from './modelo';
 import { ArchiveroM } from './ArchiveroM';
+import { SUBTITULO_SECOND_BRAIN, TITULO_SECOND_BRAIN } from '@/app/second-brain/VistaCerebro';
 
 type Hoja = { tipo: 'area'; area: AreaId } | { tipo: 'dato'; id: string };
+
+/** «12 oct»: cuándo apareció un dato (la barra lateral de la computadora lo dice igual). */
+function fechaCorta(iso?: string | null): string | null {
+  if (!iso) return null;
+  const t = Date.parse(iso);
+  return Number.isFinite(t) ? new Date(t).toLocaleDateString('es', { day: 'numeric', month: 'short' }) : null;
+}
 type EstadoIA = { pensando: boolean; ids: string[] | null; explico: string };
 const SIN_IA: EstadoIA = { pensando: false, ids: null, explico: '' };
 
@@ -57,13 +68,13 @@ function ParLargo({ k, v }: { k: string; v: string }) {
   );
 }
 
-/** La foto del mapa: las mismas posiciones del server, sin gestos. Una isla oscura, como el lienzo. */
+/** La foto del mapa: las mismas posiciones del server, sin gestos, adentro del lienzo oscuro. */
 function MapaChico({ cerebro }: { cerebro: Cerebro }) {
-  const { puntos, lineas } = useMemo(() => miniMapa(cerebro, 340, 170), [cerebro]);
+  const { puntos, lineas } = useMemo(() => miniMapa(cerebro, 340, 200), [cerebro]);
   if (!puntos.length) return null;
   return (
-    <div className="m-second-brain-mapa" data-tema="oscuro" role="img" aria-label="El mapa de tu negocio">
-      <svg viewBox="0 0 340 170" preserveAspectRatio="xMidYMid meet" aria-hidden focusable="false">
+    <div className="m-second-brain-mapa" role="img" aria-label="El mapa de tu negocio">
+      <svg viewBox="0 0 340 200" preserveAspectRatio="xMidYMid meet" aria-hidden focusable="false">
         <g className="m-second-brain-mapa__aristas">
           {lineas.map((l, i) => <line key={i} x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2} />)}
         </g>
@@ -198,7 +209,15 @@ export function SecondBrainM({ cerebro, areaInicial }: { cerebro: Cerebro; areaI
 
   return (
     <>
-      <CabeceraM accion={accion} />
+      {/* La página dibuja su encabezado (`grande={false}`): el título va ADENTRO del lienzo oscuro, como en la
+          computadora (Martín, 17/10/2026: «el grafo va SIEMPRE en modo oscuro; arriba dice Second Brain y Todo lo que
+          MaKo sabe de tu negocio»). `data-m-titulo-grande` hace que el nombre chico aparezca en la barra al bajar. */}
+      <CabeceraM accion={accion} grande={false} />
+      <section className="m-second-brain-lienzo" data-tema="oscuro" aria-label={TITULO_SECOND_BRAIN}>
+        <h1 className="m-second-brain-titulo" data-m-titulo-grande>{TITULO_SECOND_BRAIN}</h1>
+        <p className="m-second-brain-sub">{SUBTITULO_SECOND_BRAIN}</p>
+        {cerebro.cuenta.total > 0 && <MapaChico cerebro={cerebro} />}
+      </section>
 
       <div className="m-second-brain-buscar" role="search">
         <span className="m-second-brain-buscar__ico" aria-hidden><Icon name="search" size={18} /></span>
@@ -281,10 +300,8 @@ export function SecondBrainM({ cerebro, areaInicial }: { cerebro: Cerebro; areaI
         </>
       ) : (
         <>
-          {cerebro.cuenta.total === 0 ? (
+          {cerebro.cuenta.total === 0 && (
             <VacioM frase={`${R.vacio}.`} accion={{ rotulo: R.abrirArchivero, onClick: () => setSubir(true) }} />
-          ) : (
-            <MapaChico cerebro={cerebro} />
           )}
 
           {(norte || cuello) && (
@@ -378,7 +395,9 @@ function VistaDato({ cerebro, nodo: n, onArea, onNodo }: {
   const datos = datosConValor(n);
   const origen = deDondeSalio(n);
   const conexiones = useMemo(() => conexionesDe(cerebro, n.id), [cerebro, n.id]);
-  const visibles = todas ? conexiones : conexiones.slice(0, 3);
+  // Agrupadas por área con la MISMA regla de la barra lateral de la computadora (lib/cerebro-areas.ts).
+  const grupos = useMemo(() => agruparConexiones(conexiones, todas ? null : 3), [conexiones, todas]);
+  const nace = fechaCorta(n.nace);
 
   return (
     <>
@@ -386,6 +405,15 @@ function VistaDato({ cerebro, nodo: n, onArea, onNodo }: {
         <Punto color={a.color} />
         <span>{a.nombre}</span>
       </button>
+
+      {/* Qué clase de cosa es y quién la puso: lo mismo que arriba del título en la barra lateral de la computadora. */}
+      <p className="m-second-brain-tipo">{tipoDeNodo(n)}</p>
+      <div className="m-second-brain-pastillas">
+        <span className="m-second-brain-pastilla" data-autoria={n.autoria} title={AUTORIA_TEXTO[n.autoria]}>{AUTORIA_CORTA[n.autoria]}</span>
+        {n.destacado && <span className="m-second-brain-pastilla" data-tono="mako">{R.norte}</span>}
+        {n.alerta && <span className="m-second-brain-pastilla" data-tono="warn">Cuello de botella</span>}
+        {nace && <span className="m-second-brain-pastilla">{nace}</span>}
+      </div>
 
       {n.detalle && <p className="m-second-brain-detalle">{n.detalle}</p>}
 
@@ -414,17 +442,22 @@ function VistaDato({ cerebro, nodo: n, onArea, onNodo }: {
 
       {conexiones.length > 0 && (
         <SeccionM titulo={`${R.conectado} · ${conexiones.length}`}>
-          <ListaM etiqueta={R.conectado}>
-            {visibles.map((c) => (
-              <FilaM
-                key={c.nodo.id}
-                leading={<Punto color={rellenoNodo(c.nodo)} apagado={c.nodo.autoria === 'pendiente'} />}
-                titulo={c.nodo.etiqueta}
-                segunda={c.motivo || undefined}
-                onClick={() => onNodo(c.nodo)}
-              />
-            ))}
-          </ListaM>
+          {grupos.map((g) => (
+            <div key={g.area} className="m-second-brain-grupo">
+              <p className="m-second-brain-grupo__nombre">{areaPorId(g.area).nombre}</p>
+              <ListaM etiqueta={`${R.conectado}: ${areaPorId(g.area).nombre}`}>
+                {g.items.map((c) => (
+                  <FilaM
+                    key={c.nodo.id}
+                    leading={<Punto color={rellenoNodo(c.nodo)} apagado={c.nodo.autoria === 'pendiente'} />}
+                    titulo={c.nodo.etiqueta}
+                    segunda={c.motivo || undefined}
+                    onClick={() => onNodo(c.nodo)}
+                  />
+                ))}
+              </ListaM>
+            </div>
+          ))}
           {conexiones.length > 3 && !todas && (
             <button type="button" className="m-second-brain-mas" onClick={() => setTodas(true)}>
               {R.verLas} {conexiones.length}

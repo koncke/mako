@@ -377,7 +377,7 @@ export const AREAS: AreaDev[] = [
     slug: 'second-brain', titulo: 'Second Brain', familia: 'Analyze',
     estado: 'listo', verEnApp: '/second-brain',
     alcance: 'El hero de Analyze: hoy es el grafo del negocio + el mismo hub de 11 tabs del onboarding (lo que el cliente le cargó a MaKo); todavía no conecta señales ni saca conclusiones propias.',
-    vive: ['app/second-brain/page.tsx', 'app/second-brain/VistaCerebro.tsx', 'app/second-brain/Grafo.tsx', 'app/second-brain/fisica.ts', 'app/second-brain/AreasHub.tsx', 'app/second-brain/BuscadorCerebro.tsx', 'app/second-brain/FiltroMapa.tsx', 'app/second-brain/ExportarCerebro.tsx', 'app/second-brain/BotonExportar.tsx', 'app/second-brain/BotonClaude.tsx', 'app/api/second-brain/', 'lib/cerebro-grafo.ts', 'lib/cerebro-modelo.ts', 'lib/cerebro-layout.ts', 'lib/cerebro-filtro.ts', 'lib/buscar-cerebro.ts', 'lib/vault.ts', 'lib/vault-modelo.ts', 'lib/bienvenida-cerebro.ts', 'scripts/medir-grafo.mjs', 'scripts/probar-grafo.mjs', 'scripts/probar-solape.mjs'],
+    vive: ['app/second-brain/page.tsx', 'app/second-brain/VistaCerebro.tsx', 'app/second-brain/Grafo.tsx', 'app/second-brain/fisica.ts', 'app/second-brain/AreasHub.tsx', 'app/second-brain/BuscadorCerebro.tsx', 'app/second-brain/FiltroMapa.tsx', 'app/second-brain/ExportarCerebro.tsx', 'app/second-brain/BotonExportar.tsx', 'app/second-brain/volver.ts', 'app/api/second-brain/', 'lib/cerebro-grafo.ts', 'lib/cerebro-modelo.ts', 'lib/cerebro-layout.ts', 'lib/cerebro-filtro.ts', 'lib/buscar-cerebro.ts', 'lib/vault.ts', 'lib/vault-modelo.ts', 'lib/bienvenida-cerebro.ts', 'scripts/medir-grafo.mjs', 'scripts/probar-grafo.mjs', 'scripts/probar-solape.mjs'],
     proyectos: ['Feature: Second Brain'],
   },
   {

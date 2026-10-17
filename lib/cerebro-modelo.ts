@@ -162,6 +162,13 @@ export type NodoCerebro = {
    *  Sin esto el panel tendría que adivinar por la extensión — y la etiqueta viene
    *  recortada, así que ni extensión hay. */
   mime?: string | null;
+  /** Qué CLASE de cosa es («Producto», «Etapa del funnel»): el *supertag* de Tana. Va arriba del título en la barra
+   *  lateral y en la hoja del teléfono, y en el paquete que recibe un chat. Si falta, se deduce del prefijo del id
+   *  (lib/cerebro-areas.ts → tipoDeNodo). */
+  tipo?: string;
+  /** Cuándo apareció su fila (ISO), el `valid_at` de Graphiti. De ahí salen «lo último» y el nodo que viaja al
+   *  entrar. null = la fuente no guarda fecha propia. */
+  nace?: string | null;
 };
 
 /** Una arista se dibuja solo si SIGNIFICA algo verificable. `motivo` es lo que se
