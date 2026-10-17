@@ -9022,6 +9022,10 @@ técnicas están en [docs/diseno-mako-mobile.md](docs/diseno-mako-mobile.md), lo
 - **Lo que una pantalla de /m reusa de escritorio no puede vivir en un módulo `'use client'`**: el server no lo puede
   llamar y el cliente se lleva la pantalla entera al bundle. Se muda a lib o a un módulo puro y escritorio lo
   re-exporta (`tomas-estado.ts`, `deSiempreDisparador`, `borradorAlAbrir`); nunca una copia en /m.
+- **Si escritorio cambia DE DÓNDE lee una tab, la lectura del teléfono cambia en el MISMO trabajo** (17/10/2026):
+  Chats del teléfono siguió leyendo sólo WhatsApp dos días después de que escritorio unificó la bandeja, y un negocio
+  que vende por Instagram veía «Todavía no hay chats.». Un teléfono con la fuente vieja no rompe: muestra VACÍO. Antes
+  de cerrar, `grep -rn <el lector viejo> app/m` (docs/hallazgos-mobile.md, «Chats del teléfono con todos los canales»).
 - **Las clases CSS de una pantalla llevan el nombre ENTERO de su carpeta** (`.m-crm-*`, `.m-cuenta-*`): Next deja la
   hoja cargada al salir de la ruta, y dos prefijos abreviados iguales se pisan entre pantallas.
 - **Desde /m, una pantalla de escritorio se abre escribiendo la cookie de vista de escritorio y navegando con

@@ -395,10 +395,26 @@ export function rutaMovil(href: string | null | undefined): string | null {
   if (p === '/crm') return '/m/crm';
   // La bandeja unificada de escritorio (/chats) y la de WhatsApp (/whatsapp, que convive hasta que Martín
   // valide que Chats la reemplaza) son, en el teléfono, la misma pestaña Chats.
-  // El link profundo de UN lead (/chats?lead=412, el que manda MaKo por WhatsApp): en el teléfono, SU chat.
-  const leadChat = Number(q.get('lead'));
-  if ((p === '/chats' || p === '/whatsapp') && Number.isSafeInteger(leadChat) && leadChat > 0) return `/m/crm/${leadChat}/chat`;
-  if (p === '/chats' || p === '/whatsapp') return RUTA_CHATS;
+  // Los links profundos de UNA conversación (lib/chats-links.ts) abren SU pantalla, la de todos sus canales
+  // (17/10/2026; hasta ese día `?lead=` abría el WhatsApp del lead y `?c=` la lista, que no tenía Instagram):
+  //   · `?c=<clave>` (un aviso de Instagram, la propia pestaña) y `?lead=412` (MaKo por WhatsApp) → /m/chats/<clave>;
+  //   · `?linea=&chat=<jid>` (un mensaje de WhatsApp) no nombra la clave: va a la lista CON esa query, que lo
+  //     busca (app/m/chats/page.tsx). Sin la query, un push que vuelve a la computadora perdería el chat.
+  if (p === '/chats' || p === '/whatsapp') {
+    const c = q.get('c')?.trim();
+    if (c) return `${RUTA_CHATS}/${encodeURIComponent(c)}`;
+    const leadChat = Number(q.get('lead'));
+    if (Number.isSafeInteger(leadChat) && leadChat > 0) return `${RUTA_CHATS}/${encodeURIComponent(`lead:${leadChat}`)}`;
+    const jid = q.get('chat')?.trim();
+    if (jid) {
+      const out = new URLSearchParams();
+      const linea = q.get('linea')?.trim();
+      if (linea) out.set('linea', linea);
+      out.set('chat', jid);
+      return `${RUTA_CHATS}?${out.toString()}`;
+    }
+    return RUTA_CHATS;
+  }
   if (p === '/plan' || p === '/plan/agencia' || p === '/todo') return '/m/plan';
   if (p === '/perfil' || (p === '/configuraciones' && q.get('tab') === 'notif')) return '/m/cuenta';
   // Las secciones de More (v2). Cada una cae en su sección. Donde el id es EL MISMO en los dos
@@ -526,6 +542,13 @@ export function rutaEscritorio(href: string): string {
   else if ((m = p.match(/^\/m\/crm\/([^/]+)$/))) destino = `/crm/${m[1]}`;
   else if (p === '/m/crm') destino = '/crm';
   else if (p === RUTA_CHATS) destino = '/chats';
+  else if ((m = p.match(/^\/m\/chats\/([^/]+)$/))) {
+    // Una conversación (17/10/2026): en escritorio es la pestaña con `?c=<clave>` (lib/chats-links.ts).
+    destino = '/chats';
+    let clave = m[1];
+    try { clave = decodeURIComponent(clave); } catch { /* un % suelto: va tal cual */ }
+    q.set('c', clave);
+  }
   else if (p === '/m/inbox') destino = '/mako/pendientes';
   else if (p === '/m/plan') destino = '/plan';
   else if (p === RUTA_MAS) destino = '/mas';

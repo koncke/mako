@@ -54,7 +54,8 @@ function paginasDeM(): string[] {
         .replace(/crm\/\[id\]/, 'crm/12')
         .replace(/video\/\[id\]/, `video/${UUID}`)
         .replace(/landing\/\[id\]/, 'landing/42')
-        .replace(/dashboard\/\[hoja\]/, 'dashboard/mi-hoja'));
+        .replace(/dashboard\/\[hoja\]/, 'dashboard/mi-hoja')
+        .replace(/chats\/\[clave\]/, 'chats/lead%3A12'));
     }
   };
   recorrer(join(RAIZ, 'app', 'm'));

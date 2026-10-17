@@ -186,3 +186,9 @@
   [data-m] .m-mako-circulo { transition: opacity 150ms linear; }
   [data-m] .m-mako-circulo:active:not(:disabled) { transform: none; }
 }
+
+/* El texto de MaKo va por <Markdown> (el de escritorio, 17/10/2026): listas, títulos y negritas. Sus bloques
+   traen su margen; el primero y el último no empujan la burbuja. */
+[data-m] .m-mako-md { white-space: normal; }
+[data-m] .m-mako-md > :first-child { margin-top: 0 !important; }
+[data-m] .m-mako-md > :last-child { margin-bottom: 0 !important; }

@@ -93,6 +93,9 @@ test('la convivencia: /chats y /whatsapp son la misma pestaña del teléfono, y 
   const { rutaMovil, rutaEscritorio } = await import('../lib/movil-rutas');
   assert.equal(rutaMovil('/chats'), '/m/chats');
   assert.equal(rutaMovil('/whatsapp'), '/m/chats');
-  assert.equal(rutaMovil('/chats?lead=7'), '/m/crm/7/chat');
+  // A PROPÓSITO desde el 17/10/2026: el teléfono tiene la conversación unificada (/m/chats/<clave>, todos los
+  // canales del lead), como escritorio con `?lead=`. Antes iba al hilo de sólo WhatsApp (/m/crm/7/chat), que sigue
+  // existiendo para el botón WhatsApp de la ficha. Lo fija también tests/m-chats.test.ts.
+  assert.equal(rutaMovil('/chats?lead=7'), '/m/chats/lead%3A7');
   assert.equal(rutaEscritorio('/m/chats'), '/chats');
 });
