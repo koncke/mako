@@ -81,7 +81,10 @@ export function esTrabajo(pathname: string | null | undefined): boolean {
     || CHAT_DE_CHATS.test(p)
     // UN ticket de «Reportar problema» (17/10/2026, /m/tickets/<id>): la conversación con el equipo y su caja de
     // responder pegada abajo, como un chat. La lista no.
-    || TICKET.test(p);
+    || TICKET.test(p)
+    // El editor de UN proyecto del Video Editor o de UN diseño del Image Editor (17/10/2026), como el de un video:
+    // en CapCut y en Canva del teléfono el editor ocupa la pantalla. Sus inicios (las listas) no.
+    || /^\/m\/(video-editor|image-editor)\/[^/]+/.test(p);
 }
 
 /** El lugar de la barra cuya raíz es esta ruta (o null). */

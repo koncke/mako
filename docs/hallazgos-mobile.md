@@ -7,6 +7,72 @@ Corridas del 11/10/2026: la v1 (relevo de 7 agentes + 11 de implementación + 1 
 el diseño v2 a la tarde, y a la noche la implementación v2 (12 agentes + la integración) con el desvío
 de teléfonos PRENDIDO. Lo de la v2 está en su propia sección, más abajo.
 
+## Las tabs de CREACIÓN en el teléfono: editores, AI Avatar y writers (17/10/2026, «Mobile 1»)
+
+Pedido de Martín (17/10, 12:56): «Implementa completamente MaKo Mobile en todas las tabs, porque hay muchas que aun no se
+pueden acceder… Siempre copia de otras apps que ya lo hacen bien». Rama `mobile-creacion-1710` (C:/dev/wt-mobile). Hasta
+ese día un teléfono que abría /video-editor, /image-editor, /reels, /stories, /carousels, /ai-avatar o /admin/copywriting
+veía la cubierta «Esta pantalla se usa en la computadora». Ahora cada una tiene su pantalla (copiada de CapCut, Canva,
+HeyGen, el compositor y el visor de Instagram, y Readwise), y Video, Image, Copywriting y AI Avatar llevan arriba la barra
+de secciones de escritorio (`SeccionesTabM`, con la regla de la sidebar). Todo mirado a 390 px con Chrome headless.
+
+**El diagnóstico obvio era el equivocado: los dos editores NO necesitaban un editor nuevo.**
+- Image Editor: el motor (Doory) ya tiene su modo para pantallas chicas: por debajo de 1024 px las herramientas pasan a una
+  tira abajo y cada una abre como hoja (`EditorApp.tsx` → `compact`). Es el editor de Canva del celular. El teléfono monta
+  el MISMO editor por su única puerta (`ImageEditorCliente`) en una capa a pantalla completa (`_creacion/PantallaCompletaM`).
+- Video Editor: el motor (OpenCut) dibuja y EXPORTA en el teléfono (WebGL2; medido: un proyecto con dos clips, Dividir,
+  Deshacer y el MP4 exportado). El teléfono no copia lógica: cada herramienta INVOCA la acción del motor
+  (`invokeAction('split' | 'delete-selected' | 'undo' | 'redo' | 'toggle-play')`), que registra el `EditorProvider`. Lo
+  único propio es CÓMO se elige (la tira de clips, en vez de la línea de tiempo).
+- **La regla:** antes de escribir la versión del teléfono de una pantalla pesada, mirar si su motor ya tiene modo chico
+  (Doory) o si sus acciones se pueden invocar sin su UI (OpenCut). Una «versión reducida» propia duplica el motor.
+
+**Trampas del entorno (no dan error):**
+- **Una fila OCULTA de `SECCIONES_MAS` le BORRA a una tab `adminOnly` su fila de More.** `masCompleto` (Mobile 2) saltea
+  una tab que «tiene sección en el teléfono» pero que la regla del teléfono no muestra; y `puedeVerKey` no mira
+  `adminOnly`. AI Avatar va SIN fila: More la arma desde la sidebar por su ruta, y su cabecera la pone cada page con
+  `<CabeceraM>`. (Lo que se pierde: More no se marca en la barra de abajo, `destinoActivo`.) Copy Method sí tiene fila,
+  con el `superAdmin` de Mobile 2 (una herramienta de ADMIN_NAV: su page se cuida con `getSesionAdmin()`).
+- **Un `.module.css` en una pieza de `app/m/_ui` exportada por el ÍNDICE tumba tests de node** (tests/m-offer: «Unexpected
+  token '.'»): el índice lo importan tests que no cargan CSS. `BotonFlotanteM` se importa por su ruta, y la barra de
+  secciones lleva sus clases en m.css (tests/m-superadmin importa `seccionesDeTabM`).
+- **Dos agentes hicieron la MISMA barra de secciones el mismo día** (Mobile 2 para Automations, éste para Video, Image,
+  Copywriting y AI Avatar), con el mismo nombre de archivo y otra API. Quedó UNA: la API de Mobile 2
+  (`<SeccionesTabM tab activa vista>`, `seccionesDeTabM`) con el dibujo de ésta (`BarraSeccionesM`: se desliza, «pronto» y
+  centra la elegida).
+- **`next build --debug-build-paths` con `[param]` en la ruta no compila esa página y no avisa**: los corchetes son una
+  clase de caracteres del glob. Se pide la carpeta (`app/m/video-editor/**`). Después, el parche de `dynamicRoutes` de
+  siempre (receta en el relevo).
+- **El reproductor de escritorio no entra en 390 px**: su fila de abajo (HH:MM:SS:FF + cuatro menús) se pisaba con ▶. El
+  teléfono la esconde por sus clases de Tailwind (`video-editor.css`) y tests/m-creacion falla si el motor las cambia.
+- **Una barra que se desliza abre en su comienzo**: en Image › Carousels y Copywriting › Stories (la cuarta) la sección que
+  se miraba quedaba afuera, sin nada que dijera dónde se estaba. `SeccionesTabM` la centra al montar.
+- **Ver el Image Editor sin tocar la base**: Chrome con `Fetch.enable` sobre `*/api/image-editor/*` y la respuesta del
+  diseño armada a mano (y un `{ ok: true }` a cada PATCH). El ws9 es sólo para leer y no tiene diseños.
+- **Los proyectos del Video Editor son de CADA aparato** (IndexedDB/OPFS, por negocio): los del teléfono no aparecen en la
+  computadora ni al revés. No es un bug del teléfono; lo dice la fila «En la computadora» del inicio.
+- **Dos agentes hicieron las «Coming soon»**: Mobile 2 con `/m/pronto/<key>` (se deriva de nav.ts) y éste con una carpeta
+  por tab. Quedó la de Mobile 2; antes de sumar pantallas de una lista compartida, mergear `origin/integracion`.
+- Lo que el teléfono reusa de una pantalla `'use client'` de escritorio se MUDÓ a un módulo puro y escritorio lo importa:
+  el texto de «Copiar» de Stories (`app/stories/texto.ts`) y de Carousels (`app/carousels/pieza.ts`).
+
+**SIN HACER (con su archivo):**
+- AI Avatar: escritorio todavía filma con su copia del lazo (CrearVideo en app/ai-avatar/AiAvatarCliente.tsx); que use
+  `app/ai-avatar/filmar.ts` es del chat «AI Avatar». Generar un look o un video desde el teléfono no se probó (pide el
+  puente vivo y gasta); las tomas se filman mientras la pantalla esté abierta.
+- Video Editor del teléfono (app/m/video-editor): sin línea de tiempo, texto, audio, efectos, «Relación» ni «Editar con
+  IA»; exporta sólo MP4 en alta. «Guardar en el teléfono» (`navigator.share`) no se probó en un iPhone.
+- Image Editor del teléfono: crea con los seis tamaños de la API (los demás y el personalizado, en la computadora); los
+  gestos de fabric con el dedo no se probaron en un teléfono.
+- Reels, Stories y Carousels: generar no se probó (gasta IA del negocio); Stories y Carousels guardan la sesión en la
+  pantalla, como escritorio.
+- More no se marca en la barra en AI Avatar (no tiene fila: ver arriba).
+- Nada se vio en un teléfono de verdad.
+
+**Vive en:** lib/movil-creacion.ts (rutas y filas) · app/m/_creacion/ (`secciones.ts`, `escritor.tsx`,
+`PantallaCompletaM.tsx`) · app/m/_ui/SeccionesTabM.tsx y BotonFlotanteM.tsx · app/m/{video-editor, image-editor,
+ai-avatar, reels, stories, carousels, admin/copywriting} · tests/m-creacion.test.ts.
+*17/10/2026, claude4 (chat «Mobile 1: tabs de creación»).*
 ## El CRM y el Plan del teléfono rediseñados copiando Pipedrive, HubSpot, Todoist y Linear (17/10/2026)
 
 Pedido de Martín (17/10, 12:56, por el Centro de Operaciones): «rediseña las actuales de CRM, Plan, etc… Siempre copia

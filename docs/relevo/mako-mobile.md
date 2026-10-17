@@ -3,6 +3,38 @@
 <sub>Escrito por el chat «MaKo Mobile» (cuenta 3) el 11/10/2026 a las 15:00, al cruzar el 85% de uso
 semanal. Material de primera mano: lo hizo este chat.</sub>
 
+## 17/10/2026 (claude4, «Mobile 1») — LAS TABS DE CREACIÓN EN EL TELÉFONO
+
+Pedido de Martín (17/10, 12:56, desde el Centro): «Implementa completamente MaKo Mobile en todas las tabs… Siempre copia
+de otras apps que ya lo hacen bien». Tres agentes en paralelo; éste, las tabs de creación. Rama `mobile-creacion-1710`
+(C:/dev/wt-mobile), con `origin/integracion` (Mobile 2) mergeada; el Cerebro integra y pushea.
+
+**Hecho (cada una, la misma ruta, el mismo motor y los mismos datos que escritorio):**
+- Video Editor (CapCut del celular): inicio con «Nuevo proyecto» desde la galería y la lista de proyectos; el editor a
+  pantalla completa con el reproductor del motor, ▶ y cabezal, la tira de clips, Dividir · Eliminar · Deshacer · Rehacer
+  y Exportar (MP4) con «Guardar en el teléfono».
+- Image Editor (Canva del celular): inicio con diseños recientes, buscador y el «+» con seis tamaños; el diseño se abre en
+  el MISMO editor de escritorio, que ya tenía su modo de pantalla chica.
+- AI Avatar (HeyGen): Create video · Avatars · Voices · Templates, sólo para el super admin; generar pide el toque y
+  muestra que gasta créditos de Flow.
+- Reels (compositor de Instagram), Stories (visor de historias de Instagram), Carousels (post de carrusel de Instagram) y
+  Copy Method (swipe file de Readwise).
+- La barra de secciones de escritorio en Video, Image, Copywriting y AI Avatar; Image es fila de More.
+- Las «Coming soon» son de Mobile 2 (`/m/pronto/<key>`).
+
+**Mirado a 390 px** (Chrome headless con UA de iPhone contra `next start`, ws9 sólo leyendo): todas, sin errores de JS ni
+desborde; el Video Editor de punta a punta (proyecto con dos clips, dividir, deshacer, exportar) y el Image Editor con su
+API simulada. Receta nueva: `--debug-build-paths` con la CARPETA de una página `[param]` (`app/m/video-editor/**`), no
+su ruta con corchetes; y el script de Chrome que intercepta `/api/image-editor/*` (docs/hallazgos-mobile.md).
+
+**Lo que falta, en orden:**
+1. Mirarlo en un teléfono de verdad: el Video Editor (que dibuje y exporte en Safari de iOS, y «Guardar en el teléfono»),
+   el Image Editor (los gestos con el dedo) y el visor de Stories.
+2. AI Avatar: que escritorio filme con `app/ai-avatar/filmar.ts` (hoy tiene su copia en AiAvatarCliente.tsx; es del chat
+   «AI Avatar»), y probar generar un look desde el teléfono con el puente vivo.
+3. More no se marca en la barra de abajo en AI Avatar (no tiene fila en SECCIONES_MAS a propósito:
+   docs/hallazgos-mobile.md). Lo decide quien tenga More (Mobile 2).
+4. Video Editor del teléfono sin texto, audio, efectos, «Relación» ni «Editar con IA» (app/m/video-editor/EditorVideoM.tsx).
 ## 17/10/2026 (claude4) — REDISEÑO del CRM y el Plan copiando Pipedrive, HubSpot, Todoist y Linear
 
 Pedido de Martín (17/10, 12:56): «Implementa completamente MaKo Mobile en todas las tabs... Y rediseña las actuales de

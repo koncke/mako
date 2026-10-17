@@ -1,0 +1,15 @@
+/* El «+» flotante (BotonFlotanteM.tsx): las medidas del de app/m/calendario/calendario.css. Sólo tokens. */
+.fab {
+  position: fixed; z-index: 38;
+  right: calc(16px + env(safe-area-inset-right, 0px)); bottom: calc(var(--m-abajo, 0px) + 16px);
+  display: grid; place-items: center; width: 56px; height: 56px; padding: 0;
+  border: 0; border-radius: 18px; background: var(--primary); color: var(--on-primary); cursor: pointer;
+  box-shadow: 0 8px 22px color-mix(in srgb, var(--primary) 35%, transparent);
+  transition: transform var(--dur-press) var(--ease-out);
+  -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+}
+.fab:active { transform: scale(.95); }
+.fab:disabled { opacity: .5; }
+.fab:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--bg), 0 0 0 5px var(--primary); }
+.hueco { height: 72px; }
+@media (prefers-reduced-motion: reduce) { .fab { transition: none; } }
