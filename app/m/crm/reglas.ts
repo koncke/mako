@@ -387,3 +387,69 @@ export function lineaActividad(campo: string, valorNuevo: string | null, etiquet
 export function etapaEnTablero(stage: string, keys: readonly string[]): string {
   return keys.includes(stage) ? stage : (keys[0] ?? stage);
 }
+
+// ── El rediseño del 17/10/2026: la fila del tablero y la barra de la ficha (copiadas de Pipedrive) ──────────
+
+/**
+ * La señal a la derecha de una fila del tablero. COPIADA DEL INDICADOR DE ACTIVIDAD DE PIPEDRIVE en el teléfono
+ * (App Store, «Progress your deals along a sales pipeline», mirado el 17/10/2026): un punto verde = hay algo
+ * agendado; rojo = algo venció; sin punto = nada en curso, y al lado lo que hace de «1d».
+ *
+ * ⚠️ SE ALIMENTA SÓLO CON LO QUE YA DICE EL PIE DE LA TARJETA DE ESCRITORIO (CrmBoard): la reunión agendada
+ * (`fechaJ1`, la de la R1 o la agenda) y el plazo de la Nutrición manual («Vence»/«Venció», rojo si pasó y el lead
+ * sigue abierto). Pipedrive pinta además un triángulo amarillo «sin actividad planificada»: acá NO, porque escritorio
+ * no tiene esa alarma y Mauricio abandonaba el CRM cuando todo le reclamaba algo (crm-guardar-nunca-bloquea).
+ * Una reunión que ya pasó no es «agendado»: la fila vuelve a decir cuándo llegó el lead.
+ */
+export type SenalTarjeta = {
+  tono: 'verde' | 'rojo' | null;
+  /** Corto: «10:30», «mañana», «sáb», «12 oct». */
+  texto: string;
+  /** Para el nombre accesible: «reunión mañana», «venció 12 oct». null = es cuándo llegó. */
+  dice: string | null;
+};
+
+export function senalDeTarjeta(
+  t: { reunionISO: string | null; manualDeadline: string | null; enManual: boolean; abierto: boolean; creadoISO: string | null },
+  ahoraMs: number, tz: string, hoyISO: string,
+): SenalTarjeta {
+  if (t.enManual && t.manualDeadline) {
+    const dia = t.manualDeadline.slice(0, 10);
+    const vencida = t.abierto && dia < hoyISO;
+    const texto = diaCorto(dia, hoyISO);
+    return { tono: vencida ? 'rojo' : null, texto, dice: `${vencida ? 'venció' : 'vence'} ${texto}` };
+  }
+  const r = t.reunionISO ? Date.parse(t.reunionISO) : NaN;
+  if (t.abierto && Number.isFinite(r) && r >= ahoraMs && t.reunionISO) {
+    const dia = diaEnTz(t.reunionISO, tz);
+    const texto = dia === hoyISO ? (horaEnTz(t.reunionISO, tz) ?? 'hoy') : diaCorto(dia, hoyISO);
+    return { tono: 'verde', texto, dice: `reunión ${dia === hoyISO ? 'hoy ' : ''}${texto}` };
+  }
+  return { tono: null, texto: cuandoEnLista(t.creadoISO, tz, hoyISO), dice: null };
+}
+
+/** Un día corto que mira también hacia ADELANTE («mañana»); hacia atrás, el de la lista (`diaRelativo`). */
+function diaCorto(dia: string | null, hoyISO: string): string {
+  if (!dia) return '';
+  if (dia === masDias(hoyISO, 1)) return 'mañana';
+  return diaRelativo(dia, hoyISO);
+}
+
+/**
+ * La barra de avance de la ficha, COPIADA DE LA FICHA DEL DEAL DE PIPEDRIVE en el teléfono («‹ Contact Made ›» con
+ * una rayita por etapa, llenas hasta la actual). Las rayitas son las etapas del PIPELINE del funnel (la banda
+ * `pipeline`, en el orden de sus columnas); Nutrición y las salidas no son un paso del camino: con el lead ahí, la
+ * barra va vacía (`hasta: null`) y el rótulo dice dónde está.
+ */
+export function progresoEnFunnel(
+  stages: ReadonlyArray<{ key: string; band?: string | null; col?: number | null }>,
+  etapa: string | null,
+): { total: number; hasta: number | null } {
+  const camino = stages
+    .map((s, i) => ({ s, i }))
+    .filter(({ s }) => (s.band ?? 'pipeline') === 'pipeline')
+    .sort((a, b) => ((a.s.col ?? a.i) - (b.s.col ?? b.i)) || (a.i - b.i))
+    .map(({ s }) => s.key);
+  const i = etapa ? camino.indexOf(etapa) : -1;
+  return { total: camino.length, hasta: i < 0 ? null : i };
+}

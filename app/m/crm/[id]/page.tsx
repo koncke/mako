@@ -13,6 +13,11 @@
 // tiene versión de teléfono (app/m/crm/ficha-bloques.ts). Y el encabezado suma «N sin marcar», el de la
 // cabecera de escritorio, con el mismo número. Las dos cosas las lee `fichaV2` (../datos.ts).
 //
+// REDISEÑO DEL 17/10/2026 (copiado de las capturas de la App Store de HubSpot y Pipedrive en el teléfono): el
+// encabezado va A LA IZQUIERDA y compacto —avatar, nombre y, debajo, la empresa—, como el registro de HubSpot
+// («Greta Nair / Contact | Project Manager») y el deal de Pipedrive («Mindbend Deal / $1,800»), en vez del avatar de
+// 88 centrado que se comía media pantalla. La etapa y el funnel bajan a la barra de avance de FichaLead (Pipedrive).
+//
 // ⚠️ maxDuration = 60: el sheet de agendar llama a reagendarReunionAction y a reservarR2Action,
 // y las server actions heredan el techo de la PÁGINA que las monta. Reagendar puede tardar ~28 s
 // (moverEvento en Google): sin esto la plataforma corta con la fila ya guardada y la pantalla dice
@@ -38,24 +43,23 @@ export default async function FichaLeadMovil({ params }: { params: Promise<{ id:
     return <PantallaM><VacioM frase="Ese lead no está en esta cuenta." accion={{ rotulo: 'Volver al CRM', href: '/m/crm' }} /></PantallaM>;
   }
   const { f, sinMarcar } = d;
-  const casa = f.casa ?? f.productos[0] ?? null;
-  const otros = f.productos.length - 1;
 
   return (
     <PantallaM>
       <CabeceraM titulo={f.nombre} grande={false} />
-      <header className="m-crm-ficha" data-m-titulo-grande="">
-        <AvatarM nombre={f.nombre} email={f.email} tam="xl" />
-        <h1 className="m-crm-ficha__nombre">{f.nombre}</h1>
-        {(casa || sinMarcar) && (
-          <div className="m-crm-ficha__sub">
-            {casa && <PildoraM tono="info">{casa.etapaLabel ?? 'Sin etapa'}</PildoraM>}
-            {casa && <span>{casa.nombre}{otros > 0 ? ` +${otros}` : ''}</span>}
-            {/* «N sin marcar» de la cabecera de escritorio, con el MISMO número (lib/datos-del-lead.ts). Sólo se
-                lee: completar los datos es «en la computadora», como editar los campos. */}
-            {sinMarcar ? <PildoraM tono="warn">{`${sinMarcar} sin marcar`}</PildoraM> : null}
-          </div>
-        )}
+      <header className="m-crm-cab" data-m-titulo-grande="">
+        <AvatarM nombre={f.nombre} email={f.email} tam="lg" />
+        <div className="m-crm-cab__txt">
+          <h1 className="m-crm-cab__nombre">{f.nombre}</h1>
+          {(f.empresa || sinMarcar) ? (
+            <div className="m-crm-cab__sub">
+              {f.empresa && <span className="m-crm-cab__emp">{f.empresa}</span>}
+              {/* «N sin marcar» de la cabecera de escritorio, con el MISMO número (lib/datos-del-lead.ts). Sólo se
+                  lee: completar los datos es «en la computadora», como editar los campos. */}
+              {sinMarcar ? <PildoraM tono="warn">{`${sinMarcar} sin marcar`}</PildoraM> : null}
+            </div>
+          ) : null}
+        </div>
       </header>
 
       <FichaLead
@@ -83,6 +87,7 @@ export default async function FichaLeadMovil({ params }: { params: Promise<{ id:
         respuestas={f.respuestas}
         saldo={d.saldo}
         resumen={d.resumen}
+        progreso={d.progreso}
         piezas={piezasQueSeDibujan(d.piezas, { proxima: d.proxima, llegoPor: d.llegoPor, respuestas: f.respuestas.length, llamada: !!f.llamada, saldo: d.saldo, resumen: d.resumen }).map((x) => x.pieza)}
       />
     </PantallaM>
