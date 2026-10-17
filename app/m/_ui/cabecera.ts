@@ -55,6 +55,8 @@ const segmentos = (p: string) => p.split('/').filter(Boolean).length;
 
 /** El chat de WhatsApp de un lead: `/m/crm/<id>/chat`. */
 const CHAT_LEAD = /^\/m\/crm\/([^/]+)\/chat$/;
+/** Una conversación de la pestaña Chats: `/m/chats/<clave>`. */
+const CHAT_DE_CHATS = /^\/m\/chats\/[^/]+$/;
 
 /**
  * ¿Es una pantalla de trabajo por defecto? El chat de MaKo (y sus subpantallas), el chat de Offer,
@@ -72,7 +74,9 @@ export function esTrabajo(pathname: string | null | undefined): boolean {
     // Offer (15/10/2026): en escritorio la tab ES un chat con MaKo por funnel, y en el prototipo v3 su
     // pantalla es la del chat de MaKo (el funnel arriba, el hilo y el composer en la franja del pulgar),
     // sin título grande. Como el chat de MaKo: de trabajo desde el HTML del server.
-    || dentro(p, '/m/offer');
+    || dentro(p, '/m/offer')
+    // UNA conversación de Chats (17/10/2026, /m/chats/<clave>): un chat, como el del lead. La lista no.
+    || CHAT_DE_CHATS.test(p);
 }
 
 /** El lugar de la barra cuya raíz es esta ruta (o null). */

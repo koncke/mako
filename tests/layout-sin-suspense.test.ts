@@ -97,6 +97,7 @@ const LOADING_PERMITIDOS = [
   'app/m/crm/[id]/loading.tsx',
   'app/m/crm/[id]/chat/loading.tsx',
   'app/m/chats/loading.tsx',
+  'app/m/chats/[clave]/loading.tsx',
   'app/m/mas/loading.tsx',
   'app/m/inbox/loading.tsx',
   'app/m/cs/loading.tsx',

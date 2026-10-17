@@ -1,2 +1,131 @@
-.m-chats-lista { margin-top: 14px; }
+/* /m/chats — la pestaña Chats y una conversación (17/10/2026). Todo con el prefijo de la carpeta. */
+.m-chats-lista { margin-top: 10px; }
 .m-chats-skel-seg { height: 44px; border-radius: var(--r-md); }
+
+/* El buscador (como el del CRM del teléfono). */
+.m-chats-buscar {
+  display: flex; align-items: center; gap: 8px;
+  min-height: 44px; padding: 0 0 0 12px; border-radius: 12px;
+  background: color-mix(in srgb, var(--ink) 7%, var(--bg)); color: var(--faint);
+}
+.m-chats-buscar__ico { flex: none; display: grid; place-items: center; }
+.m-chats-buscar input {
+  flex: 1; min-width: 0; min-height: 44px; border: 0; background: none; padding: 0;
+  font: inherit; font-size: 16px; color: var(--ink); outline: none; -webkit-appearance: none; appearance: none;
+}
+.m-chats-buscar input::placeholder { color: var(--faint); }
+.m-chats-buscar input::-webkit-search-cancel-button { -webkit-appearance: none; appearance: none; }
+.m-chats-buscar:focus-within { box-shadow: var(--focus-ring); }
+.m-chats-buscar__limpiar {
+  flex: none; width: 44px; height: 44px; display: grid; place-items: center;
+  border: 0; background: none; color: var(--faint); border-radius: 12px; padding: 0;
+}
+
+/* El riel de bandejas: cada una mide su nombre y la fila se desliza de costado. */
+.m-chats-bandejas {
+  display: flex; gap: 8px; margin: 12px calc(-1 * var(--m-gutter)) 0; padding: 0 var(--m-gutter);
+  overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; touch-action: pan-x pan-y;
+}
+.m-chats-bandejas::-webkit-scrollbar { display: none; }
+.m-chats-bandeja {
+  flex: none; display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 14px;
+  border: 1px solid var(--border); border-radius: 999px; background: var(--surface); color: var(--ink);
+  font: inherit; font-size: var(--fs-sm); font-weight: 500; white-space: nowrap;
+  touch-action: manipulation; -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none;
+}
+.m-chats-bandeja[aria-selected="true"] { background: var(--ink); border-color: var(--ink); color: var(--bg); }
+.m-chats-bandeja__n {
+  min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px; display: inline-grid; place-items: center;
+  font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums;
+  background: var(--surface-2); color: var(--dim);
+}
+.m-chats-bandeja__n[data-nuevos] { background: var(--primary); color: var(--on-primary); }
+.m-chats-bandeja[aria-selected="true"] .m-chats-bandeja__n:not([data-nuevos]) { background: color-mix(in srgb, var(--bg) 22%, transparent); color: var(--bg); }
+
+/* «Abiertas, Más recientes ⌄» y «Sin responder». */
+.m-chats-filtro { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 6px; }
+.m-chats-filtro__boton, .m-chats-filtro__sin {
+  display: inline-flex; align-items: center; gap: 4px; min-height: 44px; padding: 0 4px;
+  border: 0; background: none; color: var(--dim); font: inherit; font-size: var(--fs-sm); font-weight: 500;
+  touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+}
+.m-chats-filtro__boton { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.m-chats-filtro__boton[aria-pressed="true"] { color: var(--primary-strong); }
+.m-chats-filtro__sin { flex: none; padding: 0 12px; border-radius: 999px; }
+.m-chats-filtro__sin[aria-pressed="true"] { background: var(--primary-bg); color: var(--primary-strong); }
+
+[data-m] .m-chats-aviso { margin: 10px 4px 0; font-size: var(--fs-meta); color: var(--dim); }
+.m-chats-check { display: grid; place-items: center; color: var(--primary-strong); }
+
+/* La fila: el avatar con la insignia del canal del último mensaje (como respond.io y escritorio). */
+.m-chats-av { position: relative; flex: none; display: inline-grid; }
+.m-chats-insignia {
+  position: absolute; right: -3px; bottom: -3px; width: 16px; height: 16px; padding: 2px;
+  border-radius: 50%; background: var(--surface); display: grid; place-items: center;
+}
+.m-chats-nombre--nuevo { font-weight: 700; }
+.m-chats-riel { display: inline-flex; align-items: center; gap: 6px; }
+.m-chats-riel[data-nuevo] { color: var(--primary-strong); font-weight: 600; }
+.m-chats-punto { width: 8px; height: 8px; border-radius: 50%; background: var(--primary); }
+.m-chats-mas {
+  display: block; width: 100%; min-height: 44px; margin-top: 10px; border: 0; border-radius: 12px;
+  background: none; color: var(--primary-strong); font: inherit; font-weight: 600;
+}
+
+/* ── Una conversación ─────────────────────────────────────────────────────── */
+.m-cabecera__accion.m-chats-estado { width: auto; padding: 0 12px; font-size: var(--fs-sm); font-weight: 600; color: var(--primary-strong); }
+.m-chats-hilo-cabeza {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; margin: 0 4px;
+  font-size: var(--fs-meta); color: var(--dim);
+}
+.m-chats-hilo-cabeza > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.m-chats-hilo-cabeza .m-lnk { flex: none; min-height: 44px; display: inline-flex; align-items: center; }
+.m-chats-hilo { display: flex; flex-direction: column; gap: 8px; padding: 4px 0 calc(130px + env(safe-area-inset-bottom, 0px)); }
+.m-chats-hilo__dia { align-self: center; margin: 10px 0 2px; font-size: var(--fs-meta); color: var(--dim); }
+.m-chats-burbuja {
+  max-width: 85%; padding: 10px 13px 6px; border-radius: 14px; display: flex; flex-direction: column; gap: 6px;
+  font-size: var(--fs-md); line-height: 1.45; color: var(--ink); white-space: pre-wrap; overflow-wrap: anywhere;
+}
+.m-chats-burbuja--suya { align-self: flex-start; background: var(--surface); border: 1px solid var(--border); border-top-left-radius: 4px; }
+.m-chats-burbuja--mia { align-self: flex-end; background: var(--primary-bg); border-top-right-radius: 4px; }
+.m-chats-burbuja__asunto { font-weight: 600; }
+.m-chats-burbuja__img { display: block; max-width: 100%; max-height: 320px; border-radius: 10px; }
+.m-chats-burbuja__audio { width: 240px; max-width: 100%; }
+.m-chats-burbuja__archivo { color: var(--primary-strong); font-weight: 500; text-decoration: underline; }
+.m-chats-burbuja__hora { display: block; text-align: right; font-size: 12.5px; color: var(--dim); font-variant-numeric: tabular-nums; }
+.m-chats-nota {
+  align-self: stretch; padding: 10px 13px 6px; border-radius: 12px; display: flex; flex-direction: column; gap: 4px;
+  background: color-mix(in srgb, var(--warn) 12%, var(--bg)); font-size: var(--fs-sm); line-height: 1.45;
+  white-space: pre-wrap; overflow-wrap: anywhere; color: var(--ink);
+}
+.m-chats-nota__autor { font-size: var(--fs-meta); font-weight: 600; color: var(--dim); }
+[data-m] .m-chats-evento { align-self: center; max-width: 90%; margin: 2px 0; text-align: center; font-size: var(--fs-meta); color: var(--dim); }
+
+/* El composer: pegado abajo (va por portal a #m-pie); su fondo cubre el área segura. */
+.m-chats-composer {
+  position: fixed; z-index: 30; left: 0; right: 0; bottom: 0;
+  padding: 8px calc(var(--m-gutter) + env(safe-area-inset-right, 0px)) calc(8px + var(--m-abajo, env(safe-area-inset-bottom, 0px))) calc(var(--m-gutter) + env(safe-area-inset-left, 0px));
+  background: var(--bg); border-top: 1px solid var(--border);
+}
+.m-chats-composer > * { max-width: 560px; margin-left: auto; margin-right: auto; }
+[data-m] .m-chats-error, .m-chats-composer .m-chats-error { margin: 0 0 8px; font-size: var(--fs-sm); line-height: 1.4; color: var(--ink); }
+.m-chats-canal { display: flex; align-items: center; gap: 8px; min-height: 36px; margin-bottom: 6px; font-size: var(--fs-sm); color: var(--dim); }
+.m-chats-canal select {
+  flex: 1; min-width: 0; min-height: 36px; border: 0; background: none; color: var(--ink);
+  font: inherit; font-size: 16px; font-weight: 500;
+}
+.m-chats-composer__fila { display: flex; align-items: flex-end; gap: 8px; }
+.m-chats-composer textarea {
+  flex: 1; min-width: 0; box-sizing: border-box; min-height: 44px; max-height: 140px;
+  padding: 10px 16px; border-radius: 22px; border: 1px solid var(--border-strong);
+  background: var(--surface); color: var(--ink); font: inherit; font-size: 16px; line-height: 1.4; resize: none;
+}
+.m-chats-composer textarea:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.m-chats-enviar {
+  flex: none; width: 44px; height: 44px; display: grid; place-items: center; padding: 0;
+  border: 0; border-radius: 999px; background: var(--primary); color: var(--on-primary);
+  touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+}
+.m-chats-enviar:disabled { opacity: .45; }
+.m-chats-enviar:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.m-chats-spin { color: var(--on-primary); }

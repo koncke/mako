@@ -1,96 +1,70 @@
 // =============================================================================
-// /m/chats — lo que LEE la pestaña Chats (server), tanda 1 (14/10/2026)
+// /m/chats — lo que LEE la pestaña Chats del teléfono (server), 17/10/2026
 // =============================================================================
-// La pestaña Chats del teléfono (v3, aprobada por Martín) junta TODOS los chats integrados. Los
-// chats unificados de escritorio (WhatsApp + Instagram + Messenger en una bandeja) todavía no están
-// en main, así que esta tanda lee lo que sí está: las conversaciones de WhatsApp, con la MISMA
-// lectura de la bandeja de escritorio (`getConversacionesNoOficial`, lib/evolution-mensajes.ts) y
-// el mismo criterio de «sin responder» que el CRM del teléfono (el último mensaje es del lead).
-// Cuando lleguen los chats unificados, la lectura cambia acá y la pantalla no.
+// La MISMA bandeja unificada de escritorio (`listarChats`, lib/chats.ts, la que sirve GET /api/chats):
+// WhatsApp de todas las líneas, Instagram, Messenger y Email, una fila por contacto, con su estado, sus
+// no leídos (de quien mira) y su borrador. Hasta el 17/10/2026 el teléfono leía sólo WhatsApp con lead.
 //
-// Sólo las conversaciones con lead: el hilo del teléfono es el del lead (/m/crm/<id>/chat). Las
-// otras se cuentan y van «en la computadora».
-//
-// ⚠️ ACOTADA, NO EL ESPEJO ENTERO (medido el 14/10/2026). La bandeja de escritorio barre hasta
-// 20 páginas de wa_mensajes EN SERIE: en el ws1 son 19 páginas y 5,5-7,8 s de servidor (los
-// mismos que hacían tardar 8-12 s al CRM viejo del teléfono). Acá se leen las últimas
-// `PAGINAS_RECIENTES` páginas (los mensajes más nuevos) sin la agenda de contactos, y el nombre
-// sale de los leads de ESAS filas (una consulta con `.in`), no de la cartera entera (1,45 MB).
-// Lo que cambia: una conversación cuyo último mensaje quedó más atrás de esos 3000 no aparece,
-// y «Sin responder» cuenta sobre las recientes.
+// ⚠️ ACOTADA, COMO ANTES (medido el 14/10/2026): la bandeja de escritorio barre hasta 20 páginas de
+// wa_mensajes EN SERIE por línea (5,5-7,8 s de servidor en el ws1). El teléfono lee las últimas
+// `PAGINAS_WHATSAPP_M` páginas: una conversación cuyo último mensaje quedó más atrás no aparece acá (sí
+// en la computadora). Y viajan las `TOPE_FILAS_M` más recientes; los contadores de las bandejas se
+// cuentan sobre TODAS las leídas, antes del tope.
 // =============================================================================
 
 import 'server-only';
-import { getTenantDb, getWorkspaceActual } from '@/lib/workspace';
+import { listarChats, puertaChats, type YoChats } from '@/lib/chats';
+import { contarBandejas, type ConteosBandeja } from '@/lib/chats-reglas';
+import type { ChatResumen, EtapaChat } from '@/lib/chats-tipos';
 import { tzDeWorkspace, TZ_DEFAULT, hoyEnWorkspace } from '@/lib/timezone';
-import { rotuloSinTexto } from '@/lib/crm-movil';
-import { getConversacionesNoOficial } from '@/lib/evolution-mensajes';
 import { haceCuanto } from '@/app/m/crm/reglas';
+import { PAGINAS_WHATSAPP_M, TOPE_FILAS_M, canalesPresentes, segundaLinea } from './modelo';
 
-/** Cuántos chats viajan al teléfono. Lo demás, en la bandeja de la computadora. */
-const TOPE = 40;
-/** Cuántas páginas de 1000 mensajes (los más nuevos) se leen. Ver la cabecera. */
-const PAGINAS_RECIENTES = 3;
+/** Una fila del teléfono: la conversación tal cual la arma escritorio, y lo que se dibuja ya calculado. */
+export type FilaChatM = { chat: ChatResumen; segunda: string; riel: string };
 
-export type FilaChatM = {
-  leadId: number;
-  nombre: string;
-  /** El último mensaje, con «Tú: » si fue nuestro. */
-  ultimo: string;
-  riel: string;
-  sinResponder: boolean;
+export type ChatsM = {
+  filas: FilaChatM[];
+  conteos: ConteosBandeja;
+  /** Quien mira: «Míos» se decide por su nombre (el CRM guarda nombres en setter/closer). */
+  yo: YoChats;
+  etapas: EtapaChat[];
+  canales: ReturnType<typeof canalesPresentes>;
+  /** Las fuentes que NO se pudieron leer (lib/chats.ts): «no pude leer» no es «no hay chats». */
+  fallas: string[];
+  /** Cuántas conversaciones quedaron en la computadora por el tope. */
+  fuera: number;
 };
 
-export type ListaChatsM = { filas: FilaChatM[]; sinResponder: number; sinLead: number };
-
-/** null = no se pudo leer (distinto de «no hay chats»). */
-export async function listaChats(): Promise<ListaChatsM | null> {
+/** null = no hay acceso o no se pudo leer nada (distinto de «no hay chats»). */
+export async function leerChatsM(): Promise<ChatsM | null> {
+  const puerta = await puertaChats();
+  if (!puerta.ok) return null;
   try {
-    const ws = await getWorkspaceActual();
-    const [tz, hoy, convs] = await Promise.all([
-      ws != null ? tzDeWorkspace(ws).catch(() => TZ_DEFAULT) : Promise.resolve(TZ_DEFAULT),
+    const [lista, tz, hoy] = await Promise.all([
+      listarChats({ usuario: puerta.yo, paginasWhatsapp: PAGINAS_WHATSAPP_M }),
+      tzDeWorkspace(puerta.ws).catch(() => TZ_DEFAULT),
       hoyEnWorkspace(),
-      getConversacionesNoOficial(600, false, null, { paginas: PAGINAS_RECIENTES, conAgenda: false }),
     ]);
     const ahora = Date.now();
-    const vistos = new Set<number>();
-    const elegidas: typeof convs = [];
-    let sinLead = 0;
-    let sinResponder = 0;
-    // Vienen de la más reciente a la más vieja. Las de `total: 0` son los leads en Nutrición-Manual
-    // que la bandeja de escritorio suma SIN mensajes (para poder escribirles): acá no son un chat.
-    for (const c of convs) {
-      if (c.bloqueado || c.total === 0) continue;
-      if (c.leadId == null) { sinLead++; continue; }
-      if (vistos.has(c.leadId)) continue;
-      vistos.add(c.leadId);
-      if (c.ultimoEntrante) sinResponder++;
-      if (elegidas.length < TOPE) elegidas.push(c);
-    }
-    // El nombre del CRM de las que se dibujan, en UNA consulta chica.
-    const ids = elegidas.map((c) => c.leadId as number);
-    const nombres = new Map<number, string>();
-    if (ids.length) {
-      const db = await getTenantDb();
-      const { data } = await db.from('leads').select('id, nombre').in('id', ids);
-      for (const l of (data ?? []) as Array<{ id: number; nombre: string | null }>) {
-        const n = l.nombre?.trim();
-        if (n) nombres.set(l.id, n);
-      }
-    }
-    const filas = elegidas.map((c): FilaChatM => {
-      const texto = c.ultimoTexto?.trim() || rotuloSinTexto(c.ultimoTipo);
-      return {
-        leadId: c.leadId as number,
-        nombre: nombres.get(c.leadId as number) || c.nombre || 'Sin nombre',
-        ultimo: c.ultimoEntrante ? texto : `Tú: ${texto}`,
-        riel: haceCuanto(c.ultimaFecha, ahora, tz, hoy),
-        sinResponder: c.ultimoEntrante,
-      };
-    });
-    return { filas, sinResponder, sinLead };
+    const visibles = lista.chats.slice(0, TOPE_FILAS_M);
+    return {
+      filas: visibles.map((c): FilaChatM => ({ chat: c, segunda: segundaLinea(c), riel: c.ultimaFecha ? haceCuanto(c.ultimaFecha, ahora, tz, hoy) : '' })),
+      conteos: contarBandejas(lista.chats, puerta.yo),
+      yo: puerta.yo,
+      etapas: lista.etapas,
+      canales: canalesPresentes(lista.chats),
+      fallas: lista.fallas,
+      fuera: Math.max(0, lista.chats.length - visibles.length),
+    };
   } catch (e) {
     console.error('[m/chats] no se pudo leer:', e instanceof Error ? e.message : e);
     return null;
   }
+}
+
+/** Para resolver un link de WhatsApp (`?linea=&chat=`) contra lo que hay. */
+export async function chatsParaLink(): Promise<ChatResumen[]> {
+  const r = await leerChatsM();
+  return r ? r.filas.map((f) => f.chat) : [];
 }
