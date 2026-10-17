@@ -619,4 +619,21 @@ export const BITACORA: Hito[] = [
     archivos: ['lib/graficos-ia-edicion.ts', 'app/dashboard/ModosMako.tsx', 'app/dashboard/PanelEditarMako.tsx', 'app/dashboard/PanelAnalista.tsx', 'app/api/graficos/editar/route.ts', 'tests/dashboard-mako-modos.test.ts — probado rompiéndolo'],
     revisar: '/dashboard',
   },
+  {
+    fecha: '16 oct', hora: '—', chat: 'Cerebro', cuenta: 'claude4', actor: 'martin', tipo: 'prompt',
+    titulo: 'Un solo análisis de landing: el Dashboard y el Web Generator (#886)',
+    pedido: 'que lo que recién vimos en dashboard del template de landing se combine con esta funcionalidad del feedback de la estructura que te da Web Generator, que vivan ambos lugares',
+    puntos: ['De la revisión de MaKo del 16/10 (1:29:51). Lo repartió el Cerebro al chat Dashboard el 17/10; la mitad del Web Generator es de ese chat.'],
+  },
+  {
+    fecha: '17 oct', hora: '11:30', chat: 'Dashboard', sesion: 'local_ca08f72a-8eb5-4957-a8e0-2b5c7bcbd699', cuenta: 'claude4', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Del mapa de calor a «Analizar la estructura»',
+    puntos: [
+      'En la hoja Landing, el mapa de calor tiene «Analizar la estructura →»: abre en el Web Generator el diagnóstico de esa misma página, con sus comentarios por sección.',
+      'Así se ve lo que la gente hace en la página y, al lado, qué le falta.',
+      'Que el Web Generator muestre también las métricas de la página lo hace el chat del Web Generator.',
+    ],
+    archivos: ['lib/landing-estructura-enlace.ts', 'app/dashboard/MapaCalor.tsx', 'app/dashboard/graficos/registro.ts', 'tests/landing-estructura-enlace.test.ts — probado rompiéndolo'],
+    revisar: '/dashboard',
+  },
 ];
