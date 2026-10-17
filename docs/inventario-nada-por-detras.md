@@ -61,6 +61,12 @@ faltaba. 243 entradas crudas, 132 únicas por el lugar del envío. Las líneas c
   es el evento `curso_recordatorio` (fila #271). `flow-puente-ausente` es el evento `flow_puente_ausente` (fila #272). Quedan
   4 del lote 2: los dos del segundo motor (`store-flujo-*`) e `insistencias-drenar`, que son un cambio de arquitectura
   propio, y `voz-mako-caida-email`.
+- ⚠️ **`voz-mako-caida-email` NO se mudó todavía, a propósito:** es la red de seguridad de la propia MaKo (le escribe a
+  su equipo cuando su línea de voz se cae, por email porque el WhatsApp está caído), con TRES casos (se cayó, volvió, no
+  puedo comprobar). El camino del evento le haría perder dos cosas que hoy tiene: el destinatario fijo (`EMAILS_ALERTA_VOZ`
+  = equipo@hola-mako.com, además de los del negocio) y el tope de 30 s contra un Resend colgado (sin él, el cron no llega
+  a las alertas de Meta, que van después: lib/canal-vigilante.ts, `avisarPorEmail`). Mudarla pide primero esas dos cosas
+  en `enviarAvisoPorEmail` para un evento de la plataforma.
 
 ## El orden
 
