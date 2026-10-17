@@ -6577,3 +6577,20 @@ muestra, y el diagnóstico obvio (la RAM) es el equivocado: no es un rojo ni un 
 - **Cómo distinguirlos:** el vigía de RAM deja «0 bytes de salida»; un `MODULE_NOT_FOUND` deja unos cientos.
 
 *17/10/2026, chat «Automations» (claude4), al abrir C:/dev/wt-aut-pedidos para la rama de los pedidos sueltos.*
+
+## Los logs de producción de AYER se leen con `vercel logs --since/--until` (17/10/2026)
+
+**Síntoma:** «Crear con IA se quedó pensando» en una llamada de la noche anterior. En la base no había rastro del
+motivo: `anthropic_usage` anota cada respuesta que LLEGÓ (proveedor, tokens, hora), pero no por qué se descartó.
+
+**Lo que sirve:** la CLI nueva de Vercel lee logs de horas atrás, filtrados por ruta (medido: 8,5 h atrás, el 17/10):
+
+`npx --yes vercel@latest logs --scope mbustos-4239s-projects -p mako --since 2026-10-16T21:25:00Z --until 2026-10-16T21:35:00Z -q 'requestPath:"/api/chat-agent/secuencias/ia"' --json -n 100`
+
+- ⚠️ El proyecto se llama **`mako`** (`.vercel/project.json` del clon), no `dashboard-marketing`: con el nombre del
+  repo contesta `project_not_found`.
+- Trae lo que la función escribió por `console.error` (el `requestId` agrupa una corrida). La primera línea del
+  `--json` es un aviso de la CLI, no JSON.
+- Juntos, `anthropic_usage` (QUÉ contestó y cuándo) y el log (POR QUÉ no sirvió) reconstruyen una corrida de IA.
+
+*17/10/2026, chat «Automations» (claude4), tarjeta #847.*

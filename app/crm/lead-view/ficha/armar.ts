@@ -21,7 +21,7 @@
 import { bloqueDef, bloquesDelLugar, esTabFicha, TABS_FICHA, type Ancho, type BloqueDef, type BloqueId, type IdHoja, type LugarFicha, type TabFicha } from '@/lib/ficha/catalogo';
 import type { BloquePuesto, EstiloFicha } from '@/lib/ficha/config';
 import type { StepId } from '@/lib/stage-requirements';
-import { TEMA_BASE, paletaDe, plantillaDe, varsDeTema } from '@/lib/graficos-temas';
+import { TEMA_BASE, paletaDe, plantillaDe, temaPropio, varsDeTema } from '@/lib/graficos-temas';
 import type { LeadFullData } from '@/app/crm/actions';
 import type { ReglasBloque } from './tipos';
 
@@ -288,7 +288,9 @@ export function estiloDeFicha(e: EstiloFicha): { clases: string[]; vars: Record<
   let vars: Record<string, string> = {};
   const t = e.tema;
   const p = plantillaDe(t.plantilla);
-  const conTema = t.plantilla !== TEMA_BASE.plantilla || !!t.acento || !!t.fuente;
+  // `temaPropio` (lib/graficos-temas.ts) y no las tres de antes: un tema con SÓLO ajustes (las esquinas, la sombra…)
+  // también pinta las variables de la tarjeta (17/10/2026).
+  const conTema = temaPropio(t);
   if (conTema) {
     clases.push('fb--tema');
     vars = { ...varsDeTema(t) };

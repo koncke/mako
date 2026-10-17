@@ -38,7 +38,7 @@
 import type { StepId } from '../stage-requirements';
 import { DATOS_AVISABLES, NO_IGNORABLES, sanearApagados, sanearIds } from '../datos-aviso';
 import { seVe, type ResumenElegido } from '../resumen-ficha';
-import { sanearTema, TEMA_BASE, type TemaHoja } from '../graficos-temas';
+import { AJUSTES_TEMA, sanearTema, TEMA_BASE, type TemaHoja } from '../graficos-temas';
 import { esIconoMenu, type NombreIconoMenu } from '../../app/_ui/iconos-menu';
 import {
   bloqueDef, esAncho, esBloqueId, esIdHoja, esLugarFicha, esTabFicha, esDensidad, vaEnLugar, REDES, FUENTES_RESPUESTA, TABS_FICHA, NOMBRE_TAB,
@@ -649,6 +649,13 @@ export function sanearCambio(raw: unknown): CambioFicha | { error: string } {
       if ('plantilla' in t) tema.plantilla = String(t.plantilla ?? '');
       if ('acento' in t) tema.acento = t.acento == null ? null : String(t.acento);
       if ('fuente' in t) tema.fuente = t.fuente == null ? null : String(t.fuente);
+      // Los ajustes encima de la plantilla (fondo, esquinas, borde, sombra… del Dashboard, 17/10/2026). `undefined`,
+      // null o 'plantilla' = volver al de la plantilla; lo que no vale lo tira `sanearTema` al aplicarlo.
+      for (const a of AJUSTES_TEMA) {
+        if (!(a.id in t)) continue;
+        const v = t[a.id];
+        (tema as Record<string, unknown>)[a.id] = v == null || v === 'plantilla' ? undefined : String(v);
+      }
       return { op, tema };
     }
     case 'densidad':

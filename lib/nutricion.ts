@@ -82,6 +82,7 @@ import {
 } from '@/lib/flujo-grafo';
 import { OP_AVISAR, puedePisarFlujo } from '@/lib/flujo-legado';
 import { esperaQueAbra } from '@/lib/mako-tarjeta';
+import { usaEquipoContesto, contestoElEquipo, type TurnoDelGrupo } from '@/lib/equipo-contesto';
 import {
   indiceActual, siguienteIndice, resolverControl, necesitaHechos, alcanzablesDesde, esPrimerPaso, minutosAntesDeReunion,
   saleSolo, siguienteSin, siguienteCon, hechosDeLead, esTablaInexistente, mediaDeAdjunto, camposDelFlujo, pasoDeEntrada,
@@ -115,7 +116,7 @@ import { after } from 'next/server';
 // Un mensaje de WhatsApp con VARIAS partes (cuarta tanda, punto 15): el modelo, el guardado y la marca.
 import {
   partesExplicitas, partesAlGuardar, problemaDePartes, partesYaSalidas, marcaPartes, borradorDePartes,
-  pausaAntesDe, lineaDelPaso, lineaAlGuardar, type ParteMensaje,
+  pausaAntesDe, lineaDelPaso, lineaAlGuardar, sinVistaPrevia, vistaPreviaAlGuardar, type ParteMensaje,
 } from '@/lib/mensaje-partes';
 // Instagram y Messenger por Zernio (sexta tanda, parte «canales»): el canal de un paso al guardarlo y
 // UNA rama del envío (`enviarPasoSocial`). Lo demás del motor no cambia.
@@ -646,6 +647,47 @@ export async function vozDeAIStepQueFalta(pasos: readonly PasoGrafo[]): Promise<
   return vozQueFalta(pasos, { propia: !!v.clon, otras: (v.otras ?? []).map((o) => o.voiceId) });
 }
 
+/** El hecho `equipoContestoEnEsta` de una inscripción, sólo si el flujo lo pregunta (si no, nada: no se paga la lectura). */
+async function equipoDeLaInscripcion(pasos: readonly PasoGrafo[], inscripcionId: number): Promise<{ equipoContestoEnEsta?: boolean | null }> {
+  if (!usaEquipoContesto(pasos)) return {};
+  return {
+    equipoContestoEnEsta: await equipoContestoDesdeElAviso(inscripcionId).catch((e) => {
+      console.error(`[nutricion] equipo_contesto de la inscripción ${inscripcionId}: ${e instanceof Error ? e.message : String(e)}`);
+      return null;
+    }),
+  };
+}
+
+/**
+ * ¿ALGUIEN DEL GRUPO DE MAKO ESCRIBIÓ DESDE EL ÚLTIMO AVISO DE ESTA INSCRIPCIÓN? (17/10/2026, tarjeta #849, la condición
+ * «El equipo no contestó en el grupo»). El aviso es la última tarjeta MaKo que corrió para esta inscripción (su fila de
+ * `nutricion_envios`, `asunto: 'avisar_al_equipo'`, estado 'accion'); lo que escribe la gente del grupo queda en
+ * `mako_doer_conv` como `role: 'user'` (lib/mako-doer-in.ts). `null` = no se sabe: sin aviso todavía, sin grupo, o no se
+ * pudo leer. Una condición con «no sé» no se cumple, ni negada. Lo que se decide con las filas: `contestoElEquipo`.
+ * ⚠️ La fila del grupo se escribe al cerrar la ventana de 8 s del buffer (lib/mako-doer-buffer.ts): una respuesta de hace
+ * segundos puede no estar. Por eso va después de una espera, no pegada al aviso.
+ * ⚠️ Sólo queda lo que el grupo le pasa a MaKo: en modo 'ventana' (opt-in) un texto que no lo nombra se descarta antes
+ * de guardarse. Medido el 17/10: todos los grupos en 'libre' (el default).
+ */
+async function equipoContestoDesdeElAviso(inscripcionId: number): Promise<boolean | null> {
+  const db = await getTenantDb();
+  const ws = await getWorkspaceActual();
+  if (ws == null) return null;
+  const { data: env, error: eEnv } = await db.from('nutricion_envios').select('created_at')
+    .eq('inscripcion_id', inscripcionId).eq('asunto', OP_AVISAR).eq('estado', 'accion')
+    .order('created_at', { ascending: false }).limit(1).maybeSingle();
+  if (eEnv) throw new Error(eEnv.message);
+  const desde = (env as { created_at?: string } | null)?.created_at;
+  if (!desde) return null;
+  const { grupoJidEstricto } = await import('./mako-grupo');
+  const jid = await grupoJidEstricto(ws);
+  if (!jid) return null;
+  const { data: filas, error: eConv } = await db.from('mako_doer_conv').select('role, wa_message_id')
+    .eq('workspace_id', ws).eq('grupo_jid', jid).gt('created_at', desde).limit(200);
+  if (eConv) throw new Error(eConv.message);
+  return contestoElEquipo((filas ?? []) as TurnoDelGrupo[]);
+}
+
 /**
  * Prende o apaga una secuencia.
  *
@@ -987,6 +1029,8 @@ export async function setSecuenciaPasos(id: number, pasos: PasoSecuencia[], o?: 
         })(),
         ...partesAlGuardar(p, partesPrevias.get(idDe(flujo, i))),
         ...lineaAlGuardar(p, antes.find((q, j) => idDe(q, j) === idDe(flujo, i))),
+        // Los links sin la tarjeta (#869), con la misma regla que la línea.
+        ...vistaPreviaAlGuardar(p, antes.find((q, j) => idDe(q, j) === idDe(flujo, i))),
         // La cuenta de Instagram o Messenger de ESTA tarjeta (decimocuarta tanda), con la misma regla que la línea.
         ...cuentaAlGuardar(p, antes.find((q, j) => idDe(q, j) === idDe(flujo, i))),
       };
@@ -3483,6 +3527,8 @@ export type ResultadoProceso = {
 async function enviarPartesDelPaso(a: {
   partes: readonly ParteMensaje[]; desde: number; telefono: string; leadId: number; linea: string | null;
   vars: Record<string, string>;
+  /** Los links de los textos sin la tarjeta (`sinVistaPrevia` del paso, #869). */
+  sinVistaPrevia?: boolean;
 }): Promise<{ ok: boolean; salieron: number; error?: string; backoffHoras: number; textos: string[] }> {
   const salieronAntes = Math.max(0, Math.min(a.desde, a.partes.length));
   const pendientes = a.partes.slice(salieronAntes);
@@ -3513,7 +3559,7 @@ async function enviarPartesDelPaso(a: {
       const t = textoConDatos(p.cuerpo, a.vars);
       if (!t.trim()) continue;
       textos.push(t);
-      r = await enviarYEspejar({ telefono: a.telefono, texto: t, leadId: a.leadId, linea: a.linea });
+      r = await enviarYEspejar({ telefono: a.telefono, texto: t, leadId: a.leadId, linea: a.linea, sinVistaPrevia: a.sinVistaPrevia });
     } else if (p.tipo === 'audio') {
       const b = binarios.get(k)!;
       r = await enviarAudioYEspejar({ telefono: a.telefono, base64: b.base64, mimetype: b.mime, leadId: a.leadId, linea: a.linea });
@@ -4121,7 +4167,7 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
         const leidos = necesitaHechos(sec.pasos, idxLeido) ? await hechosDe(insc.lead_id) : null;
         // Los hechos son del LEAD (una lectura por lote); las etapas del CRON son de ESTA automatización.
         // Y si el lead contestó desde que entró, también es de ESTA inscripción (`contestoEnEsta`, la condición `contesto`).
-        const hechos = leidos ? { ...conEtapasDelCron(leidos, sec.disparadores ?? disparadoresDe(sec), sec.funnel_id ?? null), contestoEnEsta: enRespuesta } : null;
+        const hechos = leidos ? { ...conEtapasDelCron(leidos, sec.disparadores ?? disparadoresDe(sec), sec.funnel_id ?? null), contestoEnEsta: enRespuesta, ...(await equipoDeLaInscripcion(sec.pasos, insc.id)) } : null;
         // Un flujo con carril ancla su DELAY «antes de la reunión» en la reunión CON HORA (M3 a; sin ella y con
         // fecha, `sin_hora` cierra ese hilo, M3 g). Uno sin carril no tiene esa espera: lo de siempre.
         const reunionConHoraMs = tieneCarril(sec.pasos) ? await reunionConHoraDe(lead) : undefined;
@@ -4230,7 +4276,7 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
         const idxCond = condicionDeArriba(sec.pasos, insc.paso_actual);
         if (idxCond != null) {
           const leidos = await hechosDe(insc.lead_id);
-          const hechos = leidos ? { ...conEtapasDelCron(leidos, sec.disparadores ?? disparadoresDe(sec), sec.funnel_id ?? null), contestoEnEsta: enRespuesta } : null;
+          const hechos = leidos ? { ...conEtapasDelCron(leidos, sec.disparadores ?? disparadoresDe(sec), sec.funnel_id ?? null), contestoEnEsta: enRespuesta, ...(await equipoDeLaInscripcion(sec.pasos, insc.id)) } : null;
           if (hechos && !condicionSigueLlevando(sec.pasos, idxCond, insc.paso_actual, hechos)) {
             const ahora = sec.pasos[insc.paso_actual];
             if (await escribir(insc, { estado: 'completada', proximo_envio_at: null }, { modo: 'cas', alcance: 'hilo' })) {
@@ -4703,6 +4749,8 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
         // la secuencia (`null` = la de por default), y si puede mandar ahora. Una línea pedida que no es
         // del negocio no está en `lineasEvo`: `canalDeLinea` la frena con su motivo, sin caer a otra.
         const lineaSec = lineaDelPaso(paso) ?? sec.instance_name;
+        // Sus links sin la tarjeta de vista previa (#869): en lo que sale y en el borrador que lo espera.
+        const sinTarjeta = sinVistaPrevia(paso);
         if (partesMulti) {
           // ⚠️ «NO PUDE LEER» NO ES «NO SALIÓ NINGUNA». Sin saber cuántas salieron no se manda nada ni
           // se escribe nada: un `fallo` sin la marca borraría la del intento anterior. Vuelve en la
@@ -4730,7 +4778,7 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
           // el audio y el archivo: los campos de siempre son el espejo de la PRIMERA parte, y por esas
           // ramas saldría sólo ésa.
           if (saleSoloEste || await esLeadCliente(lead.id)) {
-            const r = await enviarPartesDelPaso({ partes: partesMulti, desde: partesSalidas, telefono: lead.telefono, leadId: lead.id, linea: lineaSec, vars: varsNO });
+            const r = await enviarPartesDelPaso({ partes: partesMulti, desde: partesSalidas, telefono: lead.telefono, leadId: lead.id, linea: lineaSec, vars: varsNO, sinVistaPrevia: sinTarjeta });
             partesSalidas = r.salieron;
             textoEnviado = r.textos.join('\n\n') || null; textoAutor = r.textos.length ? 'fijo' : null;
             estado = r.ok ? 'enviado' : 'fallo';
@@ -4751,7 +4799,7 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
               await crearBorrador({
                 leadId: lead.id, telefono: lead.telefono, texto, audioId: b.audioId, adjuntoId: b.adjuntoId,
                 origen: 'nutricion', secuenciaId: insc.secuencia_id, paso: insc.paso_actual + 1, inscripcionId: insc.id,
-                linea: lineaSec,
+                linea: lineaSec, sinVistaPrevia: sinTarjeta,
               });
               estado = 'borrador';
             }
@@ -4778,7 +4826,7 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
             // toque — no como paso aparte, que el guard anti-ban de 20h frenaría.
             if (r.ok && cuerpoNO.trim()) {
               textoEnviado = cuerpoNO; textoAutor = 'fijo';
-              await enviarYEspejar({ telefono: lead.telefono, texto: cuerpoNO, leadId: lead.id, linea: lineaSec })
+              await enviarYEspejar({ telefono: lead.telefono, texto: cuerpoNO, leadId: lead.id, linea: lineaSec, sinVistaPrevia: sinTarjeta })
                 .catch(() => { /* el audio ya salió: el pie es un extra, no puede tumbar el envío */ });
             }
           } else if (!carril && await tieneBorradorNutriPendiente(lead.id)) {
@@ -4794,7 +4842,7 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
               leadId: lead.id, telefono: lead.telefono,
               texto: cuerpoNO, audioId: audio.id,
               origen: 'nutricion', secuenciaId: insc.secuencia_id, paso: insc.paso_actual + 1, inscripcionId: insc.id,
-              linea: lineaSec,
+              linea: lineaSec, sinVistaPrevia: sinTarjeta,
             });
             estado = 'borrador';
           }
@@ -4839,7 +4887,7 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
             // valor para ESTE lead. No sale un WhatsApp en blanco ni se reintenta: se omite y la cadencia sigue.
             estado = 'omitido'; nota = 'quedó vacío: sus datos no tienen valor';
           } else {
-            const r = await enviarYEspejar({ telefono: lead.telefono, texto: t.texto, leadId: lead.id, linea: lineaSec });
+            const r = await enviarYEspejar({ telefono: lead.telefono, texto: t.texto, leadId: lead.id, linea: lineaSec, sinVistaPrevia: sinTarjeta });
             estado = r.ok ? 'enviado' : 'fallo';
             if (!r.ok) nota = r.error;
           }
@@ -4857,7 +4905,7 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
           const t = await escribirTexto();
           textoEnviado = t.texto; textoAutor = t.autor;
           if (t.motivo) nota = `IA no usada: ${t.motivo}`;
-          await crearBorrador({ leadId: lead.id, telefono: lead.telefono, texto: t.texto, origen: 'nutricion', secuenciaId: insc.secuencia_id, paso: insc.paso_actual + 1, inscripcionId: insc.id, linea: lineaSec });
+          await crearBorrador({ leadId: lead.id, telefono: lead.telefono, texto: t.texto, origen: 'nutricion', secuenciaId: insc.secuencia_id, paso: insc.paso_actual + 1, inscripcionId: insc.id, linea: lineaSec, sinVistaPrevia: sinTarjeta });
           estado = 'borrador';
         }
       } else if (waOn && paso.canal === 'whatsapp') {
@@ -5883,6 +5931,7 @@ async function responderConGrafo(c: CtxRespuesta, medio: MedioAIStep = 'whatsapp
           console.error(`[nutricion] «Si responde», hechos del lead ${leadId}:`, e instanceof Error ? e.message : String(e));
           return null;
         }))?.get(leadId) ?? null;
+        if (hechos && inscId != null) hechos = { ...hechos, ...(await equipoDeLaInscripcion(pasos, inscId)) };
       }
       if (!hechos) { hecho.push('No pude leer lo que la condición necesita: me detuve ahí.'); noPudoDecidir = true; break; }
       // Adentro de «Si responde» el lead acaba de contestar (`contestoEnEsta`, la condición `contesto`).
@@ -6075,12 +6124,12 @@ async function mandarMensajeDeRespuesta(c: CtxRespuesta, p: PasoSecuencia, i: nu
     if (!audio || !b64) { await registrar('fallo', audio ? 'no pude bajar el audio del paso' : 'el audio del paso ya no existe', null); return no('No salió la nota de voz: el audio no está.'); }
     if (!(await reclamar())) return yaSalio;
     if (!sale) {
-      await crearBorrador({ leadId, telefono: lead.telefono, texto: pie, audioId: audio.id, origen: 'nutricion', secuenciaId: secuencia.id, paso: i + 1, inscripcionId: null, linea: c.linea });
+      await crearBorrador({ leadId, telefono: lead.telefono, texto: pie, audioId: audio.id, origen: 'nutricion', secuenciaId: secuencia.id, paso: i + 1, inscripcionId: null, linea: c.linea, sinVistaPrevia: sinVistaPrevia(p) });
       await registrar('borrador', null, pie || null);
       return si(`Te dejé la nota de voz «${audio.titulo}» para aprobar.`);
     }
     const r = await enviarAudioYEspejar({ telefono: lead.telefono, base64: b64, mimetype: audio.media_mime, leadId, linea });
-    if (r.ok && pie.trim()) await enviarYEspejar({ telefono: lead.telefono, texto: pie, leadId, linea }).catch(() => { /* el audio ya salió */ });
+    if (r.ok && pie.trim()) await enviarYEspejar({ telefono: lead.telefono, texto: pie, leadId, linea, sinVistaPrevia: sinVistaPrevia(p) }).catch(() => { /* el audio ya salió */ });
     await registrar(r.ok ? 'enviado' : 'fallo', r.ok ? null : (r.error ?? 'no salió'), pie.trim() || null);
     return r.ok ? si(`Le mandé la nota de voz «${audio.titulo}».`) : no(`No salió la nota de voz (${(r.error ?? '').slice(0, 120)}).`);
   }
@@ -6103,11 +6152,11 @@ async function mandarMensajeDeRespuesta(c: CtxRespuesta, p: PasoSecuencia, i: nu
   if (!pie.trim()) return no('Un mensaje de la rama estaba vacío: no salió.');
   if (!(await reclamar())) return yaSalio;
   if (!sale) {
-    await crearBorrador({ leadId, telefono: lead.telefono, texto: pie, origen: 'nutricion', secuenciaId: secuencia.id, paso: i + 1, inscripcionId: null, linea: c.linea });
+    await crearBorrador({ leadId, telefono: lead.telefono, texto: pie, origen: 'nutricion', secuenciaId: secuencia.id, paso: i + 1, inscripcionId: null, linea: c.linea, sinVistaPrevia: sinVistaPrevia(p) });
     await registrar('borrador', null, pie);
     return si(`Te dejé para aprobar: «${pie.slice(0, 120)}».`);
   }
-  const r = await enviarYEspejar({ telefono: lead.telefono, texto: pie, leadId, linea });
+  const r = await enviarYEspejar({ telefono: lead.telefono, texto: pie, leadId, linea, sinVistaPrevia: sinVistaPrevia(p) });
   await registrar(r.ok ? 'enviado' : 'fallo', r.ok ? null : (r.error ?? 'no salió'), pie);
   return r.ok ? si(`Le contesté: «${pie.slice(0, 120)}».`) : no(`No salió la respuesta (${(r.error ?? '').slice(0, 120)}).`);
 }

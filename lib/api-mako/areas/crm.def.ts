@@ -454,7 +454,7 @@ export const DEFS: readonly OperacionDef[] = [
       { nombre: 'icono', tipo: 'string', max: 30, descripcion: 'en icono: el id (de los iconos de ver_ficha_funnel), o de-siempre: el del bloque.' },
       { nombre: 'n', tipo: 'number', entero: true, minimo: 1, maximo: 40, descripcion: 'si el bloque está más de una vez en la tab (respuesta-destacada), cuál: 1 es el primero.' },
       // (16/10/2026) UNO de texto y no tres (redes, fuentes, pregunta): viaja en el turno de WhatsApp. Lo traduce lib/ficha/api.ts.
-      { nombre: 'opcion', tipo: 'string', max: 200, descripcion: 'en opciones: redes (web,instagram,youtube,linkedin), fuentes (meta,landing,agenda) o la pregunta destacada.' },
+      { nombre: 'opcion', tipo: 'string', max: 200, descripcion: 'en opciones: redes (web,instagram,youtube,linkedin), fuentes (meta,landing,agenda) o la pregunta destacada; en estilo: esquinas=redondas.' },
       // ⚠️ SIN ENUM DESDE EL 15/10/2026 (eran 21 ids): este ToolDef viaja en el turno del doer de WhatsApp, que tiene
       // 12.000 caracteres para TODAS las del CRM, y por el «cambiar» de su id entra entre las primeras en cualquier
       // «cambiá…». Sumarle el ícono dejó afuera a proponer_mover_reunion (tests/agenda-whatsapp.test.ts). Los ids

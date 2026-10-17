@@ -207,19 +207,19 @@ export function SelectoresDeEnvio({ centro: k, chat }: { centro: Centro; chat: C
   return (
     <>
       {opciones.length > 0 && (
-        <select className="co-chip co-elegir" aria-label="Cuenta" title="A qué cuenta va" value={k.cuentaElegida(chat.clave)}
+        <select className="co-chip co-envio-sel" aria-label="Cuenta" title="A qué cuenta va" value={k.cuentaElegida(chat.clave)}
           onChange={(e) => k.elegirCuenta(chat.clave, e.target.value)} disabled={k.enviando}>
           <option value={AUTOMATICO}>{automatica ? `Automático · ${nombreCuenta(automatica)}` : 'Automático'}</option>
           {opciones.map((o) => <option key={o.cuenta} value={o.cuenta}>{`${nombreCuenta(o.cuenta)}${libre(o.libre)}`}</option>)}
         </select>
       )}
-      <select className="co-chip co-elegir" aria-label="Modelo" value={conModelo ? k.modelo ?? AUTOMATICO : AUTOMATICO} disabled={!conModelo || k.enviando}
+      <select className="co-chip co-envio-sel" aria-label="Modelo" value={conModelo ? k.modelo ?? AUTOMATICO : AUTOMATICO} disabled={!conModelo || k.enviando}
         title={conModelo ? 'Con qué modelo corre' : 'El modelo se elige sólo en los chats de la app'}
         onChange={(e) => k.setModelo(e.target.value === AUTOMATICO ? null : e.target.value as Modelo)}>
         <option value={AUTOMATICO}>Modelo automático</option>
         {MODELOS.map((m) => <option key={m} value={m}>{NOMBRE_MODELO[m]}</option>)}
       </select>
-      <select className="co-chip co-elegir" aria-label="Esfuerzo" value={conModelo ? k.esfuerzo ?? AUTOMATICO : AUTOMATICO} disabled={!conModelo || k.enviando}
+      <select className="co-chip co-envio-sel" aria-label="Esfuerzo" value={conModelo ? k.esfuerzo ?? AUTOMATICO : AUTOMATICO} disabled={!conModelo || k.enviando}
         title={conModelo ? 'Cuánto piensa' : 'El esfuerzo se elige sólo en los chats de la app'}
         onChange={(e) => k.setEsfuerzo(e.target.value === AUTOMATICO ? null : e.target.value as Esfuerzo)}>
         <option value={AUTOMATICO}>Esfuerzo automático</option>

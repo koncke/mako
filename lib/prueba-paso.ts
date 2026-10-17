@@ -153,7 +153,7 @@ export async function enviarPasoDePrueba(p: {
     }
     const telefono = destino.telefono!;
     if (envio.via === 'wa-texto') {
-      const r = await enviarYEspejar({ telefono, texto: envio.texto, linea });
+      const r = await enviarYEspejar({ telefono, texto: envio.texto, linea, sinVistaPrevia: mensaje.sin_vista_previa === true });
       if (!r.ok) return { ok: false, error: r.error || 'No salió' };
     } else if (envio.via === 'wa-audio') {
       const audio = await getAudio(envio.audioId);

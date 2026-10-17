@@ -710,6 +710,28 @@ export const RUNNERS: Runners = {
     },
   },
 
+  vista_previa_links_paso: {
+    preparar: async (input) => {
+      const id = num(input, 'secuenciaId'); const orden = num(input, 'orden');
+      const conTarjeta = input.vistaPrevia === true;
+      const s = await secuenciaVigente(id);
+      if (!s) return { error: noExiste(id) };
+      const p = s.pasos.find((x) => x.orden === orden);
+      if (!p) return { error: `La secuencia «${s.nombre}» no tiene paso ${orden}.` };
+      if (esPasoAccion(p) || esNodoDeControl(p)) return { error: `El paso ${orden} de «${s.nombre}» no es un mensaje: no manda links.` };
+      if (p.canal !== 'whatsapp' || proveedorDelPaso(p) !== 'no_oficial') return { error: `El paso ${orden} de «${s.nombre}» no es un WhatsApp no oficial: la vista previa no se elige ahí.` };
+      return { payload: { secuenciaId: id, orden, vistaPrevia: conTarjeta }, resumen: `Paso ${orden} de «${s.nombre}»: los links ${conTarjeta ? 'con' : 'sin'} vista previa` };
+    },
+    ejecutar: async (payload) => {
+      const id = Number(payload.secuenciaId); const orden = Number(payload.orden); const conTarjeta = payload.vistaPrevia === true;
+      const s = await secuenciaVigente(id);
+      if (!s || !s.pasos.some((p) => p.orden === orden)) return { ok: false, resumen: 'La secuencia o el paso ya no existen.' };
+      // Con la clave SIEMPRE (`vistaPreviaAlGuardar`): `false` la vuelve a prender, no «se conserva la de antes».
+      await setSecuenciaPasos(id, s.pasos.map((p) => (p.orden === orden ? { ...p, sin_vista_previa: !conTarjeta } : p)));
+      return { ok: true, resumen: `Los links del paso ${orden} de «${s.nombre}» salen ${conTarjeta ? 'con' : 'sin'} vista previa.` };
+    },
+  },
+
   desarchivar_secuencia: {
     preparar: async (input) => {
       const id = num(input, 'secuenciaId');

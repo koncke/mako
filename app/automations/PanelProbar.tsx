@@ -116,7 +116,7 @@ import {
   type EstadoSim, type NombresSim, type OpcionRama, type MensajePrueba, type DestinosGuardados, type ContactoPrueba, type EmisorPrueba,
   type EventoSim,
 } from '@/lib/simulador-grafo';
-import { partesDe, type ParteMensaje } from '@/lib/mensaje-partes';
+import { partesDe, sinVistaPrevia, type ParteMensaje } from '@/lib/mensaje-partes';
 import { ICONOS_MAS, frenoDelFlujo } from '@/lib/flujo-conversacion';
 import { TRIGGER_RECORDATORIO, EJEMPLOS_RECORDATORIO } from '@/lib/recordatorio-automatizacion';
 import { TRIGGER_AVISO_MAKO } from '@/lib/disparadores';
@@ -1270,7 +1270,8 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
    * ⚠️ El audio SIN la transcripción (cuarta tanda, punto 15: «elimina la transcripción de los audios,
    * es innecesario»): al lead le llega una nota de voz, no un texto debajo.
    */
-  const mostrarParte = (parte: ParteMensaje, clave: string, enRespuesta: boolean) => {
+  // `sinTarjeta`: los links del texto sin la vista previa, como al lead (`sinVistaPrevia` del paso, #869).
+  const mostrarParte = (parte: ParteMensaje, clave: string, enRespuesta: boolean, sinTarjeta = false) => {
     const c = ctx.current;
     const ahora = new Date().toISOString();
     if (parte.tipo === 'audio') {
@@ -1291,7 +1292,7 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
     }
     const texto = textoDeEjemplo(parte.cuerpo, c.negocio, c.datosExtra);
     poner({ id: nuevoId('tx'), fromMe: false, autor: firma(), texto: texto.trim() || 'Sin escribir', fecha: ahora });
-    if (texto.trim()) mandarReal({ canal: 'whatsapp', tipo: 'texto', texto }, clave, enRespuesta);
+    if (texto.trim()) mandarReal({ canal: 'whatsapp', tipo: 'texto', texto, ...(sinTarjeta ? { sin_vista_previa: true } : {}) }, clave, enRespuesta);
   };
 
   /**
@@ -1316,10 +1317,11 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
       const lista = partesDe(p);
       if (!lista.length) { poner({ id: nuevoId('tx'), fromMe: false, autor: firma(), texto: 'Sin escribir', fecha: ahora }); return 0; }
       // `luego` corta solo si la prueba se reinicia en el medio (↻, el lead que escribe).
+      const sinTarjeta = sinVistaPrevia(p);
       lista.forEach((parte, k) => {
         const clave = lista.length > 1 ? `${nodo}#${k}` : nodo;
-        if (k === 0) mostrarParte(parte, clave, enRespuesta);
-        else luego(k * ENTRE_PARTES_MS, () => mostrarParte(parte, clave, enRespuesta));
+        if (k === 0) mostrarParte(parte, clave, enRespuesta, sinTarjeta);
+        else luego(k * ENTRE_PARTES_MS, () => mostrarParte(parte, clave, enRespuesta, sinTarjeta));
       });
       return (lista.length - 1) * ENTRE_PARTES_MS;
     }
@@ -1327,7 +1329,7 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
     // En la salida, un «Lo adapta MaKo» muestra el texto BASE: a cada lead le llega otro.
     const marca = p.tipo === 'ia' && !enRespuesta ? ' · ✦' : '';
     poner({ id: nuevoId('tx'), fromMe: false, autor: `${firma()}${marca}`, texto: texto.trim() || 'Sin escribir', fecha: ahora });
-    if (texto.trim()) mandarReal({ canal: 'whatsapp', tipo: 'texto', texto }, nodo, enRespuesta);
+    if (texto.trim()) mandarReal({ canal: 'whatsapp', tipo: 'texto', texto, ...(sinVistaPrevia(p) ? { sin_vista_previa: true } : {}) }, nodo, enRespuesta);
     return 0;
   };
 
