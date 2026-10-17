@@ -149,11 +149,14 @@ export function pasoDeAcceso(v: Vigencia, estadoWs: 'activo' | 'pausado', corte:
 }
 
 /** El texto de la pantalla del negocio cortado. Corto, y dice qué hacer. */
-export function textoDelCorte(c: CorteGuardado | null): { titulo: string; detalle: string } {
-  if (!c) return { titulo: 'Tu cuenta está pausada', detalle: 'Si crees que es un error, escríbenos y lo vemos.' };
+export function textoDelCorte(c: CorteGuardado | null, opts: { paraAgencia?: boolean } = {}): { titulo: string; detalle: string } {
+  if (!c) return { titulo: opts.paraAgencia ? 'Este cliente está pausado' : 'Tu cuenta está pausada', detalle: 'Si crees que es un error, escríbenos y lo vemos.' };
   const fecha = `${c.hasta.slice(8, 10)}/${c.hasta.slice(5, 7)}/${c.hasta.slice(0, 4)}`;
   if (c.motivo === 'renovacion-sin-autorizar') {
-    return { titulo: 'Falta activar la renovación', detalle: `El mes pagado terminó el ${fecha}. Tu agencia tiene que activar la renovación para volver a entrar.` };
+    // La agencia que mira a su cliente es la que tiene que activarla (desde MaKo Partners, «Activar renovación»).
+    return opts.paraAgencia
+      ? { titulo: 'Falta activar su renovación', detalle: `El mes pagado de este cliente terminó el ${fecha}. Actívala desde MaKo Partners para que vuelva a entrar.` }
+      : { titulo: 'Falta activar la renovación', detalle: `El mes pagado terminó el ${fecha}. Tu agencia tiene que activar la renovación para volver a entrar.` };
   }
   if (c.motivo === 'devuelto') return { titulo: 'Tu plan se devolvió', detalle: 'El pago de tu plan se devolvió. Para volver a entrar, escríbenos.' };
   return { titulo: 'Tu plan terminó', detalle: `Lo pagado cubría hasta el ${fecha}. Para volver a entrar, renueva tu plan escribiéndonos.` };

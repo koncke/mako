@@ -11,6 +11,7 @@ import { corteDe } from '@/lib/plan-acceso';
 import { textoDelCorte } from '@/lib/plan-acceso-reglas';
 import { EMAIL_MAKO } from '@/lib/app-url';
 import { ButtonLink } from '@/app/_ui/Button';
+import { contextoDeAgencia } from '@/lib/agencia';
 import { SalirDeLaCuenta } from './SalirDeLaCuenta';
 
 export const dynamic = 'force-dynamic';
@@ -20,15 +21,17 @@ export default async function CuentaPausadaPage() {
   if ((await getRolWsEfectivo()) == null) redirect('/login');
   const ws = await negocioPausadoDeLaSesion();
   if (ws == null) redirect('/inicio');
-  const corte = await corteDe(ws).catch(() => null);
-  const t = textoDelCorte(corte?.vigente ? corte : null);
+  const [corte, cliente] = await Promise.all([corteDe(ws).catch(() => null), contextoDeAgencia().catch(() => null)]);
+  // La AGENCIA que miraba a un cliente pausado no está «pausada»: el pausado es el cliente, y ella vuelve a lo suyo.
+  const esAgencia = cliente != null;
+  const t = textoDelCorte(corte?.vigente ? corte : null, { paraAgencia: esAgencia });
   return (
     <main style={{ minHeight: '100dvh', display: 'grid', placeItems: 'center', padding: '24px 16px', background: 'var(--bg)' }}>
       <section style={{ width: '100%', maxWidth: 440, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: '28px 24px', textAlign: 'center' }}>
         <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: 'var(--ink)' }}>{t.titulo}</h1>
         <p style={{ margin: '12px 0 22px', fontSize: 'var(--fs-md)', lineHeight: 1.5, color: 'var(--dim)' }}>{t.detalle}</p>
         <ButtonLink href={`mailto:${EMAIL_MAKO}`} variant="primary">Escribir a MaKo</ButtonLink>
-        <div style={{ marginTop: 14 }}><SalirDeLaCuenta /></div>
+        <div style={{ marginTop: 14 }}><SalirDeLaCuenta esAgencia={esAgencia} /></div>
       </section>
     </main>
   );

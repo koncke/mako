@@ -122,3 +122,14 @@ test('el cron pausa con compare-and-set y con tope, y reabre lo que cortó', () 
   assert.match(p, /if \(!Number\.isFinite\(ws\) \|\| ws === plataforma\) continue;/, 'la plataforma no se corta nunca');
   assert.match(fuente('app/api/cron/cobros-reconciliar/route.ts'), /accesos = await revisarAccesosPorPago\(\)\.catch\(/);
 });
+
+// La agencia que miraba a un cliente pausado: la pantalla le habla a ELLA (activar SU renovación) y le da la salida a
+// /partners. Probado rompiéndolo: sin la rama `paraAgencia` → 1 fallo (éste).
+test('a la agencia que mira un cliente pausado, la pantalla le dice qué hacer ella y le da la salida', () => {
+  const r = textoDelCorte(corte({ motivo: 'renovacion-sin-autorizar' }), { paraAgencia: true });
+  assert.match(r.detalle, /MaKo Partners/);
+  assert.equal(textoDelCorte(null, { paraAgencia: true }).titulo, 'Este cliente está pausado');
+  const p = fuente('app/cuenta-pausada/page.tsx');
+  assert.match(p, /const esAgencia = cliente != null;/);
+  assert.match(fuente('app/cuenta-pausada/SalirDeLaCuenta.tsx'), /fetch\('\/api\/agencia\/entrar', \{ method: 'DELETE' \}\)[^\n]*window\.location\.href = '\/partners'/);
+});
