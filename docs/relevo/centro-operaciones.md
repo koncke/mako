@@ -1,5 +1,50 @@
 # Relevo — Ops Center, ex Centro de Operaciones (17/10/2026, ~09:30; cuenta 4, `claude4`)
 
+## PARA EL CUARTO OPS CENTER (17/10, ~13:00): lo que llegó al cierre del tercero, EN ESTE ORDEN
+
+El tercero cerró con el contexto al 80%. En producción (run 102): el urgente parte 2, el renombre, la A y la B. Con el cartero
+**1.14.2** instalado (el Cerebro le sumó `medir`: la 5 h de la cuenta de la app ya se mide; NO hagas `uso-app`). En
+centro-chat, sin integrar todavía: la lista sin «Sin asignar» (`3a97f278e`) y C, D, F y los links (`cd233436f`); el Cerebro
+los tiene. **Antes de pasar cada punta:** `sh scripts/guardas-push.sh origin` (segundos) junto con los tests, y todo test con un
+cwd de sesión (`C:\dev\x`) va a PERMITIDOS de scripts/rutas-windows-en-tests.mjs en la MISMA punta (pedido del Cerebro: pasó tres
+veces). Al seguir, mergeá origin/integracion: ya va por la 1.14.3.
+
+1. **Prioridad 1, el bug de `vigilar`: 0 consultas livianas.** Lo reportó el Runner: tres `vigilar --max-seg 100` seguidos sin
+   ninguna consulta liviana, el último de 78 s (11:05 UTC). La entrega en segundos NO está pasando: sólo anda la vuelta completa
+   del arranque. Sospecha del Cerebro: la condición de margen («no arranca una espera si `ahora + CADA_VIGILAR_MS + dura * 1.5 >
+   fin`», con `dura` la de la PRIMERA vuelta completa, que puede tardar 30-60 s) o el orden de las esperas. Reproducirlo con
+   tests/centro-vigilar.test.ts contra un MaKo falso LENTO, arreglarlo con su test probado rompiéndolo, y pasarlo.
+2. **El diseño del Ops Center en el teléfono** (Martín, 08:40, con captura: «mejora el diseño del Center en Mobile... el botón de
+   uso que tengo que bajar hasta abajo de todos los chats... en general mejora el diseño»):
+   - «Uso y Runners» arriba, siempre a mano: en la cabecera, al lado del título, o un chip fijo;
+   - cada cuenta repite «Sin el Runner de su terminal» y «Abre su Runner en la app de Claude…» aunque el Runner ande: fuera (es la G);
+   - repasar TODA la pantalla con criterio: la cabecera, la lista, la conversación y la caja (MaKo Mobile destila el escritorio).
+3. **La estrella de MaKo y las reacciones de TODAS las criaturas** (Martín, por el Cerebro: «Agrega a las criaturas la criatura de
+   MaKo, la típica estrella... Y debe parpadear y reaccionar con las respuestas... y también una reacción si la clickeo, estén
+   presentes en todos lados y en todas las criaturas»). Los esperan Onboarding (`local_0702928b…`) y Sidebar (`local_789aebfb…`); a
+   los dos ya se les pasó la API de abajo, y la usan cuando exista:
+   - la forma `'estrella'` en FORMAS (al FINAL, para que el sorteo por nombre no cambie: `DE_SIEMPRE`) y `ASPECTO_MAKO` exportado;
+   - `app/admin/operaciones/Criatura.tsx`, 'use client', que envuelve a `Muneco` (que sigue sin hooks): `{ aspecto?, titulo?, size?,
+     animo?, reaccion?: 'escucha' | 'contenta' | 'piensa' | 'sorpresa' | 'duda' | null, entrada?: boolean, onEntrada?: () => void,
+     invita?: boolean, onClick?: () => void }`. `entrada` corre UNA vez al montar (motion graphics) y avisa con `onEntrada`;
+     `invita`, latido y brillo hasta el clic; el clic siempre tiene su reacción; el parpadeo es solo;
+   - con prefers-reduced-motion: sin entrada ni latido, y las reacciones sólo con la cara;
+   - sacar las reglas `mun-*` de centro.css a un criatura.css chico: la sidebar no tiene por qué cargar todo el Centro;
+   - avisarles a Onboarding y Sidebar el sha cuando esté.
+4. **El bug del `--revisar` en Git Bash** (lo vio el Runner y el Cerebro): `cartero.mjs cierre … --revisar "/admin/operaciones"`
+   falla, porque MSYS convierte `/admin/…` en `C:/Program Files/Git/admin/…`. Arreglarlo en los dos lados: en `mensaje()`, el
+   comando del cierre con `MSYS_NO_PATHCONV=1 node … cierre …`; y en `cierre()`, si `--revisar` llega como `<letra>:/…/Git/<ruta>`,
+   recuperar la `/<ruta>`, con su test. Va con lo próximo que toque cartero.mjs (avisar ANTES al Cerebro).
+5. **La E y la G** (abajo, «Sigue»). La G ya no necesita la 5 h: queda el nombre editable con el email (guardado en MaKo, NUNCA
+   en cuentas.tsv: es de la PC y del hook) y el logo, y sacar la línea «Abre su Runner…» y los botones «Runners»/«Nuevo Runner».
+6. **El cierre de tarjetas del Plan por «Ya está» que hizo el chat Plan** (rama `plan`, b2354889e, sin integrar):
+   `cerrarPorYaEsta(ctx, chat, { texto })` en lib/centro-plan.ts cierra las que el «Ya está» nombra por número (#870) o por su
+   título entero, y `cerrarTareaDelPlan` pasa a la operación nueva `cerrar_tareas_plan` (sin borrador). Cuando se integre,
+   juntarlo con lo de acá (lib/centro-plan-auto.ts): el «Ya está» que no cierra la tarea de su «Voy a trabajar en…» puede
+   probar `cerrarPorYaEsta`. OJO al mergear lib/centro-plan.ts: acá se sumó `tareaId` a lo que devuelve `sumarTareaAlPlan`.
+7. **La revisión del loop de tickets de Ticketera** (5d46eb4f7, cartero 1.15.0) ya la hice: OK, con dos notas que le pasé (que la PC
+   compruebe que el destino es el Cerebro, y mergear la 1.14.3). Si vuelve con cambios, mirarlo otra vez antes de que se integre.
+
 **Lo último (17/10, ~09:30, el TERCER Ops Center del día, `local_c2a7cb77…`):** hechas y pasadas al Cerebro la parte 2 del
 urgente (la pantalla dice en qué está lo que mandaste), el renombre que no te saca del chat, la lista sin «Sin asignar»,
 la A (las preguntas como formulario, con el cartero **1.14.0**), la H (fuera los tres puntos) y la I («Second Brain» abre
