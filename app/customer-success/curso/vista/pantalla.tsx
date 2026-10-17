@@ -33,7 +33,7 @@ import { urlsAdjuntosEquipo } from '@/lib/curso-adjuntos';
 import { refsEnHtml } from '@/lib/curso-adjuntos-reglas';
 import { modulosDelCurso } from '@/lib/curso-modulos-datos';
 import { armarModulos, conHtmlSaneado, cursoSeLista, estiloQueViaja, esClaseCerrada, type VistaAlumno } from '@/lib/curso-portal';
-import { conPostDeComentar, htmlsDeTareas } from '@/lib/curso';
+import { conPostDeComentar, hayComentarSinPost, htmlsDeTareas } from '@/lib/curso';
 import { estilosDeProductos } from '@/lib/curso-estilo-datos';
 import { nombresDeCursos } from '@/lib/curso-nombre-datos';
 import { SIN_NOMBRE_ALUMNO } from '@/lib/curso-nombre';
@@ -114,8 +114,7 @@ export async function PantallaVistaAlumno({ searchParams }: { searchParams: Prom
 
   // El «Comentar» sin post elegido comenta el último FIJADO; la vista previa no tiene token para preguntarlo, así que
   // se lo pone el server (`conPostDeComentar`). Sin poder leerlo, se dibuja como siempre.
-  const hayComentarSinPost = modulos.some((e) => e.clases.some((c) => !esClaseCerrada(c) && c.campos.some((f) => f.tipo === 'comentar' && !f.postId)));
-  if (hayComentarSinPost) {
+  if (modulos.some((e) => e.clases.some((c) => !esClaseCerrada(c) && hayComentarSinPost(c.campos)))) {
     const ws = await getWorkspaceActual();
     const fijado = ws != null ? await ultimoPostFijado(ws, productoId).catch(() => null) : null;
     if (fijado) for (const e of modulos) e.clases = e.clases.map((c) => (esClaseCerrada(c) ? c : { ...c, campos: conPostDeComentar(c.campos, fijado) }));

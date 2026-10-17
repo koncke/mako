@@ -794,6 +794,9 @@ export const esCampoDeComunidad = (t: CampoTipo | string | undefined): t is 'pub
  * hubiera (17/10/2026, docs/hallazgos-customer-success.md). El server de la vista previa le pone el último fijado.
  * Un campo con post elegido no se toca; sin post fijado, tampoco.
  */
+/** ¿Hay un «Comentar» sin post elegido? (mira el TIPO: una sección no cuenta). */
+export const hayComentarSinPost = (campos: readonly Pick<Campo, 'tipo' | 'postId'>[]): boolean => campos.some((c) => c.tipo === 'comentar' && !c.postId);
+
 export function conPostDeComentar<C extends Pick<Campo, 'tipo' | 'postId' | 'postTitulo'>>(campos: readonly C[], post: { id: number; titulo: string } | null): C[] {
   if (!post) return [...campos];
   return campos.map((c) => (c.tipo === 'comentar' && !c.postId ? { ...c, postId: post.id, postTitulo: post.titulo } : c));
