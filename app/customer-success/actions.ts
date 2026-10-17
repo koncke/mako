@@ -57,6 +57,7 @@ import { revalidatePath } from 'next/cache';
 import { autoasignar } from './trabajo';
 import { crearUsuario, buscarUsuarioPorEmail } from '@/lib/usuarios';
 import { emailUtilizable, emailNormalizado } from '@/lib/agencia-altas';
+import { linkPrimerMes } from '@/lib/agencia-cobro';
 import { moverClienteDeEtapa, sacarClienteDeEntrega } from '@/lib/cs-mover-etapa';
 import { guardarEtapasEntrega, entregaDeProducto } from '@/lib/entrega-servicio';
 import { campoEntrega } from '@/lib/servicio-etapas';
@@ -374,7 +375,7 @@ export async function guardarDatosClienteAction(leadId: number, cambio: {
  * que quedó suelto. Un alta a medias en silencio es peor que una que avisa.
  */
 export async function crearCuentaMakoAction(leadId: number, email: string): Promise<
-  { ok: true; clienteWs: number; estado: string } | { ok: false; error: string }
+  { ok: true; clienteWs: number; estado: string; link: string | null; sinLink: string | null } | { ok: false; error: string }
 > {
   const no = await puedeUsarCs(); if (no) return { ok: false, error: no };
   try {
@@ -464,8 +465,19 @@ export async function crearCuentaMakoAction(leadId: number, email: string): Prom
     // solo lado obliga a acordarse de mirar en el otro.
     if (!cliente.email) await db.from('leads').update({ email: correo }).eq('id', leadId);
 
+    /**
+     * EL PRIMER MES, EN EL ACTO (#866, 17/10/2026). Martín, en la llamada con Código Inmobiliario: «al momento de cargar
+     * nuevo cliente, te va a aparecer ahí directamente el link de mercado pago para pagar la suscripción de ese cliente...
+     * ya se habilita automáticamente». El link es de la Mercado Pago de MaKo; pagarlo aprueba la cuenta sin el super
+     * admin (lib/agencia-habilitar.ts). Su mes corre desde que el cliente termina el onboarding (#867).
+     * ⚠️ SIN LINK NO ES UN ERROR: la cuenta ya está creada y queda esperando la firma, como siempre. `sinLink` dice por qué.
+     */
+    const pagador = await getUsuarioActual().then((u) => u?.email ?? null).catch(() => null);
+    const cobro = await linkPrimerMes({ agenciaWs, clienteWs: ws.id, nombreCliente: nombre, email: pagador, creadoPor: pagador ?? 'agencia' });
+    if (!cobro.ok) console.warn(`[cs] cuenta ${ws.id} de la agencia ${agenciaWs} sin link del primer mes: ${cobro.motivo}`);
+
     revalidatePath('/customer-success');
-    return { ok: true, clienteWs: ws.id, estado: 'pendiente' };
+    return { ok: true, clienteWs: ws.id, estado: 'pendiente', link: cobro.ok ? cobro.link : null, sinLink: cobro.ok ? null : cobro.motivo };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'No se pudo abrir la cuenta.' };
   }

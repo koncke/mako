@@ -22,8 +22,9 @@ import { revalidatePath, updateTag } from 'next/cache';
 import { TAG } from '@/lib/cache';
 import { getUsuarioActual } from '@/lib/auth';
 import { anotarEnHistorial, asegurarLeadDelNegocio, getPagosByLead, guardarCuotasPorId, proteccionesDeCuotas } from '@/lib/pagos';
-import { esCuotaDevuelta } from '@/lib/cobrado-lead';
+import { noEsDeuda } from '@/lib/cobrado-lead';
 import { avisoDeConservadas, lineasDeCuotas, type Proteccion } from '@/lib/pagos-campo';
+import { darDeBajaCliente, deshacerBajaCliente } from '@/lib/pagos-baja';
 
 async function haySesion(): Promise<boolean> {
   try { return Boolean(await getUsuarioActual()); } catch { return false; }
@@ -48,7 +49,7 @@ export async function proteccionesDeCuotasAction(leadId: number): Promise<Record
     if (!(await haySesion())) return {};
     if (!Number.isInteger(leadId) || leadId <= 0) return {};
     await asegurarLeadDelNegocio(leadId);
-    const impagas = (await getPagosByLead(leadId)).filter((q) => !q.pagado && !esCuotaDevuelta(q)).map((q) => q.id);
+    const impagas = (await getPagosByLead(leadId)).filter((q) => !q.pagado && !noEsDeuda(q)).map((q) => q.id);
     return Object.fromEntries(await proteccionesDeCuotas(leadId, impagas));
   } catch (e) {
     console.error(`[pagos] protecciones de las cuotas del lead ${leadId}: ${e instanceof Error ? e.message : String(e)}`);
@@ -71,6 +72,23 @@ export async function quitarCuotaAction(leadId: number, pagoId: number): Promise
     await anotarEnHistorial(leadId, lineasDeCuotas(cambios), await autor());
     if (quitada) revalidar(leadId);
     return { ok: true, quitada, motivo: avisoDeConservadas({ ...cambios, conservar: conservada }) };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+/**
+ * «Baja del cliente» (#871): lo que no pagó deja de ser deuda y lo cobrado queda (lib/pagos-baja.ts). `deshacer` lo
+ * devuelve, con su vencimiento.
+ */
+export async function bajaDelClienteAction(leadId: number, deshacer = false): Promise<{ ok: true; resumen: string } | { ok: false; error: string }> {
+  try {
+    if (!(await haySesion())) return { ok: false, error: SIN_SESION };
+    if (!idValido(leadId)) return { ok: false, error: 'Lead inválido.' };
+    const r = deshacer ? await deshacerBajaCliente(leadId, await autor()) : await darDeBajaCliente(leadId, await autor());
+    if (!r.ok) return r;
+    revalidar(leadId);
+    return { ok: true, resumen: r.resumen };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : String(e) };
   }

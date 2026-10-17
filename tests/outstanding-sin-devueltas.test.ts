@@ -49,23 +49,27 @@ test('la regla: devuelta es impaga, sin vencimiento y con pasarela; la cuota del
   assert.equal(esCuotaDevuelta({ pagado: true, fecha_esperada: null, proveedor: 'stripe', cobro_id: 7 }), false);
 });
 
+// ⚠️ Desde el 17/10/2026 (#871) las tres lecturas filtran con `noEsDeuda` (devuelta O de un cliente dado de baja: las dos
+// quedan impagas y sin vencimiento) y leen con `*`: la regla mira proveedor, cobro_id y `baja_at`, y con `*` una base sin la
+// migración 0307 no rompe el número (con la lista explícita, sí). La regla de la baja se ejecuta en tests/pagos-baja.test.ts.
+
 test('Outstanding y «A quién cobrarle» (getOutstandingDetalle): sin las devueltas, y con las columnas que la regla mira', () => {
   const f = cuerpo(PAGOS, '_getOutstandingDetalle');
-  assert.match(f, /\.select\('id, lead_id, numero, monto_usd, fecha_esperada, pagado, proveedor, cobro_id, leads\(/,
+  assert.match(f, /\.select\('\*, leads\(/,
     'sin proveedor ni cobro_id la regla da «no devuelta» para todas');
-  assert.match(f, /let noPagados = rows\.filter\(\(r\) => !r\.pagado && !esCuotaDevuelta\(r\)\);/);
+  assert.match(f, /let noPagados = rows\.filter\(\(r\) => !r\.pagado && !noEsDeuda\(r\)\);/);
 });
 
 test('el Outstanding global (getOutstandingTotal): la misma regla', () => {
   const f = cuerpo(PAGOS, 'getOutstandingTotal');
-  assert.match(f, /\.select\('monto_usd, pagado, fecha_esperada, proveedor, cobro_id'\)/);
-  assert.match(f, /\.filter\(\(p\) => !esCuotaDevuelta\(p\)\)/);
+  assert.match(f, /\.select\('\*'\)/);
+  assert.match(f, /\.filter\(\(p\) => !noEsDeuda\(p\)\)/);
 });
 
 test('el Revenue del Dashboard con «Todo»: las sin fecha son deuda, salvo las devueltas', () => {
   const g = fuente('lib/graficos-datos-extra.ts');
   const f = cuerpo(g, 'filasRevenue');
-  assert.match(f, /'id, lead_id, monto_usd, fecha_pago, fecha_esperada, proveedor, cobro_id', \{ \.\.\.rg, sinRango: true \}/);
-  assert.match(f, /const sinFechaDeuda = sinFecha\.filter\(\(x\) => !esCuotaDevuelta\(/);
+  assert.match(f, /leer<FCuota>\('pagos', '\*', \{ \.\.\.rg, sinRango: true \}/);
+  assert.match(f, /const sinFechaDeuda = sinFecha\.filter\(\(x\) => !noEsDeuda\(/);
   assert.match(f, /for \(const x of \[\.\.\.pendientes, \.\.\.sinFechaDeuda\]\)/, 'se suman las sin fecha sin sacar las devueltas');
 });
