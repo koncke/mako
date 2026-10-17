@@ -20,6 +20,8 @@
 import 'server-only';
 import type { Runners, Ctx, Preparado, Ejecutado, SalidaLectura } from '../tipos';
 import { conLanding, sinLanding, landingDe, MAX_LANDINGS } from '@/lib/landing-config';
+// Los productos que una página puede recibir: LOS MISMOS que ofrece el paso 2 del Pixel (lib/landing-funnel.ts).
+import { productosAsignables } from '@/lib/landing-funnel';
 import { normalizarUrl as normalizarPagina } from '@/lib/landing-paginas';
 import { isIP } from 'node:net';
 import { claveDeLanding as normalizarAnalisis, validarDestino } from '@/lib/landing-fetch';
@@ -186,8 +188,11 @@ export const RUNNERS: Runners = {
   listar_landings: {
     leer: async () => {
       const { landings, formato } = await leerLandings();
+      // Los que se pueden asignar (guardar_landing → productos). null = no se pudo leer: se calla, no se afirma «ninguno».
+      const disponibles = await productosAsignables().catch(() => []);
       return json({
         landings: landings.map((l) => ({ url: l.url, productos: l.funnelIds ?? [] })),
+        ...(disponibles.length ? { productosDisponibles: disponibles.map((p) => ({ embudoId: p.id, nombre: p.nombre, principal: p.esDefault })) } : {}),
         total: landings.length, tope: MAX_LANDINGS,
         ...(formato === 'viejo' && landings.length ? { nota: 'Lista leída del formato anterior: se migra sola la primera vez que se guarde una landing.' } : {}),
         ...(landings.length ? {} : { nota: 'El negocio no declaró ninguna landing todavía.' }),
@@ -1197,8 +1202,22 @@ export const RUNNERS: Runners = {
       if (anterior && anterior !== url && landingDe(landings, url)) {
         partes.push(`— ${url} ya estaba declarada: quedan fusionadas en una`);
       }
+      // Los productos (17/10/2026): la pantalla los asigna (paso 2 del Pixel) y la API no podía. `undefined` = no los toques;
+      // [] los saca todos. Se validan contra los MISMOS que ofrece la pantalla: un id de otro negocio no existe acá.
+      let productos: number[] | undefined;
+      if (input.productos !== undefined) {
+        const pedidos = (Array.isArray(input.productos) ? input.productos : []).map((x) => Number(String(x).trim()));
+        if (pedidos.some((n) => !Number.isSafeInteger(n) || n <= 0)) return { error: 'Cada producto va por su embudoId (un número). Pide listar_landings (productosDisponibles).' };
+        const asignables = await productosAsignables().catch(() => []);
+        if (!asignables.length) return { error: 'No pude leer los productos del negocio. Intenta de nuevo.' };
+        const faltan = pedidos.filter((id) => !asignables.some((p) => p.id === id));
+        if (faltan.length) return { error: `No hay un producto con embudoId ${faltan.join(', ')}.`, disponibles: asignables.map((p) => ({ embudoId: p.id, nombre: p.nombre })) };
+        productos = [...new Set(pedidos)];
+        const nombres = productos.map((id) => `«${asignables.find((p) => p.id === id)!.nombre}»`);
+        partes.push(nombres.length ? `— sus leads entran a ${nombres[0]}${nombres.length > 1 ? ` y se suman a ${nombres.slice(1).join(', ')}` : ''}` : '— sin productos asignados');
+      }
       return {
-        payload: { url, ...(anterior ? { anterior } : {}) },
+        payload: { url, ...(anterior ? { anterior } : {}), ...(productos ? { productos } : {}) },
         resumen: partes.join(' ') + '.',
       };
     },
@@ -1207,7 +1226,9 @@ export const RUNNERS: Runners = {
         const url = String(payload.url ?? '');
         const anterior = typeof payload.anterior === 'string' ? payload.anterior : null;
         const { landings } = await leerLandings();
-        const nuevas = conLanding(landings, url, {}, anterior);
+        // `funnelIds` sólo si vinieron: ausente es «no los toques», [] los saca (lib/landing-config.ts, conLanding).
+        const productos = Array.isArray(payload.productos) ? payload.productos.map(Number).filter((n) => Number.isSafeInteger(n) && n > 0) : undefined;
+        const nuevas = conLanding(landings, url, productos ? { funnelIds: productos } : {}, anterior);
         if (!nuevas) return { ok: false, resumen: 'Esa dirección no parece una página web.' };
         if (!landingDe(nuevas, url)) return { ok: false, resumen: `No se pudo: ya hay ${MAX_LANDINGS} landings declaradas.` };
         await escribirLandings(nuevas);

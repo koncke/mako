@@ -52,6 +52,9 @@ import { editarHojaIA } from '@/lib/graficos-ia-editar';
 import { firmaDeHoja } from '@/lib/graficos-ia-edicion';
 import { senalesDelNegocio } from '@/lib/plantillas-sugeridas-server';
 import { hojaConDatos } from '@/lib/graficos-con-datos-server';
+// Copiar y pegar un dashboard con su código (mig 0268): las MISMAS reglas y la misma tabla que la pantalla.
+import { avisoDeVaciados, hojaConIdsNuevos, hojaParaCopiar, hojaParaOtroNegocio, nombreDeHoja, rotuloDashPegado } from '@/lib/graficos-copia';
+import { FaltaTablaDashError, copiaDashDeToken, guardarCopiaDash } from '@/lib/graficos-copia-server';
 import { TOPE_PEDIDO_IA } from '@/lib/graficos-ia';
 import { Alias, sanearCronAnalisis, type SalidaAnalisis } from '@/lib/graficos-analisis';
 import { CajaInvalida, analizarCaja, arrancarCaja, vistaDeCaja } from '@/lib/graficos-ia-elemento-server';
@@ -719,6 +722,82 @@ export const RUNNERS: Runners = {
         datos: { hojaId: copia.id },
       };
     }),
+    ejecutar: aplicar,
+  },
+
+  // «Copiar dashboard» con su código (mig 0268): la MISMA regla que la pantalla (app/api/graficos/copia/route.ts) —
+  // `hojaParaCopiar` saca los filtros sobre personas—, guardada con `guardarCopiaDash`. No escribe ningún informe, así que
+  // no pasa por `proponer`/`aplicar` (que son de cambiar un informe): preparar() fija la persona y la hoja, ejecutar()
+  // vuelve a leer la hoja (la copia es la de AHORA, no la de hace 2 horas). EL CÓDIGO NO PASA POR EL MODELO: va por
+  // `paraLaPersona` (un código son 20 caracteres al azar; transcrito por un modelo deja de servir) y por `datos` (HTTP no).
+  copiar_dashboard: {
+    preparar: async (input, ctx) => {
+      if (enFlujo(ctx)) return { error: noEnFlujo('Copiar un dashboard') };
+      try {
+        const r = await resolver(input, ctx, 'persona');
+        if (esFallo(r)) return r;
+        const h = laHoja(r, input);
+        if (esFallo(h)) return h;
+        const { vaciados } = hojaParaCopiar(h);
+        const aviso = avisoDeVaciados(vaciados);
+        return {
+          payload: { sub: r.sub, hojaId: h.id },
+          resumen: `Copiar la hoja ${comillas(h.nombre)} de ${r.etiqueta} y guardarla detrás de un código para pegarla en cualquier negocio (quien tenga el código puede leerla; no lleva filtros sobre personas${aviso ? `: ${aviso}` : ''}). No cambia el informe.`,
+        };
+      } catch (e) {
+        console.error(`[api-mako dashboard] copiar: ${msg(e)}`);
+        return { error: 'No pude leer el informe del Dashboard. Reintenta en un momento.' };
+      }
+    },
+    ejecutar: async (payload, ctx) => {
+      try {
+        const sub = typeof payload.sub === 'string' ? payload.sub : '';
+        if (!/^\d+$/.test(sub)) return { ok: false, resumen: 'La propuesta no dice de quién es el informe: vuelve a pedirla.' };
+        const actual = await leerTableroVisible(sub);
+        const h = actual.tablero.hojas.find((x) => x.id === payload.hojaId);
+        if (!h) return { ok: false, resumen: 'Esa hoja ya no está en el informe: vuelve a pedirla.' };
+        const { hoja, vaciados } = hojaParaCopiar(h);
+        const token = await guardarCopiaDash(hoja, { ws: ctx.ws, vaciados });
+        const aviso = avisoDeVaciados(vaciados);
+        return {
+          ok: true,
+          resumen: `Listo: la hoja ${comillas(hoja.nombre)} quedó copiada${aviso ? ` (${aviso})` : ''}. El código ya se lo mandé a la persona; no lo repitas ni lo inventes.`,
+          datos: { token, nombre: hoja.nombre, vaciados },
+          paraLaPersona: `${rotuloDashPegado(nombreDeHoja(hoja))}\n${token}\nPégalo con «pegar dashboard» en el negocio que lo reciba (o con el botón de pegar de la pantalla).${aviso ? ` (${aviso})` : ''}`,
+        };
+      } catch (e) {
+        if (e instanceof FaltaTablaDashError) return { ok: false, resumen: e.message };
+        console.error(`[api-mako dashboard] copiar ejecutar: ${msg(e)}`);
+        return { ok: false, resumen: 'No se pudo copiar la hoja. Reintenta en un momento.' };
+      }
+    },
+  },
+
+  // Pegarlo: lo que la pantalla hace con `action: 'leer'` + `hojaConIdsNuevos`. Es una hoja NUEVA al final (`crear_hoja`),
+  // con la vara de siempre (tope de hojas, saneo, compare-and-set del informe). De otro negocio, `hojaParaOtroNegocio`
+  // vacía los filtros que nombran cosas del otro (campañas, closers): el mismo saneo que la ruta.
+  pegar_dashboard: {
+    preparar: (input, ctx) => proponer(input, ctx, async () => {
+      let copia: Awaited<ReturnType<typeof copiaDashDeToken>>;
+      try { copia = await copiaDashDeToken(str(input, 'codigo')); } catch (e) {
+        if (e instanceof FaltaTablaDashError) return { error: e.message };
+        throw e;
+      }
+      if (!copia) return { error: 'No encontré ese dashboard: el código empieza con MAKO-DASH- (cópialo entero).' };
+      const deOtro = copia.wsOrigen !== ctx.ws;
+      const llega = deOtro ? hojaParaOtroNegocio(copia.hoja) : { hoja: copia.hoja, vaciados: 0 };
+      const hoja = hojaConIdsNuevos(llega.hoja);
+      const vaciados = copia.vaciados + llega.vaciados;
+      const aviso = avisoDeVaciados(vaciados);
+      return {
+        cambio: { op: 'crear_hoja', hoja },
+        que: `Pegar el dashboard ${comillas(hoja.nombre)}${deOtro ? ' (copiado de otro negocio)' : ''}, con ${hoja.componentes.length} ${hoja.componentes.length === 1 ? 'componente' : 'componentes'}`,
+        hecho: `Quedó la hoja ${comillas(hoja.nombre)} (id ${hoja.id})${aviso ? `, con ${aviso}` : ''}`,
+        deshacer: `Para deshacerlo: borrar_hoja_dashboard con hoja ${hoja.id}.`,
+        datos: { hojaId: hoja.id },
+        aviso: aviso ? `(${aviso})` : undefined,
+      };
+    }, { noEnFlujo: 'Pegar un dashboard' }),
     ejecutar: aplicar,
   },
 

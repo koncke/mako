@@ -1074,7 +1074,11 @@ Ocho cosas que no se ven en el código y ya mordieron:
    veces; con presupuesto, eso es plata. La contracara: lo reclamado no vuelve a
    `pendiente`, así que **todo lo que se pueda saber sin escribir falla en `preparar()`**
    —un candado en `ejecutar()` consume la pendiente aunque rechace— y lo lento no sale por
-   `/api/v1`, que corta a 60 s.
+   `/api/v1`, que corta a 60 s. **Lo que sólo se sabe AL confirmar** (quién confirma: una escritura
+   firmada que llega sin nadie que firme) se declara en el runner como `faltaParaConfirmar`, que
+   `confirmarPendiente` pregunta ANTES de reclamar (y la pantalla genérica, antes de marcarla aplicada);
+   sin eso, un «sí» por un token clásico o por WhatsApp dejaba la pendiente en `error` para el admin que
+   sí la podía confirmar (comunidad, 17/10/2026).
 4. **Una acción de pantalla no tiene gemela de chat.** Si queda una tool vieja en
    `MAKO_ACCION_TOOLS` con el mismo nombre, el doer de WhatsApp la prefiere y pide un «sí».
    Al pasar una operación a `pantalla`, se saca la vieja; `confirmarPendiente` cierra sin
@@ -1105,6 +1109,11 @@ Ocho cosas que no se ven en el código y ya mordieron:
    `toolsDelRegistro` suelto, el test de agenda dio verde mientras 3 de sus 5 pedidos llegaban
    sin la herramienta (08/10/2026). Y el presupuesto de 12.000 caracteres ordena por
    relevancia CONTRA EL TEXTO: sumar un área sin sumar relevancia no trae la acción.
+   **Y una operación que mueve plata lleva SU frase en esa lista, con la forma en que la dice el dueño**
+   («Juan me pagó 500 mil pesos», «cambiale el vencimiento a la cuota 3»): las nueve de Pagos campo por
+   campo (14/10/2026) salieron con su def perfecta y ninguna frase, y tres días después «ya me pagó la cuota 2»
+   caía `capturar` con DOS herramientas — MaKo no podía registrar un pago, con o sin moneda
+   (`tests/api-mako-pago-intencion.test.ts`, docs/hallazgos-api-mako.md → «Pendientes B1 de la API»).
 
 **Y al sumar operaciones a un área** (15/10/2026, 40 de una vez en `landing`;
 docs/hallazgos-api-mako.md → «El editor entero del Web Generator»):

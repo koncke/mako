@@ -37,7 +37,7 @@ const leerLista = (raw: string | null) => parsearLista(raw, AREAS);
 
 /** Lo que /api/v1 necesita saber de un bearer. */
 export type TokenResuelto =
-  | { ws: number; clase: 'detallado'; id: string; nombre: string; permisos: Permisos; expira: string | null; vencido: boolean; sinCreador: boolean }
+  | { ws: number; clase: 'detallado'; id: string; nombre: string; permisos: Permisos; expira: string | null; vencido: boolean; sinCreador: boolean; creadoPor: string }
   | { ws: number; clase: 'clasico' };
 
 // `creadorVigente` (¿quien creó un token de `ws` sigue administrándolo?, con su minuto de
@@ -70,7 +70,7 @@ export async function resolverTokenApi(token: string): Promise<TokenResuelto | n
     const venc = vencido(r.g, Date.now());
     const sinCreador = !venc && !(await conReintentoTransitorio(() => creadorVigente(r.ws, r.g.creadoPor)));
     if (!venc && !sinCreador) marcarUso(r.ws, r.g.id);
-    return { ws: r.ws, clase: 'detallado', id: r.g.id, nombre: r.g.nombre, permisos: r.g.permisos, expira: r.g.expira, vencido: venc, sinCreador };
+    return { ws: r.ws, clase: 'detallado', id: r.g.id, nombre: r.g.nombre, permisos: r.g.permisos, expira: r.g.expira, vencido: venc, sinCreador, creadoPor: r.g.creadoPor };
   }
   // El principal anota su propio uso adentro de wsPorAgenteToken (lo usa también /api/agente).
   const ws = await wsPorAgenteToken(t);

@@ -25,8 +25,9 @@ const FILAS_CAMPANA = 80;
 const RENGLONES = 40;
 
 /** La campana de quien mira: los renglones (más nuevos primero) y cuántos sin leer. */
-export async function campanaComunidad(a: Actor): Promise<CampanaVista> {
-  await avisarEventosProximos(a);
+export async function campanaComunidad(a: Actor, opts: { sinEscribir?: boolean } = {}): Promise<CampanaVista> {
+  // La pantalla anota los avisos de los eventos próximos al abrir la campana (un upsert); la API de MaKo la LEE sin escribir.
+  if (!opts.sinEscribir) await avisarEventosProximos(a);
   const { data, error } = await de(a.ws, 'comunidad_notificaciones')
     .select('id, tipo, de_miembro, post_id, comentario_id, evento_id, ocurrencia, leida_at, created_at')
     .eq('producto_id', a.productoId).eq('para_miembro', a.clave)

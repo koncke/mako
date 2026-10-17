@@ -159,7 +159,7 @@ export async function autenticar(req: Request, opts: { sinConsumir?: boolean } =
   // y los detallados en app/api-mako/actions.ts.
   const ctx: Ctx = r.clase === 'detallado'
     // Un detallado tiene el alcance máximo y lo acotan sus permisos por área (gatingOk).
-    ? { ...base, alcance: 'ejecutar', permisos: r.permisos, token: { id: r.id, nombre: r.nombre }, actor: `API · token «${r.nombre}»` }
+    ? { ...base, alcance: 'ejecutar', permisos: r.permisos, token: { id: r.id, nombre: r.nombre }, actor: `API · token «${r.nombre}»`, ...(r.creadoPor.includes('@') ? { persona: r.creadoPor } : {}) }
     : { ...base, alcance: alcanceDeToken(auth.token) };
   return { ctx, token: r, cabeceras };
 }

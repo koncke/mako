@@ -295,8 +295,9 @@ test('⚠️ POR HTTP las etiquetas de personas salen como alias; por WhatsApp y
 
 test('las lecturas con personas no salen por HTTP, y todo pide la tab del Dashboard y el rol admin', () => {
   const del = REGISTRO.filter((d) => d.id.endsWith('_dashboard'));
-  // 26 desde el 16/10/2026: + editar_hoja_con_ia_dashboard («Editar con MaKo»).
-  assert.equal(del.length, 26, `son ${del.length}`);
+  // 26 desde el 16/10/2026: + editar_hoja_con_ia_dashboard («Editar con MaKo»). 28 desde el 17/10/2026: + copiar_dashboard y
+  // pegar_dashboard (el código MAKO-DASH-…, SIN http: tests/api-mako-acciones-1710.test.ts).
+  assert.equal(del.length, 28, `son ${del.length}`);
   for (const id of ['listar_informes_dashboard', 'ver_detalle_numero_dashboard', 'listar_valores_campo_dashboard']) {
     assert.ok(!REGISTRO.find((d) => d.id === id)!.canales.includes('http'), `${id} trae nombres de personas y sale por HTTP`);
   }
