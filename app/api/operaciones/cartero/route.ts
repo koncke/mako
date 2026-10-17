@@ -13,8 +13,8 @@
 // estados. NO puede hacer que la PC ejecute nada: el cartero sólo entrega pedidos firmados con una
 // clave que vive en el navegador de Martín, y la verifica él (docs/diseno-centro-de-operaciones.md
 // §3.1). Por eso el token alcanza como credencial de esta ruta.
-// Y con el Plan (`?plan=1`, cartero 1.15.6): leer las abiertas del proyecto de un jefe o cerrar UNA tarea, sólo con un
-// trabajo firmado de Martín entregado a esa sesión, de menos de un día, que la nombra (lib/centro-plan-chat.ts).
+// Y con el Plan (`?plan=1`, cartero 1.15.7): LEER las abiertas del proyecto del jefe al que Martín le mandó un pedido
+// firmado de menos de un día (lib/centro-plan-chat.ts). Nada más: un chat no cierra tareas.
 // Y escribir la foto de los pasos en vivo de una cuenta (`?pasos=1`, 1.15.3): texto corto que se ve en el Ops Center.
 // =============================================================================
 
@@ -83,7 +83,7 @@ export async function POST(req: NextRequest) {
       const chats = await guardarPasos(o.cuenta, o.pasos);
       return NextResponse.json({ ok: true, chats });
     }
-    // ?plan=1 (cartero 1.15.4): un chat maneja el Plan de SU jefe a pedido de Martín: leer las abiertas o cerrar una.
+    // ?plan=1 (cartero 1.15.7): «tráeme las más prioritarias», de sólo lectura y atado a un pedido firmado de Martín.
     // Lo que puede y lo que no, en lib/centro-plan-chat.ts (⚠️ revisión de seguridad).
     if (req.nextUrl.searchParams.has('plan')) {
       if (!(await tokenDelCarteroValido(token))) return NextResponse.json({ error: 'token del cartero inválido' }, { status: 401 });

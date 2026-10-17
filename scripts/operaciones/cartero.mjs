@@ -65,8 +65,8 @@
 //                                  los corre el Runner de la app en cada vuelta, antes de `ciclo`
 //   cierre <id> --hecho "…" [--decidido "…"] [--comprobado "…"] [--sigue "…"] [--prueba "…"] [--revisar "/ruta"]
 //                                  lo corre el CHAT QUE RECIBIÓ el pedido, al terminarlo
-//   plan prioridades --trabajo <id> [--n 10]   (1.15.6) lo corre un CHAT a pedido FIRMADO de Martín (el id de ese pedido):
-//   plan cerrar <#N> --trabajo <id> [--evidencia "…"]  las abiertas del proyecto de su jefe, o cerrar la que Martín nombró.
+//   plan prioridades --trabajo <id> [--n 10]   (1.15.7) lo corre un CHAT a pedido FIRMADO de Martín (el id de ese pedido):
+//                                  las abiertas del proyecto de su jefe, de SÓLO LECTURA. Un chat no cierra tareas.
 //   preguntar <archivo.json>       (1.14.0) lo corre un CHAT que necesita una decisión de Martín: la pregunta va a su
 //                                  conversación del Ops Center como un formulario de opciones, y la respuesta le llega
 //                                  como un trabajo firmado. El archivo: { pregunta, contexto?, opciones: [{ titulo,
@@ -84,7 +84,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 
-export const VERSION = '1.15.6';
+export const VERSION = '1.15.7';
 const HOME = os.homedir();
 const DIR = process.env.CARTERO_DIR || path.join(HOME, '.claude', 'operaciones');
 const APP = process.env.CARTERO_APP_DIR || path.join(process.env.APPDATA || path.join(HOME, 'AppData', 'Roaming'), 'Claude', 'claude-code-sessions');
@@ -1442,16 +1442,14 @@ export function armarPregunta(x, local, ahora = new Date()) {
 }
 
 /**
- * El Plan desde un chat (1.15.6, 17/10/2026): «tráeme las más prioritarias» o «ciérrala», sin que Martín abra el Plan. Va
- * con el token del cartero a la ruta del cartero (`?plan=1`) y MaKo decide QUÉ puede (lib/centro-plan-chat.ts): sólo con
- * el TRABAJO FIRMADO de Martín que lo pidió (`--trabajo <id>`: el id que trae el pedido, el de su `cierre`), sólo el
- * proyecto del jefe de esa sesión, sólo leer o cerrar la tarea que Martín nombró.
- * ⚠️ LO QUE VUELVE DE MAKO SE IMPRIME CON FORMA FIJA Y POR `textoRemoto` (la revisión del Cerebro): un título del Plan es
- *    texto que entra al contexto de un chat en modo bypass. ⚠️ REVISAR (seguridad).
+ * «Tráeme las más prioritarias» desde un chat (1.15.7, 17/10/2026): el Plan del jefe al que Martín le mandó ESE pedido
+ * firmado (`--trabajo <id>`: el id que trae el pedido, el de su `cierre`), de SÓLO LECTURA (lib/centro-plan-chat.ts). Un chat
+ * no cierra tareas: después de dos revisiones del Cerebro, cerrar leyendo texto quedó afuera (Martín las marca hechas).
+ * ⚠️ LO QUE VUELVE DE MAKO SE IMPRIME CON FORMA FIJA Y POR `textoRemoto`: un título del Plan es texto que entra al contexto
+ *    de un chat en modo bypass. ⚠️ REVISAR (seguridad).
  */
 export function salidaDelPlan(o) {
   if (!o || typeof o !== 'object' || o.ok !== true) return { ok: false, error: textoRemoto(o?.error) || 'MaKo no contestó' };
-  if (o.cerrada && typeof o.cerrada === 'object') return { ok: true, cerrada: Number.isInteger(o.cerrada.num) ? o.cerrada.num : null };
   const fecha = (v) => (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v.slice(0, 10)) ? v.slice(0, 10) : null);
   const prioridad = (v) => (['alta', 'media', 'baja', 'futuro'].includes(v) ? v : null);
   const tareas = (Array.isArray(o.tareas) ? o.tareas : []).slice(0, 20).map((t) => ({
@@ -1462,17 +1460,12 @@ export function salidaDelPlan(o) {
 async function planDelChat(args) {
   const cfg = config();
   if (!cfg.token) throw new Error('falta el token del Runner en esta PC');
-  const sesion = sesionQuePregunta();
-  if (!sesion) throw new Error('no sé qué chat sos: corre esto desde el chat (CLAUDE_CODE_HOST_SESSION_ID o CLAUDE_CODE_SESSION_ID)');
   const v = (k) => { const i = args.indexOf(`--${k}`); return i >= 0 && args[i + 1] && !args[i + 1].startsWith('--') ? String(args[i + 1]) : ''; };
   const op = args[0];
   const trabajo = v('trabajo');
   if (!UUID_RE.test(trabajo)) throw new Error('falta --trabajo <id>: el id del pedido firmado de Martín que lo pide (el de su cierre)');
-  let cuerpo;
-  if (op === 'prioridades') cuerpo = { op, sesion, trabajo, n: Number(v('n')) || 10 };
-  else if (op === 'cerrar') cuerpo = { op, sesion, trabajo, num: String(args[1] ?? '').replace(/^#/, ''), evidencia: v('evidencia').slice(0, 400) };
-  else throw new Error('uso: plan prioridades --trabajo <id> [--n 10] | plan cerrar <#N> --trabajo <id> [--evidencia "…"]');
-  if (op === 'cerrar') cuerpo.num = Number(cuerpo.num);
+  if (op !== 'prioridades') throw new Error('uso: plan prioridades --trabajo <id> [--n 10] (un chat no cierra tareas: Martín las marca hechas en el Centro)');
+  const cuerpo = { op, trabajo, n: Number(v('n')) || 10 };
   const url = (cfg.url || 'https://hola-mako.com').replace(/\/$/, '');
   const r = await fetch(`${url}/api/operaciones/cartero?plan=1`, {
     method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${cfg.token}` },

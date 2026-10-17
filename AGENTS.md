@@ -1543,10 +1543,12 @@ código nuevo:
   - **Ninguna puerta nueva de la PC a MaKo responde texto de MaKo al chat sin pasar por `textoRemoto` o una forma fija, ni
     escribe en nombre de un chat con una `sesion` que declara quien llama** (17/10/2026, la revisión del Cerebro al Plan
     desde el chat, rehecho por eso: docs/hallazgos-operaciones.md). Escribir pide un pedido FIRMADO de Martín.
-  - **UN CHAT MANEJA EL PLAN DE SU JEFE CON `cartero.mjs plan … --trabajo <id>`** (17/10/2026, cartero 1.15.6): si Martín
-    pide en un pedido firmado «tráeme las más prioritarias» o «cerrá la #870», el chat corre
-    `node ~/.claude/operaciones/cartero.mjs plan prioridades --trabajo <id>` o `plan cerrar #870 --trabajo <id>` con el id
-    de ESE pedido (el de su `cierre`). Sólo lee o cierra en el proyecto de SU jefe, y sólo la tarea que Martín nombró.
+  - **UN CHAT NO CIERRA TAREAS DEL PLAN; el cierre se pide con `--tareas` en el cierre, NUNCA leyendo texto** (17/10/2026,
+    después de dos revisiones adversariales del Cerebro: cerrar «#870» leyendo un «Ya está» o un pedido —negaciones,
+    «en producción», una respuesta que repite el número— no se arregla con regex). Hasta que exista `cartero.mjs cierre …
+    --tareas 870,872 --prueba <commit>` (pendiente, docs/relevo/centro-operaciones.md), Martín las marca hechas en el
+    Centro. Lo que sí puede un chat es LEER: `node ~/.claude/operaciones/cartero.mjs plan prioridades --trabajo <id>` con
+    el id del pedido firmado de Martín que lo pide (el de su `cierre`).
   - **EN UNA LISTA DEL TELÉFONO QUE SE REFRESCA SOLA, CADA FILA ES `memo`** (17/10/2026; Martín: «le doy para atrás en
     mobile, tarda bastante en reaccionar»): con props que no cambian entre toques (los mapas memorizados de useCentro.ts,
     callbacks estables) y nada calculado por fila en el render. Escribir en la caja, abrir o cerrar una hoja no puede volver

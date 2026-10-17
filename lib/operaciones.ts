@@ -91,12 +91,12 @@ const COLS = 'id, created_at, autor, destino, destino_cuenta, destino_titulo, te
 
 /** La sesión y el texto firmado de un trabajo de la cola, para comprobar que una respuesta salió (las preguntas de los
  *  chats, lib/centro-preguntas-chat.ts). null = no está. */
-export async function trabajoDeLaCola(id: string): Promise<{ destino: string; texto: string; estado: string; creado: string } | null> {
+export async function trabajoDeLaCola(id: string): Promise<{ destino: string; texto: string; estado: string; creado: string; titulo: string | null } | null> {
   if (!UUID_RE.test(id)) return null;
-  const { data, error } = await getSupabaseServer().from(T_PEDIDOS).select('destino, texto, estado, created_at').eq('id', id).maybeSingle();
+  const { data, error } = await getSupabaseServer().from(T_PEDIDOS).select('destino, texto, estado, created_at, destino_titulo').eq('id', id).maybeSingle();
   if (error) throw new Error(`no pude leer el trabajo: ${error.message}`);
-  // `estado` y `creado` (17/10/2026): el Plan desde el chat sólo acepta un pedido que le LLEGÓ a esa sesión y es reciente.
-  return data ? { destino: String(data.destino), texto: String(data.texto ?? ''), estado: String(data.estado ?? ''), creado: String(data.created_at ?? '') } : null;
+  // `estado`, `creado` y `titulo` (17/10/2026): «las más prioritarias» se leen del jefe al que Martín le mandó ESE pedido.
+  return data ? { destino: String(data.destino), texto: String(data.texto ?? ''), estado: String(data.estado ?? ''), creado: String(data.created_at ?? ''), titulo: data.destino_titulo ? String(data.destino_titulo) : null } : null;
 }
 
 export async function listarPedidos(limite = 100): Promise<Pedido[]> {
