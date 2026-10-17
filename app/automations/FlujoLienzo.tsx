@@ -643,7 +643,7 @@ export function FlujoLienzo({
         // Soltada la flecha en el vacío (general 14), la tarjeta nace DONDE se soltó.
         if (nuevo && punto && (enElPunto || posiciones?.[id])) ponerEn(nuevo, punto.x, punto.y - Y_ENTRADA);
       }) : undefined}
-      varios={varios} onVarios={editable ? setVarios : undefined}
+      varios={varios} onVarios={editable ? setVarios : undefined} onEliminarVarios={editable ? eliminarVarias : undefined}
       onReconectar={editable ? reconectar : undefined}
       onReconectarANueva={editable ? reconectarANueva : undefined}
       onCopiar={editable ? textoCopiado : undefined}
