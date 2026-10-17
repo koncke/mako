@@ -36,7 +36,9 @@ test('entra SOLO, y solo un duplicado queda para revisar', () => {
   assert.ok(/catch \(e\)/.test(src.slice(i, src.indexOf('crearPropuesta({'))), 'un alta que falla tiene que caer a propuesta');
   // Y el aviso dice POR QUÉ quedó esperando: «confirmalo» a secas, sobre algo que
   // el resto de las veces entra solo, se lee como que el sistema falló.
-  assert.ok(/textoDuplicado\(dup\)/.test(src), 'el aviso tiene que decir con quién choca');
+  // (17/10/2026, «nada por detrás», lote 3: el texto es el de su automatización y los duplicados van como datos,
+  // `datosOptin` → «Ya tienes a {{optin_ya_tienes}} con el mismo {{optin_coincide}}»; tests/optin-evento.test.ts.)
+  assert.ok(/revisar: true, duplicados: dup,/.test(src), 'el aviso tiene que decir con quién choca');
 });
 
 test('el ruteo del workspace es fail-closed', () => {
@@ -565,7 +567,8 @@ test('un lead de landing AVISA, o la propuesta no existe para nadie', () => {
   // El LINK lo arma el código. Un id de 16 caracteres al azar transportado por un
   // LLM ya falló en este repo, y la forma silenciosa —un link que resuelve a una
   // propuesta REAL pero equivocada— es la peor.
-  assert.ok(/texto: `/.test(ruta), 'el mensaje va determinista (texto), no escrito por el modelo (contexto)');
+  // (Desde el 17/10/2026 van los DATOS, con el link como dato, y el texto es el de su automatización: lote 3.)
+  assert.ok(/datos: datosOptin\(\{/.test(ruta) && !/contexto:/.test(ruta), 'el mensaje va determinista (datos), no escrito por el modelo (contexto)');
   // El link va por `linkApp`, que le pega el `?ws=`: este aviso viaja a un teléfono y lo
   // abre alguien que puede tener la app parada en otro workspace (05/10, tarea #834).
   assert.ok(/linkApp\(`\/crm\/revisar\/\$\{id\}`, wsEnContexto\(\)\)/.test(ruta), 'falta el link a la propuesta real, armado por el código y con su workspace');
@@ -1814,7 +1817,9 @@ test('⚠️ con VARIOS productos la persona es UNA: los extra se AGREGAN, no se
 
   // Y el aviso lo DICE: el link lleva a la ficha (que es UNA), y sin esta línea
   // nadie sabe que esa persona ya está también en otros tableros.
-  assert.ok(/Entró a \$\{tambien\.length \+ 1\} funnels/.test(codigo), 'con varios funnels el aviso tiene que decirlo');
+  // (Desde el 17/10/2026, lote 3: la cuenta viaja como dato y el renglón «🗂️ Entró a {{optin_funnels}}» es de su
+  // automatización, que sólo va con dos o más: tests/optin-evento.test.ts.)
+  assert.ok(/funnels: tambien\.length \+ 1,/.test(codigo), 'con varios funnels el aviso tiene que decirlo');
 });
 
 // PROBADO ROMPIENDOLO: borrando `if (!elegido) return null;` de

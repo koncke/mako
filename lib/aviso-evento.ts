@@ -83,6 +83,7 @@ export function datosDelEvento(sub: unknown): ContextoDatos {
     ...(ev.trae.includes('tracking') ? { conTracking: true } : {}),
     ...(ev.trae.includes('pixel') ? { conPixel: true } : {}),
     ...(ev.trae.includes('landing') ? { conLanding: true } : {}),
+    ...(ev.trae.includes('optin') ? { conOptin: true } : {}),
     ...(ev.trae.includes('reporte') ? { conReporte: true } : {}),
     ...(ev.trae.includes('oferta') ? { conOferta: true } : {}),
     ...(ev.trae.includes('anuncios') ? { conAnuncios: true } : {}),

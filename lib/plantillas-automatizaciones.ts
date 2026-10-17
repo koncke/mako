@@ -862,6 +862,24 @@ export const PLANTILLAS_PLATAFORMA: readonly PlantillaAutomatizacion[] = [
     ],
   },
   {
+    // ALGUIEN DEJÓ SUS DATOS EN LA LANDING (17/10/2026, «nada por detrás», lote 3). Dos casos, que antes eran dos textos en la
+    // ruta del formulario: entró solo al CRM, o quedó a REVISAR porque se parece a uno que ya está (fundir dos contactos no se
+    // deshace). Lo pregunta la CONDITION (`optin_revisar`); lo que falta de la persona, su renglón no va.
+    id: 'mako-lead-de-landing',
+    nombre: 'Alguien Dejó sus Datos en una Landing',
+    emoji: '🟢',
+    linea: 'Le avisa al grupo de un negocio quién dejó sus datos en su landing, o que lo revise si se parece a otro.',
+    origen: 'el formulario de la landing (track/optin), con cada persona que deja sus datos',
+    objetivo: 'clientes',
+    soloPlataforma: true,
+    cron: { fijo: TRIGGER_AVISO_MAKO, evento: 'lead_de_landing' },
+    pasos: [
+      condicion('ol_revisar', [[[{ campo: 'dato:optin_revisar', valor: 'sí' }], 'ol_revisar_mk']], 'ol_entro_mk'),
+      mako('ol_revisar_mk', '🟡 *{{optin_quien}}* dejó sus datos en tu landing\n📱 {{optin_telefono}}\n✉️ {{optin_email}}\n👥 Ya tienes a {{optin_ya_tienes}} con el mismo {{optin_coincide}}\nNecesito que lo mires: fundir dos contactos no se puede deshacer, por eso NO lo cargué solo.\nDecides tú aquí 👉 {{optin_link}}\n\n— MaKo', null),
+      mako('ol_entro_mk', '*{{optin_quien}}* dejó sus datos en tu landing\n📱 {{optin_telefono}}\n✉️ {{optin_email}}\n📝 Lo que completó:{{optin_respuestas}}\n📢 {{optin_campana}}\n🗂️ Entró a {{optin_funnels}}\n👉 {{optin_link}}', null),
+    ],
+  },
+  {
     // LA LANDING QUE CAMBIÓ LO QUE SE MIDE (17/10/2026, lote 3): se le agregó o se le sacó un video, un formulario o la
     // agenda. Si lo agregado se puede medir lo pregunta la CONDITION (`landing_medible`); lo agregado y lo sacado, cada uno
     // en su renglón opcional.

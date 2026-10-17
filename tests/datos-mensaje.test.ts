@@ -44,6 +44,7 @@ import { datosFusion } from '../lib/lead-fusionado';
 import { datosRecordatorioDueno } from '../lib/curso-mensajes-texto';
 import { datosPuenteAusente } from '../lib/flow-puente-aviso';
 import { datosLandingCambio, datosPixelViejo, datosTrackingApagado } from '../lib/tracking-aviso';
+import { datosOptin } from '../lib/optin-aviso';
 import { datosDelReporte } from '../lib/reporte-destino';
 import { datosOfertaLista } from '../lib/oferta-lista';
 import { datosCuentaFrenada } from '../lib/alerta-critica-texto';
@@ -131,6 +132,8 @@ function porFuente(): Record<FuenteDato, Set<string>> {
     // 17/10/2026, lote 3: y la landing y el Pixel de un negocio, que pasa el cron tracking-vigilante (lib/tracking-aviso.ts).
     tracking: set(datosTrackingApagado({ horas: 80, ultima: '2026-10-14T20:00:00Z', tz: 'America/Mexico_City', link: 'https://hola-mako.com/integraciones' })),
     pixel: set(datosPixelViejo({ paginas: ['https://a.com'], noGraba: true, novedades: 'la grabación', link: 'https://hola-mako.com/integraciones' })),
+    // Y la persona que dejó sus datos en la landing, que pasa la ruta del formulario (`datosOptin`), con un duplicado.
+    optin: set(datosOptin({ nombre: 'Sofía', telefono: '+52 1', email: 's@x.com', respuestas: [['¿Qué buscas?', 'Vender']], campana: 'oct', funnels: 2, link: 'https://hola-mako.com/crm/1', revisar: true, duplicados: [{ lead: { nombre: 'Ana' } as never, motivo: 'email', texto: 'mismo email (s@x.com)' }] }) as Record<string, string>),
     landing: set(datosLandingCambio({ pagina: 'https://a.com', agregaste: 'un video', todasSinMedir: false, sacaste: 'la agenda', link: 'https://hola-mako.com/integraciones' })),
     // 16/10/2026: y el reporte de los lunes ya armado, que pasa el cron (`datosDelReporte`, lib/reporte-destino.ts).
     reporte: set(datosDelReporte({ titulo: 'Reporte semanal · 05/10/2026–11/10/2026', texto: '🗓️ *Reporte semanal*' })),

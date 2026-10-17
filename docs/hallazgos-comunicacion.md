@@ -10276,8 +10276,14 @@ teléfono sigue con su lectura que traga errores (`listNotificaciones` sin `estr
 - **Las filas van ANTES del deploy**, como en el lote 2: #273 (`tracking_apagado`), #274 (`pixel_viejo`) y #275
   (`landing_cambio`) del ws 9, con `scripts/mudanza-avisos-plataforma.mts --eventos=… --aplicar` el 17/10.
 
-**Lo que quedó SIN hacer de la familia:** `lead-de-landing` (track/optin), `prueba-grabada` y `prueba-recibida`.
+- **«Alguien dejó sus datos en tu landing» (`lead-de-landing`, fila #276) eran DOS textos en la ruta del formulario**: el
+  lead que entra solo y el que queda a revisar por parecerse a otro. Es un evento con una CONDITION (`optin_revisar`), y
+  ⚠️ todo lo de la persona viaja como DATO del evento, sin `trae: ['lead']`: en el caso a revisar todavía no hay lead
+  (es una propuesta), así que de su ficha no se puede leer nada. El «con quién choca» dejó de ser una frase armada
+  (`textoDuplicado`) y son dos datos: a quién se parece y en qué coincide.
 
-**Vive en:** `lib/tracking-aviso.ts` · `app/api/cron/tracking-vigilante/route.ts` · `lib/disparadores.ts` (`tracking_apagado`,
+**Lo que quedó SIN hacer de la familia:** `prueba-grabada` y `prueba-recibida`.
+
+**Vive en:** `lib/tracking-aviso.ts` · `lib/optin-aviso.ts` · `app/api/track/optin/route.ts` · `app/api/cron/tracking-vigilante/route.ts` · `lib/disparadores.ts` (`tracking_apagado`,
 `pixel_viejo`, `landing_cambio`) · `lib/variables-aviso.ts` · `lib/plantillas-automatizaciones.ts` (`mako-tracking-apagado`,
-`mako-pixel-viejo`, `mako-landing-cambio`) · test: `tests/tracking-evento.test.ts`
+`mako-pixel-viejo`, `mako-landing-cambio`, `mako-lead-de-landing`) · tests: `tests/tracking-evento.test.ts`, `tests/optin-evento.test.ts`

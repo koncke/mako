@@ -340,6 +340,8 @@ export const AVISOS_SOLO_SUPERADMIN: readonly string[] = [
   'tracking-apagado',
   'tracking-desactualizado',
   'landing-cambio',
+  // Alguien dejó sus datos en la landing (17/10/2026, lote 3): entró solo o quedó a revisar.
+  'lead-de-landing',
 ];
 
 export const esAvisoSoloSuperAdmin = (id: string): boolean => AVISOS_SOLO_SUPERADMIN.includes(id);
@@ -687,7 +689,13 @@ Conviene que le marques tú: +52 55 4874 2149
     // link por donde entró, el link sale por un aviso. Una propuesta que nadie
     // sabe que existe es peor que no haberla creado: ocupa el lugar del lead.
     disparador: 'Al instante: entra un opt-in desde la landing y se crea la propuesta de lead.',
-    ejemplo: `🟢 *Marina Olvera* dejó sus datos en tu landing hace un rato — tel 998 136 1529, de Atomy. Todavía NO está en el CRM: la tienes que confirmar tú, así revisas el teléfono antes de que valga. Ábrela aquí 👉 https://hola-mako.com/crm/revisar/propxnjgz6dj5mhk — MaKo`,
+    // ⚠️ DESDE EL 17/10/2026 EL TEXTO ES EL DE SU AUTOMATIZACIÓN de SuperAdmin (evento `lead_de_landing`, lote 3).
+    ejemplo: `*Marina Olvera* dejó sus datos en tu landing
+📱 998 136 1529
+📝 Lo que completó:
+• ¿Qué buscas?: Vender mi casa
+📢 oct-leads · video-3
+👉 https://hola-mako.com/crm/2498`,
   },
   {
     id: 'tracking-desactualizado', titulo: 'El Pixel de MaKo quedó viejo', categoria: 'aviso', porDefecto: 'on',
