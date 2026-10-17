@@ -1254,6 +1254,25 @@ topes de 6-8 s.
 **Vive en:** scripts/operaciones/cartero.mjs (`vigilar`, `hayAlgo`) · lib/operaciones.ts (`hayParaElCartero`) ·
 app/api/operaciones/cartero/route.ts (el GET `?hay=`) · lib/runner.ts (el paso 2a) · tests/centro-vigilar.test.ts.
 
+## Un mensaje del Runner queda RETENIDO si el chat destino corre en otro modo de permisos (17/10/2026)
+
+**Síntoma:** Martín mandó un pedido grande al Cerebro desde el Ops Center. El Runner lo entregó y lo acusó «ok», pero el
+Cerebro no lo vio durante una hora.
+
+**Causa:** la app RETIENE un mensaje entre sesiones cuando el que recibe corre en otro modo de permisos que el que manda.
+El Runner estaba en «auto» y el Cerebro en «Omitir permisos». El mensaje queda esperando que alguien lo apruebe en la
+pantalla del chat destino. El Runner no se entera: su SendMessage salió bien y su acuse ya está escrito.
+
+**Arreglo:** el chat destino en el MISMO modo que el Runner. Al pasar al Cerebro a «auto», el mensaje se liberó solo. Un
+Runner no se puede subir a «Omitir permisos» si no se lanzó con --dangerously-skip-permissions.
+
+**Regla:** todos los chats que reciben del Runner van en su mismo modo. Un acuse «ok» del Runner prueba que se mandó,
+no que se leyó.
+
+**Lo que quedó sin explicar:** entre las 09:07 y las 09:59 UTC el Runner dijo «vuelta hecha» pero MaKo no recibió
+ninguna (operaciones_carteros.visto_at quieto), y no tomaba mensajes nuevos. Se destrabó al parar su turno con
+stop_session y reprogramar el cron con `vigilar` (1.12.0). Si vuelve a pasar, mirar visto_at antes de creerle al Runner.
+
 ## Lo que creí medido y no estaba al día
 
 - **`soloPlataforma` ya existía en el registro de la API** (lo sumó el 2FA obligatorio el 14/10, por

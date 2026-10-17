@@ -6697,3 +6697,18 @@ motivo: `anthropic_usage` anota cada respuesta que LLEGÓ (proveedor, tokens, ho
 - Juntos, `anthropic_usage` (QUÉ contestó y cuándo) y el log (POR QUÉ no sirvió) reconstruyen una corrida de IA.
 
 *17/10/2026, chat «Automations» (claude4), tarjeta #847.*
+
+## Verde en la PC, rojo en Linux, y al revés: los tests que dependen del sistema (17/10/2026)
+
+Hoy cayó dos veces la misma clase, una para cada lado:
+- **Rojo en Linux (run 94):** tests/centro-abrir.test.ts arma rutas con forma de Windows (`C:….txt`) a propósito,
+  porque el cartero sólo corre en la PC. En Actions la carpeta temporal es /tmp/…, la lista blanca la rechaza y la
+  apertura sale `no_entregado`. Esos tres tests llevan `{ skip: SOLO_WINDOWS }`: corren en la PC y se saltan en Linux.
+- **Rojo en la PC (chequeo local):** tests/ai-avatar.test.ts recortaba una función buscando `n}n`. Con autocrlf
+  el archivo trae `
+`, el corte daba -1 y el test leía el archivo entero. Ahora normaliza los saltos al leer.
+
+**Regla:** un test que lee código como texto normaliza `
+` al leer. Un test que depende del sistema (rutas de
+Windows, explorer.exe) lo dice con un `skip` con su motivo. La guarda rutas-windows-en-tests sólo ve las rutas
+LITERALES en el test, no las que arma el código.
