@@ -229,12 +229,12 @@ test('5. la campanita agrupa los repetidos seguidos, dice si no llegó y no link
   assert.equal(a[0]!.frase, 'Tu cuenta está frenada', 'las marcas de WhatsApp no se dibujan');
   assert.equal(a[0]!.urgente, true);
   assert.equal(a[1]!.link, '/crm/5');
-  assert.equal(a[1]!.salida, 'Sin grupo: quedó acá');
+  assert.equal(a[1]!.salida, 'Sin grupo: quedó aquí');
   assert.equal(a[3]!.nuevo, false);
   // Las salidas, cortas.
   assert.equal(rotuloDeSalida({ salida: 'sin_grupo', porEmail: true }), 'Sin grupo: fue por email');
   assert.equal(rotuloDeSalida({ salida: 'no_llego' }), 'No llegó al grupo');
-  assert.equal(rotuloDeSalida({ salida: 'apagado' }), 'Apagado: quedó acá');
+  assert.equal(rotuloDeSalida({ salida: 'apagado' }), 'Apagado: quedó aquí');
   assert.equal(rotuloDeSalida({}), null);
   assert.equal(fraseDeAviso('━━ AVISO ━━\nhola'), 'AVISO hola');
   // Marcar visto: sólo si lo más nuevo es posterior a la marca (la marca reescribe el perfil entero).

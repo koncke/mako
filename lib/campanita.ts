@@ -58,9 +58,9 @@ export function fraseDeAviso(s: string | null | undefined): string | null {
 /** Lo que pasó al mandarlo (`payload.salida`), corto: es un rótulo, no una explicación. */
 export function rotuloDeSalida(payload: Record<string, unknown> | null | undefined): string | null {
   switch (payload?.salida) {
-    case 'sin_grupo': return payload.porEmail === true ? 'Sin grupo: fue por email' : 'Sin grupo: quedó acá';
+    case 'sin_grupo': return payload.porEmail === true ? 'Sin grupo: fue por email' : 'Sin grupo: quedó aquí';
     case 'no_llego': return 'No llegó al grupo';
-    case 'apagado': return 'Apagado: quedó acá';
+    case 'apagado': return 'Apagado: quedó aquí';
     default: return null;
   }
 }
