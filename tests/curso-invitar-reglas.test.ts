@@ -183,6 +183,8 @@ const QUE_VE: Record<string, string> = {
   // Sólo el mail del LÍDER de un área: su link se rige por el acceso del cliente, así que nombra lo que
   // ese acceso abre. El resto de la ficha es del EQUIPO y pregunta «de qué es cliente» (la otra lista).
   'app/customer-success/curso-ficha-actions.ts': 'el mail del líder: nombra sólo los cursos que su link abre',
+  // (17/10, #874) La acción de la API, como el núcleo: sin producto, el resumen nombra los cursos que ve.
+  'lib/api-mako/areas/cs.run.ts': 'invitar_cliente_curso_cs sin producto: el resumen nombra sólo los cursos que ve',
 };
 const ES_CLIENTE: Record<string, string> = {
   'lib/curso-invitar.ts': '¿es cliente del producto al que se lo invita?',
@@ -193,6 +195,7 @@ const ES_CLIENTE: Record<string, string> = {
   // Desde el 09/10/2026 (revisión de la corrida): la ficha es del EQUIPO — sus cursos, su casa y agendar
   // una llamada son de todo producto del que es cliente, aunque su acceso todavía no lo abra.
   'app/customer-success/curso-ficha-actions.ts': 'la ficha: sus cursos, su casa y agendar una llamada',
+  'lib/api-mako/areas/cs.run.ts': 'invitar_cliente_curso_cs: ¿es cliente del servicio al que se lo invita? (la regla del kanban)',
 };
 
 function archivos(dir: string): string[] {

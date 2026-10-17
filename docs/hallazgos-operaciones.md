@@ -1080,6 +1080,43 @@ Lo que NO se toca es `CUENTAS_TERMINAL` (lib/runner.ts), salvo que la cuenta ten
 
 **Vive en:** `~/.claude/cuentas.tsv` · `~/.claude/operaciones/config.json` · `app/admin/dev/_registro/tipos.ts` · `scripts/gen-dev-historial.mjs` · docs/relevo/cerebro.md («CUENTA 4»)
 
+## La conversación vacía: la PC avanzó sus marcas antes de que MaKo supiera guardar los turnos (17/10/2026)
+
+**Síntoma:** en el Ops Center, la conversación de cada chat salía vacía, aunque los chats llevaban horas trabajando.
+
+**Causa:** el cartero 1.8.0 lee cada transcript desde una marca en bytes (`~/.claude/operaciones/turnos/<local>.json`) y la
+avanza cuando la vuelta sale bien. Se instaló a las 02:54 AR, ANTES de que se desplegara el servidor que guarda los turnos.
+Las marcas quedaron al final de cada transcript, y lo anterior no se volvió a subir nunca.
+
+**Arreglo:** con el servidor ya en producción, apartar las marcas (`mv turnos/*.json turnos-respaldo-…/`). En la vuelta
+siguiente el Runner sube los últimos tres días de cada chat. Repetirlo no duplica nada, porque el servidor deduplica por
+uuid (lib/operaciones-reglas.ts, `unirTurnos`). Medido: 54 chats en `app_settings` (`operaciones.turnos.*`) a los 2 minutos.
+
+**Regla:** un cartero que AVANZA una marca se instala después del servidor que recibe lo que sube, nunca antes.
+
+## Los adjuntos a la PC: el tope de tamaño que no topaba y el «tomado» sin salida (17/10/2026)
+
+Antes de integrar la punta de adjuntos (cartero 1.9.0), una revisión con tres lentes (escritura en disco, quién puede
+qué, contenido) y una refutación por hallazgo encontró DOS defectos reales. Los arregló la 1.9.1:
+
+- **El tope de `content-length` no topaba.** Con una respuesta chunked, `Number(null)` da 0, que es finito, y pasa. Con
+  gzip, el fetch de Node descomprime solo y el header trae el tamaño comprimido. En los dos casos `await r.arrayBuffer()`
+  junta TODO en RAM antes de comparar con lo firmado: se reprodujo en Node 24.17 con 50 MB, y una bomba gzip de 4 MB llega
+  a ~4 GB. **Regla:** un tope de tamaño se aplica sobre los bytes que llegan (`for await` sobre `r.body`, cortando al pasar
+  lo firmado) y con `accept-encoding: identity`. El header es un dato del que manda, no un límite.
+- **Un pedido en 'tomado' no tenía salida.** Sólo el acuse lo sacaba: cancelar y vencer miraban 'escrito'. Con adjuntos,
+  la ventana entre reclamar y escribir el buzón pasó de milisegundos a decenas de segundos, y el Bash del Runner corta a
+  los 120 s. El pedido quedaba 'tomado' para siempre, MaKo seguía sirviendo el archivo y el binario no se borraba nunca.
+  **Regla:** todo estado intermedio de un trabajo tiene un vencimiento. Ahora 'tomado' vence a las 2 h, a 'incierto', y
+  el adjunto se sirve sólo en los 15 min siguientes a `tomado_at`.
+
+**Lo que quedó sin confirmar:** los hallazgos de severidad baja no pasaron por la refutación: el
+nombre que firma el navegador sin compararlo con lo subido, y lo subido que queda si el envío falla después de subir.
+Están en el journal de la corrida (subagents/workflows/wf_bce975b0-704 de la sesión del Cerebro).
+
+**Vive en:** `scripts/operaciones/cartero.mjs` (`bajarAdjuntos`) · `lib/operaciones.ts` (`cicloCartero`) ·
+`lib/operaciones-adjuntos.ts` (`adjuntoParaElCartero`) · tests/centro-adjuntos.test.ts
+
 ## Lo que creí medido y no estaba al día
 
 - **`soloPlataforma` ya existía en el registro de la API** (lo sumó el 2FA obligatorio el 14/10, por
