@@ -90,6 +90,13 @@ export const DEFS: readonly OperacionDef[] = [
     ],
     salida: 'json', canales: SIN_HTTP, costo: 'gratis', gating: CS,
   },
+  {
+    id: 'ver_pagos_clientes_agencia', area: 'cs', tipo: 'lectura',
+    titulo: 'Ver los pagos de clientes',
+    descripcion: 'Sólo para una AGENCIA: por cada cliente suyo con cuenta de MaKo, lo que falta pagar. «primer_mes_sin_pagar»: al abrirle la cuenta se creó el link de Mercado Pago de su primer mes, y pagarlo lo habilita solo. «renovacion»: terminó el onboarding, su mes ya corre, y la suscripción mensual (que empieza a cobrar en `desde`) espera que la agencia la autorice; `activada: true` es que ya la autorizó. Los links NO vienen aquí: están en Customer Success, en la tarjeta de cada cliente («Pagar su mes» o «Activar renovación»). Un cliente que no aparece no tiene nada pendiente.',
+    parametros: [],
+    salida: 'json', canales: SIN_HTTP, costo: 'gratis', gating: CS,
+  },
 
   // ── Acciones por chat ─────────────────────────────────────────────────────────
   {
@@ -103,5 +110,22 @@ export const DEFS: readonly OperacionDef[] = [
       { nombre: 'motivo', tipo: 'string', max: 500, descripcion: 'por qué. Obligatorio para una baja. Sin motivo se conserva el que había.' },
     ],
     canales: SIN_HTTP, costo: 'gratis', gating: CS,
+  },
+  {
+    // #874 (17/10/2026): traída de la rama a medias `wip/api-acciones-1410` (quieta desde el 14/10, sólo esta acción),
+    // para la ⚡ Acción «Invitar al curso» de un flujo. Lo que manda y anota es `invitarAlCurso` (lib/curso-invitar.ts),
+    // el MISMO de la ficha, la tarjeta del kanban y el CRM al ganar.
+    id: 'invitar_cliente_curso_cs', area: 'cs', tipo: 'accion', confirmacion: 'chat', reversible: false,
+    titulo: 'Invitar un cliente al curso',
+    descripcion: 'Invita a un cliente al curso: le manda por email (y también por WhatsApp si se pide) su link de entrada al portal, y le crea el acceso si no lo tenía. Con productoId invita al curso de ESE servicio, como la ficha y la tarjeta del kanban: el email nombra sólo ese curso y su acceso pasa a abrirlo (sin cerrarle los que ya veía); sin productoId, el email nombra los cursos que ya ve. Sin email usa el del CRM; si el CRM no tenía ninguno, el que se pasa queda guardado en el lead. Si ya estaba invitado (a ese curso) o ya entró, no reenvía, salvo reenviar: true. Si su acceso está cortado o el curso no tiene clases, no invita y dice por qué. El WhatsApp sale solo si el email salió. Después, {{curso_link}} en un mensaje es su link.',
+    escribe: 'crea su acceso al portal si no lo tenía, anota la invitación y qué curso abre (curso_accesos), guarda el email en el lead si no tenía, y manda un email (y opcionalmente un WhatsApp)',
+    parametros: [
+      leadId,
+      { nombre: 'productoId', rotulo: 'Curso', tipo: 'number', entero: true, minimo: 1, descripcion: 'el servicio de cuyo curso se lo invita (uno suyo). Sin esto, los cursos que ya ve.' },
+      { nombre: 'email', tipo: 'string', max: 200, descripcion: 'a qué email. Sin esto, el del CRM.' },
+      { nombre: 'canales', tipo: 'string[]', enum: ['email', 'whatsapp'], max: 2, descripcion: 'por dónde: ["email"] (default) o ["email", "whatsapp"].' },
+      { nombre: 'reenviar', tipo: 'boolean', descripcion: 'true = mandarla aunque ya esté invitado o ya haya entrado.' },
+    ],
+    canales: SIN_HTTP, costo: 'externo', gating: CS,
   },
 ];

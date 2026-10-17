@@ -484,4 +484,24 @@ export const BITACORA: Hito[] = [
       'docs/hallazgos-graficos.md: la pila con el alto del escritorio, la copia de la regla en el arnés, las barras amontonadas, y que un arnés cortado por tiempo con la máquina sin RAM sacó capturas del bundle viejo, idénticas a las de antes.',
     ],
   },
+  {
+    fecha: '16 oct', hora: '—', chat: 'CRM', cuenta: 'claude3', actor: 'martin', tipo: 'prompt',
+    titulo: 'El desplegable de estilos quedó limitado',
+    pedido: '«Vista épica» pasa a ser el desplegable «Estilo de la hoja» del Dashboard… que también en los otros lugares deberías mejorar ese desplegable de estilos, ya que quedó limitado',
+    puntos: ['Del feedback del CRM del 16/10 (docs/feedback-16-10-crm-onboarding-second-brain.md, punto 4). Lo pasó el Cerebro al chat Dashboard el 17/10, junto con el muñeco del Second Brain en «Editar con MaKo».'],
+  },
+  {
+    fecha: '17 oct', hora: '05:20', chat: 'Dashboard', sesion: 'local_ca08f72a-8eb5-4957-a8e0-2b5c7bcbd699', cuenta: 'claude4', actor: 'claude', tipo: 'implementacion',
+    titulo: '«Estilo de la hoja» con más opciones, y «Editar con MaKo» con el muñeco de la tab',
+    puntos: [
+      'En producción desde el run 83.',
+      '«Estilo de la hoja» suma, encima de la plantilla: el fondo, las esquinas, el borde, la sombra y los títulos de las tarjetas, y los valores, la leyenda y la cuadrícula de los gráficos. Sin tocar, queda lo de la plantilla: las hojas de antes se ven igual.',
+      'Elegir otra plantilla vuelve los ajustes a los de ella. MaKo también los puede cambiar.',
+      '«Editar con MaKo» tiene el muñeco del Dashboard (o el de General), que trabaja mientras piensa, y el micrófono del Second Brain.',
+      'En la ficha del lead los ajustes todavía no aparecen: el CRM tiene que guardarlos primero (avisado).',
+    ],
+    commits: [{ sha: '98a4a19d2', msg: '«Estilo de la hoja» con ajustes encima de la plantilla, y «Editar con MaKo» con el muñeco de la tab', lineas: 364, archivos: 11 }],
+    archivos: ['app/dashboard/PanelEstilo.tsx', 'lib/graficos-temas.ts', 'app/dashboard/PanelEditarMako.tsx', 'tests/graficos-temas-ajustes.test.ts', 'tests/dashboard-editar-mako-muneco.test.ts'],
+    revisar: '/dashboard',
+  },
 ];

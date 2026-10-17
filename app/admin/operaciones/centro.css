@@ -344,6 +344,10 @@
 .co-el__cuerpo { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .co-el__rotulo { margin: 0; font-size: var(--fs-meta); color: var(--faint); }
 .co-el__texto { margin: 0; font-size: var(--fs-md); line-height: 1.5; overflow-wrap: anywhere; white-space: pre-wrap; }
+/* Lo que contestó un chat va en Markdown (17/10/2026): sin el pre-wrap, que separaría cada bloque con renglones de más. */
+.co-el__md { white-space: normal; }
+.co-el__md > :first-child { margin-top: 0; }
+.co-el__md > :last-child { margin-bottom: 0; }
 .co-el__dl { margin: 4px 0 0; display: grid; grid-template-columns: max-content 1fr; gap: 2px 10px; font-size: var(--fs-sm); }
 .co-el__dl dt { color: var(--faint); }
 .co-el__dl dd { margin: 0; overflow-wrap: anywhere; }
@@ -509,6 +513,11 @@
 }
 .co-caja textarea::placeholder { color: var(--faint); }
 .co-caja__barra { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+/* Los selectores de la caja (cuenta, modelo, esfuerzo; 17/10/2026): chips que se despliegan, como el selector de modelo
+   de Claude. Envuelven en una ventana angosta en vez de empujar el botón de mandar afuera. */
+.co-caja__barra { flex-wrap: wrap; }
+.co-envio-sel { max-width: 190px; padding-right: 8px; cursor: pointer; text-overflow: ellipsis; }
+.co-envio-sel:disabled { opacity: .55; cursor: default; }
 .co-chip {
   display: inline-flex;
   align-items: center;
@@ -876,7 +885,7 @@
   .co-elegir__mosaicos { grid-template-columns: repeat(4, 1fr); }
 }
 
-/* El Uso de las tres cuentas y sus Runners (Uso.tsx): el botón de abajo y su desplegable, copiado de claude.ai →
+/* El Uso de las cuatro cuentas y sus Runners (Uso.tsx): el botón de abajo y su desplegable, copiado de claude.ai →
    Configuración → Uso (el nombre de la ventana, la barra, el «% usado» y cuándo se reinicia). */
 .co-uso { position: relative; }
 .co-uso__principal { margin-left: 2px; font-weight: 700; }
@@ -898,13 +907,30 @@
 .co-uso__cab { margin: 0 2px 8px; font-weight: 600; }
 .co-uso__lista { display: flex; flex-direction: column; gap: 10px; }
 .co-uso__cuenta { padding: 10px; border-radius: var(--r-md); background: var(--velo-hover); display: flex; flex-direction: column; gap: 8px; }
-.co-uso__fila { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.co-uso__fila { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 8px; }
 .co-uso__titulo { font-weight: 600; font-size: var(--fs-sm); }
+.co-uso__quien { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
+/* El plan de la cuenta («Max», «Pro»), al lado de su nombre: sólo sale si la PC lo sabe. */
+.co-uso__plan {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  height: 18px;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: var(--primary-bg);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--primary-strong);
+  white-space: nowrap;
+  text-transform: capitalize;
+}
 .co-uso__runner { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-meta); color: var(--dim); }
 .co-uso__hacer { margin: 0; font-size: var(--fs-meta); color: var(--warn); line-height: 1.35; }
 .co-uso__ventana { display: flex; flex-direction: column; gap: 4px; }
 .co-uso__nombre { font-size: var(--fs-sm); }
 .co-uso__pct { font-size: var(--fs-sm); color: var(--dim); }
+.co-uso__pct--sin { color: var(--faint); }
 .co-uso__barra { height: 6px; border-radius: 999px; background: var(--border); overflow: hidden; }
 .co-uso__lleno { display: block; height: 100%; border-radius: inherit; background: var(--primary); }
 .co-uso__lleno--ojo { background: var(--warn); }

@@ -165,7 +165,7 @@ export type FrenoDeProbar = FrenoDelFlujo & { medio?: Medio; linea?: string | nu
 /** El ícono de cada opción de la «Reentrada» (del set de la casa). */
 const ICONO_REENTRADA: Readonly<Record<Reentrada, string>> = { una_vez: 'check', otra_reunion: 'calendario', siempre: 'repetir' };
 
-export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, negocio, canalCaido, tz, insetIzq, onAudioNuevo, secuencias, productos, disparadores, onProbar, probarAbierto = false, onCerrarProbar, onCambio, onCambioLocal, insetDer, handoffs, muelles, revelar, onSinPublicar, descartarBorrador, onAccionTodo, makoAlAbrir = false, pedidoAlAbrir = null, onChatMako, onMakoTrabajando }: {
+export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, negocio, canalCaido, tz, insetIzq, onAudioNuevo, secuencias, productos, disparadores, onProbar, probarAbierto = false, onCerrarProbar, onCambio, onCambioLocal, insetDer, handoffs, muelles, revelar, onSinPublicar, descartarBorrador, onAccionTodo, makoAlAbrir = false, pedidoAlAbrir = null, onChatMako, onMakoTrabajando, onCrearOtra, onListaCambio }: {
   /**
    * EL CHAT DE MaKo ESTÁ ABIERTO (decimocuarta tanda, punto 3: «El chat de MaKo, debe ser como los otros chats, que se
    * abran al costado, no en el medio del flujo»). Lo lee la tab para reservarle el muelle de la DERECHA, el de «Probar»
@@ -177,6 +177,10 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
    * terminó»). La tab espera a que termine para abrir el recorrido (`useRecorridoAutomations`, ChatAgentApp).
    */
   onMakoTrabajando?: (trabajando: boolean) => void;
+  /** Los pedidos sueltos del chat de MaKo (16/10/2026, ./pedidos-chat.ts): crear OTRA por la puerta de «Pídeselo a MaKo». */
+  onCrearOtra?: (pedido: string) => Promise<boolean>;
+  /** Se eliminó o volvió OTRA automatización desde el chat: la lista se vuelve a leer. */
+  onListaCambio?: () => void;
   /**
    * ABRIR CON EL CHAT DE MaKo ABIERTO (duodécima tanda, §2.5 y §3.6): la recién creada con «Pídeselo a MaKo» y el link
    * `?sec=<id>&mako=1` (también el de la API). Se mira el FLANCO (false → true), también con el lienzo ya montado, y
@@ -1023,6 +1027,33 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
   const estiloProbar: CSSProperties = { ...tarjetaChrome, height: ALTO_ACCION, boxSizing: 'border-box', padding: '0 18px', display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 14.5, fontWeight: 700, color: 'var(--ink)', cursor: 'pointer', fontFamily: 'inherit' };
 
   /**
+   * LA «REENTRADA», EN EL PANEL DE CADA WHATSAPP (17/10/2026, tarjeta #846). Martín en la revisión con Joan (Fathom
+   * 863534246, 20:10): «la parte de reentrada y número no debería configurarse en el cron, debería configurarse en el
+   * WhatsApp». El CRON queda con el disparo. El NÚMERO ya era de cada mensaje (la cabecera, `CabeceraWhatsApp`; el motor
+   * usa `lineaDelPaso(paso) ?? sec.instance_name`, y una respuesta sale por la línea donde escribió el lead): el del CRON
+   * era el de toda la automatización repetido, y se fue. La reentrada SÍ es de toda la automatización, y lo dice: es el
+   * mismo valor en cada WhatsApp. Un flujo sin ningún WhatsApp (sólo email) la sigue teniendo en el CRON, para no
+   * quedarse sin ella.
+   */
+  const hayWhatsApp = pasos.some((p) => esNodoMensaje(p) && p.canal === 'whatsapp');
+  const controlReentrada = (
+    <div data-reentrada style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--dim)' }}>Reentrada{hayWhatsApp ? ' · toda la automatización' : ''}</div>
+      {rolAdmin ? (
+        <Dropdown
+          value={reentrada}
+          options={REENTRADAS.map((r) => ({ value: r, label: ROTULO_REENTRADA[r], icono: ICONO_REENTRADA[r] }))}
+          onChange={(v) => void guardarReentrada(v as Reentrada)}
+          ariaLabel="Si un lead puede volver a entrar a esta automatización"
+          width="100%"
+        />
+      ) : (
+        <div style={{ fontSize: 13.5, color: 'var(--ink)' }}>{ROTULO_REENTRADA[reentrada]}</div>
+      )}
+    </div>
+  );
+
+  /**
    * ⚠️ EL LIENZO ES LA PANTALLA. No hay barra, ni cabecera, ni pie: el título, el
    * interruptor, «Probar», el deshacer y «Publicar» FLOTAN encima, que es exactamente
    * cómo quedó el editor de /mensajes.
@@ -1080,7 +1111,8 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
         <div data-crear-ia="editar" data-muelle="mako" style={{ position: 'absolute', ...muelleChat, display: probarAbierto ? 'none' : 'flex', flexDirection: 'column', zIndex: chatTrabajando ? Z_CHAT_ENCIMA : 4 }}>
           <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
             <ChatMako secuenciaId={secuencia.id} pasos={pasos} publicadas={secuencia.pasos?.length ?? 0} onListo={alListoIA} onCerrar={() => setEditandoIA(false)}
-              onTrabajando={setChatTrabajando} pedidoInicial={pedidoPendiente} onPedidoInicialUsado={() => setPedidoPendiente(null)} />
+              onTrabajando={setChatTrabajando} pedidoInicial={pedidoPendiente} onPedidoInicialUsado={() => setPedidoPendiente(null)}
+              nombre={secuencia.nombre ?? ''} onCrearOtra={onCrearOtra} onListaCambio={onListaCambio} />
           </div>
         </div>
       )}
@@ -1103,6 +1135,7 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
         onTarjetaAbierta={setTarjetaAbierta}
         posiciones={lugares.posiciones} onPosiciones={rolAdmin ? lugares.mover : undefined}
         linea={rolAdmin ? { actual: lineaSec, onElegir: elegirLineaDesdeEditor } : undefined}
+        pieWhatsApp={controlReentrada}
         chrome={(
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, width: '100%' }}>
             {/* El ancho es FIJO por lo mismo que en /mensajes: en modo edición el
@@ -1244,8 +1277,8 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
         editorEntrada={(
           /**
            * EL PANEL DEL CRON (sexta tanda: varios CRON, seis botones gigantes, cada uno con su editor).
-           * Vive en EditorDisparadores; acá queda lo que es de la AUTOMATIZACIÓN y no de un CRON: el
-           * número de WhatsApp por el que sale, abajo de todo (`pie`).
+           * Vive en EditorDisparadores. Desde el 17/10 (#846) sólo el disparo: el número es de cada WhatsApp y
+           * la reentrada va en su panel (`controlReentrada`); en un flujo sin WhatsApp, abajo de todo (`pie`).
            *
            * Lo que mide el PANEL (que no quede aire debajo) es del lienzo (`MUELLE`, lib/lienzo-grafo.ts).
            */
@@ -1253,50 +1286,8 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
             lista={crons.lista} editando={cronAbierto} onEditar={setCronAbierto} onGuardar={crons.guardar}
             productos={productos} etiquetas={etiquetas} disparadores={disparadores} etiquetaEtapa={etiquetaEtapa}
             tz={tz} busy={busy != null} rolAdmin={rolAdmin}
-            pie={<>
-              <div data-reentrada style={{ display: 'flex', flexDirection: 'column', gap: 6, paddingTop: 10, borderTop: '1px solid var(--border)' }}>
-                <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--dim)' }}>Reentrada</div>
-                {rolAdmin ? (
-                  <Dropdown
-                    value={reentrada}
-                    options={REENTRADAS.map((r) => ({ value: r, label: ROTULO_REENTRADA[r], icono: ICONO_REENTRADA[r] }))}
-                    onChange={(v) => void guardarReentrada(v as Reentrada)}
-                    ariaLabel="Si un lead puede volver a entrar a esta automatización"
-                    width="100%"
-                  />
-                ) : (
-                  <div style={{ fontSize: 13.5, color: 'var(--ink)' }}>{ROTULO_REENTRADA[reentrada]}</div>
-                )}
-              </div>
-              {lineasWa.length > 1 ? (() => {
-              // ⚠️ La línea guardada entra SIEMPRE a las opciones, aunque se haya ido: un
-              // `value` que no está entre sus opciones se dibuja como la primera y el primer
-              // clic lo pisa (AGENTS.md, el `<select>` que borra datos).
-              const porDefault = lineasWa.find((l) => l.esDefault) ?? lineasWa[0];
-              const opciones = [
-                { value: '', label: `${porDefault.rotulo} (por default)`, color: porDefault.estado === 'conectado' ? 'var(--good)' : 'var(--warn)' },
-                ...lineasWa.filter((l) => l.linea !== porDefault.linea).map((l) => ({ value: l.linea, label: l.rotulo, color: l.estado === 'conectado' ? 'var(--good)' : 'var(--warn)' })),
-                ...(lineaSec && !lineasWa.some((l) => l.linea === lineaSec) ? [{ value: lineaSec, label: 'Un número que ya no está vinculado' }] : []),
-              ];
-              return (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, paddingTop: 10, borderTop: '1px solid var(--border)' }}>
-                  <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--dim)' }}>Número</div>
-                  {rolAdmin ? (
-                    <Dropdown
-                      value={lineaSec && lineaSec !== porDefault.linea ? lineaSec : ''}
-                      options={opciones}
-                      onChange={(v) => void guardarLinea(v || null)}
-                      ariaLabel="Número de WhatsApp por el que sale esta automatización"
-                      width="100%"
-                    />
-                  ) : (
-                    <div style={{ fontSize: 13.5, color: 'var(--ink)' }}>{opciones.find((o) => o.value === (lineaSec ?? ''))?.label ?? porDefault.rotulo}</div>
-                  )}
-                  {caidaLaSec && <div style={{ fontSize: 11.5, color: 'var(--warn)' }}>Número desconectado</div>}
-                </div>
-              );
-            })() : null}
-            </>}
+            // La reentrada va en cada WhatsApp (#846, `controlReentrada`); acá sólo si el flujo no tiene ninguno.
+            pie={hayWhatsApp ? undefined : <div style={{ paddingTop: 10, borderTop: '1px solid var(--border)' }}>{controlReentrada}</div>}
           />
         )}
       />

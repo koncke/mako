@@ -839,7 +839,9 @@ async function lineaDeEnvio(linea?: string | null): Promise<{ ok: true; instance
 // Envía un texto libre por una línea no oficial del workspace (sin `linea`, la de por
 // default). El `delay` hace que Evolution muestre "escribiendo…" ese tiempo antes de soltar
 // el mensaje (nativo) — proporcional al largo + jitter, para no parecer un bot.
-export async function enviarTexto(telefono: string, texto: string, linea?: string | null): Promise<EnvioResult> {
+// `sinVistaPrevia` (17/10/2026, #869): los links salen como texto, sin la tarjeta que Evolution arma sola
+// (`linkPreview: false` de /message/sendText). Sin la opción, lo de siempre (con tarjeta).
+export async function enviarTexto(telefono: string, texto: string, linea?: string | null, opts: { sinVistaPrevia?: boolean } = {}): Promise<EnvioResult> {
   const l = await lineaDeEnvio(linea);
   if (!l.ok) return l;
   const instance = l.instance;
@@ -850,7 +852,7 @@ export async function enviarTexto(telefono: string, texto: string, linea?: strin
   const delay = Math.round(base * (0.8 + Math.random() * 0.4)); // ±20% jitter
   const r = await evFetch<{ key?: { id?: string; remoteJid?: string } }>(
     `/message/sendText/${encodeURIComponent(instance)}`,
-    { method: 'POST', body: JSON.stringify({ number: num, text: texto, delay }) },
+    { method: 'POST', body: JSON.stringify({ number: num, text: texto, delay, ...(opts.sinVistaPrevia ? { linkPreview: false } : {}) }) },
   );
   if (!r.ok) return { ok: false, error: r.motivo ?? r.error }; // el MOTIVO (`motivoDeEvolution`), no «Evolution 400»
   return { ok: true, id: r.data.key?.id ?? '', chatJid: r.data.key?.remoteJid ?? `${num}@s.whatsapp.net`, instance };

@@ -17,10 +17,16 @@
 // ⚠️ LA GUARDA NO VIVE ACÁ: los datos de entrada los lee el servidor DESPUÉS de `puedeOperar` (las dos páginas del
 //    Centro y la del Second Brain, tests/operaciones.test.ts), y cada acción la vuelve a pedir (acciones.ts).
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { Alcance } from '@/lib/operaciones-reglas';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  comoSale, completarChats, enQueTrabaja, esperasPorChat, historialDelChat, nombreValido, textoDeEnvio, textoDeRenombre, vistaPrevia,
+  DESTINO_NUEVO, DESTINO_RE, aceptaAbrir, aceptaAdjuntos, problemaDeNombreNuevo, type AdjuntoPedido, type Alcance, type TurnoChat,
+} from '@/lib/operaciones-reglas';
+import { tieneTerminal } from '@/lib/runner';
+import { ERROR_ADJUNTO } from '@/lib/mako-adjuntos';
+import { idLocal, problemaDeSeleccion, tipoDeElegido } from '@/app/m/mako/chat-ui';
+import { achicarImagen } from '@/app/m/mako/achicar-imagen';
+import {
+  comoSale, completarChats, enQueTrabaja, estadoDeApertura, esperasPorChat, historialDelChat, nombreValido, primerMensajeNuevo, textoDeEnvio, textoDeRenombre, vistaPrevia,
   type ChatCentro, type DecisionEspera, type Envio, type LineaChat, type TrabajoP, type VistaPrevia,
 } from '@/lib/centro-chats';
 import type { PedidoP } from '@/lib/progreso-reglas';
@@ -29,8 +35,9 @@ import type { EstadoCarteros, Pedido } from '@/lib/operaciones';
 import { aspectoDe, elegidoPara, type Aspecto, type MunecosElegidos } from '@/lib/centro-munecos';
 import { respuestasDelChat } from '@/lib/centro-preguntas';
 import type { AccionDeshacer, AccionResponder } from '@/app/admin/runway/decisiones';
-import { fotoCentroAction, guardarMunecoAction, pushesCentroAction } from './acciones';
-import { copiar, useFirma } from './mandar';
+import { AUTOMATICO, aceptaModelo, cuentasDelChat, destinoDe, sesionAutomatica, type Esfuerzo, type Modelo } from '@/lib/centro-cuentas';
+import { fotoCentroAction, guardarMunecoAction, pushesCentroAction, turnosCentroAction } from './acciones';
+import { TEXTO_SOLO_ADJUNTOS, copiar, subirAdjuntos, useFirma } from './mandar';
 
 const REFRESCO_MS = 8000;
 /** La barra del avance se recuerda abierta o cerrada entre chats y visitas: es una preferencia (AGENTS.md). */
@@ -57,6 +64,12 @@ export type DatosCentro = {
   deshacer?: AccionDeshacer;
 };
 
+/** Un archivo elegido (o pegado) en la caja, con su vista previa local. */
+export type AdjuntoCaja = { id: string; file: File; tipo: 'image' | 'document'; url: string };
+/** Una captura chica va tal cual (el texto de una captura se lee mejor en PNG); una foto grande se achica (Vercel corta
+ *  un POST de más de ~4,5 MB). */
+const TAL_CUAL_BYTES = 1_500_000;
+
 /** Cómo avisa cada pantalla (el Toast de escritorio, el del teléfono). */
 export type Avisar = (texto: string, tono: 'good' | 'bad') => void;
 
@@ -64,6 +77,7 @@ export type Avisar = (texto: string, tono: 'good' | 'bad') => void;
 const trabajoDe = (p: Pedido): TrabajoP => ({
   id: p.id, destino: p.destino, destino_titulo: p.destino_titulo, destino_cuenta: p.destino_cuenta, created_at: p.created_at,
   texto: p.texto, estado: p.estado, motivo: p.motivo, entregado_at: p.entregado_at, cerrado_at: p.cerrado_at, cierre: p.cierre,
+  ...(p.adjuntos?.length ? { adjuntos: p.adjuntos } : {}),
 });
 
 export function useCentro(d: DatosCentro, avisar: Avisar) {
@@ -79,13 +93,38 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
   const [munecos, setMunecos] = useState<MunecosElegidos>(d.munecosIniciales);
   const [borradores, setBorradores] = useState<Record<string, string>>({});
   const [alcance, setAlcance] = useState<Alcance>('solo_esto');
+  /** La cuenta elegida para cada chat (ausente = «Automático»): se recuerda mientras la pantalla está abierta. */
+  const [cuentaDe, setCuentaDe] = useState<Record<string, string>>({});
+  /** El modelo y el esfuerzo del próximo trabajo (null = «Automático»): vuelven a Automático después de mandar. */
+  const [modelo, setModelo] = useState<Modelo | null>(null);
+  const [esfuerzo, setEsfuerzo] = useState<Esfuerzo | null>(null);
   const [enviando, setEnviando] = useState(false);
+  /** Los archivos elegidos (o pegados) en la caja de cada chat. El ref los tiene al día para sumar sin esperar un render. */
+  const [adjuntos, setAdjuntos] = useState<Record<string, AdjuntoCaja[]>>({});
+  const adjuntosRef = useRef(adjuntos);
+  const ponerAdjuntos = (clave: string, xs: AdjuntoCaja[]) => {
+    adjuntosRef.current = { ...adjuntosRef.current, [clave]: xs };
+    setAdjuntos(adjuntosRef.current);
+  };
   const [avance, setAvance] = useState(false);
   // El «⋯» de una fila (o el clic derecho): dónde abre y de qué chat es.
   const [menu, setMenu] = useState<{ x: number; y: number; clave: string } | null>(null);
   const [renombrando, setRenombrando] = useState<{ clave: string; texto: string; error: string | null; mandando: boolean } | null>(null);
   const [eligiendo, setEligiendo] = useState<{ clave: string; aspecto: Aspecto; guardando: boolean } | null>(null);
   const firma = useFirma(sub);
+  // ── Lo que se dijo en el chat abierto (sus turnos, del transcript: «los chats no se entienden», 17/10/2026) ──
+  // Se piden sólo para el chat que se mira (al abrirlo y en cada refresco): los demás no viajan.
+  const [turnos, setTurnos] = useState<Record<string, TurnoChat[]>>({});
+  const mirado = useRef<ChatCentro | null>(null);
+  const pedirTurnos = useCallback(async (c: ChatCentro) => {
+    const locales = c.miembros.filter((m) => DESTINO_RE.test(m));
+    if (!locales.length) return;
+    const r = await turnosCentroAction(locales).catch(() => null);
+    if (r?.ok) setTurnos((t) => ({ ...t, [c.clave]: r.turnos }));
+  }, []);
+  /** La conversación avisa qué chat se está mirando (o null al cerrarla). */
+  const mirar = useCallback((c: ChatCentro | null) => { mirado.current = c; if (c) void pedirTurnos(c); }, [pedirTurnos]);
+  const turnosDe = (c: ChatCentro): TurnoChat[] => turnos[c.clave] ?? [];
 
   // Se lee después de montar: el server no sabe lo del navegador, y el primer dibujo tiene que coincidir.
   useEffect(() => { setAvance(leerAvance()); }, []);
@@ -104,8 +143,8 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
   const porId = useMemo(() => new Map(pedidos.map((p) => [p.id, p])), [pedidos]);
   // La conversación de cada chat, una vez: de ella salen el segundo renglón y en qué está trabajando.
   const lineasDe = useMemo(
-    () => new Map<string, LineaChat[]>(chats.map((c) => [c.clave, historialDelChat(c, porId, trabajos, respuestasDelChat(c, decisiones, carteros))])),
-    [chats, porId, trabajos, decisiones, carteros],
+    () => new Map<string, LineaChat[]>(chats.map((c) => [c.clave, historialDelChat(c, porId, trabajos, respuestasDelChat(c, decisiones, carteros), turnos[c.clave])])),
+    [chats, porId, trabajos, decisiones, carteros, turnos],
   );
   const previas = useMemo(() => new Map<string, VistaPrevia | null>([...lineasDe].map(([k, l]) => [k, vistaPrevia(l)])), [lineasDe]);
   const enCursos = useMemo(() => new Map<string, string | null>([...lineasDe].map(([k, l]) => [k, enQueTrabaja(l)])), [lineasDe]);
@@ -113,8 +152,9 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
   const refrescar = useCallback(async () => {
     const f = await fotoCentroAction();
     if (f.ok) { setCola(f.pedidos); setEstado(f.carteros); if (f.decisiones) { setDecisiones(f.decisiones); setDecisionesOk(true); } }
+    if (mirado.current) void pedirTurnos(mirado.current);
     setAhora(Date.now());
-  }, []);
+  }, [pedirTurnos]);
   useEffect(() => {
     const t = setInterval(() => { if (document.visibilityState === 'visible') refrescar(); }, REFRESCO_MS);
     const volver = () => { if (document.visibilityState === 'visible') refrescar(); };
@@ -144,23 +184,103 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
 
   // ── La caja ────────────────────────────────────────────────────────────────────────────────────
   const claveFirma = firma.clave === undefined ? undefined : firma.clave?.id ?? null;
-  const envioDe = (c: ChatCentro): Envio => comoSale(c, carteros, claveFirma, ahora);
+  // ── La cuenta (Martín, 17/10/2026: «Si no selecciono nada que lo decida solo, pero debería poder seleccionar») ──
+  const cuentaElegida = (clave: string) => cuentaDe[clave] ?? AUTOMATICO;
+  const elegirCuenta = (clave: string, cuenta: string) => setCuentaDe((m) => ({ ...m, [clave]: cuenta }));
+  /** A qué sesión va lo que se escribe en la caja de ESTE chat (la cuenta elegida, o la automática). */
+  const destinoDeChat = (c: ChatCentro) => destinoDe(c, cuentaElegida(c.clave), carteros, ahora);
+  /** Las cuentas del chat para el selector, y cuál elegiría «Automático». */
+  const cuentasDe = (c: ChatCentro) => ({ opciones: cuentasDelChat(c, carteros, ahora), automatica: sesionAutomatica(c, carteros, ahora)?.cuenta ?? null });
+  const envioDe = (c: ChatCentro): Envio => comoSale(destinoDeChat(c), carteros, claveFirma, ahora);
   const borradorDe = (clave: string) => borradores[clave] ?? '';
   const ponerBorrador = (clave: string, t: string) => setBorradores((b) => ({ ...b, [clave]: t }));
 
   /** Lo que se acaba de mandar, para que se vea en su chat mientras llega el refresco. */
   const anotarEnviado = (t: TrabajoP) => { setLocales((l) => [t, ...l]); refrescar(); };
 
+  // ── «Nuevo chat» con un clic (17/10/2026, docs/diseno-nuevo-chat-un-clic.md) ──────────────────────────────────
+  // Martín: «un clic + el permiso de la PC», nunca pegar un comando en PowerShell. Es un trabajo firmado con
+  // `destino: 'nuevo'`, por el MISMO camino que todo lo demás (mandar.ts); lo abre la PC (cartero.mjs → `abrir`).
+  /** ¿Se abre un chat en esa cuenta desde acá? Una terminal, y su Runner con el cartero que abre (1.11.0). */
+  const puedeAbrirEn = (cuenta: string) => tieneTerminal(cuenta) && carteros.some((k) => k.cuenta === cuenta && aceptaAbrir(k.version));
+  /** Cómo va el último que se pidió abrir (un trabajo `nuevo` no es de ningún chat de la lista). */
+  const apertura = estadoDeApertura(trabajos);
+  async function abrirChat(b: { nombre: string; cuenta: string; texto?: string }): Promise<boolean> {
+    const nombre = b.nombre.replace(/\s+/g, ' ').trim();
+    if (problemaDeNombreNuevo(nombre)) { avisar('Sólo letras y números', 'bad'); return false; }
+    if (!puedeAbrirEn(b.cuenta)) { avisar('Todavía no abre chats', 'bad'); return false; }
+    const texto = b.texto?.trim() || primerMensajeNuevo(nombre);
+    const r = await firma.mandar({ sesion: DESTINO_NUEVO, cuenta: b.cuenta, titulo: nombre }, texto, 'solo_esto');
+    if (!r.ok) { avisar(r.error, 'bad'); return false; }
+    anotarEnviado({ id: r.id, destino: DESTINO_NUEVO, destino_titulo: nombre, destino_cuenta: b.cuenta, created_at: r.creado, texto, estado: 'escrito', motivo: null, cierre: null });
+    avisar('Se abre en 2 minutos', 'good');
+    return true;
+  }
+
+  // ── Los adjuntos de la caja (17/10/2026): fotos y PDF, también pegando una captura con Ctrl+V ─────────────
+  const adjuntosDe = (clave: string) => adjuntos[clave] ?? [];
+  /** ¿Baja adjuntos el Runner de la cuenta a la que sale? Con un cartero de antes de la 1.9.0 el trabajo llegaría SIN
+   *  los archivos y nadie lo diría: la caja no ofrece adjuntar. */
+  const puedeAdjuntar = (c: ChatCentro) => {
+    const { cuenta } = destinoDeChat(c);
+    return carteros.some((k) => (!cuenta || k.cuenta === cuenta) && aceptaAdjuntos(k.version));
+  };
+  const sumarAdjuntos = async (clave: string, lista: readonly File[]) => {
+    if (!lista.length) return;
+    const validos = lista.filter((f) => tipoDeElegido(f) != null);
+    if (validos.length < lista.length) avisar(ERROR_ADJUNTO.formato, 'bad');
+    const listos: File[] = [];
+    for (const f of validos) {
+      const talCual = f.size <= TAL_CUAL_BYTES && /^image\/(png|jpeg|webp|gif)$|^application\/pdf$/.test(f.type);
+      try { listos.push(talCual ? f : await achicarImagen(f)); } catch (e) { avisar(e instanceof Error ? e.message : 'No pude leer esa imagen.', 'bad'); }
+    }
+    if (!listos.length) return;
+    const antes = adjuntosRef.current[clave] ?? [];
+    const problema = problemaDeSeleccion([...antes.map((a) => a.file.size), ...listos.map((f) => f.size)]);
+    if (problema) { avisar(problema, 'bad'); return; }
+    ponerAdjuntos(clave, [...antes, ...listos.map((f): AdjuntoCaja => ({
+      id: idLocal('a'), file: f, tipo: tipoDeElegido(f) === 'image' ? 'image' : 'document', url: URL.createObjectURL(f),
+    }))]);
+  };
+  const quitarAdjunto = (clave: string, id: string) => {
+    const antes = adjuntosRef.current[clave] ?? [];
+    const a = antes.find((x) => x.id === id);
+    if (a) URL.revokeObjectURL(a.url);
+    ponerAdjuntos(clave, antes.filter((x) => x.id !== id));
+  };
+  /** Después de mandar: la caja queda vacía. */
+  const vaciarAdjuntos = (clave: string) => {
+    for (const a of adjuntosRef.current[clave] ?? []) URL.revokeObjectURL(a.url);
+    ponerAdjuntos(clave, []);
+  };
+
   async function mandar(c: ChatCentro) {
     const texto = borradorDe(c.clave);
-    if (!c.sesion || !envioDe(c).puede || enviando || !texto.trim()) return;
+    const archivos = adjuntosRef.current[c.clave] ?? [];
+    const d = destinoDeChat(c);
+    if (!d.sesion || !envioDe(c).puede || enviando || (!texto.trim() && !archivos.length)) return;
     setEnviando(true);
-    const r = await firma.mandar({ sesion: c.sesion, cuenta: c.cuenta, titulo: c.titulo }, texto, alcance);
+    // Primero los archivos: el trabajo se firma con el `ref` de cada uno y el sha256 que calculó este navegador.
+    let subidos: AdjuntoPedido[] = [];
+    if (archivos.length) {
+      const s = await subirAdjuntos(archivos.map((a) => a.file));
+      if (!s.ok) { setEnviando(false); avisar(s.error, 'bad'); return; }
+      subidos = s.adjuntos;
+    }
+    // El modelo y el esfuerzo sólo viajan a un chat de la app (lib/centro-cuentas.ts → aceptaModelo).
+    const como = aceptaModelo(d.sesion) ? { modelo, esfuerzo } : {};
+    const r = await firma.mandar({ sesion: d.sesion, cuenta: d.cuenta, titulo: c.titulo }, texto, alcance, como, subidos);
     setEnviando(false);
     if (!r.ok) { avisar(r.error, 'bad'); return; }
-    anotarEnviado({ id: r.id, destino: c.sesion, destino_titulo: c.titulo, destino_cuenta: c.cuenta, created_at: r.creado, texto: texto.trim(), estado: 'escrito', motivo: null, cierre: null });
+    anotarEnviado({
+      id: r.id, destino: d.sesion, destino_titulo: c.titulo, destino_cuenta: d.cuenta, created_at: r.creado, texto: texto.trim() || TEXTO_SOLO_ADJUNTOS,
+      estado: 'escrito', motivo: null, cierre: null, ...(subidos.length ? { adjuntos: subidos.map((a) => a.nombre) } : {}),
+    });
+    vaciarAdjuntos(c.clave);
     ponerBorrador(c.clave, '');
     setAlcance('solo_esto');
+    setModelo(null);
+    setEsfuerzo(null);
   }
 
   // Los avisos dicen qué hacer, cortos (Martín, 15/10/2026: «Jamás pongas mensajes no claros»). Después de crear el
@@ -223,9 +343,13 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
 
   return {
     chats, carteros, trabajos, porId, esperas, decisiones, decisionesOk, ahora, pushes, estado, munecos, setMunecos, tabs, firma, pedidos,
+    turnosDe, mirar,
     lineasDe, previas, enCursos, pendientesTicketera, refrescar, responderAca, deshacerAca,
     avance, cambiarAvance,
     envioDe, borradorDe, ponerBorrador, alcance, setAlcance, enviando, mandar, anotarEnviado, copiarConAviso, crearClave, copiarClave,
+    adjuntosDe, puedeAdjuntar, sumarAdjuntos, quitarAdjunto, vaciarAdjuntos,
+    puedeAbrirEn, apertura, abrirChat,
+    cuentaElegida, elegirCuenta, cuentasDe, destinoDeChat, modelo, setModelo, esfuerzo, setEsfuerzo,
     menu, delMenu, abrirMenu, cerrarMenu: () => setMenu(null), elegirEnMenu,
     renombrando, setRenombrando, deRenombre, renombrar,
     eligiendo, setEligiendo, deMuneco, abrirMuneco, guardarElegido,

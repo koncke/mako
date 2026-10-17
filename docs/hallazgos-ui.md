@@ -3914,3 +3914,49 @@ en `lib/ajustes-secciones.ts` (la usan la computadora y el celular) y el molde e
 
 **Vive en:** `lib/ajustes-secciones.ts` · `lib/ajustes-negocio.ts` · `app/_ui/Ajustes.tsx` · `app/_ui/ajustes.css` ·
 `app/perfil/` · `app/configuraciones/` · `app/m/cuenta/` · `tests/ajustes-cuenta-negocio.test.ts` · *15/10/2026, chat «Ciberseguridad»*
+
+## El funnel tenía cuatro dibujos: el cubo, en el control, y sólo ése (17/10/2026)
+
+Martín, viendo «De qué funnels» del OKR con el ícono de las etapas en cada renglón: «Los íconos del CRM no son esos... Es
+el cubo que tenemos en el CRM... Hay que unificar los íconos». El barrido encontró **cuatro dibujos para lo mismo**: el
+cubo del set (`producto`, el selector del CRM), otro cubo trazado a mano con otro path en tres archivos del CRM
+(`IconoProducto` en AccionesLoteLeads, CampanasModal y ProductoDelLead), el embudo del sidebar en el selector de Offer
+(escritorio y teléfono) y el de las etapas en los dos selectores nuevos de General. Ninguno estaba mal en su archivo:
+divergieron porque cada uno lo dibujó donde lo necesitaba.
+
+- **Un solo lugar:** `ICONO_FUNNEL` (app/_ui/icono-funnel.ts, sin JSX para las listas armadas en un `.ts`) y el dibujo
+  `IconoFunnel` (app/_ui/iconos-menu.tsx). tests/icono-funnel.test.ts fija cada selector y que nadie vuelva a trazar un
+  cubo a mano (barre app/), probado rompiéndolo.
+- **Dónde va:** en el CONTROL que elige funnels (el `icono` del Dropdown; `Select` ahora lo deja pasar), la sección de un
+  árbol o la píldora del teléfono. NO en cada renglón: la regla del 12/10 del CRM (cada funnel lo nombra el negocio) sigue.
+- ⚠️ **El embudo (`Icon name="funnel"`) es FILTRAR**, no un funnel del CRM (Automations, el Ads Manager y el Dashboard lo
+  usan para filtrar). Un barrido por el nombre «funnel» los agarra a todos: se separan por lo que el control ELIGE.
+- **Lo que no tiene ícono no se tocó**: varios selectores de funnel de otras tabs (Ads Manager, prospectos, la landing,
+  «Agregar al CRM», los campos de una acción) no llevan ícono en el control. Si se suman, es `IconoFunnel`.
+
+**Vive en:** app/_ui/icono-funnel.ts · app/_ui/iconos-menu.tsx · tests/icono-funnel.test.ts · *17/10/2026, chat «Dashboard» (claude4)*
+
+## La barra de inspección tapaba las pantallas de alto fijo (17/10/2026, tarjeta #850)
+
+Martín, en la revisión del 16/10 inspeccionando a Brigitte: «la top bar tapa muchas veces funcionalidades… nada se debería
+quedar por detrás». En Automations se escondían el título y «Probar», y el cartel «Copiaste un flujo» no se llegaba a ver.
+
+- ⚠️ **No era el z-index de la barra: era el ALTO de las pantallas.** Con la barra, `body` gana `padding-top: 50px`, y toda
+  pantalla de `height: 100vh` o `100dvh` en línea (Automations, Email, Dashboard, General, Calendario, Offer, Operaciones)
+  medía 50 px más que la ventana. La ventana scrolleaba esos 50 px; cuando algo la corría (el foco en la barra de abajo, un
+  scrollIntoView), lo de arriba quedaba debajo de la barra fija, y el lienzo, que se come la rueda para el zoom, no dejaba
+  volver («no me deja tirar esto para arriba»).
+- **Arreglo en UN lugar** (app/globals.css): con la barra (o la alerta de la voz), un estilo en línea que empieza con
+  `height: 100vh/100dvh` o lo trae después de un espacio descuenta `--barra-agencia`. El espacio deja afuera `min-height`, y
+  el riel del Sidebar queda afuera (`:not([data-sidebar])`): su regla con `100dvh` es la del iPad y ésta le ganaría por
+  especificidad. **Medido en Chrome headless** antes de subirlo: el navegador serializa «flex: 0 0 auto; height: 100dvh; …»
+  con «; », y la regla deja 654 de 704 px; `min-height` queda en 704.
+- Lo FIJO arriba (`position: fixed; top: N`) no lo arregla esa regla: el cartel de la copia de Automations bajó con
+  `calc(18px + var(--barra-agencia, 0px))`.
+
+**Sin hacer:** el panel lateral fijo de la ficha del CRM (`FichaPorBloques`, `top: 0`) y las barras `sticky; top: 0` de una
+pantalla que scrollea (una clase en CSS, como la lateral del Web Generator, no la toma la regla del estilo en línea).
+Verlo con clics inspeccionando un cliente después del deploy.
+
+**Vive en:** `app/globals.css` (después de la regla del Sidebar) · `app/automations/ChatAgentApp.tsx` (el cartel de la
+copia) · test: `tests/barra-inspeccion-alto.test.ts`

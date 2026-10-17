@@ -1183,6 +1183,24 @@ details[open] > summary .chev {
 @supports (height: 100dvh) {
   [data-barra-agencia] aside, [data-alerta-voz] aside[data-sidebar] { height: calc(100dvh - var(--barra-agencia)) !important; }
 }
+/* ⚠️ LAS PANTALLAS DE ALTO FIJO TAMBIÉN DESCUENTAN LA BARRA (17/10/2026, tarjeta #850; Martín: «cuando se está
+   inspeccionando, la top bar tapa muchas veces funcionalidades… debería adaptar todo y que nada se quede por detrás»).
+   Con la barra, `body` gana su padding, y toda pantalla de `height: 100vh` o `100dvh` en línea —el lienzo de Automations,
+   Email, Dashboard, General, Calendario, Offer, Operaciones— quedaba 50 px MÁS ALTA que la ventana. La ventana scrolleaba
+   esos 50 px; cuando algo la corría (el foco en la barra de abajo, un scrollIntoView), el título y «Probar» quedaban debajo
+   de la barra, y el lienzo, que se come la rueda para el zoom, no dejaba volver.
+   UNA regla y no un cambio en cada pantalla: son de otros chats y mañana hay otra. Mira el estilo EN LÍNEA tal como lo
+   serializa el navegador («flex: none; height: 100dvh; …»): el espacio de adelante deja afuera `min-height`, que no
+   desborda nada. El riel del Sidebar queda afuera: tiene su regla de arriba (con `100dvh` para el iPad), y ésta le
+   ganaría por especificidad. Lo fija tests/barra-inspeccion-alto.test.ts. */
+[data-barra-agencia] [style^="height: 100vh"]:not([data-sidebar]), [data-barra-agencia] [style*=" height: 100vh"]:not([data-sidebar]),
+[data-alerta-voz] [style^="height: 100vh"]:not([data-sidebar]), [data-alerta-voz] [style*=" height: 100vh"]:not([data-sidebar]) {
+  height: calc(100vh - var(--barra-agencia)) !important;
+}
+[data-barra-agencia] [style^="height: 100dvh"]:not([data-sidebar]), [data-barra-agencia] [style*=" height: 100dvh"]:not([data-sidebar]),
+[data-alerta-voz] [style^="height: 100dvh"]:not([data-sidebar]), [data-alerta-voz] [style*=" height: 100dvh"]:not([data-sidebar]) {
+  height: calc(100dvh - var(--barra-agencia)) !important;
+}
 
 /* =============================================================================
    Barras de scroll: finas, redondeadas y sin riel

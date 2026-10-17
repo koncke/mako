@@ -225,6 +225,17 @@ export const DEFS: readonly OperacionDef[] = [
     canales: TODOS, costo: 'gratis', gating: G_TAB,
   },
   {
+    id: 'baja_del_cliente', area: 'cobros', tipo: 'accion', confirmacion: 'chat', reversible: true,
+    titulo: 'Baja del cliente',
+    descripcion: 'PROPONE marcar que un cliente se dio de baja y dejó de pagar su plan de cuotas: lo que NO pagó deja de ser deuda (sale del Outstanding, de «A quién cobrarle», de lo vencido y de los recordatorios de cobro) y lo cobrado queda como está. Las cuotas siguen en su ficha como «baja del cliente», se anulan sus links sin pagar y se cortan sus recordatorios. Úsala cuando digan «se dio de baja», «dejó el servicio» o «ya no va a pagar el resto». Con deshacer: true, las cuotas vuelven a ser deuda con su vencimiento. Una suscripción no se da de baja así: se cancela (estado_suscripcion_manual o cancelar_suscripcion).',
+    escribe: 'marca baja_at en las cuotas impagas del lead y les guarda el vencimiento en baja_vencia (o se lo devuelve al deshacer), anula sus links sin pagar, corta sus recordatorios y deja historial',
+    parametros: [
+      leadId('id del lead que se dio de baja.'),
+      { nombre: 'deshacer', rotulo: 'Deshacer', tipo: 'boolean', descripcion: 'true para deshacer una baja: las cuotas vuelven a ser deuda.' },
+    ],
+    canales: TODOS, costo: 'gratis', gating: G_TAB,
+  },
+  {
     id: 'estado_suscripcion_manual', area: 'cobros', tipo: 'accion', confirmacion: 'chat', reversible: true,
     titulo: 'Cancelar o reactivar una suscripción manual',
     descripcion: 'PROPONE cancelar o reactivar la suscripción de un lead que se registra a mano (la que NO cobra Stripe ni Mercado Pago). Cancelarla la cuenta hasta hoy: deja de sumar al MRR y la ficha la dice cancelada. Sólo el administrador. Una suscripción que cobra la pasarela se cancela con cancelar_suscripcion (deja de cobrarle la tarjeta).',

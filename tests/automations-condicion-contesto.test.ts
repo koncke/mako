@@ -83,7 +83,8 @@ const cuerpo = (src: string, firma: string) => { const i = src.indexOf(firma); a
 test('el cableado: la fila dice si contestó, «Si responde» también, y contestar sólo se ANOTA', () => {
   const proc = cuerpo(NUTRI, 'export async function procesarEnvios(');
   assert.match(proc, /const enRespuesta = insc\.estado === 'respondio';/);
-  assert.equal((proc.match(/contestoEnEsta: enRespuesta \}/g) ?? []).length, 2, 'la resolución de las condiciones y la re-evaluación de la de arriba');
+  // (17/10, #849) Detrás puede venir el hecho del equipo (`equipoDeLaInscripcion`, tests/equipo-contesto.test.ts).
+  assert.equal((proc.match(/contestoEnEsta: enRespuesta(?: \}|, \.\.\.\(await equipoDeLaInscripcion\(sec\.pasos, insc\.id\)\) \})/g) ?? []).length, 2, 'la resolución de las condiciones y la re-evaluación de la de arriba');
   assert.match(cuerpo(NUTRI, 'async function responderConGrafo('), /contestoEnEsta: true \}\)\.destino;/);
   const pausar = cuerpo(NUTRI, 'export async function pausarPorRespuesta(');
   assert.match(pausar, /\.update\(\{ estado: 'respondio', updated_at: ahoraISO\(\) \}\)\s*\.eq\('lead_id', leadId\)\s*\.eq\('estado', 'activa'\)/);

@@ -28,7 +28,7 @@ import { conversorGastoMeta } from './moneda-meta';
 import type { FuenteDef, FuenteId } from './objectives-modelo';
 import { FUENTES_KPI, fuentePorFunnel } from './objectives-modelo';
 import { VENTA_SIN_COBRO } from './venta-tipo';
-import { sumarEnFunnels, type Hecho } from './funnels-elegidos';
+import { faltaColumnaFunnel, sumarEnFunnels, type Hecho } from './funnels-elegidos';
 import { ubicarLeads, idsDeLeads } from './funnels-elegidos-server';
 
 /** Lo que devuelve toda fuente. `valor: null` = no se pudo leer, con el motivo al lado. */
@@ -222,11 +222,15 @@ async function hechosDelPeriodo(fuenteId: string, desde: string, hasta: string):
   if (fuenteId === 'agendas') return deLeads('fecha_junta_1', (q) => q.not('fecha_junta_1', 'is', null), false);
   if (fuenteId === 'leads_nuevos') return deLeads('created_at', (q) => q, false, finDeDia(hasta));
   if (fuenteId === 'cash_usd') {
-    const pagos = await leerTodo<{ id: number; lead_id: number | null; monto_usd: number | null; fecha_pago: string | null }>(
-      db, 'pagos', 'id, lead_id, monto_usd, fecha_pago',
-      { orden: 'id', filtros: (q) => q.eq('pagado', true).gte('fecha_pago', desde).lte('fecha_pago', hasta) },
-    );
-    return { hechos: pagos.map((p) => ({ lead: p.lead_id == null ? null : Number(p.lead_id), fecha: p.fecha_pago, valor: Number(p.monto_usd ?? 0) })), casas: null };
+    // Con el funnel que guardó cada pago (#897, mig 0310); sin la columna, la regla de siempre.
+    type P = { id: number; lead_id: number | null; monto_usd: number | null; fecha_pago: string | null; funnel_id?: number | null };
+    const leerPagos = (cols: string) => leerTodo<P>(db, 'pagos', cols, { orden: 'id', filtros: (q) => q.eq('pagado', true).gte('fecha_pago', desde).lte('fecha_pago', hasta) });
+    const pagos = await leerPagos('id, lead_id, monto_usd, fecha_pago, funnel_id')
+      .catch((e: unknown) => { if (faltaColumnaFunnel(e)) return leerPagos('id, lead_id, monto_usd, fecha_pago'); throw e; });
+    return {
+      hechos: pagos.map((p) => ({ lead: p.lead_id == null ? null : Number(p.lead_id), fecha: p.fecha_pago, valor: Number(p.monto_usd ?? 0), funnel: p.funnel_id == null ? null : Number(p.funnel_id) })),
+      casas: null,
+    };
   }
   throw new Error(`la fuente ${fuenteId} no se cuenta por funnel`);
 }

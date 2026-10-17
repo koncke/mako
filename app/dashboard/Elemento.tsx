@@ -45,7 +45,7 @@ import { insertableDe, videoDe } from '@/lib/embeds';
 import { DOMINIOS_MAKO } from '@/lib/email-remitente';
 import { Button } from '@/app/_ui';
 import { BotonBorrar, BotonCerrar } from '@/app/_ui/BotonBorrar';
-import { IconoMenu, type NombreIconoMenu } from '@/app/_ui/iconos-menu';
+import { IconoFunnel, IconoMenu, type NombreIconoMenu } from '@/app/_ui/iconos-menu';
 import Link from '@/app/_ui/Link';
 import { CuerpoInsertado, CuerpoVideo, RecuadroVacio, soloSeleccionar, useHostPropio } from './ElementoInsertado';
 import { CuerpoSeccion, PropsSeccion, type EstadoSeccion } from './Seccion';
@@ -1083,11 +1083,12 @@ function PropsGeneral({ e, onCambiar }: { e: Elemento; onCambiar: (p: Partial<El
       )}
       {conFunnel && !varios && (
         <Seccion titulo="Funnel">
-          <Dropdown value={funnel != null ? String(funnel) : ''} ariaLabel="De qué funnel"
+          {/* El cubo en el control y nada en los renglones, como el selector del CRM (app/_ui/icono-funnel.ts). */}
+          <Dropdown value={funnel != null ? String(funnel) : ''} ariaLabel="De qué funnel" icono={<IconoFunnel />}
             options={[
-              { value: '', label: 'El principal', icono: 'etapa' },
-              ...funnels.map((f) => ({ value: String(f.id), label: f.nombre, icono: 'etapa' as const })),
-              ...(perdido ? [{ value: String(funnel), label: 'Un funnel que ya no está', icono: 'cerrar' as const }] : []),
+              { value: '', label: 'El principal' },
+              ...funnels.map((f) => ({ value: String(f.id), label: f.nombre })),
+              ...(perdido ? [{ value: String(funnel), label: 'Un funnel que ya no está' }] : []),
             ]}
             onChange={(v) => {
               const n = Number(v);

@@ -174,3 +174,44 @@ export function contextoDelLead(p: { leadId: number; nombre: string; lecturas: r
     : 'LOS DATOS DE ESTE LEAD: no se pudo leer nada en este turno. Dilo si te preguntan algo de esa persona, y no lo inventes.';
   return `${cabecera}\n\n${datos}${pie}`;
 }
+
+// ── EDITAR LA VISTA (17/10/2026) ─────────────────────────────────────────────
+// Martín, 16/10/2026 (punto 10 del feedback del CRM): «Al momento de EDITAR, también debería salir automáticamente este
+// modal, pero ahora ya no para analizar al lead, sino para editar la vista». El chat es el mismo (este turno, con los
+// datos del lead); lo que cambia mientras la ficha está en «Editar» es QUÉ se le pide a MaKo y con qué herramientas.
+
+/**
+ * Lo que la pantalla antepone al texto que se CLASIFICA (`EntradaTurnoApp.pista`, lib/mako-turno-app.ts): no lo lee el
+ * modelo ni se guarda. Medido el 17/10/2026 con el selector de herramientas del chat: «hazla épica», «saca el bloque de
+ * notas», «cambia el nombre de esta hoja a Cierre» SOLOS no traen `cambiar_ficha_funnel` (se clasifican «capturar», o
+ * entra y se queda afuera del presupuesto de 12.000); como sufijo la traían 5 de 6; con ESTO adelante, los 6.
+ */
+export const PISTA_EDICION_FICHA = 'Cambia la ficha del CRM: ';
+
+/** Dónde está la persona mientras edita: la hoja abierta (su clave de la API y su nombre) y el CRM de la ficha. */
+export type EdicionDeLaFicha = { tab: string; nombre: string; embudoId: number | null };
+
+/** Lo que llega de la pantalla, saneado: una de las cuatro tabs o una hoja propia, y un nombre corto. */
+export function edicionDe(crudo: unknown): { tab: string; nombre: string } | null {
+  if (!crudo || typeof crudo !== 'object') return null;
+  const o = crudo as Record<string, unknown>;
+  const tab = typeof o.tab === 'string' ? o.tab.trim() : '';
+  if (!/^(resumen|reuniones|pagos|tracking|h-[a-z0-9]{3,16})$/.test(tab)) return null;
+  // eslint-disable-next-line no-control-regex
+  const nombre = typeof o.nombre === 'string' ? o.nombre.replace(/[\u0000-\u001f\u007f]/g, ' ').trim().slice(0, 40) : '';
+  return { tab, nombre };
+}
+
+/**
+ * El bloque que va al FINAL del contexto del lead mientras se edita: qué se está editando (la ficha del CRM, para TODOS
+ * sus leads, no este lead), la hoja abierta y cómo se cambia. El nombre de la hoja es un DATO (lo puso una persona).
+ */
+export function contextoDeEdicion(e: EdicionDeLaFicha): string {
+  const crm = e.embudoId != null ? `embudoId ${e.embudoId}` : 'sin embudoId (es el CRM principal)';
+  return [
+    'AHORA LA PERSONA ESTÁ EDITANDO LA VISTA DE LA FICHA (está en «Editar»), no analizando al lead, y esto manda sobre lo de arriba:',
+    `- Lo que pide es un cambio en la ficha del CRM de este lead (${crm}), que se ve igual para TODOS sus leads. Este lead es sólo el ejemplo que tiene a la vista.`,
+    `- Está en la hoja con clave «${e.tab}»${e.nombre ? ` (se llama ${JSON.stringify(e.nombre)})` : ''}. «Esta hoja» o «aquí» es esa. Para leerla, ver_ficha_funnel; para cambiarla, cambiar_ficha_funnel con tab «${e.tab}»${e.embudoId != null ? ` y embudoId ${e.embudoId}` : ''}; para rehacerla entera con un pedido, armar_tab_ficha (sólo en las cuatro tabs).`,
+    '- Un cambio a la vez, y sólo lo que pidió. Si no se entiende qué bloque o qué hoja, pregúntale antes de proponer.',
+  ].join('\n');
+}

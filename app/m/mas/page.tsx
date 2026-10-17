@@ -93,7 +93,7 @@ export default async function MasPagina() {
       {ctx.sesion.rol === 'admin' && !ctx.impersonando && (
         <SeccionM titulo="Super admin">
           <ListaM>
-            <FilaM navegacion icono="config" titulo="Centro de Operaciones" href={RUTA_CENTRO} />
+            <FilaM navegacion icono="config" titulo="Ops Center" href={RUTA_CENTRO} />
             <FilaM navegacion icono="admin" titulo="Ticketera" href={RUTA_TICKETERA} />
           </ListaM>
         </SeccionM>

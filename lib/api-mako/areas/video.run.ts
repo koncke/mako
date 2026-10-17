@@ -29,6 +29,8 @@ import { formatosOfrecidos, puestaDe } from '@/app/video-generator/formatos-dato
 import { leerSaldoGuardado, costoPorClip, alcanzaParaAnuncio } from '@/app/video-generator/saldo-datos';
 import { escenariosReusables } from '@/app/video-generator/escenario-reuso';
 import { getVozCliente } from '@/app/video-generator/voz-cliente';
+import { leerLooksEstricto } from '@/app/ai-avatar/looks';
+import { PLANTILLAS_AVATAR, plantillaPorId } from '@/lib/ai-avatar/plantillas';
 import { getRazones } from '@/lib/razones';
 import { EXTENSION_VERSION } from '@/lib/extension-version';
 import { CATALOGO_ESCENARIOS, escenarioPorId, escenariosParaCamara } from '@/lib/escenarios-data';
@@ -619,6 +621,25 @@ export const RUNNERS: Runners = {
           ...(origen !== 'declarado' ? [`El acento NO lo declaró el cliente (origen «${origen}»): no lo presentes como elegido.`] : []),
           'perfil_negocio_empezado true = al menos UN grupo del perfil del negocio tiene algo cargado; no significa que esté completo (lo que falta está en faltan_del_perfil).',
           ...(c.perfilIlegible ? ['No se pudo leer el perfil del negocio: perfil_negocio_empezado y faltan_del_perfil salen null (no se sabe).'] : []),
+        ],
+      });
+    },
+  },
+
+  ver_avatares: {
+    leer: async () => {
+      const looks = await leerLooksEstricto();
+      return json({
+        looks: looks.map((l) => ({
+          tema: plantillaPorId(l.plantillaId)?.nombre ?? l.plantillaId,
+          estado: l.mediaId && l.url ? 'listo' : l.error ? 'fallo' : 'generando',
+          error: l.error || null,
+          pedido: l.creadoEn || null,
+        })),
+        temas_de_la_galeria: PLANTILLAS_AVATAR.map((p) => ({ nombre: p.nombre, categoria: p.categoria, lugar: p.lugar })),
+        notas: [
+          'Un look «listo» se puede animar en AI Avatar → Crear video; «generando» lo está haciendo el navegador del cliente por el puente a Flow.',
+          'Los avatares que salen de anuncios del Video Generator no están aquí: los cuenta contar_escenarios_reusables.',
         ],
       });
     },

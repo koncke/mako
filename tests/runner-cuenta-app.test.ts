@@ -10,6 +10,13 @@
 //   · Uso.tsx copiando `COMANDO_TERMINAL(k.cuenta)` con `onCopiar` directo, sin mirar la cuenta → 1 fallo;
 //   · PanelRunner.tsx con `const comando = COMANDO_TERMINAL(k.cuenta);` sin la condición → 1 fallo.
 //   Restaurado de memoria (no con git checkout): 2 pases.
+//
+// 17/10/2026 (Martín: «no quiero copiar en PowerShell, que se instale todo solo»): el Uso ya no copia ningún comando, y
+// el segundo test pasó a exigir que Uso.tsx y RunnerMovil.tsx no digan «PowerShell» ni armen `COMANDO_TERMINAL` (la parte de
+// PanelRunner.tsx y la de `tieneTerminal` quedan como estaban). Contra la base en verde de 15 pases (con tests/centro-uso.test.ts):
+//   · «Pega su comando en PowerShell…» de vuelta en Uso.tsx → 2 fallos (éste + el desplegable de centro-uso);
+//   · Uso.tsx importando `COMANDO_TERMINAL` → 1 fallo; «PowerShell» en un título de RunnerMovil.tsx → 1 fallo.
+//   Restaurado byte a byte: 15 pases.
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -27,10 +34,14 @@ test('sólo las cuentas del perfil de PowerShell tienen terminal', () => {
   assert.equal(tieneTerminal(''), false);
 });
 
-test('el panel de Uso y el de Runners no le ofrecen un comando a una cuenta sin terminal', () => {
+test('el panel de Uso no pide pegar nada en PowerShell, y el de Runners no le ofrece un comando a una cuenta sin terminal', () => {
+  // 17/10/2026, Martín: «no quiero copiar en PowerShell, que se instale todo solo». El Uso ya no copia ningún comando:
+  // una cuenta sin Runner dice «Sin Runner todavía» y nada más (antes: «Pega su comando en PowerShell» + botón «Copiar»).
   const uso = sinComentarios(leer('app/admin/operaciones/Uso.tsx'));
-  assert.match(uso, /const copiable = onCopiar && tieneTerminal\(k\.cuenta\) \? onCopiar : null;/);
-  assert.doesNotMatch(uso, /onCopiar\(COMANDO_TERMINAL\(/, 'el comando se copia sólo por `copiable`');
+  assert.doesNotMatch(uso, /PowerShell/i, 'el Uso no habla de PowerShell');
+  assert.doesNotMatch(uso, /COMANDO_TERMINAL/, 'el Uso no arma ningún comando');
+  const movil = sinComentarios(leer('app/m/operaciones/RunnerMovil.tsx'));
+  assert.doesNotMatch(movil, /PowerShell|COMANDO_TERMINAL/i, 'el teléfono tampoco');
   const panel = sinComentarios(leer('app/admin/operaciones/PanelRunner.tsx'));
   assert.match(panel, /const comando = tieneTerminal\(k\.cuenta\) \? COMANDO_TERMINAL\(k\.cuenta\) : null;/);
   assert.match(panel, /\{comando && \(!vivo \|\| sinRunner > 0\) && \(/, 'sin comando no hay botón');

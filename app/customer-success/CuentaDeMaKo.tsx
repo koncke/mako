@@ -70,6 +70,11 @@ export type CuentasProp = {
   altasPorWs?: Record<number, AltaPedida[]>;
   /** Si se dibuja el formulario de pedir. El permiso lo vuelve a hacer el server. */
   puedePedirAltas?: boolean;
+  /**
+   * Lo que esta agencia tiene que pagar por cada cliente (#866 y #867): el link del primer mes, o el de la renovación
+   * mensual que empieza cuando el cliente terminó el onboarding. Lo arma el server (lib/agencia-cobro.ts).
+   */
+  cobrosPorWs?: Record<number, { pagar: string | null; renovacion: { link: string; desde: string | null; activada: boolean } | null }>;
 };
 
 /** Un pedido de alta como lo dibuja la ficha. Lo arma el server (page.tsx). */
@@ -110,6 +115,9 @@ export function CuentaDeMaKo({ c, cuentas, onError, variante = 'sutil' }: {
    */
   const [pidiendoEmail, setPidiendoEmail] = useState(false);
   const [correo, setCorreo] = useState('');
+  // EL LINK DE PAGO (#866): el del primer mes, en el acto al abrir la cuenta, o el de la renovación (#867).
+  const [pago, setPago] = useState<{ url: string; renovacion: boolean; desde: string | null } | null>(null);
+  const [copiado, setCopiado] = useState(false);
 
   if (!cuentas?.visible) return null;
 
@@ -126,6 +134,9 @@ export function CuentaDeMaKo({ c, cuentas, onError, variante = 'sutil' }: {
     // pero en Resumen y rearmada de cero; refrescar no desmonta nada. Es la misma
     // trampa que FichaCliente documenta para el tablero.
     setPidiendoEmail(false);
+    // El link del primer mes se muestra EN EL ACTO (#866): pagarlo habilita la cuenta sin esperar a nadie. Sin link (MaKo
+    // todavía no cobra por Mercado Pago), la cuenta queda esperando la aprobación, como siempre.
+    if (r.link) setPago({ url: r.link, renovacion: false, desde: null });
     router.refresh();
     setOcupado(false);
   };
@@ -152,6 +163,7 @@ export function CuentaDeMaKo({ c, cuentas, onError, variante = 'sutil' }: {
 
   const ojo = <Icon name="eye" size={13} />;
   const cls = variante === 'boton' ? 'cmk cmk-btn' : 'cmk';
+  const cobro = ws ? cuentas.cobrosPorWs?.[ws] : undefined;
 
   let control = null;
   if (!ws) {
@@ -179,10 +191,29 @@ export function CuentaDeMaKo({ c, cuentas, onError, variante = 'sutil' }: {
       </a>
     );
   } else if (estado === 'aprobado') {
+    const renov = cobro?.renovacion && !cobro.renovacion.activada ? cobro.renovacion : null;
     control = (
-      <button type="button" className={`${cls} cmk-ok`} onClick={entrar} disabled={ocupado}
-        title={`Ver el dashboard de ${c.nombre || 'este cliente'}`}>
-        {ojo}<span>{ocupado ? 'Entrando…' : 'Inspeccionar'}</span>
+      <>
+        <button type="button" className={`${cls} cmk-ok`} onClick={entrar} disabled={ocupado}
+          title={`Ver el dashboard de ${c.nombre || 'este cliente'}`}>
+          {ojo}<span>{ocupado ? 'Entrando…' : 'Inspeccionar'}</span>
+        </button>
+        {/* #867: terminó el onboarding y su mes ya corre; la renovación mensual se autoriza una vez. */}
+        {renov && (
+          <button type="button" className={cls} onClick={() => setPago({ url: renov.link, renovacion: true, desde: renov.desde })}
+            title="Su mes ya corre: autoriza la renovación mensual">
+            Activar renovación
+          </button>
+        )}
+      </>
+    );
+  } else if (estado === 'pendiente' && cobro?.pagar) {
+    // #866: pagar el primer mes es lo que la habilita. Sin link (MaKo no cobra todavía), espera la aprobación.
+    const url = cobro.pagar;
+    control = (
+      <button type="button" className={`${cls} cmk-ok`} onClick={() => setPago({ url, renovacion: false, desde: null })}
+        title={`Paga el primer mes de ${c.nombre || 'este cliente'} y queda habilitado`}>
+        Pagar su mes
       </button>
     );
   } else if (estado) {
@@ -193,7 +224,12 @@ export function CuentaDeMaKo({ c, cuentas, onError, variante = 'sutil' }: {
   // Y si tiene workspace pero no hay fila en la cartera de esta agencia, no se
   // dibuja nada: antes salía «Workspace 7», que es un dato técnico en la cara.
 
-  if (!control && !pidiendoEmail) return null;
+  if (!control && !pidiendoEmail && !pago) return null;
+  const fechaDesde = pago?.desde ? new Date(pago.desde).toLocaleDateString('es', { day: '2-digit', month: '2-digit' }) : null;
+  const copiar = () => {
+    if (!pago) return;
+    void navigator.clipboard?.writeText(pago.url).then(() => { setCopiado(true); setTimeout(() => setCopiado(false), 1600); }).catch(() => {});
+  };
   return (
     <>
       {control}
@@ -236,7 +272,32 @@ export function CuentaDeMaKo({ c, cuentas, onError, variante = 'sutil' }: {
               ahora, sale cuando el super admin apruebe. Decirlo después sería una
               sorpresa. */}
           <p className="cmk-ayuda">
-            Ahí le llega su acceso, cuando se apruebe la cuenta.
+            Ahí le llega su acceso cuando la cuenta quede habilitada.
+          </p>
+        </Modal>,
+        document.body,
+      )}
+      {/* EL LINK DE PAGO (#866 y #867), por portal como el de arriba. Copiar y abrir: la agencia lo paga ella, o se lo pasa
+          a quien paga. */}
+      {pago && createPortal(
+        <Modal
+          titulo={pago.renovacion ? 'Su renovación mensual' : 'Su primer mes'}
+          encabezado="Cuenta de MaKo"
+          ancho={440}
+          anidada
+          onCerrar={() => setPago(null)}
+          pie={
+            <>
+              <button type="button" className="cmk-no" onClick={copiar}>{copiado ? 'Copiado' : 'Copiar el link'}</button>
+              <a className="cmk-si" href={pago.url} target="_blank" rel="noopener noreferrer">{pago.renovacion ? 'Autorizarla' : 'Pagar ahora'}</a>
+            </>
+          }
+        >
+          <input className="cmk-in" readOnly value={pago.url} aria-label="Link de pago" onFocus={(e) => e.currentTarget.select()} />
+          <p className="cmk-ayuda">
+            {pago.renovacion
+              ? `Se cobra sola cada mes${fechaDesde ? `, desde el ${fechaDesde}` : ''}. La autorizas una vez.`
+              : 'Al pagarlo, la cuenta queda habilitada. Su mes corre desde que termine el onboarding.'}
           </p>
         </Modal>,
         document.body,
@@ -288,4 +349,5 @@ const CSS = `
 .cmk-no{ border:1px solid var(--border-strong); background:var(--surface); color:var(--dim); }
 .cmk-si{ border:0; background:var(--primary); color:#fff; }
 .cmk-si:disabled{ opacity:.5; cursor:default; }
+a.cmk-si{ display:inline-flex; align-items:center; text-decoration:none; }
 `;

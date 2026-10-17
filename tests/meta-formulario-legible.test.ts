@@ -93,9 +93,11 @@ test('⚠️ el aviso del formulario de Meta nace APAGADO y su texto sale de la 
 });
 
 test('⚠️ el webhook manda los DATOS, no el texto armado (si no, /automations no gobierna nada)', () => {
-  const src = sinComentarios(leer('app/api/webhooks/meta-leads/route.ts'));
+  // Desde el 17/10/2026 (#868) lo inmediato de un lead nuevo vive en lib/meta-lead-nuevo.ts: lo llaman el webhook y el
+  // poll (tests/meta-lead-nuevo.test.ts). La regla de los DATOS se mide ahí.
+  const src = sinComentarios(leer('lib/meta-lead-nuevo.ts'));
   const i = src.indexOf("emitirDelCatalogo('lead-formulario-meta'");
-  assert.ok(i > 0, 'el webhook ya no emite el aviso');
+  assert.ok(i > 0, 'lo inmediato de un lead nuevo ya no emite el aviso');
   const llamada = src.slice(i, src.indexOf('});', i));
   assert.doesNotMatch(llamada, /\btexto\s*:/, 'con `texto` armado acá, lo escrito en /automations no sale nunca');
   assert.match(llamada, /lead:\s*\{\s*id:\s*lead\.id/, 'sin el lead no hay {{link_lead}} ni {{lead_nombre}}');

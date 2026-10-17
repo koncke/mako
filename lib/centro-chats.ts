@@ -22,7 +22,7 @@
 //
 // ⚠️ SIN `server-only`, a propósito: lo leen el servidor, las pantallas y los tests.
 
-import { CARTERO_VIVO_MS, DESTINO_RE, carteroVivo, rutaParaRevisar, type ChatCartero, type Cierre, type EstadoPedido } from './operaciones-reglas';
+import { CARTERO_VIVO_MS, DESTINO_NUEVO, DESTINO_RE, carteroVivo, rutaParaRevisar, type ChatCartero, type Cierre, type EstadoPedido, type TurnoChat } from './operaciones-reglas';
 import { instanteHito, type AreaP, type PasoP, type PedidoP } from './progreso-reglas';
 import { destinoDeDecision } from './decisiones-aviso';
 import { textoDeRespuesta, type Decision } from '../app/admin/runway/decisiones';
@@ -63,6 +63,10 @@ export type ChatCentro = {
   area?: string;
   /** Sus pedidos sin terminar (ids de PedidoP): un chat sin sesión sólo se lista si tiene alguno. */
   abiertos?: string[];
+  /** Es el Runner (cartero 1.10.0, 17/10/2026: «todo chat abierto se ve»): está en la lista, sin caja. */
+  esRunner?: true;
+  /** Está en la nube: lo anota el Runner de la app con list_sessions. Se ve con la marca «Nube», sin caja. */
+  nube?: true;
 };
 
 export type SesionDeChat = {
@@ -78,6 +82,8 @@ export type TrabajoP = {
   id: string; destino: string; destino_titulo: string | null; destino_cuenta: string | null; created_at: string;
   texto?: string; estado?: EstadoPedido; motivo?: string | null;
   entregado_at?: string | null; cerrado_at?: string | null; cierre?: Cierre | null;
+  /** Los nombres de lo que se adjuntó (17/10/2026). */
+  adjuntos?: string[];
 };
 
 const normal = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().replace(/\s+/g, ' ').trim();
@@ -200,11 +206,14 @@ export function completarChats(base: readonly ChatCentro[], { carteros, trabajos
     const visto = fecha(k.vistoAt);
     const viejo = visto == null || ahora - visto >= CARTERO_VIVO_MS;
     for (const ch of k.chats) {
-      if (!DESTINO_RE.test(ch.local)) continue;
+      if (!DESTINO_RE.test(ch.local) && !ch.nube) continue;
       const c = tomar(ch.local, ch.titulo, ch.cuenta ?? k.cuenta);
       c.titulo = ch.titulo;
       c.cuenta = ch.cuenta ?? k.cuenta;
-      c.estado = !ch.vivo ? 'cerrado' : ch.estado === 'busy' ? 'trabajando' : 'abierto';
+      if (ch.esRunner) c.esRunner = true;
+      if (ch.nube) c.nube = true;
+      // Uno de la nube está abierto mientras el Runner lo anota (no tiene canal en la PC: `vivo` es siempre false).
+      c.estado = ch.nube ? 'abierto' : !ch.vivo ? 'cerrado' : ch.estado === 'busy' ? 'trabajando' : 'abierto';
       c.vistoAt = visto;
       c.viejo = viejo;
       c.sinRunner = ch.vivo && ch.runner === false;
@@ -275,7 +284,8 @@ export const esCerebro = (titulo: string) => NOMBRES_DEL_CEREBRO.has(normal(titu
 export function unirPorNombre(chats: readonly ChatCentro[]): ChatCentro[] {
   const grupos = new Map<string, ChatCentro[]>();
   for (const c of chats) {
-    const k = esCerebro(c.titulo) ? 'cerebro' : normal(c.titulo) || c.clave;
+    // Uno de la nube no se une con el de la PC que se llama igual: es OTRA sesión, y no recibe (sería elegible como destino).
+    const k = c.nube ? `nube:${normal(c.titulo) || c.clave}` : esCerebro(c.titulo) ? 'cerebro' : normal(c.titulo) || c.clave;
     if (!grupos.has(k)) grupos.set(k, []);
     grupos.get(k)!.push(c);
   }
@@ -306,6 +316,8 @@ export function unirPorNombre(chats: readonly ChatCentro[]): ChatCentro[] {
       trabajos: unica(lista.flatMap((c) => c.trabajos)),
       miembros: unica(lista.flatMap((c) => c.miembros)),
       sesiones,
+      ...(lista.some((c) => c.esRunner) ? { esRunner: true as const } : {}),
+      ...(lista.every((c) => c.nube) ? { nube: true as const } : {}),
     });
   }
   return out;
@@ -362,13 +374,32 @@ export type LineaChat =
   /** Un trabajo firmado que se le mandó desde el Centro (con su texto, su estado y el cierre, si lo dejó). */
   | { tipo: 'trabajo'; instante: number; trabajo: TrabajoP }
   /** Lo que Martín contestó a una pregunta de ESTE chat (la de arriba de la caja o la Ticketera): es su respuesta. */
-  | { tipo: 'respuesta'; instante: number; decision: Decision };
+  | { tipo: 'respuesta'; instante: number; decision: Decision }
+  /** Lo que se le dijo al chat y lo que contestó, sacado de su transcript (17/10/2026: «los chats no se entienden»). */
+  | { tipo: 'turno'; instante: number; turno: TurnoChat };
+
+/**
+ * Lo que se DIBUJA en la conversación (17/10/2026, Martín: «los chats no se entienden... No se entiende la conversación
+ * que se tiene»): lo que se le dijo y lo que contestó (los turnos), los trabajos del Centro y las respuestas a sus
+ * preguntas. Los pedidos de la bitácora y sus hitos («Corrección · 19:32 — …», «Lo pediste en …») NO: son el Plan, y
+ * van a su barra (`avanceDelChat` los sigue leyendo de `historialDelChat`). Un turno que trajo un trabajo tampoco: ese
+ * trabajo ya está, con sus ticks.
+ */
+export const lineasDeConversacion = (lineas: readonly LineaChat[]): LineaChat[] =>
+  lineas.filter((l) => l.tipo === 'trabajo' || l.tipo === 'respuesta' || (l.tipo === 'turno' && !(l.turno.rol === 'yo' && l.turno.trabajo)));
+
+/** Un chat que trabaja y todavía no escribió nada lo dice (Martín, 17/10/2026: «No puede haber un chat en "trabajando"
+ *  sin nada escrito»): nunca una conversación vacía. null = escribió algo, o no está trabajando. */
+export const trabajaSinEscribir = (c: Pick<ChatCentro, 'estado' | 'viejo'>, lineas: readonly LineaChat[]): string | null =>
+  c.estado === 'trabajando' && !c.viejo && !lineasDeConversacion(lineas).length ? 'Está trabajando: todavía no escribió nada' : null;
 
 /** La conversación de un chat, la más vieja arriba (como un chat). */
 export function historialDelChat(
   chat: ChatCentro, pedidos: ReadonlyMap<string, PedidoP>, trabajos: readonly TrabajoP[],
   /** Sus preguntas ya contestadas (`respuestasDelChat`, lib/centro-preguntas.ts). */
   respuestas: readonly Decision[] = [],
+  /** Lo que se dijo en sus sesiones (lib/centro-turnos-db.ts): sólo del chat abierto, los demás no los traen. */
+  turnos: readonly TurnoChat[] = [],
 ): LineaChat[] {
   const out: LineaChat[] = [];
   for (const id of chat.pedidos) {
@@ -387,6 +418,10 @@ export function historialDelChat(
   for (const d of respuestas) {
     const t = fecha(d.respondidaAt);
     if (t != null) out.push({ tipo: 'respuesta', instante: t, decision: d });
+  }
+  for (const u of turnos) {
+    const t = fecha(u.at);
+    if (t != null && chat.miembros.includes(u.local)) out.push({ tipo: 'turno', instante: t, turno: u });
   }
   return out.sort((x, y) => x.instante - y.instante);
 }
@@ -409,6 +444,9 @@ export function vistaPrevia(lineas: readonly LineaChat[]): VistaPrevia | null {
       if (c && t != null) ver({ texto: renglon(c.hecho || c.decidido), propio: false, tick: null, instante: t });
     } else if (l.tipo === 'respuesta') {
       ver({ texto: renglon(textoDeRespuesta(l.decision)), propio: true, tick: null, instante: l.instante });
+    } else if (l.tipo === 'turno') {
+      // Lo que contestó (o lo que se le dijo): lo último que pasó en la conversación. El turno de un trabajo ya está.
+      if (!(l.turno.rol === 'yo' && l.turno.trabajo)) ver({ texto: renglon(l.turno.texto), propio: l.turno.rol === 'yo', tick: null, instante: l.instante });
     } else {
       ver({ texto: renglon(l.pedido.texto), propio: true, tick: null, instante: l.instante });
       if (l.tipo === 'pedido') for (const s of l.pasos) if (s.instante != null) ver({ texto: renglon(s.titulo), propio: false, tick: null, instante: s.instante });
@@ -436,6 +474,9 @@ export type Envio =
   | { puede: false; por: 'leyendo_clave' }
   /** Este dispositivo no tiene clave de firma: se crea una. */
   | { puede: false; por: 'sin_clave' }
+  /** Es el Runner o un chat de la nube (17/10/2026): se ven en la lista, pero no se les escribe desde acá. */
+  | { puede: false; por: 'runner' }
+  | { puede: false; por: 'nube' }
   /** La PC no acepta la clave de este dispositivo: se copia y se carga allá. */
   | { puede: false; por: 'clave_no_aceptada' }
   /** Sale: ya (`espera: null`), cuando el cartero de su cuenta dé una vuelta, o cuando se abra el chat. `donde`:
@@ -449,6 +490,10 @@ export function comoSale(
   claveId: string | null | undefined,
   ahora: number,
 ): Envio {
+  // El Runner y los de la nube, antes que nada: lo dice lo que subió la PC de esa sesión.
+  const subido = chat.sesion ? carteros.flatMap((k) => k.chats ?? []).find((x) => x.local === chat.sesion) : undefined;
+  if (subido?.esRunner) return { puede: false, por: 'runner' };
+  if (subido?.nube) return { puede: false, por: 'nube' };
   if (!chat.sesion || !DESTINO_RE.test(chat.sesion)) return { puede: false, por: 'sin_direccion' };
   if (claveId === undefined) return { puede: false, por: 'leyendo_clave' };
   if (claveId === null) return { puede: false, por: 'sin_clave' };
@@ -467,6 +512,17 @@ export function comoSale(
   return sale(null);
 }
 
+/**
+ * Cuándo dio su última vuelta un Runner, si NINGUNO da vueltas ahora: el estado de los chats es una foto de ese momento
+ * (Martín, 17/10/2026: «aparecen todos los chats como que no están haciendo nada, cuando no es así»; el Runner se había
+ * caido con la app). null = alguno da vueltas, o ninguno dio nunca: no hay nada que avisar.
+ */
+export function sinNoticiasDesde(carteros: readonly Pick<CarteroP, 'vistoAt'>[], ahora: number): number | null {
+  if (!carteros.length || carteros.some((k) => carteroVivo(k, ahora))) return null;
+  const vistos = carteros.map((k) => fecha(k.vistoAt)).filter((t): t is number => t != null);
+  return vistos.length ? Math.max(...vistos) : null;
+}
+
 /** «Cuenta 3», o null si no se sabe. */
 export const nombreCuenta = (c: string | null | undefined): string | null => (c ? `Cuenta ${c.replace(/^claude/, '')}` : null);
 
@@ -483,6 +539,8 @@ export function textoDeEnvio(e: Envio): string | null {
     if (e.por === 'sin_direccion') return 'Abre este chat en la app de Claude para poder escribirle.';
     if (e.por === 'sin_clave') return 'Crea tu Token para comenzar a chatear.';
     if (e.por === 'clave_no_aceptada') return 'Pégale tu Token al Runner para comenzar a chatear.';
+    if (e.por === 'runner') return 'El Runner entrega lo que escribes: no se le escribe.';
+    if (e.por === 'nube') return 'Este chat está en la nube: escríbele desde la app de Claude.';
     return null;
   }
   const n = e.cuenta ? e.cuenta.replace(/^claude/, '') : '?';
@@ -585,8 +643,9 @@ export const ROTULO_NODO: Record<EstadoNodo, string> = {
 
 export type NodoAvance = {
   id: string;
-  /** pedido = lo trabajó este chat · derivado = se lo pediste acá y lo trabajó otro · trabajo = se lo mandaste desde el Centro. */
-  origen: 'pedido' | 'derivado' | 'trabajo';
+  /** pedido = lo trabajó este chat · derivado = se lo pediste acá y lo trabajó otro · trabajo = se lo mandaste desde el Centro
+   *  · ya_esta = el chat dijo «Ya está» en su conversación (sólo en Review: `yaEstaDelChat`). */
+  origen: 'pedido' | 'derivado' | 'trabajo' | 'ya_esta';
   titulo: string;
   /** El texto entero que se pidió o se mandó. */
   prompt: string;
@@ -637,11 +696,12 @@ export function mensajeDeCommit(msg: string): string {
 
 /** El avance de un chat: un nodo por línea de su historial, el más viejo arriba (como un roadmap). */
 export function avanceDelChat(lineas: readonly LineaChat[]): NodoAvance[] {
-  // Una respuesta a una pregunta no es algo que se le pidió: no es un nodo del avance.
-  return lineas.flatMap((l): NodoAvance[] => (l.tipo === 'respuesta' ? [] : [nodoDe(l)]));
+  // Una respuesta a una pregunta no es algo que se le pidió: no es un nodo del avance. Un turno de la conversación,
+  // tampoco: el Plan son los pedidos y los trabajos.
+  return lineas.flatMap((l): NodoAvance[] => (l.tipo === 'respuesta' || l.tipo === 'turno' ? [] : [nodoDe(l)]));
 }
 
-function nodoDe(l: Exclude<LineaChat, { tipo: 'respuesta' }>): NodoAvance {
+function nodoDe(l: Exclude<LineaChat, { tipo: 'respuesta' | 'turno' }>): NodoAvance {
   if (l.tipo === 'trabajo') {
     const w = l.trabajo;
     const texto = (w.texto ?? '').trim();
@@ -678,12 +738,118 @@ const paraRevisar = (pagina: unknown, sesion: string | null): NodoAvance['revisa
 
 // ── «Review» (Martín, 16/10/2026, punto 6): lo que el chat implementó y hay que ir a revisar ─────────────────
 // «que graficamente me diga que tengo que ir a revisar de las cosas que ha implementado, si puede dejarme el link...».
-// Un nodo va a Review cuando está TERMINADO y dejó una página. El visor es de «Centro de Operaciones › Review»; el
-// contrato (qué recibe y adónde vuelve la devolución) está en docs/relevo/centro-operaciones.md.
+// El visor es de «Centro de Operaciones › Review»; el contrato (qué recibe y adónde vuelve la devolución) está en
+// docs/relevo/centro-operaciones.md.
+//
+// ⚠️ UN NODO VA A REVIEW CUANDO ESTÁ TERMINADO, DEJE O NO UNA PÁGINA (Martín, 17/10/2026, mirando producción: «Se
+// terminaron y pushearon cosas y no las puedo ver en Review, me dice "Nada para revisar todavía"»). Hasta el 16/10 la
+// regla era «terminado Y con `revisar`», y como el `revisar` sólo lo deja un chat que lo escribe en su cierre o en su
+// bitácora (casi ninguno lo hacía), la sub-tab quedaba vacía con el trabajo ya en producción. Sin página propia, el link
+// es la TAB de su área (`rutaDeLaTab`): la del jefe del chat; un chat «Sin asignar» no tiene tab y la fila va sin botón.
 
-/** Lo terminado que dejó algo para mirar, lo más nuevo arriba. */
+/** Todo lo terminado, deje o no una página para mirar, lo más nuevo arriba. */
 export const porRevisar = (nodos: readonly NodoAvance[]): NodoAvance[] =>
-  nodos.filter((n) => n.estado === 'hecho' && n.revisar).sort((a, b) => b.instante - a.instante);
+  nodos.filter((n) => n.estado === 'hecho').sort((a, b) => b.instante - a.instante);
+
+// ── «Nuevo chat» con un clic (Ops Center, 17/10/2026, docs/diseno-nuevo-chat-un-clic.md) ──────────────────────────────
+
+/** El primer mensaje de un chat nuevo cuando Martín no escribe nada (el del diseño). */
+export const primerMensajeNuevo = (nombre: string) => `Hola, eres el chat «${nombre}». Lee AGENTS.md y espera instrucciones.`;
+
+/**
+ * Cómo va el último chat que se pidió abrir, para «Nuevo chat»: un trabajo `nuevo` no es de ningún chat de la lista, así
+ * que su estado se dice ahí. null = no se pidió ninguno.
+ */
+export function estadoDeApertura(trabajos: readonly Pick<TrabajoP, 'destino' | 'destino_titulo' | 'created_at' | 'estado' | 'motivo'>[]): string | null {
+  const nuevos = trabajos.filter((w) => w.destino === DESTINO_NUEVO);
+  if (!nuevos.length) return null;
+  const w = nuevos.reduce((a, b) => (Date.parse(b.created_at) > Date.parse(a.created_at) ? b : a));
+  const nombre = `«${w.destino_titulo ?? 'Nuevo chat'}»`;
+  switch (w.estado ?? 'escrito') {
+    case 'escrito': return `${nombre}: espera al Runner. Si en 2 minutos no se abre, pídele al Runner «prende la apertura de chats».`;
+    case 'tomado': return `${nombre}: abriéndose en la PC.`;
+    case 'entregado': case 'hecho': case 'comprobado': return w.motivo ? `${nombre}: ${w.motivo.replace(/^Se pidió abrir «[^»]*»/, 'se pidió abrir')}` : `${nombre}: se pidió abrir.`;
+    case 'cancelado': return `${nombre}: cancelado.`;
+    default: return `${nombre}: no se abrió${w.motivo ? ` · ${w.motivo}` : ''}`;
+  }
+}
+
+// ── Los «Ya está» de cada chat, en Review (Ops Center, 17/10/2026) ──────────────────────────────────────────────────
+// La regla de Martín (AGENTS.md): cada chat cierra lo que llegó a producción con «Ya está» en SU chat, con la ruta donde se
+// prueba. Llegaban sólo como texto de la conversación (el último texto del turno, del transcript: cartero.mjs →
+// turnosDeLineas). Ahora cada uno es un HECHO de Review, con su ruta en «Revisar». NO entran al Plan: el Plan son los
+// pedidos y los trabajos, y un «Ya está» cierra uno de ésos (contarlo dos veces inflaría el «8/13»).
+
+/** ¿Este texto es un «Ya está»? Su primer renglón empieza así, con o sin negrita, tilde o un ✅ adelante. */
+export const esYaEsta = (texto: string): boolean =>
+  /^[\s*_#>✅✔·\-–—]*ya est[áa](?![a-zñáéíóú])/i.test(texto.trim().split('\n')[0] ?? '');
+
+/** Lo que hay en el texto que parece un archivo o una carpeta de la PC, no una página de MaKo. */
+const ES_ARCHIVO = /^\/(c|d|tmp|usr|home|users|mnt|dev|etc|var|opt|private)(\/|$)|\.(tsx?|m?js|json|md|css|sql|txt|log|ps1|sh)(\?|#|$)/i;
+
+/**
+ * La ruta de MaKo que dejó un «Ya está» («Pruébalo en /crm?lead=12», un link de hola-mako.com o `[aquí](/offer)`): la
+ * primera que es una ruta interna y no un archivo. null = no dejó ninguna (Review lleva a la tab de su área).
+ */
+export function rutaDeYaEsta(texto: string): string | null {
+  const absolutas = [...texto.matchAll(/https?:\/\/(?:www\.)?hola-mako\.com(\/[^\s)\]»"'`<>]*)/gi)].map((m) => m[1]);
+  const sueltas = [...texto.matchAll(/(?:^|[\s(«"'`[])(\/[a-z0-9][^\s)\]»"'`<>]*)/gi)].map((m) => m[1]);
+  for (const c of [...absolutas, ...sueltas]) {
+    const r = rutaParaRevisar(c.replace(/[.,;:!?]+$/, ''));
+    if (r && !ES_ARCHIVO.test(r)) return r;
+  }
+  return null;
+}
+
+/** Los «Ya está» de la conversación de un chat, como hechos de Review (lo más nuevo arriba lo ordena `porRevisar`). */
+export function yaEstaDelChat(lineas: readonly LineaChat[]): NodoAvance[] {
+  return lineas.flatMap((l): NodoAvance[] => {
+    if (l.tipo !== 'turno' || l.turno.rol !== 'el' || !esYaEsta(l.turno.texto)) return [];
+    const t = l.turno.texto.trim();
+    // El título es lo que sigue al «Ya está» (o «Ya está», si no dijo más).
+    const resto = t.replace(/^[\s*_#>✅✔·\-–—]*ya est[áa][\s*_.:!,;\-–—]*/i, '').trim();
+    const ruta = rutaDeYaEsta(t);
+    return [{
+      id: `y:${l.turno.uuid}`, origen: 'ya_esta', titulo: resto ? tituloDeTexto(resto) : 'Ya está', prompt: t, instante: l.instante,
+      estado: 'hecho', cuentas: [], pasos: [], commits: [], trabajaron: [], cierre: t, motivo: null,
+      revisar: ruta ? { pagina: ruta, sesion: DESTINO_RE.test(l.turno.local) ? l.turno.local : null } : null,
+    }];
+  });
+}
+
+/**
+ * La ruta de la tab que se llama como el jefe de un chat («CRM» para «CRM › Lead Detail», ver `partesDelNombre`):
+ * la del primer ítem de `items` con ese nombre, sin mayúsculas ni tildes (la misma comparación que `seccionesDeChats`).
+ * null = el jefe no es una tab.
+ * ⚠️ El ORDEN de `items` manda, porque un nombre se repite: «CRM» es `/crm` en la barra del cliente y `/admin/dev/crm`
+ * en la del super admin. La tab del producto va primero (`[...TODOS_LOS_ITEMS, ...MAKO_NAV, ...ADMIN_NAV]`, como
+ * `nombresDeTabs`); con el orden al revés, Review mandaría a la ficha de desarrollo en vez de a la pantalla.
+ */
+export function rutaDeLaTab(jefe: string, items: ReadonlyArray<{ label: string; href: string }>): string | null {
+  const k = normal(jefe);
+  if (!k) return null;
+  const it = items.find((i) => normal(i.label) === k);
+  // Sólo una ruta interna: un href que no empieza con «/» (o es «//host») no es una tab de MaKo.
+  return it && it.href.startsWith('/') && !it.href.startsWith('//') ? it.href : null;
+}
+
+/** Adónde lleva el «Revisar» de una fila de Review: al visor, a su página, o a la tab del jefe (`via`). */
+export type DestinoReview = { href: string; via: 'visor' | 'pagina' | 'tab' };
+
+/**
+ * El destino de una fila de Review. Con página propia (`revisar`): igual que siempre (`hrefRevisar`). Sin ella: la tab
+ * del jefe del chat. null = no hay a dónde llevarlo (sin página y el jefe no es una tab, o no se sabe el chat): la fila se
+ * ve igual, sin botón.
+ */
+export function destinoDeReview(
+  n: Pick<NodoAvance, 'id' | 'revisar'>, chat: Pick<ChatCentro, 'clave' | 'sesion' | 'titulo'> | undefined,
+  items: ReadonlyArray<{ label: string; href: string }>,
+): DestinoReview | null {
+  const propio = chat ? hrefRevisar(n, chat) : n.revisar?.pagina ?? null;
+  if (propio) return { href: propio, via: chat && VISOR_REVISAR ? 'visor' : 'pagina' };
+  const tab = chat ? rutaDeLaTab(partesDelNombre(chat.titulo).jefe, items) : null;
+  return tab ? { href: tab, via: 'tab' } : null;
+}
 
 export const RUTA_REVISAR = '/admin/operaciones/revisar';
 /**

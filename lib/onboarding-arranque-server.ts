@@ -29,7 +29,7 @@ import { ANSWERS_KEY, saveAnswers } from './onboarding';
 import { mapaParaEscribir } from './archivero';
 import { faltanDelArranque, type OfferSesionVista } from './offer-marco';
 import {
-  briefDesdeArranque, cierreDePasos, etapaDeArranque, fundirBrief, mensajesDeArranque, sinMarca,
+  CLAVE_ENCUESTA, briefDesdeArranque, cierreDePasos, etapaDeArranque, fundirBrief, mensajesDeArranque, sinMarca,
   type EstadoArranque, type EtapaArranque, type HechosArranque, type MensajeArranque, type ModoArranque,
 } from './onboarding-arranque';
 
@@ -140,6 +140,8 @@ export type VistaArranque = {
   crmTipo: TipoCrmId | null;
   /** El canal con el que se propone el CRM. */
   canal: HechosArranque['canalNegocio'];
+  /** Lo que quiere resolver primero: decide a qué pestaña entra al terminar (`rutaDeEntrada`). */
+  interes: EstadoArranque['interes'] | null;
 };
 
 export async function vistaArranque(): Promise<VistaArranque> {
@@ -160,6 +162,7 @@ export async function vistaArranque(): Promise<VistaArranque> {
     telefonoNumero: e.telefonoNumero ?? '',
     crmTipo: e.crmTipo ?? null,
     canal: h.canalNegocio,
+    interes: e.interes ?? null,
   };
 }
 
@@ -277,7 +280,14 @@ export async function cerrarArranque(): Promise<{ estado: OnboardingState; aviso
     avisos.push('No pude guardar el perfil de tu negocio; lo completas en Second Brain.');
   }
 
-  // 4. Los pasos.
+  // 4. Cómo llegó y qué quiere resolver primero (17/10/2026): un setting propio, para que el super admin los lea sin
+  // abrir la conversación (y la API de MaKo, `ver_estado_onboarding`). Best-effort: no traba el cierre.
+  if (e.origen || e.interes) {
+    await setSetting(CLAVE_ENCUESTA, JSON.stringify({ origen: e.origen ?? null, interes: e.interes ?? null, at: new Date().toISOString() }))
+      .catch((err) => console.error('[arranque] encuesta:', err instanceof Error ? err.message : err));
+  }
+
+  // 5. Los pasos.
   const quien = (await getUsuarioActual().catch(() => null))?.email || 'admin-cliente';
   const cambios = cierreDePasos(h.pasosCapa, { telefonoVerificado: h.telefonoVerificado, metaConectado: h.metaConectado });
   const estado = await cerrarPasosOnboarding(cambios, quien);

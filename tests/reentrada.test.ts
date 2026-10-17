@@ -109,7 +109,8 @@ test('la columna que falta no frena al motor (se lee con la 0279 y sin ella)', (
   assert.match(man, /if \(lecturaSec\.error && esColumnaInexistente\(lecturaSec\.error\)\) \{/, 'sin la 0279, un «Ir a» tiraba');
 });
 
-test('se guarda desde el panel del CRON, y el panel muestra la que el motor usa', () => {
+// (17/10, #846) El control vive en el panel de cada WhatsApp; sin WhatsApp, en el del CRON (tests/cron-solo-disparo.test.ts).
+test('se guarda desde su panel, y el panel muestra la que el motor usa', () => {
   const set = bloque(NUTRI, 'export async function setSecuenciaReentrada(', '\n}\n');
   assert.match(set, /if \(!esReentrada\(reentrada\)\) throw/);
   const ruta = sinComentarios(leer('app/api/whatsapp/secuencias/route.ts'));

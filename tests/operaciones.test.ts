@@ -73,7 +73,7 @@ function acciones(src: string): Array<{ nombre: string; cuerpo: string }> {
   return out;
 }
 
-const ACCIONES = ['fotoCentroAction', 'pushesCentroAction', 'encolarPedidoAction', 'cancelarPedidoAction', 'crearTokenCarteroAction', 'guardarMunecoAction'];
+const ACCIONES = ['fotoCentroAction', 'pushesCentroAction', 'turnosCentroAction', 'encolarPedidoAction', 'cancelarPedidoAction', 'crearTokenCarteroAction', 'guardarMunecoAction'];
 
 test('cada acción pregunta por Martín con su segundo factor ANTES de hacer cualquier otra cosa', () => {
   const as = acciones(sinComentarios(leer('app/admin/operaciones/acciones.ts')));
@@ -89,10 +89,13 @@ test('cada acción pregunta por Martín con su segundo factor ANTES de hacer cua
 });
 
 test('la página también pasa por puedeOperar antes de leer la cola', () => {
+  // Desde el 17/10/2026 la página lee por `datosDelCentroSiOpera` (la lectura que comparte con /second-brain, con su
+  // propio `puedeOperar` adentro: tests/second-brain-centro.test.ts). La guarda de la página va igual antes.
   const src = sinComentarios(leer('app/admin/operaciones/page.tsx'));
   const guarda = src.indexOf('puedeOperar(admin, await wsSuperAdmin())');
-  const lectura = src.indexOf('listarPedidos()');
-  assert.ok(guarda > 0 && lectura > guarda, 'la guarda va antes de listarPedidos');
+  const lectura = src.indexOf('datosDelCentroSiOpera()');
+  assert.ok(guarda > 0 && lectura > guarda, 'la guarda va antes de leer');
+  assert.doesNotMatch(src, /listarPedidos|leerCarteros|leerDecisiones/, 'la cola no se lee por fuera de la lectura guardada');
 });
 
 // Martín, al abrirlo en el teléfono (15/10/2026): «Me dice que todavía no hay pedidos, cuando tenemos
@@ -102,7 +105,7 @@ test('en las pantallas del Centro no hay «pedidos»: son trabajos (la palabra e
     .map((m) => m[1] ?? m[2] ?? m[3] ?? '');
   // Desde el 16/10 el Centro es una app de chat: lo que despacha se ve en la conversación (Hilo.tsx), en la caja
   // (Conversacion.tsx), en la barra (CentroApp.tsx) y en el panel del cartero, en la computadora y en el teléfono.
-  for (const f of ['app/admin/operaciones/CentroApp.tsx', 'app/admin/operaciones/Conversacion.tsx', 'app/admin/operaciones/Hilo.tsx',
+  for (const f of ['app/admin/operaciones/Conversacion.tsx', 'app/admin/operaciones/Hilo.tsx',
     'app/admin/operaciones/PanelRunner.tsx', 'app/admin/operaciones/acciones.ts', 'app/admin/operaciones/page.tsx',
     'app/admin/operaciones/Avance.tsx', 'app/m/operaciones/RunnerMovil.tsx', 'app/m/operaciones/ChatsMovil.tsx', 'app/m/operaciones/CentroAppMovil.tsx',
     'app/m/operaciones/page.tsx',
@@ -129,7 +132,7 @@ test('el Centro en el teléfono: el mismo guard antes de leer, manda por el mism
   }
   // Desde el 17/10 la firma llega por el motor del Centro (useCentro.ts), el mismo de la computadora y del Second Brain.
   assert.match(pestanas, /from '@\/app\/admin\/operaciones\/useCentro'/, 'el teléfono usa el motor de la computadora');
-  assert.match(sinComentarios(leer('app/admin/operaciones/useCentro.ts')), /import \{ copiar, useFirma \} from '\.\/mandar';/, 'la firma es la de la computadora (useFirma)');
+  assert.match(sinComentarios(leer('app/admin/operaciones/useCentro.ts')), /import \{[^}]*\buseFirma \} from '\.\/mandar';/, 'la firma es la de la computadora (useFirma)');
   const mandar = sinComentarios(leer('app/admin/operaciones/mandar.ts'));
   assert.match(mandar, /await encolarPedidoAction\(\{ firmado, firma, clavePublica: clave\.spki \}\)/, 'mandar.ts encola por la acción guardada, con el texto firmado tal cual');
   assert.doesNotMatch(mandar, /^'use client'/, 'sin use client: el teléfono no se lleva la pantalla de escritorio');
@@ -189,6 +192,10 @@ const BATERIA: Array<[string, string]> = [
   ['en el futuro', variante({ creado: new Date(AHORA + 3_600_000).toISOString(), vence: new Date(AHORA + 86_400_000).toISOString() })],
   ['vencido', variante({ creado: new Date(AHORA - 20 * 86_400_000).toISOString(), vence: new Date(AHORA - 6 * 86_400_000).toISOString() })],
   ['vence de más', variante({ vence: new Date(AHORA + 40 * 86_400_000).toISOString() })],
+  // El modelo y el esfuerzo (17/10/2026): opcionales, y si vienen, de la lista.
+  ['con modelo y esfuerzo', variante({ modelo: 'sonnet', esfuerzo: 'high' })],
+  ['modelo raro', variante({ modelo: 'gpt-5' })],
+  ['esfuerzo raro', variante({ esfuerzo: 'turbo' })],
 ];
 
 test('el servidor y el cartero dan el MISMO veredicto sobre cada texto firmado', async () => {
@@ -201,7 +208,16 @@ test('el servidor y el cartero dan el MISMO veredicto sobre cada texto firmado',
     if (!a.ok) assert.equal(b.motivo, a.motivo, `${nombre}: motivos distintos`);
     else buenos++;
   }
-  assert.equal(buenos, 4, 'la batería tiene cuatro textos válidos');
+  assert.equal(buenos, 5, 'la batería tiene cinco textos válidos');
+});
+
+// Probado ROMPIÉNDOLO (17/10/2026): armarFirmable poniendo `modelo: null` siempre → 1 fallo (éste).
+test('sin modelo ni esfuerzo, el texto firmado es el de siempre; con ellos, van adentro de la firma', () => {
+  const sin = JSON.parse(armarFirmable(base()));
+  assert.ok(!('modelo' in sin) && !('esfuerzo' in sin), 'un trabajo sin elegir nada firma lo mismo que antes del 17/10');
+  const con = nuevoPayload({ id: '6b2b7d32-9a51-4e43-9a43-2f3a4b5c6d7e', texto: 'hola', destino: 'local_0b1c2d3e-4f50-4a61-8b72-9c83d4e5f601', cuenta: 'claude4', titulo: 'CRM', alcance: 'solo_esto', modelo: 'haiku', esfuerzo: 'low' }, AHORA);
+  const l = leerFirmable(armarFirmable(con), AHORA);
+  assert.ok(l.ok && l.p.modelo === 'haiku' && l.p.esfuerzo === 'low');
 });
 
 test('la firma de WebCrypto (r||s) la verifica el cartero, y un byte cambiado la rompe', async () => {

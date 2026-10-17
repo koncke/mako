@@ -217,11 +217,18 @@ export async function crearNuevas(nuevas: ResultadoIA['etiquetasNuevas']): Promi
  * `validarGrafo`) y va como `validar`: una salida inservible prueba el proveedor siguiente en vez
  * de llegar a la pantalla. Devuelve el resultado bueno, o lo que hace falta para el escalón
  * siguiente: los textos que no parsearon y los errores de la última salida que sí.
+ *
+ * ⚠️ `pararEnRevision` (17/10/2026, tarjeta #847, «se quedó pensando»): con un JSON que se LEE pero no pasa la revisión,
+ * la cascada para y el error va al «Corregir» (escalón 3). Probar el proveedor siguiente con el MISMO pedido repite el
+ * error, porque casi siempre es el pedido el que lo pide: Joan (ws13) quería «el día y hora de la reunión» en el aviso,
+ * y Gemini, Groq dos veces y Gemini de la red lo repitieron (16/10 21:27-21:29, medido en anthropic_usage y en el log);
+ * con un Gemini colgado 100 s en el medio, el plazo se fue y el «Corregir» nunca corrió: 2,5 min y un error.
  */
 async function pasada<R extends { avisos: string[] }>(p: {
   system: string; user: string; motivo: string; hastaMs: number;
   traducir: (obj: Record<string, unknown>) => { r: R; errores: string[] };
   provs: ProvName[]; modelos: Partial<Record<ProvName, string>>; errores: string[]; erroresRed: string[];
+  pararEnRevision?: boolean;
 }): Promise<{ bueno: R | null; crudos: string[]; ultimo: string[] | null; ultimoR: R | null }> {
   const out: { bueno: R | null; crudos: string[]; ultimo: string[] | null; ultimoR: R | null } = { bueno: null, crudos: [], ultimo: null, ultimoR: null };
   // ⚠️ LA SALIDA SE DIMENSIONA PARA QUE GROQ ENTRE (`salidaParaIA`): con 6000 fijos la cascada lo
@@ -246,7 +253,7 @@ async function pasada<R extends { avisos: string[] }>(p: {
       let obj: Record<string, unknown>;
       try { obj = parseJsonObject(t); } catch { out.crudos.push(t); return false; }
       const tr = p.traducir(obj);
-      if (tr.errores.length) { out.ultimo = tr.errores; out.ultimoR = tr.r; return false; }
+      if (tr.errores.length) { out.ultimo = tr.errores; out.ultimoR = tr.r; return !!p.pararEnRevision; }
       out.bueno = tr.r;
       return true;
     },
@@ -310,7 +317,7 @@ export async function generar<R extends { avisos: string[] }>(p: {
   const erroresRed: string[] = [];
   const motivo = p.motivo?.trim() || 'Crear una automatización con IA';
 
-  const uno = await pasada({ ...p, motivo, hastaMs, provs, modelos, errores, erroresRed });
+  const uno = await pasada({ ...p, motivo, hastaMs, provs, modelos, errores, erroresRed, pararEnRevision: true });
   if (uno.bueno) return { r: uno.bueno };
   let ultimo = uno.ultimo;
   let ultimoR = uno.ultimoR;

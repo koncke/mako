@@ -16,6 +16,7 @@
 
 import { Dropdown } from './Dropdown';
 import { Select } from '@/app/_ui/Select';
+import { IconoFunnel } from '@/app/_ui/iconos-menu';
 import { alternarFunnel } from '@/lib/funnels-elegidos';
 
 export type FunnelElegible = { id: number; nombre: string };
@@ -36,16 +37,19 @@ export function ElegirFunnels({ funnels, valor, onCambiar, todos = 'Todos los fu
   // Uno elegido que ya no está (se borró el funnel) se muestra igual, marcado: si no estuviera entre las opciones no
   // se vería, y la persona no sabría por qué el número no le cierra.
   const perdidos = valor.filter((id) => !funnels.some((f) => f.id === id));
+  // Sin ícono en los renglones: el cubo de un funnel va en el CONTROL (app/_ui/icono-funnel.ts), como el selector del
+  // CRM. Cada renglón ya lleva su casilla.
   const options = [
-    { value: '', label: todos, icono: 'etapa' as const },
-    ...funnels.map((f) => ({ value: String(f.id), label: f.nombre, icono: 'etapa' as const })),
-    ...perdidos.map((id) => ({ value: String(id), label: 'Un funnel que ya no está', icono: 'cerrar' as const })),
+    { value: '', label: todos },
+    ...funnels.map((f) => ({ value: String(f.id), label: f.nombre })),
+    ...perdidos.map((id) => ({ value: String(id), label: 'Un funnel que ya no está' })),
   ];
   const varios = valor.length ? valor.map(String) : [''];
   const tocar = (v: string) => onCambiar(alternarFunnel(valor, v));
   const aria = ariaLabel ?? label ?? 'De qué funnels';
+  const icono = <IconoFunnel />;
   if (label) {
-    return <Select label={label} hint={hint} options={options} value="" varios={varios} onChange={tocar} disabled={disabled} ariaLabel={aria} />;
+    return <Select label={label} hint={hint} options={options} value="" varios={varios} onChange={tocar} disabled={disabled} ariaLabel={aria} icono={icono} />;
   }
-  return <Dropdown value="" options={options} varios={varios} onChange={tocar} disabled={disabled} width="100%" ariaLabel={aria} />;
+  return <Dropdown value="" options={options} varios={varios} onChange={tocar} disabled={disabled} width="100%" ariaLabel={aria} icono={icono} />;
 }

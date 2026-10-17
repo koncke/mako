@@ -10109,3 +10109,53 @@ teléfono sigue con su lectura que traga errores (`listNotificaciones` sin `estr
 (`grupoJidEstricto`, `SIN_GRUPO_MAKO`) · `lib/avisos.ts` (`emitirAviso`) · `lib/notificaciones.ts` (`SalidaAviso`,
 `anotarSalida`, `SIN_RUIDO`) · `lib/flujos.ts` (`emitirTarjetaDelEvento`) · `lib/campanita.ts` ·
 `app/_components/CampanitaAvisos.tsx` · `app/automations/FlujoLienzo.tsx` (`EnvioDeMako`)
+
+## «Tu API key es restringida»: la key de la PLATAFORMA es de sólo envío (17/10/2026, tarjeta #875)
+
+- ⚠️ **No era la key de Mauricio: era la de MaKo.** El alta de un dominio («Opción A», app/api/email/dominio) usa
+  `resendKey()`, que en el ws1 es la fila de la plataforma (`migracion-env`, 16/07/2026). Esa key es de **sólo envío**:
+  medido el 17/10 con GET /domains → 401 `restricted_api_key`. Manda bien los correos de MaKo, pero no da de alta ni
+  verifica el dominio de NADIE. La key del `.env.local` de desarrollo es otra, con acceso completo (ve hola-mako.com
+  verificado): la de producción no es ésa porque el arranque PISA el entorno con la fila (`aplicarAEnv`).
+- **Lo que queda SIN HACER (de Martín: es su cuenta de Resend):** poner en la fila del ws1 (`credenciales`,
+  `RESEND_API_KEY`) una key con «Full access» de la misma cuenta. Hasta entonces ningún negocio puede conectar su
+  dominio desde MaKo, y el mensaje ya lo dice como problema nuestro.
+- **El código ahora dice de quién es la key** (lib/resend-errores.ts, `errorDeResend` en lib/resend.ts): la de MaKo →
+  «es un problema de MaKo, no tuyo»; la del negocio → «crea una con Full access». Y la verificación de Integraciones
+  dejó de llamar «API key inválida» a una key que manda (`metodo-verificar.ts`).
+- Medido el 17/10: ws10 y ws11 tienen su propia key con acceso completo (ws11 con su dominio en `failed`); ws3 y ws13,
+  ninguna.
+
+**Vive en:** `lib/resend.ts` (`resendFetch`, `errorDeResend`) · `lib/resend-errores.ts` · `lib/metodo-verificar.ts`
+(`email`) · `lib/credenciales.ts` (`aplicarAEnv`) · test: `tests/resend-key-solo-envio.test.ts`
+
+## «Nada por detrás», lote 2: la reunión cancelada de Calendly, mudada y con freno (17/10/2026)
+
+- **No tenía NINGÚN freno** (docs/inventario-nada-por-detras.md): el webhook de Calendly llamaba a `emitirDelCatalogo`
+  con `texto` y sin `dedupKey` ni `dedupTtlMin`, así que una reentrega de Calendly mandaba el aviso dos veces. Ahora el
+  reclamo usa `claveCancelada` (la URI de la reunión y su hora), que es la MISMA clave que ya frenaba el flujo del store
+  `lead.cancelo`: un solo lugar decide qué es «la misma cancelación».
+- **El molde de Fathom sirve tal cual para un aviso de UN lead de un negocio:** evento con `plataforma: true` y
+  `trae: ['lead', '<lo suyo>']`, un módulo puro con los datos (`lib/reunion-cancelada.ts`, porque la ruta no se puede
+  importar desde un test), la plantilla con el texto de siempre, y `{{link_lead}}`, que es el link al RESUMEN del lead
+  (el mismo `linkResumenLead` que usaba el texto viejo).
+- ⚠️ **Un evento de la plataforma tiene que estar en `AVISOS_SOLO_SUPERADMIN`** (tests/aviso-evento.test.ts lo exige):
+  al mudarlo, el aviso sale de la lista de /mensajes del cliente y lo configura SuperAdmin.
+- ⚠️ **Sumar un evento rompe CINCO listas de tests a propósito** (eventos, avisos por evento, ofrecidos, el conteo de datos
+  del equipo y «cada clave tiene quien la ponga»): son la forma de que nadie sume uno sin decidir dónde va. Se extienden,
+  no se aflojan.
+- **La fila va ANTES del deploy** (sin camino viejo, sin fila no sale): la #269 del ws 9 se creó con
+  `scripts/mudanza-avisos-plataforma.mts --eventos=reunion_cancelada --aplicar`. El código de producción de antes no la lee.
+
+- **El contacto fusionado (`lead-fusionado`, fila #270) tenía el freno AL REVÉS:** 60 min SIN clave, así que la fusión
+  de OTRO lead en esa hora no se avisaba, y es lo único que hace visible un match equivocado (dos personas con el número
+  de la recepción). Ahora es por lead (`claveFusion`). tests/leads-duplicados.test.ts fijaba el `60` sin clave con la
+  razón de antes («diez avisos son ruido»): se cambió la razón, no se aflojó. Su link es el de la TARJETA (`/crm/<id>`),
+  no el del resumen: va en su propio dato (`fusion_link`) para que el texto sea el de siempre.
+- **Lo que se va al mudar, a propósito:** el camino viejo le pegaba arriba el rótulo de barras («━━ … ━━»,
+  `encabezadoAviso`); la tarjeta «tal cual» no lo lleva, como en las mudanzas de Fathom y de la línea (lo que se ve en
+  la tarjeta es lo que llega). La comparación letra por letra es del CUERPO.
+
+**Vive en:** `lib/reunion-cancelada.ts` · `lib/lead-fusionado.ts` · `lib/leads.ts` (`avisarFusion`) · `tests/lead-fusionado-evento.test.ts` · `lib/disparadores.ts` (`reunion_cancelada`) · `lib/variables-aviso.ts`
+(`cancelada_*`) · `lib/plantillas-automatizaciones.ts` (`mako-reunion-cancelada`) · `app/api/webhooks/calendly/route.ts`
+· test: `tests/reunion-cancelada-evento.test.ts`

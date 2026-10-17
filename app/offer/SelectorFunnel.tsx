@@ -18,11 +18,12 @@
 
 import { Dropdown } from '@/app/components/Dropdown';
 import { Icon } from '@/app/_components/icons';
+import { IconoFunnel } from '@/app/_ui/iconos-menu';
 import type { ArbolOffer, OfferSesionVista } from '@/lib/offer-marco';
 import { arbolVacio, caminoDeSesion, seccionesDelArbol, valorSesion, type IconosArbol } from './arbol';
 
 const ICONOS: IconosArbol = {
-  funnel: <Icon name="funnel" size={18} />,
+  funnel: <IconoFunnel size={18} />,
   oferta: <Icon name="tag" size={18} />,
   conversacion: <Icon name="chats" size={18} />,
   sueltas: 'archivo',
@@ -50,7 +51,7 @@ export function SelectorFunnel({ arbol, sesion, ocupado, onElegir }: {
         menuAlto={460}
         ariaLabel="Funnel y oferta"
         disabled={ocupado || vacio}
-        icono={<Icon name="funnel" size={20} />}
+        icono={<IconoFunnel size={20} />}
         botonLabel={camino
           ? (
             <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 8, minWidth: 0, maxWidth: '100%' }}>

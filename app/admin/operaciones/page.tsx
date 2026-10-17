@@ -1,72 +1,41 @@
+import type { ReactNode } from 'react';
 import { redirect } from 'next/navigation';
 import { getSesionAdmin } from '@/lib/auth';
 import { wsSuperAdmin } from '@/lib/workspace';
 import { Pagina, PermissionState } from '@/app/_ui';
 import { puedeOperar } from '@/lib/operaciones-reglas';
-import { leerCarteros, listarPedidos } from '@/lib/operaciones';
-import { areasDeProgreso } from '@/lib/progreso';
-import { DIAS_HISTORIAL, pedidosDelCentro } from '@/lib/progreso-reglas';
-import { chatsDeBitacoras } from '@/lib/centro-chats';
-import { leerDecisiones } from '@/lib/admin-decisiones';
-import { leerMunecos } from '@/lib/centro-munecos-db';
-import { CentroApp } from './CentroApp';
-import { nombresDeTabs } from './tabs';
-import { deshacerDecision, responderDecision } from '@/app/admin/runway/acciones';
-// La Ticketera vive adentro del Centro (16/10/2026): sus hojas las importa la página (CambioVista.tsx lo explica).
-import '@/app/tickets/decisiones/mazo.css';
-import '@/app/tickets/decisiones/vistas.css';
-import '@/app/admin/runway/decisiones.css';
+import { esAdminDeTab } from '@/lib/puerta-admin-tab';
+import { datosDelCentroSiOpera } from './datos';
+import { PantallaSecondBrain, mapaDelSecondBrain, pideElMapa, type QuerySecondBrain } from '@/app/second-brain/pagina';
 
 // =============================================================================
-// /admin/operaciones — el Centro, como una app de chat (16/10/2026)
+// /admin/operaciones — «Ops Center», la MISMA pantalla que /second-brain para el super admin (17/10/2026)
 // =============================================================================
-// La barra con los chats de las tres cuentas y la conversación con su caja de escribir; el avance de cada chat es
-// su barra derecha (CentroApp.tsx, Avance.tsx). Desde el 15/10 no hay pestañas: un `?tab=` viejo abre los chats. Lo que se rehízo y de dónde se copió, en el encabezado de
-// CentroApp.tsx y en docs/hallazgos-operaciones.md.
+// Martín, mirando producción: «El Second Brain y el Centro deberían ser exactamente lo mismo en SuperAdmin» y «Me
+// gustaría que quede el nombre de "Ops Center"». Esta página es una PUERTA: su guarda y, después, lo que arma
+// app/second-brain/pagina.tsx (la pantalla es app/second-brain/ChatSecondBrain.tsx). Abre en el Cerebro; un `?chat=` con
+// la clave de un chat (los links de siempre) abre ése, y `?ticketera=` la Ticketera entera. CentroApp.tsx se borró.
 //
-// ⚠️ La guarda va antes de leer nada (tests/operaciones.test.ts).
-// ⚠️ NO SE ESPERA A VERCEL: su API tarda hasta 8 s y la pantalla «tarda mucho en aparecer» (Martín, 15/10).
-// Los pushes los pide la pantalla después de dibujarse (pushesCentroAction). Lo que se lee acá —la cola, los
-// carteros y las bitácoras del build— es la base: si la cola falla, los chats se ven igual.
+// ⚠️ La guarda va antes de leer nada (tests/operaciones.test.ts): `puedeOperar` acá, y otra vez adentro de
+//    `datosDelCentroSiOpera`, que es la que lee la cola, los Runners, la Ticketera y los muñecos.
+// ⚠️ NO SE ESPERA A VERCEL: su API tarda hasta 8 s («tarda mucho en aparecer», Martín, 15/10). Los pushes los pide la
+//    pantalla después de dibujarse (useCentro.ts).
 
 export const dynamic = 'force-dynamic';
 
-export default async function OperacionesPage({ searchParams }: { searchParams: Promise<{ chat?: string; ticketera?: string }> }) {
+export default async function OperacionesPage({ searchParams }: { searchParams: Promise<QuerySecondBrain> }) {
   const admin = await getSesionAdmin();
   if (!admin) redirect('/inicio');
   if (!puedeOperar(admin, await wsSuperAdmin())) {
-    return <Pagina><PermissionState motivo="rol" que="el Centro de Operaciones" /></Pagina>;
+    return <Pagina><PermissionState motivo="rol" que="Ops Center" /></Pagina>;
   }
-  const { chat, ticketera } = await searchParams;
-  const ahora = Date.now();
-  const areas = areasDeProgreso();
-  const [cola, carteros, tarjetas, munecos] = await Promise.all([
-    listarPedidos().catch(() => null),
-    leerCarteros().catch(() => null),
-    leerDecisiones().catch(() => null),
-    leerMunecos(),
-  ]);
-  // Las tarjetas de la Ticketera, enteras: cada chat dibuja las suyas arriba de la caja, y el botón Ticketera, todas.
-  const decisiones = tarjetas?.ok ? tarjetas.decisiones : null;
-  // Todas las fechas (16/10/2026): lo terminado hace rato va corto (lib/progreso-reglas.ts → pedidosDelCentro).
-  const pedidos = pedidosDelCentro(areas, ahora);
-  return (
-    <Pagina ancho="completo" densidad="compacta" style={{ padding: 0, flex: 'none', height: '100dvh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-      <CentroApp
-        base={chatsDeBitacoras({ areas, pedidos, ahora, dias: DIAS_HISTORIAL })}
-        colaInicial={cola}
-        carterosIniciales={carteros}
-        decisionesIniciales={decisiones}
-        munecosIniciales={munecos}
-        pedidos={pedidos}
-        ahora={ahora}
-        sub={admin.sub}
-        chatInicial={typeof chat === 'string' && chat ? chat : null}
-        responder={responderDecision}
-        deshacer={deshacerDecision}
-        ticketeraInicial={ticketera === 'lista' ? 'lista' : ticketera === 'tarjetas' ? 'tarjetas' : null}
-        tabs={nombresDeTabs()}
-      />
-    </Pagina>
-  );
+  const q = await searchParams;
+  const [centro, veMapa] = await Promise.all([datosDelCentroSiOpera(), esAdminDeTab('second-brain')]);
+
+  let mapa: ReactNode = null;
+  if (veMapa && pideElMapa(q)) {
+    mapa = await mapaDelSecondBrain();
+  }
+
+  return <PantallaSecondBrain veMapa={veMapa} mapa={mapa} centro={centro} q={q} inicio="centro" />;
 }

@@ -219,7 +219,7 @@ test('el espejo guarda la línea REAL de cada saliente, y el borrador sale por l
   const envio = sinComentarios(leer('lib/evolution-envio.ts'));
   assert.doesNotMatch(envio, /instance_name: ''/, 'un saliente con la línea vacía no aparece en el hilo de ninguna');
   assert.equal(cuenta(envio, 'instance_name: r.instance'), 3);
-  assert.match(envio, /enviarTexto\(params\.telefono, params\.texto, params\.linea\)/);
+  assert.match(envio, /enviarTexto\(params\.telefono, params\.texto, params\.linea(?:, \{ sinVistaPrevia: params\.sinVistaPrevia \})?\)/); // (#869: la vista previa, detrás)
   assert.match(envio, /enviarMedia\(params\.telefono, params\.media, params\.caption, params\.linea\)/);
   assert.match(envio, /enviarAudio\(params\.telefono, params\.base64, params\.linea\)/);
   assert.match(bloque(envio, 'export async function enviarBorrador(', 'export async function descartarBorrador('), /linea: b\.instance_name/);

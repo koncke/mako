@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
   const workspaces = await correrPorWorkspace('meta', async () => {
     const r = await pollMetaLeads(dias);
     console.log(
-      `[cron:meta-leads-poll] dias=${dias} forms=${r.forms_revisados} vistos=${r.leads_vistos} creados=${r.creados} existentes=${r.existentes} del_webhook=${r.del_webhook} errores=${r.errores}`,
+      `[cron:meta-leads-poll] dias=${dias} forms=${r.forms_revisados} vistos=${r.leads_vistos} creados=${r.creados} existentes=${r.existentes} del_webhook=${r.del_webhook} anunciados=${r.anunciados} errores=${r.errores}`,
     );
     return r;
   });

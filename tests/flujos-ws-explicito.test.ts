@@ -199,8 +199,14 @@ test('TODA llamada a dispararEvento del repo lleva el ws del evento', () => {
 // instancia — lo que se fija es la forma (una variable, cortada si es null antes del evento).
 test('en cada WEBHOOK que dispara, el ws es una sola variable y corta si es null antes del evento', () => {
   const archivos = [...new Set(llamadasDelRepo().map((x) => x.archivo))].filter((a) => a.startsWith('app/api/webhooks/'));
-  // (Eran 5 el 06/10; desde el 09/10/2026 son 4: el webhook de Chatwoot se borró.)
-  assert.ok(archivos.length >= 4, `sólo ${archivos.length} webhooks disparan: el barrido perdió archivos (eran 4 el 09/10)`);
+  // (Eran 5 el 06/10; desde el 09/10/2026 son 4: el webhook de Chatwoot se borró. Desde el 17/10/2026 son 3: el de los
+  // formularios de Meta dispara por lib/meta-lead-nuevo.ts, que también llama el poll; se mide abajo.)
+  assert.ok(archivos.length >= 3, `sólo ${archivos.length} webhooks disparan: el barrido perdió archivos (eran 3 el 17/10)`);
+  // El de Meta: el `ws` resuelto, cortado si es null ANTES de lo inmediato, y pasado a mano.
+  const meta = sinComentarios(leer('app/api/webhooks/meta-leads/route.ts'));
+  const corteMeta = meta.indexOf('if (ws == null) {');
+  assert.ok(corteMeta > 0 && corteMeta < meta.indexOf('alNacerLeadDeMeta(ws,'), 'el webhook de Meta anuncia el lead sin cortar por «sin workspace»');
+  assert.match(sinComentarios(leer('lib/meta-lead-nuevo.ts')), /dispararEvento\('lead\.form_meta', \{ ws, leadId: lead\.id/);
   const problemas: string[] = [];
   for (const archivo of archivos) {
     const src = sinComentarios(leer(archivo));

@@ -771,12 +771,55 @@ preguntarle. Quedan suyas dos: el RFC / Stripe en Argentina (fiscal y precio) y 
 *Corrida del 11/10/2026: relevamiento de 8 agentes, la base escrita a mano, 7 agentes de
 implementación en un worktree propio (`C:/dev/wt-pagos`) y una rama aparte para Automations.*
 
+### El mes de un cliente de agencia (#866 y #867, 17/10/2026)
+
+**El pedido** (llamada «Revisión de MaKo» con Código Inmobiliario, 16/10). #866, Martín (1:51:21): al cargar un cliente
+nuevo, la agencia ve en el acto el link de Mercado Pago de su suscripción; con el pago queda habilitado sin que él lo
+acepte, y renueva cada mes en la misma fecha. 47 dólares por cliente y 97 la suscripción de agencia. #867 (1:59:00, lo
+ofreció Martín y Joan lo aceptó): el cliente se paga al cargarlo, pero su mes empieza a correr al terminar el onboarding.
+
+**El diagnóstico obvio era el equivocado: «una suscripción al cargarlo, y se pausa hasta el fin del onboarding».**
+Mercado Pago documenta pausar (`status: paused`) y reactivar, pero NO qué cobra al reactivar, ni que se pueda mover la
+fecha de una suscripción ya autorizada (el PUT documenta monto, tarjeta y estado; leído el 17/10 en su referencia). Si
+cobra al reactivar, la agencia paga dos veces el primer mes. Sin las claves de prueba no se puede medir.
+Lo que SÍ documenta es `auto_recurring.start_date` al CREARLA. De ahí salió esta forma:
+1. Al abrir la cuenta, el **primer mes** es un link de PAGO ÚNICO de la Mercado Pago de MaKo (el camino más medido de la
+   pasarela). El pago aprueba la cartera, compare-and-set sobre `pendiente` (lib/agencia-habilitar.ts), y le manda el
+   acceso con el mismo aviso que la firma del super admin.
+2. Cuando el cliente termina el onboarding, el cron crea la **suscripción mensual** con `start_date` un mes después
+   (lib/agencia-cobro.ts). La agencia la autoriza una vez (el botón «Activar renovación» de su tarjeta). Desde ahí renueva
+   sola, en esa fecha.
+
+**Lo medido que cambió el disparador.** Los clientes de Código Inmobiliario (ws15, 17, 18 y 19) terminaron el onboarding
+en 15 minutos a 2 días, y lo completó la propia agencia. Parecía que la pausa no iba a existir. Pero el onboarding es
+obligatorio para entrar, también para la agencia que lo mira desde su vista (`onboardingPendiente`). Así que mientras no
+lo termina, nadie usa esa cuenta, y «el mes corre desde el fin del onboarding» no se puede usar de regalo. Por eso no
+hace falta un tope de días.
+
+**Tres trampas de la pasarela, para el próximo que toque suscripciones diferidas:**
+- **Mercado Pago no avisa nada aplicable al AUTORIZAR**: el aviso del preapproval se ignora («el pago llega en su propia
+  notificación») y el cobro sigue `pendiente` hasta el primer cobro, un mes después. La pantalla habría seguido pidiendo
+  «Activar renovación». El cron lo relee (`anotarAutorizacionMp`, lib/cobros.ts) y anota `suscripcion_estado: 'activa'`
+  con el cobro pendiente. El MRR no la cuenta: pide `pagado`.
+- **En Stripe, una suscripción con prueba gratis manda una factura de $0** con `billing_reason: subscription_create`, que
+  `FACTURAS_DE_PAGO` acepta: se asentaría como un pago de US$47. Por eso el cliente de agencia es SÓLO Mercado Pago
+  (`crearCobro` rechaza `inicioAt` en otra pasarela). Antes de usar `trial_end`, ignorar las facturas de monto 0.
+- **Las columnas nuevas no van en `COLS_COBRO`.** Sin la mig 0308, TODA lectura de cobros caería. Se escriben sólo en el
+  cobro de un cliente de agencia y se leen sólo en lib/agencia-*.
+
+**Lo que NO hace falta preguntarle a Martín.** El precio en pesos de los US$47 es un dato que él carga en /admin/cobros.
+Sin él (o sin la Mercado Pago de MaKo conectada) la cuenta queda como siempre: espera su aprobación.
+
 ---
 
 ## Lo que quedó SIN hacer, con el archivo donde vive
 
 | Qué | Dónde |
 |---|---|
+| **Cliente de agencia:** que MaKo tenga su Mercado Pago conectada (ws9 tenía 0 claves de pasarela el 17/10) y el precio en pesos cargado. Sin las dos cosas no sale ningún link | `/integraciones?ws=9`, `/admin/cobros` («Cliente de agencia») |
+| **Cliente de agencia:** medir con claves de prueba que MP acepte `start_date` en una suscripción sin plan, que no cobre al autorizarla, y que el preapproval quede `authorized` | `lib/mercadopago-api.ts` (`crearSuscripcionMp`), `lib/cobros.ts` (`anotarAutorizacionMp`) |
+| **Cliente de agencia:** nada le avisa a la agencia cuando se crea su renovación: la ve en su tarjeta de Customer Success. Y si no la autoriza, el acceso no se corta (no existe el estado de suscripción por workspace) | `lib/agencia-cobro.ts` (`renovacionesDeAgencia`), `app/customer-success/CuentaDeMaKo.tsx` |
+| **Cliente de agencia:** la suscripción de agencia (los 97) se vende como cualquier plan desde «Vender un plan»; no está atada a sus clientes | `app/admin/cobros/VenderPlan.tsx` |
 | Que el corte por capa llegue a la API | las 246 rutas de `app/api` que no la miran |
 | El cartel de «no está en tu plan» | los 56 call-sites de `lib/tab-access.ts` + `app/_ui/Estados.tsx:251` |
 | Estado de suscripción por workspace (vencimiento, dunning) | no existe la tabla |

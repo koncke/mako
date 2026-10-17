@@ -53,10 +53,16 @@
 //   repo <ruta>                    el clon desde el que los chats leen la Ticketera (default: el de
 //                                  OneDrive); va en el aviso de una respuesta
 //   estado [cuenta]                qué tiene configurado, en qué carpeta corre y qué ve
+//   vigilar [cuenta] [--max-seg N] (1.12.0) lo que corre el cron del Runner: la vuelta, y espera hasta N s (tope 105)
+//                                  consultando cada pocos segundos; sale apenas hay algo para entregar o abrir
 //   ciclo [cuenta]                 una vuelta: sube lo que ve y los acuses; dice qué entregar. Sin
 //                                  cuenta, por todas las de su carpeta
 //   pendientes [cuenta]            lo del buzón que le toca mandar a ESTE Runner (su carpeta)
 //   acuse [cuenta] <id> ok | error <motivo>   lo anota el Runner después de cada SendMessage
+//   abrir                          (1.11.0) abre en una ventana los chats nuevos que Martín pidió con un clic
+//   abrir-permitir [on|off]        (1.11.0) el permiso local para abrirlos: lo prende Martín, una vez
+//   nube [<id> <título> …]         (1.10.0) los chats de la nube de la cuenta de la app, como los lista list_sessions;
+//                                  los corre el Runner de la app en cada vuelta, antes de `ciclo`
 //   cierre <id> --hecho "…" [--decidido "…"] [--comprobado "…"] [--sigue "…"] [--prueba "…"] [--revisar "/ruta"]
 //                                  lo corre el CHAT QUE RECIBIÓ el pedido, al terminarlo
 //   esperar [cuenta] [--max-seg N] (opción C, a probar) espera hasta que haya algo y sale con 2
@@ -68,8 +74,9 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import { spawnSync } from 'node:child_process';
 
-export const VERSION = '1.6.0';
+export const VERSION = '1.12.0';
 const HOME = os.homedir();
 const DIR = process.env.CARTERO_DIR || path.join(HOME, '.claude', 'operaciones');
 const APP = process.env.CARTERO_APP_DIR || path.join(process.env.APPDATA || path.join(HOME, 'AppData', 'Roaming'), 'Claude', 'claude-code-sessions');
@@ -85,6 +92,20 @@ const LATIDO_VENCE_MS = 6 * 60 * 1000;
 /** Un cierre que MaKo no aceptó se vuelve a subir en cada vuelta, hasta este tope (su acuse puede llegar después). */
 const CIERRE_VENCE_MS = 24 * 3600 * 1000;
 const CIERRES = path.join(DIR, 'cierres');
+/** Los adjuntos de cada trabajo (1.9.0): una carpeta por id, `adjuntos/<id>/`. Se borran a los VENCE_DIAS. */
+const ADJUNTOS = path.join(DIR, 'adjuntos');
+/** Los chats de la NUBE de cada cuenta (1.10.0): no quedan en ningún archivo de la PC; los anota el Runner de la app, que
+ *  los ve con list_sessions (`nube <id> <título> …`). `nube/<cuenta>.json`. */
+const NUBE = path.join(DIR, 'nube');
+/** Los chats nuevos que pidió Martín con un clic (1.11.0): `aperturas/<id>.json` mientras esperan a `abrir`, y después el
+ *  primer mensaje (`<id>.txt`) y el lanzador (`<id>.cmd`). Se borran a los VENCE_DIAS. */
+const APERTURAS = path.join(DIR, 'aperturas');
+/** Con qué se abre el `.cmd`: el Explorador, que vive fuera del job de la herramienta Bash (medido el 17/10: un hijo
+ *  `detached` muere con ella). Los tests lo cambian por un registrador (`CARTERO_ABRIDOR`, un JSON con el programa y sus
+ *  argumentos): es el entorno de la PC, el mismo que ya decide `CARTERO_DIR`. */
+const ABRIDOR = (() => { try { const a = JSON.parse(process.env.CARTERO_ABRIDOR ?? ''); if (Array.isArray(a) && a.length && a.every((x) => typeof x === 'string')) return a; } catch { /* el de siempre */ } return ['explorer.exe']; })();
+/** Lo anotado de la nube vale este rato: si el Runner dejó de anotarlo, esos chats no se suben como si siguieran ahí. */
+const NUBE_VENCE_MS = 10 * 60 * 1000;
 /** La cuota de cada cuenta, como la anota la barra de estado de su Runner (`uso`). */
 const USO = path.join(DIR, 'uso');
 /** Lo que se le pasa al Runner con `--settings`: su barra de estado anota la cuota (lib/runner.ts). */
@@ -94,6 +115,15 @@ const USO_APP = path.join(process.env.CARTERO_HOME || HOME, '.claude', 'uso-sema
 const LOG = path.join(DIR, 'cartero.log');
 /** Un pedido en el buzón sin acuse por más que esto pasa a «no sé si llegó». */
 const BUZON_VENCE_MS = 30 * 60 * 1000;
+/** Una apertura reclamada que no se abrió en este rato ya no se abre (1.11.1, la revisión de seguridad del Cerebro): la
+ *  vuelta se pudo cortar entre `ciclo` y `abrir` (la PC suspendida, el tope de 5 h, el primer `abrir` esperando un
+ *  permiso), y abrirla horas después, con MaKo ya dándola por perdida, abriría una ventana que nadie pidió AHORA (y dos,
+ *  si Martín la volvió a mandar). Es menos que las 2 h de TOMADO_VENCE_MS: el acuse llega con el trabajo todavía tomado. */
+export const APERTURA_VENCE_MS = 30 * 60 * 1000;
+/** El lanzador (`.cmd`) se borra en la vuelta siguiente: un `.cmd` que queda se puede volver a correr sin firma ni
+ *  permiso. El primer mensaje (`.txt`) se queda un rato más: el chat lo lee al arrancar. */
+const CMD_VENCE_MS = 2 * 60 * 1000;
+const TXT_VENCE_MS = 60 * 60 * 1000;
 /** Los chats que se ofrecen son los de estos directorios (los del clon y sus worktrees). */
 const CWDS_DEFAULT = [path.join(HOME, 'OneDrive', 'Escritorio', 'dashboard-marketing-main'), 'C:\\dev\\'];
 /** El clon, desde donde corre `scripts/decisiones.ts` (lee el `.env.local` de ahí). Se cambia con
@@ -167,8 +197,268 @@ const cuentasDeLaCarpeta = (cfg, dir) => Object.keys(cfg.carteros ?? {})
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const DESTINO_RE = /^(local|cli)_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const CUENTA_RE = /^claude\d{1,2}$/;
+/** El id de un chat de la nube (copia de lib/operaciones-reglas.ts → NUBE_RE): lo que no es de esta PC. */
+export const NUBE_RE = /^(?!local_|cli_)[A-Za-z][A-Za-z0-9_-]{5,100}$/;
 const MAX_TEXTO = 8000;
+/** El modelo y el esfuerzo que eligió Martín (opcionales; copia de lib/operaciones-reglas.ts → MODELOS y ESFUERZOS). */
+const MODELOS = ['opus', 'sonnet', 'haiku'];
+const ESFUERZOS = ['low', 'medium', 'high', 'xhigh', 'max'];
 const VENCE_DIAS = 14;
+// Los adjuntos (1.9.0, 17/10/2026; copia de lib/operaciones-reglas.ts → problemaDeAdjuntos, con test diferencial).
+export const MIMES_ADJUNTO = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'application/pdf'];
+export const MAX_ADJUNTOS = 4;
+export const MAX_BYTES_ADJUNTOS = 4 * 1024 * 1024;
+const MAX_NOMBRE_ADJUNTO = 120;
+/** La extensión con la que se guarda: la decide el TIPO (validado por los bytes), nunca el nombre que trajo. */
+const EXT_ADJUNTO = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/gif': 'gif', 'application/pdf': 'pdf' };
+
+export function problemaDeAdjuntos(x) {
+  if (!Array.isArray(x) || !x.length || x.length > MAX_ADJUNTOS) return 'adjuntos inválidos';
+  const refs = new Set();
+  let total = 0;
+  for (const a of x) {
+    if (!a || typeof a !== 'object' || Array.isArray(a)) return 'adjuntos inválidos';
+    if (typeof a.ref !== 'string' || !UUID_RE.test(a.ref) || refs.has(a.ref)) return 'adjuntos inválidos';
+    refs.add(a.ref);
+    if (typeof a.nombre !== 'string' || !a.nombre.trim() || a.nombre.length > MAX_NOMBRE_ADJUNTO || /[\u0000-\u001f]/.test(a.nombre)) return 'adjuntos inválidos';
+    if (!MIMES_ADJUNTO.includes(a.mime)) return 'adjuntos inválidos';
+    if (typeof a.bytes !== 'number' || !Number.isInteger(a.bytes) || a.bytes < 1) return 'adjuntos inválidos';
+    if (typeof a.sha256 !== 'string' || !/^[0-9a-f]{64}$/.test(a.sha256)) return 'adjuntos inválidos';
+    total += a.bytes;
+  }
+  return total > MAX_BYTES_ADJUNTOS ? 'adjuntos inválidos' : null;
+}
+
+/** Qué es un archivo por sus PRIMEROS BYTES (copia de lib/mako-adjuntos.ts → tipoPorFirma, con test diferencial). Un
+ *  ejecutable («MZ», un script) no es ninguno de los cinco: no baja. */
+export function mimePorFirma(b) {
+  const es = (off, ...xs) => xs.every((x, i) => b[off + i] === x);
+  if (b.length >= 3 && es(0, 0xff, 0xd8, 0xff)) return 'image/jpeg';
+  if (b.length >= 8 && es(0, 0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a)) return 'image/png';
+  if (b.length >= 6 && es(0, 0x47, 0x49, 0x46, 0x38)) return 'image/gif';
+  if (b.length >= 12 && es(0, 0x52, 0x49, 0x46, 0x46) && es(8, 0x57, 0x45, 0x42, 0x50)) return 'image/webp';
+  if (b.length >= 5 && es(0, 0x25, 0x50, 0x44, 0x46, 0x2d)) return 'application/pdf';
+  return null;
+}
+
+/** El nombre en disco: el número, lo legible del nombre (sin su extensión) y la extensión del TIPO. */
+export function nombreEnDisco(i, nombre, mime) {
+  const base = String(nombre ?? '').replace(/\.[^.]*$/, '').normalize('NFKD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^A-Za-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'adjunto';
+  return `${i + 1}-${base}.${EXT_ADJUNTO[mime]}`;
+}
+
+/**
+ * Baja los adjuntos de un trabajo YA VERIFICADO a `adjuntos/<id>/` y devuelve sus rutas. Lo que baja tiene que tener el
+ * tamaño, el sha256 y el tipo (por sus bytes) que dice el texto firmado: si algo no coincide, no queda nada y tira.
+ * La URL la arma la PC (su `url` y el `ref` firmado): de MaKo no se usa ninguna dirección.
+ */
+export async function bajarAdjuntos(url, token, id, adjuntos, dir = ADJUNTOS) {
+  if (!UUID_RE.test(id)) throw new Error('id inválido');
+  const carpeta = path.join(dir, id);
+  fs.rmSync(carpeta, { recursive: true, force: true });
+  fs.mkdirSync(carpeta, { recursive: true });
+  try {
+    const rutas = [];
+    for (const [i, a] of adjuntos.entries()) {
+      // ⚠️ SIN COMPRIMIR Y EN PARTES (1.9.1, la revisión de seguridad del 17/10/2026). Con `arrayBuffer()` la respuesta
+      //    entera iba a la RAM antes de mirar nada: una respuesta «chunked» no trae content-length (Number(null) da 0 y
+      //    pasaba) y una con gzip trae el tamaño COMPRIMIDO. Ahora se pide sin comprimir, se rechaza la comprimida, y se
+      //    corta en cuanto lo leído pasa lo firmado.
+      const r = await fetch(`${url}/api/operaciones/cartero?pedido=${id}&adjunto=${a.ref}`, {
+        headers: { authorization: `Bearer ${token}`, 'accept-encoding': 'identity' }, signal: AbortSignal.timeout(60_000),
+      });
+      if (!r.ok) throw new Error(`MaKo no lo dio (${r.status})`);
+      const codificado = (r.headers.get('content-encoding') ?? 'identity').trim().toLowerCase();
+      if (codificado !== 'identity') { await r.body?.cancel().catch(() => {}); throw new Error('vino comprimido'); }
+      const largo = r.headers.get('content-length');
+      if (largo != null && !(Number(largo) <= a.bytes)) { await r.body?.cancel().catch(() => {}); throw new Error('pesa más de lo firmado'); }
+      const partes = [];
+      let leidos = 0;
+      for await (const parte of r.body ?? []) {
+        leidos += parte.length;
+        if (leidos > a.bytes) throw new Error('pesa más de lo firmado'); // salir del for await cancela el resto
+        partes.push(parte);
+      }
+      const b = Buffer.concat(partes, leidos);
+      if (b.length !== a.bytes) throw new Error('no pesa lo firmado');
+      if (crypto.createHash('sha256').update(b).digest('hex') !== a.sha256) throw new Error('no es el archivo firmado');
+      if (mimePorFirma(b) !== a.mime) throw new Error('no es una foto ni un PDF');
+      const ruta = path.join(carpeta, nombreEnDisco(i, a.nombre, a.mime));
+      fs.writeFileSync(ruta, b, { flag: 'wx' });
+      rutas.push(ruta);
+    }
+    return rutas;
+  } catch (e) {
+    fs.rmSync(carpeta, { recursive: true, force: true });
+    throw e;
+  }
+}
+
+/**
+ * Anota los chats de la nube de una cuenta: `nube <id> <título> [<id> <título> …]` (sin nada, la deja vacía). Lo corre el
+ * Runner de la app en cada vuelta, con lo que le da list_sessions fuera de esta PC. Sólo se ven: no se les entrega nada.
+ */
+export function anotarNube(cuenta, pares, ahora = Date.now()) {
+  if (pares.length % 2) throw new Error('uso: nube <id> <título> [<id> <título> …]');
+  const chats = [];
+  for (let i = 0; i < pares.length; i += 2) {
+    const id = String(pares[i]).trim();
+    const titulo = String(pares[i + 1]).replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, 120) || '(sin título)';
+    if (!NUBE_RE.test(id)) throw new Error(`«${id.slice(0, 40)}» no es un chat de la nube (los de esta PC empiezan con local_)`);
+    if (!chats.some((c) => c.id === id)) chats.push({ id, titulo });
+  }
+  escribirJson(path.join(NUBE, `${cuenta}.json`), { at: new Date(ahora).toISOString(), chats: chats.slice(0, 50) });
+  return chats.length;
+}
+
+/** Lo anotado de la nube para una cuenta, si es de los últimos minutos. */
+export function leerNube(cuenta, ahora = Date.now(), dir = NUBE) {
+  const n = leerJson(path.join(dir, `${cuenta}.json`), null);
+  const at = Date.parse(n?.at ?? '');
+  if (!Number.isFinite(at) || ahora - at > NUBE_VENCE_MS || !Array.isArray(n.chats)) return [];
+  return n.chats.filter((c) => c && NUBE_RE.test(c.id ?? '') && typeof c.titulo === 'string').slice(0, 50);
+}
+
+/** El lanzador, en la vuelta siguiente; el primer mensaje, a la hora (1.11.1). */
+function limpiarAperturas(ahora = Date.now()) {
+  let archivos = [];
+  try { archivos = fs.readdirSync(APERTURAS).filter((n) => /\.(txt|cmd)$/.test(n)); } catch { return; }
+  for (const n of archivos) {
+    try {
+      const f = path.join(APERTURAS, n);
+      if (ahora - fs.statSync(f).mtimeMs > (n.endsWith('.cmd') ? CMD_VENCE_MS : TXT_VENCE_MS)) fs.rmSync(f, { force: true });
+    } catch { /* la limpieza nunca frena la vuelta */ }
+  }
+}
+
+/** Las aperturas reclamadas que ya no se abren: se toman (rename, como en `abrir`) y se acusan «no se abrió a tiempo». */
+function vencerAperturas(ahora = Date.now()) {
+  for (const f of listar(APERTURAS)) {
+    const a = leerJson(f, null);
+    if (!a || !aperturaVencida(a, ahora)) continue;
+    const tomada = `${f}.tomada`;
+    try { fs.renameSync(f, tomada); } catch { continue; } // la está abriendo (o venciendo) otro Runner
+    fs.rmSync(tomada, { force: true });
+    const id = a.id;
+    if (typeof id !== 'string' || !UUID_RE.test(id) || path.basename(f) !== `${id}.json` || !CUENTA_RE.test(a.cuenta ?? '')) continue;
+    escribirJson(path.join(acusesDe(a.cuenta), `${id}.json`), { id, estado: 'no_entregado', motivo: NO_A_TIEMPO });
+    log(`[${a.cuenta}] APERTURA ${id} vencida: no se abrió a tiempo`);
+  }
+}
+
+/** La cuenta de la app en la carpeta de este Runner: la única que ve list_sessions. */
+const cuentaDeLaApp = (cfg, dir) => Object.keys(cfg.carteros ?? {})
+  .find((c) => CUENTA_RE.test(c) && fuentesDe(cfg.carteros[c]).some((f) => f.fuente === 'app' && mismoDir(f.configDir, dir))) ?? null;
+
+/**
+ * Abre los chats nuevos de la cola (1.11.0). Lo corre el Runner cuando `ciclo` dice `aperturas`. Para cada uno:
+ *   · lo toma con un rename (dos Runners no abren el mismo);
+ *   · vuelve a verificar la FIRMA sobre el mismo `firmado` que lee después, y el texto (id, destino, cuenta);
+ *   · mira el permiso local otra vez (se pudo apagar entre la vuelta y ahora);
+ *   · escribe el primer mensaje en `<id>.txt` y el `.cmd`, y lo abre con el Explorador.
+ * El acuse dice «se pidió abrir», no «abierto»: el Explorador devuelve 1 aunque abra (medido el 17/10). La prueba es que
+ * el chat aparezca en la lista.
+ */
+export function abrir(cfg = config(), ahora = Date.now()) {
+  const spkis = claves();
+  const viejo = new Set(leerJson(LEDGER, []));
+  const out = [];
+  for (const f of listar(APERTURAS)) {
+    const tomada = `${f}.tomada`;
+    try { fs.renameSync(f, tomada); } catch { continue; } // la tomó otro Runner
+    const a = leerJson(tomada, null);
+    fs.rmSync(tomada, { force: true });
+    const id = a?.id;
+    if (typeof id !== 'string' || !UUID_RE.test(id) || path.basename(f) !== `${id}.json`) continue;
+    const cuenta = typeof a.cuenta === 'string' && CUENTA_RE.test(a.cuenta) ? a.cuenta : null;
+    if (!cuenta) continue;
+    const acusar = (estado, motivo) => {
+      escribirJson(path.join(acusesDe(cuenta), `${id}.json`), { id, estado, motivo });
+      out.push({ id, estado, motivo });
+      log(`[${cuenta}] ABRIR ${id} ${estado}: ${motivo}`);
+    };
+    if (aperturaVencida(a, ahora)) { acusar('no_entregado', NO_A_TIEMPO); continue; }
+    if (viejo.has(id) || fs.existsSync(path.join(ENTREGADOS, id))) { acusar('no_entregado', 'Ya se había abierto: no se abre dos veces'); continue; }
+    const firmado = typeof a.firmado === 'string' ? a.firmado : '';
+    if (!quienFirmo(firmado, typeof a.firma === 'string' ? a.firma : '', spkis)) { acusar('no_entregado', 'Pégale tu Token al Runner y vuelve a mandarlo'); continue; }
+    const l = leerFirmable(firmado, ahora);
+    if (!l.ok) { acusar('no_entregado', `Vuelve a mandarlo (${l.motivo})`); continue; }
+    if (l.p.id !== id || l.p.destino !== DESTINO_NUEVO || l.p.cuenta !== cuenta) { acusar('no_entregado', 'Vuelve a mandarlo: no coincide con la firma'); continue; }
+    if (!puedeAbrir(cfg, cuenta)) { acusar('no_entregado', 'Prende la apertura de chats en la PC: pídeselo al Runner'); continue; }
+    const txt = path.join(APERTURAS, `${id}.txt`);
+    const cmd = path.join(APERTURAS, `${id}.cmd`);
+    let lanzador;
+    try { lanzador = archivoCmd(comandoDeApertura(cuenta, l.p.titulo, txt)); } catch (e) { acusar('no_entregado', `Vuelve a mandarlo (${e.message})`); continue; }
+    // «Ya abierto» se anota ANTES de lanzar, y sin pisar (`wx`): con dos Runners, el segundo no abre otra ventana.
+    fs.mkdirSync(ENTREGADOS, { recursive: true });
+    try { fs.writeFileSync(path.join(ENTREGADOS, id), '', { flag: 'wx' }); } catch { acusar('no_entregado', 'Ya se había abierto: no se abre dos veces'); continue; }
+    fs.writeFileSync(txt, l.p.texto);
+    fs.writeFileSync(cmd, lanzador);
+    spawnSync(ABRIDOR[0], [...ABRIDOR.slice(1), cmd], { timeout: 15_000 });
+    acusar('entregado', `Se pidió abrir «${l.p.titulo}» en la terminal de la cuenta ${cuenta.replace('claude', '')}: mira que aparezca en la lista`);
+  }
+  return out;
+}
+
+/** Las carpetas de adjuntos de más de VENCE_DIAS: el trabajo ya venció, y el chat ya los leyó o no los va a leer. */
+function limpiarAdjuntos(ahora = Date.now()) {
+  let viejas = [];
+  try { viejas = fs.readdirSync(ADJUNTOS).filter((d) => UUID_RE.test(d)); } catch { return; }
+  for (const d of viejas) {
+    try {
+      const f = path.join(ADJUNTOS, d);
+      if (ahora - fs.statSync(f).mtimeMs > VENCE_DIAS * 86_400_000) fs.rmSync(f, { recursive: true, force: true });
+    } catch { /* la limpieza nunca frena la vuelta */ }
+  }
+}
+
+// Abrir un chat de terminal con un clic (1.11.0; copia de lib/operaciones-reglas.ts, con test diferencial).
+export const DESTINO_NUEVO = 'nuevo';
+const MAX_NOMBRE_NUEVO = 80;
+/** Lista blanca: letras, números, espacios y `› > - _ . , ( ) + :`, empezando con letra o número. Sin comillas. */
+export const NOMBRE_NUEVO_RE = /^[\p{L}\p{N}][\p{L}\p{M}\p{N} ›>\-_.,()+:]*$/u;
+export function problemaDeNombreNuevo(x) {
+  if (typeof x !== 'string' || x.length > MAX_NOMBRE_NUEVO || !NOMBRE_NUEVO_RE.test(x) || x !== x.trim()) return 'nombre inválido';
+  return null;
+}
+/** La ruta del primer mensaje: sólo letras, números y `\ : . _ -` (la carpeta fija de la PC y el id). */
+const RUTA_TXT_RE = /^[A-Za-z]:\\[A-Za-z0-9\\._-]+\.txt$/;
+
+/**
+ * El comando de PowerShell que abre el chat nuevo. Se arma SÓLO con valores que pasan su lista blanca: la cuenta contra
+ * CUENTA_RE (la función del perfil), el nombre contra NOMBRE_NUEVO_RE y la ruta del primer mensaje contra RUTA_TXT_RE. El
+ * texto del primer mensaje NO entra acá: el chat arranca con un pedido fijo que lo manda a leer el archivo.
+ */
+export function comandoDeApertura(cuenta, titulo, rutaTxt) {
+  if (!CUENTA_RE.test(cuenta ?? '')) throw new Error('cuenta inválida');
+  if (problemaDeNombreNuevo(titulo)) throw new Error('nombre inválido');
+  if (!RUTA_TXT_RE.test(rutaTxt ?? '')) throw new Error('ruta inválida');
+  return `${cuenta} -n '${titulo}' 'Lee el archivo ${rutaTxt} y haz lo que dice: es el primer mensaje de Martín.'`;
+}
+
+/** El `.cmd` que abre el Explorador: sólo `powershell.exe -NoExit -EncodedCommand <base64>`; ningún texto de nadie. */
+export function archivoCmd(comando) {
+  const b64 = Buffer.from(comando, 'utf16le').toString('base64');
+  if (!/^[A-Za-z0-9+/]+={0,2}$/.test(b64)) throw new Error('codificación inválida');
+  return `@echo off\r\npowershell.exe -NoExit -EncodedCommand ${b64}\r\n`;
+}
+
+/** ¿Esta PC abre chats de esa cuenta? Con el permiso local prendido (`abrir-permitir`) y una terminal declarada. */
+export const puedeAbrir = (cfg, cuenta) => cfg?.abrir === true && CUENTA_RE.test(cuenta ?? '')
+  && fuentesDe(cfg.carteros?.[cuenta]).some((f) => f.fuente === 'cli');
+
+/** Un texto que viene de MaKo y se le imprime al Runner (un modelo que puede correr `clave` y `abrir-permitir`): en un
+ *  renglón y hasta 200 caracteres (1.11.1). */
+export const textoRemoto = (x) => String(x ?? '').replace(/[\u0000-\u001f\u007f\u2028\u2029]+/g, ' ').trim().slice(0, 200);
+
+/** ¿Esta apertura ya no se abre? Sin `reclamado` válido, o reclamada hace más de APERTURA_VENCE_MS. */
+export const aperturaVencida = (a, ahora = Date.now()) => {
+  const t = Date.parse(typeof a?.reclamado === 'string' ? a.reclamado : '');
+  return !Number.isFinite(t) || ahora - t > APERTURA_VENCE_MS || t > ahora + 60_000;
+};
+const NO_A_TIEMPO = 'No se abrió a tiempo: vuelve a mandarlo';
+
 /** La forma de un `ref` de la Ticketera (copia de REF_DECISION, app/admin/runway/decisiones.ts). */
 export const REF_DECISION = /^[a-z0-9][a-z0-9-]{1,63}$/;
 
@@ -180,10 +470,17 @@ export function leerFirmable(texto, ahora) {
   if (typeof o.id !== 'string' || !UUID_RE.test(o.id)) return { ok: false, motivo: 'id inválido' };
   if (typeof o.texto !== 'string' || !o.texto.trim()) return { ok: false, motivo: 'sin texto' };
   if (o.texto.length > MAX_TEXTO) return { ok: false, motivo: `el texto pasa de ${MAX_TEXTO} caracteres` };
-  if (typeof o.destino !== 'string' || !DESTINO_RE.test(o.destino)) return { ok: false, motivo: 'destino inválido' };
+  const nuevo = o.destino === DESTINO_NUEVO;
+  if (!nuevo && (typeof o.destino !== 'string' || !DESTINO_RE.test(o.destino))) return { ok: false, motivo: 'destino inválido' };
   if (o.cuenta !== null && (typeof o.cuenta !== 'string' || !CUENTA_RE.test(o.cuenta))) return { ok: false, motivo: 'cuenta inválida' };
   if (o.titulo !== null && typeof o.titulo !== 'string') return { ok: false, motivo: 'título inválido' };
+  if (nuevo && o.cuenta === null) return { ok: false, motivo: 'falta la cuenta' };
+  if (nuevo) { const m = problemaDeNombreNuevo(o.titulo); if (m) return { ok: false, motivo: m }; }
+  if (nuevo && o.adjuntos !== undefined) return { ok: false, motivo: 'un chat nuevo no lleva adjuntos' };
   if (o.alcance !== 'solo_esto' && o.alcance !== 'de_ahora_en_mas') return { ok: false, motivo: 'alcance inválido' };
+  if (o.modelo != null && !MODELOS.includes(o.modelo)) return { ok: false, motivo: 'modelo inválido' };
+  if (o.esfuerzo != null && !ESFUERZOS.includes(o.esfuerzo)) return { ok: false, motivo: 'esfuerzo inválido' };
+  if (o.adjuntos !== undefined) { const m = problemaDeAdjuntos(o.adjuntos); if (m) return { ok: false, motivo: m }; }
   const creado = typeof o.creado === 'string' ? Date.parse(o.creado) : NaN;
   const vence = typeof o.vence === 'string' ? Date.parse(o.vence) : NaN;
   if (!Number.isFinite(creado) || !Number.isFinite(vence)) return { ok: false, motivo: 'fechas inválidas' };
@@ -191,6 +488,14 @@ export function leerFirmable(texto, ahora) {
   if (creado > ahora + 60_000) return { ok: false, motivo: 'fecha en el futuro' };
   if (vence <= ahora) return { ok: false, motivo: 'venció' };
   return { ok: true, p: o };
+}
+
+/** Lo que el Runner necesita para aplicar el modelo y el esfuerzo antes de entregar: la sesión y los dos valores. Sólo en
+ *  un chat de la APP (`local_…`): las herramientas que los cambian son de la app, y a uno de terminal no se le puede. */
+export function comoCorre(p) {
+  return String(p?.destino ?? '').startsWith('local_') && (p.modelo || p.esfuerzo)
+    ? { sesion: p.destino, modelo: p.modelo ?? null, esfuerzo: p.esfuerzo ?? null }
+    : {};
 }
 
 /** ¿Alguna de las claves de la PC firmó este texto? Devuelve el id de la clave, o null. */
@@ -203,6 +508,160 @@ export function quienFirmo(texto, firmaB64, spkis) {
     } catch { /* clave mal pegada: se prueba la siguiente */ }
   }
   return null;
+}
+
+// ── lo que se dijo en cada chat (1.8.0, 17/10/2026) ──────────────────────────────────────────────────────────────────
+// Martín: «los chats no se entienden... No se entiende la conversación que se tiene». La conversación del Centro tiene
+// que leerse como un chat: lo que se le dijo y lo que CONTESTÓ al terminar cada turno. Sale del transcript del chat
+// (`<carpeta>/projects/<cwd con «-»>/<sesión>.jsonl`), leído desde donde quedó la vuelta anterior (`turnos/<local>.json`),
+// y se sube sólo lo nuevo. Del transcript NO sale nada más: ni las herramientas, ni lo que pensó, ni los recordatorios.
+const TURNOS = path.join(DIR, 'turnos');
+const TOPE_TURNO = 4000;
+/** La primera vez que se lee un chat, sólo su cola: la historia entera puede pesar decenas de MB. */
+const COLA_PRIMERA_VEZ = 2 * 1024 * 1024;
+/** Lo que se lee de un chat por vuelta, como mucho (el resto, en la siguiente). */
+const LECTURA_MAX = 4 * 1024 * 1024;
+const MAX_TURNOS_VUELTA = 300;
+/** Un chat cerrado se sigue leyendo estos días (lo último que contestó antes de cerrarse). */
+const DIAS_TURNOS = 3;
+const RECORDATORIO_RE = /<system-reminder>[\s\S]*?<\/system-reminder>/g;
+const CRUZADO_RE = /<cross-session-message\b([^>]*)>([\s\S]*?)<\/cross-session-message>/;
+/** Lo que el sistema le escribe al chat (no lo dijo nadie): avisos de tareas, de sesiones, del CI. */
+const AUTOMATICO_RE = /^(?:<task-notification>|<side-sessions-event>|<ci-monitor-event>|\[SYSTEM NOTIFICATION|<local-command-|<command-name>)/;
+
+/** La carpeta de los transcripts de un cwd: Claude Code cambia por «-» todo lo que no es letra o número. */
+export const carpetaDelCwd = (cwd) => String(cwd ?? '').replace(/[^a-zA-Z0-9]/g, '-');
+
+/** El texto de un mensaje: un string, o los bloques de texto (sin herramientas ni imágenes). */
+function textoDe(content) {
+  if (typeof content === 'string') return content;
+  if (!Array.isArray(content)) return '';
+  return content.filter((b) => b && b.type === 'text' && typeof b.text === 'string').map((b) => b.text).join('\n');
+}
+
+/**
+ * Los turnos de unas líneas del transcript, en orden. De lo que escribe el chat salen DOS cosas por turno (Martín, 17/10:
+ * cada chat abre su trabajo con «Voy a trabajar en…» y lo cierra con su «Ya está»):
+ *   · su PRIMER texto, en el acto: es lo que va a hacer, y se ve mientras trabaja;
+ *   · su ÚLTIMO texto, cuando el turno termina (el próximo mensaje que se le escribe, o `stop_hook_summary`), si es otro.
+ * `pendiente` es el turno que todavía no terminó (`{ primero, ultimo }`): viene de la vuelta anterior y vuelve. Puro.
+ *   · `yo`: lo que se le escribió (Martín en la app, o un trabajo del Centro: `trabajo` = su id, que el Centro ya muestra);
+ *   · `otro`: lo que le mandó otra sesión (`de`: su nombre);
+ *   · `el`: lo que contestó.
+ */
+/**
+ * @param {string[]} lineas
+ * @param {{ primero: string | null, ultimo: { uuid: string, texto: string, at: string } | null } | null} [pendiente]
+ */
+export function turnosDeLineas(lineas, pendiente = null) {
+  const turnos = [];
+  let p = pendiente;
+  const cerrar = () => { const t = cierreDe(p); if (t) turnos.push(t); p = null; };
+  for (const l of lineas) {
+    let o;
+    try { o = JSON.parse(l); } catch { continue; }
+    if (!o || typeof o !== 'object' || o.isSidechain) continue;
+    if (o.type === 'assistant') {
+      // Lo que escribe la app en nombre del modelo («You've hit your session limit…») no es una respuesta del chat.
+      if (o.isApiErrorMessage || o.message?.model === '<synthetic>') continue;
+      const t = textoDe(o.message?.content).trim();
+      if (!t || typeof o.uuid !== 'string') continue;
+      const ultimo = { uuid: o.uuid, texto: t.slice(0, TOPE_TURNO), at: o.timestamp };
+      // El primer texto del turno sale ya: «Voy a trabajar en…».
+      if (!p?.primero) turnos.push({ uuid: o.uuid, rol: 'el', de: null, texto: ultimo.texto, at: ultimo.at, trabajo: null });
+      p = { primero: p?.primero ?? o.uuid, ultimo };
+      continue;
+    }
+    if (o.type === 'system' && o.subtype === 'stop_hook_summary') { cerrar(); continue; }
+    if (o.type !== 'user' || o.isMeta || typeof o.uuid !== 'string') continue;
+    const c = o.message?.content;
+    if (Array.isArray(c) && c.some((b) => b && b.type === 'tool_result')) continue;
+    const t = textoDe(c).replace(RECORDATORIO_RE, '').trim();
+    if (!t || AUTOMATICO_RE.test(t)) continue;
+    cerrar();
+    const m = CRUZADO_RE.exec(t);
+    if (m) {
+      const cuerpo = m[2].trim();
+      // El aviso de una respuesta de la Ticketera lo arma la PC (mensajeAviso): no es una conversación.
+      if (!cuerpo || /^Martín contestó tu tarjeta/.test(cuerpo)) continue;
+      const trabajo = /^Pedido de Martín desde el Centro de Operaciones/.test(cuerpo) ? (/ cierre ([0-9a-f-]{36}) /.exec(cuerpo)?.[1] ?? null) : null;
+      const de = /\bname="([^"]{1,60})"/.exec(m[1])?.[1] ?? /\bfrom="([^"]{1,60})"/.exec(m[1])?.[1] ?? null;
+      turnos.push(trabajo
+        ? { uuid: o.uuid, rol: 'yo', de: null, texto: cuerpo.slice(0, TOPE_TURNO), at: o.timestamp, trabajo }
+        : { uuid: o.uuid, rol: 'otro', de, texto: cuerpo.slice(0, TOPE_TURNO), at: o.timestamp, trabajo: null });
+      continue;
+    }
+    turnos.push({ uuid: o.uuid, rol: 'yo', de: null, texto: t.slice(0, TOPE_TURNO), at: o.timestamp, trabajo: null });
+  }
+  return { turnos, pendiente: p };
+}
+
+/** El cierre de un turno: su último texto, si no es el mismo que ya salió como el primero. null = nada que sumar. */
+export function cierreDe(p) {
+  const u = p?.ultimo;
+  return u && u.uuid !== p.primero ? { uuid: u.uuid, rol: 'el', de: null, texto: u.texto, at: u.at, trabajo: null } : null;
+}
+
+/** Lo nuevo del transcript de un chat desde la vuelta anterior. Devuelve los turnos y la marca nueva (se guarda sólo si
+ *  MaKo dice que entraron: `guardarMarcas`). Sin transcript, o sin nada nuevo, nada. */
+function turnosNuevos(c) {
+  if (!c.transcript) return null;
+  let st;
+  try { st = fs.statSync(c.transcript); } catch { return null; }
+  const archivo = path.join(TURNOS, `${c.local}.json`);
+  const marca0 = leerJson(archivo, null);
+  const marca = marca0 && marca0.transcript === c.transcript ? marca0 : null;
+  const ocupado = c.estado === 'busy';
+  // Sin nada nuevo y sin una respuesta esperando a que el turno termine: no hay nada que leer.
+  if (marca && marca.offset >= st.size && !(marca.pendiente && !ocupado)) return null;
+  // Todo en BYTES (Buffer): una posición en caracteres se corre con cada tilde o emoji.
+  let inicio = marca ? Math.min(marca.offset, st.size) : Math.max(0, st.size - COLA_PRIMERA_VEZ);
+  const hasta = Math.min(st.size, inicio + LECTURA_MAX);
+  let buf = Buffer.alloc(0);
+  if (hasta > inicio) {
+    buf = Buffer.alloc(hasta - inicio);
+    const fd = fs.openSync(c.transcript, 'r');
+    try { fs.readSync(fd, buf, 0, buf.length, inicio); } finally { fs.closeSync(fd); }
+  }
+  // La primera vez se arranca en el medio de una línea: se salta hasta la siguiente.
+  if (!marca && inicio > 0) {
+    const i = buf.indexOf(0x0a);
+    if (i < 0) { inicio += buf.length; buf = Buffer.alloc(0); } else { inicio += i + 1; buf = buf.subarray(i + 1); }
+  }
+  // Sólo las líneas enteras: la última, si no terminó, se lee en la vuelta siguiente.
+  const corte = buf.lastIndexOf(0x0a);
+  const completo = corte >= 0 ? buf.subarray(0, corte + 1) : Buffer.alloc(0);
+  const offset = inicio + completo.length;
+  // La 1.8.0 guardaba sólo la última respuesta ({ uuid, texto, at }); la 1.8.1, el turno abierto ({ primero, ultimo }).
+  const viejo = marca?.pendiente;
+  const pendiente = viejo && typeof viejo.uuid === 'string' ? { primero: null, ultimo: viejo } : viejo ?? null;
+  const r = turnosDeLineas(completo.toString('utf8').split('\n').filter(Boolean), pendiente);
+  // Un chat que no está trabajando ya terminó su turno: su última respuesta es la que vale.
+  if (r.pendiente && !ocupado) { const t = cierreDe(r.pendiente); if (t) r.turnos.push(t); r.pendiente = null; }
+  return { turnos: r.turnos.map((t) => ({ local: c.local, ...t })), marca: { archivo, transcript: c.transcript, offset, pendiente: r.pendiente } };
+}
+
+/** Lo nuevo de todos los chats de la vuelta, con un tope (lo que no entra sale en la siguiente: su marca no avanza). */
+export function turnosDeLaVuelta(chats) {
+  const turnos = [];
+  const marcas = [];
+  for (const c of chats) {
+    // Los chats cerrados hace días no cambian: no se leen (la app guarda cientos).
+    const t = c.actividad ? Date.parse(c.actividad) : NaN;
+    if (!c.vivo && !(Number.isFinite(t) && Date.now() - t < DIAS_TURNOS * 86_400_000)) continue;
+    let n;
+    try { n = turnosNuevos(c); } catch { n = null; }
+    if (!n) continue;
+    if (turnos.length + n.turnos.length > MAX_TURNOS_VUELTA && turnos.length) break;
+    turnos.push(...n.turnos.slice(-MAX_TURNOS_VUELTA));
+    marcas.push(n.marca);
+  }
+  return { turnos, marcas };
+}
+
+function guardarMarcas(marcas) {
+  fs.mkdirSync(TURNOS, { recursive: true });
+  for (const { archivo, ...m } of marcas) escribirJson(archivo, m);
 }
 
 // ── qué chats hay ────────────────────────────────────────────────────────────────────────────
@@ -231,11 +690,15 @@ function chatsDeLaApp(cuenta, cwds, carpetas) {
         if (e.isDirectory() && prof < 3) recorrer(f, prof + 1);
         else if (e.isFile() && /^local_.*\.json$/.test(e.name)) {
           const o = leerJson(f, null);
-          if (!o || o.isArchived || !DESTINO_RE.test(o.sessionId ?? '') || !enCwds(o.cwd, cwds) || esElCartero(o.title)) continue;
+          if (!o || o.isArchived || !DESTINO_RE.test(o.sessionId ?? '') || !enCwds(o.cwd, cwds)) continue;
           out.set(o.sessionId, {
             local: o.sessionId, titulo: String(o.title || '(sin título)').slice(0, 120), cuenta,
+            // El Runner se ve en la lista (1.10.0, Martín: «todo chat abierto se ve»), marcado: no se le escribe.
+            ...(esElCartero(o.title) ? { esRunner: true } : {}),
             vivo: false, estado: null, pipe: null,
             actividad: o.lastActivityAt ? new Date(o.lastActivityAt).toISOString() : null,
+            // Su transcript: los chats de la app los guarda en ~/.claude (también los de otra cuenta).
+            transcript: UUID_RE.test(o.cliSessionId ?? '') ? path.join(resolver('~/.claude'), 'projects', carpetaDelCwd(o.cwd), `${o.cliSessionId}.jsonl`) : null,
           });
         }
       }
@@ -302,12 +765,14 @@ function leerRegistro(cuenta, configDir, fuente, cwds, chats) {
       const c = s.hostSessionId ? chats.get(s.hostSessionId) : null;
       if (c) Object.assign(c, { vivo: true, estado, pipe: s.messagingSocketPath, dir });
     } else if (UUID_RE.test(s.sessionId ?? '') && enCwds(s.cwd, cwds) && s.entrypoint !== 'claude-desktop'
-      && (s.kind == null || s.kind === 'interactive') && !esElCartero(s.name)) {
+      && (s.kind == null || s.kind === 'interactive')) {
       const local = `cli_${s.sessionId}`;
       chats.set(local, {
+        ...(esElCartero(s.name) ? { esRunner: true } : {}),
         local, titulo: String(s.name || `${path.basename(String(s.cwd || ''))} · ${s.sessionId.slice(0, 8)}`).slice(0, 120),
         cuenta, vivo: true, estado, pipe: s.messagingSocketPath, dir,
         actividad: s.updatedAt ? new Date(s.updatedAt).toISOString() : null,
+        transcript: path.join(dir, 'projects', carpetaDelCwd(s.cwd), `${s.sessionId}.jsonl`),
       });
     }
   }
@@ -332,7 +797,7 @@ function verChats(cuenta, cfg = config(), runners = carpetasConRunner(cfg, dirPr
 }
 
 // ── el mensaje que recibe el chat ────────────────────────────────────────────────────────────
-function mensaje(p) {
+function mensaje(p, rutas = []) {
   const fecha = new Date(p.creado).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
   const alcance = p.alcance === 'de_ahora_en_mas'
     ? 'Y DE AHORA EN MÁS: además de hacerlo, dejá la regla escrita donde corresponda (AGENTS.md, una memoria o un hallazgo) y decí dónde en el cierre.'
@@ -342,6 +807,8 @@ function mensaje(p) {
     '',
     p.texto,
     '',
+    // Las fotos y los PDF que mandó con el trabajo, ya en esta PC (1.9.0): el chat los abre con Read.
+    ...(rutas.length ? ['Adjuntos (los bajó el Runner a esta PC; ábrelos con Read):', ...rutas.map((r) => `- ${r}`), ''] : []),
     `— Alcance: ${alcance}`,
     '— Al terminar, dejá el cierre en cuatro renglones (y la prueba, si la hay: un commit, un deploy, una medición):',
     `node "${ESTE}" cierre ${p.id} --decidido "…" --hecho "…" --comprobado "…" --sigue "…" --prueba "…"`,
@@ -395,6 +862,9 @@ async function ciclo(cuenta, cfg = config(), propio = dirPropio(cfg), runners = 
     }
   }
 
+  // Las aperturas que ya no se abren (1.11.1): `abrir` puede no correr nunca, así que las vence la vuelta.
+  vencerAperturas();
+
   // Los acuses de TODAS las cuentas, y los cierres (que son de la PC). Juntos, porque MaKo aplica un cierre sólo
   // sobre un pedido ENTREGADO: si un Runner subiera los cierres sin el acuse que está en el buzón de otra cuenta, el
   // cierre no entraría (MaKo aplica cada acuse por su id, sin mirar la cuenta: subirlos en cualquier vuelta es seguro).
@@ -404,23 +874,31 @@ async function ciclo(cuenta, cfg = config(), propio = dirPropio(cfg), runners = 
   const cierres = archivosCierre.map((f) => leerJson(f, null)).filter(Boolean);
   // Lo que ALGÚN Runner de la PC puede entregar: el chat vivo, con un Runner abierto en su carpeta. MaKo reclama
   // sólo eso; lo demás queda escrito y sale cuando se abra ese Runner (no se vence en el buzón).
-  const entregables = [...chats.values()].filter((c) => c.vivo && c.pipe && c.runner).map((c) => c.local);
+  const entregables = [...chats.values()].filter((c) => c.vivo && c.pipe && c.runner && !c.esRunner).map((c) => c.local);
+  // Lo que se dijo en cada chat desde la vuelta anterior (sólo lo nuevo). Lo del Runner no: son sus vueltas.
+  const { turnos, marcas } = turnosDeLaVuelta([...chats.values()].filter((c) => !c.esRunner));
+  // Los chats de la nube que anotó el Runner de la app (no tienen canal ni transcript en esta PC: sólo se ven).
+  const enNube = leerNube(cuenta).map((n) => ({ local: n.id, titulo: n.titulo, cuenta, vivo: false, estado: null, actividad: null, nube: true }));
   const r = await fetch(`${url}/api/operaciones/cartero`, {
     method: 'POST',
     headers: { 'content-type': 'application/json', authorization: `Bearer ${cfg.token}` },
     body: JSON.stringify({
       cuenta, version: VERSION,
-      // Ni la dirección del canal ni la carpeta salen de la PC.
-      chats: [...chats.values()].map(({ pipe, dir, ...c }) => c),
-      entregables, claves: spkis.map(claveId), acuses, cierres, uso: cuotaDe(cuenta),
+      // Ni la dirección del canal, ni la carpeta, ni dónde está el transcript salen de la PC.
+      chats: [...[...chats.values()].map(({ pipe, dir, transcript, ...c }) => c), ...enNube],
+      entregables, claves: spkis.map(claveId), acuses, cierres, uso: cuotaDe(cuenta), turnos,
+      // Las cuentas en las que esta PC abre chats (1.11.0): MaKo le da un trabajo «nuevo» sólo a quien lo declara.
+      abre: puedeAbrir(cfg, cuenta) ? [cuenta] : [],
     }),
     signal: AbortSignal.timeout(30_000),
   });
   const salida = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(`MaKo contestó ${r.status}: ${salida.error ?? 'sin detalle'}`);
+  if (!r.ok) throw new Error(`MaKo contestó ${Number(r.status) || 0}: ${textoRemoto(salida.error) || 'sin detalle'}`);
 
   // Lo que se subió ya está en MaKo: se borra de acá (sólo lo que se listó ANTES de subir).
   for (const f of archivosAcuse) fs.rmSync(f, { force: true });
+  // Los turnos: la marca avanza sólo si MaKo los guardó (un servidor de antes no dice nada: los ignora igual).
+  if (salida.turnosOk !== false) guardarMarcas(marcas);
   // Un cierre se borra cuando MaKo dice que lo aplicó (`cierresIds`). El que no entró (su acuse todavía no llegó, o
   // un servidor de antes que no dice cuáles) se vuelve a subir en la vuelta siguiente, hasta un día.
   const aplicados = new Set(Array.isArray(salida.cierresIds) ? salida.cierresIds : []);
@@ -446,11 +924,24 @@ async function ciclo(cuenta, cfg = config(), propio = dirPropio(cfg), runners = 
     if (!l.ok) { rechazar(`Vuelve a mandarlo (${l.motivo})`); continue; }
     if (l.p.id !== id) { rechazar('Vuelve a mandarlo: el id no coincide con la firma'); continue; }
     if (yaSalio(id)) { rechazar('Ya se había entregado: no sale dos veces'); continue; }
+    // Un chat nuevo (1.11.0): `ciclo` no abre nada; lo deja en la cola, y lo abre `abrir`, que vuelve a verificar todo.
+    if (l.p.destino === DESTINO_NUEVO) {
+      if (l.p.cuenta !== cuenta || !puedeAbrir(cfg, cuenta)) { rechazar('Prende la apertura de chats en la PC: pídeselo al Runner'); continue; }
+      escribirJson(path.join(APERTURAS, `${id}.json`), { id, cuenta, firmado, firma, reclamado: new Date().toISOString() });
+      log(`[${cuenta}] APERTURA ${id} → «${l.p.titulo}»`);
+      continue;
+    }
     const chat = chats.get(l.p.destino);
     if (!chat?.vivo || !chat.pipe) { rechazar('El chat se cerró: ábrelo y vuelve a mandarlo'); continue; }
+    if (chat.esRunner) { rechazar('Al Runner no se le escribe: elige otro chat'); continue; }
+    let rutas = [];
+    if (l.p.adjuntos) {
+      try { rutas = await bajarAdjuntos(url, cfg.token, id, l.p.adjuntos); } catch (e) { rechazar(`No pude bajar un adjunto (${e.message}): vuelve a mandarlo`); continue; }
+    }
     escribirJson(path.join(BUZON, `${id}.json`), {
       id, reclamado: new Date().toISOString(), clave: quien, dir: chat.dir,
-      to: `uds:${chat.pipe}`, titulo: chat.titulo, mensaje: mensaje(l.p),
+      to: `uds:${chat.pipe}`, titulo: chat.titulo, mensaje: mensaje(l.p, rutas),
+      ...comoCorre(l.p),
     });
     log(`[${cuenta}] BUZON ${id} → ${chat.titulo} (${rotuloDir(chat.dir)})`);
   }
@@ -466,7 +957,7 @@ async function ciclo(cuenta, cfg = config(), propio = dirPropio(cfg), runners = 
     if (typeof a.destino !== 'string' || !DESTINO_RE.test(a.destino)) { rechazarId(id, 'Aviso con un destino inválido'); continue; }
     if (yaSalio(id)) { rechazarId(id, 'Ya se había entregado: no sale dos veces'); continue; }
     const chat = chats.get(a.destino);
-    if (!chat?.vivo || !chat.pipe) { rechazarId(id, 'El chat se cerró antes de avisar'); continue; }
+    if (!chat?.vivo || !chat.pipe || chat.esRunner) { rechazarId(id, 'El chat se cerró antes de avisar'); continue; }
     escribirJson(path.join(BUZON, `${id}.json`), {
       id, tipo: 'aviso', reclamado: new Date().toISOString(), clave: null, dir: chat.dir,
       to: `uds:${chat.pipe}`, titulo: chat.titulo, mensaje: mensajeAviso(a.ref, repo),
@@ -474,10 +965,13 @@ async function ciclo(cuenta, cfg = config(), propio = dirPropio(cfg), runners = 
     avisos++;
     log(`[${cuenta}] AVISO ${id} (${a.ref}) → ${chat.titulo}`);
   }
-  if (salida.avisosError) log(`[${cuenta}] los avisos de la Ticketera no se pudieron calcular: ${salida.avisosError}`);
+  const avisosError = salida.avisosError ? textoRemoto(salida.avisosError) : null;
+  if (avisosError) log(`[${cuenta}] los avisos de la Ticketera no se pudieron calcular: ${avisosError}`);
+  limpiarAdjuntos();
+  limpiarAperturas();
   return {
-    vencidos: salida.vencidos ?? 0, acuses: salida.acuses ?? 0, cierres: salida.cierres ?? 0,
-    avisos, avisosError: salida.avisosError ?? null,
+    vencidos: Number(salida.vencidos) || 0, acuses: Number(salida.acuses) || 0, cierres: Number(salida.cierres) || 0,
+    avisos, avisosError,
   };
 }
 
@@ -603,7 +1097,7 @@ function pendientes(cuenta, propio = dirPropio()) {
     .filter(({ b }) => b && mismoDir(b.dir || '~/.claude', propio))
     .sort((x, y) => x.b.reclamado.localeCompare(y.b.reclamado))
     .filter(({ f }) => tomar(f))
-    .map(({ b: { id, to, titulo, mensaje } }) => ({ id, to, titulo, mensaje }));
+    .map(({ b: { id, to, titulo, mensaje, sesion, modelo, esfuerzo } }) => ({ id, to, titulo, mensaje, ...(sesion ? { sesion, modelo, esfuerzo } : {}) }));
 }
 
 function acuse(cuenta, id, resultado, motivo) {
@@ -633,12 +1127,12 @@ async function vuelta(cuenta) {
   if (!cuentas.length) {
     throw new Error(`esta carpeta (${rotuloDir(propio)}) no es de ninguna cuenta: node cartero.mjs cartero <claudeN> cli ${rotuloDir(propio)}`);
   }
-  if (cuenta) return { ...(await ciclo(cuenta, cfg, propio, runners)), entregar: pendientes(cuenta, propio) };
+  if (cuenta) return { ...(await ciclo(cuenta, cfg, propio, runners)), entregar: pendientes(cuenta, propio), aperturas: listar(APERTURAS).length };
   const porCuenta = {};
   for (const c of cuentas) {
     try { porCuenta[c] = await ciclo(c, cfg, propio, runners); } catch (e) { porCuenta[c] = { error: e.message }; log(`[${c}] CICLO falló: ${e.message}`); }
   }
-  return { carpeta: rotuloDir(propio), cuentas: porCuenta, entregar: pendientes(null, propio) };
+  return { carpeta: rotuloDir(propio), cuentas: porCuenta, entregar: pendientes(null, propio), aperturas: listar(APERTURAS).length };
 }
 
 function cierre(id, args) {
@@ -690,6 +1184,75 @@ function estado(cuenta) {
     vivos: chats.filter((c) => c.vivo).map((c) => `${c.titulo} (${rotuloDir(c.dir)}${c.runner ? '' : ', sin Runner'})`),
     buzon: listar(buzonDe(cuenta)).length, acuses: listar(acusesDe(cuenta)).length, cierres: listar(CIERRES).length,
   };
+}
+
+// ── vigilar (1.12.0, 17/10/2026): que lo que manda Martín salga en SEGUNDOS ──────────────────────────────────────────────
+// Martín: «Envié un mensaje y no pasó nada por varios segundos... Debería automáticamente comenzar a trabajar». Medido: el
+// Runner da una vuelta cada 2 minutos, y un trabajo esperaba hasta 2 minutos en la cola. `vigilar` es lo que corre el
+// cron del Runner en lugar de `ciclo`: la vuelta completa al empezar, y después una consulta LIVIANA cada pocos segundos
+// (`?hay=`: un número, sin subir nada); apenas hay algo, la vuelta completa y sale con lo que hay que entregar.
+// ⚠️ TIENE QUE TERMINAR BAJO LOS 120 s DEL BASH DEL RUNNER, aun con MaKo lento: no arranca una vuelta completa si la
+//    última, con margen, no entra en lo que queda (`TOPE_VIGILAR_SEG`).
+// ⚠️ SI LA CONSULTA LIVIANA FALLA, CAE A LA VUELTA COMPLETA (con su espera mínima entre una y otra), no al silencio.
+/** Cada cuánto pregunta (los tests lo achican con CARTERO_VIGILAR_MS). */
+const CADA_VIGILAR_MS = Math.max(100, Number(process.env.CARTERO_VIGILAR_MS) || 4000);
+/** Entre dos vueltas completas, como mínimo: si `hay` dice que sí y la vuelta no reclama nada, no se repite cada 4 s. */
+const ENTRE_VUELTAS_MS = Math.max(CADA_VIGILAR_MS, Number(process.env.CARTERO_ENTRE_VUELTAS_MS) || 30_000);
+/** El tope de todo `vigilar`: el Bash del Runner corta a los 120 s. */
+export const TOPE_VIGILAR_SEG = 105;
+
+/** La consulta liviana: cuántos trabajos esperan a las cuentas de esta carpeta (o a la pedida). */
+async function hayAlgo(cuenta, cfg = config(), propio = dirPropio(cfg)) {
+  const cuentas = cuenta ? [cuenta] : cuentasDeLaCarpeta(cfg, propio);
+  if (!cuentas.length || !cfg.token) return 0;
+  const url = (cfg.url || 'https://hola-mako.com').replace(/\/$/, '');
+  const abre = cuentas.filter((c) => puedeAbrir(cfg, c));
+  const r = await fetch(`${url}/api/operaciones/cartero?hay=${cuentas.join(',')}&abre=${abre.join(',')}`, {
+    headers: { authorization: `Bearer ${cfg.token}` }, signal: AbortSignal.timeout(10_000),
+  });
+  if (!r.ok) throw new Error(`MaKo contestó ${Number(r.status) || 0}`);
+  const o = await r.json().catch(() => ({}));
+  return Math.max(0, Number(o?.hay) || 0);
+}
+
+/** Vigila hasta `maxSeg` (tope TOPE_VIGILAR_SEG) y devuelve lo mismo que `ciclo`, más cuánto vigiló. */
+async function vigilar(cuenta, maxSeg = 100, ahora = () => Date.now()) {
+  const inicio = ahora();
+  const fin = inicio + Math.min(Math.max(Number(maxSeg) || 100, 1), TOPE_VIGILAR_SEG) * 1000;
+  const cfg = config();
+  const propio = dirPropio(cfg);
+  let t0 = ahora();
+  let r = await vuelta(cuenta);
+  let ultima = ahora();
+  let dura = Math.max(ultima - t0, 2000);
+  let consultas = 0;
+  const hayQueEntregar = (x) => (x.entregar?.length ?? 0) > 0 || (x.aperturas ?? 0) > 0;
+  while (!hayQueEntregar(r)) {
+    // ¿Entra otra espera y, con margen, otra vuelta completa? Si no, se termina acá.
+    if (ahora() + CADA_VIGILAR_MS + dura * 1.5 > fin) break;
+    await new Promise((ok) => setTimeout(ok, CADA_VIGILAR_MS));
+    // Lo que otro Runner ya dejó en el buzón de esta carpeta: sale sin preguntarle a nadie.
+    const locales = pendientes(cuenta, propio);
+    if (locales.length) { r = { ...r, entregar: locales }; break; }
+    let hay = 0;
+    let fallo = false;
+    try { hay = await hayAlgo(cuenta, cfg, propio); consultas++; } catch (e) { fallo = true; log(`VIGILAR: la consulta falló (${textoRemoto(e.message)}): cae a la vuelta completa`); }
+    if ((hay > 0 || fallo) && ahora() - ultima >= (fallo ? ENTRE_VUELTAS_MS : 0) && ahora() + dura * 1.5 <= fin) {
+      t0 = ahora();
+      r = await vuelta(cuenta);
+      ultima = ahora();
+      dura = Math.max(ultima - t0, 2000);
+      if (!hayQueEntregar(r) && hay > 0) { // dijo que sí y no reclamó nada: espera antes de otra vuelta completa
+        const hasta = ahora() + ENTRE_VUELTAS_MS;
+        while (ahora() < hasta && ahora() + CADA_VIGILAR_MS + dura * 1.5 <= fin) {
+          await new Promise((ok) => setTimeout(ok, CADA_VIGILAR_MS));
+          const loc = pendientes(cuenta, propio);
+          if (loc.length) { r = { ...r, entregar: loc }; break; }
+        }
+      }
+    }
+  }
+  return { ...r, vigilo: Math.round((ahora() - inicio) / 1000), consultas };
 }
 
 async function esperar(cuenta, maxSeg) {
@@ -759,10 +1322,27 @@ if (esMain) {
       case 'pendientes': { const propio = dirPropio(); exigirRunner(propio); imprimir(pendientes(cuentaOpcional(), propio)); break; }
       case 'acuse': acuse(cuentaOpcional(), resto[0], resto[1], resto.slice(2).join(' ')); imprimir({ ok: true }); break;
       case 'cierre': cierre(resto[0], resto.slice(1)); imprimir({ ok: true }); break;
+      case 'abrir': imprimir(abrir()); break;
+      // El permiso local para abrir chats desde MaKo: lo prende Martín, una vez, pidiéndoselo al Runner.
+      case 'abrir-permitir': {
+        // ⚠️ Es el único interruptor para CORTAR la apertura: falla cerrado (1.11.1). «OFF», «apagar» o «--off» prendían.
+        const que = String(resto[0] ?? '').trim().toLowerCase();
+        if (que !== '' && que !== 'on' && que !== 'off') throw new Error('uso: abrir-permitir [on|off]');
+        const prendido = que !== 'off';
+        escribirJson(CFG, { ...config(), abrir: prendido });
+        imprimir({ ok: true, abrir: prendido }); break;
+      }
+      case 'nube': {
+        const cfg = config();
+        const c = cuentaOpcional() ?? cuentaDeLaApp(cfg, dirPropio(cfg));
+        if (!c) throw new Error('esta carpeta no tiene la app de ninguna cuenta: nube --cuenta claudeN <id> <título> …');
+        imprimir({ ok: true, cuenta: c, chats: anotarNube(c, resto) }); break;
+      }
       case 'uso': process.stdout.write(`${await uso()}\n`); break;
+      case 'vigilar': { const i = resto.indexOf('--max-seg'); imprimir(await vigilar(cuentaOpcional(), i >= 0 ? Number(resto[i + 1]) : 100)); break; }
       case 'esperar': { const i = resto.indexOf('--max-seg'); await esperar(cuentaOpcional(), i >= 0 ? Number(resto[i + 1]) || 3000 : 3000); break; }
       default:
-        process.stderr.write('comandos: instalar | url | token | clave | cartero | carpeta | repo | estado | ciclo | pendientes | acuse | cierre | esperar | uso\n');
+        process.stderr.write('comandos: instalar | url | token | clave | cartero | carpeta | repo | estado | ciclo | pendientes | acuse | cierre | nube | abrir | abrir-permitir | vigilar | esperar | uso\n');
         process.exit(1);
     }
   } catch (e) {

@@ -46,6 +46,7 @@ import { useCallback, useEffect, useState, useTransition } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useRouter } from '@/app/_ui/Link';
 import { Toast, useToast, type ToastState } from '@/app/_ui/Toast';
+import { IconoFunnel } from '@/app/_ui/iconos-menu';
 import { Dropdown } from '@/app/components/Dropdown';
 import {
   productosDeLaFichaAction, agregarAProductoAction, quitarDeProductoAction, deshacerQuitarAction,
@@ -249,13 +250,6 @@ export function useProductosDeLaFicha({ leadId, casa, foto, onCasaCambiada }: {
 
 // ── El desplegable: los funnels y sus etapas, en árbol ─────────────────────────
 
-function IconoProducto() {
-  return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M20.6 7.8 12 3 3.4 7.8 12 12.6z" /><path d="M3.4 7.8v8.4L12 21v-8.4" /><path d="M20.6 7.8v8.4L12 21" />
-    </svg>
-  );
-}
 
 /**
  * EL desplegable de la cabecera: «Funnel › Etapa» en el botón y, adentro, cada funnel con sus
@@ -316,7 +310,7 @@ export function FunnelYEtapa({ ficha, etapasCasa, etapaCasa, onElegirCasa, ariaL
         ariaLabel={ariaLabel}
         align={align}
         width={width}
-        icono={<span title="Funnel" style={{ display: 'flex', color: 'var(--dim)' }}><IconoProducto /></span>}
+        icono={<span title="Funnel" style={{ display: 'flex', color: 'var(--dim)' }}><IconoFunnel /></span>}
         // El botón dice las DOS cosas, el funnel y su etapa: la pastilla de la etapa que estaba arriba
         // del nombre se fue (ahí van las etiquetas), así que éste es el único lugar donde se lee.
         botonLabel={ficha.esperando || !enVista ? <span>{nombreEnEspera}</span> : (

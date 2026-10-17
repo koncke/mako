@@ -36,10 +36,19 @@ test('la página: entra con la puerta de MaKo, y el Mapa se calcula sólo para e
   const si = cuerpo.indexOf('if (veMapa && ');
   assert.ok(si > 0, 'el Mapa va adentro de un `if (veMapa && …)`');
   const bloque = cuerpo.slice(si, cuerpo.indexOf('\n  }\n', si));
+  // Desde el 17/10/2026 el armado del Mapa vive en pagina.tsx (lo comparte /admin/operaciones, «Ops Center»): la página
+  // lo llama una sola vez, adentro del if; y las dos lecturas caras viven sólo adentro de esa función.
+  assert.equal(cuerpo.split('mapaDelSecondBrain(').length - 1, 1, 'el Mapa se arma una sola vez');
+  assert.ok(bloque.includes('mapaDelSecondBrain('), 'sólo adentro del if del Mapa');
+  const pagina = sinComentarios(leer('app/second-brain/pagina.tsx'));
+  const armado = pagina.slice(pagina.indexOf('export async function mapaDelSecondBrain('), pagina.indexOf('\n}\n', pagina.indexOf('export async function mapaDelSecondBrain(')));
   for (const f of ['construirCerebro(', 'tokenAgenteVisible(']) {
-    assert.equal(cuerpo.split(f).length - 1, 1, `${f} aparece una sola vez`);
-    assert.ok(bloque.includes(f), `${f} sólo adentro del if del Mapa`);
+    assert.equal(pagina.split(f).length - 1, 1, `${f} aparece una sola vez`);
+    assert.ok(armado.includes(f), `${f} sólo adentro de mapaDelSecondBrain`);
   }
+  // Ops Center arma el Mapa con la MISMA puerta.
+  const ops = sinComentarios(leer('app/admin/operaciones/page.tsx'));
+  assert.ok(/if \(veMapa && pideElMapa\(q\)\) \{\s*mapa = await mapaDelSecondBrain\(\);/.test(ops), 'Ops Center: el Mapa con la misma puerta');
   assert.ok(!/rol\s*===\s*'admin'/.test(cuerpo), 'el rol no se mira a mano: lo decide la puerta');
 });
 

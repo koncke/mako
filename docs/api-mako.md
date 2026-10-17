@@ -40,14 +40,14 @@
 - **Closing Analyst** (`closing`): `panorama_closing` · `metricas_closers` · `factores_cierre` · `tendencia_score` · `embudo_closing` · `estado_analisis_lead` · `lead_tiene_llamada` · `analizar_llamadas_lead` · `adjuntar_grabaciones_fathom`
 - **El negocio (onboarding, Second Brain, conocimiento)** (`negocio`): `contexto_negocio` · `ver_perfil_negocio` · `ver_archivero` · `ver_diagnostico_fase` · `listar_preguntas_diagnostico_fase` · `ver_estado_onboarding` · `ver_mi_plan` · `dar_de_baja_mi_plan` · `listar_tabs_por_configurar` · `listar_avatares_negocio` · `listar_lead_magnets` · `ver_personalidad_voz` · `buscar_en_segundo_cerebro` · `leer_segundo_cerebro_como_archivos` · `ver_glosario_negocio` · `buscar_conocimiento` · `buscar_tutorial` · `responder_pregunta_personalidad` · `guardar_campo_perfil` · `borrar_documento_archivero` · `guardar_diagnostico_fase` · `generar_avatares` · `afinar_avatares` · `editar_avatar_negocio` · `borrar_avatar_negocio` · `generar_lead_magnets` · `editar_lead_magnet` · `sugerir_productos` · `borrar_producto` · `guardar_muletillas_marca` · `reiniciar_personalidad`
 - **Content Machine** (`contenido`): `listar_anuncios_planteados` · `ver_anuncio_planteado` · `listar_guiones_anuncio` · `leer_guion_anuncio` · `cobertura_guiones_anuncio` · `catalogo_angulos_guion` · `catalogo_estructuras_guion` · `listar_formatos_creativo` · `opciones_siguiente_paso_guion` · `estado_contexto_contenido` · `estado_onboarding_contenido` · `limites_formato_instagram` · `mover_estado_guion_anuncio` · `elegir_formato_creativo_anuncio` · `recomendar_formatos_creativo` · `escribir_guion_anuncio` · `editar_texto_guion_anuncio` · `borrar_guion_anuncio`
-- **Video Generator** (`video`): `ver_puente_flow` · `listar_trabajos_flow` · `listar_anuncios_video` · `ver_anuncio_video` · `ver_montaje_anuncio` · `contar_escenarios_reusables` · `listar_guiones_para_video` · `listar_formatos_video` · `listar_lugares_grabacion` · `listar_plantillas_video` · `listar_proyectos_video` · `ver_proyecto_video` · `ver_contexto_video` · `ver_voz_cliente` · `estado_onboarding_video` · `agregar_texto_video` · `cambiar_texto_video` · `reemplazar_clip_video` · `borrar_elementos_video` · `mover_elemento_video` · `cambiar_duracion_video` · `dividir_clip_video` · `recortar_clip_video` · `cambiar_volumen_video` · `silenciar_clip_video` · `poner_fundido_video` · `reducir_ruido_video` · `normalizar_audio_video` · `separar_audio_video` · `ocultar_elemento_video` · `cambiar_velocidad_video` · `poner_transicion_video` · `poner_animacion_video` · `poner_filtro_video` · `poner_efecto_video` · `agregar_capa_efecto_video` · `ajustar_color_video` · `cambiar_estilo_texto_video` · `transformar_elemento_video` · `reflejar_clip_video` · `revertir_clip_video` · `congelar_cuadro_video` · `reemplazar_en_subtitulos_video` · `resaltar_palabras_video` · `generar_subtitulos_video` · `cortar_frase_video` · `cortar_tramo_video` · `eliminar_muletillas_video` · `usar_plantilla_video`
+- **Video Generator** (`video`): `ver_puente_flow` · `listar_trabajos_flow` · `listar_anuncios_video` · `ver_anuncio_video` · `ver_montaje_anuncio` · `contar_escenarios_reusables` · `listar_guiones_para_video` · `listar_formatos_video` · `listar_lugares_grabacion` · `listar_plantillas_video` · `listar_proyectos_video` · `ver_proyecto_video` · `ver_contexto_video` · `ver_voz_cliente` · `ver_avatares` · `estado_onboarding_video` · `agregar_texto_video` · `cambiar_texto_video` · `reemplazar_clip_video` · `borrar_elementos_video` · `mover_elemento_video` · `cambiar_duracion_video` · `dividir_clip_video` · `recortar_clip_video` · `cambiar_volumen_video` · `silenciar_clip_video` · `poner_fundido_video` · `reducir_ruido_video` · `normalizar_audio_video` · `separar_audio_video` · `ocultar_elemento_video` · `cambiar_velocidad_video` · `poner_transicion_video` · `poner_animacion_video` · `poner_filtro_video` · `poner_efecto_video` · `agregar_capa_efecto_video` · `ajustar_color_video` · `cambiar_estilo_texto_video` · `transformar_elemento_video` · `reflejar_clip_video` · `revertir_clip_video` · `congelar_cuadro_video` · `reemplazar_en_subtitulos_video` · `resaltar_palabras_video` · `generar_subtitulos_video` · `cortar_frase_video` · `cortar_tramo_video` · `eliminar_muletillas_video` · `usar_plantilla_video`
 - **Image Editor (diseños)** (`imagen`): `listar_disenos_imagen` · `ver_diseno_imagen` · `listar_plantillas_imagen` · `crear_diseno_imagen` · `cambiar_textos_diseno_imagen` · `duplicar_diseno_imagen` · `borrar_diseno_imagen`
 - **Integraciones** (`integraciones`): `ver_integraciones` · `ver_integracion` · `probar_conexion_integracion` · `ver_estado_google_calendar` · `ver_cuotas_ia` · `ver_activacion_tab` · `ver_estado_agente_claude` · `link_configurar_integracion`
 - **Cuenta, equipo y notificaciones** (`equipo`): `ver_workspace` · `ver_zona_horaria_workspace` · `ver_preferencias_notificaciones` · `listar_avisos_disponibles` · `esta_aviso_activo` · `ver_estado_plantilla_reporte` · `fijar_zona_horaria_workspace` · `configurar_reporte` · `configurar_seccion_reporte` · `configurar_aviso_whatsapp` · `asegurar_plantilla_reporte`
 - **Curso (módulos y clases)** (`curso`): `listar_cursos` · `ver_curso` · `ver_clase_curso` · `crear_modulo_curso` · `renombrar_modulo_curso` · `ordenar_modulos_curso` · `crear_clase_curso` · `editar_clase_curso` · `mover_clase_curso` · `borrar_clase_curso` · `restaurar_clase_curso`
 - **Calendario** (`calendario`): `listar_eventos_calendario` · `crear_evento_calendario` · `link_agenda_llamada` · `anticipacion_agenda` · `ver_proximas_recurrentes`
 - **Creaciones de la comunidad (estrellas)** (`creaciones`): `listar_creaciones` · `ver_creacion` · `mis_creaciones` · `dar_estrella` · `quitar_estrella` · `publicar_creacion` · `retirar_creacion` · `usar_creacion`
-- **Cobros (Stripe y Mercado Pago)** (`cobros`): `listar_cobros` · `ver_cobro` · `crear_link_pago` · `anular_link_pago` · `reembolsar_cobro` · `cancelar_suscripcion` · `ver_moneda_negocio` · `cambiar_moneda_negocio` · `editar_dato_deal` · `editar_obligacion_deal` · `editar_venta_lead` · `editar_cuota` · `crear_link_cuota` · `cortar_recordatorio_cuota` · `estado_suscripcion_manual`
+- **Cobros (Stripe y Mercado Pago)** (`cobros`): `listar_cobros` · `ver_cobro` · `crear_link_pago` · `anular_link_pago` · `reembolsar_cobro` · `cancelar_suscripcion` · `ver_moneda_negocio` · `cambiar_moneda_negocio` · `editar_dato_deal` · `editar_obligacion_deal` · `editar_venta_lead` · `editar_cuota` · `crear_link_cuota` · `cortar_recordatorio_cuota` · `baja_del_cliente` · `estado_suscripcion_manual`
 - **MaKo (pendientes, propuestas, chats)** (`mako`): `listar_pendientes` · `confirmar_accion` · `cancelar_accion` · `ver_pendiente` · `listar_propuestas_revisar` · `ver_propuesta_accion` · `resumen_bandejas_confirmacion` · `listar_capacidades_mako`
 
 ## General — `general`
@@ -1507,7 +1507,7 @@ curl -L \
 
 ### `GET /api/v1/crm/etapas` — Etapas del funnel del negocio
 
-La estructura del proceso comercial configurado en /funnel: el pipeline activo en orden (con su tipo: entrada, reunión, pago, cierre), las etapas de nutrición y las de descarte, con su key. Úsala antes de proponer un cambio de etapa o de filtrar leads para usar las keys REALES del negocio y no un embudo genérico. No pide parámetros.
+La estructura del proceso comercial configurado en /funnel: el pipeline activo en orden (con su tipo: entrada, reunión, pago, cierre), las etapas de nutrición y las de descarte, con su key. Úsala antes de proponer un cambio de etapa o de filtrar leads para usar las keys REALES del negocio y no un embudo genérico. Con embudoId, las de otro CRM.
 
 - **Ruta por operación:** `GET /api/v1/crm/ver_funnel`
 - **Token detallado:** permiso `crm=read` (Solo lectura en «CRM»)
@@ -1516,7 +1516,9 @@ La estructura del proceso comercial configurado en /funnel: el pipeline activo e
 - **Costo:** gratis
 - **Requiere la tab:** crm
 
-_Sin parámetros._
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `embudoId` | number | no | el CRM, por el id de su embudo (de productos_del_lead). Sin él, el CRM principal del negocio. |
 
 ```bash
 curl -L \
@@ -2069,7 +2071,7 @@ curl -L \
 
 ### `GET /api/v1/crm/ficha` — Ver la ficha de un CRM
 
-Cómo se arma la ficha del lead en UN CRM del negocio, para todos sus leads: la plantilla (la que elige MaKo según las etapas de reunión y cómo entra la gente, o la que eligió alguien) y por qué; por tab (Resumen, Reuniones, Pagos y Tracking) su nombre, su plantilla, si va épica y sus bloques en orden con su ancho, su diseño y su ícono; de qué «datos sin marcar» avisa y por qué no de los otros, y el estilo. Trae también, por tab, los bloques que se pueden sumar y su galería de plantillas (las sugeridas primero), y los íconos de un bloque. Es el paso previo a cambiar_ficha_funnel. Sin embudoId, el CRM principal.
+Cómo se arma la ficha del lead en UN CRM del negocio, para todos sus leads: la plantilla (la que elige MaKo según las etapas de reunión y cómo entra la gente, o la que eligió alguien) y por qué; por tab (Resumen, Reuniones, Pagos y Tracking) y por hoja propia su nombre, su plantilla, si va épica y sus bloques en orden con su ancho, su diseño y su ícono; de qué «datos sin marcar» avisa y por qué no de los otros, y el estilo. Trae también, por tab, los bloques que se pueden sumar y su galería de plantillas (las sugeridas primero), y los íconos de un bloque. Es el paso previo a cambiar_ficha_funnel. Sin embudoId, el CRM principal.
 
 - **Ruta por operación:** `GET /api/v1/crm/ver_ficha_funnel`
 - **Token detallado:** permiso `crm=read` (Solo lectura en «CRM»)
@@ -2092,7 +2094,7 @@ curl -L \
 
 ### `PATCH /api/v1/crm/ficha` — Cambiar la ficha de un CRM
 
-PROPONE UN cambio en la ficha del lead de UN CRM (pendiente hasta el «sí»), para todos sus leads: poner, quitar o mover un bloque, su ancho, diseño o ícono, el aviso de un dato sin marcar, el estilo, la densidad, la plantilla (de la ficha o de una tab), el nombre de una tab, su vista épica, o volver a la plantilla. Los ids salen de ver_ficha_funnel. «Contacto» no se quita y las asistencias siempre avisan. Solo el administrador. Sin embudoId, el CRM principal.
+PROPONE UN cambio en la ficha del lead de UN CRM (pendiente hasta el «sí»), para todos sus leads: sus bloques, sus avisos, el estilo, las plantillas, las tabs y las hojas propias. Los ids salen de ver_ficha_funnel. «Contacto» no se quita y las asistencias siempre avisan. Solo el administrador. Sin embudoId, el CRM principal.
 
 - **Ruta por operación:** `POST /api/v1/crm/cambiar_ficha_funnel`
 - **Token detallado:** permiso `crm=write` (Lectura y escritura en «CRM»)
@@ -2108,15 +2110,15 @@ PROPONE UN cambio en la ficha del lead de UN CRM (pendiente hasta el «sí»), p
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
 | `embudoId` | number | no | el CRM, por el id de su embudo (de productos_del_lead). Sin él, el CRM principal del negocio. |
-| `cambio` | string (poner \\| quitar \\| mover \\| ancho \\| diseno \\| icono \\| opciones \\| aviso \\| estilo \\| densidad \\| plantilla \\| volver \\| nombre \\| epica) | sí | qué cambiar: poner, quitar o mover un bloque (con tab y bloque; mover y poner con lugar), su ancho, diseno, icono u opciones, aviso (con aviso y avisa), estilo (tema, acento o tipografia), densidad, plantilla, nombre o epica de una tab (con tab), o volver a la plantilla (con tab, sólo esa). |
-| `tab` | string (resumen \\| reuniones \\| pagos \\| tracking) | no | la tab. |
+| `cambio` | string (poner \\| quitar \\| mover \\| ancho \\| diseno \\| icono \\| opciones \\| aviso \\| estilo \\| densidad \\| plantilla \\| volver \\| nombre \\| epica \\| nueva_hoja \\| quitar_hoja \\| mover_hoja) | sí | qué cambiar: poner, quitar o mover un bloque (con tab y bloque; mover y poner con lugar), su ancho, diseno, icono u opciones, aviso (con aviso y avisa), estilo (tema, acento o tipografia), densidad, plantilla, nombre o epica de una tab (con tab), volver a la plantilla (con tab, sólo esa), o nueva_hoja, quitar_hoja o mover_hoja (id en tab). |
+| `tab` | string | no | resumen, reuniones, pagos, tracking o id de hoja. |
 | `bloque` | string | no | el id del bloque (de ver_ficha_funnel), por ejemplo cuotas o redes-y-web. |
 | `lugar` | number | no | en poner y mover: el lugar en la tab, 1 es el primero. Sin él, poner lo suma al final. |
 | `ancho` | string (1/4 \\| 1/3 \\| 1/2 \\| completo) | no | en poner y ancho: el ancho del bloque sobre la grilla de la ficha. Cada bloque acepta sólo algunos (ver_ficha_funnel). |
 | `diseno` | string | no | en poner y diseno: el id del diseño del bloque (de ver_ficha_funnel). |
 | `icono` | string | no | en icono: el id (de los iconos de ver_ficha_funnel), o de-siempre: el del bloque. |
 | `n` | number | no | si el bloque está más de una vez en la tab (respuesta-destacada), cuál: 1 es el primero. |
-| `opcion` | string | no | en opciones: redes (web,instagram,youtube,linkedin), fuentes (meta,landing,agenda) o la pregunta destacada. |
+| `opcion` | string | no | en opciones: redes (web,instagram,youtube,linkedin), fuentes (meta,landing,agenda) o la pregunta destacada; en estilo: esquinas=redondas. |
 | `aviso` | string | no | en aviso: el id del dato sin marcar (de los avisos de ver_ficha_funnel). |
 | `avisa` | boolean | no | en aviso: true para que avise, false para que no. |
 | `tema` | string (mako \\| minimal \\| suave \\| contraste \\| elevada \\| general \\| editorial) | no | en estilo: la plantilla de estilo, la misma del Dashboard. |
@@ -12306,7 +12308,7 @@ curl -L \
 
 ## Video Generator — `video`
 
-Tab **Video Generator** (`/video-generator`). 15 lecturas · 34 acciones.
+Tab **Video Generator** (`/video-generator`). 16 lecturas · 34 acciones.
 
 ### `GET /api/v1/video/flow/conexion` — Conexión con Google Flow
 
@@ -12626,6 +12628,28 @@ curl -L \
   -H "Authorization: Bearer <TU-TOKEN>" \
   -H "X-MaKo-Api-Version: 2026-10-08" \
   "https://hola-mako.com/api/v1/video/voz"
+```
+
+### `GET /api/v1/video/avatares` — Avatares y looks de AI Avatar
+
+Los looks que el cliente creó en la tab AI Avatar (su foto en una escena de la galería): el tema, si ya está listo para animar, si falló y por qué, y cuándo se pidió; más los temas de la galería que se pueden usar. No genera nada ni devuelve las imágenes. Úsala antes de decir que el cliente ya tiene un avatar listo para hablar.
+
+- **Ruta por operación:** `GET /api/v1/video/ver_avatares`
+- **Token detallado:** permiso `video=read` (Solo lectura en «Video Generator»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** video-generator
+
+_Sin parámetros._
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/video/avatares"
 ```
 
 ### `GET /api/v1/video/onboarding` — Onboarding del Video Generator
@@ -15130,7 +15154,7 @@ curl -L \
 
 ## Cobros (Stripe y Mercado Pago) — `cobros`
 
-Tab **CRM** (`/crm`). 3 lecturas · 12 acciones.
+Tab **CRM** (`/crm`). 3 lecturas · 13 acciones.
 
 ### `GET /api/v1/cobros/cobros` — Cobros de Stripe y Mercado Pago
 
@@ -15533,6 +15557,34 @@ curl -L \
   -H "Content-Type: application/json" \
   "https://hola-mako.com/api/v1/cobros/cuotas/CUOTA_ID/recordatorios" \
   -d '{"leadId":1}'
+```
+
+### `PUT /api/v1/cobros/ventas/{leadId}/baja` — Baja del cliente
+
+PROPONE marcar que un cliente se dio de baja y dejó de pagar su plan de cuotas: lo que NO pagó deja de ser deuda (sale del Outstanding, de «A quién cobrarle», de lo vencido y de los recordatorios de cobro) y lo cobrado queda como está. Las cuotas siguen en su ficha como «baja del cliente», se anulan sus links sin pagar y se cortan sus recordatorios. Úsala cuando digan «se dio de baja», «dejó el servicio» o «ya no va a pagar el resto». Con deshacer: true, las cuotas vuelven a ser deuda con su vencimiento. Una suscripción no se da de baja así: se cancela (estado_suscripcion_manual o cancelar_suscripcion).
+
+- **Ruta por operación:** `POST /api/v1/cobros/baja_del_cliente`
+- **Token detallado:** permiso `cobros=write` (Lectura y escritura en «Cobros (Stripe y Mercado Pago)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** marca baja_at en las cuotas impagas del lead y les guarda el vencimiento en baja_vencia (o se lo devuelve al deshacer), anula sus links sin pagar, corta sus recordatorios y deja historial
+- **Reversible:** sí
+- **Costo:** gratis
+- **Requiere la tab:** crm
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `leadId` | number | sí | id del lead que se dio de baja. |
+| `deshacer` | boolean | no | true para deshacer una baja: las cuotas vuelven a ser deuda. |
+
+```bash
+curl -L \
+  -X PUT \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/cobros/ventas/LEAD_ID/baja"
 ```
 
 ### `PUT /api/v1/cobros/ventas/{leadId}/suscripcion` — Cancelar o reactivar una suscripción manual

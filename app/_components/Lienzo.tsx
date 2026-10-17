@@ -160,7 +160,7 @@ export function Lienzo({
   insetDerChrome, insetDerAbajo, panelForma = 'columna', panelAlto, revelar = null,
   onBorrar, puedeBorrar, reservaAbajo = 0,
   onConectar, onQuitarFlecha, menuLienzo, menuNodo, nombreNodo,
-  varios = SIN_VARIOS, onVarios, onReconectar, onReconectarANueva, onCopiar, onPegar,
+  varios = SIN_VARIOS, onVarios, onEliminarVarios, onReconectar, onReconectarANueva, onCopiar, onPegar,
 }: {
   /**
    * CTRL+C SOBRE EL LIENZO (10/10/2026, copiar tarjetas «y llevandolo a otro flujo»): las elegidas con el
@@ -179,6 +179,11 @@ export function Lienzo({
    */
   varios?: readonly string[];
   onVarios?: (ids: string[]) => void;
+  /**
+   * Supr o ⌫ con varias elegidas con el lazo (17/10/2026, tarjeta #873; Martín: «cuando selecciono varias tarjetas, si
+   * aprieto el botón de delete, se deben eliminar»). Sin esto, la tecla no hace nada. Nunca mientras se escribe.
+   */
+  onEliminarVarios?: (ids: string[]) => void;
   /** Arrastrar la PUNTA de una flecha a otra tarjeta (general 13). Sin esto, la punta no se agarra. */
   onReconectar?: (a: AristaFlujo, hacia: string) => void;
   /** Soltar esa punta en el vacío: el menú de tarjeta nueva, que nace donde se soltó (general 13 y 14). */
@@ -503,8 +508,8 @@ export function Lienzo({
     if (a.tagName === 'INPUT') { const t = (a as HTMLInputElement).type; return t !== 'checkbox' && t !== 'radio' && t !== 'button'; }
     return false;
   };
-  const refsTeclado = useRef({ onCopiar, onPegar, onVarios, varios, seleccion });
-  useEffect(() => { refsTeclado.current = { onCopiar, onPegar, onVarios, varios, seleccion }; });
+  const refsTeclado = useRef({ onCopiar, onPegar, onVarios, onEliminarVarios, varios, seleccion });
+  useEffect(() => { refsTeclado.current = { onCopiar, onPegar, onVarios, onEliminarVarios, varios, seleccion }; });
   useEffect(() => {
     const alCopiar = (e: ClipboardEvent) => {
       const r = refsTeclado.current;
@@ -532,6 +537,11 @@ export function Lienzo({
     const alTeclear = (e: KeyboardEvent) => {
       const r = refsTeclado.current;
       if (e.key === 'Escape' && r.varios.length && r.onVarios) r.onVarios([]);
+      // Supr / ⌫ borra las elegidas con el lazo (#873). No mientras se escribe en un campo: ahí la tecla es del texto.
+      if ((e.key === 'Delete' || e.key === 'Backspace') && r.varios.length && r.onEliminarVarios && !escribiendo()) {
+        e.preventDefault();
+        r.onEliminarVarios([...r.varios]);
+      }
     };
     document.addEventListener('copy', alCopiar);
     document.addEventListener('paste', alPegar);

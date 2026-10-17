@@ -178,7 +178,8 @@ test('la prueba real: sólo el admin, por la línea de la secuencia, y nada del 
   const prueba = PRUEBA();
   assert.match(prueba, /\.from\('nutricion_secuencias'\)\.select\('id, instance_name'\)\.eq\('id', p\.secuenciaId\)\.maybeSingle\(\)/);
   assert.match(prueba, /for \(const envio of planDePrueba\(mensaje, primero\)\)/);
-  assert.match(prueba, /enviarYEspejar\(\{ telefono, texto: envio\.texto, linea \}\)/);
+  // (17/10, #869) Detrás puede ir la vista previa del link (tests/whatsapp-sin-vista-previa.test.ts).
+  assert.match(prueba, /enviarYEspejar\(\{ telefono, texto: envio\.texto, linea(?:, sinVistaPrevia: mensaje\.sin_vista_previa === true)? \}\)/);
   assert.match(prueba, /enviarAudioYEspejar\(\{ telefono, base64: b64, mimetype: audio\.media_mime, linea \}\)/);
   assert.match(prueba, /const adj = await getAdjunto\(envio\.mediaId\);/);
   assert.match(prueba, /^import 'server-only';$/m);
@@ -257,7 +258,8 @@ test('costuras-5: el link `?sec=` abre el LIENZO de esa automatización, no el w
   assert.match(app, /abrir=\{abrirSec\}/);
   // La lista lo aplica eligiendo esa automatización (el lienzo se monta con su key).
   const lista = LISTA();
-  assert.match(lista, /if \(abrir && abrir !== abrirVisto && secuencias\.some\(\(j\) => j\.id === abrir\.id\)\) \{\n\s+setAbrirVisto\(abrir\);\n\s+elegir\(abrir\.id\);/);
+  // (17/10/2026: la que se crea desde el chat de MaKo de otra cambia sin la pregunta de lo no publicado, `creaDesdeElChat`.)
+  assert.match(lista, /if \(abrir && abrir !== abrirVisto && secuencias\.some\(\(j\) => j\.id === abrir\.id\)\) \{\n\s+setAbrirVisto\(abrir\);\n\s+if \(!creaDesdeElChat\.current\) elegir\(abrir\.id\);/);
   // El CONTRATO con quien arma el link (el aviso del hand-off): el parámetro es el que lee la página.
   const aviso = sinComentarios(leer('lib/chat-agent-handoff.ts'));
   const param = aviso.match(/linkApp\(`\/automations\?(\w+)=/)?.[1];

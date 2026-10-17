@@ -98,10 +98,14 @@ y Jose seguían afuera. El ruteo está bien: `webhook_routing` apunta a ws15 des
   token de página con `pages_manage_metadata`. Es un paso de Meta que hace un admin de la
   página, no código. Hasta entonces, sus leads tardan hasta 10 minutos.
 - **ws11: token nuevo** con `leads_retrieval` y `pages_manage_ads`.
-- **El poll no dispara lo inmediato** (aviso, flujos, nutrición, CAPI) para una página sin
-  suscribir. La nutrición la levanta igual la cohorte `instant_form_sin_agenda` del cron. El
-  día que un cliente sin suscribir prenda el aviso, no le va a llegar. Arreglarlo necesita un
-  tope de antigüedad, porque el poll también hace pasadas de 90 días.
+- ~~**El poll no dispara lo inmediato**~~ **HECHO el 17/10/2026 (tarjeta #868, Brigitte):** las dos puertas llaman a
+  `alNacerLeadDeMeta` (lib/meta-lead-nuevo.ts: aviso, flujos y automatizaciones, por partes); el poll sólo con un lead
+  creado en las últimas 24 h (`esNuevoParaElNegocio`). CAPI sigue sin salir por el poll, a propósito.
+  ⚠️ **«La nutrición la levanta igual la cohorte del cron» era cierto sólo para los triggers de antes.** Una automatización
+  de hoy cuelga de la ETAPA («Un Lead Entró» → «Lead entrante»), y su barrido toma a todo lead abierto de esa etapa con
+  actividad en 90 días: no es «el lead nuevo». Medido el 17/10 en ws15: 16 leads en 14 días y CERO inscripciones en toda
+  su historia (la de la etapa estaba pausada, y la que armó Joan en la llamada quedó en «manual», ver
+  docs/hallazgos-chatbot.md).
 *08/10/2026 — diagnóstico y refutación con subagentes, sólo lectura (scratchpad
 `wf2-refuta-lead-brigitte/`). Commit `e869a24e`. **Verificado en producción:** el deploy
 quedó listo a las 16:40 UTC, y la pasada de las 16:50 trajo a Jose (#2621) y a Nicolas

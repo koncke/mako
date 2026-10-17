@@ -23,6 +23,7 @@ habilita a darle mejores prompts al otro Claude».
 - El repo es **CRLF**: un reemplazo por bloque buscó `'\n];\n'`, no matcheó, se fue 700 líneas más abajo y **borró 76 KB con exit 0** → [Editar este repo](#editar-este-repo-archivos-grandes-saltos-de-línea-y-nombres).
 - Con **`npm run dev` (`-H 127.0.0.1`) toda pantalla del TELÉFONO da `ERR_TOO_MANY_REDIRECTS`** en local: el rewrite a `/m` sale como externo y vuelve a entrar al proxy. Con `-H localhost`, 200 → [Tests y entorno local](#️-con-npm-run-dev--h-127001-ninguna-pantalla-del-teléfono-se-puede-mirar-en-local-15102026).
 - Verificar contra **`127.0.0.1` en vez de `localhost`** deja la página entera y sin hidratar, sin un solo error en el navegador — y las dos explicaciones que uno tiene a mano («rompí yo», «lo rompió la otra sesión») parecen confirmarse → [Tests y entorno local](#️-127001-no-es-localhost-para-el-dev-server-la-página-se-ve-entera-y-no-hidrata).
+- **17 de 91 runs de Actions fallaron aunque cada jefe corría «los tests de su área»** — y el diagnóstico obvio («no corren tests») era el equivocado: el test que cae es, por definición, de otra área, y un `grep` de la ruta no ve imports a dos saltos, nombres sin extensión ni barridos. La cura es una herramienta, no una regla en prosa: `scripts/antes-de-subir.mjs` elige los tests solo, y el replay de los 17 runs rojos prueba que los habría frenado → [Tests y entorno local](#los-rojos-de-actions-16-de-90-runs-dos-clases-y-por-qué-corré-los-tests-de-tu-área-no-podía-alcanzar-17102026).
 
 ⚠️ **Buena parte de lo que sigue es material de segunda mano.** Se rescató de los journals
 de las 261 corridas multi-agente de junio a agosto de 2026 —**134 de 260 nunca habían
@@ -6481,6 +6482,108 @@ tema. Lo encontró otro `grep`, por casualidad.
 (`grep -l "<ruta del archivo>" tests/*.test.ts`), no sólo los que hablan del tema. Y antes de pasársela a quien
 pushea, la suite entera con `--test-concurrency=2`, que entra en la RAM con muchos chats abiertos.
 
+⚠️ **Esa regla está escrita desde el 15/10 y no frenó nada** — el 17/10 se midió por qué (entrada de abajo).
+
+## Los rojos de Actions: 17 de 91 runs, dos clases, y por qué «corré los tests de tu área» no podía alcanzar (17/10/2026)
+
+**El síntoma:** de los 91 runs de `integracion` (15-17/10), 17 fallaron y 14 se cancelaron; cada rojo costó ~15 min de reloj
+y minutos del mes (140 de los 2.000 gratis en dos días). Los 17 son de **dos clases**:
+
+- **(a) 13 en «Tests»**: un test de OTRA área que lee el código como TEXTO (un regex exacto sobre el fuente: `editor-acciones`,
+  `medios-automatizacion`, `centro-revisar`, `plazo-etapa-automatizacion`, `progreso`…) o un BARRIDO global del repo
+  (`puente-panel-copy` ×3, `zona-negocio`, `fuentes-sin-next-font`, `frontera-use-client`, `tsc-acotado`, `onboarding-hub-retirado`).
+- **(b) 4 en «Tipos»**: dos ayudantes de tests nuevos sin `export` que `tsc` toma por scripts globales (51 y 52: el error cae en
+  `_cobros-conexion-hijo.ts`, que NO cambió), un test que llamaba con dos argumentos a una firma que pasó a pedir uno (31) y
+  una bitácora sin `puntos` (10).
+
+**El diagnóstico obvio —«los chats no corren los tests»— era el equivocado.** Corrían los suyos, y la regla («corré los tests que
+LEEN cada archivo tocado», entrada de arriba) estaba escrita desde el 15/10, y los 17 rojos son del 15 al 17/10. Por qué no podía
+alcanzar, aunque se cumpliera al pie de la letra:
+
+1. **«Del área» lo decide quien escribe el cambio, y el rojo lo decide quien escribió el test.** El test que cae casi nunca es
+   del área: por definición.
+2. **`grep -l "<ruta>" tests/*.test.ts` sólo ve la ruta LITERAL.** No ve a quien importa el archivo por la cadena (`editor-acciones`
+   importa el registro, que importa las áreas: a dos saltos), ni a quien lo nombra sin extensión (`'lib/nutricion'`, run 89), ni a
+   las barredoras, que no nombran ningún archivo: recorren el repo.
+3. **Una regla en prosa no es una herramienta.** Hace falta acordarse, saber qué buscar y tener la RAM para correrlo.
+4. **El árbol del jefe no es el de Actions.** Un archivo NUEVO sin `git add` no existe para `git ls-files`: la guarda de voseo
+   pasó en verde en el worktree de Automations y cayó con el mismo archivo ya commiteado (run 80).
+5. **Un `tsc` acotado de lo que cambió no ve un choque de scripts globales**: compila cada archivo SOLO. Y cuando la causa está
+   en otro archivo (el que no tocaste), ningún «lo que cambié» la encuentra.
+
+**Lo que hay ahora** (todo versionado; el porqué de cada decisión está en el comentario de cabecera de cada script):
+
+- `scripts/tests-afectados.mjs`: elige los tests por **tres vías** — todas las **barredoras** (detectadas solas: `git ls-files`,
+  `git grep`, `readdir`/`glob`, o 20+ archivos nombrados), los que **nombran** un archivo cambiado y los que lo **importan**,
+  directo o transitivo (grafo por regex sobre los 5.800 `.ts/.tsx/.mjs`, ~4 s). Los corre con `node --import tsx --test` en tandas de
+  6, a 2 procesos, esperando RAM.
+- `scripts/antes-de-subir.mjs`: guardas del push + `tsc` acotado (sólo lo CAMBIADO; `--importadores` suma a quienes lo importan) + tests
+  afectados, y termina en UNA línea: `VERDE <sha>` o `ROJO: <qué>` (`VERDE <sha> (tipos: los chequea Actions)` si el tsc no entró en RAM).
+  **El Cerebro no integra una punta sin esa línea** (AGENTS.md).
+- `scripts/modulos-ts.mjs`: la guarda de la clase 51/52 (todo `.ts` es un módulo), en `guardas-push.sh`.
+- `.github/workflows/integracion.yml`: **falla rápido** — guardas → afectados contra `origin/main` → tipos → los demás tests; las
+  dos fases suman la suite entera y no repiten ninguno. Un rojo se ve en ~3 min, no en ~11 (Tests: 508 s, Tipos: 137 s).
+- `scripts/replay-fallos-ci.mjs` + `docs/fallos-ci-integracion.jsonl`: **la prueba**. Para cada uno de los 17 runs rojos toma el
+  árbol exacto de la cabeza que falló (sin checkout: `ls-tree` + `cat-file --batch`) y la base REAL, el último run verde anterior,
+  y pregunta si el rojo habría salido: **17/17 runs, 20/20 rojos**. Un rojo nuevo se suma al `.jsonl` y se vuelve a correr.
+
+**Lo que se aprendió construyéndolo (cada uno costó un falso positivo o un rojo escondido):**
+
+- **Los comentarios no son dependencias.** Sin sacarlos, `AGENTS.md` «nombraba» a 167 tests: todos lo citan en un comentario («ver
+  AGENTS.md → …»), ninguno lo lee. Medido con las últimas 40 integraciones: 695 de 1.106 tests elegidos con el filtro, 805 sin él.
+- **Un array de strings no es un `join()`.** Juntar los trozos de `['--import', 'tsx', 'tests/_hijo.ts']` como si fuera un `join()` fabrica
+  `--import/tsx/tests/_hijo.ts` y se pierde el hijo: se leen las DOS versiones del texto (la cruda y la unida).
+- **Nombrar a otro test no es correrlo**; nombrar a un ayudante (`tests/_*`) o a un script, sí (un test que lo lanza depende de lo que
+  ese hijo importa). Sin esa distinción las cadenas de «importa» pasaban por tests.
+- **`node --test` sin `--test-concurrency` lanza un proceso POR NÚCLEO** (esta PC tiene 12): el 17/10 a las 01:05 una tanda de 8 archivos así
+  se llevó la RAM y se cayó la app con todos los chats. La guardia de RAM del script espera: en la corrida de la punta de un jefe cayó a
+  1,1 GB libres a mitad de camino y se quedó esperando, sin caerse.
+- **No hay `gh` ni API de GitHub en esta PC**: las bases de los runs salen de `C:/dev/runs-ci.jsonl` (el Cerebro) guardado en el repo. El
+  run 1 no tiene verde anterior: su base es el padre del commit que creó el workflow.
+- **Lo que encontró la primera corrida de verdad**: la punta de Automations SOLA (21 archivos, base = su padre) ya tenía rojo `puente-panel-copy` (voseo de
+  `lib/campanita.ts`) — y otro que nadie había visto, `api-mako-registro` («docs/api-mako.md quedó viejo»), porque es de otra guarda. Costó
+  **26 min 20 s** en esta PC cargada (388 archivos, 4.590 tests, tres esperas de RAM; la máquina llegó a 0,1 GB libres sin que el script la tocara).
+- **El `tsc` acotado compila también lo que esos archivos importan, y un archivo suelto no ve los tipos que AGREGA otro** (`declare module`,
+  `.d.ts` ambientes). Reproduciendo el run 10 con el tsc REAL salió, además de la bitácora sin `puntos` (TS2741), un TS2339 en
+  `app/web-generator/editor/insertar.ts` («toggleEtiqueta no existe en ChainedCommands») que el tsc completo no da: ese archivo no estaba en
+  el alcance, llegaba por arrastre. Por eso **sólo bloquean los errores de los archivos del alcance**; los de arrastre se muestran y los decide
+  Actions. Reproducidos con el tsc real: run 31 (TS2554 en `crm-campo-inline.test.ts`) y run 10 (TS2741).
+- **Un gate que no corre en la PC con la que se trabaja no se usa** (primer push real del Cerebro, 17/10, ~14 chats abiertos, `claude.exe` 4,9 GB y Chrome
+  2,9): el `tsc` acotado con importadores (188 archivos) pedía 4,3 GB y había 1,3 libres — se quedó esperando. Tres correcciones, de lo que ya
+  estaba medido y no se había mirado: (1) el vigía de RAM sólo mata `tsc`, eslint, vitest, jest, playwright y `next build` — **nunca un `node --test`** —,
+  así que el margen de 0,3 GB sobre la zona roja para los tests sobraba (de 1,55 a 1,3 GB para un proceso); (2) el alcance local del `tsc` pasa a lo
+  CAMBIADO (33-102 archivos en los replays en vez de 168-935; el replay sigue en 20/20 porque los rojos de «Tipos» estaban en lo cambiado o los frena
+  `modulos-ts`); (3) el paso de tipos espera 90 s, no 15 min, y si no entra dice «tipos: los chequea Actions» y sigue — lo mismo vale para el lock.
+- **La profundidad del grafo casi no ahorra**: con 120 archivos cambiados, 457 tests con todos los saltos, 356 con `--profundidad 1`. Lo grande
+  son las barredoras (110-150) y los que nombran un archivo: la palanca existe (`--profundidad N`, y el VERDE pasa a `PARCIAL`), pero no es la que
+  acorta la espera.
+
+**Lo que NO cubre** (y por qué Actions sigue corriendo todo):
+- Las interacciones ENTRE puntas: sólo existen en el árbol integrado. Por eso el pre-push a `integracion` también corre `antes-de-subir`, y
+  por eso `origin/main` tiene que estar mergeado en la rama del jefe.
+- Un test que arma la ruta con una interpolación (`` `lib/${x}.ts` ``) y no importa ni nombra: no sale por esa vía (sí si barre).
+- Los errores de tipos en quienes IMPORTAN lo que cambiaste: en local el `tsc` acotado mira sólo lo cambiado (con `--importadores`, un nivel más). Los cubre
+  el tsc completo de Actions, que corre justo después de los afectados.
+- Diferencias de Linux contra Windows: sólo las ve Actions.
+- Una barredora ESCONDIDA en un ayudante que el test importa (hoy ningún `tests/_*.ts` barre, pero un test nuevo podría importar uno que sí): se
+  detecta por el texto del test, no por el de sus imports.
+- Tests que arman un repo de git propio con `git init` bajo el `GIT_INDEX_FILE` temporal (hoy ninguno): el índice del script se les cruzaría.
+
+**Quedó SIN hacer:**
+- (Hecho, para que nadie lo busque: el pre-push nuevo quedó instalado en `.git/hooks` el 17/10 a las 04:26 con el visto del Cerebro; el anterior, en
+  `.git/hooks/pre-push.antes-antes-de-subir`. Un árbol sin `scripts/antes-de-subir.mjs` se comporta como siempre. Si se reclona, se copia de
+  `scripts/claude-hooks/pre-push` como dice AGENTS.md.)
+- `~/.claude/guardia/memoria.mjs` no tiene `antes-de-subir`/`tests-afectados` en su lista de «pesado»: el script espera RAM él mismo,
+  pero el hook de Claude no lo frena al lanzarlo (y es infraestructura compartida: se avisa antes).
+- Qué hacer con los 2.000 minutos: la decisión `minutos-github-actions` (A: tarjeta y tope en GitHub, B: runner propio, C: nada) la
+  contesta Martín en la Ticketera; «fallar rápido» baja el gasto en las tres.
+- Una punta que toca un módulo central (`lib/flujo-conversacion`, `lib/nutricion`…) elige 300-450 tests: 12-26 min en esta PC con la RAM
+  apretada. `--profundidad N` casi no lo baja (ver arriba); lo que lo bajaría es afinar qué cuenta como barredora (95 tests hacen `readdir`,
+  muchos de una carpeta chica) — no se hizo: cada test que se saque de ahí es un riesgo que el replay no mide.
+
+**Vive en:** `scripts/tests-afectados.mjs` · `scripts/antes-de-subir.mjs` · `scripts/modulos-ts.mjs` · `scripts/replay-fallos-ci.mjs` ·
+`docs/fallos-ci-integracion.jsonl` · `.github/workflows/integracion.yml` · `scripts/claude-hooks/pre-push` · `tests/tests-afectados.test.ts`
+
 ## Un script de roturas no se corta con `head`, y un worktree no tiene `.env.local` (16/10/2026)
 
 - ⚠️ **`node romper-*.mjs | head -3` puede matar el script en la mitad de una rotura.** Cuando `head` cierra el pipe,
@@ -6563,3 +6666,34 @@ ve comparando tamaños (`wc -c` contra `git show HEAD:…`).
 (`sed -i 's/\r$//' extension/*.js extension/*.html extension/*.json` — para git no es un cambio) y
 recién ahí generar. Vive en `scripts/zip-extension.mjs` (`leer`): lo que falta es que el generador
 normalice él mismo.
+
+## Un worktree nuevo sin `node_modules`: el tsc acotado dice «NO SE PUDO CHEQUEAR» y esconde por qué (17/10/2026)
+
+`git worktree add` no trae `node_modules` (está en el `.gitignore`), y `scripts/tsc-acotado.mjs` corre
+`node_modules/typescript/bin/tsc` del worktree. Sin la carpeta, node muere con `MODULE_NOT_FOUND` y el script contesta
+«NO SE PUDO CHEQUEAR (código 1, 787 bytes de salida)… Si fue el vigía de RAM, esperá o cerrá chats». La salida no se
+muestra, y el diagnóstico obvio (la RAM) es el equivocado: no es un rojo ni un verde, es que no hay `tsc`.
+
+- **El arreglo:** la misma junction que tienen los demás worktrees de `C:/dev`, en PowerShell:
+  `New-Item -ItemType Junction -Path <worktree>/node_modules -Target <clon>/node_modules`. Con eso, el acotado y los
+  tests (`node --import tsx --test`) corren igual que en el clon.
+- **Cómo distinguirlos:** el vigía de RAM deja «0 bytes de salida»; un `MODULE_NOT_FOUND` deja unos cientos.
+
+*17/10/2026, chat «Automations» (claude4), al abrir C:/dev/wt-aut-pedidos para la rama de los pedidos sueltos.*
+
+## Los logs de producción de AYER se leen con `vercel logs --since/--until` (17/10/2026)
+
+**Síntoma:** «Crear con IA se quedó pensando» en una llamada de la noche anterior. En la base no había rastro del
+motivo: `anthropic_usage` anota cada respuesta que LLEGÓ (proveedor, tokens, hora), pero no por qué se descartó.
+
+**Lo que sirve:** la CLI nueva de Vercel lee logs de horas atrás, filtrados por ruta (medido: 8,5 h atrás, el 17/10):
+
+`npx --yes vercel@latest logs --scope mbustos-4239s-projects -p mako --since 2026-10-16T21:25:00Z --until 2026-10-16T21:35:00Z -q 'requestPath:"/api/chat-agent/secuencias/ia"' --json -n 100`
+
+- ⚠️ El proyecto se llama **`mako`** (`.vercel/project.json` del clon), no `dashboard-marketing`: con el nombre del
+  repo contesta `project_not_found`.
+- Trae lo que la función escribió por `console.error` (el `requestId` agrupa una corrida). La primera línea del
+  `--json` es un aviso de la CLI, no JSON.
+- Juntos, `anthropic_usage` (QUÉ contestó y cuándo) y el log (POR QUÉ no sirvió) reconstruyen una corrida de IA.
+
+*17/10/2026, chat «Automations» (claude4), tarjeta #847.*

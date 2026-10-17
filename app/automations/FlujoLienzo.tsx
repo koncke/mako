@@ -39,7 +39,8 @@ import {
 // La papelera de la casa, roja siempre (sexta tanda, general 9): la del menú de una tarjeta.
 import { IconoBorrar } from '@/app/_ui/BotonBorrar';
 import { Icon } from '@/app/_components/icons';
-import { Toast, useToast } from '@/app/_ui';
+import { Toast, useToast, Switch } from '@/app/_ui';
+import { sinVistaPrevia, tieneLink } from '@/lib/mensaje-partes';
 import { conectar, desconectar, eliminar, soltar, crearSuelta, duplicar, partirConEspera, type Edicion } from '@/lib/flujo-edicion';
 import { insertarDesdeLienzo } from '@/lib/flujo-conversacion';
 // El editor del paso «⚡ Acción» es UNO para los dos lienzos (este y el de /mensajes).
@@ -141,7 +142,7 @@ export function FlujoLienzo({
   onPasos, onAgregar, onBorrar, onAudioNuevo, onError, onModoIA,
   chrome, herramientas, pie, editorEntrada, insetIzq, insetDer, muelles, revelar,
   onTarjetaAbierta, reservaAbajo, triggerTipo, eventoMako, productos, posiciones, onPosiciones, linea,
-  disparadores, onNuevoDisparador, onAbrirDisparador, accionesTodo, secuenciaId,
+  disparadores, onNuevoDisparador, onAbrirDisparador, accionesTodo, secuenciaId, pieWhatsApp,
 }: {
   /**
    * LA AUTOMATIZACIÓN que se edita (AI Step v2, décima tanda): el ensayo de un AI Step deja contestar a MaKo con
@@ -170,6 +171,11 @@ export function FlujoLienzo({
    * selector del CRON, en el editor de cada mensaje de WhatsApp. Sin esto, la fila no se dibuja.
    */
   linea?: EditorMensajeWhatsAppProps['linea'];
+  /**
+   * LO DE TODA LA AUTOMATIZACIÓN QUE VA DEBAJO DE CADA WHATSAPP (17/10/2026, #846: la «Reentrada», que salió del CRON).
+   * Viene de afuera, como `editorEntrada`: su estado y su guardado son de quien monta.
+   */
+  pieWhatsApp?: ReactNode;
   /**
    * DÓNDE QUEDÓ CADA TARJETA QUE LA PERSONA MOVIÓ (quinta tanda, punto 2; mig 0233): desplazamientos
    * desde el CRON derivado (lib/lienzo-posiciones.ts). Lo demás va donde lo pone el árbol. Las guarda
@@ -643,7 +649,7 @@ export function FlujoLienzo({
         // Soltada la flecha en el vacío (general 14), la tarjeta nace DONDE se soltó.
         if (nuevo && punto && (enElPunto || posiciones?.[id])) ponerEn(nuevo, punto.x, punto.y - Y_ENTRADA);
       }) : undefined}
-      varios={varios} onVarios={editable ? setVarios : undefined}
+      varios={varios} onVarios={editable ? setVarios : undefined} onEliminarVarios={editable ? eliminarVarias : undefined}
       onReconectar={editable ? reconectar : undefined}
       onReconectarANueva={editable ? reconectarANueva : undefined}
       onCopiar={editable ? textoCopiado : undefined}
@@ -712,7 +718,7 @@ export function FlujoLienzo({
           etiquetas={etiquetas} etapas={etapas} triggerTipo={triggerTipo} eventoMako={eventoMako} productos={productos}
           nombres={nombres} paraGuion={paraGuion} adjuntos={biblioteca?.estado === 'ok' ? biblioteca.lista : undefined} onAdjuntoNuevo={archivoNuevo}
           onPasos={onPasos} onAudioNuevo={onAudioNuevo} onError={onError} onModoIA={onModoIA}
-          editorEntrada={editorEntrada} formaPanel={formaPanel} linea={linea}
+          editorEntrada={editorEntrada} formaPanel={formaPanel} linea={linea} pieWhatsApp={pieWhatsApp}
           disparador={disparador} secuenciaId={secuenciaId ?? null}
           onAbrir={(id) => setSel(id)}
         />
@@ -1032,6 +1038,8 @@ type PropsEditor = {
   secuenciaId?: number | null;
   /** El número de salida de la automatización (ver FlujoLienzo). */
   linea?: EditorMensajeWhatsAppProps['linea'];
+  /** Debajo de cada WhatsApp: la reentrada de la automatización (ver FlujoLienzo). */
+  pieWhatsApp?: ReactNode;
   /**
    * El disparador en palabras («Llega a «Agendado»»): el ✦ de MaKo del editor de WhatsApp lo lee como
    * contexto para escribir el mensaje (sexta tanda, WhatsApp 3). Es el de la tarjeta CRON.
@@ -1194,7 +1202,7 @@ function SoloLectura({ nodo, paso }: { nodo: NodoFlujo; paso: PasoSecuenciaDto |
  * sembrado de props (lo que se está grabando, el guion), sin la key lo de un mensaje se
  * quedaba dibujado en el siguiente (AGENTS.md, el `useState` sembrado de props).
  */
-function EditorMensaje({ paso, id, cambiar, pasos, audios, negocio, envioAutoSecuencia, onAudioNuevo, onModoIA, paraGuion, adjuntos, onAdjuntoNuevo, disparador, triggerTipo, onPasos, chatMako }: PropsEditor & { paso: PasoSecuenciaDto; id: string; cambiar: Cambiar; chatMako?: HistorialRedacta | null }) {
+function EditorMensaje({ paso, id, cambiar, pasos, audios, negocio, envioAutoSecuencia, onAudioNuevo, onModoIA, paraGuion, adjuntos, onAdjuntoNuevo, disparador, triggerTipo, onPasos, chatMako, pieWhatsApp }: PropsEditor & { paso: PasoSecuenciaDto; id: string; cambiar: Cambiar; chatMako?: HistorialRedacta | null }) {
   const noOficial = proveedorDelPaso(paso) === 'no_oficial';
   // EL RECORDATORIO DE LA REUNIÓN (10/10/2026): lo manda su emisor, que manda TEXTO y resuelve SUS datos
   // (lib/recordatorio-automatizacion.ts). Ni audio, ni archivos, ni «Revisar» (sale siempre), y el «{ }» con
@@ -1212,6 +1220,7 @@ function EditorMensaje({ paso, id, cambiar, pasos, audios, negocio, envioAutoSec
     onModoIA?.(on);
   };
   return (
+    <>
     <EditorMensajeWhatsApp
       key={`msg-${id}`}
       paso={paso}
@@ -1251,6 +1260,18 @@ function EditorMensaje({ paso, id, cambiar, pasos, audios, negocio, envioAutoSec
       placeholder={paso.tipo === 'ia' ? 'Cómo responder' : undefined}
       chatMako={chatMako}
     />
+    {/* LA VISTA PREVIA DE LOS LINKS (#869, Mauricio: «es más discreto»): de ESTA tarjeta, sólo si lleva un link (o si ya
+        se apagó: que se pueda volver a prender). Apagada, el link sale como texto, sin la tarjeta (`sinVistaPrevia`). */}
+    {noOficial && !recordatorio && (tieneLink(paso) || sinVistaPrevia(paso)) && (
+      <div data-vista-previa style={{ flex: 'none', marginTop: 10 }}>
+        <Switch checked={!sinVistaPrevia(paso)} onChange={(v) => cambiar({ sin_vista_previa: !v }, true)} label="Vista previa del link" />
+      </div>
+    )}
+    {/* La reentrada de la automatización (#846): debajo del WhatsApp, fuera del teléfono, como un ajuste. */}
+    {pieWhatsApp && paso.canal === 'whatsapp' && (
+      <div data-pie-whatsapp style={{ flex: 'none', marginTop: 12, paddingTop: 10, borderTop: '1px solid var(--border)' }}>{pieWhatsApp}</div>
+    )}
+    </>
   );
 }
 

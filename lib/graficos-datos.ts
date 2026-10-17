@@ -37,7 +37,7 @@ import {
 } from './graficos-agregar';
 import { ESTADO_COBRADO } from './graficos-acciones';
 import { ubicarLeads } from './funnels-elegidos-server';
-import { funnelDelMomento } from './funnels-elegidos';
+import { faltaColumnaFunnel, funnelDelMomento } from './funnels-elegidos';
 import { diasEntre, ESTADOS_RESPONDIO, enviosRespondidos, gano, rotuloMadurez, tramosDelCiclo } from './graficos-datos-puro';
 import { carteraEnEntrega } from '@/app/customer-success/entrega';
 import { repartirEnEtapas } from './servicio-etapas';
@@ -277,7 +277,7 @@ async function filasFormularios(rg: Rango): Promise<Fila[]> {
     .filter((x) => enRango(x.f, rg));
 }
 
-type FPago = { id: number; lead_id: number | null; numero: number | null; monto_usd: number | null; fecha_esperada: string | null; pagado: boolean | null; fecha_pago: string | null };
+type FPago = { id: number; lead_id: number | null; numero: number | null; monto_usd: number | null; fecha_esperada: string | null; pagado: boolean | null; fecha_pago: string | null; funnel_id?: number | null };
 /**
  * Las cuotas. La fecha `vencimiento` mira hacia ADELANTE (`futuro`, contrato v5): «Próximos 30 días» trae lo
  * que vence. ⚠️ «Vencido» se decide con el HOY DEL NEGOCIO (su zona, `hoyEnWorkspace`), no con el de
@@ -286,9 +286,10 @@ type FPago = { id: number; lead_id: number | null; numero: number | null; monto_
  */
 async function filasPagos(fecha: string, rg: Rango): Promise<Fila[]> {
   const col = fecha === 'pago' ? 'fecha_pago' : 'fecha_esperada';
-  const rows = await leer<FPago>('pagos', 'id, lead_id, numero, monto_usd, fecha_esperada, pagado, fecha_pago', rg, {
-    col, extra: (q) => (fecha === 'pago' ? q.eq('pagado', true) : q),
-  });
+  // Con el funnel que guardó cada pago (#897, mig 0310); sin la columna, la regla de siempre (abajo).
+  const leerPagos = (cols: string) => leer<FPago>('pagos', cols, rg, { col, extra: (q) => (fecha === 'pago' ? q.eq('pagado', true) : q) });
+  const rows = await leerPagos('id, lead_id, numero, monto_usd, fecha_esperada, pagado, fecha_pago, funnel_id')
+    .catch((e: unknown) => { if (faltaColumnaFunnel(e)) return leerPagos('id, lead_id, numero, monto_usd, fecha_esperada, pagado, fecha_pago'); throw e; });
   const ids = rows.map((x) => x.lead_id).filter((x): x is number => x != null);
   const [nom, hoy, donde, rot] = await Promise.all([
     nombres('leads', ids),
@@ -309,7 +310,8 @@ async function filasPagos(fecha: string, rg: Rango): Promise<Fila[]> {
     const lead = x.lead_id != null ? String(x.lead_id) : null;
     // La fecha que manda: la del cobro si se cobró, la del vencimiento si no.
     const cuando = (x.pagado ? x.fecha_pago : null) ?? x.fecha_esperada;
-    const funnel = x.lead_id != null && cuando ? funnelDelMomento(donde.casas.get(x.lead_id) ?? null, donde.agregados.get(x.lead_id) ?? [], cuando) : null;
+    const funnel = x.funnel_id != null ? Number(x.funnel_id)
+      : x.lead_id != null && cuando ? funnelDelMomento(donde.casas.get(x.lead_id) ?? null, donde.agregados.get(x.lead_id) ?? [], cuando) : null;
     return {
       f: fecha === 'pago' ? x.fecha_pago : x.fecha_esperada,
       d: { estado, cliente: lead != null ? nom.get(lead) ?? null : null, cuota: x.numero != null ? `Cuota ${x.numero}` : null, producto: funnel != null ? rot.producto(funnel) : null },

@@ -233,7 +233,9 @@ test('el cierre del onboarding no ofrece caminos que la capa no puede abrir', ()
   assert.ok(ini > 0 && tarjeta.length > 100, 'no encuentro la tarjeta final');
   assert.match(tarjeta, /modo === 'oferta' && <Link href="\/crm"/, 'el CRM se ofrece a una capa que no lo ve');
   assert.match(tarjeta, /modo === 'oferta' && <Link href="\/offer"/, 'Offer se ofrece a una capa que no lo ve');
-  assert.match(tarjeta, /modo === 'oferta' \? '\/general' : '\/plan'/, 'la entrada a MaKo no mira la capa');
+  // Desde el 17/10/2026 el modo 'oferta' entra a lo que dijo que quiere resolver primero (`rutaDeEntrada`): sus capas
+  // (completo y agencia) ven todas las tabs.
+  assert.match(tarjeta, /modo === 'oferta' \? entrada : '\/plan'/, 'la entrada a MaKo no mira la capa');
 });
 
 test('el cierre del onboarding no manda a ningún lado sin la pestaña del cliente', () => {

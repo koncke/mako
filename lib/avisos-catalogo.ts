@@ -328,6 +328,10 @@ export const AVISOS_SOLO_SUPERADMIN: readonly string[] = [
   // automatización de SuperAdmin (docs/inventario-nada-por-detras.md, lote 1).
   'meta-cuenta-frenada',
   'meta-cuenta-recuperada',
+  // La reunión que el lead canceló (17/10/2026, lote 2): evento de la plataforma, con su texto y su freno en la fila.
+  'reunion-cancelada',
+  // El contacto que entró y se sumó a un lead que ya estaba (17/10/2026, lote 2), con el freno por lead.
+  'lead-fusionado',
 ];
 
 export const esAvisoSoloSuperAdmin = (id: string): boolean => AVISOS_SOLO_SUPERADMIN.includes(id);
@@ -578,7 +582,9 @@ Abre la extensión de MaKo y toca *Conectar*. Las tomas no se cobraron: cuando v
     // por teléfono puede equivocarse: dos personas de la misma empresa cargadas
     // con el número de la recepción, o un número que la operadora recicló. Ahí
     // el segundo se escribe ENCIMA del primero y no queda rastro.
-    disparador: 'Al instante: un webhook de Meta o Calendly encuentra un lead existente y lo actualiza en vez de crear uno nuevo.',
+    // ⚠️ DESDE EL 17/10/2026 EL TEXTO ES EL DE SU AUTOMATIZACIÓN de SuperAdmin (evento `lead_fusionado`, lote 2): el código
+    // pasa sólo el lead y los datos (`datosFusion`), con el freno por lead.
+    disparador: 'Al instante: un webhook de Meta, Calendly o Cal.com encuentra un lead existente y lo actualiza en vez de crear uno nuevo. Una vez por lead cada hora.',
     ejemplo: `🟡 Entró un contacto por *Calendly* y lo sumé a *Marina Olvera*, que ya tenías (mismo teléfono). Si no era la misma persona, avísame y lo separo 👉 https://hola-mako.com/crm/1842 — MaKo`,
   },
   // ⚠️ ACÁ ESTABA `clarity-grabacion-por-vencer` («Una grabación está por
@@ -792,7 +798,9 @@ https://hola-mako.com/crm/482/resumen
   {
     id: 'reunion-cancelada', titulo: 'Reunión cancelada/reagendada → reacomodar', categoria: 'accion', porDefecto: 'on',
     prioridad: 'media', semaforo: 'na', requiereRespuesta: true, yaImplementado: 'si',
-    disparador: 'Webhook Calendly invitee.canceled.',
+    // ⚠️ DESDE EL 17/10/2026 EL TEXTO ES EL DE SU AUTOMATIZACIÓN de SuperAdmin (evento `reunion_cancelada`, «nada por detrás»,
+    // lote 2): el webhook pasa sólo el lead y la reunión (`datosCancelada`), con un freno contra la reentrega de Calendly.
+    disparador: 'Cuando un lead cancela su reunión en Calendly. Avisa al negocio una vez por reunión (una reentrega de Calendly no lo repite).',
     ejemplo: `🔄 *Se canceló* la R1 con Mariela Gómez que era para el jueves 16 a las 11:00 y todavía no reagendó.
 
 Si consigues otro horario, dime *«reagéndale la R1 a Mariela Gómez»* y te busco los huecos libres.

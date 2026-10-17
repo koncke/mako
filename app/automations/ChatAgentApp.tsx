@@ -83,6 +83,8 @@ export type PasoSecuenciaDto = {
    * poder»). `null`/ausente = el de la automatización. Lo lee el motor con `lineaDelPaso`.
    */
   linea?: string | null;
+  /** Sus links salen SIN la vista previa (#869). Ausente = con ella. Lo lee el motor con `sinVistaPrevia`. */
+  sin_vista_previa?: boolean;
   /**
    * La CUENTA de Instagram o Messenger de ESTE mensaje (decimocuarta tanda, punto 5: «se debería poder conectar varias
    * cuentas, como hoy se puede conectar varios WhatsApp»): el id de la cuenta de Zernio. `null`/ausente = la conversación
@@ -420,8 +422,9 @@ function ChatAgentInner() {
   // lienzo. Si la fila no se pudo crear, el pedido no se pierde: vuelve a la barra de la galería (`pedidoSinCrear`).
   // Si MaKo falla después, la fila queda (vacía, pausada) con el error en su chat y el pedido de vuelta en la barra: no
   // es una fantasma, es una automatización a la que se le puede volver a pedir.
+  // Contesta si la fila nació (17/10/2026: la burbuja de «crea otra» del chat de MaKo no dice «Creada» sin saberlo).
   const crearNueva = async (pedido?: string) => {
-    if (creandoNueva.current) return;
+    if (creandoNueva.current) return false;
     creandoNueva.current = true;
     setErrCrear(null);
     const temporal = -Date.now();
@@ -429,7 +432,7 @@ function ChatAgentInner() {
     setAbrirSec({ id: temporal });
     try {
       const r = await (await fetch('/api/chat-agent/secuencias', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'crear_vacia' }) })).json();
-      if (!r?.ok || !(Number(r.secuenciaId) > 0)) { setErrCrear(r?.error ?? 'No se pudo crear'); if (pedido) setPedidoSinCrear(pedido); return; }
+      if (!r?.ok || !(Number(r.secuenciaId) > 0)) { setErrCrear(r?.error ?? 'No se pudo crear'); if (pedido) setPedidoSinCrear(pedido); return false; }
       // (Acá se guardaba `arranque`: el tipo de CRON elegido en «¿Qué la dispara?» del modal, que abría su CRON en
       // ese tipo. Se fue con esos botones en la décima tanda: «eso ya lo hacemos dentro en el CRON».)
       const id = Number(r.secuenciaId);
@@ -438,7 +441,8 @@ function ChatAgentInner() {
       // monta con el chat abierto y el pedido puesto.
       if (pedido) { setPedidoSinCrear(null); setAbrirSec({ id, mako: true, pedido }); }
       await load();
-    } catch { setErrCrear('Sin conexión — prueba de nuevo.'); if (pedido) setPedidoSinCrear(pedido); } finally { setCreando(null); creandoNueva.current = false; }
+      return true;
+    } catch { setErrCrear('Sin conexión — prueba de nuevo.'); if (pedido) setPedidoSinCrear(pedido); return false; } finally { setCreando(null); creandoNueva.current = false; }
   };
   /** «＋ Nueva»: la galería. «Lienzo en blanco» es `crearNueva`, la de siempre (la galería no tiene su propia copia). */
   const abrirGaleria = () => { setErrCrear(null); setGaleria(true); };
@@ -775,6 +779,8 @@ function ChatAgentInner() {
           negocio={negocio} rolAdmin={rolAdmin} audios={audios} canalCaido={canalCaido} tz={tz} onAudioNuevo={(a) => setAudios((prev) => [a, ...prev.filter((x) => x.id !== a.id)])}
           onNueva={abrirGaleria} errorNueva={errCrear} onReload={() => void load()}
           abrir={abrirSec} onElegida={escribirSec} onMakoTrabajando={setMakoTrabajando}
+          /* Los pedidos sueltos del chat de MaKo (16/10/2026): «créame otra…» entra por la puerta de «Pídeselo a MaKo». */
+          onCrearOtra={crearNueva}
           handoffs={sinCaso}
           /* EL MENÚ, antes del buscador de la lista (undécima tanda, punto 9): «Configuraciones» (el horario de
              oficina y los límites, en un modal: el admin edita, el resto ve) y «Tutorial» (el recorrido). Son de la
@@ -799,10 +805,12 @@ function ChatAgentInner() {
           onPedirAMako={pedirAMako} pedidoInicial={pedidoSinCrear} />
       )}
 
-      {/* «COPIASTE UN FLUJO»: arriba al centro, sobre el lienzo, hasta que se conteste. */}
+      {/* «COPIASTE UN FLUJO»: arriba al centro, sobre el lienzo, hasta que se conteste. Debajo de la barra de inspección
+          (17/10/2026, #850): en la revisión del 16/10, inspeccionando a Brigitte, este cartel quedaba tapado («acá hay un
+          cartel que no llego a ver»). */}
       {ofrecerCopia && (
         <div role="dialog" aria-label="Crear lo copiado" style={{
-          position: 'fixed', top: 18, left: '50%', transform: 'translateX(-50%)', zIndex: 58,
+          position: 'fixed', top: 'calc(18px + var(--barra-agencia, 0px))', left: '50%', transform: 'translateX(-50%)', zIndex: 58,
           display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px 10px 16px', borderRadius: 14,
           background: 'var(--surface)', border: '1px solid var(--border-strong)', boxShadow: '0 12px 32px rgba(0,0,0,.16)', fontSize: 13.5, color: 'var(--ink)',
         }}>
