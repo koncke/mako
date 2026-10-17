@@ -16,7 +16,7 @@
 // =============================================================================
 
 import { NextResponse, type NextRequest } from 'next/server';
-import { cicloCartero, tokenDelCarteroValido } from '@/lib/operaciones';
+import { cicloCartero, hayParaElCartero, tokenDelCarteroValido } from '@/lib/operaciones';
 import { adjuntoParaElCartero } from '@/lib/operaciones-adjuntos';
 
 export const dynamic = 'force-dynamic';
@@ -37,6 +37,12 @@ export async function GET(req: NextRequest) {
   try {
     if (!(await tokenDelCarteroValido(token))) return NextResponse.json({ error: 'token del cartero inválido' }, { status: 401 });
     const q = req.nextUrl.searchParams;
+    // ?hay=<cuentas>&abre=<cuentas> (cartero 1.12.0, `vigilar`): ¿hay algo para entregar? SÓLO un número, sin escribir.
+    if (q.has('hay')) {
+      const lista = (k: string) => (q.get(k) ?? '').split(',').map((c) => c.trim()).filter(Boolean);
+      const hay = await hayParaElCartero(lista('hay'), lista('abre'));
+      return NextResponse.json({ hay }, { headers: { 'cache-control': 'no-store' } });
+    }
     const b = await adjuntoParaElCartero(q.get('pedido') ?? '', q.get('adjunto') ?? '');
     if (!b) return NextResponse.json({ error: 'no hay ese adjunto para entregar' }, { status: 404 });
     return new NextResponse(new Uint8Array(b), {
