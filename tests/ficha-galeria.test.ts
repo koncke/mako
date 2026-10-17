@@ -43,7 +43,7 @@ test('la galería YA NO SE ABRE SOLA: cada tab usa su sugerida y se abre con «T
   // que no aparezca el "¿Qué vas a crear hoy?"». Se fueron `abreSola` y el «Ahora no» que se recordaba en el navegador.
   // Probado rompiéndolo (16/10/2026): devolverle `abreSola(` a `galeriaAbierta` → este test falla.
   const ficha = sinComentarios(leer('app/crm/lead-view/ficha/FichaPorBloques.tsx'));
-  assert.match(ficha, /const galeriaAbierta = \(tab: TabFicha\): boolean => !!ff\.ficha && puede && galeria === tab;/);
+  assert.match(ficha, /const galeriaAbierta = \(tab: LugarFicha\): boolean => !!ff\.ficha && puede && galeria === tab;/);
   assert.doesNotMatch(ficha, /abreSola\(|galeria-cerrada|localStorage/, 'volvió la apertura sola o su «Ahora no»');
   assert.match(ficha, /onCerrar=\{\(\) => soltarGaleria\(tab\)\}/, 'cerrar no es elegir: no escribe la ficha del funnel');
 });
@@ -56,7 +56,7 @@ test('sin plantilla elegida abajo no va NADA, y tocar una plantilla la elige (16
   const gal = sinComentarios(leer('app/crm/lead-view/ficha/GaleriaTab.tsx'));
   assert.match(ficha, /const sinVistaPrevia = conGaleria && !vista;/);
   assert.match(ficha, /\{!sinVistaPrevia && <div className=\{epico \? 'fb-tab fb-tab--epica' : 'fb-tab'\}>/);
-  assert.match(gal, /onClick=\{\(\) => \{ setAviso\(null\); onElegir\(\{ tipo: 'plantilla', id: p\.id \}\); \}\}/);
+  assert.match(gal, /onTocar: \(\) => \{ setAviso\(null\); onElegir\(\{ tipo: 'plantilla', id: p\.id \}\); \}/);
   assert.match(gal, /\{vista\?\.tipo === 'mako' && <div className="fb-gal-barra"/, 'la barra «Usar» es sólo para lo que armó MaKo');
 });
 
@@ -146,28 +146,33 @@ test('la ruta que arma: admin, el CRM en su capa, y NO GUARDA nada', () => {
   assert.match(galeria, /const TOPE_CLIENTE_MS = 105_000;/, 'el cliente corta un poco después de la ruta');
 });
 
-test('la pantalla: la caja de la casa, «Sugerido» sutil, la pestaña renombrable sólo personalizando y la épica de la tab', () => {
+test('la pantalla: la caja de la casa, «Sugerido» sutil, el nombre en el título y la épica de la tab', () => {
   const galeria = sinComentarios(leer('app/crm/lead-view/ficha/GaleriaTab.tsx'));
   assert.match(galeria, /import \{ CajaPedido, CSS_CAJA_PEDIDO, CSS_TOKENS_CASA, TITULO_CAJA \} from '@\/app\/web-generator\/CajaPedido';/, 'LA caja de la casa, no una copia');
   assert.match(galeria, /<CajaPedido titulo=\{\{ texto: TITULO_CAJA, nivel: 2 \}\}/);
-  assert.match(galeria, /galeriaDeTab\(tab,/, 'el orden de la galería es el del motor (el mismo que ve MaKo)');
+  // Desde el 17/10/2026 `galeriaDeLugar` (./galeria.ts): en una tab es `galeriaDeTab`, el orden del motor (el que ve MaKo).
+  assert.match(galeria, /galeriaDeLugar\(tab,/, 'el orden de la galería es el del motor (el mismo que ve MaKo)');
+  assert.match(sinComentarios(leer('app/crm/lead-view/ficha/galeria.ts')), /if \(esTabFicha\(lugar\)\) return galeriaDeTab\(lugar, o\);/);
   assert.match(galeria, /marca && <span className="fb-gal-sugerido"/);
   const css = leer('app/crm/lead-view/ficha/ficha-css.ts');
   assert.match(css, /\.fb-gal-sugerido \{[^}]*font-size: 11\.5px; font-weight: 500;[^}]*color: var\(--dim\)/, '«Sugerido» como el de «Nueva hoja»: 11,5 px, 500, gris');
   assert.match(css, /@media \(max-width: 720px\) \{ \.fb-galeria, \.fb-gal-barra \{ display: none; \} \}/, 'en un celular no se personaliza');
   assert.match(css, /\.fb-titular \{[^}]*font-size: clamp\(32px,/);
 
+  // ⚠️ 17/10/2026: el nombre se cambia EN EL TÍTULO (Martín: «el Nombre se cambia en el título mismo»), con el campo de
+  // la casa (`EditableInline`, como el título del Dashboard), y lo cambia quien puede guardar la ficha; ya no hay doble
+  // clic en una pestaña.
   const tabs = sinComentarios(leer('app/crm/lead-view/LeadTabs.tsx'));
-  assert.match(tabs, /const renombra = !!\(t\.renombrable && onRenombrar\);/);
-  assert.match(tabs, /onDoubleClick=\{renombra \? \(\) => setRenombrando\(t\.key\) : undefined\}/);
-  assert.match(tabs, /if \(e\.key === 'Escape'\)/, 'Escape no cambia nada');
+  assert.match(tabs, /const editable = !!\(activa\?\.renombrable && onRenombrar\);/);
+  assert.match(tabs, /<EditableInline key=\{activa\.key\} valor=\{activa\.label\}/);
+  assert.doesNotMatch(tabs, /onDoubleClick/, 'volvió el doble clic en una pestaña');
   const ficha = sinComentarios(leer('app/crm/lead-view/ficha/FichaPorBloques.tsx'));
-  assert.match(ficha, /label: efectiva\.nombres\[tab\], content: contenidoDe\(tab\), renombrable: enEdicion/, 'el nombre de la ficha del funnel, y renombrar sólo personalizando');
-  assert.match(ficha, /onRenombrar=\{enEdicion \? \(key, nombre\) =>/);
-  assert.match(ficha, /cambiar\(\{ op: 'nombre', tab, nombre: nombre \|\| null \}\)/);
+  assert.match(ficha, /label: lugarDe\(efectiva, l\)\.nombre, content: contenidoDe\(l\), renombrable: puedeGuardar/, 'el nombre de la ficha del funnel, y renombrar quien guarda');
+  assert.match(ficha, /onRenombrar=\{puedeGuardar \? \(key, nombre\) =>/);
+  assert.match(ficha, /cambiar\(\{ op: 'nombre', tab: l, nombre: nombre \|\| null \}\)/);
   // La épica es de la tab: el titular gigante y el `epico` a cada bloque.
-  assert.match(ficha, /\{epico && <h2 className="fb-titular">\{efectiva\.nombres\[tab\]\}<\/h2>\}/);
-  assert.match(ficha, /<Armador tab=\{tab\} lista=\{ef\.tabs\[tab\]\}[^>]*epico=\{epico\}/);
+  assert.match(ficha, /\{epico && <h2 className="fb-titular">\{nombre\}<\/h2>\}/);
+  assert.match(ficha, /<Armador tab=\{tab\} lista=\{bloques\}[^>]*epico=\{epico\}/);
   const armador = sinComentarios(leer('app/crm/lead-view/ficha/Armador.tsx'));
   assert.match(armador, /editando=\{editando\} epico=\{epico\} \/>/, 'cada bloque recibe `epico` (el contrato de PropsBloque)');
   assert.match(sinComentarios(leer('app/crm/lead-view/ficha/tipos.ts')), /\n  epico: boolean;\n\};/);

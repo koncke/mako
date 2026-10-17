@@ -106,9 +106,10 @@ test('lo que se pide de clientes CORTA la red; lo demás corre sin las herramien
   corta('¿qué leads entraron hoy?');
   corta('¿quién me escribió por WhatsApp hoy?');
   corta('agéndame una reunión con Juan mañana a las 10');
-  // ⚠️ Un saludo con pregunta es `consultar` y trae `buscar_leads`: no se corta, corre sin ella.
-  const hola = corre('hola MaKo, ¿cómo estás?');
-  assert.ok(hola.nombres.includes('buscar_leads'), 'el caso dejó de servir: el saludo ya no trae buscar_leads');
+  // ⚠️ Una pregunta sobre MaKo es `consultar` y trae `buscar_leads`: no se corta, corre sin ella. (Hasta el 17/10 el
+  // caso era «hola MaKo, ¿cómo estás?»; desde el arreglo de Pablo el saludo se pela y es `charlar`, sin herramientas.)
+  const hola = corre('¿qué sabes hacer?');
+  assert.ok(hola.nombres.includes('buscar_leads'), 'el caso dejó de servir: la pregunta ya no trae buscar_leads');
   if (hola.r.cortar) return;
   assert.ok(hola.r.sacadas.includes('buscar_leads') && !hola.r.tools.some((t) => t.name === 'buscar_leads'), 'buscar_leads viajó a la red gratis');
   for (const t of hola.r.tools) assert.equal(llevaDatosDeClientes(t.name), false, `${t.name} viajó a la red gratis`);

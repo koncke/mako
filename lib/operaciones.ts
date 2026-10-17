@@ -31,11 +31,13 @@ import 'server-only';
 import { createHash, createPublicKey, randomBytes, randomUUID, verify } from 'node:crypto';
 import { getSupabaseServer } from './supabase';
 import {
-  CUENTA_RE, POR_VUELTA, claveIdDe, estadoDeCierre, leerFirmable, sanearAcuses, sanearChats,
-  sanearCierres, sanearClaves, sanearEntregables, todosLosChats, type ChatCartero, type Cierre, type EstadoPedido,
+  CUENTA_RE, DESTINO_NUEVO, POR_VUELTA, TOMADO_VENCE_MS, claveIdDe, sanearAbre, estadoDeCierre, leerFirmable, nombresDeAdjuntos, sanearAcuses, sanearChats,
+  sanearCierres, sanearClaves, sanearEntregables, sanearTurnos, todosLosChats, type ChatCartero, type Cierre, type EstadoPedido,
 } from './operaciones-reglas';
 import { sanearCuota, type Cuota } from './centro-uso';
+import { guardarTurnos } from './centro-turnos-db';
 import { AVISOS_POR_VUELTA, destinoDeDecision, filaAviso, mismoInstante, necesitaAviso } from './decisiones-aviso';
+import { borrarAdjuntosDe } from './operaciones-adjuntos';
 
 const T_PEDIDOS = 'operaciones_pedidos';
 const T_CARTEROS = 'operaciones_carteros';
@@ -57,6 +59,8 @@ export type Pedido = {
   entregado_at: string | null;
   cerrado_at: string | null;
   cierre: Cierre | null;
+  /** Los nombres de las fotos y los PDF que llevó (17/10/2026), sacados de su texto firmado. */
+  adjuntos?: string[];
 };
 
 export type Cartero = {
@@ -79,9 +83,13 @@ const COLS = 'id, created_at, autor, destino, destino_cuenta, destino_titulo, te
 
 export async function listarPedidos(limite = 100): Promise<Pedido[]> {
   const { data, error } = await getSupabaseServer()
-    .from(T_PEDIDOS).select(COLS).order('created_at', { ascending: false }).limit(limite);
+    .from(T_PEDIDOS).select(`${COLS}, firmado`).order('created_at', { ascending: false }).limit(limite);
   if (error) throw new Error(`no pude leer la cola: ${error.message}`);
-  return (data ?? []) as Pedido[];
+  // El texto firmado no sale de acá: sólo los nombres de sus adjuntos, si tiene.
+  return (data ?? []).map(({ firmado, ...p }) => {
+    const adjuntos = nombresDeAdjuntos(firmado as string | null);
+    return (adjuntos.length ? { ...p, adjuntos } : p) as Pedido;
+  });
 }
 
 export async function leerCarteros(): Promise<EstadoCarteros> {
@@ -151,12 +159,13 @@ export async function encolarPedido(entrada: {
   return { ok: true, id: l.p.id };
 }
 
-/** Sólo un pedido que todavía no tomó un cartero se puede cancelar. */
+/** Sólo un pedido que todavía no tomó un cartero se puede cancelar. Sus adjuntos se borran (no van a bajar). */
 export async function cancelarPedido(id: string): Promise<boolean> {
   const { data, error } = await getSupabaseServer().from(T_PEDIDOS)
     .update({ estado: 'cancelado', motivo: 'Lo canceló Martín', updated_at: new Date().toISOString() })
-    .eq('id', id).eq('estado', 'escrito').select('id');
+    .eq('id', id).eq('estado', 'escrito').select('id, firmado');
   if (error) throw new Error(error.message);
+  await borrarAdjuntosDe((data ?? []).map((f) => f.firmado as string | null));
   return (data ?? []).length > 0;
 }
 
@@ -184,6 +193,8 @@ export type SalidaCiclo = {
   cierres: number;
   /** Los cierres que entraron (cartero 1.4.0): la PC borra ésos y vuelve a subir los demás. */
   cierresIds: string[];
+  /** Si lo que se dijo en los chats entró (cartero 1.8.0): sin esto la PC no avanza su marca y lo vuelve a subir. */
+  turnosOk: boolean;
 };
 
 const T_DECISIONES = 'admin_decisiones';
@@ -241,12 +252,49 @@ async function avisosParaElCartero(
  * cuenta y los acuses de la vuelta anterior, y se lleva lo que puede entregar ahora.
  * Devuelve null si el token no vale; tira si falta la cuenta.
  */
-export async function cicloCartero(token: string, entrada: unknown): Promise<SalidaCiclo | null> {
-  if (!token.startsWith('mkop_')) return null;
+/**
+ * ¿Hay algo para entregar en estas cuentas? (cartero 1.12.0, `vigilar`; Martín: «Envié un mensaje y no pasó nada por
+ * varios segundos».) Es la consulta LIVIANA que la PC hace cada pocos segundos: devuelve SÓLO un número, sin escribir
+ * nada. Cuenta lo `escrito` para los entregables que cada cuenta subió en su última vuelta, y los `nuevo` sólo de las
+ * cuentas que la PC dice que abre (si no, una vuelta completa no los reclamaría y la PC preguntaría en falso para
+ * siempre). Quien llama ya validó el token del cartero.
+ */
+export async function hayParaElCartero(cuentas: readonly string[], abre: readonly string[]): Promise<number> {
+  const validas = [...new Set(cuentas.filter((c) => CUENTA_RE.test(c)))].slice(0, 10);
+  if (!validas.length) return 0;
   const db = getSupabaseServer();
-  const { data: tok, error: eTok } = await db.from(T_TOKEN).select('id').eq('token_hash', hash(token)).maybeSingle();
-  if (eTok) throw new Error(eTok.message);
-  if (!tok) return null;
+  const { data: filas, error } = await db.from(T_CARTEROS).select('cuenta, chats').in('cuenta', validas);
+  if (error) throw new Error(error.message);
+  const vivos = (filas ?? []).flatMap((f) => sanearChats(f.chats)
+    .filter((c) => c.vivo && c.runner !== false && !c.esRunner && !c.nube).map((c) => c.local));
+  let n = 0;
+  if (vivos.length) {
+    const { count, error: e } = await db.from(T_PEDIDOS).select('id', { count: 'exact', head: true })
+      .eq('estado', 'escrito').in('destino', vivos);
+    if (e) throw new Error(e.message);
+    n += count ?? 0;
+  }
+  const abren = validas.filter((c) => abre.includes(c));
+  if (abren.length) {
+    const { count, error: e } = await db.from(T_PEDIDOS).select('id', { count: 'exact', head: true })
+      .eq('estado', 'escrito').eq('destino', DESTINO_NUEVO).in('destino_cuenta', abren);
+    if (e) throw new Error(e.message);
+    n += count ?? 0;
+  }
+  return n;
+}
+
+/** ¿Es el token de los carteros? Lo usan la vuelta y la bajada de un adjunto (app/api/operaciones/cartero/route.ts). */
+export async function tokenDelCarteroValido(token: string): Promise<boolean> {
+  if (!token.startsWith('mkop_')) return false;
+  const { data: tok, error } = await getSupabaseServer().from(T_TOKEN).select('id').eq('token_hash', hash(token)).maybeSingle();
+  if (error) throw new Error(error.message);
+  return !!tok;
+}
+
+export async function cicloCartero(token: string, entrada: unknown): Promise<SalidaCiclo | null> {
+  if (!(await tokenDelCarteroValido(token))) return null;
+  const db = getSupabaseServer();
 
   const e = (entrada && typeof entrada === 'object' ? entrada : {}) as Record<string, unknown>;
   const cuenta = typeof e.cuenta === 'string' && CUENTA_RE.test(e.cuenta) ? e.cuenta : null;
@@ -262,15 +310,26 @@ export async function cicloCartero(token: string, entrada: unknown): Promise<Sal
     .upsert({ cuenta, visto_at: ahoraIso, version, chats, claves, updated_at: ahoraIso, ...(cuota ? { cuota } : {}) }, { onConflict: 'cuenta' });
   if (eUp) throw new Error(eUp.message);
 
+  // Lo que se dijo en cada chat desde la vuelta anterior (cartero 1.8.0, 17/10/2026: «los chats no se entienden»). Si no se
+  // pudo guardar, la vuelta sigue: la PC no avanza su marca hasta que MaKo diga que entró (`turnosOk`).
+  let turnosOk = true;
+  const turnos = sanearTurnos(e.turnos);
+  if (turnos.length) {
+    try { await guardarTurnos(turnos); } catch (err) { turnosOk = false; console.error('[operaciones] turnos:', err instanceof Error ? err.message : err); }
+  }
+
   // Los acuses de la vuelta anterior: sólo sobre un pedido TOMADO, o sobre un aviso de la
   // Ticketera TOMADO (comparten el formato de id, y cada id es de uno solo de los dos).
   let acuses = 0;
+  // Con el acuse, el trabajo terminó para la PC: lo que tenía que bajar ya bajó (o no va a bajar). Sus adjuntos se borran.
+  const terminados: Array<string | null> = [];
   for (const a of sanearAcuses(e.acuses)) {
     const { data } = await db.from(T_PEDIDOS).update({
       estado: a.estado, motivo: a.motivo, updated_at: ahoraIso,
       ...(a.estado === 'entregado' ? { entregado_at: ahoraIso } : {}),
-    }).eq('id', a.id).eq('estado', 'tomado').select('id');
+    }).eq('id', a.id).eq('estado', 'tomado').select('id, firmado');
     acuses += (data ?? []).length;
+    for (const f of data ?? []) terminados.push(f.firmado as string | null);
     if ((data ?? []).length) continue;
     // Si falta la mig 0288 esto da error: un acuse de aviso no puede existir sin ella, así que se ignora.
     const { data: av } = await db.from(T_DECISIONES).update({ aviso_estado: a.estado, aviso_motivo: a.motivo, aviso_at: ahoraIso })
@@ -293,7 +352,16 @@ export async function cicloCartero(token: string, entrada: unknown): Promise<Sal
   const limite = new Date(Date.now() - 15 * 86_400_000).toISOString();
   const { data: venc } = await db.from(T_PEDIDOS)
     .update({ estado: 'no_entregado', motivo: 'Venció con el chat cerrado: ábrelo y vuelve a mandarlo', updated_at: ahoraIso })
-    .eq('estado', 'escrito').lt('created_at', limite).select('id');
+    .eq('estado', 'escrito').lt('created_at', limite).select('id, firmado');
+  for (const f of venc ?? []) terminados.push(f.firmado as string | null);
+  // Lo tomado que nunca acusó (17/10/2026, la revisión de seguridad de los adjuntos): el acuse era su ÚNICA salida, y
+  // cancelar y vencer miran sólo lo `escrito`. Quedaba `tomado` para siempre, con su adjunto servido y sin borrar.
+  const tomadoLimite = new Date(Date.now() - TOMADO_VENCE_MS).toISOString();
+  const { data: perdidos } = await db.from(T_PEDIDOS)
+    .update({ estado: 'incierto', motivo: 'El Runner no confirmó si le llegó: míralo en el chat', updated_at: ahoraIso })
+    .eq('estado', 'tomado').lt('tomado_at', tomadoLimite).select('id, firmado');
+  for (const f of perdidos ?? []) terminados.push(f.firmado as string | null);
+  await borrarAdjuntosDe(terminados);
 
   // Lo que ESTE cartero puede entregar ahora: pedidos escritos para uno de SUS chats vivos que la PC alcanza.
   const vivos = sanearEntregables(e.entregables, chats);
@@ -303,6 +371,20 @@ export async function cicloCartero(token: string, entrada: unknown): Promise<Sal
       .eq('estado', 'escrito').in('destino', vivos).order('created_at', { ascending: true }).limit(POR_VUELTA);
     if (eCand) throw new Error(eCand.message);
     for (const { id } of cand ?? []) {
+      const { data } = await db.from(T_PEDIDOS)
+        .update({ estado: 'tomado', tomado_at: ahoraIso, updated_at: ahoraIso })
+        .eq('id', id).eq('estado', 'escrito').select('id, firmado, firma');
+      if (data && data[0]) pedidos.push(data[0] as PedidoParaEntregar);
+    }
+  }
+  // Los chats NUEVOS de esta cuenta (cartero 1.11.0, «un clic»): sólo a un cartero que dice que los abre (`abre`: una
+  // terminal de esa cuenta y el permiso local prendido). Sin eso quedan escritos, y la pantalla dice qué hacer.
+  if (sanearAbre(e.abre).includes(cuenta) && pedidos.length < POR_VUELTA) {
+    const { data: nuevos, error: eNuevos } = await db.from(T_PEDIDOS).select('id')
+      .eq('estado', 'escrito').eq('destino', DESTINO_NUEVO).eq('destino_cuenta', cuenta)
+      .order('created_at', { ascending: true }).limit(POR_VUELTA - pedidos.length);
+    if (eNuevos) throw new Error(eNuevos.message);
+    for (const { id } of nuevos ?? []) {
       const { data } = await db.from(T_PEDIDOS)
         .update({ estado: 'tomado', tomado_at: ahoraIso, updated_at: ahoraIso })
         .eq('id', id).eq('estado', 'escrito').select('id, firmado, firma');
@@ -319,5 +401,5 @@ export async function cicloCartero(token: string, entrada: unknown): Promise<Sal
   } catch (err) {
     avisosError = err instanceof Error ? err.message.slice(0, 200) : 'error';
   }
-  return { pedidos, avisos, avisosError, vencidos: (venc ?? []).length, acuses, cierres, cierresIds };
+  return { pedidos, avisos, avisosError, vencidos: (venc ?? []).length, acuses, cierres, cierresIds, turnosOk };
 }

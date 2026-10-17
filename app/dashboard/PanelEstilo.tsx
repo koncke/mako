@@ -17,17 +17,39 @@
 //     UN paso del deshacer y no cuarenta. Elegir el primero de la paleta es volver al de la plantilla.
 //   · LETRA: las TIPOGRAFIAS, cada una escrita con su propia letra (se bajan al abrir el panel, con
 //     `useHojasDeFuentes`, una hoja por familia). Elegir la de la plantilla es volver a «la de la plantilla».
+//   · TARJETAS y GRÁFICOS (17/10/2026, Martín: «deberías mejorar ese desplegable de estilos, ya que quedó
+//     limitado»): los ajustes encima de la plantilla (`AJUSTES_TEMA`, lib/graficos-temas.ts) —fondo, esquinas,
+//     borde, sombra y títulos de las tarjetas; valores, leyenda y cuadrícula de los gráficos—, cada uno como
+//     botones de una sola elección con el de la plantilla marcado mientras no se toque. Elegir otra plantilla
+//     los vuelve a los suyos.
+//
+// ES LA PIEZA COMPARTIDA del «Estilo de la hoja»: la usan el Dashboard y General (app/dashboard/EditorInforme.tsx)
+// y la ficha del lead (app/crm/lead-view/ficha/EstiloDeLaHoja.tsx). Los ajustes se muestran con `ajustes`: quien
+// lo prende tiene que GUARDARLOS (el saneo es `sanearTema`); un control que no se guarda miente un clic.
+// Los estilos de los ajustes van en línea, no en una clase del editor, para que se vean igual en la ficha del CRM.
 
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { useHojasDeFuentes } from '@/app/_cursos/SelectorFuente';
 import { RUEDA_COLOR } from '@/app/_ui/rueda-color';
-import { PLANTILLAS_TEMA, TIPOGRAFIAS, hexONull, paletaDe, plantillaDe, tipografiaDe, type PlantillaTema, type TemaHoja } from '@/lib/graficos-temas';
+import {
+  AJUSTES_TEMA, PLANTILLAS_TEMA, TIPOGRAFIAS, ajusteDe, hexONull, paletaDe, plantillaDe, plantillaEfectiva, tipografiaDe,
+  type AjustesTema, type PlantillaTema, type TemaHoja,
+} from '@/lib/graficos-temas';
 
 const RESPIRO_COLOR_MS = 450;
 
-export function PanelEstilo({ tema, onCambiar }: { tema: TemaHoja; onCambiar: (parche: Partial<TemaHoja>) => void }) {
+/** Elegir otra plantilla trae lo suyo: el color y los ajustes vuelven a los de ella. */
+const SIN_AJUSTES = Object.fromEntries(AJUSTES_TEMA.map((a) => [a.id, undefined])) as AjustesTema;
+
+export function PanelEstilo({ tema, onCambiar, ajustes = false }: {
+  tema: TemaHoja;
+  onCambiar: (parche: Partial<TemaHoja>) => void;
+  /** Mostrar los ajustes de tarjetas y gráficos (sólo si quien monta el panel los guarda). */
+  ajustes?: boolean;
+}) {
   useHojasDeFuentes(TIPOGRAFIAS.map((t) => t.id));
   const p = plantillaDe(tema.plantilla);
+  const efectiva = plantillaEfectiva(tema);
   const paleta = paletaDe(tema);
   const letra = tema.fuente ?? p.fuente;
 
@@ -70,8 +92,9 @@ export function PanelEstilo({ tema, onCambiar }: { tema: TemaHoja; onCambiar: (p
       <div className="lk-plantillas" role="group" aria-label="Plantilla">
         {PLANTILLAS_TEMA.map((pl) => (
           <button key={pl.id} type="button" className="lk-plantilla" aria-pressed={pl.id === p.id} title={pl.linea}
-            onClick={() => { if (pl.id !== p.id) onCambiar({ plantilla: pl.id, acento: null }); }}>
-            <Muestra p={pl} acento={pl.id === p.id ? acentoVisto : null} letra={pl.id === p.id ? letra : null} />
+            onClick={() => { if (pl.id !== p.id) onCambiar({ plantilla: pl.id, acento: null, ...SIN_AJUSTES }); }}>
+            {/* La elegida, con los ajustes de la hoja encima: la muestra es lo que se ve. */}
+            <Muestra p={pl.id === p.id ? efectiva : pl} acento={pl.id === p.id ? acentoVisto : null} letra={pl.id === p.id ? letra : null} />
             <span className="lk-plantilla-nom">{pl.nombre}</span>
           </button>
         ))}
@@ -102,6 +125,43 @@ export function PanelEstilo({ tema, onCambiar }: { tema: TemaHoja; onCambiar: (p
           </button>
         ))}
       </div>
+
+      {ajustes && ['Tarjetas', 'Gráficos'].map((grupo) => (
+        <div key={grupo} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div className="lk-estilo-tit">{grupo}</div>
+          {AJUSTES_TEMA.filter((a) => a.grupo === grupo).map((a) => (
+            <div key={a.id} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <span style={{ fontSize: 12, color: 'var(--dim)' }}>{a.nombre}</span>
+              <Elegir etiqueta={a.nombre} valor={ajusteDe(tema, a.id)} valores={a.valores}
+                onElegir={(v) => onCambiar({ [a.id]: v } as Partial<TemaHoja>)} />
+            </div>
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** Botones de una sola elección, todos a la vista (son 2 o 3 valores: un desplegable los escondería). */
+function Elegir({ etiqueta, valor, valores, onElegir }: {
+  etiqueta: string; valor: string; valores: ReadonlyArray<{ id: string; nombre: string }>; onElegir: (v: string) => void;
+}) {
+  return (
+    <div role="group" aria-label={etiqueta} style={{ display: 'flex', gap: 3, padding: 3, borderRadius: 10, background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
+      {valores.map((v) => {
+        const sel = v.id === valor;
+        return (
+          <button key={v.id} type="button" aria-pressed={sel} onClick={() => { if (!sel) onElegir(v.id); }}
+            style={{
+              flex: 1, minWidth: 0, height: 30, border: 'none', borderRadius: 7, cursor: 'pointer', fontFamily: 'inherit',
+              fontSize: 12.5, fontWeight: 500, padding: '0 6px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+              background: sel ? 'var(--surface)' : 'transparent', color: sel ? 'var(--ink)' : 'var(--dim)',
+              boxShadow: sel ? '0 0 0 1px var(--border-strong)' : 'none',
+            }}>
+            {v.nombre}
+          </button>
+        );
+      })}
     </div>
   );
 }

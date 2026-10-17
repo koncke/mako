@@ -7,10 +7,13 @@
 // tipografía, incluso diferentes plantillas de estilos de diseño. Eso te permite a ti ya
 // pre-diseñar los componentes y que queden bien siempre.»
 //
-// Una hoja guarda TRES cosas: la plantilla (un id de este catálogo cerrado), un acento opcional
-// (el primer color de la serie) y una tipografía opcional. Todo lo demás —cómo es la tarjeta, la
-// paleta, si hay etiquetas, el grosor del trazo— lo decide la plantilla. Así ningún gráfico puede
-// quedar «mal combinado»: el que diseña las combinaciones es este archivo.
+// Una hoja guarda la plantilla (un id de este catálogo cerrado), un acento opcional (el primer color de
+// la serie) y una tipografía opcional. Desde el 17/10/2026 también los AJUSTES (`AJUSTES_TEMA`): las
+// esquinas, el borde, la sombra y el fondo de las tarjetas, las etiquetas, la leyenda y la cuadrícula de
+// los gráficos y los títulos en mayúsculas (Martín, del desplegable «Estilo de la hoja»: «deberías mejorar
+// ese desplegable de estilos, ya que quedó limitado»). Cada ajuste es un valor de un conjunto cerrado y,
+// sin tocar, es el de la plantilla: la combinación la sigue diseñando este archivo, la persona elige entre
+// opciones que ya se ven bien. El paleta, el trazo y los rótulos de las KPI siguen siendo de la plantilla.
 //
 // ⚠️ MODO OSCURO (punto 17): la tarjeta y el texto van SIEMPRE con tokens de la app (var(--surface),
 //    var(--ink), var(--border)…), que se dan vuelta solos con html[data-tema="oscuro"] (globals.css).
@@ -28,7 +31,43 @@ export type TemaHoja = {
   acento: string | null;
   /** El id de TIPOGRAFIAS, o null = la de la plantilla. */
   fuente: string | null;
+} & AjustesTema;
+
+/**
+ * Los ajustes encima de la plantilla (17/10/2026). Ausente = el de la plantilla: una hoja de antes no trae ninguno y
+ * se ve igual, y `sanearTema` sólo deja los que tienen un valor del conjunto.
+ */
+export type AjustesTema = {
+  esquinas?: 'rectas' | 'suaves' | 'redondas';
+  borde?: 'no' | 'suave' | 'fuerte';
+  sombra?: 'no' | 'si';
+  fondo?: 'surface' | 'surface-2' | 'transparente';
+  etiquetas?: 'no' | 'si';
+  leyenda?: 'arriba' | 'abajo' | 'no';
+  cuadricula?: 'no' | 'si';
+  titulos?: 'normal' | 'mayus';
 };
+
+/**
+ * El catálogo de los ajustes, con lo que se ve en el panel: el grupo, el nombre y sus valores. La pantalla los dibuja
+ * de acá (app/dashboard/PanelEstilo.tsx) y el saneo los valida de acá: un ajuste nuevo es una fila.
+ */
+export const AJUSTES_TEMA = [
+  { id: 'fondo', grupo: 'Tarjetas', nombre: 'Fondo', valores: [{ id: 'surface', nombre: 'Blanco' }, { id: 'surface-2', nombre: 'Gris' }, { id: 'transparente', nombre: 'Sin caja' }] },
+  { id: 'esquinas', grupo: 'Tarjetas', nombre: 'Esquinas', valores: [{ id: 'rectas', nombre: 'Rectas' }, { id: 'suaves', nombre: 'Suaves' }, { id: 'redondas', nombre: 'Redondas' }] },
+  { id: 'borde', grupo: 'Tarjetas', nombre: 'Borde', valores: [{ id: 'no', nombre: 'Sin borde' }, { id: 'suave', nombre: 'Suave' }, { id: 'fuerte', nombre: 'Marcado' }] },
+  { id: 'sombra', grupo: 'Tarjetas', nombre: 'Sombra', valores: [{ id: 'no', nombre: 'Sin sombra' }, { id: 'si', nombre: 'Flotan' }] },
+  { id: 'titulos', grupo: 'Tarjetas', nombre: 'Títulos', valores: [{ id: 'normal', nombre: 'Normal' }, { id: 'mayus', nombre: 'MAYÚSCULAS' }] },
+  { id: 'etiquetas', grupo: 'Gráficos', nombre: 'Valores', valores: [{ id: 'no', nombre: 'Ocultos' }, { id: 'si', nombre: 'A la vista' }] },
+  { id: 'leyenda', grupo: 'Gráficos', nombre: 'Leyenda', valores: [{ id: 'arriba', nombre: 'Arriba' }, { id: 'abajo', nombre: 'Abajo' }, { id: 'no', nombre: 'Sin leyenda' }] },
+  { id: 'cuadricula', grupo: 'Gráficos', nombre: 'Cuadrícula', valores: [{ id: 'no', nombre: 'Sin líneas' }, { id: 'si', nombre: 'Con líneas' }] },
+] as const satisfies ReadonlyArray<{ id: keyof AjustesTema; grupo: string; nombre: string; valores: ReadonlyArray<{ id: string; nombre: string }> }>;
+
+export type IdAjuste = keyof AjustesTema;
+
+/** El radio de cada «Esquinas». Las plantillas usan de 0 a 22: rectas como Editorial, redondas como Suave. */
+const RADIO_ESQUINAS: Record<NonNullable<AjustesTema['esquinas']>, number> = { rectas: 4, suaves: 14, redondas: 22 };
+const esquinasDe = (radio: number): NonNullable<AjustesTema['esquinas']> => (radio <= 8 ? 'rectas' : radio <= 17 ? 'suaves' : 'redondas');
 
 export type PlantillaTema = {
   id: string;
@@ -170,12 +209,72 @@ export const PLANTILLAS_TEMA: readonly PlantillaTema[] = [
 export const TEMA_BASE: TemaHoja = { plantilla: 'mako', acento: null, fuente: null };
 export const plantillaDe = (id: string | null | undefined): PlantillaTema => PLANTILLAS_TEMA.find((p) => p.id === id) ?? PLANTILLAS_TEMA[0];
 
-/** Lo que llega del navegador o de la base. Corrige en vez de rechazar: un id roto cae a la de MaKo. */
+/**
+ * Lo que llega del navegador o de la base. Corrige en vez de rechazar: un id roto cae a la de MaKo. Un ajuste sólo
+ * queda si su valor es del catálogo Y distinto del de la plantilla: elegir el de la plantilla es volver a ella (así
+ * cambiar de plantilla después trae lo suyo), y un tema sin ajustes es igual a uno de antes.
+ */
 export function sanearTema(raw: unknown): TemaHoja {
   const o = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
   const plantilla = PLANTILLAS_TEMA.some((p) => p.id === o.plantilla) ? String(o.plantilla) : TEMA_BASE.plantilla;
   const fuente = TIPOGRAFIAS.some((f) => f.id === o.fuente) ? String(o.fuente) : null;
-  return { plantilla, acento: hexONull(o.acento), fuente };
+  const tema: TemaHoja = { plantilla, acento: hexONull(o.acento), fuente };
+  const dePlantilla = ajustesDePlantilla(plantillaDe(plantilla));
+  for (const a of AJUSTES_TEMA) {
+    const v = o[a.id];
+    const valores: ReadonlyArray<{ id: string }> = a.valores;
+    if (typeof v === 'string' && valores.some((x) => x.id === v) && v !== dePlantilla[a.id]) (tema as Record<string, unknown>)[a.id] = v;
+  }
+  return tema;
+}
+
+/** Lo que la plantilla trae en cada ajuste: el valor «sin tocar» que el panel muestra elegido. */
+export function ajustesDePlantilla(p: PlantillaTema): Required<AjustesTema> {
+  return {
+    fondo: p.tarjeta.fondo,
+    esquinas: esquinasDe(p.tarjeta.radio),
+    borde: p.tarjeta.borde,
+    sombra: p.tarjeta.sombra ? 'si' : 'no',
+    titulos: p.titulo.mayus ? 'mayus' : 'normal',
+    etiquetas: p.graficos.etiquetas ? 'si' : 'no',
+    leyenda: p.graficos.leyenda,
+    cuadricula: p.graficos.cuadricula ? 'si' : 'no',
+  };
+}
+
+/** El valor de un ajuste en esta hoja: el elegido, o el de la plantilla. */
+export const ajusteDe = <K extends IdAjuste>(tema: TemaHoja, id: K): NonNullable<AjustesTema[K]> =>
+  (tema[id] ?? ajustesDePlantilla(plantillaDe(tema.plantilla))[id]) as NonNullable<AjustesTema[K]>;
+
+/** ¿La hoja cambió algo del estilo de siempre? (la plantilla de MaKo, sin acento, sin letra ni ajustes). */
+export const temaPropio = (tema: TemaHoja): boolean =>
+  tema.plantilla !== TEMA_BASE.plantilla || !!tema.acento || !!tema.fuente || AJUSTES_TEMA.some((a) => tema[a.id] != null);
+
+/**
+ * La plantilla con los ajustes de la hoja encima: lo que se DIBUJA. Todo lo que pinta una tarjeta o un gráfico pasa
+ * por acá (`estiloEfectivo`, `varsDeTema`, `fondoDeTarjeta` y la muestra del panel), así un ajuste no puede verse en
+ * un lugar y no en otro. Con las esquinas rectas en una plantilla sin caja, el radio de la caja no se ve: es correcto.
+ */
+export function plantillaEfectiva(tema: TemaHoja): PlantillaTema {
+  const p = plantillaDe(tema.plantilla);
+  const fondo = tema.fondo ?? p.tarjeta.fondo;
+  return {
+    ...p,
+    tarjeta: {
+      ...p.tarjeta,
+      fondo,
+      borde: tema.borde ?? p.tarjeta.borde,
+      radio: tema.esquinas ? RADIO_ESQUINAS[tema.esquinas] : p.tarjeta.radio,
+      sombra: tema.sombra ? tema.sombra === 'si' : p.tarjeta.sombra,
+    },
+    titulo: { ...p.titulo, mayus: tema.titulos ? tema.titulos === 'mayus' : p.titulo.mayus },
+    graficos: {
+      ...p.graficos,
+      etiquetas: tema.etiquetas ? tema.etiquetas === 'si' : p.graficos.etiquetas,
+      leyenda: tema.leyenda ?? p.graficos.leyenda,
+      cuadricula: tema.cuadricula ? tema.cuadricula === 'si' : p.graficos.cuadricula,
+    },
+  };
 }
 
 // ── Lo que se dibuja ────────────────────────────────────────────────────────────────────
@@ -205,7 +304,7 @@ export function paletaDe(tema: TemaHoja): string[] {
 }
 
 export function estiloEfectivo(tema: TemaHoja): EstiloEfectivo {
-  const p = plantillaDe(tema.plantilla);
+  const p = plantillaEfectiva(tema);
   return {
     colores: paletaDe(tema),
     etiquetas: p.graficos.etiquetas,
@@ -228,7 +327,7 @@ export function estiloEfectivo(tema: TemaHoja): EstiloEfectivo {
  * que la de MaKo. Sólo tokens de la app y números: nada que no se dé vuelta en oscuro.
  */
 export function varsDeTema(tema: TemaHoja): Record<string, string> {
-  const p = plantillaDe(tema.plantilla);
+  const p = plantillaEfectiva(tema);
   const letra = tipografiaDe(tema.fuente ?? p.fuente);
   const fondo = p.tarjeta.fondo === 'surface' ? 'var(--surface)' : p.tarjeta.fondo === 'surface-2' ? 'var(--surface-2)' : 'transparent';
   const borde = p.tarjeta.borde === 'no' ? 'transparent' : p.tarjeta.borde === 'fuerte' ? 'var(--border-strong)' : 'var(--border)';
@@ -252,7 +351,7 @@ export function varsDeTema(tema: TemaHoja): Record<string, string> {
  * halo de las etiquetas de valor y el borde de los puntos (lib/graficos-gordo.ts). Un token: se da vuelta solo.
  */
 export function fondoDeTarjeta(tema: TemaHoja): string {
-  const f = plantillaDe(tema.plantilla).tarjeta.fondo;
+  const f = plantillaEfectiva(tema).tarjeta.fondo;
   return f === 'surface' ? 'var(--surface)' : f === 'surface-2' ? 'var(--surface-2)' : 'var(--bg)';
 }
 

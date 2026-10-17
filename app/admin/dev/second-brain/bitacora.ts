@@ -362,4 +362,19 @@ export const BITACORA: Hito[] = [
       'app/m/second-brain/SecondBrainCentroM.tsx — el teléfono',
     ],
   },
+  {
+    fecha: '17 oct', hora: '04:45', chat: 'Centro de Operaciones', sesion: 'local_aac76313-d8b5-4b86-85f4-e579e4f33304', cuenta: 'claude4',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'MaKo te deja el link a la pantalla de lo que pediste',
+    pedido: 'que el chat le deje ahí el link para ir a donde corresponde',
+    puntos: [
+      'Debajo de la respuesta de MaKo en el Second Brain van los «Ir a …» de lo que pediste y se hace en otra pantalla.',
+      'MaKo contesta el mensaje entero, como siempre: el link se suma y no demora la respuesta.',
+    ],
+    archivos: [
+      'app/second-brain/ChatSecondBrain.tsx — el pedido a /api/mako/pedidos, en paralelo',
+      'lib/chat-mako-reglas.ts — de qué respuesta se cuelga (colgarIrA)',
+      'app/_chat/HiloMako.tsx — los chips',
+    ],
+  },
 ];

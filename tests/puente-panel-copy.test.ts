@@ -493,6 +493,14 @@ export const FUERA_DE_ALCANCE: { ruta: string; porque: string }[] = [
     porque: 'ídem: rutea el mensaje ENTRANTE («¿quién sos?», «dale»)',
   },
   {
+    ruta: 'lib/doer-salida.ts',
+    porque: 'detecta en la respuesta del modelo los pedidos de un dato («pasame la hora») y las groserías («boludo») para SACARLOS: sin las formas no ve nada',
+  },
+  {
+    ruta: 'lib/vigia-mako-grupos.ts',
+    porque: 'lee lo que escribieron MaKo y el cliente en el grupo («no tenés», «no me entendés») para marcar incidentes; no le habla a nadie',
+  },
+  {
     ruta: 'lib/flujo-ia-consulta.ts',
     porque: 'decide si lo que la persona ESCRIBE en el chat del lienzo es una pregunta («decime», «contame», «¿podés…?»): sin las formas no reconoce lo que escriben',
   },

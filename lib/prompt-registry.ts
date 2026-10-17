@@ -44,7 +44,7 @@ import { LANDING_ANALYZE_SYSTEM_TEMPLATE, LANDING_ANALYZE_USER_TEMPLATE } from '
 import { PRODUCTOS_SYSTEM_TEMPLATE, PRODUCTOS_USER_TEMPLATE } from './productos-ia';
 import { OFERTAS_SYSTEM_TEMPLATE, OFERTAS_USER_TEMPLATE } from './ofertas-ia';
 import {
-  OFFER_TURNO_SYSTEM_TEMPLATE, OFFER_TURNO_USER_TEMPLATE,
+  OFFER_TURNO_SYSTEM_TEMPLATE, OFFER_TURNO_USER_TEMPLATE, OFFER_ARRANQUE_SYSTEM_TEMPLATE,
   OFFER_DIAGNOSTICO_SYSTEM_TEMPLATE, OFFER_DIAGNOSTICO_USER_TEMPLATE,
   OFFER_PROPUESTA_SYSTEM_TEMPLATE, OFFER_PROPUESTA_USER_TEMPLATE,
 } from './offer-ia';
@@ -1328,6 +1328,13 @@ export const REGISTRY: Group[] = [
         variables: [v('contexto', 'lo que el negocio ya tenía cargado (perfil, Archivero, el funnel y sus ofertas, productos, avatares, razones, fase)'), v('piezas', 'lo que ya se sabe de cada pieza'), v('faltan', 'las piezas que faltan'), v('documentos', 'el texto de los documentos y las webs que mandó el dueño'), v('diagnostico', 'la próxima pregunta del diagnóstico de fase con sus 5 opciones originales, y si es obligatoria (la decide el código)'), v('conversacion', 'los últimos 30 mensajes, con quién dijo qué')], scope: 'full', sensitive: false,
         default: OFFER_TURNO_USER_TEMPLATE,
         context: 'Los datos del turno. Lo que viene del dueño va envuelto como dato no confiable; el bloque del diagnóstico NO (lo escribe el código y trae la orden de si la pregunta es obligatoria). Conserva los seis slots y la orden del JSON del final: un modelo chico pesa más lo último que lee.',
+      },
+      {
+        key: 'offer.arranque.system', source: 'override',
+        label: 'El onboarding: MaKo pregunta qué vende (system)', kind: 'system', dynamic: true,
+        variables: [v('guia', 'las preguntas de lo que vende (qué es, para quién, qué le resuelve, qué logra, cuánto cuesta), en orden'), v('claves', 'las keys de todas las piezas con lo que es cada una, para anotar lo que el dueño cuente de más')], scope: 'static-only', sensitive: true,
+        default: OFFER_ARRANQUE_SYSTEM_TEMPLATE,
+        context: 'La conversación del onboarding (17/10/2026): la misma de Offer, pero sólo hasta saber QUÉ VENDE, para ordenarlo en un PDF que MaKo usa de contexto. Lee el mismo user que la tab («La conversación: lo que MaKo lee en cada turno»), con lo que falta reducido a esas piezas. Reglas que no se tocan: una pregunta por mensaje, nada de análisis, notas, consejos ni oferta nueva (eso es de la tab Offer), no construir lo que falta, nada de diagnóstico de fase (lo pregunta el arranque con sus opciones) y el JSON exacto. Conserva los slots {{guia}} y {{claves}}. Y no lo pases a voseo: lo lee el cliente.',
       },
       {
         key: 'offer.diagnostico.system', source: 'override',

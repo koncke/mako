@@ -311,10 +311,10 @@ test('no vuelven el modal del Resumen ni el de los avisos a la ficha', () => {
   assert.ok(archivos.length > 100, `git ls-files devolvió ${archivos.length} archivos: esto no corrió en el repo`);
   const montan = (modal: string) => archivos.filter((f) => !f.endsWith(`/${modal}.tsx`) && new RegExp(`<${modal}\\b|/${modal}'`).test(sinComentarios(leer(f))));
   assert.deepEqual(montan('ResumenModal'), []);
-  // ⚠️ La ÚNICA puerta que queda al modal de avisos es el panel «A revisar»: mezcla leads de varios funnels,
-  //    así que ahí van los del NEGOCIO, el respaldo de cada funnel (tests/ficha-avisos.test.ts). La ficha
-  //    tiene los suyos, los de su funnel, en «Personalizar».
-  assert.deepEqual(montan('AvisosDatosModal'), ['app/_components/MakoConfirmGate.tsx']);
+  // ⚠️ El modal de avisos SE BORRÓ el 17/10/2026 (Martín, 16/10: el engranaje de «A revisar» abre un lead de ejemplo
+  //    con «¿Ignorar siempre?»): ninguna pantalla lo monta, y el archivo no está.
+  assert.deepEqual(montan('AvisosDatosModal'), []);
+  assert.ok(!existsSync(resolve(RAIZ, 'app/crm/lead-view/AvisosDatosModal.tsx')), 'volvió el modal de interruptores');
   const datos = sinComentarios(leer('app/crm/lead-view/DatosSinMarcarCard.tsx'));
   assert.doesNotMatch(datos, /onConfigurar|nombre="configurar"/, 'volvió el engranaje del desplegable de datos sin marcar');
   const info = sinComentarios(leer('app/crm/lead-view/InfoPrincipalCard.tsx'));

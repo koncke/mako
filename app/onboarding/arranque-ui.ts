@@ -28,14 +28,17 @@ export function tarjetasDe(lista: MensajeArranque[]): Map<string, TarjetaArranqu
 }
 
 /**
- * ¿El composer y las opciones van al ARRANQUE? Sí en todas las etapas menos la de la oferta (contesta Offer)
- * y mientras se termina de armar. Al final también va al arranque, y a propósito: un turno de Offer
- * después de «¡Listo!» quedaría ARRIBA de la tarjeta final (los mensajes del arranque van después de los de
- * la oferta), así que ahí el chat dice que la oferta sigue en Offer.
+ * ¿El composer y las opciones van al ARRANQUE? Sí en todas las etapas menos la de lo que vende (contesta
+ * Offer). Al final también va al arranque, y a propósito: un turno de Offer después de «¡Listo!» quedaría
+ * ARRIBA de la tarjeta final (los mensajes del arranque van después de los de la oferta), así que ahí el chat
+ * dice que la oferta sigue en Offer.
  */
 export function mandaElArranque(etapa: EtapaArranque): boolean {
-  return etapa !== 'oferta' && etapa !== 'armando';
+  return etapa !== 'oferta';
 }
+
+/** El PDF con lo que vende: el de la conversación, armado con sus piezas (GET /api/offer/pdf, `tipo`). */
+export const linkPdfLoQueVende = (sesionId: number): string => `/api/offer/pdf?id=${sesionId}&tipo=lo-que-vendes`;
 
 /** Las etapas en que ya no hay nada que contestar (la oferta sigue en su tab). */
 export const terminoElArranque = (etapa: EtapaArranque): boolean => etapa === 'cierre' || etapa === 'listo';
@@ -58,7 +61,7 @@ export function placeholderDe(etapa: EtapaArranque): string | undefined {
  * antes o después de la conversación de la oferta.
  */
 export function ladoDeLaPregunta(etapa: EtapaArranque, modo: 'oferta' | 'plan' = 'plan'): 'antes' | 'despues' {
-  // El diagnóstico va antes en modo 'plan' (no hay oferta) y después en 'oferta' (lo que faltó tras armarla).
+  // El diagnóstico va antes en modo 'plan' (no hay oferta) y después en 'oferta' (después de lo que vende).
   if (etapa === 'fase') return modo === 'oferta' ? 'despues' : 'antes';
   return etapa === 'nombre' || etapa === 'negocio' || etapa === 'objetivo' || etapa === 'que_hace' ? 'antes' : 'despues';
 }

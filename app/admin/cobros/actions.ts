@@ -32,6 +32,8 @@ import { esPasarela, type Cobro, type EstadoAlta, type EstadoCobro, type ModoCob
 import { normalizarMoneda } from '@/lib/pasarela-moneda';
 import { capaDef } from '@/lib/capas';
 import { ORIGEN_LEAD } from '@/app/crm/origen-lead';
+import { guardarPrecioClienteDeAgencia, precioClienteDeAgencia } from '@/lib/agencia-cobro';
+import type { PrecioClienteAgencia } from '@/lib/agencia-cobro-reglas';
 
 const NO_ADMIN = 'Sólo el super admin vende planes de MaKo.';
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -230,5 +232,28 @@ export async function reembolsarCobroMakoAction(id: number, motivo?: string | nu
     return r;
   } catch (e) {
     return { ok: false, resumen: mensaje(e, 'No pude hacer el reembolso.') };
+  }
+}
+
+// ── El precio de un cliente de agencia (#866, 17/10/2026) ─────────────────────────────────────
+// Lo que MaKo le cobra a una agencia por cada cliente: US$ 47 (la llamada con Código Inmobiliario) y lo que eso es en la
+// moneda de la Mercado Pago de MaKo, que cobra en pesos. Sin el monto en pesos no sale el link del primer mes: MaKo no
+// inventa una tasa de cambio. Las reglas, en lib/agencia-cobro-reglas.ts.
+
+export async function precioClienteAgenciaAction(): Promise<{ ok: true; precio: PrecioClienteAgencia } | { ok: false; error: string }> {
+  const admin = await getSesionAdmin();
+  if (!admin) return { ok: false, error: 'Sólo el super admin.' };
+  try { return { ok: true, precio: await precioClienteDeAgencia() }; } catch (e) { return { ok: false, error: e instanceof Error ? e.message : String(e) }; }
+}
+
+export async function guardarPrecioClienteAgenciaAction(p: { usd: number; moneda: string; monto: number | null }): Promise<{ ok: true; precio: PrecioClienteAgencia } | { ok: false; error: string }> {
+  const admin = await getSesionAdmin();
+  if (!admin) return { ok: false, error: 'Sólo el super admin.' };
+  try {
+    const precio = await guardarPrecioClienteDeAgencia({ usd: p.usd, mp: p.monto ? { moneda: p.moneda, monto: p.monto } : null });
+    revalidatePath('/admin/cobros');
+    return { ok: true, precio };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
   }
 }

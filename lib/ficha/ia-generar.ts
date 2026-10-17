@@ -23,7 +23,7 @@ import { parseJsonObject } from '../json-del-modelo';
 import { PROVS_CREAR_IA, PROVS_GRATIS_PIN, MODELOS_CREAR_IA, salidaParaIA, falloDeIA, type FalloIA } from '../flujo-ia';
 import { porLaRedDePlataforma } from '../graficos-ia-red';
 import { reglasDe } from '../../app/crm/lead-view/ficha/reglas';
-import type { TabFicha } from './catalogo';
+import type { LugarFicha } from './catalogo';
 import { FEATURE_TAB_IA, TAB_IA_SYSTEM_TEMPLATE, TOPE_PEDIDO_TAB, deIATab, ofrecidosParaIA, userDeTab, type ResultadoTabIA } from './ia';
 
 /** Lo que tiene la cascada para contestar, por defecto (el de la ruta). */
@@ -34,7 +34,7 @@ const TIMEOUT_INTENTO_MS = 45_000;
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
 /** La tab que pide `pedido`, o el motivo honesto por el que no salió. */
-export async function generarTabIA(pedido: string, tab: TabFicha, inicio: number, opts: { plazoMs?: number } = {}): Promise<ResultadoTabIA | FalloIA> {
+export async function generarTabIA(pedido: string, tab: LugarFicha, inicio: number, opts: { plazoMs?: number } = {}): Promise<ResultadoTabIA | FalloIA> {
   const ofrecidos = ofrecidosParaIA(tab, (id) => !!reglasDe(id));
   if (!ofrecidos.length) return { error: 'Esta tab todavía no tiene bloques para armar.' };
   const system = await getPromptText('crm.ficha-tab-ia.system', TAB_IA_SYSTEM_TEMPLATE);

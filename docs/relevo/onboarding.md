@@ -1,11 +1,47 @@
 # Onboarding: el arranque del cliente nuevo y el onboarding de cada tab
 
-## FEEDBACK DE MARTÍN DEL 16/10/2026 a la tarde — LO PRIMERO PARA QUIEN SIGA
+## ESTADO AL 17/10/2026 ~02:00 AR — LO PRIMERO PARA QUIEN SIGA
+
+<sub>Escrito por el chat «Onboarding» de la cuenta 4 (claude4) al cerrar. Las dos puntas de esta sesión las sumó el
+Cerebro en wt-push-q; la 1 estaba corriendo en integracion al escribir esto.</sub>
+
+**Hecho esta sesión (con test probado rompiéndolo, sin migraciones):**
+1. **El doer de WhatsApp ya no manda datos de clientes a la red gratis** (punta `24ce402a8`, rama onboarding-doer-red).
+   El corte es POR TURNO y por lo que la persona PIDE (`turnoParaLaRed`, lib/doer-herramientas.ts): con datos de
+   clientes se corta y el aviso lleva a /integraciones; sin ellos, la red corre sin las herramientas que los leen. Quién
+   lee datos de clientes lo dice el registro de la API (`DATOS_DE_CLIENTES_POR_AREA` + `datosDeClientes` por operación).
+   Detalle y lo que quedó: docs/hallazgos-ia.md, entrada del 17/10. Regla nueva en AGENTS.md.
+2. **El onboarding sin el análisis de Offer** (punta `b8ec91b26`, rama onboarding-lo-que-vendes; el pedido textual en
+   docs/feedback-16-10-crm-onboarding-second-brain.md). La conversación pregunta sólo qué vende (`PIEZAS_DEL_ARRANQUE`),
+   deja «Lo que vendes» en PDF (lib/lo-que-vendes-pdf.ts, GET /api/offer/pdf?tipo=lo-que-vendes) y no arma la oferta;
+   el diagnóstico de fase se queda, preguntado por el arranque con opciones (el Cerebro lo aprobó por criterio).
+   Detalle: docs/hallazgos-onboarding.md, «El onboarding sin el análisis de Offer».
+
+**Sin mirar en el navegador.** El Cerebro frenó el recorrido local (la app se cayó a la 01:05 por RAM con nueve chats
+abiertos). Martín lo prueba en PRODUCCIÓN en el Cliente de Prueba (ws 3), que tiene el onboarding sin empezar; está
+anotado en la bitácora (app/admin/dev/onboarding/bitacora.ts, hito del 17/10, con qué mirar). Nunca ws1. Si alguien lo
+recorre en local: la receta está en docs/hallazgos-infra.md («Recorrer una pantalla en local…»); la foto del ws3
+(`scripts/ws-prueba-foto.mjs guardar`) se sacó el 17/10 y NO hizo falta restaurar: no se levantó el server.
+
+**El «paso de IA opcional» ya no existe como paso:** el arranque no pide ninguna key (lo fija
+tests/onboarding-sin-api.test.ts); «Conectar mi propia IA» aparece sólo si la IA no contesta, dentro del chat.
+
+**Esperando a Martín (no hacerlo sin su sí, en el chat que lo ejecute):** borrar las dos filas del ws1 que son copias
+de la plataforma (`GEMINI_API_KEY` y `OPENAI_API_KEY`): guardar antes sus huellas sha256, borrar por id y releer. No
+urge: desde `b78bb977c` ya no cuentan como suyas.
+
+**Lo que sigue, si nadie dice otra cosa:** lo que Martín encuentre en el ws3; y lo abierto en los hallazgos (el
+historial del grupo que viaja a la red, el Dashboard entero marcado con datos de clientes, el guion de audio de
+Automations sin corte —es de Automations—, el PDF que no queda en El Archivero).
+
+---
+
+<sub>Lo de abajo es la historia (16/10 y antes): sirve para saber por qué, no como mapa de hoy.</sub>
+
+## Feedback de Martín del 16/10/2026 a la tarde (HECHO el 17/10, ver arriba)
 
 «Sería bueno que la funcionalidad de "OFFER" no esté en el onboarding... Pero simular "Offer" en el onboarding
-simplemente para organizar en un PDF lo que vende el usuario.» El onboarding deja el diagnóstico y la oferta mejorada
-para la tab Offer y se queda con armar el PDF de lo que vende. Textual y con su archivo en **docs/feedback-16-10-crm-onboarding-second-brain.md** (sección
-Onboarding).
+simplemente para organizar en un PDF lo que vende el usuario.»
 
 ## ⚠️ Actualización del 16/10/2026: el wizard ya no existe
 
@@ -34,7 +70,7 @@ Onboarding).
 - **El modelo gratis de OpenRouter** (`minimax/minimax-m3:free` ya no existía; lo midió Web Generator) pasó a ser UNO,
   `MODELO_OPENROUTER_GRATIS` = `nvidia/nemotron-3.5-super-vl:free`, medido con un pedido real (`de33ad192`). Antes de
   cambiarlo: `VERIFICAR_OPENROUTER=1 npx tsx --test tests/openrouter-modelo.test.ts`.
-- **PENDIENTE, decidido por Cerebro y sin arrancar (la cuota llegó al 92%):**
+- **PENDIENTE al 16/10 (el 1 se HIZO el 17/10, ver arriba; el 2 espera a Martín):**
   1. **La red propia del doer de WhatsApp corta con datos de clientes, POR TURNO.** Sólo si el turno trae herramientas
      que leen leads o conversaciones; la charla sigue. El aviso: «Conecta tu Claude para que MaKo lea tus leads», con
      el link a /integraciones (`linkApp`). Dónde: el bucle sobre `provsGratisDePlataforma` en `lib/mako-doer-in.ts`

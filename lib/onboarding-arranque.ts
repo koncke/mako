@@ -15,11 +15,19 @@
 // dibuja.
 //
 // DOS MODOS, porque las capas no ven lo mismo (lib/capas.ts):
-//   · 'oferta' (Completo, Agencia): nombre → negocio → objetivo → LA OFERTA (la conversación de Offer, con
-//     el diagnóstico de fase adentro) → el CRM que elige → el teléfono (o «ahora no») → cierre.
+//   · 'oferta' (Completo, Agencia): nombre → negocio → objetivo → LO QUE VENDE (la conversación de Offer,
+//     reducida) → el PDF con lo que vende → el diagnóstico de fase (con sus opciones) → el CRM que elige → el
+//     teléfono (o «ahora no») → cierre.
 //   · 'plan' (Project Manager: no ve Offer ni el CRM): nombre → negocio → objetivo → a qué se dedica → el
 //     diagnóstico de fase (las preguntas originales, con sus opciones) → cierre con el plan de arranque.
 //
+// ⚠️ EL ANÁLISIS DE LA OFERTA NO VA (Martín, 16/10/2026 a la tarde): «Sería bueno que la funcionalidad de
+// "OFFER" no esté en el onboarding, sino que ya luego del onboarding el usuario pueda ir a analizar su oferta
+// allí... Pero simular "Offer" en el onboarding simplemente para organizar en un PDF lo que vende el usuario».
+// La conversación es la de Offer en su versión del onboarding (`OFFER_ARRANQUE_SYSTEM_TEMPLATE`,
+// lib/offer-ia.ts): pregunta sólo `PIEZAS_DEL_ARRANQUE` y no ofrece «Armar mi oferta». El diagnóstico de la
+// oferta y la oferta mejorada se hacen después, en la tab Offer, sobre la MISMA conversación. El diagnóstico
+// de FASE sí queda (es el Norte de MaKo, no el análisis de la oferta), y lo pregunta el arranque con opciones.
 // ⚠️ LO QUE NO SE PREGUNTA, y por qué: la zona horaria la toma sola el navegador del admin
 // (ZonaDelNegocio en el layout); Meta se conecta después desde su tab (se posterga y queda el
 // recordatorio en /general); la IA propia ya no hace falta para arrancar. Todo lo demás del perfil sale de
@@ -70,10 +78,8 @@ export type HechosArranque = {
   faseGuardada: boolean;
   /** El canal del diagnóstico guardado (dónde cierra la venta), o null. */
   canalNegocio: CanalId | null;
-  /** La conversación de Offer tiene las 7 piezas mínimas. */
-  puedeConcluir: boolean;
-  /** La oferta ya está armada (hay una conclusión). */
-  ofertaLista: boolean;
+  /** La conversación ya sabe lo que vende (`PIEZAS_DEL_ARRANQUE`, lib/offer-marco.ts): está su PDF. */
+  loQueVende: boolean;
   /** Lo que ya contestó del diagnóstico en la conversación de la oferta (id de pregunta → opción ORIGINAL, y el
    *  canal si lo contestó ahí), o null sin conversación. El arranque no lo vuelve a preguntar. */
   faseOffer?: { respuestas: Record<string, number>; canal: CanalId | null } | null;
@@ -87,9 +93,10 @@ export type HechosArranque = {
 
 export type EtapaArranque =
   | 'nombre' | 'negocio' | 'objetivo' | 'que_hace' | 'fase' | 'oferta' | 'crm'
-  | 'telefono' | 'codigo' | 'armando' | 'cierre' | 'listo';
+  | 'telefono' | 'codigo' | 'cierre' | 'listo';
 
-export type TarjetaArranque = 'crm' | 'telefono' | 'armando' | 'listo';
+/** `pdf`: el PDF con lo que vende (la ruta lo arma con las piezas de la conversación). */
+export type TarjetaArranque = 'crm' | 'telefono' | 'pdf' | 'listo';
 
 /** Un mensaje del chat de arranque (los de la conversación de la oferta son los de Offer, aparte). */
 export type MensajeArranque = {
@@ -208,18 +215,16 @@ export function etapaDeArranque(e: EstadoArranque, h: HechosArranque): EtapaArra
     if (!e.queHace) return 'que_hace';
     if (!h.faseGuardada) return 'fase';
   } else {
-    // El diagnóstico va adentro de la conversación de la oferta, pero Offer deja ARMAR antes de terminarlo
-    // (el botón «Armar mi oferta»). Con la oferta armada y el diagnóstico sin guardar, las preguntas que
-    // faltan las hace el arranque: antes se quedaba en 'oferta' para siempre, sin la pregunta en pantalla y
-    // sin forma de seguir (recorrido en el ws3, 16/10/2026).
-    if (!h.faseGuardada) return h.ofertaLista ? 'fase' : 'oferta';
-    if (!h.puedeConcluir && !h.ofertaLista) return 'oferta';
+    // Primero lo que vende (la conversación de Offer, reducida) y después el diagnóstico de fase, que lo
+    // pregunta el arranque con sus opciones: la conversación del onboarding ya no lo hace (17/10/2026). Lo que
+    // la persona haya contestado en una conversación de antes (`faseOffer`) no se repite.
+    if (!h.loQueVende) return 'oferta';
+    if (!h.faseGuardada) return 'fase';
     if (h.conCrm && !e.crmTipo) return 'crm';
   }
   if (h.conTelefono && e.telefono !== 'verificado' && e.telefono !== 'postergado') {
     return e.telefono === 'codigo' ? 'codigo' : 'telefono';
   }
-  if (h.modo === 'oferta' && !h.ofertaLista) return 'armando';
   return 'cierre';
 }
 
@@ -258,15 +263,18 @@ export function mensajesDeArranque(e: EstadoArranque, h: HechosArranque): { ante
     return { antes, despues: cierre(e, h, etapa, nombre) };
   }
 
-  // 2b. Modo 'oferta': el pase a la conversación de la oferta (sus mensajes los dibuja Offer).
-  antes.push({ id: 'arr-oferta', de: 'mako', texto: 'Perfecto. Ahora lo más importante: tu oferta.' });
+  // 2b. Modo 'oferta': el pase a la conversación de lo que vende (sus mensajes los dibuja Offer).
+  antes.push({ id: 'arr-oferta', de: 'mako', texto: 'Perfecto. Ahora cuéntame qué vendes: lo dejo ordenado para trabajar con eso.' });
   if (etapa === 'oferta') return { antes, despues };
 
-  // 2c. Lo que faltó del diagnóstico (armó la oferta antes de terminarlo, ver `etapaDeArranque`): sólo lo que
-  // la conversación de la oferta no llegó a preguntar. Queda dibujado después, como parte de la historia.
+  // 2c. Lo que vende, ordenado en un PDF (la tarjeta lleva el link).
+  despues.push({ id: 'arr-pdf', de: 'mako', texto: 'Listo: ordené lo que vendes en un PDF. Lo uso para crear lo que necesites.', tarjeta: 'pdf' });
+
+  // 2d. El diagnóstico de fase, con sus opciones: sólo lo que la persona no contestó ya en una conversación
+  // de antes. Queda dibujado después, como parte de la historia.
   if (etapa === 'fase' || preguntoLaFase(e)) {
     const o = h.faseOffer;
-    despues.push({ id: 'arr-fase', de: 'mako', texto: 'Antes de seguir, unas preguntas rápidas para saber en qué fase está tu negocio.' });
+    despues.push({ id: 'arr-fase', de: 'mako', texto: 'Ahora unas preguntas rápidas para saber en qué fase está tu negocio.' });
     if (preguntarFase(despues, conFaseDeOffer(e, h), preguntar, { canalYaDicho: !!o?.canal, yaContestada: (id) => o?.respuestas[id] != null })) {
       return { antes, despues };
     }
@@ -277,10 +285,7 @@ export function mensajesDeArranque(e: EstadoArranque, h: HechosArranque): { ante
     const { tipos, hayMas } = tiposOfrecidos(h.canalNegocio, !!e.crmVerTodos);
     const elegido = e.crmTipo ? TIPOS_CRM.find((t) => t.id === e.crmTipo)?.label : undefined;
     const opciones = [...tipos.map((t) => t.label), ...(hayMas ? [VER_OTROS_TIPOS] : [])];
-    preguntar(despues, 'crm', h.ofertaLista
-      ? 'Ya tengo tu oferta. Ahora armemos tu CRM: con lo que me contaste, te propongo este.'
-      : 'Ya entendí tu oferta. Mientras la termino de armar, dejemos listo tu CRM: con lo que me contaste, te propongo este.',
-    elegido, opciones, 'crm');
+    preguntar(despues, 'crm', 'Ahora armemos tu CRM: con lo que me contaste, te propongo este.', elegido, opciones, 'crm');
     if (etapa === 'crm') return { antes, despues };
   }
 
@@ -317,7 +322,7 @@ function preguntarFase(lista: MensajeArranque[], e: EstadoArranque, preguntar: P
   return false;
 }
 
-/** El teléfono, la espera de la oferta y el cierre (los dos modos). */
+/** El teléfono y el cierre (los dos modos). */
 function cierre(e: EstadoArranque, h: HechosArranque, etapa: EtapaArranque, nombre: string): MensajeArranque[] {
   const out: MensajeArranque[] = [];
   if (h.conTelefono) {
@@ -330,10 +335,6 @@ function cierre(e: EstadoArranque, h: HechosArranque, etapa: EtapaArranque, nomb
       if (etapa === 'codigo') return out;
       if (e.telefono === 'verificado') out.push({ id: 'arr-codigo-r', de: 'yo', texto: 'Listo, ya lo cargué.' });
     }
-  }
-  if (etapa === 'armando') {
-    out.push({ id: 'arr-armando', de: 'mako', texto: 'Estoy terminando de armar tu oferta. En cuanto esté, te la dejo aquí.', tarjeta: 'armando' });
-    return out;
   }
   if (etapa === 'listo') {
     out.push({ id: 'arr-listo', de: 'mako', texto: `¡Listo${nombre ? `, ${nombre}` : ''}! Tu MaKo ya está armado.`, tarjeta: 'listo' });

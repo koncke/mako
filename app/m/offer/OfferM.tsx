@@ -27,6 +27,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon } from '@/app/_components/icons';
+import { IconoFunnel } from '@/app/_ui/iconos-menu';
 import { MAX_ARCHIVO_BYTES, ACCEPT_IMPORTAR, porQueNoPuedo, puedeLeerse } from '@/lib/formatos-archivo';
 import type { AdjuntoVista, ArbolOffer, OfferMensaje, OfferSesionVista } from '@/lib/offer-marco';
 import { useListaAdjuntos } from '@/app/whatsapp/_shared/VistaAdjuntos';
@@ -638,7 +639,7 @@ export function OfferM({ arbolInicial, arbolFallo, sesionInicial, opcionArmar, o
         <button type="button" className="m-offer-selector" aria-haspopup="dialog"
           aria-label={camino ? `${ROTULOS.selector}: ${caminoEnUnaLinea(camino)}` : ROTULOS.selector}
           disabled={cambiando || gen.corriendo || arbolVacio(arbol)} onClick={() => setHoja('funnel')}>
-          <Icon name="funnel" size={18} />
+          <IconoFunnel size={18} />
           {camino ? (
             <span className="m-offer-selector__camino">
               <span className="m-offer-selector__funnel">{camino.funnel}</span>

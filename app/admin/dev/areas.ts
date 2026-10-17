@@ -1330,7 +1330,7 @@ export const AREAS: AreaDev[] = [
   {
     slug: 'puente-flow', titulo: 'Puente a Google Flow', familia: 'Infra', grupo: 'Runtime',
     estado: 'parcial',
-    alcance: 'La extensión de Chrome que MaKo instala en la máquina del cliente y que le pide a Google Flow la imagen y el video del anuncio: el protocolo (BOQ), la cola, las plantillas, el diagnóstico de por qué un pedido no salió, y la versión que la app exige. Es lo que hace REAL a Video Generator; el wizard y el editor son la otra mitad y viven en esa área.',
+    alcance: 'La extensión de Chrome que MaKo instala en la máquina del cliente y que le pide a Google Flow la imagen y el video del anuncio: desde la 0.69.0 lo hace apretando los botones reales de Flow en la pestaña del cliente (motor por interfaz; el replay de BOQ queda para extensiones viejas), la cola, el diagnóstico de por qué un pedido no salió, y la versión que la app exige. Es lo que hace REAL a Video Generator; el wizard y el editor son la otra mitad y viven en esa área.',
     vive: [
       'extension',
       'app/api/flow/puente/route.ts',
@@ -1339,6 +1339,7 @@ export const AREAS: AreaDev[] = [
       'lib/flow-boq-patch.ts', 'lib/flow-boq-respuesta.ts', 'lib/flow-diagnostico.ts',
       'lib/flow-fallo-texto.ts', 'lib/flow-puede-filmar.ts', 'lib/flow-puente-frescura.ts',
       'lib/flow-clip-referencias.ts', 'lib/extension-version.ts', 'public/mako-puente.sha',
+      'lib/flow-interfaz.ts', 'app/admin/dev/puente-flow/bitacora.ts',
     ],
     hallazgos: 'hallazgos-generativa',
     nota: 'Es el área más movida del repo desde el 18/08 (89 commits solo sobre extension/manifest.json) y hasta el 07/09 NO EXISTÍA acá: todo su código quedaba fuera de los `vive` de las 122 áreas, así que ni el Change History derivado ni el barrido de «qué se trabajó y no se anotó» la veían. El conocimiento sí está escrito —docs/hallazgos-generativa.md, ~6.900 líneas— pero el registro no lo encontraba. Dos trampas propias que ese documento detalla: el payload de BOQ es POSICIONAL (un campo de más corre todo y Flow acepta el pedido sin devolver imagen), y el token de reCAPTCHA es de un solo uso (repetirlo da rechazo, y se lee como una regresión sin serlo).',

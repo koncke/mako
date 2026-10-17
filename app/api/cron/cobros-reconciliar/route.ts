@@ -24,6 +24,7 @@ import { checkCronAuth } from '@/lib/cron-auth';
 import { runWithWorkspace } from '@/lib/workspace';
 import { mantenerAvisosStripe, reconciliarCobros, workspacesConPasarela } from '@/lib/cobros';
 import { esLaVueltaDelDia } from '@/lib/cobros-reglas';
+import { renovacionesDeAgencia } from '@/lib/agencia-cobro';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
@@ -74,5 +75,15 @@ export async function GET(req: NextRequest) {
   }
   if (sinTurno.length) console.warn(`[cron:cobros-reconciliar] sin turno en esta corrida: ${sinTurno.join(', ')}`);
 
-  return Response.json({ ok: true, workspaces: resultados, sinTurno, ms: Date.now() - t0 });
+  // LOS CLIENTES DE AGENCIA (#867, 17/10/2026): al terminar el onboarding, la suscripción mensual que empieza a cobrar un
+  // mes después; y las que la agencia ya autorizó. Una vez por corrida, después de los workspaces y con su reserva. Nunca
+  // corta la respuesta: sin la migración 0308 (o sin la Mercado Pago de MaKo) lo dice y sigue.
+  let agencia: Awaited<ReturnType<typeof renovacionesDeAgencia>> | { error: string } | null = null;
+  if (Date.now() - t0 < maxDuration * 1000 - RESERVA_MS) {
+    agencia = await renovacionesDeAgencia().catch((e) => ({ error: msg(e) }));
+    if ('error' in agencia) console.warn('[cron:cobros-reconciliar] clientes de agencia:', agencia.error);
+    else if (agencia.creadas || agencia.autorizadas || agencia.errores) console.log(`[cron:cobros-reconciliar] clientes de agencia: ${JSON.stringify(agencia)}`);
+  }
+
+  return Response.json({ ok: true, workspaces: resultados, sinTurno, agencia, ms: Date.now() - t0 });
 }

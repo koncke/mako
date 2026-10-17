@@ -30,6 +30,8 @@
 
 /* Las preguntas de arranque, debajo de la portada (como las sugerencias de la portada de Claude). */
 .ch-arranques { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 8px; }
+/* Los links «Ir a …» debajo de una respuesta de MaKo (tanda 10). */
+.ch-ira { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 
 /* El Mapa en el panel: el grafo de siempre (VistaCerebro), con su propio scroll. */
 .ch-mapa__cuerpo { flex: 1; min-height: 0; overflow-y: auto; padding: 8px 20px 28px; }

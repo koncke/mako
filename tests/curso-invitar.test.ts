@@ -477,10 +477,13 @@ test('el modal de invitar: portal al body, email obligatorio, y NO se cierra si 
 test('los avisos de aprobación de agencia miran `enviado`, no que haya un resultado', () => {
   // `invitarPorEmail` devuelve SIEMPRE un objeto: `inv ? ok : warn` dice «Se le mandó el
   // acceso» sobre un mail que no salió. Lo encontró el relevo del 06/10/2026.
-  const agencia = sinComentarios(leer('app/api/admin/agencia/route.ts'));
-  assert.match(agencia, /aviso = inv\.enviado\s*\?/);
+  // Desde el 17/10/2026 el aviso vive en lib/agencia-habilitar.ts: lo usan la firma del super admin y el PAGO del primer
+  // mes de un cliente de agencia (#866), y los dos tienen que decir lo mismo.
+  assert.match(sinComentarios(leer('app/api/admin/agencia/route.ts')), /const aviso = estado === 'aprobado' \? await avisarClienteAprobado\(clienteWs\) : null;/);
+  const agencia = sinComentarios(leer('lib/agencia-habilitar.ts'));
+  assert.match(agencia, /return inv\.enviado\s*\?/);
   // El `?` de un ternario, no el `?.` del encadenado opcional.
-  assert.doesNotMatch(agencia, /aviso = inv\s*\?(?!\.)/);
+  assert.doesNotMatch(agencia, /return inv\s*\?(?!\.)/);
   const altas = sinComentarios(leer('app/api/admin/agencia/altas/route.ts'));
   assert.match(altas, /aviso: invitacion\?\.enviado\s*\?/);
   assert.doesNotMatch(altas, /aviso: invitacion\s*\?(?!\.)/);

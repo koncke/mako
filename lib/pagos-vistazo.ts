@@ -22,7 +22,7 @@
 // Sin `server-only`: lo importan los bloques (navegador), la API de MaKo y los tests.
 // =============================================================================
 
-import { ddmm, esCuotaDevuelta, esRenovacionFallida, type Cobrado, type CuotaParaCobrado, type Tono } from './cobrado-lead';
+import { ddmm, esCuotaDeBaja, esCuotaDevuelta, esRenovacionFallida, noEsDeuda, type Cobrado, type CuotaParaCobrado, type Tono } from './cobrado-lead';
 import { avisoPagoPorLinkAnulado, esDevolucionFallida, esTextoDeContracargo } from './cobros-reglas';
 import { NOMBRE_PASARELA, esPasarela, type EstadoCobro, type Pasarela, type TipoCobro } from './cobros-tipos';
 import { CAMPOS_DEAL, MAX_OBLIGACIONES, MAX_TEXTO_DEAL, MAX_TEXTO_OBLIGACION, esMetodoPago, nombreCuota, ROTULO_METODO, type ParteObligacion, type SeccionDeal } from './pagos-campo';
@@ -82,7 +82,7 @@ export type EstadoDeCuenta = {
  */
 export function estadoDeCuenta(e: { cobrado: Cobrado; pagos: readonly CuotaDelLead[]; ganado: boolean; hoy: string }): EstadoDeCuenta | null {
   const { cobrado: c, hoy } = e;
-  const impagas = e.pagos.filter((q) => !q.pagado && !esCuotaDevuelta(q) && q.fecha_esperada)
+  const impagas = e.pagos.filter((q) => !q.pagado && !noEsDeuda(q) && q.fecha_esperada)
     .sort((a, b) => String(a.fecha_esperada).localeCompare(String(b.fecha_esperada)));
   const vencidas = impagas.filter((q) => (q.fecha_esperada as string) < hoy);
   const proxima = impagas.find((q) => (q.fecha_esperada as string) >= hoy) ?? null;
@@ -144,6 +144,12 @@ export function estadoDeCuenta(e: { cobrado: Cobrado; pagos: readonly CuotaDelLe
 
   // ── Pago único ──
   if (vencidas.length) return deudaVencida();
+  // ⚠️ SE DIO DE BAJA (#871): lo que no pagó NO es deuda ni «lo que falta». Antes de esto, el caso de la llamada del
+  // 16/10 (pagó US$4.000 de US$6.000 y se fue) decía «Debe $1,800» a 80 días, para siempre. Si después se le cargó una
+  // cuota nueva, manda esa (sigue abajo).
+  if (c.baja && c.pendienteUsd <= 0) {
+    return { ...base, faltaUsd: 0, titular: 'Se dio de baja', tono: 'gris', detalle: `Quedó sin cobrar ${usd(c.baja.usd)}${c.baja.at ? ` · se fue el ${ddmm(c.baja.at.slice(0, 10))}` : ''}`, accion: null };
+  }
   const devuelto = redondo(e.pagos.filter((q) => esCuotaDevuelta(q)).reduce((s, q) => s + num(q.monto_usd), 0));
   if (c.cuotas.total === 0) {
     if (devuelto > 0) return { ...base, titular: 'Devuelto', tono: 'gris', detalle: `Se le devolvió ${usd(devuelto)}`, accion: null };
@@ -152,7 +158,7 @@ export function estadoDeCuenta(e: { cobrado: Cobrado; pagos: readonly CuotaDelLe
   if (c.pendienteUsd <= 0 && c.cuadra && c.cuadra.diferenciaUsd < -0.5) {
     // ⚠️ LO DEVUELTO NO ES LO QUE FALTA (revisión del 16/10/2026): una cuota devuelta sale de las cuotas pero la venta
     // sigue con su monto, y la diferencia se ofrecía como «Agregar la cuota» (volver a cobrar lo que se devolvió).
-    const falta = redondo(-c.cuadra.diferenciaUsd - devuelto);
+    const falta = redondo(-c.cuadra.diferenciaUsd - devuelto - (c.baja?.usd ?? 0));
     if (falta <= 0.5) return { ...base, faltaUsd: 0, titular: 'Devuelto en parte', tono: 'gris', detalle: `Se le devolvió ${usd(devuelto)}`, accion: null };
     return { ...base, faltaUsd: falta, titular: `Faltan ${usd(falta)}`, tono: 'ambar', detalle: 'Lo que falta no tiene cuota.', accion: { tipo: 'agregar-cuota', faltaUsd: falta, boton: 'Agregar la cuota' } };
   }
@@ -174,7 +180,7 @@ export function estadoDeCuenta(e: { cobrado: Cobrado; pagos: readonly CuotaDelLe
 // 2 · El renglón de una cuota
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type EstadoCuota = 'cobrada' | 'vencida' | 'por-vencer' | 'futura' | 'sin-fecha' | 'devuelta';
+export type EstadoCuota = 'cobrada' | 'vencida' | 'por-vencer' | 'futura' | 'sin-fecha' | 'devuelta' | 'baja';
 
 export type RenglonCuota = {
   nombre: string;
@@ -202,6 +208,10 @@ export function renglonDeCuota(q: CuotaDelLead & { concepto?: string | null; met
   const pasarela = DE_PASARELA(q);
   if (esCuotaDevuelta(q)) {
     return { nombre, estado: 'devuelta', montoTexto, cuando: pasarela ? `devuelta por ${NOMBRE_PASARELA[pasarela]}` : 'devuelta', tono: 'gris', accion: 'ninguna', editable: false };
+  }
+  // La de un cliente que se fue (#871): se ve, sin botón. Para cobrarla, se deshace la baja.
+  if (esCuotaDeBaja(q)) {
+    return { nombre, estado: 'baja', montoTexto, cuando: `baja del cliente${q.baja_vencia ? ` · vencía el ${ddmm(q.baja_vencia.slice(0, 10))}` : ''}`, tono: 'gris', accion: 'ninguna', editable: false };
   }
   if (q.pagado) {
     const via = pasarela ? `por ${NOMBRE_PASARELA[pasarela]}` : esMetodoPago(q.metodo) ? ROTULO_METODO[q.metodo].toLowerCase() : null;

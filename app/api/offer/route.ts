@@ -23,7 +23,8 @@
 //   · 'descartar-subida' { path } → { borrado }  (un binario que al final no se usa)
 //   · 'leer-link'      { sesionId|null, url, funnelId? } → { sesion, doc }  (baja la web con la descarga
 //                                                   SSRF-segura de lib/landing-fetch.ts y la guarda como documento)
-//   · 'turno'          { sesionId|null, texto, docIds, audio?, respuesta?, funnelId?, reintentar? } → { sesion }
+//   · 'turno'          { sesionId|null, texto, docIds, audio?, respuesta?, funnelId?, reintentar?, origen? } → { sesion }
+//                      (origen 'arranque': la conversación del onboarding, sólo lo que vende; ver `delArranque`)
 //                                                   texto puede venir vacío con audio, documentos o respuesta.
 //                                                   audio = { path, mime, secs } subido con 'subir-url'; se
 //                                                   transcribe y el binario NO se borra (se reproduce).
@@ -74,6 +75,7 @@ import { archivoATexto } from '@/lib/archivo-a-texto';
 import { registrarDocumentoSinPisar, type RegistroArchivero } from '@/lib/archivero';
 import { MAX_ARCHIVO_BYTES, formatosLegibles, puedeLeerse } from '@/lib/formatos-archivo';
 import { marcarPasoTab } from '@/lib/tab-onboarding-state';
+import { onboardingPendiente } from '@/lib/onboarding-state';
 import { transcribirAudio, SttSinEscucha, errorDeCascada } from '@/lib/ai-cheap';
 import { extraerLanding } from '@/lib/landing-fetch';
 import { leerFunnels } from '@/lib/funnels';
@@ -86,7 +88,7 @@ import {
   diagnosticoFaltante, diagnosticoParaPrompt, docsDeLaConversacion, estadoDiagnostico, faltanTexto, faseDeSetting,
   faseVigenteDe, linkParaLeer, mensajeDeMako, mensajePdf, mergePiezas, motivoArchivoOffer, planDiagnostico, primerMensaje, primerMensajeFunnel, provisionalDe, recortar,
   repartirTranscripcion, respuestaDiagnostico, respuestaSinIA, seArchivaDesdeOffer, armadoEnCurso, pasoInicialDelArmado,
-  type AudioGuardado, type DocumentoGuardado, type MensajeGuardado,
+  type AudioGuardado, type DocumentoGuardado, type MensajeGuardado, type PlanDiagnostico,
 } from '@/lib/offer-reglas';
 import { contextoOffer, type ContextoOffer } from '@/lib/offer-contexto';
 import { avisarOfertaLista } from '@/lib/oferta-lista-server';
@@ -652,7 +654,18 @@ async function turno(ws: number, body: Record<string, unknown>, inicio: number):
     return ok({ sesion: await vistaSesion(final) });
   }
 
-  return responder({ sesionId, fila: conMensaje, ctx, nuevos: docAudio.creado ? [...docIds, docAudio.id] : docIds, inicio });
+  return responder({ sesionId, fila: conMensaje, ctx, nuevos: docAudio.creado ? [...docIds, docAudio.id] : docIds, inicio, arranque: await delArranque(body) });
+}
+
+/**
+ * ¿El turno es de la conversación del ONBOARDING? La pantalla lo dice (`origen: 'arranque'`, app/onboarding/
+ * ChatArranque.tsx) y vale mientras el onboarding siga pendiente: después, la misma conversación sigue en la tab
+ * Offer con su análisis. Lo único que cambia es qué pregunta MaKo (sólo lo que vende, sin el diagnóstico de fase,
+ * que lo hace el arranque con sus opciones): no abre nada que la tab no tenga. Si no se puede leer el estado, es
+ * la de la tab.
+ */
+async function delArranque(body: Record<string, unknown>): Promise<boolean> {
+  return body.origen === 'arranque' && (await onboardingPendiente().catch(() => false));
 }
 
 /** La respuesta de MaKo a un mensaje del dueño que quedó sin contestar (la IA falló). */
@@ -666,7 +679,7 @@ async function reintentarTurno(body: Record<string, unknown>, inicio: number): P
   // pestaña, un doble clic), reintentar sería contestar dos veces lo mismo.
   if (!ultimo || ultimo.de !== 'yo') return ok({ sesion: await vistaSesion(fila) });
   const ctx = await contextoOffer({ funnelId: fila.funnelId, ofertaBaseId: fila.ofertaBaseId });
-  return responder({ sesionId, fila, ctx, nuevos: (ultimo.adjuntos ?? []).map((a) => a.id), inicio });
+  return responder({ sesionId, fila, ctx, nuevos: (ultimo.adjuntos ?? []).map((a) => a.id), inicio, arranque: await delArranque(body) });
 }
 
 /**
@@ -677,18 +690,23 @@ async function reintentarTurno(body: Record<string, unknown>, inicio: number): P
  *     que MaKo leyó en las palabras del dueño se pega a su mensaje, y el mensaje de MaKo lo arma el CÓDIGO
  *     (`mensajeDeMako`). Si mientras tanto otra pestaña ya contestó, no se contesta dos veces.
  *  Antes y después: si el diagnóstico quedó completo, se guarda en el negocio. El resultado NO va al chat.
+ *
+ *  En el ONBOARDING (`arranque`, 17/10/2026) MaKo sólo pregunta qué vende: sin el diagnóstico de fase (lo hace el
+ *  arranque) y sin ofrecer «Armar mi oferta» (el análisis y la oferta mejorada son de la tab Offer).
  */
-async function responder(p: { sesionId: number; fila: FilaOffer; ctx: ContextoOffer; nuevos: string[]; inicio: number }): Promise<Response> {
+async function responder(p: { sesionId: number; fila: FilaOffer; ctx: ContextoOffer; nuevos: string[]; inicio: number; arranque?: boolean }): Promise<Response> {
   const { fila, ctx } = p;
   const optsDiag = { canal: ctx.canal, yaGuardado: !!ctx.faseGuardada };
   await asegurarFaseGuardada(fila, ctx);
   const duenos = (ms: MensajeGuardado[]) => ms.filter((m) => m.de === 'yo').length;
   const e = estadoDiagnostico(fila.mensajes, optsDiag);
-  const plan = planDiagnostico(e, { puedeConcluir: faltanMinimas(fila.piezas).length === 0, mensajesDelDueno: duenos(fila.mensajes), conDocumentosNuevos: p.nuevos.length > 0 });
+  const plan: PlanDiagnostico = p.arranque
+    ? { modo: 'no' }
+    : planDiagnostico(e, { puedeConcluir: faltanMinimas(fila.piezas).length === 0, mensajesDelDueno: duenos(fila.mensajes), conDocumentosNuevos: p.nuevos.length > 0 });
   const ia = await turnoOffer({
     mensajes: fila.mensajes, piezas: fila.piezas, docs: docsDeLaConversacion(fila.documentos, fila.mensajes, p.nuevos), nuevos: p.nuevos,
     contexto: ctx.texto, inicio: p.inicio, diagnostico: diagnosticoParaPrompt(plan, e), diagnosticoObligatorio: plan.modo === 'forzar',
-    voz: ctx.voz,
+    voz: ctx.voz, arranque: p.arranque,
   });
   // Sin IA sólo se sigue si la pregunta que toca es la obligatoria del diagnóstico (sale la original).
   if (!ia.ok && plan.modo !== 'forzar') return no(502, ia.error, { sesion: await vistaSesion(fila) });
@@ -701,8 +719,11 @@ async function responder(p: { sesionId: number; fila: FilaOffer; ctx: ContextoOf
     const u = f.mensajes[f.mensajes.length - 1];
     if (!u || u.de !== 'yo') return null;
     const piezas = turnoIA ? mergePiezas(f.piezas, turnoIA.piezas, fuente) : f.piezas;
-    const puede = faltanMinimas(piezas).length === 0;
-    const inferida = conRespuestaInferida(f.mensajes, estadoDiagnostico(f.mensajes, optsDiag), turnoIA?.diagnosticoRespuesta);
+    // En el onboarding no se ofrece armar: «puede concluir» es lo que pone el botón.
+    const puede = !p.arranque && faltanMinimas(piezas).length === 0;
+    const inferida = p.arranque
+      ? { mensajes: f.mensajes, preguntaId: null }
+      : conRespuestaInferida(f.mensajes, estadoDiagnostico(f.mensajes, optsDiag), turnoIA?.diagnosticoRespuesta);
     // Si MaKo leyó la respuesta en las palabras del dueño, la pregunta que toca ahora es otra.
     const planFinal = inferida.preguntaId
       ? planDiagnostico(estadoDiagnostico(inferida.mensajes, optsDiag), { puedeConcluir: puede, mensajesDelDueno: duenos(inferida.mensajes), conDocumentosNuevos: p.nuevos.length > 0 })

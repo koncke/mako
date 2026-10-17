@@ -90,6 +90,13 @@ export const DEFS: readonly OperacionDef[] = [
     ],
     salida: 'json', canales: SIN_HTTP, costo: 'gratis', gating: CS,
   },
+  {
+    id: 'ver_pagos_clientes_agencia', area: 'cs', tipo: 'lectura',
+    titulo: 'Ver los pagos de clientes',
+    descripcion: 'Sólo para una AGENCIA: por cada cliente suyo con cuenta de MaKo, lo que falta pagar. «primer_mes_sin_pagar»: al abrirle la cuenta se creó el link de Mercado Pago de su primer mes, y pagarlo lo habilita solo. «renovacion»: terminó el onboarding, su mes ya corre, y la suscripción mensual (que empieza a cobrar en `desde`) espera que la agencia la autorice; `activada: true` es que ya la autorizó. Los links NO vienen aquí: están en Customer Success, en la tarjeta de cada cliente («Pagar su mes» o «Activar renovación»). Un cliente que no aparece no tiene nada pendiente.',
+    parametros: [],
+    salida: 'json', canales: SIN_HTTP, costo: 'gratis', gating: CS,
+  },
 
   // ── Acciones por chat ─────────────────────────────────────────────────────────
   {

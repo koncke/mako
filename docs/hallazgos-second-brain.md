@@ -23,6 +23,27 @@ hay), `lib/cerebro-layout.ts` (dónde va cada uno), `lib/cerebro-modelo.ts` (la 
 
 ---
 
+## «Entender el pedido» en el chat central: el link no demora la respuesta ni se cuelga de otra (17/10/2026)
+
+Tanda 10 de la etapa 2. Martín: «que el chat le deje ahí el link para ir a donde corresponde». Debajo de la respuesta de
+MaKo van los «Ir a …» de lo que la persona pidió y se hace en otra pantalla (`POST /api/mako/pedidos` con `tab: 'mako'`).
+
+- **El diagnóstico obvio era esperar los links junto con el turno.** La ruta tarda segundos (la IA corta a 7,5 s) y el
+  turno decenas, así que casi siempre llegan antes. Pero cuando el turno contesta rápido, la respuesta quedaría
+  esperando a los links. Ahora se piden en paralelo, la respuesta se dibuja apenas llega y los links se cuelgan después.
+- **«El último mensaje de MaKo» era el lugar equivocado para colgarlos.** Como llegan después, para entonces la persona
+  pudo haber escrito otra cosa y MaKo haberle contestado. Se cuelgan de la respuesta a SU mensaje: el último de MaKo
+  entre el mensaje de la persona (por su id) y el siguiente de ella (`colgarIrA`, lib/chat-mako-reglas.ts, con test).
+- **El mensaje no se parte.** En un editor, lo de otra tab se saca del mensaje. En el Second Brain no hay nada abierto, y
+  todo sería «otra tab» (ya estaba escrito en `linksDePedidos`). MaKo contesta el mensaje entero y esto sólo suma el link.
+- **Los links no se guardan**: son de esta sesión de la pantalla. Al recargar, la respuesta vuelve sin ellos.
+- **La PII la resuelve la ruta**: con datos personales en el texto, la IA gratis de la plataforma no se usa
+  (`llevaDatosPersonales`, lib/mako-pedidos-ia.ts).
+
+**Vive en:** app/second-brain/ChatSecondBrain.tsx (`linksDelPedido`) · lib/chat-mako-reglas.ts (`colgarIrA`,
+`linksDePedidos`) · app/_chat/HiloMako.tsx (los chips, compartido con los chats de cada tab) · tests/chat-mako-reglas.test.ts
+· tests/second-brain-centro.test.ts
+
 ## Los adjuntos del chat se guardan: tres llamadores, un turno, y El Archivero que MUEVE (16/10/2026)
 
 Tanda 4 de la etapa 2 (docs/diseno-mako-ai-native.md). Pedido de Martín: «los adjuntos se guardan en el archivero».

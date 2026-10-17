@@ -47,7 +47,7 @@
 - **Curso (módulos y clases)** (`curso`): `listar_cursos` · `ver_curso` · `ver_clase_curso` · `crear_modulo_curso` · `renombrar_modulo_curso` · `ordenar_modulos_curso` · `crear_clase_curso` · `editar_clase_curso` · `mover_clase_curso` · `borrar_clase_curso` · `restaurar_clase_curso`
 - **Calendario** (`calendario`): `listar_eventos_calendario` · `crear_evento_calendario` · `link_agenda_llamada` · `anticipacion_agenda` · `ver_proximas_recurrentes`
 - **Creaciones de la comunidad (estrellas)** (`creaciones`): `listar_creaciones` · `ver_creacion` · `mis_creaciones` · `dar_estrella` · `quitar_estrella` · `publicar_creacion` · `retirar_creacion` · `usar_creacion`
-- **Cobros (Stripe y Mercado Pago)** (`cobros`): `listar_cobros` · `ver_cobro` · `crear_link_pago` · `anular_link_pago` · `reembolsar_cobro` · `cancelar_suscripcion` · `ver_moneda_negocio` · `cambiar_moneda_negocio` · `editar_dato_deal` · `editar_obligacion_deal` · `editar_venta_lead` · `editar_cuota` · `crear_link_cuota` · `cortar_recordatorio_cuota` · `estado_suscripcion_manual`
+- **Cobros (Stripe y Mercado Pago)** (`cobros`): `listar_cobros` · `ver_cobro` · `crear_link_pago` · `anular_link_pago` · `reembolsar_cobro` · `cancelar_suscripcion` · `ver_moneda_negocio` · `cambiar_moneda_negocio` · `editar_dato_deal` · `editar_obligacion_deal` · `editar_venta_lead` · `editar_cuota` · `crear_link_cuota` · `cortar_recordatorio_cuota` · `baja_del_cliente` · `estado_suscripcion_manual`
 - **MaKo (pendientes, propuestas, chats)** (`mako`): `listar_pendientes` · `confirmar_accion` · `cancelar_accion` · `ver_pendiente` · `listar_propuestas_revisar` · `ver_propuesta_accion` · `resumen_bandejas_confirmacion` · `listar_capacidades_mako`
 
 ## General — `general`
@@ -1507,7 +1507,7 @@ curl -L \
 
 ### `GET /api/v1/crm/etapas` — Etapas del funnel del negocio
 
-La estructura del proceso comercial configurado en /funnel: el pipeline activo en orden (con su tipo: entrada, reunión, pago, cierre), las etapas de nutrición y las de descarte, con su key. Úsala antes de proponer un cambio de etapa o de filtrar leads para usar las keys REALES del negocio y no un embudo genérico. No pide parámetros.
+La estructura del proceso comercial configurado en /funnel: el pipeline activo en orden (con su tipo: entrada, reunión, pago, cierre), las etapas de nutrición y las de descarte, con su key. Úsala antes de proponer un cambio de etapa o de filtrar leads para usar las keys REALES del negocio y no un embudo genérico. Con embudoId, las de otro CRM.
 
 - **Ruta por operación:** `GET /api/v1/crm/ver_funnel`
 - **Token detallado:** permiso `crm=read` (Solo lectura en «CRM»)
@@ -1516,7 +1516,9 @@ La estructura del proceso comercial configurado en /funnel: el pipeline activo e
 - **Costo:** gratis
 - **Requiere la tab:** crm
 
-_Sin parámetros._
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `embudoId` | number | no | el CRM, por el id de su embudo (de productos_del_lead). Sin él, el CRM principal del negocio. |
 
 ```bash
 curl -L \
@@ -2069,7 +2071,7 @@ curl -L \
 
 ### `GET /api/v1/crm/ficha` — Ver la ficha de un CRM
 
-Cómo se arma la ficha del lead en UN CRM del negocio, para todos sus leads: la plantilla (la que elige MaKo según las etapas de reunión y cómo entra la gente, o la que eligió alguien) y por qué; por tab (Resumen, Reuniones, Pagos y Tracking) su nombre, su plantilla, si va épica y sus bloques en orden con su ancho, su diseño y su ícono; de qué «datos sin marcar» avisa y por qué no de los otros, y el estilo. Trae también, por tab, los bloques que se pueden sumar y su galería de plantillas (las sugeridas primero), y los íconos de un bloque. Es el paso previo a cambiar_ficha_funnel. Sin embudoId, el CRM principal.
+Cómo se arma la ficha del lead en UN CRM del negocio, para todos sus leads: la plantilla (la que elige MaKo según las etapas de reunión y cómo entra la gente, o la que eligió alguien) y por qué; por tab (Resumen, Reuniones, Pagos y Tracking) y por hoja propia su nombre, su plantilla, si va épica y sus bloques en orden con su ancho, su diseño y su ícono; de qué «datos sin marcar» avisa y por qué no de los otros, y el estilo. Trae también, por tab, los bloques que se pueden sumar y su galería de plantillas (las sugeridas primero), y los íconos de un bloque. Es el paso previo a cambiar_ficha_funnel. Sin embudoId, el CRM principal.
 
 - **Ruta por operación:** `GET /api/v1/crm/ver_ficha_funnel`
 - **Token detallado:** permiso `crm=read` (Solo lectura en «CRM»)
@@ -2092,7 +2094,7 @@ curl -L \
 
 ### `PATCH /api/v1/crm/ficha` — Cambiar la ficha de un CRM
 
-PROPONE UN cambio en la ficha del lead de UN CRM (pendiente hasta el «sí»), para todos sus leads: poner, quitar o mover un bloque, su ancho, diseño o ícono, el aviso de un dato sin marcar, el estilo, la densidad, la plantilla (de la ficha o de una tab), el nombre de una tab, su vista épica, o volver a la plantilla. Los ids salen de ver_ficha_funnel. «Contacto» no se quita y las asistencias siempre avisan. Solo el administrador. Sin embudoId, el CRM principal.
+PROPONE UN cambio en la ficha del lead de UN CRM (pendiente hasta el «sí»), para todos sus leads: sus bloques, sus avisos, el estilo, las plantillas, las tabs y las hojas propias. Los ids salen de ver_ficha_funnel. «Contacto» no se quita y las asistencias siempre avisan. Solo el administrador. Sin embudoId, el CRM principal.
 
 - **Ruta por operación:** `POST /api/v1/crm/cambiar_ficha_funnel`
 - **Token detallado:** permiso `crm=write` (Lectura y escritura en «CRM»)
@@ -2108,15 +2110,15 @@ PROPONE UN cambio en la ficha del lead de UN CRM (pendiente hasta el «sí»), p
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
 | `embudoId` | number | no | el CRM, por el id de su embudo (de productos_del_lead). Sin él, el CRM principal del negocio. |
-| `cambio` | string (poner \\| quitar \\| mover \\| ancho \\| diseno \\| icono \\| opciones \\| aviso \\| estilo \\| densidad \\| plantilla \\| volver \\| nombre \\| epica) | sí | qué cambiar: poner, quitar o mover un bloque (con tab y bloque; mover y poner con lugar), su ancho, diseno, icono u opciones, aviso (con aviso y avisa), estilo (tema, acento o tipografia), densidad, plantilla, nombre o epica de una tab (con tab), o volver a la plantilla (con tab, sólo esa). |
-| `tab` | string (resumen \\| reuniones \\| pagos \\| tracking) | no | la tab. |
+| `cambio` | string (poner \\| quitar \\| mover \\| ancho \\| diseno \\| icono \\| opciones \\| aviso \\| estilo \\| densidad \\| plantilla \\| volver \\| nombre \\| epica \\| nueva_hoja \\| quitar_hoja \\| mover_hoja) | sí | qué cambiar: poner, quitar o mover un bloque (con tab y bloque; mover y poner con lugar), su ancho, diseno, icono u opciones, aviso (con aviso y avisa), estilo (tema, acento o tipografia), densidad, plantilla, nombre o epica de una tab (con tab), volver a la plantilla (con tab, sólo esa), o nueva_hoja, quitar_hoja o mover_hoja (id en tab). |
+| `tab` | string | no | resumen, reuniones, pagos, tracking o id de hoja. |
 | `bloque` | string | no | el id del bloque (de ver_ficha_funnel), por ejemplo cuotas o redes-y-web. |
 | `lugar` | number | no | en poner y mover: el lugar en la tab, 1 es el primero. Sin él, poner lo suma al final. |
 | `ancho` | string (1/4 \\| 1/3 \\| 1/2 \\| completo) | no | en poner y ancho: el ancho del bloque sobre la grilla de la ficha. Cada bloque acepta sólo algunos (ver_ficha_funnel). |
 | `diseno` | string | no | en poner y diseno: el id del diseño del bloque (de ver_ficha_funnel). |
 | `icono` | string | no | en icono: el id (de los iconos de ver_ficha_funnel), o de-siempre: el del bloque. |
 | `n` | number | no | si el bloque está más de una vez en la tab (respuesta-destacada), cuál: 1 es el primero. |
-| `opcion` | string | no | en opciones: redes (web,instagram,youtube,linkedin), fuentes (meta,landing,agenda) o la pregunta destacada. |
+| `opcion` | string | no | en opciones: redes (web,instagram,youtube,linkedin), fuentes (meta,landing,agenda) o la pregunta destacada; en estilo: esquinas=redondas. |
 | `aviso` | string | no | en aviso: el id del dato sin marcar (de los avisos de ver_ficha_funnel). |
 | `avisa` | boolean | no | en aviso: true para que avise, false para que no. |
 | `tema` | string (mako \\| minimal \\| suave \\| contraste \\| elevada \\| general \\| editorial) | no | en estilo: la plantilla de estilo, la misma del Dashboard. |
@@ -7430,7 +7432,16 @@ Cambia cómo se llama o se ve una hoja del Dashboard: nombre, emoji, subtítulo,
 | `nombre` | string | no | El nombre nuevo de la pestaña. |
 | `emoji` | string | no | Un emoji al lado del título. «-» lo saca. |
 | `subtitulo` | string | no | La línea de abajo del título. «-» la saca. |
-| `tema` | string | no | El estilo de la página: mako, minimal, suave, contraste, elevada o editorial (la lista en ver_catalogo_dashboard). |
+| `tema` | string | no | El estilo de la página: mako, minimal, suave, contraste, elevada o editorial (la lista en ver_catalogo_dashboard). Cambiarlo vuelve los ajustes a los de ese estilo. |
+| `ajustes` | object | no | Lo que se ajusta encima del estilo, como {ajuste: valor}: el fondo, las esquinas, el borde, la sombra y los títulos de las tarjetas, y los valores, la leyenda y la cuadrícula de los gráficos. Los que no pases quedan como están. |
+| `ajustes.fondo` | string (surface \\| surface-2 \\| transparente \\| plantilla) | no | Tarjetas, Fondo: surface (Blanco), surface-2 (Gris), transparente (Sin caja); «plantilla» vuelve al de la plantilla. |
+| `ajustes.esquinas` | string (rectas \\| suaves \\| redondas \\| plantilla) | no | Tarjetas, Esquinas: rectas (Rectas), suaves (Suaves), redondas (Redondas); «plantilla» vuelve al de la plantilla. |
+| `ajustes.borde` | string (no \\| suave \\| fuerte \\| plantilla) | no | Tarjetas, Borde: no (Sin borde), suave (Suave), fuerte (Marcado); «plantilla» vuelve al de la plantilla. |
+| `ajustes.sombra` | string (no \\| si \\| plantilla) | no | Tarjetas, Sombra: no (Sin sombra), si (Flotan); «plantilla» vuelve al de la plantilla. |
+| `ajustes.titulos` | string (normal \\| mayus \\| plantilla) | no | Tarjetas, Títulos: normal (Normal), mayus (MAYÚSCULAS); «plantilla» vuelve al de la plantilla. |
+| `ajustes.etiquetas` | string (no \\| si \\| plantilla) | no | Gráficos, Valores: no (Ocultos), si (A la vista); «plantilla» vuelve al de la plantilla. |
+| `ajustes.leyenda` | string (arriba \\| abajo \\| no \\| plantilla) | no | Gráficos, Leyenda: arriba (Arriba), abajo (Abajo), no (Sin leyenda); «plantilla» vuelve al de la plantilla. |
+| `ajustes.cuadricula` | string (no \\| si \\| plantilla) | no | Gráficos, Cuadrícula: no (Sin líneas), si (Con líneas); «plantilla» vuelve al de la plantilla. |
 | `posicion` | number | no | En qué lugar queda la pestaña, contando desde 1 (la primera). |
 
 ```bash
@@ -15121,7 +15132,7 @@ curl -L \
 
 ## Cobros (Stripe y Mercado Pago) — `cobros`
 
-Tab **CRM** (`/crm`). 3 lecturas · 12 acciones.
+Tab **CRM** (`/crm`). 3 lecturas · 13 acciones.
 
 ### `GET /api/v1/cobros/cobros` — Cobros de Stripe y Mercado Pago
 
@@ -15524,6 +15535,34 @@ curl -L \
   -H "Content-Type: application/json" \
   "https://hola-mako.com/api/v1/cobros/cuotas/CUOTA_ID/recordatorios" \
   -d '{"leadId":1}'
+```
+
+### `PUT /api/v1/cobros/ventas/{leadId}/baja` — Baja del cliente
+
+PROPONE marcar que un cliente se dio de baja y dejó de pagar su plan de cuotas: lo que NO pagó deja de ser deuda (sale del Outstanding, de «A quién cobrarle», de lo vencido y de los recordatorios de cobro) y lo cobrado queda como está. Las cuotas siguen en su ficha como «baja del cliente», se anulan sus links sin pagar y se cortan sus recordatorios. Úsala cuando digan «se dio de baja», «dejó el servicio» o «ya no va a pagar el resto». Con deshacer: true, las cuotas vuelven a ser deuda con su vencimiento. Una suscripción no se da de baja así: se cancela (estado_suscripcion_manual o cancelar_suscripcion).
+
+- **Ruta por operación:** `POST /api/v1/cobros/baja_del_cliente`
+- **Token detallado:** permiso `cobros=write` (Lectura y escritura en «Cobros (Stripe y Mercado Pago)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** marca baja_at en las cuotas impagas del lead y les guarda el vencimiento en baja_vencia (o se lo devuelve al deshacer), anula sus links sin pagar, corta sus recordatorios y deja historial
+- **Reversible:** sí
+- **Costo:** gratis
+- **Requiere la tab:** crm
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `leadId` | number | sí | id del lead que se dio de baja. |
+| `deshacer` | boolean | no | true para deshacer una baja: las cuotas vuelven a ser deuda. |
+
+```bash
+curl -L \
+  -X PUT \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/cobros/ventas/LEAD_ID/baja"
 ```
 
 ### `PUT /api/v1/cobros/ventas/{leadId}/suscripcion` — Cancelar o reactivar una suscripción manual

@@ -175,7 +175,9 @@ test('la lib: permiso del CRM (no el de la tab MaKo), lead del workspace, y nada
   // Proponer y confirmar son del turno y de lib/api-mako/acciones.ts: acá no se escribe nada.
   assert.ok(!/\.(from|insert|update|upsert)\(/.test(LIB), 'la lib escribe en la base por su cuenta');
   assert.ok(!/api-mako\/acciones/.test(LIB), 'la lib importa el confirmar del registro en vez de pasar por el turno');
-  assert.match(LIB, /turnoApp\(a\.persona, sid, \{ \.\.\.entrada, contexto \}\)/, 'el turno no recibe el contexto del lead');
+  // 17/10/2026: dos caminos, los dos con el contexto del lead (editando la vista, con el de la edición pegado al final).
+  assert.match(LIB, /turnoApp\(a\.persona, sid, \{ \.\.\.resto, contexto \}\)/, 'el turno no recibe el contexto del lead');
+  assert.match(LIB, /contexto: `\$\{contexto\}\\n\\n\$\{contextoDeEdicion\(/, 'editando, el turno pierde el contexto del lead');
   assert.match(LIB, /ejecutarOperacion\(l\.id, \{ leadId: a\.lead\.id \}, ctx, 'json', vista\)/, 'el contexto no sale del choke point de la API de MaKo');
   assert.match(LIB, /alcance: 'lectura'/, 'las lecturas del contexto corren con más alcance que lectura');
 });
@@ -192,7 +194,8 @@ test('el turno pone el contexto AL FINAL del system y no lo guarda en el hilo', 
 
 test('la pantalla monta las piezas del chat de Offer y habla con su ruta con corte', () => {
   assert.match(PANTALLA, /^'use client';/);
-  assert.match(PANTALLA, /export function MakoAnalystLead\(\{ leadId, nombre \}: \{ leadId: number; nombre: string \}\)/, 'cambió el contrato que monta la ficha');
+  // 17/10/2026: suma `edicion` (la ficha en «Editar»: la hoja abierta); sin ella, el chat de siempre.
+  assert.match(PANTALLA, /export function MakoAnalystLead\(\{ leadId, nombre, edicion = null \}: \{\s*leadId: number;\s*nombre: string;\s*edicion\?: \{ tab: string; nombre: string \} \| null;\s*\}\)/, 'cambió el contrato que monta la ficha');
   for (const pieza of ["from '@/app/whatsapp/_shared/ChatHilo'", "from '@/app/whatsapp/_shared/BurbujaHilo'", "from '@/app/whatsapp/_shared/ComposerWhatsApp'", "from '@/app/offer/AvatarMako'", "from '@/app/offer/estilos'"]) {
     assert.ok(PANTALLA.includes(pieza), `no monta ${pieza}: ya no es el chat de Offer`);
   }

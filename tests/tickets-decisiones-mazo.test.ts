@@ -148,13 +148,22 @@ test('las rutas de antes no se pierden la query: un aviso que trae a una tarjeta
   }
 });
 
+/** Dónde lee cada página la Ticketera: el teléfono, en su cuerpo; la computadora (Ops Center, 17/10/2026), por la lectura
+ *  guardada que comparte con /second-brain (app/admin/operaciones/datos.ts, con su propio `puedeOperar` adentro). */
+const LECTURA: Record<string, string> = { 'app/admin/operaciones/page.tsx': 'datosDelCentroSiOpera()', 'app/m/operaciones/page.tsx': 'leerDecisiones()' };
+/** Y de dónde sale la acción que contesta: la misma en las dos. */
+const RESPONDE: Record<string, [string, RegExp]> = {
+  'app/admin/operaciones/page.tsx': ['app/admin/operaciones/datos.ts', /responder: responderDecision,/],
+  'app/m/operaciones/page.tsx': ['app/m/operaciones/page.tsx', /responder=\{responderDecision\}/],
+};
+
 // Rotura «sin el notFound del guard» → 11 pases, 1 fallo.
 test('sólo el super admin: la guarda del Centro va antes de leer, en las dos páginas', () => {
   for (const r of PAGINAS) {
     const src = sinComentarios(leer(r));
     const guard = src.indexOf('await getSesionAdmin()');
     const opera = src.indexOf('puedeOperar(admin');
-    const lee = src.indexOf('leerDecisiones()');
+    const lee = src.indexOf(LECTURA[r]);
     assert.ok(guard > 0 && opera > guard && lee > opera, `${r}: getSesionAdmin y puedeOperar antes de leer`);
     assert.match(src.slice(guard, opera), /if \(!admin\) redirect\(/, `${r}: sin sesión de admin no sigue`);
   }
@@ -163,10 +172,13 @@ test('sólo el super admin: la guarda del Centro va antes de leer, en las dos p�
 // Rotura «la página del teléfono con una acción propia» → 11 pases, 1 fallo.
 test('una sola fuente: las dos páginas contestan con la misma acción, y se llama «Ticketera»', () => {
   for (const r of PAGINAS) {
-    const src = sinComentarios(leer(r));
-    assert.match(src, /import \{[^}]*responderDecision[^}]*\} from '@\/app\/admin\/runway\/acciones'/, r);
-    assert.match(src, /responder=\{responderDecision\}/, r);
+    const [archivo, re] = RESPONDE[r];
+    const src = sinComentarios(leer(archivo));
+    assert.match(src, /import \{[^}]*responderDecision[^}]*\} from '@\/app\/admin\/runway\/acciones'/, archivo);
+    assert.match(src, re, archivo);
   }
+  // La lectura de la computadora pide `puedeOperar` en sus dos primeras líneas (tests/second-brain-centro.test.ts).
+  assert.match(sinComentarios(leer('app/admin/operaciones/datos.ts')), /const admin = await getSesionAdmin\(\);\s*if \(!puedeOperar\(admin, await wsSuperAdmin\(\)\)\) return null;[\s\S]*leerDecisiones\(\)/);
   assert.match(sinComentarios(leer('app/m/operaciones/page.tsx')), /<CabeceraM titulo="Ticketera"/, 'el teléfono: se llama Ticketera');
   assert.match(sinComentarios(leer('app/admin/operaciones/TicketeraCentro.tsx')), />Ticketera</, 'la computadora: se llama Ticketera');
   const mazo = sinComentarios(leer('app/tickets/decisiones/Mazo.tsx'));
@@ -276,11 +288,18 @@ test('la tarjeta de atrás asoma por ARRIBA: por abajo se metía detrás de los 
 
 // Rotura «la página del teléfono sin deshacer» → 15 pases, 1 fallo.
 test('las dos páginas del mazo pasan el deshacer; la lista no lo necesita', () => {
+  // La computadora (Ops Center, 17/10/2026) lo pasa por su lectura guardada (datos.ts), y la pantalla lo enchufa al motor.
+  const PASA: Record<string, [string, RegExp]> = {
+    'app/admin/operaciones/page.tsx': ['app/admin/operaciones/datos.ts', /deshacer: deshacerDecision,/],
+    'app/m/operaciones/page.tsx': ['app/m/operaciones/page.tsx', /deshacer=\{deshacerDecision\}/],
+  };
   for (const r of PAGINAS) {
-    const src = sinComentarios(leer(r));
-    assert.match(src, /deshacerDecision/, `${r}: sin la acción, volver no despega la respuesta`);
-    assert.match(src, /deshacer=\{deshacerDecision\}/, r);
+    const [archivo, re] = PASA[r];
+    const src = sinComentarios(leer(archivo));
+    assert.match(src, /deshacerDecision/, `${archivo}: sin la acción, volver no despega la respuesta`);
+    assert.match(src, re, archivo);
   }
+  assert.match(sinComentarios(leer('app/second-brain/ChatSecondBrain.tsx')), /responder=\{centro\.responderAca\} deshacer=\{centro\.deshacerAca\}/, 'Ops Center la enchufa a la Ticketera');
 });
 
 // ---------------------------------------------------------------------------

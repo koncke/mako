@@ -270,6 +270,6 @@ test('el pop-up pone el funnel arriba y el aviso debajo, en la columna de la der
   const iDrop = s.indexOf('<FunnelYEtapa');
   const iAviso = s.indexOf('<DatosSinMarcarCard');
   assert.ok(iDrop >= 0 && iAviso > iDrop, 'el desplegable va ARRIBA del aviso');
-  assert.match(sinComentarios(leer('app/crm/lead-view/ProductoDelLead.tsx')), /icono=\{<span title="Funnel"[^>]*><IconoProducto \/><\/span>\}/, 'el desplegable lleva el ícono del cubo');
+  assert.match(sinComentarios(leer('app/crm/lead-view/ProductoDelLead.tsx')), /icono=\{<span title="Funnel"[^>]*><IconoFunnel \/><\/span>\}/, 'el desplegable lleva el ícono del cubo');
   assert.doesNotMatch(s, /<button onClick=\{onClose\}/, 'volvió el botón de cerrar propio: la cruz va sobre la portada');
 });

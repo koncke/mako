@@ -114,7 +114,10 @@ test('reparte: MaKo reclama sólo lo que un Runner alcanza, y cada Runner entreg
     assert.deepEqual([...subido.entregables].sort(), [local(1), local(3)], 'B no tiene Runner: MaKo no reclama lo suyo');
     assert.equal(subido.chats.find((c) => c.local === local(2))?.runner, false);
     assert.equal(subido.chats.find((c) => c.local === local(3))?.runner, true);
-    assert.equal(subido.chats.some((c) => /Runner/.test(String(c.titulo))), false, 'el Runner no es un chat');
+    // Desde la 1.10.0 (17/10/2026, Martín: «todo chat abierto se ve») el Runner SÍ se sube, marcado: se ve en la lista y
+    // nunca recibe (no está en `entregables`, arriba). tests/centro-runner-nube.test.ts fija el resto.
+    const runners = subido.chats.filter((c) => /Runner/.test(String(c.titulo)));
+    assert.ok(runners.length > 0 && runners.every((c) => c.esRunner === true), 'el Runner se ve, marcado');
     assert.equal(subido.chats.some((c) => 'dir' in c || 'pipe' in c), false, 'ni la carpeta ni el canal salen de la PC');
     // (2) Éste entrega sólo lo de su carpeta; lo de C lo lleva el Runner de C.
     assert.deepEqual(o.entregar.map((e) => e.id), [id(1)]);
@@ -128,6 +131,42 @@ test('reparte: MaKo reclama sólo lo que un Runner alcanza, y cada Runner entreg
     assert.equal(existsSync(join(pc.dir, 'claude2', 'buzon', `${id(1)}.json`)), false);
     assert.equal(existsSync(join(pc.dir, 'claude2', 'buzon', `${id(1)}.mano`)), false);
     assert.equal(existsSync(join(pc.dir, 'entregados', id(1))), true, 'un archivo por id: dos Runners acusando a la vez no se pisan');
+  } finally {
+    v.matar(); pc.cerrar();
+  }
+});
+
+// El modelo y el esfuerzo (17/10/2026): la PC se los pasa al Runner con la sesión, para que los aplique antes de entregar,
+// y sólo en un chat de la APP. Probado ROMPIÉNDOLO: `comoCorre` sin mirar `local_` → 2 fallos (éste y el del arnés, cuyos
+// chats son de terminal). El arnés no arma chats de la app: que el buzón use `comoCorre` lo mira la última línea.
+test('el modelo y el esfuerzo viajan al Runner sólo para un chat de la app', async () => {
+  const { comoCorre } = await import('../scripts/operaciones/cartero.mjs');
+  const app = 'local_0b1c2d3e-4f50-4a61-8b72-9c83d4e5f601';
+  assert.deepEqual(comoCorre({ destino: app, modelo: 'sonnet', esfuerzo: null }), { sesion: app, modelo: 'sonnet', esfuerzo: null });
+  assert.deepEqual(comoCorre({ destino: app }), {}, 'sin elegir nada, nada');
+  assert.deepEqual(comoCorre({ destino: local(1), modelo: 'sonnet', esfuerzo: 'low' }), {}, 'a uno de terminal no se le puede cambiar');
+  assert.match(readFileSync(CARTERO, 'utf8'), /mensaje: mensaje\(l\.p(, rutas)?\),\s*\.\.\.comoCorre\(l\.p\),/, 'el buzón lleva lo que dice comoCorre');
+});
+
+test('lo que trae modelo o esfuerzo sale por la PC como siempre a un chat de terminal (sin pedirle al Runner que lo cambie)', async () => {
+  const { privateKey, publicKey } = generateKeyPairSync('ec', { namedCurve: 'prime256v1' });
+  const spki = publicKey.export({ type: 'spki', format: 'der' }).toString('base64');
+  const ahora = Date.now();
+  const firmar = (n: number, como: { modelo?: 'sonnet'; esfuerzo?: 'low' }) => {
+    const firmado = armarFirmable(nuevoPayload({ id: id(n), texto: `para ${n}`, destino: local(n), cuenta: 'claude4', titulo: 'x', alcance: 'solo_esto', ...como }, ahora));
+    return { id: id(n), firmado, firma: sign('sha256', Buffer.from(firmado, 'utf8'), { key: privateKey, dsaEncoding: 'ieee-p1363' }).toString('base64') };
+  };
+  const pc = await armarPC((_, n) => ({ pedidos: n === 1 ? [firmar(1, { modelo: 'sonnet', esfuerzo: 'low' }), firmar(2, {})] : [] }));
+  const v = vivos(3);
+  const cfg = pc.carpeta('a');
+  try {
+    pc.sesion(cfg, v.pids[0], 'Runner'); pc.sesion(cfg, v.pids[1], 'CRM', 1); pc.sesion(cfg, v.pids[2], 'Pagos', 2);
+    pc.config({ claude4: { fuentes: [{ fuente: 'cli', configDir: cfg }] } });
+    writeFileSync(join(pc.dir, 'claves.txt'), `${spki}\n`);
+    const o = await pc.json(['ciclo'], cfg, v.pids[0]) as { entregar: Array<Record<string, unknown>> };
+    // En este arnés los chats son de TERMINAL (`cli_`): el trabajo con modelo sale, sin pedirle al Runner que lo cambie.
+    assert.deepEqual(o.entregar.map((e) => e.id).sort(), [id(1), id(2)].sort(), 'los dos salen');
+    for (const e of o.entregar) assert.ok(!('modelo' in e) && !('sesion' in e), `${e.id}: sin pedido de modelo`);
   } finally {
     v.matar(); pc.cerrar();
   }

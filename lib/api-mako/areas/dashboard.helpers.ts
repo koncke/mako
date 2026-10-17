@@ -53,7 +53,7 @@ import { PLANTILLAS_HOJA, tableroInicial } from '@/lib/graficos-plantillas';
 import { ETIQUETAS_DASHBOARD } from '@/lib/graficos-plantillas-etiquetas';
 import { ordenarConSugeridas, type SenalesNegocio } from '@/lib/plantillas-sugeridas';
 import { firmaDeHoja } from '@/lib/graficos-ia-edicion';
-import { PLANTILLAS_TEMA, sanearTema } from '@/lib/graficos-temas';
+import { AJUSTES_TEMA, PLANTILLAS_TEMA, sanearTema, type IdAjuste } from '@/lib/graficos-temas';
 import { fmtValor, type Resultado } from '@/lib/graficos-agregar';
 import { Alias, conNombres, dimensionPublica, etiquetaSegura, haceCuanto, type SalidaAnalisis, type VistaAnalisis } from '@/lib/graficos-analisis';
 import { enOrden, rangoTexto } from '@/app/dashboard/exportar';
@@ -747,7 +747,7 @@ export function buscarConector(h: Hoja, e: { conector?: string; origen?: string;
 
 export type Cambio =
   | { op: 'crear_hoja'; hoja: Hoja }
-  | { op: 'editar_hoja'; hojaId: string; nombre?: string; emoji?: string; subtitulo?: string; tema?: string; posicion?: number }
+  | { op: 'editar_hoja'; hojaId: string; nombre?: string; emoji?: string; subtitulo?: string; tema?: string; ajustes?: Partial<Record<IdAjuste, string>>; posicion?: number }
   | { op: 'duplicar_hoja'; hojaId: string; copia: Hoja }
   | { op: 'borrar_hoja'; hojaId: string }
   | { op: 'agregar_componente'; hojaId: string; componente: Componente; lugar: 'abajo' | 'arriba' }
@@ -826,7 +826,15 @@ export function aplicarCambio(t: Tablero, c: Cambio): Aplicado {
         ...(c.nombre !== undefined ? { nombre: c.nombre.trim().slice(0, 40) || h.nombre } : {}),
         ...(c.emoji !== undefined ? { emoji: emojiValido(c.emoji) } : {}),
         ...(c.subtitulo !== undefined ? { subtitulo: c.subtitulo.slice(0, 140) } : {}),
-        ...(c.tema !== undefined ? { tema: sanearTema({ ...h.tema, plantilla: c.tema }) } : {}),
+        // Otro estilo vuelve los ajustes a los suyos (como el panel); los ajustes pedidos van encima, y «plantilla»
+        // borra ese ajuste (`sanearTema` tira lo que no es del catálogo).
+        ...(c.tema !== undefined || c.ajustes ? {
+          tema: sanearTema({
+            ...h.tema,
+            ...(c.tema !== undefined ? { plantilla: c.tema, ...Object.fromEntries(AJUSTES_TEMA.map((a) => [a.id, undefined])) } : {}),
+            ...Object.fromEntries(Object.entries(c.ajustes ?? {}).map(([k, v]) => [k, v === 'plantilla' ? undefined : v])),
+          }),
+        } : {}),
       };
       const hojas = [...t.hojas];
       hojas[i] = nueva;

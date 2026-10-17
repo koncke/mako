@@ -41,7 +41,7 @@ test('la lectura del Centro para otra página pide puedeOperar en sus dos primer
 });
 
 test('las dos páginas del Second Brain leen el Centro SÓLO por la lectura guardada', () => {
-  for (const f of ['app/second-brain/page.tsx', 'app/m/second-brain/page.tsx']) {
+  for (const f of ['app/second-brain/page.tsx', 'app/m/second-brain/page.tsx', 'app/admin/operaciones/page.tsx']) {
     const src = sinComentarios(leer(f));
     assert.match(src, /datosDelCentroSiOpera\(\)/, `${f}: por datos.ts`);
     assert.doesNotMatch(src, /listarPedidos|leerCarteros|leerDecisiones|leerMunecos/, `${f}: la cola no se lee por fuera de la guarda`);
@@ -54,7 +54,8 @@ test('las pantallas del Second Brain escriben a un chat sólo por mandar.ts (la 
     assert.doesNotMatch(sinComentarios(leer(f)), /encolarPedido|cancelarPedido|crearTokenCartero/, `${f}: el único camino es mandar.ts`);
   }
   const motor = sinComentarios(leer('app/admin/operaciones/useCentro.ts'));
-  assert.match(motor, /const r = await firma\.mandar\(\{ sesion: c\.sesion, cuenta: c\.cuenta, titulo: c\.titulo \}, texto, alcance\);/, 'mandar firma en el dispositivo');
+  // Desde el 17/10 va a la sesión de la cuenta elegida (o la automática) y con el modelo elegido (lib/centro-cuentas.ts).
+  assert.match(motor, /const r = await firma\.mandar\(\{ sesion: d\.sesion, cuenta: d\.cuenta, titulo: c\.titulo \}, texto, alcance, como, subidos\);/, 'mandar firma en el dispositivo (con los adjuntos, 17/10/2026)');
   // El panel de un chat de Claude Code en el Second Brain es la conversación del Centro, no otra caja.
   const sb = sinComentarios(leer('app/second-brain/ChatSecondBrain.tsx'));
   assert.match(sb, /<ChatDelCentro centro=\{centro\} chat=\{chatCentro\}/);
@@ -78,4 +79,36 @@ test('buscar un chat de Claude Code no distingue tildes ni mayúsculas', async (
   assert.deepEqual(buscarChats(chats, 'crm  › LEAD').map((c) => c.titulo), ['CRM › Lead Detail']);
   assert.deepEqual(buscarChats(chats, 'céreb').map((c) => c.titulo), ['Cerebro']);
   assert.equal(buscarChats(chats, '   ').length, 3, 'sin nada buscado, todos');
+});
+
+// Tanda 10 (17/10/2026): «entender el pedido». Lo que, roto, no da error: el pedido esperando a la ruta antes de
+// mandar el turno (la respuesta se demora), o el mensaje partido (en el Second Brain todo sería «otra tab» y MaKo
+// dejaría de contestar). Probado ROMPIÉNDOLO: con `await linksDelPedido(mensaje)` antes del turno → 1 fallo (éste).
+test('el Second Brain pide los links EN PARALELO al turno, con la tab de MaKo, y no parte el mensaje', () => {
+  const src = sinComentarios(leer('app/second-brain/ChatSecondBrain.tsx'));
+  assert.match(src, /body: JSON\.stringify\(\{ texto, tab: 'mako' \}\)/);
+  const mandar = src.slice(src.indexOf('const mandar = async ('), src.indexOf('const enviar = ('));
+  const pide = mandar.indexOf('const irA = linksDelPedido(mensaje);');
+  assert.ok(pide > 0 && pide < mandar.indexOf('await postArchivos') && pide < mandar.indexOf('await postLargo'), 'arranca antes del turno, sin esperarlo');
+  assert.match(mandar, /void irA\.then\(\(links\) => \{ if \(links\.length\) setItems\(\(xs\) => colgarIrA\(xs, links, idU\)\); \}\);/);
+  assert.match(mandar, /mensaje \}\)/, 'el turno lleva el mensaje entero');
+});
+
+
+// 17/10/2026, Martín: «Entro a la tab de Second Brain y me envía a un CHAT de Second Brain... cuando ahí debería saltar
+// el grafo». Probado ROMPIÉNDOLO: irAlSecondBrain eligiendo el chat aunque vea el Mapa → 1 fallo (éste).
+test('«Second Brain», debajo de la Ticketera, abre el grafo (el chat con MaKo queda en la lista)', () => {
+  const src = sinComentarios(leer('app/second-brain/ChatSecondBrain.tsx'));
+  const ir = src.slice(src.indexOf('const irAlSecondBrain = () => {'), src.indexOf('const irAClaudeCode'));
+  assert.match(ir, /if \(veMapa\) \{[^}]*router\.push\(hrefMapa\); return; \}/, 'con el Mapa, el panel es el grafo');
+});
+
+// Lo mismo en el teléfono: la fila «Second Brain» debajo de «Ticketera» (/m/operaciones). /m/second-brain manda
+// `?panel=mapa` al Mapa sólo si lo ve (esAdminDeTab); si no, se queda en el chat.
+// Probado ROMPIÉNDOLO: el href sin `?panel=mapa` → 1 fallo (éste).
+test('en el teléfono, «Second Brain» debajo de la Ticketera también abre el grafo', () => {
+  const movil = sinComentarios(leer('app/m/operaciones/CentroAppMovil.tsx'));
+  assert.match(movil, /titulo="Second Brain" href="\/m\/second-brain\?panel=mapa"/, 'la fila lleva al Mapa');
+  const pagina = sinComentarios(leer('app/m/second-brain/page.tsx'));
+  assert.match(pagina, /if \(veMapa && \(uno\(sp\.panel\) === 'mapa'/, 'sólo quien ve el Mapa va al Mapa');
 });

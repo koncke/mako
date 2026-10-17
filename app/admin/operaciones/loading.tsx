@@ -16,7 +16,7 @@ const FILAS = [62, 48, 70, 55, 40, 66, 52, 44];
 export default function Cargando() {
   return (
     <Pagina ancho="completo" densidad="compacta" style={{ padding: 0, flex: 'none', height: '100dvh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-      <div className="co" aria-busy="true" aria-label="Cargando el Centro de Operaciones">
+      <div className="co" aria-busy="true" aria-label="Cargando Ops Center">
         <aside className="co-barra">
           <div className="co-barra__arriba">
             <div className="co-buscar"><span className="co-esq" style={{ width: 90, height: 10 }} /></div>

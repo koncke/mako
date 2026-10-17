@@ -1,43 +1,49 @@
 # Relevo — chat «Dashboard» (la tab Dashboard y el editor de General)
 
-<sub>Escrito el 16/10/2026 ~10:30 (hora de Argentina) por la cuenta 3 (claude3), desde el chat que hizo el trabajo, al pasar
-el 85% del uso semanal. Se pisa en cada relevo. Los anteriores están en el historial: `git log -p -- docs/relevo/dashboard.md`.</sub>
+<sub>Escrito el 17/10/2026 ~05:30 (hora de Argentina) por la cuenta 4 (claude4), desde el chat que hizo el trabajo. Se pisa
+en cada relevo. Los anteriores están en el historial: `git log -p -- docs/relevo/dashboard.md`.</sub>
 
 ## Cómo se trabaja acá
 
-- Rama `dashboard-bloques`, worktree `C:/dev/wt-dashboard`. Se MEZCLA (nunca rebase) y se commitea por ruta explícita.
-- **La punta va a «Cerebro»** (`local_0f38f4d5…`), que la sube a main en runs numerados. Este chat no pushea.
-- Sin `next dev` ni tsc completo (la RAM): `node scripts/tsc-acotado.mjs <archivos>`; salida 99 = lo mató el vigía, no es verde.
-- Arnés de capturas FUERA del repo, `C:/Users/marti/arnes-dashboard/`: `node build.mjs C:/dev/wt-dashboard` y
-  `node capturar.cjs "<regex>" mako <modo>`. Modos: `plantillas`, `galeria`, `crear` (la «¿Qué vas a crear hoy?» de verdad) y
-  `editar` (el panel «Editar con MaKo» de verdad, con `editar-pedidos` para las burbujas). ⚠️ El 2º argumento es el tema de
-  la HOJA, no el oscuro de la app.
+- Rama `dashboard-bloques`, worktree `C:/dev/wt-dashboard`. Se MEZCLA origin/main (nunca rebase) y se commitea por ruta
+  explícita, con `Claude-Cuenta` pegado a `Co-Authored-By` (también en los merges).
+- **La punta va al «Cerebro»**, que la sube a main en runs numerados. Este chat no pushea. Las migraciones las numera él.
+- Sin `next dev` ni tsc completo (la RAM): `node scripts/tsc-acotado.mjs --rama`. ⚠️ Si tocaste app/dashboard/EditorInforme.tsx,
+  entra por arrastre app/conocimientos/Compartir.tsx con dos rojos de `<style jsx>`: no son tuyos (el tsc acotado no carga
+  el tipo de styled-jsx); contá los rojos sin ese archivo.
+- Para probar contra la base sin navegador (sólo leyendo): un script en el scratchpad con
+  `node --conditions=react-server --import tsx`, los imports como `file:///C:/dev/wt-dashboard/…` y `runWithWorkspace(ws)`.
+  Así se midieron el OKR por funnels (ws1) y los pedidos sueltos (ws9). Las rutas que piden sesión no corren así: se
+  llama a lo que ellas llaman.
+- Arnés de capturas FUERA del repo, `C:/Users/marti/arnes-dashboard/` (modos `plantillas`, `galeria`, `crear`, `editar`).
 
-## Dónde está (16/10)
+## Dónde está (17/10)
 
-**En producción** (runs 32 y 36), mirado en el ws9 sólo leyendo:
-- La IA del Dashboard con su propia red y el corte por datos de clientes caja por caja (`pii` en cada caja; sin crédito ni
-  key del negocio, una caja con datos de clientes no corre y avisa «Conecta tu Claude…»).
-- Las plantillas sugeridas por el negocio (módulo compartido, guía en `docs/plantillas-sugeridas.md`).
-- «Editar con MaKo» en Dashboard y General (operaciones sobre la hoja abierta, el editor aplica con `mutar`).
-- La seguridad de `/api/chart-insights` (sin números para no-admins; cada chat es de quien lo habló).
+**En main** (`e5ded0af8`, mig 0306 que aplica el Cerebro): los OKR, los KPIs automáticos del CRM y «A quién cobrarle»
+eligen uno o varios funnels (la pieza `app/components/ElegirFunnels.tsx`), con la regla de que cada pago cuenta en el
+funnel donde estaba el lead ese día (lib/funnels-elegidos.ts). Los pagos del Dashboard tienen funnel. API de MaKo al día.
 
-**Punta entregada, sin subir: `53f969095`** — los pedidos sueltos en «Editar con MaKo» (crear otra hoja, abrir o archivar
-otra, «¿Cuál?», el link a otra tab). Trae adentro la rama del Web Generator (`web-pedidos` @019ffdb00), que sale en el
-run 43: tiene que subir DESPUÉS o junto con ese run. Toca dos archivos de esa rama: `objetosDeTab` de `general` en
-app/api/mako/pedidos/route.ts y `PARTES_DE_LO_ABIERTO.general` en lib/mako-pedidos.ts.
+**Punta entregada al Cerebro, sin subir** (`98a4a19d2`, y encima el merge de origin/main y esta cosecha):
+- «Estilo de la hoja» con AJUSTES encima de la plantilla (fondo, esquinas, borde, sombra, títulos; valores, leyenda,
+  cuadrícula). `PanelEstilo` es la pieza compartida; los ajustes van prendidos en Dashboard y General.
+- «Editar con MaKo» con el muñeco de la tab y el micrófono del Second Brain.
 
-Lo aprendido de todo esto: `docs/hallazgos-graficos.md` (secciones del 16/10), `docs/hallazgos-ia.md` («Los pedidos
-sueltos…»), `docs/hallazgos-seguridad.md` (chart-insights) y el contrato en `docs/diseno-mako-pedidos.md`.
+Lo aprendido: `docs/hallazgos-objectives.md` («Un OKR que suma varios funnels»), `docs/hallazgos-graficos.md` (los pagos
+con funnel; «Estilo de la hoja») y `docs/hallazgos-ia.md` (los pedidos sueltos probados en el ws9). La regla para código
+nuevo, en AGENTS.md («Elegir funnels: UNO O VARIOS»).
 
 ## Lo que falta
 
-- **Después del run 43:** probar los pedidos sueltos contra la ruta de verdad en el ws9 (sólo leyendo: «créame otra hoja»
-  muestra la burbuja; no apretar Sí ni Archivar en un informe ajeno).
-- **Mirar el panel «Editar con MaKo» en la pantalla de producción** (se probó la ruta y el modelo; el panel, sólo en el arnés).
-- **El hilo del panel no se guarda** (es de la sesión, por hoja): es la etapa 2 de `docs/diseno-mako-ai-native.md`.
-- **`claudePausado` debería decir «Conecta tu Claude»**: anotado como abierto por Cerebro, no pedido todavía.
-- **Lo de antes que sigue abierto:** la pila del celular con una sesión real; cinco temas sin mirar por tipo (Minimal, Suave,
-  Elevada, General, Editorial); «Conclusiones de MaKo», la Ficha y el mapa de calor de página sin mirar en el arnés; que
-  Martín decida si se borran `PulsoPaginas.tsx` y `ScriptsBrowser`/`GuionesFull`.
-- El resto, en `docs/hallazgos-graficos.md` → «Lo que quedó sin hacer».
+- **La ficha del CRM puede prender los ajustes del estilo** cuando su op `tema` (lib/ficha/config.ts) los copie y
+  `estiloDeFicha` (app/crm/lead-view/ficha/armar.ts) use `temaPropio`. Se le avisó al jefe del CRM el 17/10.
+- **Los pedidos sueltos fallan en tres casos** (hallazgos-ia, 17/10): una hoja que se llama como una tab, los verbos de
+  ir («Ve al CRM») y una hoja que no existe. Viven en lib/mako-pedidos.ts, compartido con las otras tabs: se le pasó al
+  Cerebro.
+- **Elegir funnels en otras tabs**: el inventario, repartido por el Cerebro (notas del Cerebro,
+  `dashboard-inventario-un-solo-funnel.md`). Y el filtro «Producto» de los LEADS del Dashboard sigue mirando sólo la casa.
+- **Nada de esta tanda se miró en pantalla**: el selector de funnels en el OKR, el panel de estilo con los ajustes y el
+  muñeco (Claude in Chrome desconectado, sin RAM para `next dev`).
+- **Lo de antes que sigue abierto**: el hilo de «Editar con MaKo» no se guarda (etapa 2 de docs/diseno-mako-ai-native.md);
+  `claudePausado` debería decir «Conecta tu Claude»; la pila del celular con una sesión real; cinco temas sin mirar por
+  tipo; que Martín decida si se borran `PulsoPaginas.tsx` y `ScriptsBrowser`/`GuionesFull`. El resto, en
+  `docs/hallazgos-graficos.md` → «Lo que quedó sin hacer».

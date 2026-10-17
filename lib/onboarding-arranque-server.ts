@@ -27,7 +27,7 @@ import { DEFAULT_PIPELINE, apagadasAlCrear, mismoPipeline, siembraDeCrm, tipoCrm
 import { listProductos, upsertProducto } from './productos';
 import { ANSWERS_KEY, saveAnswers } from './onboarding';
 import { mapaParaEscribir } from './archivero';
-import type { OfferSesionVista } from './offer-marco';
+import { faltanDelArranque, type OfferSesionVista } from './offer-marco';
 import {
   briefDesdeArranque, cierreDePasos, etapaDeArranque, fundirBrief, mensajesDeArranque, sinMarca,
   type EstadoArranque, type EtapaArranque, type HechosArranque, type MensajeArranque, type ModoArranque,
@@ -103,8 +103,7 @@ export async function hechosDelArranque(e: EstadoArranque): Promise<HechosServer
     nombreWorkspace: w?.nombre ?? '',
     faseGuardada: diag != null,
     canalNegocio: diag?.canal && esCanal(diag.canal) ? diag.canal : null,
-    puedeConcluir: !!sesion?.puedeConcluir,
-    ofertaLista: !!sesion?.conclusion,
+    loQueVende: !!sesion && faltanDelArranque(sesion.piezas).length === 0,
     // Lo que ya contestó del diagnóstico en la conversación de la oferta: el arranque no lo repite.
     faseOffer: sesion ? (({ respuestas, canal }) => ({ respuestas, canal }))(estadoDiagnostico(sesion.mensajes, { canal: null, yaGuardado: false })) : null,
     conCrm: modo === 'oferta',
@@ -213,9 +212,11 @@ export async function asegurarFunnelPrincipal(): Promise<void> {
 export class FaltaParaCerrar extends Error {}
 
 /**
- * Cierra el arranque: deja escrito el perfil del negocio (el brief, fundido sin pisar), el producto y la
- * oferta (modo 'oferta') y cierra los pasos del onboarding por la puerta única (`cerrarPasosOnboarding`):
- * el teléfono y Meta se postergan si no se hicieron, nunca se marcan hechos.
+ * Cierra el arranque: deja escrito el perfil del negocio (el brief, fundido sin pisar) y el producto de lo que
+ * vende (modo 'oferta'), y cierra los pasos del onboarding por la puerta única (`cerrarPasosOnboarding`): el
+ * teléfono y Meta se postergan si no se hicieron, nunca se marcan hechos. La OFERTA (la fila de `ofertas`) se
+ * guarda sólo si la conversación ya tiene una armada: desde el 17/10/2026 el onboarding no la arma (eso es de la
+ * tab Offer), y una conversación que venía de antes puede traerla.
  */
 export async function cerrarArranque(): Promise<{ estado: OnboardingState; avisos: string[] }> {
   const e = parseEstado(await getSettingEstricto(CLAVE));
@@ -225,18 +226,18 @@ export async function cerrarArranque(): Promise<{ estado: OnboardingState; aviso
   if (etapa !== 'cierre') throw new FaltaParaCerrar('Todavía falta un paso de la conversación.');
   const avisos: string[] = [];
 
-  // 1. La oferta armada (modo 'oferta').
+  // 1. La oferta armada, si la conversación ya traía una (modo 'oferta').
   const fila = h.modo === 'oferta' && e.sesionId ? await leerFila(e.sesionId) : null;
   const propuesta = fila?.conclusiones.length ? fila.conclusiones[fila.conclusiones.length - 1].propuesta : null;
   const piezas = h.sesion?.piezas;
 
-  // 2. El producto y la oferta (modo 'oferta'): el catálogo que usa el CRM al ganar un lead.
+  // 2. El producto (y la oferta, si hay una armada), modo 'oferta': el catálogo que usa el CRM al ganar un lead.
   // ⚠️ VA ANTES DEL BRIEF, y el orden es el arreglo. `guardarComoOferta` siembra primero la oferta principal
   // DESDE EL BRIEF (`seedOfertaDesdeBrief`, que corre una sola vez y quema su guard): con `oferta_nombre` ya
   // escrito, creaba «X» desde el brief y después la de Offer chocaba con el nombre y quedaba «X · versión 1».
   // Cada cliente nuevo terminaba con dos ofertas iguales (revisión del 16/10). Sin el nombre en el brief
   // todavía, la siembra no crea nada y la oferta del negocio es la de la conversación.
-  if (h.modo === 'oferta' && propuesta && e.sesionId) {
+  if (h.modo === 'oferta' && piezas && e.sesionId) {
     try {
       const productos = await listProductos();
       if (!productos.length) {
@@ -245,7 +246,7 @@ export async function cerrarArranque(): Promise<{ estado: OnboardingState; aviso
         // monto lo pone él en Productos.
         const precio = sinMarca(piezas?.precio?.valor);
         await upsertProducto({
-          nombre: sinMarca(propuesta.nombre) || `Oferta de ${e.negocio ?? 'tu negocio'}`,
+          nombre: sinMarca(propuesta?.nombre) || `Oferta de ${e.negocio ?? 'tu negocio'}`,
           tipo: 'unico',
           monto_usd: null,
           suscripcion_meses: null,
@@ -255,10 +256,10 @@ export async function cerrarArranque(): Promise<{ estado: OnboardingState; aviso
           descripcion: precio ? `Precio: ${precio}` : null,
         });
       }
-      await guardarComoOferta(e.sesionId);
+      if (propuesta) await guardarComoOferta(e.sesionId);
     } catch (err) {
       console.error('[arranque] producto/oferta:', err instanceof Error ? err.message : err);
-      avisos.push('Tu oferta quedó en la conversación, pero no pude guardarla en tu catálogo; la guardas desde Offer.');
+      avisos.push('Lo que vendes quedó en la conversación, pero no pude guardarlo en tu catálogo; lo cargas en Productos.');
     }
   }
 

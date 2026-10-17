@@ -117,6 +117,6 @@ test('el editor elige los funnels con el selector de la casa, sin «Todos» (ac�
   assert.match(rama, /<ElegirFunnels [^\n]* sinTodos /);
   assert.match(rama, /onCambiar=\{\(ids\) => onCambiar\(conValores\(fila, ids\.map\(String\)\), true\)\}/);
   const ef = leer('app/components/ElegirFunnels.tsx');
-  assert.match(ef, /\.\.\.\(sinTodos \? \[\] : \[\{ value: '', label: todos/, 'con `sinTodos` no hay renglón «Todos»');
+  assert.match(ef, /\.\.\.\(sinTodos \? \[\] : \[\{ value: '', label: todos \}\]\),/, 'con `sinTodos` no hay renglón «Todos»');
   assert.match(ef, /const varios = valor\.length \? valor\.map\(String\) : sinTodos \? \[\] : \[''\];/);
 });

@@ -124,8 +124,9 @@ ese día el push del coordinador murió con 240 MB libres. El runner tiene su pr
   `vercel.json`): cada build cuesta, y sólo `main` va a producción.
 - **El pre-push local queda liviano pero no desaparece** (`scripts/claude-hooks/pre-push`):
   a cualquier rama corre sólo las guardas baratas (`scripts/guardas-push.sh`, la MISMA lista
-  que corre Actions); a **`main`** corre además el `tsc` local completo por el lock, como
-  antes. Así `main` no recibe código sin chequear, venga por donde venga, y pushear directo a
+  que corre Actions); a **`integracion`** corre `antes-de-subir` (guardas + tipos acotados +
+  tests afectados; ver la sección de abajo; `MAKO_SIN_ANTES_DE_SUBIR=1` lo saltea); a **`main`**
+  corre además el `tsc` local completo por el lock, como antes. Así `main` no recibe código sin chequear, venga por donde venga, y pushear directo a
   `main` es el camino de emergencia (si Actions no corre o se acabaron los minutos).
 - ⚠️ **No medido todavía:** cuántos minutos gasta un run, que los tests den verde en Linux
   igual que en Windows (algunos pueden depender de archivos que sólo existen en la notebook),
@@ -358,7 +359,60 @@ renombrar la tab «Guiones» a «Ads Writer» el push salió verde, se desplegó
 el test del título quedó roto en `main`. **Si tocás `nav.ts`, los títulos de pestaña, un
 catálogo o cualquier cosa que un test mire por su NOMBRE, corré `npm test` antes de
 pushear.** No se suma al hook a propósito: son ~9 segundos más en cada push y la mayoría
-de los cambios no los necesita — pero los renombres, sí.
+de los cambios no los necesita — pero los renombres, sí. (17/10/2026: «acordarse a mano» costó 16
+runs rojos de 90; ahora hay una herramienta que elige los tests sola — ver la sección de abajo.)
+
+# Antes de pasarle una punta al Cerebro: `antes-de-subir` en VERDE, sobre tu rama con `origin/main` mergeado
+
+**La regla** (17/10/2026; Martín: «asegúrate por todos los medios de que no vuelva a ocurrir nunca más»). Un chat **no le
+pasa una punta al Cerebro** sin haber corrido esto, con el árbol commiteado y `origin/main` mergeado en la rama:
+
+```sh
+node scripts/antes-de-subir.mjs
+```
+
+y le pasa **la última línea**, `VERDE <sha>`. El Cerebro compara ese sha con el de la punta: **sin la línea, no integra.**
+Un `ROJO: …` se arregla ANTES de pasarla, no después de que falle Actions (cada rojo allá costó ~15 min y minutos del
+mes: 140 de los 2.000 gratis en dos días). Un exit **99** es «no corrió por falta de RAM», no un rojo del código: cerrá chats
+o esperá. Para ver qué elige sin correr nada: `--listar` (y `--explicar` en `tests-afectados.mjs`).
+
+Corre, de lo más barato a lo más caro, y frena en el primer rojo (`--todo` sigue):
+1. **Las guardas del push** (`scripts/guardas-push.sh`, las mismas del pre-push y de Actions — incluida «todo `.ts` es un
+   módulo»: un `.ts` sin `import`/`export` es un script global para `tsc` y choca con otros, runs 51 y 52).
+2. **El `tsc` ACOTADO** de lo que cambiaste **más los que lo importan, un nivel** (un test SIN tocar que llama a la firma
+   vieja de lo que cambiaste; en el run 31, un test llamaba con dos argumentos a una firma que pedía uno). Con el mismo lock y el mismo piso de RAM que
+   `typecheck-lock.mjs`: de a un `tsc` por máquina. **Sólo bloquean los errores de esos archivos**: `tsc` compila además lo que
+   importan, y ahí un archivo suelto no ve los tipos que AGREGA otro (`declare module`), así que los de arrastre se muestran y los
+   decide Actions.
+3. **Los tests AFECTADOS** (`scripts/tests-afectados.mjs`), elegidos solos, sin lista a mano:
+   - **todas las barredoras**: los que usan `git ls-files`, `git grep`, `readdir`/`glob`, o nombran 20+ archivos. Corren
+     SIEMPRE (puente-panel-copy, zona-negocio, progreso, fuentes-sin-next-font): un cambio en cualquier lado las rompe y
+     no se les puede preguntar «¿tocaste lo mío?»;
+   - **los que NOMBRAN un archivo cambiado como texto** — `readFileSync('lib/nutricion.ts')`, `join(raiz, 'app',
+     'automations', 'PanelProbar.tsx')`, o `'lib/nutricion'` sin extensión —: no hay `import`, por eso un grafo de
+     imports solo no alcanza (run 89). Los comentarios no cuentan (`AGENTS.md` citado en un comentario «nombraba» a 167);
+   - **los que IMPORTAN uno cambiado, directo o por la cadena** (run 80: editor-acciones, a dos saltos del registro);
+   - y los que el cambio mismo toca.
+
+⚠️ **Los archivos NUEVOS sin `git add` son invisibles para las guardas que barren con `git ls-files`** (run 80: `lib/campanita.ts`
+era nuevo y la guarda de voseo no lo veía en el worktree del jefe). `antes-de-subir` corre los tests con un ÍNDICE
+TEMPORAL (`GIT_INDEX_FILE`, copia del real + `git add -N`) para que vean lo mismo que verán en Actions, sin tocar el
+tuyo. Pero **el VERDE sólo vale con el árbol LIMPIO** (lo que probaste tiene que ser lo que viaja) y con `origin/main`
+mergeado: si no, la última línea es un `ROJO` que lo dice.
+
+⚠️ **`node --test` SIN `--test-concurrency` lanza un proceso por núcleo.** El 17/10/2026, a la 01:05, una tanda de 8 archivos de
+tests así se llevó la RAM de la PC y se cayó la app con todos los chats. El script corre 2 a la vez, en tandas de 6, y
+**espera RAM** antes de cada una (el piso se deriva: zona roja del vigía + lo que pide cada proceso). Nunca corras
+`node --test tests/*.test.ts` a mano en esta máquina.
+
+**Actions hace lo mismo, primero** (`.github/workflows/integracion.yml`): guardas → tests afectados contra `origin/main`
+→ tipos → los demás tests. La suma de las dos fases es la suite entera y ninguno corre dos veces; si el script no puede
+calcular, la segunda fase cae a `npm test`. Un rojo se ve en ~3 min en vez de ~11 (Tests: 508 s, Tipos: 137 s).
+
+**La prueba de que sirve es un replay**: `node scripts/replay-fallos-ci.mjs` repite los 17 runs rojos de Actions
+(`docs/fallos-ci-integracion.jsonl`) sobre el árbol exacto de la cabeza que falló y con la base real (el último verde):
+**20/20 rojos salen**. Un run rojo nuevo se suma a ese archivo y se vuelve a correr: si no sale, el script todavía no está.
+El porqué de cada decisión y lo que NO cubre: [docs/hallazgos-infra.md](docs/hallazgos-infra.md) → «Los rojos de Actions».
 
 # El build de Vercel tiene un tope de memoria que NO está en el repo
 
@@ -1256,8 +1310,30 @@ código nuevo:
 - **La verdad de un pedido es el texto FIRMADO en el dispositivo** (WebCrypto, clave no exportable).
   El servidor lo guarda y lo devuelve tal cual, nunca lo arma; el cartero entrega lo que dice ese
   texto. Ningún camino encola sin firma: por eso «mandar un pedido» no está en el registro de la API.
+- **Un campo nuevo del trabajo firmado entra OPCIONAL** (17/10/2026: el modelo y el esfuerzo). Tiene que cumplir tres
+  cosas:
+  - sin el campo, el texto firmado es idéntico al de antes (`armarFirmable` sólo lo agrega si se eligió);
+  - el servidor y la PC lo validan igual, con su caso en el test diferencial de tests/operaciones.test.ts;
+  - un cartero de antes lo ignora sin rechazar el trabajo.
+
+  Nunca se sube `VERSION_PEDIDO` por un campo opcional: eso rechazaría lo que ya está en la cola.
 - **La confianza vive en la PC**: el cartero verifica la firma contra las claves cargadas A MANO y
   lleva su registro de entregados. Nada de lo que diga MaKo puede agregar una clave ni reentregar.
+- **Un archivo baja a la PC sólo si lo nombra un trabajo FIRMADO** (17/10/2026, OK de Martín para los adjuntos de la caja).
+  El navegador firma el `sha256` que calculó ÉL sobre lo que subió; la PC baja a `adjuntos/<id>/`, compara tamaño, hash y
+  tipo por los primeros bytes (sólo foto o PDF), y el nombre en disco lo arma ella con la extensión del TIPO. El chat
+  recibe la ruta. Un campo que cambia lo que la PC HACE (no sólo lo que dice) no se ofrece hasta que el Runner tenga la
+  versión que lo entiende (`aceptaAdjuntos`): uno de antes lo ignoraría y nadie lo sabría. Lo fija
+  tests/centro-adjuntos.test.ts.
+- **Un proceso en la PC se abre sólo desde un trabajo FIRMADO y con el permiso local prendido** (17/10/2026, el clic de
+  «Nuevo chat», `destino: 'nuevo'`). Hay que cumplir cuatro cosas:
+  - el comando se arma SÓLO con valores que pasan una lista blanca: la cuenta contra `CUENTA_RE`, el nombre contra
+    `NOMBRE_NUEVO_RE` y la ruta contra la suya;
+  - el texto de una persona nunca va a la línea de comandos: va a un archivo, y el proceso lo lee de ahí;
+  - quien lo abre (`cartero.mjs abrir`) vuelve a verificar la firma sobre el mismo texto que usa;
+  - se lanza por el Explorador, nunca `detached`: medido, muere con la herramienta.
+
+  Lo fija tests/centro-abrir.test.ts.
 - **Lo único que el cartero entrega SIN firma es un texto FIJO que arma él**: el aviso de una respuesta
   de la Ticketera (`mensajeAviso`, scripts/operaciones/cartero.mjs) lleva sólo el `ref` validado y el
   comando para leerla. Un mensaje nuevo sin firma sigue ese molde: de MaKo no viaja ni una palabra.
@@ -1281,6 +1357,11 @@ código nuevo:
   Hoy las montan /admin/operaciones, /m/operaciones, /second-brain y /m/second-brain. Una pantalla nueva con los chats
   de Claude Code usa las mismas piezas: nada de estado propio ni de leer la cola por fuera. Lo fija
   tests/second-brain-centro.test.ts.
+- **PARA EL SUPER ADMIN HAY UNA SOLA PANTALLA, «OPS CENTER»** (17/10/2026; Martín: «El Second Brain y el Centro deberían
+  ser exactamente lo mismo en SuperAdmin»). /second-brain y /admin/operaciones son dos PUERTAS: cada una tiene su guarda
+  y las dos dibujan `PantallaSecondBrain` (app/second-brain/pagina.tsx → ChatSecondBrain.tsx). CentroApp.tsx se borró.
+  Algo nuevo del Centro o del Second Brain va en esa pantalla, nunca en una segunda. En la barra, «Second Brain» es la
+  sub-tab de debajo de la Ticketera.
 - **En pantalla el cartero se llama RUNNER y la clave del dispositivo es «tu Token»** (15/10/2026; Martín: «No quiero
   que se llame más "cartero", sino un nombre más formal, tecnico... profesional»). Copiado de los self-hosted runners de
   GitHub Actions; el nombre y las instrucciones de su chat viven en `lib/runner.ts`. En el código, la base y la PC sigue
@@ -1327,6 +1408,39 @@ código nuevo:
     **El turno (`turnoApp`) lo usan TRES chats** (el Second Brain, el teléfono y el MaKo Analyst de un lead): lo que
     escribe FUERA del hilo (guardar archivos, El Archivero, cualquier efecto nuevo) va detrás de una opción que prende
     quien llama (`guardarAdjuntos`), nunca para todos. El PDF de un lead no es un documento del negocio.
+  - **EL MODELO JUSTO Y LA INSTRUCCIÓN PRECISA: los tokens son la capacidad** (17/10/2026). Martín: «quiero que los jefes
+    y el cerebro tengan la capacidad de ahorrar tokens, dando instrucciones precisas y eligiendo qué modelo de IA debe
+    correr». Medido esa noche: con nueve chats abiertos, la ventana de 5 horas de una cuenta Max llegó al 95% en
+    unas 2 horas, con la semanal al 13%. El cuello es la ventana de 5 horas.
+    - **El Cerebro elige el modelo al abrir un chat** (`start_session` → `model`, y `effort`):
+      - Opus para diseñar, diagnosticar lo difícil o juzgar;
+      - Sonnet para implementar con un plan claro, tests, copy o migraciones;
+      - Haiku con esfuerzo bajo para lo que sólo da vueltas o lee (el Runner).
+    - **Un jefe hace lo mismo con sus subagentes** (`Agent` y `agent()` de un Workflow, con `model`): Sonnet o Haiku para
+      leer, buscar o aplicar un patrón, y Opus sólo para la etapa que juzga. Un workflow, sólo cuando el tamaño lo pide.
+    - **Un brief nombra el archivo, el «hecho» y lo que no se toca.** Nunca «lee todo el relevo» si alcanza una sección.
+    - **Con la ventana de 5 horas arriba del 85%:** nada de workflows ni tandas grandes de tests. Se termina lo que está
+      a medias y se commitea.
+  - **TODO LO QUE SE TERMINA LLEVA SU `revisar`** (17/10/2026; Martín: «se terminaron y pushearon cosas y no las puedo ver
+    en Review»). El hito de la bitácora o el cierre (`cartero.mjs cierre … --revisar`) trae la ruta INTERNA donde Martín
+    lo prueba (`/crm?lead=…`, `/general`, `/automations/…`). Sin eso, el trabajo no aparece para revisar.
+  - **EL «YA ESTÁ» LO DICE CADA CHAT EN EL OPS CENTER, NO EL CEREBRO** (17/10/2026; Martín: «Todos los mensajes de "Ya
+    está x cosa" quiero que me los manden los chats del Center... No por aquí... Así puedo verlos y darles feedback...
+    además de ponerlo en Review»). Cuando el Cerebro le avisa a un jefe que su punta llegó a producción, el jefe:
+    - escribe el «Ya está» en SU chat, en palabras de producto y con la ruta donde se prueba;
+    - deja en la bitácora del área el hito «Hecho» con `revisar` y `sesion`, para que aparezca en Review.
+    **Y TODO lo de un área, también lo que Martín tiene que hacer por ella** (conectar una cuenta, cargar un precio, abrir
+    su Chrome), lo dice el chat de esa área en su conversación: «¡Deja de decirme estas cosas por aquí!» (17/10/2026).
+    El Cerebro no lo repite. En su chat queda sólo lo que no es de ningún área (cuentas, GitHub, la PC, la nube).
+    **Y todo trabajo arranca con «Voy a trabajar en…»** (17/10/2026; Martín: «No puede haber un chat en "trabajando" sin
+    nada escrito... Siempre debe enviar un mensaje tipo "Voy a trabajar en..."»). Lo primero que escribe un chat al
+    tomar un pedido es una línea, en palabras de producto, con qué va a hacer y para qué. Recién después arrancan las
+    herramientas.
+    **Y ninguna punta llega al Cerebro sin `antes-de-subir` en VERDE** (17/10/2026; Martín: «asegúrate por todos los medios
+    de que no vuelva a ocurrir nunca más»). Antes de pasarle una punta, el jefe corre `node scripts/antes-de-subir.mjs` sobre
+    su rama con `origin/main` mergeado y el árbol commiteado, y le pasa la última línea (`VERDE <sha>`) junto con la punta:
+    el Cerebro no integra una punta que no la trae. Qué corre y por qué «los tests de tu área» no alcanzaba: la sección
+    «Antes de pasarle una punta al Cerebro» (más arriba, junto al pre-push).
   - **Cada jefe ES un proyecto del Plan** (16/10/2026; los dos se llaman como la tab). El Centro lee y escribe el Plan
     SÓLO con las operaciones de la API de MaKo (`listar_tareas_plan`, `proponer_tareas_plan`, `proponer_cierre_tareas`)
     aplicadas en el acto con `ctxDelCentro` (lib/centro-plan.ts), por la ruta `/api/centro/plan` y NO por una server
@@ -1505,6 +1619,23 @@ opciones concretas sólo se escribe sabiendo qué contesta la pregunta. El saneo
 hacía lo contrario —ante `{tipo:'escala', opciones:[fechas]}` se quedaba con el token y
 tiraba las fechas— y esas respuestas no quedaban en ningún lado: ni en la base, ni en la
 pantalla, ni en el log.
+
+## Y un canal de MaKo no promete: su respuesta es el FINAL del turno
+
+Un turno del doer (o de cualquier chat de MaKo) termina cuando contesta. No hay un «después» en el
+que vuelva con el dato, así que «déjame ver», «ya te lo cargo» o «lo miro y te paso» sin haber
+corrido una herramienta es una mentira con fecha. Pasó en el grupo de un cliente el 16/10/2026, y
+el prompt lo FABRICABA: el system de un turno sin herramientas decía, como ejemplo, «dilo en una
+línea («eso lo miro y te lo paso»)», y el modelo lo dijo textual.
+
+- **Un ejemplo entre comillas en un prompt es lo que el modelo va a decir.** Antes de escribir uno,
+  preguntá si es verdad en TODOS los turnos que lo leen.
+- **«No puedo» casi nunca es que no puede: es que el turno llegó sin la herramienta.** Antes de
+  culpar a la integración, armá el turno con la frase real (`clasificarIntencion` +
+  `herramientasDelTurno`) y mirá qué viajó.
+- La segunda capa ya existe y se usa: `sanearSalida` (`lib/doer-salida.ts`) saca la oración que
+  promete sin haber hecho nada, y la grosería. Detalle en
+  [docs/hallazgos-comunicacion.md](docs/hallazgos-comunicacion.md) → «No puedo», «déjame ver».
 
 # Tres topes del entorno que no dan error: te dan otra cosa
 
@@ -2735,6 +2866,10 @@ crea los cobros, aplica lo que confirma la pasarela (webhook o cron) y devuelve 
   y la API de MaKo (`cobranza_lead`). Una pantalla nueva que muestre plata de un lead no suma cuotas por su cuenta.
   La tarjeta de antes lo hacía, y decía «Pagado por completo» de una mensualidad activa y dibujaba como deuda una
   cuota DEVUELTA ([docs/hallazgos-pagos.md](docs/hallazgos-pagos.md)).
+- **Una suma de lo que falta cobrar excluye con `noEsDeuda`, no con `esCuotaDevuelta` sola** (17/10/2026): la cuota
+  devuelta y la de un cliente que se dio de baja (#871) quedan las dos impagas y SIN vencimiento. Toda lectura que decide
+  «vencida» por la fecha ya las deja afuera; la que suma lo impago sin fecha tiene que preguntarlo, y leer con `*` (no una
+  lista con `baja_at`, que rompe sin la mig 0307). tests/pagos-baja.test.ts barre `!esCuotaDevuelta(` en app/ y lib/.
 
 # Un flag de visibilidad protege la PANTALLA; la API hay que cerrarla aparte
 
@@ -4705,6 +4840,9 @@ Martín, a un cliente: «si tienes varios CRM que sea una selección múltiple y
   ESE día. El número y su desglose usan la misma, o no cuadran.
 - **Lo que es UNO por naturaleza sigue siendo uno**: las etapas de un kanban, dónde nace un lead, a qué etapa mueve un
   evento o una etiqueta. La pregunta es si se SUMA (varios) o si se UBICA (uno).
+- **Un funnel se dibuja con el CUBO, y sólo con ése** (`IconoFunnel` / `ICONO_FUNNEL`, app/_ui/icono-funnel.ts): en el
+  control que elige funnels, no en cada renglón. Martín, 17/10: «Los íconos del CRM no son esos... Es el cubo... Hay que
+  unificar los íconos». El embudo (`Icon name="funnel"`) es FILTRAR, no un funnel. tests/icono-funnel.test.ts lo fija.
 
 # Si la misma pregunta se contesta en DOS lugares, el BORRADO va por una función
 

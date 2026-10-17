@@ -2147,3 +2147,63 @@ con MaKo como el centro del grafo; al terminar MaKo vuela a su lugar de foto del
 tras el recorrido, cazadas con los de postergar y sin-api) · `scripts/ws-prueba-foto.mjs` (la foto del ws3)
 
 *16/10/2026, cuenta claude3.*
+
+## El onboarding sin el análisis de Offer: pregunta qué vende y lo deja en un PDF (17/10/2026)
+
+**El pedido** (Martín, 16/10 a la tarde; textual en docs/feedback-16-10-crm-onboarding-second-brain.md):
+«Sería bueno que la funcionalidad de "OFFER" no esté en el onboarding... Pero simular "Offer" en el onboarding
+simplemente para organizar en un PDF lo que vende el usuario. Y eso le sirve a MaKo para crear las cosas que
+necesite». Cambia lo decidido esa misma mañana («el onboarding ES el chat de Offer»).
+
+**Cómo quedó.** Modo `oferta`: nombre → negocio → objetivo → LO QUE VENDE (la conversación de Offer en su versión
+del onboarding) → «Listo: ordené lo que vendes en un PDF» con su link → el diagnóstico de fase con sus opciones →
+el CRM → el teléfono → cierre. La conversación pregunta sólo `PIEZAS_DEL_ARRANQUE` (qué es y qué recibe, para
+quién, qué le resuelve, qué logra, cuánto cuesta: las cinco son mínimas de Offer, así que la tab no las vuelve a
+pedir), con su propio prompt (`offer.arranque.system`, editable en Configuraciones) y sin «Armar mi oferta». El
+PDF lo arma `lib/lo-que-vendes-pdf.ts` con las palabras del dueño, cada vez que se pide (GET /api/offer/pdf con
+`tipo=lo-que-vendes`, el mismo gate). El análisis y la oferta mejorada se hacen después en /offer, sobre la
+MISMA conversación («Analizar mi oferta» en la tarjeta final).
+
+**Lo que decidí leyendo, y Martín puede corregir:** «el diagnóstico» que se saca es el de la OFERTA (la rúbrica
+de 9 dimensiones y la oferta nueva: los dos pasos de «Armar mi oferta»). El diagnóstico de FASE se queda: es el
+Norte de MaKo (lo leen el system de MaKo, /general y el Perro) y no es una función de Offer. Ya no va adentro de
+la conversación (la IA lo adaptaba pregunta por pregunta, varios turnos de espera): lo pregunta el arranque con
+sus opciones, que es tocar seis veces. Si también tiene que salir, es `etapaDeArranque` y `cierreDePasos('fase')`.
+
+**El diagnóstico obvio era el equivocado: cambiar el prompt no alcanzaba.** «Armar mi oferta» salía de tres
+lugares y el prompt era uno solo:
+- **La pantalla armaba la oferta SOLA**: `OfferApp` en modo arranque tenía un efecto que, con las piezas, pedía
+  `armar` por detrás (`arranque.armar`). Con el prompt nuevo, el análisis igual corría.
+- **El botón lo pone el CÓDIGO, no el modelo**: `mensajeDeMako` agrega «Armar mi oferta» cuando `puedeConcluir`.
+  En el onboarding va en `false` aunque estén las mínimas.
+- **El riel** (las 20 piezas y su botón de armar) también lo ofrecía: en el arranque no se dibuja.
+
+**Y el modo tiene que viajar en LOS DOS caminos del turno.** El servidor no sabía qué conversación es la del
+onboarding salvo en `armar` (`origen`). Ahora la pantalla manda `origen: 'arranque'` y el servidor lo cree sólo
+con el onboarding pendiente (`delArranque`: después, la misma conversación es la de la tab). Si el reintento (la
+IA falló y se toca «Reintentar») no lo lleva, ese turno vuelve a la conversación entera, con la fase y el botón.
+
+**Otras dos que muerden:**
+- **La ruta del PDF de Offer contesta 404 «todavía no tiene conclusión» ANTES de cualquier otra cosa.** El PDF de
+  lo que vende no tiene conclusión por definición: su rama va antes de ese chequeo.
+- **Las conversaciones de antes** (empezadas con el onboarding viejo) pueden traer respuestas de la fase: el
+  arranque las lee (`faseOffer`) y no las repite. Y una con la oferta ya armada cumple `loQueVende` igual (las
+  mínimas incluyen las cinco); el cierre guarda su oferta sólo si la hay.
+
+### Lo que quedó SIN hacer
+
+- **El PDF no queda guardado como documento** (El Archivero, el Second Brain): lo que MaKo usa es el brief que
+  deja el cierre y las piezas de la conversación. Guardarlo como documento pagaría una extracción por cliente.
+- **El producto, sin una oferta armada, se llama «Oferta de {negocio}»** (lo renombra en Productos).
+- **MaKo Mobile** (`app/m/offer/OfferM.tsx`) no conoce el modo del onboarding: el teléfono hace el onboarding en
+  la misma página (/onboarding), así que no muerde hoy.
+
+**Vive en:** `lib/offer-marco.ts` (`PIEZAS_DEL_ARRANQUE`, `faltanDelArranque`) · `lib/offer-reglas.ts`
+(`guiaDelArranque`, `faltanDelArranqueParaPrompt`) · `lib/offer-ia.ts` (`OFFER_ARRANQUE_SYSTEM_TEMPLATE`,
+`turnoOffer({ arranque })`) · `lib/prompt-registry.ts` · `app/api/offer/route.ts` (`delArranque`, `responder`) ·
+`app/offer/OfferApp.tsx` · `lib/lo-que-vendes-pdf.ts` · `app/api/offer/pdf/route.ts` · `lib/onboarding-arranque.ts`
+(`loQueVende`, la etapa y el mensaje `arr-pdf`) · `lib/onboarding-arranque-server.ts` (los hechos y el cierre) ·
+`app/onboarding/ChatArranque.tsx` (`TarjetaPdf`) · `tests/onboarding-lo-que-vende.test.ts` (14 roturas, 14
+cazadas, junto con tests/onboarding-arranque.test.ts)
+
+*17/10/2026, chat «Onboarding», cuenta claude4.*

@@ -47,7 +47,7 @@
 /* La caja de escribir, en el pie fijo de la hoja. 16 px de letra: con menos, iOS hace zoom al tocarla. */
 [data-m] .m-operaciones-caja { display: flex; flex-direction: column; gap: 8px; }
 [data-m] .m-operaciones-caja__fila { display: flex; align-items: flex-end; gap: 8px; }
-[data-m] .m-operaciones-caja__fila--meta { align-items: center; }
+[data-m] .m-operaciones-caja__fila--meta { align-items: center; flex-wrap: wrap; }
 [data-m] .m-operaciones-caja textarea {
   flex: 1;
   min-width: 0;

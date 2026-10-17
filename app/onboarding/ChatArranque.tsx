@@ -10,9 +10,10 @@
 //
 // Qué hace esta pantalla, y nada más:
 //   · la animación del principio (./IntroMako.tsx) una sola vez, que termina con MaKo como foto del chat;
-//   · el chat ES el motor de Offer (app/offer/OfferApp.tsx en modo `arranque`): la conversación de la
-//     oferta va por /api/offer como en la tab; alrededor van los mensajes del arranque (quién es, el CRM, el
-//     teléfono), que contesta /api/onboarding/arranque;
+//   · el chat ES el motor de Offer (app/offer/OfferApp.tsx en modo `arranque`): la conversación de lo que
+//     vende va por /api/offer como en la tab, en su versión del onboarding (sólo lo que vende, sin «Armar mi
+//     oferta»: el análisis es de la tab Offer, 17/10/2026); alrededor van los mensajes del arranque (quién es,
+//     el PDF con lo que vende, la fase, el CRM, el teléfono), que contesta /api/onboarding/arranque;
 //   · lo que se crea (el CRM, la oferta, el plan) se ve ADENTRO del chat, en tarjetas; ir a otro lado es un
 //     link que la persona elige.
 // Las reglas (en qué etapa está, qué dice MaKo, qué se acepta) son puras: lib/onboarding-arranque.ts.
@@ -31,7 +32,7 @@ import type { ArbolOffer, OfferMensaje, OfferSesionVista } from '@/lib/offer-mar
 import { OfferApp, type ArranqueOffer } from '../offer/OfferApp';
 import { IntroMako } from './IntroMako';
 import { MunecoMako } from './MunecoMako';
-import { SESION_VACIA, aMensajeOffer, ladoDeLaPregunta, mandaElArranque, placeholderDe, tarjetasDe, terminoElArranque } from './arranque-ui';
+import { SESION_VACIA, aMensajeOffer, ladoDeLaPregunta, linkPdfLoQueVende, mandaElArranque, placeholderDe, tarjetasDe, terminoElArranque } from './arranque-ui';
 
 type Respuesta = { ok?: boolean; error?: string; vista?: VistaArranque; aviso?: string };
 /** Un aviso arriba del chat; con `accion`, lo que lo destraba sin recargar (un fallo pasajero se reintenta). */
@@ -116,10 +117,10 @@ export function ChatArranque({ inicial, arbolVacio, opcionArmar }: { inicial: Vi
       if (!aplicar(r)) setAviso('No pude preparar tu CRM.', { label: 'Reintentar', onClick: () => { setAviso(null); void releer(); } });
     });
   }, [vista.etapa, vista.modo, vista.tieneSesion, vista.funnelDefaultId, releer]);
-  // Cada turno de la oferta puede cerrar la etapa (las piezas, el diagnóstico, la oferta armada): se relee.
+  // Cada turno de la conversación puede cerrar la etapa (ya sabe lo que vende): se relee.
   // ⚠️ Las dependencias son PRIMITIVAS: con el objeto `vista.sesion`, cada relectura trae uno nuevo y el
   // efecto se vuelve a disparar para siempre.
-  const firma = sesion ? `${sesion.mensajes.length}:${sesion.puedeConcluir}:${sesion.conclusion?.version ?? 0}` : '';
+  const firma = sesion ? `${sesion.mensajes.length}:${Object.keys(sesion.piezas).length}` : '';
   const sesionLigada = vista.sesion?.id ?? null;
   useEffect(() => { if (firma && sesionLigada != null) void releer(); }, [firma, releer, sesionLigada]);
   // Con todo contestado, se cierra el onboarding y MaKo escribe el plan de arranque (por detrás).
@@ -159,6 +160,7 @@ export function ChatArranque({ inicial, arbolVacio, opcionArmar }: { inicial: Vi
   const extra = (m: OfferMensaje) => {
     const t = tarjetas.get(m.id);
     if (t === 'crm') return <TarjetaCrm vista={vista} />;
+    if (t === 'pdf') return vista.sesion ? <TarjetaPdf sesionId={vista.sesion.id} /> : null;
     if (t === 'telefono') return <TarjetaTelefono ocupado={ocupado} onEnviar={async (tel) => { setOcupado(true); setAviso(null); try { aplicar(await llamar({ action: 'telefono', telefono: tel })); } finally { setOcupado(false); } }} />;
     if (t === 'listo') return <TarjetaListo modo={vista.modo} plan={plan} />;
     return null;
@@ -186,9 +188,9 @@ export function ChatArranque({ inicial, arbolVacio, opcionArmar }: { inicial: Vi
     // rehacer la oferta y dejaba la vieja huérfana (revisión del 16/10).
     abrirEnFunnel: vista.modo === 'oferta' && vista.etapa === 'oferta' && !vista.tieneSesion && !vista.sesionCaida
       ? vista.funnelDefaultId : null,
-    armar: vista.modo === 'oferta' && ['crm', 'telefono', 'codigo', 'armando'].includes(vista.etapa),
     onSesion: alCambiarSesion,
-    conRiel: vista.modo === 'oferta' && !!sesion,
+    // Sin el riel: sus piezas y su «Armar mi oferta» son del análisis, que se hace en la tab Offer.
+    conRiel: false,
     placeholder: placeholderDe(vista.etapa),
     vacia: SESION_VACIA,
     // Si la IA no contesta, la salida está ACÁ: conectar la propia, en el modal de /integraciones abierto en
@@ -264,12 +266,21 @@ const CAMPO = {
   border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 14, fontFamily: 'inherit',
 };
 
+/** El PDF con lo que vende: lo arma la ruta con las piezas de la conversación, cada vez (nunca queda viejo). */
+function TarjetaPdf({ sesionId }: { sesionId: number }) {
+  return (
+    <div className="arr-links">
+      <a href={linkPdfLoQueVende(sesionId)} className="arr-link" target="_blank" rel="noopener">Ver lo que vendes (PDF)</a>
+    </div>
+  );
+}
+
 /** Lo que quedó armado, con links que la persona elige (el chat no se va solo a ningún lado). */
 function TarjetaListo({ modo, plan }: { modo: VistaArranque['modo']; plan: EstadoPlan }) {
   return (
     <div className="arr-links">
       {modo === 'oferta' && <Link href="/crm" className="arr-link">Abrir mi CRM</Link>}
-      {modo === 'oferta' && <Link href="/offer" className="arr-link">Seguir con mi oferta</Link>}
+      {modo === 'oferta' && <Link href="/offer" className="arr-link">Analizar mi oferta</Link>}
       {plan === 'armando' && <span className="arr-link arr-link--espera">Armando tu plan…</span>}
       {typeof plan === 'object' && (
         <Link href={plan.url} className="arr-link">{plan.n > 0 ? `Mi plan de arranque · ${plan.n} tareas` : 'Mi plan de arranque'}</Link>

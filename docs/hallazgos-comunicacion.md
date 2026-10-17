@@ -17,6 +17,11 @@ re-verificaron lo aclaran. El registro completo de corridas está en
 
 ### Lo que más muerde acá
 
+- **«No puedo» casi nunca es que no puede: es que el turno llegó sin la herramienta.** El 16/10 MaKo le dijo a un
+  cliente que su Google Calendar no estaba conectado y que no podía escribir en él, con el permiso guardado desde
+  hacía seis horas: el clasificador había mandado los pedidos a turnos sin agenda. Y una respuesta del doer es el
+  final del turno: «déjame ver» no se cumple nunca. Ver la entrada «“No puedo”, “déjame ver” y “la cagada es real”»,
+  justo abajo.
 - **Un `200` del intermediario no es una entrega.** Chatwoot, Meta y Resend contestan OK y
   rechazan después, asincrónico: el contador dice «enviado» y el lead nunca recibió nada.
   Ver [WhatsApp oficial](#whatsapp-oficial-chatwoot-y-meta) y [Email](#email-resend).
@@ -57,6 +62,85 @@ Tres cosas que no se ven y cambian cualquier diseño que lo toque:
   pegó a una charla de cuatro días antes y duplicó tareas. **El diagnóstico obvio («que guarde contexto de todo» =
   re-leer más historial) es el equivocado**: lo de antes tiene que volver como HECHOS del Second Brain (lo creado, lo
   decidido), no como turnos viejos.
+
+## «No puedo», «déjame ver» y «la cagada es real»: el grupo de Pablo y el vigía (16-17/10/2026)
+
+**Síntoma (ws18, Pablo Chavez, 16/10, horas UTC).** «probá el calendario de google» → «primero debes activar la
+integración» — y la persona: «mentira, ya está conectado». «¿qué tareas quedan hoy?» → «Déjame ver el plan…» y nada más.
+«¿Me agendás una visita mañana a las 9:30?» → «pásame el nombre y la dirección»; se los da y MaKo: «desde este chat no
+tengo acceso para escribir en tu Google Calendar». «te cargo las tareas del plan» y no cargó nada. Y en el medio: «la
+cagada es real», «quedé como un vendehumo», «para no clavarte», «bótame», «sin que lo caguen».
+
+⚠️ **El diagnóstico obvio era el equivocado: no era Google.** El permiso de Google del ws18 estaba guardado desde las
+12:03, seis horas antes (`app_settings`, `google.calendar.refresh_token`), y el «no tengo acceso para escribir» no era
+un permiso de sólo lectura. Era el CLASIFICADOR (`lib/mako-intencion.ts`), tres veces, y ninguna da error:
+
+1. **«probá el calendario de google» cayó al default** (material, dudosa) con dos herramientas del plan: ninguna para
+   mirar la conexión. MaKo DEDUJO que no estaba conectado. «probá» no es ninguno de los imperativos, y «prueba» es un
+   SALUDO (así se estrena un canal). Va una regla propia, antes del saludo: probar + una integración → leer su estado.
+2. **«Hola MaKo, ¿cómo estás? ¿Me agendás…?» llegó como `consultar`**, y en una pregunta no viajan las que escriben. El
+   saludo no se pelaba: `c[oó]mo (and|est|va)` va seguido del corte `(?![a-záéíóúñ])`, y después de «est» o «and»
+   SIEMPRE viene una letra. Una alternativa de regex que no puede matchear nunca, otra vez (la de `cu[aá]nt`, más
+   abajo en el mismo archivo, es gemela). Y «me agendás», con el pronombre ADELANTE, no era ninguna forma del verbo.
+3. **«El nombre es Nancy y la dirección es Alem 1987» cayó al default.** MaKo había PEDIDO los datos con un «pásame…»
+   sin signo de pregunta, y la regla del «sí» a un ofrecimiento mira sólo el «?» (`makoPreguntoAlgo`). Ahora
+   `makoPidioDatos` mira también el pedido, y si uno de los dos últimos mensajes de la persona era de agenda, la
+   respuesta sigue ESE pedido, con sus herramientas.
+
+**Y el «Déjame ver» tenía las herramientas en la mesa.** `ver_plan` y `listar_tareas_plan` viajaban; el modelo
+(`gemini-flash-lite-latest`, 28 tokens) no llamó a ninguna. Flash-lite es el RESPALDO de Gemini (`MODELOS_RESPALDO`,
+`lib/ai-cheap.ts`): cuando no hay fila de `gemini-flash-latest` en ese turno es que flash no contestó, porque
+`recordUsage` sólo corre tras un 200. Los turnos que prometieron sin hacer fueron todos de flash-lite. Se reintenta UNA
+vez con la herramienta obligatoria, que es la misma jugada que ya existía para el link inventado.
+
+**La regla que queda: una respuesta del doer es el FINAL del turno. No hay un después.** «Déjame ver», «ya te lo cargo»
+o «lo miro y te paso» en un turno que no corrió ninguna herramienta es una mentira con fecha. Dos capas
+(`lib/doer-salida.ts`): el preámbulo lo prohíbe, y al salir se saca la ORACIÓN que promete (no se reescribe) y se suma
+«Eso no lo llegué a hacer en este mensaje: pídemelo otra vez y lo hago». Una pregunta («¿te lo cargo?») y una propuesta
+que termina pidiendo el «sí» no son promesas: el «sí» que sigue las hace.
+
+⚠️ **Y el prompt FABRICABA la promesa.** El system de un turno sin herramientas decía, textual, «si te piden un dato del
+negocio, dilo en una línea («eso lo miro y te lo paso»)», y el camino barato «di que lo miras enseguida». El 13/10 en el
+ws13 MaKo contestó exactamente «Eso lo miro y te lo paso.», y el siguiente mensaje de la persona fue «Pasamelo». Un
+ejemplo entre comillas en un prompt es lo que el modelo va a decir.
+
+**La voz:** la persona de MaKo (`lib/mako-persona.ts`) dice «Puedes putear suave y con criterio». Es la voz de Martín
+hablándose a sí mismo, y llega al grupo de cada cliente, que también lee su equipo. El doer lo corta en el preámbulo y
+al salir saca la oración (lista cerrada: lo que se vio más lo inequívoco; «forro» y «coño» no, porque sin tilde son
+otra cosa). La persona no se tocó.
+
+**El vigía** (`scripts/vigia-mako-grupos.mts`, sólo lectura, cada 15 minutos desde la sesión dueña del doer) lee
+`mako_doer_conv` de todos los workspaces más las dos marcas de US$0 que deja el doer (`cartel-ia` y la nueva
+`saneo-doer`), y marca «no puedo», promesas, quejas, groserías y silencios. Su primera pasada (10 al 17/10) encontró tres
+cosas más, del ws13 y del ws9:
+
+- **«Si 18 de noviembre» (la fecha que MaKo pidió para agendar) salió por el camino BARATO, sin herramientas**, y MaKo
+  contestó «te lo agendo de una». El router (`rutearDoer`) lee «sí», «ok», «dale» como charla y su camino corre ANTES
+  de mirar la intención. Ahora lo barato sólo va si el clasificador dijo charla o dudó.
+- **«Pasamelo» después de «Eso lo miro y te lo paso»** cayó a material: no nombra nada. Lo que pide es lo que MaKo
+  prometió, así que llega con la intención del pedido prometido (el último de los tres anteriores que pidió algo de
+  verdad: en el medio suele haber un «ok») y sus herramientas.
+- **«Voy a agendar… ¿Confirmas con un «sí»?»** se leía como promesa: es la propuesta de siempre. Fue un falso positivo
+  del propio detector, y por eso existe la regla de la pregunta final.
+
+**Lo que quedó sin hacer:**
+- **Nada se probó contra una agenda real.** El ws18 tiene Google conectado y es un cliente: la primera prueba es su
+  próximo pedido, y el vigía lo va a ver.
+- **«¿Me programás un mensaje por privado a un número?»** (ws13, 10/10): MaKo dijo que no puede, y es verdad — no
+  existe. Es una capacidad nueva (y choca con «los mensajes a terceros salen del número del usuario», más abajo).
+- **Los carteles de IA del ws13 del 13/10** (Gemini 503 y un timeout, con UNA sola key): el cartel es honesto. Lo que
+  falta es cascada, y eso es gasto de IA o la red de la plataforma, que Onboarding está recortando.
+- **La persona «putea suave» en todo lo que pasa por `buildSystemPrompt`**: el chat del teléfono y de la app del cliente
+  (`lib/mako-turno-app.ts`) no se revisó.
+- **Los `console.error` del doer viven en los logs de Vercel** y el vigía no los lee: lee lo que el doer deja en la
+  base. Un fallo que no deja fila (el doer que tira antes de `guardarTurno`) sólo se ve como silencio.
+
+**Vive en:** `lib/mako-intencion.ts` (`CORTESIA`, `VERBO_AGENDAR`, `esPruebaDeIntegracion`, `makoPidioDatos`,
+`esPedidoDeAgenda`, las reglas 2-bis, 3-bis-bis y 3-ter-promesa) · `lib/doer-salida.ts` · `lib/mako-doer-in.ts`
+(`DOER_WA_VOZ`, `siguePedidoDeAgenda`, `pedidoPrometido`, `pideHerramientas`, el reintento «prometió sin hacer» y el
+saneo antes de la compuerta) · `lib/vigia-mako-grupos.ts` · `scripts/vigia-mako-grupos.mts` ·
+`tests/mako-en-whatsapp-pablo.test.ts` · `tests/vigia-mako-grupos.test.ts` · *17/10/2026, sin subagentes; 34 roturas
+entre los dos tests, todas con su fallo. Relevo: docs/relevo/mako-en-whatsapp.md.*
 
 ## Reglas del dueño para todo lo que sale de la app
 

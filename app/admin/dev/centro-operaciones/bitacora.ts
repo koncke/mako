@@ -518,4 +518,52 @@ export const BITACORA: Hito[] = [
       'tests/centro-plan.test.ts, tests/centro-revisar.test.ts',
     ],
   },
+  {
+    fecha: '17 oct', hora: '05:40', chat: 'Centro de Operaciones', sesion: 'local_aac76313-d8b5-4b86-85f4-e579e4f33304', cuenta: 'claude4',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Ops Center: el Second Brain y el Centro son una sola pantalla',
+    pedido: 'El Second Brain y el Centro deberían ser exactamente lo mismo en SuperAdmin',
+    puntos: [
+      'Para el super admin, /second-brain y /admin/operaciones muestran lo mismo: «Ops Center», con la Ticketera arriba y el Second Brain debajo.',
+      'Review lista todo lo que el chat terminó; si no dejó una página, el link lleva a la tab de su área.',
+      'El Uso muestra las cuatro cuentas, con su plan cuando se sabe, la ventana de 5 horas y la semanal, y ya no pide pegar nada en PowerShell.',
+    ],
+    archivos: [
+      'app/second-brain/pagina.tsx, ChatSecondBrain.tsx — la pantalla única',
+      'lib/centro-chats.ts — Review (porRevisar, destinoDeReview)',
+      'lib/centro-uso.ts, app/admin/operaciones/Uso.tsx — las cuatro cuentas',
+    ],
+  },
+  {
+    fecha: '17 oct', hora: '06:30', chat: 'Centro de Operaciones', sesion: 'local_aac76313-d8b5-4b86-85f4-e579e4f33304', cuenta: 'claude4',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Al mandar, eliges la cuenta, el modelo y el esfuerzo',
+    pedido: 'Al enviar un prompt por el Second Brain no me deja seleccionar qué cuenta',
+    puntos: [
+      'Al lado de la caja, la cuenta: «Automático» elige la que puede recibir ya y tiene más uso libre, o eliges una.',
+      'En los chats de la app también eliges el modelo (Opus, Sonnet, Haiku) y el esfuerzo; «Automático» no cambia nada.',
+      'Lo mismo en el teléfono.',
+    ],
+    archivos: [
+      'lib/centro-cuentas.ts — a qué cuenta va y si se puede elegir el modelo',
+      'app/admin/operaciones/PiezasCentro.tsx — los selectores de la caja',
+      'scripts/operaciones/cartero.mjs, lib/runner.ts — el Runner aplica el modelo',
+    ],
+  },
+  {
+    fecha: '17 oct', hora: '07:20', chat: 'Centro de Operaciones', sesion: 'local_aac76313-d8b5-4b86-85f4-e579e4f33304', cuenta: 'claude4',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'La conversación de cada chat se lee como un chat',
+    pedido: 'los chats no se entienden... No se entiende la conversación que se tiene',
+    puntos: [
+      'Cada chat muestra lo que se le dijo y lo que contestó al terminar, sacado de su transcript en la PC.',
+      'Los hitos de la bitácora y «Lo pediste en…» salieron de la conversación: siguen en la barra del Plan.',
+      'Los chats que no se llaman como una tab ya no quedan escondidos en «Sin asignar».',
+    ],
+    archivos: [
+      'scripts/operaciones/cartero.mjs — lo nuevo de cada transcript (turnosDeLineas)',
+      'lib/centro-turnos-db.ts — los últimos turnos de cada chat',
+      'app/admin/operaciones/Hilo.tsx — la conversación',
+    ],
+  },
 ];

@@ -40,7 +40,7 @@ import { LapizIcon } from './iconos';
 import { BANDAS_KANBAN } from './filtros-guardados';
 // El CUBO del desplegable de funnels (punto 24): el ícono `producto` del set de los menús, el
 // mismo que dibuja un funnel en el resto de la app. No se dibuja uno propio.
-import { IconoMenu, type NombreIconoMenu } from '@/app/_ui/iconos-menu';
+import { IconoFunnel, IconoMenu, type NombreIconoMenu } from '@/app/_ui/iconos-menu';
 
 const SANS = "'Geist', sans-serif";
 
@@ -793,7 +793,7 @@ export function SelectorFunnel({ funnels, activo, onEditarEtapas }: {
         value={String(actual.id)}
         options={opciones}
         width={190}
-        icono={<IconoMenu nombre="producto" size={15} />}
+        icono={<IconoFunnel />}
         ariaLabel="CRM que dibuja el tablero"
         onChange={(v) => {
           // ⚠️ SE RESUELVE ACÁ, NO EN OTRA PANTALLA. Hasta el 27/09/2026 esto hacía

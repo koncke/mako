@@ -28,6 +28,7 @@ import type { ClienteCruce } from './cruce';
 import { getWorkspaceActual, adminDeWorkspaceActual, estaImpersonando } from '@/lib/workspace';
 import { AdminView } from '@/app/admin/AdminView';
 import { carteraDeAgencia, esAgencia, altasDeAgencia } from '@/lib/agencia';
+import { cobrosDeClientesDeAgencia } from '@/lib/agencia-cobro';
 import { clientesAprobados } from '@/lib/agencia-cartera';
 import { capaDef } from '@/lib/capas';
 import { listarWorkspaces } from '@/lib/workspace';
@@ -263,6 +264,9 @@ export default async function CustomerSuccessPage({ searchParams }: { searchPara
     // en cada request contra la cartera (`puedeEntrarAhora`). Acá sólo decide si se
     // dibuja el formulario: esconder un botón no protege nada.
     puedePedirAltas: esAg && (await adminDeWorkspaceActual()) != null,
+    // Lo que esta agencia tiene que pagar por cada cliente (#866 y #867): sólo los cobros de ESTA agencia
+    // (`agencia_ws`), leídos de la plataforma. Para el super admin parado en la agencia, también: ve lo mismo que ella.
+    cobrosPorWs: esAg && agenciaWs ? await cobrosDeClientesDeAgencia(agenciaWs) : {},
   };
 
   /**

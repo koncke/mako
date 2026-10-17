@@ -19,7 +19,9 @@
 
 import { useId, useState } from 'react';
 import { Icon } from '@/app/_components/icons';
-import { ROTULO_NODO, VISOR_REVISAR, conteoAvance, gruposDelAvance, hrefRevisar, mensajeDeCommit, nombreCuenta, porRevisar, type ChatCentro, type EstadoNodo, type NodoAvance } from '@/lib/centro-chats';
+import { ADMIN_NAV, MAKO_NAV, TODOS_LOS_ITEMS } from '@/app/_components/nav';
+import Link from '@/app/_ui/Link';
+import { ROTULO_NODO, conteoAvance, destinoDeReview, gruposDelAvance, mensajeDeCommit, nombreCuenta, porRevisar, type ChatCentro, type EstadoNodo, type NodoAvance } from '@/lib/centro-chats';
 import { ROTULO_TIPO, diaDeNovedad, hace, pushDelCommit, type PushP } from '@/lib/progreso-reglas';
 import { SeccionPlan, usePlanDelChat, type PlanDelChat } from './PlanJefe';
 import { proyectoDelChat } from '@/lib/centro-plan-reglas';
@@ -138,21 +140,40 @@ function ConPlan({ chat, nodos, pushes, ahora }: { chat: string; nodos: readonly
 /** El chat de la barra: su título trae el Plan de su jefe, y su clave y su sesión arman el link «Revisar». */
 type ChatDeBarra = Pick<ChatCentro, 'clave' | 'sesion' | 'titulo'>;
 
-/** Lo que el chat terminó y dejó para mirar, con «Revisar» (la sub-tab «Review»). */
+/**
+ * Las tabs del menú, en el MISMO orden que `nombresDeTabs` (app/admin/operaciones/tabs.ts): el nombre de una tab se repite
+ * entre la barra del cliente y la del super admin, y la del producto va primero (lib/centro-chats.ts → `rutaDeLaTab`).
+ * Se importa `nav.ts` acá y no se trae del servidor: es una tabla pura que el Sidebar ya lleva al navegador (a diferencia
+ * de las áreas de tabs.ts), y así la sub-tab funciona igual en la computadora y en el teléfono sin pasar una prop por
+ * cada pantalla (tests/centro-revisar.test.ts vigila que el orden sea el mismo).
+ */
+const TABS_DEL_MENU = [...TODOS_LOS_ITEMS, ...MAKO_NAV, ...ADMIN_NAV];
+
+/**
+ * Todo lo que el chat terminó, con «Revisar» (la sub-tab «Review»). Con página propia, «Revisar» lleva a ella (o al
+ * visor); sin ella, a la tab del jefe del chat (Martín, 17/10/2026); si el jefe no es una tab, la fila va sin botón.
+ */
 function ListaReview({ nodos, chat, ahora }: { nodos: readonly NodoAvance[]; chat?: ChatDeBarra; ahora: number }) {
   if (!nodos.length) return <p className="co-avance__vacio">Nada para revisar todavía.</p>;
   return (
     <ol className="co-review">
       {nodos.map((n) => {
-        const href = chat ? hrefRevisar(n, chat) : n.revisar?.pagina ?? null;
+        const destino = destinoDeReview(n, chat, TABS_DEL_MENU);
+        const aria = `Revisar: ${n.titulo}`;
         return (
           <li key={n.id} className="co-review__fila">
             <span className="co-nodo__rombo" aria-hidden><Rombo estado="hecho" /></span>
-            <span className="co-review__titulo" title={n.titulo}>{n.titulo}</span>
+            {/* Un «Ya está» muestra entero lo que dijo el chat al pasar por encima. */}
+            <span className="co-review__titulo" title={n.origen === 'ya_esta' ? n.prompt : n.titulo}>{n.titulo}</span>
             <span className="co-nodo__dia">{diaDeNovedad(n.instante, ahora)}</span>
-            {href && (
-              <a className="co-chip co-review__ir" href={href} {...(VISOR_REVISAR ? {} : { target: '_blank', rel: 'noreferrer' })}
-                aria-label={`Revisar: ${n.titulo}`}>Revisar</a>
+            {/* La tab va con el Link de la casa (se lleva el ?ws=) y en otra pestaña, como la página: «Revisar» no te saca de
+                la conversación. Sólo el visor abre adentro. */}
+            {destino?.via === 'tab' && (
+              <Link className="co-chip co-review__ir" href={destino.href} target="_blank" rel="noreferrer" aria-label={aria}>Revisar</Link>
+            )}
+            {destino && destino.via !== 'tab' && (
+              <a className="co-chip co-review__ir" href={destino.href} {...(destino.via === 'visor' ? {} : { target: '_blank', rel: 'noreferrer' })}
+                aria-label={aria}>Revisar</a>
             )}
           </li>
         );
@@ -166,9 +187,12 @@ function ListaReview({ nodos, chat, ahora }: { nodos: readonly NodoAvance[]; cha
  * 2 sub tab internas... "Plan", lo que está actualmente, y otra "Review"»). Copiado del control segmentado de Linear
  * (Activity / Comments): dos botones pegados, el elegido con fondo; «Review» con su número cuando hay algo.
  */
-function SubTabs({ nodos, pushes, ahora, chat }: { nodos: readonly NodoAvance[]; pushes: readonly PushP[] | null; ahora: number; chat?: ChatDeBarra }) {
+function SubTabs({ nodos, yaEsta = [], pushes, ahora, chat }: {
+  nodos: readonly NodoAvance[]; yaEsta?: readonly NodoAvance[]; pushes: readonly PushP[] | null; ahora: number; chat?: ChatDeBarra;
+}) {
   const [vista, setVista] = useState<'plan' | 'review'>('plan');
-  const revisar = porRevisar(nodos);
+  // Lo terminado del Plan y los «Ya está» que dijo el chat (lib/centro-chats.ts → yaEstaDelChat), juntos y por hora.
+  const revisar = porRevisar([...nodos, ...yaEsta]);
   return (
     <>
       <div className="co-subtabs" role="tablist" aria-label="Plan o Review">
@@ -188,8 +212,10 @@ function SubTabs({ nodos, pushes, ahora, chat }: { nodos: readonly NodoAvance[];
   );
 }
 
-export function RielAvance({ nodos, pushes, ahora, onCerrar, chat }: {
+export function RielAvance({ nodos, yaEsta, pushes, ahora, onCerrar, chat }: {
   nodos: readonly NodoAvance[]; pushes: readonly PushP[] | null; ahora: number; onCerrar: () => void;
+  /** Los «Ya está» del chat: van a Review, no al Plan. */
+  yaEsta?: readonly NodoAvance[];
   /** Con el chat, la barra trae el Plan de su jefe y arma «Revisar» (sin él, sólo el avance). */
   chat?: ChatDeBarra;
 }) {
@@ -206,7 +232,7 @@ export function RielAvance({ nodos, pushes, ahora, onCerrar, chat }: {
           </button>
         </div>
         <div className="co-riel__cuerpo">
-          <SubTabs key={chat?.clave} nodos={nodos} pushes={pushes} ahora={ahora} chat={chat} />
+          <SubTabs key={chat?.clave} nodos={nodos} yaEsta={yaEsta} pushes={pushes} ahora={ahora} chat={chat} />
         </div>
       </div>
     </aside>
@@ -214,7 +240,9 @@ export function RielAvance({ nodos, pushes, ahora, onCerrar, chat }: {
 }
 
 /** La barra compacta del teléfono: el conteo, y la lista al tocarla (la de «Tu oferta 8/13»). */
-export function BarraAvanceMovil({ nodos, pushes, ahora, chat }: { nodos: readonly NodoAvance[]; pushes: readonly PushP[] | null; ahora: number; chat?: ChatDeBarra }) {
+export function BarraAvanceMovil({ nodos, yaEsta, pushes, ahora, chat }: {
+  nodos: readonly NodoAvance[]; yaEsta?: readonly NodoAvance[]; pushes: readonly PushP[] | null; ahora: number; chat?: ChatDeBarra;
+}) {
   const [abierta, setAbierta] = useState(false);
   const id = useId();
   return (
@@ -227,7 +255,7 @@ export function BarraAvanceMovil({ nodos, pushes, ahora, chat }: { nodos: readon
       </button>
       {abierta && (
         <div id={id} className="co-avance-movil__lista">
-          <SubTabs key={chat?.clave} nodos={nodos} pushes={pushes} ahora={ahora} chat={chat} />
+          <SubTabs key={chat?.clave} nodos={nodos} yaEsta={yaEsta} pushes={pushes} ahora={ahora} chat={chat} />
         </div>
       )}
     </div>

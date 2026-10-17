@@ -15,7 +15,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  JEFE_SECOND_BRAIN, SIN_TITULO, arbolDelJefe, baseDeLaPersona, edadCorta, estadoDeLoHecho, filtrarSubs, linksDePedidos, nombreDeSub, sesionDelCanal, tituloDe,
+  JEFE_SECOND_BRAIN, SIN_TITULO, arbolDelJefe, baseDeLaPersona, colgarIrA, edadCorta, estadoDeLoHecho, filtrarSubs, linksDePedidos, nombreDeSub, sesionDelCanal, tituloDe,
 } from '../lib/chat-mako-reglas';
 import type { SesionChat } from '../lib/mako-turno-app-reglas';
 import { PILL_PROPUESTA } from '../app/m/mako/chat-ui';
@@ -107,4 +107,27 @@ test('«Lo que hizo»: el estado de cada acción en las palabras de la tarjeta, 
   for (const e of ['error', 'raro', '']) assert.equal(estadoDeLoHecho(e, null, ahora), 'fallo', e);
   // Cada estado tiene su píldora en la tarjeta del chat (la misma palabra en el riel y en la tarjeta).
   for (const e of ['pendiente', 'aplicando', 'hecho', 'cancelada', 'vencida', 'fallo'] as const) assert.ok(PILL_PROPUESTA[e]?.texto, e);
+});
+
+test('los links de «entender el pedido» se cuelgan de la respuesta a ESE mensaje, y nada más cambia', () => {
+  // ⚠️ Probado ROMPIÉNDOLO (17/10/2026), contra este test en verde: sin el corte en el siguiente mensaje de la persona
+  // → 1 fallo (éste); colgándolos del primer mensaje de MaKo en vez del último → 1 fallo (éste).
+  const links = [{ titulo: 'CRM', link: '/crm?ws=3' }];
+  const hilo = [
+    { k: 'msg', id: 'u1', role: 'user' }, { k: 'msg', id: 'a1', role: 'assistant' },
+    { k: 'msg', id: 'u2', role: 'user' }, { k: 'msg', id: 'a2', role: 'assistant' }, { k: 'propuesta', id: 'p2' },
+    { k: 'msg', id: 'a3', role: 'assistant' }, { k: 'msg', id: 'u3', role: 'user' }, { k: 'msg', id: 'a4', role: 'assistant' },
+  ];
+  const con = (xs: ReturnType<typeof colgarIrA<(typeof hilo)[number]>>) => xs.filter((x) => 'irA' in x).map((x) => x.id);
+  // La respuesta a u2 son a2, la tarjeta y a3: el link va en a3 (la última de MaKo), no en a4 (la de otro pedido).
+  assert.deepEqual(con(colgarIrA(hilo, links, 'u2')), ['a3']);
+  assert.deepEqual(con(colgarIrA(hilo, links, 'u1')), ['a1']);
+  // Sin links, sin el mensaje (se cambió de chat) o sin una respuesta de MaKo: igual que antes.
+  assert.deepEqual(colgarIrA(hilo, [], 'u2'), hilo);
+  assert.deepEqual(colgarIrA(hilo, links, 'otro'), hilo);
+  assert.deepEqual(con(colgarIrA([{ k: 'msg', id: 'u', role: 'user' }, { k: 'propuesta', id: 'p' }], links, 'u')), []);
+  // No se cambia nada más ni se pisa el original.
+  const r = colgarIrA(hilo, links, 'u2');
+  assert.equal(r.length, hilo.length);
+  assert.ok(!('irA' in hilo[5]), 'el hilo original no se toca');
 });

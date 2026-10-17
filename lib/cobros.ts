@@ -33,6 +33,7 @@ import { registrarCobroDeProveedor, desmarcarCobroDeProveedor, remarcarCobroDePr
 import { hoyEnWorkspace } from './timezone';
 import { capaDef, type CapaId } from './capas';
 import { darDeAltaCliente, esCapaVendible } from './alta-cliente';
+import { habilitarClienteDeAgencia } from './agencia-habilitar';
 import { COLS_COBRO, NOMBRE_PASARELA, cobroDeFila, esTokenCobro, type Cobro, type EstadoAlta, type EstadoCobro, type Pasarela, type TipoCobro } from './cobros-tipos';
 import { valoresDelPago } from './variables-del-lead';
 import {
@@ -40,7 +41,7 @@ import {
   esDevolucionFallida, montoUsdDeLaCuota, montoUsdDelCobro, pasaAPagado, textoDevolucionFallida, textoPagoRegistrado, urlPorVencer, ESTADOS_QUE_PASAN_A_PAGADO,
 } from './cobros-reglas';
 import { formatoMonto } from './pasarela-moneda';
-import { esCuotaDevuelta, esRenovacionFallida, PREFIJO_RENOVACION_FALLIDA } from './cobrado-lead';
+import { esCuotaDeBaja, esCuotaDevuelta, esRenovacionFallida, PREFIJO_RENOVACION_FALLIDA } from './cobrado-lead';
 import { motivoSinDatos, type FaseContracargo } from './cobros-eventos';
 import { emitirDelCatalogo } from './avisos';
 import { linkResumenLead } from './lead-resumen';
@@ -49,7 +50,7 @@ import {
   asegurarEventosStripe, cancelarSuscripcionStripe, programarBajaStripe, crearCheckoutStripe, expirarCheckoutStripe, leerCheckoutStripe, modoDeClaveStripe, programarFinSuscripcionStripe, reembolsarStripe,
 } from './stripe-api';
 import { urlAvisoStripe } from './cobros-conexion';
-import { buscarPagosMp, cancelarSuscripcionMp, crearPreferenciaMp, crearSuscripcionMp, instanteMp, leerCuentaMp, reembolsarMp, vencerPreferenciaMp } from './mercadopago-api';
+import { buscarPagosMp, cancelarSuscripcionMp, crearPreferenciaMp, crearSuscripcionMp, instanteMp, leerCuentaMp, leerSuscripcionMp, reembolsarMp, vencerPreferenciaMp } from './mercadopago-api';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Links y credenciales
@@ -205,11 +206,13 @@ type CuotaDelLink = { id: number; numero: number; monto_usd: number };
  */
 async function cuotaParaLink(leadId: number, pagoId: number): Promise<{ ok: true; cuota: CuotaDelLink; pendiente: Cobro | null } | { ok: false; error: string }> {
   const db = await getTenantDb();
-  const { data, error } = await db.from('pagos').select('id, numero, monto_usd, pagado, proveedor_pago_id, proveedor, cobro_id, fecha_esperada').eq('id', pagoId).eq('lead_id', leadId).maybeSingle();
+  // `*`: `baja_at` (mig 0307) se lee si existe; con la lista, una base sin la migración rompía todo link de cuota.
+  const { data, error } = await db.from('pagos').select('*').eq('id', pagoId).eq('lead_id', leadId).maybeSingle();
   if (error) return { ok: false, error: `No pude leer la cuota: ${error.message}` };
   if (!data) return { ok: false, error: 'Esa cuota no es de este lead.' };
-  const q = data as { id: number; numero: number; monto_usd: number; pagado: boolean; proveedor_pago_id: string | null; proveedor: string | null; cobro_id: number | null; fecha_esperada: string | null };
+  const q = data as { id: number; numero: number; monto_usd: number; pagado: boolean; proveedor_pago_id: string | null; proveedor: string | null; cobro_id: number | null; fecha_esperada: string | null; baja_at?: string | null };
   if (q.pagado) return { ok: false, error: 'Esa cuota ya está cobrada.' };
+  if (esCuotaDeBaja(q)) return { ok: false, error: 'El cliente se dio de baja: deshaz la baja para cobrarle esa cuota.' };
   if (q.proveedor_pago_id || esCuotaDevuelta(q)) return { ok: false, error: 'Esa cuota ya pasó por la pasarela.' };
   const montoUsd = Number(q.monto_usd);
   if (!Number.isFinite(montoUsd) || montoUsd <= 0) return { ok: false, error: 'Esa cuota no tiene monto.' };
@@ -246,6 +249,13 @@ export async function crearCobro(ws: number, p: {
   nombre?: string | null;
   /** SÓLO la plataforma: al pagar, alta de MaKo con esta capa. En otro workspace se rechaza. */
   altaCapa?: string | null;
+  /**
+   * SÓLO la plataforma (#866, 17/10/2026): el cobro paga el lugar de un CLIENTE de una agencia. Al pagarse el primer mes,
+   * el cliente queda habilitado solo (`habilitarClienteDeAgencia`, lib/agencia-habilitar.ts). En otro workspace se rechaza.
+   */
+  paraCliente?: { agenciaWs: number; clienteWs: number } | null;
+  /** Una suscripción que empieza a cobrar más adelante (#867): sólo con Mercado Pago, que lo recibe al crearla (`start_date`). */
+  inicioAt?: string | null;
   creadoPor: string;
 }): Promise<ResultadoCrearCobro> {
   // Un inquilino no crea inquilinos (AGENTS.md «Un permiso de UN inquilino sobre OTRO»): la pregunta
@@ -256,6 +266,21 @@ export async function crearCobro(ws: number, p: {
     if (ws !== plataforma) return { ok: false, error: 'Sólo la cuenta de MaKo puede dar de alta clientes al cobrar.' };
     if (!esCapaVendible(p.altaCapa)) return { ok: false, error: 'Ese plan no se vende.' };
     altaCapa = p.altaCapa;
+  }
+  // El lugar de un cliente de agencia lo cobra la PLATAFORMA, en positivo como el alta: un negocio que vende con su Mercado
+  // Pago no habilita cuentas de MaKo aunque mande el par.
+  let paraCliente: { agenciaWs: number; clienteWs: number } | null = null;
+  if (p.paraCliente) {
+    if (ws !== (await wsSuperAdmin())) return { ok: false, error: 'Sólo la cuenta de MaKo cobra el lugar de un cliente de agencia.' };
+    if (altaCapa) return { ok: false, error: 'Un cobro da de alta una cuenta o paga la de un cliente de agencia, no las dos cosas.' };
+    const { agenciaWs, clienteWs } = p.paraCliente;
+    if (!Number.isInteger(agenciaWs) || !Number.isInteger(clienteWs) || agenciaWs <= 0 || clienteWs <= 0 || agenciaWs === clienteWs) return { ok: false, error: 'Agencia o cliente inválidos.' };
+    paraCliente = { agenciaWs, clienteWs };
+  }
+  // Un primer cobro diferido sólo existe en una suscripción de Mercado Pago: es el parámetro que MP documenta al crearla.
+  const inicioAt = p.inicioAt ?? null;
+  if (inicioAt && (p.tipo !== 'suscripcion' || p.pasarela !== 'mercadopago' || !Number.isFinite(Date.parse(inicioAt)))) {
+    return { ok: false, error: 'Sólo una suscripción de Mercado Pago empieza a cobrar más adelante.' };
   }
 
   return runWithWorkspace(ws, async () => {
@@ -323,6 +348,10 @@ export async function crearCobro(ws: number, p: {
       proveedor: d.pasarela, modo, tipo, concepto: concepto.slice(0, 200), monto: d.monto, moneda: d.moneda,
       monto_usd: montoUsd, email, nombre: nombre?.slice(0, 200) ?? null, estado: 'pendiente',
       alta_capa: altaCapa, creado_por: p.creadoPor,
+      // Mig 0308: sólo en el cobro de un cliente de agencia. Fuera de él no se mandan, así una base sin la migración no
+      // rompe ningún otro cobro.
+      ...(paraCliente ? { agencia_ws: paraCliente.agenciaWs, cliente_ws: paraCliente.clienteWs } : {}),
+      ...(inicioAt ? { inicio_at: inicioAt } : {}),
     }).select(COLS_COBRO).single();
     // ⚠️ DOS PEDIDOS A LA VEZ PARA LA MISMA CUOTA (mig 0295): el segundo choca con `cobros_un_link_vivo_por_cuota` y
     // se devuelve el link que ganó, como cuando ya existía (`yaEstaba`). Dos links vivos eran dos cobros de la misma plata.
@@ -330,10 +359,17 @@ export async function crearCobro(ws: number, p: {
       const otra = await cuotaParaLink(lead.id, cuota.id);
       if (otra.ok && otra.pendiente) return { ok: true, cobro: otra.pendiente, link: linkDelCobro(otra.pendiente.token), yaEstaba: true };
     }
+    // ⚠️ DOS PEDIDOS A LA VEZ PARA EL MISMO CLIENTE DE AGENCIA (mig 0308): el segundo choca con
+    // `cobros_un_vivo_por_cliente_de_agencia` y se devuelve el cobro que ganó. Dos links vivos eran dos meses cobrados.
+    if (error && paraCliente && error.code === '23505' && /cobros_un_vivo_por_cliente_de_agencia/.test(error.message ?? '')) {
+      const { data: vivo } = await db.from('cobros').select(COLS_COBRO).eq('cliente_ws', paraCliente.clienteWs).eq('tipo', tipo)
+        .in('estado', ['pendiente', 'fallido', 'pagado']).order('created_at', { ascending: false }).limit(1).maybeSingle();
+      if (vivo) { const v = cobroDeFila(vivo as Record<string, unknown>); return { ok: true, cobro: v, link: linkDelCobro(v.token), yaEstaba: true }; }
+    }
     if (error || !fila) return { ok: false, error: `No pude guardar el cobro: ${error?.message ?? 'sin respuesta'}` };
     const cobro = cobroDeFila(fila as Record<string, unknown>);
 
-    const checkout = await crearCheckout(cobro, { stripe, mp }, 0);
+    const checkout = await crearCheckout(cobro, { stripe, mp }, 0, { inicioAt });
     if (!checkout.ok) {
       await actualizar(ws, cobro.id, { estado: 'anulado', motivo: checkout.error.slice(0, 300) });
       return { ok: false, error: motivoSinDatos(`${NOMBRE_PASARELA[d.pasarela]}: ${checkout.error}`) };
@@ -363,6 +399,7 @@ async function crearCheckout(
   c: Cobro,
   cred: { stripe: CredStripe | null; mp: CredMp | null },
   vuelta: number,
+  extra: { inicioAt?: string | null } = {},
 ): Promise<{ ok: true; ref: string; url: string; venceAt: string | null } | { ok: false; error: string }> {
   if (c.proveedor === 'stripe') {
     if (!cred.stripe) return { ok: false, error: 'Stripe no está conectado.' };
@@ -384,6 +421,7 @@ async function crearCheckout(
     const r = await crearSuscripcionMp(cred.mp.token, {
       idem: idemCobro(c.id, vuelta), concepto: c.concepto, monto: c.monto, moneda: c.moneda, email: c.email,
       token: c.token, volverUrl: linkDeRetorno(c.token), finAt: meses ? instanteMp(finDelPlazo(Date.now(), meses) - 86_400_000) : null,
+      inicioAt: extra.inicioAt ? instanteMp(Date.parse(extra.inicioAt)) : null,
     });
     return r.ok ? { ok: true, ref: r.id, url: r.url, venceAt: null } : { ok: false, error: r.error };
   }
@@ -539,6 +577,8 @@ export async function aplicarPagoAprobado(c: Cobro, p: {
 
     // 5. La plataforma: el alta automática de MaKo (decisión de Martín, 11/10/2026).
     await altaSiCorresponde(actual);
+    // 5b. La plataforma: el primer mes de un CLIENTE DE AGENCIA lo habilita solo (#866, 17/10/2026). No tira.
+    if (!renovacion) await habilitarClienteDeAgencia(actual);
 
     // 6. Automations, DESPUÉS del CRM (con `fecha_primer_pago` ya escrita, el WhatsApp al lead sale solo y no
     //    como borrador, y la condición «Pagó» da bien): el aviso «Entró un pago» al grupo del equipo (un Evento
@@ -1012,6 +1052,27 @@ export async function reembolsarCobro(ws: number, id: number, autor: string, mot
   return { ok: true, resumen: `Listo: ${c.concepto} (${formatoMonto(c.monto, c.moneda)}) devuelto por ${NOMBRE_PASARELA[c.proveedor]}${enCurso ? ' (Stripe todavía la está procesando)' : ''}.` };
 }
 
+/**
+ * ¿Quien paga ya AUTORIZÓ una suscripción de Mercado Pago que empieza a cobrar más adelante? (#867, la renovación de un
+ * cliente de agencia). Hasta su primer cobro el cobro sigue `pendiente`: el aviso del preapproval autorizado no se aplica
+ * (el pago llega en su propia notificación). Esto lo lee y lo anota: `suscripcion_estado: 'activa'` con el cobro todavía
+ * pendiente, que el MRR no cuenta (pide `pagado`). Lo llama el cron; compare-and-set sobre `pendiente`. Nunca tira.
+ */
+export async function anotarAutorizacionMp(c: Cobro): Promise<boolean> {
+  if (c.proveedor !== 'mercadopago' || c.tipo !== 'suscripcion' || c.estado !== 'pendiente' || c.suscripcion_estado || !c.proveedor_ref) return false;
+  try {
+    const mp = await credMp(c.workspace_id);
+    if (!mp) return false;
+    const s = await leerSuscripcionMp(mp.token, c.proveedor_ref);
+    if (!s.ok || s.estado !== 'authorized' || s.cobradorId !== mp.userId || s.referencia !== c.token) return false;
+    const r = await actualizar(c.workspace_id, c.id, { suscripcion_estado: 'activa', proveedor_suscripcion_id: s.id }, { estado: ['pendiente'] });
+    return !!r;
+  } catch (e) {
+    console.error(`[cobros] no pude leer la autorización de la suscripción del cobro ${c.id}:`, e instanceof Error ? e.message : String(e));
+    return false;
+  }
+}
+
 /** Cancela la suscripción en la pasarela EN EL ACTO (deja de cobrar). Irreversible en Mercado Pago. */
 export async function cancelarSuscripcionCobro(ws: number, id: number, autor: string): Promise<{ ok: boolean; resumen: string }> {
   const c = await getCobro(ws, id);
@@ -1148,6 +1209,8 @@ export async function reconciliarCobros(ws: number, opts: { dias?: number } = {}
   const [stripe, mp] = await Promise.all([credStripe(ws), credMp(ws)]);
 
   for (const c of pagados) {
+    // El cliente de agencia que pagó y quedó sin habilitar (el aviso se cortó después del pago): compare-and-set, no tira.
+    await habilitarClienteDeAgencia(c);
     const faltaCuota = !!c.lead_id && c.monto_usd != null && !!c.proveedor_pago_id && !conCuota.has(c.id);
     const faltaAlta = !!c.alta_capa && c.alta_estado !== 'hecha' && c.alta_estado !== 'ya_tenia_cuenta';
     if (!faltaCuota && !faltaAlta) continue;

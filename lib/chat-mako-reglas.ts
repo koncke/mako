@@ -126,6 +126,26 @@ export function linksDePedidos(r: unknown): IrA[] {
   return out;
 }
 
+/**
+ * Cuelga los links de la respuesta de MaKo a UN mensaje de la persona (`despuesDe`, su id): del último mensaje de MaKo
+ * entre ése y el siguiente de la persona (tanda 10, 17/10/2026). Los links llegan cuando llegan, y para entonces la
+ * persona pudo haber escrito otra cosa: no se cuelgan de la respuesta equivocada. Si esa respuesta no trae un mensaje de
+ * MaKo (sólo una tarjeta), o el mensaje ya no está (cambió de chat), no se dibujan: no se inventa una burbuja. Nada de la
+ * respuesta se saca ni se cambia.
+ */
+export function colgarIrA<T extends { k: string; id: string; role?: string }>(items: readonly T[], links: readonly IrA[], despuesDe: string): T[] {
+  const desde = items.findIndex((x) => x.id === despuesDe);
+  let i = -1;
+  if (links.length && desde >= 0) {
+    for (let j = desde + 1; j < items.length; j++) {
+      const x = items[j];
+      if (x.k === 'msg' && x.role === 'user') break;
+      if (x.k === 'msg' && x.role === 'assistant') i = j;
+    }
+  }
+  return i < 0 ? [...items] : items.map((x, j) => (j === i ? { ...x, irA: [...links] } : x));
+}
+
 /** El grupo de WhatsApp de MaKo en la barra del Second Brain (tanda 8): se lee acá y se contesta allá. */
 export const TITULO_GRUPO = 'MaKo en WhatsApp';
 export const AVISO_GRUPO = 'Se contesta en el grupo de WhatsApp.';

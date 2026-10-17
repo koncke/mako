@@ -90,6 +90,8 @@ const ACCEPT_PDF = ACCEPT_ADJUNTOS_CHAT.split(',').filter((m) => !m.startsWith('
 
 /** Las preguntas de arranque (sólo con el hilo vacío): lo que más se le pregunta a un lead. */
 const SUGERENCIAS = ['Resume este lead', '¿Cómo lo cierro?', '¿Qué le falta?'] as const;
+/** Editando la vista de la ficha (17/10/2026): lo que se le pide a MaKo es cambiar la hoja, no analizar al lead. */
+const SUGERENCIAS_EDICION = ['¿Qué bloques puedo sumar?', 'Pon arriba lo más importante', 'Hazla épica'] as const;
 
 /** El texto de una burbuja, con el mismo tamaño y la misma tinta que el de BurbujaHilo. */
 const TEXTO_BURBUJA = { fontSize: 14, lineHeight: 1.45, color: 'var(--ink)', overflowWrap: 'anywhere' as const };
@@ -129,7 +131,16 @@ function FilaMako({ animar = false, children }: { animar?: boolean; children: Re
 
 const primerNombre = (nombre: string): string => (nombre ?? '').trim().split(/\s+/)[0] || 'este lead';
 
-export function MakoAnalystLead({ leadId, nombre }: { leadId: number; nombre: string }) {
+export function MakoAnalystLead({ leadId, nombre, edicion = null }: {
+  leadId: number;
+  nombre: string;
+  /**
+   * La ficha está en «Editar» (17/10/2026, Martín: «Al momento de EDITAR, también debería salir automáticamente este
+   * modal, pero ahora ya no para analizar al lead, sino para editar la vista»): la hoja abierta (su clave de la API y su
+   * nombre). Viaja con cada mensaje; el server arma con eso lo que se le pide a MaKo (lib/mako-analyst-lead-reglas.ts).
+   */
+  edicion?: { tab: string; nombre: string } | null;
+}) {
   const ws = useWs();
   const refrescarFicha = useRefrescarFicha();
   const quien = primerNombre(nombre);
@@ -218,6 +229,7 @@ export function MakoAnalystLead({ leadId, nombre }: { leadId: number; nombre: st
         fd.append('leadId', String(leadId));
         if (sesionRef.current) fd.append('sessionId', String(sesionRef.current.id));
         fd.append('mensaje', e.texto);
+        if (edicion) fd.append('edicion', JSON.stringify(edicion));
         for (const a of e.adjuntos) fd.append('adjuntos', a.file, a.file.name);
         // ⚠️ XMLHttpRequest no pasa por el parche de WsFetch: el `?ws=` va a mano.
         const r = await postConProgreso(conWs(RUTA, ws), fd, {
@@ -230,7 +242,7 @@ export function MakoAnalystLead({ leadId, nombre }: { leadId: number; nombre: st
         try {
           const r = await fetch(RUTA, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'send', leadId, sessionId: sesionRef.current?.id ?? null, mensaje: e.texto }),
+            body: JSON.stringify({ action: 'send', leadId, sessionId: sesionRef.current?.id ?? null, mensaje: e.texto, ...(edicion ? { edicion } : {}) }),
             signal: AbortSignal.timeout(TOPE_MS),
           });
           status = r.status; cuerpo = await r.text();
@@ -560,7 +572,7 @@ export function MakoAnalystLead({ leadId, nombre }: { leadId: number; nombre: st
       {procesando > 0 && <ChipArchivo nombre="Preparando el archivo" estado="leyendo" />}
       {vacio && !hayTrabajo && (
         <div role="group" aria-label="Preguntas para empezar" style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-          {SUGERENCIAS.map((s) => (
+          {(edicion ? SUGERENCIAS_EDICION : SUGERENCIAS).map((s) => (
             <button key={s} type="button" className="of-pill" onClick={() => enviar({ texto: s, adjuntos: [] })}>{s}</button>
           ))}
         </div>
@@ -575,7 +587,9 @@ export function MakoAnalystLead({ leadId, nombre }: { leadId: number; nombre: st
     </div>
   ) : (
     <div style={{ margin: 'auto', maxWidth: 360, textAlign: 'center', color: 'var(--dim)', fontSize: 13.5, lineHeight: 1.5 }}>
-      MaKo ya tiene la ficha de {quien}: pregúntale lo que quieras.
+      {edicion
+        ? <>Dile a MaKo qué cambiar de {edicion.nombre ? `«${edicion.nombre}»` : 'esta hoja'}. Cambia para todos los leads del CRM.</>
+        : <>MaKo ya tiene la ficha de {quien}: pregúntale lo que quieras.</>}
     </div>
   );
 
@@ -615,7 +629,7 @@ export function MakoAnalystLead({ leadId, nombre }: { leadId: number; nombre: st
         valor={texto}
         onValor={setTexto}
         onEnviar={enviarComposer}
-        placeholder={`Pregúntale a MaKo por ${quien}`}
+        placeholder={edicion ? `Qué cambiar de ${edicion.nombre || 'esta hoja'}` : `Pregúntale a MaKo por ${quien}`}
         ocupado={ocupado || procesando > 0}
         menuClip={menuClip}
         onAudio={enviarAudio}

@@ -20,62 +20,30 @@
 //    cerebro son 21 lecturas, y el chat no lo necesita para el primer dibujo.
 //
 // Lo que se decía acá del grafo, del editor del funnel y de la skill sigue valiendo y vive en VistaCerebro.tsx.
+// ⚠️ DESDE EL 17/10 ESTA PÁGINA ES UNA PUERTA: el armado (el Mapa y la pantalla) vive en pagina.tsx, porque
+//    /admin/operaciones dibuja la MISMA pantalla para el super admin («Ops Center»).
 
 import type { ReactNode } from 'react';
-import { Pagina } from '@/app/_ui';
-import Link from '@/app/_ui/Link';
-import { VistaCerebro } from './VistaCerebro';
-import { ChatSecondBrain } from './ChatSecondBrain';
 import { requireRolWs } from '@/lib/tab-access';
 import { esAdminDeTab } from '@/lib/puerta-admin-tab';
-import { construirCerebro } from '@/lib/cerebro-grafo';
-import { tokenAgenteVisible } from '@/lib/agente-token';
-import { getWorkspaceActual } from '@/lib/workspace';
-import { APP_BASE_URL } from '@/lib/app-url';
 import { datosDelCentroSiOpera } from '@/app/admin/operaciones/datos';
+import { PantallaSecondBrain, mapaDelSecondBrain, pideElMapa, type QuerySecondBrain } from './pagina';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-const enteroDe = (v: string | undefined): number | null => {
-  const n = Number(v);
-  return Number.isInteger(n) && n > 0 ? n : null;
-};
-
-export default async function SecondBrainPage({ searchParams }: { searchParams: Promise<{ chat?: string; panel?: string; area?: string; centro?: string }> }) {
+export default async function SecondBrainPage({ searchParams }: { searchParams: Promise<QuerySecondBrain> }) {
   await requireRolWs(['closer', 'setter'], { nav: 'mako' });
   const veMapa = await esAdminDeTab('second-brain');
-  const { chat, panel, area, centro: claveCentro } = await searchParams;
+  const q = await searchParams;
   // Los chats de Claude Code (el Cerebro y cada jefe), sólo para quien `puedeOperar`: la guarda va ADENTRO, antes de
   // leer la cola (app/admin/operaciones/datos.ts). Tanda 5: «quiero mandar prompts por MaKo en el Second Brain».
   const centro = await datosDelCentroSiOpera().catch(() => null);
 
   let mapa: ReactNode = null;
-  if (veMapa && (panel === 'mapa' || !!area)) {
-    // El embudo se configura ENTERO en el pop-up del CRM (29/09/2026): el área se nombra y se linkea, no se dibuja.
-    const funnelPanel = (
-      <p style={{ fontSize: 14, color: 'var(--dim)', margin: 0, lineHeight: 1.6 }}>
-        Tu embudo se configura en el{' '}
-        <Link href="/crm?embudo=1" style={{ color: 'var(--primary)', fontWeight: 600 }}>CRM</Link>:
-        las etapas, la nutrición y cómo entra tu gente.
-      </p>
-    );
-    const ws = await getWorkspaceActual();
-    const [cerebro, agenteActual] = await Promise.all([
-      construirCerebro(),
-      // Sólo la pista y el alcance: el token se muestra una vez, al acuñarlo (09/10/2026).
-      ws == null ? Promise.resolve(null) : tokenAgenteVisible(ws).catch(() => null),
-    ]);
-    // `APP_BASE_URL` y no una variable de entorno a mano: la skill salía con `BASE=` vacío (lib/app-url.ts).
-    mapa = <VistaCerebro cerebro={cerebro} funnelPanel={funnelPanel} agenteActual={agenteActual} appUrl={APP_BASE_URL} />;
+  if (veMapa && pideElMapa(q)) {
+    mapa = await mapaDelSecondBrain();
   }
 
-  return (
-    <Pagina ancho="completo" densidad="compacta" style={{ padding: 0, flex: 'none', height: '100dvh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-      {/* En modo CLARO desde el 16/10/2026 («pon en white mode la tab de Second Brain», Martín): se fueron TemaOscuro y
-          TemaOscuroScript, que la pintaban oscura. */}
-      <ChatSecondBrain veMapa={veMapa} mapa={mapa} chatInicial={enteroDe(chat)}
-        centro={centro} centroInicial={centro && typeof claveCentro === 'string' && claveCentro ? claveCentro : null} />
-    </Pagina>
-  );
+  return <PantallaSecondBrain veMapa={veMapa} mapa={mapa} centro={centro} q={q} inicio="second-brain" />;
 }

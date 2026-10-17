@@ -42,7 +42,7 @@ import { urgenciaUsable, type UrgenciaTipo } from './oferta-modelo';
 import { CANALES, PREGUNTAS, VOLUMEN_POR_CANAL, diagnosticar, type CanalId, type Diagnostico } from './fase-diagnostico';
 import { RE_LO_HACE_EL_CLIENTE, RE_LO_HACE_EL_NEGOCIO, RE_PROMETE_HACERLO } from './offer-quien-hace';
 import {
-  DIMENSION_IDS, DIMENSIONES_CRITICAS, MARCA_COMPLETAR, PIEZAS, PIEZA_KEYS, PREGUNTAS_GUIA,
+  DIMENSION_IDS, DIMENSIONES_CRITICAS, MARCA_COMPLETAR, PIEZAS, PIEZAS_DEL_ARRANQUE, PIEZA_KEYS, PREGUNTAS_GUIA,
   dimensionLabel, esDimensionId, esPiezaKey, faltanMinimas, piezaLabel,
   type AdjuntoVista, type ArbolOffer, type ArchiveroDoc, type BonoPropuesto, type CalculoDiagnostico, type CambioPropuesto, type DiagnosticoOferta,
   type DimensionId, type EcuacionFila, type Entregable, type FaseRuta, type FuentePieza, type ModoSesion,
@@ -2335,6 +2335,22 @@ export function piezasParaPrompt(piezas: PiezasSabidas): { sabidas: string; falt
 /** Las preguntas de la guía, en orden, para el system del turno. */
 export const guiaParaPrompt = (): string =>
   PREGUNTAS_GUIA.map((q, i) => `${i + 1}. [${q.pieza}] ${q.pregunta}`).join('\n');
+
+/**
+ * La conversación del ONBOARDING (17/10/2026, `PIEZAS_DEL_ARRANQUE`): sólo lo que vende. La guía son las
+ * preguntas de esas piezas, en el orden de la de Offer, y lo que falta son sólo ellas: con la lista entera
+ * (`piezasParaPrompt`), el modelo se pondría a preguntar por la garantía o el costo, que son del análisis.
+ */
+export const guiaDelArranque = (): string =>
+  PREGUNTAS_GUIA.filter((q) => PIEZAS_DEL_ARRANQUE.includes(q.pieza)).map((q, i) => `${i + 1}. [${q.pieza}] ${q.pregunta}`).join('\n');
+
+export function faltanDelArranqueParaPrompt(piezas: PiezasSabidas): string {
+  const faltan = PIEZAS
+    .filter((p) => PIEZAS_DEL_ARRANQUE.includes(p.key) && !piezaAnotada(piezas, p.key))
+    .map((p) => `- ${p.key}: ${p.que}`)
+    .join('\n');
+  return faltan || '(ninguna: ya sabes lo que vende)';
+}
 
 // ── v2: el árbol del selector ────────────────────────────────────────────────
 

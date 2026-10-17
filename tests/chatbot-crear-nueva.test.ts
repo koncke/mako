@@ -102,7 +102,7 @@ test('el fallo de crear se dibuja pegado al «＋ Nueva» de la lista', () => {
 
 test('crearNueva ignora los clics mientras hay un POST en vuelo, y se suelta en un finally', () => {
   const c = crearNueva();
-  assert.match(c, /^const crearNueva = async \(pedido\?: string\) => \{\n {4}if \(creandoNueva\.current\) return;\n {4}creandoNueva\.current = true;/);
+  assert.match(c, /^const crearNueva = async \(pedido\?: string\) => \{\n {4}if \(creandoNueva\.current\) return false;\n {4}creandoNueva\.current = true;/);
   // Tercera tanda: el finally suelta también la fila de «Nueva» (`creando`): si falló, se va.
   assert.match(c, /finally \{ setCreando\(null\); creandoNueva\.current = false; \}/);
   assert.match(sinComentarios(leer('app/automations/ChatAgentApp.tsx')), /const creandoNueva = useRef\(false\);/);
@@ -140,7 +140,7 @@ test('«＋ Nueva» abre la galería, y «Lienzo en blanco» crea la vacía de s
   assert.doesNotMatch(src, /alCrearConIA\(|onCreadaIA=/, 'volvió crear ADENTRO del modal');
   const c = crearNueva();
   assert.match(c, /if \(pedido\) \{ setPedidoSinCrear\(null\); setAbrirSec\(\{ id, mako: true, pedido \}\); \}\n {6}await load\(\);/);
-  assert.match(c, /setErrCrear\(r\?\.error \?\? 'No se pudo crear'\); if \(pedido\) setPedidoSinCrear\(pedido\); return;/);
+  assert.match(c, /setErrCrear\(r\?\.error \?\? 'No se pudo crear'\); if \(pedido\) setPedidoSinCrear\(pedido\); return false;/);
   // La creada desde una plantilla se abre DESPUÉS de traer la lista (antes no está para elegirla).
   assert.match(src, /await load\(\);\n {4}setAbrirSec\(\{ id: r\.secuenciaId \}\);/);
 });

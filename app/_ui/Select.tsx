@@ -19,7 +19,7 @@ export type { DropdownOption as SelectOption, DropdownGroup as SelectGroup };
 
 export function Select({
   label, hint, error, required, options, columns, secciones, value, onChange, placeholder,
-  width, disabled, search, style, ariaLabel, varios, minimo, menuAncho, menuAlto,
+  width, disabled, search, style, ariaLabel, varios, minimo, menuAncho, menuAlto, icono,
 }: {
   label?: string;
   hint?: ReactNode;
@@ -51,6 +51,8 @@ export function Select({
   varios?: string[];
   /** Con `varios`: cuántos tienen que quedar marcados. */
   minimo?: number;
+  /** El ícono de lo que el control ES, fijo en el botón (un funnel: `IconoFunnel`). Ver Dropdown. */
+  icono?: ReactNode;
 }) {
   const id = useId();
   return (
@@ -69,6 +71,7 @@ export function Select({
         search={search}
         varios={varios}
         minimo={minimo}
+        icono={icono}
         ariaLabel={ariaLabel ?? label}
         buttonStyle={{
           minHeight: 'var(--touch)',

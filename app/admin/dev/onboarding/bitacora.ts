@@ -618,4 +618,28 @@ export const BITACORA: Hito[] = [
       "tests/onboarding-arranque.test.ts — siete roturas más, todas caen",
     ],
   },
+  {
+    fecha: "17 oct", hora: "01:45", chat: "Onboarding", sesion: "local_0702928b-fa1b-49e2-ac90-85a94053d088", cuenta: "claude4",
+    actor: "claude", tipo: "implementacion",
+    titulo: "El onboarding pregunta qué vendes y lo deja en un PDF; el análisis de la oferta queda en Offer",
+    puntos: [
+      "Lo que pidió Martín el 16/10 a la tarde: el onboarding ya no analiza la oferta. MaKo conversa como en Offer, pero sólo hasta saber qué vende: qué es y qué recibe el cliente, para quién, qué le resuelve, qué logra y cuánto cuesta.",
+      "Apenas lo sabe, deja «Lo que vendes» en un PDF con las palabras del dueño, y sigue: las preguntas rápidas de la fase del negocio (con sus opciones), el CRM, el WhatsApp de los avisos y el final.",
+      "El diagnóstico de la oferta y la oferta mejorada se hacen después en Offer («Analizar mi oferta» en la tarjeta final), sobre la misma conversación: lo que ya contó no se vuelve a preguntar.",
+      "DÓNDE SE PRUEBA: en producción, en el Cliente de Prueba (ws 3), que tiene el onboarding sin empezar. Nunca en el ws 1. No se recorrió en local: la PC no tenía RAM (la app se cayó a la 01:05 con nueve chats abiertos) y el Cerebro lo dejó para la prueba de Martín.",
+      "Qué mirar: que en ningún momento aparezca «Armar mi oferta», que el PDF se abra desde el chat con lo que contó, y que «Analizar mi oferta» lleve a Offer con la conversación.",
+    ],
+    revisar: "/onboarding?ws=3",
+    commits: [
+      { sha: "b8ec91b", msg: "Onboarding: pregunta qué vende y lo deja en un PDF; el análisis de la oferta queda en la tab Offer", lineas: 730, archivos: 19 },
+    ],
+    archivos: [
+      "lib/offer-ia.ts — el prompt del onboarding (offer.arranque.system), sólo lo que vende",
+      "app/api/offer/route.ts — el turno del onboarding: sin la fase adentro y sin «Armar mi oferta»",
+      "lib/lo-que-vendes-pdf.ts — el PDF «Lo que vendes»",
+      "lib/onboarding-arranque.ts — la etapa de lo que vende, el mensaje del PDF y la fase después",
+      "app/onboarding/ChatArranque.tsx — la tarjeta del PDF, sin el riel ni el armado por detrás",
+      "tests/onboarding-lo-que-vende.test.ts — catorce roturas, todas caen",
+    ],
+  },
 ];

@@ -38,6 +38,7 @@ import { PARTES as CLOSINGSC_PARTES, BITACORA as CLOSINGSC_BITACORA } from './cl
 import { PARTES as YTWRITER_PARTES, BITACORA as YTWRITER_BITACORA } from './youtube-writer/bitacora';
 import { PARTES as AIRUNTIMECASCA_PARTES, BITACORA as AIRUNTIMECASCA_BITACORA } from './ai-runtime-cascada/bitacora';
 import { PARTES as CAROUSELS_PARTES, BITACORA as CAROUSELS_BITACORA } from './carousels/bitacora';
+import { PARTES as PUENTEFLOW_PARTES, BITACORA as PUENTEFLOW_BITACORA } from './puente-flow/bitacora';
 import { PARTES as CONOCIMIENTOS_PARTES, BITACORA as CONOCIMIENTOS_BITACORA } from './conocimientos/bitacora';
 import { PARTES as CRM_PARTES, BITACORA as CRM_BITACORA } from './crm/bitacora';
 import { AUDITORIA as CRM_AUDITORIA } from './crm/auditoria';
@@ -120,6 +121,7 @@ const REGISTROS: Record<string, Registro> = {
   'api-mako': { partes: APIMAKO_PARTES, bitacora: APIMAKO_BITACORA },
   'video-editor': { partes: VIDEOEDITOR_PARTES, bitacora: VIDEOEDITOR_BITACORA },
   'image-editor': { partes: IMAGEEDITOR_PARTES, bitacora: IMAGEEDITOR_BITACORA },
+  'puente-flow': { partes: PUENTEFLOW_PARTES, bitacora: PUENTEFLOW_BITACORA },
 };
 
 /** Un área sin registro devuelve vacío: la pantalla muestra sus estados vacíos. */

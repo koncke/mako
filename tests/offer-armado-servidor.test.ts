@@ -137,8 +137,9 @@ test('la pantalla: pide el armado, lo que ve sale de lo guardado y relee mientra
   assert.match(armar, /const idSesionArmando = armadoCorre \? \(sesion\?\.id \?\? null\) : null;/);
   assert.match(armar, /const t = setInterval\(\(\) => \{ void releer\(\); \}, RELEER_ARMADO_MS\);/);
   assert.match(armar, /return \(\) => \{ clearInterval\(t\); document\.removeEventListener\('visibilitychange', alVolver\); \};/);
-  // El onboarding no vuelve a pedirlo si el servidor ya está armando.
-  assert.match(APP, /sesion\.conclusion \|\| sesion\.armando\?\.corriendo \|\| generando\.current\) return;/);
+  // El onboarding ya NO arma la oferta (17/10/2026, Martín: el análisis va en la tab Offer; el onboarding sólo
+  // ordena lo que vende en un PDF). Antes lo pedía solo, por detrás, al tener las piezas.
+  assert.doesNotMatch(APP, /arranque\?\.armar\b/, 'el onboarding volvió a armar la oferta');
 });
 
 // ── El evento ───────────────────────────────────────────────────────────────
