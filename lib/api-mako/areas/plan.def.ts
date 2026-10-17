@@ -273,6 +273,22 @@ export const DEFS: readonly OperacionDef[] = [
     canales: TODOS, costo: 'gratis', gating: TAB,
   },
   {
+    // LA FECHA DE UNA TAREA, TAMBIÉN POR WHATSAPP (17/10/2026, decisión 1 del relevo de Integraciones, tomada con criterio):
+    // a «movela al viernes» → «la tarea» MaKo contestaba que no podía (`SIN_FECHA_DE_TAREA`, lib/doer-herramientas.ts). Es
+    // una acción de chat: queda pendiente y una PERSONA la confirma con un «sí». No toca el Quarter (mig 0156: no se
+    // deriva del deadline) ni una tarea que se repite (no lleva fecha).
+    id: 'cambiar_fecha_tarea_plan', area: 'plan', tipo: 'accion', confirmacion: 'chat', reversible: true,
+    titulo: 'Cambiar la fecha límite de una tarea',
+    descripcion: 'Pone, cambia o quita la fecha límite de UNA tarea del plan (YYYY-MM-DD, de hoy en adelante). Una reunión de la agenda se mueve con otra herramienta.',
+    parametros: [
+      { nombre: 'id', tipo: 'string', descripcion: 'id de la tarea (de listar_tareas_plan), o «#412».', obligatorio: true, max: 80 },
+      { nombre: 'fecha', tipo: 'string', descripcion: 'la fecha límite nueva, YYYY-MM-DD (hoy o después). Falta si se quita.', max: 10 },
+      { nombre: 'quitar', tipo: 'boolean', descripcion: 'true para dejarla sin fecha límite.' },
+    ],
+    escribe: 'el deadline y el historial de la tarea (plan_tareas o experimento_tareas)',
+    canales: TODOS, costo: 'gratis', gating: TAB,
+  },
+  {
     // EL KANBAN ES DE FLUJO (16/10/2026): las columnas son el estado, y moverla es lo que hace
     // la persona al arrastrar (`repo.mover`). La misma escritura de las dos mitades
     // (`moverPlanTarea` / `moverTarea`), no una tercera. «Completada» NO está en el enum a

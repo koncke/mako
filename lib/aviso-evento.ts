@@ -90,6 +90,7 @@ export function datosDelEvento(sub: unknown): ContextoDatos {
     ...(ev.trae.includes('reporte') ? { conReporte: true } : {}),
     ...(ev.trae.includes('oferta') ? { conOferta: true } : {}),
     ...(ev.trae.includes('anuncios') ? { conAnuncios: true } : {}),
+    ...(ev.trae.includes('reunionplan') ? { conReunionPlan: true } : {}),
   };
 }
 

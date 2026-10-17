@@ -285,7 +285,7 @@ export const FUENTES_EXTRA: readonly Fuente[] = [
     descripcion: 'Cada cliente que compró: cómo va, si necesita atención, qué debe y hace cuánto no hablan.',
     fechas: [{ id: 'actual', nombre: 'Hoy', sinRango: true }],
     dimensiones: [
-      cat('cliente', 'Cliente'), cat('producto', 'Producto'),
+      cat('cliente', 'Cliente'), cat('producto', 'Funnel'),
       escala(cat('estado', 'Estado'), ['Activo', 'Pausado', 'Graduado', 'Baja']),
       escala(cat('senal', 'Señal'), ['Atención', 'Bien', 'Sin datos'], { 'Atención': 'var(--bad)', Bien: 'var(--good)', 'Sin datos': 'var(--faint)' }),
       cat('motivo', 'Motivo'), escala(cat('tramo_contacto', 'Último contacto'), TRAMOS_CONTACTO),

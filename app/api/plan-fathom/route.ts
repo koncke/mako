@@ -317,7 +317,9 @@ export async function POST(req: NextRequest) {
       // de esta ruta (`after()` comparte su maxDuration de 300 s), con margen para escribir.
       const ws = await wsObligatorio();
       const hasta = Date.now() + 285_000;
-      after(() => completarBorradorDeReunion({ ws, borradorId, recordingId, titulo, proyectos, yo, uso, hasta }));
+      // «Volver a analizar» (`reanalizar`) lee de cero; si no, sigue la lectura a medias donde quedó (revisión de B5, 17/10/2026).
+      const reanalizar = body.reanalizar === true;
+      after(() => completarBorradorDeReunion({ ws, borradorId, recordingId, titulo, proyectos, yo, uso, hasta, reanalizar }));
       return Response.json({ ok: true, procesando: true, borradorId });
     }
     return Response.json({ ok: false, error: 'acción desconocida' }, { status: 400 });

@@ -49,6 +49,7 @@ import { crearMemoDeAcciones, MARGEN_RELOJ_MS } from '@/lib/turno-sin-duplicar';
 import { buildSystemPrompt } from '@/lib/mako-context';
 import { avisoDePuntos } from '@/lib/puntos-mensaje';
 import { validarRespuestaDoer } from '@/lib/respuesta-doer';
+import { sanearSalida } from '@/lib/doer-salida';
 import { credWs } from '@/lib/credenciales';
 import { getSetting, setSetting } from '@/lib/settings';
 import { tzDeWorkspace, TZ_DEFAULT } from '@/lib/timezone';
@@ -183,7 +184,8 @@ export async function urlDeAdjunto(persona: PersonaChat, ref: unknown): Promise<
 
 // ── El system del turno ──────────────────────────────────────────────────────
 
-const VOZ_APP = `CONTEXTO: estás en el chat de MaKo en el TELÉFONO de la persona (el dueño del negocio o alguien de su equipo). Responde breve y claro (2-5 líneas), sin volcar JSON ni tecnicismos. Ves el historial de este chat: úsalo y no pidas datos que ya te dieron.`;
+const VOZ_APP = `CONTEXTO: estás en el chat de MaKo en el TELÉFONO de la persona (el dueño del negocio o alguien de su equipo). Responde breve y claro (2-5 líneas), sin volcar JSON ni tecnicismos. Ves el historial de este chat: úsalo y no pidas datos que ya te dieron.
+LA VOZ: directa y cálida, SIN groserías ni lunfardo (ninguna mala palabra ni insulto, tampoco en broma): este chat lo usan los clientes de MaKo y su equipo.`;
 
 /** El protocolo de herramientas: SÓLO si viajan herramientas (AGENTS.md, «Un prompt que
  *  ORDENA usar algo que no se mandó…»). */
@@ -491,6 +493,15 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     if (borrador) respuesta = MENSAJE_BORRADOR_APP;
     else if (lead) respuesta = mensajeLeadApp(lead.nombre);
     if (respuesta) respuesta = sinLinksDeRevision(respuesta) || null;
+    // ⚠️ SIN GROSERÍAS, COMO EN WHATSAPP (17/10/2026, docs/relevo/mako-en-whatsapp.md §3): la persona de MaKo dice «puedes
+    // putear suave» (lib/mako-persona.ts) y el doer lo corta antes de mandar (`sanearSalida`, lib/doer-salida.ts); este chat
+    // —el de la app y el teléfono de los clientes— no. Se saca la oración, no la respuesta entera (las promesas no: acá la
+    // tarjeta y la pantalla dicen lo que quedó hecho).
+    if (respuesta && !borrador && !lead) {
+      const saneo = sanearSalida(respuesta, { corrioHerramientas: true });
+      if (saneo.groserias.length) console.warn(`[mako-turno-app] ws=${ws} sesión=${s.id}: le saqué una grosería (${saneo.groserias.join(', ')})`);
+      respuesta = saneo.texto;
+    }
     if (!respuesta && (propuestas.length || pantallas.length)) respuesta = TEXTO_SOLO_TARJETA;
 
     if (respuesta) {

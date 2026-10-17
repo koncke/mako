@@ -109,7 +109,7 @@ export function tramosConVariables(linea: string): Array<{ txt: string; esVar: b
  */
 export type FuenteDato = 'nombre' | 'ficha' | 'zona' | 'producto' | 'etiquetas' | 'pagos' | 'curso'
   | 'perfil' | 'lead_magnet' | 'momento' | 'negocio' | 'links' | 'evento' | 'cuota' | 'cobro'
-  | 'proxima' | 'respuestas' | 'pago' | 'escrito' | 'analisis' | 'cuenta' | 'linea' | 'grabacion' | 'cancelada' | 'fusion' | 'recordatorio' | 'flow' | 'tracking' | 'pixel' | 'landing' | 'optin' | 'prueba' | 'grabaciones' | 'meta' | 'reporte' | 'oferta' | 'anuncios';
+  | 'proxima' | 'respuestas' | 'pago' | 'escrito' | 'analisis' | 'cuenta' | 'linea' | 'grabacion' | 'cancelada' | 'fusion' | 'recordatorio' | 'flow' | 'tracking' | 'pixel' | 'landing' | 'optin' | 'prueba' | 'grabaciones' | 'meta' | 'reporte' | 'oferta' | 'anuncios' | 'reunionplan';
 
 /**
  * A quién le llega el mensaje: al lead (las automatizaciones), al equipo (MaKo en WhatsApp) o a un USUARIO de MaKo
@@ -166,8 +166,10 @@ export type VariableAviso = {
    *               armado en el servidor (`datosOfertaLista`, lib/oferta-lista.ts).
    * · `anuncios` — necesita la CUENTA PUBLICITARIA que Meta frenó (el evento de la plataforma `meta_cuenta_frenada`): lo
    *               pasa el cron de las alertas críticas (`datosCuentaFrenada`, lib/alerta-critica-texto.ts).
+   * · `reunionplan` — necesita LAS REUNIONES QUE MaKo LEYÓ y las tareas que dejó en el Plan (el evento de la plataforma
+   *               `reunion_tareas_al_plan`): lo pasa el cron fathom-plan (`datosReunionesAlPlan`, lib/reunion-plan-aviso.ts).
    */
-  alcance: 'siempre' | 'lead' | 'cuota' | 'mensaje' | 'pago' | 'escrito' | 'analisis' | 'restablecer' | 'linea' | 'grabacion' | 'cancelada' | 'fusion' | 'recordatorio' | 'flow' | 'tracking' | 'pixel' | 'landing' | 'optin' | 'prueba' | 'grabaciones' | 'meta' | 'reporte' | 'oferta' | 'anuncios';
+  alcance: 'siempre' | 'lead' | 'cuota' | 'mensaje' | 'pago' | 'escrito' | 'analisis' | 'restablecer' | 'linea' | 'grabacion' | 'cancelada' | 'fusion' | 'recordatorio' | 'flow' | 'tracking' | 'pixel' | 'landing' | 'optin' | 'prueba' | 'grabaciones' | 'meta' | 'reporte' | 'oferta' | 'anuncios' | 'reunionplan';
   /**
    * UN DATO SECRETO (15/10/2026, docs/diseno-2fa-obligatorio.md §3 y §8): el link de restablecer la contraseña (y
    * después el código del 2FA por correo). Sale SÓLO en el mail a la persona y NUNCA se guarda: `sinSecretos` lo saca
@@ -461,6 +463,27 @@ export const VARIABLES_AVISO: VariableAviso[] = [
   { key: 'meta_telefono', label: 'El teléfono que dejó', ejemplo: '+52 1 55 1234 5678', alcance: 'meta', grupo: 'formulario', rama: 'El formulario de Meta', fuente: 'meta', soloPara: 'equipo' },
   { key: 'meta_campana', label: 'La campaña de la que vino', ejemplo: 'Inmobiliario · Octubre', alcance: 'meta', grupo: 'formulario', rama: 'El formulario de Meta', fuente: 'meta', soloPara: 'equipo' },
   { key: 'meta_respuestas', label: 'Lo que contestó', ejemplo: '• ¿Qué tipo de propiedad buscas vender?: Una casa', alcance: 'meta', grupo: 'formulario', rama: 'El formulario de Meta', fuente: 'meta', soloPara: 'equipo' },
+  // ── LAS REUNIONES QUE MaKo LEYÓ y las tareas que dejó en el Plan (17/10/2026, «nada por detrás»): lo pasa el cron fathom-plan
+  //    (`datosReunionesAlPlan`, lib/reunion-plan-aviso.ts). Si fue una o varias, y si completa una lectura a medias, lo
+  //    PREGUNTAN las CONDITION. Lo que falta no viaja (y se lleva su renglón).
+  {
+    key: 'plan_varias', label: 'Leyó varias reuniones', ejemplo: 'no', alcance: 'reunionplan', grupo: 'reuniones', rama: 'Tareas de reuniones', fuente: 'reunionplan', soloPara: 'equipo',
+    condicion: { rotulo: ['Leyó varias reuniones', 'Leyó una sola'], tipo: 'opciones', opciones: [{ value: 'sí', label: 'Sí: varias en la misma vuelta' }, { value: 'no', label: 'No: una sola' }] },
+  },
+  {
+    key: 'plan_resto', label: 'Terminó una lectura a medias', ejemplo: 'no', alcance: 'reunionplan', grupo: 'reuniones', rama: 'Tareas de reuniones', fuente: 'reunionplan', soloPara: 'equipo',
+    condicion: { rotulo: ['Terminó una lectura a medias', 'Es una lectura nueva'], tipo: 'opciones', opciones: [{ value: 'sí', label: 'Sí: son las tareas que faltaban' }, { value: 'no', label: 'No: la leyó por primera vez' }] },
+  },
+  { key: 'plan_titulo', label: 'La reunión', ejemplo: 'Sync semanal', alcance: 'reunionplan', grupo: 'reuniones', rama: 'Tareas de reuniones', fuente: 'reunionplan', soloPara: 'equipo' },
+  { key: 'plan_con', label: 'Con quién fue', ejemplo: 'Ana, Pablo', alcance: 'reunionplan', grupo: 'reuniones', rama: 'Tareas de reuniones', fuente: 'reunionplan', soloPara: 'equipo' },
+  { key: 'plan_cuando', label: 'Cuándo fue', ejemplo: 'mié 28 oct · 15:30', alcance: 'reunionplan', grupo: 'reuniones', rama: 'Tareas de reuniones', fuente: 'reunionplan', soloPara: 'equipo' },
+  { key: 'plan_link', label: 'Link para revisarlas', ejemplo: 'https://hola-mako.com/plan/revisar/propmv7rwo1dkj2i6', alcance: 'reunionplan', grupo: 'reuniones', rama: 'Tareas de reuniones', fuente: 'reunionplan', soloPara: 'equipo' },
+  { key: 'plan_reuniones', label: 'Cuántas reuniones leyó', ejemplo: '3 reuniones', alcance: 'reunionplan', grupo: 'reuniones', rama: 'Tareas de reuniones', fuente: 'reunionplan', soloPara: 'equipo' },
+  { key: 'plan_lista', label: 'Las reuniones, una por renglón', ejemplo: '• *Sync semanal* — mié 28 oct · 15:30', alcance: 'reunionplan', grupo: 'reuniones', rama: 'Tareas de reuniones', fuente: 'reunionplan', soloPara: 'equipo' },
+  { key: 'plan_tuyas', label: 'Las tareas tuyas', ejemplo: '8 tareas tuyas', alcance: 'reunionplan', grupo: 'reuniones', rama: 'Tareas de reuniones', fuente: 'reunionplan', soloPara: 'equipo' },
+  { key: 'plan_de_otros', label: 'Las de los demás', ejemplo: '3 de los demás', alcance: 'reunionplan', grupo: 'reuniones', rama: 'Tareas de reuniones', fuente: 'reunionplan', soloPara: 'equipo' },
+  { key: 'plan_fuera', label: 'Las que el criterio dejó afuera', ejemplo: '12', alcance: 'reunionplan', grupo: 'reuniones', rama: 'Tareas de reuniones', fuente: 'reunionplan', soloPara: 'equipo' },
+  { key: 'plan_a_medias', label: 'Las que leyó a medias', ejemplo: 'esta reunión', alcance: 'reunionplan', grupo: 'reuniones', rama: 'Tareas de reuniones', fuente: 'reunionplan', soloPara: 'equipo' },
   // ── El reporte de los lunes YA ARMADO (16/10/2026, el evento de la plataforma `reporte_semanal`): lo pasa el cron.
   //    Son los números del negocio (Meta, ventas, cobranza), por eso van en el Dashboard.
   { key: 'reporte_titulo', label: 'Título del reporte', ejemplo: 'Reporte semanal · 05/10/2026–11/10/2026', alcance: 'reporte', grupo: 'dashboard', rama: 'El reporte semanal', fuente: 'reporte', soloPara: 'equipo' },
@@ -651,6 +674,8 @@ export type ContextoDatos = {
   conOferta?: boolean;
   /** La cuenta publicitaria que Meta frenó (el evento de la plataforma `meta_cuenta_frenada`). */
   conAnuncios?: boolean;
+  /** Las reuniones que MaKo leyó y las tareas que dejó en el Plan (el evento de la plataforma `reunion_tareas_al_plan`). */
+  conReunionPlan?: boolean;
   /** El link de restablecer la contraseña (sólo el evento `contrasena_restablecer`, y sólo al mail a la persona). */
   conRestablecer?: boolean;
 };
@@ -695,6 +720,7 @@ function alcanzaPara(a: VariableAviso['alcance'], opts: ContextoDatos): boolean 
   if (a === 'reporte') return opts.conReporte === true;
   if (a === 'oferta') return opts.conOferta === true;
   if (a === 'anuncios') return opts.conAnuncios === true;
+  if (a === 'reunionplan') return opts.conReunionPlan === true;
   return false;
 }
 

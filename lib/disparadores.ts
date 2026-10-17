@@ -195,7 +195,8 @@ export const EVENTOS_PAGO: readonly EventoCanal[] = [
 export type SubtipoMako = 'reunion_pronto' | 'lead_contesta' | 'cuota_vencida' | 'lead_agendo' | 'pago_recibido' | 'analisis_listo' | 'contrasena_restablecer' | 'contrasena_cambiada'
   | 'whatsapp_caido' | 'whatsapp_desvinculado' | 'whatsapp_volvio' | 'reunion_grabada' | 'reporte_semanal' | 'oferta_lista'
   | 'meta_cuenta_frenada' | 'meta_cuenta_recuperada' | 'reunion_cancelada' | 'lead_fusionado' | 'curso_recordatorio'
-  | 'flow_puente_ausente' | 'tracking_apagado' | 'pixel_viejo' | 'landing_cambio' | 'lead_de_landing' | 'prueba_recibida' | 'prueba_grabada' | 'lead_formulario_meta';
+  | 'flow_puente_ausente' | 'tracking_apagado' | 'pixel_viejo' | 'landing_cambio' | 'lead_de_landing' | 'prueba_recibida' | 'prueba_grabada' | 'lead_formulario_meta'
+  | 'reunion_tareas_al_plan';
 
 /**
  * PARA QUÉ LE ESCRIBE A LA PERSONA un evento de una PERSONA (15/10/2026, docs/diseno-2fa-obligatorio.md §8): lo DECLARA
@@ -225,7 +226,7 @@ export type PropositoPersona = 'restablecer' | 'aviso' | 'codigo';
  * dejarían de salir. Ni `apagado`: eso las frenaría al guardar.
  */
 export type EventoMako = EventoCanal & {
-  subtipo: SubtipoMako; aviso: string; trae: ReadonlyArray<'lead' | 'mensaje' | 'cuota' | 'pago' | 'escrito' | 'analisis' | 'restablecer' | 'linea' | 'grabacion' | 'cancelada' | 'fusion' | 'recordatorio' | 'flow' | 'tracking' | 'pixel' | 'landing' | 'optin' | 'prueba' | 'grabaciones' | 'meta' | 'reporte' | 'oferta' | 'anuncios'>; retirado?: true;
+  subtipo: SubtipoMako; aviso: string; trae: ReadonlyArray<'lead' | 'mensaje' | 'cuota' | 'pago' | 'escrito' | 'analisis' | 'restablecer' | 'linea' | 'grabacion' | 'cancelada' | 'fusion' | 'recordatorio' | 'flow' | 'tracking' | 'pixel' | 'landing' | 'optin' | 'prueba' | 'grabaciones' | 'meta' | 'reporte' | 'oferta' | 'anuncios' | 'reunionplan'>; retirado?: true;
   /**
    * UN MENSAJE DE MaKo A SUS CLIENTES (15/10/2026, el 2 de las doce: «un Mensaje de MaKo ES una automatización»): lo
    * emite el negocio X (su línea se cayó), pero lo corren las automatizaciones de la PLATAFORMA, y su tarjeta «MaKo en
@@ -318,6 +319,10 @@ export const EVENTOS_MAKO: readonly EventoMako[] = [
   // UN LEAD COMPLETÓ EL FORMULARIO DE META DE UN NEGOCIO (17/10/2026, lote 3): lo emite lib/meta-lead-nuevo.ts (el webhook y el
   // poll), con el lead y lo que trae el formulario (lib/meta-form-aviso.ts).
   { subtipo: 'lead_formulario_meta', aviso: 'lead-formulario-meta', label: 'Un lead completa el formulario de Meta de un negocio', trae: ['lead', 'meta'], plataforma: true },
+  // MaKo LEYÓ LAS REUNIONES DE UN NEGOCIO Y LE DEJÓ LAS TAREAS EN EL PLAN (17/10/2026, «nada por detrás»): lo emite el cron
+  // fathom-plan (lib/reunion-auto.ts), UNO por corrida, con lo que leyó (lib/reunion-plan-aviso.ts). Si fue una o varias y si
+  // completa una lectura a medias lo preguntan las CONDITION (`plan_varias`, `plan_resto`).
+  { subtipo: 'reunion_tareas_al_plan', aviso: 'reunion-tareas-al-plan', label: 'MaKo deja en el Plan de un negocio las tareas de sus reuniones', trae: ['reunionplan'], plataforma: true },
 ];
 
 /**

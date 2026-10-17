@@ -20,6 +20,7 @@ import { chatCheapCascade } from './ai-cheap';
 import { brandSystem, parseJsonObject } from './campaign-structurer';
 import { renderPrompt, contenidoNoConfiable } from './prompt-render';
 import { spreadProjScores, curveTaskScores } from '../app/plan/board/types';
+import { curvaSinPisarFijadas } from '../app/plan/board/lugar-al-soltar';
 import { auditarSalidaDelPerro, textoAuditoria, cuposDeDistribucion, razonCompara, veredictoDe, type Auditoria, type Veredicto } from '../app/plan/board/metodologia';
 import type { Prueba } from './plan-prueba';
 import type { UsageInfo } from './anthropic-usage';
@@ -32,7 +33,9 @@ import { degradarConfianza } from './cruce-confianza';
 import { haceFaltaUnProyecto } from './plan-proyecto-necesidad';
 
 export type GuardProjIn = { id: string; nombre: string };
-export type GuardTaskIn = { id: string; titulo: string; detalle?: string; proyecto?: string; deadline?: string; avance?: number; origen?: string; scoreActual?: number };
+export type GuardTaskIn = { id: string; titulo: string; detalle?: string; proyecto?: string; deadline?: string; avance?: number; origen?: string; scoreActual?: number;
+  /** Fijada a mano (`score_manual`): no recibe número de «re-puntuar todo» y el resto no la cruza (17/10/2026). Con `num`, su lugar. */
+  fijada?: boolean; num?: number };
 export type GuardScore = { id: string; score: number; razon: string; impacto?: number; esfuerzo?: number; deadline?: string; deadlineRazon?: string; haceloEn?: string };
 // `error` presente = el Perro NO pudo puntuar (no es "no había nada que cambiar").
 // Sin este campo, una corrida fallida y una sin cambios se veían exactamente igual.
@@ -819,8 +822,12 @@ export async function puntuarPlan(proyectos: GuardProjIn[], tareas: GuardTaskIn[
   const proyOut = toScores(obj.proyectos, 1, 100);
   const spread = spreadProjScores(proyOut);
   proyOut.forEach((p) => { if (spread[p.id] != null) p.score = spread[p.id]; });
-  const tareasOut = toScores(obj.tareas, 1, 100);
-  const curva = curveTaskScores(tareasOut);
+  const tareasCurvadas = toScores(obj.tareas, 1, 100);
+  // ⚠️ LO FIJADO A MANO NO SE TOCA (17/10/2026): una fijada no recibe número y el resto se corrige alrededor de ella
+  // (`curvaSinPisarFijadas`). Sin fijadas, la curva de siempre.
+  const curva = curvaSinPisarFijadas(tareas, curveTaskScores(tareasCurvadas));
+  const fijadas = new Set(tareas.filter((t) => t.fijada).map((t) => t.id));
+  const tareasOut = tareasCurvadas.filter((t) => !fijadas.has(t.id));
   tareasOut.forEach((t) => { if (curva[t.id] != null) t.score = curva[t.id]; });
   return { proyectos: proyOut, tareas: tareasOut, usage };
 }

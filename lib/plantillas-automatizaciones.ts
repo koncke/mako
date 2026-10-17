@@ -993,6 +993,30 @@ export const PLANTILLAS_PLATAFORMA: readonly PlantillaAutomatizacion[] = [
       mako('ol_mk', '✨ *Tu oferta está lista* (versión {{oferta_lista_version}}).\n📝 {{oferta_lista_nombre}}\n\n👉 Mírala aquí: {{oferta_lista_link}} — MaKo', null),
     ],
   },
+  {
+    // MaKo LEYÓ LAS REUNIONES DE UN NEGOCIO Y LE DEJÓ LAS TAREAS EN EL PLAN (17/10/2026, «nada por detrás»). El texto era
+    // `textoAviso` (lib/reunion-auto.ts) y PISABA la plantilla de /mensajes. Tres casos, que antes elegía el código: varias
+    // reuniones, una que completa una lectura a medias, o una nueva. Los preguntan las CONDITION (`plan_varias`,
+    // `plan_resto`); lo que falta (con quién, las de otros, las que el criterio dejó afuera, lo leído a medias) se lleva
+    // su renglón. Nacía apagado: la fila nace PAUSADA (scripts/mudanza-avisos-plataforma.mts).
+    id: 'mako-reunion-tareas-al-plan',
+    nombre: 'Tareas de Reuniones al Plan',
+    emoji: '📝',
+    linea: 'Le avisa al grupo de un negocio que MaKo leyó sus reuniones y le dejó las tareas en el Plan para confirmar.',
+    origen: 'el cron fathom-plan (lib/reunion-auto.ts), una vez por corrida y sólo si dejó tareas',
+    objetivo: 'clientes',
+    soloPlataforma: true,
+    cron: { fijo: TRIGGER_AVISO_MAKO, evento: 'reunion_tareas_al_plan' },
+    pasos: [
+      condicion('rp_cuantas', [
+        [[{ campo: 'dato:plan_varias', valor: 'sí' }], 'rp_varias_mk'],
+        [[{ campo: 'dato:plan_resto', valor: 'sí' }], 'rp_resto_mk'],
+      ], 'rp_una_mk'),
+      mako('rp_varias_mk', '📝 Leí tus *{{plan_reuniones}}* nuevas:{{plan_lista}}\n\nEn total *{{plan_tuyas}}*. Cada una se revisa en su propio link, ahí arriba.\n👥 Y {{plan_de_otros}}, para repartir.\nOtras {{plan_fuera}} no las cargué porque tu criterio las deja afuera. Están ahí, destildadas y con el motivo, por si me equivoqué.\n⚠️ De {{plan_a_medias}} no pude leer todo: puede faltar contenido. Sigo sola con lo que falta.\n\nEntras, revisas y con un toque quedan cargadas. — MaKo', null),
+      mako('rp_resto_mk', '📝 Terminé de leer tu reunión *{{plan_titulo}}*\n🗓️ {{plan_cuando}}\n\nSaqué *{{plan_tuyas}}* más y te las dejé en el plan para que las confirmes:\n{{plan_link}}\n👥 Y {{plan_de_otros}}, para repartir.\nOtras {{plan_fuera}} no las cargué porque tu criterio las deja afuera. Están ahí, destildadas y con el motivo, por si me equivoqué.\n⚠️ De {{plan_a_medias}} todavía no pude leer todo. Sigo sola con lo que falta.\n\nEntras, revisas y con un toque quedan cargadas. — MaKo', null),
+      mako('rp_una_mk', '📝 Leí tu reunión *{{plan_titulo}}*\n👥 Con {{plan_con}}\n🗓️ {{plan_cuando}}\n\nSaqué *{{plan_tuyas}}* y te las dejé en el plan para que las confirmes:\n{{plan_link}}\n👥 Y {{plan_de_otros}}, para repartir.\nOtras {{plan_fuera}} no las cargué porque tu criterio las deja afuera. Están ahí, destildadas y con el motivo, por si me equivoqué.\n⚠️ De {{plan_a_medias}} no pude leer todo: puede faltar contenido. Sigo sola con lo que falta.\n\nEntras, revisas y con un toque quedan cargadas. — MaKo', null),
+    ],
+  },
 ];
 
 export const PLANTILLAS_REEMPLAZADAS: Readonly<Record<string, string | null>> = {
