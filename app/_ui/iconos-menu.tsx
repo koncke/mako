@@ -15,6 +15,8 @@
 // ⚠️ LO QUE NO SE ESTANDARIZA NO LLEVA ÍCONO INVENTADO. Las etapas del kanban, los productos y las
 //    etiquetas los nombra cada negocio: ahí va su color (`color` del renglón) o nada. Un ícono genérico
 //    repetido en cada renglón no distingue a ninguno y es ruido.
+// ⚠️ EL FUNNEL (un CRM) TIENE SU ÍCONO, el cubo (`ICONO_FUNNEL`, ./icono-funnel.ts; el dibujo, `IconoFunnel`):
+//    va en el CONTROL que elige funnels, no en cada renglón (17/10/2026, «hay que unificar los íconos»).
 // ⚠️ `borrar` ES SIEMPRE ROJO (general 9: «que siempre el ícono de borrar sea rojo»): lo pinta
 //    `IconoMenu` con `--bad` y no se puede cambiar desde afuera. El dibujo es el de `IconoBorrar`
 //    (./BotonBorrar.tsx), el mismo en un menú y en un botón suelto.
@@ -25,6 +27,7 @@
 // =============================================================================
 
 import type { CSSProperties, ReactNode } from 'react';
+import { ICONO_FUNNEL } from './icono-funnel';
 
 /**
  * EL TACHO DE BORRAR (general 9, textual: «Cambia el botón de BORRAR con ese ícono de basura que no se
@@ -172,4 +175,9 @@ export function IconoMenu({ nombre, size = 17, style }: { nombre: NombreIconoMen
       {trazo}
     </svg>
   );
+}
+
+/** El cubo de un funnel, para el control que elige funnels (./icono-funnel.ts dice dónde va y dónde no). */
+export function IconoFunnel({ size = 15, style }: { size?: number; style?: CSSProperties }) {
+  return <IconoMenu nombre={ICONO_FUNNEL} size={size} style={style} />;
 }

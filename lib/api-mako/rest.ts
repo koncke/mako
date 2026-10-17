@@ -593,6 +593,8 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['PATCH', '/cobros/deals/{leadId}/obligaciones', 'editar_obligacion_deal'],
   ['PATCH', '/cobros/ventas/{leadId}', 'editar_venta_lead'],
   ['PUT', '/cobros/ventas/{leadId}/suscripcion', 'estado_suscripcion_manual'],
+  // La baja del cliente (#871) es un estado de la VENTA, como la suscripción: PUT la pone y `deshacer` la saca.
+  ['PUT', '/cobros/ventas/{leadId}/baja', 'baja_del_cliente'],
   ['PATCH', '/cobros/cuotas/{cuotaId}', 'editar_cuota'],
   ['POST', '/cobros/cuotas/{cuotaId}/links-pago', 'crear_link_cuota'],
   ['DELETE', '/cobros/cuotas/{cuotaId}/recordatorios', 'cortar_recordatorio_cuota'],

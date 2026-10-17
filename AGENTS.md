@@ -1281,6 +1281,11 @@ código nuevo:
   Hoy las montan /admin/operaciones, /m/operaciones, /second-brain y /m/second-brain. Una pantalla nueva con los chats
   de Claude Code usa las mismas piezas: nada de estado propio ni de leer la cola por fuera. Lo fija
   tests/second-brain-centro.test.ts.
+- **PARA EL SUPER ADMIN HAY UNA SOLA PANTALLA, «OPS CENTER»** (17/10/2026; Martín: «El Second Brain y el Centro deberían
+  ser exactamente lo mismo en SuperAdmin»). /second-brain y /admin/operaciones son dos PUERTAS: cada una tiene su guarda
+  y las dos dibujan `PantallaSecondBrain` (app/second-brain/pagina.tsx → ChatSecondBrain.tsx). CentroApp.tsx se borró.
+  Algo nuevo del Centro o del Second Brain va en esa pantalla, nunca en una segunda. En la barra, «Second Brain» es la
+  sub-tab de debajo de la Ticketera.
 - **En pantalla el cartero se llama RUNNER y la clave del dispositivo es «tu Token»** (15/10/2026; Martín: «No quiero
   que se llame más "cartero", sino un nombre más formal, tecnico... profesional»). Copiado de los self-hosted runners de
   GitHub Actions; el nombre y las instrucciones de su chat viven en `lib/runner.ts`. En el código, la base y la PC sigue
@@ -1327,6 +1332,28 @@ código nuevo:
     **El turno (`turnoApp`) lo usan TRES chats** (el Second Brain, el teléfono y el MaKo Analyst de un lead): lo que
     escribe FUERA del hilo (guardar archivos, El Archivero, cualquier efecto nuevo) va detrás de una opción que prende
     quien llama (`guardarAdjuntos`), nunca para todos. El PDF de un lead no es un documento del negocio.
+  - **EL MODELO JUSTO Y LA INSTRUCCIÓN PRECISA: los tokens son la capacidad** (17/10/2026). Martín: «quiero que los jefes
+    y el cerebro tengan la capacidad de ahorrar tokens, dando instrucciones precisas y eligiendo qué modelo de IA debe
+    correr». Medido esa noche: con nueve chats abiertos, la ventana de 5 horas de una cuenta Max llegó al 95% en
+    unas 2 horas, con la semanal al 13%. El cuello es la ventana de 5 horas.
+    - **El Cerebro elige el modelo al abrir un chat** (`start_session` → `model`, y `effort`):
+      - Opus para diseñar, diagnosticar lo difícil o juzgar;
+      - Sonnet para implementar con un plan claro, tests, copy o migraciones;
+      - Haiku con esfuerzo bajo para lo que sólo da vueltas o lee (el Runner).
+    - **Un jefe hace lo mismo con sus subagentes** (`Agent` y `agent()` de un Workflow, con `model`): Sonnet o Haiku para
+      leer, buscar o aplicar un patrón, y Opus sólo para la etapa que juzga. Un workflow, sólo cuando el tamaño lo pide.
+    - **Un brief nombra el archivo, el «hecho» y lo que no se toca.** Nunca «lee todo el relevo» si alcanza una sección.
+    - **Con la ventana de 5 horas arriba del 85%:** nada de workflows ni tandas grandes de tests. Se termina lo que está
+      a medias y se commitea.
+  - **TODO LO QUE SE TERMINA LLEVA SU `revisar`** (17/10/2026; Martín: «se terminaron y pushearon cosas y no las puedo ver
+    en Review»). El hito de la bitácora o el cierre (`cartero.mjs cierre … --revisar`) trae la ruta INTERNA donde Martín
+    lo prueba (`/crm?lead=…`, `/general`, `/automations/…`). Sin eso, el trabajo no aparece para revisar.
+  - **EL «YA ESTÁ» LO DICE CADA CHAT EN EL OPS CENTER, NO EL CEREBRO** (17/10/2026; Martín: «Todos los mensajes de "Ya
+    está x cosa" quiero que me los manden los chats del Center... No por aquí... Así puedo verlos y darles feedback...
+    además de ponerlo en Review»). Cuando el Cerebro le avisa a un jefe que su punta llegó a producción, el jefe:
+    - escribe el «Ya está» en SU chat, en palabras de producto y con la ruta donde se prueba;
+    - deja en la bitácora del área el hito «Hecho» con `revisar` y `sesion`, para que aparezca en Review.
+    El Cerebro, en su chat con Martín, sólo coordina y pide lo que es de Martín: no repite el «ya está» de cada área.
   - **Cada jefe ES un proyecto del Plan** (16/10/2026; los dos se llaman como la tab). El Centro lee y escribe el Plan
     SÓLO con las operaciones de la API de MaKo (`listar_tareas_plan`, `proponer_tareas_plan`, `proponer_cierre_tareas`)
     aplicadas en el acto con `ctxDelCentro` (lib/centro-plan.ts), por la ruta `/api/centro/plan` y NO por una server
@@ -1505,6 +1532,23 @@ opciones concretas sólo se escribe sabiendo qué contesta la pregunta. El saneo
 hacía lo contrario —ante `{tipo:'escala', opciones:[fechas]}` se quedaba con el token y
 tiraba las fechas— y esas respuestas no quedaban en ningún lado: ni en la base, ni en la
 pantalla, ni en el log.
+
+## Y un canal de MaKo no promete: su respuesta es el FINAL del turno
+
+Un turno del doer (o de cualquier chat de MaKo) termina cuando contesta. No hay un «después» en el
+que vuelva con el dato, así que «déjame ver», «ya te lo cargo» o «lo miro y te paso» sin haber
+corrido una herramienta es una mentira con fecha. Pasó en el grupo de un cliente el 16/10/2026, y
+el prompt lo FABRICABA: el system de un turno sin herramientas decía, como ejemplo, «dilo en una
+línea («eso lo miro y te lo paso»)», y el modelo lo dijo textual.
+
+- **Un ejemplo entre comillas en un prompt es lo que el modelo va a decir.** Antes de escribir uno,
+  preguntá si es verdad en TODOS los turnos que lo leen.
+- **«No puedo» casi nunca es que no puede: es que el turno llegó sin la herramienta.** Antes de
+  culpar a la integración, armá el turno con la frase real (`clasificarIntencion` +
+  `herramientasDelTurno`) y mirá qué viajó.
+- La segunda capa ya existe y se usa: `sanearSalida` (`lib/doer-salida.ts`) saca la oración que
+  promete sin haber hecho nada, y la grosería. Detalle en
+  [docs/hallazgos-comunicacion.md](docs/hallazgos-comunicacion.md) → «No puedo», «déjame ver».
 
 # Tres topes del entorno que no dan error: te dan otra cosa
 
@@ -2735,6 +2779,10 @@ crea los cobros, aplica lo que confirma la pasarela (webhook o cron) y devuelve 
   y la API de MaKo (`cobranza_lead`). Una pantalla nueva que muestre plata de un lead no suma cuotas por su cuenta.
   La tarjeta de antes lo hacía, y decía «Pagado por completo» de una mensualidad activa y dibujaba como deuda una
   cuota DEVUELTA ([docs/hallazgos-pagos.md](docs/hallazgos-pagos.md)).
+- **Una suma de lo que falta cobrar excluye con `noEsDeuda`, no con `esCuotaDevuelta` sola** (17/10/2026): la cuota
+  devuelta y la de un cliente que se dio de baja (#871) quedan las dos impagas y SIN vencimiento. Toda lectura que decide
+  «vencida» por la fecha ya las deja afuera; la que suma lo impago sin fecha tiene que preguntarlo, y leer con `*` (no una
+  lista con `baja_at`, que rompe sin la mig 0307). tests/pagos-baja.test.ts barre `!esCuotaDevuelta(` en app/ y lib/.
 
 # Un flag de visibilidad protege la PANTALLA; la API hay que cerrarla aparte
 
@@ -4705,6 +4753,9 @@ Martín, a un cliente: «si tienes varios CRM que sea una selección múltiple y
   ESE día. El número y su desglose usan la misma, o no cuadran.
 - **Lo que es UNO por naturaleza sigue siendo uno**: las etapas de un kanban, dónde nace un lead, a qué etapa mueve un
   evento o una etiqueta. La pregunta es si se SUMA (varios) o si se UBICA (uno).
+- **Un funnel se dibuja con el CUBO, y sólo con ése** (`IconoFunnel` / `ICONO_FUNNEL`, app/_ui/icono-funnel.ts): en el
+  control que elige funnels, no en cada renglón. Martín, 17/10: «Los íconos del CRM no son esos... Es el cubo... Hay que
+  unificar los íconos». El embudo (`Icon name="funnel"`) es FILTRAR, no un funnel. tests/icono-funnel.test.ts lo fija.
 
 # Si la misma pregunta se contesta en DOS lugares, el BORRADO va por una función
 

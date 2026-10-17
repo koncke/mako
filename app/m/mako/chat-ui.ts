@@ -53,6 +53,9 @@ export type ItemHilo =
       /** enviando · error (no llegó: se puede reintentar) · incierto (no sé si llegó) */
       estado?: 'enviando' | 'error' | 'incierto';
       error?: string;
+      /** los links a la pantalla donde se hace lo pedido (sólo de MaKo, y sólo en esta sesión de la pantalla: el
+       *  Second Brain los pide a /api/mako/pedidos; lib/chat-mako-reglas.ts → colgarIrA) */
+      irA?: { titulo: string; link: string }[];
     }
   | { k: 'propuesta'; id: string; t: TarjetaPendiente; estado: EstadoPropuesta; nota?: string }
   | { k: 'pantalla'; id: string; p: PropuestaPantalla }

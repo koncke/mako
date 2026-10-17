@@ -1467,7 +1467,7 @@ export function EditorInforme({
       )}
       {menu?.tipo === 'estilo' && (
         <Flotante ancla={menu.ancla} onCerrar={() => setMenu(null)} ancho={340}>
-          <PanelEstilo tema={hoja.tema} onCambiar={cambiarTema} />
+          <PanelEstilo tema={hoja.tema} onCambiar={cambiarTema} ajustes />
         </Flotante>
       )}
       {/* El ⋮: AI Analyst (no al closer ni a un link), Exportar y la guía (no en un link). */}

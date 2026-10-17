@@ -21,7 +21,7 @@
 // =============================================================================
 
 import { getUsuarioActual } from '@/lib/auth';
-import { getCapaActual, getRolWsEfectivo, getWorkspaceActual } from '@/lib/workspace';
+import { getCapaActual, getRolWsEfectivo, getTenantDb, getWorkspaceActual } from '@/lib/workspace';
 import { tabEnCapa } from '@/lib/capas';
 import { rateLimit } from '@/lib/rate-limit';
 import { vistaDe } from '@/lib/api-mako/vista';
@@ -29,6 +29,8 @@ import { canalKeyDe } from '@/lib/api-mako/canal';
 import { REGISTRO, esArea, ordenarPorRelevancia, porId, visible } from '@/lib/api-mako/registro';
 import { esAccion, esLectura, type Area, type Ctx, type OperacionDef, type Rol } from '@/lib/api-mako/tipos';
 import { listar as listarLandings } from '@/lib/editor-landing/server';
+// Puro: las filas de la lista de Automations como objetos del chat (16/10/2026).
+import { objetosDeAutomatizaciones } from '@/app/automations/pedidos-chat';
 import { veEditorImagen } from '@/lib/image-editor/acceso';
 import { listarDisenos } from '@/lib/image-editor/server';
 import { leerInformeGeneral, leerTablero } from '@/lib/graficos-tablero';
@@ -43,6 +45,8 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 30;
 
 const MAX_TEXTO = 4_000;
+/** Cuántos objetos de una tab se le dan al resolver (los más recién tocados). */
+const TOPE_OBJETOS = 300;
 const err = (status: number, error: string) => Response.json({ ok: false, error }, { status });
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
@@ -52,7 +56,7 @@ const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
  * puerta que su pantalla: sin eso, alguien leería por acá los nombres de lo que su pantalla le esconde. Las tabs
  * cuyos objetos viven en el navegador (el Video Editor) no pasan por acá: los manda su chat (`objetos`).
  */
-async function objetosDeTab(tab: Area, rol: Rol, ws: number): Promise<ObjetoChat[]> {
+async function objetosDeTab(tab: Area, rol: Rol, ws: number, rolWs: string | null): Promise<ObjetoChat[]> {
   if (tab === 'imagen') {
     // La puerta del Image Editor (lib/image-editor/acceso.ts: admin y la tab en su capa) y su lista, la del inicio
     // del editor: sin los borrados, la última editada primero.
@@ -95,8 +99,20 @@ async function objetosDeTab(tab: Area, rol: Rol, ws: number): Promise<ObjetoChat
     if (l.estado !== 'propio') return [];
     return hojasVisibles(l.tablero).map((h) => ({ id: h.id, nombre: h.nombre }));
   }
-  // ENGANCHE: 'chatbot' (Automations) devuelve [] hasta que su chat se enganche. Cuando lo haga, va acá su función
-  // —las automatizaciones del negocio sin las archivadas, la última tocada arriba— con la puerta de su página.
+  if (tab === 'chatbot') {
+    // Automations (16/10/2026): la MISMA puerta que su lista (GET /api/chat-agent/secuencias): admin y setter. Las del
+    // negocio sin las archivadas (lo que la lista muestra), la última tocada arriba. Sólo id, nombre y cuándo: el chat
+    // las nombra («la otra», «la de cobranza»), nada más.
+    if (rolWs !== 'admin' && rolWs !== 'setter') return [];
+    const db = await getTenantDb();
+    const { data, error } = await db.from('nutricion_secuencias').select('id, nombre, updated_at')
+      .is('archivada_at', null).order('updated_at', { ascending: false }).limit(TOPE_OBJETOS);
+    if (error) {
+      console.warn(`[api:mako/pedidos] no pude listar las automatizaciones: ${error.message}`);
+      return [];
+    }
+    return objetosDeAutomatizaciones((data ?? []) as Array<{ id: unknown; nombre?: unknown; updated_at?: unknown }>);
+  }
   return [];
 }
 
@@ -151,7 +167,7 @@ export async function POST(req: Request) {
     const vista = await vistaDe(ctxApi);
     const operaciones = REGISTRO.filter((d) => (esAccion(d) || esLectura(d)) && visible(d, vista)).map(aOperacion);
     // Donde los objetos viven en el navegador, los manda el chat (validados); en las demás, los arma el servidor.
-    const objetos = TABS_CON_OBJETOS_EN_EL_NAVEGADOR.includes(tab) ? objetosDelNavegador(body.objetos) : await objetosDeTab(tab, rol, ws);
+    const objetos = TABS_CON_OBJETOS_EN_EL_NAVEGADOR.includes(tab) ? objetosDelNavegador(body.objetos) : await objetosDeTab(tab, rol, ws, rolWs);
 
     const idActual = typeof body.actualId === 'number' || typeof body.actualId === 'string' ? String(body.actualId).trim() : '';
     const nombreActual = typeof body.actualNombre === 'string' ? body.actualNombre.trim().slice(0, 200) : '';

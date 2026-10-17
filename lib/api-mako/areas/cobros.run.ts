@@ -36,7 +36,8 @@ import { TAG } from '@/lib/cache';
 import { getTenantDb } from '@/lib/workspace';
 import { hoyEnWorkspace } from '@/lib/timezone';
 import { ventaTipoDe, type VentaTipo } from '@/lib/venta-tipo';
-import { esCuotaDevuelta } from '@/lib/cobrado-lead';
+import { esCuotaDeBaja, noEsDeuda } from '@/lib/cobrado-lead';
+import { cuotasParaBaja, darDeBajaCliente, deshacerBajaCliente } from '@/lib/pagos-baja';
 import {
   anotarEnHistorial, cambiarEstadoSuscripcionManual, cortarRecordatoriosDeCuota, editarCuota, escribirCampoDeal, escribirObligacion,
   escribirVenta, getPagosByLead, guardarMonedaDelNegocio, monedaDelNegocio, proteccionesDeCuotas, type CambioCampoDeal,
@@ -413,7 +414,7 @@ export const RUNNERS: Runners = {
       // Se prueban EN ORDEN sobre una copia de la fila: el monto después de pasar a suscripción es la mensualidad.
       const cuotasLead = await getPagosByLead(lead.id).catch(() => []);
       const cobradas = cuotasLead.filter((q) => q.pagado).length;
-      const impagas = cuotasLead.filter((q) => !q.pagado && !esCuotaDevuelta(q)).length;
+      const impagas = cuotasLead.filter((q) => !q.pagado && !noEsDeuda(q)).length;
       const fila: FilaVenta = { venta_tipo: lead.venta_tipo ?? 'unico', monto_cierre_usd: lead.monto_cierre_usd, suscripcion_monto_usd: lead.suscripcion_monto_usd ?? null, suscripcion_meses: lead.suscripcion_meses ?? null, fecha_cierre: lead.fecha_cierre };
       const lineas: string[] = [];
       for (const c of cambios) {
@@ -544,6 +545,32 @@ export const RUNNERS: Runners = {
       if (n2 > 0) invalidarPagos();
       if (n2 > 0) await logLeadEvent(leadId, 'Recordatorio de cobro', `Cortado desde ${ctx.canal}: cuota #${String(payload.cuotaId)}`, autorDe(ctx));
       return { ok: true, resumen: n2 > 0 ? 'Listo: el recordatorio quedó cortado.' : 'No había un recordatorio corriendo: nada que cortar.', datos: { cortados: n2 } };
+    }),
+  },
+
+  baja_del_cliente: {
+    preparar: async (input) => {
+      const lead = await getLead(Number(input.leadId)).catch(() => null);
+      if (!lead) return { error: noExisteLead(input.leadId) };
+      const pagos = await getPagosByLead(lead.id).catch(() => null);
+      if (!pagos) return { error: 'No pude leer las cuotas. Prueba de nuevo en un rato.' };
+      const usdDe = (qs: ReadonlyArray<{ monto_usd: number }>) => Math.round(qs.reduce((t, q) => t + Number(q.monto_usd), 0) * 100) / 100;
+      if (input.deshacer === true) {
+        const deBaja = pagos.filter(esCuotaDeBaja);
+        if (!deBaja.length) return { error: `${lead.nombre} no está dado de baja.`, yaEstaba: true };
+        return { payload: { leadId: lead.id, deshacer: true }, resumen: `Deshacer la baja de ${lead.nombre}: USD ${usdDe(deBaja)} vuelven a ser deuda, con su vencimiento.` };
+      }
+      if (lead.venta_tipo === 'suscripcion') return { error: `${lead.nombre} es una suscripción: no se da de baja, se cancela con estado_suscripcion_manual o cancelar_suscripcion.` };
+      const objetivo = cuotasParaBaja(pagos);
+      if (!objetivo.length) return { error: `A ${lead.nombre} no le queda nada por cobrar: no hay cuotas para dar de baja.`, yaEstaba: true };
+      return { payload: { leadId: lead.id, deshacer: false }, resumen: `${lead.nombre} se dio de baja: USD ${usdDe(objetivo)} sin cobrar (${objetivo.length} cuota(s)) dejan de ser deuda y no se le recuerdan. Lo cobrado queda.` };
+    },
+    ejecutar: (payload, ctx) => seguro('dar de baja al cliente', async () => {
+      const leadId = Number(payload.leadId);
+      const r = payload.deshacer === true ? await deshacerBajaCliente(leadId, autorDe(ctx)) : await darDeBajaCliente(leadId, autorDe(ctx));
+      if (!r.ok) return { ok: false, resumen: r.error };
+      invalidarPagos();
+      return { ok: true, resumen: `Listo: ${r.resumen}`, datos: { cuotas: r.cuotas, usd: r.usd } };
     }),
   },
 

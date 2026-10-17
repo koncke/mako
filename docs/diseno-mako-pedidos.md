@@ -164,6 +164,7 @@ pantalla (sin eso, alguien leería por acá los nombres de lo que su pantalla le
 | `imagen` (Image Editor) | los diseños, sin los borrados, el último editado arriba | `listarDisenos(ws)` de lib/image-editor/server.ts (la del inicio del editor) | `veEditorImagen()` (admin y la tab en la capa) |
 | `metricas` (Dashboard) | las HOJAS del informe de QUIEN MIRA (es por persona), en el orden de sus pestañas | `leerTablero()` + `hojasVisibles` | admin y `graphics` en la capa; quien nunca guardó un informe ve la pantalla sin páginas → [] |
 | `general` (General) | las hojas del informe de General de quien mira, en el orden de sus pestañas | `leerInformeGeneral()` + `hojasVisibles`, sólo si `estado === 'propio'` | admin y `general` en la capa (la del guardado de General en `/api/graficos`: quien no la pasa no edita ahí); sin informe propio → [] |
+| `chatbot` (Automations) | las automatizaciones sin archivar, la última tocada arriba | `nutricion_secuencias` con `getTenantDb` (lo que muestra su lista) | admin y setter (la de GET /api/chat-agent/secuencias) |
 | `video` (Video Editor) | sus proyectos | los manda el NAVEGADOR (`objetos` del cuerpo) | — (son suyos) |
 
 ⚠️ **El Video Editor no tiene de dónde listarse en el servidor**: sus proyectos viven en IndexedDB (decisión 5 de su
@@ -178,8 +179,9 @@ const objetos = (await storageService.loadAllProjectsMetadata())
 fetch('/api/mako/pedidos', { method: 'POST', body: JSON.stringify({ texto, tab: 'video', actualId: proyecto.id, actualNombre: proyecto.name, objetos }) });
 ```
 
-El área `video` es también la del Video Generator: su chat, si se engancha, no manda `objetos` y queda con []. Hasta que
-Automations agregue su función, `chatbot` devuelve [] y «la otra automatización» contesta «¿Cuál? Dime su nombre.».
+El área `video` es también la del Video Generator: su chat, si se engancha, no manda `objetos` y queda con [].
+Automations (`chatbot`) engancha la ruta y dibuja las burbujas en app/automations/pedidos-chat.ts: «Eliminar» es
+ARCHIVAR, como el «⋯» de la lista, siempre con confirmación.
 
 El link es RELATIVO con `?ws=` (`conWs`, lib/ws-tab.ts, isomórfico): el chat está adentro de la app. `linkPantalla`
 (lib/api-mako/link.ts) no sirve acá: importa lib/workspace (server-only) y arma el link absoluto de los que salen de la app.
@@ -208,7 +210,6 @@ abrir otra hoja, archivar otra hoja (confirma; `eliminarHoja`, con su Deshacer),
 link de otra tab. A diferencia del Web Generator, «Sí» crea en el acto: el cambio de la hoja abierta ya se aplicó cuando
 aparece la burbuja (se deshace con su botón), así que no queda nada a medias que esperar.
 
-- **Automations**: su función en `objetosDeTab` y el fetch de arriba en su chat.
 - **Image Editor y Video Editor**: sus objetos ya están (16/10); falta que sus chats llamen a la ruta (el del Video
   Editor, mandando `objetos`).
 
@@ -219,10 +220,14 @@ aparece la burbuja (se deshace con su botón), así que no queda nada a medias q
 - **Image Editor y Dashboard**: sus objetos ya están (16/10); falta que sus chats llamen a la ruta. ⚠️ El Image Editor
   todavía NO TIENE chat (es la etapa 4 de docs/diseno-mako-ai-native.md): hay que construirle uno antes de engancharlo.
 
-- **Automations**: su función en `objetosDeTab` y el fetch de arriba en su chat. **16/10/2026: hecho en la rama
-  `wip/automations-pedidos`, SIN SUBIR**: la revisión encontró regresiones del chat de siempre, varias del resolver
-  (con el lienzo vacío, «crea una automatización» es de ESTA; un nombre de otra dentro de una edición no es un pedido
-  aparte). Detalle en docs/hallazgos-chatbot.md («Los pedidos sueltos en el chat de Automations»).
+- **Automations**: enganchado (16/10/2026) y con las regresiones de la revisión arregladas (17/10/2026): con el lienzo
+  vacío, «crea una automatización» es de ESTA (`paraLienzoVacio`); crear otra desde el chat no pregunta «Descartar
+  cambios» (lo de la abierta queda como borrador) y «Crear ahora» espera a MaKo como «Sí»; la burbuja no dice «Creada»
+  sin saberlo; eliminar avisa que los leads de adentro salen y «Deshacer» no los devuelve; sin deduplicar burbujas.
+  Tres reglas nuevas del RESOLVER, para todas las tabs: un nombre en una COMPARACIÓN («lo mismo que en X») es un dato de
+  lo abierto; borrar una PARTE de otro («borra el mensaje de X») es un cambio de ése, nunca archivarlo; y «A y <verbo> B»
+  se parte cuando sólo B nombra otro objeto. Detalle en docs/hallazgos-chatbot.md («Los pedidos sueltos en el chat de
+  Automations»).
 
 - **Image Editor**: sus objetos ya están (16/10); su chat («MaKo IA», 16/10: `app/image-editor/mako/chat/acciones.ts`,
   `pedirEdicion`) todavía no llama a la ruta: se engancha como el del Video Editor, antes de su IA, con `tab: 'imagen'`

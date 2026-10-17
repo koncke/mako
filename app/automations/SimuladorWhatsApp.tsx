@@ -284,7 +284,7 @@ export type AbrirSecuencia = { id: number; mako?: true; pedido?: string };
 // (Acá vivía `AbrirAviso`, el pedido de abrir un Mensaje de MaKo desde el link de Notificaciones,
 // `/automations?aviso=<id>`. Se fue el 11/10/2026 con esos mensajes: un mensaje de MaKo se abre con `?sec=`.)
 
-export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negocio, rolAdmin, audios, canalCaido, onAudioNuevo, onNueva, errorNueva, onReload, productos, disparadores, menu, tz, abrir, handoffs, onElegida, onMakoTrabajando }: {
+export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negocio, rolAdmin, audios, canalCaido, onAudioNuevo, onNueva, errorNueva, onReload, productos, disparadores, menu, tz, abrir, handoffs, onElegida, onMakoTrabajando, onCrearOtra }: {
   // (Acá iban `arranque` y `onArranqueUsado`: la recién creada con un tipo de CRON elegido en «¿Qué la dispara?» del
   // modal abría su CRON en ese tipo. Se fueron con esos botones en la décima tanda: «eso ya lo hacemos dentro en el CRON».)
   /**
@@ -295,6 +295,8 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
   onElegida?: (id: number) => void;
   /** MaKo está armando el flujo abierto (`SecuenciaPerfil`): la tab no abre el recorrido hasta que termine. */
   onMakoTrabajando?: (trabajando: boolean) => void;
+  /** «Crea otra automatización…» desde el chat de MaKo (los pedidos sueltos): la puerta de «Pídeselo a MaKo». Contesta si nació. */
+  onCrearOtra?: (pedido: string) => Promise<boolean>;
   // (Acá iban `avisos`, `abrirAviso`, `onAvisosCambio` y `onOcultosCambio`: los Mensajes de MaKo de antes,
   // que venían de otro endpoint. Se fueron el 11/10/2026: son filas de `secuencias` con el CRON del evento.)
   /** Las respuestas sin caso pendientes: la tarjeta «Si responde» las cuenta en «Otra cosa». */
@@ -666,9 +668,26 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
    * después la del link. Es también la puerta por la que se abre la fila que se está creando.
    */
   const [abrirVisto, setAbrirVisto] = useState<AbrirSecuencia | null>(null);
+  /**
+   * «CREA OTRA» DESDE EL CHAT DE MaKo DE LA ABIERTA (17/10/2026, los pedidos sueltos): las dos aperturas que siguen (la fila
+   * que se crea y la real, con su pedido) cambian SIN la pregunta de lo no publicado. Lo de la abierta es un borrador que se
+   * guarda solo al irse (./useBorradorSecuencia.ts), y la pregunta sólo ofrecía «Descartar cambios» —llevarse lo que MaKo
+   * acababa de hacer— o «Seguir editando» con una fila vacía de más (la revisión del 16/10). Se apaga en un EFECTO al
+   * llegar la apertura con el pedido (o si no nació): mutarlo en el render lo apagaría antes del segundo render de dev.
+   */
+  const creaDesdeElChat = useRef(false);
+  const crearOtra = async (pedido: string): Promise<boolean> => {
+    if (!onCrearOtra) return false;
+    creaDesdeElChat.current = true;
+    const ok = await onCrearOtra(pedido).catch(() => false);
+    if (!ok) creaDesdeElChat.current = false;
+    return ok;
+  };
+  useEffect(() => { if (abrir?.pedido) creaDesdeElChat.current = false; }, [abrir]);
   if (abrir && abrir !== abrirVisto && secuencias.some((j) => j.id === abrir.id)) {
     setAbrirVisto(abrir);
-    elegir(abrir.id);
+    if (!creaDesdeElChat.current) elegir(abrir.id);
+    else if (abrir.id !== selId) { setSinPublicar(false); cambiarA(abrir.id); }
     // Con `mako: true`, ESA abre con el chat de MaKo abierto (va DESPUÉS de elegir: `cambiarA` lo limpia), y con
     // `pedido`, el chat lo manda solo.
     setMakoPara(abrir.mako ? abrir.id : null);
@@ -769,6 +788,7 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
             muelles={m}
             onSinPublicar={setSinPublicar}
             onMakoTrabajando={onMakoTrabajando}
+            onCrearOtra={onCrearOtra ? crearOtra : undefined} onListaCambio={onReload}
             descartarBorrador={descartarBorrador}
             handoffs={handoffs}
             onAudioNuevo={onAudioNuevo}

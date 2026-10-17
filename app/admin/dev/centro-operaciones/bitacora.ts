@@ -518,4 +518,20 @@ export const BITACORA: Hito[] = [
       'tests/centro-plan.test.ts, tests/centro-revisar.test.ts',
     ],
   },
+  {
+    fecha: '17 oct', hora: '05:40', chat: 'Centro de Operaciones', sesion: 'local_aac76313-d8b5-4b86-85f4-e579e4f33304', cuenta: 'claude4',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Ops Center: el Second Brain y el Centro son una sola pantalla',
+    pedido: 'El Second Brain y el Centro deberían ser exactamente lo mismo en SuperAdmin',
+    puntos: [
+      'Para el super admin, /second-brain y /admin/operaciones muestran lo mismo: «Ops Center», con la Ticketera arriba y el Second Brain debajo.',
+      'Review lista todo lo que el chat terminó; si no dejó una página, el link lleva a la tab de su área.',
+      'El Uso muestra las cuatro cuentas, con su plan cuando se sabe, la ventana de 5 horas y la semanal, y ya no pide pegar nada en PowerShell.',
+    ],
+    archivos: [
+      'app/second-brain/pagina.tsx, ChatSecondBrain.tsx — la pantalla única',
+      'lib/centro-chats.ts — Review (porRevisar, destinoDeReview)',
+      'lib/centro-uso.ts, app/admin/operaciones/Uso.tsx — las cuatro cuentas',
+    ],
+  },
 ];
