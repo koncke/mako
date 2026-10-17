@@ -6,9 +6,17 @@
 //      cliente; /m/operaciones, con la Ticketera adentro) y Second Brain, cada uno con su CRIATURA del Ops Center.
 //      Hasta ese día el Ops Center y la Ticketera iban en una caja «Super admin» al final: la Ticketera vive adentro
 //      del Centro desde el 16/10, y la caja se fue con la familia Admin de escritorio.
-//   3. Una caja por familia de la sidebar, con su nombre de escritorio y en su orden (Operate · Sales Machine):
-//      `gruposMas`
-//   4. Versión de computadora
+//   3. Una caja por familia de la sidebar, con su nombre de escritorio y en su orden (Operate · Sales Machine)
+//   4. El menú de la foto (API, Configuración del negocio, Reportar problema) y, para el super admin sin mirar un
+//      cliente, el suyo (Billing, Client Agents, MaKo Context, AI Models, Knowledge, Dev): sin título, como en escritorio
+//   5. Versión de computadora
+//
+// ⚠️ DESDE EL 17/10/2026 ESTÁ TODO LO QUE DIBUJA LA SIDEBAR (`masCompleto`, lib/movil-rutas.ts). Martín: «Implementa
+// completamente MaKo Mobile en todas las tabs, porque hay muchas que aun no se pueden acceder». Antes More listaba sólo
+// las secciones con pantalla (`SECCIONES_MAS`) y una tab sin ella no aparecía en ningún lado. Ahora una tab sin pantalla
+// es una fila «En la computadora» que abre una hoja con el motivo y la salida a la versión de computadora (FilasMas.tsx),
+// nunca un link pelado al escritorio encogido. Qué tab tiene pantalla, cuál es sólo de escritorio y cuál está en camino
+// lo fija tests/movil-toda-tab.test.ts recorriendo nav.ts.
 //
 // ⚠️ DECISIONES NO VA EN `SECCIONES_MAS`, A PROPÓSITO (14/10/2026, acordado con el chat «Pricing MaKo»,
 // dueño de la tab). SECCIONES_MAS es para tabs DEL NEGOCIO gateadas por una key de nav.ts (puedeVerKey),
@@ -25,7 +33,7 @@
 import './mas.css';
 import { requireMovil } from '@/lib/movil-guard';
 import { getWorkspace } from '@/lib/workspace';
-import { gruposMas } from '@/lib/movil-rutas';
+import { masCompleto, type FilaMas } from '@/lib/movil-rutas';
 import { Criatura } from '@/app/_components/Criatura';
 import { FilaM } from '../_ui/FilaM';
 import { PantallaM } from '../_ui/PantallaM';
@@ -34,6 +42,7 @@ import { SeccionM } from '../_ui/SeccionM';
 import { RUTA_CUENTA } from '../_ui/cabecera';
 import { contarBadges } from '../badges';
 import { FilaVersionComputadora } from './VersionComputadora';
+import { FilaComputadoraM, FilaGrupoM } from './FilasMas';
 
 export const dynamic = 'force-dynamic';
 
@@ -44,20 +53,31 @@ const criatura = (nombre: string) => <span className="m-mas-logo" aria-hidden><C
 
 export default async function MasPagina() {
   const ctx = await requireMovil();
-  const grupos = gruposMas(ctx.rol, ctx.capa);
+  // ⚠️ Se apaga mientras el super admin MIRA a un cliente (15/10/2026), como en el Sidebar: ahí la barra es la del cliente.
+  const veOpsCenter = ctx.sesion.rol === 'admin' && !ctx.impersonando;
+  const grupos = masCompleto(ctx.rol, ctx.capa, veOpsCenter);
+  const ids = grupos.flatMap((g) => g.filas.flatMap((f) => (f.tipo === 'pantalla' && f.seccion ? [f.seccion] : [])));
   const [negocio, badges] = await Promise.all([
     ctx.impersonando
       ? Promise.resolve(ctx.clienteNombre)
       : ctx.ws != null
         ? getWorkspace(ctx.ws).then((w) => w?.nombre?.trim() || null).catch(() => null)
         : Promise.resolve(null),
-    contarBadges({ rol: ctx.rol, capa: ctx.capa, ws: ctx.ws }, grupos.flatMap((g) => g.secciones.map((s) => s.id))),
+    contarBadges({ rol: ctx.rol, capa: ctx.capa, ws: ctx.ws }, ids),
   ]);
   const nombre = (ctx.sesion.nombre ?? '').trim();
-  // ⚠️ Se apaga mientras el super admin MIRA a un cliente (15/10/2026), como en el Sidebar: ahí la barra es la del cliente.
-  const veOpsCenter = ctx.sesion.rol === 'admin' && !ctx.impersonando;
-  const arriba = grupos.find((g) => g.familia === null);
-  const familias = grupos.filter((g) => g.familia !== null);
+  const arriba = grupos.find((g) => g.id === 'arriba');
+  const resto = grupos.filter((g) => g.id !== 'arriba');
+
+  /** Una fila de More: su pantalla, la hoja «En la computadora», o la hoja de un desplegable. */
+  const fila = (f: FilaMas, conCriatura = false) => (
+    f.tipo === 'computadora' ? <FilaComputadoraM key={f.key} fila={f} />
+      : f.tipo === 'grupo' ? <FilaGrupoM key={f.key} fila={f} />
+        : (
+          <FilaM key={f.key} navegacion {...(conCriatura ? { leading: criatura(f.label) } : { icono: f.icon })} titulo={f.label}
+            riel={f.seccion && badges[f.seccion] ? <span className="m-num">{badges[f.seccion]}</span> : undefined} href={f.href} />
+        )
+  );
 
   return (
     <PantallaM>
@@ -74,28 +94,14 @@ export default async function MasPagina() {
         <SeccionM titulo={null}>
           <ListaM>
             {veOpsCenter && <FilaM navegacion leading={criatura('Ops Center')} titulo="Ops Center" href={RUTA_CENTRO} />}
-            {arriba?.secciones.map((s) => (
-              <FilaM key={s.id} navegacion leading={criatura(s.label)} titulo={s.label}
-                riel={badges[s.id] ? <span className="m-num">{badges[s.id]}</span> : undefined} href={s.href} />
-            ))}
+            {arriba?.filas.map((f) => fila(f, true))}
           </ListaM>
         </SeccionM>
       )}
 
-      {familias.map((g) => (
-        <SeccionM key={g.familia} titulo={g.titulo ?? undefined}>
-        <ListaM>
-          {g.secciones.map((s) => (
-            <FilaM
-              key={s.id}
-              navegacion
-              icono={s.icon}
-              titulo={s.label}
-              riel={badges[s.id] ? <span className="m-num">{badges[s.id]}</span> : undefined}
-              href={s.href}
-            />
-          ))}
-        </ListaM>
+      {resto.map((g) => (
+        <SeccionM key={g.id} titulo={g.titulo ?? null}>
+          <ListaM>{g.filas.map((f) => fila(f))}</ListaM>
         </SeccionM>
       ))}
 

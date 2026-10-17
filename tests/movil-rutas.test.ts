@@ -96,6 +96,8 @@ test('v3: CRM · Chats · General · Plan · More; More por las familias de la s
     ['mako', 'mako', null, false],
     ['second-brain', 'second-brain', null, true], ['experimentos', 'experimentos', null, true],
     ['curso', 'cs-curso', null, true], ['comunidad', 'cs-comunidad', null, true],
+    // 17/10/2026, «Mobile 2»: las pantallas del menú de la foto, ocultas (More arma su fila desde USER_NAV).
+    ['tickets', 'tickets', null, true],
   ]);
 });
 
@@ -247,7 +249,8 @@ test('las siete de More (15/10/2026): cada pantalla de escritorio, y sus alias, 
     ['/offer', '/m/offer'], ['/offer?oferta=7&funnel=2', '/m/offer?oferta=7&funnel=2'], ['/offer-analyst', '/m/offer'],
     ['/ads-writer', '/m/copywriting'], ['/ads-writer?tab=analizar', '/m/copywriting?tab=analizar'], ['/content-machine', '/m/copywriting'],
     // Lo demás de la tab Copywriting es del super admin: en la computadora.
-    ['/youtube-writer', null], ['/stories', null], ['/ideas', null],
+    // Las «Coming soon» tienen SU pantalla desde el 17/10/2026 (/m/pronto/<key>, tests/movil-toda-tab.test.ts).
+    ['/youtube-writer', '/m/pronto/youtube-writer'], ['/stories', null], ['/ideas', '/m/pronto/ideas'],
     // Curso y Comunidad ANTES que Clientes (`dentro(p, '/customer-success')` se quedaba con las dos).
     ['/customer-success/curso', '/m/curso'], ['/customer-success/curso?producto=3', '/m/curso?producto=3'],
     ['/customer-success/curso/vista?producto=3', '/m/curso?producto=3'],

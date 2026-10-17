@@ -132,7 +132,8 @@ test('en el teléfono, las rutas de antes van a la Ticketera del Centro, con la 
   assert.equal(rutaMovil('/admin/operaciones?tab=avance'), '/m/operaciones', 'un ?tab= viejo no');
   assert.equal(rutaEscritorio('/m/tickets/decisiones'), '/admin/operaciones?ticketera=tarjetas');
   assert.equal(rutaEscritorio('/m/decisiones'), '/admin/operaciones?ticketera=lista');
-  assert.equal(rutaMovil('/tickets'), null, 'la tab de los clientes no se toca');
+  // La tab de los clientes («Reportar problema») no va a la Ticketera: desde el 17/10/2026 tiene SU pantalla del teléfono.
+  assert.equal(rutaMovil('/tickets'), '/m/tickets', 'la tab de los clientes no va a la Ticketera');
   // Desde el 17/10/2026 More no tiene fila «Ticketera»: la puerta es el Ops Center de arriba (la Ticketera vive adentro),
   // igual que en la sidebar de escritorio.
   const mas = sinComentarios(leer('app/m/mas/page.tsx'));
