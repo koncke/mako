@@ -73,6 +73,14 @@ faltaba. 243 entradas crudas, 132 únicas por el lugar del envío. Las líneas c
   la tenía prendida) y `reunion-ocurrio-fathom` ya no arma su texto (sólo rotulaba el feed sin fila). Los mails de
   `calendly-reserva-api` y `google-agenda-*` los escribe el proveedor y salen porque una persona confirmó la acción: van a
   «Fuera del alcance». Quedan `reunion-tareas-al-plan` y `lead-no-confirmo`.
+- **Plan, 17/10/2026 (B5):** `reunion-tareas-al-plan` es el evento de la plataforma `reunion_tareas_al_plan` (lib/reunion-plan-aviso.ts,
+  plantilla `mako-reunion-tareas-al-plan`): el cron fathom-plan pasa los hechos y el texto es el de la fila; una o varias
+  reuniones, y si completa una lectura a medias, son dos CONDITION. **Nacía apagado y nadie lo había prendido** (medido: sin
+  `porDefecto`; el ws 13 lo tenía apagado a mano), así que su fila nace PAUSADA. ⚠️ **La fila NO está creada**: va DESPUÉS del
+  deploy con `scripts/mudanza-avisos-plataforma.mts --eventos=reunion_tareas_al_plan --aplicar` (como no le llegaba a nadie,
+  el hueco no cambia nada). Queda `lead-no-confirmo`.
+  ⚠️ **Al prenderla:** el ws 13 tenía este aviso APAGADO a mano en /mensajes, y un evento de la plataforma no lee ese
+  interruptor. Antes de prender la fila, sumarle una CONDITION que excluya al ws 13 (o preguntarle a Código Inmobiliario).
 - ⚠️ **`voz-mako-caida-email` NO se mudó todavía, a propósito:** es la red de seguridad de la propia MaKo (le escribe a
   su equipo cuando su línea de voz se cae, por email porque el WhatsApp está caído), con TRES casos (se cayó, volvió, no
   puedo comprobar). El camino del evento le haría perder dos cosas que hoy tiene: el destinatario fijo (`EMAILS_ALERTA_VOZ`
@@ -256,6 +264,10 @@ Columnas: qué dice, a quién, qué lo dispara, dónde sale (archivo:línea) y q
 
 ## Sin verificar
 
-- Qué filas existen hoy en la base además de #253-#256 (filas viejas `lead_agendo` #239/#240 que citan `{{mensaje_mako}}`, y
-  los flujos del store con un paso «insistir»): el barrido sólo leyó código.
+- ~~Qué filas existen hoy en la base además de #253-#256 (filas viejas `lead_agendo` #239/#240 que citan `{{mensaje_mako}}`, y
+  los flujos del store con un paso «insistir»)~~ **Medido el 17/10/2026 (B5, sólo lectura):** #239 (ws 1) y #240 (ws 13) están
+  PAUSADAS y ARCHIVADAS desde el 12/10, y ninguna otra de las 122 automatizaciones cita `{{mensaje_mako}}`: no mandan nada. De
+  los 4 stores de /mensajes (ws 1, 3, 4, 13), ningún flujo tiene un paso «insistir» (7 flujos; el único con un paso es
+  `lead-no-confirmo` del ws 1, una «⚡ Acción», que sigue en la lista de arriba). Lo que insiste hoy es `insistencias-drenar`
+  (lote 2), no un flujo del store.
 - Por qué camino salió el aviso de Leila: la fila de la plataforma no escribe en el feed del negocio, y no quedó rastro.

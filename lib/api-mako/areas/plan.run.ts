@@ -55,6 +55,7 @@ import { listarDescartadas } from '@/lib/reunion-descartadas';
 import { AREA_GLOSARIO } from '@/lib/glosario';
 import { createKnowledge, updateKnowledge } from '@/lib/mako-knowledge';
 import { hoyEnWorkspace } from '@/lib/timezone';
+import { validarFechaLimite } from '@/lib/plan-fecha-limite';
 // «Se repite para siempre» (mig 0163). Mismo módulo que usan el reparto, los avisos y las
 // pantallas: una lectura no puede tener su propia definición de qué compite.
 import { esRecurrente, sinRecurrentes, soloRecurrentes } from '@/lib/plan-recurrentes';
@@ -737,6 +738,53 @@ export const RUNNERS: Runners = {
       const texto = `MaKo cambió el avance de ${t.progreso}% a ${avance}%`;
       await editarTarea(t.id, { progreso: avance, historial: [{ id: genHistId(), ts: Date.now(), actor: 'ia' as const, text: texto }, ...t.historial].slice(0, 40) });
       return { ok: true, resumen: `«${t.titulo}»: ${texto}` };
+    },
+  },
+
+  /**
+   * LA FECHA LÍMITE DE UNA TAREA (17/10/2026), también por WhatsApp. `preparar` valida contra el tablero y el día del
+   * negocio; `ejecutar` RELEE la fila antes de escribir (el tablero del dueño no tiene patch por columna: la regla de la
+   * cabecera de este archivo).
+   */
+  cambiar_fecha_tarea_plan: {
+    preparar: async (input, ctx) => {
+      const tab = await leerTablero(ctx.ws);
+      const t = buscarTarea(tab, str(input, 'id'), null);
+      if (!t) return { error: `No encuentro la tarea «${str(input, 'id')}» en el plan de este negocio.` };
+      if (esRecurrente(t)) return { error: `«${recortar(t.titulo, 120)}» se repite para siempre: no lleva fecha límite.` };
+      const quitar = input.quitar === true;
+      const fecha = quitar ? '' : str(input, 'fecha').trim();
+      if (!quitar) {
+        const v = validarFechaLimite(fecha, await hoyEnWorkspace().catch(() => new Date().toISOString().slice(0, 10)));
+        if (v) return { error: v };
+      }
+      const antes = t.deadline ?? '';
+      if (antes === fecha) return { error: fecha ? `La tarea «${recortar(t.titulo, 120)}» ya vence el ${fecha}.` : `La tarea «${recortar(t.titulo, 120)}» ya está sin fecha.`, yaEstaba: true };
+      return {
+        payload: { id: t.id, fecha },
+        resumen: fecha
+          ? `${antes ? `Mover la fecha de «${recortar(t.titulo, 120)}» del ${antes} al ${fecha}` : `Ponerle fecha a «${recortar(t.titulo, 120)}»: ${fecha}`}`
+          : `Quitarle la fecha (${antes}) a «${recortar(t.titulo, 120)}»`,
+      };
+    },
+    ejecutar: async (payload, ctx): Promise<Ejecutado> => {
+      const id = String(payload.id ?? '');
+      const fecha = typeof payload.fecha === 'string' ? payload.fecha : '';
+      const texto = (antes: string) => (fecha ? `MaKo movió la fecha límite ${antes ? `del ${antes} ` : ''}al ${fecha}` : `MaKo le quitó la fecha límite (${antes})`);
+      if (await usaPlanBoard(ctx.ws)) {
+        const t = (await listPlanBoard()).tareas.find((x) => x.id === id);
+        if (!t) return { ok: false, resumen: 'La tarea ya no existe.' };
+        if (esRecurrente(t)) return { ok: false, resumen: 'La tarea pasó a repetirse: no lleva fecha.' };
+        const e = texto(t.deadline || '');
+        await guardarPlanTarea({ ...t, deadline: fecha, historial: [{ id: genHistId(), ts: Date.now(), actor: 'ia' as const, text: e }, ...(t.historial ?? [])].slice(0, 40) });
+        return { ok: true, resumen: `«${t.title}»: ${e}`, datos: { id, deadline: fecha || null } };
+      }
+      const t = (await listTareas()).find((x) => x.id === Number(id));
+      if (!t) return { ok: false, resumen: 'La tarea ya no existe.' };
+      if (esRecurrente(t)) return { ok: false, resumen: 'La tarea pasó a repetirse: no lleva fecha.' };
+      const e = texto(t.deadline ?? '');
+      await editarTarea(t.id, { deadline: fecha || null, historial: [{ id: genHistId(), ts: Date.now(), actor: 'ia' as const, text: e }, ...t.historial].slice(0, 40) });
+      return { ok: true, resumen: `«${t.titulo}»: ${e}`, datos: { id, deadline: fecha || null } };
     },
   },
 

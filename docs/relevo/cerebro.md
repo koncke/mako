@@ -455,3 +455,18 @@ tandas 2-3; la tanda 5 del editor de video POSPUESTA por Martín). Todos esos ch
     - B5 1fced50fe: 9 defectos; el más grave, el historial del grupo a la IA gratis;
     - B4 65e299c2e: 9 defectos; las cuotas destildadas en el ws1 quedan impagas, el cron de pausa pausa a quien paga y la capa pm ve «No está en tu plan». Se le pidió una punta sin esas tres piezas.
   - B1 sigue con 4 agujeros viejos de datos a la IA gratis (el texto del turno, el glosario en el system, wsDeGrupoJid→ws1, anthropic-usage→ws1). B2 está terminando su VERDE.
+- **21:20 UTC:**
+  - **En producción:** el run 125 (a8bbf0015: B1 seguridad, Plan desde el chat de sólo lectura, B3; el cartero 1.15.7 instalado) y el run 126 (b1ff19e86: B4 lo seguro, B2 CRM y clientes, B1 tanda 2).
+  - **Integrado:** B5 ab627b464. Su segunda revisión cerró lo grave. Quedan, para después del 20/10:
+    - (media, plata en reportes) lib/graficos-datos.ts:256: la hoja por fecha de cierre filtrada por un funnel de agregados pone la venta en la casa, y los OKR (funnelDelMomento) la ponen en el agregado;
+    - (baja) lib/reunion-auto.ts:618: «terminó de leer» aunque quede a medias;
+    - (baja) lib/leer-reunion-en-segundo-plano.ts:125: «siguió leyendo y no encontró nada» cuando Fathom no contestó.
+  - **Defectos viejos que encontraron las revisiones**, para después del 20/10, en el CRM:
+    - el Deshacer del tablero de una abierta a Ganado borra el monto y su rastro (app/crm/actions.ts:2471);
+    - «Restaurar» pone la fecha de la venta en hoy;
+    - /mako/revisar convierte una lista vacía en null (app/mako/revisar/[id]/RevisarAccion.tsx:77).
+  - **Después del deploy de B5:** `node --conditions react-server --import tsx scripts/mudanza-avisos-plataforma.mts --eventos=reunion_tareas_al_plan --aplicar` (nace pausada). Antes de prenderla, una CONDITION que excluya al ws13.
+  - **Después del deploy de B1:** crear la fila «Tu Contraseña Cambió» en el ws9.
+  - **Migraciones SIN aplicar:** 0314 (Chatwoot, de B1-infra) y 0316 (archivero_origen, de B3). El código anda sin ellas.
+  - **Ops Center 5:** trabajando en los 11 puntos del chat (pedidos 9cbdcb57, c70103dc y 62187256).
+  - **SEMANAL de la cuenta 4:** 76%.

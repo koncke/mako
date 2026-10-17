@@ -3985,6 +3985,10 @@ alguien haya mirado, así que no hay ningún registro de por qué empezó ese d�
   (`lib/api-mako/areas/ads.run.ts:483`), pero cualquier consumidor nuevo que tome `[]` como «todo
   sano» afirma de más. **Regla:** «no pude leer» llega como error o como un campo aparte, nunca
   como lista vacía. *2026-09-16 api-mako-areas*
+  **Arreglado el 17/10/2026 (B5):** `leerIncidentes` devuelve `null` cuando no pudo leer; /integraciones dice «No pude leer
+  el historial de problemas» y `listar_incidentes_meta` falla con el motivo. `getIncidentes` (`[]` en los dos casos) queda
+  sólo para el teléfono (app/m/configuraciones/integraciones, de Mobile), que no afirma nada con la lista vacía.
+  Test: tests/integraciones-incidentes-no-leidos.test.ts.
 
 *Corrida del 21/08/2026 — incidente #101 cerrado a mano en prod, credencial de ws13
 corregida a `act_…`, mig 0139 aplicada. Typecheck 0 errores, 1030/1030 tests.*
@@ -10326,3 +10330,12 @@ Plan, pagos, reportes por email, mensajes al lead: docs/inventario-nada-por-detr
 **Vive en:** `lib/tracking-aviso.ts` · `lib/optin-aviso.ts` · `lib/prueba-aviso.ts` · `app/api/track/optin/route.ts` · `app/api/cron/tracking-vigilante/route.ts` · `lib/disparadores.ts` (`tracking_apagado`,
 `pixel_viejo`, `landing_cambio`) · `lib/variables-aviso.ts` · `lib/plantillas-automatizaciones.ts` (`mako-tracking-apagado`,
 `mako-pixel-viejo`, `mako-landing-cambio`, `mako-lead-de-landing`) · tests: `tests/tracking-evento.test.ts`, `tests/optin-evento.test.ts`, `tests/prueba-pixel-evento.test.ts`
+
+## El chat de MaKo en la app y el teléfono tampoco «putea suave» (17/10/2026)
+
+La persona de MaKo (lib/mako-persona.ts) dice «puedes putear suave», y lo que pasa por `buildSystemPrompt` la hereda. El
+doer de WhatsApp lo cortaba (la voz en su system y `sanearSalida` antes de mandar); el chat de la app y del teléfono
+(`turnoApp`, lib/mako-turno-app.ts), que usan los clientes y su equipo, no. Ahora lleva la misma línea de voz y el mismo
+corte antes de guardar: se saca la oración grosera, no la respuesta entera. Las promesas no se sacan ahí (la tarjeta y la
+pantalla dicen lo que quedó hecho). **Sin hacer:** otros caminos que usan `buildSystemPrompt` (el analista de un lead, el
+Second Brain) no se revisaron uno por uno. Test: tests/mako-app-sin-groserias.test.ts. *17/10/2026, B5 (claude4)*

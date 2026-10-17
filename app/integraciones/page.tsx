@@ -11,7 +11,7 @@
 import { getMetaHealth, type MetaHealth } from '@/lib/meta-health';
 import { FALTAN_PERMISOS_META } from '@/lib/meta-permisos';
 import { getIntegraciones } from '@/lib/integraciones';
-import { reconciliarIncidentes, problemaMeta, getIncidentes, type ProblemaActual, type Incidente } from '@/lib/meta-health-history';
+import { reconciliarIncidentes, problemaMeta, leerIncidentes, type ProblemaActual, type Incidente } from '@/lib/meta-health-history';
 import { integracionConectada } from '@/lib/credenciales';
 import { getOrCreateLandingToken, landingSnippet } from '@/lib/landing-token';
 import { lineaCargador } from '@/lib/pixel-cargador';
@@ -67,7 +67,8 @@ export default async function IntegracionesPage() {
   if (pMeta) problemas.push(pMeta);
   const scope = ['meta', ...integraciones.map((i) => i.key)];
   await reconciliarIncidentes(problemas, scope);
-  const incidentes: Incidente[] = await getIncidentes(30);
+  // `null` = no se pudieron leer: la pantalla lo dice, en vez de «Todo en orden» (17/10/2026).
+  const incidentes: Incidente[] | null = await leerIncidentes(30);
 
   // Código copiable de la landing. El token NO es secreto (va en el HTML de una
   // página pública, como cualquier pixel): solo identifica al workspace, así que

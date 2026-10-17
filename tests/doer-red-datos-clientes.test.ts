@@ -37,7 +37,7 @@ import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { clasificarIntencion } from '../lib/mako-intencion';
-import { herramientasDelTurno, turnoParaLaRed, llevaDatosDeClientes, SIN_DATOS_DE_CLIENTES } from '../lib/doer-herramientas';
+import { herramientasDelTurno, turnoParaLaRed, llevaDatosDeClientes, soloElTurno, SIN_DATOS_DE_CLIENTES } from '../lib/doer-herramientas';
 import { REGISTRO, porId, type Vista } from '../lib/api-mako/registro';
 import { DATOS_DE_CLIENTES_POR_AREA, type Area } from '../lib/api-mako/tipos';
 import { textoSinRedPorDatos, sinRedPorDatos } from '../lib/fallo-ia-texto';
@@ -119,6 +119,27 @@ test('lo que se pide de clientes CORTA la red; lo demás corre sin las herramien
   if (!campanas.r.cortar) assert.ok(campanas.r.tools.some((t) => t.name === 'listar_campanas_meta'), 'las campañas se quedaron sin listar_campanas_meta');
 });
 
+// 17/10/2026 (pendientes del Plan, B5): el Dashboard ENTERO contaba como datos de clientes (`metricas: true`), así que
+// sin keys propias MaKo cortaba «¿cuánto vendí este mes?». Ahora cada lectura de métricas que trae sólo NÚMEROS lo
+// declara (`datosDeClientes: false`, lib/api-mako/areas/metricas.def.ts); las que nombran personas (a quién cobrar, las
+// cuotas, los leads de una cohorte) siguen cortando.
+// PROBADO ROMPIÉNDOLO: `ver_revenue_periodo` y `metricas_negocio` sin su marca → 1 fallo; `a_quien_cobrar` con
+// `datosDeClientes: false` → 1 fallo.
+test('«¿cuánto vendí este mes?» corre sin keys propias; «¿a quién le cobro?» sigue cortando', () => {
+  const vendi = corre('¿cuánto vendí este mes?');
+  if (!vendi.r.cortar) {
+    const numeros = vendi.r.tools.map((t) => t.name).filter((n) => ['ver_revenue_periodo', 'metricas_negocio', 'resumir_marketing_periodo'].includes(n));
+    assert.ok(numeros.length > 0, `la pregunta se quedó sin una lectura de números: ${vendi.r.tools.map((t) => t.name).join(', ')}`);
+  }
+  for (const n of ['metricas_negocio', 'ver_revenue_periodo', 'diagnosticar_funnel', 'ver_mrr_activo', 'ver_embudo_comercial_maduro']) {
+    assert.equal(llevaDatosDeClientes(n), false, `${n} trae sólo números y quedó como datos de clientes`);
+  }
+  for (const n of ['a_quien_cobrar', 'cuotas_pendientes', 'listar_leads_embudo_maduro', 'analisis_negocio']) {
+    assert.equal(llevaDatosDeClientes(n), true, `${n} nombra personas (o sus respuestas) y quedó como sin datos`);
+  }
+  corta('¿a quién le cobro esta semana?');
+});
+
 test('cargar al plan y confirmar corren enteros, salvo con una pendiente que nombra a un cliente', () => {
   const anota = corre('anota: revisar la landing el lunes');
   if (!anota.r.cortar) {
@@ -170,4 +191,22 @@ test('el registro decide por la def y, si no dice nada, por su área', () => {
   assert.equal(llevaDatosDeClientes('ver_rechazos_pago_landing'), false);
   assert.equal(llevaDatosDeClientes('buscar_leads'), true);
   assert.equal(llevaDatosDeClientes('ver_plan'), false);
+});
+
+// REVISIÓN DE B5 (17/10/2026), ALTA: con las métricas marcadas `datosDeClientes: false`, «¿cuánto vendí este mes?» dejó de
+// cortarse y el turno salía a la red gratis CON EL HISTORIAL DEL GRUPO (avisos con nombre, teléfono y lo que escribió un
+// lead). Main lo cerró para TODO turno de la red (`soloElTurno`, 50cc3acc8), más estricto que el arreglo de B5 (sólo
+// los turnos con una métrica liberada), que se retiró al mergear. Este test mira el caso que lo destapó.
+// PROBADO ROMPIÉNDOLO (17/10/2026): `soloElTurno` devolviendo `[...msgs]` → 1 fallo.
+test('«¿cuánto vendí este mes?» viaja a la red SIN la conversación del grupo (que trae datos de leads)', () => {
+  const { r } = red('¿cuánto vendí este mes?');
+  assert.equal(r.cortar, null, 'una métrica de sólo números no corta la red');
+  const historial = [
+    { role: 'assistant', content: '📥 *Silvana Ruiz* completó tu formulario de Meta\n📱 +52 1 55 1234 5678' },
+    { role: 'user', content: 'dale, gracias' },
+    { role: 'user', content: '¿cuánto vendí este mes?' },
+  ];
+  const sale = JSON.stringify(soloElTurno(historial));
+  assert.ok(!sale.includes('Silvana') && !sale.includes('5678'), `viajó texto del grupo: ${sale}`);
+  assert.ok(sale.includes('¿cuánto vendí este mes?'));
 });

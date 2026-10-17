@@ -1535,6 +1535,10 @@ export const getFunnelSeries = cachedRead('getFunnelSeries', _getFunnelSeries, {
 async function _getFunnelSeries(
   end: string = new Date().toISOString().slice(0, 10),
   semanas = 12,
+  // De qué funnels (17/10/2026, el cabo de #896): la serie medía SIEMPRE el principal, y con varios funnels MaKo daba
+  // números incompletos. La misma regla que `getFunnelEtapas`: cada lead en el funnel donde estaba ESE día, y lo de Meta
+  // sigue siendo de toda la cuenta. ⚠️ Entra en la clave del caché sola (`unstable_cache` suma los argumentos).
+  funnels: readonly number[] = [],
 ): Promise<FunnelSeries> {
   const supabase = (await getTenantDb());
 
@@ -1551,13 +1555,14 @@ async function _getFunnelSeries(
   // El tramo comercial de ESTE funnel: las series salen con las keys de los pasos
   // que ese workspace tiene de verdad. Antes emitía siempre las cuatro canónicas, y
   // para un funnel sin reuniones las cuatro eran null en las doce semanas.
-  const stages = await getPipelineStagesDefault().catch(() => null);
+  // Con funnels elegidos, los SUYOS (si no comparten los pasos, tira `FunnelsConEtapasDistintas`, como el período).
+  const stages = funnels.length ? await etapasDeFunnels(funnels) : await getPipelineStagesDefault().catch(() => null);
   const pasosComerciales = pasosComercialesDe(stages);
   const necesitaEntradas = pasosComerciales.some(
     (p) => p.entrada === 'entradas' || p.salida === 'cierres_entradas',
   );
 
-  const [metaRows, pandaRows, agendaRes, j1Res, altasRes] = await Promise.all([
+  const [metaRows, pandaRows, agendaRes, j1Res, altasTodas] = await Promise.all([
     leerTodo<{ fecha: string; impressions: number | null; link_clicks: number | null; landing_page_views: number | null; leads_count: number | null }>(
       supabase, T_METRICAS,
       'id, fecha, ad_id, impressions, link_clicks, landing_page_views, leads_count',
@@ -1569,12 +1574,12 @@ async function _getFunnelSeries(
     ),
     supabase
       .from('leads')
-      .select('fecha_junta_1')
+      .select('id, fecha_junta_1')
       .gte('fecha_junta_1', rangoInicio)
       .lte('fecha_junta_1', rangoFin),
     supabase
       .from('leads')
-      .select('fecha_junta_1, asistio_j1, calificado, estado_lead')
+      .select('id, fecha_junta_1, asistio_j1, calificado, estado_lead')
       .gte('fecha_junta_1', rangoInicio)
       .lte('fecha_junta_1', rangoFin),
     // La cohorte del ALTA: una lectura más, y sólo cuando algún paso la nombra.
@@ -1582,7 +1587,7 @@ async function _getFunnelSeries(
     // que no se puede resolver con un count — y un `.select()` suelto topea en las
     // 1000 de PostgREST sin dar error: las semanas viejas quedarían vacías.
     necesitaEntradas
-      ? leerTodo<{ created_at: string | null; estado_lead: string }>(
+      ? leerTodo<{ id: number; created_at: string | null; estado_lead: string }>(
           supabase, 'leads', 'id, created_at, estado_lead',
           { orden: 'id', filtros: (q) => q.gte('created_at', `${rangoInicio}T00:00:00Z`).lte('created_at', `${rangoFin}T23:59:59Z`) },
         )
@@ -1592,6 +1597,12 @@ async function _getFunnelSeries(
   for (const r of [agendaRes, j1Res]) {
     if (r.error) throw new Error(`getFunnelSeries falló: ${r.error.message}`);
   }
+  // Con funnels elegidos, sólo los leads que estaban en ellos ese día (sin funnels, todos y sin leer nada más).
+  const agendasCrudas: Array<{ id: number; fecha_junta_1: string | null }> = agendaRes.data ?? [];
+  const j1Crudas: Array<{ id: number; fecha_junta_1: string | null; asistio_j1: boolean | null; calificado: boolean | null; estado_lead: string }> = j1Res.data ?? [];
+  const agendas = await enLosFunnels(agendasCrudas, funnels, (r) => r.fecha_junta_1);
+  const j1s = await enLosFunnels(j1Crudas, funnels, (r) => r.fecha_junta_1);
+  const altasRes = await enLosFunnels(altasTodas, funnels, (r) => (r.created_at ? r.created_at.slice(0, 10) : null));
 
   // Índice de semana de una fecha = lunes de esa fecha
   const semanaDe = (fecha: string): string => lunesDeFecha(fecha);
@@ -1611,10 +1622,10 @@ async function _getFunnelSeries(
   for (const r of pandaRows) {
     add(semanaDe(r.fecha), (a) => { a.vsl += r.video_plays ?? 0; });
   }
-  for (const r of (agendaRes.data ?? []) as Array<{ fecha_junta_1: string | null }>) {
+  for (const r of agendas) {
     if (r.fecha_junta_1) add(semanaDe(r.fecha_junta_1), (a) => { a.agenda += 1; });
   }
-  for (const r of (j1Res.data ?? []) as Array<{ fecha_junta_1: string | null; asistio_j1: boolean | null; calificado: boolean | null; estado_lead: string }>) {
+  for (const r of j1s) {
     if (!r.fecha_junta_1) continue;
     add(semanaDe(r.fecha_junta_1), (a) => {
       a.j1 += 1;

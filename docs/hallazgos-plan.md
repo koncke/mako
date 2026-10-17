@@ -2738,9 +2738,8 @@ cliente, por `prioridadOk(undefined)`) y no la columna. Era el mismo error que l
 - **Siguen llamando al Perro al crear**: el doer de WhatsApp (`tareas_plan`, lib/mako-doer-acciones.ts), las acciones
   `priorizar-nuevas` (app/api/todo/route.ts y app/api/plan-board/route.ts) y crear un proyecto a mano (BoardShell,
   `createLabel`).
-- **⚠️ Una lectura PARCIAL con tareas no se completa nunca, aunque el comentario diga que sí.** lib/reunion-auto.ts deja
-  la reunión abierta «y el próximo cron completa lo que falta» (el bloque de `parcial`), pero el cron la saltea porque
-  ya tiene borrador: `existePropuestaRef` sólo ignora las «procesando».
+- ~~**⚠️ Una lectura PARCIAL con tareas no se completa nunca, aunque el comentario diga que sí.**~~ **Arreglado el
+  17/10/2026**: ver [Una reunión larga](#una-reunión-larga-la-extracción-mira-el-reloj-y-una-lectura-a-medias-se-completa-17102026).
 - **El modal de una reunión ya leída (la rama de caché, `asegurarBorrador`) no cruza**: si su borrador no estaba
   sellado, SU «Agregar» (`crearDesdeReunion`) puede duplicar. Lo cubren el barrido del cron y el «Cargar» de la lista.
 - **Nadie avisa cuando una reunión pasa a «Sin leer»**: se ve sólo abriendo el modal. Y las diez del ws1 del 08 al 15/10
@@ -7025,8 +7024,7 @@ es el EMAIL (`aliasDelDueno`, lib/tarea-dueno.ts), nunca el parecido. El nombre 
   demanda: 279 s y 154 s.
 
 **Sin hacer:**
-- **La extracción no mira el reloj.** `extraerTareasDeTexto` no recibe `hasta`. Una reunión de 3 h, o un Gemini
-  lento, pasa los 300 s y la función muere sin escribir nada. El cron y la ruta tienen reloj; el extractor, no.
+- ~~**La extracción no mira el reloj.**~~ **Arreglado el 17/10/2026**: ver [Una reunión larga](#una-reunión-larga-la-extracción-mira-el-reloj-y-una-lectura-a-medias-se-completa-17102026).
 - **Los 5 pedidos que la revisión todavía pierde son del mismo tipo:** una frase sobre la pantalla mientras se
   muestra otra cosa. Son el bug de pantalla completa del Second Brain, «que guarde solo», Pablo que no pudo agendar,
   el «43» de Offer y la tab de email de Chats.
@@ -7078,11 +7076,123 @@ otra operación le suma las palabras de su id. Se dejó como estaba.
 Nada por parecido: cerrar la tarjeta equivocada esconde trabajo pendiente, y no cerrar una se arregla con un clic.
 
 **Sin hacer:**
-- Enchufar `cerrarPorYaEsta` donde el Ops Center detecta el «Ya está» (lib/centro-chats.ts, `esYaEsta`). Es del
-  Ops Center 3; se le pasó la firma el 17/10.
-- Que MaKo en WhatsApp ofrezca `cerrar_tareas_plan` cuando la persona dice «ya lo hice». Hoy lo elige por la
-  descripción, sin un test que lo mida.
+- ~~Enchufar `cerrarPorYaEsta`…~~ **Ya estaba** (medido el 17/10, B5): el Ops Center lo hizo a su manera en
+  lib/centro-plan-auto.ts (cd233436f): el «Ya está» de un chat cierra su tarea con `cerrarTareaDelPlan`.
+- ~~Que MaKo en WhatsApp ofrezca `cerrar_tareas_plan` al «ya lo hice»~~ **Hecho el 17/10 (B5):** medido antes, «ya lo
+  hice» era `capturar` (dudosa) y sin herramientas, o sea material para ANOTAR una tarea nueva. Ahora la regla
+  3-bis-ya de lib/mako-intencion.ts (`YA_HECHO`) lo lleva a `actuar` con el Plan: viajan cerrar y leer las tareas.
+  Un pedido concreto detrás («ya quedó lista, publicá la landing») gana su regla (lo cazó mako-intencion-landing).
+  Test: tests/mako-ya-lo-hice.test.ts.
 
 **Vive en:** lib/plan-cerrar.ts · lib/api-mako/areas/plan.def.ts y plan.run.ts (`cerrar_tareas_plan`) ·
 lib/centro-plan.ts (`cerrarTareaDelPlan`, `cerrarPorYaEsta`) · lib/centro-plan-reglas.ts (`tarjetasDelYaEsta`) ·
 tests/plan-cierre-en-el-acto.test.ts
+
+## Una reunión larga: la extracción mira el reloj y una lectura a medias se completa (17/10/2026)
+
+**Síntoma (dos, que se veían como uno):** una junta de 3 h no dejaba ninguna tarea en el Plan. Y una reunión leída a
+medias (un tramo caído) se quedaba así para siempre, aunque el comentario del cron dijera «el próximo cron completa lo
+que falta».
+
+**Causa:**
+- **La extracción no recibía el reloj.** El cron, la ruta del modal y el webhook corren con `maxDuration = 300` y tienen
+  su `hasta`; `extraerTareasDeTexto` no. Con partes de 20k de a tres y Gemini cargado (70-140 s por ronda), 8-9 partes
+  pasan los 300 s y Vercel mata la función ANTES de escribir el borrador: ni tareas ni rastro, y la corrida siguiente
+  empieza de cero para morirse en el mismo lugar. `completarBorradorDeReunion` recibía `hasta` y no se lo pasaba.
+- **El cron salteaba la reunión porque ya tenía borrador** (`existePropuestaRef`). Y aunque la hubiera releído, una
+  junta que no entra en 300 s se vuelve a morir igual: releer entera no completa nada.
+
+**El diagnóstico obvio era el equivocado:** «subir el `maxDuration`» o «partes más chicas». Las partes más chicas son
+MÁS rondas (15k tardó 399 s), y el techo de Vercel no se mueve. Lo que hace falta es que la lectura se pueda CORTAR y
+RETOMAR.
+
+**La regla que queda** (lib/lectura-por-partes.ts, puro, con test):
+- **Una lectura larga es por rondas con plazo**: deja `MARGEN_ESCRITURA_MS` (25 s) para escribir, no arranca una ronda
+  con menos de `MIN_PARTE_MS` (120 s) por delante, cada llamada lleva `hastaMs` (si no llega, FALLA: no paga) y lo que
+  no se leyó vuelve como parte sin leer (`sinTiempo`). La fusión con IA se saltea si no queda reloj (queda el dedup léxico).
+- **Lo leído queda ANOTADO** (`mako.reunion.parcial.<id>`: en cuántas partes, cuáles se leyeron —con o sin tareas— y
+  qué borradores dejó) y la vuelta siguiente lee SÓLO lo que falta (`previa`). La marca vale sólo para el MISMO troceado
+  (`saltearSi`): con otro número de partes, se lee todo.
+- **Lo que completa va a un borrador APARTE** (`fathom:<id>:partes-3-4`, `refDelResto`), sin lo que ya propuso la vuelta
+  anterior (`sinLasYaPropuestas`: las partes se solapan y la tarea del corte sale en las dos). Sumarlo al primero lo
+  podía borrar el autoguardado del modal (guarda la lista entera). La ref es determinista: si la función muere entre
+  crear el borrador y anotar la marca, la vuelta siguiente lee lo mismo y `crearPropuesta` devuelve el que ya existe.
+- Una reunión que la persona DESCARTÓ no se completa (se cierra sin leer). Un «procesando» del modal se lee de cero.
+
+**Trampas:** `Number(ref.slice(7))` (el `recordingDeRef` del modal) da NaN con la ref nueva: ahora es una regex. La
+marca se escribe con `getSetting`/`setSetting` del workspace en contexto; vacía = no hay lectura a medias (no existe
+«borrar setting»).
+
+**Sin hacer:** el AVISO de «esta reunión no se pudo leer» (ver más arriba) sigue sin existir; con esto, una reunión
+que no entra en el reloj ya no es una de ésas: se lee en dos corridas. No se midió contra una junta real de 3 h.
+
+**Vive en:** lib/lectura-por-partes.ts · lib/reunion-parcial.ts · lib/plan-fathom.ts (`extraerTareasDeTexto`,
+`fusionarDuplicadas`) · lib/reunion-auto.ts · lib/leer-reunion-en-segundo-plano.ts · app/plan/board/TareasRecibidasModal.tsx ·
+tests/reunion-larga-reloj.test.ts (+ el modo `parcial` de tests/_fathom-carga-hijo.ts) · *17/10/2026, B5 (claude4)*
+
+## La re-puntuación completa del Perro (`puntuarPlan`) tampoco pisa lo fijado (17/10/2026)
+
+Era lo que quedó en la cola del relevo del Perro: `puntuarPlan` (lib/mako-guardian.ts) curvaba con `curveTaskScores` y
+devolvía un número para TODAS, también las fijadas a mano: el mismo error que `recurvarPlanOwner` tuvo hasta el 14/10
+(240 de 513 arrastres deshechos), en el otro camino. Ahora una tarea que llega con `fijada` no recibe número y el resto
+se corrige alrededor de ella con `respetarFijadas` (`curvaSinPisarFijadas`, app/plan/board/lugar-al-soltar.ts).
+**Medido al leer el código:** hoy NADIE la llama con el plan entero —el default de /api/mako-guardian no tiene botón y la
+Retro, su otro llamador, se retiró—: el arreglo es para el día que vuelva un «re-puntuar todo» con el modelo. Quien la
+llame tiene que mandar `fijada` y `num` (sin eso, como antes). **Vive en:** lib/mako-guardian.ts (`GuardTaskIn`,
+`puntuarPlan`) · app/plan/board/lugar-al-soltar.ts · tests/plan-repuntuar-fijadas.test.ts · *17/10/2026, B5 (claude4)*
+
+## «Leí tu reunión y te dejé las tareas»: una automatización de SuperAdmin, y no le llegaba a nadie (17/10/2026)
+
+**Lo que era:** el aviso `reunion-tareas-al-plan` lo armaba `textoAviso` (lib/reunion-auto.ts) y salía con `texto`, que
+PISA la plantilla de /mensajes: el negocio editaba un texto que nunca salía («nada por detrás»).
+
+**El diagnóstico obvio era el equivocado:** «mudarlo cambia lo que reciben los negocios». Medido en producción: el aviso
+no tiene `porDefecto` en el catálogo, así que NACÍA APAGADO (`estaPrendida`), y ningún negocio lo había prendido (el
+ws 13 lo tenía apagado a mano). No le llegaba a nadie. Por eso su fila de SuperAdmin nace PAUSADA y nada cambia para
+nadie hasta que Martín la prenda.
+
+**Lo que queda:** el evento de la plataforma `reunion_tareas_al_plan` (plantilla `mako-reunion-tareas-al-plan`). El cron
+pasa los hechos (`datosReunionesAlPlan`, lib/reunion-plan-aviso.ts, pura) y lo que el código elegía —una reunión o varias,
+si completa una lectura a medias— lo preguntan dos CONDITION (`plan_varias`, `plan_resto`). Lo que falta se lleva su
+renglón: «0 de los demás» no viaja.
+
+**Sin hacer:** la fila se crea DESPUÉS del deploy (`scripts/mudanza-avisos-plataforma.mts --eventos=reunion_tareas_al_plan
+--aplicar`; el simulacro ya pasó). Y el aviso de «esta reunión no se pudo leer» sigue sin existir: sería otro evento igual.
+**Vive en:** lib/reunion-plan-aviso.ts · lib/reunion-auto.ts (`datosAviso`) · lib/plantillas-automatizaciones.ts ·
+lib/disparadores.ts · lib/variables-aviso.ts · tests/reunion-tareas-al-plan-evento.test.ts · *17/10/2026, B5 (claude4)*
+
+## «Movela al viernes» → «la tarea»: la fecha de una tarea por WhatsApp, y el presupuesto de herramientas (17/10/2026)
+
+`cambiar_fecha_tarea_plan` no existía en main (en wip/api-acciones-0910 era sólo HTTP) y MaKo contestaba que no podía.
+Ahora es una acción de chat con todos los canales (lib/api-mako/areas/plan.def.ts y plan.run.ts): queda pendiente, una
+persona la confirma, y `ejecutar` RELEE la fila antes de guardar (el tablero del dueño no tiene patch por columna). La
+fecha la valida `validarFechaLimite` (lib/plan-fecha-limite.ts): un modelo convierte «el viernes» y a veces devuelve el
+año pasado o un 31 de febrero.
+
+**La trampa (medida):** sumar UNA operación de 839 caracteres al área `plan` dejó afuera a `listar_tareas_plan` en «mové
+eso al viernes» (el presupuesto del doer es de 12.000). No era la operación nueva sola: «mové» sumaba puntos a
+`requisitos_para_mover` y `mover_a_nutricion_manual`, que mueven un LEAD, no algo a otro día. Fueron a `NO_MUEVEN_DE_DIA`
+(lib/doer-herramientas.ts). Lo cazó tests/agenda-whatsapp.test.ts, que ya pedía la herramienta el día que viajara.
+**Vive en:** lib/plan-fecha-limite.ts · lib/api-mako/areas/plan.def.ts · plan.run.ts · lib/doer-herramientas.ts ·
+tests/plan-fecha-por-whatsapp.test.ts · *17/10/2026, B5 (claude4)*
+
+## La revisión adversarial de «Una reunión larga» (17/10/2026): nueve defectos, siete reales en el Plan
+
+El Cerebro revisó la tanda 1 de B5. Lo que la revisión encontró y la regla que quedó, en una línea cada uno:
+- **El juez del criterio sólo cree en «faltantes» sobre una lectura ENTERA.** Lee la reunión entera; en una lectura a medias
+  o que completa, la lista es sólo de las partes leídas y lo demás volvía como «faltante» con otra redacción (`mismaTarea`
+  caza 1 de 17). Ahí el juez clasifica y nada más.
+- **Lo ya propuesto incluye lo ya cargado** (`aplicadas`): al confirmar, las tuyas salen de `tareas`.
+- **Una vuelta que completa y ya se hizo no se repite ni se avisa** (su borrador de resto existe, aunque esté descartado), y
+  sin partes leídas no hay nada que completar. Antes salía el aviso en cada corrida del cron.
+- **Con marca, ni KEY_VISTA ni una fila «procesando» frenan la continuación**: la fila «procesando» la deja el propio cron
+  cuando lo leído no trae tareas; lo nuevo se SUMA a lo que ya tenía.
+- **Sin la transcripción (Fathom no contestó) es un tramo fallido**, aunque haya resumen; y sin partes leídas, una vuelta que
+  completa no cierra la marca.
+- **El modal también sigue donde quedó** (`previa`) y suma; «Volver a analizar» lee de cero y vacía la marca antes. Lo que
+  se le dice a la persona es honesto: «vuelve a tocar «Extraer»» (el cron sólo mira las de las últimas 26 h).
+- **«Terminé de leer» sólo si terminó.**
+**El diagnóstico obvio era el equivocado:** «el cron completa lo que falta» era cierto sólo para el cron y dentro de 26 h;
+el camino del modal, y las filas que el propio cron deja «procesando», no lo heredaban.
+**Vive en:** lib/reunion-auto.ts · lib/leer-reunion-en-segundo-plano.ts · app/api/plan-fathom/route.ts · lib/plan-fathom.ts ·
+lib/reunion-plan-aviso.ts · tests/reunion-larga-reloj.test.ts (R1-R7 en su cabecera) · *17/10/2026, B5 (claude4)*

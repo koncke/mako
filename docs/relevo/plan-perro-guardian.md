@@ -1,6 +1,44 @@
 # Retomar: Plan · Perro Guardián
 
-## ⏩ Lo último (14/10, cuenta `claude2`): cierre por pedido de Martín
+## ⏩ Lo último (17/10, cuenta `claude4`, agente «Pendientes B5» del Cerebro, rama `pend-b5-1710`)
+
+**Hecho (cada uno con su test probado rompiéndolo; el detalle, en docs/hallazgos-plan.md, entradas del 17/10):**
+- Una reunión larga se lee en varias corridas (la extracción mira el reloj y ANOTA las partes leídas; la que sigue lee
+  sólo lo que falta, en un borrador `fathom:<id>:partes-…`). Y la revisión adversarial del Cerebro, arreglada.
+- «Leí tu reunión y te dejé las tareas» es una automatización de SuperAdmin (`reunion_tareas_al_plan`). ⚠️ **Su fila se
+  crea DESPUÉS del deploy:** `node --conditions react-server --import tsx scripts/mudanza-avisos-plataforma.mts
+  --eventos=reunion_tareas_al_plan --aplicar` (nace pausada; nacía apagado y no le llegaba a nadie; el ws 13 lo tenía
+  apagado a mano: antes de prenderla, una CONDITION que lo excluya).
+- `puntuarPlan` no pisa lo fijado; `cambiar_fecha_tarea_plan` por WhatsApp; «ya lo hice» ofrece cerrar la tarea.
+- Cerradas en el Plan del ws 9 con su prueba: #850 y las del Dashboard en producción (#857, #858, #859, #860, #862,
+  #872, #876). **#896 se cierra cuando suba** la serie semanal por funnels (commit fb6454a83).
+
+**Sin hacer, con su archivo:**
+- **El aviso de «esta reunión no se pudo leer»**: sería otro evento de la plataforma, con el molde de
+  `reunion_tareas_al_plan` (lib/reunion-plan-aviso.ts) desde `registrarNoLeida` (lib/reunion-descartadas.ts).
+- **El tablero del cliente muestra las tareas de la Retro y corta en 1.000** (`listTareas`, lib/todo.ts): sin tocar.
+- **«Re-priorizar todo» en el tablero de un cliente puede sacar una tarea del proyecto de su reunión** (el Perro reparte
+  la bandeja por tema, lib/plan-repriorizar.ts): sin tocar.
+- **El filtro «Responsable» del tablero del dueño** pide una migración (`plan_tareas.responsable_tipo`) que numera el
+  Cerebro; y «Re-priorizar todo» en el teléfono es de Mobile (app/m/plan).
+- **Nada se miró arrastrando en un navegador** (sin RAM para un `next dev`).
+
+**Para después del 20/10** (corte de consumo del Cerebro el 17/10: la semanal iba 71%; sólo subió el arreglo de la
+revisión). Lo que quedó de la lista de B5, con su área:
+- **«Publicar en Creaciones» desde el ⋮ del Dashboard: HECHO y SIN SUBIR**, en la rama `pend-b5-publicar-dash`
+  (`cc07af5ea`, con su test probado rompiéndolo y su cosecha en docs/hallazgos-creaciones.md de esa rama). Antes de mergearla:
+  un antes-de-subir (sus 2 fallos de `tests/api-mako-rest.test.ts` eran la ruta REST que faltaba, arreglada en `d535f4a1a`).
+- Dashboard / Experiments: la tasa de cierre de un experimento; los bloques de General que sigan los filtros
+  (docs/relevo/dashboard.md, docs/relevo/general-y-calendario.md).
+- Calendario: la vista de CS/comunidad y «agendar llamada» (docs/relevo/general-y-calendario.md). El turno de Pablo
+  (ws 18) espera un pedido real: el arreglo `8d90f8357` llegó después de su último turno.
+- Second Brain: las pantallas y las Skills; el grafo por turno; el vigía en el servidor (área del Ops Center).
+- Avisos (área de Automations): el número de WhatsApp, el apagado «ya avisado», los 32 ejemplos, `CADENCIA_MIN`.
+- Hotmart → Pagos y los avisos del lead: piden diseño con los chats de Automations y Pagos.
+- Retirar `/api/mako-doer`: lo leen tests de otras áreas y es del Ops Center.
+- Varias líneas de WhatsApp por negocio, y las verificaciones a ojo en el navegador (sin RAM).
+
+## ⏩ Antes (14/10, cuenta `claude2`): cierre por pedido de Martín
 
 **Lo PRIMERO que espera a Martín:** confirmar el borrador con lo de sus últimas 3 reuniones y su
 feedback de 18 puntos → **https://hola-mako.com/plan/revisar/propmv7rwo1dkj2i6** (50 ítems,

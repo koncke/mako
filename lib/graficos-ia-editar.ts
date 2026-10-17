@@ -21,11 +21,25 @@ import { parseJsonObject } from './json-del-modelo';
 import { salidaParaIA, falloDeIA, type FalloIA } from './flujo-ia';
 import { FEATURE_HOJA_IA, type AlcanceIA } from './graficos-ia';
 import {
-  CLAVE_PROMPT_EDITAR, EDITAR_HOJA_IA_SYSTEM_TEMPLATE, aplicarEdicion, userDeEdicion, type ResultadoEdicion, type TurnoEdicion,
+  CLAVE_PROMPT_EDITAR, EDITAR_HOJA_IA_SYSTEM_TEMPLATE, TOPE_EXPERIMENTOS_IA, aplicarEdicion, conExperimentos, userDeEdicion,
+  type ResultadoEdicion, type TurnoEdicion,
 } from './graficos-ia-edicion';
 import { PLAZO_MODELO_MS, proveedoresHojaIA } from './graficos-ia-generar';
 import { porLaRedDePlataforma } from './graficos-ia-red';
 import type { Hoja } from './graficos-catalogo';
+import { listExperimentos } from './experimentos';
+import type { ExperimentoConocido } from './graficos-ia';
+
+/** Los experimentos del negocio que «Editar con MaKo» puede poner en la hoja (los más nuevos primero). */
+async function experimentosConocidos(): Promise<ExperimentoConocido[]> {
+  try {
+    const xs = await listExperimentos();
+    return xs.slice(0, TOPE_EXPERIMENTOS_IA).map((x) => ({ id: Number(x.id), titulo: String(x.titulo ?? '').trim() || `Experimento ${x.id}`, estado: String(x.estado ?? '') }));
+  } catch (e) {
+    console.error('[graficos-ia-editar] sin la lista de experimentos:', e instanceof Error ? e.message : e);
+    return [];
+  }
+}
 
 /** Lo mínimo que tiene que quedar para intentar un escalón más (copiar o corregir). */
 const MIN_PARA_OTRO_MS = 25_000;
@@ -66,6 +80,12 @@ export async function editarHojaIA(p: {
   hoja: Hoja; pedido: string; historial?: readonly TurnoEdicion[]; alcance?: AlcanceIA; inicio: number; plazoMs?: number;
 }): Promise<ResultadoEdicion | FalloIA> {
   const system = await getPromptText(CLAVE_PROMPT_EDITAR, EDITAR_HOJA_IA_SYSTEM_TEMPLATE);
+  // LOS EXPERIMENTOS QUE YA EXISTEN (17/10/2026): sin esto, los de antes y los que crea la API no se veían en ninguna
+  // pantalla. Sólo en el Dashboard; si no se pueden leer, MaKo sigue sin ellos (sólo puede proponer uno nuevo).
+  const alcance: AlcanceIA | undefined = conExperimentos(p.alcance)
+    ? { ...(p.alcance ?? {}), experimentos: await experimentosConocidos() }
+    : p.alcance;
+  p = { ...p, alcance };
   const user = userDeEdicion({ hoja: p.hoja, pedido: p.pedido, historial: p.historial, alcance: p.alcance });
   const { provs, modelos } = await proveedoresHojaIA();
   const hastaMs = p.inicio + (p.plazoMs ?? PLAZO_MODELO_MS);
