@@ -18,17 +18,28 @@ import { getSesionAdmin } from '@/lib/auth';
 import { requireMovil } from '@/lib/movil-guard';
 import { HOME_MOVIL } from '@/lib/movil-rutas';
 import { rutaConWs } from '@/lib/workspace';
+import { listKnowledgeAgencia } from '@/lib/mako-knowledge';
+import { FASES, getFases } from '@/lib/mako-fases';
+import { getPrompts } from '@/lib/mako-prompts';
 import { PantallaM } from '@/app/m/_ui';
-import { ContextoM } from './ContextoM';
+import { ContextoM, type DatosContexto } from './ContextoM';
 
 export const dynamic = 'force-dynamic';
 
 export default async function ContextoMovil() {
   if (!(await getSesionAdmin())) redirect(await rutaConWs(HOME_MOVIL));
   await requireMovil();
+  // Las MISMAS lecturas que GET /api/mako/knowledge, /api/mako/fases y /api/mako/prompts, en el server: la pantalla abre
+  // con los datos. Al navegador va sólo lo que se dibuja.
+  const iniciales: DatosContexto | null = await Promise.all([listKnowledgeAgencia(), getFases(), getPrompts()])
+    .then(([entries, valores, modos]) => ({
+      entries: entries.map((e) => ({ id: e.id, titulo: e.titulo, categoria: e.categoria, cuerpo: e.cuerpo, activo: e.activo, estado: e.estado, error: e.error, updated_at: e.updated_at })),
+      fases: FASES, valores, modos,
+    }))
+    .catch(() => null);
   return (
     <PantallaM>
-      <ContextoM leido={Date.now()} />
+      <ContextoM key={Date.now()} iniciales={iniciales} />
     </PantallaM>
   );
 }

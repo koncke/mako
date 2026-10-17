@@ -40,6 +40,10 @@ import { getAvatares } from '@/lib/avatares';
 import { getRazonesEstricto } from '@/lib/api-mako/areas/contenido.helpers';
 import { tabDeUrl } from '@/app/ads-writer/tabs';
 import { PantallaM } from '@/app/m/_ui';
+import { SeccionesTabM } from '@/app/m/_ui/SeccionesTabM';
+// La barra de secciones de la tab Copywriting (Ideas · Ads Writer · YouTube Writer · Stories), como en escritorio
+// (17/10/2026). A un cliente le queda sólo Ads Writer, y con una sección la barra no se dibuja.
+import { vistaDe } from '../_creacion/secciones';
 import { CopywritingM } from './CopywritingM';
 import { avatarLite, celdaM, draftM, type AvatarLite, type CeldaM, type DatosAnalizarM } from './modelo';
 
@@ -65,7 +69,7 @@ async function datosAnalizar(): Promise<DatosAnalizarM> {
 }
 
 export default async function CopywritingPagina({ searchParams }: { searchParams: Promise<Sp> }) {
-  await requireMovil({ navKey: 'ads-writer' });
+  const ctx = await requireMovil({ navKey: 'ads-writer' });
   const tab = tabDeUrl((await searchParams).tab);
   // Arranca ya: no depende de nada de abajo.
   const analizarP = tab === 'analizar' ? datosAnalizar() : null;
@@ -91,6 +95,7 @@ export default async function CopywritingPagina({ searchParams }: { searchParams
 
   return (
     <PantallaM>
+      <SeccionesTabM tab="copywriting" activa="ads-writer" vista={vistaDe(ctx)} />
       <CopywritingM celdas={celdas} avatares={avatares} pendiente={pendiente} errorMatriz={errorMatriz} analizar={analizar} />
     </PantallaM>
   );
