@@ -375,3 +375,5 @@ tandas 2-3; la tanda 5 del editor de video POSPUESTA por Martín). Todos esos ch
   - unir-filas.cjs resuelve el índice docs/hallazgos.md fila por fila;
   - afectados.cjs;
   - el chequeo liviano es guardas + los tests cambiados + frontera, link-con-workspace y puente-panel-copy.
+
+- **13:45 UTC, en wt-push-q para la tanda que sigue al 106:** #880 reaplicada (revert del revert + 33c94ee2d con el test del teléfono), Automations ab756dca0 (VERDE), Ops Center 3 857b80c98 (merge + relevo), Onboarding ea513a3aa (docs) y Offer c17ee4835 (VERDE: #888 #865 #887 #895; el choque de imports de Conclusion.tsx quedó con los dos lados). Chequeo liviano + push apenas termine el 106.
