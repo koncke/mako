@@ -93,7 +93,16 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'ver_pagos_clientes_agencia', area: 'cs', tipo: 'lectura',
     titulo: 'Ver los pagos de clientes',
-    descripcion: 'Sólo para una AGENCIA: por cada cliente suyo con cuenta de MaKo, lo que falta pagar. «primer_mes_sin_pagar»: al abrirle la cuenta se creó el link de Mercado Pago de su primer mes, y pagarlo lo habilita solo. «renovacion»: terminó el onboarding, su mes ya corre, y la suscripción mensual (que empieza a cobrar en `desde`) espera que la agencia la autorice; `activada: true` es que ya la autorizó. Los links NO vienen aquí: están en Customer Success, en la tarjeta de cada cliente («Pagar su mes» o «Activar renovación»). Un cliente que no aparece no tiene nada pendiente.',
+    descripcion: 'Sólo para una AGENCIA: por cada cliente suyo con cuenta de MaKo, lo que falta pagar. «primer_mes_sin_pagar»: al abrirle la cuenta se creó el link de Mercado Pago de su primer mes, y pagarlo lo habilita solo. «renovacion»: terminó el onboarding, su mes ya corre, y la suscripción mensual (que empieza a cobrar en `desde`) espera que la agencia la autorice; `activada: true` es que ya la autorizó. Los links NO vienen aquí: están en MaKo Partners, en la cuenta de cada cliente («Pagar su mes» o «Activar renovación»). Un cliente que no aparece no tiene nada pendiente.',
+    parametros: [],
+    salida: 'json', canales: SIN_HTTP, costo: 'gratis', gating: CS,
+  },
+  {
+    // MaKo Partners (17/10/2026, docs/diseno-clients.md D7-D10): las cuentas de MaKo de los clientes de una agencia viven
+    // en la tab /partners. Sin HTTP: son negocios de terceros.
+    id: 'ver_clientes_partners', area: 'cs', tipo: 'lectura',
+    titulo: 'Ver los clientes de MaKo Partners',
+    descripcion: 'Sólo para una AGENCIA (un negocio del programa MaKo Partners): las cuentas de MaKo de sus clientes, que viven en la tab MaKo Partners y NO son los clientes de la entrega (ver_cartera_cs). De cada una: nombre, estado de la cuenta (pendiente: espera que se pague su primer mes o que MaKo la habilite; aprobado: activa; revocado), desde cuándo, su plan y cuántas personas entran (sólo las activas), si falta pagar su primer mes o activar la renovación, y el lead del CRM del que salió (puede no haber). Los links de pago no vienen: están en MaKo Partners.',
     parametros: [],
     salida: 'json', canales: SIN_HTTP, costo: 'gratis', gating: CS,
   },
@@ -127,5 +136,20 @@ export const DEFS: readonly OperacionDef[] = [
       { nombre: 'reenviar', tipo: 'boolean', descripcion: 'true = mandarla aunque ya esté invitado o ya haya entrado.' },
     ],
     canales: SIN_HTTP, costo: 'externo', gating: CS,
+  },
+  {
+    // La opción del CRM «Llevar a MaKo Partners» (Martín, 17/10/2026: «si un usuario se unió al programa de "MaKo
+    // Partners", que le aparezca la opción en el CRM para llevarlos allí»), por chat. El núcleo es el MISMO de la tab y
+    // del CRM: `abrirCuentaDePartner` (lib/partners.ts). Crea una cuenta de la plataforma: lo confirma una persona, y
+    // sólo el admin.
+    id: 'llevar_a_partners', area: 'cs', tipo: 'accion', confirmacion: 'chat', reversible: false,
+    titulo: 'Llevar un lead a MaKo Partners',
+    descripcion: 'Sólo para una AGENCIA (un negocio del programa MaKo Partners): le abre a un lead de su CRM (de cualquier etapa: no hace falta que sea cliente) su propia cuenta de MaKo, como cliente de la agencia. La cuenta nace esperando: se habilita al pagar su primer mes (el link queda en MaKo Partners y se le pasa a la persona aparte) y su mes corre desde que termina el onboarding. A quien la va a usar le llega su acceso cuando quede habilitada. Necesita un email: sin email usa el del CRM. Si el lead ya tiene cuenta, no abre otra.',
+    escribe: 'crea la cuenta de MaKo del cliente (un workspace nuevo de la plataforma, pendiente), su usuario admin (sin avisarle todavía), lo liga al lead (leads.cliente_ws) y crea el link de pago de su primer mes',
+    parametros: [
+      { nombre: 'leadId', tipo: 'number', obligatorio: true, entero: true, minimo: 1, descripcion: 'id del lead del CRM (cualquier etapa).' },
+      { nombre: 'email', tipo: 'string', max: 200, descripcion: 'el email de quien va a usar la cuenta. Sin esto, el del CRM.' },
+    ],
+    canales: SIN_HTTP, costo: 'gratis', gating: { tab: 'customer-success', rolMinimo: 'admin' },
   },
 ];

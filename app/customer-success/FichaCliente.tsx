@@ -398,6 +398,13 @@ export function FichaCliente({ c, n, trabajo, user, clientes, cuentas, entrega, 
             {/* EL PRODUCTO Y LA ETAPA, a la derecha como en la cabecera del CRM. */}
             {entrega && entrega.servicios.length > 0 && <FichaEntrega leadId={c.leadId} nombre={nombre} e={entrega} />}
             <CuentaDeMaKo c={c} cuentas={cuentas} onError={setMal} />
+            {/* SU CUENTA DE MaKo VIVE EN PARTNERS (17/10/2026): un cliente de la agencia no es un cliente de la
+                entrega, «podrían serlo como no». Si éste además tiene cuenta, la ficha lo dice y lleva ahí. */}
+            {c.clienteWs != null && !verCuentas && (
+              <Link className="fc-partners" href={`/partners?cuenta=${c.clienteWs}`} title="Ver su cuenta en MaKo Partners">
+                MaKo Partners →
+              </Link>
+            )}
           </span>
         </span>
       }
@@ -691,6 +698,11 @@ const CSS = `
 /* Escondida con el atributo, y el important porque cualquier display que alguien le ponga
    a la clase le ganaria al del navegador y la tab escondida volveria a verse debajo. */
 .fc-panel[hidden]{ display:none !important; }
+
+/* «MaKo Partners →»: el molde del control de la cuenta que vivía acá (tinta, sin caja, a la altura del nombre). */
+.fc-partners{ flex:none; align-self:flex-start; margin-top:4px; font-size:12px; font-weight:600; color:var(--primary);
+  text-decoration:none; white-space:nowrap; }
+.fc-partners:hover{ text-decoration:underline; }
 
 .fc-eq{ list-style:none; margin:0; padding:0; }
 .fc-eq li{ display:flex; align-items:center; gap:12px; padding:12px 2px;

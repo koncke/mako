@@ -60,13 +60,13 @@ test('el portal del alumno y su vista previa: el nombre del curso o «Tu program
   assert.match(cuerpo, /const nombreDe = await nombresDeCursos\(productos\);/);
   assert.match(cuerpo, /nombre: nombreDe\.get\(productoId\) \?\? SIN_NOMBRE_ALUMNO,/);
   assert.doesNotMatch(cuerpo, /from\('productos'\)/);
-  const vista = fuente('../app/customer-success/curso/vista/page.tsx');
+  const vista = fuente('../app/customer-success/curso/vista/pantalla.tsx');
   assert.match(vista, /nombre: nombreCurso\.get\(productoId\) \?\? SIN_NOMBRE_ALUMNO,/);
   assert.doesNotMatch(vista, /from\('productos'\)\.select\('[^']*nombre/, 'la vista previa no lee el nombre del producto');
 });
 
 test('el editor y la ficha: el nombre del curso o «Curso sin nombre», nunca el producto', () => {
-  assert.match(fuente('../app/customer-success/curso/page.tsx'), /nombre: nombresCurso\.get\(s\.productoId\) \?\? SIN_NOMBRE_EQUIPO,/);
+  assert.match(fuente('../app/customer-success/curso/pantalla.tsx'), /nombre: nombresCurso\.get\(s\.productoId\) \?\? SIN_NOMBRE_EQUIPO,/);
   const ficha = fuente('../app/customer-success/curso-ficha-actions.ts');
   assert.match(ficha, /nombresDeCursos\(ids, \{ conTitulo: true \}\)/);
   assert.match(ficha, /nombre: nombresCurso\.get\(id\) \?\? SIN_NOMBRE_EQUIPO, clases: cs/);
@@ -86,7 +86,7 @@ test('la comunidad se llama como su curso, nunca como el producto', () => {
   assert.doesNotMatch(src, /producto\?\.nombre/);
   assert.equal((src.match(/\?\? nombreCurso \?\? 'Comunidad'/g) ?? []).length, 2, 'las dos pantallas: inicio y About');
   assert.match(src, /runWithWorkspace\(ws, \(\) => nombresDeCursos\(\[productoId\], \{ conTitulo: true \}\)\)/);
-  const page = fuente('../app/customer-success/comunidad/page.tsx');
+  const page = fuente('../app/customer-success/comunidad/pantalla.tsx');
   assert.match(page, /productos = lista\.map\(\(p\) => \(\{ id: p\.id, nombre: nombres\.get\(p\.id\) \?\? SIN_NOMBRE_EQUIPO \}\)\);/);
 });
 

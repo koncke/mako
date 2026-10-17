@@ -85,7 +85,7 @@ test('un link sin URL no es una llamada, y un título vacío no se dibuja vacío
 
 // ── El cableado ───────────────────────────────────────────────────────────────
 
-const PAGE = sinComentarios(leer('app/customer-success/page.tsx'));
+const PAGE = sinComentarios(leer('app/customer-success/pantalla.tsx'));
 const FICHA = sinComentarios(leer('app/customer-success/FichaCliente.tsx'));
 const PESTANAS = sinComentarios(leer('app/customer-success/FichaPestanas.tsx'));
 const CUENTA = sinComentarios(leer('app/customer-success/CuentaDeMaKo.tsx'));
@@ -93,14 +93,17 @@ const SHELL = sinComentarios(leer('app/plan/board/BoardShell.tsx'));
 const PLANB = sinComentarios(leer('app/plan/PlanBoard.tsx'));
 const TODOB = sinComentarios(leer('app/plan/TodoBoard.tsx'));
 
-test('EL QUE IMPORTA (punto 4): cuentas y equipo se ven SÓLO si el workspace es agencia', () => {
-  // Es del WORKSPACE, no de quien mira: con `esSuper ||` el super admin parado en un cliente
-  // común veía controles que ese cliente no tiene.
-  assert.match(PAGE, /\n\s+visible: esAg,\n/, '`visible` dejó de ser «este workspace es agencia»');
-  assert.ok(!/visible:[^\n]*esSuper/.test(PAGE), 'volvió el super admin a la condición de `visible`');
-  // Y las lecturas que cruzan de inquilino cuelgan de lo mismo: sin agencia, no hay cartera.
-  assert.match(PAGE, /const cartera = esAg && agenciaWs \? await carteraDeAgencia\(agenciaWs\) : \[\];/);
-  // El control de la cuenta sigue cortando con el mismo flag.
+test('EL QUE IMPORTA (punto 4): las cuentas y el equipo de una agencia viven en MaKo Partners, y sólo para una agencia', () => {
+  // Desde el 17/10/2026 (docs/diseno-clients.md, D8) Clients NO lee la cartera, el plan, el equipo ni el cobro de nadie:
+  // eran lecturas que CRUZAN de inquilino, y las hace sólo la tab que las muestra.
+  assert.doesNotMatch(PAGE, /carteraDeAgencia|cobrosDeClientesDeAgencia|listarUsuarios|cuentas=\{/, 'Clients volvió a leer lo de agencia');
+  // Partners: es del WORKSPACE (`esAgencia`), no de quien mira, y el plan y el equipo, SÓLO de las aprobadas.
+  const partners = sinComentarios(leer('lib/partners.ts'));
+  assert.match(partners, /if \(!\(await esAgencia\(agenciaWs\)\)\) return \{ ok: false, error: 'Tu cuenta no es parte de MaKo Partners\.' \};/);
+  assert.match(partners, /const aprobados = new Set\(clientesAprobados\(agenciaWs, cartera\)\);/);
+  assert.match(partners, /plan: aprobada && w \? capaDef\(w\.capa\)\.nombre : null,/);
+  assert.match(partners, /equipo: aprobada \? \(equipoPorWs\.get\(ws\) \?\? null\) : null,/);
+  // El control que quedó dormido en la ficha sigue cortando con el mismo flag (se borra con la T3 del CRM).
   assert.match(CUENTA, /if \(!cuentas\?\.visible\) return null;/);
 });
 

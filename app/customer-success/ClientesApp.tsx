@@ -26,6 +26,7 @@ import { Pagina, PageHeader, Banner, EmptyState, ErrorState, Status, Toast, useT
 
 import type { ClienteCruce } from './cruce';
 import type { CuentasProp } from './CuentaDeMaKo';
+import { usePrograma, useProgramaEnUrl } from '@/app/clients/programa-url';
 import type { ResumenTrabajo, TableroCartera } from './trabajo';
 import { FichaCliente } from './FichaCliente';
 import type { TrabajoDeCliente } from './trabajo';
@@ -242,8 +243,12 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, 
     ? vistaElegida
     : (vistasDisponibles[0] ?? 'tabla');
   /** De que servicio es el tablero. `null` = todavia no se eligio; cae al primero. */
-  const [servicioId, setServicioId] = useState<number | null>(productoInicial);
+  // El servicio (el programa): el de la URL, RE-SEMBRADO cuando la cabecera de Clients cambia de programa (navega
+  // con otro `?producto=`); elegirlo acá lo escribe en la URL para que la cabecera diga el mismo
+  // (app/clients/programa-url.ts, 17/10/2026).
+  const [servicioId, setServicioId] = usePrograma(productoInicial);
   const servicio = servicios.find((s) => s.productoId === servicioId) ?? servicios[0] ?? null;
+  useProgramaEnUrl(servicio?.productoId ?? null, servicios[0]?.productoId ?? null);
   /** Lo que de verdad se está dibujando. ⚠️ No es `vista === 'kanban'` a secas: lo
    *  escribiría dos veces y el día que una de las dos cambie, el renglón de «no
    *  encontré» aparece sobre un tablero o desaparece sobre una tabla. */
@@ -909,7 +914,7 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, 
        y eso no se nota en el diff. /admin sigue con su 1180, porque es otra pantalla. */
     <Pagina ancho="completo" style={{ '--cartera-max': 'none' } as CSSProperties}>
       <PageHeader
-        titulo="Clientes"
+        titulo="Clients"
         estado={lista.length > 0
           ? <Status>{lista.length} {lista.length === 1 ? 'cliente' : 'clientes'}</Status>
           : undefined}
@@ -1253,7 +1258,7 @@ function AvanceDelServicio({ curso, productoId, visibles, accesoMovs, onAcceso }
   if (!curso.avance.ok) return <AvanceCurso etapas={[]} filas={[]} error={curso.avance.error} />;
   const p = curso.avance.porProducto[productoId];
   // Un producto sin clases no es «nadie empezó»: es que no hay curso, y se dice dónde se arma.
-  if (!p) return <EmptyState titulo="Este producto no tiene curso" detalle="Sus clases se cargan en Curso." accion={{ label: 'Ir a Curso', href: '/customer-success/curso' }} />;
+  if (!p) return <EmptyState titulo="Este producto no tiene curso" detalle="Sus clases se cargan en Classroom." accion={{ label: 'Ir a Classroom', href: '/clients/classroom' }} />;
   const ids = new Set(visibles.map((c) => c.leadId));
   const filas = p.filas
     .filter((f) => ids.has(f.leadId))

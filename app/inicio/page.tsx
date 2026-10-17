@@ -35,7 +35,7 @@ export default async function Inicio() {
     // del workspace de plataforma. Hasta el 12/10/2026 iba a /customer-success y el desvío lo dejaba
     // en el escritorio (Martín: «No aún no veo la versión mobile, me sale todo igual...»).
     // Con LAS MISMAS RUTAS (13/10/2026) el teléfono va a /general: el proxy le sirve ahí Today.
-    if (ws == null) redirect(telefono ? '/general' : '/customer-success');
+    if (ws == null) redirect(telefono ? '/general' : '/clients');
   }
   if (telefono) redirect(await rutaConWs('/general'));
   // ⚠️ TODOS los destinos de acá van con `rutaConWs`. Este archivo es EL repartidor:
