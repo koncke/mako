@@ -272,6 +272,7 @@ export async function decidir(id: number, d: EntradaDecision, actor = 'martin'):
   const { data: tk } = await db.from(T).select('id, estado').eq('id', id).maybeSingle();
   if (!tk) return { ok: false, error: 'No encuentro ese ticket' };
   if (!sePuedeDecidir(tk.estado as EstadoTicket)) return { ok: false, error: 'Ese ticket ya está cerrado' };
+  if (!sePuedeDecidir(tk.estado as EstadoTicket, d.decision)) return { ok: false, error: 'Ya está en curso: el Cerebro ya lo tiene' };
   if (d.decision === 'duplicado') {
     if (d.duplicadoDe === id) return { ok: false, error: 'Un ticket no es duplicado de sí mismo' };
     const { data: orig } = await db.from(T).select('id').eq('id', d.duplicadoDe!).maybeSingle();

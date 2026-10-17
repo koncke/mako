@@ -160,7 +160,8 @@ function Detalle({ id, cerebro, todos, onCerrar, onCambio }: {
   }, [id]);
   useEffect(() => { void leer(); }, [leer]);
 
-  const aprobar = t ? decisionDeAprobar(t.tipo) : null;
+  // Sobre uno EN CURSO no se aprueba de nuevo: el Cerebro ya lo tiene (`sePuedeDecidir`, que el servidor vuelve a mirar).
+  const aprobar = t && t.estado !== 'en_curso' ? decisionDeAprobar(t.tipo) : null;
   const decidible = !!t && ['nuevo', 'esperando_decision', 'esperando_cliente', 'en_curso'].includes(t.estado);
   // «Mandar al Cerebro» otra vez: Martín aprobó y la firma no salió (el ticket quedó en curso sin despacho).
   const faltaMandar = !!t && t.estado === 'en_curso' && (t.decision === 'arreglar' || t.decision === 'hacer') && !t.despacho;

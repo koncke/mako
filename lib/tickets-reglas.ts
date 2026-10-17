@@ -303,8 +303,14 @@ export function leerTriage(x: unknown): Triage | null {
 }
 
 // ── Las transiciones ──────────────────────────────────────────────────────────────────────────────────────────────
-/** ¿Martín puede decidir este ticket ahora? Un ticket cerrado se reabre con «Reabrir», no decidiéndolo de nuevo. */
-export function sePuedeDecidir(e: EstadoTicket): boolean {
+/**
+ * ¿Martín puede tomar ESTA decisión sobre el ticket ahora? Un ticket cerrado no se vuelve a decidir. Y uno que ya está
+ * EN CURSO no se vuelve a aprobar: ya le llegó al Cerebro (firmado, o por el Runner si era un bug del triage), y
+ * aprobarlo de nuevo le mandaría un segundo pedido igual. Sobre uno en curso sí se puede rechazar, marcar duplicado,
+ * preguntar o responder.
+ */
+export function sePuedeDecidir(e: EstadoTicket, d?: DecisionTicket): boolean {
+  if (e === 'en_curso' && (d === 'arreglar' || d === 'hacer')) return false;
   return e === 'nuevo' || e === 'esperando_decision' || e === 'esperando_cliente' || e === 'en_curso';
 }
 

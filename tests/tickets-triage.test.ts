@@ -19,7 +19,7 @@
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { clasificar, estadoInicial, leerTriage, sanearAlta, sanearContexto, estadoParaElCliente, motivoDecisionInvalida, tituloDe, TOPE_ARREGLOS_POR_DIA, type EntradaTriage } from '../lib/tickets-reglas';
+import { clasificar, estadoInicial, leerTriage, sanearAlta, sanearContexto, estadoParaElCliente, motivoDecisionInvalida, sePuedeDecidir, tituloDe, TOPE_ARREGLOS_POR_DIA, type EntradaTriage } from '../lib/tickets-reglas';
 
 const base = (x: Partial<EntradaTriage>): EntradaTriage => ({ tipoDeclarado: null, declaradoPor: null, titulo: '', descripcion: '', contexto: {}, ...x });
 
@@ -143,6 +143,16 @@ test('el cliente ve cuatro estados y ninguno es interno', () => {
   assert.equal(estadoParaElCliente('arreglado'), 'en_curso');
   assert.equal(estadoParaElCliente('duplicado'), 'cerrado');
   assert.equal(estadoParaElCliente('resuelto'), 'resuelto');
+});
+
+test('un ticket EN CURSO no se vuelve a aprobar (el Cerebro ya lo tiene), pero sí se puede rechazar', () => {
+  // Rota (17/10/2026, base 16 / 0): sin el corte de `sePuedeDecidir` → 15 / 1 (aprobar dos veces le mandaba al Cerebro
+  // dos pedidos iguales).
+  assert.equal(sePuedeDecidir('en_curso', 'arreglar'), false);
+  assert.equal(sePuedeDecidir('en_curso', 'hacer'), false);
+  assert.equal(sePuedeDecidir('en_curso', 'rechazar'), true);
+  assert.equal(sePuedeDecidir('esperando_decision', 'arreglar'), true);
+  assert.equal(sePuedeDecidir('resuelto', 'rechazar'), false);
 });
 
 test('rechazar o responder sin texto para el cliente no se puede', () => {
