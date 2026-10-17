@@ -47,7 +47,7 @@ con la puerta del Second Brain. La medición: `scripts/medir-recuperacion.ts`.
 - **Medir fuera de Next** pide `--conditions=react-server` (si no, `server-only` revienta al importar) y el `.env.local`
   del clon principal (los worktrees no lo tienen; apunta a PRODUCCIÓN, por eso el script no escribe). `listLeads` es una
   lectura cacheada de Next y afuera no lee: en la medición falta el nodo de los leads; en producción está.
-- **El detector de voseo mira TODO el repo, también una lista de palabras vacías en lib/** (`tests/espanol-neutro`, «ninguna
+- **El detector de voseo mira TODO el repo, también una lista de palabras vacías en lib/** (`tests/puente-panel-copy.test.ts`, «ninguna
   pantalla del repo le habla al cliente de vos»): «decime» y «mostrame» en la lista de `VACIAS` lo pusieron en rojo en el
   `antes-de-subir`. Si un detector de lo que escribe el usuario necesita nombrar el voseo, va en `FUERA_DE_ALCANCE` de
   ese test con el porqué; acá alcanzó con sacarlas.
