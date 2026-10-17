@@ -9,7 +9,7 @@
 /* ── El selector: la píldora con el camino, pegada debajo del encabezado ──── */
 [data-m] .m-offer-cab {
   position: sticky; z-index: 5; top: calc(var(--m-header) + env(safe-area-inset-top, 0px));
-  margin: 0 calc(-1 * var(--m-gutter)); padding: 2px var(--m-gutter) 10px;
+  margin: 0 calc(-1 * var(--m-gutter)); padding: 8px var(--m-gutter) 10px; /* 8 arriba: con 2 la píldora tocaba la línea de la cabecera (visto a 390 px, 17/10/2026) */
   background: var(--bg);
 }
 [data-m] .m-shell[data-offline] .m-offer-cab { top: calc(var(--m-header) + env(safe-area-inset-top, 0px) + 36px); }
