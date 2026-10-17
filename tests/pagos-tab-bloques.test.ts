@@ -309,3 +309,19 @@ test('el link de UNA cuota: manda la cuota, es un pago único, y en dólares no 
   assert.match(c, /const necesitaUsd = !cuota && /, 'el valor en dólares de un link de cuota es el de la cuota, no uno declarado');
   assert.match(c, /\.\.\.\(cuota \? \['cuota' as const\] : \['que' as const\]\),/, 'la cuota tiene su paso (con una pasarela en USD sería el asistente vacío)');
 });
+
+// La ÉPICA de los bloques de plata es la de la TAB (17/10/2026): el estado de cuenta y la suscripción la leían con un
+// cast provisorio (`(p as PropsBloque & { epico?: boolean }).epico`) de cuando `epico` todavía no estaba en
+// PropsBloque. Un cast así calla al tsc: si el prop cambia de nombre, la épica se apaga sin que nada avise.
+// PROBADO ROMPIÉNDOLO (17/10/2026), el archivo entero: con el código como está, 18 / 0; con el cast de vuelta en
+// bloques-cobro.tsx, 17 / 1; con la suscripción en `false ? 56 : 30`, 17 / 1.
+test('la épica de los bloques de plata llega por PropsBloque, sin un cast que la apague', () => {
+  assert.match(COBRO, /export function EstadoDeCuenta\(props: PropsBloque\) \{[\s\S]*?const \{ epico \} = props;/, 'el estado de cuenta lee la épica de la tab');
+  assert.match(COBRO, /fontSize: props\.epico \? 56 : 30/, 'la mensualidad se agranda con la tab épica');
+  const dir = 'app/crm/lead-view/ficha';
+  const archivos = (readdirSync(join(RAIZ, dir), { recursive: true }) as string[]).filter((f) => /\.tsx?$/.test(f));
+  assert.ok(archivos.length > 10, `no se leyó la carpeta de la ficha (${archivos.length} archivos)`);
+  for (const f of archivos) {
+    assert.doesNotMatch(fuente(join(dir, f)), /\bas [\w& ]*\{ ?epico\?: boolean ?\}/, `${f} relee la épica con un cast`);
+  }
+});
