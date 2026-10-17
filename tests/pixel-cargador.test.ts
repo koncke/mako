@@ -180,8 +180,11 @@ test('el WhatsApp de «quedó viejo» no sale de nuevo por la v23: la clave sigu
   assert.equal(`v${PIXEL_MINIMO_AVISO}`, 'v22');
   assert.match(cron, /versionServida\(v\.url, \{ minimo: PIXEL_MINIMO_AVISO, actual: SNIPPET_VERSION \}\)/);
   assert.match(cron, /servida >= PIXEL_MINIMO_AVISO/);
-  assert.match(cron, /copia la línea del Pixel/, 'el WhatsApp tiene que mandar a la línea, que no se vuelve a pegar');
-  assert.doesNotMatch(cron, /vuelve a pegarlo donde estaba/);
+  // Desde el 17/10/2026 («nada por detrás», lote 3) el texto es el de su automatización de SuperAdmin (`mako-pixel-viejo`).
+  const plantillas = sinComentarios(leer('lib/plantillas-automatizaciones.ts'));
+  const pixelViejo = plantillas.slice(plantillas.indexOf("id: 'mako-pixel-viejo'"), plantillas.indexOf("id: 'mako-pixel-viejo'") + 2000);
+  assert.match(pixelViejo, /copia la línea del Pixel/, 'el WhatsApp tiene que mandar a la línea, que no se vuelve a pegar');
+  assert.doesNotMatch(pixelViejo, /vuelve a pegarlo donde estaba/);
   // Y lo que decide «viejo» corta en el mínimo, no en la última versión.
   const lib = sinComentarios(leer('lib/landing-token.ts'));
   const ini = lib.indexOf('export async function snippetDesactualizado(');

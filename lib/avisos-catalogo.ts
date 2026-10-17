@@ -336,6 +336,15 @@ export const AVISOS_SOLO_SUPERADMIN: readonly string[] = [
   'curso-recordatorio-clases',
   // El navegador que dejó de tomar los videos (17/10/2026, lote 2), con la cantidad de tomas en sus datos.
   'flow-puente-ausente',
+  // Los tres del cron tracking-vigilante (17/10/2026, lote 3): la landing sin visitas, el Pixel viejo y la landing que cambió.
+  'tracking-apagado',
+  'tracking-desactualizado',
+  'landing-cambio',
+  // Alguien dejó sus datos en la landing (17/10/2026, lote 3): entró solo o quedó a revisar.
+  'lead-de-landing',
+  // La prueba del Pixel (17/10/2026, lote 3): la que se cerró y la grabación lista.
+  'prueba-recibida',
+  'prueba-grabada',
 ];
 
 export const esAvisoSoloSuperAdmin = (id: string): boolean => AVISOS_SOLO_SUPERADMIN.includes(id);
@@ -555,7 +564,17 @@ Abre la extensión de MaKo y toca *Conectar*. Las tomas no se cobraron: cuando v
     // Falla en silencio por diseño ajeno: el beacon hace fetch().catch(){} y el
     // receptor responde 200 aunque descarte. Este cron es la ÚNICA señal.
     disparador: 'Cron diario: un workspace con landing_token acuñado no registra visitas hace más de 48h.',
-    ejemplo: `🔴 Tu landing *dejó de mandarme datos* hace 3 días. Los anuncios siguen corriendo, así que no lo vas a notar en los leads: lo que se pierde es saber de dónde vienen. Suele ser que el Pixel quedó apuntando a una dirección vieja. — MaKo`,
+    // ⚠️ DESDE EL 17/10/2026 EL TEXTO ES EL DE SU AUTOMATIZACIÓN de SuperAdmin (evento `tracking_apagado`, lote 3). Antes lo
+    // redactaba una IA con `contexto`: la fecha y los días llegaban como el modelo quisiera.
+    ejemplo: `🔴 *Tu landing dejó de mandarme datos*
+⏱️ Sin visitas hace 3 días
+🕐 La última: el 14 de octubre
+Los anuncios pueden seguir corriendo, así que no lo vas a notar en los leads: lo que se pierde es saber de dónde vienen. Suele ser que el Pixel de MaKo quedó apuntando a una dirección vieja.
+
+Revísalo aquí:
+https://hola-mako.com/integraciones?abrir=landing
+
+— MaKo`,
   },
   {
     id: 'landing-cambio', titulo: 'Tu landing cambió y ajusté lo que mido', categoria: 'aviso',
@@ -576,7 +595,14 @@ Abre la extensión de MaKo y toca *Conectar*. Las tomas no se cobraron: cuando v
     // que enseña a ignorar los avisos. Se ven igual en el panel de la prueba,
     // que es pull — ahí la persona vino a mirar; acá MaKo interrumpe.
     disparador: 'Cron diario: el análisis de una landing declarada trae una pieza que antes no estaba, o deja de traer una que estaba en DOS lecturas buenas seguidas.',
-    ejemplo: `🟡 Le agregaste *un video* a tu landing — lo vi hoy y ya lo estoy midiendo. A partir de ahora vas a tener la curva de retención: en qué minuto se te cae la gente. Mírala aquí 👉 https://hola-mako.com/integraciones?abrir=landing — MaKo`,
+    // ⚠️ DESDE EL 17/10/2026 EL TEXTO ES EL DE SU AUTOMATIZACIÓN de SuperAdmin (evento `landing_cambio`, lote 3).
+    ejemplo: `🟡 *Cambió tu página*
+📄 https://tu-pagina.com/vsl
+➕ Le agregaste *un video*. Ya lo estoy midiendo.
+
+https://hola-mako.com/integraciones?abrir=landing
+
+— MaKo`,
   },
   {
     id: 'lead-fusionado', titulo: 'Junté un contacto con uno que ya tenías', categoria: 'aviso',
@@ -613,7 +639,11 @@ Abre la extensión de MaKo y toca *Conectar*. Las tomas no se cobraron: cuando v
     //
     // Es la diferencia entre esperar y dudar, y cuesta un mensaje.
     disparador: 'Al terminar una prueba del Pixel: se cierra la ventana de la prueba o se aprieta «Terminar».',
-    ejemplo: `🟢 Listo, recibí tu prueba del Pixel en *tupagina.com*: 23 eventos. Te aviso cuando la grabación esté lista — MaKo`,
+    // ⚠️ DESDE EL 17/10/2026 EL TEXTO ES EL DE SU AUTOMATIZACIÓN de SuperAdmin (evento `prueba_recibida`, lote 3).
+    ejemplo: `✅ Listo, recibí tu prueba del Pixel
+📄 En *tupagina.com*
+📊 23 eventos
+Te aviso cuando la grabación esté lista. — MaKo`,
   },
   {
     id: 'prueba-grabada', titulo: 'La grabación de tu prueba ya está lista', categoria: 'aviso',
@@ -626,7 +656,11 @@ Abre la extensión de MaKo y toca *Conectar*. Las tomas no se cobraron: cuando v
     // Hasta el 06/10/2026 era de Clarity, esperaba 45 minutos a que Microsoft
     // procesara la sesión y mandaba a su panel, con login aparte.
     disparador: 'Cron cada 15 minutos: la grabación de una prueba del Pixel se terminó de guardar. Sólo si la grabación está prendida en el negocio.',
-    ejemplo: `🟢 Ya puedes ver la grabación de tu prueba en *tupagina.com* 👉 https://hola-mako.com/crm/1842 — MaKo`,
+    // ⚠️ DESDE EL 17/10/2026 EL TEXTO ES EL DE SU AUTOMATIZACIÓN de SuperAdmin (evento `prueba_grabada`, lote 3).
+    ejemplo: `🎥 Ya puedes ver cómo se vio tu prueba del Pixel:
+• *tupagina.com* 👉 https://hola-mako.com/crm/1842
+
+— MaKo`,
   },
   {
     id: 'lead-no-confirmo', titulo: 'Agendó, no confirmó y hay que llamarlo', categoria: 'accion', porDefecto: 'on',
@@ -666,7 +700,13 @@ Conviene que le marques tú: +52 55 4874 2149
     // link por donde entró, el link sale por un aviso. Una propuesta que nadie
     // sabe que existe es peor que no haberla creado: ocupa el lugar del lead.
     disparador: 'Al instante: entra un opt-in desde la landing y se crea la propuesta de lead.',
-    ejemplo: `🟢 *Marina Olvera* dejó sus datos en tu landing hace un rato — tel 998 136 1529, de Atomy. Todavía NO está en el CRM: la tienes que confirmar tú, así revisas el teléfono antes de que valga. Ábrela aquí 👉 https://hola-mako.com/crm/revisar/propxnjgz6dj5mhk — MaKo`,
+    // ⚠️ DESDE EL 17/10/2026 EL TEXTO ES EL DE SU AUTOMATIZACIÓN de SuperAdmin (evento `lead_de_landing`, lote 3).
+    ejemplo: `*Marina Olvera* dejó sus datos en tu landing
+📱 998 136 1529
+📝 Lo que completó:
+• ¿Qué buscas?: Vender mi casa
+📢 oct-leads · video-3
+👉 https://hola-mako.com/crm/2498`,
   },
   {
     id: 'tracking-desactualizado', titulo: 'El Pixel de MaKo quedó viejo', categoria: 'aviso', porDefecto: 'on',
@@ -688,7 +728,16 @@ Conviene que le marques tú: +52 55 4874 2149
     // versión del código ya no le manda este mensaje a todos; sólo subir el mínimo, a mano.
     // Y el arreglo que propone es la línea del cargador, que no se vuelve a pegar nunca.
     disparador: 'Cron diario: el beacon reporta una versión del Pixel anterior al mínimo que pide repegar (PIXEL_MINIMO_AVISO).',
-    ejemplo: `🟡 Tu página tiene un código viejo del Pixel y por eso no graba las visitas. *Qué te estás perdiendo:* el mapa de calor de tu página y la grabación de cada visita. *Cómo se arregla* (2 minutos): entra aquí, copia la línea del Pixel y ponla en esa página en lugar del código viejo. Con esa línea no vuelves a actualizar nada. — MaKo`,
+    // ⚠️ DESDE EL 17/10/2026 EL TEXTO ES EL DE SU AUTOMATIZACIÓN de SuperAdmin (evento `pixel_viejo`, lote 3).
+    ejemplo: `🟡 *Tu Pixel de MaKo es viejo y no graba las visitas*
+📄 Las páginas:
+· https://tu-pagina.com/vsl
+✨ Te estás perdiendo: la grabación de cada visita · el mapa de calor
+
+*Cómo se arregla* (2 minutos): entra aquí, copia la línea del Pixel y ponla en lugar del código viejo. Con esa línea no vuelves a actualizar nada.
+https://hola-mako.com/integraciones?abrir=landing
+
+— MaKo`,
   },
   {
     id: 'leads-caida', titulo: 'Caída de leads vs promedio del día', categoria: 'aviso',

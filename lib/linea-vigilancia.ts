@@ -106,7 +106,8 @@ export function lineaLegible(f: { etiqueta: string | null; numero: string | null
   return dig ? `+${dig}` : null;
 }
 
-function fechaLegible(iso: string | null, tz: string): string | null {
+/** Una fecha en la zona del negocio, legible: «14 de octubre». null si no se puede leer. */
+export function fechaLegible(iso: string | null, tz: string): string | null {
   const ms = iso ? Date.parse(iso) : NaN;
   if (Number.isNaN(ms)) return null;
   try {

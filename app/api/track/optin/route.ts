@@ -42,7 +42,7 @@ import { AUTOR_SISTEMA } from '@/lib/etapa-historial';
 import { normalizarUrl } from '@/lib/landing-paginas';
 import { funnelsDeLanding } from '@/lib/landing-funnel';
 import { funnelDeCampana } from '@/lib/campana-funnel';
-import { textoDuplicado } from '@/lib/leads-duplicados';
+import { datosOptin } from '@/lib/optin-aviso';
 import { wsEnContexto, getTenantDb, runWithWorkspace } from '@/lib/workspace';
 import { integracionConectada } from '@/lib/credenciales';
 
@@ -273,15 +273,16 @@ export async function POST(req: NextRequest) {
   // Y las MISMAS respuestas quedan en el lead (mig 0274, 14/10/2026), por los DOS caminos:
   // el alta directa y la propuesta. El Resumen de la ficha las muestra.
   const respuestasOptin = respuestasDelOptin(body.respuestas);
-  const resumenForm = (() => {
+  const filasForm = ((): Array<readonly [string, string]> => {
     const r = body.respuestas;
-    if (!r || typeof r !== 'object' || Array.isArray(r)) return null;
-    const filas = Object.entries(r as Record<string, unknown>)
+    if (!r || typeof r !== 'object' || Array.isArray(r)) return [];
+    return Object.entries(r as Record<string, unknown>)
       .map(([k, v]) => [String(k).trim().slice(0, 40), String(v ?? '').trim().slice(0, 120)] as const)
       .filter(([k, v]) => k && v)
       .slice(0, 6);
-    return filas.length ? filas.map(([k, v]) => `• ${k}: ${v}`).join('\n') : null;
   })();
+  // La campaña de la que vino, como la dice el aviso: la campaña y el anuncio, o la fuente.
+  const campanaForm = hayAtribucion(atrib) ? ([atrib.utm_campaign, atrib.utm_content].filter(Boolean).join(' · ') || atrib.utm_source || null) : null;
 
   // ⚠️ A QUE CRM ENTRA. Pedido de MARTIN el 04/10/2026, textual: «el pixel
   // deberiamos poder ASIGNAR a un PRODUCTO. Con la implementacion que hicimos,
@@ -426,21 +427,16 @@ export async function POST(req: NextRequest) {
           // ficha para saber qué le interesaba, que es el viaje que el aviso venía a
           // ahorrar.
           //
-          // El resumen se arma con lo que HAYA: si el snippet es viejo y no lo manda,
-          // el aviso queda exactamente como estaba. Nada se rompe por una versión.
-          texto: [
-            `*${nombre ?? email ?? telefono}* dejó sus datos en tu landing`,
-            telefono ? `📱 ${telefono}` : null,
-            email ? `✉️ ${email}` : null,
-            resumenForm,
-            hayAtribucion(atrib) ? `📢 ${[atrib.utm_campaign, atrib.utm_content].filter(Boolean).join(' · ') || atrib.utm_source}` : null,
-            // Con varios productos se DICE, y corto: el link lleva a la ficha (que es
-            // UNA) y sin esta línea quien lo abre no tiene cómo saber que esa persona
-            // ya está también en los tableros de otros productos. Cuenta sólo los que
-            // se agregaron de verdad, más la casa.
-            tambien.length ? `🗂️ Entró a ${tambien.length + 1} funnels` : null,
-            `👉 ${linkApp(`/crm/${lead.id}`, wsEnContexto())}`,
-          ].filter(Boolean).join('\n'),
+          // Lo que falta (un snippet viejo que no manda las respuestas) no trae su dato, y su renglón no va.
+          //
+          // ⚠️ DESDE EL 17/10/2026 EL TEXTO ES EL DE SU AUTOMATIZACIÓN de SuperAdmin (evento `lead_de_landing`, «nada por
+          // detrás», lote 3): acá van sólo los hechos. Con varios productos se DICE (el link lleva a la ficha, que es UNA, y
+          // sin eso nadie sabe que esa persona ya está también en otros tableros): cuentan los que se agregaron de verdad,
+          // más la casa.
+          datos: datosOptin({
+            nombre, telefono, email, respuestas: filasForm, campana: campanaForm,
+            funnels: tambien.length + 1, link: linkApp(`/crm/${lead.id}`, wsEnContexto()), revisar: false,
+          }),
         }),
       ).catch((e) => console.error('[track:optin] el lead entró pero el aviso falló:', e instanceof Error ? e.message : e));
       console.log(`[track:optin] ws=${ws} lead=${lead.id} creado directo${tambien.length ? ` (+ agregado a los productos ${tambien.join(',')})` : ''}`);
@@ -520,14 +516,15 @@ export async function POST(req: NextRequest) {
   // un LLM ya falló en este repo de las dos formas, y la silenciosa —un link que
   // resuelve a una propuesta REAL pero equivocada— es la peor.
   if (nueva) {
-    const quien = nombre ?? email ?? telefono;
-    const contacto = [telefono && `tel ${telefono}`, email].filter(Boolean).join(' · ');
     await runWithWorkspace(ws, () =>
       emitirDelCatalogo('lead-de-landing', {
         ws,
-        // Se dice POR QUÉ quedó esperando. «Confirmalo» a secas, sobre algo que
-        // el resto de las veces entra solo, se lee como que el sistema falló.
-        texto: `*${quien}* dejó sus datos en tu landing${contacto ? ` — ${contacto}` : ''}. ${textoDuplicado(dup) || 'Necesito que lo mires'} Por eso NO lo cargué solo: fundir dos contactos no se puede deshacer. Decides tú aquí 👉 ${linkApp(`/crm/revisar/${id}`, wsEnContexto())}`,
+        // Se dice POR QUÉ quedó esperando (a quién se parece y por qué: `duplicados`). «Confirmalo» a secas, sobre algo que
+        // el resto de las veces entra solo, se lee como que el sistema falló. El texto, el de su automatización (lote 3).
+        datos: datosOptin({
+          nombre, telefono, email, respuestas: filasForm, campana: campanaForm,
+          funnels: 1, link: linkApp(`/crm/revisar/${id}`, wsEnContexto()), revisar: true, duplicados: dup,
+        }),
         // Sin dedup por tiempo: cada persona que deja sus datos es un aviso
         // propio. Agrupar dos leads distintos en uno es perder el segundo.
       }),

@@ -10254,3 +10254,52 @@ teléfono sigue con su lectura que traga errores (`listNotificaciones` sin `estr
 **Vive en:** `lib/reunion-cancelada.ts` · `lib/curso-mensajes-texto.ts` (`datosRecordatorioDueno`) · `lib/curso-mensajes.ts` · `lib/lead-fusionado.ts` · `lib/leads.ts` (`avisarFusion`) · `tests/lead-fusionado-evento.test.ts` · `lib/disparadores.ts` (`reunion_cancelada`) · `lib/variables-aviso.ts`
 (`cancelada_*`) · `lib/plantillas-automatizaciones.ts` (`mako-reunion-cancelada`) · `app/api/webhooks/calendly/route.ts`
 · test: `tests/reunion-cancelada-evento.test.ts`
+
+## «Nada por detrás», lote 3: el Pixel y la landing, con una CONDITION en vez de frases del código (17/10/2026)
+
+- **`tracking-apagado` lo escribía una IA** (`emitirDelCatalogo` con `contexto`): cada aviso costaba una llamada y los días
+  y la fecha (en ISO) llegaban como el modelo quisiera. Ahora es el evento `tracking_apagado` con su texto literal; los
+  días y la fecha de la última visita (en la zona del negocio, `fechaLegible`) son datos.
+- **Cuando el código elige la frase según el caso, no va un dato con la frase: va una CONDITION** sobre un dato con
+  `condicion: { tipo: 'opciones' }` (la pieza 1 del inventario, la del lote 1). El Pixel viejo pregunta «graba / no graba»
+  (`pixel_graba`) y la landing que cambió «se puede medir» (`landing_medible`), cada caso con su texto en la fila. Lo que
+  era «una página / varias / ninguna» es un renglón opcional (`pixel_paginas` falta si no se pudo nombrar ninguna), y «en
+  esa página / en cada página» pasó a «en lugar del código viejo», que sirve para todos.
+- ⚠️ **Tres fuentes, no una**: con una sola `tracking` para los tres, el «{ }» de la automatización de la landing sin visitas
+  ofrecía los datos del Pixel y del cambio, que ese evento no trae (`variablesPara` filtra por el alcance). Cada evento
+  trae lo suyo (`tracking`, `pixel`, `landing`), con un grupo nuevo «Landing y Pixel».
+- **Las opciones de la CONDITION van escritas en lib/variables-aviso.ts**, como las de la cuenta publicitaria, y no
+  importadas del módulo del cron: ese archivo lo importa el editor del navegador.
+- **Lo que se pierde, a propósito:** el negocio ya no apaga «El Pixel de MaKo quedó viejo» desde /mensajes (era `'on'`, «se
+  puede apagar»): como todo evento de la plataforma, lo configura SuperAdmin (`AVISOS_SOLO_SUPERADMIN`).
+
+- **Las filas van ANTES del deploy**, como en el lote 2: #273 (`tracking_apagado`), #274 (`pixel_viejo`) y #275
+  (`landing_cambio`) del ws 9, con `scripts/mudanza-avisos-plataforma.mts --eventos=… --aplicar` el 17/10.
+
+- **«Alguien dejó sus datos en tu landing» (`lead-de-landing`, fila #276) eran DOS textos en la ruta del formulario**: el
+  lead que entra solo y el que queda a revisar por parecerse a otro. Es un evento con una CONDITION (`optin_revisar`), y
+  ⚠️ todo lo de la persona viaja como DATO del evento, sin `trae: ['lead']`: en el caso a revisar todavía no hay lead
+  (es una propuesta), así que de su ficha no se puede leer nada. El «con quién choca» dejó de ser una frase armada
+  (`textoDuplicado`) y son dos datos: a quién se parece y en qué coincide.
+
+- **La prueba del Pixel** (`prueba-recibida`, #277; `prueba-grabada`, #278): el singular y el plural estaban escritos en
+  el código. La de la grabación es una LISTA en su renglón (sirve para una y para varias); la otra, los eventos con su
+  unidad y la página en un renglón opcional. ⚠️ Dos fuentes distintas aunque sean de la misma prueba: con una sola, cada
+  automatización ofrecía en su «{ }» el dato de la otra, que su evento no trae.
+
+- ⚠️ **MUDAR UN AVISO QUE NACÍA APAGADO LO PRENDÍA PARA TODOS.** Un aviso del catálogo sin `porDefecto` nace APAGADO en
+  /mensajes (`estaPrendida`), y un evento de la plataforma NO lee ese interruptor: lo decide su fila. La mudanza creaba la
+  fila PRENDIDA, así que al desplegar el aviso empezaba a llegarle a TODOS los negocios. Medido el 17/10 (el store
+  `mako.plantillas.store` de los 13 negocios activos): nadie había prendido `landing-cambio`, `lead-de-landing`, los dos de
+  la prueba, `lead-fusionado` ni `flow-puente-ausente`, o sea que no le llegaban a nadie. Los dos últimos (lote 2) ya se
+  estaban mandando a todos desde el run 110. Arreglo: la mudanza crea PAUSADO lo que nacía apagado y `--pausar` pausó los
+  seis (#270, #272, #275-#278); prenderlos es decisión de SuperAdmin, con el texto ya editable. Lo fija
+  tests/mudanza-apagados.test.ts. El diagnóstico obvio («la fila es la que manda, como siempre») no lo veía: la pregunta era
+  A QUIÉN le llegaba ANTES.
+
+**La familia «tracking y landing» del lote 3 está entera.** Siguen las otras (anuncios y Meta, reuniones, cursos, CRM,
+Plan, pagos, reportes por email, mensajes al lead: docs/inventario-nada-por-detras.md).
+
+**Vive en:** `lib/tracking-aviso.ts` · `lib/optin-aviso.ts` · `lib/prueba-aviso.ts` · `app/api/track/optin/route.ts` · `app/api/cron/tracking-vigilante/route.ts` · `lib/disparadores.ts` (`tracking_apagado`,
+`pixel_viejo`, `landing_cambio`) · `lib/variables-aviso.ts` · `lib/plantillas-automatizaciones.ts` (`mako-tracking-apagado`,
+`mako-pixel-viejo`, `mako-landing-cambio`, `mako-lead-de-landing`) · tests: `tests/tracking-evento.test.ts`, `tests/optin-evento.test.ts`, `tests/prueba-pixel-evento.test.ts`

@@ -36,7 +36,9 @@ test('entra SOLO, y solo un duplicado queda para revisar', () => {
   assert.ok(/catch \(e\)/.test(src.slice(i, src.indexOf('crearPropuesta({'))), 'un alta que falla tiene que caer a propuesta');
   // Y el aviso dice POR QUÉ quedó esperando: «confirmalo» a secas, sobre algo que
   // el resto de las veces entra solo, se lee como que el sistema falló.
-  assert.ok(/textoDuplicado\(dup\)/.test(src), 'el aviso tiene que decir con quién choca');
+  // (17/10/2026, «nada por detrás», lote 3: el texto es el de su automatización y los duplicados van como datos,
+  // `datosOptin` → «Ya tienes a {{optin_ya_tienes}} con el mismo {{optin_coincide}}»; tests/optin-evento.test.ts.)
+  assert.ok(/revisar: true, duplicados: dup,/.test(src), 'el aviso tiene que decir con quién choca');
 });
 
 test('el ruteo del workspace es fail-closed', () => {
@@ -238,14 +240,12 @@ test('el aviso de código viejo: rótulo propio, texto determinista y link que a
   assert.ok(/'tracking-desactualizado': 'landing'/.test(cat), 'el aviso tiene que salir con el rótulo de landing, no con el de sistema');
 
   const cron = leer('../app/api/cron/tracking-vigilante/route.ts');
-  // ⚠️ `texto` y NO `contexto`: con contexto lo redacta el modelo, y acá viaja un
-  // LINK exacto. Regla de la casa: un dato exacto no lo transporta un LLM.
+  // ⚠️ NUNCA `contexto`: con contexto lo redacta el modelo, y acá viaja un LINK exacto. Regla de la casa: un dato exacto
+  // no lo transporta un LLM. Desde el 17/10/2026 («nada por detrás», lote 3) van los DATOS (`datosPixelViejo`, con el link
+  // como dato) y el texto es el de su automatización de SuperAdmin (tests/tracking-evento.test.ts).
   const i = cron.indexOf("emitirDelCatalogo('tracking-desactualizado'");
-  // Se corta en el cierre de ESA llamada: el `tracking-apagado` de más abajo sí
-  // usa `contexto` (su texto lo puede redactar el modelo, no lleva link), y con
-  // una ventana fija el test lo leía como si fuera de este aviso.
   const bloque = cron.slice(i, cron.indexOf('});', i));
-  assert.ok(/texto:/.test(bloque), 'el mensaje tiene que ser determinista: el link no lo puede escribir el modelo');
+  assert.ok(/datos: datosPixelViejo\(\{/.test(bloque), 'el mensaje tiene que ser determinista: el link no lo puede escribir el modelo');
   assert.ok(!/contexto:/.test(bloque), 'volvió el contexto: el modelo puede reescribir mal la URL');
   assert.ok(/linkLanding\(/.test(bloque), 'el aviso tiene que llevar el link exacto');
   assert.ok(/\/integraciones\?abrir=landing/.test(cron), 'el link tiene que abrir el LUGAR donde se resuelve, no la pantalla entera');
@@ -567,7 +567,8 @@ test('un lead de landing AVISA, o la propuesta no existe para nadie', () => {
   // El LINK lo arma el código. Un id de 16 caracteres al azar transportado por un
   // LLM ya falló en este repo, y la forma silenciosa —un link que resuelve a una
   // propuesta REAL pero equivocada— es la peor.
-  assert.ok(/texto: `/.test(ruta), 'el mensaje va determinista (texto), no escrito por el modelo (contexto)');
+  // (Desde el 17/10/2026 van los DATOS, con el link como dato, y el texto es el de su automatización: lote 3.)
+  assert.ok(/datos: datosOptin\(\{/.test(ruta) && !/contexto:/.test(ruta), 'el mensaje va determinista (datos), no escrito por el modelo (contexto)');
   // El link va por `linkApp`, que le pega el `?ws=`: este aviso viaja a un teléfono y lo
   // abre alguien que puede tener la app parada en otro workspace (05/10, tarea #834).
   assert.ok(/linkApp\(`\/crm\/revisar\/\$\{id\}`, wsEnContexto\(\)\)/.test(ruta), 'falta el link a la propuesta real, armado por el código y con su workspace');
@@ -1126,11 +1127,12 @@ test('el aviso de Pixel viejo dice CUÁL página', () => {
   const cron = leer('../app/api/cron/tracking-vigilante/route.ts');
   assert.ok(/verificarPagina\(u\)/.test(cron), 'hay que preguntar por CADA página, no por el workspace');
   assert.ok(/v\?\.instalada && v\.vieja/.test(cron), 'solo se nombran las que de verdad quedaron atrás');
-  assert.ok(/Tu página \*\$\{atrasadas\[0\]\}\*/.test(cron), 'con una, se la nombra');
-  assert.ok(/Estas páginas tienen una versión vieja/.test(cron), 'con varias, se listan');
-  // Si ninguna se puede evaluar, el mensaje sigue siendo el genérico: callarse
-  // porque no se sabe cuál sería perder el aviso entero.
-  assert.ok(/'El código que tienes instalado es de una versión vieja\.'/.test(cron), 'sin poder evaluar, el aviso igual sale');
+  // Desde el 17/10/2026 (lote 3) las páginas van como DATO (`pixel_paginas`, una lista) y el texto es el de su automatización:
+  // con una o con varias, se nombran; si ninguna se pudo evaluar, su renglón no va y el aviso igual sale (callarse porque no
+  // se sabe cuál sería perder el aviso entero). Lo ejecuta tests/tracking-evento.test.ts.
+  assert.ok(/paginas: atrasadas, noGraba: noGrabanTodas\(versionesAtrasadas, instalada\)/.test(cron), 'las páginas atrasadas tienen que viajar al aviso');
+  const plantillas = leer('../lib/plantillas-automatizaciones.ts');
+  assert.ok(/📄 Las páginas:\{\{pixel_paginas\}\}/.test(plantillas), 'el texto tiene que nombrar las páginas');
   // El cron corre SIN sesión, así que no puede usar la action (pide el permiso
   // de la tab, que solo existe dentro de una request de usuario).
   assert.ok(/async function paginasDelWorkspace/.test(cron), 'el cron necesita su propio lector');
@@ -1815,7 +1817,9 @@ test('⚠️ con VARIOS productos la persona es UNA: los extra se AGREGAN, no se
 
   // Y el aviso lo DICE: el link lleva a la ficha (que es UNA), y sin esta línea
   // nadie sabe que esa persona ya está también en otros tableros.
-  assert.ok(/Entró a \$\{tambien\.length \+ 1\} funnels/.test(codigo), 'con varios funnels el aviso tiene que decirlo');
+  // (Desde el 17/10/2026, lote 3: la cuenta viaja como dato y el renglón «🗂️ Entró a {{optin_funnels}}» es de su
+  // automatización, que sólo va con dos o más: tests/optin-evento.test.ts.)
+  assert.ok(/funnels: tambien\.length \+ 1,/.test(codigo), 'con varios funnels el aviso tiene que decirlo');
 });
 
 // PROBADO ROMPIENDOLO: borrando `if (!elegido) return null;` de
