@@ -10044,3 +10044,25 @@ teléfono sigue con su lectura que traga errores (`listNotificaciones` sin `estr
 
 **Vive en:** `lib/resend.ts` (`resendFetch`, `errorDeResend`) · `lib/resend-errores.ts` · `lib/metodo-verificar.ts`
 (`email`) · `lib/credenciales.ts` (`aplicarAEnv`) · test: `tests/resend-key-solo-envio.test.ts`
+
+## «Nada por detrás», lote 2: la reunión cancelada de Calendly, mudada y con freno (17/10/2026)
+
+- **No tenía NINGÚN freno** (docs/inventario-nada-por-detras.md): el webhook de Calendly llamaba a `emitirDelCatalogo`
+  con `texto` y sin `dedupKey` ni `dedupTtlMin`, así que una reentrega de Calendly mandaba el aviso dos veces. Ahora el
+  reclamo usa `claveCancelada` (la URI de la reunión y su hora), que es la MISMA clave que ya frenaba el flujo del store
+  `lead.cancelo`: un solo lugar decide qué es «la misma cancelación».
+- **El molde de Fathom sirve tal cual para un aviso de UN lead de un negocio:** evento con `plataforma: true` y
+  `trae: ['lead', '<lo suyo>']`, un módulo puro con los datos (`lib/reunion-cancelada.ts`, porque la ruta no se puede
+  importar desde un test), la plantilla con el texto de siempre, y `{{link_lead}}`, que es el link al RESUMEN del lead
+  (el mismo `linkResumenLead` que usaba el texto viejo).
+- ⚠️ **Un evento de la plataforma tiene que estar en `AVISOS_SOLO_SUPERADMIN`** (tests/aviso-evento.test.ts lo exige):
+  al mudarlo, el aviso sale de la lista de /mensajes del cliente y lo configura SuperAdmin.
+- ⚠️ **Sumar un evento rompe CINCO listas de tests a propósito** (eventos, avisos por evento, ofrecidos, el conteo de datos
+  del equipo y «cada clave tiene quien la ponga»): son la forma de que nadie sume uno sin decidir dónde va. Se extienden,
+  no se aflojan.
+- **La fila va ANTES del deploy** (sin camino viejo, sin fila no sale): la #269 del ws 9 se creó con
+  `scripts/mudanza-avisos-plataforma.mts --eventos=reunion_cancelada --aplicar`. El código de producción de antes no la lee.
+
+**Vive en:** `lib/reunion-cancelada.ts` · `lib/disparadores.ts` (`reunion_cancelada`) · `lib/variables-aviso.ts`
+(`cancelada_*`) · `lib/plantillas-automatizaciones.ts` (`mako-reunion-cancelada`) · `app/api/webhooks/calendly/route.ts`
+· test: `tests/reunion-cancelada-evento.test.ts`

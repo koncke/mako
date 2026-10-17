@@ -770,6 +770,21 @@ export const PLANTILLAS_PLATAFORMA: readonly PlantillaAutomatizacion[] = [
     ],
   },
   {
+    // La reunión que el lead canceló en Calendly (17/10/2026, «nada por detrás», lote 2): el texto que mandaba el webhook,
+    // letra por letra, con sus datos (`datosCancelada`). El link es el del resumen del lead (`{{link_lead}}`).
+    id: 'mako-reunion-cancelada',
+    nombre: 'Un Lead Canceló su Reunión',
+    emoji: '🔄',
+    linea: 'Le avisa al grupo de un negocio que un lead canceló su reunión de Calendly y todavía no reagendó.',
+    origen: 'el webhook de Calendly (invitee.canceled), con la reunión que se canceló',
+    objetivo: 'clientes',
+    soloPlataforma: true,
+    cron: { fijo: TRIGGER_AVISO_MAKO, evento: 'reunion_cancelada' },
+    pasos: [
+      mako('rc_mk', '🔄 *Se canceló* la {{cancelada_reunion}} con {{nombre_completo}} (era el {{cancelada_cuando}}) y todavía no reagendó.\n\n👉 Mira el resumen del lead:\n{{link_lead}}\n\nSi consigues otro horario, dime *«reagéndale la {{cancelada_reunion}} a {{nombre_completo}}»*.\n\n— MaKo', null),
+    ],
+  },
+  {
     // El reporte de los lunes (16/10/2026, docs/diseno-avisos-plataforma.md §6): lo arma el cron de cada negocio con sus
     // preferencias, y sale POR EMAIL al equipo del negocio, como hasta hoy (nunca por WhatsApp: `REPORTE_POR_WHATSAPP`).
     // El asunto y el cuerpo son los de `despacharReporte` (lib/notify.ts). Sin firma: el correo ya la lleva al pie.
