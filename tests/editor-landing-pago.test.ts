@@ -360,16 +360,23 @@ test('el lead del email: igualdad EXACTA (el _ no es comodín), sin mayúsculas,
 });
 
 test('se reusa el pendiente del MISMO producto, pasarela y precio; nunca el de otro producto o con el precio viejo', () => {
-  const b = { productoId: 12, pasarela: 'stripe' as const, monto: 990, moneda: 'USD', tipo: 'unico' as const, email: 'ana@x.com', slug: 'mi-landing' };
+  const b = { productoId: 12, pasarela: 'stripe' as const, monto: 990, moneda: 'USD', tipo: 'unico' as const, email: 'ana@x.com', slug: 'mi-landing', modo: 'real' as const };
   const c = {
     estado: 'pendiente' as const, producto_id: 12, proveedor: 'stripe' as const, monto: 990, moneda: 'usd', tipo: 'unico' as const, token: 'a',
-    email: 'Ana@X.com', alta_capa: null, creado_por: creadoPorLanding('Mi landing', 'mi-landing'),
+    email: 'Ana@X.com', alta_capa: null, creado_por: creadoPorLanding('Mi landing', 'mi-landing'), modo: 'real' as const,
   };
   assert.equal(cobroReusable(c, b), true);
   assert.equal(cobroReusable({ ...c, producto_id: 13 }, b), false);
   assert.equal(cobroReusable({ ...c, monto: 890 }, b), false);
   assert.equal(cobroReusable({ ...c, estado: 'pagado' }, b), false);
   assert.equal(cobroReusable({ ...c, proveedor: 'mercadopago' }, b), false);
+  // 17/10/2026: un pendiente de PRUEBA no se reusa después de pasar a las claves reales (mandaba a un checkout de
+  // prueba), y sin saber el modo de hoy tampoco: crear uno nuevo es lo seguro.
+  // roturas (con el de candado): sin comparar el modo, 25 / 1; sin modo conocido se reusa igual, 25 / 1; ejecutarPago sin
+  // preguntar el modo, 25 / 1 (cae «dos pedidos a la vez»: el segundo ya no reusa).
+  assert.equal(cobroReusable({ ...c, modo: 'prueba' }, b), false, 'el de prueba, con las claves reales');
+  assert.equal(cobroReusable(c, { ...b, modo: null }), false, 'sin saber el modo de hoy');
+  assert.equal(cobroReusable({ ...c, modo: 'prueba' }, { ...b, modo: 'prueba' }), true, 'prueba con prueba, sí');
   // La lista viene del más nuevo al más viejo, y el más nuevo es de OTRO producto (`cobroPendienteDelLead` lo devolvería).
   assert.equal(cobroPendienteReusable([{ ...c, producto_id: 13, token: 'nuevo' }, c], b)?.token, 'a');
   assert.equal(creadoPorLanding('  Mi oferta ', 'mi-oferta'), 'Landing «Mi oferta» (mi-oferta)');
@@ -379,8 +386,8 @@ test('se reusa el pendiente del MISMO producto, pasarela y precio; nunca el de o
 // pendiente que NO creó esta landing para este email le entregaba a quien tipeara el email de otro el
 // token de un cobro del dueño (y, con alta de MaKo, el cambio de email de la cuenta).
 test('sólo se reusa lo que creó ESTA landing para ESTE email, y nunca un cobro con alta de MaKo', () => {
-  const b = { productoId: 12, pasarela: 'stripe' as const, monto: 990, moneda: 'USD', tipo: 'unico' as const, email: 'ana@x.com', slug: 'mi-landing' };
-  const c = { estado: 'pendiente' as const, producto_id: 12, proveedor: 'stripe' as const, monto: 990, moneda: 'USD', tipo: 'unico' as const, email: 'ana@x.com', alta_capa: null, creado_por: creadoPorLanding('Mi landing', 'mi-landing') };
+  const b = { productoId: 12, pasarela: 'stripe' as const, monto: 990, moneda: 'USD', tipo: 'unico' as const, email: 'ana@x.com', slug: 'mi-landing', modo: 'real' as const };
+  const c = { estado: 'pendiente' as const, producto_id: 12, proveedor: 'stripe' as const, monto: 990, moneda: 'USD', tipo: 'unico' as const, email: 'ana@x.com', alta_capa: null, creado_por: creadoPorLanding('Mi landing', 'mi-landing'), modo: 'real' as const };
   assert.equal(cobroReusable(c, b), true);
   assert.equal(cobroReusable({ ...c, creado_por: creadoPorLanding('Otro título', 'mi-landing') }, b), true, 'cambiarle el título a la landing no huerfana su pendiente');
   assert.equal(cobroReusable({ ...c, creado_por: 'Martín Koncke' }, b), false, 'el que armó el dueño desde la ficha o la API');
