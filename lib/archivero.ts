@@ -20,8 +20,9 @@ import { getSesionAdmin } from './auth';
 import { getSetting, getSettingEstricto, setSetting } from './settings';
 import {
   computeEffective, idDeContenido, pathEnArchivero, origenDelWs, documentoYaArchivado, answersConDocumento,
-  destinoOcupado, binarioHuerfano, type FuenteCampo,
+  destinoOcupado, binarioHuerfano, leerConOrigen, insertarConOrigen, type FuenteCampo, type FilaDb,
 } from './archivero-registro';
+import { ORIGENES_ARCHIVERO, ROTULO_ORIGEN, type OrigenArchivero } from './archivero-subida';
 
 // El recálculo del brief vive en lib/archivero-registro.ts (sin server-only) para que un test lo ejecute;
 // quien lo importaba de acá lo sigue importando de acá.
@@ -57,7 +58,12 @@ export type ArchiveroFile = {
   id: string; nombre: string; mime: string | null; tamano: number | null;
   storage_path: string; razonamiento: string | null;
   campos: Record<string, string>; created_at: string;
+  /** De dónde vino (mig 0316, 17/10/2026). null = subido acá, o de antes de la columna. */
+  origen?: OrigenArchivero | null;
 };
+
+// De dónde vino un documento: la lista y el rótulo viven en lib/archivero-subida.ts (puro), porque los lee la pantalla.
+export { ORIGENES_ARCHIVERO, ROTULO_ORIGEN, type OrigenArchivero };
 
 // ── Manual (huecos + ediciones EXPLÍCITAS del usuario) ───────────────────────
 // SIN auto-seed: `manual` guarda SOLO lo que el usuario respondió/editó a mano. El
@@ -87,31 +93,38 @@ export async function flatFields(): Promise<Array<{ key: string; label: string; 
 }
 
 // ── Archivos (tabla, scopeada por workspace) ─────────────────────────────────
+const COLS_ARCHIVO = 'id,nombre,mime,tamano,storage_path,razonamiento,campos,created_at';
+
 export async function listFiles(): Promise<ArchiveroFile[]> {
   const db = await getTenantDb();
-  const { data, error } = await db.from('archivero_files')
-    .select('id,nombre,mime,tamano,storage_path,razonamiento,campos,created_at')
-    .order('created_at', { ascending: true });
-  if (error) throw new Error(error.message);
+  // Con `origen` (mig 0316); si la columna todavía no está, sin ella (lib/archivero-registro.ts).
+  const { data, error } = await leerConOrigen<FilaDb[]>(
+    () => db.from('archivero_files').select(`${COLS_ARCHIVO},origen`).order('created_at', { ascending: true }),
+    () => db.from('archivero_files').select(COLS_ARCHIVO).order('created_at', { ascending: true }),
+  );
+  if (error) throw new Error(error.message ?? 'archivero_files');
   return (data ?? []).map((r) => ({ ...r, campos: (r.campos ?? {}) as Record<string, string> })) as ArchiveroFile[];
 }
 
 export async function getFile(id: string): Promise<ArchiveroFile | null> {
   const db = await getTenantDb();
-  const { data, error } = await db.from('archivero_files')
-    .select('id,nombre,mime,tamano,storage_path,razonamiento,campos,created_at')
-    .eq('id', id).maybeSingle();
-  if (error) throw new Error(error.message);
+  const { data, error } = await leerConOrigen<FilaDb>(
+    () => db.from('archivero_files').select(`${COLS_ARCHIVO},origen`).eq('id', id).maybeSingle(),
+    () => db.from('archivero_files').select(COLS_ARCHIVO).eq('id', id).maybeSingle(),
+  );
+  if (error) throw new Error(error.message ?? 'archivero_files');
   return data ? ({ ...data, campos: (data.campos ?? {}) as Record<string, string> } as ArchiveroFile) : null;
 }
 
-export async function insertFile(ws: number, f: { id: string; nombre: string; mime: string; tamano: number; storage_path: string; razonamiento: string; campos: Record<string, string> }): Promise<void> {
+/** `origen`: de dónde vino (mig 0316). Sin la columna, la fila entra igual, sin él (un documento no se pierde por eso). */
+export async function insertFile(ws: number, f: { id: string; nombre: string; mime: string; tamano: number; storage_path: string; razonamiento: string; campos: Record<string, string>; origen?: OrigenArchivero }): Promise<void> {
   const db = await getTenantDb();
-  const { error } = await db.from('archivero_files').insert({
+  const fila: FilaDb = {
     id: f.id, workspace_id: ws, nombre: f.nombre, mime: f.mime, tamano: f.tamano,
     storage_path: f.storage_path, razonamiento: f.razonamiento, campos: f.campos,
-  });
-  if (error) throw new Error(error.message);
+  };
+  const error = await insertarConOrigen((x) => db.from('archivero_files').insert(x), fila, f.origen);
+  if (error) throw new Error(error.message ?? 'archivero_files');
 }
 
 export async function deleteFileRow(id: string): Promise<void> {
@@ -142,7 +155,7 @@ export async function urlPreview(path: string): Promise<string | null> {
 
 /** Vista pública de un archivo (sin la ruta interna de storage). */
 export function pubFile(f: ArchiveroFile) {
-  return { id: f.id, nombre: f.nombre, mime: f.mime, tamano: f.tamano, razonamiento: f.razonamiento, aporto: Object.keys(f.campos || {}).length, created_at: f.created_at };
+  return { id: f.id, nombre: f.nombre, mime: f.mime, tamano: f.tamano, razonamiento: f.razonamiento, aporto: Object.keys(f.campos || {}).length, created_at: f.created_at, origen: f.origen ?? null };
 }
 
 export type ArchiveroEstado = {
@@ -271,7 +284,7 @@ export async function registrarDocumentoSinPisar(ws: number, d: {
       if (ex.sinIA) return { ok: false, motivo: ex.motivoSinIA ? `la IA no pudo leerlo (${ex.motivoSinIA})` : 'la IA no pudo leerlo ahora' };
       // Estrictas ANTES de insertar: si la base no contesta, no queda una fila que el brief no conoce.
       const [manual, previas] = await Promise.all([mapaParaEscribir(MANUAL_KEY), mapaParaEscribir(ANSWERS_KEY)]);
-      await insertFile(ws, { id, nombre, mime: d.mime, tamano, storage_path: destino, razonamiento: ex.razonamiento, campos: ex.campos });
+      await insertFile(ws, { id, nombre, mime: d.mime, tamano, storage_path: destino, razonamiento: ex.razonamiento, campos: ex.campos, origen: 'offer' });
       conFila = true;
       const { siguiente, aportadas } = answersConDocumento(previas, manual, ex.campos);
       if (aportadas.length) {

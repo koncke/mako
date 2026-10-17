@@ -246,7 +246,7 @@ export async function archivarLoQueVendes(ws: number, piezas: PiezasSabidas, neg
   const id = idDeContenido(ws, bytes);
   const path = await subirBinario(ws, id, Buffer.from(bytes), 'application/pdf');
   try {
-    await insertFile(ws, { id, nombre, mime: 'application/pdf', tamano: bytes.byteLength, storage_path: path, razonamiento: RAZON_LO_QUE_VENDES, campos: {} });
+    await insertFile(ws, { id, nombre, mime: 'application/pdf', tamano: bytes.byteLength, storage_path: path, razonamiento: RAZON_LO_QUE_VENDES, campos: {}, origen: 'onboarding' });
   } catch (e) {
     await borrarBinario(path);
     return { ok: false, motivo: e instanceof Error ? e.message : String(e) };
