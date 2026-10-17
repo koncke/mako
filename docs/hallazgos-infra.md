@@ -6607,9 +6607,16 @@ alcanzar, aunque se cumpliera al pie de la letra:
   270 s + tipos 143 s: los afectados bajaron 333 → 270 s y los demás casi nada, 217 → ~206 s). **El diagnóstico (mío) de que «un solo proceso dejaba un núcleo parado» era sólo
   una parte**: con 2 procesos los tests casi no ganaron, y lo mismo se vio local (48 archivos: 232 s con 1 proceso, 182 s con 2, en una PC de 12 núcleos). El costo es el
   ARRANQUE de cada archivo de test —node, `tsx`, compilar el archivo: ~0,4 s × ~1.100 ≈ los 508 s del `npm test` viejo— más las ~150 barredoras que releen los mismos 5.400
-  archivos. Lo que lo evita es no arrancar cada archivo: correr juntos los que no tocan estado global (`--compartir`). Experimento en el workflow, **a medir con el próximo verde**:
-  fase 1 comparte sólo las barredoras (`--compartir=barredoras`) y fase 2 todo lo compartible (`--compartir`); estimación SIN medir en Linux: ~8-9 min facturables. Reversible con
-  `--sin-compartir` en esos dos pasos. Si un rojo de Actions aparece donde el modo compartido local dio verde, sospechar primero del contagio entre tests.
+  archivos. Lo que lo evita es no arrancar cada archivo: correr juntos los que no tocan estado global (`--compartir`).
+  **Los datos del job del run 102** (676 s; runner 2 CPU y 7,9 GB; el Cerebro los sacó de la API): checkout 15 s, setup-node 4, `npm ci` 29, tipos de rutas 1, guardas 10, afectados 279,
+  tipos 154, los demás 182, avanzar main 1. Afectados = 489 archivos en 13 tandas de 40 → **0,57 s por archivo**; los demás = 653 archivos en UNA corrida → **0,28 s por archivo**.
+  El Cerebro leyó «más archivos, menos tiempo» como costo de arrancar cada TANDA; no es: 13 arranques son ~20 s. La diferencia son las ~150 barredoras que viven en los afectados
+  (~1,2 s de reloj cada una); y los 0,28 s de los demás son, sobre todo, el arranque de cada ARCHIVO (node + `tsx`). **Ojo con extrapolar lo local:** el 5× de compartir procesos se
+  midió en Windows, donde releer 5.400 archivos 150 veces es carísimo (antivirus, disco); en Linux la relectura sale de la caché del sistema y lo que se ahorra es sobre todo el
+  arranque, no la lectura. Por eso la estimación para Actions es más modesta: **~7-9 min facturables, SIN medir en Linux.**
+  Experimento en el workflow, **a medir con el próximo verde**: las DOS fases comparten todo lo compartible (`--compartir`; en la fase 1 siguen aislados los tests que el cambio toca y
+  los que tocan el entorno) y la fase 1 va con tandas de 100. Reversible con `--sin-compartir`. Si un rojo de Actions aparece donde el modo compartido local dio verde, sospechar
+  primero del contagio entre tests; el contrapeso es correr `npm test` completo y aislado de vez en cuando.
 - **Un `tsc` «acotado» NO es chico: un archivo de `app/` o `lib/` arrastra ~1.800 archivos y ~2,5 GB** (medido el 17/10: 1 archivo → compila 1.835 y reporta 2.533 MB, 50 s; 10 →
   2.196 y 2.729 MB, 70 s; 60 → 3.476 y 2.514 MB, 96 s). «Acotado» acota LO QUE SE REPORTA, no lo que se carga. El tope de 2 GB que le había puesto a los alcances chicos hacía que
   muriera sin heap a partir de ~10 archivos, y eso se leía como «no terminó» y se SALTABA con un aviso: los tipos casi no se chequeaban. Ahora el mínimo es 3 GB (piso de RAM ~4 GB), así que

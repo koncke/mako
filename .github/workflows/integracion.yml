@@ -79,6 +79,13 @@ jobs:
       # global JUNTOS en un proceso (`--compartir`, scripts/cache-lecturas.cjs): localmente la suite entera pasó de ~50 min a 260 s. EXPERIMENTO a medir en el
       # run que sigue: los afectados comparten sólo sus barredoras (`--compartir=barredoras`: lo que más pesa y menos riesgo tiene) y los demás comparten todo
       # lo compartible (`--compartir`). Todo rojo de un proceso compartido se repite AISLADO antes de contarse. Si algo raro: `--sin-compartir` vuelve a como era.
+      #
+      # Y los DATOS DEL RUN 102 (job completo, 676 s: checkout 15 + setup-node 4 + npm ci 29 + guardas 10 + afectados 279 + tipos 154 + los demás 182; runner de
+      # 2 CPU y 7,9 GB) afinan el diagnóstico: afectados = 489 archivos en 13 tandas de 40 → 0,57 s por archivo; los demás = 653 archivos en UNA corrida → 0,28 s
+      # por archivo. Los 13 arranques de tanda explican ~20 s, no la diferencia: la explican las ~150 barredoras (~1,2 s de reloj cada una). Y los 0,28 s de los
+      # demás son, sobre todo, el ARRANQUE de cada archivo (node + tsx), que sólo se evita compartiendo proceso. Por eso AMBAS fases comparten todo lo
+      # compartible (en la fase 1 siguen aislados, por su propio proceso, los tests que el cambio mismo toca y los que tocan el entorno), y la fase 1 va con
+      # tandas de 100 (había 6 GB libres: las de 40 eran de la notebook). Estimación SIN medir en Linux: ~7-9 min facturables.
       - name: Guardas del push
         run: sh scripts/guardas-push.sh origin
 
@@ -87,7 +94,7 @@ jobs:
           set +e
           echo "runner: $(nproc) CPU, $(free -m | awk '/Mem:/ {print $2}') MB de RAM"
           SECONDS=0
-          node scripts/tests-afectados.mjs --base origin/main --cortar --concurrencia auto --tanda 40 --compartir=barredoras
+          node scripts/tests-afectados.mjs --base origin/main --cortar --concurrencia auto --tanda 100 --compartir
           c=$?
           echo "afectados: $SECONDS s (código $c)" | tee -a "$GITHUB_STEP_SUMMARY"
           if [ "$c" -eq 2 ]; then echo "::warning::no pude calcular los tests afectados: la fase siguiente corre la suite completa"; exit 0; fi
