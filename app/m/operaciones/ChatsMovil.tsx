@@ -46,7 +46,9 @@ import { aspectoDe, elegidoPara, type Aspecto, type MunecosElegidos } from '@/li
 
 const ESTADO: Record<ChatCentro['estado'], string> = { trabajando: 'Trabajando', abierto: 'Abierto', cerrado: 'Cerrado', sin_dato: '' };
 const metaDe = (c: ChatCentro) => ESTADO[c.estado];
-import { copiar, type useFirma } from '@/app/admin/operaciones/mandar';
+import { TEXTO_SOLO_ADJUNTOS, copiar, subirAdjuntos, type useFirma } from '@/app/admin/operaciones/mandar';
+import { BotonAdjuntar, ListaAdjuntos, alPegar, type AdjuntosDeCaja } from '@/app/admin/operaciones/AdjuntosCaja';
+import type { AdjuntoPedido } from '@/lib/operaciones-reglas';
 import type { Centro } from '@/app/admin/operaciones/useCentro';
 import { SelectoresDeEnvio } from '@/app/admin/operaciones/PiezasCentro';
 import { aceptaModelo } from '@/lib/centro-cuentas';
@@ -133,15 +135,32 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
   const destino = elegido ? (centro ? centro.destinoDeChat(elegido) : elegido) : null;
   const envio = destino ? comoSale(destino, carteros, firma.clave === undefined ? undefined : firma.clave?.id ?? null, ahora) : null;
   const texto = elegido ? borradores[elegido.clave] ?? '' : '';
+  // Las fotos y los PDF de la caja (17/10/2026): el estado es del motor (useCentro.ts), el mismo de la computadora.
+  const adjuntos: AdjuntosDeCaja | undefined = centro && elegido ? {
+    items: centro.adjuntosDe(elegido.clave), puede: centro.puedeAdjuntar(elegido),
+    onSumar: (fs) => void centro.sumarAdjuntos(elegido.clave, fs), onQuitar: (id) => centro.quitarAdjunto(elegido.clave, id),
+  } : undefined;
 
   async function mandar() {
-    if (!elegido || !destino?.sesion || !envio?.puede || enviando || !texto.trim()) return;
+    const archivos = adjuntos?.items ?? [];
+    if (!elegido || !destino?.sesion || !envio?.puede || enviando || (!texto.trim() && !archivos.length)) return;
     setEnviando(true);
+    // Primero los archivos: el trabajo se firma con su `ref` y el sha256 que calculó este teléfono (mandar.ts).
+    let subidos: AdjuntoPedido[] = [];
+    if (archivos.length) {
+      const s = await subirAdjuntos(archivos.map((a) => a.file));
+      if (!s.ok) { setEnviando(false); toast(s.error); return; }
+      subidos = s.adjuntos;
+    }
     const como = centro && aceptaModelo(destino.sesion) ? { modelo: centro.modelo, esfuerzo: centro.esfuerzo } : {};
-    const r = await firma.mandar({ sesion: destino.sesion, cuenta: destino.cuenta, titulo: elegido.titulo }, texto, alcance, como);
+    const r = await firma.mandar({ sesion: destino.sesion, cuenta: destino.cuenta, titulo: elegido.titulo }, texto, alcance, como, subidos);
     setEnviando(false);
     if (!r.ok) { toast(r.error); return; }
-    onEnviado({ id: r.id, destino: destino.sesion, destino_titulo: elegido.titulo, destino_cuenta: destino.cuenta, created_at: r.creado, texto: texto.trim(), estado: 'escrito', motivo: null, cierre: null });
+    onEnviado({
+      id: r.id, destino: destino.sesion, destino_titulo: elegido.titulo, destino_cuenta: destino.cuenta, created_at: r.creado, texto: texto.trim() || TEXTO_SOLO_ADJUNTOS,
+      estado: 'escrito', motivo: null, cierre: null, ...(subidos.length ? { adjuntos: subidos.map((a) => a.nombre) } : {}),
+    });
+    centro?.vaciarAdjuntos(elegido.clave);
     setBorradores((b) => ({ ...b, [elegido.clave]: '' }));
     setAlcance('solo_esto');
     centro?.setModelo(null);
@@ -189,17 +208,20 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
   const pie = elegido && envio ? (
     envio.puede ? (
       <div className="m-operaciones-caja">
+        <ListaAdjuntos a={adjuntos} />
         <div className="m-operaciones-caja__fila">
+          <BotonAdjuntar a={adjuntos} apagado={enviando} />
           <textarea
             rows={1}
             value={texto}
             onChange={(e) => setBorradores((b) => ({ ...b, [elegido.clave]: e.target.value }))}
+            onPaste={(e) => alPegar(e, adjuntos)}
             placeholder={`Escribe a ${elegido.titulo}`}
             aria-label={`Escribe a ${elegido.titulo}`}
             disabled={enviando}
           />
           <Microfono valor={texto} onValor={(v) => setBorradores((b) => ({ ...b, [elegido.clave]: v }))} onError={(m) => toast(m)} apagado={enviando} />
-          <button type="button" className="co-enviar" onClick={mandar} disabled={enviando || !texto.trim()} aria-label="Firmar y mandar">
+          <button type="button" className="co-enviar" onClick={mandar} disabled={enviando || (!texto.trim() && !adjuntos?.items.length)} aria-label="Firmar y mandar">
             {enviando ? <span className="co-enviar__giro" aria-hidden /> : <Icon name="flecha" size={18} />}
           </button>
         </div>

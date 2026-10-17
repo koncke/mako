@@ -132,7 +132,7 @@ test('el Centro en el teléfono: el mismo guard antes de leer, manda por el mism
   }
   // Desde el 17/10 la firma llega por el motor del Centro (useCentro.ts), el mismo de la computadora y del Second Brain.
   assert.match(pestanas, /from '@\/app\/admin\/operaciones\/useCentro'/, 'el teléfono usa el motor de la computadora');
-  assert.match(sinComentarios(leer('app/admin/operaciones/useCentro.ts')), /import \{ copiar, useFirma \} from '\.\/mandar';/, 'la firma es la de la computadora (useFirma)');
+  assert.match(sinComentarios(leer('app/admin/operaciones/useCentro.ts')), /import \{[^}]*\buseFirma \} from '\.\/mandar';/, 'la firma es la de la computadora (useFirma)');
   const mandar = sinComentarios(leer('app/admin/operaciones/mandar.ts'));
   assert.match(mandar, /await encolarPedidoAction\(\{ firmado, firma, clavePublica: clave\.spki \}\)/, 'mandar.ts encola por la acción guardada, con el texto firmado tal cual');
   assert.doesNotMatch(mandar, /^'use client'/, 'sin use client: el teléfono no se lleva la pantalla de escritorio');

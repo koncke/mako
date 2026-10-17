@@ -142,7 +142,7 @@ test('el modelo y el esfuerzo viajan al Runner sólo para un chat de la app', as
   assert.deepEqual(comoCorre({ destino: app, modelo: 'sonnet', esfuerzo: null }), { sesion: app, modelo: 'sonnet', esfuerzo: null });
   assert.deepEqual(comoCorre({ destino: app }), {}, 'sin elegir nada, nada');
   assert.deepEqual(comoCorre({ destino: local(1), modelo: 'sonnet', esfuerzo: 'low' }), {}, 'a uno de terminal no se le puede cambiar');
-  assert.match(readFileSync(CARTERO, 'utf8'), /mensaje: mensaje\(l\.p\),\s*\.\.\.comoCorre\(l\.p\),/, 'el buzón lleva lo que dice comoCorre');
+  assert.match(readFileSync(CARTERO, 'utf8'), /mensaje: mensaje\(l\.p(, rutas)?\),\s*\.\.\.comoCorre\(l\.p\),/, 'el buzón lleva lo que dice comoCorre');
 });
 
 test('lo que trae modelo o esfuerzo sale por la PC como siempre a un chat de terminal (sin pedirle al Runner que lo cambie)', async () => {
