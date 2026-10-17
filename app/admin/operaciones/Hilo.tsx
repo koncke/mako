@@ -278,7 +278,11 @@ function Trabajando({ quien, pasos = [] }: { quien: Quien; pasos?: readonly Paso
 
 /** Las líneas de un chat, la más vieja arriba, con la píldora del día cada vez que cambia (WhatsApp). Sólo la
  *  conversación (`lineasDeConversacion`): los hitos van a la barra del Plan. */
-function HiloSinMemo({ lineas: todas, pushes, ahora, vacio, quien, vivo, onResponder, tareas, onFeedback, marcas, pasos }: {
+/** Cuántos mensajes se dibujan al abrir un chat (los últimos): el resto, con «Ver mensajes anteriores» (WhatsApp y Telegram
+ *  cargan para atrás de a tandas). Medido el 17/10/2026: abrir un chat de 60 respuestas trababa ~0,5 s con la CPU ×4. */
+export const TANDA_HILO = 25;
+
+function HiloSinMemo({ lineas: todas, pushes, ahora, vacio, quien, vivo, onResponder, tareas, onFeedback, marcas, pasos, mostrar, onVerAnteriores }: {
   lineas: readonly LineaChat[]; pushes: readonly PushP[]; ahora: number; vacio: string;
   /** El empleado de este chat: su muñeco va al lado de lo que hizo, y grande si todavía no hay nada. */
   quien: Quien & { animo: Animo; dato?: string | null };
@@ -290,6 +294,9 @@ function HiloSinMemo({ lineas: todas, pushes, ahora, vacio, quien, vivo, onRespo
   marcas?: MarcasChat | null;
   /** Los pasos en vivo del turno abierto (la E, lib/centro-pasos.ts): van en el «Trabajando…». */
   pasos?: readonly PasoDelTurno[];
+  /** Cuántos de los últimos mensajes se dibujan (sin esto, todos) y cómo se piden los de antes. */
+  mostrar?: number;
+  onVerAnteriores?: () => void;
 } & ExtrasDelHilo) {
   // Lo que Martín eliminó para él no se dibuja (WhatsApp: «Eliminar para mí»).
   const lineas = sinOcultos(lineasDeConversacion(todas), marcas);
@@ -304,15 +311,18 @@ function HiloSinMemo({ lineas: todas, pushes, ahora, vacio, quien, vivo, onRespo
       </div>
     );
   }
+  const ocultas = mostrar != null && onVerAnteriores ? Math.max(0, lineas.length - mostrar) : 0;
   const items: Array<{ k: string; dia?: string; l?: LineaChat }> = [];
   let ultimoDia: number | null = null;
   lineas.forEach((l, i) => {
+    if (i < ocultas) return;
     const d = diaAR(l.instante);
     if (d !== ultimoDia) { items.push({ k: `d${i}`, dia: rotuloDia(l.instante, ahora) }); ultimoDia = d; }
     items.push({ k: `l${i}`, l });
   });
   return (
     <>
+      {ocultas > 0 && <button type="button" className="co-anteriores" onClick={onVerAnteriores}>{`Ver ${ocultas} mensajes anteriores`}</button>}
       {items.map((it) => (it.dia
         ? <span key={it.k} className="co-dia">{it.dia}</span>
         : <Linea key={it.k} l={it.l!} pushes={pushes} ahora={ahora} quien={quien} vivo={vivo} onResponder={onResponder} extras={{ tareas, onFeedback }} wa={wa} />))}

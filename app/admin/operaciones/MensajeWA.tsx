@@ -21,7 +21,7 @@
 // ⚠️ EN EL TELÉFONO LA BURBUJA NO SE SELECCIONA (como en WhatsApp: se copia desde el menú): mantener apretado abriría la
 //    lupa de iOS en vez del menú. En la computadora el texto se sigue seleccionando con el mouse.
 
-import { createContext, useContext, useEffect, useRef, useState, type ReactNode, type PointerEvent, type WheelEvent } from 'react';
+import { createContext, useContext, useRef, useState, type ReactNode, type PointerEvent, type WheelEvent } from 'react';
 import { MenuContextual, type EntradaMenuContextual, type ItemMenuContextual } from '@/app/_ui/MenuContextual';
 import { Icon } from '@/app/_components/icons';
 import { haptico } from '@/lib/haptico';
@@ -40,6 +40,8 @@ export type AccionesWA = {
   abrirMenu: (m: MensajeWA, x: number, y: number) => void;
   responder: (m: MensajeWA) => void;
   reaccionar: (id: IdMensaje, emoji: string | null) => void;
+  /** Dibujar todos los mensajes (la conversación abre con los últimos): ir a uno viejo lo necesita. */
+  verTodo?: () => void;
 };
 export const ContextoWA = createContext<AccionesWA | null>(null);
 
@@ -47,11 +49,12 @@ export const ContextoWA = createContext<AccionesWA | null>(null);
 export const UMBRAL_RESPONDER = 56;
 const LARGO_MS = 450;
 
-/** Ir a un mensaje: se centra y se marca un momento (lo usan la cita y la barra de fijados). */
-export function irAlMensaje(id: IdMensaje | null) {
+/** Ir a un mensaje: se centra y se marca un momento (lo usan la cita y la barra de fijados). Si es de los que todavía no
+ *  se dibujan (la conversación abre con los últimos), primero se dibujan todos. */
+export function irAlMensaje(id: IdMensaje | null, verTodo?: () => void) {
   if (!id || typeof document === 'undefined') return;
   const el = document.getElementById(idDelElemento(id));
-  if (!el) return;
+  if (!el) { if (verTodo) { verTodo(); window.setTimeout(() => irAlMensaje(id), 80); } return; }
   el.scrollIntoView({ block: 'center', behavior: 'smooth' });
   el.classList.add('co-wa--visto');
   window.setTimeout(() => el.classList.remove('co-wa--visto'), 1600);
@@ -68,7 +71,6 @@ export function Deslizable({ m, className, children }: { m: MensajeWA | null; cl
   const largo = useRef<number | null>(null);
   const tragar = useRef(false);
   const rueda = useRef<{ acum: number; t: number | null; listo: boolean }>({ acum: 0, t: null, listo: false });
-  useEffect(() => () => { if (largo.current) window.clearTimeout(largo.current); if (rueda.current.t) window.clearTimeout(rueda.current.t); }, []);
   if (!wa || !m) return <div className={className} id={m ? idDelElemento(m.id) : undefined}>{children}</div>;
 
   const mover = (dx: number, ms = 0) => {
@@ -187,18 +189,19 @@ export function ReaccionWA({ id, marcas }: { id: IdMensaje | null; marcas: Marca
 
 /** La cita adentro de una burbuja: quién y un renglón; se toca y lleva al mensaje citado (si sigue en la conversación). */
 export function CitaEnBurbuja({ de, texto, lineas }: { de: string; texto: string; lineas: readonly LineaChat[] }) {
+  const wa = useContext(ContextoWA);
   const id = buscarCitado(lineas, { texto });
   const cuerpo = <><span className="co-cita__de">{de}</span><span className="co-cita__texto">{texto}</span></>;
   return id
-    ? <button type="button" className="co-cita co-cita--ir" onClick={() => irAlMensaje(id)} title="Ir al mensaje">{cuerpo}</button>
+    ? <button type="button" className="co-cita co-cita--ir" onClick={() => irAlMensaje(id, wa?.verTodo)} title="Ir al mensaje">{cuerpo}</button>
     : <span className="co-cita">{cuerpo}</span>;
 }
 
 /** La cita arriba de la caja mientras se responde (WhatsApp: el recuadro con la barra de color y la ✕). */
-export function CitaCaja({ cita, onQuitar }: { cita: Cita; onQuitar: () => void }) {
+export function CitaCaja({ cita, onQuitar, verTodo }: { cita: Cita; onQuitar: () => void; verTodo?: () => void }) {
   return (
     <div className="co-cita-caja">
-      <button type="button" className="co-cita co-cita--ir" onClick={() => irAlMensaje(cita.id)} title="Ir al mensaje">
+      <button type="button" className="co-cita co-cita--ir" onClick={() => irAlMensaje(cita.id, verTodo)} title="Ir al mensaje">
         <span className="co-cita__de">{cita.de}</span>
         <span className="co-cita__texto">{renglonDeCita(cita.texto)}</span>
       </button>
@@ -208,8 +211,8 @@ export function CitaCaja({ cita, onQuitar }: { cita: Cita; onQuitar: () => void 
 }
 
 /** La barra de los fijados, arriba de la conversación: muestra uno; tocarla va a ése y pasa al siguiente (WhatsApp). */
-export function BarraFijados({ marcas, lineas, titulo, onSoltar }: {
-  marcas: MarcasChat; lineas: readonly LineaChat[]; titulo: string; onSoltar: (id: IdMensaje) => void;
+export function BarraFijados({ marcas, lineas, titulo, onSoltar, verTodo }: {
+  marcas: MarcasChat; lineas: readonly LineaChat[]; titulo: string; onSoltar: (id: IdMensaje) => void; verTodo?: () => void;
 }) {
   const fijados = marcas.fijados.map((id) => ({ id, l: lineas.find((x) => idDeLinea(x) === id) })).filter((x): x is { id: IdMensaje; l: LineaChat } => !!x.l);
   const [i, setI] = useState(0);
@@ -223,7 +226,7 @@ export function BarraFijados({ marcas, lineas, titulo, onSoltar }: {
         <span className="co-fijados__puntos" aria-hidden>{fijados.map((f, j) => <i key={f.id} data-actual={j === fijados.length - 1 - k ? 'true' : undefined} />)}</span>
       )}
       <AlfilerWA size={14} />
-      <button type="button" className="co-fijados__ir" onClick={() => { irAlMensaje(actual.id); setI((k + 1) % fijados.length); }}>
+      <button type="button" className="co-fijados__ir" onClick={() => { irAlMensaje(actual.id, verTodo); setI((k + 1) % fijados.length); }}>
         <span className="co-cita__de">{m?.de}</span>
         <span className="co-cita__texto">{renglonDeCita(m?.texto ?? '')}</span>
       </button>

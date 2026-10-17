@@ -28,7 +28,7 @@ import type { PasoDelTurno } from '@/lib/centro-pasos';
 import type { Aspecto } from '@/lib/centro-munecos';
 import { hace, type PedidoP, type PushP } from '@/lib/progreso-reglas';
 import type { AccionResponder, Decision } from '@/app/admin/runway/decisiones';
-import { Hilo } from './Hilo';
+import { Hilo, TANDA_HILO } from './Hilo';
 import type { Responder } from './PreguntaChat';
 import type { PreguntaChat as PreguntaChatT } from '@/lib/centro-preguntas-chat';
 import { Pregunta } from './Pregunta';
@@ -167,6 +167,10 @@ export function Conversacion({
   const vivo = useMemo(() => (carteros ? { chat, carteros } : undefined), [chat, carteros]);
 
   // ── Lo de WhatsApp: el menú de un mensaje, su Info y Reenviar ───────────────────────────────────────────────────
+  // La conversación abre con los últimos mensajes (Hilo.tsx → TANDA_HILO); «Ver anteriores» o ir a uno viejo dibujan todos.
+  const [cuantos, setCuantos] = useState(TANDA_HILO);
+  useEffect(() => { setCuantos(TANDA_HILO); }, [chat.clave]);
+  const verTodo = useCallback(() => setCuantos(Number.MAX_SAFE_INTEGER), []);
   const [menuWA, setMenuWA] = useState<{ m: MensajeWA; x: number; y: number } | null>(null);
   const [panelWA, setPanelWA] = useState<{ tipo: 'info' | 'reenviar'; m: MensajeWA } | null>(null);
   const [reenviando, setReenviando] = useState(false);
@@ -179,7 +183,8 @@ export function Conversacion({
       window.setTimeout(() => caja.current?.focus(), 0);
     },
     reaccionar: (id, emoji) => ultimos.current.wa?.onMarcar({ tipo: 'reaccion', id, emoji }),
-  }), []);
+    verTodo,
+  }), [verTodo]);
   const elegirEnMenu = (m: MensajeWA, id: string) => {
     setMenuWA(null);
     if (!wa) return;
@@ -218,12 +223,13 @@ export function Conversacion({
       <div className="co-cuerpo">
       <div className="co-conv">
       {/* Los fijados, arriba de la conversación (WhatsApp): tocar va al mensaje. */}
-      {wa && <BarraFijados marcas={marcas} lineas={lineas} titulo={chat.titulo} onSoltar={(id) => wa.onMarcar({ tipo: 'fijar', id, si: false })} />}
+      {wa && <BarraFijados marcas={marcas} lineas={lineas} titulo={chat.titulo} onSoltar={(id) => wa.onMarcar({ tipo: 'fijar', id, si: false })} verTodo={verTodo} />}
       <div className="co-hilo" ref={hilo}>
         <div className="co-hilo__col">
           <ContextoWA.Provider value={wa ? accionesWA : null}>
             <Hilo lineas={lineas} pushes={pushes ?? SIN_PUSHES} ahora={ahora} vacio="Escríbele abajo para empezar." quien={quien}
-              vivo={vivo} onResponder={onResponder ? responderPregunta : undefined} tareas={tareas} onFeedback={feedback} marcas={wa?.marcas} pasos={pasos} />
+              vivo={vivo} onResponder={onResponder ? responderPregunta : undefined} tareas={tareas} onFeedback={feedback} marcas={wa?.marcas} pasos={pasos}
+              mostrar={cuantos} onVerAnteriores={verTodo} />
           </ContextoWA.Provider>
         </div>
       </div>
@@ -248,7 +254,7 @@ export function Conversacion({
         {envio.puede ? (
           <div className="co-caja">
             {/* Respondiendo a un mensaje: su cita arriba de la caja, con la ✕ para soltarla (WhatsApp). */}
-            {wa?.cita && <CitaCaja cita={wa.cita} onQuitar={() => wa.onCitar(null)} />}
+            {wa?.cita && <CitaCaja cita={wa.cita} onQuitar={() => wa.onCitar(null)} verTodo={verTodo} />}
             <ListaAdjuntos a={adjuntos} />
             {/* Un link se ve azul mientras se escribe (la capa de abajo) y se abre desde su chip (17/10/2026). */}
             <div className="co-caja__campo">
@@ -277,7 +283,7 @@ export function Conversacion({
                 decide solo si de lo pedido sale una regla. */}
             <div className="co-caja__barra">
               <MasCaja a={adjuntos} apagado={enviando} resumen={resumenEnvio}>
-                {(cerrar) => <>{selectores}<TareasVinculadas tareas={tareas} onIr={(u) => { cerrar(); irAlTurno(u); }} /></>}
+                {(cerrar) => <>{selectores}<TareasVinculadas tareas={tareas} onIr={(u) => { cerrar(); verTodo(); window.setTimeout(() => irAlTurno(u), 80); }} /></>}
               </MasCaja>
               <span className="co-caja__hueco" aria-hidden />
               <Microfono valor={texto} onValor={(v) => { setFaltaMic(null); onTexto(v); }} onError={setFaltaMic} apagado={enviando} />

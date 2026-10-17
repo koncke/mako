@@ -1194,3 +1194,7 @@ a.co-link:hover { color: var(--primary-strong); }
 .co-pasos__hecho::before { content: "✓ "; color: var(--good); }
 .co-trabajando .co-trabajando__texto { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: inline-block; }
 .co-trabajando .co-trabajando__puntos { vertical-align: middle; }
+
+/* «Ver mensajes anteriores»: la conversación abre con los últimos (17/10/2026, Hilo.tsx → TANDA_HILO). */
+.co-anteriores { align-self: center; margin: 2px 0 6px; padding: 5px 12px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); color: var(--dim); font: inherit; font-size: var(--fs-meta); cursor: pointer; }
+.co-anteriores:hover { background: var(--velo-hover); }

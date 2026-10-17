@@ -36,7 +36,7 @@ import { preguntasDelChat, respuestasDelChat } from '@/lib/centro-preguntas';
 import { Pregunta } from '@/app/admin/operaciones/Pregunta';
 import { MunecoNuevo, NuevoChat, sePuedeAbrir, type BorradorNuevoChat } from '@/app/admin/operaciones/NuevoChat';
 import { comandoNuevoChat } from '@/lib/runner';
-import { Hilo, Tick } from '@/app/admin/operaciones/Hilo';
+import { Hilo, TANDA_HILO, Tick } from '@/app/admin/operaciones/Hilo';
 import { Muneco, animoDe } from '@/app/admin/operaciones/Muneco';
 import { TareasVinculadas, irAlTurno } from '@/app/admin/operaciones/Avance';
 import { LinksDeLaCaja, ResalteDeLinks, hayLinks } from '@/app/admin/operaciones/ConLinks';
@@ -75,10 +75,11 @@ const edad = (t: number | null, ahora: number): string => {
  * fila: con `memo` y props que no cambian (la vista previa sale de los mapas de useCentro.ts, `onAbrir` es estable) React
  * no vuelve a dibujar las 50 filas en cada uno de esos toques. La medición, en docs/hallazgos-operaciones.md.
  */
-const FilaChatM = memo(function FilaChatM({ c, sub, previa: p, enCurso, espera, aspecto, ahora, onAbrir }: {
+type PropsFilaChatM = {
   c: ChatCentro; sub: boolean; previa: VistaPrevia | null; enCurso: string | null; espera: number; aspecto: Aspecto | null; ahora: number;
   onAbrir: (clave: string) => void;
-}) {
+};
+const FilaChatM = memo(function FilaChatM({ c, sub, previa: p, enCurso, espera, aspecto, ahora, onAbrir }: PropsFilaChatM) {
   const vivo = c.estado === 'trabajando' && !c.viejo;
   return (
     <FilaM
@@ -99,7 +100,7 @@ const FilaChatM = memo(function FilaChatM({ c, sub, previa: p, enCurso, espera, 
 
 /** Dos filas se ven igual si lo que DIBUJAN es igual: el refresco (cada 8 s, cada 2,5 s con algo en camino) arma objetos nuevos
  *  de cada chat y de cada vista previa aunque nada haya cambiado, y sin esto las 90 filas se volvían a dibujar en cada uno. */
-function mismaFila(a: Parameters<typeof FilaChatM>[0], b: Parameters<typeof FilaChatM>[0]): boolean {
+function mismaFila(a: PropsFilaChatM, b: PropsFilaChatM): boolean {
   return a.c.clave === b.c.clave && a.c.titulo === b.c.titulo && a.c.estado === b.c.estado && a.c.viejo === b.c.viejo && a.c.nube === b.c.nube
     && a.sub === b.sub && a.enCurso === b.enCurso && a.espera === b.espera && a.aspecto === b.aspecto && a.onAbrir === b.onAbrir
     && a.previa?.texto === b.previa?.texto && a.previa?.tick === b.previa?.tick && a.previa?.propio === b.previa?.propio
@@ -196,6 +197,10 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
 
   // ── Lo de WhatsApp en cada mensaje (17/10/2026, MensajeWA.tsx): el menú, su Info y Reenviar (adentro de ESTA hoja, con
   //    su «‹», como Renombrar: en el teléfono nunca hay dos hojas) ──────────────────────────────────────────────────
+  // La conversación abre con los últimos mensajes (Hilo.tsx → TANDA_HILO); «Ver anteriores» o ir a uno viejo dibujan todos.
+  const [cuantos, setCuantos] = useState(TANDA_HILO);
+  useEffect(() => { setCuantos(TANDA_HILO); }, [abierto]);
+  const verTodo = useCallback(() => setCuantos(Number.MAX_SAFE_INTEGER), []);
   const [menuWA, setMenuWA] = useState<{ m: MensajeWA; x: number; y: number } | null>(null);
   const [panelWA, setPanelWA] = useState<{ tipo: 'info' | 'reenviar'; m: MensajeWA } | null>(null);
   const [reenviando, setReenviando] = useState(false);
@@ -213,7 +218,8 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
       window.setTimeout(() => caja.current?.focus(), 0);
     },
     reaccionar: (id, emoji) => { const { centro: k, elegido: c } = ultimos.current; if (c) void k.marcar(c, { tipo: 'reaccion', id, emoji }); },
-  }), []);
+    verTodo,
+  }), [verTodo]);
   /** Responder sobre un «Ya está» (la C): la caja arranca con «Sobre «…»: ». */
   const feedback = useCallback((titulo: string) => {
     const { centro: k, elegido: c } = ultimos.current;
@@ -306,13 +312,13 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
     envio.puede ? (
       <div className="m-operaciones-caja">
         {/* Respondiendo a un mensaje: su cita arriba de la caja, con la ✕ para soltarla (WhatsApp). */}
-        {cita && <CitaCaja cita={cita} onQuitar={() => centro.citar(elegido.clave, null)} />}
+        {cita && <CitaCaja cita={cita} onQuitar={() => centro.citar(elegido.clave, null)} verTodo={verTodo} />}
         <ListaAdjuntos a={adjuntos} />
         <div className="m-operaciones-caja__fila">
           {/* El «+» de la caja, como en la computadora: adjuntar y con qué corre (17/10/2026, la B). */}
           {centro && (
             <MasCaja a={adjuntos} apagado={enviando} resumen={resumenDeEnvio(centro, elegido)}>
-              {(cerrar) => <><SelectoresDeEnvio centro={centro} chat={elegido} /><TareasVinculadas tareas={centro.tareasDe(elegido)} onIr={(u) => { cerrar(); irAlTurno(u); }} /></>}
+              {(cerrar) => <><SelectoresDeEnvio centro={centro} chat={elegido} /><TareasVinculadas tareas={centro.tareasDe(elegido)} onIr={(u) => { cerrar(); verTodo(); window.setTimeout(() => irAlTurno(u), 80); }} /></>}
             </MasCaja>
           )}
           <div className="co-caja__campo">
@@ -457,7 +463,7 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
         {elegido && !renombre && !eligiendo && !opciones && !panelWA && (
           <div className="m-operaciones-hilo" ref={hilo}>
             {/* Los fijados, pegados arriba de la conversación (WhatsApp): tocar va al mensaje. */}
-            <div className="m-operaciones-fijados"><BarraFijados marcas={marcas} lineas={lineas} titulo={elegido.titulo} onSoltar={(id) => void centro.marcar(elegido, { tipo: 'fijar', id, si: false })} /></div>
+            <div className="m-operaciones-fijados"><BarraFijados marcas={marcas} lineas={lineas} titulo={elegido.titulo} onSoltar={(id) => void centro.marcar(elegido, { tipo: 'fijar', id, si: false })} verTodo={verTodo} /></div>
             <div className="m-operaciones-hilo__meta">
               {/* Sin «⋯» desde el 17/10/2026: tocar el muñeco abre Renombrar y Cambiar su muñeco. */}
               <button type="button" className="m-operaciones-muneco" onClick={() => setOpciones(true)} aria-label={`Opciones de ${elegido.titulo}`}>
@@ -468,7 +474,8 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
             </div>
             <ContextoWA.Provider value={accionesWA}>
               <Hilo lineas={lineas} pushes={pushes ?? SIN_PUSHES} ahora={ahora} vacio="Escríbele abajo para empezar." quien={quien}
-                vivo={vivo} onResponder={responderPregunta} tareas={centro.tareasDe(elegido)} onFeedback={feedback} marcas={marcas} pasos={centro.pasosDe(elegido)} />
+                vivo={vivo} onResponder={responderPregunta} tareas={centro.tareasDe(elegido)} onFeedback={feedback} marcas={marcas} pasos={centro.pasosDe(elegido)}
+                mostrar={cuantos} onVerAnteriores={verTodo} />
             </ContextoWA.Provider>
             {/* Lo que espera de Martín, al final de la conversación y pegado a la caja: AskUserQuestion de Claude Code. */}
             {preguntas.length > 0 && <Pregunta key={elegido.clave} preguntas={preguntas} responder={responder} />}
