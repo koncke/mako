@@ -10297,7 +10297,11 @@ teléfono sigue con su lectura que traga errores (`listNotificaciones` sin `estr
   tests/mudanza-apagados.test.ts. El diagnóstico obvio («la fila es la que manda, como siempre») no lo veía: la pregunta era
   A QUIÉN le llegaba ANTES.
 
-**La familia «tracking y landing» del lote 3 está entera.** Siguen las otras (anuncios y Meta, reuniones, cursos, CRM,
+- **«completó tu formulario de Meta» (`lead-formulario-meta`, #279, pausada)** tapaba lo que faltaba con frases del código
+  («sin teléfono», «Sin preguntas extra en el formulario.»): un dato que falta se lleva su renglón, y la frase de relleno es
+  un texto que nadie editó. El nombre y el link salen del lead (`trae: ['lead', 'meta']`); lo del formulario, de sus datos.
+
+**La familia «tracking y landing» del lote 3 está entera, y la de «anuncios y Meta» también.** Siguen las otras (anuncios y Meta, reuniones, cursos, CRM,
 Plan, pagos, reportes por email, mensajes al lead: docs/inventario-nada-por-detras.md).
 
 **Vive en:** `lib/tracking-aviso.ts` · `lib/optin-aviso.ts` · `lib/prueba-aviso.ts` · `app/api/track/optin/route.ts` · `app/api/cron/tracking-vigilante/route.ts` · `lib/disparadores.ts` (`tracking_apagado`,
