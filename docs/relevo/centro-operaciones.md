@@ -39,6 +39,14 @@ Llegó por el Cerebro. Textual en sus mensajes; cada punto, con su estado:
    algo hecho, con su ruta. `cartero.mjs hecho` no hace falta.
 5. Después, las tandas 8, 7, 9 y 6 del Second Brain, y «Skills».
 
+**Para el chat «Ops Center» nuevo (17/10, 06:15):** este cerró con el contexto al 87%.
+- **En producción:** Ops Center (run 84), la cuenta y el modelo (run 86) y la conversación (run 87).
+- **Lo último** (`59972600b` y su arreglo) espera su run: el «Voy a trabajar en…», «Sin noticias del Runner» y
+  «Second Brain» que abre el grafo.
+- **El cartero quedó en la 1.8.1**: hay que reinstalarlo. Lee la marca de la 1.8.0 sin perder la respuesta pendiente.
+- **La clase `co-elegir` de los selectores** la renombró el Cerebro a `co-envio-sel` en wt-push-q (chocaba con la grilla
+  de ElegirMuneco). Al mergear, tomar la de él.
+
 **Regla nueva de Martín (17/10, en AGENTS.md):** el «Ya está» de lo que llegó a producción lo escribe CADA chat en Ops
 Center, no el Cerebro. Cuando el Cerebro avise que una punta está en Ready, se escribe «Ya está» en este chat.
 

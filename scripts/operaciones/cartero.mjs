@@ -69,7 +69,7 @@ import os from 'node:os';
 import path from 'node:path';
 import crypto from 'node:crypto';
 
-export const VERSION = '1.8.0';
+export const VERSION = '1.8.1';
 const HOME = os.homedir();
 const DIR = process.env.CARTERO_DIR || path.join(HOME, '.claude', 'operaciones');
 const APP = process.env.CARTERO_APP_DIR || path.join(process.env.APPDATA || path.join(HOME, 'AppData', 'Roaming'), 'Claude', 'claude-code-sessions');
@@ -340,7 +340,10 @@ function turnosNuevos(c) {
   const corte = buf.lastIndexOf(0x0a);
   const completo = corte >= 0 ? buf.subarray(0, corte + 1) : Buffer.alloc(0);
   const offset = inicio + completo.length;
-  const r = turnosDeLineas(completo.toString('utf8').split('\n').filter(Boolean), marca?.pendiente ?? null);
+  // La 1.8.0 guardaba sólo la última respuesta ({ uuid, texto, at }); la 1.8.1, el turno abierto ({ primero, ultimo }).
+  const viejo = marca?.pendiente;
+  const pendiente = viejo && typeof viejo.uuid === 'string' ? { primero: null, ultimo: viejo } : viejo ?? null;
+  const r = turnosDeLineas(completo.toString('utf8').split('\n').filter(Boolean), pendiente);
   // Un chat que no está trabajando ya terminó su turno: su última respuesta es la que vale.
   if (r.pendiente && !ocupado) { const t = cierreDe(r.pendiente); if (t) r.turnos.push(t); r.pendiente = null; }
   return { turnos: r.turnos.map((t) => ({ local: c.local, ...t })), marca: { archivo, transcript: c.transcript, offset, pendiente: r.pendiente } };
