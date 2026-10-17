@@ -624,8 +624,9 @@ export const ROTULO_NODO: Record<EstadoNodo, string> = {
 
 export type NodoAvance = {
   id: string;
-  /** pedido = lo trabajó este chat · derivado = se lo pediste acá y lo trabajó otro · trabajo = se lo mandaste desde el Centro. */
-  origen: 'pedido' | 'derivado' | 'trabajo';
+  /** pedido = lo trabajó este chat · derivado = se lo pediste acá y lo trabajó otro · trabajo = se lo mandaste desde el Centro
+   *  · ya_esta = el chat dijo «Ya está» en su conversación (sólo en Review: `yaEstaDelChat`). */
+  origen: 'pedido' | 'derivado' | 'trabajo' | 'ya_esta';
   titulo: string;
   /** El texto entero que se pidió o se mandó. */
   prompt: string;
@@ -730,6 +731,49 @@ const paraRevisar = (pagina: unknown, sesion: string | null): NodoAvance['revisa
 /** Todo lo terminado, deje o no una página para mirar, lo más nuevo arriba. */
 export const porRevisar = (nodos: readonly NodoAvance[]): NodoAvance[] =>
   nodos.filter((n) => n.estado === 'hecho').sort((a, b) => b.instante - a.instante);
+
+// ── Los «Ya está» de cada chat, en Review (Ops Center, 17/10/2026) ──────────────────────────────────────────────────
+// La regla de Martín (AGENTS.md): cada chat cierra lo que llegó a producción con «Ya está» en SU chat, con la ruta donde se
+// prueba. Llegaban sólo como texto de la conversación (el último texto del turno, del transcript: cartero.mjs →
+// turnosDeLineas). Ahora cada uno es un HECHO de Review, con su ruta en «Revisar». NO entran al Plan: el Plan son los
+// pedidos y los trabajos, y un «Ya está» cierra uno de ésos (contarlo dos veces inflaría el «8/13»).
+
+/** ¿Este texto es un «Ya está»? Su primer renglón empieza así, con o sin negrita, tilde o un ✅ adelante. */
+export const esYaEsta = (texto: string): boolean =>
+  /^[\s*_#>✅✔·\-–—]*ya est[áa](?![a-zñáéíóú])/i.test(texto.trim().split('\n')[0] ?? '');
+
+/** Lo que hay en el texto que parece un archivo o una carpeta de la PC, no una página de MaKo. */
+const ES_ARCHIVO = /^\/(c|d|tmp|usr|home|users|mnt|dev|etc|var|opt|private)(\/|$)|\.(tsx?|m?js|json|md|css|sql|txt|log|ps1|sh)(\?|#|$)/i;
+
+/**
+ * La ruta de MaKo que dejó un «Ya está» («Pruébalo en /crm?lead=12», un link de hola-mako.com o `[aquí](/offer)`): la
+ * primera que es una ruta interna y no un archivo. null = no dejó ninguna (Review lleva a la tab de su área).
+ */
+export function rutaDeYaEsta(texto: string): string | null {
+  const absolutas = [...texto.matchAll(/https?:\/\/(?:www\.)?hola-mako\.com(\/[^\s)\]»"'`<>]*)/gi)].map((m) => m[1]);
+  const sueltas = [...texto.matchAll(/(?:^|[\s(«"'`[])(\/[a-z0-9][^\s)\]»"'`<>]*)/gi)].map((m) => m[1]);
+  for (const c of [...absolutas, ...sueltas]) {
+    const r = rutaParaRevisar(c.replace(/[.,;:!?]+$/, ''));
+    if (r && !ES_ARCHIVO.test(r)) return r;
+  }
+  return null;
+}
+
+/** Los «Ya está» de la conversación de un chat, como hechos de Review (lo más nuevo arriba lo ordena `porRevisar`). */
+export function yaEstaDelChat(lineas: readonly LineaChat[]): NodoAvance[] {
+  return lineas.flatMap((l): NodoAvance[] => {
+    if (l.tipo !== 'turno' || l.turno.rol !== 'el' || !esYaEsta(l.turno.texto)) return [];
+    const t = l.turno.texto.trim();
+    // El título es lo que sigue al «Ya está» (o «Ya está», si no dijo más).
+    const resto = t.replace(/^[\s*_#>✅✔·\-–—]*ya est[áa][\s*_.:!,;\-–—]*/i, '').trim();
+    const ruta = rutaDeYaEsta(t);
+    return [{
+      id: `y:${l.turno.uuid}`, origen: 'ya_esta', titulo: resto ? tituloDeTexto(resto) : 'Ya está', prompt: t, instante: l.instante,
+      estado: 'hecho', cuentas: [], pasos: [], commits: [], trabajaron: [], cierre: t, motivo: null,
+      revisar: ruta ? { pagina: ruta, sesion: DESTINO_RE.test(l.turno.local) ? l.turno.local : null } : null,
+    }];
+  });
+}
 
 /**
  * La ruta de la tab que se llama como el jefe de un chat («CRM» para «CRM › Lead Detail», ver `partesDelNombre`):

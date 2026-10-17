@@ -18,7 +18,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { Icon } from '@/app/_components/icons';
 import type { Alcance, TurnoChat } from '@/lib/operaciones-reglas';
-import { avanceDelChat, conteoAvance, historialDelChat, nombreCuenta, textoDeEnvio, trabajaSinEscribir, type ChatCentro, type Envio, type TrabajoP } from '@/lib/centro-chats';
+import { avanceDelChat, conteoAvance, historialDelChat, nombreCuenta, textoDeEnvio, trabajaSinEscribir, yaEstaDelChat, type ChatCentro, type Envio, type TrabajoP } from '@/lib/centro-chats';
 import type { Aspecto } from '@/lib/centro-munecos';
 import { hace, type PedidoP, type PushP } from '@/lib/progreso-reglas';
 import type { AccionResponder, Decision } from '@/app/admin/runway/decisiones';
@@ -189,7 +189,7 @@ export function Conversacion({
         <p className="co-caja__estado" aria-live="polite">{envio.puede ? faltaMic ?? estado ?? '' : ''}</p>
       </div>
       </div>
-      {avance && <RielAvance nodos={nodos} pushes={pushes} ahora={ahora} onCerrar={() => onAvance(false)} chat={chat} />}
+      {avance && <RielAvance nodos={nodos} yaEsta={yaEstaDelChat(lineas)} pushes={pushes} ahora={ahora} onCerrar={() => onAvance(false)} chat={chat} />}
       </div>
     </section>
   );
