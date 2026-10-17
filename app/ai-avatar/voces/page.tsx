@@ -14,7 +14,7 @@ export default async function VocesPage() {
   await requireAiAvatar();
   return (
     <Pagina>
-      <PageHeader titulo="Voces" proposito="Escucha y elige cómo suena tu avatar." />
+      <PageHeader titulo="Voices" proposito="Escucha y elige cómo suena tu avatar." />
       <Voces />
     </Pagina>
   );
