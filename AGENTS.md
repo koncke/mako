@@ -411,7 +411,10 @@ tests así se llevó la RAM de la PC y se cayó la app con todos los chats. El s
 
 **Actions hace lo mismo, primero** (`.github/workflows/integracion.yml`): guardas → tests afectados contra `origin/main`
 → tipos → los demás tests. La suma de las dos fases es la suite entera y ninguno corre dos veces; si el script no puede
-calcular, la segunda fase cae a `npm test`. Un rojo se ve en ~3 min en vez de ~11 (Tests: 508 s, Tipos: 137 s).
+calcular, la segunda fase cae a `npm test`. Medido con la API (`/actions/runs/{id}/timing`, 17/10): un run ROJO cuesta ~2 min
+facturables (run 94: 107 s; antes 5-10). El VERDE (run 95: 781 s) subió de ~11 a 14 porque `--concurrencia auto` dejaba el default de
+node (núcleos − 1 = UN proceso en un runner de 2 vCPU): ahora `auto` usa todos los núcleos, la segunda fase va en UNA sola corrida
+de `node --test`, y un archivo que sólo falla con varios procesos se repite solo y, si pasa, sale como FLAKY (no frena, pero se ve).
 
 **La prueba de que sirve es un replay**: `node scripts/replay-fallos-ci.mjs` repite los 17 runs rojos de Actions
 (`docs/fallos-ci-integracion.jsonl`) sobre el árbol exacto de la cabeza que falló y con la base real (el último verde):

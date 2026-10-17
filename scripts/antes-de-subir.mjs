@@ -292,6 +292,7 @@ async function main(argv) {
       else {
         rmSync(carpetaTmp, { recursive: true, force: true });
         out(`  ${r.rojos.size ? '✖' : '✔'} ${r.total.tests} tests de ${lista.length} archivos · ${min(r.ms)} · RAM libre mínima ${Number.isFinite(r.ramMin) ? r.ramMin.toFixed(1) : '?'} GB`);
+        if (r.flaky.length) out(`  ⚠ ${r.flaky.length} FLAKY (rojos con 2 procesos, verdes solos; no frenan): ${r.flaky.join(', ')}`);
         if (r.rojos.size) rojos.push(`tests: ${[...r.rojos].map((f) => f.replace(/^tests\//, '')).slice(0, 6).join(', ')}${r.rojos.size > 6 ? '…' : ''}`);
       }
     }
