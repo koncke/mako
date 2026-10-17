@@ -1252,14 +1252,18 @@ export function EditorInforme({
         onHojas={(ancla) => alternarMenu('hojas', ancla)} onEmoji={(ancla) => alternarMenu('emoji', ancla)} onCambiar={cambiarCabecera}
         derecha={(
           <>
-            {/* Los filtros de la hoja, SIEMPRE a la vista (punto 7); agregarlos y quitarlos, sólo editando. En General no
-                van (14/10/2026, Martín: «Toda la topbar la deberías copiar de Dashboard menos la barra de busqueda y el
-                filtro que no sirven en general»): su barra es el título, Editar y el ⋮.
+            {/* La búsqueda y los filtros de la hoja, SIEMPRE a la vista (punto 7); agregarlos y quitarlos, sólo editando.
+                EN GENERAL TAMBIÉN desde el 17/10/2026 (#858, Martín en la revisión del 16/10, 1:10:12: «al momento de crear
+                una plantilla en la tab general no aparece el filtro… de fecha y… la barra de búsqueda. Esas dos cosas siempre
+                deberían aparecer por defecto… y tampoco aparece en la edición el botón de agregarlo»). Revierte el 14/10
+                («menos la barra de busqueda y el filtro que no sirven en general»). Las plantillas de General ya traían su
+                control de período (lib/graficos-plantillas-generales.ts): lo que faltaba era dibujarlo. ⚠️ El período
+                mueve los GRÁFICOS de la hoja; los bloques de General dicen su propio rango («del mes», «hoy»).
                 ⚠️ Y EN BLANCO NO VA NADA DE ESTO, en las dos pantallas (14/10/2026, Martín: «Si no tengo tabs no debería
                 salir el botón de editar ni los 3 puntos. Lo mismo para dashboard... Y en el caso de dashboard tampoco el
                 filtro ni la barra de busqueda»): sin una hoja no hay qué editar, filtrar ni exportar. Lo único que se
                 hace en blanco es elegir con qué arrancar, y eso está en el medio de la pantalla. */}
-            {!esGeneral && !enBlanco && (
+            {!enBlanco && (
             <div className="lk-top-filtros" data-recorrido="dash-controles">
               <BarraControles
                 hoja={hojaTop} vista={vista} editando={editando} guardable={guardable} hoy={hoy} compartido={compartido}

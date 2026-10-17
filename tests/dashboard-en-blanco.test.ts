@@ -60,8 +60,9 @@ test('EditorInforme: en blanco, la caja «¿Qué vas a crear hoy?» con las plan
   // En blanco el desplegable de hojas sólo existe si hay Archivados (para restaurar una).
   assert.match(src, /conHojas=\{enBlanco \? guardable && !!tablero\.archivadas\?\.length : /);
   // En blanco no hay «Editar» ni ⋮, y en el Dashboard tampoco el filtro ni la búsqueda (14/10/2026: «Si no tengo tabs no
-  // debería salir el botón de editar ni los 3 puntos. Lo mismo para dashboard»). En General la barra de filtros no va nunca.
-  assert.match(src, /\{!esGeneral && !enBlanco && \(\s*<div className="lk-top-filtros"/);
+  // debería salir el botón de editar ni los 3 puntos. Lo mismo para dashboard»). Desde el 17/10 (#858) la barra de filtros
+  // va también en General (tests/general-filtros-por-defecto.test.ts); en blanco, en ninguna.
+  assert.match(src, /\{!enBlanco && \(\s*<div className="lk-top-filtros"/);
   assert.match(src, /\{!soloMirar && !enBlanco && \(\s*<button type="button" className="lk-pill lk-pill--azul"/);
   assert.match(src, /\{!enBlanco && \(\s*<button type="button" className="lk-pill lk-pill--icono lk-mas"/);
   assert.doesNotMatch(src, /empezarEnBlanco/, 'volvió el «Editar» de la pantalla en blanco');

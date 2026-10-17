@@ -32,6 +32,8 @@ encima de la plantilla; «Editar con MaKo» con el muñeco de la tab; el cubo de
   `/general?hoja=` (docs/hallazgos-mobile.md).
 - **#857** — una plantilla entra al instante y se ajusta por detrás; la ajustada reemplaza sólo si nadie la tocó
   (docs/hallazgos-graficos.md).
+- **#858** — General vuelve a tener la búsqueda y el filtro de fecha (revierte el 14/10); el período mueve los gráficos,
+  no los bloques (docs/hallazgos-graficos.md).
 - **Experiments se retiró y vive en el Dashboard:**
   - «probemos X» en «Editar con MaKo» agrega a la hoja un elemento «Experimento» (app/dashboard/ElementoExperimento.tsx):
     propuesta → «Arrancar» (mide el baseline) → antes/ahora en vivo → «Concluir» (veredicto y aprendizaje de MaKo).
@@ -43,8 +45,7 @@ encima de la plantilla; «Editar con MaKo» con el muñeco de la tab; el cubo de
 
 ## Lo que falta
 
-- **Lo que sigue del orden del Cerebro (17/10)**: #858 (filtro de fecha y buscador por defecto en las plantillas de
-  General: revierte lo que Martín sacó el 14/10), #859 (los bloques épicos con el color de la hoja), #860 (anuncios
+- **Lo que sigue del orden del Cerebro (17/10)**: #859 (los bloques épicos con el color de la hoja), #860 (anuncios
   ganadores en 9:16 y que se reproduzcan en la hoja; ojo, Meta ya no da `source`), #862 y #896 (un chat de MaKo que
   separe analizar de editar; las métricas de los experimentos con ElegirFunnels: la Retro ya no existe), #886 (un solo
   análisis de landing con el Web Generator). El detalle de cada uno, en C:/dev/auditoria-1610.json por su número.

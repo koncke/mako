@@ -1201,6 +1201,21 @@ Test: tests/dashboard-plantilla-al-instante.test.ts (probado rompiéndolo). **Na
 lib/graficos-plantilla-relleno.ts · app/api/graficos/plantilla/route.ts.
 *17/10/2026, claude4 (chat Dashboard).*
 
+## General vuelve a tener la búsqueda y el filtro de fecha (17/10/2026)
+
+Martín (#858, revisión del 16/10, 1:10:12): en General «el filtro… de fecha y… la barra de búsqueda… siempre deberían
+aparecer por defecto», y editando falta cómo agregarlos. Revierte el 14/10, cuando los sacó porque «no sirven en general».
+
+- **Las plantillas de General YA traían su control de período** (`plantilla()`, lib/graficos-plantillas-generales.ts):
+  lo único que faltaba era dibujar la barra, que el editor escondía con `!esGeneral`. Ahora va en las dos pantallas, salvo
+  en blanco.
+- ⚠️ **El período mueve los GRÁFICOS de la hoja, no los bloques de General**: los bloques leen `armarDatosGeneral` con su
+  propio rango («del mes», «hoy», el trimestre del OKR). Por eso el 14/10 «no servía»: en una General hecha sólo de
+  bloques, el filtro no cambia nada. Si Martín lo quiere en los bloques, es otro trabajo (cada bloque con su período).
+
+Test: tests/general-filtros-por-defecto.test.ts (probado rompiéndolo). **Nadie lo miró en pantalla.**
+*17/10/2026, claude4 (chat Dashboard).*
+
 ## Lo que quedó sin hacer
 
 - **Una plantilla que se ajusta por detrás (17/10/2026):** mientras llega el ajuste, la hoja muestra los gráficos que
