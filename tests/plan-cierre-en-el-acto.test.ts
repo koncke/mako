@@ -18,13 +18,18 @@
 //   4. `cerrarTareaCliente` sin subir el avance a 100 ................................ 1 fallo
 //   5. `tarjetasDelYaEsta` aceptando un título de dos palabras ....................... 1 fallo
 //   6. `numerosDeTarjeta` tomando «&#39;» como una tarjeta ............................ 1 fallo
+//   7. `cerrarTareaDelPlan` mandando la evidencia sin recortar (la #888, 440 car.) ... 1 fallo
+//   8. `cerrarTareaDelPlan` mirando sólo el proyecto del jefe al fallar .............. 1 fallo
+//   9. `errorDeCierre` diciendo «Ya no estaba abierta» sin saber que no existe ....... 1 fallo
 // =============================================================================
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
-import { numerosDeTarjeta, tarjetasDelYaEsta, type TareaPlanP } from '../lib/centro-plan-reglas';
+import { numerosDeTarjeta, tarjetasDelYaEsta, inputDeCierre, errorDeCierre, type TareaPlanP } from '../lib/centro-plan-reglas';
+import { validarInput } from '../lib/api-mako/validar';
+import { readFileSync } from 'node:fs';
 import { pruebaConRuta, TOPE_PRUEBA_CIERRE } from '../lib/cierre-tarjeta';
 import { DEFS } from '../lib/api-mako/areas/plan.def';
 
@@ -47,6 +52,26 @@ test('el «Ya está» cierra lo que nombra por número, y si no nombra nada, só
   // Un parecido no alcanza, y un título corto tampoco (cerraría cualquier cosa).
   assert.deepEqual(tarjetasDelYaEsta('Ya está: arreglé la asignación de Fathom.', abiertas, delJefe), []);
   assert.deepEqual(tarjetasDelYaEsta('Ya está: modo oscuro.', [t(883, 'Modo oscuro')], [t(883, 'Modo oscuro')]), []);
+});
+
+test('el «Marcar hecha» del Centro: la evidencia entra en el tope y el error real no se tapa', () => {
+  // La #888 del ws 9 traía 440 caracteres y `cerrar_tareas_plan` la rechazaba entera («supera el tope de 400»).
+  const d = DEFS.find((x) => x.id === 'cerrar_tareas_plan')!;
+  const larga = { id: 't888', evidencia: 'y'.repeat(440), revisar: '/offer' };
+  assert.ok('error' in validarInput(d.parametros ?? [], { cerrar: [{ ...larga }] }, 'json'), 'sin recortar, la API la rechaza');
+  const r = validarInput(d.parametros ?? [], inputDeCierre(larga), 'json');
+  assert.ok(!('error' in r), JSON.stringify(r).slice(0, 200));
+  assert.ok(inputDeCierre(larga).cerrar[0].evidencia.endsWith('…'), 'el corte se ve');
+  // Una tarea de OTRO proyecto que sigue abierta: el error real, no «Ya no estaba abierta».
+  assert.equal(errorDeCierre('Falló «Marcar hechas»: timeout', true), 'Falló «Marcar hechas»: timeout');
+  assert.equal(errorDeCierre('Falló «Marcar hechas»: timeout', false), 'Falló «Marcar hechas»: timeout', 'sin saber que no existe, no se inventa');
+  assert.equal(errorDeCierre('Estas tareas no existen en el plan de este negocio: t888.', false), 'Ya no estaba abierta.');
+  // Y el Centro mira TODO el tablero antes de decidir (no sólo el proyecto del jefe).
+  const src = readFileSync(join(__dirname, '..', 'lib', 'centro-plan.ts'), 'utf8');
+  const fn = src.slice(src.indexOf('export async function cerrarTareaDelPlan'), src.indexOf('export type CierrePorYaEsta'));
+  assert.match(fn, /enElActo\('cerrar_tareas_plan', inputDeCierre\(t\), ctx\)/);
+  assert.match(fn, /const todo = await listado\(ctx\);/);
+  assert.match(fn, /errorDeCierre\(r\.error, sigue\)/);
 });
 
 test('la ruta para revisar sobrevive a una prueba larga', () => {

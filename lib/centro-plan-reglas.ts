@@ -21,6 +21,7 @@
 
 import { esCerebro, partesDelNombre, tituloDeTexto } from './centro-chats';
 import { nucleo } from './plan-proyectos-catalogo';
+import { recortarPrueba } from './cierre-tarjeta';
 
 /** Una tarea abierta del Plan, lo mínimo que dibuja el chat (de `tareaCompacta`, lib/api-mako/areas/plan.helpers.ts). */
 export type TareaPlanP = {
@@ -177,3 +178,21 @@ export function tarjetasDelYaEsta(texto: string, abiertas: readonly TareaPlanP[]
     return tit.split(' ').length >= 3 && t.includes(` ${tit} `);
   });
 }
+
+// ── Un cierre desde el Centro (17/10/2026, lo encontró Offer con la #888 del ws 9) ──────────────────────────────────
+
+/**
+ * Lo que el Centro le manda a `cerrar_tareas_plan` por UNA tarea, con la evidencia ya dentro del tope. La API valida el
+ * largo ANTES de correr (`TOPE_PRUEBA_CIERRE`, 400) y rechaza todo el cierre: la #888 traía 440 caracteres y no se
+ * cerró («supera el tope de 400»). Recortada acá, termina en «…» y se ve que se cortó.
+ */
+export const inputDeCierre = (t: { id: string; evidencia: string; revisar?: string | null }) =>
+  ({ cerrar: [{ id: t.id, evidencia: recortarPrueba(t.evidencia), ...(t.revisar ? { revisar: t.revisar } : {}) }] });
+
+/**
+ * El error que se muestra cuando un cierre falla. Mientras la tarea siga abierta en el tablero (en CUALQUIER proyecto,
+ * no sólo en el del jefe), el error real. «Ya no estaba abierta» sólo cuando no está en ninguna lista abierta y el Plan
+ * dice que no existe: antes, una tarea de otro proyecto tapaba el error real con esa frase, que era falsa.
+ */
+export const errorDeCierre = (error: string, sigueAbierta: boolean): string =>
+  (sigueAbierta || !/no existen?/i.test(error) ? error : 'Ya no estaba abierta.');
