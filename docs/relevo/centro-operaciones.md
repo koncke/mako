@@ -24,7 +24,7 @@ Onboarding (`local_0702928b…`) y a Sidebar (`local_789aebfb…`) que `Criatura
 `aab915c7e`).
 
 **Lo que sigue, en este orden:**
-0. **Volver a traer el Plan desde el chat y el paso «buscar», arreglados** (la revisión del Cerebro, 17/10, informe en el scratchpad
+0. **HECHO en la punta siguiente (cartero 1.15.6, ⚠️ REVISAR): el Plan desde el chat y el paso «buscar», arreglados** —todo pedido trae el trabajo firmado (`--trabajo <id>`), la salida va con forma fija por `textoRemoto`, «buscar» sólo cierra «#NN» con verbo de cierre, en producción y del proyecto del jefe, y un fallo reintenta—. Lo que pedía la revisión (la revisión del Cerebro, 17/10, informe en el scratchpad
    del cuarto: `scratchpad/ops4/revision.md`; otra punta con ⚠️ REVISAR):
    - `plan prioridades` / `plan cerrar` imprimían la respuesta de MaKo ENTERA: va por `textoRemoto` o con forma fija;
    - `?plan=1` cerraba sólo con el token, y la `sesion` la declara quien llama (un chat suplanta a otro jefe): cerrar pide un

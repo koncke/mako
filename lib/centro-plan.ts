@@ -18,7 +18,7 @@ import { esAccion, type Ctx } from './api-mako/tipos';
 import { runWithWorkspace } from './workspace';
 import {
   avisoDeAlta, avisoDeYaEstaba, dondeQuedo, errorDeCierre, inputDeCierre, numerosDeTarjeta, ordenarTareas, proyectoDelChat, proyectoDelJefe, proyectosDelListado,
-  tareasDelListado, tarjetasDelYaEsta, yaAbierta,
+  tareasDelListado, tarjetasCerradasPorYaEsta, tarjetasDelYaEsta, yaAbierta,
   type EscritoPlan, type LecturaPlan, type TareaPlanP,
 } from './centro-plan-reglas';
 import { rutaDeYaEsta } from './centro-chats';
@@ -111,6 +111,22 @@ export async function cerrarTareaDelPlan(ctx: Ctx, chat: string, t: { id: string
     return { ok: false, error: errorDeCierre(r.error, sigue), plan };
   }
   return { ok: true, aviso: 'Marcada hecha', plan };
+}
+
+/**
+ * El «Ya está» que llega SOLO, para el Plan automático (lib/centro-plan-auto.ts): cierra SÓLO las tarjetas del proyecto del
+ * JEFE que el texto da por cerradas y en producción (`tarjetasCerradasPorYaEsta`, lib/centro-plan-reglas.ts). La versión de
+ * abajo (`cerrarPorYaEsta`) mira todo el tablero y todo número: no se usa sin Martín.
+ */
+export async function cerrarPorYaEstaDelJefe(ctx: Ctx, chat: string, texto: string): Promise<{ ok: true; cerradas: number } | { ok: false; error: string }> {
+  const delJefe = await leerPlanDelJefe(ctx, chat);
+  if (!delJefe.ok) return { ok: false, error: delJefe.motivo };
+  const tarjetas = tarjetasCerradasPorYaEsta(texto, delJefe.tareas);
+  if (!tarjetas.length) return { ok: true, cerradas: 0 };
+  const evidencia = recortarPrueba(texto.replace(/\s+/g, ' ').trim());
+  const revisar = rutaDeYaEsta(texto);
+  const r = await enElActo('cerrar_tareas_plan', { cerrar: tarjetas.map((t) => ({ id: t.id, evidencia, ...(revisar ? { revisar } : {}) })) }, ctx);
+  return r.ok ? { ok: true, cerradas: tarjetas.length } : { ok: false, error: r.error };
 }
 
 /** Lo que hizo un «Ya está» con el Plan. `sinTarjeta`: no nombró ninguna ni había una con su título (no se cerró nada). */

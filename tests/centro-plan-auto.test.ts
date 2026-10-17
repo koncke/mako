@@ -15,10 +15,12 @@
 //   · sin mirar los turnos ya vistos → 1 fallo (2);
 //   · `conResultado` sin el tope de intentos → 1 fallo (3);
 //   · la vuelta aplicando en el acto (sin `after`) → 1 fallo (4).
-//   5. (17/10/2026, juntado con el cierre por «Ya está» del chat Plan) un «Ya está» SIN su «Voy a…» busca primero las
-//      tarjetas que nombra (#870) o cuyo título dice, y si cierra alguna no crea otra. Probado rompiéndolo: `proximoPaso`
-//      sin el paso «buscar» → 1 fallo; `conResultado` creando igual aunque cerró → 1 fallo; `aplicarPlanDeLosChats` sin
-//      `cerrarPorYaEsta` → 1 fallo (todos en el 5).
+//   5. (17/10/2026, juntado con el cierre por «Ya está» del chat Plan; rehecho con la revisión del Cerebro) un «Ya está:» SIN
+//      su «Voy a…» que da por cerradas «#NN» en producción busca primero esas tarjetas, SÓLO en el proyecto del jefe; si
+//      cerró alguna no crea otra; si el Plan falló, reintenta. Probado rompiéndolo: `proximoPaso` sin «buscar» → 1 fallo;
+//      `conResultado` tratando el fallo como «no había» → 1 fallo; `anotarTurnos` guardando el texto de cualquier «Ya
+//      está» → 1 fallo; `numerosCerradosEn` sin mirar lo pendiente → 1 fallo; `tarjetasCerradasPorYaEsta` sin pedir «en
+//      producción» → 1 fallo; el Plan automático con la `cerrarPorYaEsta` de todo el tablero → 1 fallo.
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -26,6 +28,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { anotarTurnos, conResultado, esVoyATrabajar, proximoPaso, tituloDeVoy, tituloDeYa, type TareaDelChat } from '../lib/centro-plan-auto-reglas';
+import { esYaEstaDeCierre, numerosCerradosEn, tarjetasCerradasPorYaEsta } from '../lib/centro-plan-reglas';
 import type { TurnoChat } from '../lib/operaciones-reglas';
 
 const L = 'local_11111111-1111-4111-8111-111111111111';
@@ -97,18 +100,40 @@ test('4. la vuelta anota rápido y aplica después de contestar, con el actor de
   assert.doesNotMatch(auto, /from\('plan_tareas'\)/, 'ninguna escritura directa al tablero');
 });
 
-test('5. un «Ya está» sin su «Voy a…» busca primero sus tarjetas; si cerró alguna, no crea otra', () => {
-  const y = dice('Ya está: cerré la #870 (el filtro del CRM).');
+test('5. un «Ya está» sin su «Voy a…» busca primero sus tarjetas; si cerró alguna, no crea otra; si falló, reintenta', () => {
+  const y = dice('Ya está: cerré la #870 (el filtro del CRM), ya en producción.');
   let lista: TareaDelChat[] = anotarTurnos([], [y], 'CRM');
   assert.equal(lista[0].yaTexto, y.texto, 'guarda el texto: con él se buscan las tarjetas');
   assert.equal(proximoPaso(lista)?.accion, 'buscar');
   const cerro = conResultado(lista, lista[0], { buscada: true, cerradas: 1 });
   assert.deepEqual([cerro[0].estado, proximoPaso(cerro)], ['hecha', null], 'cerró la #870: nada que crear');
+  // Si el Plan no contestó, NO es «no había»: se reintenta, y a la tercera se deja de buscar (la revisión del Cerebro).
+  let falla = conResultado(lista, lista[0], { buscarFallo: true });
+  assert.equal(proximoPaso(falla)?.accion, 'buscar', 'reintenta');
+  falla = conResultado(conResultado(falla, falla[0], { buscarFallo: true }), falla[0], { buscarFallo: true });
+  assert.equal(proximoPaso(falla)?.accion, 'crear', 'a la tercera, se crea y se cierra como antes');
   lista = conResultado(lista, lista[0], { buscada: true, cerradas: 0 });
   assert.equal(proximoPaso(lista)?.accion, 'crear', 'no había ninguna: se crea y se cierra como antes');
+  // Un «Ya está» que no da nada por cerrado en producción NI busca: «Ya está identificado…», lo pendiente, un PR.
+  for (const texto of ['Ya está identificado el problema de la #870: lo arreglo en la próxima tanda.', 'Ya está: el filtro en producción. Queda pendiente la #871.', 'Ya está: el run #45 de Actions pasó.']) {
+    assert.equal(anotarTurnos([], [dice(texto)], 'CRM')[0].yaTexto, undefined, texto);
+  }
   // Con su «Voy a…», el cierre es el de siempre (por el id de la tarea que creó).
   const conVoy = anotarTurnos([], [dice('Voy a trabajar en la lista.'), dice('Ya está: la lista.')], 'CRM');
   assert.equal(proximoPaso(conVoy)?.accion, 'crear');
   const auto = leer('lib/centro-plan-auto.ts');
-  assert.match(auto, /p\.accion === 'buscar'[\s\S]{0,300}cerrarPorYaEsta\(ctx, p\.t\.chat/);
+  assert.match(auto, /p\.accion === 'buscar'[\s\S]{0,400}cerrarPorYaEstaDelJefe\(ctx, p\.t\.chat/);
+  assert.doesNotMatch(auto, /cerrarPorYaEsta\(/, 'nunca la que mira todo el tablero');
+});
+
+test('6. lo que cierra un «Ya está» solo: el verbo pegado al número, en producción y del proyecto del jefe', () => {
+  const t = (num: number, proyecto = 'Feature: CRM') => ({ id: `t${num}`, num, titulo: `Tarea ${num}`, proyecto, prioridad: null, deadline: null, avance: 0 });
+  const delJefe = [t(870), t(871), t(872)];
+  assert.deepEqual(numerosCerradosEn('Cerré la #870, #871 y #872.'), [870, 871, 872]);
+  assert.deepEqual(numerosCerradosEn('#870 lista.\nQueda pendiente: #873 lista para revisar; el color #333 sigue igual.'), [870]);
+  assert.equal(esYaEstaDeCierre('Ya está identificado el bug'), false);
+  assert.equal(esYaEstaDeCierre('✅ Ya está: el filtro'), true);
+  assert.deepEqual(tarjetasCerradasPorYaEsta('Ya está: cerré la #870 y la #999, en producción.', delJefe).map((x) => x.num), [870], 'la #999 no es de su proyecto');
+  assert.deepEqual(tarjetasCerradasPorYaEsta('Ya está: cerré la #870.', delJefe), [], 'sin «en producción», nada');
+  assert.deepEqual(tarjetasCerradasPorYaEsta('Ya está: el filtro de la #870, en producción.', delJefe), [], 'nombrarla no es cerrarla');
 });

@@ -23,7 +23,7 @@ import { canalKeyDe } from './api-mako/canal';
 import type { Ctx } from './api-mako/tipos';
 import { DESTINO_RE, type TurnoChat } from './operaciones-reglas';
 import { proyectoDelChat } from './centro-plan-reglas';
-import { cerrarPorYaEsta, cerrarTareaDelPlan, sumarTareaAlPlan } from './centro-plan';
+import { cerrarPorYaEstaDelJefe, cerrarTareaDelPlan, sumarTareaAlPlan } from './centro-plan';
 import { anotarTurnos, conResultado, proximoPaso, sanearTareasDelChat, type TareaDelChat } from './centro-plan-auto-reglas';
 
 const PREFIJO = 'operaciones.plan-chat.';
@@ -85,8 +85,9 @@ export async function aplicarPlanDeLosChats(presupuestoMs: number): Promise<numb
         if (!p) break;
         if (p.accion === 'buscar') {
           // Un «Ya está» sin su «Voy a trabajar en…»: primero las tarjetas que nombra (#870) o cuyo título dice.
-          const b = await cerrarPorYaEsta(ctx, p.t.chat, { texto: p.t.yaTexto ?? p.t.titulo }).catch(() => null);
-          lista = conResultado(lista, p.t, { buscada: true, cerradas: b?.ok ? b.cerradas.length : 0 });
+          // Sólo las del proyecto del jefe que el texto da por cerradas y en producción (la revisión del Cerebro, 17/10).
+          const b = await cerrarPorYaEstaDelJefe(ctx, p.t.chat, p.t.yaTexto ?? '').catch(() => null);
+          lista = conResultado(lista, p.t, b?.ok ? { buscada: true, cerradas: b.cerradas } : { buscarFallo: true });
           await setSetting(PREFIJO + local, JSON.stringify(lista));
           hechos++;
           continue;

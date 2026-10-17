@@ -19,6 +19,7 @@
 
 import { esYaEsta, tituloDeTexto } from './centro-chats';
 import { DESTINO_RE, type TurnoChat } from './operaciones-reglas';
+import { pideBuscarTarjetas } from './centro-plan-reglas';
 
 export type EstadoTareaDelChat = 'pendiente' | 'creada' | 'hecha' | 'no_se_pudo';
 export type TareaDelChat = {
@@ -85,7 +86,9 @@ export function anotarTurnos(antes: readonly TareaDelChat[], turnos: readonly Tu
       vistos.add(t.uuid);
     } else if (esYaEsta(t.texto)) {
       if (abierta) abierta.ya = t.uuid;
-      else lista.push({ local: t.local, chat, titulo: tituloDeYa(t.texto), tarea: null, voy: null, ya: t.uuid, at: t.at, estado: 'pendiente', intentos: 0, yaTexto: t.texto.slice(0, TOPE_YA_TEXTO) });
+      // Sólo un «Ya está:» de trabajo terminado, en producción y que da por cerrada alguna «#NN» guarda su texto para buscarla
+      // (lib/centro-plan-reglas.ts → pideBuscarTarjetas); los demás crean y cierran una, como antes.
+      else lista.push({ local: t.local, chat, titulo: tituloDeYa(t.texto), tarea: null, voy: null, ya: t.uuid, at: t.at, estado: 'pendiente', intentos: 0, ...(pideBuscarTarjetas(t.texto) ? { yaTexto: t.texto.slice(0, TOPE_YA_TEXTO) } : {}) });
       vistos.add(t.uuid);
     }
   }
@@ -108,12 +111,14 @@ export function proximoPaso(lista: readonly TareaDelChat[]): { accion: 'crear' |
 }
 
 /** La lista con lo que pasó en el Plan con una tarea (por su turno, que es único). */
-export function conResultado(lista: readonly TareaDelChat[], t: TareaDelChat, r: { ok: true; tarea?: string | null } | { ok: false } | { buscada: true; cerradas: number }): TareaDelChat[] {
+export function conResultado(lista: readonly TareaDelChat[], t: TareaDelChat, r: { ok: true; tarea?: string | null } | { ok: false } | { buscada: true; cerradas: number } | { buscarFallo: true }): TareaDelChat[] {
   const misma = (x: TareaDelChat) => x.local === t.local && x.voy === t.voy && x.ya === t.ya && x.at === t.at;
   return lista.map((x) => {
     if (!misma(x)) return x;
     // La búsqueda de sus tarjetas: si cerró alguna, ésa era su tarea (hecha, sin crear otra); si no, se crea como antes.
     if ('buscada' in r) return r.cerradas > 0 ? { ...x, estado: 'hecha', buscada: true, intentos: 0 } : { ...x, buscada: true };
+    // Si la búsqueda FALLÓ (el Plan no contestó), no es «no había»: se reintenta; a la tercera se deja de buscar y se crea.
+    if ('buscarFallo' in r) return x.intentos + 1 >= MAX_INTENTOS ? { ...x, buscada: true, intentos: 0 } : { ...x, intentos: x.intentos + 1 };
     if (!r.ok) return { ...x, intentos: x.intentos + 1, estado: x.intentos + 1 >= MAX_INTENTOS ? 'no_se_pudo' : x.estado };
     if (x.estado === 'pendiente') return { ...x, tarea: r.tarea ?? null, estado: r.tarea ? 'creada' : 'no_se_pudo', intentos: 0 };
     return { ...x, estado: 'hecha', intentos: 0 };

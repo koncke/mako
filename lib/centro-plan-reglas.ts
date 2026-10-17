@@ -179,6 +179,47 @@ export function tarjetasDelYaEsta(texto: string, abiertas: readonly TareaPlanP[]
   });
 }
 
+// ── El «Ya está» que llega SOLO (sin su «Voy a trabajar en…»): qué cierra el Plan automático (17/10/2026) ──────────────
+// La revisión del Cerebro tiró la primera versión, que cerraba toda «#NN» del texto en cualquier proyecto: «Queda pendiente
+// la #871», «el run #45 de Actions» o «Ya está identificado el problema de la #870» también cerraban. Lo que vale para
+// cerrar SIN que Martín lo pida es más estrecho:
+//   · el primer renglón es un «Ya está:» de trabajo terminado (con dos puntos o raya), no «Ya está claro / identificado»;
+//   · el texto dice que está en producción (el «Ya está» se escribe cuando llegó: AGENTS.md);
+//   · el número va pegado a un verbo de cierre («cerré la #870», «#870 lista»), en un renglón que no habla de lo pendiente;
+//   · y la tarjeta es del proyecto del JEFE.
+
+/** ¿Es el «Ya está» de un trabajo terminado? («Ya está: …» / «Ya está — …»; no «Ya está identificado el problema».) */
+export const esYaEstaDeCierre = (texto: string): boolean =>
+  /^[\s*_#>✅✔·\-–—]*ya est[áa]\s*[:—–-]/i.test((texto.trim().split('\n')[0] ?? ''));
+
+const VERBO = '(?:cerr[éeó]|cerrad[ao]s?|termin[éeó]|terminad[ao]s?|hech[ao]s?|resuelt[ao]s?|resolv[ií]|list[ao]s?|complet[éeó]|completad[ao]s?|arregl[éeó]|arreglad[ao]s?)';
+const PENDIENTE_RE = /pendiente|falta|queda|sigue|todav[ií]a|despu[ée]s|pr[óo]xim|no (?:toqu|cerr|termin|hice)/i;
+
+/** Los números que el texto da por CERRADOS: un verbo de cierre pegado al número (antes o después), en un renglón que no
+ *  habla de lo pendiente. «Cerré la #870, #871 y #872» da las tres; «queda pendiente la #873», ninguna. */
+export function numerosCerradosEn(texto: string): number[] {
+  const out = new Set<number>();
+  for (const renglon of texto.split('\n')) {
+    if (PENDIENTE_RE.test(renglon)) continue;
+    for (const m of renglon.matchAll(new RegExp(`${VERBO}\\s+(?:(?:la|el|las|los|tareas?|tarjetas?)\\s+)*((?:#\\d{2,6}(?:\\s*(?:,|y|e)\\s*)?)+)`, 'gi'))) {
+      for (const n of m[1].matchAll(/#(\d{2,6})/g)) out.add(Number(n[1]));
+    }
+    for (const m of renglon.matchAll(new RegExp(`#(\\d{2,6})\\s*(?:[:—–-]\\s*|\\(\\s*)?${VERBO}`, 'gi'))) out.add(Number(m[1]));
+  }
+  return [...out];
+}
+
+/** Las tarjetas que cierra un «Ya está» que llegó SOLO: las que da por cerradas, del proyecto del jefe, y sólo si dice que
+ *  está en producción. Nada por título. */
+export function tarjetasCerradasPorYaEsta(texto: string, delJefe: readonly TareaPlanP[]): TareaPlanP[] {
+  if (!esYaEstaDeCierre(texto) || !/en producci[óo]n/i.test(texto)) return [];
+  const nums = numerosCerradosEn(texto);
+  return delJefe.filter((t) => t.num != null && nums.includes(t.num));
+}
+/** ¿Vale la pena buscar sus tarjetas? (sin esto, el Plan no se lee por cada «Ya está»). */
+export const pideBuscarTarjetas = (texto: string): boolean =>
+  esYaEstaDeCierre(texto) && /en producci[óo]n/i.test(texto) && numerosCerradosEn(texto).length > 0;
+
 // ── Un cierre desde el Centro (17/10/2026, lo encontró Offer con la #888 del ws 9) ──────────────────────────────────
 
 /**

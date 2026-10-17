@@ -1446,7 +1446,7 @@ son de Martín») era el equivocado.** Tres cosas que no se ven escribiendo la p
 **Regla:** en AGENTS.md (el Centro).
 
 **Sin hacer:**
-- el Plan desde el chat y el paso «buscar» del Plan automático, con los arreglos de la revisión (docs/relevo/centro-operaciones.md);
+- (hecho en la punta de la 1.15.6: el Plan desde el chat pide el trabajo firmado de Martín, imprime con forma fija, y «buscar» cierra sólo «#NN» con un verbo de cierre, en producción y del proyecto del jefe; tests centro-plan-chat y centro-plan-auto 5-6);
 - «Cámbiale el nombre» desde un chat: la API del Plan no tiene una operación para renombrar una tarea (es del área Plan);
 - la lista de «Destacados» de WhatsApp (los destacados se ven con su estrella en cada mensaje, pero no hay una vista que los
   junte);
