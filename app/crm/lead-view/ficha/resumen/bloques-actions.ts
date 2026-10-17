@@ -22,12 +22,14 @@ import { funnelsConUmbrales } from '@/lib/funnels';
 import { etapaVigenteDe } from '@/lib/funnel-etapas';
 import { CAMPO_ETAPA } from '@/lib/etapa-historial';
 import { entradaALaEtapa, plazosValidos } from '@/lib/lead-quieto';
+import { exigirSesion } from '@/lib/sesion-accion';
 
 const idValido = (x: unknown): x is number => typeof x === 'number' && Number.isInteger(x) && x > 0;
 const conSesion = async (): Promise<boolean> => { try { return Boolean(await getUsuarioActual()); } catch { return false; } };
 
 /** Desde cuándo está el lead en su etapa de hoy y el plazo de esa etapa. null = no se pudo leer. */
 export async function tiempoEnEtapaAction(leadId: number): Promise<{ etapa: string; desde: string | null; plazo: number | null } | null> {
+  await exigirSesion();
   if (!idValido(leadId) || !(await conSesion())) return null;
   try {
     const lead = await getLead(leadId);
@@ -62,6 +64,7 @@ export type FichaParecida = { id: number; nombre: string; porque: string };
  * cada ficha es caro y casi siempre un falso parecido. null = no se pudo leer.
  */
 export async function duplicadosDelLeadAction(leadId: number): Promise<FichaParecida[] | null> {
+  await exigirSesion();
   if (!idValido(leadId) || !(await conSesion())) return null;
   try {
     const lead = await getLead(leadId);

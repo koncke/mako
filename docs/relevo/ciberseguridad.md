@@ -20,6 +20,10 @@ opt-in de las landings de los clientes (`/api/track/*`), los webhooks, el login 
 contrasena». Un bombardeo ahi no «tira el sitio» primero: **llena el CRM de un cliente de basura y
 gasta IA**, que es plata que sale de su cuenta. Esa es la unica pantalla donde el dano se ve.
 
+> **17/10/2026 — el punto 1 está HECHO** (agente «Pendientes B1»): toda ruta pública que escribe lleva tope por IP
+> (`limitePorIp`, lib/limite-publico.ts) o una excusa escrita en `tests/rutas-publicas-limite.test.ts`, que la barre. Los
+> webhooks quedaron exentos a propósito. Los puntos 2 a 4 (captcha, Cloudflare, balanceador) siguen como estaban.
+
 **Lo que conviene mirar en ese orden, cuando se retome:**
 
 1. **Contar las rutas publicas sin limite de pedidos** (`PUBLICOS` en `lib/rutas-publicas.ts` cruzado

@@ -319,6 +319,42 @@ export async function getWorkspaceActual(): Promise<number | null> {
 }
 
 /**
+ * El id de NINGÚN negocio, para lo que sólo LEE: `(await getWorkspaceActual()) ?? WS_NINGUNO`.
+ * Una lectura con -1 vuelve vacía y una escritura falla por la FK; es lo que ya hace `getTenantDb`
+ * con un workspace null (`scopedFrom`). Nunca `?? OWNER_WS`: ver `wsObligatorio`.
+ */
+export const WS_NINGUNO = -1;
+
+/** «No sé de qué negocio es esto», dicho como error y no como el ws1. */
+export class SinWorkspaceError extends Error {
+  constructor() {
+    super('No sé de qué negocio es esto: no lo guardo en ninguno. Recarga la página o vuelve a iniciar sesión.');
+    this.name = 'SinWorkspaceError';
+  }
+}
+
+/**
+ * El workspace del request para lo que ESCRIBE, MANDA o GASTA. TIRA si no se sabe.
+ *
+ * ⚠️ REEMPLAZA A `(await getWorkspaceActual()) ?? OWNER_WS` (17/10/2026). Había 40 escritos a mano
+ * en el código vivo, y `OWNER_WS` es el ws1, que es Mauricio, un CLIENTE: cualquier olvido era una
+ * fuga de un cliente real, sin un error. `getWorkspaceActual()` devuelve null SÓLO cuando hay una
+ * cookie de sesión que no resuelve contra la base (usuario suspendido o borrado con la firma viva)
+ * —medido ese día: los 14 usuarios de producción tienen workspace—, así que null es exactamente el
+ * caso que no puede caer en el negocio de nadie. Un cron o un webhook sin cookie sigue resolviendo
+ * como antes (el default del resolver, `resolverDesdeCookies`, no cambió: eso es otra decisión).
+ *
+ * Para lo que sólo LEE, la salida es la del dato vacío (`if (ws == null) return …`), no esto: una
+ * página que tira por un ajuste deja al suspendido sin poder llegar ni al login.
+ * El guard: tests/sin-fallback-owner-ws.test.ts.
+ */
+export async function wsObligatorio(): Promise<number> {
+  const ws = await getWorkspaceActual();
+  if (ws == null) throw new SinWorkspaceError();
+  return ws;
+}
+
+/**
  * true si el request opera sobre el workspace dueño (Mauricio). En Fase 1 las
  * integraciones (Meta/Calendly/etc.) son globales del dueño: las vistas EN VIVO
  * (WhatsApp, insights de Meta) solo se sirven al dueño para no filtrarle sus
@@ -445,7 +481,7 @@ type Chain = { eq: (c: string, v: unknown) => Chain };
 type QB = ReturnType<SupabaseClient['from']>;
 function scopedFrom(builder: QB, table: string, ws: number | null): QB {
   if (!TENANT_TABLES.has(table)) return builder;
-  const wsId = ws ?? -1;
+  const wsId = ws ?? WS_NINGUNO;
   const b = builder as unknown as {
     select: (...a: unknown[]) => Chain;
     insert: (rows: unknown, opts?: unknown) => unknown;

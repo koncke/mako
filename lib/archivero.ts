@@ -14,7 +14,7 @@
 
 import 'server-only';
 import { getSupabaseServer } from './supabase';
-import { getTenantDb, getRolWsEfectivo, getWorkspaceActual, OWNER_WS } from './workspace';
+import { getTenantDb, getRolWsEfectivo, getWorkspaceActual } from './workspace';
 import { getSchema, saveAnswers, extraerDeArchivo, ANSWERS_KEY } from './onboarding';
 import { getSesionAdmin } from './auth';
 import { getSetting, getSettingEstricto, setSetting } from './settings';
@@ -29,16 +29,16 @@ export { computeEffective, type FuenteCampo };
 
 /**
  * Workspace efectivo para operar el archivero, o null (403). Admin del workspace
- * (cliente) → su ws. El super-admin de la agencia SIN impersonar cae a ws null:
- * en ese caso es "el dueño mirando lo suyo" → OWNER_WS (mismo criterio que el
- * board /plan). Los routes envuelven el trabajo en runWithWorkspace(ws) para que
+ * (cliente) → su ws. Sin workspace resuelto, null (hasta el 17/10/2026 el super admin sin
+ * workspace caía a OWNER_WS, el ws1, que es Mauricio, un cliente). Los routes envuelven el trabajo en runWithWorkspace(ws) para que
  * getTenantDb, settings y el path de storage queden todos scopeados a ese ws.
  */
 export async function resolverWsAdmin(): Promise<number | null> {
   if ((await getRolWsEfectivo()) !== 'admin') return null;
   const ws = await getWorkspaceActual();
-  if (ws != null) return ws;
-  return (await getSesionAdmin()) ? OWNER_WS : null;
+  // El super admin sin workspace caía al ws1 («el dueño mirando lo suyo»), y el ws1 es Mauricio,
+  // un CLIENTE. Desde el 17/10/2026, nadie: el único admin de plataforma tiene workspace propio.
+  return ws;
 }
 
 const BUCKET = 'archivero';

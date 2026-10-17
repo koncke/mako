@@ -57,6 +57,18 @@ export function llevaDatosDeClientes(nombre: string): boolean {
   return !d || leeDatosDeClientes(d);
 }
 
+/**
+ * Lo que viaja a la RED GRATIS de la plataforma: SÓLO el mensaje de este turno, sin el historial (17/10/2026).
+ *
+ * `turnoParaLaRed` decide por lo que se PIDIÓ en este turno, pero el historial del grupo viajaba entero: si en un
+ * turno anterior MaKo nombró a un lead —su nombre, su teléfono, lo que dijo—, ese texto iba al plan gratis de
+ * Gemini o de Groq, que entrena con lo que recibe. Sin historial el modelo pierde el «¿y el otro?», y es el precio:
+ * la red es el último recurso de un negocio sin una IA propia que conteste, no la conversación de siempre.
+ */
+export function soloElTurno<T>(msgs: readonly T[]): T[] {
+  return msgs.length ? [msgs[msgs.length - 1]] : [];
+}
+
 /** La línea del system cuando la red corre sin las herramientas que leen datos de clientes: el modelo no las tiene, y
  *  sin esto contesta como si hubiera mirado (o deduce de la conversación). */
 export const SIN_DATOS_DE_CLIENTES = 'EN ESTE TURNO NO PUEDES LEER LEADS, CONVERSACIONES, LLAMADAS NI COBROS: el negocio no tiene una IA propia que conteste, y esos datos no van a la de MaKo. Si lo que te piden los necesita, dilo en una línea y nada más; no los deduzcas de la conversación.';

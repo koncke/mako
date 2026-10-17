@@ -65,3 +65,18 @@ export const TEXTO_ALCANCE: Record<Alcance, { titulo: string; que: string }> = {
   proponer: { titulo: 'Leer y proponer', que: 'Además deja propuestas y acciones pendientes que tú confirmas en MaKo o por WhatsApp. Nada se escribe sin tu confirmación.' },
   ejecutar: { titulo: 'Leer, proponer y ejecutar', que: 'Además puede confirmar por sí mismo las acciones que dejó pendientes (mover un lead, pausar una campaña). Lo que gasta plata sigue pasando por una pantalla.' },
 };
+
+/**
+ * Las puertas viejas de `/api/agente/*` que DEJAN algo pendiente (`POST /plan`, `POST /lead`)
+ * con el token clásico. Devuelve el texto del 403, o null si el token alcanza.
+ *
+ * Existe desde el 17/10/2026: esas dos rutas sólo resolvían el workspace del bearer y nunca
+ * miraban su alcance, así que un token acuñado como «Solo leer» —cuya tarjeta promete «no deja
+ * nada pendiente ni propone cambios»— dejaba propuestas de tareas y de leads igual. `/api/v1`
+ * ya lo miraba (`permite`); estas dos quedaron afuera porque son anteriores al alcance.
+ */
+export function rechazoPorAlcance(token: string, minimo: Alcance): string | null {
+  const tiene = alcanceDeToken(token);
+  if (ORDEN[tiene] >= ORDEN[minimo]) return null;
+  return `Este token es de «${TEXTO_ALCANCE[tiene].titulo}»: no puede dejar propuestas. Genera uno con «${TEXTO_ALCANCE[minimo].titulo}» en Integraciones.`;
+}

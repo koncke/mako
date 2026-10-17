@@ -6,8 +6,10 @@
 
 import { getLead } from '@/lib/leads';
 import { buscarReunionesAutomatico, type AutoReuniones } from '@/lib/auto-reuniones';
+import { exigirSesion } from '@/lib/sesion-accion';
 
 export async function autoReunionesAction(leadId: number): Promise<AutoReuniones | { error: string }> {
+  await exigirSesion();
   try {
     if (!Number.isFinite(leadId) || leadId <= 0) return { error: 'Lead inválido.' };
     const lead = await getLead(leadId);

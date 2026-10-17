@@ -17,6 +17,7 @@ import {
   agregarLoteAProducto, quitarLoteDeProducto, etapasDeProducto, type DeshacerQuitar,
 } from '@/lib/lead-funnel';
 import { puedeQuitar, nombreVisible } from '@/lib/lead-funnel-reglas';
+import { exigirSesion } from '@/lib/sesion-accion';
 
 type Res<T> = ({ ok: true } & T) | { ok: false; error: string };
 const mal = (e: unknown, def: string) => ({ ok: false as const, error: e instanceof Error ? e.message : def });
@@ -57,6 +58,7 @@ export type ProductoFicha = {
  * permitida o no, y las etapas de los suyos.
  */
 export async function productosDeLaFichaAction(leadId: number): Promise<Res<{ productos: ProductoFicha[]; puedeQuitar: boolean }>> {
+  await exigirSesion();
   try {
     if (!idOk(leadId)) return { ok: false, error: 'Falta el lead.' };
     const [{ productos, etapaCasa }, funnels] = await Promise.all([productosDelLead(leadId), listarFunnels()]);
@@ -82,6 +84,7 @@ export async function productosDeLaFichaAction(leadId: number): Promise<Res<{ pr
 
 /** Agrega el lead a un producto, en la etapa de entrada. */
 export async function agregarAProductoAction(leadId: number, funnelId: number | null): Promise<Res<{ agregado: boolean }>> {
+  await exigirSesion();
   try {
     if (!idOk(leadId)) return { ok: false, error: 'Falta el lead.' };
     const r = await agregarAProducto(leadId, await resolverProducto(funnelId));
@@ -94,6 +97,7 @@ export async function agregarAProductoAction(leadId: number, funnelId: number | 
 
 /** Saca el lead de un producto (sólo con dos o más). Devuelve lo necesario para deshacer. */
 export async function quitarDeProductoAction(leadId: number, funnelId: number | null): Promise<Res<{ deshacer: DeshacerQuitar }>> {
+  await exigirSesion();
   try {
     if (!idOk(leadId)) return { ok: false, error: 'Falta el lead.' };
     const d = await quitarDeProducto(leadId, await resolverProducto(funnelId));
@@ -106,6 +110,7 @@ export async function quitarDeProductoAction(leadId: number, funnelId: number | 
 
 /** El deshacer de «quitar». */
 export async function deshacerQuitarAction(d: DeshacerQuitar): Promise<Res<object>> {
+  await exigirSesion();
   try {
     if (!d || !idOk(d.leadId) || !idOk(d.funnelId)) return { ok: false, error: 'No hay nada que deshacer.' };
     await deshacerQuitar(d);
@@ -121,6 +126,7 @@ export async function deshacerQuitarAction(d: DeshacerQuitar): Promise<Res<objec
  * producto y nada más.
  */
 export async function moverEtapaEnProductoAction(leadId: number, funnelId: number | null, etapa: string): Promise<Res<{ antes: string }>> {
+  await exigirSesion();
   try {
     if (!idOk(leadId) || typeof etapa !== 'string' || !etapa) return { ok: false, error: 'Falta la etapa.' };
     const r = await moverEtapaEnProducto(leadId, await resolverProducto(funnelId), etapa);
@@ -133,6 +139,7 @@ export async function moverEtapaEnProductoAction(leadId: number, funnelId: numbe
 
 /** Agrega VARIOS leads a un producto (lote, «traer»). Devuelve los que agregó, para deshacer. */
 export async function agregarLoteAProductoAction(leadIds: number[], funnelId: number | null, porQue?: string): Promise<Res<{ agregados: number[]; fallaron: number }>> {
+  await exigirSesion();
   try {
     const ids = (Array.isArray(leadIds) ? leadIds : []).filter(idOk).slice(0, 2000);
     if (!ids.length) return { ok: true, agregados: [], fallaron: 0 };
@@ -148,6 +155,7 @@ export async function agregarLoteAProductoAction(leadIds: number[], funnelId: nu
 
 /** El deshacer de un lote: borra SÓLO las filas que ese lote creó. */
 export async function quitarLoteDeProductoAction(leadIds: number[], funnelId: number | null): Promise<Res<{ quitados: number }>> {
+  await exigirSesion();
   try {
     const ids = (Array.isArray(leadIds) ? leadIds : []).filter(idOk).slice(0, 2000);
     const n = await quitarLoteDeProducto(ids, await resolverProducto(funnelId), 'Se deshizo el agregado');

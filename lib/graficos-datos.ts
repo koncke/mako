@@ -23,6 +23,7 @@
 
 import 'server-only';
 import { getTenantDb, getWorkspaceActual } from './workspace';
+import { getSupabaseServer } from './supabase';
 import { enRango, queTableroLeer, fechaTj, host, leer, leerPorIds, lindo, nombres, num, rotulosDelCrm, ruta, txt, type Rango } from './graficos-lectura';
 import { LECTORES_EXTRA, noEsDelNegocio } from './graficos-datos-extra';
 export type { Rango };
@@ -558,8 +559,8 @@ async function filasArchivero(fecha: string, rg: Rango): Promise<Fila[]> {
 async function filasOnboarding(fecha: string, rg: Rango): Promise<Fila[]> {
   const ws = await getWorkspaceActual();
   if (ws == null) return [];
-  const db = await getTenantDb();
-  const { data, error } = await db.from('app_settings').select('key, value').eq('workspace_id', ws).like('key', 'onboarding.tab.%').limit(500);
+  // `app_settings` no pasa por getTenantDb (está fuera de TENANT_TABLES): el filtro va a mano.
+  const { data, error } = await getSupabaseServer().from('app_settings').select('key, value').eq('workspace_id', ws).like('key', 'onboarding.tab.%').limit(500);
   if (error) throw new Error(`No pude leer el onboarding: ${error.message}`);
   const r2 = { ...rg, sinRango: fecha === 'actual' };
   const out: Fila[] = [];

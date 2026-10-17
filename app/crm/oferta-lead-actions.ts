@@ -22,6 +22,7 @@ import { getUsuarioActual } from '@/lib/auth';
 import { TAG } from '@/lib/cache';
 import { ofertasDelLead, asignarOfertaAlLead, crearOfertaParaLead } from '@/lib/oferta-lead';
 import type { OfertaParaLead } from '@/lib/oferta-modelo';
+import { exigirSesion } from '@/lib/sesion-accion';
 
 function bust() {
   try { updateTag(TAG.leads); } catch { /* la caché vence sola por su TTL */ }
@@ -35,6 +36,7 @@ async function autor(): Promise<string> {
 export async function ofertasDelLeadAction(leadId: number): Promise<
   { ok: true; ofertas: OfertaParaLead[]; actual: number | null; puedeCrear: boolean } | { ok: false; error: string }
 > {
+  await exigirSesion();
   try {
     const [r, rol] = await Promise.all([ofertasDelLead(leadId), getRolWsEfectivo().catch(() => null)]);
     if (!r) return { ok: false, error: 'Ese lead no es de esta cuenta.' };
@@ -48,6 +50,7 @@ export async function ofertasDelLeadAction(leadId: number): Promise<
 
 /** Le asigna una oferta al lead (o se la saca, con `null`). */
 export async function asignarOfertaLeadAction(leadId: number, ofertaId: number | null): Promise<{ ok: true } | { ok: false; error: string }> {
+  await exigirSesion();
   try {
     const r = await asignarOfertaAlLead(leadId, ofertaId, await autor());
     if (!r.ok) return r;

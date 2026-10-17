@@ -26,7 +26,7 @@ import { describirRegla, estadoConversion, type EstadoConversion } from './meta-
 import { erroresFormulario, paramsFormulario, sitioLimpio, urlValida, type FormularioNuevo } from './meta-formularios';
 import { getSetting } from './settings';
 import { hayQuePreguntar, identidadPorDefecto, type Identidad, type InstagramOpcion, type PaginaOpcion } from './meta-identidad';
-import { getWorkspaceActual, OWNER_WS } from './workspace';
+import { OWNER_WS, wsObligatorio } from './workspace';
 import { estadoDeVideoStatus, faltaMiniatura, type EstadoVideo, type VideosSinProcesar } from './campana-videos';
 import {
   type CampaignSpec,
@@ -58,7 +58,7 @@ export const ADS_CREATIVES_BUCKET = 'ads-creatives';
  * único que sabe si detrás hay una sesión de AGENCIA.
  */
 async function wsDeLaCuenta(): Promise<number> {
-  return (await getWorkspaceActual()) ?? OWNER_WS;
+  return await wsObligatorio();
 }
 
 /**

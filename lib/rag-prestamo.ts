@@ -21,8 +21,14 @@
 // =============================================================================
 
 /**
- * LAS FUENTES QUE SE PRESTAN, EN POSITIVO: sólo lo que alguien cargó como MÉTODO — a mano
- * (`manual`) o lo que sembró MaKo (`mako`).
+ * LAS FUENTES QUE SE PRESTAN, EN POSITIVO: sólo lo que sembró MaKo como MÉTODO (`mako`).
+ *
+ * ⚠️ HASTA EL 17/10/2026 TAMBIÉN `manual`, y era la fuga que quedaba: «lo cargado a mano» en el ws1
+ * no era sólo método. Medido ese día en producción: de las 13 entradas `manual` del ws1, 6 eran del
+ * NEGOCIO de Mauricio —«Dolores del avatar (Carlos)», su CPM en México, el play de SU VSL— y se
+ * prestaban al RAG de todos los clientes. Lo que alguien carga a mano es de su negocio; el método de
+ * la plataforma lo marca la plataforma (`mako`). Las 7 de «Levanta Muertos», que sí eran método de la
+ * agencia, se re-marcaron `mako` ese día (scripts/metodo-a-mako.mjs, en seco y después aplicado).
  *
  * ⚠️ VA POR `fuente` Y NO POR ÁREA, y la diferencia es la que hace que esto no envejezca.
  * Sacar `glosario` del préstamo cerraría el caso medido y dejaría abierto el próximo:
@@ -33,7 +39,7 @@
  * Y va en positivo por la regla de siempre: con «todas menos reunión», la fuente que se
  * invente mañana entra sin que nadie lo decida.
  */
-export const FUENTES_PRESTABLES: readonly string[] = ['manual', 'mako'];
+export const FUENTES_PRESTABLES: readonly string[] = ['mako'];
 
 const PRESTABLES = new Set(FUENTES_PRESTABLES);
 
@@ -41,17 +47,14 @@ const PRESTABLES = new Set(FUENTES_PRESTABLES);
 export const sePresta = (fuente: unknown): boolean => PRESTABLES.has(String(fuente));
 
 /**
- * Saca del resultado lo que es del dueño y NO es método. Lo propio nunca se filtra: un
- * cliente ve su glosario entero, y el dueño ve el suyo.
+ * Saca del resultado lo AJENO que no es método. Lo propio nunca se filtra: un negocio ve su
+ * glosario entero y lo que cargó a mano. De los demás workspaces que presta `wsParaRag` (el ws1,
+ * donde vive hoy el método sembrado, y la PLATAFORMA) sólo entra lo que `sePresta`.
  *
- * `wsPropio === wsDueno` devuelve la lista intacta — ahí no hay préstamo que filtrar, y
- * filtrarlo le escondería a Mauricio su propio material.
+ * ⚠️ Hasta el 17/10/2026 se llamaba `sinLoAjenoDelDueno` y con `wsPropio === wsDueno` devolvía la
+ * lista intacta. Con la plataforma sumada al préstamo eso le daba a Mauricio el ws9 ENTERO, que es
+ * también el negocio real de Martín: el filtro va SIEMPRE.
  */
-export function sinLoAjenoDelDueno<T extends { workspace_id?: unknown; fuente?: unknown }>(
-  filas: T[],
-  wsPropio: number,
-  wsDueno: number,
-): T[] {
-  if (wsPropio === wsDueno) return filas;
+export function sinLoAjeno<T extends { workspace_id?: unknown; fuente?: unknown }>(filas: T[], wsPropio: number): T[] {
   return filas.filter((r) => Number(r.workspace_id) === wsPropio || sePresta(r.fuente));
 }

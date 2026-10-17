@@ -57,7 +57,8 @@ for (const [ruta, nInserts, nUpdates] of RUTAS) {
       const sentencia = src.slice(i, src.indexOf(';', i));
       assert.match(sentencia, /\.eq\('workspace_id', wsDraft\)/, `el update de la posición ${i} tiene que filtrar por workspace`);
     }
-    assert.match(src, /const wsDraft = \(await getWorkspaceActual\(\)\) \?\? OWNER_WS;/);
+    // (17/10/2026: sin workspace TIRA, no cae al ws1 — tests/sin-fallback-owner-ws.test.ts.)
+    assert.match(src, /const wsDraft = await wsObligatorio\(\);/);
   });
 }
 //   ROTO A PROPÓSITO (07/10/2026), con este barrido, de a una: sin el workspace en el

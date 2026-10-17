@@ -1,5 +1,39 @@
 # Relevo — Seguridad, cifrado y aislamiento entre clientes
 
+> **17/10/2026 — los pendientes del área, cerrados por el agente «Pendientes B1» (rama `pend-b1-1710`, sin pushear: la
+> sube el Cerebro).** Lo que enseñó cada uno, en `docs/hallazgos-seguridad.md` → «Los pendientes de seguridad del
+> 17/10/2026». Estado de las secciones de abajo:
+>
+> - **§4.1 / §6.1 la foto de los leads** → CERRADO con la (c): nombre al azar; el cron diario muda las 106 viejas, en
+>   todos los negocios, recién con el código nuevo desplegado.
+> - **§4.2 / §6.5 el guard inverso** → CERRADO con la (a): barre TODAS las migraciones; `email_entrantes`, `tickets` y
+>   `pasarela_eventos` quedan fuera del proxy con su porqué (`FUERA_DEL_PROXY`). Y se sumaron a `TABLAS_DE_INQUILINO` las
+>   cinco que faltaban (medido en producción).
+> - **§4.4 los cruces en producción** → mirados con lecturas: los links sin `?ws=` aparecieron en las respuestas de MaKo en
+>   los grupos (arreglado: `linksConWs`); el drenador, el acuse y la herencia NO se pueden verificar porque en producción
+>   no hay datos de ese camino (`flujo_corridas` vacía, una sola insistencia de antes del arreglo, ningún store que
+>   heredar); el `From:` de `/compartir` no queda en ninguna tabla. **Pendiente:** mandar un `/compartir` desde el ws11 y
+>   mirar el remitente, y repetir esto cuando haya corridas.
+> - **§4.6 / §6.3 las acciones del CRM** → CERRADO con la (b): `exigirSesion()` en las 85 que no cortaban, y un guard que
+>   barre todo `'use server'` de app/crm. **Pendiente:** el mismo barrido en las otras tabs.
+> - **§4.6 / §6.6 el mapa de aislamiento** → BORRADO; su checklist, al día, al final de hallazgos-seguridad.
+> - **§6.4 los `?? OWNER_WS`** → CERRADO con la (c), más ajustada: escribir/mandar/gastar tira (`wsObligatorio`), leer
+>   vuelve vacío (`WS_NINGUNO`); cero en el código vivo y un guard. **Pendiente, y es la (b) de verdad:** el default del
+>   resolver SIN cookie (`resolverDesdeCookies`, lib/workspace.ts) sigue en el ws1; antes de tocarlo hay que medir qué
+>   crons dependen de él (los reportes diario y horario, §6.2, por lo menos).
+> - **Otros cerrados ese día:** el alcance «Solo leer» en `/api/agente/plan` y `/lead`; el SSRF del análisis de una landing
+>   (y el de «Cargar guiones»); next 16.2.11 (sólo el lockfile: el `node_modules` del clon sigue en 16.2.6 hasta un
+>   `npm ci` ahí); el tope de pedidos en las rutas públicas que escriben; la firma por línea del webhook de Evolution
+>   (la URL vieja vale hasta el **07/11/2026**: una línea que no haya mandado nada para entonces se repara con «Reparar
+>   espejo»); el mail «tu contraseña cambió» (**pendiente:** crear su fila desde la plantilla «Tu Contraseña Cambió» en el
+>   ws de la plataforma); la red gratis de IA sin historial y el ✦ de Automations sin lecturas con datos de clientes; el
+>   RAG que prestaba lo cargado a mano en el ws1.
+> - **Sigue pendiente, con su archivo:** mudar el método de la plataforma del ws1 al ws de la plataforma (Copywriting,
+>   «Buenas prácticas», Levanta Muertos en `mako_knowledge`; `mako.guion_angulos` y `mako.guion_estructuras` en
+>   `app_settings`; `lib/copywriting-metodo.ts`, `lib/guion-*-store.ts`) — el lector del RAG ya lee de la plataforma; la
+>   línea de voz de MaKo que cae al ws1 (`wsDeInstancia`, app/api/webhooks/evolution/route.ts); el gasto de la key de
+>   Claude de la agencia anotado en el ws1 (`wsDeProveedor`, lib/anthropic-usage.ts).
+
 **Ventana:** del commit `6785dc16` (05/10/2026 12:33) a `9862c146` (10/10/2026 18:59). 670 commits
 en total; 46 migraciones nuevas (0193 → 0245); los de esta área, ~25. Escrito el 10/10/2026.
 

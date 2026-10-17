@@ -21,6 +21,7 @@ import { APP_BASE_URL } from '@/lib/app-url';
 import { hayQueRecrear, mensajeEvolution, motivoDeEvolution, veredictoSondeo, type Sondeo } from './evolution-sonda';
 import { elegirLinea, esLineaDelWorkspace, instanceNameDeWs, nombreLineaNueva, lineaPorDefault } from './lineas-whatsapp';
 import { lineaDeMaKoPara, ETIQUETA_LINEA_MAKO } from './linea-plataforma';
+import { queryDeWebhook } from './evolution-firma';
 
 // El nombre de la primera línea vive en lib/lineas-whatsapp.ts (sin `server-only`, con
 // test). Se re-exporta para que ningún import cambie.
@@ -92,10 +93,14 @@ async function evFetch<T = unknown>(path: string, init?: RequestInit, topeMs?: n
 }
 
 // ── URL del webhook para una instancia ────────────────────────────────────────
-function webhookUrl(): string {
-  const qs = WEBHOOK_SECRET ? `?secret=${encodeURIComponent(WEBHOOK_SECRET)}` : '';
+// Cada línea lleva SU firma (lib/evolution-firma.ts), no el secreto de plataforma: con la URL de
+// una línea no se pueden firmar eventos de otra (17/10/2026).
+function webhookUrl(instance: string): string {
+  const qs = WEBHOOK_SECRET ? `?${queryDeWebhook(WEBHOOK_SECRET, instance)}` : '';
   return `${APP_BASE_URL}/api/webhooks/evolution${qs}`;
 }
+/** La instancia que usa el autodiagnóstico para pingear al receptor (no es una línea). */
+const INSTANCIA_SALUD = '__health__';
 
 // Eventos que nos importan: conexión/QR + mensajes (nuevo/estado/borrado/editado)
 // + contactos (nombre/foto) + etiquetas (catálogo + asociación).
@@ -116,7 +121,7 @@ async function setWebhook(instance: string): Promise<{ ok: boolean; error?: stri
   const r = await evFetch(`/webhook/set/${encodeURIComponent(instance)}`, {
     method: 'POST',
     body: JSON.stringify({
-      webhook: { enabled: true, url: webhookUrl(), byEvents: false, base64: true, events: EVENTOS_WEBHOOK },
+      webhook: { enabled: true, url: webhookUrl(instance), byEvents: false, base64: true, events: EVENTOS_WEBHOOK },
     }),
   });
   return r.ok ? { ok: true } : { ok: false, error: r.error };
@@ -765,7 +770,7 @@ async function pingReceiver(url: string): Promise<number> {
   try {
     const r = await fetch(url, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ event: 'webhook.health', instance: '__health__' }),
+      body: JSON.stringify({ event: 'webhook.health', instance: INSTANCIA_SALUD }),
       signal: AbortSignal.timeout(6000),
     });
     return r.status;
@@ -774,12 +779,13 @@ async function pingReceiver(url: string): Promise<number> {
 
 export async function estadoWebhook(linea?: string | null): Promise<WebhookSalud> {
   const instance = await lineaEstricta(linea);
-  const esperada = webhookUrl();
+  const esperada = webhookUrl(instance);
   if (!WEBHOOK_SECRET) return { estado: 'sin_secret', urlActual: null, urlEsperada: sinQuery(esperada) };
 
   // 1) ¿El deploy en APP_BASE_URL acepta nuestro secret? (test real de reachability)
-  //    Si esto falla, "reparar" no sirve: el problema está en el env de Vercel.
-  const ping = await pingReceiver(esperada);
+  //    Si esto falla, "reparar" no sirve: el problema está en el env de Vercel. Se pingea con la
+  //    firma de la instancia de salud: el receptor verifica la firma contra el `instance` del cuerpo.
+  const ping = await pingReceiver(webhookUrl(INSTANCIA_SALUD));
   if (ping === 401) return { estado: 'secret_prod', urlActual: null, urlEsperada: sinQuery(esperada) };
   if (ping !== 200) return { estado: 'url_distinta', urlActual: null, urlEsperada: sinQuery(esperada) };
 
@@ -789,6 +795,9 @@ export async function estadoWebhook(linea?: string | null): Promise<WebhookSalud
   const cfg = r.data;
   if (!cfg || !cfg.enabled || !cfg.url) return { estado: 'no_registrado', urlActual: sinSecreto(cfg?.url ?? null), urlEsperada: sinQuery(esperada) };
   if (sinQuery(cfg.url) !== sinQuery(esperada)) return { estado: 'no_registrado', urlActual: sinSecreto(cfg.url), urlEsperada: sinQuery(esperada) };
+  // La URL ENTERA, con la firma: una línea registrada con la URL vieja (`?secret=` de plataforma)
+  // deja de valer en CORTE_LEGADO (lib/evolution-firma.ts) y «Reparar espejo» la reescribe.
+  if (cfg.url !== esperada) return { estado: 'no_registrado', urlActual: sinSecreto(cfg.url), urlEsperada: sinQuery(esperada) };
   const events = (cfg.events ?? []).map((e) => String(e).toUpperCase());
   if (!events.includes('MESSAGES_UPSERT')) return { estado: 'no_registrado', urlActual: sinSecreto(cfg.url), urlEsperada: sinQuery(esperada) };
   return { estado: 'ok', urlActual: sinSecreto(cfg.url), urlEsperada: sinQuery(esperada) };

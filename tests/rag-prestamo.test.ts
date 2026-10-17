@@ -17,15 +17,20 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { sinLoAjenoDelDueno, sePresta, FUENTES_PRESTABLES } from '../lib/rag-prestamo';
+import { sinLoAjeno, sePresta, FUENTES_PRESTABLES } from '../lib/rag-prestamo';
 
 const DUENO = 1;
 const CLIENTE = 11;
+const PLATAFORMA = 9;
 
-// La forma real de las filas, con los valores de `fuente` que hay en producción.
+// La forma real de las filas, con los valores de `fuente` que hay en producción (17/10/2026: «Levanta Muertos»
+// re-marcado `mako`, y lo `manual` del ws1 es de SU negocio, como el avatar de Mauricio).
 const FILAS = [
-  { id: 1, workspace_id: DUENO, area: 'mensajes', fuente: 'manual', titulo: 'Levanta Muertos — los 3 pilares' },
+  { id: 1, workspace_id: DUENO, area: 'mensajes', fuente: 'mako', titulo: 'Levanta Muertos — los 3 pilares' },
   { id: 2, workspace_id: DUENO, area: 'mensajes', fuente: 'mako', titulo: 'Estructuras que persuaden' },
+  { id: 7, workspace_id: DUENO, area: 'general', fuente: 'manual', titulo: 'Dolores del avatar (Carlos)' },
+  { id: 8, workspace_id: PLATAFORMA, area: 'general', fuente: 'manual', titulo: 'Lo que Martín cargó para SU negocio' },
+  { id: 9, workspace_id: PLATAFORMA, area: 'mensajes', fuente: 'mako', titulo: 'Método sembrado en la plataforma' },
   { id: 3, workspace_id: DUENO, area: 'glosario', fuente: 'reunión', titulo: 'Patricia Muñoz' },
   { id: 4, workspace_id: DUENO, area: 'glosario', fuente: 'reunión', titulo: 'Francisco Hernandez' },
   { id: 5, workspace_id: CLIENTE, area: 'glosario', fuente: 'reunión', titulo: 'Gretel' },
@@ -33,27 +38,39 @@ const FILAS = [
 ];
 
 test('EL CASO DE LEILA: el glosario del dueño no llega al cliente', () => {
-  const visto = sinLoAjenoDelDueno(FILAS, CLIENTE, DUENO).map((f) => f.titulo);
+  const visto = sinLoAjeno(FILAS, CLIENTE).map((f) => f.titulo);
   assert.ok(!visto.includes('Patricia Muñoz'), 'se sigue prestando un nombre propio del dueño');
   assert.ok(!visto.includes('Francisco Hernandez'), 'se sigue prestando un nombre propio del dueño');
 });
 
 test('…y el MÉTODO del dueño se sigue prestando: no se rompió lo que la feature venía a hacer', () => {
-  const visto = sinLoAjenoDelDueno(FILAS, CLIENTE, DUENO).map((f) => f.titulo);
-  assert.ok(visto.includes('Levanta Muertos — los 3 pilares'), 'se dejó de prestar el método cargado a mano');
+  const visto = sinLoAjeno(FILAS, CLIENTE).map((f) => f.titulo);
+  assert.ok(visto.includes('Levanta Muertos — los 3 pilares'), 'se dejó de prestar el método');
   assert.ok(visto.includes('Estructuras que persuaden'), 'se dejó de prestar el método que sembró MaKo');
+  assert.ok(visto.includes('Método sembrado en la plataforma'), 'el método que vive en la plataforma no se presta');
+});
+
+test('LO CARGADO A MANO por un negocio no se presta: ni el avatar de Mauricio ni lo de Martín (17/10/2026)', () => {
+  const visto = sinLoAjeno(FILAS, CLIENTE).map((f) => f.titulo);
+  assert.ok(!visto.includes('Dolores del avatar (Carlos)'), 'el avatar del negocio de Mauricio le llega a otro cliente');
+  assert.ok(!visto.includes('Lo que Martín cargó para SU negocio'), 'el ws9 también es un negocio real');
+  // Y Mauricio, con la plataforma sumada al préstamo, no recibe el ws9 entero.
+  const deMauricio = sinLoAjeno(FILAS, DUENO).map((f) => f.titulo);
+  assert.ok(!deMauricio.includes('Lo que Martín cargó para SU negocio'), 'al ws1 le llega lo manual del ws9');
+  assert.ok(deMauricio.includes('Dolores del avatar (Carlos)'), 'a Mauricio se le escondió lo suyo');
 });
 
 test('lo PROPIO del cliente nunca se filtra, venga de donde venga', () => {
-  const visto = sinLoAjenoDelDueno(FILAS, CLIENTE, DUENO).map((f) => f.titulo);
+  const visto = sinLoAjeno(FILAS, CLIENTE).map((f) => f.titulo);
   // Su glosario sale de SUS reuniones y es suyo: el filtro es sobre el préstamo, no sobre
   // la fuente. Sin esta mitad, el arreglo le esconde a cada cliente su propio material.
   assert.ok(visto.includes('Gretel'), 'se le escondió al cliente su propio glosario');
   assert.ok(visto.includes('Mi voz de marca'));
 });
 
-test('el DUEÑO sigue viendo lo suyo entero', () => {
-  assert.equal(sinLoAjenoDelDueno(FILAS, DUENO, DUENO).length, FILAS.length);
+test('el ws1 sigue viendo lo suyo entero', () => {
+  const propias = FILAS.filter((f) => f.workspace_id === DUENO).length;
+  assert.equal(sinLoAjeno(FILAS, DUENO).filter((f) => f.workspace_id === DUENO).length, propias);
 });
 
 test('la lista de fuentes va en POSITIVO: una fuente nueva NO se presta sola', () => {
@@ -63,7 +80,8 @@ test('la lista de fuentes va en POSITIVO: una fuente nueva NO se presta sola', (
   assert.ok(!sePresta('transcript'), 'una fuente que todavía no existe se está prestando');
   assert.ok(!sePresta(''), 'una fila sin fuente se está prestando');
   assert.ok(!sePresta(undefined));
-  assert.deepEqual([...FUENTES_PRESTABLES].sort(), ['mako', 'manual']);
+  assert.ok(!sePresta('manual'), 'lo cargado a mano es del negocio: no se presta (17/10/2026)');
+  assert.deepEqual([...FUENTES_PRESTABLES].sort(), ['mako']);
 });
 
 test('CABLEADO: los DOS lectores que prestan el workspace del dueño pasan por el filtro', () => {
@@ -73,11 +91,15 @@ test('CABLEADO: los DOS lectores que prestan el workspace del dueño pasan por e
   // que traen en un prompt: con uno solo filtrado, la fuga sigue abierta por el otro y el
   // test daría verde igual.
   const presta = (src.match(/await wsParaRag\(\)/g) ?? []).length;
-  const filtra = (src.match(/sinLoAjenoDelDueno\(/g) ?? []).length;
+  const filtra = (src.match(/sinLoAjeno\(/g) ?? []).length;
   assert.ok(presta > 0, 'desapareció `wsParaRag`: si el préstamo se fue, este test hay que reescribirlo');
   assert.equal(filtra, presta, `${presta} lectores prestan el workspace del dueño y sólo ${filtra} filtran`);
 });
 
+// ── Verificado rompiéndolo (17/10/2026), sobre los 7 de hoy (base 7 / 0) ─────
+// · `'manual'` de vuelta en `FUENTES_PRESTABLES`          → 5 pases, 2 fallos
+// · `sinLoAjeno` que devuelve todo si wsPropio es el ws1   → 6 pases, 1 fallo
+//
 // ── Verificado rompiéndolo (04/10/2026), con los números ─────────────────────
 // · sin romper nada                                     → 6 pases, 0 fallos
 // · agregando `'reunión'` a `FUENTES_PRESTABLES`        → 4 pases, 2 fallos

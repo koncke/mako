@@ -17,8 +17,8 @@
 
 import 'server-only';
 import { getSupabaseServer } from './supabase';
-import { getTenantDb, getWorkspaceActual, OWNER_WS } from './workspace';
-import { sinLoAjenoDelDueno } from './rag-prestamo';
+import { getTenantDb, getWorkspaceActual, OWNER_WS, WS_NINGUNO, wsSuperAdmin } from './workspace';
+import { sinLoAjeno } from './rag-prestamo';
 import { embed, cosine, hashText } from './embeddings';
 
 export type EstadoIndex = 'indexado' | 'pendiente' | 'error';
@@ -47,10 +47,17 @@ export type KnowledgeEntry = {
 
 const COLS = 'id, titulo, categoria, cuerpo, curso, autor, area, fuente, activo, estado, error, created_at, updated_at';
 
-/** Workspaces que el RAG puede leer: el propio + el dueño (método curado de la agencia). */
+/**
+ * Workspaces que el RAG puede leer: el propio, la PLATAFORMA (`wsSuperAdmin`) y el ws1 (`OWNER_WS`), que es
+ * donde vive HOY el método sembrado (lib/copywriting-metodo.ts) y es un CLIENTE, Mauricio. De los dos ajenos
+ * sólo entra lo que sembró MaKo (`sinLoAjeno` + `sePresta`, lib/rag-prestamo.ts): nada de lo que un negocio
+ * cargó a mano ni de lo que sacó de sus reuniones. La plataforma está para que el método se pueda mudar ahí
+ * sin tocar este lector (docs/relevo/seguridad-aislamiento.md).
+ */
 async function wsParaRag(): Promise<number[]> {
-  const ws = (await getWorkspaceActual()) ?? OWNER_WS;
-  return ws === OWNER_WS ? [OWNER_WS] : [ws, OWNER_WS];
+  const ws = (await getWorkspaceActual()) ?? WS_NINGUNO;
+  const plataforma = await wsSuperAdmin().catch(() => null);
+  return [...new Set([ws, OWNER_WS, ...(plataforma != null ? [plataforma] : [])])];
 }
 
 // El préstamo del workspace del dueño vive en `lib/rag-prestamo.ts`, sin `server-only`
@@ -89,7 +96,7 @@ export async function listKnowledge(): Promise<KnowledgeEntry[]> {
  * para que la UI lo diga en vez de dejar que el usuario intente y falle.
  */
 export async function listKnowledgeAgencia(): Promise<Array<KnowledgeEntry & { esDelDueno: boolean }>> {
-  const ws = (await getWorkspaceActual()) ?? OWNER_WS;
+  const ws = (await getWorkspaceActual()) ?? WS_NINGUNO;
   const { data, error } = await getSupabaseServer()
     .from('mako_knowledge')
     .select(`${COLS}, workspace_id`)
@@ -103,7 +110,7 @@ export async function listKnowledgeAgencia(): Promise<Array<KnowledgeEntry & { e
   // ya filtraban y éste era el TERCER lector de `wsParaRag`, que se había pasado por alto.
   // No se pierde nada editable: lo del dueño ya venía con `esDelDueno: true`, o sea de solo
   // lectura desde acá.
-  return sinLoAjenoDelDueno((data ?? []) as Array<KnowledgeEntry & { workspace_id: number }>, ws, OWNER_WS)
+  return sinLoAjeno((data ?? []) as Array<KnowledgeEntry & { workspace_id: number }>, ws)
     .map((r) => ({ ...r, esDelDueno: r.workspace_id !== ws }));
 }
 
@@ -213,12 +220,12 @@ export async function searchKnowledge(
   const q = query.trim();
   if (!q) return [];
   let data: Array<{ titulo: string; categoria: string | null; cuerpo: string; area: string; fuente: string; workspace_id: number; embedding: number[] }>;
-  const wsPropio = (await getWorkspaceActual()) ?? OWNER_WS;
+  const wsPropio = (await getWorkspaceActual()) ?? WS_NINGUNO;
   try {
     let sel = getSupabaseServer()
       .from('mako_knowledge')
       // `workspace_id` y `fuente` viajan para poder sacar lo que es del NEGOCIO del dueño
-      // y no método (ver `sinLoAjenoDelDueno`). Sin las dos columnas el filtro no se puede
+      // y no método (ver `sinLoAjeno`). Sin las dos columnas el filtro no se puede
       // escribir, y era por donde se colaban sus 22 nombres propios.
       .select('titulo, categoria, cuerpo, area, fuente, workspace_id, embedding')
       .in('workspace_id', await wsParaRag())
@@ -254,7 +261,7 @@ export async function searchKnowledge(
   }
 
   ultimoFalloRag = null;
-  return sinLoAjenoDelDueno(data, wsPropio, OWNER_WS)
+  return sinLoAjeno(data, wsPropio)
     // Sin área pedida, las reservadas quedan afuera del RAG general.
     .filter((r) => (opts.area ? true : !AREAS_RESERVADAS.includes(r.area)))
     .map((r) => ({ titulo: r.titulo, categoria: r.categoria, cuerpo: r.cuerpo, score: cosine(qv, r.embedding) }))
@@ -266,7 +273,7 @@ export async function searchKnowledge(
 /** Todas las entradas ACTIVAS de un área (workspace propio + método curado del dueño),
  *  para inyectar una metodología completa. Ordenadas por id (orden de carga del curso). */
 export async function listActiveKnowledgeByArea(area: string): Promise<Array<{ titulo: string; categoria: string | null; cuerpo: string }>> {
-  const wsPropio = (await getWorkspaceActual()) ?? OWNER_WS;
+  const wsPropio = (await getWorkspaceActual()) ?? WS_NINGUNO;
   const { data, error } = await getSupabaseServer()
     .from('mako_knowledge')
     // Las dos columnas de más son las que permiten aplicar la MISMA regla de préstamo que
@@ -278,7 +285,7 @@ export async function listActiveKnowledgeByArea(area: string): Promise<Array<{ t
     .eq('area', area)
     .order('id', { ascending: true });
   if (error || !data) return [];
-  return sinLoAjenoDelDueno(data as Array<{ titulo: string; categoria: string | null; cuerpo: string; fuente: string; workspace_id: number }>, wsPropio, OWNER_WS)
+  return sinLoAjeno(data as Array<{ titulo: string; categoria: string | null; cuerpo: string; fuente: string; workspace_id: number }>, wsPropio)
     .map((r) => ({ titulo: r.titulo, categoria: r.categoria, cuerpo: r.cuerpo }));
 }
 

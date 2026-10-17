@@ -27,7 +27,7 @@ import 'server-only';
 import { randomUUID } from 'node:crypto';
 import { getSetting, setSetting } from '@/lib/settings';
 import { getSupabaseServer } from '@/lib/supabase';
-import { getWorkspaceActual, OWNER_WS } from '@/lib/workspace';
+import { wsObligatorio } from '@/lib/workspace';
 import { ACENTOS_ES, MULETILLAS, type AcentoId, muletillasQueSobreviven } from '@/lib/acento-workspace';
 
 const KEY = 'video.voz';
@@ -224,7 +224,7 @@ export async function setMuletillasCliente(muletillas: string[]): Promise<VozCli
 const BUCKET = 'archivero';
 
 async function wsActual(): Promise<number> {
-  return (await getWorkspaceActual()) ?? OWNER_WS;
+  return await wsObligatorio();
 }
 
 /** Sube un audio del cliente y lo registra. Devuelve la muestra guardada. */

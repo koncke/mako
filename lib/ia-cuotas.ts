@@ -20,7 +20,7 @@ import { openrouterConCredito } from './openrouter-saldo';
 import { credWs } from '@/lib/credenciales';
 import { clavesDe, slotDe } from '@/lib/ia-keys';
 import { clavesCargadas } from '@/lib/ia-keys-ws';
-import { OWNER_WS, getWorkspaceActual } from '@/lib/workspace';
+import { getWorkspaceActual, WS_NINGUNO } from '@/lib/workspace';
 import {
   GEMINI_PAGO,
   LIMITES_PROVEEDOR,
@@ -147,7 +147,7 @@ export type CuotaProv = {
  */
 export async function usoHoyPorCuenta(): Promise<Record<string, UsoProv>> {
   const dayStart = new Date(); dayStart.setHours(0, 0, 0, 0);
-  const ws = await (async () => { try { return (await getWorkspaceActual()) ?? OWNER_WS; } catch { return OWNER_WS; } })();
+  const ws = await (async () => { try { return (await getWorkspaceActual()) ?? WS_NINGUNO; } catch { return WS_NINGUNO; } })();
   try {
     // Paginado y agregado al vuelo. El `.limit(20000)` de antes era una promesa
     // falsa: PostgREST corta en 1000 igual. Hoy un día son <100 filas por

@@ -446,7 +446,7 @@ export function analizarHtml(url: string, html: string, bundle = ''): AnalisisLa
  * Solo scripts del MISMO origen y con extensión .js: no se baja el SDK de nadie
  * —no aporta marcas de esta landing y son megas— ni nada de otro dominio.
  */
-async function bundlesDe(url: string, html: string, fetchImpl: typeof fetch): Promise<string> {
+async function bundlesDe(url: string, html: string, fetchImpl: Buscador): Promise<string> {
   const base = new URL(url);
   const srcs: string[] = [];
   for (const m of html.matchAll(/<script[^>]+src\s*=\s*["']([^"']+)["']/gi)) {
@@ -476,14 +476,22 @@ async function bundlesDe(url: string, html: string, fetchImpl: typeof fetch): Pr
   return partes.join('\n');
 }
 
-export async function analizarLanding(url: string, fetchImpl: typeof fetch = fetch): Promise<AnalisisLanding> {
+/**
+ * ⚠️ `fetchImpl` es OBLIGATORIO desde el 17/10/2026, y en el servidor es `fetchSeguro`
+ * (lib/fetch-seguro.ts). El default era `fetch` con `redirect: 'follow'`: una landing que
+ * redirige a una IP interna se leía entera desde nuestro servidor. Este archivo viaja al
+ * navegador (lib/landing-snapshot.ts → ProbarTracking), así que no puede importar la bajada
+ * segura: la elige quien llama, y el tipo no deja olvidarse.
+ */
+export type Buscador = (url: string, init?: RequestInit) => Promise<Response>;
+
+export async function analizarLanding(url: string, fetchImpl: Buscador): Promise<AnalisisLanding> {
   if (!url) return VACIO(url, 'Sin dirección');
   try {
     const ctrl = new AbortController();
     const t = setTimeout(() => ctrl.abort(), 8000);
     const r = await fetchImpl(url, {
       signal: ctrl.signal,
-      redirect: 'follow',
       // Se pide como un navegador: varios hosts devuelven un HTML distinto (o un
       // 403) a un user-agent que no reconocen, y ahí el análisis diría que la
       // página no tiene nada.

@@ -19,7 +19,7 @@ import { getCampaignBasics, addAdsetToCampaign, deleteEntity, metaErrorEnvelope,
 import { guardAdsWs } from '@/lib/ads-guard';
 import type { AdSetSpec } from '@/lib/campaign-types';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { getWorkspaceActual, OWNER_WS } from '@/lib/workspace';
+import { wsObligatorio } from '@/lib/workspace';
 import { motivoVideos, videosDeConjunto } from '@/lib/campana-videos';
 import { abrirRegistro, claveIdemDe, decidirReintentoLote, salidaAMedias, salidaEsperar, type Decision, type FilaPublicacion, type Salida } from '@/lib/meta-idempotencia';
 
@@ -79,8 +79,8 @@ export async function POST(req: NextRequest) {
   try { supabase = getSupabaseServer(); } catch { supabase = null; }
 // ⚠️ meta_campaign_drafts es POR CLIENTE (mig 0157) y la columna no tiene default a
 // propósito: se escribe el workspace explícito, el MISMO sobre cuya cuenta de Meta
-// crea lib/meta-ads-create.ts (`getWorkspaceActual() ?? OWNER_WS`).
-  const wsDraft = (await getWorkspaceActual()) ?? OWNER_WS;
+// crea lib/meta-ads-create.ts (`wsObligatorio()`, que tira antes que caer al ws1).
+  const wsDraft = await wsObligatorio();
   const nombre = `${adset.name || 'Conjunto nuevo'} — +1 conjunto`;
   const apertura = await abrirRegistro({
     db: supabase, ws: wsDraft, clave: idem.clave, decidir: decidirConjunto, responder: responderConjunto,

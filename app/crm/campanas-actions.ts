@@ -32,6 +32,7 @@ import { conteoPorCampana, campanasDeMetricas } from '@/lib/campana-atribucion';
 import { leadsYMetricas, planDeTraidaLote } from '@/lib/campana-traer';
 import { agregarLoteAProducto, quitarLoteDeProducto } from '@/lib/lead-funnel';
 import { TAG } from '@/lib/cache';
+import { exigirSesion } from '@/lib/sesion-accion';
 
 export type ProductoNombre = { id: number | null; nombre: string };
 
@@ -114,6 +115,7 @@ const TOPE_META_MS = 20_000;
 export async function campanasAsignadasAction(): Promise<
   { ok: true; asignadas: CampanaAsignada[]; productos: ProductoNombre[] } | { ok: false; error: string }
 > {
+  await exigirSesion();
   try {
     const [asignadas, productos] = await Promise.all([leerCampanasAsignadasEstricto(), productosConNull()]);
     return { ok: true, asignadas, productos };
@@ -124,6 +126,7 @@ export async function campanasAsignadasAction(): Promise<
 
 /** Lo que la tabla necesita para dibujarse. */
 export async function campanasDelProductoAction(): Promise<EstadoCampanas | { ok: false; error: string }> {
+  await exigirSesion();
   try {
     const metaP = (async () => {
       try {
@@ -265,6 +268,7 @@ export async function previaCampanaAction(
   funnelId: number | null,
   item: Item,
 ): Promise<{ ok: true; aTraer: number; porProducto: PorProducto[] } | { ok: false; error: string }> {
+  await exigirSesion();
   const r = await previaLoteAction(funnelId, [item]);
   return r.ok ? { ok: true, aTraer: r.aTraer, porProducto: r.porProducto } : r;
 }
@@ -362,6 +366,7 @@ export async function asignarCampanaAction(
   | { ok: true; asignadas: CampanaAsignada[]; antes: CampanaAsignada | null; movidos: Movido[]; fallaron: number }
   | { ok: false; error: string }
 > {
+  await exigirSesion();
   const r = await asignarLoteAction(funnelId, [item], traer);
   return r.ok ? { ok: true, asignadas: r.asignadas, antes: r.previos[0]?.antes ?? null, movidos: r.movidos, fallaron: r.fallaron } : r;
 }
@@ -464,6 +469,7 @@ export async function deshacerAsignacionAction(
   antes: CampanaAsignada | null,
   agregados: Movido[],
 ): Promise<{ ok: true; asignadas: CampanaAsignada[] } | { ok: false; error: string }> {
+  await exigirSesion();
   return deshacerLoteAction([{ id, antes }], agregados);
 }
 
@@ -492,6 +498,7 @@ export async function quitarLoteAction(
 export async function quitarCampanaAction(
   id: string,
 ): Promise<{ ok: true; asignadas: CampanaAsignada[] } | { ok: false; error: string }> {
+  await exigirSesion();
   const r = await quitarLoteAction([id]);
   return r.ok ? { ok: true, asignadas: r.asignadas } : r;
 }
