@@ -243,6 +243,14 @@ function BarraAcciones({ sesion, funnels, onSeguir, onGuardar }: {
     setError(null);
     try { await descargarPdf(sesion.id); } catch (e) { setError(mensajeDeError(e)); } finally { setBajando(false); }
   };
+  // El PDF para un PROSPECTO (17/10/2026): la oferta sola, sin el diagnóstico ni los datos a completar.
+  const [bajandoExterno, setBajandoExterno] = useState(false);
+  const pdfExterno = async () => {
+    if (bajandoExterno) return;
+    setBajandoExterno(true);
+    setError(null);
+    try { await descargarPdf(sesion.id, null, { externo: true }); } catch (e) { setError(mensajeDeError(e)); } finally { setBajandoExterno(false); }
+  };
   const guardar = async () => {
     if (guardada || guardando) return;
     setGuardando(true);
@@ -257,6 +265,9 @@ function BarraAcciones({ sesion, funnels, onSeguir, onGuardar }: {
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
         <Button variant="primary" size="lg" loading={bajando} onClick={() => void pdf()} icon={<Icon name="descargar" size={18} />}>
           Descargar PDF
+        </Button>
+        <Button variant="secondary" size="lg" loading={bajandoExterno} onClick={() => void pdfExterno()} icon={<Icon name="descargar" size={18} />}>
+          PDF para tu cliente
         </Button>
         <Button variant="secondary" size="lg" onClick={onSeguir}>Seguir afinando</Button>
         {guardada
