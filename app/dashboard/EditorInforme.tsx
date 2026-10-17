@@ -118,6 +118,7 @@ import { CrearHoja, NuevaHoja } from './NuevaHoja';
 import type { SenalesNegocio } from '@/lib/plantillas-sugeridas';
 import { ChatMakoGrafico, LogoMako, PanelAnalista, PuntoNuevo, useAnalisisNuevo } from './PanelAnalista';
 import { PanelEditarMako, type MensajeEdicion } from './PanelEditarMako';
+import { pedidoDeProbar } from '@/lib/experimentos-catalogo';
 import { BarraControles } from './BarraControles';
 import { MenuFiltro } from './MenuFiltro';
 import { BuscarEnTabla } from './BuscarEnHoja';
@@ -143,6 +144,7 @@ import { AccionesFilaProvider } from './entidades/acciones-fila';
 import { ELEMENTOS_ALTO_LIBRE_EN_PILA, graficoAltoLibreEnPila, solosEnPila } from './pila';
 import { PASOS_DASHBOARD, PASOS_DASHBOARD_EDICION, RECORRIDO_DASHBOARD, RECORRIDO_DASHBOARD_EDICION } from './recorridos-dashboard';
 import { hojaConIdsNuevos } from '@/lib/graficos-copia';
+import { sigueComoSeCreo } from '@/lib/graficos-plantilla-relleno';
 import { tokenDeDashboard } from './copia-dash-cliente';
 import { copiarAlPortapapeles } from '@/app/automations/copia-flujo-cliente';
 import { conMako } from '@/lib/graficos-catalogo';
@@ -293,7 +295,7 @@ function nuevoElementoEn(t: TipoElemento, componentes: Componente[], dueno: Graf
 
 export function EditorInforme({
   inicial, datosIniciales, lecturaFallo, hoy, hojaInicial, versionInicial = null,
-  hojaAgregada = null, aviso = null, soloLectura = false, llamadaInicial = null, compartido = null, sinPaginas = false, informe = 'dashboard',
+  hojaAgregada = null, aviso = null, soloLectura = false, llamadaInicial = null, compartido = null, sinPaginas = false, informe = 'dashboard', probarInicial = null,
   senales = null,
 }: {
   inicial: Tablero;
@@ -311,6 +313,11 @@ export function EditorInforme({
   soloLectura?: boolean;
   /** `?llamada=`: el recording_id de la llamada cuya ficha se abre al entrar. */
   llamadaInicial?: number | null;
+  /**
+   * `?probar=` (17/10/2026): una hipótesis que llegó de un link viejo de /experimentos (el «Probarlo» de Offer). Abre
+   * «Editar con MaKo» con «Probemos: …» escrito: la persona lo manda y MaKo propone el experimento en la hoja.
+   */
+  probarInicial?: string | null;
   /** El link compartido (sin sesión): se mira y se exporta; lo que se lee va por la ruta del link. */
   compartido?: Compartido | null;
   /**
@@ -345,7 +352,9 @@ export function EditorInforme({
   const [analista, setAnalista] = useState(false);
   // «Editar con MaKo» (16/10/2026, ./PanelEditarMako.tsx): el panel, y el hilo de cada hoja (de la sesión: cerrar y abrir
   // el panel no lo pierde, recargar sí).
-  const [makoEditar, setMakoEditar] = useState(false);
+  const [makoEditar, setMakoEditar] = useState(!!probarInicial);
+  // La hipótesis de `?probar=` va escrita UNA vez: cerrado el panel, abrirlo de nuevo no la vuelve a poner.
+  const [probar, setProbar] = useState(probarInicial ?? '');
   const [hilosMako, setHilosMako] = useState<Record<string, MensajeEdicion[]>>({});
   const [detalle, setDetalle] = useState<{ id: string; sel: SelDetalle } | null>(null);
   const [vista, setVista] = useState<VistaValores>({});
@@ -618,11 +627,14 @@ export function EditorInforme({
       show(`Hoja ${hojaAgregada.nombre} agregada`);
     } else if (aviso) show(aviso);
   }, [hojaAgregada, arranque, inicial, aviso, show]);
+  /** Las hojas recién creadas, como se crearon: la de una plantilla se reemplaza por la ajustada sólo si sigue así. */
+  const creadas = useRef(new Map<string, Hoja>());
   /** Lo que devuelve «Nueva hoja» (en blanco, de una plantilla o armada por MaKo), ya saneado. */
   const crearHoja = useCallback((h: Hoja, aviso?: string) => {
     const t = tableroRef.current;
     if (t.hojas.length >= MAX_HOJAS) { show('Máximo de hojas'); return; }
     const nueva: Hoja = t.hojas.some((x) => x.id === h.id) ? { ...h, id: nuevoId() } : h;
+    creadas.current.set(nueva.id, nueva);
     // En blanco, la que se crea es la ÚNICA: el inicial que viajaba por dentro no se guarda.
     // ⚠️ CREAR UNA HOJA NO SE DESHACE (14/10/2026, Martín: «Si creo una hoja no debería aparecer el deshacer si no hago
     // ninguna acción»): con `mutar`, el Deshacer de la hoja nueva la borraba y volvía a la de antes. Se guarda (el
@@ -635,6 +647,23 @@ export function EditorInforme({
     irAHoja(nueva.id);
     if (aviso) show(aviso);
   }, [vaciar, irAHoja, show, enBlanco]);
+  /**
+   * #857: la plantilla ya está en pantalla y llega la AJUSTADA a los datos del negocio (sin los gráficos vacíos, con los
+   * que sumó MaKo). Reemplaza a la creada sólo si nadie la tocó (`sigueComoSeCreo`: moverla no cuenta); si la tocaron,
+   * lo de la persona gana y no se dice nada. Como crearla, no se deshace.
+   */
+  const rellenarHoja = useCallback((id: string, h: Hoja | null, aviso?: string) => {
+    const creada = creadas.current.get(id);
+    creadas.current.delete(id);
+    const actual = tableroRef.current.hojas.find((x) => x.id === id);
+    if (!creada || !actual) return;
+    if (!sigueComoSeCreo(creada, actual)) return;
+    if (h) {
+      setTablero((tt) => ({ ...tt, hojas: tt.hojas.map((x) => (x.id === id ? { ...h, id } : x)) }));
+      vaciar();
+    }
+    if (aviso) show(aviso);
+  }, [vaciar, show]);
   const duplicarHoja = (id: string) => {
     const h = tablero.hojas.find((x) => x.id === id);
     if (!h || tablero.hojas.length >= MAX_HOJAS) return;
@@ -862,8 +891,8 @@ export function EditorInforme({
   const cerrarAnalista = useCallback(() => setAnalista(false), []);
   // Los dos paneles van en el mismo lugar (`.an`): abrir uno cierra el otro.
   const alternarAnalista = useCallback(() => { setMenu(null); setMakoEditar(false); setAnalista((v) => !v); }, []);
-  const cerrarMakoEditar = useCallback(() => setMakoEditar(false), []);
-  const alternarMakoEditar = useCallback(() => { setMenu(null); setAnalista(false); setMakoEditar((v) => !v); }, []);
+  const cerrarMakoEditar = useCallback(() => { setMakoEditar(false); setProbar(''); }, []);
+  const alternarMakoEditar = useCallback(() => { setMenu(null); setAnalista(false); setProbar(''); setMakoEditar((v) => !v); }, []);
   /** La hoja de ese id como está AHORA en el informe (el panel compara por referencia antes de aplicar o deshacer). */
   const leerHoja = useCallback((id: string) => tableroRef.current.hojas.find((h) => h.id === id) ?? null, []);
   /** Lo que cambió MaKo (o su Deshacer) entra por `mutar`: tiene deshacer, y lo guarda el autoguardado de siempre. */
@@ -1223,14 +1252,18 @@ export function EditorInforme({
         onHojas={(ancla) => alternarMenu('hojas', ancla)} onEmoji={(ancla) => alternarMenu('emoji', ancla)} onCambiar={cambiarCabecera}
         derecha={(
           <>
-            {/* Los filtros de la hoja, SIEMPRE a la vista (punto 7); agregarlos y quitarlos, sólo editando. En General no
-                van (14/10/2026, Martín: «Toda la topbar la deberías copiar de Dashboard menos la barra de busqueda y el
-                filtro que no sirven en general»): su barra es el título, Editar y el ⋮.
+            {/* La búsqueda y los filtros de la hoja, SIEMPRE a la vista (punto 7); agregarlos y quitarlos, sólo editando.
+                EN GENERAL TAMBIÉN desde el 17/10/2026 (#858, Martín en la revisión del 16/10, 1:10:12: «al momento de crear
+                una plantilla en la tab general no aparece el filtro… de fecha y… la barra de búsqueda. Esas dos cosas siempre
+                deberían aparecer por defecto… y tampoco aparece en la edición el botón de agregarlo»). Revierte el 14/10
+                («menos la barra de busqueda y el filtro que no sirven en general»). Las plantillas de General ya traían su
+                control de período (lib/graficos-plantillas-generales.ts): lo que faltaba era dibujarlo. ⚠️ El período
+                mueve los GRÁFICOS de la hoja; los bloques de General dicen su propio rango («del mes», «hoy»).
                 ⚠️ Y EN BLANCO NO VA NADA DE ESTO, en las dos pantallas (14/10/2026, Martín: «Si no tengo tabs no debería
                 salir el botón de editar ni los 3 puntos. Lo mismo para dashboard... Y en el caso de dashboard tampoco el
                 filtro ni la barra de busqueda»): sin una hoja no hay qué editar, filtrar ni exportar. Lo único que se
                 hace en blanco es elegir con qué arrancar, y eso está en el medio de la pantalla. */}
-            {!esGeneral && !enBlanco && (
+            {!enBlanco && (
             <div className="lk-top-filtros" data-recorrido="dash-controles">
               <BarraControles
                 hoja={hojaTop} vista={vista} editando={editando} guardable={guardable} hoy={hoy} compartido={compartido}
@@ -1336,7 +1369,7 @@ export function EditorInforme({
               // pongas ahí el "¿Qué vas a crear hoy?"». La caja y, abajo, las plantillas como páginas: la portada del Landing
               // Generator. Es la MISMA pieza que el modal «Nueva hoja» (`CrearHoja`, ./NuevaHoja.tsx), sin foco al abrir.
               <div className="lk-en-blanco lk-en-blanco-crear" onClick={(e) => e.stopPropagation()}>
-                {guardable && <CrearHoja onCrear={crearHoja} enBlanco="Página 1" informe={informe} senales={senales} />}
+                {guardable && <CrearHoja onCrear={crearHoja} onRellenar={rellenarHoja} enBlanco="Página 1" informe={informe} senales={senales} />}
               </div>
             ) : !lienzo.componentes.length ? (
               <div className="lk-vacio">
@@ -1419,7 +1452,7 @@ export function EditorInforme({
         {makoEditar && guardable && !enBlanco && !compartido && (
           <PanelEditarMako hoja={hoja} informe={informe} hilo={hilosMako[hoja.id] ?? []} onHilo={alHiloMako} leerHoja={leerHoja}
             onAplicar={ponerHojaDeMako} onDeshacer={ponerHojaDeMako} onCrearHoja={crearHoja} onAbrirHoja={irAHoja} onArchivarHoja={eliminarHoja}
-            onCerrar={cerrarMakoEditar} />
+            onCerrar={cerrarMakoEditar} textoInicial={pedidoDeProbar(probar)} />
         )}
       </div>
 
@@ -1553,7 +1586,7 @@ export function EditorInforme({
       {/* ── Los modales ── */}
       {guardable && <BotonCompartir hojaId={hoja.id} titulo={hoja.nombre} abierto={compartir} onCerrar={cerrarCompartir} />}
       {modalDatos && <ModalDatos onElegir={anadirFuente} onCerrar={cerrarModalDatos} soloFuentes={esGeneral ? FUENTES_GENERAL : undefined} />}
-      {nuevaHoja && <NuevaHoja onCerrar={cerrarNuevaHoja} onCrear={crearHoja} enBlanco={enBlanco ? 'Página 1' : `Página ${tablero.hojas.length + 1}`} informe={informe} senales={senales} />}
+      {nuevaHoja && <NuevaHoja onCerrar={cerrarNuevaHoja} onCrear={crearHoja} onRellenar={rellenarHoja} enBlanco={enBlanco ? 'Página 1' : `Página ${tablero.hojas.length + 1}`} informe={informe} senales={senales} />}
       {gDetalle && esGrafico(gDetalle) && detalle && (
         <DetalleModal g={gDetalle} hoja={hoja} efectivo={efectivosHoja[gDetalle.id] ?? efectivoDe(gDetalle, hoja, vista, hoy)} sel={detalle.sel} tema={hoja.tema}
           onCerrar={cerrarDetalle} onCambio={refrescar} onFiltrar={filtrarPor} />

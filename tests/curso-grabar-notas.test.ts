@@ -78,7 +78,7 @@ test('el portal no depende de la 0208: COLUMNAS_CLASE no lee `grabar`, y la tab 
   const linea = datos.split('\n').find((l) => l.includes('export const COLUMNAS_CLASE'));
   assert.ok(linea);
   assert.doesNotMatch(linea!, /grabar/);
-  assert.doesNotMatch(sinComentarios(leer('app/customer-success/curso/page.tsx')), /grabar/i, 'la página de la tab volvió a leer la marca');
+  assert.doesNotMatch(sinComentarios(leer('app/customer-success/curso/pantalla.tsx')), /grabar/i, 'la página de la tab volvió a leer la marca');
 });
 
 test('las notas del equipo se fueron de la tab: ni la caja, ni sus seis acciones, ni el conteo, ni el botón de la etapa', () => {

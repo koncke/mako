@@ -65,7 +65,7 @@ const leer = (rel: string) => sinComentarios(readFileSync(join(RAIZ, rel), 'utf8
  *  pero no son filas (salieron de la sidebar de escritorio). */
 const SIETE: IdSeccionMas[] = ['calendario', 'second-brain', 'experimentos', 'offer', 'copywriting', 'curso', 'comunidad'];
 /** Las que siguen siendo filas, en el orden de More. */
-const SIETE_FILAS: IdSeccionMas[] = ['calendario', 'curso', 'comunidad', 'offer', 'copywriting'];
+const SIETE_FILAS: IdSeccionMas[] = ['calendario', 'offer', 'copywriting'];
 const seccion = (id: IdSeccionMas) => SECCIONES_MAS.find((s) => s.id === id)!;
 /** Las claves de una sección, leídas con el tipo de la lib: después del `assert.deepEqual` de abajo, TS
  *  achica QUERY_DE_SECCION al literal de la tabla (deepEqual es un `asserts`), y QUERY_DE_SECCION[s.id] ya
@@ -99,8 +99,10 @@ test('las siete nuevas: su ruta del teléfono, la de escritorio, la key que las 
     ['offer', '/m/offer', '/offer', 'offer', 'sales'],
     // La tab unificada Copywriting abre su sección Ads Writer, y es esa key la que gatea (requireRolWs de /ads-writer).
     ['copywriting', '/m/copywriting', '/ads-writer', 'ads-writer', 'sales'],
-    ['curso', '/m/curso', '/customer-success/curso', 'cs-curso', 'operate'],
-    ['comunidad', '/m/comunidad', '/customer-success/comunidad', 'cs-comunidad', 'operate'],
+    // Desde el 17/10/2026 la URL de escritorio es la de la tab Clients (docs/diseno-clients.md).
+    // Classroom y Community son sub-tabs de Clients desde el 17/10/2026: filas ocultas (sus pantallas siguen).
+    ['curso', '/m/curso', '/clients/classroom', 'cs-curso', null],
+    ['comunidad', '/m/comunidad', '/clients/community', 'cs-comunidad', null],
   ]);
 });
 
@@ -155,7 +157,8 @@ test('quién ve qué en More: rol × capa, con la regla de la sidebar (puedeVerK
   // More entero del admin de un cliente completo (17/10/2026): Second Brain arriba sin título, y una caja por familia.
   assert.deepEqual(gruposMas('admin', 'completo').map((g) => [g.titulo, g.secciones.map((s) => s.id)]), [
     [null, ['mako']],
-    ['Operate', ['calendario', 'dashboard', 'ads', 'cs', 'curso', 'comunidad']],
+    // Clients es UNA fila (sus sub-tabs van adentro); MaKo Partners sólo para el admin de una agencia.
+    ['Operate', ['calendario', 'dashboard', 'ads', 'cs']],
     ['Sales Machine', ['offer', 'landing', 'automations', 'video', 'copywriting']],
   ]);
   // El admin de la capa pm no ve CRM ni Chats: suben las dos primeras de More que ve, en el orden de la
@@ -184,7 +187,7 @@ test('el teléfono deja entrar donde deja entrar la página de escritorio (mismo
   // Curso y Comunidad piden en escritorio la capa de Customer Success (`requireCapa`), y la sidebar, sólo el admin.
   for (const id of ['curso', 'comunidad'] as const) {
     const s = seccion(id);
-    assert.ok(leer(`app/customer-success/${id}/page.tsx`).includes("requireCapa('customer-success')"), `${id}: cambió el guard de escritorio`);
+    assert.ok(leer(`app/customer-success/${id}/pantalla.tsx`).includes("requireCapa('customer-success')"), `${id}: cambió el guard de escritorio`);
     for (const capa of Object.keys(CAPAS) as CapaId[]) {
       assert.equal(puedeVerKey(s.navKey, 'admin', capa), tabEnCapa('customer-success', capa), `${id} en la capa ${capa}`);
     }
@@ -236,9 +239,9 @@ test('la cabecera de cada sección vuelve a More, con el nombre de la pantalla; 
   assert.equal(tituloDe('/ads-writer'), tituloDe('/m/copywriting'), 'la pestaña dice lo mismo en los dos lados');
   assert.deepEqual(cabeceraPorRuta('/m/copywriting/guion-1').padre, { href: '/m/copywriting', label: 'Ads Writer' });
   // Los nombres en inglés desde el 17/10/2026 (Course, Community, Calendar), como en la sidebar.
-  assert.deepEqual(cabeceraPorRuta('/m/curso/7').padre, { href: '/m/curso', label: 'Course' });
+  assert.deepEqual(cabeceraPorRuta('/m/curso/7').padre, { href: '/m/curso', label: 'Classroom' });
   // Curso y Comunidad no son Clientes: el prefijo va con barra.
-  assert.equal(cabeceraPorRuta('/m/curso').titulo, 'Course');
+  assert.equal(cabeceraPorRuta('/m/curso').titulo, 'Classroom');
   assert.equal(cabeceraPorRuta('/m/comunidad').titulo, 'Community');
   // La sección que sube a la barra (Calendar, en la capa pm) es una raíz: sin volver.
   assert.deepEqual(cabeceraPorRuta('/m/calendario', barraMovil('admin', 'pm')), { titulo: 'Calendar', padre: null, trabajo: false, conBarra: true });

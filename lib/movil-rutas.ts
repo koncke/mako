@@ -41,13 +41,14 @@ import { tabEnCapa } from './capas';
 import { capaDeHojaDeRol } from './graficos-roles';
 import { RUTA_AUTOMATIONS, RUTAS_VIEJAS_AUTOMATIONS } from './ruta-automations';
 import { RUTA_WEB_GENERATOR, RUTAS_VIEJAS_WEB_GENERATOR } from './ruta-web-generator';
+import { SECCIONES_COMUNIDAD as SECCIONES_COMUNIDAD_CLIENTS } from './clients-rutas';
 
 /** Los cinco destinos FIJOS de la barra. `hoy` es General (la portada; su ruta interna es /m/hoy). */
 export type DestinoMovil = 'crm' | 'chats' | 'hoy' | 'plan' | 'mas';
 /** Las secciones que viven en More. */
 export type IdSeccionMas =
   | 'calendario' | 'ads' | 'second-brain' | 'dashboard' | 'experimentos' | 'offer' | 'landing' | 'automations'
-  | 'video' | 'copywriting' | 'cs' | 'curso' | 'comunidad' | 'mako';
+  | 'video' | 'copywriting' | 'cs' | 'curso' | 'comunidad' | 'partners' | 'mako';
 /** Lo que puede ocupar un lugar de la barra: un destino fijo o una sección de More que subió. */
 export type IdBarra = DestinoMovil | IdSeccionMas;
 
@@ -142,8 +143,8 @@ export const SECCIONES_MAS: readonly DefSeccionMas[] = [
   // `customer-success` (requireCapa) y las keys `cs-curso`/`cs-comunidad` dan lo mismo en las cuatro capas
   // (tests/curso-admin.test.ts y tests/comunidad-nav.test.ts); el rol, como en la sidebar, sólo admin.
   { id: 'cs', label: 'Clients', href: '/m/cs', icon: 'users', navKey: 'customer-success', familia: 'operate' },
-  { id: 'curso', label: 'Course', href: '/m/curso', icon: 'video', navKey: 'cs-curso', familia: 'operate' },
-  { id: 'comunidad', label: 'Community', href: '/m/comunidad', icon: 'comunidad', navKey: 'cs-comunidad', familia: 'operate' },
+  // MaKo Partners (17/10/2026): sólo el admin de una agencia (`soloCapas` del ítem de nav.ts, que `puedeVerKey` mira).
+  { id: 'partners', label: 'MaKo Partners', href: '/m/partners', icon: 'comunidad', navKey: 'partners', familia: 'operate' },
   // Sales Machine (lo «pronto» es del super admin). Desde el 17/10/2026 trae Video y Copywriting (ex Content Machine).
   { id: 'offer', label: 'Offer', href: '/m/offer', icon: 'tag', navKey: 'offer', familia: 'sales' },
   { id: 'landing', label: 'Web Generator', href: '/m/landing', icon: 'web', navKey: 'landing-writer', familia: 'sales' },
@@ -162,6 +163,9 @@ export const SECCIONES_MAS: readonly DefSeccionMas[] = [
   // id), pero no son filas de More ni suben a la barra: en escritorio salieron de la sidebar (nav.ts → SIN_FILA).
   { id: 'second-brain', label: 'Second Brain', href: '/m/second-brain', icon: 'cerebro', navKey: 'second-brain', familia: null, oculta: true },
   { id: 'experimentos', label: 'Experiments', href: '/m/experimentos', icon: 'experiments', navKey: 'experimentos', familia: null, oculta: true },
+  // Course y Community: sub-tabs de Clients desde el 17/10/2026 (arriba de las tres pantallas, app/m/cs/SeccionesClientsM.tsx).
+  { id: 'curso', label: 'Classroom', href: '/m/curso', icon: 'video', navKey: 'cs-curso', familia: null, oculta: true },
+  { id: 'comunidad', label: 'Community', href: '/m/comunidad', icon: 'comunidad', navKey: 'cs-comunidad', familia: null, oculta: true },
 ];
 
 /** El nombre de la PANTALLA de una sección (la cabecera, su «volver» y la pestaña): `titulo` o, si no, el de la fila. */
@@ -183,8 +187,8 @@ export const QUERY_DE_SECCION: Partial<Record<IdSeccionMas, readonly string[]>> 
   experimentos: ['tab', 'desde', 'hasta', 'cierres', 'presupuesto', 'hipotesis'], // app/experimentos/page.tsx
   offer: ['oferta', 'funnel'], // app/offer/page.tsx (el «Analizar oferta →» del CRM)
   copywriting: ['tab'], // app/ads-writer/tabs.ts (anuncios · guiones · analizar)
-  curso: ['producto'], // app/customer-success/curso/page.tsx
-  comunidad: ['producto', 'post'], // app/customer-success/comunidad/page.tsx (`?post=N` abre ESE post)
+  curso: ['producto'], // app/customer-success/curso/pantalla.tsx (Clients › Classroom)
+  comunidad: ['producto', 'post'], // app/customer-success/comunidad/pantalla.tsx (Clients › Community; `?post=N` abre ESE post)
 };
 
 export type RolMovil = 'admin' | 'closer' | 'setter' | null;
@@ -210,6 +214,8 @@ export function puedeVerKey(key: string, rol: RolMovil, capa: string | null | un
   // null = sin rol resuelto (sin sesión): no ve nada gateado. El guard de la página ya lo
   // manda a /login; acá no se adivina a favor.
   const porRol = rol === 'admin' ? true : rol ? (item.rolesWs ?? []).includes(rol) : false;
+  // `soloCapas` (MaKo Partners): sólo esas capas, como en la barra (lib/nav-visibilidad.ts); el rol ya pidió admin.
+  if (item.soloCapas && !item.soloCapas.includes(capa ?? '')) return false;
   return porRol && tabEnCapa(key, capa);
 }
 
@@ -428,12 +434,20 @@ export function rutaMovil(href: string | null | undefined): string | null {
   // Copywriting: lo que un cliente ve de esa tab unificada es Ads Writer (y /content-machine, el destino que
   // su código ya declara). Ideas, YouTube Writer y Stories son del super admin y se quedan en la computadora.
   if (dentro(p, '/ads-writer') || dentro(p, '/content-machine')) return aSeccion('copywriting', q);
-  // Curso y Comunidad, ANTES que Clientes (que se queda con el resto de /customer-success). El Avance se
-  // fue del Curso a Clientes: un link viejo (`/customer-success/curso?vista=avance`) en escritorio
-  // redirige a /customer-success (app/customer-success/curso/page.tsx), y acá también va a Clientes.
+  // La tab Clients (17/10/2026, docs/diseno-clients.md): Classroom y las cinco sub-tabs de la comunidad, ANTES que
+  // Clients (que se queda con el resto de /clients). El teléfono sigue con sus tres pantallas.
+  if (dentro(p, '/clients/classroom')) return aSeccion('curso', q);
+  if (SECCIONES_COMUNIDAD_CLIENTS.some((s) => dentro(p, `/clients/${s}`))) return aSeccion('comunidad', q);
+  if (dentro(p, '/clients')) return '/m/cs';
+  // Las rutas VIEJAS de Customer Success (links ya mandados): en escritorio redirigen a /clients
+  // (app/customer-success/a-clients.ts); el teléfono las lleva directo a su pantalla. Curso y Comunidad, ANTES que
+  // Clientes. El Avance se fue del Curso a Clientes: `/customer-success/curso?vista=avance` va a Clientes.
   if (dentro(p, '/customer-success/curso')) return q.get('vista') === 'avance' ? '/m/cs' : aSeccion('curso', q);
   if (dentro(p, '/customer-success/comunidad')) return aSeccion('comunidad', q);
   if (dentro(p, '/customer-success')) return '/m/cs';
+  // MaKo Partners (17/10/2026): la cartera de cuentas de los clientes de la agencia. La pantalla del teléfono pregunta el
+  // programa (`esAgencia`) como la de escritorio.
+  if (dentro(p, '/partners')) return '/m/partners';
   if (dentro(p, RUTA_AUTOMATIONS) || dentro(p, '/setting') || RUTAS_VIEJAS_AUTOMATIONS.some((r) => dentro(p, r))) return '/m/automations';
   if (dentro(p, '/video-generator')) {
     const plan = q.get('plan') ?? '';
@@ -537,9 +551,10 @@ export function rutaEscritorio(href: string): string {
   else if (p === '/m/experimentos') destino = '/experimentos';
   else if (p === '/m/offer') destino = '/offer';
   else if (p === '/m/copywriting') destino = '/ads-writer';
-  else if (p === '/m/curso') destino = '/customer-success/curso';
-  else if (p === '/m/comunidad') destino = '/customer-success/comunidad';
-  else if (p === '/m/cs') destino = '/customer-success';
+  else if (p === '/m/curso') destino = '/clients/classroom';
+  else if (p === '/m/comunidad') destino = '/clients/community';
+  else if (p === '/m/cs') destino = '/clients';
+  else if (p === '/m/partners') destino = '/partners';
   else if (p === '/m/automations') destino = RUTA_AUTOMATIONS;
   else if ((m = p.match(/^\/m\/video\/([^/]+)$/))) { destino = '/video-generator'; q.set('plan', m[1]); }
   else if (p === '/m/video') destino = '/video-generator';

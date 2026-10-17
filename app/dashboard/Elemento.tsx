@@ -53,6 +53,7 @@ import type { ContextoEntidad, TipoEntidad } from '@/lib/graficos-acciones';
 import type { LoQueSeVe } from './PanelAnalista';
 // Del paquete de IA y entidades (interfaz I3): el dibujo de cada tipo nuevo y su formulario del panel.
 import { ElementoIA, PropsIA } from './ElementoIA';
+import { ElementoExperimento } from './ElementoExperimento';
 import { ElementoAccion, PropsAccion } from './ElementoAccion';
 import { PiezaEntidad, PropsEntidad } from './entidades/PiezaEntidad';
 import { ElementoGeneral, useEnGeneral, useFunnelsGeneral, useGeneral, useVariablesInforme } from './ElementoGeneral';
@@ -314,6 +315,8 @@ export function CuerpoElemento({ e, colores, editando, onCambiar, ctx }: {
   }
   if (e.tipo === 'accion') return <ElementoAccion e={e} contexto={ctx?.abierto ?? null} editando={editando} soloLectura={!!ctx?.compartido} onCambio={ctx?.onCambio} />;
   if (e.tipo === 'general') return <ElementoGeneral e={e} />;
+  // 17/10/2026: un experimento («probemos X» en «Editar con MaKo»): su propuesta, su medición y su veredicto.
+  if (e.tipo === 'experimento') return <ElementoExperimento e={e} editando={editando} compartido={!!ctx?.compartido} />;
   if (e.tipo === 'entidad') return <PiezaEntidad e={e} contexto={ctx?.abierto ?? null} periodo={ctx?.periodo ?? null} soloLectura={!!ctx?.compartido} onCambio={ctx?.onCambio} />;
   return <CuerpoForma e={e} colores={colores} />;
 }
@@ -584,7 +587,7 @@ function CuerpoForma({ e, colores }: { e: Elemento; colores: readonly string[] }
  * «imagen» que en cualquier otro menú de la app. El resto (texto, línea, flecha y sección) se dibuja acá.
  */
 const DEL_SET = {
-  imagen: 'imagen', enlace: 'link', video: 'video', insertado: 'insertar', ia: 'mako', accion: 'accion', entidad: 'archivo', general: 'plan',
+  imagen: 'imagen', enlace: 'link', video: 'video', insertado: 'insertar', ia: 'mako', accion: 'accion', entidad: 'archivo', general: 'plan', experimento: 'experimento',
 } as const satisfies Partial<Record<TipoElemento, NombreIconoMenu>>;
 const esDelSet = (t: TipoElemento): t is keyof typeof DEL_SET => Object.prototype.hasOwnProperty.call(DEL_SET, t);
 

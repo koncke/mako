@@ -43,7 +43,7 @@ export const R = {
   sinClientes: 'Sin clientes en este producto',
   sinAvance: 'No pude leer el avance.',
   sinServicios: 'Todavía no hay servicios',
-  irAClientes: 'Ir a Clientes',
+  irAClientes: 'Ir a Clients',
   sinLeerServicios: 'No pude leer tus servicios',
 } as const;
 

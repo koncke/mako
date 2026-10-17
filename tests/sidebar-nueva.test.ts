@@ -25,7 +25,7 @@
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   ARRIBA, FAMILIAS, MAKO_NAV, OPS_CENTER, SIN_FILA, SUPERADMIN_MENU, TODOS_LOS_ITEMS, ADMIN_NAV, itemsDe, type NavItem,
@@ -49,7 +49,7 @@ const dibujadas = (): NavItem[] => [
 test('las familias: Operate y Sales Machine, en ese orden; Analyze, Content Machine, Customer Success y Admin se fueron', () => {
   assert.deepEqual(FAMILIAS.map((f) => [f.key, f.label]), [['operate', 'Operate'], ['create', 'Sales Machine']]);
   const operate = itemsDe(FAMILIAS[0]).map((i) => i.key);
-  for (const k of ['general', 'todo', 'calendario', 'graphics', 'crm', 'chats', 'ads-manager', 'customer-success', 'cs-curso', 'cs-comunidad']) {
+  for (const k of ['general', 'todo', 'calendario', 'graphics', 'crm', 'chats', 'ads-manager', 'customer-success', 'partners']) {
     assert.ok(operate.includes(k), `«${k}» no está en Operate`);
   }
   const sales = itemsDe(FAMILIAS[1]).map((i) => i.key);
@@ -133,7 +133,10 @@ test('nada se rompe: cada destino de la barra y de lo que dejó de ser fila tien
   const existe = (href: string): boolean => {
     const ruta = href.split(/[?#]/)[0].replace(/^\//, '');
     const base = join(RAIZ, 'app', ...ruta.split('/'));
-    return ['page.tsx', 'route.ts'].some((f) => existsSync(join(base, f))) || existsSync(join(base, '[[...resto]]', 'page.tsx'));
+    // Una ruta dinámica también vale (/clients/community es app/clients/[seccion]/page.tsx).
+    const padre = join(base, '..');
+    const dinamica = existsSync(padre) && readdirSync(padre).some((d) => d.startsWith('[') && d.endsWith(']') && !d.includes('.') &&existsSync(join(padre, d, 'page.tsx')));
+    return ['page.tsx', 'route.ts'].some((f) => existsSync(join(base, f))) || existsSync(join(base, '[[...resto]]', 'page.tsx')) || dinamica;
   };
   const todos = [...dibujadas().flatMap((t) => t.secciones ?? [t]), ...SIN_FILA, ...SUPERADMIN_MENU];
   for (const it of todos) assert.ok(existe(it.href), `«${it.label}» apunta a ${it.href}, que no tiene página`);

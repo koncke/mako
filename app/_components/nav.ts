@@ -99,6 +99,12 @@ export type NavItem = {
   /** El rótulo de este ítem en la barra de secciones de su tab («Crear con IA»). */
   seccion?: string;
   /**
+   * Sólo lo ve el ADMIN de un workspace de estas capas (y el super admin): «MaKo Partners», que es de las agencias
+   * (17/10/2026). Una capa con `navKeys: null` (completo, agencia) ve todas las keys, así que la capa sola no alcanza.
+   * Cosmético, como todo acá: la puerta real es la página.
+   */
+  soloCapas?: readonly string[];
+  /**
    * El ícono es una CRIATURA del Ops Center (app/admin/operaciones/Muneco.tsx), no un dibujo de icons.tsx: el nombre
    * del empleado cuyo muñeco se dibuja («Ops Center», «Second Brain»). Es el mismo muñeco que tiene ese chat en el
    * Centro, porque el aspecto sale del nombre (lib/centro-munecos.ts → aspectoDe). Se mueve: flota y parpadea.
@@ -209,8 +215,10 @@ export const RUTAS_DE_CHATS = ['/whatsapp', '/email'] as const;
  * vez acá y se cuelga como SECCIÓN `adminOnly` de la tab que hace su trabajo (la barra de secciones de arriba de la
  * pantalla, app/_components/SeccionesTab.tsx, la ofrece sólo al super admin):
  *   · WhatsApp de MaKo → Chats · Mensajes de MaKo → Automations · Strategy y Offer Playbook → Offer
- *   · el método de redacción → Copywriting · Cobros y el agente de los clientes → Clients
- *   · Ops Center arriba de todo (con la Ticketera adentro) · Contexto, Modelos IA, Conocimientos y Dev → menú de la foto.
+ *   · el método de redacción → Copywriting
+ *   · Ops Center arriba de todo (con la Ticketera adentro) · Cobros, el agente de los clientes, Contexto, Modelos IA,
+ *     Conocimientos y Dev → menú de la foto (Cobros y Agents iban en Clients; su jefe las mandó acá: viven fuera de
+ *     /clients y son de la plataforma, no de los clientes del negocio).
  * El porqué de cada una, en docs/diseno-sidebar.md. NINGUNA RUTA CAMBIÓ: cada página conserva su guard
  * (getSesionAdmin, puedeOperar) y `adminOnly` sigue siendo cosmético.
  *
@@ -288,7 +296,7 @@ export const FAMILIAS: NavFamilia[] = [
         // Ads (key `script`), Landing (`landing-an`), Closing (`closing`), VSL (`vsl-an`), CS (`cs-analyst`) y Chat
         // (`chat-analyst`, la del setter; lib/graficos-plantillas-analysts.ts). Sus rutas REDIRIGEN a `/dashboard?hoja=<id>`
         // (hay links afuera que nadie puede editar) y que nadie vuelva a enlazarlas lo cuida tests/tabs-retiradas.test.ts.
-        { key: 'graphics', label: 'Dashboard', href: '/dashboard', icon: 'graphics', rolesWs: ['closer', 'setter'], match: (p) => starts('/dashboard')(p) || starts('/marketing')(p) || starts('/comercial')(p) || starts('/graficos')(p) },
+        { key: 'graphics', label: 'Dashboard', href: '/dashboard', icon: 'graphics', rolesWs: ['closer', 'setter'], match: (p) => starts('/dashboard')(p) || starts('/marketing')(p) || starts('/comercial')(p) || starts('/graficos')(p) || starts('/analisis')(p) },
       ],
       // La máquina: lo que trae gente, le habla y la mueve.
       [
@@ -314,30 +322,15 @@ export const FAMILIAS: NavFamilia[] = [
       // Después de la venta: los clientes, su curso y su comunidad. Vino de la familia Customer Success el 17/10/2026
       // (una tab, «Clients», adentro de Operate; la arma el jefe «Clients»).
       [
-        {
-          key: 'clients', label: 'Clients', href: '/customer-success', icon: 'users',
-          match: (p) => starts('/customer-success')(p) || starts('/admin/cobros')(p) || starts('/admin/agente')(p),
-          secciones: [
-            // ⚠️ LA KEY ES `customer-success`, que es la que pide el guard de las dos páginas
-            // (`requireCapa('customer-success')` → `tabEnCapa`) y la que nombran las capas en
-            // lib/capas.ts. Cambiarla acá deja a la barra preguntando por otra cosa que la
-            // página: la fila se esconde donde la página abre, o al revés.
-            //
-            // Y el `match` es IGUALDAD, no `starts`: con `starts` se encendería también
-            // estando en /customer-success/curso, y la barra marcaría dos destinos a la vez.
-            { key: 'customer-success', label: 'Clients', seccion: 'Clients', href: '/customer-success', icon: 'users', match: (p) => p === '/customer-success' },
-            // El curso: las clases de cada producto y el avance de cada cliente. Su página pide
-            // `customer-success` (no tiene capa propia); que este destino se VEA en cada capa
-            // donde esa página deja entrar lo persigue tests/curso-admin.test.ts.
-            { key: 'cs-curso', label: 'Course', href: '/customer-success/curso', icon: 'video', match: starts('/customer-success/curso') },
-            // La comunidad tipo Skool de cada producto (07/10/2026, D8 de docs/diseno-curso-skool.md).
-            // Como el curso, su página pide `customer-success` (no tiene capa propia), y que el destino
-            // se VEA en cada capa donde esa página deja entrar lo persigue tests/comunidad-nav.test.ts.
-            { key: 'cs-comunidad', label: 'Community', href: '/customer-success/comunidad', icon: 'comunidad', match: starts('/customer-success/comunidad') },
-            HERRAMIENTAS.cobros,
-            HERRAMIENTAS.agente,
-          ],
-        },
+        // «Clients» (17/10/2026, jefe «Clients»: docs/diseno-clients.md): UNA tab, con sus sub-tabs ADENTRO de la pantalla
+        // (Clients · Community · Classroom · Calendar · Members · Leaderboards · About, app/clients/ClientsShell.tsx). Sin
+        // `secciones` a propósito: SeccionesTab dibujaría una segunda barra debajo de la suya.
+        // ⚠️ LA KEY ES `customer-success`, la que pide el guard (`requireCapa('customer-success')`) y nombran las capas.
+        // Las rutas viejas (/customer-success, /curso, /comunidad) redirigen a /clients; el match las acepta.
+        { key: 'customer-success', label: 'Clients', href: '/clients', icon: 'users', match: (p) => starts('/clients')(p) || starts('/customer-success')(p) },
+        // «MaKo Partners» (17/10/2026): el programa de agencias. Sólo lo ve el ADMIN de un workspace AGENCIA (capa
+        // 'agencia') y el super admin (`soloCapas`); la página se cuida sola en el server (lib/agencia.ts → esAgencia).
+        { key: 'partners', label: 'MaKo Partners', href: '/partners', icon: 'comunidad', soloCapas: ['agencia'], match: starts('/partners') },
       ],
     ],
   },
@@ -516,6 +509,7 @@ export const ARRIBA: NavItem[] = [OPS_CENTER, ...MAKO_NAV];
  * «Configuración del negocio». Ver docs/diseno-sidebar.md, «Admin: dónde fue cada una».
  */
 export const SUPERADMIN_MENU: NavItem[] = [
+  HERRAMIENTAS.cobros, HERRAMIENTAS.agente,
   HERRAMIENTAS.contexto, HERRAMIENTAS.modelosIa, HERRAMIENTAS.conocimientos, HERRAMIENTAS.dev,
 ];
 
@@ -749,7 +743,13 @@ export const USER_NAV: NavItem[] = [
 export const SIN_FILA: NavItem[] = [
   { key: 'second-brain', label: 'Second Brain', href: '/second-brain', icon: 'cerebro', match: starts('/second-brain') },
   // Análisis vivía adentro de Experiments desde el 11/10/2026 (/experimentos?tab=analisis); /analisis redirige ahí.
-  { key: 'experimentos', label: 'Experiments', href: '/experimentos', icon: 'experiments', match: (p) => starts('/experimentos')(p) || starts('/analisis')(p) },
+  // Desde el 17/10/2026 /experimentos sólo redirige al Dashboard (y /analisis, el informe del trimestre incluido, es del
+  // Dashboard): el ítem queda por la puerta de las dos redirecciones, que piden esta key.
+  { key: 'experimentos', label: 'Experiments', href: '/experimentos', icon: 'experiments', match: starts('/experimentos') },
+  // Curso y Comunidad: sub-tabs de Clients (Classroom y Community) desde el 17/10/2026. Sus pantallas del teléfono abren
+  // con estas keys (`requireMovil({ navKey })`).
+  { key: 'cs-curso', label: 'Classroom', href: '/clients/classroom', icon: 'video', match: (p) => starts('/clients/classroom')(p) || starts('/customer-success/curso')(p) },
+  { key: 'cs-comunidad', label: 'Community', href: '/clients/community', icon: 'comunidad', match: (p) => starts('/clients/community')(p) || starts('/customer-success/comunidad')(p) },
   { key: 'whatsapp', label: 'WhatsApp', href: '/whatsapp', icon: 'whatsapp', rolesWs: ['closer', 'setter'], match: starts('/whatsapp') },
   { key: 'email', label: 'Email', href: '/email', icon: 'email', rolesWs: ['setter'], match: starts('/email') },
 ];

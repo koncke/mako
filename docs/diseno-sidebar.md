@@ -50,7 +50,7 @@ favoritos (nadie los pidió). El rail de íconos y el desplegarse al pasar el cu
 OPERATE ›
    General · Plan · Calendar · Dashboard
    CRM · Chats · Ads Manager
-   Clients                         (Clients · Course · Community [+ Billing · Agents, super admin])
+   Clients · MaKo Partners          (Clients con sus sub-tabs ADENTRO de la pantalla; Partners sólo agencias)
 SALES MACHINE ›
    Offer                           (Offer [+ Strategy · Playbook, super admin])
    Web Generator · Automations     (Automations [+ MaKo Messages, super admin])
@@ -92,9 +92,10 @@ Centro (el aspecto sale del nombre).
 | Video | Content Machine | /video-editor | **Sales Machine** |
 | Image | Content Machine | /image-editor | **Sales Machine** |
 | Copywriting | Content Machine | /ads-writer | **Sales Machine** |
-| Clientes | Customer Success | /customer-success | **Operate › Clients** (tab unificada; la arma el jefe «Clients») |
-| Curso | Customer Success | /customer-success/curso | Operate › Clients › **Course** |
-| Comunidad | Customer Success | /customer-success/comunidad | Operate › Clients › **Community** |
+| Clientes | Customer Success | /customer-success | **Operate › Clients** (/clients, una tab con sus sub-tabs adentro: Clients · Community · Classroom · Calendar · Members · Leaderboards · About; la arma el jefe «Clients»). La vieja redirige |
+| Curso | Customer Success | /customer-success/curso | Clients › **Classroom** (sub-tab de la pantalla; /clients/classroom) |
+| Comunidad | Customer Success | /customer-success/comunidad | Clients › **Community** (sub-tab; /clients/community) |
+| — (nueva) | — | /partners | **Operate › MaKo Partners**: sólo el admin de un workspace agencia y el super admin (`soloCapas`) |
 | Second Brain (abajo del todo) | — | /second-brain | Arriba (la misma entrada) |
 
 ## 4. Admin: dónde fue cada una
@@ -111,8 +112,8 @@ el super admin. Lo que es configuración de la plataforma (no el trabajo de una 
 | Strategy | /admin/estrategia | Offer › **Strategy** | Empieza por la oferta y de ella sale la grilla de precios |
 | Offer Playbook | /admin/offer-playbook | Offer › **Playbook** | Es el criterio de la tab Offer |
 | Copywriting (método de MaKo) | /admin/copywriting | Copywriting › **Method** | Es con qué escribe MaKo; key nueva `admin-copywriting` (la vieja era la de la tab Copywriting) |
-| Cobros | /admin/cobros | Clients › **Billing** | Vende un plan y da de alta la cuenta: los clientes de MaKo |
-| Agente de los clientes | /admin/agente | Clients › **Agents** | Qué hace cada cliente en su Claude Code |
+| Cobros | /admin/cobros | Menú de la foto › **Billing** | Es de la plataforma (vender MaKo), y vive fuera de /clients: como sub-tab, la cabecera de Clients desaparecía (lo decidió su jefe) |
+| Agente de los clientes | /admin/agente | Menú de la foto › **Client Agents** | Lo mismo que Billing: de la plataforma y fuera de /clients |
 | Contexto de MaKo | /contexto | Menú de la foto › **MaKo Context** | Configuración de la plataforma (con qué sabe MaKo) |
 | Modelos IA | /modelos-ia | Menú de la foto › **AI Models** | Configuración de la plataforma (con qué piensa) |
 | Conocimientos | /conocimientos | Menú de la foto › **Knowledge** | Formación interna del equipo; portal oscuro autocontenido (una barra de secciones arriba lo rompería) |

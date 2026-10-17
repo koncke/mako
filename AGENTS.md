@@ -600,7 +600,10 @@ Reglas que salen de eso:
   amend, la otra sesión puede haber commiteado: el amend le reescribe el commit A ELLA,
   con tu mensaje. Pasó. Se recupera con `git reset --soft <su-hash>` (nunca `--hard`: se
   llevaría su trabajo sin commitear), pero la forma de no llegar ahí es `git log -1`
-  antes de cada amend.
+  antes de cada amend. ⚠️ **Y un `git merge origin/main` que salió fast-forward NO dejó
+  commit tuyo:** HEAD es el último de main, de otra sesión. Enmendar «el merge» (para
+  sumarle un trailer) le reescribe ese commit (pasó el 17/10/2026; se volvió con
+  `git reset --soft origin/main`). Antes: `git rev-parse -q --verify HEAD^2` (sin salida = no hubo merge).
 - **Y la app puede dejar de hidratar por culpa de la otra sesión.** Un `export` a medias
   en un client component rompe el bundle ENTERO: la página se ve perfecta (el HTML es
   del server) pero ningún botón responde. Antes de diagnosticar tu propio cambio, probá
@@ -1440,6 +1443,10 @@ código nuevo:
     - **Un brief nombra el archivo, el «hecho» y lo que no se toca.** Nunca «lee todo el relevo» si alcanza una sección.
     - **Con la ventana de 5 horas arriba del 85%:** nada de workflows ni tandas grandes de tests. Se termina lo que está
       a medias y se commitea.
+    - **Un chat que necesita datos del negocio NO lee el cerebro entero** (17/10/2026, docs/diseno-second-brain-grafo.md):
+      pide `indice_segundo_cerebro` (~300 tokens) y después `recuperar_del_segundo_cerebro` con su pregunta o con ids
+      (lib/cerebro-recuperar.ts, sin IA). Medido en dos workspaces reales: 118-190 tokens por pregunta contra 459-678 del
+      grafo entero y 1.105-1.606 del vault. `leer_segundo_cerebro_como_archivos` es para un área ENTERA, no para contestar.
   - **TODO LO QUE SE TERMINA LLEVA SU `revisar`** (17/10/2026; Martín: «se terminaron y pushearon cosas y no las puedo ver
     en Review»). El hito de la bitácora o el cierre (`cartero.mjs cierre … --revisar`) trae la ruta INTERNA donde Martín
     lo prueba (`/crm?lead=…`, `/general`, `/automations/…`). Sin eso, el trabajo no aparece para revisar.
@@ -3441,6 +3448,12 @@ ws13, ws14 y ws15 —que cobran en USD— veían su gasto 17 veces más chico en
 CAC y MaKo. `spend`, `balanceMxn` y compañía están en la moneda de la CUENTA aunque se
 llamen distinto. `tests/moneda-meta.test.ts` barre `lib/` y `app/` y falla nombrando el
 archivo si un lector vuelve a asumir pesos.
+
+⚠️ **Y EL PERÍODO: Meta guarda 37 meses, y un `since` más viejo es un ERROR (#3018), no un
+recorte.** El «Todo» de una hoja arranca en 2020: el 16/10/2026 el pop-up de un anuncio de Ads
+Analyst se quedó sin números, diario ni audiencia por eso (#876). Todo `time_range` con un
+período libre se arma con `timeRangeMeta` (`lib/meta-rango.ts`); `tests/meta-rango.test.ts`
+barre `lib/` y `app/` y falla si uno se arma a mano.
 
 # Un estimador que devuelve CERO no es un validador
 

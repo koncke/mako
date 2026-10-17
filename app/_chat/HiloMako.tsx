@@ -13,6 +13,8 @@
 
 import type { ReactNode } from 'react';
 import { Markdown } from '@/app/_components/Markdown';
+import { partirPegados } from '@/lib/chat-pegado';
+import { PegadosHilo, TextoPlegable } from './PegadoHilo';
 import Link from '@/app/_ui/Link';
 import { Muneco } from '@/app/admin/operaciones/Muneco';
 import { ERROR_INCIERTO, textoConArchivos, type ItemHilo } from '@/app/m/mako/chat-ui';
@@ -75,12 +77,15 @@ export function HiloMako({ items, quien, ahora, escribiendo, tarjeta, onTarjeta,
     }
     if (x.k === 'msg' && x.role === 'user') {
       const archivos = x.archivos ?? [];
-      const texto = archivos.length ? textoConArchivos(x.texto) : x.texto;
+      // Lo pegado de más de 1.000 caracteres viaja marcado y se dibuja como documento; lo escrito largo se pliega
+      // (#848 y #864, lib/chat-pegado.ts): una transcripción ya no hace una burbuja de 24.000 px.
+      const { texto, pegados } = partirPegados(archivos.length ? textoConArchivos(x.texto) : x.texto);
       const pie = <span className="co-burbuja__pie">{x.estado === 'enviando' ? 'Enviando…' : hora(x.at)}</span>;
       filas.push(
         <div key={x.id} className="co-yo">
           {archivos.length > 0 && <ArchivosHilo archivos={archivos} />}
-          {texto ? <p className="co-burbuja">{texto}{pie}</p> : <p className="ch-pie-suelto">{pie}</p>}
+          <PegadosHilo pegados={pegados} />
+          {texto ? <TextoPlegable texto={texto} className="co-burbuja" pie={pie} /> : <p className="ch-pie-suelto">{pie}</p>}
           {x.estado === 'error' && (
             <p className="co-nota co-nota--mal" role="alert">{x.error}{' '}
               <button type="button" className="ch-enlace" onClick={() => onReintentar(x.id)}>Reintentar</button></p>

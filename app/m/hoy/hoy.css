@@ -52,6 +52,11 @@
 
 
 /* ── General (v3): la hoja de General apilada ─────────────────────────────── */
+/* El segmentado de hojas (#872): con más de tres, cada botón mide su nombre y la fila se desliza de costado. */
+.m-hoy-hojas { padding: 4px var(--m-gutter, 16px) 10px; }
+.m-hoy-hojas[data-muchas] .m-seg { grid-auto-columns: max-content; overflow-x: auto; scrollbar-width: none; }
+.m-hoy-hojas[data-muchas] .m-seg::-webkit-scrollbar { display: none; }
+.m-hoy-hojas[data-muchas] .m-seg__op { padding: 0 14px; }
 .m-hoy-gen { display: flex; flex-direction: column; gap: 14px; padding: 4px var(--m-gutter, 16px) 0; }
 .m-hoy-gen-tarjeta {
   display: flex; flex-direction: column; min-width: 0;

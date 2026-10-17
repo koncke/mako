@@ -148,7 +148,9 @@ test('las tres puertas que crean una hoja pasan por hojaConDatos (la plantilla s
   assert.match(plantilla, /if \(rol !== 'admin'\) return err\(403/);
   assert.match(plantilla, /tabEnCapa\('graphics', await getCapaActual\(\)\)/);
   // 16/10/2026: una plantilla de General suma sólo lo que General ofrece (`alcance`).
-  assert.match(plantilla, /hojaConDatos\(instanciarPlantilla\(p\), \{ hoy: hoyEnTijuana\(\), hastaMs: inicio \+ PLAZO_MS, sumar: \{ nombre: p\.nombre, linea: p\.linea \}, alcance: general \? ALCANCE_GENERAL : undefined \}\)/);
+  // 17/10/2026 (#857): ajusta la hoja que la pantalla YA creó (con sus ids); sin ella, la plantilla de siempre.
+  assert.match(plantilla, /const base = sanearHoja\(body\.hoja, 0\) \?\? instanciarPlantilla\(p\);/);
+  assert.match(plantilla, /hojaConDatos\(base, \{ hoy: hoyEnTijuana\(\), hastaMs: inicio \+ PLAZO_MS, sumar: \{ nombre: p\.nombre, linea: p\.linea \}, alcance: general \? ALCANCE_GENERAL : undefined \}\)/);
   const ia = sinComentarios(leer('app/api/graficos/ia/route.ts'));
   assert.match(ia, /await hojaConDatos\(r\.hoja, \{ hoy: hoyEnTijuana\(\), hastaMs: inicio \+ 115_000 \}\)/);
   assert.doesNotMatch(ia, /sumar:/, 'lo que armó MaKo con el pedido no se completa con otra cosa');
@@ -157,11 +159,12 @@ test('las tres puertas que crean una hoja pasan por hojaConDatos (la plantilla s
   assert.match(crear, /hojaConDatos\(instanciarPlantilla\(p\), \{ hoy: hoyEnTijuana\(\), hastaMs, sumar: \{ nombre: p\.nombre, linea: p\.linea \} \}\)/);
   assert.match(crear, /hojaConDatos\(g\.hoja, \{ hoy: hoyEnTijuana\(\), hastaMs \}\)/);
   assert.doesNotMatch(crear, /hoja = instanciarPlantilla\(p\);/, 'la API volvió a crear la plantilla con sus vacíos');
-  // «Nueva hoja»: una plantilla se ARMA (y si no contesta, entra tal cual con su aviso).
+  // «Nueva hoja»: una plantilla ENTRA YA y se ajusta por detrás (#857; si no contesta, se queda tal cual con su aviso).
+  // El detalle, en tests/dashboard-plantilla-al-instante.test.ts.
   const nueva = sinComentarios(leer('app/dashboard/NuevaHoja.tsx'));
-  assert.match(nueva, /onClick=\{\(\) => \{ void armarPlantilla\(p\); \}\}/);
-  assert.match(nueva, /fetch\('\/api\/graficos\/plantilla', \{[\s\S]*?signal: c\.signal/);
-  assert.match(nueva, /if \(!h\) \{ crear\(instanciarPlantilla\(p\), SIN_MEDIR\); return; \}/);
+  assert.match(nueva, /onClick=\{\(\) => armarPlantilla\(p\)\}/);
+  assert.match(nueva, /fetch\('\/api\/graficos\/plantilla', \{[\s\S]*?body: JSON\.stringify\(\{ plantilla: p\.id, hoja: creada \}\), signal: AbortSignal\.timeout\(TOPE_CLIENTE_MS\)/);
+  assert.match(nueva, /props\.current\.onRellenar\?\.\(creada\.id, null, SIN_MEDIR\);/);
   // Medir es con el lector y el período de la PANTALLA.
   const server = sinComentarios(leer('lib/graficos-con-datos-server.ts'));
   assert.match(server, /const ef = efectivoDe\(g, h, \{\}, hoy\);/);

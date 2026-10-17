@@ -105,10 +105,11 @@ test('lib/perfil.ts decide con `deQuienEsElPerfil` y el contexto de agencia, y n
 });
 
 test('la tarjeta dice «nadie puede entrar» sólo cuando la lectura de usuarios ANDUVO', () => {
-  const page = sinComentarios(leer('app/customer-success/page.tsx'));
+  // Desde el 17/10/2026 el equipo de una cuenta de agencia lo lee MaKo Partners (lib/partners.ts), con la MISMA regla.
+  const page = sinComentarios(leer('lib/partners.ts'));
   // La siembra de `[]` cuelga de que `listarUsuarios` haya contestado: un fallo es `null`.
   assert.match(page, /listarUsuarios\(\)\.catch\(\(\) => null\)/);
-  assert.match(page, /if \(usuarios\) for \(const ws of permitidos\) equipoPorWs\[ws\] = \[\];/);
+  assert.match(page, /if \(usuarios\) for \(const ws of aprobados\) equipoPorWs\.set\(ws, \[\]\);/);
   const card = sinComentarios(leer('app/customer-success/ClienteCard.tsx'));
   assert.match(card, /const sinNadie = Boolean\(ws && equipo && equipo\.length === 0\)/);
   assert.match(card, /\{sinNadie && !aviso && <PieTexto mal>/);

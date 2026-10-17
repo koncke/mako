@@ -52,7 +52,9 @@ export const AREA_INFO: Record<Area, { titulo: string; tab: string; ruta: string
   // los permisos de los tokens); la TAB es Automations desde el 09/10/2026 (ex /chatbot).
   chatbot: { titulo: 'Chatbot y secuencias', tab: 'Automations', ruta: '/automations' },
   metricas: { titulo: 'Dashboard y análisis', tab: 'Dashboard', ruta: '/dashboard' },
-  experimentos: { titulo: 'Experiments y Retro', tab: 'Experiments', ruta: '/experimentos' },
+  // 17/10/2026: la tab Experiments se retiró y los experimentos viven en el Dashboard («Editar con MaKo»). El ÁREA sigue
+  // llamándose `experimentos`: es la clave del registro, de las operaciones y de los permisos de los tokens.
+  experimentos: { titulo: 'Experimentos y Retro', tab: 'Dashboard', ruta: '/dashboard' },
   // Landing Analyst y Closing Analyst se retiraron como tabs el 11/10/2026: analizar una página es parte
   // de Web Generator, y las llamadas son la hoja «Closing» del Dashboard. Las ÁREAS (`landing`,
   // `closing`) y sus títulos no cambian: son la clave del registro y de los permisos de los tokens.
@@ -68,8 +70,10 @@ export const AREA_INFO: Record<Area, { titulo: string; tab: string; ruta: string
   imagen: { titulo: 'Image Editor (diseños)', tab: 'Image', ruta: '/image-editor' },
   integraciones: { titulo: 'Integraciones', tab: 'Integraciones', ruta: '/integraciones' },
   equipo: { titulo: 'Cuenta, equipo y notificaciones', tab: 'Configuraciones', ruta: '/configuraciones' },
-  cs: { titulo: 'Customer Success', tab: 'Customer Success', ruta: '/customer-success' },
-  curso: { titulo: 'Curso (módulos y clases)', tab: 'Customer Success › Curso', ruta: '/customer-success/curso' },
+  // Los TÍTULOS no cambian (son la clave del área). La tab sí: desde el 17/10/2026 Clientes, Curso y Comunidad son UNA
+  // tab, Clients, con sub-tabs (docs/diseno-clients.md); las rutas viejas redirigen.
+  cs: { titulo: 'Customer Success', tab: 'Clients', ruta: '/clients' },
+  curso: { titulo: 'Curso (módulos y clases)', tab: 'Clients › Classroom', ruta: '/clients/classroom' },
   // Las creaciones que un negocio publica para los demás y sus estrellas (13/10/2026, lib/creaciones.ts). Sin tab
   // en la barra: la galería vive en /creaciones y cada feature pone su botón «Publicar».
   creaciones: { titulo: 'Creaciones de la comunidad (estrellas)', tab: 'Creaciones', ruta: '/creaciones' },

@@ -40,10 +40,8 @@
 // ⚠️ Y LOS MOVIMIENTOS DE ENTREGA FIRMAN CON QUIEN LOS HIZO (`autorActual`), igual que
 // renombrar: el choke point firmaba «CRM» si nadie le decía otra cosa.
 
-import { getTenantDb, adminDeWorkspaceActual, crearWorkspace } from '@/lib/workspace';
+import { getTenantDb, adminDeWorkspaceActual } from '@/lib/workspace';
 import { puedeUsarCs } from './puerta';
-import { getSupabaseServer } from '@/lib/supabase';
-import { esAgencia } from '@/lib/agencia';
 import { saneaPortada, saneaIcono, urlDeImagenOk, yPortada } from '@/lib/portadas';
 import { createLead, updateLead, getLead, logLeadChanges, logLeadEvent, type Lead } from '@/lib/leads';
 import { VENTA_SIN_COBRO } from '@/lib/venta-tipo';
@@ -55,9 +53,7 @@ import { LeadDuplicadoError } from '@/lib/leads-duplicados';
 import { ORIGEN_LEAD } from '@/app/crm/origen-lead';
 import { revalidatePath } from 'next/cache';
 import { autoasignar } from './trabajo';
-import { crearUsuario, buscarUsuarioPorEmail } from '@/lib/usuarios';
-import { emailUtilizable, emailNormalizado } from '@/lib/agencia-altas';
-import { linkPrimerMes } from '@/lib/agencia-cobro';
+import { abrirCuentaDePartner } from '@/lib/partners';
 import { moverClienteDeEtapa, sacarClienteDeEntrega } from '@/lib/cs-mover-etapa';
 import { guardarEtapasEntrega, entregaDeProducto } from '@/lib/entrega-servicio';
 import { campoEntrega } from '@/lib/servicio-etapas';
@@ -196,12 +192,12 @@ export async function crearClienteAction(datos: {
     if (datos.sinCobro === true) {
       const { error } = await (await getTenantDb()).from('leads').update({ venta_tipo: VENTA_SIN_COBRO }).eq('id', lead.id);
       if (error) {
-        revalidatePath('/customer-success');
+        revalidatePath('/clients');
         return { ok: false, leadId: lead.id, error: 'Se cargó, pero sin marcar «Sin cobro». Márcalo en el CRM.' };
       }
       await logLeadEvent(lead.id, 'Tipo de venta', 'Sin cobro', await autorActual());
     }
-    revalidatePath('/customer-success');
+    revalidatePath('/clients');
     revalidatePath('/crm');
     return { ok: true, leadId: lead.id };
   } catch (e) {
@@ -230,7 +226,7 @@ export async function autoasignarAction(): Promise<
   const no = await puedeUsarCs(); if (no) return { ok: false, error: no };
   try {
     const r = await autoasignar();
-    if (r.ok) revalidatePath('/customer-success');
+    if (r.ok) revalidatePath('/clients');
     return r;
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'No se pudo.' };
@@ -286,7 +282,7 @@ export async function guardarImagenClienteAction(leadId: number, cambio: {
       .select('avatar_url, portada, portada_y, avatar_y, icono').single();
     if (error) return { ok: false, error: error.message };
 
-    revalidatePath('/customer-success');
+    revalidatePath('/clients');
     const fila = data as { avatar_url: string | null; portada: string | null; portada_y: number | null; avatar_y: number | null; icono: string | null };
     // Se devuelve LO QUE QUEDÓ GUARDADO, no lo que se pidió: si el saneo descartó la
     // URL, la pantalla tiene que enterarse en vez de pintar algo que la base no tiene.
@@ -346,7 +342,7 @@ export async function guardarDatosClienteAction(leadId: number, cambio: {
     const despues = await getLead(leadId).catch(() => null);
     await logLeadChanges(leadId, antes, despues, await autorActual()).catch(() => {});
 
-    revalidatePath('/customer-success');
+    revalidatePath('/clients');
     const fila = data as { nombre: string | null; empresa: string | null };
     // Lo que QUEDÓ guardado, no lo que se pidió: mismo criterio que las imágenes.
     return { ok: true, nombre: fila.nombre ?? '', empresa: fila.empresa };
@@ -358,126 +354,27 @@ export async function guardarDatosClienteAction(leadId: number, cambio: {
 /**
  * Abrirle una cuenta de MaKo a un cliente ganado — queda ESPERANDO APROBACIÓN.
  *
- * Es el puente que faltaba entre las dos pantallas de «Clientes»: ésta lista
- * LEADS y /admin lista WORKSPACES, y hasta la mig 0175 no había ninguna columna
- * que los cruzara. Por eso «Entrar como» no se podía poner acá: no había a dónde
- * entrar.
- *
- * ⚠️ NACE 'pendiente', SIEMPRE. Quien crea la cuenta es la agencia; quien
- * autoriza que la agencia MIRE adentro es el super-admin, y son dos decisiones
- * distintas. Sin ese corte, cualquiera con un workspace se daría de alta clientes
- * y se auto-aprobaría el acceso — o sea, el guard no sería un guard.
- *
- * ⚠️ Y NO HAY ROLLBACK, a propósito de decirlo en vez de fingirlo. Si la fila de
- * la cartera falla después de crear el workspace, ese workspace queda: borrarlo
- * no se puede (ya tiene su `funnels` colgando con FK sin cascade — es el mismo
- * agujero que ya tiene /api/admin/workspaces), así que el mensaje NOMBRA el id
- * que quedó suelto. Un alta a medias en silencio es peor que una que avisa.
+ * ⚠️ DESDE EL 17/10/2026 ES UN ENVOLTORIO de `abrirCuentaDePartner` (lib/partners.ts): las cuentas de los clientes de
+ * una agencia viven en MaKo Partners, y abrir una es UNA implementación (con sus reglas: el email obligatorio, nace
+ * 'pendiente', el email ya usado se mira antes de crear, sin rollback dicho, el link del primer mes). Ésta sigue para el
+ * control de la ficha de Clients, que hoy no se dibuja (Clients ya no lee la cartera: app/customer-success/pantalla.tsx)
+ * y se borra con la T3 del CRM. Lo único propio de acá es que el lead sea un CLIENTE (ganado) de este workspace.
  */
 export async function crearCuentaMakoAction(leadId: number, email: string): Promise<
   { ok: true; clienteWs: number; estado: string; link: string | null; sinLink: string | null } | { ok: false; error: string }
 > {
   const no = await puedeUsarCs(); if (no) return { ok: false, error: no };
   try {
-    /**
-     * ⚠️ EL EMAIL ES OBLIGATORIO, y eso es un cambio de producto del 28/09/2026: «que
-     * abrir cuenta pida el email del cliente desde el principio, y tiene que ser
-     * obligatorio».
-     *
-     * El porqué está medido: Código abrió una cuenta el mismo día, el super admin la
-     * aprobó, y no le llegó nada a nadie — el workspace quedó con CERO usuarios y el
-     * lead ni siquiera tenía email, sólo teléfono. O sea una cuenta que existe y a la
-     * que no puede entrar nadie, sin un solo error que lo diga.
-     */
-    const correo = emailNormalizado(email);
-    if (!emailUtilizable(correo)) {
-      return { ok: false, error: 'Hace falta el email del cliente: es por donde le llega el acceso.' };
-    }
     const agenciaWs = await adminDeWorkspaceActual();
     if (!agenciaWs) return { ok: false, error: 'Sólo el admin de la cuenta puede abrirle una cuenta a un cliente.' };
-    // ⚠️ EL GUARD DE VERDAD, y va acá y no sólo en la pantalla: esconder el botón
-    // no protege nada, porque una server action se puede invocar igual. Sin esto,
-    // cualquier admin de cualquier workspace crea inquilinos en la plataforma.
-    if (!(await esAgencia(agenciaWs))) {
-      return { ok: false, error: 'Tu cuenta no está habilitada para tener clientes propios.' };
-    }
-
     const cliente = await clienteDelWorkspace(leadId);
     if (!cliente) return { ok: false, error: 'Ese cliente no es de este workspace.' };
-
-    const db = await getTenantDb();
-    // Idempotencia: dos clicks, dos pestañas o una conexión mala no pueden dejar
-    // dos workspaces para el mismo cliente. Se pregunta ANTES de crear nada.
-    const { data: yaTiene } = await db.from('leads').select('cliente_ws').eq('id', leadId).maybeSingle();
-    const wsPrevio = (yaTiene as { cliente_ws: number | null } | null)?.cliente_ws ?? null;
-    if (wsPrevio) return { ok: false, error: 'Este cliente ya tiene cuenta de MaKo.' };
-
-    // ⚠️ SE COMPRUEBA ANTES DE CREAR EL WORKSPACE. `usuarios.email` es único, así que
-    // un email ya usado hace fallar el alta DESPUÉS de haber creado el inquilino — y
-    // deja un workspace huérfano que nadie sabe que está.
-    if (await buscarUsuarioPorEmail(correo)) {
-      return { ok: false, error: 'Ese email ya tiene una cuenta de MaKo. Usa otro, o pide sumarlo desde su equipo.' };
-    }
-
-    const nombre = cliente.nombre.trim() || `Cliente ${leadId}`;
-    const ws = await crearWorkspace(nombre);
-
-    const { error: eCartera } = await getSupabaseServer()
-      .from('agencia_clientes')
-      .insert({ agencia_ws: agenciaWs, cliente_ws: ws.id, estado: 'pendiente' });
-    if (eCartera) {
-      // Corto, y con el número adentro: el id es lo ÚNICO que no se puede
-      // reconstruir después, y sin él nadie encuentra el workspace que quedó
-      // suelto. El porqué de que no haya rollback está arriba, en el comentario.
-      return { ok: false, error: `La cuenta quedó creada (workspace ${ws.id}) pero sin pedir aprobación: ${eCartera.message}` };
-    }
-
-    // El puntero del lead a su cuenta. Va ÚLTIMO: si fallara, lo que queda es una
-    // cartera pendiente sin ficha que la muestre —recuperable desde /admin—, y no
-    // una ficha que promete una cuenta que nadie puede aprobar.
-    const { error: eLead } = await db.from('leads').update({ cliente_ws: ws.id }).eq('id', leadId);
-    if (eLead) return { ok: false, error: `Se creó la cuenta (workspace ${ws.id}) pero no quedó ligada a esta ficha: ${eLead.message}` };
-
-    /**
-     * SU ADMIN, creado ya — PERO SIN AVISARLE TODAVÍA.
-     *
-     * ⚠️ `crearUsuario` NO manda nada: el mail es `invitarPorEmail`, que va aparte y
-     * lo dispara la APROBACIÓN del super admin. Es la regla de la casa aplicada a una
-     * persona: la agencia PROPONE la cuenta y alguien la confirma, y avisarle antes
-     * sería contarle a un tercero que tiene un acceso que todavía no está autorizado.
-     *
-     * ⚠️ Y SI ESTO FALLA NO SE DESHACE NADA: la cuenta ya está creada y pedida. Se
-     * devuelve el número del workspace, que es lo único que no se puede reconstruir.
-     */
-    try {
-      await crearUsuario({
-        email: correo,
-        nombre: cliente.nombre.trim() || correo,
-        rol: 'usuario',
-        workspace_id: ws.id,
-        rol_ws: 'admin',
-      });
-    } catch (e) {
-      return { ok: false, error: `La cuenta quedó creada (workspace ${ws.id}) pero sin su usuario: ${e instanceof Error ? e.message : String(e)}` };
-    }
-
-    // El email también queda en el LEAD si no tenía: es el mismo dato y tenerlo en un
-    // solo lado obliga a acordarse de mirar en el otro.
-    if (!cliente.email) await db.from('leads').update({ email: correo }).eq('id', leadId);
-
-    /**
-     * EL PRIMER MES, EN EL ACTO (#866, 17/10/2026). Martín, en la llamada con Código Inmobiliario: «al momento de cargar
-     * nuevo cliente, te va a aparecer ahí directamente el link de mercado pago para pagar la suscripción de ese cliente...
-     * ya se habilita automáticamente». El link es de la Mercado Pago de MaKo; pagarlo aprueba la cuenta sin el super
-     * admin (lib/agencia-habilitar.ts). Su mes corre desde que el cliente termina el onboarding (#867).
-     * ⚠️ SIN LINK NO ES UN ERROR: la cuenta ya está creada y queda esperando la firma, como siempre. `sinLink` dice por qué.
-     */
     const pagador = await getUsuarioActual().then((u) => u?.email ?? null).catch(() => null);
-    const cobro = await linkPrimerMes({ agenciaWs, clienteWs: ws.id, nombreCliente: nombre, email: pagador, creadoPor: pagador ?? 'agencia' });
-    if (!cobro.ok) console.warn(`[cs] cuenta ${ws.id} de la agencia ${agenciaWs} sin link del primer mes: ${cobro.motivo}`);
-
-    revalidatePath('/customer-success');
-    return { ok: true, clienteWs: ws.id, estado: 'pendiente', link: cobro.ok ? cobro.link : null, sinLink: cobro.ok ? null : cobro.motivo };
+    const r = await abrirCuentaDePartner({ agenciaWs, nombre: cliente.nombre.trim() || `Cliente ${leadId}`, email, leadId, pagador });
+    if (!r.ok) return { ok: false, error: r.error };
+    revalidatePath('/clients');
+    revalidatePath('/partners');
+    return { ok: true, clienteWs: r.clienteWs, estado: 'pendiente', link: r.link, sinLink: r.sinLink };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'No se pudo abrir la cuenta.' };
   }
@@ -510,7 +407,7 @@ export async function moverEntregaAction(leadId: number, productoId: number, eta
     if (!m.ok) return { ok: false, error: m.motivo ?? 'No se pudo mover.' };
     // ⚠️ SÓLO SE REVALIDA SI ALGO CAMBIÓ. Un movimiento idempotente que igual
     // revalida tira las 78 KB del trabajo de la cartera por un gesto que no movió nada.
-    if (m.cambio) revalidatePath('/customer-success');
+    if (m.cambio) revalidatePath('/clients');
     return { ok: true, desde: m.desde, relojPrevio: m.relojPrevio, hacia: m.hacia, rotulo: m.rotulo, producto: m.producto, cambio: m.cambio };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'No se pudo mover.' };
@@ -566,7 +463,7 @@ export async function moverEntregaLoteAction(productoId: number, movs: Array<{ l
       if (r.cambio) alguno = true;
       resultados.push({ leadId, ok: true, desde: r.desde, relojPrevio: r.relojPrevio, hacia: r.hacia, cambio: r.cambio });
     }
-    if (alguno) revalidatePath('/customer-success');
+    if (alguno) revalidatePath('/clients');
     return { ok: true, resultados };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'No se pudo mover.' };
@@ -583,7 +480,7 @@ export async function sacarDeEntregaAction(leadId: number, productoId: number): 
     if (!(await clienteDelWorkspace(leadId))) return { ok: false, error: 'Ese cliente no es tuyo.' };
     const r = await sacarClienteDeEntrega(leadId, productoId, await autorActual());
     if (!r.ok) return { ok: false, error: r.motivo ?? 'No se pudo sacar de la entrega.' };
-    revalidatePath('/customer-success');
+    revalidatePath('/clients');
     return { ok: true, etapa: r.etapa };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'No se pudo sacar de la entrega.' };
@@ -640,7 +537,7 @@ export async function quitarDeProductoAction(leadId: number, productoId: number)
       // la línea se escribe acá, con la etapa en la que estaba por regla (la primera).
       await historialDeProducto(leadId, productoId, 'salio');
     }
-    revalidatePath('/customer-success');
+    revalidatePath('/clients');
     return { ok: true, eraCasa, etapa: previa?.etapa ?? null, reloj: previa?.etapa_desde ?? null };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'No se pudo quitar.' };
@@ -666,7 +563,7 @@ export async function volverAProductoAction(leadId: number, productoId: number, 
     } else {
       await historialDeProducto(leadId, productoId, 'volvio');
     }
-    revalidatePath('/customer-success');
+    revalidatePath('/clients');
     return { ok: true };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'No se pudo devolver.' };
@@ -734,7 +631,7 @@ export async function ordenarEtapaAction(productoId: number, etapa: string, lead
       { onConflict: 'workspace_id,producto_id,etapa' },
     );
     if (error) return { ok: false, error: error.message };
-    revalidatePath('/customer-success');
+    revalidatePath('/clients');
     return { ok: true };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'No se pudo guardar el orden.' };
@@ -777,7 +674,7 @@ export async function guardarEtapasEntregaAction(
     if (!(prods ?? []).length) return { ok: false, error: 'Ese producto no es tuyo.' };
     const ok = await guardarEtapasEntrega(productoId, etapas, fases);
     if (!ok) return { ok: false, error: 'Esas etapas no se pudieron guardar. Revisa que ninguna quede sin nombre.' };
-    revalidatePath('/customer-success');
+    revalidatePath('/clients');
     return { ok: true };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'No se pudo guardar.' };
@@ -807,7 +704,7 @@ export async function crearServicioAction(nombre: string): Promise<
   try {
     if (!(await adminDeWorkspaceActual())) return { ok: false, error: 'Sólo un administrador puede crear un producto.' };
     const { productoId } = await crearProductoConFunnel(nombre);
-    revalidatePath('/customer-success');
+    revalidatePath('/clients');
     revalidatePath('/crm');
     return { ok: true, productoId };
   } catch (e) {
@@ -850,7 +747,7 @@ export async function renombrarServicioAction(productoId: number, nombreCrudo: s
     // lados» de arriba: «desvincula lo que hace que se ponga automáticamente el nombre de ese
     // CRM al nombre de un curso». El CRM tiene nombre propio (lib/funnels.ts → renombrarFunnel).
     await renombrarProducto(productoId, nombre);
-    revalidatePath('/customer-success');
+    revalidatePath('/clients');
     revalidatePath('/crm');
     return { ok: true, nombre };
   } catch (e) {
@@ -883,7 +780,7 @@ export async function eliminarServicioAction(productoId: number): Promise<{ ok: 
       if (error) return { ok: false, error: `No se pudo eliminar: ${error.message}` };
       if (!((tocadas ?? []) as unknown[]).length) return { ok: false, error: 'Ese producto no es de este workspace.' };
     }
-    revalidatePath('/customer-success');
+    revalidatePath('/clients');
     revalidatePath('/crm');
     return { ok: true };
   } catch (e) {

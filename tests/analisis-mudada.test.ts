@@ -1,42 +1,32 @@
 // =============================================================================
-// Análisis se mudó ADENTRO de Experiments, y Offer salió de los Analysts
+// /analisis y /experimentos se retiraron: aterrizan en el Dashboard, y Offer salió de los Analysts
 // =============================================================================
-// Pedido de Martín (11/10/2026), textual: «Implementa completamente la funcionalidad de
-// "Offer Analyst" y "Offer Generator" pero todo en una misma tab que se llame "Offer"...
-// Elimina la tab de "Análisis", llévala dentro de "Experiments"».
+// Historia: el 11/10/2026 Análisis se mudó ADENTRO de Experiments (Martín: «Elimina la tab de "Análisis", llévala
+// dentro de "Experiments"»), y el 17/10/2026 Experiments se retiró entera (Martín: «Quiero que "Experiments" la
+// simplifiques completamente… puede vivir dentro del chat de MaKo de "Dashboard"»). Las dos rutas redirigen al
+// Dashboard; el informe congelado de /analisis/trimestre se queda en su ruta.
 //
-// Lo que este archivo persigue es lo que una mudanza de ruta rompe SIN avisar (AGENTS.md,
-// «Retirar una RUTA»): un link que sigue apuntando a la ruta vieja y rebota, un redirect que
-// pierde la query (el rango de un análisis compartido) o el ?ws= del cliente que mira el
-// super admin, una barra que deja de marcar la tab, y el valor que el server necesita
-// importado desde un módulo 'use client' (el bug que dejó /onboarding roto en producción
-// con el build en verde).
+// Lo que este archivo persigue es lo que una mudanza de ruta rompe SIN avisar (AGENTS.md, «Retirar una RUTA»): un
+// link que sigue apuntando a la ruta vieja y rebota, un redirect que pierde el ?ws= del cliente que mira el super
+// admin, y el «Probarlo» de Offer que perdía la hipótesis en el camino.
 //
-// ⚠️ Los barridos leen `git ls-files`, o sea el ÍNDICE: un archivo nuevo que todavía no se
-// agregó no lo ve nadie. Los de la tab Offer los escriben otras sesiones en paralelo y está
-// bien que queden afuera hasta que entren.
+// ⚠️ Los barridos leen `git ls-files`, o sea el ÍNDICE: un archivo nuevo que todavía no se agregó no lo ve nadie.
+// ⚠️ La barra (app/_components/nav.ts) es del chat «Sidebar»: lo que se fija acá de ella es sólo lo de Offer y que
+//    Análisis no vuelva a ser un ítem.
 //
-// Probado rompiéndolo (11/10/2026; base en verde: 8 pasan, 0 fallan). Cada rotura se aplicó,
-// se corrió este archivo y se restauró desde memoria (pasan / fallan):
-//   · /analisis con `{ tab: 'analisis', ...sp }` (un ?tab= viejo pisa el destino)  -> 7 / 1
-//   · VistaAnalisis vuelve a enlazar `/analisis?desde=…`                            -> 6 / 2
-//   · el match de Experiments deja de aceptar /analisis                             -> 7 / 1
-//   · el ítem 'offer' vuelve a href '/offer-analyst'                                -> 7 / 1
-//   · app/experimentos/tabs.ts con 'use client' arriba                              -> 7 / 1
-//   · la page devuelve `return <PanelActivacion …/>` antes de dibujar nada          -> 7 / 1
-//   · la page devuelve `if (panelSinMeta) return panelSinMeta;`                      -> 7 / 1
-//     (la primera versión buscaba sólo el literal y ésta pasó en VERDE: 8 / 0)
-//   · /analisis/trimestre vuelve a enlazar a "/analisis"                            -> 6 / 2
-//   · ExperimentsTab deja la hipótesis en la URL                                    -> 7 / 1
-
+// Probado rompiéndolo (17/10/2026; base 6 / 0), una rotura por vez:
+//   · /analisis vuelve a /experimentos?tab=analisis                                 -> 5 / 1
+//   · /experimentos redirige al Dashboard pelado (pierde la hipótesis)               -> 5 / 1
+//   · /analisis/trimestre vuelve a enlazar a "/experimentos?tab=analisis"            -> 5 / 1
+//   · el «Probarlo» de Offer vuelve a /experimentos?tab=experiments&hipotesis=…       -> 5 / 1
+//   · el Dashboard deja de abrir el panel con ?probar= (useState(false))              -> 5 / 1
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { FAMILIAS, TODOS_LOS_ITEMS, itemsDe, type NavItem } from '../app/_components/nav';
-import { tabDeUrl } from '../app/experimentos/tabs';
-import { destinoConQuery } from '../lib/ruta-automations';
+import { destinoDeExperimentos, hrefProbar } from '../lib/experimentos-catalogo';
 
 const RAIZ = join(import.meta.dirname, '..');
 /** Todo test que lee fuente normaliza los saltos: en un worktree los archivos llegan en CRLF. */
@@ -90,58 +80,39 @@ function linksVivos(ruta: string, conBarra: boolean, redirect: string): string[]
 const ANALYZE = FAMILIAS.find((f) => f.key === 'analyze');
 const itemNav = (key: string): NavItem | undefined => TODOS_LOS_ITEMS.find((i) => i.key === key);
 
-test('/analisis redirige a la tab, con la query entera, el ?ws= y la tab que no se puede pisar', () => {
-  const src = sinComentarios(leer('app/analisis/page.tsx'));
-  assert.match(src, /redirect\(await rutaConWs\(/, '/analisis dejó de redirigir con rutaConWs (perdería el ?ws=)');
-  // `tab` va DESPUÉS del spread: un link viejo con un ?tab= basura no puede mandar a otro lado.
-  assert.match(
-    src,
-    /destinoConQuery\(\s*'\/experimentos'\s*,\s*\{\s*\.\.\.\(await searchParams\)\s*,\s*tab:\s*'analisis'\s*\}\s*\)/,
-    'el redirect de /analisis no arma /experimentos con la query y tab=analisis AL FINAL',
-  );
-  assert.doesNotMatch(src, /analisisNegocio|<VistaAnalisis/, '/analisis volvió a dibujar el informe por su cuenta');
-  // Y lo que ese objeto produce: el rango sobrevive y la tab es la de Análisis.
-  const sp = { desde: '2026-06-01', hasta: '2026-08-31', tab: 'basura', ws: '13' };
-  const destino = destinoConQuery('/experimentos', { ...sp, tab: 'analisis' });
-  const u = new URL(destino, 'https://x');
-  assert.equal(u.pathname, '/experimentos');
-  assert.equal(u.searchParams.get('tab'), 'analisis');
-  assert.equal(u.searchParams.get('desde'), '2026-06-01');
-  assert.equal(u.searchParams.get('ws'), '13');
+test('/analisis y /experimentos redirigen al Dashboard con rutaConWs; la hipótesis de un link viejo viaja', () => {
+  const an = sinComentarios(leer('app/analisis/page.tsx'));
+  assert.match(an, /redirect\(await rutaConWs\('\/dashboard'\)\)/, '/analisis no redirige al Dashboard con rutaConWs');
+  assert.doesNotMatch(an, /analisisNegocio|<VistaAnalisis|\/experimentos/, '/analisis volvió a dibujar el informe o a mandar a la tab retirada');
+  const ex = sinComentarios(leer('app/experimentos/page.tsx'));
+  assert.match(ex, /redirect\(await rutaConWs\(destinoDeExperimentos\(await searchParams\)\)\)/);
+  assert.match(sinComentarios(leer('app/m/experimentos/page.tsx')), /redirect\(await rutaConWs\('\/m\/dashboard'\)\)/);
+  assert.equal(destinoDeExperimentos({ tab: 'retro' }), '/dashboard');
+  assert.equal(destinoDeExperimentos({ tab: 'experiments', hipotesis: 'Un  anuncio con testimonio ' }), '/dashboard?probar=Un%20anuncio%20con%20testimonio');
 });
-
 test('ningún archivo del producto enlaza a /analisis (el trimestre sí puede)', () => {
   assert.deepEqual(linksVivos('/analisis', false, 'app/analisis/page.tsx'), [],
-    'hay links vivos a /analisis, que hoy sólo redirige: van a /experimentos?tab=analisis');
+    'hay links vivos a /analisis, que hoy sólo redirige: van al Dashboard');
 });
 
 // Desde el 17/10/2026 Experiments tampoco es una fila (Analyze se deprecó; su trabajo va al chat de MaKo): su ítem vive en
 // SIN_FILA, para que el teléfono, el título de la pestaña y la API de MaKo lo sigan encontrando por key y por ruta.
-test('la barra: Análisis ya no es un ítem, y Experiments se encuentra en las rutas viejas aunque no sea una fila', () => {
+test('la barra: Análisis ya no es un ítem, Experiments no es una fila, y /analisis es del Dashboard', () => {
   assert.equal(ANALYZE, undefined, 'volvió la familia Analyze');
   const todos = FAMILIAS.flatMap(itemsDe);
   assert.ok(!todos.some((i) => i.key === 'analisis'), 'volvió el ítem «Análisis» a la barra');
   assert.ok(!todos.some((i) => i.key === 'experimentos'), 'Experiments volvió a ser una fila de la barra');
+  // /analisis (y el informe congelado del trimestre) son del Dashboard desde que Experiments se fue: la barra marca Dashboard.
+  const dash = todos.find((i) => i.key === 'graphics');
+  assert.equal(dash?.match('/analisis/trimestre'), true, 'el informe del trimestre no marca el Dashboard');
   assert.ok(!TODOS_LOS_ITEMS.some((i) => i.href === '/analisis' || i.href.startsWith('/analisis?')),
     'un ítem de la barra vuelve a apuntar a /analisis');
-  const exp = itemNav('experimentos');
-  assert.ok(exp, 'desapareció el ítem de Experiments');
-  for (const p of ['/experimentos', '/analisis', '/analisis/trimestre']) {
-    assert.equal(exp!.match(p), true, `Experiments no se marca en ${p}`);
-  }
-  // El título de la pestaña sale del primer ítem que matchea (lib/titulo-tab.ts): con
-  // /analisis/trimestre sin dueño caía a «MaKo - Analisis», sin tilde.
-  assert.equal(TODOS_LOS_ITEMS.find((i) => i.match('/analisis/trimestre'))?.label, 'Experiments');
 });
-
-test('el informe de Análisis enlaza su rango a la tab, no a la ruta vieja', () => {
-  const src = sinComentarios(leer('app/experimentos/VistaAnalisis.tsx'));
-  assert.match(src, /href=\{`\/experimentos\?tab=analisis&desde=/, 'los rangos de Análisis no van a /experimentos?tab=analisis');
-  assert.doesNotMatch(src, /`\/analisis\?/, 'un rango de Análisis vuelve a apuntar a /analisis');
-  // El informe congelado vive en su ruta (tests/informe-congelado.test.ts la fija) y vuelve a la tab.
+test('el informe congelado del trimestre se queda en su ruta, con la puerta y la vuelta del Dashboard', () => {
   const tri = sinComentarios(leer('app/analisis/trimestre/page.tsx'));
-  assert.match(tri, /href="\/experimentos\?tab=analisis"/, '«← Análisis en vivo» no vuelve a la tab de Experiments');
-  assert.match(tri, /nav:\s*'experimentos'/, 'el trimestre dejó de pedir la capa de Experiments');
+  assert.match(tri, /href="\/dashboard"/, '«← El Dashboard» no vuelve al Dashboard');
+  assert.match(tri, /nav:\s*'graphics'/, 'el trimestre dejó de pedir la capa del Dashboard');
+  assert.doesNotMatch(tri, /\/experimentos/, 'el trimestre vuelve a mandar a la tab retirada');
 });
 
 // Desde el 12/10/2026 Offer es el PRIMER bloque de Sales Machine (Martín: «Pon Offer en Sales Machine»); antes iba
@@ -170,42 +141,12 @@ test('Offer: el primer bloque de Sales Machine apunta a /offer, y /offer-analyst
     'hay links vivos a /offer-analyst, que hoy sólo redirige: van a /offer');
 });
 
-test('las tabs de Experiments viven en un módulo de DATOS, sin use client', () => {
-  const src = leer('app/experimentos/tabs.ts');
-  assert.doesNotMatch(src, /^\s*['"]use client['"]/m, 'app/experimentos/tabs.ts volvió a ser un módulo de cliente');
-  assert.equal(tabDeUrl('analisis'), 'analisis');
-  assert.equal(tabDeUrl('experiments'), 'experiments');
-  assert.equal(tabDeUrl('basura'), 'retro');
-  assert.equal(tabDeUrl(undefined), 'retro');
-  // La page lo importa a ÉL, nunca un valor del shell 'use client'.
-  const page = sinComentarios(leer('app/experimentos/page.tsx'));
-  assert.match(page, /import \{ tabDeUrl \} from '\.\/tabs'/);
-  assert.doesNotMatch(page, /import \{[^}]*tabDeUrl[^}]*\} from '\.\/ExperimentosApp'/);
-});
-
-test('el corte de Meta no esconde Análisis: el panel ocupa sólo las tres tabs que lo necesitan', () => {
-  const page = sinComentarios(leer('app/experimentos/page.tsx'));
-  // La page tiene UN solo return: el que monta el shell. Buscar sólo «return <PanelActivacion»
-  // dio VERDE con «if (panelSinMeta) return panelSinMeta;» (medido al romperlo): lo que hay que
-  // fijar es que no haya NINGUNA salida temprana, se escriba como se escriba.
-  const ini = page.indexOf('export default async function ExperimentosPage');
-  assert.ok(ini >= 0, 'no encontré la page de /experimentos');
-  const cuerpo = page.slice(ini);
-  assert.equal((cuerpo.match(/\breturn\b/g) ?? []).length, 1,
-    'la page tiene una salida temprana: el panel de Meta (o lo que sea) vuelve a tapar la pantalla entera');
-  assert.match(cuerpo, /return \(\s*<main[\s\S]*<ExperimentosApp/, 'el único return de la page dejó de montar el shell');
-  assert.match(page, /panelSinMeta=\{panelSinMeta\}/, 'la page no le pasa el panel de Meta al shell');
-  // El análisis (lento) sólo corre cuando la URL lo pide.
-  assert.match(page, /tab === 'analisis' \? informeAnalisis\(sp\) : null/, 'el análisis corre aunque la tab no sea Análisis');
-  const app = sinComentarios(leer('app/experimentos/ExperimentosApp.tsx'));
-  assert.match(app, /const sinMeta = panelSinMeta != null && tab !== 'analisis'/, 'el panel de Meta tapa también la tab Análisis');
-});
-
-test('el link «Probarlo» de Offer aterriza en el alta, con la hipótesis escrita, una vez', () => {
-  const page = sinComentarios(leer('app/experimentos/page.tsx'));
-  assert.match(page, /hipotesisInicial=\{hipotesis\}/, 'la page no le pasa la hipótesis del link al shell');
-  const tab = sinComentarios(leer('app/experimentos/ExperimentsTab.tsx'));
-  assert.match(tab, /useState\(\(\) => !!hipotesisInicial\)/, 'con una hipótesis en el link el alta no nace abierta');
-  assert.match(tab, /searchParams\.delete\('hipotesis'\)/, 'la hipótesis queda en la URL: un F5 vuelve a abrir el alta');
-  assert.match(tab, /onHipotesisAbierta\?\.\(\)/, 'el shell no se entera de que la hipótesis ya se usó: volver a la tab la reabre');
+test('el link «Probarlo» de Offer abre «Editar con MaKo» en el Dashboard, con la hipótesis escrita', () => {
+  assert.equal(hrefProbar('Si cambio el gancho, sube el CTR'), '/dashboard?probar=Si%20cambio%20el%20gancho%2C%20sube%20el%20CTR');
+  assert.match(sinComentarios(leer('app/offer/Conclusion.tsx')), /<ButtonLink href=\{hrefProbar\(c\.hipotesis\)\}/);
+  // El teléfono no lo ofrece: /m/dashboard no tiene «Editar con MaKo» (tests/m-offer.test.ts lo mira en el HTML).
+  assert.doesNotMatch(sinComentarios(leer('app/m/offer/HojasOfferM.tsx')), /probarlo|hrefProbar/i);
+  // El Dashboard lee `?probar=` y abre el panel con «Probemos: …» (una vez).
+  assert.match(sinComentarios(leer('app/dashboard/page.tsx')), /probarInicial=\{unica \? null : probar\}/);
+  assert.match(sinComentarios(leer('app/dashboard/EditorInforme.tsx')), /useState\(!!probarInicial\)/);
 });

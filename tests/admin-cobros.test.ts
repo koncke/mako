@@ -27,7 +27,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { ADMIN_NAV, FAMILIAS, USER_NAV, itemsDe } from '../app/_components/nav';
+import { ADMIN_NAV, FAMILIAS, SUPERADMIN_MENU, USER_NAV, itemsDe } from '../app/_components/nav';
 import { puedeVerItem } from '../lib/nav-visibilidad';
 import { CAPAS_VENDIBLES } from '../lib/capas';
 
@@ -131,8 +131,10 @@ test('la página es sólo del super admin, y el guard va antes de leer nada', ()
 test('el item es del super admin, sin el prefijo de los registros, y ningún cliente lo ve', () => {
   const item = ADMIN_NAV.find((i) => i.href === '/admin/cobros');
   assert.equal(item?.key, 'admin-cobros', "la key va SIN 'dev-' (tests/dev-areas.test.ts lo reserva a los registros)");
-  const enBarra = FAMILIAS.flatMap(itemsDe).filter((i) => i.href.startsWith('/admin/cobros'));
-  assert.ok(enBarra.length > 0 && enBarra.every((i) => i.adminOnly), 'Billing cuelga de Clients y sólo para el super admin');
+  // Primero colgó de Clients; desde que Clients es una tab con sus sub-tabs adentro (17/10/2026), va al menú de la foto.
+  assert.ok(SUPERADMIN_MENU.includes(item!), 'Billing no está en el menú de la foto del super admin');
+  assert.equal(item!.adminOnly, true);
+  assert.deepEqual(FAMILIAS.flatMap(itemsDe).filter((i) => i.href.startsWith('/admin/cobros')).map((i) => i.key), [], 'Billing volvió a la barra');
   assert.equal(puedeVerItem(item!, { adminShell: false, rolWs: 'admin', capa: 'completo' }), false, 'el admin de un cliente lo vería');
   assert.deepEqual(USER_NAV.filter((i) => i.href.startsWith('/admin/cobros')).map((i) => i.key), []);
 });

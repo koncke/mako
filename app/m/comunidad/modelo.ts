@@ -27,8 +27,9 @@ export const R = {
   comunidad: 'Comunidad',
   miembros: 'Miembros',
   ranking: 'Ranking',
-  // El selector de producto y los vacíos de la tab (ComunidadEquipo.tsx y su page.tsx).
-  producto: 'Producto',
+  // El selector del programa (en escritorio, desde el 17/10/2026, el de la cabecera de Clients: app/clients/ClientsShell.tsx)
+  // y los vacíos de la tab (ComunidadEquipo.tsx y su pantalla.tsx).
+  producto: 'Programas',
   sinProductos: 'Sin productos',
   noPudeCargar: 'No pude cargar la comunidad',
   sinLeerProductos: 'No pude leer tus productos.',

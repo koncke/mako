@@ -191,7 +191,7 @@ test('el dibujo de la lección: un papel, sin pestañas y sin «Editar»; sin vi
 test('no queda rastro de «Editar» ni de su modal en la tab ni en el dibujo', () => {
   const archivos = [
     'app/_cursos/CursoUgc.tsx', 'app/_cursos/tipos.ts', 'app/_cursos/reglas.ts', 'app/customer-success/curso/CursoApp.tsx',
-    'app/customer-success/curso/LeccionEditable.tsx', 'app/customer-success/curso/modelo-ugc.ts', 'app/customer-success/curso/page.tsx',
+    'app/customer-success/curso/LeccionEditable.tsx', 'app/customer-success/curso/modelo-ugc.ts', 'app/customer-success/curso/pantalla.tsx',
   ];
   for (const f of archivos) {
     assert.doesNotMatch(sinComentarios(leer(f)), /\bonEditar\b|\bEditorClase\b|\bt\.editar\b|\beditar: '|\bsetEditando\b/, `${f} todavía tiene «Editar»`);
@@ -304,7 +304,7 @@ test('portal: sin pestañas, la descripción rica con la URL de quien mira, «He
   assert.match(mh, /onCambio\(j\.progreso\?\.hecha === true, true\)/, 'se dibuja lo que contestó el server');
   assert.match(portal, /disposicion=\{disposicionDe\(estilo\)\}/);
   // La vista previa trae las URLs de los adjuntos (sin token no hay otra forma de verlos).
-  const vista = sinComentarios(leer('app/customer-success/curso/vista/page.tsx'));
+  const vista = sinComentarios(leer('app/customer-success/curso/vista/pantalla.tsx'));
   // Los de la descripción y, desde el 08/10/2026, los de la consigna de cada tarea (mig 0226 y las `seccion`).
   assert.match(vista, /\[c\.descripcionHtml, \.\.\.htmlsDeTareas\(c\)\]\.flatMap\(\(h\) => refsEnHtml\(h\)\)/);
   assert.match(vista, /await urlsAdjuntosEquipo\(refs\)/);

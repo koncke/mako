@@ -46,6 +46,7 @@ import { derivarModulos, type FilaModulo } from '@/lib/curso-modulos';
 import type { Progreso } from '@/lib/curso';
 import { clienteDelWorkspace, estadoGuardadoDe, marcarEstadoCliente } from './cs.helpers';
 import { carteraDeAgencia, esAgencia } from '@/lib/agencia';
+import { abrirCuentaDePartner, cuentasDePartner, leadParaPartners } from '@/lib/partners';
 import { cobrosDeClientesDeAgencia } from '@/lib/agencia-cobro';
 import { productosDelAlumno } from '@/lib/curso-datos';
 import { invitarAlCurso, TEXTO_NO_INVITA } from '@/lib/curso-invitar';
@@ -259,9 +260,60 @@ export const RUNNERS: Runners = {
           primer_mes_sin_pagar: !!c.pagar,
           renovacion: c.renovacion ? { desde: c.renovacion.desde, activada: c.renovacion.activada } : null,
         })),
-        nota: 'Los links están en Customer Success, en la tarjeta de cada cliente: «Pagar su mes» o «Activar renovación».',
+        nota: 'Los links están en MaKo Partners, en la cuenta de cada cliente: «Pagar su mes» o «Activar renovación».',
       });
     },
+  },
+
+  // ── MaKo Partners (17/10/2026): las cuentas de MaKo de los clientes de una agencia (lib/partners.ts) ──────────
+  ver_clientes_partners: {
+    leer: async (_input, ctx) => {
+      const r = await cuentasDePartner(ctx.ws);
+      if (!r.ok) return fallo(r.error);
+      return json({
+        clientes: r.cuentas.map((c) => ({
+          cliente_ws: c.ws, nombre: c.nombre, cuenta: c.estado, desde: c.desde, plan: c.plan,
+          // Cuántas personas entran, nunca quiénes: los emails de otro negocio no viajan al modelo.
+          personas: c.equipo ? c.equipo.length : null,
+          primer_mes_sin_pagar: !!c.cobro?.pagar,
+          renovacion: c.cobro?.renovacion ? { desde: c.cobro.renovacion.desde, activada: c.cobro.renovacion.activada } : null,
+          lead_crm: c.lead ? { id: c.lead.id, nombre: c.lead.nombre } : null,
+        })),
+        precio_usd_por_cliente: r.precio.usd,
+        nota: 'personas null = la cuenta todavía no está activa (o no se pudo leer). Los links de pago están en MaKo Partners.',
+      });
+    },
+  },
+
+  llevar_a_partners: {
+    preparar: revisando(async (input, ctx) => {
+      if (!(await esAgencia(ctx.ws))) return { error: 'Este negocio no es parte de MaKo Partners: no puede abrirle cuentas a sus clientes.' };
+      const leadId = num(input, 'leadId');
+      const lead = leadId != null ? await leadParaPartners(leadId) : null;
+      if (!lead) return { error: `El lead #${leadId ?? '?'} no es de este CRM.` };
+      if (lead.clienteWs) return { error: `${lead.nombre || 'Ese lead'} ya tiene su cuenta en MaKo Partners.`, yaEstaba: true };
+      const pedido = str(input, 'email');
+      const correo = emailNormalizado(pedido || lead.email || '');
+      if (pedido && !emailUtilizable(correo)) return { error: 'Ese email no sirve.' };
+      if (!emailUtilizable(correo)) return { error: `${lead.nombre || 'El lead'} no tiene email en el CRM. Pásalo en email: es por donde le llega el acceso.`, faltan: ['email'] };
+      return {
+        payload: { leadId: lead.id, email: correo },
+        resumen: `Abrirle a ${lead.nombre || `el lead #${lead.id}`} su cuenta de MaKo (${correo}) como cliente de tu agencia en MaKo Partners. Queda esperando el pago de su primer mes.`,
+      };
+    }),
+    ejecutar: sinLanzar('abrir la cuenta', async (payload, ctx) => {
+      const leadId = typeof payload.leadId === 'number' ? payload.leadId : null;
+      const pagador = ctx.actor && ctx.actor.includes('@') ? ctx.actor : null;
+      const r = await abrirCuentaDePartner({ agenciaWs: ctx.ws, nombre: '', email: String(payload.email ?? ''), leadId, pagador });
+      if (!r.ok) return { ok: false, resumen: r.error };
+      // El link de pago lo escribe el CÓDIGO, nunca el modelo (AGENTS.md: un dato exacto que pasa por un LLM deja de serlo).
+      if (r.link) ctx.aPersona?.(`Link de su primer mes: ${r.link}`);
+      return {
+        ok: true,
+        resumen: r.link ? 'Quedó su cuenta abierta. El link de su primer mes también está en MaKo Partners.' : 'Quedó su cuenta abierta, esperando que MaKo la habilite.',
+        datos: { clienteWs: r.clienteWs },
+      };
+    }),
   },
 
   ver_avance_curso_cs: {
